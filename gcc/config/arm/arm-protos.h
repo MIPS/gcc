@@ -54,12 +54,14 @@ extern int arm_legitimate_address_p  (enum machine_mode, rtx, int);
 extern int thumb_legitimate_address_p (enum machine_mode, rtx, int);
 extern int thumb_legitimate_offset_p (enum machine_mode, HOST_WIDE_INT);
 extern rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
-extern int const_double_rtx_ok_for_fpa (rtx);
+extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
+extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
 
 /* Predicates.  */
 extern int s_register_operand (rtx, enum machine_mode);
 extern int arm_hard_register_operand (rtx, enum machine_mode);
+extern int arm_general_register_operand (rtx, enum machine_mode);
 extern int f_register_operand (rtx, enum machine_mode);
 extern int reg_or_int_operand (rtx, enum machine_mode);
 extern int arm_reload_memory_operand (rtx, enum machine_mode);
@@ -71,8 +73,8 @@ extern int arm_not_operand (rtx, enum machine_mode);
 extern int offsettable_memory_operand (rtx, enum machine_mode);
 extern int alignable_memory_operand (rtx, enum machine_mode);
 extern int bad_signed_byte_operand (rtx, enum machine_mode);
-extern int fpa_rhs_operand (rtx, enum machine_mode);
-extern int fpa_add_operand (rtx, enum machine_mode);
+extern int arm_float_rhs_operand (rtx, enum machine_mode);
+extern int arm_float_add_operand (rtx, enum machine_mode);
 extern int power_of_two_operand (rtx, enum machine_mode);
 extern int nonimmediate_di_operand (rtx, enum machine_mode);
 extern int di_operand (rtx, enum machine_mode);
@@ -96,6 +98,9 @@ extern int cirrus_general_operand (rtx, enum machine_mode);
 extern int cirrus_register_operand (rtx, enum machine_mode);
 extern int cirrus_shift_const (rtx, enum machine_mode);
 extern int cirrus_memory_offset (rtx);
+extern int vfp_mem_operand (rtx);
+extern int vfp_compare_operand (rtx, enum machine_mode);
+extern int arm_float_compare_operand (rtx, enum machine_mode);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
@@ -143,6 +148,7 @@ extern int arm_debugger_arg_offset (int, rtx);
 extern int arm_is_longcall_p (rtx, int, int);
 extern int    arm_emit_vector_const (FILE *, rtx);
 extern const char * arm_output_load_gr (rtx *);
+extern const char *vfp_output_fstmx (rtx *);
 
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);

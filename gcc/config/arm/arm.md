@@ -800,7 +800,7 @@
 (define_expand "addsf3"
   [(set (match_operand:SF          0 "s_register_operand" "")
 	(plus:SF (match_operand:SF 1 "s_register_operand" "")
-		 (match_operand:SF 2 "fpa_add_operand" "")))]
+		 (match_operand:SF 2 "arm_float_add_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK
@@ -811,7 +811,7 @@
 (define_expand "adddf3"
   [(set (match_operand:DF          0 "s_register_operand" "")
 	(plus:DF (match_operand:DF 1 "s_register_operand" "")
-		 (match_operand:DF 2 "fpa_add_operand" "")))]
+		 (match_operand:DF 2 "arm_float_add_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK
@@ -1023,8 +1023,8 @@
 
 (define_expand "subsf3"
   [(set (match_operand:SF           0 "s_register_operand" "")
-	(minus:SF (match_operand:SF 1 "fpa_rhs_operand" "")
-		  (match_operand:SF 2 "fpa_rhs_operand" "")))]
+	(minus:SF (match_operand:SF 1 "arm_float_rhs_operand" "")
+		  (match_operand:SF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK)
@@ -1038,8 +1038,8 @@
 
 (define_expand "subdf3"
   [(set (match_operand:DF           0 "s_register_operand" "")
-	(minus:DF (match_operand:DF 1 "fpa_rhs_operand"     "")
-		  (match_operand:DF 2 "fpa_rhs_operand"    "")))]
+	(minus:DF (match_operand:DF 1 "arm_float_rhs_operand" "")
+		  (match_operand:DF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK)
@@ -1329,7 +1329,7 @@
 (define_expand "mulsf3"
   [(set (match_operand:SF          0 "s_register_operand" "")
 	(mult:SF (match_operand:SF 1 "s_register_operand" "")
-		 (match_operand:SF 2 "fpa_rhs_operand" "")))]
+		 (match_operand:SF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK
@@ -1340,7 +1340,7 @@
 (define_expand "muldf3"
   [(set (match_operand:DF          0 "s_register_operand" "")
 	(mult:DF (match_operand:DF 1 "s_register_operand" "")
-		 (match_operand:DF 2 "fpa_rhs_operand" "")))]
+		 (match_operand:DF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
   if (TARGET_MAVERICK
@@ -1352,16 +1352,16 @@
 
 (define_expand "divsf3"
   [(set (match_operand:SF 0 "s_register_operand" "")
-	(div:SF (match_operand:SF 1 "fpa_rhs_operand" "")
-		(match_operand:SF 2 "fpa_rhs_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+	(div:SF (match_operand:SF 1 "arm_float_rhs_operand" "")
+		(match_operand:SF 2 "arm_float_rhs_operand" "")))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "")
 
 (define_expand "divdf3"
   [(set (match_operand:DF 0 "s_register_operand" "")
-	(div:DF (match_operand:DF 1 "fpa_rhs_operand" "")
-		(match_operand:DF 2 "fpa_rhs_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+	(div:DF (match_operand:DF 1 "arm_float_rhs_operand" "")
+		(match_operand:DF 2 "arm_float_rhs_operand" "")))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "")
 
 ;; Modulo insns
@@ -1369,14 +1369,14 @@
 (define_expand "modsf3"
   [(set (match_operand:SF 0 "s_register_operand" "")
 	(mod:SF (match_operand:SF 1 "s_register_operand" "")
-		(match_operand:SF 2 "fpa_rhs_operand" "")))]
+		(match_operand:SF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "")
 
 (define_expand "moddf3"
   [(set (match_operand:DF 0 "s_register_operand" "")
 	(mod:DF (match_operand:DF 1 "s_register_operand" "")
-		(match_operand:DF 2 "fpa_rhs_operand" "")))]
+		(match_operand:DF 2 "arm_float_rhs_operand" "")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "")
 
@@ -2946,13 +2946,13 @@
 (define_expand "sqrtsf2"
   [(set (match_operand:SF 0 "s_register_operand" "")
 	(sqrt:SF (match_operand:SF 1 "s_register_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "")
 
 (define_expand "sqrtdf2"
   [(set (match_operand:DF 0 "s_register_operand" "")
 	(sqrt:DF (match_operand:DF 1 "s_register_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "")
 
 (define_insn_and_split "one_cmpldi2"
@@ -4161,7 +4161,9 @@
 (define_insn "*arm_movdi"
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r, o<>")
 	(match_operand:DI 1 "di_operand"              "rIK,mi,r"))]
-  "TARGET_ARM && !(TARGET_HARD_FLOAT && TARGET_MAVERICK) && ! TARGET_IWMMXT"
+  "TARGET_ARM
+  && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
+  && !TARGET_IWMMXT"
   "*
   return (output_move_double (operands));
   "
@@ -4228,7 +4230,8 @@
       /* Everything except mem = const or mem = mem can be done easily.  */
       if (GET_CODE (operands[0]) == MEM)
         operands[1] = force_reg (SImode, operands[1]);
-      if (GET_CODE (operands[1]) == CONST_INT
+      if (arm_general_register_operand (operands[0], SImode)
+	  && GET_CODE (operands[1]) == CONST_INT
           && !(const_ok_for_arm (INTVAL (operands[1]))
                || const_ok_for_arm (~INTVAL (operands[1]))))
         {
@@ -4261,6 +4264,7 @@
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r, m")
 	(match_operand:SI 1 "general_operand"      "rI,K,mi,r"))]
   "TARGET_ARM && ! TARGET_IWMMXT
+   && !(TARGET_HARD_FLOAT && TARGET_VFP)
    && (   register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
   "@
@@ -4275,7 +4279,7 @@
 )
 
 (define_split
-  [(set (match_operand:SI 0 "s_register_operand" "")
+  [(set (match_operand:SI 0 "arm_general_register_operand" "")
 	(match_operand:SI 1 "const_int_operand" ""))]
   "TARGET_ARM
   && (!(const_ok_for_arm (INTVAL (operands[1]))
@@ -6712,12 +6716,9 @@
 
 (define_expand "cmpsf"
   [(match_operand:SF 0 "s_register_operand" "")
-   (match_operand:SF 1 "fpa_rhs_operand" "")]
+   (match_operand:SF 1 "arm_float_compare_operand" "")]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
-  if (TARGET_MAVERICK && !cirrus_fp_register (operands[1], SFmode))
-    operands[1] = force_reg (SFmode, operands[1]);
-
   arm_compare_op0 = operands[0];
   arm_compare_op1 = operands[1];
   DONE;
@@ -6726,12 +6727,9 @@
 
 (define_expand "cmpdf"
   [(match_operand:DF 0 "s_register_operand" "")
-   (match_operand:DF 1 "fpa_rhs_operand" "")]
+   (match_operand:DF 1 "arm_float_compare_operand" "")]
   "TARGET_ARM && TARGET_HARD_FLOAT"
   "
-  if (TARGET_MAVERICK && !cirrus_fp_register (operands[1], DFmode))
-    operands[1] = force_reg (DFmode, operands[1]);
-
   arm_compare_op0 = operands[0];
   arm_compare_op1 = operands[1];
   DONE;
@@ -7338,7 +7336,7 @@
     /* When compiling for SOFT_FLOAT, ensure both arms are in registers. 
        Otherwise, ensure it is a valid FP add operand */
     if ((!(TARGET_HARD_FLOAT && TARGET_FPA))
-        || (!fpa_add_operand (operands[3], SFmode)))
+        || (!arm_float_add_operand (operands[3], SFmode)))
       operands[3] = force_reg (SFmode, operands[3]);
 
     ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
@@ -7350,8 +7348,8 @@
   [(set (match_operand:DF 0 "s_register_operand" "")
 	(if_then_else:DF (match_operand 1 "arm_comparison_operator" "")
 			 (match_operand:DF 2 "s_register_operand" "")
-			 (match_operand:DF 3 "fpa_add_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+			 (match_operand:DF 3 "arm_float_add_operand" "")))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "
   {
     enum rtx_code code = GET_CODE (operands[1]);
@@ -10169,7 +10167,7 @@
     [(set (match_operand:BLK 0 "memory_operand" "=m")
 	  (unspec:BLK [(match_operand:XF 1 "f_register_operand" "f")]
 		      UNSPEC_PUSH_MULT))])]
-  "TARGET_ARM"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "*
   {
     char pattern[100];
@@ -10389,3 +10387,6 @@
 (include "cirrus.md")
 ;; Load the Intel Wireless Multimedia Extension patterns
 (include "iwmmxt.md")
+;; Load the VFP co-processor patterns
+(include "vfp.md")
+

@@ -100,7 +100,7 @@
 (define_insn "*addsf3_fpa"
   [(set (match_operand:SF          0 "s_register_operand" "=f,f")
 	(plus:SF (match_operand:SF 1 "s_register_operand" "%f,f")
-		 (match_operand:SF 2 "fpa_add_operand"    "fG,H")))]
+		 (match_operand:SF 2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?s\\t%0, %1, %2
@@ -112,7 +112,7 @@
 (define_insn "*adddf3_fpa"
   [(set (match_operand:DF          0 "s_register_operand" "=f,f")
 	(plus:DF (match_operand:DF 1 "s_register_operand" "%f,f")
-		 (match_operand:DF 2 "fpa_add_operand"    "fG,H")))]
+		 (match_operand:DF 2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?d\\t%0, %1, %2
@@ -125,7 +125,7 @@
   [(set (match_operand:DF           0 "s_register_operand" "=f,f")
 	(plus:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand"  "f,f"))
-		 (match_operand:DF  2 "fpa_add_operand"    "fG,H")))]
+		 (match_operand:DF  2 "arm_float_add_operand"    "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    adf%?d\\t%0, %1, %2
@@ -159,8 +159,8 @@
 
 (define_insn "*subsf3_fpa"
   [(set (match_operand:SF 0 "s_register_operand" "=f,f")
-	(minus:SF (match_operand:SF 1 "fpa_rhs_operand" "f,G")
-		  (match_operand:SF 2 "fpa_rhs_operand" "fG,f")))]
+	(minus:SF (match_operand:SF 1 "arm_float_rhs_operand" "f,G")
+		  (match_operand:SF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    suf%?s\\t%0, %1, %2
@@ -170,8 +170,8 @@
 
 (define_insn "*subdf3_fpa"
   [(set (match_operand:DF           0 "s_register_operand" "=f,f")
-	(minus:DF (match_operand:DF 1 "fpa_rhs_operand"     "f,G")
-		  (match_operand:DF 2 "fpa_rhs_operand"    "fG,f")))]
+	(minus:DF (match_operand:DF 1 "arm_float_rhs_operand"     "f,G")
+		  (match_operand:DF 2 "arm_float_rhs_operand"    "fG,f")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    suf%?d\\t%0, %1, %2
@@ -184,7 +184,7 @@
   [(set (match_operand:DF            0 "s_register_operand" "=f")
 	(minus:DF (float_extend:DF
 		   (match_operand:SF 1 "s_register_operand"  "f"))
-		  (match_operand:DF  2 "fpa_rhs_operand"    "fG")))]
+		  (match_operand:DF  2 "arm_float_rhs_operand"    "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "suf%?d\\t%0, %1, %2"
   [(set_attr "type" "farith")
@@ -193,7 +193,7 @@
 
 (define_insn "*subdf_df_esfdf_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f,f")
-	(minus:DF (match_operand:DF 1 "fpa_rhs_operand" "f,G")
+	(minus:DF (match_operand:DF 1 "arm_float_rhs_operand" "f,G")
 		  (float_extend:DF
 		   (match_operand:SF 2 "s_register_operand" "f,f"))))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
@@ -219,7 +219,7 @@
 (define_insn "*mulsf3_fpa"
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(mult:SF (match_operand:SF 1 "s_register_operand" "f")
-		 (match_operand:SF 2 "fpa_rhs_operand" "fG")))]
+		 (match_operand:SF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "fml%?s\\t%0, %1, %2"
   [(set_attr "type" "ffmul")
@@ -229,7 +229,7 @@
 (define_insn "*muldf3_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mult:DF (match_operand:DF 1 "s_register_operand" "f")
-		 (match_operand:DF 2 "fpa_rhs_operand" "fG")))]
+		 (match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
@@ -240,7 +240,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mult:DF (float_extend:DF
 		  (match_operand:SF 1 "s_register_operand" "f"))
-		 (match_operand:DF 2 "fpa_rhs_operand" "fG")))]
+		 (match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "muf%?d\\t%0, %1, %2"
   [(set_attr "type" "fmul")
@@ -273,8 +273,8 @@
 
 (define_insn "*divsf3_fpa"
   [(set (match_operand:SF 0 "s_register_operand" "=f,f")
-	(div:SF (match_operand:SF 1 "fpa_rhs_operand" "f,G")
-		(match_operand:SF 2 "fpa_rhs_operand" "fG,f")))]
+	(div:SF (match_operand:SF 1 "arm_float_rhs_operand" "f,G")
+		(match_operand:SF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    fdv%?s\\t%0, %1, %2
@@ -285,8 +285,8 @@
 
 (define_insn "*divdf3_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f,f")
-	(div:DF (match_operand:DF 1 "fpa_rhs_operand" "f,G")
-		(match_operand:DF 2 "fpa_rhs_operand" "fG,f")))]
+	(div:DF (match_operand:DF 1 "arm_float_rhs_operand" "f,G")
+		(match_operand:DF 2 "arm_float_rhs_operand" "fG,f")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    dvf%?d\\t%0, %1, %2
@@ -299,7 +299,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(div:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))
-		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
+		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "dvf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
@@ -308,7 +308,7 @@
 
 (define_insn "*divdf_df_esfdf_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f")
-	(div:DF (match_operand:DF 1 "fpa_rhs_operand" "fG")
+	(div:DF (match_operand:DF 1 "arm_float_rhs_operand" "fG")
 		(float_extend:DF
 		 (match_operand:SF 2 "s_register_operand" "f"))))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
@@ -332,7 +332,7 @@
 (define_insn "*modsf3_fpa"
   [(set (match_operand:SF 0 "s_register_operand" "=f")
 	(mod:SF (match_operand:SF 1 "s_register_operand" "f")
-		(match_operand:SF 2 "fpa_rhs_operand" "fG")))]
+		(match_operand:SF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?s\\t%0, %1, %2"
   [(set_attr "type" "fdivs")
@@ -342,7 +342,7 @@
 (define_insn "*moddf3_fpa"
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mod:DF (match_operand:DF 1 "s_register_operand" "f")
-		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
+		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
@@ -353,7 +353,7 @@
   [(set (match_operand:DF 0 "s_register_operand" "=f")
 	(mod:DF (float_extend:DF
 		 (match_operand:SF 1 "s_register_operand" "f"))
-		(match_operand:DF 2 "fpa_rhs_operand" "fG")))]
+		(match_operand:DF 2 "arm_float_rhs_operand" "fG")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "rmf%?d\\t%0, %1, %2"
   [(set_attr "type" "fdivd")
@@ -613,7 +613,7 @@
 (define_insn "*cmpsf_fpa"
   [(set (reg:CCFP CC_REGNUM)
 	(compare:CCFP (match_operand:SF 0 "s_register_operand" "f,f")
-		      (match_operand:SF 1 "fpa_add_operand" "fG,H")))]
+		      (match_operand:SF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
@@ -625,7 +625,7 @@
 (define_insn "*cmpdf_fpa"
   [(set (reg:CCFP CC_REGNUM)
 	(compare:CCFP (match_operand:DF 0 "s_register_operand" "f,f")
-		      (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
+		      (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
@@ -638,7 +638,7 @@
   [(set (reg:CCFP CC_REGNUM)
 	(compare:CCFP (float_extend:DF
 		       (match_operand:SF 0 "s_register_operand" "f,f"))
-		      (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
+		      (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?\\t%0, %1
@@ -661,7 +661,7 @@
 (define_insn "*cmpsf_trap_fpa"
   [(set (reg:CCFPE CC_REGNUM)
 	(compare:CCFPE (match_operand:SF 0 "s_register_operand" "f,f")
-		       (match_operand:SF 1 "fpa_add_operand" "fG,H")))]
+		       (match_operand:SF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
@@ -673,7 +673,7 @@
 (define_insn "*cmpdf_trap_fpa"
   [(set (reg:CCFPE CC_REGNUM)
 	(compare:CCFPE (match_operand:DF 0 "s_register_operand" "f,f")
-		       (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
+		       (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
@@ -686,7 +686,7 @@
   [(set (reg:CCFPE CC_REGNUM)
 	(compare:CCFPE (float_extend:DF
 			(match_operand:SF 0 "s_register_operand" "f,f"))
-		       (match_operand:DF 1 "fpa_add_operand" "fG,H")))]
+		       (match_operand:DF 1 "arm_float_add_operand" "fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    cmf%?e\\t%0, %1
@@ -711,8 +711,8 @@
 	(if_then_else:SF
 	 (match_operator 3 "arm_comparison_operator" 
 	  [(match_operand 4 "cc_register" "") (const_int 0)])
-	 (match_operand:SF 1 "fpa_add_operand" "0,0,fG,H,fG,fG,H,H")
-	 (match_operand:SF 2 "fpa_add_operand" "fG,H,0,0,fG,H,fG,H")))]
+	 (match_operand:SF 1 "arm_float_add_operand" "0,0,fG,H,fG,fG,H,H")
+	 (match_operand:SF 2 "arm_float_add_operand" "fG,H,0,0,fG,H,fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    mvf%D3s\\t%0, %2
@@ -733,8 +733,8 @@
 	(if_then_else:DF
 	 (match_operator 3 "arm_comparison_operator"
 	  [(match_operand 4 "cc_register" "") (const_int 0)])
-	 (match_operand:DF 1 "fpa_add_operand" "0,0,fG,H,fG,fG,H,H")
-	 (match_operand:DF 2 "fpa_add_operand" "fG,H,0,0,fG,H,fG,H")))]
+	 (match_operand:DF 1 "arm_float_add_operand" "0,0,fG,H,fG,fG,H,H")
+	 (match_operand:DF 2 "arm_float_add_operand" "fG,H,0,0,fG,H,fG,H")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
   "@
    mvf%D3d\\t%0, %2

@@ -74,7 +74,6 @@ static bool arm_assemble_integer (rtx, unsigned int, int);
 #endif
 static const char *fp_const_from_val (REAL_VALUE_TYPE *);
 static arm_cc get_arm_condition_code (rtx);
-static void init_fpa_table (void);
 static HOST_WIDE_INT int_log2 (HOST_WIDE_INT);
 static rtx is_jump_table (rtx);
 static const char *output_multi_immediate (rtx *, const char *, const char *,
@@ -1192,6 +1191,12 @@ use_return_insn (int iscond, rtx sibling)
      since this also requires an insn.  */
   if (TARGET_HARD_FLOAT && TARGET_FPA)
     for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
+      if (regs_ever_live[regno] && !call_used_regs[regno])
+	return 0;
+
+  /* Likewise VFP regs.  */
+  if (TARGET_HARD_FLOAT && TARGET_VFP)
+    for (regno = FIRST_VFP_REGNUM; regno <= LAST_VFP_REGNUM; regno++)
       if (regs_ever_live[regno] && !call_used_regs[regno])
 	return 0;
 
@@ -2845,6 +2850,24 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 	}
     }
 
+  else if (TARGET_HARD_FLOAT && TARGET_VFP && mode == DFmode)
+    {
+      if (GET_CODE (x) == PLUS
+	  && arm_address_register_rtx_p (XEXP (x, 0), strict_p)
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
+
+	  /* ??? valid arm offsets are a subset of VFP offsets.
+	     For now only allow this subset.  Proper fix is to add an
+	     additional memory constraint for arm address modes.
+	     Alternatively allow full vfp addressing and let
+	     output_move_double fix it up with a sub-optimal sequence.  */
+          if (val == 4 || val == -4 || val == -8)
+	    return 1;
+	}
+    }
+
   else if (GET_CODE (x) == PLUS)
     {
       rtx xop0 = XEXP (x, 0);
@@ -3130,7 +3153,10 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 	  rtx base_reg, val;
 	  n = INTVAL (xop1);
 
-	  if (mode == DImode || (TARGET_SOFT_FLOAT && mode == DFmode))
+	  /* VFP addressing modes actually allow greater offsets, but for
+	     now we just stick with the lowest common denominator.  */
+	  if (mode == DImode
+	      || ((TARGET_SOFT_FLOAT || TARGET_VFP) && mode == DFmode))
 	    {
 	      low_n = n & 0x0f;
 	      n &= ~0x0f;
@@ -3378,11 +3404,11 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	return (2 + ((REG_OR_SUBREG_REG (XEXP (x, 1))
 		      || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			  && const_double_rtx_ok_for_fpa (XEXP (x, 1))))
+			  && arm_const_double_rtx (XEXP (x, 1))))
 		     ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 0))
 		    || (GET_CODE (XEXP (x, 0)) == CONST_DOUBLE
-			&& const_double_rtx_ok_for_fpa (XEXP (x, 0))))
+			&& arm_const_double_rtx (XEXP (x, 0))))
 		   ? 0 : 8));
 
       if (((GET_CODE (XEXP (x, 0)) == CONST_INT
@@ -3407,7 +3433,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
 		    || (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-			&& const_double_rtx_ok_for_fpa (XEXP (x, 1))))
+			&& arm_const_double_rtx (XEXP (x, 1))))
 		   ? 0 : 8));
 
       /* Fall through */
@@ -3542,7 +3568,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       return 6;
       
     case CONST_DOUBLE:						
-      if (const_double_rtx_ok_for_fpa (x))			
+      if (arm_const_double_rtx (x))
 	return outer == SET ? 2 : -1;			
       else if ((outer == COMPARE || outer == PLUS)	
 	       && neg_const_double_rtx_ok_for_fpa (x))		
@@ -3946,47 +3972,51 @@ arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
   return cost;
 }
 
-static int fpa_consts_inited = 0;
+static int fp_consts_inited = 0;
 
-static const char * const strings_fpa[8] =
+/* Only zero is valid for VFP.  Other values are also valid for FPA.  */
+static const char * const strings_fp[8] =
 {
   "0",   "1",   "2",   "3",
   "4",   "5",   "0.5", "10"
 };
 
-static REAL_VALUE_TYPE values_fpa[8];
+static REAL_VALUE_TYPE values_fp[8];
 
 static void
-init_fpa_table (void)
+init_fp_table (void)
 {
   int i;
   REAL_VALUE_TYPE r;
 
-  for (i = 0; i < 8; i++)
-    {
-      r = REAL_VALUE_ATOF (strings_fpa[i], DFmode);
-      values_fpa[i] = r;
-    }
+  if (TARGET_VFP)
+    fp_consts_inited = 1;
+  else
+    fp_consts_inited = 8;
 
-  fpa_consts_inited = 1;
+  for (i = 0; i < fp_consts_inited; i++)
+    {
+      r = REAL_VALUE_ATOF (strings_fp[i], DFmode);
+      values_fp[i] = r;
+    }
 }
 
-/* Return TRUE if rtx X is a valid immediate FPA constant.  */
+/* Return TRUE if rtx X is a valid immediate FP constant.  */
 int
-const_double_rtx_ok_for_fpa (rtx x)
+arm_const_double_rtx (rtx x)
 {
   REAL_VALUE_TYPE r;
   int i;
   
-  if (!fpa_consts_inited)
-    init_fpa_table ();
+  if (!fp_consts_inited)
+    init_fp_table ();
   
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
   if (REAL_VALUE_MINUS_ZERO (r))
     return 0;
 
-  for (i = 0; i < 8; i++)
-    if (REAL_VALUES_EQUAL (r, values_fpa[i]))
+  for (i = 0; i < fp_consts_inited; i++)
+    if (REAL_VALUES_EQUAL (r, values_fp[i]))
       return 1;
 
   return 0;
@@ -3999,8 +4029,8 @@ neg_const_double_rtx_ok_for_fpa (rtx x)
   REAL_VALUE_TYPE r;
   int i;
   
-  if (!fpa_consts_inited)
-    init_fpa_table ();
+  if (!fp_consts_inited)
+    init_fp_table ();
   
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
   r = REAL_VALUE_NEGATE (r);
@@ -4008,7 +4038,7 @@ neg_const_double_rtx_ok_for_fpa (rtx x)
     return 0;
 
   for (i = 0; i < 8; i++)
-    if (REAL_VALUES_EQUAL (r, values_fpa[i]))
+    if (REAL_VALUES_EQUAL (r, values_fp[i]))
       return 1;
 
   return 0;
@@ -4051,6 +4081,21 @@ arm_hard_register_operand (rtx op, enum machine_mode mode)
 	  && REGNO (op) < FIRST_PSEUDO_REGISTER);
 }
     
+/* An arm register operand.  */
+int
+arm_general_register_operand (rtx op, enum machine_mode mode)
+{
+  if (GET_MODE (op) != mode && mode != VOIDmode)
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  return (GET_CODE (op) == REG
+	  && (REGNO (op) <= LAST_ARM_REGNUM
+	      || REGNO (op) >= FIRST_PSEUDO_REGISTER));
+}
+
 /* Only accept reg, subreg(reg), const_int.  */
 int
 reg_or_int_operand (rtx op, enum machine_mode mode)
@@ -4222,9 +4267,10 @@ f_register_operand (rtx op, enum machine_mode mode)
 	      || REGNO_REG_CLASS (REGNO (op)) == FPA_REGS));
 }
 
-/* Return TRUE for valid operands for the rhs of an FPA instruction.  */
+/* Return TRUE for valid operands for the rhs of an floating point insns.
+   Allows regs or certain consts on FPA, just regs for everything else.  */
 int
-fpa_rhs_operand (rtx op, enum machine_mode mode)
+arm_float_rhs_operand (rtx op, enum machine_mode mode)
 {
   if (s_register_operand (op, mode))
     return TRUE;
@@ -4232,14 +4278,14 @@ fpa_rhs_operand (rtx op, enum machine_mode mode)
   if (GET_MODE (op) != mode && mode != VOIDmode)
     return FALSE;
 
-  if (GET_CODE (op) == CONST_DOUBLE)
-    return const_double_rtx_ok_for_fpa (op);
+  if (TARGET_FPA && GET_CODE (op) == CONST_DOUBLE)
+    return arm_const_double_rtx (op);
 
   return FALSE;
 }
 
 int
-fpa_add_operand (rtx op, enum machine_mode mode)
+arm_float_add_operand (rtx op, enum machine_mode mode)
 {
   if (s_register_operand (op, mode))
     return TRUE;
@@ -4247,12 +4293,26 @@ fpa_add_operand (rtx op, enum machine_mode mode)
   if (GET_MODE (op) != mode && mode != VOIDmode)
     return FALSE;
 
-  if (GET_CODE (op) == CONST_DOUBLE)
-    return (const_double_rtx_ok_for_fpa (op) 
+  if (TARGET_FPA && GET_CODE (op) == CONST_DOUBLE)
+    return (arm_const_double_rtx (op)
 	    || neg_const_double_rtx_ok_for_fpa (op));
 
   return FALSE;
 }
+
+
+/* Return TRUE if OP is suitable for the rhs of a floating point comparison.
+   Depends which fpu we are targeting.  */
+
+int
+arm_float_compare_operand (rtx op, enum machine_mode mode)
+{
+  if (TARGET_VFP)
+    return vfp_compare_operand (op, mode);
+  else
+    return arm_float_rhs_operand (op, mode);
+}
+
 
 /* Return nonzero if OP is a valid Cirrus memory address pattern.  */
 int
@@ -4329,6 +4389,84 @@ cirrus_shift_const (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  && INTVAL (op) >= 0
 	  && INTVAL (op) < 64);
 }
+
+
+/* Return TRUE if OP is a valid VFP memory address pattern.  */
+/* Copied from cirrus_memory_offset but with restricted offset range.  */
+
+int
+vfp_mem_operand (rtx op)
+{
+  /* Reject eliminable registers.  */
+
+  if (! (reload_in_progress || reload_completed)
+      && (   reg_mentioned_p (frame_pointer_rtx, op)
+	  || reg_mentioned_p (arg_pointer_rtx, op)
+	  || reg_mentioned_p (virtual_incoming_args_rtx, op)
+	  || reg_mentioned_p (virtual_outgoing_args_rtx, op)
+	  || reg_mentioned_p (virtual_stack_dynamic_rtx, op)
+	  || reg_mentioned_p (virtual_stack_vars_rtx, op)))
+    return FALSE;
+
+  /* Constants are converted into offets from labels.  */
+  if (GET_CODE (op) == MEM)
+    {
+      rtx ind;
+
+      ind = XEXP (op, 0);
+
+      if (reload_completed
+	  && (GET_CODE (ind) == LABEL_REF
+	      || (GET_CODE (ind) == CONST
+		  && GET_CODE (XEXP (ind, 0)) == PLUS
+		  && GET_CODE (XEXP (XEXP (ind, 0), 0)) == LABEL_REF
+		  && GET_CODE (XEXP (XEXP (ind, 0), 1)) == CONST_INT)))
+	return TRUE;
+
+      /* Match: (mem (reg)).  */
+      if (GET_CODE (ind) == REG)
+	return arm_address_register_rtx_p (ind, 0);
+
+      /* Match:
+	 (mem (plus (reg)
+	            (const))).  */
+      if (GET_CODE (ind) == PLUS
+	  && GET_CODE (XEXP (ind, 0)) == REG
+	  && REG_MODE_OK_FOR_BASE_P (XEXP (ind, 0), VOIDmode)
+	  && GET_CODE (XEXP (ind, 1)) == CONST_INT
+	  && INTVAL (XEXP (ind, 1)) > -1024
+	  && INTVAL (XEXP (ind, 1)) <  1024)
+	return TRUE;
+    }
+
+  return FALSE;
+}
+
+
+/* Return TRUE if OP is a REG or constant zero.  */
+int
+vfp_compare_operand (rtx op, enum machine_mode mode)
+{
+  if (s_register_operand (op, mode))
+    return TRUE;
+
+  return (GET_CODE (op) == CONST_DOUBLE
+	  && arm_const_double_rtx (op));
+}
+
+
+/* Return GENERAL_REGS if a scratch register required to reload x to/from
+   VFP registers.  Otherwise return NO_REGS.  */
+
+enum reg_class
+vfp_secondary_reload_class (enum machine_mode mode, rtx x)
+{
+  if (vfp_mem_operand (x) || s_register_operand (x, mode))
+    return NO_REGS;
+
+  return GENERAL_REGS;
+}
+
 
 /* Returns TRUE if INSN is an "LDR REG, ADDR" instruction.
    Use by the Cirrus Maverick code which has to workaround
@@ -7460,13 +7598,13 @@ fp_immediate_constant (rtx x)
   REAL_VALUE_TYPE r;
   int i;
   
-  if (!fpa_consts_inited)
-    init_fpa_table ();
+  if (!fp_consts_inited)
+    init_fp_table ();
   
   REAL_VALUE_FROM_CONST_DOUBLE (r, x);
   for (i = 0; i < 8; i++)
-    if (REAL_VALUES_EQUAL (r, values_fpa[i]))
-      return strings_fpa[i];
+    if (REAL_VALUES_EQUAL (r, values_fp[i]))
+      return strings_fp[i];
 
   abort ();
 }
@@ -7477,12 +7615,12 @@ fp_const_from_val (REAL_VALUE_TYPE *r)
 {
   int i;
 
-  if (!fpa_consts_inited)
-    init_fpa_table ();
+  if (!fp_consts_inited)
+    init_fp_table ();
 
   for (i = 0; i < 8; i++)
-    if (REAL_VALUES_EQUAL (*r, values_fpa[i]))
-      return strings_fpa[i];
+    if (REAL_VALUES_EQUAL (*r, values_fp[i]))
+      return strings_fp[i];
 
   abort ();
 }
@@ -7526,6 +7664,124 @@ print_multi_reg (FILE *stream, const char *instr, int reg, int mask)
   
   fprintf (stream, "\n");
 }
+
+
+/* Output the operands of a FLDM/FSTM instruction to STREAM.
+   REG is the base register,
+   INSTR is the possibly suffixed load or store instruction.
+   FMT specifies now to print the register name.
+   START and COUNT specify the register range.  */
+
+static void
+vfp_print_multi (FILE *stream, const char *instr, int reg,
+		 const char * fmt, int start, int count)
+{
+  int i;
+
+  fputc ('\t', stream);
+  asm_fprintf (stream, instr, reg);
+  fputs (", {", stream);
+
+  for (i = start; i < start + count; i++)
+    {
+      if (i > start)
+	fputs (", ", stream);
+      asm_fprintf (stream, fmt, i);
+    }
+  fputs ("}\n", stream);
+}
+
+
+/* Output the assembly for a store multiple.  */
+
+const char *
+vfp_output_fstmx (rtx * operands)
+{
+  char pattern[100];
+  int p;
+  int base;
+  int i;
+
+  strcpy (pattern, "fstmfdx\t%m0!, {%P1");
+  p = strlen (pattern);
+
+  if (GET_CODE (operands[1]) != REG)
+    abort ();
+
+  base = (REGNO (operands[1]) - FIRST_VFP_REGNUM) / 2;
+  for (i = 1; i < XVECLEN (operands[2], 0); i++)
+    {
+      p += sprintf (&pattern[p], ", d%d", base + i);
+    }
+  strcpy (&pattern[p], "}");
+
+  output_asm_insn (pattern, operands);
+  return "";
+}
+
+
+/* Emit RTL to save block of VFP register pairs to the stack.  */
+
+static rtx
+vfp_emit_fstmx (int base_reg, int count)
+{
+  rtx par;
+  rtx dwarf;
+  rtx tmp, reg;
+  int i;
+
+  /* ??? The frame layout is implementation defined.  We describe
+     standard format 1 (equivalent to a FSTMD insn and unused pad word).
+     We really need some way of representing the whole block so that the
+     unwinder can figure it out at runtime.  */
+  par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
+  dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (count + 1));
+
+  reg = gen_rtx_REG (DFmode, base_reg);
+  base_reg += 2;
+
+  XVECEXP (par, 0, 0)
+    = gen_rtx_SET (VOIDmode,
+		   gen_rtx_MEM (BLKmode,
+				gen_rtx_PRE_DEC (BLKmode, stack_pointer_rtx)),
+		   gen_rtx_UNSPEC (BLKmode,
+				   gen_rtvec (1, reg),
+				   UNSPEC_PUSH_MULT));
+
+  tmp = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		     gen_rtx_PLUS (SImode, stack_pointer_rtx,
+				   GEN_INT (-(count * 8 + 4))));
+  RTX_FRAME_RELATED_P (tmp) = 1;
+  XVECEXP (dwarf, 0, 0) = tmp;
+
+  tmp = gen_rtx_SET (VOIDmode,
+		     gen_rtx_MEM (DFmode, stack_pointer_rtx),
+		     reg);
+  RTX_FRAME_RELATED_P (tmp) = 1;
+  XVECEXP (dwarf, 0, 1) = tmp;
+
+  for (i = 1; i < count; i++)
+    {
+      reg = gen_rtx_REG (DFmode, base_reg);
+      base_reg += 2;
+      XVECEXP (par, 0, i) = gen_rtx_USE (VOIDmode, reg);
+
+      tmp = gen_rtx_SET (VOIDmode,
+			 gen_rtx_MEM (DFmode,
+				      gen_rtx_PLUS (SImode,
+						    stack_pointer_rtx,
+						    GEN_INT (i * 8))),
+			 reg);
+      RTX_FRAME_RELATED_P (tmp) = 1;
+      XVECEXP (dwarf, 0, i + 1) = tmp;
+    }
+
+  par = emit_insn (par);
+  REG_NOTES (par) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+				       REG_NOTES (par));
+  return par;
+}
+
 
 /* Output a 'call' insn.  */
 const char *
@@ -8801,6 +9057,7 @@ arm_output_epilogue (rtx sibling)
   rtx eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
   unsigned int lrm_count = 0;
   int really_return = (sibling == NULL);
+  int start_reg;
 
   /* If we have already generated the return instruction
      then it is futile to generate anything else.  */
@@ -8846,6 +9103,7 @@ arm_output_epilogue (rtx sibling)
   
   if (frame_pointer_needed)
     {
+      /* This variable is for the Virtual Frame Pointer, not VFP regs.  */
       int vfp_offset = 4;
 
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
@@ -8860,7 +9118,7 @@ arm_output_epilogue (rtx sibling)
 	}
       else
 	{
-	  int start_reg = LAST_FPA_REGNUM;
+	  start_reg = LAST_FPA_REGNUM;
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
@@ -8891,6 +9149,62 @@ arm_output_epilogue (rtx sibling)
 	    asm_fprintf (f, "\tlfm\t%r, %d, [%r, #-%d]\n",
 			 reg + 1, start_reg - reg,
 			 FP_REGNUM, floats_offset - vfp_offset);
+	}
+
+      if (TARGET_HARD_FLOAT && TARGET_VFP)
+	{
+	  int nregs = 0;
+
+	  /* We save regs in pairs.  */
+	  /* A special insn for saving/restoring VFP registers.  This does
+	     not have base+offset addressing modes, so we use IP to
+	     hold the address.  Each block requires nregs*2+1 words.  */
+	  start_reg = FIRST_VFP_REGNUM;
+	  /* Cound how many blocks of registers need saving.  */
+	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	    {
+	      if ((!regs_ever_live[reg] || call_used_regs[reg])
+		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+		{
+		  if (start_reg != reg)
+		    floats_offset += 4;
+		  start_reg = reg + 2;
+		}
+	      else
+		{
+		  floats_offset += 8;
+		  nregs++;
+		}
+	    }
+	  if (start_reg != reg)
+	    floats_offset += 4;
+
+	  if (nregs > 0)
+	    {
+	      asm_fprintf (f, "\tsub\t%r, %r, #%d\n", IP_REGNUM,
+			   FP_REGNUM, floats_offset - vfp_offset);
+	    }
+	  start_reg = FIRST_VFP_REGNUM;
+	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	    {
+	      if ((!regs_ever_live[reg] || call_used_regs[reg])
+		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+		{
+		  if (start_reg != reg)
+		    {
+		      vfp_print_multi (f, "fldmfdx\t%r!", IP_REGNUM, "d%d",
+				       (start_reg - FIRST_VFP_REGNUM) / 2,
+				       (reg - start_reg) / 2);
+		    }
+		  start_reg = reg + 2;
+		}
+	    }
+	  if (start_reg != reg)
+	    {
+	      vfp_print_multi (f, "fldmfdx\t%r!", IP_REGNUM, "d%d",
+			       (start_reg - FIRST_VFP_REGNUM) / 2,
+			       (reg - start_reg) / 2);
+	    }
 	}
 
       if (TARGET_IWMMXT)
@@ -8974,7 +9288,7 @@ arm_output_epilogue (rtx sibling)
 	}
       else
 	{
-	  int start_reg = FIRST_FPA_REGNUM;
+	  start_reg = FIRST_FPA_REGNUM;
 
 	  for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	    {
@@ -9004,6 +9318,30 @@ arm_output_epilogue (rtx sibling)
 			 start_reg, reg - start_reg, SP_REGNUM);
 	}
 
+      if (TARGET_HARD_FLOAT && TARGET_VFP)
+	{
+	  start_reg = FIRST_VFP_REGNUM;
+	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	    {
+	      if ((!regs_ever_live[reg] || call_used_regs[reg])
+		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+		{
+		  if (start_reg != reg)
+		    {
+		      vfp_print_multi (f, "fldmfdx\t%r!", SP_REGNUM, "d%d",
+				       (start_reg - FIRST_VFP_REGNUM) / 2,
+				       (reg - start_reg) / 2);
+		    }
+		  start_reg = reg + 2;
+		}
+	    }
+	  if (start_reg != reg)
+	    {
+	      vfp_print_multi (f, "fldmfdx\t%r!", SP_REGNUM, "d%d",
+			       (start_reg - FIRST_VFP_REGNUM) / 2,
+			       (reg - start_reg) / 2);
+	    }
+	}
       if (TARGET_IWMMXT)
 	for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
 	  if (regs_ever_live[reg] && !call_used_regs[reg])
@@ -9306,6 +9644,7 @@ emit_sfm (int base_reg, int count)
   return par;
 }
 
+
 /* Compute the distance from register FROM to register TO.
    These can be the arg pointer (26), the soft frame pointer (25),
    the stack pointer (13) or the hard frame pointer (11).
@@ -9367,6 +9706,7 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
     {
       unsigned int reg_mask;
       unsigned int reg;
+      bool new_block;
 
       /* Make sure that we compute which registers will be saved
 	 on the stack using the same algorithm that is used by
@@ -9390,6 +9730,27 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
       for (reg = FIRST_FPA_REGNUM; reg <= LAST_FPA_REGNUM; reg++)
 	if (regs_ever_live[reg] && ! call_used_regs[reg])
 	  call_saved_registers += 12;
+
+      /* Likewise VFP regs.  */
+      if (TARGET_HARD_FLOAT && TARGET_VFP)
+	{
+	  new_block = TRUE;
+	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	    {
+	      if ((regs_ever_live[reg] && !call_used_regs[reg])
+		  || (regs_ever_live[reg + 1] && !call_used_regs[reg + 1]))
+		{
+		  if (new_block)
+		    {
+		      call_saved_registers += 4;
+		      new_block = FALSE;
+		    }
+		  call_saved_registers += 8;
+		}
+	      else
+		new_block = TRUE;
+	    }
+	}
 
       if (TARGET_REALLY_IWMMXT)
 	/* Check for the call-saved iWMMXt registers.  */
@@ -9486,6 +9847,7 @@ arm_get_frame_size (void)
   int entry_size = 0;
   unsigned long func_type = arm_current_func_type ();
   int leaf;
+  bool new_block;
 
   if (! TARGET_ARM)
     abort();
@@ -9529,12 +9891,33 @@ arm_get_frame_size (void)
   /* Space for saved registers.  */
   entry_size += bit_count (arm_compute_save_reg_mask ()) * 4;
 
-  /* Space for saved FPA registers.  */
   if (! IS_VOLATILE (func_type))
     {
+      /* Space for saved FPA registers.  */
       for (regno = FIRST_FPA_REGNUM; regno <= LAST_FPA_REGNUM; regno++)
       if (regs_ever_live[regno] && ! call_used_regs[regno])
 	entry_size += 12;
+
+      /* Space for saved VFP registers.  */
+      if (TARGET_HARD_FLOAT && TARGET_VFP)
+	{
+	  new_block = TRUE;
+	  for (regno = FIRST_VFP_REGNUM; regno < LAST_VFP_REGNUM; regno += 2)
+	    {
+	      if ((regs_ever_live[regno] && !call_used_regs[regno])
+		  || (regs_ever_live[regno + 1] && !call_used_regs[regno + 1]))
+		{
+		  if (new_block)
+		    {
+		      entry_size += 4;
+		      new_block = FALSE;
+		    }
+		  entry_size += 8;
+		}
+	      else
+		new_block = TRUE;
+	    }
+	}
     }
 
   if (TARGET_REALLY_IWMMXT)
@@ -9729,6 +10112,8 @@ arm_expand_prologue (void)
 
   if (! IS_VOLATILE (func_type))
     {
+      int start_reg;
+
       /* Save any floating point call-saved registers used by this
 	 function.  */
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
@@ -9745,7 +10130,7 @@ arm_expand_prologue (void)
 	}
       else
 	{
-	  int start_reg = LAST_FPA_REGNUM;
+	  start_reg = LAST_FPA_REGNUM;
 
 	  for (reg = LAST_FPA_REGNUM; reg >= FIRST_FPA_REGNUM; reg--)
 	    {
@@ -9772,6 +10157,31 @@ arm_expand_prologue (void)
 	  if (start_reg != reg)
 	    {
 	      insn = emit_sfm (reg + 1, start_reg - reg);
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	    }
+	}
+      if (TARGET_HARD_FLOAT && TARGET_VFP)
+	{
+	  start_reg = FIRST_VFP_REGNUM;
+
+ 	  for (reg = FIRST_VFP_REGNUM; reg < LAST_VFP_REGNUM; reg += 2)
+	    {
+	      if ((!regs_ever_live[reg] || call_used_regs[reg])
+		  && (!regs_ever_live[reg + 1] || call_used_regs[reg + 1]))
+		{
+		  if (start_reg != reg)
+		    {
+		      insn = vfp_emit_fstmx (start_reg,
+					    (reg - start_reg) / 2);
+		      RTX_FRAME_RELATED_P (insn) = 1;
+		    }
+		  start_reg = reg + 2;
+		}
+	    }
+	  if (start_reg != reg)
+	    {
+	      insn = vfp_emit_fstmx (start_reg,
+				    (reg - start_reg) / 2);
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	    }
 	}
@@ -10092,6 +10502,27 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  
 	  fprintf (stream, wc_reg_names [INTVAL (x)]);
 	}
+      return;
+
+      /* Print a VFP double precision register name.  */
+    case 'P':
+      {
+	int mode = GET_MODE (x);
+	int num;
+
+	if (mode != DImode && mode != DFmode)
+	  abort ();
+
+	if (GET_CODE (x) != REG
+	    || !IS_VFP_REGNUM (REGNO (x)))
+	  abort ();
+
+	num = REGNO(x) - FIRST_VFP_REGNUM;
+	if (num & 1)
+	  abort ();
+
+	fprintf (stream, "d%d", num >> 1);
+      }
       return;
 
     default:
@@ -10689,7 +11120,7 @@ int
 arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 {
   if (GET_MODE_CLASS (mode) == MODE_CC)
-    return regno == CC_REGNUM;
+    return regno == CC_REGNUM || regno == VFPCC_REGNUM;
   
   if (TARGET_THUMB)
     /* For the Thumb we only allow values bigger than SImode in
@@ -10706,6 +11137,17 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
        even split the registers into pairs because Cirrus SI values
        get sign extended to 64bits-- aldyh.  */
     return (GET_MODE_CLASS (mode) == MODE_FLOAT) || (mode == DImode);
+
+  if (IS_VFP_REGNUM (regno))
+    {
+      if (mode == SFmode || mode == SImode)
+	return TRUE;
+
+      /* DFmode values are only valid in even register pairs.  */
+      if (mode == DFmode)
+	return ((regno - FIRST_VFP_REGNUM) & 1) == 0;
+      return FALSE;
+    }
 
   if (IS_IWMMXT_GR_REGNUM (regno))
     return mode == SImode;
@@ -10748,11 +11190,14 @@ arm_regno_class (int regno)
       || regno == ARG_POINTER_REGNUM)
     return GENERAL_REGS;
   
-  if (regno == CC_REGNUM)
+  if (regno == CC_REGNUM || regno == VFPCC_REGNUM)
     return NO_REGS;
 
   if (IS_CIRRUS_REGNUM (regno))
     return CIRRUS_REGS;
+
+  if (IS_VFP_REGNUM (regno))
+    return VFP_REGS;
 
   if (IS_IWMMXT_REGNUM (regno))
     return IWMMXT_REGS;
