@@ -264,26 +264,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-vectorizer.h"
 #include "flags.h"
 
-
-static bool loop_phi_node_p (tree);
-
-static bool follow_ssa_edge_in_rhs (struct loop *loop, tree, tree, tree *);
-static bool follow_ssa_edge_in_condition_phi (struct loop *loop, tree, tree, tree *);
-static bool follow_ssa_edge_inner_loop_phi (struct loop *loop, tree, tree, tree *);
-static bool follow_ssa_edge (struct loop *loop, tree, tree, tree *);
-static tree analyze_evolution_in_loop (tree, tree);
-static tree analyze_initial_condition (tree);
-static tree interpret_loop_phi (struct loop *loop, tree);
-static tree interpret_condition_phi (struct loop *loop, tree);
-static tree interpret_rhs_modify_expr (struct loop *loop, tree, tree);
-
 /* The cached information about a ssa name VAR, claiming that inside LOOP,
    the value of VAR can be expressed as CHREC.  */
 
 struct scev_info_str
 {
   tree var;
-  struct loop *loop;
   tree chrec;
 };
 
@@ -307,19 +293,18 @@ static varray_type scalar_evolution_info;
 static varray_type already_instantiated;
 
 /* Flag to indicate availability of dependency info.  */
-bool dd_info_available;
+static bool dd_info_available;
 
 
 /* Constructs a new SCEV_INFO_STR structure.  */
 
 static inline struct scev_info_str *
-new_scev_info_str (struct loop *loop, tree var)
+new_scev_info_str (tree var)
 {
   struct scev_info_str *res;
   
   res = ggc_alloc (sizeof (struct scev_info_str));
   res->var = var;
-  res->loop = loop;
   res->chrec = chrec_not_analyzed_yet;
   
   return res;
@@ -330,7 +315,7 @@ new_scev_info_str (struct loop *loop, tree var)
    chrec_not_analysed_yet for this VAR and return its index.  */
 
 static tree *
-find_var_scev_info (struct loop *loop, tree var)
+find_var_scev_info (tree var)
 {
   unsigned int i;
   struct scev_info_str *res;
@@ -338,12 +323,12 @@ find_var_scev_info (struct loop *loop, tree var)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (scalar_evolution_info); i++)
     {
       res = VARRAY_GENERIC_PTR (scalar_evolution_info, i);
-      if (res->var == var && res->loop == loop)
+      if (res->var == var)
 	return &res->chrec;
     }
   
   /* The variable is not in the table, create a new entry for it.  */
-  res = new_scev_info_str (loop, var);
+  res = new_scev_info_str (var);
   VARRAY_PUSH_GENERIC_PTR (scalar_evolution_info, res);
   
   return &res->chrec;
@@ -366,84 +351,87 @@ loop_phi_node_p (tree phi)
   return loop_of_stmt (phi)->header == bb_for_stmt (phi);
 }
 
-/* Compute the overall effect of a LOOP on a variable. 
-   1. compute the number of iterations in the loop,
-   2. compute the value of the variable after crossing the loop.  
-
+/* Compute the scalar evolution for EVOLUTION_FN after crossing LOOP.
+   In general, in the case of multivariate evolutions we want to get
+   the evolution in different loops.  LOOP specifies the level for
+   which to get the evolution.
+   
+   Example:
+   
+   | for (j = 0; j < 100; j++)
+   |   {
+   |     for (k = 0; k < 100; k++)
+   |       {
+   |         i = k + j;   - Here the value of i is a function of j, k. 
+   |       }
+   |      ... = i         - Here the value of i is a function of j. 
+   |   }
+   | ... = i              - Here the value of i is a scalar.  
+   
    Example:  
    
    | i_0 = ...
-   | loop 10 times
+   | loop_1 10 times
    |   i_1 = phi (i_0, i_2)
    |   i_2 = i_1 + 2
    | endloop
-   
+    
    This loop has the same effect as:
-   
+   LOOP_1 has the same effect as:
+    
    | i_1 = i_0 + 20
+   
+   This overall effect of the loop is obtained by passing in the
+   parameters: LOOP = 1, EVOLUTION_FN {i_0, +, 1}_1.
 */
-
+ 
 static tree 
-compute_overall_effect_of_inner_loop (struct loop *loop, tree version)
+compute_scalar_evolution_after_loop (struct loop *loop, tree evolution_fn)
 {
   bool val;
-  tree res;
-  tree nb_iter, evolution_fn;
+
+  if (evolution_fn == chrec_top)
+    return chrec_top;
+
+  else if (TREE_CODE (evolution_fn) == POLYNOMIAL_CHREC)
+    {
+      if (CHREC_VARIABLE (evolution_fn) >= loop_num (loop))
+	{
+	  struct loop *inner_loop = 
+	    loop_from_num (current_loops, CHREC_VARIABLE (evolution_fn));
+	  tree nb_iter = number_of_iterations_in_loop (inner_loop);
+
+	  if (nb_iter == chrec_top)
+	    return chrec_top;
+	  else
+	    {
+	      tree res;
+
+	      /* Number of iterations is off by one (the ssa name we
+		 analyze must be defined before the exit).  */
+	      nb_iter = chrec_fold_minus (chrec_type (nb_iter),
+					  nb_iter,
+					  convert (chrec_type (nb_iter),
+						   integer_one_node));
+	      
+	      /* evolution_fn is the evolution function in LOOP.  Get
+		 its value in the nb_iter-th iteration.  */
+	      res = chrec_apply (inner_loop->num, evolution_fn, nb_iter);
+	      
+	      /* Continue the computation until ending on a parent of LOOP. */
+	      return compute_scalar_evolution_after_loop (loop, res);
+	    }
+	}
+      else
+	return evolution_fn;
+     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "(compute_overall_effect_of_inner_loop \n");
-
-  evolution_fn = analyze_scalar_evolution (loop, version);
-  nb_iter = number_of_iterations_in_loop (loop);
-
-  /* If the variable is an invariant, there is nothing to do.  */
-  if (!no_evolution_in_loop_p (evolution_fn, loop->num, &val))
-    res = chrec_top;
-
-  else if (val)
-    res = evolution_fn;
-    
-  /* When the number of iterations is not known, set the evolution to
-     chrec_top.  As an example, consider the following loop:
-     
-     | i = 5
-     | loop 
-     |   i = i + 1
-     |   loop chrec_top times
-     |     i = i + 3
-     |   endloop
-     | endloop
-     
-     since it is impossible to know the number of iterations in the
-     inner loop, the evolution of i in the outer loop becomes unknown:
-     
-     | i = 5
-     | loop 
-     |   i = i + 1
-     |   i = i + chrec_top
-     | endloop
-     */
-
-  else if (nb_iter == chrec_top)
-    res = chrec_top;
+  /* If the evolution function is an invariant, there is nothing to do.  */
+  else if (no_evolution_in_loop_p (evolution_fn, loop->num, &val) && val)
+    return evolution_fn;
   
   else
-    {
-      /* Number of iterations is off by one (the ssa name we analyze must be
-	 defined before the exit).  */
-      nb_iter = chrec_fold_minus (chrec_type (nb_iter),
-				  nb_iter,
-				  convert (chrec_type (nb_iter),
-					   integer_one_node));
-
-      /* evolution_fn is the evolution function in LOOP.  Get its value in the
-	 nb_iter-th iteration.  */
-      res = chrec_apply (loop->num, evolution_fn, nb_iter);
-    }
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, ")\n");
-  return res;
+    return chrec_top;
 }
 
 
@@ -524,12 +512,12 @@ chrec_is_positive (tree chrec, bool *value)
     }
 }
 
-/* Associate CHREC to SCALAR in LOOP.  */
+/* Associate CHREC to SCALAR.  */
 
 static void
-set_scalar_evolution (struct loop *loop, tree scalar, tree chrec)
+set_scalar_evolution (tree scalar, tree chrec)
 {
-  tree *scalar_info = find_var_scev_info (loop, scalar);
+  tree *scalar_info = find_var_scev_info (scalar);
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -547,14 +535,13 @@ set_scalar_evolution (struct loop *loop, tree scalar, tree chrec)
 /* Retrieve the chrec associated to SCALAR in the LOOP.  */
 
 static tree
-get_scalar_evolution (struct loop *loop, tree scalar)
+get_scalar_evolution (tree scalar)
 {
   tree res;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "(get_scalar_evolution \n");
-      fprintf (dump_file, "  (loop_nb = %d)\n", loop->num);
       fprintf (dump_file, "  (scalar = ");
       print_generic_expr (dump_file, scalar, 0);
       fprintf (dump_file, ")\n");
@@ -563,7 +550,7 @@ get_scalar_evolution (struct loop *loop, tree scalar)
   switch (TREE_CODE (scalar))
     {
     case SSA_NAME:
-      res = *find_var_scev_info (loop, scalar);
+      res = *find_var_scev_info (scalar);
       break;
 
     case REAL_CST:
@@ -1863,6 +1850,9 @@ draw_tree_cfg (void)
 }
      
 
+/* Depth first search algorithm.  */
+
+static bool follow_ssa_edge (struct loop *loop, tree, tree, tree *);
 
 /* Follow the ssa edge into the right hand side of an assignment.  */
 
@@ -2239,7 +2229,7 @@ follow_ssa_edge_inner_loop_phi (struct loop *outer_loop,
     }
 
   /* Otherwise, compute the overall effect of the inner loop.  */
-  ev = compute_overall_effect_of_inner_loop (loop, ev);
+  ev = compute_scalar_evolution_after_loop (loop, ev);
   return follow_ssa_edge_in_rhs (outer_loop, ev, halting_phi,
 				 evolution_of_loop);
 }
@@ -2264,14 +2254,12 @@ follow_ssa_edge (struct loop *loop,
     {
     case PHI_NODE:
       if (!loop_phi_node_p (def))
-	{
-	  /* DEF is a condition-phi-node.  Follow the branches, and
-	     record their evolutions.  Finally, merge the collected
-	     information and set the approximation to the main
-	     variable.  */
-    	  return follow_ssa_edge_in_condition_phi 
-		  (loop, def, halting_phi, evolution_of_loop);
-	}
+	/* DEF is a condition-phi-node.  Follow the branches, and
+	   record their evolutions.  Finally, merge the collected
+	   information and set the approximation to the main
+	   variable.  */
+	return follow_ssa_edge_in_condition_phi 
+	  (loop, def, halting_phi, evolution_of_loop);
 
       /* When the analyzed phi is the halting_phi, the
 	 depth-first search is over: we have found a path from
@@ -2287,9 +2275,9 @@ follow_ssa_edge (struct loop *loop,
 	  
       /* Inner loop.  */
       if (flow_loop_nested_p (loop, def_loop))
-	return follow_ssa_edge_inner_loop_phi
-		(loop, def, halting_phi, evolution_of_loop);
-	  
+	return follow_ssa_edge_inner_loop_phi 
+	  (loop, def, halting_phi, evolution_of_loop);
+
       /* Outer loop.  */
       return false;
 
@@ -2306,6 +2294,8 @@ follow_ssa_edge (struct loop *loop,
       return false;
     }
 }
+
+
 
 /* Given a LOOP_PHI_NODE, this function determines the evolution
    function from LOOP_PHI_NODE to LOOP_PHI_NODE in the loop.  */
@@ -2443,37 +2433,32 @@ analyze_initial_condition (tree loop_phi_node)
   return init_cond;
 }
 
-/* Analyze the scalar evolution for the loop-phi-node DEF.  */
+/* Analyze the scalar evolution for LOOP_PHI_NODE.  */
 
 static tree 
-interpret_loop_phi (struct loop *loop, tree loop_phi)
+interpret_loop_phi (struct loop *loop, tree loop_phi_node)
 {
-  tree res = get_scalar_evolution (loop, PHI_RESULT (loop_phi));
-  struct loop *phi_loop = loop_of_stmt (loop_phi);
+  tree res;
+  struct loop *phi_loop = loop_of_stmt (loop_phi_node);
   tree init_cond;
   
-  if (res != chrec_not_analyzed_yet)
-    return res;
-
   if (phi_loop != loop)
     {
       struct loop *subloop;
+      tree evolution_fn = analyze_scalar_evolution
+	(phi_loop, PHI_RESULT (loop_phi_node));
 
       /* Dive one level deeper.  */
       subloop = superloop_at_depth (phi_loop, loop->depth + 1);
 
       /* Interpret the subloop.  */
-      res = compute_overall_effect_of_inner_loop (subloop,
-						  PHI_RESULT (loop_phi));
-
-      /* And get the evolution of the result.  */
-      return analyze_scalar_evolution (loop, res);
+      res = compute_scalar_evolution_after_loop (subloop, evolution_fn);
+      return res;
     }
 
   /* Otherwise really interpret the loop phi.  */
-  init_cond = analyze_initial_condition (loop_phi);
-  res = analyze_evolution_in_loop (loop_phi, init_cond);
-  set_scalar_evolution (loop, PHI_RESULT (loop_phi), res);
+  init_cond = analyze_initial_condition (loop_phi_node);
+  res = analyze_evolution_in_loop (loop_phi_node, init_cond);
 
   return res;
 }
@@ -2499,12 +2484,11 @@ interpret_condition_phi (struct loop *loop, tree condition_phi)
 	}
 
       branch_chrec = analyze_scalar_evolution
-	      (loop, PHI_ARG_DEF (condition_phi, i));
+	(loop, PHI_ARG_DEF (condition_phi, i));
       
       res = chrec_merge (res, branch_chrec);
     }
 
-  set_scalar_evolution (loop, PHI_RESULT (condition_phi), res);
   return res;
 }
 
@@ -2591,95 +2575,169 @@ interpret_rhs_modify_expr (struct loop *loop,
    - instantiate_parameters.
 */
 
-/* Entry point for the scalar evolution analyzer.
-   Analyzes and returns the scalar evolution of the ssa_name VERSION.
-   LOOP_NB is the identifier number of the loop in which the version
-   is used.  
-   
-   Example of use: having a pointer VERSION to a SSA_NAME node, STMT a
-   pointer to the statement that uses this version, in order to
-   determine the evolution function of the version, use the following
-   calls:
-   
-   unsigned loop_nb = loop_num (loop_of_stmt (stmt));
-   tree chrec_with_symbols = analyze_scalar_evolution (loop_nb, version);
-   tree chrec_instantiated = instantiate_parameters 
-   (loop_nb, chrec_with_symbols);
-*/
+/* Compute the evolution function in WRTO_LOOP, the nearest common
+   ancestor of DEF_LOOP and USE_LOOP.  */
 
-tree 
-analyze_scalar_evolution (struct loop *loop, tree version)
+static tree 
+compute_scalar_evolution_in_loop (struct loop *wrto_loop, 
+				  struct loop *def_loop, 
+				  tree ev)
 {
-  tree res, def, type = TREE_TYPE (version);
+  if (def_loop == wrto_loop)
+    return ev;
+
+  while (def_loop->outer != wrto_loop)
+    def_loop = def_loop->outer;
+
+  return compute_scalar_evolution_after_loop (def_loop, ev);
+}
+
+/* Helper recursive function.  */
+
+static tree 
+analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
+{
+  tree def, type = TREE_TYPE (var);
   basic_block bb;
-  
-  if (dump_file && (dump_flags & TDF_DETAILS))
+
+  if (loop == NULL)
     {
-      fprintf (dump_file, "(analyze_scalar_evolution \n");
-      fprintf (dump_file, "  (loop_nb = %d)\n", loop->num);
-      fprintf (dump_file, "  (scalar = ");
-      print_generic_expr (dump_file, version, 0);
-      fprintf (dump_file, ")\n");
+      res = chrec_top;
+      set_scalar_evolution (var, res);
+      return res;
     }
 
-  res = get_scalar_evolution (loop, version);
-
-  if (TREE_CODE (version) != SSA_NAME)
+  if (TREE_CODE (var) != SSA_NAME)
     {
       if (res != chrec_top)
+	/* Keep the symbolic form.  */
+	return res;
+
+      res = interpret_rhs_modify_expr (loop, var, type);
+      set_scalar_evolution (var, res);
+      return res;
+    }
+
+  def = SSA_NAME_DEF_STMT (var);
+  bb = bb_for_stmt (def);
+
+  if (bb == NULL)
+    {
+      /* Keep the symbolic form.  */
+      res = var;
+      goto set_and_end;
+    }
+
+  if (res != chrec_not_analyzed_yet)
+    {
+      if (res == chrec_top)
 	{
 	  /* Keep the symbolic form.  */
-	  goto end;
-	}
-	  
-      /* Try analyzing the expression.  */
-      res = interpret_rhs_modify_expr (loop, version, type);
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  (res = ");
-	  print_generic_expr (dump_file, res, 0);
-	  fprintf (dump_file, ")\n");
+	  res = var;
+	  goto set_and_end;
 	}
 
-      goto end;
+      else if (res == var)
+	return var;
+
+      else if (loop != bb->loop_father)
+	res = compute_scalar_evolution_in_loop 
+	  (find_common_loop (loop, bb->loop_father), bb->loop_father, res);
+
+      return res;
     }
-      
-  if (res != chrec_not_analyzed_yet)
-    goto end;
 
-  def = SSA_NAME_DEF_STMT (version);
-  bb = bb_for_stmt (def);
-  if (!bb
-      || !flow_bb_inside_loop_p (loop, bb))
+  if (!flow_bb_inside_loop_p (loop, bb))
     {
-      res = version;
-      goto end;
+      struct loop *def_loop = loop_of_stmt (def);
+      
+      if (def_loop == NULL)
+	{
+	  /* A parameter that has to be kept in symbolic form.  */
+	  res = var;
+	  goto set_and_end;
+	}
+      else
+	/* Analyze the variable in the loop of its definition, then
+	   compute the evolution in the demanded loop.  */
+	{
+	  res = analyze_scalar_evolution_1 (def_loop, var, res);
+	  return compute_scalar_evolution_in_loop 
+	    (find_common_loop (loop, bb->loop_father), bb->loop_father, res);
+	}
     }
 
   switch (TREE_CODE (def))
     {
     case MODIFY_EXPR:
-      res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type);
-      break;
-	      
+      {
+	struct loop *def_loop = loop_of_stmt (def);
+	if (loop != def_loop)
+	  analyze_scalar_evolution_1 (def_loop, var, res);
+	res = interpret_rhs_modify_expr (loop, TREE_OPERAND (def, 1), type);
+	break;
+      }
+
     case PHI_NODE:
-      if (loop_phi_node_p (def))
-	res = interpret_loop_phi (loop, def);
-      else
-	res = interpret_condition_phi (loop, def);
-      break;
-	      
+      {
+	struct loop *def_loop = loop_of_stmt (def);
+	if (loop != def_loop)
+	  analyze_scalar_evolution_1 (def_loop, var, res);
+
+	if (loop_phi_node_p (def))
+	  res = interpret_loop_phi (loop, def);
+	else
+	  res = interpret_condition_phi (loop, def);
+	break;
+      }
+
     default:
       res = chrec_top;
       break;
     }
 
-end:
-  set_scalar_evolution (loop, version, res);
-  
+ set_and_end:;
+  if (loop == loop_of_stmt (def))
+    set_scalar_evolution (var, res);
+
+  return res;
+}
+
+/* Entry point for the scalar evolution analyzer.
+   Analyzes and returns the scalar evolution of the ssa_name VAR.
+   LOOP_NB is the identifier number of the loop in which the variable
+   is used.
+   
+   Example of use: having a pointer VAR to a SSA_NAME node, STMT a
+   pointer to the statement that uses this variable, in order to
+   determine the evolution function of the variable, use the following
+   calls:
+   
+   unsigned loop_nb = loop_num (loop_of_stmt (stmt));
+   tree chrec_with_symbols = analyze_scalar_evolution (loop_nb, var);
+   tree chrec_instantiated = instantiate_parameters 
+   (loop_nb, chrec_with_symbols);
+*/
+
+tree 
+analyze_scalar_evolution (struct loop *loop, tree var)
+{
+  tree res;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "(analyze_scalar_evolution \n");
+      fprintf (dump_file, "  (loop_nb = %d)\n", loop->num);
+      fprintf (dump_file, "  (scalar = ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, ")\n");
+    }
+
+  res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var));
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
-  
+
   return res;
 }
 

@@ -1,3 +1,15 @@
+2004-04-20  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
+	* tree-scalar-evolution.c (scev_info_str, new_scev_info_str, 
+	find_var_scev_info, set_scalar_evolution, get_scalar_evolution):
+	Store a single scalar evolution per definition.
+	(compute_overall_effect_of_inner_loop): Renamed 
+	compute_scalar_evolution_after_loop. 
+	(compute_scalar_evolution_in_loop): New.
+	(analyze_scalar_evolution): Use the helper function.
+	(analyze_scalar_evolution_1): Helper recursive function.
+	Avoid multiple set/get in the scev database when recursively called.
+
 2004-04-20  Dorit Naishlos <dorit@il.ibm.com>
 
         * tree-vectorizer.c (vect_create_index_for_array_ref): Use create_iv
