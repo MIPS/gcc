@@ -188,9 +188,14 @@ public class URLClassLoader extends SecureClassLoader
 
     URLLoader(URLClassLoader classloader, URL baseURL)
     {
+      this(classloader, baseURL, baseURL);
+    }
+
+    URLLoader(URLClassLoader classloader, URL baseURL, URL overrideURL)
+    {
       this.classloader = classloader;
       this.baseURL = baseURL;
-      this.noCertCodeSource = new CodeSource(baseURL, null);
+      this.noCertCodeSource = new CodeSource(overrideURL, null);
     }
 
     /**
@@ -327,10 +332,9 @@ public class URLClassLoader extends SecureClassLoader
 		      File soFile = new File (libDirName + File.separator + f.getName() 
 					      + ".so");
 		      if (soFile != null && soFile.isFile())
-			this.soURLLoader = 
-			  new SoURLLoader
-			  (classloader, 
-			   new URL ("file", null, soFile.getCanonicalPath()));
+			this.soURLLoader
+			  = new SoURLLoader (classloader, soFile.toURL(),
+					     baseURL);
 		    }
 		}
 	    }
@@ -521,7 +525,12 @@ public class URLClassLoader extends SecureClassLoader
 
     SoURLLoader(URLClassLoader classloader, URL url)
     {
-      super(classloader, url);
+      this(classloader, url, url);
+    }
+
+    SoURLLoader(URLClassLoader classloader, URL url, URL overrideURL)
+    {
+      super(classloader, url, overrideURL);
       helper = SharedLibHelper.findHelper(classloader, url.getFile(),
 					  noCertCodeSource);
     }

@@ -1,3 +1,10 @@
+2004-08-10  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (URLLoader(URLClassLoader, URL,
+	URL)): New constructor.
+	(SoURLLoader): Likewise.
+	(JarURLLoader): Create SoURLLoader with override URL.
+
 2004-08-10  Mark Wielaard  <mark@klomp.org>
 
 	* Makefile.in: Rebuilt.
