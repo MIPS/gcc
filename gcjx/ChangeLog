@@ -1,5 +1,8 @@
 2005-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* model/class.cc (do_resolve_classes): Don't emit 'extends Object'
+	warning for wildcards, type variables, or parameterized classes.
+
 	* model/class.cc (get_class_signature): Superclass for interface
 	will be NULL.
 

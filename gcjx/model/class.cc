@@ -1097,12 +1097,17 @@ model_class::do_resolve_classes (resolution_scope *scope)
       superclass->resolve_classes (scope);
       // If there was an explicit 'extends' clause, and this class
       // isn't an array (we supply the extends clause for arrays) and
-      // not anonymous (new Object() { } is just fine), then warn if
-      // we are extending Object, as that is redundant.  Don't bother
-      // warning if the class came from a .class file -- those are
-      // always completely explicit.
+      // not anonymous (new Object() { } is just fine), and not a
+      // wildcard, and not a type variable, and not a class instance
+      // (we would emit the warning when handling the parent class)
+      // then warn if we are extending Object, as that is redundant.
+      // Don't bother warning if the class came from a .class file --
+      // those are always completely explicit.
       if (! was_null && ! array_p () && ! from_class
-	  && ! anonymous && superclass->type () == obj
+ 	  && ! anonymous && superclass->type () == obj
+	  && dynamic_cast<model_wildcard *> (this) == NULL
+	  && ! type_variable_p ()
+	  && ! parameterized_p ()
 	  && scope->warn_unneeded_extends ())
 	std::cerr << warn (global->get_compiler ()->warn_unneeded_extends (),
 			   "explicit %<extends java.lang.Object%>");
