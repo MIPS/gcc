@@ -1,5 +1,8 @@
 2004-01-03  Richard Henderson  <rth@redhat.com>
 
+	* toplev.c (rest_of_compilation): Fixup merge error wrt
+	check_function_return_warnings.
+
 	* tree.h (FUNCTION_RECEIVES_NONLOCAL_GOTO): Use unsigned_flag.
 
 2004-01-02  Jan Hubicka  <jh@suse.cz>
