@@ -673,7 +673,6 @@ maybe_set_unchanging (ref, t)
      solution, perhaps based on alias sets.  */
 
   if ((TREE_READONLY (t) && DECL_P (t)
-       && (TREE_STATIC (t) || ! AGGREGATE_TYPE_P (TREE_TYPE (t)))
        && (TREE_CODE (t) == PARM_DECL
 	   || DECL_INITIAL (t) == NULL_TREE
 	   || TREE_CONSTANT (DECL_INITIAL (t))))

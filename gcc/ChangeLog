@@ -1,3 +1,12 @@
+2004-04-02  Jakub Jelinek  <jakuB@redhat.com>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/13424, optimization/12419
+	* explow.c (maybe_set_unchanging): Revert 2003-04-07 patch.
+	* expr.c (store_constructor): When clearing aggregate because
+	of an incomplete or mostly zero constructor, do the clearing
+	without /u flag and then emit a blockage.
+
 2004-03-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (override_options): Add PTA_64BIT, set it
