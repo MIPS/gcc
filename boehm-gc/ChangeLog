@@ -1,3 +1,84 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-04-28  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* configure.in: define GC_DLL under mingw if --enable-shared
+	* configure: rebuilt
+	* win32_threads.c: add #ifdef GC_DLL around DllMain
+
+2003-04-09  Tom Tromey  <tromey@redhat.com>
+
+	* include/private/gcconfig.h (LINUX_STACKBOTTOM): Define for
+	POWERPC.
+	(STACK_GRAN, HEURISTIC1): Don't define for POWERPC.
+
+2003-03-04  Hans Boehm <Hans.Boehm@hp.com>
+	* include/private/gcconfig.h (GC_data_start): declare when needed.
+	* include/private/gc_priv.h: Include gcconfig.h after ptr_t
+	declaration.
+
+2003-03-03  Hans Boehm  <Hans.Boehm@hp.com>
+	* mark_rts.c (GC_cond_register_dynamic_libraries): add.
+	(GC_push_roots): explicitly mark free list headers, register
+	dynamic libraries only if !REGISTER_LIBRARIES_EARLY.
+	* alloc.c (GC_stopped_mark): Conditionally call
+	GC_cond_register_dynamic_libraries().
+	(GC_collect_a_little_inner, GC_try_to_collect_inner): Check GC_dont_gc.
+	* dyn_load.c (GC_register_main_static_data): define.
+	(GC_register_dyn_libraries (Linux /proc, Linux ELF versions)):
+	no longer skip main data. Register main data for static executable.
+	* misc.c (GC_REGISTER_MAIN_STATIC_DATA): define.
+	(GC_init_inner): Make main data registration conditional.
+	* include/private/gc_priv.h (GC_register_main_static_data): declare.
+	* include/private/gcconfig.h (REGISTER_LIBRARIES_EARLY): define
+	for LINUX.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-11  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/private/gcconfig.h: undefine MPROTECT_VDB for MACOSX
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (toolexecdir, toolexeclibdir): Set and AC_SUBST.
+	Remove USE_LIBDIR conditional.
+	* Makefile.am (toolexecdir, toolexeclibdir): Don't override.
+	* Makefile.in, configure: Rebuilt.
+
+2002-12-31  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/8933:
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am (noinst_HEADERS): Renamed from
+	include_HEADERS.
+
 2002-11-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* ltconfig (osf[345]): Append $major to soname_spec.

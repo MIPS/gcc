@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for PowerPC machines running Linux.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, 
-   Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GNU CC.
@@ -84,7 +84,18 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef IN_LIBGCC2
 #include <signal.h>
-#include <sys/ucontext.h>
+
+/* During the 2.5 kernel series the kernel ucontext was changed, but
+   the new layout is compatible with the old one, so we just define
+   and use the old one here for simplicity and compatibility.  */
+
+struct kernel_old_ucontext {
+  unsigned long     uc_flags;
+  struct ucontext  *uc_link;
+  stack_t           uc_stack;
+  struct sigcontext_struct uc_mcontext;
+  sigset_t          uc_sigmask;
+};
 
 enum { SIGNAL_FRAMESIZE = 64 };
 #endif
@@ -96,12 +107,34 @@ enum { SIGNAL_FRAMESIZE = 64 };
     long new_cfa_;							\
     int i_;								\
 									\
-    /* li r0, 0x7777; sc  (rt_sigreturn)  */				\
-    /* li r0, 0x6666; sc  (sigreturn)  */				\
-    if (((*(unsigned int *) (pc_+0) == 0x38007777)			\
-	 || (*(unsigned int *) (pc_+0) == 0x38006666))			\
-	&& (*(unsigned int *) (pc_+4)  == 0x44000002))			\
-	sc_ = (CONTEXT)->cfa + SIGNAL_FRAMESIZE;			\
+    /* li r0, 0x7777; sc  (sigreturn old)  */				\
+    /* li r0, 0x0077; sc  (sigreturn new)  */				\
+    /* li r0, 0x6666; sc  (rt_sigreturn old)  */			\
+    /* li r0, 0x00AC; sc  (rt_sigreturn new)  */			\
+    if (*(unsigned int *) (pc_+4) != 0x44000002)			\
+      break;								\
+    if (*(unsigned int *) (pc_+0) == 0x38007777				\
+	|| *(unsigned int *) (pc_+0) == 0x38000077)			\
+      {									\
+	struct sigframe {						\
+	  char gap[SIGNAL_FRAMESIZE];					\
+	  struct sigcontext sigctx;					\
+	} *rt_ = (CONTEXT)->cfa;					\
+	sc_ = &rt_->sigctx;						\
+      }									\
+    else if (*(unsigned int *) (pc_+0) == 0x38006666			\
+	     || *(unsigned int *) (pc_+0) == 0x380000AC)		\
+      {									\
+	struct rt_sigframe {						\
+	  char gap[SIGNAL_FRAMESIZE];					\
+	  unsigned long _unused[2];					\
+	  struct siginfo *pinfo;					\
+	  void *puc;							\
+	  struct siginfo info;						\
+	  struct kernel_old_ucontext uc;				\
+	} *rt_ = (CONTEXT)->cfa;					\
+	sc_ = &rt_->uc.uc_mcontext;					\
+      }									\
     else								\
       break;								\
     									\
@@ -122,10 +155,6 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
 									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn.  */						\
-    sc_->regs->nip += 4;  						\
     (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
     (FS)->regs.reg[CR0_REGNO].loc.offset 				\
       = (long)&(sc_->regs->nip) - new_cfa_;				\

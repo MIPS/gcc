@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -182,9 +182,9 @@ public:
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
-    {
-      return accflags;
-    }
+  {
+    return accflags & java::lang::reflect::Modifier::ALL_FLAGS;
+  }
 
   jstring getName (void);
 
@@ -348,6 +348,7 @@ private:
 					      _Jv_Utf8Const *method_signature);
 
   friend void _Jv_PrepareClass (jclass);
+  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
@@ -360,6 +361,7 @@ private:
 
   friend class _Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::StackTrace;
+  friend class java::io::VMObjectStreamClass;
 
   // Chain for class pool.
   jclass next;

@@ -1,3 +1,192 @@
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-08-04  Release Manager
+
+	* GCC 3.3.1 Released.
+
+2003-06-19  Dara Hazeghi  <dhazeghi@yahoo.com>
+
+	* configure.in: Add check for malloc.h needed by
+	m68k for function free().
+	* configure: Regenerated.
+	* config.in: Add HAVE_MALLOC_H.
+	* hashtab.c: include malloc.h were available for
+	free().
+
+2003-06-09  Albert Chin-A-Young  <china@thewrittenword.com>
+	
+	PR bootstrap/10974
+	* physmem.c: Update comment.
+	* configure.in: Modify test for _system_configuration for older
+	AIX systems.
+
+	* config.in, configure: Regenerated.
+	
+2003-06-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR other/10810
+	* test-demangle.c (getline): Fix fence-post error.
+
+2003-05-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport from mainline:
+	2003-04-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	
+	* vsprintf.c: Include "ansidecl.h" earlier, rely on
+	ANSI_PROTOTYPES and possibly include <stdarg.h>.
+
+2003-05-14  Carlo Wood  <carlo@alinoe.com>
+
+	* cp-demangle.c: Fix typo in "char_traints" string-literal.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-05-13  Release Manager
+
+	* GCC 3.3 Released.
+
+2003-04-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR target/10338
+	PR bootstrap/10198
+	PR bootstrap/10140
+	* getopt.c (exchange, _getopt_initialize): Use mempcpy not
+	__mempcpy.
+	* regex.c (regerror): Likewise.
+
+2003-04-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (HAVE_UINTPTR_T): Always define.
+	* configure: Regenerated.
+
+2003-03-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (MULTIOSDIR): New macro.  Use $(CC) $(LIBCFLAGS)
+	instead of $$CC alone.
+	(install_to_tooldir): Use it.
+
+2003-03-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* cplus-dem.c: Add license exception to copyright notice.
+
+2003-02-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* physmem.c: Formatting changes from upstream.
+
+2003-02-24  Danny Smith  <dannysmith@users.source.forge.net>
+
+	* physmem.c (physmem_total): Add _WIN32 support.
+	(physmem_available): Likewise.
+
+2003-02-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* physmem.c (physmem_total) [HAVE_GETSYSINFO]: Test for
+	GSI_PHYSMEM.
+	(physmem_available) [HAVE_TABLE]: Test for TBL_VMSTATS.
+
+2003-02-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Check for sys/systemcfg.h and
+	_system_configuration.
+	* physmem.c: Add support for AIX.  Tweek formatting as per
+	upstream coreutils beta.
+
+2003-02-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Geoffrey Keating  <geoffk@apple.com>
+	
+	* configure.in: Check for sys/sysctl.h and sysctl.
+	* physmem.c: Add support for *bsd and darwin.
+	* Makefile.in: Generate depedency for physmem.o.
+
+2003-02-21  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* physmem.c (physmem_total) [HAVE_GETSYSINFO]: Use getsysinfo on
+	Tru64 UNIX.
+	(physmem_available) [HAVE_TABLE && HAVE_SYS_TABLE_H]: Use table on
+	Tru64 UNIX.
+
+	* configure.in (AC_CHECK_HEADERS): Check for sys/sysinfo.h,
+	machine/hal_sysinfo.h, sys/table.h.
+	(checkfuncs, AC_CHECKFUNCS): Check for getsysinfo, table.
+	* configure, config.in: Regenerate.
+
+2003-02-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Check for sys/sysmp.h and sysmp.
+	* physmem.c: Pull upstream copy, add support for irix6.
+
+	* config.in, configure: Regenerated.
+
+2003-02-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* physmem.c (physmem_total, physmem_available): De-ANSI-fy.
+	* configure.in (AC_CHECK_FUNCS): Add pstat_getstatic and
+	pstat_getdynamic.
+
+2003-02-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (CFILES): Add physmem.c.
+	(REQUIRED_OFILES): Add physmem.o.
+	* configure.in: Check for sys/pstat.h.
+	(checkfuncs): Add pstat_getstatic and pstat_getdynamic.
+	* physmem.c: New file, copied from textutils.
+
+	* config.in, configure: Regenerated.
+
+2003-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Propagate ORIGINAL_LD_FOR_MULTILIBS to
+	config.status.
+	* configure: Rebuilt.
+
+2003-02-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* acconfig.h: New file.  Add uintptr_t.
+	* config.in: Regenerated.
+
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* libiberty.texi: Update to GFDL 1.2.
+
+2003-02-02  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.in (libiberty_topdir): New subst.
+	(mkinstalldirs): Redefine in terms of the above.
+	* configure.in: AC_SUBST it.
+	* configure: Regenerate.
+
+2003-01-28  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.in (all-subdir, check-subdir, installcheck-subdir)
+	(info-subdir, install-info-subdir, clean-info-subdir)
+	(dvi-subdir, install-subdir, etags-subdir, mostlyclean-subdir)
+	(clean-subdir, distclean-subdir, maintainer-clean-subdir):
+	Pass $(FLAGS_TO_PASS).
+
+2003-01-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (install_to_tooldir): Instead of $(MULTISUBDIR), use
+	/`$$CC -print-multi-os-directory`.
+
+2003-01-26  Christian Cornelssen  <ccorn@cs.tu-berlin.de>
+
+	* Makefile.in (FLAGS_TO_PASS): Also pass DESTDIR.
+	(install_to_libdir, install_to_tooldir): Add a mkinstalldirs
+	command.
+
+2003-01-20  Josef Zlomek  <zlomekj@suse.cz>
+
+	* hashtab.c (htab_expand): Fix allocation of new entries.
+
 2002-12-04  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* make-relative-prefix.c (HAVE_HOST_EXECUTABLE_SUFFIX):

@@ -1,6 +1,6 @@
 // 2000-12-19 bkoz
 
-// Copyright (C) 2000, 2002 Free Software Foundation
+// Copyright (C) 2000, 2002, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,6 +19,12 @@
 // USA.
 
 // 27.4.2.5 ios_base storage functions
+
+// XXX This test will not work for some versions of irix6 because of
+// XXX bug(s) in libc malloc for very large allocations.  However
+// XXX -lmalloc seems to work.
+// See http://gcc.gnu.org/ml/gcc/2002-05/msg01012.html
+// { dg-options "-lmalloc" { target mips*-*-irix6* } }
 
 #include <sstream>
 #include <iostream>
@@ -49,10 +55,15 @@ void test02()
   std::stringbuf        strbuf;
   std::ios              ios(&strbuf);
 
+  ios.exceptions(std::ios::badbit);
+
   long l = 0;
   void* v = 0;
 
   // pword
+  ios.pword(1) = v;
+  VERIFY( ios.pword(1) == v );
+  
   try 
     {
       v = ios.pword(max);
@@ -68,7 +79,29 @@ void test02()
     }
   VERIFY( v == 0 );
 
+  VERIFY( ios.pword(1) == v );
+  
+  // max is different code path from max-1
+  v = &test;
+  try 
+    {
+      v = ios.pword(std::numeric_limits<int>::max());
+    }
+  catch(std::ios_base::failure& obj)
+    {
+      // Ok.
+      VERIFY( ios.bad() );
+    }
+  catch(...)
+    {
+      VERIFY( test = false );
+    }
+  VERIFY( v == &test );
+
   // iword
+  ios.iword(1) = 1;
+  VERIFY( ios.iword(1) == 1 );
+  
   try 
     {
       l = ios.iword(max);
@@ -83,11 +116,47 @@ void test02()
       VERIFY( test = false );
     }
   VERIFY( l == 0 );
+
+  VERIFY( ios.iword(1) == 1 );
+
+  // max is different code path from max-1
+  l = 1;
+  try 
+    {
+      l = ios.iword(std::numeric_limits<int>::max());
+    }
+  catch(std::ios_base::failure& obj)
+    {
+      // Ok.
+      VERIFY( ios.bad() );
+    }
+  catch(...)
+    {
+      VERIFY( test = false );
+    }
+  VERIFY( l == 1 );
+
+}
+
+class derived : public std::ios_base
+{
+public:
+  derived() {}
+};
+
+void test03()
+{
+  derived d;
+
+  d.pword(0) = &d;
+  d.iword(0) = 1;
 }
 
 int main(void)
 {
+  __gnu_cxx_test::set_memory_limits();
   test01();
   test02();
+  test03();
   return 0;
 }

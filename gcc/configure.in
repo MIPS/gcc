@@ -1,7 +1,8 @@
 # configure.in for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003
+# Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -300,8 +301,7 @@ no)	;;
 	;;
 esac
 ], 
-# Enable some checks by default for development versions of GCC
-[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;])
+[])
 nocommon_flag=""
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
@@ -547,7 +547,7 @@ gcc_AC_HEADER_STDBOOL
 gcc_AC_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
-		 fcntl.h unistd.h sys/file.h sys/time.h \
+		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h)
 
@@ -573,7 +573,7 @@ else
   # that we can use it.
   gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[1-9]*])
+  [4.[2-9]*])
 fi
 
 if test $gcc_cv_prog_makeinfo_modern = no; then
@@ -641,6 +641,15 @@ GNAT_LIBEXC="$LIBS"
 LIBS="$save_LIBS"
 AC_SUBST(GNAT_LIBEXC)
 
+# Some systems put ldexp and frexp in libm instead of libc; assume
+# they're both in the same place.  jcf-dump needs them.
+save_LIBS="$LIBS"
+LIBS=
+AC_SEARCH_LIBS(ldexp, m)
+LDEXP_LIB="$LIBS"
+LIBS="$save_LIBS"
+AC_SUBST(LDEXP_LIB)
+
 # See if the stage1 system preprocessor understands the ANSI C
 # preprocessor stringification operator.  (Used by symcat.h.)
 AC_C_STRINGIZE
@@ -667,7 +676,7 @@ dnl gcc_AC_C_ENUM_BF_UNSIGNED
 AC_CHECK_FUNCS(times clock dup2 kill getrlimit setrlimit atoll atoq \
 	sysconf strsignal putc_unlocked fputc_unlocked fputs_unlocked \
 	fwrite_unlocked fprintf_unlocked getrusage nl_langinfo lstat \
-        scandir alphasort)
+        scandir alphasort gettimeofday mmap)
 
 AC_CHECK_TYPE(ssize_t, int)
 
@@ -692,6 +701,7 @@ fi
 AC_SUBST(TARGET_GETGROUPS_T)
 
 gcc_AC_FUNC_PRINTF_PTR
+gcc_AC_FUNC_MMAP_BLACKLIST
 
 case "${host}" in
 *-*-uwin*)
@@ -707,8 +717,6 @@ case "${host}" in
   ;;
 esac
 AC_FUNC_VFORK
-AC_FUNC_MMAP_ANYWHERE
-AC_FUNC_MMAP_FILE
 
 AM_ICONV
 
@@ -729,6 +737,15 @@ gcc_AC_CHECK_DECLS(getrlimit setrlimit getrusage, , ,[
 #include <sys/resource.h>
 #endif
 ])
+
+AC_TRY_COMPILE([
+#include "ansidecl.h"
+#include "system.h"
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
+],[rlim_t l = 0;],,[AC_DEFINE([rlim_t],[long],
+[Define to \`long' if <sys/resource.h> doesn't define.])])
 
 gcc_AC_CHECK_DECLS(times, , ,[
 #include "ansidecl.h"
@@ -1599,8 +1616,8 @@ elif test x$gcc_cv_as != x; then
 	ld_ver=`$gcc_cv_ld --version 2>/dev/null | head -1`
 	if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-		ld_vers=`echo $ld_ver | sed -n 's,^.*[ 	]\([0-9][0-9]*\.[0-9][0-9]*\(\|\.[0-9][0-9]*\)\)\([ 	].*\|\)$,\1,p'`
-		ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
+               ld_vers=`echo $ld_ver | sed -n 's,^.*[  ]\([0-9][0-9]*\.[0-9][0-9]*\(\|\.[0-9][0-9]*\(\|\.[0-9][0-9]*\)\)\)\([  ].*\|\)$,\1,p'`
+               ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
 		if test 0"$ld_date" -lt 20020404; then
 			if test -n "$ld_date"; then
 				# If there was date string, but was earlier than 2002-04-04, fail
@@ -1633,10 +1650,14 @@ fi
 AC_MSG_RESULT($gcc_cv_as_hidden)
 libgcc_visibility=$gcc_cv_as_hidden
 case "$target" in
-  mips-sgi-irix6*o32)
+  mips-sgi-irix6*)
     if test x"$gnu_ld_flag" = x"no"; then
       # Even if using gas with .hidden support, the resulting object files
-      # cannot be linked with the IRIX 6 O32 linker.
+      # cannot be linked with the IRIX 6 O32 linker.  With the N32 and
+      # N64 linkers, the problem is that the linker refuses to accept
+      # -call_shared (passed by default to the linker) and -r (used to
+      # link the object file generated without .hidden directives with
+      # one that hides symbols), so we also lose.
       libgcc_visibility=no
     fi
     ;;
@@ -1864,6 +1885,41 @@ foo:	data8	25
 	movl	r24 = @tprel(foo#)'
 	tls_first_major=2
 	tls_first_minor=13
+	;;
+  s390-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	.long	foo@TLSGD
+	.long	foo@TLSLDM
+	.long	foo@DTPOFF
+	.long	foo@NTPOFF
+	.long	foo@GOTNTPOFF
+	.long	foo@INDNTPOFF
+	l	%r1,foo@GOTNTPOFF(%r12)
+	l	%r1,0(%r1):tls_load:foo
+	bas	%r14,0(%r1,%r13):tls_gdcall:foo
+	bas	%r14,0(%r1,%r13):tls_ldcall:foo'
+	tls_first_major=2
+	tls_first_minor=14
+	;;
+  s390x-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+foo:	.long	25
+	.text
+	.quad	foo@TLSGD
+	.quad	foo@TLSLDM
+	.quad	foo@DTPOFF
+	.quad	foo@NTPOFF
+	.quad	foo@GOTNTPOFF
+	lg	%r1,foo@GOTNTPOFF(%r12)
+	larl	%r1,foo@INDNTPOFF
+	brasl	%r14,__tls_get_offset@PLT:tls_gdcall:foo
+	brasl	%r14,__tls_get_offset@PLT:tls_ldcall:foo'
+	tls_first_major=2
+	tls_first_minor=14
 	;;
 esac
 if test -z "$tls_first_major"; then
@@ -2101,6 +2157,41 @@ EOF
       [Define true if the assembler supports '.long foo@GOTOFF'.])
     AC_MSG_RESULT($gcc_cv_as_gotoff_in_data)
     ;;
+
+  ia64*-*-*)
+    AC_CACHE_CHECK([assembler supports ltoffx and ldxmov],
+	gcc_cv_as_ltoffx_ldxmov_relocs, [
+	gcc_cv_as_ltoffx_ldxmov_relocs=unknown
+	if test x$gcc_cv_gas_major_version != x \
+		-a x$gcc_cv_gas_minor_version != x
+	then
+	   if test "$gcc_cv_gas_major_version" -eq 2 \
+	           -a "$gcc_cv_gas_minor_version" -ge 14 \
+	           -o "$gcc_cv_gas_major_version" -gt 2; then
+	      gcc_cv_as_ltoffx_ldxmov_relocs=yes
+	   fi
+	elif test x$gcc_cv_as != x; then
+	    cat > conftest.s << 'EOF'
+changequote(,)dnl
+	.text
+	addl r15 = @ltoffx(x#), gp
+	;;
+	ld8.mov r16 = [r15], x#
+EOF
+changequote([,])dnl
+	    if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+		gcc_cv_as_ltoffx_ldxmov_relocs=yes
+	    else
+		gcc_cv_as_ltoffx_ldxmov_relocs=no
+	    fi
+	    rm -f conftest.s conftest.o
+	fi
+    ])
+    if test "x$gcc_cv_as_ltoffx_ldxmov_relocs" = xyes; then
+	AC_DEFINE(HAVE_AS_LTOFFX_LDXMOV_RELOCS, 1,
+	  [Define if your assembler supports ltoffx and ldxmov relocations.])
+    fi
+    ;;
 esac
 
 AC_MSG_CHECKING(assembler dwarf2 debug_line support)
@@ -2200,6 +2291,13 @@ elif test x$gcc_cv_as != x -a x"$insn" != x ; then
 	# ??? This fails with non-gnu grep.
 	if $gcc_cv_as --gstabs -o conftest.o conftest.s > /dev/null 2>&1 ; then
 	  gcc_cv_as_gstabs_flag="yes"
+	  # The native Solaris 9/Intel assembler doesn't understand --gstabs
+	  # and warns about it, but still exits successfully.  So check for
+	  # this.
+	  if $gcc_cv_as --gstabs -o conftest.o conftest.s 2>&1 | \
+		grep -i warning > /dev/null ; then
+	    gcc_cv_as_gstabs_flag="no"
+	  fi
 	fi
 	rm -f conftest.s conftest.o
 fi
@@ -2216,18 +2314,18 @@ if test x$gcc_cv_gld_major_version != x -a x$gcc_cv_gld_minor_version != x; then
     gcc_cv_ld_ro_rw_mix=read-write
   fi
 elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
-  echo '.section "myfoosect", "a"' > conftest1.s
-  echo '.section "myfoosect", "aw"' > conftest2.s
+  echo '.section myfoosect, "a"' > conftest1.s
+  echo '.section myfoosect, "aw"' > conftest2.s
   echo '.byte 1' >> conftest2.s
-  echo '.section "myfoosect", "a"' > conftest3.s
+  echo '.section myfoosect, "a"' > conftest3.s
   echo '.byte 0' >> conftest3.s
-  if $gcc_cv_as -o conftest1.o conftest1.s \
-     && $gcc_cv_as -o conftest2.o conftest2.s \
-     && $gcc_cv_as -o conftest3.o conftest3.s \
+  if $gcc_cv_as -o conftest1.o conftest1.s > /dev/null 2>&1 \
+     && $gcc_cv_as -o conftest2.o conftest2.s > /dev/null 2>&1 \
+     && $gcc_cv_as -o conftest3.o conftest3.s > /dev/null 2>&1 \
      && $gcc_cv_ld -shared -o conftest1.so conftest1.o \
-	conftest2.o conftest3.o; then
+	conftest2.o conftest3.o > /dev/null 2>&1; then
     gcc_cv_ld_ro_rw_mix=`$gcc_cv_objdump -h conftest1.so \
-			 | grep -A1 myfoosect`
+			 | sed -e '/myfoosect/!d' -e N`
     if echo "$gcc_cv_ld_ro_rw_mix" | grep CONTENTS > /dev/null; then
       if echo "$gcc_cv_ld_ro_rw_mix" | grep READONLY > /dev/null; then
 	gcc_cv_ld_ro_rw_mix=read-only

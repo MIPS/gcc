@@ -22,15 +22,15 @@ dnl --with-target-subdir, --with-multisrctop, --with-multisubdir
 
 if test "${srcdir}" = "."; then
   if test "${with_target_subdir}" != "."; then
-    libffi_basedir="${srcdir}/${with_multisrctop}.."
+    libffi_basedir="${with_multisrctop}../"
   else
-    libffi_basedir="${srcdir}/${with_multisrctop}"
+    libffi_basedir="${with_multisrctop}"
   fi
 else
-  libffi_basedir="${srcdir}"
+  libffi_basedir=
 fi
 AC_SUBST(libffi_basedir)
-AC_CONFIG_AUX_DIR(${libffi_basedir}/..)
+AC_CONFIG_AUX_DIR(${libffi_basedir}..)
 
 AC_CANONICAL_HOST
 
@@ -133,6 +133,19 @@ if test x$TARGET = xSPARC; then
 	AC_DEFINE(HAVE_AS_SPARC_UA_PCREL, 1,
 		  [Define if your assembler and linker support unaligned PC relative relocs.])
     fi
+
+    AC_CACHE_CHECK([assembler .register pseudo-op support],
+       libffi_cv_as_register_pseudo_op, [
+       libffi_cv_as_register_pseudo_op=unknown
+       # Check if we have .register
+       AC_TRY_COMPILE([asm (".register %g2, #scratch");],,
+                       [libffi_cv_as_register_pseudo_op=yes],
+                       [libffi_cv_as_register_pseudo_op=no])
+    ])
+    if test "x$libffi_cv_as_register_pseudo_op" = xyes; then
+       AC_DEFINE(HAVE_AS_REGISTER_PSEUDO_OP, 1,
+               [Define if your assembler supports .register.])
+    fi
 fi
 
 AC_SUBST(TARGET)
@@ -164,7 +177,17 @@ AC_ARG_ENABLE(purify-safety,
     AC_DEFINE(USING_PURIFY)
   fi)
 
-AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
+if test -n "$with_cross_host" &&
+   test x"$with_cross_host" != x"no"; then
+  toolexecdir='$(exec_prefix)/$(target_alias)'
+  toolexeclibdir='$(toolexecdir)/lib'
+else
+  toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
+  toolexeclibdir='$(libdir)'
+fi
+toolexeclibdir=$toolexeclibdir/`$CC -print-multi-os-directory`
+AC_SUBST(toolexecdir)
+AC_SUBST(toolexeclibdir)
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"
@@ -176,7 +199,7 @@ AC_OUTPUT(include/Makefile include/ffi.h Makefile,
 [
 if test -n "$CONFIG_FILES"; then
    LD="${ORIGINAL_LD_FOR_MULTILIBS}"
-   ac_file=Makefile . ${libffi_basedir}/../config-ml.in
+   ac_file=Makefile . ${srcdir}/${libffi_basedir}../config-ml.in
 fi
 ],
 srcdir=${srcdir}
@@ -188,6 +211,7 @@ CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 libffi_basedir=${libffi_basedir}
 CC="${CC}"
 DEFS="$DEFS"
+ORIGINAL_LD_FOR_MULTILIBS="${ORIGINAL_LD_FOR_MULTILIBS}"
 test ! -d include && mkdir include
 test ! -f include/fficonfig.h && cp fficonfig.h include/fficonfig.h
 if cmp -s fficonfig.h include/fficonfig.h 2>/dev/null; then 

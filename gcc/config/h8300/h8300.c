@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Hitachi H8/300.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -782,7 +782,9 @@ general_operand_src (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == POST_INC)
+  if (GET_MODE (op) == mode
+      && GET_CODE (op) == MEM
+      && GET_CODE (XEXP (op, 0)) == POST_INC)
     return 1;
   return general_operand (op, mode);
 }
@@ -795,7 +797,9 @@ general_operand_dst (op, mode)
      rtx op;
      enum machine_mode mode;
 {
-  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == PRE_DEC)
+  if (GET_MODE (op) == mode
+      && GET_CODE (op) == MEM
+      && GET_CODE (XEXP (op, 0)) == PRE_DEC)
     return 1;
   return general_operand (op, mode);
 }
@@ -1700,9 +1704,11 @@ h8300_initial_elimination_offset (from, to)
      int from, to;
 {
   int offset = 0;
+  /* The number of bytes that the return address takes on the stack.  */
+  int pc_size = POINTER_SIZE / BITS_PER_UNIT;
 
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    offset = UNITS_PER_WORD + frame_pointer_needed * UNITS_PER_WORD;
+    offset = pc_size + frame_pointer_needed * UNITS_PER_WORD;
   else if (from == RETURN_ADDRESS_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
     offset = frame_pointer_needed * UNITS_PER_WORD;
   else
@@ -1719,11 +1725,9 @@ h8300_initial_elimination_offset (from, to)
       offset += round_frame_size (get_frame_size ());
 
       if (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM)
-	offset += UNITS_PER_WORD;	/* Skip saved PC */
+	/* Skip saved PC.  */
+	offset += pc_size;
     }
-
-  if ((TARGET_H8300H || TARGET_H8300S) && TARGET_NORMAL_MODE)
-    offset -= 2;
 
   return offset;
 }
@@ -1755,6 +1759,8 @@ notice_update_cc (body, insn)
      rtx body;
      rtx insn;
 {
+  rtx set;
+
   switch (get_attr_cc (insn))
     {
     case CC_NONE:
@@ -1777,7 +1783,10 @@ notice_update_cc (body, insn)
 	 that's ok because alter_cond will change tests to use EQ/NE.  */
       CC_STATUS_INIT;
       cc_status.flags |= CC_OVERFLOW_UNUSABLE | CC_NO_CARRY;
-      cc_status.value1 = recog_data.operand[0];
+      set = single_set (insn);
+      cc_status.value1 = SET_SRC (set);
+      if (SET_DEST (set) != cc0_rtx)
+	cc_status.value2 = SET_DEST (set);
       break;
 
     case CC_SET_ZNV:
@@ -1786,9 +1795,10 @@ notice_update_cc (body, insn)
 	 alter_cond will change tests to use EQ/NE.  */
       CC_STATUS_INIT;
       cc_status.flags |= CC_NO_CARRY;
-      cc_status.value1 = recog_data.operand[0];
-      if (GET_CODE (body) == SET && REG_P (SET_SRC (body)))
-	cc_status.value2 = SET_SRC (body);
+      set = single_set (insn);
+      cc_status.value1 = SET_SRC (set);
+      if (SET_DEST (set) != cc0_rtx)
+	cc_status.value2 = SET_DEST (set);
       break;
 
     case CC_COMPARE:
@@ -1802,6 +1812,40 @@ notice_update_cc (body, insn)
       CC_STATUS_INIT;
       break;
     }
+}
+
+/* Return nonzero if X is a stack pointer.  */
+
+int
+stack_pointer_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return x == stack_pointer_rtx;
+}
+
+/* Return nonzero if X is a constant whose absolute value is greater
+   than 2.  */
+
+int
+const_int_gt_2_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && abs (INTVAL (x)) > 2);
+}
+
+/* Return nonzero if X is a constant whose absolute value is no
+   smaller than 8.  */
+
+int
+const_int_ge_8_operand (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (x) == CONST_INT
+	  && abs (INTVAL (x)) >= 8);
 }
 
 /* Recognize valid operators for bit instructions.  */

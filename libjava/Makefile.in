@@ -65,6 +65,7 @@ target_alias = @target_alias@
 target_triplet = @target@
 AR = @AR@
 AS = @AS@
+BACKTRACESPEC = @BACKTRACESPEC@
 CC = @CC@
 CHECKREFSPEC = @CHECKREFSPEC@
 COMPPATH = @COMPPATH@
@@ -85,6 +86,7 @@ GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
+IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
@@ -127,18 +129,20 @@ here = @here@
 libgcj_basedir = @libgcj_basedir@
 mkinstalldirs = @mkinstalldirs@
 tool_include_dir = @tool_include_dir@
+toolexecdir = @toolexecdir@
+toolexeclibdir = @toolexeclibdir@
+toolexecmainlibdir = @toolexecmainlibdir@
 
 AUTOMAKE_OPTIONS = foreign
 @TESTSUBDIR_TRUE@SUBDIRS = @TESTSUBDIR_TRUE@$(DIRLTDL) testsuite gcj include
 @TESTSUBDIR_FALSE@SUBDIRS = @TESTSUBDIR_FALSE@$(DIRLTDL) gcj include
-@USE_LIBDIR_TRUE@toolexeclibdir = @USE_LIBDIR_TRUE@$(libdir)$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexeclibdir = @USE_LIBDIR_FALSE@$(toolexecdir)/lib$(MULTISUBDIR)
-@USE_LIBDIR_FALSE@toolexecdir = @USE_LIBDIR_FALSE@$(exec_prefix)/$(target_alias)
-@XLIB_AWT_TRUE@cond_x_ltlibrary = @XLIB_AWT_TRUE@libgcjx.la
+@XLIB_AWT_TRUE@cond_x_ltlibrary = @XLIB_AWT_TRUE@lib-gnu-awt-xlib.la
 @XLIB_AWT_FALSE@cond_x_ltlibrary = 
+@XLIB_AWT_TRUE@xlib_includes = @XLIB_AWT_TRUE@-I../libstdc++-v3/include -I../libstdc++-v3/include/$(target_alias) -I$(srcdir)/../libstdc++-v3/libsupc++
+@XLIB_AWT_FALSE@xlib_includes = 
 
-toolexeclib_LTLIBRARIES = libgcj.la $(cond_x_ltlibrary)
-toolexeclib_DATA = libgcj.spec
+toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la $(cond_x_ltlibrary)
+toolexecmainlib_DATA = libgcj.spec
 
 jardir = $(datadir)/java
 jar_DATA = libgcj-@gcc_version@.jar
@@ -182,7 +186,7 @@ JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
 LIBFFIINCS = @LIBFFIINCS@
 
 INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
-	$(GCINCS) $(THREADINCS) $(INCLTDL) \
+	$(GCINCS) $(THREADINCS) $(INCLTDL) $(xlib_includes) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 
@@ -218,19 +222,81 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 
 libgcj_la_LINK = $(LIBLINK)
 
-libgcjx_la_SOURCES = $(x_nat_source_files)
-EXTRA_libgcjx_la_SOURCES = $(x_java_source_files)
-libgcjx_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
-libgcjx_la_LIBADD = $(x_javao_files)
-libgcjx_la_LDFLAGS = @X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
+lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
+org/w3c/dom/CDATASection.java \
+org/w3c/dom/CharacterData.java \
+org/w3c/dom/Comment.java \
+org/w3c/dom/DOMException.java \
+org/w3c/dom/DOMImplementation.java \
+org/w3c/dom/Document.java \
+org/w3c/dom/DocumentFragment.java \
+org/w3c/dom/DocumentType.java \
+org/w3c/dom/Element.java \
+org/w3c/dom/Entity.java \
+org/w3c/dom/EntityReference.java \
+org/w3c/dom/NamedNodeMap.java \
+org/w3c/dom/Node.java \
+org/w3c/dom/NodeList.java \
+org/w3c/dom/Notation.java \
+org/w3c/dom/ProcessingInstruction.java \
+org/w3c/dom/Text.java \
+org/w3c/dom/ranges/DocumentRange.java \
+org/w3c/dom/ranges/Range.java \
+org/w3c/dom/ranges/RangeException.java \
+org/w3c/dom/traversal/DocumentTraversal.java \
+org/w3c/dom/traversal/NodeFilter.java \
+org/w3c/dom/traversal/NodeIterator.java \
+org/w3c/dom/traversal/TreeWalker.java
+
+
+lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
+org/xml/sax/ext/LexicalHandler.java \
+org/xml/sax/helpers/AttributeListImpl.java \
+org/xml/sax/helpers/AttributesImpl.java \
+org/xml/sax/helpers/DefaultHandler.java \
+org/xml/sax/helpers/LocatorImpl.java \
+org/xml/sax/helpers/NamespaceSupport.java \
+org/xml/sax/helpers/NewInstance.java \
+org/xml/sax/helpers/ParserAdapter.java \
+org/xml/sax/helpers/ParserFactory.java \
+org/xml/sax/helpers/XMLFilterImpl.java \
+org/xml/sax/helpers/XMLReaderAdapter.java \
+org/xml/sax/helpers/XMLReaderFactory.java \
+org/xml/sax/AttributeList.java \
+org/xml/sax/Attributes.java \
+org/xml/sax/ContentHandler.java \
+org/xml/sax/DTDHandler.java \
+org/xml/sax/DocumentHandler.java \
+org/xml/sax/EntityResolver.java \
+org/xml/sax/ErrorHandler.java \
+org/xml/sax/HandlerBase.java \
+org/xml/sax/InputSource.java \
+org/xml/sax/Locator.java \
+org/xml/sax/Parser.java \
+org/xml/sax/SAXException.java \
+org/xml/sax/SAXNotRecognizedException.java \
+org/xml/sax/SAXNotSupportedException.java \
+org/xml/sax/SAXParseException.java \
+org/xml/sax/XMLFilter.java \
+org/xml/sax/XMLReader.java
+
+
+lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
+EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
+lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
+lib_gnu_awt_xlib_la_LIBADD = $(x_javao_files)
+lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
+	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
-libgcjx_la_LINK = $(LIBLINK)
+lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
 all_java_source_files = \
     $(java_source_files) \
     $(built_java_source_files) \
+    $(lib_org_xml_sax_la_SOURCES) \
+    $(lib_org_w3c_dom_la_SOURCES) \
     $(x_java_source_files)
 
 
@@ -1035,6 +1101,7 @@ java/rmi/server/LogStream.java \
 java/rmi/server/ObjID.java \
 java/rmi/server/Operation.java \
 java/rmi/server/RMIClassLoader.java \
+java/rmi/server/RMIClassLoaderSpi.java \
 java/rmi/server/RMIClientSocketFactory.java \
 java/rmi/server/RMIFailureHandler.java \
 java/rmi/server/RMIServerSocketFactory.java \
@@ -1385,6 +1452,7 @@ java/io/StringWriter.java \
 java/io/SyncFailedException.java \
 java/io/UTFDataFormatException.java \
 java/io/UnsupportedEncodingException.java \
+java/io/VMObjectStreamClass.java \
 java/io/WriteAbortedException.java \
 java/io/Writer.java \
 java/util/AbstractCollection.java \
@@ -1623,6 +1691,21 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/nio/ByteBufferImpl.java \
+gnu/java/nio/CharBufferImpl.java \
+gnu/java/nio/DatagramChannelImpl.java \
+gnu/java/nio/DoubleBufferImpl.java \
+gnu/java/nio/FileChannelImpl.java \
+gnu/java/nio/FloatBufferImpl.java \
+gnu/java/nio/IntBufferImpl.java \
+gnu/java/nio/LongBufferImpl.java \
+gnu/java/nio/PipeImpl.java \
+gnu/java/nio/SelectionKeyImpl.java \
+gnu/java/nio/SelectorImpl.java \
+gnu/java/nio/SelectorProviderImpl.java \
+gnu/java/nio/ServerSocketChannelImpl.java \
+gnu/java/nio/ShortBufferImpl.java \
+gnu/java/nio/SocketChannelImpl.java \
 gnu/java/nio/charset/ISO_8859_1.java \
 gnu/java/nio/charset/Provider.java \
 gnu/java/nio/charset/US_ASCII.java \
@@ -1725,20 +1808,27 @@ java/nio/BufferUnderflowException.java \
 java/nio/ByteBuffer.java \
 java/nio/ByteOrder.java \
 java/nio/CharBuffer.java \
+java/nio/DoubleBuffer.java \
+java/nio/FloatBuffer.java \
+java/nio/IntBuffer.java \
 java/nio/InvalidMarkException.java \
+java/nio/LongBuffer.java \
 java/nio/MappedByteBuffer.java \
 java/nio/ReadOnlyBufferException.java \
+java/nio/ShortBuffer.java \
 java/nio/channels/AlreadyConnectedException.java \
 java/nio/channels/AsynchronousCloseException.java \
 java/nio/channels/ByteChannel.java \
 java/nio/channels/CancelledKeyException.java \
 java/nio/channels/Channel.java \
+java/nio/channels/Channels.java \
 java/nio/channels/ClosedByInterruptException.java \
 java/nio/channels/ClosedChannelException.java \
 java/nio/channels/ClosedSelectorException.java \
 java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
 java/nio/channels/FileChannel.java \
+java/nio/channels/FileLock.java \
 java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
 java/nio/channels/IllegalBlockingModeException.java \
@@ -1970,60 +2060,6 @@ java/util/zip/ZipException.java	\
 java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
-org/w3c/dom/Attr.java \
-org/w3c/dom/CDATASection.java \
-org/w3c/dom/CharacterData.java \
-org/w3c/dom/Comment.java \
-org/w3c/dom/DOMException.java \
-org/w3c/dom/DOMImplementation.java \
-org/w3c/dom/Document.java \
-org/w3c/dom/DocumentFragment.java \
-org/w3c/dom/DocumentType.java \
-org/w3c/dom/Element.java \
-org/w3c/dom/Entity.java \
-org/w3c/dom/EntityReference.java \
-org/w3c/dom/NamedNodeMap.java \
-org/w3c/dom/Node.java \
-org/w3c/dom/NodeList.java \
-org/w3c/dom/Notation.java \
-org/w3c/dom/ProcessingInstruction.java \
-org/w3c/dom/Text.java \
-org/w3c/dom/ranges/DocumentRange.java \
-org/w3c/dom/ranges/Range.java \
-org/w3c/dom/ranges/RangeException.java \
-org/w3c/dom/traversal/DocumentTraversal.java \
-org/w3c/dom/traversal/NodeFilter.java \
-org/w3c/dom/traversal/NodeIterator.java \
-org/w3c/dom/traversal/TreeWalker.java \
-org/xml/sax/ext/DeclHandler.java \
-org/xml/sax/ext/LexicalHandler.java \
-org/xml/sax/helpers/AttributeListImpl.java \
-org/xml/sax/helpers/AttributesImpl.java \
-org/xml/sax/helpers/DefaultHandler.java \
-org/xml/sax/helpers/LocatorImpl.java \
-org/xml/sax/helpers/NamespaceSupport.java \
-org/xml/sax/helpers/ParserAdapter.java \
-org/xml/sax/helpers/ParserFactory.java \
-org/xml/sax/helpers/XMLFilterImpl.java \
-org/xml/sax/helpers/XMLReaderAdapter.java \
-org/xml/sax/helpers/XMLReaderFactory.java \
-org/xml/sax/AttributeList.java \
-org/xml/sax/Attributes.java \
-org/xml/sax/ContentHandler.java \
-org/xml/sax/DTDHandler.java \
-org/xml/sax/DocumentHandler.java \
-org/xml/sax/EntityResolver.java \
-org/xml/sax/ErrorHandler.java \
-org/xml/sax/HandlerBase.java \
-org/xml/sax/InputSource.java \
-org/xml/sax/Locator.java \
-org/xml/sax/Parser.java \
-org/xml/sax/SAXException.java \
-org/xml/sax/SAXNotRecognizedException.java \
-org/xml/sax/SAXNotSupportedException.java \
-org/xml/sax/SAXParseException.java \
-org/xml/sax/XMLFilter.java \
-org/xml/sax/XMLReader.java \
 $(rmi_java_source_files) \
 $(awt_java_source_files) \
 $(convert_source_files) \
@@ -2070,10 +2106,20 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
+gnu/java/nio/natByteBufferImpl.cc \
+gnu/java/nio/natCharBufferImpl.cc \
+gnu/java/nio/natDoubleBufferImpl.cc \
+gnu/java/nio/natFileChannelImpl.cc \
+gnu/java/nio/natFloatBufferImpl.cc \
+gnu/java/nio/natIntBufferImpl.cc \
+gnu/java/nio/natLongBufferImpl.cc \
+gnu/java/nio/natSelectorImpl.cc \
+gnu/java/nio/natShortBufferImpl.cc \
+gnu/java/nio/natSocketChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natFileDescriptor.cc \
 java/io/natObjectInputStream.cc \
-java/io/natObjectOutputStream.cc \
+java/io/natVMObjectStreamClass.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \
@@ -2240,9 +2286,14 @@ gnu/gcj/io/shs.lo gnu/gcj/protocol/core/natCoreInputStream.lo \
 gnu/gcj/runtime/natFinalizerThread.lo gnu/gcj/runtime/natFirstThread.lo \
 gnu/gcj/runtime/natNameFinder.lo gnu/gcj/runtime/natSharedLibLoader.lo \
 gnu/gcj/runtime/natStackTrace.lo gnu/gcj/runtime/natStringBuffer.lo \
-gnu/gcj/runtime/natVMClassLoader.lo java/io/natFile.lo \
+gnu/gcj/runtime/natVMClassLoader.lo gnu/java/nio/natByteBufferImpl.lo \
+gnu/java/nio/natCharBufferImpl.lo gnu/java/nio/natDoubleBufferImpl.lo \
+gnu/java/nio/natFileChannelImpl.lo gnu/java/nio/natFloatBufferImpl.lo \
+gnu/java/nio/natIntBufferImpl.lo gnu/java/nio/natLongBufferImpl.lo \
+gnu/java/nio/natSelectorImpl.lo gnu/java/nio/natShortBufferImpl.lo \
+gnu/java/nio/natSocketChannelImpl.lo java/io/natFile.lo \
 java/io/natFileDescriptor.lo java/io/natObjectInputStream.lo \
-java/io/natObjectOutputStream.lo java/lang/natCharacter.lo \
+java/io/natVMObjectStreamClass.lo java/lang/natCharacter.lo \
 java/lang/natClass.lo java/lang/natClassLoader.lo \
 java/lang/natConcreteProcess.lo java/lang/natDouble.lo \
 java/lang/natFloat.lo java/lang/natMath.lo java/lang/natObject.lo \
@@ -2257,7 +2308,47 @@ java/net/natPlainDatagramSocketImpl.lo java/net/natPlainSocketImpl.lo \
 java/text/natCollator.lo java/util/natResourceBundle.lo \
 java/util/natTimeZone.lo java/util/zip/natDeflater.lo \
 java/util/zip/natInflater.lo
-libgcjx_la_OBJECTS =  gnu/gcj/xlib/natClip.lo \
+lib_org_xml_sax_la_LDFLAGS = 
+lib_org_xml_sax_la_LIBADD = 
+lib_org_xml_sax_la_OBJECTS =  org/xml/sax/ext/DeclHandler.lo \
+org/xml/sax/ext/LexicalHandler.lo \
+org/xml/sax/helpers/AttributeListImpl.lo \
+org/xml/sax/helpers/AttributesImpl.lo \
+org/xml/sax/helpers/DefaultHandler.lo \
+org/xml/sax/helpers/LocatorImpl.lo \
+org/xml/sax/helpers/NamespaceSupport.lo \
+org/xml/sax/helpers/NewInstance.lo org/xml/sax/helpers/ParserAdapter.lo \
+org/xml/sax/helpers/ParserFactory.lo \
+org/xml/sax/helpers/XMLFilterImpl.lo \
+org/xml/sax/helpers/XMLReaderAdapter.lo \
+org/xml/sax/helpers/XMLReaderFactory.lo org/xml/sax/AttributeList.lo \
+org/xml/sax/Attributes.lo org/xml/sax/ContentHandler.lo \
+org/xml/sax/DTDHandler.lo org/xml/sax/DocumentHandler.lo \
+org/xml/sax/EntityResolver.lo org/xml/sax/ErrorHandler.lo \
+org/xml/sax/HandlerBase.lo org/xml/sax/InputSource.lo \
+org/xml/sax/Locator.lo org/xml/sax/Parser.lo \
+org/xml/sax/SAXException.lo org/xml/sax/SAXNotRecognizedException.lo \
+org/xml/sax/SAXNotSupportedException.lo \
+org/xml/sax/SAXParseException.lo org/xml/sax/XMLFilter.lo \
+org/xml/sax/XMLReader.lo
+lib_org_w3c_dom_la_LDFLAGS = 
+lib_org_w3c_dom_la_LIBADD = 
+lib_org_w3c_dom_la_OBJECTS =  org/w3c/dom/Attr.lo \
+org/w3c/dom/CDATASection.lo org/w3c/dom/CharacterData.lo \
+org/w3c/dom/Comment.lo org/w3c/dom/DOMException.lo \
+org/w3c/dom/DOMImplementation.lo org/w3c/dom/Document.lo \
+org/w3c/dom/DocumentFragment.lo org/w3c/dom/DocumentType.lo \
+org/w3c/dom/Element.lo org/w3c/dom/Entity.lo \
+org/w3c/dom/EntityReference.lo org/w3c/dom/NamedNodeMap.lo \
+org/w3c/dom/Node.lo org/w3c/dom/NodeList.lo org/w3c/dom/Notation.lo \
+org/w3c/dom/ProcessingInstruction.lo org/w3c/dom/Text.lo \
+org/w3c/dom/ranges/DocumentRange.lo org/w3c/dom/ranges/Range.lo \
+org/w3c/dom/ranges/RangeException.lo \
+org/w3c/dom/traversal/DocumentTraversal.lo \
+org/w3c/dom/traversal/NodeFilter.lo \
+org/w3c/dom/traversal/NodeIterator.lo \
+org/w3c/dom/traversal/TreeWalker.lo
+lib_gnu_awt_xlib_la_OBJECTS =  gnu/gcj/xlib/natClip.lo \
 gnu/gcj/xlib/natColormap.lo gnu/gcj/xlib/natDisplay.lo \
 gnu/gcj/xlib/natDrawable.lo gnu/gcj/xlib/natFont.lo \
 gnu/gcj/xlib/natGC.lo gnu/gcj/xlib/natPixmap.lo \
@@ -2291,7 +2382,7 @@ COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CF
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-DATA =  $(jar_DATA) $(toolexeclib_DATA)
+DATA =  $(jar_DATA) $(toolexecmainlib_DATA)
 
 DIST_COMMON =  README COPYING ChangeLog Makefile.am Makefile.in NEWS \
 THANKS acinclude.m4 aclocal.m4 configure configure.in \
@@ -2553,7 +2644,19 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/locale/LocaleInformation_zh_HK.P \
 .deps/gnu/java/locale/LocaleInformation_zh_SG.P \
 .deps/gnu/java/locale/LocaleInformation_zh_TW.P \
-.deps/gnu/java/math/MPN.P .deps/gnu/java/nio/charset/ISO_8859_1.P \
+.deps/gnu/java/math/MPN.P .deps/gnu/java/nio/ByteBufferImpl.P \
+.deps/gnu/java/nio/CharBufferImpl.P \
+.deps/gnu/java/nio/DatagramChannelImpl.P \
+.deps/gnu/java/nio/DoubleBufferImpl.P \
+.deps/gnu/java/nio/FileChannelImpl.P \
+.deps/gnu/java/nio/FloatBufferImpl.P .deps/gnu/java/nio/IntBufferImpl.P \
+.deps/gnu/java/nio/LongBufferImpl.P .deps/gnu/java/nio/PipeImpl.P \
+.deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
+.deps/gnu/java/nio/SelectorProviderImpl.P \
+.deps/gnu/java/nio/ServerSocketChannelImpl.P \
+.deps/gnu/java/nio/ShortBufferImpl.P \
+.deps/gnu/java/nio/SocketChannelImpl.P \
+.deps/gnu/java/nio/charset/ISO_8859_1.P \
 .deps/gnu/java/nio/charset/Provider.P \
 .deps/gnu/java/nio/charset/US_ASCII.P \
 .deps/gnu/java/nio/charset/UTF_16.P \
@@ -2562,6 +2665,16 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/charset/UTF_16Encoder.P \
 .deps/gnu/java/nio/charset/UTF_16LE.P \
 .deps/gnu/java/nio/charset/UTF_8.P \
+.deps/gnu/java/nio/natByteBufferImpl.P \
+.deps/gnu/java/nio/natCharBufferImpl.P \
+.deps/gnu/java/nio/natDoubleBufferImpl.P \
+.deps/gnu/java/nio/natFileChannelImpl.P \
+.deps/gnu/java/nio/natFloatBufferImpl.P \
+.deps/gnu/java/nio/natIntBufferImpl.P \
+.deps/gnu/java/nio/natLongBufferImpl.P \
+.deps/gnu/java/nio/natSelectorImpl.P \
+.deps/gnu/java/nio/natShortBufferImpl.P \
+.deps/gnu/java/nio/natSocketChannelImpl.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectInputStream.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectOutputStream.P \
 .deps/gnu/java/rmi/dgc/DGCImpl.P .deps/gnu/java/rmi/dgc/DGCImpl_Skel.P \
@@ -2892,10 +3005,11 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/io/SyncFailedException.P \
 .deps/java/io/UTFDataFormatException.P \
 .deps/java/io/UnsupportedEncodingException.P \
+.deps/java/io/VMObjectStreamClass.P \
 .deps/java/io/WriteAbortedException.P .deps/java/io/Writer.P \
 .deps/java/io/natFile.P .deps/java/io/natFileDescriptor.P \
 .deps/java/io/natObjectInputStream.P \
-.deps/java/io/natObjectOutputStream.P \
+.deps/java/io/natVMObjectStreamClass.P \
 .deps/java/lang/AbstractMethodError.P \
 .deps/java/lang/ArithmeticException.P \
 .deps/java/lang/ArrayIndexOutOfBoundsException.P \
@@ -3029,19 +3143,22 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/BufferOverflowException.P \
 .deps/java/nio/BufferUnderflowException.P .deps/java/nio/ByteBuffer.P \
 .deps/java/nio/ByteOrder.P .deps/java/nio/CharBuffer.P \
-.deps/java/nio/InvalidMarkException.P .deps/java/nio/MappedByteBuffer.P \
-.deps/java/nio/ReadOnlyBufferException.P \
+.deps/java/nio/DoubleBuffer.P .deps/java/nio/FloatBuffer.P \
+.deps/java/nio/IntBuffer.P .deps/java/nio/InvalidMarkException.P \
+.deps/java/nio/LongBuffer.P .deps/java/nio/MappedByteBuffer.P \
+.deps/java/nio/ReadOnlyBufferException.P .deps/java/nio/ShortBuffer.P \
 .deps/java/nio/channels/AlreadyConnectedException.P \
 .deps/java/nio/channels/AsynchronousCloseException.P \
 .deps/java/nio/channels/ByteChannel.P \
 .deps/java/nio/channels/CancelledKeyException.P \
-.deps/java/nio/channels/Channel.P \
+.deps/java/nio/channels/Channel.P .deps/java/nio/channels/Channels.P \
 .deps/java/nio/channels/ClosedByInterruptException.P \
 .deps/java/nio/channels/ClosedChannelException.P \
 .deps/java/nio/channels/ClosedSelectorException.P \
 .deps/java/nio/channels/ConnectionPendingException.P \
 .deps/java/nio/channels/DatagramChannel.P \
 .deps/java/nio/channels/FileChannel.P \
+.deps/java/nio/channels/FileLock.P \
 .deps/java/nio/channels/FileLockInterruptionException.P \
 .deps/java/nio/channels/GatheringByteChannel.P \
 .deps/java/nio/channels/IllegalBlockingModeException.P \
@@ -3117,6 +3234,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/rmi/server/LoaderHandler.P .deps/java/rmi/server/LogStream.P \
 .deps/java/rmi/server/ObjID.P .deps/java/rmi/server/Operation.P \
 .deps/java/rmi/server/RMIClassLoader.P \
+.deps/java/rmi/server/RMIClassLoaderSpi.P \
 .deps/java/rmi/server/RMIClientSocketFactory.P \
 .deps/java/rmi/server/RMIFailureHandler.P \
 .deps/java/rmi/server/RMIServerSocketFactory.P \
@@ -3701,6 +3819,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/DefaultHandler.P \
 .deps/org/xml/sax/helpers/LocatorImpl.P \
 .deps/org/xml/sax/helpers/NamespaceSupport.P \
+.deps/org/xml/sax/helpers/NewInstance.P \
 .deps/org/xml/sax/helpers/ParserAdapter.P \
 .deps/org/xml/sax/helpers/ParserFactory.P \
 .deps/org/xml/sax/helpers/XMLFilterImpl.P \
@@ -3708,8 +3827,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
 .deps/posix.P .deps/prims.P .deps/resolve.P .deps/verify.P \
 .deps/win32-threads.P .deps/win32.P
-SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(libgcjx_la_SOURCES) $(EXTRA_libgcjx_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
-OBJECTS = $(libgcj_la_OBJECTS) $(libgcjx_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
+SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
+OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -3795,6 +3914,12 @@ clean-libtool:
 distclean-libtool:
 
 maintainer-clean-libtool:
+
+lib-org-xml-sax.la: $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_org_xml_sax_la_LDFLAGS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_LIBADD) $(LIBS)
+
+lib-org-w3c-dom.la: $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_org_w3c_dom_la_LDFLAGS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_LIBADD) $(LIBS)
 
 mostlyclean-binPROGRAMS:
 
@@ -3894,23 +4019,23 @@ uninstall-jarDATA:
 	  rm -f $(DESTDIR)$(jardir)/$$p; \
 	done
 
-install-toolexeclibDATA: $(toolexeclib_DATA)
+install-toolexecmainlibDATA: $(toolexecmainlib_DATA)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(toolexeclibdir)
-	@list='$(toolexeclib_DATA)'; for p in $$list; do \
+	$(mkinstalldirs) $(DESTDIR)$(toolexecmainlibdir)
+	@list='$(toolexecmainlib_DATA)'; for p in $$list; do \
 	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(toolexeclibdir)/$$p"; \
-	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(toolexeclibdir)/$$p; \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(toolexecmainlibdir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(toolexecmainlibdir)/$$p; \
 	  else if test -f $$p; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(toolexeclibdir)/$$p"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(toolexeclibdir)/$$p; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(toolexecmainlibdir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(toolexecmainlibdir)/$$p; \
 	  fi; fi; \
 	done
 
-uninstall-toolexeclibDATA:
+uninstall-toolexecmainlibDATA:
 	@$(NORMAL_UNINSTALL)
-	list='$(toolexeclib_DATA)'; for p in $$list; do \
-	  rm -f $(DESTDIR)$(toolexeclibdir)/$$p; \
+	list='$(toolexecmainlib_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(toolexecmainlibdir)/$$p; \
 	done
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -4125,9 +4250,7 @@ check: check-recursive
 installcheck-am:
 installcheck: installcheck-recursive
 install-exec-am: install-toolexeclibLTLIBRARIES install-binPROGRAMS \
-		install-binSCRIPTS install-toolexeclibDATA
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
+		install-binSCRIPTS install-toolexecmainlibDATA
 install-exec: install-exec-recursive
 
 install-data-am: install-jarDATA install-data-local
@@ -4138,7 +4261,7 @@ install-am: all-am
 install: install-recursive
 uninstall-am: uninstall-toolexeclibLTLIBRARIES uninstall-binPROGRAMS \
 		uninstall-binSCRIPTS uninstall-jarDATA \
-		uninstall-toolexeclibDATA
+		uninstall-toolexecmainlibDATA
 uninstall: uninstall-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
 all-redirect: all-recursive
@@ -4148,7 +4271,7 @@ installdirs: installdirs-recursive
 installdirs-am:
 	$(mkinstalldirs)  $(DESTDIR)$(toolexeclibdir) $(DESTDIR)$(bindir) \
 		$(DESTDIR)$(bindir) $(DESTDIR)$(jardir) \
-		$(DESTDIR)$(toolexeclibdir)
+		$(DESTDIR)$(toolexecmainlibdir)
 
 
 mostlyclean-generic:
@@ -4207,12 +4330,12 @@ distclean-binPROGRAMS clean-binPROGRAMS maintainer-clean-binPROGRAMS \
 uninstall-binPROGRAMS install-binPROGRAMS mostlyclean-noinstPROGRAMS \
 distclean-noinstPROGRAMS clean-noinstPROGRAMS \
 maintainer-clean-noinstPROGRAMS uninstall-binSCRIPTS install-binSCRIPTS \
-uninstall-jarDATA install-jarDATA uninstall-toolexeclibDATA \
-install-toolexeclibDATA install-data-recursive uninstall-data-recursive \
-install-exec-recursive uninstall-exec-recursive installdirs-recursive \
-uninstalldirs-recursive all-recursive check-recursive \
-installcheck-recursive info-recursive dvi-recursive \
-mostlyclean-recursive distclean-recursive clean-recursive \
+uninstall-jarDATA install-jarDATA uninstall-toolexecmainlibDATA \
+install-toolexecmainlibDATA install-data-recursive \
+uninstall-data-recursive install-exec-recursive \
+uninstall-exec-recursive installdirs-recursive uninstalldirs-recursive \
+all-recursive check-recursive installcheck-recursive info-recursive \
+dvi-recursive mostlyclean-recursive distclean-recursive clean-recursive \
 maintainer-clean-recursive tags tags-recursive mostlyclean-tags \
 distclean-tags clean-tags maintainer-clean-tags distdir \
 mostlyclean-depend distclean-depend clean-depend \
@@ -4223,13 +4346,6 @@ uninstall-am uninstall all-redirect all-am all installdirs-am \
 installdirs mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
-
-install-exec-hook:
-	cd $(DESTDIR)$(libdir) && \
-	if test -f libgcjx.la; then \
-	  rm -f gnu-awt-xlib.la; \
-	  $(LN_S) libgcjx.la gnu-awt-xlib.la; \
-	fi
 
 .java.class:
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(here):$(srcdir) \
@@ -4264,7 +4380,7 @@ $(c_files): %.lo: %.c
 
 $(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
-$(javao_files) $(x_javao_files): %.lo: %.java
+$(javao_files) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
@@ -4273,10 +4389,10 @@ libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
 	@GCLIBS@ @LIBFFI@ @ZLIBS@ \
 	-rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(LIBS)
 
-libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES)
-	@: $(shell echo Creating list of files to link...) $(shell rm -f libgcjx.objectlist || :) $(shell touch libgcjx.objectlist) $(foreach object,$(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD),$(shell echo $(object) >> libgcjx.objectlist))
-	$(libgcjx_la_LINK) -objectlist libgcjx.objectlist \
-	-rpath $(toolexeclibdir) $(libgcjx_la_LDFLAGS) $(LIBS)
+lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPENDENCIES)
+	@: $(shell echo Creating list of files to link...) $(shell rm -f lib_gnu_awt_xlib.objectlist || :) $(shell touch lib_gnu_awt_xlib.objectlist) $(foreach object,$(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_LIBADD),$(shell echo $(object) >> lib_gnu_awt_xlib.objectlist))
+	$(lib_gnu_awt_xlib_la_LINK) -objectlist lib_gnu_awt_xlib.objectlist \
+	-rpath $(toolexeclibdir) $(lib_gnu_awt_xlib_la_LDFLAGS) $(LIBS)
 
 .class.h:
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) $(basename $<)

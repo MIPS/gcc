@@ -65,6 +65,7 @@ target_alias = @target_alias@
 target_triplet = @target@
 AR = @AR@
 AS = @AS@
+BACKTRACESPEC = @BACKTRACESPEC@
 CC = @CC@
 CHECKREFSPEC = @CHECKREFSPEC@
 COMPPATH = @COMPPATH@
@@ -86,6 +87,7 @@ GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
+IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
@@ -129,6 +131,9 @@ here = @here@
 libgcj_basedir = @libgcj_basedir@
 mkinstalldirs = @mkinstalldirs@
 tool_include_dir = @tool_include_dir@
+toolexecdir = @toolexecdir@
+toolexeclibdir = @toolexeclibdir@
+toolexecmainlibdir = @toolexecmainlibdir@
 
 AUTOMAKE_OPTIONS = foreign dejagnu
 

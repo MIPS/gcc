@@ -8,9 +8,9 @@
 @c                                                                            o
 @c                              G N A T _ RM                                  o
 @c                                                                            o
-@c                            $Revision: 1.3.8.1 $
+@c                            $Revision: 1.8.18.3 $
 @c                                                                            o
-@c              Copyright (C) 1995-2002 Free Software Foundation              o
+@c              Copyright (C) 1995-2003 Free Software Foundation              o
 @c                                                                            o
 @c                                                                            o
 @c  GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).    o
@@ -22,37 +22,37 @@
 @setchapternewpage odd
 @syncodeindex fn cp
 
+@include gcc-common.texi
+
 @dircategory GNU Ada tools
 @direntry
 * GNAT Reference Manual: (gnat_rm).  Reference Manual for GNU Ada tools.
 @end direntry
-@titlepage
 
-
-@title GNAT Reference Manual
-@subtitle GNAT, The GNU Ada 95 Compiler
-@ifset vxworks
-@title Version 3.16w
-@end ifset
-@ifclear vxworks
-@subtitle Version 3.16w
-@end ifclear
-@author Ada Core Technologies, Inc.
-
-@page
-@vskip 0pt plus 1filll
-
-
+@copying
 Copyright @copyright{} 1995-2001, Free Software Foundation
 
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1
+under the terms of the GNU Free Documentation License, Version 1.2
 or any later version published by the Free Software Foundation;
 with the Invariant Sections being ``GNU Free Documentation License'', with the
 Front-Cover Texts being ``GNAT Reference Manual'', and with no Back-Cover Texts.
 A copy of the license is included in the section entitled ``GNU
 Free Documentation License''.
+@end copying
 
+@titlepage
+
+
+@title GNAT Reference Manual
+@subtitle GNAT, The GNU Ada 95 Compiler
+@subtitle GNAT Version for GCC @value{version-GCC}
+@author Ada Core Technologies, Inc.
+
+@page
+@vskip 0pt plus 1filll
+
+@insertcopying
 
 @end titlepage
 @ifnottex
@@ -64,25 +64,11 @@ GNAT Reference Manual
 
 GNAT, The GNU Ada 95 Compiler
 
-@ifset vxworks
-Version 3.16w
-@end ifset
-@ifclear vxworks
-Version 3.16w
-@end ifclear
+GNAT Version for GCC @value{version-GCC}
 
 Ada Core Technologies, Inc.
 
-
-Copyright @copyright{} 1995-2001, Free Software Foundation
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1
-or any later version published by the Free Software Foundation;
-with the Invariant Sections being ``GNU Free Documentation License'', with the
-Front-Cover Texts being ``GNAT Reference Manual'', and with no Back-Cover Texts.
-A copy of the license is included in the section entitled ``GNU
-Free Documentation License''.
+@insertcopying
 
 
 @menu
@@ -11184,8 +11170,8 @@ of the length corresponding to the @code{@var{type}'Size} value in Ada.
 @noindent
 The interface to C++ makes use of the following pragmas, which are
 primarily intended to be constructed automatically using a binding generator
-tool, although it is possible to construct them by hand.  Ada Core 
-Technologies does not currently supply a suitable binding generator tool.
+tool, although it is possible to construct them by hand.  No suitable binding
+generator tool is supplied with GNAT though.
 
 Using these pragmas it is possible to achieve complete
 inter-operability between Ada tagged types and C class definitions.
