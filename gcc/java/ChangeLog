@@ -1,3 +1,19 @@
+2004-08-27  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (enum java_tree_index): Add JTI_VERIFY_IDENTIFIER_NODE.
+	(verify_identifier_node): New.
+	(TYPE_VERIFY_METHOD): New.
+	(struct type_assertion): New type.
+	* expr.c (type_assertion_eq): New function.
+	(type_assertion_hash): New function.
+	(add_type_assertion): New function.
+	(can_widen_reference_to): Call add_type_assertion().
+	* decl.c (java_init_decl_processing): Add verify_identifier_node.
+	* class.c (make_class_data): Initialize TYPE_VERIFY_METHOD (type).
+	(finish_class): Output TYPE_VERIFY_METHOD (type).
+
+	* decl.c (end_java_method): Nullify unused fields.
+
 2004-08-17  Andrew Haley  <aph@redhat.com>
 
 	* verify.c (defer_merging): Quieten.

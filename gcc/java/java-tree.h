@@ -334,6 +334,7 @@ enum java_tree_index
   JTI_CLINIT_IDENTIFIER_NODE,      
   JTI_FINIT_IDENTIFIER_NODE,      
   JTI_INSTINIT_IDENTIFIER_NODE,
+  JTI_VERIFY_IDENTIFIER_NODE,       
   JTI_VOID_SIGNATURE_NODE,       
   JTI_LENGTH_IDENTIFIER_NODE,  
   JTI_FINALIZE_IDENTIFIER_NODE,
@@ -387,6 +388,7 @@ enum java_tree_index
   JTI_ALLOC_NO_FINALIZER_NODE,
   JTI_SOFT_INSTANCEOF_NODE,
   JTI_SOFT_CHECKCAST_NODE,
+  JTI_SOFT_CHECK_ASSIGNMENT_NODE,
   JTI_SOFT_INITCLASS_NODE,
   JTI_SOFT_NEWARRAY_NODE,
   JTI_SOFT_ANEWARRAY_NODE,
@@ -531,6 +533,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 /* FIXME "instinit$" and "finit$" should be merged  */
 #define instinit_identifier_node \
   java_global_trees[JTI_INSTINIT_IDENTIFIER_NODE]  /* "instinit$" */
+#define verify_identifier_node \
+  java_global_trees[JTI_VERIFY_IDENTIFIER_NODE]  /* "<verify><" */
 #define void_signature_node \
   java_global_trees[JTI_VOID_SIGNATURE_NODE]       /* "()V" */
 #define length_identifier_node \
@@ -633,6 +637,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_ALLOC_NO_FINALIZER_NODE]
 #define soft_instanceof_node \
   java_global_trees[JTI_SOFT_INSTANCEOF_NODE]
+#define soft_check_assignment_node \
+  java_global_trees[JTI_SOFT_CHECK_ASSIGNMENT_NODE]
 #define soft_checkcast_node \
   java_global_trees[JTI_SOFT_CHECKCAST_NODE]
 #define soft_initclass_node \
@@ -1002,6 +1008,12 @@ struct treetreehash_entry GTY(())
   tree value;
 };
 
+typedef struct type_assertion GTY(())
+{
+  tree source_type;
+  tree target_type;
+} type_assertion;
+
 extern tree java_treetreehash_find (htab_t, tree);
 extern tree * java_treetreehash_new (htab_t, tree);
 extern htab_t java_treetreehash_create (size_t size, int ggc);
@@ -1075,8 +1087,10 @@ struct lang_decl GTY(())
 
 #define TYPE_CTABLE_DECL(T)      (TYPE_LANG_SPECIFIC (T)->ctable_decl)
 #define TYPE_CATCH_CLASSES(T)    (TYPE_LANG_SPECIFIC (T)->catch_classes)
+#define TYPE_VERIFY_METHOD(T)    (TYPE_LANG_SPECIFIC (T)->verify_method)
 
 #define TYPE_TO_RUNTIME_MAP(T)   (TYPE_LANG_SPECIFIC (T)->type_to_runtime_map)
+#define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
 
 struct lang_type GTY(())
 {
@@ -1109,9 +1123,14 @@ struct lang_type GTY(())
 				   type matcher.  */
   tree catch_classes;
 
+  tree verify_method;		/* The verify method for this class.
+				   Used in split verification.  */
+
   htab_t GTY ((param_is (struct treetreehash_entry))) type_to_runtime_map;   
                                 /* The mapping of classes to exception region
 				   markers.  */
+
+  htab_t GTY ((param_is (struct type_assertion))) type_assertions;
 
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */

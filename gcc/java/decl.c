@@ -753,6 +753,7 @@ java_init_decl_processing (void)
   clinit_identifier_node = get_identifier ("<clinit>");
   finit_identifier_node = get_identifier ("finit$");
   instinit_identifier_node = get_identifier ("instinit$");
+  verify_identifier_node = get_identifier ("<verify>");
   void_signature_node = get_identifier ("()V");
   length_identifier_node = get_identifier ("length");
   finalize_identifier_node = get_identifier ("finalize");
@@ -840,6 +841,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "idt", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "arrayclass", ptr_type_node);  
   PUSH_FIELD (class_type_node, field, "protectionDomain", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "verify", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "hack_signers", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "aux_info", ptr_type_node);
@@ -1000,6 +1002,12 @@ java_init_decl_processing (void)
   soft_instanceof_node
     = builtin_function ("_Jv_IsInstanceOf",
 			build_function_type (boolean_type_node, t),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  t = tree_cons (NULL_TREE, ptr_type_node,
+		 tree_cons (NULL_TREE, ptr_type_node, endlink));
+  soft_check_assignment_node
+    = builtin_function ("_Jv_CheckAssignment",
+			build_function_type (void_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
@@ -1936,14 +1944,7 @@ end_java_method (void)
       DECL_STRUCT_FUNCTION (fndecl) = NULL;
       DECL_INITIAL (fndecl) = NULL_TREE;
     }
-  if (! flag_unit_at_a_time)
-    {
-      /* Nulling these fields when we no longer need them saves
-	 memory.  */
-      DECL_SAVED_TREE (fndecl) = NULL;
-      DECL_STRUCT_FUNCTION (fndecl) = NULL;
-      DECL_INITIAL (fndecl) = NULL_TREE;
-    }
+
   current_function_decl = NULL_TREE;
 }
 

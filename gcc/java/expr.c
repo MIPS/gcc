@@ -392,6 +392,99 @@ pop_type (tree type)
   return type;
 }
 
+
+/* Return true if two type assertions are equal.  */
+
+static int
+type_assertion_eq (const void * k1_p, const void * k2_p)
+{
+  type_assertion k1 = *(type_assertion *)k1_p;
+  type_assertion k2 = *(type_assertion *)k2_p;
+  return (k1.source_type == k2.source_type
+	  && k1.target_type == k2.target_type);
+}
+
+/* Hash a type assertion.  */
+
+static hashval_t
+type_assertion_hash (const void *p)
+{
+  const type_assertion *k_p = p;
+  hashval_t hash = iterative_hash (&k_p->target_type, sizeof k_p->target_type, 0);
+  return iterative_hash (&k_p->source_type, sizeof k_p->source_type, hash);
+}
+
+/* Add an assertion of the form "source_type is a subclass/
+   subinterface of target_type" to the "__verify" function of the
+   current class.  */
+
+static void
+add_type_assertion (tree source_type, tree target_type)
+{
+  tree verify_method = TYPE_VERIFY_METHOD (output_class);
+  tree itype = TREE_TYPE (TREE_TYPE (soft_instanceof_node));
+  tree arg;
+
+  if (! verify_method)
+    {
+      arg = build_decl (PARM_DECL, get_identifier ("classLoader"), ptr_type_node);
+      DECL_CONTEXT (arg) = verify_method;
+      DECL_ARG_TYPE (arg) = ptr_type_node;
+      verify_method 
+	= build_decl (FUNCTION_DECL, get_identifier ("__verify"), 
+		      build_function_type (ptr_type_node, end_params_node));
+      DECL_ARGUMENTS (verify_method) = arg;
+      DECL_ARTIFICIAL (verify_method) = 1;
+      TREE_PUBLIC (verify_method) = 0;
+      DECL_EXTERNAL (verify_method) = 0;
+      TREE_PRIVATE (verify_method) = 1;
+      TREE_STATIC (verify_method) = 1;
+      TYPE_VERIFY_METHOD (output_class) = verify_method;
+      build_result_decl (verify_method);
+      DECL_INITIAL (verify_method) = build (BLOCK, void_type_node);
+      DECL_CONTEXT (verify_method) = output_class;
+      TYPE_ASSERTIONS (output_class) 
+	= htab_create_ggc (42, type_assertion_hash, type_assertion_eq, NULL);
+     }
+
+  {
+    /* Don't emit the same type assertion twice.  */
+    type_assertion as; 
+    void **as_pp;
+    as.source_type = source_type;
+    as.target_type = target_type;
+    as_pp = htab_find_slot (TYPE_ASSERTIONS (output_class), &as, true);
+    if (*as_pp)
+      return;
+    *as_pp = ggc_alloc (sizeof (type_assertion));
+    **(type_assertion **)as_pp = as;
+  }
+
+  {
+    tree source_ref, target_ref;
+    tree source_sig = build_java_signature(source_type);
+    tree target_sig = build_java_signature(target_type);
+
+    source_ref 
+      = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (source_sig),
+					    IDENTIFIER_LENGTH (source_sig)));
+    target_ref 
+      = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (target_sig),
+					    IDENTIFIER_LENGTH (target_sig)));
+
+    tree args = tree_cons (NULL_TREE, source_ref, 
+			   build_tree_list (NULL_TREE, target_ref));
+    args = chainon (build_tree_list (NULL_TREE, DECL_ARGUMENTS (verify_method)), args);
+    tree expr = build (CALL_EXPR, itype,
+		       build_address_of (soft_check_assignment_node),
+		       args, NULL_TREE);
+    DECL_SAVED_TREE (verify_method) 
+      = add_stmt_to_compound (DECL_SAVED_TREE (verify_method), itype, expr);
+  }
+}    
+
+
+
 /* Return 1 if SOURCE_TYPE can be safely widened to TARGET_TYPE.
    Handles array types and interfaces.  */
 
@@ -409,6 +502,13 @@ can_widen_reference_to (tree source_type, tree target_type)
 
   if (source_type == target_type)
     return 1;
+
+  /* FIXME: This is very pessimistic, in that it checks everything,
+     even if we already know that the types are compatible.  If we're
+     to support full Java class loader semantics, we need this.
+     However, we could do something more optimal.  */
+  if (! flag_verify_invocations)
+    add_type_assertion (source_type, target_type);
 
   if (TYPE_DUMMY (source_type) || TYPE_DUMMY (target_type))
     {

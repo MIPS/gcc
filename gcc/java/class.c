@@ -43,6 +43,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "stdio.h"
 #include "target.h"
 #include "except.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -1786,6 +1787,15 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
+  {
+    tree verify_method = TYPE_VERIFY_METHOD (type);
+    tree verify_method_ref 
+      = (verify_method 
+	 ? build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (verify_method)),
+		   verify_method)
+	 : null_pointer_node);
+      PUSH_FIELD_VALUE (cons, "verify" , verify_method_ref);
+  }
   PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "aux_info", null_pointer_node);
@@ -1808,6 +1818,13 @@ make_class_data (tree type)
 void
 finish_class (void)
 {
+  if (TYPE_VERIFY_METHOD (output_class))
+    {
+      java_genericize (TYPE_VERIFY_METHOD (current_class));
+      cgraph_finalize_function (TYPE_VERIFY_METHOD (current_class), false);
+      TYPE_ASSERTIONS (current_class) = NULL;
+    }
+
   java_expand_catch_classes (current_class);
 
   current_function_decl = NULL_TREE;
