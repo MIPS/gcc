@@ -804,7 +804,15 @@ digest_init (tree type, tree init, tree* tail)
 	  return process_init_constructor (type, 0, tail);
 	}
 
-      if (code != ARRAY_TYPE)
+      /* APPLE LOCAL begin AltiVec */
+      if (code == VECTOR_TYPE
+	  && TREE_CODE (init) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (init)) == VECTOR_TYPE
+	  && vector_types_convertible_p (TREE_TYPE (init), type)
+	  && TREE_CONSTANT (init))
+        return build_vector (type, CONSTRUCTOR_ELTS (init));
+      /* APPLE LOCAL end AltiVec */
+      else if (code != ARRAY_TYPE)
 	{
 	  int flags = LOOKUP_NORMAL;
 	  /* Initialization from { } is copy-initialization.  */
