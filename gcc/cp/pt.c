@@ -8661,10 +8661,14 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   /* If this function is a clone, handle it specially.  */
   if (DECL_CLONED_FUNCTION_P (tmpl))
     {
-      tree spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
-					complain);
+      tree spec;
       tree clone;
       
+      spec = instantiate_template (DECL_CLONED_FUNCTION (tmpl), targ_ptr,
+				   complain);
+      if (spec == error_mark_node)
+	return error_mark_node;
+
       /* Look for the clone.  */
       for (clone = TREE_CHAIN (spec);
 	   clone && DECL_CLONED_FUNCTION_P (clone);
@@ -10157,7 +10161,9 @@ mark_decl_instantiated (tree result, int extern_p)
 	maybe_make_one_only (result);
     }
 
-  if (TREE_CODE (result) == FUNCTION_DECL)
+  if (TREE_CODE (result) == FUNCTION_DECL 
+      && (DECL_ARTIFICIAL (result) 
+	  || (DECL_DECLARED_INLINE_P (result) && TREE_USED (result))))
     defer_fn (result);
 }
 
@@ -10698,8 +10704,8 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
   if (storage != NULL_TREE)
     {
       if (pedantic && !in_system_header)
-	pedwarn("ISO C++ forbids the use of `%s' on explicit instantiations", 
-		   IDENTIFIER_POINTER (storage));
+	pedwarn("ISO C++ forbids the use of `%E' on explicit instantiations", 
+                storage);
 
       if (storage == ridpointers[(int) RID_INLINE])
 	nomem_p = 1;
@@ -12158,15 +12164,20 @@ resolve_typename_type (tree type, bool only_current_p)
 tree
 build_non_dependent_expr (tree expr)
 {
+  tree inner_expr;
+
   /* Preserve null pointer constants so that the type of things like 
      "p == 0" where "p" is a pointer can be determined.  */
   if (null_ptr_cst_p (expr))
     return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
-  if (TREE_CODE (expr) == OVERLOAD 
-      || TREE_CODE (expr) == FUNCTION_DECL
-      || TREE_CODE (expr) == TEMPLATE_DECL)
+  inner_expr = (TREE_CODE (expr) == ADDR_EXPR ? 
+		TREE_OPERAND (expr, 0) : expr);
+  if (TREE_CODE (inner_expr) == OVERLOAD 
+      || TREE_CODE (inner_expr) == FUNCTION_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_DECL
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
     return expr;
   /* Preserve string constants; conversions from string constants to
      "char *" are allowed, even though normally a "const char *"

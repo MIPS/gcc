@@ -255,6 +255,7 @@ build_base_path (enum tree_code code,
   int fixed_type_p;
   int want_pointer = TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE;
   bool has_empty = false;
+  bool virtual_access;
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
@@ -296,21 +297,24 @@ build_base_path (enum tree_code code,
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
 
-  if (want_pointer && !nonnull
-      && (!integer_zerop (offset) || (v_binfo && fixed_type_p <= 0)))
+  /* Do we need to look in the vtable for the real offset?  */
+  virtual_access = (v_binfo && fixed_type_p <= 0);
+
+  /* Do we need to check for a null pointer?  */
+  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
     null_test = error_mark_node;
 
-  if (TREE_SIDE_EFFECTS (expr)
-      && (null_test || (v_binfo && fixed_type_p <= 0)))
+  /* Protect against multiple evaluation if necessary.  */
+  if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
     expr = save_expr (expr);
 
+  /* Now that we've saved expr, build the real null test.  */
   if (null_test)
     null_test = fold (build2 (NE_EXPR, boolean_type_node,
 			      expr, integer_zero_node));
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
-  if (code == PLUS_EXPR
-      && (v_binfo == NULL_TREE || fixed_type_p > 0)
+  if (code == PLUS_EXPR && !virtual_access
       /* We don't build base fields for empty bases, and they aren't very
 	 interesting to the optimizers anyway.  */
       && !has_empty)
@@ -323,7 +327,7 @@ build_base_path (enum tree_code code,
       goto out;
     }
 
-  if (v_binfo && fixed_type_p <= 0)
+  if (virtual_access)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
          from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
@@ -1051,8 +1055,8 @@ alter_access (tree t, tree fdecl, tree access)
 	  if (TREE_CODE (TREE_TYPE (fdecl)) == FUNCTION_DECL)
 	    cp_error_at ("conflicting access specifications for method `%D', ignored", TREE_TYPE (fdecl));
 	  else
-	    error ("conflicting access specifications for field `%s', ignored",
-		   IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+	    error ("conflicting access specifications for field `%E', ignored",
+		   DECL_NAME (fdecl));
 	}
       else
 	{
@@ -3498,14 +3502,14 @@ layout_nonempty_base_or_field (record_layout_info rli,
       /* Place this field.  */
       place_field (rli, decl);
       offset = byte_position (decl);
- 
+
       /* We have to check to see whether or not there is already
 	 something of the same type at the offset we're about to use.
-	 For example:
+	 For example, consider:
 	 
-	 struct S {};
-	 struct T : public S { int i; };
-	 struct U : public S, public T {};
+	   struct S {};
+	   struct T : public S { int i; };
+	   struct U : public S, public T {};
 	 
 	 Here, we put S at offset zero in U.  Then, we can't put T at
 	 offset zero -- its S component would be at the same address
@@ -3514,6 +3518,10 @@ layout_nonempty_base_or_field (record_layout_info rli,
 	 empty class, have nonzero size, any overlap can happen only
 	 with a direct or indirect base-class -- it can't happen with
 	 a data member.  */
+      /* In a union, overlap is permitted; all members are placed at
+	 offset zero.  */
+      if (TREE_CODE (rli->t) == UNION_TYPE)
+	break;
       /* G++ 3.2 did not check for overlaps when placing a non-empty
 	 virtual base.  */
       if (!abi_version_at_least (2) && binfo && TREE_VIA_VIRTUAL (binfo))
@@ -5698,7 +5706,7 @@ push_lang_context (tree name)
       current_lang_name = name;
     }
   else
-    error ("language string `\"%s\"' not recognized", IDENTIFIER_POINTER (name));
+    error ("language string `\"%E\"' not recognized", name);
 }
   
 /* Get out of the current language scope.  */

@@ -151,8 +151,6 @@ extern FILE *cgraph_dump_file;
 
 extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
-extern GTY((param_is (union tree_node))) htab_t cgraph_inline_hash;
-
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
@@ -164,7 +162,6 @@ struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 				        tree);
 struct cgraph_node *cgraph_node (tree decl);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
-struct cgraph_node *cgraph_node_for_identifier (tree id);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -174,7 +171,6 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
-struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);

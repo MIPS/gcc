@@ -1,3 +1,153 @@
+2004-05-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/13912
+	* matchexp.c: Allow unary operators after arithmetic operators
+	as a GNU extension.
+	(match_ext_mult_operand, match_ext_add_operand): New functions.
+	(match_mult_operand): Tweak to call match_ext_mult_operand.
+	(match_add_operand): Tweak to call match_ext_mult_operand.
+	(match_level_2): Rearrange to call match_ext_add_operand.
+
+2004-05-25  Paul Brook  <paul@codesourcery.com>
+
+	* expr.c (check_inquiry): Remove bogus tests.
+
+2004-05-23  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13773
+	* expr.c (restricted_args): Remove redundant checks/argument.
+	(external_spec_function): Update to match.
+	(restricted_intrinsic): Rewrite.
+
+2004-05-23  Paul Brook  <paul@codesourcery.com>
+	Victor Leikehman  <lei@haifasphere.co.il>
+
+	* gfortran.h (struct gfc_symbol): Add equiv_built.
+	* trans-common.c: Change int to HOST_WIDE_INT.  Capitalize error
+	messages.
+	(current_length): Remove.
+	(add_segments): New function.
+	(build_equiv_decl): Create initialized common blocks.
+	(build_common_decl): Always add decl to bindings.
+	(create_common): Create initializers.
+	(find_segment_info): Reformat to match coding conventions.
+	(new_condition): Use add_segments.
+	(add_condition, find_equivalence, add_equivalences): Move iteration
+	inside functions.  Only process each segment once.
+	(new_segment, finish_equivalences, translate_common): Simplify.
+
+2004-05-23  Steven G. Kargl  <kargls@comcast.net>
+
+	* check.c (gfc_check_random_seed): Issue for too many arguments.
+
+2004-05-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsic.c (add_subroutines): Use add_sym_3s for random_seed.
+
+2004-05-22  Paul Brook  <paul@codesourcery.com>
+
+	* dump-parse-tree.c (gfc_show_equiv): New function.
+	(gfc_show_namespace): Use it.
+
+2004-05-22  Victor Leikehman  <lei@haifasphere.co.il>
+
+	PR fortran/13249
+	* symbol.c (gfc_add_common): Disable checks to work around other more
+	fundamental inadequacies.
+
+2004-05-22  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-decl.c (gfc_get_extern_function_decl): Set DECL_IS_PURE
+	only for functions.
+	(gfc_build_function_decl): Likewise.
+
+2004-05-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* check.c (gfc_check_system_clock): New function.
+	* intrinsic.c (add_sym_3s): New function.
+	(add_subroutines): Use it.
+	* intrinsic.h (gfc_check_system_clock, gfc_resolve_system_clock):
+	Add prototypes.
+	* iresolve.c (gfc_resolve_system_clock): New function.
+
+2004-05-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* invoke.texi: Document -Wunderflow and spell check.
+	* lang.opt: Add Wunderflow.
+	* gfortran.h (gfc_option_t): Add warn_underflow option.
+	* options.c (gfc_init_options, set_Wall): Use it.
+	* primary.c (match_real_constant): Explicitly handle UNDERFLOW.
+	* arith.c (gfc_arith_uminus, gfc_arith_plus, gfc_arith_minus,
+	gfc_arith_times, gfc_arith_divide, gfc_arith_power, gfc_real2real,
+	gfc_real2complex, gfc_complex2real, gfc_complex2complex): Ditto.
+	* arith.c (common_logarithm): Fix typo in comment.
+
+2004-05-21  Roger Sayle  <roger@eyesopen.com>
+
+	* io.c (check_format): As a GNU extension, allow the comma after a
+	string literal to be optional in a format.  Use gfc_notify_std to
+	issue an error/warning as appropriate.
+
+2004-05-21  Roger Sayle  <roger@eyesopen.com>
+
+	* io.c (check_format): Use gfc_notify_std to determine whether to
+	issue an error/warning for omitting the digits from the X format.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	* io.c (check_format): Allow the number before the X format to
+	be optional when not -pedantic.
+
+2004-05-18  Feng Wang  <fengwang@nudt.edu.cn>
+	Paul Brook  <paul@codesourcery.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Use vold_list_node.
+	Create decls for __builtin_pow{,f}.
+	* gfortran.h (PREFIX_LEN): Define.
+	* trans-decl.c (gfor_fndecl_math_powi): Add.
+	(gfor_fndecl_math_powf, gfor_fndecl_math_pow): Remove.
+	(gfc_build_intrinsic_function_decls): Create decls for powi.
+	* trans-expr.c (powi_table): Add.
+	(gfc_conv_integer_power): Remove.
+	(gfc_conv_powi): New function.
+	(gfc_conv_cst_int_power): New function.
+	(gfc_conv_power_op): Use new powi routines.
+	* trans.h (struct gfc_powdecl_list): Add.
+	(gfor_fndecl_math_powi): Add.
+	(gfor_fndecl_math_powf, gfor_fndecl_math_pow): Remove.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans.c, trans-decl.c: Fix comment typos.
+
+2004-05-18  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-const.c (gfc_conv_mpf_to_tree): Fix typo.
+
+2004-05-18  Steve Kargl  <kargls@comcast.net>
+
+	* arith.c (gfc_int2complex): Fix incorrect range checking.
+
+2004-05-18  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13930
+	* decl.c (add_init_expr_to_sym): Remove incorrect check.
+	(default_initializer): Move to expr.c.
+	(variable_decl): Don't assign default initializer to variables.
+	* expr.c (gfc_default_initializer): Move to here.
+	* gfortran.h (gfc_default_initializer): Add prototype.
+	* resolve.c (resolve_symbol): Check for illegal initializers.
+	Assign default initializer.
+
+2004-05-17  Steve Kargl  <kargls@comcast.net>
+
+	* arith.c (gfc_arith_power): Complex number raised to 0 power is 1.
+
+2004-05-17  Steve Kargl  <kargls@comcast.net>
+
+	* arith.c (gfc_real2complex): Range checking wrong part of complex
+        number. 
+	
 2004-05-16  Paul Brook  <paul@codesourcery.com>
 
 	* options.c (gfc_handle_module_path_options): Fix buffer overrun.

@@ -323,6 +323,10 @@ extern int flag_cse_skip_blocks;
    perform miscellaneous relatively-expensive optimizations.  */
 extern int flag_expensive_optimizations;
 
+/* Nonzero means to use global dataflow analysis to eliminate
+   useless null pointer tests.  */
+extern int flag_delete_null_pointer_checks;
+
 /* Nonzero means don't put addresses of constant functions in registers.
    Used for compiling the Unix kernel, where strange substitutions are
    done on the assembly output.  */
@@ -419,6 +423,9 @@ extern int flag_gen_aux_info;
 /* Nonzero means make the text shared if supported.  */
 
 extern int flag_shared_data;
+
+/* Controls the activiation of SMS modulo scheduling. */
+extern int flag_modulo_sched;
 
 /* flag_schedule_insns means schedule insns within basic blocks (before
    local_alloc).

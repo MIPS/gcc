@@ -49,7 +49,7 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
 /* None of these functions are suitable for ATTRIBUTE_PRINTF, because
    each language front end can extend them with its own set of format
    specifiers.  We must use custom format checks.  */
-#if GCC_VERSION >= 3004
+#if GCC_VERSION >= 3005
 #define ATTRIBUTE_GCC_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
 #else
 #define ATTRIBUTE_GCC_DIAG(m, n) ATTRIBUTE_NONNULL(m)
@@ -113,7 +113,6 @@ extern int flag_loop_optimize;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;
-extern int flag_delete_null_pointer_checks;
 extern int flag_keep_static_consts;
 extern int flag_peel_loops;
 extern int flag_rerun_cse_after_loop;

@@ -6,7 +6,7 @@ in
 #
 # Makefile for directory with subdirs to build.
 #   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-#   1999, 2000, 2001, 2002, 2003 Free Software Foundation
+#   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -111,12 +111,66 @@ BUILD_SUBDIR = @build_subdir@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the build system.
 BUILD_CONFIGARGS = @build_configargs@
+# This is the list of variables to export in the environment when
+# configuring subdirectories for the build system.  It must also be
+# exported whenever recursing into a build directory in case that
+# directory's Makefile re-runs configure.
+BUILD_EXPORTS = \
+	AR="$(AR_FOR_BUILD)"; export AR; \
+	AS="$(AS_FOR_BUILD)"; export AS; \
+	CC="$(CC_FOR_BUILD)"; export CC; \
+	CFLAGS="$(CFLAGS_FOR_BUILD)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
+	CXX="$(CXX_FOR_BUILD)"; export CXX; \
+	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
+	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
+	GFORTRAN="$(GFORTRAN_FOR_BUILD)"; export GFORTRAN; \
+	DLLTOOL="$(DLLTOOL_FOR_BUILD)"; export DLLTOOL; \
+	LD="$(LD_FOR_BUILD)"; export LD; \
+	LDFLAGS="$(LDFLAGS_FOR_BUILD)"; export LDFLAGS; \
+	NM="$(NM_FOR_BUILD)"; export NM; \
+	RANLIB="$(RANLIB_FOR_BUILD)"; export RANLIB; \
+	WINDRES="$(WINDRES_FOR_BUILD)"; export WINDRES;
 
 # This is the list of directories to built for the host system.
 SUBDIRS = @configdirs@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the host system.
 HOST_CONFIGARGS = @host_configargs@
+# This is the list of variables to export in the environment when
+# configuring subdirectories for the host system.  It must also be
+# exported whenever recursing into a host directory in case that
+# directory's Makefile re-runs configure.
+HOST_EXPORTS = \
+	CC="$(CC)"; export CC; \
+	CFLAGS="$(CFLAGS)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
+	CXX="$(CXX)"; export CXX; \
+	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
+	AR="$(AR)"; export AR; \
+	AS="$(AS)"; export AS; \
+	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
+	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
+	LD="$(LD)"; export LD; \
+	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
+	NM="$(NM)"; export NM; \
+	RANLIB="$(RANLIB)"; export RANLIB; \
+	WINDRES="$(WINDRES)"; export WINDRES; \
+	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
+	OBJDUMP="$(OBJDUMP)"; export OBJDUMP;
+
+# Similar, for the gcc directory.
+GCC_HOST_EXPORTS = \
+	$(HOST_EXPORTS) \
+	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
+	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
+	GMPINC="$(HOST_GMPINC)"; export GMPINC;
+
+# Similar, for later GCC stages.
+STAGE_HOST_EXPORTS = \
+	$(GCC_HOST_EXPORTS) \
+	CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC; \
+	CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC_FOR_BUILD;
 
 # This is set by the configure script to the list of directories which
 # should be built using the target tools.
@@ -126,6 +180,35 @@ TARGET_SUBDIR = @target_subdir@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the target.
 TARGET_CONFIGARGS = @target_configargs@
+# This is the list of variables to export in the environment when
+# configuring subdirectories for the host system.  It must also be
+# exported whenever recursing into a host directory in case that
+# directory's Makefile re-runs configure.
+BASE_TARGET_EXPORTS = \
+	AR="$(AR_FOR_TARGET)"; export AR; \
+	AS="$(AS_FOR_TARGET)"; export AS; \
+	CC="$(CC_FOR_TARGET)"; export CC; \
+	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
+	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \
+	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
+	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
+	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
+	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
+	LD="$(LD_FOR_TARGET)"; export LD; \
+	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
+	NM="$(NM_FOR_TARGET)"; export NM; \
+	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
+	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES;
+
+RAW_CXX_TARGET_EXPORTS = \
+	$(BASE_TARGET_EXPORTS) \
+	CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
+	CXX="$(RAW_CXX_FOR_TARGET)"; export CXX;
+
+NORMAL_TARGET_EXPORTS = \
+	$(BASE_TARGET_EXPORTS) \
+	CXX="$(CXX_FOR_TARGET)"; export CXX;
 
 # Where to find GMP
 HOST_GMPLIBS = @gmplibs@
@@ -649,6 +732,7 @@ install.all: install-no-fixedincludes
 	@if [ -f ./gcc/Makefile ] ; then \
 		r=`${PWD_COMMAND}` ; export r ; \
 		$(SET_LIB_PATH) \
+		$(GCC_HOST_EXPORTS) \
 		(cd ./gcc && \
 		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
 	else \
@@ -697,26 +781,14 @@ TAGS: do-TAGS
 [+ FOR build_modules +]
 .PHONY: configure-build-[+module+] maybe-configure-build-[+module+]
 maybe-configure-build-[+module+]:
+@if build-[+module+]
+maybe-configure-build-[+module+]: configure-build-[+module+]
 configure-build-[+module+]:
 	@test ! -f $(BUILD_SUBDIR)/[+module+]/Makefile || exit 0; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	AR="$(AR_FOR_BUILD)"; export AR; \
-	AS="$(AS_FOR_BUILD)"; export AS; \
-	CC="$(CC_FOR_BUILD)"; export CC; \
-	CFLAGS="$(CFLAGS_FOR_BUILD)"; export CFLAGS; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	CXX="$(CXX_FOR_BUILD)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS_FOR_BUILD)"; export CXXFLAGS; \
-	GCJ="$(GCJ_FOR_BUILD)"; export GCJ; \
-	GFORTRAN="$(GFORTRAN_FOR_BUILD)"; export GFORTRAN; \
-	DLLTOOL="$(DLLTOOL_FOR_BUILD)"; export DLLTOOL; \
-	LD="$(LD_FOR_BUILD)"; export LD; \
-	LDFLAGS="$(LDFLAGS_FOR_BUILD)"; export LDFLAGS; \
-	NM="$(NM_FOR_BUILD)"; export NM; \
-	RANLIB="$(RANLIB_FOR_BUILD)"; export RANLIB; \
-	WINDRES="$(WINDRES_FOR_BUILD)"; export WINDRES; \
+	$(BUILD_EXPORTS) \
 	echo Configuring in $(BUILD_SUBDIR)/[+module+]; \
 	cd "$(BUILD_SUBDIR)/[+module+]" || exit 1; \
 	case $(srcdir) in \
@@ -757,13 +829,18 @@ configure-build-[+module+]:
 	  $(BUILD_CONFIGARGS) $${srcdiroption} \
 	  --with-build-subdir="$(BUILD_SUBDIR)" \
 	  || exit 1
+@endif build-[+module+]
 
 .PHONY: all-build-[+module+] maybe-all-build-[+module+]
 maybe-all-build-[+module+]:
+@if build-[+module+]
+maybe-all-build-[+module+]: all-build-[+module+]
 all-build-[+module+]: configure-build-[+module+]
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(BUILD_EXPORTS) \
 	(cd $(BUILD_SUBDIR)/[+module+] && $(MAKE) all)
+@endif build-[+module+]
 [+ ENDFOR build_modules +]
 
 # --------------------------------------
@@ -772,27 +849,14 @@ all-build-[+module+]: configure-build-[+module+]
 [+ FOR host_modules +]
 .PHONY: configure-[+module+] maybe-configure-[+module+]
 maybe-configure-[+module+]:
+@if [+module+]
+maybe-configure-[+module+]: configure-[+module+]
 configure-[+module+]:
 	@test ! -f [+module+]/Makefile || exit 0; \
 	[ -d [+module+] ] || mkdir [+module+]; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	CC="$(CC)"; export CC; \
-	CFLAGS="$(CFLAGS)"; export CFLAGS; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	CXX="$(CXX)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	AR="$(AR)"; export AR; \
-	AS="$(AS)"; export AS; \
-	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
-	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	LD="$(LD)"; export LD; \
-	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
-	NM="$(NM)"; export NM; \
-	RANLIB="$(RANLIB)"; export RANLIB; \
-	WINDRES="$(WINDRES)"; export WINDRES; \
-	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	$(HOST_EXPORTS) \
 	echo Configuring in [+module+]; \
 	cd [+module+] || exit 1; \
 	case $(srcdir) in \
@@ -809,20 +873,27 @@ configure-[+module+]:
 	$(SHELL) $${libsrcdir}/configure \
 	  $(HOST_CONFIGARGS) $${srcdiroption} \
 	  || exit 1
+@endif [+module+]
 
 .PHONY: all-[+module+] maybe-all-[+module+]
 maybe-all-[+module+]:
+@if [+module+]
+maybe-all-[+module+]: all-[+module+]
 all-[+module+]: configure-[+module+]
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
 	(cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	  IF with_x 
 	    +] $(X11_FLAGS_TO_PASS)[+ 
 	  ENDIF with_x +] all)
+@endif [+module+]
 
 .PHONY: check-[+module+] maybe-check-[+module+]
 maybe-check-[+module+]:
+@if [+module+]
+maybe-check-[+module+]: check-[+module+]
 [+ IF no_check +]
 check-[+module+]:
 [+ ELIF no_check_cross +]
@@ -832,6 +903,7 @@ check-[+module+]:
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	  $(SET_LIB_PATH) \
+	  $(HOST_EXPORTS) \
 	  (cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	    IF with_x 
 	      +] $(X11_FLAGS_TO_PASS)[+ 
@@ -842,14 +914,18 @@ check-[+module+]:
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
 	(cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	  IF with_x 
 	    +] $(X11_FLAGS_TO_PASS)[+ 
 	  ENDIF with_x +] check)
 [+ ENDIF no_check +]
+@endif [+module+]
 
 .PHONY: install-[+module+] maybe-install-[+module+]
 maybe-install-[+module+]:
+@if [+module+]
+maybe-install-[+module+]: install-[+module+]
 [+ IF no_install +]
 install-[+module+]:
 [+ ELSE install +]
@@ -857,16 +933,20 @@ install-[+module+]: installdirs
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
 	(cd [+module+] && $(MAKE) $(FLAGS_TO_PASS)[+ 
 	  IF with_x 
 	    +] $(X11_FLAGS_TO_PASS)[+ 
 	  ENDIF with_x +] install)
 [+ ENDIF no_install +]
+@endif [+module+]
 
 # Other targets (info, dvi, etc.)
 [+ FOR recursive_targets +]
 .PHONY: maybe-[+make_target+]-[+module+] [+make_target+]-[+module+]
 maybe-[+make_target+]-[+module+]:
+@if [+module+]
+maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 [+ IF (match-value? = "missing" (get "make_target") ) +]
 # [+module+] doesn't support [+make_target+].
 [+make_target+]-[+module+]:
@@ -879,6 +959,7 @@ maybe-[+make_target+]-[+module+]:
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(HOST_EXPORTS) \
 	for flag in $(EXTRA_HOST_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
@@ -891,6 +972,7 @@ maybe-[+make_target+]-[+module+]:
 	          [+make_target+]) \
 	  || exit 1
 [+ ENDIF +]
+@endif [+module+]
 [+ ENDFOR recursive_targets +]
 [+ ENDFOR host_modules +]
 
@@ -900,6 +982,8 @@ maybe-[+make_target+]-[+module+]:
 [+ FOR target_modules +]
 .PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
 maybe-configure-target-[+module+]:
+@if target-[+module+]
+maybe-configure-target-[+module+]: configure-target-[+module+]
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
 $(TARGET_SUBDIR)/[+module+]/multilib.out: multilib.out
@@ -912,28 +996,12 @@ configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
 	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
-	AR="$(AR_FOR_TARGET)"; export AR; \
-	AS="$(AS_FOR_TARGET)"; export AS; \
-	CC="$(CC_FOR_TARGET)"; export CC; \
-	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	CPPFLAGS="$(CFLAGS_FOR_TARGET)"; export CPPFLAGS; \[+ 
+	$(SET_LIB_PATH) \[+
 IF raw_cxx +]
-	CXX_FOR_TARGET="$(RAW_CXX_FOR_TARGET)"; export CXX_FOR_TARGET; \
-	CXX="$(RAW_CXX_FOR_TARGET)"; export CXX; \[+ 
+	$(RAW_CXX_TARGET_EXPORTS) \[+
 ELSE normal_cxx +]
-	CXX="$(CXX_FOR_TARGET)"; export CXX; \[+ 
+	$(NORMAL_TARGET_EXPORTS) \[+
 ENDIF raw_cxx +]
-	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
-	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
-	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
-	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
-	LD="$(LD_FOR_TARGET)"; export LD; \
-	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
-	NM="$(NM_FOR_TARGET)"; export NM; \
-	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
-	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
 	echo Configuring in $(TARGET_SUBDIR)/[+module+]; \
 	cd "$(TARGET_SUBDIR)/[+module+]" || exit 1; \
 	case $(srcdir) in \
@@ -974,22 +1042,33 @@ ENDIF raw_cxx +]
 	  $(TARGET_CONFIGARGS) $${srcdiroption} \
 	  --with-target-subdir="$(TARGET_SUBDIR)" \
 	  || exit 1
+@endif target-[+module+]
 
 .PHONY: all-target-[+module+] maybe-all-target-[+module+]
 maybe-all-target-[+module+]:
+@if target-[+module+]
+maybe-all-target-[+module+]: all-target-[+module+]
 all-target-[+module+]: configure-target-[+module+]
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
+	$(SET_LIB_PATH) \[+
+IF raw_cxx +]
+	$(RAW_CXX_TARGET_EXPORTS) \[+
+ELSE normal_cxx +]
+	$(NORMAL_TARGET_EXPORTS) \[+
+ENDIF raw_cxx +]
 	(cd $(TARGET_SUBDIR)/[+module+] && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
 	    IF raw_cxx 
 	  +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
 	    ENDIF raw_cxx 
 	  +] all)
+@endif target-[+module+]
 
 .PHONY: check-target-[+module+] maybe-check-target-[+module+]
 maybe-check-target-[+module+]:
+@if target-[+module+]
+maybe-check-target-[+module+]: check-target-[+module+]
 [+ IF no_check +]
 # Dummy target for uncheckable module.
 check-target-[+module+]:
@@ -997,7 +1076,12 @@ check-target-[+module+]:
 check-target-[+module+]:
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
+	$(SET_LIB_PATH) \[+
+IF raw_cxx +]
+	$(RAW_CXX_TARGET_EXPORTS) \[+
+ELSE normal_cxx +]
+	$(NORMAL_TARGET_EXPORTS) \[+
+ENDIF raw_cxx +]
 	(cd $(TARGET_SUBDIR)/[+module+] && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
 	    IF raw_cxx 
@@ -1005,9 +1089,12 @@ check-target-[+module+]:
 	    ENDIF raw_cxx 
 	  +] check)
 [+ ENDIF no_check +]
+@endif target-[+module+]
 
 .PHONY: install-target-[+module+] maybe-install-target-[+module+]
 maybe-install-target-[+module+]:
+@if target-[+module+]
+maybe-install-target-[+module+]: install-target-[+module+]
 [+ IF no_install +]
 # Dummy target for uninstallable.
 install-target-[+module+]:
@@ -1015,15 +1102,23 @@ install-target-[+module+]:
 install-target-[+module+]: installdirs
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
+	$(SET_LIB_PATH) \[+
+IF raw_cxx +]
+	$(RAW_CXX_TARGET_EXPORTS) \[+
+ELSE normal_cxx +]
+	$(NORMAL_TARGET_EXPORTS) \[+
+ENDIF raw_cxx +]
 	(cd $(TARGET_SUBDIR)/[+module+] && \
 	  $(MAKE) $(TARGET_FLAGS_TO_PASS) install)
 [+ ENDIF no_install +]
+@endif target-[+module+]
 
 # Other targets (info, dvi, etc.)
 [+ FOR recursive_targets +]
 .PHONY: maybe-[+make_target+]-target-[+module+] [+make_target+]-target-[+module+]
 maybe-[+make_target+]-target-[+module+]:
+@if target-[+module+]
+maybe-[+make_target+]-target-[+module+]: [+make_target+]-target-[+module+]
 [+ IF (match-value? = "missing" (get "make_target") ) +]
 # [+module+] doesn't support [+make_target+].
 [+make_target+]-target-[+module+]:
@@ -1035,7 +1130,12 @@ maybe-[+make_target+]-target-[+module+]:
 	@[ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
+	$(SET_LIB_PATH) \[+
+IF raw_cxx +]
+	$(RAW_CXX_TARGET_EXPORTS) \[+
+ELSE normal_cxx +]
+	$(NORMAL_TARGET_EXPORTS) \[+
+ENDIF raw_cxx +]
 	echo "Doing [+make_target+] in $(TARGET_SUBDIR)/[+module+]" ; \
 	for flag in $(EXTRA_TARGET_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
@@ -1048,6 +1148,7 @@ maybe-[+make_target+]-target-[+module+]:
 	          [+make_target+]) \
 	  || exit 1
 [+ ENDIF +]
+@endif target-[+module+]
 [+ ENDFOR recursive_targets +]
 [+ ENDFOR target_modules +]
 
@@ -1067,31 +1168,15 @@ maybe-[+make_target+]-target-[+module+]:
 # We must skip configuring if toplevel bootstrap is going.
 .PHONY: configure-gcc maybe-configure-gcc
 maybe-configure-gcc:
+@if gcc
+maybe-configure-gcc: configure-gcc
 configure-gcc:
 	@test ! -f gcc/Makefile || exit 0; \
 	[ -f stage_last ] && exit 0; \
 	[ -d gcc ] || mkdir gcc; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	CC="$(CC)"; export CC; \
-	CFLAGS="$(CFLAGS)"; export CFLAGS; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	CXX="$(CXX)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
-	AR="$(AR)"; export AR; \
-	AS="$(AS)"; export AS; \
-	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
-	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	LD="$(LD)"; export LD; \
-	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
-	NM="$(NM)"; export NM; \
-	RANLIB="$(RANLIB)"; export RANLIB; \
-	WINDRES="$(WINDRES)"; export WINDRES; \
-	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
-	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
+	$(GCC_HOST_EXPORTS) \
 	echo Configuring in gcc; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \
@@ -1108,15 +1193,19 @@ configure-gcc:
 	$(SHELL) $${libsrcdir}/configure \
 	  $(HOST_CONFIGARGS) $${srcdiroption} \
 	  || exit 1
+@endif gcc
 
 # Don't 'make all' in gcc if it's already been made by 'bootstrap'; that
 # causes trouble.  This wart will be fixed eventually by moving
 # the bootstrap behavior to this file.
 .PHONY: all-gcc maybe-all-gcc
 maybe-all-gcc:
+@if gcc
+maybe-all-gcc: all-gcc
 all-gcc: configure-gcc
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(GCC_HOST_EXPORTS) \
 	if [ -f stage_last ] ; then \
 	  true ; \
 	elif [ -f gcc/stage_last ] ; then \
@@ -1126,6 +1215,7 @@ all-gcc: configure-gcc
 	  $(SET_LIB_PATH) \
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
 	fi
+@endif gcc
 
 # Building GCC uses some tools for rebuilding "source" files
 # like texinfo, bison/byacc, etc.  So we must depend on those.
@@ -1143,6 +1233,7 @@ $(GCC_STRAP_TARGETS): all-bootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(GCC_HOST_EXPORTS) \
 	echo "Bootstrapping the compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $@
 	@r=`${PWD_COMMAND}`; export r; \
@@ -1162,6 +1253,7 @@ $(GCC_STRAP_TARGETS): all-bootstrap configure-gcc
 	    compare=compare ;; \
 	esac; \
 	$(SET_LIB_PATH) \
+	$(GCC_HOST_EXPORTS) \
 	echo "$$msg"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $$compare
 	@r=`${PWD_COMMAND}`; export r; \
@@ -1174,6 +1266,7 @@ profiledbootstrap: all-bootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(GCC_HOST_EXPORTS) \
 	echo "Bootstrapping the compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
 	@r=`${PWD_COMMAND}`; export r; \
@@ -1184,6 +1277,7 @@ profiledbootstrap: all-bootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(GCC_HOST_EXPORTS) \
 	echo "Building feedback based compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
 
@@ -1192,6 +1286,7 @@ cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(SET_LIB_PATH) \
+	$(GCC_HOST_EXPORTS) \
 	echo "Building the C and C++ compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) LANGUAGES="c c++"
 	@r=`${PWD_COMMAND}`; export r; \
@@ -1203,11 +1298,14 @@ cross: all-texinfo all-bison all-byacc all-binutils all-gas all-ld
 
 .PHONY: check-gcc maybe-check-gcc
 maybe-check-gcc:
+@if gcc
+maybe-check-gcc: check-gcc
 check-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	  $(SET_LIB_PATH) \
+	  $(GCC_HOST_EXPORTS) \
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
 	else \
 	  true; \
@@ -1219,6 +1317,7 @@ check-gcc-c++:
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	  $(SET_LIB_PATH) \
+	  $(GCC_HOST_EXPORTS) \
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
 	else \
 	  true; \
@@ -1226,18 +1325,23 @@ check-gcc-c++:
 
 .PHONY: check-c++
 check-c++: check-target-libstdc++-v3 check-gcc-c++
+@endif gcc
 
 .PHONY: install-gcc maybe-install-gcc
 maybe-install-gcc:
+@if gcc
+maybe-install-gcc: install-gcc
 install-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	  $(SET_LIB_PATH) \
+	  $(GCC_HOST_EXPORTS) \
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	else \
 	  true; \
 	fi
+@endif gcc
 
 # Install the gcc headers files, but not the fixed include files,
 # which Cygnus is not allowed to distribute.  This rule is very
@@ -1254,6 +1358,7 @@ gcc-no-fixedincludes:
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
 	  $(SET_LIB_PATH) \
+	  $(GCC_HOST_EXPORTS) \
 	  (cd ./gcc && \
 	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	  rm -rf gcc/include; \
@@ -1264,6 +1369,8 @@ gcc-no-fixedincludes:
 [+ FOR recursive_targets +]
 .PHONY: maybe-[+make_target+]-gcc [+make_target+]-gcc
 maybe-[+make_target+]-gcc:
+@if gcc
+maybe-[+make_target+]-gcc: [+make_target+]-gcc
 [+make_target+]-gcc: [+
   FOR depend +]\
     [+depend+]-gcc [+
@@ -1275,6 +1382,7 @@ maybe-[+make_target+]-gcc:
 	for flag in $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
+	$(GCC_HOST_EXPORTS) \
 	echo "Doing [+make_target+] in gcc" ; \
 	(cd gcc && \
 	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
@@ -1283,6 +1391,7 @@ maybe-[+make_target+]-gcc:
 	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
 	          [+make_target+]) \
 	  || exit 1
+@endif gcc
 
 [+ ENDFOR recursive_targets +]
 
@@ -1290,16 +1399,26 @@ maybe-[+make_target+]-gcc:
 # GCC bootstrap support
 # ---------------------
 
-# We name the directories for the various stages "stage1-gcc",
-# "stage2-gcc","stage3-gcc", etc.  
-# Unfortunately, the 'compare' process will fail (on debugging information)
-# if any directory names are different!
-# So in the building rule for each stage, we relocate them before and after.
-# The current one is 'gcc', while the previous one is 'prev-gcc'.  (The
-# current one must be 'gcc' for now because the scripts in that directory
-# assume it.)
-# At the end of the bootstrap, 'stage3-gcc' must be moved to 'gcc' so that
-# libraries can find it.  Ick!
+# We track the current stage (the one in 'gcc') in the stage_last file.
+# We name the build directories for the various stages "stage1-gcc",
+# "stage2-gcc","stage3-gcc", etc.
+
+# Since the 'compare' process will fail (on debugging information) if any
+# directory names are different, we need to link the gcc directory for
+# the previous stage to a constant name ('gcc-prev'), and to make the name of
+# the build directories constant as well. For the latter, we use naked names
+# like 'gcc', because the scripts in that directory assume it.  We use
+# mv on platforms where symlinks to directories do not work or are not
+# reliable.
+
+# At the end of the bootstrap, a symlink to 'stage3-gcc' named 'gcc' must
+# be kept, so that libraries can find it.  Ick!
+
+# It would be best to preinstall gcc into a staging area (and in the
+# future, gather there all prebootstrap packages).  This would allow
+# assemblers and linkers can be bootstrapped as well as the compiler
+# (both in a combined tree, or separately).  This however requires some
+# change to the gcc driver, again in order to avoid comparison failures.
 
 # Bugs: This is almost certainly not parallel-make safe.
 
@@ -1315,6 +1434,21 @@ STAMP = echo timestamp >
 STAGE1_CFLAGS=@stage1_cflags@
 STAGE1_LANGUAGES=@stage1_languages@
 
+# We only want to compare .o files, so set this!
+objext = .o
+
+# Real targets act phony if they depend on phony targets; this hack
+# prevents gratuitous rebuilding of stage 1.
+prebootstrap:
+	$(MAKE) all-bootstrap
+	$(STAMP) prebootstrap
+
+# Flags to pass to stage2 and later makes.
+BOOT_CFLAGS= -g -O2
+POSTSTAGE1_FLAGS_TO_PASS = \
+	CFLAGS="$(BOOT_CFLAGS)" \
+	ADAC="\$$(CC)"
+
 # For stage 1:
 # * We force-disable intermodule optimizations, even if
 #   --enable-intermodule was passed, since the installed compiler probably
@@ -1323,36 +1457,52 @@ STAGE1_LANGUAGES=@stage1_languages@
 # * Likewise, we force-disable coverage flags, since the installed compiler
 #   probably has never heard of them.
 # * We build only C (and possibly Ada).
-configure-stage1-gcc:
-	echo configure-stage1-gcc > stage_last ; \
-	if [ -f stage1-gcc/Makefile ] ; then \
-	  $(STAMP) configure-stage1-gcc ; \
+
+[+ FOR bootstrap-stage +]
+.PHONY: new-stage[+id+]-start new-stage[+id+]-end
+
+new-stage[+id+]-start:
+	[ -f stage_last ] && $(MAKE) new-`cat stage_last`-end || :
+	echo stage[+id+] > stage_last ; \
+	[ -d stage[+id+]-gcc ] || mkdir stage[+id+]-gcc; \
+	set stage[+id+]-gcc gcc ; @CREATE_LINK_TO_DIR@ [+ IF prev +] ; \
+	set stage[+prev+]-gcc prev-gcc ; @CREATE_LINK_TO_DIR@ [+ ENDIF prev +]
+
+new-stage[+id+]-end:
+	rm -f stage_last ; \
+	set gcc stage[+id+]-gcc ; @UNDO_LINK_TO_DIR@ [+ IF prev +] ; \
+	set prev-gcc stage[+prev+]-gcc ; @UNDO_LINK_TO_DIR@ [+ ENDIF prev +]
+
+# Bubble a bugfix through all the stages up to stage [+id+].  They
+# are remade, but not reconfigured.  The next stage (if any) will not
+# be reconfigured as well.
+.PHONY: new-stage[+id+]-bubble
+new-stage[+id+]-bubble: [+ IF prev +]new-stage[+prev+]-bubble[+ ENDIF +]
+	@if [ -f all-stage[+id+]-gcc ] ; then \
+	  echo Remaking stage [+id+] ; \
+	  rm -f all-stage[+id+]-gcc ; \
+	  $(MAKE) all-stage[+id+]-gcc [+ IF next +] && \
+	  if [ -f configure-stage[+next+]-gcc ] ; then \
+	    $(STAMP) configure-stage[+next+]-gcc ; \
+	  fi [+ ENDIF next +]; \
+	else \
+	  $(MAKE) all-stage[+id+]-gcc ; \
+	fi
+
+configure-stage[+id+]-gcc: [+ IF prev +] all-stage[+prev+]-gcc [+
+	  ELSE +] prebootstrap [+ ENDIF prev +]
+	$(MAKE) new-stage[+id+]-start
+	@if [ -f stage[+id+]-gcc/Makefile ] ; then \
+	  $(STAMP) configure-stage[+id+]-gcc ; \
 	  exit 0; \
 	else \
 	  true ; \
 	fi ; \
-	[ -d stage1-gcc ] || mkdir stage1-gcc; \
-	mv stage1-gcc gcc ; \
 	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
-	CC="$(CC)"; export CC; \
-	CFLAGS="$(CFLAGS)"; export CFLAGS; \
-	CXX="$(CXX)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	AR="$(AR)"; export AR; \
-	AS="$(AS)"; export AS; \
-	CC_FOR_BUILD="$(CC_FOR_BUILD)"; export CC_FOR_BUILD; \
-	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	LD="$(LD)"; export LD; \
-	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
-	NM="$(NM)"; export NM; \
-	RANLIB="$(RANLIB)"; export RANLIB; \
-	WINDRES="$(WINDRES)"; export WINDRES; \
-	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	echo Configuring stage 1 in gcc; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
+	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
+	$(GCC_HOST_EXPORTS) [+ ENDIF prev +] \
+	echo Configuring stage [+id+] in gcc ; \
 	cd gcc || exit 1; \
 	case $(srcdir) in \
 	  \.) \
@@ -1367,188 +1517,32 @@ configure-stage1-gcc:
 	esac; \
 	$(SHELL) $${libsrcdir}/configure \
 	  $(HOST_CONFIGARGS) $${srcdiroption} \
-	  --disable-intermodule --disable-coverage \
-	  --enable-languages="$(STAGE1_LANGUAGES)"; \
-	cd .. ; \
-	mv gcc stage1-gcc ; \
-	$(STAMP) configure-stage1-gcc
+	  [+extra_configure_flags+] && \
+	  $(STAMP) ../configure-stage[+id+]-gcc
 
-# Real targets act phony if they depend on phony targets; this hack
-# prevents gratuitous rebuilding of stage 1.
-prebootstrap:
-	$(MAKE) all-bootstrap
-	$(STAMP) prebootstrap
-
-all-stage1-gcc: configure-stage1-gcc prebootstrap
-	echo all-stage1-gcc > stage_last ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	mv stage1-gcc gcc ; \
+all-stage[+id+]-gcc: configure-stage[+id+]-gcc
+	$(MAKE) new-stage[+id+]-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
+	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
+	$(GCC_HOST_EXPORTS) [+ ENDIF prev +] \
 	cd gcc && \
-	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE1_CFLAGS)" && $(STAMP) ../all-stage1-gcc ; \
-	result=$$? ; \
-	cd .. ; \
-	mv gcc stage1-gcc ; \
-	exit $$result
+	$(MAKE) $(GCC_FLAGS_TO_PASS) [+ IF prev +] \
+		CC="$${CC}" CC_FOR_BUILD="${CC_FOR_BUILD}" \
+		STAGE_PREFIX=$$r/stage[+prev+]-gcc/ [+ ENDIF prev +] \
+		[+extra_make_flags+] && $(STAMP) ../all-stage[+id+]-gcc
 
-# TODO: Deal with STAGE_PREFIX (which is only for ada, incidentally)
-# Possibly pass --enable-werror-always (depending on --enable-werror);
-# that's what @stage2_werror_flag@ is for
-configure-stage2-gcc: all-stage1-gcc
-	echo configure-stage2-gcc > stage_last ; \
-	if [ -f stage2-gcc/Makefile ] ; then \
-	  $(STAMP) configure-stage2-gcc ; \
-	  exit 0; \
-	else \
-	  true ; \
-	fi ; \
-	[ -d stage2-gcc ] || mkdir stage2-gcc; \
-	mv stage2-gcc gcc ; \
-	mv stage1-gcc prev-gcc ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
-	CFLAGS="$(CFLAGS)"; export CFLAGS; \
-	CXX="$(CXX)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	AR="$(AR)"; export AR; \
-	AS="$(AS)"; export AS; \
-	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	LD="$(LD)"; export LD; \
-	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
-	NM="$(NM)"; export NM; \
-	RANLIB="$(RANLIB)"; export RANLIB; \
-	WINDRES="$(WINDRES)"; export WINDRES; \
-	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC; \
-	CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
-	echo Configuring stage 2 in gcc; \
-	cd gcc || exit 1; \
-	case $(srcdir) in \
-	  \.) \
-	    srcdiroption="--srcdir=."; \
-	    libsrcdir=".";; \
-	  /* | [A-Za-z]:[\\/]*) \
-	    srcdiroption="--srcdir=$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	  *) \
-	    srcdiroption="--srcdir=../$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	esac; \
-	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} @stage2_werror_flag@ ; \
-	cd .. ; \
-	mv gcc stage2-gcc ; \
-	mv prev-gcc stage1-gcc ; \
-	$(STAMP) configure-stage2-gcc
-
-# Flags to pass to stage2 and later makes.
-BOOT_CFLAGS= -g -O2
-POSTSTAGE1_FLAGS_TO_PASS = \
-	CFLAGS="$(BOOT_CFLAGS)" \
-	ADAC="\$$(CC)"
-
-all-stage2-gcc: all-stage1-gcc configure-stage2-gcc
-	echo all-stage2-gcc > stage_last ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	mv stage2-gcc gcc ; \
-	mv stage1-gcc prev-gcc ; \
-	cd gcc && \
-	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
-		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
-		STAGE_PREFIX=$$r/prev-gcc/ \
-		$(POSTSTAGE1_FLAGS_TO_PASS) && $(STAMP) ../all-stage2-gcc ; \
-	result=$$? ; \
-	cd .. ; \
-	mv prev-gcc stage1-gcc ; \
-	mv gcc stage2-gcc ; \
-	exit $$result
-
-configure-stage3-gcc: all-stage2-gcc
-	echo configure-stage3-gcc > stage_last ; \
-	if [ -f stage3-gcc/Makefile ] ; then \
-	  $(STAMP) configure-stage3-gcc ; \
-	  exit 0; \
-	else \
-	  true ; \
-	fi ; \
-	[ -d stage3-gcc ] || mkdir stage3-gcc; \
-	mv stage3-gcc gcc ; \
-	mv stage2-gcc prev-gcc ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
-	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
-	CFLAGS="$(CFLAGS)"; export CFLAGS; \
-	CXX="$(CXX)"; export CXX; \
-	CXXFLAGS="$(CXXFLAGS)"; export CXXFLAGS; \
-	AR="$(AR)"; export AR; \
-	AS="$(AS)"; export AS; \
-	DLLTOOL="$(DLLTOOL)"; export DLLTOOL; \
-	LD="$(LD)"; export LD; \
-	LDFLAGS="$(LDFLAGS)"; export LDFLAGS; \
-	NM="$(NM)"; export NM; \
-	RANLIB="$(RANLIB)"; export RANLIB; \
-	WINDRES="$(WINDRES)"; export WINDRES; \
-	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
-	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
-	CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC; \
-	CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/"; export CC_FOR_BUILD; \
-	echo Configuring stage 3 in gcc; \
-	cd gcc || exit 1; \
-	case $(srcdir) in \
-	  \.) \
-	    srcdiroption="--srcdir=."; \
-	    libsrcdir=".";; \
-	  /* | [A-Za-z]:[\\/]*) \
-	    srcdiroption="--srcdir=$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	  *) \
-	    srcdiroption="--srcdir=../$(srcdir)/gcc"; \
-	    libsrcdir="$$s/gcc";; \
-	esac; \
-	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} @stage2_werror_flag@ ; \
-	cd .. ; \
-	mv gcc stage3-gcc ; \
-	mv prev-gcc stage2-gcc ; \
-	$(STAMP) configure-stage3-gcc
-
-all-stage3-gcc: all-stage2-gcc configure-stage3-gcc
-	echo all-stage3-gcc > stage_last ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	mv stage2-gcc prev-gcc ; \
-	mv stage3-gcc gcc ; \
-	cd gcc && \
-	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-		CC="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
-		CC_FOR_BUILD="$(STAGE_CC_WRAPPER) $$r/prev-gcc/xgcc$(exeext) -B$$r/prev-gcc/ -B$(build_tooldir)/bin/" \
-		STAGE_PREFIX=$$r/prev-gcc/ \
-		$(POSTSTAGE1_FLAGS_TO_PASS) && $(STAMP) ../all-stage3-gcc \
-	result=$$? ; \
-	cd .. ; \
-	mv prev-gcc stage2-gcc ; \
-	mv gcc stage3-gcc ; \
-	exit $$result
-
-# We only want to compare .o files, so set this!
-objext = .o
-
-compare: all-stage3-gcc
-	r=`${PWD_COMMAND}`; export r; \
+[+ IF compare-target +]
+[+compare-target+]: all-stage[+id+]-gcc
+	[ -f stage_last ] && $(MAKE) new-`cat stage_last`-end || :
+	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	rm -f .bad_compare ; \
-	cd stage3-gcc; \
+	cd stage[+id+]-gcc; \
 	files=`find . -name "*$(objext)" -print` ; \
 	cd .. ; \
 	for file in $${files} ; do \
-	  f1=$$r/stage2-gcc/$$file; f2=$$r/stage3-gcc/$$file; \
+	  f1=$$r/stage[+prev+]-gcc/$$file; f2=$$r/stage[+id+]-gcc/$$file; \
 	  @do_compare@ > /dev/null 2>&1; \
 	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
 	done ; \
@@ -1559,40 +1553,38 @@ compare: all-stage3-gcc
 	else \
 	  true; \
 	fi ; \
-        $(STAMP) compare
+	$(STAMP) [+compare-target+]
+[+ ENDIF compare-target +]
 
-.PHONY: new-bootstrap
-# This target exists so that everything can be made in one pass.
-# 'all-gcc' has to avoid stomping on the bootstrap-generated gcc for
-# this to work.
-new-bootstrap: compare
-	mv stage3-gcc gcc ; \
-	$(MAKE) all ; \
-	mv gcc stage3-gcc
+[+ IF bootstrap-target +]
+.PHONY: [+bootstrap-target+]
+[+bootstrap-target+]:
+	$(MAKE) new-stage[+id+]-bubble [+
+	  IF compare-target +] [+compare-target+] [+
+	  ENDIF compare-target +] \
+	  new-stage[+id+]-start all new-stage[+id+]-end 
+[+ ENDIF bootstrap-target +]
 
-new-cleanstrap:
-	rm -rf configure-stage1-gcc all-stage1-gcc stage1-gcc \
-	  configure-stage2-gcc all-stage2-gcc stage2-gcc \
-	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
-	  compare
-	$(MAKE) new-bootstrap
+.PHONY: new-restage[+id+] distclean-stage[+id+]
 
-new-restage1:
-	rm -rf all-stage1-gcc \
-	  configure-stage2-gcc all-stage2-gcc stage2-gcc \
-	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
-	  compare
-	$(MAKE) all-stage1-gcc
+distclean-stage[+id+]: [+ IF next +] distclean-stage[+next+] [+ ENDIF next +]
+	[ -f stage_last ] && $(MAKE) new-`cat stage_last`-end || :
+	rm -rf configure-stage[+id+]-gcc all-stage[+id+]-gcc stage[+id+]-gcc [+
+	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
 
-new-restage2: all-stage1-gcc
-	rm -rf all-stage2-gcc \
-	  configure-stage3-gcc all-stage3-gcc stage3-gcc \
-	  compare
-	$(MAKE) all-stage2-gcc
+new-restage[+id+]: [+ IF next +] distclean-stage[+next+] [+ ENDIF next +]
+	rm -rf all-stage[+id+]-gcc [+
+	  IF compare-target +][+compare-target+] [+ ENDIF compare-target +]
+	$(MAKE) [+
+	  IF compare-target +][+compare-target+] [+
+	  ELSE +] all-stage[+id+]-gcc [+ ENDIF compare-target +]
 
-new-restage3: all-stage2-gcc
-	rm -rf all-stage3-gcc compare
-	$(MAKE) compare
+[+ IF cleanstrap-target +]
+.PHONY: [+cleanstrap-target+]
+[+cleanstrap-target+]: distclean-stage1 [+bootstrap-target+]
+[+ ENDIF cleanstrap-target +]
+
+[+ ENDFOR bootstrap-stage +]
 
 # --------------------------------------
 # Dependencies between different modules
@@ -1609,10 +1601,12 @@ new-restage3: all-stage2-gcc
 # GCC needs to identify certain tools.
 # GCC also needs the information exported by the intl configure script.
 configure-gcc: maybe-configure-intl maybe-configure-binutils maybe-configure-gas maybe-configure-ld maybe-configure-bison maybe-configure-flex
-all-gcc: maybe-all-libiberty maybe-all-intl maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee
+all-gcc: maybe-all-libiberty maybe-all-intl maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib maybe-all-libbanshee maybe-all-libcpp
+configure-libcpp: maybe-configure-libiberty maybe-configure-intl
+all-libcpp: maybe-all-libiberty maybe-all-intl
 # This is a slightly kludgy method of getting dependencies on 
 # all-build-libiberty correct; it would be better to build it every time.
-all-gcc: maybe-all-build-libiberty maybe-all-libbanshee
+all-gcc: maybe-all-build-libiberty
 all-bootstrap: [+ FOR host_modules +][+ IF bootstrap +]maybe-all-[+module+] [+ ENDIF bootstrap +][+ ENDFOR host_modules +]
 
 # Host modules specific to gdb.
@@ -1686,8 +1680,6 @@ configure-target-boehm-gc: $(ALL_GCC_C) maybe-configure-target-qthreads
 configure-target-fastjar: maybe-configure-target-zlib
 all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
 configure-target-libada: $(ALL_GCC_C)
-configure-target-libf2c: $(ALL_GCC_C)
-all-target-libf2c: maybe-all-target-libiberty
 configure-target-libgfortran: $(ALL_GCC_C)
 configure-target-libffi: $(ALL_GCC_C) 
 configure-target-libjava: $(ALL_GCC_C) maybe-configure-target-zlib maybe-configure-target-boehm-gc maybe-configure-target-qthreads maybe-configure-target-libffi
@@ -1713,10 +1705,6 @@ all-target-winsup: maybe-all-target-libiberty maybe-all-target-libtermcap
 configure-target-gperf: $(ALL_GCC_CXX)
 all-target-gperf: maybe-all-target-libiberty maybe-all-target-libstdc++-v3
 configure-target-qthreads: $(ALL_GCC_C)
-
-# Dependencies of maybe-foo on foo.  These are used because, for example,
-# all-gcc only depends on all-gas if gas is present and being configured.
-@maybe_dependencies@
 
 # Serialization dependencies.  Host configures don't work well in parallel to
 # each other, due to contention over config.cache.  Target configures and 

@@ -957,7 +957,7 @@ struct tree_vector GTY(())
   tree elements;
 };
 
-#include "hashtable.h"
+#include "symtab.h"
 
 /* Define fields and accessors for some special-purpose tree nodes.  */
 
@@ -1203,6 +1203,7 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_ELT(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).e
 #define PHI_ARG_DEF(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
+#define PHI_ARG_NONZERO(NODE, I) PHI_NODE_ELT_CHECK (NODE, I).nonzero
 
 struct edge_def;
 
@@ -1210,6 +1211,7 @@ struct phi_arg_d GTY(())
 {
   tree def;
   struct edge_def * GTY((skip (""))) e;
+  bool nonzero;
 };
 
 struct tree_phi_node GTY(())
@@ -2210,6 +2212,12 @@ struct tree_type GTY(())
 #define DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL(DECL)		\
   DECL_CHECK (DECL)->decl.needs_to_live_in_memory
 
+/* Nonzero for a decl that cgraph has decided should be inlined into
+   at least one call site.  It is not meaningful to look at this
+   directly; always use cgraph_function_possibly_inlined_p.  */
+#define DECL_POSSIBLY_INLINED(DECL) \
+  FUNCTION_DECL_CHECK (DECL)->decl.possibly_inlined
+
 /* Enumerate visibility settings.  */
 
 enum symbol_visibility
@@ -2274,7 +2282,8 @@ struct tree_decl GTY(())
   unsigned lang_flag_7 : 1;
 
   unsigned needs_to_live_in_memory : 1;
-  /* 15 unused bits.  */
+  unsigned possibly_inlined : 1;
+  /* 14 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -3175,11 +3184,6 @@ extern tree save_expr (tree);
 
 extern tree skip_simple_arithmetic (tree);
 
-/* Return TRUE if EXPR is a SAVE_EXPR or wraps simple arithmetic around a
-   SAVE_EXPR.  Return FALSE otherwise.  */
-
-extern bool saved_expr_p (tree);
-
 /* Returns the index of the first non-tree operand for CODE, or the number
    of operands if all are trees.  */
 
@@ -3390,17 +3394,6 @@ extern void expand_start_cond (tree, int);
 extern void expand_end_cond (void);
 extern void expand_start_else (void);
 extern void expand_start_elseif (tree);
-extern struct nesting *expand_start_loop (int);
-extern struct nesting *expand_start_loop_continue_elsewhere (int);
-extern struct nesting *expand_start_null_loop (void);
-extern void expand_loop_continue_here (void);
-extern void expand_end_loop (void);
-extern void expand_end_null_loop (void);
-extern int expand_continue_loop (struct nesting *);
-extern int expand_exit_loop (struct nesting *);
-extern int expand_exit_loop_if_false (struct nesting *,tree);
-extern int expand_exit_loop_top_cond (struct nesting *, tree);
-extern int expand_exit_something (void);
 
 extern void expand_stack_alloc (tree, tree);
 extern rtx expand_stack_save (void);
@@ -3548,7 +3541,6 @@ extern void put_var_into_stack (tree, int);
 extern void flush_addressof (tree);
 extern void setjmp_vars_warning (tree);
 extern void setjmp_args_warning (void);
-extern void mark_all_temps_used (void);
 extern void init_temp_slots (void);
 extern void combine_temp_slots (void);
 extern void free_temp_slots (void);
@@ -3652,6 +3644,7 @@ extern void variable_section (tree, int);
 enum tls_model decl_tls_model (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
+extern void mark_decl_referenced (tree);
 extern void notice_global_symbol (tree);
 
 /* In stmt.c */

@@ -286,7 +286,7 @@ create_artificial_label (void)
 
 static GTY(()) unsigned int tmp_var_id_num;
 
-static tree
+tree
 create_tmp_var_name (const char *prefix)
 {
   char *tmp_name;
@@ -588,8 +588,9 @@ static tree
 mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
 {
   enum tree_code code = TREE_CODE (*tp);
-  /* Don't unshare types, constants and SAVE_EXPR nodes.  */
+  /* Don't unshare types, decls, constants and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
+      || TREE_CODE_CLASS (code) == 'd'
       || TREE_CODE_CLASS (code) == 'c'
       || code == SAVE_EXPR || code == TARGET_EXPR
       /* We can't do anything sensible with a BLOCK used as an expression,
@@ -632,26 +633,40 @@ static tree
 copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		  void *data ATTRIBUTE_UNUSED)
 {
+  tree t = *tp;
+  enum tree_code code = TREE_CODE (t);
+
+  /* Skip types, decls, and constants.  */
+  if (TREE_CODE_CLASS (code) == 't'
+      || TREE_CODE_CLASS (code) == 'd'
+      || TREE_CODE_CLASS (code) == 'c')
+    *walk_subtrees = 0;
+
+  /* Special-case BIND_EXPR.  We should never be copying these, therefore
+     we can omit examining BIND_EXPR_VARS.  Which also avoids problems with
+     double processing of the DECL_INITIAL, which could be seen via both
+     the BIND_EXPR_VARS and a DECL_STMT.  */
+  else if (code == BIND_EXPR)
+    {
+      if (TREE_VISITED (t))
+	abort ();
+      TREE_VISITED (t) = 1;
+      *walk_subtrees = 0;
+      walk_tree (&BIND_EXPR_BODY (t), copy_if_shared_r, NULL, NULL);
+    }
+
   /* If this node has been visited already, unshare it and don't look
      any deeper.  */
-  if (TREE_VISITED (*tp))
+  else if (TREE_VISITED (t))
     {
       walk_tree (tp, mostly_copy_tree_r, NULL, NULL);
       *walk_subtrees = 0;
     }
+
+  /* Otherwise, mark the tree as visited and keep looking.  */
   else
-    {
-    /* Otherwise, mark the tree as visited and keep looking.  */
-    TREE_VISITED (*tp) = 1;
-      if (TREE_CODE (*tp) == VA_ARG_EXPR)
-	{
-	  /* Mark any _DECL inside the operand as volatile to avoid the
-	     optimizers messing around with it. FIXME: Remove this once
-	     VA_ARG_EXPRs are properly lowered.  */
-	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
-		     NULL, NULL);
-	}
-    }
+    TREE_VISITED (t) = 1;
+
   return NULL_TREE;
 }
 
@@ -966,6 +981,19 @@ gimplify_loop_expr (tree *expr_p, tree *pre_p)
   return GS_ALL_DONE;
 }
 
+/* Compare two case labels.  Because the front end should already have
+   made sure that case ranges do not overlap, it is enough to only compare
+   the CASE_LOW values of each case label.  */
+
+static int
+compare_case_labels (const void *p1, const void *p2)
+{
+  tree case1 = *(tree *)p1;
+  tree case2 = *(tree *)p2;
+
+  return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
+}
+
 /* Gimplify a SWITCH_EXPR, and collect a TREE_VEC of the labels it can
    branch to.  */
 
@@ -981,8 +1009,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
   if (SWITCH_BODY (switch_expr))
     {
       varray_type labels, saved_labels;
-      bool saw_default;
-      tree label_vec, t;
+      tree label_vec, default_case = NULL_TREE;
       size_t i, len;
 
       /* If someone can be bothered to fill in the labels, they can
@@ -999,38 +1026,42 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
       gimplify_ctxp->case_labels = saved_labels;
 
       len = VARRAY_ACTIVE_SIZE (labels);
-      saw_default = false;
 
       for (i = 0; i < len; ++i)
 	{
-	  t = VARRAY_TREE (labels, i);
+	  tree t = VARRAY_TREE (labels, i);
 	  if (!CASE_LOW (t))
 	    {
-	      saw_default = true;
+	      /* The default case must be the last label in the list.  */
+	      default_case = t;
+	      VARRAY_TREE (labels, i) = VARRAY_TREE (labels, len - 1);
+	      len--;
 	      break;
 	    }
 	}
 
-      label_vec = make_tree_vec (len + !saw_default);
+      label_vec = make_tree_vec (len + 1);
       SWITCH_LABELS (*expr_p) = label_vec;
-
-      for (i = 0; i < len; ++i)
-	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
-
       append_to_statement_list (switch_expr, pre_p);
 
-      /* If the switch has no default label, add one, so that we jump
-	 around the switch body.  */
-      if (!saw_default)
+      if (! default_case)
 	{
-	  t = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
-		     NULL_TREE, create_artificial_label ());
-	  TREE_VEC_ELT (label_vec, len) = t;
+	  /* If the switch has no default label, add one, so that we jump
+	     around the switch body.  */
+	  default_case = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
+				NULL_TREE, create_artificial_label ());
 	  append_to_statement_list (SWITCH_BODY (switch_expr), pre_p);
-	  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (t));
+	  *expr_p = build (LABEL_EXPR, void_type_node,
+			   CASE_LABEL (default_case));
 	}
       else
 	*expr_p = SWITCH_BODY (switch_expr);
+
+      qsort (&VARRAY_TREE (labels, 0), len, sizeof (tree),
+	     compare_case_labels);
+      for (i = 0; i < len; ++i)
+	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
+      TREE_VEC_ELT (label_vec, len) = default_case;
 
       SWITCH_BODY (switch_expr) = NULL;
     }
@@ -2472,6 +2503,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	  tree args, t, dest;
 
 	  t = TYPE_SIZE_UNIT (TREE_TYPE (*to_p));
+	  t = unshare_expr (t);
 	  args = tree_cons (NULL, t, NULL);
 	  t = build_addr_expr (*from_p);
 	  args = tree_cons (NULL, t, args);

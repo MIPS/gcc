@@ -82,6 +82,7 @@ char *alloca ();
    ugly to look at and a pain to type when you add the prefix by hand,
    so we hide it behind a macro.  */
 #define PREFIX(x) "_gfortran_" x
+#define PREFIX_LEN 10
 
 /* Macro to initialize an mstring structure.  */
 #define minit(s, t) { s, NULL, t }
@@ -650,6 +651,9 @@ typedef struct gfc_symbol
 
   struct gfc_symbol *old_symbol, *tlink;
   unsigned mark:1, new:1;
+  /* Nonzero if all equivalences associated with this symbol have been
+     processed.  */
+  unsigned equiv_built:1;
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
 
@@ -1214,6 +1218,7 @@ typedef struct
   int warn_conversion;
   int warn_implicit_interface;
   int warn_line_truncation;
+  int warn_underflow;
   int warn_surprising;
   int warn_unused_labels;
 
@@ -1544,6 +1549,8 @@ try gfc_check_conformance (const char *, gfc_expr *, gfc_expr *);
 try gfc_check_assign (gfc_expr *, gfc_expr *, int);
 try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
+
+gfc_expr *gfc_default_initializer (gfc_typespec *);
 
 /* st.c */
 extern gfc_code new_st;

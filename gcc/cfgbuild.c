@@ -123,11 +123,6 @@ control_flow_insn_p (rtx insn)
 	      || can_throw_internal (insn));
 
     case INSN:
-      /* We represent EH manipulation via unspec followed by barrier.
-         Such instruction is control flow instruction even when there is
-         no other clue specifying it.  */
-      if (NEXT_INSN (insn) && GET_CODE (NEXT_INSN (insn)) == BARRIER)
-	return true;
       return (flag_non_call_exceptions && can_throw_internal (insn));
 
     case BARRIER:

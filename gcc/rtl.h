@@ -1195,6 +1195,9 @@ extern unsigned int subreg_regno_offset	(unsigned int, enum machine_mode,
 extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
 					   unsigned int, enum machine_mode);
 extern unsigned int subreg_regno (rtx);
+extern unsigned HOST_WIDE_INT nonzero_bits (rtx, enum machine_mode);
+extern unsigned int num_sign_bit_copies (rtx, enum machine_mode);
+
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
    sign- or zero-extended from the mode of the subreg to the mode of
@@ -1598,9 +1601,6 @@ extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
 extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
-extern rtx gen_lowpart_general (enum machine_mode, rtx);
-extern rtx (*gen_lowpart) (enum machine_mode mode, rtx x);
-
 
 /* In cse.c */
 extern rtx gen_lowpart_if_possible (enum machine_mode, rtx);
@@ -2447,7 +2447,8 @@ extern void tracer (void);
 extern void variable_tracking_main (void);
 
 /* In stor-layout.c.  */
-extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+extern void get_mode_bounds (enum machine_mode, int, enum machine_mode,
+			     rtx *, rtx *);
 
 /* In loop-unswitch.c  */
 extern rtx reversed_condition (rtx);
@@ -2459,5 +2460,30 @@ extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
 
 /* In ra.c.  */
 extern void reg_alloc (void);
+
+/* In modulo-sched.c.  */
+#ifdef BUFSIZ
+extern void sms_schedule (FILE *);
+#endif
+
+struct rtl_hooks
+{
+  rtx (*gen_lowpart) (enum machine_mode, rtx);
+  rtx (*reg_nonzero_bits) (rtx, enum machine_mode, rtx, enum machine_mode,
+			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
+  rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,
+				  unsigned int, unsigned int *);
+
+  /* Whenever you add entries here, make sure you adjust hosthooks-def.h.  */
+};
+
+/* Each pass can provide its own.  */
+extern struct rtl_hooks rtl_hooks;
+
+/* ... but then it has to restore these.  */
+extern const struct rtl_hooks general_rtl_hooks;
+
+/* Keep this for the nonce.  */
+#define gen_lowpart rtl_hooks.gen_lowpart
 
 #endif /* ! GCC_RTL_H */

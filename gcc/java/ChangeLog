@@ -1,3 +1,26 @@
+2004-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* lex.c (java_new_lexer): Set 'encoding'.
+	(java_read_char): Improve error message for unrecognized characters.
+	* lex.h (struct java_lexer): New field 'encoding'.
+
+2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Make-lang.in: Link in $(LIBCPP) instead of mkdeps.o.
+
+2004-05-21  Mark Wielaard  <mark@klomp.org>
+
+	* gjavah.c (print_stub_or_jni): Mark functions only JNIEXPORT, not
+	extern.
+
+2004-05-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* typeck.c: Remove non-printable character 160.
+
+2004-05-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* check-init.c: Correct minor typos.
+
 2004-05-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* Make-lang.in, expr.c, java-gimplify.c: Rename

@@ -5429,12 +5429,6 @@ Define this macro if it is as good or better to call a constant
 function address than to call an address kept in a register.
 @end defmac
 
-@defmac NO_RECURSIVE_FUNCTION_CSE
-Define this macro if it is as good or better for a function to call
-itself with an explicit address than to call an address kept in a
-register.
-@end defmac
-
 @defmac RANGE_TEST_NON_SHORT_CIRCUIT
 Define this macro if a non-short-circuit operation produced by
 @samp{fold_range_test ()} is optimal.  This macro defaults to true if
@@ -5456,7 +5450,13 @@ instructions.
 
 On entry to the hook, @code{*@var{total}} contains a default estimate
 for the cost of the expression.  The hook should modify this value as
-necessary.
+necessary.  Traditionally, the default costs are @code{COSTS_N_INSNS (5)}
+for multiplications, @code{COSTS_N_INSNS (7)} for division and modulus
+operations, and @code{COSTS_N_INSNS (1)} for all other operations.
+
+When optimizing for code size, i.e@. when @code{optimize_size} is
+non-zero, this target hook should be used to estimate the relative
+size cost of an expression, again relative to @code{COSTS_N_INSNS}.
 
 The hook returns true when all subexpressions of @var{x} have been
 processed, and false when @code{rtx_cost} should recurse.
@@ -7493,13 +7493,14 @@ If this macro is not defined, nothing special is output at the end of
 the jump-table.
 @end defmac
 
-@deftypefn {Target Hook} void TARGET_ASM_EMIT_UNWIND_LABEL (@var{stream}, @var{decl}, @var{empty})
+@deftypefn {Target Hook} void TARGET_ASM_EMIT_UNWIND_LABEL (@var{stream}, @var{decl}, @var{for_eh}, @var{empty})
 This target hook emits a label at the beginning of each FDE.  It
 should be defined on targets where FDEs need special labels, and it
 should write the appropriate label, for the FDE associated with the
 function declaration @var{decl}, to the stdio stream @var{stream}.
-The third argument, @var{empty}, is a boolean: true if this is a
-placeholder label for an omitted FDE.
+The third argument, @var{for_eh}, is a boolean: true if this is for an
+exception table.  The fourth argument, @var{empty}, is a boolean:
+true if this is a placeholder label for an omitted FDE.
 
 The default is that FDEs are not given nonlocal labels.
 @end deftypefn

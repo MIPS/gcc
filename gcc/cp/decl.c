@@ -2066,8 +2066,7 @@ lookup_label (tree id)
   /* You can't use labels at global scope.  */
   if (current_function_decl == NULL_TREE)
     {
-      error ("label `%s' referenced outside of any function",
-	     IDENTIFIER_POINTER (id));
+      error ("label `%E' referenced outside of any function", id);
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
     }
 
@@ -4912,7 +4911,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
   /* If this was marked 'used', be sure it will be output.  */
   if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    mark_referenced (DECL_ASSEMBLER_NAME (decl));
+    mark_decl_referenced (decl);
 }
 
 /* This is here for a midend callback from c-common.c.  */
@@ -6746,7 +6745,7 @@ grokdeclarator (tree declarator,
 			longlong = 1;
 		    }
 		  else if (RIDBIT_SETP (i, specbits))
-		    pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		    pedwarn ("duplicate `%E'", id);
 
 		  /* Diagnose "__thread extern" or "__thread static".  */
 		  if (RIDBIT_SETP (RID_THREAD, specbits))
@@ -6786,8 +6785,7 @@ grokdeclarator (tree declarator,
 	{
 	  tree t = lookup_name (id, 1);
 	  if (!t || TREE_CODE (t) != TYPE_DECL)
-	    error ("`%s' fails to be a typedef or built in type",
-		   IDENTIFIER_POINTER (id));
+	    error ("`%E' fails to be a typedef or built in type", id);
 	  else
 	    {
 	      type = TREE_TYPE (t);
@@ -7343,8 +7341,8 @@ grokdeclarator (tree declarator,
 		      error ("destructor cannot be static member function");
 		    if (quals)
 		      {
-			error ("destructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("destructors may not be `%E'",
+				  TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    if (decl_context == FIELD)
@@ -7372,8 +7370,8 @@ grokdeclarator (tree declarator,
 		      }
 		    if (quals)
 		      {
-			error ("constructors may not be `%s'",
-				  IDENTIFIER_POINTER (TREE_VALUE (quals)));
+			error ("constructors may not be `%E'",
+                               TREE_VALUE (quals));
 			quals = NULL_TREE;
 		      }
 		    {
@@ -8179,8 +8177,8 @@ grokdeclarator (tree declarator,
 	  {
 	    if (friendp)
 	      {
-		error ("`%s' is neither function nor member function; cannot be declared friend",
-		       IDENTIFIER_POINTER (declarator));
+		error ("`%E' is neither function nor member function; "
+                       "cannot be declared friend", declarator);
 		friendp = 0;
 	      }
 	    decl = NULL_TREE;
@@ -9409,6 +9407,13 @@ xref_tag (enum tag_types tag_code, tree name,
     {
       if (!globalize && processing_template_decl && IS_AGGR_TYPE (t))
 	redeclare_class_template (t, current_template_parms);
+      else if (!processing_template_decl 
+	       && CLASS_TYPE_P (t)
+	       && CLASSTYPE_IS_TEMPLATE (t))
+	{
+	  error ("redeclaration of `%T' as a non-template", t);
+	  t = error_mark_node;
+	}
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -10755,18 +10760,6 @@ finish_function (int flags)
   /* Save away current state, if appropriate.  */
   if (!processing_template_decl)
     save_function_data (fndecl);
-
-  /* If this function calls `setjmp' it cannot be inlined.  When
-     `longjmp' is called it is not guaranteed to restore the value of
-     local variables that have been modified since the call to
-     `setjmp'.  So, if were to inline this function into some caller
-     `c', then when we `longjmp', we might not restore all variables
-     in `c'.  (It might seem, at first blush, that there's no way for
-     this function to modify local variables in `c', but their
-     addresses may have been stored somewhere accessible to this
-     function.)  */
-  if (!processing_template_decl && calls_setjmp_p (fndecl))
-    DECL_UNINLINABLE (fndecl) = 1;
 
   /* Complain if there's just no return statement.  */
   if (warn_return_type

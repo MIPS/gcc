@@ -1,3 +1,768 @@
+2004-05-27  Steven Bosscher  <stevenb@suse.de>
+
+	* gimplify.c (compare_case_labels): New function.
+	(gimplify_switch_expr): Sort case labels, and make sure the
+	last label in the label vector is the default case.
+	* tree-cfg.c (group_case_labels): New function.
+	(build_tree_cfg): Cleanup redundant labels and group case labels
+	before creating edges.
+	(cleanup_dead_labels): Handle GOTO_EXPRs.
+	(find_case_label_for_value): Use a binary search to find the
+	case label for the given value.
+	* tree-gimple.c: Mention that labels are sorted, and that the
+	last label must be the default.
+
+2004-05-27  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_optimize_cfg): Do not merge across jumptables.
+
+2004-05-27  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (UNSPECV_EH_RETURN): Kill.
+	(eh_return): Use jump_insn.
+	(eh_return_si, eh_return_di): Change pattern to jump instruction.
+
+2004-05-26  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_forward_edges):  Do not check loop structure when
+	not loop optimizing.
+
+2004-05-26  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (can_throw_internal):  Notice RESX instructions.
+
+2004-05-26  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	* varasm.c (output_constant) <INTEGER_TYPE>: Pass the minimum
+	of the two sizes to assemble_integer.
+
+2004-05-25  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (thumb_exit, thumb_unexpanded_epilogue): Remove
+	pointless #ifdef.
+
+2004-04-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (top_builddir): Define to .
+
+2004-05-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.ac (gcc_cv_ld): Prefer in-tree ld over whatever the
+	top-level detects, except when in-tree ld is being cross-built.
+	(gcc_cv_as): Likewise for as.  Use AS_FOR_TARGET otherwise, and
+	then AS only if target is host.
+	* configure: Rebuilt.
+
+2004-05-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* global.c (global_alloc): Call make_accurate_live_analysis.
+	(record_one_conflict): Remove dead code.
+	(mark_reg_clobber): Remove ATTRIBUTE_UNUSED for parameter data.
+	(bb_info): New structure.
+	(BB_INFO, BB_INFO_BY_INDEX): New macros.
+	(allocate_bb_info, free_bb_info, mark_reg_change,
+	calculate_local_reg_bb_info, set_up_bb_rts_numbers, rpost_cmp,
+	modify_bb_reg_pav, calculate_reg_pav,
+	make_accurate_live_analysis): New functions.
+	
+2004-05-25  Devang Patel  <dpatel@apple.com>
+
+	* alias.c (init_alias_analysis): Use ggc_calloc instead of
+	xrealloc.
+	(end_alias_analysis): Use ggc_free instead fo free.
+	
+2004-05-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/15546
+	* config/ia64/ia64.h (ASM_OUTPUT_FDESC): Mark the DECL
+	as needed to be outputted.
+
+2004-05-25  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (__builtin_expect):  Mark the function as const&nothrow.
+
+2004-05-25  Ayal Zaks  <zaks@il.ibm.com>
+	Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* Makefile.in (modulo-sched.o, ddg.o): New.
+	* ddg.h, ddg.c, modulo-sched.c: New files.
+	* cfglayout.c (duplicate_insn_chain): Remove "static" and push
+	internals to "dupicate_insn".
+	(duplicate_insn): New function.
+	* cfglayout.h (duplicate_insn_chain, duplicate_insn): New
+	declarations.
+	* common.opt (fmodulo-sched): New flag.
+	* df.c (df_bb_regno_last_use_find, df_bb_regno_first_def_find):
+	Remove static and forward declaration.
+	(df_find_def, df_reg_used, df_bb_regno_last_def_find): New
+	functions.
+	* df.h (df_bb_regno_last_use_find, df_bb_regno_first_def_find,
+	df_bb_regno_last_def_find, df_find_def, df_reg_used): New
+	declarations.
+	* flags.h (flag_modulo_sched): New flag.
+	* opts.c (common_handle_option): Handle modulo-sched flag.
+	* params.def (max-sms-loop-number, sms-max-ii-factor,
+	sms-dfa-history, sms-loop-average-count-threshold): New
+	parameters.
+	* params.h (MAX_SMS_LOOP_NUMBER, SMS_MAX_II_FACTOR,
+	SMS_DFA_HISTORY, SMS_LOOP_AVERAGE_COUNT_THRESHOLD): New
+	parameters.
+	* passes.c ("sms", "sms-vcg"): New dumps.
+	(rest_of_handle_sched): Call sms_schedule.
+	* rtl.h (sms_schedule): New declaration.
+	* timevar.def (TV_SMS): New.
+	* toplev.c (flag_modulo_sched): Initialize.
+	(f_options): Handle -fmodulo-sched option.
+	* docs/invoke.texi: Document -fmodulo-sched & -dm options.
+	* docs/passes.texi: Document new SMS pass.
+
+2004-05-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in (OBJS): Add rtlhooks.o.
+	(rtlanal.o): Depend on function.h.
+	(cse.o): Depend on rtlhooks-def.h.
+	(combine.o): Depend on rtlhooks-def.h.
+	(rtlhooks.o): New rule.
+	* combine.c: Include rtlhooks-def.h.
+	(nonzero_bits, cached_nonzero_bits, nonzero_bits1,
+	num_sign_bit_copies, cached_num_sign_bit_copies,
+	num_sign_bit_copies1): Move most of the code to rtlanal.c.
+	(reg_nonzero_bits_for_combine,
+	reg_num_sign_bit_copies_for_combine): New functions holding
+	the remnants of the above.
+	(combine_rtl_hooks): New.
+	(combine_instructions): Set rtl_hooks instead of gen_lowpart.
+	* cse.c: Include rtlhooks-def.h.
+	(cse_rtl_hooks): New.
+	(cse_main): Set rtl_hooks instead of gen_lowpart.
+	* emit-rtl.c (gen_lowpart): Remove.
+	(gen_lowpart_general): Move to rtlhooks.c.
+	* rtl.h (nonzero_bits, num_sign_bit_copies,
+	struct rtl_hooks, rtl_hooks, general_rtl_hooks): New.
+	(gen_lowpart_general): Remove.
+	(gen_lowpart): Temporarily redefine as a macro.
+	* rtlanal.c: Include function.h.
+	(nonzero_bits, cached_nonzero_bits, nonzero_bits1,
+	num_sign_bit_copies, cached_num_sign_bit_copies,
+	num_sign_bit_copies1): New, from combine.c.
+	* rtlhooks.c: New file. 
+
+2004-05-25  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config/avr/avr.h (LONG_LONG_TYPE_SIZE): Changed long long type
+	to support 32-bit -mint8 mode.
+
+	* doc/invoke.texi (-mint8): Added documentation for the -mint8
+	option in the AVR architecture. 
+
+2004-05-24  Mike Stump  <mrs@apple.com>
+
+	* doc/install.texi: Document that dejagnu 1.4.4 is required.
+
+2004-05-24  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* intl.h (open_quote, close_quote): New.
+	* intl.c (open_quote, close_quote): New.
+	(gcc_init_libintl): Set them.
+	* pretty-print.c: Include "intl.h".
+	(pp_base_format_text): Support 'q' format flag and %` and %'
+	formats.  Use ' instead of ` in comments.
+	* c-format.c (gcc_diag_flag_specs, gcc_cxxdiag_flag_specs,
+	gcc_diag_char_table, gcc_cdiag_char_table, gcc_cxxdiag_char_table,
+	foramt_types_orig): Describe these new formats.
+	(decode_format_attr, check_function_format,
+	check_format_info_main): Use these new formats.
+	(status_warning): Use ATTRIBUTE_GCC_DIAG.
+	* toplev.c (ATTRIBUTE_GCC_DIAG): Increase required GCC version to
+	check these formats to 3.5.
+
+2004-05-24  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.in (CPPLIBS): Renamed to CPPLIB.
+	(BACKEND): Reflect this.
+	(LIBDEPS): Move CPPLIB before LIBIBERTY.
+	(LIBS): Likewise.
+
+2004-05-24  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR tree-optimization/14197
+	* builtins.c: Include "tree-gimple.h"
+	(readonly_data_expr): Use get_base_address.  Make sure to call 
+	decl_readonly_section only on trees it can handle.
+	* tree-gimple.c (get_base_address): Accept STRING_CST and
+	CONSTRUCTOR expressions.
+	* Makefile.in: Update dependencies.
+
+2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	Move libcpp to the toplevel.
+	* Makefile.in: Remove references to libcpp files,
+	use CPPLIBS instead of libcpp.a.  Define SYMTAB_H
+	and change hashtable.h to that.
+	* aclocal.m4 (gcc_AC_HEADER_STDBOOL,
+	gcc_AC_HEADER_STRING, gcc_AC_C__BOOL): Remove.
+	* configure.ac (gcc_AC_C__BOOL, HAVE_UCHAR): Remove tests.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* c-ppoutput.c: Include ../libcpp/internal.h instead of cpphash.h.
+	* cppcharset.c: Removed.
+	* cpperror.c: Removed.
+	* cppexp.c: Removed.
+	* cppfiles.c: Removed.
+	* cpphash.c: Removed.
+	* cpphash.h: Removed.
+	* cppinit.c: Removed.
+	* cpplex.c: Removed.
+	* cpplib.c: Removed.
+	* cpplib.h: Removed.
+	* cppmacro.c: Removed.
+	* cpppch.c: Removed.
+	* cpptrad.c: Removed.
+	* cppucnid.h: Removed.
+	* cppucnid.pl: Removed.
+	* cppucnid.tab: Removed.
+	* hashtable.c: Removed.
+	* hashtable.h: Removed.
+	* line-map.c: Removed.
+	* line-map.h: Removed.
+	* mkdeps.c: Removed.
+	* mkdeps.h: Removed.
+	* stringpool.h: Include symtab.h instead of hashtable.h.
+	* tree.h: Include symtab.h instead of hashtable.h.
+	* system.h (O_NONBLOCK, O_NOCTTY): Do not define.
+
+2004-05-23 Paolo Bonzini <bonzini@gnu.org>
+
+	* gcc.c (struct prefix_list): Add forward declaration.
+	(do_spec_path): New function, extracted from...
+	(do_spec_1) <'D'>: ... here.  Drop support for
+	SPACE_AFTER_L_OPTION.
+	(do_spec_1) <'I'>: Use do_spec_path.
+	(process_command): Do not store the 'include' suffix
+	in include_prefixes.
+	* system.h: Poison SPACE_AFTER_L_OPTION.
+
+2002-05-23  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (non_lvalue): Explicitly list the tree codes that
+	need to be wrapped by NON_LVALUE_EXPR, instead of those that don't.
+
+2004-05-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/gcc.texi, doc/gccint.texi, doc/include/gcc-common.texi:
+	Update based on printed manual.  Enable setting of offsets for
+	FSFPRINT and move it to gcc-common.texi.
+	* doc/gcc.texi: Update FSF printing details.
+	* doc/gccint.texi: Remove FSF printing details.
+
+2004-05-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/t-rs6000: Remove the disabling -Werror.
+
+2004-05-22  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (expand_builtin_strstr, expand_builtin_strchr,
+	expand_builtin_strrchr, expand_builtin_strpbrk,
+	expand_builtin_mempcpy, expand_builtin_memcmp,
+	expand_builtin_strcmp, expand_builtin_strncmp,
+	expand_builtin_strcat, std_expand_builtin_va_start,
+	std_expand_builtin_va_arg, expand_builtin_va_copy,
+	expand_builtin_signbit, fold_builtin_cabs,
+	fold_builtin_logarithm, fold_builtin_mempcpy,
+	fold_builtin_signbit, fold_builtin_isascii,
+	fold_builtin_toascii, fold_builtin_isdigit,
+	fold_builtin_1, build_function_call_expr,
+	simplify_builtin_strchr, simplify_builtin_strrchr,
+	simplify_builtin_strpbrk, simplify_builtin_strncpy,
+	simplify_builtin_memcmp, simplify_builtin_strcmp,
+	simplify_builtin_strncmp, simplify_builtin_strncat,
+	simplify_builtin_strspn, simplify_builtin_strcspn,
+	simplify_builtin_fputs, simplify_builtin_sprintf): Replace calls
+	to build with calls to build2, build3 or omit_one_operand.
+
+2004-05-22  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_file_start): Emit a .gcc_compiled_longXX
+	section when generating EABI code.
+
+2004-05-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR 15546
+	* config/i386/i386.c (output_pic_addr_const <case SYMBOL_REF>):
+	Call mark_decl_referenced on the SYMBOL_REF_DECL.
+
+2004-05-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-common.c (c_common_truthvalue_conversion): Handle
+	UNEQ_EXPR, UNLE_EXPR, UNGE_EXPR, UNLT_EXPR, UNGT_EXPR,
+	ORDERED_EXPR, and UNORDERED_EXPR as comparison operators,
+	i.e. set the type to truthvalue_type_node and return.
+
+2004-05-22  Zack Weinberg  <zack@codesourcery.com>
+
+       * tree.h (struct tree_decl): Add possibly_inlined bit.
+	(DECL_POSSIBLY_INLINED): New accessor macro.
+	* cgraph.h: Remove declaration of cgraph_inline_hash.
+	* cgraph.c: Remove definition of cgraph_inline_hash.
+	(hash_node): Revert to hashing DECL_UID.
+	(eq_node): Take two pointers to cgraph_node structures.
+	Compare DECL_UIDs.
+	(cgraph_remove_node): Pass the node directly to htab_find_slot.
+	(cgraph_varpool_hash_node): Rename hash_varpool_node;
+	hash on DECL_UID.
+	(eq_cgraph_varpool_node): Rename eq_varpool_node; take two
+	pointers to cgraph_varpool_node structures; compare DECL_UIDs.
+	(cgraph_node): Allocate a temporary node on the stack, fill in
+	its DECL field, and pass that to htab_find_slot.
+	(cgraph_varpool_node): Likewise.
+	(cgraph_function_possibly_inlined_p): If global info is ready,
+	return the DECL_POSSIBLY_INLINED bit.
+	* cgraphunit.c (cgraph_mark_inline_edge): Set DECL_POSSIBLY_INLINED
+	instead of mucking with cgraph_inline_hash.
+
+2004-05-22  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* doc/contrib.texi: Add g77 contributors.
+
+2004-05-22  Richard Sandiford  <rsandifo@redhat.com>
+
+	* calls.c (initialize_argument_information): Forbid sibcalls if a
+	callee-copied argument is stored in the current function's frame.
+
+2004-05-22  Eric Christopher  <echristo@redhat.com>
+
+	* fix-header.c (read_scan_file): Update for add_path change.
+
+2004-05-22  Ben Elliston  <bje@au.ibm.com>
+
+	* c.opt (Wmissing-include-dirs): New.
+	* c-opts.c (c_common_handle_option): Pass true for user_supplied_p
+	to add_path () for -I, but false for OPT_idirafter, OPT_iquote and
+	OPT_isystem. Handle case OPT_Wmissing_include_dirs.
+	* c-incpath.h (add_path): Add fourth (bool) argument.
+	* c-incpath.c (add_env_var_paths): Pass false to add_path ().
+	(add_standard_paths): Likewise.
+	(remove_duplicates) [REASON_NOENT]: Warn if -Wmissing-include-dirs
+	is used and the directory was user-supplied via -I.
+	(add_path): Set p->user_supplied_p.  Remove duplicated code by
+	using add_cpp_dir_path ().
+	* cpplib.h (struct cpp_options): Add warn_missing_include_dirs.
+	(struct cpp_dir): Add user_supplied_p.
+	* doc/invoke.texi (Warning Options): Document new option.
+
+2004-05-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* fold-const.c (fold_read_from_constant_string): Convert result to
+	requested type.
+
+2004-05-21  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (mostly_copy_tree_r): Don't attempt to copy decls.
+	(copy_if_shared_r): Don't copy decls, types, constants, BINDs.
+	Don't mark VA_ARG_EXPRs volatile here.
+	(gimplify_modify_expr): Unshare TYPE_SIZE_UNIT.
+
+2004-05-21  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (tree-dump.o): Depend on tree-iterator.h.
+	* tree-dump.c (dequeue_and_dump): Dump STATEMENT_LISTs.
+
+2004-05-21  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold, fold_relational_hi_lo,
+	nondestructive_fold_binary_to_constant,
+	fold_read_from_constant_string): Use fold_convert instead of convert.
+	* builtins.c (simplify_builtin, simplify_builtin_strstr,
+	simplify_builtin_strchr, simplify_builtin_strrchr,
+	simplify_builtin_strpbrk): Use fold_convert instead of convert.
+
+2004-05-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow-inline.h (num_immediate_uses): Don't abort if DF
+	is NULL.
+
+2004-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/linux64.h (OPTION_DEFAULT_SPECS): If SPARC_BI_ARCH,
+	override sparc.h definition.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.c (array_type_nelts, save_expr, substitute_in_expr,
+	get_unwidened, get_narrower): Replace build with build2.
+	* fold-const.c (negate_expr, associate_trees, size_binop,
+	fold_convert, eval_subst, omit_one_operand, invert_truthvalue,
+	pedantic_omit_one_operand, distribute_bit_expr,
+	make_bit_field_ref, optimize_bit_field_compare,
+	decode_field_reference, range_binop, make_range,
+	build_range_check, fold_range_test, fold_truthop,
+	optimize_minmax_comparison, extract_muldiv_1,
+	fold_binary_op_with_conditional_arg, fold_mathfn_compare,
+	fold_inf_compare, fold_single_bit_test, fold,
+	fold_relational_hi_lo, nondestructive_fold_binary_to_constant):
+	Likewise replace build with either build2 or build3.
+
+2004-05-20  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* system.h: Poison NO_RECURSIVE_FUNCTION_CSE.
+	* calls.c (prepare_call_address): Don't test
+	NO_RECURSIVE_FUNCTION_CSE.
+	* config/arc/arc.h (NO_RECURSIVE_FUNCTION_CSE): Don't define.
+	* config/arm/arm.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/avr/avr.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/frv/frv.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/i386/i386.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/ip2k/ip2k.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/iq2000/iq2000.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/m32r/m32r.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/m68k/m68k.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/mcore/mcore.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/mips/mips.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/stormy16/stormy16.h (NO_RECURSIVE_FUNCTION_CSE):
+	Likewise.
+	* config/xtensa/xtensa.h (NO_RECURSIVE_FUNCTION_CSE): Likewise.
+	* config/sh/sh.h: Remove NO_RECURSIVE_FUNCTION_CSE comment.
+	* doc/tm.texi (Costs): Remove documentation for
+	NO_RECURSIVE_FUNCTION_CSE.
+
+2004-05-20  Paul Brook  <paul@codesourcery.com>
+
+	* unwind-dw2-fde.c (get_cie_encoding): Handle dwarf3 CIE format.
+	* unwind-dw2.c (extract_cie_info): Ditto.
+	(_Unwind_FrameState): Change retaddr_column to word type.
+
+2004-05-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/3074
+	* fold-const.c (strip_compound_expr): Delete function.
+	(count_cond): Delete function.
+	(fold_binary_op_with_conditional_arg): Only perform transformations
+	"a + (b?c:d) -> b ? a+c : a+d" and "(b?c:d) + a -> b ? c+a : d+a"
+	when a is constant.  This greatly simplifies this routine.
+
+	* tree.c (saved_expr_p): Delete function.
+	* tree.h (saved_expr_p): Delete function prototype.
+
+2004-05-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* common.opt (ftree-loop-optimize): Remove.
+
+2004-05-20  Daniel Jacobowitz  <dan@debian.org>
+
+	* Makefile.in (AR_FOR_TARGET, RANLIB_FOR_TARGET)
+	(NM_FOR_TARGET): Use := and $(shell).
+	(mainversion): Remove unused variable.
+
+2004-05-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* reorg.c (delete_from_delay_slot): If we have a barrier after the
+	sequence containing the insn to be deleted, always reemit it.
+
+2004-05-20  Richard Henderson  <rth@redhat.com>
+
+	PR 15454
+	* tree-nested.c (get_chain_decl): Create a PARM_DECL by hand.
+	* function.c (expand_function_start): Expand static_chain_decl by hand.
+	* gimplify.c (create_tmp_var_name): Export.
+	* tree-gimple.h (create_tmp_var_name): Declare.
+
+2004-05-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* rs6000.c (print_operand) <case 'z'>: Call
+	mark_decl_referenced before assemble_name.
+
+2004-05-20  Zack Weinberg  <zack@codesourcery.com>
+
+	* cgraph.c (hash_node, eq_node, cgraph_node, cgraph_remove_node)
+	(cgraph_varpool_hash_node, eq_cgraph_varpool_node)
+	(cgraph_varpool_node): Hash on the pointer to the decl, not
+	the DECL_UID.  Fixes 64-bit bootstrap failure.
+
+2004-05-20  Richard Earnshaw <rearnsha@arm.com>
+
+	* arm.md (ite_ne_zeroextractsi, ite_ne_zeroextractsi_shifted): Ensure
+	we don't earlyclobber operands used in the second insn.
+
+2004-05-20  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-mudflap.c: Formatting fixes.
+
+2004-05-20  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* Makefile.in (GTFILES): Add $(srcdir)/reload.h.
+	* gengtype.c (open_base_files): Include reload.h in ifiles.
+	* reload.h (reg_equiv_memory_loc_varray): Declare.
+	* reload1.c (reg_equiv_memory_loc_varray): New variable.
+	(init_reload): Initialize it.
+	(reload): Instead of freeing reg_equiv_memory_loc, 'grow'
+	reg_equiv_memory_loc_varray to size 0.
+	* ra.c (reg_alloc): Allocate reg_equiv_memory_loc by
+	growing reg_equiv_memory_loc_varray to the desired size.
+	* passes.c (rest_of_handle_old_regalloc): Likewise.
+	* reload.c: Amend comment on calling init_reload.
+
+2004-05-20  Nick Clifton  <nickc@redhat.com>
+
+	* config/c4x/c4x.h (INITIALIZE_TRAMPOLINE): Replace 'tramp'
+	with 'TRAMP' in the body of the macro definition.
+
+2004-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/15383
+	* config/ia64/ia64.c (ia64_expand_compare): Don't check
+	TARGET_HPUX for TFmode compare. Abort if op0 is in TFmode and
+	cmptf_libfunc isn't set.
+	(ia64_init_libfuncs): Rename TFmode libfuncs using the HPUX
+	conventions.
+	(ia64_sysv4_init_libfuncs): New.
+
+	* config/ia64/sysv4.h (TARGET_INIT_LIBFUNCS): New. Defined as
+	ia64_sysv4_init_libfuncs.
+
+2004-05-20  Falk Hueffner  <falk@debian.org>
+
+	PR other/15526
+	* libgcc2.c (__mulvsi3): Fix overflow test.
+
+2004-05-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/14171
+	* reg-stack.c (nan): Rename to ...
+	(not_a_num): Here.
+	(reg_to_stack): Rename nan to not_a_num.
+	(subst_stack_regs_pat): Likewise.
+	(convert_regs_entry): Likewise.
+	(convert_regs_1): Likewise.
+
+	* tree-cfg.c (find_case_label_for_value): Replace call to
+	simple_cst_equal with tree_int_cst_equal.
+
+2004-05-19  Jeff Law <law@redhat.com>
+
+	* tree-into-ssa.c (prepare_operand_for_rename): New argument is_use.
+	If the operand is for a use, then strip away the SSA_NAME, do not
+	strip away the SSA_NAME for a set.  Never call release_ssa_name.
+	(mark_def_sites): Appropriately pass additional argument to
+	prepare_operand_for_rename.  If a VDEF_RESULT is not an SSA_NAME,
+	then set the VDEF_RESULT to the VDEF_OP.
+	(set_def_block): Strip away any SSA_NAME to get to the real
+	underlying variable.
+
+	* tree-ssa-phiopt.c (value_replacement): Handle the case where
+	the desired edge out of COND_BLOCK reaches OTHER_BLOCK rather than
+	BB directly.
+
+2004-05-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	PR c++/15463
+	* loop-iv.c (iv_number_of_iterations):  Use trunc_int_for_mode on
+	result of inverse.
+
+	PR rtl-optimization/15274
+	* loop-iv.c (determine_max_iter, shorten_into_mode,
+	iv_number_of_iterations): Handle constants correctly.
+	* rtl.h (get_mode_bounds): Declaration changed.
+	* stor-layout.c (get_mode_bounds): Return a constant suitable for
+	the target mode.
+
+	PR rtl-optimization/14692
+	* loop-unswitch.c (may_unswitch_on): Try folding the result.
+	(unswitch_single_loop): Work correctly when may_unswitch_on
+	returns a folded constant.
+
+	* loop-iv.c (implies_p): Handle A < B ==> A + 1 <= B.
+	* simplify-rtx.c (simplify_const_relational_operation): Optimize
+	comparisons with mode bounds.
+
+	* function.c (struct temp_slot): Add new field prev.
+	(free_after_compilation, init_temp_slots): Free new fields.
+	(cut_slot_from_list, insert_slot_to_list,
+	temp_slots_at_level, max_slot_level, move_slot_to_level,
+	make_slot_available): New functions.
+	(assign_stack_temp_for_type, combine_temp_slots,
+	find_temp_slot_from_address, preserve_temp_slots,
+	preserve_rtl_expr_result, free_temp_slots,
+	free_temps_for_rtl_expr, pop_temp_slots): Work with
+	the new structure of lists.
+	(mark_all_temps_used): Removed.
+	* function.h (struct function): Field x_temp_slots
+	replaced by x_used_temp_slots and x_avail_temp_slots.
+	(temp_slots): Replaced by ...
+	(used_temp_slots, avail_temp_slots): New.
+	* tree.h (mark_all_temps_used): Declaration removed.
+
+	* loop-iv.c (mark_single_set, get_biv_step_1, iv_analyze,
+	simplify_using_assignment): Take the expression out of
+	the expr_list wrapper.
+
+	* loop-iv.c (iv_number_of_iterations): Improve clasification of
+	infinite loops.
+
+2004-05-19  Roger Sayle  <roger@eyesopen.com>
+
+	* doc/tm.texi (TARGET_RTX_COSTS): Document that instruction
+	costs should be based on code size when optimizing for size.
+
+2004-05-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* fold-const.c: Remove non-printable character 160.
+
+2004-05-19  Nick Clifton  <nickc@redhat.com>
+
+	* doc/invoke.texi (ARM Options): Fix typo.
+	Remove descrption of -mshort-load-bytes and
+	-mno-short-load-bytes.
+
+	* config/ip2k/ip2k.c (ip2k_composite_xexp_not_uses_reg_p): Add
+	missing parenthesis.
+	* config/ip2k/ip2k.c (ip2k_unary_operator): Likewise.
+	* config/ip2k/ip2k.c (ip2k_binary_operator): Likewise.
+
+2004-05-19  Steven Bosscher  <stevenb@suse.de>
+
+	* expr.c (store_constructor): Build loop start and end by hand
+	instead of via loop functions from stmt.c.
+	(expand_expr_real_1): Abort if we see an EXIT_EXPR or a LOOP_EXPR.
+	Remove the code to expand them.
+
+	* stmt.c (loop_stack): Remove this and everything related.
+	(struct nesting, enum nesting_desc): Update.
+	(expand_fixup): Likewise.
+	(expand_loop_start, expand_start_loop_continue_elsewhere,
+	expand_start_null_loop, expand_loop_continue_here, expand_end_loop,
+	expand_end_null_loop, expand_continue_loop, expand_exit_loop,
+	expand_exit_loop_if_false, expand_exit_loop_top_cond,
+	expand_exit_something): Remove.
+	* tree.h: Remove prototypes.
+
+2004-05-18  Mike Stump  <mrs@apple.com>
+	    Devang Patel  <dpatel@apple.com>
+
+	* doc/tm.texi (TARGET_ASM_EMIT_UNWIND_LABEL): Add argument to indicate
+	if this label is for eh.
+	* config/darwin-protos.h (darwin_emit_unwind_label): Likewise.
+	* config/darwin.c (darwin_emit_unwind_label): Likewise.
+	* dwarf2out.c (output_call_frame_info): Likewise.
+	* output.h (default_emit_unwind_label): Likewise.
+	* target.h (unwind_label): Likewise.
+	* varasm.c (default_emit_unwind_label): Likewise.
+
+	* config/darwin.h (DWARF2_DEBUGGING_INFO, PREFERRED_DEBUGGING_TYPE,
+	DEBUG_FRAME_SECTION, DEBUG_INFO_SECTION, DEBUG_ABBREV_SECTION,
+	DEBUG_ARANGES_SECTION, DEBUG_MACINFO_SECTION, DEBUG_LINE_SECTION,
+	DEBUG_LOC_SECTION, DEBUG_PUBNAMES_SECTION, DEBUG_STR_SECTION,
+	DEBUG_RANGES_SECTION): Define.
+
+2004-05-18  Zack Weinberg  <zack@codesourcery.com>
+
+	* cgraph.c (hash_node, eq_node, cgraph_node, cgraph_remove_node)
+	(cgraph_varpool_hash_node, eq_cgraph_varpool_node)
+	(cgraph_varpool_node):
+	Use DECL_UID for the key, not DECL_ASSEMBLER_NAME.
+	(cgraph_function_possibly_inlined_p): Use the decl itself for
+	the key, not DECL_ASSEMBLER_NAME.
+	(change_decl_assembler_name): No need to muck with the hash tables.
+	(cgraph_node_for_identifier, cgraph_varpool_node_for_identifier):
+	Delete.
+	* cgraphunit.c (cgraph_mark_inline_edge): Use the decl itself
+	for the key, not DECL_ASSEMBLER_NAME.
+	* cgraph.h: Remove prototypes of deleted functions.
+	* varasm.c (mark_referenced): Just set TREE_SYMBOL_REFERENCED.
+	(mark_decl_referenced): New function.
+	* tree.h: Prototype mark_decl_referenced.
+	* final.c (output_addr_const) <case SYMBOL_REF>: Call
+	mark_decl_referenced before assemble_name.
+	* c-decl.c (finish_decl): Use mark_decl_referenced.
+
+2004-05-18  Andrew Pinski  <pinskia@physics.uc.edu>
+	    Jeff Law <law@redhat.com>
+
+	* tree-ssa-phiopt.c (abs_replacement): New function.
+	(empty_block_p): New function extracted from...
+	(candidate_bb_for_phi_optimization): Break out empty block test.
+	(conditional_replacement): Use empty_block_p.
+	(value_replacement): Similarly.
+
+	* Makefile.in (tree-ssa-phiopt.o): Depends on flags.h.
+	* tree-ssa-phiopt.c: Include flags.h.
+	(conditional_replacement): Remove argument names from prototype.
+	Minor formatting and comment fixes.
+	(tree_ssa_phiopt): If conditional_replacement returns false, then
+	call value_replacement.
+	(value_replacement): New function.
+
+2004-05-18  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (replace_phi_with_stmt): New function extracted
+	from conditional_replacement.
+	(candidate_bb_for_phi_optimization): Similarly.
+	(conditional_replacement): Use replace_phi_with_stmt and
+	candidate_bb_for_phi_optimization.
+
+	* tree-ssa-phiopt.c: Fix various formatting issues.
+
+2004-05-18  Steven Bosscher  <stevenb@suse.de>
+
+	* config/s390/s390.c (s390_expand_movstr, s390_expand_clrstr,
+	s390_expand_cmpmem): Do not use expand_start_loop and
+	expand_end_loop, instead build the loop manually.
+
+2004-05-18  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (ctrsi_internal3): Delete.
+	(ctrsi_internal4, ctrdi_internal3, ctrdi_internal4): Delete.
+
+2004-05-17  Jeff Law  <law@redhat.com>
+
+	* toplev.h (flag_delete_null_pointer_checks): Move from here to...
+	* flags.h (flag_delete_null_pointer_checks): Here.
+	* tree-flow.h (cprop_into_successor_phis): Add argument to prototype.
+	* tree-phinodes.c (resize_phi_node): Initialize PHI_ARG_NONZERO.
+	(add_phi_arg, remove_phi_arg_num): Similarly.
+	* tree-ssa-copy.c (cprop_into_successor_phis): Propagate nonzero
+	property into PHI nodes.
+	* tree-ssa-dom.c: Remove redundant inclusion of flags.h.
+	(record_equivalences_from_phis): If all PHI arguments are known to be
+	nonzero, then the result must be nonzero as well.
+	(cprop_into_phis): Pass nonzero_vars bitmap to cprop_into_successor_phis.
+	(record_equivalences_from_stmt): Check flag_delete_null_pointer_checks
+	appropriately.  Walk the USE-DEF chains and propagate nonzero property
+	as appropriate.
+	* tree.h (PHI_ARG_NONZERO): Define.
+	(phi_arg_d): Add nonzero flag.
+
+2004-05-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* f: Entire directory removed
+
+	* c-common.h (CTI_G77_INTEGER_TYPE, CTI_G77_UINTEGER_TYPE)
+	(CTI_G77_LONGINT_TYPE, CTI_G77_ULONGINT_TYPE)
+	(g77_integer_type_node, g77_uinteger_type_node)
+	(g77_longint_type_node, or g77_ulongint_type_node): Delete.
+	* c-common.c (c_common_nodes_and_builtins): Do not initialize
+	the above set of variables.
+
+	* config/i386/uwin.h: No need to define WIN32_UWIN_TARGET.
+	* doc/invoke.texi, doc/standards.texi: Remove cross-references
+	to g77 manual.
+
+2004-05-17  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/15438
+	* tree-ssa-operands.c (get_expr_operands): Do not treat malloc
+	attributed functions as pure or const.
+
+2004-05-17  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mx_register_decls): Tolerate decl trees resulting
+	from source code with errors.
+
+2004-05-17  Ranjit Mathew  <rmathew@hotmail.com>
+
+	Enable tree browser for all front ends.
+	* Makefile.in (cc1): Moved @TREEBROWSER@ from here...
+	(BACKEND): ...to here.
+
 2004-05-17  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (construct_container): Do not produce BLKmode registers.
@@ -82,7 +847,7 @@
 
 2004-05-15  Richard Earnshaw  <reanrsha@arm.com>
 
-	* arm/lib1funcs.asm (_lshrdi3, _ashrdi3, _ashldi3): Add ASM 
+	* arm/lib1funcs.asm (_lshrdi3, _ashrdi3, _ashldi3): Add ASM
 	implementations for ARM and Thumb.
 	* arm/t-arm-elf (LIB1ASMFUNCS): Use them.
 
@@ -119,7 +884,7 @@
 	* arm/crtn.asm: (FUNC_END): Simplify.
 	* arm/lib1funcs.asm: Remove APCS-26 return macros.
 	* arm/aof.h, arm/coff.h arm/elf.h arm/linux-elf.h arm/netbsd-elf.h
-	* arm/netbsd.h arm/pe.h arm/semi.h arm/semiaof.h arm/unknown-elf.h 
+	* arm/netbsd.h arm/pe.h arm/semi.h arm/semiaof.h arm/unknown-elf.h
 	* arm/vxworks.h arm/wince-pe.h: Tidy TARGET_DEFAULTS and
 	MULTILIB_DEFAULTS as required.
 	* arm/t-arm-elf arm/t-linux arm/t-pe arm/t-semi arm/t-wince-pe
