@@ -73,8 +73,10 @@ public class Box extends JComponent implements Accessible
   {
     private static final long serialVersionUID = -1204263191910183998L;
   
-    protected class AccessibleBoxFiller// extends AccessibleAWTComponent
+    protected class AccessibleBoxFiller extends AccessibleAWTComponent
     {
+      private static final long serialVersionUID = 164963348357479321L;
+      
       protected AccessibleBoxFiller()
       {
       }

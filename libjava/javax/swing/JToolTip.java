@@ -39,7 +39,6 @@ exception statement from your version. */
 package javax.swing;
 
 import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleContext;
 
 public class JToolTip extends JComponent implements Accessible
 {

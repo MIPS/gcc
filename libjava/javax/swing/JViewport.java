@@ -94,16 +94,18 @@ import javax.swing.plaf.ViewportUI;
  */
 public class JViewport extends JComponent
 {
-  public static int BACKINGSTORE_SCROLL_MODE = 1;
-  public static int BLIT_SCROLL_MODE = 2;
-  public static int SIMPLE_SCROLL_MODE = 3;
+  private static final long serialVersionUID = -6925142919680527970L;
+  
+  public static final int SIMPLE_SCROLL_MODE = 0;
+  public static final int BLIT_SCROLL_MODE = 1;
+  public static final int BACKINGSTORE_SCROLL_MODE = 2;
 
   ChangeEvent changeEvent = new ChangeEvent(this);
 
   int scrollMode;
 
-  boolean scrollUnderway;
-  boolean isViewSizeSet;
+  protected boolean scrollUnderway;
+  protected boolean isViewSizeSet;
 
   /** 
    * The width and height of the Viewport's area in terms of view

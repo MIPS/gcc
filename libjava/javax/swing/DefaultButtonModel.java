@@ -102,27 +102,27 @@ public class DefaultButtonModel implements ButtonModel, Serializable
 
   /** Represents the "state properties" (armed, enabled, pressed, rollover
       and selected) by a bitwise combination of integer constants. */
-  int stateMask;
+  protected int stateMask;
 
   /** List of ItemListeners, ChangeListeners, and ActionListeners
       registered on this model. */
-  EventListenerList listenerList;
+  protected EventListenerList listenerList;
 
   /** The single ChangeEvent this model (re)uses to call its
       ChangeListeners. */
-  ChangeEvent changeEvent;
+  protected ChangeEvent changeEvent;
 
   /** The group this model belongs to. Only one button in a group may be
       selected at any given time. */
-  ButtonGroup group;
+  protected ButtonGroup group;
   
   /** The key code (one of {@link java.awt.event.KeyEvent} VK_*) used to
       press this button via a keyboard interface. */
-  int mnemonic;
+  protected int mnemonic;
 
   /** The string used as the "command" property of any ActionEvent this
       model sends. */
-  String actionCommand;
+  protected String actionCommand;
 
   public DefaultButtonModel()
   {
@@ -144,6 +144,18 @@ public class DefaultButtonModel implements ButtonModel, Serializable
     }
 
   /**
+   * Returns a specified class of listeners.
+   *
+   * @param listenerType the type of listener to return
+   *
+   * @return array of listeners
+   */
+  public EventListener[] getListeners(Class listenerType)
+  {
+    return listenerList.getListeners(listenerType);
+  }
+  
+  /**
    * Add an ActionListener to the model. Usually only called to subscribe
    * an AbstractButton's listener to the model.
    *
@@ -163,6 +175,16 @@ public class DefaultButtonModel implements ButtonModel, Serializable
   public void removeActionListener(ActionListener l)
   {
     listenerList.remove(ActionListener.class, l);
+  }
+
+  /**
+   * Returns all registered <code>ActionListener</code> objects.
+   *
+   * @return array of <code>ActionListener</code> objects
+   */
+  public ActionListener[] getActionListeners()
+  {
+    return (ActionListener[]) listenerList.getListeners(ActionListener.class);
   }
 
   /**
@@ -188,6 +210,16 @@ public class DefaultButtonModel implements ButtonModel, Serializable
   }
 
   /**
+   * Returns all registered <code>ItemListener</code> objects.
+   *
+   * @return array of <code>ItemListener</code> objects
+   */
+  public ItemListener[] getItemListeners()
+  {
+    return (ItemListener[]) listenerList.getListeners(ItemListener.class);
+  }
+
+  /**
    * Add a ChangeListener to the model. Usually only called to subscribe
    * an AbstractButton's listener to the model.
    *
@@ -210,6 +242,16 @@ public class DefaultButtonModel implements ButtonModel, Serializable
   }
 
   /**
+   * Returns all registered <code>ChangeListener</code> objects.
+   *
+   * @return array of <code>ChangeListener</code> objects
+   */
+  public ChangeListener[] getChangeListeners()
+  {
+    return (ChangeListener[]) listenerList.getListeners(ChangeListener.class);
+  }
+
+  /**
    * Inform each ItemListener in the {@link listenerList} that an ItemEvent
    * has occurred. This happens in response to any change to the {@link
    * stateMask} field.
@@ -218,9 +260,10 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    */
   public void fireItemStateChanged(ItemEvent e)
   {
-    EventListener[] ll = listenerList.getListeners(ItemListener.class);
+    ItemListener[] ll = getItemListeners();
+    
     for (int i = 0; i < ll.length; i++)
-      ((ItemListener)ll[i]).itemStateChanged(e);
+      ll[i].itemStateChanged(e);
   }
 
   /**
@@ -233,9 +276,10 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    */
   public void fireActionPerformed(ActionEvent e)
   {
-    EventListener[] ll = listenerList.getListeners(ActionListener.class);
+    ActionListener[] ll = getActionListeners();
+    
     for (int i = 0; i < ll.length; i++)
-      ((ActionListener)ll[i]).actionPerformed(e);
+      ll[i].actionPerformed(e);
   }
 
   /**
@@ -247,9 +291,10 @@ public class DefaultButtonModel implements ButtonModel, Serializable
    */
   public void fireStateChanged(ChangeEvent e)
   {
-    EventListener[] ll = listenerList.getListeners(ChangeListener.class);
+    ChangeListener[] ll = getChangeListeners();
+    
     for (int i = 0; i < ll.length; i++)
-      ((ChangeListener)ll[i]).stateChanged(e);
+      ll[i].stateChanged(e);
   }
 
   /**

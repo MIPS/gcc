@@ -1,3 +1,59 @@
+2004-06-08  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/Box.java
+	(AccessibleBoxFiller): Extends AccessibleAWTComponent.
+	(AccessibleBoxFiller.serialVersionUID): New member variable.
+	* javax/swing/DefaultButtonModel.java
+	(stateMask): Made protected.
+	(listenerList): Likewise.
+	(changeEvent): Likewise.
+	(group): Likewise.
+	(mnemonic): Likewise.
+	(actionCommand): Likewise.
+	(getListeners): New method.
+	(getActionListeners): New method.
+	(getItemListeners): New method.
+	(getChangeListeners): New method.
+	(fireItemStateChanged): Simplified.
+	(fireActionPerformed): Simplified.
+	(fireStateChanged): Simplified.
+	* javax/swing/JFrame.java
+	(JFrame): Implements WindowContants.
+	(HIDE_ON_CLOSE): Removed.
+	(EXIT_ON_CLOSE): Removed.
+	(DISPOSE_ON_CLOSE): Removed.
+	(DO_NOTHING_ON_CLOSE): Removed.
+	(processWindowEvent): Exit with code 0.
+	(setDefaultCloseOperation): Do security check before setting value.
+	* javax/swing/JOptionPane.java
+	(message): Initialize only in constructor.
+	* javax/swing/JToolTip.java: Removed unused imports.
+	* javax/swing/JViewport.java
+	(serialVersionUID): New member variable.
+	(SIMPLE_SCROLL_MODE): Made final, fixed value.
+	(BLIT_SCROLL_MODE): Likewise.
+	(BACKINGSTORE_SCROLL_MODE): Likewise.
+	(scrollUnderway): Made protected.
+	(isViewSizeSet): Likewise.
+	* javax/swing/ListModel.java: Fixed javadoc.
+	* javax/swing/Popup.java: Likewise.
+	* javax/swing/RepaintManager.java
+	(paintDirtyRegions): Don't use internal classes of
+	java.util.AbstractMap.
+	* javax/swing/ScrollPaneConstants.java: Reindented.
+	* javax/swing/ScrollPaneLayout.java
+	(viewport): Made protected.
+	(verticalScrollBar): Made protected, renamed to vsb.
+	(horizontalScrollBar): Made protected, renamed to hsb.
+	(rowHeader): Made protected, renamed to rowHead.
+	(columnHeader): Made protected, renamed to colHead.
+	(lowerLeft): Made protected.
+	(lowerRight): Made protected.
+	(upperLeft): Made protected.
+	(upperRight): Made protected.
+	(verticalScrollBarPolicy): Made protected, renamed to vsbPolicy.
+	(horizontalScrollBarPolicy): Made protected, renamed to hsbPolicy.
+
 2004-06-07  Bernd Schmidt  <bernds@btinternet.com>
 
 	* java/awt/MediaTracker.java (imageUpdate): Only set status to

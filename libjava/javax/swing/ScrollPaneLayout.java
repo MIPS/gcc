@@ -1,5 +1,5 @@
 /* ScrollPaneLayout.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -63,17 +63,17 @@ public class ScrollPaneLayout
     }
   }
 
-  JViewport viewport;
-  JScrollBar verticalScrollBar;
-  JScrollBar horizontalScrollBar;
-  JViewport rowHeader;
-  JViewport columnHeader;
-  Component lowerLeft;
-  Component lowerRight;
-  Component upperLeft;
-  Component upperRight;
-  int verticalScrollBarPolicy;
-  int horizontalScrollBarPolicy;
+  protected JViewport viewport;
+  protected JScrollBar vsb;
+  protected JScrollBar hsb;
+  protected JViewport rowHead;
+  protected JViewport colHead;
+  protected Component lowerLeft;
+  protected Component lowerRight;
+  protected Component upperLeft;
+  protected Component upperRight;
+  protected int vsbPolicy;
+  protected int hsbPolicy;
 
   public ScrollPaneLayout() {
 		
