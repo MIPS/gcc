@@ -1,3 +1,10 @@
+2004-11-17  Mike Stump  <mrs@apple.com>
+
+	Radar 3860322
+	g++.dg/asm-block-3.C
+	* parser.c (cp_parser_cw_identifier): Handle C++ keywords like
+	and, or, xor in CW asm blocks.
+
 2004-11-14  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3877761
