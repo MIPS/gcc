@@ -228,7 +228,6 @@ static tree create_expr_ref (struct expr_info *, tree, enum tree_code,
 static inline bool ephi_will_be_avail (tree);
 static inline tree ephi_at_block (basic_block);
 static tree get_default_def (tree, htab_t);
-static void handle_bb_creation (edge, edge);
 static inline bool same_e_version_real_occ_real_occ (struct expr_info *,
 						     const tree, 
 						     const tree);
@@ -248,7 +247,7 @@ static inline bool injured_real_occ_phi_opnd (struct expr_info *,
 static void compute_du_info (struct expr_info *);
 static void add_ephi_use (tree, tree, int);
 static void insert_one_operand (struct expr_info *, tree, int, tree, edge);
-static void split_critical_edges (void);
+static bool split_critical_edges (void);
 static void collect_expressions (basic_block, varray_type *);
 static int build_dfn_array (basic_block, int);
 static int eref_compare (const void *, const void *);
@@ -266,8 +265,6 @@ static bitmap *pre_dfs;
 /* Number of redundancy classes.  */
 static int class_count = 0;
 
-/* Whether we need to recompute dominators due to basic block changes.  */
-static bool redo_dominators = false;
 
 /* Iterated dominance frontiers cache.  */
 static bitmap *idfs_cache;
@@ -1927,42 +1924,6 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
     return curruse;
   return reaching_def (var, currstmt, dom, ignore);
 }
-
-/* Handle creation of a new basic block as a result of edge insertion.  */
-
-static void
-handle_bb_creation (edge old_edge, edge new_edge)
-{
-  unsigned int i;
-  bb_ann_t ann;
-  basic_block bb;
-  FOR_EACH_BB (bb)
-    {
-      ann = bb_ann (bb);
-      if (ann->erefs)
-	for (i = 0; i < VARRAY_SIZE (ann->erefs); i++)
-	  {
-	    tree tempephi = VARRAY_TREE (ann->erefs, i);
-	    if (tempephi == NULL) continue;
-	    if (TREE_CODE (tempephi) == EPHI_NODE)
-	      {
-		tree phi = EREF_TEMP (tempephi);
-		int num_elem = PHI_NUM_ARGS (phi);
-		int j;
-		for (j = 0; j < num_elem; j++)
-		  if (PHI_ARG_EDGE (phi, j) == old_edge)
-		    PHI_ARG_EDGE (phi, j) = new_edge;
-		
-		num_elem = EPHI_NUM_ARGS (tempephi);
-		for (j = 0; j < num_elem; j++)
-		  if (EPHI_ARG_EDGE (tempephi, j) == old_edge)
-		    EPHI_ARG_EDGE (tempephi, j) = new_edge;
-		
-	      }
-	  }
-    }
-}
-
 /* Insert one ephi operand that doesn't currently exist as a use.  */
 
 static void
@@ -1978,7 +1939,6 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   tree *endtreep;
   basic_block bb = bb_for_stmt (x);
   edge e = NULL;
-  basic_block createdbb = NULL;
   block_stmt_iterator bsi;
 #ifdef ENABLE_CHECKING
   bool insert_done = false;
@@ -1989,26 +1949,20 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   copy = unshare_expr (copy);
   expr = build (MODIFY_EXPR, TREE_TYPE (ei->expr),
 		temp, copy);
-  expr = subst_phis (ei, expr, bb_for_stmt (x),
-		      bb_for_stmt (ephi));
+  expr = subst_phis (ei, expr, bb, bb_for_stmt (ephi));
   newtemp = make_ssa_name (temp, expr);  
   TREE_OPERAND (expr, 0) = newtemp;
   copy = TREE_OPERAND (expr, 1);
   if (dump_file)
     {
-      fprintf (dump_file, "In BB %d, insert save of ",
-	       bb_for_stmt (x)->index);
+      fprintf (dump_file, "In BB %d, insert save of ", bb->index);
       print_generic_expr (dump_file, expr, 0);
       fprintf (dump_file, " to ");
       print_generic_expr (dump_file, newtemp, 0);
       fprintf (dump_file, " after ");
-      print_generic_stmt (dump_file,
-			  last_stmt (bb_for_stmt (x)),
-			  dump_flags);
-      fprintf (dump_file,
-	       " (on edge), because of EPHI");
-      fprintf (dump_file, " in BB %d\n",
-	       bb_for_stmt (ephi)->index);
+      print_generic_stmt (dump_file, last_stmt (bb), dump_flags);
+      fprintf (dump_file, " (on edge), because of EPHI");
+      fprintf (dump_file, " in BB %d\n", bb_for_stmt (ephi)->index);
     }
   /* Sigh. last_stmt and last_stmt_ptr use bsi_last,
      which is broken in some cases.  Get the last
@@ -2063,25 +2017,7 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
 #ifdef ENABLE_CHECKING
 	      insert_done = true;
 #endif
-	      bsi_insert_on_edge_immediate (e, expr, &bsi,
-					    &createdbb);
-	      if (createdbb != NULL)
-		{
-		  set_bb_for_stmt (x, createdbb);
-		  if (createdbb->succ && createdbb->succ->succ_next)
-		    abort ();
-		  handle_bb_creation (e, createdbb->succ);
-		  /* If we split the block, we need to update
-		     the euse, the ephi edge, etc. */
-		  /* Cheat for now, don't redo the dominance info,
-		     it shouldn't matter until after insertion
-		     is done for this expression.*/
-		  /* bb = bb_for_stmt (expr); */
-		  set_bb_for_stmt (x, createdbb);
-				      
-		  /* e->src = createdbb; */
-		  redo_dominators = true;
-		}
+	      bsi_insert_on_edge_immediate (e, expr, &bsi, NULL);
 	      break;
 	    }
 	}
@@ -2491,41 +2427,36 @@ finalize_2 (struct expr_info *ei)
 	}
     }
   
-  /* We can't do ESSA minimization if dominators need to be redone.  */
-  if (!redo_dominators)
+  /* ESSA Minimization.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
-      
-      /* ESSA Minimization.  */
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
+      tree ephi = VARRAY_TREE (ei->euses_dt_order, i);
+      if (TREE_CODE (ephi) != EPHI_NODE)
+	continue;
+      EPHI_IDENTITY (ephi) = true;
+      EPHI_IDENTICAL_TO (ephi) = NULL;
+    }
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
+    {
+      tree ephi = VARRAY_TREE (ei->euses_dt_order, i);
+      if (!ephi || TREE_CODE (ephi) != EPHI_NODE)
+	continue;      
+      if (ephi_will_be_avail (ephi))
 	{
-	  tree ephi = VARRAY_TREE (ei->euses_dt_order, i);
-	  if (TREE_CODE (ephi) != EPHI_NODE)
-	    continue;
-	  EPHI_IDENTITY (ephi) = true;
-	  EPHI_IDENTICAL_TO (ephi) = NULL;
-	}
-      
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
-	{
-	  tree ephi = VARRAY_TREE (ei->euses_dt_order, i);
-	  if (!ephi || TREE_CODE (ephi) != EPHI_NODE)
-	    continue;      
-	  if (ephi_will_be_avail (ephi))
+	  int k;
+	  for (k = 0; k < EPHI_NUM_ARGS (ephi); k++)
 	    {
-	      int k;
-	      for (k = 0; k < EPHI_NUM_ARGS (ephi); k++)
-		{
-		  if (EPHI_ARG_INJURED (ephi, k))
-		    require_phi (ei, EPHI_ARG_EDGE (ephi, k)->src);
-		  else if (EPHI_ARG_DEF (ephi, k) 
-			   && TREE_CODE (EPHI_ARG_DEF (ephi, k)) == EUSE_NODE
-			   && really_available_def (EPHI_ARG_DEF (ephi, k)))
-		    require_phi (ei, bb_for_stmt (EPHI_ARG_DEF (ephi, k)));
-		}
+	      if (EPHI_ARG_INJURED (ephi, k))
+		require_phi (ei, EPHI_ARG_EDGE (ephi, k)->src);
+	      else if (EPHI_ARG_DEF (ephi, k) 
+		       && TREE_CODE (EPHI_ARG_DEF (ephi, k)) == EUSE_NODE
+		       && really_available_def (EPHI_ARG_DEF (ephi, k)))
+		require_phi (ei, bb_for_stmt (EPHI_ARG_DEF (ephi, k)));
 	    }
 	}
-      do_ephi_df_search (ei, replacing_search);
     }
+  do_ephi_df_search (ei, replacing_search);
 }
 
 /* Perform a DFS on EPHI using the functions in SEARCH. */
@@ -3117,7 +3048,7 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
 
   if (VARRAY_ACTIVE_SIZE (ei->reals) < 2 
       && !ei->loadpre_cand)
-    return 0;
+    return 1;
   
   pre_stats.ephi_allocated = 0;
   pre_stats.eref_allocated = 0;
@@ -3195,26 +3126,31 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
   return 0;
 }
 
-static void
+static bool
 split_critical_edges (void)
 {
-#if 0
   struct edge_list *el = create_edge_list ();
+  bool did_something = false;
+  tree tempvar = create_tmp_var (integer_type_node, "critedgetmp");
   int i;
   edge e;
+  add_referenced_tmp_var (tempvar);
   for (i = 0; i < NUM_EDGES (el); i++)
   {
     e = INDEX_EDGE (el, i);
     if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
       {
-	tree label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-	LABEL_EXPR_LABEL (label) = create_artificial_label ();
-	bsi_insert_on_edge (e, label);
+        tree newexpr = build (MODIFY_EXPR, TREE_TYPE (tempvar), tempvar, 
+			      integer_zero_node);
+	tree newtemp = make_ssa_name (tempvar, newexpr);
+	TREE_OPERAND (newexpr, 0) = newtemp;
+	bsi_insert_on_edge (e, newexpr);
+	did_something = true;
       }
   }
-  bsi_commit_edge_inserts (0, NULL);
+  bsi_commit_edge_inserts (0, 0);
   free_edge_list (el);
-#endif
+  return did_something;
 }
 
 /* Step 1 - Collect the expressions to perform PRE on.  */
@@ -3250,8 +3186,8 @@ collect_expressions (basic_block block, varray_type *bexprsp)
       if ((TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
 	   || TREE_CODE_CLASS (TREE_CODE (expr)) == '<'
 	   /*|| TREE_CODE_CLASS (TREE_CODE (expr)) == '1'*/
-	   /* || TREE_CODE (expr) == SSA_NAME
-	      || TREE_CODE (expr) == INDIRECT_REF */)
+/*	   || TREE_CODE (expr) == SSA_NAME
+	   || TREE_CODE (expr) == INDIRECT_REF*/)
 	  && !ann->makes_aliased_stores
 	  && !ann->has_volatile_ops)
 	{
@@ -3333,7 +3269,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   size_t k;
   int i;
   sbitmap vars_to_rename;
-
   split_critical_edges ();  
   timevar_push (TV_TREE_PRE);
   dump_file = dump_begin (phase, &dump_flags);
@@ -3362,7 +3297,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   created_phi_preds = BITMAP_XMALLOC ();
   
   collect_expressions (ENTRY_BLOCK_PTR, &bexprs);
-  
  
   ggc_push_context ();  
 
@@ -3384,29 +3318,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
       free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
       clear_all_eref_arrays ();
       ggc_collect ();
-      if (redo_dominators)
-	{
-	  redo_dominators = false;
-
-	  free_dominance_info (pre_idom);
-	  for (i = 0; i < currbbs; i++)
-	    BITMAP_XFREE (pre_dfs[i]);
-	  free (pre_dfs);
-	  for (i = 0; i < currbbs; i++)
-	    if (idfs_cache[i] != NULL)
-	      BITMAP_XFREE (idfs_cache[i]);
-	  /* Recompute immediate dominators.  */
-	  pre_idom = calculate_dominance_info (CDI_DOMINATORS);
-	  build_dominator_tree (pre_idom);
-	  currbbs = n_basic_blocks;
-
-	  /* Recompute dominance frontiers.  */
-	  pre_dfs = (bitmap *) xmalloc (sizeof (bitmap) * currbbs);
-	  for (i = 0; i < currbbs; i++)
-	    pre_dfs[i] = BITMAP_XMALLOC ();
-	  compute_dominance_frontiers (pre_dfs, pre_idom);
-	  idfs_cache = xcalloc (currbbs, sizeof (bitmap));
-	}
     }
   ggc_pop_context (); 
   /* Debugging dumps.  */

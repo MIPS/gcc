@@ -1,3 +1,15 @@
+2003-11-03  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre (handle_bb_creation): Removed.
+	(redo_dominators): Removed.
+	(insert_one_operand): Remove code to handle bb creation, since all
+	critical edges are now pre-split.
+	(finalize_2): Remove redo_dominators related code.
+	(pre_expression): Return 1 if we exited early because nothing happened.
+	(split_critical_edges): Do fake variable assignments instead, because
+	it works. return true if we actually split an edge.
+	(tree_perform_ssapre): Remove redo_dominators code.
+
 2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* function.h (struct function): New field unexpanded_var_list.
