@@ -238,11 +238,13 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
-/* Determines whether explicit template instantiations should
-   be given link-once semantics. The C++ ABI requires this 
-   macro to be nonzero; see the documentation. */
-#ifndef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-# define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 1
+/* This determines whether weak symbols must be left out of a static
+   archive's table of contents.  Defining this macro to be nonzero has
+   the consequence that certain symbols will not be made weak that
+   otherwise would be.  The C++ ABI requires this macro to be zero;
+   see the documentation. */ 
+#ifndef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 0
 #endif
 
 /* This determines whether or not we need linkonce unwind information */
@@ -273,7 +275,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 
 /* This determines whether this target supports hidden visibility.
    This is a weaker condition than HAVE_GAS_HIDDEN, which probes for
-   specific assembler syntax. */
+   specific assembler syntax.  */
 #ifndef TARGET_SUPPORTS_HIDDEN
 # ifdef HAVE_GAS_HIDDEN
 #  define TARGET_SUPPORTS_HIDDEN 1
@@ -283,7 +285,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 
 /* Determines whether we may use common symbols to represent one-only
-   semantics (a.k.a. "vague linkage"). */
+   semantics (a.k.a. "vague linkage").  */
 #ifndef USE_COMMON_FOR_ONE_ONLY
 # define USE_COMMON_FOR_ONE_ONLY 1
 #endif

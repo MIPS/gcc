@@ -44,7 +44,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    to gradually reduce the amount of conditional compilation that is
    scattered throughout GCC.  */
 
+#ifndef GCC_TARGET_H
+#define GCC_TARGET_H
+
 #include "tm.h"
+#include "insn-modes.h"
 
 struct gcc_target
 {
@@ -78,7 +82,7 @@ struct gcc_target
        target requires such labels.  Second argument is the decl the
        unwind info is associated with, third is a boolean: true if
        this is for exception handling, fourth is a boolean: true if
-       this is only a placeholder for an omitted FDE. */
+       this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
 
     /* Output an internal label.  */
@@ -466,7 +470,19 @@ struct gcc_target
     /* Given a complex type T, return true if a parameter of type T
        should be passed as two scalars.  */
     bool (* split_complex_arg) (tree type);
+
+    /* Gimplifies a VA_ARG_EXPR.  */
+    tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
+				   tree *post_p);
   } calls;
+
+  /* Functions specific to the C++ frontend.  */
+  struct cxx {
+    /* Return the integer type used for guard variables.  */
+    tree (*guard_type) (void);
+    /* Return true if only the low bit of the guard should be tested.  */
+    bool (*guard_mask_bit) (void);
+  } cxx;
 
   /* Leave the boolean fields at the end.  */
 
@@ -494,7 +510,15 @@ struct gcc_target
      at the beginning of assembly output.  */
   bool file_start_file_directive;
 
+  /* True if #pragma redefine_extname is to be supported.  */
+  bool handle_pragma_redefine_extname;
+
+  /* True if #pragma extern_prefix is to be supported.  */
+  bool handle_pragma_extern_prefix;
+
   /* Leave the boolean fields at the end.  */
 };
 
 extern struct gcc_target targetm;
+
+#endif /* GCC_TARGET_H */

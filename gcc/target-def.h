@@ -358,6 +358,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   default_pretend_outgoing_varargs_named
 #define TARGET_SPLIT_COMPLEX_ARG NULL
 
+#ifdef EXPAND_BUILTIN_VA_ARG
+/* If there's a target-specific va_arg expander, there needs to be a
+   target-specific gimplifier.  */
+#define TARGET_GIMPLIFY_VA_ARG_EXPR NULL
+#else
+#define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
+#endif
+
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
    TARGET_PROMOTE_FUNCTION_RETURN,				\
@@ -370,7 +378,33 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
+   TARGET_GIMPLIFY_VA_ARG_EXPR,					\
    }
+
+
+#ifndef TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME
+#define TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME 0
+#endif
+
+#ifndef TARGET_HANDLE_PRAGMA_EXTERN_PREFIX
+#define TARGET_HANDLE_PRAGMA_EXTERN_PREFIX 0
+#endif
+
+
+/* C++ specific.  */
+#ifndef TARGET_CXX_GUARD_TYPE
+#define TARGET_CXX_GUARD_TYPE default_cxx_guard_type
+#endif
+
+#ifndef TARGET_CXX_GUARD_MASK_BIT
+#define TARGET_CXX_GUARD_MASK_BIT hook_bool_void_false
+#endif
+
+#define TARGET_CXX		\
+  {				\
+    TARGET_CXX_GUARD_TYPE,	\
+    TARGET_CXX_GUARD_MASK_BIT	\
+  }
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
@@ -417,6 +451,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_CALLS,					\
+  TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -424,6 +459,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
+  TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
+  TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
 }
 
 #include "hooks.h"

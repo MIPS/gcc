@@ -44,8 +44,6 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
@@ -87,18 +85,12 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
 #define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
-  c_walk_subtrees
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   c_cannot_inline_tree_fn
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  c_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   anon_aggr_type_p

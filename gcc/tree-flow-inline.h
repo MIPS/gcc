@@ -25,6 +25,8 @@ Boston, MA 02111-1307, USA.  */
 /* Inline functions for manipulating various data structures defined in
    tree-flow.h.  See tree-flow.h for documentation.  */
 
+/* Return the variable annotation for T, which must be a _DECL node.
+   Return NULL if the variable annotation doesn't already exist.  */
 static inline var_ann_t
 var_ann (tree t)
 {
@@ -39,6 +41,8 @@ var_ann (tree t)
   return (var_ann_t) t->common.ann;
 }
 
+/* Return the variable annotation for T, which must be a _DECL node.
+   Create the variable annotation if it doesn't exist.  */
 static inline var_ann_t
 get_var_ann (tree var)
 {
@@ -46,17 +50,21 @@ get_var_ann (tree var)
   return (ann) ? ann : create_var_ann (var);
 }
 
+/* Return the statement annotation for T, which must be a statement
+   node.  Return NULL if the statement annotation doesn't exist.  */
 static inline stmt_ann_t
 stmt_ann (tree t)
 {
 #if defined ENABLE_CHECKING
-  if (!is_gimple_stmt (t) && !is_essa_node (t))
+  if (!is_gimple_stmt (t))
     abort ();
 #endif
 
   return (stmt_ann_t) t->common.ann;
 }
 
+/* Return the statement annotation for T, which must be a statement
+   node.  Create the statement annotation if it doesn't exist.  */
 static inline stmt_ann_t
 get_stmt_ann (tree stmt)
 {
@@ -64,34 +72,15 @@ get_stmt_ann (tree stmt)
   return (ann) ? ann : create_stmt_ann (stmt);
 }
 
-static inline ssa_name_ann_t
-ssa_name_ann (tree t)
-{
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || TREE_CODE (t) != SSA_NAME
-      || (t->common.ann
-	  && t->common.ann->common.type != SSA_NAME_ANN))
-    abort ();
-#endif
 
-  return (ssa_name_ann_t) t->common.ann;
-}
-
-static inline ssa_name_ann_t
-get_ssa_name_ann (tree var)
-{
-  ssa_name_ann_t ann = ssa_name_ann (var);
-  return (ann) ? ann : create_ssa_name_ann (var);
-}
-
-
+/* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type
-ann_type (tree_ann ann)
+ann_type (tree_ann_t ann)
 {
   return ann->common.type;
 }
 
+/* Return the basic block for statement T.  */
 static inline basic_block
 bb_for_stmt (tree t)
 {
@@ -99,6 +88,8 @@ bb_for_stmt (tree t)
   return ann ? ann->bb : NULL;
 }
 
+/* Return the may_aliases varray for variable VAR, or NULL if it has
+   no may aliases.  */
 static inline varray_type
 may_aliases (tree var)
 {
@@ -106,6 +97,7 @@ may_aliases (tree var)
   return ann ? ann->may_aliases : NULL;
 }
 
+/* Return true if VAR has a hidden use, false if it does not.  */
 static inline bool
 has_hidden_use (tree var)
 {
@@ -113,6 +105,7 @@ has_hidden_use (tree var)
   return ann ? ann->has_hidden_use : false;
 }
 
+/* Set the hidden use flag on VAR.  */ 
 static inline void
 set_has_hidden_use (tree var)
 {
@@ -122,6 +115,8 @@ set_has_hidden_use (tree var)
   ann->has_hidden_use = 1;
 }
 
+/* Return the line number for EXPR, or return -1 if we have no line
+   number information for it.  */
 static inline int
 get_lineno (tree expr)
 {
@@ -137,6 +132,8 @@ get_lineno (tree expr)
   return EXPR_LINENO (expr);
 }
 
+/* Return the file name for EXPR, or return "???" if we have no
+   filename information.  */
 static inline const char *
 get_filename (tree expr)
 {
@@ -152,6 +149,7 @@ get_filename (tree expr)
     return "???";
 }
 
+/* Mark statement T as modified.  */
 static inline void
 modify_stmt (tree t)
 {
@@ -161,6 +159,7 @@ modify_stmt (tree t)
   ann->modified = 1;
 }
 
+/* Mark statement T as unmodified.  */
 static inline void
 unmodify_stmt (tree t)
 {
@@ -170,6 +169,7 @@ unmodify_stmt (tree t)
   ann->modified = 0;
 }
 
+/* Return true if T is marked as modified, false otherwise.  */
 static inline bool
 stmt_modified_p (tree t)
 {
@@ -181,31 +181,63 @@ stmt_modified_p (tree t)
   return ann ? ann->modified : true;
 }
 
+/* Return the definitions present in ANN, a statement annotation.
+   Return NULL if this annotation contains no definitions.  */
 static inline def_optype
 get_def_ops (stmt_ann_t ann)
 {
   return ann ? ann->def_ops : NULL;
 }
 
+/* Return the uses present in ANN, a statement annotation.
+   Return NULL if this annotation contains no uses.  */
 static inline use_optype
 get_use_ops (stmt_ann_t ann)
 {
   return ann ? ann->use_ops : NULL;
 }
 
-static inline vdef_optype
-get_vdef_ops (stmt_ann_t ann)
+/* Return the virtual may-defs present in ANN, a statement
+   annotation.
+   Return NULL if this annotation contains no virtual may-defs.  */
+static inline v_may_def_optype
+get_v_may_def_ops (stmt_ann_t ann)
 {
-  return ann ? ann->vdef_ops : NULL;
+  return ann ? ann->v_may_def_ops : NULL;
 }
 
+/* Return the virtual uses present in ANN, a statement annotation.
+   Return NULL if this annotation contains no virtual uses.  */
 static inline vuse_optype
 get_vuse_ops (stmt_ann_t ann)
 {
   return ann ? ann->vuse_ops : NULL;
 }
 
-static inline tree *
+/* Return the virtual must-defs present in ANN, a statement
+   annotation.  Return NULL if this annotation contains no must-defs.*/
+static inline v_must_def_optype
+get_v_must_def_ops (stmt_ann_t ann)
+{
+  return ann ? ann->v_must_def_ops : NULL;
+}
+
+/* Return the tree pointer to by USE.  */ 
+static inline tree
+get_use_from_ptr (use_operand_p use)
+{ 
+  return *(use.use);
+} 
+
+/* Return the tree pointer to by DEF.  */
+static inline tree
+get_def_from_ptr (def_operand_p def)
+{
+  return *(def.def);
+}
+
+/* Return a pointer to the tree that is at INDEX in the USES array.  */
+static inline use_operand_p
 get_use_op_ptr (use_optype uses, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
@@ -215,7 +247,8 @@ get_use_op_ptr (use_optype uses, unsigned int index)
   return uses->uses[index];
 }
 
-static inline tree *
+/* Return a def_operand_p pointer for element INDEX of DEFS.  */
+static inline def_operand_p
 get_def_op_ptr (def_optype defs, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
@@ -225,36 +258,81 @@ get_def_op_ptr (def_optype defs, unsigned int index)
   return defs->defs[index];
 }
 
-static inline tree *
-get_vdef_result_ptr(vdef_optype vdefs, unsigned int index)
+
+/* Return the def_operand_p that is the V_MAY_DEF_RESULT for the V_MAY_DEF
+   at INDEX in the V_MAY_DEFS array.  */
+static inline def_operand_p
+get_v_may_def_result_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
+  def_operand_p op;
 #ifdef ENABLE_CHECKING
-  if (index >= vdefs->num_vdefs)
+  if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(vdefs->vdefs[index * 2]);
+  op.def = &(v_may_defs->v_may_defs[index * 2]);
+  return op;
 }
 
-static inline tree *
-get_vdef_op_ptr(vdef_optype vdefs, unsigned int index)
+/* Return a use_operand_p that is the V_MAY_DEF_OP for the V_MAY_DEF at
+   INDEX in the V_MAY_DEFS array.  */
+static inline use_operand_p
+get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
+  use_operand_p op;
 #ifdef ENABLE_CHECKING
-  if (index >= vdefs->num_vdefs)
+  if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(vdefs->vdefs[index * 2 + 1]);
+  op.use = &(v_may_defs->v_may_defs[index * 2 + 1]);
+  return op;
 }
 
-static inline tree *
+/* Return a use_operand_p that is at INDEX in the VUSES array.  */
+static inline use_operand_p
 get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
 {
+  use_operand_p op;
 #ifdef ENABLE_CHECKING
   if (index >= vuses->num_vuses)
     abort();
 #endif
-  return &(vuses->vuses[index]);
+  op.use = &(vuses->vuses[index]);
+  return op;
 }
 
+/* Return a def_operand_p that is the V_MUST_DEF_OP for the
+   V_MUST_DEF at INDEX in the V_MUST_DEFS array.  */
+static inline def_operand_p
+get_v_must_def_op_ptr (v_must_def_optype v_must_defs, unsigned int index)
+{
+  def_operand_p op;
+#ifdef ENABLE_CHECKING
+  if (index >= v_must_defs->num_v_must_defs)
+    abort();
+#endif
+  op.def = &(v_must_defs->v_must_defs[index]);
+  return op;
+}
+
+/* Return a def_operand_p pointer for the result of PHI.  */
+static inline def_operand_p
+get_phi_result_ptr (tree phi)
+{
+  def_operand_p op;
+  op.def = &(PHI_RESULT_TREE (phi));
+  return op;
+}
+
+/* Return a use_operand_p pointer for argument I of phinode PHI.  */
+static inline use_operand_p
+get_phi_arg_def_ptr (tree phi, int i)
+{
+  use_operand_p op;
+  op.use = &(PHI_ARG_DEF_TREE (phi, i));
+  return op;
+}
+ 
+/* Mark the beginning of changes to the SSA operands for STMT.  */
 static inline void
 start_ssa_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
 {
@@ -263,6 +341,8 @@ start_ssa_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
 #endif
 }
 
+/* Return the bitmap of addresses taken by STMT, or NULL if it takes
+   no addresses.  */
 static inline bitmap
 addresses_taken (tree stmt)
 {
@@ -270,6 +350,8 @@ addresses_taken (tree stmt)
   return ann ? ann->addresses_taken : NULL;
 }
 
+/* Return the immediate uses of STMT, or NULL if this information is
+   not computed.  */
 static dataflow_t
 get_immediate_uses (tree stmt)
 {
@@ -277,6 +359,8 @@ get_immediate_uses (tree stmt)
   return ann ? ann->df : NULL;
 }
 
+/* Return the number of immediate uses present in the dataflow
+   information at DF.  */
 static inline int
 num_immediate_uses (dataflow_t df)
 {
@@ -292,6 +376,7 @@ num_immediate_uses (dataflow_t df)
   return VARRAY_ACTIVE_SIZE (imm) + 2;
 }
 
+/* Return the tree that is at NUM in the immediate use DF array.  */
 static inline tree
 immediate_use (dataflow_t df, int num)
 {
@@ -307,12 +392,15 @@ immediate_use (dataflow_t df, int num)
   return VARRAY_TREE (df->immediate_uses, num - 2);
 }
 
+/* Return the basic_block annotation for BB.  */
 static inline bb_ann_t
 bb_ann (basic_block bb)
 {
   return (bb_ann_t)bb->tree_annotations;
 }
 
+/* Return the PHI nodes for basic block BB, or NULL if there are no
+   PHI nodes.  */
 static inline tree
 phi_nodes (basic_block bb)
 {
@@ -329,7 +417,7 @@ set_phi_nodes (basic_block bb, tree l)
   tree phi;
 
   bb_ann (bb)->phi_nodes = l;
-  for (phi = l; phi; phi = TREE_CHAIN (phi))
+  for (phi = l; phi; phi = PHI_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
 }
 
@@ -350,22 +438,9 @@ phi_arg_from_edge (tree phi, edge e)
   return -1;
 }
 
-
-/* Return the phi argument number for an edge.  */
-static inline struct phi_arg_d *
-phi_element_for_edge (tree phi, edge e)
-{
-  int i;
-
-  i = phi_arg_from_edge (phi, e);
-  if (i != -1)
-    return &(PHI_ARG_ELT (phi, i));
-  else
-    return (struct phi_arg_d *)NULL;
-}
-
 /*  -----------------------------------------------------------------------  */
 
+/* Return true if T is an executable statement.  */
 static inline bool
 is_exec_stmt (tree t)
 {
@@ -391,6 +466,7 @@ is_label_stmt (tree t)
   return false;
 }
 
+/* Return true if we may propagate ORIG into DEST, false otherwise.  */
 static inline bool
 may_propagate_copy (tree dest, tree orig)
 {
@@ -471,6 +547,7 @@ may_propagate_copy (tree dest, tree orig)
 	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
 }
 
+/* Set the default definition for VAR to DEF.  */
 static inline void
 set_default_def (tree var, tree def)
 {
@@ -480,6 +557,8 @@ set_default_def (tree var, tree def)
   ann->default_def = def;
 }
 
+/* Return the default definition for variable VAR, or NULL if none
+   exists.  */
 static inline tree
 default_def (tree var)
 {
@@ -505,6 +584,8 @@ phi_ssa_name_p (tree t)
 
 /*  -----------------------------------------------------------------------  */
 
+/* Return a block_stmt_iterator that points to beginning of basic
+   block BB.  */
 static inline block_stmt_iterator
 bsi_start (basic_block bb)
 {
@@ -524,6 +605,55 @@ bsi_start (basic_block bb)
   return bsi;
 }
 
+/* Return a block statement iterator that points to the last label in
+   block BB.  */
+
+static inline block_stmt_iterator
+bsi_after_labels (basic_block bb)
+{
+  block_stmt_iterator bsi;
+  tree_stmt_iterator next;
+
+  bsi.bb = bb;
+
+  if (!bb->stmt_list)
+    {
+#ifdef ENABLE_CHECKING
+      if (bb->index >= 0)
+	abort ();
+#endif
+      bsi.tsi.ptr = NULL;
+      bsi.tsi.container = NULL;
+      return bsi;
+    }
+
+  bsi.tsi = tsi_start (bb->stmt_list);
+  if (tsi_end_p (bsi.tsi))
+    return bsi;
+
+  /* Ensure that there are some labels.  The rationale is that we want
+     to insert after the bsi that is returned, and these insertions should
+     be placed at the start of the basic block.  This would not work if the
+     first statement was not label; rather fail here than enable the user
+     proceed in wrong way.  */
+  if (TREE_CODE (tsi_stmt (bsi.tsi)) != LABEL_EXPR)
+    abort ();
+
+  next = bsi.tsi;
+  tsi_next (&next);
+
+  while (!tsi_end_p (next)
+	 && TREE_CODE (tsi_stmt (next)) == LABEL_EXPR)
+    {
+      bsi.tsi = next;
+      tsi_next (&next);
+    }
+
+  return bsi;
+}
+
+/* Return a block statement iterator that points to the end of basic
+   block BB.  */
 static inline block_stmt_iterator
 bsi_last (basic_block bb)
 {
@@ -543,36 +673,47 @@ bsi_last (basic_block bb)
   return bsi;
 }
 
+/* Return true if block statement iterator I has reached the end of
+   the basic block.  */
 static inline bool
 bsi_end_p (block_stmt_iterator i)
 {
   return tsi_end_p (i.tsi);
 }
 
+/* Modify block statement iterator I so that it is at the next
+   statement in the basic block.  */
 static inline void
 bsi_next (block_stmt_iterator *i)
 {
   tsi_next (&i->tsi);
 }
 
+/* Modify block statement iterator I so that it is at the previous
+   statement in the basic block.  */
 static inline void
 bsi_prev (block_stmt_iterator *i)
 {
   tsi_prev (&i->tsi);
 }
 
+/* Return the statement that block statement iterator I is currently
+   at.  */
 static inline tree
 bsi_stmt (block_stmt_iterator i)
 {
   return tsi_stmt (i.tsi);
 }
 
+/* Return a pointer to the statement that block statement iterator I
+   is currently at.  */
 static inline tree *
 bsi_stmt_ptr (block_stmt_iterator i)
 {
   return tsi_stmt_ptr (i.tsi);
 }
 
+/* Return true if VAR may be aliased.  */
 static inline bool
 may_be_aliased (tree var)
 {
@@ -580,6 +721,7 @@ may_be_aliased (tree var)
           || decl_function_context (var) != current_function_decl);
 }
 
+/* Return true if VAR is a clobbered by function calls.  */
 static inline bool
 is_call_clobbered (tree var)
 {
@@ -587,6 +729,7 @@ is_call_clobbered (tree var)
 	 || bitmap_bit_p (call_clobbered_vars, var_ann (var)->uid);
 }
 
+/* Mark variable VAR as being clobbered by function calls.  */
 static inline void
 mark_call_clobbered (tree var)
 {
@@ -596,12 +739,30 @@ mark_call_clobbered (tree var)
   bitmap_set_bit (call_clobbered_vars, ann->uid);
 }
 
+/* Mark variable VAR as being non-addressable.  */
 static inline void
 mark_non_addressable (tree var)
 {
   bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
   DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (var) = 0;
   TREE_ADDRESSABLE (var) = 0;
+}
+
+/* Return the common annotation for T.  Return NULL if the annotation
+   doesn't already exist.  */
+static inline tree_ann_t
+tree_ann (tree t)
+{
+  return t->common.ann;
+}
+
+/* Return a common annotation for T.  Create the constant annotation if it
+   doesn't exist.  */
+static inline tree_ann_t
+get_tree_ann (tree t)
+{
+  tree_ann_t ann = tree_ann (t);
+  return (ann) ? ann : create_tree_ann (t);
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -27,20 +27,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 
 /* Usage of TREE_LANG_FLAG_?:
-   0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
-      TREE_NEGATED_INT (in INTEGER_CST).
+   0: TREE_NEGATED_INT (in INTEGER_CST).
       IDENTIFIER_MARKED (used by search routines).
-      SCOPE_BEGIN_P (in SCOPE_STMT)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
-      NEW_FOR_SCOPE_P (in FOR_STMT)
-      ASM_INPUT_P (in ASM_STMT)
       STMT_EXPR_NO_SCOPE (in STMT_EXPR)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
+      STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
-   3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
-      COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
-   4: SCOPE_PARTIAL_P (in SCOPE_STMT)
+   3: unused
+   4: unused
 */
 
 /* Reserved identifiers.  This is the union of all the keywords for C,
@@ -245,13 +241,9 @@ extern c_language_kind c_language;
 /* Information about a statement tree.  */
 
 struct stmt_tree_s GTY(()) {
-  /* The last statement added to the tree.  */
-  tree x_last_stmt;
-  /* The type of the last expression statement.  (This information is
-     needed to implement the statement-expression extension.)  */
-  tree x_last_expr_type;
-  /* The last filename we recorded.  */
-  const char *x_last_expr_filename;
+  /* The current statment list being collected.  */
+  tree x_cur_stmt_list;
+
   /* In C++, Nonzero if we should treat statements as full
      expressions.  In particular, this variable is no-zero if at the
      end of a statement we should destroy any temporaries created
@@ -278,38 +270,16 @@ struct c_language_function GTY(()) {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
-  /* The stack of SCOPE_STMTs for the current function.  */
-  tree x_scope_stmt_stack;
 };
 
-/* When building a statement-tree, this is the last statement added to
-   the tree.  */
+/* When building a statement-tree, this is the current statment list
+   being collected.  It's TREE_CHAIN is a back-pointer to the previous
+   statment list.  */
 
-#define last_tree (current_stmt_tree ()->x_last_stmt)
-
-/* The type of the last expression-statement we have seen.  */
-
-#define last_expr_type (current_stmt_tree ()->x_last_expr_type)
-
-/* The name of the last file we have seen.  */
-
-#define last_expr_filename (current_stmt_tree ()->x_last_expr_filename)
-
-/* LAST_TREE contains the last statement parsed.  These are chained
-   together through the TREE_CHAIN field, but often need to be
-   re-organized since the parse is performed bottom-up.  This macro
-   makes LAST_TREE the indicated SUBSTMT of STMT.  */
-
-#define RECHAIN_STMTS(stmt, substmt)		\
-  do {						\
-    substmt = TREE_CHAIN (stmt);		\
-    TREE_CHAIN (stmt) = NULL_TREE;		\
-    last_tree = stmt;				\
-  } while (0)
+#define cur_stmt_list (current_stmt_tree ()->x_cur_stmt_list)
 
 /* Language-specific hooks.  */
 
-extern int (*lang_gimplify_stmt) (tree *, tree *);
 extern void (*lang_expand_function_end) (void);
 
 /* Callback that determines if it's ok for a function to have no
@@ -320,22 +290,19 @@ extern void push_file_scope (void);
 extern void pop_file_scope (void);
 extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
-extern tree *current_scope_stmt_stack (void);
-extern void begin_stmt_tree (tree *);
+extern tree push_stmt_list (void);
+extern tree re_push_stmt_list (tree);
+extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
-extern void add_decl_stmt (tree);
-extern tree add_scope_stmt (int, int);
-extern void finish_stmt_tree (tree *);
+extern void push_cleanup (tree, tree, bool);
 
 extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
-extern void prep_stmt (tree);
-extern tree c_begin_if_stmt (void);
-extern tree c_begin_while_stmt (void);
-extern void c_finish_while_stmt_cond (tree, tree);
+extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
+extern bool has_c_linkage (tree decl);
 
 /* Switches common to the C front ends.  */
 
@@ -351,6 +318,9 @@ extern int flag_nil_receivers;
 /* Nonzero means that we will allow new ObjC exception syntax (@throw,
    @try, etc.) in source code.  */
 extern int flag_objc_exceptions;
+
+/* Nonzero means that we generate NeXT setjmp based exceptions.  */
+extern int flag_objc_sjlj_exceptions;
 
 /* Nonzero means that code generation will be altered to support
    "zero-link" execution.  This currently affects ObjC only, but may
@@ -379,6 +349,10 @@ extern char flag_dump_macros;
 /* Nonzero means pass #include lines through to the output.  */
 
 extern char flag_dump_includes;
+
+/* Nonzero means process PCH files while preprocessing.  */
+
+extern bool flag_pch_preprocess;
 
 /* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
@@ -429,63 +403,10 @@ extern int flag_const_strings;
 extern int flag_signed_bitfields;
 extern int explicit_flag_signed_bitfields;
 
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-extern int warn_cast_qual;
-
-/* Warn about functions which might be candidates for format attributes.  */
-
-extern int warn_missing_format_attribute;
-
-/* Nonzero means warn about sizeof(function) or addition/subtraction
-   of function pointers.  */
-
-extern int warn_pointer_arith;
-
-/* Nonzero means warn for any global function def
-   without separate previous prototype decl.  */
-
-extern int warn_missing_prototypes;
-
-/* Warn if adding () is suggested.  */
-
-extern int warn_parentheses;
-
-/* Warn if initializer is not completely bracketed.  */
-
-extern int warn_missing_braces;
-
-/* Warn about comparison of signed and unsigned values.
-   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
-
-extern int warn_sign_compare;
-
-/* Nonzero means warn about usage of long long when `-pedantic'.  */
-
-extern int warn_long_long;
-
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
 
 extern int warn_write_strings;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-extern int warn_redundant_decls;
-
-/* Warn about testing equality of floating point numbers.  */
-
-extern int warn_float_equal;
-
-/* Warn about a subscript that has type char.  */
-
-extern int warn_char_subscripts;
-
-/* Warn if a type conversion is done that might have confusing results.  */
-
-extern int warn_conversion;
 
 /* Warn about #pragma directives that are not recognized.  */      
 
@@ -496,34 +417,9 @@ extern int warn_unknown_pragmas; /* Tri state variable.  */
 
 extern int warn_format;
 
-/* Warn about Y2K problems with strftime formats.  */
-
-extern int warn_format_y2k;
-
-/* Warn about excess arguments to formats.  */
-
-extern int warn_format_extra_args;
-
-/* Warn about zero-length formats.  */
-
-extern int warn_format_zero_length;
-
-/* Warn about non-literal format arguments.  */
-
-extern int warn_format_nonliteral;
-
-/* Warn about possible security problems with calls to format functions.  */
-
-extern int warn_format_security;
-
 
 /* C/ObjC language option variables.  */
 
-
-/* Nonzero means message about use of implicit function declarations;
- 1 means warning; 2 means error.  */
-
-extern int mesg_implicit_function_declaration;
 
 /* Nonzero means allow type mismatches in conditional expressions;
    just make their values `void'.  */
@@ -542,67 +438,9 @@ extern int flag_isoc99;
 
 extern int flag_hosted;
 
-/* Nonzero means warn when casting a function call to a type that does
-   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
-   when there is no previous declaration of sqrt or malloc.  */
-
-extern int warn_bad_function_cast;
-
-/* Warn about traditional constructs whose meanings changed in ANSI C.  */
-
-extern int warn_traditional;
-
-/* Nonzero means warn for a declaration found after a statement.  */
-
-extern int warn_declaration_after_statement;
-
-/* Nonzero means warn for non-prototype function decls
-   or non-prototyped defs without previous prototype.  */
-
-extern int warn_strict_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous decl.  */
-
-extern int warn_missing_declarations;
-
-/* Nonzero means warn about extern declarations of objects not at
-   file-scope level and about *all* declarations of functions (whether
-   extern or static) not at file-scope level.  Note that we exclude
-   implicit function declarations.  To get warnings about those, use
-   -Wimplicit.  */
-
-extern int warn_nested_externs;
-
 /* Warn if main is suspicious.  */
 
 extern int warn_main;
-
-/* Nonzero means warn about possible violations of sequence point rules.  */
-
-extern int warn_sequence_point;
-
-/* Nonzero means warn about uninitialized variable when it is initialized with itself. 
-   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
-
-extern int warn_init_self;
-
-
-/* Nonzero means to warn about compile-time division by zero.  */
-extern int warn_div_by_zero;
-
-/* Nonzero means warn about use of implicit int.  */
-
-extern int warn_implicit_int;
-
-/* Warn about NULL being passed to argument slots marked as requiring
-   non-NULL.  */ 
-      
-extern int warn_nonnull;
-
-/* Warn about old-style parameter declaration.  */
-
-extern int warn_old_style_definition;
 
 
 /* ObjC language option variables.  */
@@ -626,25 +464,6 @@ extern int print_struct_values;
 /* ???.  Undocumented.  */
 
 extern const char *constant_string_class_name;
-
-/* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  Performs the check on the whole selector
-   table at the end of compilation.  */
-
-extern int warn_selector;
-
-/* Warn if a @selector() is found, and no method with that selector
-   has been previously declared.  The check is done on each
-   @selector() as soon as it is found - so it warns about forward
-   declarations.  */
-
-extern int warn_undeclared_selector;
-
-/* Warn if methods required by a protocol are not implemented in the 
-   class adopting it.  When turned off, methods inherited to that
-   class are also considered implemented.  */
-
-extern int warn_protocol;
 
 
 /* C++ language option variables.  */
@@ -748,69 +567,9 @@ extern int flag_permissive;
 
 extern int flag_enforce_eh_specs;
 
-/* Nonzero means warn about things that will change when compiling
-   with an ABI-compliant compiler.  */
-
-extern int warn_abi;
-
-/* Nonzero means warn about invalid uses of offsetof.  */
- 
-extern int warn_invalid_offsetof;
-
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
-
-/* Nonzero means warn when all ctors or dtors are private, and the class
-   has no friends.  */
-
-extern int warn_ctor_dtor_privacy;
-
-/* Nonzero means warn in function declared in derived class has the
-   same name as a virtual in the base class, but fails to match the
-   type signature of any virtual function in the base class.  */
-
-extern int warn_overloaded_virtual;
-
-/* Nonzero means warn when declaring a class that has a non virtual
-   destructor, when it really ought to have a virtual one.  */
-
-extern int warn_nonvdtor;
-
-/* Nonzero means warn when the compiler will reorder code.  */
-
-extern int warn_reorder;
-
-/* Nonzero means warn when synthesis behavior differs from Cfront's.  */
-
-extern int warn_synth;
-
-/* Nonzero means warn when we convert a pointer to member function
-   into a pointer to (void or function).  */
-
-extern int warn_pmf2ptr;
-
-/* Nonzero means warn about violation of some Effective C++ style rules.  */
-
-extern int warn_ecpp;
-
-/* Nonzero means warn where overload resolution chooses a promotion from
-   unsigned to signed over a conversion to an unsigned of the same size.  */
-
-extern int warn_sign_promo;
-
-/* Nonzero means warn when an old-style cast is used.  */
-
-extern int warn_old_style_cast;
-
-/* Nonzero means warn when non-templatized friend functions are
-   declared within a template */
-
-extern int warn_nontemplate_friend;
-
-/* Nonzero means complain about deprecated features.  */
-
-extern int warn_deprecated;
 
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
@@ -889,12 +648,6 @@ extern void binary_op_error (enum tree_code);
 #define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
-extern tree c_expand_expr_stmt (tree);
-extern void c_expand_start_cond (tree, int, tree);
-extern void c_finish_then (void);
-extern void c_expand_start_else (void);
-extern void c_finish_else (void);
-extern void c_expand_end_cond (void);
 /* Validate the expression after `case' and apply default promotions.  */
 extern tree check_case_value (tree);
 extern tree fix_string_type (tree);
@@ -951,12 +704,10 @@ extern void finish_file	(void);
    will always be false, since there are no destructors.)  */
 #define STMT_IS_FULL_EXPR_P(NODE) TREE_LANG_FLAG_1 ((NODE))
 
-/* IF_STMT accessors. These give access to the condition of the if
-   statement, the then block of the if statement, and the else block
-   of the if statement if it exists.  */
-#define IF_COND(NODE)           TREE_OPERAND (IF_STMT_CHECK (NODE), 0)
-#define THEN_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 1)
-#define ELSE_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
+/* Nonzero if a given STATEMENT_LIST represents the outermost binding
+   if a statement expression.  */
+#define STATEMENT_LIST_STMT_EXPR(NODE) \
+  TREE_LANG_FLAG_1 (STATEMENT_LIST_CHECK (NODE))
 
 /* WHILE_STMT accessors. These give access to the condition of the
    while statement and the body of the while statement, respectively.  */
@@ -967,11 +718,6 @@ extern void finish_file	(void);
    statement and the body of the do statement, respectively.  */
 #define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
 #define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
-
-/* RETURN_STMT accessors. These give the expression associated with a
-   return statement, and whether it should be ignored when expanding
-   (as opposed to inlining).  */
-#define RETURN_STMT_EXPR(NODE)  TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
 
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement.  */
@@ -986,20 +732,6 @@ extern void finish_file	(void);
 #define FOR_BODY(NODE)          TREE_OPERAND (FOR_STMT_CHECK (NODE), 3)
 
 #define SWITCH_TYPE(NODE)	TREE_OPERAND (SWITCH_STMT_CHECK (NODE), 2)
-#define CASE_LABEL_DECL(NODE)   TREE_OPERAND (CASE_LABEL_CHECK (NODE), 2)
-
-/* True for goto created artificially by the compiler.  */
-#define GOTO_FAKE_P(NODE)	(TREE_LANG_FLAG_0 (GOTO_STMT_CHECK (NODE)))
-
-/* COMPOUND_STMT accessor. This gives access to the TREE_LIST of
-   statements associated with a compound statement. The result is the
-   first statement in the list. Succeeding nodes can be accessed by
-   calling TREE_CHAIN on a node in the list.  */
-#define COMPOUND_BODY(NODE)     TREE_OPERAND (COMPOUND_STMT_CHECK (NODE), 0)
-
-/* DECL_STMT accessor. This gives access to the DECL associated with
-   the given declaration statement.  */
-#define DECL_STMT_DECL(NODE)    TREE_OPERAND (DECL_STMT_CHECK (NODE), 0)
 
 /* STMT_EXPR accessor.  */
 #define STMT_EXPR_STMT(NODE)    TREE_OPERAND (STMT_EXPR_CHECK (NODE), 0)
@@ -1008,63 +740,11 @@ extern void finish_file	(void);
 #define STMT_EXPR_NO_SCOPE(NODE) \
    TREE_LANG_FLAG_0 (STMT_EXPR_CHECK (NODE))
 
-/* LABEL_STMT accessor. This gives access to the label associated with
-   the given label statement.  */
-#define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (LABEL_STMT_CHECK (NODE), 0)
-
 /* COMPOUND_LITERAL_EXPR accessors.  */
 #define COMPOUND_LITERAL_EXPR_DECL_STMT(NODE)		\
   TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
 #define COMPOUND_LITERAL_EXPR_DECL(NODE)			\
-  DECL_STMT_DECL (COMPOUND_LITERAL_EXPR_DECL_STMT (NODE))
-
-/* Nonzero if this SCOPE_STMT is for the beginning of a scope.  */
-#define SCOPE_BEGIN_P(NODE) \
-  (TREE_LANG_FLAG_0 (SCOPE_STMT_CHECK (NODE)))
-
-/* Nonzero if this SCOPE_STMT is for the end of a scope.  */
-#define SCOPE_END_P(NODE) \
-  (!SCOPE_BEGIN_P (SCOPE_STMT_CHECK (NODE)))
-
-/* The BLOCK containing the declarations contained in this scope.  */
-#define SCOPE_STMT_BLOCK(NODE) \
-  (TREE_OPERAND (SCOPE_STMT_CHECK (NODE), 0))
-
-/* Nonzero for a SCOPE_STMT if there were no variables in this scope.  */
-#define SCOPE_NULLIFIED_P(NODE) \
-  (SCOPE_STMT_BLOCK ((NODE)) == NULL_TREE)
-
-/* Nonzero for a SCOPE_STMT which represents a lexical scope, but
-   which should be treated as non-existent from the point of view of
-   running cleanup actions.  */
-#define SCOPE_NO_CLEANUPS_P(NODE) \
-  (TREE_LANG_FLAG_3 (SCOPE_STMT_CHECK (NODE)))
-
-/* Nonzero for a SCOPE_STMT if this statement is for a partial scope.
-   For example, in:
-
-     S s;
-     l:
-     S s2;
-     goto l;
-
-   there is (implicitly) a new scope after `l', even though there are
-   no curly braces.  In particular, when we hit the goto, we must
-   destroy s2 and then re-construct it.  For the implicit scope,
-   SCOPE_PARTIAL_P will be set.  */
-#define SCOPE_PARTIAL_P(NODE) \
-  (TREE_LANG_FLAG_4 (SCOPE_STMT_CHECK (NODE)))
-
-/* The VAR_DECL to clean up in a CLEANUP_STMT.  */
-#define CLEANUP_DECL(NODE) \
-  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 0)
-/* The cleanup to run in a CLEANUP_STMT.  */
-#define CLEANUP_EXPR(NODE) \
-  TREE_OPERAND (CLEANUP_STMT_CHECK (NODE), 1)
-
-/* Nonzero if we want the new ISO rules for pushing a new scope for `for'
-   initialization variables.  */
-#define NEW_FOR_SCOPE_P(NODE) (TREE_LANG_FLAG_0 (NODE))
+  DECL_EXPR_DECL (COMPOUND_LITERAL_EXPR_DECL_STMT (NODE))
 
 #define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
 
@@ -1077,12 +757,9 @@ enum c_tree_code {
 #undef DEFTREECODE
 
 #define c_common_stmt_codes				\
-   CLEANUP_STMT,	EXPR_STMT,	COMPOUND_STMT,	\
-   DECL_STMT,		IF_STMT,	FOR_STMT,	\
-   WHILE_STMT,		DO_STMT,	RETURN_STMT,	\
-   BREAK_STMT,		CONTINUE_STMT,	SCOPE_STMT,	\
-   SWITCH_STMT,		GOTO_STMT,	LABEL_STMT,	\
-   ASM_STMT,		CASE_LABEL
+   EXPR_STMT,		FOR_STMT,			\
+   WHILE_STMT,		DO_STMT,			\
+   BREAK_STMT,		CONTINUE_STMT,	SWITCH_STMT
 
 /* TRUE if a code represents a statement.  The front end init
    langhook should take care of initialization of this array.  */
@@ -1115,19 +792,11 @@ extern int anon_aggr_type_p (tree);
 
 extern void emit_local_var (tree);
 extern void make_rtl_for_local_static (tree);
-extern tree c_expand_return (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
 extern tree build_case_label (tree, tree, tree);
 extern tree build_continue_stmt (void);
 extern tree build_break_stmt (void);
-extern tree build_return_stmt (tree);
-
-#define COMPOUND_STMT_NO_SCOPE(NODE)	TREE_LANG_FLAG_0 (NODE)
-
-/* Used by the C++ frontend to mark the block around the member
-   initializers and cleanups.  */
-#define COMPOUND_STMT_BODY_BLOCK(NODE)	TREE_LANG_FLAG_3 (NODE)
 
 extern void c_expand_asm_operands (tree, tree, tree, tree, int, location_t);
 
@@ -1143,8 +812,6 @@ extern tree default_conversion (tree);
    Given two compatible ANSI C types, returns the merged type.  */
 
 extern tree common_type (tree, tree);
-
-extern tree expand_tree_builtin (tree, tree, tree);
 
 extern tree decl_constant_value (tree);
 
@@ -1173,8 +840,6 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
-extern int c_safe_from_p (rtx, tree);
-
 extern int c_staticp (tree);
 
 extern int c_common_unsafe_for_reeval (tree);
@@ -1201,23 +866,24 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern int c_gimplify_expr (tree *, tree *, tree *);
-extern tree c_walk_subtrees (tree*, int*, walk_tree_fn, void*, void*);
-extern int c_tree_chain_matters_p (tree);
-
 extern void c_warn_unused_result (tree *);
 
-/* In c-simplify.c  */
-extern void c_genericize (tree);
-extern int c_gimplify_stmt (tree *);
-extern tree stmt_expr_last_stmt (tree);
+extern void verify_sequence_points (tree);
 
+/* In c-gimplify.c  */
+extern void c_genericize (tree);
+extern int c_gimplify_expr (tree *, tree *, tree *);
+extern tree c_build_bind_expr (tree, tree);
+
+/* In c-pch.c  */
 extern void pch_init (void);
 extern int c_common_valid_pch (cpp_reader *pfile, const char *name, int fd);
 extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
+extern void c_common_pch_pragma (cpp_reader *pfile);
+
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
@@ -1244,7 +910,6 @@ extern void objc_declare_alias (tree, tree);
 extern void objc_declare_class (tree);
 extern void objc_declare_protocols (tree);
 extern int objc_is_public (tree, tree);
-extern int objc_is_type_qualifier (tree);
 extern tree objc_build_message_expr (tree);
 extern tree objc_finish_message_expr (tree, tree, tree);
 extern tree objc_build_selector_expr (tree);
@@ -1269,18 +934,16 @@ extern tree objc_build_method_signature (tree, tree, tree);
 extern void objc_add_method_declaration (tree);
 extern void objc_start_method_definition (tree);
 extern void objc_finish_method_definition (tree);
-extern tree objc_add_instance_variable (tree, tree, tree);
+extern void objc_add_instance_variable (tree);
 extern void objc_clear_super_receiver (void);
 extern tree objc_build_keyword_decl (tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
-extern tree objc_build_try_prologue (void);
-extern void objc_build_try_epilogue (int);
-extern void objc_build_catch_stmt (tree);
-extern void objc_build_catch_epilogue (void);
-extern tree objc_build_finally_prologue (void);
-extern void objc_build_synchronized_prologue (tree);
-extern tree objc_build_synchronized_epilogue (void);
-extern tree objc_build_try_catch_finally_stmt (int, int);
+extern void objc_begin_try_stmt (location_t, tree);
+extern void objc_finish_try_stmt (void);
+extern void objc_begin_catch_clause (tree);
+extern void objc_finish_catch_clause (void);
+extern void objc_build_finally_clause (location_t, tree);
+extern void objc_build_synchronized (location_t, tree, tree);
 extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
 

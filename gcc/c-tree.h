@@ -126,13 +126,14 @@ struct lang_type GTY(())
 struct language_function GTY(())
 {
   struct c_language_function base;
+  tree x_break_label;
+  tree x_cont_label;
+  struct c_switch * GTY((skip)) x_switch_stack;
   int returns_value;
   int returns_null;
   int returns_abnormally;
   int warn_about_return_type;
   int extern_inline;
-  int x_in_iteration_stmt;
-  int x_in_case_stmt;
 };
 
 
@@ -143,11 +144,10 @@ extern void c_parse_init (void);
 extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
-extern int c_in_iteration_stmt;
-extern int c_in_case_stmt;
+extern tree c_break_label;
+extern tree c_cont_label;
 
 extern int global_bindings_p (void);
-extern tree getdecls (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
 extern void insert_block (tree);
@@ -173,6 +173,7 @@ extern tree finish_struct (tree, tree, tree);
 extern tree get_parm_info (bool);
 extern tree grokfield (tree, tree, tree);
 extern tree groktypename (tree);
+extern tree grokparm (tree);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern tree lookup_name (tree);
@@ -190,7 +191,6 @@ extern tree start_decl (tree, tree, int, tree);
 extern tree start_struct (enum tree_code, tree);
 extern void store_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
-extern tree c_begin_compound_stmt (void);
 extern int c_expand_decl (tree);
 extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
@@ -213,25 +213,21 @@ extern bool c_warn_unused_global_decl (tree);
 #define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
 
 /* in c-typeck.c */
-
-/* For use with comptypes.  */
-enum {
-  COMPARE_STRICT = 0
-};
+extern struct c_switch *c_switch_stack;
 
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
-extern int comptypes (tree, tree, int);
+extern int comptypes (tree, tree);
 extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
 extern tree c_type_promotes_to (tree);
+extern tree composite_type (tree, tree);
 extern tree build_component_ref (tree, tree);
 extern tree build_indirect_ref (tree, const char *);
 extern tree build_array_ref (tree, tree);
 extern tree build_external_ref (tree, int);
 extern tree parser_build_binary_op (enum tree_code, tree, tree);
-extern int c_tree_expr_nonnegative_p (tree);
 extern void readonly_error (tree, const char *);
 extern tree build_conditional_expr (tree, tree, tree);
 extern tree build_compound_expr (tree);
@@ -253,11 +249,24 @@ extern tree build_compound_literal (tree, tree);
 extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
-extern void c_finish_case (void);
+extern void c_finish_case (tree);
 extern tree build_asm_expr (tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern tree c_convert_parm_for_inlining (tree, tree, tree, int);
 extern int c_types_compatible_p (tree, tree);
+extern tree c_begin_compound_stmt (bool);
+extern tree c_end_compound_stmt (tree, bool);
+extern void c_finish_if_stmt (location_t, tree, tree, tree, bool);
+extern void c_finish_loop (location_t, tree, tree, tree, tree, tree, bool);
+extern tree c_begin_stmt_expr (void);
+extern tree c_finish_stmt_expr (tree);
+extern tree c_process_expr_stmt (tree);
+extern tree c_finish_expr_stmt (tree);
+extern tree c_finish_return (tree);
+extern tree c_finish_bc_stmt (tree *, bool);
+extern tree c_finish_goto_label (tree);
+extern tree c_finish_goto_ptr (tree);
+extern tree build_offsetof (tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -282,6 +291,9 @@ extern int system_header_p;
    says we are in file scope.  */
 
 extern bool c_override_global_bindings_to_false;
+
+/* True means we've initialized exception handling.  */
+extern bool c_eh_initialized_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);

@@ -66,7 +66,7 @@ extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, const char *, int, int);
 extern void rest_of_type_compilation (tree, int);
-extern void rest_of_compilation (tree);
+extern void rest_of_compilation (void);
 extern void tree_rest_of_compilation (tree, bool);
 extern void init_tree_optimization_passes (void);
 extern void init_optimization_passes (void);
@@ -104,7 +104,6 @@ extern const char *aux_base_name;
 extern const char *aux_info_file_name;
 extern const char *asm_file_name;
 extern bool exit_after_options;
-extern bool version_flag;
 
 extern int target_flags_explicit;
 
@@ -152,7 +151,30 @@ extern bool fast_math_flags_set_p	(void);
 
 #ifndef exact_log2
 #define exact_log2(N) exact_log2_wide ((unsigned HOST_WIDE_INT) (N))
+
+#if (__GNUC__ * 1000 + __GNUC_MINOR__) >= 3004
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONGLONG
+#define FL2T__ HOST_WIDE_INT
+#define FL2T_CLZ__ __builtin_clzll
+#else
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+#define FL2T__ HOST_WIDE_INT
+#define FL2T_CLZ__ __builtin_clzl
+#else
+#define FL2T__ int
+#define FL2T_CLZ__ __builtin_clz
+#endif
+#endif
+static inline int floor_log2(FL2T__ n)
+{
+  if (n)
+    return (sizeof(FL2T__)*8-1) - (int)FL2T_CLZ__(n);
+  return -1;
+}
+#else
 #define floor_log2(N) floor_log2_wide ((unsigned HOST_WIDE_INT) (N))
+#endif
+
 #endif
 extern int exact_log2_wide             (unsigned HOST_WIDE_INT);
 extern int floor_log2_wide             (unsigned HOST_WIDE_INT);

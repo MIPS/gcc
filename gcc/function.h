@@ -232,10 +232,6 @@ struct function GTY(())
   /* The arg pointer hard register, or the pseudo into which it was copied.  */
   rtx internal_arg_pointer;
 
-  /* Language-specific reason why the current function cannot be made
-     inline.  */
-  const char *cannot_inline;
-
   /* Opaque pointer used by get_hard_reg_initial_val and
      has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
@@ -263,10 +259,6 @@ struct function GTY(())
      on machines which require execution of the epilogue on all returns.  */
   rtx x_naked_return_label;
 
-  /* Label and register for unswitching computed gotos.  */
-  rtx computed_goto_common_label;
-  rtx computed_goto_common_reg;
-
   /* List (chain of EXPR_LISTs) of pseudo-regs of SAVE_EXPRs.
      So we can mark them all live at the end of the function, if nonopt.  */
   rtx x_save_expr_regs;
@@ -277,10 +269,6 @@ struct function GTY(())
 
   /* Chain of all RTL_EXPRs that have insns in them.  */
   tree x_rtl_expr_chain;
-
-  /* Label to jump back to for tail recursion, or 0 if we have
-     not yet needed one for this function.  */
-  rtx x_tail_recursion_label;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
   rtx x_tail_recursion_reentry;
@@ -546,7 +534,6 @@ extern int trampolines_created;
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
-#define current_function_cannot_inline (cfun->cannot_inline)
 #define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
@@ -560,7 +547,6 @@ extern int trampolines_created;
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
 #define frame_offset (cfun->x_frame_offset)
-#define tail_recursion_label (cfun->x_tail_recursion_label)
 #define tail_recursion_reentry (cfun->x_tail_recursion_reentry)
 #define arg_pointer_save_area (cfun->x_arg_pointer_save_area)
 #define rtl_expr_chain (cfun->x_rtl_expr_chain)
@@ -623,6 +609,7 @@ extern void use_return_register (void);
 extern rtx get_arg_pointer_save_area (struct function *);
 
 extern void init_virtual_regs (struct emit_status *);
+extern void instantiate_virtual_regs (void);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);

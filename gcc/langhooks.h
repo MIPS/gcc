@@ -39,7 +39,6 @@ struct lang_hooks_for_tree_inlining
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
   tree (*add_pending_fn_decls) (void *, tree);
-  int (*tree_chain_matters_p) (tree);
   int (*auto_var_in_fn_p) (tree, tree);
   tree (*copy_res_decl_for_inlining) (tree, tree, tree,
 				      void *, int *, tree);
@@ -419,6 +418,10 @@ struct lang_hooks
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
+
+  /* Fold an OBJ_TYPE_REF expression to the address of a function.
+     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
+  tree (*fold_obj_type_ref) (tree, tree);
 
   /* True if the front end has gimplified the function before running the
      inliner, false if the front end generates GENERIC directly.  */
