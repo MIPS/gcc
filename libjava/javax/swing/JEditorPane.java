@@ -53,6 +53,7 @@ import javax.swing.text.PlainEditorKit;
 public class JEditorPane extends JTextComponent
 {
   private static final long serialVersionUID = 3140472492599046285L;
+  
   URL page_url;
   EditorKit kit;
   String ctype = "text/plain";
@@ -65,7 +66,6 @@ public class JEditorPane extends JTextComponent
 
   public JEditorPane(String url) throws IOException
   {
-    this();
     setPage(url);
   }
 
@@ -90,8 +90,17 @@ public class JEditorPane extends JTextComponent
     return new PlainEditorKit();
   }
 
-  public void fireHyperlinkUpdate(HyperlinkEvent e)
+  /**
+   * Sends a given <code>HyperlinkEvent</code> to all registered listeners.
+   *
+   * @param event the event to send
+   */
+  public void fireHyperlinkUpdate(HyperlinkEvent event)
   {
+    HyperlinkListener[] listeners = getHyperlinkListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+       listeners[index].hyperlinkUpdate(event);
   }
 
   public AccessibleContext getAccessibleContext()
@@ -119,9 +128,11 @@ public class JEditorPane extends JTextComponent
     return kit;
   }
 
+  /**
+   * Returns the preferred size for the JEditorPane.  
+   */
   public Dimension getPreferredSize()
   {
-    //Returns the preferred size for the JEditorPane.  
     return super.getPreferredSize();
   }
 
@@ -178,42 +189,56 @@ public class JEditorPane extends JTextComponent
     return "JEditorPane";
   }
 
+  /**
+   * Overridden to handle processing of tab/shift tab. 
+   */
   protected void processComponentKeyEvent(KeyEvent e)
   {
-    //Overridden to handle processing of tab/shift tab. 
   }
 
+  /**
+   * Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
+   */
   protected void processKeyEvent(KeyEvent e)
   {
-    //Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
   }
 
+  /**
+   * This method initializes from a stream. 
+   */
   public void read(InputStream in, Object desc)
   {
-    //This method initializes from a stream. 
   }
 
+  /**
+   * Establishes the default bindings of type to classname. 
+   */
   public static void registerEditorKitForContentType(String type,
                                                      String classname)
   {
-    //Establishes the default bindings of type to classname. 
   }
 
+  /**
+   * Establishes the default bindings of type to classname.  
+   */
   public static void registerEditorKitForContentType(String type,
                                                      String classname,
                                                      ClassLoader loader)
   {
-    //Establishes the default bindings of type to classname.  
   }
 
+  /**
+   * Replaces the currently selected content with new content represented by the given string. 
+   */
   public void replaceSelection(String content)
   {
-    //Replaces the currently selected content with new content represented by the given string. 
   }
 
+  /**
+   * Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
+   */
   protected void scrollToReference(String reference)
   {
-    //Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
   }
 
   public void setContentType(String type)
@@ -236,14 +261,18 @@ public class JEditorPane extends JTextComponent
     setEditorKit(k);
   }
 
+  /**
+   * Sets the current URL being displayed.  
+   */
   public void setPage(String url) throws IOException
   {
-    //  Sets the current URL being displayed.  
   }
 
+  /**
+   * Sets the current URL being displayed.  
+   */
   public void setPage(URL page) throws IOException
   {
-    //    Sets the current URL being displayed.  
   }
 
   public void setText(String t)
@@ -251,17 +280,31 @@ public class JEditorPane extends JTextComponent
     super.setText(t);
   }
 
+  /**
+   * Add a <code>HyperlinkListener</code> object to this editor pane.
+   *
+   * @param listener the listener to add
+   */
   public void addHyperlinkListener(HyperlinkListener listener)
   {
     listenerList.add(HyperlinkListener.class, listener);
   }
 
+  /**
+   * Removes a <code>HyperlinkListener</code> object to this editor pane.
+   *
+   * @param listener the listener to remove
+   */
   public void removeHyperlinkListener(HyperlinkListener listener)
   {
     listenerList.remove(HyperlinkListener.class, listener);
   }
 
   /**
+   * Returns all added <code>HyperlinkListener</code> objects.
+   *
+   * @return array of listeners
+   *
    * @since 1.4
    */
   public HyperlinkListener[] getHyperlinkListeners()
