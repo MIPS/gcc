@@ -1,3 +1,11 @@
+2003-01-22  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_varname_tree): Conditionally invoke the C++
+	demangler in libiberty.  Reduce function printing verbosity.
+	(mf_file_function_line_tree):  Reduce function printing verbosity.
+	(mudflap_enqueue_decl): Use COMPLETE_TYPE_P to avoid trying to
+	register (get size of) void-typed objects.
+
 2003-01-21  Jose Renau  <renau@uiuc.edu>
 
         * tree-flow-inline.h (get_lineno): Return -1 for nodes without

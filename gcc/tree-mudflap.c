@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "toplev.h"
 #include "function.h"
+#include "demangle.h"
 
 
 /* Internal function decls */
@@ -290,7 +291,7 @@ mf_varname_tree (decl)
       {
 	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
-	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 1);
 	if (funcname == NULL)
 	  funcname = "anonymous fn";
 	
@@ -301,8 +302,26 @@ mf_varname_tree (decl)
   else
     output_add_string (buf, " ");
 
-  /* Add <variable-declaration> */
-  dump_generic_node (buf, decl, 0, 0);
+  /* Add <variable-declaration>, possibly demangled.  */
+  {
+    char *declname = NULL;
+   
+    if (strcmp ("GNU C++", lang_hooks.name) == 0)
+      {
+	/* The gcc/cp decl_printable_name hook doesn't do as good a job as
+	   the libiberty demangler.  */
+	declname = cplus_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)),
+				   DMGL_AUTO | DMGL_VERBOSE);
+      }
+
+    if (declname == NULL)
+      declname = (*lang_hooks.decl_printable_name) (decl, 3);
+
+    if (declname == NULL)
+      declname = "<unnamed variable>";
+
+    output_add_string (buf, declname);
+  }
 
   /* Return the lot as a new STRING_CST.  */
   buf_contents = output_finalize_message (buf);
@@ -352,7 +371,7 @@ mf_file_function_line_tree (file, line)
       {
 	const char *funcname = NULL;
 	if (DECL_NAME (current_function_decl))
-	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
+	  funcname = (*lang_hooks.decl_printable_name) (current_function_decl, 1);
 	if (funcname == NULL)
 	  funcname = "anonymous fn";
 	
@@ -1114,7 +1133,7 @@ mudflap_enqueue_decl (obj, label)
   fprintf (stderr, "' label=`%s'\n", label);
   */
 
-  if (COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (obj))) 
+  if (COMPLETE_TYPE_P (TREE_TYPE (obj))) 
     {
       /* NB: the above condition doesn't require TREE_USED or
          TREE_ADDRESSABLE.  That's because this object may be a global
