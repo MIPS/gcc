@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Osint;    use Osint;
 with Osint.C;  use Osint.C;
 with Par;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Scn;      use Scn;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -645,7 +646,14 @@ package body Lib.Writ is
 
                if Is_Spec_Name (Uname) then
                   Body_Fname :=
-                    Get_File_Name (Get_Body_Name (Uname), Subunit => False);
+                    Get_File_Name
+                      (Get_Body_Name (Uname),
+                       Subunit => False, May_Fail => True);
+
+                  if Body_Fname = No_File then
+                     Body_Fname := Get_File_Name (Uname, Subunit => False);
+                  end if;
+
                else
                   Body_Fname := Get_File_Name (Uname, Subunit => False);
                end if;
@@ -683,7 +691,7 @@ package body Lib.Writ is
          end loop;
       end Write_With_Lines;
 
-   --  Start of processing for Writ_ALI
+   --  Start of processing for Write_ALI
 
    begin
       --  We never write an ALI file if the original operating mode was
@@ -910,7 +918,7 @@ package body Lib.Writ is
            or else Unit = Main_Unit
          then
             if not Has_No_Elaboration_Code (Cunit (Unit)) then
-               Violations (No_ELaboration_Code) := True;
+               Main_Restrictions.Violated (No_Elaboration_Code) := True;
             end if;
          end if;
       end loop;
@@ -920,13 +928,43 @@ package body Lib.Writ is
       Write_Info_Initiate ('R');
       Write_Info_Char (' ');
 
-      for J in All_Restrictions loop
-         if Main_Restrictions (J) then
+      --  First the information for the boolean restrictions
+
+      for R in All_Boolean_Restrictions loop
+         if Main_Restrictions.Set (R) then
             Write_Info_Char ('r');
-         elsif Violations (J) then
+         elsif Main_Restrictions.Violated (R) then
             Write_Info_Char ('v');
          else
             Write_Info_Char ('n');
+         end if;
+      end loop;
+
+      --  A separating space
+
+      Write_Info_Char (' ');
+
+      --  And now the information for the parameter restrictions
+
+      for RP in All_Parameter_Restrictions loop
+         if Main_Restrictions.Set (RP) then
+            Write_Info_Char ('r');
+            Write_Info_Nat (Nat (Main_Restrictions.Value (RP)));
+         else
+            Write_Info_Char ('n');
+         end if;
+
+         if not Main_Restrictions.Violated (RP)
+           or else RP not in Checked_Parameter_Restrictions
+         then
+            Write_Info_Char ('n');
+         else
+            Write_Info_Char ('v');
+            Write_Info_Nat (Nat (Main_Restrictions.Count (RP)));
+
+            if Main_Restrictions.Unknown (RP) then
+               Write_Info_Char ('+');
+            end if;
          end if;
       end loop;
 

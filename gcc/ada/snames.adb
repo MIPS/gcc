@@ -173,6 +173,7 @@ package body Snames is
      "polling#" &
      "persistent_data#" &
      "persistent_object#" &
+     "profile#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -334,6 +335,8 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_requeue#" &
+     "no_task_attributes#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &

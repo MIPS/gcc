@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1999-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -68,7 +68,6 @@
 
 with Rident; use Rident;
 with Types;  use Types;
-with Uintp;  use Uintp;
 
 package Targparm is
 
@@ -105,21 +104,14 @@ package Targparm is
    --  if a pragma Suppress_Exception_Locations appears, then the flag
    --  Opt.Exception_Locations_Suppressed is set to True.
 
-   --  The only other pragma allowed is a pragma Restrictions that gives the
-   --  simple name of a restriction for which partition consistency is always
-   --  required (see definition of Rident.Partition_Restrictions).
+   --  The only other pragma allowed is a pragma Restrictions that specifies
+   --  a restriction that will be imposed on all units in the partition. Note
+   --  that in this context, only one restriction can be specified in a single
+   --  pragma, and the pragma must appear on its own on a single source line.
 
-   Restrictions_On_Target :
-     array (Partition_Restrictions) of Boolean := (others => False);
-   --  Element is set True if a pragma Restrictions for the corresponding
-   --  identifier appears in system.ads. Note that only partition restriction
-   --  identifiers are permitted as arguments for pragma Restrictions for
-   --  pragmas appearing at the start of system.ads.
-
-   Restriction_Parameters_On_Target :
-     array (Restriction_Parameter_Id) of Uint := (others => No_Uint);
-   --  Element is set to specified value if a pragma Restrictions for the
-   --  corresponding restriction parameter value is set.
+   Restrictions_On_Target : Restrictions_Info;
+   --  Records restrictions specified by system.ads. Only the Set and Value
+   --  members are modified. The Violated and Count fields are never modified.
 
    -------------------
    -- Run Time Name --
