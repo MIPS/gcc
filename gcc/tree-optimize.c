@@ -56,6 +56,11 @@ optimize_function_tree (tree fndecl)
 
   /* Build the flowgraph.  */
   init_flow ();
+
+  /* Run a pass over the statements deleting any obviously useless
+     statements before we build the CFG.  */
+  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), 0);
+
   build_tree_cfg (fnbody);
 
   /* Begin analysis and optimization passes.  */

@@ -9,6 +9,24 @@
 
 2003-08-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-optimize.c (optimize_function_tree): Call
+	remove_useless_stmts_and_vars before building the flow graph.
+	* tree-cfg.c (remove_useless_stmts_and_vars): Rename argument from
+	first_iteration to remove_unused_vars.
+
+	* tree-cfg.c (remove_unreachable_blocks): Remove blocks in reverse
+	order.
+	(remove_bb): Remove unwanted call to bsi_next.
+	(bsi_remove): Refine code which removes useless COMPOUND_EXPRs to allow
+	removal if one of the arms is not associated with a basic block.
+	(remove_stmt): Improve check for testing when a basic block head/end
+	pointer needs to be updated when removing a COMPOUND_EXPR.
+
+	* tree-cfg.c (phi_alternatives_equal): New function.
+	(linearize_cond_expr): Allow linearization if the PHI nodes at the
+	target have equivalent arguments for the incoming edges from the THEN
+	and ELSE clauses.
+
 	* tree-ssa-dce.c (mark_tree_necessary): Empty statements may be
 	necessary.
 	(process_worklist): Handle any incoming abnormal edges the first

@@ -1521,7 +1521,7 @@ cleanup_tree_cfg (void)
    to ensure we eliminate all the useless code.  */
 
 int
-remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
+remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 {
   tree_stmt_iterator i;
   int repeat = 0;
@@ -1549,14 +1549,14 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
       code = TREE_CODE (*stmt_p);
       if (code == LOOP_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&LOOP_EXPR_BODY (*stmt_p),
-						 first_iteration);
+						 remove_unused_vars);
       else if (code == COND_EXPR)
 	{
 	  tree then_clause, else_clause, cond;
 	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p),
-						   first_iteration);
+						   remove_unused_vars);
 	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p),
-						   first_iteration);
+						   remove_unused_vars);
 
 	  then_clause = COND_EXPR_THEN (*stmt_p);
 	  else_clause = COND_EXPR_ELSE (*stmt_p);
@@ -1590,19 +1590,19 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 	}
       else if (code == SWITCH_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p),
-						 first_iteration);
+						 remove_unused_vars);
       else if (code == CATCH_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p),
-						 first_iteration);
+						 remove_unused_vars);
       else if (code == EH_FILTER_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p),
-						 first_iteration);
+						 remove_unused_vars);
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
 	{
 	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0),
-						   first_iteration);
+						   remove_unused_vars);
 	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1),
-						   first_iteration);
+						   remove_unused_vars);
 
 	  /* If the handler of a TRY_CATCH or TRY_FINALLY is empty, then
 	     we can emit the TRY block without the enclosing TRY_CATCH_EXPR
@@ -1637,7 +1637,7 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 	  tree block;
 	  /* First remove anything underneath the BIND_EXPR.  */
 	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p),
-						   first_iteration);
+						   remove_unused_vars);
 
 	  /* If the BIND_EXPR has no variables, then we can pull everything
 	     up one level and remove the BIND_EXPR, unless this is the
@@ -1657,7 +1657,7 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 	      *stmt_p = BIND_EXPR_BODY (*stmt_p);
 	      repeat = 1;
 	    }
-	  else if (first_iteration)
+	  else if (remove_unused_vars)
 	    {
 	      /* If we were unable to completely eliminate the BIND_EXPR,
 		 go ahead and prune out any unused variables.  We do not
@@ -1785,14 +1785,13 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 static void
 remove_unreachable_blocks (void)
 {
-  int i, n;
+  int i;
 
   find_unreachable_blocks ();
 
-  /* n_basic_blocks will change constantly as we delete blocks, so get a
-     copy first.  */
-  n = n_basic_blocks;
-  for (i = 0; i < n; i++)
+  /* Remove unreachable blocks in reverse.  That will expose more unnecessary
+     COMPOUND_EXPRs that we can remove.  */
+  for (i = n_basic_blocks - 1; i >= 0; i--)
     {
       basic_block bb = BASIC_BLOCK (i);
 
@@ -1915,8 +1914,6 @@ remove_bb (basic_block bb, int remove_stmts)
 	  loc.line = get_lineno (stmt);
 	  bsi_remove (&i);
         }
-      else
-	bsi_next (&i);
     }
 
   /* If requested, give a warning that the first statement in the
@@ -2055,14 +2052,18 @@ bsi_remove (block_stmt_iterator *i)
     {
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	{
-	  basic_block bb = bb_for_stmt (TREE_OPERAND (t, 0));
+	  basic_block op0_bb = bb_for_stmt (TREE_OPERAND (t, 0));
+	  basic_block op1_bb = bb_for_stmt (TREE_OPERAND (t, 1));
 
 	  remove_stmt (&TREE_OPERAND (t, 0));
 
-	  /* If both operands are empty and they belong to the same basic
-	     block, then delete the whole COMPOUND_EXPR.  */
+	  /* If both operands are empty and they are not associated
+	     with different basic blocks, then delete the whole
+	     COMPOUND_EXPR.  */
 	  if (IS_EMPTY_STMT (TREE_OPERAND (t, 1))
-	      && bb == bb_for_stmt (TREE_OPERAND (t, 1)))
+	      && (op0_bb == NULL
+		  || op1_bb == NULL
+		  || op0_bb == op1_bb))
 	    remove_stmt (i->tp);
 	}
       else
@@ -2163,12 +2164,27 @@ remove_stmt (tree *stmt_p)
      head/tail pointers which point into operands of the COMPOUND_EXPR.  */
   if (TREE_CODE (stmt) == COMPOUND_EXPR)
     {
-      if (&TREE_OPERAND (stmt, 0) == bb->head_tree_p
-	  || &TREE_OPERAND (stmt, 1) == bb->head_tree_p)
+      basic_block op0_bb = bb_for_stmt (TREE_OPERAND (stmt, 0));
+      basic_block op1_bb = bb_for_stmt (TREE_OPERAND (stmt, 1));
+
+#ifdef ENABLE_CHECKING
+      if (op0_bb && op1_bb && op0_bb != op1_bb)
+	abort ();
+#endif
+
+      if (op0_bb)
+	bb = op0_bb;
+      else
+	bb = op1_bb;
+
+      if (bb
+	  && (&TREE_OPERAND (stmt, 0) == bb->head_tree_p
+	      || &TREE_OPERAND (stmt, 1) == bb->head_tree_p))
 	update_head = 1;
 
-      if (&TREE_OPERAND (stmt, 0) == bb->end_tree_p
-	  || &TREE_OPERAND (stmt, 1) == bb->end_tree_p)
+      if (bb
+	  && (&TREE_OPERAND (stmt, 0) == bb->end_tree_p
+	      || &TREE_OPERAND (stmt, 1) == bb->end_tree_p))
 	update_end = 1;
     }
 
@@ -2485,6 +2501,42 @@ linearize_control_structures (void)
     }
 }
 
+/* If all the phi nodes in PHI have alternatives for BB1 and BB2 and
+   those alterantives are equal in each of the PHI nodes, then return
+   nonzero, else return zero.  */
+
+static int
+phi_alternatives_equal (tree phi, basic_block bb1, basic_block bb2)
+{
+  /* Walk through each PHI nodes on the chain.  */
+  for ( ; phi ; phi = TREE_CHAIN (phi))
+    {
+      int i;
+      tree val1 = NULL;
+      tree val2 = NULL;
+
+      /* Find the alterantive associated with BB1 and BB2.  Quit when we
+	 have found both or we exhaust the alternatives.  */
+      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	{
+	  if (PHI_ARG_EDGE (phi, i)->src == bb1)
+	    val1 = PHI_ARG_DEF (phi, i);
+	  if (PHI_ARG_EDGE (phi, i)->src == bb2)
+	    val2 = PHI_ARG_DEF (phi, i);
+
+	  if (val1 && val2)
+	    break;
+	}
+
+      /* If we exhaused the alternatives or the alternatives found are
+	 not equal, then return false.  */
+      if (i == PHI_NUM_ARGS (phi)
+	  || ! operand_equal_p (val1, val2, 0))
+	return false;
+    }
+
+  return true;
+}
 
 /* Convert conditional expressions of the form 'if (1)' and 'if (0)' into
    straight line code.  ENTRY_P is a pointer to the COND_EXPR statement to
@@ -2510,7 +2562,14 @@ linearize_cond_expr (tree *entry_p, basic_block bb)
       if (pdom_info == NULL)
 	pdom_info = calculate_dominance_info (CDI_POST_DOMINATORS);
       pdom_bb = get_immediate_dominator (pdom_info, bb);
-      if (!pdom_bb || !phi_nodes (pdom_bb))
+
+      /* If there is no post dominator, or the post dominator has no
+	 PHI nodes, or the PHI node alternatives are equal, then we
+	 can eliminate this conditional.  */
+      if (!pdom_bb
+	  || !phi_nodes (pdom_bb)
+	  || phi_alternatives_equal (phi_nodes (pdom_bb),
+				     then_block, else_block))
         {
 	  /* While neither arm of the conditional has any code, there
 	     may still be important edges attached to those arms such
