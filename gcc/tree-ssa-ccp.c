@@ -135,7 +135,14 @@ get_default_value (tree var)
   val.lattice_val = UNDEFINED;
   val.const_val = NULL_TREE;
 
-  if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
+  if (TREE_CODE (var) == SSA_NAME
+      && SSA_NAME_EQUIV (var)
+      && is_gimple_min_invariant (SSA_NAME_EQUIV (var)))
+    {
+      val.lattice_val = CONSTANT;
+      val.const_val = SSA_NAME_EQUIV (var);
+    }
+  else if (TREE_CODE (sym) == PARM_DECL || TREE_THIS_VOLATILE (sym))
     {
       /* Function arguments and volatile variables are considered VARYING.  */
       val.lattice_val = VARYING;

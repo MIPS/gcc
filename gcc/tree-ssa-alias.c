@@ -1346,6 +1346,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
 	      && v_ann->mem_tag_kind == NOT_A_TAG
+	      && TREE_CODE (var) != RESULT_DECL
 	      && !is_global_var (var))
 	    {
 	      /* The address of VAR is not needed, remove the
@@ -2223,10 +2224,10 @@ dump_alias_info (FILE *file)
     {
       tree ptr = ssa_name (i);
       struct ptr_info_def *pi;
-
+      
       if (ptr == NULL_TREE)
 	continue;
-      
+
       pi = SSA_NAME_PTR_INFO (ptr);
       if (!SSA_NAME_IN_FREE_LIST (ptr)
 	  && pi

@@ -1,3 +1,193 @@
+2004-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct lang_type_class): Remove marked flags, add
+	diamond_shaped and repeated_base flags.  Reorder to keep 8-bit blocks.
+	(TYPE_MARKED_P): New.
+	(CLASSTYPE_DIAMOND_SHAPED_P, CLASSTYPE_REPEATED_BASE_P): New.
+	(CLASSTYPE_MARKED_N, SET_CLASSTYPE_MARKED_N,
+	CLEAR_CLASSTYPE_MARKED_N): Remove.
+	(CLASSTYPE_MARKED_*, SET_CLASSTYPE_MARKED_*,
+	CLEAR_CLASSTYPE_MARKED_*): Remove.
+	* decl.c (xref_basetypes): Use TYPE_MARKED_P. Determine diamond
+	shaped and repeated base properties.
+	* lex.c (cxx_make_type): Don't clear TYPE_ALIAS_SET.
+	* rtti.c (dfs_class_hint_mark, dfs_class_hint_unmark,
+	class_hint_flags): Remove.
+	(get_pseudo_ti_init): Use CLASSTYPE_REPEATED_BASE_P and
+	CLASSTYPE_DIAMOND_SHAPED_P.
+	
+2004-09-21  Ziemowit Laski  <zlaski@apple.com>
+
+	* cp-lang.c (LANG_HOOKS_FOLD_OBJ_TYPE_REF): Moved here from
+	cp-objcp-common.h.
+	(objcp_tsubst_copy_and_build): Reformat function signature.
+	* cp-objcp-common.h (objcp_tsubst_copy_and_build): Likewise.
+	(LANG_HOOKS_FOLD_OBJ_TYPE_REF): Moved to cp-lang.c.
+
+2004-09-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* parser.c (cp_lexer_peek_token, cp_lexer_consume_token):
+	Don't handle CPP_PRAGMA tokens specially.
+	(cp_lexer_handle_pragma): Use cp_lexer_consume_token.  Don't
+	purge the token; do clear token->value after processing.  Add
+	assertion at beginning that token->value is nonzero.
+	(cp_parser_statement, cp_parser_declaration_seq_opt): Handle
+	CPP_PRAGMA as a full statement or declaration in its own right.
+
+2004-09-21  Matt Austern  <austern@apple.com>
+
+	PR c++/15049
+	* decl.c (grokvardecl): Accept declarations of global variables
+	using anonymous types.
+
+2004-09-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/7503
+	* tree.c (lvalue_p_1):  Disallow MIN_EXPR and MAX_EXPR as lvalues
+	if either operand has side-effects.
+	* typeck.c (rationalize_conditional_expr): Assert that neither
+	operand of MIN_EXPR or MAX_EXPR has side-effects.
+	(build_modify_expr):  Add support for MIN_EXPR and MAX_EXPR.
+	Check that the "lhs" is a valid lvalue, i.e. that neither operand
+	of a MIN_EXPR or MAX_EXPR has a side-effect.
+
+2004-09-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct lang_type_header): Remove
+	uses_multiple_inheritance field.
+	(TYPE_USES_MULTIPLE_INHERITANCE): Remove.
+	(TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P): Remove.
+	(TYPE_USES_VIRTUAL_BASECLASSES): Remove.
+	(DECL_NEEDS_VTT_PARM_P): Use CLASSTYPE_VBASECLASSES.
+	(TYPE_CONTAINS_VPTR_P): Likewise.
+	* call.c (add_template_candidate_real): Use
+	CLASSTYPE_VBASECLASSES.
+	(build_special_member_call): Likewise.
+	* class.c (finish_struct_bits): Remove
+	TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P & TYPE_USES_VIRTUAL_BASECLASSES
+	bookkeeping.
+	(check_bases_and_members): Use TYPE_CONTAINS_VPTR_P.
+	(create_vtable_ptr): Remove TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P
+	bookkeeping.
+	(build_vtt_inits): Use CLASSTYPE_VBASECLASSES.
+	(accumulate_vtbl_inits, build_vbase_offset_vtbl_entries):
+	Likewise.
+	* decl.c (xref_basetypes): Remove TYPE_USES_MULTIPLE_INHERITANCE,
+	TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P, TYPE_USES_VIRTUAL_BASECLASSES
+	bookkeeping.
+	(cxx_maybe_build_cleanup): Use CLASSTYPE_VBASECLASSES.
+	* decl2.c (maybe_retrofit_in_chrg): Likewise.
+	* init.c (expand_member, push_base_cleanups): Likewise.
+	* pt.c (instantiate_class_template): Remove
+	TYPE_USES_MULTIPLE_INHERITANCE,
+	TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P, TYPE_USES_VIRTUAL_BASECLASSES
+	bookkeeping.
+	* ptree.c (cxx_print_type): Remove TYPE_USES_MULTIPLE_INHERITANCE
+	check.
+	* typeck2.c (process_init_constructor): Replace some sorrys with
+	asserts.
+
+2004-09-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* decl.c (reshape_init_array): Initialize max_index_cst to fix
+	bootstrap failure.
+
+2004-09-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17530
+	* pt.c (tsubst): Fix parentheses to accomodate emacs.
+	(tsubst_baselink): If we get a single function, mark it as used.
+
+2004-09-20  Matt Austern <austern@apple.com>
+	    Zack Weinberg  <zack@codesourcery.com>
+
+	* decl.c (make_rtl_for_nonlocal_decl, start_preparsed_function):
+	Apply lbasename to input_filename before passing to get_fileinfo.
+	* semantics.c (begin_class_definition): Likewise.
+	* lex.c (handle_pragma_interface): Apply get_fileinfo to the
+	correct filename.  Rename variables to be less confusing.
+	(handle_pragma_implementation): Likewise.  Disable "appears
+	after file is included" diagnostic.
+
+	* parser.c (struct cp_token): Add in_system_header fiag.
+	(CP_TOKEN_BLOCK_NUM_TOKENS, struct cp_token_block)
+	(CP_TOKEN_BUFFER_SIZE, cp_token_cache_push_token)
+	(CPP_NONE, cp_lexer_read_token): Delete.
+	(struct cp_lexer): Remove first_token, string_tokens,
+	main_lexer_p fields.  Clarify comments.
+	(struct cp_token_cache): Now just a pair of pointers.
+	(CP_LEXER_BUFFER_SIZE): New #define.
+	(CPP_PURGED): New fake token type.
+	(cp_lexer_new_from_token_array, cp_lexer_destroy)
+	(cp_lexer_peek_token_emit_debug_info, cp_lexer_skip_purged_tokens)
+	(cp_lexer_handle_pragma, cp_token_cache_new, cp_parser_string_literal):
+	New functions.
+	(cp_lexer_new_from_tokens): Now a simple wrapper around
+	cp_lexer_new_from_token_array.
+	(cp_lexer_set_source_position_from_token): Also update
+	in_system_header.
+	(cp_lexer_next_token, cp_lexer_prev_token, cp_lexer_advance_token):
+	Don't wrap round.
+	(cp_lexer_token_difference): Dont handle wrapping round.
+	(cp_lexer_new_main): Enable pragma deferral and raw strings,
+	read the entire translation unit through c_lex_with_flags into
+	this lexer's buffer, then turn raw strings back off again.
+	(cp_lexer_grow_buffer): Adjust for buffer no longer being circular.
+	(cp_lexer_get_preprocessor_token): No need to handle not being
+	the main lexer.  Set token->in_system_header too.
+	(cp_lexer_peek_token): Skip purged tokens.  Feed pragma tokens
+	to cp_lexer_handle_pragma.  No need to call cp_lexer_read_token.
+	(cp_lexer_peek_nth_token): Likewise.
+	(cp_lexer_purge_token): Mark the token PURGED, don't shift all
+	the other tokens down.
+	(cp_lexer_purge_tokens_after): Likewise.
+	(cp_lexer_save_tokens, cp_lexer_rollback_tokens): Don't worry
+	about there being no tokens.
+	(cp_lexer_print_token): Revise to give useful information on
+	all tokens.
+	(struct cp_parser): Add field translate_strings_p.
+	(cp_parser_new): Initialize it.
+	(cp_parser_translation_unit): Destroy the lexer when done.
+	(cp_parser_parameter_declaration): Restructure saving of
+	default arguments.
+	(cp_parser_save_member_function_body): Likewise.
+	(cp_parser_check_for_invalid_template_id)
+	(cp_parser_nested_name_specifier_opt, cp_parser_template_id):
+	Adjust calls to cp_lexer_advance_token.
+	(cp_parser_skip_to_closing_parenthesis, cp_parser_declaration):
+	No need to fiddle c_lex_string_translate.
+	(cp_parser_primary_expression, cp_parser_linkage_specification)
+	(cp_parser_asm_definition, cp_parser_asm_specification_opt)
+	(cp_parser_asm_operand_list, cp_parser_asm_clobber_list)
+	Use cp_parser_string_literal.
+	(cp_parser_attribute_list): Save and restore
+	parser->translate_strings_p, not c_lex_string_translate.
+	(cp_parser_cache_group): Delete.
+	(cp_parser_cache_group_1): Rename cp_parser_cache_group.  Do
+	not take a cache argument.
+
+2004-09-20  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14179
+	* decl.c (reshape_init): Extract array handling into...
+	(reshape_init_array): New function. Use integers instead of trees
+	for indices. Handle out-of-range designated initializers.
+
+2004-09-20  Steven Bosscher  <stevenb@suse.de>
+
+	* lex.c (cxx_init): Don't set the ridpointer for RID_NULL
+	to null_node.
+
+2004-09-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (determine_visibility): Allow class visibility
+	directives to override targetm.cxx.export_class_data.
+
+2004-09-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* call.c, semantics.c: Follow spelling conventions.
+	* class.c: Fix a comment typo.
+
 2004-09-16  Geoffrey Keating  <geoffk@apple.com>
 
 	PR pch/13361

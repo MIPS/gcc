@@ -41,7 +41,7 @@ Boston, MA 02111-1307, USA.  */
    one or more in-edges to B to instead reach the destination of an
    out-edge from B while preserving any side effects in B.
 
-   ie, given A->B and B->C, change A->B to be A->C yet still preserve the
+   i.e., given A->B and B->C, change A->B to be A->C yet still preserve the
    side effects of executing B.
 
      1. Make a copy of B (including its outgoing edges and statements).  Call
@@ -55,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 	with the edge B'->C.
 
      4. For each PHI in B, find or create a PHI in B' with an identical
-	PHI_RESULT.  Add an argument to the PHI in B' which as the same
+	PHI_RESULT.  Add an argument to the PHI in B' which has the same
 	value as the PHI in B associated with the edge A->B.  Associate
 	the new argument in the PHI in B' with the edge A->B.
 
@@ -172,16 +172,24 @@ static void
 create_block_for_threading (basic_block bb, struct redirection_data *rd)
 {
   tree phi;
+  edge e;
 
   /* We can use the generic block duplication code and simply remove
      the stuff we do not need.  */
   rd->dup_block = duplicate_block (bb, NULL);
+
+  /* Zero out the profile, since the block is unreachable for now.  */
+  rd->dup_block->frequency = 0;
+  rd->dup_block->count = 0;
 
   /* The call to duplicate_block will copy everything, including the
      useless COND_EXPR or SWITCH_EXPR at the end of the block.  We just remove
      the useless COND_EXPR or SWITCH_EXPR here rather than having a
      specialized block copier.  */
   remove_last_stmt_and_useless_edges (rd->dup_block, rd->outgoing_edge->dest);
+
+  for (e = rd->dup_block->succ; e; e = e->succ_next)
+    e->count = 0;
 
   /* If there are any PHI nodes at the destination of the outgoing edge
      from the duplicate block, then we will need to add a new argument
@@ -218,7 +226,7 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
    to update the SSA graph for those names.
 
    We are also going to experiment with a true incremental update
-   scheme for the duplicated resources.  Of of the interesting
+   scheme for the duplicated resources.  One of the interesting
    properties we can exploit here is that all the resources set
    in BB will have the same IDFS, so we have one IDFS computation
    per block with incoming threaded edges, which can lower the

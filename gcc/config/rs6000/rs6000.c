@@ -11448,7 +11448,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	  if (j == nregs)
 	    j = 0;
 
-	  /* If compiler already emited move of first word by
+	  /* If compiler already emitted move of first word by
 	     store with update, no need to do anything.  */
 	  if (j == 0 && used_update)
 	    continue;
@@ -11605,7 +11605,7 @@ compute_save_world_info(rs6000_stack_t *info_ptr)
         info_ptr->vrsave_mask = compute_vrsave_mask ();
 
       /* Because the Darwin register save/restore routines only handle
-         F14 .. F31 and V20 .. V31 as per the ABI, perform a consistancy
+         F14 .. F31 and V20 .. V31 as per the ABI, perform a consistency
          check and abort if there's something worng.  */
       if (info_ptr->first_fp_reg_save < FIRST_SAVED_FP_REGNO
           || info_ptr->first_altivec_reg_save < FIRST_SAVED_ALTIVEC_REGNO)
@@ -15189,8 +15189,7 @@ rs6000_variable_issue (FILE *stream ATTRIBUTE_UNUSED,
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn ATTRIBUTE_UNUSED,
-		    int cost)
+rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
   if (! recog_memoized (insn))
     return 0;

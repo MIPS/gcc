@@ -125,7 +125,6 @@ static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
 static bool value_zerop (tree);
 static void gnat_gimplify_function (tree);
-static void gnat_finalize (tree);
 static tree float_type_for_precision (int, enum machine_mode);
 static tree convert_to_fat_pointer (tree, tree);
 static tree convert_to_thin_pointer (tree, tree);
@@ -1793,8 +1792,7 @@ end_subprog_body (tree body)
   if (!DECL_CONTEXT (fndecl))
     {
       gnat_gimplify_function (fndecl);
-      lower_nested_functions (fndecl);
-      gnat_finalize (fndecl);
+      cgraph_finalize_function (fndecl, false);
     }
   else
     /* Register this function with cgraph just far enough to get it
@@ -1819,21 +1817,6 @@ gnat_gimplify_function (tree fndecl)
   cgn = cgraph_node (fndecl);
   for (cgn = cgn->nested; cgn; cgn = cgn->next_nested)
     gnat_gimplify_function (cgn->decl);
-}
-
-/* Give FNDECL and all its nested functions to cgraph for compilation.  */
-
-static void
-gnat_finalize (tree fndecl)
-{
-  struct cgraph_node *cgn;
-
-  /* Finalize all nested functions now.  */
-  cgn = cgraph_node (fndecl);
-  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    gnat_finalize (cgn->decl);
-
-  cgraph_finalize_function (fndecl, false);
 }
 
 /* Return a definition for a builtin function named NAME and whose data type
@@ -2109,7 +2092,7 @@ build_template (tree template_type, tree array_type, tree expr)
 
   if (TREE_CODE (array_type) == RECORD_TYPE
       && (TYPE_IS_PADDING_P (array_type)
-	  || TYPE_LEFT_JUSTIFIED_MODULAR_P (array_type)))
+	  || TYPE_JUSTIFIED_MODULAR_P (array_type)))
     array_type = TREE_TYPE (TYPE_FIELDS (array_type));
 
   if (TREE_CODE (array_type) == ARRAY_TYPE
@@ -2818,10 +2801,10 @@ convert (tree type, tree expr)
 						      expr)),
 					TYPE_MIN_VALUE (etype))));
 
-  /* If the input is a left-justified modular type, we need to extract
+  /* If the input is a justified modular type, we need to extract
      the actual object before converting it to any other type with the
      exception of an unconstrained array.  */
-  if (ecode == RECORD_TYPE && TYPE_LEFT_JUSTIFIED_MODULAR_P (etype)
+  if (ecode == RECORD_TYPE && TYPE_JUSTIFIED_MODULAR_P (etype)
       && code != UNCONSTRAINED_ARRAY_TYPE)
     return convert (type, build_component_ref (expr, NULL_TREE,
 					       TYPE_FIELDS (etype), false));
@@ -2996,7 +2979,7 @@ convert (tree type, tree expr)
       return fold (convert_to_real (type, expr));
 
     case RECORD_TYPE:
-      if (TYPE_LEFT_JUSTIFIED_MODULAR_P (type) && !AGGREGATE_TYPE_P (etype))
+      if (TYPE_JUSTIFIED_MODULAR_P (type) && !AGGREGATE_TYPE_P (etype))
 	return
 	  gnat_build_constructor
 	    (type, tree_cons (TYPE_FIELDS (type),
@@ -3019,7 +3002,7 @@ convert (tree type, tree expr)
 	  if (TREE_TYPE (tem) == etype)
 	    return build1 (CONVERT_EXPR, type, expr);
 	  else if (TREE_CODE (TREE_TYPE (tem)) == RECORD_TYPE
-		   && (TYPE_LEFT_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
+		   && (TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (tem))
 		       || TYPE_IS_PADDING_P (TREE_TYPE (tem)))
 		   && TREE_TYPE (TYPE_FIELDS (TREE_TYPE (tem))) == etype)
 	    return build1 (CONVERT_EXPR, type,
@@ -3032,12 +3015,12 @@ convert (tree type, tree expr)
       /* If EXPR is a constrained array, take its address, convert it to a
 	 fat pointer, and then dereference it.  Likewise if EXPR is a
 	 record containing both a template and a constrained array.
-	 Note that a record representing a left justified modular type
+	 Note that a record representing a justified modular type
 	 always represents a packed constrained array.  */
       if (ecode == ARRAY_TYPE
 	  || (ecode == INTEGER_TYPE && TYPE_HAS_ACTUAL_BOUNDS_P (etype))
 	  || (ecode == RECORD_TYPE && TYPE_CONTAINS_TEMPLATE_P (etype))
-	  || (ecode == RECORD_TYPE && TYPE_LEFT_JUSTIFIED_MODULAR_P (etype)))
+	  || (ecode == RECORD_TYPE && TYPE_JUSTIFIED_MODULAR_P (etype)))
 	return
 	  build_unary_op
 	    (INDIRECT_REF, NULL_TREE,
@@ -3065,7 +3048,7 @@ convert (tree type, tree expr)
 }
 
 /* Remove all conversions that are done in EXP.  This includes converting
-   from a padded type or to a left-justified modular type.  If TRUE_ADDRESS
+   from a padded type or to a justified modular type.  If TRUE_ADDRESS
    is true, always return the address of the containing object even if
    the address is not bit-aligned.  */
 
@@ -3077,7 +3060,7 @@ remove_conversions (tree exp, bool true_address)
     case CONSTRUCTOR:
       if (true_address
 	  && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
-	  && TYPE_LEFT_JUSTIFIED_MODULAR_P (TREE_TYPE (exp)))
+	  && TYPE_JUSTIFIED_MODULAR_P (TREE_TYPE (exp)))
 	return remove_conversions (TREE_VALUE (CONSTRUCTOR_ELTS (exp)), true);
       break;
 
@@ -3173,13 +3156,13 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 	      && TYPE_VAX_FLOATING_POINT_P (type)))
 	|| (POINTER_TYPE_P (type) && ! TYPE_THIN_POINTER_P (type))
 	|| (TREE_CODE (type) == RECORD_TYPE
-	    && TYPE_LEFT_JUSTIFIED_MODULAR_P (type)))
+	    && TYPE_JUSTIFIED_MODULAR_P (type)))
        && ((INTEGRAL_TYPE_P (etype)
 	    && !(TREE_CODE (etype) == INTEGER_TYPE
 		 && TYPE_VAX_FLOATING_POINT_P (etype)))
 	   || (POINTER_TYPE_P (etype) && !TYPE_THIN_POINTER_P (etype))
 	   || (TREE_CODE (etype) == RECORD_TYPE
-	       && TYPE_LEFT_JUSTIFIED_MODULAR_P (etype))))
+	       && TYPE_JUSTIFIED_MODULAR_P (etype))))
       || TREE_CODE (type) == UNCONSTRAINED_ARRAY_TYPE)
     {
       tree rtype = type;

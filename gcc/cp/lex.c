@@ -352,7 +352,6 @@ cxx_init (void)
      not shared. */
   null_node = make_node (INTEGER_CST);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
-  ridpointers[RID_NULL] = null_node;
 
   /* The fact that G++ uses COMDAT for many entities (inline
      functions, template instantiations, virtual tables, etc.) mean
@@ -464,16 +463,16 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("interface", 1);
   struct c_fileinfo *finfo;
-  const char *main_filename;
+  const char *filename;
 
   if (fname == (tree)-1)
     return;
   else if (fname == 0)
-    main_filename = lbasename (input_filename);
+    filename = lbasename (input_filename);
   else
-    main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
+    filename = ggc_strdup (TREE_STRING_POINTER (fname));
 
-  finfo = get_fileinfo (input_filename);
+  finfo = get_fileinfo (filename);
 
   if (impl_file_chain == 0)
     {
@@ -483,7 +482,7 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
 	main_input_filename = input_filename;
     }
 
-  finfo->interface_only = interface_strcmp (main_filename);
+  finfo->interface_only = interface_strcmp (filename);
   /* If MULTIPLE_SYMBOL_SPACES is set, we cannot assume that we can see
      a definition in another file.  */
   if (!MULTIPLE_SYMBOL_SPACES || !finfo->interface_only)
@@ -503,7 +502,7 @@ static void
 handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree fname = parse_strconst_pragma ("implementation", 1);
-  const char *main_filename;
+  const char *filename;
   struct impl_files *ifiles = impl_file_chain;
 
   if (fname == (tree)-1)
@@ -512,28 +511,36 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   if (fname == 0)
     {
       if (main_input_filename)
-	main_filename = main_input_filename;
+	filename = main_input_filename;
       else
-	main_filename = input_filename;
-      main_filename = lbasename (main_filename);
+	filename = input_filename;
+      filename = lbasename (filename);
     }
   else
     {
-      main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
-      if (cpp_included (parse_in, main_filename))
-	warning ("#pragma implementation for %s appears after file is included",
-		 main_filename);
+      filename = ggc_strdup (TREE_STRING_POINTER (fname));
+#if 0
+      /* We currently cannot give this diagnostic, as we reach this point
+         only after cpplib has scanned the entire translation unit, so
+	 cpp_included always returns true.  A plausible fix is to compare
+	 the current source-location cookie with the first source-location
+	 cookie (if any) of the filename, but this requires completing the
+	 --enable-mapped-location project first.  See PR 17577.  */
+      if (cpp_included (parse_in, filename))
+	warning ("#pragma implementation for %qs appears after "
+		 "file is included", filename);
+#endif
     }
 
   for (; ifiles; ifiles = ifiles->next)
     {
-      if (! strcmp (ifiles->filename, main_filename))
+      if (! strcmp (ifiles->filename, filename))
 	break;
     }
   if (ifiles == 0)
     {
       ifiles = xmalloc (sizeof (struct impl_files));
-      ifiles->filename = main_filename;
+      ifiles->filename = filename;
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
     }
@@ -771,15 +778,10 @@ cxx_make_type (enum tree_code code)
   /* Set up some flags that give proper default behavior.  */
   if (IS_AGGR_TYPE_CODE (code))
     {
-      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, finfo->interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
     }
-  else
-    /* We use TYPE_ALIAS_SET for the CLASSTYPE_MARKED bits.  But,
-       TYPE_ALIAS_SET is initialized to -1 by default, so we must
-       clear it here.  */
-    TYPE_ALIAS_SET (t) = 0;
 
   return t;
 }

@@ -2000,8 +2000,7 @@ find_taken_edge (basic_block bb, tree val)
   gcc_assert (is_ctrl_stmt (stmt));
 
   /* If VAL is a predicate of the form N RELOP N, where N is an
-     SSA_NAME, we can always determine its truth value (except when
-     doing floating point comparisons that may involve NaNs).  */
+     SSA_NAME, we can usually determine its truth value.  */
   if (val && COMPARISON_CLASS_P (val))
     val = fold (val);
 
@@ -3819,7 +3818,7 @@ static bool
 thread_jumps (void)
 {
   edge e, next, last, old;
-  basic_block bb, dest, tmp, old_dest, dom;
+  basic_block bb, dest, tmp, old_dest, curr, dom;
   tree phi;
   int arg;
   bool retval = false;
@@ -3878,15 +3877,6 @@ thread_jumps (void)
 		break;
 
 	      bb_ann (dest)->forwardable = 0;
-	      dest->frequency -= freq;
-	      if (dest->frequency < 0)
-		dest->frequency = 0;
-	      dest->count -= count;
-	      if (dest->count < 0)
-		dest->count = 0;
-	      dest->succ->count -= count;
-	      if (dest->succ->count < 0)
-		dest->succ->count = 0;
 	    }
 
 	  /* Reset the forwardable marks to 1.  */
@@ -3922,6 +3912,21 @@ thread_jumps (void)
 	  retval = true;
 	  old_dest = e->dest;
 	  e = redirect_edge_and_branch (e, dest);
+
+	  /* Update the profile.  */
+	  if (profile_status != PROFILE_ABSENT)
+	    for (curr = old_dest; curr != dest; curr = curr->succ->dest)
+	      {
+		curr->frequency -= freq;
+		if (curr->frequency < 0)
+		  curr->frequency = 0;
+		curr->count -= count;
+		if (curr->count < 0)
+		  curr->count = 0;
+		curr->succ->count -= count;
+		if (curr->succ->count < 0)
+		  curr->succ->count = 0;
+	      }
 
 	  if (!old)
 	    {

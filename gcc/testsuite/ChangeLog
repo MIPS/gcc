@@ -1,3 +1,100 @@
+2004-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.dg/pragma-re-3.c: New test.
+
+2004-09-17  Matt Austern  <austern@apple.com>
+
+	PR c++/15049
+	* g++.dg/other/anon3.C: New.
+	
+2004-09-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/7503
+	* g++.dg/opt/pr7503-1.C: New testcase for COND_EXPR lvalues.
+	* g++.dg/opt/pr7503-2.C: New testcase for <? and >? lvalues.
+	* g++.dg/opt/pr7503-3.C: New testcase for invalid <? lvalue errors.
+	* g++.dg/opt/pr7503-4.C: New testcase for <?= and >?= assignments.
+	* g++.dg/opt/pr7503-5.C: New testcase for side-effects with <?=.
+
+2004-09-21  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17286
+	* gfortran.dg/pr17286.f90: New test.
+
+2004-09-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17530
+	* g++.dg/template/static7.C: New test.
+
+2004-09-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/17558 
+	* gcc.c-torture/compile/pr17558.c: New test.
+
+2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/compat/sdata-section.h (SDATA_SECTION): Don't use an attribute
+	if SKIP_ATTRIBUTE is defined.
+
+2004-09-20  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15957
+	* gfortran.dg/pr15957.f90: New test.
+
+2004-09-20  Dorit Naishlos  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-74.c: Avoid floating point precision error
+	in comparison.
+	* gcc.dg/vect/vect-79.c: Likewise.
+	* gcc.dg/vect/vect-80.c: Likewise.
+
+2004-09-20  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15750
+	* gfortran.fortran-torture/execute/iolength_2.f90: New test.	
+
+2004-09-20  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-13.c: Added xfail for non ppc platforms.
+	* gcc.dg/vect/vect-74.c: Split into 3 tests (vect-79.c, vect-80.c).
+	* gcc.dg/vect/vect-62.c: New testcase.
+	* gcc.dg/vect/vect-63.c: New testcase.
+	* gcc.dg/vect/vect-64.c: New testcase.
+	* gcc.dg/vect/vect-65.c: New testcase.
+	* gcc.dg/vect/vect-66.c: New testcase.
+	* gcc.dg/vect/vect-67.c: New testcase.
+	* gcc.dg/vect/vect-68.c: New testcase.
+	* gcc.dg/vect/vect-69.c: New testcase.
+	* gcc.dg/vect/vect-79.c: New testcase.
+	* gcc.dg/vect/vect-80.c: New testcase.
+
+2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/mips/asm-1.c: New test.
+
+2004-09-19  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-13.c: Now vectorized on ppc*.
+	* gcc.dg/vect/vect-73.c: New testcase.
+	* gcc.dg/vect/vect-74.c: New testcase.
+	* gcc.dg/vect/vect-75.c: New testcase.
+	* gcc.dg/vect/vect-76.c: New testcase.
+	* gcc.dg/vect/vect-77.c: New testcase.
+	* gcc.dg/vect/vect-78.c: New testcase
+
+2004-09-18  Paul Brook  <paul@codesourcery.com>
+
+	* g++.old-deja/g++.pt/static11.C: XFAIL on arm*-*-eabi.
+
+2004-09-18  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR c/17424
+	* gcc.dg/pr17424-1.c: New test.
+
+2004-09-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/tree-ssa/pr17153.C: New test.
+
 2004-09-16  Geoffrey Keating  <geoffk@apple.com>
 
 	PR pch/13361

@@ -343,7 +343,9 @@ static void emit_pending_bincls         (void);
 static inline void emit_pending_bincls_if_required (void);
 
 static void dbxout_init (const char *);
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
 static unsigned int get_lang_number (void);
+#endif
 static void dbxout_finish (const char *);
 static void dbxout_start_source_file (unsigned, const char *);
 static void dbxout_end_source_file (unsigned);
@@ -490,6 +492,7 @@ dbxout_function_end (void)
 }
 #endif /* DBX_DEBUGGING_INFO */
 
+#ifndef DBX_OUTPUT_MAIN_SOURCE_DIRECTORY
 /* Get lang description for N_SO stab.  */
 
 static unsigned int
@@ -513,6 +516,7 @@ get_lang_number (void)
     return 0;
 
 }
+#endif
 
 /* At the beginning of compilation, start writing the symbol table.
    Initialize `typevec' and output the standard data types of C.  */
@@ -1431,7 +1435,7 @@ dbxout_type (tree type, int full)
     {
     case VOID_TYPE:
     case LANG_TYPE:
-      /* For a void type, just define it as itself; ie, "5=5".
+      /* For a void type, just define it as itself; i.e., "5=5".
 	 This makes us consider it defined
 	 without saying what it is.  The debugger will make it
 	 a void type when the reference is seen, and nothing will

@@ -1037,7 +1037,7 @@ finish_handler (tree handler)
 }
 
 /* Begin a compound statement.  FLAGS contains some bits that control the
-   behaviour and context.  If BCS_NO_SCOPE is set, the compound statement
+   behavior and context.  If BCS_NO_SCOPE is set, the compound statement
    does not define a scope.  If BCS_FN_BODY is set, this is the outermost
    block of a function.  If BCS_TRY_BLOCK is set, this is the block 
    created on behalf of a TRY statement.  Returns a token to be passed to
@@ -2106,7 +2106,7 @@ begin_class_definition (tree t)
      before.  */
   if (! TYPE_ANONYMOUS_P (t))
     {
-      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      struct c_fileinfo *finfo = get_fileinfo (lbasename (input_filename));
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X
 	(t, finfo->interface_unknown);
