@@ -1,3 +1,9 @@
+Sat Dec 14 20:43:41 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (flags_reg_operand):  New function.
+	* i386.h (PREDICATE_CODES): Add flags_reg_operand.
+	* i386.md (cmov splitter, movqicc): Use new predicate.
+
 Sat Dec 14 17:03:17 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (movqicc splitter): Fix template.

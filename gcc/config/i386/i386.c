@@ -3552,6 +3552,18 @@ q_regs_operand (op, mode)
   return ANY_QI_REG_P (op);
 }
 
+/* Return true if op is an flags register.  */
+
+int
+flags_reg_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (mode != VOIDmode && GET_MODE (op) != mode)
+    return 0;
+  return REG_P (op) && REGNO (op) == FLAGS_REG && GET_MODE (op) != VOIDmode;
+}
+
 /* Return true if op is a NON_Q_REGS class register.  */
 
 int

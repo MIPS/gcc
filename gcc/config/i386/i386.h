@@ -3274,6 +3274,7 @@ do {						\
 			SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM}},	\
   {"nonmemory_no_elim_operand", {CONST_INT, REG, SUBREG}},		\
   {"index_register_operand", {SUBREG, REG}},				\
+  {"flags_reg_operand", {REG}},						\
   {"q_regs_operand", {SUBREG, REG}},					\
   {"non_q_regs_operand", {SUBREG, REG}},				\
   {"fcmov_comparison_operator", {EQ, NE, LTU, GTU, LEU, GEU, UNORDERED, \
