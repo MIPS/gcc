@@ -26,6 +26,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
+#include "gcov-io.h"
 #include "profile.h"
 
 /* Initialize loop optimizer.  */
@@ -66,7 +67,7 @@ loop_optimizer_init (dumpfile)
   mark_irreducible_loops (loops);
 
   /* Do we have histograms?  */
-  if (profile_info.have_loop_histograms)
+  if (find_counters_section (GCOV_TAG_LOOP_HISTOGRAMS)->present)
     move_histograms_to_loops (loops);
 
   /* Dump loops.  */

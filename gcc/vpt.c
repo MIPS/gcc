@@ -148,7 +148,7 @@ insn_values_to_profile (insn, n_values, values)
 	      values[*n_values].type = HIST_TYPE_INTERVAL;
 	      values[*n_values].hdata.intvl.int_start = 0;
 	      values[*n_values].hdata.intvl.steps = 2;
-	      values[*n_values].hdata.intvl.may_be_less = 0;
+	      values[*n_values].hdata.intvl.may_be_less = 1;
 	      values[*n_values].hdata.intvl.may_be_more = 1;
 	    }
 	  (*n_values)++;
@@ -591,7 +591,7 @@ gen_mod_subtract (mode, operation, target, op1, op2, sub)
     tmp = op2;
 
   emit_move_insn (target, copy_rtx (op1));
-  do_compare_rtx_and_jump (target, tmp, LT, 0, mode, NULL_RTX,
+  do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
 			   NULL_RTX, end_label);
   
 
@@ -601,7 +601,7 @@ gen_mod_subtract (mode, operation, target, op1, op2, sub)
 	    			  0, OPTAB_WIDEN);
       if (tmp1 != target)
 	emit_move_insn (target, tmp1);
-      do_compare_rtx_and_jump (target, tmp, LT, 0, mode, NULL_RTX,
+      do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
     			       NULL_RTX, end_label);
     }
 
@@ -666,6 +666,8 @@ mod_subtract_transform (insn)
       histogram = XEXP (histogram, 1);
     }
   wrong_values = INTVAL (XEXP (histogram, 0));
+  histogram = XEXP (histogram, 1);
+  wrong_values += INTVAL (XEXP (histogram, 0));
   all += wrong_values;
 
   /* We require that we use just subtractions in at least 50% of all evaluations.  */

@@ -1,3 +1,39 @@
+2002-11-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (loop-init.o): Add gcov-io.h dependency.
+	* gcov-io.h (struct counter_section, struct counter_section_data): New.
+	(struct function_info): n_arc_counts, n_loop_histogram_counters and
+	n_value_histogram_counters fields merged into new n_counter_sections and
+	counter_sections fields.
+	(struct gcov_info): arc_counts, n_arc_counts, histogram_counts,
+	n_histogram_counts, value_counts and n_value_counts merged into
+	n_counter_sections and counter_sections fields.
+	* libgcc2.c (gcov_exit, __gcov_flush): Rewritten to enable adding
+	new section types.
+	* loop-init.c: Include gcov-io.h.
+	(loop_optimizer_init): Modified.
+	* profile.c (struct function_list): count_edges, histogram_counters
+	and value_counters merged to n_counter_sections and counter_sections
+	fields.
+	(set_purpose, label_for_tag, build_counter_section_fields,
+	build_counter_section_value, build_counter_section_data_fields,
+	build_counter_section_data_value, build_function_info_fields,
+	build_function_info_value, build_gcov_info_fields,
+	build_gcov_info_value, find_counters_section): New.
+	(instrument_edges, instrument_loops, instrument_values,
+	get_histogram_counts, compute_loop_histograms, compute_value_histograms,
+	compute_branch_probabilities, branch_prob, create_profiler): Modified
+	to enable adding new section types.
+	* profile.h (MAX_COUNTER_SECTIONS): New.
+	(struct section_info): New.
+	(struct profile_info): count_instrumented_edges, count_histogram_counters,
+	count_value_counters, count_edges_instrumented_now,
+	count_histogram_counters_now, count_value_counters_now,
+	have_loop_histograms, have_value_histograms fields merged into
+	new n_sections and section_info fields.
+	(find_counters_section): Declare.
+	* vpt.c (insn_values_to_profile, gen_mod_subtract): Fix.
+
 Tue Nov 26 16:17:15 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (copy_bb_p): Code cleanup.
