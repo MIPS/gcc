@@ -1085,18 +1085,28 @@ create_stmt_ann (t)
   STRIP_NOPS (t);
   t->common.ann = (tree_ann) ann;
   ann->common.stmt = t; 
+
+  /* SSA-PRE currently needs to be able to get to the parent node of an
+     arbitrary RHS.  This should eventually be fixed as it makes removal
+     of annotations more complicated than it should be (consider 
+     propagation of a constant that appeared on the RHS of a MODIFY_EXPR
+     and eventual removal of the MODIFY_EXPR). 
+
+     If additional annotations are created, then the removal code for
+     annotations needs to be updated.  Such code appears in 
+     remove_annotation_r and remove_stmt.  */
   if (TREE_CODE (t) == MODIFY_EXPR)
-  {
-    tree op = TREE_OPERAND (t, 1);
-    if (op->common.ann != NULL)
-      op->common.ann->common.stmt = t;
-    else
-      {
-        op->common.ann = ggc_alloc (sizeof (struct tree_ann_common_d));
-        op->common.ann->common.type = TREE_ANN_COMMON;
-	op->common.ann->common.stmt = t;
-      }
-  }
+    {
+      tree op = TREE_OPERAND (t, 1);
+      if (op->common.ann != NULL)
+        op->common.ann->common.stmt = t;
+      else
+        {
+          op->common.ann = ggc_alloc (sizeof (struct tree_ann_common_d));
+          op->common.ann->common.type = TREE_ANN_COMMON;
+	  op->common.ann->common.stmt = t;
+        }
+    }
 
   return ann;
 }
@@ -1496,13 +1506,13 @@ compute_may_aliases ()
   block_stmt_iterator si;
   struct walk_state walk_state;
 
+  timevar_push (TV_TREE_MAY_ALIAS);
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs.  Those variables will be considered
      implicitly live by passes like DCE.  FIXME: This is a hack.  GIMPLE
      should expose VLAs in the code.  */
   find_vla_decls (DECL_INITIAL (current_function_decl));
 
-  timevar_push (TV_TREE_MAY_ALIAS);
 
   num_aliased_objects = 0;
   VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");

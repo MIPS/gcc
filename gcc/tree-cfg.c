@@ -1243,6 +1243,19 @@ remove_stmt (stmt_p)
 
   stmt->common.ann = NULL;
 
+  /* The RHS of a MODIFY_EXPR has an annotation for the benefit of
+     SSA-PRE.  Make sure to remove that annotation as well.
+
+     We're somewhat conservative here in that we do not remove all
+     annotations on the RHS of the MODIFY_EXPR, just those of type
+     TREE_ANN_COMMON.  If the annotation had another type such
+     as VAR_ANN other code may still need it and it'll get removed
+     when we remove all the VAR_ANNs as we tear down the SSA form.  */
+  if (TREE_CODE (stmt) == MODIFY_EXPR
+      && TREE_OPERAND (stmt, 1)->common.ann
+      && TREE_OPERAND (stmt, 1)->common.ann->common.type == TREE_ANN_COMMON)
+    TREE_OPERAND (stmt, 1)->common.ann = NULL;
+
   /* Replace STMT with empty_stmt_node.  */
   *stmt_p = empty_stmt_node;
 }

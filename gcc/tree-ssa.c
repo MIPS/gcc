@@ -723,6 +723,7 @@ rewrite_out_of_ssa (fndecl)
   basic_block bb;
   block_stmt_iterator si;
 
+  timevar_push (TV_TREE_SSA_TO_NORMAL);
   FOR_EACH_BB (bb)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
@@ -750,6 +751,7 @@ rewrite_out_of_ssa (fndecl)
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fndecl);
   delete_tree_cfg ();
+  timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
 
 
@@ -1471,10 +1473,32 @@ remove_annotations_r (tp, walk_subtrees, data)
     int *walk_subtrees ATTRIBUTE_UNUSED;
     void *data ATTRIBUTE_UNUSED;
 {
-  (*tp)->common.ann = NULL;
+  tree t = *tp;
+  enum tree_code code = TREE_CODE (t);
+
+  t->common.ann = NULL;
+  /* If the node is not a container, then it has nothing interesting
+     underneath it.  */
+  if (code != LOOP_EXPR
+      && code != COND_EXPR
+      && code != CATCH_EXPR
+      && code != TRY_CATCH_EXPR
+      && code != TRY_FINALLY_EXPR
+      && code != SWITCH_EXPR
+      && code != BIND_EXPR
+      && code != COMPOUND_EXPR)
+    {
+      /* Ugh.  A MODIFY_EXPR has an annotation on its RHS for the
+         benefit of SSA-PRE.  See tree-dfa.c::create_stmt_ann.  */
+      if (code == MODIFY_EXPR)
+	TREE_OPERAND (t, 1)->common.ann = NULL;
+
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
   return NULL_TREE;
 }
-
 
 /* Return the current definition for variable V.  If none is found and
    CREATE_DEFAULT is nonzero, create a new SSA name to act as the zeroth
