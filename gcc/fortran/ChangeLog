@@ -1,3 +1,11 @@
+2003-09-04  Paul Brook  <paul@nowt.org>
+
+	* f95-lang.c (gfc_define_builtin): Also set implicit_built_in_decls.
+	(gfc_expand_stmt): New function.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Define.
+	(expand_function_body): Use tree_rest_of_compilation.
+	* trans-decl.c (gfc_generate_function_code): Don't free cfun.
+
 2003-09-03  Jeff Law  <law@redhat.com>
 
 	* f95-lang.c (gfc_init_builtin_functions): C arrays start at

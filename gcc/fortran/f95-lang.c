@@ -105,6 +105,7 @@ void insert_block (tree);
 void set_block (tree);
 static void gfc_be_parse_file (int);
 static int gfc_expand_decl (tree t);
+static void gfc_expand_stmt (tree t);
 static int gfc_gimplify_expr (tree *, tree *, tree *);
 
 #undef LANG_HOOKS_NAME
@@ -124,6 +125,7 @@ static int gfc_gimplify_expr (tree *, tree *, tree *);
 #undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
 #undef LANG_HOOKS_GIMPLIFY_EXPR
+#undef LANG_HOOKS_RTL_EXPAND_STMT
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -144,6 +146,7 @@ static int gfc_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
 /* We need to provide this otherwise the gimplifier ignores us.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR        gfc_gimplify_expr
+#define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -194,80 +197,20 @@ static GTY(()) struct binding_level *free_binding_level;
 tree *ridpointers = NULL;
 
 /* language-specific flags.  */
-
 void
-expand_function_body (tree fndecl, int nested)
+expand_function_body (tree fndecl, int nested ATTRIBUTE_UNUSED)
 {
-  timevar_push (TV_EXPAND);
+  tree_rest_of_compilation (fndecl);
+}
 
-  if (nested)
-    {
-      push_function_context ();
-      current_function_decl = fndecl;
-    }
 
-  init_function_start (fndecl);
+/* We generate GENERIC trees, so just pass everything on to the backend
+   expanders.  */
 
-  cfun->x_whole_function_mode_p = 1;
-
-  input_line = 1;
-  /* Even though we're inside a function body, we still don't want
-     to call expand_expr to calculate the size of a variable-sized
-     array.  We haven't necessarily assigned RTL to all variables
-     yet, so it's not safe to try to expand expressions involving
-     them.  */
-
-  immediate_size_expand = 0;
-  cfun->x_dont_save_pending_sizes_p = 1;
-
-/* TODO: Enable tree optimizations when they're stable enough.  */
-#if 0
-  if (!flag_disable_gimple && gimplify_function_tree (fndecl))
-    {
-      /* Debugging dump after gimplification.  */
-      dump_function (TDI_gimple, fndecl);
-
-      /* Invoke SSA Tree optimizer.  */
-      if (optimize >= 1 && !flag_disable_tree_ssa)
-        optimize_function_tree (fndecl);
-    }
-#endif
-  /* create RTL for startup code of function, such as saving registers */
-  expand_function_start (fndecl, 0);
-
-  expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 0);
-
-  immediate_size_expand = 1;
-
-  expand_function_end ();
-
-  if (nested)
-    ggc_push_context ();
-
-  rest_of_compilation (fndecl);
-
-  if (DECL_STATIC_CONSTRUCTOR (fndecl))
-    {
-      abort ();
-      /* Not bothering. Hopefully this will end up in l-i code.  */
-#if 0
-      if (targetm.have_ctors_dtors)
-	{
-
-	  (*targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
-					  DEFAULT_INIT_PRIORITY);
-	}
-      else
-	gfc_static_ctors = gfc_chainon_list (gfc_static_ctors, fndecl);
-#endif
-    }
-  if (nested)
-    ggc_pop_context ();
-
-  if (nested)
-    pop_function_context ();
-
-  timevar_pop (TV_EXPAND);
+static void
+gfc_expand_stmt (tree t)
+{
+  expand_expr_stmt_value (t, 0, 0);
 }
 
 
@@ -839,6 +782,7 @@ gfc_define_builtin (const char * name,
 {
   built_in_decls[code] = builtin_function (name, type, code, BUILT_IN_NORMAL,
       library_name, NULL_TREE);
+  implicit_built_in_decls[code] = built_in_decls[code];
 }
 
 
