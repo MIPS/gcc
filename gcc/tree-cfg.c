@@ -3749,6 +3749,7 @@ handle_switch_fallthru (tree sw_stmt, basic_block dest, basic_block new_bb)
     {
       /* DEST does not start with a label, add one.  */
       label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+      DECL_CONTEXT (label) = current_function_decl;
       stmt = build1 (LABEL_EXPR, void_type_node, label);
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
     }

@@ -1,5 +1,8 @@
 2003-07-07  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (handle_switch_fallthru): Set DECL_CONTEXT for
+	newly created labels.
+
 	* tree-cfg.c (move_outgoing_edges): New function.
 	(merge_tree_blocks): Use it.
 	(remove_bb): Remove the block from the pdom_info structures
