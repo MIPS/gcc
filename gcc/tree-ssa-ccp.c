@@ -552,7 +552,8 @@ visit_stmt (tree stmt)
 {
   size_t i;
   stmt_ann_t ann;
-  varray_type ops;
+  def_optype defs;
+  vdef_optype vdefs;
 
   /* If the statement has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -584,14 +585,13 @@ visit_stmt (tree stmt)
 
   /* Definitions made by statements other than assignments to SSA_NAMEs
      represent unknown modifications to their outputs.  Mark them VARYING.  */
-  else if (def_ops (ann))
+  else if (NUM_DEFS (defs = DEF_OPS (ann)) != 0)
     {
       DONT_SIMULATE_AGAIN (stmt) = 1;
-      ops = def_ops (ann);
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
+      for (i = 0; i < NUM_DEFS (defs); i++)
 	{
-	  tree *def_p = VARRAY_TREE_PTR (ops, i);
-	  def_to_varying (*def_p);
+	  tree def = DEF_OP (defs, i);
+	  def_to_varying (def);
 	}
     }
 
@@ -613,12 +613,9 @@ visit_stmt (tree stmt)
     }
 
   /* Mark all VDEF operands VARYING.  */
-  ops = vdef_ops (ann);
-  if (ops)
-    {
-      for (i = 0; i < NUM_VDEFS (ops); i++)
-	def_to_varying (VDEF_RESULT (ops, i));
-    }
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    def_to_varying (VDEF_RESULT (vdefs, i));
 }
 
 
@@ -862,24 +859,24 @@ ccp_fold (tree stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      varray_type uses = use_ops (stmt_ann (stmt));
-      if (uses)
+      use_optype uses = STMT_USE_OPS (stmt);
+      if (NUM_USES (uses) != 0)
 	{
 	  tree *orig;
 	  size_t i;
 
 	  /* Preserve the original values of every operand.  */
-	  orig = xmalloc (sizeof (tree) * VARRAY_ACTIVE_SIZE (uses));
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    orig[i] = *(VARRAY_TREE_PTR (uses, i));
+	  orig = xmalloc (sizeof (tree) * NUM_USES (uses));
+	  for (i = 0; i < NUM_USES (uses); i++)
+	    orig[i] = USE_OP (uses, i);
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL);
 	  retval = fold_builtin (rhs);
 
 	  /* Restore operands to their original form.  */
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
-	    *(VARRAY_TREE_PTR (uses, i)) = orig[i];
+	  for (i = 0; i < NUM_USES (uses); i++)
+	    *(USE_OP_PTR (uses, i)) = orig[i];
 	  free (orig);
 	}
     }
@@ -1077,7 +1074,8 @@ initialize (void)
       block_stmt_iterator i;
       tree stmt;
       stmt_ann_t ann;
-      varray_type ops;
+      def_optype defs;
+      vdef_optype vdefs;
       size_t x;
       int vary;
 
@@ -1088,26 +1086,22 @@ initialize (void)
 	  stmt = bsi_stmt (i);
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
-	  ops = def_ops (ann);
-	  if (ops)
-	    for (x = 0; x < VARRAY_ACTIVE_SIZE (ops); x++)
-	      {
-		tree *def_p = VARRAY_TREE_PTR (ops, x);
-		if (get_value (*def_p)->lattice_val == VARYING)
-		  vary = 1;
-	      }
+	  defs = DEF_OPS (ann);
+	  for (x = 0; x < NUM_DEFS (defs); x++)
+	    {
+	      tree def = DEF_OP (defs, x);
+	      if (get_value (def)->lattice_val == VARYING)
+		vary = 1;
+	    }
 	  DONT_SIMULATE_AGAIN (stmt) = vary;
 
 	  /* Mark all VDEF operands VARYING.  */
-	  ops = vdef_ops (ann);
-	  if (ops)
+	  vdefs = VDEF_OPS (ann);
+	  for (x = 0; x < NUM_VDEFS (vdefs); x++)
 	    {
-	      for (x = 0; x < NUM_VDEFS (ops); x++)
-	        {
-		  tree res = VDEF_RESULT (ops, x);
-		  get_value (res)->lattice_val = VARYING;
-		  SET_BIT (virtual_var, SSA_NAME_VERSION (res));
-		}
+	      tree res = VDEF_RESULT (vdefs, x);
+	      get_value (res)->lattice_val = VARYING;
+	      SET_BIT (virtual_var, SSA_NAME_VERSION (res));
 	    }
 	}
 
@@ -1141,7 +1135,7 @@ initialize (void)
 			  break;
 			}
 		    }
-		}
+	}
 	    }
 	  DONT_SIMULATE_AGAIN (phi) = ((val->lattice_val == VARYING) ? 1 : 0);
 	}
@@ -1379,7 +1373,7 @@ static bool
 replace_uses_in (tree stmt, bool *replaced_addresses_p)
 {
   bool replaced = false;
-  varray_type uses;
+  use_optype uses;
   size_t i;
 
   if (replaced_addresses_p)
@@ -1387,10 +1381,10 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p)
 
   get_stmt_operands (stmt);
 
-  uses = use_ops (stmt_ann (stmt));
-  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+  uses = STMT_USE_OPS (stmt);
+  for (i = 0; i < NUM_USES (uses); i++)
     {
-      tree *use = VARRAY_TREE_PTR (uses, i);
+      tree *use = USE_OP_PTR (uses, i);
       value *val = get_value (*use);
 
       if (val->lattice_val == CONSTANT)
@@ -1444,7 +1438,7 @@ replace_uses_in (tree stmt, bool *replaced_addresses_p)
 static latticevalue
 likely_value (tree stmt)
 {
-  varray_type uses;
+  use_optype uses;
   size_t i;
   int found_constant = 0;
   stmt_ann_t ann;
@@ -1468,11 +1462,11 @@ likely_value (tree stmt)
 
   get_stmt_operands (stmt);
 
-  uses = use_ops (ann);
-  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+  uses = USE_OPS (ann);
+  for (i = 0; i < NUM_USES (uses); i++)
     {
-      tree *use = VARRAY_TREE_PTR (uses, i);
-      value *val = get_value (*use);
+      tree use = USE_OP (uses, i);
+      value *val = get_value (use);
 
       if (val->lattice_val == UNDEFINED)
 	return UNDEFINED;
@@ -1991,23 +1985,24 @@ set_rhs (tree *stmt_p, tree expr)
 
       if (TREE_SIDE_EFFECTS (expr))
 	{
-	  varray_type ops;
+	  def_optype defs;
+	  vdef_optype vdefs;
 	  size_t i;
 
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
 	    replacement.  */
-	  ops = def_ops (ann);
-	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	  defs = DEF_OPS (ann);
+	  for (i = 0; i < NUM_DEFS (defs); i++)
 	    {
-	      tree var = *(VARRAY_TREE_PTR (ops, i));
+	      tree var = DEF_OP (defs, i);
 	      if (TREE_CODE (var) == SSA_NAME)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }
 
-	  ops = vdef_ops (ann);
-	  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
+	  vdefs = VDEF_OPS (ann);
+	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
 	    {
-	      tree var = VDEF_RESULT (ops, i);
+	      tree var = VDEF_RESULT (vdefs, i);
 	      if (TREE_CODE (var) == SSA_NAME)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }

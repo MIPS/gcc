@@ -699,7 +699,7 @@ PREDICT_H = predict.h predict.def
 CPPLIB_H = cpplib.h line-map.h
 TREE_DUMP_H = tree-dump.h $(SPLAY_TREE_H)
 TREE_SIMPLE_H = tree-simple.h tree-iterator.h
-TREE_FLOW_H = tree-flow.h tree-flow-inline.h bitmap.h $(BASIC_BLOCK_H) \
+TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h bitmap.h $(BASIC_BLOCK_H) \
               hard-reg-set.h $(TREE_SIMPLE_H) $(HASHTAB_H)
 PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
@@ -875,7 +875,7 @@ OBJS-common = \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-simple.o  \
  tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
- tree-ssa-pre.o tree-ssa-live.o tree-must-alias.o	   		   \
+ tree-ssa-pre.o tree-ssa-live.o tree-must-alias.o tree-ssa-operands.o	   \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-ssa-loop.o		   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
@@ -1586,6 +1586,9 @@ tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
    tree-alias-common.h convert.h $(TM_H) coretypes.h langhooks.h \
    $(TREE_DUMP_H)
+tree-ssa-operands.o : tree-ssa-operands.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(TREE_H) $(TM_P_H) $(GGC_H) diagnostic.h \
+   tree-inline.h flags.h function.h $(TM_H) 
 tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_H) flags.h function.h except.h langhooks.h \
    $(GGC_H) gt-tree-eh.h
@@ -2214,6 +2217,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-ssa-pre.c $(srcdir)/tree-iterator.c $(out_file) \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
+  $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-simple.c \
   @all_gtfiles@
 

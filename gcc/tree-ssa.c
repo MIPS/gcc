@@ -572,7 +572,10 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
-      varray_type ops;
+      vdef_optype vdefs;
+      vuse_optype vuses;
+      def_optype defs;
+      use_optype uses;
       size_t i, uid;
       tree stmt;
       stmt_ann_t ann;
@@ -583,10 +586,10 @@ mark_def_sites (struct dom_walk_data *walk_data,
 
       /* If a variable is used before being set, then the variable
          is live across a block boundary, so add it to NONLOCAL_VARS.  */
-      ops = use_ops (ann);
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+      uses = USE_OPS (ann);
+      for (i = 0; i < NUM_USES (uses); i++)
         {
-          tree *use_p = VARRAY_TREE_PTR (ops, i);
+          tree *use_p = USE_OP_PTR (uses, i);
 
           if (prepare_operand_for_rename (use_p, &uid)
 	      && !TEST_BIT (kills, uid))
@@ -594,10 +597,10 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	}
 	  
       /* Similarly for virtual uses.  */
-      ops = vuse_ops (ann);
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
         {
-          tree *use_p = &VARRAY_TREE (ops, i);
+          tree *use_p = VUSE_OP_PTR (vuses, i);
 
           if (prepare_operand_for_rename (use_p, &uid)
 	      && !TEST_BIT (kills, uid))
@@ -609,27 +612,28 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	 definition of the variable.  However, the operand of a virtual
 	 definitions is a use of the variable, so it may affect
 	 GLOBALS.  */
-      ops = vdef_ops (ann);
-      for (i = 0; ops && i < NUM_VDEFS (ops); i++)
+      vdefs = VDEF_OPS (ann);
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
         {
 	  size_t dummy;
 
-          if (prepare_operand_for_rename (&VDEF_OP (ops, i), &uid)
-	      && prepare_operand_for_rename (&VDEF_RESULT (ops, i), &dummy))
+          if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
+	      && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), 
+					     &dummy))
 	    {
-	      VDEF_RESULT (ops, i) = VDEF_OP (ops, i);
+	      VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
 
-	      set_def_block (VDEF_RESULT (ops, i), bb);
+	      set_def_block (VDEF_RESULT (vdefs, i), bb);
 	      if (!TEST_BIT (kills, uid))
-		set_livein_block (VDEF_OP (ops, i), bb, idom);
+		set_livein_block (VDEF_OP (vdefs, i), bb, idom);
 	    }
 	}
 
       /* Now process the definition made by this statement.  */
-      ops = def_ops (ann);
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+      defs = DEF_OPS (ann);
+      for (i = 0; i < NUM_DEFS (defs); i++)
         {
-          tree *def_p = VARRAY_TREE_PTR (ops, i);
+          tree *def_p = DEF_OP_PTR (defs, i);
 
           if (prepare_operand_for_rename (def_p, &uid))
 	    {
@@ -2136,21 +2140,23 @@ static bool
 check_replaceable (temp_expr_table_p tab, tree stmt)
 {
   stmt_ann_t ann;
-  varray_type ops, vuseops;
+  vuse_optype vuseops;
+  def_optype defs;
+  use_optype uses;
   tree var, def;
-  int num_ops, version, i;
+  int num_use_ops, version, i;
   var_map map = tab->map;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
   
   ann = stmt_ann (stmt);
-  ops = def_ops (ann);
+  defs = DEF_OPS (ann);
 
   /* Punt if there is more than 1 def, or more than 1 use.  */
-  if (!ops || VARRAY_ACTIVE_SIZE (ops) != 1)
+  if (NUM_DEFS (defs) != 1)
     return false;
-  def = *VARRAY_TREE_PTR (ops, 0);
+  def = DEF_OP (defs, 0);
   if (version_ref_count (map, def) != 1)
     return false;
 
@@ -2160,16 +2166,16 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     return false;
 
   /* There must be no VDEFS.  */
-  if (vdef_ops (ann) && VARRAY_ACTIVE_SIZE (vdef_ops (ann)) != 0)
+  if (NUM_VDEFS (VDEF_OPS (ann)) != 0)
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
     return false;
 
-  ops = use_ops (ann);
-  num_ops = ops ? VARRAY_ACTIVE_SIZE (ops) : 0;
-  vuseops = vuse_ops (ann);
+  uses = USE_OPS (ann);
+  num_use_ops = NUM_USES (uses);
+  vuseops = VUSE_OPS (ann);
 
   /* Any expression which has no virtual operands and no real operands
      should have been propagated if its possible to do anythig with them. 
@@ -2179,20 +2185,20 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
      There are no virtual uses nor any real uses, so we just leave this 
      alone to be safe.  */
 
-  if (num_ops == 0 && (!vuseops || VARRAY_ACTIVE_SIZE (vuseops) == 0))
+  if (num_use_ops == 0 && NUM_VUSES (vuseops) == 0)
     return false;
 
   version = SSA_NAME_VERSION (def);
 
   /* Add this expression to the dependancy list for each use partition.  */
-  for (i = 0; i < num_ops; i++)
+  for (i = 0; i < num_use_ops; i++)
     {
-      var = *VARRAY_TREE_PTR (ops, i);
+      var = USE_OP (uses, i);
       add_dependance (tab, version, var);
     }
 
   /* If there are VUSES, add a dependence on virtual defs.  */
-  if (vuseops && VARRAY_ACTIVE_SIZE (vuseops) != 0)
+  if (NUM_VUSES (vuseops) != 0)
     {
       add_value_to_list (tab, (value_expr_p *)&(tab->version_info[version]), 
 			 VIRTUAL_PARTITION (tab));
@@ -2313,7 +2319,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
   tree stmt, def;
   stmt_ann_t ann;
   int partition, num, i;
-  varray_type ops;
+  use_optype uses;
+  def_optype defs;
   var_map map = tab->map;
   value_expr_p p;
 
@@ -2323,21 +2330,21 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       ann = stmt_ann (stmt);
 
       /* Determine if this stmt finishes an existing expression.  */
-      ops = use_ops (ann);
-      num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+      uses = USE_OPS (ann);
+      num = NUM_USES (uses);
       for (i = 0; i < num; i++)
 	{
-	  def = *VARRAY_TREE_PTR (ops, i);
+	  def = USE_OP (uses, i);
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
 	    mark_replaceable (tab, def);
 	}
       
       /* Next, see if this stmt kills off an active expression.  */
-      ops = def_ops (ann);
-      num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+      defs = DEF_OPS (ann);
+      num = NUM_DEFS (defs);
       for (i = 0; i < num; i++)
 	{
-	  def = *VARRAY_TREE_PTR (ops, i);
+	  def = DEF_OP (defs, i);
 	  partition = var_to_partition (map, def);
 	  if (partition != NO_PARTITION && tab->partition_dep_list[partition])
 	    kill_expr (tab, partition, true);
@@ -2354,7 +2361,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	}
 
       /* A VDEF kills any expression using a virtual operand.  */
-      if (vdef_ops (ann) && VARRAY_ACTIVE_SIZE (vdef_ops (ann)) > 0)
+      if (NUM_VDEFS (VDEF_OPS (ann)) > 0)
         kill_virtual_exprs (tab, true);
     }
 }
@@ -2399,7 +2406,7 @@ dump_replaceable_exprs (FILE *f, tree *expr)
     if (expr[x])
       {
         stmt = expr[x];
-	var = *VARRAY_TREE_PTR (def_ops (stmt_ann (stmt)), 0);
+	var = DEF_OP (STMT_DEF_OPS (stmt), 0);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
 	print_generic_expr (f, TREE_OPERAND (stmt, 1), TDF_SLIM);
@@ -2433,7 +2440,8 @@ rewrite_trees (var_map map, tree *values)
       for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
 	  size_t i, num_uses, num_defs;
-	  varray_type ops;
+	  use_optype uses;
+	  def_optype defs;
 	  tree stmt = bsi_stmt (si);
 	  tree *use_p = NULL;
 	  int remove = 0, is_copy = 0;
@@ -2447,22 +2455,22 @@ rewrite_trees (var_map map, tree *values)
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
 	    is_copy = 1;
 
-	  ops = use_ops (ann);
-	  num_uses = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  uses = USE_OPS (ann);
+	  num_uses = NUM_USES (uses);
 
 	  for (i = 0; i < num_uses; i++)
 	    {
-	      use_p = VARRAY_TREE_PTR (ops, i);
+	      use_p = USE_OP_PTR (uses, i);
 	      if (replace_variable (map, use_p, values))
 	        changed = true;
 	    }
 
-	  ops = def_ops (ann);
-	  num_defs = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  defs = DEF_OPS (ann);
+	  num_defs = NUM_DEFS (defs);
 
 	  if (values && num_defs == 1)
 	    {
-	      tree def = *VARRAY_TREE_PTR (ops, 0);
+	      tree def = DEF_OP (defs, 0);
 	      tree val;
 	      val = values[SSA_NAME_VERSION (def)];
 	      if (val)
@@ -2472,7 +2480,7 @@ rewrite_trees (var_map map, tree *values)
 	    {
 	      for (i = 0; i < num_defs; i++)
 		{
-		  tree *def_p = VARRAY_TREE_PTR (ops, i);
+		  tree *def_p = DEF_OP_PTR (defs, i);
 
 		  if (replace_variable (map, def_p, NULL))
 		    changed = true;
@@ -3069,14 +3077,14 @@ verify_ssa (void)
 	{
 	  tree stmt;
 	  unsigned int j;
-	  varray_type vdefs;
-	  varray_type defs;
+	  vdef_optype vdefs;
+	  def_optype defs;
 
 	  stmt = bsi_stmt (bsi);
 	  get_stmt_operands (stmt);
 
-	  vdefs = vdef_ops (stmt_ann (stmt));
-	  for (j = 0; vdefs && j < NUM_VDEFS (vdefs); j++)
+	  vdefs = STMT_VDEF_OPS (stmt);
+	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
 	      if (is_gimple_reg (op))
@@ -3089,10 +3097,10 @@ verify_ssa (void)
 	      err |= verify_def (bb, definition_block, op, stmt);
 	    }
 
-	  defs = def_ops (stmt_ann (stmt));
-	  for (j = 0; defs && j < VARRAY_ACTIVE_SIZE (defs); j++)
+	  defs = STMT_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    {
-	      tree op = *VARRAY_TREE_PTR (defs, j);
+	      tree op = DEF_OP (defs, j);
 	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
 		{
 		  error ("Found a real definition for a non-GIMPLE register");
@@ -3134,13 +3142,13 @@ verify_ssa (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 	  unsigned int j;
-	  varray_type vuses;
-	  varray_type uses;
+	  vuse_optype vuses;
+	  use_optype uses;
 
-	  vuses = vuse_ops (stmt_ann (stmt));
-	  for (j = 0; vuses && j < VARRAY_ACTIVE_SIZE (vuses); j++)
+	  vuses = STMT_VUSE_OPS (stmt);
+	  for (j = 0; j < NUM_VUSES (vuses); j++)
 	    {
-	      tree op = VARRAY_TREE (vuses, j);
+	      tree op = VUSE_OP (vuses, j);
 
 	      if (is_gimple_reg (op))
 		{
@@ -3153,10 +3161,10 @@ verify_ssa (void)
 				 op, stmt, idom, false);
 	    }
 
-	  uses = use_ops (stmt_ann (stmt));
-	  for (j = 0; uses && j < VARRAY_ACTIVE_SIZE (uses); j++)
+	  uses = STMT_USE_OPS (stmt);
+	  for (j = 0; j < NUM_USES (uses); j++)
 	    {
-	      tree op = *VARRAY_TREE_PTR (uses, j);
+	      tree op = USE_OP (uses, j);
 
 	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
 		{
@@ -3286,7 +3294,10 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   size_t i;
   stmt_ann_t ann;
   tree stmt;
-  varray_type defs, uses, vuses, vdefs;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  def_optype defs;
+  use_optype uses;
 
   stmt = bsi_stmt (si);
   ann = stmt_ann (stmt);
@@ -3306,23 +3317,23 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     abort ();
 #endif
 
-  defs = def_ops (ann);
-  uses = use_ops (ann);
-  vuses = vuse_ops (ann);
-  vdefs = vdef_ops (ann);
+  defs = DEF_OPS (ann);
+  uses = USE_OPS (ann);
+  vuses = VUSE_OPS (ann);
+  vdefs = VDEF_OPS (ann);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
-    rewrite_operand (VARRAY_TREE_PTR (uses, i));
+  for (i = 0; i < NUM_USES (uses); i++)
+    rewrite_operand (USE_OP_PTR (uses, i));
 
   /* Rewrite virtual uses in the statement.  */
-  for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    rewrite_operand (&VARRAY_TREE (vuses, i));
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    rewrite_operand (VUSE_OP_PTR (vuses, i));
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
-  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+  for (i = 0; i < NUM_DEFS (defs); i++)
     {
-      tree *def_p = VARRAY_TREE_PTR (defs, i);
+      tree *def_p = DEF_OP_PTR (defs, i);
 
       if (TREE_CODE (*def_p) != SSA_NAME)
 	*def_p = make_ssa_name (*def_p, stmt);
@@ -3333,12 +3344,12 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     }
 
   /* Register new virtual definitions made by the statement.  */
-  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
     {
-      rewrite_operand (&(VDEF_OP (vdefs, i)));
+      rewrite_operand (VDEF_OP_PTR (vdefs, i));
 
       if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	VDEF_RESULT (vdefs, i) = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
+	*VDEF_RESULT_PTR (vdefs, i) = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
@@ -3405,6 +3416,7 @@ init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
+  init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
   memset (&ssa_stats, 0, sizeof (ssa_stats));
@@ -3436,6 +3448,7 @@ delete_tree_ssa (void)
 
   fini_ssanames ();
   fini_phinodes ();
+  fini_ssa_operands ();
 
   global_var = NULL_TREE;
   call_clobbered_vars = NULL;

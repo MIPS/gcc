@@ -241,7 +241,8 @@ find_useful_stmts (void)
 static bool
 stmt_useful_p (tree stmt)
 {
-  varray_type ops;
+  def_optype defs;
+  vdef_optype vdefs;
   stmt_ann_t ann;
   size_t i;
 
@@ -297,14 +298,14 @@ stmt_useful_p (tree stmt)
 
   get_stmt_operands (stmt);
 
-  ops = def_ops (ann);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    if (need_to_preserve_store (*(VARRAY_TREE_PTR (ops, i))))
+  defs = DEF_OPS (ann);
+  for (i = 0; i < NUM_DEFS (defs); i++)
+    if (need_to_preserve_store (DEF_OP (defs, i)))
       return true;
 
-  ops = vdef_ops (ann);
-  for (i = 0; ops && i < NUM_VDEFS (ops); i++)
-    if (need_to_preserve_store (VDEF_RESULT (ops, i)))
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    if (need_to_preserve_store (VDEF_RESULT (vdefs, i)))
       return true;
 
   return false;
@@ -351,33 +352,35 @@ process_worklist (void)
 	  /* Examine all the USE, VUSE and VDEF operands in this statement.
 	     Mark all the statements which feed this statement's uses as
 	     necessary.  */
-	  varray_type ops;
+	  vuse_optype vuses;
+	  vdef_optype vdefs;
+	  use_optype uses;
 	  stmt_ann_t ann;
 	  size_t k;
 
 	  get_stmt_operands (i);
 	  ann = stmt_ann (i);
 
-	  ops = use_ops (ann);
-	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
+	  uses = USE_OPS (ann);
+	  for (k = 0; k < NUM_USES (uses); k++)
 	    {
-	      tree *use_p = VARRAY_TREE_PTR (ops, k);
-	      mark_necessary (*use_p, NULL_TREE);
+	      tree use = USE_OP (uses, k);
+	      mark_necessary (use, NULL_TREE);
 	    }
 
-	  ops = vuse_ops (ann);
-	  for (k = 0; ops && k < VARRAY_ACTIVE_SIZE (ops); k++)
+	  vuses = VUSE_OPS (ann);
+	  for (k = 0; k < NUM_VUSES (vuses); k++)
 	    {
-	      tree vuse = VARRAY_TREE (ops, k);
+	      tree vuse = VUSE_OP (vuses, k);
 	      mark_necessary (vuse, NULL_TREE);
 	    }
 
 	  /* The operands of VDEF expressions are also needed as they
 	     represent potential definitions that may reach this
 	     statement (VDEF operands allow us to follow def-def links).  */
-	  ops = vdef_ops (ann);
-	  for (k = 0; ops && k < NUM_VDEFS (ops); k++)
-	    mark_necessary (VDEF_OP (ops, k), NULL_TREE);
+	  vdefs = VDEF_OPS (ann);
+	  for (k = 0; k < NUM_VDEFS (vdefs); k++)
+	    mark_necessary (VDEF_OP (vdefs, k), NULL_TREE);
 	}
     }
 }

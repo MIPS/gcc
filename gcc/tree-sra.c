@@ -436,7 +436,7 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
   if (TREE_CODE (rhs) == VA_ARG_EXPR)
     {
       size_t i;
-      varray_type vdefs;
+      vdef_optype vdefs;
       tree stmt, tmp;
 
       /* Add TMP = VA_ARG_EXPR <>  */
@@ -449,8 +449,8 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
       /* Mark all the variables in VDEF operands for renaming, because the
 	 VA_ARG_EXPR will now be in a different statement.  */
       get_stmt_operands (stmt);
-      vdefs = vdef_ops (stmt_ann (stmt));
-      for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+      vdefs = VDEF_OPS (stmt_ann (stmt));
+      for (i = 0; i < NUM_VDEFS (vdefs); i++)
 	{
 	  tree sym = VDEF_RESULT (vdefs, i);
 	  bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
@@ -564,11 +564,11 @@ create_scalar_copies (tree lhs, tree rhs, enum sra_copy_mode mode)
 	     scalarized statement just created.  Since all the statements
 	     introduce the same VDEFs, we only need to check the last one.  */
 	  size_t i;
-	  varray_type vdefs;
+	  vdef_optype vdefs;
 
 	  get_stmt_operands (last_stmt);
 
-	  vdefs = vdef_ops (stmt_ann (last_stmt));
+	  vdefs = STMT_VDEF_OPS (last_stmt);
 	  for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
 	    {
 	      tree sym = VDEF_RESULT (vdefs, i);
@@ -604,8 +604,8 @@ scalarize_structures (void)
 
 	/* If the statement has no virtual operands, then it doesn't make
 	   structure references that we care about.  */
-	if (vdef_ops (ann) == NULL
-	    && vuse_ops (ann) == NULL)
+	if (NUM_VDEFS (VDEF_OPS (ann)) == 0
+	    && NUM_VUSES (VUSE_OPS (ann)) == 0)
 	  continue;
 
 	/* Structure references may only appear in certain statements.  */
@@ -680,14 +680,14 @@ scalarize_modify_expr (block_stmt_iterator *si_p)
       && TEST_BIT (sra_candidates, var_ann (var)->uid))
     {
       tree sym;
-      varray_type vdefs;
+      vdef_optype vdefs;
 
       scalarize_component_ref (stmt, &TREE_OPERAND (stmt, 0));
 
       /* Mark the LHS to be renamed, as we have just removed the previous
 	 VDEF for AGGREGATE.  The statement should have exactly one VDEF
 	 for variable AGGREGATE.  */
-      vdefs = vdef_ops (stmt_ann (stmt));
+      vdefs = STMT_VDEF_OPS (stmt);
       if (NUM_VDEFS (vdefs) != 1)
 	abort ();
       sym = SSA_NAME_VAR (VDEF_RESULT (vdefs, 0));

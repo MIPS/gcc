@@ -524,7 +524,7 @@ thread_across_edge (edge e)
       tree cached_lhs;
       unsigned int i;
       edge e1;
-      varray_type table;
+      use_optype uses;
 
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
@@ -545,12 +545,12 @@ thread_across_edge (edge e)
 
 	 Otherwise this optimization would short-circuit loops.  */
       get_stmt_operands (stmt);
-      table = use_ops (stmt_ann (stmt));
+      uses = STMT_USE_OPS (stmt);
 
-      for (i = 0; table && i < VARRAY_ACTIVE_SIZE (table); i++)
+      for (i = 0; i < NUM_USES (uses); i++)
         {
-          tree *op_p = VARRAY_TREE_PTR (table, i);
-          tree def_stmt = SSA_NAME_DEF_STMT (*op_p);
+          tree op = USE_OP (uses, i);
+          tree def_stmt = SSA_NAME_DEF_STMT (op);
 	
           /* See if this operand is defined by a PHI node in
 	     BB's successor.  If it is, then we can not thread
@@ -1707,102 +1707,108 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 static bool
 cprop_into_stmt (tree stmt)
 {
-  size_t i;
-  varray_type defs, uses, vuses, vdefs, operand_tables[4], *table;
+  size_t i, table_size[3];
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  use_optype uses;
   bool may_have_exposed_new_symbols = false;
   stmt_ann_t ann = stmt_ann (stmt);
+  int table_index;
 
-  defs = def_ops (ann);
-  uses = use_ops (ann);
-  vuses = vuse_ops (ann);
-  vdefs = vdef_ops (ann);
+  uses = USE_OPS (ann);
+  vuses = VUSE_OPS (ann);
+  vdefs = VDEF_OPS (ann);
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  operand_tables[0] = uses;
-  operand_tables[1] = vuses;
-  operand_tables[2] = vdefs;
-  operand_tables[3] = NULL;
-  for (table = operand_tables; *table; table++)
-    for (i = 0; *table && i < VARRAY_ACTIVE_SIZE (*table); i++)
-      {
-	tree val;
-	tree *op_p;
+  table_size[0] = NUM_USES (uses);
+  table_size[1] = NUM_VUSES (vuses);
+  table_size[2] = NUM_VDEFS (vdefs);
+  for (table_index = 0; table_index < 3; table_index++)
+    {
+      if (table_size[table_index] == 0)
+	return false;
+      for (i = 0; i < table_size[table_index]; i++)
+	{
+	  tree val;
+	  tree *op_p;
 
-	/* Get a pointer to the operand we want to const/copy propagate
-	   into.  Each table has a slightly different structure.  */
-	if (*table == uses)
-	  op_p = VARRAY_TREE_PTR (uses, i);
-	else if (*table == vuses)
-	  op_p = (tree *) &VARRAY_TREE (vuses, i);
-	/* The vdef table has two elements per entry which we extract
-	   with VDEF_OP/VDEF_RESULT based on the index.  Thus we
-	   want to skip odd indices.  */
-	else if ((*table == vdefs) && ((i % 2) == 1))
-	  continue;
-	else
-	  op_p = (tree *) &VDEF_OP (vdefs, i / 2);
-
-	/* If the operand is not an ssa variable, then there is nothing
-	   to do.  */
-	if (TREE_CODE (*op_p) != SSA_NAME)
-	  continue;
-
-	/* If the operand has a known constant value or it is known to be a
-	   copy of some other variable, use the value or copy stored in
-	   CONST_AND_COPIES.  */
-	opt_stats.num_exprs_considered++;
-	val = get_value_for (*op_p, const_and_copies);
-	if (val)
+	  switch (table_index)
 	  {
-	    /* Do not change the base variable in the virtual operand
-	       tables.  That would make it impossible to reconstruct
-	       the renamed virtual operand if we later modify this
-	       statement.  Also only allow the new value to be an SSA_NAME
-	       for propagation into virtual operands.  */
-	    if ((*table == vuses || *table == vdefs)
-		&& (get_virtual_var (val) != get_virtual_var (*op_p)
-		    || TREE_CODE (val) != SSA_NAME))
-	      continue;
+	    case 0:
+	      op_p = USE_OP_PTR (uses, i);
+	      break;
+	    case 1:
+	      op_p = VUSE_OP_PTR (vuses, i);
+	      break;
+	    case 2:
+	      op_p = VDEF_OP_PTR (vdefs, i);
+	      break;
+	    default:
+	      abort();
+	  }
 
-	    /* Certain operands are not allowed to be copy propagated due
-	       to their interaction with exception handling and some
-	       GCC extensions.  */
-	    if (TREE_CODE (val) == SSA_NAME
-		&& !may_propagate_copy (*op_p, val))
-	      continue;
+	  /* If the operand is not an ssa variable, then there is nothing
+	     to do.  */
+	  if (TREE_CODE (*op_p) != SSA_NAME)
+	    continue;
 
-	    /* Gather statistics.  */
-	    if (is_gimple_min_invariant (val))
-	      opt_stats.num_const_prop++;
-	    else
-	      opt_stats.num_copy_prop++;
+	  /* If the operand has a known constant value or it is known to be a
+	     copy of some other variable, use the value or copy stored in
+	     CONST_AND_COPIES.  */
+	  opt_stats.num_exprs_considered++;
+	  val = get_value_for (*op_p, const_and_copies);
+	  if (val)
+	    {
+	      /* Do not change the base variable in the virtual operand
+		 tables.  That would make it impossible to reconstruct
+		 the renamed virtual operand if we later modify this
+		 statement.  Also only allow the new value to be an SSA_NAME
+		 for propagation into virtual operands.  */
+	      if (table_index > 1
+		  && (get_virtual_var (val) != get_virtual_var (*op_p)
+		      || TREE_CODE (val) != SSA_NAME))
+		continue;
 
-	    /* Dump details.  */
-	    if (dump_file && (dump_flags & TDF_DETAILS))
-	      {
-		fprintf (dump_file, "  Replaced '");
-		print_generic_expr (dump_file, *op_p, 0);
-		fprintf (dump_file, "' with %s '",
-			 (TREE_CODE (val) != SSA_NAME
-			    ? "constant" : "variable"));
-		print_generic_expr (dump_file, val, 0);
-		fprintf (dump_file, "'\n");
-	      }
+	      /* Certain operands are not allowed to be copy propagated due
+		 to their interaction with exception handling and some
+		 GCC extensions.  */
+	      if (TREE_CODE (val) == SSA_NAME
+		  && !may_propagate_copy (*op_p, val))
+		continue;
 
-	    /* If VAL is an ADDR_EXPR or a constant of pointer type, note
-	       that we may need to have a second SSA pass to rename
-	       variables exposed by the folding of *&VAR expressions.  */
-	    if (TREE_CODE (val) == ADDR_EXPR
-		|| (POINTER_TYPE_P (TREE_TYPE (*op_p))
-		    && is_gimple_min_invariant (val)))
-	      may_have_exposed_new_symbols = true;
+	      /* Gather statistics.  */
+	      if (is_gimple_min_invariant (val))
+		opt_stats.num_const_prop++;
+	      else
+		opt_stats.num_copy_prop++;
 
-	    propagate_value (op_p, val);
+	      /* Dump details.  */
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "  Replaced '");
+		  print_generic_expr (dump_file, *op_p, 0);
+		  fprintf (dump_file, "' with %s '",
+			   (TREE_CODE (val) != SSA_NAME
+			      ? "constant" : "variable"));
+		  print_generic_expr (dump_file, val, 0);
+		  fprintf (dump_file, "'\n");
+		}
 
-	    /* And note that we modified this statement.  This is now
-	       safe, even if we changed virtual operands since we will
-	       rescan the statement and rewrite its operands again.  */
-	    ann->modified = 1;
+	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
+		 that we may need to have a second SSA pass to rename
+		 variables exposed by the folding of *&VAR expressions.  */
+	      if (TREE_CODE (val) == ADDR_EXPR
+		  || (POINTER_TYPE_P (TREE_TYPE (*op_p))
+		      && is_gimple_min_invariant (val)))
+		may_have_exposed_new_symbols = true;
+
+	      propagate_value (op_p, val);
+
+	      /* And note that we modified this statement.  This is now
+		 safe, even if we changed virtual operands since we will
+		 rescan the statement and rewrite its operands again.  */
+	      ann->modified = 1;
+	  }
 	}
     }
 
@@ -1902,7 +1908,7 @@ static bool
 eliminate_redundant_computations (struct dom_walk_data *walk_data,
 				  tree stmt, stmt_ann_t ann)
 {
-  varray_type vdefs = vdef_ops (ann);
+  vdef_optype vdefs = VDEF_OPS (ann);
   tree *expr_p, def = NULL_TREE;
   bool insert = true;
   tree cached_lhs;
@@ -1919,7 +1925,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || vdefs)
+      || NUM_VDEFS (vdefs) != 0)
     insert = false;
 
   /* Check if the expression has been computed before.  */
@@ -2096,7 +2102,7 @@ record_equivalences_from_stmt (tree stmt,
 
       if (rhs)
 	{
-	  varray_type vdefs = vdef_ops (ann);
+	  vdef_optype vdefs = VDEF_OPS (ann);
 
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
@@ -2107,15 +2113,19 @@ record_equivalences_from_stmt (tree stmt,
 
 	  /* Clear out the virtual operands on the new statement, we are
 	     going to set them explicitly below.  */
-	  get_stmt_ann (new)->vops = NULL;
+	  free_vuses (STMT_VUSE_OPS (new));
+	  free_vdefs (STMT_VDEF_OPS (new));
 
+	  start_ssa_stmt_operands (new);
 	  /* For each VDEF on the original statement, we want to create a
 	     VUSE of the VDEF result on the new statement.  */
-	  for (j = 0; vdefs && j < NUM_VDEFS (vdefs); j++)
+	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
 	    {
 	      tree op = VDEF_RESULT (vdefs, j);
-	      add_vuse (op, new, NULL);
+	      add_vuse (op, new);
 	    }
+
+	  finalize_ssa_stmt_operands (new);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
@@ -2148,7 +2158,7 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 {
   stmt_ann_t ann;
   tree stmt;
-  varray_type vdefs;
+  vdef_optype vdefs;
   bool may_optimize_p;
   bool may_have_exposed_new_symbols = false;
   struct dom_walk_block_data *bd
@@ -2158,7 +2168,7 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
-  vdefs = vdef_ops (ann);
+  vdefs = VDEF_OPS (ann);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
@@ -2665,7 +2675,7 @@ avail_expr_hash (const void *p)
   hashval_t val = 0;
   tree rhs;
   size_t i;
-  varray_type ops;
+  vuse_optype vuses;
   tree stmt = (tree) p;
 
   /* Find the location of the expression we care about.  Unfortunately,
@@ -2689,9 +2699,9 @@ avail_expr_hash (const void *p)
      because compound variables like arrays are not renamed in the
      operands.  Rather, the rename is done on the virtual variable
      representing all the elements of the array.  */
-  ops = vuse_ops (stmt_ann (stmt));
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    val = iterative_hash_expr (VARRAY_TREE (ops, i), val);
+  vuses = STMT_VUSE_OPS (stmt);
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    val = iterative_hash_expr (VUSE_OP (vuses, i), val);
 
   return val;
 }
@@ -2734,10 +2744,12 @@ avail_expr_eq (const void *p1, const void *p2)
 	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
       && operand_equal_p (rhs1, rhs2, 0))
     {
-      varray_type ops1 = vuse_ops (stmt_ann (s1));
-      varray_type ops2 = vuse_ops (stmt_ann (s2));
+      vuse_optype ops1 = STMT_VUSE_OPS (s1);
+      vuse_optype ops2 = STMT_VUSE_OPS (s2);
+      size_t num_ops1 = NUM_VUSES (ops1);
+      size_t num_ops2 = NUM_VUSES (ops2);
 
-      if (ops1 == NULL && ops2 == NULL)
+      if (num_ops1 == 0 && num_ops2 == 0)
 	{
 #ifdef ENABLE_CHECKING
 	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
@@ -2748,15 +2760,15 @@ avail_expr_eq (const void *p1, const void *p2)
 
       /* If one has virtual operands and the other does not, then we
 	 consider them not equal.  */
-      if ((ops1 == NULL && ops2 != NULL)
-	  || (ops1 != NULL && ops2 == NULL))
+      if ((num_ops1 == 0 && num_ops2 != 0)
+	  || (num_ops1 != 0 && num_ops2 == 0))
 	return false;
 
-      if (VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
+      if (num_ops1 == num_ops2)
 	{
 	  size_t i;
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ops1); i++)
-	    if (VARRAY_TREE_PTR (ops1, i) != VARRAY_TREE_PTR (ops2, i))
+	  for (i = 0; i < num_ops1; i++)
+	    if (VUSE_OP (ops1, i) != VUSE_OP (ops2, i))
 	      return false;
 
 #ifdef ENABLE_CHECKING

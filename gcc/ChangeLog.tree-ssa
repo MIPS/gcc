@@ -1,3 +1,114 @@
+2003-12-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Add dependence on tree-ssa-operands.h
+	(OBJS-common): Add tree-ssa-operands.o
+	(tree-ssa-operands.o): Add dependencies.
+	(GTFILES): Add tree-ssa-operands.[ch].
+	* tree-dfa.c (get_stmt_operands, get_expr_operands, add_stmt_operand,
+	note_addressable, add_def, add_use, add_vde, add_vuse, 
+	add_call_clobber_ops, add_call_read_ops): Moved to tree-ssa-operands.c.
+	(compute_immediate_uses_for_stmt): Use new optypes interface.
+	(cleanup_operand_arrays): Delete.
+	(collect_dfa_stats_r): Use new optypes interface.
+	(get_call_flags): Moved to tree-ssa-operands.c.
+	(vdefs_disappeared_p, mark_new_vars_to_rename): Use optypes interface.
+	* tree-flow-inline.h (def_ops, use_ops, vdef_ops, vuse_ops): Use new
+	optypes.
+	(free_vuses): New. Clear and release vuses.
+	(free_vdefs): New. Clear and release vdefs.
+	(get_use_ops_ptr): New. Get address of a use op.
+	(get_def_ops_ptr): New. Get address of a use op.
+	(get_vdef_result_ptr): New. Get address of a use op.
+	(get_vdef_op_ptr): New. Get address of a use op.
+	(get_vuse_op_ptr): New. Get address of a use op.
+	(start_ssa_stmt_operands): New. Entry point to start processing stmt 
+	operands.
+	* tree-flow.h (struct operands_d, struct voperands_d): Move to
+	tree-ssa-operands.h
+	(struct stmt_ann_d): Add GTY markers to operands.
+	* tree-pretty-print.c (dump_vops): Use optypes interface.
+	* tree-sra.c (create_scalar_copies): Use optypes interface.
+	(scalarize_structures, scalarize_modify_exp): Use optypes interface.
+	* tree-ssa-ccp.c (visit_stmt, ccp_fold, initialize, replace_uses_in,
+	likely_value, set_rhs): Use optypes interface.
+	* tree-ssa-dce.c (find_useful_stmts, stmt_useful_p, process_worklist):
+	Use optypes interface.
+	* tree-ssa-dom.c (thread_across_edge, thread_jumps_walk_stmts): Use 
+	optypes interface.
+	(cprop_into_stmt): Rewrite using new interface.
+	(eliminate_redundant_computations, record_equivalences_from_stmt,
+	optimize_stmt, avail_expr_hash, avail_expr_eq): Use optypes interface.
+	* tree-ssa-live.c (create_ssa_var_map, calculate_live_on_entry,
+	build_tree_conflict_graph,register_ssa_partitions_for_vars): Use 
+	optypes interface.
+	* tree-ssa-pre.c (names_match_p, maybe_find_rhs_use_for_var, 
+	expr_phi_insertion, same_e_version_real_occ_real_occ, opnum_of_phi,
+	generate_expr_as_of_bb, generate_vops_as_of_bb, subst_phis,
+	load_modified_real_occ_real_occ, same_e_version_phi_result, can_insert,
+	get_default_def, reaching_def, process_left_occs_and_kills,
+	collect_expressions): Use optypes interface.
+	* tree-ssa.c (mark_def_sites, check_replaceable, find_replaceable_in_bb,
+	dump_replaceable_exprs, rewrite_trees, verify_ssa, rewrite_stmt): Use
+	optypes interface.
+	(init_tree_ssa): Initialize new operand data structures.
+	(delete_tree_ssa): Free new operand structures.
+	* tree.h (VDEF_RESULT, VDEF_OP, NUM_VDEFS): Move to tree-ssa-operands.h.
+
+	* tree-ssa-operands.h: New file.
+	(struct def_optype_d): New. Structure for stmt defs.
+	(struct use_optype_d): New. Structure for stmt uses.
+	(struct vdef_optype_d): New. Structure for stmt vdefs.
+	(struct vuse_optype_d): New. Structure for stmt vuses.
+	(USE_OPS, STMT_USE_OPS, NUM_USES, USE_OP_PTR, USE_OP): Macros to
+	access stmt uses.
+	(DEF_OPS, STMT_DEF_OPS, NUM_DEFS, DEF_OP_PTR, DEF_OP): Macros to
+	access stmt defs.
+	(VDEF_OPS, STMT_VDEF_OPS, NUM_VDEFS, VDEF_RESULT_PTR, VDEF_RESULT, 
+	VDEF_OP_PTR, VDEF_OP): Macros to access stmt vdefs.
+	(VUSE_OPS, STMT_VUSE_OPS, NUM_VUSES, VUSE_OP_PTR, VUSE_OP): Macros to
+	access stmt vuses.
+	(struct operands_d, struct voperands_d): moved from tree-dfa.c.
+	* tree-ssa-operands.c: New file.
+	(build_defs, build_uses, build_vdefs, build_vuses): New static varrays.
+	(struct vecmanage_d): New. Struct to manage non-GC vectors.
+	(vecmanage_add_segment): New. Add a new segment to a vector manager.
+	(vecmanage_add_special): New. Add a large vector to the special list.
+	(vecmanage_init): Initialize a vector manager.
+	(vecmanage_tree_ptr_init): New. Initialize a vector manager for tree *.
+	(vecmanage_fini): New. Release vector manager memory.
+	(check_free): New. Look for free memory in the vector maanger.
+	(vecmanage_new_vector): New. Allocate a vector.
+	(vecmanage_new_tree_ptr_vector): New. Allocate a vector of 'tree *'.
+	(vecmanage_free_vector): New. Free a vector.
+	(free_ssa_op_vec): New. Free an ssa operand's memory.
+	(allocate_ssa_op_vec): New. Allocate a vector for use/defs.
+	(allocate_ssa_virtual_op_vec): New. Allocate a vector for vuse/vdefs.
+	(allocate_operands_t): New. Allocate an operand structure.
+	(allocate_voperands_t): New. Allocate a virtual operand structure.
+	(free_uses): New. Clear and release uses.
+	(free_defs): New. Clear and release defs.
+	(init_ssa_operands): New. Initialize ssa operand management.
+	(fini_ssa_operands): New. Cleanup ssa operand management.
+	(finalize_new_ssa_operands): New. Commit current operands.
+	(finalize_new_ssa_virtual_operands): New. Commit current virtual ops.
+	(finalize_ssa_defs): New. Commit and verify stmt definitions.
+	(finalize_ssa_uses): New. Commit and verify stmt uses.
+	(finalize_ssa_vdefs): New. Commit and verify stmt virtual definitions.
+	(finalize_ssa_vuses): New. Commit and verify stmt virtual uses.
+	(finalize_ssa_stmt_operands): New. Commit all stmt operands.
+	(verify_start_operands): New. Verify build mechanism is ready for a new
+	stmt.
+	(append_def): Renamed from add_def, and moved from tree-dfa.c.
+	(append_use): Renamed from add_def, and moved from tree-dfa.c.
+	(append_vdef): Renamed from add_def, and moved from tree-dfa.c.
+	(append_vuse): Renamed from add_def, and moved from tree-dfa.c.
+	(add_vuse): New. Entry point to add a vuse to a stmt.
+	(get_call_flags): Moved from tree-dfa.c
+	(get_stmt_operands, get_expr_operands, add_stmt_operand): Moved from 
+	tree-dfa.c, and use new optype interface.
+	(note_addressabe, add_call_clobber_ops, add_call_read_ops): Moved from 
+	tree-dfa.c
+
 2003-12-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-optimize.c (optimize_function_tree): Call BITMAP_XFREE.

@@ -198,29 +198,106 @@ stmt_modified_p (tree t)
   return ann ? ann->modified : true;
 }
 
-static inline varray_type
-def_ops (stmt_ann_t ann)
+static inline void
+free_vuses (vuse_optype vuses)
 {
-  return ann ? (ann->ops ? ann->ops->def_ops : NULL) : NULL;
+  if (NUM_VUSES (vuses) > 0)
+    {
+      vuses->num_vuses = 0;
+      vuses->vuses = NULL;
+    }
 }
 
-static inline varray_type
-use_ops (stmt_ann_t ann)
+static inline void
+free_vdefs (vdef_optype vdefs)
 {
-  return ann ? (ann->ops ? ann->ops->use_ops : NULL) : NULL;
+  if (NUM_VDEFS (vdefs) > 0)
+    {
+      vdefs->num_vdefs = 0;
+      vdefs->vdefs = NULL;
+    }
 }
 
-
-static inline varray_type
-vdef_ops (stmt_ann_t ann)
+static inline def_optype
+get_def_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->vops ? ann->vops->vdef_ops : NULL) : NULL;
+  return ann ? (ann->ops ? &(ann->ops->def_ops) : NULL) : NULL;
 }
 
-static inline varray_type
-vuse_ops (stmt_ann_t ann)
+static inline use_optype
+get_use_ops (stmt_ann_t ann)
 {
-  return ann ? (ann->vops ? ann->vops->vuse_ops : NULL) : NULL;
+  return ann ? (ann->ops ? &(ann->ops->use_ops) : NULL) : NULL;
+}
+
+static inline vdef_optype
+get_vdef_ops (stmt_ann_t ann)
+{
+  return ann ? (ann->vops ? &(ann->vops->vdef_ops) : NULL) : NULL;
+}
+
+static inline vuse_optype
+get_vuse_ops (stmt_ann_t ann)
+{
+  return ann ? (ann->vops ? &(ann->vops->vuse_ops) : NULL) : NULL;
+}
+
+static inline tree *
+get_use_op_ptr (use_optype uses, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= uses->num_uses)
+    abort();
+#endif
+  return ((tree **)uses->uses)[index];
+}
+
+static inline tree *
+get_def_op_ptr (def_optype defs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= defs->num_defs)
+    abort();
+#endif
+  return ((tree **)defs->defs)[index];
+}
+
+static inline tree *
+get_vdef_result_ptr(vdef_optype vdefs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= vdefs->num_vdefs)
+    abort();
+#endif
+  return &(vdefs->vdefs[index * 2]);
+}
+
+static inline tree *
+get_vdef_op_ptr(vdef_optype vdefs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= vdefs->num_vdefs)
+    abort();
+#endif
+  return &(vdefs->vdefs[index * 2 + 1]);
+}
+
+static inline tree *
+get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= vuses->num_vuses)
+    abort();
+#endif
+  return &(vuses->vuses[index]);
+}
+
+static inline void
+start_ssa_stmt_operands (tree stmt ATTRIBUTE_UNUSED)
+{
+#ifdef ENABLE_CHECKING
+  verify_start_operands (stmt);
+#endif
 }
 
 static inline varray_type

@@ -989,14 +989,9 @@ struct tree_vec GTY(())
    the given label expression.  */
 #define LABEL_EXPR_LABEL(NODE)  TREE_OPERAND (LABEL_EXPR_CHECK (NODE), 0)
 
-/* VDEF_EXPR accessors.  VDEF_RESULT is the the new SSA_NAME created by the
-   VDEF operator.  VDEF_OP is its operand (the variable's previous SSA
-   name).  NUM_VDEFs is the number of virtual defintions stored in the
-   varray.  */
-#define VDEF_RESULT(VARRAY, INDEX)	VARRAY_TREE ((VARRAY), 2 * (INDEX))
-#define VDEF_OP(VARRAY, INDEX)	VARRAY_TREE ((VARRAY), (2 * (INDEX)) + 1)
-#define NUM_VDEFS(VARRAY)	(VARRAY_ACTIVE_SIZE ((VARRAY)) / 2)
-
+/* VDEF_EXPR accessors are specified in tree-flow.h, along with the other
+   accessors for SSA operands.  */
+   
 /* CATCH_EXPR accessors.  */
 #define CATCH_TYPES(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 0)
 #define CATCH_BODY(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 1)

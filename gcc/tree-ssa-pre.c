@@ -487,7 +487,7 @@ names_match_p (const tree t1, const tree t2)
 static inline tree
 maybe_find_rhs_use_for_var (tree def, tree var, unsigned int startpos)
 {
-  varray_type uses;
+  use_optype uses;
   size_t i;
 
   if (SSA_VAR_P (def))
@@ -497,14 +497,11 @@ maybe_find_rhs_use_for_var (tree def, tree var, unsigned int startpos)
       return NULL_TREE;
     }
   get_stmt_operands (def);
-  uses = use_ops (stmt_ann (def));
+  uses = STMT_USE_OPS (def);
 
-  if (!uses)
-    return NULL_TREE;
-  for (i = startpos; i < VARRAY_ACTIVE_SIZE (uses); i++)
+  for (i = startpos; i < NUM_USES (uses); i++)
     {
-      tree *usep = VARRAY_TREE_PTR (uses, i);
-      tree use = *usep;
+      tree use = USE_OP (uses, i);
       if (names_match_p (use, var))
 	return use;
     }
@@ -772,7 +769,8 @@ static bool
 expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 {
   size_t i, j;
-  varray_type uses;
+  vuse_optype vuses;
+  use_optype uses;
   bool retval = true;
 
   dfphis = BITMAP_XMALLOC ();
@@ -806,11 +804,10 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
       if (kill != NULL)
 	continue;
       get_stmt_operands (occurp);     
-      uses = use_ops (stmt_ann (occurp));
-      for (j = 0; uses && j < VARRAY_ACTIVE_SIZE (uses); j ++)
+      uses = STMT_USE_OPS (occurp);
+      for (j = 0; j < NUM_USES (uses); j ++)
 	{
-	  tree *usep = VARRAY_TREE_PTR (uses, j);
-	  tree use = *usep;
+	  tree use = USE_OP (uses, j);
 	  if (ei->strred_cand)
 	    use = factor_through_injuries (ei, use, SSA_NAME_VAR (use),
 					   NULL);
@@ -820,10 +817,10 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
 	}
       if (ei->loadpre_cand && TREE_CODE (ei->expr) == INDIRECT_REF)
 	{  
-	  uses = vuse_ops (stmt_ann (occurp));
-	  for (j = 0; uses && j < VARRAY_ACTIVE_SIZE (uses); j ++)
+	  vuses = STMT_VUSE_OPS (occurp);
+	  for (j = 0; j < NUM_VUSES (vuses); j ++)
 	    {
-	      tree use = VARRAY_TREE (uses, j);
+	      tree use = VUSE_OP (vuses, j);
 	      if (ei->strred_cand)
 		use = factor_through_injuries (ei, use, SSA_NAME_VAR (use),
 					       NULL);
@@ -1122,7 +1119,7 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
 {
   hashval_t expr1val;
   hashval_t expr2val;
-  varray_type ops;
+  vuse_optype vuses;
   size_t i;
   const tree t1 = EREF_STMT (def);
   const tree t2 = EREF_STMT (use);
@@ -1132,12 +1129,12 @@ same_e_version_real_occ_real_occ (struct expr_info *ei,
 
   if (expr1val == expr2val)
     {
-      ops = vuse_ops (stmt_ann (t1));
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-        expr1val = iterative_hash_expr (VARRAY_TREE (ops, i), expr1val);
-      ops = vuse_ops (stmt_ann (t2));
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-        expr2val = iterative_hash_expr (VARRAY_TREE (ops, i), expr2val);
+      vuses = STMT_VUSE_OPS (t1);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+        expr1val = iterative_hash_expr (VUSE_OP (vuses, i), expr1val);
+      vuses = STMT_VUSE_OPS (t2);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+        expr2val = iterative_hash_expr (VUSE_OP (vuses, i), expr2val);
       if (expr1val != expr2val)
         return false;
     }
@@ -1215,16 +1212,13 @@ opnum_of_phi (tree phi, int j)
 static void
 generate_expr_as_of_bb (tree expr, int j, basic_block bb)
 {
-  varray_type uses = use_ops (stmt_ann (expr));
+  use_optype uses = STMT_USE_OPS (expr);
   bool replaced_constants = false;
   size_t k;
 
-  if (!uses)
-    return;
-
-  for (k = 0; k < VARRAY_ACTIVE_SIZE (uses); k++)
+  for (k = 0; k < NUM_USES (uses); k++)
     {
-      tree *vp = VARRAY_TREE_PTR (uses, k);
+      tree *vp = USE_OP_PTR (uses, k);
       tree v = *vp;
       tree phi;
 
@@ -1255,15 +1249,12 @@ generate_expr_as_of_bb (tree expr, int j, basic_block bb)
 static void
 generate_vops_as_of_bb (tree expr, int j, basic_block bb)
 {
-  varray_type uses = vuse_ops (stmt_ann (expr));
+  vuse_optype vuses = STMT_VUSE_OPS (expr);
   size_t i;
 
-  if (!uses)
-    return;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
+  for (i = 0; i < NUM_VUSES (vuses); i++)
     {
-      tree v = VARRAY_TREE (uses, i);
+      tree v = VUSE_OP (vuses, i);
       tree phi;
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
@@ -1272,7 +1263,7 @@ generate_vops_as_of_bb (tree expr, int j, basic_block bb)
 	    {
 	      int opnum = opnum_of_phi (phi, j);
 	      tree p = PHI_ARG_DEF (phi, opnum);
-	      VARRAY_TREE (uses, i) = p;
+	      *VUSE_OP_PTR (vuses, i) = p;
 	      break;
 	    }
 	}
@@ -1285,7 +1276,6 @@ static tree
 subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
 {
   tree stmt_copy;
-  varray_type vuses_copy;
   size_t i;
 
   /* Return the cached version, if we have one. */
@@ -1307,26 +1297,24 @@ subst_phis (struct expr_info *ei, tree Z, basic_block j, basic_block bb)
   /* If we have vuses on the original statement, and we still have
      use_ops on the generated expr, we need to copy the vuses.  */
   if (ei->loadpre_cand
-      && vuse_ops (stmt_ann (Z)) 
-      && use_ops (stmt_ann (stmt_copy)))
+      && NUM_VUSES (STMT_VUSE_OPS (Z)) != 0
+      && NUM_USES (STMT_USE_OPS (stmt_copy)) != 0)
     {
-      varray_type vuses = vuse_ops (stmt_ann (Z));
-      stmt_ann_t ann = stmt_ann (stmt_copy);
-      VARRAY_TREE_INIT (vuses_copy, 1, "Use ops array generated by subst_phis");
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
-	VARRAY_PUSH_TREE (vuses_copy, VARRAY_TREE (vuses, i));
+      vuse_optype vuses = STMT_VUSE_OPS (Z);
 
-      if (ann->vops == NULL)
-	{
-	  ann->vops = ggc_alloc (sizeof (struct voperands_d));
-	  memset ((void *) ann->vops, 0, sizeof (*(ann->vops)));
-	}
-      ann->vops->vuse_ops = vuses_copy;
+      free_vuses (STMT_VUSE_OPS (stmt_copy));
+
+      start_ssa_stmt_operands (stmt_copy);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+        add_vuse (VUSE_OP (vuses, i), stmt_copy);
+      finalize_ssa_stmt_operands (stmt_copy);
+
       generate_vops_as_of_bb (stmt_copy, j->index, bb);
     }
   else
     {
-      stmt_ann (stmt_copy)->vops = NULL;
+      free_vuses (STMT_VUSE_OPS (stmt_copy));
+      free_vdefs (STMT_VDEF_OPS (stmt_copy));
     }
 
   if (j->index < n_phi_preds)
@@ -1372,7 +1360,7 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
 {
   hashval_t expr1val;
   hashval_t expr2val;
-  varray_type ops;
+  vuse_optype vuses;
   size_t i;
   
   if (TREE_CODE (def) == VA_ARG_EXPR)
@@ -1387,12 +1375,12 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
   
   if (expr1val == expr2val)
     {
-      ops = vuse_ops (stmt_ann (def));
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-        expr1val = iterative_hash_expr (VARRAY_TREE (ops, i), expr1val);
-      ops = vuse_ops (stmt_ann (use));
-      for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-        expr2val = iterative_hash_expr (VARRAY_TREE (ops, i), expr2val);
+      vuses = STMT_VUSE_OPS (def);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+        expr1val = iterative_hash_expr (VUSE_OP (vuses, i), expr1val);
+      vuses = STMT_VUSE_OPS (use);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+        expr2val = iterative_hash_expr (VUSE_OP (vuses, i), expr2val);
       if (expr1val != expr2val)
 	return false;
     }
@@ -1423,14 +1411,15 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
 {
   bool not_mod = true;
   size_t i;
-  varray_type cruses = use_ops (stmt_ann (cr));
+  use_optype real_cruses = STMT_USE_OPS (cr);
+  vuse_optype cruses;
 
-  if (!cruses)
+  if (NUM_USES (real_cruses) == 0)
     return false;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (cruses) && not_mod; i++)
+  for (i = 0; i < NUM_USES (real_cruses) && not_mod; i++)
     {
-      tree *use1p = VARRAY_TREE_PTR (cruses, i);
+      tree *use1p = USE_OP_PTR (real_cruses, i);
       tree use1;  
       if (!use1p)
 	continue;
@@ -1441,11 +1430,11 @@ bool same_e_version_phi_result (struct expr_info *ei, tree def, tree cr,
   
   if (not_mod && ei->loadpre_cand)
     {
-      cruses = vuse_ops (stmt_ann (cr));
+      cruses = STMT_VUSE_OPS (cr);
       
-      for (i = 0; cruses && i < VARRAY_ACTIVE_SIZE (cruses) && not_mod; i++)
+      for (i = 0; i < NUM_VUSES (cruses) && not_mod; i++)
 	{
-	  tree use1 = VARRAY_TREE (cruses, i);
+	  tree use1 = VUSE_OP (cruses, i);
 	  if (load_modified_phi_result (bb_for_stmt (def), use1))
 	    not_mod = false;
 	}
@@ -1899,7 +1888,7 @@ can_insert (tree ephi, int opnd_indx)
 static tree
 get_default_def (tree var, htab_t seen)
 {
-  varray_type defs;
+  def_optype defs;
   size_t i;
   tree defstmt = SSA_NAME_DEF_STMT (var);
 
@@ -1922,15 +1911,15 @@ get_default_def (tree var, htab_t seen)
     }
 
 
-  defs = def_ops (stmt_ann (defstmt));
-  for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+  defs = STMT_DEF_OPS (defstmt);
+  for (i = 0; i < NUM_DEFS (defs); i++)
     {
-      tree *def_p = VARRAY_TREE_PTR (defs, i);
-      if (SSA_NAME_VAR (*def_p) == SSA_NAME_VAR (var))
+      tree def = DEF_OP (defs, i);
+      if (SSA_NAME_VAR (def) == SSA_NAME_VAR (var))
 	{
-	  if (htab_find (seen, *def_p) != NULL)
+	  if (htab_find (seen, def) != NULL)
 	    return NULL;
-	  return get_default_def (*def_p, seen);
+	  return get_default_def (def, seen);
 	}
     }
 
@@ -1966,17 +1955,17 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
     {
       tree stmt = bsi_stmt (bsi);
       tree *def;
-      varray_type defs;
+      def_optype defs;
       size_t i;
 
       if (stmt == currstmt)
 	break;
 
       get_stmt_operands (stmt);
-      defs = def_ops (stmt_ann (stmt));
-      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+      defs = STMT_DEF_OPS (stmt);
+      for (i = 0; i < NUM_DEFS (defs); i++)
 	{
-	  def = VARRAY_TREE_PTR (defs, i);
+	  def = DEF_OP_PTR (defs, i);
 	  if (def && *def != ignore && names_match_p (var, *def))
 	    {
 	      curruse = *def;
@@ -2924,10 +2913,12 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 {
   size_t i, j, k;
   
-  varray_type defs, vdefs;
-  defs = def_ops (stmt_ann (expr));
-  vdefs = vdef_ops (stmt_ann (expr));
-  if (!defs && !vdefs)
+  vdef_optype vdefs;
+  vuse_optype vuses;
+  def_optype defs;
+  defs = STMT_DEF_OPS (expr);
+  vdefs = STMT_VDEF_OPS (expr);
+  if (NUM_DEFS (defs) == 0 && NUM_VDEFS (vdefs) == 0)
     return;
 
   for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
@@ -2942,9 +2933,9 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
       
       /* If we define the variable itself (IE a in *a, or a in a),
 	 it's a left occurrence.  */
-      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+      for (i = 0; i < NUM_DEFS (defs); i++)
 	{
-	  if (names_match_p (*VARRAY_TREE_PTR (defs, i), ei->expr))    
+	  if (names_match_p (DEF_OP (defs, i), ei->expr))    
 	    {
 	      VARRAY_PUSH_TREE (ei->lefts, expr);
 	      VARRAY_PUSH_TREE (ei->occurs, NULL);
@@ -2956,12 +2947,13 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 	 occurrence.  */
       random_occur = VARRAY_TREE (ei->occurs, 0);
       ann = stmt_ann (random_occur);
-      if (vuse_ops (ann))
+      vuses = VUSE_OPS (ann);
+      if (NUM_VDEFS (vdefs) != 0)
 	{
-	  for (k = 0; k < VARRAY_ACTIVE_SIZE (vuse_ops (ann)); k++)
+	  for (k = 0; k < NUM_VUSES (vuses); k++)
 	    {
-	      vuse_name = VARRAY_TREE (vuse_ops (ann), k );
-	      for (i = 0; vdefs && i < NUM_VDEFS (vdefs); i++)
+	      vuse_name = VUSE_OP (vuses, k);
+	      for (i = 0; i < NUM_VDEFS (vdefs); i++)
 		{
 		  if (names_match_p (VDEF_OP (vdefs, i), vuse_name))
 		    {
@@ -3117,7 +3109,7 @@ collect_expressions (basic_block block, varray_type *bexprsp)
       get_stmt_operands (expr);
       ann = stmt_ann (expr);
       
-      if (use_ops (ann) == NULL)
+      if (NUM_USES (USE_OPS (ann)) == 0)
 	{
 	  process_left_occs_and_kills (bexprs, expr);
 	  continue;

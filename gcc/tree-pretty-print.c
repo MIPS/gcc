@@ -2040,29 +2040,27 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc)
 {
   size_t i;
   stmt_ann_t ann = stmt_ann (stmt);
-  varray_type vdefs = vdef_ops (ann);
-  varray_type vuses = vuse_ops (ann);
+  vdef_optype vdefs = VDEF_OPS (ann);
+  vuse_optype vuses = VUSE_OPS (ann);
 
-  if (vdefs)
-    for (i = 0; i < NUM_VDEFS (vdefs); i++)
-      {
-	pp_string (buffer, "#   ");
-        dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, 0, false);
-	pp_string (buffer, " = VDEF <");
-	dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, 0, false);
-	pp_string (buffer, ">;");
-	newline_and_indent (buffer, spc);
-      }
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      pp_string (buffer, "#   ");
+      dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, 0, false);
+      pp_string (buffer, " = VDEF <");
+      dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, 0, false);
+      pp_string (buffer, ">;");
+      newline_and_indent (buffer, spc);
+    }
 
-  if (vuses)
-    for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
-      {
-	tree vuse = VARRAY_TREE (vuses, i);
-	pp_string (buffer, "#   VUSE <");
-	dump_generic_node (buffer, vuse, spc + 2, 0, false);
-	pp_string (buffer, ">;");
-	newline_and_indent (buffer, spc);
-      }
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    {
+      tree vuse = VUSE_OP (vuses, i);
+      pp_string (buffer, "#   VUSE <");
+      dump_generic_node (buffer, vuse, spc + 2, 0, false);
+      pp_string (buffer, ">;");
+      newline_and_indent (buffer, spc);
+    }
 }
 
 /* Dumps basic block BB to FILE with details described by FLAGS and

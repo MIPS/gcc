@@ -27,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "hashtab.h"
 #include "tree-simple.h"
+#include "tree-ssa-operands.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -151,30 +152,6 @@ struct var_ann_d GTY(())
 };
 
 
-struct operands_d GTY(())
-{
-  /* LHS of assignment statements.  */
-  varray_type def_ops;
-
-  /* Array of pointers to each operand in the statement.  */
-  varray_type use_ops;
-};
-
-typedef struct operands_d *operands_t;
-
-
-struct voperands_d GTY(())
-{
-  /* List of VDEF references in this statement.  */
-  varray_type vdef_ops;
-
-  /* List of VUSE references in this statement.  */
-  varray_type vuse_ops;
-};
-
-typedef struct voperands_d *voperands_t;
-
-
 struct dataflow_d GTY(())
 {
   /* Immediate uses.  This is a list of all the statements and PHI nodes
@@ -243,10 +220,10 @@ struct stmt_ann_d GTY(())
   basic_block GTY ((skip (""))) bb;
 
   /* Statement operands.  */
-  operands_t ops;
+  struct operands_d * GTY (()) ops;
 
   /* Virtual operands (VDEF and VUSE).  */
-  voperands_t vops;
+  struct voperands_d * GTY (()) vops;
 
   /* Dataflow information.  */
   dataflow_t df;
@@ -286,10 +263,10 @@ static inline int get_lineno (tree);
 static inline const char *get_filename (tree);
 static inline bool is_exec_stmt (tree);
 static inline bool is_label_stmt (tree);
-static inline varray_type vdef_ops (stmt_ann_t);
-static inline varray_type vuse_ops (stmt_ann_t);
-static inline varray_type use_ops (stmt_ann_t);
-static inline varray_type def_ops (stmt_ann_t);
+static inline vdef_optype get_vdef_ops (stmt_ann_t);
+static inline vuse_optype get_vuse_ops (stmt_ann_t);
+static inline use_optype get_use_ops (stmt_ann_t);
+static inline def_optype get_def_ops (stmt_ann_t);
 static inline varray_type addresses_taken (tree);
 static inline int num_immediate_uses (dataflow_t);
 static inline tree immediate_use (dataflow_t, int);
@@ -455,7 +432,6 @@ extern void dump_generic_bb (FILE *, basic_block, int, int);
 
 /* In tree-dfa.c  */
 void find_referenced_vars (tree);
-extern void get_stmt_operands (tree);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
 extern tree create_phi_node (tree, basic_block);
@@ -485,7 +461,6 @@ extern void compute_reaching_defs (int);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern tree get_virtual_var (tree);
-extern void add_vuse (tree, tree, voperands_t);
 extern void create_global_var (void);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);

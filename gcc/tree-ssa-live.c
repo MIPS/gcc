@@ -323,7 +323,10 @@ create_ssa_var_map (int flags)
   tree *dest, *use;
   tree stmt;
   stmt_ann_t ann;
-  varray_type ops;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  use_optype uses;
+  def_optype defs;
   unsigned x;
   var_map map;
 #if defined ENABLE_CHECKING
@@ -370,20 +373,20 @@ create_ssa_var_map (int flags)
 	  ann = stmt_ann (stmt);
 
 	  /* Register USE and DEF operands in each statement.  */
-	  ops = use_ops (ann);
-	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	  uses = USE_OPS (ann);
+	  for (x = 0; x < NUM_USES (uses); x++)
 	    {
-	      use = VARRAY_TREE_PTR (ops, x);
+	      use = USE_OP_PTR (uses, x);
 	      register_ssa_partition (map, *use, true);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*use))->uid);
 #endif
 	    }
 
-	  ops = def_ops (ann);
-	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	  defs = DEF_OPS (ann);
+	  for (x = 0; x < NUM_DEFS (defs); x++)
 	    {
-	      dest = VARRAY_TREE_PTR (ops, x);
+	      dest = DEF_OP_PTR (defs, x);
 	      register_ssa_partition (map, *dest, false);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (*dest))->uid);
@@ -393,20 +396,20 @@ create_ssa_var_map (int flags)
 	  /* While we do not care about virtual operands for
 	     out of SSA, we do need to look at them to make sure
 	     we mark all the variables which are used.  */
-	  ops = vuse_ops (ann);
-	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	  vuses = VUSE_OPS (ann);
+	  for (x = 0; x < NUM_VUSES (vuses); x++)
 	    {
-	      tree var = VARRAY_TREE (ops, x);
+	      tree var = VUSE_OP (vuses, x);
 	      set_is_used (var);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
 #endif
 	    }
 
-	  ops = vdef_ops (ann);
-	  for (x = 0; ops && x < NUM_VDEFS (ops); x++)
+	  vdefs = VDEF_OPS (ann);
+	  for (x = 0; x < NUM_VDEFS (vdefs); x++)
 	    {
-	      tree var = VDEF_OP (ops, x);
+	      tree var = VDEF_OP (vdefs, x);
 	      set_is_used (var);
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
@@ -568,7 +571,10 @@ calculate_live_on_entry (var_map map)
   edge e;
   varray_type stack;
   block_stmt_iterator bsi;
-  varray_type ops;
+  vuse_optype vuses;
+  vdef_optype vdefs;
+  use_optype uses;
+  def_optype defs;
   stmt_ann_t ann;
 
   saw_def = BITMAP_XMALLOC ();
@@ -615,43 +621,42 @@ calculate_live_on_entry (var_map map)
 	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
 
-	  ops = use_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  uses = USE_OPS (ann);
+	  num = NUM_USES (uses);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_TREE_PTR (ops, i);
+	      vec = USE_OP_PTR (uses, i);
 	      add_livein_if_notdef (live, saw_def, *vec, bb);
 	    }
 
-	  ops = vuse_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  vuses = VUSE_OPS (ann);
+	  num = NUM_VUSES (vuses);
 	  for (i = 0; i < num; i++)
 	    {
-	      var = VARRAY_TREE (ops, i);
+	      var = VUSE_OP (vuses, i);
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
-	  ops = vdef_ops (ann);
-	  num = (ops ? NUM_VDEFS (ops) : 0);
+	  vdefs = VDEF_OPS (ann);
+	  num = NUM_VDEFS (vdefs);
 	  for (i = 0; i < num; i++)
 	    {
-	      var = VDEF_OP (ops, i);
+	      var = VDEF_OP (vdefs, i);
 	      add_livein_if_notdef (live, saw_def, var, bb);
 	    }
 
-	  ops = def_ops (ann);
-	  num = (ops ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	  defs = DEF_OPS (ann);
+	  num = NUM_DEFS (defs);
 	  for (i = 0; i < num; i++)
 	    {
-	      vec = VARRAY_TREE_PTR (ops, i);
+	      vec = DEF_OP_PTR (defs, i);
 	      set_if_valid (map, saw_def, *vec);
 	    }
 
-	  ops = vdef_ops (ann);
-	  num = (ops ? NUM_VDEFS (ops) : 0);
+	  num = NUM_VDEFS (vdefs);
 	  for (i = 0; i < num; i++)
 	    {
-	      var = VDEF_RESULT (ops, i);
+	      var = VDEF_RESULT (vdefs, i);
 	      set_if_valid (map, saw_def, var);
 	    }
 	}
@@ -1323,7 +1328,9 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   bitmap live;
   int num, x, y, i;
   basic_block bb;
-  varray_type ops, partition_link, tpa_to_clear, tpa_nodes;
+  varray_type partition_link, tpa_to_clear, tpa_nodes;
+  def_optype defs;
+  use_optype uses;
   unsigned l;
 
   map = live_var_map (liveinfo);
@@ -1402,19 +1409,19 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	    {
 	      tree *var_p;
 
-	      ops = def_ops (ann);
-	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	      defs = DEF_OPS (ann);
+	      num = NUM_DEFS (defs);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_TREE_PTR (ops, x);
+		  var_p = DEF_OP_PTR (defs, x);
 		  add_conflicts_if_valid (tpa, graph, map, live, *var_p);
 		}
 
-	      ops = use_ops (ann);
-	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	      uses = USE_OPS (ann);
+	      num = NUM_USES (uses);
 	      for (x = 0; x < num; x++)
 		{
-		  var_p = VARRAY_TREE_PTR (ops, x);
+		  var_p = USE_OP_PTR (uses, x);
 		  set_if_valid (map, live, *var_p);
 		}
 	    }
@@ -1774,22 +1781,22 @@ register_ssa_partitions_for_vars (bitmap vars, var_map map)
 	  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
 	    {
 	      stmt_ann_t ann = stmt_ann (bsi_stmt (bsi));
-	      varray_type uses = use_ops (ann);
-	      varray_type defs = def_ops (ann);
+	      use_optype uses = USE_OPS (ann);
+	      def_optype defs = DEF_OPS (ann);
 	      unsigned int i;
 
-	      for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+	      for (i = 0; i < NUM_USES (uses); i++)
 		{
-		  tree op = *VARRAY_TREE_PTR (uses, i);
+		  tree op = USE_OP (uses, i);
 
 		  if (TREE_CODE (op) == SSA_NAME
 		      && bitmap_bit_p (vars, var_ann (SSA_NAME_VAR (op))->uid))
 		    register_ssa_partition (map, op, 1);
 		}
 		    
-	      for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
+	      for (i = 0; i < NUM_DEFS (defs); i++)
 		{
-		  tree op = *VARRAY_TREE_PTR (defs, i);
+		  tree op = DEF_OP (defs, i);
 
 		  if (TREE_CODE (op) == SSA_NAME
 			  && bitmap_bit_p (vars,
