@@ -9145,7 +9145,7 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
 	  && (TREE_CODE (TREE_OPERAND (op0, 0)) == ADDR_EXPR
 	      || (TREE_CODE (TREE_OPERAND (op0, 0)) == NOP_EXPR
 		  && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (op0, 0), 0))
-		      == NOP_EXPR)))
+		      == ADDR_EXPR)))
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{
           return build (PLUS_EXPR, type, TREE_OPERAND (op0, 0),
