@@ -910,8 +910,7 @@ default_function_array_conversion (exp)
 	}
 
       lvalue_array_p = !not_lvalue && lvalue_p (exp);
-      if (!flag_isoc99 && !lvalue_array_p
-	  && !(TREE_CODE (exp) == CONSTRUCTOR && TREE_STATIC (exp)))
+      if (!flag_isoc99 && !lvalue_array_p)
 	{
 	  /* Before C99, non-lvalue arrays do not decay to pointers.
 	     Normally, using such an array would be invalid; but it can
@@ -3141,10 +3140,6 @@ build_unary_op (code, xarg, flag)
 	}
 #endif
 
-      /* Allow the address of a constructor if all the elements
-	 are constant.  */
-      if (TREE_CODE (arg) == CONSTRUCTOR && TREE_CONSTANT (arg))
-	;
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
       else if (typecode != FUNCTION_TYPE && !flag
@@ -3256,6 +3251,7 @@ lvalue_p (ref)
     case COMPONENT_REF:
       return lvalue_p (TREE_OPERAND (ref, 0));
 
+    case COMPOUND_LITERAL_EXPR:
     case STRING_CST:
       return 1;
 
@@ -3411,6 +3407,7 @@ mark_addressable (exp)
 	x = TREE_OPERAND (x, 0);
 	break;
 
+      case COMPOUND_LITERAL_EXPR:
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (x) = 1;
 	return 1;
@@ -4704,7 +4701,7 @@ digest_init (type, init, require_constant, constructor_constant)
 
   if (type == error_mark_node
       || init == error_mark_node
-      || TREE_TYPE (init)  == error_mark_node)
+      || TREE_TYPE (init) == error_mark_node)
     return error_mark_node;
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
@@ -4783,8 +4780,19 @@ digest_init (type, init, require_constant, constructor_constant)
     {
       if (code == POINTER_TYPE)
 	inside_init = default_function_array_conversion (inside_init);
-      else if (code == ARRAY_TYPE && TREE_CODE (inside_init) != STRING_CST
-	       && TREE_CODE (inside_init) != CONSTRUCTOR)
+
+      if (require_constant && !flag_isoc99
+	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
+	{
+	  /* As an extension, allow initializing objects with static storage
+	     duration with compound literals (which are then treated just as
+	     the brace enclosed list they contain).  */
+	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
+	  inside_init = DECL_INITIAL (decl);
+	}
+
+      if (code == ARRAY_TYPE && TREE_CODE (inside_init) != STRING_CST
+	  && TREE_CODE (inside_init) != CONSTRUCTOR)
 	{
 	  error_init ("array initialized from non-constant array expression");
 	  return error_mark_node;
@@ -5259,6 +5267,13 @@ really_start_incremental_init (type)
 	      && TYPE_SIZE (constructor_type))
 	    constructor_max_index = build_int_2 (-1, -1);
 
+	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
+	     to initialize VLAs will cause an proper error; avoid tree
+	     checking errors as well by setting a safe value.  */
+	  if (constructor_max_index
+	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
+	    constructor_max_index = build_int_2 (-1, -1);
+
 	  constructor_index
 	    = convert (bitsizetype,
 		       TYPE_MIN_VALUE (TYPE_DOMAIN (constructor_type)));
@@ -5424,6 +5439,13 @@ push_init_level (implicit)
 	  /* Detect non-empty initializations of zero-length arrays.  */
 	  if (constructor_max_index == NULL_TREE
 	      && TYPE_SIZE (constructor_type))
+	    constructor_max_index = build_int_2 (-1, -1);
+
+	  /* constructor_max_index needs to be an INTEGER_CST.  Attempts
+	     to initialize VLAs will cause an proper error; avoid tree
+	     checking errors as well by setting a safe value.  */
+	  if (constructor_max_index
+	      && TREE_CODE (constructor_max_index) != INTEGER_CST)
 	    constructor_max_index = build_int_2 (-1, -1);
 
 	  constructor_index
@@ -6256,6 +6278,8 @@ output_init_element (value, type, field, pending)
 		  || TREE_CHAIN (field)))))
     return;
 
+  value = digest_init (type, value, require_constant_value,
+		       require_constant_elements);
   if (value == error_mark_node)
     {
       constructor_erroneous = 1;
@@ -6272,9 +6296,7 @@ output_init_element (value, type, field, pending)
 	  && tree_int_cst_lt (field, constructor_unfilled_index))
 	set_nonincremental_init ();
 
-      add_pending_init (field,
-			digest_init (type, value, require_constant_value, 
-				     require_constant_elements));
+      add_pending_init (field, value);
       return;
     }
   else if (TREE_CODE (constructor_type) == RECORD_TYPE
@@ -6300,9 +6322,7 @@ output_init_element (value, type, field, pending)
 	    }
 	}
 
-      add_pending_init (field,
-			digest_init (type, value, require_constant_value, 
-				     require_constant_elements));
+      add_pending_init (field, value);
       return;
     }
   else if (TREE_CODE (constructor_type) == UNION_TYPE
@@ -6321,10 +6341,7 @@ output_init_element (value, type, field, pending)
   if (field && TREE_CODE (field) == INTEGER_CST)
     field = copy_node (field);
   constructor_elements
-    = tree_cons (field, digest_init (type, value,
-				     require_constant_value, 
-				     require_constant_elements),
-		 constructor_elements);
+    = tree_cons (field, value, constructor_elements);
 
   /* Advance the variable that indicates sequential elements output.  */
   if (TREE_CODE (constructor_type) == ARRAY_TYPE)

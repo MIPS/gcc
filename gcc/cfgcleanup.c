@@ -72,6 +72,7 @@ static int flow_find_cross_jump		PARAMS ((int, basic_block, basic_block,
 static bool insns_match_p		PARAMS ((int, rtx, rtx));
 
 static bool delete_unreachable_blocks	PARAMS ((void));
+static bool label_is_jump_target_p	PARAMS ((rtx, rtx));
 static bool tail_recursion_label_p	PARAMS ((rtx));
 static void merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
 							  basic_block));
@@ -480,6 +481,38 @@ try_forward_edges (mode, b)
   return changed;
 }
 
+/* Return true if LABEL is a target of JUMP_INSN.  This applies only
+   to non-complex jumps.  That is, direct unconditional, conditional,
+   and tablejumps, but not computed jumps or returns.  It also does
+   not apply to the fallthru case of a conditional jump.  */
+
+static bool
+label_is_jump_target_p (label, jump_insn)
+     rtx label, jump_insn;
+{
+  rtx tmp = JUMP_LABEL (jump_insn);
+
+  if (label == tmp)
+    return true;
+
+  if (tmp != NULL_RTX
+      && (tmp = NEXT_INSN (tmp)) != NULL_RTX
+      && GET_CODE (tmp) == JUMP_INSN
+      && (tmp = PATTERN (tmp),
+	  GET_CODE (tmp) == ADDR_VEC
+	  || GET_CODE (tmp) == ADDR_DIFF_VEC))
+    {
+      rtvec vec = XVEC (tmp, GET_CODE (tmp) == ADDR_DIFF_VEC);
+      int i, veclen = GET_NUM_ELEM (vec);
+
+      for (i = 0; i < veclen; ++i)
+	if (XEXP (RTVEC_ELT (vec, i), 0) == label)
+	  return true;
+    }
+
+  return false;
+}
+
 /* Return true if LABEL is used for tail recursion.  */
 
 static bool
@@ -926,8 +959,8 @@ outgoing_edges_match (mode, bb1, bb2)
      basic_block bb1;
      basic_block bb2;
 {
-  int nehedges1, nehedges2;
-  edge fallthru1, fallthru2;
+  int nehedges1 = 0, nehedges2 = 0;
+  edge fallthru1 = 0, fallthru2 = 0;
   edge e1, e2;
 
   /* If BB1 has only one successor, we must be looking at an unconditional
@@ -1418,10 +1451,14 @@ try_optimize_cfg (mode)
 	      && GET_CODE (b->head) == CODE_LABEL
 	      && (!(mode & CLEANUP_PRE_SIBCALL)
 		  || !tail_recursion_label_p (b->head))
-	      /* If previous block ends with condjump jumping to next BB,
-	         we can't delete the label.  */
+	      /* If the previous block ends with a branch to this block,
+		 we can't delete the label.  Normally this is a condjump
+		 that is yet to be simplified, but if CASE_DROPS_THRU,
+		 this can be a tablejump with some element going to the
+		 same place as the default (fallthru).  */
 	      && (b->pred->src == ENTRY_BLOCK_PTR
-		  || !reg_mentioned_p (b->head, b->pred->src->end)))
+		  || GET_CODE (b->pred->src->end) != JUMP_INSN
+		  || ! label_is_jump_target_p (b->head, b->pred->src->end)))
 	    {
 	      rtx label = b->head;
 	      b->head = NEXT_INSN (b->head);

@@ -816,7 +816,7 @@ to their own specific data.
 
 If a target needs per-function specific data it should define the type
 @code{struct machine_function} and also the macro
-@code{INIT_EXPANDERS}.  This macro should be used to initialise some or
+@code{INIT_EXPANDERS}.  This macro should be used to initialize some or
 all of the function pointers @code{init_machine_status},
 @code{free_machine_status} and @code{mark_machine_status}.  These
 pointers are explained below.
@@ -841,9 +841,9 @@ The macro and function pointers are described below.
 @table @code
 @findex INIT_EXPANDERS
 @item   INIT_EXPANDERS
-Macro called to initialise any target specific information.  This macro
+Macro called to initialize any target specific information.  This macro
 is called once per function, before generation of any RTL has begun.
-The intention of this macro is to allow the initialisation of the
+The intention of this macro is to allow the initialization of the
 function pointers below.
 
 @findex init_machine_status
@@ -851,8 +851,8 @@ function pointers below.
 This is a @code{void (*)(struct function *)} function pointer.  If this
 pointer is non-@code{NULL} it will be called once per function, before function
 compilation starts, in order to allow the target to perform any target
-specific initialisation of the @code{struct function} structure.  It is
-intended that this would be used to initialise the @code{machine} of
+specific initialization of the @code{struct function} structure.  It is
+intended that this would be used to initialize the @code{machine} of
 that structure.
 
 @findex free_machine_status
@@ -1070,7 +1070,7 @@ by the @code{__attribute__ ((aligned (@var{n})))} construct.
 An expression for the alignment of a structure field @var{field} if the
 alignment computed in the usual way is @var{computed}.  GCC uses
 this value instead of the value in @code{BIGGEST_ALIGNMENT} or
-@code{BIGGEST_FIELD_ALIGNMENT}, if defined, for structure fields only.
+@code{BIGGEST_FIELD_ALIGNMENT}, if defined.
 
 @findex MAX_OFILE_ALIGNMENT
 @item MAX_OFILE_ALIGNMENT
@@ -1371,6 +1371,14 @@ unit.)
 @item LONG_TYPE_SIZE
 A C expression for the size in bits of the type @code{long} on the
 target machine.  If you don't define this, the default is one word.
+
+@findex ADA_LONG_TYPE_SIZE
+@item ADA_LONG_TYPE_SIZE
+On some machines, the size used for the Ada equivalent of the type
+@code{long} by a native Ada compiler differs from that used by C.  In
+that situation, define this macro to be a C expression to be used for
+the size of that type.  If you don't define this, the default is the
+value of @code{LONG_TYPE_SIZE}.
 
 @findex MAX_LONG_TYPE_SIZE
 @item MAX_LONG_TYPE_SIZE
@@ -3003,6 +3011,33 @@ macros and should be used to refer to those items.
 
 If the static chain is passed in a register, the two previous macros should
 be defined instead.
+
+@findex DWARF_FRAME_REGISTERS
+@item DWARF_FRAME_REGISTERS
+This macro specifies the maximum number of hard registers that can be
+saved in a call frame.  This is used to size data structures used in
+DWARF2 exception handling.
+
+Prior to GCC 3.0, this macro was needed in order to establish a stable
+exception handling ABI in the face of adding new hard registers for ISA
+extensions.  In GCC 3.0 and later, the EH ABI is insulated from changes
+in the number of hard registers.  Nevertheless, this macro can still be
+used to reduce the runtime memory requirements of the exception handling
+routines, which can be substantial if the ISA contains a lot of
+registers that are not call-saved.
+
+If this macro is not defined, it defaults to
+@code{FIRST_PSEUDO_REGISTER}.
+
+@findex PRE_GCC3_DWARF_FRAME_REGISTERS
+@item PRE_GCC3_DWARF_FRAME_REGISTERS
+
+This macro is similar to @code{DWARF_FRAME_REGISTERS}, but is provided
+for backward compatibility in pre GCC 3.0 compiled code.
+
+If this macro is not defined, it defaults to
+@code{DWARF_FRAME_REGISTERS}.
+
 @end table
 
 @node Elimination
@@ -3399,6 +3434,14 @@ nonzero, the caller does not make a copy.  Instead, it passes a pointer to the
 ``live'' value.  The called function must not modify this value.  If it can be
 determined that the value won't be modified, it need not make a copy;
 otherwise a copy must be made.
+
+@findex FUNCTION_ARG_REG_LITTLE_ENDIAN
+@item FUNCTION_ARG_REG_LITTLE_ENDIAN
+If defined TRUE on a big-endian system then structure arguments passed
+(and returned) in registers are passed in a little-endian manner instead of
+the big-endian manner.  On the HP-UX IA64 and PA64 platforms structures are
+aligned differently then integral values and setting this value to true will
+allow for the special handling of structure arguments and return values.
 
 @findex CUMULATIVE_ARGS
 @item CUMULATIVE_ARGS
@@ -4031,175 +4074,6 @@ must not use the @var{labelno} argument to @code{FUNCTION_PROFILER}.
 Define this macro if the code for function profiling should come before
 the function prologue.  Normally, the profiling code comes after.
 
-@findex FUNCTION_BLOCK_PROFILER
-@vindex profile_block_flag
-@item FUNCTION_BLOCK_PROFILER (@var{file}, @var{labelno})
-A C statement or compound statement to output to @var{file} some
-assembler code to initialize basic-block profiling for the current
-object module.  The global compile flag @code{profile_block_flag}
-distinguishes two profile modes.
-
-@table @code
-@findex __bb_init_func
-@item profile_block_flag != 2
-Output code to call the subroutine @code{__bb_init_func} once per
-object module, passing it as its sole argument the address of a block
-allocated in the object module.
-
-The name of the block is a local symbol made with this statement:
-
-@smallexample
-ASM_GENERATE_INTERNAL_LABEL (@var{buffer}, "LPBX", 0);
-@end smallexample
-
-Of course, since you are writing the definition of
-@code{ASM_GENERATE_INTERNAL_LABEL} as well as that of this macro, you
-can take a short cut in the definition of this macro and use the name
-that you know will result.
-
-The first word of this block is a flag which will be nonzero if the
-object module has already been initialized.  So test this word first,
-and do not call @code{__bb_init_func} if the flag is
-nonzero.  @var{labelno} contains a unique number which may be used to
-generate a label as a branch destination when @code{__bb_init_func}
-will not be called.
-
-Described in assembler language, the code to be output looks like:
-
-@example
-  cmp (LPBX0),0
-  bne local_label
-  parameter1 <- LPBX0
-  call __bb_init_func
-local_label:
-@end example
-
-@findex __bb_init_trace_func
-@item profile_block_flag == 2
-Output code to call the subroutine @code{__bb_init_trace_func}
-and pass two parameters to it.  The first parameter is the same as
-for @code{__bb_init_func}.  The second parameter is the number of the
-first basic block of the function as given by @var{labelno}.  Note
-that @code{__bb_init_trace_func} has to be called, even if the object
-module has been initialized already.
-
-Described in assembler language, the code to be output looks like:
-@example
-parameter1 <- LPBX0
-parameter2 <- @var{labelno}
-call __bb_init_trace_func
-@end example
-@end table
-
-@findex BLOCK_PROFILER
-@vindex profile_block_flag
-@item BLOCK_PROFILER (@var{file}, @var{blockno})
-A C statement or compound statement to output to @var{file} some
-assembler code to increment the count associated with the basic
-block number @var{blockno}.  The global compile flag
-@code{profile_block_flag} distinguishes two profile modes.
-
-@table @code
-@item profile_block_flag != 2
-Output code to increment the counter directly.  Basic blocks are
-numbered separately from zero within each compilation.  The count
-associated with block number @var{blockno} is at index
-@var{blockno} in a vector of words; the name of this array is a local
-symbol made with this statement:
-
-@smallexample
-ASM_GENERATE_INTERNAL_LABEL (@var{buffer}, "LPBX", 2);
-@end smallexample
-
-@c This paragraph is the same as one a few paragraphs up.
-@c That is not an error.
-Of course, since you are writing the definition of
-@code{ASM_GENERATE_INTERNAL_LABEL} as well as that of this macro, you
-can take a short cut in the definition of this macro and use the name
-that you know will result.
-
-Described in assembler language, the code to be output looks like:
-
-@smallexample
-inc (LPBX2+4*@var{blockno})
-@end smallexample
-
-@vindex __bb
-@findex __bb_trace_func
-@item profile_block_flag == 2
-Output code to initialize the global structure @code{__bb} and
-call the function @code{__bb_trace_func}, which will increment the
-counter.
-
-@code{__bb} consists of two words.  In the first word, the current
-basic block number, as given by @var{blockno}, has to be stored.  In
-the second word, the address of a block allocated in the object
-module has to be stored.  The address is given by the label created
-with this statement:
-
-@smallexample
-ASM_GENERATE_INTERNAL_LABEL (@var{buffer}, "LPBX", 0);
-@end smallexample
-
-Described in assembler language, the code to be output looks like:
-@example
-move @var{blockno} -> (__bb)
-move LPBX0 -> (__bb+4)
-call __bb_trace_func
-@end example
-@end table
-
-@findex FUNCTION_BLOCK_PROFILER_EXIT
-@findex __bb_trace_ret
-@vindex profile_block_flag
-@item FUNCTION_BLOCK_PROFILER_EXIT (@var{file})
-A C statement or compound statement to output to @var{file} assembler
-code to call function @code{__bb_trace_ret}.  The assembler code should
-only be output if the global compile flag @code{profile_block_flag} ==
-2.  This macro has to be used at every place where code for returning
-from a function is generated (e.g.@:
-@code{TARGET_ASM_FUNCTION_EPILOGUE}).  Although you have to write the
-definition of @code{TARGET_ASM_FUNCTION_EPILOGUE} as well, you have to
-define this macro to tell the compiler, that the proper call to
-@code{__bb_trace_ret} is produced.
-
-@findex MACHINE_STATE_SAVE
-@findex __bb_init_trace_func
-@findex __bb_trace_func
-@findex __bb_trace_ret
-@item MACHINE_STATE_SAVE (@var{id})
-A C statement or compound statement to save all registers, which may
-be clobbered by a function call, including condition codes.  The
-@code{asm} statement will be mostly likely needed to handle this
-task.  Local labels in the assembler code can be concatenated with the
-string @var{id}, to obtain a unique label name.
-
-Registers or condition codes clobbered by
-@code{TARGET_ASM_FUNCTION_PROLOGUE} or
-@code{TARGET_ASM_FUNCTION_EPILOGUE} must be saved in the macros
-@code{FUNCTION_BLOCK_PROFILER}, @code{FUNCTION_BLOCK_PROFILER_EXIT} and
-@code{BLOCK_PROFILER} prior calling @code{__bb_init_trace_func},
-@code{__bb_trace_ret} and @code{__bb_trace_func} respectively.
-
-@findex MACHINE_STATE_RESTORE
-@findex __bb_init_trace_func
-@findex __bb_trace_func
-@findex __bb_trace_ret
-@item MACHINE_STATE_RESTORE (@var{id})
-A C statement or compound statement to restore all registers, including
-condition codes, saved by @code{MACHINE_STATE_SAVE}.
-
-Registers or condition codes clobbered by
-@code{TARGET_ASM_FUNCTION_PROLOGUE} or
-@code{TARGET_ASM_FUNCTION_EPILOGUE} must be restored in the macros
-@code{FUNCTION_BLOCK_PROFILER}, @code{FUNCTION_BLOCK_PROFILER_EXIT} and
-@code{BLOCK_PROFILER} after calling @code{__bb_init_trace_func},
-@code{__bb_trace_ret} and @code{__bb_trace_func} respectively.
-
-@findex BLOCK_PROFILER_CODE
-@item BLOCK_PROFILER_CODE
-A C function or functions which are needed in the library to
-support block profiling.
 
 @findex TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
 @item TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
@@ -5725,8 +5599,8 @@ A C statement to build up a unique section name, expressed as a
 @var{reloc} indicates whether the initial value of @var{exp} requires
 link-time relocations.  If you do not define this macro, GCC will use
 the symbol name prefixed by @samp{.} as the section name.  Note - this
-macro can now be called for uninitialised data items as well as
-initialised data and functions.
+macro can now be called for uninitialized data items as well as
+initialized data and functions.
 @end table
 
 @node PIC
@@ -6764,6 +6638,24 @@ the following symbol is an initialization routine.
 If defined, a C string constant for a switch that tells the linker that
 the following symbol is a finalization routine.
 
+@item COLLECT_SHARED_INIT_FUNC (@var{stream}, @var{func})
+If defined, a C statement that will write a function that can be
+automatically called when a shared library is loaded.  The function
+should call @var{func}, which takes no arguments.  If not defined, and
+the object format requires an explicit initialization function, then a
+function called @code{_GLOBAL__DI} will be generated.
+
+This function and the following one are used by collect2 when linking a
+shared library that needs constructors or destructors, or has DWARF2 
+exception tables embedded in the code.
+
+@item COLLECT_SHARED_FINI_FUNC (@var{stream}, @var{func})
+If defined, a C statement that will write a function that can be
+automatically called when a shared library is unloaded.  The function
+should call @var{func}, which takes no arguments.  If not defined, and
+the object format requires an explicit finalization function, then a
+function called @code{_GLOBAL__DD} will be generated.
+
 @item INVOKE__main
 @findex INVOKE__main
 If defined, @code{main} will call @code{__main} despite the presence of
@@ -7271,7 +7163,7 @@ define the macro.
 
 Unless it's necessary to inspect the @var{label} parameter, it is better
 to set the variable @var{align_jumps} in the target's
-@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honour the user's
+@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honor the user's
 selection in @var{align_jumps} in a @code{JUMP_ALIGN} implementation.
 
 @findex LABEL_ALIGN_AFTER_BARRIER
@@ -7300,7 +7192,7 @@ define the macro.
 
 Unless it's necessary to inspect the @var{label} parameter, it is better
 to set the variable @code{align_loops} in the target's
-@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honour the user's
+@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honor the user's
 selection in @code{align_loops} in a @code{LOOP_ALIGN} implementation.
 
 @findex LOOP_ALIGN_MAX_SKIP
@@ -7316,7 +7208,7 @@ the maximum of the specified values is used.
 
 Unless it's necessary to inspect the @var{label} parameter, it is better
 to set the variable @code{align_labels} in the target's
-@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honour the user's
+@code{OVERRIDE_OPTIONS}.  Otherwise, you should try to honor the user's
 selection in @code{align_labels} in a @code{LABEL_ALIGN} implementation.
 
 @findex LABEL_ALIGN_MAX_SKIP
@@ -7367,6 +7259,7 @@ This describes how to specify debugging information.
 * DBX Hooks::          Hook macros for varying DBX format.
 * File Names and DBX:: Macros controlling output of file names in DBX format.
 * SDB and DWARF::      Macros for SDB (COFF) and DWARF formats.
+* VMS Debug::          Macros for VMS debug format.
 @end menu
 
 @node All Debuggers
@@ -7417,8 +7310,8 @@ A C expression that returns the type of debugging output GCC should
 produce when the user specifies just @option{-g}.  Define
 this if you have arranged for GCC to support more than one format of
 debugging output.  Currently, the allowable values are @code{DBX_DEBUG},
-@code{SDB_DEBUG}, @code{DWARF_DEBUG}, @code{DWARF2_DEBUG}, and
-@code{XCOFF_DEBUG}.
+@code{SDB_DEBUG}, @code{DWARF_DEBUG}, @code{DWARF2_DEBUG},
+@code{XCOFF_DEBUG}, @code{VMS_DEBUG}, and @code{VMS_AND_DWARF2_DEBUG}.
 
 When the user specifies @option{-ggdb}, GCC normally also uses the
 value of this macro to select the debugging output format, but with two
@@ -7429,7 +7322,8 @@ defined, GCC uses @code{DBX_DEBUG}.
 
 The value of this macro only affects the default debugging output; the
 user can always get a specific type of output by using @option{-gstabs},
-@option{-gcoff}, @option{-gdwarf-1}, @option{-gdwarf-2}, or @option{-gxcoff}.
+@option{-gcoff}, @option{-gdwarf-1}, @option{-gdwarf-2}, @option{-gxcoff},
+or @option{-gvms}.
 @end table
 
 @node DBX Options
@@ -7817,6 +7711,24 @@ it.
 Define this macro to allow references to structure, union, or
 enumeration tags that have not yet been seen to be handled.  Some
 assemblers choke if forward tags are used, while some require it.
+@end table
+
+@need 2000
+@node VMS Debug
+@subsection Macros for VMS Debug Format
+
+@c prevent bad page break with this line
+Here are macros for VMS debug format.
+
+@table @code
+@findex VMS_DEBUGGING_INFO
+@item VMS_DEBUGGING_INFO
+Define this macro if GCC should produce debugging output for VMS
+in response to the @option{-g} option.  The default behavior for VMS
+is to generate minimal debug info for a traceback in the absence of
+@option{-g} unless explicitly overridden with @option{-g0}.  This
+behavior is controlled by @code{OPTIMIZATION_OPTIONS} and
+@code{OVERRIDE_OPTIONS}.
 @end table
 
 @node Cross-compilation
@@ -8567,7 +8479,7 @@ pragmas @samp{#pragma pack(<n>)} and @samp{#pragma weak <name>
 The pack pragma specifies the maximum alignment (in bytes) of fields
 within a structure, in much the same way as the @samp{__aligned__} and
 @samp{__packed__} @code{__attribute__}s do.  A pack value of zero resets
-the behaviour to the default.
+the behavior to the default.
 
 The weak pragma only works if @code{SUPPORTS_WEAK} and
 @code{ASM_WEAKEN_LABEL} are defined.  If enabled it allows the creation
@@ -8582,7 +8494,7 @@ style pragmas @samp{#pragma pack(push,@var{n})} and @samp{#pragma
 pack(pop)}.  The @samp{pack(push,@var{n})} pragma specifies the maximum alignment
 (in bytes) of fields within a structure, in much the same way as the
 @samp{__aligned__} and @samp{__packed__} @code{__attribute__}s do.  A
-pack value of zero resets the behaviour to the default.  Successive
+pack value of zero resets the behavior to the default.  Successive
 invocations of this pragma cause the previous values to be stacked, so
 that invocations of @samp{#pragma pack(pop)} will return to the previous
 value.

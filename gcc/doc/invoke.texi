@@ -240,7 +240,7 @@ in the following sections.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{
--a  -ax  -d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
+-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
 -fdump-unnumbered 
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
@@ -248,7 +248,7 @@ in the following sections.
 -fmem-report  -fpretend-float @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
--ggdb  -gstabs  -gstabs+  -gxcoff  -gxcoff+ @gol
+-ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
@@ -259,7 +259,7 @@ in the following sections.
 @gccoptlist{
 -falign-functions=@var{n}  -falign-jumps=@var{n} @gol
 -falign-labels=@var{n}  -falign-loops=@var{n}  @gol
--fbranch-probabilities  -fcaller-saves @gol
+-fbranch-probabilities  -fcaller-saves -fcprop-registers @gol
 -fcse-follow-jumps  -fcse-skip-blocks  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
@@ -272,7 +272,7 @@ in the following sections.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations -fno-trapping-math @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -freduce-all-givs @gol
+-foptimize-sibling-calls  -fprefetch-loop-arrays  -freduce-all-givs @gol
 -fregmove  -frename-registers @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
 -fschedule-insns  -fschedule-insns2 @gol
@@ -441,6 +441,7 @@ in the following sections.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
+-maix-struct-return -msvr4-struct-return
 -mabi=altivec @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
@@ -472,12 +473,12 @@ in the following sections.
 
 @emph{i386 and x86-64 Options}
 @gccoptlist{
--mcpu=@var{cpu-type}  -march=@var{cpu-type} @gol
+-mcpu=@var{cpu-type}  -march=@var{cpu-type} -mfpmath=@var{unit} @gol
 -mintel-syntax -mieee-fp  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -m3dnow @gol
+-mmmx  -msse -msse2 -msse-math -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
@@ -518,6 +519,10 @@ in the following sections.
 -mcpu=@var{cpu-type} @gol
 -mbwx  -mno-bwx  -mcix  -mno-cix  -mmax  -mno-max @gol
 -mmemory-latency=@var{time}}
+
+@emph{DEC Alpha/VMS Options}
+@gccoptlist{
+-mvms-return-codes}
 
 @emph{Clipper Options}
 @gccoptlist{
@@ -616,7 +621,6 @@ in the following sections.
 -ffixed-@var{reg} -fexceptions @gol
 -fnon-call-exceptions  -funwind-tables -fasynchronous-unwind-tables @gol
 -finhibit-size-directive  -finstrument-functions @gol
--fcheck-memory-usage  -fprefix-function-name @gol
 -fno-common  -fno-ident  -fno-gnu-linker @gol
 -fpcc-struct-return  -fpic  -fPIC @gol
 -freg-struct-return  -fshared-data  -fshort-enums @gol
@@ -1710,7 +1714,7 @@ reporter to emit @emph{once} source location information; that is, in
 case the message is too long to fit on a single physical line and has to
 be wrapped, the source location won't be emitted (as prefix) again,
 over and over, in subsequent continuation lines.  This is the default
-behaviour.
+behavior.
 
 @item -fdiagnostics-show-location=every-line
 Only meaningful in line-wrapping mode.  Instructs the diagnostic
@@ -2319,7 +2323,7 @@ if the @samp{#} appeared in column 1 on the line.  Therefore
 understands but would ignore because the @samp{#} does not appear as the
 first character on the line.  It also suggests you hide directives like
 @samp{#pragma} not understood by traditional C by indenting them.  Some
-traditional implementations would not recognise @samp{#elif}, so it
+traditional implementations would not recognize @samp{#elif}, so it
 suggests avoiding it altogether.
 
 @item
@@ -2558,7 +2562,7 @@ This option is not made part of @option{-Wall} because in a debugging
 version of a program there is often substantial code which checks
 correct functioning of the program and is, hopefully, unreachable
 because the program does work.  Another common use of unreachable
-code is to provide behaviour which is selectable at compile-time.
+code is to provide behavior which is selectable at compile-time.
 
 @item -Winline
 @opindex Winline
@@ -2607,8 +2611,8 @@ makes debugging work better in GDB but will probably make other debuggers
 crash or
 refuse to read the program.  If you want to control for certain whether
 to generate the extra information, use @option{-gstabs+}, @option{-gstabs},
-@option{-gxcoff+}, @option{-gxcoff}, @option{-gdwarf-1+}, or @option{-gdwarf-1}
-(see below).
+@option{-gxcoff+}, @option{-gxcoff}, @option{-gdwarf-1+}, @option{-gdwarf-1},
+or @option{-gvms} (see below).
 
 Unlike most other C compilers, GCC allows you to use @option{-g} with
 @option{-O}.  The shortcuts taken by optimized code may occasionally
@@ -2683,6 +2687,11 @@ crash or refuse to read the program.
 Produce debugging information in DWARF version 2 format (if that is
 supported).  This is the format used by DBX on IRIX 6.
 
+@item -gvms
+@opindex gvms
+Produce debugging information in VMS debug format (if that is
+supported).  This is the format used by DEBUG on VMS systems.
+
 @item -g@var{level}
 @itemx -ggdb@var{level}
 @itemx -gstabs@var{level}
@@ -2690,6 +2699,7 @@ supported).  This is the format used by DBX on IRIX 6.
 @itemx -gxcoff@var{level}
 @itemx -gdwarf@var{level}
 @itemx -gdwarf-2@var{level}
+@itemx -gvms@var{level}
 Request debugging information and also use @var{level} to specify how
 much information.  The default level is 2.
 
@@ -2746,80 +2756,6 @@ pass when it finishes.
 @opindex fmem-report
 Makes the compiler print some statistics about permanent memory
 allocation when it finishes.
-
-@item -ax
-@opindex ax
-Generate extra code to profile basic blocks.  Your executable will
-produce output that is a superset of that produced when @option{-a} is
-used.  Additional output is the source and target address of the basic
-blocks where a jump takes place, the number of times a jump is executed,
-and (optionally) the complete sequence of basic blocks being executed.
-The output is appended to file @file{bb.out}.
-
-You can examine different profiling aspects without recompilation.  Your
-executable will read a list of function names from file @file{bb.in}.
-Profiling starts when a function on the list is entered and stops when
-that invocation is exited.  To exclude a function from profiling, prefix
-its name with @samp{-}.  If a function name is not unique, you can
-disambiguate it by writing it in the form
-@samp{/path/filename.d:functionname}.  Your executable will write the
-available paths and filenames in file @file{bb.out}.
-
-Several function names have a special meaning:
-@table @code
-@item __bb_jumps__
-Write source, target and frequency of jumps to file @file{bb.out}.
-@item __bb_hidecall__
-Exclude function calls from frequency count.
-@item __bb_showret__
-Include function returns in frequency count.
-@item __bb_trace__
-Write the sequence of basic blocks executed to file @file{bbtrace.gz}.
-The file will be compressed using the program @samp{gzip}, which must
-exist in your @env{PATH}.  On systems without the @samp{popen}
-function, the file will be named @file{bbtrace} and will not be
-compressed.  @strong{Profiling for even a few seconds on these systems
-will produce a very large file.}  Note: @code{__bb_hidecall__} and
-@code{__bb_showret__} will not affect the sequence written to
-@file{bbtrace.gz}.
-@end table
-
-Here's a short example using different profiling parameters
-in file @file{bb.in}.  Assume function @code{foo} consists of basic blocks
-1 and 2 and is called twice from block 3 of function @code{main}.  After
-the calls, block 3 transfers control to block 4 of @code{main}.
-
-With @code{__bb_trace__} and @code{main} contained in file @file{bb.in},
-the following sequence of blocks is written to file @file{bbtrace.gz}:
-0 3 1 2 1 2 4.  The return from block 2 to block 3 is not shown, because
-the return is to a point inside the block and not to the top.  The
-block address 0 always indicates, that control is transferred
-to the trace from somewhere outside the observed functions.  With
-@samp{-foo} added to @file{bb.in}, the blocks of function
-@code{foo} are removed from the trace, so only 0 3 4 remains.
-
-With @code{__bb_jumps__} and @code{main} contained in file @file{bb.in},
-jump frequencies will be written to file @file{bb.out}.  The
-frequencies are obtained by constructing a trace of blocks
-and incrementing a counter for every neighbouring pair of blocks
-in the trace.  The trace 0 3 1 2 1 2 4 displays the following
-frequencies:
-
-@example
-Jump from block 0x0 to block 0x3 executed 1 time(s)
-Jump from block 0x3 to block 0x1 executed 1 time(s)
-Jump from block 0x1 to block 0x2 executed 2 time(s)
-Jump from block 0x2 to block 0x1 executed 1 time(s)
-Jump from block 0x2 to block 0x4 executed 1 time(s)
-@end example
-
-With @code{__bb_hidecall__}, control transfer due to call instructions
-is removed from the trace, that is the trace is cut into three parts: 0
-3 4, 0 1 2 and 0 1 2.  With @code{__bb_showret__}, control transfer due
-to return instructions is added to the trace.  The trace becomes: 0 3 1
-2 3 1 2 3 4.  Note, that this trace is not the same, as the sequence
-written to @file{bbtrace.gz}.  It is solely used for counting jump
-frequencies.
 
 @item -fprofile-arcs
 @opindex fprofile-arcs
@@ -3387,7 +3323,7 @@ Attempt to merge identical constants (string constants and floating point
 constants) accross compilation units.
 
 This option is default for optimized compilation if assembler and linker
-support it.  Use @option{-fno-merge-constants} to inhibit this behaviour.
+support it.  Use @option{-fno-merge-constants} to inhibit this behavior.
 
 @item -fmerge-all-constants
 Attempt to merge identical constants and identical variables.
@@ -3397,7 +3333,7 @@ This option implies @option{-fmerge-constants}.  In addition to
 arrays or initialized constant variables with integral or floating point
 types.  Languages like C or C++ require each non-automatic variable to
 have distinct location, so using this option will result in non-conforming
-behaviour.
+behavior.
 
 @item -fno-function-cse
 @opindex fno-function-cse
@@ -3637,6 +3573,10 @@ the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
 @option{-funroll-loops},
 
+@item -fprefetch-loop-arrays
+@opindex fprefetch-loop-arrays
+If supported by the target machine, generate instructions to prefetch
+memory to improve the performance of loops that access large arrays.
 
 @item -fmove-all-movables
 @opindex fmove-all-movables
@@ -3849,6 +3789,12 @@ to operate on pseudos directly, but also strengthens several other optimization
 passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a
 ``home register''.
+
+@item -fno-cprop-registers
+@opindex fno-cprop-registers
+After register allocation and post-register allocation instruction splitting,
+we perform a copy-propagation pass to try to reduce scheduling dependencies
+and occasionally eliminate the copy.
 
 @item --param @var{name}=@var{value}
 @opindex param
@@ -4559,10 +4505,10 @@ are processed in order, from left to right.
 sequence of other programs to do the work of compiling, assembling and
 linking.  GCC interprets its command-line parameters and uses these to
 deduce which programs it should invoke, and which command-line options
-it ought to place on their command lines.  This behaviour is controlled
+it ought to place on their command lines.  This behavior is controlled
 by @dfn{spec strings}.  In most cases there is one spec string for each
 program that GCC can invoke, but a few programs have multiple spec
-strings to control their behaviour.  The spec strings built into GCC can
+strings to control their behavior.  The spec strings built into GCC can
 be overridden by using the @option{-specs=} command-line switch to specify
 a spec file.
 
@@ -5150,6 +5096,7 @@ that macro, which enables you to change the defaults.
 * HPPA Options::
 * Intel 960 Options::
 * DEC Alpha Options::
+* DEC Alpha/VMS Options::
 * Clipper Options::
 * H8/300 Options::
 * SH Options::
@@ -5542,7 +5489,7 @@ They have been replaced with @option{-mcpu=xxx}.
 @itemx -msupersparc
 @opindex mcypress
 @opindex msupersparc
-These two options select the processor for which the code is optimised.
+These two options select the processor for which the code is optimized.
 
 With @option{-mcypress} (the default), the compiler optimizes code for the
 Cypress CY7C602 chip, as used in the SparcStation/SparcServer 3xx series.
@@ -6128,7 +6075,7 @@ the scope of a @samp{#pragma long_calls} directive, will always be
 turned into long calls.
 
 This feature is not enabled by default.  Specifying
-@option{-mno-long-calls} will restore the default behaviour, as will
+@option{-mno-long-calls} will restore the default behavior, as will
 placing the function calls within the scope of a @samp{#pragma
 long_calls_off} directive.  Note these switches have no effect on how
 the compiler generates code to handle function calls via function
@@ -6142,7 +6089,7 @@ Disable support for the @code{dllimport} attribute.
 @opindex msingle-pic-base
 Treat the register used for PIC addressing as read-only, rather than
 loading it in the prologue for each function.  The run-time system is
-responsible for initialising this register with an appropriate value
+responsible for initializing this register with an appropriate value
 before execution begins.
 
 @item -mpic-register=@var{reg}
@@ -6971,6 +6918,15 @@ Linux-based GNU system.
 On System V.4 and embedded PowerPC systems compile code for the
 NetBSD operating system.
 
+@item -maix-struct-return
+@opindex maix-struct-return
+Return all structures in memory (as specified by the AIX ABI)@.
+
+@item -msvr4-struct-return
+@opindex msvr4-struct-return
+Return structures smaller than 8 bytes in registers (as specified by the
+SVR4 ABI)@.
+
 @item -mabi=altivec
 @opindex mabi=altivec
 Extend the current ABI with AltiVec ABI extensions.  This does not
@@ -7536,10 +7492,13 @@ computers:
 @table @gcctabopt
 @item -mcpu=@var{cpu-type}
 @opindex mcpu
-Assume the defaults for the machine type @var{cpu-type} when scheduling
-instructions.  The choices for @var{cpu-type} are @samp{i386},
-@samp{i486}, @samp{i586}, @samp{i686}, @samp{pentium},
-@samp{pentiumpro}, @samp{pentium4}, @samp{k6}, and @samp{athlon}
+Tune to @var{cpu-type} everything applicable about the generated code, except
+for the ABI and the set of available instructions.  The choices for
+@var{cpu-type} are @samp{i386}, @samp{i486}, @samp{i586}, @samp{i686},
+@samp{pentium}, @samp{pentium-mmx}, @samp{pentiumpro}, @samp{pentium2},
+@samp{pentium3}, @samp{pentium4}, @samp{k6}, @samp{k6-2}, @samp{k6-3},
+@samp{athlon}, @samp{athlon-tbird}, @samp{athlon-4}, @samp{athlon-xp}
+and @samp{athlon-mp}.
 
 While picking a specific @var{cpu-type} will schedule things appropriately
 for that particular chip, the compiler will not generate any code that
@@ -7565,6 +7524,48 @@ specifying @option{-march=@var{cpu-type}} implies @option{-mcpu=@var{cpu-type}}.
 These options are synonyms for @option{-mcpu=i386}, @option{-mcpu=i486},
 @option{-mcpu=pentium}, and @option{-mcpu=pentiumpro} respectively.
 These synonyms are deprecated.
+
+@item -mfpmath=@var{unit}
+@opindex march
+generate floating point arithmetics for selected unit @var{unit}.  the choices
+for @var{unit} are:
+
+@table @samp
+@item 387
+Use the standard 387 floating point coprocessor present majority of chips and
+emulated otherwise.  Code compiled with this option will run almost everywhere.
+The temporary results are computed in 80bit precesion instead of precision
+specified by the type resulting in slightly different results compared to most
+of other chips. See @option{-ffloat-store} for more detailed description.
+
+This is the default choice for i386 compiler.
+
+@item sse
+Use scalar floating point instructions present in the SSE instruction set.
+This instruction set is supported by Pentium3 and newer chips, in the AMD line
+by Athlon-4, Athlon-xp and Athlon-mp chips.  The earlier version of SSE
+instruction set supports only single precision arithmetics, thus the double and
+extended precision arithmetics is still done using 387.  Later version, present
+only in Pentium4 and the future AMD x86-64 chips supports double precision
+arithmetics too.
+
+For i387 you need to use @option{-march=@var{cpu-type}}, @option{-msse} or
+@option{-msse2} switches to enable SSE extensions and make this option
+effective.  For x86-64 compiler, these extensions are enabled by default.
+
+The resulting code should be considerably faster in majority of cases and avoid
+the numerical instability problems of 387 code, but may break some existing
+code that expects temporaries to be 80bit.
+
+This is the default choice for x86-64 compiler.
+
+@item sse,387
+Attempt to utilize both instruction sets at once.  This effectivly double the
+amount of available registers and on chips with separate execution units for
+387 and SSE the execution resources too.  Use this option with care, as it is
+still experimental, because gcc register allocator does not model separate
+functional units well resulting in instable performance.
+@end table
 
 @item -mintel-syntax
 @opindex mintel-syntax
@@ -7716,6 +7717,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-mmx
 @item -msse
 @itemx -mno-sse
+@item -msse2
+@itemx -mno-sse2
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -8631,6 +8634,18 @@ The compiler contains estimates of the number of clock cycles for
 Note that L3 is only valid for EV5.
 
 @end table
+@end table
+
+@node DEC Alpha/VMS Options
+@subsection DEC Alpha/VMS Options
+
+These @samp{-m} options are defined for the DEC Alpha/VMS implementations:
+
+@table @gcctabopt
+@item -mvms-return-codes
+@opindex mvms-return-codes
+Return VMS condition codes from main.  The default is to return POSIX
+style condition (e.g.@ error) codes.
 @end table
 
 @node Clipper Options
@@ -9983,75 +9998,6 @@ three-way choice.
 Pack all structure members together without holes.  Usually you would
 not want to use this option, since it makes the code suboptimal, and
 the offsets of structure members won't agree with system libraries.
-
-@item -fcheck-memory-usage
-@opindex fcheck-memory-usage
-Generate extra code to check each memory access.  GCC will generate
-code that is suitable for a detector of bad memory accesses such as
-@file{Checker}.
-
-Normally, you should compile all, or none, of your code with this option.
-
-If you do mix code compiled with and without this option,
-you must ensure that all code that has side effects
-and that is called by code compiled with this option
-is, itself, compiled with this option.
-If you do not, you might get erroneous messages from the detector.
-
-If you use functions from a library that have side-effects (such as
-@code{read}), you might not be able to recompile the library and
-specify this option.  In that case, you can enable the
-@option{-fprefix-function-name} option, which requests GCC to encapsulate
-your code and make other functions look as if they were compiled with
-@option{-fcheck-memory-usage}.  This is done by calling ``stubs'',
-which are provided by the detector.  If you cannot find or build
-stubs for every function you call, you might have to specify
-@option{-fcheck-memory-usage} without @option{-fprefix-function-name}.
-
-If you specify this option, you can not use the @code{asm} or
-@code{__asm__} keywords in functions with memory checking enabled.  GCC
-cannot understand what the @code{asm} statement may do, and therefore
-cannot generate the appropriate code, so it will reject it.  However, if
-you specify the function attribute @code{no_check_memory_usage}
-(@pxref{Function Attributes}), GCC will disable memory checking within a
-function; you may use @code{asm} statements inside such functions.  You
-may have an inline expansion of a non-checked function within a checked
-function; in that case GCC will not generate checks for the inlined
-function's memory accesses.
-
-If you move your @code{asm} statements to non-checked inline functions
-and they do access memory, you can add calls to the support code in your
-inline function, to indicate any reads, writes, or copies being done.
-These calls would be similar to those done in the stubs described above.
-
-@item -fprefix-function-name
-@opindex fprefix-function-name
-Request GCC to add a prefix to the symbols generated for function names.
-GCC adds a prefix to the names of functions defined as well as
-functions called.  Code compiled with this option and code compiled
-without the option can't be linked together, unless stubs are used.
-
-If you compile the following code with @option{-fprefix-function-name}
-@example
-extern void bar (int);
-void
-foo (int a)
-@{
-  return bar (a + 5);
-@}
-@end example
-
-@noindent
-GCC will compile the code as if it was written:
-@example
-extern void prefix_bar (int);
-void
-prefix_foo (int a)
-@{
-  return prefix_bar (a + 5);
-@}
-@end example
-This option is designed to be used with @option{-fcheck-memory-usage}.
 
 @item -finstrument-functions
 @opindex finstrument-functions

@@ -32,7 +32,10 @@ enum debug_info_type
   SDB_DEBUG,	    /* Write COFF for (old) SDB (using sdbout.c).  */
   DWARF_DEBUG,	    /* Write Dwarf debug info (using dwarfout.c).  */
   DWARF2_DEBUG,	    /* Write Dwarf v2 debug info (using dwarf2out.c).  */
-  XCOFF_DEBUG	    /* Write IBM/Xcoff debug info (using dbxout.c).  */
+  XCOFF_DEBUG,	    /* Write IBM/Xcoff debug info (using dbxout.c).  */
+  VMS_DEBUG,        /* Write VMS debug info (using vmsdbgout.c). */
+  VMS_AND_DWARF2_DEBUG /* Write VMS debug info (using vmsdbgout.c).
+                          and DWARF v2 debug info (using dwarf2out.c). */
 };
 
 /* Specify which kind of debugging info to generate.  */
@@ -170,10 +173,6 @@ extern int warn_disabled_optimization;
 
 extern int profile_flag;
 
-/* Nonzero if generating code to do profiling on the basis of basic blocks.  */
-
-extern int profile_block_flag;
-
 /* Nonzero if generating code to profile program flow graph arcs.  */
 
 extern int profile_arc_flag;
@@ -269,6 +268,10 @@ extern int flag_unroll_all_loops;
    outside the loop.  */
 
 extern int flag_move_all_movables;
+
+/* Nonzero enables prefetch optimizations for arrays in loops.  */
+
+extern int flag_prefetch_loop_arrays;
 
 /* Nonzero forces all general induction variables in loops to be
    strength reduced.  */
@@ -566,18 +569,9 @@ extern int flag_renumber_insns;
 
 extern int frame_pointer_needed;
 
-/* Nonzero if GCC must add code to check memory access (used by Checker).  */
-
-extern int flag_check_memory_usage;
-
 /* Nonzero if the generated code should trap on signed overflow
    for PLUS / SUB / MULT.  */
 extern int flag_trapv;
-
-/* Nonzero if GCC must prefix function names (used with
-   flag_check_memory_usage).  */
-
-extern int flag_prefix_function_name;
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 extern int g_switch_value;

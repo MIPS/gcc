@@ -426,7 +426,7 @@ compute_branch_probabilities ()
 		e->probability = (e->count * REG_BR_PROB_BASE + total / 2) / total;
 		if (e->probability < 0 || e->probability > REG_BR_PROB_BASE)
 		  {
-		    error ("Corrupted profile info: prob for %d-%d thought to be %d",
+		    error ("corrupted profile info: prob for %d-%d thought to be %d",
 			   e->src->index, e->dest->index, e->probability);
 		    e->probability = REG_BR_PROB_BASE / 2;
 		  }
@@ -972,7 +972,7 @@ init_branch_prob (filename)
       strip_off_ending (da_file_name, len);
       strcat (da_file_name, ".da");
       if ((da_file = fopen (da_file_name, "rb")) == 0)
-	warning ("file %s not found, execution counts assumed to be zero.",
+	warning ("file %s not found, execution counts assumed to be zero",
 		 da_file_name);
 
       /* The first word in the .da file gives the number of instrumented

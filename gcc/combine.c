@@ -3796,6 +3796,8 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  && subreg_lowpart_offset (mode, op0_mode) == SUBREG_BYTE (x))
 	return gen_lowpart_for_combine (mode, SUBREG_REG (x));
 
+      if (GET_MODE_CLASS (GET_MODE (SUBREG_REG (x))) == MODE_CC)
+        break;
       {
 	rtx temp;
 	temp = simplify_subreg (mode, SUBREG_REG (x), op0_mode,
@@ -7351,8 +7353,14 @@ known_cond (x, cond, reg, val)
   if (side_effects_p (x))
     return x;
 
-  if (cond == EQ && rtx_equal_p (x, reg) && !FLOAT_MODE_P (cond))
+  /* If either operand of the condition is a floating point value,
+     then we have to avoid collapsing an EQ comparison.  */
+  if (cond == EQ
+      && rtx_equal_p (x, reg)
+      && ! FLOAT_MODE_P (GET_MODE (x))
+      && ! FLOAT_MODE_P (GET_MODE (val)))
     return val;
+
   if (cond == UNEQ && rtx_equal_p (x, reg))
     return val;
 
@@ -7782,6 +7790,23 @@ simplify_and_const_int (x, mode, varop, constop)
 					      XEXP (varop, 0), constop),
 		      simplify_and_const_int (NULL_RTX, GET_MODE (varop),
 					      XEXP (varop, 1), constop))));
+
+  /* If VAROP is PLUS, and the constant is a mask of low bite, distribute
+     the AND and see if one of the operands simplifies to zero.  If so, we
+     may eliminate it.  */
+
+  if (GET_CODE (varop) == PLUS
+      && exact_log2 (constop + 1) >= 0)
+    {
+      rtx o0, o1;
+
+      o0 = simplify_and_const_int (NULL_RTX, mode, XEXP (varop, 0), constop);
+      o1 = simplify_and_const_int (NULL_RTX, mode, XEXP (varop, 1), constop);
+      if (o0 == const0_rtx)
+	return o1;
+      if (o1 == const0_rtx)
+	return o0;
+    }
 
   /* Get VAROP in MODE.  Try to get a SUBREG if not.  Don't make a new SUBREG
      if we already had one (just check for the simplest cases).  */
@@ -8805,15 +8830,14 @@ merge_outer_ops (pop0, pconst0, op1, const1, mode, pcomp_p)
    are ASHIFTRT and ROTATE, which are always done in their original mode,  */
 
 static rtx
-simplify_shift_const (x, code, result_mode, varop, input_count)
+simplify_shift_const (x, code, result_mode, varop, orig_count)
      rtx x;
      enum rtx_code code;
      enum machine_mode result_mode;
      rtx varop;
-     int input_count;
+     int orig_count;
 {
   enum rtx_code orig_code = code;
-  int orig_count = input_count;
   unsigned int count;
   int signed_count;
   enum machine_mode mode = result_mode;
@@ -8827,26 +8851,26 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
   int complement_p = 0;
   rtx new;
 
-  /* If we were given an invalid count, don't do anything except exactly
-     what was requested.  */
-
-  if (input_count < 0 || input_count >= (int) GET_MODE_BITSIZE (mode))
-    {
-      if (x)
-	return x;
-
-      return gen_rtx_fmt_ee (code, mode, varop, GEN_INT (input_count));
-    }
-
-  count = input_count;
-
   /* Make sure and truncate the "natural" shift on the way in.  We don't
      want to do this inside the loop as it makes it more difficult to
      combine shifts.  */
 #ifdef SHIFT_COUNT_TRUNCATED
   if (SHIFT_COUNT_TRUNCATED)
-    count %= GET_MODE_BITSIZE (mode);
+    orig_count &= GET_MODE_BITSIZE (mode) - 1;
 #endif
+
+  /* If we were given an invalid count, don't do anything except exactly
+     what was requested.  */
+
+  if (orig_count < 0 || orig_count >= (int) GET_MODE_BITSIZE (mode))
+    {
+      if (x)
+	return x;
+
+      return gen_rtx_fmt_ee (code, mode, varop, GEN_INT (orig_count));
+    }
+
+  count = orig_count;
 
   /* Unless one of the branches of the `if' in this loop does a `continue',
      we will `break' the loop after the `if'.  */
@@ -11178,7 +11202,7 @@ record_dead_and_set_regs (insn)
   if (GET_CODE (insn) == CALL_INSN)
     {
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (call_used_regs[i])
+	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	  {
 	    reg_last_set_value[i] = 0;
 	    reg_last_set_mode[i] = 0;
@@ -11188,6 +11212,13 @@ record_dead_and_set_regs (insn)
 	  }
 
       last_call_cuid = mem_last_set = INSN_CUID (insn);
+
+      /* Don't bother recording what this insn does.  It might set the
+	 return value register, but we can't combine into a call
+	 pattern anyway, so there's no point trying (and it may cause
+	 a crash, if e.g. we wind up asking for last_set_value of a
+	 SUBREG of the return value register).  */
+      return;
     }
 
   note_stores (PATTERN (insn), record_dead_and_set_regs_1, insn);

@@ -1676,11 +1676,6 @@ struct tree_type
 #define DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.no_instrument_function_entry_exit)
 
-/* Used in FUNCTION_DECLs to indicate that check-memory-usage should be
-   disabled in this function.  */
-#define DECL_NO_CHECK_MEMORY_USAGE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.no_check_memory_usage)
-
 /* Used in FUNCTION_DECLs to indicate that limit-stack-* should be
    disabled in this function.  */
 #define DECL_NO_LIMIT_STACK(NODE) \
@@ -1756,18 +1751,17 @@ struct tree_decl
 
   unsigned non_addr_const_p : 1;
   unsigned no_instrument_function_entry_exit : 1;
-  unsigned no_check_memory_usage : 1;
   unsigned comdat_flag : 1;
   unsigned malloc_flag : 1;
   unsigned no_limit_stack : 1;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
-
   unsigned pure_flag : 1;
+
   unsigned pointer_depth : 2;
   unsigned non_addressable : 1;
   unsigned user_align : 1;
   unsigned uninlinable : 1;
-  /* Two unused bits.  */
+  /* Three unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1894,6 +1888,15 @@ enum tree_index
 
   TI_VOID_LIST_NODE,
 
+  TI_UV4SF_TYPE,
+  TI_UV4SI_TYPE,
+  TI_UV8HI_TYPE,
+  TI_UV8QI_TYPE,
+  TI_UV4HI_TYPE,
+  TI_UV2SI_TYPE,
+  TI_UV2SF_TYPE,
+  TI_UV16QI_TYPE,
+
   TI_V4SF_TYPE,
   TI_V4SI_TYPE,
   TI_V8HI_TYPE,
@@ -1961,6 +1964,13 @@ extern tree global_trees[TI_MAX];
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
+
+#define unsigned_V16QI_type_node	global_trees[TI_UV16QI_TYPE]
+#define unsigned_V4SI_type_node		global_trees[TI_UV4SI_TYPE]
+#define unsigned_V8QI_type_node		global_trees[TI_UV8QI_TYPE]
+#define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
+#define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
+#define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
 
 #define V16QI_type_node			global_trees[TI_V16QI_TYPE]
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]

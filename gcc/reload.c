@@ -3514,7 +3514,8 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	  for (i = 0; i < recog_data.n_dups; i++)
 	    if (recog_data.dup_num[i] == commutative
 		|| recog_data.dup_num[i] == commutative + 1)
-	      *recog_data.dup_loc[i] = recog_data.operand[(int) recog_data.dup_num[i]];
+	      *recog_data.dup_loc[i]
+		 = recog_data.operand[(int) recog_data.dup_num[i]];
 
 	  tclass = preferred_class[commutative];
 	  preferred_class[commutative] = preferred_class[commutative + 1];
@@ -3537,7 +3538,8 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	  for (i = 0; i < recog_data.n_dups; i++)
 	    if (recog_data.dup_num[i] == commutative
 		|| recog_data.dup_num[i] == commutative + 1)
-	      *recog_data.dup_loc[i] = recog_data.operand[(int) recog_data.dup_num[i]];
+	      *recog_data.dup_loc[i]
+		 = recog_data.operand[(int) recog_data.dup_num[i]];
 	}
     }
 
@@ -3550,7 +3552,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
     {
       /* No alternative works with reloads??  */
       if (insn_code_number >= 0)
-	fatal_insn ("Unable to generate reloads for:", insn);
+	fatal_insn ("unable to generate reloads for:", insn);
       error_for_asm (insn, "inconsistent operand constraints in an `asm'");
       /* Avoid further trouble with this insn.  */
       PATTERN (insn) = gen_rtx_USE (VOIDmode, const0_rtx);

@@ -194,15 +194,31 @@ chain, such as @code{NOTE}, @code{BARRIER}, and @code{CODE_LABEL}.
 @end table
 
 @cindex RTL format
-For each expression type @file{rtl.def} specifies the number of
-contained objects and their kinds, with four possibilities: @samp{e} for
-expression (actually a pointer to an expression), @samp{i} for integer,
-@samp{w} for wide integer, @samp{s} for string, and @samp{E} for vector
-of expressions.  The sequence of letters for an expression code is
-called its @dfn{format}.  For example, the format of @code{subreg} is
-@samp{ei}.
+For each expression code, @file{rtl.def} specifies the number of
+contained objects and their kinds using a sequence of characters
+called the @dfn{format} of the expression code.  For example,
+the format of @code{subreg} is @samp{ei}.
 
 @cindex RTL format characters
+These are the most commonly used format characters:
+
+@table @code
+@item e
+An expression (actually a pointer to an expression).
+
+@item i
+An integer.
+
+@item w
+A wide integer.
+
+@item s
+A string.
+
+@item E
+A vector of expressions.
+@end table
+
 A few other format characters are used occasionally:
 
 @table @code
@@ -2165,7 +2181,7 @@ store a value in @var{x}.  @var{x} must be a @code{reg} expression.
 
 In some situations, it may be tempting to add a @code{use} of a
 register in a @code{parallel} to describe a situation where the value
-of a special register will modify the behaviour of the instruction.
+of a special register will modify the behavior of the instruction.
 An hypothetical example might be a pattern for an addition that can
 either wrap around or use saturating addition depending on the value
 of a special control register:
@@ -2326,6 +2342,20 @@ are set up by branch shortening and hold a label with a minimum and a
 maximum address, respectively.  @var{flags} indicates the relative
 position of @var{base}, @var{min} and @var{max} to the containing insn
 and of @var{min} and @var{max} to @var{base}.  See rtl.def for details.
+
+@findex prefetch
+@item (prefetch:@var{m} @var{addr} @var{rw} @var{locality})
+Represents prefetch of memory at address @var{addr}.
+Operand @var{rw} is 1 if the prefetch is for data to be written, 0 otherwise;
+targets that do not support write prefetches should treat this as a normal
+prefetch.
+Operand @var{locality} specifies the amount of temporal locality; 0 if there
+is none or 1, 2, or 3 for increasing levels of temporal locality;
+targets that do not support locality hints should ignore this.
+
+This insn is used to minimize cache-miss latency by moving data into a
+cache before it is accessed.  It should use only non-faulting data prefetch
+instructions.
 @end table
 
 @node Incdec

@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       STMT_IS_FULL_EXPR_P (in _STMT)
    2: STMT_LINENO_FOR_FN_P (in _STMT)
    3: SCOPE_NO_CLEANUPS_P (in SCOPE_STMT)
+      COMPOUND_STMT_BODY_BLOCK (in COMPOUND_STMT)
    4: SCOPE_PARTIAL_P (in SCOPE_STMT)
 */
 
@@ -74,7 +75,7 @@ enum rid
   /* C extensions */
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTRBASE,
-  RID_PTREXTENT, RID_PTRVALUE,
+  RID_PTREXTENT, RID_PTRVALUE, RID_CHOOSE_EXPR, RID_TYPES_COMPATIBLE_P,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -235,6 +236,10 @@ extern tree c_global_trees[CTI_MAX];
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
 
+/* Flag strings given by __FUNCTION__ and __PRETTY_FUNCTION__ for a
+   warning if they undergo concatenation.  */
+#define C_ARTIFICIAL_STRING_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
 typedef enum c_language_kind
 {
   clk_c,           /* A dialect of C: K&R C, ANSI/ISO C89, C2000,
@@ -330,6 +335,8 @@ extern tree walk_stmt_tree			PARAMS ((tree *,
 extern void prep_stmt                           PARAMS ((tree));
 extern void expand_stmt                         PARAMS ((tree));
 extern void mark_stmt_tree                      PARAMS ((void *));
+extern void shadow_warning			PARAMS ((const char *,
+							 tree, tree));
 
 /* Extra information associated with a DECL.  Other C dialects extend
    this structure in various ways.  The C front-end only uses this
@@ -630,6 +637,10 @@ extern tree strip_array_types                   PARAMS ((tree));
    the given label statement.  */
 #define LABEL_STMT_LABEL(NODE)  TREE_OPERAND (LABEL_STMT_CHECK (NODE), 0)
 
+/* COMPOUND_LITERAL_EXPR accessor.  */
+#define COMPOUND_LITERAL_EXPR_DECL(NODE)		\
+  TREE_OPERAND (COMPOUND_LITERAL_EXPR_CHECK (NODE), 0)
+
 /* Nonzero if this SCOPE_STMT is for the beginning of a scope.  */
 #define SCOPE_BEGIN_P(NODE) \
   (TREE_LANG_FLAG_0 (SCOPE_STMT_CHECK (NODE)))
@@ -752,6 +763,10 @@ extern tree build_return_stmt                   PARAMS ((tree));
 
 #define COMPOUND_STMT_NO_SCOPE(NODE)	TREE_LANG_FLAG_0 (NODE)
 
+/* Used by the C++ frontend to mark the block around the member
+   initializers and cleanups.  */
+#define COMPOUND_STMT_BODY_BLOCK(NODE)	TREE_LANG_FLAG_3 (NODE)
+
 extern void c_expand_asm_operands		PARAMS ((tree, tree, tree, tree, int, const char *, int));
 
 /* These functions must be defined by each front-end which implements
@@ -812,6 +827,8 @@ extern rtx c_expand_expr            PARAMS ((tree, rtx, enum machine_mode,
 #endif
 
 extern int c_safe_from_p                        PARAMS ((rtx, tree));
+
+extern int c_staticp                            PARAMS ((tree));
 
 extern int c_unsafe_for_reeval			PARAMS ((tree));
 

@@ -162,6 +162,7 @@ static int type_hash_eq PARAMS ((const void*, const void*));
 static unsigned int type_hash_hash PARAMS ((const void*));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
+static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
 static void type_hash_mark PARAMS ((const void *));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
@@ -1518,7 +1519,11 @@ staticp (arg)
 	return staticp (TREE_OPERAND (arg, 0));
 
     default:
-      return 0;
+      if ((unsigned int) TREE_CODE (arg)
+	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)
+	return (*lang_hooks.staticp) (arg);
+      else
+	return 0;
     }
 }
 
@@ -3997,7 +4002,8 @@ build_complex_type (component_type)
 
   /* If we are writing Dwarf2 output we need to create a name,
      since complex is a fundamental type.  */
-  if (write_symbols == DWARF2_DEBUG && ! TYPE_NAME (t))
+  if ((write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+      && ! TYPE_NAME (t))
     {
       const char *name;
       if (component_type == char_type_node)
@@ -4462,14 +4468,20 @@ append_random_chars (template)
     {
       struct stat st;
 
-      /* VALUE should be unique for each file and must
-	 not change between compiles since this can cause
-	 bootstrap comparison errors.  */
+      /* VALUE should be unique for each file and must not change between
+	 compiles since this can cause bootstrap comparison errors.  */
 
       if (stat (main_input_filename, &st) < 0)
 	abort ();
 
-      value = st.st_dev ^ st.st_ino ^ st.st_mtime;
+      /* In VMS, ino is an array, so we have to use both values.  We
+	 conditionalize that.  */
+#ifdef VMS
+#define INO_TO_INT(INO) ((int) (INO)[1] << 16 ^ (int) (INO)[2])
+#else
+#define INO_TO_INT(INO) INO
+#endif
+      value = st.st_dev ^ INO_TO_INT (st.st_ino) ^ st.st_mtime;
     }
 
   template += strlen (template);
@@ -4686,7 +4698,7 @@ tree_check_failed (node, code, file, line, function)
      int line;
      const char *function;
 {
-  internal_error ("Tree check: expected %s, have %s in %s, at %s:%d",
+  internal_error ("tree check: expected %s, have %s in %s, at %s:%d",
 		  tree_code_name[code], tree_code_name[TREE_CODE (node)],
 		  function, trim_filename (file), line);
 }
@@ -4703,7 +4715,7 @@ tree_class_check_failed (node, cl, file, line, function)
      const char *function;
 {
   internal_error
-    ("Tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
+    ("tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
      cl, TREE_CODE_CLASS (TREE_CODE (node)),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
@@ -4863,43 +4875,45 @@ build_common_tree_nodes_2 (short_double)
     va_list_type_node = t;
   }
 
-  V4SF_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4SF_type_node) = float_type_node;
-  TYPE_MODE (V4SF_type_node) = V4SFmode;
-  finish_vector_type (V4SF_type_node);
+  unsigned_V4SI_type_node
+    = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2SI_type_node
+    = make_vector (V2SImode, unsigned_intSI_type_node, 1);
+  unsigned_V4HI_type_node
+    = make_vector (V4HImode, unsigned_intHI_type_node, 1);
+  unsigned_V8QI_type_node
+    = make_vector (V8QImode, unsigned_intQI_type_node, 1);
+  unsigned_V8HI_type_node
+    = make_vector (V8HImode, unsigned_intHI_type_node, 1);
+  unsigned_V16QI_type_node
+    = make_vector (V16QImode, unsigned_intQI_type_node, 1);
 
-  V4SI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4SI_type_node) = intSI_type_node;
-  TYPE_MODE (V4SI_type_node) = V4SImode;
-  finish_vector_type (V4SI_type_node);
+  V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
+  V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
+  V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
+  V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
+  V8QI_type_node = make_vector (V8QImode, intQI_type_node, 0);
+  V8HI_type_node = make_vector (V8HImode, intHI_type_node, 0);
+  V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
+  V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
+}
 
-  V2SI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V2SI_type_node) = intSI_type_node;
-  TYPE_MODE (V2SI_type_node) = V2SImode;
-  finish_vector_type (V2SI_type_node);
+/* Returns a vector tree node given a vector mode, the inner type, and
+   the signness.  */
 
-  V4HI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V4HI_type_node) = intHI_type_node;
-  TYPE_MODE (V4HI_type_node) = V4HImode;
-  finish_vector_type (V4HI_type_node);
+static tree
+make_vector (mode, innertype, unsignedp)
+     enum machine_mode mode;
+     tree innertype;
+     int unsignedp;
+{
+  tree t;
 
-  V8QI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V8QI_type_node) = intQI_type_node;
-  TYPE_MODE (V8QI_type_node) = V8QImode;
-  finish_vector_type (V8QI_type_node);
+  t = make_node (VECTOR_TYPE);
+  TREE_TYPE (t) = innertype;
+  TYPE_MODE (t) = mode;
+  TREE_UNSIGNED (TREE_TYPE (t)) = unsignedp;
+  finish_vector_type (t);
 
-  V8HI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V8HI_type_node) = intHI_type_node;
-  TYPE_MODE (V8HI_type_node) = V8HImode;
-  finish_vector_type (V8HI_type_node);
-
-  V2SF_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V2SF_type_node) = float_type_node;
-  TYPE_MODE (V2SF_type_node) = V2SFmode;
-  finish_vector_type (V2SF_type_node);
-
-  V16QI_type_node = make_node (VECTOR_TYPE);
-  TREE_TYPE (V16QI_type_node) = intQI_type_node;
-  TYPE_MODE (V16QI_type_node) = V16QImode;
-  finish_vector_type (V16QI_type_node);
+  return t;
 }

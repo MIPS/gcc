@@ -714,11 +714,6 @@ expand_computed_goto (exp)
 #endif
 
   emit_queue ();
-  /* Be sure the function is executable.  */
-  if (current_function_check_memory_usage)
-    emit_library_call (chkr_check_exec_libfunc, LCT_CONST_MAKE_BLOCK,
-		       VOIDmode, 1, x, ptr_mode);
-
   do_pending_stack_adjust ();
   emit_indirect_jump (x);
 
@@ -1293,12 +1288,6 @@ void
 expand_asm (body)
      tree body;
 {
-  if (current_function_check_memory_usage)
-    {
-      error ("`asm' cannot be used in function where memory usage is checked");
-      return;
-    }
-
   if (TREE_CODE (body) == ADDR_EXPR)
     body = TREE_OPERAND (body, 0);
 
@@ -1393,7 +1382,7 @@ parse_output_constraint (constraint_p,
       {
       case '+':
       case '=':
-	error ("operand constraint contains '+' or '=' at illegal position.");
+	error ("operand constraint contains incorrectly positioned '+' or '='");
 	return false;
 	
       case '%':
@@ -1506,12 +1495,6 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   if (noutputs == 0)
     vol = 1;
 
-  if (current_function_check_memory_usage)
-    {
-      error ("`asm' cannot be used in function where memory usage is checked");
-      return;
-    }
-
   if (! check_operand_nalternatives (outputs, inputs))
     return;
 
@@ -1594,7 +1577,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
 	  output_rtx[i]
 	    = expand_expr (TREE_VALUE (tail), NULL_RTX, VOIDmode,
-			   EXPAND_MEMORY_USE_WO);
+			   EXPAND_WRITE);
 
 	  if (! allows_reg && GET_CODE (output_rtx[i]) != MEM)
 	    error ("output number %d not directly addressable", i);
@@ -3271,7 +3254,9 @@ expand_return (retval)
 	 to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
 	 machine, this means we must skip the empty high order bytes when
 	 calculating the bit offset.  */
-      if (BYTES_BIG_ENDIAN && bytes % UNITS_PER_WORD)
+      if (BYTES_BIG_ENDIAN
+	  && !FUNCTION_ARG_REG_LITTLE_ENDIAN
+	  && bytes % UNITS_PER_WORD)
 	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
 						  * BITS_PER_UNIT));
 
@@ -3290,8 +3275,8 @@ expand_return (retval)
 	      dst = gen_reg_rtx (word_mode);
 	      result_pseudos[xbitpos / BITS_PER_WORD] = dst;
 
-	      /* Clobber the destination before we move anything into it.  */
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, dst));
+	      /* Clear the destination before we move anything into it.  */
+	      emit_move_insn (dst, CONST0_RTX (GET_MODE (dst)));
 	    }
 
 	  /* We need a new source operand each time bitpos is on a word
@@ -4044,9 +4029,7 @@ expand_decl (decl)
 	   && !(flag_float_store
 		&& TREE_CODE (type) == REAL_TYPE)
 	   && ! TREE_THIS_VOLATILE (decl)
-	   && (DECL_REGISTER (decl) || optimize)
-	   /* if -fcheck-memory-usage, check all variables.  */
-	   && ! current_function_check_memory_usage)
+	   && (DECL_REGISTER (decl) || optimize))
     {
       /* Automatic variable that can go in a register.  */
       int unsignedp = TREE_UNSIGNED (type);
@@ -5599,18 +5582,20 @@ expand_end_case (orig_index)
 
 	  for (n = thiscase->data.case_stmt.case_list; n; n = n->right)
 	    {
-	      HOST_WIDE_INT i
-		= tree_low_cst (n->low, 0) - tree_low_cst (minval, 0);
+	      /* Compute the low and high bounds relative to the minimum
+		 value since that should fit in a HOST_WIDE_INT while the
+		 actual values may not.  */
+	      HOST_WIDE_INT i_low
+		= tree_low_cst (fold (build (MINUS_EXPR, index_type, 
+                                             n->low, minval)), 1);
+	      HOST_WIDE_INT i_high
+		= tree_low_cst (fold (build (MINUS_EXPR, index_type, 
+                                             n->high, minval)), 1);
+	      HOST_WIDE_INT i;
 
-	      while (1)
-		{
-		  labelvec[i]
-		    = gen_rtx_LABEL_REF (Pmode, label_rtx (n->code_label));
-		  if (i + tree_low_cst (minval, 0)
-		      == tree_low_cst (n->high, 0))
-		    break;
-		  i++;
-		}
+	      for (i = i_low; i <= i_high; i ++)
+		labelvec[i]
+		  = gen_rtx_LABEL_REF (Pmode, label_rtx (n->code_label));
 	    }
 
 	  /* Fill in the gaps with the default.  */

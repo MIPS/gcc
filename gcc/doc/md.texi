@@ -2748,8 +2748,8 @@ too large for this instruction, make it fail.
 @cindex @code{doloop_begin} instruction pattern
 @item @samp{doloop_begin}
 Companion instruction to @code{doloop_end} required for machines that
-need to perform some initialisation, such as loading special registers
-used by a low-overhead looping instruction.  If initialisation insns do
+need to perform some initialization, such as loading special registers
+used by a low-overhead looping instruction.  If initialization insns do
 not always need to be emitted, use a @code{define_expand}
 (@pxref{Expander Definitions}) and make it fail.
 
@@ -3014,6 +3014,22 @@ A typical @code{conditional_trap} pattern looks like
   ""
   "@dots{}")
 @end smallexample
+
+@cindex @code{prefetch} instruction pattern
+@item @samp{prefetch}
+
+This pattern, if defined, emits code for a non-faulting data prefetch
+instruction.  Operand 0 is the address of the memory to prefetch.  Operand 1
+is a constant 1 if the prefetch is preparing for a write to the memory
+address, or a constant 0 otherwise.  Operand 2 is the expected degree of
+temporal locality of the data and is a value between 0 and 3, inclusive; 0
+means that the data has no temporal locality, so it need not be left in the
+cache after the access; 3 means that the data has a high degree of temporal
+locality and should be left in all levels of cache possible;  1 and 2 mean,
+respectively, a low or moderate degree of temporal locality.
+
+Targets that do not support write prefetches or locality hints can ignore
+the values of operands 1 and 2.
 
 @cindex @code{cycle_display} instruction pattern
 @item @samp{cycle_display}
@@ -3315,13 +3331,13 @@ pattern will not be matched by the combiner.
 @end smallexample
 
 The other two special looping patterns, @samp{doloop_begin} and
-@samp{doloop_end}, are emitted by the loop optimiser for certain
+@samp{doloop_end}, are emitted by the loop optimizer for certain
 well-behaved loops with a finite number of loop iterations using
 information collected during strength reduction.
 
 The @samp{doloop_end} pattern describes the actual looping instruction
 (or the implicit looping operation) and the @samp{doloop_begin} pattern
-is an optional companion pattern that can be used for initialisation
+is an optional companion pattern that can be used for initialization
 needed for some low-overhead looping instructions.
 
 Note that some machines require the actual looping instruction to be
@@ -3850,7 +3866,7 @@ the central flowgraph and branch prediction information needs to be updated,
 several restriction apply. 
 
 Splitting of jump instruction into sequence that over by another jump
-instruction is always valid, as compiler expect identical behaviour of new
+instruction is always valid, as compiler expect identical behavior of new
 jump.  When new sequence contains multiple jump instructions or new labels,
 more assistance is needed.  Splitter is required to create only unconditional
 jumps, or simple conditional jump instructions.  Additionally it must attach a

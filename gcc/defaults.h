@@ -425,7 +425,7 @@ do {								\
    PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
 
    This is one long line cause VAXC can't handle a \-newline.  */
-#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO))
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
 #ifndef PREFERRED_DEBUGGING_TYPE
 You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif /* no PREFERRED_DEBUGGING_TYPE */
@@ -443,6 +443,9 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #ifdef DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 #endif
+#ifdef VMS_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
+#endif
 #ifdef XCOFF_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE XCOFF_DEBUG
 #endif
@@ -452,6 +455,16 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    are supported.  */
 #ifndef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
+#endif
+
+/* This is set to 1 if BYTES_BIG_ENDIAN is defined but the target uses a
+   little-endian method of passing and returning structures in registers.
+   On the HP-UX IA64 and PA64 platforms structures are aligned differently
+   then integral values and setting this value to 1 will allow for the
+   special handling of structure arguments and return values in regs.  */
+
+#ifndef FUNCTION_ARG_REG_LITTLE_ENDIAN
+#define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

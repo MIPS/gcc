@@ -133,7 +133,8 @@ init_c_lex (filename)
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
-      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG))
+      && (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG
+          || write_symbols == VMS_AND_DWARF2_DEBUG))
     {
       cb->define = cb_define;
       cb->undef = cb_undef;
@@ -297,7 +298,7 @@ cb_file_change (pfile, new_map)
 	{
 	  warning_with_file_and_line
 	    (input_filename, lineno,
-	     "This file contains more '%c's than '%c's.",
+	     "this file contains more '%c's than '%c's",
 	     indent_level > input_file_stack->indent_level ? '{' : '}',
 	     indent_level > input_file_stack->indent_level ? '}' : '{');
 	}

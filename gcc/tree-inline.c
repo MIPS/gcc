@@ -807,9 +807,24 @@ expand_call_inline (tp, walk_subtrees, data)
   if (!fn)
     return NULL_TREE;
 
+  /* If fn is a declaration of a function in a nested scope that was
+     globally declared inline, we don't set its DECL_INITIAL.
+     However, we can't blindly follow DECL_ABSTRACT_ORIGIN because the
+     C++ front-end uses it for cdtors to refer to their internal
+     declarations, that are not real functions.  Fortunately those
+     don't have trees to be saved, so we can tell by checking their
+     DECL_SAVED_TREE.  */
+  if (! DECL_INITIAL (fn)
+      && DECL_ABSTRACT_ORIGIN (fn)
+      && DECL_SAVED_TREE (DECL_ABSTRACT_ORIGIN (fn)))
+    fn = DECL_ABSTRACT_ORIGIN (fn);
+
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
   if (!inlinable_function_p (fn, id))
+    return NULL_TREE;
+
+  if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;
 
   /* Set the current filename and line number to the function we are
@@ -864,6 +879,10 @@ expand_call_inline (tp, walk_subtrees, data)
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
 
+  if (! DECL_INITIAL (fn)
+      || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)
+    abort ();
+
   /* Create a block to put the parameters in.  We have to do this
      after the parameters have been remapped because remapping
      parameters is different from remapping ordinary variables.  */
@@ -894,9 +913,6 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Close the block for the parameters.  */
   scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
-  if (! DECL_INITIAL (fn)
-      || TREE_CODE (DECL_INITIAL (fn)) != BLOCK)
-    abort ();
   remap_block (scope_stmt, NULL_TREE, id);
   STMT_EXPR_STMT (expr)
     = chainon (STMT_EXPR_STMT (expr), scope_stmt);
@@ -949,6 +965,8 @@ expand_call_inline (tp, walk_subtrees, data)
 
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
+
+  (*lang_hooks.tree_inlining.end_inlining) (fn);
 
   /* Keep iterating.  */
   return NULL_TREE;

@@ -77,6 +77,15 @@ lhd_safe_from_p (x, exp)
   return 1;
 }
 
+/* Called from staticp.  */
+
+int
+lhd_staticp (exp)
+     tree exp ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
 /* Called when -dy is given on the command line.  */
 
 void
@@ -229,6 +238,27 @@ lhd_tree_inlining_anon_aggr_type_p (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+/* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
+   language-specific bookkeeping necessary for processing
+   FN. start_inlining returns non-zero if inlining should proceed, zero if
+   not.
+
+   For instance, the C++ version keeps track of template instantiations to
+   avoid infinite recursion.  */
+
+int
+lhd_tree_inlining_start_inlining (fn)
+     tree fn ATTRIBUTE_UNUSED;
+{
+  return 1;
+}
+
+void
+lhd_tree_inlining_end_inlining (fn)
+     tree fn ATTRIBUTE_UNUSED;
+{
 }
 
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree 

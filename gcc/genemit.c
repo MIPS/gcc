@@ -464,7 +464,7 @@ gen_expand (expand)
   for (i = operands; i <= max_dup_opno; i++)
     printf ("  rtx operand%d;\n", i);
   for (; i <= max_scratch_opno; i++)
-    printf ("  rtx operand%d;\n", i);
+    printf ("  rtx operand%d ATTRIBUTE_UNUSED;\n", i);
   printf ("  rtx _val = 0;\n");
   printf ("  start_sequence ();\n");
 
@@ -787,7 +787,7 @@ main (argc, argv)
   progname = "genemit";
 
   if (argc <= 1)
-    fatal ("No input file name.");
+    fatal ("no input file name");
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);

@@ -306,6 +306,8 @@ static void mark_set_regs		PARAMS ((struct propagate_block_info *,
 static void mark_set_1			PARAMS ((struct propagate_block_info *,
 						 enum rtx_code, rtx, rtx,
 						 rtx, int));
+static int find_regno_partial		PARAMS ((rtx *, void *));
+
 #ifdef HAVE_conditional_execution
 static int mark_regno_cond_dead		PARAMS ((struct propagate_block_info *,
 						 int, rtx));
@@ -1033,7 +1035,7 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
   call_used = INITIALIZE_REG_SET (call_used_head);
 
-  /* Inconveniently, this is only redily available in hard reg set form.  */
+  /* Inconveniently, this is only readily available in hard reg set form.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
     if (call_used_regs[i])
       SET_REGNO_REG_SET (call_used, i);
@@ -1290,6 +1292,115 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 
   free (queue);
 }
+
+
+/* This structure is used to pass parameters to an from the
+   the function find_regno_partial(). It is used to pass in the 
+   register number we are looking, as well as to return any rtx 
+   we find.  */
+
+typedef struct {
+  unsigned regno_to_find;
+  rtx retval;
+} find_regno_partial_param;
+
+
+/* Find the rtx for the reg numbers specified in 'data' if it is
+   part of an expression which only uses part of the register.  Return
+   it in the structure passed in.  */
+static int 
+find_regno_partial (ptr, data)
+     rtx *ptr;
+     void *data;
+{
+  find_regno_partial_param *param = (find_regno_partial_param *)data;
+  unsigned reg = param->regno_to_find;
+  param->retval = NULL_RTX;
+
+  if (*ptr == NULL_RTX)
+    return 0;
+
+  switch (GET_CODE (*ptr)) 
+    {
+    case ZERO_EXTRACT:
+    case SIGN_EXTRACT:
+    case STRICT_LOW_PART:
+      if (GET_CODE (XEXP (*ptr, 0)) == REG && REGNO (XEXP (*ptr, 0)) == reg)
+	{
+	  param->retval = XEXP (*ptr, 0);
+	  return 1;
+	}
+      break;
+
+    case SUBREG:
+      if (GET_CODE (SUBREG_REG (*ptr)) == REG 
+	  && REGNO (SUBREG_REG (*ptr)) == reg)
+	{
+	  param->retval = SUBREG_REG (*ptr);
+	  return 1;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Process all immediate successors of the entry block looking for pseudo
+   registers which are live on entry. Find all of those whose first 
+   instance is a partial register reference of some kind, and initialize 
+   them to 0 after the entry block.  This will prevent bit sets within
+   registers whose value is unknown, and may contain some kind of sticky 
+   bits we don't want.  */
+
+int
+initialize_uninitialized_subregs () 
+{
+  rtx insn;
+  edge e;
+  int reg, did_something = 0;
+  find_regno_partial_param param;
+
+  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+    {
+      basic_block bb = e->dest;
+      regset map = bb->global_live_at_start;
+      EXECUTE_IF_SET_IN_REG_SET (map,
+				 FIRST_PSEUDO_REGISTER, reg,
+	{
+	  int uid = REGNO_FIRST_UID (reg);
+	  rtx i;
+
+	  /* Find an insn which mentions the register we are looking for.
+	     Its preferable to have an instance of the register's rtl since
+	     there may be various flags set which we need to duplicate.  
+	     If we can't find it, its probably an automatic whose initial
+	     value doesn't matter, or hopefully something we don't care about. */
+	  for (i = get_insns (); i && INSN_UID (i) != uid; i = NEXT_INSN (i))
+	    ;
+	  if (i != NULL_RTX)
+	    {
+	      /* Found the insn, now get the REG rtx, if we can.  */
+	      param.regno_to_find = reg;
+	      for_each_rtx (&i, find_regno_partial, &param);
+	      if (param.retval != NULL_RTX)
+		{
+		  insn = gen_move_insn (param.retval, 
+				        CONST0_RTX (GET_MODE (param.retval)));
+		  insert_insn_on_edge (insn, e);
+		  did_something = 1;
+		}
+	    }
+	});
+    }
+
+  if (did_something)
+    commit_edge_insertions ();
+  return did_something;
+}
+
 
 /* Subroutines of life analysis.  */
 
@@ -2134,7 +2245,7 @@ libcall_dead_p (pbi, note, insn)
 
 int
 regno_uninitialized (regno)
-     int regno;
+     unsigned int regno;
 {
   if (n_basic_blocks == 0
       || (regno < FIRST_PSEUDO_REGISTER
@@ -2689,7 +2800,7 @@ mark_regno_cond_dead (pbi, regno, cond)
 
 	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 
-	  /* Not unconditionaly dead.  */
+	  /* Not unconditionally dead.  */
 	  return 0;
 	}
       else
@@ -2721,7 +2832,7 @@ mark_regno_cond_dead (pbi, regno, cond)
 
 	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 
-	      /* Not unconditionaly dead.  */
+	      /* Not unconditionally dead.  */
 	      return 0;
 	    }
 	}
@@ -2796,7 +2907,7 @@ flush_reg_cond_reg (pbi, regno)
    For ior/and, the ADD flag determines whether we want to add the new
    condition X to the old one unconditionally.  If it is zero, we will
    only return a new expression if X allows us to simplify part of
-   OLD, otherwise we return OLD unchanged to the caller.
+   OLD, otherwise we return NULL to the caller.
    If ADD is nonzero, we will return a new condition in all cases.  The
    toplevel caller of one of these functions should always pass 1 for
    ADD.  */
@@ -2818,7 +2929,7 @@ ior_reg_cond (old, x, add)
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return old;
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_IOR (0, old, x);
     }
 
@@ -2827,51 +2938,63 @@ ior_reg_cond (old, x, add)
     case IOR:
       op0 = ior_reg_cond (XEXP (old, 0), x, 0);
       op1 = ior_reg_cond (XEXP (old, 1), x, 0);
-      if (op0 != XEXP (old, 0) || op1 != XEXP (old, 1))
+      if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const0_rtx)
-	    return op1;
+	    return op1 ? op1 : gen_rtx_IOR (0, XEXP (old, 1), x);
 	  if (op1 == const0_rtx)
-	    return op0;
+	    return op0 ? op0 : gen_rtx_IOR (0, XEXP (old, 0), x);
 	  if (op0 == const1_rtx || op1 == const1_rtx)
 	    return const1_rtx;
-	  if (op0 == XEXP (old, 0))
-	    op0 = gen_rtx_IOR (0, op0, x);
-	  else
-	    op1 = gen_rtx_IOR (0, op1, x);
+	  if (op0 == NULL)
+	    op0 = gen_rtx_IOR (0, XEXP (old, 0), x);
+	  else if (rtx_equal_p (x, op0))
+	    /* (x | A) | x ~ (x | A).  */
+	    return old;
+	  if (op1 == NULL)
+	    op1 = gen_rtx_IOR (0, XEXP (old, 1), x);
+	  else if (rtx_equal_p (x, op1))
+	    /* (A | x) | x ~ (A | x).  */
+	    return old;
 	  return gen_rtx_IOR (0, op0, op1);
 	}
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_IOR (0, old, x);
 
     case AND:
       op0 = ior_reg_cond (XEXP (old, 0), x, 0);
       op1 = ior_reg_cond (XEXP (old, 1), x, 0);
-      if (op0 != XEXP (old, 0) || op1 != XEXP (old, 1))
+      if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const1_rtx)
-	    return op1;
+	    return op1 ? op1 : gen_rtx_IOR (0, XEXP (old, 1), x);
 	  if (op1 == const1_rtx)
-	    return op0;
+	    return op0 ? op0 : gen_rtx_IOR (0, XEXP (old, 0), x);
 	  if (op0 == const0_rtx || op1 == const0_rtx)
 	    return const0_rtx;
-	  if (op0 == XEXP (old, 0))
-	    op0 = gen_rtx_IOR (0, op0, x);
-	  else
-	    op1 = gen_rtx_IOR (0, op1, x);
+	  if (op0 == NULL)
+	    op0 = gen_rtx_IOR (0, XEXP (old, 0), x);
+	  else if (rtx_equal_p (x, op0))
+	    /* (x & A) | x ~ x.  */
+	    return op0;
+	  if (op1 == NULL)
+	    op1 = gen_rtx_IOR (0, XEXP (old, 1), x);
+	  else if (rtx_equal_p (x, op1))
+	    /* (A & x) | x ~ x.  */
+	    return op1;
 	  return gen_rtx_AND (0, op0, op1);
 	}
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_IOR (0, old, x);
 
     case NOT:
       op0 = and_reg_cond (XEXP (old, 0), not_reg_cond (x), 0);
-      if (op0 != XEXP (old, 0))
+      if (op0 != NULL)
 	return not_reg_cond (op0);
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_IOR (0, old, x);
 
     default:
@@ -2921,7 +3044,7 @@ and_reg_cond (old, x, add)
 	  && REGNO (XEXP (x, 0)) == REGNO (XEXP (old, 0)))
 	return old;
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_AND (0, old, x);
     }
 
@@ -2930,62 +3053,63 @@ and_reg_cond (old, x, add)
     case IOR:
       op0 = and_reg_cond (XEXP (old, 0), x, 0);
       op1 = and_reg_cond (XEXP (old, 1), x, 0);
-      if (op0 != XEXP (old, 0) || op1 != XEXP (old, 1))
+      if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const0_rtx)
-	    return op1;
+	    return op1 ? op1 : gen_rtx_AND (0, XEXP (old, 1), x);
 	  if (op1 == const0_rtx)
-	    return op0;
+	    return op0 ? op0 : gen_rtx_AND (0, XEXP (old, 0), x);
 	  if (op0 == const1_rtx || op1 == const1_rtx)
 	    return const1_rtx;
-	  if (op0 == XEXP (old, 0))
-	    op0 = gen_rtx_AND (0, op0, x);
-	  else
-	    op1 = gen_rtx_AND (0, op1, x);
+	  if (op0 == NULL)
+	    op0 = gen_rtx_AND (0, XEXP (old, 0), x);
+	  else if (rtx_equal_p (x, op0))
+	    /* (x | A) & x ~ x.  */
+	    return op0;
+	  if (op1 == NULL)
+	    op1 = gen_rtx_AND (0, XEXP (old, 1), x);
+	  else if (rtx_equal_p (x, op1))
+	    /* (A | x) & x ~ x.  */
+	    return op1;
 	  return gen_rtx_IOR (0, op0, op1);
 	}
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_AND (0, old, x);
 
     case AND:
       op0 = and_reg_cond (XEXP (old, 0), x, 0);
       op1 = and_reg_cond (XEXP (old, 1), x, 0);
-      if (op0 != XEXP (old, 0) || op1 != XEXP (old, 1))
+      if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const1_rtx)
-	    return op1;
+	    return op1 ? op1 : gen_rtx_AND (0, XEXP (old, 1), x);
 	  if (op1 == const1_rtx)
-	    return op0;
+	    return op0 ? op0 : gen_rtx_AND (0, XEXP (old, 0), x);
 	  if (op0 == const0_rtx || op1 == const0_rtx)
 	    return const0_rtx;
-	  if (op0 == XEXP (old, 0))
-	    op0 = gen_rtx_AND (0, op0, x);
-	  else
-	    op1 = gen_rtx_AND (0, op1, x);
+	  if (op0 == NULL)
+	    op0 = gen_rtx_AND (0, XEXP (old, 0), x);
+	  else if (rtx_equal_p (x, op0))
+	    /* (x & A) & x ~ (x & A).  */
+	    return old;
+	  if (op1 == NULL)
+	    op1 = gen_rtx_AND (0, XEXP (old, 1), x);
+	  else if (rtx_equal_p (x, op1))
+	    /* (A & x) & x ~ (A & x).  */
+	    return old;
 	  return gen_rtx_AND (0, op0, op1);
 	}
       if (! add)
-	return old;
-
-      /* If X is identical to one of the existing terms of the AND,
-	 then just return what we already have.  */
-      /* ??? There really should be some sort of recursive check here in
-	 case there are nested ANDs.  */
-      if ((GET_CODE (XEXP (old, 0)) == GET_CODE (x)
-	   && REGNO (XEXP (XEXP (old, 0), 0)) == REGNO (XEXP (x, 0)))
-	  || (GET_CODE (XEXP (old, 1)) == GET_CODE (x)
-	      && REGNO (XEXP (XEXP (old, 1), 0)) == REGNO (XEXP (x, 0))))
-	return old;
-
+	return NULL;
       return gen_rtx_AND (0, old, x);
 
     case NOT:
       op0 = ior_reg_cond (XEXP (old, 0), not_reg_cond (x), 0);
-      if (op0 != XEXP (old, 0))
+      if (op0 != NULL)
 	return not_reg_cond (op0);
       if (! add)
-	return old;
+	return NULL;
       return gen_rtx_AND (0, old, x);
 
     default:

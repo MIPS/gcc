@@ -1,3 +1,35 @@
+2001-12-11  Matthias Klose  <doko@debian.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2001-12-09  Zack Weinberg  <zack@codesourcery.com>
+
+	* MAINTAINERS: Update my email address.
+
+2001-12-07  Turly O'Connor  <turly@apple.com>
+	* MAINTAINERS (Write After Approval): Add myself.
+	* rs6000.c (rs6000_trampoline_size): Handle ABI_DARWIN case.
+	(rs6000_initialize_trampoline): Call __trampoline_setup for
+	ABI_DARWIN too.
+	* darwin-tramp.asm: New file, implements __trampoline_setup.
+	* t-darwin (LIB2FUNCS_EXTRA): Include darwin-tramp.asm.
+
+2001-12-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+Wed Dec  5 07:33:45 2001  Douglas B. Rupp  <rupp@gnat.com>
+
+	* configure, configure.in: Use temp file for long sed commands.
+
+2001-12-03  Laurent Guerby  <guerby@acm.org>
+
+	* config.sub: Update to version 1.232 on subversion.
+
+2001-12-03  Ben Elliston  <bje@redhat.com>
+
+	* MAINTAINERS: Update mail address for config.* patches.
+
 2001-11-27  DJ Delorie <dj@redhat.com>
 	    Zack Weinberg  <zack@codesourcery.com>
 

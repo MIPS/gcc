@@ -69,7 +69,6 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 @contents
 @page
 
-@ifinfo
 @node Top
 @top
 The C preprocessor implements the macro language used to transform C,
@@ -171,9 +170,10 @@ Obsolete Features
 @end detailmenu
 @end menu
 
+@ifnottex
 @copyrightnotice{}
 @covertexts{}
-@end ifinfo
+@end ifnottex
 
 @node Overview
 @chapter Overview
@@ -3359,7 +3359,7 @@ if the @samp{#} appeared in column 1 on the line.  Therefore
 understands but would ignore because the @samp{#} does not appear as the
 first character on the line.  It also suggests you hide directives like
 @samp{#pragma} not understood by traditional C by indenting them.  Some
-traditional implementations would not recognise @samp{#elif}, so it
+traditional implementations would not recognize @samp{#elif}, so it
 suggests avoiding it altogether.
 
 @item
@@ -3389,7 +3389,7 @@ care, though, because this gives the wrong result in exotic cases.
 
 Here we document details of how the preprocessor's implementation
 affects its user-visible behavior.  You should try to avoid undue
-reliance on behaviour described here, as it is possible that it will
+reliance on behavior described here, as it is possible that it will
 change subtly in future implementations.
 
 Also documented here are obsolete features and changes from previous

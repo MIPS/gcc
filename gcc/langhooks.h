@@ -46,6 +46,8 @@ struct lang_hooks_for_tree_inlining
 							  void *, int *,
 							  void *));
   int (*anon_aggr_type_p) PARAMS ((union tree_node *));
+  int (*start_inlining) PARAMS ((union tree_node *));
+  void (*end_inlining) PARAMS ((union tree_node *));
 };
 
 /* The following hooks are used by tree-dump.c.  */
@@ -122,6 +124,9 @@ struct lang_hooks
      call safe_from_p; it should always pass `0' as the TOP_P
      parameter.  */
   int (*safe_from_p) PARAMS ((rtx, tree));
+
+  /* Hook called by staticp for language-specific tree codes.  */
+  int (*staticp) PARAMS ((tree));
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;

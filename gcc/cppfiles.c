@@ -259,10 +259,13 @@ open_file (pfile, filename)
     {
       if (!S_ISDIR (file->st.st_mode))
 	return file;
+
       /* If it's a directory, we return null and continue the search
 	 as the file we're looking for may appear elsewhere in the
 	 search path.  */
       errno = ENOENT;
+      close (file->fd);
+      file->fd = -1;
     }
 
   file->err_no = errno;
@@ -410,8 +413,9 @@ read_include_file (pfile, inc)
 		  if (!STAT_SIZE_TOO_BIG (inc->st))
 		    cpp_warning
 		      (pfile, "%s is shorter than expected", inc->name);
-		  buf = xrealloc (buf, offset);
-		  inc->st.st_size = offset;
+		  size = offset;
+		  buf = xrealloc (buf, size + 1);
+		  inc->st.st_size = size;
 		  break;
 		}
 	      offset += count;
@@ -548,7 +552,7 @@ find_include_file (pfile, header, type)
 
   if (path == NULL)
     {
-      cpp_error (pfile, "No include path in which to find %s", fname);
+      cpp_error (pfile, "no include path in which to find %s", fname);
       return NO_INCLUDE_PATH;
     }
 
@@ -556,9 +560,14 @@ find_include_file (pfile, header, type)
   name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2);
   for (; path; path = path->next)
     {
-      memcpy (name, path->name, path->len);
-      name[path->len] = '/';
-      strcpy (&name[path->len + 1], fname);
+      int len = path->len;
+      memcpy (name, path->name, len);
+      /* Don't turn / into // or // into ///; // may be a namespace
+	 escape.  */
+      if (name[len-1] == '/')
+	len--;
+      name[len] = '/';
+      strcpy (&name[len + 1], fname);
       if (CPP_OPTION (pfile, remap))
 	n = remap_filename (pfile, name, path);
       else

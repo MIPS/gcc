@@ -92,7 +92,7 @@ typedef struct
 typedef struct
 {
   HOST_WIDE_INT alias;		/* Memory alias set.  */
-  tree decl;			/* decl corresponding to MEM.  */
+  tree expr;			/* expr corresponding to MEM.  */
   rtx offset;			/* Offset from start of DECL, as CONST_INT.  */
   rtx size;			/* Size in bytes, as a CONST_INT.  */
   unsigned int align;		/* Alignment of MEM in bits.  */
@@ -916,10 +916,10 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 #define MEM_ALIAS_SET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->alias)
 
 /* For a MEM rtx, the decl it is known to refer to, if it is known to
-   refer to part of a DECL.  */
-#define MEM_DECL(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->decl)
+   refer to part of a DECL.  It may also be a COMPONENT_REF.  */
+#define MEM_EXPR(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->expr)
 
-/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
+/* For a MEM rtx, the offset from the start of MEM_EXPR, if known, as a
    RTX that is always a CONST_INT.  */
 #define MEM_OFFSET(RTX) (MEM_ATTRS (RTX) == 0 ? 0 : MEM_ATTRS (RTX)->offset)
 
@@ -1439,6 +1439,7 @@ extern int rtx_varies_p			PARAMS ((rtx, int));
 extern int rtx_addr_varies_p		PARAMS ((rtx, int));
 extern HOST_WIDE_INT get_integer_term	PARAMS ((rtx));
 extern rtx get_related_value		PARAMS ((rtx));
+extern rtx get_jump_table_offset	PARAMS ((rtx, rtx *));
 extern int reg_mentioned_p		PARAMS ((rtx, rtx));
 extern int count_occurrences		PARAMS ((rtx, rtx, int));
 extern int reg_referenced_p		PARAMS ((rtx, rtx));
@@ -1875,6 +1876,7 @@ extern void debug_rtx_list		PARAMS ((rtx, int));
 extern void debug_rtx_range		PARAMS ((rtx, rtx));
 extern rtx debug_rtx_find		PARAMS ((rtx, int));
 #ifdef BUFSIZ
+extern void print_mem_expr		PARAMS ((FILE *, tree));
 extern void print_rtl			PARAMS ((FILE *, rtx));
 extern void print_simple_rtl		PARAMS ((FILE *, rtx));
 extern int print_rtl_single		PARAMS ((FILE *, rtx));
@@ -1912,10 +1914,11 @@ extern void move_by_pieces		PARAMS ((rtx, rtx,
 						 unsigned int));
 
 /* In flow.c */
-extern void recompute_reg_usage		PARAMS ((rtx, int));
+extern void recompute_reg_usage			PARAMS ((rtx, int));
+extern int initialize_uninitialized_subregs	PARAMS ((void));
 #ifdef BUFSIZ
-extern void print_rtl_with_bb		PARAMS ((FILE *, rtx));
-extern void dump_flow_info		PARAMS ((FILE *));
+extern void print_rtl_with_bb			PARAMS ((FILE *, rtx));
+extern void dump_flow_info			PARAMS ((FILE *));
 #endif
 
 /* In expmed.c */
@@ -2107,6 +2110,7 @@ extern rtx stack_limit_rtx;
 
 /* In regrename.c */
 extern void regrename_optimize		PARAMS ((void));
+extern void copyprop_hardreg_forward	PARAMS ((void));
 
 /* In ifcvt.c */
 extern void if_convert			PARAMS ((int));

@@ -658,6 +658,10 @@ place_union_field (rli, field)
       MIN (desired_align, (unsigned) BIGGEST_FIELD_ALIGNMENT);
 #endif
 
+#ifdef ADJUST_FIELD_ALIGN
+  desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
+#endif
+
   TYPE_USER_ALIGN (rli->t) |= DECL_USER_ALIGN (field);
 
   /* Union must be at least as aligned as any field requires.  */
@@ -1145,7 +1149,17 @@ compute_record_mode (type)
 #ifdef MEMBER_TYPE_FORCES_BLK
       /* With some targets, eg. c4x, it is sub-optimal
 	 to access an aligned BLKmode structure as a scalar.  */
-      if (mode == VOIDmode && MEMBER_TYPE_FORCES_BLK (field))
+
+      /* On ia64-*-hpux we need to ensure that we don't change the
+	 mode of a structure containing a single field or else we
+	 will pass it incorrectly.  Since a structure with a single
+	 field causes mode to get set above we can't allow the
+	 check for mode == VOIDmode in this case.  Perhaps
+	 MEMBER_TYPE_FORCES_BLK should be extended to include mode
+	 as an argument and the check could be put in there for c4x.  */
+
+      if ((mode == VOIDmode || FUNCTION_ARG_REG_LITTLE_ENDIAN)
+	  && MEMBER_TYPE_FORCES_BLK (field))
 	return;
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
@@ -1755,6 +1769,12 @@ fixup_signed_type (type)
 {
   int precision = TYPE_PRECISION (type);
 
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
+
   TYPE_MIN_VALUE (type)
     = build_int_2 ((precision - HOST_BITS_PER_WIDE_INT > 0
 		    ? 0 : (HOST_WIDE_INT) (-1) << (precision - 1)),
@@ -1786,6 +1806,12 @@ fixup_unsigned_type (type)
      tree type;
 {
   int precision = TYPE_PRECISION (type);
+
+  /* We can not represent properly constants greater then
+     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     as they are used by i386 vector extensions and friends.  */
+  if (precision > HOST_BITS_PER_WIDE_INT * 2)
+    precision = HOST_BITS_PER_WIDE_INT * 2;
 
   TYPE_MIN_VALUE (type) = build_int_2 (0, 0);
   TYPE_MAX_VALUE (type)

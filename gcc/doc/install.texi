@@ -32,8 +32,15 @@
 @ifset binarieshtml
 @settitle Installing GCC: Binaries
 @end ifset
+@ifset oldhtml
+@settitle Installing GCC: Old documentation
+@end ifset
+@ifset gfdlhtml
+@settitle Installing GCC: GNU Free Documentation License
+@end ifset
 
-@c Copyright (C) 2001 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+@c 1999, 2000, 2001 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c Include everything if we're not making html
@@ -46,12 +53,35 @@
 @set testhtml
 @set finalinstallhtml
 @set binarieshtml
+@set oldhtml
+@set gfdlhtml
 @end ifnothtml
 
 @c Part 2 Summary Description and Copyright
-@ifinfo
+@macro copyrightnotice
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001 Free Software Foundation, Inc.
+@sp 1
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, the Front-Cover texts being (a) (see below), and
+with the Back-Cover Texts being (b) (see below).  A copy of the
+license is included in the section entitled ``@uref{./gfdl.html,,GNU
+Free Documentation License}''.
 
-Copyright @copyright{} 2001 Free Software Foundation, Inc.
+(a) The FSF's Front-Cover Text is:
+
+     A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+     You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development.
+@end macro
+@ifinfo
+@copyrightnotice{}
 @end ifinfo
 
 @c Part 3 Titlepage and Copyright
@@ -63,7 +93,7 @@ Copyright @copyright{} 2001 Free Software Foundation, Inc.
 @c The following two commands start the copyright page.
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 2001 Free Software Foundation, Inc.
+@copyrightnotice{}
 @end titlepage
 
 @c Part 4 Top node and Master Menu
@@ -79,6 +109,9 @@ Copyright @copyright{} 2001 Free Software Foundation, Inc.
 * Specific::        Host/target specific installation notes for GCC.
 * Binaries::        Where to get pre-compiled binaries.
 
+* Old::             Old installation documentation.
+
+* GNU Free Documentation License:: How you can copy and share this manual.
 * Concept Index::   This index has two entries.
 @end menu
 @end ifinfo
@@ -157,12 +190,20 @@ remove that directory when you do not need that specific version of GCC
 any longer, and, if shared libraries are installed there as well, no
 more binaries exist that use them.
 
+@ifhtml
+There are also some @uref{old.html,,old installation instructions},
+which are mostly obsolete but still contain some information which has
+not yet been merged into the main part of this manual.
+@end ifhtml
+
 @html
 <hr>
 <p>
 @end html
 @ifhtml
 @uref{./index.html,,Return to the GCC Installation page}
+
+@copyrightnotice{}
 @end ifhtml
 @end ifset
 
@@ -939,7 +980,8 @@ as parts of GCC can only be built with GCC@.
 
 To build a cross compiler, we first recommend building and installing a
 native compiler.  You can then use the native GCC compiler to build the
-cross compiler.
+cross compiler.  The installed native compiler needs to be GCC version
+2.95 or later.
 
 Assuming you have already installed a native copy of GCC and configured
 your cross compiler, issue the command @command{make}, which performs the
@@ -1172,6 +1214,13 @@ behave on different platforms and compare them with your results.  A
 few failing testcases are possible even on released versions and you
 should look here first if you think your results are unreasonable.
 
+@html
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
 @end ifset
 
 @c ***Final install***********************************************************
@@ -1207,18 +1256,46 @@ If you built a released version of GCC then if you don't mind, please
 quickly review the build status page for
 @uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0} or
 @uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
-If your system is not listed, send a note to
+If your system is not listed for the version of GCC that you built,
+send a note to
 @email{gcc@@gcc.gnu.org} indicating
 that you successfully built and installed GCC.
+Include the following information:
 
-Include the output from running @file{@var{srcdir}/config.guess}.  (Do
-not send us the @file{config.guess} file itself, just the one-line output from
-running it!)  Also specify which version you built.
-If the build was for GNU/Linux, also include the distribution name and version
-(e.g., Red Hat 7.1 or Debian 2.2.3, available from @file{/etc/issue})
-and the version of glibc you used; for RPM-based systems like Red Hat,
+@itemize @bullet
+@item
+Output from running @file{@var{srcdir}/config.guess}.  Do not send us
+that file itself, just the one-line output from running it.
+
+@item
+The output of @samp{gcc -v} for your newly installed gcc.
+This tells us which version of GCC you built and the options you passed to
+configure.
+
+@item
+If the build was for GNU/Linux, also include:
+@itemize @bullet
+@item
+The distribution name and version (e.g., Red Hat 7.1 or Debian 2.2.3);
+this information should be available from @file{/etc/issue}.
+
+@item
+The version of the Linux kernel, available from @samp{uname --version}
+or @samp{uname -a}.
+
+@item
+The version of glibc you used; for RPM-based systems like Red Hat,
 Mandrake, and SuSE type @samp{rpm -q glibc} to get the glibc version,
 and on systems like Debian and Progeny use @samp{dpkg -l libc6}.
+@end itemize
+For other systems, you can include similar information if you think it is
+relevant.
+
+@item
+Any other information that you think would be useful to people building
+GCC on the same configuration.  The new entry in the build status list
+will include a link to the archived copy of your message.
+@end itemize
 
 We'd also like to know if the
 @ifnothtml
@@ -1352,7 +1429,7 @@ works.
 @c ***Specific****************************************************************
 @ifnothtml
 @comment node-name,     next,          previous, up
-@node    Specific, Concept Index, Binaries, Top
+@node    Specific, Old, Binaries, Top
 @end ifnothtml
 @ifset specifichtml
 @html
@@ -3648,11 +3725,37 @@ automatically.
 @end ifhtml
 @end ifset
 
+@c ***Old documentation******************************************************
+@ifset oldhtml
+@include install-old.texi
+@html
+</p>
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
+@end ifset
+
+@c ***GFDL********************************************************************
+@ifset gfdlhtml
+@include fdl.texi
+@html
+</p>
+<hr>
+<p>
+@end html
+@ifhtml
+@uref{./index.html,,Return to the GCC Installation page}
+@end ifhtml
+@end ifset
+
 @c ***************************************************************************
 @c Part 6 The End of the Document
 @ifinfo
 @comment node-name,     next,          previous, up
-@node    Concept Index, , Specific, Top
+@node    Concept Index, , GNU Free Documentation License, Top
 @end ifinfo
 
 @ifinfo

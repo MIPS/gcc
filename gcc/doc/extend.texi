@@ -1608,9 +1608,8 @@ foo (float f, float g)
 ISO C99 supports compound literals.  A compound literal looks like
 a cast containing an initializer.  Its value is an object of the
 type specified in the cast, containing the elements specified in
-the initializer.  (GCC does not yet implement the full ISO C99 semantics
-for compound literals.)  As an extension, GCC supports compound literals
-in C89 mode and in C++.
+the initializer; it is an lvalue.  As an extension, GCC supports
+compound literals in C89 mode and in C++.
 
 Usually, the specified type is a structure.  Assume that
 @code{struct foo} and @code{structure} are declared as shown:
@@ -1638,31 +1637,41 @@ This is equivalent to writing the following:
 
 You can also construct an array.  If all the elements of the compound literal
 are (made up of) simple constant expressions, suitable for use in
-initializers, then the compound literal is an lvalue and can be coerced to a
-pointer to its first element, as shown here:
+initializers of objects of static storage duration, then the compound
+literal can be coerced to a pointer to its first element and used in
+such an initializer, as shown here:
 
 @example
 char **foo = (char *[]) @{ "x", "y", "z" @};
 @end example
 
-Array compound literals whose elements are not simple constants are
-not very useful, because the compound literal is not an lvalue; ISO C99
-specifies that it is, being a temporary object with automatic storage
-duration associated with the enclosing block, but GCC does not yet
-implement this.  There are currently only two valid ways to use it with
-GCC: to subscript it, or initialize
-an array variable with it.  The former is probably slower than a
-@code{switch} statement, while the latter does the same thing an
-ordinary C initializer would do.  Here is an example of
-subscripting an array compound literal:
-
-@example
-output = ((int[]) @{ 2, x, 28 @}) [input];
-@end example
-
 Compound literals for scalar types and union types are is
 also allowed, but then the compound literal is equivalent
 to a cast.
+
+As a GNU extension, GCC allows initialization of objects with static storage
+duration by compound literals (which is not possible in ISO C99, because
+the initializer is not a constant).
+It is handled as if the object was initialized only with the bracket
+enclosed list if compound literal's and object types match.
+The initializer list of the compound literal must be constant.
+If the object being initialized has array type of unknown size, the size is
+determined by compound literal's initializer list, not by the size of the
+compound literal.
+
+@example
+static struct foo x = (struct foo) @{1, 'a', 'b'@};
+static int y[] = (int []) @{1, 2, 3@};
+static int z[] = (int [3]) @{1@};
+@end example
+
+@noindent
+The above lines are equivalent to the following:
+@example
+static struct foo x = @{1, 'a', 'b'@};
+static int y[] = @{1, 2, 3@};
+static int z[] = @{1@};
+@end example
 
 @node Designated Inits
 @section Designated Initializers
@@ -1932,11 +1941,11 @@ attributes are currently defined for functions on all targets:
 @code{noreturn}, @code{noinline}, @code{pure}, @code{const},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
-@code{unused}, @code{weak}, @code{malloc}, @code{alias} and
-@code{no_check_memory_usage}.  Several other attributes are defined for
-functions on particular target systems.  Other attributes, including
-@code{section} are supported for variables declarations (@pxref{Variable
-Attributes}) and for types (@pxref{Type Attributes}).
+@code{unused}, @code{weak}, @code{malloc}, and @code{alias}.  Several
+other attributes are defined for functions on particular target systems.
+Other attributes, including @code{section} are supported for variables
+declarations (@pxref{Variable Attributes}) and for types (@pxref{Type
+Attributes}).
 
 You may also specify attributes with @samp{__} preceding and following
 each keyword.  This allows you to use them in header files without
@@ -2226,23 +2235,6 @@ declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
 mangled name for the target must be used.
 
 Not all target machines support this attribute.
-
-@item no_check_memory_usage
-@cindex @code{no_check_memory_usage} function attribute
-@opindex fcheck-memory-usage
-The @code{no_check_memory_usage} attribute causes GCC to omit checks
-of memory references when it generates code for that function.  Normally
-if you specify @option{-fcheck-memory-usage} (see @pxref{Code Gen
-Options}), GCC generates calls to support routines before most memory
-accesses to permit support code to record usage and detect uses of
-uninitialized or unallocated storage.  Since GCC cannot handle
-@code{asm} statements properly they are not allowed in such functions.
-If you declare a function with this attribute, GCC will not generate
-memory checking code for that function, permitting the use of @code{asm}
-statements without having to compile that function with different
-options.  This also allows you to write support routines of your own if
-you wish, without getting infinite recursion if they get compiled with
-@option{-fcheck-memory-usage}.
 
 @item regparm (@var{number})
 @cindex functions that are passed arguments in registers on the 386
@@ -2826,14 +2818,15 @@ section.
 
 The keyword @code{__attribute__} allows you to specify special
 attributes of variables or structure fields.  This keyword is followed
-by an attribute specification inside double parentheses.  Eight
+by an attribute specification inside double parentheses.  Nine
 attributes are currently defined for variables: @code{aligned},
 @code{mode}, @code{nocommon}, @code{packed}, @code{section},
-@code{transparent_union}, @code{unused}, and @code{weak}.  Some other
-attributes are defined for variables on particular target systems.  Other
-attributes are available for functions (@pxref{Function Attributes}) and
-for types (@pxref{Type Attributes}).  Other front ends might define more
-attributes (@pxref{C++ Extensions,,Extensions to the C++ Language}).
+@code{transparent_union}, @code{unused}, @code{vector_size}, and
+@code{weak}.  Some other attributes are defined for variables on
+particular target systems.  Other attributes are available for functions
+(@pxref{Function Attributes}) and for types (@pxref{Type Attributes}).
+Other front ends might define more attributes (@pxref{C++
+Extensions,,Extensions to the C++ Language}).
 
 You may also specify attributes with @samp{__} preceding and following
 each keyword.  This allows you to use them in header files without
@@ -3034,6 +3027,35 @@ applies to all function parameters with that type.
 This attribute, attached to a variable, means that the variable is meant
 to be possibly unused.  GCC will not produce a warning for this
 variable.
+
+@item vector_size (@var{bytes})
+This attribute specifies the vector size for the variable, measured in
+bytes.  For example, the declaration:
+
+@smallexample
+int foo __attribute__ ((vector_size (16)));
+@end smallexample
+
+@noindent
+causes the compiler to set the mode for @code{foo}, to be 16 bytes,
+divided into @code{int} sized units.  Assuming a 32-bit int (a vector of
+4 units of 4 bytes), the corresponding mode of @code{foo} will be V4SI@.
+
+This attribute is only applicable to integral and float scalars,
+although arrays, pointers, and function return values are allowed in
+conjunction with this construct.
+
+Aggregates with this attribute are invalid, even if they are of the same
+size as a corresponding scalar.  For example, the declaration:
+
+@smallexample
+struct S @{ int a; @};
+struct S  __attribute__ ((vector_size (16))) foo;
+@end smallexample
+
+@noindent
+is invalid even if the size of the structure is the same as the size of
+the @code{int}.
 
 @item weak
 The @code{weak} attribute is described in @xref{Function Attributes}.
@@ -4122,8 +4144,9 @@ On the other hand, @samp{#ifdef __FUNCTION__} does not have any special
 meaning inside a function, since the preprocessor does not do anything
 special with the identifier @code{__FUNCTION__}.
 
-GCC also supports the magic word @code{__func__}, defined by the
-ISO standard C99:
+Note that these semantics are deprecated, and that GCC 3.2 will handle
+@code{__FUNCTION__} and @code{__PRETTY_FUNCTION__} the same way as
+@code{__func__}.  @code{__func__} is defined by the ISO standard C99:
 
 @display
 The identifier @code{__func__} is implicitly declared by the translator
@@ -4377,10 +4400,8 @@ The ISO C89 functions @code{abs}, @code{cos}, @code{fabs},
 @code{strpbrk}, @code{strrchr}, @code{strspn}, and @code{strstr} are all
 recognized as built-in functions unless @option{-fno-builtin} is
 specified (or @option{-fno-builtin-@var{function}} is specified for an
-individual function).  All of these functions have
-corresponding versions prefixed
-with @code{__builtin_}, except that the version for @code{sqrt} is
-called @code{__builtin_fsqrt}.
+individual function).  All of these functions have corresponding
+versions prefixed with @code{__builtin_}.
 
 GCC provides built-in versions of the ISO C99 floating point comparison
 macros that avoid raising exceptions for unordered operands.  They have
@@ -4389,6 +4410,96 @@ the same names as the standard macros ( @code{isgreater},
 @code{islessgreater}, and @code{isunordered}) , with @code{__builtin_}
 prefixed.  We intend for a library implementor to be able to simply
 @code{#define} each standard macro to its built-in equivalent.
+
+@deftypefn {Built-in Function} int __builtin_types_compatible_p (@var{type1}, @var{type2})
+
+You can use the built-in function @code{__builtin_types_compatible_p} to
+determine whether two types are the same.
+
+This built-in function returns 1 if the unqualified versions of the
+types @var{type1} and @var{type2} (which are types, not expressions) are
+compatible, 0 otherwise.  The result of this built-in function can be
+used in integer constant expressions.
+
+This built-in function ignores top level qualifiers (e.g., @code{const},
+@code{volatile}).  For example, @code{int} is equivalent to @code{const
+int}.
+
+The type @code{int[]} and @code{int[5]} are compatible.  On the other
+hand, @code{int} and @code{char *} are not compatible, even if the size
+of their types, on the particular architecture are the same.  Also, the
+amount of pointer indirection is taken into account when determining
+similarity.  Consequently, @code{short *} is not similar to
+@code{short **}.  Furthermore, two types that are typedefed are
+considered compatible if their underlying types are compatible.
+
+An @code{enum} type is considered to be compatible with another
+@code{enum} type.  For example, @code{enum @{foo, bar@}} is similar to
+@code{enum @{hot, dog@}}.
+
+You would typically use this function in code whose execution varies
+depending on the arguments' types.  For example:
+
+@smallexample
+#define foo(x)                                                        \
+  (@{                                                                 \
+    typeof (x) tmp;                                                   \
+    if (__builtin_types_compatible_p (typeof (x), long double))       \
+      tmp = foo_long_double (tmp);                                    \
+    else if (__builtin_types_compatible_p (typeof (x), double))       \
+      tmp = foo_double (tmp);                                         \
+    else if (__builtin_types_compatible_p (typeof (x), float))        \
+      tmp = foo_float (tmp);                                          \
+    else                                                              \
+      abort ();                                                       \
+    tmp;                                                              \
+  @})
+@end smallexample
+
+@emph{Note:} This construct is only available for C.
+
+@end deftypefn
+
+@deftypefn {Built-in Function} @var{type} __builtin_choose_expr (@var{const_exp}, @var{exp1}, @var{exp2})
+
+You can use the built-in function @code{__builtin_choose_expr} to
+evaluate code depending on the value of a constant expression.  This
+built-in function returns @var{exp1} if @var{const_exp}, which is a
+constant expression that must be able to be determined at compile time,
+is nonzero.  Otherwise it returns 0.
+
+This built-in function is analogous to the @samp{? :} operator in C,
+except that the expression returned has its type unaltered by promotion
+rules.  Also, the built-in function does not evaluate the expression
+that was not chosen.  For example, if @var{const_exp} evaluates to true,
+@var{exp2} is not evaluated even if it has side-effects.
+
+This built-in function can return an lvalue if the chosen argument is an
+lvalue.
+
+If @var{exp1} is returned, the return type is the same as @var{exp1}'s
+type.  Similarly, if @var{exp2} is returned, its return type is the same
+as @var{exp2}.
+
+Example:
+
+@smallexample
+#define foo(x)                                                               \
+  __builtin_choose_expr (__builtin_types_compatible_p (typeof (x), double),  \
+    foo_double (x),                                                          \
+    __builtin_choose_expr (__builtin_types_compatible_p (typeof (x), float), \
+      foo_float (x),                                                         \
+      /* @r{The void expression results in a compile-time error}             \
+         @r{when assigning the result to something.}  */                     \
+      (void)0))
+@end smallexample
+
+@emph{Note:} This construct is only available for C.  Furthermore, the
+unused expression (@var{exp1} or @var{exp2} depending on the value of
+@var{const_exp}) may still generate syntax errors.  This may change in
+future revisions.
+
+@end deftypefn
 
 @deftypefn {Built-in Function} int __builtin_constant_p (@var{exp})
 You can use the built-in function @code{__builtin_constant_p} to
@@ -4472,6 +4583,48 @@ if (__builtin_expect (ptr != NULL, 1))
 
 @noindent
 when testing pointer or floating-point values.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_prefetch (void *@var{addr}, ...)
+This function is used to minimize cache-miss latency by moving data into
+a cache before it is accessed.
+You can insert calls to @code{__builtin_prefetch} into code for which
+you know addresses of data in memory that is likely to be accessed soon.
+If the target supports them, data prefetch instructions will be generated.
+If the prefetch is done early enough before the access then the data will
+be in the cache by the time it is accessed.
+
+The value of @var{addr} is the address of the memory to prefetch.
+There are two optional arguments, @var{rw} and @var{locality}.
+The value of @var{rw} is a compile-time constant one or zero; one
+means that the prefetch is preparing for a write to the memory address
+and zero, the default, means that the prefetch is preparing for a read.
+The value @var{locality} must be a compile-time constant integer between
+zero and three.  A value of zero means that the data has no temporal
+locality, so it need not be left in the cache after the access.  A value
+of three means that the data has a high degree of temporal locality and
+should be left in all levels of cache possible.  Values of one and two
+mean, respectively, a low or moderate degree of temporal locality.  The
+default is three.
+
+@smallexample
+for (i = 0; i < n; i++)
+  @{
+    a[i] = a[i] + b[i];
+    __builtin_prefetch (&a[i+j], 1, 1);
+    __builtin_prefetch (&b[i+j], 0, 1);
+    /* ... */
+  @}
+@end smallexample
+
+Data prefetch does not generate faults if @var{addr} is invalid, but 
+the address expression itself must be valid.  For example, a prefetch
+of @code{p->next} will not fault if @code{p->next} is not a valid
+address, but evaluation will fault if @code{p} is not a valid address.
+
+If the target does not support data prefetch, the address expression
+is evaluated if it includes side effects but no other code is generated
+and GCC does not issue a warning.
 @end deftypefn
 
 @node Pragmas
@@ -5319,11 +5472,19 @@ parameters, as C++ demands.  This feature has been removed, except where
 it is required for backwards compatibility @xref{Backwards Compatibility}.
 @end table
 
-The named return value extension has been deprecated, and will be
-removed from g++ at some point.
+The named return value extension has been deprecated, and is now
+removed from g++.
 
 The use of initializer lists with new expressions has been deprecated,
-and will be removed from g++ at some point.
+and is now removed from g++.
+
+Floating and complex non-type template parameters have been deprecated,
+and are now removed from g++.
+
+The implicit typename extension has been deprecated and will be removed
+from g++ at some point.  In some cases g++ determines that a dependant
+type such as @code{TPL<T>::X} is a type without needing a
+@code{typename} keyword, contrary to the standard.
 
 @node Backwards Compatibility
 @section Backwards Compatibility
@@ -5346,7 +5507,7 @@ the end of the scope which contained the for statement (rather than just
 within the for scope).  G++ retains this, but issues a warning, if such a
 variable is accessed outside the for scope.
 
-@item implicit C language
+@item Implicit C language
 Old C system header files did not contain an @code{extern "C" @{@dots{}@}}
 scope to set the language.  On such systems, all header files are
 implicitly scoped inside a C language scope.  Also, an empty prototype

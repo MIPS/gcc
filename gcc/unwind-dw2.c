@@ -42,6 +42,11 @@
 #define DWARF_FRAME_REGISTERS FIRST_PSEUDO_REGISTER
 #endif
 
+/* Dwarf frame registers used for pre gcc 3.0 compiled glibc.  */
+#ifndef PRE_GCC3_DWARF_FRAME_REGISTERS
+#define PRE_GCC3_DWARF_FRAME_REGISTERS DWARF_FRAME_REGISTERS
+#endif
+
 /* This is the register and unwind state for a particular frame.  */
 struct _Unwind_Context
 {
@@ -706,9 +711,9 @@ execute_cfa_program (const unsigned char *insn_ptr,
       _Unwind_Word reg, utmp;
       _Unwind_Sword offset, stmp;
 
-      if (insn & DW_CFA_advance_loc)
+      if ((insn & 0xc0) == DW_CFA_advance_loc)
 	fs->pc += (insn & 0x3f) * fs->code_align;
-      else if (insn & DW_CFA_offset)
+      else if ((insn & 0xc0) == DW_CFA_offset)
 	{
 	  reg = insn & 0x3f;
 	  insn_ptr = read_uleb128 (insn_ptr, &utmp);
@@ -716,7 +721,7 @@ execute_cfa_program (const unsigned char *insn_ptr,
 	  fs->regs.reg[reg].how = REG_SAVED_OFFSET;
 	  fs->regs.reg[reg].loc.offset = offset;
 	}
-      else if (insn & DW_CFA_restore)
+      else if ((insn & 0xc0) == DW_CFA_restore)
 	{
 	  reg = insn & 0x3f;
 	  fs->regs.reg[reg].how = REG_UNSAVED;
@@ -944,10 +949,10 @@ typedef struct frame_state
   void *eh_ptr;
   long cfa_offset;
   long args_size;
-  long reg_or_offset[DWARF_FRAME_REGISTERS+1];
+  long reg_or_offset[PRE_GCC3_DWARF_FRAME_REGISTERS+1];
   unsigned short cfa_reg;
   unsigned short retaddr_column;
-  char saved[DWARF_FRAME_REGISTERS+1];
+  char saved[PRE_GCC3_DWARF_FRAME_REGISTERS+1];
 } frame_state;
 
 struct frame_state * __frame_state_for (void *, struct frame_state *);
@@ -974,7 +979,7 @@ __frame_state_for (void *pc_target, struct frame_state *state_in)
   if (fs.cfa_how == CFA_EXP)
     return 0;
 
-  for (reg = 0; reg < DWARF_FRAME_REGISTERS + 1; reg++)
+  for (reg = 0; reg < PRE_GCC3_DWARF_FRAME_REGISTERS + 1; reg++)
     {
       state_in->saved[reg] = fs.regs.reg[reg].how;
       switch (state_in->saved[reg])

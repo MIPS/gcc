@@ -143,6 +143,9 @@ static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
 
 #define MIN_FATAL_STATUS 1
 
+/* Flag set by cppspec.c to 1.  */
+int is_cpp_driver;
+
 /* Flag saying to pass the greatest exit code returned by a sub-process
    to the calling program.  */
 static int pass_exit_codes;
@@ -317,7 +320,7 @@ static void init_gcc_specs              PARAMS ((struct obstack *,
 						 const char *));
 #endif
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
-static const char *convert_filename	PARAMS ((const char *, int));
+static const char *convert_filename	PARAMS ((const char *, int, int));
 #endif
 
 /* The Specs Language
@@ -837,7 +840,7 @@ static struct compiler default_compilers[] =
     %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
-   "%{!E:%eCompilation of header file requested} \
+   "%{!E:%ecompilation of header file requested} \
     %(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options)", 0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",
@@ -1088,7 +1091,7 @@ translate_options (argcp, argvp)
 			if (strlen (option_map[k].name) >= arglen
 			    && !strncmp (argv[i], option_map[k].name, arglen))
 			  {
-			    error ("Ambiguous abbreviation %s", argv[i]);
+			    error ("ambiguous abbreviation %s", argv[i]);
 			    break;
 			  }
 
@@ -1115,7 +1118,7 @@ translate_options (argcp, argvp)
 
 		  else if (strchr (arginfo, '*') != 0)
 		    {
-		      error ("Incomplete `%s' option", option_map[j].name);
+		      error ("incomplete `%s' option", option_map[j].name);
 		      break;
 		    }
 
@@ -1126,7 +1129,7 @@ translate_options (argcp, argvp)
 			{
 			  if (i + 1 == argc)
 			    {
-			      error ("Missing argument to `%s' option",
+			      error ("missing argument to `%s' option",
 				     option_map[j].name);
 			      break;
 			    }
@@ -1139,7 +1142,7 @@ translate_options (argcp, argvp)
 		  else if (strchr (arginfo, 'o') == 0)
 		    {
 		      if (arg != 0)
-			error ("Extraneous argument to `%s' option",
+			error ("extraneous argument to `%s' option",
 			       option_map[j].name);
 		      arg = 0;
 		    }
@@ -1834,7 +1837,7 @@ read_specs (filename, main_p)
 	      if (new_filename)
 		read_specs (new_filename, FALSE);
 	      else if (verbose_flag)
-		notice ("Could not find specs file %s\n", p1);
+		notice ("could not find specs file %s\n", p1);
 	      continue;
 	    }
 	  else if (!strncmp (p1, "%rename", sizeof "%rename" - 1)
@@ -2924,12 +2927,14 @@ static int *warn_std_ptr = 0;
 #if defined(HAVE_TARGET_OBJECT_SUFFIX) || defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
 
 /* Convert NAME to a new name if it is the standard suffix.  DO_EXE
-   is true if we should look for an executable suffix as well.  */
+   is true if we should look for an executable suffix.  DO_OBJ
+   is true if we should look for an object suffix.  */
 
 static const char *
-convert_filename (name, do_exe)
+convert_filename (name, do_exe, do_obj)
      const char *name;
      int do_exe ATTRIBUTE_UNUSED;
+     int do_obj ATTRIBUTE_UNUSED;
 {
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX)
   int i;
@@ -2943,7 +2948,7 @@ convert_filename (name, do_exe)
 
 #ifdef HAVE_TARGET_OBJECT_SUFFIX
   /* Convert x.o to x.obj if TARGET_OBJECT_SUFFIX is ".obj".  */
-  if (len > 2
+  if (do_obj && len > 2
       && name[len - 2] == '.'
       && name[len - 1] == 'o')
     {
@@ -3310,7 +3315,9 @@ process_command (argc, argv)
 	  n_infiles++;
 	  n_switches++;
 
-	  add_preprocessor_option ("--help", 6);
+	  /* CPP driver cannot obtain switch from cc1_options.  */
+	  if (is_cpp_driver)
+	    add_preprocessor_option ("--help", 6);
 	  add_assembler_option ("--help", 6);
 	  add_linker_option ("--help", 6);
 	}
@@ -3323,7 +3330,9 @@ process_command (argc, argv)
           n_infiles++;
           n_switches++;
 
-          add_preprocessor_option ("--target-help", 13);
+	  /* CPP driver cannot obtain switch from cc1_options.  */
+	  if (is_cpp_driver)
+	    add_preprocessor_option ("--target-help", 13);
           add_assembler_option ("--target-help", 13);
           add_linker_option ("--target-help", 13);
         }
@@ -3620,9 +3629,9 @@ process_command (argc, argv)
 #endif
 #if defined(HAVE_TARGET_EXECUTABLE_SUFFIX) || defined(HAVE_TARGET_OBJECT_SUFFIX)
 	      if (p[1] == 0)
-		argv[i + 1] = convert_filename (argv[i + 1], ! have_c);
+		argv[i + 1] = convert_filename (argv[i + 1], ! have_c, 0);
 	      else
-		argv[i] = convert_filename (argv[i], ! have_c);
+		argv[i] = convert_filename (argv[i], ! have_c, 0);
 #endif
 	      goto normal_switch;
 
@@ -3794,41 +3803,10 @@ process_command (argc, argv)
 	;
       else if (! strcmp (argv[i], "-print-multi-directory"))
 	;
-      else if (strcmp (argv[i], "-ftarget-help") == 0)
-        {
-           /* Create a dummy input file, so that we can pass --target-help on to
-              the various sub-processes.  */
-           infiles[n_infiles].language = "c";
-           infiles[n_infiles++].name   = "target-dummy";
-
-           /* Preserve the --target-help switch so that it can be caught by
-              the cc1 spec string.  */
-           switches[n_switches].part1     = "--target-help";
-           switches[n_switches].args      = 0;
-           switches[n_switches].live_cond = SWITCH_OK;
-           switches[n_switches].validated = 0;
-
-           n_switches++;
-        }
-      else if (strcmp (argv[i], "-fhelp") == 0)
-	{
-	  if (verbose_flag)
-	    {
-	      /* Create a dummy input file, so that we can pass --help on to
-		 the various sub-processes.  */
-	      infiles[n_infiles].language = "c";
-	      infiles[n_infiles++].name   = "help-dummy";
-
-	      /* Preserve the --help switch so that it can be caught by the
-		 cc1 spec string.  */
-	      switches[n_switches].part1     = "--help";
-	      switches[n_switches].args      = 0;
-	      switches[n_switches].live_cond = SWITCH_OK;
-	      switches[n_switches].validated = 0;
-
-	      n_switches++;
-	    }
-	}
+      else if (! strcmp (argv[i], "-ftarget-help"))
+	;
+      else if (! strcmp (argv[i], "-fhelp"))
+	;
       else if (argv[i][0] == '+' && argv[i][1] == 'e')
 	{
 	  /* Compensate for the +e options to the C++ front-end;
@@ -3886,11 +3864,11 @@ process_command (argc, argv)
 	{
 	  /* -save-temps overrides -pipe, so that temp files are produced */
 	  if (save_temps_flag)
-	    error ("Warning: -pipe ignored because -save-temps specified");
+	    error ("warning: -pipe ignored because -save-temps specified");
           /* -time overrides -pipe because we can't get correct stats when
 	     multiple children are running at once.  */
 	  else if (report_times)
-	    error ("Warning: -pipe ignored because -time specified");
+	    error ("warning: -pipe ignored because -time specified");
 	}
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
@@ -3972,7 +3950,7 @@ process_command (argc, argv)
       else
 	{
 #ifdef HAVE_TARGET_OBJECT_SUFFIX
-	  argv[i] = convert_filename (argv[i], 0);
+	  argv[i] = convert_filename (argv[i], 0, access (argv[i], F_OK));
 #endif
 
 	  if (strcmp (argv[i], "-") != 0 && access (argv[i], F_OK) < 0)
@@ -3989,7 +3967,38 @@ process_command (argc, argv)
     }
 
   if (n_infiles == last_language_n_infiles && spec_lang != 0)
-    error ("Warning: `-x %s' after last input file has no effect", spec_lang);
+    error ("warning: `-x %s' after last input file has no effect", spec_lang);
+
+  /* Ensure we only invoke each subprocess once.  */
+  if (target_help_flag || print_help_list)
+    {
+      n_infiles = 1;
+
+      /* Create a dummy input file, so that we can pass --target-help on to
+	 the various sub-processes.  */
+      infiles[0].language = "c";
+      infiles[0].name   = "help-dummy";
+
+      if (target_help_flag)
+	{
+	  switches[n_switches].part1     = "--target-help";
+	  switches[n_switches].args      = 0;
+	  switches[n_switches].live_cond = SWITCH_OK;
+	  switches[n_switches].validated = 0;
+
+	  n_switches++;
+	}
+
+      if (print_help_list)
+	{
+	  switches[n_switches].part1     = "--help";
+	  switches[n_switches].args      = 0;
+	  switches[n_switches].live_cond = SWITCH_OK;
+	  switches[n_switches].validated = 0;
+
+	  n_switches++;
+	}
+    }
 
   switches[n_switches].part1 = 0;
   infiles[n_infiles].name = 0;
@@ -4255,7 +4264,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	switch (c = *p++)
 	  {
 	  case 0:
-	    fatal ("Invalid specification!  Bug in cc.");
+	    fatal ("invalid specification!  Bug in cc");
 
 	  case 'b':
 	    obstack_grow (&obstack, input_basename, basename_length);
@@ -4921,7 +4930,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      /* Catch the case where a spec string contains something like
 		 '%{foo:%*}'.  ie there is no * in the pattern on the left
 		 hand side of the :.  */
-	      error ("Spec failure: '%%*' has not been initialised by pattern match");
+	      error ("spec failure: '%%*' has not been initialised by pattern match");
 	    break;
 
 	    /* Process a string found as the value of a spec given by name.
@@ -4930,7 +4939,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	       %[...] modifies -D options the way %P does;
 	       %(...) uses the spec unmodified.  */
 	  case '[':
-	    error ("Warning: use of obsolete %%[ operator in specs");
+	    error ("warning: use of obsolete %%[ operator in specs");
 	  case '(':
 	    {
 	      const char *name = p;
@@ -5073,7 +5082,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    break;
 
 	  default:
-	    error ("Spec failure: Unrecognised spec option '%c'", c);
+	    error ("spec failure: unrecognised spec option '%c'", c);
 	    break;
 	  }
 	break;
@@ -5183,7 +5192,7 @@ next_member:
 	      else if (*q == '}')
 		count--;
 	      else if (*q == 0)
-		fatal ("Mismatched braces in specs");
+		fatal ("mismatched braces in specs");
 	      q++;
 	    }
 	  endbody = q;
@@ -5963,7 +5972,7 @@ main (argc, argv)
     }
 
   if (n_infiles == added_libraries)
-    fatal ("No input files");
+    fatal ("no input files");
 
   /* Make a place to record the compiler output file names
      that correspond to the input files.  */
@@ -6222,7 +6231,7 @@ pfatal_pexecute (errmsg_fmt, errmsg_arg)
 void
 fancy_abort ()
 {
-  fatal ("Internal gcc abort.");
+  fatal ("internal gcc abort");
 }
 
 /* Output an error message and exit */

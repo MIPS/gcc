@@ -544,7 +544,11 @@ combine_strings (strings)
 	      wide_flag = 1;
 	    }
 	  else
-	    length += (TREE_STRING_LENGTH (t) - 1);
+	    {
+	      length += (TREE_STRING_LENGTH (t) - 1);
+	      if (C_ARTIFICIAL_STRING_P (t) && !in_system_header)
+		warning ("concatenation of string literals with __FUNCTION__ is deprecated.  This feature will be removed in future"); 
+	    }
 	}
 
       /* If anything is wide, the non-wides will be converted,
@@ -1315,16 +1319,16 @@ type_for_mode (mode, unsignedp)
     return unsignedp ? widest_unsigned_literal_type_node
                      : widest_integer_literal_type_node;
 
-  if (mode == TYPE_MODE (intQI_type_node))
+  if (mode == QImode)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
 
-  if (mode == TYPE_MODE (intHI_type_node))
+  if (mode == HImode)
     return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
 
-  if (mode == TYPE_MODE (intSI_type_node))
+  if (mode == SImode)
     return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
 
-  if (mode == TYPE_MODE (intDI_type_node))
+  if (mode == DImode)
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
 
 #if HOST_BITS_PER_WIDE_INT >= 64
@@ -1348,22 +1352,30 @@ type_for_mode (mode, unsignedp)
     return build_pointer_type (integer_type_node);
 
 #ifdef VECTOR_MODE_SUPPORTED_P
-  if (mode == TYPE_MODE (V16QI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V16QI_type_node;
-  if (mode == TYPE_MODE (V8HI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V8HI_type_node;
-  if (mode == TYPE_MODE (V4SF_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V4SF_type_node;
-  if (mode == TYPE_MODE (V4SI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V4SI_type_node;
-  if (mode == TYPE_MODE (V2SI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V2SI_type_node;
-  if (mode == TYPE_MODE (V4HI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V4HI_type_node;
-  if (mode == TYPE_MODE (V8QI_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V8QI_type_node;
-  if (mode == TYPE_MODE (V2SF_type_node) && VECTOR_MODE_SUPPORTED_P (mode))
-    return V2SF_type_node;
+  if (VECTOR_MODE_SUPPORTED_P (mode))
+    {
+      switch (mode)
+	{
+	case V16QImode:
+	  return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
+	case V8HImode:
+	  return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
+	case V4SImode:
+	  return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
+	case V2SImode:
+	  return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
+	case V4HImode:
+	  return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
+	case V8QImode:
+	  return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+	case V4SFmode:
+	  return V4SF_type_node;
+	case V2SFmode:
+	  return V2SF_type_node;
+	default:
+	  break;
+	}
+    }
 #endif
 
   return 0;
@@ -3432,6 +3444,15 @@ c_expand_expr (exp, target, tmode, modifier)
       }
       break;
 
+    case COMPOUND_LITERAL_EXPR:
+      {
+	/* Initialize the anonymous variable declared in the compound
+	   literal, then return the variable.  */
+	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
+	emit_local_var (decl);
+	return expand_expr (decl, target, tmode, modifier);
+      }
+
     default:
       abort ();
     }
@@ -3480,6 +3501,18 @@ c_unsafe_for_reeval (exp)
 
   /* Walk all other expressions.  */
   return -1;
+}
+
+/* Hook used by staticp to handle language-specific tree codes.  */
+
+int
+c_staticp (exp)
+     tree exp;
+{
+  if (TREE_CODE (exp) == COMPOUND_LITERAL_EXPR
+      && TREE_STATIC (COMPOUND_LITERAL_EXPR_DECL (exp)))
+    return 1;
+  return 0;
 }
 
 /* Tree code classes.  */
@@ -3996,3 +4029,17 @@ c_common_insert_default_attributes (decl)
 #undef DEF_ATTR_TREE_LIST
 #undef DEF_FN_ATTR
 }
+
+/* Output a -Wshadow warning MSGID about NAME, an IDENTIFIER_NODE, and
+   additionally give the location of the previous declaration DECL.  */
+void
+shadow_warning (msgid, name, decl)
+     const char *msgid;
+     tree name, decl;
+{
+  warning ("declaration of `%s' shadows %s", IDENTIFIER_POINTER (name), msgid);
+  warning_with_file_and_line (DECL_SOURCE_FILE (decl),
+			      DECL_SOURCE_LINE (decl),
+			      "shadowed declaration is here");
+}
+

@@ -46,6 +46,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "insn-attr.h"
 #include "insn-config.h"
+#include "insn-flags.h"
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "output.h"
@@ -414,10 +415,6 @@ int flag_eliminate_dwarf2_dups = 0;
 
 int profile_flag = 0;
 
-/* Nonzero if generating code to do profiling on a line-by-line basis.  */
-
-int profile_block_flag;
-
 /* Nonzero if generating code to profile program flow graph arcs.  */
 
 int profile_arc_flag = 0;
@@ -437,6 +434,7 @@ int flag_reorder_blocks = 0;
 /* Nonzero if registers should be renamed.  */
 
 int flag_rename_registers = 0;
+int flag_cprop_registers = 0;
 
 /* Nonzero for -pedantic switch: warn about anything
    that standard spec forbids.  */
@@ -552,6 +550,10 @@ int flag_unroll_loops;
    This is generally not a win.  */
 
 int flag_unroll_all_loops;
+
+/* Nonzero enables prefetch optimizations for arrays in loops.  */
+
+int flag_prefetch_loop_arrays;
 
 /* Nonzero forces all invariant computations in loops to be moved
    outside the loop.  */
@@ -837,16 +839,6 @@ int flag_stack_check;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* -fcheck-memory-usage causes extra code to be generated in order to check
-   memory accesses.  This is used by a detector of bad memory accesses such
-   as Checker.  */
-int flag_check_memory_usage = 0;
-
-/* -fprefix-function-name causes function name to be prefixed.  This
-   can be used with -fcheck-memory-usage to isolate code compiled with
-   -fcheck-memory-usage.  */
-int flag_prefix_function_name = 0;
-
 /* 0 if pointer arguments may alias each other.  True in C.
    1 if pointer arguments may not alias each other but may alias
    global variables.
@@ -1029,6 +1021,8 @@ lang_independent_options f_options[] =
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
    N_("Perform loop unrolling for all loops") },
+  {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1,
+   N_("Generate prefetch instructions, if available, for arrays in loops") },
   {"move-all-movables", &flag_move_all_movables, 1,
    N_("Force all loop invariant computations out of loops") },
   {"reduce-all-givs", &flag_reduce_all_givs, 1,
@@ -1114,6 +1108,8 @@ lang_independent_options f_options[] =
    N_("Reorder basic blocks to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
    N_("Do the register renaming optimization pass") },
+  {"cprop-registers", &flag_cprop_registers, 1,
+   N_("Do the register copy-propagation optimization pass") },
   {"common", &flag_no_common, 0,
    N_("Do not put uninitialized globals in the common section") },
   {"inhibit-size-directive", &flag_inhibit_size_directive, 1,
@@ -1154,10 +1150,6 @@ lang_independent_options f_options[] =
    N_("Attempt to merge identical constants accross compilation units") },
   {"merge-all-constants", &flag_merge_constants, 2,
    N_("Attempt to merge identical constants and constant variables") },
-  {"check-memory-usage", &flag_check_memory_usage, 1,
-   N_("Generate code to check every memory access") },
-  {"prefix-function-name", &flag_prefix_function_name, 1,
-   N_("Add a prefix to all function names") },
   {"dump-unnumbered", &flag_dump_unnumbered, 1,
    N_("Suppress output of instruction numbers and line number notes in debugging dumps") },
   {"instrument-functions", &flag_instrument_function_entry_exit, 1,
@@ -1599,7 +1591,7 @@ read_integral_parameter (p, pname, defval)
   if (*endp != 0)
     {
       if (pname != 0)
-	error ("Invalid option `%s'", pname);
+	error ("invalid option `%s'", pname);
       return defval;
     }
 
@@ -1745,7 +1737,7 @@ static void
 crash_signal (signo)
      int signo;
 {
-  internal_error ("Internal error: %s", strsignal (signo));
+  internal_error ("internal error: %s", strsignal (signo));
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -2349,7 +2341,9 @@ rest_of_type_compilation (type, toplev)
     sdbout_symbol (TYPE_STUB_DECL (type), !toplev);
 #endif
 #ifdef DWARF2_DEBUGGING_INFO
-  if (write_symbols == DWARF2_DEBUG && toplev)
+  if ((write_symbols == DWARF2_DEBUG
+       || write_symbols == VMS_AND_DWARF2_DEBUG)
+      && toplev)
     dwarf2out_decl (TYPE_STUB_DECL (type));
 #endif
   timevar_pop (TV_SYMOUT);
@@ -2865,7 +2859,8 @@ rest_of_compilation (decl)
 	}
       cleanup_barriers ();
       loop_optimize (insns, rtl_dump_file,
-		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT);
+		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
+		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
 
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
@@ -3009,7 +3004,6 @@ rest_of_compilation (decl)
 #endif
      }
 
-
   if (optimize > 0)
     {
       timevar_push (TV_CSE2);
@@ -3104,6 +3098,19 @@ rest_of_compilation (decl)
       close_dump_file (DFI_ce, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
     }
+
+  if (optimize)
+    {
+      if (initialize_uninitialized_subregs ())
+	{
+	  /* Insns were inserted, so things might look a bit different.  */
+	  insns = get_insns();
+	  life_analysis (insns, rtl_dump_file, 
+			 (PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES));
+	}
+    }
+
+  close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
   /* If -opt, try combining insns through substitution.  */
 
@@ -3371,12 +3378,15 @@ rest_of_compilation (decl)
     }
 #endif
 
-  if (optimize > 0 && flag_rename_registers)
+  if (flag_rename_registers || flag_cprop_registers)
     {
       timevar_push (TV_RENAME_REGISTERS);
       open_dump_file (DFI_rnreg, decl);
 
-      regrename_optimize ();
+      if (flag_rename_registers)
+        regrename_optimize ();
+      if (flag_cprop_registers)
+        copyprop_hardreg_forward ();
 
       close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
       timevar_pop (TV_RENAME_REGISTERS);
@@ -3770,6 +3780,12 @@ static void
 display_target_options ()
 {
   int undoc,i;
+  static bool displayed = false;
+
+  /* Avoid double printing for --help --target-help.  */
+  if (displayed)
+    return;
+  displayed = true;
 
   if (ARRAY_SIZE (target_switches) > 1
 #ifdef TARGET_OPTIONS
@@ -3973,7 +3989,7 @@ decode_f_option (arg)
         diagnostic_prefixing_rule (global_dc)
           = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
-	error ("Unrecognized option `%s'", arg - 2);
+	error ("unrecognized option `%s'", arg - 2);
     }
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
@@ -4060,7 +4076,7 @@ decode_g_option (arg)
   /* Indexed by enum debug_info_type.  */
   static const char *const debug_type_names[] =
   {
-    "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff"
+    "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
   };
 
   /* The maximum admissible debug level value.  */
@@ -4319,47 +4335,6 @@ independent_decode_option (argc, argv)
 	return decode_W_option (arg + 1);
       break;
 
-    case 'a':
-      if (arg[1] == 0)
-	{
-#if !defined (BLOCK_PROFILER) || !defined (FUNCTION_BLOCK_PROFILER)
-	  warning ("`-a' option (basic block profile) not supported");
-#else
-	  profile_block_flag = (profile_block_flag < 2) ? 1 : 3;
-#endif
-	}
-      else if (!strcmp (arg, "ax"))
-	{
-#if !defined (FUNCTION_BLOCK_PROFILER_EXIT) || !defined (BLOCK_PROFILER) || !defined (FUNCTION_BLOCK_PROFILER)
-	  warning ("`-ax' option (jump profiling) not supported");
-#else
-	  profile_block_flag = (!profile_block_flag
-				|| profile_block_flag == 2) ? 2 : 3;
-#endif
-	}
-      else if (!strncmp (arg, "aux-info", 8))
-	{
-	  if (arg[8] == '\0')
-	    {
-	      if (argc == 1)
-		return 0;
-
-	      aux_info_file_name = argv[1];
-	      flag_gen_aux_info = 1;
-	      return 2;
-	    }
-	  else if (arg[8] == '=')
-	    {
-	      aux_info_file_name = arg + 9;
-	      flag_gen_aux_info = 1;
-	    }
-	  else
-	    return 0;
-	}
-      else
-	return 0;
-      break;
-
     case 'o':
       if (arg[1] == 0)
 	{
@@ -4439,7 +4414,7 @@ set_target_switch (name)
 #endif
 
   if (!valid_target_option)
-    error ("Invalid option `%s'", name);
+    error ("invalid option `%s'", name);
 }
 
 /* Print version information to FILE.
@@ -4746,6 +4721,7 @@ parse_options_and_default_flags (argc, argv)
       flag_omit_frame_pointer = 1;
 #endif
       flag_guess_branch_prob = 1;
+      flag_cprop_registers = 1;
     }
 
   if (optimize >= 2)
@@ -4859,17 +4835,17 @@ parse_options_and_default_flags (argc, argv)
 	    {
 	      if (extra_warnings)
 		{
-		  warning ("Ignoring command line option '%s'", argv[i]);
+		  warning ("ignoring command line option '%s'", argv[i]);
 		  if (lang)
 		    warning
-		      ("(It is valid for %s but not the selected language)",
+		      ("(it is valid for %s but not the selected language)",
 		       lang);
 		}
 	    }
 	  else if (argv[i][0] == '-' && argv[i][1] == 'g')
 	    warning ("`%s': unknown or unsupported -g option", &argv[i][2]);
 	  else
-	    error ("Unrecognized option `%s'", argv[i]);
+	    error ("unrecognized option `%s'", argv[i]);
 
 	  i++;
 	}
@@ -4902,6 +4878,15 @@ process_options ()
 	warning ("-Wuninitialized is not supported without -O");
     }
 
+  /* All command line options have been parsed; allow the front end to
+     perform consistency checks, etc.  */
+  (*lang_hooks.post_options) ();
+}
+
+/* Process the options that have been parsed.  */
+static void
+process_options ()
+{
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
@@ -4923,12 +4908,6 @@ process_options ()
     align_labels_max_skip = align_labels - 1;
   if (align_functions <= 0) align_functions = 1;
   align_functions_log = floor_log2 (align_functions * 2 - 1);
-
-  if (profile_block_flag == 3)
-    {
-      warning ("`-ax' and `-a' are conflicting options. `-a' ignored");
-      profile_block_flag = 2;
-    }
 
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
@@ -5000,7 +4979,6 @@ process_options ()
     {
       write_symbols = NO_DEBUG;
       profile_flag = 0;
-      profile_block_flag = 0;
     }
 
   /* Now we know write_symbols, set up the debug hooks based on it.
@@ -5024,6 +5002,10 @@ process_options ()
 #ifdef DWARF2_DEBUGGING_INFO
   if (write_symbols == DWARF2_DEBUG)
     debug_hooks = &dwarf2_debug_hooks;
+#endif
+#ifdef VMS_DEBUGGING_INFO
+  if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+    debug_hooks = &vmsdbg_debug_hooks;
 #endif
 
   /* If auxiliary info generation is desired, open the output file.
@@ -5050,12 +5032,25 @@ process_options ()
 	}
     }
 
-  if (flag_function_sections
-      && (profile_flag || profile_block_flag))
+  if (flag_function_sections && profile_flag)
     {
       warning ("-ffunction-sections disabled; it makes profiling impossible");
       flag_function_sections = 0;
     }
+
+#ifndef HAVE_prefetch
+  if (flag_prefetch_loop_arrays)
+    {
+      warning ("-fprefetch-loop-arrays not supported for this target");
+      flag_prefetch_loop_arrays = 0;
+    }
+#else
+  if (flag_prefetch_loop_arrays && !HAVE_prefetch)
+    {
+      warning ("-fprefetch-loop-arrays not supported for this target (try -march switches)");
+      flag_prefetch_loop_arrays = 0;
+    }
+#endif
 
 #ifndef OBJECT_FORMAT_ELF
   if (flag_function_sections && write_symbols != NO_DEBUG)
@@ -5087,8 +5082,12 @@ lang_independent_init ()
 
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
-		  || flag_test_coverage
-		  || warn_notreached);
+#ifdef VMS_DEBUGGING_INFO
+		    /* Enable line number info for traceback */
+		    || debug_info_level > DINFO_LEVEL_NONE
+#endif
+		    || flag_test_coverage
+		    || warn_notreached);
   init_regs ();
   init_alias_once ();
   init_stmt ();
