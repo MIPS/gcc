@@ -92,15 +92,11 @@ extern const HOST_WIDE_INT E_INJ;
 extern const HOST_WIDE_INT M_DEFAULT;
 
 /* M_CLOBBER is used to modify V_DEF references to represent an unknown
-   access to the associated variable (ie, the operation may read and/or
-   write to the variable).  Since the compiler does not know what the
-   statement may be doing to the variable, it assumes that the statement
-   might write a new value to it.
-
-   For instance, __asm__ statements, function calls and tree nodes that
-   have not been simplified use V_DEF|M_CLOBBERs to represent references.
-   V_DEF|M_CLOBBER references are safety devices used when the compiler
-   knows that the variable is being accessed, but it doesn't know how.  */
+   modification to the associated variable.  This is used for instructions
+   like __asm__ statements where we know that the variable is being
+   modified but not how.  Another case is at function call sites.
+   Variables that may be accessed by the called function are assumed read
+   and clobbered by the call.  */
 extern const HOST_WIDE_INT M_CLOBBER;
 
 /* M_MAY is used to represent references that may or may not occur at

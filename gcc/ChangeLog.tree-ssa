@@ -1,3 +1,16 @@
+2002-09-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (find_refs_in_stmt): Call clobber_vars_r to clobber
+	CLEANUP_STMT nodes.
+	(create_ref): Only add _DECL nodes to the list of referenced
+	variables.
+	(clobber_vars_r): Create a may-use reference prior to clobbering
+	the variable.
+	(add_call_site_clobbers): Ditto.
+	(add_ptr_may_refs): Move call to find_list_node where it's actually
+	needed.
+	* tree-flow.h: Update documentation on M_CLOBBER.
+
 2002-09-10  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (defs_match_p): Fix typo ( | -> || ).

@@ -234,15 +234,10 @@ find_refs_in_stmt (t, bb)
 	}
       break;
 
-    /* FIXME: CLEANUP_STMTs are not simplified.  Clobber everything.  */
+    /* FIXME  CLEANUP_STMTs are not simplified.  Clobber everything.  */
     case CLEANUP_STMT:
-      if (TREE_CODE (CLEANUP_DECL (t)) == VAR_DECL
-	  && DECL_INITIAL (TREE_OPERAND (t, 0)))
-	find_refs_in_expr (&TREE_OPERAND (t, 0), V_DEF | M_CLOBBER, bb, t,
-			   TREE_OPERAND (t, 0));
-
-      find_refs_in_expr (&CLEANUP_EXPR (t), V_DEF | M_CLOBBER, bb, t,
-	                 CLEANUP_EXPR (t));
+      walk_tree (&CLEANUP_DECL (t), clobber_vars_r, NULL, NULL);
+      walk_tree (&CLEANUP_EXPR (t), clobber_vars_r, NULL, NULL);
       break;
 
     case LABEL_STMT:
@@ -754,12 +749,13 @@ create_ref (var, ref_type, bb, parent_stmt, parent_expr, operand_p, add_to_bb)
     {
       /* Add the variable to the list of variables referenced in this
 	 function.  But only for actual variable defs or uses in the code.  */
-      if (ref_type & (V_DEF | V_USE))
+      if ((ref_type & (V_DEF | V_USE))
+	  && TREE_CODE_CLASS (TREE_CODE (var)) == 'd')
 	add_referenced_var (var);
-      
+
       /* Add this reference to the list of references for the variable.  */
       add_tree_ref (var, ref);
-      
+
       /* Add this reference to the list of references for the containing
 	 statement.  */
       if (parent_stmt)
@@ -1369,7 +1365,7 @@ validate_ref_type (type)
   return false;
 }
 
-/* Callback for walk_tree.  Create a clobbering definition for every _DECL
+/* Callback for walk_tree.  Create a may-def/may-use reference for every _DECL
    and compound reference found under *TP.  */
 
 static tree
@@ -1381,10 +1377,14 @@ clobber_vars_r (tp, walk_subtrees, data)
   enum tree_code code = TREE_CODE (*tp);
   struct clobber_data_d *clobber = (struct clobber_data_d *)data;
 
-  /* Clobber every VAR_DECL in sight.  */
-  if (code == VAR_DECL)
-    create_ref (*tp, V_DEF | M_CLOBBER, clobber->bb, clobber->parent_stmt,
-	        clobber->parent_expr, NULL, true);
+  /* Create may-use and clobber references for every *_DECL in sight.  */
+  if (code == VAR_DECL || code == PARM_DECL || code == FUNCTION_DECL)
+    {
+      create_ref (*tp, V_USE | M_MAY, clobber->bb, clobber->parent_stmt,
+		  clobber->parent_expr, NULL, true);
+      create_ref (*tp, V_DEF | M_CLOBBER, clobber->bb, clobber->parent_stmt,
+		  clobber->parent_expr, NULL, true);
+    }
 
   return NULL;
 }
@@ -1411,7 +1411,8 @@ add_default_defs ()
 }
 
 
-/* Insert clobbering definitions at every call site.  */
+/* Insert may-use/clobber references at every call site for every variable
+   that the called function might have access to.  */
 
 static void
 add_call_site_clobbers ()
@@ -1428,7 +1429,6 @@ add_call_site_clobbers ()
       tree expr = ref_expr (ref);
       tree fcall = ref_var (ref);
       ref_list refs = bb_refs (bb);
-      struct ref_list_node *call_ref_node = find_list_node (refs, ref);
 
       /* Skip pure and built-in functions.  */
       if (is_pure_fcall (fcall))
@@ -1451,9 +1451,21 @@ add_call_site_clobbers ()
 	  if ((add_addressable && TREE_ADDRESSABLE (sym))
 	      || DECL_CONTEXT (sym) == NULL)
 	    {
-	      tree_ref ref = create_ref (sym, V_DEF | M_CLOBBER, bb, stmt, expr,
-		                         NULL, false);
-	      add_ref_to_list_after (refs, call_ref_node, ref);
+	      struct ref_list_node *call_ref_node;
+	      tree_ref clobber, may_use;
+	      
+	      clobber = create_ref (sym, V_DEF | M_CLOBBER, bb, stmt, expr,
+				    NULL, false);
+	      may_use = create_ref (sym, V_USE | M_MAY, bb, stmt, expr, NULL,
+		                    false);
+
+	      /* Notice that we first add the clobber and then the may-use
+		 reference so that the may-use appears first.  This is so
+		 that any prior definitions of SYM may reach the call site
+		 and any subsequent uses of SYM are reached by the clobber.  */
+	      call_ref_node = find_list_node (refs, ref);
+	      add_ref_to_list_after (refs, call_ref_node, clobber);
+	      add_ref_to_list_after (refs, call_ref_node, may_use);
 	    }
 	}
     }
@@ -1478,7 +1490,7 @@ add_ptr_may_refs ()
       tree stmt = ref_stmt (ref);
       tree expr = ref_expr (ref);
       ref_list refs = bb_refs (bb);
-      struct ref_list_node *ptr_ref_node = find_list_node (refs, ref);
+      struct ref_list_node *ptr_ref_node;
       HOST_WIDE_INT sym_alias_set, ptr_sym_alias_set;
 
       /* The may-refs we are going to introduce are not indirect.  */
@@ -1501,9 +1513,12 @@ add_ptr_may_refs ()
 	  if (TREE_ADDRESSABLE (sym)
 	      && alias_sets_conflict_p (sym_alias_set, ptr_sym_alias_set))
 	    {
-	      tree_ref ref = create_ref (sym, type | M_MAY, bb, stmt, expr,
-					 NULL, false);
-	      add_ref_to_list_after (refs, ptr_ref_node, ref);
+	      tree_ref may_ref;
+	      
+	      may_ref = create_ref (sym, type | M_MAY, bb, stmt, expr, NULL,
+		                    false);
+	      ptr_ref_node = find_list_node (refs, ref);
+	      add_ref_to_list_after (refs, ptr_ref_node, may_ref);
 	    }
 	}
     }
