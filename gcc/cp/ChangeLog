@@ -1,3 +1,8 @@
+2002-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (cp_finish_decl): Make sure array types are laid out,
+	even if the array bounds are unknown.
+
 2002-09-30  Steve Ellcey  <sje@cup.hp.com>
 
 	* class.c (build_vtbl_initializer): Add cast.
