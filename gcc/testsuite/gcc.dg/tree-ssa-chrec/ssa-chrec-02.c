@@ -25,5 +25,5 @@ int main(void)
    b  ->  {8, +, 5}_2
    a  ->  {{11, +, 19}_1, +, 2}_2
 */
-/* { dg-final { scan-tree-dump-times "nb_iterations 3" 1 "lptest"} } */
-/* { dg-final { scan-tree-dump-times "nb_iterations 9" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 3" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 9" 1 "lptest"} } */

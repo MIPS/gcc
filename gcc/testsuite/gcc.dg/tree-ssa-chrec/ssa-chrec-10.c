@@ -27,5 +27,5 @@ int foo (void)
    x-1 ->  {15, +, 1}_1
 */
 
-/* { dg-final { scan-tree-dump-times "nb_iterations 39" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 39" 1 "lptest"} } */
 /* { dg-final { diff-tree-dumps "ddall" } } */

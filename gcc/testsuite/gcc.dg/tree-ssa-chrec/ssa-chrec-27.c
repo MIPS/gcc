@@ -35,7 +35,7 @@ int foo ()
 
 */
 
-/* { dg-final { scan-tree-dump-times "nb_iterations 100" 1 "lptest"} } */
-/* { dg-final { scan-tree-dump-times "nb_iterations 26" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 100" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 26" 1 "lptest"} } */
 
 

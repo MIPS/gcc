@@ -1,5 +1,18 @@
 2004-11-10  Devang Patel  <dpatel@apple.com>
 
+	Partial Radar 3846472 fix
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-01.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-02.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-03.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-04.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-05.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-06.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-10.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-15.c: Adjust.
+	* gcc.dg/tree-ssa-chrec/ssa-chrec-27.c: Adjust.
+
+2004-11-10  Devang Patel  <dpatel@apple.com>
+
 	Radar 384609
 	More FSF merge cleanup.
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-13.c: Remove test.

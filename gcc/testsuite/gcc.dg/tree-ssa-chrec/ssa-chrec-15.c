@@ -20,5 +20,5 @@ int main (void)
    a  ->  {100, +, -1}_1
 */
 
-/* { dg-final { scan-tree-dump-times "nb_iterations 50" 1 "lptest"} } */
+/* { dg-final { scan-tree-dump-times "set_nb_iterations_in_loop = 50" 1 "lptest"} } */
 
