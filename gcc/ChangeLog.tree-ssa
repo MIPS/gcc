@@ -1,5 +1,30 @@
 2003-03-11  Jeff Law  <law@redhat.com>
 
+	* builtins.c: Fix minor comment typo.
+	(expand_builtin_strcmp, expand_builtin_strncmp): Remove.
+	(expand_builtin_strcat, expand_builtin_strncat): Likewise.
+	(expand_builtin_strspn, expand_builtin_strcspn): Likewise.
+	(expand_builtin_strcopy, expand_builtin_strstr): Likewise.
+	(expand_builtin_strpbrk, expand_builtin_strchr): Likewise.
+	(expand_builtin_strrchr, expand_builtin_fputs): Likewise.
+	(simplify_builtin_memcmp, simplify_builtin_strcmp): New functions.
+	(simplify_builtin_strpbrk, simplify_builtin_strstr): Likewise
+	(simplify_builtin_strchr, simplify_builtin_strrchr): Likewise
+	(simplify_builtin_strcpy, simplify_builtin_strncpy): Likewise
+	(simplify_builtin_strncmp, simplify_builtin_strcat): Likewise
+	(simplify_builtin_strncat, simplify_builtin_strspn): Likewise
+	(simplify_builtin_strcspn, simplify_builtin_fputs): Likewise
+	(expand_builtin_memcmp): Use simplify_builtin_memcmp.
+	(simplify_builtin): New function
+	(expand_builtin): Use simpify_builtin to collapse several common
+	cases together.
+	* gimplify.c (simplify_call_expr): Accept new argument.  All
+	callers updated.  Call simplify_builtin to try and simplify builtin
+	function calls before we simplify their arguments.
+	* tree.h (simplify_builtin): Prototype.
+	
+2003-03-11  Jeff Law  <law@redhat.com>
+
 	* timevar.def (TV_TREE_SSA_TO_NORMAL): New timevar.
 	* tree-cfg.c (remove_stmt): Also remove special annotations
 	on RHS of MODIFY_EXPR statements.
