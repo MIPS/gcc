@@ -489,6 +489,7 @@ extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
+extern void bsi_commit_one_edge_insert (edge e, basic_block *);
 extern void bsi_commit_edge_inserts (int *);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
