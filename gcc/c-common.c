@@ -5877,7 +5877,7 @@ vector_constructor_from_expr (tree expr, tree vector_type)
 
       list = chainon (list,
 		      build_tree_list (NULL_TREE,
-				       convert (elttype, elem)));
+				       convert (elttype, fold (elem))));
     }
 
   list = nreverse (list);

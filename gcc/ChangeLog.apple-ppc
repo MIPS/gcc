@@ -11,6 +11,11 @@
 
 2004-10-21 Fariborz Jahanian <fjahanian@apple.com>
 
+	* c-common.c (vector_constructor_from_expr): In building vector expressions,
+	fold no_expr of nanf into a cst_real expression tree.
+
+2004-10-21 Fariborz Jahanian <fjahanian@apple.com>
+
 	* function.c (assign_parms): Iterate over all non-vector args first,
 	then over vector args.
 
