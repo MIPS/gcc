@@ -1,3 +1,8 @@
+2001-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* unwind-dw2.c (frame_state_296): New type.
+	(__frame_state_for): Add compatibility code with early gcc-2.96-RH.
+
 2003-05-15  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* doc/invoke.texi (Warning Options): Mark -Wmissing-declarations

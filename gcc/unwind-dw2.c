@@ -992,14 +992,50 @@ typedef struct frame_state
   char saved[PRE_GCC3_DWARF_FRAME_REGISTERS+1];
 } frame_state;
 
-struct frame_state * __frame_state_for (void *, struct frame_state *);
+/* Stock Red Hat Linux 7.0 and 7.1 gcc-2.96-RH used two additional fields.  */
+typedef struct frame_state_296
+{
+  frame_state state;
+  long base_offset;
+  char indirect;
+} frame_state_296;
 
 /* Called from pre-G++ 3.0 __throw to find the registers to restore for
    a given PC_TARGET.  The caller should allocate a local variable of
    `struct frame_state' and pass its address to STATE_IN.  */
 
+#if defined(__linux__) && defined(__sparc__) && !defined(__arch64__)
+/* Grab some info from parent register window so that we don't
+   have to flush register windows and look it up on the stack.  */
+asm ("  .text                                   \n\
+        .globl __frame_state_for                \n\
+        .type __frame_state_for, #function      \n\
+__frame_state_for:                              \n\
+        mov     %fp, %o2                        \n\
+        b       ___frame_state_for              \n\
+         mov    %i0, %o3                        \n\
+     ");
+
+static struct frame_state *
+___frame_state_for (void *pc_target, struct frame_state *state_in, void *pfp,
+                    int i0);
+
+static struct frame_state *
+___frame_state_for (void *pc_target, struct frame_state *state_in, void *pfp,
+                    int i0)
+#elif defined(__linux__) && defined(__alpha__)
+struct frame_state *
+__frame_state_for (void *pc_target, struct frame_state *state_in, long a2);
+
+struct frame_state *
+__frame_state_for (void *pc_target, struct frame_state *state_in, long a2)
+#else
+struct frame_state *
+__frame_state_for (void *pc_target, struct frame_state *state_in);
+
 struct frame_state *
 __frame_state_for (void *pc_target, struct frame_state *state_in)
+#endif
 {
   struct _Unwind_Context context;
   _Unwind_FrameState fs;
@@ -1038,6 +1074,109 @@ __frame_state_for (void *pc_target, struct frame_state *state_in)
   state_in->retaddr_column = fs.retaddr_column;
   state_in->args_size = context.args_size;
   state_in->eh_ptr = fs.eh_ptr;
+
+#ifdef __linux__
+  /* Binary compatibility problem: In June 2000, 2 fields
+     were added at the end of struct frame_state. If for some reason
+     __throw (or __rethrow) comes from binary/shared lib compiled
+     with egcs 1.x.y or gcc-2.95.x and __frame_state_for comes from
+     glibc compiled with gcc-2.96-RH up (gcc-3_0-branch in Apr 2001
+     works that way still), then we can overflow __throw's stack.
+     To fix this, we try to find out who calls us.
+     __frame_state_for is called by next_stack_level and __throw/__rethrow.
+     Of these, __throw/__rethrow does not care about indirect/base_offset
+     fields and next_stack_level can be found out because that's the only
+     routine which where state_in does not point into its stackframe.  */
+# ifdef __i386__
+  {
+    unsigned long pbp, bp;
+    unsigned char *ppc;
+
+    asm ("movl (%%ebp), %0; movl 4(%%ebp), %1; movl %%ebp, %2"
+	 : "=r" (pbp), "=r" (ppc), "=r" (bp));
+    if (pbp < (unsigned long)state_in && pbp - bp == 0x40)
+      /* We've been called from next_stack_level function.
+	 All gcc-2.96-RH rpms shipped by Red Hat satisfy pbp - bp == 64,
+	 none egcs 1.x.y Red Hat shipped do.  */
+      {
+	unsigned char *end;
+	int indirect = 0;
+
+	/* Skim next_stack_level to see if it compares 0x74(base),0
+	   and reads from 0x70(base).  Stop at ret instruction.  */
+	for (end = ppc + 512; ppc < end && *ppc != 0xc3 && indirect < 2;
+	     ppc++)
+	  {
+	    if (*ppc == 0x74 && ppc[1] == 0)
+	      indirect++;
+	    else if (*ppc == 0x70)
+	      indirect++;
+	  }
+	if (indirect == 2)
+	  {
+	    ((frame_state_296 *) state_in)->base_offset = 0;
+	    ((frame_state_296 *) state_in)->indirect = 0;
+	  }
+      }
+  }
+# elif defined(__sparc__) && !defined(__arch64__)
+  if (pfp < (unsigned long)state_in && i0 == 0)
+    /* We've been called from next_stack_level function.
+       All gcc-2.96-RH rpms shipped by Red Hat clear %i0 in next_stack_level
+       before calling __frame_state_for, all egcs 1.x.y just copy
+       %i0 into %o0, so it is guaranteed to be non-NULL.  */
+    {
+      unsigned int *ppc, *end;
+      int indirect = 0;
+
+      ppc = (unsigned int *) __builtin_return_address (0);
+
+      /* Skim next_stack_level to see if it does a ld?b [? + 0x218]
+	 and ld?w [? + 0x214]. Stop at ret instruction.  */
+      for (end = ppc + 128; ppc < end && indirect < 2
+	   && (*ppc | 0x00080000) != 0x81cfe008; ppc++)
+	switch (*ppc & 0xc1b83fff)
+	  {
+	    case 0xc0082218: /* ld?b [? + 0x218], ? */
+	    case 0xc0002214: /* ld?w [? + 0x214], ? */
+	      indirect++;
+	      break;
+	  }
+	if (indirect == 2)
+	  {
+	    ((frame_state_296 *) state_in)->base_offset = 0;
+	    ((frame_state_296 *) state_in)->indirect = 0;
+	  }
+    }
+# elif defined(__alpha__)
+  if ((long)state_in == a2)
+    /* We've been called most probably from next_stack_level (it has 3 arguments
+       and passes its third argument as second argument to __frame_state_for).  */
+    {
+      unsigned int *ppc, *end;
+      int indirect = 0;
+
+      ppc = (unsigned int *) __builtin_return_address (0);
+      /* Skim next_stack_level to see if it does a ldq ?,624(?)
+	 and ldl ?,632(?) resp. ldbu ?,632(?). Stop at ret instruction.  */
+      for (end = ppc + 128; ppc < end && indirect < 2
+	   && *ppc != 0x6bfa8001; ppc++)
+	switch (*ppc & 0xfc00ffff)
+	  {
+	    case 0xa4000270: /* ldq ?,624(?) */
+	    case 0xa0000278: /* ldl ?,632(?) */
+	    case 0xa8000278: /* ldbu ?,632(?) */
+	      indirect++;
+	      break;
+	  }
+	if (indirect == 2)
+	  {
+	    ((frame_state_296 *) state_in)->base_offset = 0;
+	    ((frame_state_296 *) state_in)->indirect = 0;
+	  }
+    }
+# endif
+#endif
 
   return state_in;
 }
