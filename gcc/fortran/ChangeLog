@@ -1,3 +1,8 @@
+2003-09-03  Jeff Law  <law@redhat.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): C arrays start at
+	index zero!
+
 2003-08-30  Paul Brook  <paul@nowt.org>
 
 	* f95-lang.c (builtin_function): Remove #if 0 code.

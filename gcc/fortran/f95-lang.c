@@ -862,14 +862,14 @@ gfc_init_builtin_functions (void)
   voidchain = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
 
   tmp = tree_cons (NULL_TREE, float_type_node, voidchain);
-  mfunc_float[1] = build_function_type (float_type_node, tmp);
+  mfunc_float[0] = build_function_type (float_type_node, tmp);
   tmp = tree_cons (NULL_TREE, float_type_node, tmp);
-  mfunc_float[2] = build_function_type (float_type_node, tmp);
+  mfunc_float[1] = build_function_type (float_type_node, tmp);
 
   tmp = tree_cons (NULL_TREE, double_type_node, voidchain);
-  mfunc_double[1] = build_function_type (double_type_node, tmp);
+  mfunc_double[0] = build_function_type (double_type_node, tmp);
   tmp = tree_cons (NULL_TREE, double_type_node, tmp);
-  mfunc_double[2] = build_function_type (double_type_node, tmp);
+  mfunc_double[1] = build_function_type (double_type_node, tmp);
 
   tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
@@ -884,13 +884,13 @@ gfc_init_builtin_functions (void)
 
   /* We define there seperately as the fortran versions have different
      semantics (they return an integer type) */
-  gfc_define_builtin ("__builtin_floor", mfunc_double[1], 
+  gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
 		      BUILT_IN_FLOOR, "floor");
-  gfc_define_builtin ("__builtin_floorf", mfunc_float[1], 
+  gfc_define_builtin ("__builtin_floorf", mfunc_float[0], 
 		      BUILT_IN_FLOORF, "floorf");
-  gfc_define_builtin ("__builtin_round", mfunc_double[1], 
+  gfc_define_builtin ("__builtin_round", mfunc_double[0], 
 		      BUILT_IN_ROUND, "round");
-  gfc_define_builtin ("__builtin_roundf", mfunc_float[1], 
+  gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf");
 
   /* Other builtin functions we use.  */
