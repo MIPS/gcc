@@ -238,6 +238,7 @@ extern HOST_WIDE_INT get_frame_size PROTO((void));
    in push_function_context and pop_function_context.  */
 extern void (*save_machine_status) PROTO((struct function *));
 extern void (*restore_machine_status) PROTO((struct function *));
+extern void (*mark_machine_status) PROTO((struct function *));
 
 /* Save and restore status information for a nested function.  */
 extern void save_tree_status		PROTO((struct function *, tree));

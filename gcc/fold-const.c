@@ -1433,28 +1433,11 @@ size_int_wide (number, high, bit_p)
      int bit_p;
 {
   register tree t;
-  /* Type-size nodes already made for small sizes.  */
-  static tree size_table[2*HOST_BITS_PER_WIDE_INT + 1][2];
 
-  if (number < 2*HOST_BITS_PER_WIDE_INT + 1 && ! high
-      && size_table[number][bit_p] != 0)
-    return size_table[number][bit_p];
-  if (number < 2*HOST_BITS_PER_WIDE_INT + 1 && ! high)
-    {
-      push_obstacks_nochange ();
-      /* Make this a permanent node.  */
-      end_temporary_allocation ();
-      t = build_int_2 (number, 0);
-      TREE_TYPE (t) = bit_p ? bitsizetype : sizetype;
-      size_table[number][bit_p] = t;
-      pop_obstacks ();
-    }
-  else
-    {
-      t = build_int_2 (number, high);
-      TREE_TYPE (t) = bit_p ? bitsizetype : sizetype;
-      TREE_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (t) = force_fit_type (t, 0);
-    }
+  t = build_int_2 (number, high);
+  TREE_TYPE (t) = bit_p ? bitsizetype : sizetype;
+  TREE_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (t) = force_fit_type (t, 0);
+
   return t;
 }
 

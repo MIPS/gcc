@@ -56,6 +56,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
+#include "ggc.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -981,6 +982,7 @@ int stack_reg_time;
 int final_time;
 int symout_time;
 int dump_time;
+int gc_time;
 
 /* Return time used so far, in microseconds.  */
 
@@ -2297,6 +2299,8 @@ compile_file (name)
   init_loop ();
   init_reload ();
   init_alias_once ();
+  init_function_once ();
+  init_const_rtx_hash_table_once ();
 
   if (flag_caller_saves)
     init_caller_save ();
@@ -2845,6 +2849,7 @@ compile_file (name)
       print_time ("varconst", varconst_time);
       print_time ("symout", symout_time);
       print_time ("dump", dump_time);
+      print_time ("gc", gc_time);
     }
 }
 
@@ -3183,7 +3188,7 @@ rest_of_compilation (decl)
   /* See if we have allocated stack slots that are not directly addressable.
      If so, scan all the insns and create explicit address computation
      for all references to such slots.  */
-/*   fixup_stack_slots (); */
+  /* fixup_stack_slots (); */
 
   /* Find all the EH handlers.  */
   find_exception_handler_labels ();
@@ -3201,8 +3206,8 @@ rest_of_compilation (decl)
 
   /* Dump rtl code after jump, if we are doing that.  */
 
-    if (jump_opt_dump)
-      dump_rtl (".jump", decl, print_rtl, insns);
+  if (jump_opt_dump)
+    dump_rtl (".jump", decl, print_rtl, insns);
 
   /* Perform common subexpression elimination.
      Nonzero value from `cse_main' means that jumps were simplified
@@ -3340,7 +3345,7 @@ rest_of_compilation (decl)
      (if we got the -noreg switch and not -opt)
      and smart register allocation.  */
 
-  if (optimize > 0)			/* Stupid allocation probably won't work */
+  if (optimize > 0)		/* Stupid allocation probably won't work */
     obey_regdecls = 0;		/* if optimizations being done.  */
 
   regclass_init ();
@@ -3671,6 +3676,8 @@ rest_of_compilation (decl)
      anymore if we do it here?  */
 
   init_recog_no_volatile ();
+
+  ggc_collect (0);
 
   /* The parsing time is all the time spent in yyparse
      *except* what is spent in this function.  */

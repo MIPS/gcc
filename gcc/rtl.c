@@ -28,6 +28,8 @@ Boston, MA 02111-1307, USA.  */
 #define	obstack_chunk_alloc	xmalloc
 #define	obstack_chunk_free	free
 
+#include "ggc.h"
+
 /* Obstack used for allocating RTL objects.
    Between functions, this is the permanent_obstack.
    While parsing and expanding a function, this is maybepermanent_obstack
@@ -189,19 +191,8 @@ rtvec
 rtvec_alloc (n)
      int n;
 {
-  rtvec rt;
-  int i;
-
-  rt = (rtvec) obstack_alloc (rtl_obstack,
-			      sizeof (struct rtvec_def)
-			      + (( n - 1) * sizeof (rtunion)));
-
-  /* clear out the vector */
+  rtvec rt = ggc_alloc_rtvec (n);
   PUT_NUM_ELEM (rt, n);
-
-  for (i = 0; i < n; i++)
-    rt->elem[i].rtwint = 0;
-
   return rt;
 }
 
@@ -212,37 +203,8 @@ rtx
 rtx_alloc (code)
   RTX_CODE code;
 {
-  rtx rt;
-  register struct obstack *ob = rtl_obstack;
-  register int nelts = GET_RTX_LENGTH (code);
-  register int length = sizeof (struct rtx_def)
-    + (nelts - 1) * sizeof (rtunion);
-
-  /* This function is called more than any other in GCC,
-     so we manipulate the obstack directly.
-
-     Even though rtx objects are word aligned, we may be sharing an obstack
-     with tree nodes, which may have to be double-word aligned.  So align
-     our length to the alignment mask in the obstack.  */
-
-  length = (length + ob->alignment_mask) & ~ ob->alignment_mask;
-
-  if (ob->chunk_limit - ob->next_free < length)
-    _obstack_newchunk (ob, length);
-  rt = (rtx)ob->object_base;
-  ob->next_free += length;
-  ob->object_base = ob->next_free;
-
-  /* We want to clear everything up to the FLD array.  Normally, this is
-     one int, but we don't want to assume that and it isn't very portable
-     anyway; this is.  */
-
-  length = (sizeof (struct rtx_def) - sizeof (rtunion) - 1) / sizeof (int);
-  for (; length >= 0; length--)
-    ((int *) rt)[length] = 0;
-
+  rtx rt = ggc_alloc_rtx (GET_RTX_LENGTH (code));
   PUT_CODE (rt, code);
-
   return rt;
 }
 
@@ -252,8 +214,9 @@ void
 rtx_free (x)
      rtx x;
 {
-  obstack_free (rtl_obstack, x);
+  /* We are relying on GC now.  */
 }
+
 
 /* Create a new copy of an rtx.
    Recursively copies the operands of the rtx,

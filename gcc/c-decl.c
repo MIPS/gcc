@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "c-lex.h"
 #include "toplev.h"
+#include "ggc.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -98,7 +99,7 @@ enum decl_context
 #define WCHAR_TYPE "int"
 #endif
 
-/* a node which has tree code ERROR_MARK, and whose type is itself.
+/* A node which has tree code ERROR_MARK, and whose type is itself.
    All erroneous expressions are replaced with this node.  All functions
    that accept nodes as arguments should avoid generating error messages
    if this node is one of the arguments, since it is undesirable to get
@@ -106,99 +107,109 @@ enum decl_context
 
 tree error_mark_node;
 
-/* INTEGER_TYPE and REAL_TYPE nodes for the standard data types */
+/* The following symbols are subsumed in the c_global_trees array, and
+   listed here individually for documentation purposes. 
 
-tree short_integer_type_node;
-tree integer_type_node;
-tree long_integer_type_node;
-tree long_long_integer_type_node;
+   INTEGER_TYPE and REAL_TYPE nodes for the standard data types.
 
-tree short_unsigned_type_node;
-tree unsigned_type_node;
-tree long_unsigned_type_node;
-tree long_long_unsigned_type_node;
+	tree short_integer_type_node;
+	tree long_integer_type_node;
+	tree long_long_integer_type_node;
 
-tree boolean_type_node;
-tree boolean_false_node;
-tree boolean_true_node;
+	tree short_unsigned_type_node;
+	tree long_unsigned_type_node;
+	tree long_long_unsigned_type_node;
 
-tree ptrdiff_type_node;
+	tree boolean_type_node;
+	tree boolean_false_node;
+	tree boolean_true_node;
 
-tree unsigned_char_type_node;
-tree signed_char_type_node;
-tree char_type_node;
-tree wchar_type_node;
-tree signed_wchar_type_node;
-tree unsigned_wchar_type_node;
+	tree ptrdiff_type_node;
 
-tree float_type_node;
-tree double_type_node;
-tree long_double_type_node;
+	tree unsigned_char_type_node;
+	tree signed_char_type_node;
+	tree wchar_type_node;
+	tree signed_wchar_type_node;
+	tree unsigned_wchar_type_node;
 
-tree complex_integer_type_node;
-tree complex_float_type_node;
-tree complex_double_type_node;
-tree complex_long_double_type_node;
+	tree float_type_node;
+	tree double_type_node;
+	tree long_double_type_node;
 
-tree intQI_type_node;
-tree intHI_type_node;
-tree intSI_type_node;
-tree intDI_type_node;
-tree intTI_type_node;
+	tree complex_integer_type_node;
+	tree complex_float_type_node;
+	tree complex_double_type_node;
+	tree complex_long_double_type_node;
 
-tree unsigned_intQI_type_node;
-tree unsigned_intHI_type_node;
-tree unsigned_intSI_type_node;
-tree unsigned_intDI_type_node;
-tree unsigned_intTI_type_node;
+	tree intQI_type_node;
+	tree intHI_type_node;
+	tree intSI_type_node;
+	tree intDI_type_node;
+	tree intTI_type_node;
 
-/* a VOID_TYPE node.  */
+	tree unsigned_intQI_type_node;
+	tree unsigned_intHI_type_node;
+	tree unsigned_intSI_type_node;
+	tree unsigned_intDI_type_node;
+	tree unsigned_intTI_type_node;
+
+   Nodes for types `void *' and `const void *'.
+
+	tree ptr_type_node, const_ptr_type_node;
+
+   Nodes for types `char *' and `const char *'.
+
+	tree string_type_node, const_string_type_node;
+
+   Type `char[SOMENUMBER]'.
+   Used when an array of char is needed and the size is irrelevant.
+
+	tree char_array_type_node;
+
+   Type `int[SOMENUMBER]' or something like it.
+   Used when an array of int needed and the size is irrelevant.
+
+	tree int_array_type_node;
+
+   Type `wchar_t[SOMENUMBER]' or something like it.
+   Used when a wide string literal is created.
+
+	tree wchar_array_type_node;
+
+   Type `int ()' -- used for implicit declaration of functions.
+
+	tree default_function_type;
+
+   Function types `double (double)' and `double (double, double)', etc.
+
+	tree double_ftype_double, double_ftype_double_double;
+	tree int_ftype_int, long_ftype_long;
+	tree float_ftype_float;
+	tree ldouble_ftype_ldouble;
+
+   Function type `void (void *, void *, int)' and similar ones.
+
+	tree void_ftype_ptr_ptr_int, int_ftype_ptr_ptr_int
+	tree void_ftype_ptr_int_int;
+
+   Function type `char *(char *, char *)' and similar ones.
+
+	tree string_ftype_ptr_ptr, int_ftype_string_string;
+
+   Function type `int (const void *, const void *, size_t)'.
+
+	tree int_ftype_cptr_cptr_sizet;
+   */
+
+tree c_global_trees[52];
+
+/* These can't be part of the above array, since they are declared
+   individually in tree.h, and used by the debug output routines.  */
 
 tree void_type_node;
-
-/* Nodes for types `void *' and `const void *'.  */
-
-tree ptr_type_node, const_ptr_type_node;
-
-/* Nodes for types `char *' and `const char *'.  */
-
-tree string_type_node, const_string_type_node;
-
-/* Type `char[SOMENUMBER]'.
-   Used when an array of char is needed and the size is irrelevant.  */
-
-tree char_array_type_node;
-
-/* Type `int[SOMENUMBER]' or something like it.
-   Used when an array of int needed and the size is irrelevant.  */
-
-tree int_array_type_node;
-
-/* Type `wchar_t[SOMENUMBER]' or something like it.
-   Used when a wide string literal is created.  */
-
-tree wchar_array_type_node;
-
-/* type `int ()' -- used for implicit declaration of functions.  */
-
-tree default_function_type;
-
-/* function types `double (double)' and `double (double, double)', etc.  */
-
-tree double_ftype_double, double_ftype_double_double;
-tree int_ftype_int, long_ftype_long;
-tree float_ftype_float;
-tree ldouble_ftype_ldouble;
-
-/* Function type `void (void *, void *, int)' and similar ones */
-
-tree void_ftype_ptr_ptr_int, int_ftype_ptr_ptr_int, void_ftype_ptr_int_int;
-
-/* Function type `char *(char *, char *)' and similar ones */
-tree string_ftype_ptr_ptr, int_ftype_string_string;
-
-/* Function type `int (const void *, const void *, size_t)' */
-tree int_ftype_cptr_cptr_sizet;
+tree char_type_node;
+tree integer_type_node;
+tree unsigned_type_node;
 
 /* Two expressions that are constants with value zero.
    The first is of type `int', the second of type `void *'.  */
@@ -214,6 +225,7 @@ tree integer_one_node;
    to a struct, union, or enum, but not yet printed the message.  */
 
 tree pending_invalid_xref;
+
 /* File and line to appear in the eventual error message.  */
 char *pending_invalid_xref_file;
 int pending_invalid_xref_line;
@@ -2888,6 +2900,24 @@ lookup_name_current_level (name)
   return t;
 }
 
+void 
+mark_binding_level (arg)
+     void *arg;
+{
+  struct binding_level *level = *(struct binding_level **) arg;
+
+  while (level)
+    {
+      ggc_mark_tree (level->names);
+      ggc_mark_tree (level->tags);
+      ggc_mark_tree (level->shadowed);
+      ggc_mark_tree (level->blocks);
+      ggc_mark_tree (level->this_block);
+      ggc_mark_tree (level->parm_order);
+      level = level->level_chain;
+    }
+}
+
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *) 0).
    Initialize the global binding level.
@@ -3479,6 +3509,29 @@ init_decl_processing ()
   init_iterators ();
 
   incomplete_decl_finalize_hook = finish_incomplete_decl;
+
+  /* Record our roots.  */
+
+  ggc_add_tree_root (c_global_trees, sizeof(c_global_trees)/sizeof(tree));
+  ggc_add_tree_root (&char_type_node, 1);
+  ggc_add_tree_root (&current_function_decl, 1);
+  ggc_add_tree_root (&error_mark_node, 1);
+  ggc_add_tree_root (&integer_one_node, 1);
+  ggc_add_tree_root (&integer_type_node, 1);
+  ggc_add_tree_root (&integer_zero_node, 1);
+  ggc_add_tree_root (&named_labels, 1);
+  ggc_add_tree_root (&null_pointer_node, 1);
+  ggc_add_tree_root (&size_one_node, 1);
+  ggc_add_tree_root (&size_zero_node, 1);
+  ggc_add_tree_root (&shadowed_labels, 1);
+  ggc_add_tree_root (&unsigned_type_node, 1);
+  ggc_add_tree_root (&void_type_node, 1);
+  ggc_add_root (&global_binding_level, 1, sizeof(global_binding_level),
+		mark_binding_level);
+  ggc_add_root (&label_level_chain, 1, sizeof(label_level_chain),
+		mark_binding_level);
+  ggc_add_tree_root (&static_ctors, 1);
+  ggc_add_tree_root (&static_dtors, 1);
 }
 
 /* Return a definition for a builtin function named NAME and whose data type

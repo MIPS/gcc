@@ -405,6 +405,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "output.h"
 #include "toplev.h"
+#include "ggc.h"
 
 /* One to use setjmp/longjmp method of generating code for exception
    handling.  */
@@ -1797,6 +1798,12 @@ check_exception_handler_labels ()
 void
 init_eh ()
 {
+  ggc_add_root (&caught_return_label_stack, 1,
+		sizeof(caught_return_label_stack), mark_tree_label_node);
+  ggc_add_root (&ehstack, 1, sizeof(ehstack), mark_eh_stack);
+  ggc_add_root (&ehqueue, 1, sizeof(ehqueue), mark_eh_queue);
+  ggc_add_rtx_root (&catch_clauses, 1);
+  ggc_add_tree_root (&protect_list, 1);
 }
 
 /* Initialize the per-function EH information.  */
@@ -1854,6 +1861,66 @@ restore_eh_status (p)
   ehqueue = p->ehqueue;
   ehstack = p->ehstack;
   current_function_ehc = p->ehc;
+}
+
+static void
+mark_eh_node (node)
+     struct eh_node *node;
+{
+  while (node)
+    {
+      if (node->entry)
+	{
+	  ggc_mark_rtx (node->entry->outer_context);
+	  ggc_mark_rtx (node->entry->exception_handler_label);
+	  ggc_mark_tree (node->entry->finalization);
+	}
+      node = node ->chain;
+    }
+}
+
+void
+mark_eh_stack (arg)
+     void *arg;
+{
+  struct eh_stack *s = *(struct eh_stack **) arg;
+  if (s)
+    mark_eh_node (s->top);
+}
+
+void
+mark_eh_queue (arg)
+     void *arg;
+{
+  struct eh_queue *q = *(struct eh_queue **) arg;
+  if (q)
+    mark_eh_node (q->head);
+}
+
+void
+mark_tree_label_node (arg)
+     void *arg;
+{
+  struct label_node *node = *(struct label_node **) arg;
+
+  while (node)
+    {
+      ggc_mark_tree (node->u.tlabel);
+      node = node->chain;
+    }
+}
+
+void
+mark_rtx_label_node (arg)
+     void *arg;
+{
+  struct label_node *node = *(struct label_node **) arg;
+
+  while (node)
+    {
+      ggc_mark_rtx (node->u.rlabel);
+      node = node->chain;
+    }
 }
 
 /* This section is for the exception handling specific optimization

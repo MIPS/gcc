@@ -389,10 +389,9 @@ initialize_for_inline (fndecl, min_labelno, max_labelno, max_reg, copy)
 				current_function_pops_args,
 				stack_slot_list, forced_labels, function_flags,
 				current_function_outgoing_args_size,
-				arg_vector, (rtx) DECL_INITIAL (fndecl),
-				(rtvec) regno_reg_rtx, regno_pointer_flag,
-				regno_pointer_align,
-				(rtvec) parm_reg_stack_loc);
+				arg_vector, DECL_INITIAL (fndecl),
+				regno_reg_rtx, regno_pointer_flag,
+				regno_pointer_align, parm_reg_stack_loc);
 }
 
 /* Subroutine for `save_for_inline{copying,nocopy}'.  Finishes up the

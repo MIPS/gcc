@@ -200,10 +200,9 @@ gendef (f, format)
     if (*p != '0')
       fprintf (f, "     %s arg%d;\n", type_from_format (*p), i++);
 
-  /* See rtx_alloc in rtl.c for comments.  */
   fprintf (f, "{\n");
-  fprintf (f, "  rtx rt = obstack_alloc_rtx (sizeof (struct rtx_def) + %d * sizeof (rtunion));\n",
-	   (int) strlen (format) - 1);
+  fprintf (f, "  rtx rt = ggc_alloc_rtx (%d);\n",
+	   (int) strlen (format));
 
   fprintf (f, "  PUT_CODE (rt, code);\n");
   fprintf (f, "  PUT_MODE (rt, mode);\n");
@@ -253,20 +252,8 @@ gencode (f)
   const char **fmt;
 
   fputs ("#include \"config.h\"\n", f);
-  fputs ("#include \"obstack.h\"\n", f);
   fputs ("#include \"rtl.h\"\n\n", f);
-  fputs ("extern struct obstack *rtl_obstack;\n\n", f);
-  fputs ("static rtx obstack_alloc_rtx PROTO((int length));\n", f);
-  fputs ("static rtx obstack_alloc_rtx (length)\n", f);
-  fputs ("     register int length;\n{\n", f);
-  fputs ("  rtx rt = (rtx) obstack_alloc (rtl_obstack, length);\n\n", f);
-  fputs ("  if (sizeof(struct rtx_def) - sizeof(rtunion) == sizeof(int))\n", f);
-  fputs ("    *(int *)rt = 0;\n", f);
-  fputs ("  else if (sizeof(struct rtx_def) - sizeof(rtunion) == sizeof(HOST_WIDE_INT))\n", f);
-  fputs ("    *(HOST_WIDE_INT *)rt = 0;\n", f);
-  fputs ("  else\n", f);
-  fputs ("    bzero(rt, sizeof(struct rtx_def) - sizeof(rtunion));\n\n", f);
-  fputs ("  return rt;\n}\n\n", f);
+  fputs ("#include \"ggc.h\"\n\n\n", f);
 
   for (fmt = formats; *fmt; ++fmt)
     gendef (f, *fmt);

@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h"
+#include "ggc.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -294,6 +295,8 @@ init_obstacks ()
 
   /* Init the hash table of identifiers.  */
   bzero ((char *) hash_table, sizeof hash_table);
+
+  ggc_add_tree_root (hash_table, MAX_HASH_TABLE);
 }
 
 void
@@ -523,6 +526,7 @@ void
 push_obstacks (current, saveable)
      struct obstack *current, *saveable;
 {
+#if 0
   struct obstack_stack *p
     = (struct obstack_stack *) obstack_alloc (&obstack_stack_obstack,
 					      (sizeof (struct obstack_stack)));
@@ -537,6 +541,7 @@ push_obstacks (current, saveable)
   current_obstack = current;
   expression_obstack = current;
   rtl_obstack = saveable_obstack = saveable;
+#endif
 }
 
 /* Save the current set of obstacks, but don't change them.  */
@@ -544,6 +549,7 @@ push_obstacks (current, saveable)
 void
 push_obstacks_nochange ()
 {
+#if 0
   struct obstack_stack *p
     = (struct obstack_stack *) obstack_alloc (&obstack_stack_obstack,
 					      (sizeof (struct obstack_stack)));
@@ -554,6 +560,7 @@ push_obstacks_nochange ()
   p->rtl = rtl_obstack;
   p->next = obstack_stack;
   obstack_stack = p;
+#endif
 }
 
 /* Pop the obstack selection stack.  */
@@ -561,6 +568,7 @@ push_obstacks_nochange ()
 void
 pop_obstacks ()
 {
+#if 0
   struct obstack_stack *p = obstack_stack;
   obstack_stack = p->next;
 
@@ -570,6 +578,7 @@ pop_obstacks ()
   rtl_obstack = p->rtl;
 
   obstack_free (&obstack_stack_obstack, p);
+#endif
 }
 
 /* Nonzero if temporary allocation is currently in effect.
@@ -1066,19 +1075,12 @@ make_node (code)
       abort ();
     }
 
-  t = (tree) obstack_alloc (obstack, length);
+  t = ggc_alloc_tree (length);
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)kind]++;
   tree_node_sizes[(int)kind] += length;
 #endif
-
-  /* Clear a word at a time.  */
-  for (i = (length / sizeof (int)) - 1; i >= 0; i--)
-    ((int *) t)[i] = 0;
-  /* Clear any extra bytes.  */
-  for (i = length / sizeof (int) * sizeof (int); i < length; i++)
-    ((char *) t)[i] = 0;
 
   TREE_SET_CODE (t, code);
   if (obstack == &permanent_obstack)
@@ -1178,7 +1180,7 @@ copy_node (node)
 	length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
     }
 
-  t = (tree) obstack_alloc (current_obstack, length);
+  t = ggc_alloc_tree (length);
 
   for (i = (length / sizeof (int)) - 1; i >= 0; i--)
     ((int *) t)[i] = ((int *) node)[i];
@@ -1252,7 +1254,7 @@ get_identifier (text)
   register int len, hash_len;
 
   /* Compute length of text in len.  */
-  for (len = 0; text[len]; len++);
+  len = strlen (text);
 
   /* Decide how much of that length to hash on */
   hash_len = len;
@@ -1554,10 +1556,7 @@ make_tree_vec (len)
   tree_node_sizes[(int)vec_kind] += length;
 #endif
 
-  t = (tree) obstack_alloc (obstack, length);
-
-  for (i = (length / sizeof (int)) - 1; i >= 0; i--)
-    ((int *) t)[i] = 0;
+  t = ggc_alloc_tree (length);
 
   TREE_SET_CODE (t, TREE_VEC);
   TREE_VEC_LENGTH (t) = len;
@@ -2055,14 +2054,11 @@ tree_cons (purpose, value, chain)
   register tree node = make_node (TREE_LIST);
 #else
   register int i;
-  register tree node = (tree) obstack_alloc (current_obstack, sizeof (struct tree_list));
+  register tree node = ggc_alloc_tree (sizeof (struct tree_list));
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)x_kind]++;
   tree_node_sizes[(int)x_kind] += sizeof (struct tree_list);
 #endif
-
-  for (i = (sizeof (struct tree_common) / sizeof (int)) - 1; i >= 0; i--)
-    ((int *) node)[i] = 0;
 
   TREE_SET_CODE (node, TREE_LIST);
   if (current_obstack == &permanent_obstack)
@@ -3065,15 +3061,12 @@ build1 (code, type, node)
 
   length = sizeof (struct tree_exp);
 
-  t = (tree) obstack_alloc (obstack, length);
+  t = ggc_alloc_tree (length);
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)kind]++;
   tree_node_sizes[(int)kind] += length;
 #endif
-
-  for (i = (length / sizeof (int)) - 1; i >= 0; i--)
-    ((int *) t)[i] = 0;
 
   TREE_TYPE (t) = type;
   TREE_SET_CODE (t, code);
@@ -3745,7 +3738,9 @@ type_hash_canon (hashcode, type)
   t1 = type_hash_lookup (hashcode, type);
   if (t1 != 0)
     {
+#if 0
       obstack_free (TYPE_OBSTACK (type), type);
+#endif
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int)t_kind]--;
       tree_node_sizes[(int)t_kind] -= sizeof (struct tree_type);
@@ -4070,7 +4065,9 @@ build_pointer_type (to_type)
     return t;
 
   /* We need a new one.  Put this in the same obstack as TO_TYPE.   */
+#if 0
   push_obstacks (TYPE_OBSTACK (to_type), TYPE_OBSTACK (to_type));
+#endif
   t = make_node (POINTER_TYPE);
   pop_obstacks ();
 

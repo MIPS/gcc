@@ -320,11 +320,12 @@ rtx *parm_reg_stack_loc;
    assign_stack_local uses frame_pointer_rtx when this is nonzero.  */
 static int virtuals_instantiated;
 
-/* These variables hold pointers to functions to
-   save and restore machine-specific data,
-   in push_function_context and pop_function_context.  */
+/* These variables hold pointers to functions to save and restore
+   machine-specific data, in push_function_context and pop_function_context.
+   We also need to mark machine-specific data we may have tucked away. */
 void (*save_machine_status) PROTO((struct function *));
 void (*restore_machine_status) PROTO((struct function *));
+void (*mark_machine_status) PROTO((struct function *));
 
 /* Nonzero if we need to distinguish between the return value of this function
    and the return value of a function called by this function.  This helps
@@ -6190,4 +6191,120 @@ reposition_prologue_and_epilogue_notes (f)
 	}
     }
 #endif /* HAVE_prologue or HAVE_epilogue */
+}
+
+void
+mark_temp_slot (arg)
+     void *arg;
+{
+  struct temp_slot *t = *(struct temp_slot **) arg;
+
+  while (t)
+    {
+      ggc_mark_rtx (t->slot);
+      ggc_mark_rtx (t->address);
+      ggc_mark_tree (t->rtl_expr);
+
+      t = t->next;
+    }
+}
+
+void
+mark_function_chain (arg)
+     void *arg;
+{
+  struct function *f = *(struct function **) arg;
+
+  while (f)
+    {
+      rtx *r;
+      int i;
+
+      ggc_mark_tree (f->decl);
+      ggc_mark_rtx (f->nonlocal_goto_handler_slot);
+      ggc_mark_rtx (f->nonlocal_goto_stack_level);
+      ggc_mark_rtx (f->arg_offset_rtx);
+
+      for (i = f->max_parm_reg, r = f->parm_reg_stack_loc; i > 0; --i, ++r)
+	ggc_mark_rtx (*r);
+  
+      ggc_mark_rtx (f->return_rtx);
+      ggc_mark_rtx (f->cleanup_label);
+      ggc_mark_rtx (f->return_label);
+      ggc_mark_rtx (f->save_expr_regs);
+      ggc_mark_rtx (f->stack_slot_list);
+      ggc_mark_rtx (f->parm_birth_insn);
+      ggc_mark_rtx (f->tail_recursion_label);
+      ggc_mark_rtx (f->tail_recursion_reentry);
+      ggc_mark_rtx (f->internal_arg_pointer);
+      ggc_mark_rtx (f->arg_pointer_save_area);
+      ggc_mark_tree (f->rtl_expr_chain);
+      ggc_mark_rtx (f->last_parm_insn);
+      ggc_mark_tree (f->context_display);
+      ggc_mark_tree (f->trampoline_list);
+
+      mark_temp_slot (&f->temp_slots);
+
+      {
+	struct var_refs_queue *q = f->fixup_var_refs_queue;
+	while (q)
+	  {
+	    ggc_mark_rtx (q->modified);
+	    q = q->next;
+	  }
+      }
+
+      mark_block_nesting (&f->block_stack);
+      mark_cond_nesting (&f->cond_stack);
+      mark_loop_nesting (&f->loop_stack);
+      mark_case_nesting (&f->case_stack);
+
+      ggc_mark_tree (f->last_expr_type);
+      ggc_mark_rtx (f->last_expr_value);
+
+      mark_goto_fixup (&f->goto_fixup_chain);
+
+      mark_eh_stack (&f->ehstack);
+      mark_eh_queue (&f->ehqueue);
+      ggc_mark_rtx (f->catch_clauses);
+
+      lang_mark_false_label_stack (&f->false_label_stack);
+      mark_tree_label_node (&f->caught_return_label_stack);
+
+      ggc_mark_tree (f->protect_list);
+      ggc_mark_rtx (f->ehc);
+      ggc_mark_rtx (f->saveregs_value);
+      ggc_mark_rtx (f->apply_args_value);
+      ggc_mark_rtx (f->forced_labels);
+      ggc_mark_rtx (f->first_insn);
+      ggc_mark_tree (f->sequence_rtl_expr);
+
+      mark_sequence_stack (&f->sequence_stack);
+
+      for (i = f->regno_pointer_flag_length, r = f->regno_reg_rtx;
+	   i > 0; --i, ++r)
+	ggc_mark_rtx (*r);
+  
+      ggc_mark_tree (f->permanent_type_chain);
+      ggc_mark_tree (f->temporary_type_chain);
+      ggc_mark_tree (f->pending_sizes);
+
+      if (mark_machine_status)
+	(*mark_machine_status) (f);
+
+      ggc_mark_rtx (f->epilogue_delay_list);
+      mark_pool_constant (&f->first_pool);
+      ggc_mark_rtx (f->const_double_chain);
+
+      f = f->next;
+    }
+}
+
+void
+init_function_once ()
+{
+  ggc_add_root (&outer_function_chain, 1, sizeof(outer_function_chain),
+		mark_function_chain);
+  ggc_add_root (&temp_slots, 1, sizeof(temp_slots),
+		mark_temp_slot);
 }

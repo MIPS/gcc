@@ -1,0 +1,61 @@
+Sat May  9 00:26:27 1998  Richard Henderson  <rth@cygnus.com>
+
+	First version of GCC with garbage collection to compile enquire.c:
+
+	* Makefile.in (GGC, GGC_LIB): New.
+	(HOST_RTL): Include ggc-none.o.
+	(OBJS): Add $(GGC).
+	(cc1): Add $(GGC_LIB).
+	* c-decl.c (c_global_trees): New variable.  Added in favour of 52
+	separate tree variables.
+	(mark_binding_level): New function.
+	(init_decl_processing): Add gc roots.
+	* c-tree.h: Convert lots of extern tree decls to defines against
+	c_global_trees.
+	* c-lang.c (lang_mark_false_label_stack): New function.
+	(lang_mark_tree, lang_cleanup_tree): Likewise.
+	* emit-rtl.c (sequence_element_free_list): Remove, and all references.
+	(sequence_result, free_insn): Likewise.
+	(mark_sequence_stack, mark_regno_reg_rtx): New functions.
+	(init_emit_once): Add gc roots.
+	* except.c (init_eh): Add gc roots.
+	(mark_eh_node, mark_eh_stack, mark_eh_queue): New functions.
+	(mark_tree_label_node, mark_rtx_label_node): New functions.
+	* fold-const.c (size_int_wide): Kill the cache.
+	* function.c (mark_machine_status): New variable.
+	(mark_temp_slot, mark_function_chain): New functions.
+	(init_function_once): New function.
+	* genattrtab.c: Disable all obstack_free calls.
+	* gengenrtl.c (gendef): Call ggc_alloc_rtx.
+	(gencode): Kill obstack_alloc_rtx.
+	* rtl.c (rtvec_alloc): Call ggc_alloc_rtvec.
+	(rtx_alloc): Call ggc_alloc_rtx.
+	(rtx_free): Disable.
+	* rtl.h (struct rtx_def): Steal a bit from code to make gc_mark.
+	(struct rtvec_def): Add gc_mark.
+	* stmt.c (init_stmt): Add gc roots.
+	(mark_cond_nesting, mark_loop_nesting): New functions.
+	(mark_block_nesting, mark_case_nesting, mark_goto_fixup): Likewise.
+	* stor-layout.c (set_sizetype): Add gc root.
+	* toplev.c (gc_time): New variable.
+	(compile_file): Call new _once functions.  Print gc time.
+	(rest_of_compilation): Call ggc_collect.
+	* tree.c (init_obstacks): Add gc roots.
+	(push_obstacks, push_obstacks_nochange, pop_obstacks): Disable.
+	(make_node, copy_node): Call ggc_alloc_tree.
+	(make_tree_vec, tree_cons, build1): Likewise.
+	(get_identifier): Call strlen.
+	(type_hash_canon): Disable call to obstack_free.
+	* tree.h (tree_common): Add gc_mark.
+	* varasm.c (init_const_rtx_hash_table_once): New function.
+	(mark_pool_constant): New function.
+	* ggc.h, ggc-none.c, ggc-simple.c: New files.
+
+	* haifa-sched.c (print_exp): Fix typo.
+	
+	* rtl.h (ORIGINAL_DECL_INITIAL): Correct the type stored.
+	(INLINE_REGNO_REG_RTX, PARMREG_STACK_LOC): Likewise.
+	(gen_inline_header_rtx): Correct prototype.
+	* rtl.def (INLINE_HEADER): Correct element type string.
+	* emit-rtl.c (gen_inline_header_rtx): Fix argument types.
+	* integrate.c (initialize_for_inline): Remove spurious casts.

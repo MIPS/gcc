@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "defaults.h"
 #include "real.h"
 #include "toplev.h"
+#include "ggc.h"
 
 #include "obstack.h"
 #include "c-pragma.h"
@@ -3106,6 +3107,12 @@ static struct pool_sym **const_rtx_sym_hash_table;
 #define SYMHASH(LABEL)	\
   ((((unsigned long) (LABEL)) & ((1 << HASHBITS) - 1))  % MAX_RTX_HASH_TABLE)
 
+void
+init_const_rtx_hash_table_once ()
+{
+  ggc_add_root (&first_pool, 1, sizeof(first_pool), mark_pool_constant);
+}
+
 /* Initialize constant pool hashing for next function.  */
 
 void
@@ -3155,6 +3162,19 @@ restore_varasm_status (p)
   last_pool = p->last_pool;
   pool_offset = p->pool_offset;
   const_double_chain = p->const_double_chain;
+}
+
+void 
+mark_pool_constant (arg)
+     void *arg;
+{
+  struct pool_constant *pc = *(struct pool_constant **) arg;
+
+  while (pc)
+    {
+      ggc_mark_rtx (pc->constant);
+      pc = pc->next;
+    }
 }
 
 enum kind { RTX_DOUBLE, RTX_INT };

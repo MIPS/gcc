@@ -97,13 +97,13 @@ typedef struct rtx_def
 {
 #ifdef ONLY_INT_FIELDS
 #ifdef CODE_FIELD_BUG
-  unsigned int code : 16;
+  unsigned int code : 15;
 #else
   unsigned short code;
 #endif
 #else
   /* The kind of expression this is.  */
-  enum rtx_code code : 16;
+  enum rtx_code code : 15;
 #endif
   /* The kind of value the expression has.  */
 #ifdef ONLY_INT_FIELDS
@@ -165,6 +165,10 @@ typedef struct rtx_def
      we compute the frame address or saving and restoring registers in
      the prologue and epilogue.  */
   unsigned frame_related : 1;
+
+  /* Used by the garbage collector.  */
+  unsigned gc_mark : 1;
+
   /* The first element of the operands of this rtx.
      The number of operands and their types are controlled
      by the `code' field, according to rtl.def.  */
@@ -198,6 +202,7 @@ typedef struct rtx_def
 
 typedef struct rtvec_def{
   int num_elem;		/* number of elements */
+  int gc_mark;
   rtunion elem[1];
 } *rtvec;
 
@@ -627,11 +632,11 @@ extern char *note_insn_name[];
 #define FUNCTION_FLAGS(RTX) ((RTX)->fld[12].rtint)
 #define OUTGOING_ARGS_SIZE(RTX) ((RTX)->fld[13].rtint)
 #define ORIGINAL_ARG_VECTOR(RTX) ((RTX)->fld[14].rtvec)
-#define ORIGINAL_DECL_INITIAL(RTX) ((RTX)->fld[15].rtx)
-#define INLINE_REGNO_REG_RTX(RTX) ((RTX)->fld[16].rtvec)
+#define ORIGINAL_DECL_INITIAL(RTX) (*(tree *) &(RTX)->fld[15].rtx)
+#define INLINE_REGNO_REG_RTX(RTX) (*(rtx **) &(RTX)->fld[16].rtx)
 #define INLINE_REGNO_POINTER_FLAG(RTX) ((RTX)->fld[17].rtstr)
 #define INLINE_REGNO_POINTER_ALIGN(RTX) ((RTX)->fld[18].rtstr)
-#define PARMREG_STACK_LOC(RTX) ((RTX)->fld[19].rtvec)
+#define PARMREG_STACK_LOC(RTX) (*(rtx **) &(RTX)->fld[19].rtx)
 
 /* In FUNCTION_FLAGS we save some variables computed when emitting the code
    for the function and which must be `or'ed into the current flag values when
@@ -723,8 +728,8 @@ extern rtx gen_reg_rtx			PROTO((enum machine_mode));
 extern rtx gen_label_rtx		PROTO((void));
 extern rtx gen_inline_header_rtx	PROTO((rtx, rtx, int, int, int, int,
 					       int, int, rtx, rtx, int, int,
-					       rtvec, rtx,
-					       rtvec, char *, char *, rtvec));
+					       rtvec, union tree_node *,
+					       rtx *, char *, char *, rtx *));
 extern rtx gen_lowpart_common		PROTO((enum machine_mode, rtx));
 extern rtx gen_lowpart			PROTO((enum machine_mode, rtx));
 extern rtx gen_lowpart_if_possible	PROTO((enum machine_mode, rtx));

@@ -53,6 +53,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "real.h"
 #include "obstack.h"
+#include "ggc.h"
 
 /* Commonly used modes.  */
 
@@ -207,29 +208,6 @@ rtx *regno_reg_rtx;
    unless the chain is empty.  */
 
 struct sequence_stack *sequence_stack;
-
-/* start_sequence and gen_sequence can make a lot of rtx expressions which are
-   shortly thrown away.  We use two mechanisms to prevent this waste:
-
-   First, we keep a list of the expressions used to represent the sequence
-   stack in sequence_element_free_list.
-
-   Second, for sizes up to 5 elements, we keep a SEQUENCE and its associated
-   rtvec for use by gen_sequence.  One entry for each size is sufficient
-   because most cases are calls to gen_sequence followed by immediately
-   emitting the SEQUENCE.  Reuse is safe since emitting a sequence is
-   destructive on the insn in it anyway and hence can't be redone.
-
-   We do not bother to save this cached data over nested function calls.
-   Instead, we just reinitialize them.  */
-
-#define SEQUENCE_RESULT_SIZE 5
-
-static struct sequence_stack *sequence_element_free_list;
-static rtx sequence_result[SEQUENCE_RESULT_SIZE];
-
-/* During RTL generation, we also keep a list of free INSN rtl codes.  */
-static rtx free_insn;
 
 extern int rtx_equal_function_value_matters;
 
@@ -526,7 +504,6 @@ gen_reg_rtx (mode)
       bzero ((char *) &new1[regno_pointer_flag_length],
 	     regno_pointer_flag_length * sizeof (rtx));
       regno_reg_rtx = new1;
-
       regno_pointer_flag_length *= 2;
     }
 
@@ -1511,11 +1488,11 @@ gen_inline_header_rtx (first_insn, first_parm_insn, first_labelno,
      int function_flags;
      int outgoing_args_size;
      rtvec original_arg_vector;
-     rtx original_decl_initial;
-     rtvec regno_rtx;
+     tree original_decl_initial;
+     rtx *regno_rtx;
      char *regno_flag;
      char *regno_align;
-     rtvec parm_reg_stack_loc;
+     rtx *parm_reg_stack_loc;
 {
   rtx header = gen_rtx_INLINE_HEADER (VOIDmode,
 				      cur_insn_uid++, NULL_RTX,
@@ -1524,10 +1501,13 @@ gen_inline_header_rtx (first_insn, first_parm_insn, first_labelno,
 				      max_parm_regnum, max_regnum, args_size,
 				      pops_args, stack_slots, forced_labels,
 				      function_flags, outgoing_args_size,
-				      original_arg_vector,
-				      original_decl_initial,
-				      regno_rtx, regno_flag, regno_align,
-				      parm_reg_stack_loc);
+				      original_arg_vector);
+  ORIGINAL_DECL_INITIAL (header) = original_decl_initial;
+  INLINE_REGNO_REG_RTX (header) = regno_rtx;
+  INLINE_REGNO_POINTER_FLAG (header) = regno_flag;
+  INLINE_REGNO_POINTER_ALIGN (header) = regno_align;
+  PARMREG_STACK_LOC (header) = parm_reg_stack_loc;
+
   return header;
 }
 
@@ -1608,14 +1588,6 @@ restore_emit_status (p)
   regno_pointer_align = p->regno_pointer_align;
   regno_pointer_flag_length = p->regno_pointer_flag_length;
   regno_reg_rtx = p->regno_reg_rtx;
-
-  /* Clear our cache of rtx expressions for start_sequence and
-     gen_sequence.  */
-  sequence_element_free_list = 0;
-  for (i = 0; i < SEQUENCE_RESULT_SIZE; i++)
-    sequence_result[i] = 0;
-
-  free_insn = 0;
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared structure.
@@ -2268,15 +2240,7 @@ make_insn_raw (pattern)
 {
   register rtx insn;
 
-  /* If in RTL generation phase, see if FREE_INSN can be used.  */
-  if (free_insn != 0 && rtx_equal_function_value_matters)
-    {
-      insn = free_insn;
-      free_insn = NEXT_INSN (free_insn);
-      PUT_CODE (insn, INSN);
-    }
-  else
-    insn = rtx_alloc (INSN);
+  insn = rtx_alloc (INSN);
 
   INSN_UID (insn) = cur_insn_uid++;
   PATTERN (insn) = pattern;
@@ -2555,8 +2519,6 @@ emit_insn_before (pattern, before)
 	  insn = XVECEXP (pattern, 0, i);
 	  add_insn_before (insn, before);
 	}
-      if (XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -2658,8 +2620,6 @@ emit_insn_after (pattern, after)
 	  add_insn_after (insn, after);
 	  after = insn;
 	}
-      if (XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -2806,8 +2766,6 @@ emit_insn (pattern)
 	  insn = XVECEXP (pattern, 0, i);
 	  add_insn (insn);
 	}
-      if (XVECLEN (pattern, 0) < SEQUENCE_RESULT_SIZE)
-	sequence_result[XVECLEN (pattern, 0)] = pattern;
     }
   else
     {
@@ -3103,14 +3061,7 @@ start_sequence ()
 {
   struct sequence_stack *tem;
 
-  if (sequence_element_free_list)
-    {
-      /* Reuse a previously-saved struct sequence_stack.  */
-      tem = sequence_element_free_list;
-      sequence_element_free_list = tem->next;
-    }
-  else
-    tem = (struct sequence_stack *) permalloc (sizeof (struct sequence_stack));
+  tem = (struct sequence_stack *) xmalloc (sizeof (struct sequence_stack));
 
   tem->next = sequence_stack;
   tem->first = first_insn;
@@ -3203,8 +3154,7 @@ end_sequence ()
   sequence_rtl_expr = tem->sequence_rtl_expr;
   sequence_stack = tem->next;
 
-  tem->next = sequence_element_free_list;
-  sequence_element_free_list = tem;
+  free (tem);
 }
 
 /* Return 1 if currently emitting into a sequence.  */
@@ -3245,24 +3195,10 @@ gen_sequence ()
 	  || (GET_CODE (first_insn) == CALL_INSN
 	      && CALL_INSN_FUNCTION_USAGE (first_insn) == NULL_RTX)))
     {
-      NEXT_INSN (first_insn) = free_insn;
-      free_insn = first_insn;
       return PATTERN (first_insn);
     }
 
-  /* Put them in a vector.  See if we already have a SEQUENCE of the
-     appropriate length around.  */
-  if (len < SEQUENCE_RESULT_SIZE && (result = sequence_result[len]) != 0)
-    sequence_result[len] = 0;
-  else
-    {
-      /* Ensure that this rtl goes in saveable_obstack, since we may
-	 cache it.  */
-      push_obstacks_nochange ();
-      rtl_in_saveable_obstack ();
-      result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
-      pop_obstacks ();
-    }
+  result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
 
   for (i = 0, tem = first_insn; tem; tem = NEXT_INSN (tem), i++)
     XVECEXP (result, 0, i) = tem;
@@ -3288,12 +3224,6 @@ init_emit ()
   first_label_num = label_num;
   last_label_num = 0;
   sequence_stack = NULL;
-
-  /* Clear the start_sequence/gen_sequence cache.  */
-  sequence_element_free_list = 0;
-  for (i = 0; i < SEQUENCE_RESULT_SIZE; i++)
-    sequence_result[i] = 0;
-  free_insn = 0;
 
   /* Init the tables that describe all the pseudo regs.  */
 
@@ -3349,6 +3279,33 @@ init_emit ()
 #ifdef INIT_EXPANDERS
   INIT_EXPANDERS;
 #endif
+}
+
+/* Mark the sequence stack for GC.  */
+
+void
+mark_sequence_stack (arg)
+     void *arg;
+{
+  struct sequence_stack *ss = * (struct sequence_stack **) arg;
+  while (ss)
+    {
+      ggc_mark_rtx (ss->first);
+      ggc_mark_tree (ss->sequence_rtl_expr);
+      ss = ss->next;
+    }
+}
+
+/* A special mark function for regno_reg_rtx, since we don't want to
+   keep swapping out its root.  */
+
+static void
+mark_regno_reg_rtx (dummy)
+      void *dummy;
+{
+  int i;
+  for (i = 0; i < regno_pointer_flag_length; ++i)
+    ggc_mark_rtx (regno_reg_rtx[i]);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.
@@ -3438,7 +3395,6 @@ init_emit_once (line_numbers)
        mode = GET_MODE_WIDER_MODE (mode))
     const_tiny_rtx[0][(int) mode] = const0_rtx;
 
-
   /* Assign register numbers to the globally defined register rtx.
      This must be done at runtime because the register number field
      is in a union and some compilers can't initialize unions.  */
@@ -3511,6 +3467,21 @@ init_emit_once (line_numbers)
 #ifdef PIC_OFFSET_TABLE_REGNUM
   pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 #endif
+
+  ggc_add_rtx_root (&const_tiny_rtx[0][0], sizeof(const_tiny_rtx)/sizeof(rtx));
+
+  ggc_add_rtx_root (&pic_offset_table_rtx, 1);
+  ggc_add_rtx_root (&struct_value_rtx, 1);
+  ggc_add_rtx_root (&struct_value_incoming_rtx, 1);
+  ggc_add_rtx_root (&static_chain_rtx, 1);
+  ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
+
+  ggc_add_rtx_root (&first_insn, 1);
+  ggc_add_tree_root (&sequence_rtl_expr, 1);
+  ggc_add_root (&sequence_stack, 1, sizeof(sequence_stack), 
+		mark_sequence_stack);
+  ggc_add_root (&regno_reg_rtx, 1, sizeof(regno_reg_rtx),
+		mark_regno_reg_rtx);
 }
 
 /* Query and clear/ restore no_line_numbers.  This is used by the

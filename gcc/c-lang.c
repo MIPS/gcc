@@ -197,3 +197,32 @@ finish_file ()
     }
 #endif
 }
+
+void
+lang_mark_false_label_stack (arg)
+     void *arg;
+{
+  /* C doesn't use false_label_stack.  It better be NULL.  */
+  if (*(void **)arg != NULL)
+    abort();
+}
+
+void lang_mark_tree (t)
+     tree t;
+{
+  /* C doesn't use the lang_specific tree bits for other than a cache 
+     of data already accessible in the tree node.  */
+}
+
+void lang_cleanup_tree (t)
+     tree t;
+{
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 't'
+      && TYPE_LANG_SPECIFIC (t) != NULL)
+    {
+#if 0
+      /* This is currently allocated with an obstack.  This will change.  */
+      free (TYPE_LANG_SPECIFIC (t));
+#endif
+    }
+}

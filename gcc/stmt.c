@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
+#include "ggc.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -457,6 +458,13 @@ init_stmt ()
 {
   gcc_obstack_init (&stmt_obstack);
   init_eh ();
+
+  ggc_add_root (&cond_stack, 1, sizeof(cond_stack), mark_cond_nesting);
+  ggc_add_root (&loop_stack, 1, sizeof(loop_stack), mark_loop_nesting);
+  ggc_add_root (&block_stack, 1, sizeof(block_stack), mark_block_nesting);
+  ggc_add_root (&case_stack, 1, sizeof(case_stack), mark_case_nesting);
+  ggc_add_root (&goto_fixup_chain, 1, sizeof(goto_fixup_chain),
+		mark_goto_fixup);
 }
 
 void
@@ -523,6 +531,116 @@ restore_stmt_status (p)
   emit_lineno = p->emit_lineno;
   goto_fixup_chain = p->goto_fixup_chain;
   restore_eh_status (p);
+}
+
+void
+mark_cond_nesting (arg)
+     void *arg;
+{
+  struct nesting *n = *(struct nesting **) arg;
+
+  while (n)
+    {
+      ggc_mark_rtx (n->exit_label);
+      ggc_mark_rtx (n->data.cond.endif_label);
+      ggc_mark_rtx (n->data.cond.next_label);
+
+      n = n->next;
+    }
+}
+
+void
+mark_loop_nesting (arg)
+     void *arg;
+{
+  struct nesting *n = *(struct nesting **) arg;
+
+  while (n)
+    {
+      ggc_mark_rtx (n->exit_label);
+      ggc_mark_rtx (n->data.loop.start_label);
+      ggc_mark_rtx (n->data.loop.end_label);
+      ggc_mark_rtx (n->data.loop.alt_end_label);
+      ggc_mark_rtx (n->data.loop.continue_label);
+
+      n = n->next;
+    }
+}
+
+void
+mark_block_nesting (arg)
+     void *arg;
+{
+  struct nesting *n = *(struct nesting **) arg;
+
+  while (n)
+    {
+      struct label_chain *l;
+
+      ggc_mark_rtx (n->exit_label);
+      ggc_mark_rtx (n->data.block.stack_level);
+      ggc_mark_rtx (n->data.block.first_insn);
+      ggc_mark_tree (n->data.block.cleanups);
+      ggc_mark_tree (n->data.block.outer_cleanups);
+
+      for (l = n->data.block.label_chain; l != NULL; l = l->next)
+	ggc_mark_tree (l->label);
+
+      ggc_mark_rtx (n->data.block.last_unconditional_cleanup);
+
+      /* ??? cleanup_ptr never points outside the stack, does it?  */
+
+      n = n->next;
+    }
+}
+
+void
+mark_case_nesting (arg)
+     void *arg;
+{
+  struct nesting *n = *(struct nesting **) arg;
+
+  while (n)
+    {
+      struct case_node *node;
+
+      ggc_mark_rtx (n->exit_label);
+      ggc_mark_rtx (n->data.case_stmt.start);
+
+      node = n->data.case_stmt.case_list;
+      while (node)
+	{
+	  ggc_mark_tree (node->low);
+	  ggc_mark_tree (node->high);
+	  ggc_mark_tree (node->code_label);
+	  node = node->right;
+	}
+
+      ggc_mark_tree (n->data.case_stmt.default_label);
+      ggc_mark_tree (n->data.case_stmt.index_expr);
+      ggc_mark_tree (n->data.case_stmt.nominal_type);
+
+      n = n->next;
+    }
+}
+
+void
+mark_goto_fixup (arg)
+     void *arg;
+{
+  struct goto_fixup *g = *(struct goto_fixup **) arg;
+
+  while (g)
+    {
+      ggc_mark_rtx (g->before_jump);
+      ggc_mark_tree (g->target);
+      ggc_mark_tree (g->context);
+      ggc_mark_rtx (g->target_rtl);
+      ggc_mark_rtx (g->stack_level);
+      ggc_mark_tree (g->cleanup_list_list);
+
+      g = g->next;
+    }
 }
 
 /* Emit a no-op instruction.  */
