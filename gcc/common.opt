@@ -707,6 +707,10 @@ ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
+ftree-ch
+Common
+Enable loop copy headers on trees
+
 ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
@@ -718,10 +722,6 @@ Enable SSA dead code elimination optimization on trees
 ftree-dominator-opts
 Common
 Enable dominator optimizations
-
-ftree-ch
-Common
-Enable loop copy headers on trees
 
 ftree-loop-optimize
 Common
