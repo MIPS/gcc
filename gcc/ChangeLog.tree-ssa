@@ -1,3 +1,28 @@
+2003-06-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (DONT_SIMULATE_AGAIN): Define.
+	(visit_phi_node): Don't do anything if the PHI node doesn't need to
+	be simulated.
+	If the PHI variable does not have real references, consider it
+	VARYING.
+	If the PHI node has a lattice value of VARYING, set
+	DONT_SIMULATE_AGAIN.
+	(visit_stmt): Don't do anything if the statement doesn't need to be
+	simulated.
+	Only visit conditional branches COND_EXPR and SWITCH_EXPR.
+	If the statement doesn't produce a result mark it with
+	DONT_SIMULATE_AGAIN.
+	(visit_assignment): Remove unnecessary def_op() check.
+	If the value is VARYING, mark the statement with
+	DONT_SIMULATE_AGAIN.
+	(visit_cond_stmt): Remove unnecessary is_ctrl_stmt() check.
+	If the predicate is VARYING, mark the statement with
+	DONT_SIMULATE_AGAIN.
+	(initialize): Clear DONT_SIMULATE_AGAIN flag for every statement
+	and PHI node.
+	(likely_value): Get statement operands after checking if it makes
+	aliased loads or has volatile operands.
+
 2003-06-16  Jeff Law  <law@redhat.com>
             Jason Merrill  <jason@redhat.com>
  

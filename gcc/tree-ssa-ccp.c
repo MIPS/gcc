@@ -61,6 +61,9 @@ typedef enum
   VARYING
 } latticevalue;
 
+/* Use the TREE_VISITED bitflag to mark statements and PHI nodes that have
+   been deemed VARYING and shouldn't be simulated again.  */
+#define DONT_SIMULATE_AGAIN(T)	TREE_VISITED (T)
 
 /* Main structure for CCP.  Contains the lattice value and, if it's a
     constant, the constant value.  */
@@ -351,6 +354,11 @@ visit_phi_node (tree phi)
   int i;
   value phi_val;
 
+  /* If the PHI node has already been deemed to be VARYING, don't simulate
+     it again.  */
+  if (DONT_SIMULATE_AGAIN (phi))
+    return;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
@@ -360,10 +368,10 @@ visit_phi_node (tree phi)
   phi_val.lattice_val = UNDEFINED;
   phi_val.const_val = NULL_TREE;
 
-  /* If the variable is volatile or we have already determined it
-     to be varying, then consider it VARYING.  */
+  /* If the variable is volatile or the variable is never referenced in a
+     real operand, then consider the PHI node VARYING.  */
   if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi)))
-      || get_value (PHI_RESULT (phi))->lattice_val == VARYING)
+      || !var_ann (SSA_NAME_VAR (PHI_RESULT (phi)))->has_real_refs)
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -406,6 +414,8 @@ visit_phi_node (tree phi)
     }
 
   set_lattice_value (PHI_RESULT (phi), phi_val);
+  if (phi_val.lattice_val == VARYING)
+    DONT_SIMULATE_AGAIN (phi) = 1;
 }
 
 
@@ -466,14 +476,10 @@ cp_lattice_meet (value val1, value val2)
 static void
 visit_stmt (tree stmt)
 {
-  varray_type ops;
-  size_t i;
-
-#if defined ENABLE_CHECKING
-  /* FIXME: This is lame.  All statements should be in GIMPLE form.  */
-  if (TREE_NOT_GIMPLE (stmt))
+  /* If the statement has already been deemed to be VARYING, don't simulate
+     it again.  */
+  if (DONT_SIMULATE_AGAIN (stmt))
     return;
-#endif
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -481,7 +487,7 @@ visit_stmt (tree stmt)
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
-  
+
   /* If this statement is already in the worklist then "cancel" it.  The
      reevaluation implied by the worklist entry will produce the same
      value we generate here and thus reevaluting it again from the
@@ -495,20 +501,34 @@ visit_stmt (tree stmt)
   if (def_op (stmt))
     visit_assignment (stmt);
 
-  /* If STMT is a control statement, see if we can determine which branch
+  /* If STMT is a conditional branch, see if we can determine which branch
      will be taken.  */
-  else if (is_ctrl_stmt (stmt))
+  else if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR)
     visit_cond_stmt (stmt);
 
-  /* If STMT is a computed goto, mark all the output edges
-     executable.  */
-  else if (is_computed_goto (stmt))
-    add_outgoing_control_edges (bb_for_stmt (stmt));
+  /* Any other kind of statement is not interesting for constant
+     propagation and, therefore, not worth simulating.  */
+  else
+    {
+      DONT_SIMULATE_AGAIN (stmt) = 1;
+
+      /* If STMT is a control statement or a computed goto, then mark all
+	 the output edges executable.  */
+      if (is_ctrl_stmt (stmt) || is_computed_goto (stmt))
+	add_outgoing_control_edges (bb_for_stmt (stmt));
+    }
 
   /* Mark all VDEF operands VARYING.  */
-  ops = vdef_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
+  {
+    size_t i;
+    varray_type ops = vdef_ops (stmt);
+    if (ops)
+      {
+	DONT_SIMULATE_AGAIN (stmt) = 1;
+	for (i = 0; i < VARRAY_ACTIVE_SIZE (ops); i++)
+	  def_to_varying (VDEF_RESULT (VARRAY_TREE (ops, i)));
+      }
+  }
 }
 
 
@@ -520,11 +540,6 @@ visit_assignment (tree stmt)
 {
   value val;
   tree lhs, rhs;
-
-#if defined ENABLE_CHECKING
-  if (!def_op (stmt))
-    abort ();
-#endif
 
   lhs = TREE_OPERAND (stmt, 0);
   rhs = TREE_OPERAND (stmt, 1);
@@ -571,6 +586,8 @@ visit_assignment (tree stmt)
 
   /* Set the lattice value of the statement's output.  */
   set_lattice_value (*(def_op (stmt)), val);
+  if (val.lattice_val == VARYING)
+    DONT_SIMULATE_AGAIN (stmt) = 1;
 }
 
 
@@ -584,11 +601,6 @@ visit_cond_stmt (tree stmt)
   value val;
   basic_block block;
 
-#if defined ENABLE_CHECKING
-  if (!is_ctrl_stmt (stmt))
-    abort ();
-#endif
-
   block = bb_for_stmt (stmt);
   val = evaluate_stmt (stmt);
 
@@ -599,7 +611,10 @@ visit_cond_stmt (tree stmt)
   if (e)
     add_control_edge (e);
   else
-    add_outgoing_control_edges (block);
+    {
+      DONT_SIMULATE_AGAIN (stmt) = 1;
+      add_outgoing_control_edges (block);
+    }
 }
 
 
@@ -943,10 +958,22 @@ initialize (void)
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
 
-  /* Mark all edges not executable.  */
+  /* Initialize simulation flags for PHI nodes, statements and edges.  */
   FOR_EACH_BB (bb)
-    for (e = bb->succ; e; e = e->succ_next)
-      e->flags &= ~EDGE_EXECUTABLE;
+    {
+      block_stmt_iterator i;
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	DONT_SIMULATE_AGAIN (phi) = 0;
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	DONT_SIMULATE_AGAIN (bsi_stmt (i)) = 0;
+
+      for (e = bb->succ; e; e = e->succ_next)
+	e->flags &= ~EDGE_EXECUTABLE;
+    }
+
 
   VARRAY_GENERIC_PTR_INIT (cfg_edges, 20, "cfg_edges");
 
@@ -1088,7 +1115,6 @@ set_lattice_value (tree var, value val)
 	      old_val->lattice_val = CONSTANT;
 	      old_val->const_val = val.const_val;
 	    }
-
 	}
     }
 }
@@ -1140,13 +1166,13 @@ likely_value (tree stmt)
   int found_constant = 0;
   stmt_ann_t ann;
 
-  get_stmt_operands (stmt);
-
   /* If the statement makes aliased loads or has volatile operands, it
      won't fold to a constant value.  */
   ann = stmt_ann (stmt);
   if (ann->makes_aliased_loads || ann->has_volatile_ops)
     return VARYING;
+
+  get_stmt_operands (stmt);
 
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
