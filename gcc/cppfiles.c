@@ -1124,14 +1124,15 @@ _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
   /* Invalidate control macros in the #including file.  */
   pfile->mi_valid = false;
 
-#if 0
-  if (file->buffer)
+  if (pfile->buffer == NULL)
     {
-      free ((void *) file->buffer);
-      file->buffer = NULL;
+      if (file->buffer)
+	{
+	  free ((void *) file->buffer);
+	  file->buffer = NULL;
+	}
+      purge_fragments (file);
     }
-  purge_fragments (file);
-#endif
 }
 
 /* Set the include chain for "" to QUOTE, for <> to BRACKET.  If
