@@ -9,6 +9,14 @@
 	(MULTILIB_OPTIONS, MULTILIB_DIRNAMES): Define.
 	(MULTILIB_EXTRA_OPTS, MULTILIB_OSDIRNAMES): Define.
 
+2004-01-26  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Backport from mainline:
+	* config/s390/s390.c (s390_frame_info): Allow large frame sizes
+	for TARGET_64BIT.
+	(s390_arg_frame_offset): Change return type to HOST_WIDE_INT.
+	* config/s390/s390-protos.h (s390_arg_frame_offset): Likewise.
+
 2004-01-26  Josef Zlomek  <zlomekj@suse.cz>
 
 	* basic-block.h (BB_HEAD): Define.
