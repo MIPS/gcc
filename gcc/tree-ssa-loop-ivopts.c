@@ -3867,13 +3867,68 @@ find_optimal_iv_set (void)
   return best;
 }
 
+/* Creates an induction variable with value BASE + STEP * iteration in LOOP.
+   It is expected that neither BASE nor STEP are shared with other expressions
+   (unless the sharing rules allow this).  Use VAR as a base var_decl for it
+   (if NULL, a new temporary will be created).  The increment will occur at
+   INCR_POS (after it if AFTER is true, before it otherwise).  The ssa versions
+   of the variable before and after increment will be stored in VAR_BEFORE and
+   VAR_AFTER (unless they are NULL).  */
+
+void
+create_iv (tree base, tree step, tree var, struct loop *loop,
+	   block_stmt_iterator *incr_pos, bool after,
+	   tree *var_before, tree *var_after)
+{
+  tree stmt, stmts, initial;
+  tree vb, va;
+
+  if (!var)
+    {
+      var = create_tmp_var (TREE_TYPE (base), "ivtmp");
+      add_referenced_tmp_var (var);
+    }
+
+  vb = make_ssa_name (var, NULL_TREE);
+  if (var_before)
+    *var_before = vb;
+  va = make_ssa_name (var, NULL_TREE);
+  if (var_after)
+    *var_after = va;
+
+  stmt = build (MODIFY_EXPR, void_type_node, va,
+		build (PLUS_EXPR, TREE_TYPE (base),
+		       vb, step));
+  SSA_NAME_DEF_STMT (va) = stmt;
+  if (after)
+    bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
+  else
+    bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
+
+  initial = force_gimple_operand (base, &stmts, var, false);
+  if (stmts)
+    {
+      basic_block new_bb;
+      edge pe = loop_preheader_edge (loop);
+      
+      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+      if (new_bb)
+	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    }
+
+  stmt = create_phi_node (vb, loop->header);
+  SSA_NAME_DEF_STMT (vb) = stmt;
+  add_phi_arg (&stmt, initial, loop_preheader_edge (loop));
+  add_phi_arg (&stmt, va, loop_latch_edge (loop));
+}
+
 /* Creates a new induction variable corresponding to CAND.  */
 
 static void
 create_new_iv (struct iv_cand *cand)
 {
   block_stmt_iterator incr_pos;
-  tree initial, stmt, base, stmts;
+  tree base;
   bool after = false;
 
   switch (cand->pos)
@@ -3902,19 +3957,6 @@ create_new_iv (struct iv_cand *cand)
  
   gimple_add_tmp_var (cand->var_before);
   add_referenced_tmp_var (cand->var_before);
-  cand->var_before = make_ssa_name (cand->var_before, NULL_TREE);
-  cand->var_after = make_ssa_name (cand->var_after, NULL_TREE);
-
-  stmt = build (MODIFY_EXPR, void_type_node,
-		cand->var_after,
-		build (PLUS_EXPR, TREE_TYPE (cand->var_after),
-		       cand->var_before,
-		       cand->iv->step));
-  SSA_NAME_DEF_STMT (cand->var_after) = stmt;
-  if (after)
-    bsi_insert_after (&incr_pos, stmt, BSI_NEW_STMT);
-  else
-    bsi_insert_before (&incr_pos, stmt, BSI_NEW_STMT);
 
   base = unshare_expr (cand->iv->base);
   if (cand->pos == IP_START)
@@ -3924,22 +3966,8 @@ create_new_iv (struct iv_cand *cand)
       base = fold (build (MINUS_EXPR, TREE_TYPE (base), base, cand->iv->step));
     }
 
-  initial = force_gimple_operand (base, &stmts,
-				  SSA_NAME_VAR (cand->var_before), false);
-  if (stmts)
-    {
-      basic_block new_bb;
-      edge pe = loop_preheader_edge (current_loop);
-      
-      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
-      if (new_bb)
-	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
-    }
-
-  stmt = create_phi_node (cand->var_before, current_loop->header);
-  SSA_NAME_DEF_STMT (cand->var_before) = stmt;
-  add_phi_arg (&stmt, initial, loop_preheader_edge (current_loop));
-  add_phi_arg (&stmt, cand->var_after, loop_latch_edge (current_loop));
+  create_iv (base, cand->iv->step, cand->var_before, current_loop,
+	     &incr_pos, after, &cand->var_before, &cand->var_after);
 }
 
 /* Creates new induction variables described in SET.  */
