@@ -1,5 +1,8 @@
 2003-09-22  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_stmt): Addresses of non-weak symbols
+	as well as dynamically allocated stack space are always nonzero.
+
 	* tree-cfg.c (handle_switch_split): Properly mark the fallthru
 	edge from SRC to DEST with EDGE_FALLTHRU.
 

@@ -1220,6 +1220,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       int i;
+      tree lhs = TREE_OPERAND (stmt, 0);
+      tree rhs = TREE_OPERAND (stmt, 1);
 
       /* Look at both sides for pointer dereferences.  If we find one, then
          the pointer must be nonnull and we can enter that equivalence into
@@ -1268,8 +1270,6 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	{
 	  tree new;
 	  size_t j;
-	  tree lhs = TREE_OPERAND (stmt, 0);
-	  tree rhs = TREE_OPERAND (stmt, 1);
 
 	  /* FIXME: If the LHS of the assignment is a bitfield and the RHS
 	     is a constant, we need to adjust the constant to fit into the
@@ -1309,6 +1309,30 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    }
 	}
 
+      /* alloca never returns zero and the address of a non-weak symbol
+	 is never zero.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+	{
+	  if (alloca_call_p (rhs)
+	      || (TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR
+		  && DECL_P (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))
+		  && ! DECL_WEAK (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))))
+	    {
+	      tree cond;
+
+	      cond = build (EQ_EXPR, boolean_type_node,
+			    lhs, null_pointer_node);
+	      record_cond_is_false (cond,
+				    block_avail_exprs_p,
+				    const_and_copies);
+
+	      cond = build (NE_EXPR, boolean_type_node,
+			    lhs, null_pointer_node);
+	      record_cond_is_true (cond,
+				   block_avail_exprs_p,
+				   const_and_copies);
+	    }
+	}
     }
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
