@@ -891,6 +891,9 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
     }
 }
 
+
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of
    updating LOOPS structure.  E's destination must be LOOP header for this to
    work.  Store edges created by copying ORIG edge (if NULL, then all exit
@@ -919,7 +922,8 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   edge ae, latch_edge, he;
   int i, j, n;
   int is_latch = (latch == e->src);
-  int k0, k, kk, freq_in, freq_e, freq_le;
+  int scale_act, scale_step, scale_main, p, freq_in, freq_le;
+  int prob_pass_thru;
   int add_irreducible_flag;
 
   if (e->dest != loop->header)
@@ -955,58 +959,43 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
   latch_edge = loop_latch_edge (loop);
 
   /* For updating frequencies.  */
-  freq_e = EDGE_FREQUENCY (e);
   freq_in = header->frequency;
   freq_le = EDGE_FREQUENCY (latch_edge);
+  if (freq_in == 0)
+    freq_in = 1;
+  if (freq_in < freq_le)
+    freq_in = freq_le;
+
+  prob_pass_thru = RDIV (REG_BR_PROB_BASE * freq_le, freq_in);
+  scale_step = prob_pass_thru;
 
   if (is_latch)
     {
       /* Should work well unless something inside depends on parity of
 	 iteration counter.  */
-      if (freq_in > freq_e)
+      p = REG_BR_PROB_BASE;
+      scale_main = 0;
+      for (i = 0; i < ndupl + 1; i++)
 	{
-	  k0 = REG_BR_PROB_BASE;
-	  for (i = 0; i < ndupl + 1; i++)
-	    k0 = (k0 * freq_e) / freq_in;
-	  k0 = REG_BR_PROB_BASE - k0;
-	  k0 = (((REG_BR_PROB_BASE * REG_BR_PROB_BASE) / freq_in) * 
-		(freq_in - freq_e)) / k0;
-	  k = (REG_BR_PROB_BASE * freq_e) / freq_in;
+	  scale_main += p;
+	  p = RDIV (p * scale_step, REG_BR_PROB_BASE);
 	}
-      else
-	{
-	  k0 = REG_BR_PROB_BASE / (ndupl + 1);
-	  k = REG_BR_PROB_BASE;
-	}
-      kk = k0;
+      scale_main = RDIV (REG_BR_PROB_BASE * REG_BR_PROB_BASE, scale_main);
+      scale_act = RDIV (scale_main * scale_step, REG_BR_PROB_BASE);
     }
   else
     {
-      /* Count probability that we will get to latch from header.
-	 This is wrong; first iteration of cycle is certainly somewhat
+      /* This is wrong; first iteration of cycle is certainly somewhat
 	 special.  But I cannot do anything with it. */
 
-      /* Strange things may happen to frequencies.  :-(  */
-      if (freq_le == 0)
-	freq_le = 1;
-      if (freq_in <= freq_le)
-	freq_in = freq_le + 1;
-      if (freq_in < freq_le + freq_e)
-	freq_e = freq_in - freq_le;
-
-      k = (REG_BR_PROB_BASE * freq_le) / freq_in;
-      kk = (REG_BR_PROB_BASE * freq_e) / freq_le;
-      k0 = kk;
+      scale_main = REG_BR_PROB_BASE;
       for (i = 0; i < ndupl; i++)
-	k0 = (k0 * k) / REG_BR_PROB_BASE;
-      k0 = (k0 * freq_le) / REG_BR_PROB_BASE + freq_in - freq_le - freq_e;
-      k0 = (REG_BR_PROB_BASE * k0) / (freq_in - freq_le);
-      if (k0 < 0)
-	k0 = 0;
+	scale_main = RDIV (scale_main * scale_step, REG_BR_PROB_BASE);
+      scale_act = REG_BR_PROB_BASE - scale_step;
     }
-  if (k0 < 0 || k0 > REG_BR_PROB_BASE ||
-      k < 0  || k > REG_BR_PROB_BASE ||
-      kk < 0 || kk * k > REG_BR_PROB_BASE * REG_BR_PROB_BASE)
+  if (scale_main < 0 || scale_main > REG_BR_PROB_BASE ||
+      scale_act < 0  || scale_act > REG_BR_PROB_BASE ||
+      scale_step < 0 || scale_step > REG_BR_PROB_BASE)
     {
       /* Something is wrong.  */
       abort ();
@@ -1054,30 +1043,28 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
 	record_exit_edges (orig, new_bbs, n, to_remove, n_to_remove, false);
   
       /* Set counts and frequencies.  */
-      kk = (kk * k) / REG_BR_PROB_BASE;
       for (i = 0; i < n; i++)
 	{
 	  new_bb = new_bbs[i];
 	  bb = bbs[i];
+
 	  if (flags & DLTHE_FLAG_UPDATE_FREQ)
 	    {
-	      new_bb->count = (kk * bb->count +
-			       REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
-	      new_bb->frequency = (bb->frequency * kk +
-				   REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
-	      for (ae = new_bb->succ; ae; ae = ae->succ_next)
-		ae->count = (new_bb->count * ae->probability +
-			 REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+	      new_bb->count = RDIV (scale_act * bb->count, REG_BR_PROB_BASE);
+	      new_bb->frequency = RDIV (scale_act * bb->frequency,
+     					REG_BR_PROB_BASE);
 	    }
 	  else
 	    {
 	      new_bb->count = bb->count;
 	      new_bb->frequency = bb->frequency;
-	      for (ae = new_bb->succ; ae; ae = ae->succ_next)
-		ae->count = (new_bb->count * ae->probability +
-			 REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
 	    }
+
+	  for (ae = new_bb->succ; ae; ae = ae->succ_next)
+    	    ae->count = RDIV (new_bb->count * ae->probability,
+			      REG_BR_PROB_BASE);
 	}
+      scale_act = RDIV (scale_act * scale_step, REG_BR_PROB_BASE);
 
       if (!first_active_latch)
 	{
@@ -1085,15 +1072,6 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
 	  first_active_latch = RBI (latch)->copy;
 	}
       
-      /* Update edge counts.  */
-      for (i = 0; i < n; i++)
-	{
-	  bb = new_bbs[i];
-	  for (ae = bb->succ; ae; ae = ae->succ_next)
-	    ae->count = (bb->count * ae->probability +
-			 REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
-	}
-
       free (new_bbs);
 
       /* Original loop header is dominated by latch copy
@@ -1118,13 +1096,10 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl,
       for (i = 0; i < n; i++)
 	{
 	  bb = bbs[i];
-	  bb->count = (k0 * bb->count +
-		       REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
-	  bb->frequency = (bb->frequency * k0 +
-			   REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+	  bb->count = RDIV (scale_main * bb->count, REG_BR_PROB_BASE);
+	  bb->frequency = RDIV (scale_main * bb->frequency, REG_BR_PROB_BASE);
 	  for (ae = bb->succ; ae; ae = ae->succ_next)
-	    ae->count = (bb->count * ae->probability +
-			 REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+	    ae->count = RDIV (bb->count * ae->probability, REG_BR_PROB_BASE);
 	}
     }
 

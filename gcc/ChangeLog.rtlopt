@@ -1,5 +1,12 @@
 2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* cfgloopmanip.c (duplicate_loop_to_header_edge): Fix count &
+	frequencies updating.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Fix edge
+	probabilities.
+
+2002-11-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-unroll.c (unroll_loop_runtime_iterations): New loop
 	preconditioning.
 	* params.def (PARAM_MAX_PEELED_INSNS,

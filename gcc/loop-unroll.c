@@ -267,12 +267,12 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
      struct loop_desc *desc;
 {
   rtx niter, init_code, branch_code, jump, label;
-  int i, j;
+  int i, j, p;
   basic_block preheader, *body, *dom_bbs, swtch, ezc_swtch;
   int n_dom_bbs;
   sbitmap wont_exit;
   int may_exit_copy, n_peel, n_remove_edges;
-  edge *remove_edges;
+  edge *remove_edges, e;
   bool extra_zero_check, last_may_exit;
 
   /* Remember blocks whose dominators will have to be updated.  */
@@ -373,6 +373,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	{
 	  /* Create item for switch.  */
 	  j = n_peel - i - (extra_zero_check ? 0 : 1);
+	  p = REG_BR_PROB_BASE / (i + 2);
 	  preheader = loop_split_edge_with (loop_preheader_edge (loop),
 					    NULL_RTX, loops);
 	  label = block_label (preheader);
@@ -384,7 +385,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	  JUMP_LABEL (jump) = label;
 	  REG_NOTES (jump)
 		  = gen_rtx_EXPR_LIST (REG_BR_PROB,
-			    	       GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
+			    	       GEN_INT (p), REG_NOTES (jump));
 	
 	  LABEL_NUSES (label)++;
 	  branch_code = get_insns ();
@@ -392,13 +393,16 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
 	  swtch = loop_split_edge_with (swtch->pred, branch_code, loops);
 	  set_immediate_dominator (loops->cfg.dom, preheader, swtch);
-	  make_edge (swtch, preheader, 0);
+	  swtch->succ->probability = REG_BR_PROB_BASE - p;
+	  e = make_edge (swtch, preheader, 0);
+	  e->probability = p;
 	}
     }
 
   if (extra_zero_check)
     {
       /* Add branch for zero iterations.  */
+      p = REG_BR_PROB_BASE / (max_unroll + 1);
       swtch = ezc_swtch;
       preheader = loop_split_edge_with (loop_preheader_edge (loop),
 					NULL_RTX, loops);
@@ -411,7 +415,7 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
       JUMP_LABEL (jump) = label;
       REG_NOTES (jump)
 	      = gen_rtx_EXPR_LIST (REG_BR_PROB,
-				   GEN_INT (REG_BR_PROB_BASE / (n_peel - i + 1)), REG_NOTES (jump));
+				   GEN_INT (p), REG_NOTES (jump));
       
       LABEL_NUSES (label)++;
       branch_code = get_insns ();
@@ -419,7 +423,9 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 
       swtch = loop_split_edge_with (swtch->succ, branch_code, loops);
       set_immediate_dominator (loops->cfg.dom, preheader, swtch);
-      make_edge (swtch, preheader, 0);
+      swtch->succ->probability = REG_BR_PROB_BASE - p;
+      e = make_edge (swtch, preheader, 0);
+      e->probability = p;
     }
 
   /* Recount dominators for outer blocks.  */
