@@ -1,3 +1,45 @@
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* c-decl.c (start_decl): Unconditionally issue error for
+	'typedef foo = bar'.
+	(finish_decl): Remove special case for TYPE_DECL with initializer.
+
+	* doc/extend.texi: Delete "Naming Types" section.  Change all
+	cross-references to that section to refer to "Typeof" instead.
+	Add the useful safe-max()-macro example from "Naming Types" to
+	"Typeof", rewritten using that extension.  Add some compatibility
+	notes to "Typeof."
+
+2002-10-02  Richard Henderson  <rth@redhat.com>
+
+	PR opt/7124
+	* config/i386/i386.c (ix86_register_move_cost): Increase cost
+	for secondary_memory_needed pairs.
+
+Wed Oct  9 19:09:13 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/7912
+	PR opt/7390
+	* i386.c (athlon_cost): Fix the move costs.
+
+2002-10-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* libgcc2.c (__floatdisf): Properly cure double rounding.
+
+2002-10-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR doc/7484
+	* doc/invoke.texi (Option Summary): List
+	-Wmissing-declarations as a C only option.
+
+2002-09-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	    Volker Reichelt <reichelt@igpm.rwth-aachen.de>
+
+	PR c/7411
+	* expr.c (expand_expr) [PLUS]: Simplify after the operands
+	have been expanded in EXPAND_NORMAL mode.
+
 2002-10-08  Roger Sayle  <roger@eyesopen.com>
 
 	PR target/8087
@@ -188,8 +230,8 @@ Thu Oct  3 21:35:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* toplev.c (rest_of_compilation): Dump loops before clobbering
 	the structure.
 
-        * expr.c (force_operand): Use expand_simple_* to handle more
-        cases.
+	* expr.c (force_operand): Use expand_simple_* to handle more
+	cases.
 
 	* i386.c (q_regs_operand): Use ANY_QI_REG_P.
 
@@ -206,9 +248,9 @@ Thu Oct  3 21:35:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* rtl.h (reg_or_subregno): Declare
 	* unroll.c (find_splittable_givs): Handle subregs.
 
-        Richard Sandiford  <rsandifo@redhat.com>:
+	Richard Sandiford  <rsandifo@redhat.com>:
 
-        * expr.c (force_operand): Fix reversed move.
+	* expr.c (force_operand): Fix reversed move.
 
 	Andreas Jaeger  <aj@suse.de>:
 
@@ -229,13 +271,13 @@ Thu Sep  5 00:34:33 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	PR middle-end/7151
 	* config/sparc/sparc.md (movdi_insn_sp32_v9): Accept 'e' regs.
 	(movdi reg/reg split): Match only on sparc32, and v9 when int regs.
-	
+
 2002-10-01  David S. Miller  <davem@redhat.com>
 	    Jan Hubicka <jh@suse.cz>
-	
+
 	* reload1.c (gen_reload:SECONDARY_MEMORY_NEEDED): Handle SUBREG.
 	* reload.c (push_reload:SECONDARY_MEMORY_NEEDED): Likewise.
-	
+
 2002-09-30  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/xtensa.h (REG_CLASS_NAMES, REG_CLASS_CONTENTS):
