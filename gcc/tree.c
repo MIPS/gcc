@@ -2811,7 +2811,8 @@ get_qualified_type (type, type_quals)
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
     if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
-        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
+        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	&& attribute_list_equal (TYPE_ATTRIBUTES (t), TYPE_ATTRIBUTES (type)))
       return t;
 
   return NULL_TREE;

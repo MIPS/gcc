@@ -1,3 +1,13 @@
+2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
+
+	Backport from mainline
+	2003-08-20  Jason Merrill  <jason@redhat.com>
+
+		* attribs.c (decl_attributes): Rebuild the function pointer type
+		after changing the target type.
+		* tree.c (get_qualified_type): Also check that the attributes
+		match.
+
 2004-03-04  Steven Bosscher  <stevenb@suse.de>
 
 	* config.gcc: Fix last patch.
