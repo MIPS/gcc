@@ -2915,7 +2915,7 @@ expand_continue_loop (whichloop)
   rtx note;
 
   note = emit_note (NULL, NOTE_INSN_PREDICTION);
-  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, 0);
+  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, IS_TAKEN);
   last_expr_type = 0;
   if (whichloop == 0)
     whichloop = loop_stack;

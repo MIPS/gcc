@@ -57,6 +57,8 @@
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
 
+static bool predicted_by_p		 PARAMS ((basic_block,
+						  enum br_predictor));
 static void combine_predictions_for_insn PARAMS ((rtx, basic_block));
 static void dump_prediction		 PARAMS ((enum br_predictor, int,
 						  basic_block, int));
@@ -68,7 +70,7 @@ static void process_note_predictions	 PARAMS ((basic_block, int *, int *,
                                                   sbitmap *));
 static void process_note_prediction	 PARAMS ((basic_block, int *, int *,
                                                   sbitmap *, int, int));
-static int  is_last_basic_block          PARAMS ((basic_block));
+static bool last_basic_block_p           PARAMS ((basic_block));
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -96,6 +98,24 @@ static const struct predictor_info predictor_info[] = {
   {NULL, 0, 0}
 };
 #undef DEF_PREDICTOR
+
+/* Return true if the one of outgoing edges is already predicted by
+   PREDICTOR.  */
+
+static bool
+predicted_by_p (bb, predictor)
+     basic_block bb;
+     enum br_predictor predictor;
+{
+  rtx note;
+  if (!INSN_P (bb->end))
+    return false;
+  for (note = REG_NOTES (bb->end); note; note = XEXP (note, 1))
+    if (REG_NOTE_KIND (note) == REG_BR_PRED
+	&& INTVAL (XEXP (XEXP (note, 0), 0)) == predictor)
+      return true;
+  return false;
+}
 
 void
 predict_insn (insn, predictor, probability)
@@ -343,6 +363,13 @@ estimate_probability (loops_info)
 	      int header_found = 0;
 	      edge e;
 
+	      /* Bypass loop heuristics on continue statement.  These
+	         statements construct loops via "non-loop" constructs
+	         in the source language and are better to be handled
+	         separately.  */
+	      if (predicted_by_p (BASIC_BLOCK (j), PRED_CONTINUE))
+		continue;
+
 	      /* Loop branch heuristics - predict as taken an edge back to
 	         a loop's head.  */
 	      for (e = BASIC_BLOCK(j)->succ; e; e = e->succ_next)
@@ -382,12 +409,17 @@ estimate_probability (loops_info)
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
-	  /* Predict edges to blocks that return immediately to be
-	     improbable.  These are usually used to signal error states.  */
-	  if (e->dest == EXIT_BLOCK_PTR
-	      || (e->dest->succ && !e->dest->succ->succ_next
-		  && e->dest->succ->dest == EXIT_BLOCK_PTR))
-	    predict_edge_def (e, PRED_ERROR_RETURN, NOT_TAKEN);
+	  /* Predict early returns to be probable, as we've already taken
+	     care for error returns and other are often used for fast paths
+	     trought function.  */
+	  if ((e->dest == EXIT_BLOCK_PTR
+	       || (e->dest->succ && !e->dest->succ->succ_next
+		   && e->dest->succ->dest == EXIT_BLOCK_PTR))
+	       && !predicted_by_p (bb, PRED_NIL_RETURN)
+	       && !predicted_by_p (bb, PRED_CONST_RETURN)
+	       && !predicted_by_p (bb, PRED_NEGATIVE_RETURN)
+	       && !last_basic_block_p (e->dest))
+	    predict_edge_def (e, PRED_EARLY_RETURN, TAKEN);
 
 	  /* Look for block we are guarding (ie we dominate it,
 	     but it doesn't postdominate us).  */
@@ -452,8 +484,10 @@ estimate_probability (loops_info)
 	  case UNEQ:
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      predict_insn_def (last_insn, PRED_FPOPCODE, NOT_TAKEN);
+	    /* Comparisons with 0 are often used for booleans and there is
+	       nothing usefull to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx || XEXP (cond, 0) == const0_rtx)
-	      predict_insn_def (last_insn, PRED_OPCODE_NONZERO, NOT_TAKEN);
+	      ;
 	    else
 	      predict_insn_def (last_insn, PRED_OPCODE_NONEQUAL, NOT_TAKEN);
 	    break;
@@ -461,8 +495,10 @@ estimate_probability (loops_info)
 	  case LTGT:
 	    if (FLOAT_MODE_P (GET_MODE (XEXP (cond, 0))))
 	      predict_insn_def (last_insn, PRED_FPOPCODE, TAKEN);
+	    /* Comparisons with 0 are often used for booleans and there is
+	       nothing usefull to predict about them.  */
 	    else if (XEXP (cond, 1) == const0_rtx || XEXP (cond, 0) == const0_rtx)
-	      predict_insn_def (last_insn, PRED_OPCODE_NONZERO, TAKEN);
+	      ;
 	    else
 	      predict_insn_def (last_insn, PRED_OPCODE_NONEQUAL, TAKEN);
 	    break;
@@ -582,22 +618,16 @@ expected_value_to_br_prob ()
 }
 
 /* Checks whether the basic block is the last one in "normal" flow */
-static int
-is_last_basic_block (bb)
+static bool
+last_basic_block_p (bb)
      basic_block bb;
 {
   rtx insn;
-  
-  for (insn = NEXT_INSN (bb->end); insn; insn = NEXT_INSN (insn))
-    {
-    if (GET_CODE (insn) == BARRIER)
-      continue;
-    if (GET_CODE (insn) == NOTE)
-      return (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_END);
-    return 0;
-    }
 
-  return 0;
+  return (bb->index == n_basic_blocks - 1
+	  || (bb->index == n_basic_blocks - 2
+	      && bb->succ && !bb->succ->succ_next
+	      && bb->succ->dest->index == n_basic_blocks - 1));
 }
 
 /* Sets branch probabilities according to PREDiction and FLAGS. HEADS[bb->index]
@@ -621,9 +651,6 @@ process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
 
   taken = flags & IS_TAKEN;
   ignore_in_last = flags & IGNORE_IN_LAST;
-
-  /* Prediction that should be ignored in last block?  */
-  if (ignore_in_last && is_last_basic_block (bb)) return;
   
   if (heads[bb->index] < 0)
     {
@@ -719,7 +746,7 @@ process_note_predictions (bb, heads, dominators, post_dominators)
   for (e = bb->succ; e; e = e->succ_next)
     if (!(e->flags & EDGE_FAKE))
       noreturn_block = 0;
-  if (noreturn_block && !contained_return)
+  if (contained_noreturn_call)
     {
       /* This block ended from other reasons than because of return.
          If it is because of noreturn call, this should certainly not
@@ -728,8 +755,7 @@ process_note_predictions (bb, heads, dominators, post_dominators)
 			       heads,
 			       dominators,
 			       post_dominators,
-			       contained_noreturn_call ? PRED_NORETURN :
-			       PRED_ERROR_RETURN, NOT_TAKEN);
+			       PRED_NORETURN, NOT_TAKEN);
     }
 }
 
