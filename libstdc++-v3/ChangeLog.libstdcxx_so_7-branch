@@ -1,3 +1,7 @@
+2005-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050201.
+
 2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
 
 	* include/bits/stl_algo.h (__median, adjacent_find, search, search_n,
