@@ -1041,6 +1041,9 @@ and64_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
+  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+    return (register_operand (op, mode) || mask64_operand (op, mode));
+
   return (logical_operand (op, mode)
 	  || mask64_operand (op, mode));
 }
@@ -1053,6 +1056,9 @@ and_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
+  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+    return (register_operand (op, mode) || mask_operand (op, mode));
+
   return (logical_operand (op, mode)
 	  || mask_operand (op, mode));
 }

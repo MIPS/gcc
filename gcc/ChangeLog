@@ -1,3 +1,16 @@
+1999-02-15  Michael Meissner  <meissner@cygnus.com>
+
+	* rs6000.md (logical 32-bit `.' patterns): For logical 32-bit
+	insns that do something and set cr0, add an alternative that does
+	the operation, and then sets a different flag, in order to avoid
+	using the costly mcrf instruction and also allow cr0 to be
+	clobbered in asm statements.
+
+	* rs6000.c (and{,64}_operand): If the user did -ffixed-cr0, don't
+	allow andi. or andis. which always set cr0.
+
+==================== End of Meissner Changes ====================
+
 Fri Feb 19 22:47:01 1999  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* rtlanal.c (insn_first_p): Fix return value for insn == reference.
