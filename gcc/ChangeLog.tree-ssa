@@ -1,5 +1,8 @@
 2003-08-13  Jeff Law  <law@redhat.com>
 
+	* fold-const.c (fold, case INDIRECT_REF): Optimize reads from
+	constant strings.
+
 	* tree-cfg.c (remove_useless_stmts_and_vars): For a COND_EXPR
 	where the condition is a variable and the ELSE clause merely
 	sets that variable to zero, remove the ELSE clause.
