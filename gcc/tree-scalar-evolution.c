@@ -2487,6 +2487,9 @@ scev_reset (void)
   unsigned i;
   struct loop *loop;
 
+  if (!scalar_evolution_info || !current_loops)
+    return;
+
   htab_empty (scalar_evolution_info);
   for (i = 1; i < current_loops->num; i++)
     {

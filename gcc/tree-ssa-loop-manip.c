@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "cfglayout.h"
+#include "tree-scalar-evolution.h"
 
 static basic_block lv_adjust_loop_entry_edge (basic_block, basic_block, edge, 
 					      tree); 
@@ -453,6 +454,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   	set_phi_def_stmts (bb->rbi->original);
     }
 
+  scev_reset ();
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa ();
 #endif

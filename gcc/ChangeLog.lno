@@ -1,3 +1,12 @@
+2004-07-09  Devang Patel  <dpatel@apple.com>
+
+	* Makefile.in (tree-ssa-loop-manip.o): Add tree-scalar-evolution.h
+	dependency.
+	* tree-scalar-evolution.c (scev_rest): Check scalar_evolution_info
+	and current_loops.
+	* tree-ssa-loop-manip.c (tree-scalar-evolution.h): Include.
+	(tree_duplicate_loop_to_header_edge): scev_reset () in the end.
+
 2004-07-09  Steven Bosscher  <stevenb@suse.de>,
 	    Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
