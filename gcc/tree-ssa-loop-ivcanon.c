@@ -420,8 +420,10 @@ canonicalize_loop_induction_variables (struct loops *loops, struct loop *loop,
 
   if (TREE_CODE (niter) == INTEGER_CST)
     {
+#ifdef ENABLE_CHECKING
       tree nit;
       edge ex;
+#endif
 
       exit = loop_exit_edge (loop, 0);
       if (!just_once_each_iteration_p (loop, exit->src))

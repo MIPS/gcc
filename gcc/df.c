@@ -1325,7 +1325,9 @@ static void
 df_reg_def_chain_create (struct df *df, bitmap blocks, bool redo)
 {
   basic_block bb;
+#ifdef ENABLE_CHECKING
   unsigned regno;
+#endif
   unsigned old_def_id_save = df->def_id_save;
 
   if (redo)
@@ -1405,7 +1407,9 @@ static void
 df_reg_use_chain_create (struct df *df, bitmap blocks, bool redo)
 {
   basic_block bb;
+#ifdef ENABLE_CHECKING
   unsigned regno;
+#endif
   unsigned old_use_id_save = df->use_id_save;
 
   if (redo)
