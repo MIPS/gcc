@@ -1,3 +1,9 @@
+2005-03-31  Jon Ziegler  <jonz@apple.com>
+
+	Radar 4075524
+	* ginclude/tgmath.h (scalbn) Change to use __TGMATH_REAL_1_2 macro.
+	(scalbln) Likewise.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882
