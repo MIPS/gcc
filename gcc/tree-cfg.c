@@ -2795,7 +2795,7 @@ verify_stmt (tree stmt)
   addr = walk_tree (&stmt, verify_addr_expr, NULL, NULL);
   if (addr)
     {
-      error ("Address taken, but ADDRESABLE bit not set");
+      error ("Address taken, but ADDRESSABLE bit not set");
       debug_generic_stmt (addr);
       return true;
     }

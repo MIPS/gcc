@@ -1,6 +1,16 @@
+2003-12-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* ifcvt.c (dead_or_predicable): Initialize local variable
+	'earliest'.
+	* tree-cfg.c (verify_stmt): Fix typo.
+	* tree-ssa-dom.c (propagate_value): New local function.
+	(cprop_into_stmt): Call it.
+	(cprop_into_phis): Call it.
+	(eliminate_redundant_computations): Call it.
+
 2003-12-10  Dale Johannesen  <dalej@apple.com>
 
-        * tree-dfa.c (compute_alias_sets):  Don't try to make
+	* tree-dfa.c (compute_alias_sets):  Don't try to make
         GLOBAL_VAR alias itself.
 
 2003-12-08  Steven Bosscher  <stevenb@suse.de>

@@ -9360,6 +9360,7 @@ resolve_field_access (tree qual_wfl, tree *field_decl, tree *field_type)
   tree field_ref;
   tree decl = NULL, where_found, type_found;
 
+  decl = NULL_TREE;
   if (resolve_qualified_expression_name (qual_wfl, &decl,
 					 &where_found, &type_found))
     return error_mark_node;

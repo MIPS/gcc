@@ -242,6 +242,20 @@ static void tree_ssa_dominator_optimize_1 (tree, enum tree_dump_index,
 					   timevar_id_t);
 static void thread_jumps_walk_stmts (struct dom_walk_data *, basic_block, tree);
 
+
+/* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
+   into the operand pointed by OP_P.  */
+
+static inline void
+propagate_value (tree *op_p, tree val)
+{
+  if (TREE_CODE (*op_p) == SSA_NAME
+      && TREE_CODE (val) == SSA_NAME)
+    propagate_copy (op_p, val);
+  else
+    *op_p = val;
+}
+
 /* Return the value associated with variable VAR in TABLE.  */
 
 static inline tree
@@ -1922,10 +1936,7 @@ cprop_into_stmt (tree stmt)
 		    && is_gimple_min_invariant (val)))
 	      may_have_exposed_new_symbols = true;
 
-	    if (TREE_CODE (val) == SSA_NAME)
-	      propagate_copy (op_p, val);
-	    else
-	      *op_p = val;
+	    propagate_value (op_p, val);
 
 	    /* And note that we modified this statement.  This is now
 	       safe, even if we changed virtual operands since we will
@@ -2012,9 +2023,10 @@ cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	     ORIG_P with its value in our constant/copy table.  */
 	  new = get_value_for (*orig_p, const_and_copies);
 	  if (new
-	      && (TREE_CODE (new) == SSA_NAME || is_gimple_min_invariant (new))
+	      && (TREE_CODE (new) == SSA_NAME
+		  || is_gimple_min_invariant (new))
 	      && may_propagate_copy (*orig_p, new))
-	    *orig_p = new;
+	    propagate_value (orig_p, new);
 	}
     }
 }
@@ -2113,7 +2125,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
 
-      *expr_p = cached_lhs;
+      propagate_value (expr_p, cached_lhs);
       ann->modified = 1;
     }
   return retval;

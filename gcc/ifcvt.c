@@ -2926,7 +2926,7 @@ static int
 dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		    basic_block other_bb, basic_block new_dest, int reversep)
 {
-  rtx head, end, jump, earliest, old_dest, new_label = NULL_RTX;
+  rtx head, end, jump, earliest = NULL_RTX, old_dest, new_label = NULL_RTX;
 
   jump = test_bb->end;
 
