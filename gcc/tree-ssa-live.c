@@ -1506,12 +1506,15 @@ coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 	      print_generic_expr (debug, partition_to_var (map, y), TDF_SLIM);
 	    }
 
-	  if (tpa_find_tree (tpa, x) == TPA_NONE 
-	      || tpa_find_tree (tpa, y) == TPA_NONE)
+	  w = tpa_find_tree (tpa, x);
+	  z = tpa_find_tree (tpa, y);
+	  if (w != z || w == TPA_NONE || z == TPA_NONE)
 	    {
 	      if (debug)
 		{
-		  if (tpa_find_tree (tpa, x) == TPA_NONE)
+		  if (w != z)
+		    fprintf (debug, ": Fail, Non-matching TPA's\n");
+		  if (w == TPA_NONE)
 		    fprintf (debug, ": Fail %d non TPA.\n", x);
 		  else
 		    fprintf (debug, ": Fail %d non TPA.\n", y);
