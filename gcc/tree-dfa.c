@@ -1137,6 +1137,9 @@ cleanup_operand_arrays (stmt_ann_t ann)
 
   if (ann->vops->vuse_ops)
     {
+      varray_type vuse_ops = ann->vops->vuse_ops;
+      varray_type vdef_ops = ann->vops->vdef_ops;
+
       /* Remove superfluous VUSE operands.  If the statement already has a
 	 VDEF operation for a variable 'a', then a VUSE for 'a' is not
 	 needed because VDEFs imply a VUSE of the variable.  For instance,
@@ -1151,19 +1154,15 @@ cleanup_operand_arrays (stmt_ann_t ann)
       if (ann->vops->vdef_ops)
 	{
 	  size_t i, j;
-	  varray_type new_vuse_ops;
 
-	  VARRAY_TREE_INIT (new_vuse_ops,
-			    VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops),
-			    "vuse_ops");
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->vops->vuse_ops); i++)
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuse_ops); i++)
 	    {
 	      bool found = false;
-	      for (j = 0; j < NUM_VDEFS (ann->vops->vdef_ops); j++)
+	      for (j = 0; j < NUM_VDEFS (vdef_ops); j++)
 		{
 		  tree vuse_var, vdef_var;
-		  tree vuse = VARRAY_TREE (ann->vops->vuse_ops, i);
-		  tree vdef = VDEF_OP (ann->vops->vdef_ops, j);
+		  tree vuse = VARRAY_TREE (vuse_ops, i);
+		  tree vdef = VDEF_OP (vdef_ops, j);
 
 		  if (TREE_CODE (vuse) == SSA_NAME)
 		    vuse_var = SSA_NAME_VAR (vuse);
@@ -1182,15 +1181,26 @@ cleanup_operand_arrays (stmt_ann_t ann)
 		  }
 		}
 
-	      if (!found)
-		VARRAY_PUSH_TREE (new_vuse_ops,
-				  VARRAY_TREE (ann->vops->vuse_ops, i));
-	    }
+	      /* If we found a useless VUSE operand, remove it from the
+		 operand array by replacing it with the last active element
+		 in the operand array (unless the useless VUSE was the
+		 last operand, in which case we simply remove it.  */
+	      if (found)
+		{
+		  if (i != VARRAY_ACTIVE_SIZE (vuse_ops) - 1)
+		    {
+		      VARRAY_TREE (vuse_ops, i)
+			= VARRAY_TREE (vuse_ops,
+				       VARRAY_ACTIVE_SIZE (vuse_ops) - 1);
+		    }
+		  VARRAY_POP (vuse_ops);
 
-	  if (VARRAY_ACTIVE_SIZE (new_vuse_ops) > 0)
-	    ann->vops->vuse_ops = new_vuse_ops;
-	  else
-	    ann->vops->vuse_ops = NULL;
+		  /* We want to rescan the element at this index, unless
+		     this was the last element, in which case the loop
+		     terminates.  */
+		  i--;
+		}
+	    }
 	}
 
       if (ann->vops->vuse_ops)

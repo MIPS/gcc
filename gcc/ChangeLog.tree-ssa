@@ -1,5 +1,8 @@
 2003-12-02  Jeff Law  <law@redhat.com>
 
+	* tree-dfa.c (cleanup_operand_arrays): Avoid creating a new 
+	varray for the vuse operands.
+
 	* tree-ssa-dom.c (extract_range_from_cond): Use int_const_binop to
 	avoid creating useless tree nodes.
 
