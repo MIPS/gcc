@@ -543,6 +543,7 @@ typedef struct {
   VEC(edge) *container;
 } edge_iterator;
 
+/* Return an iterator pointing to the start of an edge vector.  */
 static inline edge_iterator
 ei_start (VEC(edge) *ev)
 {
@@ -554,6 +555,8 @@ ei_start (VEC(edge) *ev)
   return i;
 }
 
+/* Return an iterator pointing to the last element of an edge
+   vector. */
 static inline edge_iterator
 ei_last (VEC(edge) *ev)
 {
@@ -565,18 +568,22 @@ ei_last (VEC(edge) *ev)
   return i;
 }
 
+/* Is the iterator `i' at the end of the sequence?  */
 static inline bool
 ei_end_p (edge_iterator i)
 {
   return (i.index == EDGE_COUNT (i.container));
 }
 
+/* Is the iterator `i' at one position before the end of the
+   sequence?  */
 static inline bool
 ei_one_before_end_p (edge_iterator i)
 {
   return (i.index + 1 == EDGE_COUNT (i.container));
 }
 
+/* Advance the iterator to the next element.  */
 static inline void
 ei_next (edge_iterator *i)
 {
@@ -584,6 +591,7 @@ ei_next (edge_iterator *i)
   i->index++;
 }
 
+/* Move the iterator to the previous element.  */
 static inline void
 ei_prev (edge_iterator *i)
 {
@@ -591,17 +599,36 @@ ei_prev (edge_iterator *i)
   i->index--;
 }
 
+/* Return the edge pointed to by the iterator `i'.  */
 static inline edge
 ei_edge (edge_iterator i)
 {
   return EDGE_I (i.container, i.index);
 }
 
+/* Return an edge pointed to by the iterator.  Do it safely so that
+   NULL is returned when the iterator is pointing at the end of the
+   sequence.  */
 static inline edge
 ei_safe_edge (edge_iterator i)
 {
   return !ei_end_p (i) ? ei_edge (i) : NULL;
 }
+
+/* This macro serves as a convenient way to iterate each edge in a
+   vector of predeccesor or successor edges.  It must not be used when
+   an element might be removed during the traversal, otherwise
+   elements will be missed.  Instead, use a for-loop like that shown
+   in the following pseudo-code:
+   
+   FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
+     {
+	IF (e != taken_edge)
+	  ssa_remove_edge (e);
+	ELSE
+	  ei_next (&ei);
+     }
+*/
 
 #define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC) \
   for ((EDGE) = NULL, (ITER) = ei_start ((EDGE_VEC)); \
