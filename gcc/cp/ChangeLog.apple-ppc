@@ -1,3 +1,9 @@
+2005-01-18  Mike Stump  <mrs@apple.com>
+
+	Radar 3956093
+	* class.c (has_apple_kext_compatibility_attr_p): Avoid problems
+	when there are no base classes.
+
 2005-01-18  Ziemowit Laski  <zlaski@apple.com>
 
 	* parser.c (cp_parser_cw_identifier): Reapply change
