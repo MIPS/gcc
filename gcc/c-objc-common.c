@@ -421,6 +421,8 @@ c_objc_common_finish_file (void)
 	dump_end (TDI_all, stream);
       }
   }
+
+  c_write_global_declarations ();
 }
 
 /* Called during diagnostic message formatting process to print a
