@@ -43,20 +43,18 @@
     return _S_c_locale->__ctype_b;
   }
 #else
-# if _GLIBCPP_USE_SHADOW_HEADERS
-  using _C_legacy::__ctype_toupper;
-  using _C_legacy::__ctype_tolower;
-  using _C_legacy::__ctype_b;
-# endif
-
   const ctype_base::mask*
   ctype<char>::classic_table() throw()
   {
     const ctype_base::mask* __ret;
     char* __old = strdup(setlocale(LC_CTYPE, NULL));
     setlocale(LC_CTYPE, "C");
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __ret = *__ctype_b_loc();
+#else
     __ret = __ctype_b;
-    setlocale(__old);
+#endif
+    setlocale(LC_CTYPE, __old);
     free(__old);
     return __ret;
   }
@@ -79,10 +77,16 @@
   {
     char* __old=strdup(setlocale(LC_CTYPE, NULL));
     setlocale(LC_CTYPE, "C");
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    _M_toupper = *__ctype_toupper_loc();
+    _M_tolower = *__ctype_tolower_loc();
+    _M_table = __table ? __table : *__ctype_b_loc();
+#else
     _M_toupper = __ctype_toupper;
     _M_tolower = __ctype_tolower;
     _M_table = __table ? __table : __ctype_b;
-    setlocale(__old);
+#endif
+    setlocale(LC_CTYPE, __old);
     free(__old);
     _M_c_locale_ctype = _S_c_locale;
   }
@@ -98,16 +102,21 @@
     _M_table = __table ? __table : _M_c_locale_ctype->__ctype_b;
   }
 #else
-  ctype<char>::ctype(__c_locale, const mask* __table, bool __del,
-		     size_t __refs) 
-  : __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del)
+  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs) : 
+  __ctype_abstract_base<char>(__refs), _M_del(__table != 0 && __del)
   {
     char* __old=strdup(setlocale(LC_CTYPE, NULL));
     setlocale(LC_CTYPE, "C");
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    _M_toupper = *__ctype_toupper_loc();
+    _M_tolower = *__ctype_tolower_loc();
+    _M_table = __table ? __table : *__ctype_b_loc();
+#else
     _M_toupper = __ctype_toupper;
     _M_tolower = __ctype_tolower;
     _M_table = __table ? __table : __ctype_b;
-    setlocale(__old);
+#endif
+    setlocale(LC_CTYPE, __old);
     free(__old);
     _M_c_locale_ctype = _S_c_locale;
   }

@@ -1283,12 +1283,17 @@ push_reload (in, out, inloc, outloc, class,
 	 So add an additional reload.  */
 
 #ifdef SECONDARY_MEMORY_NEEDED
-      /* If a memory location is needed for the copy, make one.  */
-      if (in != 0 && GET_CODE (in) == REG
-	  && REGNO (in) < FIRST_PSEUDO_REGISTER
-	  && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (REGNO (in)),
-				      class, inmode))
-	get_secondary_mem (in, inmode, opnum, type);
+      {
+	int regnum;
+
+	/* If a memory location is needed for the copy, make one.  */
+	if (in != 0
+	    && ((regnum = true_regnum (in)) >= 0)
+	    && regnum < FIRST_PSEUDO_REGISTER
+	    && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (regnum),
+					class, inmode))
+	  get_secondary_mem (in, inmode, opnum, type);
+      }
 #endif
 
       i = n_reloads;
@@ -1314,11 +1319,16 @@ push_reload (in, out, inloc, outloc, class,
       n_reloads++;
 
 #ifdef SECONDARY_MEMORY_NEEDED
-      if (out != 0 && GET_CODE (out) == REG
-	  && REGNO (out) < FIRST_PSEUDO_REGISTER
-	  && SECONDARY_MEMORY_NEEDED (class, REGNO_REG_CLASS (REGNO (out)),
-				      outmode))
-	get_secondary_mem (out, outmode, opnum, type);
+      {
+	int regnum;
+
+	if (out != 0
+	    && ((regnum = true_regnum (out)) >= 0)
+	    && regnum < FIRST_PSEUDO_REGISTER
+	    && SECONDARY_MEMORY_NEEDED (class, REGNO_REG_CLASS (regnum),
+					outmode))
+	  get_secondary_mem (out, outmode, opnum, type);
+      }
 #endif
     }
   else
@@ -2643,7 +2653,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	;
       else if (constraints[i][0] == 'p')
 	{
-	  find_reloads_address (VOIDmode, (rtx*) 0,
+	  find_reloads_address (recog_data.operand_mode[i], (rtx*) 0,
 				recog_data.operand[i],
 				recog_data.operand_loc[i],
 				i, operand_type[i], ind_levels, insn);

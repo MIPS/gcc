@@ -3666,6 +3666,14 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #endif
 	    ;
 
+	  /* If this was a CONST function, it is now PURE since
+	     it now reads memory.  */
+	  if (flags & ECF_CONST)
+	    {
+	      flags &= ~ECF_CONST;
+	      flags |= ECF_PURE;
+	    }
+
 	  if (GET_MODE (val) == MEM && ! must_copy)
 	    slot = val;
 	  else if (must_copy)
@@ -4491,7 +4499,8 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	     emit_push_insn for BLKmode is careful to avoid it.  */
 	  excess = (arg->size.constant - int_size_in_bytes (TREE_TYPE (pval))
 		    + partial * UNITS_PER_WORD);
-	  size_rtx = expr_size (pval);
+	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
+				  NULL_RTX, TYPE_MODE (sizetype), 0);
 	}
 
       if ((flags & ECF_SIBCALL) && GET_CODE (arg->value) == MEM)
