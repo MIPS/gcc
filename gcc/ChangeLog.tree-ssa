@@ -1,3 +1,8 @@
+2004-02-29  David Edelsohn  <edelsohn@gnu.org>
+
+	* doloop.c (doloop_optimize): Increment n_iterations if loop->top
+	present.
+
 2004-02-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* gimple-low.c (pass_remove_useless_vars): Add TODO_dump_func.

@@ -785,6 +785,10 @@ doloop_optimize (const struct loop *loop)
   n_iterations = loop_info->n_iterations;
   if (n_iterations)
     {
+      /* See the comment in doloop_modify_runtime.  */
+      if (loop->top)
+	n_iterations += loop_info->unroll_number;
+
       /* This is the simple case where the initial and final loop
 	 values are constants.  */
       n_iterations_max = n_iterations;
