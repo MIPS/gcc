@@ -2449,7 +2449,7 @@ finish_id_expression (tree id_expression,
 	     although it would be better to have a second pass and
 	     complain about names in the block that are not
 	     labels.  */
-	  if (cw_asm_block)
+	  if (inside_cw_asm_block)
 	    {
 	      tree new_id;
 	      if ((new_id = cw_asm_reg_name (id_expression)))
@@ -2511,7 +2511,7 @@ finish_id_expression (tree id_expression,
   /* APPLE LOCAL begin CW asm blocks */
   /* Accept raw type decls, which will be used in offset-getting
      expressions like "type.field(r3)".  */
-  else if (TREE_CODE (decl) == TYPE_DECL && cw_asm_block)
+  else if (TREE_CODE (decl) == TYPE_DECL && inside_cw_asm_block)
     {
       *idk = CP_ID_KIND_NONE;
       return decl;

@@ -423,7 +423,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 		      && !cw_asm_typename_or_reserved (*value))))
 	    {
 	      cw_asm_state = cw_asm_asm;
-	      cw_asm_block = 1;
+	      inside_cw_asm_block = 1;
 	      cw_asm_at_bol = 1;
 	      clear_cw_asm_labels ();
 	    }
@@ -618,7 +618,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 
     /* APPLE LOCAL begin CW asm blocks */
     case CPP_MULT:
-      if (flag_cw_asm_blocks_local)
+      if (inside_cw_asm_block)
         {
 	  /* Check and replace use of '*' with '.' if '*' is followed by '-'
 	     or '+'. This is to allow "b *+8" which is disallwed by darwin's

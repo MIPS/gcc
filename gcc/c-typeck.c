@@ -1828,7 +1828,7 @@ build_external_ref (tree id, int fun)
      also handy to assume undeclared names as labels, although it
      would be better to have a second pass and complain about names in
      the block that are not labels.  */
-  if (cw_asm_block)
+  if (inside_cw_asm_block)
     {
       if (decl)
 	{
@@ -2367,7 +2367,7 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   enum tree_code code2 = arg2.original_code;
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (cw_asm_block 
+  if (inside_cw_asm_block 
       && (TREE_CODE (arg1.value) == IDENTIFIER_NODE
           || TREE_CODE (arg2.value) == IDENTIFIER_NODE))
     {

@@ -40,7 +40,7 @@ enum cw_asm_states {
 
 extern enum cw_asm_states cw_asm_state;
 extern int cw_asm_in_decl;
-extern int cw_asm_block;
+extern int inside_cw_asm_block;
 extern int cw_asm_at_bol;
 extern int cw_asm_in_operands;
 extern int cw_asm_labelno;

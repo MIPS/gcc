@@ -2056,7 +2056,7 @@ compstmt_nostart: '}'
 	| maybe_label_decls compstmt_contents_nonempty '}'
 		/* APPLE LOCAL begin CW asm blocks */
 		{
-		  if (flag_cw_asm_blocks) cw_asm_block = 0;
+		  if (flag_cw_asm_blocks) inside_cw_asm_block = 0;
 		}
 		/* APPLE LOCAL end CW asm blocks */
 	;
@@ -2152,7 +2152,7 @@ cw_asm_compstmt_start: ASM_KEYWORD '{'
 		  if (flag_cw_asm_blocks)
 		    {
 		      cw_asm_state = cw_asm_asm;
-		      cw_asm_block = 1;
+		      inside_cw_asm_block = 1;
 		      cw_asm_at_bol = 1;
 		      clear_cw_asm_labels ();
 		    }
@@ -2166,7 +2166,7 @@ cw_asm_compstmt_start: ASM_KEYWORD '{'
 cw_asm_compstmt_nostart:
 	  '}'
 	| cw_asm_compstmt_contents_nonempty '}'
-		{ cw_asm_block = 0; }
+		{ inside_cw_asm_block = 0; }
 	;
 
 cw_asm_compstmt_contents_nonempty:

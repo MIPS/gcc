@@ -571,7 +571,7 @@ int cw_asm_in_decl;
 
 /* This is true exactly within the interior of an asm block.  It is
    not quite the same as any of the states of cw_asm_state.  */
-int cw_asm_block;
+int inside_cw_asm_block;
 
 /* An additional state variable, true when the next token returned
    should be a BOL, false otherwise.  */

@@ -4857,7 +4857,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	{
   	  /* APPLE LOCAL begin CW asm blocks */
 	case RID_SIZEOF:
-  	  if (cw_asm_block)
+  	  if (inside_cw_asm_block)
 	    break;
 
 	case RID_ALIGNOF:
@@ -4942,6 +4942,19 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 
   /* Look for a unary operator.  */
   unary_operator = cp_parser_unary_operator (token);
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* In the context of CW asm block, '*' followed by '+' or '-' is for
+     relative branch syntax.  This is to allow "b *+8" which 
+     is disallwed by darwin's assembler but nevertheless is needed to 
+     be compatible with CW tools. */
+  if (inside_cw_asm_block && unary_operator == INDIRECT_REF)
+    {
+      cp_token *token = cp_lexer_peek_nth_token (parser->lexer, 2);
+      if (token->type == CPP_PLUS || token->type == CPP_MINUS)
+	unary_operator = ERROR_MARK;
+    }
+  /* APPLE LOCAL end CW asm blocks */
   /* The `++' and `--' operators can be handled similarly, even though
      they are not technically unary-operators in the grammar.  */
   if (unary_operator == ERROR_MARK)
@@ -5019,7 +5032,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
   /* Postfix expressions in CW asm are more restricted and handled
      quite differently, so diverge from the usual expression
      precedence sequence here.  */
-  if (cw_asm_block)
+  if (inside_cw_asm_block)
     return cp_parser_cw_asm_postfix_expression (parser, address_p);
   /* APPLE LOCAL end CW asm blocks */
 
@@ -5618,7 +5631,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
       new_prec = TOKEN_PRECEDENCE (token);
 
       /* APPLE LOCAL begin CW asm blocks */
-      if (flag_cw_asm_blocks && cw_asm_block)
+      if (flag_cw_asm_blocks && inside_cw_asm_block)
 	{
 	  if ((token->flags & BOL) != 0)
 	    new_prec = PREC_NOT_OPERATOR;
@@ -5657,7 +5670,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
       lookahead_prec = TOKEN_PRECEDENCE (token);
 
       /* APPLE LOCAL begin CW asm blocks */
-      if (flag_cw_asm_blocks && cw_asm_block)
+      if (flag_cw_asm_blocks && inside_cw_asm_block)
 	{
 	  if ((token->flags & BOL) != 0)
 	    lookahead_prec = PREC_NOT_OPERATOR;
@@ -5695,7 +5708,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
         }
 
       /* APPLE LOCAL begin CW asm blocks */
-      if (cw_asm_block && TREE_CODE (rhs) == COMPOUND_EXPR)
+      if (inside_cw_asm_block && TREE_CODE (rhs) == COMPOUND_EXPR)
 	{
 	  gcc_assert (TREE_CODE (TREE_OPERAND (rhs, 1)) == IDENTIFIER_NODE);
 	  lhs = build_x_binary_op (tree_type, lhs, TREE_OPERAND (rhs, 0), &overloaded_p);
@@ -6391,11 +6404,11 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
       cp_parser_cw_asm_declaration_seq_opt (parser);
       cw_asm_in_decl = 0;
       cw_asm_state = cw_asm_asm;
-      cw_asm_block = 1;
+      inside_cw_asm_block = 1;
       clear_cw_asm_labels ();
       cp_parser_cw_asm_line_seq_opt (parser);
       cw_asm_state = cw_asm_none;
-      cw_asm_block = 0;
+      inside_cw_asm_block = 0;
     }
   else
   /* APPLE LOCAL end CW asm blocks */
@@ -16420,7 +16433,7 @@ cp_parser_cw_asm_compound_statement (cp_parser *parser)
   tree compound_stmt;
 
   cw_asm_state = cw_asm_asm;
-  cw_asm_block = 1;
+  inside_cw_asm_block = 1;
   cw_asm_at_bol = 1;
   clear_cw_asm_labels ();
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
@@ -16434,7 +16447,7 @@ cp_parser_cw_asm_compound_statement (cp_parser *parser)
   /* Consume the `}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
   /* We're done with the block of asm.  */
-  cw_asm_block = 0;
+  inside_cw_asm_block = 0;
   cw_asm_state = cw_asm_none;
   return compound_stmt;
 }
@@ -16851,7 +16864,7 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	if (cp_parser_parse_definitely (parser))
 	  break;
 
-	if (token->type == CPP_DOT)
+	if (token->type == CPP_DOT || token->type == CPP_MULT)
 	  {
 	    postfix_expression = cp_parser_cw_asm_relative_branch (parser);
 	    if (postfix_expression != error_mark_node)
