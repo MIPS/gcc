@@ -1520,7 +1520,7 @@ var_tracking_emit_notes ()
       in = VTI (bb)->in;
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	add_and_unmark_variables ((void **) &in[i], bb->head);
-      htab_traverse (last_htab, add_and_unmark_variables, bb->head);
+      htab_traverse (VTI (bb)->mem_in, add_and_unmark_variables, bb->head);
 
       /* Delete the marked location parts and emit the notes.  */
       emit_note_data.insn = bb->head;

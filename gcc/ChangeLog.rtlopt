@@ -1,3 +1,8 @@
+2003-02-06  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (var_tracking_emit_notes): Add variables from
+	mem_in set for basic block bb in front of bb.
+
 Thu Feb  6 12:31:34 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* regrename.c (do_replace, find_oldest_value_reg,
