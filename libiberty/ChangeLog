@@ -4,6 +4,7 @@
 
 	* pex-common.c (STDERR_FILE_NO): Define.
 	* pex-win32.c: Rework extensively.
+	* pex-unix.c: Likewise.
 
 2003-10-20  J. Brobecker  <brobecker@gnat.com>
 
