@@ -1,3 +1,7 @@
+2003-10-21  David Edelsohn  <dje@watson.ibm.com>
+
+	* mf-runtime.c (_XPOEN_SOURCE_EXTENDED): Define to 1 for AIX.
+
 2003-07-29  Frank Ch. Eigler  <fche@redhat.com>
 
 	2003-07-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
