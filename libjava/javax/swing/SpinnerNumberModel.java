@@ -247,4 +247,49 @@ public class SpinnerNumberModel extends AbstractSpinnerModel
   {
     return value;
   }
+
+  public Comparable getMinimum()
+  {
+    return minimum;
+  }
+
+  public void setMinimum(Comparable newMinimum)
+  {
+    if (minimum != newMinimum)
+      {
+	minimum = newMinimum;
+	fireStateChanged();
+      }
+  }
+
+  public Comparable getMaximum()
+  {
+    return maximum;
+  }
+
+  public void setMaximum(Comparable newMaximum)
+  {
+    if (maximum != newMaximum)
+      {
+	maximum = newMaximum;
+	fireStateChanged();
+      }
+  }
+
+  public Number getStepSize()
+  {
+    return stepSize;
+  }
+
+  public void setStepSize(Number newStepSize)
+  {
+    if (newStepSize == null)
+      throw new IllegalArgumentException();
+
+    if (stepSize != newStepSize)
+      {
+	stepSize = newStepSize;
+	fireStateChanged();
+      }
+  }
 }

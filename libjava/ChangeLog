@@ -1,3 +1,13 @@
+2004-09-13  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/SpinnerNumberModel.java
+	(getMinimum): New method.
+	(setMinimum): Likewise.
+	(getMaximum): Likewise.
+	(setMaximum): Likewise.
+	(getStepSize): Likewise.
+	(setStepSize): Likewise.
+
 2004-09-12  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JMenu.java
