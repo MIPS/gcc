@@ -1,3 +1,10 @@
+2002-11-05  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mudflap_enqueue_decl, _constant): Use
+	size_in_bytes, not c_size_in_bytes.
+	(mf_init_extern_trees): Import uintptr_t typedef node from
+	mf-runtime.h.
+
 2002-11-01  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (remove_tree_bb): Add new argument remove_stmts.

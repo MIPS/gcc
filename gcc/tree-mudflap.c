@@ -148,7 +148,7 @@ mudflap_enqueue_decl (obj, label)
          only used from other compilation units.  XXX: Maybe static
          objects could require those attributes being set.  */
       mf_enqueue_register_call (label,
-				c_size_in_bytes (TREE_TYPE (obj)),
+				size_in_bytes (TREE_TYPE (obj)),
 				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
 				mf_varname_tree (obj));
     }
@@ -201,7 +201,7 @@ mudflap_enqueue_constant (obj, label)
   else
     {
       mf_enqueue_register_call (label,
-				c_size_in_bytes (TREE_TYPE (obj)),
+				size_in_bytes (TREE_TYPE (obj)),
 				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
 				mx_flag (fix_string_type
 					 (build_string (9, "constant"))));
@@ -263,11 +263,7 @@ mf_init_extern_trees ()
   static int done = 0;
   if (done) return;
 
-#if 1
-  mf_uintptr_type = long_unsigned_type_node;
-#else
   mf_uintptr_type = TREE_TYPE (lookup_name (get_identifier ("uintptr_t")));
-#endif
 
   mf_cache_struct_type = xref_tag (RECORD_TYPE, get_identifier ("__mf_cache"));
   mf_cache_structptr_type = build_pointer_type (mf_cache_struct_type);
