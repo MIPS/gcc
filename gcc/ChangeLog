@@ -1,5 +1,9 @@
 2002-12-14  Zack Weinberg  <zack@codesourcery.com>
 
+	* mkconfig.sh: Correct comment.  Add copyright boilerplate.
+
+2002-12-14  Zack Weinberg  <zack@codesourcery.com>
+
 	* config/t-darwin, config/arm/t-pe, config/arm/t-strongarm-pe,
 	config/c4x/t-c4x, config/i370/t-i370, config/i386/t-cygwin,
 	config/i386/t-interix, config/i960/t-960bare, config/ia64/t-ia64,
