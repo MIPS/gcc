@@ -209,7 +209,7 @@ extern int rs6000_hard_regno_nregs (int, enum machine_mode);
 extern void rs6000_conditional_register_usage (void);
 
 /* APPLE LOCAL CW asm blocks */
-extern char *rs6000_cw_asm_register_name (char *, char *);
+extern const char *rs6000_cw_asm_register_name (const char *, char *);
 
 /* Declare functions in rs6000-c.c */
 

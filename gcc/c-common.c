@@ -6399,8 +6399,8 @@ cw_asm_stmt (tree expr, tree args)
     {
       DECL_CW_ASM_NORETURN (current_function_decl) = 1;
       /* Create a default-size frame retroactively.  */
-      if (DECL_CW_ASM_FRAME_SIZE (current_function_decl) == -2)
-	DECL_CW_ASM_FRAME_SIZE (current_function_decl) = -1;
+      if (DECL_CW_ASM_FRAME_SIZE (current_function_decl) == (unsigned int)-2)
+	DECL_CW_ASM_FRAME_SIZE (current_function_decl) = (unsigned int)-1;
       return NULL_TREE;
     }
   else if (strcmp (opcodename, "nofralloc") == 0)
@@ -6602,7 +6602,7 @@ cw_asm_reg_name (tree id)
 {
 #ifdef CW_ASM_REGISTER_NAME
   char buf[100];
-  char *newname = CW_ASM_REGISTER_NAME (IDENTIFIER_POINTER (id), buf);
+  const char *newname = CW_ASM_REGISTER_NAME (IDENTIFIER_POINTER (id), buf);
   if (newname)
     return get_identifier (newname);
 #else
@@ -6653,7 +6653,7 @@ get_atsign_identifier (tree ident)
 }
 
 void
-clear_cw_asm_labels ()
+clear_cw_asm_labels (void)
 {
   if (!cw_asm_labels)
     VARRAY_TREE_INIT (cw_asm_labels, 40, "cw_asm_labels");

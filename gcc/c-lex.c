@@ -63,7 +63,7 @@ bool c_lex_string_translate = true; /* If we need to translate characters receiv
    returning EOL/BOL tokens.  (This is global but static instead
    static in c_lex() so as to avoid pointless init in non-asm
    case.)  */
-static cpp_token *cw_asm_saved_token = NULL;
+static const cpp_token *cw_asm_saved_token = NULL;
 /* This tracks recursion in c_lex calls.  Lexer recursion can happen
    in pragma processing for instance, but we don't any of the asm
    special handling to be active then.  */
@@ -386,7 +386,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
       if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
 	{
 	  cw_asm_state = cw_asm_none;
-	  cw_asm_saved_token = (char *) tok;
+	  cw_asm_saved_token = tok;
 	  cw_asm_at_bol = 0;
 	  --c_lex_depth;
 	  return CPP_EOL;

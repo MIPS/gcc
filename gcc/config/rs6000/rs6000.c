@@ -18151,8 +18151,8 @@ rs6000_vector_select_stmt (tree type, tree dest,
 /* Translate some register names seen in CW asm into GCC standard
    forms.  */
 
-char *
-rs6000_cw_asm_register_name (char *regname, char *buf)
+const char *
+rs6000_cw_asm_register_name (const char *regname, char *buf)
 {
   /* SP is a valid reg name, but asm doesn't like it yet, so translate.  */
   if (strcmp (regname, "sp") == 0)
