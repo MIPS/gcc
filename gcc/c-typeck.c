@@ -5106,8 +5106,8 @@ store_init_value (decl, init)
 #endif
 
   if (warn_traditional
-      && AGGREGATE_TYPE_P (TREE_TYPE (decl))
-      && ! BOUNDED_POINTER_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl))
+      && AGGREGATE_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl)
+      && ! BOUNDED_POINTER_TYPE_P (TREE_TYPE (decl)))
     warning ("traditional C rejects automatic aggregate initialization");
 
   DECL_INITIAL (decl) = value;
