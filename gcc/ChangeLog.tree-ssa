@@ -1,3 +1,52 @@
+2003-10-15  Jeff Law  <law@redhat.com>
+
+	* domwalk.c, domwalk.h: New files.
+	* Makefile.in (OBJS-common): Add domwalk.c.
+	(tree-ssa-dom.o): Add dependency on $(BASIC_BLOCK_H) and domwalk.h.
+	(tree-ssa.o): Add dependency on domwalk.h.
+	(domwalk.o): Add dependencies.
+	* tree-ssa-dom.c: Include domwalk.h.
+	(cfg_altered, vars_to_rename): Now globals.
+	(dom_walk_block_data): New structure for block data used by dominator
+	walker.
+	(optimize_block, record_equivalences_from_block_entry): Kill.
+	(optimize_stmt): Lose "cfg_altered" argument.  Update callers.
+	Initialize may_have_exposed_new_symbols.
+	(get_value_for, set_value_for): Lose "table" argument.  Update
+	callers.  Use const_and_copies table directly.
+	(lookup_avail_expr): Lose "const_and_copies" argument.  Callers
+	updated.
+	(get_eq_expr_value): Similarly.  Also accept a pointer to the
+	vrp_variables. Callers updated.
+	(update_rhs_and_lookup_avail_expr): Similarly.
+	(record_cond_is_true, record_cond_is_false): Similarly.
+	(simplify_rhs_and_lookup_avail_expr): Similarly.
+	(simplify_cond_and_lookup_avail_expr): Similarly.
+	(record_equivalences_from_phis): Similarly.
+	(record_equivalences_from_incoming_edge): Similarly.  Also accept
+	a pointer to the block const_and_copies table and vrp_variables.
+	Callers updated.
+	(eliminate_redundant_computations): Similarly
+	(record_equivalences_from_stmt, thread_through_successor): Similarly.
+	(dom_opt_initialize_block): New function.  Perform block local
+	initialization for the dominator optimizer.
+	(dom_opt_finalize_block): Renamed from finalize_block.  Get
+	block local varrays from walk_data.  Pop entry off block local
+	data stack when complete.
+	(dom_opt_walk_stmts): New function.
+	(cprop_into_phis): Get block local varrays from walk_data.
+	(record_range): Get vrp varray by reference than by value.
+	(tree_ssa_dominator_optimize): Store incoming "vars" variable into
+	global "vars_to_rename".  Initialize walk_data.  Use
+	walk_dominator_tree.
+	(cprop_into_stmt): Initialize may_have_exposed_new_symbols.
+	* tree-ssa.c: Include domwalk.h
+	(rewrite_finalize_block, rewrite_initialize_block): New functions
+	extracted from rewrite_block.
+	(rewrite_walk_stmts, rewrite_add_phi_arguments): Similarly.
+	(rewrite_block): Kill.
+	(rewrite_into_ssa): Initialize walk_data.  Use walk_dominator_tree.
+	
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (gimplify_expr): Return bool.  Bail gracefully if

@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "cfgloop.h"
+#include "domwalk.h"
 
 /* This file builds the SSA form for a function as described in:
 
@@ -140,6 +141,12 @@ static sbitmap vars_to_rename;
 
 
 /* Local functions.  */
+static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
+static void rewrite_initialize_block (struct dom_walk_data *,
+				      basic_block, tree);
+static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
+static void rewrite_add_phi_arguments (struct dom_walk_data *,
+				       basic_block, tree);
 static void delete_tree_ssa (tree);
 static void mark_def_sites (sbitmap);
 static void compute_global_livein (varray_type);
@@ -148,7 +155,6 @@ static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, sbitmap);
 static void insert_phis_for_deferred_variables (varray_type);
-static void rewrite_block (basic_block);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
@@ -208,7 +214,7 @@ static void print_exprs_edge (FILE *, edge, const char *, tree, const char *,
    1- Compute aliasing information (compute_may_aliases).
    2- Mark blocks that contain variable definitions (mark_def_sites).
    3- Insert PHI nodes (insert_phi_nodes).
-   4- Rewrite all the basic blocks into SSA form (rewrite_block).
+   4- Rewrite all the basic blocks into SSA form (walk_dominator_tree).
 
    Both operands (OPS) and virtual operands (VOPS) are rewritten by the
    conversion process.  When new definitions are found, a new SSA_NAME
@@ -282,6 +288,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
   sbitmap globals;
   dominance_info idom;
   basic_block bb;
+  struct dom_walk_data walk_data;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -338,7 +345,19 @@ rewrite_into_ssa (tree fndecl, sbitmap vars, enum tree_dump_index phase)
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
-  rewrite_block (ENTRY_BLOCK_PTR);
+
+  /* Setup callbacks for the generic dominator tree walker.  */
+  VARRAY_GENERIC_PTR_INIT (walk_data.block_data_stack, 2, "block_data");
+  walk_data.before_dom_children_before_stmts = rewrite_initialize_block;
+  walk_data.before_dom_children_walk_stmts = rewrite_walk_stmts;
+  walk_data.before_dom_children_after_stmts = rewrite_add_phi_arguments; 
+  walk_data.after_dom_children_before_stmts =  NULL;
+  walk_data.after_dom_children_walk_stmts =  NULL;
+  walk_data.after_dom_children_after_stmts =  rewrite_finalize_block;
+
+  /* Recursively walk the dominator tree rewriting each statement in
+     each basic block.  */
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Debugging dumps.  */
@@ -736,46 +755,80 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
       definitions are restored to the names that were valid in the
       dominator parent of BB.  */
 
+/* SSA Rewriting Step 1.  Initialization, create a block local stack
+   of reaching definitions for new SSA names produced in this block
+   (BLOCK_DEFS).  Register new definitions for every PHI node in the
+   block.  */
+
 static void
-rewrite_block (basic_block bb)
+rewrite_initialize_block (struct dom_walk_data *walk_data,
+			  basic_block bb,
+			  tree parent_block_last_stmt ATTRIBUTE_UNUSED)
 {
-  edge e;
   varray_type block_defs;
-  bitmap children;
-  unsigned long i;
-  block_stmt_iterator si;
+  varray_type *block_defs_p;
   tree phi;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Initialize the local stacks.
      
      BLOCK_DEFS is used to save all the existing reaching definitions for
-	the new SSA names introduced in this block.  Before registering a
-	new definition for a variable, the existing reaching definition is
-	pushed into this stack so that we can restore it in Step 5.  */
-
+     the new SSA names introduced in this block.  Before registering a
+     new definition for a variable, the existing reaching definition is
+     pushed into this stack so that we can restore it in Step 5.  */
   VARRAY_TREE_INIT (block_defs, 20, "block_defs");
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+  /* Now push this block's BLOCK_DEFs onto the stack of block local data.  */
+  VARRAY_PUSH_GENERIC_PTR (walk_data->block_data_stack, block_defs);
+
+  /* We want a pointer to BLOCK_DEFS as stored in BLOCK_DATA_STACK, not the
+     address of the local variable BLOCK_DEFS.  */
+  block_defs_p
+    = (varray_type *) &VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
-		      &block_defs);
+    {
+      tree result = PHI_RESULT (phi);
 
-  /* Step 2.  Rewrite every variable used in each statement the block with
-     its immediate reaching definitions.  Update the current definition of
-     a variable when a new real or virtual definition is found.  */
+      register_new_def (SSA_NAME_VAR (result), result, block_defs_p);
+    }
+}
+
+/* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
+   the block with its immediate reaching definitions.  Update the current
+   definition of a variable when a new real or virtual definition is found.  */
+
+static void
+rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+		    basic_block bb,
+		    tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  block_stmt_iterator si;
+  varray_type *block_defs_p
+    = (varray_type *) &VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (si, &block_defs);
+    rewrite_stmt (si, block_defs_p);
+}
 
 
-  /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
-     For every PHI node found, add a new argument containing the current
-     reaching definition for the variable and the edge through which that
-     definition is reaching the PHI node.  */
+/* SSA Rewriting Step 3.  Visit all the successor blocks of BB looking for
+   PHI nodes.  For every PHI node found, add a new argument containing the
+   current reaching definition for the variable and the edge through which
+   that definition is reaching the PHI node.   */
+
+static void
+rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+			   basic_block bb,
+			   tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  edge e;
+
   for (e = bb->succ; e; e = e->succ_next)
     {
       tree phi;
@@ -793,11 +846,18 @@ rewrite_block (basic_block bb)
 	  add_phi_arg (&phi, currdef, e);
 	}
     }
+}
 
-  /* Step 4.  Recursively search the dominator children of BB.  */
-  children = dom_children (bb);
-  if (children)
-   EXECUTE_IF_SET_IN_BITMAP (children, 0, i, rewrite_block (BASIC_BLOCK (i)));
+/* SSA Rewriting Step 5.  Restore the current reaching definition for each
+   variable referenced in the block (in reverse order).  */
+
+static void
+rewrite_finalize_block (struct dom_walk_data *walk_data,
+			basic_block bb ATTRIBUTE_UNUSED,
+			tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+{
+  varray_type block_defs
+    = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
@@ -819,6 +879,9 @@ rewrite_block (basic_block bb)
 
       set_value_for (var, saved_def, currdefs);
     }
+
+  /* And remove this block's local data off BLOCK_DATA_STACK.  */
+  VARRAY_POP (walk_data->block_data_stack);
 }
 
 /* This function will create a temporary for a partition based on the
@@ -1980,9 +2043,9 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
 /* Rewrite statement pointed by iterator SI into SSA form. 
 
    BLOCK_DEFS_P points to a stack with all the definitions found in the
-   block.  This is used by rewrite_block to restore the current reaching
-   definition for every variable defined in BB after visiting the
-   immediate dominators of BB.  */
+   block.  This is used by the dominator tree walker callbacks to restore
+   the current reaching definition for every variable defined in BB after
+   visiting the immediate dominators of BB.  */
 
 static void
 rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
@@ -2088,15 +2151,15 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
   tree currdef = get_value_for (var, currdefs);
 
   /* If the current reaching definition is NULL, push the variable itself
-     so that rewrite_block knows what variable is associated with this NULL
-     reaching def when unwinding the *BLOCK_DEFS_P stack.  */
+     so that the dominator tree callbacks know what variable is associated
+     with this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
   if (currdef == NULL_TREE)
     VARRAY_PUSH_TREE (*block_defs_p, var);
 
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
-     later used by rewrite_block to restore the reaching definitions for
-     all the variables defined in the block after a recursive visit to all
-     its immediately dominated blocks.  */
+     later used by the dominator tree callbacks to restore the reaching
+     definitions for all the variables defined in the block after a recursive
+     visit to all its immediately dominated blocks.  */
   VARRAY_PUSH_TREE (*block_defs_p, currdef);
 
   /* Set the current reaching definition for VAR to be DEF.  */
