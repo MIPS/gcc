@@ -210,8 +210,7 @@ is_gimple_stmt (tree t)
   switch (code)
     {
     case BIND_EXPR:
-      /* APPLE LOCAL AV if-conversion --dpatel  */
-      /* Remove case for COND_EXPR from here.  */
+    case COND_EXPR:
       /* These are only valid if they're void.  */
       return TREE_TYPE (t) == NULL || VOID_TYPE_P (TREE_TYPE (t));
 
@@ -228,9 +227,6 @@ is_gimple_stmt (tree t)
     case RESX_EXPR:
     case PHI_NODE:
     case STATEMENT_LIST:
-      /* APPLE LOCAL AV if-conversion --dpatel  */
-      /* Add case for COND_EXPR.  */
-    case COND_EXPR:
       /* These are always void.  */
       return true;
 

@@ -48,10 +48,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define GCC_TARGET_H
 
 #include "tm.h"
-/* APPLE LOCAL AV if-conversion --dpatel  */
+/* APPLE LOCAL begin AV vmul_uch --haifa  */
 #include "tree.h"
-/* APPLE LOCAL AV vmul_uch --haifa  */
 #include "tree-flow.h"
+/* APPLE LOCAL end AV vmul_uch --haifa  */
 #include "insn-modes.h"
 
 struct gcc_target
@@ -479,7 +479,6 @@ struct gcc_target
   tree (* build_builtin_va_list) (void);
 
   /* APPLE LOCAL begin AV misaligned --haifa  */
-  /* APPLE LOCAL begin AV if-conversion --dpatel  */
   /* Functions relating to vectorization.  */
   struct vect
   {
@@ -497,26 +496,6 @@ struct gcc_target
 
     /* Function decl for vector permute.  */
     tree (* build_builtin_vperm) (enum machine_mode);
-
-    /* True if vector compare instructions are supported.  */
-    bool (* support_vector_compare_p) (void);
-
-    /* True if vector compare instruction is supported in given code.  */
-    bool (* support_vector_compare_for_p) (tree, tree, enum tree_code);
- 
-    /* Generate vector compare statement.  
-       Return value is vector compare statement.  */
-    tree (* vector_compare_stmt) (tree, tree, tree, tree, enum tree_code);
-    
-    /* True if vector select instructions are supported.  */
-    bool (* support_vector_select_p) (void);
-    
-    /* True if vector selector instruction are supported in given code.  */
-    bool (* support_vector_select_for_p) (tree);
-    
-    /* Generate vector select statement.  
-       Return value is vector select statement.  */
-    tree (* vector_select_stmt) (tree, tree, tree, tree, tree);
 
     /* APPLE LOCAL begin AV vmul_uch --haifa  */
     /* True if vector "mult_uch" can be supported (see below).  */
@@ -555,7 +534,6 @@ struct gcc_target
     tree (* build_vector_init) (tree, tree, edge, struct bitmap_head_def *);
     /* APPLE LOCAL end AV vector_init --haifa  */
   } vect;
-  /* APPLE LOCAL end AV if-conversion --dpatel  */
   /* APPLE LOCAL end AV misaligned --haifa  */
 
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,

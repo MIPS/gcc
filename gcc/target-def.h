@@ -285,7 +285,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_VECTORIZE_BUILTIN_MASK_FOR_STORE}
 
 /* APPLE LOCAL begin AV misaligned --haifa  */
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
 /* MERGE FIXME - how many of these are now dead given TARGET_VECTORIZE and friends?  */
 /* Vectorizer hooks.  All of these default to null pointers, which
    tree-vectorizer.c looks for and handles.  */
@@ -294,12 +293,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECT_BUILD_BUILTIN_LVSL 0
 #define TARGET_VECT_BUILD_BUILTIN_LVSR 0
 #define TARGET_VECT_BUILD_BUILTIN_VPERM 0
-#define TARGET_VECTOR_COMPARE_P 0
-#define TARGET_VECTOR_COMPARE_FOR_P 0
-#define TARGET_VECTOR_COMPARE_STMT 0
-#define TARGET_VECTOR_SELECT_P 0
-#define TARGET_VECTOR_SELECT_FOR_P 0
-#define TARGET_VECTOR_SELECT_STMT 0
 /* APPLE LOCAL begin AV vmul_uch --haifa  */
 /* APPLE LOCAL begin AV vector_init --haifa  */
 #define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
@@ -313,12 +306,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_VECT_BUILD_BUILTIN_LVSL,                        \
    TARGET_VECT_BUILD_BUILTIN_LVSR,                        \
    TARGET_VECT_BUILD_BUILTIN_VPERM,                       \
-   TARGET_VECTOR_COMPARE_P,                               \
-   TARGET_VECTOR_COMPARE_FOR_P,                           \
-   TARGET_VECTOR_COMPARE_STMT,                            \
-   TARGET_VECTOR_SELECT_P,                                \
-   TARGET_VECTOR_SELECT_FOR_P,                            \
-   TARGET_VECTOR_SELECT_STMT,				  \
    TARGET_VECT_SUPPORT_VMUL_UCH_P,			  \
    TARGET_VECT_BUILD_VMUL_UCH,				  \
    TARGET_VECT_SUPPORT_VECTOR_INIT_P,			  \
@@ -326,7 +313,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 /* APPLE LOCAL end AV vmul_uch --haifa  */
 /* APPLE LOCAL end AV vector_init --haifa  */
-/* APPLE LOCAL end AV if-conversion --dpatel  */
 /* APPLE LOCAL end AV misaligned --haifa  */
 
 /* In except.c */

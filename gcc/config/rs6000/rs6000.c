@@ -592,7 +592,7 @@ struct processor_costs ppc8540_cost = {
   COSTS_N_INSNS (29),   /* ddiv */
 };
 
-/* APPLE LOCAL AV if-conversion --dpatel  */
+/* APPLE LOCAL AV vmul_uch --haifa.  */
 static tree vector_builtin_fns[RS6000_BUILTIN_MAX];
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -775,19 +775,6 @@ static tree get_prev_label (tree function_name);
 #endif
 
 static tree rs6000_build_builtin_va_list (void);
-
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
-static bool rs6000_vector_compare_p (void);
-static bool rs6000_vector_compare_for_p (tree, tree, enum tree_code);
-static tree rs6000_vector_compare_stmt (tree, tree, tree, tree, enum tree_code);
-
-static bool rs6000_vector_select_p (void);
-static bool rs6000_vector_select_for_p (tree);
-static tree rs6000_vector_select_stmt (tree, tree, tree, tree, tree);
-
-static tree get_vector_compare_for (tree, tree, enum tree_code);
-static tree get_vector_select_for (tree);
-/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* APPLE LOCAL begin AV misaligned --haifa  */
 static bool rs6000_support_misaligned_vloads (void);
@@ -1038,24 +1025,6 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
-
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
-/* Vector compare.  */
-#undef TARGET_VECTOR_COMPARE_P
-#define TARGET_VECTOR_COMPARE_P rs6000_vector_compare_p
-#undef TARGET_VECTOR_COMPARE_FOR_P
-#define TARGET_VECTOR_COMPARE_FOR_P rs6000_vector_compare_for_p
-#undef TARGET_VECTOR_COMPARE_STMT
-#define TARGET_VECTOR_COMPARE_STMT rs6000_vector_compare_stmt
-
-/* Vector select.  */
-#undef TARGET_VECTOR_SELECT_P
-#define TARGET_VECTOR_SELECT_P rs6000_vector_select_p
-#undef TARGET_VECTOR_SELECT_FOR_P
-#define TARGET_VECTOR_SELECT_FOR_P rs6000_vector_select_for_p
-#undef TARGET_VECTOR_SELECT_STMT
-#define TARGET_VECTOR_SELECT_STMT rs6000_vector_select_stmt
-/* APPLE LOCAL end AV if-conversion --dpatel  */
 
 /* APPLE LOCAL begin AV misaligned --haifa */
 #undef TARGET_VECT_SUPPORT_MISALIGNED_LOADS
@@ -6471,7 +6440,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
 /* Builtins.  */
 
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
+/* APPLE LOCAL begin AV vmul_uch --haifa.  */
 /* Store builtin in vector_builtin_fns.  */
 #define def_builtin(MASK, NAME, TYPE, CODE)			           \
 do {								           \
@@ -6480,7 +6449,7 @@ do {								           \
                                                    BUILT_IN_MD, NULL,      \
                                                    NULL_TREE); 	           \
 } while (0)
-/* APPLE LOCAL end AV if-conversion --dpatel  */
+/* APPLE LOCAL end AV vmul_uch --haifa.  */
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
 
@@ -19196,210 +19165,6 @@ rs6000_dbx_register_number (unsigned int regno)
 
   gcc_unreachable ();
 }
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
-/* Target hook for vector_compare_p.  */
-
-static bool 
-rs6000_vector_compare_p (void)
-{
-  if (TARGET_ALTIVEC)
-    {
-      if (vector_builtin_fns [ALTIVEC_BUILTIN_VCMPBFP]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUB]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUH]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUW]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQFP]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGEFP]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUB]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSB]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUH]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSH]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUW]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSW]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTFP])
-        return true;
-    }
-  return false;
-}
-
-/* Ttarget hook for vector_compare_for_p.  */
-
-static bool
-rs6000_vector_compare_for_p (tree type, tree argtype, enum tree_code code)
-{
-  if (get_vector_compare_for (type, argtype, code) != NULL_TREE)
-    return true;
-  else
-    return false;
-}
-
-/* Get builtin compare function node.  */
-
-static tree
-get_vector_compare_for (tree type, tree argtype, enum tree_code code)
-{
-
-  enum machine_mode m0, m1;
-
-  m0 = TYPE_MODE (type);
-  m1 = TYPE_MODE (argtype);
-
-  if (TARGET_ALTIVEC)
-    {
-      if (code == EQ_EXPR)
-        {
-          if (m0 == V16QImode)
-            return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUB];
-          else if (m0 == V8HImode)
-            return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUH];
-          else if (m0 == V4SImode)
-            {
-              if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQFP];
-              else
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPEQUW];
-
-            }
-        }
-      else if (code == GE_EXPR)
-        {
-          if (m0 == V4SImode && m1 == V4SFmode)
-            return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGEFP];
-        }
-      else if (code == GT_EXPR)
-        {
-          if (m0 == V16QImode)
-            { 
-              if (TYPE_UNSIGNED (type))
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUB];
-              else
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSB];
-            }
-          else if (m0 == V8HImode)
-            {
-              if (TYPE_UNSIGNED (type))
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUH];
-              else
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSH];
-            }
-          else if (m0 == V4SImode && m1 == V4SImode)
-            {
-              if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
-                return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTFP];
-              else
-                {
-                  if (TYPE_UNSIGNED (type))
-                    return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTUW];
-                  else
-                    return vector_builtin_fns [ALTIVEC_BUILTIN_VCMPGTSW];
-                }
-            }
-        }
-    }
-  return NULL_TREE;
-}
-
-/* Target hook for vector_compare_stmt.  */
-
-static tree 
-rs6000_vector_compare_stmt (tree type, tree dest, tree arg1, tree arg2,
-			    enum tree_code code)
-{
-  tree stmt;
-  tree fn;
-  tree arg_list;
-
-  fn = get_vector_compare_for (type, TREE_TYPE (arg1), code);
-
-  if (fn == NULL_TREE)
-    abort ();
-
-  arg_list = tree_cons (NULL_TREE, arg1, NULL_TREE);
-  arg_list = tree_cons (NULL_TREE, arg2, arg_list);
-  
-  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)), stmt, arg_list, NULL_TREE);
-  stmt = build (MODIFY_EXPR, type, dest, stmt);
-
-  return stmt;
-}
-
-/* Target hook for vector_select_p.  */
-
-static bool
-rs6000_vector_select_p (void)
-{
-  if (TARGET_ALTIVEC)
-    {
-      if (vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_4SF]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_4SI]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_8HI]
-          || vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_16QI])
-        return true;
-    }
-
-  return false;
-}
-
-/* Target hook for vector_select_for_p.  */
-
-static bool
-rs6000_vector_select_for_p (tree type)
-{
-  if (get_vector_select_for (type) != NULL_TREE)
-    return true;
-  else
-    return false;
-}
-
-static tree
-get_vector_select_for (tree type)
-{
-  enum machine_mode m0;
-
-  m0 = TYPE_MODE (type);
-  
-  if (TARGET_ALTIVEC)
-    {
-      if (m0 == V4SImode)
-        return vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_4SI];
-      else if (m0 == V4SFmode)
-        return vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_4SF];
-      else if (m0 == V8HImode)
-        return vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_8HI];
-      else if (m0 == V16QImode)
-        return vector_builtin_fns [ALTIVEC_BUILTIN_VSEL_16QI];
-    }
-  return NULL_TREE;
-}
-/* Target hook for vector_select_stmt.  */
-
-static tree
-rs6000_vector_select_stmt (tree type, tree dest,
-			   tree arg1, tree arg2, tree arg3)
-{
-  tree stmt;
-  tree fn;
-  tree arg_list;
-
-  fn = get_vector_select_for (type);
-
-  if (fn == NULL_TREE)
-    abort ();
-
-  /* Build argument list.  */
-  arg_list = tree_cons (NULL_TREE, arg1, NULL_TREE);
-  arg_list = tree_cons (NULL_TREE, arg2, arg_list);
-  arg_list = tree_cons (NULL_TREE, arg3, arg_list);
-  
-  stmt = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-  stmt = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)), stmt, arg_list, NULL_TREE);
-  stmt = build (MODIFY_EXPR, type, dest, stmt);
-
-  return stmt;
-}
-/* APPLE LOCAL end AV if-conversion --dpatel  */
-
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Translate some register names seen in CW asm into GCC standard

@@ -1,3 +1,29 @@
+2004-10-18  Devang Patel  <dpatel@apple.com>
+
+        Radar 3753408
+        * Makefile.in (GTFILES): Remove APPLE LOCAL comments.
+        * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Remove #defines.
+        (TARGET_VECT): Remove vector select and compare members.
+        * target.h (struct gcc_target): Remove vector select and
+        compare members.
+        * tree-dfa.c (dump_immediate_uses_for): Do not print block number.
+        * tree-gimple.c (is_gimple_stmt): Handle COND_EXPR properly.
+        * tree-ssa-operands.c (add_vdef): Remove.
+        (build_ssa_operands): Remove local patch to handle COND_EXPR inside
+        MODIFY_EXPR case.
+        (get_expr_operands): Same.
+        * tree.c (get_array_base): Remove.
+        * config/rs6000/rs6000.c (rs6000_vector_compare_p,
+        rs6000_vector_compare_for_p, rs6000_vector_compare_stmt,
+        rs6000_vector_select_p, rs6000_vector_select_for_p,
+        rs6000_vector_select_stmt, get_vector_compare_for,
+        get_vector_select_for): Remove.
+        (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_FOR_P,
+        TARGET_VECTOR_SELECT_STMT): Remove #defines.
+
 2004-10-16  Dale Johannesen  <dalej@apple.com>
 
         * c-common.c (c_common_get_alias_set):  Use GGC for type_hash_table.

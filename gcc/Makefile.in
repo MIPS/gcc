@@ -2477,8 +2477,6 @@ insn-preds.o : insn-preds.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(RTL_H) $(TREE_H) insn-config.h $(RECOG_H) real.h output.h $(FLAGS_H) \
   function.h hard-reg-set.h $(RESOURCE_H) $(TM_P_H) toplev.h reload.h
 
-# APPLE LOCAL begin AV if-conversion --dpatel
-# $(srcdir)/tree-data-ref.h is APPLE LOCAL for now
 GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(CPP_ID_DATA_H) $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -2509,7 +2507,6 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c $(srcdir)/tree-nested.c \
   $(out_file) \
   @all_gtfiles@
-# APPLE LOCAL end
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
 GTFILES_FILES_FILES = @all_gtfiles_files_files@

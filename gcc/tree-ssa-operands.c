@@ -758,19 +758,6 @@ append_v_may_def (tree var)
   VARRAY_PUSH_TREE (build_v_may_defs, var);
 }
 
-/* APPLE LOCAL begin MERGE FIXME remove if-conversion using old structures */
-#if (0)
-/* APPLE LOCAL begin AV if-conversion --dpatel  */
-/* External entry point which by-passes the previous vops mechanism.  */
-void
-add_vdef (tree var, tree stmt)
-{
-  append_vdef (var, stmt, NULL);
-}
-/* APPLE LOCAL end AV if-conversion --dpatel  */
-#endif
-/* APPLE LOCAL end MERGE FIXME remove if-conversion using old structures */
-
 /* Add VAR to the list of virtual uses.  */
 
 static inline void
@@ -847,17 +834,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
   switch (code)
     {
     case MODIFY_EXPR:
-      /* APPLE LOCAL begin AV if-conversion --dpatel  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == COND_EXPR)
- 	{
- 	  tree t_stmt = TREE_OPERAND (stmt, 1);
- 	  get_expr_operands (stmt, &COND_EXPR_COND (t_stmt), opf_none);
- 	  get_expr_operands (stmt, &TREE_OPERAND (t_stmt, 1), opf_none);
- 	  get_expr_operands (stmt, &TREE_OPERAND (t_stmt, 2), opf_none);
- 	}
-      else
-	/* APPLE LOCAL end AV if-conversion --dpatel  */
- 	get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
@@ -1135,17 +1112,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	int subflags;
 	tree op;
 	
-	/* APPLE LOCAL begin AV if-conversion --dpatel  */
-	if (TREE_CODE (TREE_OPERAND (expr, 1)) == COND_EXPR)
-	  {
-	    tree t = TREE_OPERAND (expr, 1);
-	    get_expr_operands (stmt, &COND_EXPR_COND (t), opf_none);
-	    get_expr_operands (stmt, &TREE_OPERAND (t, 1), opf_none);
-	    get_expr_operands (stmt, &TREE_OPERAND (t, 2), opf_none);
-	  }
-	else
-	  /* APPLE LOCAL end AV if-conversion --dpatel  */
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
 
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
