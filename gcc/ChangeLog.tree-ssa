@@ -1,3 +1,21 @@
+2004-02-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Replace -fdump-tree-all-ssa with
+	-fdump-tree-all.
+
+2004-02-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/14285
+	* config/arm/arm.c (arm_compute_func_type): Replace
+	"current_function_needs_context" with "cfun->static_chain_decl
+	!= NULL".
+	(arm_compute_initial_elimination_offset): Likewise.
+	* config/h8300/h8300.c (h8300_emit_stack_adjustment):
+	Likewise.
+	* config/sh/sh.c (output_stack_adjust): Likewise.
+	(sh5_schedule_saves): Likewise.
+	* config/xtensa/xtensa.c (compute_frame_size): Likewise.
+
 2004-02-24  Richard Henderson  <rth@redhat.com>
 
 	* c-simplify.c (c_genericize): s/dump_flags/local_dump_flags/.
