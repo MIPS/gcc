@@ -416,7 +416,6 @@ class_object_creator::fill_in_vtable (tree decl)
   layout_decl (decl, 0);
   rest_of_decl_compilation (decl, 1, 0);
   make_decl_rtl (decl);
-
 }
 
 void

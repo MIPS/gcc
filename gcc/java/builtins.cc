@@ -151,7 +151,8 @@ tree_builtins::add (tree context, model_method *meth)
       || meth->final_p ())
     DECL_INLINE (result) = 1;
   if (meth->native_p ())
-    DECL_EXTERNAL (result) = 1;	// FIXME wrong..?
+    DECL_EXTERNAL (result) = 1;
+  // FIXME: if we're not compiling this method, set DECL_EXTERNAL.
 
   methodmap[meth] = result;
 }
@@ -171,7 +172,7 @@ tree_builtins::add (tree context, model_field *field)
 			    map_identifier (field->get_name ()),
 			    map_type (field->type ()));
   DECL_CONTEXT (result) = context;
-  DECL_EXTERNAL (result) = 1;
+  DECL_EXTERNAL (result) = 1;	// FIXME unless we're compiling it...
   TREE_PUBLIC (result) = 1;
   if (field->static_p ())
     SET_DECL_ASSEMBLER_NAME (result,
@@ -259,12 +260,13 @@ tree_builtins::map_class_object (model_class *klass)
   if (classobj_map.find (klass) == classobj_map.end ())
     {
       tree decl = build_decl (VAR_DECL, NULL_TREE, type_class);
+      TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
-      // FIXME: DECL_EXTERNAL ?
       SET_DECL_ASSEMBLER_NAME (decl,
 			       get_identifier (get_class_object_name (klass).c_str ()));
+      DECL_NAME (decl) = DECL_ASSEMBLER_NAME (decl);
 
       classobj_map[klass] = decl;
     }
@@ -478,12 +480,14 @@ tree_builtins::get_vtable_decl (model_class *klass)
   if (vtable_map.find (klass) == vtable_map.end ())
     {
       tree decl = build_decl (VAR_DECL, NULL_TREE, type_dtable);
+      TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
       mangler m (klass, true);
       SET_DECL_ASSEMBLER_NAME (decl,
 			       get_identifier (m.get ().c_str ()));
+      DECL_NAME (decl) = DECL_ASSEMBLER_NAME (decl);
 
       vtable_map[klass] = decl;
     }

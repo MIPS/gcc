@@ -1,3 +1,9 @@
+2005-02-22  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (map_class_object): Mark class object as public.
+	Set name of decl.
+	(get_vtable_decl): Likewise.
+
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
 	* driver.cc (parse_file): Finalize compilation unit.
