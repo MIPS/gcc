@@ -160,7 +160,7 @@ class tree_generator : public visitor
 
 public:
 
-  tree_generator (tree_builtins *);
+  tree_generator (tree_builtins *, aot_class *);
 
   virtual ~tree_generator ();
 

@@ -1258,7 +1258,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    std::string classname, fieldname, signature;
 	    cpool->get_fieldref (fieldref_index, classname, fieldname,
 				 signature);
-	    tree ref = gcc_builtins->map_field_ref (NULL_TREE,
+	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
+						    NULL_TREE,
 						    classname, fieldname,
 						    signature);
 	    insn = push (ref);
@@ -1272,7 +1273,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    cpool->get_fieldref (fieldref_index, classname, fieldname,
 				 signature);
 	    tree expr = pop (type_object);
-	    tree ref = gcc_builtins->map_field_ref (expr,
+	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
+						    expr,
 						    classname, fieldname,
 						    signature);
 	    insn = push (ref);
@@ -1285,7 +1287,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    std::string classname, fieldname, signature;
 	    cpool->get_fieldref (fieldref_index, classname, fieldname,
 				 signature);
-	    tree ref = gcc_builtins->map_field_ref (NULL_TREE,
+	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
+						    NULL_TREE,
 						    classname, fieldname,
 						    signature);
 	    tree expr = pop (TREE_TYPE (ref));
@@ -1302,7 +1305,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree field_type = find_class (signature);
 	    tree value = pop (field_type);
 	    tree obj = pop (type_object);
-	    tree ref = gcc_builtins->map_field_ref (obj,
+	    tree ref = gcc_builtins->map_field_ref (class_wrapper,
+						    obj,
 						    classname, fieldname,
 						    signature);
 	    insn = build2 (MODIFY_EXPR, TREE_TYPE (ref), ref, value);

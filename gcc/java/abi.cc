@@ -34,8 +34,9 @@ gcj_abi::~gcj_abi ()
 
 
 tree
-cxx_abi::build_method_call (tree_builtins *builtins, tree obj,
-			    tree args, model_method *meth,
+cxx_abi::build_method_call (tree_builtins *builtins,
+			    aot_class *,
+			    tree obj, tree args, model_method *meth,
 			    bool is_super)
 {
   builtins->lay_out_class (meth->get_declaring_class ());
@@ -53,14 +54,23 @@ cxx_abi::build_method_call (tree_builtins *builtins, tree obj,
     {
       // FIXME: interface call.
     }
-  else if (is_super || meth->final_p () || meth->instance_initializer_p ())
+  else if (is_super || meth->final_p () || meth->constructor_p ())
     {
+      assert (obj != NULL_TREE);
+
       // A final method, a constructor, or a super method should be
       // called directly.  A method in a final class is implicitly
-      // final, and will be caught by this same condition.
+      // final, and will be caught by this same condition.  Private
+      // methods are also caught this way.
       func = build_address_of (meth_tree);
 
-      assert (obj != NULL_TREE);
+      // In some cases we must generate an explicit null check.  We
+      // leave it to the optimizers to deduce that 'this != null' and
+      // remove checks in this case.  We force a real check because in
+      // the case of a final method, a SEGV will not be generated.
+      if (! meth->constructor_p ())
+	obj = builtins->check_reference (obj, true);
+
       args = tree_cons (NULL_TREE, obj, args);
     }
   else
@@ -70,14 +80,26 @@ cxx_abi::build_method_call (tree_builtins *builtins, tree obj,
       assert (obj != NULL_TREE);
       args = tree_cons (NULL_TREE, obj, args);
 
-      tree index = DECL_VINDEX (meth_tree);
+      aot_class *aotk = builtins->get_class (meth->get_declaring_class ());
+
+      tree index = build_int_cst (sizetype, aotk->find_in_vtable (meth));
       index = size_binop (MULT_EXPR, index,
 			  TYPE_SIZE_UNIT (type_nativecode_ptr_ptr));
       if (TARGET_VTABLE_USES_DESCRIPTORS)
 	index = size_binop (MULT_EXPR, index,
 			    size_int (TARGET_VTABLE_USES_DESCRIPTORS));
 
-      tree dtable; // fixme
+      // Dereference the object to find the table.  Check for a null
+      // reference if needed.
+      obj = builtins->check_reference (obj);
+
+      // Find the vtable by looking for the 'vtable' field.
+      tree dtable = build1 (INDIRECT_REF, type_object, obj);
+      dtable = build3 (COMPONENT_REF, type_dtable_ptr,
+		       dtable,
+		       builtins->find_decl (type_object, "vtable"),
+		       NULL_TREE);
+
       func = build2 (PLUS_EXPR, type_nativecode_ptr_ptr, dtable,
 		     convert (type_nativecode_ptr_ptr, index));
       if (TARGET_VTABLE_USES_DESCRIPTORS)
@@ -98,22 +120,24 @@ cxx_abi::build_method_call (tree_builtins *builtins, tree obj,
 }
 
 tree
-cxx_abi::build_field_reference (tree_builtins *builtins, tree obj,
-				model_field *field)
+cxx_abi::build_field_reference (tree_builtins *builtins,
+				aot_class *,
+				tree obj, model_field *field)
 {
   builtins->lay_out_class (field->get_declaring_class ());
   tree result = builtins->map_field (field);
   if (field->static_p ())
     {
       assert (obj == NULL_TREE);
+      // FIXME: initialize class.
     }
   else
     {
       assert (obj != NULL_TREE);
       result = build3 (COMPONENT_REF, TREE_TYPE (result),
 		       build1 (INDIRECT_REF,
-			       TREE_TYPE (TREE_TYPE (result)),
-			       builtins->check_reference (result)),
+			       TREE_TYPE (TREE_TYPE (obj)),
+			       builtins->check_reference (obj)),
 		       result,
 		       NULL_TREE);
     }
@@ -121,7 +145,9 @@ cxx_abi::build_field_reference (tree_builtins *builtins, tree obj,
 }
 
 tree
-cxx_abi::build_class_reference (tree_builtins *builtins, tree klass)
+cxx_abi::build_class_reference (tree_builtins *builtins,
+				aot_class *,
+				tree klass)
 {
   assert (TREE_CODE (klass) == POINTER_TYPE);
   tree decl = TYPE_STUB_DECL (TREE_TYPE (klass));
@@ -129,14 +155,15 @@ cxx_abi::build_class_reference (tree_builtins *builtins, tree klass)
 }
 
 tree
-cxx_abi::build_new (tree_builtins *builtins, tree klass, tree constructor,
-		    tree arguments)
+cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
+		    tree klass, tree constructor, tree arguments)
 {
   tree allocator = builtin_Jv_AllocObject;  // FIXME: finalizer
   // Allocate the object.
   tree n = build3 (CALL_EXPR, klass, allocator,
 		   build_tree_list (NULL_TREE,
-				    build_class_reference (builtins, klass)),
+				    build_class_reference (builtins, current,
+							   klass)),
 		   NULL_TREE);
   TREE_SIDE_EFFECTS (n) = 1;
   // Call the constructor.
@@ -151,21 +178,25 @@ cxx_abi::build_new (tree_builtins *builtins, tree klass, tree constructor,
 
 
 tree
-bc_abi::build_method_call (tree_builtins *, tree obj,
+bc_abi::build_method_call (tree_builtins *, aot_class *current, tree obj,
 			   tree args, model_method *meth, bool is_super)
 {
   return NULL_TREE;
 }
 
 tree
-bc_abi::build_field_reference (tree_builtins *builtins, tree obj,
-			       model_field *field)
+bc_abi::build_field_reference (tree_builtins *builtins,
+			       aot_class *current,
+			       tree obj, model_field *field)
 {
   tree result;
+  int slot = current->register_field_reference (field);
   if (field->static_p ())
     {
       assert (obj == NULL_TREE);
-      tree atable_ref = builtins->find_atable_slot (field);
+      // FIXME: find the class' atable and then build a reference to
+      // the appropriate part of it.
+      tree atable_ref = NULL_TREE;
       result = build1 (INDIRECT_REF,
 		       // Note we don't need ARRAY_REF, we
 		       // just generate a direct reference.
@@ -177,8 +208,9 @@ bc_abi::build_field_reference (tree_builtins *builtins, tree obj,
   else
     {
       assert (obj != NULL_TREE);
-      tree otable_ref = builtins->find_otable_slot (field);
-      // FIXME find_otable_slot must cast to the correct type.
+      // FIXME: find the class' otable and then build a reference to
+      // the appropriate part of it.
+      tree otable_ref = NULL_TREE;
       // FIXME  cast OBJ to pointer to field type -- this works
       // due to structure layout rules ... ?
       result = build4 (ARRAY_REF, builtins->map_type (field->type ()),
@@ -188,14 +220,14 @@ bc_abi::build_field_reference (tree_builtins *builtins, tree obj,
 }
 
 tree
-bc_abi::build_class_reference (tree_builtins *, tree klass)
+bc_abi::build_class_reference (tree_builtins *, aot_class *current, tree klass)
 {
   return NULL_TREE;
 }
 
 tree
-bc_abi::build_new (tree_builtins *builtins, tree klass, tree constructor,
-		   tree arguments)
+bc_abi::build_new (tree_builtins *builtins, aot_class *current,
+		   tree klass, tree constructor, tree arguments)
 {
   return NULL_TREE;
 }

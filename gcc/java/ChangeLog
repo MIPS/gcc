@@ -1,3 +1,36 @@
+2005-01-30  Tom Tromey  <tromey@redhat.com>
+
+	* decl.cc (initialize_gcc_decls): Removed old comment.
+	* classobj.cc (handle_interfaces): Updated.
+	* treegen.cc (generate): Updated.
+	* tree.hh (tree_generator): Updated.
+	* tree.cc (build_class_ref): Updated.
+	(visit_new): Updated.
+	(handle_invocation): Updated.
+	(tree_generator): Added argument.  Initialize class_wrapper.
+	(visit_field_ref): Don't emit type assertion.
+	* abi.hh (gcj_abi): Added 'current' argument to calls.
+	(class cxx_abi): Updated.
+	(class bc_abi): Likewise.
+	* abi.cc (build_method_call): Generate null check when needed.
+	Changed how vtable index is found.
+	Updated all methods for API changes.
+	(build_field_reference): Correctly build indirect ref.
+	* builtins.hh (tree_builtins::find_atable_slot): Removed.
+	(tree_builtins::find_otable_slot): Likewise.
+	(tree_builtins::check_reference): Updated.
+	* builtins.cc (find_atable_slot): Removed.
+	(find_otable_slot): Likewise.
+	(lay_out_vtable): Rewrote.
+	(check_reference): Added 'override' argument.
+	(map_method_call): Added 'wrapper' argument.
+	(map_field_ref): Likewise.
+	(add): Only set name for static fields.
+	(lay_out_class): Link to the superclass.  Only lay out class
+	once.
+	(add): Only chain on instance fields.
+	* driver.cc (post_options): Add empty item to class path.
+
 2005-01-29  Tom Tromey  <tromey@redhat.com>
 
 	* Make-lang.in (gt-java-mangle.h): Removed.

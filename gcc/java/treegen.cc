@@ -48,6 +48,7 @@ tree_code_generator::generate (model_class *the_class)
       first_time = false;
     }
 
+  aot_class *wrapper = builtins->get_class (the_class);
   tree class_tree = builtins->lay_out_class (the_class);
 
   std::list<ref_method> methods = the_class->get_methods ();
@@ -55,7 +56,7 @@ tree_code_generator::generate (model_class *the_class)
        i != methods.end ();
        ++i)
     {
-      tree_generator gen (builtins);
+      tree_generator gen (builtins, wrapper);
       tree method = gen.generate ((*i).get ());
       cgraph_finalize_function (method, 0);
     }

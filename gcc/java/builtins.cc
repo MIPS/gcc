@@ -41,21 +41,9 @@ tree_builtins::find_abi (model_type *)
 }
 
 tree
-tree_builtins::find_atable_slot (model_field *)
+tree_builtins::check_reference (tree ref, bool override)
 {
-  abort ();
-}
-
-tree
-tree_builtins::find_otable_slot (model_field *)
-{
-  abort ();
-}
-
-tree
-tree_builtins::check_reference (tree ref)
-{
-  if (flag_check_references)
+  if (flag_check_references || override)
     {
       ref = save_expr (ref);
       tree npe = builtin_Jv_ThrowNullPointerException;
@@ -182,11 +170,16 @@ tree_builtins::add (tree context, model_field *field)
   DECL_CONTEXT (result) = context;
   DECL_EXTERNAL (result) = 1;
   TREE_PUBLIC (result) = 1;
-  SET_DECL_ASSEMBLER_NAME (result,
-			   get_identifier (get_mangled_form (field).c_str ()));
+  if (field->static_p ())
+    SET_DECL_ASSEMBLER_NAME (result,
+			     get_identifier (get_mangled_form (field).c_str ()));
 
-  TREE_CHAIN (result) = TYPE_FIELDS (context);
-  TYPE_FIELDS (context) = result;
+  // Only chain instance fields here.
+  if (! field->static_p ())
+    {
+      TREE_CHAIN (result) = TYPE_FIELDS (context);
+      TYPE_FIELDS (context) = result;
+    }
 
   fieldmap[field] = result;
 }
@@ -286,12 +279,13 @@ tree_builtins::map_field (model_field *field)
 }
 
 tree
-tree_builtins::map_field_ref (tree obj, model_field *field)
+tree_builtins::map_field_ref (aot_class *wrapper, tree obj, model_field *field)
 {
   gcj_abi *abi = find_abi (field->get_declaring_class ());
 
   tree result
-    = abi->build_field_reference (this, field->static_p () ? NULL_TREE : obj,
+    = abi->build_field_reference (this, wrapper,
+				  field->static_p () ? NULL_TREE : obj,
 				  field);
 
   if (obj != NULL_TREE && field->static_p ())
@@ -305,7 +299,8 @@ tree_builtins::map_field_ref (tree obj, model_field *field)
 }
 
 tree
-tree_builtins::map_field_ref (tree, const std::string &, const std::string &,
+tree_builtins::map_field_ref (aot_class *,
+			      tree, const std::string &, const std::string &,
 			      const std::string &)
 {
   // FIXME
@@ -320,11 +315,12 @@ tree_builtins::map_method (model_method *meth)
 }
 
 tree
-tree_builtins::map_method_call (tree obj, tree args, model_method *meth,
+tree_builtins::map_method_call (aot_class *wrapper,
+				tree obj, tree args, model_method *meth,
 				bool is_super)
 {
   gcj_abi *abi = find_abi (meth->get_declaring_class ());
-  tree result = abi->build_method_call (this,
+  tree result = abi->build_method_call (this, wrapper,
 					meth->static_p () ? NULL_TREE : obj,
 					args, meth, is_super);
   // FIXME: set this in ABI?
@@ -345,111 +341,49 @@ tree
 tree_builtins::map_new (model_class *klass, tree constructor, tree arguments)
 {
   gcj_abi *abi = find_abi (klass);
-  return abi->build_new (this, map_type (klass), constructor, arguments);
+  return abi->build_new (this, get_class (klass),
+			 map_type (klass), constructor, arguments);
 }
 
 void
-tree_builtins::lay_out_vtable (model_class *klass)
+tree_builtins::lay_out_vtable (model_class *mklass)
 {
-  AllMethodsIterator end_all_methods = klass->end_all_methods ();
-  std::list<ref_method> super_methods;
-  tree super_vtable = NULL_TREE;
-  model_class *super = klass->get_superclass ();
-  if (super != NULL)
-    {
-      for (AllMethodsIterator it = klass->begin_all_methods ();
-           it != end_all_methods;
-           ++it)
-        {
-          super_methods.push_back (*it);
-        }
-      tree super_ptr_type = map_type (super);
-      super_vtable = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (super_ptr_type)));
-    }
+  aot_class *klass = get_class (mklass);
+  const std::vector<model_method *> &vtable (klass->get_vtable ());
 
-  int last_max = super_vtable ? TREE_VEC_LENGTH (super_vtable) : 0;
-  for (AllMethodsIterator i = klass->begin_all_methods ();
-       i != end_all_methods;
+  // Create a new tree vector to represent the vtable, and fill it in.
+  // Note that we have two empty slots at the beginning; this is kept
+  // in sync with aot_class.  FIXME: define a constant.
+  tree vtable_tree = make_tree_vec (2 + vtable.size ());
+  int index = 2;
+  for (std::vector<model_method *>::const_iterator i = vtable.begin ();
+       i != vtable.end ();
        ++i)
     {
-      if ((*i)->static_p ())
-	continue;
-
-      int index = -1;
-      model_class *decl = (*i)->get_declaring_class ();
-      if (decl->interface_p ())
-	{
-	  assert (super != NULL);
-	  // If this interface is implemented by some superclass, then
-	  // the method is already in the vtable.
-	  if (decl->assignable_from_p (super))
-	    continue;
-	}
-      else if (decl != klass)
-	{
-	  // Declared in a concrete superclass, so it is already in
-	  // the vtable.
-	  continue;
-	}
-      else
-	{
-	  // Method is declared here.  It still might overload some
-	  // method from the superclass.
-	  for (std::list<ref_method>::const_iterator si
-		 = super_methods.begin ();
-	       si != super_methods.end ();
-	       ++si)
-	    {
-	      if ((*i)->hides_or_overrides_p ((*si).get (), klass))
-		{
-		  // Re-use the previous slot.
-		  index
-		    = tree_low_cst (DECL_VINDEX (map_method ((*si).get ())),
-				    0);
-		  break;
-		}
-	    }
-	}
-
-      // We've found a method that isn't declared in some superclass,
-      // so assign it a vtable index.
-      if (index == -1)
-	index = last_max++;
-      tree m = map_method ((*i).get ());
-      // FIXME: if M is an interface method then we're screwed here!
-      DECL_VINDEX (m) = size_int_kind (index, SIZETYPE);
+      TREE_VEC_ELT (vtable_tree, index) = map_method (*i);
+      ++index;
     }
 
-  tree vtable = make_tree_vec (last_max);
+  TREE_VEC_ELT (vtable_tree, 0) = null_pointer_node; // FIXME: pointer to class
+  TREE_VEC_ELT (vtable_tree, 1) = null_pointer_node; // FIXME: GC descriptor
 
-  if (super_vtable != NULL_TREE)
-    {
-      for (int i = 0; i < TREE_VEC_LENGTH (super_vtable); ++i)
-	TREE_VEC_ELT (vtable, i) = TREE_VEC_ELT (super_vtable, i);
-    }
-
-  for (AllMethodsIterator i = klass->begin_all_methods ();
-       i != end_all_methods;
-       ++i)
-    {
-      tree m = map_method ((*i).get ());
-      TREE_VEC_ELT (vtable, tree_low_cst (DECL_VINDEX (m), 0)) = m;
-    }
-
-  tree klass_ptr_type = map_type (klass);
-  BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (klass_ptr_type))) = vtable;
+  tree klass_ptr_type = map_type (klass->get ());
+  BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (klass_ptr_type))) = vtable_tree;
 }
 
 tree
 tree_builtins::lay_out_class (model_class *klass)
 {
-  //   if (class laid out)
-  //     return fixme;
   tree klass_tree = map_type (klass);
+  if (TYPE_LANG_FLAG_0 (klass_tree))
+    return klass_tree;
+  TYPE_LANG_FLAG_0 (klass_tree) = 1;
+
   tree klass_record = TREE_TYPE (klass_tree);
 
+  tree super_record = NULL_TREE;
   if (klass->get_superclass () != NULL)
-    lay_out_class (klass->get_superclass ());
+    super_record = TREE_TYPE (lay_out_class (klass->get_superclass ()));
 
   // Ensure all non-static methods have been added.
   std::list<ref_method> methods = klass->get_methods ();
@@ -487,6 +421,17 @@ tree_builtins::lay_out_class (model_class *klass)
 
   // Fix the ordering.
   TYPE_FIELDS (klass_record) = nreverse (TYPE_FIELDS (klass_record));
+
+  // Link to the superclass.
+  if (super_record != NULL_TREE)
+    {
+      tree base = build_decl (FIELD_DECL, NULL_TREE, super_record);
+      DECL_IGNORED_P (base) = 1;
+      TREE_CHAIN (base) = TYPE_FIELDS (klass_record);
+      TYPE_FIELDS (klass_record) = base;
+      DECL_SIZE (base) = TYPE_SIZE (super_record);
+      DECL_SIZE_UNIT (base) = TYPE_SIZE_UNIT (super_record);
+    }
 
   lay_out_vtable (klass);
 

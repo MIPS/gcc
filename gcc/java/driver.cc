@@ -365,6 +365,9 @@ gcjx::post_options (const char **filename_ptr)
       && arguments->dash_i_args.empty ()
       && getenv ("CLASSPATH") != NULL)
     add_cp (facs, split (getenv ("CLASSPATH"), ':'));
+  // We need an empty item to help us find absolute paths.
+  add_cp (facs, split ("", ':'));
+
   our_compiler->set_class_factory (new classpath_class_factory (facs));
 
   // Compute the output directory.

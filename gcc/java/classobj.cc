@@ -186,7 +186,7 @@ class_object_creator::handle_interfaces (model_class *real_class,
 	  ++len;
 	  gcj_abi *abi = builtins->find_abi ((*i)->type ());
 	  tree one_iface
-	    = abi->build_class_reference (builtins,
+	    = abi->build_class_reference (builtins, klass,
 					  builtins->map_type ((*i)->type ()));
 	  result = tree_cons (NULL_TREE, one_iface, result);
 	}

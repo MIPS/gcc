@@ -45,8 +45,6 @@ class tree_builtins : public aot_class_factory
   void add (tree, model_method *);
   void add (tree, model_field *);
   tree map_param_or_var (tree_code, tree, model_variable_decl *);
-  tree find_atable_slot (model_field *);
-  tree find_otable_slot (model_field *);
   void lay_out_vtable (model_class *);
 
 
@@ -68,11 +66,12 @@ public:
   tree map_field (model_field *);
   tree map_method (model_method *);
 
-  tree map_field_ref (tree, model_field *);
-  tree map_field_ref (tree, const std::string &, const std::string &,
+  tree map_field_ref (aot_class *, tree, model_field *);
+  tree map_field_ref (aot_class *,
+		      tree, const std::string &, const std::string &,
 		      const std::string &);
 
-  tree map_method_call (tree, tree, model_method *, bool);
+  tree map_method_call (aot_class *, tree, tree, model_method *, bool);
   tree map_new (model_class *, tree, tree);
 
   // Memoize a utf8const.
@@ -84,7 +83,12 @@ public:
 
   tree lay_out_class (model_class *);
 
-  tree check_reference (tree);
+  /// Generate code to check a null reference.  REF is the reference
+  /// to check.  By default, this only generates a check if the target
+  /// architecture requires explicit checks.  If OVERRIDE is true,
+  /// then the check will be generated regardless of the target
+  /// platform.
+  tree check_reference (tree ref, bool override = false);
 
   tree find_decl (tree, const char *);
 

@@ -375,9 +375,10 @@ initialize_gcc_decls ()
   // Note that we don't care whether 'char' is signed, as we don't
   // use it.
   build_common_tree_nodes (false, false);
-  // We don't care what the size type is, as we don't use it.
+
   size_type_node = make_unsigned_type (POINTER_SIZE);
   set_sizetype (size_type_node);
+
   // Note that we don't care whether 'double' is short, as we don't
   // use it.
   build_common_tree_nodes_2 (false);

@@ -30,8 +30,9 @@
 /// the documentation is here:
 ///   http://gcc.gnu.org/ml/gcc/2002-08/msg01397.html
 
-tree_generator::tree_generator (tree_builtins *builtins)
+tree_generator::tree_generator (tree_builtins *builtins, aot_class *k)
   : gcc_builtins (builtins),
+    class_wrapper (k),
     current (NULL_TREE),
     this_tree (NULL_TREE),
     method (NULL),
@@ -1401,18 +1402,21 @@ tree_generator::visit_field_ref (model_field_ref *,
       expr_tree = current;
     }
 
-  // FIXME: where should this go?
+#if 0
+  // FIXME: where should this go?  [ In the ABI ]
   if (expr->type () != field->get_declaring_class ())
     // FIXME: is this right?
     emit_type_assertion (field->get_declaring_class (), expr->type ());
+#endif
 
-  // FIXME: should we handle inlining constant fields here or in the
-  // ABI?
+  // FIXME: handle inlining constant fields here (this is not
+  // abi-specific)
 
-  // Note that map_field_ref handles the case of a non-static
-  // reference to a static field.
+  // FIXME: Note that map_field_ref does not handle the case of a
+  // non-static reference to a static field.
+
   gcc_builtins->lay_out_class (field->get_declaring_class ());
-  current = gcc_builtins->map_field_ref (expr_tree,
+  current = gcc_builtins->map_field_ref (class_wrapper, expr_tree,
 					 const_cast<model_field *> (field));
 }
 
@@ -1593,12 +1597,16 @@ tree_generator::handle_invocation (const model_method *meth,
 
   // Handle the reference-checking part of a non-static reference to a
   // static method here.  The rest is handled by map_method_call.
+#if 0
+  // FIXME: wrong!  we must evaluate for side effects, not nullity.
   if (this_expr_tree != NULL_TREE
       && ! meth->static_p ()
       && this_expr_tree != this_tree)
     this_expr_tree = gcc_builtins->check_reference (this_expr_tree);
+#endif
 
-  current = gcc_builtins->map_method_call (this_expr_tree, arg_tree,
+  current = gcc_builtins->map_method_call (class_wrapper,
+					   this_expr_tree, arg_tree,
 					   const_cast<model_method *> (meth),
 					   is_super);
 }
@@ -1672,6 +1680,7 @@ tree_generator::visit_new (model_new *,
     }
   arg_tree = nreverse (arg_tree);
 
+  // FIXME: layout should be done by the ABI, not us.
   model_class *klassp = assert_cast<model_class *> (klass->type ());
   gcc_builtins->lay_out_class (klassp);
   current
@@ -1897,9 +1906,7 @@ tree_generator::build_class_ref (tree klass)
 {
   // FIXME.
   gcj_abi *abi = gcc_builtins->find_abi (NULL);
-  // FIXME: this API is wrong, we want to pass in the class wrapper
-  // instead.
-  return abi->build_class_reference (gcc_builtins, klass);
+  return abi->build_class_reference (gcc_builtins, class_wrapper, klass);
 }
 
 tree

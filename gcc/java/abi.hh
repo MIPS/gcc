@@ -1,6 +1,6 @@
 // ABI interface.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -67,24 +67,33 @@ public:
   /// reference to a static method.  That must be handled by the
   /// caller.
   ///
+  /// @param builtins The mapper class
+  /// @param current  The class in which this code occurs
   /// @param obj The receiver object for the call; for static methods
   ///            this must be NULL_TREE.
   /// @param args The argument list.
   /// @param meth The method to call.
-  virtual tree build_method_call (tree_builtins *builtins, tree obj,
-				  tree args, model_method *meth,
+  virtual tree build_method_call (tree_builtins *builtins,
+				  aot_class *current,
+				  tree obj, tree args, model_method *meth,
 				  bool is_super) = 0;
 
   /// Note that we explicitly do not handle a non-static reference to
   /// a static field.  That must be handled by the caller.
-  virtual tree build_field_reference (tree_builtins *, tree,
-				      model_field *) = 0;
+  virtual tree build_field_reference (tree_builtins *builtins,
+				      aot_class *current,
+				      tree obj, model_field *field) = 0;
 
-  virtual tree build_class_reference (tree_builtins *, tree) = 0;
+  /// Return a tree representing a reference to some other class.
+  virtual tree build_class_reference (tree_builtins *builtins,
+				      aot_class *current,
+				      tree other) = 0;
 
   /// Return an expression that is used to create a new object given
   /// its type, constructor, and arguments to the constructor.
-  virtual tree build_new (tree_builtins *, tree, tree, tree) = 0;
+  virtual tree build_new (tree_builtins *builtins,
+			  aot_class *current,
+			  tree klass, tree constructor, tree args) = 0;
 
   /// Return an expression representing the size of the class in
   /// bytes, or -1 if it can't be known until runtime.
@@ -105,13 +114,15 @@ public:
   {
   }
 
-  tree build_method_call (tree_builtins *, tree, tree, model_method *, bool);
+  tree build_method_call (tree_builtins *, aot_class *,
+			  tree, tree, model_method *, bool);
 
-  tree build_field_reference (tree_builtins *, tree, model_field *);
+  tree build_field_reference (tree_builtins *, aot_class *,
+			      tree, model_field *);
 
-  tree build_class_reference (tree_builtins *, tree);
+  tree build_class_reference (tree_builtins *, aot_class *, tree);
 
-  tree build_new (tree_builtins *, tree, tree, tree);
+  tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 
   tree get_size_in_bytes (tree klass)
   {
@@ -134,13 +145,15 @@ public:
   {
   }
 
-  tree build_method_call (tree_builtins *, tree, tree, model_method *, bool);
+  tree build_method_call (tree_builtins *, aot_class *,
+			  tree, tree, model_method *, bool);
 
-  tree build_field_reference (tree_builtins *, tree, model_field *);
+  tree build_field_reference (tree_builtins *, aot_class *,
+			      tree, model_field *);
 
-  tree build_class_reference (tree_builtins *, tree);
+  tree build_class_reference (tree_builtins *, aot_class *, tree);
 
-  tree build_new (tree_builtins *, tree, tree, tree);
+  tree build_new (tree_builtins *, aot_class *, tree, tree, tree);
 
   tree get_size_in_bytes (tree klass)
   {
