@@ -4,6 +4,12 @@
 
 2003-07-03  Jeff Law  <law@redhat.com>
 
+	* tree-ssa.c (lookup_avail_expr): Accept new argument containing the
+	const_and_copies table.  All callers changed.  If we find the
+	given expression in the availe expression hash table, then lookup
+	the LHS of the hash table's entry in the const_and_copies_table.
+	Do record type casts into the available expression table.
+
 	* tree-nomudflap.c (mf_marked_p): Mark arguments as being unused.
 	(mf_mark): Likewise.
 

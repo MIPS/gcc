@@ -180,7 +180,7 @@ static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
 static void def_blocks_free (void *);
 static int debug_def_blocks_r (void **, void *);
-static tree lookup_avail_expr (tree, varray_type *);
+static tree lookup_avail_expr (tree, varray_type *, htab_t);
 static tree get_eq_expr_value (tree);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
@@ -2118,7 +2118,9 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       /* Check if the RHS of the assignment has been computed before.  If
 	 so, use the LHS of the previously computed statement as the
 	 reaching definition for the variable defined by this statement.  */
-      tree cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p);
+      tree cached_lhs = lookup_avail_expr (stmt,
+					   block_avail_exprs_p,
+					   const_and_copies);
       ssa_stats.num_exprs_considered++;
       if (cached_lhs && TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p))
 	{
@@ -2569,18 +2571,21 @@ set_value_for (tree var, tree value, htab_t table)
 	 aliased references.  */
 
 static tree
-lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p)
+lookup_avail_expr (tree stmt,
+		   varray_type *block_avail_exprs_p,
+		   htab_t const_and_copies)
 {
   void **slot;
   tree rhs;
+  tree lhs;
+  tree temp;
 
-  /* Don't bother remembering constant assignments, type cast expressions
-     and copy operations.  Constants and copy operations are handled by the
-     constant/copy propagator in rewrite_and_optimize_stmt.  */
+  /* Don't bother remembering constant assignments and copy operations.
+     Constants and copy operations are handled by the constant/copy propagator
+     in rewrite_and_optimize_stmt.  */
   rhs = TREE_OPERAND (stmt, 1);
   if (TREE_CONSTANT (rhs)
-      || TREE_CODE (rhs) == SSA_NAME
-      || is_gimple_cast (rhs))
+      || TREE_CODE (rhs) == SSA_NAME)
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, INSERT);
@@ -2591,9 +2596,17 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p)
       return NULL_TREE;
     }
 
-  /* Return the LHS of the assignment so that it can be used as the current
+  /* Extract the LHS of the assignment so that it can be used as the current
      definition of another variable.  */
-  return TREE_OPERAND ((tree) *slot, 0);
+  lhs = TREE_OPERAND ((tree) *slot, 0);
+
+  /* See if the LHS appears in the const_and_copies table.  If it does, then
+     use the value from the const_and_copies table.  */
+  temp = get_value_for (lhs, const_and_copies);
+  if (temp)
+    lhs = temp;
+
+  return lhs;
 }
 
 
