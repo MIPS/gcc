@@ -122,7 +122,7 @@ static void set_rhs (tree *, tree);
 static inline value *get_value (tree);
 static value get_default_value (tree);
 static tree ccp_fold_builtin (tree, tree);
-static tree get_strlen (tree);
+static bool get_strlen (tree, tree *, bitmap);
 static inline bool cfg_blocks_empty_p (void);
 static void cfg_blocks_add (basic_block);
 static basic_block cfg_blocks_get (void);
@@ -2027,6 +2027,7 @@ ccp_fold_builtin (tree stmt, tree fn)
   tree result;
   tree arglist = TREE_OPERAND (fn, 1);
   tree callee = get_callee_fndecl (fn);
+  bitmap visited;
 
   /* Ignore MD builtins.  */
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
@@ -2040,19 +2041,24 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   /* Otherwise, try to use the dataflow information gathered by the CCP
      process.  */
+  visited = BITMAP_XMALLOC ();
+  if (!get_strlen (TREE_VALUE (arglist), &result, visited))
+    result = NULL_TREE;
+  BITMAP_XFREE (visited);
+
   switch (DECL_FUNCTION_CODE (callee))
     {
       case BUILT_IN_STRLEN:
-	return get_strlen (TREE_VALUE (arglist));
+	return result;
 
       case BUILT_IN_FPUTS:
 	return simplify_builtin_fputs (arglist,
 				       TREE_CODE (stmt) != MODIFY_EXPR, 0,
-				       get_strlen (TREE_VALUE (arglist)));
+				       result);
       case BUILT_IN_FPUTS_UNLOCKED:
 	return simplify_builtin_fputs (arglist,
 				       TREE_CODE (stmt) != MODIFY_EXPR, 1,
-				       get_strlen (TREE_VALUE (arglist)));
+				       result);
 
       default:
 	break;
@@ -2063,18 +2069,37 @@ ccp_fold_builtin (tree stmt, tree fn)
 }
 
 
-/* Return the string length of ARG.  If ARG is an SSA name variable, follow
-   its use-def chains.  If all the reaching definitions for VAR have the
-   same length L, this function returns L.  Otherwise, it returns NULL_TREE
-   indicating that the length cannot be determined statically.  */
+/* Return the string length of ARG in LENGTH.  If ARG is an SSA name variable,
+   follow its use-def chains.  If LENGTH is not NULL and its value is not
+   equal to the length we determine, or if we are unable to determine the
+   length, return false.  VISITED is a bitmap of visited variables.  */
 
-static tree
-get_strlen (tree arg)
+static bool
+get_strlen (tree arg, tree *length, bitmap visited)
 {
-  tree var, def_stmt;
+  tree var, def_stmt, val;
   
   if (TREE_CODE (arg) != SSA_NAME)
-    return c_strlen (arg, 1);
+    {
+      val = c_strlen (arg, 1);
+      if (!val)
+	return false;
+
+      /* Convert from the internal "sizetype" type to "size_t".  */
+      if (size_type_node)
+	val = convert (size_type_node, val);
+      if (*length
+	  && simple_cst_equal (val, *length) != 1)
+	return false;
+
+      *length = val;
+      return true;
+    }
+
+  /* If we were already here, break the infinite cycle.  */
+  if (bitmap_bit_p (visited, SSA_NAME_VERSION (arg)))
+    return true;
+  bitmap_set_bit (visited, SSA_NAME_VERSION (arg));
 
   var = arg;
   def_stmt = SSA_NAME_DEF_STMT (var);
@@ -2091,7 +2116,7 @@ get_strlen (tree arg)
 	  rhs = TREE_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
 	  if (TREE_CODE (rhs) == SSA_NAME)
-	    return get_strlen (rhs);
+	    return get_strlen (rhs, length, visited);
 
 	  /* See if the RHS is a constant length.  */
 	  len = c_strlen (rhs, 1);
@@ -2100,7 +2125,12 @@ get_strlen (tree arg)
 	      /* Convert from the internal "sizetype" type to "size_t".  */
 	      if (size_type_node)
 		len = convert (size_type_node, len);
-	      return len;
+	      if (*length
+		  && simple_cst_equal (len, *length) != 1)
+		return false;
+
+	      *length = len;
+	      return true;
 	    }
 
 	  break;
@@ -2111,9 +2141,7 @@ get_strlen (tree arg)
 	  /* All the arguments of the PHI node must have the same constant
 	     length.  */
 	  int i;
-	  tree arg_len, prev_arg_len;
 
-	  arg_len = prev_arg_len = NULL_TREE;
 	  for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	    {
 	      tree arg = PHI_ARG_DEF (def_stmt, i);
@@ -2127,18 +2155,11 @@ get_strlen (tree arg)
 	      if (arg == PHI_RESULT (def_stmt))
 		continue;
 
-	      arg_len = get_strlen (arg);
-	      if (arg_len == NULL_TREE)
-		return NULL_TREE;
-
-	      if (prev_arg_len
-		  && simple_cst_equal (prev_arg_len, arg_len) != 1)
-		return NULL_TREE;
-
-	      prev_arg_len = arg_len;
+	      if (!get_strlen (arg, length, visited))
+		return false;
 	    }
 
-	  return arg_len;
+	  return true;
 	}
 
       default:
@@ -2146,7 +2167,7 @@ get_strlen (tree arg)
     }
 
 
-  return NULL_TREE;
+  return false;
 }
 
 #include "gt-tree-ssa-ccp.h"
