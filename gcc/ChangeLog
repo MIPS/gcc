@@ -1,3 +1,7 @@
+2004-04-29  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Pull list of cores from arm-cores.def.
+
 2004-04-28  Paul Brook  <paul@codesourcery.com>
 
 	* dwarf2out.c (mem_loc_descriptor): Handle shifts.
