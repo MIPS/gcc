@@ -49,6 +49,19 @@ XXX: libgcc license?
 /* A bunch of independent stdlib/unistd hook functions, all
    intercepted by mf-runtime.h macros.  */
 
+#ifdef __FreeBSD__
+#undef WRAP_memrchr
+#undef WRAP_memmem
+#include <dlfcn.h>
+static inline size_t (strnlen) (const char* str, size_t n)
+{
+  const char *s;
+
+  for (s = str; n && *s; ++s, --n)
+    ;
+  return (s - str);
+}
+#endif
 
 /* str*,mem*,b* */
 
@@ -669,7 +682,8 @@ WRAPPER2(char *, gets, char *s)
 {
   TRACE ("%s\n", __PRETTY_FUNCTION__);
   MF_VALIDATE_EXTENT (s, 1, __MF_CHECK_WRITE, "gets buffer");
-  s = gets (s);
+  /* Avoid link-time warning... */
+  s = fgets (s, INT_MAX, stdin);
   if (NULL != s) {	/* better late than never */
     size_t n = strlen (s);
     MF_VALIDATE_EXTENT (s, CLAMPADD(n, 1), __MF_CHECK_WRITE, "gets buffer");
