@@ -244,3 +244,14 @@ default_cxx_get_cookie_size (tree type)
 
   return cookie_size;
 }
+
+
+/* Emit any directives required to unwind this instruction.  */
+
+void
+default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
+		     rtx insn ATTRIBUTE_UNUSED)
+{
+  /* Should never happen.  */
+  abort ();
+}

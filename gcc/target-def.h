@@ -61,6 +61,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
 #endif
 
+#ifndef TARGET_UNWIND_EMIT
+#define TARGET_UNWIND_EMIT default_unwind_emit
+#endif
+
 #ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
 #define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
@@ -190,6 +194,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
 			TARGET_ASM_INTERNAL_LABEL,		\
+			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\

@@ -371,6 +371,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX ia64_struct_value_rtx
 
+#undef TARGET_UNWIND_EMIT
+#define TARGET_UNWIND_EMIT process_for_unwind_directive
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
