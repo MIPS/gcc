@@ -1,6 +1,42 @@
-2002-05-30	Marc Espie <espie@openbsd.org>
-	* configure.in:  Always check for sys/types.h
-	* configure:  Regenerate.
+2002-06-03  Marc Espie  <espie@openbsd.org>
+
+	* config/cpu/m68k/bits/atomicity.h(__exchange_and_add): Fix inline
+	assembly for old assemblers.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_bvector.h (swap(_Bit_reference,_Bit_reference)):
+	Move/rename...
+	(vector<bool>::swap(reference,reference)): ...to this.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/TODO:  Update.
+	* docs/doxygen/user.cfg.in (SORT_MEMBER_DOCS):  Set to off, now that
+	some class members are in 14882 order.
+	* docs/html/ext/howto.html:  3.1 is in the past now, not the future.
+
+	* include/std/std_bitset.h:  Update comment.
+	* src/bitset.cc:  Update comments, clean up spacing.
+
+	* src/Makefile.am (sources):  Alphabetize for convenience.
+	* src/Makefile.in:  Regenerate.
+
+2002-06-03  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/stl_deque.h, include/bits/stl_list.h,
+	include/bits/stl_vector.h:  Reformat to (mostly) match C++STYLE.
+	Reorder to match 14882.  Doxygen blocks for all public members.
+
+2002-05-31  Marcus Meissner  <meissner@suse.de>
+
+	PR libstdc++/6886
+	* include/bits/stl_bvector.h:  Use UL suffix for unsigned longs.
+	* testsuite/23_containers/vector_bool.cc (test02):  New test.
+
+2002-05-30  Marc Espie  <espie@openbsd.org>
+	* configure.in: Always check for sys/types.h
+	* configure: Regenerate.
 
 2002-05-28  Nick Clifton  <nickc@cambridge.redhat.com>
 

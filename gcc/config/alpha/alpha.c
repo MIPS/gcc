@@ -69,6 +69,10 @@ enum alpha_fp_rounding_mode alpha_fprm;
 
 enum alpha_fp_trap_mode alpha_fptm;
 
+/* Specify bit size of immediate TLS offsets.  */
+
+int alpha_tls_size = 32;
+
 /* Strings decoded into the above options.  */
 
 const char *alpha_cpu_string;	/* -mcpu= */
@@ -77,6 +81,7 @@ const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
 const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
 const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
 const char *alpha_mlat_string;	/* -mmemory-latency= */
+const char *alpha_tls_size_string; /* -mtls-size=[16|32|64] */
 
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
@@ -113,6 +118,10 @@ int alpha_this_literal_sequence_number;
 int alpha_this_gpdisp_sequence_number;
 
 /* Declarations of static functions.  */
+static int tls_symbolic_operand_1
+  PARAMS ((rtx, enum machine_mode, int, int));
+static enum tls_model tls_symbolic_operand_type
+  PARAMS ((rtx));
 static bool decl_in_text_section
   PARAMS ((tree));
 static bool alpha_in_small_data_p
@@ -125,8 +134,6 @@ static int some_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
 static int split_small_symbolic_operand_1
   PARAMS ((rtx *, void *));
-static bool local_symbol_p
-  PARAMS ((rtx));
 static void alpha_set_memflags_1
   PARAMS ((rtx, int, int, int));
 static rtx alpha_emit_set_const_1
@@ -135,6 +142,10 @@ static void alpha_expand_unaligned_load_words
   PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
 static void alpha_expand_unaligned_store_words
   PARAMS ((rtx *out_regs, rtx smem, HOST_WIDE_INT words, HOST_WIDE_INT ofs));
+static void alpha_init_builtins
+  PARAMS ((void));
+static rtx alpha_expand_builtin
+  PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 static void alpha_sa_mask
   PARAMS ((unsigned long *imaskP, unsigned long *fmaskP));
 static int find_lo_sum
@@ -147,6 +158,10 @@ static const char *get_trap_mode_suffix
   PARAMS ((void));
 static const char *get_round_mode_suffix
   PARAMS ((void));
+static const char *get_some_local_dynamic_name
+  PARAMS ((void));
+static int get_some_local_dynamic_name_1
+  PARAMS ((rtx *, void *));
 static rtx set_frame_related_p
   PARAMS ((void));
 static const char *alpha_lookup_xfloating_lib_func
@@ -173,14 +188,8 @@ static void alpha_elf_select_rtx_section
   PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
 #endif
 
-#if TARGET_ABI_UNICOSMK
-static void alpha_init_machine_status
-  PARAMS ((struct function *p));
-static void alpha_mark_machine_status
-  PARAMS ((struct function *p));
-static void alpha_free_machine_status
-  PARAMS ((struct function *p));
-#endif
+static struct machine_function * alpha_init_machine_status
+  PARAMS ((void));
 
 static void unicosmk_output_deferred_case_vectors PARAMS ((FILE *));
 static void unicosmk_gen_dsib PARAMS ((unsigned long *imaskP));
@@ -265,6 +274,14 @@ static void unicosmk_unique_section PARAMS ((tree, int));
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   alpha_multipass_dfa_lookahead
+
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS HAVE_AS_TLS
+
+#undef  TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS alpha_init_builtins
+#undef  TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN alpha_expand_builtin
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -383,6 +400,18 @@ override_options ()
 	alpha_fptm = ALPHA_FPTM_SUI;
       else
 	error ("bad value `%s' for -mfp-trap-mode switch", alpha_fptm_string);
+    }
+
+  if (alpha_tls_size_string)
+    {
+      if (strcmp (alpha_tls_size_string, "16") == 0)
+	alpha_tls_size = 16;
+      else if (strcmp (alpha_tls_size_string, "32") == 0)
+	alpha_tls_size = 32;
+      else if (strcmp (alpha_tls_size_string, "64") == 0)
+	alpha_tls_size = 64;
+      else
+	error ("bad value `%s' for -mtls-size switch", alpha_tls_size_string);
     }
 
   alpha_cpu
@@ -527,12 +556,8 @@ override_options ()
 
   /* Register variables and functions with the garbage collector.  */
 
-#if TARGET_ABI_UNICOSMK
   /* Set up function hooks.  */
   init_machine_status = alpha_init_machine_status;
-  mark_machine_status = alpha_mark_machine_status;
-  free_machine_status = alpha_free_machine_status;
-#endif
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -559,7 +584,7 @@ reg_or_0_operand (op, mode)
       register rtx op;
       enum machine_mode mode;
 {
-  return op == const0_rtx || register_operand (op, mode);
+  return op == CONST0_RTX (mode) || register_operand (op, mode);
 }
 
 /* Return 1 if OP is a constant in the range of 0-63 (for a shift) or
@@ -586,6 +611,16 @@ reg_or_8bit_operand (op, mode)
   return ((GET_CODE (op) == CONST_INT
 	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100)
 	  || register_operand (op, mode));
+}
+
+/* Return 1 if OP is a constant or any register.  */
+
+int
+reg_or_const_int_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  return GET_CODE (op) == CONST_INT || register_operand (op, mode);
 }
 
 /* Return 1 if OP is an 8-bit constant.  */
@@ -726,25 +761,14 @@ mul8_operand (op, mode)
 	  && (INTVAL (op) & 7) == 0);
 }
 
-/* Return 1 if OP is the constant zero in floating-point.  */
+/* Return 1 if OP is the zero constant for MODE.  */
 
 int
-fp0_operand (op, mode)
+const0_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (GET_MODE (op) == mode
-	  && GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode));
-}
-
-/* Return 1 if OP is the floating-point constant zero or a register.  */
-
-int
-reg_or_fp0_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
-{
-  return fp0_operand (op, mode) || register_operand (op, mode);
+  return op == CONST0_RTX (mode);
 }
 
 /* Return 1 if OP is a hard floating-point register.  */
@@ -802,8 +826,15 @@ some_operand (op, mode)
 
   switch (GET_CODE (op))
     {
-    case REG:  case MEM:  case CONST_DOUBLE:  case CONST_INT:  case LABEL_REF:
-    case SYMBOL_REF:  case CONST:  case HIGH:
+    case REG:
+    case MEM:
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST:
+    case HIGH:
       return 1;
 
     case SUBREG:
@@ -857,7 +888,9 @@ input_operand (op, mode)
 	     symbolic operands to be reconstructed from their high/lo_sum
 	     form.  */
 	  return (small_symbolic_operand (op, mode)
-		  || global_symbolic_operand (op, mode));
+		  || global_symbolic_operand (op, mode)
+		  || gotdtp_symbolic_operand (op, mode)
+		  || gottp_symbolic_operand (op, mode));
 	}
 
       /* This handles both the Windows/NT and OSF cases.  */
@@ -880,7 +913,8 @@ input_operand (op, mode)
 	      && general_operand (op, mode));
 
     case CONST_DOUBLE:
-      return GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode);
+    case CONST_VECTOR:
+      return op == CONST0_RTX (mode);
 
     case CONST_INT:
       return mode == QImode || mode == HImode || add_operand (op, mode);
@@ -946,29 +980,13 @@ direct_call_operand (op, mode)
 /* Return true if OP is a LABEL_REF, or SYMBOL_REF or CONST referencing
    a variable known to be defined in this file.  */
 
-static bool
-local_symbol_p (op)
-     rtx op;
-{
-  const char *str = XSTR (op, 0);
-
-  /* ??? SYMBOL_REF_FLAG is set for local function symbols, but we
-     run into problems with the rtl inliner in that the symbol was
-     once external, but is local after inlining, which results in
-     unrecognizable insns.  */
-
-  return (CONSTANT_POOL_ADDRESS_P (op)
-	  /* If @, then alpha_encode_section_info sez it's local.  */
-	  || str[0] == '@'
-	  /* If *$, then ASM_GENERATE_INTERNAL_LABEL sez it's local.  */
-	  || (str[0] == '*' && str[1] == '$'));
-}
-
 int
 local_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
+  const char *str;
+
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
 
@@ -983,7 +1001,26 @@ local_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  return local_symbol_p (op);
+  /* Easy pickings.  */
+  if (CONSTANT_POOL_ADDRESS_P (op) || STRING_POOL_ADDRESS_P (op))
+    return 1;
+
+  /* ??? SYMBOL_REF_FLAG is set for local function symbols, but we
+     run into problems with the rtl inliner in that the symbol was
+     once external, but is local after inlining, which results in
+     unrecognizable insns.  */
+
+  str = XSTR (op, 0);
+
+  /* If @[VS], then alpha_encode_section_info sez it's local.  */
+  if (str[0] == '@' && (str[1] == 'L' || str[1] == 'S'))
+    return 1;
+
+  /* If *$, then ASM_GENERATE_INTERNAL_LABEL sez it's local.  */
+  if (str[0] == '*' && str[1] == '$')
+    return 1;
+
+  return 0;
 }
 
 /* Return true if OP is a SYMBOL_REF or CONST referencing a variable
@@ -1015,7 +1052,7 @@ small_symbolic_operand (op, mode)
   else
     {
       str = XSTR (op, 0);
-      return str[0] == '@' && str[1] == 's';
+      return str[0] == '@' && str[1] == 'S';
     }
 }
 
@@ -1027,6 +1064,8 @@ global_symbolic_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
+  const char *str;
+
   if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
     return 0;
 
@@ -1038,7 +1077,12 @@ global_symbolic_operand (op, mode)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  return ! local_symbol_p (op);
+  if (local_symbolic_operand (op, mode))
+    return 0;
+
+  /* Also verify that it's not a TLS symbol.  */
+  str = XSTR (op, 0);
+  return str[0] != '%' && str[0] != '@';
 }
 
 /* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
@@ -1089,6 +1133,110 @@ symbolic_operand (op, mode)
       && GET_CODE (XEXP (XEXP (op,0), 1)) == CONST_INT)
     return 1;
   return 0;
+}
+
+/* Return true if OP is valid for a particular TLS relocation.  */
+
+static int
+tls_symbolic_operand_1 (op, mode, size, unspec)
+     rtx op;
+     enum machine_mode mode;
+     int size, unspec;
+{
+  const char *str;
+  int letter;
+
+  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
+    return 0;
+
+  if (GET_CODE (op) != CONST)
+    return 0;
+  op = XEXP (op, 0);
+
+  if (GET_CODE (op) != UNSPEC || XINT (op, 1) != unspec)
+    return 0;
+  op = XVECEXP (op, 0, 0);
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+  str = XSTR (op, 0);
+
+  if (str[0] == '%')
+    {
+      if (size != 64)
+	return 0;
+    }
+  else if (str[0] == '@')
+    {
+      if (alpha_tls_size > size)
+	return 0;
+    }
+  else
+    return 0;
+
+  letter = (unspec == UNSPEC_DTPREL ? 'D' : 'T');
+
+  return str[1] == letter;
+}
+
+/* Return true if OP is valid for 16-bit DTP relative relocations.  */
+
+int
+dtp16_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 16, UNSPEC_DTPREL);
+}
+
+/* Return true if OP is valid for 32-bit DTP relative relocations.  */
+
+int
+dtp32_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 32, UNSPEC_DTPREL);
+}
+
+/* Return true if OP is valid for 64-bit DTP relative relocations.  */
+
+int
+gotdtp_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 64, UNSPEC_DTPREL);
+}
+
+/* Return true if OP is valid for 16-bit TP relative relocations.  */
+
+int
+tp16_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 16, UNSPEC_TPREL);
+}
+
+/* Return true if OP is valid for 32-bit TP relative relocations.  */
+
+int
+tp32_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 32, UNSPEC_TPREL);
+}
+
+/* Return true if OP is valid for 64-bit TP relative relocations.  */
+
+int
+gottp_symbolic_operand (op, mode)
+      rtx op;
+      enum machine_mode mode;
+{
+  return tls_symbolic_operand_1 (op, mode, 64, UNSPEC_TPREL);
 }
 
 /* Return 1 if OP is a valid Alpha comparison operator.  Here we know which
@@ -1488,7 +1636,9 @@ alpha_extra_constraint (value, c)
       return GET_CODE (value) == HIGH;
     case 'U':
       return TARGET_ABI_UNICOSMK && symbolic_operand (value, VOIDmode);
-
+    case 'W':
+      return (GET_CODE (value) == CONST_VECTOR
+	      && value == CONST0_RTX (GET_MODE (value)));
     default:
       return false;
     }
@@ -1561,6 +1711,54 @@ alpha_tablejump_best_label (insn)
 
   return best_label ? best_label : const0_rtx;
 }
+
+/* Return the TLS model to use for SYMBOL.  */
+
+static enum tls_model
+tls_symbolic_operand_type (symbol)
+     rtx symbol;
+{
+  const char *str;
+
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return 0;
+  str = XSTR (symbol, 0);
+
+  if (str[0] == '%')
+    {
+      /* ??? Be prepared for -ftls-model=local-dynamic.  Perhaps we shouldn't
+	 have separately encoded local-ness.  On well, maybe the user will use
+	 attribute visibility next time.  At least we don't crash...  */
+      if (str[1] == 'G' || str[1] == 'D')
+	return TLS_MODEL_GLOBAL_DYNAMIC;
+      if (str[1] == 'T')
+	return TLS_MODEL_INITIAL_EXEC;
+    }
+  else if (str[0] == '@')
+    {
+      if (str[1] == 'D')
+	{
+	  /* Local dynamic is a waste if we're not going to combine
+	     the __tls_get_addr calls.  So avoid it if not optimizing.  */
+	  if (optimize)
+	    return TLS_MODEL_LOCAL_DYNAMIC;
+	  else
+	    return TLS_MODEL_GLOBAL_DYNAMIC;
+	}
+      if (str[1] == 'T')
+	{
+	  /* 64-bit local exec is the same as initial exec except without
+	     the dynamic relocation.  In either case we use a got entry.  */
+	  if (alpha_tls_size == 64)
+	    return TLS_MODEL_INITIAL_EXEC;
+	  else
+	    return TLS_MODEL_LOCAL_EXEC;
+	}
+    }
+
+  return 0;
+}
+
 
 /* Return true if the function DECL will be placed in the default text
    section.  */
@@ -1622,7 +1820,8 @@ alpha_encode_section_info (decl, first)
      int first ATTRIBUTE_UNUSED;
 {
   const char *symbol_str;
-  bool is_local, is_small;
+  bool is_local;
+  char encoding = 0;
   rtx rtl, symbol;
 
   rtl = DECL_P (decl) ? DECL_RTL (decl) : TREE_CST_RTL (decl);
@@ -1659,18 +1858,56 @@ alpha_encode_section_info (decl, first)
   /* A variable is considered "local" if it is defined in this module.  */
   is_local = (*targetm.binds_local_p) (decl);
 
-  /* Determine if DECL will wind up in .sdata/.sbss.  */
-  is_small = alpha_in_small_data_p (decl);
+  /* Care for TLS variables.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      enum tls_model kind;
+      if (!flag_pic)
+	{
+	  if (is_local)
+	    kind = TLS_MODEL_LOCAL_EXEC;
+	  else
+	    kind = TLS_MODEL_INITIAL_EXEC;
+	}
+      else if (is_local)
+	kind = TLS_MODEL_LOCAL_DYNAMIC;
+      else
+	kind = TLS_MODEL_GLOBAL_DYNAMIC;
+      if (kind < flag_tls_default)
+	kind = flag_tls_default;
+
+      switch (kind)
+	{
+	case TLS_MODEL_GLOBAL_DYNAMIC:
+	  encoding = 'G';
+	  break;
+	case TLS_MODEL_LOCAL_DYNAMIC:
+	  encoding = 'D';
+	  break;
+	case TLS_MODEL_INITIAL_EXEC:
+	case TLS_MODEL_LOCAL_EXEC:
+	  encoding = 'T';
+	  break;
+	}
+    }
+  else if (is_local)
+    {
+      /* Determine if DECL will wind up in .sdata/.sbss.  */
+      if (alpha_in_small_data_p (decl))
+	encoding = 'S';
+      else
+	encoding = 'L';
+    }
 
   /* Finally, encode this into the symbol string.  */
-  if (is_local)
+  if (encoding)
     {
       char *newstr;
       size_t len;
 
-      if (symbol_str[0] == '@')
+      if (symbol_str[0] == (is_local ? '@' : '%'))
 	{
-	  if (symbol_str[1] == (is_small ? 's' : 'v'))
+	  if (symbol_str[1] == encoding)
 	    return;
 	  symbol_str += 2;
 	}
@@ -1678,17 +1915,11 @@ alpha_encode_section_info (decl, first)
       len = strlen (symbol_str) + 1;
       newstr = alloca (len + 2);
 
-      newstr[0] = '@';
-      newstr[1] = (is_small ? 's' : 'v');
+      newstr[0] = (is_local ? '@' : '%');
+      newstr[1] = encoding;
       memcpy (newstr + 2, symbol_str, len);
 	  
       XSTR (symbol, 0) = ggc_alloc_string (newstr, len + 2 - 1);
-    }
-  else if (symbol_str[0] == '@')
-    {
-      /* We're hosed.  This can happen when the user adds a weak
-	 attribute after rtl generation.  They should have gotten
-	 a warning about unspecified behaviour from varasm.c.  */
     }
 }
 
@@ -1698,7 +1929,7 @@ static const char *
 alpha_strip_name_encoding (str)
      const char *str;
 {
-  if (str[0] == '@')
+  if (str[0] == '@' || str[0] == '%')
     str += 2;
   if (str[0] == '*')
     str++;
@@ -1799,7 +2030,9 @@ alpha_legitimate_address_p (mode, x, strict)
 	    return false;
 
 	  /* The symbol must be local.  */
-	  if (local_symbolic_operand (ofs, Pmode))
+	  if (local_symbolic_operand (ofs, Pmode)
+	      || dtp32_symbolic_operand (ofs, Pmode)
+	      || tp32_symbolic_operand (ofs, Pmode))
 	    return true;
 	}
     }
@@ -1865,6 +2098,100 @@ alpha_legitimize_address (x, scratch, mode)
   /* If this is a local symbol, split the address into HIGH/LO_SUM parts.  */
   if (TARGET_EXPLICIT_RELOCS && symbolic_operand (x, Pmode))
     {
+      rtx r0, r16, eqv, tga, tp, insn, dest, seq;
+
+      switch (tls_symbolic_operand_type (x))
+	{
+	case TLS_MODEL_GLOBAL_DYNAMIC:
+	  start_sequence ();
+
+	  r0 = gen_rtx_REG (Pmode, 0);
+	  r16 = gen_rtx_REG (Pmode, 16);
+	  tga = gen_rtx_SYMBOL_REF (Pmode, "__tls_get_addr");
+	  dest = gen_reg_rtx (Pmode);
+	  seq = GEN_INT (alpha_next_sequence_number++);
+	  
+	  emit_insn (gen_movdi_er_tlsgd (r16, pic_offset_table_rtx, x, seq));
+	  insn = gen_call_value_osf_tlsgd (r0, tga, seq);
+	  insn = emit_call_insn (insn);
+	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r16);
+
+          insn = get_insns ();
+	  end_sequence ();
+
+	  emit_libcall_block (insn, dest, r0, x);
+	  return dest;
+
+	case TLS_MODEL_LOCAL_DYNAMIC:
+	  start_sequence ();
+
+	  r0 = gen_rtx_REG (Pmode, 0);
+	  r16 = gen_rtx_REG (Pmode, 16);
+	  tga = gen_rtx_SYMBOL_REF (Pmode, "__tls_get_addr");
+	  scratch = gen_reg_rtx (Pmode);
+	  seq = GEN_INT (alpha_next_sequence_number++);
+
+	  emit_insn (gen_movdi_er_tlsldm (r16, pic_offset_table_rtx, seq));
+	  insn = gen_call_value_osf_tlsldm (r0, tga, seq);
+	  insn = emit_call_insn (insn);
+	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r16);
+
+          insn = get_insns ();
+	  end_sequence ();
+
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+				UNSPEC_TLSLDM_CALL);
+	  emit_libcall_block (insn, scratch, r0, eqv);
+
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_DTPREL);
+	  eqv = gen_rtx_CONST (Pmode, eqv);
+
+	  if (alpha_tls_size == 64)
+	    {
+	      dest = gen_reg_rtx (Pmode);
+	      emit_insn (gen_rtx_SET (VOIDmode, dest, eqv));
+	      emit_insn (gen_adddi3 (dest, dest, scratch));
+	      return dest;
+	    }
+	  if (alpha_tls_size == 32)
+	    {
+	      insn = gen_rtx_HIGH (Pmode, eqv);
+	      insn = gen_rtx_PLUS (Pmode, scratch, insn);
+	      scratch = gen_reg_rtx (Pmode);
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, insn));
+	    }
+	  return gen_rtx_LO_SUM (Pmode, scratch, eqv);
+
+	case TLS_MODEL_INITIAL_EXEC:
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_TPREL);
+	  eqv = gen_rtx_CONST (Pmode, eqv);
+	  tp = gen_reg_rtx (Pmode);
+	  scratch = gen_reg_rtx (Pmode);
+	  dest = gen_reg_rtx (Pmode);
+
+	  emit_insn (gen_load_tp (tp));
+	  emit_insn (gen_rtx_SET (VOIDmode, scratch, eqv));
+	  emit_insn (gen_adddi3 (dest, tp, scratch));
+	  return dest;
+
+	case TLS_MODEL_LOCAL_EXEC:
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_TPREL);
+	  eqv = gen_rtx_CONST (Pmode, eqv);
+	  tp = gen_reg_rtx (Pmode);
+
+	  emit_insn (gen_load_tp (tp));
+	  if (alpha_tls_size == 32)
+	    {
+	      insn = gen_rtx_HIGH (Pmode, eqv);
+	      insn = gen_rtx_PLUS (Pmode, tp, insn);
+	      tp = gen_reg_rtx (Pmode);
+	      emit_insn (gen_rtx_SET (VOIDmode, tp, insn));
+	    }
+	  return gen_rtx_LO_SUM (Pmode, tp, eqv);
+	}
+
       if (local_symbolic_operand (x, Pmode))
 	{
 	  if (small_symbolic_operand (x, Pmode))
@@ -2589,6 +2916,8 @@ alpha_expand_mov (mode, operands)
       tmp = alpha_legitimize_address (operands[1], operands[0], mode);
       if (tmp)
 	{
+	  if (tmp == operands[0])
+	    return true;
 	  operands[1] = tmp;
 	  return false;
 	}
@@ -4841,6 +5170,74 @@ alpha_expand_block_clear (operands)
 
   return 1;
 }
+
+/* Returns a mask so that zap(x, value) == x & mask.  */
+
+rtx
+alpha_expand_zap_mask (value)
+     HOST_WIDE_INT value;
+{
+  rtx result;
+  int i;
+
+  if (HOST_BITS_PER_WIDE_INT >= 64)
+    {
+      HOST_WIDE_INT mask = 0;
+
+      for (i = 7; i >= 0; --i)
+	{
+	  mask <<= 8;
+	  if (!((value >> i) & 1))
+	    mask |= 0xff;
+	}
+
+      result = gen_int_mode (mask, DImode);
+    }
+  else if (HOST_BITS_PER_WIDE_INT == 32)
+    {
+      HOST_WIDE_INT mask_lo = 0, mask_hi = 0;
+
+      for (i = 7; i >= 4; --i)
+	{
+	  mask_hi <<= 8;
+	  if (!((value >> i) & 1))
+	    mask_hi |= 0xff;
+	}
+
+      for (i = 3; i >= 0; --i)
+	{
+	  mask_lo <<= 8;
+	  if (!((value >> i) & 1))
+	    mask_lo |= 0xff;
+	}
+
+      result = immed_double_const (mask_lo, mask_hi, DImode);
+    }
+  else
+    abort ();
+
+  return result;
+}
+
+void
+alpha_expand_builtin_vector_binop (gen, mode, op0, op1, op2)
+     rtx (*gen) PARAMS ((rtx, rtx, rtx));
+     enum machine_mode mode;
+     rtx op0, op1, op2;
+{
+  op0 = gen_lowpart (mode, op0);
+
+  if (op1 == const0_rtx)
+    op1 = CONST0_RTX (mode);
+  else
+    op1 = gen_lowpart (mode, op1);
+  if (op1 == const0_rtx)
+    op2 = CONST0_RTX (mode);
+  else
+    op2 = gen_lowpart (mode, op2);
+
+  emit_insn ((*gen) (op0, op1, op2));
+}
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
@@ -4906,44 +5303,31 @@ alpha_multipass_dfa_lookahead ()
   return (alpha_cpu == PROCESSOR_EV6 ? 4 : 2);
 }
 
-/* Register global variables and machine-specific functions with the
-   garbage collector.  */
+/* Machine-specific function data.  */
 
-#if TARGET_ABI_UNICOSMK
-static void
-alpha_init_machine_status (p)
-     struct function *p;
+struct machine_function GTY(())
 {
-  p->machine =
-    (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
+  /* For unicosmk. */
+  /* List of call information words for calls from this function.  */
+  struct rtx_def *first_ciw;
+  struct rtx_def *last_ciw;
+  int ciw_count;
 
-  p->machine->first_ciw = NULL_RTX;
-  p->machine->last_ciw = NULL_RTX;
-  p->machine->ciw_count = 0;
-  p->machine->addr_list = NULL_RTX;
-}
+  /* List of deferred case vectors.  */
+  struct rtx_def *addr_list;
 
-static void
-alpha_mark_machine_status (p)
-     struct function *p;
+  /* For OSF. */
+  const char *some_ld_name;
+};
+
+/* How to allocate a 'struct machine_function'.  */
+
+static struct machine_function *
+alpha_init_machine_status ()
 {
-  struct machine_function *machine = p->machine;
-
-  if (machine)
-    {
-      ggc_mark_rtx (machine->first_ciw);
-      ggc_mark_rtx (machine->addr_list);
-    }
+  return ((struct machine_function *) 
+		ggc_alloc_cleared (sizeof (struct machine_function)));
 }
-
-static void
-alpha_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
-}
-#endif /* TARGET_ABI_UNICOSMK */
 
 /* Functions to save and restore alpha_return_addr_rtx.  */
 
@@ -5087,6 +5471,45 @@ get_round_mode_suffix ()
   abort ();
 }
 
+/* Locate some local-dynamic symbol still in use by this function
+   so that we can print its name in some movdi_er_tlsldm pattern.  */
+
+static const char *
+get_some_local_dynamic_name ()
+{
+  rtx insn;
+
+  if (cfun->machine->some_ld_name)
+    return cfun->machine->some_ld_name;
+
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    if (INSN_P (insn)
+	&& for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
+      return cfun->machine->some_ld_name;
+
+  abort ();
+}
+
+static int
+get_some_local_dynamic_name_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      const char *str = XSTR (x, 0);
+      if (str[0] == '@' && str[1] == 'D')
+	{
+          cfun->machine->some_ld_name = str;
+          return 1;
+	}
+    }
+
+  return 0;
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 void
@@ -5102,6 +5525,10 @@ print_operand (file, x, code)
     case '~':
       /* Print the assembler name of the current function.  */
       assemble_name (file, alpha_fnname);
+      break;
+
+    case '&':
+      assemble_name (file, get_some_local_dynamic_name ());
       break;
 
     case '/':
@@ -5145,13 +5572,30 @@ print_operand (file, x, code)
       break;
 
     case 'J':
-      if (GET_CODE (x) == CONST_INT)
-	{
-	  if (INTVAL (x) != 0)
-	    fprintf (file, "\t\t!lituse_jsr!%d", (int) INTVAL (x));
-	}
-      else
-	output_operand_lossage ("invalid %%J value");
+      {
+	const char *lituse;
+
+        if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLSGD_CALL)
+	  {
+	    x = XVECEXP (x, 0, 0);
+	    lituse = "lituse_tlsgd";
+	  }
+	else if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLSLDM_CALL)
+	  {
+	    x = XVECEXP (x, 0, 0);
+	    lituse = "lituse_tlsldm";
+	  }
+	else if (GET_CODE (x) == CONST_INT)
+	  lituse = "lituse_jsr";
+	else
+	  {
+	    output_operand_lossage ("invalid %%J value");
+	    break;
+	  }
+
+	if (x != const0_rtx)
+	  fprintf (file, "\t\t!%s!%d", lituse, (int) INTVAL (x));
+      }
       break;
 
     case 'r':
@@ -5385,6 +5829,19 @@ print_operand (file, x, code)
 	fprintf (file, "%s", reg_names[REGNO (x)]);
       else if (GET_CODE (x) == MEM)
 	output_address (XEXP (x, 0));
+      else if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == UNSPEC)
+	{
+	  switch (XINT (XEXP (x, 0), 1))
+	    {
+	    case UNSPEC_DTPREL:
+	    case UNSPEC_TPREL:
+	      output_addr_const (file, XVECEXP (XEXP (x, 0), 0, 0));
+	      break;
+	    default:
+	      output_operand_lossage ("unknown relocation unspec");
+	      break;
+	    }
+	}
       else
 	output_addr_const (file, x);
       break;
@@ -5414,7 +5871,36 @@ print_operand_address (file, addr)
 
   if (GET_CODE (addr) == LO_SUM)
     {
-      output_addr_const (file, XEXP (addr, 1));
+      const char *reloc16, *reloclo;
+      rtx op1 = XEXP (addr, 1);
+
+      if (GET_CODE (op1) == CONST && GET_CODE (XEXP (op1, 0)) == UNSPEC)
+	{
+	  op1 = XEXP (op1, 0);
+	  switch (XINT (op1, 1))
+	    {
+	    case UNSPEC_DTPREL:
+	      reloc16 = NULL;
+	      reloclo = (alpha_tls_size == 16 ? "dtprel" : "dtprello");
+	      break;
+	    case UNSPEC_TPREL:
+	      reloc16 = NULL;
+	      reloclo = (alpha_tls_size == 16 ? "tprel" : "tprello");
+	      break;
+	    default:
+	      output_operand_lossage ("unknown relocation unspec");
+	      return;
+	    }
+
+	  output_addr_const (file, XVECEXP (op1, 0, 0));
+	}
+      else
+	{
+	  reloc16 = "gprel";
+	  reloclo = "gprellow";
+	  output_addr_const (file, op1);
+	}
+
       if (offset)
 	{
 	  fputc ('+', file);
@@ -5431,7 +5917,7 @@ print_operand_address (file, addr)
 	abort ();
 
       fprintf (file, "($%d)\t\t!%s", basereg,
-	       (basereg == 29 ? "gprel" : "gprellow"));
+	       (basereg == 29 ? reloc16 : reloclo));
       return;
     }
 
@@ -5824,6 +6310,211 @@ alpha_va_arg (valist, type)
     }
 
   return addr;
+}
+
+/* Builtins.  */
+
+enum alpha_builtin
+{
+  ALPHA_BUILTIN_CMPBGE,
+  ALPHA_BUILTIN_EXTQL,
+  ALPHA_BUILTIN_EXTQH,
+  ALPHA_BUILTIN_ZAP,
+  ALPHA_BUILTIN_ZAPNOT,
+  ALPHA_BUILTIN_AMASK,
+  ALPHA_BUILTIN_IMPLVER,
+  ALPHA_BUILTIN_RPCC,
+
+  /* TARGET_MAX */
+  ALPHA_BUILTIN_MINUB8,
+  ALPHA_BUILTIN_MINSB8,
+  ALPHA_BUILTIN_MINUW4,
+  ALPHA_BUILTIN_MINSW4,
+  ALPHA_BUILTIN_MAXUB8,
+  ALPHA_BUILTIN_MAXSB8,
+  ALPHA_BUILTIN_MAXUW4,
+  ALPHA_BUILTIN_MAXSW4,
+  ALPHA_BUILTIN_PERR,
+  ALPHA_BUILTIN_PKLB,
+  ALPHA_BUILTIN_PKWB,
+  ALPHA_BUILTIN_UNPKBL,
+  ALPHA_BUILTIN_UNPKBW,
+
+  ALPHA_BUILTIN_max
+};
+
+struct alpha_builtin_def
+{
+  const char *name;
+  enum alpha_builtin code;
+  unsigned int target_mask;
+};
+
+static struct alpha_builtin_def const zero_arg_builtins[] = {
+  { "__builtin_alpha_implver",	ALPHA_BUILTIN_IMPLVER,	0 },
+  { "__builtin_alpha_rpcc",	ALPHA_BUILTIN_RPCC,	0 }
+};
+
+static struct alpha_builtin_def const one_arg_builtins[] = {
+  { "__builtin_alpha_amask",	ALPHA_BUILTIN_AMASK,	0 },
+  { "__builtin_alpha_pklb",	ALPHA_BUILTIN_PKLB,	MASK_MAX },
+  { "__builtin_alpha_pkwb",	ALPHA_BUILTIN_PKWB,	MASK_MAX },
+  { "__builtin_alpha_unpkbl",	ALPHA_BUILTIN_UNPKBL,	MASK_MAX },
+  { "__builtin_alpha_unpkbw",	ALPHA_BUILTIN_UNPKBW,	MASK_MAX }
+};
+
+static struct alpha_builtin_def const two_arg_builtins[] = {
+  { "__builtin_alpha_cmpbge",	ALPHA_BUILTIN_CMPBGE,	0 },
+  { "__builtin_alpha_extql",	ALPHA_BUILTIN_EXTQL,	0 },
+  { "__builtin_alpha_extqh",	ALPHA_BUILTIN_EXTQH,	0 },
+  { "__builtin_alpha_zap",	ALPHA_BUILTIN_ZAP,	0 },
+  { "__builtin_alpha_zapnot",	ALPHA_BUILTIN_ZAPNOT,	0 },
+  { "__builtin_alpha_minub8",	ALPHA_BUILTIN_MINUB8,	MASK_MAX },
+  { "__builtin_alpha_minsb8",	ALPHA_BUILTIN_MINSB8,	MASK_MAX },
+  { "__builtin_alpha_minuw4",	ALPHA_BUILTIN_MINUW4,	MASK_MAX },
+  { "__builtin_alpha_minsw4",	ALPHA_BUILTIN_MINSW4,	MASK_MAX },
+  { "__builtin_alpha_maxub8",	ALPHA_BUILTIN_MAXUB8,	MASK_MAX },
+  { "__builtin_alpha_maxsb8",	ALPHA_BUILTIN_MAXSB8,	MASK_MAX },
+  { "__builtin_alpha_maxuw4",	ALPHA_BUILTIN_MAXUW4,	MASK_MAX },
+  { "__builtin_alpha_maxsw4",	ALPHA_BUILTIN_MAXSW4,	MASK_MAX },
+  { "__builtin_alpha_perr",	ALPHA_BUILTIN_PERR,	MASK_MAX }
+};
+
+static void
+alpha_init_builtins ()
+{
+  const struct alpha_builtin_def *p;
+  tree ftype;
+  size_t i;
+
+  ftype = build_function_type (long_integer_type_node, void_list_node);
+
+  p = zero_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (long_integer_type_node,
+			       tree_cons (NULL_TREE,
+					  long_integer_type_node,
+					  void_list_node));
+
+  p = one_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+
+  ftype = build_function_type (long_integer_type_node,
+			       tree_cons (NULL_TREE,
+					  long_integer_type_node,
+					  tree_cons (NULL_TREE,
+						     long_integer_type_node,
+						     void_list_node)));
+
+  p = two_arg_builtins;
+  for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
+    if ((target_flags & p->target_mask) == p->target_mask)
+      builtin_function (p->name, ftype, p->code, BUILT_IN_MD, NULL);
+}
+
+/* Expand an expression EXP that calls a built-in function,
+   with result going to TARGET if that's convenient
+   (and in mode MODE if that's convenient).
+   SUBTARGET may be used as the target for computing one of EXP's operands.
+   IGNORE is nonzero if the value is to be ignored.  */
+
+static rtx
+alpha_expand_builtin (exp, target, subtarget, mode, ignore)
+     tree exp;
+     rtx target;
+     rtx subtarget ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     int ignore ATTRIBUTE_UNUSED;
+{
+  static unsigned int const code_for_builtin[ALPHA_BUILTIN_max] = {
+    CODE_FOR_builtin_cmpbge,
+    CODE_FOR_builtin_extql,
+    CODE_FOR_builtin_extqh,
+    CODE_FOR_builtin_zap,
+    CODE_FOR_builtin_zapnot,
+    CODE_FOR_builtin_amask,
+    CODE_FOR_builtin_implver,
+    CODE_FOR_builtin_rpcc,
+    CODE_FOR_builtin_minub8,
+    CODE_FOR_builtin_minsb8,
+    CODE_FOR_builtin_minuw4,
+    CODE_FOR_builtin_minsw4,
+    CODE_FOR_builtin_maxub8,
+    CODE_FOR_builtin_maxsb8,
+    CODE_FOR_builtin_maxuw4,
+    CODE_FOR_builtin_maxsw4,
+    CODE_FOR_builtin_perr,
+    CODE_FOR_builtin_pklb,
+    CODE_FOR_builtin_pkwb,
+    CODE_FOR_builtin_unpkbl,
+    CODE_FOR_builtin_unpkbw,
+  };
+
+#define MAX_ARGS 2
+
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum insn_code icode;
+  rtx op[MAX_ARGS], pat;
+  int arity;
+  enum machine_mode tmode;
+
+  if (fcode >= ALPHA_BUILTIN_max)
+    internal_error ("bad builtin fcode");
+  icode = code_for_builtin[fcode];
+  if (icode == 0)
+    internal_error ("bad builtin fcode");
+
+  for (arglist = TREE_OPERAND (exp, 1), arity = 0;
+       arglist;
+       arglist = TREE_CHAIN (arglist), arity++)
+    {
+      const struct insn_operand_data *insn_op;
+
+      tree arg = TREE_VALUE (arglist);
+      if (arg == error_mark_node)
+	return NULL_RTX;
+      if (arity > MAX_ARGS)
+	return NULL_RTX;
+
+      op[arity] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+
+      insn_op = &insn_data[icode].operand[arity];
+      if (!(*insn_op->predicate) (op[arity], insn_op->mode))
+	op[arity] = copy_to_mode_reg (insn_op->mode, op[arity]);
+    }
+
+  tmode = insn_data[icode].operand[0].mode;
+  if (!target
+      || GET_MODE (target) != tmode
+      || !(*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  switch (arity)
+    {
+    case 0:
+      pat = GEN_FCN (icode) (target);
+      break;
+    case 1:
+      pat = GEN_FCN (icode) (target, op[0]);
+      break;
+    case 2:
+      pat = GEN_FCN (icode) (target, op[0], op[1]);
+      break;
+    default:
+      abort ();
+    }
+  if (!pat)
+    return NULL_RTX;
+  emit_insn (pat);
+
+  return target;
 }
 
 /* This page contains routines that are used to determine what the function
@@ -9176,3 +9867,6 @@ unicosmk_need_dex (x)
 }
 
 #endif /* TARGET_ABI_UNICOSMK */
+
+#include "gt-alpha.h"
+

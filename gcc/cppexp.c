@@ -244,7 +244,7 @@ cpp_classify_number (pfile, token)
 	{
 	  cpp_error (pfile, DL_ERROR,
 		     "invalid suffix \"%.*s\" on floating constant",
-		     limit - str, str);
+		     (int) (limit - str), str);
 	  return CPP_N_INVALID;
 	}
 
@@ -254,7 +254,7 @@ cpp_classify_number (pfile, token)
 	  && ! cpp_sys_macro_p (pfile))
 	cpp_error (pfile, DL_WARNING,
 		   "traditional C rejects the \"%.*s\" suffix",
-		   limit - str, str);
+		   (int) (limit - str), str);
 
       result |= CPP_N_FLOATING;
     }
@@ -265,7 +265,7 @@ cpp_classify_number (pfile, token)
 	{
 	  cpp_error (pfile, DL_ERROR,
 		     "invalid suffix \"%.*s\" on integer constant",
-		     limit - str, str);
+		     (int) (limit - str), str);
 	  return CPP_N_INVALID;
 	}
 
@@ -275,7 +275,7 @@ cpp_classify_number (pfile, token)
 	  && ! cpp_sys_macro_p (pfile))
 	cpp_error (pfile, DL_WARNING,
 		   "traditional C rejects the \"%.*s\" suffix",
-		   limit - str, str);
+		   (int) (limit - str), str);
 
       if ((result & CPP_N_WIDTH) == CPP_N_LARGE
 	  && ! CPP_OPTION (pfile, c99)
@@ -993,6 +993,33 @@ num_positive (num, precision)
     }
 
   return (num.low & (cpp_num_part) 1 << (precision - 1)) == 0;
+}
+
+/* Sign extend a number, with PRECISION significant bits and all
+   others assumed clear, to fill out a cpp_num structure.  */
+cpp_num
+cpp_num_sign_extend (num, precision)
+     cpp_num num;
+     size_t precision;
+{
+  if (!num.unsignedp)
+    {
+      if (precision > PART_PRECISION)
+	{
+	  precision -= PART_PRECISION;
+	  if (precision < PART_PRECISION
+	      && (num.high & (cpp_num_part) 1 << (precision - 1)))
+	    num.high |= ~(~(cpp_num_part) 0 >> (PART_PRECISION - precision));
+	}
+      else if (num.low & (cpp_num_part) 1 << (precision - 1))
+	{
+	  if (precision < PART_PRECISION)
+	    num.low |= ~(~(cpp_num_part) 0 >> (PART_PRECISION - precision));
+	  num.high = ~(cpp_num_part) 0;
+	}
+    }
+
+  return num;
 }
 
 /* Returns the negative of NUM.  */

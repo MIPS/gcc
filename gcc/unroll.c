@@ -268,53 +268,6 @@ unroll_loop (loop, insn_count, strength_reduce_p)
       return;
     }
 
-  /* When emitting debugger info, we can't unroll loops with unequal numbers
-     of block_beg and block_end notes, because that would unbalance the block
-     structure of the function.  This can happen as a result of the
-     "if (foo) bar; else break;" optimization in jump.c.  */
-  /* ??? Gcc has a general policy that -g is never supposed to change the code
-     that the compiler emits, so we must disable this optimization always,
-     even if debug info is not being output.  This is rare, so this should
-     not be a significant performance problem.  */
-
-  if (1 /* write_symbols != NO_DEBUG */)
-    {
-      int block_begins = 0;
-      int block_ends = 0;
-
-      for (insn = loop_start; insn != loop_end; insn = NEXT_INSN (insn))
-	{
-	  if (GET_CODE (insn) == NOTE)
-	    {
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG)
-		block_begins++;
-	      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
-		block_ends++;
-	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
-		{
-		  /* Note, would be nice to add code to unroll EH
-		     regions, but until that time, we punt (don't
-		     unroll).  For the proper way of doing it, see
-		     expand_inline_function.  */
-
-		  if (loop_dump_stream)
-		    fprintf (loop_dump_stream,
-			     "Unrolling failure: cannot unroll EH regions.\n");
-		  return;
-		}
-	    }
-	}
-
-      if (block_begins != block_ends)
-	{
-	  if (loop_dump_stream)
-	    fprintf (loop_dump_stream,
-		     "Unrolling failure: Unbalanced block notes.\n");
-	  return;
-	}
-    }
-
   /* Determine type of unroll to perform.  Depends on the number of iterations
      and the size of the loop.  */
 
@@ -1635,7 +1588,7 @@ calculate_giv_inc (pattern, src_insn, regno)
 	  rtx second_part = XEXP (increment, 1);
 	  enum rtx_code code = GET_CODE (increment);
 
-	  increment = find_last_value (XEXP (increment, 0), 
+	  increment = find_last_value (XEXP (increment, 0),
 				       &src_insn, NULL_RTX, 0);
 	  /* Don't need the last insn anymore.  */
 	  delete_related_insns (get_last_insn ());
@@ -1732,7 +1685,7 @@ final_reg_note_copy (notesp, map)
   while (*notesp)
     {
       rtx note = *notesp;
-      
+
       if (GET_CODE (note) == INSN_LIST)
 	{
 	  /* Sometimes, we have a REG_WAS_0 note that points to a
@@ -2046,6 +1999,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	      copy = emit_insn (pattern);
 	    }
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 
 #ifdef HAVE_cc0
 	  /* If this insn is setting CC0, it may need to look at
@@ -2092,6 +2046,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_jump_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 
 	  if (JUMP_LABEL (insn))
 	    {
@@ -2215,6 +2170,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
 	  pattern = copy_rtx_and_substitute (PATTERN (insn), map, 0);
 	  copy = emit_call_insn (pattern);
 	  REG_NOTES (copy) = initial_reg_note_copy (REG_NOTES (insn), map);
+	  INSN_SCOPE (copy) = INSN_SCOPE (insn);
 	  SIBLING_CALL_P (copy) = SIBLING_CALL_P (insn);
 
 	  /* Because the USAGE information potentially contains objects other
@@ -2579,7 +2535,7 @@ find_splittable_regs (loop, unroll_type, unroll_number)
 		  rtx tem = gen_reg_rtx (bl->biv->mode);
 
 		  record_base_value (REGNO (tem), bl->biv->add_val, 0);
-		  loop_insn_hoist (loop, 
+		  loop_insn_hoist (loop,
 				   gen_move_insn (tem, bl->biv->src_reg));
 
 		  if (loop_dump_stream)
@@ -3594,7 +3550,7 @@ loop_iterations (loop)
 		  && INSN_LUID (JUMP_LABEL (temp)) < INSN_LUID (loop->cont))
 		{
 		  if (loop_dump_stream)
-		    fprintf 
+		    fprintf
 		      (loop_dump_stream,
 		       "Loop iterations: Loop has multiple back edges.\n");
 		  return 0;

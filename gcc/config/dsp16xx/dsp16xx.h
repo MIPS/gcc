@@ -31,29 +31,30 @@ extern const char *const_seg_name;
 extern const char *rsect_const;
 extern const char *chip_name;
 extern const char *save_chip_name;
-extern struct rtx_def *dsp16xx_compare_op0, *dsp16xx_compare_op1;
-extern struct rtx_def *dsp16xx_addhf3_libcall;
-extern struct rtx_def *dsp16xx_subhf3_libcall;
-extern struct rtx_def *dsp16xx_mulhf3_libcall;
-extern struct rtx_def *dsp16xx_divhf3_libcall;
-extern struct rtx_def *dsp16xx_cmphf3_libcall;
-extern struct rtx_def *dsp16xx_fixhfhi2_libcall;
-extern struct rtx_def *dsp16xx_floathihf2_libcall;
-extern struct rtx_def *dsp16xx_neghf2_libcall;
-extern struct rtx_def *dsp16xx_umulhi3_libcall;
-extern struct rtx_def *dsp16xx_mulhi3_libcall;
-extern struct rtx_def *dsp16xx_udivqi3_libcall;
-extern struct rtx_def *dsp16xx_udivhi3_libcall;
-extern struct rtx_def *dsp16xx_divqi3_libcall;
-extern struct rtx_def *dsp16xx_divhi3_libcall;
-extern struct rtx_def *dsp16xx_modqi3_libcall;
-extern struct rtx_def *dsp16xx_modhi3_libcall;
-extern struct rtx_def *dsp16xx_umodqi3_libcall;
-extern struct rtx_def *dsp16xx_umodhi3_libcall;
+extern GTY(()) rtx dsp16xx_compare_op0;
+extern GTY(()) rtx dsp16xx_compare_op1;
+extern GTY(()) rtx dsp16xx_addhf3_libcall;
+extern GTY(()) rtx dsp16xx_subhf3_libcall;
+extern GTY(()) rtx dsp16xx_mulhf3_libcall;
+extern GTY(()) rtx dsp16xx_divhf3_libcall;
+extern GTY(()) rtx dsp16xx_cmphf3_libcall;
+extern GTY(()) rtx dsp16xx_fixhfhi2_libcall;
+extern GTY(()) rtx dsp16xx_floathihf2_libcall;
+extern GTY(()) rtx dsp16xx_neghf2_libcall;
+extern GTY(()) rtx dsp16xx_umulhi3_libcall;
+extern GTY(()) rtx dsp16xx_mulhi3_libcall;
+extern GTY(()) rtx dsp16xx_udivqi3_libcall;
+extern GTY(()) rtx dsp16xx_udivhi3_libcall;
+extern GTY(()) rtx dsp16xx_divqi3_libcall;
+extern GTY(()) rtx dsp16xx_divhi3_libcall;
+extern GTY(()) rtx dsp16xx_modqi3_libcall;
+extern GTY(()) rtx dsp16xx_modhi3_libcall;
+extern GTY(()) rtx dsp16xx_umodqi3_libcall;
+extern GTY(()) rtx dsp16xx_umodhi3_libcall;
 
-extern struct rtx_def *dsp16xx_ashrhi3_libcall;
-extern struct rtx_def *dsp16xx_ashlhi3_libcall;
-extern struct rtx_def *dsp16xx_lshrhi3_libcall;
+extern GTY(()) rtx dsp16xx_ashrhi3_libcall;
+extern GTY(()) rtx dsp16xx_ashlhi3_libcall;
+extern GTY(()) rtx dsp16xx_lshrhi3_libcall;
 
 /* RUN-TIME TARGET SPECIFICATION */
 #define DSP16XX   1
@@ -71,12 +72,8 @@ extern struct rtx_def *dsp16xx_lshrhi3_libcall;
   (!strcmp (STR, "ifile") ? 1 :                 \
    0)
 
-#ifdef  CC1_SPEC
 #undef  CC1_SPEC
-#endif
 #define CC1_SPEC       "%{!O*:-O}"
-
-#define CPP_SPEC       "%{!O*:-D__OPTIMIZE__}"
 
 /* Define this as a spec to call the AT&T assembler */
 
@@ -138,10 +135,29 @@ extern struct rtx_def *dsp16xx_lshrhi3_libcall;
 }
 
 /* Names to predefine in the preprocessor for this target machine.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1600");		\
+      builtin_define_std ("DSP1600");		\
+    }						\
+  while (0)
+
 #ifdef __MSDOS__
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -DMSDOS"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("MSDOS");		\
+    }						\
+  while (0)
 #else
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -Ddsp1610 -DDSP1610"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1610");		\
+      builtin_define_std ("DSP1610");		\
+    }						\
+  while (0)
 #endif
 
 /* Run-time compilation parameters selecting different hardware subsets.  */

@@ -263,11 +263,11 @@ loop_optimizer_init (dumpfile)
       return NULL;
     }
 
+  /* Create pre-headers.  */
+  create_preheaders (loops, CP_SIMPLE_PREHEADERS);
+
   /* Initialize structures for layout changes.  */
   cfg_layout_initialize (loops);
-
-  /* Create pre-headers.  */
-  create_preheaders (loops, CP_FOR_LOOP_NEW);
 
   /* Force all latches to have only single successor.  */
   force_single_succ_latches (loops);

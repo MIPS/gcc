@@ -1376,21 +1376,21 @@ size_int_wide (number, kind)
 
 /* Likewise, but the desired type is specified explicitly.  */
 
+static GTY (()) tree new_const;
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t size_htab;
+
 tree
 size_int_type_wide (number, type)
      HOST_WIDE_INT number;
      tree type;
 {
-  static htab_t size_htab = 0;
-  static tree new_const = 0;
   PTR *slot;
 
   if (size_htab == 0)
     {
       size_htab = htab_create (1024, size_htab_hash, size_htab_eq, NULL);
-      ggc_add_deletable_htab (size_htab, NULL, NULL);
       new_const = make_node (INTEGER_CST);
-      ggc_add_tree_root (&new_const, 1);
     }
 
   /* Adjust NEW_CONST to be the constant we want.  If it's already in the
@@ -3506,7 +3506,29 @@ fold_truthop (code, truth_type, lhs, rhs)
       && ! FLOAT_TYPE_P (TREE_TYPE (rl_arg))
       && simple_operand_p (rl_arg)
       && simple_operand_p (rr_arg))
-    return build (code, truth_type, lhs, rhs);
+    {
+      /* Convert (a != 0) || (b != 0) into (a | b) != 0.  */
+      if (code == TRUTH_OR_EXPR
+	  && lcode == NE_EXPR && integer_zerop (lr_arg)
+	  && rcode == NE_EXPR && integer_zerop (rr_arg)
+	  && TREE_TYPE (ll_arg) == TREE_TYPE (rl_arg))
+	return build (NE_EXPR, truth_type,
+		      build (BIT_IOR_EXPR, TREE_TYPE (ll_arg),
+			     ll_arg, rl_arg),
+		      integer_zero_node);
+
+      /* Convert (a == 0) && (b == 0) into (a | b) == 0.  */
+      if (code == TRUTH_AND_EXPR
+	  && lcode == EQ_EXPR && integer_zerop (lr_arg)
+	  && rcode == EQ_EXPR && integer_zerop (rr_arg)
+	  && TREE_TYPE (ll_arg) == TREE_TYPE (rl_arg))
+	return build (EQ_EXPR, truth_type,
+		      build (BIT_IOR_EXPR, TREE_TYPE (ll_arg),
+			     ll_arg, rl_arg),
+		      integer_zero_node);
+
+      return build (code, truth_type, lhs, rhs);
+    }
 
   /* See if the comparisons can be merged.  Then get all the parameters for
      each side.  */
@@ -5348,6 +5370,14 @@ fold (expr)
 	     so we can do this anyway.  */
 	  if (real_onep (arg1))
 	    return non_lvalue (convert (type, arg0));
+
+	  /* Transform x * -1.0 into -x.  This should be safe for NaNs,
+	     signed zeros and signed infinities, but is currently
+	     restricted to "unsafe math optimizations" just in case.  */
+	  if (flag_unsafe_math_optimizations
+	      && real_minus_onep (arg1))
+	    return fold (build1 (NEGATE_EXPR, type, arg0));
+
 	  /* x*2 is x+x */
 	  if (! wins && real_twop (arg1)
 	      && (*lang_hooks.decls.global_bindings_p) () == 0
@@ -7206,3 +7236,5 @@ rtl_expr_nonnegative_p (r)
       return 0;
     }
 }
+
+#include "gt-fold-const.h"

@@ -3755,41 +3755,6 @@ finish_label_address_expr (label)
   return result;
 }
 
-/* Mark P (a stmt_tree) for GC.  The use of a `void *' for the
-   parameter allows this function to be used as a GC-marking
-   function.  */
-
-void
-mark_stmt_tree (p)
-     void *p;
-{
-  stmt_tree st = (stmt_tree) p;
-
-  ggc_mark_tree (st->x_last_stmt);
-  ggc_mark_tree (st->x_last_expr_type);
-}
-
-/* Mark LD for GC.  */
-
-void
-c_mark_lang_decl (c)
-     struct c_lang_decl *c ATTRIBUTE_UNUSED;
-{
-}
-
-/* Mark F for GC.  */
-
-void
-mark_c_language_function (f)
-     struct language_function *f;
-{
-  if (!f)
-    return;
-
-  mark_stmt_tree (&f->x_stmt_tree);
-  ggc_mark_tree (f->x_scope_stmt_stack);
-}
-
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 
 rtx
@@ -4293,7 +4258,7 @@ enum built_in_attribute
   ATTR_LAST
 };
 
-static tree built_in_attributes[(int) ATTR_LAST];
+static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
 
 static bool c_attrs_initialized = false;
 
@@ -4515,6 +4480,10 @@ c_common_init (filename)
   options->warn_multichar = warn_multichar;
   options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
 
+  /* We want -Wno-long-long to override -pedantic -std=non-c99
+     whatever the ordering.  */
+  options->warn_long_long = warn_long_long && !flag_isoc99 && pedantic;
+
   /* Register preprocessor built-ins before calls to
      cpp_main_file.  */
   cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
@@ -4571,7 +4540,6 @@ c_init_attributes ()
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
 #undef DEF_FN_ATTR
-  ggc_add_tree_root (built_in_attributes, (int) ATTR_LAST);
   c_attrs_initialized = true;
 }
 
@@ -5971,3 +5939,5 @@ check_function_arguments_recurse (callback, ctx, param, param_num)
 
   (*callback) (ctx, param, param_num);
 }
+
+#include "gt-c-common.h"

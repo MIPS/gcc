@@ -370,6 +370,7 @@ copy_rtx (orig)
 	case 'S':
 	case 'T':
 	case 'u':
+	case 'B':
 	case '0':
 	  /* These are left unchanged.  */
 	  break;

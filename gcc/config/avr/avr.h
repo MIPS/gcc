@@ -1728,6 +1728,24 @@ do {									    \
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
 
+/* Define the pseudo-ops used to switch to the .ctors and .dtors sections.
+   There are no shared libraries on this target, and these sections are
+   placed in the read-only program memory, so they are not writable.  */
+
+#undef CTORS_SECTION_ASM_OP
+#define CTORS_SECTION_ASM_OP "\t.section .ctors,\"a\",@progbits"
+
+#undef DTORS_SECTION_ASM_OP
+#define DTORS_SECTION_ASM_OP "\t.section .dtors,\"a\",@progbits"
+
+#define TARGET_ASM_CONSTRUCTOR avr_asm_out_ctor
+/* If defined, a function that outputs assembler code to arrange to
+   call the function referenced by SYMBOL at initialization time.  */
+
+#define TARGET_ASM_DESTRUCTOR avr_asm_out_dtor
+/* This is like `TARGET_ASM_CONSTRUCTOR' but used for termination
+   functions rather than initialization functions.  */
+
 #define EXTRA_SECTIONS in_progmem
 /* A list of names for sections other than the standard two, which are
    `in_text' and `in_data'.  You need not define this macro on a
@@ -2565,40 +2583,13 @@ extern int avr_case_values_threshold;
 
    Do not define this macro if it does not need to do anything.  */
 
-#define LINK_SPEC "\
-%{!mmcu*:-m avr85xx} \
-%{mmcu=atmega603:-m avrmega603} \
-%{mmcu=atmega103:-m avrmega103} \
-%{mmcu=at43usb320:-m avr3} \
-%{mmcu=at43usb355:-m avr3} \
-%{mmcu=at76c711:-m avr3} \
-%{mmcu=atmega16:-m avrmega161} \
-%{mmcu=atmega161:-m avrmega161} \
-%{mmcu=atmega162:-m avr5 -Tdata 0x800100} \
-%{mmcu=atmega163:-m avrmega161} \
-%{mmcu=atmega32:-m avr5} \
-%{mmcu=atmega323:-m avr5} \
-%{mmcu=atmega64:-m avr5 -Tdata 0x800100} \
-%{mmcu=atmega128:-m avr5 -Tdata 0x800100} \
-%{mmcu=at94k:-m avr5} \
-%{mmcu=atmega8:-m avr4} \
-%{mmcu=atmega83:-m avr4} \
-%{mmcu=atmega85:-m avr4} \
-%{mmcu=atmega8515:-m avr4} \
-%{mmcu=at90s1200|mmcu=attiny1*:-m avr1200} \
-%{mmcu=attiny28:-m avr1} \
-%{mmcu=at90s2313:-m avr23xx} \
-%{mmcu=at90s2323:-m avr23xx} \
-%{mmcu=at90s2333:-m avr23xx} \
-%{mmcu=at90s2343:-m avr23xx} \
-%{mmcu=attiny22:-m avr23xx} \
-%{mmcu=attiny26:-m avr23xx} \
-%{mmcu=at90s4433:-m avr4433} \
-%{mmcu=at90s4414:-m avr44x4} \
-%{mmcu=at90s4434:-m avr44x4} \
-%{mmcu=at90c8534:-m avr85xx} \
-%{mmcu=at90s8535:-m avr85xx} \
-%{mmcu=at90s8515:-m avr85xx}"
+#define LINK_SPEC " %{!mmcu*:-m avr2}\
+%{mmcu=at90s1200|mmcu=attiny1*|mmcu=attiny28:-m avr1} \
+%{mmcu=attiny22|mmcu=attiny26|mmcu=at90s2*|mmcu=at90s4*|mmcu=at90s8*|mmcu=at90c8*:-m avr2}\
+%{mmcu=atmega103|mmcu=atmega603|mmcu=at43*|mmcu=at76*:-m avr3}\
+%{mmcu=atmega8*:-m avr4}\
+%{mmcu=atmega16*|mmcu=atmega32*|mmcu=atmega64|mmcu=atmega128|mmcu=at94k:-m avr5}\
+%{mmcu=atmega64|mmcu=atmega128|mmcu=atmega162: -Tdata 0x800100} "
 
 /* A C string constant that tells the GNU CC driver program options to
    pass to the linker.  It can also specify how to translate options
@@ -2614,6 +2605,9 @@ extern int avr_case_values_threshold;
 
    If this macro is not defined, a default is provided that loads the
    standard C library from the usual place.  See `gcc.c'.  */
+
+#define LIBSTDCXX "-lgcc"
+/* No libstdc++ for now.  Empty string doesn't work.  */
 
 #define LIBGCC_SPEC \
   "%{!mmcu=at90s1*:%{!mmcu=attiny1*:%{!mmcu=attiny28: -lgcc }}}"
@@ -2643,7 +2637,7 @@ extern int avr_case_values_threshold;
 
 #define CRT_BINUTILS_SPECS "\
 %{mmcu=at90s1200|mmcu=avr1:crts1200.o%s} \
-%{mmcu=attiny10|mmcu=attiny11:crttn11.o%s} \
+%{mmcu=attiny11:crttn11.o%s} \
 %{mmcu=attiny12:crttn12.o%s} \
 %{mmcu=attiny15:crttn15.o%s} \
 %{mmcu=attiny28:crttn28.o%s} \
@@ -2663,10 +2657,8 @@ extern int avr_case_values_threshold;
 %{mmcu=atmega603:crtm603.o%s} \
 %{mmcu=at43usb320:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
-%{mmcu=at76c711:crt76711.o%s } \
-%{mmcu=atmega8:crtm8.o%s} \
-%{mmcu=atmega83|mmcu=avr4:crtm83.o%s} \
-%{mmcu=atmega85:crtm85.o%s} \
+%{mmcu=at76c711:crt76711.o%s} \
+%{mmcu=atmega8|mmcu=avr4:crtm8.o%s} \
 %{mmcu=atmega8515:crtm8515.o%s} \
 %{mmcu=atmega16:crtm16.o%s} \
 %{mmcu=atmega161|mmcu=avr5:crtm161.o%s} \

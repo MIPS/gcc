@@ -1,6 +1,6 @@
 /* Test that the MAX isa builtins compile.  */
 /* { dg-do link { target alpha*-*-* } } */
-/* { dg-options "-mcpu=pca56" } */
+/* { dg-options "-mmax" } */
 
 void test_MAX (long x, long y)
 {

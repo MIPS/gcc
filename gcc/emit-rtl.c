@@ -143,16 +143,20 @@ rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 /* A hash table storing CONST_INTs whose absolute value is greater
    than MAX_SAVED_CONST_INT.  */
 
-static htab_t const_int_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_int_htab;
 
 /* A hash table storing memory attribute structures.  */
-static htab_t mem_attrs_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
+     htab_t mem_attrs_htab;
 
 /* A hash table storing register attribute structures.  */
-static htab_t reg_attrs_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct reg_attrs)))
+     htab_t reg_attrs_htab;
 
 /* A hash table storing all CONST_DOUBLEs.  */
-static htab_t const_double_htab;
+static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
+     htab_t const_double_htab;
 
 #define first_insn (cfun->emit->x_first_insn)
 #define last_insn (cfun->emit->x_last_insn)
@@ -164,7 +168,6 @@ static htab_t const_double_htab;
 static rtx make_jump_insn_raw		PARAMS ((rtx));
 static rtx make_call_insn_raw		PARAMS ((rtx));
 static rtx find_line_note		PARAMS ((rtx));
-static void mark_sequence_stack         PARAMS ((struct sequence_stack *));
 static rtx change_address_1		PARAMS ((rtx, enum machine_mode, rtx,
 						 int));
 static void unshare_all_rtl_1		PARAMS ((rtx));
@@ -181,7 +184,6 @@ static rtx lookup_const_double		PARAMS ((rtx));
 static hashval_t mem_attrs_htab_hash    PARAMS ((const void *));
 static int mem_attrs_htab_eq            PARAMS ((const void *,
 						 const void *));
-static void mem_attrs_mark		PARAMS ((const void *));
 static mem_attrs *get_mem_attrs		PARAMS ((HOST_WIDE_INT, tree, rtx,
 						 rtx, unsigned int,
 						 enum machine_mode));
@@ -279,25 +281,6 @@ mem_attrs_htab_eq (x, y)
 
   return (p->alias == q->alias && p->expr == q->expr && p->offset == q->offset
 	  && p->size == q->size && p->align == q->align);
-}
-
-/* This routine is called when we determine that we need a mem_attrs entry.
-   It marks the associated decl and RTL as being used, if present.  */
-
-static void
-mem_attrs_mark (x)
-     const void *x;
-{
-  mem_attrs *p = (mem_attrs *) x;
-
-  if (p->expr)
-    ggc_mark_tree (p->expr);
-
-  if (p->offset)
-    ggc_mark_rtx (p->offset);
-
-  if (p->size)
-    ggc_mark_rtx (p->size);
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -726,7 +709,7 @@ gen_rtx VPARAMS ((enum rtx_code code, enum machine_mode mode, ...))
 	HOST_WIDE_INT arg0 = va_arg (p, HOST_WIDE_INT);
 	HOST_WIDE_INT arg1 = va_arg (p, HOST_WIDE_INT);
 
-        rt_val = immed_double_const (arg0, arg1, mode);
+	rt_val = immed_double_const (arg0, arg1, mode);
       }
       break;
 
@@ -887,17 +870,17 @@ gen_reg_rtx (mode)
       rtx *new1;
       tree *new2;
 
-      new = xrealloc (f->emit->regno_pointer_align, old_size * 2);
+      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
 
-      new1 = (rtx *) xrealloc (f->emit->x_regno_reg_rtx,
-			       old_size * 2 * sizeof (rtx));
+      new1 = (rtx *) ggc_realloc (f->emit->x_regno_reg_rtx,
+				  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
-      new2 = (tree *) xrealloc (f->emit->regno_decl,
-				old_size * 2 * sizeof (tree));
+      new2 = (tree *) ggc_realloc (f->emit->regno_decl,
+				   old_size * 2 * sizeof (tree));
       memset (new2 + old_size, 0, old_size * sizeof (tree));
       f->emit->regno_decl = new2;
 
@@ -2328,8 +2311,8 @@ gen_label_rtx ()
 {
   rtx label;
 
-  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX,
-			      NULL_RTX, label_num++, NULL, NULL);
+  label = gen_rtx_CODE_LABEL (VOIDmode, 0, NULL_RTX, NULL_RTX,
+		  	      NULL, label_num++, NULL, NULL);
 
   LABEL_NUSES (label) = 0;
   LABEL_ALTERNATE_NAME (label) = NULL;
@@ -2389,21 +2372,6 @@ restore_emit_status (p)
      struct function *p ATTRIBUTE_UNUSED;
 {
   last_label_num = 0;
-}
-
-/* Clear out all parts of the state in F that can safely be discarded
-   after the function has been compiled, to let garbage collection
-   reclaim the memory.  */
-
-void
-free_emit_status (f)
-     struct function *f;
-{
-  free (f->emit->x_regno_reg_rtx);
-  free (f->emit->regno_pointer_align);
-  free (f->emit->regno_decl);
-  free (f->emit);
-  f->emit = NULL;
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -3204,9 +3172,9 @@ mark_label_nuses (x)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-        mark_label_nuses (XEXP (x, i));
+	mark_label_nuses (XEXP (x, i));
       else if (fmt[i] == 'E')
-        for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	  mark_label_nuses (XVECEXP (x, i, j));
     }
 }
@@ -3416,6 +3384,8 @@ make_insn_raw (pattern)
   INSN_CODE (insn) = -1;
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
 #ifdef ENABLE_RTL_CHECKING
   if (insn
@@ -3448,6 +3418,8 @@ make_jump_insn_raw (pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
 }
@@ -3468,6 +3440,8 @@ make_call_insn_raw (pattern)
   LOG_LINKS (insn) = NULL;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
+  INSN_SCOPE (insn) = NULL;
+  BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
 }
@@ -3532,8 +3506,8 @@ add_insn_after (insn, after)
 	abort ();
     }
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
+  if (GET_CODE (after) != BARRIER
+      && GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3601,8 +3575,8 @@ add_insn_before (insn, before)
 	abort ();
     }
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (before) < basic_block_for_insn->num_elements
+  if (GET_CODE (before) != BARRIER
+      && GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3681,8 +3655,7 @@ remove_insn (insn)
       if (stack == 0)
 	abort ();
     }
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (insn) < basic_block_for_insn->num_elements
+  if (GET_CODE (insn) != BARRIER
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
@@ -3759,16 +3732,13 @@ reorder_insns (from, to, after)
 
   reorder_insns_nobb (from, to, after);
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
+  if (GET_CODE (after) != BARRIER
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
 
-      if (basic_block_for_insn
-	  && ((unsigned int) INSN_UID (from)
-	      < basic_block_for_insn->num_elements)
+      if (GET_CODE (from) != BARRIER
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (bb2->end == to)
@@ -3795,7 +3765,7 @@ find_line_note (insn)
 
   for (; insn; insn = PREV_INSN (insn))
     if (GET_CODE (insn) == NOTE
-        && NOTE_LINE_NUMBER (insn) >= 0)
+	&& NOTE_LINE_NUMBER (insn) >= 0)
       break;
 
   return insn;
@@ -4076,6 +4046,7 @@ emit_note_before (subtype, before)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = 0;
   NOTE_LINE_NUMBER (note) = subtype;
+  BLOCK_FOR_INSN (note) = NULL;
 
   add_insn_before (note, before);
   return note;
@@ -4196,6 +4167,7 @@ emit_note_after (subtype, after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = 0;
   NOTE_LINE_NUMBER (note) = subtype;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
   return note;
 }
@@ -4220,6 +4192,7 @@ emit_line_note_after (file, line, after)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = file;
   NOTE_LINE_NUMBER (note) = line;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn_after (note, after);
   return note;
 }
@@ -4315,14 +4288,15 @@ emit_insns_after (first, after)
   if (!first)
     return after;
 
-  if (basic_block_for_insn
-      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
+  if (GET_CODE (after) != BARRIER
       && (bb = BLOCK_FOR_INSN (after)))
     {
       bb->flags |= BB_DIRTY;
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
+	if (GET_CODE (last) != BARRIER)
+	  set_block_for_insn (last, bb);
+      if (GET_CODE (last) != BARRIER)
 	set_block_for_insn (last, bb);
-      set_block_for_insn (last, bb);
       if (bb->end == after)
 	bb->end = last;
     }
@@ -4458,6 +4432,7 @@ emit_note (file, line)
   INSN_UID (note) = cur_insn_uid++;
   NOTE_SOURCE_FILE (note) = file;
   NOTE_LINE_NUMBER (note) = line;
+  BLOCK_FOR_INSN (note) = NULL;
   add_insn (note);
   return note;
 }
@@ -4592,6 +4567,9 @@ emit (x)
     abort ();
 }
 
+/* Space for free sequence stack entries.  */
+static GTY ((deletable (""))) struct sequence_stack *free_sequence_stack;
+
 /* Begin emitting insns to a sequence which can be packaged in an
    RTL_EXPR.  If this sequence will contain something that might cause
    the compiler to pop arguments to function calls (because those
@@ -4605,7 +4583,13 @@ start_sequence ()
 {
   struct sequence_stack *tem;
 
-  tem = (struct sequence_stack *) xmalloc (sizeof (struct sequence_stack));
+  if (free_sequence_stack != NULL)
+    {
+      tem = free_sequence_stack;
+      free_sequence_stack = tem->next;
+    }
+  else
+    tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4722,7 +4706,9 @@ end_sequence ()
   seq_rtl_expr = tem->sequence_rtl_expr;
   seq_stack = tem->next;
 
-  free (tem);
+  memset (tem, 0, sizeof (*tem));
+  tem->next = free_sequence_stack;
+  free_sequence_stack = tem;
 }
 
 /* This works like end_sequence, but records the old sequence in FIRST
@@ -4980,7 +4966,7 @@ init_emit ()
 {
   struct function *f = cfun;
 
-  f->emit = (struct emit_status *) xmalloc (sizeof (struct emit_status));
+  f->emit = (struct emit_status *) ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   seq_rtl_expr = NULL;
@@ -4997,14 +4983,16 @@ init_emit ()
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = (unsigned char *) xcalloc (f->emit->regno_pointer_align_length,
-				 sizeof (unsigned char));
+    = (unsigned char *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+					   * sizeof (unsigned char));
 
   regno_reg_rtx
-    = (rtx *) xcalloc (f->emit->regno_pointer_align_length, sizeof (rtx));
+    = (rtx *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+				 * sizeof (rtx));
 
   f->emit->regno_decl
-    = (tree *) xcalloc (f->emit->regno_pointer_align_length, sizeof (tree));
+    = (tree *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
+				  * sizeof (tree));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
   init_virtual_regs (f->emit);
@@ -5038,46 +5026,6 @@ init_emit ()
 #ifdef INIT_EXPANDERS
   INIT_EXPANDERS;
 #endif
-}
-
-/* Mark SS for GC.  */
-
-static void
-mark_sequence_stack (ss)
-     struct sequence_stack *ss;
-{
-  while (ss)
-    {
-      ggc_mark_rtx (ss->first);
-      ggc_mark_tree (ss->sequence_rtl_expr);
-      ss = ss->next;
-    }
-}
-
-/* Mark ES for GC.  */
-
-void
-mark_emit_status (es)
-     struct emit_status *es;
-{
-  rtx *r;
-  tree *t;
-  int i;
-
-  if (es == 0)
-    return;
-
-  for (i = es->regno_pointer_align_length, r = es->x_regno_reg_rtx,
-       t = es->regno_decl;
-       i > 0; --i, ++r, ++t)
-    {
-      ggc_mark_rtx (*r);
-      ggc_mark_tree (*t);
-    }
-
-  mark_sequence_stack (es->sequence_stack);
-  ggc_mark_tree (es->sequence_rtl_expr);
-  ggc_mark_rtx (es->x_first_insn);
 }
 
 /* Generate the constant 0.  */
@@ -5122,18 +5070,14 @@ init_emit_once (line_numbers)
      tables.  */
   const_int_htab = htab_create (37, const_int_htab_hash,
 				const_int_htab_eq, NULL);
-  ggc_add_deletable_htab (const_int_htab, 0, 0);
 
   const_double_htab = htab_create (37, const_double_htab_hash,
 				   const_double_htab_eq, NULL);
-  ggc_add_deletable_htab (const_double_htab, 0, 0);
 
   mem_attrs_htab = htab_create (37, mem_attrs_htab_hash,
 				mem_attrs_htab_eq, NULL);
   reg_attrs_htab = htab_create (37, reg_attrs_htab_hash,
 				reg_attrs_htab_eq, NULL);
-  ggc_add_deletable_htab (mem_attrs_htab, 0, mem_attrs_mark);
-  ggc_add_deletable_htab (reg_attrs_htab, 0, reg_attrs_mark);
 
   no_line_numbers = ! line_numbers;
 
@@ -5188,9 +5132,6 @@ init_emit_once (line_numbers)
     gen_raw_REG (Pmode, VIRTUAL_OUTGOING_ARGS_REGNUM);
   virtual_cfa_rtx = gen_raw_REG (Pmode, VIRTUAL_CFA_REGNUM);
 
-  /* These rtx must be roots if GC is enabled.  */
-  ggc_add_rtx_root (global_rtl, GR_MAX);
-
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
      call to push_function_context_to.  This is needed by the Chill front
@@ -5206,7 +5147,6 @@ init_emit_once (line_numbers)
   for (i = - MAX_SAVED_CONST_INT; i <= MAX_SAVED_CONST_INT; i++)
     const_int_rtx[i + MAX_SAVED_CONST_INT] =
       gen_rtx_raw_CONST_INT (VOIDmode, i);
-  ggc_add_rtx_root (const_int_rtx, 2 * MAX_SAVED_CONST_INT + 1);
 
   if (STORE_FLAG_VALUE >= - MAX_SAVED_CONST_INT
       && STORE_FLAG_VALUE <= MAX_SAVED_CONST_INT)
@@ -5259,12 +5199,6 @@ init_emit_once (line_numbers)
   if (STORE_FLAG_VALUE == 1)
     const_tiny_rtx[1][(int) BImode] = const1_rtx;
 
-  /* For bounded pointers, `&const_tiny_rtx[0][0]' is not the same as
-     `(rtx *) const_tiny_rtx'.  The former has bounds that only cover
-     `const_tiny_rtx[0]', whereas the latter has bounds that cover all.  */
-  ggc_add_rtx_root ((rtx *) const_tiny_rtx, sizeof const_tiny_rtx / sizeof (rtx));
-  ggc_add_rtx_root (&const_true_rtx, 1);
-
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
     = gen_raw_REG (Pmode, RETURN_ADDRESS_POINTER_REGNUM);
@@ -5311,13 +5245,6 @@ init_emit_once (line_numbers)
 
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
     pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
-
-  ggc_add_rtx_root (&pic_offset_table_rtx, 1);
-  ggc_add_rtx_root (&struct_value_rtx, 1);
-  ggc_add_rtx_root (&struct_value_incoming_rtx, 1);
-  ggc_add_rtx_root (&static_chain_rtx, 1);
-  ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
-  ggc_add_rtx_root (&return_address_pointer_rtx, 1);
 }
 
 /* Query and clear/ restore no_line_numbers.  This is used by the
@@ -5378,6 +5305,8 @@ emit_copy_of_insn_after (insn, after)
   /* Update LABEL_NUSES.  */
   mark_jump_label (PATTERN (new), new, 0);
 
+  INSN_SCOPE (new) = INSN_SCOPE (insn);
+
   /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
      make them.  */
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -5406,3 +5335,5 @@ emit_copy_of_insn_after (insn, after)
     }
   return new;
 }
+
+#include "gt-emit-rtl.h"
