@@ -647,6 +647,7 @@ extern tree *last_stmt_ptr		PARAMS ((basic_block));
 extern basic_block latch_block		PARAMS ((basic_block));
 extern bool is_latch_block		PARAMS ((basic_block));
 extern edge find_taken_edge		PARAMS ((basic_block, tree));
+extern int call_expr_flags		PARAMS ((tree));
 
 
 /* In tree-dfa.c  */

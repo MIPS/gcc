@@ -702,7 +702,7 @@ simplify_return_expr (stmt, pre_p)
 #endif
 
 	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
-			 is_simple_rhs, fb_rvalue);
+			 is_simple_val, fb_rvalue);
 	}
     }
 }

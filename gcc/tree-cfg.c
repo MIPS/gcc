@@ -1645,24 +1645,33 @@ is_ctrl_altering_stmt (t)
   if (TREE_CODE (t) == GOTO_EXPR || TREE_CODE (t) == RETURN_EXPR)
     return true;
 
-  /* Calls to non-returning functions also alter the flow of control.  */
+  /* Special calls that may not return.  */
   if (TREE_CODE (t) == CALL_EXPR)
-    {
-      int flags;
-      tree decl = get_callee_fndecl (t);
-
-      if (decl)
-	flags = flags_from_decl_or_type (decl);
-      else
-	{
-	  t = TREE_OPERAND (t, 0);
-	  flags = flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (t)));
-	}
-	
-      return flags & ECF_NORETURN;
-    }
+    return call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP);
 
   return false;
+}
+
+
+/* Return flags associated with the function called by T (see ECF_* in
+   rtl.h)  */
+
+int
+call_expr_flags (t)
+  tree t;
+{
+  int flags;
+  tree decl = get_callee_fndecl (t);
+
+  if (decl)
+    flags = flags_from_decl_or_type (decl);
+  else
+    {
+      t = TREE_OPERAND (t, 0);
+      flags = flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (t)));
+    }
+
+  return flags;
 }
 
 

@@ -1,3 +1,11 @@
+2002-12-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (simplify_return_expr): return statements should only
+	have a GIMPLE value as argument.
+	* tree-cfg.c (call_expr_flags): New function.
+	(is_ctrl_altering_stmt): Call it.
+	* tree-flow.h (extern): Declare it.
+
 2002-12-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (make_goto_expr_edges): Temporary hack to prevent
