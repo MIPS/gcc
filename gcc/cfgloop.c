@@ -615,6 +615,10 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
 	{
 	  dummy->frequency -= EDGE_FREQUENCY (e);
 	  dummy->count -= e->count;
+	  if (dummy->frequency < 0)
+	    dummy->frequency = 0;
+	  if (dummy->count < 0)
+	    dummy->count = 0;
 	  redirect_edge_with_latch_update (e, bb);
 	}
     }
@@ -688,6 +692,10 @@ canonicalize_loop_headers ()
 	    continue;
 	  fallthru->src->frequency -= EDGE_FREQUENCY (e);
 	  fallthru->src->count -= e->count;
+	  if (fallthru->src->frequency < 0)
+	    fallthru->src->frequency = 0;
+	  if (fallthru->src->count < 0)
+	    fallthru->src->count = 1;
 	  redirect_edge_with_latch_update (e, fallthru->dest);
 	}
       alloc_aux_for_edge (fallthru, sizeof (int));
@@ -1177,26 +1185,54 @@ void verify_loop_structure (loops, flags)
     abort ();
 }
 
-/* Returns expected number of LOOP iterations.  */
+/* Returns expected number of LOOP iterations.
+   Comput upper bound on number of iterations in case they do not fit integer
+   to help loop peeling heuristics.  Use exact counts if at all possible.  */
 int
 expected_loop_iterations (loop)
      const struct loop *loop;
 {
-  int freq_in, freq_latch;
   edge e;
 
-  freq_in = 0;
+  if (loop->header->count)
+    {
+      gcov_type count_in, count_latch, expected;
 
-  for (e = loop->header->pred; e; e = e->pred_next)
-    if (e->src == loop->latch)
-      freq_latch = EDGE_FREQUENCY (e);
-    else
-      freq_in += EDGE_FREQUENCY (e);
+      count_in = 0;
+      count_latch = 0;
 
-  if (freq_in == 0)
-    return 0;
+      for (e = loop->header->pred; e; e = e->pred_next)
+	if (e->src == loop->latch)
+	  count_latch = e->count;
+	else
+	  count_in += e->count;
 
-  return freq_latch / freq_in;
+      if (count_in == 0)
+	return 0;
+
+      expected = (count_latch + count_in - 1) / count_in;
+
+      /* Avoid overflows.  */
+      return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
+    }
+  else
+    {
+      int freq_in, freq_latch;
+
+      freq_in = 0;
+      freq_latch = 0;
+
+      for (e = loop->header->pred; e; e = e->pred_next)
+	if (e->src == loop->latch)
+	  freq_latch = EDGE_FREQUENCY (e);
+	else
+	  freq_in += EDGE_FREQUENCY (e);
+
+      if (freq_in == 0)
+	return 0;
+
+      return (freq_latch + freq_in - 1) / freq_in;
+    }
 }
 
 edge
