@@ -1,5 +1,9 @@
 2003-11-11  Richard Henderson  <rth@redhat.com>
 
+	* gimplify.c (gimplify_addr_expr): Clear, not copy, TREE_SIDE_EFFECTS.
+
+2003-11-11  Richard Henderson  <rth@redhat.com>
+
 	PR c/13014
 	* c-simplify.c (gimplify_if_stmt): Remove short circuit.
 	* tree-cfg.c (struct rus_data): Add has_label.

@@ -2347,8 +2347,11 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			   is_gimple_addr_expr_arg, fb_either);
       if (ret != GS_ERROR)
 	{
-	  TREE_SIDE_EFFECTS (expr)
-	    = TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0));
+	  /* At this point, the argument of the ADDR_EXPR should be
+	     sufficiently simple that there are never side effects.  */
+	  /* ??? Could split out the decision code from build1 to verify.  */
+	  TREE_SIDE_EFFECTS (expr) = 0;
+
 	  /* Mark the RHS addressable.  */
 	  (*lang_hooks.mark_addressable) (TREE_OPERAND (expr, 0));
 	}
