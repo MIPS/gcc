@@ -636,7 +636,7 @@ struct sysV68_cumulative_args
 #define CUMULATIVE_ARGS struct sysV68_cumulative_args
 
 #undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 do {(CUM).offset = 0;\
 (CUM).libcall = (LIBNAME) && (*XSTR((LIBNAME), 0) == '*');} while(0)
 

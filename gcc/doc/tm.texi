@@ -3644,7 +3644,7 @@ arguments are passed on the stack, there is no need to store anything in
 should not be empty, so use @code{int}.
 
 @findex INIT_CUMULATIVE_ARGS
-@item INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{indirect})
+@item INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{indirect}, @var{n_named_args})
 A C statement (sans semicolon) for initializing the variable @var{cum}
 for the state at the beginning of the argument list.  The variable has
 type @code{CUMULATIVE_ARGS}.  The value of @var{fntype} is the tree node
@@ -3654,7 +3654,10 @@ if the args are to a compiler support library function.  The value of
 a call through a function pointer.  The value of @var{indirect} is zero
 for a call to an explicitly named function, a library function call, or when
 @code{INIT_CUMULATIVE_ARGS} is used to find arguments for the function
-being compiled.
+being compiled.  @var{n_named_args} is set to the number of named
+arguments, including a structure return address if it is passed as a
+parameter, when making a call.  When processing incoming arguments,
+@var{n_named_args} is set to -1.
 
 When processing a call to a compiler support library function,
 @var{libname} identifies which one.  It is a @code{symbol_ref} rtx which

@@ -781,7 +781,7 @@ default_pass_by_ref (gnu_type)
 #ifdef INIT_CUMULATIVE_ARGS2
   INIT_CUMULATIVE_ARGS2 (cum, NULL_TREE, NULL_RTX, 0, NULL);
 #else
-  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (cum, NULL_TREE, NULL_RTX, 0, 2);
 #endif
 
   /* We pass aggregates by reference if they are sufficiently large.  The

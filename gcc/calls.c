@@ -2468,13 +2468,13 @@ expand_call (exp, target, ignore)
   /* Start updating where the next arg would go.
 
      On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The last argument in
+     calling convention than normal calls.  The fourth argument in
      INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
      or not.  */
 #ifdef INIT_CUMULATIVE_ARGS2
   INIT_CUMULATIVE_ARGS2 (args_so_far, funtype, NULL_RTX, (fndecl == 0), fndecl);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, (fndecl == 0));
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, (fndecl == 0), n_named_args);
 #endif
 
   /* Make a vector to hold all the information about each arg.  */
@@ -3778,7 +3778,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #ifdef INIT_CUMULATIVE_ARGS2
   INIT_CUMULATIVE_ARGS2 (args_so_far, NULL_TREE, fun, 0, NULL);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0, nargs);
 #endif
 #endif
 

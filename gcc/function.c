@@ -4427,7 +4427,7 @@ assign_parms (fndecl)
 #ifdef INIT_CUMULATIVE_ARGS2
   INIT_CUMULATIVE_ARGS2 (args_so_far, fntype, NULL_RTX, 0, fndecl);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0, -1);
 #endif
 #endif
 

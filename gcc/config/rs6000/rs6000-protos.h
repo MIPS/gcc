@@ -29,7 +29,7 @@
 
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int,
-					  int));
+					  int, int));
 extern void rs6000_va_start PARAMS ((tree, rtx));
 #endif /* TREE_CODE */
 

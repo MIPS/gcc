@@ -3924,12 +3924,13 @@ rs6000_return_in_memory (type)
    so we never return a PARALLEL.  */
 
 void
-init_cumulative_args (cum, fntype, libname, incoming, libcall)
+init_cumulative_args (cum, fntype, libname, incoming, libcall, n_named_args)
      CUMULATIVE_ARGS *cum;
      tree fntype;
      rtx libname ATTRIBUTE_UNUSED;
      int incoming;
      int libcall;
+     int n_named_args;
 {
   static CUMULATIVE_ARGS zero_cumulative;
 
@@ -3946,16 +3947,9 @@ init_cumulative_args (cum, fntype, libname, incoming, libcall)
 		 && (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
 		     != void_type_node));
 
-  if (incoming)
-    cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
-
-  else if (cum->prototype)
-    cum->nargs_prototype = (list_length (TYPE_ARG_TYPES (fntype)) - 1
-			    + (TYPE_MODE (TREE_TYPE (fntype)) == BLKmode
-			       || RETURN_IN_MEMORY (TREE_TYPE (fntype))));
-
-  else
-    cum->nargs_prototype = 0;
+  cum->nargs_prototype = 0;
+  if (incoming || cum->prototype)
+    cum->nargs_prototype = n_named_args;
 
   /* Check for a longcall attribute.  */
   if (fntype
