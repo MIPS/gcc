@@ -54,6 +54,13 @@ int main (void)
   SubClass *object;
 
   test_class_with_superclass ("SubClass", "RootClass");
+
+  /* The NeXT runtime's category implementation is lazy: categories are not attached 
+     to classes until the class is initialized (at +initialize time).  */
+#ifdef __NEXT_RUNTIME__
+  [SubClass initialize];
+#endif
+
   test_that_class_has_instance_method ("SubClass", @selector (setState:));
   test_that_class_has_instance_method ("SubClass", @selector (state));
 
