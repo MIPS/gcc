@@ -252,6 +252,7 @@ new_unit (unit_flags * flags)
 {
   unit_t *u;
   stream *s;
+  char tmpname[5 /* fort. */ + 10 /* digits of unit number */ + 1 /* 0 */];
 
   /* Change unspecifieds to defaults */
 
@@ -354,9 +355,9 @@ new_unit (unit_flags * flags)
       if (ioparm.file != NULL)
 	break;
 
-      generate_error (ERROR_MISSING_OPTION,
-		      "FILE parameter required in OPEN statement");
-      return;
+      ioparm.file = tmpname;
+      ioparm.file_len = sprintf(ioparm.file, "fort.%d", ioparm.unit);
+      break;
 
     default:
       internal_error ("new_unit(): Bad status");
@@ -396,7 +397,7 @@ new_unit (unit_flags * flags)
   u->last_record = 0;
   u->current_record = 0;
 
-  /* If the file is direct access, calcuate the maximum record number
+  /* If the file is direct access, calculate the maximum record number
    * via a division now instead of letting the multiplication overflow
    * later. */
 
