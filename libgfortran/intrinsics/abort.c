@@ -1,4 +1,4 @@
-/* Implementation of the CPU_TIME intrinsic.
+/* Implementation of the ABORT intrinsic.
    Copyright (C) 2003 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
