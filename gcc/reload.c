@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -173,6 +173,7 @@ struct decomposition
 
 static rtx secondary_memlocs[NUM_MACHINE_MODES];
 static rtx secondary_memlocs_elim[NUM_MACHINE_MODES][MAX_RECOG_OPERANDS];
+static int secondary_memlocs_elim_used = 0;
 #endif
 
 /* The instruction we are doing reloads for;
@@ -644,6 +645,8 @@ get_secondary_mem (rtx x ATTRIBUTE_UNUSED, enum machine_mode mode,
     }
 
   secondary_memlocs_elim[(int) mode][opnum] = loc;
+  if (secondary_memlocs_elim_used <= (int)mode)
+    secondary_memlocs_elim_used = (int)mode + 1;
   return loc;
 }
 
@@ -2540,7 +2543,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
   /* The eliminated forms of any secondary memory locations are per-insn, so
      clear them out here.  */
 
-  memset (secondary_memlocs_elim, 0, sizeof secondary_memlocs_elim);
+  if (secondary_memlocs_elim_used)
+    {
+      memset (secondary_memlocs_elim, 0,
+	      sizeof (secondary_memlocs_elim[0]) * secondary_memlocs_elim_used);
+      secondary_memlocs_elim_used = 0;
+    }
 #endif
 
   /* Dispose quickly of (set (reg..) (reg..)) if both have hard regs and it
@@ -2605,7 +2613,17 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      if (i == noperands - 1)
 		abort ();
 
-	      commutative = i;
+	      /* We currently only support one commutative pair of
+		 operands.  Some existing asm code currently uses more
+		 than one pair.  Previously, that would usually work,
+		 but sometimes it would crash the compiler.  We
+		 continue supporting that case as well as we can by
+		 silently ignoring all but the first pair.  In the
+		 future we may handle it correctly.  */
+	      if (commutative < 0)
+		commutative = i;
+	      else if (!this_insn_is_asm)
+		abort ();
 	    }
 	  else if (ISDIGIT (c))
 	    {
@@ -2979,9 +2997,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		break;
 
 	      case '%':
-		/* The last operand should not be marked commutative.  */
-		if (i != noperands - 1)
-		  commutative = i;
+		/* We only support one commutative marker, the first
+		   one.  We already set commutative above.  */
 		break;
 
 	      case '?':
@@ -3394,6 +3411,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      else if (modified[i] != RELOAD_WRITE && no_input_reloads
 		       && ! const_to_mem)
 		bad = 1;
+
+#ifdef DISPARAGE_RELOAD_CLASS
+	      reject
+		+= DISPARAGE_RELOAD_CLASS (operand,
+					   (enum reg_class) this_alternative[i]);
+#endif
 
 	      /* We prefer to reload pseudos over reloading other things,
 		 since such reloads may be able to be eliminated later.

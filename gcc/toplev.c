@@ -78,6 +78,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
+#include "alloc-pool.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -94,6 +95,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
+#endif
+
+#ifndef HAVE_conditional_execution
+#define HAVE_conditional_execution 0
 #endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
@@ -276,8 +281,8 @@ enum dump_file_index
   DFI_postreload,
   DFI_flow2,
   DFI_peephole2,
-  DFI_rnreg,
   DFI_ce3,
+  DFI_rnreg,
   DFI_bbro,
   DFI_branch_target_load,
   DFI_sched2,
@@ -327,8 +332,8 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "postreload", 'o', 1, 0, 0 },
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
-  { "rnreg",	'n', 1, 0, 0 },
   { "ce3",	'E', 1, 0, 0 },
+  { "rnreg",	'n', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
   { "btl",	'd', 1, 0, 0 }, /* Yes, duplicate enable switch.  */
   { "sched2",	'R', 1, 0, 0 },
@@ -993,6 +998,23 @@ int flag_evaluation_order = 0;
 
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    2: The version of the ABI first used in G++ 3.4.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+int flag_abi_version = 2;
 
 /* The user symbol prefix after having resolved same.  */
 const char *user_label_prefix;
@@ -2294,12 +2316,14 @@ rest_of_handle_regrename (tree decl, rtx insns)
 static void
 rest_of_handle_reorder_blocks (tree decl, rtx insns)
 {
+  bool changed;
   open_dump_file (DFI_bbro, decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-	       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  changed = cleanup_cfg (CLEANUP_EXPENSIVE
+			 | (!HAVE_conditional_execution
+			    ? CLEANUP_UPDATE_LIFE : 0));
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     tracer ();
@@ -2307,8 +2331,16 @@ rest_of_handle_reorder_blocks (tree decl, rtx insns)
     reorder_basic_blocks ();
   if (flag_reorder_blocks
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+    changed |= cleanup_cfg (CLEANUP_EXPENSIVE
+			    | (!HAVE_conditional_execution
+			       ? CLEANUP_UPDATE_LIFE : 0));
 
+  /* On conditional execution targets we can not update the life cheaply, so
+     we deffer the updating to after both cleanups.  This may lose some cases
+     but should not be terribly bad.  */
+  if (changed && HAVE_conditional_execution)
+    update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		      PROP_DEATH_NOTES | PROP_REG_INFO);
   close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
 }
 
@@ -2796,6 +2828,7 @@ rest_of_handle_life (tree decl, rtx insns)
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
   if (optimize)
     cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
+		 | CLEANUP_LOG_LINKS
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
@@ -2885,6 +2918,13 @@ rest_of_handle_cse2 (tree decl, rtx insns)
     dump_flow_info (rtl_dump_file);
   /* CFG is no longer maintained up-to-date.  */
   tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+
+  /* Run a pass to eliminate duplicated assignments to condition code
+     registers.  We have to run this after bypass_jumps, because it
+     makes it harder for that pass to determine whether a jump can be
+     bypassed safely.  */
+  cse_condition_code_reg ();
+
   purge_all_dead_edges (0);
   delete_trivially_dead_insns (insns, max_reg_num ());
 
@@ -3286,6 +3326,9 @@ rest_of_compilation (tree decl)
 
       if (flag_loop_optimize)
 	rest_of_handle_loop_optimize (decl, insns);
+
+      if (flag_gcse)
+	rest_of_handle_jump_bypass (decl, insns);
     }
 
   timevar_push (TV_FLOW);
@@ -3313,16 +3356,11 @@ rest_of_compilation (tree decl)
   if (flag_tracer)
     rest_of_handle_tracer (decl, insns);
 
-  if (optimize > 0)
-    {
-      if (flag_unswitch_loops
+  if (optimize > 0
+      && (flag_unswitch_loops
 	  || flag_peel_loops
-	  || flag_unroll_loops)
-	rest_of_handle_loop2 (decl, insns);
-
-      if (flag_gcse)
-	rest_of_handle_jump_bypass (decl, insns);
-    }
+	  || flag_unroll_loops))
+    rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
     rest_of_handle_web (decl, insns);
@@ -3440,7 +3478,7 @@ rest_of_compilation (tree decl)
 
   if (optimize)
     {
-      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      life_analysis (insns, rtl_dump_file, PROP_POSTRELOAD);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
 		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
@@ -3474,16 +3512,22 @@ rest_of_compilation (tree decl)
     }
 #endif
 
+  open_dump_file (DFI_ce3, decl);
+  if (optimize)
+    /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+       splitting possibly introduced more crossjumping opportunities.  */
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | CLEANUP_UPDATE_LIFE 
+		 | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
   if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce3, decl);
 
       if_convert (1);
 
-      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
+  close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
 
   if (optimize > 0)
     {
@@ -4563,6 +4607,8 @@ finalize (void)
       stringpool_statistics ();
       dump_tree_statistics ();
       dump_rtx_statistics ();
+      dump_varray_statistics ();
+      dump_alloc_pool_statistics ();
     }
 
   /* Free up memory for the benefit of leak detectors.  */

@@ -281,6 +281,9 @@ jni/classpath/native_state.h \
 jni/classpath/primlib.h
 
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
+## The mysterious backslash is consumed by make.
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -307,6 +310,11 @@ org/w3c/dom/traversal/DocumentTraversal.java \
 org/w3c/dom/traversal/NodeFilter.java \
 org/w3c/dom/traversal/NodeIterator.java \
 org/w3c/dom/traversal/TreeWalker.java
+## See jv_convert_LDADD.
+lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
 org/xml/sax/ext/LexicalHandler.java \
@@ -338,6 +346,11 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java
+## See jv_convert_LDADD.
+lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
+## The mysterious backslash is consumed by make.
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
@@ -438,6 +451,13 @@ $(nat_files) $(x_nat_files): %.lo: %.cc
 ## FIXME: see above
 $(c_files): %.lo: %.c
 	$(LTCOMPILE) -c -o $@ $<
+
+## A special rule for interpret.lo for the time being.  Our current
+## approach to stack-trace handling is fragile and will not work with
+## unit-at-a-time.  So, for now we disable it.  This will be fixed by
+## a larger patch in the future.
+interpret.lo: interpret.cc
+	$(LTCXXCOMPILE) -fno-unit-at-a-time -c -o $@ $<
 
 $(extra_cc_files): %.lo: %.cc
 	$(LTCXXCOMPILE) -c -o $@ $<

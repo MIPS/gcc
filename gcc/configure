@@ -308,7 +308,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility gthread_flags GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir docobjdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_extra_gcc_objs host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP GNATBIND ac_ct_GNATBIND strict1_warn warn_cflags WERROR nocommon_flag EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO libgcc_visibility gthread_flags GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -858,7 +858,7 @@ Optional Features:
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
 			  Categories are: misc,tree,rtl,rtlflag,gc,gcac,fold;
-			  default is misc,tree,gc,rtlflag
+			  default is no checking
   --enable-coverage=LEVEL
 			  enable compiler\'s code coverage collection.
 			  Use to measure compiler performance and locate
@@ -1631,10 +1631,8 @@ echo "${ECHO_T}$generated_files_in_srcdir" >&6
 
 if test "$generated_files_in_srcdir" = "yes"; then
   GENINSRC=''
-  docobjdir='$(srcdir)/doc'
 else
   GENINSRC='#'
-  docobjdir='$(objdir)/doc'
 fi
 
 
@@ -1740,6 +1738,15 @@ fi
 # ---------------
 # Find C compiler
 # ---------------
+
+# If a non-executable a.out is present (e.g. created by GNU as above even if
+# invoked with -v only), the IRIX 6 native ld just overwrites the existing
+# file, even when creating an executable, so an execution test fails.
+# Remove possible default executable files to avoid this.
+#
+# FIXME: This really belongs into AC_PROG_CC and can be removed once
+# Autoconf includes it.
+rm -f a.out a.exe b.out
 
 # Find the native compiler
 ac_ext=c
@@ -3693,8 +3700,11 @@ gcc_cv_cc_supports_ada=no
 # has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
 # Therefore we must check for the error message as well as an
 # unsuccessful exit.
+# Other compilers, like HP Tru64 UNIX cc, exit successfully when
+# given a .adb file, but produce no object file.  So we must check
+# if an object file was really produced to guard against this.
 errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
-if test x"$errors" = x; then
+if test x"$errors" = x && test -f conftest.$ac_objext; then
   gcc_cv_cc_supports_ada=yes
   break
 fi
@@ -3703,7 +3713,7 @@ fi
 echo "$as_me:$LINENO: result: $gcc_cv_cc_supports_ada" >&5
 echo "${ECHO_T}$gcc_cv_cc_supports_ada" >&6
 
-if test x$GNATBIND != xno && test x$gcc_cv_supports_ada != xno; then
+if test x$GNATBIND != xno && test x$gcc_cv_cc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -3736,7 +3746,7 @@ if test "${enable_werror+set}" = set; then
   enableval="$enable_werror"
 
 else
-  enable_werror=yes
+  enable_werror=no
 fi;
 if test x$enable_werror = xyes ; then
   WERROR=-Werror
@@ -3781,8 +3791,8 @@ echo "$as_me: error: unknown check category $check" >&2;}
 esac
 
 else
-  # Enable some checks by default for development versions of GCC
-ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;
+  # By default, disable all checks for release versions of GCC.
+ac_checking=; ac_tree_checking=; ac_gc_checking=; ac_rtlflag_checking=;
 fi;
 nocommon_flag=""
 if test x$ac_checking != x ; then
@@ -4999,7 +5009,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:5002: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:5012: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -8625,6 +8635,7 @@ target_gtfiles=
 . ${srcdir}/config.gcc
 
 extra_objs="${host_extra_objs} ${extra_objs}"
+extra_gcc_objs="${host_extra_gcc_objs} ${extra_gcc_objs}"
 
 # Default the target-machine variables that were not explicitly set.
 if test x"$tm_file" = x
@@ -8766,10 +8777,87 @@ fi
 
 if test x$enable___cxa_atexit = xyes || \
    test x$enable___cxa_atexit = x -a x$default_use_cxa_atexit = xyes; then
+   echo "$as_me:$LINENO: checking for __cxa_atexit" >&5
+echo $ECHO_N "checking for __cxa_atexit... $ECHO_C" >&6
+if test "${ac_cv_func___cxa_atexit+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char __cxa_atexit (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char __cxa_atexit ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub___cxa_atexit) || defined (__stub_____cxa_atexit)
+choke me
+#else
+char (*f) () = __cxa_atexit;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != __cxa_atexit;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func___cxa_atexit=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func___cxa_atexit=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func___cxa_atexit" >&5
+echo "${ECHO_T}$ac_cv_func___cxa_atexit" >&6
+if test $ac_cv_func___cxa_atexit = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define DEFAULT_USE_CXA_ATEXIT 1
 _ACEOF
+
+else
+  echo "__cxa_atexit can't be enabled on this target"
+fi
 
 fi
 
@@ -9436,8 +9524,8 @@ if test "x$gcc_cv_as" = x; then
 		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -9551,8 +9639,8 @@ if test "x$gcc_cv_ld" = x; then
 		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
-		   $test_prefix/lib/gcc-lib/$target_noncanonical \
+	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		   $test_prefix/libexec/gcc/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -10138,6 +10226,7 @@ foo:	.long	25
 	lda	$4,foo($29)			!tprel'
 	tls_first_major=2
 	tls_first_minor=13
+	tls_as_opt=--fatal-warnings
 	;;
   i[34567]86-*-*)
     conftest_s='
@@ -10157,6 +10246,7 @@ foo:	.long	25
 	leal	foo@NTPOFF(%ecx), %eax'
 	tls_first_major=2
 	tls_first_minor=14
+	tls_as_opt=--fatal-warnings
 	;;
   x86_64-*-*)
     conftest_s='
@@ -10171,6 +10261,7 @@ foo:	.long	25
 	movq	$foo@TPOFF, %rax'
 	tls_first_major=2
 	tls_first_minor=14
+	tls_as_opt=--fatal-warnings
 	;;
   ia64-*-*)
     conftest_s='
@@ -10188,6 +10279,7 @@ foo:	data8	25
 	movl	r24 = @tprel(foo#)'
 	tls_first_major=2
 	tls_first_minor=13
+	tls_as_opt=--fatal-warnings
 	;;
   powerpc-*-*)
     conftest_s='
@@ -10213,7 +10305,7 @@ x3:	.space 4
 	addi 9,9,x2@tprel@l'
 	tls_first_major=2
 	tls_first_minor=14
-	tls_as_opt=-a32
+	tls_as_opt="-a32 --fatal-warnings"
 	;;
   powerpc64-*-*)
     conftest_s='
@@ -10247,7 +10339,7 @@ x3:	.space 8
 	nop'
 	tls_first_major=2
 	tls_first_minor=14
-	tls_as_opt=-a64
+	tls_as_opt="-a64 --fatal-warnings"
 	;;
   s390-*-*)
     conftest_s='
@@ -10266,7 +10358,7 @@ foo:	.long	25
 	bas	%r14,0(%r1,%r13):tls_ldcall:foo'
 	tls_first_major=2
 	tls_first_minor=14
-	tls_as_opt=-m31
+	tls_as_opt="-m31 --fatal-warnings"
 	;;
   s390x-*-*)
     conftest_s='
@@ -10284,7 +10376,7 @@ foo:	.long	25
 	brasl	%r14,__tls_get_offset@PLT:tls_ldcall:foo'
 	tls_first_major=2
 	tls_first_minor=14
-	tls_as_opt="-m64 -Aesame"
+	tls_as_opt="-m64 -Aesame --fatal-warnings"
 	;;
   sh-*-* | sh[34]-*-*)
     conftest_s='
@@ -10298,9 +10390,44 @@ foo:	.long	25
 	.long	foo@TPOFF'
 	tls_first_major=2
 	tls_first_minor=13
+	tls_as_opt=--fatal-warnings
 	;;
   sparc*-*-*)
-    conftest_s='
+    case "$target" in
+      sparc*-sun-solaris2.*)
+	on_solaris=yes
+	;;
+      *)
+	on_solaris=no
+	;;
+    esac
+    if test x$on_solaris = xyes && test x$gas_flag = xno; then
+      conftest_s='
+	.section ".tdata",#alloc,#write,#tls
+foo:	.long	25
+	.text
+	sethi	%tgd_hi22(foo), %o0
+	add	%o0, %tgd_lo10(foo), %o1
+	add	%l7, %o1, %o0, %tgd_add(foo)
+	call	__tls_get_addr, %tgd_call(foo)
+	sethi	%tldm_hi22(foo), %l1
+	add	%l1, %tldm_lo10(foo), %l2
+	add	%l7, %l2, %o0, %tldm_add(foo)
+	call	__tls_get_addr, %tldm_call(foo)
+	sethi	%tldo_hix22(foo), %l3
+	xor	%l3, %tldo_lox10(foo), %l4
+	add	%o0, %l4, %l5, %tldo_add(foo)
+	sethi	%tie_hi22(foo), %o3
+	add	%o3, %tie_lo10(foo), %o3
+	ld	[%l7 + %o3], %o2, %tie_ld(foo)
+	add	%g7, %o2, %o4, %tie_add(foo)
+	sethi	%tle_hix22(foo), %l1
+	xor	%l1, %tle_lox10(foo), %o5
+	ld	[%g7 + %o5], %o1'
+	tls_first_major=0
+	tls_first_minor=0
+    else
+      conftest_s='
 	.section ".tdata","awT",@progbits
 foo:	.long	25
 	.text
@@ -10324,7 +10451,8 @@ foo:	.long	25
 	ld	[%g7 + %o5], %o1'
 	tls_first_major=2
 	tls_first_minor=14
-	tls_as_opt=-32
+	tls_as_opt="-32 --fatal-warnings"
+      fi
 	;;
 esac
 if test -z "$tls_first_major"; then
@@ -10342,7 +10470,7 @@ else
 fi
   elif test x$gcc_cv_as != x; then
     echo "$conftest_s" > conftest.s
-    if { ac_try='$gcc_cv_as $tls_as_opt --fatal-warnings -o conftest.o conftest.s >&5'
+    if { ac_try='$gcc_cv_as $tls_as_opt -o conftest.o conftest.s >&5'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -10418,6 +10546,45 @@ if test $gcc_cv_as_alpha_explicit_relocs = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_AS_EXPLICIT_RELOCS 1
+_ACEOF
+
+fi
+    ;;
+
+  cris-*-*)
+    echo "$as_me:$LINENO: checking assembler for -no-mul-bug-abort option" >&5
+echo $ECHO_N "checking assembler for -no-mul-bug-abort option... $ECHO_C" >&6
+if test "${gcc_cv_as_cris_no_mul_bug+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_cris_no_mul_bug=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 15 \) \* 1000 + 91`
+  then gcc_cv_as_cris_no_mul_bug=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '.text' > conftest.s
+    if { ac_try='$gcc_cv_as -no-mul-bug-abort -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_cris_no_mul_bug=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_cris_no_mul_bug" >&5
+echo "${ECHO_T}$gcc_cv_as_cris_no_mul_bug" >&6
+if test $gcc_cv_as_cris_no_mul_bug = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_AS_NO_MUL_BUG_ABORT_OPTION 1
 _ACEOF
 
 fi
@@ -10785,11 +10952,13 @@ fi
 
   powerpc*-*-*)
     case $target in
-      *-*-aix) conftest_s='	.csect .textPR';;
-      *)       conftest_s='	.text';;
+      *-*-aix*) conftest_s='	.csect .text[PR]
+	mfcr 3,128';;
+      *-*-darwin*) conftest_s='	.text
+	mfcr r3,128';;
+      *)       conftest_s='	.text
+	mfcr 3,128';;
     esac
-    conftest_s="$conftest_s
-	mfcr 3,128"
 
     echo "$as_me:$LINENO: checking assembler for mfcr field support" >&5
 echo $ECHO_N "checking assembler for mfcr field support... $ECHO_C" >&6
@@ -10880,7 +11049,7 @@ case "$target" in
   | xstormy16*-*-* | cris-*-* | xtensa-*-*)
     insn="nop"
     ;;
-  ia64*-*-*)
+  ia64*-*-* | s390*-*-*)
     insn="nop 0"
     ;;
   mmix-*-*)
@@ -11144,6 +11313,39 @@ _ACEOF
 fi
 echo "$as_me:$LINENO: result: $gcc_cv_ld_pie" >&5
 echo "${ECHO_T}$gcc_cv_ld_pie" >&6
+
+case "$target" in
+  *-*-linux*)
+    echo "$as_me:$LINENO: checking linker --as-needed support" >&5
+echo $ECHO_N "checking linker --as-needed support... $ECHO_C" >&6
+if test "${gcc_cv_ld_as_needed+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_ld_as_needed=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+         && test $in_tree_ld_is_elf = yes; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    elif test x$gcc_cv_ld != x; then
+      # Check if linker supports --as-needed and --no-as-needed options
+      if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+        gcc_cv_ld_as_needed=yes
+      fi
+    fi
+
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_ld_as_needed" >&5
+echo "${ECHO_T}$gcc_cv_ld_as_needed" >&6
+    if test x"$gcc_cv_ld_as_needed" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LD_AS_NEEDED 1
+_ACEOF
+
+    fi
+    ;;
+esac
 
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
@@ -11449,7 +11651,7 @@ rm -f Make-hooks
 touch Make-hooks
 target_list="all.build all.cross start.encap rest.encap tags \
 	install-normal install-common install-man \
-	uninstall srcextra \
+	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"
 for t in $target_list
@@ -11611,6 +11813,13 @@ objdir=`${PWDCMD-pwd}`
 
 
 
+# If it doesn't already exist, create document directory
+echo "checking for the document directory." 1>&2
+if test -d doc ; then
+  true
+else
+  mkdir doc
+fi
 
 # Echo link setup.
 if test x${build} = x${host} ; then
@@ -12365,7 +12574,6 @@ s,@slibdir@,$slibdir,;t t
 s,@objdir@,$objdir,;t t
 s,@subdirs@,$subdirs,;t t
 s,@srcdir@,$srcdir,;t t
-s,@docobjdir@,$docobjdir,;t t
 s,@all_boot_languages@,$all_boot_languages,;t t
 s,@all_compilers@,$all_compilers,;t t
 s,@all_gtfiles@,$all_gtfiles,;t t
@@ -12386,6 +12594,7 @@ s,@quoted_cc_set_by_configure@,$quoted_cc_set_by_configure,;t t
 s,@cpp_install_dir@,$cpp_install_dir,;t t
 s,@xmake_file@,$xmake_file,;t t
 s,@tmake_file@,$tmake_file,;t t
+s,@extra_gcc_objs@,$extra_gcc_objs,;t t
 s,@extra_headers_list@,$extra_headers_list,;t t
 s,@extra_objs@,$extra_objs,;t t
 s,@extra_parts@,$extra_parts,;t t
@@ -12399,7 +12608,6 @@ s,@gcc_version@,$gcc_version,;t t
 s,@gcc_version_full@,$gcc_version_full,;t t
 s,@gcc_version_trigger@,$gcc_version_trigger,;t t
 s,@host_exeext@,$host_exeext,;t t
-s,@host_extra_gcc_objs@,$host_extra_gcc_objs,;t t
 s,@host_xm_file_list@,$host_xm_file_list,;t t
 s,@host_xm_include_list@,$host_xm_include_list,;t t
 s,@host_xm_defines@,$host_xm_defines,;t t

@@ -744,6 +744,18 @@ extern int fixuplabelno;
 
 #define DBX_REGISTER_NUMBER(REGNO) rs6000_dbx_register_number (REGNO)
 
+/* Map register numbers held in the call frame info that gcc has
+   collected using DWARF_FRAME_REGNUM to those that should be output in
+   .debug_frame and .eh_frame.  We continue to use gcc hard reg numbers
+   for .eh_frame, but use the numbers mandated by the various ABIs for
+   .debug_frame.  rs6000_emit_prologue has translated any combination of
+   CR2, CR3, CR4 saves to a save of CR2.  The actual code emitted saves
+   the whole of CR, so we map CR2_REGNO to the DWARF reg for CR.  */
+#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH)	\
+  ((FOR_EH) ? (REGNO)				\
+   : (REGNO) == CR2_REGNO ? 64			\
+   : DBX_REGISTER_NUMBER (REGNO))
+
 #define TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
 #define TARGET_IN_SMALL_DATA_P  rs6000_elf_in_small_data_p
 #define TARGET_SECTION_TYPE_FLAGS  rs6000_elf_section_type_flags
@@ -1080,16 +1092,16 @@ extern int fixuplabelno;
 
 #define LINK_OS_FREEBSD_SPEC "\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)} \
-    %{Wl,*:%*} \
-    %{v:-V} \
-    %{assert*} %{R*} %{rpath*} %{defsym*} \
-    %{shared:-Bshareable %{h*} %{soname*}} \
-    %{!shared: \
-      %{!static: \
-	%{rdynamic: -export-dynamic} \
-	%{!dynamic-linker: -dynamic-linker /usr/libexec/ld-elf.so.1}} \
-      %{static:-Bstatic}} \
-    %{symbolic:-Bsymbolic}"
+  %{Wl,*:%*} \
+  %{v:-V} \
+  %{assert*} %{R*} %{rpath*} %{defsym*} \
+  %{shared:-Bshareable %{h*} %{soname*}} \
+  %{!shared: \
+    %{!static: \
+      %{rdynamic: -export-dynamic} \
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
+    %{static:-Bstatic}} \
+  %{symbolic:-Bsymbolic}"
 
 /* GNU/Linux support.  */
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
@@ -1302,6 +1314,7 @@ ncrtn.o%s"
   { "cpp_os_openbsd",		CPP_OS_OPENBSD_SPEC },			\
   { "cpp_os_windiss",           CPP_OS_WINDISS_SPEC },                  \
   { "cpp_os_default",		CPP_OS_DEFAULT_SPEC },			\
+  { "fbsd_dynamic_linker",	FBSD_DYNAMIC_LINKER },			\
   SUBSUBTARGET_EXTRA_SPECS
 
 #define	SUBSUBTARGET_EXTRA_SPECS

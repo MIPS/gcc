@@ -1,6 +1,6 @@
 /* Part of CPP library.  File handling.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -509,15 +509,8 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
     cpp_error (pfile, CPP_DL_WARNING,
 	       "%s is shorter than expected", file->path);
 
-  /* Shrink buffer if we allocated substantially too much.  */
-  if (total + 4096 < size)
-    buf = xrealloc (buf, total + 1);
-
-  /* The lexer requires that the buffer be \n-terminated.  */
-  buf[total] = '\n';
-
-  file->buffer = buf;
-  file->st.st_size = total;
+  file->buffer = _cpp_convert_input (pfile, CPP_OPTION (pfile, input_charset),
+				     buf, size, total, &file->st.st_size);
   file->buffer_valid = true;
 
   return true;

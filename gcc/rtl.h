@@ -1452,6 +1452,7 @@ extern rtx emit_copy_of_insn_after (rtx, rtx);
 extern void set_reg_attrs_from_mem (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
+extern int mem_expr_equal_p (tree, tree);
 
 /* In rtl.c */
 extern rtx rtx_alloc (RTX_CODE);
@@ -1530,19 +1531,25 @@ extern rtx assign_temp (tree, int, int, int);
 
 /* In emit-rtl.c */
 extern rtx emit_insn_before (rtx, rtx);
+extern rtx emit_insn_before_noloc (rtx, rtx);
 extern rtx emit_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_before (rtx, rtx);
+extern rtx emit_jump_insn_before_noloc (rtx, rtx);
 extern rtx emit_jump_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_before (rtx, rtx);
+extern rtx emit_call_insn_before_noloc (rtx, rtx);
 extern rtx emit_call_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (int, rtx);
 extern rtx emit_insn_after (rtx, rtx);
+extern rtx emit_insn_after_noloc (rtx, rtx);
 extern rtx emit_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_jump_insn_after (rtx, rtx);
+extern rtx emit_jump_insn_after_noloc (rtx, rtx);
 extern rtx emit_jump_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_after (rtx, rtx);
+extern rtx emit_call_insn_after_noloc (rtx, rtx);
 extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
@@ -1998,6 +2005,7 @@ extern int cse_main (rtx, int, int, FILE *);
 #endif
 extern void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
 				    int, int, int);
+extern void cse_condition_code_reg (void);
 
 /* In jump.c */
 extern int comparison_dominates_p (enum rtx_code, enum rtx_code);

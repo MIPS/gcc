@@ -678,6 +678,13 @@ finish_for_cond (tree cond, tree for_stmt)
 void
 finish_for_expr (tree expr, tree for_stmt)
 {
+  /* If EXPR is an overloaded function, issue an error; there is no
+     context available to use to perform overload resolution.  */
+  if (expr && type_unknown_p (expr))
+    {
+      cxx_incomplete_type_error (expr, TREE_TYPE (expr));
+      expr = error_mark_node;
+    }
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -1722,7 +1729,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
-    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
+			   /*overloaded_p=*/NULL);
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1774,42 +1782,6 @@ finish_this_expr (void)
   return result;
 }
 
-/* Finish a member function call using OBJECT and ARGS as arguments to
-   FN.  Returns an expression for the call.  */
-
-tree 
-finish_object_call_expr (tree fn, tree object, tree args)
-{
-  if (DECL_DECLARES_TYPE_P (fn))
-    {
-      if (processing_template_decl)
-	/* This can happen on code like:
-
-	   class X;
-	   template <class T> void f(T t) {
-	     t.X();
-	   }  
-
-	   We just grab the underlying IDENTIFIER.  */
-	fn = DECL_NAME (fn);
-      else
-	{
-	  error ("calling type `%T' like a method", fn);
-	  return error_mark_node;
-	}
-    }
-  
-  if (processing_template_decl)
-    return build_nt (CALL_EXPR,
-		     build_nt (COMPONENT_REF, object, fn),
-		     args);
-
-  if (name_p (fn))
-    return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-  else
-    return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-}
-
 /* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
    expression was of the form `OBJECT.~DESTRUCTOR' where DESTRUCTOR is
    the TYPE for the type given.  If SCOPE is non-NULL, the expression
@@ -1831,7 +1803,21 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  return error_mark_node;
 	}
       
-      if (!same_type_p (TREE_TYPE (object), destructor))
+      /* [expr.pseudo] says both:
+
+           The type designated by the pseudo-destructor-name shall be
+	   the same as the object type.
+
+         and:
+
+           The cv-unqualified versions of the object type and of the
+	   type designated by the pseudo-destructor-name shall be the
+	   same type.
+
+         We implement the more generous second sentence, since that is
+         what most other compilers do.  */
+      if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object), 
+						      destructor))
 	{
 	  error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
@@ -1978,10 +1964,24 @@ check_template_template_default_arg (tree argument)
 {
   if (TREE_CODE (argument) != TEMPLATE_DECL
       && TREE_CODE (argument) != TEMPLATE_TEMPLATE_PARM
-      && TREE_CODE (argument) != TYPE_DECL
       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
     {
-      error ("invalid default template argument");
+      if (TREE_CODE (argument) == TYPE_DECL)
+	{
+	  tree t = TREE_TYPE (argument);
+
+	  /* Try to emit a slightly smarter error message if we detect
+	     that the user is using a template instantiation.  */
+	  if (CLASSTYPE_TEMPLATE_INFO (t) 
+	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
+	    error ("invalid use of type `%T' as a default value for a "
+	           "template template-parameter", t);
+	  else
+	    error ("invalid use of `%D' as a default value for a template "
+	           "template-parameter", argument);
+	}
+      else
+	error ("invalid default argument for a template template parameter");
       return error_mark_node;
     }
 
@@ -2057,7 +2057,16 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
-  TYPE_PACKED (t) = flag_pack_struct;
+  if (flag_pack_struct)
+    {
+      tree v;
+      TYPE_PACKED (t) = 1;
+      /* Even though the type is being defined for the first time
+	 here, there might have been a forward declaration, so there
+	 might be cv-qualified variants of T.  */
+      for (v = TYPE_NEXT_VARIANT (t); v; v = TYPE_NEXT_VARIANT (v))
+	TYPE_PACKED (v) = 1;
+    }
   /* Reset the interface data, at the earliest possible
      moment, as it might have been set via a class foo;
      before.  */
@@ -2355,11 +2364,16 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
-	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
+	  if (scope 
+	      && (!TYPE_P (scope) 
+		  || (!dependent_type_p (scope)
+		      && !(TREE_CODE (id_expression) == IDENTIFIER_NODE
+			   && IDENTIFIER_TYPENAME_P (id_expression)
+			   && dependent_type_p (TREE_TYPE (id_expression))))))
 	    {
-	      /* Qualified name lookup failed, and the qualifying name
-      		 was not a dependent type.  That is always an
-      		 error.  */
+	      /* If the qualifying type is non-dependent (and the name
+		 does not name a conversion operator to a dependent
+		 type), issue an error.  */
 	      qualified_name_lookup_error (scope, id_expression);
 	      return error_mark_node;
 	    }
@@ -2369,6 +2383,8 @@ finish_id_expression (tree id_expression,
 	      *idk = CP_ID_KIND_UNQUALIFIED;
 	      return id_expression;
 	    }
+	  else
+	    decl = id_expression;
 	}
       /* If DECL is a variable that would be out of scope under
 	 ANSI/ISO rules, but in scope in the ARM, name lookup
@@ -2539,6 +2555,12 @@ finish_id_expression (tree id_expression,
 	  if (integral_constant_expression_p)
 	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
+	  /* If we found a variable, then name lookup during the
+	     instantiation will always resolve to the same VAR_DECL
+	     (or an instantiation thereof).  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL)
+	    return decl;
 	  return id_expression;
 	}
 
@@ -2900,6 +2922,9 @@ expand_body (tree fn)
   /* ??? When is this needed?  */
   saved_function = current_function_decl;
 
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
+
   timevar_push (TV_INTEGRATION);
   optimize_function (fn);
   timevar_pop (TV_INTEGRATION);
@@ -2909,9 +2934,6 @@ expand_body (tree fn)
   current_function_decl = saved_function;
 
   extract_interface_info ();
-
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
 
   /* If this function is marked with the constructor attribute, add it
      to the list of functions to be called along with constructors
@@ -2952,14 +2974,8 @@ void
 expand_or_defer_fn (tree fn)
 {
   /* When the parser calls us after finishing the body of a template
-     function, we don't really want to expand the body.  When we're
-     processing an in-class definition of an inline function,
-     PROCESSING_TEMPLATE_DECL will no longer be set here, so we have
-     to look at the function itself.  */
-  if (processing_template_decl
-      || (DECL_LANG_SPECIFIC (fn) 
-	  && DECL_TEMPLATE_INFO (fn)
-	  && uses_template_parms (DECL_TI_ARGS (fn))))
+     function, we don't really want to expand the body.  */
+  if (processing_template_decl)
     {
       /* Normally, collection only occurs in rest_of_compilation.  So,
 	 if we don't collect here, we never collect junk generated

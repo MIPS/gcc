@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -114,8 +114,6 @@ static int build_primary_vtable (tree, tree);
 static int build_secondary_vtable (tree);
 static void finish_vtbls (tree);
 static void modify_vtable_entry (tree, tree, tree, tree, tree *);
-static tree delete_duplicate_fields_1 (tree, tree);
-static void delete_duplicate_fields (tree);
 static void finish_struct_bits (tree);
 static int alter_access (tree, tree, tree);
 static void handle_using_decl (tree, tree);
@@ -227,7 +225,6 @@ int n_vtable_searches = 0;
 int n_vtable_elems = 0;
 int n_convert_harshness = 0;
 int n_compute_conversion_costs = 0;
-int n_build_method_call = 0;
 int n_inner_fields_searched = 0;
 #endif
 
@@ -867,7 +864,7 @@ add_method (tree type, tree method, int error_p)
 	}
     }
       
-  if (template_class_depth (type))
+  if (processing_template_decl)
     /* TYPE is a template class.  Don't issue any errors now; wait
        until instantiation time to complain.  */
     ;
@@ -957,106 +954,6 @@ add_method (tree type, tree method, int error_p)
 }
 
 /* Subroutines of finish_struct.  */
-
-/* Look through the list of fields for this struct, deleting
-   duplicates as we go.  This must be recursive to handle
-   anonymous unions.
-
-   FIELD is the field which may not appear anywhere in FIELDS.
-   FIELD_PTR, if non-null, is the starting point at which
-   chained deletions may take place.
-   The value returned is the first acceptable entry found
-   in FIELDS.
-
-   Note that anonymous fields which are not of UNION_TYPE are
-   not duplicates, they are just anonymous fields.  This happens
-   when we have unnamed bitfields, for example.  */
-
-static tree
-delete_duplicate_fields_1 (tree field, tree fields)
-{
-  tree x;
-  tree prev = 0;
-  if (DECL_NAME (field) == 0)
-    {
-      if (! ANON_AGGR_TYPE_P (TREE_TYPE (field)))
-	return fields;
-
-      for (x = TYPE_FIELDS (TREE_TYPE (field)); x; x = TREE_CHAIN (x))
-	fields = delete_duplicate_fields_1 (x, fields);
-      return fields;
-    }
-  else
-    {
-      for (x = fields; x; prev = x, x = TREE_CHAIN (x))
-	{
-	  if (DECL_NAME (x) == 0)
-	    {
-	      if (! ANON_AGGR_TYPE_P (TREE_TYPE (x)))
-		continue;
-	      TYPE_FIELDS (TREE_TYPE (x))
-		= delete_duplicate_fields_1 (field, TYPE_FIELDS (TREE_TYPE (x)));
-	      if (TYPE_FIELDS (TREE_TYPE (x)) == 0)
-		{
-		  if (prev == 0)
-		    fields = TREE_CHAIN (fields);
-		  else
-		    TREE_CHAIN (prev) = TREE_CHAIN (x);
-		}
-	    }
-	  else if (TREE_CODE (field) == USING_DECL)
-	    /* A using declaration is allowed to appear more than
-	       once.  We'll prune these from the field list later, and
-	       handle_using_decl will complain about invalid multiple
-	       uses.  */
-	    ;
-	  else if (DECL_NAME (field) == DECL_NAME (x))
-	    {
-	      if (TREE_CODE (field) == CONST_DECL
-		  && TREE_CODE (x) == CONST_DECL)
-		cp_error_at ("duplicate enum value `%D'", x);
-	      else if (TREE_CODE (field) == CONST_DECL
-		       || TREE_CODE (x) == CONST_DECL)
-		cp_error_at ("duplicate field `%D' (as enum and non-enum)",
-			     x);
-	      else if (DECL_DECLARES_TYPE_P (field)
-		       && DECL_DECLARES_TYPE_P (x))
-		{
-		  if (same_type_p (TREE_TYPE (field), TREE_TYPE (x)))
-		    continue;
-		  cp_error_at ("duplicate nested type `%D'", x);
-		}
-	      else if (DECL_DECLARES_TYPE_P (field)
-		       || DECL_DECLARES_TYPE_P (x))
-		{
-		  /* Hide tag decls.  */
-		  if ((TREE_CODE (field) == TYPE_DECL
-		       && DECL_ARTIFICIAL (field))
-		      || (TREE_CODE (x) == TYPE_DECL
-			  && DECL_ARTIFICIAL (x)))
-		    continue;
-		  cp_error_at ("duplicate field `%D' (as type and non-type)",
-			       x);
-		}
-	      else
-		cp_error_at ("duplicate member `%D'", x);
-	      if (prev == 0)
-		fields = TREE_CHAIN (fields);
-	      else
-		TREE_CHAIN (prev) = TREE_CHAIN (x);
-	    }
-	}
-    }
-  return fields;
-}
-
-static void
-delete_duplicate_fields (tree fields)
-{
-  tree x;
-  for (x = fields; x && TREE_CHAIN (x); x = TREE_CHAIN (x))
-    TREE_CHAIN (x) = delete_duplicate_fields_1 (x, TREE_CHAIN (x));
-}
 
 /* Change the access of FDECL to ACCESS in T.  Return 1 if change was
    legit, otherwise return 0.  */
@@ -2193,7 +2090,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 	  TREE_VALUE (purpose_member
 		      (BINFO_TYPE (virtual_offset),
 		       CLASSTYPE_VBASECLASSES (TREE_TYPE (over_return))));
-      else
+      else if (!same_type_p (TREE_TYPE (over_return),
+			     TREE_TYPE (base_return)))
 	{
 	  /* There was no existing virtual thunk (which takes
 	     precedence).  */
@@ -2581,10 +2479,6 @@ finish_struct_anon (tree t)
 		      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
 		continue;
 
-	      if (constructor_name_p (DECL_NAME (elt), t))
-		cp_pedwarn_at ("ISO C++ forbids member `%D' with same name as enclosing class",
-			       elt);
-
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
 		  cp_pedwarn_at ("`%#D' invalid; an anonymous union can only have non-static data members",
@@ -2961,9 +2855,6 @@ check_field_decls (tree t, tree *access_decls,
   int has_pointers;
   int any_default_members;
 
-  /* First, delete any duplicate fields.  */
-  delete_duplicate_fields (TYPE_FIELDS (t));
-
   /* Assume there are no access declarations.  */
   *access_decls = NULL_TREE;
   /* Assume this class has no pointer members.  */
@@ -3032,8 +2923,29 @@ check_field_decls (tree t, tree *access_decls,
 
       /* If we've gotten this far, it's a data member, possibly static,
 	 or an enumerator.  */
-
       DECL_CONTEXT (x) = t;
+
+      /* When this goes into scope, it will be a non-local reference.  */
+      DECL_NONLOCAL (x) = 1;
+
+      if (TREE_CODE (t) == UNION_TYPE)
+	{
+	  /* [class.union]
+
+	     If a union contains a static data member, or a member of
+	     reference type, the program is ill-formed. */
+	  if (TREE_CODE (x) == VAR_DECL)
+	    {
+	      cp_error_at ("`%D' may not be static because it is a member of a union", x);
+	      continue;
+	    }
+	  if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      cp_error_at ("`%D' may not have reference type `%T' because it is a member of a union",
+			   x, type);
+	      continue;
+	    }
+	}
 
       /* ``A local class cannot have static data members.'' ARM 9.4 */
       if (current_function_decl && TREE_STATIC (x))
@@ -3058,20 +2970,8 @@ check_field_decls (tree t, tree *access_decls,
       if (type == error_mark_node)
 	continue;
 	  
-      /* When this goes into scope, it will be a non-local reference.  */
-      DECL_NONLOCAL (x) = 1;
-
-      if (TREE_CODE (x) == CONST_DECL)
+      if (TREE_CODE (x) == CONST_DECL || TREE_CODE (x) == VAR_DECL)
 	continue;
-
-      if (TREE_CODE (x) == VAR_DECL)
-	{
-	  if (TREE_CODE (t) == UNION_TYPE)
-	    /* Unions cannot have static members.  */
-	    cp_error_at ("field `%D' declared static in union", x);
-	      
-	  continue;
-	}
 
       /* Now it can only be a FIELD_DECL.  */
 
@@ -3102,6 +3002,14 @@ check_field_decls (tree t, tree *access_decls,
       
       if (TYPE_PTR_P (type))
 	has_pointers = 1;
+
+      if (CLASS_TYPE_P (type))
+	{
+	  if (CLASSTYPE_REF_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
+	  if (CLASSTYPE_READONLY_FIELDS_NEED_INIT (type))
+	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
+	}
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
 	CLASSTYPE_HAS_MUTABLE (t) = 1;
@@ -3874,8 +3782,8 @@ build_clone (tree fn, tree name)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
       TREE_TYPE (clone) 
-	= build_type_attribute_variant (TREE_TYPE (clone),
-					TYPE_ATTRIBUTES (TREE_TYPE (fn)));
+	= cp_build_type_attribute_variant (TREE_TYPE (clone),
+					   TYPE_ATTRIBUTES (TREE_TYPE (fn)));
     }
 
   /* Copy the function parameters.  But, DECL_ARGUMENTS on a TEMPLATE_DECL
@@ -6288,8 +6196,6 @@ print_class_statistics (void)
 #ifdef GATHER_STATISTICS
   fprintf (stderr, "convert_harshness = %d\n", n_convert_harshness);
   fprintf (stderr, "compute_conversion_costs = %d\n", n_compute_conversion_costs);
-  fprintf (stderr, "build_method_call = %d (inner = %d)\n",
-	   n_build_method_call, n_inner_fields_searched);
   if (n_vtables)
     {
       fprintf (stderr, "vtables = %d; vtable searches = %d\n",

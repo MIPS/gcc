@@ -118,6 +118,8 @@ mercury			Fergus Henderson	fjh@cs.mu.oz.au
 objective-c		Stan Shebs		shebs@apple.com
 objective-c		Ovidiu Predescu		ovidiu@cup.hp.com
 objective-c		Ziemowit Laski		zlaski@apple.com
+libobjc			Nicola Pero		n.pero@mi.flashnet.it
+libobjc			Andrew Pinski		pinskia@physics.uc.edu
 alias analysis		John Carr		jfc@mit.edu
 loop unrolling		Jim Wilson		wilson@specifixinc.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
@@ -129,7 +131,7 @@ caller-save.c		Jeff Law		law@redhat.com
 callgraph		Jan Hubicka		jh@suse.cz
 debugging code		Jim Wilson		wilson@specifixinc.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
-c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
+c++ runtime libs	Paolo Carlini		pcarlini@suse.de
 c++ runtime libs        Gabriel Dos Reis        gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
@@ -193,6 +195,7 @@ Kevin Buettner					kevinb@redhat.com
 Andrew Cagney					cagney@redhat.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
+R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
 David Daney					ddaney@avtrex.com
 Chris Demetriou					cgd@broadcom.com
@@ -248,13 +251,12 @@ Turly O'Connor					turly@apple.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
-Nicola Pero					n.pero@mi.flashnet.it
 Graeme Peterson					gp@qnx.com
 Alexandre Petit-Bianco				apbianco@redhat.com
-Andrew Pinski					pinskia@physics.uc.edu
 Nicolas Pitre					nico@cam.org
 Sebastian Pop                                   s.pop@laposte.net
 Clinton Popetz					cpopetz@cpopetz.com
+Jerry Quinn					jlquinn@optonline.net
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
@@ -272,8 +274,8 @@ Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
-Michael Tiemann					tiemann@redhat.com
 Kresten Krab Thorup				krab@gcc.gnu.org
+Michael Tiemann					tiemann@redhat.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
@@ -287,7 +289,3 @@ Bug database only accounts
 James Dennett					jdennett@acm.org
 Christian Ehrhardt				ehrhardt@mathematik.uni-ulm.de
 Dara Hazeghi					dhazeghi@yahoo.com
-
-Peter Bienstman(?)
-Benjamin Chelf(?)
-Mark Galassi(?)

@@ -168,8 +168,7 @@ tree_size (tree node)
 	case REAL_CST:		return sizeof (struct tree_real_cst);
 	case COMPLEX_CST:	return sizeof (struct tree_complex);
 	case VECTOR_CST:	return sizeof (struct tree_vector);
-	case STRING_CST:
-	  return sizeof (struct tree_string) + TREE_STRING_LENGTH (node);
+	case STRING_CST:	return sizeof (struct tree_string);
 	default:
 	  return (*lang_hooks.tree_size) (code);
 	}
@@ -213,8 +212,8 @@ make_node (enum tree_code code)
   struct tree_common ttmp;
 
   /* We can't allocate a TREE_VEC without knowing how many elements
-     it will have; likewise a STRING_CST without knowing the length.  */
-  if (code == TREE_VEC || code == STRING_CST)
+     it will have.  */
+  if (code == TREE_VEC)
     abort ();
 
   TREE_SET_CODE ((tree)&ttmp, code);
@@ -526,23 +525,10 @@ build_real_from_int_cst (tree type, tree i)
 tree
 build_string (int len, const char *str)
 {
-  tree s;
-  size_t length;
-  
-  length = len + sizeof (struct tree_string);
+  tree s = make_node (STRING_CST);
 
-#ifdef GATHER_STATISTICS
-  tree_node_counts[(int) c_kind]++;
-  tree_node_sizes[(int) c_kind] += length;
-#endif  
-
-  s = ggc_alloc_tree (length);
-
-  memset (s, 0, sizeof (struct tree_common));
-  TREE_SET_CODE (s, STRING_CST);
   TREE_STRING_LENGTH (s) = len;
-  memcpy ((char *) TREE_STRING_POINTER (s), str, len);
-  ((char *) TREE_STRING_POINTER (s))[len] = '\0';
+  TREE_STRING_POINTER (s) = ggc_alloc_string (str, len);
 
   return s;
 }
@@ -1655,6 +1641,13 @@ unsafe_for_reeval (tree expr)
     case TARGET_EXPR:
       unsafeness = 1;
       break;
+
+    case EXIT_BLOCK_EXPR:
+      /* EXIT_BLOCK_LABELED_BLOCK, a.k.a. TREE_OPERAND (expr, 0), holds
+	 a reference to an ancestor LABELED_BLOCK, so we need to avoid
+	 unbounded recursion in the 'e' traversal code below.  */
+      exp = EXIT_BLOCK_RETURN (expr);
+      return exp ? unsafe_for_reeval (exp) : 0;
 
     default:
       tmp = (*lang_hooks.unsafe_for_reeval) (expr);
@@ -4863,6 +4856,10 @@ build_common_tree_nodes (int signed_char)
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+  
+  access_public_node = get_identifier ("public");
+  access_protected_node = get_identifier ("protected");
+  access_private_node = get_identifier ("private");
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.

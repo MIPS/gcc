@@ -308,6 +308,9 @@ do {									\
 
 /* #define DWARF_OFFSET_SIZE PTR_SIZE */
 
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
+
 #if defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
@@ -327,6 +330,8 @@ do {									\
 #undef DTORS_SECTION_ASM_OP
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define TARGET_HAS_F_SETLKW
 
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \

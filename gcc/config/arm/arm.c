@@ -50,6 +50,7 @@
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "debug.h"
 
 /* Forward definitions of types.  */
 typedef struct minipool_node    Mnode;
@@ -85,7 +86,7 @@ static struct machine_function *arm_init_machine_status (void);
 static int number_of_first_bit_set (int);
 static void replace_symbols_in_block (tree, rtx, rtx);
 static void thumb_exit (FILE *, int, rtx);
-static void thumb_pushpop (FILE *, int, int);
+static void thumb_pushpop (FILE *, int, int, int *, int);
 static rtx is_jump_table (rtx);
 static HOST_WIDE_INT get_jump_table_size (rtx);
 static Mnode *move_minipool_fix_forward_ref (Mnode *, Mnode *, HOST_WIDE_INT);
@@ -688,6 +689,9 @@ arm_override_options (void)
       warning ("target CPU does not support THUMB instructions");
       target_flags &= ~ARM_FLAG_THUMB;
     }
+
+  if (!TARGET_APCS_32)
+    inform ("future releases of GCC will not support -mapcs-26");
 
   if (TARGET_APCS_FRAME && TARGET_THUMB)
     {
@@ -2740,7 +2744,7 @@ arm_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
 
   /* After reload constants split into minipools will have addresses
      from a LABEL_REF.  */
-  else if (GET_MODE_SIZE (mode) >= 4 && reload_completed
+  else if (reload_completed
 	   && (GET_CODE (x) == LABEL_REF
 	       || (GET_CODE (x) == CONST
 		   && GET_CODE (XEXP (x, 0)) == PLUS
@@ -2860,8 +2864,10 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, int strict_p)
      load, but that has a restricted addressing range and we are unable
      to tell here whether that is the case.  To be safe we restrict all
      loads to that range.  */
-  range = ((mode) == HImode || (mode) == QImode)
-    ? (arm_arch4 ? 256 : 4095) : 4096;
+  if (arm_arch4)
+    range = (mode == HImode || mode == QImode) ? 256 : 4096;
+  else
+    range = (mode == HImode) ? 4095 : 4096;
 
   return (code == CONST_INT
 	  && INTVAL (index) < range
@@ -4617,7 +4623,6 @@ load_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
-          || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
           || GET_CODE (XEXP (SET_SRC (elt), 1)) != CONST_INT
           || INTVAL (XEXP (SET_SRC (elt), 1)) != (count - 1) * 4)
         return 0;
@@ -4677,7 +4682,6 @@ store_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       /* Now check it more carefully.  */
       if (GET_CODE (SET_DEST (elt)) != REG
           || GET_CODE (XEXP (SET_SRC (elt), 0)) != REG
-          || REGNO (XEXP (SET_SRC (elt), 0)) != REGNO (SET_DEST (elt))
           || GET_CODE (XEXP (SET_SRC (elt), 1)) != CONST_INT
           || INTVAL (XEXP (SET_SRC (elt), 1)) != (count - 1) * 4)
         return 0;
@@ -8245,15 +8249,25 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	return_reg = reg_names[LR_REGNUM];
 
       if ((live_regs_mask & (1 << IP_REGNUM)) == (1 << IP_REGNUM))
-	/* There are two possible reasons for the IP register being saved.
-	   Either a stack frame was created, in which case IP contains the
-	   old stack pointer, or an ISR routine corrupted it.  If this in an
-	   ISR routine then just restore IP, otherwise restore IP into SP.  */
-	if (! IS_INTERRUPT (func_type))
-	  {
-	    live_regs_mask &= ~ (1 << IP_REGNUM);
-	    live_regs_mask |=   (1 << SP_REGNUM);
-	  }
+	{
+	  /* There are three possible reasons for the IP register
+	     being saved.  1) a stack frame was created, in which case
+	     IP contains the old stack pointer, or 2) an ISR routine
+	     corrupted it, or 3) it was saved to align the stack on
+	     iWMMXt.  In case 1, restore IP into SP, otherwise just
+	     restore IP.  */
+	  if (frame_pointer_needed)
+	    {
+	      live_regs_mask &= ~ (1 << IP_REGNUM);
+	      live_regs_mask |=   (1 << SP_REGNUM);
+	    }
+	  else
+	    {
+	      if (! IS_INTERRUPT (func_type)
+		  && ! TARGET_REALLY_IWMMXT)
+		abort ();
+	    }
+	}
 
       /* On some ARM architectures it is faster to use LDR rather than
 	 LDM to load a single register.  On other architectures, the
@@ -11562,7 +11576,8 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
     }
 
   /* Pop as many registers as we can.  */
-  thumb_pushpop (f, regs_available_for_popping, FALSE);
+  thumb_pushpop (f, regs_available_for_popping, FALSE, NULL,
+		 regs_available_for_popping);
 
   /* Process the registers we popped.  */
   if (reg_containing_return_addr == -1)
@@ -11643,7 +11658,8 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
       int  popped_into;
       int  move_to;
       
-      thumb_pushpop (f, regs_available_for_popping, FALSE);
+      thumb_pushpop (f, regs_available_for_popping, FALSE, NULL,
+		     regs_available_for_popping);
 
       /* We have popped either FP or SP.
 	 Move whichever one it is into the correct register.  */
@@ -11663,7 +11679,8 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
     {
       int  popped_into;
       
-      thumb_pushpop (f, regs_available_for_popping, FALSE);
+      thumb_pushpop (f, regs_available_for_popping, FALSE, NULL,
+		     regs_available_for_popping);
 
       popped_into = number_of_first_bit_set (regs_available_for_popping);
 
@@ -11693,12 +11710,20 @@ thumb_exit (FILE *f, int reg_containing_return_addr, rtx eh_ofs)
   asm_fprintf (f, "\tbx\t%r\n", reg_containing_return_addr);
 }
 
-/* Emit code to push or pop registers to or from the stack.  */
+/* Emit code to push or pop registers to or from the stack.  F is the
+   assembly file.  MASK is the registers to push or pop.  PUSH is
+   non-zero if we should push, and zero if we should pop.  For debugging
+   output, if pushing, adjust CFA_OFFSET by the amount of space added
+   to the stack.  REAL_REGS should have the same number of bits set as
+   MASK, and will be used instead (in the same order) to describe which
+   registers were saved - this is used to mark the save slots when we
+   push high registers after moving them to low registers.  */
 static void
-thumb_pushpop (FILE *f, int mask, int push)
+thumb_pushpop (FILE *f, int mask, int push, int *cfa_offset, int real_regs)
 {
   int regno;
   int lo_mask = mask & 0xFF;
+  int pushed_words = 0;
 
   if (lo_mask == 0 && !push && (mask & (1 << 15)))
     {
@@ -11719,6 +11744,8 @@ thumb_pushpop (FILE *f, int mask, int push)
 	  
 	  if ((lo_mask & ~1) != 0)
 	    fprintf (f, ", ");
+
+	  pushed_words++;
 	}
     }
   
@@ -11729,6 +11756,8 @@ thumb_pushpop (FILE *f, int mask, int push)
 	fprintf (f, ", ");
       
       asm_fprintf (f, "%r", LR_REGNUM);
+
+      pushed_words++;
     }
   else if (!push && (mask & (1 << PC_REGNUM)))
     {
@@ -11753,6 +11782,23 @@ thumb_pushpop (FILE *f, int mask, int push)
     }
        
   fprintf (f, "}\n");
+
+  if (push && pushed_words && dwarf2out_do_frame ())
+    {
+      char *l = dwarf2out_cfi_label ();
+      int pushed_mask = real_regs;
+
+      *cfa_offset += pushed_words * 4;
+      dwarf2out_def_cfa (l, SP_REGNUM, *cfa_offset);
+
+      pushed_words = 0;
+      pushed_mask = real_regs;
+      for (regno = 0; regno <= 14; regno++, pushed_mask >>= 1)
+	{
+	  if (pushed_mask & 1)
+	    dwarf2out_reg_save (l, regno, 4 * pushed_words++ - *cfa_offset);
+	}
+    }
 }
 
 void
@@ -11951,7 +11997,7 @@ thumb_unexpanded_epilogue (void)
 	  mask &= (2 << regno) - 1;	/* A noop if regno == 8 */
 
 	  /* Pop the values into the low register(s).  */
-	  thumb_pushpop (asm_out_file, mask, 0);
+	  thumb_pushpop (asm_out_file, mask, 0, NULL, mask);
 
 	  /* Move the value(s) into the high registers.  */
 	  for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
@@ -11993,7 +12039,8 @@ thumb_unexpanded_epilogue (void)
 	 structure was created which includes an adjusted stack
 	 pointer, so just pop everything.  */
       if (live_regs_mask)
-	thumb_pushpop (asm_out_file, live_regs_mask, FALSE);
+	thumb_pushpop (asm_out_file, live_regs_mask, FALSE, NULL,
+		       live_regs_mask);
       
       if (eh_ofs)
 	thumb_exit (asm_out_file, 2, eh_ofs);
@@ -12013,11 +12060,13 @@ thumb_unexpanded_epilogue (void)
       live_regs_mask &= ~(1 << PC_REGNUM);
       
       if (live_regs_mask)
-	thumb_pushpop (asm_out_file, live_regs_mask, FALSE);
+	thumb_pushpop (asm_out_file, live_regs_mask, FALSE, NULL,
+		       live_regs_mask);
 
       if (had_to_push_lr)
 	/* Get the return address into a temporary register.  */
-	thumb_pushpop (asm_out_file, 1 << LAST_ARG_REGNUM, 0);
+	thumb_pushpop (asm_out_file, 1 << LAST_ARG_REGNUM, 0, NULL,
+		       1 << LAST_ARG_REGNUM);
       
       /* Remove the argument registers that were pushed onto the stack.  */
       asm_fprintf (asm_out_file, "\tadd\t%r, %r, #%d\n",
@@ -12163,6 +12212,8 @@ thumb_get_frame_size (void)
 void
 thumb_expand_prologue (void)
 {
+  rtx insn, dwarf;
+
   HOST_WIDE_INT amount = (thumb_get_frame_size ()
 			  + current_function_outgoing_args_size);
   unsigned long func_type;
@@ -12180,15 +12231,21 @@ thumb_expand_prologue (void)
     }
 
   if (frame_pointer_needed)
-    emit_insn (gen_movsi (hard_frame_pointer_rtx, stack_pointer_rtx));
+    {
+      insn = emit_insn (gen_movsi (hard_frame_pointer_rtx, stack_pointer_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
 
   if (amount)
     {
       amount = ROUND_UP_WORD (amount);
       
       if (amount < 512)
-	emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-			       GEN_INT (- amount)));
+	{
+	  insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
+					GEN_INT (- amount)));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
       else
 	{
 	  int regno;
@@ -12228,8 +12285,16 @@ thumb_expand_prologue (void)
 
 	      /* Decrement the stack.  */
 	      emit_insn (gen_movsi (reg, GEN_INT (- amount)));
-	      emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-				     reg));
+	      insn = emit_insn (gen_addsi3 (stack_pointer_rtx,
+					    stack_pointer_rtx, reg));
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
+				   plus_constant (stack_pointer_rtx,
+						  GEN_INT (- amount)));
+	      RTX_FRAME_RELATED_P (dwarf) = 1;
+	      REG_NOTES (insn)
+		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+				     REG_NOTES (insn));
 
 	      /* Restore the low register's original value.  */
 	      emit_insn (gen_movsi (reg, spare));
@@ -12245,8 +12310,17 @@ thumb_expand_prologue (void)
 	      reg = gen_rtx (REG, SImode, regno);
 
 	      emit_insn (gen_movsi (reg, GEN_INT (- amount)));
-	      emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-				     reg));
+
+	      insn = emit_insn (gen_addsi3 (stack_pointer_rtx,
+					    stack_pointer_rtx, reg));
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
+				   plus_constant (stack_pointer_rtx,
+						  GEN_INT (- amount)));
+	      RTX_FRAME_RELATED_P (dwarf) = 1;
+	      REG_NOTES (insn)
+		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
+				     REG_NOTES (insn));
 	    }
 	}
     }
@@ -12307,6 +12381,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   int live_regs_mask = 0;
   int high_regs_pushed = 0;
+  int cfa_offset = 0;
   int regno;
 
   if (IS_NAKED (arm_current_func_type ()))
@@ -12369,6 +12444,16 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	asm_fprintf (f, "\tsub\t%r, %r, #%d\n", 
 		     SP_REGNUM, SP_REGNUM,
 		     current_function_pretend_args_size);
+
+      /* We don't need to record the stores for unwinding (would it
+	 help the debugger any if we did?), but record the change in
+	 the stack pointer.  */
+      if (dwarf2out_do_frame ())
+	{
+	  char *l = dwarf2out_cfi_label ();
+	  cfa_offset = cfa_offset + current_function_pretend_args_size;
+	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);
+	}
     }
 
   for (regno = 0; regno <= LAST_LO_REGNUM; regno++)
@@ -12424,9 +12509,16 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       asm_fprintf
 	(f, "\tsub\t%r, %r, #16\t%@ Create stack backtrace structure\n",
 	 SP_REGNUM, SP_REGNUM);
-      
+
+      if (dwarf2out_do_frame ())
+	{
+	  char *l = dwarf2out_cfi_label ();
+	  cfa_offset = cfa_offset + 16;
+	  dwarf2out_def_cfa (l, SP_REGNUM, cfa_offset);
+	}
+
       if (live_regs_mask)
-	thumb_pushpop (f, live_regs_mask, 1);
+	thumb_pushpop (f, live_regs_mask, 1, &cfa_offset, live_regs_mask);
       
       for (offset = 0, wr = 1 << 15; wr != 0; wr >>= 1)
 	if (wr & live_regs_mask)
@@ -12470,7 +12562,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 		   ARM_HARD_FRAME_POINTER_REGNUM, work_register);
     }
   else if (live_regs_mask)
-    thumb_pushpop (f, live_regs_mask, 1);
+    thumb_pushpop (f, live_regs_mask, 1, &cfa_offset, live_regs_mask);
 
   for (regno = 8; regno < 13; regno++)
     if (THUMB_REG_PUSHED_P (regno))
@@ -12498,6 +12590,8 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
       while (high_regs_pushed > 0)
 	{
+	  int real_regs_mask = 0;
+
 	  for (regno = LAST_LO_REGNUM; regno >= 0; regno--)
 	    {
 	      if (mask & (1 << regno))
@@ -12505,6 +12599,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 		  asm_fprintf (f, "\tmov\t%r, %r\n", regno, next_hi_reg);
 		  
 		  high_regs_pushed--;
+		  real_regs_mask |= (1 << next_hi_reg);
 		  
 		  if (high_regs_pushed)
 		    {
@@ -12520,8 +12615,8 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 		    }
 		}
 	    }
-	  
-	  thumb_pushpop (f, mask, 1);
+
+	  thumb_pushpop (f, mask, 1, &cfa_offset, real_regs_mask);
 	}
 
       if (pushable_regs == 0
@@ -13156,6 +13251,8 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
 		     tree function)
 {
+  static int thunk_label = 0;
+  char label[256];
   int mi_delta = delta;
   const char *const mi_op = mi_delta < 0 ? "sub" : "add";
   int shift = 0;
@@ -13163,6 +13260,14 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
                     ? 1 : 0);
   if (mi_delta < 0)
     mi_delta = - mi_delta;
+  if (TARGET_THUMB)
+    {
+      int labelno = thunk_label++;
+      ASM_GENERATE_INTERNAL_LABEL (label, "LTHUMBFUNC", labelno);
+      fputs ("\tldr\tr12, ", file);
+      assemble_name (file, label);
+      fputc ('\n', file);
+    }
   while (mi_delta != 0)
     {
       if ((mi_delta & (3 << shift)) == 0)
@@ -13176,11 +13281,22 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
           shift += 8;
         }
     }
-  fputs ("\tb\t", file);
-  assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
-  if (NEED_PLT_RELOC)
-    fputs ("(PLT)", file);
-  fputc ('\n', file);
+  if (TARGET_THUMB)
+    {
+      fprintf (file, "\tbx\tr12\n");
+      ASM_OUTPUT_ALIGN (file, 2);
+      assemble_name (file, label);
+      fputs (":\n", file);
+      assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
+    }
+  else
+    {
+      fputs ("\tb\t", file);
+      assemble_name (file, XSTR (XEXP (DECL_RTL (function), 0), 0));
+      if (NEED_PLT_RELOC)
+        fputs ("(PLT)", file);
+      fputc ('\n', file);
+    }
 }
 
 int
