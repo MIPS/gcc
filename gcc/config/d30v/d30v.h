@@ -2013,8 +2013,8 @@ typedef struct machine_function GTY(())
    'next' argument after the variable arguments.  If not defined, a standard
    implementation will be defined that works for arguments passed on the stack.  */
 
-#define EXPAND_BUILTIN_VA_START(STDARG_P, VALIST, NEXTARG)		\
-(d30v_expand_builtin_va_start(STDARG_P, VALIST, NEXTARG))
+#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG)		\
+  d30v_expand_builtin_va_start(VALIST, NEXTARG)
 
 /* Implement the stdarg/varargs va_arg macro.  VALIST is the variable of type
    va_list as a tree, TYPE is the type passed to va_arg.  */
@@ -4285,12 +4285,6 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    arguments that the function accepts.  Some people think a larger threshold
    should be used on RISC machines.  */
 /* #define INTEGRATE_THRESHOLD(DECL) */
-
-/* Define this if the preprocessor should ignore `#sccs' directives and print
-   no error message.
-
-   Defined in svr4.h.  */
-/* #define SCCS_DIRECTIVE */
 
 /* Define this macro if the system header files support C++ as well as C.  This
    macro inhibits the usual method of using system header files in C++, which

@@ -1,7 +1,136 @@
+2002-07-20  Roger Sayle  <roger@eyesopen.com>
+
+	* decl2.c (cxx_decode_option): Simplify -fhandle-exceptions
+	test by using positive_option.  Make whitespace consistent.
+
+2002-07-20  Gabriel Dos Reis  <gdr@nerim.net>
+
+	* spew.c (struct uinparsed_test): Replace 'filename' and 'lineno'
+	members with 'locus'.  Adjust use throughout.
+	(struct feed):  Likewise.
+	(alloc_unparsed_test): Change prototype, take a 'const location_t *'.
+	Adjust use.
+	(snarf_defarg): Use error(), not error_with_file_and_line().
+
+2002-07-19  Chris Demetriou  <cgd@broadcom.com>
+
+	* lang-specs.h (@c++): Include "%2" (cc1plus_spec) wherever
+	cpp_options is included.
+
 2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* Make-lang.in (CXX_C_OBJS): Add tree-alias-ecr.c,
 	tree-alias-type.o, tree-alias-steen.o, disjoint-set.o. 
+
+2002-07-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/2862, c++/2863
+	* pt.c (determine_specialization): Compare the length of
+	TYPE_ARG_TYPES.  Tidy.
+
+2002-07-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/3797
+	* decl.c (duplicate_decls): Don't propagate inlining parameters from
+	olddecl to newdecl when newdecl is a specialization of the 
+	instantiation olddecl.
+
+2002-07-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/4802, c++/5387
+	* decl.c (make_typename_type): Use enforce_access.
+
+2002-07-17  Scott Snyder <snyder@fnal.gov>
+
+	PR c++/7320
+	* rtti.c (get_tinfo_decl): Set DECL_COMDAT.
+
+2002-07-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (add_method): Correct handling of conversion operators.
+
+2002-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7224
+	* class.c (add_method): Simplify.
+
+2002-07-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/7279
+	* tree.c (cp_copy_res_decl_for_inlining): Also copy
+	TREE_ADDRESSABLE.
+
+2002-07-10  Graham Stott  <graham.stott@btinternet.com>
+
+	* pt.c (template_parm_this_level_p, push_template_decl_real):
+	Pass depth as int pointer. 
+
+2002-07-11  Tim Josling  <tej@melbpc.org.au>
+
+	Remove front end hard coding from gengtype.c.  
+
+	* config-lang.in (gtfiles): Add files needed for this front end.
+
+2002-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (unqualified_name_lookup_error): Declare it.
+	(begin_function_definition): Adjust prototype.
+	* lex.c (unqualified_name_lookup_error): New function, split out
+	from ...
+	(do_identifier): ... here.
+	* parse.y (parse_begin_function_definition): New function.
+	(fn.def1): Use it.
+	* semantics.c (begin_function_definition): Accept decl-specifiers
+	and attributes as separate parameters.
+
+2002-07-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/6255
+	* decl.c (lookup_name_real): Build a new TYPENAME_TYPE rather than
+	modifying the old one.
+
+2002-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (constructor_name_p): Declare it.
+	(check_template_template_default_arg): Likewise.
+	* class.c (handle_using_decl): Use constructor_name_p.
+	* decl.c (grokdeclarator): Likewise.
+	* decl2.c (constructor_name_p): Define it.
+	* init.c (build_member_call): Use constructor_name_p.
+	* parse.y (template_parm): Use check_template_template_default_arg.
+	* pt.c (check_explicit_specialization): Use constructor_name_p.
+	* semantics.c (check_template_template_default_arg): New function.
+	
+2002-07-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (can_complete_type_without_circularity): Add static to
+	function definition.
+
+2002-07-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (have_extern_spec): Declare it
+	* decl.c (have_extern_spec): Define it.
+	(start_decl): Eliminate use of used_extern_spec.
+	(start_function): Likewise.
+	* parse.y (have_extern_spec): Remove declaration.
+	(used_extern_spec): Likewise.
+	(frob_specs): Eliminate use of used_extern_spec.
+	(.hush_warning): Likewise.
+
+2002-07-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in (cp/parse.o): Depend on decl.h.
+	* cp-tree.h (do_decl_instantiation): Change prototype.
+	* parse.y: Include decl.h.
+	(parse_decl_instantiation): New function.
+	(explicit_instantiation): Use it.
+	* pt.c (do_decl_instantiation): Accept a DECL, not a DECLARATOR
+	and DECLSPECS.
+	
+2002-07-07  Roger Sayle  <roger@eyesopen.com>
+
+	* error.c (dump_function_name): Use DECL_TEMPLATE_RESULT for
+	constructor and destructor tests when passed a TEMPLATE_DECL.
 
 2002-07-05  Jason Merrill  <jason@redhat.com>
 

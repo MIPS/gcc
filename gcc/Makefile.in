@@ -165,7 +165,7 @@ USER_H = $(srcdir)/ginclude/stdarg.h $(srcdir)/ginclude/stddef.h \
     $(srcdir)/ginclude/stdbool.h $(srcdir)/ginclude/iso646.h \
     $(EXTRA_HEADERS)
 
-# The GCC to use for compiling libgcc.a, enquire, and crt*.o.
+# The GCC to use for compiling libgcc.a and crt*.o.
 # Usually the one we just built.
 # Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
 GCC_FOR_TARGET = ./xgcc -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include -isystem $(build_tooldir)/sys-include
@@ -553,7 +553,8 @@ MACHMODE_H = machmode.h machmode.def @extra_modes_file@
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H)
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
-TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def
+TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h version.h builtins.def \
+          location.h
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h
 DEMANGLE_H = $(srcdir)/../include/demangle.h
 RECOG_H = recog.h
@@ -734,7 +735,8 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o	   \
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	   \
- profile.o real.o recog.o reg-stack.o regclass.o regmove.o regrename.o	   \
+ profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
+ real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  sibcall.o simplify-rtx.o ssa.o ssa-ccp.o ssa-dce.o stmt.o		   \
@@ -758,7 +760,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c insn-constants.h tm-preds.h \
  tree-check.h \
- s-flags s-config s-codes s-mlib s-under s-genrtl s-gtype \
+ s-flags s-config s-codes s-mlib s-under s-genrtl s-gtype gtyp-gen.h \
  s-output s-recog s-emit s-extract s-peep s-check \
  s-attr s-attrtab s-opinit s-preds s-constants s-crt0 \
  genemit$(build_exeext) genoutput$(build_exeext) genrecog$(build_exeext) \
@@ -770,7 +772,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
- enquire$(exeext) protoize$(exeext) unprotoize$(exeext) \
+ protoize$(exeext) unprotoize$(exeext) \
  specs collect2$(exeext) $(USE_COLLECT2) underscore.c \
  gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libbackend.a libgcc.mk \
  $(LANG_STAGESTUFF)
@@ -923,8 +925,6 @@ config.status: $(srcdir)/configure $(srcdir)/config.gcc version.c
 
 all.internal: start.encap rest.encap doc
 # This is what to compile if making a cross-compiler.
-# Note that we can compile enquire using the cross-compiler just built,
-# although we can't run it on this machine.
 all.cross: native gcc-cross cpp$(exeext) specs \
 	$(LIBGCC) $(EXTRA_PARTS) lang.all.cross doc
 # This is what must be made before installing GCC and converting libraries.
@@ -1603,6 +1603,19 @@ global.o : global.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h reload.h function.h
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h insn-config.h output.h toplev.h \
    $(TM_P_H)
 varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) varray.h $(GGC_H) errors.h
+ra.o : ra.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  $(TM_P_H) insn-config.h \
+   $(RECOG_H) integrate.h function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
+   $(BASIC_BLOCK_H) df.h expr.h output.h toplev.h flags.h reload.h ra.h
+ra-build.o : ra-build.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
+   insn-config.h $(RECOG_H) function.h $(REGS_H) hard-reg-set.h \
+   $(BASIC_BLOCK_H) df.h output.h ggc.h ra.h gt-ra-build.h reload.h
+ra-colorize.o : ra-colorize.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
+    function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h output.h ra.h
+ra-debug.o : ra-debug.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H)  insn-config.h \
+   $(RECOG_H) function.h hard-reg-set.h $(BASIC_BLOCK_H) df.h output.h ra.h
+ra-rewrite.o : ra-rewrite.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_P_H) \
+   function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h expr.h \
+   output.h except.h ra.h reload.h insn-config.h
 reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h output.h \
    $(EXPR_H) $(OPTABS_H) reload.h $(RECOG_H) hard-reg-set.h insn-config.h \
    $(REGS_H) function.h real.h toplev.h $(TM_P_H)
@@ -1849,7 +1862,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
-GTFILES = $(GCONFIG_H) \
+GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(HASHTAB_H) \
   $(srcdir)/bitmap.h $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h $(srcdir)/hashtable.h $(srcdir)/real.h \
@@ -1862,31 +1875,60 @@ GTFILES = $(GCONFIG_H) \
   $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/fold-const.c $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
-  $(srcdir)/profile.c $(srcdir)/regclass.c $(srcdir)/reg-stack.c \
+  $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
+  $(srcdir)/reg-stack.c \
   $(srcdir)/sdbout.c $(srcdir)/stmt.c $(srcdir)/stor-layout.c \
   $(srcdir)/disjoint-set.c \
   $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-ecr.h $(srcdir)/tree-alias-steen.h \
-  $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-ecr.c $(srcdir)/tree-alias-steen.c \
-  $(srcdir)/tree-flow.h \
   $(srcdir)/c-objc-common.c $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(out_file) \
-  $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
   @all_gtfiles@
+
+GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
+GTFILES_FILES_FILES = @all_gtfiles_files_files@
+GTFILES_LANG_DIR_NAMES = @subdirs@
+GTFILES_SRCDIR = @srcdir@
 
 gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
-gt-reg-stack.h gt-dependence.h : s-gtype ; @true
+gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
-gt-c-objc-common.h gtype-c.h : s-gtype ; @true
 gt-tree-alias-steen.h : s-gtype ; @true
 gt-tree-alias-type.h : s-gtype ; @true
+gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
 
-s-gtype: gengtype$(build_exeext) $(GTFILES)
-	./gengtype $(GTFILES)
+gtyp-gen.h: Makefile
+	echo "/* This file is machine generated.  Do not edit.  */" > tmp-gtyp.h
+	echo "static const char *srcdir = "  >> tmp-gtyp.h
+	echo "\"$(GTFILES_SRCDIR)\"" >> tmp-gtyp.h
+	echo ";" >> tmp-gtyp.h
+	echo "static const char *lang_files[] = {" >> tmp-gtyp.h
+	ll="$(GTFILES_FILES_FILES)"; \
+	for f in $$ll; do \
+	echo "\"$$f\", "; done >> tmp-gtyp.h
+	echo "NULL};" >> tmp-gtyp.h
+	echo "static const char *langs_for_lang_files[] = {" >> tmp-gtyp.h
+	ff="$(GTFILES_FILES_LANGS)"; \
+	for f in $$ff; do \
+	echo "\"$$f\", " ; done  >> tmp-gtyp.h
+	echo "NULL};" >> tmp-gtyp.h
+	echo "static const char *all_files[] = {" >> tmp-gtyp.h
+	gf="$(GTFILES)"; \
+	for f in $$gf; do \
+	echo "\"$$f\", "; done >> tmp-gtyp.h
+	echo " NULL};" >> tmp-gtyp.h
+	echo "static const char *lang_dir_names[] = { \"c\", " >> tmp-gtyp.h
+	gf="$(GTFILES_LANG_DIR_NAMES)"; \
+	for l in $$gf; do \
+	echo "\"$$l\", "; done >> tmp-gtyp.h
+	echo "NULL};" >> tmp-gtyp.h
+	$(SHELL) $(srcdir)/move-if-change tmp-gtyp.h gtyp-gen.h 
+
+s-gtype: gengtype$(build_exeext)
+	./gengtype
 	$(STAMP) s-gtype
 
 #
@@ -2025,7 +2067,7 @@ gengtype$(build_exeext) : gengtype.o gengtype-lex.o gengtype-yacc.o \
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
 	 gengtype.o gengtype-lex.o gengtype-yacc.o $(HOST_LIBS)
 
-gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h
+gengtype.o : gengtype.c gengtype.h $(HCONFIG_H) $(SYSTEM_H) real.h gtyp-gen.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) \
 	  $(srcdir)/gengtype.c $(OUTPUT_OPTION)
 
@@ -2241,8 +2283,7 @@ gcov$(exeext): $(GCOV_OBJS) $(LIBDEPS)
 # s-* so that mostlyclean does not force the include directory to
 # be rebuilt.
 
-# Build the include directory including float.h (which no longer depends upon
-# enquire).
+# Build the include directory including float.h
 stmp-int-hdrs: $(STMP_FIXINC) $(USER_H) xlimits.h
 # Copy in the headers provided with gcc.
 # The sed command gets just the last file name component;
@@ -2567,7 +2608,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # Delete debugging dump files.
 	-rm -f *.[0-9][0-9].* */*.[0-9][0-9].*
 # Delete some files made during installation.
-	-rm -f specs float.h-* enquire SYSCALLS.c.X SYSCALLS.c
+	-rm -f specs float.h-* SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump
 # Delete files generated for fixproto
 	-rm -rf fix-header$(build_exeext) xsys-protos.h deduced.h tmp-deduced.h \
@@ -2582,6 +2623,11 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 	-rm -f gcc.vrs gcc.kys gcc.tps gcc.pgs gcc.fns
 # Delete core dumps.
 	-rm -f core */core
+# Delete file generated for gengtype.c
+	-rm -f gtyp-gen.h
+# Delete files generated by gengtype.c
+	-rm -f gtype-*
+	-rm -f gt-*
 
 # Delete all files made by compilation
 # that don't exist in the distribution.
@@ -3592,59 +3638,6 @@ risky-stage4: stage4
 .PHONY: risky-stage1 risky-stage2 risky-stage3 risky-stage4
 
 force:
-
-# ---
-# The enquire rules are still useful for building new float-anything.h.
-# Special flags for compiling enquire.
-# We disable optimization to make floating point more reliable.
-ENQUIRE_CFLAGS = -DNO_MEM -DNO_LONG_DOUBLE_IO -O0
-ENQUIRE_LDFLAGS = $(LDFLAGS)
-
-# Enquire target (This is a variable so that a target can choose not to
-# build it.)
-ENQUIRE = enquire
-
-# Test to see whether <float.h> exists in the system header files,
-# and is not derived from GCC.
-FLOAT_H_TEST = \
-  [ -f $(SYSTEM_HEADER_DIR)/float.h ] && \
-  if grep 'ifndef _FLOAT_H___' $(SYSTEM_HEADER_DIR)/float.h >/dev/null; \
-  then false; \
-  else :; fi
-# We pretend to not having a usable <float.h>, hence disable the FLOAT_H_TEST
-# to ensure, we're emitting a full blown <float.h> ourselves.
-FLOAT_H_TEST = false
-
-# Used to compile enquire with standard cc, but have forgotten why.
-# Let's try with GCC.
-enquire: enquire.o $(GCC_PARTS)
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ENQUIRE_LDFLAGS) enquire.o -o $@
-enquire.o: $(srcdir)/enquire.c $(GCC_PASSES) stmp-int-hdrs
-	if $(FLOAT_H_TEST); then \
-	  rm -f include/float.h; \
-	  SYS_FLOAT_H_WRAP=1; \
-	else :; \
-	  SYS_FLOAT_H_WRAP=0; \
-	fi; \
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ALL_CPPFLAGS) $(ENQUIRE_CFLAGS) \
-	  -DSYS_FLOAT_H_WRAP=$$SYS_FLOAT_H_WRAP \
-	  -I. -c $(srcdir)/enquire.c $(OUTPUT_OPTION)
-
-# Create float.h source for the native machine.
-# Make it empty if we can use the system float.h without changes.
-float.h-nat: enquire
-	-./enquire -f > tmp-float.h
-	grep '#define [^_]' tmp-float.h >/dev/null || true > tmp-float.h
-	mv tmp-float.h float.h-nat
-
-# Create a dummy float.h source for a cross-compiler.
-# ??? This isn't used anymore.  Should we create config/float-unkn.h
-# and make that the default float_format in configure?
-float.h-cross:
-	echo "#ifndef	__GCC_FLOAT_NOT_NEEDED" > t-float.h-cross
-	echo "#error float.h values not known for cross-compiler" >> t-float.h-cross
-	echo "#endif" >> t-float.h-cross
-	mv t-float.h-cross float.h-cross
 
 # Rules for generating translated message descriptions.
 # Disabled by autoconf if the tools are not available.

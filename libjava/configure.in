@@ -493,7 +493,8 @@ if test "x${with_newlib}" = "xyes"; then
 
    # If Canadian cross, then don't pick up tools from the build
    # directory.
-   if test x"$build" != x"$with_cross_host" && x"$build" != x"$target"; then
+   if test x"$build" != x"$with_cross_host" \
+        && test x"$build" != x"$target"; then
       CANADIAN=yes
       GCC_UNWIND_INCLUDE=
       GCJ="${target_alias}-gcj"
@@ -912,6 +913,9 @@ case "${host}" in
     ;;
  s390*-*-linux*)
     SIGNAL_HANDLER=include/s390-signal.h
+    ;;
+ x86_64*-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  sparc*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h

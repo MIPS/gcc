@@ -874,7 +874,7 @@ xstormy16_compute_stack_layout ()
     if (REG_NEEDS_SAVE (regno, ifun))
       layout.register_save_size += UNITS_PER_WORD;
   
-  if (current_function_varargs || current_function_stdarg)
+  if (current_function_stdarg)
     layout.stdarg_save_size = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD;
   else
     layout.stdarg_save_size = 0;
@@ -1175,8 +1175,7 @@ xstormy16_build_va_list ()
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */
 void
-xstormy16_expand_builtin_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+xstormy16_expand_builtin_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {

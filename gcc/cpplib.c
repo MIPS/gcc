@@ -162,14 +162,7 @@ D(ident,	T_IDENT,	EXTENSION, IN_I)	   /*     11 */ \
 D(import,	T_IMPORT,	EXTENSION, INCL | EXPAND)  /* 0 ObjC */	\
 D(assert,	T_ASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
 D(unassert,	T_UNASSERT,	EXTENSION, 0)		   /* 0 SVR4 */	\
-SCCS_ENTRY						   /* 0 SVR4? */
-
-/* #sccs is not always recognized.  */
-#ifdef SCCS_DIRECTIVE
-# define SCCS_ENTRY D(sccs, T_SCCS, EXTENSION, 0)
-#else
-# define SCCS_ENTRY /* nothing */
-#endif
+D(sccs,		T_SCCS,		EXTENSION, 0)		   /* 0 SVR4? */
 
 /* Use the table to generate a series of prototypes, an enum for the
    directive names, and an array of directive handlers.  */
@@ -302,9 +295,6 @@ prepare_directive_trad (pfile)
       _cpp_overlay_buffer (pfile, pfile->out.base,
 			   pfile->out.cur - pfile->out.base);
     }
-
-  /* Report diagnostics on the line of the directive.  */
-  pfile->line = pfile->directive_line;
 
   /* Stop ISO C from expanding anything.  */
   pfile->state.prevent_expansion++;
@@ -689,10 +679,6 @@ do_include_common (pfile, type)
 	  if (pfile->cb.include)
 	    (*pfile->cb.include) (pfile, pfile->directive_line,
 				  pfile->directive->name, header);
-
-	  /* Revert to the correct line if traditional.  */
-	  if (CPP_OPTION (pfile, traditional))
-	    pfile->line = pfile->saved_line;
 	  _cpp_execute_include (pfile, header, type);
 	}
     }
@@ -1326,14 +1312,12 @@ _cpp_do__Pragma (pfile)
     }
 }
 
-/* Just ignore #sccs, on systems where we define it at all.  */
-#ifdef SCCS_DIRECTIVE
+/* Just ignore #sccs on all systems.  */
 static void
 do_sccs (pfile)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
 }
-#endif
 
 /* Handle #ifdef.  */
 static void

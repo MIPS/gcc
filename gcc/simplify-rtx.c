@@ -2075,6 +2075,28 @@ simplify_relational_operation (code, mode, op0, op1)
 	    return const0_rtx;
 	  break;
 
+	case LT:
+	  /* Optimize abs(x) < 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const0_rtx;
+	    }
+	  break;
+
+	case GE:
+	  /* Optimize abs(x) >= 0.0.  */
+	  if (trueop1 == CONST0_RTX (mode) && !HONOR_NANS (mode))
+	    {
+	      tem = GET_CODE (trueop0) == FLOAT_EXTEND ? XEXP (trueop0, 0)
+						       : trueop0;
+	      if (GET_CODE (tem) == ABS)
+		return const1_rtx;
+	    }
+	  break;
+
 	default:
 	  break;
 	}
@@ -2307,6 +2329,14 @@ simplify_subreg (outermode, op, innermode, byte)
 	  for (; n_elts--; i += step)
 	    {
 	      elt = CONST_VECTOR_ELT (op, i);
+	      if (GET_CODE (elt) == CONST_DOUBLE
+		  && GET_MODE_CLASS (GET_MODE (elt)) == MODE_FLOAT)
+		{
+		  elt = gen_lowpart_common (int_mode_for_mode (GET_MODE (elt)),
+					    elt);
+		  if (! elt)
+		    return NULL_RTX;
+		}
 	      if (GET_CODE (elt) != CONST_INT)
 		return NULL_RTX;
 	      high = high << shift | sum >> (HOST_BITS_PER_WIDE_INT - shift);
@@ -2318,6 +2348,18 @@ simplify_subreg (outermode, op, innermode, byte)
 	    return immed_double_const (high, sum, outermode);
 	  else
 	    return NULL_RTX;
+	}
+      else if (GET_MODE_CLASS (outermode) == MODE_INT
+	       && (elt_size % GET_MODE_SIZE (outermode) == 0))
+	{
+	  enum machine_mode new_mode
+	    = int_mode_for_mode (GET_MODE_INNER (innermode));
+	  int subbyte = byte % elt_size;
+
+	  op = simplify_subreg (new_mode, op, innermode, byte - subbyte);
+	    if (! op)
+	      return NULL_RTX;
+	  return simplify_subreg (outermode, op, new_mode, subbyte);
 	}
       else if (GET_MODE_CLASS (outermode) != MODE_VECTOR_INT
 	       && GET_MODE_CLASS (outermode) != MODE_VECTOR_FLOAT)

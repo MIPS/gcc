@@ -1063,7 +1063,7 @@ is_simplifiable_builtin (expr)
       return !string_constant (t2, &t3);
 
     case BUILT_IN_STDARG_START:
-    case BUILT_IN_VARARGS_START:
+    case BUILT_IN_VA_START:
     case BUILT_IN_VA_COPY:
       return 0;
 

@@ -333,6 +333,10 @@ struct cpp_options
   /* Nonzero means warn about text after an #endif (or #else).  */
   unsigned char warn_endif_labels;
 
+  /* Nonzero means warn about implicit sign changes owing to integer
+     promotions.  */
+  unsigned char warn_num_sign_change;
+
   /* Nonzero means turn warnings into errors.  */
   unsigned char warnings_are_errors;
 
@@ -402,8 +406,8 @@ struct cpp_options
      ints and target wide characters, respectively.  */
   size_t precision, char_precision, int_precision, wchar_precision;
 
-  /* Nonzero means chars (wide chars) are unsigned.  */
-  unsigned char unsigned_char, unsigned_wchar;
+  /* True means chars (wide chars) are unsigned.  */
+  bool unsigned_char, unsigned_wchar;
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;

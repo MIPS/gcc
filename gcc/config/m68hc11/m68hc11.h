@@ -1074,9 +1074,6 @@ typedef struct m68hc11_args
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
 /* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  m68hc11_expand_builtin_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m68hc11_va_arg (valist, type)
 
@@ -1708,9 +1705,6 @@ do {                                                                    \
 /* A function address in a call instruction is a byte address (for indexing
    purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE		QImode
-
-/* define SCCS_DIRECTIVE if SCCS directives should be ignored */
-#define SCCS_DIRECTIVE		1
 
 /* Allow $ in identifiers */
 #define DOLLARS_IN_IDENTIFIERS	1

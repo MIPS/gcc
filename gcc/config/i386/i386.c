@@ -747,7 +747,7 @@ const struct attribute_spec ix86_attribute_table[];
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 
-#ifdef DO_GLOBAL_CTORS_BODY
+#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
 
@@ -2446,8 +2446,7 @@ ix86_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 /* Implement va_start.  */
 
 void
-ix86_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+ix86_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -2458,7 +2457,7 @@ ix86_va_start (stdarg_p, valist, nextarg)
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT)
     {
-      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      std_expand_builtin_va_start (valist, nextarg);
       return;
     }
 
@@ -2836,6 +2835,18 @@ const_int_1_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT && INTVAL (op) == 1);
+}
+
+/* Return nonzero if OP is CONST_INT >= 1 and <= 31 (a valid operand
+   for shift & compare patterns, as shifting by 0 does not change flags),
+   else return zero.  */
+
+int
+const_int_1_31_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return (GET_CODE (op) == CONST_INT && INTVAL (op) >= 1 && INTVAL (op) <= 31);
 }
 
 /* Returns 1 if OP is either a symbol reference or a sum of a symbol
@@ -8655,7 +8666,6 @@ ix86_expand_int_movcc (operands)
       if ((compare_code == LTU || compare_code == GEU)
 	  && !second_test && !bypass_test)
 	{
-
 	  /* Detect overlap between destination and compare sources.  */
 	  rtx tmp = out;
 
@@ -8712,7 +8722,7 @@ ix86_expand_int_movcc (operands)
 	      /*
 	       * cmpl op0,op1
 	       * sbbl dest,dest
-	       * xorl $-1, dest
+	       * notl dest
 	       * [addl dest, cf]
 	       *
 	       * Size 8 - 11.
@@ -8728,11 +8738,20 @@ ix86_expand_int_movcc (operands)
 	      /*
 	       * cmpl op0,op1
 	       * sbbl dest,dest
+	       * [notl dest]
 	       * andl cf - ct, dest
 	       * [addl dest, ct]
 	       *
 	       * Size 8 - 11.
 	       */
+
+	      if (cf == 0)
+		{
+		  cf = ct;
+		  ct = 0;
+		  tmp = expand_simple_unop (mode, NOT, tmp, tmp, 1);
+		}
+
 	      tmp = expand_simple_binop (mode, AND,
 					 tmp,
 					 gen_int_mode (cf - ct, mode),
@@ -8847,8 +8866,8 @@ ix86_expand_int_movcc (operands)
 				 ix86_compare_op1, VOIDmode, 0, 1);
 
 	  nops = 0;
-	  /* On x86_64 the lea instruction operates on Pmode, so we need to get arithmetics
-	     done in proper mode to match.  */
+	  /* On x86_64 the lea instruction operates on Pmode, so we need
+	     to get arithmetics done in proper mode to match.  */
 	  if (diff == 1)
 	    tmp = out;
 	  else
@@ -8912,10 +8931,10 @@ ix86_expand_int_movcc (operands)
 
       if (!optimize_size && !TARGET_CMOVE)
 	{
-	  if (ct == 0)
+	  if (cf == 0)
 	    {
-	      ct = cf;
-	      cf = 0;
+	      cf = ct;
+	      ct = 0;
 	      if (FLOAT_MODE_P (GET_MODE (ix86_compare_op0)))
 		/* We may be reversing unordered compare to normal compare,
 		   that is not valid in general (we may convert non-trapping
@@ -8964,18 +8983,16 @@ ix86_expand_int_movcc (operands)
 	      out = emit_store_flag (out, code, ix86_compare_op0,
 				     ix86_compare_op1, VOIDmode, 0, 1);
 
-	      out = expand_simple_binop (mode, PLUS,
-					 out, constm1_rtx,
+	      out = expand_simple_binop (mode, PLUS, out, constm1_rtx,
 					 out, 1, OPTAB_DIRECT);
 	    }
 
-	  out = expand_simple_binop (mode, AND,
-				     out,
+	  out = expand_simple_binop (mode, AND, out,
 				     gen_int_mode (cf - ct, mode),
 				     out, 1, OPTAB_DIRECT);
-	  out = expand_simple_binop (mode, PLUS,
-				     out, GEN_INT (ct),
-				     out, 1, OPTAB_DIRECT);
+	  if (ct)
+	    out = expand_simple_binop (mode, PLUS, out, GEN_INT (ct),
+				       out, 1, OPTAB_DIRECT);
 	  if (out != operands[0])
 	    emit_move_insn (operands[0], out);
 
@@ -11941,7 +11958,7 @@ ix86_init_mmx_sse_builtins ()
 				long_long_unsigned_type_node, NULL_TREE);
 
   tree v2si_ftype_v2sf
-    = build_function_type_list (V2SI_type_node, V2SFmode, NULL_TREE);
+    = build_function_type_list (V2SI_type_node, V2SF_type_node, NULL_TREE);
   tree v2sf_ftype_v2si
     = build_function_type_list (V2SF_type_node, V2SI_type_node, NULL_TREE);
   tree v2si_ftype_v2si
@@ -13517,7 +13534,7 @@ ix86_memory_move_cost (mode, class, in)
     }
 }
 
-#ifdef DO_GLOBAL_CTORS_BODY
+#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void
 ix86_svr3_asm_out_constructor (symbol, priority)
      rtx symbol;
@@ -13664,6 +13681,49 @@ x86_field_alignment (field, computed)
       && !TARGET_ALIGN_DOUBLE)
     return MIN (32, computed);
   return computed;
+}
+
+/* Implement machine specific optimizations.  
+   At the moment we implement single transformation: AMD Athlon works faster
+   when RET is not destination of conditional jump or directly preceeded
+   by other jump instruction.  We avoid the penalty by inserting NOP just
+   before the RET instructions in such cases.  */
+void
+x86_machine_dependent_reorg (first)
+     rtx first ATTRIBUTE_UNUSED;
+{
+  edge e;
+
+  if (!TARGET_ATHLON || !optimize || optimize_size)
+    return;
+  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  {
+    basic_block bb = e->src;
+    rtx ret = bb->end;
+    rtx prev;
+    bool insert = false;
+
+    if (!returnjump_p (ret) || !maybe_hot_bb_p (bb))
+      continue;
+    prev = prev_nonnote_insn (ret);
+    if (prev && GET_CODE (prev) == CODE_LABEL)
+      {
+	edge e;
+	for (e = bb->pred; e; e = e->pred_next)
+	  if (EDGE_FREQUENCY (e) && e->src->index > 0
+	      && !(e->flags & EDGE_FALLTHRU))
+	    insert = 1;
+      }
+    if (!insert)
+      {
+	prev = prev_real_insn (ret);
+	if (prev && GET_CODE (prev) == JUMP_INSN
+	    && any_condjump_p (prev))
+	  insert = 1;
+      }
+    if (insert)
+      emit_insn_before (gen_nop (), ret);
+  }
 }
 
 #include "gt-i386.h"

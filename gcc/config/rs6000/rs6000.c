@@ -140,6 +140,8 @@ static rtx rs6000_generate_compare PARAMS ((enum rtx_code));
 static void rs6000_maybe_dead PARAMS ((rtx));
 static void rs6000_emit_stack_tie PARAMS ((void));
 static void rs6000_frame_related PARAMS ((rtx, rtx, HOST_WIDE_INT, rtx, rtx));
+static void emit_frame_save PARAMS ((rtx, rtx, enum machine_mode,
+				     unsigned int, int, int));
 static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
 static unsigned rs6000_hash_constant PARAMS ((rtx));
 static unsigned toc_hash_function PARAMS ((const void *));
@@ -3096,8 +3098,7 @@ rs6000_build_va_list ()
 /* Implement va_start.  */
 
 void
-rs6000_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p;
+rs6000_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
@@ -3108,7 +3109,7 @@ rs6000_va_start (stdarg_p, valist, nextarg)
   /* Only SVR4 needs something special.  */
   if (DEFAULT_ABI != ABI_V4)
     {
-      std_expand_builtin_va_start (stdarg_p, valist, nextarg);
+      std_expand_builtin_va_start (valist, nextarg);
       return;
     }
 
@@ -6256,6 +6257,11 @@ print_operand (file, x, code)
 	    output_operand_lossage ("invalid %%K value");
 	  print_operand_address (file, XEXP (XEXP (x, 0), 0));
 	  fputs ("@l", file);
+	  /* For GNU as, there must be a non-alphanumeric character
+	     between 'l' and the number.  The '-' is added by
+	     print_operand() already.  */
+	  if (INTVAL (XEXP (XEXP (x, 0), 1)) >= 0)
+	    fputs ("+", file);
 	  print_operand (file, XEXP (XEXP (x, 0), 1), 0);
 	}
       return;
@@ -7350,53 +7356,6 @@ first_reg_to_save ()
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic)))))
       break;
 
-  if (current_function_profile)
-    {
-      /* AIX must save/restore every register that contains a parameter
-	 before/after the .__mcount call plus an additional register
-	 for the static chain, if needed; use registers from 30 down to 22
-	 to do this.  */
-      if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
-	{
-	  int last_parm_reg, profile_first_reg;
-
-	  /* Figure out last used parameter register.  The proper thing
-	     to do is to walk incoming args of the function.  A function
-	     might have live parameter registers even if it has no
-	     incoming args.  */
-	  for (last_parm_reg = 10;
-	       last_parm_reg > 2 && ! regs_ever_live [last_parm_reg];
-	       last_parm_reg--)
-	    ;
-
-	  /* Calculate first reg for saving parameter registers
-	     and static chain.
-	     Skip reg 31 which may contain the frame pointer.  */
-	  profile_first_reg = (33 - last_parm_reg
-			       - (current_function_needs_context ? 1 : 0));
-#if TARGET_MACHO
-          /* Need to skip another reg to account for R31 being PICBASE
-             (when flag_pic is set) or R30 being used as the frame
-             pointer (when flag_pic is not set).  */
-          --profile_first_reg;
-#endif
-	  /* Do not save frame pointer if no parameters needs to be saved.  */
-	  if (profile_first_reg == 31)
-	    profile_first_reg = 32;
-
-	  if (first_reg > profile_first_reg)
-	    first_reg = profile_first_reg;
-	}
-
-      /* SVR4 may need one register to preserve the static chain.  */
-      else if (current_function_needs_context)
-	{
-	  /* Skip reg 31 which may contain the frame pointer.  */
-	  if (first_reg > 30)
-	    first_reg = 30;
-	}
-    }
-
 #if TARGET_MACHO
   if (flag_pic && current_function_uses_pic_offset_table &&
       (first_reg > RS6000_PIC_OFFSET_TABLE_REGNUM))
@@ -8452,6 +8411,9 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
 
   real = copy_rtx (PATTERN (insn));
 
+  if (reg2 != NULL_RTX)
+    real = replace_rtx (real, reg2, rreg);
+  
   real = replace_rtx (real, reg, 
 		      gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode,
 							STACK_POINTER_REGNUM),
@@ -8503,9 +8465,6 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
     }
   else
     abort ();
-  
-  if (reg2 != NULL_RTX)
-    real = replace_rtx (real, reg2, rreg);
   
   RTX_FRAME_RELATED_P (insn) = 1;
   REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
@@ -8573,6 +8532,53 @@ generate_set_vrsave (reg, info, epiloguep)
     XVECEXP (insn, 0, i) = clobs[i];
 
   return insn;
+}
+
+/* Save a register into the frame, and emit RTX_FRAME_RELATED_P notes.
+   Save REGNO into [FRAME_REG + OFFSET] in mode MODE.  */
+
+static void
+emit_frame_save (frame_reg, frame_ptr, mode, regno, offset, total_size)
+     rtx frame_reg;
+     rtx frame_ptr;
+     enum machine_mode mode;
+     unsigned int regno;
+     int offset;
+     int total_size;
+{
+  rtx reg, offset_rtx, insn, mem, addr, int_rtx;
+  rtx replacea, replaceb;
+
+  int_rtx = GEN_INT (offset);
+
+  /* Some cases that need register indexed addressing.  */
+  if ((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+      /* Add more cases here.  */
+      )
+    {
+      /* Whomever calls us must make sure r11 is available in the
+         flow path of instructions in the prologue.  */
+      offset_rtx = gen_rtx_REG (Pmode, 11);
+      emit_move_insn (offset_rtx, int_rtx);
+
+      replacea = offset_rtx;
+      replaceb = int_rtx;
+    }
+  else
+    {
+      offset_rtx = int_rtx;
+      replacea = NULL_RTX;
+      replaceb = NULL_RTX;
+    }
+
+  reg = gen_rtx_REG (mode, regno);
+  addr = gen_rtx_PLUS (Pmode, frame_reg, offset_rtx);
+  mem = gen_rtx_MEM (mode, addr);
+  set_mem_alias_set (mem, rs6000_sr_alias_set);
+
+  insn = emit_move_insn (mem, reg);
+
+  rs6000_frame_related (insn, frame_ptr, total_size, replacea, replaceb);
 }
 
 /* Emit function prologue as insns.  */
@@ -8702,20 +8708,10 @@ rs6000_emit_prologue ()
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
 	if ((regs_ever_live[info->first_fp_reg_save+i] 
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
-	  {
-	    rtx addr, reg, mem;
-	    reg = gen_rtx_REG (DFmode, info->first_fp_reg_save + i);
-	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
-				 GEN_INT (info->fp_save_offset 
-					  + sp_offset 
-					  + 8 * i));
-	    mem = gen_rtx_MEM (DFmode, addr);
-	    set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	    insn = emit_move_insn (mem, reg);
-	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				  NULL_RTX, NULL_RTX);
-	  }
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, DFmode,
+			   info->first_fp_reg_save + i,
+			   info->fp_save_offset + sp_offset + 8 * i,
+			   info->total_size);
     }
   else if (info->first_fp_reg_save != 64)
     {
@@ -8785,20 +8781,10 @@ rs6000_emit_prologue ()
 	    || (i+info->first_gp_reg_save == RS6000_PIC_OFFSET_TABLE_REGNUM
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic == 1)
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic))))
-	  {
-	    rtx addr, reg, mem;
-	    reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
-	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
-				 GEN_INT (info->gp_save_offset 
-					  + sp_offset 
-					  + reg_size * i));
-	    mem = gen_rtx_MEM (reg_mode, addr);
-	    set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	    insn = emit_move_insn (mem, reg);
-	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				  NULL_RTX, NULL_RTX);
-	  }
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, reg_mode,
+			   info->first_gp_reg_save + i,
+			   info->gp_save_offset + sp_offset + reg_size * i,
+			   info->total_size);
     }
 
   /* ??? There's no need to emit actual instructions here, but it's the
@@ -8809,22 +8795,14 @@ rs6000_emit_prologue ()
 
       for (i = 0; ; ++i)
 	{
-	  rtx addr, reg, mem;
-
 	  regno = EH_RETURN_DATA_REGNO (i);
 	  if (regno == INVALID_REGNUM)
 	    break;
 
-	  reg = gen_rtx_REG (reg_mode, regno);
-	  addr = plus_constant (frame_reg_rtx,
-				info->ehrd_offset + sp_offset
-				+ reg_size * (int) i);
-	  mem = gen_rtx_MEM (reg_mode, addr);
-	  set_mem_alias_set (mem, rs6000_sr_alias_set);
-
-	  insn = emit_move_insn (mem, reg);
-	  rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-				NULL_RTX, NULL_RTX);
+	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, reg_mode, regno,
+			   info->ehrd_offset + sp_offset
+			   + reg_size * (int) i,
+			   info->total_size);
 	}
     }
 
@@ -10404,6 +10382,7 @@ output_function_profiler (file, labelno)
   int labelno;
 {
   char buf[100];
+  int save_lr = 8;
 
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
   switch (DEFAULT_ABI)
@@ -10412,13 +10391,21 @@ output_function_profiler (file, labelno)
       abort ();
 
     case ABI_V4:
+      save_lr = 4;
+      /* Fall through.  */
+
     case ABI_AIX_NODESC:
+      if (!TARGET_32BIT)
+	{
+	  warning ("no profiling of 64-bit code for this ABI");
+	  return;
+	}
       fprintf (file, "\tmflr %s\n", reg_names[0]);
       if (flag_pic == 1)
 	{
 	  fputs ("\tbl _GLOBAL_OFFSET_TABLE_@local-4\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
 	  asm_fprintf (file, "\t{l|lwz} %s,", reg_names[0]);
 	  assemble_name (file, buf);
@@ -10426,8 +10413,8 @@ output_function_profiler (file, labelno)
 	}
       else if (flag_pic > 1)
 	{
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  /* Now, we need to get the address of the label.  */
 	  fputs ("\tbl 1f\n\t.long ", file);
 	  assemble_name (file, buf);
@@ -10443,27 +10430,32 @@ output_function_profiler (file, labelno)
 	  asm_fprintf (file, "\t{liu|lis} %s,", reg_names[12]);
 	  assemble_name (file, buf);
 	  fputs ("@ha\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
-		       reg_names[0], reg_names[1]);
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[0], save_lr, reg_names[1]);
 	  asm_fprintf (file, "\t{cal|la} %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@l(%s)\n", reg_names[12]);
 	}
 
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %s,%s\n",
-		     reg_names[30], reg_names[STATIC_CHAIN_REGNUM]);
-      fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
-      if (current_function_needs_context)
-	asm_fprintf (file, "\tmr %s,%s\n",
-		     reg_names[STATIC_CHAIN_REGNUM], reg_names[30]);
+      if (current_function_needs_context && DEFAULT_ABI == ABI_AIX_NODESC)
+	{
+	  asm_fprintf (file, "\t{st|stw} %s,%d(%s)\n",
+		       reg_names[STATIC_CHAIN_REGNUM],
+		       12, reg_names[1]);
+	  fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
+	  asm_fprintf (file, "\t{l|lwz} %s,%d(%s)\n",
+		       reg_names[STATIC_CHAIN_REGNUM],
+		       12, reg_names[1]);
+	}
+      else
+	/* ABI_V4 saves the static chain reg with ASM_OUTPUT_REG_PUSH.  */
+	fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
       break;
 
     case ABI_AIX:
     case ABI_DARWIN:
       /* Don't do anything, done in output_profile_hook ().  */
       break;
-
     }
 }
 

@@ -1,3 +1,39 @@
+2002-07-19  Michael Matz  <matz@suse.de>
+
+	* MAINTAINERS: Add myself as ra* maintainer.
+
+2002-07-16  Chris Demetriou  <cgd@broadcom.com>
+
+	* config.guess: Update to 2002-07-09 version.
+	* config.sub: Update to 2002-07-03 version.
+
+2002-07-15  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* MAINTAINERS: Fix typo in a maintainer email address.
+
+2002-07-11  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Remove two redundant tests.
+
+2002-07-11  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (mips*-*-irix6*o32): Enable stabs.
+
+2002-07-08  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Don't build grez.
+	* Makefile.in: Ditto.
+
+	* Makefile.in: Remove references to bsp, cygmon, libstub.
+	* configure.in: Ditto.
+
+	* configure.in: Remove leftover reference to gdbtest.
+
+2002-07-08  Phil Edwards  <pme@gcc.gnu.org>
+
+	* configure.in (gxx_include_dir):  Change to match versioned
+	C++ headers if --enable-version-specific-runtime-libs is used.
+
 2002-07-04  Steve Ellcey  <sje@cup.hp.com>
 	
 	* ltcf-cxx.sh (hpux*): Modify to support ia64-*-hpux*.

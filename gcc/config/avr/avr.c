@@ -57,7 +57,6 @@ static int    out_set_stack_ptr    PARAMS ((FILE *, int, int));
 static RTX_CODE compare_condition  PARAMS ((rtx insn));
 static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
-void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
 static tree   avr_handle_progmem_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree   avr_handle_fndecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 const struct attribute_spec avr_attribute_table[];
@@ -259,6 +258,16 @@ avr_override_options ()
 }
 
 
+void
+avr_optimization_options (level, size)
+     int level ATTRIBUTE_UNUSED;
+     int size;
+{
+  if (size)
+    flag_reorder_blocks = 0;
+}
+
+
 /* Initialize TMP_REG_RTX and ZERO_REG_RTX */
 void
 avr_init_once ()
@@ -443,6 +452,21 @@ initial_elimination_offset (from, to)
       offset += avr_regs_to_save (NULL);
       return get_frame_size () + 2 + 1 + offset;
     }
+}
+
+/* Return 1 if the function epilogue is just a single "ret".  */
+
+int
+avr_simple_epilogue ()
+{
+  return (! frame_pointer_needed
+	  && get_frame_size () == 0
+	  && avr_regs_to_save (NULL) == 0
+	  && ! interrupt_function_p (current_function_decl)
+	  && ! signal_function_p (current_function_decl)
+	  && ! avr_naked_function_p (current_function_decl)
+	  && ! MAIN_NAME_P (DECL_NAME (current_function_decl))
+	  && ! TREE_THIS_VOLATILE (current_function_decl));
 }
 
 /* This function checks sequence of live registers */
@@ -2762,7 +2786,6 @@ frame_pointer_required_p ()
 {
   return (current_function_calls_alloca
 	  || current_function_args_info.nregs == 0
-	  || current_function_varargs
   	  || get_frame_size () > 0);
 }
 
@@ -5280,23 +5303,13 @@ test_hard_reg_class (class, x)
   int regno = true_regnum (x);
   if (regno < 0)
     return 0;
-  return TEST_HARD_REG_CLASS (class, regno);
+
+  if (TEST_HARD_REG_CLASS (class, regno))
+    return 1;
+
+  return 0;
 }
 
-void
-debug_hard_reg_set (set)
-     HARD_REG_SET set;
-{
-  int i;
-  for (i=0; i < FIRST_PSEUDO_REGISTER; ++i)
-    {
-      if (TEST_HARD_REG_BIT (set, i))
-	{
-	  fprintf (stderr, "r%-2d ", i);
-	}
-    }
-  fprintf (stderr, "\n");
-}
 
 int
 jump_over_one_insn_p (insn, dest)

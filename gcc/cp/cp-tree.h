@@ -3904,6 +3904,7 @@ extern tree declare_global_var                  PARAMS ((tree, tree));
 extern void register_dtor_fn                    PARAMS ((tree));
 extern tmpl_spec_kind current_tmpl_spec_kind    PARAMS ((int));
 extern tree cp_fname_init			PARAMS ((const char *));
+extern bool have_extern_spec;
 
 /* in decl2.c */
 extern int check_java_method			PARAMS ((tree));
@@ -3925,6 +3926,7 @@ extern tree grokoptypename			PARAMS ((tree, tree));
 extern void cplus_decl_attributes		PARAMS ((tree *, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
+extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
@@ -4060,6 +4062,7 @@ extern void note_got_semicolon			PARAMS ((tree));
 extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
 extern void see_typename			PARAMS ((void));
+extern void unqualified_name_lookup_error       PARAMS ((tree));
 extern tree do_identifier			PARAMS ((tree, int, tree));
 extern tree do_scoped_id			PARAMS ((tree, tree));
 extern tree identifier_typedecl_value		PARAMS ((tree));
@@ -4125,7 +4128,7 @@ extern tree tinst_for_decl			PARAMS ((void));
 extern void mark_decl_instantiated		PARAMS ((tree, int));
 extern int more_specialized			PARAMS ((tree, tree, int, int));
 extern void mark_class_instantiated		PARAMS ((tree, int));
-extern void do_decl_instantiation		PARAMS ((tree, tree, tree));
+extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		PARAMS ((tree, tree, tsubst_flags_t));
 extern tree instantiate_decl			PARAMS ((tree, int));
 extern tree get_bindings			PARAMS ((tree, tree, tree));
@@ -4283,7 +4286,7 @@ extern tree finish_fname                        (tree);
 extern void save_type_access_control		PARAMS ((tree));
 extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
-extern int begin_function_definition            PARAMS ((tree, tree));
+extern int begin_function_definition            (tree, tree, tree);
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
 extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
 extern void finish_translation_unit             PARAMS ((void));
@@ -4317,7 +4320,7 @@ extern void setup_vtbl_ptr			PARAMS ((tree, tree));
 extern void clear_out_block                     PARAMS ((void));
 extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
-
+extern tree check_template_template_default_arg (tree);
 
 /* in spew.c */
 extern void init_spew				PARAMS ((void));

@@ -799,6 +799,7 @@ java/beans/Beans.java \
 java/beans/Customizer.java \
 java/beans/DesignMode.java \
 java/beans/EventSetDescriptor.java \
+java/beans/ExceptionListener.java \
 java/beans/FeatureDescriptor.java \
 java/beans/IndexedPropertyDescriptor.java \
 java/beans/IntrospectionException.java \
@@ -807,6 +808,7 @@ java/beans/MethodDescriptor.java \
 java/beans/ParameterDescriptor.java \
 java/beans/PropertyChangeEvent.java \
 java/beans/PropertyChangeListener.java \
+java/beans/PropertyChangeListenerProxy.java \
 java/beans/PropertyChangeSupport.java \
 java/beans/PropertyDescriptor.java \
 java/beans/PropertyEditor.java \
@@ -815,6 +817,7 @@ java/beans/PropertyEditorSupport.java \
 java/beans/PropertyVetoException.java \
 java/beans/SimpleBeanInfo.java \
 java/beans/VetoableChangeListener.java \
+java/beans/VetoableChangeListenerProxy.java \
 java/beans/VetoableChangeSupport.java \
 java/beans/Visibility.java
 
@@ -1428,10 +1431,21 @@ gnu/java/locale/LocaleInformation_zh_HK.java \
 gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
+gnu/java/security/der/DEREncodingException.java \
+gnu/java/security/provider/DERReader.java \
+gnu/java/security/provider/DERWriter.java \
+gnu/java/security/provider/DSAKeyPairGenerator.java \
+gnu/java/security/provider/DSAParameterGenerator.java \
+gnu/java/security/provider/DSAParameters.java \
+gnu/java/security/provider/DSASignature.java \
 gnu/java/security/provider/DefaultPolicy.java \
 gnu/java/security/provider/Gnu.java \
+gnu/java/security/provider/GnuDSAPrivateKey.java \
+gnu/java/security/provider/GnuDSAPublicKey.java \
+gnu/java/security/provider/MD5.java \
 gnu/java/security/provider/SHA.java \
 gnu/java/security/provider/SHA1PRNG.java \
+gnu/java/security/util/Prime.java \
 gnu/java/text/BaseBreakIterator.java \
 gnu/java/text/CharacterBreakIterator.java \
 gnu/java/text/LineBreakIterator.java \

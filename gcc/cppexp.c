@@ -30,7 +30,8 @@ Boston, MA 02111-1307, USA.  */
 
 struct op
 {
-  cpp_num value;		     /* The value logically "right" of op.  */
+  const cpp_token *token;	/* The token forming op (for diagnostics).  */
+  cpp_num value;		/* The value logically "right" of op.  */
   enum cpp_ttype op;
 };
 
@@ -52,8 +53,7 @@ static cpp_num num_inequality_op PARAMS ((cpp_reader *, cpp_num, cpp_num,
 					  enum cpp_ttype));
 static cpp_num num_equality_op PARAMS ((cpp_reader *, cpp_num, cpp_num,
 					enum cpp_ttype));
-static cpp_num num_mul PARAMS ((cpp_reader *, cpp_num, cpp_num,
-				enum cpp_ttype));
+static cpp_num num_mul PARAMS ((cpp_reader *, cpp_num, cpp_num));
 static cpp_num num_div_op PARAMS ((cpp_reader *, cpp_num, cpp_num,
 				   enum cpp_ttype));
 static cpp_num num_lshift PARAMS ((cpp_num, size_t, size_t));
@@ -65,6 +65,7 @@ static cpp_num eval_token PARAMS ((cpp_reader *, const cpp_token *));
 static struct op *reduce PARAMS ((cpp_reader *, struct op *, enum cpp_ttype));
 static unsigned int interpret_float_suffix PARAMS ((const uchar *, size_t));
 static unsigned int interpret_int_suffix PARAMS ((const uchar *, size_t));
+static void check_promotion PARAMS ((cpp_reader *, const struct op *));
 
 /* Token type abuse to create unary plus and minus operators.  */
 #define CPP_UPLUS (CPP_LAST_CPP_OP + 1)
@@ -318,8 +319,8 @@ cpp_interpret_integer (pfile, token, type)
 
   result.low = 0;
   result.high = 0;
-  result.unsignedp = type & CPP_N_UNSIGNED;
-  result.overflow = 0;
+  result.unsignedp = !!(type & CPP_N_UNSIGNED);
+  result.overflow = false;
 
   p = token->val.str.text;
   end = p + token->val.str.len;
@@ -377,15 +378,17 @@ cpp_interpret_integer (pfile, token, type)
 		   "integer constant is too large for its type");
       /* If too big to be signed, consider it unsigned.  Only warn for
 	 decimal numbers.  Traditional numbers were always signed (but
-	 we still honour an explicit U suffix).  */
+	 we still honour an explicit U suffix); but we only have
+	 traditional semantics in directives.  */
       else if (!result.unsignedp
-	       && !CPP_OPTION (pfile, traditional)
+	       && !(CPP_OPTION (pfile, traditional)
+		    && pfile->state.in_directive)
 	       && !num_positive (result, precision))
 	{
 	  if (base == 10)
 	    cpp_error (pfile, DL_WARNING,
 		       "integer constant is so large that it is unsigned");
-	  result.unsignedp = 1;
+	  result.unsignedp = true;
 	}
     }
 
@@ -407,7 +410,7 @@ append_digit (num, digit, base, precision)
 
   /* Multiply by 8 or 16.  Catching this overflow here means we don't
      need to worry about add_high overflowing.  */
-  overflow = num.high >> (PART_PRECISION - shift);
+  overflow = !!(num.high >> (PART_PRECISION - shift));
   result.high = num.high << shift;
   result.low = num.low << shift;
   result.high |= num.low >> (PART_PRECISION - shift);
@@ -505,9 +508,9 @@ parse_defined (pfile)
 
   pfile->state.prevent_expansion--;
 
-  result.unsignedp = 0;
+  result.unsignedp = false;
   result.high = 0;
-  result.overflow = 0;
+  result.overflow = false;
   result.low = node && node->type == NT_MACRO;
   return result;
 }
@@ -602,8 +605,8 @@ eval_token (pfile, token)
       result.low = temp;
     }
 
-  result.unsignedp = unsignedp;
-  result.overflow = 0;
+  result.unsignedp = !!unsignedp;
+  result.overflow = false;
   return result;
 }
 
@@ -629,60 +632,53 @@ The parser assumes all shifted operators require a left operand unless
 the flag NO_L_OPERAND is set.  These semantics are automatic; any
 extra semantics need to be handled with operator-specific code.  */
 
-/* Flags.  */
+/* Flags.  If CHECK_PROMOTION, we warn if the effective sign of an
+   operand changes because of integer promotions.  */
 #define NO_L_OPERAND	(1 << 0)
 #define LEFT_ASSOC	(1 << 1)
+#define CHECK_PROMOTION	(1 << 2)
 
-/* Arity. */
-#define UNARY		(1 << 0)
-#define BINARY		(1 << 1)
-#define OTHER		(1 << 2)
-
-typedef cpp_num (*binary_handler) PARAMS ((cpp_reader *, cpp_num, cpp_num,
-					   enum cpp_ttype));
 /* Operator to priority map.  Must be in the same order as the first
    N entries of enum cpp_ttype.  */
 static const struct operator
 {
   uchar prio;
   uchar flags;
-  uchar arity;
-  binary_handler handler;
 } optab[] =
 {
-  /* EQ */		{0, 0, OTHER, NULL},	/* Shouldn't happen.  */
-  /* NOT */		{16, NO_L_OPERAND, UNARY, NULL},
-  /* GREATER */		{12, LEFT_ASSOC, BINARY, num_inequality_op},
-  /* LESS */		{12, LEFT_ASSOC, BINARY, num_inequality_op},
-  /* PLUS */		{14, LEFT_ASSOC, BINARY, num_binary_op},
-  /* MINUS */		{14, LEFT_ASSOC, BINARY, num_binary_op},
-  /* MULT */		{15, LEFT_ASSOC, BINARY, num_mul},
-  /* DIV */		{15, LEFT_ASSOC, BINARY, num_div_op},
-  /* MOD */		{15, LEFT_ASSOC, BINARY, num_div_op},
-  /* AND */		{9, LEFT_ASSOC, BINARY, num_bitwise_op},
-  /* OR */		{7, LEFT_ASSOC, BINARY, num_bitwise_op},
-  /* XOR */		{8, LEFT_ASSOC, BINARY, num_bitwise_op},
-  /* RSHIFT */		{13, LEFT_ASSOC, BINARY, num_binary_op},
-  /* LSHIFT */		{13, LEFT_ASSOC, BINARY, num_binary_op},
+  /* EQ */		{0, 0},	/* Shouldn't happen.  */
+  /* NOT */		{16, NO_L_OPERAND},
+  /* GREATER */		{12, LEFT_ASSOC | CHECK_PROMOTION},
+  /* LESS */		{12, LEFT_ASSOC | CHECK_PROMOTION},
+  /* PLUS */		{14, LEFT_ASSOC | CHECK_PROMOTION},
+  /* MINUS */		{14, LEFT_ASSOC | CHECK_PROMOTION},
+  /* MULT */		{15, LEFT_ASSOC | CHECK_PROMOTION},
+  /* DIV */		{15, LEFT_ASSOC | CHECK_PROMOTION},
+  /* MOD */		{15, LEFT_ASSOC | CHECK_PROMOTION},
+  /* AND */		{9, LEFT_ASSOC | CHECK_PROMOTION},
+  /* OR */		{7, LEFT_ASSOC | CHECK_PROMOTION},
+  /* XOR */		{8, LEFT_ASSOC | CHECK_PROMOTION},
+  /* RSHIFT */		{13, LEFT_ASSOC},
+  /* LSHIFT */		{13, LEFT_ASSOC},
 
-  /* MIN */		{10, LEFT_ASSOC, BINARY, num_binary_op},
-  /* MAX */		{10, LEFT_ASSOC, BINARY, num_binary_op},
+  /* MIN */		{10, LEFT_ASSOC | CHECK_PROMOTION},
+  /* MAX */		{10, LEFT_ASSOC | CHECK_PROMOTION},
 
-  /* COMPL */		{16, NO_L_OPERAND, UNARY, NULL},
-  /* AND_AND */		{6, LEFT_ASSOC, OTHER, NULL},
-  /* OR_OR */		{5, LEFT_ASSOC, OTHER, NULL},
-  /* QUERY */		{3, 0, OTHER, NULL},
-  /* COLON */		{4, LEFT_ASSOC, OTHER, NULL},
-  /* COMMA */		{2, LEFT_ASSOC, BINARY, num_binary_op},
-  /* OPEN_PAREN */	{1, NO_L_OPERAND, OTHER, NULL},
-  /* CLOSE_PAREN */	{0, 0, OTHER, NULL},
-  /* EOF */		{0, 0, OTHER, NULL},
-  /* EQ_EQ */		{11, LEFT_ASSOC, BINARY, num_equality_op},
-  /* NOT_EQ */		{11, LEFT_ASSOC, BINARY, num_equality_op},
-  /* GREATER_EQ */	{12, LEFT_ASSOC, BINARY, num_inequality_op},
-  /* LESS_EQ */		{12, LEFT_ASSOC, BINARY, num_inequality_op},
-  /* UPLUS */		{16, NO_L_OPERAND, UNARY, NULL},
-  /* UMINUS */		{16, NO_L_OPERAND, UNARY, NULL}
+  /* COMPL */		{16, NO_L_OPERAND},
+  /* AND_AND */		{6, LEFT_ASSOC},
+  /* OR_OR */		{5, LEFT_ASSOC},
+  /* QUERY */		{3, 0},
+  /* COLON */		{4, LEFT_ASSOC | CHECK_PROMOTION},
+  /* COMMA */		{2, LEFT_ASSOC},
+  /* OPEN_PAREN */	{1, NO_L_OPERAND},
+  /* CLOSE_PAREN */	{0, 0},
+  /* EOF */		{0, 0},
+  /* EQ_EQ */		{11, LEFT_ASSOC},
+  /* NOT_EQ */		{11, LEFT_ASSOC},
+  /* GREATER_EQ */	{12, LEFT_ASSOC | CHECK_PROMOTION},
+  /* LESS_EQ */		{12, LEFT_ASSOC | CHECK_PROMOTION},
+  /* UPLUS */		{16, NO_L_OPERAND},
+  /* UMINUS */		{16, NO_L_OPERAND}
 };
 
 /* Parse and evaluate a C expression, reading from PFILE.
@@ -701,7 +697,6 @@ _cpp_parse_expr (pfile)
      cpp_reader *pfile;
 {
   struct op *top = pfile->op_stack;
-  const cpp_token *token = NULL, *prev_token;
   unsigned int lex_count;
   bool saw_leading_not, want_value = true;
 
@@ -719,10 +714,9 @@ _cpp_parse_expr (pfile)
     {
       struct op op;
 
-      prev_token = token;
-      token = cpp_get_token (pfile);
       lex_count++;
-      op.op = token->type;
+      op.token = cpp_get_token (pfile);
+      op.op = op.token->type;
 
       switch (op.op)
 	{
@@ -734,9 +728,9 @@ _cpp_parse_expr (pfile)
 	case CPP_HASH:
 	  if (!want_value)
 	    SYNTAX_ERROR2 ("missing binary operator before token \"%s\"",
-			   cpp_token_as_text (pfile, token));
+			   cpp_token_as_text (pfile, op.token));
 	  want_value = false;
-	  top->value = eval_token (pfile, token);
+	  top->value = eval_token (pfile, op.token);
 	  continue;
 
 	case CPP_NOT:
@@ -751,15 +745,16 @@ _cpp_parse_expr (pfile)
 	    op.op = CPP_UMINUS;
 	  break;
 	case CPP_OTHER:
-	  if (ISGRAPH (token->val.c))
-	    SYNTAX_ERROR2 ("invalid character '%c' in #if", token->val.c);
+	  if (ISGRAPH (op.token->val.c))
+	    SYNTAX_ERROR2 ("invalid character '%c' in #if", op.token->val.c);
 	  else
-	    SYNTAX_ERROR2 ("invalid character '\\%03o' in #if", token->val.c);
+	    SYNTAX_ERROR2 ("invalid character '\\%03o' in #if",
+			   op.token->val.c);
 
 	default:
 	  if ((int) op.op <= (int) CPP_EQ || (int) op.op >= (int) CPP_PLUS_EQ)
 	    SYNTAX_ERROR2 ("token \"%s\" is not valid in preprocessor expressions",
-			   cpp_token_as_text (pfile, token));
+			   cpp_token_as_text (pfile, op.token));
 	  break;
 	}
 
@@ -768,7 +763,7 @@ _cpp_parse_expr (pfile)
 	{
 	  if (!want_value)
 	    SYNTAX_ERROR2 ("missing binary operator before token \"%s\"",
-			   cpp_token_as_text (pfile, token));
+			   cpp_token_as_text (pfile, op.token));
 	}
       else if (want_value)
 	{
@@ -783,7 +778,7 @@ _cpp_parse_expr (pfile)
 	    SYNTAX_ERROR ("#if with no expression");
 	  if (top->op != CPP_EOF && top->op != CPP_OPEN_PAREN)
 	    SYNTAX_ERROR2 ("operator '%s' has no right operand",
-			   cpp_token_as_text (pfile, prev_token));
+			   cpp_token_as_text (pfile, top->token));
 	}
 
       top = reduce (pfile, top, op.op);
@@ -824,6 +819,7 @@ _cpp_parse_expr (pfile)
 	top = _cpp_expand_op_stack (pfile);
 
       top->op = op.op;
+      top->token = op.token;
     }
 
   /* The controlling macro expression is only valid if we called lex 3
@@ -868,39 +864,82 @@ reduce (pfile, top, op)
   prio = optab[op].prio - ((optab[op].flags & LEFT_ASSOC) != 0);
   while (prio < optab[top->op].prio)
     {
-      if (optab[top->op].arity == UNARY)
+      if (CPP_OPTION (pfile, warn_num_sign_change)
+	  && optab[top->op].flags & CHECK_PROMOTION)
+	check_promotion (pfile, top);
+
+      switch (top->op)
 	{
-	  if (!pfile->state.skip_eval)
-	    top[-1].value = num_unary_op (pfile, top->value, top->op);
-	  top--;
-	}
-      else if (optab[top->op].arity == BINARY)
-	{
-	  if (!pfile->state.skip_eval)
-	    top[-1].value = (* (binary_handler) optab[top->op].handler)
-	      (pfile, top[-1].value, top->value, top->op);
-	  top--;
-	}
-      /* Anything changing skip_eval has to be handled here.  */
-      else switch (top--->op)
-	{
-	case CPP_OR_OR:
-	  if (!num_zerop (top->value))
-	    pfile->state.skip_eval--;
-	  top->value.low = !num_zerop (top->value) || !num_zerop (top[1].value);
-	  top->value.high = 0;
-	  top->value.unsignedp = false;
-	  top->value.overflow = false;
+	case CPP_UPLUS:
+	case CPP_UMINUS:
+	case CPP_NOT:
+	case CPP_COMPL:
+	  top[-1].value = num_unary_op (pfile, top->value, top->op);
 	  break;
 
-	case CPP_AND_AND:
-	  if (num_zerop (top->value))
+	case CPP_PLUS:
+	case CPP_MINUS:
+	case CPP_RSHIFT:
+	case CPP_LSHIFT:
+	case CPP_MIN:
+	case CPP_MAX:
+	case CPP_COMMA:
+	  top[-1].value = num_binary_op (pfile, top[-1].value,
+					 top->value, top->op);
+	  break;
+
+	case CPP_GREATER:
+	case CPP_LESS:
+	case CPP_GREATER_EQ:
+	case CPP_LESS_EQ:
+	  top[-1].value
+	    = num_inequality_op (pfile, top[-1].value, top->value, top->op);
+	  break;
+
+	case CPP_EQ_EQ:
+	case CPP_NOT_EQ:
+	  top[-1].value
+	    = num_equality_op (pfile, top[-1].value, top->value, top->op);
+	  break;
+
+	case CPP_AND:
+	case CPP_OR:
+	case CPP_XOR:
+	  top[-1].value
+	    = num_bitwise_op (pfile, top[-1].value, top->value, top->op);
+	  break;
+
+	case CPP_MULT:
+	  top[-1].value = num_mul (pfile, top[-1].value, top->value);
+	  break;
+
+	case CPP_DIV:
+	case CPP_MOD:
+	  top[-1].value = num_div_op (pfile, top[-1].value,
+				      top->value, top->op);
+	  break;
+
+	case CPP_OR_OR:
+	  top--;
+	  if (!num_zerop (top->value))
 	    pfile->state.skip_eval--;
-	  top->value.low = !num_zerop (top->value) && !num_zerop (top[1].value);
+	  top->value.low = (!num_zerop (top->value)
+			    || !num_zerop (top[1].value));
 	  top->value.high = 0;
 	  top->value.unsignedp = false;
 	  top->value.overflow = false;
-	  break;
+	  continue;
+
+	case CPP_AND_AND:
+	  top--;
+	  if (num_zerop (top->value))
+	    pfile->state.skip_eval--;
+	  top->value.low = (!num_zerop (top->value)
+			    && !num_zerop (top[1].value));
+	  top->value.high = 0;
+	  top->value.unsignedp = false;
+	  top->value.overflow = false;
+	  continue;
 
 	case CPP_OPEN_PAREN:
 	  if (op != CPP_CLOSE_PAREN)
@@ -908,11 +947,12 @@ reduce (pfile, top, op)
 	      cpp_error (pfile, DL_ERROR, "missing ')' in expression");
 	      return 0;
 	    }
+	  top--;
 	  top->value = top[1].value;
 	  return top;
 
 	case CPP_COLON:
-	  top--;
+	  top -= 2;
 	  if (!num_zerop (top->value))
 	    {
 	      pfile->state.skip_eval--;
@@ -922,7 +962,7 @@ reduce (pfile, top, op)
 	    top->value = top[2].value;
 	  top->value.unsignedp = (top[1].value.unsignedp
 				  || top[2].value.unsignedp);
-	  break;
+	  continue;
 
 	case CPP_QUERY:
 	  cpp_error (pfile, DL_ERROR, "'?' without following ':'");
@@ -932,6 +972,7 @@ reduce (pfile, top, op)
 	  goto bad_op;
 	}
 
+      top--;
       if (top->value.overflow && !pfile->state.skip_eval)
 	cpp_error (pfile, DL_PEDWARN,
 		   "integer overflow in preprocessor expression");
@@ -959,6 +1000,29 @@ _cpp_expand_op_stack (pfile)
   pfile->op_limit = pfile->op_stack + new_size;
 
   return pfile->op_stack + old_size;
+}
+
+/* Emits a warning if the effective sign of either operand of OP
+   changes because of integer promotions.  */
+static void
+check_promotion (pfile, op)
+     cpp_reader *pfile;
+     const struct op *op;
+{
+  if (op->value.unsignedp == op[-1].value.unsignedp)
+    return;
+
+  if (op->value.unsignedp)
+    {
+      if (!num_positive (op[-1].value, CPP_OPTION (pfile, precision)))
+	cpp_error (pfile, DL_WARNING,
+		   "the left operand of \"%s\" changes sign when promoted",
+		   cpp_token_as_text (pfile, op->token));
+    }
+  else if (!num_positive (op->value, CPP_OPTION (pfile, precision)))
+    cpp_error (pfile, DL_WARNING,
+	       "the right operand of \"%s\" changes sign when promoted",
+	       cpp_token_as_text (pfile, op->token));
 }
 
 /* Clears the unused high order bits of the number pointed to by PNUM.  */
@@ -1236,7 +1300,7 @@ num_unary_op (pfile, num, op)
   switch (op)
     {
     case CPP_UPLUS:
-      if (CPP_WTRADITIONAL (pfile))
+      if (CPP_WTRADITIONAL (pfile) && !pfile->state.skip_eval)
 	cpp_error (pfile, DL_WARNING,
 		   "traditional C rejects the unary plus operator");
       num.overflow = false;
@@ -1338,7 +1402,7 @@ num_binary_op (pfile, lhs, rhs, op)
 
       /* Comma.  */
     default: /* case CPP_COMMA: */
-      if (CPP_PEDANTIC (pfile))
+      if (CPP_PEDANTIC (pfile) && !pfile->state.skip_eval)
 	cpp_error (pfile, DL_PEDWARN,
 		   "comma operator in operand of #if");
       lhs = rhs;
@@ -1381,10 +1445,9 @@ num_part_mul (lhs, rhs)
 
 /* Multiply two preprocessing numbers.  */
 static cpp_num
-num_mul (pfile, lhs, rhs, op)
+num_mul (pfile, lhs, rhs)
      cpp_reader *pfile;
      cpp_num lhs, rhs;
-     enum cpp_ttype op ATTRIBUTE_UNUSED;
 {
   cpp_num result, temp;
   bool unsignedp = lhs.unsignedp || rhs.unsignedp;
@@ -1476,7 +1539,8 @@ num_div_op (pfile, lhs, rhs, op)
     }
   else
     {
-      cpp_error (pfile, DL_ERROR, "division by zero in #if");
+      if (!pfile->state.skip_eval)
+	cpp_error (pfile, DL_ERROR, "division by zero in #if");
       return lhs;
     }
 

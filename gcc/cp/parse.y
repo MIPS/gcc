@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "input.h"
 #include "flags.h"
 #include "cp-tree.h"
+#include "decl.h"
 #include "lex.h"
 #include "c-pragma.h"		/* For YYDEBUG definition.  */
 #include "output.h"
@@ -97,10 +98,6 @@ do {									\
    error message if the user supplies an empty conditional expression.  */
 static const char *cond_stmt_keyword;
 
-/* Nonzero if we have an `extern "C"' acting as an extern specifier.  */
-int have_extern_spec;
-int used_extern_spec;
-
 /* List of types and structure classes of the current declaration.  */
 static GTY(()) tree current_declspecs;
 
@@ -132,6 +129,8 @@ static void check_class_key PARAMS ((tree, tree));
 static tree parse_scoped_id PARAMS ((tree));
 static tree parse_xref_tag (tree, tree, int);
 static tree parse_handle_class_head (tree, tree, tree, int, int *);
+static void parse_decl_instantiation (tree, tree, tree);
+static int parse_begin_function_definition (tree, tree);
 
 /* Cons up an empty parameter list.  */
 static inline tree
@@ -161,7 +160,7 @@ frob_specs (specs_attrs, lookups)
   if (current_declspecs
       && TREE_CODE (current_declspecs) != TREE_LIST)
     current_declspecs = build_tree_list (NULL_TREE, current_declspecs);
-  if (have_extern_spec && !used_extern_spec)
+  if (have_extern_spec)
     {
       /* We have to indicate that there is an "extern", but that it
          was part of a language specifier.  For instance,
@@ -172,7 +171,7 @@ frob_specs (specs_attrs, lookups)
       current_declspecs = tree_cons (error_mark_node,
 				     get_identifier ("extern"),
 				     current_declspecs);
-      used_extern_spec = 1;
+      have_extern_spec = false;
     }
 }
 
@@ -508,12 +507,11 @@ extdefs_opt:
 	;
 
 .hush_warning:
-		{ have_extern_spec = 1;
-		  used_extern_spec = 0;
+		{ have_extern_spec = true;
 		  $<ttype>$ = NULL_TREE; }
 	;
 .warning_ok:
-		{ have_extern_spec = 0; }
+		{ have_extern_spec = false; }
 	;
 
 extension:
@@ -713,14 +711,7 @@ template_parm:
 		{ $$ = build_tree_list (NULL_TREE, $1); }
 	| template_template_parm '=' template_arg
 		{
-		  if (TREE_CODE ($3) != TEMPLATE_DECL
-		      && TREE_CODE ($3) != TEMPLATE_TEMPLATE_PARM
-		      && TREE_CODE ($3) != TYPE_DECL
-		      && TREE_CODE ($3) != UNBOUND_CLASS_TEMPLATE)
-		    {
-		      error ("invalid default template argument");
-		      $3 = error_mark_node;
-		    }
+		  $3 = check_template_template_default_arg ($3);
 		  $$ = build_tree_list ($3, $1);
 		}
 	;
@@ -866,19 +857,19 @@ constructor_declarator:
 fn.def1:
 	  typed_declspecs declarator
 		{ check_for_new_type ("return type", $1);
-		  if (!begin_function_definition ($1.t, $2))
+		  if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| declmods notype_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| notype_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!parse_begin_function_definition (NULL_TREE, $1))
 		    YYERROR1; }
 	| declmods constructor_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| constructor_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!parse_begin_function_definition (NULL_TREE, $1))
 		    YYERROR1; }
 	;
 
@@ -1047,13 +1038,13 @@ explicit_instantiation:
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation typed_declspecs declarator
 		{ tree specs = strip_attrs ($3.t);
-		  do_decl_instantiation (specs, $4, NULL_TREE); }
+		  parse_decl_instantiation (specs, $4, NULL_TREE); }
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation notype_declarator
-		{ do_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
+		{ parse_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
           end_explicit_instantiation
 	| TEMPLATE begin_explicit_instantiation constructor_declarator
-		{ do_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
+		{ parse_decl_instantiation (NULL_TREE, $3, NULL_TREE); }
           end_explicit_instantiation
 	| SCSPEC TEMPLATE begin_explicit_instantiation typespec ';'
 		{ do_type_instantiation ($4.t, $1, 1);
@@ -1063,15 +1054,15 @@ explicit_instantiation:
 	| SCSPEC TEMPLATE begin_explicit_instantiation typed_declspecs
           declarator
 		{ tree specs = strip_attrs ($4.t);
-		  do_decl_instantiation (specs, $5, $1); }
+		  parse_decl_instantiation (specs, $5, $1); }
           end_explicit_instantiation
 		{}
 	| SCSPEC TEMPLATE begin_explicit_instantiation notype_declarator
-		{ do_decl_instantiation (NULL_TREE, $4, $1); }
+		{ parse_decl_instantiation (NULL_TREE, $4, $1); }
           end_explicit_instantiation
 		{}
 	| SCSPEC TEMPLATE begin_explicit_instantiation constructor_declarator
-		{ do_decl_instantiation (NULL_TREE, $4, $1); }
+		{ parse_decl_instantiation (NULL_TREE, $4, $1); }
           end_explicit_instantiation
 		{}
 	;
@@ -4072,7 +4063,7 @@ parse_xref_tag (tree aggr, tree name, int globalize)
   return xref_tag (tag_kind, name, attributes, globalize);
 }
 
-/* Like handle_class_head, but AGGR may be as for parse_xref_tag. */
+/* Like handle_class_head, but AGGR may be as for parse_xref_tag.  */
 
 static tree
 parse_handle_class_head (tree aggr, tree scope, tree id, 
@@ -4083,6 +4074,29 @@ parse_handle_class_head (tree aggr, tree scope, tree id,
   parse_split_aggr (aggr, &tag_kind, &attributes);
   return handle_class_head (tag_kind, scope, id, attributes, 
 			    defn_p, new_type_p);
+}
+
+/* Like do_decl_instantiation, but the declarator has not yet been
+   parsed.  */
+
+static void
+parse_decl_instantiation (tree declspecs, tree declarator, tree storage)
+{
+  tree decl = grokdeclarator (declarator, declspecs, NORMAL, 0, NULL);
+  do_decl_instantiation (decl, storage);
+}
+
+/* Like begin_function_definition, but SPECS_ATTRS is a combined list
+   containing both a decl-specifier-seq and attributes.  */
+
+static int
+parse_begin_function_definition (tree specs_attrs, tree declarator)
+{
+  tree specs;
+  tree attrs;
+  
+  split_specs_attrs (specs_attrs, &specs, &attrs);
+  return begin_function_definition (specs, attrs, declarator);
 }
 
 #include "gt-cp-parse.h"

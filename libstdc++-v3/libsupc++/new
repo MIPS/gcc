@@ -45,7 +45,10 @@ extern "C++" {
 
 namespace std 
 {
-  /** @c bad_alloc (or classes derived from it) is used to report allocation
+  /**
+   *  @brief  Exception possibly thrown by @c new.
+   *
+   *  @c bad_alloc (or classes derived from it) is used to report allocation
    *  errors from the throwing forms of @c new.  */
   class bad_alloc : public exception 
   {
@@ -62,7 +65,7 @@ namespace std
    *  be of this type.  */
   typedef void (*new_handler)();
   /// Takes a replacement handler as the argument, returns the previous handler.
-  new_handler set_new_handler(new_handler);
+  new_handler set_new_handler(new_handler) throw();
 } // namespace std
 
 //@{

@@ -47,7 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #define	GLOBAL0(U,X)	CONCAT(U,__##X)
 #define	GLOBAL(X)	GLOBAL0(__USER_LABEL_PREFIX__,X)
 
-#if defined __SH5__ && ! defined __SH4_NOFPU__
+#if defined __SH5__ && ! defined __SH4_NOFPU__ && ! defined (__LITTLE_ENDIAN__)
 #define FMOVD_WORKS
 #endif
 
@@ -1217,13 +1217,27 @@ trivial:
 L1:
 	.double 2147483648
 
-#elif defined(__SH4_SINGLE__) || defined(__SH4_SINGLE_ONLY__) || (defined (__SH5__) && ! defined __SH4_NOFPU__)
+#elif defined (__SH5__) && ! defined (__SH4_NOFPU__)
+#if ! __SH5__ || __SH5__ == 32
+!! args in r4 and r5, result in fpul, clobber r20, r21, dr0, fr33
+	.mode	SHmedia
+	.global	GLOBAL(udivsi3_i4)
+GLOBAL(udivsi3_i4):
+	addz.l	r4,r63,r20
+	addz.l	r5,r63,r21
+	fmov.qd	r20,dr0
+	fmov.qd	r21,dr32
+	ptabs	r18,tr0
+	float.qd dr0,dr0
+	float.qd dr32,dr32
+	fdiv.d	dr0,dr32,dr0
+	ftrc.dq dr0,dr32
+	fmov.s fr33,fr32
+	blink tr0,r63
+#endif /* ! __SH5__ || __SH5__ == 32 */
+#elif defined(__SH4_SINGLE__) || defined(__SH4_SINGLE_ONLY__)
 !! args in r4 and r5, result in fpul, clobber r0, r1, r4, r5, dr0, dr2, dr4
 
-#if ! __SH5__ || __SH5__ == 32
-#if __SH5__
-	.mode	SHcompact
-#endif
 	.global	GLOBAL(udivsi3_i4)
 GLOBAL(udivsi3_i4):
 	mov #1,r1
@@ -1273,7 +1287,6 @@ L1:
 #endif
 	.double 2147483648
 
-#endif /* ! __SH5__ || __SH5__ == 32 */
 #endif /* ! __SH4__ */
 #endif
 
@@ -1821,6 +1834,22 @@ LOCAL(set_fpscr_L1):
 	.mode	SHmedia
 	.section	.text..SHmedia32,"ax"
 	.align	2
+	.global	GLOBAL(init_trampoline)
+GLOBAL(init_trampoline):
+	st.l	r0,8,r2
+#ifdef __LITTLE_ENDIAN__
+	movi	9,r20
+	shori	0x402b,r20
+	shori	0xd101,r20
+	shori	0xd002,r20
+#else
+	movi	0xffffffffffffd002,r20
+	shori	0xd101,r20
+	shori	0x402b,r20
+	shori	9,r20
+#endif
+	st.q	r0,0,r20
+	st.l	r0,12,r3
 	.global	GLOBAL(ic_invalidate)
 GLOBAL(ic_invalidate):
 	ocbwb	r0,0

@@ -1695,8 +1695,8 @@ typedef struct ix86_args {
   ((VALIST) = ix86_build_va_list ())
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(STDARG, VALIST, NEXTARG) \
-  ix86_va_start ((STDARG), (VALIST), (NEXTARG))
+#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
+  ix86_va_start (VALIST, NEXTARG)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
@@ -3142,6 +3142,7 @@ do {						\
 				       SYMBOL_REF, LABEL_REF}},		\
   {"shiftdi_operand", {SUBREG, REG, MEM}},				\
   {"const_int_1_operand", {CONST_INT}},					\
+  {"const_int_1_31_operand", {CONST_INT}},				\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
   {"aligned_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
 		       LABEL_REF, SUBREG, REG, MEM}},			\
@@ -3353,6 +3354,7 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
    ((SRC) < FIRST_STACK_REG || (SRC) > LAST_STACK_REG)
 
 
+#define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
 /*
 Local variables:
 version-control: t

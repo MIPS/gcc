@@ -1025,8 +1025,8 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   (VALIST) = m88k_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  m88k_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  m88k_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1052,8 +1052,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    may be accessed via the stack pointer) in functions that seem suitable.
    This is computed in `reload', in reload1.c.  */
 #define FRAME_POINTER_REQUIRED \
-(current_function_varargs 					\
- || (TARGET_OMIT_LEAF_FRAME_POINTER && !leaf_function_p ()) 	\
+((TARGET_OMIT_LEAF_FRAME_POINTER && !leaf_function_p ()) 	\
  || (write_symbols != NO_DEBUG && !TARGET_OCS_FRAME_POSITION))
 
 /* Definitions for register eliminations.
@@ -1446,9 +1445,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 
 /* The 88open ABI says size_t is unsigned int.  */
 #define SIZE_TYPE "unsigned int"
-
-/* Allow and ignore #sccs directives */
-#define SCCS_DIRECTIVE
 
 /* Handle #pragma pack and sometimes #pragma weak.  */
 #define HANDLE_SYSV_PRAGMA
