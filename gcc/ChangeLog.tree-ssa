@@ -1,3 +1,14 @@
+2002-08-29  Graydon Hoare  <graydon@redhat.com>
+
+	* tree-mudflap.c (mx_xfn_indirect_ref): Rewrite array references as
+	pointer dereferences.
+	(struct mf_xform_decls_data): New member: param_decls.
+	(mx_register_decl): New function.
+	(mx_xfn_xform_decls): Factor code out into mx_register_decl.
+	Register live parameters with mudflap.
+	(mx_xfn_find_addrof): Notice references to fields of structures
+	and function parameters.
+
 2002-08-29  Frank Ch. Eigler  <fche@redhat.com>
 
 	* c-pretty-print.c (dump_c_tree): Detect loops in statement chains

@@ -60,6 +60,10 @@ static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 static tree mx_xfn_find_addrof PARAMS ((tree *, int *, void *));
 
+static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree, tree *));
+static tree mf_build_check_statement_for PARAMS ((tree, tree*, const char *, int));
+static void mx_register_decl PARAMS ((tree *, tree, tree));
+
 
 /* These macros are used to mark tree nodes, so that they are not
    repeatedly transformed.  The `bounded' flag is not otherwise used.  */
@@ -593,7 +597,7 @@ mf_offset_expr_of_array_ref (t, offset, base)
 }
 
 
-tree 
+static tree 
 mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
      tree ptrvalue;
      tree *finale;
@@ -821,8 +825,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 			  TYPE_SIZE_UNIT (base_obj_type),
 			  offset_expr))));
 	
-	tmp = mf_build_check_statement_for (check_ptr, t, last_filename, last_lineno);
-	*t = tmp;	
+	tmp = mf_build_check_statement_for (check_ptr, NULL, last_filename, last_lineno);
+	*t = build1 (INDIRECT_REF, base_obj_type, mx_flag (tmp));;
 	mx_flag (*t);
 
 	/*
@@ -886,9 +890,79 @@ taken. */
 struct mf_xform_decls_data
 {
   tree last_compound_stmt;
+  tree param_decls;
   varray_type compound_stmt_stack;  /* track nesting level: SCOPE_BEGIN_P pushes, END_P pops. */
 };
 
+
+
+/* Destructively insert, between *posn and TREE_CHAIN(*posn), a pair of
+   register / cleanup statements, corresponding to variable described in
+   decl, in the scope of the containing_stmt. Appending is done by  */
+
+static void
+mx_register_decl (posn, decl, containing_stmt)
+     tree *posn;
+     tree decl;
+     tree containing_stmt;
+{
+  /* Is the address of this decl taken anyplace?  */
+  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL) &&
+      (! TREE_STATIC (decl)) &&
+      mf_find_addrof (containing_stmt, decl))
+    {
+      /* Synthesize, for this DECL_STMT, a CLEANUP_DECL for the same
+	 VAR_DECL.  Arrange to call the __mf_register function now, and the
+	 __mf_unregister function later.  */
+      
+      /* (& VARIABLE, sizeof (VARIABLE)) */
+      tree unregister_fncall_params =
+	tree_cons (NULL_TREE,
+		   convert (mf_uintptr_type, 
+			    mx_flag (build1 (ADDR_EXPR, 
+					     build_pointer_type (TREE_TYPE (decl)),
+					     decl))),
+		   tree_cons (NULL_TREE, 
+			      convert (mf_uintptr_type, 
+				       TYPE_SIZE_UNIT (TREE_TYPE (decl))),
+			      NULL_TREE));
+      /* __mf_unregister (...) */
+      tree unregister_fncall =
+	build_function_call (mx_external_ref (mf_unregister_fndecl, 1),
+			     unregister_fncall_params);
+      
+      tree cleanup_stmt = build_stmt (CLEANUP_STMT, decl, unregister_fncall);
+      
+      /* (& VARIABLE, sizeof (VARIABLE), __MF_LIFETIME_STACK=2) */
+      tree variable_name = mf_varname_tree (decl);
+      tree register_fncall_params =
+	tree_cons (NULL_TREE,
+		   convert (mf_uintptr_type, 
+			    mx_flag (build1 (ADDR_EXPR, 
+					     build_pointer_type (TREE_TYPE (decl)),
+					     decl))),
+		   tree_cons (NULL_TREE, 
+			      convert (mf_uintptr_type, 
+				       TYPE_SIZE_UNIT (TREE_TYPE (decl))),
+			      tree_cons (NULL_TREE,
+					 build_int_2 (2, 0),
+					 tree_cons (NULL_TREE,
+						    variable_name,
+						    NULL_TREE))));
+      /* __mf_register (...) */
+      tree register_fncall =
+	build_function_call (mx_external_ref (mf_register_fndecl, 1),
+			     register_fncall_params);
+      
+      tree register_fncall_stmt =
+	build1 (EXPR_STMT, void_type_node, register_fncall);
+      
+      /* Add the CLEANUP_STMT and register() call after *posn.  */
+      TREE_CHAIN (cleanup_stmt) = register_fncall_stmt;
+      TREE_CHAIN (register_fncall_stmt) = TREE_CHAIN (*posn);
+      TREE_CHAIN (*posn) = cleanup_stmt;
+    }  
+}
 
 
 /* As a tree traversal function, maintain a scope stack for the
@@ -922,75 +996,28 @@ mx_xfn_xform_decls (t, continue_p, data)
     case COMPOUND_STMT:
       d->last_compound_stmt = *t;
       break;
-
+      
     case SCOPE_STMT:
       if (SCOPE_BEGIN_P (*t))
-	VARRAY_PUSH_TREE (d->compound_stmt_stack, d->last_compound_stmt);
+	{	
+	  VARRAY_PUSH_TREE (d->compound_stmt_stack, d->last_compound_stmt);
+
+	  /* Register any function parameters not-yet-registered. */
+	  while (d->param_decls != NULL_TREE)
+	    {
+	      mx_register_decl 
+		(t, d->param_decls, VARRAY_TOP_TREE (d->compound_stmt_stack));
+	      d->param_decls = TREE_CHAIN (d->param_decls);
+	    }
+	}
       else
 	VARRAY_POP (d->compound_stmt_stack);
       break;
 
     case DECL_STMT:
       {
-	tree decl = DECL_STMT_DECL (*t);
-	tree containing_stmt = VARRAY_TOP_TREE (d->compound_stmt_stack);
-
-	/* Is the address of this decl taken anyplace?  */
-	if ((TREE_CODE (decl) == VAR_DECL) &&
-	    (! TREE_STATIC (decl)) &&
-	    mf_find_addrof (containing_stmt, decl))
-	  {
-	    /* Append to this DECL_STMT a CLEANUP_DECL for the same
-	       VAR_DECL.  Arrange to call the __mf_register function
-	       now, and the __mf_unregister function later.  */
-	    
-	    /* (& VARIABLE, sizeof (VARIABLE)) */
-	    tree unregister_fncall_params =
-	      tree_cons (NULL_TREE,
-			 convert (mf_uintptr_type, 
-				  mx_flag (build1 (ADDR_EXPR, 
-						   build_pointer_type (TREE_TYPE (decl)),
-						   decl))),
-			 tree_cons (NULL_TREE, 
-				    convert (mf_uintptr_type, 
-					     TYPE_SIZE_UNIT (TREE_TYPE (decl))),
-				    NULL_TREE));
-	    /* __mf_unregister (...) */
-	    tree unregister_fncall =
-	      build_function_call (mx_external_ref (mf_unregister_fndecl, 1),
-				   unregister_fncall_params);
-
-	    tree cleanup_stmt = build_stmt (CLEANUP_STMT, decl, unregister_fncall);
-
-	    /* (& VARIABLE, sizeof (VARIABLE), __MF_LIFETIME_STACK=2) */
-	    tree variable_name = mf_varname_tree (decl);
-	    tree register_fncall_params =
-	      tree_cons (NULL_TREE,
-			 convert (mf_uintptr_type, 
-				  mx_flag (build1 (ADDR_EXPR, 
-						   build_pointer_type (TREE_TYPE (decl)),
-						   decl))),
-			 tree_cons (NULL_TREE, 
-				    convert (mf_uintptr_type, 
-					     TYPE_SIZE_UNIT (TREE_TYPE (decl))),
-				    tree_cons (NULL_TREE,
-					       build_int_2 (2, 0),
-					       tree_cons (NULL_TREE,
-							  variable_name,
-							  NULL_TREE))));
-	    /* __mf_register (...) */
-	    tree register_fncall =
-	      build_function_call (mx_external_ref (mf_register_fndecl, 1),
-				   register_fncall_params);
-
-	    tree register_fncall_stmt =
-	      build1 (EXPR_STMT, void_type_node, register_fncall);
-
-	    /* Add the CLEANUP_STMT and register() call after the DECL_STMT.  */
-	    TREE_CHAIN (cleanup_stmt) = register_fncall_stmt;
-	    TREE_CHAIN (register_fncall_stmt) = TREE_CHAIN (*t);
-	    TREE_CHAIN (*t) = cleanup_stmt;
-	  }
+	mx_register_decl 
+	  (t, DECL_STMT_DECL (*t), VARRAY_TOP_TREE (d->compound_stmt_stack));
       }
       break;
 
@@ -1017,9 +1044,10 @@ mf_xform_decls (fnbody, fnparams)
      tree fnparams;
 {
   struct mf_xform_decls_data d;
-
+  d.param_decls = fnparams;
   d.last_compound_stmt = NULL_TREE;
   VARRAY_TREE_INIT (d.compound_stmt_stack, 100, "compound_stmt stack");
+
   walk_tree_without_duplicates (& fnbody, mx_xfn_xform_decls, & d);
 }
 
@@ -1037,6 +1065,8 @@ mx_xfn_find_addrof (t, continue_p, data)
 {
   tree decl = (tree) data;
   tree gotit = NULL;
+  tree operand = NULL;
+
   *continue_p = 1;
 
   if (*t == NULL_TREE)
@@ -1045,31 +1075,38 @@ mx_xfn_find_addrof (t, continue_p, data)
   if (TREE_MUDFLAPPED_P (*t))
     return gotit;
 
-  if (TREE_CODE (*t) == ADDR_EXPR)
+  switch (TREE_CODE(*t))
     {
-      tree operand = TREE_OPERAND (*t, 0);
-      if ((TREE_CODE (operand) == VAR_DECL) && (decl == operand))
+    case ARRAY_REF:
+    case ADDR_EXPR:
+      operand = TREE_OPERAND (*t, 0);
+
+      /* Back out to the largest containing structure. */
+      while (TREE_CODE (operand) == COMPONENT_REF)
+	operand = TREE_OPERAND (operand, 0);
+
+      /* Is the enclosing object the declared thing we're looking for? */
+      if ((TREE_CODE (operand) == VAR_DECL ||
+	   TREE_CODE (operand) == PARM_DECL) && 
+	  (decl == operand))
 	gotit = *t;
+      break;
+
+    default:
+      break;
     }
 
-  if (TREE_CODE (*t) == ARRAY_REF)
-    {
-      tree operand = TREE_OPERAND (*t, 0);
-
-      if ((TREE_CODE (operand) == VAR_DECL) && (decl == operand))
-	gotit = *t;
 
 #if 0
-      if (gotit != NULL)
-	{
+	if (gotit != NULL)
+	  {
 	  fprintf (stderr, "matched decl=");
 	  print_c_tree (stderr, decl);
 	  fprintf (stderr, " in tree=");
 	  print_c_tree (stderr, gotit);
 	  fprintf (stderr, "\n");
-	}
+	  }
 #endif
-    }
 
   return gotit;
 }
