@@ -591,6 +591,7 @@ extern void alloc_aux_for_edge		PARAMS ((edge, int));
 extern void alloc_aux_for_edges		PARAMS ((int));
 extern void clear_aux_for_edges		PARAMS ((void));
 extern void free_aux_for_edges		PARAMS ((void));
+extern void mark_regs_live_at_end	PARAMS ((regset));
 
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about

@@ -1,3 +1,10 @@
+2004-01-29  Jan Hubicka  <jh@suse.cz>
+
+	* sibcall.c (skip_dead_hard_reg_sets): New function
+	(call_ends_block_p): Use it.
+	* flow.c (mark_regs_live_at_end): Make global
+	* basic-block.h (mark_regs_live_at_end): Declare.
+
 2004-01-29  Hartmut Penner  <hpenner@de.ibm.com>
 
 	Backport from mainline.

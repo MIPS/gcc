@@ -294,7 +294,6 @@ static void verify_local_live_at_start	PARAMS ((regset, basic_block));
 static void notice_stack_pointer_modification_1 PARAMS ((rtx, rtx, void *));
 static void notice_stack_pointer_modification PARAMS ((rtx));
 static void mark_reg			PARAMS ((rtx, void *));
-static void mark_regs_live_at_end	PARAMS ((regset));
 static int set_phi_alternative_reg      PARAMS ((rtx, int, int, void *));
 static void calculate_global_regs_live	PARAMS ((sbitmap, sbitmap, int));
 static void propagate_block_delete_insn PARAMS ((rtx));
@@ -958,7 +957,7 @@ mark_reg (reg, xset)
 /* Mark those regs which are needed at the end of the function as live
    at the end of the last basic block.  */
 
-static void
+void
 mark_regs_live_at_end (set)
      regset set;
 {

@@ -44,6 +44,7 @@ static rtx skip_use_of_return_value	PARAMS ((rtx, enum rtx_code));
 static rtx skip_stack_adjustment	PARAMS ((rtx));
 static rtx skip_pic_restore		PARAMS ((rtx));
 static rtx skip_jump_insn		PARAMS ((rtx));
+static rtx skip_dead_hard_reg_sets	PARAMS ((rtx));
 static int call_ends_block_p		PARAMS ((rtx, rtx));
 static int uses_addressof		PARAMS ((rtx));
 static int sequence_uses_addressof	PARAMS ((rtx));
@@ -213,6 +214,43 @@ skip_copy_to_return_value (orig_insn)
   return orig_insn;
 }
 
+/* Simplifying the control flow graph often leads to the dead sets of
+   flags.  delete_trivially_dead_insns does not remove such sets as dead
+   when flags are used elsewhere in the function and they are normally 
+   removed in the liveness pass.  It is easy to determine the special case
+   of sibling calls here.  */
+
+static rtx
+skip_dead_hard_reg_sets (orig_insn)
+     rtx orig_insn;
+{
+  rtx insn = orig_insn, set = NULL_RTX;
+  regset_head regs_live_head;
+  regset regs_live;
+
+  regs_live = INITIALIZE_REG_SET (regs_live_head);
+  mark_regs_live_at_end (regs_live);
+
+  while (orig_insn == insn)
+    {
+      insn = next_nonnote_insn (orig_insn);
+
+      if (insn)
+	set = single_set (insn);
+
+      if (insn
+	  && set
+	  && GET_CODE (SET_DEST (set)) == REG
+	  && REGNO (SET_DEST (set)) < FIRST_PSEUDO_REGISTER
+	  && !REGNO_REG_SET_P (regs_live, REGNO (SET_DEST (set)))
+	  && !side_effects_p (SET_SRC (set)))
+	orig_insn = insn;
+     }
+  FREE_REG_SET (regs_live);
+
+  return orig_insn;
+}
+
 /* If the first real insn after ORIG_INSN is a CODE of this function's return
    value, return insn.  Otherwise return ORIG_INSN.  */
 
@@ -362,6 +400,11 @@ call_ends_block_p (insn, end)
 
   /* Skip any stack adjustment.  */
   insn = skip_stack_adjustment (insn);
+  if (insn == end)
+    return 1;
+
+  /* Skip possible dead garbage at the end of block.  */
+  insn = skip_dead_hard_reg_sets (insn);
   if (insn == end)
     return 1;
 
