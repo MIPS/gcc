@@ -1,3 +1,48 @@
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_warn_min_max): New function.
+	(cp_parser_binary_expression): Use it.
+	(cp_parser_assignment_operator_opt): Likewise.
+	(cp_parser_operator): Likewise.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19980
+	* decl.c (start_preparsed_function): Robustify.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20499
+	* parser.c (cp_parser_class_head): Return NULL_TREE when
+	encountering a redefinition.
+
+2005-03-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20465
+	PR c++/20381
+	* typeck.c (build_ptrmemfunc): Allow OFFSET_REF when processing a
+	template.
+
+2005-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20461
+	PR c++/20536
+	* init.c (emit_mem_initializers): Don't crash on undefined
+	types.
+
+2005-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20463
+	* parser.c (cp_parser_diagnose_invalid_type_name):
+	Check TYPE_BINFO (current_class_type) before attempting
+	to emit inform messages.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20147
+	* semantics.c (finish_stmt_expr_expr): Return immediately
+	if error_operand_p (expr).
+
 2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/20240

@@ -1,3 +1,95 @@
+2005-03-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/20601
+
+	* tree-ssa-pre.c (insert_aux): Add missing condition to
+	constification.
+
+2005-03-22  James E Wilson  <wilson@specifixinc.com>
+
+	PR c++/19769
+	* dwarf2out.c (declare_in_namespace): Ignore decls with an abstract
+	origin.
+
+2005-03-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* c-opts.c (c_common_parse_file): Only start/end main source file
+	if debug hooks says the writer wants it.
+	* dbxout.c (dbx_debug_hooks): Add start_end_main_source_file
+	member.
+	(xcoff_debug_hooks): Ditto.
+	* debug.c (do_nothing_hooks): Ditto.
+	* debug.h (gcc_debug_hooks): Ditto.
+	* dwarf2out.c (dwarf2_debug_hooks): Ditto.
+	* sdbout.c (sdb_debug_hooks): Ditto.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Ditto.
+
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/extend.texi: Deprecate C++ min/max operators.
+
+2005-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/20561
+	* cfglayout.c (reemit_insn_block_notes): Don't put block notes in
+	between jump table and its label.
+	* final.c (shorten_branches): Handle notes in between ADDR_VEC
+	resp. ADDR_DIFF_VEC and the label preceeding it.
+	(final_scan_insn): Likewise.  Ensure ADDR_VEC resp. ADDR_DIFF_VEC
+	is emitted in the right section.
+
+2005-03-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/20539
+	* fold-const.c (fold_binary): Fix type mismatch between
+	TRUTH_{AND,OR,XOR}_EXPR nodes an their operands' types.
+	(fold_binary) <TRUTH_XOR_EXPR>: Avoid calling invert_truthvalue
+	for non-truth-valued expressions.
+
+	* c-common.c (c_common_truthvalue_conversion): Handle ERROR_MARK
+	and FUNCTION_DECL in the main switch.
+	<TRUTH_ANDIF_EXPR, TRUTH_ORIF_EXPR, TRUTH_AND_EXPR, TRUTH_OR_EXPR,
+	TRUTH_XOR_EXPR>: When changing the result type of these tree nodes,
+	we also need to convert their operands to match.
+	<TRUTH_NOT_EXPR>: Likewise.
+
+2005-03-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/20557
+	* bb-reorder.c (duplicate_computed_gotos): Use can_duplicate_block_p
+	to determine whether a block can be duplicated, rather than test
+	whether the block contains noncopyable insns ourselves.
+
+2005-03-21  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* tree-ssa-loop.c (gate_tree_complete_unroll): Run complete
+	unrolling if -fpeel-loops is specified, too.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely):
+	Remove superfluous check for flag_unroll_loops.
+
+2005-03-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR other/20564
+	* gcov.c (output_lines): Only output function block summary when
+	outputting branch information.
+	* doc/gcov.texi: Document format of preamble and additional block
+	information lines.
+
+2005-03-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* libgcc2.h (LIBGCC2_HAS_SF_MODE): New macro.
+	(LIBGCC2_HAS_DF_MODE, LIBGCC2_HAS_TF_MODE, LIBGCC2_HAS_XF_MODE): Make
+	the defaults false if BITS_PER_UNIT != 8.
+	(SFtype, SCtype, __fixsfdi, __floatdisf, __fixunssfSI, __fixunssfDI)
+	(__powisf2, __divsc3, __mulsc3): Guard with LIBGCC2_HAS_SF_MODE rather
+	than BITS_PER_UNIT != 8.
+	(L_fixdfdi, L_fixsfdi, L_fixtfdi, L_fixunsdfdi, L_fixunsdfsi)
+	(L_fixunssfdi, L_fixunssfsi, L_fixunstfdi, L_fixunsxfdi, L_fixunsxfsi)
+	(L_fixxfdi, L_floatdidf, L_floatdisf, L_floatditf, L_floatdixf): Remove
+	#undefs.
+	* libgcc2.c (__fixunssfDI, __fixsfdi, __floatdisf, __fixunssfSI)
+	(__powisf2, __divsc3, __mulsc3): Guard with LIBGCC2_HAS_SF_MODE.
+
 2005-03-20  Marek Michalkiewicz  <marekm@amelek.gda.pl>
 
 	PR target/18551

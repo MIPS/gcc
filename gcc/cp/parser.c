@@ -1787,6 +1787,16 @@ cp_parser_is_keyword (cp_token* token, enum rid keyword)
   return token->keyword == keyword;
 }
 
+/* A minimum or maximum operator has been seen.  As these are
+   deprecated, issue a warning.  */
+
+static inline void
+cp_parser_warn_min_max (void)
+{
+  if (warn_deprecated && !in_system_header)
+    warning ("minimum/maximum operators are deprecated");
+}
+
 /* If not parsing tentatively, issue a diagnostic of the form
       FILE:LINE: MESSAGE before TOKEN
    where TOKEN is the next token in the input stream.  MESSAGE
@@ -1995,7 +2005,8 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree scope, tree id)
 	   template <typename T> struct B : public A<T> { X x; };
 
 	 The user should have said "typename A<T>::X".  */
-      if (processing_template_decl && current_class_type)
+      if (processing_template_decl && current_class_type
+	  && TYPE_BINFO (current_class_type))
 	{
 	  tree b;
 
@@ -5400,6 +5411,9 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
     {
       /* Get an operator token.  */
       token = cp_lexer_peek_token (parser->lexer);
+      if (token->type == CPP_MIN || token->type == CPP_MAX)
+	cp_parser_warn_min_max ();
+
       new_prec = TOKEN_PRECEDENCE (token);
 
       /* Popping an entry off the stack means we completed a subexpression:
@@ -5655,10 +5669,12 @@ cp_parser_assignment_operator_opt (cp_parser* parser)
 
     case CPP_MIN_EQ:
       op = MIN_EXPR;
+      cp_parser_warn_min_max ();
       break;
 
     case CPP_MAX_EQ:
       op = MAX_EXPR;
+      cp_parser_warn_min_max ();
       break;
 
     default:
@@ -8038,18 +8054,22 @@ cp_parser_operator (cp_parser* parser)
       /* Extensions.  */
     case CPP_MIN:
       id = ansi_opname (MIN_EXPR);
+      cp_parser_warn_min_max ();
       break;
 
     case CPP_MAX:
       id = ansi_opname (MAX_EXPR);
+      cp_parser_warn_min_max ();
       break;
 
     case CPP_MIN_EQ:
       id = ansi_assopname (MIN_EXPR);
+      cp_parser_warn_min_max ();
       break;
 
     case CPP_MAX_EQ:
       id = ansi_assopname (MAX_EXPR);
+      cp_parser_warn_min_max ();
       break;
 
     default:
@@ -12856,7 +12876,8 @@ cp_parser_class_head (cp_parser* parser,
     {
       error ("redefinition of %q#T", type);
       cp_error_at ("previous definition of %q#T", type);
-      type = error_mark_node;
+      type = NULL_TREE;
+      goto done;
     }
 
   /* We will have entered the scope containing the class; the names of
