@@ -45,9 +45,13 @@ AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 dnl Check for 64-bit stdio calls related to Large File Support
 AC_CHECK_FUNCS(fopen64 fseeko64 ftello64 stat64)
 
-AC_TRY_COMPILE([#include <sys/ipc.h>
+AC_TRY_COMPILE([#include <sys/types.h>
+#include <sys/ipc.h>
 #include <sys/sem.h>],[union semun foo;], [mf_have_semun=1], [mf_have_semun=0])
-AC_DEFINE_UNQUOTED(HAVE_UNION_SEMUN, $mf_have_semun, [union semun defined in sys/ipc.h or sys/sem.h])
+if test $mf_have_semun = 1
+then
+  AC_DEFINE(HAVE_UNION_SEMUN, 1, [union semun defined in sys/ipc.h or sys/sem.h])
+fi
 
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
