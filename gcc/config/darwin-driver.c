@@ -67,7 +67,6 @@ const char *final_output = "a.out";
    line options.  */
 int compile_only_request = 0;
 int asm_output_request = 0;
-int dash_capital_m_seen = 0;
 int preprocessed_output_request = 0;
 int ima_is_used = 0;
 int dash_dynamiclib_seen = 0;
@@ -1158,11 +1157,6 @@ main (int argc, const char **argv)
 	  new_argv[new_argc++] = argv[i];
 	  preprocessed_output_request = 1;
 	}
-      else if (!strcmp (argv[i], "-MD") || !strcmp (argv[i], "-MMD"))
-	{
-	  new_argv[new_argc++] = argv[i];
-	  dash_capital_m_seen = 1;
-	}
       else if (!strcmp (argv[i], "-dynamiclib"))
 	{
 	  new_argv[new_argc++] = argv[i];
@@ -1235,9 +1229,6 @@ main (int argc, const char **argv)
 	  /* First copy this flag itself.  */
 	  new_argv[new_argc++] = argv[i];
 
-	  if (argv[i][1] == 'M')
-	    dash_capital_m_seen = 1;
-
 	  /* Now copy this flag's arguments, if any, appropriately.  */
 	  if ((SWITCH_TAKES_ARG (c) > (p[1] != 0)) 
 	      || WORD_SWITCH_TAKES_ARG (p))
@@ -1286,13 +1277,9 @@ main (int argc, const char **argv)
     fatal ("no input files");
 #endif
 
-  if (num_arches > 1)
-    {
-      if (preprocessed_output_request 
-	  || asm_output_request 
-	  || dash_capital_m_seen)
-	fatal ("-E, -S and -M options are not allowed with multiple -arch flags");
-    }
+  if (preprocessed_output_request && asm_output_request && num_infiles > 1)
+    fatal ("-E and -S are not allowed with multiple -arch flags");
+
   /* If -arch is not present OR Only one -arch <blah> is specified.  
      Invoke appropriate compiler driver.  FAT build is not required in this
      case.  */ 
