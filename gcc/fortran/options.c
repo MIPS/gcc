@@ -61,7 +61,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_underscoring = 1;
   gfc_option.flag_second_underscore = 1;
   gfc_option.flag_implicit_none = 0;
-  gfc_option.flag_max_stack_var_size = -1;
+  gfc_option.flag_max_stack_var_size = 32768;
   gfc_option.flag_module_access_private = 0;
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;

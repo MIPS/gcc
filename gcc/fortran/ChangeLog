@@ -1,3 +1,8 @@
+2003-11-11  Canqun Yang  <canqun@nudt.edu.cn>
+ 
+ 	* options.c (gfc_init_options): Set flag_max_stack_var_size as 32768.
+ 	* trans-decl.c (gfc_finish_var_decl): Modified.
+
 2003-11-08  Paul Brook  <paul@nowt.org>
 
 	PR fortran/12704

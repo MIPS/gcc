@@ -416,6 +416,11 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if ((sym->attr.save || sym->attr.data || sym->value)
       && !sym->attr.use_assoc)
     TREE_STATIC (decl) = 1;
+  
+  /* Keep variables larger than max-stack-var-size off stack.  */
+  if (!sym->ns->proc_name->attr.recursive
+      && !gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
+    TREE_STATIC (decl) = 1;
 }
 
 
