@@ -108,7 +108,7 @@ union _Jv_IDispatchTable
   } iface;
 };
 
-// Used by _Jv_GetInterfaces ()
+// Used by _Jv_Linker::get_interfaces ()
 struct _Jv_ifaces
 {
   jclass *list;
@@ -371,18 +371,7 @@ private:
   // in prims.cc
   friend void _Jv_InitPrimClass (jclass, char *, char, int);
 
-  friend void _Jv_PrepareCompiledClass (jclass);
-  friend jshort _Jv_GetInterfaces (jclass, _Jv_ifaces *);
-  friend void _Jv_GenerateITable (jclass, _Jv_ifaces *, jshort *);
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
-  friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
-  friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkSymbolTable (jclass);
-  friend void _Jv_LayoutInterfaceMethods (jclass);
-  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
-  friend void _Jv_MakeVTable (jclass);
-  friend void _Jv_linkExceptionClassTable (jclass);
-  friend void _Jv_WaitForState (jclass klass, int state);
 
   friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 				   jint flags);
@@ -407,11 +396,6 @@ private:
 #ifdef INTERPRETER
   friend jboolean _Jv_IsInterpretedClass (jclass);
   friend void _Jv_InitField (jobject, jclass, int);
-  friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 
-                        		      _Jv_Utf8Const *method_name, 
-					      _Jv_Utf8Const *method_signature);
-
-  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;

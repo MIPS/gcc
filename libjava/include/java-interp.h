@@ -162,7 +162,6 @@ class _Jv_InterpClass
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
   friend class _Jv_InterpreterEngine;
-  friend void  _Jv_PrepareMissingMethods (jclass base2, jclass iface_class);
   friend void  _Jv_InitField (jobject, jclass, int);
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;

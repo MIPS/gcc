@@ -269,6 +269,9 @@ private:
   static int get_alignment_from_class(jclass);
   static void generate_itable(jclass, _Jv_ifaces *, jshort *);
   static jshort append_partial_itable(jclass, jclass, void **, jshort);
+  static _Jv_Method *search_method_in_class (jclass, jclass,
+					     _Jv_Utf8Const *,
+					     _Jv_Utf8Const *);
 
 public:
 

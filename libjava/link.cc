@@ -270,8 +270,8 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	wait_for_state (klass, JV_STATE_LOADED);
 
 	// First search the class itself.
-	the_method = _Jv_SearchMethodInClass (owner, klass, 
-					      method_name, method_signature);
+	the_method = search_method_in_class (owner, klass,
+					     method_name, method_signature);
 
 	if (the_method != 0)
 	  {
@@ -296,8 +296,8 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	    for (int i = 0; i < ifaces.count; i++)
 	      {
 		jclass cls = ifaces.list[i];
-		the_method = _Jv_SearchMethodInClass (cls, klass, method_name, 
-						      method_signature);
+		the_method = search_method_in_class (cls, klass, method_name, 
+						     method_signature);
 		if (the_method != 0)
 		  {
 		    found_class = cls;
@@ -315,8 +315,8 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index)
 	for (jclass cls = owner->getSuperclass (); cls != 0; 
 	     cls = cls->getSuperclass ())
 	  {
-	    the_method = _Jv_SearchMethodInClass (cls, klass, method_name,
-						  method_signature);
+	    the_method = search_method_in_class (cls, klass, method_name,
+						 method_signature);
 	    if (the_method != 0)
 	      {
 		found_class = cls;
@@ -391,9 +391,9 @@ _Jv_Linker::resolve_class_ref (jclass klass, jclass *classref)
 // Find a method declared in the cls that is referenced from klass and
 // perform access checks.
 _Jv_Method *
-_Jv_SearchMethodInClass (jclass cls, jclass klass, 
-                         _Jv_Utf8Const *method_name, 
-			 _Jv_Utf8Const *method_signature)
+_Jv_Linker::search_method_in_class (jclass cls, jclass klass, 
+				    _Jv_Utf8Const *method_name, 
+				    _Jv_Utf8Const *method_signature)
 {
   using namespace java::lang::reflect;
 
@@ -794,7 +794,7 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
 // Set this to true to enable debugging of indirect dispatch tables/linking.
 static bool debug_link = false;
 
-// _Jv_LinkSymbolTable() scans these two arrays and fills in the
+// link_symbol_table() scans these two arrays and fills in the
 // corresponding atable and otable with the addresses of static
 // members and the offsets of virtual members.
 
