@@ -122,7 +122,7 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_PNI		0x00010000	/* Support PNI builtins */
+#define MASK_SSE3		0x00010000	/* Support SSE3 builtins */
 #define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
 #define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
@@ -279,7 +279,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
-#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
+#define TARGET_SSE3 ((target_flags & MASK_SSE3) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -307,6 +307,8 @@ extern int x86_prefetch_sse;
   { "486",			 0, "" /*Deprecated.*/},		      \
   { "pentium",			 0, "" /*Deprecated.*/},		      \
   { "pentiumpro",		 0, "" /*Deprecated.*/},		      \
+  { "pni",			 0, "" /*Deprecated.*/},		      \
+  { "no-pni",			 0, "" /*Deprecated.*/},		      \
   { "intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "no-intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "rtd",			 MASK_RTD,				      \
@@ -369,10 +371,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
-  { "pni",			 MASK_PNI,				      \
-    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") }, \
-  { "no-pni",			 -MASK_PNI,				      \
-    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") }, \
+  { "sse3",			 MASK_SSE3,				      \
+    N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") }, \
+  { "no-sse3",			 -MASK_SSE3,				      \
+    N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") }, \
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -498,6 +500,8 @@ extern int ix86_arch;
 %n`-mpentium' is deprecated. Use `-march=pentium' or `-mcpu=pentium' instead.\n} \
 %{mpentiumpro:-mcpu=pentiumpro \
 %n`-mpentiumpro' is deprecated. Use `-march=pentiumpro' or `-mcpu=pentiumpro' instead.\n}} \
+%{mpni:-msse3} \
+%{mno-pni:-mno-sse3} \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
@@ -517,11 +521,13 @@ extern int ix86_arch;
 #define TARGET_CPU_DEFAULT_k6_3 10
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
+#define TARGET_CPU_DEFAULT_x86_64 13
+#define TARGET_CPU_DEFAULT_nocona 14
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4"}
+				  "athlon", "athlon-4", "x86-64", "nocona"}
 #ifndef CPP_CPU_DEFAULT_SPEC
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_i486
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_i486__"
@@ -546,6 +552,9 @@ extern int ix86_arch;
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_pentium4
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_pentium4__"
 #endif
+#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_nocona
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_pentium4__"
+#endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_k6
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_k6__"
 #endif
@@ -559,6 +568,9 @@ extern int ix86_arch;
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_athlon_sse
+#define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__ -D__tune_athlon_sse__"
+#endif
+#if TARGET_CPU_DEFAULT == TARGET_CPU_DEFAULT_x86_64
 #define CPP_CPU_DEFAULT_SPEC "-D__tune_athlon__ -D__tune_athlon_sse__"
 #endif
 #ifndef CPP_CPU_DEFAULT_SPEC
@@ -613,7 +625,7 @@ extern int ix86_arch;
 %{march=athlon-4|march=athlon-xp|march=athlon-mp:-D__athlon -D__athlon__ \
   -D__athlon_sse__ \
   %{!mcpu*:-D__tune_athlon__ -D__tune_athlon_sse__ }}\
-%{march=pentium4:-D__pentium4 -D__pentium4__ %{!mcpu*:-D__tune_pentium4__ }}\
+%{march=pentium4|march=prescott|march=nocona:-D__pentium4 -D__pentium4__ %{!mcpu*:-D__tune_pentium4__ }}\
 %{m386|mcpu=i386:-D__tune_i386__ }\
 %{m486|mcpu=i486:-D__tune_i486__ }\
 %{mpentium|mcpu=pentium|mcpu=i586|mcpu=pentium-mmx:-D__tune_i586__ -D__tune_pentium__ }\
@@ -624,19 +636,19 @@ extern int ix86_arch;
 -D__tune_athlon__ }\
 %{mcpu=athlon-4|mcpu=athlon-xp|mcpu=athlon-mp:\
 -D__tune_athlon_sse__ }\
-%{mcpu=pentium4:-D__tune_pentium4__ }\
-%{march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4|msse|msse2:\
+%{mcpu=pentium4|march=prescott|march=nocona:-D__tune_pentium4__ }\
+%{march=athlon-xp|march=athlon-mp|march=pentium3|march=pentium4|march=prescott|march=nocona|msse|msse2|msse3|mpni:\
 -D__SSE__ }\
 %{march=pentium-mmx|march=k6|march=k6-2|march=k6-3\
 |march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
-|march=athlon-mp|march=pentium2|march=pentium3|march=pentium4|mmx|msse|m3dnow: -D__MMX__ }\
+|march=athlon-mp|march=pentium2|march=pentium3|march=pentium4|march=prescott|march=nocona|mmx|msse|msse2|msse3|mpni|m3dnow: -D__MMX__ }\
 %{march=k6-2|march=k6-3\
 |march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp|m3dnow: -D__3dNOW__ }\
 %{march=athlon|march=athlon-tbird|march=athlon-4|march=athlon-xp\
 |march=athlon-mp: -D__3dNOW_A__ }\
-%{march=pentium4|msse2: -D__SSE2__ }\
-%{mpni: -D__PNI__ }\
+%{march=pentium4|march=prescott|march=nocona|msse2|msse3|mpni: -D__SSE2__ }\
+%{march=prescott|march=nocona|msse3|mpni: -D__SSE3__ -D__PNI__ }\
 %{!march*:%{!mcpu*:%{!m386:%{!m486:%{!mpentium*:%(cpp_cpu_default)}}}}}"
 
 #ifndef CPP_CPU_SPEC

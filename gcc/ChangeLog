@@ -1,3 +1,42 @@
+2004-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (override_options): Add PTA_64BIT, set it
+	for nocona, x86-64.  Add k8, opteron, athlon64 and athlon-fx
+	CPUs.  Issue error if selected CPU doesn't have PTA_64BIT set
+	instead of checking for PROCESSOR_ATHLON.
+	* config/i386/i386.h (TARGET_CPU_DEFAULT_x86_64): Define.
+	(TARGET_CPU_DEFAULT_nocona): Define.
+	(TARGET_CPU_DEFAULT_NAMES): Add "x86-64" and "nocona".
+	(CPP_CPU_DEFAULT_SPEC): Define for x86_64 and nocona default
+	CPUs.
+	* config.gcc (x86_64-*-*): Set target_cpu_default2 to
+	TARGET_CPU_DEFAULT_x86_64 or TARGET_CPU_DEFAULT_nocona.
+
+2004-04-14  H.J. Lu  <hongjiu.lu@intel.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (CPP_CPUCOMMON_SPEC): Support Prescott and
+	Nocona.
+
+2004-03-26  Jan Hubicka  <jh@suse.cz>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14723
+	* config.gcc: Add support --with-cpu=nocona.
+
+	* config/i386/i386.c (override_options): Add support for
+	Prescott and Nocona.
+
+	* doc/invoke.texi: Extend documentation of -mcpu/-march for new
+	CPUs.
+
+2004-02-06  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* config/i386/i386.c: Rename pni to sse3.
+	* config/i386/i386.h: Likewise.
+	* config/i386/i386.md: Likewise.
+	* config/i386/pmmintrin.h: Likewise.
+
 2004-02-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_output_dwarf_dtprel): Add
