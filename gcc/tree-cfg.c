@@ -123,6 +123,13 @@ static bool remap_stmts			(basic_block, basic_block, tree *);
 static block_stmt_iterator bsi_init 	PARAMS ((tree *, basic_block));
 static inline void bsi_update_from_tsi	PARAMS (( block_stmt_iterator *, tree_stmt_iterator));
 static tree_stmt_iterator bsi_link_after	PARAMS ((tree_stmt_iterator *, tree, basic_block, tree));
+static block_stmt_iterator bsi_commit_first_edge_insert	PARAMS ((edge, tree));
+
+/* Location to track pending stmt for edge insertion.  */
+#define PENDING_STMT(e)	((tree)(e->insns))
+
+/* Set the pending stmt field.  */
+#define SET_PENDING_STMT(e, t)	((e->insns) = (rtx)t)
 
 
 /* Remove any COMPOUND_EXPR container from NODE.  */
@@ -2899,10 +2906,10 @@ bsi_insert_before (curr_bsi, t, mode)
 /* This routine inserts a stmt on an edge. Every attempt is made to place the
    stmt in an existing basic block, but sometimes that isn't possible.  When
    it isn't possible, a new basic block is created, edges updated, and the 
-   stmt is added to the new block.  */
+   stmt is added to the new block.  An iterator to the new stmt is returned.  */
 
-block_stmt_iterator 
-bsi_insert_on_edge (e, stmt)
+static block_stmt_iterator 
+bsi_commit_first_edge_insert (e, stmt)
      edge e;
      tree stmt;
 {
@@ -2911,6 +2918,7 @@ bsi_insert_on_edge (e, stmt)
   tree_stmt_iterator tsi;
   int single_exit, single_entry;
   tree first, last, inserted_stmt;
+  bb_ann_t bb_ann;
 
   first = last = NULL_TREE;
   src = e->src;
@@ -3003,6 +3011,12 @@ bsi_insert_on_edge (e, stmt)
   redirect_edge_succ  (e, new_bb);
   make_edge (new_bb, dest, EDGE_FALLTHRU);
 
+  bb_ann = (bb_ann_t) xmalloc (sizeof (struct bb_ann_d));
+  new_bb->aux = bb_ann;
+  bb_ann->phi_nodes = NULL_TREE;
+  bb_ann->ephi_nodes = NULL_TREE;
+  bb_ann->dom_children = (bitmap) NULL;
+
   /* The new stmt needs to be linked in somewhere, link it in before
      the first statement in the destination block. This will help position
      the stmt properly if it is a child tree, as well as if it is a fallthru.
@@ -3034,6 +3048,83 @@ bsi_insert_on_edge (e, stmt)
   return bsi;
 }
 
+/* This routine will commit all pending edge insertions, creating any new 
+   basic blocks which are necessary. The number of edges which were inserted
+   is returned.  If the flag update_annotations is true, then new bitmaps are
+   created for the dominator children, and they are updated.  If specified, 
+   new_blocks returned a count of the number of new basic blocks which were
+   created.  */
+
+int
+bsi_commit_edge_inserts (update_annotations, new_blocks)
+     int update_annotations;
+     int *new_blocks;
+{
+  basic_block bb;
+  block_stmt_iterator bsi, ret;
+  edge e;
+  tree stmt, next_stmt;
+  int blocks, count = 0;
+
+  blocks = n_basic_blocks;
+  
+  FOR_EACH_BB (bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+        if (PENDING_STMT (e))
+	  {
+	    stmt = PENDING_STMT (e);
+	    SET_PENDING_STMT (e, NULL_TREE);
+	    next_stmt = TREE_CHAIN (stmt);
+	    /* The first insert will create a new basic block if needed.  */
+	    ret = bsi = bsi_commit_first_edge_insert (e, stmt);
+	    count++;
+	    stmt = next_stmt;
+	    for ( ; stmt; stmt = next_stmt)
+	      {
+	        /* All further inserts can simply follow the first one.  */
+		next_stmt = TREE_CHAIN (stmt);
+		bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+		count++;
+	      }
+
+	  }
+    }
+
+  if (new_blocks)
+    *new_blocks = blocks - n_basic_blocks;
+
+  /* Expand arrays if we created new blocks and need to update them.  */
+  if (update_annotations && blocks != n_basic_blocks)
+    {
+      /* TODO. Unimplemented at the moment.  */
+    }
+
+  return count;
+}
+
+/* This routine adds a stmt to the pending list on an edge. No actual 
+   insertion is made until a call to bsi_commit_edge_inserts () is made.  */
+
+void
+bsi_insert_on_edge (e, stmt)
+     edge e;
+     tree stmt;
+{
+  tree t;
+  
+  t = PENDING_STMT (e);
+  if (!t)
+    SET_PENDING_STMT (e, stmt);
+  else
+    {
+      for ( ; TREE_CHAIN (t); t = TREE_CHAIN (t))
+        continue;
+      TREE_CHAIN (t) = stmt;
+      TREE_CHAIN (stmt) = NULL_TREE;
+    }
+  
+}
 
 /* Replace the statement pointed by TP1 with the statement pointed by TP2.
    Note that this function will not replace COMPOUND_EXPR nodes, only

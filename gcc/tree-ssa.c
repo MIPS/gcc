@@ -112,6 +112,48 @@ static htab_t avail_exprs;
    propagation).  */
 static htab_t const_and_copies;
 
+/* Used to create the variable mapping when we go out of SSA form.  */
+typedef struct _var_map
+{
+  /* The partition of all ssa names.  */
+  partition var_partition;
+
+  /* Compressed partition map */
+  int *compaction;
+
+  /* Mapping of partition to vars.  */
+  tree *partition_to_var;
+
+  unsigned int num_partitions;
+} *var_map;
+
+#define VAR_ANN_PARTITION(ann) (ann->partition)
+
+/* Used to hold all the components requires to do SSA PHI elimination.  */
+
+typedef struct _elim_graph
+{
+  /* Size of the elimination vectors.  */
+  int size;
+  /* Number of nodes entered into the elimination graph.  */
+  int num_nodes;
+  /* The actual nodes in the elimination graph.  */
+  tree *nodes;
+  /* The predecessor and successor list.  */
+  sbitmap *pred;
+  sbitmap *succ;
+
+  /* Visited vector.  */
+  sbitmap visited;
+  /* Stack for visited nodes.  */
+  int *stack;
+  int top_of_stack;
+  
+  /* The variable partition map.  */
+  var_map map;
+  /* edge being eliminated by this graph.  */
+  edge e;
+} *elim_graph;
 
 /* Statistics for dominator optimizations.  */
 struct ssa_stats_d
@@ -164,6 +206,31 @@ static hashval_t avail_expr_hash	PARAMS ((const void *));
 static int avail_expr_eq		PARAMS ((const void *, const void *));
 static struct def_blocks_d *get_def_blocks_for PARAMS ((tree));
 static void htab_statistics		PARAMS ((FILE *, htab_t));
+
+static var_map create_var_map		PARAMS ((int));
+static void set_var_mapping		PARAMS ((var_map, tree, sbitmap));
+static var_map create_var_partition	PARAMS ((void));
+static inline tree mapped_var_from_ref	PARAMS ((var_map, tree));
+static void delete_var_map		PARAMS ((var_map));
+static int get_var_partition		PARAMS ((var_map, tree));
+static void set_partition_for_var	PARAMS ((var_map, tree, int));
+void dump_tree_partition		PARAMS ((FILE *, var_map, int));
+static void compact_var_map		PARAMS ((var_map));
+static inline tree var_from_partition	PARAMS ((var_map, int));
+
+static tree create_temp			PARAMS ((tree));
+static void insert_copy_on_edge		PARAMS ((edge, tree, tree));
+static elim_graph new_elim_graph	PARAMS ((int));
+static void delete_elim_graph		PARAMS ((elim_graph));
+static void clear_elim_graph		PARAMS ((elim_graph));
+static void eliminate_name		PARAMS ((elim_graph, tree));
+static int eliminate_build		PARAMS ((elim_graph, basic_block, int));
+static void elim_forward		PARAMS ((elim_graph, int));
+static int elim_unvisited_predecessor	PARAMS ((elim_graph, int));
+static void elim_backward		PARAMS ((elim_graph, int));
+static void elim_create			PARAMS ((elim_graph, int));
+static void eliminate_phi		PARAMS ((edge, int, elim_graph));
+static void eliminate_extraneous_phis	PARAMS ((void));
 
 /* FIXME: [UNSSA] Remove once the real unSSA pass is implemented.  */
 #if 1
@@ -763,6 +830,672 @@ rewrite_block (bb, eq_expr_value)
 }
 
 
+
+/* This is where the mapping from SSA version number to real storage variable
+   is tracked.  
+
+   All SSA versions of the same variable may not ultimately be mapped back to
+   the same real variable. In that instance, we need to detect the live
+   range overlap, and give one of the variable new storage. The vector
+   'partition_to_var' tracks which partition maps to whicvh variable.
+
+   Given a VAR, it is sometimes desirable to know which partition that VAR
+   represents.  There is an additional field in the variable annotation to
+   track that information.  */
+
+/* Create the variable partition and initialize it.  */
+
+static var_map
+create_var_map (size)
+     int size;
+{
+  var_map map;
+
+  map = (var_map) xmalloc (sizeof (struct _var_map));
+  map->var_partition = partition_new (size);
+  map->partition_to_var 
+	      = (tree *)xmalloc (size * sizeof (tree));
+  memset (map->partition_to_var, 0, size * sizeof (tree));
+
+  map->compaction = NULL;
+  map->num_partitions = size;
+  return map;
+}
+
+/* Free memory associated with a var_map.  */
+
+static void
+delete_var_map (map)
+     var_map map;
+{
+  free (map->partition_to_var);
+  partition_delete (map->var_partition);
+  if (map->compaction)
+    free (map->compaction);
+  free (map);
+}
+
+
+/* Given a partition number, return the variable which represents that 
+   partition.  */
+
+static inline tree
+var_from_partition (map, i)
+     var_map map;
+     int i;
+{
+  return map->partition_to_var [i];
+}
+
+/* Given a variable, return the partition number which contains it.  */
+
+static int
+get_var_partition (map, var)
+     var_map map;
+     tree var;
+{
+  var_ann_t ann;
+  int part;
+
+  if (TREE_CODE (var) == SSA_NAME)
+    {
+      part = partition_find (map->var_partition, SSA_NAME_VERSION (var));
+      if (map->compaction)
+	part = map->compaction[part];
+    }
+  else
+    {
+      ann = var_ann (var);
+      part = VAR_ANN_PARTITION (ann);
+    }
+  return part;
+}
+
+/* Given a variable, return the variable which represents the entire partition
+   the specified one is a member of.  */
+
+static inline tree
+mapped_var_from_ref (map, var)
+     var_map map;
+     tree var;
+{
+  int part;
+
+  part = get_var_partition (map, var);
+  return var_from_partition (map, part);
+}
+
+/* Compress the partition numbers such that they fall in the range 
+   0..(num_partitions-1) instead of whereever they turned out during
+   the partitioning exercise. This removes any references to unused
+   partitions, thereby allowing bitmaps and other vectors to be much
+   denser.  */
+
+static void 
+compact_var_map (map)
+     var_map map;
+{
+  sbitmap used;
+  int x, limit, count, tmp;
+
+  limit = map->num_partitions;
+  used = sbitmap_alloc (limit);
+  sbitmap_zero (used);
+
+  map->compaction = (int *)xmalloc (limit * sizeof (int));
+
+  /* Find out which partitions are actually referenced.  */
+  count = 0;
+  for (x = 0; x < limit; x++)
+    {
+      map->compaction[x] = x;
+      tmp = partition_find (map->var_partition, x);
+      if (!TEST_BIT (used, tmp) && map->partition_to_var[tmp] != NULL_TREE)
+        {
+	  SET_BIT (used, tmp);
+	  count++;
+	}
+    }
+  
+  /* Build a compacted partitioning.  */
+  if (count != limit)
+    {
+      count = 0;
+      /* SSA renaming begins at 1, so skip 0 when compacting.  */
+      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x,
+	{
+	  map->compaction[x] = count;
+	  set_partition_for_var (map, map->partition_to_var[x], count);
+	  count++;
+	});
+    }
+  else
+    {
+      free (map->compaction);
+      map->compaction = NULL;
+    }
+
+  map->num_partitions = count;
+  sbitmap_free (used);
+}
+
+
+/* For debuging. Output a partition.  */
+
+void
+dump_tree_partition (f, map, dump_flags)
+     FILE *f;
+     var_map map;
+     int dump_flags;
+{
+  int t;
+  unsigned x, y, p;
+
+  fprintf (f, "\nPartition map \n\n");
+  if (dump_flags & TDF_DETAILS)
+    {
+      for (x = 1; x <= next_ssa_version; x++)
+	{
+	  p = partition_find (map->var_partition, x);
+	  if (map->compaction)
+	    p = map->compaction[p];
+	  fprintf (f, "ver %3d -> partition %3d  (", x, p);
+	  print_generic_expr (f, var_from_partition (map, p), TDF_SLIM);
+	  fprintf (f, ")\n");
+	}
+      fprintf (f, "\n\n");
+    }
+
+  for (x = 0; x < map->num_partitions; x++)
+    {
+      if (map->partition_to_var[x] == NULL_TREE)
+        continue;
+      t = 0;
+      for (y = 1; y < next_ssa_version; y++)
+        {
+	  p = partition_find (map->var_partition, y);
+	  if (map->compaction)
+	    p = map->compaction[p];
+	  if (p == x)
+	    {
+	      if (t++ == 0)
+	        {
+		  fprintf(stderr, "Partition %d (", x);
+		  print_generic_expr (f, var_from_partition (map, p), TDF_SLIM);
+		  fprintf (stderr, " - ");
+		}
+	      fprintf (stderr, "%d ", y);
+	    }
+	}
+      if (t != 0)
+	fprintf (stderr, ")\n");
+    }
+  fprintf (f, "\n");
+}
+
+/* Set the partition mapping fields for a var.  Eventually, this routine 
+   needs to recognize overlapping live ranges, and assign different variables
+   for overlapping ranges. Right now, we just stupidly always use the
+   root variable.  */
+
+static void 
+set_partition_for_var (map, var, part)
+     var_map map;
+     tree var;
+     int part;
+{
+  var_ann_t ann;
+
+  ann = var_ann (var);
+  ann->processed_out_of_ssa = 1;
+  VAR_ANN_PARTITION (ann) = part;
+  map->partition_to_var[part] = var;
+}
+
+/* Used to map an ssa versioned var to a real var.  */
+
+static void
+set_var_mapping (map, ssa_var, visited)
+     var_map map;
+     tree ssa_var;
+     sbitmap visited;
+{
+  var_ann_t ann;
+  tree var;
+  int version;
+
+  var = SSA_NAME_VAR (ssa_var);
+  ann = var_ann (var);
+  version = SSA_NAME_VERSION (ssa_var);
+  if (TEST_BIT (visited, version))
+    return;
+  SET_BIT (visited, version);
+  if (!ann->processed_out_of_ssa)
+    {
+      /* First time var is processed, give it this partition.  */
+      set_partition_for_var (map, var, version);
+    }
+  else
+    {
+      /* Dummy version. Make all versions refer to the root 
+	 version for that variable.   Ultimately, we need to 
+	 look for overlapping live ranges and create new 
+	 variables for those instead of this.  */
+      VAR_ANN_PARTITION (ann) 
+		    = partition_union (map->var_partition, 
+				       VAR_ANN_PARTITION (ann), 
+				       version);
+      map->partition_to_var[VAR_ANN_PARTITION (ann)] = var;
+    }
+}
+
+
+/* This looks through the function to determine what SSA versioned variables
+   need to have entries in the partition table. Partitions are created, and
+   variables are asigned to represents partitions.
+
+   *TODO* Currently, we simply make all versioned versions of a variable map to
+   that variable.  This will create incorrect code when there are overlapping
+   live ranges. The correct fix to this is coming, it will be different version
+   of this function which puts overlapping live ranges into different 
+   partitions.  */
+
+static var_map
+create_var_partition ()
+{
+  block_stmt_iterator bsi;
+  basic_block bb;
+  tree *dest;
+  tree stmt;
+  varray_type ops;
+  unsigned x;
+  int i;
+  var_map map;
+  tree phi;
+  sbitmap visited;
+
+  map = create_var_map (next_ssa_version + 1);
+
+  visited = sbitmap_alloc (next_ssa_version + 1);
+  sbitmap_zero (visited);
+
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+	  stmt = bsi_stmt (bsi);
+	  get_stmt_operands (stmt);
+
+	  ops = use_ops (stmt);
+	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
+	    {
+	      tree *use = VARRAY_GENERIC_PTR (ops, x);
+	      set_var_mapping (map, *use, visited);
+	    }
+
+	  dest = def_op (stmt);
+	  if (dest)
+	    set_var_mapping (map, *dest, visited);
+	  
+	}
+      
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  set_var_mapping (map, PHI_RESULT (phi), visited);
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    set_var_mapping (map, PHI_ARG_DEF (phi, i), visited);
+	  
+	}
+    }
+
+  sbitmap_free (visited);
+  return map;
+}
+
+
+/* This function will create a temporary for a partition based on the
+   type of the variable which already represents a partition.  */
+
+static tree
+create_temp (t)
+     tree t;
+{
+  tree tmp;
+  const char *name = NULL;
+  tree type;
+ 
+  if (TREE_CODE (t) != VAR_DECL 
+      && TREE_CODE (t) != PARM_DECL
+      && TREE_CODE (t) != INDIRECT_REF)
+    abort ();
+
+  if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      if (TREE_CODE (TREE_OPERAND (t, 0)) != VAR_DECL 
+          && TREE_CODE (TREE_OPERAND (t, 0)) != PARM_DECL)
+        abort ();
+      type = TREE_TYPE (TREE_OPERAND (t,0));
+      tmp = DECL_NAME (TREE_OPERAND(t, 0));
+      if (tmp)
+	name = IDENTIFIER_POINTER (tmp);
+    }
+  else
+    {
+      type = TREE_TYPE (t);
+      tmp = DECL_NAME (t);
+      if (tmp)
+	name = IDENTIFIER_POINTER (tmp);
+    }
+
+  if (name == NULL)
+    name = "temp";
+  tmp = create_tmp_var (type, name);
+  create_var_ann (tmp);
+  return tmp;
+}
+
+
+/* This helper function fill insert a copy from one variable to another
+   on the specified edge.  */
+
+static void
+insert_copy_on_edge (e, dest, src)
+     edge e;
+     tree dest, src;
+{
+  tree copy;
+
+  copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
+  bsi_insert_on_edge (e, copy);
+}
+
+/* --------------------------------------------------------------------- */
+/* Create an elimination graph and associated data structures.  */
+
+static elim_graph
+new_elim_graph (size)
+     int size;
+{
+  elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
+  g->size = size;
+  g->nodes = (tree *) xmalloc (sizeof (tree) * size);
+  g->pred = sbitmap_vector_alloc (size, size);
+  g->succ= sbitmap_vector_alloc (size, size);
+  g->visited = sbitmap_alloc (size);
+  g->stack = (int *) xmalloc (sizeof (int) * size);
+  
+  return g;
+}
+
+static void
+clear_elim_graph (g)
+     elim_graph g;
+{
+  int size = g->size;
+  g->num_nodes = 0;
+  memset (g->nodes, 0, sizeof (tree) * size);
+  sbitmap_vector_zero (g->pred, size);
+  sbitmap_vector_zero (g->succ, size);
+}
+
+/* Delete an elimination graph.  */
+static void
+delete_elim_graph (g)
+     elim_graph g;
+{
+  free (g->stack);
+  sbitmap_free (g->visited);
+  sbitmap_free (g->succ);
+  sbitmap_free (g->pred);
+  free (g->nodes);
+  free (g);
+}
+
+/* The following procedures implement the out of SSA algorithm detailed in 
+   the Morgan Book pages 176-186.  */
+
+
+/* Add T to the elimination graph.  */
+
+static void
+eliminate_name (g, T)
+     elim_graph g;
+     tree T;
+{
+  int version = get_var_partition (g->map, T);
+
+  /* If this is the first time a node is added, clear the graph.
+     Delaying it until here prevents clearing all the vectors
+     until it is known for sure that they are going to be used.  */
+
+  if (g->num_nodes == 0)
+    clear_elim_graph (g);
+
+  if (g->nodes[version] == NULL)
+    {
+      g->nodes[version] = T;
+      g->num_nodes++;
+    }
+}
+
+/* Build the auxillary graph.  */
+
+static int
+eliminate_build (g, B, i)
+     elim_graph g;
+     basic_block B;
+     int i;
+{
+  tree phi;
+  tree T0, Ti;
+  int p0, pi;
+  int edges = 0;
+
+  g->num_nodes = 0;
+  
+  for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
+    {
+      T0 = mapped_var_from_ref (g->map, PHI_RESULT (phi));
+      Ti = mapped_var_from_ref (g->map, PHI_ARG_DEF (phi, i));
+      if (T0 != Ti)
+        {
+	  eliminate_name (g, T0);
+	  eliminate_name (g, Ti);
+	  p0 = get_var_partition (g->map, T0);
+	  pi = get_var_partition (g->map, Ti);
+	  SET_BIT (g->pred[pi], p0);
+	  SET_BIT (g->succ[p0], pi);
+	  edges++;
+	}
+    }
+  return edges;
+}
+
+/* Push successors onto the stack depth first.  */
+
+static void 
+elim_forward (g, T)
+     elim_graph g;
+     int T;
+{
+  int S;
+  SET_BIT (g->visited, T);
+  EXECUTE_IF_SET_IN_SBITMAP (g->succ[T], 0, S,
+    {
+      if (!TEST_BIT (g->visited, S))
+        elim_forward (g, S);
+    });
+  g->stack[g->top_of_stack] = T;
+  g->top_of_stack++;
+}
+
+
+/* Are there unvisited predecessors?  */
+
+static int
+elim_unvisited_predecessor (g, T)
+     elim_graph g;
+     int T;
+{
+  int P;
+  EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+    {
+      if (!TEST_BIT (g->visited, P))
+        return 1;
+    });
+  return 0;
+}
+
+/* Process predecessors first, and insert a copy.  */
+
+static void
+elim_backward (g, T)
+     elim_graph g;
+     int T;
+{
+  int P;
+  SET_BIT (g->visited, T);
+  EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+    {
+      if (!TEST_BIT (g->visited, P))
+        elim_backward (g, P);
+      insert_copy_on_edge (g->e, 
+			   var_from_partition (g->map, P), 
+			   var_from_partition (g->map, T));
+    });
+}
+
+/* Check for a SCR, and create a temporary if there is one, and break
+   the cycle. Then issue the copies. Otherwise, simply insert the
+   required copies.  */
+
+static void 
+elim_create (g, T)
+     elim_graph g;
+     int T;
+{
+  tree U;
+  int P, S;
+
+  if (elim_unvisited_predecessor (g, T))
+    {
+      U = create_temp (var_from_partition (g->map, T));
+      insert_copy_on_edge (g->e, U, var_from_partition (g->map, T));
+      EXECUTE_IF_SET_IN_SBITMAP (g->pred[T], 0, P,
+	{
+	  if (!TEST_BIT (g->visited, P))
+	    {
+	      elim_backward (g, P);
+	      insert_copy_on_edge (g->e, var_from_partition (g->map, P), U);
+	    }
+	});
+    }
+  else
+    {
+      EXECUTE_IF_SET_IN_SBITMAP (g->succ[T], 0, S,
+	{
+	  SET_BIT (g->visited, T);
+	  RESET_BIT (g->succ[T], S);
+	  insert_copy_on_edge (g->e, 
+			       var_from_partition (g->map, T), 
+			       var_from_partition (g->map, S));
+	});
+    }
+  
+}
+
+/* Eliminate all the phi nodes on this edge.  */
+
+static void
+eliminate_phi (e, i, g)
+     edge e;
+     int i;
+     elim_graph g;
+{
+  tree phi;
+  int num_phi = 0;
+  int num_nodes = 0;
+  int x, limit;
+  basic_block B = e->dest;
+
+  /* TODO. Sometimes edges are removed and the PHI nodes are not updated.
+     This results in an out of date PHI entry, and we should'd process these
+     yet. This should never happen.... eventually.  */
+  if (i == -1)
+    return;
+
+  for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
+    {
+      num_phi++;
+    }
+
+  num_nodes = g->map->num_partitions;
+
+  g->e = e;
+
+  x = eliminate_build (g, B, i);
+
+  if (g->num_nodes == 0)
+    return;
+
+  sbitmap_zero (g->visited);
+  g->top_of_stack = 0;
+
+  limit = g->num_nodes;
+  for (x = 0; limit; x++)
+     if (g->nodes[x])
+       {
+         limit--;
+	 if (!TEST_BIT (g->visited, x))
+	   elim_forward (g, x);
+       }
+   
+  sbitmap_zero (g->visited);
+  while (g->top_of_stack > 0)
+    {
+      x = g->stack[--(g->top_of_stack)];
+      if (!TEST_BIT (g->visited, x))
+        elim_create (g, x);
+    }
+}
+
+
+/* Eliminate any PHI nodes which were for aliasing or other uses which 
+   do not generate real code.  This reduces the number of variables in
+   the partition.  */
+
+static void
+eliminate_extraneous_phis ()
+{
+  tree phi, result, last;
+  basic_block bb;
+  int code;
+
+  FOR_EACH_BB (bb)
+    {
+      phi = phi_nodes (bb);
+      for (last = NULL; phi; )
+        {
+	  result = PHI_RESULT (phi);
+	  code = TREE_CODE (TREE_TYPE (result));
+	  if (code == ARRAY_TYPE 
+	      || code == RECORD_TYPE 
+	      || code == UNION_TYPE
+	      || may_aliases (result) 
+	      || result == global_var)
+	    {
+	      phi = TREE_CHAIN (phi);
+	      remove_phi_node (result, last, bb);
+	    }
+	  else
+	    {
+	      last = phi;
+	      phi = TREE_CHAIN (phi);
+	    }
+	}
+    }
+}
+
 /* Take function FNDECL out of SSA form.
 
    FIXME: Need to support overlapping live ranges for different versions of
@@ -779,35 +1512,76 @@ rewrite_out_of_ssa (fndecl)
 {
   basic_block bb;
   block_stmt_iterator si;
+  edge e;
+  var_map map;
+  tree phi;
+  elim_graph g;
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
+
+  eliminate_extraneous_phis ();
+  map = create_var_partition ();
+  compact_var_map (map);
+
+  g = new_elim_graph (map->num_partitions);
+  g->map = map;
   FOR_EACH_BB (bb)
-    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-      {
-	size_t i;
-	varray_type ops;
-	tree stmt = bsi_stmt (si);
-	STRIP_NOPS (stmt);
+    {
+      for (si = bsi_start (bb); !bsi_end_p (si); )
+	{
+	  size_t i, num_ops;
+	  varray_type ops;
+	  tree stmt = bsi_stmt (si);
+	  tree *use_p = NULL;
+	  int remove = 0, is_copy = 0;
 
-	get_stmt_operands (stmt);
+	  STRIP_NOPS (stmt);
+	  get_stmt_operands (stmt);
 
-	if (def_op (stmt))
-	  {
-	    tree *def_p = def_op (stmt);
-	    *def_p = SSA_NAME_VAR (*def_p);
-	  }
+	  if (TREE_CODE (stmt) == MODIFY_EXPR 
+	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
+	    is_copy = 1;
 
-	ops = use_ops (stmt);
-	for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-	  {
-	    tree *use_p = VARRAY_GENERIC_PTR (ops, i);
-	    *use_p = SSA_NAME_VAR (*use_p);
-	  }
-      }
+	  ops = use_ops (stmt);
+	  num_ops = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+
+	  for (i = 0; i < num_ops; i++)
+	    {
+	      use_p = VARRAY_GENERIC_PTR (ops, i);
+	      *use_p = mapped_var_from_ref (map, *use_p);
+	    }
+
+	  if (def_op (stmt))
+	    {
+	      tree *def_p = def_op (stmt);
+	      *def_p = mapped_var_from_ref (map, *def_p);
+
+	      if (is_copy && num_ops == 1 && use_p && (*def_p == *use_p))
+		remove = 1;
+	    }
+
+	  /* Remove copies of the form 'var = var'.  */
+	  if (remove)
+	    bsi_remove (&si);
+	  else
+	    bsi_next (&si);
+	}
+
+      phi = phi_nodes (bb);
+      if (phi)
+	for (e = bb->pred; e; e = e->pred_next)
+	  eliminate_phi (e, phi_arg_from_edge (phi, e), g);
+    }
+
+  delete_elim_graph (g);
+
+  /* If any copies were inserted on edges, actually insert them now.  */
+  bsi_commit_edge_inserts (0, NULL);
 
   /* Flush out flow graph and SSA data.  */
   delete_tree_ssa (fndecl);
   delete_tree_cfg ();
+  delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 }
 

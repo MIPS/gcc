@@ -79,8 +79,12 @@ struct var_ann_d GTY(())
   /* Nonzero if the variable may be modified by function calls.  */
   unsigned is_call_clobbered : 1;
 
+  /* Used by the out of SSA pass to determine whether this var has been
+     seen yet or not.  */
+  unsigned processed_out_of_ssa : 1;
+
   /* Unused bits.  */
-  unsigned unused : 26;
+  unsigned unused : 25;
 
   /* An INDIRECT_REF expression representing all the dereferences of this
      pointer.  Used to store aliasing information for pointer dereferences
@@ -92,6 +96,10 @@ struct var_ann_d GTY(())
   
   /* Unique ID of this variable.  */
   size_t uid;
+
+  /* Used when going out of SSA form to indicate which partition this 
+     variable represents storage for.  */
+  unsigned partition;
 };
 
 
@@ -302,7 +310,8 @@ enum bsi_iterator_update
 
 extern void bsi_insert_before	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
 extern void bsi_insert_after	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
-extern block_stmt_iterator bsi_insert_on_edge	PARAMS ((edge, tree));
+extern void bsi_insert_on_edge	PARAMS ((edge, tree));
+extern int bsi_commit_edge_inserts	PARAMS ((int, int *));
 
 /* Stmt list insertion routines.  */
 
@@ -451,6 +460,9 @@ void tree_ssa_dce			PARAMS ((tree));
 
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop			PARAMS ((tree));
+
+static inline int phi_arg_from_edge	PARAMS ((tree, edge));
+static inline struct phi_arg_d *phi_element_for_edge	PARAMS ((tree, edge));
 
 #include "tree-flow-inline.h"
 

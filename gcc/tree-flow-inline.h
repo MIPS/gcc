@@ -316,6 +316,42 @@ phi_nodes (bb)
   return bb_ann (bb)->phi_nodes;
 }
 
+
+/* Return the phi index number for an edge.  */
+static inline int
+phi_arg_from_edge (phi, e)
+     tree phi;
+     edge e;
+{
+  int i;
+#if defined ENABLE_CHECKING
+  if (!phi || TREE_CODE (phi) != PHI_NODE)
+    abort();
+#endif
+
+  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+    if (PHI_ARG_EDGE (phi, i) == e)
+      return i;
+
+  return -1;
+}
+
+
+/* Return the phi argument number for an edge.  */
+static inline struct phi_arg_d *
+phi_element_for_edge (phi, e)
+     tree phi;
+     edge e;
+{
+  int i;
+
+  i = phi_arg_from_edge (phi, e);
+  if (i != -1)
+    return &(PHI_ARG_ELT (phi, i));
+  else
+    return (struct phi_arg_d *)NULL;
+}
+
 static inline void
 add_dom_child (bb, child_bb)
      basic_block bb;

@@ -1,3 +1,38 @@
+2003-04-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (PENDING_STMT, SET_PENDING_STMT): New Macros.
+	(bsi_insert_on_edge): Rename to bsi_commit_first_edge_insert. Add an
+	empty annotation record to the new basic_block.
+	(bsi_commit_edge_inserts): New. Commit all pending edge inserts.
+	(bsi_insert_on_edge): New. Add stmt to edge's pending insert list.
+	* tree-flow-inline.h (phi_arg_from_edge): Return PHI index for an edge.
+	(phi_element_for_edge): Return PHI element for an edge.
+	* tree-flow.h (struct var_ann_d): Add auxiallary field and new 
+	bit 'processed_out_of_ssa'.
+	* tree-ssa.c (_var_map): Structure for variable parition map.
+	(struct _elim_graph): Elimination graph for out-of-ssa pass.
+	(create_var_map): Create a new var_map.
+	(delete_var_map): Delete a var_map.
+	(var_from_parition): Return var for a specified partition.
+	(get_var_partition): Return partition a var belongs to.
+	(mapped_var_from_ref): Get root var for a var's partition.
+	(compress_var_map): Re-map the partitions to make the list dense.
+	(dump_var_parition): Print var_map.
+	(set_partition_for_var): Associate a real var with a partition.
+	(set_var_mapping): Associate an SSA version var with a real var.
+	(create_var_partition): Create a partition for processing.
+	(create_temp): Create a new temp variable for a partition.
+	(insert_copy_on_edge): Insert a copy between variables on an edge.
+	(new_elim_graph): Create a new elimination graph.
+	(clear_elim_graph): clear an elimination graph.
+	(delete_elim_graph): Delete an elimination graph.
+	(eliminate_name, eliminate_build, elim_forward, 
+	elim_unvisited_predecessor, elim_backward, elim_create, 
+	eliminate_phi): Routines to implement Morgans PHI elimination algorithm.
+	(eliminate_extraneous_phis): Eliminate PHI nodes which will never 
+	generate code.
+	(rewrite_out_of_ssa): Use partitions and PHI elimination algorithm.
+
 2003-04-01  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (make_blocks): Make sure the BIND_EXPR's subgraph
