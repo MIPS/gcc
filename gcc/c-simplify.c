@@ -50,7 +50,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     (ld-trees) emitted by the parser into language-independent trees
     (li-trees) that are the target of SSA analysis and transformations.  
 
-    Language-independent trees are based on the GIMPLE intermediate
+    Language-independent trees are based on the SIMPLE intermediate
     representation used in the McCAT compiler framework:
 
     "Designing the McCAT Compiler Based on a Family of Structured

@@ -1,5 +1,9 @@
 2003-06-13  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-simplify.c: Fix typo in previous change.
+
+2003-06-13  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-common.c, c-common.h, c-decl.c, c-lang.c, c-simplify.c,
 	flags.h, gimplify.c, langhooks-def.h, langhooks.c, langhooks.h,
 	simple-break-elim.c, simple-goto-elim.c, toplev.c,
