@@ -1,3 +1,7 @@
+2003-08-29  Paul Brook  <paul@nowt.org>
+
+	* arith.c (gfc_real_kinds): Use correct minimum exponents.
+
 2003-08-22  Kejia Zhao  <kejia_zh@yahoo.com.cn>
 
 	* trans-instinsic.c (gfc_conv_intrinsic_mod): Also do MODULO.
