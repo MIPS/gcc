@@ -299,7 +299,7 @@ ggc_mark_rtx_children (r)
       switch (code)
 	{
 	case MEM:
-	  ggc_mark (MEM_ATTRS (r));
+	  gt_ggc_m_mem_attrs (MEM_ATTRS (r));
 	  break;
 	case JUMP_INSN:
 	  ggc_mark_rtx (JUMP_LABEL (r));

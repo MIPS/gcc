@@ -190,7 +190,6 @@ static int const_int_htab_eq            PARAMS ((const void *,
 static hashval_t mem_attrs_htab_hash    PARAMS ((const void *));
 static int mem_attrs_htab_eq            PARAMS ((const void *,
 						 const void *));
-static void mem_attrs_mark		PARAMS ((const void *));
 static mem_attrs *get_mem_attrs		PARAMS ((HOST_WIDE_INT, tree, rtx,
 						 rtx, unsigned int,
 						 enum machine_mode));
@@ -249,25 +248,6 @@ mem_attrs_htab_eq (x, y)
 
   return (p->alias == q->alias && p->expr == q->expr && p->offset == q->offset
 	  && p->size == q->size && p->align == q->align);
-}
-
-/* This routine is called when we determine that we need a mem_attrs entry.
-   It marks the associated decl and RTL as being used, if present.  */
-
-static void
-mem_attrs_mark (x)
-     const void *x;
-{
-  mem_attrs *p = (mem_attrs *) x;
-
-  if (p->expr)
-    ggc_mark_tree (p->expr);
-
-  if (p->offset)
-    ggc_mark_rtx (p->offset);
-
-  if (p->size)
-    ggc_mark_rtx (p->size);
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -4741,7 +4721,7 @@ init_emit_once (line_numbers)
 
   mem_attrs_htab = htab_create (37, mem_attrs_htab_hash,
 				mem_attrs_htab_eq, NULL);
-  ggc_add_deletable_htab (mem_attrs_htab, 0, mem_attrs_mark);
+  ggc_add_deletable_htab (mem_attrs_htab, 0, gt_ggc_m_mem_attrs);
 
   no_line_numbers = ! line_numbers;
 

@@ -1186,7 +1186,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
       && GET_MODE_SIZE (mode) >= 2 * UNITS_PER_WORD
       && binoptab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      int i;
+      unsigned int i;
       optab otheroptab = binoptab == add_optab ? sub_optab : add_optab;
       unsigned int nwords = GET_MODE_BITSIZE (mode) / BITS_PER_WORD;
       rtx carry_in = NULL_RTX, carry_out = NULL_RTX;
@@ -1273,7 +1273,7 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	  carry_in = carry_out;
 	}	
 
-      if (i == GET_MODE_BITSIZE (mode) / BITS_PER_WORD)
+      if (i == GET_MODE_BITSIZE (mode) / (unsigned) BITS_PER_WORD)
 	{
 	  if (mov_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 	    {
@@ -4572,7 +4572,7 @@ static optab
 new_optab ()
 {
   int i;
-  optab op = (optab) xmalloc (sizeof (struct optab));
+  optab op = (optab) ggc_alloc (sizeof (struct optab));
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
       op->handlers[i].insn_code = CODE_FOR_nothing;
@@ -4705,15 +4705,12 @@ init_one_libfunc (name)
 
 /* Mark ARG (which is really an OPTAB *) for GC.  */
 
-void
-mark_optab (arg)
+static void gt_ggc_mp_optab PARAMS ((void *));
+static void
+gt_ggc_mp_optab (arg)
      void *arg;
 {
-  optab o = *(optab *) arg;
-  int i;
-
-  for (i = 0; i < NUM_MACHINE_MODES; ++i)
-    ggc_mark_rtx (o->handlers[i].libfunc);
+  gt_ggc_m_optab (*(optab *) arg);
 }
 
 /* Call this once to initialize the contents of the optabs
@@ -5067,7 +5064,7 @@ init_optabs ()
 #endif
 
   /* Add these GC roots.  */
-  ggc_add_root (optab_table, OTI_MAX, sizeof(optab), mark_optab);
+  ggc_add_root (optab_table, OTI_MAX, sizeof(optab), gt_ggc_mp_optab);
   ggc_add_rtx_root (libfunc_table, LTI_MAX);
 }
 

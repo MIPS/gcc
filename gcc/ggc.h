@@ -202,7 +202,6 @@ extern void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 
 void mark_eh_status			PARAMS ((struct eh_status *));
 void mark_stmt_status			PARAMS ((struct stmt_status *));
-void mark_optab				PARAMS ((void *));
 
 /* Statistics.  */
 

@@ -137,7 +137,7 @@ static int next_type_uid = 1;
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
-struct type_hash
+struct type_hash GTY(())
 {
   unsigned long hash;
   tree type;
@@ -227,7 +227,7 @@ init_obstacks ()
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
   ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
-			  type_hash_mark);
+			  gt_ggc_m_type_hash);
   ggc_add_tree_root (global_trees, TI_MAX);
   ggc_add_tree_root (integer_types, itk_none);
 
@@ -3187,18 +3187,6 @@ type_hash_marked_p (p)
   return ggc_marked_p (type) || TYPE_SYMTAB_POINTER (type);
 }
 
-/* Mark the entry in the type hash table the type it points to is marked.
-   Also mark the type in case we are considering this entry "marked" by
-   virtue of TYPE_SYMTAB_POINTER being set.  */
-
-static void
-type_hash_mark (p)
-     const void *p;
-{
-  ggc_mark (p);
-  ggc_mark_tree (((struct type_hash *) p)->type);
-}
-
 /* Mark the hashtable slot pointed to by ENTRY (which is really a
    `tree**') for GC.  */
 
@@ -4944,3 +4932,5 @@ make_vector (mode, innertype, unsignedp)
 
   return t;
 }
+
+#include "gt-tree.h"

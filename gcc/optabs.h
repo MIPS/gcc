@@ -38,14 +38,15 @@ Boston, MA 02111-1307, USA.  */
    A few optabs, such as move_optab and cmp_optab, are used
    by special code.  */
 
-typedef struct optab
+struct optab GTY(())
 {
   enum rtx_code code;
-  struct {
+  struct optab_handlers {
     enum insn_code insn_code;
     rtx libfunc;
   } handlers [NUM_MACHINE_MODES];
-} * optab;
+};
+typedef struct optab * optab;
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */

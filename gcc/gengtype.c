@@ -310,12 +310,14 @@ get_output_file (input_file)
       fputs ("#include \"config.h\"\n", fm->output);
       fputs ("#include \"system.h\"\n", fm->output);
       fputs ("#include \"varray.h\"\n", fm->output);
-      fputs ("#include \"rtl.h\"\n", fm->output);
       fputs ("#include \"tree.h\"\n", fm->output);
+      fputs ("#include \"rtl.h\"\n", fm->output);
+      fputs ("#include \"function.h\"\n", fm->output);
+      fputs ("#include \"insn-config.h\"\n", fm->output);
+      fputs ("#include \"expr.h\"\n", fm->output);
+      fputs ("#include \"optabs.h\"\n", fm->output);
       fputs ("#include \"ggc.h\"\n", fm->output);
     }
-
-  fprintf (fm->output, "#include \"%s\"\n", input_file);
 
   return fm->output;
 }
@@ -644,6 +646,26 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 		    fprintf (of, "[i%d_%d]", loopcounter, i);
 		  fputs (");\n", of);
 		}
+	      else if (t->kind == TYPE_STRUCT || t->kind == TYPE_UNION)
+		{
+		  char *newval;
+		  int len;
+		  
+		  len = strlen (val) + strlen (f->name) + 2;
+		  for (t = f->type; t->kind == TYPE_ARRAY; t = t->u.a.p)
+		    len += sizeof ("[i_]") + 2*6;
+		  
+		  newval = xmalloc (len);
+		  sprintf (newval, "%s.%s", val, f->name);
+		  for (t = f->type, i=0; 
+		       t->kind == TYPE_ARRAY; 
+		       t = t->u.a.p, i++)
+		    sprintf (newval + strlen (newval), "[i%d_%d]", 
+			     loopcounter, i);
+		  write_gc_structure_fields (of, f->type->u.p, newval, val,
+					     f->opt, indent, &f->line);
+		  free (newval);
+		}
 	      else
 		error_at_line (&f->line, 
 			       "field `%s' is array of unimplemented type",
@@ -742,5 +764,6 @@ main(argc, argv)
   open_base_files ();
   write_gc_types (structures);
   close_output_files ();
-  return 0;
+
+  return (hit_error != 0);
 }

@@ -1299,8 +1299,8 @@ dumpvers: dumpvers.c
 
 version.o: version.c version.h
 
-gtype-desc.o: gtype-desc.c varray.h $(RTL_H) $(CONFIG_H) $(SYSTEM_H) \
-	function.h
+gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(TREE_H) \
+	$(RTL_H) function.h insn-config.h expr.h $(OPTABS_H) $(GGC_H)
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
 	flags.h $(GGC_H) varray.h hash.h $(HASHTAB_H) $(TM_P_H)
@@ -1331,7 +1331,8 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h convert.h toplev.
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h integrate.h langhooks.h langhooks-def.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h function.h toplev.h \
-   $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h
+   $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
+   gt-tree.h
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) \
    flags.h langhooks.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
    $(EXPR_H) $(SPLAY_TREE_H) tree-dump.h
@@ -1772,13 +1773,13 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
-GTFILES = config.h $(build_xm_file_list) $(out_file) \
-  $(srcdir)/function.h \
+GTFILES = config.h \
+  $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
-  $(srcdir)/stmt.c $(srcdir)/varasm.c
+  $(srcdir)/stmt.c $(srcdir)/tree.c $(srcdir)/varasm.c
 
 gtype-desc.h gtype-desc.c gtype-c.h gt-except.h gt-function.h : s-gtype; @true
-gt-integrate.h gt-stmt.h gt-varasm.h : s-gtype; @true
+gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h : s-gtype; @true
 
 s-gtype: gengtype$(build_exeext) $(GTFILES)
 	./gengtype $(GTFILES)
