@@ -1,3 +1,10 @@
+2004-07-16  Kim Ho  <kho@redhat.com>
+
+	* javax/swing/plaf/basic/BasicSliderUI.java:
+	Ran Jalopy.
+	(paintTrack): Fill the track before painting
+	the borders.
+
 2004-07-16  Graydon Hoare  <graydon@redhat.com>
 
 	patch from Roman Kennke <roman@ontographics.com>
