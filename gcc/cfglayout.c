@@ -826,6 +826,23 @@ duplicate_insn_chain (from, to)
   return insn;
 }
 
+/* Redirect Edge to DEST.  */
+void
+cfg_layout_redirect_edge (e, dest)
+     edge e;
+     basic_block dest;
+{
+  int old_index = dest->index;
+
+  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
+  dest->index = n_basic_blocks + 1;
+  if (e->flags & EDGE_FALLTHRU)
+    redirect_edge_succ (e, dest);
+  else
+    redirect_edge_and_branch (e, dest);
+  dest->index = old_index;
+}
+
 /* Create an duplicate of the basic block BB and redirect edge E into it.  */
 
 basic_block
@@ -897,19 +914,13 @@ cfg_layout_duplicate_bb (bb, e)
   new_bb->count = new_count;
   bb->count -= new_count;
 
-  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
-  new_bb->index = n_basic_blocks + 1;
   if (e)
    {
      new_bb->frequency = EDGE_FREQUENCY (e);
      bb->frequency -= EDGE_FREQUENCY (e);
 
-     if (e->flags & EDGE_FALLTHRU)
-       redirect_edge_succ (e, new_bb);
-     else
-       redirect_edge_and_branch (e, new_bb);
+     cfg_layout_redirect_edge (e, new_bb);
    }
-  new_bb->index = n_basic_blocks - 1;
 
   if (bb->count < 0)
     bb->count = 0;

@@ -510,6 +510,7 @@ extern void flow_loop_dump PARAMS ((const struct loop *, FILE *,
 					     FILE *, int), int));
 extern int flow_loop_scan PARAMS ((struct loops *, struct loop *, int));
 extern void flow_loop_tree_node_add PARAMS ((struct loop *, struct loop *));
+extern void flow_loop_tree_node_remove PARAMS ((struct loop *));
 
 /* This structure maintains an edge list vector.  */
 struct edge_list
@@ -690,6 +691,7 @@ extern void free_aux_for_edges		PARAMS ((void));
 extern void verify_flow_info		PARAMS ((void));
 
 extern bool flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
+extern bool flow_loop_nested_p PARAMS ((const struct loop *, const struct loop *));
 extern bool flow_bb_inside_loop_p       PARAMS ((const struct loop *, basic_block));
 extern basic_block *get_loop_body       PARAMS ((const struct loop *));
 extern int dfs_enumerate_from           PARAMS ((basic_block, int,

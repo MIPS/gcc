@@ -554,6 +554,9 @@ int flag_unroll_loops;
 
 int flag_unroll_all_loops;
 
+/* Nonzero enables loop unswitching.  */
+int flag_unswitch_loops;
+
 /* Nonzero enables prefetch optimizations for arrays in loops.  */
 
 int flag_prefetch_loop_arrays;
@@ -1024,6 +1027,8 @@ static const lang_independent_options f_options[] =
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
    N_("Perform loop unrolling for all loops") },
+  {"unswitch-loops", &flag_unswitch_loops, 1,
+   N_("Perform loop unswitching") },
   {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1,
    N_("Generate prefetch instructions, if available, for arrays in loops") },
   {"move-all-movables", &flag_move_all_movables, 1,
@@ -3049,6 +3054,8 @@ rest_of_compilation (decl)
       if (loops)
 	{
 	  /* Here will go optimalizations.  */
+	  if (flag_unswitch_loops)
+	    unswitch_loops (loops);
 
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}

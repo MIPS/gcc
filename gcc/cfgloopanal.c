@@ -467,6 +467,7 @@ create_preheader (loop, dom, simple_preheader)
     abort ();
 
   dummy->frequency -= EDGE_FREQUENCY (e);
+  dummy->count -= e->count;
   jump = redirect_edge_and_branch_force (e, loop->header);
   if (jump)
     {
@@ -600,15 +601,8 @@ loop_split_edge_with (e, insns, loops)
 
   new_bb->count = e->count;
 
-  /* Avoid redirect_edge_and_branch from overactive optimizing.  */
-  new_bb->index = n_basic_blocks + 1;
   new_bb->frequency = EDGE_FREQUENCY (e);
-
-  if (e->flags & EDGE_FALLTHRU)
-    redirect_edge_succ (e, new_bb);
-  else
-    redirect_edge_and_branch (e, new_bb);
-  new_bb->index = n_basic_blocks - 1;
+  cfg_layout_redirect_edge (e, new_bb);
 
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
   if (insns)

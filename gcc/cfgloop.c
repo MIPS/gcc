@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static void flow_loops_cfg_dump		PARAMS ((const struct loops *,
 						 FILE *));
-static int flow_loop_nested_p PARAMS ((const struct loop *, const struct loop *));
 static void flow_loop_entry_edges_find	PARAMS ((struct loop *));
 static void flow_loop_exit_edges_find	PARAMS ((struct loop *));
 static int flow_loop_nodes_find	PARAMS ((basic_block, struct loop *));
@@ -92,7 +91,7 @@ flow_loops_cfg_dump (loops, file)
 
 /* Return non-zero if the LOOP is a subset of OUTER.  */
 
-static int
+bool
 flow_loop_nested_p (outer, loop)
      const struct loop *outer;
      const struct loop *loop;
@@ -451,6 +450,30 @@ flow_loop_tree_node_add (father, loop)
   loop->pred[father->depth] = father;
 }
 
+/* Remove LOOP from the loop hierarchy tree.  */
+
+void
+flow_loop_tree_node_remove (loop)
+     struct loop *loop;
+{
+  struct loop *prev, *father;
+
+  father = loop->outer;
+  loop->outer = NULL;
+
+  /* Remove loop from the list of sons.  */
+  if (father->inner == loop)
+    father->inner = loop->next;
+  else
+    {
+      for (prev = father->inner; prev->next != loop; prev = prev->next);
+      prev->next = loop->next;
+    }
+
+  loop->depth = -1;
+  free (loop->pred);
+}
+
 /* Helper function to compute loop nesting depth and enclosed loop level
    for the natural loop specified by LOOP at the loop depth DEPTH.
    Returns the loop level.  */
@@ -590,6 +613,7 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
 	       || (redirect_nonlatch && !LATCH_EDGE (e))))
 	{
 	  dummy->frequency -= EDGE_FREQUENCY (e);
+	  dummy->count -= e->count;
 	  redirect_edge_with_latch_update (e, bb);
 	}
     }
@@ -662,6 +686,7 @@ canonicalize_loop_headers ()
 	  if (e->src == ENTRY_BLOCK_PTR)
 	    continue;
 	  fallthru->src->frequency -= EDGE_FREQUENCY (e);
+	  fallthru->src->count -= e->count;
 	  redirect_edge_with_latch_update (e, fallthru->dest);
 	}
       alloc_aux_for_edge (fallthru, sizeof (int));

@@ -423,6 +423,6 @@ int doloop_optimize PARAMS ((const struct loop *));
 struct loops *loop_optimizer_init PARAMS ((FILE *));
 void loop_optimizer_finalize PARAMS ((struct loops *, FILE *));
 
-void unroll_loops PARAMS ((struct loops *));
-void peel_loops PARAMS ((struct loops *));
+void unroll_loops PARAMS ((struct loops *, int));
+void peel_loops PARAMS ((struct loops *, int));
 void unswitch_loops PARAMS ((struct loops *));
