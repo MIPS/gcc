@@ -5,12 +5,12 @@ program test
   integer n
   a = w (n)
 
-  if ((a .ne. "12345678") .or. (n .ne. 8)) call abort
+  if ((a .ne. "01234567") .or. (n .ne. 8)) call abort
 end
 
 function w(i)
   character(len=8) w
   integer i
-  w = "012345678"
+  w = "01234567"
   i = len(w)
 end
