@@ -1005,11 +1005,10 @@ widen_bitfield (tree val, tree field, tree var)
   if (TREE_CODE (val) != INTEGER_CST)
     return NULL;
 
-  /* If the sign bit of the value is not set, return it unmodified.  */
-  if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0)
-    return val;
-
-  if (TREE_UNSIGNED (field))
+  /* If the sign bit of the value is not set, or the field's type is
+     unsigned, then just mask off the high order bits of the value.  */
+  if ((TREE_INT_CST_LOW (val) & (1 << (field_size - 1))) == 0
+      || TREE_UNSIGNED (field))
     {
       /* Zero extension.  Build a mask with the lower 'field_size' bits
 	 set and a BIT_AND_EXPR node to clear the high order bits of

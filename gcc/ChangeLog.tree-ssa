@@ -1,3 +1,11 @@
+2003-12-11  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-ccp.c (widen_bitfield): Clear out unwanted high bits
+	even if the field's type is unsigned.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): When creating
+	equivalences from stores, be more careful about non-constant
+	stores to bitfields.
+
 2003-12-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* opts.c (decode_options): Do not enable the tree loop optimizer by

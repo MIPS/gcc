@@ -2218,13 +2218,20 @@ record_equivalences_from_stmt (tree stmt,
 
       /* FIXME: If the LHS of the assignment is a bitfield and the RHS
          is a constant, we need to adjust the constant to fit into the
-         type of the LHS.  This fixes gcc.c-torture/execute/921016-1.c
+         type of the LHS.  If the LHS is a bitfield and the RHS is not
+	 a constant, then we can not record any equivalences for this
+	 statement since we would need to represent the widening or
+	 narrowing of RHS.  This fixes gcc.c-torture/execute/921016-1.c
 	 and should not be necessary if GCC represented bitfields
 	 properly.  */
-      if (TREE_CONSTANT (rhs)
-	  && lhs_code == COMPONENT_REF
+      if (lhs_code == COMPONENT_REF
 	  && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-	rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
+	{
+	  if (TREE_CONSTANT (rhs))
+	    rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
+	  else
+	    rhs = NULL;
+	}
 
       if (rhs)
 	{
