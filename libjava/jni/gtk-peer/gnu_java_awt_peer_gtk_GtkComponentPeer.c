@@ -260,11 +260,11 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBoun
   widget = GTK_WIDGET (ptr);
   if (GTK_IS_VIEWPORT (widget->parent))
     {
-      gtk_widget_set_usize (widget, width, height);
+      gtk_widget_set_size_request (widget, width, height);
     }
   else
     {
-      gtk_widget_set_usize (widget, width, height);
+      gtk_widget_set_size_request (widget, width, height);
       gtk_layout_move (GTK_LAYOUT (widget->parent), widget, x, y);
     }
 
