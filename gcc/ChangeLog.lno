@@ -1,3 +1,7 @@
+2004-03-12  Falk Hueffner  <falk@debian.org>
+
+	* tree-pass.h: Declare pass_return.
+
 2004-03-11  Andrew Pinski  <apinski@apple.com>
 
 	PR optimization/14135
