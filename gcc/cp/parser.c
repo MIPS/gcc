@@ -17936,6 +17936,8 @@ cp_parser_objc_try_catch_finally_statement (cp_parser *parser) {
 
   cp_parser_require_keyword (parser, RID_AT_TRY, "`@try'");
   location = cp_lexer_peek_token (parser->lexer)->location;
+  /* NB: The @try block needs to be wrapped in its own STATEMENT_LIST
+     node, lest it get absorbed into the surrounding block.  */
   stmt = push_stmt_list ();
   cp_parser_compound_statement (parser, NULL, false);
   objc_begin_try_stmt (location, pop_stmt_list (stmt));
@@ -17962,8 +17964,11 @@ cp_parser_objc_try_catch_finally_statement (cp_parser *parser) {
     {
       cp_lexer_consume_token (parser->lexer);
       location = cp_lexer_peek_token (parser->lexer)->location;
-      stmt = cp_parser_compound_statement (parser, NULL, false);
-      objc_build_finally_clause (location, stmt);
+      /* NB: The @finally block needs to be wrapped in its own STATEMENT_LIST
+	 node, lest it get absorbed into the surrounding block.  */
+      stmt = push_stmt_list ();
+      cp_parser_compound_statement (parser, NULL, false);
+      objc_build_finally_clause (location, pop_stmt_list (stmt));
     }
 
   return objc_finish_try_stmt ();
@@ -17988,9 +17993,12 @@ cp_parser_objc_synchronized_statement (cp_parser *parser) {
   lock = cp_parser_expression (parser);
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  stmt = cp_parser_compound_statement (parser, NULL, false);
+  /* NB: The @synchronized block needs to be wrapped in its own STATEMENT_LIST
+     node, lest it get absorbed into the surrounding block.  */
+  stmt = push_stmt_list ();
+  cp_parser_compound_statement (parser, NULL, false);
 
-  return objc_build_synchronized (location, lock, stmt);
+  return objc_build_synchronized (location, lock, pop_stmt_list (stmt));
 }
 
 /* Parse an Objective-C throw statement.

@@ -1,3 +1,12 @@
+2005-02-18  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 4011192
+	* parser.c (cp_parser_objc_try_catch_finally_statement): When
+	parsing '@finally' blocks, make sure the compound statement
+	winds up in a special STATEMENT_LIST instead of current scope.
+	(cp_parser_objc_synchronized_statement): Likewise for
+	'@synchronized' blocks.
+
 2005-02-17  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3635843, 3922342
