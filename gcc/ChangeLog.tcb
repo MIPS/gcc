@@ -1,5 +1,10 @@
 2005-03-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-copy.c (may_propagate_copy): Disable code to
+	prevent copies being pulled from deeper nested loops.
+
+2005-03-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c (ssa_rewrite_finalize_block): Remove.
 	(ssa_register_new_def): Remove.
 	(ssa_rewrite_stmt): Remove.

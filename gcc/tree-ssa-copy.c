@@ -144,6 +144,7 @@ may_propagate_copy (tree dest, tree orig)
       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest))
     return false;
 
+#if 0
   /* Avoid copy propagation from an inner into an outer loop.  This is
      an optimization consideration.   Otherwise, this may move loop
      variant variables outside of their loops and prevent coalescing
@@ -152,6 +153,7 @@ may_propagate_copy (tree dest, tree orig)
   if (TREE_CODE (orig) == SSA_NAME
       && loop_depth_of_name (orig) >= loop_depth_of_name (dest))
     return false;
+#endif
 
   /* Anything else is OK.  */
   return true;
