@@ -1360,7 +1360,7 @@ enable_shared=no
 fi
 rm -f conftest*
 
-for ac_hdr in stdint.h execinfo.h signal.h pthread.h dlfcn.h
+for ac_hdr in stdint.h execinfo.h signal.h dlfcn.h
 do
 ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
 echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
@@ -2572,6 +2572,48 @@ then
 fi
 
 pthread_create_version='""'
+ac_safe=`echo "pthread.h" | sed 'y%./+-%__p_%'`
+echo $ac_n "checking for pthread.h""... $ac_c" 1>&6
+echo "configure:2578: checking for pthread.h" >&5
+if eval "test \"`echo '$''{'ac_cv_header_$ac_safe'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  cat > conftest.$ac_ext <<EOF
+#line 2583 "configure"
+#include "confdefs.h"
+#include <pthread.h>
+EOF
+ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
+{ (eval echo configure:2588: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+ac_err=`grep -v '^ *+' conftest.out | grep -v "^conftest.${ac_ext}\$"`
+if test -z "$ac_err"; then
+  rm -rf conftest*
+  eval "ac_cv_header_$ac_safe=yes"
+else
+  echo "$ac_err" >&5
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  rm -rf conftest*
+  eval "ac_cv_header_$ac_safe=no"
+fi
+rm -f conftest*
+fi
+if eval "test \"`echo '$ac_cv_header_'$ac_safe`\" = yes"; then
+  echo "$ac_t""yes" 1>&6
+  
+cat >> confdefs.h <<EOF
+#define HAVE_PTHREAD_H 1
+EOF
+
+ac_have_pthread_h=yes
+
+else
+  echo "$ac_t""no" 1>&6
+
+ac_have_pthread_h=
+
+fi
+
 
 
 if test "x$ac_have_pthread_h" != ""; then
@@ -2583,7 +2625,7 @@ else
 fi
 
 echo $ac_n "checking for dlsym in -ldl""... $ac_c" 1>&6
-echo "configure:2587: checking for dlsym in -ldl" >&5
+echo "configure:2629: checking for dlsym in -ldl" >&5
 ac_lib_var=`echo dl'_'dlsym | sed 'y%./+-%__p_%'`
 if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
@@ -2591,7 +2633,7 @@ else
   ac_save_LIBS="$LIBS"
 LIBS="-ldl  $LIBS"
 cat > conftest.$ac_ext <<EOF
-#line 2595 "configure"
+#line 2637 "configure"
 #include "confdefs.h"
 /* Override any gcc2 internal prototype to avoid an error.  */
 /* We use char because int might match the return type of a gcc2
@@ -2602,7 +2644,7 @@ int main() {
 dlsym()
 ; return 0; }
 EOF
-if { (eval echo configure:2606: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+if { (eval echo configure:2648: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   rm -rf conftest*
   eval "ac_cv_lib_$ac_lib_var=yes"
 else
@@ -2642,12 +2684,12 @@ if test "x$enable_shared" = "xyes" && test "x$ac_have_pthread_h" != ""; then
   for ac_func in dlvsym
 do
 echo $ac_n "checking for $ac_func""... $ac_c" 1>&6
-echo "configure:2646: checking for $ac_func" >&5
+echo "configure:2688: checking for $ac_func" >&5
 if eval "test \"`echo '$''{'ac_cv_func_$ac_func'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
-#line 2651 "configure"
+#line 2693 "configure"
 #include "confdefs.h"
 /* System header to define __stub macros and hopefully few prototypes,
     which can conflict with char $ac_func(); below.  */
@@ -2670,7 +2712,7 @@ $ac_func();
 
 ; return 0; }
 EOF
-if { (eval echo configure:2674: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+if { (eval echo configure:2716: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
   rm -rf conftest*
   eval "ac_cv_func_$ac_func=yes"
 else
@@ -2697,7 +2739,7 @@ done
   # Extract the first word of "${ac_tool_prefix}nm", so it can be a program name with args.
 set dummy ${ac_tool_prefix}nm; ac_word=$2
 echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:2701: checking for $ac_word" >&5
+echo "configure:2743: checking for $ac_word" >&5
 if eval "test \"`echo '$''{'ac_cv_prog_NM'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
@@ -2741,7 +2783,7 @@ EOF
     LIBS="$LIBS -lpthread"
     pthread_create_version="\"\""
     echo $ac_n "checking pthread_create symbol version""... $ac_c" 1>&6
-echo "configure:2745: checking pthread_create symbol version" >&5
+echo "configure:2787: checking pthread_create symbol version" >&5
     if eval $ac_link 2>&5 && test -s conftest${ac_exeext}; then
       version=`$NM conftest${ac_exeect} | grep 'pthread_create@@' | sed -e 's/^.*@@//'`
       if test "x$version" != "x"; then

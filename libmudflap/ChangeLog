@@ -1,3 +1,16 @@
+2003-11-19  Frank Ch. Eigler  <fche@redhat.com>
+
+	libstdc++/11696
+        * mf-runtime.h.in: Switch to #pragma redefine_extname for
+        symbols interposed at compile time.
+	* testsuite/libmudflap.c++/pass41-frag.cxx: New test.
+
+	libmudflap/12939
+	* mf-hooks2.c (semctl): Tolerate FreeBSD.
+
+	* configure.in: Reorganize check for <pthread.h>.
+	* configure: Regenerated.
+	
 2003-11-04  David Edelsohn  <edelsohn@gnu.org>
 
 	* mf-runtime.c (_ALL_SOURCE): Define for AIX.

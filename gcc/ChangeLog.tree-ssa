@@ -1,3 +1,22 @@
+2003-11-20  Frank Ch. Eigler  <fche@redhat.com>
+ 
+        libstdc++/11696
+        * c-pragma.c (handle_pragma_redefine_extname): Define always.
+        (init_pragma): Activate #pragma redefine_extname for mudflap.
+
+	* tree-inline.c (copy_tree_r): Propagate mf_marked-ness.
+	* tree-mudflap.c (mudflap_c_function): Break into new
+	_decls and _ops functions.
+	(mudflap_c_function_decls): Avoid unnecessary tree copying.
+	(mudflap_c_function_ops): Ditto.  Gimplify explicitly only for
+	tree dumping.
+	* tree-nomudflap.c: Add new stub functions.  Simplify error
+	message emission throughout.
+	* tree-mudflap.h: Corresponding changes.
+	* tree-optimize.c (tree_rest_of_compilation): Call the _decl
+	instrumentation before gimplification and ssa optimizations;
+	call the _ops instrumentation after ssa optimizations.
+
 2003-11-20  Diego Novillo  <dnovillo@redhat.com>
 
 	Initial fix for PR optimization/12747

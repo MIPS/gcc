@@ -1653,10 +1653,13 @@ WRAPPER2(int, semctl, int semid, int semnum, int cmd, union semun arg)
       "semctl array");
     break;
 #ifdef IPC_INFO
+  /* FreeBSD 5.1 headers include IPC_INFO but not the __buf field.  */
+#if !defined(__FreeBSD__)
   case IPC_INFO:
     MF_VALIDATE_EXTENT (arg.__buf, sizeof (*arg.__buf), __MF_CHECK_WRITE,
       "semctl __buf");
     break;
+#endif
 #endif
   default:
     break;

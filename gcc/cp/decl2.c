@@ -2833,10 +2833,6 @@ finish_file (void)
       
     }
   
-  /* Emit mudflap static registration function.  */
-  if (flag_mudflap)
-    mudflap_finish_file ();
-
   /* We give C linkage to static constructors and destructors.  */
   push_lang_context (lang_name_c);
 
@@ -2870,6 +2866,11 @@ finish_file (void)
       cgraph_finalize_compilation_unit ();
       cgraph_optimize ();
     }
+
+  /* Emit mudflap static registration function.  This must be done
+     after all the user functions have been expanded.  */
+  if (flag_mudflap)
+    mudflap_finish_file ();
 
   /* Now, issue warnings about static, but not defined, functions,
      etc., and emit debugging information.  */

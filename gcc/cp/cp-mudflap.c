@@ -140,7 +140,16 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 
   finish_compound_stmt (body);
   fndecl = finish_function (0);
-  expand_or_defer_fn (fndecl);
 
-  static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
+  /* NB: We cannot call expand_or_defer_fn here, since that goes through
+     the callgraph queue.  This queue will have already been processed by the
+     time this function is running.  */
+  expand_body (fndecl);
+  if (targetm.have_ctors_dtors)
+    (* targetm.asm_out.constructor) (XEXP (DECL_RTL (fndecl), 0),
+                                     DEFAULT_INIT_PRIORITY);
+  else
+    /* By this time, it's too late to do this:
+       static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors); */
+    abort ();
 }

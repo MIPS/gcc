@@ -45,11 +45,24 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    (e.g. Fortran).  */
 
 
-tree
-mudflap_c_function (tree t ATTRIBUTE_UNUSED)
+static void
+nogo ()
 {
   internal_error ("mudflap: this language is not supported");
-  return NULL;
+}
+
+
+void
+mudflap_c_function_decls (tree t ATTRIBUTE_UNUSED)
+{
+  nogo ();
+}
+
+
+void
+mudflap_c_function_ops (tree t ATTRIBUTE_UNUSED)
+{
+  nogo ();
 }
 
 
@@ -57,7 +70,7 @@ void
 mudflap_enqueue_decl (tree obj ATTRIBUTE_UNUSED,
 		      const char *label ATTRIBUTE_UNUSED)
 {
-  internal_error ("mudflap: this language is not supported");
+  nogo ();
 }
 
 
@@ -65,9 +78,8 @@ void
 mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED,
 			  const char *label ATTRIBUTE_UNUSED)
 {
-  internal_error ("mudflap: this language is not supported");
+  nogo ();
 }
-
 
 
 /* Emit file-wide instrumentation.  */
@@ -75,20 +87,22 @@ mudflap_enqueue_constant (tree obj ATTRIBUTE_UNUSED,
 void
 mudflap_finish_file (void)
 {
-  internal_error ("mudflap: this language is not supported");
+  nogo ();
 }
 
 
 int
 mf_marked_p (tree t ATTRIBUTE_UNUSED)
 {
-  internal_error ("mudflap: this language is not supported");
+  nogo ();
+  return 0;
 }
+
 
 tree
 mf_mark (tree t ATTRIBUTE_UNUSED)
 {
-  internal_error ("mudflap: this language is not supported");
+  nogo ();
   return NULL;
 }
 

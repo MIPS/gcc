@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks.h"
 #include "cgraph.h"
 #include "intl.h"
+#include "tree-mudflap.h"
 
 
 /* I'm not real happy about this, but we need to handle gimple and
@@ -2065,9 +2066,16 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
       tree chain = TREE_CHAIN (*tp);
+      tree new;
 
       /* Copy the node.  */
-      *tp = copy_node (*tp);
+      new = copy_node (*tp);
+
+      /* Propagate mudflap marked-ness.  */
+      if (flag_mudflap && mf_marked_p (*tp))
+        mf_mark (new);
+
+      *tp = new;
 
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */

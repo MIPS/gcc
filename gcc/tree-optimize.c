@@ -299,6 +299,10 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       nested_p = true;
     }
 
+  /* Mudflap-instrument any relevant declarations.  */
+  if (flag_mudflap)
+    mudflap_c_function_decls (fndecl);
+
   /* If the function has not already been gimplified, do so now.  */
   if (!lang_hooks.gimple_before_inlining)
     gimplify_function_tree (fndecl);
@@ -332,6 +336,10 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   DECL_SAVED_TREE (fndecl) = build (BIND_EXPR, void_type_node,
 				    NULL_TREE, chain, NULL_TREE);
 
+  /* Mudflap-instrument any relevant operations.  */
+  if (flag_mudflap)
+    mudflap_c_function_ops (fndecl);
+
   /* If the function has a variably modified type, there may be
      SAVE_EXPRs in the parameter types.  Their context must be set to
      refer to this function; they cannot be expanded in the containing
@@ -356,10 +364,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
       && MAIN_NAME_P (DECL_NAME (fndecl))
       && DECL_FILE_SCOPE_P (fndecl))
     expand_main_function ();
-
-  /* Add mudflap instrumentation to a copy of the function body.  */
-  if (flag_mudflap)
-    DECL_SAVED_TREE (fndecl) = mudflap_c_function (fndecl);
 
   /* Generate the RTL for this function.  */
   (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
