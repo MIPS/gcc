@@ -1,3 +1,8 @@
+2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7718
+	* pt.c (tsubst_decl): Remove assert.
+
 2003-04-27  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/10506
