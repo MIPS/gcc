@@ -1,3 +1,26 @@
+Tue Oct 26 17:07:38 1999  Richard Earnshaw <rearnsha@arm.com>
+
+	* thumb.c: Deleted.  Move contents to ...
+	* arm.c: ... here.
+	* t-arm-aout, t-arm-coff, t-arm-elf, t-linux, t-netbsd, t-semi: Remove
+	rule for thumb.o
+	* configure.in (arm*-*-*): Remove thumb.o from extra_objs list.
+	* configure: Regen.
+
+	* arm-protos.h: Use RTX_CODE and tidy up long lines.  Don't
+	declare a prototype for asm_output_align();
+
+	* arm.c (thumb_condition_code): Delete.
+	(arm_print_operand): Always use arm_condition_code array.
+
+	* arm.c (thumb_return_addr_rtx): Delete.
+	(arm_save_machine_status, arm_restore_machine_status): Delete.
+	(arm_init_machine_status, arm_mark_machine_status): New functions.
+	(arm_init_expanders): Update accordingly.
+	(arm_return_addr): Renamed from arm_return_addr_rtx.  Rewrite.
+	(thumb_expand_prologue): Delete code referencing thumb_return_addr_rtx.
+	* arm.h (RETURN_ADDR_RTX): Call arm_return_addr().
+	
 Tue Oct 26 13:24:16 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* configure.in : Fix arm-*-aout target to use new t-arm-aout
@@ -27,6 +50,35 @@ Tue Oct 26 11:27:12 1999  Nick Clifton  <nickc@cygnus.com>
 	(ASM_DECLARE_FUNCTION_NAME): Use ARM_DECLARE_FUNCTION_NAME.
 	
 	* config/arm/t-pe: Add -DInhibit_libc to allof libgcc.a to build.
+
+Mon Oct 25 15:42:09 1999  Richard Earnshaw (rearnsha@arm.com)
+
+	* arm.h (TARGET_APCS_FRAME): Renamed from TARGET_APCS -- all uses
+	updated.
+	(CAN_DEBUG_WITHOUT_FP): Define.
+	(FIXED_REGISTERS): Make r11 call-saved.
+	(CALL_USED_REGISTERS): Likewise.
+	(CONDITIONAL_REGISTER_USAGE): Fix r11 if TARGET_APCS_FRAME.
+	(FRAME_POINTER_REQUIRED): Correct logic for determining when a 
+	frame-pointer is required.
+	(TARGET_DEFAULT): Make default setting include ARM_FLAG_APCS_FRAME.
+	* arm.c (arm_override_options): Warn about -mno-apcs-frame and -g
+	if the target normally needs a stack frame in non-leaf functions.
+	(use_return_insn): Correct logic for determining when a return
+	instruction can be used.
+	(output_return_instruction): Handle the frame-pointer register as
+	a normal register when not TARGET_APCS_FRAME.
+	(arm_output_prologue): Likewise.
+	(arm_output_epilogue): Likewise.
+	(output_func_epilogue): Likewise.
+	(arm_expand_prologue): Likewise.
+	* netbsd.h semi.h (TARGET_DEFAULT): Add ARM_FLAG_APCS_FRAME.
+
+	* arm.c (use_return_insn): No need to check floating point regs if
+	TARGET_SOFT_FLOAT.
+	(arm_find_minipool_constant): Correct typo; use GET_CODE to get
+	the code of value stored in the minipool array.
+	(arm_add_minipool_constant): Likewise.
 
 Mon Oct 25 00:42:35 1999  Jeffrey A Law  (law@cygnus.com)
 

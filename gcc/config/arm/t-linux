@@ -13,9 +13,6 @@ LIBGCC1 = libgcc1-asm.a
 LIB1ASMSRC = arm/lib1funcs.asm
 LIB1ASMFUNCS = _udivsi3 _divsi3 _umodsi3 _modsi3 _dvmd_lnx
 
-thumb.o: $(srcdir)/config/arm/thumb.c $(srcdir)/config/arm/arm.h 
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(srcdir)/config/arm/thumb.c
-
 MULTILIB_OPTIONS = mhard-float/msoft-float
 MULTILIB_DIRNAMES = hard-float soft-float
 

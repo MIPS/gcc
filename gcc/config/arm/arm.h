@@ -2686,7 +2686,11 @@ extern int making_const_table;
    address for the frame COUNT steps up from the current frame.  */
 
 #define RETURN_ADDR_RTX(COUNT, FRAME) \
-  arm_return_addr_rtx (COUNT, FRAME)
+  arm_return_addr (COUNT, FRAME)
+
+/* Mask of the bits in the PC that contain the real return address 
+   when running in 26-bit mode.  */
+#define RETURN_ADDR_MASK26 (0x03fffffc)
 
 /* Used to mask out junk bits from the return address, such as
    processor state, interrupt status, condition codes and the like.  */
@@ -2695,7 +2699,7 @@ extern int making_const_table;
      in 26 bit mode, the condition codes must be masked out of the	\
      return address.  This does not apply to ARM6 and later processors	\
      when running in 32 bit mode.  */					\
-  ((!TARGET_APCS_32) ? (GEN_INT (0x03fffffc)) : (GEN_INT (0xffffffff)))
+  ((!TARGET_APCS_32) ? (GEN_INT (RETURN_ADDR_MASK26)) : (GEN_INT (0xffffffff)))
 
 
 /* Define the codes that are matched by predicates in arm.c */

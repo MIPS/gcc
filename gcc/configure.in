@@ -715,20 +715,17 @@ changequote([,])dnl
 	arm-*-coff* | armel-*-coff*)
 		tm_file=arm/coff.h
 		tmake_file=arm/t-arm-coff
-		extra_objs=thumb.o
 		;;
 	arm-*-vxworks*)
 		tm_file=arm/vxarm.h
 		tmake_file=arm/t-arm-coff
 		thread_file='vxworks'
-		extra_objs=thumb.o
 		;;
 changequote(,)dnl
 	arm-*-riscix1.[01]*)		# Acorn RISC machine (early versions)
 changequote([,])dnl
 		tm_file=arm/riscix1-1.h
 		use_collect2=yes
-		extra_objs=thumb.o
 		;;
 	arm-*-riscix*)			# Acorn RISC machine
 		if test x$gas = xyes
@@ -740,24 +737,20 @@ changequote([,])dnl
 		xmake_file=arm/x-riscix
 		tmake_file=arm/t-riscix
 		use_collect2=yes
-		extra_objs=thumb.o
 		;;
 	arm-semi-aout | armel-semi-aout)
 		tm_file=arm/semi.h
 		tmake_file=arm/t-semi
-		extra_objs=thumb.o
 		;;
 	arm-semi-aof | armel-semi-aof)
 		tm_file=arm/semiaof.h
 		tmake_file=arm/t-semiaof
-		extra_objs=thumb.o
 		;;
 	arm*-*-netbsd*)
 		tm_file=arm/netbsd.h
 		xm_file="arm/xm-netbsd.h ${xm_file}"
 		tmake_file="t-netbsd arm/t-netbsd"
 		use_collect2=yes
-		extra_objs=thumb.o
 		;;
 	arm*-*-linux-gnuaout*)		# ARM GNU/Linux with a.out
 		cpu_type=arm
@@ -765,7 +758,6 @@ changequote([,])dnl
 		tm_file=arm/linux-aout.h
 		tmake_file=arm/t-linux
 		gnu_ld=yes
-		extra_objs=thumb.o
 		;;
 	arm*-*-linux-gnuoldld*)		# ARM GNU/Linux with old ELF linker
 		xm_file=arm/xm-linux.h
@@ -777,7 +769,7 @@ changequote([,])dnl
 			;;
 		esac
 		tmake_file="t-linux arm/t-linux"
-		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o thumb.o"
+		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		gnu_ld=yes
 		case x${enable_threads} in
 		x | xyes | xpthreads | xposix)
@@ -795,7 +787,7 @@ changequote([,])dnl
 			;;
 		esac
 		tmake_file="t-linux arm/t-linux"
-		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o thumb.o"
+		extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 		gnu_ld=yes
 		case x${enable_threads} in
 		x | xyes | xpthreads | xposix)
@@ -806,38 +798,27 @@ changequote([,])dnl
 	arm*-*-uclinux*)		# ARM ucLinux
 		tm_file=arm/uclinux-elf.h
 		tmake_file=arm/t-arm-elf
-		extra_objs=thumb.o
 		;;
 	arm*-*-aout)
 		tm_file=arm/aout.h
 		tmake_file=arm/t-arm-aout
-		extra_objs=thumb.o
 		;;
         arm*-*-ecos-elf)
 		tm_file=arm/ecos-elf.h
 		tmake_file=arm/t-arm-elf
-		extra_objs=thumb.o
 		;; 
 	arm*-*-elf)
 		tm_file=arm/unknown-elf.h
 		tmake_file=arm/t-arm-elf
-		extra_objs=thumb.o
 		;;
         arm*-*-oabi)
 		tm_file=arm/unknown-elf-oabi.h
 		tmake_file=arm/t-arm-elf
-		extra_objs=thumb.o
 		;;
 	arm-*-pe*)
 		tm_file=arm/pe.h
 		tmake_file=arm/t-pe
-		extra_objs="pe.o thumb.o"
-		;;
-	thumb*-*-*)
-		AC_MSG_ERROR([
-*** The Thumb targets have been depreciated.  The equivalent
-*** ARM based toolchain can now generated Thumb instructions
-*** when the -mthumb switch is given to the compiler.])
+		extra_objs="pe.o"
 		;;
 	c1-convex-*)			# Convex C1
 		target_cpu_default=1
@@ -3208,7 +3189,7 @@ changequote([,])dnl
 	sparc-*-netbsd*)
 		tm_file=sparc/netbsd.h
 		tmake_file=t-netbsd
-       use_collect2=yes
+		use_collect2=yes
 		;;
 	sparc-*-openbsd*)
 		# we need collect2 until our bug is fixed...
@@ -3431,6 +3412,12 @@ changequote([,])dnl
 #	tahoe-*-bsd*)			# tahoe running BSD
 #		;;
 
+	thumb*-*-*)
+		AC_MSG_ERROR([
+*** The Thumb targets have been depreciated.  The equivalent
+*** ARM based toolchain can now generated Thumb instructions
+*** when the -mthumb switch is given to the compiler.])
+		;;
 # This hasn't been upgraded to GCC 2.
 #	tron-*-*)
 #		cpu_type=gmicro

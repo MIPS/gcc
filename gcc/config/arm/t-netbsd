@@ -6,7 +6,4 @@ LIBGCC2_DEBUG_CFLAGS = -g0
 # Don't build enquire
 ENQUIRE=
 
-thumb.o: $(srcdir)/config/arm/thumb.c $(srcdir)/config/arm/arm.h 
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(srcdir)/config/arm/thumb.c
-
 
