@@ -1,3 +1,11 @@
+2004-07-23  Craig Black  <craig.black@aonix.com>
+
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.c
+	(addTearOff): New function.
+	* gnu/java/awt/peer/gtk/GtkMenuPeer.java (addTearOff):
+	New native method.
+	(init): Call addTearOff() when menu.isTearOff().
+
 2004-07-22  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* gnu/java/awt/ClasspathToolkit.java (createImageProducer): New.
