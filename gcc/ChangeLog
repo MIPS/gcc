@@ -1,3 +1,14 @@
+2002-06-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa.c (tree_build_ssa): Call free_dominance_info, not
+	free, on idom.
+
+	* tree-ssa-pre.c (compute_domchildren): Update to use new
+	dominance_info structure, rather than idom array.
+	(tree_perform_ssapre): Don't forget to free the dominance info.
+
+	s/VARRAY_FREE/VARRAY_CLEAR/g now that VARRAY's are ggc allocated.
+
 2002-06-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.c (build_fud_chains): Use dominance_info instead of int *.

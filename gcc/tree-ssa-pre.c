@@ -39,6 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "varray.h"
 #include "hashtab.h"
 #include "splay-tree.h"
+#include "ggc.h"
 #include "fibheap.h"
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -62,7 +63,7 @@ static hashval_t hash_expr_tree PARAMS ((const void *));
 static int expr_lexically_eq PARAMS ((tree, tree));
 static void free_expr_info PARAMS ((struct expr_info *));
 static sbitmap compute_idfs PARAMS ((sbitmap *, tree));
-static void compute_domchildren PARAMS ((int *, sbitmap *));
+static void compute_domchildren PARAMS ((dominance_info, sbitmap *));
 
 static inline bool a_dom_b PARAMS ((basic_block, basic_block));
 static void set_var_phis PARAMS ((varref, int));
@@ -151,14 +152,16 @@ a_dom_b (a, b)
    dominators.  */     
 static void
 compute_domchildren (idom, domc)
-     int *idom;
+     dominance_info idom;
      sbitmap *domc;
 {
   basic_block bb;
   FOR_EACH_BB (bb)
     {     
-      if (idom[bb->index] >= 0)
-        SET_BIT (domc[idom[bb->index]], bb->index);
+      basic_block dom;
+      dom = get_immediate_dominator (idom, bb);
+      if (dom && dom->index >= 0)
+        SET_BIT (domc[dom->index], bb->index);
     }
 }
 
@@ -252,14 +255,14 @@ free_expr_info (v1)
      struct expr_info * v1;
 {
   struct expr_info *e1 = (struct expr_info *)v1;
-  VARRAY_FREE (e1->occurs);
-  VARRAY_FREE (e1->occurstmts);
-  VARRAY_FREE (e1->reals);
-  VARRAY_FREE (e1->realstmts);
-  VARRAY_FREE (e1->phis);
-  VARRAY_FREE (e1->erefs);
-  VARRAY_FREE (e1->refs);
-  free (e1);
+  VARRAY_CLEAR (e1->occurs);
+  VARRAY_CLEAR (e1->occurstmts);
+  VARRAY_CLEAR (e1->reals);
+  VARRAY_CLEAR (e1->realstmts);
+  VARRAY_CLEAR (e1->phis);
+  VARRAY_CLEAR (e1->erefs);
+  VARRAY_CLEAR (e1->refs);
+  /*free (e1);*/
 }
 
 /* dfphis and varphis, from the paper. */
@@ -698,7 +701,7 @@ rename_2 (ei, rename2_set)
 	      
 	      if (!X)
 	        {
-	          VARRAY_FREE (Y);
+	          VARRAY_CLEAR (Y);
 		  continue;
 	        }
 	      
@@ -775,7 +778,7 @@ rename_2 (ei, rename2_set)
                 }
 	      /* processed (w) <- true */
 	      bitmap_set_bit (EXPRPHI_PROCESSED (phiZ), i);
-              VARRAY_FREE (Y); 
+              VARRAY_CLEAR (Y); 
             }
         }
     }
@@ -1021,9 +1024,9 @@ catch it in rename_2 or during downsafety propagation. */
       EXPRUSE_DEF (ref) = NULL;
     }
   fibheap_delete (fh);
-  VARRAY_FREE (stack);
-  VARRAY_FREE (rename2_set);
-  VARRAY_FREE (recheck_set);
+  VARRAY_CLEAR (stack);
+  VARRAY_CLEAR (rename2_set);
+  VARRAY_CLEAR (recheck_set);
   splay_tree_delete (touched_set);
 }
 
@@ -1610,10 +1613,6 @@ code_motion (ei, temp)
   while (!fibheap_empty (exprs))
     {
       use = fibheap_extract_min (exprs);
-      if (EXPRREF_BB (use)->index == 104 && EXPRREF_TYPE (use) == EXPRUSE)
-	{
-	  EXPRREF_TYPE (use) = EXPRUSE;
-	}
       if (EXPRREF_TYPE (use) == EXPRUSE /*&& !EXPRUSE_PHIOP (use) */
 	  && !EXPRREF_INSERTED (use))
 	{
@@ -1783,11 +1782,6 @@ tree_perform_ssapre ()
 	  varref ref = VARRAY_GENERIC_PTR (bbrefs, j);
 	  tree expr = VARREF_EXPR (ref);
 	  tree stmt = VARREF_STMT (ref);
-	  if ((strcmp (IDENTIFIER_POINTER (DECL_NAME (VARREF_SYM (ref))), "la") == 0) 
-	      && VARREF_BB (ref)->index == 104)
-	    {
-	      expr = VARREF_EXPR (ref);	      
-	    }
 	  if (VARREF_TYPE (ref) != VARUSE)
 	    continue;
 	  if (htab_find (seen, expr) != NULL)
@@ -1817,7 +1811,7 @@ tree_perform_ssapre ()
 		}
 	      else
 		{
-		  slot = xmalloc (sizeof (struct expr_info));
+		  slot = ggc_alloc (sizeof (struct expr_info));
 		  slot->expr = expr;
 		  VARRAY_TREE_INIT (slot->occurs, 1, "Kills and occurrence");
 		  VARRAY_TREE_INIT (slot->occurstmts, 1, 
@@ -1868,8 +1862,9 @@ tree_perform_ssapre ()
   
   for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
     free_expr_info (VARRAY_GENERIC_PTR (bexprs, j));
-  VARRAY_FREE (bexprs);
+  VARRAY_CLEAR (bexprs);
   htab_delete (seen);
+  free_dominance_info (pre_idom);
   free (pre_preorder);
   sbitmap_vector_free (pre_dfs);
   sbitmap_vector_free (domchildren);

@@ -97,7 +97,7 @@ tree_build_ssa ()
   build_fud_chains (idom);
 
   sbitmap_vector_free (dfs);
-  free (idom);
+  free_dominance_info (idom);
 
   /* Debugging dumps.  */
   dump_file = dump_begin (TDI_ssa, &dump_flags);
