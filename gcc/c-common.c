@@ -6760,6 +6760,9 @@ check_function_arguments_recurse (callback, ctx, param, param_num)
   (*callback) (ctx, param, param_num);
 }
 
+/* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
+   line number from STMT_LINENO and handles DECL_STMT specially.  */
+
 tree 
 c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
      tree *tp;
@@ -6785,26 +6788,16 @@ c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
   if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
     lineno = STMT_LINENO (*tp);
 
-  /* For statements, we also walk the chain so that we cover the
-     entire statement tree.  */
-  if (statement_code_p (code))
+  if (code == DECL_STMT)
     {
-      if (code == DECL_STMT
-	  && DECL_STMT_DECL (*tp)
-	  && DECL_P (DECL_STMT_DECL (*tp)))
-	{
-	  /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-	     into declarations that are just mentioned, rather than
-	     declared; they don't really belong to this part of the tree.
-	     And, we can see cycles: the initializer for a declaration can
-	     refer to the declaration itself.  */
-	  WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
-	  WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
-	  WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
-	}
-
-      /* This can be tail-recursion optimized if we write it this way.  */
-      WALK_SUBTREE (TREE_CHAIN (*tp));
+      /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+	 into declarations that are just mentioned, rather than
+	 declared; they don't really belong to this part of the tree.
+	 And, we can see cycles: the initializer for a declaration can
+	 refer to the declaration itself.  */
+      WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
+      WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
+      WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
     }
 
   /* We didn't find what we were looking for.  */
@@ -6813,10 +6806,16 @@ c_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
 #undef WALK_SUBTREE
 }
 
+/* C implementation of lang_hooks.tree_inlining.tree_chain_matters_p.
+   Apart from TREE_LISTs, the only trees whose TREE_CHAIN we care about are
+   _STMT nodes.  */
+
 int
 c_tree_chain_matters_p (t)
      tree t;
 {
+  /* For statements, we also walk the chain so that we cover the
+     entire statement tree.  */
   return statement_code_p (TREE_CODE (t));
 }
 

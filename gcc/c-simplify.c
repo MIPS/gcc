@@ -130,12 +130,6 @@ static tree build_bc_goto PARAMS ((enum bc_t));
 static FILE *dump_file;
 static int dump_flags;
 
-#define STRIP_WFL(NODE)					\
-  do {							\
-    while (TREE_CODE (NODE) == EXPR_WITH_FILE_LOCATION)	\
-      NODE = EXPR_WFL_NODE (NODE);			\
-  } while (0)
-
 struct c_simplify_ctx
 {
   /* For handling break and continue.  */
@@ -284,10 +278,6 @@ static void
 wrap_with_wfl (stmt_p)
      tree *stmt_p;
 {
-  if (TREE_CODE (*stmt_p) == LOOP_EXPR)
-    /* Put the line note inside the loop, for the benefit of debugging
-       and gcov.  */
-    stmt_p = &LOOP_EXPR_BODY (*stmt_p);
   if (TREE_CODE (*stmt_p) == LABEL_EXPR)
     /* Don't emit a line note for a label.  We particularly don't want to
        emit one for the break label, since it doesn't actually correspond
@@ -689,6 +679,11 @@ simplify_c_loop (cond, body, incr, cond_is_first)
      int cond_is_first;
 {
   tree exit, cont_block, break_block, loop;
+  const char *stmt_filename;
+  int stmt_lineno;
+
+  stmt_filename = input_filename;
+  stmt_lineno = lineno;
 
   break_block = begin_bc_block (bc_break);
 
@@ -719,6 +714,8 @@ simplify_c_loop (cond, body, incr, cond_is_first)
     body = add_stmt_to_compound (exit, body);
   else
     body = add_stmt_to_compound (body, exit);
+
+  wrap_all_with_wfl (&body, stmt_filename, stmt_lineno);
 
   LOOP_EXPR_BODY (loop) = body;
 
@@ -1220,6 +1217,11 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_asm_expr (*expr_p, pre_p);
 	  break;
 
+	case TRY_FINALLY_EXPR:
+	  simplify_stmt (&TREE_OPERAND (*expr_p, 0));
+	  simplify_stmt (&TREE_OPERAND (*expr_p, 1));
+	  break;
+
 	  /* If *EXPR_P does not need to be special-cased, handle it
 	     according to its class.  */
 	default:
@@ -1356,7 +1358,11 @@ simplify_bind_expr (expr_p, pre_p)
     }
 
   simplify_stmt (&BIND_EXPR_BODY (bind_expr));
-  recalculate_side_effects (bind_expr);
+
+  /* If this BIND_EXPR has a block, leave TREE_SIDE_EFFECTS set regardless
+     of what the body contains.  */
+  if (!BIND_EXPR_BLOCK (bind_expr))
+    recalculate_side_effects (bind_expr);
 }
 
 /* Do C-specific simplification.  Args are as for simplify_expr.  */
@@ -1709,45 +1715,53 @@ simplify_cond_expr (expr_p, pre_p)
      tree *expr_p;
      tree *pre_p;
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (*expr_p) != COND_EXPR)
-    abort ();
-#endif
+  tree tmp = NULL_TREE;
+  tree expr = *expr_p;
 
-  if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
+  /* If this COND_EXPR has a value, copy the values into a temporary within
+     the arms.  */
+  if (! VOID_TYPE_P (TREE_TYPE (expr)))
+      {
+	tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+
+	/* Build the then clause, 't1 = a;'.  */
+	TREE_OPERAND (expr, 1)
+	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 1));
+
+	/* Build the else clause, 't1 = b;'.  */
+	TREE_OPERAND (expr, 2)
+	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 2));
+
+	TREE_TYPE (expr) = void_type_node;
+	recalculate_side_effects (expr);
+      }
+
+  /* Turn if (a && b) into if (a) if (b).  This only works if there is no
+     'else'.  */
+  if (! TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 2)))
+    while (TREE_CODE (TREE_OPERAND (expr, 0)) == TRUTH_ANDIF_EXPR)
+      {
+	tree pred = TREE_OPERAND (expr, 0);
+	TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
+	expr = build (COND_EXPR, void_type_node, TREE_OPERAND (pred, 0),
+		      expr, empty_stmt_node);
+      }
+
+  /* Now do the normal simplification.  */
+  simplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL,
+		 is_simple_condexpr, fb_rvalue);
+  simplify_stmt (&TREE_OPERAND (expr, 1));
+  simplify_stmt (&TREE_OPERAND (expr, 2));
+
+  /* If we had a value, move the COND_EXPR to the prequeue and use the temp
+     in its place.  */
+  if (tmp)
     {
-      /* If this is already void, just make sure it's simple.  */
-      simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, NULL,
-		     is_simple_condexpr, fb_rvalue);
-      simplify_stmt (&TREE_OPERAND (*expr_p, 1));
-      simplify_stmt (&TREE_OPERAND (*expr_p, 2));
-     }
-  else
-    {
-      tree t_then, t_else, tmp, pred, new_if;
-
-      /* Otherwise, we need to copy the values into a temporary.  */
-      tmp = create_tmp_var (TREE_TYPE (*expr_p), "iftmp");
-
-      /* Simplify the condition.  */
-      pred = TREE_OPERAND (*expr_p, 0);
-      simplify_expr (&pred, pre_p, NULL, is_simple_condexpr, fb_rvalue);
-
-      /* Build the then clause, 't1 = a;'.  */
-      t_then = build_modify_expr (tmp, NOP_EXPR, TREE_OPERAND (*expr_p, 1));
-      simplify_stmt (&t_then);
-
-      /* Build the else clause, 't1 = b;'.  */
-      t_else = build_modify_expr (tmp, NOP_EXPR, TREE_OPERAND (*expr_p, 2));
-      simplify_stmt (&t_else);
-
-      /* Build a new COND_EXPR and insert it in the PRE_P chain.  */
-      new_if = build (COND_EXPR, void_type_node, pred, t_then, t_else);
-      add_tree (new_if, pre_p);
-
-      /* Replace the original expression with the new temporary.  */
+      add_tree (expr, pre_p);
       *expr_p = tmp;
     }
+  else
+    *expr_p = expr;
 }
 
 
@@ -1819,6 +1833,10 @@ simplify_boolean_expr (expr_p, pre_p)
     abort ();
 #endif
 
+  /* Make this expression right-associative so that simplification will
+     produce nested ifs.  */
+  *expr_p = right_assocify_expr (*expr_p);
+
   /* First, make sure that our operands are truthvalues.  This should
      already be the case, but they may have the wrong type.  */
   lhs = (*lang_hooks.truthvalue_conversion) (TREE_OPERAND (*expr_p, 0));
@@ -1853,7 +1871,7 @@ simplify_boolean_expr (expr_p, pre_p)
 
   /* If we're not actually looking for a boolean result, convert now.  */
   if (TREE_TYPE (t) != TREE_TYPE (*expr_p))
-     t = convert (TREE_TYPE (*expr_p), t);
+    t = convert (TREE_TYPE (*expr_p), t);
 
   /* Re-write the original expression to use T.  */
   *expr_p = t;

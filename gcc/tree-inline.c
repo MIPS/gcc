@@ -314,19 +314,16 @@ copy_body_r (tp, walk_subtrees, data)
       tree return_stmt = *tp;
       tree goto_stmt;
 
-      /* Build the GOTO_STMT.  */
+      /* Build the GOTO_EXPR.  */
       tree assignment = TREE_OPERAND (return_stmt, 0);
       goto_stmt = build1 (GOTO_EXPR, void_type_node, id->ret_label);
+      TREE_USED (id->ret_label) = 1;
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original
 	 RESULT_DECL.  */
       if (assignment)
-	{
-	  /* Is this necessary?  -- jason 2002-09-16 */
-	  copy_body_r (&assignment, walk_subtrees, data);
-	  *tp = build (COMPOUND_EXPR, void_type_node, assignment, goto_stmt);
-	}
+	*tp = build (COMPOUND_EXPR, void_type_node, assignment, goto_stmt);
       /* If we're not returning anything just do the jump.  */
       else
 	*tp = goto_stmt;
@@ -838,13 +835,6 @@ expand_call_inline (tp, walk_subtrees, data)
   if (! (*lang_hooks.tree_inlining.start_inlining) (fn))
     return NULL_TREE;
 
-  /* Set the current filename and line number to the function we are
-     inlining so that when we create new _STMT nodes here they get
-     line numbers corresponding to the function we are calling.  We
-     wrap the whole inlined body in an EXPR_WITH_FILE_AND_LINE as well
-     because individual statements don't record the filename.  */
-  push_srcloc (DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
-
   /* Build a block containing code to initialize the arguments, the
      actual inline expansion of the body, and a label for the return
      statements within the function to jump to.  The type of the
@@ -918,11 +908,12 @@ expand_call_inline (tp, walk_subtrees, data)
   /* After the body of the function comes the RET_LABEL.  This must come
      before we evaluate the returned value below, because that evalulation
      may cause RTL to be generated.  */
-  {
-    tree label = build1 (LABEL_EXPR, void_type_node, id->ret_label);
-    BIND_EXPR_BODY (expr)
-      = add_stmt_to_compound (BIND_EXPR_BODY (expr), void_type_node, label);
-  }
+  if (TREE_USED (id->ret_label))
+    {
+      tree label = build1 (LABEL_EXPR, void_type_node, id->ret_label);
+      BIND_EXPR_BODY (expr)
+	= add_stmt_to_compound (BIND_EXPR_BODY (expr), void_type_node, label);
+    }
 
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
@@ -939,15 +930,6 @@ expand_call_inline (tp, walk_subtrees, data)
   TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
 
   *tp = expr;
-#if 0
-  /* Replace the call by the inlined body.  Wrap it in an
-     EXPR_WITH_FILE_LOCATION so that we'll get debugging line notes
-     pointing to the right place.  */
-  *tp = build_expr_wfl (*tp, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn),
-			/*col=*/0);
-  EXPR_WFL_EMIT_LINE_NOTE (*tp) = 1;
-#endif
-  pop_srcloc ();
 
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
@@ -1153,6 +1135,11 @@ walk_tree (tp, func, data, htab_)
 	return NULL_TREE;
     }
 
+  result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
+						      data, htab);
+  if (result || ! walk_subtrees)
+    return result;
+
   if (code != EXIT_BLOCK_EXPR
       && code != SAVE_EXPR
       && (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
@@ -1189,23 +1176,18 @@ walk_tree (tp, func, data, htab_)
 	    }
 	}
 
-      /* We didn't find what we were looking for.  */
-      return (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
-							data, htab);
+      if ((*lang_hooks.tree_inlining.tree_chain_matters_p) (*tp))
+	/* Check our siblings.  */
+	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
     }
   else if (TREE_CODE_CLASS (code) == 'd')
     {
       WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
     }
 
-  result = (*lang_hooks.tree_inlining.walk_subtrees) (tp, &walk_subtrees, func,
-						      data, htab);
-  if (result || ! walk_subtrees)
-    return result;
-
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
-  switch (code)
+  else switch (code)
     {
     case ERROR_MARK:
     case IDENTIFIER_NODE:

@@ -1,3 +1,31 @@
+2002-10-03  Jason Merrill  <jason@ariel.home>
+
+	* c-simplify.c (simplify_bind_expr): Don't clear TREE_SIDE_EFFECTS
+	if we have a block.
+
+	* c-simplify.c (simplify_expr) [TRY_FINALLY_EXPR]: New case.
+
+	* tree-inline.c (copy_body_r) [RETURN_EXPR]: Don't make an extra
+	copy of the MODIFY_EXPR.  Mark the return label used.
+	(expand_call_inline): Don't push/pop_srcloc.  Only emit the return 
+	label if it was used.
+
+	* tree-simple.c (right_assocify_expr): Split out from
+	rationalize_compound_expr.  Don't move non-matching op0's.
+	* tree-simple.h: Declare it.
+	* c-simplify.c (simplify_boolean_expr): Call it.
+	(simplify_cond_expr): Reorganize.  Optimize if (a&&b).
+
+	* c-simplify.c (wrap_with_wfl): Drop special loop handling.
+	(simplify_c_loop): Wrap loop contents in wfls.
+	
+	* c-simplify.c (STRIP_WFL): Move...
+	* tree.h: ...here.
+
+	* c-common.c (c_walk_subtrees): Don't walk TREE_CHAIN.
+	* tree-inline.c (walk_tree): Call langhook walk_subtrees first.
+	For expressions, walk TREE_CHAIN if it matters.
+
 2002-10-01  Frank Ch. Eigler  <fche@redhat.com>
 
 	* builtins.c (expand_builtin_alloca): Disable if -fmudflap.
@@ -6,7 +34,7 @@
 	(mx_xfn_indirect_ref): Handle bitfield COMPONENT_REFs; instrument
 	BIT_FIELD_REF/INDIRECT_REFs.
 
-2002-09-24  Jason Merrill  <jason@redhat.com>
+2002-10-01  Jason Merrill  <jason@redhat.com>
 
 	* c-decl.c (poplevel): Only add undeclared labels to the toplevel
 	block.

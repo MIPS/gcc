@@ -34,6 +34,7 @@ extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
 extern tree rationalize_compound_expr  PARAMS ((tree));
+extern tree right_assocify_expr		PARAMS ((tree));
 
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));

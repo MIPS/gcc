@@ -405,6 +405,14 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
 	     == TREE_TYPE (TREE_OPERAND (EXP, 0))))		\
     (EXP) = TREE_OPERAND (EXP, 0)
 
+/* Given an expression as a tree, strip any EXPR_WFLs.  */
+
+#define STRIP_WFL(NODE)					\
+  do {							\
+    while (TREE_CODE (NODE) == EXPR_WITH_FILE_LOCATION)	\
+      NODE = EXPR_WFL_NODE (NODE);			\
+  } while (0)
+
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  */
 

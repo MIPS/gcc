@@ -1,4 +1,4 @@
-/* Functions to analyze and validate SIMPLE trees.
+/* Functions to analyze and validate GIMPLE trees.
    Copyright (C) 2002 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -920,41 +920,71 @@ is_simplifiable_builtin (expr)
     }
 }
 
-/* Given a COMPOUND_EXPR TOP, reorganize all of the nested COMPOUND_EXPRs
-   so that they only appear as the second operand.
+/* Given an _EXPR TOP, reorganize all of the nested _EXPRs with the same
+   code so that they only appear as the second operand.  This should only
+   be used for tree codes which are truly associative, such as
+   COMPOUND_EXPR and TRUTH_ANDIF_EXPR.  Arithmetic is not associative
+   enough, due to the limited precision of arithmetic data types.
 
-   FIXME should this look down to the bottom of a left-recursion?  */
+   This transformation is conservative; the operand 0 of a matching tree
+   node will only change if it is also a matching node.  */
+
+tree
+right_assocify_expr (top)
+     tree top;
+{
+  tree *p = &top;
+  enum tree_code code = TREE_CODE (*p);
+  while (TREE_CODE (*p) == code)
+    {
+      tree cur = *p;
+      tree lhs = TREE_OPERAND (cur, 0);
+      tree rhs = TREE_OPERAND (cur, 1);
+      if (TREE_CODE (lhs) == code)
+	{
+	  /* There's a left-recursion.  If we have ((a, (b, c)), d), we
+	     want to rearrange to (a, (b, (c, d))).  */
+	  tree *q;
+
+	  /* Replace cur with the lhs; move (a, *) up.  */
+	  *p = lhs;
+
+	  /* If this is a COMPOUND_EXPR, we need to give (b, c) the type of
+	     c; previously lhs had the type of b.  For other associative
+	     tree codes, this should be a NOP.  */
+	  TREE_TYPE (lhs) = TREE_TYPE (rhs);
+
+	  /* Walk through the rhs chain from there until we find something
+	     with a different code.  In this case, c.  */
+	  for (q = &TREE_OPERAND (lhs, 1); TREE_CODE (*q) == code;
+	       q = &TREE_OPERAND (*q, 1))
+	    TREE_TYPE (*q) = TREE_TYPE (rhs);
+
+	  /* Change (*, d) into (c, d).  */
+	  TREE_OPERAND (cur, 0) = *q;
+
+	  /* And plug it in where c used to be.  */
+	  *q = cur;
+	}
+      else
+	p = &TREE_OPERAND (cur, 1);
+    }
+  return top;
+}
+
+/* Normalize the statement TOP.  If it is a COMPOUND_EXPR, reorganize it so
+   that we can traverse it without recursion.  If it is null, replace it
+   with a nop.  */
 
 tree
 rationalize_compound_expr (top)
      tree top;
 {
-  tree cur;
   if (top == NULL_TREE)
     top = empty_stmt_node;
-  cur = top;
-  if (cur)
-    while (TREE_CODE (cur) == COMPOUND_EXPR)
-      {
-	tree lhs = TREE_OPERAND (cur, 0);
-	tree rhs = TREE_OPERAND (cur, 1);
-	if (TREE_CODE (lhs) == COMPOUND_EXPR)
-	  {
-	    /* We have ((a, b), c).  Rearrange to (a, (b, c)).  */
-	    tree lhs1 = TREE_OPERAND (lhs, 0);
-	    tree rhs1 = TREE_OPERAND (lhs, 1);
+  else if (TREE_CODE (top) == COMPOUND_EXPR)
+    top = right_assocify_expr (top);
 
-	    /* Change lhs from (a, b) to (b, c).  */
-	    TREE_OPERAND (lhs, 0) = rhs1;
-	    TREE_OPERAND (lhs, 1) = rhs;
-
-	    /* Change cur from (lhs, c) to (a, lhs), i.e. (a, (b, c)).  */
-	    TREE_OPERAND (cur, 0) = lhs1;
-	    TREE_OPERAND (cur, 1) = lhs;
-	  }
-	else
-	  cur = rhs;
-      }
   return top;
 }
 
