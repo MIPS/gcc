@@ -180,7 +180,7 @@
 	(const_string "normal"))
 
 ; Load scheduling, set from the arm_ld_sched variable
-; initialised by arm_override_options() 
+; initialized by arm_override_options() 
 (define_attr "ldsched" "no,yes" (const (symbol_ref "arm_ld_sched")))
 
 ; condition codes: this one is used by final_prescan_insn to speed up
@@ -1867,7 +1867,7 @@
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "")
                          (match_operand:SI 1 "general_operand" "")
                          (match_operand:SI 2 "general_operand" ""))
-        (match_operand:SI 3 "nonmemory_operand" ""))]
+        (match_operand:SI 3 "reg_or_int_operand" ""))]
   "TARGET_ARM"
   "
   {

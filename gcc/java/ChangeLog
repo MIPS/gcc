@@ -1,3 +1,22 @@
+2002-09-11  Per Bothner  <per@bothner.com>
+
+	* parse.y (fold_constant_for_init):  If a VAR_DECL, convert numerical
+	constant to the type of the field.
+	(java_complete_tree):  Remove now-redundant code.
+
+	* parse.y (fold_constant_for_init):  'null' is not a constant expr.
+
+2002-09-03  Jesse Rosenstock  <jmr@ugcs.caltech.edu>
+
+	For PR java/5794:
+	* verify.c (verify_jvm_instructions) [OPCODE_jsr]: Only push the
+	return label if a ret instruction for the jsr has been reached.
+
+2002-09-09  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* parse.y (DIR_SEPARATOR): Don't define.
+	(check_class_interface_creation): Use IS_DIR_SEPARATOR.
+
 2002-08-28  Andrew Haley  <aph@redhat.com>
 
 	* verify.c (verify_jvm_instructions): Allow exception handler

@@ -1020,10 +1020,10 @@ Mon Dec 17 17:57:05 CET 2001  Jan Hubicka  <jh@suse.cz>
 	* target.h (asm_out.byte_op, asm_out.aligned_op, asm_out.unaligned_op,
 	asm_out.integer): New fields.
 	* target-def.h (TARGET_ASM_BYTE_OP, TARGET_ASM_ALIGNED_[HSDT]I_OP,
-	TARGET_ASM_UNALIGNED_[HSDT]I_OP, TARGET_ASM_INTEGER): New initialisers.
+	TARGET_ASM_UNALIGNED_[HSDT]I_OP, TARGET_ASM_INTEGER): New initializers.
 	(TARGET_ASM_ALIGNED_INT_OP, TARGET_ASM_UNALIGNED_INT_OP): Collect
-	the individual initialisers together.
-	(TARGET_ASM_OUT): Add the new initialisers.
+	the individual initializers together.
+	(TARGET_ASM_OUT): Add the new initializers.
 	* output.h (assemble_integer): Return bool.
 	(integer_asm_op): Declare.
 	(default_assemble_integer): Declare.
@@ -10036,7 +10036,7 @@ Tue Sep 25 17:13:56 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(builtin_decsription): Add new field mask which is used to determine
 	when to define the builtin via the macro def_builtin.
 
-	(bdesc_comi): Initialise new mask fields.
+	(bdesc_comi): Initialize new mask fields.
 	(bdesc_2srg): Likewise.
 	(bdesc_1arg): Likewise.
 
@@ -16689,7 +16689,7 @@ Sun Jul 22 21:31:04 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(xcoff_debug_hooks, dbx_debug_hooks): Use it.
 	* sdbout.c (sdbout_finish): New.
 	(sdbout_debug_hooks): Use it, add comments.
-	(sdbout_global_decl): Defer initialised public vars to
+	(sdbout_global_decl): Defer initialized public vars to
 	sdbout_finish.
 	* varasm.c (assemble_variable): Don't output debug information
 	for file-scope variables.
@@ -16721,7 +16721,7 @@ Sun Jul 22 21:31:04 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(xcoff_debug_hooks, dbx_debug_hooks): Use it.
 	* sdbout.c (sdbout_finish): New.
 	(sdbout_debug_hooks): Use it, add comments.
-	(sdbout_global_decl): Defer initialised public vars to
+	(sdbout_global_decl): Defer initialized public vars to
 	sdbout_finish.
 	* varasm.c (assemble_variable): Don't output debug information
 	for file-scope variables.
@@ -16990,7 +16990,7 @@ Fri Jul 20 13:24:16 CEST 2001  Jan Hubicka  <jh@suse.cz>
 
 	* Makefile.in (toplev.o, dwarfout.o, final.o): Don't depend on
 	dwarfout.h.
-	* dbxout.c (dbxout_function): Rename dbxout_funciton_decl, move
+	* dbxout.c (dbxout_function): Rename dbxout_function_decl, move
 	to conditionally compiled block.
 	(dbx_debug_hooks, xcoff_debug_hooks): Update.
 	* dbxout.h (dbxout_function): Remove.
@@ -18418,7 +18418,7 @@ Mon Jul  9 06:41:07 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* config/ia64/ia64.c (ia64_output_end_prologue): Rename to
 	ia64_output_function_end_prologue.  Use in target struct
 	and make static.
-	(ia64_function_prologue, ia64_funciton_epilogue): Rename
+	(ia64_function_prologue, ia64_function_epilogue): Rename
 	mistyped prototypes.
 	* config/ia64/ia64.h (FUNCTION_END_PROLOGUE): Delete.
 	* config/m88k/m88k-protos.h (m88k_end_prologue, m88k_begin_epilogue):

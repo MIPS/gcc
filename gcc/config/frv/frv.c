@@ -3128,7 +3128,7 @@ frv_function_arg_boundary (mode, type)
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -3552,7 +3552,7 @@ frv_legitimize_address (x, oldx, mode)
 {
   rtx ret = NULL_RTX;
 
-  /* Don't try to legitimize addreses if we are not optimizing, since the
+  /* Don't try to legitimize addresses if we are not optimizing, since the
      address we generate is not a general operand, and will horribly mess
      things up when force_reg is called to try and put it in a register because
      we aren't optimizing.  */

@@ -5924,6 +5924,11 @@ Returns true if @var{exp} should be placed into a ``small data'' section.
 The default version of this hook always returns false.
 @end deftypefn
 
+@deftypevar {Target Hook} bool TARGET_HAVE_SRODATA_SECTION
+Contains the value true if the target places read-only
+``small data'' into a separate section.  The default value is false.
+@end deftypevar
+
 @deftypefn {Target Hook} bool TARGET_BINDS_LOCAL_P (tree @var{exp})
 Returns true if @var{exp} names an object for which name resolution
 rules must resolve to the current ``module'' (dynamic shared library
@@ -5933,6 +5938,12 @@ The default version of this hook implements the name resolution rules
 for ELF, which has a looser model of global name binding than other
 currently supported object file formats.
 @end deftypefn
+
+@deftypevar {Target Hook} bool TARGET_HAVE_TLS
+Contains the value true if the target supports thread-local storage.
+The default value is false.
+@end deftypevar
+
 
 @node PIC
 @section Position Independent Code
@@ -7490,6 +7501,13 @@ is a function that outputs a standard GAS section directive, if
 directive followed by a synthetic label.
 @end deftypefn
 
+@deftypevar {Target Hook} bool TARGET_TERMINATE_DW2_EH_FRAME_INFO
+Contains the value true if the target should add a zero word onto the
+end of a Dwarf-2 frame info section when used for exception handling.
+Default value is false if @code{EH_FRAME_SECTION_NAME} is defined, and
+true otherwise.
+@end deftypevar
+
 @node Alignment Output
 @subsection Assembler Commands for Alignment
 
@@ -7830,6 +7848,11 @@ argument @var{name} is the name of an assembler symbol (for use with
 @item DBX_OUTPUT_RBRAC (@var{stream}, @var{name})
 Like @code{DBX_OUTPUT_LBRAC}, but for the end of a scope level.
 
+@findex DBX_OUTPUT_NFUN
+@item DBX_OUTPUT_NFUN (@var{stream}, @var{lscope_label}, @var{decl})
+Define this macro if the target machine requires special handling to
+output an @code{N_FUN} entry for the function @var{decl}.
+
 @findex DBX_OUTPUT_ENUM
 @item DBX_OUTPUT_ENUM (@var{stream}, @var{type})
 Define this macro if the target machine requires special handling to
@@ -8022,6 +8045,22 @@ to indicate the beginning of the text section, define this macro to zero.
 Define this macro to be a nonzero value if the assembler can generate Dwarf 2
 line debug info sections.  This will result in much more compact line number
 tables, and hence is desirable if it works.
+
+@findex ASM_OUTPUT_DWARF_DELTA
+@item ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
+A C statement to issue assembly directives that create a difference
+between the two given labels, using an integer of the given size.
+
+@findex ASM_OUTPUT_DWARF_OFFSET
+@item ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label})
+A C statement to issue assembly directives that create a
+section-relative reference to the given label, using an integer of the
+given size.
+
+@findex ASM_OUTPUT_DWARF_PCREL
+@item ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
+A C statement to issue assembly directives that create a self-relative
+reference to the given label, using an integer of the given size.
 
 @findex PUT_SDB_@dots{}
 @item PUT_SDB_@dots{}

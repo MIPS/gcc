@@ -301,7 +301,7 @@ h8300_init_once ()
     }
   else
     {
-      /* For this we treat the H8/300H and H8/S the same.  */
+      /* For this we treat the H8/300H and H8S the same.  */
       cpu_type = (int) CPU_H8300H;
       h8_reg_names = names_extended;
     }
@@ -319,35 +319,35 @@ h8300_init_once ()
      See http://gcc.gnu.org/ml/gcc-patches/2002-07/msg01858.html
      If optimizing for size, change shift_alg for those shift to
      SHIFT_LOOP.  */
-  if(optimize_size)
+  if (optimize_size)
     {
-      /* H8300 */
-      shift_alg_hi[H8_300][SHIFT_ASHIFT][5] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300][SHIFT_ASHIFT][6] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300][SHIFT_ASHIFT][13] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300][SHIFT_ASHIFT][14] = SHIFT_LOOP ;
+      /* H8/300 */
+      shift_alg_hi[H8_300][SHIFT_ASHIFT][5] = SHIFT_LOOP;
+      shift_alg_hi[H8_300][SHIFT_ASHIFT][6] = SHIFT_LOOP;
+      shift_alg_hi[H8_300][SHIFT_ASHIFT][13] = SHIFT_LOOP;
+      shift_alg_hi[H8_300][SHIFT_ASHIFT][14] = SHIFT_LOOP;
 
-      shift_alg_hi[H8_300][SHIFT_LSHIFTRT][13] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300][SHIFT_LSHIFTRT][14] = SHIFT_LOOP ;
+      shift_alg_hi[H8_300][SHIFT_LSHIFTRT][13] = SHIFT_LOOP;
+      shift_alg_hi[H8_300][SHIFT_LSHIFTRT][14] = SHIFT_LOOP;
 
-      shift_alg_hi[H8_300][SHIFT_ASHIFTRT][13] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300][SHIFT_ASHIFTRT][14] = SHIFT_LOOP ;
+      shift_alg_hi[H8_300][SHIFT_ASHIFTRT][13] = SHIFT_LOOP;
+      shift_alg_hi[H8_300][SHIFT_ASHIFTRT][14] = SHIFT_LOOP;
 
-      /* H8300H */
-      shift_alg_hi[H8_300H][SHIFT_ASHIFT][5] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300H][SHIFT_ASHIFT][6] = SHIFT_LOOP ;
+      /* H8/300H */
+      shift_alg_hi[H8_300H][SHIFT_ASHIFT][5] = SHIFT_LOOP;
+      shift_alg_hi[H8_300H][SHIFT_ASHIFT][6] = SHIFT_LOOP;
 
-      shift_alg_hi[H8_300H][SHIFT_LSHIFTRT][5] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300H][SHIFT_LSHIFTRT][6] = SHIFT_LOOP ;
+      shift_alg_hi[H8_300H][SHIFT_LSHIFTRT][5] = SHIFT_LOOP;
+      shift_alg_hi[H8_300H][SHIFT_LSHIFTRT][6] = SHIFT_LOOP;
 
-      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][5] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][6] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][13] = SHIFT_LOOP ;
-      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][14] = SHIFT_LOOP ;
+      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][5] = SHIFT_LOOP;
+      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][6] = SHIFT_LOOP;
+      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][13] = SHIFT_LOOP;
+      shift_alg_hi[H8_300H][SHIFT_ASHIFTRT][14] = SHIFT_LOOP;
 
       /* H8S */
-      shift_alg_hi[H8_S][SHIFT_ASHIFTRT][13] = SHIFT_LOOP ;
-      shift_alg_hi[H8_S][SHIFT_ASHIFTRT][14] = SHIFT_LOOP ;
+      shift_alg_hi[H8_S][SHIFT_ASHIFTRT][13] = SHIFT_LOOP;
+      shift_alg_hi[H8_S][SHIFT_ASHIFTRT][14] = SHIFT_LOOP;
     }
 }
 
@@ -392,7 +392,7 @@ dosize (file, op, size)
      const char *op;
      unsigned int size;
 {
-  /* On the H8/300H and H8/S, for sizes <= 8 bytes, it is as good or
+  /* On the H8/300H and H8S, for sizes <= 8 bytes, it is as good or
      better to use adds/subs insns rather than add.l/sub.l with an
      immediate value.
 
@@ -2036,7 +2036,7 @@ compute_logical_op_cc (mode, operands)
 
    We devote a fair bit of code to getting efficient shifts since we
    can only shift one bit at a time on the H8/300 and H8/300H and only
-   one or two bits at a time on the H8/S.
+   one or two bits at a time on the H8S.
 
    All shift code falls into one of the following ways of
    implementation:
@@ -2055,7 +2055,7 @@ compute_logical_op_cc (mode, operands)
      16.  This case also includes other oddballs that are not worth
      explaning here.
 
-   o SHIFT_LOOP: Emit a loop using one (or two on H8/S) bit shifts.
+   o SHIFT_LOOP: Emit a loop using one (or two on H8S) bit shifts.
 
    Here are some thoughts on what the absolutely positively best code
    is.  "Best" here means some rational trade-off between code size
@@ -2120,15 +2120,15 @@ compute_logical_op_cc (mode, operands)
             do 24 bit shift, inline rest
    31     - shll, subx byte 0, sign extend byte 0, sign extend word 0
 
-   H8/S QImode shifts
+   H8S QImode shifts
    7      - ASHIFTRT: shll, subx (propagate carry bit to all bits)
 
-   H8/S HImode shifts
+   H8S HImode shifts
    8      - move byte, zero (ASHIFT | LSHIFTRT) or sign extend other (ASHIFTRT)
    9-12   - do shift by 8, inline remaining shifts
    15     - ASHIFTRT: shll, subx, set other byte
 
-   H8/S SImode shifts
+   H8S SImode shifts
    (These are complicated by the fact that we don't have byte level access to
    the top word.)
    A word is: bytes 3,2,1,0 (msb -> lsb), word 1,0 (msw -> lsw)
@@ -2812,7 +2812,7 @@ h8300_shift_needs_scratch_p (count, mode)
       abort ();
     }
 
-  /* On H8/300H and H8/S, count == 8 uses the scratch register.  */
+  /* On H8/300H and H8S, count == 8 uses the scratch register.  */
   return (a == SHIFT_LOOP || lr == SHIFT_LOOP || ar == SHIFT_LOOP
 	  || (!TARGET_H8300 && mode == SImode && count == 8));
 }
@@ -3304,7 +3304,7 @@ emit_a_rotate (code, operands)
 	  break;
 
 	case SImode:
-	  /* This code works on the H8/300H and H8/S.  */
+	  /* This code works on the H8/300H and H8S.  */
 	  insn_buf = "xor.w\t%e0,%f0\n\txor.w\t%f0,%e0\n\txor.w\t%e0,%f0";
 	  output_asm_insn (insn_buf, operands);
 	  break;
@@ -3719,10 +3719,16 @@ h8300_adjust_insn_length (insn, length)
 	  /* @Rs is 2 bytes shorter than the longest.  */
 	  if (GET_CODE (addr) == REG)
 	    return -2;
+
+	  /* @aa:8 is 2 bytes shorter than the longest.  */
+	  if (GET_MODE (SET_SRC (pat)) == QImode
+	      && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
+		  || EIGHTBIT_CONSTANT_ADDRESS_P (addr)))
+	    return -2;
 	}
       else
 	{
-	  /* On the H8/300H and H8/S, we subtract the difference
+	  /* On the H8/300H and H8S, we subtract the difference
              between the actual length and the longest one, which is
              @(d:24,ERs).  */
 
@@ -3831,7 +3837,7 @@ h8300_adjust_insn_length (insn, length)
 	  states += 6;
 	}
 
-      /* We use 2-bit rotatations on the H8/S.  */
+      /* We use 2-bit rotatations on the H8S.  */
       if (TARGET_H8300S)
 	amount = amount / 2 + amount % 2;
 

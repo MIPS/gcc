@@ -59,7 +59,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #endif
 
 #ifndef TARGET_ASM_ASSEMBLE_VISIBILITY
-#define TARGET_ASM_ASSEMBLE_VISIBILITY assemble_visibility
+#define TARGET_ASM_ASSEMBLE_VISIBILITY default_assemble_visibility
 #endif
 
 #define TARGET_ASM_FUNCTION_PROLOGUE default_function_pro_epilogue
@@ -124,6 +124,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifndef TARGET_HAVE_SRODATA_SECTION
 #define TARGET_HAVE_SRODATA_SECTION false
+#endif
+
+#ifndef TARGET_TERMINATE_DW2_EH_FRAME_INFO
+#ifdef EH_FRAME_SECTION_NAME
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
+#else
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO true
+#endif
 #endif
 
 #ifndef TARGET_ASM_EXCEPTION_SECTION
@@ -266,7 +274,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
-  TARGET_HAVE_SRODATA_SECTION			\
+  TARGET_HAVE_SRODATA_SECTION,			\
+  TARGET_TERMINATE_DW2_EH_FRAME_INFO		\
 }
 
 #include "hooks.h"

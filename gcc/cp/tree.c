@@ -94,7 +94,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
       /* If expression doesn't change the type, we consider it as an
 	 lvalue even when cast_as_lvalue extension isn't selected.
 	 That's because parts of the compiler are alleged to be sloppy
-	 about sticking in NOP_EXPR node for no good reason. */
+	 about sticking in NOP_EXPR node for no good reason.  */
       if (allow_cast_as_lvalue ||
 	  same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ref)),
 		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (ref, 0)))))
@@ -227,6 +227,14 @@ lvalue_p (ref)
 {
   return 
     (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 1) != clk_none);
+}
+
+int
+non_cast_lvalue_p (ref)
+     tree ref;
+{
+  return 
+    (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 0) != clk_none);
 }
 
 /* Return nonzero if REF is an lvalue valid for this language;
@@ -1019,7 +1027,7 @@ get_first_fn (from)
      tree from;
 {
   my_friendly_assert (is_overloaded_fn (from), 9);
-  /* A baselink is also considered an overloaded function. */
+  /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (from))
     from = BASELINK_FUNCTIONS (from);
   return OVL_CURRENT (from);
@@ -1036,7 +1044,7 @@ bound_pmf_p (t)
 	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (t, 1))));
 }
 
-/* Return a new OVL node, concatenating it with the old one. */
+/* Return a new OVL node, concatenating it with the old one.  */
 
 tree
 ovl_cons (decl, chain)
@@ -1890,7 +1898,7 @@ maybe_dummy_object (type, binfop)
   if (current_class_ref && context == current_class_type
       /* Kludge: Make sure that current_class_type is actually
          correct.  It might not be if we're in the middle of
-         tsubst_default_argument. */
+         tsubst_default_argument.  */
       && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
 		      current_class_type))
     decl = current_class_ref;
@@ -2062,7 +2070,7 @@ handle_init_priority_attribute (node, name, args, flags, no_add_attrs)
       /* Static objects in functions are initialized the
 	 first time control passes through that
 	 function. This is not precise enough to pin down an
-	 init_priority value, so don't allow it. */
+	 init_priority value, so don't allow it.  */
       || current_function_decl) 
     {
       error ("can only use `%s' attribute on file-scope definitions of objects of class type",

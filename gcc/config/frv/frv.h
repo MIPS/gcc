@@ -756,7 +756,7 @@ extern int g_switch_set;          /* whether -G xx was passed.  */
         there is no need to define this macro when the format is IEEE.
 
    VAX_FLOAT_FORMAT'
-        This code indicates the peculiar format used on the Vax.
+        This code indicates the peculiar format used on the VAX.
 
    UNKNOWN_FLOAT_FORMAT'
         This code indicates any other format.
@@ -1832,7 +1832,7 @@ struct machine_function GTY(())
    variable number of bytes is passed, it is zero, and argument popping will
    always be the responsibility of the calling function.
 
-   On the Vax, all functions always pop their arguments, so the definition of
+   On the VAX, all functions always pop their arguments, so the definition of
    this macro is STACK-SIZE.  On the 68000, using the standard calling
    convention, no functions pop their arguments, so the value of the macro is
    always 0 in this case.  But an alternative calling convention is available
@@ -1881,7 +1881,7 @@ struct machine_function GTY(())
    register in which to pass the argument, or zero to pass the argument on the
    stack.
 
-   For machines like the Vax and 68000, where normally all arguments are
+   For machines like the VAX and 68000, where normally all arguments are
    pushed, zero suffices as a definition.
 
    The usual way to make the ANSI library `stdarg.h' work on a machine where
@@ -3542,12 +3542,12 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
 #define PACKING_FLAG_USED_P() \
 (optimize && flag_schedule_insns_after_reload && ISSUE_RATE > 1)
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, the
    code making resource-constrained software pipelining is on.  */
 #define RCSP_SOFTWARE_PIPELINING 1
 
-/* If the following macro is defined and non zero and deterministic
+/* If the following macro is defined and nonzero and deterministic
    finite state automata are used for pipeline hazard recognition, we
    will try to exchange insns in queue ready to improve the schedule.
    The more macro value, the more tries will be made.  */

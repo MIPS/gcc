@@ -144,7 +144,7 @@ typedef struct edge_def {
 #define EDGE_FAKE		16	/* Not a real edge (profile.c) */
 #define EDGE_DFS_BACK		32	/* A backwards edge */
 #define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
-					   flow. */
+					   flow.  */
 #define EDGE_TRUE_VALUE		128	/* Edge taken when controlling
 					   predicate is non zero.  */
 #define EDGE_FALSE_VALUE	256	/* Edge taken when controlling

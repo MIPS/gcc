@@ -1,3 +1,108 @@
+2002-09-13  Andy Felt  <afelt@uwsp.edu>
+
+	* docs/html/17_intro/howto.html:  Update link.
+
+2002-09-13  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/run_doxygen:  Massage man page for Iterator_types.3.
+	* docs/html/faq/index.html:  Whitespace fixes.
+
+2002-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libmath/Makefile.am (LIBTOOL): Use --tag CC always for this
+	directory.
+	* libmath/Makefile.in: Regenerate.
+	* src/Makefile.am: Tweak comment.
+	* src/Makefile.in: Regenerate.
+	
+	* config/locale/gnu/c_locale.h: Remove warnings.
+	Inject __uselocale into __gnu_cxx.
+	* config/locale/generic/c_locale.h: Match.
+	
+2002-09-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc (__convert_from_v): Remove.
+	* config/locale/gnu/c_locale.h (__convert_from_v): Add.
+	* config/locale/generic/c_locale.h (__convert_from_v): Add.	
+
+2002-09-11  Paolo Carlini  <pcarlini@unitus.it>
+
+        * include/bits/locale_facets.tcc (__convert_from_v):
+        Use __uselocale instead of setlocale for glibc 2.3+.
+
+2002-09-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Edit.
+	(target_sources): New.
+	(target_sources_extra): New.
+	* src/Makefile.in: Regenerate.
+	* acinclude.m4: Set CCODECVT_CC. 
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* src/locale.cc: Move ctype definitions...
+	* src/ctype.cc: ...here. New file. 
+	* src/locale.cc: Move codecvt definitions...
+	* src/codecvt.cc: ...here. 	
+	* config/generic/codecvt_members.cc: ...and here. 	
+	* config/gnu/codecvt_members.cc: ...and here. 		
+	* include/bits/codecvt.h: Tweak.
+	* include/bits/locale_facets: Tweak.
+
+	* src/bitset.cc: Correct license text.
+	* src/concept-inst.cc: Same.
+	* src/strstream.cc: Same.
+	* src/vterminate.cc: Same.	
+
+2002-09-10  Gabriel Dos Reis  <gdr@soliton.integrable-solutions.net>
+
+	* include/bits/stl_vector.h (vector<>): Don't use a name with
+	different meanings before and after re-evaluation in the completed
+	scope. 
+	* include/bits/basic_string.h (basic_string<>): Likewise.
+	* include/bits/stl_bvector.h (vector<bool>): Likewise.
+	* include/bits/stl_deque.h (std): Likewise.
+	* include/bits/stl_list.h (list<>): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree<>): Likewise.
+
+2002-09-10  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/codecvt.h (class __codecvt_abstract_base):
+	Add __c_locale type _M_c_locale_codecvt member.
+	(class codecvt<char, char, mbstate_t>,
+	class codecvt<wchar_t, char, mbstate_t>): Add new
+	codecvt(__c_locale, size_t) constructor.
+	(codecvt_byname::codecvt_byname): Update.
+	* src/codecvt.cc (class codecvt<char, char, mbstate_t>,
+	class codecvt<wchar_t, char, mbstate_t>): Update codecvt(size_t)
+	constructor and ~codecvt() destructor; define
+	codecvt(__c_locale, size_t) constructor.
+	(codecvt::do_out): Switch to _M_c_locale_codecvt around wcsrtombs call.
+	(codecvt::do_in): Ditto for mbsrtowcs call.
+	* src/localename.cc (locale::_Impl::_Impl(const char*, size_t)):
+	Tweak construction of codecvt facets.
+
+2002-09-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* include/bits/locale_facets.tcc (__convert_from_v):
+	Replace strdup with ISO malloc and strcpy.
+
+2002-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/configopts.html: Change grouping. Note ABI impacts.
+	Update information for locale model defaults.
+	* docs/html/install.html: Update include directory
+	information. 
+	Update testing information. 
+	Update linux issues for named locales.
+	* docs/html/abi.txt: Fix typos.
+	Add more info.
+
+	* src/misc-inst.cc: Add missing instantiations.
+	
+	* testsuite/abi_check.cc: Make output results more verbose.
+	
+	* config/os/gnu-linux/ctype_base.h: Remove shadow headers injections.
+
 2002-09-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/locale/generic/messages_members.cc: Add specialization for

@@ -2463,7 +2463,7 @@ compare_constant (t1, t2)
 	       l1 && l2;
 	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
 	    {
-	      /* Check that each value is the same... */
+	      /* Check that each value is the same...  */
 	      if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
 		return 0;
 	      /* ... and that they apply to the same fields!  */
@@ -4618,7 +4618,7 @@ assemble_alias (decl, target)
    VISIBILITY_TYPE.  */
 
 void
-assemble_visibility (decl, visibility_type)
+default_assemble_visibility (decl, visibility_type)
      tree decl;
      const char *visibility_type ATTRIBUTE_UNUSED;
 {
