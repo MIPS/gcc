@@ -1,3 +1,8 @@
+2004-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): Split into ...
+	(conditional_replacement): Here.
+
 2004-02-26  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa.c (find_replaceable_in_bb): Don't repalce expressions in
