@@ -120,11 +120,22 @@ package body Ada.Exceptions is
    --  Raise_From_Signal_Handler. The origin of the call is indicated by the
    --  From_Signal_Handler argument.
 
+   procedure To_Stderr (S : String);
+   pragma Export (Ada, To_Stderr, "__gnat_to_stderr");
+   --  Little routine to output string to stderr that is also used
+   --  in the tasking run time.
+
+   procedure To_Stderr (C : Character);
+   pragma Inline (To_Stderr);
+   pragma Export (Ada, To_Stderr, "__gnat_to_stderr_char");
+   --  Little routine to output a character to stderr, used by some of
+   --  the separate units below.
+
    package Exception_Data is
 
-      ----------------------------------
-      --  Exception messages routines --
-      ----------------------------------
+      ---------------------------------
+      -- Exception messages routines --
+      ---------------------------------
 
       procedure Set_Exception_C_Msg
         (Id   : Exception_Id;
@@ -154,34 +165,40 @@ package body Ada.Exceptions is
       function Exception_Information (X : Exception_Occurrence) return String;
       --  The format of the exception information is as follows:
       --
-      --    exception name (as in Exception_Name)
-      --    message (or a null line if no message)
-      --    PID=nnnn
-      --    0xyyyyyyyy 0xyyyyyyyy ...
+      --    Exception_Name: <exception name> (as in Exception_Name)
+      --    Message: <message> (only if Exception_Message is empty)
+      --    PID=nnnn (only if != 0)
+      --    Call stack traceback locations:  (only if at least one location)
+      --    <0xyyyyyyyy 0xyyyyyyyy ...>      (is recorded)
       --
-      --  The lines are separated by a ASCII.LF character
+      --  The lines are separated by a ASCII.LF character.
       --  The nnnn is the partition Id given as decimal digits.
-      --  The 0x... line represents traceback program counter locations,
-      --  in order with the first one being the exception location.
+      --  The 0x... line represents traceback program counter locations, in
+      --  execution order with the first one being the exception location. It
+      --  is present only
+      --
+      --  The Exception_Name and Message lines are omitted in the abort
+      --  signal case, since this is not really an exception.
+
+      --  !! If the format of the generated string is changed, please note
+      --  !! that an equivalent modification to the routine String_To_EO must
+      --  !! be made to preserve proper functioning of the stream attributes.
 
       ---------------------------------------
       -- Exception backtracing subprograms --
       ---------------------------------------
 
-      --  What is automatically output when exception tracing is on basically
-      --  corresponds to the usual exception information, but with the call
-      --  chain backtrace possibly tailored by a backtrace decorator. Modifying
-      --  Exception_Information itself is not a good idea because the decorated
-      --  output is completely out of control and would break all our code
-      --  related to the streaming of exceptions.
-      --
-      --  We then provide an alternative function to Exception_Information to
-      --  compute the possibly tailored output, which is equivalent if no
-      --  decorator is currently set.
+      --  What is automatically output when exception tracing is on is the
+      --  usual exception information with the call chain backtrace possibly
+      --  tailored by a backtrace decorator. Modifying Exception_Information
+      --  itself is not a good idea because the decorated output is completely
+      --  out of control and would break all our code related to the streaming
+      --  of exceptions.  We then provide an alternative function to compute
+      --  the possibly tailored output, which is equivalent if no decorator is
+      --  currently set:
 
       function Tailored_Exception_Information
-        (X    : Exception_Occurrence)
-        return String;
+        (X : Exception_Occurrence) return String;
       --  Exception information to be output in the case of automatic tracing
       --  requested through GNAT.Exception_Traces.
       --
@@ -193,28 +210,7 @@ package body Ada.Exceptions is
       pragma Export
         (Ada, Tailored_Exception_Information,
            "__gnat_tailored_exception_information");
-      --  This function is used within this package but also from within
-      --  System.Tasking.Stages.
-      --
-      --  The output of Exception_Information and
-      --  Tailored_Exception_Information share a common part which was
-      --  formerly built using local procedures within
-      --  Exception_Information. These procedures have been extracted
-      --  from their original place to be available to
-      --  Tailored_Exception_Information also.
-      --
-      --  Each of these procedures appends some input to an
-      --  information string currently being built. The Ptr argument
-      --  represents the last position in this string at which a
-      --  character has been written.
-
-      procedure Tailored_Exception_Information
-        (X    : Exception_Occurrence;
-         Buff : in out String;
-         Last : in out Integer);
-      --  Procedural version of the above function. Instead of returning the
-      --  result, this one is put in Buff (Buff'first .. Buff'first + Last)
-      --  And what happens on overflow ???
+      --  This is currently used by System.Tasking.Stages.
 
    end Exception_Data;
 
@@ -234,14 +230,14 @@ package body Ada.Exceptions is
       --  routine when the GCC 3 mechanism is used.
 
       procedure Notify_Handled_Exception;
-      pragma Export (C, Notify_Handled_Exception,
-                       "__gnat_notify_handled_exception");
+      pragma Export
+        (C, Notify_Handled_Exception, "__gnat_notify_handled_exception");
       --  This routine is called for a handled occurrence is about to be
       --  propagated.
 
       procedure Notify_Unhandled_Exception;
-      pragma Export (C, Notify_Unhandled_Exception,
-                       "__gnat_notify_unhandled_exception");
+      pragma Export
+        (C, Notify_Unhandled_Exception, "__gnat_notify_unhandled_exception");
       --  This routine is called when an unhandled occurrence is about to be
       --  propagated.
 
@@ -330,20 +326,6 @@ package body Ada.Exceptions is
    --  is associated with the raise, and has already been stored in the
    --  exception occurrence referenced by the Current_Excep in the TSD.
    --  Abort is deferred before the raise call.
-
-   procedure Raise_With_Msg (E : Exception_Id; Setup : Boolean);
-   pragma No_Return (Raise_With_Msg);
-   --  Similar to above, with an extra parameter to indicate wether
-   --  Setup_Exception has been called already.
-
-   procedure Raise_After_Setup (E : Exception_Id);
-   pragma No_Return (Raise_After_Setup);
-   pragma Export (C, Raise_After_Setup, "__gnat_raise_after_setup");
-   --  Wrapper to Raise_With_Msg and Setup set to True.
-   --
-   --  This is called by System.Tasking.Entry_Calls.Check_Exception when an
-   --  exception has occured during an entry call. The exception to propagate
-   --  has been setup and initialized via Transfer_Occurrence in this case.
 
    procedure Raise_With_Location_And_Msg
      (E : Exception_Id;
@@ -658,8 +640,14 @@ package body Ada.Exceptions is
    -- Exception_Information --
    ---------------------------
 
-   function Exception_Information (X : Exception_Occurrence) return String
-     renames Exception_Data.Exception_Information;
+   function Exception_Information (X : Exception_Occurrence) return String is
+   begin
+      if X.Id = Null_Id then
+         raise Constraint_Error;
+      end if;
+
+      return Exception_Data.Exception_Information (X);
+   end Exception_Information;
 
    -----------------------
    -- Exception_Message --
@@ -993,13 +981,11 @@ package body Ada.Exceptions is
    -- Raise_With_Msg --
    --------------------
 
-   procedure Raise_With_Msg (E : Exception_Id; Setup : Boolean) is
+   procedure Raise_With_Msg (E : Exception_Id) is
       Excep : constant EOA := Get_Current_Excep.all;
 
    begin
-      if not Setup then
-         Exception_Propagation.Setup_Exception (Excep, Excep);
-      end if;
+      Exception_Propagation.Setup_Exception (Excep, Excep);
 
       Excep.Exception_Raised := False;
       Excep.Id               := E;
@@ -1009,20 +995,6 @@ package body Ada.Exceptions is
       Abort_Defer.all;
       Raise_Current_Excep (E);
    end Raise_With_Msg;
-
-   procedure Raise_With_Msg (E : Exception_Id) is
-   begin
-      Raise_With_Msg (E, Setup => False);
-   end Raise_With_Msg;
-
-   -----------------------
-   -- Raise_After_Setup --
-   -----------------------
-
-   procedure Raise_After_Setup (E : Exception_Id) is
-   begin
-      Raise_With_Msg (E, Setup => True);
-   end Raise_After_Setup;
 
    --------------------------------------
    -- Calls to Run-Time Check Routines --
@@ -1338,6 +1310,30 @@ package body Ada.Exceptions is
 
       Raise_Current_Excep (E);
    end Raise_Exception_No_Defer;
+
+   ---------------
+   -- To_Stderr --
+   ---------------
+
+   procedure To_Stderr (C : Character) is
+
+      type int is new Integer;
+
+      procedure put_char_stderr (C : int);
+      pragma Import (C, put_char_stderr, "put_char_stderr");
+
+   begin
+      put_char_stderr (Character'Pos (C));
+   end To_Stderr;
+
+   procedure To_Stderr (S : String) is
+   begin
+      for J in S'Range loop
+         if S (J) /= ASCII.CR then
+            To_Stderr (S (J));
+         end if;
+      end loop;
+   end To_Stderr;
 
    ---------
    -- ZZZ --

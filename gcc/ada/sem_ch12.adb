@@ -674,7 +674,7 @@ package body Sem_Ch12 is
    --  generic is unit is validated, Set_Instance_Env completes Save_Env.
 
    type Instance_Env is record
-      Ada_83              : Boolean;
+      Ada_Version         : Ada_Version_Type;
       Instantiated_Parent : Assoc;
       Exchanged_Views     : Elist_Id;
       Hidden_Entities     : Elist_Id;
@@ -1469,9 +1469,9 @@ package body Sem_Ch12 is
 
       if K = E_Generic_In_Parameter then
 
-         --  Ada 0Y (AI-287): Limited aggregates allowed in generic formals
+         --  Ada 2005 (AI-287): Limited aggregates allowed in generic formals
 
-         if not Extensions_Allowed and then Is_Limited_Type (T) then
+         if Ada_Version < Ada_05 and then Is_Limited_Type (T) then
             Error_Msg_N
               ("generic formal of mode IN must not be of limited type", N);
             Explain_Limited_Type (T, N);
@@ -2384,7 +2384,7 @@ package body Sem_Ch12 is
 
       elsif Ekind (Gen_Unit) /= E_Generic_Package then
 
-         --  Ada 0Y (AI-50217): Instance can not be used in limited with_clause
+         --  Ada 2005 (AI-50217): Cannot use instance in limited with_clause
 
          if From_With_Type (Gen_Unit) then
             Error_Msg_N
@@ -2547,6 +2547,12 @@ package body Sem_Ch12 is
                  and then Scop /= Standard_Standard
                loop
                   if Unit_Requires_Body (Scop) then
+                     Enclosing_Body_Present := True;
+                     exit;
+
+                  elsif In_Open_Scopes (Scop)
+                    and then In_Package_Body (Scop)
+                  then
                      Enclosing_Body_Present := True;
                      exit;
                   end if;
@@ -2847,9 +2853,9 @@ package body Sem_Ch12 is
          end if;
    end Analyze_Package_Instantiation;
 
-   ---------------------------
-   --  Inline_Instance_Body --
-   ---------------------------
+   --------------------------
+   -- Inline_Instance_Body --
+   --------------------------
 
    procedure Inline_Instance_Body
      (N        : Node_Id;
@@ -4583,9 +4589,9 @@ package body Sem_Ch12 is
       --  (for ASIS use) even though as the name of an enclosing generic
       --   it would otherwise not be preserved in the generic tree.
 
-      -----------------------
-      --  Copy_Descendants --
-      -----------------------
+      ----------------------
+      -- Copy_Descendants --
+      ----------------------
 
       procedure Copy_Descendants is
 
@@ -5674,7 +5680,7 @@ package body Sem_Ch12 is
       Saved : Instance_Env;
 
    begin
-      Saved.Ada_83              := Ada_83;
+      Saved.Ada_Version         := Ada_Version;
       Saved.Instantiated_Parent := Current_Instantiated_Parent;
       Saved.Exchanged_Views     := Exchanged_Views;
       Saved.Hidden_Entities     := Hidden_Entities;
@@ -6568,9 +6574,11 @@ package body Sem_Ch12 is
                      Next_Non_Pragma (Formal_Node);
 
                   else
-                     --  No further formals to match.
+                     --  No further formals to match, but the generic
+                     --  part may contain inherited operation that are
+                     --  not hidden in the enclosing instance.
 
-                     exit;
+                     Next_Entity (Actual_Ent);
                   end if;
 
                end loop;
@@ -8072,7 +8080,7 @@ package body Sem_Ch12 is
 
          elsif Is_Indefinite_Subtype (Act_T)
             and then not Is_Indefinite_Subtype (A_Gen_T)
-            and then Ada_95
+            and then Ada_Version >= Ada_95
          then
             Error_Msg_NE
               ("actual for & must be a definite subtype", Actual, Gen_T);
@@ -8128,7 +8136,7 @@ package body Sem_Ch12 is
 
                   elsif not Subtypes_Statically_Match
                               (Formal_Subt, Etype (Actual_Discr))
-                    and then Ada_95
+                    and then Ada_Version >= Ada_95
                   then
                      Error_Msg_NE
                        ("subtypes of actual discriminants must match formal",
@@ -8791,7 +8799,7 @@ package body Sem_Ch12 is
       Saved : Instance_Env renames Instance_Envs.Table (Instance_Envs.Last);
 
    begin
-      Ada_83                       := Saved.Ada_83;
+      Ada_Version := Saved.Ada_Version;
 
       if No (Current_Instantiated_Parent.Act_Id) then
 
@@ -9531,7 +9539,6 @@ package body Sem_Ch12 is
                   --  inlining.
 
                   Rewrite (N, New_Copy (N2));
-                  Set_Associated_Node (N, N2);
                   Set_Analyzed (N, False);
                end if;
             end if;
@@ -9751,12 +9758,13 @@ package body Sem_Ch12 is
 
    begin
       --  Regardless of the current mode, predefined units are analyzed in
-      --  Ada95 mode, and Ada83 checks don't apply.
+      --  the most current Ada mode, and earlier version Ada checks do not
+      --  apply to predefined units.
 
       if Is_Internal_File_Name
           (Fname => Unit_File_Name (Get_Source_Unit (Gen_Unit)),
            Renamings_Included => True) then
-         Ada_83 := False;
+         Ada_Version := Ada_Version_Type'Last;
       end if;
 
       Current_Instantiated_Parent := (Gen_Unit, Act_Unit, Assoc_Null);

@@ -125,6 +125,7 @@ tree gfor_fndecl_adjustr;
 
 tree gfor_fndecl_size0;
 tree gfor_fndecl_size1;
+tree gfor_fndecl_iargc;
 
 /* Intrinsic functions implemented in FORTRAN.  */
 tree gfor_fndecl_si_kind;
@@ -693,7 +694,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 {
   tree decl;
   tree length = NULL_TREE;
-  gfc_se se;
   int byref;
 
   assert (sym->attr.referenced);
@@ -801,26 +801,12 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       DECL_INITIAL (length) = build_int_2 (-2, -1);
     }
 
-  /* TODO: Initialization of pointer variables.  */
-  switch (sym->ts.type)
+  if (sym->ts.type == BT_CHARACTER)
     {
-    case BT_CHARACTER:
       /* Character variables need special handling.  */
       gfc_allocate_lang_decl (decl);
 
-      if (TREE_CODE (length) == INTEGER_CST)
-	{
-	  /* Static initializer for string scalars.
-	     Initialization of string arrays is handled elsewhere. */
-	  if (sym->value && sym->attr.dimension == 0)
-	    {
-	      assert (TREE_STATIC (decl));
-	      if (sym->attr.pointer)
-		gfc_todo_error ("initialization of character pointers");
-	      DECL_INITIAL (decl) = gfc_conv_string_init (length, sym->value);
-	    }
-	}
-      else
+      if (TREE_CODE (length) != INTEGER_CST)
 	{
 	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
 
@@ -836,31 +822,16 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  gfc_finish_var_decl (length, sym);
 	  assert (!sym->value);
 	}
-      break;
-
-    case BT_DERIVED:
-      if (sym->value && ! (sym->attr.use_assoc || sym->attr.dimension))
-        {
-          gfc_init_se (&se, NULL);
-          gfc_conv_structure (&se, sym->value, 1);
-          DECL_INITIAL (decl) = se.expr;
-        }
-      break;
-
-    default:
-      /* Static initializers for SAVEd variables.  Arrays have already been
-         remembered.  Module variables are initialized when the module is
-         loaded.  */
-      if (sym->value && ! (sym->attr.use_assoc || sym->attr.dimension))
-	{
-	  assert (TREE_STATIC (decl));
-	  gfc_init_se (&se, NULL);
-	  gfc_conv_constant (&se, sym->value);
-	  DECL_INITIAL (decl) = se.expr;
-	}
-      break;
     }
   sym->backend_decl = decl;
+
+  if (TREE_STATIC (decl) && !sym->attr.use_assoc)
+    {
+      /* Add static initializer.  */
+      DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
+	  TREE_TYPE (decl), sym->attr.dimension,
+	  sym->attr.pointer || sym->attr.allocatable);
+    }
 
   return decl;
 }
@@ -1059,6 +1030,8 @@ gfc_build_function_decl (gfc_symbol * sym)
     }
 
   result_decl = build_decl (RESULT_DECL, result_decl, type);
+  DECL_ARTIFICIAL (result_decl) = 1;
+  DECL_IGNORED_P (result_decl) = 1;
   DECL_CONTEXT (result_decl) = fndecl;
   DECL_RESULT (fndecl) = result_decl;
 
@@ -1209,7 +1182,25 @@ gfc_build_function_decl (gfc_symbol * sym)
           if (!f->sym->ts.cl->length)
 	    {
 	      TREE_USED (length) = 1;
-	      f->sym->ts.cl->backend_decl = length;
+	      if (!f->sym->ts.cl->backend_decl)
+		f->sym->ts.cl->backend_decl = length;
+	      else
+		{
+		  /* there is already another variable using this
+		     gfc_charlen node, build a new one for this variable
+		     and chain it into the list of gfc_charlens.
+		     This happens for e.g. in the case
+		     CHARACTER(*)::c1,c2
+		     since CHARACTER declarations on the same line share
+		     the same gfc_charlen node.  */
+		  gfc_charlen *cl;
+		  
+		  cl = gfc_get_charlen ();
+		  cl->backend_decl = length;
+		  cl->next = f->sym->ts.cl->next;
+		  f->sym->ts.cl->next = cl;
+		  f->sym->ts.cl = cl;
+		}
 	    }
 
           parm = TREE_CHAIN (parm);
@@ -1518,6 +1509,11 @@ gfc_build_intrinsic_function_decls (void)
 				     gfc_array_index_type,
 				     2, pvoid_type_node,
 				     gfc_array_index_type);
+
+  gfor_fndecl_iargc =
+    gfc_build_library_function_decl (get_identifier (PREFIX ("iargc")),
+				     gfc_int4_type_node,
+				     0);
 }
 
 
@@ -1645,6 +1641,14 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 
   DECL_DEFER_OUTPUT (decl) = 1;
 
+  /* Since we don't use a DECL_STMT or equivalent, we have to deal
+     with getting these gimplified.  But we can't gimplify it yet since
+     we're still generating statements.
+
+     ??? This should be cleaned up and handled like other front ends.  */
+  gfc_add_expr_to_block (&body, save_expr (DECL_SIZE (decl)));
+  gfc_add_expr_to_block (&body, save_expr (DECL_SIZE_UNIT (decl)));
+
   /* Generate code to allocate the automatic variable.  It will be freed
      automatically.  */
   tmp = gfc_build_addr_expr (NULL, decl);
@@ -1726,7 +1730,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      assert (sym->attr.dummy);
 
 	      /* We should always pass assumed size arrays the g77 way.  */
-	      assert (TREE_CODE (sym->backend_decl) == PARM_DECL);
 	      fnbody = gfc_trans_g77_array (sym, fnbody);
               break;
 
@@ -1770,7 +1773,6 @@ static void
 gfc_create_module_variable (gfc_symbol * sym)
 {
   tree decl;
-  gfc_se se;
 
   /* Only output symbols from this module.  */
   if (sym->ns != module_namespace)
@@ -1779,17 +1781,14 @@ gfc_create_module_variable (gfc_symbol * sym)
       internal_error ("module symbol %s in wrong namespace", sym->name);
     }
 
-  /* Don't ouptut symbols from common blocks.  */
-  if (sym->attr.common)
-    return;
-
   /* Only output variables and array valued parametes.  */
   if (sym->attr.flavor != FL_VARIABLE
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
     return;
 
-  /* Don't generate variables from other modules.  */
-  if (sym->attr.use_assoc)
+  /* Don't generate variables from other modules. Variables from
+     COMMONs will already have been generated.  */
+  if (sym->attr.use_assoc || sym->attr.in_common)
     return;
 
   if (sym->backend_decl)
@@ -1800,33 +1799,6 @@ gfc_create_module_variable (gfc_symbol * sym)
   sym->attr.referenced = 1;
   /* Create the decl.  */
   decl = gfc_get_symbol_decl (sym);
-
-  /* We want to allocate storage for this variable.  */
-  TREE_STATIC (decl) = 1;
-
-  if (sym->attr.dimension)
-    {
-      assert (sym->attr.pointer || sym->attr.allocatable
-	      || GFC_ARRAY_TYPE_P (TREE_TYPE (sym->backend_decl)));
-      if (sym->attr.pointer || sym->attr.allocatable)
-	gfc_trans_static_array_pointer (sym);
-      else
-	gfc_trans_auto_array_allocation (sym->backend_decl, sym, NULL_TREE);
-    }
-  else if (sym->ts.type == BT_DERIVED)
-    {
-      if (sym->value)
-	gfc_todo_error ("Initialization of derived type module variables");
-    }
-  else
-    {
-      if (sym->value)
-	{
-	  gfc_init_se (&se, NULL);
-	  gfc_conv_constant (&se, sym->value);
-	  DECL_INITIAL (decl) = se.expr;
-	}
-    }
 
   /* Create the variable.  */
   pushdecl (decl);
@@ -1856,6 +1828,9 @@ gfc_generate_module_vars (gfc_namespace * ns)
 
   /* Check if the frontend left the namespace in a reasonable state.  */
   assert (ns->proc_name && !ns->proc_name->tlink);
+
+  /* Generate COMMON blocks.  */
+  gfc_trans_common (ns);
 
   /* Create decls for all the module variables.  */
   gfc_traverse_ns (ns, gfc_create_module_variable);
@@ -1896,17 +1871,6 @@ generate_local_decl (gfc_symbol * sym)
 {
   if (sym->attr.flavor == FL_VARIABLE)
     {
-      /* TODO: The frontend sometimes creates symbols for things which don't
-         actually exist.  E.g. common block names and the names of formal
-	 arguments.  The latter are created while attempting to parse
-	 the argument list as a substring reference.
-
-	 The proper fix is to avoid adding these symbols in the first place.
-	 For now we hack round it by ignoring anything with an unknown type.
-       */
-      if (sym->ts.type == BT_UNKNOWN)
-	return;
-
       if (sym->attr.referenced)
         gfc_get_symbol_decl (sym);
       else if (sym->attr.dummy)
@@ -1915,9 +1879,10 @@ generate_local_decl (gfc_symbol * sym)
             warning ("unused parameter `%s'", sym->name);
         }
       /* warn for unused variables, but not if they're inside a common
-	 block.  */
-      else if (warn_unused_variable && !sym->attr.in_common)
-        warning ("unused variable `%s'", sym->name);
+	 block or are use_associated.  */
+      else if (warn_unused_variable
+	       && !(sym->attr.in_common || sym->attr.use_assoc))
+	warning ("unused variable `%s'", sym->name); 
     }
 }
 
@@ -1940,6 +1905,24 @@ gfc_finalize (tree decl)
     gfc_finalize (cgn->decl);
 
   cgraph_finalize_function (decl, false);
+}
+
+/* Convert FNDECL's code to GIMPLE and handle any nested functions.  */
+
+static void
+gfc_gimplify_function (tree fndecl)
+{
+  struct cgraph_node *cgn;
+
+  gimplify_function_tree (fndecl);
+  dump_function (TDI_generic, fndecl);
+
+  /* Convert all nested functions to GIMPLE now.  We do things in this order
+     so that items like VLA sizes are expanded properly in the context of the
+     correct function.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn; cgn = cgn->next_nested)
+    gfc_gimplify_function (cgn->decl);
 }
 
 /* Generate code for a function.  */
@@ -1999,14 +1982,10 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* line and file should not be 0 */
   init_function_start (fndecl);
 
-  /* We're in function-at-a-time mode. */
-  cfun->x_whole_function_mode_p = 1;
-
   /* Even though we're inside a function body, we still don't want to
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
   /* Will be created as needed.  */
@@ -2113,25 +2092,16 @@ gfc_generate_function_code (gfc_namespace * ns)
   current_function_decl = old_context;
 
   if (decl_function_context (fndecl))
-    {
-      /* Register this function with cgraph just far enough to get it
-	 added to our parent's nested function list.  */
-      (void) cgraph_node (fndecl);
-
-      /* Lowering nested functions requires gimple input.  */
-      gimplify_function_tree (fndecl);
-    }
+    /* Register this function with cgraph just far enough to get it
+       added to our parent's nested function list.  */
+    (void) cgraph_node (fndecl);
   else
     {
-      if (cgraph_node (fndecl)->nested)
-	{
-	  gimplify_function_tree (fndecl);
-          lower_nested_functions (fndecl);
-	}
+      gfc_gimplify_function (fndecl);
+      lower_nested_functions (fndecl);
       gfc_finalize (fndecl);
     }
 }
-
 
 void
 gfc_generate_constructors (void)
@@ -2156,6 +2126,8 @@ gfc_generate_constructors (void)
   TREE_PUBLIC (fndecl) = 1;
 
   decl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
   DECL_CONTEXT (decl) = fndecl;
   DECL_RESULT (fndecl) = decl;
 
@@ -2168,10 +2140,6 @@ gfc_generate_constructors (void)
   make_decl_rtl (fndecl, NULL);
 
   init_function_start (fndecl, input_filename, input_line);
-
-  cfun->x_whole_function_mode_p = 1;
-
-  immediate_size_expand = 0;
 
   pushlevel (0);
 

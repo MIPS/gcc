@@ -139,8 +139,6 @@ instrument_edges (struct edge_list *el)
   int num_edges = NUM_EDGES (el);
   basic_block bb;
 
-  remove_fake_edges ();
-
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
       edge e;
@@ -460,7 +458,7 @@ compute_branch_probabilities (void)
 	    }
 	}
     }
-  if (dump_file)
+  if (dump_file && !ir_type ())
     dump_flow_info (dump_file);
 
   total_num_passes += passes;
@@ -679,6 +677,53 @@ compute_value_histograms (unsigned n_values, struct histogram_value *values)
       free (histogram_counts[t]);
 }
 
+#define BB_TO_GCOV_INDEX(bb)  ((bb)->index + 1)
+/* When passed NULL as file_name, initialize.
+   When passed something else, output the neccesary commands to change
+   line to LINE and offset to FILE_NAME.  */
+static void
+output_location (char const *file_name, int line,
+		 gcov_position_t *offset, basic_block bb)
+{
+  static char const *prev_file_name;
+  static int prev_line;
+  bool name_differs, line_differs;
+
+  if (!file_name)
+    {
+      prev_file_name = NULL;
+      prev_line = -1;
+      return;
+    }
+
+  name_differs = !prev_file_name || strcmp (file_name, prev_file_name);
+  line_differs = prev_line != line;
+
+  if (name_differs || line_differs)
+    {
+      if (!*offset)
+	{
+	  *offset = gcov_write_tag (GCOV_TAG_LINES);
+	  gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
+	  name_differs = line_differs=true;
+	}
+
+      /* If this is a new source file, then output the
+	 file's name to the .bb file.  */
+      if (name_differs)
+	{
+	  prev_file_name = file_name;
+	  gcov_write_unsigned (0);
+	  gcov_write_string (prev_file_name);
+	}
+      if (line_differs)
+	{
+	  gcov_write_unsigned (line);
+	  prev_line = line;
+	}
+     }
+}
+
 /* Instrument and/or analyze program behavior based on program flow graph.
    In either case, this function builds a flow graph for the function being
    compiled.  The flow graph is stored in BB_GRAPH.
@@ -842,7 +887,6 @@ branch_prob (void)
       */
   ENTRY_BLOCK_PTR->index = -1;
   EXIT_BLOCK_PTR->index = last_basic_block;
-#define BB_TO_GCOV_INDEX(bb)  ((bb)->index + 1)
 
   /* Arcs */
   if (coverage_begin_output ())
@@ -888,9 +932,11 @@ branch_prob (void)
   /* Line numbers.  */
   if (coverage_begin_output ())
     {
+      /* Initialize the output.  */
+      output_location (NULL, 0, NULL, NULL);
+
       if (!ir_type ())
 	{
-	  char const *prev_file_name = NULL;
 	  gcov_position_t offset;
 
 	  FOR_EACH_BB (bb)
@@ -910,7 +956,7 @@ branch_prob (void)
 
 	      while (insn != BB_END (bb))
 		{
-		  if (GET_CODE (insn) == NOTE)
+		  if (NOTE_P (insn))
 		    {
 		      /* Must ignore the line number notes that
 			 immediately follow the end of an inline function
@@ -925,23 +971,9 @@ branch_prob (void)
 			ignore_next_note = 0;
 		      else
 			{
-			  if (!offset)
-			    {
-			      offset = gcov_write_tag (GCOV_TAG_LINES);
-			      gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
-			    }
-
-			  /* If this is a new source file, then output the
-			     file's name to the .bb file.  */
-			  if (!prev_file_name
-			      || strcmp (NOTE_SOURCE_FILE (insn),
-					 prev_file_name))
-			    {
-			      prev_file_name = NOTE_SOURCE_FILE (insn);
-			      gcov_write_unsigned (0);
-			      gcov_write_string (prev_file_name);
-			    }
-			  gcov_write_unsigned (NOTE_LINE_NUMBER (insn));
+		          expanded_location s;
+		          NOTE_EXPANDED_LOCATION (s, insn);
+			  output_location (s.file, NOTE_LINE_NUMBER (insn), &offset, bb);
 			}
 		    }
 		  insn = NEXT_INSN (insn);
@@ -958,7 +990,6 @@ branch_prob (void)
 	}
       else
 	{
-	  char const *prev_file_name = NULL;
 	  gcov_position_t offset;
 	  location_t *curr_location = NULL;
 
@@ -971,45 +1002,30 @@ branch_prob (void)
 	      if (bb == ENTRY_BLOCK_PTR->next_bb)
 		{
 		  curr_location = &DECL_SOURCE_LOCATION (current_function_decl);
-		  if (!offset)
-		    {
-		      offset = gcov_write_tag (GCOV_TAG_LINES);
-		      gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
-		    }
-
-		  /* If this is a new source file, then output the
-		     file's name to the .bb file.  */
-		  prev_file_name = curr_location->file;
-		  gcov_write_unsigned (0);
-		  gcov_write_string (prev_file_name);
-		  gcov_write_unsigned (curr_location->line);
+		  output_location (curr_location->file, curr_location->line,
+				   &offset, bb);
 		}
 
 	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 		{
 		  tree stmt = bsi_stmt (bsi);
-		  if (EXPR_LOCUS (stmt)
-		      && (EXPR_LOCUS (stmt)->line != curr_location->line
-		          || strcmp (EXPR_LOCUS (stmt)->file, curr_location->file)))
-		    {
-		      curr_location = EXPR_LOCUS (stmt);
-		      if (!offset)
-			{
-			  offset = gcov_write_tag (GCOV_TAG_LINES);
-			  gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
-			}
-
-		      /* If this is a new source file, then output the
-			 file's name to the .bb file.  */
-		      if (strcmp (curr_location->file, prev_file_name))
-			{
-			  prev_file_name = curr_location->file;
-			  gcov_write_unsigned (0);
-			  gcov_write_string (prev_file_name);
-			}
-		      gcov_write_unsigned (curr_location->line);
-		    }
+#ifdef USE_MAPPED_LOCATION
+		  curr_location = EXPR_LOCATION (stmt);
+#else
+		  curr_location = EXPR_LOCUS (stmt);
+#endif
+		  if (curr_location)
+		    output_location (curr_location->file, curr_location->line,
+				     &offset, bb);
 		}
+
+	      /* Notice GOTO expressions we elliminated while constructing the
+	         CFG.  */
+	      if (bb->succ && !bb->succ->succ_next && bb->succ->goto_locus)
+	        {
+		  curr_location = bb->succ->goto_locus;
+	          output_location (curr_location->file, curr_location->line, &offset, bb);
+	        }
 
 	      if (offset)
 		{
@@ -1036,6 +1052,8 @@ branch_prob (void)
 	compute_value_histograms (n_values, values);
     }
 
+  remove_fake_edges ();
+
   /* For each edge not on the spanning tree, add counting code.  */
   if (profile_arc_flag
       && coverage_counter_alloc (GCOV_COUNTER_ARCS, num_instrumented))
@@ -1058,7 +1076,6 @@ branch_prob (void)
 	}
     }
 
-  remove_fake_edges ();
   free_aux_for_edges ();
 
   if (!ir_type ())

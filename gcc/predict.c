@@ -75,7 +75,6 @@ static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
 static void estimate_loops_at_level (struct loop *loop);
 static void propagate_freq (struct loop *);
 static void estimate_bb_frequencies (struct loops *);
-static void process_note_predictions (basic_block, int *);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
 static void compute_function_frequency (void);
@@ -246,7 +245,7 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 static bool
 can_predict_insn_p (rtx insn)
 {
-  return (GET_CODE (insn) == JUMP_INSN
+  return (JUMP_P (insn)
 	  && any_condjump_p (insn)
 	  && BLOCK_FOR_INSN (insn)->succ->succ_next);
 }
@@ -648,11 +647,11 @@ static void
 bb_estimate_probability_locally (basic_block bb)
 {
   rtx last_insn = BB_END (bb);
-  rtx cond, earliest;
+  rtx cond;
 
   if (! can_predict_insn_p (last_insn))
     return;
-  cond = get_condition (last_insn, &earliest, false);
+  cond = get_condition (last_insn, NULL, false, false);
   if (! cond)
     return;
 
@@ -795,7 +794,7 @@ estimate_probability (struct loops *loops_info)
 		 messages.  */
 	      for (insn = BB_HEAD (e->dest); insn != NEXT_INSN (BB_END (e->dest));
 		   insn = NEXT_INSN (insn))
-		if (GET_CODE (insn) == CALL_INSN
+		if (CALL_P (insn)
 		    /* Constant and pure calls are hardly used to signalize
 		       something exceptional.  */
 		    && ! CONST_OR_PURE_CALL_P (insn))
@@ -1246,7 +1245,7 @@ tree_estimate_probability (void)
   strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
   flow_loops_free (&loops_info);
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags);
@@ -1283,7 +1282,7 @@ expected_value_to_br_prob (void)
 	case JUMP_INSN:
 	  /* Look for simple conditional branches.  If we haven't got an
 	     expected value yet, no point going further.  */
-	  if (GET_CODE (insn) != JUMP_INSN || ev == NULL_RTX
+	  if (!JUMP_P (insn) || ev == NULL_RTX
 	      || ! any_condjump_p (insn))
 	    continue;
 	  break;
@@ -1305,7 +1304,8 @@ expected_value_to_br_prob (void)
 		(lt r70, r71)
 	 Could use cselib to try and reduce this further.  */
       cond = XEXP (SET_SRC (pc_set (insn)), 0);
-      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg, false);
+      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg,
+				     false, false);
       if (! cond || XEXP (cond, 0) != ev_reg
 	  || GET_CODE (XEXP (cond, 1)) != CONST_INT)
 	continue;
@@ -1393,94 +1393,6 @@ predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
     if (e->dest->index >= 0
 	&& dominated_by_p (CDI_POST_DOMINATORS, e->dest, bb))
       predict_edge_def (e, pred, taken);
-}
-
-/* Gathers NOTE_INSN_PREDICTIONs in given basic block and turns them
-   into branch probabilities.  For description of heads array, see
-   process_note_prediction.  */
-
-static void
-process_note_predictions (basic_block bb, int *heads)
-{
-  rtx insn;
-  edge e;
-
-  /* Additionally, we check here for blocks with no successors.  */
-  int contained_noreturn_call = 0;
-  int was_bb_head = 0;
-  int noreturn_block = 1;
-
-  for (insn = BB_END (bb); insn;
-       was_bb_head |= (insn == BB_HEAD (bb)), insn = PREV_INSN (insn))
-    {
-      if (GET_CODE (insn) != NOTE)
-	{
-	  if (was_bb_head)
-	    break;
-	  else
-	    {
-	      /* Noreturn calls cause program to exit, therefore they are
-	         always predicted as not taken.  */
-	      if (GET_CODE (insn) == CALL_INSN
-		  && find_reg_note (insn, REG_NORETURN, NULL))
-		contained_noreturn_call = 1;
-	      continue;
-	    }
-	}
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
-	{
-	  int alg = (int) NOTE_PREDICTION_ALG (insn);
-	  /* Process single prediction note.  */
-	  predict_paths_leading_to (bb,
-				    heads,
-				    alg,
-				    NOTE_PREDICTION_FLAGS (insn) & IS_TAKEN
-				    ? TAKEN : NOT_TAKEN);
-	  delete_insn (insn);
-	}
-    }
-  for (e = bb->succ; e; e = e->succ_next)
-    if (!(e->flags & EDGE_FAKE))
-      noreturn_block = 0;
-  if (contained_noreturn_call)
-    {
-      /* This block ended from other reasons than because of return.
-         If it is because of noreturn call, this should certainly not
-         be taken.  Otherwise it is probably some error recovery.  */
-      predict_paths_leading_to (bb, heads, PRED_NORETURN, NOT_TAKEN);
-    }
-}
-
-/* Gathers NOTE_INSN_PREDICTIONs and turns them into
-   branch probabilities.  */
-
-void
-note_prediction_to_br_prob (void)
-{
-  basic_block bb;
-  int *heads;
-
-  /* To enable handling of noreturn blocks.  */
-  add_noreturn_fake_exit_edges ();
-  connect_infinite_loops_to_exit ();
-
-  calculate_dominance_info (CDI_POST_DOMINATORS);
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  heads = xmalloc (sizeof (int) * last_basic_block);
-  memset (heads, -1, sizeof (int) * last_basic_block);
-  heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
-
-  /* Process all prediction notes.  */
-
-  FOR_EACH_BB (bb)
-    process_note_predictions (bb, heads);
-
-  free_dominance_info (CDI_POST_DOMINATORS);
-  free_dominance_info (CDI_DOMINATORS);
-  free (heads);
-
-  remove_fake_edges ();
 }
 
 /* This is used to carry information about basic blocks.  It is

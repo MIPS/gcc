@@ -191,7 +191,7 @@ read_name (char *str, FILE *infile)
 	  struct md_constant tmp_def;
 
 	  tmp_def.name = p;
-	  def = htab_find (md_constants, &tmp_def);
+	  def = (struct md_constant *) htab_find (md_constants, &tmp_def);
 	  if (def)
 	    p = def->value;
 	} while (def);
@@ -277,7 +277,7 @@ read_quoted_string (struct obstack *ob, FILE *infile)
     }
 
   obstack_1grow (ob, 0);
-  return obstack_finish (ob);
+  return (char *) obstack_finish (ob);
 }
 
 /* Read a braced string (a la Tcl) onto the obstack.  Caller has
@@ -315,7 +315,7 @@ read_braced_string (struct obstack *ob, FILE *infile)
     }
 
   obstack_1grow (ob, 0);
-  return obstack_finish (ob);
+  return (char *) obstack_finish (ob);
 }
 
 /* Read some kind of string constant.  This is the high-level routine
@@ -439,10 +439,10 @@ read_constants (FILE *infile, char *tmp_char)
 
       if (c != '(')
 	fatal_expected_char (infile, '(', c);
-      def = xmalloc (sizeof (struct md_constant));
+      def = XNEW (struct md_constant);
       def->name = tmp_char;
       read_name (tmp_char, infile);
-      entry_ptr = htab_find_slot (defs, def, TRUE);
+      entry_ptr = htab_find_slot (defs, def, INSERT);
       if (! *entry_ptr)
 	def->name = xstrdup (tmp_char);
       c = read_skip_spaces (infile);
@@ -455,7 +455,7 @@ read_constants (FILE *infile, char *tmp_char)
 	}
       else
 	{
-	  def = *entry_ptr;
+	  def = (struct md_constant *) *entry_ptr;
 	  if (strcmp (def->value, tmp_char))
 	    fatal_with_file_and_line (infile,
 				      "redefinition of %s, was %s, now %s",

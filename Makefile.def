@@ -26,6 +26,11 @@ AutoGen definitions Makefile.tpl;
 
 build_modules= { module= libiberty; };
 build_modules= { module= libbanshee; };
+build_modules= { module= bison; };
+build_modules= { module= byacc; };
+build_modules= { module= flex; };
+build_modules= { module= m4; };
+build_modules= { module= texinfo; };
 
 host_modules= { module= ash; };
 host_modules= { module= autoconf; };
@@ -45,7 +50,7 @@ host_modules= { module= fastjar; no_check_cross= true; };
 host_modules= { module= fileutils; };
 host_modules= { module= findutils; };
 host_modules= { module= find; };
-host_modules= { module= flex; no_check_cross= true; };
+host_modules= { module= flex; no_check_cross= true; bootstrap=true; };
 host_modules= { module= gas; bootstrap=true; };
 host_modules= { module= gawk; };
 host_modules= { module= gettext; };
@@ -177,6 +182,7 @@ flags_to_pass = { flag= BISON ; };
 flags_to_pass = { flag= CC_FOR_BUILD ; };
 flags_to_pass = { flag= CXX_FOR_BUILD ; };
 flags_to_pass = { flag= EXPECT ; };
+flags_to_pass = { flag= FLEX ; };
 flags_to_pass = { flag= INSTALL ; };
 flags_to_pass = { flag= INSTALL_DATA ; };
 flags_to_pass = { flag= INSTALL_PROGRAM ; };
@@ -216,25 +222,33 @@ flags_to_pass = { flag= WINDRES_FOR_TARGET ; };
 
 // Toplevel bootstrap
 bootstrap_stage = {
-	id=1 ; next=2 ;
+	id=1 ;
 	extra_configure_flags='--disable-intermodule \
 	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)"' ;
 	extra_make_flags='CFLAGS="$(STAGE1_CFLAGS)"' ; };
 bootstrap_stage = {
-	id=2 ; prev=1 ; next=3 ;
+	id=2 ; prev=1 ;
 	bootstrap_target=bootstrap2 ;
 	extra_configure_flags="@stage2_werror_flag@" ;
-	extra_make_flags="$(POSTSTAGE1_FLAGS_TO_PASS)" ; };
+	extra_make_flags="" ; };
 bootstrap_stage = {
-	id=3 ; prev=2 ; next=4 ;
+	id=3 ; prev=2 ;
 	compare_target=compare ;
 	bootstrap_target=bootstrap ;
 	cleanstrap_target=cleanstrap ;
 	extra_configure_flags="@stage2_werror_flag@" ;
-	extra_make_flags="$(POSTSTAGE1_FLAGS_TO_PASS)" ; };
+	extra_make_flags="" ; };
 bootstrap_stage = {
 	id=4 ; prev=3 ;
 	compare_target=compare3 ;
 	bootstrap_target=bootstrap4 ;
 	extra_configure_flags="@stage2_werror_flag@" ;
-	extra_make_flags="$(POSTSTAGE1_FLAGS_TO_PASS)" ; };
+	extra_make_flags="" ; };
+bootstrap_stage = {
+	id=profile ; prev=1 ;
+	extra_configure_flags="@stage2_werror_flag@" ;
+	extra_make_flags='CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"' ; };
+bootstrap_stage = {
+	id=feedback ; prev=1 ;
+	extra_configure_flags="@stage2_werror_flag@" ;
+	extra_make_flags='CFLAGS="$(BOOT_CFLAGS) -fprofile-use"' ; };

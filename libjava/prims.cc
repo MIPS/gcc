@@ -25,6 +25,7 @@ details.  */
 #include <jvm.h>
 #include <java-signal.h>
 #include <java-threads.h>
+#include <java-interp.h>
 
 #ifdef ENABLE_JVMPI
 #include <jvmpi.h>
@@ -60,7 +61,7 @@ details.  */
 #include <java/lang/VirtualMachineError.h>
 #include <gnu/gcj/runtime/VMClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
-#include <gnu/gcj/runtime/FirstThread.h>
+#include <gnu/java/lang/MainThread.h>
 
 #ifdef USE_LTDL
 #include <ltdl.h>
@@ -669,7 +670,6 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 
 // Ensure 8-byte alignment, for hash synchronization.
 #define DECLARE_PRIM_TYPE(NAME)			\
-  _Jv_ArrayVTable _Jv_##NAME##VTable;		\
   java::lang::Class _Jv_##NAME##Class __attribute__ ((aligned (8)));
 
 DECLARE_PRIM_TYPE(byte)
@@ -683,8 +683,7 @@ DECLARE_PRIM_TYPE(double)
 DECLARE_PRIM_TYPE(void)
 
 void
-_Jv_InitPrimClass (jclass cl, char *cname, char sig, int len, 
-                   _Jv_ArrayVTable *array_vtable)
+_Jv_InitPrimClass (jclass cl, char *cname, char sig, int len)
 {    
   using namespace java::lang::reflect;
 
@@ -701,8 +700,6 @@ _Jv_InitPrimClass (jclass cl, char *cname, char sig, int len,
   cl->vtable = JV_PRIMITIVE_VTABLE;
   cl->state = JV_STATE_DONE;
   cl->depth = -1;
-  if (sig != 'V')
-    _Jv_NewArrayClass (cl, NULL, (_Jv_VTable *) array_vtable);
 }
 
 jclass
@@ -921,8 +918,10 @@ process_gcj_properties ()
     // Null terminate the strings.
     while (_Jv_Environment_Properties[i].key)
       {
-	_Jv_Environment_Properties[i].key[_Jv_Environment_Properties[i].key_length] = 0;
-	_Jv_Environment_Properties[i++].value[_Jv_Environment_Properties[i].value_length] = 0;
+        property_pair *prop = &_Jv_Environment_Properties[i];
+	prop->key[prop->key_length] = 0;
+	prop->value[prop->value_length] = 0;
+	i++;
       }
   }
 }
@@ -953,6 +952,18 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitThreads ();
   _Jv_InitGC ();
   _Jv_InitializeSyncMutex ();
+  
+#ifdef INTERPRETER
+  _Jv_InitInterpreter ();
+#endif  
+
+#ifdef HANDLE_SEGV
+  INIT_SEGV;
+#endif
+
+#ifdef HANDLE_FPE
+  INIT_FPE;
+#endif
 
   /* Initialize Utf8 constants declared in jvm.h. */
   void_signature = _Jv_makeUtf8Const ("()V", 3);
@@ -961,15 +972,15 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   finit_name = _Jv_makeUtf8Const ("finit$", 6);
 
   /* Initialize built-in classes to represent primitive TYPEs. */
-  _Jv_InitPrimClass (&_Jv_byteClass,    "byte",    'B', 1, &_Jv_byteVTable);
-  _Jv_InitPrimClass (&_Jv_shortClass,   "short",   'S', 2, &_Jv_shortVTable);
-  _Jv_InitPrimClass (&_Jv_intClass,     "int",     'I', 4, &_Jv_intVTable);
-  _Jv_InitPrimClass (&_Jv_longClass,    "long",    'J', 8, &_Jv_longVTable);
-  _Jv_InitPrimClass (&_Jv_booleanClass, "boolean", 'Z', 1, &_Jv_booleanVTable);
-  _Jv_InitPrimClass (&_Jv_charClass,    "char",    'C', 2, &_Jv_charVTable);
-  _Jv_InitPrimClass (&_Jv_floatClass,   "float",   'F', 4, &_Jv_floatVTable);
-  _Jv_InitPrimClass (&_Jv_doubleClass,  "double",  'D', 8, &_Jv_doubleVTable);
-  _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0, &_Jv_voidVTable);
+  _Jv_InitPrimClass (&_Jv_byteClass,    "byte",    'B', 1);
+  _Jv_InitPrimClass (&_Jv_shortClass,   "short",   'S', 2);
+  _Jv_InitPrimClass (&_Jv_intClass,     "int",     'I', 4);
+  _Jv_InitPrimClass (&_Jv_longClass,    "long",    'J', 8);
+  _Jv_InitPrimClass (&_Jv_booleanClass, "boolean", 'Z', 1);
+  _Jv_InitPrimClass (&_Jv_charClass,    "char",    'C', 2);
+  _Jv_InitPrimClass (&_Jv_floatClass,   "float",   'F', 4);
+  _Jv_InitPrimClass (&_Jv_doubleClass,  "double",  'D', 8);
+  _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0);
 
   // Turn stack trace generation off while creating exception objects.
   _Jv_InitClass (&java::lang::VMThrowable::class$);
@@ -980,15 +991,11 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   // initialization of ClassLoader before we start the initialization
   // of VMClassLoader.
   _Jv_InitClass (&java::lang::ClassLoader::class$);
+
   // Once the bootstrap loader is in place, change it into a kind of
   // system loader, by having it read the class path.
   gnu::gcj::runtime::VMClassLoader::initialize();
 
-  INIT_SEGV;
-#ifdef HANDLE_FPE
-  INIT_FPE;
-#endif
-  
   no_memory = new java::lang::OutOfMemoryError;
 
   java::lang::VMThrowable::trace_enabled = 1;
@@ -1004,8 +1011,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
   // Start the GC finalizer thread.  A VirtualMachineError can be
-  // thrown by the runtime if, say, threads aren't available.  In this
-  // case finalizers simply won't run.
+  // thrown by the runtime if, say, threads aren't available.
   try
     {
       using namespace gnu::gcj::runtime;
@@ -1023,7 +1029,9 @@ void
 _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 	     bool is_jar)
 {
+#ifndef DISABLE_MAIN_ARGS
   _Jv_SetArgs (argc, argv);
+#endif
 
   java::lang::Runtime *runtime = NULL;
 
@@ -1045,12 +1053,12 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
 
-      using namespace gnu::gcj::runtime;
+      using namespace gnu::java::lang;
       if (klass)
-	main_thread = new FirstThread (klass, arg_vec);
+	main_thread = new MainThread (klass, arg_vec);
       else
-	main_thread = new FirstThread (JvNewStringLatin1 (name),
-				       arg_vec, is_jar);
+	main_thread = new MainThread (JvNewStringLatin1 (name),
+				      arg_vec, is_jar);
     }
   catch (java::lang::Throwable *t)
     {

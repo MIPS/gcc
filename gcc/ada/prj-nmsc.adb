@@ -29,6 +29,7 @@ with Fmap;     use Fmap;
 with Hostparm;
 with MLib.Tgt;
 with Namet;    use Namet;
+with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;   use Output;
 with MLib.Tgt; use MLib.Tgt;
@@ -149,15 +150,20 @@ package body Prj.Nmsc is
    function ALI_File_Name (Source : String) return String;
    --  Return the ALI file name corresponding to a source.
 
-   procedure Check_Ada_Naming_Scheme
-     (Project : Project_Id;
-      Naming  : Naming_Data);
-   --  Check that the package Naming is correct.
-
    procedure Check_Ada_Name
      (Name : String;
       Unit : out Name_Id);
    --  Check that a name is a valid Ada unit name.
+
+   procedure Check_Ada_Naming_Scheme
+     (Data    : in out Project_Data;
+      Project : Project_Id);
+   --  Check the naming scheme part of Data
+
+   procedure Check_Ada_Naming_Scheme_Validity
+     (Project : Project_Id;
+      Naming  : Naming_Data);
+   --  Check that the package Naming is correct.
 
    procedure Check_For_Source
      (File_Name        : Name_Id;
@@ -170,11 +176,6 @@ package body Prj.Nmsc is
       Naming_Exception : Boolean);
    --  Check if a file in a source directory is a source for a specific
    --  language other than Ada.
-
-   procedure Check_Naming_Scheme
-     (Data    : in out Project_Data;
-      Project : Project_Id);
-   --  Check the naming scheme part of Data
 
    function Check_Project
      (P            : Project_Id;
@@ -237,12 +238,19 @@ package body Prj.Nmsc is
    --  a spec suffix, a body suffix or a separate suffix.
 
    procedure Locate_Directory
-     (Name    : Name_Id;
-      Parent  : Name_Id;
-      Dir     : out Name_Id;
-      Display : out Name_Id);
-   --  Locate a directory.
-   --  Returns No_Name if directory does not exist.
+     (Name     : Name_Id;
+      Parent   : Name_Id;
+      Dir      : out Name_Id;
+      Display  : out Name_Id;
+      Project  : Project_Id := No_Project;
+      Kind     : String := "";
+      Location : Source_Ptr := No_Location);
+   --  Locate a directory. Dir is the canonical path name. Display is the
+   --  path name for display purpose.
+   --  When the directory does not exist, Setup_Projects is True and Kind is
+   --  not the empty string, an attempt is made to create the directory.
+   --  Returns No_Name in Dir and Display if directory does not exist or
+   --  cannot be created.
 
    function Path_Name_Of
      (File_Name : Name_Id;
@@ -540,7 +548,7 @@ package body Prj.Nmsc is
       Languages := Prj.Util.Value_Of (Name_Languages, Data.Decl.Attributes);
 
       Data.Naming.Current_Language := Name_Ada;
-      Data.Sources_Present         := Data.Source_Dirs /= Nil_String;
+      Data.Ada_Sources_Present     := Data.Source_Dirs /= Nil_String;
 
       if not Languages.Default then
          declare
@@ -566,21 +574,21 @@ package body Prj.Nmsc is
 
                --  Mark the project file as having no sources for Ada
 
-               Data.Sources_Present := False;
+               Data.Ada_Sources_Present := False;
             end if;
          end;
       end if;
 
-      Check_Naming_Scheme (Data, Project);
+      Check_Ada_Naming_Scheme (Data, Project);
 
       Prepare_Ada_Naming_Exceptions (Data.Naming.Bodies, Body_Part);
       Prepare_Ada_Naming_Exceptions (Data.Naming.Specs,  Specification);
 
       --  If we have source directories, then find the sources
 
-      if Data.Sources_Present then
+      if Data.Ada_Sources_Present then
          if Data.Source_Dirs = Nil_String then
-            Data.Sources_Present := False;
+            Data.Ada_Sources_Present := False;
 
          else
             declare
@@ -628,7 +636,7 @@ package body Prj.Nmsc is
                   begin
                      Source_Names.Reset;
 
-                     Data.Sources_Present := Current /= Nil_String;
+                     Data.Ada_Sources_Present := Current /= Nil_String;
 
                      while Current /= Nil_String loop
                         Element := String_Elements.Table (Current);
@@ -835,7 +843,7 @@ package body Prj.Nmsc is
          end if;
       end if;
 
-      if Data.Sources_Present then
+      if Data.Ada_Sources_Present then
 
          --  Check that all individual naming conventions apply to
          --  sources of this project file.
@@ -1105,7 +1113,8 @@ package body Prj.Nmsc is
                --  the object directory or one of the source directories.
                --  This is the directory where copies of the interface
                --  sources will be copied. Note that this directory may be
-               --  the library directory.
+               --  the library directory. If setting up projects (gnat setup)
+               --  and the directory does not exist, attempt to create it.
 
                if Lib_Src_Dir.Value /= Empty_String then
                   declare
@@ -1115,11 +1124,18 @@ package body Prj.Nmsc is
                      Locate_Directory
                        (Dir_Id, Data.Display_Directory,
                         Data.Library_Src_Dir,
-                        Data.Display_Library_Src_Dir);
+                        Data.Display_Library_Src_Dir,
+                        Project  => Project,
+                        Kind     => "library interface copy",
+                        Location => Lib_Src_Dir.Location);
 
-                     --  If directory does not exist, report an error
+                     --  If directory does not exist, report an error. No need
+                     --  to do that if Setup_Projects is True, as an error
+                     --  has already been reported by Locate_Directory.
 
-                     if Data.Library_Src_Dir = No_Name then
+                     if not Setup_Projects
+                       and then Data.Library_Src_Dir = No_Name
+                     then
 
                         --  Get the absolute name of the library directory
                         --  that does not exist, to report an error.
@@ -1209,7 +1225,44 @@ package body Prj.Nmsc is
                   end;
                end if;
 
-               if not Lib_Symbol_File.Default then
+               if not Lib_Symbol_Policy.Default then
+                  declare
+                     Value : constant String :=
+                               To_Lower
+                                 (Get_Name_String (Lib_Symbol_Policy.Value));
+
+                  begin
+                     if Value = "autonomous" or else Value = "default" then
+                        Data.Symbol_Data.Symbol_Policy := Autonomous;
+
+                     elsif Value = "compliant" then
+                        Data.Symbol_Data.Symbol_Policy := Compliant;
+
+                     elsif Value = "controlled" then
+                        Data.Symbol_Data.Symbol_Policy := Controlled;
+
+                     elsif Value = "restricted" then
+                        Data.Symbol_Data.Symbol_Policy := Restricted;
+
+                     else
+                        Error_Msg
+                          (Project,
+                           "illegal value for Library_Symbol_Policy",
+                           Lib_Symbol_Policy.Location);
+                     end if;
+                  end;
+               end if;
+
+               if Lib_Symbol_File.Default then
+                  if Data.Symbol_Data.Symbol_Policy = Restricted then
+                     Error_Msg
+                       (Project,
+                        "Library_Symbol_File needs to be defined when " &
+                        "symbol policy is Restricted",
+                        Lib_Symbol_Policy.Location);
+                  end if;
+
+               else
                   Data.Symbol_Data.Symbol_File := Lib_Symbol_File.Value;
 
                   Get_Name_String (Lib_Symbol_File.Value);
@@ -1245,33 +1298,10 @@ package body Prj.Nmsc is
                   end if;
                end if;
 
-               if not Lib_Symbol_Policy.Default then
-                  declare
-                     Value : constant String :=
-                               To_Lower
-                                 (Get_Name_String (Lib_Symbol_Policy.Value));
-
-                  begin
-                     if Value = "autonomous" or else Value = "default" then
-                        Data.Symbol_Data.Symbol_Policy := Autonomous;
-
-                     elsif Value = "compliant" then
-                        Data.Symbol_Data.Symbol_Policy := Compliant;
-
-                     elsif Value = "controlled" then
-                        Data.Symbol_Data.Symbol_Policy := Controlled;
-
-                     else
-                        Error_Msg
-                          (Project,
-                           "illegal value for Library_Symbol_Policy",
-                           Lib_Symbol_Policy.Location);
-                     end if;
-                  end;
-               end if;
-
                if Lib_Ref_Symbol_File.Default then
-                  if Data.Symbol_Data.Symbol_Policy /= Autonomous then
+                  if Data.Symbol_Data.Symbol_Policy = Compliant
+                    or else Data.Symbol_Data.Symbol_Policy = Controlled
+                  then
                      Error_Msg
                        (Project,
                         "a reference symbol file need to be defined",
@@ -1281,7 +1311,7 @@ package body Prj.Nmsc is
                else
                   Data.Symbol_Data.Reference := Lib_Ref_Symbol_File.Value;
 
-                  Get_Name_String (Lib_Symbol_File.Value);
+                  Get_Name_String (Lib_Ref_Symbol_File.Value);
 
                   if Name_Len = 0 then
                      Error_Msg
@@ -1740,7 +1770,8 @@ package body Prj.Nmsc is
             Other_Sources.Table (Other_Sources.Last) := Source;
 
             --  There are sources of languages other than Ada in this project
-            Data.Sources_Present := True;
+
+            Data.Other_Sources_Present := True;
 
             --  And there are sources of this language in this project
 
@@ -1762,11 +1793,11 @@ package body Prj.Nmsc is
       end if;
    end Check_For_Source;
 
-   -----------------------------
-   -- Check_Ada_Naming_Scheme --
-   -----------------------------
+   --------------------------------------
+   -- Check_Ada_Naming_Scheme_Validity --
+   --------------------------------------
 
-   procedure Check_Ada_Naming_Scheme
+   procedure Check_Ada_Naming_Scheme_Validity
      (Project : Project_Id;
       Naming  : Naming_Data)
    is
@@ -1895,13 +1926,13 @@ package body Prj.Nmsc is
             end if;
          end;
       end if;
-   end Check_Ada_Naming_Scheme;
+   end Check_Ada_Naming_Scheme_Validity;
 
-   -------------------------
-   -- Check_Naming_Scheme --
-   -------------------------
+   -----------------------------
+   -- Check_Ada_Naming_Scheme --
+   -----------------------------
 
-   procedure Check_Naming_Scheme
+   procedure Check_Ada_Naming_Scheme
      (Data    : in out Project_Data;
       Project : Project_Id)
    is
@@ -1961,7 +1992,7 @@ package body Prj.Nmsc is
          end loop;
       end Check_Unit_Names;
 
-   --  Start of processing for Check_Naming_Scheme
+   --  Start of processing for Check_Ada_Naming_Scheme
 
    begin
       --  If there is a package Naming, we will put in Data.Naming what is in
@@ -2218,14 +2249,14 @@ package body Prj.Nmsc is
 
          --  Check if Data.Naming is valid
 
-         Check_Ada_Naming_Scheme (Project, Data.Naming);
+         Check_Ada_Naming_Scheme_Validity (Project, Data.Naming);
 
       else
          Data.Naming.Current_Spec_Suffix := Default_Ada_Spec_Suffix;
          Data.Naming.Current_Body_Suffix := Default_Ada_Body_Suffix;
          Data.Naming.Separate_Suffix     := Default_Ada_Body_Suffix;
       end if;
-   end Check_Naming_Scheme;
+   end Check_Ada_Naming_Scheme;
 
    -------------------
    -- Check_Project --
@@ -2499,11 +2530,12 @@ package body Prj.Nmsc is
          --  it is an error, except if it is an extending project.
          --  If a non extending project is not supposed to contain
          --  any source, then we never call Find_Sources.
+         --  No error either when setting up projects (gnat setup).
 
          if Current_Source /= Nil_String then
-            Data.Sources_Present := True;
+            Data.Ada_Sources_Present := True;
 
-         elsif Data.Extends = No_Project then
+         elsif not Setup_Projects and then Data.Extends = No_Project then
             Error_Msg
               (Project,
                "there are no Ada sources in this project",
@@ -3274,13 +3306,18 @@ package body Prj.Nmsc is
 
             else
                --  We check that the specified object directory
-               --  does exist.
+               --  does exist, and attempt to create it if setting up projects
+               --  (gnat setup).
 
                Locate_Directory
                  (Object_Dir.Value, Data.Display_Directory,
-                  Data.Object_Directory, Data.Display_Object_Dir);
+                  Data.Object_Directory, Data.Display_Object_Dir,
+                  Project  => Project, Kind => "object",
+                  Location => Object_Dir.Location);
 
-               if Data.Object_Directory = No_Name then
+               if not Setup_Projects
+                 and then Data.Object_Directory = No_Name
+               then
                   --  The object directory does not exist, report an error
                   Err_Vars.Error_Msg_Name_1 := Object_Dir.Value;
                   Error_Msg
@@ -3339,14 +3376,18 @@ package body Prj.Nmsc is
                   Exec_Dir.Location);
 
             else
-               --  We check that the specified object directory
-               --  does exist.
+               --  We check that the specified exec directory does exist and
+               --  attempt to create it if setting up projects (gnat setup).
 
                Locate_Directory
                  (Exec_Dir.Value, Data.Directory,
-                  Data.Exec_Directory, Data.Display_Exec_Dir);
+                  Data.Exec_Directory, Data.Display_Exec_Dir,
+                  Project  => Project, Kind => "exec",
+                  Location => Exec_Dir.Location);
 
-               if Data.Exec_Directory = No_Name then
+               if not Setup_Projects
+                 and then Data.Exec_Directory = No_Name
+               then
                   Err_Vars.Error_Msg_Name_1 := Exec_Dir.Value;
                   Error_Msg
                     (Project,
@@ -3417,8 +3458,9 @@ package body Prj.Nmsc is
                Data.Object_Directory := No_Name;
             end if;
 
-            Data.Source_Dirs     := Nil_String;
-            Data.Sources_Present := False;
+            Data.Source_Dirs           := Nil_String;
+            Data.Ada_Sources_Present   := False;
+            Data.Other_Sources_Present := False;
 
          else
             declare
@@ -3537,13 +3579,16 @@ package body Prj.Nmsc is
             end if;
 
          else
-            --  Find path name, check that it is a directory
+            --  Find path name, check that it is a directory, and attempt
+            --  to create it if setting up projects (gnat setup).
 
             Locate_Directory
               (Lib_Dir.Value, Data.Display_Directory,
-               Data.Library_Dir, Data.Display_Library_Dir);
+               Data.Library_Dir, Data.Display_Library_Dir,
+               Project => Project, Kind => "library",
+               Location => Lib_Dir.Location);
 
-            if Data.Library_Dir = No_Name then
+            if not Setup_Projects and then Data.Library_Dir = No_Name then
 
                --  Get the absolute name of the library directory that
                --  does not exist, to report an error.
@@ -3898,16 +3943,77 @@ package body Prj.Nmsc is
    ----------------------
 
    procedure Locate_Directory
-     (Name    : Name_Id;
-      Parent  : Name_Id;
-      Dir     : out Name_Id;
-      Display : out Name_Id)
+     (Name     : Name_Id;
+      Parent   : Name_Id;
+      Dir      : out Name_Id;
+      Display  : out Name_Id;
+      Project  : Project_Id := No_Project;
+      Kind     : String := "";
+      Location : Source_Ptr := No_Location)
    is
       The_Name   : constant String := Get_Name_String (Name);
       The_Parent : constant String :=
                      Get_Name_String (Parent) & Directory_Separator;
       The_Parent_Last : constant Natural :=
                      Compute_Directory_Last (The_Parent);
+
+      procedure Create_Directory (Absolute_Path : String);
+      --  Attempt to create a new directory
+
+      procedure Get_Names_For (Absolute_Path : String);
+      --  Create name ids Dir and Display for directory Absolute_Path
+
+      ----------------------
+      -- Create_Directory --
+      ----------------------
+
+      procedure Create_Directory (Absolute_Path : String) is
+      begin
+         --  Attempt to create the directory
+
+         Make_Dir (Absolute_Path);
+
+         --  Setup Dir and Display if creation was successful
+
+         Get_Names_For (Absolute_Path);
+
+      exception
+         when Directory_Error =>
+            Error_Msg
+              (Project,
+               "could not create " & Kind & " directory """ &
+               Absolute_Path & """",
+               Location);
+      end Create_Directory;
+
+      -------------------
+      -- Get_Names_For --
+      -------------------
+
+      procedure Get_Names_For (Absolute_Path : String) is
+         Normed         : constant String :=
+                            Normalize_Pathname
+                              (Absolute_Path,
+                               Resolve_Links  => False,
+                               Case_Sensitive => True);
+
+         Canonical_Path : constant String :=
+                            Normalize_Pathname
+                              (Normed,
+                               Resolve_Links  => True,
+                               Case_Sensitive => False);
+
+      begin
+         Name_Len := Normed'Length;
+         Name_Buffer (1 .. Name_Len) := Normed;
+         Display := Name_Find;
+
+         Name_Len := Canonical_Path'Length;
+         Name_Buffer (1 .. Name_Len) := Canonical_Path;
+         Dir := Name_Find;
+      end Get_Names_For;
+
+   --  Start of processing for Locate_Directory
 
    begin
       if Current_Verbosity = High then
@@ -3923,28 +4029,10 @@ package body Prj.Nmsc is
 
       if Is_Absolute_Path (The_Name) then
          if Is_Directory (The_Name) then
-            declare
-               Normed : constant String :=
-                          Normalize_Pathname
-                            (The_Name,
-                             Resolve_Links  => False,
-                             Case_Sensitive => True);
+            Get_Names_For (The_Name);
 
-               Canonical_Path : constant String :=
-                                  Normalize_Pathname
-                                    (Normed,
-                                     Resolve_Links  => True,
-                                     Case_Sensitive => False);
-
-            begin
-               Name_Len := Normed'Length;
-               Name_Buffer (1 .. Name_Len) := Normed;
-               Display := Name_Find;
-
-               Name_Len := Canonical_Path'Length;
-               Name_Buffer (1 .. Name_Len) := Canonical_Path;
-               Dir := Name_Find;
-            end;
+         elsif Kind /= "" and then Setup_Projects then
+            Create_Directory (The_Name);
          end if;
 
       else
@@ -3955,28 +4043,10 @@ package body Prj.Nmsc is
 
          begin
             if Is_Directory (Full_Path) then
-               declare
-                  Normed : constant String :=
-                             Normalize_Pathname
-                               (Full_Path,
-                                Resolve_Links  => False,
-                                Case_Sensitive => True);
+               Get_Names_For (Full_Path);
 
-                  Canonical_Path : constant String :=
-                                     Normalize_Pathname
-                                       (Normed,
-                                        Resolve_Links  => True,
-                                        Case_Sensitive => False);
-
-               begin
-                  Name_Len := Normed'Length;
-                  Name_Buffer (1 .. Name_Len) := Normed;
-                  Display := Name_Find;
-
-                  Name_Len := Canonical_Path'Length;
-                  Name_Buffer (1 .. Name_Len) := Canonical_Path;
-                  Dir := Name_Find;
-               end;
+            elsif Kind /= "" and then Setup_Projects then
+               Create_Directory (Full_Path);
             end if;
          end;
       end if;
@@ -4002,9 +4072,9 @@ package body Prj.Nmsc is
       Data      := Projects.Table (Project);
       Languages := Prj.Util.Value_Of (Name_Languages, Data.Decl.Attributes);
 
-      Data.Sources_Present := Data.Source_Dirs /= Nil_String;
+      Data.Other_Sources_Present := Data.Source_Dirs /= Nil_String;
 
-      if Data.Sources_Present then
+      if Data.Other_Sources_Present then
          --  Check if languages other than Ada are specified in this project
 
          if Languages.Default then
@@ -4015,7 +4085,7 @@ package body Prj.Nmsc is
 
             --  No sources of languages other than Ada
 
-            Data.Sources_Present := False;
+            Data.Other_Sources_Present := False;
 
          else
             declare
@@ -4025,9 +4095,9 @@ package body Prj.Nmsc is
             begin
                --  Assumethat there is no language other than Ada specified.
                --  If in fact there is at least one, we will set back
-               --  Sources_Present to True.
+               --  Other_Sources_Present to True.
 
-               Data.Sources_Present := False;
+               Data.Other_Sources_Present := False;
 
                --  Look through all the languages specified in attribute
                --  Languages, if any
@@ -4056,7 +4126,7 @@ package body Prj.Nmsc is
                         --  than Ada.
 
                         if Lang /= Lang_Ada then
-                           Data.Sources_Present := True;
+                           Data.Other_Sources_Present := True;
                         end if;
 
                         exit Lang_Loop;
@@ -4081,11 +4151,11 @@ package body Prj.Nmsc is
 
       --  If there may be some sources, look for them
 
-      if Data.Sources_Present then
+      if Data.Other_Sources_Present then
          --  Set Source_Present to False. It will be set back to True whenever
          --  a source is found.
 
-         Data.Sources_Present := False;
+         Data.Other_Sources_Present := False;
 
          for Lang in Other_Programming_Language loop
             --  For each language (other than Ada) in the project file
@@ -4717,6 +4787,7 @@ package body Prj.Nmsc is
                then
                   Name_Len := Last;
                   Name_Buffer (1 .. Name_Len) := Name_Str (1 .. Last);
+                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
                   Canonical_Name := Name_Find;
                   NL := Source_Names.Get (Canonical_Name);
 

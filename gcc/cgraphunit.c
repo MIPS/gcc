@@ -168,6 +168,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "rtl.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
@@ -399,7 +400,12 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	 by this function and re-examine whether the decl is actually used
 	 after rtl has been generated.  */
       if (TREE_STATIC (t))
-        cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
+	{
+	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
+	  if (lang_hooks.callgraph.analyze_expr)
+	    return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees, 
+						      data);
+	}
       break;
 
     case ADDR_EXPR:
@@ -467,7 +473,9 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 
 static bool error_found;
 
-/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph nodes.  */
+/* Callbrack of verify_cgraph_node.  Check that all call_exprs have cgraph
+   nodes.  */
+
 static tree
 verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
 {
@@ -501,12 +509,12 @@ verify_cgraph_node_1 (tree *tp, int *walk_subtrees, void *data)
 	  error_found = true;
 	}
     }
+
   /* Save some cycles by not walking types and declaration as we
      won't find anything useful there anyway.  */
   if (DECL_P (*tp) || TYPE_P (*tp))
-    {
-      *walk_subtrees = 0;
-    }
+    *walk_subtrees = 0;
+
   return NULL_TREE;
 }
 
@@ -789,8 +797,7 @@ cgraph_expand_function (struct cgraph_node *node)
   if (flag_unit_at_a_time)
     announce_function (decl);
 
-  /* Generate RTL for the body of DECL.  Nested functions are expanded
-     via lang_expand_decl_stmt.  */
+  /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
 
   /* Make sure that BE didn't give up on compiling.  */
@@ -804,7 +811,6 @@ cgraph_expand_function (struct cgraph_node *node)
     {
       DECL_SAVED_TREE (node->decl) = NULL;
       DECL_STRUCT_FUNCTION (node->decl) = NULL;
-      DECL_ARGUMENTS (node->decl) = NULL;
       DECL_INITIAL (node->decl) = error_mark_node;
     }
 }
@@ -965,7 +971,6 @@ cgraph_remove_unreachable_nodes (void)
 		    {
 		      DECL_SAVED_TREE (node->decl) = NULL;
 		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-		      DECL_ARGUMENTS (node->decl) = NULL;
 		      DECL_INITIAL (node->decl) = error_mark_node;
 		    }
 		  while (node->callees)
@@ -1482,7 +1487,7 @@ cgraph_decide_inlining (void)
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
 		 "\nConsidering %s %i insns (always inline)\n",
-		 cgraph_node_name (e->callee), e->callee->global.insns);
+		 cgraph_node_name (node), node->global.insns);
       old_insns = overall_insns;
       for (e = node->callers; e; e = next)
 	{
@@ -1496,8 +1501,8 @@ cgraph_decide_inlining (void)
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, 
 		     " Inlined into %s which now has %i insns.\n",
-		     cgraph_node_name (node->callees->caller),
-	             node->callees->caller->global.insns);
+		     cgraph_node_name (e->caller),
+		     e->caller->global.insns);
 	}
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file, 
@@ -1784,4 +1789,71 @@ cgraph_optimize (void)
 	internal_error ("Nodes with no released memory found.");
     }
 #endif
+}
+
+/* Generate and emit a static constructor or destructor.  WHICH must be
+   one of 'I' or 'D'.  BODY should be a STATEMENT_LIST containing 
+   GENERIC statements.  */
+
+void
+cgraph_build_static_cdtor (char which, tree body, int priority)
+{
+  static int counter = 0;
+  char which_buf[16];
+  tree decl, name, resdecl;
+
+  sprintf (which_buf, "%c_%d", which, counter++);
+  name = get_file_function_name_long (which_buf);
+
+  decl = build_decl (FUNCTION_DECL, name,
+		     build_function_type (void_type_node, void_list_node));
+  current_function_decl = decl;
+
+  resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
+  DECL_ARTIFICIAL (resdecl) = 1;
+  DECL_IGNORED_P (resdecl) = 1;
+  DECL_RESULT (decl) = resdecl;
+
+  allocate_struct_function (decl);
+
+  TREE_STATIC (decl) = 1;
+  TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
+  DECL_SAVED_TREE (decl) = body;
+  TREE_PUBLIC (decl) = ! targetm.have_ctors_dtors;
+  DECL_UNINLINABLE (decl) = 1;
+
+  DECL_INITIAL (decl) = make_node (BLOCK);
+  TREE_USED (DECL_INITIAL (decl)) = 1;
+
+  DECL_SOURCE_LOCATION (decl) = input_location;
+  cfun->function_end_locus = input_location;
+
+  if (which == 'I')
+    DECL_STATIC_CONSTRUCTOR (decl) = 1;
+  else if (which == 'D')
+    DECL_STATIC_DESTRUCTOR (decl) = 1;
+  else
+    abort ();
+
+  gimplify_function_tree (decl);
+
+  /* ??? We will get called LATE in the compilation process.  */
+  if (cgraph_global_info_ready)
+    tree_rest_of_compilation (decl, false);
+  else
+    cgraph_finalize_function (decl, 0);
+  
+  if (targetm.have_ctors_dtors)
+    {
+      void (*fn) (rtx, int);
+
+      if (which == 'I')
+	fn = targetm.asm_out.constructor;
+      else
+	fn = targetm.asm_out.destructor;
+      fn (XEXP (DECL_RTL (decl), 0), priority);
+    }
 }

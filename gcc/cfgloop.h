@@ -19,6 +19,13 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_CFGLOOP_H
+#define GCC_CFGLOOP_H
+
+#include "basic-block.h"
+/* For rtx_code.  */
+#include "rtl.h"
+
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
 {
@@ -168,6 +175,16 @@ struct loop
   /* The number of LABEL_REFs on exit_labels for this loop and all
      loops nested inside it.  */
   int exit_count;
+
+  /* The probable number of times the loop is executed at runtime.
+     This is an INTEGER_CST or an expression containing symbolic
+     names.  Don't access this field directly:
+     number_of_iterations_in_loop computes and caches the computed
+     information in this field.  */
+  tree nb_iterations;
+
+  /* Upper bound on number of iterations of a loop.  */
+  struct nb_iter_bound *bounds;
 };
 
 /* Flags for state of loop structure.  */
@@ -217,6 +234,10 @@ struct loops
   int state;
 };
 
+/* The loop tree currently optimized.  */
+
+extern struct loops *current_loops;
+
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1	/* Build loop hierarchy tree.  */
@@ -246,6 +267,7 @@ extern bool flow_loop_outside_edge_p (const struct loop *, edge);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
+struct loop *superloop_at_depth (struct loop *, unsigned);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
@@ -404,6 +426,11 @@ simple_loop_desc (struct loop *loop)
   return loop->aux;
 }
 
+/* Register pressure estimation for induction variable optimizations & loop
+   invariant motion.  */
+extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
+extern void init_set_costs (void);
+
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);
 extern void loop_optimizer_finalize (struct loops *, FILE *);
@@ -420,3 +447,6 @@ enum
 
 extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
+extern void move_loop_invariants (struct loops *);
+
+#endif /* GCC_CFGLOOP_H */

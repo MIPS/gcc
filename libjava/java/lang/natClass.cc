@@ -59,9 +59,12 @@ details.  */
 
 #include <java-cpool.h>
 #include <java-interp.h>
+
 
 
 using namespace gcj;
+
+bool gcj::verbose_class_flag;
 
 jclass
 java::lang::Class::forName (jstring className, jboolean initialize,

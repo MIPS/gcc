@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIBSTDCXX "-lstdc++"
 #endif
 #ifndef LIBSTDCXX_PROFILE
-#define LIBSTDCXX_PROFILE "-lstdc++"
+#define LIBSTDCXX_PROFILE LIBSTDCXX
 #endif
 
 void
@@ -136,10 +136,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	    {
 	      library = -1;
 	    }
-	  else if (strcmp (argv[i], "-lm") == 0
-		   || strcmp (argv[i], "-lmath") == 0
-		   || strcmp (argv[i], MATH_LIBRARY) == 0
-		  )
+	  else if (strcmp (argv[i], MATH_LIBRARY) == 0)
 	    {
 	      args[i] |= MATHLIB;
 	      need_math = 0;
@@ -300,15 +297,19 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library > 0)
     {
-      arglist[j++] = saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
-      added_libraries++;
+      arglist[j] = saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX;
+      if (arglist[j][0] != '-' || arglist[j][1] == 'l')
+	added_libraries++;
+      j++;
     }
   if (saw_math)
     arglist[j++] = saw_math;
   else if (library > 0 && need_math)
     {
-      arglist[j++] = saw_profile_flag ? MATH_LIBRARY_PROFILE : MATH_LIBRARY;
-      added_libraries++;
+      arglist[j] = saw_profile_flag ? MATH_LIBRARY_PROFILE : MATH_LIBRARY;
+      if (arglist[j][0] != '-' || arglist[j][1] == 'l')
+	added_libraries++;
+      j++;
     }
   if (saw_libc)
     arglist[j++] = saw_libc;

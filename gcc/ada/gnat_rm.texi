@@ -202,6 +202,7 @@ Implementation Defined Attributes
 * Enum_Rep::
 * Epsilon::
 * Fixed_Value::
+* Has_Access_Values::
 * Has_Discriminants::
 * Img::
 * Integer_Value::
@@ -2224,6 +2225,13 @@ users guide) in conjunction with pragma @code{Initialize_Scalars}
 provides a powerful new tool to assist in the detection of problems
 caused by uninitialized variables.
 
+Note: the use of @code{Initialize_Scalars} has a fairly extensive
+effect on the generated code. This may cause your code to be
+substantially larger. It may also cause an increase in the amount
+of stack required, so it is probably a good idea to turn on stack
+checking (see description of stack checking in the GNAT users guide)
+when using this pragma.
+
 @node Pragma Inline_Always
 @unnumberedsec Pragma Inline_Always
 @findex Inline_Always
@@ -3993,6 +4001,7 @@ consideration, you should minimize the use of these attributes.
 * Enum_Rep::
 * Epsilon::
 * Fixed_Value::
+* Has_Access_Values::
 * Has_Discriminants::
 * Img::
 * Integer_Value::
@@ -4297,6 +4306,19 @@ conversion to the fixed-point type.  The difference is
 that there are full range checks, to ensure that the result is in range.
 This attribute is primarily intended for use in implementation of the
 input-output functions for fixed-point values.
+
+@node Has_Access_Values
+@unnumberedsec Has_Access_Values
+@cindex Access values, testing for
+@findex Has_Access_Values
+@noindent
+The prefix of the @code{Has_Access_Values} attribute is a type.  The result
+is a Boolean value which is True if the is an access type, or is a composite
+type with a component (at any nesting depth) that is an access type, and is
+False otherwise.
+The intended use of this attribute is in conjunction with generic
+definitions.  If the attribute is applied to a generic private type, it
+indicates whether or not the corresponding actual type has access values.
 
 @node Has_Discriminants
 @unnumberedsec Has_Discriminants
@@ -8383,7 +8405,7 @@ Similarly, the size of type @code{Rec} is 40 bits
 (@code{Rec'Size} = @code{Rec'Value_Size} = 40), but
 the alignment is 4, so objects of this type will have
 their size increased to 64 bits so that it is a multiple
-of the alignment (in bits).  The reason for this decision, which is
+of the alignment (in bits).  This decision is
 in accordance with the specific Implementation Advice in RM 13.3(43):
 
 @quotation
@@ -9442,15 +9464,19 @@ thus the same lack of restriction applies.  For example, if you declare:
 then a component clause for a component of type R may start on any
 specified bit boundary, and may specify a value of 49 bits or greater.
 
+Packed bit arrays that are longer than 64 bits must always be placed
+on a storage unit (byte) boundary. Any component clause that does not
+meet this requirement will be rejected.
+
 The rules for other types are different for GNAT 3 and GNAT 5 versions
 (based on GCC 2 and GCC 3 respectively). In GNAT 5, larger components
+(other than packed arrays)
 may also be placed on arbitrary boundaries, so for example, the following
 is permitted:
 
 @smallexample @c ada
-   type R is array (1 .. 79) of Boolean;
-   pragma Pack (R);
-   for R'Size use 79;
+   type R is array (1 .. 10) of Boolean;
+   for R'Size use 80;
 
    type Q is record
       G, H : Boolean;
@@ -9460,8 +9486,8 @@ is permitted:
    for Q use record
       G at 0 range  0 ..   0;
       H at 0 range  1 ..   1;
-      L at 0 range  2 ..  80;
-      R at 0 range 81 .. 159;
+      L at 0 range  2 ..  81;
+      R at 0 range 82 .. 161;
    end record;
 @end smallexample
 
@@ -13298,6 +13324,7 @@ See the chapter on project files in the GNAT Users guide for examples of use.
 * Reserved Words::
 * Lexical Elements::
 * Declarations::
+* Empty declarations::
 * Typed string declarations::
 * Variables::
 * Expressions::
@@ -13368,8 +13395,20 @@ simple_declarative_item ::=
   variable_declaration |
   typed_variable_declaration |
   attribute_declaration |
-  case_construction
+  case_construction |
+  empty_declaration
 @end smallexample
+
+@node Empty declarations
+@section Empty declarations
+
+@smallexample
+empty_declaration ::=
+  @b{null} ;
+@end smallexample
+
+An empty declaration is allowed anywhere a declaration is allowed.
+It has no effect.
 
 @node Typed string declarations
 @section Typed string declarations
@@ -13672,7 +13711,7 @@ case_construction ::=
 
 case_item ::=
   @b{when} discrete_choice_list =>
-    @{case_construction | attribute_declaration@}
+    @{case_construction | attribute_declaration | empty_declaration@}
 
 discrete_choice_list ::=
   string_literal @{| string_literal@} |

@@ -34,8 +34,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "c-pretty-print.h"
 
-static void c_initialize_diagnostics (diagnostic_context *);
-
 enum c_language_kind c_language = clk_c;
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
@@ -60,8 +58,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
@@ -70,18 +66,14 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
-#undef LANG_HOOKS_CLEAR_BINDING_STACK
-#define LANG_HOOKS_CLEAR_BINDING_STACK lhd_do_nothing
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_objc_common_truthvalue_conversion
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
-#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
+#undef LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
+#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
-#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
-#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME c_static_assembler_name
 #undef LANG_HOOKS_NO_BODY_BLOCKS
 #define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -103,18 +95,12 @@ enum c_language_kind c_language = clk_c;
 #undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
 #define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
-#undef LANG_HOOKS_TREE_INLINING_WALK_SUBTREES
-#define LANG_HOOKS_TREE_INLINING_WALK_SUBTREES \
-  c_walk_subtrees
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   c_cannot_inline_tree_fn
 #undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   c_disregard_inline_limits
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  c_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   anon_aggr_type_p
@@ -146,15 +132,9 @@ enum c_language_kind c_language = clk_c;
 
 /* The C front end's scoping structure is very different from
    that expected by the language-independent code; it is best
-   to disable all of pushlevel, poplevel, set_block, and getdecls.
+   to disable getdecls.
    This means it must also provide its own write_globals.  */
 
-#undef LANG_HOOKS_PUSHLEVEL
-#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
-#undef LANG_HOOKS_POPLEVEL
-#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
-#undef LANG_HOOKS_SET_BLOCK
-#define LANG_HOOKS_SET_BLOCK lhd_do_nothing_t
 #undef LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
 #undef LANG_HOOKS_WRITE_GLOBALS
@@ -207,28 +187,17 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Final processing of file-scope data.  The Objective-C version of
+   this function still does something.  */
 void
 finish_file (void)
 {
-  c_objc_common_finish_file ();
 }
 
 int
 c_types_compatible_p (tree x, tree y)
 {
-    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y), 0);
-}
-static void
-c_initialize_diagnostics (diagnostic_context *context)
-{
-  pretty_printer *base = context->printer;
-  c_pretty_printer *pp = xmalloc (sizeof (c_pretty_printer));
-  memcpy (pp_base (pp), base, sizeof (pretty_printer));
-  pp_c_pretty_printer_init (pp);
-  context->printer = (pretty_printer *) pp;
-
-  /* It is safe to free this object because it was previously malloc()'d.  */
-  free (base);
+    return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
 }
 
 #include "gtype-c.h"

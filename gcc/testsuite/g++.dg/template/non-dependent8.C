@@ -3,20 +3,19 @@
 // Origin: Giovanni Bajo <giovannibajo@libero.it>
 
 // Two-phase name lookup for address of member:
-// Detecting overloading function error during parsing
+// Detecting error during parsing
 
 struct S
 {
-  int f(char);
-  int f(int);
+  char i;
 };
 
-template<int (S::*p)()>
+template<int S::*p>
 struct X
 {};
 
 template <class T>
 struct Foo
 {
-  X<&S::f> x;	// { dg-error "convert|no type" }
+  X<&S::i> x;	// { dg-error "convert|no type" }
 };

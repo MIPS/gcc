@@ -1,4 +1,4 @@
-// PR c++/16489
+// PR c++/16338
 
 const int NULL = 0;
 int main() { 

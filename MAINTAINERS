@@ -176,6 +176,7 @@ tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE, points-to		Daniel Berlin		dberlin@dberlin.org
 mudflap			Frank Ch. Eigler	fche@redhat.com
 tree browser/unparser	Sebastian Pop		s.pop@laposte.net
+profile feedback	Jan Hubicka		jh@suse.cz
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -183,6 +184,7 @@ in changes outside of the parts of the compiler they maintain.
 
 			Write After Approval	(last name alphabetical order)
 
+Mark G. Adams                                   mark.g.adams@sympatico.ca
 Matt Austern                                    austern@apple.com
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
@@ -195,6 +197,7 @@ Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
+Segher Boessenkool				segher@kernel.crashing.org
 Paolo Bonzini					bonzini@gnu.org
 Brian Booth					bbooth@redhat.com
 Robert Bowdidge                                 bowdidge@apple.com
@@ -281,6 +284,7 @@ Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
 Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
+Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
 Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Andreas Schwab					schwab@suse.de
@@ -301,6 +305,8 @@ John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org
 Carlo Wood					carlo@alinoe.com
+Canqun Yang					canqun@nudt.edu.cn
+Jon Ziegler					jonz@apple.com
 Josef Zlomek					zlomekj@suse.cz
 
 Bug database only accounts

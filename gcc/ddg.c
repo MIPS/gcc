@@ -68,7 +68,7 @@ static bool mem_ref_p;
 static int
 mark_mem_use (rtx *x, void *data ATTRIBUTE_UNUSED)
 {
-  if (GET_CODE (*x) == MEM)
+  if (MEM_P (*x))
     mem_ref_p = true;
   return 0;
 }
@@ -92,7 +92,7 @@ mem_read_insn_p (rtx insn)
 static void
 mark_mem_store (rtx loc, rtx setter ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
 {
-  if (GET_CODE (loc) == MEM)
+  if (MEM_P (loc))
     mem_ref_p = true;
 }
 
@@ -116,7 +116,7 @@ rtx_mem_access_p (rtx x)
   if (x == 0)
     return false;
 
-  if (GET_CODE (x) == MEM)
+  if (MEM_P (x))
     return true;
 
   code = GET_CODE (x);
@@ -383,7 +383,7 @@ build_intra_loop_deps (ddg_ptr g)
   get_block_head_tail (g->bb->index, &head, &tail);
   sched_analyze (&tmp_deps, head, tail);
 
-  /* Build intra-loop data dependecies using the scheduler dependecy
+  /* Build intra-loop data dependencies using the scheduler dependency
      analysis.  */
   for (i = 0; i < g->num_nodes; i++)
     {
@@ -477,12 +477,12 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
     {
       if (! INSN_P (insn))
 	{
-	  if (! first_note && GET_CODE (insn) == NOTE
+	  if (! first_note && NOTE_P (insn)
 	      && NOTE_LINE_NUMBER (insn) !=  NOTE_INSN_BASIC_BLOCK)
 	    first_note = insn;
 	  continue;
 	}
-      if (GET_CODE (insn) == JUMP_INSN)
+      if (JUMP_P (insn))
 	{
 	  if (g->closing_branch)
 	    abort (); /* Found two branches in DDG.  */
@@ -509,7 +509,7 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
   if (!g->closing_branch)
     abort ();  /* Found no branch in DDG.  */
 
-  /* Build the data dependecy graph.  */
+  /* Build the data dependency graph.  */
   build_intra_loop_deps (g);
   build_inter_loop_deps (g, df);
   return g;

@@ -470,22 +470,36 @@ static cpp_hashnode *
 lex_identifier (cpp_reader *pfile, const uchar *base)
 {
   cpp_hashnode *result;
-  const uchar *cur;
+  const uchar *cur, *limit;
+  unsigned int len;
+  unsigned int hash = HT_HASHSTEP (0, *base);
 
-  do
+  cur = pfile->buffer->cur;
+  for (;;)
     {
-      cur = pfile->buffer->cur;
-
       /* N.B. ISIDNUM does not include $.  */
       while (ISIDNUM (*cur))
-	cur++;
+	{
+	  hash = HT_HASHSTEP (hash, *cur);
+	  cur++;
+	}
 
       pfile->buffer->cur = cur;
+      if (!forms_identifier_p (pfile, false))
+	break;
+
+      limit = pfile->buffer->cur;
+      while (cur < limit)
+	{
+	  hash = HT_HASHSTEP (hash, *cur);
+	  cur++;
+	}
     }
-  while (forms_identifier_p (pfile, false));
+  len = cur - base;
+  hash = HT_HASHFINISH (hash, len);
 
   result = (cpp_hashnode *)
-    ht_lookup (pfile->hash_table, base, cur - base, HT_ALLOC);
+    ht_lookup_with_hash (pfile->hash_table, base, len, hash, HT_ALLOC);
 
   /* Rarely, identifiers require diagnostics when lexed.  */
   if (__builtin_expect ((result->flags & NODE_DIAGNOSTIC)
@@ -648,7 +662,7 @@ save_comment (cpp_reader *pfile, cpp_token *token, const unsigned char *from,
 void
 _cpp_init_tokenrun (tokenrun *run, unsigned int count)
 {
-  run->base = xnewvec (cpp_token, count);
+  run->base = XNEWVEC (cpp_token, count);
   run->limit = run->base + count;
   run->next = NULL;
 }
@@ -659,7 +673,7 @@ next_tokenrun (tokenrun *run)
 {
   if (run->next == NULL)
     {
-      run->next = xnew (tokenrun);
+      run->next = XNEW (tokenrun);
       run->next->prev = run;
       _cpp_init_tokenrun (run->next, 250);
     }
@@ -1541,4 +1555,26 @@ _cpp_aligned_alloc (cpp_reader *pfile, size_t len)
 
   buff->cur = result + len;
   return result;
+}
+
+/* Say which field of TOK is in use.  */
+
+enum cpp_token_fld_kind
+cpp_token_val_index (cpp_token *tok)
+{
+  switch (TOKEN_SPELL (tok))
+    {
+    case SPELL_IDENT:
+      return CPP_TOKEN_FLD_NODE;
+    case SPELL_LITERAL:
+      return CPP_TOKEN_FLD_STR;
+    case SPELL_NONE:
+      if (tok->type == CPP_MACRO_ARG)
+	return CPP_TOKEN_FLD_ARG_NO;
+      else if (tok->type == CPP_PADDING)
+	return CPP_TOKEN_FLD_SOURCE;
+      /* else fall through */
+    default:
+      return CPP_TOKEN_FLD_NONE;
+    }
 }

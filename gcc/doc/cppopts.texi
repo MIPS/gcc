@@ -16,11 +16,14 @@
 Predefine @var{name} as a macro, with definition @code{1}.
 
 @item -D @var{name}=@var{definition}
-Predefine @var{name} as a macro, with definition @var{definition}.
-There are no restrictions on the contents of @var{definition}, but if
-you are invoking the preprocessor from a shell or shell-like program you
-may need to use the shell's quoting syntax to protect characters such as
-spaces that have a meaning in the shell syntax.
+The contents of @var{definition} are tokenized and processed as if
+they appeared during translation phase three in a @samp{#define}
+directive.  In particular, the definition will be truncated by
+embedded newline characters.
+
+If you are invoking the preprocessor from a shell or shell-like
+program you may need to use the shell's quoting syntax to protect
+characters such as spaces that have a meaning in the shell syntax.
 
 If you wish to define a function-like macro on the command line, write
 its argument list with surrounding parentheses before the equals sign
@@ -322,6 +325,24 @@ precompiled header's dependencies.  If not specified only the
 precompiled header would be listed and not the files that were used to
 create it because those files are not consulted when a precompiled
 header is used.
+
+@item -fpch-preprocess
+@opindex fpch-preprocess
+This option allows use of a precompiled header (@pxref{Precompiled
+Headers}) together with @option{-E}.  It inserts a special @code{#pragma},
+@code{#pragma GCC pch_preprocess "<filename>"} in the output to mark
+the place where the precompiled header was found, and its filename.  When
+@code{-fpreprocessed} is in use, GCC recognizes this @code{#pragma} and
+loads the PCH.
+
+This option is off by default, because the resulting preprocessed output
+is only really suitable as input to GCC.  It is switched on by
+@option{-save-temps}.
+
+You should not write this @code{#pragma} in your own code, but it is
+safe to edit the filename if the PCH file is available in a different
+location.  The filename may be absolute or it may be relative to GCC's
+current directory.
 
 @end ifclear
 @item -x c

@@ -13,10 +13,17 @@ noinst_HEADERS = \
 	include/cpplib.h include/line-map.h include/mkdeps.h \
 	include/symtab.h internal.h system.h ucnid.h
 
+LIBINTL = @LIBINTL@
+LIBICONV = @LIBICONV@
+noinst_PROGRAMS = makedepend
+makedepend_LDADD = libcpp.a ../libiberty/libiberty.a $(LIBINTL) $(LIBICONV)
+
 XGETTEXT = @XGETTEXT@
 GMSGFMT = @GMSGFMT@
 MSGMERGE = msgmerge
 CATALOGS = @CATALOGS@
+
+all-local: build-po
 
 if ENABLE_NLS
 build-po: $(CATALOGS)

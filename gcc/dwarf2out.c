@@ -39,6 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "flags.h"
 #include "real.h"
 #include "rtl.h"
@@ -358,7 +359,6 @@ static HOST_WIDE_INT stack_adjust_offset (rtx);
 static void output_cfi (dw_cfi_ref, dw_fde_ref, int);
 static void output_call_frame_info (int);
 static void dwarf2out_stack_adjust (rtx);
-static void queue_reg_save (const char *, rtx, HOST_WIDE_INT);
 static void flush_queued_reg_saves (void);
 static bool clobbers_queued_reg_save (rtx);
 static void dwarf2out_frame_debug_expr (rtx, const char *);
@@ -812,9 +812,7 @@ reg_save (const char *label, unsigned int reg, unsigned int sreg, HOST_WIDE_INT 
 
   cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
 
-  /* The following comparison is correct. -1 is used to indicate that
-     the value isn't a register number.  */
-  if (sreg == (unsigned int) -1)
+  if (sreg == INVALID_REGNUM)
     {
       if (reg & ~0x3f)
 	/* The register number won't fit in 6 bits, so we have to use
@@ -842,8 +840,7 @@ reg_save (const char *label, unsigned int reg, unsigned int sreg, HOST_WIDE_INT 
       cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
     }
   else if (sreg == reg)
-    /* We could emit a DW_CFA_same_value in this case, but don't bother.  */
-    return;
+    cfi->dw_cfi_opc = DW_CFA_same_value;
   else
     {
       cfi->dw_cfi_opc = DW_CFA_register;
@@ -894,7 +891,7 @@ dwarf2out_args_size (const char *label, HOST_WIDE_INT size)
 void
 dwarf2out_reg_save (const char *label, unsigned int reg, HOST_WIDE_INT offset)
 {
-  reg_save (label, DWARF_FRAME_REGNUM (reg), -1, offset);
+  reg_save (label, DWARF_FRAME_REGNUM (reg), INVALID_REGNUM, offset);
 }
 
 /* Entry point for saving the return address in the stack.
@@ -903,7 +900,7 @@ dwarf2out_reg_save (const char *label, unsigned int reg, HOST_WIDE_INT offset)
 void
 dwarf2out_return_save (const char *label, HOST_WIDE_INT offset)
 {
-  reg_save (label, DWARF_FRAME_RETURN_COLUMN, -1, offset);
+  reg_save (label, DWARF_FRAME_RETURN_COLUMN, INVALID_REGNUM, offset);
 }
 
 /* Entry point for saving the return address in a register.
@@ -912,7 +909,7 @@ dwarf2out_return_save (const char *label, HOST_WIDE_INT offset)
 void
 dwarf2out_return_reg (const char *label, unsigned int sreg)
 {
-  reg_save (label, DWARF_FRAME_RETURN_COLUMN, sreg, 0);
+  reg_save (label, DWARF_FRAME_RETURN_COLUMN, DWARF_FRAME_REGNUM (sreg), 0);
 }
 
 /* Record the initial position of the return address.  RTL is
@@ -921,7 +918,7 @@ dwarf2out_return_reg (const char *label, unsigned int sreg)
 static void
 initial_return_save (rtx rtl)
 {
-  unsigned int reg = (unsigned int) -1;
+  unsigned int reg = INVALID_REGNUM;
   HOST_WIDE_INT offset = 0;
 
   switch (GET_CODE (rtl))
@@ -973,7 +970,8 @@ initial_return_save (rtx rtl)
       abort ();
     }
 
-  reg_save (NULL, DWARF_FRAME_RETURN_COLUMN, reg, offset - cfa.offset);
+  if (reg != DWARF_FRAME_RETURN_COLUMN)
+    reg_save (NULL, DWARF_FRAME_RETURN_COLUMN, reg, offset - cfa.offset);
 }
 
 /* Given a SET, calculate the amount of stack adjustment it
@@ -1000,7 +998,7 @@ stack_adjust_offset (rtx pattern)
       if (code == PLUS)
 	offset = -offset;
     }
-  else if (GET_CODE (dest) == MEM)
+  else if (MEM_P (dest))
     {
       /* (set (mem (pre_dec (reg sp))) (foo)) */
       src = XEXP (dest, 0);
@@ -1068,7 +1066,7 @@ dwarf2out_stack_adjust (rtx insn)
   if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
     return;
 
-  if (!flag_asynchronous_unwind_tables && GET_CODE (insn) == CALL_INSN)
+  if (!flag_asynchronous_unwind_tables && CALL_P (insn))
     {
       /* Extract the size of the args from the CALL rtx itself.  */
       insn = PATTERN (insn);
@@ -1088,7 +1086,7 @@ dwarf2out_stack_adjust (rtx insn)
   else if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
     return;
 
-  if (GET_CODE (insn) == BARRIER)
+  if (BARRIER_P (insn))
     {
       /* When we see a BARRIER, we know to reset args_size to 0.  Usually
 	 the compiler will have already emitted a stack adjustment, but
@@ -1143,40 +1141,99 @@ struct queued_reg_save GTY(())
   struct queued_reg_save *next;
   rtx reg;
   HOST_WIDE_INT cfa_offset;
+  rtx saved_reg;
 };
 
 static GTY(()) struct queued_reg_save *queued_reg_saves;
 
+/* The caller's ORIG_REG is saved in SAVED_IN_REG.  */
+struct reg_saved_in_data GTY(()) {
+  rtx orig_reg;
+  rtx saved_in_reg;
+};
+
+/* A list of registers saved in other registers.
+   The list intentionally has a small maximum capacity of 4; if your
+   port needs more than that, you might consider implementing a
+   more efficient data structure.  */
+static GTY(()) struct reg_saved_in_data regs_saved_in_regs[4];
+static GTY(()) size_t num_regs_saved_in_regs;
+  
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 static const char *last_reg_save_label;
 
-static void
-queue_reg_save (const char *label, rtx reg, HOST_WIDE_INT offset)
-{
-  struct queued_reg_save *q = ggc_alloc (sizeof (*q));
+/* Add an entry to QUEUED_REG_SAVES saying that REG is now saved at
+   SREG, or if SREG is NULL then it is saved at OFFSET to the CFA.  */
 
-  q->next = queued_reg_saves;
+static void
+queue_reg_save (const char *label, rtx reg, rtx sreg, HOST_WIDE_INT offset)
+{
+  struct queued_reg_save *q;
+
+  /* Duplicates waste space, but it's also necessary to remove them
+     for correctness, since the queue gets output in reverse
+     order.  */
+  for (q = queued_reg_saves; q != NULL; q = q->next)
+    if (REGNO (q->reg) == REGNO (reg))
+      break;
+
+  if (q == NULL)
+    {
+      q = ggc_alloc (sizeof (*q));
+      q->next = queued_reg_saves;
+      queued_reg_saves = q;
+    }
+
   q->reg = reg;
   q->cfa_offset = offset;
-  queued_reg_saves = q;
+  q->saved_reg = sreg;
 
   last_reg_save_label = label;
 }
 
+/* Output all the entries in QUEUED_REG_SAVES.  */
+
 static void
 flush_queued_reg_saves (void)
 {
-  struct queued_reg_save *q, *next;
+  struct queued_reg_save *q;
 
-  for (q = queued_reg_saves; q; q = next)
+  for (q = queued_reg_saves; q; q = q->next)
     {
-      dwarf2out_reg_save (last_reg_save_label, REGNO (q->reg), q->cfa_offset);
-      next = q->next;
+      size_t i;
+      unsigned int reg, sreg;
+
+      for (i = 0; i < num_regs_saved_in_regs; i++)
+	if (REGNO (regs_saved_in_regs[i].orig_reg) == REGNO (q->reg))
+	  break;
+      if (q->saved_reg && i == num_regs_saved_in_regs)
+	{
+	  if (i == ARRAY_SIZE (regs_saved_in_regs))
+	    abort ();
+	  num_regs_saved_in_regs++;
+	}
+      if (i != num_regs_saved_in_regs)
+	{
+	  regs_saved_in_regs[i].orig_reg = q->reg;
+	  regs_saved_in_regs[i].saved_in_reg = q->saved_reg;
+	}
+
+      reg = DWARF_FRAME_REGNUM (REGNO (q->reg));
+      if (q->saved_reg)
+	sreg = DWARF_FRAME_REGNUM (REGNO (q->saved_reg));
+      else
+	sreg = INVALID_REGNUM;
+      reg_save (last_reg_save_label, reg, sreg, q->cfa_offset);
     }
 
   queued_reg_saves = NULL;
   last_reg_save_label = NULL;
 }
+
+/* Does INSN clobber any register which QUEUED_REG_SAVES lists a saved
+   location for?  Or, does it clobber a register which we've previously
+   said that some other register is saved in, and for which we now
+   have a new location for?  */
 
 static bool
 clobbers_queued_reg_save (rtx insn)
@@ -1184,10 +1241,38 @@ clobbers_queued_reg_save (rtx insn)
   struct queued_reg_save *q;
 
   for (q = queued_reg_saves; q; q = q->next)
-    if (modified_in_p (q->reg, insn))
-      return true;
+    {
+      size_t i;
+      if (modified_in_p (q->reg, insn))
+	return true;
+      for (i = 0; i < num_regs_saved_in_regs; i++)
+	if (REGNO (q->reg) == REGNO (regs_saved_in_regs[i].orig_reg)
+	    && modified_in_p (regs_saved_in_regs[i].saved_in_reg, insn))
+	  return true;
+    }
 
   return false;
+}
+
+/* What register, if any, is currently saved in REG?  */
+
+static rtx
+reg_saved_in (rtx reg)
+{
+  unsigned int regn = REGNO (reg);
+  size_t i;
+  struct queued_reg_save *q;
+  
+  for (q = queued_reg_saves; q; q = q->next)
+    if (q->saved_reg && regn == REGNO (q->saved_reg))
+      return q->reg;
+
+  for (i = 0; i < num_regs_saved_in_regs; i++)
+    if (regs_saved_in_regs[i].saved_in_reg
+	&& regn == REGNO (regs_saved_in_regs[i].saved_in_reg))
+      return regs_saved_in_regs[i].orig_reg;
+
+  return NULL_RTX;
 }
 
 
@@ -1198,8 +1283,8 @@ static dw_cfa_location cfa_temp;
 
 /* Record call frame debugging information for an expression EXPR,
    which either sets SP or FP (adjusting how we calculate the frame
-   address) or saves a register to the stack.  LABEL indicates the
-   address of EXPR.
+   address) or saves a register to the stack or another register.
+   LABEL indicates the address of EXPR.
 
    This function encodes a state machine mapping rtxes to actions on
    cfa, cfa_store, and cfa_temp.reg.  We describe these rules so
@@ -1223,11 +1308,19 @@ static dw_cfa_location cfa_temp;
   RTX_FRAME_RELATED_P is set on an insn which modifies memory, it's a
   register save, and the register used to calculate the destination
   had better be the one we think we're using for this purpose.
+  It's also assumed that a copy from a call-saved register to another
+  register is saving that register if RTX_FRAME_RELATED_P is set on
+  that instruction.  If the copy is from a call-saved register to
+  the *same* register, that means that the register is now the same
+  value as in the caller.
 
   Except: If the register being saved is the CFA register, and the
   offset is nonzero, we are saving the CFA, so we assume we have to
   use DW_CFA_def_cfa_expression.  If the offset is 0, we assume that
   the intent is to save the value of SP from the previous frame.
+
+  In addition, if a register has previously been saved to a different
+  register, 
 
   Invariants / Summaries of Rules
 
@@ -1379,29 +1472,42 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
   src = SET_SRC (expr);
   dest = SET_DEST (expr);
 
+  if (GET_CODE (src) == REG)
+    {
+      rtx rsi = reg_saved_in (src);
+      if (rsi)
+	src = rsi;
+    }
+
   switch (GET_CODE (dest))
     {
     case REG:
-      /* Rule 1 */
-      /* Update the CFA rule wrt SP or FP.  Make sure src is
-	 relative to the current CFA register.  */
       switch (GET_CODE (src))
 	{
 	  /* Setting FP from SP.  */
 	case REG:
 	  if (cfa.reg == (unsigned) REGNO (src))
-	    /* OK.  */
-	    ;
+	    {
+	      /* Rule 1 */
+	      /* Update the CFA rule wrt SP or FP.  Make sure src is
+		 relative to the current CFA register. 
+
+		 We used to require that dest be either SP or FP, but the
+		 ARM copies SP to a temporary register, and from there to
+		 FP.  So we just rely on the backends to only set
+		 RTX_FRAME_RELATED_P on appropriate insns.  */
+	      cfa.reg = REGNO (dest);
+	      cfa_temp.reg = cfa.reg;
+	      cfa_temp.offset = cfa.offset;
+	    }
+	  else if (call_used_regs [REGNO (dest)] 
+		   && ! fixed_regs [REGNO (dest)])
+	    {
+	      /* Saving a register in a register.  */
+	      queue_reg_save (label, src, dest, 0);
+	    }
 	  else
 	    abort ();
-
-	  /* We used to require that dest be either SP or FP, but the
-	     ARM copies SP to a temporary register, and from there to
-	     FP.  So we just rely on the backends to only set
-	     RTX_FRAME_RELATED_P on appropriate insns.  */
-	  cfa.reg = REGNO (dest);
-	  cfa_temp.reg = cfa.reg;
-	  cfa_temp.offset = cfa.offset;
 	  break;
 
 	case PLUS:
@@ -1453,7 +1559,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      if (! frame_pointer_needed)
 		abort ();
 
-	      if (GET_CODE (XEXP (src, 0)) == REG
+	      if (REG_P (XEXP (src, 0))
 		  && (unsigned) REGNO (XEXP (src, 0)) == cfa.reg
 		  && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		{
@@ -1472,7 +1578,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		abort ();
 
 	      /* Rule 4 */
-	      if (GET_CODE (XEXP (src, 0)) == REG
+	      if (REG_P (XEXP (src, 0))
 		  && REGNO (XEXP (src, 0)) == cfa.reg
 		  && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		{
@@ -1487,7 +1593,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		}
 
 	      /* Rule 5 */
-	      else if (GET_CODE (XEXP (src, 0)) == REG
+	      else if (REG_P (XEXP (src, 0))
 		       && REGNO (XEXP (src, 0)) == cfa_temp.reg
 		       && XEXP (src, 1) == stack_pointer_rtx)
 		{
@@ -1519,7 +1625,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 	  /* Rule 7 */
 	case IOR:
-	  if (GET_CODE (XEXP (src, 0)) != REG
+	  if (!REG_P (XEXP (src, 0))
 	      || (unsigned) REGNO (XEXP (src, 0)) != cfa_temp.reg
 	      || GET_CODE (XEXP (src, 1)) != CONST_INT)
 	    abort ();
@@ -1543,7 +1649,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
       break;
 
     case MEM:
-      if (GET_CODE (src) != REG)
+      if (!REG_P (src))
 	abort ();
 
       /* Saving a register to the stack.  Make sure dest is relative to the
@@ -1641,7 +1747,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		 we're saving SP like any other register; this happens
 		 on the ARM.  */
 	      def_cfa_1 (label, &cfa);
-	      queue_reg_save (label, stack_pointer_rtx, offset);
+	      queue_reg_save (label, stack_pointer_rtx, NULL_RTX, offset);
 	      break;
 	    }
 	  else
@@ -1650,9 +1756,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		 calculate the CFA.  */
 	      rtx x = XEXP (dest, 0);
 
-	      if (GET_CODE (x) != REG)
+	      if (!REG_P (x))
 		x = XEXP (x, 0);
-	      if (GET_CODE (x) != REG)
+	      if (!REG_P (x))
 		abort ();
 
 	      cfa.reg = REGNO (x);
@@ -1664,7 +1770,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	}
 
       def_cfa_1 (label, &cfa);
-      queue_reg_save (label, src, offset);
+      queue_reg_save (label, src, NULL_RTX, offset);
       break;
 
     default:
@@ -1684,6 +1790,8 @@ dwarf2out_frame_debug (rtx insn)
 
   if (insn == NULL_RTX)
     {
+      size_t i;
+      
       /* Flush any queued register saves.  */
       flush_queued_reg_saves ();
 
@@ -1696,10 +1804,17 @@ dwarf2out_frame_debug (rtx insn)
       cfa_store = cfa;
       cfa_temp.reg = -1;
       cfa_temp.offset = 0;
+      
+      for (i = 0; i < num_regs_saved_in_regs; i++)
+	{
+	  regs_saved_in_regs[i].orig_reg = NULL_RTX;
+	  regs_saved_in_regs[i].saved_in_reg = NULL_RTX;
+	}
+      num_regs_saved_in_regs = 0;
       return;
     }
 
-  if (GET_CODE (insn) != INSN || clobbers_queued_reg_save (insn))
+  if (!NONJUMP_INSN_P (insn) || clobbers_queued_reg_save (insn))
     flush_queued_reg_saves ();
 
   if (! RTX_FRAME_RELATED_P (insn))
@@ -2081,7 +2196,11 @@ output_call_frame_info (int for_eh)
   dw2_asm_output_data_uleb128 (1, "CIE Code Alignment Factor");
   dw2_asm_output_data_sleb128 (DWARF_CIE_DATA_ALIGNMENT,
 			       "CIE Data Alignment Factor");
-  dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+
+  if (DW_CIE_VERSION == 1)
+    dw2_asm_output_data (1, DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
+  else
+    dw2_asm_output_data_uleb128 (DWARF_FRAME_RETURN_COLUMN, "CIE RA Column");
 
   if (augmentation[0])
     {
@@ -2146,9 +2265,13 @@ output_call_frame_info (int for_eh)
 					          (DECL_ASSEMBLER_NAME (fde->decl))),
 		     "FDE initial location");
 	  else
-	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
-		     gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
-		     "FDE initial location");
+	    {
+	      rtx sym_ref = gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin);
+	      SYMBOL_REF_FLAGS (sym_ref) |= SYMBOL_FLAG_LOCAL;
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding,
+					       sym_ref,
+					       "FDE initial location");
+	    }
 	  dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				fde->dw_fde_end, fde->dw_fde_begin,
 				"FDE address range");
@@ -2241,7 +2364,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 
   current_function_func_begin_label = 0;
 
-#ifdef IA64_UNWIND_INFO
+#ifdef TARGET_UNWIND_INFO
   /* ??? current_function_func_begin_label is also used by except.c
      for call-site information.  We must emit this label if it might
      be used.  */
@@ -2260,7 +2383,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 			  current_function_funcdef_no);
   current_function_func_begin_label = get_identifier (label);
 
-#ifdef IA64_UNWIND_INFO
+#ifdef TARGET_UNWIND_INFO
   /* We can elide the fde allocation if we're not emitting debug info.  */
   if (! dwarf2out_do_frame ())
     return;
@@ -2287,7 +2410,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->dw_fde_end = NULL;
   fde->dw_fde_cfi = NULL;
   fde->funcdef_number = current_function_funcdef_no;
-  fde->nothrow = current_function_nothrow;
+  fde->nothrow = TREE_NOTHROW (current_function_decl);
   fde->uses_eh_lsda = cfun->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = cfun->all_throwers_are_sibcalls;
 
@@ -4007,7 +4130,7 @@ dwarf2out_set_demangle_name_func (const char *(*func) (const char *))
 static inline int
 is_pseudo_reg (rtx rtl)
 {
-  return ((GET_CODE (rtl) == REG && REGNO (rtl) >= FIRST_PSEUDO_REGISTER)
+  return ((REG_P (rtl) && REGNO (rtl) >= FIRST_PSEUDO_REGISTER)
 	  || (GET_CODE (rtl) == SUBREG
 	      && REGNO (SUBREG_REG (rtl)) >= FIRST_PSEUDO_REGISTER));
 }
@@ -8408,7 +8531,7 @@ static inline int
 is_based_loc (rtx rtl)
 {
   return (GET_CODE (rtl) == PLUS
-	  && ((GET_CODE (XEXP (rtl, 0)) == REG
+	  && ((REG_P (XEXP (rtl, 0))
 	       && REGNO (XEXP (rtl, 0)) < FIRST_PSEUDO_REGISTER
 	       && GET_CODE (XEXP (rtl, 1)) == CONST_INT)));
 }
@@ -8617,15 +8740,6 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
       mem_loc_result = int_loc_descriptor (INTVAL (rtl));
       break;
 
-    case ADDRESSOF:
-      /* If this is a MEM, return its address.  Otherwise, we can't
-	 represent this.  */
-      if (GET_CODE (XEXP (rtl, 0)) == MEM)
-	return mem_loc_descriptor (XEXP (XEXP (rtl, 0), 0), mode,
-				   can_use_fbreg);
-      else
-	return 0;
-
     default:
       abort ();
     }
@@ -8812,7 +8926,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	  if (rtl == NULL_RTX)
 	    return 0;
 
-	  if (GET_CODE (rtl) != MEM)
+	  if (!MEM_P (rtl))
 	    return 0;
 	  rtl = XEXP (rtl, 0);
 	  if (! CONSTANT_P (rtl))
@@ -8848,7 +8962,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	  {
 	    enum machine_mode mode = GET_MODE (rtl);
 
-	    if (GET_CODE (rtl) == MEM)
+	    if (MEM_P (rtl))
 	      {
 		indirect_p = 1;
 		rtl = XEXP (rtl, 0);
@@ -8930,7 +9044,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	rtx rtl = lookup_constant_def (loc);
 	enum machine_mode mode;
 
-	if (GET_CODE (rtl) != MEM)
+	if (!MEM_P (rtl))
 	  return 0;
 	mode = GET_MODE (rtl);
 	rtl = XEXP (rtl, 0);
@@ -9081,9 +9195,9 @@ loc_descriptor_from_tree (tree loc, int addressp)
         const enum tree_code code =
           TREE_CODE (loc) == MIN_EXPR ? GT_EXPR : LT_EXPR;
 
-        loc = build (COND_EXPR, TREE_TYPE (loc),
-                     build (code, integer_type_node,
-                            TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
+        loc = build3 (COND_EXPR, TREE_TYPE (loc),
+		      build2 (code, integer_type_node,
+			      TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
                      TREE_OPERAND (loc, 1), TREE_OPERAND (loc, 0));
       }
 
@@ -9358,10 +9472,10 @@ add_data_member_location_attribute (dw_die_ref die, tree decl)
   HOST_WIDE_INT offset;
   dw_loc_descr_ref loc_descr = 0;
 
-  if (TREE_CODE (decl) == TREE_VEC)
+  if (TREE_CODE (decl) == TREE_BINFO)
     {
       /* We're working on the TAG_inheritance for a base class.  */
-      if (TREE_VIA_VIRTUAL (decl) && is_cxx ())
+      if (BINFO_VIRTUAL_P (decl) && is_cxx ())
 	{
 	  /* For C++ virtual bases we can't just use BINFO_OFFSET, as they
 	     aren't at a fixed offset from all (sub)objects of the same
@@ -9708,9 +9822,9 @@ rtl_for_decl_location (tree decl)
     {
       if (rtl
 	  && (CONSTANT_P (rtl)
-	      || (GET_CODE (rtl) == MEM
+	      || (MEM_P (rtl)
 	          && CONSTANT_P (XEXP (rtl, 0)))
-	      || (GET_CODE (rtl) == REG
+	      || (REG_P (rtl)
 	          && TREE_CODE (decl) == VAR_DECL
 		  && TREE_STATIC (decl))))
 	{
@@ -9745,13 +9859,13 @@ rtl_for_decl_location (tree decl)
 	 we reach the big endian correction code there.  It isn't clear if all
 	 of these checks are necessary here, but keeping them all is the safe
 	 thing to do.  */
-      else if (GET_CODE (rtl) == MEM
+      else if (MEM_P (rtl)
 	       && XEXP (rtl, 0) != const0_rtx
 	       && ! CONSTANT_P (XEXP (rtl, 0))
 	       /* Not passed in memory.  */
-	       && GET_CODE (DECL_INCOMING_RTL (decl)) != MEM
+	       && !MEM_P (DECL_INCOMING_RTL (decl))
 	       /* Not passed by invisible reference.  */
-	       && (GET_CODE (XEXP (rtl, 0)) != REG
+	       && (!REG_P (XEXP (rtl, 0))
 		   || REGNO (XEXP (rtl, 0)) == HARD_FRAME_POINTER_REGNUM
 		   || REGNO (XEXP (rtl, 0)) == STACK_POINTER_REGNUM
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
@@ -9773,7 +9887,7 @@ rtl_for_decl_location (tree decl)
     }
   else if (TREE_CODE (decl) == VAR_DECL
 	   && rtl
-	   && GET_CODE (rtl) == MEM
+	   && MEM_P (rtl)
 	   && GET_MODE (rtl) != TYPE_MODE (TREE_TYPE (decl))
 	   && BYTES_BIG_ENDIAN)
     {
@@ -9834,7 +9948,7 @@ rtl_for_decl_location (tree decl)
 	  rtl = expand_expr (DECL_INITIAL (decl), NULL_RTX, VOIDmode,
 			     EXPAND_INITIALIZER);
 	  /* If expand_expr returns a MEM, it wasn't immediate.  */
-	  if (rtl && GET_CODE (rtl) == MEM)
+	  if (rtl && MEM_P (rtl))
 	    abort ();
 	}
     }
@@ -9974,11 +10088,6 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 
   switch (GET_CODE (rtl))
     {
-    case ADDRESSOF:
-      /* The address of a variable that was optimized away;
-	 don't emit anything.  */
-      break;
-
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -10130,53 +10239,6 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
       break;
 
     case SAVE_EXPR:
-      /* If optimization is turned on, the SAVE_EXPRs that describe how to
-	 access the upper bound values may be bogus.  If they refer to a
-	 register, they may only describe how to get at these values at the
-	 points in the generated code right after they have just been
-	 computed.  Worse yet, in the typical case, the upper bound values
-	 will not even *be* computed in the optimized code (though the
-	 number of elements will), so these SAVE_EXPRs are entirely
-	 bogus. In order to compensate for this fact, we check here to see
-	 if optimization is enabled, and if so, we don't add an attribute
-	 for the (unknown and unknowable) upper bound.  This should not
-	 cause too much trouble for existing (stupid?)  debuggers because
-	 they have to deal with empty upper bounds location descriptions
-	 anyway in order to be able to deal with incomplete array types.
-	 Of course an intelligent debugger (GDB?)  should be able to
-	 comprehend that a missing upper bound specification in an array
-	 type used for a storage class `auto' local array variable
-	 indicates that the upper bound is both unknown (at compile- time)
-	 and unknowable (at run-time) due to optimization.
-
-	 We assume that a MEM rtx is safe because gcc wouldn't put the
-	 value there unless it was going to be used repeatedly in the
-	 function, i.e. for cleanups.  */
-      if (SAVE_EXPR_RTL (bound)
-	  && (! optimize || GET_CODE (SAVE_EXPR_RTL (bound)) == MEM))
-	{
-	  dw_die_ref ctx = lookup_decl_die (current_function_decl);
-	  dw_die_ref decl_die = new_die (DW_TAG_variable, ctx, bound);
-	  rtx loc = SAVE_EXPR_RTL (bound);
-
-	  /* If the RTL for the SAVE_EXPR is memory, handle the case where
-	     it references an outer function's frame.  */
-	  if (GET_CODE (loc) == MEM)
-	    {
-	      rtx new_addr = fix_lexical_addr (XEXP (loc, 0), bound);
-
-	      if (XEXP (loc, 0) != new_addr)
-		loc = gen_rtx_MEM (GET_MODE (loc), new_addr);
-	    }
-
-	  add_AT_flag (decl_die, DW_AT_artificial, 1);
-	  add_type_attribute (decl_die, TREE_TYPE (bound), 1, 0, ctx);
-	  add_AT_location_description (decl_die, DW_AT_location,
-				       loc_descriptor (loc, true));
-	  add_AT_die_ref (subrange_die, bound_attr, decl_die);
-	}
-
-      /* Else leave out the attribute.  */
       break;
 
     case VAR_DECL:
@@ -10211,15 +10273,6 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	  ctx = comp_unit_die;
 	else
 	  ctx = lookup_decl_die (current_function_decl);
-
-	/* If we weren't able to find a context, it's most likely the case
-	   that we are processing the return type of the function.  So
-	   make a SAVE_EXPR to point to it and have the limbo DIE code
-	   find the proper die.  The save_expr function doesn't always
-	   make a SAVE_EXPR, so do it ourselves.  */
-	if (ctx == 0)
-	  bound = build (SAVE_EXPR, TREE_TYPE (bound), bound,
-			 current_function_decl, NULL_TREE);
 
 	decl_die = new_die (DW_TAG_variable, ctx, bound);
 	add_AT_flag (decl_die, DW_AT_artificial, 1);
@@ -10496,10 +10549,11 @@ add_pure_or_virtual_attribute (dw_die_ref die, tree func_decl)
 static void
 add_src_coords_attributes (dw_die_ref die, tree decl)
 {
-  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+  expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
+  unsigned file_index = lookup_filename (s.file);
 
   add_AT_unsigned (die, DW_AT_decl_file, file_index);
-  add_AT_unsigned (die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+  add_AT_unsigned (die, DW_AT_decl_line, s.line);
 }
 
 /* Add a DW_AT_name attribute and source coordinate attribute for the
@@ -10732,7 +10786,7 @@ decl_start_label (tree decl)
   const char *fnname;
 
   x = DECL_RTL (decl);
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     abort ();
 
   x = XEXP (x, 0);
@@ -11194,7 +11248,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
   else if (old_die)
     {
-      unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+      expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
+      unsigned file_index = lookup_filename (s.file);
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -11223,7 +11278,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  && (DECL_ARTIFICIAL (decl)
 	      || (get_AT_unsigned (old_die, DW_AT_decl_file) == file_index
 		  && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		      == (unsigned) DECL_SOURCE_LINE (decl)))))
+		      == (unsigned) s.line))))
 	{
 	  subr_die = old_die;
 
@@ -11242,9 +11297,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) s.line)
 	    add_AT_unsigned
-	      (subr_die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+	      (subr_die, DW_AT_decl_line, s.line);
 	}
     }
   else
@@ -11471,16 +11526,16 @@ gen_variable_die (tree decl, dw_die_ref context_die)
       add_AT_specification (var_die, old_die);
       if (DECL_NAME (decl))
 	{
-	  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+	  expanded_location s = expand_location (DECL_SOURCE_LOCATION (decl));
+	  unsigned file_index = lookup_filename (s.file);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (var_die, DW_AT_decl_file, file_index);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) s.line)
 
-	    add_AT_unsigned (var_die, DW_AT_decl_line,
-			     DECL_SOURCE_LINE (decl));
+	    add_AT_unsigned (var_die, DW_AT_decl_line, s.line);
 	}
     }
   else
@@ -11541,8 +11596,8 @@ gen_label_die (tree decl, dw_die_ref context_die)
 	 eliminated because of various optimizations.  We still emit them
 	 here so that it is possible to put breakpoints on them.  */
       if (insn
-	  && (GET_CODE (insn) == CODE_LABEL
-	      || ((GET_CODE (insn) == NOTE
+	  && (LABEL_P (insn)
+	      || ((NOTE_P (insn)
 	           && NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL))))
 	{
 	  /* When optimization is enabled (via -O) some parts of the compiler
@@ -11809,7 +11864,7 @@ gen_inheritance_die (tree binfo, tree access, dw_die_ref context_die)
   add_type_attribute (die, BINFO_TYPE (binfo), 0, 0, context_die);
   add_data_member_location_attribute (die, binfo);
 
-  if (TREE_VIA_VIRTUAL (binfo))
+  if (BINFO_VIRTUAL_P (binfo))
     add_AT_unsigned (die, DW_AT_virtuality, DW_VIRTUALITY_virtual);
 
   if (access == access_public_node)
@@ -11840,16 +11895,15 @@ gen_member_die (tree type, dw_die_ref context_die)
      the TREE node representing the appropriate (containing) type.  */
 
   /* First output info about the base classes.  */
-  if (binfo && BINFO_BASETYPES (binfo))
+  if (binfo)
     {
-      tree bases = BINFO_BASETYPES (binfo);
-      tree accesses = BINFO_BASEACCESSES (binfo);
-      int n_bases = TREE_VEC_LENGTH (bases);
+      VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
       int i;
+      tree base;
 
-      for (i = 0; i < n_bases; i++)
-	gen_inheritance_die (TREE_VEC_ELT (bases, i),
-			     (accesses ? TREE_VEC_ELT (accesses, i)
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base); i++)
+	gen_inheritance_die (base,
+			     (accesses ? VEC_index (tree, accesses, i)
 			      : access_public_node), context_die);
     }
 
@@ -12771,6 +12825,7 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
   dw_die_ref imported_die, at_import_die;
   dw_die_ref scope_die;
   unsigned file_index;
+  expanded_location xloc;
   
   if (debug_info_level <= DINFO_LEVEL_TERSE)
     return;
@@ -12802,10 +12857,11 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
     imported_die = new_die (DW_TAG_imported_module, scope_die, context);
   else
     imported_die = new_die (DW_TAG_imported_declaration, scope_die, context);
-  
-  file_index = lookup_filename (input_filename);
+
+  xloc = expand_location (input_location);
+  file_index = lookup_filename (xloc.file);
   add_AT_unsigned (imported_die, DW_AT_decl_file, file_index);
-  add_AT_unsigned (imported_die, DW_AT_decl_line, input_line);
+  add_AT_unsigned (imported_die, DW_AT_decl_line, xloc.line);
   add_AT_die_ref (imported_die, DW_AT_import, at_import_die);
 }
 
@@ -12893,7 +12949,7 @@ dwarf2out_decl (tree decl)
 
       /* Don't bother trying to generate any DIEs to represent any of the
 	 normal built-in types for the language we are compiling.  */
-      if (DECL_SOURCE_LINE (decl) == 0)
+      if (DECL_IS_BUILTIN (decl))
 	{
 	  /* OK, we need to generate one for `bool' so GDB knows what type
 	     comparisons have.  */
@@ -13066,7 +13122,7 @@ dwarf2out_var_location (rtx loc_note)
      last time.  */
   if (last_insn != NULL_RTX
       && last_insn == prev_insn
-      && GET_CODE (prev_insn) == NOTE
+      && NOTE_P (prev_insn)
       && NOTE_LINE_NUMBER (prev_insn) == NOTE_INSN_VAR_LOCATION)
     {
       newloc->label = last_label;
@@ -13612,15 +13668,6 @@ dwarf2out_finish (const char *filename)
 	    add_child_die (origin->die_parent, die);
 	  else if (die == comp_unit_die)
 	    ;
-	  /* If this was an expression for a bound involved in a function
-	     return type, it may be a SAVE_EXPR for which we weren't able
-	     to find a DIE previously.  So try now.  */
-	  else if (node->created_for
-		   && TREE_CODE (node->created_for) == SAVE_EXPR
-		   && 0 != (origin = (lookup_decl_die
-				      (SAVE_EXPR_CONTEXT
-				       (node->created_for)))))
-	    add_child_die (origin, die);
 	  else if (errorcount > 0 || sorrycount > 0)
 	    /* It's OK to be confused by errors in the input.  */
 	    add_child_die (comp_unit_die, die);

@@ -2,21 +2,21 @@
 
 // Origin: Giovanni Bajo <giovannibajo@libero.it>
 
-// Two-phase name lookup for address of member:
-// Overloading function
+// PR c++/13092: ICE taking address of member which is non-dependent
 
 struct S
 {
-  int f();
-  int f(int);
+  int i;
 };
 
-template<int (S::*p)()>
+template<int S::*p>
 struct X
 {};
 
 template <class T>
 struct Foo
 {
-  X<&S::f> x;
+  X<&S::i> x;
 };
+
+template struct Foo<void>;

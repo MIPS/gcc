@@ -419,10 +419,7 @@ namespace std
        */
       basic_string&
       operator=(const basic_string& __str) 
-      { 
-	this->assign(__str); 
-	return *this;
-      }
+      { return this->assign(__str); }
 
       /**
        *  @brief  Copy contents of @a s into this string.
@@ -430,10 +427,7 @@ namespace std
        */
       basic_string&
       operator=(const _CharT* __s) 
-      { 
-	this->assign(__s); 
-	return *this;
-      }
+      { return this->assign(__s); }
 
       /**
        *  @brief  Set value to string of length 1.
@@ -1294,47 +1288,47 @@ namespace std
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
       basic_string&
-        replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2, _CharT* __k1, _CharT* __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1, __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2,
-		const _CharT* __k1, const _CharT* __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1, __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2,
+	      const _CharT* __k1, const _CharT* __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1, __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1.base(), __k2 - __k1);
-	}
+      replace(iterator __i1, iterator __i2, iterator __k1, iterator __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1.base(), __k2 - __k1);
+      }
 
       basic_string&
-        replace(iterator __i1, iterator __i2,
-		const_iterator __k1, const_iterator __k2)
-        {
-	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				   && __i2 <= _M_iend());
-	  __glibcxx_requires_valid_range(__k1, __k2);
-	  return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
-			       __k1.base(), __k2 - __k1);
-	}
-
+      replace(iterator __i1, iterator __i2,
+	      const_iterator __k1, const_iterator __k2)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());
+	__glibcxx_requires_valid_range(__k1, __k2);
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1,
+			     __k1.base(), __k2 - __k1);
+      }
+      
     private:
       template<class _Integer>
 	basic_string&

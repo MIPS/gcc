@@ -896,14 +896,12 @@ read_graph_file (void)
 	}
       gcov_sync (base, length);
       if (gcov_is_error ())
-	break;
-    }
-  if (!gcov_is_eof ())
-    {
-    corrupt:;
-      fnotice (stderr, "%s:corrupted\n", bbg_file_name);
-      gcov_close ();
-      return 1;
+	{
+	corrupt:;
+	  fnotice (stderr, "%s:corrupted\n", bbg_file_name);
+	  gcov_close ();
+	  return 1;
+	}
     }
   gcov_close ();
 
@@ -1055,14 +1053,11 @@ read_count_file (void)
 	}
       gcov_sync (base, length);
       if ((error = gcov_is_error ()))
-	break;
-    }
-
-  if (!gcov_is_eof ())
-    {
-      fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
-	       da_file_name);
-      goto cleanup;
+	{
+	  fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
+		   da_file_name);
+	  goto cleanup;
+	}
     }
 
   gcov_close ();
@@ -1391,7 +1386,7 @@ function_summary (const coverage_t *coverage, const char *title)
 	     format_gcov (coverage->lines_executed, coverage->lines, 2),
 	     coverage->lines);
   else
-    fnotice (stdout, "No executable lines");
+    fnotice (stdout, "No executable lines\n");
 
   if (flag_branches)
     {
@@ -1738,7 +1733,7 @@ accumulate_line_counts (source_t *src)
     }
 }
 
-/* Ouput information about ARC number IX.  Returns nonzero if
+/* Output information about ARC number IX.  Returns nonzero if
    anything is output.  */
 
 static int

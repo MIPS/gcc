@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "langhooks.h"
 #include "cfglayout.h"
+#include "tree-gimple.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -163,7 +164,6 @@ struct ia64_frame_info
 /* Current frame information calculated by ia64_compute_frame_size.  */
 static struct ia64_frame_info current_frame_info;
 
-static int ia64_use_dfa_pipeline_interface (void);
 static int ia64_first_cycle_multipass_dfa_lookahead (void);
 static void ia64_dependencies_evaluation_hook (rtx, rtx);
 static void ia64_init_dfa_pre_cycle_insn (void);
@@ -189,6 +189,8 @@ static rtx gen_fr_restore_x (rtx, rtx, rtx);
 static enum machine_mode hfa_element_mode (tree, int);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
+static bool ia64_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				    tree, bool);
 static bool ia64_function_ok_for_sibcall (tree, tree);
 static bool ia64_return_in_memory (tree, tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
@@ -273,6 +275,7 @@ static void ia64_vms_init_libfuncs (void)
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
+static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 
 
 /* Table of valid machine attributes.  */
@@ -339,9 +342,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
 #define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK ia64_dependencies_evaluation_hook
 
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE ia64_use_dfa_pipeline_interface
-
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD ia64_first_cycle_multipass_dfa_lookahead
 
@@ -359,6 +359,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL ia64_function_ok_for_sibcall
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE ia64_pass_by_reference
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
@@ -401,11 +403,18 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_STRUCT_VALUE_RTX ia64_struct_value_rtx
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ia64_return_in_memory
-
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS ia64_setup_incoming_varargs
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
+#undef TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
+
+#undef TARGET_GIMPLIFY_VA_ARG_EXPR
+#define TARGET_GIMPLIFY_VA_ARG_EXPR ia64_gimplify_va_arg
+
+#undef TARGET_UNWIND_EMIT
+#define TARGET_UNWIND_EMIT process_for_unwind_directive
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -462,6 +471,7 @@ got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   switch (GET_CODE (op))
     {
     case CONST:
+      /* Accept only (plus (symbol_ref) (const_int)).  */
       op = XEXP (op, 0);
       if (GET_CODE (op) != PLUS)
 	return 0;
@@ -471,25 +481,19 @@ got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (GET_CODE (op) != CONST_INT)
 	return 0;
 
-	return 1;
-
-      /* Ok if we're not using GOT entries at all.  */
-      if (TARGET_NO_PIC || TARGET_AUTO_PIC)
-	return 1;
-
-      /* "Ok" while emitting rtl, since otherwise we won't be provided
-	 with the entire offset during emission, which makes it very
-	 hard to split the offset into high and low parts.  */
-      if (rtx_equal_function_value_matters)
-	return 1;
-
-      /* Force the low 14 bits of the constant to zero so that we do not
-	 use up so many GOT entries.  */
-      return (INTVAL (op) & 0x3fff) == 0;
+     /* Ok if we're not using GOT entries at all.  */
+     if (TARGET_NO_PIC || TARGET_AUTO_PIC)
+      return 1;
+      
+     /* The low 14 bits of the constant have been forced to zero
+	by ia64_expand_load_address, so that we do not use up so
+	many GOT entries.  Prevent cse from undoing this.  */
+     return (INTVAL (op) & 0x3fff) == 0;
 
     case SYMBOL_REF:
-      if (SYMBOL_REF_SMALL_ADDR_P (op))
-	return 0;
+      /* This sort of load should not be used for things in sdata.  */
+      return !SYMBOL_REF_SMALL_ADDR_P (op);
+
     case LABEL_REF:
       return 1;
 
@@ -537,54 +541,6 @@ function_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
     return 1;
   else
     return 0;
-}
-
-/* Return 1 if OP is setjmp or a similar function.  */
-
-/* ??? This is an unsatisfying solution.  Should rethink.  */
-
-int
-setjmp_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  const char *name;
-  int retval = 0;
-
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-
-  name = XSTR (op, 0);
-
-  /* The following code is borrowed from special_function_p in calls.c.  */
-
-  /* Disregard prefix _, __ or __x.  */
-  if (name[0] == '_')
-    {
-      if (name[1] == '_' && name[2] == 'x')
-	name += 3;
-      else if (name[1] == '_')
-	name += 2;
-      else
-	name += 1;
-    }
-
-  if (name[0] == 's')
-    {
-      retval
-	= ((name[1] == 'e'
-	    && (! strcmp (name, "setjmp")
-		|| ! strcmp (name, "setjmp_syscall")))
-	   || (name[1] == 'i'
-	       && ! strcmp (name, "sigsetjmp"))
-	   || (name[1] == 'a'
-	       && ! strcmp (name, "savectx")));
-    }
-  else if ((name[0] == 'q' && name[1] == 's'
-	    && ! strcmp (name, "qsetjmp"))
-	   || (name[0] == 'v' && name[1] == 'f'
-	       && ! strcmp (name, "vfork")))
-    retval = 1;
-
-  return retval;
 }
 
 /* Return 1 if OP is a general operand, excluding tls symbolic operands.  */
@@ -946,30 +902,6 @@ ar_pfs_reg_operand (register rtx op, enum machine_mode mode)
 	  && REGNO (op) == AR_PFS_REGNUM);
 }
 
-/* Like general_operand, but don't allow (mem (addressof)).  */
-
-int
-general_xfmode_operand (rtx op, enum machine_mode mode)
-{
-  if (! general_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == ADDRESSOF)
-    return 0;
-  return 1;
-}
-
-/* Similarly.  */
-
-int
-destination_xfmode_operand (rtx op, enum machine_mode mode)
-{
-  if (! destination_operand (op, mode))
-    return 0;
-  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == ADDRESSOF)
-    return 0;
-  return 1;
-}
-
 /* Similarly.  */
 
 int
@@ -1203,7 +1135,7 @@ ia64_expand_load_address (rtx dest, rtx src)
   if (GET_CODE (src) == CONST
       && GET_CODE (XEXP (src, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
-      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x1fff) != 0)
+      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x3fff) != 0)
     {
       rtx sym = XEXP (XEXP (src, 0), 0);
       HOST_WIDE_INT ofs, hi, lo;
@@ -1635,17 +1567,16 @@ spill_xfmode_operand (rtx in, int force)
       && GET_MODE (SUBREG_REG (in)) == TImode
       && GET_CODE (SUBREG_REG (in)) == REG)
     {
-      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE, /*rescan=*/true);
-      return gen_rtx_MEM (XFmode, copy_to_reg (XEXP (mem, 0)));
+      rtx memt = assign_stack_temp (TImode, 16, 0);
+      emit_move_insn (memt, SUBREG_REG (in));
+      return adjust_address (memt, XFmode, 0);
     }
   else if (force && GET_CODE (in) == REG)
     {
-      rtx mem = gen_mem_addressof (in, NULL_TREE, /*rescan=*/true);
-      return gen_rtx_MEM (XFmode, copy_to_reg (XEXP (mem, 0)));
+      rtx memx = assign_stack_temp (XFmode, 16, 0);
+      emit_move_insn (memx, in);
+      return memx;
     }
-  else if (GET_CODE (in) == MEM
-	   && GET_CODE (XEXP (in, 0)) == ADDRESSOF)
-    return change_address (in, XFmode, copy_to_reg (XEXP (in, 0)));
   else
     return in;
 }
@@ -1694,6 +1625,7 @@ ia64_expand_compare (enum rtx_code code, enum machine_mode mode)
 	case NE:        magic = QCMP_EQ;                  ncode = EQ; break;
 	  /* isunordered() from C99.  */
 	case UNORDERED: magic = QCMP_UNORD;               ncode = NE; break;
+	case ORDERED:   magic = QCMP_UNORD;               ncode = EQ; break;
 	  /* Relational operators raise FP_INVALID when given
 	     an SNaN operand.  */
 	case LT:        magic = QCMP_LT        |QCMP_INV; ncode = NE; break;
@@ -3475,6 +3407,11 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 	}
     }
 
+  /* Make sure addresses are Pmode even if we are in ILP32 mode. */
+  addr = convert_memory_address (Pmode, addr);
+  fnaddr = convert_memory_address (Pmode, fnaddr);
+  static_chain = convert_memory_address (Pmode, static_chain);
+
   /* Load up our iterator.  */
   addr_reg = gen_reg_rtx (Pmode);
   emit_move_insn (addr_reg, addr);
@@ -3747,8 +3684,12 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	}
 
       /* If we ended up using just one location, just return that one loc, but
-	 change the mode back to the argument mode.  */
-      if (i == 1)
+	 change the mode back to the argument mode.  However, we can't do this
+	 when hfa_mode is XFmode and mode is TImode.  In that case, we would
+	 return a TImode reference to an FP reg, but FP regs can't hold TImode.
+	 We need the PARALLEL to make this work.  This can happen for a union
+	 containing a single __float80 member.  */
+      if (i == 1 && ! (hfa_mode == XFmode && mode == TImode))
 	return gen_rtx_REG (mode, REGNO (XEXP (loc[0], 0)));
       else
 	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
@@ -3931,10 +3872,10 @@ ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 /* Variable sized types are passed by reference.  */
 /* ??? At present this is a GCC extension to the IA-64 ABI.  */
 
-int
-ia64_function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-				     enum machine_mode mode ATTRIBUTE_UNUSED,
-				     tree type, int named ATTRIBUTE_UNUSED)
+static bool
+ia64_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+			enum machine_mode mode ATTRIBUTE_UNUSED,
+			tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -3953,20 +3894,15 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 
 /* Implement va_arg.  */
 
-rtx
-ia64_va_arg (tree valist, tree type)
+static tree
+ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 {
-  tree t;
-
   /* Variable sized types are passed by reference.  */
-  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
-      rtx addr = force_reg (ptr_mode,
-	    std_expand_builtin_va_arg (valist, build_pointer_type (type)));
-#ifdef POINTERS_EXTEND_UNSIGNED
-      addr = convert_memory_address (Pmode, addr);
-#endif
-      return gen_rtx_MEM (ptr_mode, addr);
+      tree ptrtype = build_pointer_type (type);
+      tree addr = std_gimplify_va_arg_expr (valist, ptrtype, pre_p, post_p);
+      return build_fold_indirect_ref (addr);
     }
 
   /* Aggregate arguments with alignment larger than 8 bytes start at
@@ -3976,16 +3912,15 @@ ia64_va_arg (tree valist, tree type)
   if ((TREE_CODE (type) == REAL_TYPE || TREE_CODE (type) == INTEGER_TYPE)
       ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
-      t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
-		 build_int_2 (2 * UNITS_PER_WORD - 1, 0));
+      tree t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
+		      build_int_2 (2 * UNITS_PER_WORD - 1, 0));
       t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
 		 build_int_2 (-2 * UNITS_PER_WORD, -1));
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      gimplify_and_add (t, pre_p);
     }
 
-  return std_expand_builtin_va_arg (valist, type);
+  return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 }
 
 /* Return 1 if function return value returned in memory.  Return 0 if it is
@@ -6333,14 +6268,22 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 	}
       else if (reload_completed)
 	setup_clocks_p = TRUE;
-      memcpy (curr_state, prev_cycle_state, dfa_state_size);
-      state_transition (curr_state, dfa_stop_insn);
-      state_transition (curr_state, dfa_pre_cycle_insn);
-      state_transition (curr_state, NULL);
+      if (GET_CODE (PATTERN (last_scheduled_insn)) == ASM_INPUT
+	  || asm_noperands (PATTERN (last_scheduled_insn)) >= 0)
+	state_reset (curr_state);
+      else
+	{
+	  memcpy (curr_state, prev_cycle_state, dfa_state_size);
+	  state_transition (curr_state, dfa_stop_insn);
+	  state_transition (curr_state, dfa_pre_cycle_insn);
+	  state_transition (curr_state, NULL);
+	}
     }
   else if (reload_completed)
     setup_clocks_p = TRUE;
-  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM)
+  if (setup_clocks_p && ia64_tune == PROCESSOR_ITANIUM
+      && GET_CODE (PATTERN (insn)) != ASM_INPUT
+      && asm_noperands (PATTERN (insn)) < 0)
     {
       enum attr_itanium_class c = ia64_safe_itanium_class (insn);
 
@@ -6954,7 +6897,8 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		 guarantee issuing all insns on the same cycle for
 		 Itanium 1, we need to issue 2 nops after the first M
 		 insn (MnnMII where n is a nop insn).  */
-	      || (type == TYPE_M && ia64_tune == PROCESSOR_ITANIUM
+	      || ((type == TYPE_M || type == TYPE_A)
+		  && ia64_tune == PROCESSOR_ITANIUM
 		  && !bundle_end_p && pos == 1))
 	    issue_nops_and_insn (curr_state, 2, insn, bundle_end_p,
 				 only_bundle_end_p);
@@ -7205,7 +7149,9 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
 		      = gen_bundle_selector (const2_rtx); /* -> MFI */
 		  break;
 		}
-	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
+	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier
+		       && (ia64_safe_itanium_class (last)
+			   != ITANIUM_CLASS_IGNORE))
 		n++;
 	    /* Some check of correctness: the stop is not at the
 	       bundle start, there are no more 3 insns in the bundle,
@@ -7372,15 +7318,6 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 }
 
 
-
-/* If the following function returns TRUE, we will use the the DFA
-   insn scheduler.  */
-
-static int
-ia64_use_dfa_pipeline_interface (void)
-{
-  return 1;
-}
 
 /* If the following function returns TRUE, we will use the the DFA
    insn scheduler.  */
@@ -7664,11 +7601,12 @@ ia64_reorg (void)
       insn = get_last_insn ();
       if (! INSN_P (insn))
         insn = prev_active_insn (insn);
-      if (GET_CODE (insn) == INSN
-	  && GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
-	  && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
-	{
-	  saw_stop = 1;
+      /* Skip over insns that expand to nothing.  */
+      while (GET_CODE (insn) == INSN && get_attr_empty (insn) == EMPTY_YES)
+        {
+	  if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
+	      && XINT (PATTERN (insn), 1) == UNSPECV_INSN_GROUP_BARRIER)
+	    saw_stop = 1;
 	  insn = prev_active_insn (insn);
 	}
       if (GET_CODE (insn) == CALL_INSN)
@@ -8147,13 +8085,13 @@ ia64_init_builtins (void)
   fpreg_type = make_node (REAL_TYPE);
   /* ??? The back end should know to load/save __fpreg variables using
      the ldf.fill and stf.spill instructions.  */
-  TYPE_PRECISION (fpreg_type) = 96;
+  TYPE_PRECISION (fpreg_type) = 80;
   layout_type (fpreg_type);
   (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
 
   /* The __float80 type.  */
   float80_type = make_node (REAL_TYPE);
-  TYPE_PRECISION (float80_type) = 96;
+  TYPE_PRECISION (float80_type) = 80;
   layout_type (float80_type);
   (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
 
@@ -8170,8 +8108,9 @@ ia64_init_builtins (void)
     (*lang_hooks.types.register_builtin_type) (long_double_type_node,
 					       "__float128");
 
-#define def_builtin(name, type, code) \
-  builtin_function ((name), (type), (code), BUILT_IN_MD, NULL, NULL_TREE)
+#define def_builtin(name, type, code)					\
+  lang_hooks.builtin_function ((name), (type), (code), BUILT_IN_MD,	\
+			       NULL, NULL_TREE)
 
   def_builtin ("__sync_val_compare_and_swap_si", si_ftype_psi_si_si,
 	       IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI);
@@ -8924,6 +8863,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   reload_completed = 1;
   epilogue_completed = 1;
   no_new_pseudos = 1;
+  reset_block_changes ();
 
   /* Set things up as ia64_expand_prologue might.  */
   last_scratch_gr_reg = 15;

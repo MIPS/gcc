@@ -24,6 +24,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define LIBCPP_INTERNAL_H
 
 #include "symtab.h"
+#include "cpp-id-data.h"
 
 #if defined HAVE_ICONV_H && defined HAVE_ICONV
 #include <iconv.h>
@@ -44,11 +45,6 @@ struct cset_converter
   convert_f func;
   iconv_t cd;
 };
-
-#ifndef HAVE_UCHAR
-typedef unsigned char uchar;
-#endif
-#define U (const uchar *)  /* Intended use: U"string" */
 
 #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))
 
@@ -89,44 +85,6 @@ struct dummy
 #define DEFAULT_ALIGNMENT offsetof (struct dummy, u)
 #define CPP_ALIGN2(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
 #define CPP_ALIGN(size) CPP_ALIGN2 (size, DEFAULT_ALIGNMENT)
-
-/* Each macro definition is recorded in a cpp_macro structure.
-   Variadic macros cannot occur with traditional cpp.  */
-struct cpp_macro
-{
-  /* Parameters, if any.  */
-  cpp_hashnode **params;
-
-  /* Replacement tokens (ISO) or replacement text (traditional).  See
-     comment at top of cpptrad.c for how traditional function-like
-     macros are encoded.  */
-  union
-  {
-    cpp_token *tokens;
-    const uchar *text;
-  } exp;
-
-  /* Definition line number.  */
-  fileline line;
-
-  /* Number of tokens in expansion, or bytes for traditional macros.  */
-  unsigned int count;
-
-  /* Number of parameters.  */
-  unsigned short paramc;
-
-  /* If a function-like macro.  */
-  unsigned int fun_like : 1;
-
-  /* If a variadic macro.  */
-  unsigned int variadic : 1;
-
-  /* If macro defined in system header.  */
-  unsigned int syshdr   : 1;
-
-  /* Nonzero if it has been expanded or had its existence tested.  */
-  unsigned int used     : 1;
-};
 
 #define _cpp_mark_macro_used(NODE) do {					\
   if ((NODE)->type == NT_MACRO && !((NODE)->flags & NODE_BUILTIN))	\
@@ -246,6 +204,10 @@ struct lexer_state
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
 
+  /* Nonzero if prevent_expansion is true only because output is
+     being discarded.  */
+  unsigned char discarding_output;
+
   /* Nonzero to skip evaluating part of an expression.  */
   unsigned int skip_eval;
 };
@@ -346,7 +308,7 @@ struct cpp_reader
   struct line_maps *line_table;
 
   /* The line of the '#' of the current directive.  */
-  fileline directive_line;
+  source_location directive_line;
 
   /* Memory buffers.  */
   _cpp_buff *a_buff;		/* Aligned permanent storage.  */
@@ -372,6 +334,7 @@ struct cpp_reader
 
   /* File and directory hash table.  */
   struct htab *file_hash;
+  struct htab *dir_hash;
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
 
@@ -459,7 +422,7 @@ struct cpp_reader
     uchar *base;
     uchar *limit;
     uchar *cur;
-    fileline first_line;
+    source_location first_line;
   } out;
 
   /* Used for buffer overlays by cpptrad.c.  */
@@ -597,11 +560,6 @@ extern const char *_cpp_default_encoding (void);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1
-#define xnew(T)		(T *) xmalloc (sizeof(T))
-#define xcnew(T)	(T *) xcalloc (1, sizeof(T))
-#define xnewvec(T, N)	(T *) xmalloc (sizeof(T) * (N))
-#define xcnewvec(T, N)	(T *) xcalloc (N, sizeof(T))
-#define xobnew(O, T)	(T *) obstack_alloc (O, sizeof(T))
 
 /* These are inline functions instead of macros so we can get type
    checking.  */

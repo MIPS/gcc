@@ -1,5 +1,5 @@
 /* Array things
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -605,6 +605,7 @@ gfc_insert_constructor (gfc_expr * base, gfc_constructor * c1)
 {
   gfc_constructor *c, *pre;
   expr_t type;
+  int t;
 
   type = base->expr_type;
 
@@ -617,12 +618,13 @@ gfc_insert_constructor (gfc_expr * base, gfc_constructor * c1)
         {
           if (type == EXPR_ARRAY)
             {
-              if (mpz_cmp (c->n.offset, c1->n.offset) < 0)
+	      t = mpz_cmp (c->n.offset, c1->n.offset);
+              if (t < 0)
                 {
                   pre = c;
                   c = c->next;
                 }
-              else if (mpz_cmp (c->n.offset, c1->n.offset) == 0)
+              else if (t == 0)
                 {
                   gfc_error ("duplicated initializer");
                   break;
@@ -1970,4 +1972,23 @@ gfc_find_array_ref (gfc_expr * e)
     gfc_internal_error ("gfc_find_array_ref(): No ref found");
 
   return &ref->u.ar;
+}
+
+
+/* Find out if an array shape is known at compile time.  */
+
+int
+gfc_is_compile_time_shape (gfc_array_spec *as)
+{
+  int i;
+
+  if (as->type != AS_EXPLICIT)
+    return 0;
+
+  for (i = 0; i < as->rank; i++)
+    if (!gfc_is_constant_expr (as->lower[i])
+	|| !gfc_is_constant_expr (as->upper[i]))
+      return 0;
+
+  return 1;
 }

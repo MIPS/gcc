@@ -515,23 +515,33 @@ write_float (fnode *f, const char *source, int len)
      if (res == 0)
        {
          nb =  f->u.real.w;
-         if (nb <= 4)
-            nb = 4;
          p = write_block (nb);
-         memset (p, ' ' , 1);
-         
-         res = isinf (n);
+         if (nb < 3)
+         {
+             memset (p, '*',nb);
+             return;
+         }
+
+         memset(p, ' ', nb);
+         res = !isnan (n); 
          if (res != 0)
          {
-            if (res > 0)
-               fin = '+';
-            else
+            if (signbit(n))   
                fin = '-';
-         
-             memset (p + 1, fin, nb - 1);
+            else
+               fin = '+';
+
+            if (nb > 7)
+               memcpy(p + nb - 8, "Infinity", 8); 
+            else
+               memcpy(p + nb - 3, "Inf", 3);
+            if (nb < 8 && nb > 3)
+               p[nb - 4] = fin;
+            else if (nb > 8)
+               p[nb - 9] = fin; 
           }
          else
-             sprintf(p + 1, "NaN");
+             memcpy(p + nb - 3, "NaN", 3);
          return;
        }
    }

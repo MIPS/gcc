@@ -285,36 +285,41 @@ Necessary (only on some platforms) to untar the source code.  Many
 systems' @command{tar} programs will also work, only try GNU
 @command{tar} if you have problems.
 
+@item GNU Multiple Precision Library (GMP) version 4.0 (or later)
+
+Necessary to build the Fortran frontend. If you don't have it
+installed in your library search path, you will have to configure with
+the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
+
 @end table
 
 
 @heading Tools/packages necessary for modifying GCC
 @table @asis
-
 @item autoconf versions 2.13 and 2.59
 @itemx GNU m4 version 1.4 (or later)
 
 Necessary when modifying @file{configure.ac}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
-directories require autoconf 2.59 (exactly), but the toplevel, @file{libf2c},
-@file{libobjc}, @file{zlib}, and @file{libjava} (except for 
-@file{libjava/libltdl}) still require autoconf 2.13 (exactly).
+directories require autoconf 2.59 (exactly), but the toplevel and
+@file{libjava} (but not @file{libjava/libltdl}) still require autoconf
+2.13 (exactly).
 
-@item automake versions 1.4-gcj and 1.7.9
+@item automake versions 1.4-gcj and 1.8.5
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
 
 Much of GCC does not use automake, so directly edit the @file{Makefile.in}
 file.  Specifically this applies to the @file{gcc}, @file{intl},
-@file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
+@file{libiberty}, @file{libobjc} directories as well as any
 of their subdirectories.
 
-The @file{libstdc++-v3}, @file{libjava/libltdl}, @file{fastjar} and
-@file{libffi} directories require automake 1.7.9. However, the Java
-directories, which include @file{boehm-gc}, @file{libjava}, and @file{zlib},
-require a modified version of automake 1.4 downloadable from
+The Java directory @file{libjava} requires a modified version of
+automake 1.4 downloadable from
 @uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
+
+Every other directory requires automake 1.8.5.
 
 @item gettext version 0.12 (or later)
 
@@ -426,7 +431,7 @@ tarballs compressed with @command{gzip} or
 @command{bzip2}.  It is possible to download a full distribution or specific
 components.
 
-Please refer to our @uref{http://gcc.gnu.org/releases.html,,releases web page}
+Please refer to the @uref{http://gcc.gnu.org/releases.html,,releases web page}
 for information on how to obtain GCC@.
 
 The full distribution includes the C, C++, Objective-C, Fortran 77, Fortran
@@ -741,19 +746,15 @@ installing GCC creates the directory.
 @item --enable-shared[=@var{package}[,@dots{}]]
 Build shared versions of libraries, if shared libraries are supported on
 the target platform.  Unlike GCC 2.95.x and earlier, shared libraries
-are enabled by default on all platforms that support shared libraries,
-except for @samp{libobjc} which is built as a static library only by
-default.
+are enabled by default on all platforms that support shared libraries.
 
 If a list of packages is given as an argument, build shared libraries
 only for the listed packages.  For other packages, only static libraries
 will be built.  Package names currently recognized in the GCC tree are
 @samp{libgcc} (also known as @samp{gcc}), @samp{libstdc++} (not
-@samp{libstdc++-v3}), @samp{libffi}, @samp{zlib}, @samp{boehm-gc} and
-@samp{libjava}.  Note that @samp{libobjc} does not recognize itself by
-any name, so, if you list package names in @option{--enable-shared},
-you will only get static Objective-C libraries.  @samp{libf2c} and
-@samp{libiberty} do not support shared libraries at all.
+@samp{libstdc++-v3}), @samp{libffi}, @samp{zlib}, @samp{boehm-gc},
+@samp{ada}, @samp{libada}, @samp{libjava} and @samp{libobjc}.
+Note @samp{libiberty} does not support shared libraries at all.
 
 Use @option{--disable-shared} to build only static libraries.  Note that
 @option{--disable-shared} does not accept a list of package names as
@@ -1016,9 +1017,9 @@ addition, @samp{libstdc++}'s include files will be installed into
 @file{@var{libdir}} unless you overruled it by using
 @option{--with-gxx-include-dir=@var{dirname}}.  Using this option is
 particularly useful if you intend to use several versions of GCC in
-parallel. This is currently supported by @samp{libf2c} and
-@samp{libstdc++}, and is the default for @samp{libobjc} which cannot be
-changed in this case.
+parallel. This is currently supported by @samp{libgfortran},
+@samp{libjava}, @samp{libmudflap}, @samp{libstdc++}, and @samp{libobjc}.
+
 
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
@@ -1194,6 +1195,22 @@ Specifies that @samp{newlib} is
 being used as the target C library.  This causes @code{__eprintf} to be
 omitted from @file{libgcc.a} on the assumption that it will be provided by
 @samp{newlib}.
+@end table
+
+@subheading Fortran-specific Option
+
+The following options apply to the build of the Fortran front end.
+
+@table @code
+
+@item --with-gmp=@var{pathname}
+@itemx --with-gmp-dir=@var{pathname}
+If you don't have GMP (the GNU Multiple Precision library) installed
+in a standard location and you want to build the Fortran front-end,
+you can explicitly specify the directory where GMP is installed
+(@samp{--with-gmp=gmpinstalldir}) or where you built the GMP library without
+installing (@samp{--with-gmp-dir=gmpbuilddir}).
+
 @end table
 
 @subheading Java-Specific Options
@@ -1460,6 +1477,12 @@ around this, by choosing @code{BOOT_CFLAGS} to avoid the parts of the
 stage1 compiler that were miscompiled, or by using @samp{make
 bootstrap4} to increase the number of stages of bootstrap.
 
+Note that using non-standard @code{CFLAGS} can cause bootstrap to fail in
+@file{libiberty}, if these trigger a warning with the new compiler.  For
+example using @samp{-O2 -g -mcpu=i686} on @code{i686-pc-linux-gnu} will
+cause bootstrap failure as @code{-mcpu=} is deprecated in 3.4.0 and above.
+
+
 If you used the flag @option{--enable-languages=@dots{}} to restrict
 the compilers to be built, only those you've actually enabled will be
 built.  This will of course only build those runtime libraries, for
@@ -1665,7 +1688,7 @@ might emit some harmless messages resembling
 @samp{WARNING: Couldn't find the global config file.} or
 @samp{WARNING: Couldn't find tool init file} that can be ignored.
 
-@section How can I run the test suite on selected tests?
+@section How can you run the testsuite on selected tests?
 
 In order to run sets of tests selectively, there are targets
 @samp{make check-gcc} and @samp{make check-g++}
@@ -1714,7 +1737,7 @@ You can run the testsuites multiple times using combinations of options
 with a syntax similar to the brace expansion of popular shells:
 
 @smallexample
-    @dots{}"--target_board=arm-sim@{-mhard-float,-msoft-float@}@{-O1,-O2,-O3,@}"
+    @dots{}"--target_board=arm-sim/@{-mhard-float,-msoft-float@}@{-O1,-O2,-O3,@}"
 @end smallexample
 
 (Note the empty option caused by the trailing comma in the final group.)
@@ -1778,7 +1801,7 @@ specifying the location of that tree when invoking @samp{make}, as in
 @samp{make MAUVEDIR=~/mauve check}.
 
 @uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
-is a free test suite that tests Java compiler front ends.  This suite
+is a free testsuite that tests Java compiler front ends.  This suite
 can be run as part of libgcj testing by placing the Jacks tree within
 the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 
@@ -1808,9 +1831,9 @@ WARNING: the testsuite detected a possible problem
 @end itemize
 
 It is normal for some tests to report unexpected failures.  At the
-current time our testing harness does not allow fine grained control
-over whether or not a test is expected to fail.  We expect to fix this
-problem in future releases.
+current time the testing harness does not allow fine grained control
+over whether or not a test is expected to fail.  This problem should
+be fixed in future releases.
 
 
 @section Submitting test results
@@ -1909,7 +1932,7 @@ Include the following information:
 
 @itemize @bullet
 @item
-Output from running @file{@var{srcdir}/config.guess}.  Do not send us
+Output from running @file{@var{srcdir}/config.guess}.  Do not send
 that file itself, just the one-line output from running it.
 
 @item
@@ -1958,9 +1981,9 @@ We'd also like to know if the
 @end ifhtml
 didn't include your host/target information or if that information is
 incomplete or out of date.  Send a note to
-@email{gcc@@gcc.gnu.org} telling us how the information should be changed.
+@email{gcc@@gcc.gnu.org} detailing how the information should be changed.
 
-If you find a bug, please report it following our
+If you find a bug, please report it following the
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
@@ -2065,6 +2088,10 @@ Digital UNIX 4.0D and 5.1,
 GNU/Linux (i386),
 HP-UX 10.20, 11.00, and 11.11, and
 Solaris/SPARC 2.5.1, 2.6, 2.7, 8, and 9,
+
+@item
+@uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a
+number of platforms.
 @end itemize
 
 In addition to those specific offerings, you can get a binary
@@ -2506,7 +2533,7 @@ information about this platform is available at
 @end html
 @heading @anchor{dos}DOS
 
-Please have a look at our @uref{binaries.html,,binaries page}.
+Please have a look at the @uref{binaries.html,,binaries page}.
 
 You cannot install GCC by itself on MSDOS; it will not compile under
 any MSDOS compiler except itself.  You need to get the complete
@@ -2567,7 +2594,7 @@ Shared @file{libgcc_s.so} is now built and installed by default.
 @heading @anchor{h8300-hms}h8300-hms
 Renesas H8/300 series of processors.
 
-Please have a look at our @uref{binaries.html,,binaries page}.
+Please have a look at the @uref{binaries.html,,binaries page}.
 
 The calling convention and structure layout has changed in release 2.6.
 All code must be recompiled.  The calling convention now passes the
@@ -2580,9 +2607,8 @@ longer a multiple of 2 bytes.
 @heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
 Support for HP-UX version 9 and older was discontinued in GCC 3.4.
 
-We @emph{highly} recommend using gas/binutils 2.8 or newer on all hppa
-platforms; you may encounter a variety of problems when using the HP
-assembler.
+We @emph{highly} recommend using gas/binutils on all hppa platforms;
+you may encounter a variety of problems when using the HP assembler.
 
 Specifically, @option{-g} does not work on HP-UX (since that system
 uses a peculiar debugging format which GCC does not know about), unless you
@@ -2637,6 +2663,13 @@ the 3-stage comparison test to fail during a @samp{make bootstrap}.
 You should be able to continue by saying @samp{make all} after getting
 the failure from @samp{make bootstrap}.
 
+GCC 3.5 requires CVS binutils as of April 28, 2004 or later.  Earlier
+versions require binutils 2.8 or later.
+
+The C++ ABI has changed incompatibly in GCC 3.5.  COMDAT subspaces are
+used for one-only code and data.  This resolves many of the previous
+problems in using C++ on this target.  However, the ABI is not compatible
+with the one implemented under HP-UX 11 using secondary definitions.
 
 @html
 <hr />
@@ -2705,8 +2738,8 @@ result, it's not possible to switch linkers in the middle of a GCC build.
 This has been been reported to sometimes occur in unified builds of
 binutils and GCC.
 
-With GCC 3.0 through 3.2, you must use binutils 2.11 or above.  As of
-GCC 3.3, binutils 2.14 or later is required.
+GCC 3.0 through 3.2 require binutils 2.11 or above.  GCC 3.3 through
+GCC 3.5 require binutils 2.14 or later.
 
 Although the HP assembler can be used for an initial build, it shouldn't
 be used with any languages other than C and perhaps Fortran due to its
@@ -3369,7 +3402,7 @@ supported as cross-compilation target only.
 @heading @anchor{*-*-solaris2*}*-*-solaris2*
 
 Sun does not ship a C compiler with Solaris 2.  To bootstrap and install
-GCC you first have to install a pre-built compiler, see our
+GCC you first have to install a pre-built compiler, see the
 @uref{binaries.html,,binaries page} for details.
 
 The Solaris 2 @command{/bin/sh} will often fail to configure

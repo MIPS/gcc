@@ -105,9 +105,8 @@ function_attribute_inlinable_p (tree fndecl)
   return true;
 }
 
-/* Copy NODE (which must be a DECL, but not a PARM_DECL).  The DECL
-   originally was in the FROM_FN, but now it will be in the
-   TO_FN.  */
+/* Copy NODE (which must be a DECL).  The DECL originally was in the FROM_FN,
+   but now it will be in the TO_FN.  */
 
 tree
 copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
@@ -117,36 +116,14 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
   /* Copy the declaration.  */
   if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
     {
-      tree type;
-      int invisiref = 0;
+      tree type = TREE_TYPE (decl);
 
-      /* See if the frontend wants to pass this by invisible reference.  */
-      if (TREE_CODE (decl) == PARM_DECL
-	  && DECL_ARG_TYPE (decl) != TREE_TYPE (decl)
-	  && POINTER_TYPE_P (DECL_ARG_TYPE (decl))
-	  && TREE_TYPE (DECL_ARG_TYPE (decl)) == TREE_TYPE (decl))
-	{
-	  invisiref = 1;
-	  type = DECL_ARG_TYPE (decl);
-	}
-      else
-	type = TREE_TYPE (decl);
-
-      /* For a parameter, we must make an equivalent VAR_DECL, not a
+      /* For a parameter or result, we must make an equivalent VAR_DECL, not a
 	 new PARM_DECL.  */
       copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
-      if (!invisiref)
-	{
-	  TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
-	  TREE_READONLY (copy) = TREE_READONLY (decl);
-	  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
-	}
-      else
-	{
-	  TREE_ADDRESSABLE (copy) = 0;
-	  TREE_READONLY (copy) = 1;
-	  TREE_THIS_VOLATILE (copy) = 0;
-	}
+      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      TREE_READONLY (copy) = TREE_READONLY (decl);
+      TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
     }
   else
     {
@@ -161,9 +138,13 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
       if (TREE_CODE (copy) == LABEL_DECL)
 	{
 	  TREE_ADDRESSABLE (copy) = 0;
-	  DECL_TOO_LATE (copy) = 0;
 	}
     }
+
+  /* Don't generate debug information for the copy if we wouldn't have
+     generated it for the copy either.  */
+  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (decl);
+  DECL_IGNORED_P (copy) = DECL_IGNORED_P (decl);
 
   /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what
      declaration inspired this copy.  */
@@ -326,19 +307,6 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	      emit_insn_after (seq, map->insns_at_start);
 	      return temp;
 	    }
-	  else if (REG_FUNCTION_VALUE_P (orig))
-	    {
-	      if (rtx_equal_function_value_matters)
-		/* This is an ignored return value.  We must not
-		   leave it in with REG_FUNCTION_VALUE_P set, since
-		   that would confuse subsequent inlining of the
-		   current function into a later function.  */
-		return gen_rtx_REG (GET_MODE (orig), regno);
-	      else
-		/* Must be unrolling loops or replicating code if we
-		   reach here, so return the register unchanged.  */
-		return orig;
-	    }
 	  else
 	    return orig;
 
@@ -364,46 +332,11 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 				  GET_MODE (SUBREG_REG (orig)),
 				  SUBREG_BYTE (orig));
 
-    case ADDRESSOF:
-      copy = gen_rtx_ADDRESSOF (mode,
-				copy_rtx_and_substitute (XEXP (orig, 0),
-							 map, for_lhs),
-				0, ADDRESSOF_DECL (orig));
-      regno = ADDRESSOF_REGNO (orig);
-      if (map->reg_map[regno])
-	regno = REGNO (map->reg_map[regno]);
-      else if (regno > LAST_VIRTUAL_REGISTER)
-	{
-	  temp = XEXP (orig, 0);
-	  map->reg_map[regno] = gen_reg_rtx (GET_MODE (temp));
-	  REG_USERVAR_P (map->reg_map[regno]) = REG_USERVAR_P (temp);
-	  REG_LOOP_TEST_P (map->reg_map[regno]) = REG_LOOP_TEST_P (temp);
-	  RTX_UNCHANGING_P (map->reg_map[regno]) = RTX_UNCHANGING_P (temp);
-	  /* A reg with REG_FUNCTION_VALUE_P true will never reach here.  */
-
-	  /* Objects may initially be represented as registers, but
-	     but turned into a MEM if their address is taken by
-	     put_var_into_stack.  Therefore, the register table may have
-	     entries which are MEMs.
-
-	     We briefly tried to clear such entries, but that ended up
-	     cascading into many changes due to the optimizers not being
-	     prepared for empty entries in the register table.  So we've
-	     decided to allow the MEMs in the register table for now.  */
-	  if (REG_P (map->x_regno_reg_rtx[regno])
-	      && REG_POINTER (map->x_regno_reg_rtx[regno]))
-	    mark_reg_pointer (map->reg_map[regno],
-			      map->regno_pointer_align[regno]);
-	  regno = REGNO (map->reg_map[regno]);
-	}
-      ADDRESSOF_REGNO (copy) = regno;
-      return copy;
-
     case USE:
     case CLOBBER:
       /* USE and CLOBBER are ordinary, but we convert (use (subreg foo))
 	 to (use foo) if the original insn didn't have a subreg.
-	 Removing the subreg distorts the VAX movstrhi pattern
+	 Removing the subreg distorts the VAX movmemhi pattern
 	 by changing the mode of an operand.  */
       copy = copy_rtx_and_substitute (XEXP (orig, 0), map, code == CLOBBER);
       if (GET_CODE (copy) == SUBREG && GET_CODE (XEXP (orig, 0)) != SUBREG)
@@ -438,13 +371,6 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	= (LABEL_REF_NONLOCAL_P (orig)
 	   && ! (CODE_LABEL_NUMBER (XEXP (copy, 0)) >= get_first_label_num ()
 		 && CODE_LABEL_NUMBER (XEXP (copy, 0)) < max_label_num ()));
-
-      /* If we have made a nonlocal label local, it means that this
-	 inlined call will be referring to our nonlocal goto handler.
-	 So make sure we create one for this block; we normally would
-	 not since this is not otherwise considered a "call".  */
-      if (LABEL_REF_NONLOCAL_P (orig) && ! LABEL_REF_NONLOCAL_P (copy))
-	function_call_count++;
 
       return copy;
 
@@ -505,8 +431,13 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	  ASM_OPERANDS_INPUT_VEC (copy) = map->copy_asm_operands_vector;
 	  ASM_OPERANDS_INPUT_CONSTRAINT_VEC (copy)
 	    = map->copy_asm_constraints_vector;
+#ifdef USE_MAPPED_LOCATION
+	  ASM_OPERANDS_SOURCE_LOCATION (copy)
+	    = ASM_OPERANDS_SOURCE_LOCATION (orig);
+#else
 	  ASM_OPERANDS_SOURCE_FILE (copy) = ASM_OPERANDS_SOURCE_FILE (orig);
 	  ASM_OPERANDS_SOURCE_LINE (copy) = ASM_OPERANDS_SOURCE_LINE (orig);
+#endif
 	  return copy;
 	}
       break;
@@ -558,7 +489,7 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	  equiv_loc = VARRAY_CONST_EQUIV (map->const_equiv_varray,
 					  REGNO (equiv_reg)).rtx;
 	  loc_offset
-	    = GET_CODE (equiv_loc) == REG ? 0 : INTVAL (XEXP (equiv_loc, 1));
+	    = REG_P (equiv_loc) ? 0 : INTVAL (XEXP (equiv_loc, 1));
 
 	  return gen_rtx_SET (VOIDmode, SET_DEST (orig),
 			      force_operand
@@ -675,7 +606,7 @@ try_constants (rtx insn, struct inline_remap *map)
 
   /* Enforce consistency between the addresses in the regular insn flow
      and the ones in CALL_INSN_FUNCTION_USAGE lists, if any.  */
-  if (GET_CODE (insn) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (insn))
+  if (CALL_P (insn) && CALL_INSN_FUNCTION_USAGE (insn))
     {
       subst_constants (&CALL_INSN_FUNCTION_USAGE (insn), insn, map, 1);
       apply_change_group ();
@@ -691,7 +622,7 @@ try_constants (rtx insn, struct inline_remap *map)
   /* Set up any constant equivalences made in this insn.  */
   for (i = 0; i < map->num_sets; i++)
     {
-      if (GET_CODE (map->equiv_sets[i].dest) == REG)
+      if (REG_P (map->equiv_sets[i].dest))
 	{
 	  int regno = REGNO (map->equiv_sets[i].dest);
 
@@ -765,7 +696,7 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
     case CLOBBER:
       /* The only thing we can do with a USE or CLOBBER is possibly do
 	 some substitutions in a MEM within it.  */
-      if (GET_CODE (XEXP (x, 0)) == MEM)
+      if (MEM_P (XEXP (x, 0)))
 	subst_constants (&XEXP (XEXP (x, 0), 0), insn, map, 0);
       return;
 
@@ -792,7 +723,7 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 	 be a special hack and we don't know how to treat it specially.
 	 Consider for example mulsidi3 in m68k.md.
 	 Ordinary SUBREG of a REG needs this special treatment.  */
-      if (! memonly && GET_CODE (SUBREG_REG (x)) == REG)
+      if (! memonly && REG_P (SUBREG_REG (x)))
 	{
 	  rtx inner = SUBREG_REG (x);
 	  rtx new = 0;
@@ -866,7 +797,7 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 	  }
 
 	/* Do substitute in the address of a destination in memory.  */
-	if (GET_CODE (*dest_loc) == MEM)
+	if (MEM_P (*dest_loc))
 	  subst_constants (&XEXP (*dest_loc, 0), insn, map, 0);
 
 	/* Check for the case of DEST a SUBREG, both it and the underlying
@@ -885,11 +816,11 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 	/* If storing a recognizable value save it for later recording.  */
 	if ((map->num_sets < MAX_RECOG_OPERANDS)
 	    && (CONSTANT_P (src)
-		|| (GET_CODE (src) == REG
+		|| (REG_P (src)
 		    && (REGNO (src) == VIRTUAL_INCOMING_ARGS_REGNUM
 			|| REGNO (src) == VIRTUAL_STACK_VARS_REGNUM))
 		|| (GET_CODE (src) == PLUS
-		    && GET_CODE (XEXP (src, 0)) == REG
+		    && REG_P (XEXP (src, 0))
 		    && (REGNO (XEXP (src, 0)) == VIRTUAL_INCOMING_ARGS_REGNUM
 			|| REGNO (XEXP (src, 0)) == VIRTUAL_STACK_VARS_REGNUM)
 		    && CONSTANT_P (XEXP (src, 1)))
@@ -1062,9 +993,9 @@ mark_stores (rtx dest, rtx x ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
   /* DEST is always the innermost thing set, except in the case of
      SUBREGs of hard registers.  */
 
-  if (GET_CODE (dest) == REG)
+  if (REG_P (dest))
     regno = REGNO (dest), mode = GET_MODE (dest);
-  else if (GET_CODE (dest) == SUBREG && GET_CODE (SUBREG_REG (dest)) == REG)
+  else if (GET_CODE (dest) == SUBREG && REG_P (SUBREG_REG (dest)))
     {
       regno = REGNO (SUBREG_REG (dest));
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -1300,7 +1231,7 @@ emit_initial_value_sets (void)
   seq = get_insns ();
   end_sequence ();
 
-  emit_insn_after (seq, get_insns ());
+  emit_insn_after (seq, entry_of_function ());
 }
 
 /* If the backend knows where to allocate pseudos for hard
@@ -1322,9 +1253,9 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 
       if (x == NULL_RTX || REG_N_SETS (REGNO (ivs->entries[i].pseudo)) > 1)
 	; /* Do nothing.  */
-      else if (GET_CODE (x) == MEM)
+      else if (MEM_P (x))
 	reg_equiv_memory_loc[regno] = x;
-      else if (GET_CODE (x) == REG)
+      else if (REG_P (x))
 	{
 	  reg_renumber[regno] = REGNO (x);
 	  /* Poke the regno right into regno_reg_rtx

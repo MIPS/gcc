@@ -116,13 +116,12 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
   "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
+  "NOTE_INSN_FUNCTION_END",
   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
   "NOTE_INSN_REPEATED_LINE_NUMBER",
   "NOTE_INSN_BASIC_BLOCK", "NOTE_INSN_EXPECTED_VALUE",
-  "NOTE_INSN_PREDICTION",
   "NOTE_INSN_UNLIKELY_EXECUTED_CODE",
   "NOTE_INSN_VAR_LOCATION"
 };
@@ -136,8 +135,7 @@ const char * const reg_note_name[] =
   "REG_VALUE_PROFILE", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_CROSSING_JUMP", "REG_SETJMP", "REG_ALWAYS_RETURN",
-  "REG_VTABLE_REF"
+  "REG_NON_LOCAL_GOTO", "REG_CROSSING_JUMP", "REG_SETJMP", "REG_ALWAYS_RETURN"
 };
 
 
@@ -179,7 +177,8 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (code) PASS_MEM_STAT);
+  rt = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				   RTX_SIZE (code) PASS_MEM_STAT);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -214,7 +213,6 @@ copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -224,7 +222,6 @@ copy_rtx (rtx orig)
     case CC0:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
-    case ADDRESSOF:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
@@ -315,17 +312,18 @@ shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (GET_CODE (orig))
-			       PASS_MEM_STAT);
+  copy = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				     RTX_SIZE (GET_CODE (orig)) PASS_MEM_STAT);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }
 
-/* This is 1 until after the rtl generation pass.  */
-int rtx_equal_function_value_matters;
-
 /* Nonzero when we are generating CONCATs.  */
 int generating_concat_p;
+
+/* Nonzero when we are expanding trees to RTL.  */
+int currently_expanding_to_rtl;
+
 
 /* Return 1 if X and Y are identical-looking rtx's.
    This is the Lisp function EQUAL for rtx arguments.  */
@@ -358,14 +356,7 @@ rtx_equal_p (rtx x, rtx y)
   switch (code)
     {
     case REG:
-      /* Until rtl generation is complete, don't consider a reference
-	 to the return register of the current function the same as
-	 the return from a called function.  This eases the job of
-	 function integration.  Once the distinction is no longer
-	 needed, they can be considered equivalent.  */
-      return (REGNO (x) == REGNO (y)
-	      && (! rtx_equal_function_value_matters
-		  || REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
+      return (REGNO (x) == REGNO (y));
 
     case LABEL_REF:
       return XEXP (x, 0) == XEXP (y, 0);

@@ -1,3 +1,7 @@
+2004-08-02  Jan Hubicka  <jh@suse.cz>
+
+	* merge from mainline (tree-profiling-merge-20040602)
+
 2004-06-16  Jan Hubicka  <jh@suse.cz>
 
 	* function.c (free_after_compilation): Do not free computed_goto_common*.

@@ -39,13 +39,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* Suppress g++ attempt to link in the math library automatically.
-   (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.) This needs to be -lmx for Darwin 7.0 and
-   above.  */
-#ifndef MATH_LIBRARY
+/* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
-#endif
 
 /* We have atexit.  */
 
@@ -135,7 +130,18 @@ Boston, MA 02111-1307, USA.  */
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+/* Nonzero if the user has chosen to force sizeof(bool) to be 1
+   by providing the -mone-byte-bool switch.  It would be better
+   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
+   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
+   that this switch has no "no-" variant. */
+extern const char *darwin_one_byte_bool;
   
+#undef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS \
+  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }
+
 /* These compiler options take n arguments.  */
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -205,8 +211,7 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt }} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -276,10 +281,12 @@ Boston, MA 02111-1307, USA.  */
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries.  */
+/* Machine dependent libraries but do not redefine it if we already on 7.0 and
+   above as it needs to link with libmx also.  */
 
-#undef	LIB_SPEC
+#ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
+#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -358,11 +365,10 @@ do { text_section ();							\
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
 
-/* The Darwin linker doesn't like explicit template instantiations to be
-   coalesced, because it doesn't want coalesced symbols to appear in
+/* The Darwin linker doesn't want coalesced symbols to appear in
    a static archive's table of contents. */
-#undef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-#define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 0
+#undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
 
 /* We make exception information linkonce. */
 #undef TARGET_USES_WEAK_UNWIND_INFO
@@ -418,7 +424,7 @@ do { text_section ();							\
 
 /* The RTTI data (e.g., __ti4name) is common and public (and static),
    but it does need to be referenced via indirect PIC data pointers.
-   The machopic_define_name calls are telling the machopic subsystem
+   The machopic_define_symbol calls are telling the machopic subsystem
    that the name *is* defined in this module, so it doesn't need to
    make them indirect.  */
 
@@ -432,7 +438,7 @@ do { text_section ();							\
       if ((TREE_STATIC (DECL)						\
 	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
           || DECL_INITIAL (DECL))					\
-        machopic_define_name (xname);					\
+        machopic_define_symbol (DECL_RTL (DECL));			\
     if ((TREE_STATIC (DECL)						\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL))						\
@@ -453,7 +459,7 @@ do { text_section ();							\
       if ((TREE_STATIC (DECL)                                           \
 	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))             \
           || DECL_INITIAL (DECL))                                       \
-        machopic_define_name (xname);                                   \
+        machopic_define_symbol (DECL_RTL (DECL));                       \
     if ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
@@ -476,18 +482,18 @@ do { text_section ();							\
 #undef	ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
-       const char *xname = darwin_strip_name_encoding (NAME);		     \
+       const char *xname = (NAME);					     \
        if (! strcmp (xname, "<pic base>"))				     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \
            int len = strlen (xname);					     \
 	   if (len > 6 && !strcmp ("$stub", xname + len - 5))		     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 7 && !strcmp ("$stub\"", xname + len - 6))	     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 0);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   fputs (&xname[1], FILE);					     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
@@ -497,7 +503,7 @@ do { text_section ();							\
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
        else								     \
-         fprintf (FILE, "_%s", xname);					     \
+         asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
 
 /* Output before executable code.  */
@@ -519,7 +525,7 @@ do { text_section ();							\
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     fputs (".lcomm ", (FILE));						\
@@ -529,11 +535,10 @@ do { text_section ();							\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL)))					\
-      (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
-    if ((DECL) && ((TREE_STATIC (DECL)					\
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
-        || DECL_INITIAL (DECL)))					\
-      machopic_define_name (NAME);					\
+      {									\
+	(* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
+	machopic_define_symbol (DECL_RTL (DECL));			\
+      }									\
   } while (0)
 
 /* The maximum alignment which the object file format can support.
@@ -796,6 +801,12 @@ objc_section_init (void)			\
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
 
+/* Set on a symbol with SYMBOL_FLAG_FUNCTION or
+   MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
+   variable has been defined in this translation unit.  */
+#define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
+#define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
 /* Symbolic names for various things we might know about a symbol.  */
 
 enum machopic_addr_class {
@@ -816,7 +827,7 @@ enum machopic_addr_class {
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING  darwin_strip_name_encoding
+#define TARGET_STRIP_NAME_ENCODING  default_strip_name_encoding
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
@@ -852,7 +863,7 @@ enum machopic_addr_class {
 
 #define GEN_LAZY_PTR_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH)	\
   do {								\
-    const char *symbol_ = darwin_strip_name_encoding (SYMBOL);	\
+    const char *symbol_ = (SYMBOL);                             \
     char *buffer_ = (BUF);					\
     if (symbol_[0] == '"')					\
       {								\
@@ -929,5 +940,7 @@ void add_framework_path (char *);
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
 #endif
+
+#define WINT_TYPE "int"
 
 #endif /* CONFIG_DARWIN_H */

@@ -1,5 +1,5 @@
 /* JRadioButton.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,6 +42,8 @@ import javax.accessibility.AccessibleContext;
 
 public class JRadioButton extends JToggleButton
 {
+  private static final long serialVersionUID = 7751949583255506856L;
+
     public JRadioButton()
     {
 	this(null, null);
@@ -65,8 +67,8 @@ public class JRadioButton extends JToggleButton
     public JRadioButton(String text, Icon icon)
     {
 	super(text, icon);
-        paint_border = false;
-        content_area_filled = false;
+        borderPainted = false;
+        contentAreaFilled = false;
     }
 
     
@@ -78,7 +80,8 @@ public class JRadioButton extends JToggleButton
   
     public String getUIClassID()
     {
-	//Returns a string that specifies the name of the L&F class that renders this component.  
+	//Returns a string that specifies the name of the Look and Feel
+	//class that renders this component.  
 	return "RadioButtonUI";
     }
   

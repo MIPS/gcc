@@ -73,7 +73,7 @@ gcc/java/keyword.h: gcc/java/keyword.gperf
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
 # And libraries, at last
 libbanshee/configure: libbanshee/configure.ac
-libmudflap/configure: libmudflap/configure.in
+libmudflap/configure: libmudflap/configure.ac
 libobjc/configure: libobjc/configure.ac
 zlib/aclocal.m4: zlib/configure.ac zlib/acinclude.m4
 zlib/Makefile.in: zlib/Makefile.am zlib/configure.ac zlib/aclocal.m4
@@ -81,14 +81,17 @@ zlib/configure: zlib/configure.ac zlib/aclocal.m4
 fastjar/aclocal.m4: fastjar/configure.ac
 fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
 fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4
-boehm-gc/aclocal.m4: boehm-gc/configure.in boehm-gc/acinclude.m4
-boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.in boehm-gc/aclocal.m4
-boehm-gc/configure: boehm-gc/configure.in boehm-gc/aclocal.m4
+boehm-gc/aclocal.m4: boehm-gc/configure.ac boehm-gc/acinclude.m4
+boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.ac boehm-gc/aclocal.m4
+boehm-gc/configure: boehm-gc/configure.ac boehm-gc/aclocal.m4
 libada/configure: libada/configure.ac
 libffi/aclocal.m4: libffi/configure.ac libffi/acinclude.m4
 libffi/Makefile.in: libffi/Makefile.am libffi/configure.ac libffi/aclocal.m4
 libffi/configure: libffi/configure.ac libffi/aclocal.m4
 libffi/fficonfig.h.in: libffi/configure.ac libffi/aclocal.m4
+libgfortran/aclocal.m4: libgfortran/configure.ac libgfortran/acinclude.m4
+libgfortran/Makefile.in: libgfortran/Makefile.am libgfortran/configure.ac libgfortran/aclocal.m4
+libgfortran/configure: libgfortran/configure.ac libgfortran/aclocal.m4
 libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
 libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
 libjava/configure: libjava/configure.in libjava/aclocal.m4
@@ -96,6 +99,9 @@ libjava/libltdl/aclocal.m4: libjava/libltdl/configure.ac libjava/libltdl/acinclu
 libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libcpp/aclocal.m4: libcpp/configure.ac
+libcpp/Makefile.in: libcpp/Makefile.am libcpp/configure.ac libcpp/aclocal.m4
+libcpp/configure: libcpp/configure.ac libcpp/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.in config/acx.m4

@@ -1137,7 +1137,7 @@ __fixtfdi (TFtype a)
 }
 #endif
 
-#if defined(L_fixunsxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_fixunsxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
 
@@ -1166,7 +1166,7 @@ __fixunsxfDI (XFtype a)
 }
 #endif
 
-#if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_fixxfdi) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
 DWtype
 __fixxfdi (XFtype a)
 {
@@ -1245,7 +1245,7 @@ __fixsfdi (SFtype a)
 }
 #endif
 
-#if defined(L_floatdixf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96)
+#if defined(L_floatdixf) && (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
 #define WORD_SIZE (sizeof (Wtype) * BITS_PER_UNIT)
 #define HIGH_HALFWORD_COEFF (((UDWtype) 1) << (WORD_SIZE / 2))
 #define HIGH_WORD_COEFF (((UDWtype) 1) << WORD_SIZE)
@@ -1340,7 +1340,7 @@ __floatdisf (DWtype u)
 }
 #endif
 
-#if defined(L_fixunsxfsi) && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 96
+#if defined(L_fixunsxfsi) && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80
 /* Reenable the normal types, in case limits.h needs them.  */
 #undef char
 #undef short
@@ -1486,6 +1486,19 @@ __clear_cache (char *beg __attribute__((__unused__)),
 }
 
 #endif /* L_clear_cache */
+
+#ifdef L_enable_execute_stack
+/* Attempt to turn on execute permission for the stack.  */
+
+#ifdef ENABLE_EXECUTE_STACK
+  ENABLE_EXECUTE_STACK
+#else
+void
+__enable_execute_stack (void *addr __attribute__((__unused__)))
+{}
+#endif /* ENABLE_EXECUTE_STACK */
+
+#endif /* L_enable_execute_stack */
 
 #ifdef L_trampoline
 

@@ -677,7 +677,7 @@ package body Sem_Ch3 is
          Error_Msg_N ("task entries cannot have access parameters", N);
       end if;
 
-      --  Ada 0Y (AI-254): In case of anonymous access to subprograms
+      --  Ada 2005 (AI-254): In case of anonymous access to subprograms
       --  call the corresponding semantic routine
 
       if Present (Access_To_Subprogram_Definition (N)) then
@@ -705,11 +705,12 @@ package body Sem_Ch3 is
       Init_Size_Align        (Anon_Type);
       Set_Depends_On_Private (Anon_Type, Has_Private_Component (Anon_Type));
 
-      --  Ada 0Y (AI-231): Ada 0Y semantics for anonymous access differs from
-      --  Ada 95 semantics. In Ada 0Y, anonymous access must specify if the
-      --  null value is allowed; in Ada 95 the null value is not allowed
+      --  Ada 2005 (AI-231): Ada 2005 semantics for anonymous access differs
+      --  from Ada 95 semantics. In Ada 2005, anonymous access must specify
+      --  if the null value is allowed. In Ada 95 the null value is never
+      --  allowed.
 
-      if Extensions_Allowed then
+      if Ada_Version >= Ada_05 then
          Set_Can_Never_Be_Null (Anon_Type, Null_Exclusion_Present (N));
       else
          Set_Can_Never_Be_Null (Anon_Type, True);
@@ -721,12 +722,12 @@ package body Sem_Ch3 is
 
       Set_Is_Public (Anon_Type, Is_Public (Scope (Anon_Type)));
 
-      --  Ada 0Y (AI-50217): Propagate the attribute that indicates that the
+      --  Ada 2005 (AI-50217): Propagate the attribute that indicates that the
       --  designated type comes from the limited view (for back-end purposes).
 
       Set_From_With_Type (Anon_Type, From_With_Type (Desig_Type));
 
-      --  Ada 0Y (AI-231): Propagate the access-constant attribute
+      --  Ada 2005 (AI-231): Propagate the access-constant attribute
 
       Set_Is_Access_Constant (Anon_Type, Constant_Present (N));
 
@@ -761,7 +762,7 @@ package body Sem_Ch3 is
       Formal  : Entity_Id;
 
       Desig_Type : constant Entity_Id :=
-                   Create_Itype (E_Subprogram_Type, Parent (T_Def));
+                     Create_Itype (E_Subprogram_Type, Parent (T_Def));
 
    begin
       if Nkind (T_Def) = N_Access_Function_Definition then
@@ -836,7 +837,7 @@ package body Sem_Ch3 is
       Init_Size_Align              (T_Name);
       Set_Directly_Designated_Type (T_Name, Desig_Type);
 
-      --  Ada 0Y (AI-231): Propagate the null-excluding attribute
+      --  Ada 2005 (AI-231): Propagate the null-excluding attribute
 
       Set_Can_Never_Be_Null (T_Name, Null_Exclusion_Present (T_Def));
 
@@ -899,9 +900,9 @@ package body Sem_Ch3 is
       --  access type is also imported, and therefore restricted in its use.
       --  The access type may already be imported, so keep setting otherwise.
 
-      --  Ada 0Y (AI-50217): If the non-limited view of the designated type is
-      --  available, use it as the designated type of the access type, so that
-      --  the back-end gets a usable entity.
+      --  Ada 2005 (AI-50217): If the non-limited view of the designated type
+      --  is available, use it as the designated type of the access type, so
+      --  that the back-end gets a usable entity.
 
       declare
          N_Desig : Entity_Id;
@@ -933,7 +934,7 @@ package body Sem_Ch3 is
       Set_Has_Task (T, False);
       Set_Has_Controlled_Component (T, False);
 
-      --  Ada 0Y (AI-231): Propagate the null-excluding and access-constant
+      --  Ada 2005 (AI-231): Propagate the null-excluding and access-constant
       --  attributes
 
       Set_Can_Never_Be_Null  (T, Null_Exclusion_Present (Def));
@@ -957,7 +958,7 @@ package body Sem_Ch3 is
          T := Find_Type_Of_Object
                 (Subtype_Indication (Component_Definition (N)), N);
 
-      --  Ada 0Y (AI-230): Access Definition case
+      --  Ada 2005 (AI-230): Access Definition case
 
       else
          pragma Assert (Present
@@ -967,13 +968,13 @@ package body Sem_Ch3 is
                 (Related_Nod => N,
                  N => Access_Definition (Component_Definition (N)));
 
-         --  Ada 0Y (AI-230): In case of components that are anonymous access
-         --  types the level of accessibility depends on the enclosing type
-         --  declaration
+         --  Ada 2005 (AI-230): In case of components that are anonymous
+         --  access types the level of accessibility depends on the enclosing
+         --  type declaration
 
-         Set_Scope (T, Current_Scope); --  Ada 0Y (AI-230)
+         Set_Scope (T, Current_Scope); -- Ada 2005 (AI-230)
 
-         --  Ada 0Y (AI-254)
+         --  Ada 2005 (AI-254)
 
          if Present (Access_To_Subprogram_Definition
                       (Access_Definition (Component_Definition (N))))
@@ -1041,10 +1042,10 @@ package body Sem_Ch3 is
       Set_Etype (Id, T);
       Set_Is_Aliased (Id, Aliased_Present (Component_Definition (N)));
 
-      --  Ada 0Y (AI-231): Propagate the null-excluding attribute and carry
+      --  Ada 2005 (AI-231): Propagate the null-excluding attribute and carry
       --  out some static checks
 
-      if Extensions_Allowed
+      if Ada_Version >= Ada_05
         and then (Null_Exclusion_Present (Component_Definition (N))
                     or else Can_Never_Be_Null (T))
       then
@@ -1237,7 +1238,7 @@ package body Sem_Ch3 is
       --  appear in the private part of a package, for a private type that has
       --  already been declared.
 
-      --  In this case, the discriminants (if any) must match.
+      --  In this case, the discriminants (if any) must match
 
       T := Find_Type_Name (N);
 
@@ -1600,10 +1601,10 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  Ada 0Y (AI-231): Propagate the null-excluding attribute and carry
+      --  Ada 2005 (AI-231): Propagate the null-excluding attribute and carry
       --  out some static checks
 
-      if Extensions_Allowed
+      if Ada_Version >= Ada_05
         and then (Null_Exclusion_Present (N)
                     or else Can_Never_Be_Null (T))
       then
@@ -1633,7 +1634,7 @@ package body Sem_Ch3 is
          --  In Ada 83, deferred constant must be of private type
 
          elsif not Is_Private_Type (T) then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_N
                  ("(Ada 83) deferred constant must be private type", N);
             end if;
@@ -1694,6 +1695,13 @@ package body Sem_Ch3 is
          --  and it is indeed modified.
 
          Set_Is_True_Constant (Id, True);
+
+         --  If we are analyzing a constant declaration, set its completion
+         --  flag after analyzing the expression.
+
+         if Constant_Present (N) then
+            Set_Has_Completion (Id);
+         end if;
 
          if not Assignment_OK (N) then
             Check_Initialization (T, E);
@@ -1775,7 +1783,7 @@ package body Sem_Ch3 is
             --  Not allowed in Ada 83
 
             if not Constant_Present (N) then
-               if Ada_83
+               if Ada_Version = Ada_83
                  and then Comes_From_Source (Object_Definition (N))
                then
                   Error_Msg_N
@@ -2449,8 +2457,8 @@ package body Sem_Ch3 is
                Set_Directly_Designated_Type
                                      (Id, Designated_Type       (T));
 
-               --  Ada 0Y (AI-231): Propagate the null-excluding attribute and
-               --  carry out some static checks
+               --  Ada 2005 (AI-231): Propagate the null-excluding attribute
+               --  and carry out some static checks
 
                if Null_Exclusion_Present (N)
                  or else Can_Never_Be_Null (T)
@@ -2461,7 +2469,7 @@ package body Sem_Ch3 is
                     and then Can_Never_Be_Null (T)
                   then
                      Error_Msg_N
-                       ("(Ada 0Y) null exclusion not allowed if parent "
+                       ("(Ada 2005) null exclusion not allowed if parent "
                         & "is already non-null", Subtype_Indication (N));
                   end if;
                end if;
@@ -2651,9 +2659,9 @@ package body Sem_Ch3 is
 
       --  The full view, if present, now points to the current type
 
-      --  Ada 0Y (AI-50217): If the type was previously decorated when imported
-      --  through a LIMITED WITH clause, it appears as incomplete but has no
-      --  full view.
+      --  Ada 2005 (AI-50217): If the type was previously decorated when
+      --  imported through a LIMITED WITH clause, it appears as incomplete
+      --  but has no full view.
 
       if Ekind (Prev) = E_Incomplete_Type
         and then Present (Full_View (Prev))
@@ -2969,20 +2977,20 @@ package body Sem_Ch3 is
          Element_Type := Process_Subtype (Subtype_Indication (Component_Def),
                                           P, Related_Id, 'C');
 
-      --  Ada 0Y (AI-230): Access Definition case
+      --  Ada 2005 (AI-230): Access Definition case
 
       else pragma Assert (Present (Access_Definition (Component_Def)));
          Element_Type := Access_Definition
                            (Related_Nod => Related_Id,
                             N           => Access_Definition (Component_Def));
 
-         --  Ada 0Y (AI-230): In case of components that are anonymous access
-         --  types the level of accessibility depends on the enclosing type
-         --  declaration
+         --  Ada 2005 (AI-230): In case of components that are anonymous
+         --  access types the level of accessibility depends on the enclosing
+         --  type declaration
 
-         Set_Scope (Element_Type, Current_Scope); --  Ada 0Y (AI-230)
+         Set_Scope (Element_Type, Current_Scope); -- Ada 2005 (AI-230)
 
-         --  Ada 0Y (AI-254)
+         --  Ada 2005 (AI-254)
 
          declare
             CD : constant Node_Id :=
@@ -3065,10 +3073,10 @@ package body Sem_Ch3 is
          Set_Has_Aliased_Components (Etype (T));
       end if;
 
-      --  Ada 0Y (AI-231): Propagate the null-excluding attribute to the array
-      --  to ensure that objects of this type are initialized
+      --  Ada 2005 (AI-231): Propagate the null-excluding attribute to the
+      --  array to ensure that objects of this type are initialized.
 
-      if Extensions_Allowed
+      if Ada_Version >= Ada_05
         and then (Null_Exclusion_Present (Component_Definition (Def))
                     or else Can_Never_Be_Null (Element_Type))
       then
@@ -3078,7 +3086,7 @@ package body Sem_Ch3 is
            and then Can_Never_Be_Null (Element_Type)
          then
             Error_Msg_N
-              ("(Ada 0Y) already a null-excluding type",
+              ("(Ada 2005) already a null-excluding type",
                Subtype_Indication (Component_Definition (Def)));
          end if;
       end if;
@@ -3297,7 +3305,7 @@ package body Sem_Ch3 is
                               Has_Private_Component (Derived_Type));
       Conditional_Delay      (Derived_Type, Subt);
 
-      --  Ada 0Y (AI-231). Set the null-exclusion attribute
+      --  Ada 2005 (AI-231). Set the null-exclusion attribute
 
       if Null_Exclusion_Present (Type_Definition (N))
         or else Can_Never_Be_Null (Parent_Type)
@@ -5265,6 +5273,31 @@ package body Sem_Ch3 is
 
                Next_Discriminant (Discrim);
             end loop;
+
+            --  Check whether the constraints of the full view statically
+            --  match those imposed by the parent subtype [7.3(13)].
+
+            if Present (Stored_Constraint (Derived_Type)) then
+               declare
+                  C1, C2 : Elmt_Id;
+
+               begin
+                  C1 := First_Elmt (Discs);
+                  C2 := First_Elmt (Stored_Constraint (Derived_Type));
+                  while Present (C1) and then Present (C2) loop
+                     if not
+                       Fully_Conformant_Expressions (Node (C1), Node (C2))
+                     then
+                        Error_Msg_N (
+                          "not conformant with previous declaration",
+                             Node (C1));
+                     end if;
+
+                     Next_Elmt (C1);
+                     Next_Elmt (C2);
+                  end loop;
+               end;
+            end if;
          end if;
 
       --  STEP 2b: No new discriminants, inherit discriminants if any
@@ -5272,8 +5305,9 @@ package body Sem_Ch3 is
       else
          if Private_Extension then
             Set_Has_Unknown_Discriminants
-              (Derived_Type, Has_Unknown_Discriminants (Parent_Type)
-                             or else Unknown_Discriminants_Present (N));
+              (Derived_Type,
+               Has_Unknown_Discriminants (Parent_Type)
+                 or else Unknown_Discriminants_Present (N));
 
          --  The partial view of the parent may have unknown discriminants,
          --  but if the full view has discriminants and the parent type is
@@ -6041,11 +6075,22 @@ package body Sem_Ch3 is
          Set_Ekind (Def_Id, E_Class_Wide_Subtype);
 
       else
-         --  Incomplete type. Attach subtype to list of dependents, to be
-         --  completed with full view of parent type.
+         --  Incomplete type.  attach subtype to list of dependents, to be
+         --  completed with full view of parent type,  unless is it the
+         --  designated subtype of a record component within an init_proc.
+         --  This last case arises for a component of an access type whose
+         --  designated type is incomplete (e.g. a Taft Amendment type).
+         --  The designated subtype is within an inner scope, and needs no
+         --  elaboration, because only the access type is needed in the
+         --  initialization procedure.
 
          Set_Ekind (Def_Id, Ekind (T));
-         Append_Elmt (Def_Id, Private_Dependents (T));
+
+         if For_Access and then Within_Init_Proc then
+            null;
+         else
+            Append_Elmt (Def_Id, Private_Dependents (T));
+         end if;
       end if;
 
       Set_Etype             (Def_Id, T);
@@ -6206,7 +6251,17 @@ package body Sem_Ch3 is
              Subtype_Mark => New_Reference_To (Par, Loc),
              Constraint   => New_Copy_Tree (Constr)));
 
-      Insert_Before (N, Indic);
+      --  If this is a component subtype for an outer itype, it is not
+      --  a list member, so simply set the parent link for analysis: if
+      --  the enclosing type does not need to be in a declarative list,
+      --  neither do the components.
+
+      if Is_List_Member (N) then
+         Insert_Before (N, Indic);
+      else
+         Set_Parent (Indic, Parent (N));
+      end if;
+
       Analyze (Indic);
       Set_Underlying_Full_View (Typ, Full_View (Subt));
    end Build_Underlying_Full_View;
@@ -6622,12 +6677,12 @@ package body Sem_Ch3 is
         and then not In_Instance
         and then not In_Inlined_Body
       then
-         --  Ada 0Y (AI-287): Relax the strictness of the front-end in case of
-         --  limited aggregates and extension aggregates.
+         --  Ada 2005 (AI-287): Relax the strictness of the front-end in
+         --  case of limited aggregates and extension aggregates.
 
-         if Extensions_Allowed
+         if Ada_Version >= Ada_05
            and then (Nkind (Exp) = N_Aggregate
-                     or else Nkind (Exp) = N_Extension_Aggregate)
+                      or else Nkind (Exp) = N_Extension_Aggregate)
          then
             null;
          else
@@ -6668,10 +6723,10 @@ package body Sem_Ch3 is
                Set_Is_Immediately_Visible (D);
                Set_Homonym (D, Prev);
 
-               --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
-               --  record types
+               --  Ada 2005 (AI-230): Access discriminant allowed in
+               --  non-limited record types.
 
-               if not Extensions_Allowed then
+               if Ada_Version < Ada_05 then
 
                   --  This restriction gets applied to the full type here; it
                   --  has already been applied earlier to the partial view
@@ -6797,6 +6852,12 @@ package body Sem_Ch3 is
          if Has_Discriminants (Full_Base) then
             Set_Discriminant_Constraint
               (Full, Discriminant_Constraint (Full_Base));
+
+            --  The partial view may have been indefinite, the full view
+            --  might not be.
+
+            Set_Has_Unknown_Discriminants
+              (Full, Has_Unknown_Discriminants (Full_Base));
          end if;
       end if;
 
@@ -8472,8 +8533,7 @@ package body Sem_Ch3 is
       Is_Static   : Boolean := True;
 
       procedure Collect_Fixed_Components (Typ : Entity_Id);
-      --  Collect components of parent type that do not appear in a variant
-      --  part.
+      --  Collect parent type components that do not appear in a variant part
 
       procedure Create_All_Components;
       --  Iterate over Comp_List to create the components of the subtype.
@@ -8671,8 +8731,8 @@ package body Sem_Ch3 is
          --  If the tagged derivation has a type extension, collect all the
          --  new components therein.
 
-         if Present (
-           Record_Extension_Part (Type_Definition (Parent (Typ))))
+         if Present
+              (Record_Extension_Part (Type_Definition (Parent (Typ))))
          then
             Old_C := First_Component (Typ);
 
@@ -8886,9 +8946,6 @@ package body Sem_Ch3 is
    is
       Formal     : Entity_Id;
       New_Formal : Entity_Id;
-      Same_Subt  : constant Boolean :=
-        Is_Scalar_Type (Parent_Type)
-          and then Subtypes_Statically_Compatible (Parent_Type, Derived_Type);
       Visible_Subp : Entity_Id := Parent_Subp;
 
       function Is_Private_Overriding return Boolean;
@@ -8951,6 +9008,7 @@ package body Sem_Ch3 is
       procedure Replace_Type (Id, New_Id : Entity_Id) is
          Acc_Type : Entity_Id;
          IR       : Node_Id;
+         Par      : constant Node_Id := Parent (Derived_Type);
 
       begin
          --  When the type is an anonymous access type, create a new access
@@ -8993,7 +9051,7 @@ package body Sem_Ch3 is
                   Set_Etype (New_Id, Acc_Type);
                   Set_Scope (New_Id, New_Subp);
 
-                  --  Create a reference to it.
+                  --  Create a reference to it
 
                   IR := Make_Itype_Reference (Sloc (Parent (Derived_Type)));
                   Set_Itype (IR, Acc_Type);
@@ -9003,14 +9061,14 @@ package body Sem_Ch3 is
                   Set_Etype (New_Id, Etype (Id));
                end if;
             end;
+
          elsif Base_Type (Etype (Id)) = Base_Type (Parent_Type)
            or else
              (Ekind (Etype (Id)) = E_Record_Type_With_Private
                and then Present (Full_View (Etype (Id)))
-               and then Base_Type (Full_View (Etype (Id))) =
-                 Base_Type (Parent_Type))
+               and then
+                 Base_Type (Full_View (Etype (Id))) = Base_Type (Parent_Type))
          then
-
             --  Constraint checks on formals are generated during expansion,
             --  based on the signature of the original subprogram. The bounds
             --  of the derived type are not relevant, and thus we can use
@@ -9019,10 +9077,31 @@ package body Sem_Ch3 is
             --  be used (a case statement, for example)  and for those cases
             --  we must use the derived type (first subtype), not its base.
 
-            if Etype (Id) = Parent_Type
-              and then Same_Subt
-            then
-               Set_Etype (New_Id, Derived_Type);
+            --  If the derived_type_definition has no constraints, we know that
+            --  the derived type has the same constraints as the first subtype
+            --  of the parent, and we can also use it rather than its base,
+            --  which can lead to more efficient code.
+
+            if Etype (Id) = Parent_Type then
+               if Is_Scalar_Type (Parent_Type)
+                 and then
+                   Subtypes_Statically_Compatible (Parent_Type, Derived_Type)
+               then
+                  Set_Etype (New_Id, Derived_Type);
+
+               elsif Nkind (Par) = N_Full_Type_Declaration
+                 and then
+                   Nkind (Type_Definition (Par)) = N_Derived_Type_Definition
+                 and then
+                   Is_Entity_Name
+                     (Subtype_Indication (Type_Definition (Par)))
+               then
+                  Set_Etype (New_Id, Derived_Type);
+
+               else
+                  Set_Etype (New_Id, Base_Type (Derived_Type));
+               end if;
+
             else
                Set_Etype (New_Id, Base_Type (Derived_Type));
             end if;
@@ -9416,13 +9495,13 @@ package body Sem_Ch3 is
       elsif Is_Unchecked_Union (Parent_Type) then
          Error_Msg_N ("cannot derive from Unchecked_Union type", N);
 
-      --  Ada 0Y (AI-231): Static check
+      --  Ada 2005 (AI-231): Static check
 
       elsif Is_Access_Type (Parent_Type)
         and then Null_Exclusion_Present (Type_Definition (N))
         and then Can_Never_Be_Null (Parent_Type)
       then
-         Error_Msg_N ("(Ada 0Y) null exclusion not allowed if parent is "
+         Error_Msg_N ("(Ada 2005) null exclusion not allowed if parent is "
                       & "already non-null", Type_Definition (N));
       end if;
 
@@ -9444,11 +9523,11 @@ package body Sem_Ch3 is
       --  be used for further derivation until the end of its visible part.
       --  Note that derivation in the private part of the package is allowed.
 
-      if Ada_83
+      if Ada_Version = Ada_83
         and then Is_Derived_Type (Parent_Type)
         and then In_Visible_Part (Scope (Parent_Type))
       then
-         if Ada_83 and then Comes_From_Source (Indic) then
+         if Ada_Version = Ada_83 and then Comes_From_Source (Indic) then
             Error_Msg_N
               ("(Ada 83): premature use of type for derivation", Indic);
          end if;
@@ -10996,7 +11075,7 @@ package body Sem_Ch3 is
 
             elsif T = Any_Character then
 
-               if not Ada_83 then
+               if Ada_Version >= Ada_95 then
                   Error_Msg_N
                     ("ambiguous character literals (could be Wide_Character)",
                       I);
@@ -11609,7 +11688,7 @@ package body Sem_Ch3 is
          if Nkind (Discriminant_Type (Discr)) = N_Access_Definition then
             Discr_Type := Access_Definition (N, Discriminant_Type (Discr));
 
-            --  Ada 0Y (AI-254)
+            --  Ada 2005 (AI-254)
 
             if Present (Access_To_Subprogram_Definition
                          (Discriminant_Type (Discr)))
@@ -11632,15 +11711,15 @@ package body Sem_Ch3 is
 
          if Is_Access_Type (Discr_Type) then
 
-            --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
+            --  Ada 2005 (AI-230): Access discriminant allowed in non-limited
             --  record types
 
-            if not Extensions_Allowed then
+            if Ada_Version < Ada_05 then
                Check_Access_Discriminant_Requires_Limited
                  (Discr, Discriminant_Type (Discr));
             end if;
 
-            if Ada_83 and then Comes_From_Source (Discr) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (Discr) then
                Error_Msg_N
                  ("(Ada 83) access discriminant not allowed", Discr);
             end if;
@@ -11694,10 +11773,10 @@ package body Sem_Ch3 is
             Default_Not_Present := True;
          end if;
 
-         --  Ada 0Y (AI-231): Set the null-excluding attribute and carry out
-         --  some static checks
+         --  Ada 2005 (AI-231): Set the null-excluding attribute and carry
+         --  out some static checks.
 
-         if Extensions_Allowed
+         if Ada_Version >= Ada_05
            and then (Null_Exclusion_Present (Discr)
                        or else Can_Never_Be_Null (Discr_Type))
          then
@@ -12470,16 +12549,16 @@ package body Sem_Ch3 is
          Find_Type (S);
          Check_Incomplete (S);
 
-         --  Ada 0Y (AI-231): Static check
+         --  Ada 2005 (AI-231): Static check
 
-         if Extensions_Allowed
+         if Ada_Version >= Ada_05
            and then Present (Parent (S))
            and then Null_Exclusion_Present (Parent (S))
            and then Nkind (Parent (S)) /= N_Access_To_Object_Definition
            and then not Is_Access_Type (Entity (S))
          then
             Error_Msg_N
-              ("(Ada 0Y) null-exclusion part requires an access type", S);
+              ("(Ada 2005) null-exclusion part requires an access type", S);
          end if;
          return Entity (S);
 

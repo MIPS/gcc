@@ -39,7 +39,10 @@ Boston, MA 02111-1307, USA.  */
    the kernel or some such.  */
 
 #undef CC1_SPEC
-#define CC1_SPEC "%{!static:-fPIC}"
+#define CC1_SPEC "%{!static:-fPIC}\
+  %{gused: -g -feliminate-unused-debug-symbols %<gused }\
+  %{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
+  %{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}"
 
 #define ASM_SPEC "-arch i686 \
   -force_cpusubtype_ALL \
@@ -93,6 +96,13 @@ Boston, MA 02111-1307, USA.  */
 
 #define LPREFIX "L"
 
+/* These are used by -fbranch-probabilities */
+#define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define NORMAL_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
+                              "__TEXT,__unlikely,regular,pure_instructions"
+#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n" 
+
 /* Assembler pseudos to introduce constants of various size.  */
 
 #define ASM_BYTE_OP "\t.byte\t"
@@ -133,9 +143,9 @@ Boston, MA 02111-1307, USA.  */
     do {								\
       if (MACHOPIC_INDIRECT)						\
 	{								\
-	  const char *name = machopic_stub_name ("*mcount");		\
+	  const char *name = machopic_mcount_stub_name ();		\
 	  fprintf (FILE, "\tcall %s\n", name+1);  /*  skip '&'  */	\
-	  machopic_validate_stub_or_non_lazy_ptr (name, /*stub:*/1);	\
+	  machopic_validate_stub_or_non_lazy_ptr (name);		\
 	}								\
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)

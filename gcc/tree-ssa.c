@@ -58,15 +58,15 @@ ssa_remove_edge (edge e)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
       remove_phi_arg (phi, e->src);
     }
 
   remove_edge (e);
 }
 
-/* Remove remove the corresponding arguments from the PHI nodes
-   in E's destination block and redirect it to DEST.  Return redirected edge.
+/* Remove the corresponding arguments from the PHI nodes in E's
+   destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
@@ -80,7 +80,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = next)
     {
-      next = TREE_CHAIN (phi);
+      next = PHI_CHAIN (phi);
 
       i = phi_arg_from_edge (phi, e);
       if (i < 0)
@@ -102,35 +102,74 @@ ssa_redirect_edge (edge e, basic_block dest)
 }
 
 
-/* Return true if the definition of SSA_NAME at block BB is malformed.
+/* Return true if SSA_NAME is malformed and mark it visited.
 
-   STMT is the statement where SSA_NAME is created.
-
-   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
-      numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
-      block in that array slot contains the definition of SSA_NAME.  */
+   IS_VIRTUAL is true if this SSA_NAME was found inside a virtual
+      operand.  */
 
 static bool
-verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
-	    tree stmt)
+verify_ssa_name (tree ssa_name, bool is_virtual)
 {
-  bool err = false;
+  TREE_VISITED (ssa_name) = 1;
 
   if (TREE_CODE (ssa_name) != SSA_NAME)
     {
       error ("Expected an SSA_NAME object");
-      debug_generic_stmt (ssa_name);
-      debug_generic_stmt (stmt);
+      return true;
     }
+
+  if (TREE_TYPE (ssa_name) != TREE_TYPE (SSA_NAME_VAR (ssa_name)))
+    {
+      error ("Type mismatch between an SSA_NAME and its symbol.");
+      return true;
+    }
+
+  if (SSA_NAME_IN_FREE_LIST (ssa_name))
+    {
+      error ("Found an SSA_NAME that had been released into the free pool");
+      return true;
+    }
+
+  if (is_virtual && is_gimple_reg (ssa_name))
+    {
+      error ("Found a virtual definition for a GIMPLE register");
+      return true;
+    }
+
+  if (!is_virtual && !is_gimple_reg (ssa_name))
+    {
+      error ("Found a real definition for a non-register");
+      return true;
+    }
+
+  return false;
+}
+
+
+/* Return true if the definition of SSA_NAME at block BB is malformed.
+
+   STMT is the statement where SSA_NAME is created.
+
+   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
+      version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
+      it means that the block in that array slot contains the
+      definition of SSA_NAME.
+
+   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
+      V_MUST_DEF.  */
+
+static bool
+verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
+	    tree stmt, bool is_virtual)
+{
+  if (verify_ssa_name (ssa_name, is_virtual))
+    goto err;
 
   if (definition_block[SSA_NAME_VERSION (ssa_name)])
     {
       error ("SSA_NAME created in two different blocks %i and %i",
 	     definition_block[SSA_NAME_VERSION (ssa_name)]->index, bb->index);
-      fprintf (stderr, "SSA_NAME: ");
-      debug_generic_stmt (ssa_name);
-      debug_generic_stmt (stmt);
-      err = true;
+      goto err;
     }
 
   definition_block[SSA_NAME_VERSION (ssa_name)] = bb;
@@ -138,16 +177,22 @@ verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
   if (SSA_NAME_DEF_STMT (ssa_name) != stmt)
     {
       error ("SSA_NAME_DEF_STMT is wrong");
-      fprintf (stderr, "SSA_NAME: ");
-      debug_generic_stmt (ssa_name);
       fprintf (stderr, "Expected definition statement:\n");
       debug_generic_stmt (SSA_NAME_DEF_STMT (ssa_name));
       fprintf (stderr, "\nActual definition statement:\n");
       debug_generic_stmt (stmt);
-      err = true;
+      goto err;
     }
 
-  return err;
+  return false;
+
+err:
+  fprintf (stderr, "while verifying SSA_NAME ");
+  print_generic_expr (stderr, ssa_name, 0);
+  fprintf (stderr, " in statement\n");
+  debug_generic_stmt (stmt);
+
+  return true;
 }
 
 
@@ -160,16 +205,22 @@ verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
 
    CHECK_ABNORMAL is true if the caller wants to check whether this use
       is flowing through an abnormal edge (only used when checking PHI
-      arguments).  */
+      arguments).
+
+   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
+      V_MUST_DEF.  */
 
 static bool
 verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
-	    tree stmt, bool check_abnormal)
+	    tree stmt, bool check_abnormal, bool is_virtual)
 {
   bool err = false;
 
-  if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
-    ; /* Nothing to do.  */
+  err = verify_ssa_name (ssa_name, is_virtual);
+
+  if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
+      && var_ann (SSA_NAME_VAR (ssa_name))->default_def == ssa_name)
+    ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
       error ("Missing definition");
@@ -193,7 +244,7 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
   if (err)
     {
       fprintf (stderr, "for SSA_NAME: ");
-      debug_generic_stmt (ssa_name);
+      debug_generic_expr (ssa_name);
       fprintf (stderr, "in statement:\n");
       debug_generic_stmt (stmt);
     }
@@ -229,8 +280,9 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       e = PHI_ARG_EDGE (phi, i);
 
       if (TREE_CODE (op) == SSA_NAME)
-	err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
-			   phi, e->flags & EDGE_ABNORMAL);
+	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
+			  phi, e->flags & EDGE_ABNORMAL,
+			  !is_gimple_reg (PHI_RESULT (phi)));
 
       if (e->dest != bb)
 	{
@@ -257,6 +309,7 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	{
 	  fprintf (stderr, "PHI argument\n");
 	  debug_generic_stmt (op);
+	  goto error;
 	}
 
       e->aux = (void *) 2;
@@ -269,10 +322,12 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  error ("No argument flowing through edge %d->%d\n", e->src->index,
 		 e->dest->index);
 	  err = true;
+	  goto error;
 	}
       e->aux = (void *) 0;
     }
 
+error:
   if (err)
     {
       fprintf (stderr, "for PHI node\n");
@@ -284,18 +339,189 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 }
 
 
+static void
+verify_flow_insensitive_alias_info (void)
+{
+  size_t i;
+  tree var;
+  bitmap visited = BITMAP_XMALLOC ();
+
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      size_t j;
+      var_ann_t ann;
+      varray_type may_aliases;
+
+      var = referenced_var (i);
+      ann = var_ann (var);
+      may_aliases = ann->may_aliases;
+
+      for (j = 0; may_aliases && j < VARRAY_ACTIVE_SIZE (may_aliases); j++)
+	{
+	  tree alias = VARRAY_TREE (may_aliases, j);
+
+	  bitmap_set_bit (visited, var_ann (alias)->uid);
+
+	  if (!may_be_aliased (alias))
+	    {
+	      error ("Non-addressable variable inside an alias set.");
+	      debug_variable (alias);
+	      goto err;
+	    }
+	}
+    }
+
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      var_ann_t ann;
+
+      var = referenced_var (i);
+      ann = var_ann (var);
+
+      if (ann->mem_tag_kind == NOT_A_TAG
+	  && ann->is_alias_tag
+	  && !bitmap_bit_p (visited, ann->uid))
+	{
+	  error ("Addressable variable that is an alias tag but is not in any alias set.");
+	  goto err;
+	}
+    }
+
+  BITMAP_XFREE (visited);
+  return;
+
+err:
+  debug_variable (var);
+  internal_error ("verify_flow_insensitive_alias_info failed.");
+}
+
+
+static void
+verify_flow_sensitive_alias_info (void)
+{
+  size_t i;
+  tree ptr;
+
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      var_ann_t ann;
+      struct ptr_info_def *pi;
+
+      ptr = ssa_name (i);
+      ann = var_ann (SSA_NAME_VAR (ptr));
+      pi = SSA_NAME_PTR_INFO (ptr);
+
+      /* We only care for pointers that are actually referenced in the
+	 program.  */
+      if (!TREE_VISITED (ptr) || !POINTER_TYPE_P (TREE_TYPE (ptr)))
+	continue;
+
+      /* RESULT_DECL is special.  If it's a GIMPLE register, then it
+	 is only written-to only once in the return statement.
+	 Otherwise, aggregate RESULT_DECLs may be written-to more than
+	 once in virtual operands.  */
+      if (TREE_CODE (SSA_NAME_VAR (ptr)) == RESULT_DECL
+	  && is_gimple_reg (ptr))
+	continue;
+
+      if (pi == NULL)
+	continue;
+
+      if (pi->is_dereferenced && !pi->name_mem_tag && !ann->type_mem_tag)
+	{
+	  error ("Dereferenced pointers should have a name or a type tag");
+	  goto err;
+	}
+
+      if (pi->pt_anything && (pi->pt_malloc || pi->pt_vars))
+	{
+	  error ("Pointers that point to anything should not point to malloc or other vars");
+	  goto err;
+	}
+      
+      if (pi->pt_malloc && pi->pt_vars)
+	{
+	  error ("Pointers pointing to malloc get a unique tag and cannot point to other vars");
+	  goto err;
+	}
+
+      if (pi->name_mem_tag
+	  && !pi->pt_malloc
+	  && (pi->pt_vars == NULL
+	      || bitmap_first_set_bit (pi->pt_vars) < 0))
+	{
+	  error ("Pointers with a memory tag, should have points-to sets or point to malloc");
+	  goto err;
+	}
+
+      if (pi->value_escapes_p
+	  && pi->name_mem_tag
+	  && !is_call_clobbered (pi->name_mem_tag))
+	{
+	  error ("Pointer escapes but its name tag is not call-clobbered.");
+	  goto err;
+	}
+
+      if (pi->name_mem_tag && pi->pt_vars)
+	{
+	  size_t j;
+
+	  for (j = i + 1; j < num_ssa_names; j++)
+	    {
+	      tree ptr2 = ssa_name (j);
+	      struct ptr_info_def *pi2 = SSA_NAME_PTR_INFO (ptr2);
+
+	      if (!TREE_VISITED (ptr2) || !POINTER_TYPE_P (TREE_TYPE (ptr2)))
+		continue;
+
+	      if (pi2
+		  && pi2->name_mem_tag
+		  && pi2->pt_vars
+		  && bitmap_first_set_bit (pi2->pt_vars) >= 0
+		  && pi->name_mem_tag != pi2->name_mem_tag
+		  && bitmap_equal_p (pi->pt_vars, pi2->pt_vars))
+		{
+		  error ("Two pointers with different name tags and identical points-to sets");
+		  debug_variable (ptr2);
+		  goto err;
+		}
+	    }
+	}
+    }
+
+  return;
+
+err:
+  debug_variable (ptr);
+  internal_error ("verify_flow_sensitive_alias_info failed.");
+}
+
+
+/* Verify the consistency of aliasing information.  */
+
+static void
+verify_alias_info (void)
+{
+  verify_flow_sensitive_alias_info ();
+  verify_flow_insensitive_alias_info ();
+}
+
+
 /* Verify common invariants in the SSA web.
    TODO: verify the variable annotations.  */
 
 void
 verify_ssa (void)
 {
-  bool err = false;
+  size_t i;
   basic_block bb;
-  basic_block *definition_block = xcalloc (highest_ssa_version,
-		  			   sizeof (basic_block));
+  basic_block *definition_block = xcalloc (num_ssa_names, sizeof (basic_block));
 
   timevar_push (TV_TREE_SSA_VERIFY);
+
+  /* Keep track of SSA names present in the IL.  */
+  for (i = 1; i < num_ssa_names; i++)
+    TREE_VISITED (ssa_name (i)) = 0;
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -306,47 +532,53 @@ verify_ssa (void)
       tree phi;
       block_stmt_iterator bsi;
 
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	err |= verify_def (bb, definition_block, PHI_RESULT (phi), phi);
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	if (verify_def (bb, definition_block, PHI_RESULT (phi), phi,
+			!is_gimple_reg (PHI_RESULT (phi))))
+	  goto err;
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt;
 	  stmt_ann_t ann;
 	  unsigned int j;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  def_optype defs;
 
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
 	  get_stmt_operands (stmt);
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  if (ann->makes_aliased_stores && NUM_V_MAY_DEFS (v_may_defs) == 0)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
-	      if (is_gimple_reg (op))
-		{
-		  error ("Found a virtual definition for a GIMPLE register");
-		  debug_generic_stmt (op);
-		  debug_generic_stmt (stmt);
-		  err = true;
-		}
-	      err |= verify_def (bb, definition_block, op, stmt);
+	      error ("Statement makes aliased stores, but has no V_MAY_DEFS");
+	      debug_generic_stmt (stmt);
+	      goto err;
+	    }
+	    
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
+	    {
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
+	      if (verify_def (bb, definition_block, op, stmt, true))
+		goto err;
+	    }
+          
+	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
+	      if (verify_def (bb, definition_block, op, stmt, true))
+		goto err;
 	    }
 
 	  defs = DEF_OPS (ann);
 	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    {
 	      tree op = DEF_OP (defs, j);
-	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
-		{
-		  error ("Found a real definition for a non-GIMPLE register");
-		  debug_generic_stmt (op);
-		  debug_generic_stmt (stmt);
-		  err = true;
-		}
-	      err |= verify_def (bb, definition_block, op, stmt);
+	      if (verify_def (bb, definition_block, op, stmt, false))
+		goto err;
 	    }
 	}
     }
@@ -367,115 +599,63 @@ verify_ssa (void)
 	    {
 	      error ("AUX pointer initialized for edge %d->%d\n", e->src->index,
 		      e->dest->index);
-	      err = true;
+	      goto err;
 	    }
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	err |= verify_phi_args (phi, bb, definition_block);
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	if (verify_phi_args (phi, bb, definition_block))
+	  goto err;
 
-      /* Now verify all the uses and vuses in every statement of the block. 
-
-	 Remember, the RHS of a VDEF is a use as well.  */
+      /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  unsigned int j;
 	  vuse_optype vuses;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
 	  use_optype uses;
 
-	  vuses = VUSE_OPS (ann);
+	  vuses = VUSE_OPS (ann); 
 	  for (j = 0; j < NUM_VUSES (vuses); j++)
 	    {
 	      tree op = VUSE_OP (vuses, j);
-
-	      if (is_gimple_reg (op))
-		{
-		  error ("Found a virtual use for a GIMPLE register");
-		  debug_generic_stmt (op);
-		  debug_generic_stmt (stmt);
-		  err = true;
-		}
-	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-				 op, stmt, false);
+	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+			      op, stmt, false, true))
+		goto err;
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_OP (vdefs, j);
-
-	      if (is_gimple_reg (op))
-		{
-		  error ("Found a virtual use for a GIMPLE register");
-		  debug_generic_stmt (op);
-		  debug_generic_stmt (stmt);
-		  err = true;
-		}
-	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-				 op, stmt, false);
+	      tree op = V_MAY_DEF_OP (v_may_defs, j);
+	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+			      op, stmt, false, true))
+		goto err;
 	    }
 
 	  uses = USE_OPS (ann);
 	  for (j = 0; j < NUM_USES (uses); j++)
 	    {
 	      tree op = USE_OP (uses, j);
-
-	      if (TREE_CODE (op) == SSA_NAME && !is_gimple_reg (op))
-		{
-		  error ("Found a real use of a non-GIMPLE register");
-		  debug_generic_stmt (op);
-		  debug_generic_stmt (stmt);
-		  err = true;
-		}
-	      err |= verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-				 op, stmt, false);
+	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+			      op, stmt, false, false))
+		goto err;
 	    }
 	}
     }
 
+  /* Finally, verify alias information.  */
+  verify_alias_info ();
+
   free (definition_block);
-
   timevar_pop (TV_TREE_SSA_VERIFY);
+  return;
 
-  if (err)
-    internal_error ("verify_ssa failed.");
-}
-
-
-/* Set the USED bit in the annotation for T.  */
-
-void
-set_is_used (tree t)
-{
-  while (1)
-    {
-      if (SSA_VAR_P (t))
-	break;
-
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case BIT_FIELD_REF:
-	case INDIRECT_REF:
-	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return;
-	}
-    }
-
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
-
-  var_ann (t)->used = 1;
+err:
+  internal_error ("verify_ssa failed.");
 }
 
 
@@ -486,11 +666,11 @@ init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   call_clobbered_vars = BITMAP_XMALLOC ();
+  addressable_vars = BITMAP_XMALLOC ();
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
   global_var = NULL_TREE;
-  aliases_computed_p = false;
 }
 
 
@@ -523,7 +703,8 @@ delete_tree_ssa (void)
   global_var = NULL_TREE;
   BITMAP_XFREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
-  aliases_computed_p = false;
+  BITMAP_XFREE (addressable_vars);
+  addressable_vars = NULL;
 }
 
 
@@ -561,17 +742,22 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 
   /* If both the inner and outer types are integral types, then the
      conversion is not necessary if they have the same mode and
-     signedness and precision.  Note that type _Bool can have size of
-     4 (only happens on powerpc-darwin right now but can happen on any
-     target that defines BOOL_TYPE_SIZE to be INT_TYPE_SIZE) and a
-     precision of 1 while unsigned int is the same expect for a
-     precision of 4 so testing of precision is necessary.  */
+     signedness and precision, and both or neither are boolean.  Some
+     code assumes an invariant that boolean types stay boolean and do
+     not become 1-bit bit-field types.  Note that types with precision
+     not using all bits of the mode (such as bit-field types in C)
+     mean that testing of precision is necessary.  */
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_MODE (inner_type) == TYPE_MODE (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
 	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
-    return true;
+    {
+      bool first_boolean = (TREE_CODE (inner_type) == BOOLEAN_TYPE);
+      bool second_boolean = (TREE_CODE (outer_type) == BOOLEAN_TYPE);
+      if (first_boolean == second_boolean)
+	return true;
+    }
 
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
@@ -593,7 +779,9 @@ tree_ssa_useless_type_conversion (tree expr)
      the top of the RHS to the type of the LHS and the type conversion
      is "safe", then strip away the type conversion so that we can
      enter LHS = RHS into the const_and_copies table.  */
-  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
+  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
+      || TREE_CODE (expr) == VIEW_CONVERT_EXPR
+      || TREE_CODE (expr) == NON_LVALUE_EXPR)
     return tree_ssa_useless_type_conversion_1 (TREE_TYPE (expr),
 					       TREE_TYPE (TREE_OPERAND (expr,
 									0)));
@@ -604,12 +792,20 @@ tree_ssa_useless_type_conversion (tree expr)
 
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
-   described in walk_use_def_chains.  VISITED is a bitmap used to mark
-   visited SSA_NAMEs to avoid infinite loops.  */
+   described in walk_use_def_chains.
+   
+   VISITED is a bitmap used to mark visited SSA_NAMEs to avoid
+      infinite loops.
+
+   IS_DFS is true if the caller wants to perform a depth-first search
+      when visiting PHI nodes.  A DFS will visit each PHI argument and
+      call FN after each one.  Otherwise, all the arguments are
+      visited first and then FN is called with each of the visited
+      arguments in a separate pass.  */
 
 static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
-		       bitmap visited)
+		       bitmap visited, bool is_dfs)
 {
   tree def_stmt;
 
@@ -623,49 +819,65 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
   if (TREE_CODE (def_stmt) != PHI_NODE)
     {
       /* If we reached the end of the use-def chain, call FN.  */
-      return (*fn) (var, def_stmt, data);
+      return fn (var, def_stmt, data);
     }
   else
     {
       int i;
 
-      /* Otherwise, follow use-def links out of each PHI argument and call
-	 FN after visiting each one.  */
+      /* When doing a breadth-first search, call FN before following the
+	 use-def links for each argument.  */
+      if (!is_dfs)
+	for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
+	  if (fn (PHI_ARG_DEF (def_stmt, i), def_stmt, data))
+	    return true;
+
+      /* Follow use-def links out of each PHI argument.  */
       for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	{
 	  tree arg = PHI_ARG_DEF (def_stmt, i);
 	  if (TREE_CODE (arg) == SSA_NAME
-	      && walk_use_def_chains_1 (arg, fn, data, visited))
-	    return true;
-	  
-	  if ((*fn) (arg, def_stmt, data))
+	      && walk_use_def_chains_1 (arg, fn, data, visited, is_dfs))
 	    return true;
 	}
+
+      /* When doing a depth-first search, call FN after following the
+	 use-def links for each argument.  */
+      if (is_dfs)
+	for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
+	  if (fn (PHI_ARG_DEF (def_stmt, i), def_stmt, data))
+	    return true;
     }
+  
   return false;
 }
   
 
 
-/* Walk use-def chains starting at the SSA variable VAR.  Call function FN
-   at each reaching definition found.  FN takes three arguments: VAR, its
-   defining statement (DEF_STMT) and a generic pointer to whatever state
-   information that FN may want to maintain (DATA).  FN is able to stop the 
-   walk by returning true, otherwise in order to continue the walk, FN 
-   should return false.  
+/* Walk use-def chains starting at the SSA variable VAR.  Call
+   function FN at each reaching definition found.  FN takes three
+   arguments: VAR, its defining statement (DEF_STMT) and a generic
+   pointer to whatever state information that FN may want to maintain
+   (DATA).  FN is able to stop the walk by returning true, otherwise
+   in order to continue the walk, FN should return false.  
 
    Note, that if DEF_STMT is a PHI node, the semantics are slightly
-   different.  For each argument ARG of the PHI node, this function will:
+   different.  The first argument to FN is no longer the original
+   variable VAR, but the PHI argument currently being examined.  If FN
+   wants to get at VAR, it should call PHI_RESULT (PHI).
 
-	1- Walk the use-def chains for ARG.
-	2- Call (*FN) (ARG, PHI, DATA).
+   If IS_DFS is true, this function will:
 
-   Note how the first argument to FN is no longer the original variable
-   VAR, but the PHI argument currently being examined.  If FN wants to get
-   at VAR, it should call PHI_RESULT (PHI).  */
+	1- walk the use-def chains for all the PHI arguments, and,
+	2- call (*FN) (ARG, PHI, DATA) on all the PHI arguments.
+
+   If IS_DFS is false, the two steps above are done in reverse order
+   (i.e., a breadth-first search).  */
+
 
 void
-walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
+walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
+                     bool is_dfs)
 {
   tree def_stmt;
 
@@ -683,11 +895,58 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
   else
     {
       bitmap visited = BITMAP_XMALLOC ();
-      walk_use_def_chains_1 (var, fn, data, visited);
+      walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
       BITMAP_XFREE (visited);
     }
 }
 
+
+/* Replaces VAR with REPL in memory reference expression *X in
+   statement STMT.  */
+
+static void
+propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
+{
+  tree new_var, ass_stmt, addr_var;
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  /* There is nothing special to handle in the other cases.  */
+  if (TREE_CODE (repl) != ADDR_EXPR)
+    return;
+  addr_var = TREE_OPERAND (repl, 0);
+
+  while (TREE_CODE (*x) == ARRAY_REF
+	 || TREE_CODE (*x) == COMPONENT_REF
+	 || TREE_CODE (*x) == BIT_FIELD_REF)
+    x = &TREE_OPERAND (*x, 0);
+
+  if (TREE_CODE (*x) != INDIRECT_REF
+      || TREE_OPERAND (*x, 0) != var)
+    return;
+
+  modify_stmt (stmt);
+  if (TREE_TYPE (*x) == TREE_TYPE (addr_var))
+    {
+      *x = addr_var;
+      mark_new_vars_to_rename (stmt, vars_to_rename);
+      return;
+    }
+
+  /* Frontends sometimes produce expressions like *&a instead of a[0].
+     Create a temporary variable to handle this case.  */
+  ass_stmt = build2 (MODIFY_EXPR, void_type_node, NULL_TREE, repl);
+  new_var = duplicate_ssa_name (var, ass_stmt);
+  TREE_OPERAND (*x, 0) = new_var;
+  TREE_OPERAND (ass_stmt, 0) = new_var;
+
+  bb = bb_for_stmt (stmt);
+  tree_block_label (bb);
+  bsi = bsi_after_labels (bb);
+  bsi_insert_after (&bsi, ass_stmt, BSI_NEW_STMT);
+
+  mark_new_vars_to_rename (stmt, vars_to_rename);
+}
 
 /* Replaces immediate uses of VAR by REPL.  */
 
@@ -696,11 +955,12 @@ replace_immediate_uses (tree var, tree repl)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   int i, j, n;
   dataflow_t df;
   tree stmt;
   stmt_ann_t ann;
+  bool mark_new_vars;
 
   df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
   n = num_immediate_uses (df);
@@ -715,7 +975,7 @@ replace_immediate_uses (tree var, tree repl)
 	  for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
 	    if (PHI_ARG_DEF (stmt, j) == var)
 	      {
-		PHI_ARG_DEF (stmt, j) = repl;
+		SET_PHI_ARG_DEF (stmt, j, repl);
 		if (TREE_CODE (repl) == SSA_NAME
 		    && PHI_ARG_EDGE (stmt, j)->flags & EDGE_ABNORMAL)
 		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (repl) = 1;
@@ -725,12 +985,22 @@ replace_immediate_uses (tree var, tree repl)
 	}
 
       get_stmt_operands (stmt);
+      mark_new_vars = false;
       if (is_gimple_reg (SSA_NAME_VAR (var)))
 	{
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 0), repl);
+	      propagate_into_addr (stmt, var, &TREE_OPERAND (stmt, 1), repl);
+	    }
+
 	  uses = USE_OPS (ann);
 	  for (j = 0; j < (int) NUM_USES (uses); j++)
 	    if (USE_OP (uses, j) == var)
-	      propagate_value (USE_OP_PTR (uses, j), repl);
+	      {
+		propagate_value (USE_OP_PTR (uses, j), repl);
+		mark_new_vars = POINTER_TYPE_P (TREE_TYPE (repl));
+	      }
 	}
       else
 	{
@@ -739,76 +1009,108 @@ replace_immediate_uses (tree var, tree repl)
 	    if (VUSE_OP (vuses, j) == var)
 	      propagate_value (VUSE_OP_PTR (vuses, j), repl);
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < (int) NUM_VDEFS (vdefs); j++)
-	    if (VDEF_OP (vdefs, j) == var)
-	      propagate_value (VDEF_OP_PTR (vdefs, j), repl);
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (j = 0; j < (int) NUM_V_MAY_DEFS (v_may_defs); j++)
+	    if (V_MAY_DEF_OP (v_may_defs, j) == var)
+	      propagate_value (V_MAY_DEF_OP_PTR (v_may_defs, j), repl);
 	}
-
-      modify_stmt (stmt);
 
       /* If REPL is a pointer, it may have different memory tags associated
 	 with it.  For instance, VAR may have had a name tag while REPL
 	 only had a type tag.  In these cases, the virtual operands (if
 	 any) in the statement will refer to different symbols which need
 	 to be renamed.  */
-      if (POINTER_TYPE_P (TREE_TYPE (repl)))
+      if (mark_new_vars)
 	mark_new_vars_to_rename (stmt, vars_to_rename);
+      else
+	modify_stmt (stmt);
     }
 }
 
-/* Raises value of phi node PHI by joining it with VAL.  Processes immediate
-   uses of PHI recursively.  */
+/* Gets the value VAR is equivalent to according to EQ_TO.  */
 
-static void
-raise_value (tree phi, tree val, tree *eq_to)
+static tree
+get_eq_name (tree *eq_to, tree var)
 {
-  int i, n;
-  tree var = PHI_RESULT (phi), stmt;
-  int ver = SSA_NAME_VERSION (var);
-  dataflow_t df;
+  unsigned ver;
+  tree val = var;
 
-  if (eq_to[ver] == var)
-    return;
-
-  switch (TREE_CODE (val))
+  while (TREE_CODE (val) == SSA_NAME)
     {
-    case SSA_NAME:
-    case REAL_CST:
-    case COMPLEX_CST:
-      break;
-    case INTEGER_CST:
-      if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE)
+      ver = SSA_NAME_VERSION (val);
+      if (!eq_to[ver])
 	break;
 
-    default:
-      /* Do not propagate pointer constants.  This might require folding
-	 things like *&foo and rewriting the ssa, which is not worth the
-	 trouble.  */
-      val = var;
+      val = eq_to[ver];
     }
 
-  if (eq_to[ver])
+  while (TREE_CODE (var) == SSA_NAME)
     {
-      if (operand_equal_p (eq_to[ver], val, 0))
+      ver = SSA_NAME_VERSION (var);
+      if (!eq_to[ver])
+	break;
+
+      var = eq_to[ver];
+      eq_to[ver] = val;
+    }
+
+  return val;
+}
+
+/* Checks whether phi node PHI is redundant and if it is, records the ssa name
+   its result is redundant to to EQ_TO array.  */
+
+static void
+check_phi_redundancy (tree phi, tree *eq_to)
+{
+  tree val = NULL_TREE, def, res = PHI_RESULT (phi), stmt;
+  unsigned i, ver = SSA_NAME_VERSION (res), n;
+  dataflow_t df;
+
+  /* It is unlikely that such large phi node would be redundant.  */
+  if (PHI_NUM_ARGS (phi) > 16)
+    return;
+
+  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+    {
+      def = PHI_ARG_DEF (phi, i);
+
+      if (TREE_CODE (def) == SSA_NAME)
+	{
+	  def = get_eq_name (eq_to, def);
+	  if (def == res)
+	    continue;
+	}
+
+      if (val
+	  && !operand_equal_p (val, def, 0))
 	return;
 
-      eq_to[ver] = var;
+      val = def;
     }
-  else
-    eq_to[ver] = val;
 
-  df = get_immediate_uses (SSA_NAME_DEF_STMT (var));
+  /* At least one of the arguments should not be equal to the result, or
+     something strange is happening.  */
+  if (!val)
+    abort ();
+
+  if (get_eq_name (eq_to, res) == val)
+    return;
+
+  if (!may_propagate_copy (res, val))
+    return;
+
+  eq_to[ver] = val;
+
+  df = get_immediate_uses (SSA_NAME_DEF_STMT (res));
   n = num_immediate_uses (df);
 
   for (i = 0; i < n; i++)
     {
       stmt = immediate_use (df, i);
 
-      if (TREE_CODE (stmt) != PHI_NODE)
-	continue;
-
-      raise_value (stmt, eq_to[ver], eq_to);
+      if (TREE_CODE (stmt) == PHI_NODE)
+	check_phi_redundancy (stmt, eq_to);
     }
 }
 
@@ -829,39 +1131,22 @@ raise_value (tree phi, tree val, tree *eq_to)
    The most important effect of this pass is to remove degenerate PHI
    nodes created by removing unreachable code.  */
 
-static void
+void
 kill_redundant_phi_nodes (void)
 {
-  tree *eq_to, *ssa_names;
-  unsigned i, ver, aver;
+  tree *eq_to;
+  unsigned i, old_num_ssa_names;
   basic_block bb;
-  tree phi, t, stmt, var;
+  tree phi, var, repl, stmt;
 
-  /* The EQ_TO array holds the current value of the ssa name in the
-     lattice:
-
-          top
-         / | \
-     const   variables
-         \ | /
-        bottom
-
-     Bottom is represented by NULL and top by the variable itself.
-
-     Once the dataflow stabilizes, we know that the phi nodes we need to keep
-     are exactly those with top as their result. 
-
-     The remaining phi nodes have their uses replaced with their value
-     in the lattice and the phi node itself is removed.  */
-  eq_to = xcalloc (highest_ssa_version, sizeof (tree));
-
-  /* The SSA_NAMES array holds each SSA_NAME node we encounter
-     in a PHI node (indexed by ssa version number).
-
-     One could argue that the SSA_NAME manager ought to provide a
-     generic interface to get at the SSA_NAME node for a given
-     ssa version number.  */
-  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
+  /* The EQ_TO[VER] holds the value by that the ssa name VER should be
+     replaced.  If EQ_TO[VER] is ssa name and it is decided to replace it by
+     other value, it may be necessary to follow the chain till the final value.
+     We perform path shortening (replacing the entries of the EQ_TO array with
+     heads of these chains) whenever we access the field to prevent quadratic
+     complexity (probably would not occur in practice anyway, but let us play
+     it safe).  */
+  eq_to = xcalloc (num_ssa_names, sizeof (tree));
 
   /* We have had cases where computing immediate uses takes a
      significant amount of compile time.  If we run into such
@@ -869,61 +1154,44 @@ kill_redundant_phi_nodes (void)
      a subset of all the SSA_NAMEs instead of computing it for
      all of the SSA_NAMEs.  */
   compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, NULL);
+  old_num_ssa_names = num_ssa_names;
 
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	{
 	  var = PHI_RESULT (phi);
-	  ver = SSA_NAME_VERSION (var);
-	  ssa_names[ver] = var;
-
-	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	    {
-	      t = PHI_ARG_DEF (phi, i);
-
-	      if (TREE_CODE (t) != SSA_NAME)
-		{
-		  raise_value (phi, t, eq_to);
-		  continue;
-		}
-
-	      stmt = SSA_NAME_DEF_STMT (t);
-	      aver = SSA_NAME_VERSION (t);
-	      ssa_names[aver] = t;
-
-	      /* If the defining statement for this argument is not a
-		 phi node or the argument is associated with an abnormal
-		 edge, then we need to recursively start the forward
-		 dataflow starting with PHI.  */
-	      if (TREE_CODE (stmt) != PHI_NODE
-		  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
-		{
-		  eq_to[aver] = t;
-		  raise_value (phi, t, eq_to);
-		}
-	    }
+	  check_phi_redundancy (phi, eq_to);
 	}
     }
 
   /* Now propagate the values.  */
-  for (i = 0; i < highest_ssa_version; i++)
-    if (eq_to[i]
-	&& eq_to[i] != ssa_names[i])
-      replace_immediate_uses (ssa_names[i], eq_to[i]);
+  for (i = 0; i < old_num_ssa_names; i++)
+    {
+      if (!ssa_name (i))
+	continue;
+
+      repl = get_eq_name (eq_to, ssa_name (i));
+      if (repl != ssa_name (i))
+	replace_immediate_uses (ssa_name (i), repl);
+    }
 
   /* And remove the dead phis.  */
-  for (i = 0; i < highest_ssa_version; i++)
-    if (eq_to[i]
-	&& eq_to[i] != ssa_names[i])
-      {
-	stmt = SSA_NAME_DEF_STMT (ssa_names[i]);
-	remove_phi_node (stmt, 0, bb_for_stmt (stmt));
-      }
+  for (i = 0; i < old_num_ssa_names; i++)
+    {
+      if (!ssa_name (i))
+	continue;
+
+      repl = get_eq_name (eq_to, ssa_name (i));
+      if (repl != ssa_name (i))
+	{
+	  stmt = SSA_NAME_DEF_STMT (ssa_name (i));
+	  remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
+	}
+    }
 
   free_df ();
   free (eq_to);
-  free (ssa_names);
 }
 
 struct tree_opt_pass pass_redundant_phi =
@@ -935,7 +1203,7 @@ struct tree_opt_pass pass_redundant_phi =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -1057,7 +1325,7 @@ execute_late_warn_uninitialized (void)
   execute_early_warn_uninitialized ();
 
   FOR_EACH_BB (bb)
-    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
       warn_uninitialized_phi (phi);
 }
 

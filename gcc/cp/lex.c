@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "lex.h"
 #include "flags.h"
 #include "c-pragma.h"
 #include "toplev.h"
@@ -82,62 +81,6 @@ struct impl_files
 
 static struct impl_files *impl_file_chain;
 
-
-/* Return something to represent absolute declarators containing a *.
-   TARGET is the absolute declarator that the * contains.
-   CV_QUALIFIERS is a list of modifiers such as const or volatile
-   to apply to the pointer type, represented as identifiers.
-
-   We return an INDIRECT_REF whose "contents" are TARGET
-   and whose type is the modifier list.  */
-
-tree
-make_pointer_declarator (tree cv_qualifiers, tree target)
-{
-  if (target && TREE_CODE (target) == IDENTIFIER_NODE
-      && ANON_AGGRNAME_P (target))
-    error ("type name expected before `*'");
-  target = build_nt (INDIRECT_REF, target);
-  TREE_TYPE (target) = cv_qualifiers;
-  return target;
-}
-
-/* Return something to represent absolute declarators containing a &.
-   TARGET is the absolute declarator that the & contains.
-   CV_QUALIFIERS is a list of modifiers such as const or volatile
-   to apply to the reference type, represented as identifiers.
-
-   We return an ADDR_EXPR whose "contents" are TARGET
-   and whose type is the modifier list.  */
-
-tree
-make_reference_declarator (tree cv_qualifiers, tree target)
-{
-  target = build_nt (ADDR_EXPR, target);
-  TREE_TYPE (target) = cv_qualifiers;
-  return target;
-}
-
-tree
-make_call_declarator (tree target, tree parms, tree cv_qualifiers, 
-                      tree exception_specification)
-{
-  target = build_nt (CALL_EXPR, target,
-		     tree_cons (parms, cv_qualifiers, NULL_TREE),
-		     /* The third operand is really RTL.  We
-			shouldn't put anything there.  */
-		     NULL_TREE);
-  CALL_DECLARATOR_EXCEPTION_SPEC (target) = exception_specification;
-  return target;
-}
-
-void
-set_quals_and_spec (tree call_declarator, tree cv_qualifiers, 
-                    tree exception_specification)
-{
-  CALL_DECLARATOR_QUALS (call_declarator) = cv_qualifiers;
-  CALL_DECLARATOR_EXCEPTION_SPEC (call_declarator) = exception_specification;
-}
 
 int interface_only;		/* whether or not current file is only for
 				   interface definitions.  */
@@ -207,7 +150,6 @@ init_operators (void)
   operator_name_info [(int) ABS_EXPR].name = "abs";
   operator_name_info [(int) TRUTH_AND_EXPR].name = "strict &&";
   operator_name_info [(int) TRUTH_OR_EXPR].name = "strict ||";
-  operator_name_info [(int) IN_EXPR].name = "in";
   operator_name_info [(int) RANGE_EXPR].name = "...";
   operator_name_info [(int) CONVERT_EXPR].name = "+";
 
@@ -393,7 +335,11 @@ cxx_init (void)
   /* We cannot just assign to input_filename because it has already
      been initialized and will be used later as an N_BINCL for stabs+
      debugging.  */
-  push_srcloc ("<internal>", 0);
+#ifdef USE_MAPPED_LOCATION
+  push_srcloc (BUILTINS_LOCATION);
+#else
+  push_srcloc ("<built-in>", 0);
+#endif
 
   init_reswords ();
   init_tree ();
@@ -415,6 +361,17 @@ cxx_init (void)
 
   interface_unknown = 1;
 
+  /* The fact that G++ uses COMDAT for many entities (inline
+     functions, template instantiations, virtual tables, etc.) mean
+     that it is fundamentally unreliable to try to make decisions
+     about whether or not to output a particular entity until the end
+     of the compilation.  However, the inliner requires that functions
+     be provided to the back end if they are to be inlined.
+     Therefore, we always use unit-at-a-time mode; in that mode, we
+     can provide entities to the back end and it will decide what to
+     emit based on what is actually needed.  */
+  flag_unit_at_a_time = 1;
+
   if (c_common_init () == false)
     {
       pop_srcloc();
@@ -423,7 +380,7 @@ cxx_init (void)
 
   init_cp_pragma ();
 
-  init_repo (main_input_filename);
+  init_repo ();
 
   pop_srcloc();
   return true;
@@ -708,7 +665,7 @@ retrofit_lang_decl (tree t)
   else
     size = sizeof (struct lang_decl_flags);
 
-  ld = ggc_alloc_cleared (size);
+  ld = GGC_CNEWVAR (struct lang_decl, size);
 
   ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
   ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
@@ -745,7 +702,7 @@ cxx_dup_lang_specific_decl (tree node)
     size = sizeof (struct lang_decl_flags);
   else
     size = sizeof (struct lang_decl);
-  ld = ggc_alloc (size);
+  ld = GGC_NEWVAR (struct lang_decl, size);
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
 
@@ -782,7 +739,7 @@ copy_lang_type (tree node)
     size = sizeof (struct lang_type);
   else
     size = sizeof (struct lang_type_ptrmem);
-  lt = ggc_alloc (size);
+  lt = GGC_NEWVAR (struct lang_type, size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
 
@@ -813,9 +770,7 @@ cxx_make_type (enum tree_code code)
   if (IS_AGGR_TYPE_CODE (code)
       || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     {
-      struct lang_type *pi;
-
-      pi = ggc_alloc_cleared (sizeof (struct lang_type));
+      struct lang_type *pi = GGC_CNEW (struct lang_type);
 
       TYPE_LANG_SPECIFIC (t) = pi;
       pi->u.c.h.is_lang_type_class = 1;
@@ -831,26 +786,12 @@ cxx_make_type (enum tree_code code)
     {
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
-
-      /* Make sure this is laid out, for ease of use later.  In the
-	 presence of parse errors, the normal was of assuring this
-	 might not ever get executed, so we lay it out *immediately*.  */
-      build_pointer_type (t);
     }
   else
     /* We use TYPE_ALIAS_SET for the CLASSTYPE_MARKED bits.  But,
        TYPE_ALIAS_SET is initialized to -1 by default, so we must
        clear it here.  */
     TYPE_ALIAS_SET (t) = 0;
-
-  /* We need to allocate a TYPE_BINFO even for TEMPLATE_TYPE_PARMs
-     since they can be virtual base types, and we then need a
-     canonical binfo for them.  Ideally, this would be done lazily for
-     all types.  */
-  if (IS_AGGR_TYPE_CODE (code) || code == TEMPLATE_TYPE_PARM
-      || code == BOUND_TEMPLATE_TEMPLATE_PARM
-      || code == TYPENAME_TYPE)
-    TYPE_BINFO (t) = make_binfo (size_zero_node, t, NULL_TREE, NULL_TREE);
 
   return t;
 }

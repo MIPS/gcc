@@ -429,7 +429,7 @@ package body Sem_Ch8 is
    --  Used to resolved qualified names whose selector is a character literal.
 
    function Has_Private_With (E : Entity_Id) return Boolean;
-   --  Ada 0Y (AI-262): Determines if the current compilation unit has a
+   --  Ada 2005 (AI-262): Determines if the current compilation unit has a
    --  private with on E
 
    procedure Find_Expanded_Name (N : Node_Id);
@@ -549,18 +549,18 @@ package body Sem_Ch8 is
       end if;
    end Analyze_Expanded_Name;
 
-   ----------------------------------------
-   --  Analyze_Generic_Function_Renaming --
-   ----------------------------------------
+   ---------------------------------------
+   -- Analyze_Generic_Function_Renaming --
+   ---------------------------------------
 
    procedure Analyze_Generic_Function_Renaming  (N : Node_Id) is
    begin
       Analyze_Generic_Renaming (N, E_Generic_Function);
    end Analyze_Generic_Function_Renaming;
 
-   ---------------------------------------
-   --  Analyze_Generic_Package_Renaming --
-   ---------------------------------------
+   --------------------------------------
+   -- Analyze_Generic_Package_Renaming --
+   --------------------------------------
 
    procedure Analyze_Generic_Package_Renaming   (N : Node_Id) is
    begin
@@ -572,9 +572,9 @@ package body Sem_Ch8 is
       Analyze_Generic_Renaming (N, E_Generic_Package);
    end Analyze_Generic_Package_Renaming;
 
-   -----------------------------------------
-   --  Analyze_Generic_Procedure_Renaming --
-   -----------------------------------------
+   ----------------------------------------
+   -- Analyze_Generic_Procedure_Renaming --
+   ----------------------------------------
 
    procedure Analyze_Generic_Procedure_Renaming (N : Node_Id) is
    begin
@@ -687,7 +687,7 @@ package body Sem_Ch8 is
          T := Entity (Subtype_Mark (N));
          Analyze_And_Resolve (Nam, T);
 
-      --  Ada 0Y (AI-230/AI-254): Access renaming
+      --  Ada 2005 (AI-230/AI-254): Access renaming
 
       else pragma Assert (Present (Access_Definition (N)));
          T := Access_Definition
@@ -696,7 +696,7 @@ package body Sem_Ch8 is
 
          Analyze_And_Resolve (Nam, T);
 
-         --  Ada 0Y (AI-231): "In the case where the type is defined by an
+         --  Ada 2005 (AI-231): "In the case where the type is defined by an
          --  access_definition, the renamed entity shall be of an access-to-
          --  constant type if and only if the access_definition defines an
          --  access-to-constant type" ARM 8.5.1(4)
@@ -704,11 +704,11 @@ package body Sem_Ch8 is
          if Constant_Present (Access_Definition (N))
            and then not Is_Access_Constant (Etype (Nam))
          then
-            Error_Msg_N ("(Ada 0Y): the renamed object is not "
+            Error_Msg_N ("(Ada 2005): the renamed object is not "
                          & "access-to-constant ('R'M 8.5.1(6))", N);
 
          elsif Null_Exclusion_Present (Access_Definition (N)) then
-            Error_Msg_N ("(Ada 0Y): null-excluding attribute ignored "
+            Error_Msg_N ("(Ada 2005): null-excluding attribute ignored "
                          & "('R'M 8.5.1(6))?", N);
          end if;
       end if;
@@ -820,7 +820,7 @@ package body Sem_Ch8 is
          Error_Msg_N
            ("expect package name in renaming", Name (N));
 
-      --  Ada 0Y (AI-50217): Limited withed packages can not be renamed
+      --  Ada 2005 (AI-50217): Limited withed packages can not be renamed
 
       elsif Ekind (Old_P) = E_Package
         and then From_With_Type (Old_P)
@@ -1096,9 +1096,9 @@ package body Sem_Ch8 is
    ---------------------------------
 
    procedure Analyze_Subprogram_Renaming (N : Node_Id) is
-      Spec        : constant Node_Id := Specification (N);
-      Save_83     : constant Boolean := Ada_83;
-      Nam         : constant Node_Id := Name (N);
+      Spec        : constant Node_Id          := Specification (N);
+      Save_AV     : constant Ada_Version_Type := Ada_Version;
+      Nam         : constant Node_Id          := Name (N);
       New_S       : Entity_Id;
       Old_S       : Entity_Id  := Empty;
       Rename_Spec : Entity_Id;
@@ -1279,7 +1279,7 @@ package body Sem_Ch8 is
 
          Set_Has_Completion (Rename_Spec, Inside_A_Generic);
 
-         if Ada_83 and then Comes_From_Source (N) then
+         if Ada_Version = Ada_83 and then Comes_From_Source (N) then
             Error_Msg_N ("(Ada 83) renaming cannot serve as a body", N);
          end if;
 
@@ -1363,14 +1363,13 @@ package body Sem_Ch8 is
       --  between renamed entity and new entity, even though the same circuit
       --  is used.
 
-      Ada_83 := False;
+      Ada_Version := Ada_Version_Type'Max (Ada_Version, Ada_95);
 
       if No (Old_S) then
          Old_S := Find_Renamed_Entity (N, Name (N), New_S, Is_Actual);
       end if;
 
       if Old_S /= Any_Id then
-
          if Is_Actual
            and then From_Default (N)
          then
@@ -1437,7 +1436,7 @@ package body Sem_Ch8 is
                Set_Alias (New_S, Old_S);
             end if;
 
-            --  Note that we do not set Is_Instrinsic_Subprogram if we have
+            --  Note that we do not set Is_Intrinsic_Subprogram if we have
             --  a renaming as body, since the entity in this case is not an
             --  intrinsic (it calls an intrinsic, but we have a real body
             --  for this call, and it is in this body that the required
@@ -1552,7 +1551,7 @@ package body Sem_Ch8 is
          end if;
       end if;
 
-      Ada_83 := Save_83;
+      Ada_Version := Save_AV;
    end Analyze_Subprogram_Renaming;
 
    -------------------------
@@ -1801,6 +1800,12 @@ package body Sem_Ch8 is
       if Form_Num > 2 then
          Error_Msg_N ("too many formals for attribute", N);
 
+      --  Error if the attribute reference has expressions that look
+      --  like formal parameters.
+
+      elsif Present (Expressions (Nam)) then
+         Error_Msg_N ("illegal expressions in attribute reference", Nam);
+
       elsif
         Aname = Name_Compose      or else
         Aname = Name_Exponent     or else
@@ -1913,6 +1918,11 @@ package body Sem_Ch8 is
       Rewrite (N, Body_Node);
       Analyze (N);
 
+      if Is_Compilation_Unit (New_S) then
+         Error_Msg_N
+           ("a library unit can only rename another library unit", N);
+      end if;
+
       Set_Etype (New_S, Base_Type (Etype (New_S)));
 
       --  We suppress elaboration warnings for the resulting entity, since
@@ -1936,9 +1946,9 @@ package body Sem_Ch8 is
       Scope_Stack.Table (Scope_Stack.Last).First_Use_Clause := N;
    end Chain_Use_Clause;
 
-   ----------------------------
-   --  Check_Frozen_Renaming --
-   ----------------------------
+   ---------------------------
+   -- Check_Frozen_Renaming --
+   ---------------------------
 
    procedure Check_Frozen_Renaming (N : Node_Id; Subp : Entity_Id) is
       B_Node : Node_Id;
@@ -2043,6 +2053,14 @@ package body Sem_Ch8 is
 
       elsif Scope (Old_E) /= Standard_Standard
         and then not Is_Child_Unit (Old_E)
+      then
+         Error_Msg_N ("renamed unit must be a library unit", Name (N));
+
+      --  Entities defined in Standard (operators and boolean literals) cannot
+      --  be renamed as library units.
+
+      elsif Scope (Old_E) = Standard_Standard
+        and then Sloc (Old_E) = Standard_Location
       then
          Error_Msg_N ("renamed unit must be a library unit", Name (N));
 
@@ -2409,7 +2427,7 @@ package body Sem_Ch8 is
       --  rather than undefined.
 
       Nvis_Is_Private_Subprg : Boolean := False;
-      --  Ada 0Y (AI-262): Set True to indicate that a form of Beaujolais
+      --  Ada 2005 (AI-262): Set True to indicate that a form of Beaujolais
       --  effect concerning library subprograms has been detected. Used to
       --  generate the precise error message.
 
@@ -2579,7 +2597,7 @@ package body Sem_Ch8 is
          Item      : Node_Id;
 
       begin
-         --  Ada 0Y (AI-262): Generate a precise error concerning the
+         --  Ada 2005 (AI-262): Generate a precise error concerning the
          --  Beaujolais effect that was previously detected
 
          if Nvis_Is_Private_Subprg then
@@ -2609,7 +2627,7 @@ package body Sem_Ch8 is
 
             pragma Assert (Error_Msg_Sloc /= No_Location);
 
-            Error_Msg_N ("(Ada 0Y): hidden by private with clause #", N);
+            Error_Msg_N ("(Ada 2005): hidden by private with clause #", N);
             return;
          end if;
 
@@ -2993,7 +3011,7 @@ package body Sem_Ch8 is
                Only_One_Visible := False;
                All_Overloadable := All_Overloadable and Is_Overloadable (E2);
 
-            --  Ada 0Y (AI-262): Protect against a form of Beujolais effect
+            --  Ada 2005 (AI-262): Protect against a form of Beujolais effect
             --  that can occurr in private_with clauses. Example:
 
             --    with A;
@@ -3521,7 +3539,7 @@ package body Sem_Ch8 is
          Set_Chars (Selector, Chars (Id));
       end if;
 
-      --  Ada 0Y (AI-50217): Check usage of entities in limited withed units
+      --  Ada 2005 (AI-50217): Check usage of entities in limited withed units
 
       if Ekind (P_Name) = E_Package
         and then From_With_Type (P_Name)
@@ -3587,7 +3605,11 @@ package body Sem_Ch8 is
 
          begin
             while Present (H) loop
-               if Scope (H) = Scope (Id) then
+               if Scope (H) = Scope (Id)
+                 and then
+                   (not Is_Hidden (H)
+                      or else Is_Immediately_Visible (H))
+               then
                   Collect_Interps (N);
                   exit;
                end if;
@@ -4307,10 +4329,10 @@ package body Sem_Ch8 is
                Set_Etype (N, C);
             end if;
 
-         --  Base attribute, allowed in Ada 95 mode only
+         --  Base attribute, not allowed in Ada 83
 
          elsif Attribute_Name (N) = Name_Base then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_N
                  ("(Ada 83) Base attribute not allowed in subtype mark", N);
 
@@ -4318,7 +4340,7 @@ package body Sem_Ch8 is
                Find_Type (Prefix (N));
                Typ := Entity (Prefix (N));
 
-               if Ada_95
+               if Ada_Version >= Ada_95
                  and then not Is_Scalar_Type (Typ)
                  and then not Is_Generic_Type (Typ)
                then
@@ -4795,7 +4817,10 @@ package body Sem_Ch8 is
    -- Install_Use_Clauses --
    -------------------------
 
-   procedure Install_Use_Clauses (Clause : Node_Id) is
+   procedure Install_Use_Clauses
+     (Clause             : Node_Id;
+      Force_Installation : Boolean := False)
+   is
       U  : Node_Id := Clause;
       P  : Node_Id;
       Id : Entity_Id;
@@ -4821,8 +4846,9 @@ package body Sem_Ch8 is
                   then
                      Set_Redundant_Use (P, True);
 
-                  else
+                  elsif Force_Installation or else Applicable_Use (P) then
                      Use_One_Package (Id, U);
+
                   end if;
                end if;
 
@@ -5456,7 +5482,7 @@ package body Sem_Ch8 is
 
       Set_In_Use (P);
 
-      --  Ada 0Y (AI-50217): Check restriction.
+      --  Ada 2005 (AI-50217): Check restriction
 
       if From_With_Type (P) then
          Error_Msg_N ("limited withed package cannot appear in use clause", N);
@@ -5488,7 +5514,7 @@ package body Sem_Ch8 is
          Real_P := P;
       end if;
 
-      --  Ada 0Y (AI-262): Check the use_clause of a private withed package
+      --  Ada 2005 (AI-262): Check the use_clause of a private withed package
       --  found in the private part of a package specification
 
       if In_Private_Part (Current_Scope)
@@ -5506,7 +5532,7 @@ package body Sem_Ch8 is
       Id := First_Entity (P);
       while Present (Id)
         and then (Id /= First_Private_Entity (P)
-                    or else Private_With_OK) --  Ada 0Y (AI-262)
+                    or else Private_With_OK) -- Ada 2005 (AI-262)
       loop
          Prev := Current_Entity (Id);
 

@@ -1118,7 +1118,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
       else
 	loperands[3] = adjust_address (operand2, SImode, 4);
     }
-  loperands[4] = gen_label_rtx();
+  loperands[4] = gen_label_rtx ();
   if (operand2 != const0_rtx)
     {
       output_asm_insn (MOTOROLA ?
@@ -1160,7 +1160,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
         break;
 
       case GT:
-        loperands[6] = gen_label_rtx();
+        loperands[6] = gen_label_rtx ();
         output_asm_insn (MOTOROLA ?
 			   "shi %5\n\tjbra %l6" :
 			   "shi %5\n\tjra %l6",
@@ -1179,7 +1179,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
         break;
 
       case LT:
-        loperands[6] = gen_label_rtx();
+        loperands[6] = gen_label_rtx ();
         output_asm_insn (MOTOROLA ?
 			   "scs %5\n\tjbra %l6" :
 			   "scs %5\n\tjra %l6",
@@ -1198,7 +1198,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
         break;
 
       case GE:
-        loperands[6] = gen_label_rtx();
+        loperands[6] = gen_label_rtx ();
         output_asm_insn (MOTOROLA ?
 			   "scc %5\n\tjbra %l6" :
 			   "scc %5\n\tjra %l6",
@@ -1217,7 +1217,7 @@ output_scc_di(rtx op, rtx operand1, rtx operand2, rtx dest)
         break;
 
       case LE:
-        loperands[6] = gen_label_rtx();
+        loperands[6] = gen_label_rtx ();
         output_asm_insn (MOTOROLA ?
 			   "sls %5\n\tjbra %l6" :
 			   "sls %5\n\tjra %l6",
@@ -1283,7 +1283,7 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
 /* Returns true if OP is either a symbol reference or a sum of a symbol
    reference and a constant.  */
 
-bool
+int
 symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   switch (GET_CODE (op))
@@ -1447,11 +1447,12 @@ const_method (rtx constant)
       /* This is the only value where neg.w is useful */
       if (i == -65408)
 	return NEGW;
-      /* Try also with swap */
-      u = i;
-      if (USE_MOVQ ((u >> 16) | (u << 16)))
-	return SWAP;
     }
+
+  /* Try also with swap.  */
+  u = i;
+  if (USE_MOVQ ((u >> 16) | (u << 16)))
+    return SWAP;
 
   if (TARGET_CFV4)
     {
@@ -1524,9 +1525,9 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
        for add and the time for shift, taking away a little more because
        sometimes move insns are needed.  */
     /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
-#define MULL_COST (TARGET_68060 ? 2 : TARGET_68040 ? 5 : TARGET_CFV3 ? 3 : TARGET_COLDFIRE ? 10 : 13)
+#define MULL_COST (TARGET_68060 ? 2 : TARGET_68040 ? 5 : (TARGET_COLDFIRE && !TARGET_5200) ? 3 : TARGET_COLDFIRE ? 10 : 13)
 #define MULW_COST (TARGET_68060 ? 2 : TARGET_68040 ? 3 : TARGET_68020 ? 8 : \
-			TARGET_CFV3 ? 2 : 5)
+			(TARGET_COLDFIRE && !TARGET_5200) ? 2 : 5)
 #define DIVW_COST (TARGET_68020 ? 27 : TARGET_CF_HWDIV ? 11 : 12)
 
     case PLUS:
@@ -1651,6 +1652,23 @@ output_move_const_into_data_reg (rtx *operands)
     }
 }
 
+/* Return 1 if 'constant' can be represented by
+   mov3q on a ColdFire V4 core.  */
+int
+valid_mov3q_const (rtx constant)
+{
+  int i;
+
+  if (TARGET_CFV4 && GET_CODE (constant) == CONST_INT)
+    {
+      i = INTVAL (constant);
+      if ((i == -1) || (i >= 1 && i <= 7))
+	return 1;
+    }
+  return 0;
+}
+
+
 const char *
 output_move_simode_const (rtx *operands)
 {
@@ -1663,6 +1681,9 @@ output_move_simode_const (rtx *operands)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
+  else if ((GET_MODE (operands[0]) == SImode)
+           && valid_mov3q_const (operands[1]))
+      return "mov3q%.l %1,%0";
   else if (operands[1] == const0_rtx
 	   && ADDRESS_REG_P (operands[0]))
     return "sub%.l %0,%0";
@@ -1671,13 +1692,21 @@ output_move_simode_const (rtx *operands)
   else if (ADDRESS_REG_P (operands[0])
 	   && INTVAL (operands[1]) < 0x8000
 	   && INTVAL (operands[1]) >= -0x8000)
-    return "move%.w %1,%0";
+    {
+      if (valid_mov3q_const (operands[1]))
+        return "mov3q%.l %1,%0";
+      return "move%.w %1,%0";
+    }
   else if (GET_CODE (operands[0]) == MEM
       && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
       && REGNO (XEXP (XEXP (operands[0], 0), 0)) == STACK_POINTER_REGNUM
 	   && INTVAL (operands[1]) < 0x8000
 	   && INTVAL (operands[1]) >= -0x8000)
-    return "pea %a1";
+    {
+      if (valid_mov3q_const (operands[1]))
+        return "mov3q%.l %1,%-";
+      return "pea %a1";
+    }
   return "move%.l %1,%0";
 }
 
@@ -1751,10 +1780,6 @@ output_move_himode (rtx *operands)
 const char *
 output_move_qimode (rtx *operands)
 {
-  rtx xoperands[4];
-
-  /* This is probably useless, since it loses for pushing a struct
-     of several bytes a byte at a time.	 */
   /* 68k family always modifies the stack pointer by at least 2, even for
      byte pushes.  The 5200 (ColdFire) does not do this.  */
   if (GET_CODE (operands[0]) == MEM
@@ -1762,22 +1787,8 @@ output_move_qimode (rtx *operands)
       && XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
       && ! ADDRESS_REG_P (operands[1])
       && ! TARGET_COLDFIRE)
-    {
-      xoperands[1] = operands[1];
-      xoperands[2]
-	= gen_rtx_MEM (QImode,
-		       gen_rtx_PLUS (VOIDmode, stack_pointer_rtx, const1_rtx));
-      /* Just pushing a byte puts it in the high byte of the halfword.	*/
-      /* We must put it in the low-order, high-numbered byte.  */
-      if (!reg_mentioned_p (stack_pointer_rtx, operands[1]))
-	{
-	  xoperands[3] = stack_pointer_rtx;
-	  output_asm_insn ("subq%.l #2,%3\n\tmove%.b %1,%2", xoperands);
-	}
-      else
-	output_asm_insn ("move%.b %1,%-\n\tmove%.b %@,%2", xoperands);
-      return "";
-    }
+    /* generated by pushqi1 pattern now */
+    abort ();
 
   /* clr and st insns on 68000 read before writing.
      This isn't so on the 68010, but we have no TARGET_68010.  */

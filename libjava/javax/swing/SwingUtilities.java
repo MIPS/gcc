@@ -51,6 +51,7 @@ import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
 
@@ -64,8 +65,11 @@ import java.lang.reflect.InvocationTargetException;
  */
 public class SwingUtilities implements SwingConstants
 {
-
-  private static Frame ownerFrame;
+  /** 
+   * This frame should be used as parent for JWindow or JDialog 
+   * that doesn't an owner
+   */
+  private static OwnerFrame ownerFrame;
 
   /**
    * Calculates the portion of the base rectangle which is inside the
@@ -196,8 +200,6 @@ public class SwingUtilities implements SwingConstants
    *
    * @see #getAncestorOfClass
    * @see #windowForComponent
-   * @see 
-   * 
    */
   public static Container getAncestorOfClass(Class c, Component comp)
   {
@@ -375,8 +377,12 @@ public class SwingUtilities implements SwingConstants
 
     return pt;
   }
-
   
+  public static Point convertPoint(Component source, Point aPoint, Component destination)
+  {
+    return convertPoint(source, aPoint.x, aPoint.y, destination);
+  }
+
   /**
    * Converts a rectangle from the coordinate space of one component to
    * another. This is equivalent to converting the rectangle from
@@ -706,11 +712,14 @@ public class SwingUtilities implements SwingConstants
       {
       case TOP:
         textR.y = 0;
-        iconR.y = textR.height + textIconGap;
+        iconR.y = (horizontalTextPosition == CENTER 
+                   ? textR.height + textIconGap : 0);
         break;
       case BOTTOM:
         iconR.y = 0;
-        textR.y = iconR.height + textIconGap;
+        textR.y = (horizontalTextPosition == CENTER
+                   ? iconR.height + textIconGap 
+                   : iconR.height - textR.height);
         break;
       case CENTER:
         int centerLine = Math.max(textR.height, iconR.height) / 2;
@@ -718,7 +727,6 @@ public class SwingUtilities implements SwingConstants
         iconR.y = centerLine - iconR.height/2;
         break;
       }
-
     // The two rectangles are laid out correctly now, but only assuming
     // that their upper left corner is at (0,0). If we have any alignment other
     // than TOP and LEFT, we need to adjust them.
@@ -834,17 +842,73 @@ public class SwingUtilities implements SwingConstants
   }
   
   /**
-   * This method returns the common Frame owner used in JDialogs
-   * when no owner is provided.
+   * This method returns the common Frame owner used in JDialogs or
+   * JWindow when no owner is provided.
    *
    * @return The common Frame 
    */
   static Frame getOwnerFrame()
   {
     if (ownerFrame == null)
-      ownerFrame = new Frame();
+      ownerFrame = new OwnerFrame();
     return ownerFrame;
   }
-  
 
+  /**
+   * Checks if left mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if left mouse was clicked, false otherwise.
+   */
+  public static boolean isLeftMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON1_DOWN_MASK)
+	     == InputEvent.BUTTON1_DOWN_MASK);
+  }
+
+  /**
+   * Checks if middle mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if middle mouse was clicked, false otherwise.
+   */
+  public static boolean isMiddleMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON2_DOWN_MASK)
+	     == InputEvent.BUTTON2_DOWN_MASK);
+  }
+
+  /**
+   * Checks if right mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if right mouse was clicked, false otherwise.
+   */
+  public static boolean isRightMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON3_DOWN_MASK)
+	     == InputEvent.BUTTON3_DOWN_MASK);
+  }
+  
+  /**
+   * This frame should be used when constructing a Window/JDialog without
+   * a parent. In this case, we are forced to use this frame as a window's
+   * parent, because we simply cannot pass null instead of parent to Window
+   * constructor, since doing it will result in NullPointerException.
+   */
+  private static class OwnerFrame extends Frame
+  {
+    public void setVisible(boolean b)
+    {
+      // Do nothing here. 
+    }
+    
+    public boolean isShowing()
+    {
+      return true;
+    }
+  }
 }

@@ -671,21 +671,51 @@ gfc_gobble_whitespace (void)
 }
 
 
-/* Load a single line into the buffer.  We truncate lines that are too
-   long.  In fixed mode, we expand a tab that occurs within the
-   statement label region to expand to spaces that leave the next
-   character in the source region.  */
+/* Load a single line into pbuf.
+
+   If pbuf points to a NULL pointer, it is allocated.
+   We truncate lines that are too long, unless we're dealing with
+   preprocessor lines or if the option -ffixed-line-length-none is set,
+   in which case we reallocate the buffer to fit the entire line, if
+   need be.
+   In fixed mode, we expand a tab that occurs within the statement
+   label region to expand to spaces that leave the next character in
+   the source region.  */
 
 static void
-load_line (FILE * input, char *buffer, char *filename, int linenum)
+load_line (FILE * input, char **pbuf, char *filename, int linenum)
 {
-  int c, maxlen, i, trunc_flag;
+  int c, maxlen, i, trunc_flag, preprocessor_flag;
+  static int buflen = 0;
+  char *buffer;
 
-  maxlen = (gfc_current_form == FORM_FREE) 
-    ? 132 
-    : gfc_option.fixed_line_length;
+  /* Detemine the maximum allowed line length.  */
+  if (gfc_current_form == FORM_FREE)
+    maxlen = GFC_MAX_LINE;
+  else
+    maxlen = gfc_option.fixed_line_length;
+
+  if (*pbuf == NULL)
+    {
+      /* Allocate the line buffer, storing its length into buflen.  */
+      if (maxlen > 0)
+	buflen = maxlen;
+      else
+	buflen = GFC_MAX_LINE;
+
+      *pbuf = gfc_getmem (buflen + 1);
+    }
 
   i = 0;
+  buffer = *pbuf;
+
+  preprocessor_flag = 0;
+  c = fgetc (input);
+  if (c == '#')
+    /* In order to not truncate preprocessor lines, we have to
+       remember that this is one.  */
+    preprocessor_flag = 1;
+  ungetc (c, input);
 
   for (;;)
     {
@@ -722,8 +752,17 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
       *buffer++ = c;
       i++;
 
-      if (i >= maxlen)
-	{			/* Truncate the rest of the line.  */
+      if (i >= buflen && (maxlen == 0 || preprocessor_flag))
+	{
+	  /* Reallocate line buffer to double size to hold the
+	     overlong line.  */
+	  buflen = buflen * 2;
+	  *pbuf = xrealloc (*pbuf, buflen);
+	  buffer = (*pbuf)+i;
+	}
+      else if (i >= buflen)
+	{			
+	  /* Truncate the rest of the line.  */
 	  trunc_flag = 1;
 
 	  for (;;)
@@ -736,8 +775,8 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 		  && trunc_flag
 		  && !gfc_is_whitespace (c))
 		{
-		  gfc_warning_now ("Line %d of %s is being truncated",
-				   linenum, filename);
+		  gfc_warning_now ("%s:%d: Line is being truncated",
+				   filename, linenum);
 		  trunc_flag = 0;
 		}
 	    }
@@ -745,6 +784,14 @@ load_line (FILE * input, char *buffer, char *filename, int linenum)
 	  ungetc ('\n', input);
 	}
     }
+
+  /* Pad lines to the selected line length in fixed form.  */
+  if (gfc_current_form == FORM_FIXED
+      && gfc_option.fixed_line_length > 0
+      && !preprocessor_flag
+      && c != EOF)
+    while (i++ < buflen)
+      *buffer++ = ' ';
 
   *buffer = '\0';
 }
@@ -789,19 +836,21 @@ preprocessor_line (char *c)
     c++;
 
   if (*c < '0' || *c > '9')
-    {
-      gfc_warning_now ("%s:%d Unknown preprocessor directive", 
-		       current_file->filename, current_file->line);
-      current_file->line++;
-      return;
-    }
+    goto bad_cpp_line;
 
   line = atoi (c);
 
-  c = strchr (c, ' ') + 2; /* Skip space and quote.  */
+  c = strchr (c, ' '); 
+  if (c == NULL)
+    /* Something we don't understand has happened.  */
+    goto bad_cpp_line;
+  c += 2;     /* Skip space and quote.  */
   filename = c;
 
   c = strchr (c, '"'); /* Make filename end at quote.  */
+  if (c == NULL)
+    /* Preprocessor line has no closing quote.  */
+    goto bad_cpp_line;
   *c++ = '\0';
 
   /* Get flags.  */
@@ -846,6 +895,13 @@ preprocessor_line (char *c)
       current_file->filename = gfc_getmem (strlen (filename) + 1);
       strcpy (current_file->filename, filename);
     }
+
+  return;
+
+ bad_cpp_line:
+  gfc_warning_now ("%s:%d: Unknown preprocessor directive", 
+		   current_file->filename, current_file->line);
+  current_file->line++;
 }
 
 
@@ -909,7 +965,7 @@ include_line (char *line)
 static try
 load_file (char *filename, bool initial)
 {
-  char line[GFC_MAX_LINE+1];
+  char *line;
   gfc_linebuf *b;
   gfc_file *f;
   FILE *input;
@@ -947,10 +1003,11 @@ load_file (char *filename, bool initial)
   f->up = current_file;
   current_file = f;
   current_file->line = 1;
+  line = NULL;
 
   for (;;) 
     {
-      load_line (input, line, filename, current_file->line);
+      load_line (input, &line, filename, current_file->line);
 
       len = strlen (line);
       if (feof (input) && len == 0)
@@ -986,6 +1043,9 @@ load_file (char *filename, bool initial)
 
       line_tail = b;
     }
+
+  /* Release the line buffer allocated in load_line.  */
+  gfc_free (line);
 
   fclose (input);
 

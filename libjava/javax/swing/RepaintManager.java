@@ -252,16 +252,22 @@ public class RepaintManager
    */
   public synchronized void addInvalidComponent(JComponent component)
   {
-    while ((component.getParent() != null)
-           && (component.getParent() instanceof JComponent)
-           && (component.isValidateRoot()))
-      component = (JComponent) component.getParent();
+    Component ancestor = component.getParent();
+
+    while (ancestor != null
+           && (! (ancestor instanceof JComponent)
+               || ! ((JComponent) ancestor).isValidateRoot() ))
+      ancestor = ancestor.getParent();
+
+    if (ancestor != null
+        && ancestor instanceof JComponent
+        && ((JComponent) ancestor).isValidateRoot())
+      component = (JComponent) ancestor;
     
     if (invalidComponents.contains(component))
       return;
 
     invalidComponents.add(component);
-    component.invalidate();
     
     if (! repaintWorker.isLive())
       {
@@ -438,7 +444,7 @@ public class RepaintManager
     dirtyComponents.clear();
 
     // step 2: paint those roots
-    Iterator i = roots.values().iterator();
+    Iterator i = roots.entrySet().iterator();
     while(i.hasNext())
       {
         Map.Entry ent = (Map.Entry) i.next();

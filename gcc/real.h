@@ -45,7 +45,7 @@ struct real_value GTY(())
   /* Use the same underlying type for all bit-fields, so as to make
      sure they're packed together, otherwise REAL_VALUE_TYPE_SIZE will
      be miscomputed.  */
-  unsigned int /* ENUM_BITFIELD (real_value_class) */ class : 2;
+  unsigned int /* ENUM_BITFIELD (real_value_class) */ cl : 2;
   unsigned int sign : 1;
   unsigned int signalling : 1;
   unsigned int canonical : 1;
@@ -383,5 +383,8 @@ extern void real_ceil (REAL_VALUE_TYPE *, enum machine_mode,
 		       const REAL_VALUE_TYPE *);
 extern void real_round (REAL_VALUE_TYPE *, enum machine_mode,
 			const REAL_VALUE_TYPE *);
+
+/* Set the sign of R to the sign of X.  */
+extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 
 #endif /* ! GCC_REAL_H */

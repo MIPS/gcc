@@ -67,7 +67,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_FORMAT_PRIVATE_NAME
 # define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
   do { const char *const name_ = (NAME); \
-       char *const output_ = (OUTPUT) = alloca (strlen (name_) + 32);\
+       char *const output_ = (OUTPUT) = \
+	 (char *) alloca (strlen (name_) + 32); \
        sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
@@ -238,11 +239,13 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
-/* Determines whether explicit template instantiations should
-   be given link-once semantics. The C++ ABI requires this 
-   macro to be nonzero; see the documentation.  */
-#ifndef TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-# define TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY 1
+/* This determines whether weak symbols must be left out of a static
+   archive's table of contents.  Defining this macro to be nonzero has
+   the consequence that certain symbols will not be made weak that
+   otherwise would be.  The C++ ABI requires this macro to be zero;
+   see the documentation. */ 
+#ifndef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 0
 #endif
 
 /* This determines whether or not we need linkonce unwind information */

@@ -392,6 +392,7 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	    {
 	      bool invert = false;
 	      enum tree_code new_code;
+	      tree new_arg;
 
 	      /* TEST_VAR was set from a TRUTH_NOT_EXPR or a NOP_EXPR.  */
 	      if (def_rhs_code == TRUTH_NOT_EXPR)
@@ -409,11 +410,10 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	      if (invert)
 		new_code = (new_code == EQ_EXPR ? NE_EXPR  : EQ_EXPR);
 
-	      new_cond = build (new_code, 
-				boolean_type_node,
-				TREE_OPERAND (def_rhs, 0),
-				convert (TREE_TYPE (def_rhs),
-					 integer_zero_node));
+	      new_arg = TREE_OPERAND (def_rhs, 0);
+	      new_cond = build2 (new_code, boolean_type_node, new_arg,
+				 fold_convert (TREE_TYPE (new_arg),
+					       integer_zero_node));
 	    }
 
 	  /* Dump details.  */
@@ -518,7 +518,8 @@ struct tree_opt_pass pass_forwprop = {
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_FORWPROP,		/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
+  PROP_cfg | PROP_ssa
+    | PROP_alias,		/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */

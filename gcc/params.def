@@ -229,6 +229,14 @@ DEFPARAM(PARAM_MAX_UNSWITCH_LEVEL,
 	"The maximum number of unswitchings in a single loop",
 	3)
 
+/* The maximum number of iterations of a loop the brute force algorithm
+   for analysis of # of iterations of the loop tries to evaluate.  */
+DEFPARAM(PARAM_MAX_ITERATIONS_TO_TRACK,
+	"max-iterations-to-track",
+	"Bound on the number of iterations the brute force # of iterations \
+	 analysis algorithm evaluates",
+	1000)
+
 DEFPARAM(PARAM_MAX_SMS_LOOP_NUMBER,
 	 "max-sms-loop-number",
 	 "Maximum number of loops to perform swing modulo scheduling on \
@@ -303,6 +311,13 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "max-cse-path-length",
 	 "The maximum length of path considered in cse",
 	 10)
+
+/* The cost of expression in loop invariant motion that is considered
+   expensive.  */
+DEFPARAM(PARAM_LIM_EXPENSIVE,
+	 "lim-expensive",
+	 "The minimum cost of an expensive expression in the loop invariant motion",
+	 20)
 
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */

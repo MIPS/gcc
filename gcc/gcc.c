@@ -612,7 +612,7 @@ proper position among the other output files.  */
 }} %{fmudflap|fmudflapth: --wrap=main}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}} %{fmudflapth: -export-dynamic -lmudflapth -lpthread %{static:%(link_gcc_c_sequence) -lmudflapth}} "
+#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}" 
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -783,7 +783,8 @@ static const char *cpp_unique_options =
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
 "%(cpp_unique_options) %1 %{m*} %{std*} %{ansi} %{W*&pedantic*} %{w} %{f*}\
- %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}";
+ %{g*:%{!g0:%{!fno-working-directory:-fworking-directory}}} %{O*} %{undef}\
+ %{save-temps:-fpch-preprocess}";
 
 /* This contains cpp options which are not passed when the preprocessor
    output will be used by another program.  */
@@ -1428,6 +1429,13 @@ static const char *gcc_libexec_prefix;
 
 /* Default prefixes to attach to command names.  */
 
+#ifndef STANDARD_STARTFILE_PREFIX_1
+#define STANDARD_STARTFILE_PREFIX_1 "/lib/"
+#endif
+#ifndef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/"
+#endif
+ 
 #ifdef CROSS_COMPILE  /* Don't use these prefixes for a cross compiler.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -1453,8 +1461,10 @@ static const char *md_exec_prefix = MD_EXEC_PREFIX;
 static const char *md_startfile_prefix = MD_STARTFILE_PREFIX;
 static const char *md_startfile_prefix_1 = MD_STARTFILE_PREFIX_1;
 static const char *const standard_startfile_prefix = STANDARD_STARTFILE_PREFIX;
-static const char *const standard_startfile_prefix_1 = "/lib/";
-static const char *const standard_startfile_prefix_2 = "/usr/lib/";
+static const char *const standard_startfile_prefix_1
+  = STANDARD_STARTFILE_PREFIX_1;
+static const char *const standard_startfile_prefix_2
+  = STANDARD_STARTFILE_PREFIX_2;
 
 static const char *const tooldir_base_prefix = TOOLDIR_BASE_PREFIX;
 static const char *tooldir_prefix;
@@ -6230,10 +6240,14 @@ main (int argc, const char **argv)
 		      NULL, PREFIX_PRIORITY_LAST, 0, NULL, 1);
 	}
 
-      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_1,
-			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
-      add_sysrooted_prefix (&startfile_prefixes, standard_startfile_prefix_2,
-			    "BINUTILS", PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      if (*standard_startfile_prefix_1)
+ 	add_sysrooted_prefix (&startfile_prefixes,
+			      standard_startfile_prefix_1, "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
+      if (*standard_startfile_prefix_2)
+	add_sysrooted_prefix (&startfile_prefixes,
+			      standard_startfile_prefix_2, "BINUTILS",
+			      PREFIX_PRIORITY_LAST, 0, NULL, 1);
 #if 0 /* Can cause surprises, and one can use -B./ instead.  */
       add_prefix (&startfile_prefixes, "./", NULL,
 		  PREFIX_PRIORITY_LAST, 1, NULL, 0);

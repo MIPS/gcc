@@ -419,15 +419,16 @@ namespace _GLIBCXX_STD
     };
 
   template<typename _Tp, typename _Alloc>
-  _Deque_base<_Tp,_Alloc>::~_Deque_base()
-  {
-    if (this->_M_impl._M_map)
+    _Deque_base<_Tp, _Alloc>::
+    ~_Deque_base()
     {
-      _M_destroy_nodes(this->_M_impl._M_start._M_node,
-		       this->_M_impl._M_finish._M_node + 1);
-      _M_deallocate_map(this->_M_impl._M_map, this->_M_impl._M_map_size);
+      if (this->_M_impl._M_map)
+	{
+	  _M_destroy_nodes(this->_M_impl._M_start._M_node,
+			   this->_M_impl._M_finish._M_node + 1);
+	  _M_deallocate_map(this->_M_impl._M_map, this->_M_impl._M_map_size);
+	}
     }
-  }
 
   /**
    *  @if maint
@@ -441,12 +442,14 @@ namespace _GLIBCXX_STD
   */
   template<typename _Tp, typename _Alloc>
     void
-    _Deque_base<_Tp,_Alloc>::_M_initialize_map(size_t __num_elements)
+    _Deque_base<_Tp, _Alloc>::
+    _M_initialize_map(size_t __num_elements)
     {
-      size_t __num_nodes = __num_elements / __deque_buf_size(sizeof(_Tp)) + 1;
+      const size_t __num_nodes = (__num_elements / __deque_buf_size(sizeof(_Tp))
+				  + 1);
 
       this->_M_impl._M_map_size = std::max((size_t) _S_initial_map_size,
-				   __num_nodes + 2);
+					   size_t(__num_nodes + 2));
       this->_M_impl._M_map = _M_allocate_map(this->_M_impl._M_map_size);
 
       // For "small" maps (needing less than _M_map_size nodes), allocation
@@ -478,7 +481,8 @@ namespace _GLIBCXX_STD
 
   template<typename _Tp, typename _Alloc>
     void
-    _Deque_base<_Tp,_Alloc>::_M_create_nodes(_Tp** __nstart, _Tp** __nfinish)
+    _Deque_base<_Tp, _Alloc>::
+    _M_create_nodes(_Tp** __nstart, _Tp** __nfinish)
     {
       _Tp** __cur;
       try
@@ -495,7 +499,8 @@ namespace _GLIBCXX_STD
 
   template<typename _Tp, typename _Alloc>
     void
-    _Deque_base<_Tp,_Alloc>::_M_destroy_nodes(_Tp** __nstart, _Tp** __nfinish)
+    _Deque_base<_Tp, _Alloc>::
+    _M_destroy_nodes(_Tp** __nstart, _Tp** __nfinish)
     {
       for (_Tp** __n = __nstart; __n < __nfinish; ++__n)
 	_M_deallocate_node(*__n);
@@ -595,14 +600,14 @@ namespace _GLIBCXX_STD
 
     public:
       typedef _Tp                                value_type;
-      typedef value_type*                        pointer;
-      typedef const value_type*                  const_pointer;
+      typedef typename _Alloc::pointer           pointer;
+      typedef typename _Alloc::const_pointer     const_pointer;
+      typedef typename _Alloc::reference         reference;
+      typedef typename _Alloc::const_reference   const_reference;
       typedef typename _Base::iterator           iterator;
       typedef typename _Base::const_iterator     const_iterator;
       typedef std::reverse_iterator<const_iterator>   const_reverse_iterator;
       typedef std::reverse_iterator<iterator>         reverse_iterator;
-      typedef value_type&                        reference;
-      typedef const value_type&                  const_reference;
       typedef size_t                             size_type;
       typedef ptrdiff_t                          difference_type;
       typedef typename _Base::allocator_type     allocator_type;
@@ -672,8 +677,8 @@ namespace _GLIBCXX_STD
        */
       deque(const deque& __x)
       : _Base(__x.get_allocator(), __x.size())
-      { std::uninitialized_copy(__x.begin(), __x.end(),
-				this->_M_impl._M_start); }
+      { std::__uninitialized_copy_a(__x.begin(), __x.end(), this->_M_impl._M_start,
+				    this->get_allocator()); }
 
       /**
        *  @brief  Builds a %deque from a range.
@@ -705,7 +710,8 @@ namespace _GLIBCXX_STD
        *  way.  Managing the pointer is the user's responsibilty.
        */
       ~deque()
-      { std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish); }
+      { std::_Destroy(this->_M_impl._M_start, this->_M_impl._M_finish,
+		      this->get_allocator()); }
 
       /**
        *  @brief  %Deque assignment operator.
@@ -923,7 +929,10 @@ namespace _GLIBCXX_STD
        */
       reference
       at(size_type __n)
-      { _M_range_check(__n); return (*this)[__n]; }
+      {
+	_M_range_check(__n);
+	return (*this)[__n];
+      }
 
       /**
        *  @brief  Provides access to the data contained in the %deque.
@@ -996,7 +1005,7 @@ namespace _GLIBCXX_STD
       {
 	if (this->_M_impl._M_start._M_cur != this->_M_impl._M_start._M_first)
 	  {
-	    std::_Construct(this->_M_impl._M_start._M_cur - 1, __x);
+	    this->_M_impl.construct(this->_M_impl._M_start._M_cur - 1, __x);
 	    --this->_M_impl._M_start._M_cur;
 	  }
 	else
@@ -1017,7 +1026,7 @@ namespace _GLIBCXX_STD
 	if (this->_M_impl._M_finish._M_cur
 	    != this->_M_impl._M_finish._M_last - 1)
 	  {
-	    std::_Construct(this->_M_impl._M_finish._M_cur, __x);
+	    this->_M_impl.construct(this->_M_impl._M_finish._M_cur, __x);
 	    ++this->_M_impl._M_finish._M_cur;
 	  }
 	else
@@ -1038,7 +1047,7 @@ namespace _GLIBCXX_STD
 	if (this->_M_impl._M_start._M_cur
 	    != this->_M_impl._M_start._M_last - 1)
 	  {
-	    std::_Destroy(this->_M_impl._M_start._M_cur);
+	    this->_M_impl.destroy(this->_M_impl._M_start._M_cur);
 	    ++this->_M_impl._M_start._M_cur;
 	  }
 	else
@@ -1060,7 +1069,7 @@ namespace _GLIBCXX_STD
 	    != this->_M_impl._M_finish._M_first)
 	  {
 	    --this->_M_impl._M_finish._M_cur;
-	    std::_Destroy(this->_M_impl._M_finish._M_cur);
+	    this->_M_impl.destroy(this->_M_impl._M_finish._M_cur);
 	  }
 	else
 	  _M_pop_back_aux();

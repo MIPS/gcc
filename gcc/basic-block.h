@@ -142,6 +142,9 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
 
+  /* Location of any goto implicit in the edge, during tree-ssa.  */
+  source_locus goto_locus;
+
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
@@ -408,7 +411,6 @@ extern regset regs_live_at_setjmp;
 /* Special labels found during CFG build.  */
 
 extern GTY(()) rtx label_value_list;
-extern GTY(()) rtx tail_recursion_label_list;
 
 extern struct obstack flow_obstack;
 
@@ -452,6 +454,7 @@ extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);
 
 extern void remove_fake_edges (void);
+extern void remove_fake_exit_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
@@ -591,16 +594,15 @@ enum update_life_extent
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
 #define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
 					   to care REG_DEAD notes.  */
-#define CLEANUP_PRE_SIBCALL	8	/* Do not get confused by code hidden
-					   inside call_placeholders..  */
-#define CLEANUP_PRE_LOOP	16	/* Take care to preserve syntactic loop
+#define CLEANUP_PRE_LOOP	8	/* Take care to preserve syntactic loop
 					   notes.  */
-#define CLEANUP_UPDATE_LIFE	32	/* Keep life information up to date.  */
-#define CLEANUP_THREADING	64	/* Do jump threading.  */
-#define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
+#define CLEANUP_UPDATE_LIFE	16	/* Keep life information up to date.  */
+#define CLEANUP_THREADING	32	/* Do jump threading.  */
+#define CLEANUP_NO_INSN_DEL	64	/* Do not try to delete trivially dead
 					   insns.  */
-#define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
-#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
+#define CLEANUP_CFGLAYOUT	128	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	256	/* Update log links.  */
+
 extern void life_analysis (FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -630,7 +632,6 @@ extern rtx emit_block_insn_before (rtx, rtx, basic_block);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
-extern void note_prediction_to_br_prob (void);
 extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
@@ -666,6 +667,7 @@ extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
 extern void rtl_make_eh_edge (sbitmap *, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
+extern bool could_fall_through (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
 extern void alloc_aux_for_block (basic_block, int);
@@ -712,7 +714,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (void);
+extern void reorder_basic_blocks (unsigned int);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */

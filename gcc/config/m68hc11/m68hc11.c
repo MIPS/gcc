@@ -1010,6 +1010,24 @@ non_push_operand (rtx operand, enum machine_mode mode)
 }
 
 int
+splitable_operand (rtx operand, enum machine_mode mode)
+{
+  if (general_operand (operand, mode) == 0)
+    return 0;
+
+  if (push_operand (operand, mode) == 1)
+    return 0;
+
+  /* Reject a (MEM (MEM X)) because the patterns that use non_push_operand
+     need to split such addresses to access the low and high part but it
+     is not possible to express a valid address for the low part.  */
+  if (mode != QImode && GET_CODE (operand) == MEM
+      && GET_CODE (XEXP (operand, 0)) == MEM)
+    return 0;
+  return 1;
+}
+
+int
 reg_or_some_mem_operand (rtx operand, enum machine_mode mode)
 {
   if (GET_CODE (operand) == MEM)
@@ -1453,24 +1471,6 @@ m68hc11_is_trap_symbol (rtx sym)
 
 
 /* Argument support functions.  */
-
-/* Handle the FUNCTION_ARG_PASS_BY_REFERENCE macro.
-   Arrays are passed by references and other types by value.
-
-   SCz: I tried to pass DImode by reference but it seems that this
-   does not work very well.  */
-int
-m68hc11_function_arg_pass_by_reference (const CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-                                        enum machine_mode mode ATTRIBUTE_UNUSED,
-                                        tree type,
-                                        int named ATTRIBUTE_UNUSED)
-{
-  return ((type && TREE_CODE (type) == ARRAY_TYPE)
-	  /* Consider complex values as aggregates, so care for TCmode.  */
-	  /*|| GET_MODE_SIZE (mode) > 4 SCz, temporary */
-	  /*|| (type && AGGREGATE_TYPE_P (type))) */ );
-}
-
 
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */

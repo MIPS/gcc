@@ -1,3 +1,193 @@
+2004-08-01  Roger Sayle  <roger@eyesopen.com>
+
+	* io/write.c (write_float): Use the slightly more portable isnan
+	in preference to isinf.
+
+2004-07-18  Bud Davis  <bdavis9659@comcast.net>
+
+	* configure.ac: Add check for LFS support. 
+	* configure: Regenerate
+
+2004-07-11  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/16303
+	* m4/cexp.m4 (carg): Return -pi to pi.
+	* generated/exp_c?.c: Regenerate.
+
+2004-07-08  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR fortran/16291
+	* libgfortran/io/write.c: (write_float): Added length check.
+	Remove pointless memset calls.
+
+2004-07-04  Bud Davis  <bdavis9659@comcast.net>
+	    Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15472
+	* io/transfer.c(us_write): set recl for seq unform writes to max size.
+	* io/transfer.c(data_transfer_init): handle un-opened seq unform unit.
+	* io/unix.c(fd_alloc_w_at): handle requests at start, fd_flush at 
+	right time.
+	* io/unix.c(is_seekable): set based upon the file/device, not the
+	method being used to access it (fd or mmap).
+	* io/unix.c(fd_flush): don't set file_size if !seekable.
+	* io/unix.c(fd_truncate: ditto.
+
+2004-07-04  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+	Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15280
+	PR fortran/15665
+	* libgfortran.h (gfc_strlen_type): Define.
+	* intrinsics/args.c (getarg): Rename ...
+	(getarg_i4): ... to this.
+	(getarg_i8, get_command_argument_i4, get_command_argument_i8,
+	get_command_i4, get_command_i8): New functions.
+
+2004-07-04  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libgfortran_la_LDFLAGS): Use -version-info for soname.
+	* Makefile.in: Regenerate.
+	* configure.ac: Remove libtool_VERSION macro
+	* configure: Regenerate
+
+2004-06-30  Steve Kargl  <sgk@troutmask.apl.washington.edu>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	* intrinsics/rand.c (rand): Wrap the irand() call from the previous
+	commit in prefix.
+
+2004-06-29  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	Paul Brook  <paul@codesourcery.com>
+
+	* runtime/normalize.c (normalize_r4_i4, normalize_r8_i8): Fix
+	comments.
+	* intrinsics/rand.c (rand): Call irand() in call to normalize_r4_i4.
+
+2004-06-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/12839
+	* io/write.c (write_float): check signbit for Infinity.
+
+2004-06-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16196
+	* unix.c(regular_file): create file if it does not exist.
+
+2004-06-24  Andrew Pinski  <apinski@apple.com>
+
+	* configure.ac: Remove check for libmx.
+	* configure: Regenerate.
+
+2004-06-22  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/15750
+	* inquire.c (st_inquire): Add comment
+	* io.h (st_parameter): Add iolength.
+	(st_iolength, st_iolength_done): Declare.
+	* transfer.c (iolength_transfer, iolength_transfer_init,
+	st_iolength, st_iolength_done): New functions.
+
+2004-06-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* etime.c (etime_sub): Remove array rank check;
+	Add check for sufficient space.
+
+2004-06-19  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16080
+	* io/list_read.c(set_value): fixed spelling.
+
+2004-06-19  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16080
+	* io/list_read.c(set_value): don't copy if the string is null.
+
+2004-06-14  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/15292
+	* intrinsics/c99_functions.c: Use fpclassify if it exists.
+
+2004-06-13  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.am (gfor_helper_src): Add runtime/normalize.f90.
+	* configure.ac: Add checks for nextafter and nextafterf.
+	* Makefile.in, config.h.in, configure: Regenerate.
+	* libgfortran.h (normalize_r4_i4, normalize_r8_i8): Declare.
+	* intrinsics/rand.c (rand): Use normalize_r4_i4.
+	* intrinsics/random.c (random_r4): Use normalize_r4_i4.
+	(random_r8): Use normalize_r8_i8.
+	* runtime/normalize.c: New file.
+
+2004-06-13  Steven G. Kargl  <kargls@comcast.net>
+	    Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* random.c: Fix several spelling and formatting mistakes in 
+	comments.
+	(random_r8): Fix loop to make random numbers range in [0,1(.
+	
+
+2004-06-13  Steven G. Kargl  <kargls@comcast.net>
+
+	* random.c (random_r4): Burn a random number.
+	(random_r8): fix infinite loop.
+	
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+      Steve Kargl  <sgk@troutmask.apl.washington.edu>
+
+	PR gfortran/15292
+	* intrinsics/c99_functions.c: New file.
+	* Makefile.am: Add new file.
+	* configure.ac: Added test for round/roundf.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* configure.h.in: Regenerate.
+
+2004-06-12  Steven G. Kargl  <kargls@comcast.net>
+
+	* Makefile.am: Add rand.c and etime.c
+	* Makefile.in: Regenerated.
+	* aclocal.in: Regenerated.
+	* cpu_time.c (second_sub, second): New functions.
+	* rand.c (irand, rand, srand): New file.
+	* etime.c (etime_sub, etime): New file.
+
+2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+	    Steven Bosscher  <stevenb@suse.de>
+
+	PR fortran/14923
+	* intrinsics/date_and_time.c: New file.
+	* Makefile.am (gfor_helper_src): Add intrinsics/date_and_time.c.
+	* Makefile.in, aclocal.m4: Regenerate.
+	* libgfortran.h: Prototype date_and_time().
+
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15665
+	* intrinsics/args.c: Implement GETARG and IARGC.
+	* Makefile.am: Add it.
+	* Makefile.in: Regenerate.
+
+2004-06-12  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/12839
+	* io/write.c(write_float): Format inf and nan IAW F2003.
+
+2004-06-09  Bud Davis  <bdavis9659@comcaste.net>
+
+	PR gfortran/14897
+	* io/transfer.c (formatted_transfer): position is unique
+         for T and TL edit descriptors.
+	(data_transfer_init): set record length to size of internal
+         file.
+
+2004-06-09  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/15755
+	* io/backspace.c(st_backspace): call correct routine for
+	formatted and un-formatted units.
+
 2004-05-30  Andreas Jaeger  <aj@suse.de>, Steven Bosscher <stevenb@suse.de>
 
 	PR gfortran/11800

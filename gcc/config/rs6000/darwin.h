@@ -68,7 +68,7 @@
 /* The Darwin ABI always includes AltiVec, can't be (validly) turned
    off.  */
 
-#define SUBTARGET_OVERRIDE_OPTIONS				  	\
+#define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
   rs6000_altivec_abi = 1;						\
   rs6000_altivec_vrsave = 1;						\
@@ -87,14 +87,23 @@ do {									\
         flag_pic = 2;							\
       }									\
   }									\
-}while(0)
+} while(0)
+
+/* Darwin has 128-bit long double support in libc in 10.4 and later.
+   Default to 128-bit long doubles even on earlier platforms for ABI
+   consistency; arithmetic will work even if libc and libm support is
+   not available.  */
+
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
+
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
-
 #define CC1_SPEC "\
-%{gused: -feliminate-unused-debug-symbols %<gused }\
+%{gused: -g -feliminate-unused-debug-symbols %<gused }\
+%{gfull: -g -fno-eliminate-unused-debug-symbols %<gfull }\
+%{g: %{!gfull: -feliminate-unused-debug-symbols %<gfull }}\
 %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
 %{!static:%{!mdynamic-no-pic:-fPIC}}"
 
@@ -319,9 +328,25 @@ do {									\
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 
 /* For binary compatibility with 2.95; Darwin C APIs use bool from
-   stdbool.h, which was an int-sized enum in 2.95.  */
-#define BOOL_TYPE_SIZE INT_TYPE_SIZE
+   stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
+   choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
+extern const char *darwin_one_byte_bool;
+#define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
 
 #undef REGISTER_TARGET_PRAGMAS
 #define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
+#ifdef IN_LIBGCC2
+#include <stdbool.h>
+#endif
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  {									\
+    extern bool _Unwind_fallback_frame_state_for			\
+      (struct _Unwind_Context *context, _Unwind_FrameState *fs);	\
+									\
+    if (_Unwind_fallback_frame_state_for (CONTEXT, FS))			\
+      goto SUCCESS;							\
+  }
+
+#define HAS_MD_FALLBACK_FRAME_STATE_FOR 1

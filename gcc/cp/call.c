@@ -188,6 +188,8 @@ static void add_candidates (tree, tree, tree, bool, tree, tree,
 			    int, struct z_candidate **);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
 static bool magic_varargs_p (tree);
+static tree build_temp (tree, tree, int, void (**)(const char *, ...));
+static void check_constructor_callable (tree, tree);
 
 tree
 build_vfield_ref (tree datum, tree type)
@@ -203,7 +205,7 @@ build_vfield_ref (tree datum, tree type)
     datum = convert_to_base (datum, type, /*check_access=*/false);
 
   return build (COMPONENT_REF, TREE_TYPE (TYPE_VFIELD (type)),
-		datum, TYPE_VFIELD (type));
+		datum, TYPE_VFIELD (type), NULL_TREE);
 }
 
 /* Returns nonzero iff the destructor name specified in NAME
@@ -422,10 +424,13 @@ struct z_candidate {
      the `this' pointer must correspond to the most derived class
      indicated by the CONVERSION_PATH.  */
   tree conversion_path;
-  tree template;
+  tree template_decl;
   candidate_warning *warnings;
   z_candidate *next;
 };
+
+/* Returns true iff T is a null pointer constant in the sense of
+   [conv.ptr].  */
 
 bool
 null_ptr_cst_p (tree t)
@@ -434,12 +439,13 @@ null_ptr_cst_p (tree t)
 
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
+  if (DECL_INTEGRAL_CONSTANT_VAR_P (t))
+    t = decl_constant_value (t);
   if (t == null_node
       || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
     return true;
   return false;
 }
-
 
 /* Returns nonzero if PARMLIST consists of only default parms and/or
    ellipsis.  */
@@ -1190,7 +1196,8 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
     {
       conv = build_identity_conv (from, expr);
       conv = direct_reference_binding (rto, conv);
-      conv->u.next->check_copy_constructor_p = true;
+      if (!(flags & LOOKUP_CONSTRUCTOR_CALLABLE))
+	conv->u.next->check_copy_constructor_p = true;
       return conv;
     }
 
@@ -2259,9 +2266,9 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
        for this will point at template <class T> template <> S<T>::f(int),
        so that we can find the definition.  For the purposes of
        overload resolution, however, we want the original TMPL.  */
-    cand->template = tree_cons (tmpl, targs, NULL_TREE);
+    cand->template_decl = tree_cons (tmpl, targs, NULL_TREE);
   else
-    cand->template = DECL_TEMPLATE_INFO (fn);
+    cand->template_decl = DECL_TEMPLATE_INFO (fn);
 
   return cand;
 }
@@ -2497,9 +2504,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 		      || !DERIVED_FROM_P (totype, fromtype), 20011226);
 
   if (IS_AGGR_TYPE (totype))
-    ctors = lookup_fnfields (TYPE_BINFO (totype),
-			     complete_ctor_identifier,
-			     0);
+    ctors = lookup_fnfields (totype, complete_ctor_identifier, 0);
 
   if (IS_AGGR_TYPE (fromtype))
     conv_fns = lookup_conversions (fromtype);
@@ -2809,7 +2814,16 @@ build_operator_new_call (tree fnname, tree args, tree *size, tree *cookie_size)
   if (args == error_mark_node)
     return args;
 
-  fns = lookup_function_nonclass (fnname, args);
+  /* Based on:
+
+       [expr.new]
+
+       If this lookup fails to find the name, or if the allocated type
+       is not a class type, the allocation function's name is looked
+       up in the global scope.
+
+     we disregard block-scope declarations of "operator new".  */
+  fns = lookup_function_nonclass (fnname, args, /*block_p=*/false);
 
   /* Figure out what function is being called.  */
   cand = perform_overload_resolution (fns, args, &candidates, &any_viable_p);
@@ -3630,7 +3644,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 
   /* Add namespace-scope operators to the list of functions to
      consider.  */
-  add_candidates (lookup_function_nonclass (fnname, arglist),
+  add_candidates (lookup_function_nonclass (fnname, arglist, /*block_p=*/true),
 		  arglist, NULL_TREE, false, NULL_TREE, NULL_TREE,
 		  flags, &candidates);
   /* Add class-member operators to the candidate set.  */
@@ -3638,7 +3652,7 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     {
       tree fns;
 
-      fns = lookup_fnfields (TYPE_BINFO (TREE_TYPE (arg1)), fnname, 1);
+      fns = lookup_fnfields (TREE_TYPE (arg1), fnname, 1);
       if (fns == error_mark_node)
 	{
 	  result = error_mark_node;
@@ -3763,6 +3777,14 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	}
       else
 	{
+	  /* Give any warnings we noticed during overload resolution.  */
+	  if (cand->warnings)
+	    {
+	      struct candidate_warning *w;
+	      for (w = cand->warnings; w; w = w->next)
+		joust (cand, w->loser, 1);
+	    }
+
 	  /* Check for comparison of different enum types.  */
 	  switch (code)
 	    {
@@ -3868,8 +3890,7 @@ builtin:
       return build_conditional_expr (arg1, arg2, arg3);
 
     case MEMBER_REF:
-      return build_m_component_ref
-	(build_indirect_ref (arg1, NULL), arg2);
+      return build_m_component_ref (build_indirect_ref (arg1, NULL), arg2);
 
       /* The caller will deal with these.  */
     case ADDR_EXPR:
@@ -4024,7 +4045,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* The placement args might not be suitable for overload
 	     resolution at this point, so build the call directly.  */
 	  mark_used (fn);
-	  return build_cxx_call (fn, args, args);
+	  return build_cxx_call (fn, args);
 	}
       else
 	return build_function_call (fn, args);
@@ -4047,7 +4068,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 bool
 enforce_access (tree basetype_path, tree decl)
 {
-  my_friendly_assert (TREE_CODE (basetype_path) == TREE_VEC, 20030624);
+  my_friendly_assert (TREE_CODE (basetype_path) == TREE_BINFO, 20030624);
   
   if (!accessible_p (basetype_path, decl))
     {
@@ -4064,6 +4085,20 @@ enforce_access (tree basetype_path, tree decl)
   return true;
 }
 
+/* Check that a callable constructor to initialize a temporary of
+   TYPE from an EXPR exists.  */
+
+static void
+check_constructor_callable (tree type, tree expr)
+{
+  build_special_member_call (NULL_TREE,
+			     complete_ctor_identifier,
+			     build_tree_list (NULL_TREE, expr), 
+			     type,
+			     LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING
+			     | LOOKUP_CONSTRUCTOR_CALLABLE);
+}
+
 /* Initialize a temporary of type TYPE with EXPR.  The FLAGS are a
    bitwise or of LOOKUP_* values.  If any errors are warnings are
    generated, set *DIAGNOSTIC_FN to "error" or "warning",
@@ -4075,13 +4110,12 @@ build_temp (tree expr, tree type, int flags,
 	    void (**diagnostic_fn)(const char *, ...))
 {
   int savew, savee;
-
+  
   savew = warningcount, savee = errorcount;
-  expr = build_special_member_call (NULL_TREE, 
+  expr = build_special_member_call (NULL_TREE,
 				    complete_ctor_identifier,
 				    build_tree_list (NULL_TREE, expr), 
-				    TYPE_BINFO (type),
-				    flags);
+				    type, flags);
   if (warningcount > savew)
     *diagnostic_fn = warning;
   else if (errorcount > savee)
@@ -4210,12 +4244,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
 	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
-	/* Generate a temporary copy purely to generate the required
-	   diagnostics.  */
-	build_temp
-	  (build_dummy_object
-	   (build_qualified_type (totype, TYPE_QUAL_CONST)),
-	   totype, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING, &diagnostic_fn);
+	check_constructor_callable (totype, expr);
 	return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
@@ -4244,12 +4273,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  /* We are going to bind a reference directly to a base-class
 	     subobject of EXPR.  */
 	  if (convs->check_copy_constructor_p)
-	    /* Generate a temporary copy purely to generate the required
-	       diagnostics.  */
-	    build_temp (build_dummy_object (TREE_TYPE (expr)),
-			TREE_TYPE (expr),
-			LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-			&diagnostic_fn);
+	    check_constructor_callable (TREE_TYPE (expr), expr);
 	  /* Build an expression for `*((base*) &expr)'.  */
 	  expr = build_unary_op (ADDR_EXPR, expr, 0);
 	  expr = perform_implicit_conversion (build_pointer_type (totype), 
@@ -4483,7 +4507,11 @@ type_passed_as (tree type)
 {
   /* Pass classes with copy ctors by invisible reference.  */
   if (TREE_ADDRESSABLE (type))
-    type = build_reference_type (type);
+    {
+      type = build_reference_type (type);
+      /* There are no other pointers to this temporary.  */
+      type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+    }
   else if (targetm.calls.promote_prototypes (type)
 	   && INTEGRAL_TYPE_P (type)
 	   && COMPLETE_TYPE_P (type)
@@ -4717,9 +4745,8 @@ build_over_call (struct z_candidate *cand, int flags)
 
   converted_args = nreverse (converted_args);
 
-  if (warn_format)
-    check_function_format (NULL, TYPE_ATTRIBUTES (TREE_TYPE (fn)),
-			   converted_args);
+  check_function_arguments (TYPE_ATTRIBUTES (TREE_TYPE (fn)),
+			    converted_args);
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -4789,31 +4816,28 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
 
-      arg = build_indirect_ref (TREE_VALUE (TREE_CHAIN (converted_args)), 0);
+      arg = TREE_VALUE (TREE_CHAIN (converted_args));
       if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
-	val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	{
+	  arg = build_indirect_ref (arg, 0);
+	  val = build (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	}
       else
 	{
-	  /* We must only copy the non-tail padding parts. Use
-	     CLASSTYPE_AS_BASE for the bitwise copy.  */
-	  tree to_ptr, arg_ptr, to_as_base, arg_as_base, base_ptr_type;
-	  tree save_to;
+	  /* We must only copy the non-tail padding parts.
+	     Use __builtin_memcpy for the bitwise copy.  */
 
-	  to_ptr = save_expr (build_unary_op (ADDR_EXPR, to, 0));
-	  arg_ptr = build_unary_op (ADDR_EXPR, arg, 0);
+	  tree args, t;
 
-	  base_ptr_type = build_pointer_type (as_base);
-	  to_as_base = build_nop (base_ptr_type, to_ptr);
-	  to_as_base = build_indirect_ref (to_as_base, 0);
-	  arg_as_base = build_nop (base_ptr_type, arg_ptr);
-	  arg_as_base = build_indirect_ref (arg_as_base, 0);
+	  args = tree_cons (NULL, TYPE_SIZE_UNIT (as_base), NULL);
+	  args = tree_cons (NULL, arg, args);
+	  t = build_unary_op (ADDR_EXPR, to, 0);
+	  args = tree_cons (NULL, t, args);
+	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  t = build_call (t, args);
 
-	  save_to = build_indirect_ref (to_ptr, 0);
-
-	  val = build (MODIFY_EXPR, as_base, to_as_base, arg_as_base);
-	  val = convert_to_void (val, NULL);
-	  val = build (COMPOUND_EXPR, type, val, save_to);
-	  TREE_NO_WARNING (val) = 1;
+	  t = convert (TREE_TYPE (TREE_VALUE (args)), t);
+	  val = build_indirect_ref (t, 0);
 	}
       
       return val;
@@ -4836,7 +4860,7 @@ build_over_call (struct z_candidate *cand, int flags)
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
 	fn = build_java_interface_fn_ref (fn, *p);
       else
-	fn = build_vfn_ref (build_indirect_ref (*p, 0), DECL_VINDEX (fn));
+	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -4844,33 +4868,19 @@ build_over_call (struct z_candidate *cand, int flags)
   else
     fn = build_addr_func (fn);
 
-  return build_cxx_call (fn, args, converted_args);
+  return build_cxx_call (fn, converted_args);
 }
 
-/* Build and return a call to FN, using the the CONVERTED_ARGS.  ARGS
-   gives the original form of the arguments.  This function performs
+/* Build and return a call to FN, using ARGS.  This function performs
    no overload resolution, conversion, or other high-level
    operations.  */
 
 tree
-build_cxx_call(tree fn, tree args, tree converted_args)
+build_cxx_call (tree fn, tree args)
 {
   tree fndecl;
 
-  /* Recognize certain built-in functions so we can make tree-codes
-     other than CALL_EXPR.  We do this when it enables fold-const.c
-     to do something useful.  */
-  if (TREE_CODE (fn) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (fn, 0)))
-    {
-      tree exp;
-      exp = expand_tree_builtin (TREE_OPERAND (fn, 0), args, converted_args);
-      if (exp)
-	return exp;
-    }
-
-  fn = build_call (fn, converted_args);
+  fn = build_call (fn, args);
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
@@ -5009,6 +5019,15 @@ build_special_member_call (tree instance, tree name, tree args,
 		      || name == deleting_dtor_identifier
 		      || name == ansi_assopname (NOP_EXPR),
 		      20020712);
+  if (TYPE_P (binfo))
+    {
+      /* Resolve the name.  */
+      if (!complete_type_or_else (binfo, NULL_TREE))
+	return error_mark_node;
+
+      binfo = TYPE_BINFO (binfo);
+    }
+  
   my_friendly_assert (binfo != NULL_TREE, 20020712);
 
   class_type = BINFO_TYPE (binfo);
@@ -5047,10 +5066,6 @@ build_special_member_call (tree instance, tree name, tree args,
     }
   
   my_friendly_assert (instance != NULL_TREE, 20020712);
-
-  /* Resolve the name.  */
-  if (!complete_type_or_else (BINFO_TYPE (binfo), NULL_TREE))
-    return error_mark_node;
 
   fns = lookup_fnfields (binfo, name, 1);
     
@@ -5360,7 +5375,7 @@ build_new_method_call (tree instance, tree fns, tree args,
   if (processing_template_decl && call != error_mark_node)
     call = (build_min_non_dep
 	    (CALL_EXPR, call,
-	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns),
+	     build_min_nt (COMPONENT_REF, orig_instance, orig_fns, NULL_TREE),
 	     orig_args, NULL_TREE));
 
  /* Free all the conversions we allocated.  */
@@ -6012,9 +6027,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      F1 is a non-template function and F2 is a template function
      specialization.  */
          
-  if (! cand1->template && cand2->template)
+  if (!cand1->template_decl && cand2->template_decl)
     return 1;
-  else if (cand1->template && ! cand2->template)
+  else if (cand1->template_decl && !cand2->template_decl)
     return -1;
   
   /* or, if not that,
@@ -6022,10 +6037,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      more specialized than the template for F2 according to the partial
      ordering rules.  */
   
-  if (cand1->template && cand2->template)
+  if (cand1->template_decl && cand2->template_decl)
     {
       winner = more_specialized
-        (TI_TEMPLATE (cand1->template), TI_TEMPLATE (cand2->template),
+        (TI_TEMPLATE (cand1->template_decl),
+         TI_TEMPLATE (cand2->template_decl),
          DEDUCE_ORDER,
          /* Tell the deduction code how many real function arguments
 	    we saw, not counting the implicit 'this' argument.  But,
@@ -6297,8 +6313,7 @@ perform_direct_initialization_if_possible (tree type, tree expr)
     {
       expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 					build_tree_list (NULL_TREE, expr),
-					TYPE_BINFO (type),
-					LOOKUP_NORMAL);
+					type, LOOKUP_NORMAL);
       return build_cplus_new (type, expr);
     }
 
@@ -6362,9 +6377,9 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
    the VAR_DECL being initialized with the EXPR.  (In that case, the
    type of DECL will be TYPE.)  If DECL is non-NULL, then CLEANUP must
    also be non-NULL, and with *CLEANUP initialized to NULL.  Upon
-   return, if *CLEANUP is no longer NULL, it will be a CLEANUP_STMT
-   that should be inserted after the returned expression is used to
-   initialize DECL.
+   return, if *CLEANUP is no longer NULL, it will be an expression
+   that should be pushed as a cleanup after the returned expression
+   is used to initialize DECL.
 
    Return the converted expression.  */
 
@@ -6441,14 +6456,8 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	 remember that the conversion was required.  */
       if (conv->kind == ck_base && conv->need_temporary_p)
 	{
-	  void (*diagnostic_fn) (const char *, ...);
 	  if (conv->check_copy_constructor_p)
-	    /* Generate a temporary copy purely to generate the required
-	       diagnostics.  */
-	    build_temp (build_dummy_object (TREE_TYPE (expr)),
-			TREE_TYPE (expr),
-			LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-			&diagnostic_fn);
+ 	    check_constructor_callable (TREE_TYPE (expr), expr);
 	  base_conv_type = conv->type;
 	  conv = conv->u.next;
 	}
@@ -6483,28 +6492,27 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	  init = build (INIT_EXPR, type, var, expr);
 	  if (at_function_scope_p ())
 	    {
-	      add_decl_stmt (var);
+	      add_decl_expr (var);
 	      *cleanup = cxx_maybe_build_cleanup (var);
-	      if (*cleanup)
-		/* We must be careful to destroy the temporary only
-		   after its initialization has taken place.  If the
-		   initialization throws an exception, then the
-		   destructor should not be run.  We cannot simply
-		   transform INIT into something like:
+
+	      /* We must be careful to destroy the temporary only
+		 after its initialization has taken place.  If the
+		 initialization throws an exception, then the
+		 destructor should not be run.  We cannot simply
+		 transform INIT into something like:
 	     
 		     (INIT, ({ CLEANUP_STMT; }))
 
-		   because emit_local_var always treats the
-		   initializer as a full-expression.  Thus, the
-		   destructor would run too early; it would run at the
-		   end of initializing the reference variable, rather
-		   than at the end of the block enclosing the
-		   reference variable.
+		 because emit_local_var always treats the
+		 initializer as a full-expression.  Thus, the
+		 destructor would run too early; it would run at the
+		 end of initializing the reference variable, rather
+		 than at the end of the block enclosing the
+		 reference variable.
 
-		   The solution is to pass back a CLEANUP_STMT which
-		   the caller is responsible for attaching to the
-		   statement tree.  */
-		*cleanup = build_stmt (CLEANUP_STMT, var, *cleanup);
+		 The solution is to pass back a cleanup expression
+		 which the caller is responsible for attaching to
+		 the statement tree.  */
 	    }
 	  else
 	    {

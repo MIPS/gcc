@@ -696,17 +696,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    registers.  */
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-/* All aggregates and arguments greater than 8 bytes are passed this way.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-(TYPE					\
- && (AGGREGATE_TYPE_P (TYPE)		\
-     || int_size_in_bytes (TYPE) > 8))
-
 /* A C expression that indicates when it is the called function's
    responsibility to make copies of arguments passed by reference.
    If the callee can determine that the argument won't be modified, it can
@@ -714,8 +703,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* ??? We'd love to be able to use NAMED here.  Unfortunately, it doesn't
    include the last named argument so we keep track of the args ourselves.  */
 
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
-FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 /* Update the data in CUM to advance over an argument
    of mode MODE and data type TYPE.
@@ -801,11 +789,6 @@ do { \
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 12)), FNADDR); \
   emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)))); \
 } while (0)
-
-/* Library calls.  */
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1222,7 +1205,3 @@ enum arc_function_type {
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   arc_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arc_va_arg (valist, type)
