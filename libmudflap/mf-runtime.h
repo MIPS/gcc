@@ -12,8 +12,14 @@ struct __mf_cache { uintptr_t low; uintptr_t high; };
 extern struct __mf_cache __mf_lookup_cache [];
 extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
+extern int __mf_active_p;
+
+#define UNLIKELY(e) (__builtin_expect (!!(e), 0))
+#define LIKELY(e) (__builtin_expect (!!(e), 1))
 
 #define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
+
+extern void __mf_init_heuristics ();
 
 extern void __mf_check (uintptr_t ptr, uintptr_t sz);
 #define __MF_VIOL_UNKNOWN 0
@@ -25,6 +31,7 @@ extern void __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 #define __MF_TYPE_HEAP 1
 #define __MF_TYPE_STACK 2
 #define __MF_TYPE_STATIC 3
+#define __MF_TYPE_GUESS 4
 extern void __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name);
 extern void __mf_unregister (uintptr_t ptr, uintptr_t sz);
 extern void __mf_report ();
@@ -32,6 +39,13 @@ extern void __mf_report ();
 #define __MF_PERSIST_MAX 256
 #define __MF_FREEQ_MAX 256
 
+#define TRACE_IN \
+ if (__mf_opts.trace_mf_calls) \
+ fprintf (stderr, "mf: enter %s\n", __FUNCTION__);
+
+#define TRACE_OUT \
+ if (__mf_opts.trace_mf_calls) \
+ fprintf (stderr, "mf: exit %s\n", __FUNCTION__);
 
 struct __mf_options
 {
@@ -62,6 +76,9 @@ struct __mf_options
 
   /* Maintain a history of this many past unregistered objects. */
   int persistent_count;
+
+  /* Pad allocated extents by this many bytes on either side. */
+  int crumple_zone;
 
   /* Maintain this many stack frames for contexts. */
   int backtrace;

@@ -32,13 +32,23 @@ XXX: libgcc license?
 void *
 __wrap_malloc (size_t c)
 {
-  void *buf;
+  char *buf;
   extern void * __real_malloc (size_t);
+  size_t size_with_crumple_zomes;
 
-  buf = (void *) __real_malloc (c);
+  if (UNLIKELY (!__mf_active_p))
+    return __real_malloc (c);
+  
+  size_with_crumple_zomes = c + (2 * __mf_opts.crumple_zone);
+  buf = (char *) __real_malloc (size_with_crumple_zomes);
+  
   if (buf)
-    __mf_register ((uintptr_t) buf, c, __MF_TYPE_HEAP, "malloc region");
-
+    {
+      buf += __mf_opts.crumple_zone;
+      __mf_register ((uintptr_t) buf, c,
+		     __MF_TYPE_HEAP, "malloc region");
+    }
+  
   return buf;
 }
 
@@ -46,27 +56,48 @@ __wrap_malloc (size_t c)
 void *
 __wrap_calloc (size_t c, size_t n)
 {
-  void *buf;
+  char *buf;
   extern void * __real_calloc (size_t c, size_t);
+  extern void * __real_malloc (size_t c);
+  extern void *__real_memset (void *s, int c, size_t n);
+  size_t size_with_crumple_zones;
 
-  buf = (void *) __real_calloc (c, n);
+  if (UNLIKELY (!__mf_active_p))
+    return __real_calloc (c,n);
+  
+  size_with_crumple_zones = (c * n) + (2 * __mf_opts.crumple_zone);  
+  buf = (char *) __real_malloc (size_with_crumple_zones);
+
   if (buf)
-    __mf_register ((uintptr_t) buf, c*n, __MF_TYPE_HEAP, "calloc region");
-
+    {
+      __real_memset (buf, 0, size_with_crumple_zones);
+      buf += __mf_opts.crumple_zone;
+      __mf_register ((uintptr_t) buf, c*n, 
+		     __MF_TYPE_HEAP, "calloc region");
+    }
   return buf;
 }
 
 void *
 __wrap_realloc (void *buf, size_t c)
 {
-  void *buf2;
+  char *buf2;
   extern void * __real_realloc (void *, size_t);
+  size_t size_with_crumple_zones;
 
-  buf2 = (void *) __real_realloc (buf, c);
+  if (UNLIKELY (!__mf_active_p))
+    return __real_realloc (buf,c);
+
+  size_with_crumple_zones = c + (2 * __mf_opts.crumple_zone);
+  buf2 = (void *) __real_realloc (buf, size_with_crumple_zones);
   if (buf)
     __mf_unregister ((uintptr_t) buf, 0);
   if (buf2)
-    __mf_register ((uintptr_t) buf2, c, __MF_TYPE_HEAP, "realloc region");
+    {
+      buf2 += __mf_opts.crumple_zone;
+      __mf_register ((uintptr_t) buf2, c, 
+		     __MF_TYPE_HEAP, "realloc region");
+    }
 
   return buf2;
 }
@@ -81,6 +112,12 @@ __wrap_free (void *buf)
 
   extern void * __real_free (void *);
 
+  if (UNLIKELY (!__mf_active_p))
+    {
+      __real_free (buf);
+      return;
+    }
+
   if (buf == NULL)
     return;
 
@@ -90,13 +127,31 @@ __wrap_free (void *buf)
     {
       
       if (free_queue [free_ptr] != NULL)
-	__wrap_free (free_queue [free_ptr]);
+	{
+	  char *base = free_queue [free_ptr];
+	  base -= __mf_opts.crumple_zone;
+	  if (__mf_opts.trace_mf_calls)
+	    {
+	      fprintf (stderr, "mf: freeing deferred pointer #%d %p = %p - %d\n", 
+		       __mf_opts.free_queue_length, base, 
+		       free_queue [free_ptr], __mf_opts.crumple_zone);
+	    }
+	  __real_free (base);
+	}
       free_queue [free_ptr] = buf;
       free_ptr = (free_ptr == (__mf_opts.free_queue_length-1) ? 0 : free_ptr + 1);
     } 
   else 
     {
-      __real_free (buf);
+      /* back pointer up a bit to the beginning of crumple zone */
+      char *base = (char *)buf;
+      base -= __mf_opts.crumple_zone;
+      if (__mf_opts.trace_mf_calls)
+	{
+	  fprintf (stderr, "mf: freeing pointer %p = %p - %d\n", base, 
+		   buf, __mf_opts.crumple_zone);
+	}
+      __real_free (base);
     }
 }
 

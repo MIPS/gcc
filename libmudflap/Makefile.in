@@ -85,7 +85,7 @@ MAINT_CHARSET = latin1
 
 TESTS_ENVIRONMENT = MUDFLAP_OPTIONS='-mode-check -viol-abort'
 
-TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x  test/fail2.x test/fail3.x test/fail4.x test/fail5.x test/fail6.x  test/fail7.x test/fail8.x test/fail9.x test/pass1.x test/pass10.x  test/pass11.x test/pass12.x test/pass2.x test/pass3.x test/pass4.x  test/pass5.x test/pass6.x test/pass7.x test/pass8.x test/pass9.x 
+TESTS = test/fail1.x test/fail10.x test/fail11.x test/fail12.x				 test/fail13.x test/fail14.x test/fail15.x test/fail16.x test/fail17.x			 test/fail2.x test/fail3.x test/fail4.x test/fail5.x test/fail6.x			 test/fail7.x test/fail8.x test/fail9.x test/pass1.x test/pass10.x			 test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x			 test/pass16.x test/pass17.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x	 test/pass6.x test/pass7.x test/pass8.x test/pass9.x
 
 
 # SUBDIRS = 
@@ -105,7 +105,7 @@ TOPLEVEL_INCLUDES =
 
 MFCONFIG_CFLAGS = -I $(srcdir) -include mf-config.h
 
-libmudflap_la_SOURCES =  	mf-runtime.c 	mf-hooks.c
+libmudflap_la_SOURCES =  	mf-runtime.c 	mf-hooks.c 	mf-heuristics.c
 
 INCLUDES =  	$(MFCONFIG_CFLAGS)
 
@@ -127,7 +127,7 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libmudflap_la_LDFLAGS = 
 libmudflap_la_LIBADD = 
-libmudflap_la_OBJECTS =  mf-runtime.lo mf-hooks.lo
+libmudflap_la_OBJECTS =  mf-runtime.lo mf-hooks.lo mf-heuristics.lo
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
@@ -457,6 +457,10 @@ test/fail%.x: test/fail%.c
 
 test/pass%.x: test/pass%.c
 	$(CC) -DSHOULD_PASS -fmudflap -o $@ $<
+
+mf-runtime.o: mf-runtime.h
+mf-hooks.o: mf-runtime.h
+mf-heuristics.o: mf-runtime.h
 
 # COMPILE = $(LIBTOOL) --tag CC --mode=compile $(CC) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(CFLAGS) $(AM_CFLAGS) $(WARN_CFLAGS) $(MFCONFIG_CFLAGS)
 # LINK = $(LIBTOOL) --tag CC --mode=link $(CC) $(AM_CFLAGS) $(LDFLAGS) -o $@

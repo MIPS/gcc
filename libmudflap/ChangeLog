@@ -1,3 +1,26 @@
+2002-08-16  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c (__mf_insert_new_object): Factor out of
+	__mf_register.
+	(__mf_remove_old_object): Factor out of __mf_unregister.
+	(__mf_register): Handle guessed regions, splitting
+	guesses when new registrations arrive.
+	(__mf_unregister): Do not unregister guesses.
+	* mf-runtime.h: Move convenience macros around, 
+	declare new option fields. Add __MF_TYPE_GUESS.
+	* mf-hooks.c (__wrap_*alloc): Use crumple zones.
+	(__wrap_free): Call __real_free for deferred frees.
+	* Makefile.am: Add more tests, fix dependency.
+	* Makefile.in: Regenerate.
+	* test/pass[13..17]-frag.c: New testcases.
+	* test/fail[13..17]-frag.c: New testcases.
+
+2002-08-15  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-heuristics.c: New file.
+	* mf-runtime.c (options): Add -trace-calls option.
+	(__mf_init): Call __mf_init_heuristics.
+
 2002-08-14  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am (TESTS): Add testsuite support.

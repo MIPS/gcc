@@ -30,15 +30,16 @@ XXX: libgcc license?
 #define max(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
+#ifndef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
 #endif
 
 /* ------------------------------------------------------------------------ */
 /* {{{ Utility macros */
-
-#define UNLIKELY(e) (__builtin_expect (!!(e), 0))
-#define LIKELY(e) (__builtin_expect (!!(e), 1))
 
 #define MINPTR ((uintptr_t) 0)
 #define MAXPTR (~ (uintptr_t) 0)
@@ -53,7 +54,8 @@ XXX: libgcc license?
 /* {{{ Configuration macros */
 
 struct __mf_options __mf_opts;
-static int __mf_active_p = 0;
+
+int __mf_active_p = 0;
 
 static void
 __mf_set_default_options ()
@@ -67,6 +69,7 @@ __mf_set_default_options ()
   __mf_opts.multi_threaded = 0;
   __mf_opts.free_queue_length = 0;
   __mf_opts.persistent_count = 0;
+  __mf_opts.crumple_zone = 32;
   __mf_opts.backtrace = 4;
   __mf_opts.mudflap_mode = mode_check;
   __mf_opts.violation_mode = viol_nop;
@@ -112,6 +115,9 @@ options [] =
      "violations fork a gdb process attached to current program",
      set_option, (int)viol_gdb, (int *)&__mf_opts.violation_mode},
 
+    {"trace-calls", 
+     "trace calls to mudflap runtime library",
+     set_option, 1, &__mf_opts.trace_mf_calls},
     {"collect-stats", 
      "collect statistics on mudflap's operation",
      set_option, 1, &__mf_opts.collect_stats},
@@ -137,6 +143,9 @@ options [] =
     {"persistent-count", 
      "keep a history of N unregistered regions",
      read_integer_option, 0, &__mf_opts.persistent_count},
+    {"crumple-zone", 
+     "surround allocations with crumple zones of N bytes",
+     read_integer_option, 0, &__mf_opts.crumple_zone},
     {"backtrace", 
      "keep an N-level stack trace of each call context",
      read_integer_option, 0, &__mf_opts.backtrace},
@@ -253,14 +262,6 @@ __mf_process_opts (char *optstr)
 #define CTOR  __attribute__ ((constructor))
 #define DTOR  __attribute__ ((destructor))
 
-#define TRACE_IN \
- if (__mf_opts.trace_mf_calls) \
- fprintf (stderr, "mf: enter %s\n", __FUNCTION__);
-
-#define TRACE_OUT \
- if (__mf_opts.trace_mf_calls) \
- fprintf (stderr, "mf: exit %s\n", __FUNCTION__);
-
 
 extern void __mf_init () CTOR;
 void __mf_init ()
@@ -282,6 +283,8 @@ void __mf_init ()
     }
 
   __mf_active_p = 1;
+
+  __mf_init_heuristics ();
 
   TRACE_OUT;
 }
@@ -342,7 +345,7 @@ static unsigned long __mf_count_check;
 static unsigned long __mf_lookup_cache_reusecount [LOOKUP_CACHE_SIZE_MAX];
 static unsigned long __mf_treerot_left, __mf_treerot_right;
 static unsigned long __mf_count_register;
-static unsigned long __mf_total_register_size [__MF_TYPE_STATIC+1];
+static unsigned long __mf_total_register_size [__MF_TYPE_GUESS+1];
 static unsigned long __mf_count_unregister;
 static unsigned long __mf_total_unregister_size;
 static unsigned long __mf_count_violation [__MF_VIOL_UNREGISTER+1];
@@ -381,8 +384,8 @@ typedef struct __mf_object_tree
 /* Live objects: binary tree on __mf_object_t.low */
 __mf_object_tree_t *__mf_object_root;
 /* Dead objects: circular arrays */
-unsigned __mf_object_dead_head[__MF_TYPE_STATIC+1]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_STATIC+1][__MF_PERSIST_MAX];
+unsigned __mf_object_dead_head[__MF_TYPE_GUESS+1]; /* next empty spot */
+__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_GUESS+1][__MF_PERSIST_MAX];
 
 unsigned __mf_recursion_protect;
 
@@ -469,6 +472,60 @@ void __mf_check (uintptr_t ptr, uintptr_t sz)
 /* }}} */
 /* {{{ __mf_register */
 
+static __mf_object_tree_t *
+__mf_insert_new_object (uintptr_t low, uintptr_t high, int type, 
+			const char *name, uintptr_t pc)
+{
+  extern void * __real_calloc (size_t c, size_t);
+
+  __mf_object_tree_t *new_obj;
+  new_obj = __real_calloc (1, sizeof(__mf_object_tree_t));
+  new_obj->data.low = low;
+  new_obj->data.high = high;
+  new_obj->data.type = type;
+  new_obj->data.name = name;
+  new_obj->data.alloc_pc = pc;
+  gettimeofday (& new_obj->data.alloc_time, NULL);
+  
+  if (__mf_opts.backtrace > 0)
+    {
+      void *array [__mf_opts.backtrace];
+      size_t bt_size;
+      bt_size = backtrace (array, __mf_opts.backtrace);
+      new_obj->data.alloc_backtrace = backtrace_symbols (array, bt_size);
+      new_obj->data.alloc_backtrace_size = bt_size;
+    }
+  
+  __mf_link_object (new_obj);
+  return new_obj;
+}
+
+
+static void 
+__mf_remove_old_object (__mf_object_tree_t *old_obj)
+{
+  __mf_unlink_object (old_obj);
+  
+  /* Remove any low/high pointers for this object from the lookup cache.  */
+  if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
+    {
+      uintptr_t low = old_obj->data.low;
+      uintptr_t high = old_obj->data.high;
+      unsigned idx_low = __MF_CACHE_INDEX (low);
+      unsigned idx_high = __MF_CACHE_INDEX (high);
+      unsigned i;
+      for (i = idx_low; i <= idx_high; i++)
+	{
+	  struct __mf_cache *entry = & __mf_lookup_cache [i];
+	  if (entry->low == low && entry->high == high)
+	    {
+	      entry->low = entry->high = (uintptr_t) 0;
+	    }
+	}
+    }
+}
+
+
 void
 __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 {
@@ -498,6 +555,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	static unsigned recursion = 0;
 	uintptr_t low = ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
+	uintptr_t pc = (uintptr_t) __builtin_return_address (0);
 	
 	if (UNLIKELY (recursion)) return;
 	recursion ++;
@@ -518,36 +576,80 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		ovr_obj[0]->data.high == high)
 	      {
 		/* do nothing */
-		;
+		recursion --;
+		return;
+	      }
+	    else if (type == __MF_TYPE_GUESS)
+	      {
+		/* do nothing, someone has beat us here. */
+		recursion --;
+		return;
 	      }
 	    else
 	      {
-		__mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0),
-				__MF_VIOL_REGISTER);
+		int i;
+		int all_guesses = 1;
+		for (i = 0; i < num_overlapping_objs; ++i)
+		  {
+		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)
+		      {
+
+			/* We're going to split our existing guess into 2
+			   and put this new region in the middle */
+			
+			uintptr_t guess1_low, guess1_high;
+			uintptr_t guess2_low, guess2_high;
+			uintptr_t guess_pc;
+			const char *guess_name;
+			
+			guess_pc = ovr_obj[i]->data.alloc_pc;
+			guess_name = ovr_obj[i]->data.name;
+
+			guess1_low = ovr_obj[i]->data.low;
+			guess1_high = low - (1 + __mf_opts.crumple_zone);
+
+			guess2_low = high + (1 + __mf_opts.crumple_zone);
+			guess2_high = ovr_obj[i]->data.high;
+
+			/* Correct for possible over-shoot on crumple zones. */
+			guess2_low = min (guess2_low, guess2_high);
+			guess1_high = max (guess1_high, guess1_low);
+			
+			if (__mf_opts.trace_mf_calls)
+			  {
+			    fprintf (stderr, 
+				     "mf: splitting guess region from %p-%p to %p-%p and %p-%p\n", 
+				     guess1_low, 
+				     guess2_high, 
+				     guess1_low, 
+				     guess1_high, 
+				     guess2_low, 
+				     guess2_high);
+			  }
+			
+			__mf_remove_old_object (ovr_obj[i]);
+
+			__mf_insert_new_object (guess1_low, guess1_high, 
+						__MF_TYPE_GUESS, 
+						guess_name, guess_pc);
+
+			__mf_insert_new_object (guess2_low, guess2_high, 
+						__MF_TYPE_GUESS, 
+						guess_name, guess_pc);
+
+		      }
+		    else
+		      {
+			/* Two or more *real* mappings here. */
+			__mf_violation 
+			  (ptr, sz, (uintptr_t) __builtin_return_address (0),
+			   __MF_VIOL_REGISTER);
+		      }
+		  }
 	      }
-	    
-	    recursion --;
-	    return;
 	  }
-	
-	new_obj = calloc (1, sizeof(__mf_object_tree_t));
-	new_obj->data.low = low;
-	new_obj->data.high = high;
-	new_obj->data.type = type;
-	new_obj->data.name = name;
-	new_obj->data.alloc_pc = (uintptr_t) __builtin_return_address (0);
-	gettimeofday (& new_obj->data.alloc_time, NULL);
-	
-	if (__mf_opts.backtrace > 0)
-	  {
-	    void *array [__mf_opts.backtrace];
-	    size_t bt_size;
-	    bt_size = backtrace (array, __mf_opts.backtrace);
-	    new_obj->data.alloc_backtrace = backtrace_symbols (array, bt_size);
-	    new_obj->data.alloc_backtrace_size = bt_size;
-	  }
-	
-	__mf_link_object (new_obj);
+
+	__mf_insert_new_object (low, high, type, name, pc);
 	
 	/* We could conceivably call __mf_check() here to prime the cache,
 	   but then the check_count field is not reliable.  */
@@ -562,7 +664,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
     {
       __mf_count_register ++;
       __mf_total_register_size [(type < 0) ? 0 :
-				(type > __MF_TYPE_STATIC) ? 0 : 
+				(type > __MF_TYPE_GUESS) ? 0 : 
 				type] += sz;
     }
 
@@ -577,6 +679,8 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 void
 __mf_unregister (uintptr_t ptr, uintptr_t sz)
 {
+
+  extern void  __real_free (void *);
 
   if (UNLIKELY (! __mf_active_p)) return;
 
@@ -610,6 +714,21 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	if (sz == 0) sz = 1;
 	
 	num_overlapping_objs = __mf_find_objects (ptr, CLAMPSZ (ptr, sz), objs, 1);
+
+	{
+	  /* do not unregister guessed regions */
+	  int i;
+	  for (i = 0; i < num_overlapping_objs; ++i)
+	    {
+	      if (objs[i]->data.type == __MF_TYPE_GUESS)
+		{
+		  recursion--;
+		  return;
+		}
+	    }
+	    
+	}
+
 	if (UNLIKELY (num_overlapping_objs != 1))
 	  {
 	    /* XXX: also: should match ptr == old_obj->low ? */
@@ -621,25 +740,13 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	  }
 	
 	old_obj = objs[0];
-	__mf_unlink_object (old_obj);
-	
-	/* Remove any low/high pointers for this object from the lookup cache.  */
-	if (LIKELY (old_obj->data.check_count)) /* Can it possibly exist in the cache?  */
+
+	if (__mf_opts.trace_mf_calls)
 	  {
-	    uintptr_t low = old_obj->data.low;
-	    uintptr_t high = old_obj->data.high;
-	    unsigned idx_low = __MF_CACHE_INDEX (low);
-	    unsigned idx_high = __MF_CACHE_INDEX (high);
-	    unsigned i;
-	    for (i = idx_low; i <= idx_high; i++)
-	      {
-		struct __mf_cache *entry = & __mf_lookup_cache [i];
-		if (entry->low == low && entry->high == high)
-		  {
-		    entry->low = entry->high = (uintptr_t) 0;
-		  }
-	      }
+	    fprintf (stderr, "mf: removing region %p-%p\n", old_obj->data.low, old_obj->data.high); 
 	  }
+
+	__mf_remove_old_object (old_obj);
 	
 	if (__mf_opts.persistent_count > 0)
 	  {
@@ -661,7 +768,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	       be recycled, and the previous resident to be designated del_obj.  */
 	    
 	    assert (old_obj->data.type >= __MF_TYPE_UNKNOWN && 
-		    old_obj->data.type <= __MF_TYPE_STATIC);
+		    old_obj->data.type <= __MF_TYPE_GUESS);
 	    {
 	      unsigned row = old_obj->data.type;
 	      unsigned plot = __mf_object_dead_head [row];
@@ -694,11 +801,12 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	  {
 	    if (__mf_opts.backtrace > 0)
 	      {
-		free (del_obj->data.alloc_backtrace);
+
+		__real_free (del_obj->data.alloc_backtrace);
 		if (__mf_opts.persistent_count > 0)
-		  free (del_obj->data.dealloc_backtrace);
+		  __real_free (del_obj->data.dealloc_backtrace);
 	      }
-	    free (del_obj);
+	    __real_free (del_obj);
 	  }
 	
 	recursion --;
@@ -747,7 +855,7 @@ __mf_validate_object_cemetary ()
   unsigned cls;
   unsigned i;
 
-  for (cls = __MF_TYPE_UNKNOWN; cls <= __MF_TYPE_STATIC; cls++)
+  for (cls = __MF_TYPE_UNKNOWN; cls <= __MF_TYPE_GUESS; cls++)
     {
       assert (__mf_object_dead_head [cls] >= 0 &&
 	      __mf_object_dead_head [cls] < __mf_opts.persistent_count);
@@ -996,7 +1104,7 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 	{
 	  count = 0;
 	  
-	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
+	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_GUESS; row ++)
 	    {
 	      unsigned plot;
 	      unsigned i;
@@ -1051,6 +1159,7 @@ __mf_describe_object (__mf_object_t *obj)
 	   (obj->type == __MF_TYPE_HEAP ? "heap" :
 	    obj->type == __MF_TYPE_STACK ? "stack" :
 	    obj->type == __MF_TYPE_STATIC ? "static" :
+	    obj->type == __MF_TYPE_GUESS ? "guess" :
 	    "unknown"),
 	   obj->check_count,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
@@ -1157,7 +1266,7 @@ __mf_report ()
 	{
 	  unsigned dead_count = 0;
 	  unsigned row, plot;
-	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_STATIC; row ++)
+	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_GUESS; row ++)
 	    for (plot = 0 ; plot < __mf_opts.persistent_count; plot ++)
 	      if (__mf_object_cemetary [row][plot] != 0)
 		dead_count ++;
@@ -1180,6 +1289,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, int type)
 {
   char buf [128];
   static unsigned violation_number;
+  extern void  __real_free (void *);
 
   if (UNLIKELY (! __mf_active_p)) return;
 
