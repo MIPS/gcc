@@ -1,3 +1,14 @@
+2004-02-24  Sebastian Pop  <sebastian.pop@cri.ensmp.fr>
+
+	* tree-flow.h (walk_use_def_chains_fn): Return a boolean.
+	True for stopping the use-def walk, false otherwise.                  
+	* tree-ssa-alias.c (collect_points_to_info_r): Same.
+	Always return false, and never stopping the def-use walk as before.
+	* tree-ssa.c (walk_use_def_chains_1): Stop when the result of the  
+	callback function is true.
+	* doc/tree-ssa.texi: Document the behavior of the callback
+	function for walk_use_def_chains.
+
 2004-02-24  Richard Henderson  <rth@redhat.com>
 
 	* doc/passes.texi: Rewrite.

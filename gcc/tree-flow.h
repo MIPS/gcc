@@ -541,7 +541,7 @@ extern void debug_points_to_info (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
-typedef void (*walk_use_def_chains_fn) (tree, tree, void *);
+typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);

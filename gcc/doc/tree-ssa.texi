@@ -349,7 +349,9 @@ Walks use-def chains starting at the SSA variable @code{VAR}.  Calls
 function @code{FN} at each reaching definition found.  @code{FN} takes
 three arguments: @code{VAR}, its defining statement (@code{DEF_STMT})
 and a generic pointer to whatever state information that @code{FN} may want
-to maintain (@code{DATA}).
+to maintain (@code{DATA}).  @code{FN} is able to stop the walk by returning 
+@code{true}, otherwise in order to continue the walk, @code{FN} should 
+return false@.  
 
 Note, that if @code{DEF_STMT} is a @code{PHI} node, the semantics are
 slightly different. For each argument @code{ARG} of the PHI node, this

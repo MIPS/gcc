@@ -137,7 +137,7 @@ static void delete_alias_info (struct alias_info *);
 static void compute_points_to_and_addr_escape (struct alias_info *);
 static void compute_flow_sensitive_aliasing (struct alias_info *);
 static void setup_pointers_and_addressables (struct alias_info *);
-static void collect_points_to_info_r (tree, tree, void *);
+static bool collect_points_to_info_r (tree, tree, void *);
 static bool is_escape_site (tree, size_t *);
 static void add_pointed_to_var (struct alias_info *, tree, tree);
 static void add_pointed_to_expr (tree, tree);
@@ -1412,7 +1412,7 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 
    DATA is a pointer to a structure of type ALIAS_INFO.  */
 
-static void
+static bool
 collect_points_to_info_r (tree var, tree stmt, void *data)
 {
   struct alias_info *ai = (struct alias_info *) data;
@@ -1493,6 +1493,8 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
     }
   else
     abort ();
+
+  return false;
 }
 
 

@@ -3699,14 +3699,14 @@ tree_ssa_useless_type_conversion (tree expr)
    described in walk_use_def_chains.  VISITED is a bitmap used to mark
    visited SSA_NAMEs to avoid infinite loops.  */
 
-static void
+static bool
 walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 		       bitmap visited)
 {
   tree def_stmt;
 
   if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
-    return;
+    return false;
 
   bitmap_set_bit (visited, SSA_NAME_VERSION (var));
 
@@ -3715,7 +3715,7 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
   if (TREE_CODE (def_stmt) != PHI_NODE)
     {
       /* If we reached the end of the use-def chain, call FN.  */
-      (*fn) (var, def_stmt, data);
+      return (*fn) (var, def_stmt, data);
     }
   else
     {
@@ -3726,11 +3726,15 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
       for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	{
 	  tree arg = PHI_ARG_DEF (def_stmt, i);
-	  if (TREE_CODE (arg) == SSA_NAME)
-	    walk_use_def_chains_1 (arg, fn, data, visited);
-	  (*fn) (arg, def_stmt, data);
+	  if (TREE_CODE (arg) == SSA_NAME
+	      && walk_use_def_chains_1 (arg, fn, data, visited))
+	    return true;
+	  
+	  if ((*fn) (arg, def_stmt, data))
+	    return true;
 	}
     }
+  return false;
 }
   
 
@@ -3738,7 +3742,9 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 /* Walk use-def chains starting at the SSA variable VAR.  Call function FN
    at each reaching definition found.  FN takes three arguments: VAR, its
    defining statement (DEF_STMT) and a generic pointer to whatever state
-   information that FN may want to maintain (DATA).
+   information that FN may want to maintain (DATA).  FN is able to stop the 
+   walk by returning true, otherwise in order to continue the walk, FN 
+   should return false.  
 
    Note, that if DEF_STMT is a PHI node, the semantics are slightly
    different.  For each argument ARG of the PHI node, this function will:
