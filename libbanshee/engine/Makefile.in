@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -63,12 +63,9 @@ PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 
-AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr=
+AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= -fno-strict-aliasing
 noinst_LIBRARIES = libbansheeengine.a
-libbansheeengine_a_SOURCES = array.c bounds.c hash.c hashset.c list.c stamp.c \
-ufind.c util.c setif-sort.c termhash.c setif-var.c flow-var.c flowrow-sort.c \
-setst-var.c jcollection.c banshee.c buffer.c setst-sort.c term-var.c \
-term-sort.c  dot.c 
+libbansheeengine_a_SOURCES = array.c bounds.c hash.c hashset.c list.c stamp.c ufind.c util.c setif-sort.c termhash.c setif-var.c flow-var.c flowrow-sort.c setst-var.c jcollection.c banshee.c buffer.c setst-sort.c term-var.c term-sort.c  dot.c 
 
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_HEADER = ../config.h
@@ -95,7 +92,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 DEP_FILES =  .deps/array.P .deps/banshee.P .deps/bounds.P .deps/buffer.P \
 .deps/dot.P .deps/flow-var.P .deps/flowrow-sort.P .deps/hash.P \

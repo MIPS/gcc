@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -63,7 +63,7 @@ PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 
-AM_CFLAGS = -I$(srcdir)/../engine -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr=
+AM_CFLAGS = -I$(srcdir)/../engine -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= -fno-strict-aliasing
 noinst_LIBRARIES = libbansheecompat.a
 libbansheecompat_a_SOURCES = regions.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
@@ -88,7 +88,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 DEP_FILES =  .deps/regions.P
 SOURCES = $(libbansheecompat_a_SOURCES)

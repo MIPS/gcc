@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -63,7 +63,7 @@ PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 
-AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I$(srcdir)/.. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr=
+AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I$(srcdir)/.. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= -fno-strict-aliasing
 noinst_LIBRARIES = libandersen.a
 libandersen_a_SOURCES = andersen_terms.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
@@ -88,7 +88,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 DEP_FILES =  .deps/andersen_terms.P
 SOURCES = $(libandersen_a_SOURCES)

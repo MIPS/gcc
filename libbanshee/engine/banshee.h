@@ -65,6 +65,9 @@ typedef struct gen_e
   sort_kind sort;
 } *gen_e;
 #else
+struct gen_e
+{
+};
 typedef struct gen_e *gen_e;
 #endif
 

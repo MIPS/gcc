@@ -1,3 +1,14 @@
+2002-12-26  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* Makefile.am: Use the same flag passing hack all other subdirs use.
+	
+	* */Makefile.am: Use -fno-strict-aliasing till i get rid of the
+	type-punning.
+	
+	* Regenerate configure and Makefiles.
+
+	* engine/setst-*.c: Remove nested functions.
+
 2002-11-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* aclocal.m4: Don't call aclocal and automake with a

@@ -38,7 +38,6 @@
 #define UNION_TYPE 2
 #define INTER_TYPE 3
 #define CONSTANT_TYPE 4
-
 bool flag_eliminate_cycles = TRUE;
 bool flag_merge_projections = TRUE;
 
@@ -459,11 +458,6 @@ void collapse_cycle_lower(region r, setif_var witness,
 void setif_inclusion(con_match_fn_ptr con_match, res_proj_fn_ptr res_proj, 
 		     gen_e e1, gen_e e2) deletes
 {
-  
-  
-
-
-
   if (eq(e1,e2))
     return;
   
@@ -910,7 +904,6 @@ static jcoll tlb_aux(gen_e e)
 	  
 	  result =
 	    jcoll_jjoin(tlb_dict,jvars);
-	  
 	  set_tlb_cache(v,result);
 	  return result;	
 	}
