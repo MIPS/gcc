@@ -156,6 +156,7 @@ static void aof_file_start (void);
 static void aof_file_end (void);
 #endif
 static bool arm_align_anon_bitfield (void);
+static bool arm_promote_prototypes (tree);
 
 
 /* Initialize the GCC target structure.  */
@@ -239,6 +240,13 @@ static bool arm_align_anon_bitfield (void);
 #define TARGET_INIT_BUILTINS  arm_init_builtins
 #undef  TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN arm_expand_builtin
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES arm_promote_prototypes
 
 #undef TARGET_ALIGN_ANON_BITFIELD
 #define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
@@ -2071,6 +2079,24 @@ arm_canonicalize_comparison (enum rtx_code code, rtx * op1)
 
   return code;
 }
+
+
+/* Define how to find the value returned by a function.  */
+
+rtx arm_function_value(tree type, tree func ATTRIBUTE_UNUSED)
+{
+  enum machine_mode mode;
+  int unsignedp ATTRIBUTE_UNUSED;
+  rtx r ATTRIBUTE_UNUSED;
+
+  
+  mode = TYPE_MODE (type);
+  /* Promote integer types.  */
+  if (INTEGRAL_TYPE_P (type))
+    PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+  return LIBCALL_VALUE(mode);
+}
+
 
 /* Decide whether a type should be returned in memory (true)
    or in a register (false).  This is called by the macro
@@ -14327,6 +14353,16 @@ arm_no_early_mul_dep (rtx producer, rtx consumer)
   
   return (GET_CODE (op) == PLUS
 	  && !reg_overlap_mentioned_p (value, XEXP (op, 0)));
+}
+
+
+/* We can't rely on the caller doing the proper promotion when
+   using APCS or ATPCS.  */
+
+static bool
+arm_promote_prototypes (tree t ATTRIBUTE_UNUSED)
+{
+    return TARGET_AAPCS_BASED;
 }
 
 

@@ -210,9 +210,8 @@ extern int target_flags;
 /* Function arguments and return values are promoted to word size.  */
 #define PROMOTE_FUNCTION_ARGS
 #define PROMOTE_FUNCTION_RETURN
-#define PROMOTE_FOR_CALL_ONLY
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)		\
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)		\
 if (INTEGRAL_MODE_P (MODE) &&	        	    	\
     GET_MODE_SIZE (MODE) < UNITS_PER_WORD) { 		\
   (MODE) = Pmode;					\

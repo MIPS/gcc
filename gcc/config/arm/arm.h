@@ -587,6 +587,11 @@ extern int arm_is_6_or_7;
 /* This is required to ensure that push insns always push a word.  */
 #define PROMOTE_FUNCTION_ARGS
 
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
+  if (GET_MODE_CLASS (MODE) == MODE_INT		\
+      && GET_MODE_SIZE (MODE) < 4)      	\
+    (MODE) = SImode;				\
+
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN  0
@@ -1557,7 +1562,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  LIBCALL_VALUE (TYPE_MODE (VALTYPE))
+  arm_function_value (VALTYPE, FUNC);
 
 /* 1 if N is a possible register number for a function value.
    On the ARM, only r0 and f0 can return results.  */
@@ -2278,9 +2283,6 @@ do {							\
 
 /* Calling from registers is a massive pain.  */
 #define NO_FUNCTION_CSE 1
-
-/* Chars and shorts should be passed as ints.  */
-#define PROMOTE_PROTOTYPES 1
 
 /* The machine modes of pointers and functions */
 #define Pmode  SImode

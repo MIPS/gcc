@@ -511,13 +511,13 @@ extern int target_flags;
 #define UNITS_PER_WORD 4
 
 /* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
-   PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
+   and *not* defining PROMOTE_PROTOTYPES or PROMOTE_MODE gives the
    best code size and speed for gcc, ipps and products in gcc-2.7.2.  */
 #define CRIS_PROMOTED_MODE(MODE, UNSIGNEDP, TYPE) \
  (GET_MODE_CLASS (MODE) == MODE_INT && GET_MODE_SIZE (MODE) < 4) \
   ? SImode : MODE
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)  \
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)  \
   (MODE) = CRIS_PROMOTED_MODE (MODE, UNSIGNEDP, TYPE)
 
 #define PROMOTE_FUNCTION_ARGS
@@ -528,7 +528,6 @@ extern int target_flags;
    FIXME: Report this when cris.h is part of GCC, so others can easily
    see the problem.  Maybe check other systems that define
    PROMOTE_FUNCTION_RETURN.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* We will be using prototype promotion, so they will be 32 bit.  */
 #define PARM_BOUNDARY 32

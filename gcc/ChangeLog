@@ -1,3 +1,27 @@
+2004-05-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* calls.c (precompute_arguments): Use PROMOTE_FUNCTION_MODE instead
+	of PROMOTE_FOR_CALL_ONLY.
+	* explow.c (promote_mode): Ditto.
+	* function.c (assign_temp): Ditto.
+	* system.h: Poison PROMOTE_FOR_CALL_ONLY.
+	* config/arm/arm-protos.h (arm_function_value): Add prototype.
+	* config/arm/arm.c (arm_promote_prototypes): New function.
+	(TARGET_PROMOTE_FUNCTION_ARGS, TARGET_PROMOTE_FUNCTION_RETURN,
+	TARGET_PROMOTE_PROTOTYPES): Define.
+	(arm_function_value): New function.
+	* config/arm/arm.h (PROMOTE_FUNCTION_MODE): Define.
+	(FUNCTION_VALUE): Use arm_function_value.
+	(PROMOTE_PROTOTYPES): Define.
+	* config/cris/cris.h: Use PROMOTE_FUNCTION_MODE instead
+	of PROMOTE_FOR_CALL_ONLY/PROMOTE_MODE.
+	* config/mmix/mmix.h: Ditto.
+	* config/s390/s390.h: Ditto.
+	* config/sparc/sparc.h: Ditto.
+	* doc/tm.texi: Document PROMOTE_FUNCTION_MODE.
+	Remove PROMOTE_FOR_CALL_ONLY.
+
 2004-05-15  Richard Earnshaw  <reanrsha@arm.com>
 
 	* arm.h (TARGET_APCS_32): Delete.
