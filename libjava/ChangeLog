@@ -1,3 +1,9 @@
+2004-09-29  Tom Tromey  <tromey@redhat.com>
+
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java (MessageIcon):
+	Renamed from 'messageIcon'.
+	(errorIcon, infoIcon, warningIcon, questionIcon): Updated.
+
 2004-09-28  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/RescaleOp.java: Fix formatting.
