@@ -1,3 +1,8 @@
+Tue Jan 28 19:43:42 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* pa.c (attr_length_millicode_call, attr_length_call): Do not crash
+	when INSN_ADDRESSES are not computed.
+
 2003-01-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* flow.c (MAX_LIVENESS_ROUNDS): New.
