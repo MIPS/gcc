@@ -1,3 +1,14 @@
+2004-10-16  Dale Johannesen  <dalej@apple.com>
+
+        * c-common.c (c_common_get_alias_set):  Use GGC for type_hash_table.
+
+2004-10-15  Dale Johannesen  <dalej@apple.com>
+
+	* objcp/objcp-lang.c (tree_code_type):  Fix merge omission.
+
+2004-10-15  Mike Stump  FIXME
+	merge
+
 2004-10-15  Stuart Hastings <stuart@apple.com>
         * gcc/simplify-rtx.c(simplify_relational_operation): copied from FSF mainline.
 

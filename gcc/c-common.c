@@ -2688,6 +2688,8 @@ c_type_hash (const void *p)
   return ((size << 24) | (i << shift));
 }
 
+static GTY((param_is (union tree_node))) htab_t type_hash_table;
+
 /* Return the typed-based alias set for T, which may be an expression
    or a type.  Return -1 if we don't do anything special.  */
 
@@ -2696,7 +2698,6 @@ c_common_get_alias_set (tree t)
 {
   tree u;
   PTR *slot;
-  static htab_t type_hash_table;
 
   /* Permit type-punning when accessing a union, provided the access
      is directly through the union.  For example, this code does not
@@ -2815,7 +2816,7 @@ c_common_get_alias_set (tree t)
   /* Look up t in hash table.  Only one of the compatible types within each
      alias set is recorded in the table.  */
   if (!type_hash_table)
-    type_hash_table = htab_create (1021, c_type_hash,
+    type_hash_table = htab_create_ggc (1021, c_type_hash,
 	    (htab_eq) lang_hooks.types_compatible_p,
 	    NULL);
   slot = htab_find_slot (type_hash_table, t, INSERT);
