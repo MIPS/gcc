@@ -1,3 +1,52 @@
+2004-03-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (df.o): Remove FIBHEAP_H dependency.
+	(invariant.o): Add df.h dependency.
+	* df.c: Do not include fibheap.h.
+	(df_bb_table_realloc, df_analyse_subcfg, free_reg_ref_chain,
+	prune_to_subcfg, df_bb_modify, df_find_def, dataflow_set_a_op_b,
+	dataflow_set_copy): New functions.
+	(df_bitmaps_alloc, df_reg_def_chain_create, df_reg_use_chain_create,
+	df_refs_update, df_reg_table_realloc, df_ref_create,
+	df_bb_reg_def_chain_create, df_bb_reg_use_chain_create,
+	df_bb_rd_local_compute, df_bb_ru_local_compute, df_bb_lr_local_compute,
+	df_analyse_1, df_insn_modify): Support analysing only a part of the cfg.
+	(df_rd_transfer_function, df_ru_transfer_function,
+	df_lr_transfer_function): Type of bitmaps changed to void *.
+	(hybrid_search_bitmap, hybrid_search_sbitmap): Merge into ...
+	(hybrid_search): ... new function.
+	(iterative_dataflow_bitmap, iterative_dataflow_sbitmap): Merge into ...
+	(iterative_dataflow): ... new function. Avoid use of fibheaps for
+	a worklist.  Do not process basic blocks unnecessarily.
+	* df.h (struct ref): Add data field.
+	(DF_REF_DATA): New macro.
+	(df_analyse_subcfg, df_find_def): Declare.
+	(transfer_function_sbitmap, transfer_function_bitmap): Replaced by ...
+	(transfer_function): ... declare.
+	(iterative_dataflow_sbitmap, iterative_dataflow_bitmap): Replaced by ...
+	(iterative_dataflow): ... declare.
+	(enum set_representation, struct dataflow): New.
+	* loop-invariant.c: Include df.h.
+	(struct loop_data): Remove modified_regs field.
+	(struct def): Remove redundant fields.
+	(struct use): Add insn field.
+	(defs, adef, last_def, m_reg_info, reg_info): Removed.
+	(struct reg): Removed.
+	(record_def, note_insn_stores, find_defs_insn, find_defs_bb,
+	get_current_def, record_dependencies_fer, record_dependencies,
+	move_actual_defs): Removed.
+	(find_defs, find_invariants_insn, create_new_invariant,
+	find_invariants_bb, find_invariants_body, find_invariants,
+	find_invariants_to_move, move_invariant_reg,
+	move_invariants, move_single_loop_invariants,
+	move_loop_invariants): Use df.c.
+	(init_inv_motion_data): Do not initialize removed structures.
+	(free_inv_motion_data, free_loop_data): Do not cleanup removed
+	structures.
+	(check_dependencies, find_invariant_insn, record_uses): New.
+	(record_use): Record the insn.
+	(get_inv_cost): Update comments.
+
 2004-03-09  Andreas Jaeger  <aj@suse.de>
 
 	* common.opt: Put tree-loop-linear at right place.

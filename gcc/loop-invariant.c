@@ -24,11 +24,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    eliminated on tree level either in tree-ssa-loop-im.c or in tree-ssa-pre.c.
    
    We proceed loop by loop -- it is simpler than trying to handle things
-   globally and should not lose much; by avoiding looking inside already
-   processed subloops (where we would not usually find anything useful anyway)
-   we preserve the time complexity linear in number of insns.  First we inspect
-   all sets inside loop and create a dependency graph on insns (saying "to move
-   this insn, you must also move the following insns").
+   globally and should not lose much.  First we inspect all sets inside loop
+   and create a dependency graph on insns (saying "to move this insn, you must
+   also move the following insns").
 
    We then need to determine what to move.  We estimate the number of registers
    used and move as many invariants as possible while we still have enough free
@@ -49,67 +47,37 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "function.h"
 #include "flags.h"
+#include "df.h"
 
 /* The data stored for the loop.  */
 
 struct loop_data
 {
-  bitmap modified_regs;		/* The registers modified inside the loop.  */
   struct loop *outermost_exit;	/* The outermost exit of the loop.  */
   bool has_call;		/* True if the loop contains a call.  */
 };
 
 #define LOOP_DATA(LOOP) ((struct loop_data *) (LOOP)->aux)
 
-/* The definition of a register.  */
-
-struct def
-{
-  bool simple_p;	/* Whether the definition may be simple.  */
-  bool invar_rhs;	/* Whether the insn should be considered for invariant
-			   motion.  */
-  unsigned regno;	/* Number of the register defined.  */
-  rtx insn;		/* The insn in that the definition occurs.  */
-  basic_block bb;	/* Its basic block.  */
-  unsigned invariant;	/* The number of the associated invariant.  */
-
-  unsigned n_uses;	/* Number of uses.  */
-  struct use *uses;	/* The list of uses.  */
-
-  struct def *next;	/* Next definition.  */
-  struct def *reg_next;	/* Next definition of the same register.  */
-};
-
 /* The description of an use.  */
 
 struct use
 {
   rtx *pos;			/* Position of the use.  */
+  rtx insn;			/* The insn in that the use occurs.  */
 
   struct use *next;		/* Next use in the list.  */
 };
 
-/* The list of definitions.  */
+/* The description of a def.  */
 
-static struct def *defs, *adef;
-static struct def **last_def;
-
-/* The data stored for each register.  */
-
-struct reg
+struct def
 {
-  bool simple_p;	/* Whether the register may be simple.  */
-  bool used;		/* Whether the register is used at all.  */
-
-  struct def *defs;	/* The definitions of the register.  */
-  struct def **def_end;	/* End of the chain of the definitions.  */
-  struct def *actual;	/* Actual definition of the register.  */
-  basic_block last_bb;	/* The last basic block in that the register was
-			   set.  */
+  struct use *uses;		/* The list of uses that are uniquely reached
+				   by it.  */
+  unsigned n_uses;		/* Number of such uses.  */
+  unsigned invno;		/* The corresponding invariant.  */
 };
-
-static unsigned m_reg_info;
-static struct reg *reg_info;
 
 /* The data stored for each invariant.  */
 
@@ -123,6 +91,9 @@ struct invariant
 
   /* The definition of the invariant.  */
   struct def *def;
+
+  /* The insn in that it is defined.  */
+  rtx insn;
 
   /* Whether it is always executed.  */
   bool always_executed;
@@ -176,7 +147,9 @@ check_maybe_invariant (rtx x)
     case REG:
       if (HARD_REGISTER_P (x))
 	{
-	  /* TODO -- handling of hard regs.  */
+	  /* TODO -- handling of hard regs.  It should not be hard due to usage
+	     of df.c, but don't forget to include patches from the rtlopt branch
+	     to speed up handling of call clobbered registers.  */
 	  return false;
 	}
 
@@ -307,47 +280,6 @@ find_exits (struct loop *loop, basic_block *body,
   LOOP_DATA (loop)->has_call = has_call;
 }
 
-/* Record a definition of a register REGNO in INSN in basic block BB,
-   simple if SIMPLE_P.  Rhs of the definition may be considered for
-   moving if INVAR_RHS is true.  */
-
-static void
-record_def (unsigned regno, rtx insn, basic_block bb, bool simple_p,
-	    bool invar_rhs)
-{
-  struct def *def;
-  basic_block last_bb;
-
-  if (!reg_info[regno].simple_p)
-    return;
-  last_bb = reg_info[regno].last_bb;
-
-  if (!dominated_by_p (CDI_DOMINATORS, bb, last_bb))
-    {
-      reg_info[regno].simple_p = false;
-      return;
-    }
-
-  def = xmalloc (sizeof (struct def));
-  def->simple_p = simple_p;
-  def->invar_rhs = invar_rhs;
-  def->regno = regno;
-  def->insn = insn;
-  def->bb = bb;
-  def->next = NULL;
-  def->invariant = 0;
-  def->uses = NULL;
-  def->n_uses = 0;
-  def->reg_next = NULL;
-
-  *last_def = def;
-  last_def = &def->next;
-
-  *reg_info[regno].def_end = def;
-  reg_info[regno].def_end = &def->reg_next;
-  reg_info[regno].last_bb = bb;
-}
-
 /* Check whether we may assign a value to X from a register.  */
 
 static bool
@@ -361,141 +293,32 @@ may_assign_reg_p (rtx x)
   return true;
 }
 
-/* Notes the registers clobbered by the NIS_INSN.  Callback for note_stores.
-   If not NIS_MAY_BE_SIMPLE, the set may not be considered simple.  */
-
-static bool nis_may_be_simple;
-static rtx nis_insn;
-static void
-note_insn_stores (rtx reg, rtx set, void *data ATTRIBUTE_UNUSED)
-{
-  bool simple = true, consider_invariantness = true, should_record_def = true;
-  unsigned regno = 0;
-  rtx areg = SET_DEST (set);
-
-  if (!nis_may_be_simple)
-    {
-      simple = false;
-      consider_invariantness = false;
-    }
-
-  if (!REG_P (areg))
-    {
-      simple = false;
-      if (GET_CODE (reg) == SUBREG)
-	reg = SUBREG_REG (reg);
-    }
-
-  if (!REG_P (reg)
-      || HARD_REGISTER_P (reg))
-    {
-      /* It is not necessary to record the definition in this case,
-	 since we are not going to use it.  */
-      should_record_def = false;
-    }
-  else
-    regno = REGNO (reg);
-
-  if (!reg_info[regno].simple_p)
-    should_record_def = false;
-
-  if (GET_CODE (set) != SET
-      || set != single_set (nis_insn)
-      || !check_maybe_invariant (SET_SRC (set))
-      || !may_assign_reg_p (SET_DEST (set))
-      /* Until we get rid of LIBCALLS.  */
-      || find_reg_note (nis_insn, REG_RETVAL, NULL_RTX)
-      || find_reg_note (nis_insn, REG_LIBCALL, NULL_RTX)
-      || find_reg_note (nis_insn, REG_NO_CONFLICT, NULL_RTX))
-    {
-      consider_invariantness = false;
-      simple = false;
-    }
-
-  if (should_record_def || consider_invariantness)
-    record_def (regno, nis_insn, BLOCK_FOR_INSN (nis_insn), simple,
-		consider_invariantness);
-}
-
-/* Finds definitions that may correspond to invariants inside INSN.
-   ALWAYS_REACHED is true if the insn is always reached.  If IS_NOT_SIMPLE,
-   the set may not be simple.  */
-
-static void
-find_defs_insn (rtx insn, bool always_reached, bool is_not_simple)
-{
-  nis_may_be_simple = !is_not_simple;
-
-  if (!always_reached
-      && may_trap_p (insn))
-    nis_may_be_simple = false;
-
-  nis_insn = insn;
-  note_stores (PATTERN (insn), note_insn_stores, NULL);
-}
-
-/* Finds definitions that may correspond to invariants inside basic block BB.
-   ALWAYS_REACHED is true if the entry of the basic block is always
-   reached.  */
-
-static void
-find_defs_bb (basic_block bb, bool always_reached)
-{
-  rtx insn;
-
-  FOR_BB_INSNS (bb, insn)
-    {
-      if (!INSN_P (insn))
-	continue;
-
-      if (always_reached
-	  && GET_CODE (insn) == CALL_INSN
-	  && !CONST_OR_PURE_CALL_P (insn))
-	always_reached = false;
-
-      find_defs_insn (insn, always_reached,
-		      (bb->flags & BB_IRREDUCIBLE_LOOP) != 0);
-    }
-}
-
 /* Finds definitions that may correspond to invariants in LOOP with body BODY.
-   ALWAYS_REACHED is the bitmap of basic blocks in BODY whose entry is always
-   reached.  */
+   DF is the dataflow object.  */
 
 static void
-find_defs (struct loop *loop, basic_block *body, bitmap always_reached)
+find_defs (struct loop *loop, basic_block *body, struct df *df)
 {
-  unsigned i, regno;
-  bitmap modified_regs;
+  unsigned i;
+  bitmap blocks = BITMAP_XMALLOC ();
 
   for (i = 0; i < loop->num_nodes; i++)
-    {
-      if (body[i]->loop_father == loop)
-	{
-	  find_defs_bb (body[i], bitmap_bit_p (always_reached, i));
-	  continue;
-	}
+    bitmap_set_bit (blocks, body[i]->index);
 
-      if (body[i]->loop_father->header != body[i])
-	continue;
-
-      modified_regs = LOOP_DATA (body[i]->loop_father)->modified_regs;
-      EXECUTE_IF_SET_IN_BITMAP (modified_regs, 0, regno,
-	{
-	  record_def (regno, const0_rtx, body[i], false, false);
-	});
-    }
+  df_analyse_subcfg (df, blocks, DF_UD_CHAIN);
+  BITMAP_XFREE (blocks);
 }
 
-/* Creates a new invariant for definition DEF, depending on invariants in
-   DEPENDS_ON.  ALWAYS_EXECUTED is true if the insn is always executed,
+/* Creates a new invariant for definition DEF in INSN, depending on invariants
+   in DEPENDS_ON.  ALWAYS_EXECUTED is true if the insn is always executed,
    unless the program ends due to a function call.  */
 
 static void
-create_new_invariant (struct def *def, bitmap depends_on, bool always_executed)
+create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
+		      bool always_executed)
 {
   struct invariant *inv = xmalloc (sizeof (struct invariant));
-  rtx set = single_set (def->insn);
+  rtx set = single_set (insn);
 
   inv->def = def;
   inv->always_executed = always_executed;
@@ -503,7 +326,7 @@ create_new_invariant (struct def *def, bitmap depends_on, bool always_executed)
 
   /* If the set is simple, usually by moving it we move the whole store out of
      the loop.  Otherwise we save only cost of the computation.  */
-  if (def->simple_p)
+  if (def)
     inv->cost = rtx_cost (set, SET);
   else
     inv->cost = rtx_cost (SET_SRC (set), SET);
@@ -511,19 +334,18 @@ create_new_invariant (struct def *def, bitmap depends_on, bool always_executed)
   inv->move = false;
   inv->processed = false;
   inv->stamp = 0;
+  inv->insn = insn;
 
-  inv->invno = def->invariant = VARRAY_ACTIVE_SIZE (invariants);
+  inv->invno = VARRAY_ACTIVE_SIZE (invariants);
+  if (def)
+    def->invno = inv->invno;
   VARRAY_PUSH_GENERIC_PTR_NOGC (invariants, inv);
 
   if (rtl_dump_file)
     {
-      if (def->simple_p)
-	fprintf (rtl_dump_file, "Set of register %d", def->regno);
-      else
-	fprintf (rtl_dump_file, "Set");
       fprintf (rtl_dump_file,
-	       " in insn %d is invariant (%d), cost %d, depends on ",
-	       INSN_UID (def->insn), def->invariant, inv->cost);
+	       "Set in insn %d is invariant (%d), cost %d, depends on ",
+	       INSN_UID (insn), inv->invno, inv->cost);
       dump_bitmap (rtl_dump_file, inv->depends_on);
     }
 }
@@ -531,156 +353,160 @@ create_new_invariant (struct def *def, bitmap depends_on, bool always_executed)
 /* Record USE at DEF.  */
 
 static void
-record_use (struct def *def, rtx *use)
+record_use (struct def *def, rtx *use, rtx insn)
 {
   struct use *u = xmalloc (sizeof (struct use));
-
   u->pos = use;
+  u->insn = insn;
   u->next = def->uses;
   def->uses = u;
   def->n_uses++;
 }
 
-/* Gets current definition of REG in INSN and stores it to DEF.
-   If it cannot be (uniquely) determined, or the def is not simple,
-   false is returned.  */
+/* Finds the invariants INSN depends on and store them to the DEPENDS_ON
+   bitmap.  DF is the dataflow object.  */
 
 static bool
-get_current_def (rtx reg, rtx insn, struct def **def)
+check_dependencies (rtx insn, struct df *df, bitmap depends_on)
 {
-  unsigned regno = REGNO (reg);
-  basic_block bb;
-
-  if (!reg_info[regno].simple_p)
-    return false;
-
-  if (!reg_info[regno].actual)
+  struct df_link *uses, *defs;
+  struct ref *use, *def;
+  basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
+  struct def *def_data;
+  
+  for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
     {
-      /* Only succeed if there is no def of the register at all.  */
-      if (reg_info[regno].defs)
+      use = uses->ref;
+
+      defs = DF_REF_CHAIN (use);
+      if (!defs)
+	continue;
+
+      if (defs->next)
 	return false;
 
-      *def = NULL;
-      return true;
+      def = defs->ref;
+      def_data = DF_REF_DATA (def);
+      if (!def_data)
+	return false;
+
+      def_bb = DF_REF_BB (def);
+      if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
+	return false;
+
+      bitmap_set_bit (depends_on, def_data->invno);
     }
-
-  *def = reg_info[regno].actual;
-  if (!(*def)->simple_p)
-    return false;
-
-  bb = BLOCK_FOR_INSN (insn);
-  if (!dominated_by_p (CDI_DOMINATORS, bb, (*def)->bb))
-    return false;
-
-  if (!(*def)->reg_next)
-    return true;
-
-  /* Check that the use dominates the next definition.  This ensures that
-     it indeed must be reached by the actual one.  */
-  if (!dominated_by_p (CDI_DOMINATORS, (*def)->reg_next->bb, bb))
-    return false;
-
-  /* Still we could have a problem if the use is in the irreducible loop
-     together with the next use.  */
-  if ((bb->flags & BB_IRREDUCIBLE_LOOP)
-      && !(*def)->reg_next->simple_p)
-    return false;
 
   return true;
 }
 
-/* Records dependencies and uses in X.  Dependencies are marked into
-   bitmap passed in DATA.  If we depend on non-invariant, RD_FAILED
-   is set to true.  RD_INSN is the current insn.  Callback for
-   for_each_rtx.  */
-
-static bool rd_failed;
-static rtx rd_insn;
-static int
-record_dependencies_fer (rtx *x, void *data)
-{
-  bitmap depends_on = data;
-  struct def *def = NULL;
-
-  if (!REG_P (*x))
-    return 0;
-
-  reg_info[REGNO (*x)].used = true;
-  if (!get_current_def (*x, rd_insn, &def))
-    {
-      if (depends_on)
-	rd_failed = true;
-      return 0;
-    }
-
-  if (!def)
-    return 0;
-
-  if (depends_on)
-    bitmap_set_bit (depends_on, def->invariant);
-
-  record_use (def, x);
-  return 0;
-}
-
-/* Records dependencies and uses in X.  Dependencies are marked into
-   bitmap passed in DATA.  If we depend on non-invariant, RD_FAILED
-   is set to true.  Callback for note_uses.  */
+/* Finds invariant in INSN.  ALWAYS_REACHED is true if the insn is always
+   executed.  ALWAYS_EXECUTED is true if the insn is always executed,
+   unless the program ends due to a function call.  DF is the dataflow
+   object.  */
 
 static void
-record_dependencies (rtx *x, void *data)
+find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
+		     struct df *df)
 {
-  for_each_rtx (x, record_dependencies_fer, data);
-}
-
-/* Finds invariants in INSN.  ALWAYS_EXECUTED is true if the insn is always
-   executed, unless the program ends due to a function call.  */
-
-static void
-find_invariants_insn (rtx insn, bool always_executed)
-{
+  struct ref *ref;
   struct def *def;
   bitmap depends_on;
+  rtx set, dest;
+  bool simple = true;
 
-  for (def = adef; def && def->insn == insn; def = def->next)
-    if (def->invar_rhs)
-      break;
+  /* Until we get rid of LIBCALLS.  */
+  if (find_reg_note (insn, REG_RETVAL, NULL_RTX)
+      || find_reg_note (insn, REG_LIBCALL, NULL_RTX)
+      || find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
+    return;
+      
+  set = single_set (insn);
+  if (!set)
+    return;
+  dest = SET_DEST (set);
 
-  if (def && def->insn == insn)
-    depends_on = BITMAP_XMALLOC ();
-  else
-    depends_on = NULL;
+  if (GET_CODE (dest) != REG
+      || HARD_REGISTER_P (dest))
+    simple = false;
 
-  rd_failed = false;
-  rd_insn = insn;
-  note_uses (&PATTERN (insn), record_dependencies, depends_on);
-  if (rd_failed)
-    {
-      BITMAP_XFREE (depends_on);
-      def->simple_p = false;
-      return;
-    }
-  if (!depends_on)
+  if (!check_maybe_invariant (SET_SRC (set))
+      || !may_assign_reg_p (SET_DEST (set)))
     return;
 
-  create_new_invariant (def, depends_on, always_executed);
+  if (!always_reached
+      && may_trap_p (insn))
+    return;
+
+  depends_on = BITMAP_XMALLOC ();
+  if (!check_dependencies (insn, df, depends_on))
+    {
+      BITMAP_XFREE (depends_on);
+      return;
+    }
+
+  if (simple)
+    {
+      ref = df_find_def (df, insn, dest);
+      def = xcalloc (1, sizeof (struct def));
+      DF_REF_DATA (ref) = def;
+    }
+  else
+    def = NULL;
+
+  create_new_invariant (def, insn, depends_on, always_executed);
 }
 
-/* Moves the pointers to the actual definition for defs in INSN.  */
+/* Record registers used in INSN that have an unique invariant definition.
+   DF is the dataflow object.  */
 
 static void
-move_actual_defs (rtx insn)
+record_uses (rtx insn, struct df *df)
 {
-  for (; adef && adef->insn == insn; adef = adef->next)
-    reg_info[adef->regno].actual = adef;
+  struct df_link *uses, *defs;
+  struct ref *use, *def;
+  basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
+  
+  for (uses = DF_INSN_USES (df, insn); uses; uses = uses->next)
+    {
+      use = uses->ref;
+
+      defs = DF_REF_CHAIN (use);
+      if (!defs || defs->next)
+	continue;
+      def = defs->ref;
+      if (!DF_REF_DATA (def))
+	continue;
+
+      def_bb = DF_REF_BB (def);
+      if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
+	continue;
+
+      record_use (DF_REF_DATA (def), DF_REF_LOC (use), DF_REF_INSN (use));
+    }
 }
 
-/* Finds invariants in basic block BB.  ALWAYS_EXECUTED is true if the basic
-   block is always executed, unless the program ends due to a function
-   call.  */
+/* Finds invariants in INSN.  ALWAYS_REACHED is true if the insn is always
+   executed.  ALWAYS_EXECUTED is true if the insn is always executed,
+   unless the program ends due to a function call.  DF is the dataflow
+   object.  */
 
 static void
-find_invariants_bb (basic_block bb, bool always_executed)
+find_invariants_insn (rtx insn, bool always_reached, bool always_executed,
+		      struct df *df)
+{
+  find_invariant_insn (insn, always_reached, always_executed, df);
+  record_uses (insn, df);
+}
+
+/* Finds invariants in basic block BB.  ALWAYS_REACHED is true if the
+   basic block is always executed.  ALWAYS_EXECUTED is true if the basic
+   block is always executed, unless the program ends due to a function
+   call.  DF is the dataflow object.  */
+
+static void
+find_invariants_bb (basic_block bb, bool always_reached, bool always_executed,
+		    struct df *df)
 {
   rtx insn;
 
@@ -689,35 +515,38 @@ find_invariants_bb (basic_block bb, bool always_executed)
       if (!INSN_P (insn))
 	continue;
 
-      find_invariants_insn (insn, always_executed);
-      move_actual_defs (insn);
+      find_invariants_insn (insn, always_reached, always_executed, df);
+
+      if (always_reached
+	  && GET_CODE (insn) == CALL_INSN
+	  && !CONST_OR_PURE_CALL_P (insn))
+	always_reached = false;
     }
 }
 
-/* Finds invariants in LOOP with body BODY.  ALWAYS_EXECUTED is the bitmap of
-   basic blocks in BODY that are always executed, unless the program ends due
-   to a function call.  */
+/* Finds invariants in LOOP with body BODY.  ALWAYS_REACHED is the bitmap of
+   basic blocks in BODY that are always executed.  ALWAYS_EXECUTED is the
+   bitmap of basic blocks in BODY that are always executed unless the program
+   ends due to a function call.  DF is the dataflow object.  */
 
 static void
 find_invariants_body (struct loop *loop, basic_block *body,
-		      bitmap always_executed)
+		      bitmap always_reached, bitmap always_executed,
+		      struct df *df)
 {
   unsigned i;
 
-  adef = defs;
   for (i = 0; i < loop->num_nodes; i++)
-    {
-      if (body[i]->loop_father == loop)
-	find_invariants_bb (body[i], bitmap_bit_p (always_executed, i));
-      else
-	move_actual_defs (const0_rtx);
-    }
+    find_invariants_bb (body[i],
+			bitmap_bit_p (always_reached, i),
+			bitmap_bit_p (always_executed, i),
+			df);
 }
 
-/* Finds invariants in LOOP.  */
+/* Finds invariants in LOOP.  DF is the dataflow object.  */
 
 static void
-find_invariants (struct loop *loop)
+find_invariants (struct loop *loop, struct df *df)
 {
   bitmap may_exit = BITMAP_XMALLOC ();
   bitmap always_reached = BITMAP_XMALLOC ();
@@ -729,8 +558,8 @@ find_invariants (struct loop *loop)
   compute_always_reached (loop, body, may_exit, always_reached);
   compute_always_reached (loop, body, has_exit, always_executed);
 
-  find_defs (loop, body, always_reached);
-  find_invariants_body (loop, body, always_executed);
+  find_defs (loop, body, df);
+  find_invariants_body (loop, body, always_reached, always_executed, df);
 
   BITMAP_XFREE (always_reached);
   BITMAP_XFREE (always_executed);
@@ -774,9 +603,6 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
   (*regs_needed)++;
   (*comp_cost) += inv->cost;
 
-  /* TODO -- in case there is more than one path to the dependency, we count
-     its cost multiple times (and we also might have an exponential time
-     complexity).  Not really likely to occur in practice.  */
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno,
     {
       dep = VARRAY_GENERIC_PTR_NOGC (invariants, depno);
@@ -784,6 +610,10 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
       get_inv_cost (dep, &acomp_cost, &aregs_needed);
 
       if (aregs_needed
+	  /* We need to check always_executed, since if the original value of
+	     the invariant may be preserved, we may need to keep it in a
+	     separate register.  TODO check whether the register has an
+	     use outside of the loop.  */
 	  && dep->always_executed
 	  && !dep->def->uses->next)
 	{
@@ -870,10 +700,10 @@ set_move_mark (unsigned invno)
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, invno, set_move_mark (invno));
 }
 
-/* Determines which invariants to move.  */
+/* Determines which invariants to move.  DF is the dataflow object.  */
 
 static void
-find_invariants_to_move (void)
+find_invariants_to_move (struct df *df)
 {
   unsigned i, regs_used, n_inv_uses, regs_needed = 0, new_regs;
   struct invariant *inv = NULL;
@@ -900,11 +730,9 @@ find_invariants_to_move (void)
      here to stand for induction variables etc. that we do not detect.  */
   regs_used = 2;
 
-  for (i = 0; i < (unsigned) max_reg_num (); i++)
+  for (i = 0; i < df->n_regs; i++)
     {
-      if (reg_info[i].simple_p
-	  && !reg_info[i].defs
-	  && reg_info[i].used)
+      if (!DF_REGNO_FIRST_DEF (df, i) && DF_REGNO_LAST_USE (df, i))
 	{
 	  /* This is a value that is used but not changed inside loop.  */
 	  regs_used++;
@@ -914,7 +742,8 @@ find_invariants_to_move (void)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
     {
       inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
-      n_inv_uses += inv->def->n_uses;
+      if (inv->def)
+	n_inv_uses += inv->def->n_uses;
     }
 
   new_regs = 0;
@@ -926,10 +755,10 @@ find_invariants_to_move (void)
     }
 }
 
-/* Move invariant INVNO out of the LOOP.  */
+/* Move invariant INVNO out of the LOOP.  DF is the dataflow object.  */
 
 static void
-move_invariant_reg (struct loop *loop, unsigned invno)
+move_invariant_reg (struct loop *loop, unsigned invno, struct df *df)
 {
   struct invariant *inv = VARRAY_GENERIC_PTR_NOGC (invariants, invno);
   unsigned i;
@@ -945,7 +774,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
     {
       EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, i,
 	{
-	  move_invariant_reg (loop, i);
+	  move_invariant_reg (loop, i, df);
 	});
     }
 
@@ -954,24 +783,29 @@ move_invariant_reg (struct loop *loop, unsigned invno)
      loop, but it does not seem worth finding out) and it has no uses that
      would not be dominated by it, we may just move it (TODO).  Otherwise we
      need to create a temporary register.  */
-  set = single_set (inv->def->insn);
+  set = single_set (inv->insn);
   reg = gen_reg_rtx (GET_MODE (SET_DEST (set)));
-  emit_insn_after (gen_move_insn (SET_DEST (set), reg), inv->def->insn);
+  df_pattern_emit_after (df, gen_move_insn (SET_DEST (set), reg),
+			 BLOCK_FOR_INSN (inv->insn), inv->insn);
   SET_DEST (set) = reg;
-  reorder_insns (inv->def->insn, inv->def->insn, BB_END (preheader));
+  reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+  df_insn_modify (df, preheader, inv->insn);
 
   /* Replace the uses we know to be dominated.  It saves work for copy
      propagation, and also it is necessary so that dependent invariants
      are computed right.  */
   for (use = inv->def->uses; use; use = use->next)
-    *use->pos = reg;
+    {
+      *use->pos = reg;
+      df_insn_modify (df, BLOCK_FOR_INSN (use->insn), use->insn);
+    }
 }
 
 /* Move selected invariant out of the LOOP.  Newly created regs are marked
-   in TEMPORARY_REGS.  */
+   in TEMPORARY_REGS.  DF is the dataflow object.  */
 
 static void
-move_invariants (struct loop *loop)
+move_invariants (struct loop *loop, struct df *df)
 {
   struct invariant *inv;
   unsigned i;
@@ -980,66 +814,43 @@ move_invariants (struct loop *loop)
     {
       inv = VARRAY_GENERIC_PTR_NOGC (invariants, i);
       if (inv->move)
-	move_invariant_reg (loop, i);
+	move_invariant_reg (loop, i, df);
     }
 }
 
-/* Initializes invariant motion data for LOOP.  MAX_REGNO is the maximum
-   register number.  */
+/* Initializes invariant motion data.  */
 
 static void
-init_inv_motion_data (struct loop *loop, unsigned max_regno)
+init_inv_motion_data (void)
 {
-  unsigned regno;
-
-  if (m_reg_info < max_regno)
-    {
-      m_reg_info = 2 * max_regno;
-      reg_info = xrealloc (reg_info, m_reg_info * sizeof (struct reg));
-    }
-
-  for (regno = 0; regno < max_regno; regno++)
-    {
-      reg_info[regno].simple_p = true;
-      reg_info[regno].used = false;
-      reg_info[regno].defs = NULL;
-      reg_info[regno].def_end = &reg_info[regno].defs;
-      reg_info[regno].actual = NULL;
-      reg_info[regno].last_bb = loop_preheader_edge (loop)->src;
-    }
-
-  defs = NULL;
-  last_def = &defs;
-
   actual_stamp = 1;
 
   if (!invariants)
     VARRAY_GENERIC_PTR_NOGC_INIT (invariants, 100, "invariants");
 }
 
-/* Frees the data allocated by invariant motion.  MAX_REGNO is the maximum
-   register number before optimization.  Store registers that are set inside
-   the loop in MODIFIED_REGS.  */
+/* Frees the data allocated by invariant motion.  DF is the dataflow
+   object.  */
 
 static void
-free_inv_motion_data (unsigned max_regno, bitmap modified_regs)
+free_inv_motion_data (struct df *df)
 {
-  unsigned regno, i;
-  struct def *def, *next;
+  unsigned i;
+  struct def *def;
   struct invariant *inv;
 
-  for (regno = 0; regno < max_regno; regno++)
+  for (i = 0; i < df->n_defs; i++)
     {
-      if (!reg_info[regno].simple_p
-	  || reg_info[regno].defs)
-	bitmap_set_bit (modified_regs, regno);
-    }
+      if (!df->defs[i])
+	continue;
 
-  for (def = defs; def; def = next)
-    {
-      next = def->next;
+      def = DF_REF_DATA (df->defs[i]);
+      if (!def)
+	continue;
+
       free_use_list (def->uses);
       free (def);
+      DF_REF_DATA (df->defs[i]) = NULL;
     }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (invariants); i++)
@@ -1051,20 +862,18 @@ free_inv_motion_data (unsigned max_regno, bitmap modified_regs)
   VARRAY_POP_ALL (invariants);
 }
 
-/* Move the invariants out of the LOOP.  */
+/* Move the invariants out of the LOOP.  DF is the dataflow object.  */
 
 static void
-move_single_loop_invariants (struct loop *loop)
+move_single_loop_invariants (struct loop *loop, struct df *df)
 {
-  unsigned max_regno = max_reg_num ();
+  init_inv_motion_data ();
 
-  init_inv_motion_data (loop, max_regno);
-  find_invariants (loop);
-  find_invariants_to_move ();
-  move_invariants (loop);
+  find_invariants (loop, df);
+  find_invariants_to_move (df);
+  move_invariants (loop, df);
 
-  LOOP_DATA (loop)->modified_regs = BITMAP_XMALLOC ();
-  free_inv_motion_data (max_regno, LOOP_DATA (loop)->modified_regs);
+  free_inv_motion_data (df);
 }
 
 /* Releases the auxiliary data for LOOP.  */
@@ -1074,7 +883,7 @@ free_loop_data (struct loop *loop)
 {
   struct loop_data *data = LOOP_DATA (loop);
 
-  BITMAP_XFREE (data->modified_regs);
+  free (data);
   loop->aux = NULL;
 }
 
@@ -1085,12 +894,7 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-
-  if (!reg_info)
-    {
-      m_reg_info = 2 * max_reg_num ();
-      reg_info = xmalloc (m_reg_info * sizeof (struct reg));
-    }
+  struct df *df = df_init ();
 
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
@@ -1099,7 +903,7 @@ move_loop_invariants (struct loops *loops)
 
   while (loop != loops->tree_root)
     {
-      move_single_loop_invariants (loop);
+      move_single_loop_invariants (loop, df);
 
       if (loop->next)
 	{
@@ -1114,4 +918,6 @@ move_loop_invariants (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
       free_loop_data (loops->parray[i]);
+
+  df_finish (df);
 }
