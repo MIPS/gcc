@@ -1,17 +1,3 @@
-2004-04-05  Richard Henderson  <rth@redhat.com>
-
-	* tree-simple.c (is_gimple_min_invariant): Disallow &a+i.
-	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Rename from
-	maybe_fold_stmt_plus.  Handle MINUS_EXPR.
-	(fold_stmt_r): Pass MINUS_EXPR to it.
-
-2004-04-05  Ben Elliston  <bje@au.ibm.com>
-
-	* Makefile.in (OBJS-common): Remove tree-browser.o.
-	(cc1): Depend on @TREEBROWSER@ and include in list of objects.
-	* configure.ac: Add --enable-tree-browser option.
-	* configure: Rebuild.
-
 2004-03-21  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* config/rs6000/t-darwin (LIB2FUNCS_STATIC_EXTRA):
