@@ -1,3 +1,7 @@
+2004-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc: Do not build a shared libgcc for arm-none-eabi.
+
 2004-09-14  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_expand_prologue): Make args_to_push a
