@@ -923,7 +923,11 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_string<_CharT, _Traits, _Alloc>::
     basic_string()
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
     : _M_dataplus(_S_empty_rep()._M_refcopy(), _Alloc()) { }
+#else
+    : _M_dataplus(_S_construct(size_type(), _CharT(), _Alloc()), _Alloc()) { }
+#endif
 
   // operator+
   template<typename _CharT, typename _Traits, typename _Alloc>

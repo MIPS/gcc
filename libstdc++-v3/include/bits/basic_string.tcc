@@ -77,8 +77,10 @@ namespace std
       _S_construct(_InIter __beg, _InIter __end, const _Alloc& __a,
 		   input_iterator_tag)
       {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refcopy();
+#endif
 	// Avoid reallocation for common case.
 	_CharT __buf[100];
 	size_type __i = 0;
@@ -139,11 +141,13 @@ namespace std
       {
 	size_type __dnew = static_cast<size_type>(distance(__beg, __end));
 
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refcopy();
+#endif
 
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__beg == _InIter(), 0))
+	if (__builtin_expect(__beg == _InIter() && __beg != __end, 0))
 	  __throw_logic_error("attempt to create string with null pointer");
 	
 	// Check for out_of_range and length_error exceptions.
@@ -166,8 +170,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     _S_construct(size_type __n, _CharT __c, const _Alloc& __a)
     {
+#ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
       if (__n == 0 && __a == _Alloc())
 	return _S_empty_rep()._M_refcopy();
+#endif
 
       // Check for out_of_range and length_error exceptions.
       _Rep* __r = _Rep::_S_create(__n, __a);
