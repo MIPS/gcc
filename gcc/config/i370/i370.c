@@ -315,6 +315,18 @@ static const unsigned char ebcasc[256] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Set global variables as needed for the options enabled.  */
+
+void
+override_options ()
+{
+  /* We're 370 floating point, not IEEE floating point.  */
+  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
+  real_format_for_mode[SFmode - QFmode] = &i370_single_format;
+  real_format_for_mode[DFmode - QFmode] = &i370_double_format;
+}
+
+
 /* Map characters from one character set to another.
    C is the character to be translated.  */
 
@@ -1444,7 +1456,7 @@ i370_globalize_label (stream, name)
    -- subtracts stackframe size from the stack pointer.
    -- stores backpointer to old caller stack.
   
-   XXX hack alert -- if the global var int leaf_function is non-zero, 
+   XXX hack alert -- if the global var int leaf_function is nonzero, 
    then this is a leaf, and it might be possible to optimize the prologue
    into doing even less, e.g. not grabbing a new stackframe or maybe just a
    partial stack frame.

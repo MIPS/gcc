@@ -148,7 +148,7 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("Wformat-y2k",		CL_ALL,   OPT_Wformat_y2k)		     \
   OPT("Wformat-zero-length",	CL_C,     OPT_Wformat_zero_length)	     \
   OPT("Wformat=",		CL_ALL | CL_JOINED, OPT_Wformat_eq)	     \
-  OPT("Wimplicit",		CL_CXX,   OPT_Wimplicit)		     \
+  OPT("Wimplicit",		CL_ALL,   OPT_Wimplicit)		     \
   OPT("Wimplicit-function-declaration",	CL_C, OPT_Wimplicit_function_decl)   \
   OPT("Wimplicit-int",		CL_C,	  OPT_Wimplicit_int)		     \
   OPT("Wimport",                CL_ALL,   OPT_Wimport)			     \
@@ -188,6 +188,7 @@ static void sanitize_cpp_opts PARAMS ((void));
   OPT("Wwrite-strings",		CL_ALL,   OPT_Wwrite_strings)		     \
   OPT("ansi",			CL_ALL,   OPT_ansi)			     \
   OPT("d",                      CL_ALL | CL_JOINED, OPT_d)		     \
+  OPT("fabi-version=",          CL_CXX | CL_JOINED, OPT_fabi_version)        \
   OPT("faccess-control",	CL_CXX,   OPT_faccess_control)		     \
   OPT("fall-virtual",		CL_CXX,   OPT_fall_virtual)		     \
   OPT("falt-external-templates",CL_CXX,   OPT_falt_external_templates)	     \
@@ -338,10 +339,11 @@ missing_arg (opt_index)
 {
   const char *opt_text = cl_options[opt_index].opt_text;
 
-  switch (opt_index)
+  switch (cl_options[opt_index].opt_code)
     {
     case OPT_Wformat_eq:
     case OPT_d:
+    case OPT_fabi_version:
     case OPT_fbuiltin_:
     case OPT_fdump:
     case OPT_fname_mangling:
@@ -398,7 +400,7 @@ find_opt (input, lang_flag)
       md = (mn + mx) / 2;
 
       opt_len = cl_options[md].opt_len;
-      comp = memcmp (input, cl_options[md].opt_text, opt_len);
+      comp = strncmp (input, cl_options[md].opt_text, opt_len);
 
       if (comp < 0)
 	mx = md;
@@ -441,7 +443,7 @@ find_opt (input, lang_flag)
 	      for (md = md + 1; md < (size_t) N_OPTS; md++)
 		{
 		  opt_len = cl_options[md].opt_len;
-		  if (memcmp (input, cl_options[md].opt_text, opt_len))
+		  if (strncmp (input, cl_options[md].opt_text, opt_len))
 		    break;
 		  if (input[opt_len] == '\0')
 		    return md;
@@ -513,9 +515,6 @@ c_common_init_options (lang)
   warn_pointer_arith = (lang == clk_cplusplus);
   if (lang == clk_c)
     warn_sign_compare = -1;
-
-  /* Mark as "unspecified" (see c_common_post_options).  */
-  flag_bounds_check = -1;
 }
 
 /* Handle one command-line option in (argc, argv).
@@ -700,7 +699,8 @@ c_common_decode_option (argc, argv)
       warn_sequence_point = on;	/* Was C only.  */
       warn_sign_compare = on;	/* Was C++ only.  */
       warn_switch = on;
-
+      warn_strict_aliasing = on;
+      
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */                                        
       warn_unknown_pragmas = on;
@@ -1014,6 +1014,10 @@ c_common_decode_option (argc, argv)
       warning ("switch \"%s\" is no longer supported", argv[0]);
       break;
 
+    case OPT_fabi_version:
+      flag_abi_version = read_integral_parameter (arg, argv[0], 1);
+      break;
+
     case OPT_faccess_control:
       flag_access_control = on;
       break;
@@ -1199,7 +1203,7 @@ c_common_decode_option (argc, argv)
       break;
 
     case OPT_ftabstop:
-      /* Don't recognise -fno-tabstop=.  */
+      /* Don't recognize -fno-tabstop=.  */
       if (!on)
 	return 0;
 
@@ -1366,10 +1370,6 @@ c_common_post_options ()
 	  flag_inline_functions = 0;
 	}
     }
-
-  /* If still "unspecified", make it match -fbounded-pointers.  */
-  if (flag_bounds_check == -1)
-    flag_bounds_check = flag_bounded_pointers;
 
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
@@ -1640,7 +1640,7 @@ set_Wimplicit (on)
 }
 
 /* Args to -d specify what to dump.  Silently ignore
-   unrecognised options; they may be aimed at toplev.c.  */
+   unrecognized options; they may be aimed at toplev.c.  */
 static void
 handle_OPT_d (arg)
      const char *arg;

@@ -84,6 +84,7 @@ extern int constant_pool_expr_p PARAMS ((rtx));
 extern int toc_relative_expr_p PARAMS ((rtx));
 extern int expand_block_move PARAMS ((rtx[]));
 extern int load_multiple_operation PARAMS ((rtx, enum machine_mode));
+extern const char * rs6000_output_load_multiple PARAMS ((rtx[]));
 extern int store_multiple_operation PARAMS ((rtx, enum machine_mode));
 extern int branch_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int branch_positive_comparison_operator 
@@ -150,7 +151,6 @@ extern void setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 					    enum machine_mode, tree,
 					    int *, int));
 extern struct rtx_def *rs6000_va_arg PARAMS ((tree, tree));
-extern void output_mi_thunk PARAMS ((FILE *, tree, int, tree));
 extern int function_ok_for_sibcall PARAMS ((tree));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
@@ -187,10 +187,12 @@ extern void rs6000_emit_load_toc_table PARAMS ((int));
 extern void rs6000_aix_emit_builtin_unwind_init PARAMS ((void));
 extern void rs6000_emit_epilogue PARAMS ((int));
 extern void debug_stack_info PARAMS ((rs6000_stack_t *));
-extern const char *output_isel PARAMS ((rtx *));
+extern const char * output_isel PARAMS ((rtx *));
 extern int vrsave_operation PARAMS ((rtx, enum machine_mode));
-
-extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
+extern int rs6000_register_move_cost PARAMS ((enum machine_mode,
+					      enum reg_class, enum reg_class));
+extern int rs6000_memory_move_cost PARAMS ((enum machine_mode,
+					    enum reg_class, int));
 
 /* Declare functions in rs6000-c.c */
 

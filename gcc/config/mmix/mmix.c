@@ -130,6 +130,8 @@ static void mmix_target_asm_function_prologue
 static void mmix_target_asm_function_end_prologue PARAMS ((FILE *));
 static void mmix_target_asm_function_epilogue
   PARAMS ((FILE *, HOST_WIDE_INT));
+static void mmix_asm_output_mi_thunk
+  PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
 
 
 /* Target structure macros.  Listed by node.  See `Using and Porting GCC'
@@ -161,6 +163,11 @@ static void mmix_target_asm_function_epilogue
 #define TARGET_ENCODE_SECTION_INFO  mmix_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING  mmix_strip_name_encoding
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK mmix_asm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -653,6 +660,15 @@ mmix_function_outgoing_value (valtype, func)
   return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nregs, vec));
 }
 
+/* FUNCTION_VALUE_REGNO_P.  */
+
+int
+mmix_function_value_regno_p (regno)
+     int regno;
+{
+  return regno == MMIX_RETURN_VALUE_REGNUM;
+}
+
 /* EH_RETURN_DATA_REGNO. */
 
 int
@@ -693,7 +709,7 @@ mmix_asm_preferred_eh_data_format (code, global)
   return DW_EH_PE_absptr;
 }
 
-/* Make a note that we've seen the beginning of of the prologue.  This
+/* Make a note that we've seen the beginning of the prologue.  This
    matters to whether we'll translate register numbers as calculated by
    mmix_machine_dependent_reorg.  */
 
@@ -770,13 +786,14 @@ mmix_target_asm_function_epilogue (stream, locals_size)
   fputc ('\n', stream);
 }
 
-/* ASM_OUTPUT_MI_THUNK.  */
+/* TARGET_ASM_OUTPUT_MI_THUNK.  */
 
-void
-mmix_asm_output_mi_thunk (stream, fndecl, delta, func)
+static void
+mmix_asm_output_mi_thunk (stream, fndecl, delta, vcall_offset, func)
      FILE * stream;
      tree fndecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree func;
 {
   /* If you define STRUCT_VALUE to 0, rather than use STRUCT_VALUE_REGNUM,
@@ -785,9 +802,9 @@ mmix_asm_output_mi_thunk (stream, fndecl, delta, func)
   const char *regname = reg_names[MMIX_FIRST_INCOMING_ARG_REGNUM];
 
   if (delta >= 0 && delta < 65536)
-    fprintf (stream, "\tINCL %s,%d\n", regname, delta);
+    fprintf (stream, "\tINCL %s,%d\n", regname, (int)delta);
   else if (delta < 0 && delta >= -255)
-    fprintf (stream, "\tSUBU %s,%s,%d\n", regname, regname, -delta);
+    fprintf (stream, "\tSUBU %s,%s,%d\n", regname, regname, (int)-delta);
   else
     {
       mmix_output_register_setting (stream, 255, delta, 1);
@@ -1985,7 +2002,7 @@ mmix_get_hard_reg_initial_val (mode, regno)
   return get_hard_reg_initial_val (mode, regno);
 }
 
-/* Non-zero when the function epilogue is simple enough that a single
+/* Nonzero when the function epilogue is simple enough that a single
    "POP %d,0" should be used even within the function.  */
 
 int

@@ -73,7 +73,6 @@ CCODECVT_H = @CCODECVT_H@
 CLOCALE_H = @CLOCALE_H@
 CMESSAGES_H = @CMESSAGES_H@
 CPP = @CPP@
-CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
 CSTDIO_H = @CSTDIO_H@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
@@ -130,7 +129,7 @@ MAINT_CHARSET = latin1
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
-# Cross compiler and multilib support.
+# Cross compiler support.
 CXX = @glibcpp_CXX@
 toolexecdir = @glibcpp_toolexecdir@
 toolexeclibdir = @glibcpp_toolexeclibdir@

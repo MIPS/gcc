@@ -54,8 +54,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifdef PUSH_ROUNDING
 
+#ifndef PUSH_ARGS_REVERSED
 #if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
 #define PUSH_ARGS_REVERSED	/* If it's last to first.  */
+#endif
 #endif
 
 #endif
@@ -231,7 +233,7 @@ enum insn_code movstr_optab[NUM_MACHINE_MODES];
 /* This array records the insn_code of insns to perform block clears.  */
 enum insn_code clrstr_optab[NUM_MACHINE_MODES];
 
-/* SLOW_UNALIGNED_ACCESS is non-zero if unaligned accesses are very slow.  */
+/* SLOW_UNALIGNED_ACCESS is nonzero if unaligned accesses are very slow.  */
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -552,7 +554,8 @@ convert_move (to, from, unsignedp)
   rtx libcall;
 
   /* rtx code for making an equivalent value.  */
-  enum rtx_code equiv_code = (unsignedp ? ZERO_EXTEND : SIGN_EXTEND);
+  enum rtx_code equiv_code = (unsignedp < 0 ? UNKNOWN
+			      : (unsignedp ? ZERO_EXTEND : SIGN_EXTEND));
 
   to = protect_from_queue (to, 1);
   from = protect_from_queue (from, 0);
@@ -1732,6 +1735,16 @@ emit_block_move (x, y, size, method)
     abort ();
   if (size == 0)
     abort ();
+
+  /* Set MEM_SIZE as appropriate for this block copy.  The main place this
+     can be incorrect is coming from __builtin_memcpy.  */
+  if (GET_CODE (size) == CONST_INT)
+    {
+      x = shallow_copy_rtx (x);
+      y = shallow_copy_rtx (y);
+      set_mem_size (x, size);
+      set_mem_size (y, size);
+    }
 
   if (GET_CODE (size) == CONST_INT && MOVE_BY_PIECES_P (INTVAL (size), align))
     move_by_pieces (x, y, INTVAL (size), align);
@@ -3081,7 +3094,7 @@ emit_move_insn (x, y)
   else if (CONSTANT_P (y))
     {
       if (optimize
-	  && FLOAT_MODE_P (GET_MODE (x))
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (x))
 	  && (last_insn = compress_float_constant (x, y)))
 	return last_insn;
 
@@ -3139,11 +3152,7 @@ emit_move_insn_1 (x, y)
 
   /* Expand complex moves by moving real part and imag part, if possible.  */
   else if ((class == MODE_COMPLEX_FLOAT || class == MODE_COMPLEX_INT)
-	   && BLKmode != (submode = mode_for_size ((GET_MODE_UNIT_SIZE (mode)
-						    * BITS_PER_UNIT),
-						   (class == MODE_COMPLEX_INT
-						    ? MODE_INT : MODE_FLOAT),
-						   0))
+	   && BLKmode != (submode = GET_MODE_INNER (mode))
 	   && (mov_optab->handlers[(int) submode].insn_code
 	       != CODE_FOR_nothing))
     {
@@ -4643,7 +4652,7 @@ store_constructor_field (target, bitsize, bitpos, mode, exp, type, cleared,
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
       && bitpos % BITS_PER_UNIT == 0
-      /* If we have a non-zero bitpos for a register target, then we just
+      /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
       && (bitpos == 0 || GET_CODE (target) == MEM))
@@ -6522,7 +6531,7 @@ expand_expr (exp, target, tmode, modifier)
       }
 
     case PARM_DECL:
-      if (DECL_RTL (exp) == 0)
+      if (!DECL_RTL_SET_P (exp))
 	{
 	  error_with_decl (exp, "prior parameter's size depends on `%s'");
 	  return CONST0_RTX (mode);
@@ -7794,9 +7803,6 @@ expand_expr (exp, target, tmode, modifier)
       return op0;
 
     case PLUS_EXPR:
-      /* We come here from MINUS_EXPR when the second operand is a
-         constant.  */
-    plus_expr:
       this_optab = ! unsignedp && flag_trapv
                    && (GET_MODE_CLASS (mode) == MODE_INT)
                    ? addv_optab : add_optab;
@@ -7892,20 +7898,30 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 	}
 
+      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
+	subtarget = 0;
+
       /* No sense saving up arithmetic to be done
 	 if it's all in the wrong mode to form part of an address.
 	 And force_operand won't know whether to sign-extend or
 	 zero-extend.  */
       if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
 	  || mode != ptr_mode)
-	goto binop;
-
-      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
-	subtarget = 0;
+	{
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, 0);
+	  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, 0);
+	  if (op0 == const0_rtx)
+	    return op1;
+	  if (op1 == const0_rtx)
+	    return op0;
+	  goto binop2;
+	}
 
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
       op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
 
+      /* We come here from MINUS_EXPR when the second operand is a
+         constant.  */
     both_summands:
       /* Make sure any term that's a sum with a constant comes last.  */
       if (GET_CODE (op0) == PLUS
@@ -7975,27 +7991,33 @@ expand_expr (exp, target, tmode, modifier)
 	  else
 	    return gen_rtx_MINUS (mode, op0, op1);
 	}
-      /* Convert A - const to A + (-const).  */
-      if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
-	{
-	  tree negated = fold (build1 (NEGATE_EXPR, type,
-				       TREE_OPERAND (exp, 1)));
 
-	  if (TREE_UNSIGNED (type) || TREE_OVERFLOW (negated))
-	    /* If we can't negate the constant in TYPE, leave it alone and
-	       expand_binop will negate it for us.  We used to try to do it
-	       here in the signed version of TYPE, but that doesn't work
-	       on POINTER_TYPEs.  */;
-	  else
-	    {
-	      exp = build (PLUS_EXPR, type, TREE_OPERAND (exp, 0), negated);
-	      goto plus_expr;
-	    }
-	}
       this_optab = ! unsignedp && flag_trapv
                    && (GET_MODE_CLASS(mode) == MODE_INT)
                    ? subv_optab : sub_optab;
-      goto binop;
+
+      /* No sense saving up arithmetic to be done
+	 if it's all in the wrong mode to form part of an address.
+	 And force_operand won't know whether to sign-extend or
+	 zero-extend.  */
+      if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
+	  || mode != ptr_mode)
+	goto binop;
+
+      if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))
+	subtarget = 0;
+
+      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode, modifier);
+      op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX, VOIDmode, modifier);
+
+      /* Convert A - const to A + (-const).  */
+      if (GET_CODE (op1) == CONST_INT)
+	{
+	  op1 = negate_rtx (mode, op1);
+	  goto both_summands;
+	}
+
+      goto binop2;
 
     case MULT_EXPR:
       /* If first operand is constant, swap them.
@@ -9278,7 +9300,7 @@ is_aligning_offset (offset, exp)
 }
 
 /* Return the tree node if an ARG corresponds to a string constant or zero
-   if it doesn't.  If we return non-zero, set *PTR_OFFSET to the offset
+   if it doesn't.  If we return nonzero, set *PTR_OFFSET to the offset
    in bytes within the string that ARG is accessing.  The type of the
    offset will be `sizetype'.  */
 
@@ -9664,7 +9686,7 @@ do_jump (exp, if_false_label, if_true_label)
     case NEGATE_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-      /* These cannot change zero->non-zero or vice versa.  */
+      /* These cannot change zero->nonzero or vice versa.  */
       do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
       break;
 
@@ -9690,7 +9712,7 @@ do_jump (exp, if_false_label, if_true_label)
 #endif
 
     case MINUS_EXPR:
-      /* Non-zero iff operands of minus differ.  */
+      /* Nonzero iff operands of minus differ.  */
       do_compare_and_jump (build (NE_EXPR, TREE_TYPE (exp),
 				  TREE_OPERAND (exp, 0),
 				  TREE_OPERAND (exp, 1)),
@@ -10505,7 +10527,7 @@ do_compare_and_jump (exp, signed_code, unsigned_code, if_false_label,
 
    If TARGET is nonzero, store the result there if convenient.
 
-   If ONLY_CHEAP is non-zero, only do this if it is likely to be very
+   If ONLY_CHEAP is nonzero, only do this if it is likely to be very
    cheap.
 
    Return zero if there is no suitable set-flag instruction
@@ -10919,6 +10941,9 @@ do_tablejump (index, mode, range, table_label, default_label)
      enum machine_mode mode;
 {
   rtx temp, vector;
+
+  if (INTVAL (range) > cfun->max_jumptable_ents)
+    cfun->max_jumptable_ents = INTVAL (range);
 
   /* Do an unsigned comparison (in the proper mode) between the index
      expression and the value which represents the length of the range.

@@ -18,10 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Use DWARF2 debugging info and unwind.  */
-#undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-#define DWARF2_ASM_LINE_DEBUG_INFO 1
 
 /* A C expression whose value is RTL representing the location of the
    incoming return address at the beginning of any function, before the
@@ -56,8 +52,22 @@ Boston, MA 02111-1307, USA.  */
       }									\
     } while (0)
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__ELF__ -Dunix -D__hppa__ -D__gnu_linux__ -Dlinux -Asystem=unix -Asystem=posix -Acpu=hppa -Amachine=hppa -Amachine=bigendian"
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__ELF__");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_define_std ("linux");		\
+	builtin_define_std ("unix");		\
+	builtin_assert ("machine=bigendian");	\
+	builtin_assert ("system=posix");	\
+	builtin_assert ("system=unix");		\
+    }						\
+  while (0)
+
+#undef CPP_SPEC
+#define CPP_SPEC "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 
 #undef	LIB_SPEC
 #define LIB_SPEC \
@@ -80,10 +90,6 @@ Boston, MA 02111-1307, USA.  */
       %{rdynamic:-export-dynamic} \
       %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
       %{static:-static}}"
-
-/* Sibcalls, stubs, and elf sections don't play well.  */
-#undef FUNCTION_OK_FOR_SIBCALL
-#define FUNCTION_OK_FOR_SIBCALL(x) 0
 
 /* glibc's profiling functions don't need gcc to allocate counters.  */
 #define NO_PROFILE_COUNTERS 1
@@ -124,18 +130,6 @@ Boston, MA 02111-1307, USA.  */
 	fputs ("\t.IMPORT _mcount, CODE\n", FILE);		\
     }								\
    while (0)
-
-/* Output a definition */
-#define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2) \
-  do								\
-    {								\
-      fprintf ((FILE), "\t%s\t", SET_ASM_OP);			\
-      assemble_name (FILE, LABEL1);				\
-      fprintf (FILE, ",");					\
-      assemble_name (FILE, LABEL2);				\
-      fprintf (FILE, "\n");					\
-    }								\
-  while (0)
 
 /* We want local labels to start with period if made with asm_fprintf.  */
 #undef LOCAL_LABEL_PREFIX
@@ -183,6 +177,19 @@ Boston, MA 02111-1307, USA.  */
     {								\
       ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
       ASM_DECLARE_RESULT (FILE, DECL_RESULT (DECL));		\
+    }								\
+  while (0)
+
+/* As well as globalizing the label, we need to encode the label
+   to ensure a plabel is generated in an indirect call.  */
+
+#undef ASM_OUTPUT_EXTERNAL_LIBCALL
+#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)  		\
+  do								\
+    {								\
+      if (!FUNCTION_NAME_P (XSTR (FUN, 0)))			\
+	hppa_encode_label (FUN);				\
+      (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0));	\
     }								\
   while (0)
 

@@ -96,6 +96,10 @@ STRICT2_WARN = -Wtraditional -pedantic -Wno-long-long
 # "extern" tags in header files.
 NOCOMMON_FLAG = @nocommon_flag@
 
+# These are set by --enable-checking=valgrind.
+RUN_GEN = @valgrind_command@
+VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
+
 # This is how we control whether or not the additional warnings are applied.
 .-warn = $(STRICT_WARN)
 GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG)
@@ -636,7 +640,7 @@ HOST_RTL = $(BUILD_PREFIX)rtl.o read-rtl.o $(BUILD_PREFIX)bitmap.o \
 HOST_SUPPORT = gensupport.o insn-conditions.o
 HOST_EARLY_SUPPORT = gensupport.o dummy-conditions.o
 
-HOST_PRINT = $(BUILD_PREFIX)print-rtl.o
+HOST_PRINT = print-rtl1.o
 HOST_ERRORS = $(BUILD_PREFIX)errors.o
 HOST_VARRAY = $(BUILD_PREFIX)varray.o
 
@@ -735,7 +739,7 @@ C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
 OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
- debug.o dependence.o df.o diagnostic.o doloop.o dominance.o		   \
+ debug.o df.o diagnostic.o doloop.o dominance.o		                   \
  dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
  expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o		   \
  genrtl.o ggc-common.o global.o graph.o gtype-desc.o			   \
@@ -1027,7 +1031,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	SHLIB_MKMAP_OPTS='$(SHLIB_MKMAP_OPTS)' \
 	SHLIB_MAPFILES='$(SHLIB_MAPFILES)' \
 	SHLIB_NM_FLAGS='$(SHLIB_NM_FLAGS)' \
-	SHLIB_SLIBDIR_SUFFIXES='$(SHLIB_SLIBDIR_SUFFIXES)' \
+	MULTILIB_OSDIRNAMES='$(MULTILIB_OSDIRNAMES)' \
 	mkinstalldirs='$(SHELL) $(srcdir)/mkinstalldirs' \
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	mv tmp-libgcc.mk libgcc.mk
@@ -1061,7 +1065,8 @@ libgcc.a: $(LIBGCC_DEPS)
 # switches.
 multilib.h: s-mlib; @true
 s-mlib: $(srcdir)/genmultilib Makefile
-	if test @enable_multilib@ = yes; then \
+	if test @enable_multilib@ = yes \
+	   || test -n "$(MULTILIB_OSDIRNAMES)"; then \
 	  $(SHELL) $(srcdir)/genmultilib \
 	    "$(MULTILIB_OPTIONS)" \
 	    "$(MULTILIB_DIRNAMES)" \
@@ -1069,9 +1074,12 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	    "$(MULTILIB_EXCEPTIONS)" \
 	    "$(MULTILIB_EXTRA_OPTS)" \
 	    "$(MULTILIB_EXCLUSIONS)" \
+	    "$(MULTILIB_OSDIRNAMES)" \
+	    "@enable_multilib@" \
 	    > tmp-mlib.h; \
 	else \
-	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' > tmp-mlib.h; \
+	  $(SHELL) $(srcdir)/genmultilib '' '' '' '' '' '' '' no \
+	    > tmp-mlib.h; \
 	fi
 	$(SHELL) $(srcdir)/move-if-change tmp-mlib.h multilib.h
 	$(STAMP) s-mlib
@@ -1256,6 +1264,7 @@ DRIVER_DEFINES = \
   -DDEFAULT_TARGET_MACHINE=\"$(target_alias)\" \
   -DSTANDARD_BINDIR_PREFIX=\"$(bindir)/\" \
   -DTOOLDIR_BASE_PREFIX=\"$(unlibsubdir)/../\" \
+  $(VALGRIND_DRIVER_DEFINES) \
   `test "X$${SHLIB_LINK}" = "X" || test "@enable_shared@" != "yes" || echo "-DENABLE_SHARED_LIBGCC"` \
   `test "X$${SHLIB_MULTILIB}" = "X" || echo "-DNO_SHARED_LIBGCC_MULTILIB"`
 
@@ -1278,7 +1287,7 @@ cppspec.o: cppspec.c $(CONFIG_H) $(SYSTEM_H) $(GCC_H)
 
 tree-check.h: s-check ; @true
 s-check : gencheck$(build_exeext) $(srcdir)/move-if-change
-	./gencheck$(build_exeext) > tmp-check.h
+	$(RUN_GEN) ./gencheck$(build_exeext) > tmp-check.h
 	$(SHELL) $(srcdir)/move-if-change tmp-check.h tree-check.h
 	$(STAMP) s-check
 
@@ -1325,10 +1334,11 @@ gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(HASHTAB_H) \
 	ssa.h cselib.h insn-addr.h
 
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-	flags.h $(GGC_H) varray.h $(HASHTAB_H) $(TM_P_H) langhooks.h
+	flags.h $(GGC_H) varray.h $(HASHTAB_H) $(TM_P_H) langhooks.h \
+	$(PARAMS_H)
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
-	$(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
+	$(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
 
 ggc-page.o: ggc-page.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	toplev.h $(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H)
@@ -1380,7 +1390,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) function.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
    graph.h $(LOOP_H) except.h $(REGS_H) $(TIMEVAR_H) $(lang_options_files) \
    ssa.h $(PARAMS_H) $(TM_P_H) reload.h dwarf2asm.h $(TARGET_H) \
-   langhooks.h insn-flags.h options.h cfglayout.h
+   langhooks.h insn-flags.h options.h cfglayout.h real.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -1392,10 +1402,8 @@ rtl-error.o: rtl-error.c system.h $(RTL_H) $(INSN_ATTR_H) insn-config.h \
 rtl.o : rtl.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) real.h $(GGC_H) errors.h
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
-print-rtl.o : print-rtl.c $(GCONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-    hard-reg-set.h $(BASIC_BLOCK_H)
-	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
-
+print-rtl.o : print-rtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
+    hard-reg-set.h $(BASIC_BLOCK_H) real.h
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) \
    hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h flags.h
 
@@ -1405,7 +1413,7 @@ errors.o : errors.c $(GCONFIG_H) $(SYSTEM_H) errors.h
 varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
    function.h $(EXPR_H) hard-reg-set.h $(REGS_H) \
    output.h c-pragma.h toplev.h xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
-   $(HASHTAB_H) $(TARGET_H) langhooks.h gt-varasm.h
+   $(HASHTAB_H) $(TARGET_H) langhooks.h gt-varasm.h real.h
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    function.h $(EXPR_H) libfuncs.h $(REGS_H) hard-reg-set.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h $(HASHTAB_H) $(GGC_H) \
@@ -1453,7 +1461,7 @@ dwarfout.o : dwarfout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf.h \
 dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) dwarf2.h \
    debug.h flags.h insn-config.h reload.h output.h diagnostic.h real.h \
    hard-reg-set.h $(REGS_H) $(EXPR_H) libfuncs.h toplev.h dwarf2out.h varray.h \
-   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h gt-dwarf2out.h
+   $(GGC_H) except.h dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) gt-dwarf2out.h
 dwarf2asm.o : dwarf2asm.c $(CONFIG_H) $(SYSTEM_H) flags.h $(RTL_H) $(TREE_H) \
    output.h dwarf2asm.h $(TM_P_H) $(GGC_H)
 vmsdbgout.o : vmsdbgout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) flags.h \
@@ -1475,7 +1483,7 @@ jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h hard-reg-set.h $(REGS_H
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
-   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H)
+   output.h function.h $(GGC_H) $(OBSTACK_H) $(TM_P_H) $(TREE_H)
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
    output.h function.h cselib.h $(GGC_H) $(TM_P_H) gt-cselib.h
@@ -1635,9 +1643,7 @@ regrename.o : regrename.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h \
    resource.h $(OBSTACK_H) flags.h $(TM_P_H)
 ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) toplev.h \
    flags.h insn-config.h function.h $(RECOG_H) $(BASIC_BLOCK_H) $(EXPR_H) \
-   output.h except.h $(TM_P_H)
-dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
-   $(C_COMMON_H) flags.h varray.h $(EXPR_H) $(GGC_H) gt-dependence.h
+   output.h except.h $(TM_P_H) real.h
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H)
 
@@ -1689,13 +1695,13 @@ mips-tdump.o : mips-tdump.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H)
 
 insn-config.h: s-config ; @true
 s-config : $(md_file) genconfig$(build_exeext) $(srcdir)/move-if-change
-	./genconfig$(build_exeext) $(md_file) > tmp-config.h
+	$(RUN_GEN) ./genconfig$(build_exeext) $(md_file) > tmp-config.h
 	$(SHELL) $(srcdir)/move-if-change tmp-config.h insn-config.h
 	$(STAMP) s-config
 
 insn-conditions.c: s-conditions ; @true
 s-conditions : $(md_file) genconditions$(build_exeext) $(srcdir)/move-if-change
-	./genconditions$(build_exeext) $(md_file) > tmp-conditions.c
+	$(RUN_GEN) ./genconditions$(build_exeext) $(md_file) > tmp-conditions.c
 	$(SHELL) $(srcdir)/move-if-change tmp-conditions.c insn-conditions.c
 	$(STAMP) s-conditions
 
@@ -1710,19 +1716,19 @@ dummy-conditions.o : dummy-conditions.c $(HCONFIG_H) $(SYSTEM_H) gensupport.h
 
 insn-flags.h: s-flags ; @true
 s-flags : $(md_file) genflags$(build_exeext) $(srcdir)/move-if-change
-	./genflags$(build_exeext) $(md_file) > tmp-flags.h
+	$(RUN_GEN) ./genflags$(build_exeext) $(md_file) > tmp-flags.h
 	$(SHELL) $(srcdir)/move-if-change tmp-flags.h insn-flags.h
 	$(STAMP) s-flags
 
 insn-codes.h: s-codes ; @true
 s-codes : $(md_file) gencodes$(build_exeext) $(srcdir)/move-if-change
-	./gencodes$(build_exeext) $(md_file) > tmp-codes.h
+	$(RUN_GEN) ./gencodes$(build_exeext) $(md_file) > tmp-codes.h
 	$(SHELL) $(srcdir)/move-if-change tmp-codes.h insn-codes.h
 	$(STAMP) s-codes
 
 insn-constants.h: s-constants ; @true
 s-constants : $(md_file) genconstants$(build_exeext) $(srcdir)/move-if-change
-	./genconstants$(build_exeext) $(md_file) > tmp-constants.h
+	$(RUN_GEN) ./genconstants$(build_exeext) $(md_file) > tmp-constants.h
 	$(SHELL) $(srcdir)/move-if-change tmp-constants.h insn-constants.h
 	$(STAMP) s-constants
 
@@ -1734,7 +1740,7 @@ insn-emit.o : insn-emit.c $(CONFIG_H) $(RTL_H) $(EXPR_H) real.h output.h \
 
 insn-emit.c: s-emit ; @true
 s-emit : $(md_file) genemit$(build_exeext) $(srcdir)/move-if-change
-	./genemit$(build_exeext) $(md_file) > tmp-emit.c
+	$(RUN_GEN) ./genemit$(build_exeext) $(md_file) > tmp-emit.c
 	$(SHELL) $(srcdir)/move-if-change tmp-emit.c insn-emit.c
 	$(STAMP) s-emit
 
@@ -1746,7 +1752,7 @@ insn-recog.o : insn-recog.c $(CONFIG_H) $(RTL_H) insn-config.h $(RECOG_H) \
 
 insn-recog.c: s-recog ; @true
 s-recog : $(md_file) genrecog$(build_exeext) $(srcdir)/move-if-change
-	./genrecog$(build_exeext) $(md_file) > tmp-recog.c
+	$(RUN_GEN) ./genrecog$(build_exeext) $(md_file) > tmp-recog.c
 	$(SHELL) $(srcdir)/move-if-change tmp-recog.c insn-recog.c
 	$(STAMP) s-recog
 
@@ -1757,7 +1763,7 @@ insn-opinit.o : insn-opinit.c $(CONFIG_H) $(RTL_H) \
 
 insn-opinit.c: s-opinit ; @true
 s-opinit : $(md_file) genopinit$(build_exeext) $(srcdir)/move-if-change
-	./genopinit$(build_exeext) $(md_file) > tmp-opinit.c
+	$(RUN_GEN) ./genopinit$(build_exeext) $(md_file) > tmp-opinit.c
 	$(SHELL) $(srcdir)/move-if-change tmp-opinit.c insn-opinit.c
 	$(STAMP) s-opinit
 
@@ -1768,7 +1774,7 @@ insn-extract.o : insn-extract.c $(CONFIG_H) $(RTL_H) $(SYSTEM_H) toplev.h \
 
 insn-extract.c: s-extract ; @true
 s-extract : $(md_file) genextract$(build_exeext) $(srcdir)/move-if-change
-	./genextract$(build_exeext) $(md_file) > tmp-extract.c
+	$(RUN_GEN) ./genextract$(build_exeext) $(md_file) > tmp-extract.c
 	$(SHELL) $(srcdir)/move-if-change tmp-extract.c insn-extract.c
 	$(STAMP) s-extract
 
@@ -1779,7 +1785,7 @@ insn-peep.o : insn-peep.c $(CONFIG_H) $(RTL_H) $(REGS_H) output.h real.h \
 
 insn-peep.c: s-peep ; @true
 s-peep : $(md_file) genpeep$(build_exeext) $(srcdir)/move-if-change
-	./genpeep$(build_exeext) $(md_file) > tmp-peep.c
+	$(RUN_GEN) ./genpeep$(build_exeext) $(md_file) > tmp-peep.c
 	$(SHELL) $(srcdir)/move-if-change tmp-peep.c insn-peep.c
 	$(STAMP) s-peep
 
@@ -1791,13 +1797,13 @@ insn-attrtab.o : insn-attrtab.c $(CONFIG_H) $(RTL_H) $(REGS_H) real.h \
 
 insn-attr.h: s-attr ; @true
 s-attr : $(md_file) genattr$(build_exeext) $(srcdir)/move-if-change
-	./genattr$(build_exeext) $(md_file) > tmp-attr.h
+	$(RUN_GEN) ./genattr$(build_exeext) $(md_file) > tmp-attr.h
 	$(SHELL) $(srcdir)/move-if-change tmp-attr.h insn-attr.h
 	$(STAMP) s-attr
 
 insn-attrtab.c: s-attrtab ; @true
 s-attrtab : $(md_file) genattrtab$(build_exeext) $(srcdir)/move-if-change
-	./genattrtab$(build_exeext) $(md_file) > tmp-attrtab.c
+	$(RUN_GEN) ./genattrtab$(build_exeext) $(md_file) > tmp-attrtab.c
 	$(SHELL) $(srcdir)/move-if-change tmp-attrtab.c insn-attrtab.c
 	$(STAMP) s-attrtab
 
@@ -1810,7 +1816,7 @@ insn-output.o : insn-output.c $(CONFIG_H) $(RTL_H) $(GGC_H) $(REGS_H) real.h \
 
 insn-output.c: s-output ; @true
 s-output : $(md_file) genoutput$(build_exeext) $(srcdir)/move-if-change
-	./genoutput$(build_exeext) $(md_file) > tmp-output.c
+	$(RUN_GEN) ./genoutput$(build_exeext) $(md_file) > tmp-output.c
 	$(SHELL) $(srcdir)/move-if-change tmp-output.c insn-output.c
 	$(STAMP) s-output
 
@@ -1819,16 +1825,16 @@ genrtl.c genrtl.h : s-genrtl
 	@true	# force gnu make to recheck modification times.
 
 s-genrtl: gengenrtl$(build_exeext) $(srcdir)/move-if-change $(RTL_BASE_H)
-	./gengenrtl$(build_exeext) -h > tmp-genrtl.h
+	$(RUN_GEN) ./gengenrtl$(build_exeext) -h > tmp-genrtl.h
 	$(SHELL) $(srcdir)/move-if-change tmp-genrtl.h genrtl.h
-	./gengenrtl$(build_exeext) > tmp-genrtl.c
+	$(RUN_GEN) ./gengenrtl$(build_exeext) > tmp-genrtl.c
 	$(SHELL) $(srcdir)/move-if-change tmp-genrtl.c genrtl.c
 	$(STAMP) s-genrtl
 
 tm-preds.h: s-preds; @true
 
 s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
-	./genpreds$(build_exeext) > tmp-preds.h
+	$(RUN_GEN) ./genpreds$(build_exeext) > tmp-preds.h
 	$(SHELL) $(srcdir)/move-if-change tmp-preds.h tm-preds.h
 	$(STAMP) s-preds
 
@@ -1840,7 +1846,7 @@ GTFILES = $(GCONFIG_H) $(srcdir)/location.h \
   $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/basic-block.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c \
-  $(srcdir)/dependence.c $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c \
+  $(srcdir)/dwarf2out.c $(srcdir)/emit-rtl.c \
   $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/fold-const.c $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
@@ -1861,7 +1867,7 @@ gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
 gt-alias.h gt-cselib.h gt-fold-const.h gt-gcse.h gt-profile.h : s-gtype; @true
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dwarf2out.h : s-gtype ; @true
-gt-ra-build.h gt-reg-stack.h gt-dependence.h : s-gtype ; @true
+gt-ra-build.h gt-reg-stack.h : s-gtype ; @true
 gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
 gt-c-objc-common.h gtype-c.h gt-location.h : s-gtype ; @true
 
@@ -1893,7 +1899,7 @@ gtyp-gen.h: Makefile
 	$(SHELL) $(srcdir)/move-if-change tmp-gtyp.h gtyp-gen.h 
 
 s-gtype: gengtype$(build_exeext) $(GTFILES)
-	./gengtype
+	$(RUN_GEN) ./gengtype
 	$(STAMP) s-gtype
 
 #
@@ -2107,11 +2113,11 @@ $(BUILD_PREFIX_1)rtl.o: $(srcdir)/rtl.c $(HCONFIG_H) $(SYSTEM_H) $(RTL_H) \
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/rtl.c > $(BUILD_PREFIX)rtl.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)rtl.c $(OUTPUT_OPTION)
 
-$(BUILD_PREFIX_1)print-rtl.o: $(srcdir)/print-rtl.c $(HCONFIG_H) \
+print-rtl1.o: $(srcdir)/print-rtl.c $(HCONFIG_H) \
   $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H)
-	rm -f $(BUILD_PREFIX)print-rtl.c
-	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/print-rtl.c > $(BUILD_PREFIX)print-rtl.c
-	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)print-rtl.c $(OUTPUT_OPTION)
+	rm -f print-rtl1.c
+	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/print-rtl.c > print-rtl1.c
+	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) print-rtl1.c $(OUTPUT_OPTION)
 
 $(BUILD_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(HCONFIG_H) $(SYSTEM_H) \
   $(RTL_H) flags.h $(BASIC_BLOCK_H) $(REGS_H) $(GGC_H)
@@ -2401,7 +2407,7 @@ xsys-protos.h: $(GCC_PASSES) $(srcdir)/sys-protos.h deduced.h gen-protos$(build_
 	mv tmp-fixtmp.c fixtmp.c
 	$(GCC_FOR_TARGET) fixtmp.c -w -U__SIZE_TYPE__ -U__PTRDIFF_TYPE__ -U__WCHAR_TYPE__ -E \
 	  | sed -e 's/	/ /g' -e 's/ *(/ (/g' -e 's/ [ ]*/ /g' -e 's/( )/()/' \
-	  | ./gen-protos >xsys-protos.hT
+	  | $(RUN_GEN) ./gen-protos >xsys-protos.hT
 	mv xsys-protos.hT xsys-protos.h
 	rm -rf fixtmp.c
 
@@ -2833,6 +2839,7 @@ install-driver: installdirs xgcc$(exeext)
 	-if [ -f gcc-cross$(exeext) ] ; then \
 	  rm -f $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) gcc-cross$(exeext) $(bindir)/$(GCC_CROSS_NAME)$(exeext); \
+	  rm -f $(bindir)/$(target_alias)-gcc-$(version); \
 	  $(LN) $(bindir)/$(GCC_CROSS_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
 	  if [ -d $(gcc_tooldir)/bin/. ] ; then \
 	    rm -f $(gcc_tooldir)/bin/gcc$(exeext); \
@@ -2841,6 +2848,7 @@ install-driver: installdirs xgcc$(exeext)
 	else \
 	  rm -f $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
 	  $(INSTALL_PROGRAM) xgcc$(exeext) $(bindir)/$(GCC_INSTALL_NAME)$(exeext); \
+	  rm -f $(bindir)/$(target_alias)-gcc-$(version); \
 	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-$(version) ; \
 	  rm -f $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
 	  $(LN) $(bindir)/$(GCC_INSTALL_NAME)$(exeext) $(bindir)/$(target_alias)-gcc-tmp$(exeext); \
@@ -3111,6 +3119,14 @@ site.exp: ./config.status Makefile
 	fi
 	echo "set tmpdir $(objdir)/testsuite" >> ./tmp0
 	@echo "set srcdir \"\$${srcdir}/testsuite\"" >> ./tmp0
+	@if [ "X$(ALT_CXX_UNDER_TEST)" != "X" ] ; then \
+	  echo "set ALT_CXX_UNDER_TEST $(ALT_CXX_UNDER_TEST)" >> ./tmp0; \
+	else true; \
+	fi
+	@if [ "X$(COMPAT_OPTIONS)" != "X" ] ; then \
+	  echo "set COMPAT_OPTIONS $(COMPAT_OPTIONS)" >> ./tmp0; \
+	else true; \
+	fi
 	@echo "## All variables above are generated by configure. Do Not Edit ##" >> ./tmp0
 	@cat ./tmp0 > site.exp
 	@cat site.bak | sed \
@@ -3246,7 +3262,7 @@ ${QMTEST_DIR}/context: stamp-qmtest
 # Run the G++ testsuite using QMTest.
 qmtest-g++: ${QMTEST_DIR}/context ${QMTEST_DIR}/gpp-expected.qmr
 	cd ${QMTEST_DIR} && ${QMTEST} run ${QMTESTRUNFLAGS} -C context \
-	   -o gpp.qmr -O ${QMTEST_DIR}/gpp-expected.qmr \
+	   -o gpp.qmr -O gpp-expected.qmr \
 	   ${QMTEST_GPP_TESTS}
 
 # Use the QMTest GUI.
@@ -3262,6 +3278,15 @@ ${QMTEST_DIR}/gpp-expected.qmr: ${QMTEST_DIR}/context
 	   > /dev/null
 
 .PHONY: qmtest-g++
+
+# Run Paranoia on real.c.
+
+paranoia.o: $(srcdir)/../contrib/paranoia.cc $(CONFIG_H) $(SYSTEM_H) \
+  real.h $(TREE_H)
+	g++ -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
+
+paranoia: paranoia.o real.o $(LIBIBERTY)
+	g++ -o $@ paranoia.o real.o $(LIBIBERTY)
 
 # These exist for maintenance purposes.
 
@@ -3473,18 +3498,21 @@ compare compare3 compare4 compare-lean compare3-lean compare4-lean: force
 # Compare the object files in the current directory with those in the
 # stage2 directory.  Use gnu cmp (diffutils v2.4 or later) to avoid
 # running tail and the overhead of twice copying each object file.
-
+# An exit status of 1 is precisely the result we're looking for (other
+# values mean other problems).
 gnucompare gnucompare3 gnucompare4 gnucompare-lean gnucompare3-lean gnucompare4-lean: force
 	-rm -f .bad_compare
 	case "$@" in gnucompare | gnucompare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^gnucompare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	for file in *$(objext); do \
-	  (cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1 || echo $$file differs >> .bad_compare) || true; \
+	  cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
+	  test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
 	done
 	case "$@" in gnucompare | gnucompare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^gnucompare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	for dir in tmp-foo intl $(SUBDIRS); do \
 	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
 	    for file in $$dir/*$(objext); do \
-	      (cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1 || echo $$file differs >> .bad_compare) || true; \
+	      cmp --ignore-initial=16 $$file stage$$stage/$$file > /dev/null 2>&1; \
+	      test $$? -eq 1 && echo $$file differs >> .bad_compare || true; \
 	    done; \
 	  else true; fi; \
 	done

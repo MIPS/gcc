@@ -787,6 +787,7 @@ extern const char * const reg_note_name[];
 #define NOTE_BASIC_BLOCK(INSN)	XCBBDEF (INSN, 4, NOTE)
 #define NOTE_EXPECTED_VALUE(INSN) XCEXP (INSN, 4, NOTE)
 #define NOTE_PREDICTION(INSN)   XCINT (INSN, 4, NOTE)
+#define NOTE_PRECONDITIONED(INSN)   XCINT (INSN, 4, NOTE)
 
 /* In a NOTE that is a line number, this is the line number.
    Other kinds of NOTEs are identified by negative numbers here.  */
@@ -1010,14 +1011,13 @@ enum label_kind
 #define INTVAL(RTX) XCWINT(RTX, 0, CONST_INT)
 
 /* For a CONST_DOUBLE:
-   The usual two ints that hold the value.
-   For a DImode, that is all there are;
-    and CONST_DOUBLE_LOW is the low-order word and ..._HIGH the high-order.
-   For a float, the number of ints varies,
-    and CONST_DOUBLE_LOW is the one that should come first *in memory*.
-    So use &CONST_DOUBLE_LOW(r) as the address of an array of ints.  */
+   For a DImode, there are two integers CONST_DOUBLE_LOW is the
+     low-order word and ..._HIGH the high-order.
+   For a float, there is a REAL_VALUE_TYPE structure, and 
+     CONST_DOUBLE_REAL_VALUE(r) is a pointer to it.  */
 #define CONST_DOUBLE_LOW(r) XCWINT (r, 0, CONST_DOUBLE)
 #define CONST_DOUBLE_HIGH(r) XCWINT (r, 1, CONST_DOUBLE)
+#define CONST_DOUBLE_REAL_VALUE(r) ((struct real_value *)&CONST_DOUBLE_LOW(r))
 
 /* For a CONST_VECTOR, return element #n.  */
 #define CONST_VECTOR_ELT(RTX, N) XCVECEXP (RTX, 0, N, CONST_VECTOR)
@@ -1104,7 +1104,7 @@ do {									\
 #define MEM_SCALAR_P(RTX)						\
   (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->frame_related)
 
-/* If VAL is non-zero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
+/* If VAL is nonzero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
    RTX.  Otherwise, vice versa.  Use this macro only when you are
    *sure* that you know that the MEM is in a structure, or is a
    scalar.  VAL is evaluated only once.  */
@@ -1944,6 +1944,7 @@ extern int invert_jump_1		PARAMS ((rtx, rtx));
 extern int invert_jump			PARAMS ((rtx, rtx, int));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
+extern unsigned int reg_or_subregno	PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
 extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void rebuild_jump_labels		PARAMS ((rtx));
@@ -2091,6 +2092,7 @@ extern int global_alloc			PARAMS ((FILE *));
 extern void dump_global_regs		PARAMS ((FILE *));
 #endif
 #ifdef HARD_CONST
+/* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
 extern void retry_global_alloc		PARAMS ((int, HARD_REG_SET));
 #endif
 extern void build_insn_chain		PARAMS ((rtx));
@@ -2108,6 +2110,14 @@ extern void regclass			PARAMS ((rtx, int, FILE *));
 extern void reg_scan			PARAMS ((rtx, unsigned int, int));
 extern void reg_scan_update		PARAMS ((rtx, rtx, unsigned int));
 extern void fix_register		PARAMS ((const char *, int, int));
+#ifdef HARD_CONST
+extern void cannot_change_mode_set_regs PARAMS ((HARD_REG_SET *,
+						 enum machine_mode,
+						 unsigned int));
+#endif
+extern bool invalid_mode_change_p	PARAMS ((unsigned int,
+						 enum reg_class,
+						 enum machine_mode));
 
 extern int delete_null_pointer_checks	PARAMS ((rtx));
 
@@ -2268,4 +2278,5 @@ extern void invert_br_probabilities	PARAMS ((rtx));
 extern bool expensive_function_p	PARAMS ((int));
 /* In tracer.c */
 extern void tracer			PARAMS ((void));
+
 #endif /* ! GCC_RTL_H */

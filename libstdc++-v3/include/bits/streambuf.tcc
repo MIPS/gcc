@@ -69,7 +69,7 @@ namespace std
       bool __testpos = _M_in_cur && _M_in_beg < _M_in_cur;
       bool __testne = _M_in_cur && !traits_type::eq(__c, this->gptr()[-1]);
       if (!__testpos || __testne)
-	__ret = pbackfail(traits_type::to_int_type(__c));
+	__ret = this->pbackfail(traits_type::to_int_type(__c));
       else 
 	{
 	  _M_in_cur_move(-1);
@@ -208,19 +208,32 @@ namespace std
       try 
 	{
 	  while (__testput && __bufsize != -1)
-	    {
-	      __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
-	      __ret += __xtrct;
-	      __sbin->_M_in_cur_move(__xtrct);
-	      if (__xtrct == __bufsize)
+  	    {
+ 	      if (__bufsize != 0 && __sbin->gptr() != NULL
+		  && __sbin->gptr() + __bufsize <= __sbin->egptr()) 
 		{
-		  if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
+		  __xtrct = __sbout->sputn(__sbin->gptr(), __bufsize);
+		  __ret += __xtrct;
+		  __sbin->_M_in_cur_move(__xtrct);
+		  if (__xtrct != __bufsize)
 		    break;
-		  __bufsize = __sbin->in_avail();
 		}
-	      else
-		break;
-	    }
+ 	      else 
+		{
+		  size_t __size =
+		    __sbin->_M_buf_size_opt > 0 ? __sbin->_M_buf_size_opt : 1;
+		  _CharT* __buf =
+		    static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __size));
+		  streamsize __charsread = __sbin->sgetn(__buf, __size);
+		  __xtrct = __sbout->sputn(__buf, __charsread);
+		  __ret += __xtrct;
+		  if (__xtrct != __charsread)
+		    break;
+		}
+ 	      if (_Traits::eq_int_type(__sbin->sgetc(), _Traits::eof()))
+  		break;
+ 	      __bufsize = __sbin->in_avail();
+  	    }
 	}
       catch(exception& __fail) 
 	{
@@ -240,11 +253,13 @@ namespace std
     __copy_streambufs(basic_ios<char>&, basic_streambuf<char>*,
 		      basic_streambuf<char>*); 
 
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_streambuf<wchar_t>;
   extern template
     streamsize
     __copy_streambufs(basic_ios<wchar_t>&, basic_streambuf<wchar_t>*,
 		      basic_streambuf<wchar_t>*); 
+#endif
 } // namespace std
 
 #endif 

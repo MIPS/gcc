@@ -364,6 +364,21 @@ case $machine in
 	xm_defines=POSIX
 	gas=yes
 	gnu_ld=yes
+	case x${enable_threads} in
+	xyes | xposix)
+		thread_file='posix'
+		tm_defines="${tm_defines} NETBSD_ENABLE_PTHREADS"
+		;;
+	esac
+
+	# NetBSD 1.7 and later are set up to use GCC's crtstuff for
+	# ELF configurations.  We will clear extra_parts in the
+	# a.out configurations.
+	case $machine in
+	*-*-netbsd*1.[7-9]* | *-*-netbsd*[2-9]*)
+		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
+		;;
+	esac
 	;;
 *-*-freebsd[12] | *-*-freebsd[12].* | *-*-freebsd*aout*)
 	# This is the place-holder for the generic a.out configuration
@@ -611,11 +626,13 @@ arm*-*-freebsd*|strongarm*-*-freebsd*)
 	tmake_file="${tmake_file} arm/t-strongarm-elf"
 	;;
 arm*-*-netbsdelf*)
-	echo "GCC does not yet support the ${machine} target"; exit 1
+	tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h arm/arm.h arm/netbsd-elf.h"
+	tmake_file="${tmake_file} arm/t-netbsd"
 	;;
 arm*-*-netbsd*)
 	tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
 	tmake_file="t-netbsd arm/t-netbsd"
+	extra_parts=""
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
@@ -727,8 +744,8 @@ h8300-*-*)
 	;;
 hppa*64*-*-linux* | parisc*64*-*-linux*)
 	target_cpu_default="(MASK_PA_11 | MASK_PA_20)"
-	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
-		 pa/pa64-regs.h pa/pa-64.h pa/pa64-linux.h"
+	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h svr4.h linux.h \
+		 pa/pa-linux.h pa/pa64-regs.h pa/pa-64.h pa/pa64-linux.h"
 	tmake_file=pa/t-linux64
 	gas=yes gnu_ld=yes
 	;;
@@ -861,11 +878,24 @@ hppa1.0-*-hpux10*)
 	;;
 hppa*64*-*-hpux11*)
 	xm_defines=POSIX
-	tm_file="pa/pa64-start.h ${tm_file} pa/pa64-regs.h pa/long_double.h pa/elf.h pa/pa-hpux.h pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	if test x$gas = xyes
+	then
+		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h  \
+			 pa/pa64-regs.h pa/long_double.h pa/pa-hpux.h \
+			 pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	else
+		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h pa/elf.h \
+			 pa/pa64-regs.h pa/long_double.h pa/pa-hpux.h \
+			 pa/pa-hpux11.h pa/pa-64.h pa/pa64-hpux.h"
+	fi
 	tmake_file="pa/t-pa64 pa/t-pa-hpux"
 	xmake_file="pa/x-ada"
 	target_cpu_default="(MASK_PA_11|MASK_PA_20|MASK_GAS)"
 
+	if test x$gnu_ld = xyes
+	then
+		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
+	fi
 #	if [ x$enable_threads = x ]; then
 #	    enable_threads=$have_pthread_h
 #	fi
@@ -975,11 +1005,12 @@ i370-*-linux*)
 i[34567]86-*-darwin*)
 	tm_file="${tm_file} darwin.h i386/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file=i386/t-darwin
+	tmake_file="t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	;;
@@ -1047,6 +1078,7 @@ i[34567]86-*-netbsdelf*)
 i[34567]86-*-netbsd*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h i386/gstabs.h netbsd.h netbsd-aout.h i386/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 x86_64-*-netbsd*)
@@ -1363,6 +1395,7 @@ ia64*-*-aix*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/aix.h"
 	tmake_file="ia64/t-ia64 ia64/t-aix"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
+	extra_parts="crti.o crtn.o crtbegin.o crtend.o crtbeginS.o crtendS.o"
 	;;
 ia64*-*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h ia64/sysv4.h ia64/elf.h"
@@ -1376,16 +1409,19 @@ ia64*-*-elf*)
 	then
 		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
 	fi
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} ia64/sysv4.h ia64/freebsd.h"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
 	tmake_file="${tmake_file} ia64/t-ia64"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h ia64/sysv4.h ia64/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux ia64/t-ia64 ia64/t-glibc"
 	target_cpu_default="MASK_GNU_AS|MASK_GNU_LD"
+	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtfastmath.o"
 	;;
 ia64*-*-hpux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h ia64/sysv4.h ia64/hpux.h ia64/hpux_longdouble.h"
@@ -1606,6 +1642,7 @@ m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 m68k*-*-netbsd*)
 	tm_file=m68k/netbsd.h
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 m68k*-*-openbsd*)
@@ -1845,7 +1882,7 @@ mips64-*-elf* | mips64el-*-elf*)
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
         tm_file="mips/vr.h ${tm_file} mips/elf64.h"
-        tm_defines="MIPS_ABI_DEFAULT=ABI_O64"
+        tm_defines="MIPS_ABI_DEFAULT=ABI_O64 MIPS_MARCH_CONTROLS_SOFT_FLOAT=1"
         tmake_file=mips/t-vr
         ;;
 mips64orion-*-elf* | mips64orionel-*-elf*)
@@ -1903,6 +1940,7 @@ ns32k-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h ns32k/netbsd.h"
 	# On NetBSD, the headers are already okay, except for math.h.
 	tmake_file="t-netbsd ns32k/t-ns32k"
+	extra_parts=""
 	use_collect2=yes
 	;;
 pdp11-*-bsd)
@@ -1941,11 +1979,12 @@ powerpc-*-beos*)
 powerpc-*-darwin*)
 	tm_file="${tm_file} darwin.h rs6000/darwin.h"
 	tm_p_file="${tm_p_file} darwin-protos.h"
-	tmake_file=rs6000/t-darwin
+	tmake_file="rs6000/t-rs6000 t-darwin rs6000/t-darwin"
 	extra_objs="darwin.o"
 	target_gtfiles="\$(srcdir)/config/darwin.c"
 	c_target_objs="darwin-c.o"
 	cxx_target_objs="darwin-c.o"
+	extra_parts="crt2.o"
 	# Darwin linker does collect2 functionality
 	use_collect2=no
 	extra_headers=altivec.h
@@ -2117,10 +2156,18 @@ rs6000-ibm-aix4.[3456789]* | powerpc-ibm-aix4.[3456789]*)
 	thread_file='aix'
 	extra_headers=
 	;;
-rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+rs6000-ibm-aix5.1.* | powerpc-ibm-aix5.1.*)
 	xm_defines=POSIX
 	tm_file="${tm_file} rs6000/aix.h rs6000/aix51.h rs6000/xcoff.h"
 	tmake_file=rs6000/t-aix43
+	use_collect2=yes
+	thread_file='aix'
+	extra_headers=
+	;;
+rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+	xm_defines=POSIX
+	tm_file="${tm_file} rs6000/aix.h rs6000/aix52.h rs6000/xcoff.h"
+	tmake_file=rs6000/t-aix52
 	use_collect2=yes
 	thread_file='aix'
 	extra_headers=
@@ -2147,7 +2194,7 @@ rs6000-*-lynxos*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux"
+	tmake_file="t-slibgcc-elf-ver t-linux"
 	;;
 s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -2155,7 +2202,7 @@ s390x-*-linux*)
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
-	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux s390/t-linux64"
+	tmake_file="t-slibgcc-elf-ver t-linux s390/t-linux64"
 	;;
 sh-*-elf* | sh[2346l]*-*-elf*)
 	tmake_file="sh/t-sh sh/t-elf"
@@ -2286,6 +2333,7 @@ sparc-*-netbsdelf*)
 sparc-*-netbsd*)
 	tm_file="${tm_file} sparc/aout.h netbsd.h netbsd-aout.h sparc/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 sparc-*-openbsd*)
@@ -2319,17 +2367,17 @@ sparc-*-elf*)
 	tmake_file="sparc/t-elf sparc/t-crtfm"
 	extra_parts="crti.o crtn.o crtbegin.o crtend.o"
 	;;
-sparc-*-linux*aout*)		# Sparc's running GNU/Linux, a.out
+sparc-*-linux*aout*)		# SPARC's running GNU/Linux, a.out
 	tm_file="aoutos.h sparc/sparc.h sparc/aout.h sparc/linux-aout.h"
 	gnu_ld=yes
 	;;
-sparc-*-linux*libc1*)	# Sparc's running GNU/Linux, libc5
+sparc-*-linux*libc1*)	# SPARC's running GNU/Linux, libc5
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux t-linux-gnulibc1 sparc/t-crtfm"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	;;
-sparc-*-linux*)		# Sparc's running GNU/Linux, libc6
+sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
 	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-crtfm"
 	;;
@@ -2513,7 +2561,7 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 		*) echo "$with_cpu not supported for freebsd target"; exit 1 ;;
 	esac
 	;;
-sparc64-*-linux*)		# 64-bit Sparc's running GNU/Linux
+sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
 	tmake_file="t-slibgcc-elf-ver t-linux sparc/t-linux64 sparc/t-crtfm"
 	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
 	;;
@@ -2598,11 +2646,13 @@ vax-*-sysv*)			# VAXen running system V
 	xm_defines=POSIX
 	;;
 vax-*-netbsdelf*)
-	echo "GCC does not yet support the ${machine} target"; exit 1
+	tm_file="${tm_file} elfos.h netbsd.h netbsd-elf.h vax/elf.h vax/netbsd-elf.h"
+	float_format=vax
 	;;
 vax-*-netbsd*)
 	tm_file="${tm_file} netbsd.h netbsd-aout.h vax/netbsd.h"
 	tmake_file=t-netbsd
+	extra_parts=""
 	use_collect2=yes
 	;;
 vax-*-openbsd*)
@@ -2683,7 +2733,7 @@ i586-*-*)
 		k6-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_k6
 			;;
-		pentium_mmx-*)
+		pentium_mmx-*|winchip_c6-*|winchip2-*|c3-*)
 			target_cpu_default2=TARGET_CPU_DEFAULT_pentium_mmx
 			;;
 		*)
@@ -2816,6 +2866,11 @@ mips*-*-*)
 			tm_defines="TARGET_ENDIAN_DEFAULT=0 $tm_defines"
 			;;
 	esac
+	case $tm_file in
+		*mips/elf.h* | *mips/elf64.h*)
+			tm_defines="OBJECT_FORMAT_ELF $tm_defines"
+			;;
+	esac
 	if test "x$enable_gofast" = xyes
 	then
 		tm_defines="INIT_SUBTARGET_OPTABS=INIT_GOFAST_OPTABS $tm_defines"
@@ -2883,7 +2938,7 @@ v850*-*-*)
 	case "x$with_cpu" in
 		x)
 			;;
-		v850e)
+		xv850e)
 			target_cpu_default2="TARGET_CPU_$with_cpu"
 			;;
 		*)

@@ -31,7 +31,7 @@ enum cmp_type				/* comparison type */
 };
 
 /* For long call handling.  */
-extern unsigned int total_code_bytes;
+extern unsigned long total_code_bytes;
 
 /* Which processor to schedule for.  */
 
@@ -74,13 +74,9 @@ extern enum architecture_type pa_arch;
 
 extern int target_flags;
 
-/* compile code for HP-PA 1.1 ("Snake") */
+/* compile code for HP-PA 1.1 ("Snake").  */
 
 #define MASK_PA_11 1
-
-#ifndef TARGET_PA_11
-#define TARGET_PA_11 (target_flags & MASK_PA_11)
-#endif
 
 /* Disable all FP registers (they all become fixed).  This may be necessary
    for compiling kernels which perform lazy context switching of FP regs.
@@ -142,10 +138,34 @@ extern int target_flags;
 #define MASK_BIG_SWITCH 2048
 #define TARGET_BIG_SWITCH (target_flags & MASK_BIG_SWITCH)
 
-
 /* Generate code for the HPPA 2.0 architecture.  TARGET_PA_11 should also be
    true when this is true.  */
 #define MASK_PA_20 4096
+
+/* Generate cpp defines for server I/O.  */
+#define MASK_SIO 8192
+#define TARGET_SIO (target_flags & MASK_SIO)
+
+/* Assume GNU linker by default.  */
+#define MASK_GNU_LD 16384
+#ifndef TARGET_GNU_LD
+#define TARGET_GNU_LD (target_flags & MASK_GNU_LD)
+#endif
+
+/* Force generation of long calls.  */
+#define MASK_LONG_CALLS 32768
+#ifndef TARGET_LONG_CALLS
+#define TARGET_LONG_CALLS (target_flags & MASK_LONG_CALLS)
+#endif
+
+#ifndef TARGET_PA_10
+#define TARGET_PA_10 (target_flags & (MASK_PA_11 | MASK_PA_20) == 0)
+#endif
+
+#ifndef TARGET_PA_11
+#define TARGET_PA_11 (target_flags & MASK_PA_11)
+#endif
+
 #ifndef TARGET_PA_20
 #define TARGET_PA_20 (target_flags & MASK_PA_20)
 #endif
@@ -165,40 +185,94 @@ extern int target_flags;
 #define TARGET_SOM 0
 #endif
 
-/* Macro to define tables used to set the flags.
-   This is a list in braces of pairs in braces,
-   each pair being { "NAME", VALUE }
-   where VALUE is the bits to set or minus the bits to clear.
-   An empty string NAME is used to identify the default VALUE.  */
+/* The following three defines are potential target switches.  The current
+   defines are optimal given the current capabilities of GAS and GNU ld.  */
+
+/* Define to a C expression evaluating to true to use long absolute calls.
+   Currently, only the HP assembler and SOM linker support long absolute
+   calls.  They are used only in non-pic code.  */
+#define TARGET_LONG_ABS_CALL (TARGET_SOM && !TARGET_GAS)
+
+/* Define to a C expression evaluating to true to use long pic symbol
+   difference calls.  This is a call variant similar to the long pic
+   pc-relative call.  Long pic symbol difference calls are only used with
+   the HP SOM linker.  Currently, only the HP assembler supports these
+   calls.  GAS doesn't allow an arbritrary difference of two symbols.  */
+#define TARGET_LONG_PIC_SDIFF_CALL (!TARGET_GAS)
+
+/* Define to a C expression evaluating to true to use long pic
+   pc-relative calls.  Long pic pc-relative calls are only used with
+   GAS.  Currently, they are usable for calls within a module but
+   not for external calls.  */
+#define TARGET_LONG_PIC_PCREL_CALL 0
+
+/* Macro to define tables used to set the flags.  This is a
+   list in braces of target switches with each switch being
+   { "NAME", VALUE, "HELP_STRING" }.  VALUE is the bits to set,
+   or minus the bits to clear.  An empty string NAME is used to
+   identify the default VALUE.  Do not mark empty strings for
+   translation.  */
 
 #define TARGET_SWITCHES \
-  {{"snake", MASK_PA_11, "Generate PA1.1 code"},			\
-   {"nosnake", -(MASK_PA_11 | MASK_PA_20), "Generate PA1.0 code"},		\
-   {"pa-risc-1-0", -(MASK_PA_11 | MASK_PA_20), "Generate PA1.0 code"},		\
-   {"pa-risc-1-1", MASK_PA_11, "Generate PA1.1 code"},			\
-   {"pa-risc-2-0", MASK_PA_20, "Generate PA2.0 code.  This option requires binutils 2.10 or later"},			\
-   {"disable-fpregs", MASK_DISABLE_FPREGS, "Disable FP regs"},		\
-   {"no-disable-fpregs", -MASK_DISABLE_FPREGS, "Do not disable FP regs"},\
-   {"no-space-regs", MASK_NO_SPACE_REGS, "Disable space regs"},		\
-   {"space-regs", -MASK_NO_SPACE_REGS, "Do not disable space regs"},	\
-   {"jump-in-delay", MASK_JUMP_IN_DELAY, "Put jumps in call delay slots"},\
-   {"no-jump-in-delay", -MASK_JUMP_IN_DELAY, "Do not put jumps in call delay slots"},	\
-   {"disable-indexing", MASK_DISABLE_INDEXING, "Disable indexed addressing"},\
-   {"no-disable-indexing", -MASK_DISABLE_INDEXING, "Do not disable indexed addressing"},\
-   {"portable-runtime", MASK_PORTABLE_RUNTIME, "Use portable calling conventions"},	\
-   {"no-portable-runtime", -MASK_PORTABLE_RUNTIME, "Do not use portable calling conventions"},\
-   {"gas", MASK_GAS, "Assume code will be assembled by GAS"},		\
-   {"no-gas", -MASK_GAS, "Do not assume code will be assembled by GAS"},		\
-   {"soft-float", MASK_SOFT_FLOAT, "Use software floating point"},		\
-   {"no-soft-float", -MASK_SOFT_FLOAT, "Do not use software floating point"},	\
-   {"long-load-store", MASK_LONG_LOAD_STORE, "Emit long load/store sequences"},	\
-   {"no-long-load-store", -MASK_LONG_LOAD_STORE, "Do not emit long load/store sequences"},\
-   {"fast-indirect-calls", MASK_FAST_INDIRECT_CALLS, "Generate fast indirect calls"},\
-   {"no-fast-indirect-calls", -MASK_FAST_INDIRECT_CALLS, "Do not generate fast indirect calls"},\
-   {"big-switch", MASK_BIG_SWITCH, "Generate code for huge switch statements"},	\
-   {"no-big-switch", -MASK_BIG_SWITCH, "Do not generate code for huge switch statements"},	\
-   {"linker-opt", 0, "Enable linker optimizations"},		\
-   { "", TARGET_DEFAULT | TARGET_CPU_DEFAULT, NULL}}
+  {{ "snake",			 MASK_PA_11,				\
+     N_("Generate PA1.1 code") },					\
+   { "nosnake",			-(MASK_PA_11 | MASK_PA_20),		\
+     N_("Generate PA1.0 code") },					\
+   { "pa-risc-1-0",		-(MASK_PA_11 | MASK_PA_20),		\
+     N_("Generate PA1.0 code") },					\
+   { "pa-risc-1-1",		 MASK_PA_11,				\
+     N_("Generate PA1.1 code") },					\
+   { "pa-risc-2-0",		 MASK_PA_20,				\
+     N_("Generate PA2.0 code (requires binutils 2.10 or later)") },	\
+   { "disable-fpregs",		 MASK_DISABLE_FPREGS,			\
+     N_("Disable FP regs") },						\
+   { "no-disable-fpregs",	-MASK_DISABLE_FPREGS,			\
+     N_("Do not disable FP regs") },					\
+   { "no-space-regs",		 MASK_NO_SPACE_REGS,			\
+     N_("Disable space regs") },					\
+   { "space-regs",		-MASK_NO_SPACE_REGS,			\
+     N_("Do not disable space regs") },					\
+   { "jump-in-delay",		 MASK_JUMP_IN_DELAY,			\
+     N_("Put jumps in call delay slots") },				\
+   { "no-jump-in-delay",	-MASK_JUMP_IN_DELAY,			\
+     N_("Do not put jumps in call delay slots") },			\
+   { "disable-indexing",	 MASK_DISABLE_INDEXING,			\
+     N_("Disable indexed addressing") },				\
+   { "no-disable-indexing",	-MASK_DISABLE_INDEXING,			\
+     N_("Do not disable indexed addressing") },				\
+   { "portable-runtime",	 MASK_PORTABLE_RUNTIME,			\
+     N_("Use portable calling conventions") },				\
+   { "no-portable-runtime",	-MASK_PORTABLE_RUNTIME,			\
+     N_("Do not use portable calling conventions") },			\
+   { "gas",			 MASK_GAS,				\
+     N_("Assume code will be assembled by GAS") },			\
+   { "no-gas",			-MASK_GAS,				\
+     N_("Do not assume code will be assembled by GAS") },		\
+   { "soft-float",		 MASK_SOFT_FLOAT,			\
+     N_("Use software floating point") },				\
+   { "no-soft-float",		-MASK_SOFT_FLOAT,			\
+     N_("Do not use software floating point") },			\
+   { "long-load-store",		 MASK_LONG_LOAD_STORE,			\
+     N_("Emit long load/store sequences") },				\
+   { "no-long-load-store",	-MASK_LONG_LOAD_STORE,			\
+     N_("Do not emit long load/store sequences") },			\
+   { "fast-indirect-calls",	 MASK_FAST_INDIRECT_CALLS,		\
+     N_("Generate fast indirect calls") },				\
+   { "no-fast-indirect-calls",	-MASK_FAST_INDIRECT_CALLS,		\
+     N_("Do not generate fast indirect calls") },			\
+   { "big-switch",		 MASK_BIG_SWITCH,			\
+     N_("Generate code for huge switch statements") },			\
+   { "no-big-switch",		-MASK_BIG_SWITCH,			\
+     N_("Do not generate code for huge switch statements") },		\
+   { "long-calls",		 MASK_LONG_CALLS,			\
+     N_("Always generate long calls") },				\
+   { "no-long-calls",		-MASK_LONG_CALLS,			\
+     N_("Generate long calls only when needed") },			\
+   { "linker-opt",		 0,					\
+     N_("Enable linker optimizations") },				\
+   SUBTARGET_SWITCHES							\
+   { "",			 TARGET_DEFAULT | TARGET_CPU_DEFAULT,	\
+     NULL }}
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_GAS | MASK_JUMP_IN_DELAY)
@@ -208,14 +282,20 @@ extern int target_flags;
 #define TARGET_CPU_DEFAULT 0
 #endif
 
+#ifndef SUBTARGET_SWITCHES
+#define SUBTARGET_SWITCHES
+#endif
+
 #ifndef TARGET_SCHED_DEFAULT
 #define TARGET_SCHED_DEFAULT "8000"
 #endif
 
-#define TARGET_OPTIONS			\
-{					\
-  { "schedule=",	&pa_cpu_string, "Specify CPU for scheduling purposes" },\
-  { "arch=",		&pa_arch_string, "Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later." }\
+#define TARGET_OPTIONS							\
+{									\
+  { "schedule=",		&pa_cpu_string,				\
+    N_("Specify CPU for scheduling purposes") },			\
+  { "arch=",			&pa_arch_string,			\
+    N_("Specify architecture for code generation.  Values are 1.0, 1.1, and 2.0.  2.0 requires gas snapshot 19990413 or later.") }\
 }
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
@@ -265,75 +345,42 @@ extern int target_flags;
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed ? 0 : compute_frame_size (get_frame_size (), 0)))
 
-#define CPP_PA10_SPEC ""
-#define CPP_PA11_SPEC "-D_PA_RISC1_1 -D__hp9000s700"
-#define CPP_PA20_SPEC "-D_PA_RISC2_0 -D__hp9000s800"
-#define CPP_64BIT_SPEC "-D__LP64__"
+#define TARGET_CPU_CPP_BUILTINS()				\
+do {								\
+     builtin_assert("cpu=hppa");				\
+     builtin_assert("machine=hppa");				\
+     builtin_define("__hppa");					\
+     builtin_define("__hppa__");				\
+     if (TARGET_64BIT)						\
+       {							\
+	 builtin_define("_LP64");				\
+	 builtin_define("__LP64__");				\
+       }							\
+     if (TARGET_PA_20)						\
+       builtin_define("_PA_RISC2_0");				\
+     else if (TARGET_PA_11)					\
+       builtin_define("_PA_RISC1_1");				\
+     else							\
+       builtin_define("_PA_RISC1_0");				\
+} while (0)
 
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_11) == 0
-#define CPP_CPU_DEFAULT_SPEC "%(cpp_pa10)"
-#endif
-
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_11) != 0
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_20) != 0
-#define CPP_CPU_DEFAULT_SPEC "%(cpp_pa11) %(cpp_pa20)"
-#else
-#define CPP_CPU_DEFAULT_SPEC "%(cpp_pa11)"
-#endif
-#endif
-
-#if TARGET_64BIT
-#define CPP_64BIT_DEFAULT_SPEC "%(cpp_64bit)"
-#else
-#define CPP_64BIT_DEFAULT_SPEC ""
-#endif
-
-/* This macro defines names of additional specifications to put in the
-   specs that can be used in various specifications like CC1_SPEC.  Its
-   definition is an initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GNU CC driver
-   program.
-
-   Do not define this macro if it does not need to do anything.  */
-
-#ifndef SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS
-#endif
-
-#define EXTRA_SPECS							\
-  { "cpp_pa10", CPP_PA10_SPEC},						\
-  { "cpp_pa11", CPP_PA11_SPEC},						\
-  { "cpp_pa20", CPP_PA20_SPEC},						\
-  { "cpp_64bit", CPP_64BIT_SPEC},					\
-  { "cpp_cpu_default",	CPP_CPU_DEFAULT_SPEC },				\
-  { "cpp_64bit_default", CPP_64BIT_DEFAULT_SPEC },			\
-  SUBTARGET_EXTRA_SPECS
-
-#define CPP_SPEC "\
-%{mpa-risc-1-0:%(cpp_pa10)} \
-%{mpa-risc-1-1:%(cpp_pa11)} \
-%{msnake:%(cpp_pa11)} \
-%{mpa-risc-2-0:%(cpp_pa20)} \
-%{!mpa-risc-1-0:%{!mpa-risc-1-1:%{!mpa-risc-2-0:%{!msnake:%(cpp_cpu_default)}}}} \
-%{m64bit:%(cpp_64bit)} \
-%{!m64bit:%(cpp_64bit_default)} \
-%{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG} \
-%{threads: -D_REENTRANT -D_DCE_THREADS}"
-
-#define CPLUSPLUS_CPP_SPEC "\
--D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ -D_INCLUDE_LONGLONG \
-%{mpa-risc-1-0:%(cpp_pa10)} \
-%{mpa-risc-1-1:%(cpp_pa11)} \
-%{msnake:%(cpp_pa11)} \
-%{mpa-risc-2-0:%(cpp_pa20)} \
-%{!mpa-risc-1-0:%{!mpa-risc-1-1:%{!mpa-risc-2-0:%{!msnake:%(cpp_cpu_default)}}}} \
-%{m64bit:%(cpp_64bit)} \
-%{!m64bit:%(cpp_64bit_default)} \
-%{threads: -D_REENTRANT -D_DCE_THREADS}"
-
-/* Defines for a K&R CC */
+/* An old set of OS defines for various BSD-like systems.  */
+#define TARGET_OS_CPP_BUILTINS()				\
+  do								\
+    {								\
+	builtin_define_std ("REVARGV");				\
+	builtin_define_std ("hp800");				\
+	builtin_define_std ("hp9000");				\
+	builtin_define_std ("hp9k8");				\
+	if (c_language != clk_cplusplus				\
+	    && !flag_iso)					\
+	  builtin_define ("hppa");				\
+	builtin_define_std ("spectrum");			\
+	builtin_define_std ("unix");				\
+	builtin_assert ("system=bsd");				\
+	builtin_assert ("system=unix");				\
+    }								\
+  while (0)
 
 #define CC1_SPEC "%{pg:} %{p:}"
 
@@ -366,9 +413,6 @@ extern int target_flags;
 /* Machine dependent reorg pass.  */
 #define MACHINE_DEPENDENT_REORG(X) pa_reorg(X)
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define CPP_PREDEFINES "-Dhppa -Dhp9000s800 -D__hp9000s800 -Dhp9k8 -Dunix -Dhp9000 -Dhp800 -Dspectrum -DREVARGV -Asystem=unix -Asystem=bsd -Acpu=hppa -Amachine=hppa"
 
 /* target machine storage layout */
 
@@ -407,7 +451,7 @@ extern int target_flags;
 
 /* Largest alignment required for any stack parameter, in bits.
    Don't define this if it is equal to PARM_BOUNDARY */
-#define MAX_PARM_BOUNDARY 64
+#define MAX_PARM_BOUNDARY (2 * PARM_BOUNDARY)
 
 /* Boundary (in *bits*) on which stack pointer is always aligned;
    certain optimizations in combine depend on this.
@@ -427,7 +471,7 @@ extern int target_flags;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  This is set
@@ -506,9 +550,13 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
    PA64 ABI says that objects larger than 128 bits are returned in memory.
    Note, int_size_in_bytes can return -1 if the size of the object is
    variable or larger than the maximum value that can be expressed as
-   a HOST_WIDE_INT.  */
+   a HOST_WIDE_INT.   It can also return zero for an empty type.  The
+   simplest way to handle variable and empty types is to pass them in
+   memory.  This avoids problems in defining the boundaries of argument
+   slots, allocating registers, etc.  */
 #define RETURN_IN_MEMORY(TYPE)	\
-  ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > (TARGET_64BIT ? 16 : 8))
+  (int_size_in_bytes (TYPE) > (TARGET_64BIT ? 16 : 8)	\
+   || int_size_in_bytes (TYPE) <= 0)
 
 /* Register in which address to store a structure value
    is passed to a function.  */
@@ -624,8 +672,10 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
-   of the first local allocated.  */
-#define STARTING_FRAME_OFFSET 8
+   of the first local allocated.  The start of the locals must lie on
+   a STACK_BOUNDARY or else the frame size of leaf functions will not
+   be zero.  */
+#define STARTING_FRAME_OFFSET (TARGET_64BIT ? 16 : 8)
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
@@ -681,16 +731,18 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
    otherwise, FUNC is 0.  */
 
 /* On the HP-PA the value is found in register(s) 28(-29), unless
-   the mode is SF or DF. Then the value is returned in fr4 (32, ) */
+   the mode is SF or DF. Then the value is returned in fr4 (32).  */
 
 /* This must perform the same promotions as PROMOTE_MODE, else
    PROMOTE_FUNCTION_RETURN will not work correctly.  */
-#define FUNCTION_VALUE(VALTYPE, FUNC)				\
-  gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)			\
-		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-		|| POINTER_TYPE_P (VALTYPE))			\
-	       ? word_mode : TYPE_MODE (VALTYPE),		\
-	       TREE_CODE (VALTYPE) == REAL_TYPE && !TARGET_SOFT_FLOAT ? 32 : 28)
+#define FUNCTION_VALUE(VALTYPE, FUNC)					\
+  gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)				\
+		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)		\
+		|| POINTER_TYPE_P (VALTYPE))				\
+	        ? word_mode : TYPE_MODE (VALTYPE),			\
+	       (TREE_CODE (VALTYPE) == REAL_TYPE			\
+		&& TYPE_MODE (VALTYPE) != TFmode			\
+		&& !TARGET_SOFT_FLOAT) ? 32 : 28)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -745,7 +797,9 @@ struct hppa_args {int words, nargs_prototype, indirect; };
   (CUM).indirect = 0,				\
   (CUM).nargs_prototype = 1000
 
-/* Figure out the size in words of the function argument.  */
+/* Figure out the size in words of the function argument.  The size
+   returned by this macro should always be greater than zero because
+   we pass variable and zero sized objects by reference.  */
 
 #define FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((((MODE) != BLKmode \
@@ -817,6 +871,12 @@ struct hppa_args {int words, nargs_prototype, indirect; };
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED, 0)
 
+/* Nonzero if we do not know how to pass TYPE solely in registers.  */
+#define MUST_PASS_IN_STACK(MODE,TYPE) \
+  ((TYPE) != 0							\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
+       || TREE_ADDRESSABLE (TYPE)))
+
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED, 1)
 
@@ -833,41 +893,42 @@ struct hppa_args {int words, nargs_prototype, indirect; };
    bits, of an argument with the specified mode and type.  If it is
    not defined,  `PARM_BOUNDARY' is used for all arguments.  */
 
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)			\
-  (((TYPE) != 0)						\
-   ? ((integer_zerop (TYPE_SIZE (TYPE))				\
-       || ! TREE_CONSTANT (TYPE_SIZE (TYPE)))			\
-      ? BITS_PER_UNIT						\
-      : (((int_size_in_bytes (TYPE)) + UNITS_PER_WORD - 1)	\
-	 / UNITS_PER_WORD) * BITS_PER_WORD)			\
-   : ((GET_MODE_ALIGNMENT(MODE) <= PARM_BOUNDARY)		\
-      ? PARM_BOUNDARY : GET_MODE_ALIGNMENT(MODE)))
+/* Arguments larger than one word are double word aligned.  */
 
-/* Arguments larger than eight bytes are passed by invisible reference */
+#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)				\
+  (((TYPE)								\
+    ? (integer_zerop (TYPE_SIZE (TYPE))					\
+       || !TREE_CONSTANT (TYPE_SIZE (TYPE))				\
+       || int_size_in_bytes (TYPE) <= UNITS_PER_WORD)			\
+    : GET_MODE_SIZE(MODE) <= UNITS_PER_WORD)				\
+   ? PARM_BOUNDARY : MAX_PARM_BOUNDARY)
 
-/* PA64 does not pass anything by invisible reference.  */
+/* In the 32-bit runtime, arguments larger than eight bytes are passed
+   by invisible reference.  As a GCC extension, we also pass anything
+   with a zero or variable size by reference.
+
+   The 64-bit runtime does not describe passing any types by invisible
+   reference.  The internals of GCC can't currently handle passing
+   empty structures, and zero or variable length arrays when they are
+   not passed entirely on the stack or by reference.  Thus, as a GCC
+   extension, we pass these types by reference.  The HP compiler doesn't
+   support these types, so hopefully there shouldn't be any compatibility
+   issues.  This may have to be revisited when HP releases a C99 compiler
+   or updates the ABI.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
   (TARGET_64BIT								\
-   ? 0									\
-   : (((TYPE) && int_size_in_bytes (TYPE) > 8)				\
+   ? ((TYPE) && int_size_in_bytes (TYPE) <= 0)				\
+   : (((TYPE) && (int_size_in_bytes (TYPE) > 8				\
+		  || int_size_in_bytes (TYPE) <= 0))			\
       || ((MODE) && GET_MODE_SIZE (MODE) > 8)))
  
-/* PA64 does not pass anything by invisible reference.
-   This should be undef'ed for 64bit, but we'll see if this works. The
-   problem is that we can't test TARGET_64BIT from the preprocessor.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
-  (TARGET_64BIT							\
-   ? 0								\
-   : (((TYPE) && int_size_in_bytes (TYPE) > 8)			\
-      || ((MODE) && GET_MODE_SIZE (MODE) > 8)))
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 		\
+  FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED)
 
 
 extern GTY(()) rtx hppa_compare_op0;
 extern GTY(()) rtx hppa_compare_op1;
 extern enum cmp_type hppa_branch_type;
-
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-  pa_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 /* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
    as assembly via FUNCTION_PROFILER.  Just output a local label.
@@ -1165,8 +1226,14 @@ extern int may_call_alloca;
        /* Using DFmode forces only short displacements	\
 	  to be recognized as valid in reg+d addresses. \
 	  However, this is not necessary for PA2.0 since\
-	  it has long FP loads/stores.  */		\
+	  it has long FP loads/stores.			\
+							\
+	  FIXME: the ELF32 linker clobbers the LSB of	\
+	  the FP register number in {fldw,fstw} insns.	\
+	  Thus, we only allow long FP loads/stores on	\
+	  TARGET_64BIT.  */				\
        && memory_address_p ((TARGET_PA_20		\
+			     && !TARGET_ELF32		\
 			     ? GET_MODE (OP)		\
 			     : DFmode),			\
 			    XEXP (OP, 0))		\
@@ -1272,7 +1339,7 @@ extern int may_call_alloca;
 	if (GET_CODE (index) == CONST_INT		\
 	    && ((INT_14_BITS (index)			\
 		 && (TARGET_SOFT_FLOAT			\
-		     || (TARGET_PA_20		\
+		     || (TARGET_PA_20			\
 			 && ((MODE == SFmode		\
 			      && (INTVAL (index) % 4) == 0)\
 			     || (MODE == DFmode		\
@@ -1299,6 +1366,7 @@ extern int may_call_alloca;
 	       /* We can allow symbolic LO_SUM addresses\
 		  for PA2.0.  */			\
 	       || (TARGET_PA_20				\
+		   && !TARGET_ELF32			\
 	           && GET_CODE (XEXP (X, 1)) != CONST_INT)\
 	       || ((MODE) != SFmode			\
 		   && (MODE) != DFmode)))		\
@@ -1312,6 +1380,7 @@ extern int may_call_alloca;
 	       /* We can allow symbolic LO_SUM addresses\
 		  for PA2.0.  */			\
 	       || (TARGET_PA_20				\
+		   && !TARGET_ELF32			\
 	           && GET_CODE (XEXP (X, 1)) != CONST_INT)\
 	       || ((MODE) != SFmode			\
 		   && (MODE) != DFmode)))		\
@@ -1326,7 +1395,7 @@ extern int may_call_alloca;
 	   && REG_OK_FOR_BASE_P (XEXP (X, 0))		\
 	   && GET_CODE (XEXP (X, 1)) == UNSPEC		\
 	   && (TARGET_SOFT_FLOAT			\
-	       || TARGET_PA_20				\
+	       || (TARGET_PA_20	&& !TARGET_ELF32)	\
 	       || ((MODE) != SFmode			\
 		   && (MODE) != DFmode)))		\
     goto ADDR;						\
@@ -1358,7 +1427,7 @@ do { 									\
   rtx new, temp = NULL_RTX;						\
 									\
   mask = (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
-	  ? (TARGET_PA_20 ? 0x3fff : 0x1f) : 0x3fff);			\
+	  ? (TARGET_PA_20 && !TARGET_ELF32 ? 0x3fff : 0x1f) : 0x3fff);	\
 									\
   if (optimize								\
       && GET_CODE (AD) == PLUS)						\
@@ -1663,7 +1732,16 @@ do { 									\
    `assemble_name' uses this.  */
 
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  fprintf ((FILE), "%s", (NAME) + (FUNCTION_NAME_P (NAME) ? 1 : 0))
+  do {					\
+    const char *xname = (NAME);		\
+    if (FUNCTION_NAME_P (NAME))		\
+      xname += 1;			\
+    if (xname[0] == '*')		\
+      xname += 1;			\
+    else				\
+      fputs (user_label_prefix, FILE);	\
+    fputs (xname, FILE);		\
+  } while (0)
 
 /* This is how to output an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */

@@ -315,15 +315,6 @@ do {									\
    || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))       	\
    || PCREL_GENERAL_OPERAND_OK)
 
-/* Turn off function cse if we are doing PIC. We always want function
-   call to be done as `bsr foo@PLTPC', so it will force the assembler
-   to create the PLT entry for `foo'.  Doing function cse will cause
-   the address of `foo' to be loaded into a register, which is exactly
-   what we want to avoid when we are doing PIC on svr4 m68k.  */
-#undef SUBTARGET_OVERRIDE_OPTIONS
-#define SUBTARGET_OVERRIDE_OPTIONS \
-  if (flag_pic) flag_no_function_cse = 1;
-
 /* For m68k SVR4, structures are returned using the reentrant
    technique.  */
 #undef PCC_STATIC_STRUCT_RETURN
@@ -363,28 +354,3 @@ do {									\
      : "d" (_beg), "d" (_len)						\
      : "%d0", "%d2", "%d3");						\
 }
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  if (DELTA > 0 && DELTA <= 8)						\
-    asm_fprintf (FILE, "\taddq.l %I%d,4(%Rsp)\n", DELTA);		\
-  else if (DELTA < 0 && DELTA >= -8)					\
-    asm_fprintf (FILE, "\tsubq.l %I%d,4(%Rsp)\n", -DELTA);		\
-  else									\
-    asm_fprintf (FILE, "\tadd.l %I%d,4(%Rsp)\n", DELTA);		\
-									\
-  if (flag_pic)								\
-    {									\
-      fprintf (FILE, "\tbra.l ");					\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "@PLTPC\n");					\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tjmp ");						\
-      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-      fprintf (FILE, "\n");						\
-    }									\
-} while (0)

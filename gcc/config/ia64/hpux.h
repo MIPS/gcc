@@ -55,24 +55,37 @@ do {							\
 #undef ENDFILE_SPEC
 
 #undef STARTFILE_SPEC
-#ifdef CROSS_COMPILE
-#define STARTFILE_SPEC "%{!shared:crt0%O%s}"
-#else
-#define STARTFILE_SPEC "/usr/ccs/lib/hpux64/crt0%O"
+#define STARTFILE_SPEC "%{!shared:%{static:crt0%O%s}}"
+
+#ifndef CROSS_COMPILE
+#define STARTFILE_PREFIX_SPEC \
+  "%{mlp64: /usr/ccs/lib/hpux64/} \
+   %{!mlp64: /usr/ccs/lib/hpux32/}"
 #endif
 
 #undef LINK_SPEC
-#define LINK_SPEC "\
-  +Accept TypeMismatch \
-  %{shared:-b} \
-  %{!shared: \
-    -u main \
-    %{!static: \
-      %{rdynamic:-export-dynamic}} \
-      %{static:-static}}"
+#define LINK_SPEC \
+  "+Accept TypeMismatch \
+   %{shared:-b} \
+   %{!shared: \
+     -u main \
+     %{static:-noshared}}"
 
 #undef  LIB_SPEC
-#define LIB_SPEC "%{!shared:%{!symbolic:-lc}}"
+#define LIB_SPEC \
+  "%{!shared: \
+     %{p:%{!mlp64:-L/usr/lib/hpux32/libp} \
+	 %{mlp64:-L/usr/lib/hpux64/libp} -lprof} \
+     %{pg:%{!mlp64:-L/usr/lib/hpux32/libp} \
+	  %{mlp64:-L/usr/lib/hpux64/libp} -lgprof} \
+     %{!symbolic:-lc}}"
+
+#ifndef CROSS_COMPILE
+#undef LIBGCC_SPEC
+#define LIBGCC_SPEC \
+  "%{shared-libgcc:%{!mlp64:-lgcc_s_hpux32}%{mlp64:-lgcc_s_hpux64} -lgcc} \
+   %{!shared-libgcc:-lgcc}"
+#endif
 
 #undef SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES \
@@ -88,15 +101,8 @@ do {							\
 
 #define JMP_BUF_SIZE  (8 * 76)
 
-#undef READONLY_DATA_SECTION_ASM_OP
-#define READONLY_DATA_SECTION_ASM_OP \
-  "\t.section\t.rodata,\t\"a\",\t\"progbits\""
-
-#undef BITS_BIG_ENDIAN
-#define BITS_BIG_ENDIAN 1
-
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN)
+#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
 /* This needs to be set to force structure arguments with a single
    field to be treated as structures and not as the type of their
@@ -106,7 +112,18 @@ do {							\
    structure handling, this macro simply ensures that single field
    structures are always treated like structures.  */
 
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) 1
+/* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
+   but that doesn't put out the @function type information which causes
+   shared library problems.  */
+
+#undef ASM_OUTPUT_EXTERNAL_LIBCALL
+#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)			\
+do {								\
+  (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0));	\
+  ASM_OUTPUT_TYPE_DIRECTIVE (FILE, XSTR (FUN, 0), "function");	\
+} while (0)
+
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || (MODE == TFmode && !INTEL_EXTENDED_IEEE_FORMAT))
 
 /* Override the setting of FUNCTION_ARG_REG_LITTLE_ENDIAN in
    defaults.h.  Setting this to true means that we are not passing
@@ -138,3 +155,27 @@ do {							\
 /* Put out the needed function declarations at the end.  */
 
 #define ASM_FILE_END(STREAM) ia64_hpux_asm_file_end(STREAM)
+
+#undef CTORS_SECTION_ASM_OP
+#define CTORS_SECTION_ASM_OP  "\t.section\t.init_array,\t\"aw\",\"init_array\""
+
+#undef DTORS_SECTION_ASM_OP
+#define DTORS_SECTION_ASM_OP  "\t.section\t.fini_array,\t\"aw\",\"fini_array\""
+
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP "\t.section\t.rodata,\t\"a\",\t\"progbits\""
+
+#undef DATA_SECTION_ASM_OP
+#define DATA_SECTION_ASM_OP "\t.section\t.data,\t\"aw\",\t\"progbits\""
+
+#undef SDATA_SECTION_ASM_OP
+#define SDATA_SECTION_ASM_OP "\t.section\t.sdata,\t\"asw\",\t\"progbits\""
+
+#undef BSS_SECTION_ASM_OP
+#define BSS_SECTION_ASM_OP "\t.section\t.bss,\t\"aw\",\t\"nobits\""
+
+#undef SBSS_SECTION_ASM_OP
+#define SBSS_SECTION_ASM_OP "\t.section\t.sbss,\t\"asw\",\t\"nobits\""
+
+#undef TEXT_SECTION_ASM_OP
+#define TEXT_SECTION_ASM_OP "\t.section\t.text,\t\"ax\",\t\"progbits\""

@@ -236,7 +236,7 @@ static decl_t find_automaton_decl         PARAMS ((char *));
 static void initiate_automaton_decl_table PARAMS ((void));
 static void finish_automaton_decl_table   PARAMS ((void));
 
-static unsigned insn_decl_hash            PARAMS ((const void *));
+static hashval_t insn_decl_hash           PARAMS ((const void *));
 static int insn_decl_eq_p                 PARAMS ((const void *,
 						   const void *));
 static decl_t insert_insn_decl            PARAMS ((decl_t));
@@ -244,7 +244,7 @@ static decl_t find_insn_decl              PARAMS ((char *));
 static void initiate_insn_decl_table      PARAMS ((void));
 static void finish_insn_decl_table        PARAMS ((void));
 
-static unsigned decl_hash                 PARAMS ((const void *));
+static hashval_t decl_hash                PARAMS ((const void *));
 static int decl_eq_p                      PARAMS ((const void *,
 						   const void *));
 static decl_t insert_decl                 PARAMS ((decl_t));
@@ -315,7 +315,7 @@ static void output_cycle_reservs       PARAMS ((FILE *, reserv_sets_t,
 static void output_reserv_sets         PARAMS ((FILE *, reserv_sets_t));
 static state_t get_free_state          PARAMS ((int, automaton_t));
 static void free_state                 PARAMS ((state_t));
-static unsigned state_hash             PARAMS ((const void *));
+static hashval_t state_hash            PARAMS ((const void *));
 static int state_eq_p                  PARAMS ((const void *, const void *));
 static state_t insert_state            PARAMS ((state_t));
 static void set_state_reserv           PARAMS ((state_t, int, int));
@@ -337,7 +337,7 @@ static void finish_arcs        PARAMS ((void));
 static automata_list_el_t get_free_automata_list_el PARAMS ((void));
 static void free_automata_list_el PARAMS ((automata_list_el_t));
 static void free_automata_list PARAMS ((automata_list_el_t));
-static unsigned automata_list_hash PARAMS ((const void *));
+static hashval_t automata_list_hash PARAMS ((const void *));
 static int automata_list_eq_p PARAMS ((const void *, const void *));
 static void initiate_automata_lists PARAMS ((void));
 static void automata_list_start PARAMS ((void));
@@ -2192,7 +2192,7 @@ string_hash (string)
 /* The function evaluates hash value of an automaton declaration.  The
    function is used by abstract data `hashtab'.  The function returns
    hash value (0..UINT_MAX) of given automaton declaration.  */
-static unsigned
+static hashval_t
 automaton_decl_hash (automaton_decl)
      const void *automaton_decl;
 {
@@ -2296,7 +2296,7 @@ finish_automaton_decl_table ()
 /* The function evaluates hash value of an insn declaration.  The
    function is used by abstract data `hashtab'.  The function returns
    hash value (0..UINT_MAX) of given insn declaration.  */
-static unsigned
+static hashval_t
 insn_decl_hash (insn_decl)
      const void *insn_decl;
 {
@@ -2399,7 +2399,7 @@ finish_insn_decl_table ()
 /* The function evaluates hash value of a declaration.  The function
    is used by abstract data `hashtab'.  The function returns hash
    value (0..UINT_MAX) of given declaration.  */
-static unsigned
+static hashval_t
 decl_hash (decl)
      const void *decl;
 {
@@ -4167,7 +4167,7 @@ free_state (state)
    simply hash value of the corresponding reservation set.  Otherwise
    it is formed from hash values of the component deterministic
    states.  One more key is order number of state automaton.  */
-static unsigned
+static hashval_t
 state_hash (state)
      const void *state;
 {
@@ -4540,7 +4540,7 @@ free_automata_list (automata_list)
 }
 
 /* Hash value of AUTOMATA_LIST.  */
-static unsigned
+static hashval_t
 automata_list_hash (automata_list)
      const void *automata_list;
 {
@@ -8339,7 +8339,7 @@ output_max_insn_queue_index_def ()
    function *output_automata_list_code.  */
 static void
 output_insn_code_cases (output_automata_list_code)
-     void (*output_automata_list_code) (automata_list_el_t);
+     void (*output_automata_list_code) PARAMS ((automata_list_el_t));
 {
   decl_t decl, decl2;
   int i, j;

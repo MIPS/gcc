@@ -201,9 +201,6 @@ do {									\
 /* Defined in svr4.h.  */
 
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-#define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
-
 
 /* Layout of Source Language Data Types */
 
@@ -823,7 +820,7 @@ extern enum reg_class reg_class_from_letter[256];
    registers, but not memory.  Some machines allow copying all registers to and
    from memory, but require a scratch register for stores to some memory
    locations (e.g., those with symbolic address on the RT, and those with
-   certain symbolic address on the Sparc when compiling PIC).  In some cases,
+   certain symbolic address on the SPARC when compiling PIC).  In some cases,
    both an intermediate and a scratch register are required.
 
    You should define these macros to indicate to the reload phase that it may
@@ -880,7 +877,7 @@ extern enum reg_class reg_class_from_letter[256];
 
 /* Certain machines have the property that some registers cannot be copied to
    some other registers without using memory.  Define this macro on those
-   machines to be a C expression that is non-zero if objects of mode M in
+   machines to be a C expression that is nonzero if objects of mode M in
    registers of CLASS1 can only be copied to registers of class CLASS2 by
    storing a register of CLASS1 into memory and loading that memory location
    into a register of CLASS2.
@@ -923,15 +920,15 @@ extern enum reg_class reg_class_from_letter[256];
    few registers of certain classes that there would not be enough registers to
    use as spill registers if this were done.
 
-   Define `SMALL_REGISTER_CLASSES' to be an expression with a non-zero value on
-   these machines.  When this macro has a non-zero value, the compiler allows
+   Define `SMALL_REGISTER_CLASSES' to be an expression with a nonzero value on
+   these machines.  When this macro has a nonzero value, the compiler allows
    registers explicitly used in the rtl to be used as spill registers but
    avoids extending the lifetime of these registers.
 
-   It is always safe to define this macro with a non-zero value, but if you
+   It is always safe to define this macro with a nonzero value, but if you
    unnecessarily define it, you will reduce the amount of optimizations that
    can be performed in some cases.  If you do not define this macro with a
-   non-zero value when it is required, the compiler will run out of spill
+   nonzero value when it is required, the compiler will run out of spill
    registers and print a fatal error message.  For most machines, you should
    not define this macro at all.  */
 /* #define SMALL_REGISTER_CLASSES */
@@ -1109,7 +1106,7 @@ typedef struct d30v_stack {
 
 /* If defined, a C expression that produces the machine-specific code to setup
    the stack so that arbitrary frames can be accessed.  For example, on the
-   Sparc, we must flush all of the register windows to the stack before we can
+   SPARC, we must flush all of the register windows to the stack before we can
    access arbitrary stack frames.  This macro will seldom need to be defined.  */
 /* #define SETUP_FRAME_ADDRESSES() */
 
@@ -1355,7 +1352,7 @@ typedef struct d30v_stack {
   { FRAME_POINTER_REGNUM,	STACK_POINTER_REGNUM }			\
 }
 
-/* A C expression that returns non-zero if the compiler is allowed to try to
+/* A C expression that returns nonzero if the compiler is allowed to try to
    replace register number FROM-REG with register number TO-REG.  This macro
    need only be defined if `ELIMINABLE_REGS' is defined, and will usually be
    the constant 1, since most of the cases preventing register elimination are
@@ -1535,7 +1532,7 @@ typedef struct d30v_stack {
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 
@@ -1882,37 +1879,6 @@ typedef struct d30v_stack {
    `DELAY_SLOTS_FOR_EPILOGUE'.  */
 /* #define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) */
 
-/* A C compound statement that outputs the assembler code for a thunk function,
-   used to implement C++ virtual function calls with multiple inheritance.  The
-   thunk acts as a wrapper around a virtual function, adjusting the implicit
-   object parameter before handing control off to the real function.
-
-   First, emit code to add the integer DELTA to the location that contains the
-   incoming first argument.  Assume that this argument contains a pointer, and
-   is the one used to pass the `this' pointer in C++.  This is the incoming
-   argument *before* the function prologue, e.g. `%o0' on a sparc.  The
-   addition must preserve the values of all other incoming arguments.
-
-   After the addition, emit code to jump to FUNCTION, which is a
-   `FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
-   the return address.  Hence returning from FUNCTION will return to whoever
-   called the current `thunk'.
-
-   The effect must be as if FUNCTION had been called directly with the
-   adjusted first argument.  This macro is responsible for emitting
-   all of the code for a thunk function; output_function_prologue()
-   and output_function_epilogue() are not invoked.
-
-   The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
-   extracted from it.)  It might possibly be useful on some targets, but
-   probably not.
-
-   If you do not define this macro, the target-independent code in the C++
-   frontend will generate a less efficient heavyweight thunk that calls
-   FUNCTION instead of jumping to it.  The generic approach does not support
-   varargs.  */
-/* #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) */
-
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct machine_function GTY(())
@@ -2007,7 +1973,7 @@ typedef struct machine_function GTY(())
   (VALIST) = d30v_build_va_list ()
 
 
-/* Implement the stdarg/varargs va_start macro.  STDARG_P is non-zero if this
+/* Implement the stdarg/varargs va_start macro.  STDARG_P is nonzero if this
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
@@ -2225,7 +2191,7 @@ typedef struct machine_function GTY(())
    Defined in svr4.h.  */
 /* #define TARGET_MEM_FUNCTIONS */
 
-/* Define this macro to generate code for Objective C message sending using the
+/* Define this macro to generate code for Objective-C message sending using the
    calling convention of the NeXT system.  This calling convention involves
    passing the object, the selector and the method arguments all at once to the
    method-lookup library function.
@@ -2415,7 +2381,7 @@ do {									\
 /* #define EXTRA_CC_MODES */
 
 /* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the Sparc,
+   code OP is applied to rtx X and Y.  For example, on the SPARC,
    `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
    description of the reason for this definition)
 
@@ -2453,7 +2419,7 @@ do {									\
 
    You need not define this macro if it would always returns zero or if the
    floating-point format is anything other than `IEEE_FLOAT_FORMAT'.  For
-   example, here is the definition used on the Sparc, where floating-point
+   example, here is the definition used on the SPARC, where floating-point
    inequality comparisons are always given `CCFPEmode':
 
         #define REVERSIBLE_CC_MODE(MODE)  ((MODE) != CCFPEmode)  */
@@ -2610,10 +2576,10 @@ extern const char *d30v_branch_cost_string;
    times greater than aligned accesses, for example if they are emulated in a
    trap handler.
 
-   When this macro is non-zero, the compiler will act as if `STRICT_ALIGNMENT'
-   were non-zero when generating code for block moves.  This can cause
+   When this macro is nonzero, the compiler will act as if `STRICT_ALIGNMENT'
+   were nonzero when generating code for block moves.  This can cause
    significantly more instructions to be produced.  Therefore, do not set this
-   macro non-zero if unaligned accesses only add a cycle or two to the time for
+   macro nonzero if unaligned accesses only add a cycle or two to the time for
    a memory access.
 
    If the value of this macro is always zero, it need not be defined.  */
@@ -2803,8 +2769,8 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_IDENT(STREAM, STRING) */
 
 /* A C statement to output any assembler statements which are required to
-   precede any Objective C object definitions or message sending.  The
-   statement is executed only when compiling an Objective C program.  */
+   precede any Objective-C object definitions or message sending.  The
+   statement is executed only when compiling an Objective-C program.  */
 /* #define OBJC_PROLOGUE */
 
 
@@ -2821,7 +2787,7 @@ extern const char *d30v_branch_cost_string;
 /* #define ASM_OUTPUT_ASCII(STREAM, PTR, LEN) */
 
 /* You may define this macro as a C expression.  You should define the
-   expression to have a non-zero value if GNU CC should output the
+   expression to have a nonzero value if GNU CC should output the
    constant pool for a function before the code for the function, or
    a zero value if GNU CC should output the constant pool after the
    function.  If you do not define this macro, the usual case, GNU CC
@@ -4123,7 +4089,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* A C expression that is nonzero if on this machine the number of bits
    actually used for the count of a shift operation is equal to the number of
    bits needed to represent the size of the object being shifted.  When this
-   macro is non-zero, the compiler will assume that it is safe to omit a
+   macro is nonzero, the compiler will assume that it is safe to omit a
    sign-extend, zero-extend, and certain bitwise `and' instructions that
    truncates the count of a shift operation.  On machines that have
    instructions that act on bitfields at variable positions, which may include
@@ -4132,7 +4098,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    instructions.
 
    If both types of instructions truncate the count (for shifts) and position
-   (for bitfield operations), or if no variable-position bitfield instructions
+   (for bit-field operations), or if no variable-position bit-field instructions
    exist, you should define this macro.
 
    However, on some machines, such as the 80386 and the 680x0, truncation only
@@ -4234,7 +4200,7 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
    instructions.  */
 /* #define STORE_FLAG_VALUE */
 
-/* A C expression that gives a non-zero floating point value that is returned
+/* A C expression that gives a nonzero floating point value that is returned
    when comparison operators with floating-point results are true.  Define this
    macro on machine that have comparison operations that return floating-point
    values.  If there are no such operations, do not define this macro.  */

@@ -171,6 +171,16 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
 }
 
 jclass
+java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *cl, 
+					jstring name,
+					jbyteArray data, 
+					jint offset,
+					jint length)
+{
+  return cl->defineClass (name, data, offset, length);
+}
+
+jclass
 java::lang::VMClassLoader::getPrimitiveClass (jchar type)
 {
   char sig[2];
@@ -194,7 +204,14 @@ gnu::gcj::runtime::VMClassLoader::findClass (jstring name)
       // by `lib-gnu-pkg.so' and `lib-gnu.so'.  If loading one of
       // these causes the class to appear in the cache, then use it.
       java::lang::StringBuffer *sb = new java::lang::StringBuffer (JvNewStringLatin1("lib-"));
-      jstring so_base_name = (sb->append (name)->toString ())->replace ('.', '-');
+      // Skip inner classes
+      jstring cn;
+      jint ci = name->indexOf('$');
+      if (ci == -1)
+	cn = name;
+      else
+	cn = name->substring (0, ci);
+      jstring so_base_name = (sb->append (cn)->toString ())->replace ('.', '-');
 
       // Compare against `3' because that is the length of "lib".
       while (! klass && so_base_name && so_base_name->length() > 3)
@@ -260,7 +277,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  if (! found)
 	    {
 	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::ClassNotFoundException (str);
+	      throw new java::lang::NoClassDefFoundError (str);
 	    }
 
 	  pool->data[index].clazz = found;
@@ -269,6 +286,7 @@ _Jv_PrepareCompiledClass (jclass klass)
       else if (pool->tags[index] == JV_CONSTANT_String)
 	{
 	  jstring str;
+
 	  str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
 	  pool->data[index].o = str;
 	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;

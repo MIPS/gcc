@@ -126,8 +126,6 @@ extern void *__deregister_frame_info_bases (void *)
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
 
-#ifndef OBJECT_FORMAT_MACHO
-
 #ifdef OBJECT_FORMAT_ELF
 
 /*  Declare a pointer to void function type.  */
@@ -542,67 +540,3 @@ __do_global_ctors (void)
 #else /* ! CRT_BEGIN && ! CRT_END */
 #error "One of CRT_BEGIN or CRT_END must be defined."
 #endif
-
-#else  /* OBJECT_FORMAT_MACHO */
-
-/* For Mach-O format executables, we assume that the system's runtime is
-   smart enough to handle constructors and destructors, but doesn't have
-   an init section (if it can't even handle constructors/destructors
-   you should be using INVOKE__main, not crtstuff). All we need to do
-   is install/deinstall the frame information for exceptions. We do this
-   by putting a constructor in crtbegin.o and a destructor in crtend.o.
-
-   crtend.o also puts in the terminating zero in the frame information
-   segment.  */
-
-/* The crtstuff for other object formats use the symbol __EH_FRAME_BEGIN__
-   to figure out the start of the exception frame, but here we use
-   getsectbynamefromheader to find this value. Either method would work,
-   but this method avoids creating any global symbols, which seems
-   cleaner.  */
-
-#include <mach-o/ldsyms.h>
-extern const struct section *
-  getsectbynamefromheader (const struct mach_header *,
-			   const char *, const char *);
-
-#ifdef CRT_BEGIN
-
-static void __reg_frame_ctor (void) __attribute__ ((constructor));
-
-static void
-__reg_frame_ctor (void)
-{
-  static struct object object;
-  const struct section *eh_frame;
-
-  eh_frame = getsectbynamefromheader (&_mh_execute_header,
-				      "__TEXT", "__eh_frame");
-  __register_frame_info ((void *) eh_frame->addr, &object);
-}
-
-#elif defined(CRT_END)
-
-static void __dereg_frame_dtor (void) __attribute__ ((destructor));
-
-static void
-__dereg_frame_dtor (void)
-{
-  const struct section *eh_frame;
-
-  eh_frame = getsectbynamefromheader (&_mh_execute_header,
-				      "__TEXT", "__eh_frame");
-  __deregister_frame_info ((void *) eh_frame->addr);
-}
-
-/* Terminate the frame section with a final zero.  */
-STATIC int __FRAME_END__[]
-     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
-		     aligned(4)))
-     = { 0 };
-
-#else /* ! CRT_BEGIN && ! CRT_END */
-#error "One of CRT_BEGIN or CRT_END must be defined."
-#endif
-
-#endif /* OBJECT_FORMAT_MACHO */

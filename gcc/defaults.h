@@ -430,7 +430,7 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #endif
 
 /* By default, the C++ compiler will use function addresses in the
-   vtable entries.  Setting this non-zero tells the compiler to use
+   vtable entries.  Setting this nonzero tells the compiler to use
    function descriptors instead.  The value of this macro says how
    many words wide the descriptor is (normally 2).  It is assumed 
    that the address of a function descriptor may be treated as a
@@ -523,6 +523,18 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FUNCTION_ARG_REG_LITTLE_ENDIAN 0
 #endif
 
+/* Define codes for all the float formats that we know of.  */
+#define UNKNOWN_FLOAT_FORMAT 0
+#define IEEE_FLOAT_FORMAT 1
+#define VAX_FLOAT_FORMAT 2
+#define IBM_FLOAT_FORMAT 3
+#define C4X_FLOAT_FORMAT 4
+
+/* Default to IEEE float if not specified.  Nearly all machines use it.  */
+#ifndef TARGET_FLOAT_FORMAT
+#define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
@@ -562,6 +574,13 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
   (FLOAT_MODE_P (MODE)						\
    && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT			\
    && !ROUND_TOWARDS_ZERO)
+#endif
+
+/* If FLOAT_WORDS_BIG_ENDIAN and HOST_FLOAT_WORDS_BIG_ENDIAN are not defined
+   in the header files, then this implies the word-endianness is the same as
+   for integers.  */
+#ifndef FLOAT_WORDS_BIG_ENDIAN
+#define FLOAT_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
 #endif
 
 #ifndef TARGET_FLT_EVAL_METHOD

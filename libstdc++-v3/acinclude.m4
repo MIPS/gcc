@@ -591,6 +591,33 @@ AC_DEFUN(GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3, [
   fi
 ])
 
+dnl
+dnl Check to see if the (unistd function) argument passed is
+dnl 1) declared when using the c++ compiler
+dnl 2) has "C" linkage
+dnl
+dnl argument 1 is name of function to check
+dnl
+dnl ASSUMES argument is a function with ONE parameter
+dnl
+dnl GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1
+AC_DEFUN(GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1, [
+  AC_MSG_CHECKING([for $1 declaration])
+  if test x${glibcpp_cv_func_$1_use+set} != xset; then
+    AC_CACHE_VAL(glibcpp_cv_func_$1_use, [
+      AC_LANG_SAVE
+      AC_LANG_CPLUSPLUS
+      AC_TRY_COMPILE([#include <unistd.h>], 
+                     [ $1(0);], 
+                     [glibcpp_cv_func_$1_use=yes], [glibcpp_cv_func_$1_use=no])
+      AC_LANG_RESTORE
+    ])
+  fi
+  AC_MSG_RESULT($glibcpp_cv_func_$1_use)
+  if test x$glibcpp_cv_func_$1_use = x"yes"; then
+    AC_CHECK_FUNCS($1)    
+  fi
+])
 
 dnl
 dnl Because the builtins are picky picky picky about the arguments they take, 
@@ -702,9 +729,8 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
   fi
 ])
 
-
 dnl
-dnl Check to see what the underlying c library 
+dnl Check to see what the underlying c library is like
 dnl These checks need to do two things: 
 dnl 1) make sure the name is declared when using the c++ compiler
 dnl 2) make sure the name has "C" linkage
@@ -727,6 +753,25 @@ AC_DEFUN(GLIBCPP_CHECK_STDLIB_SUPPORT, [
   CXXFLAGS="$ac_save_CXXFLAGS"
 ])
 
+dnl
+dnl Check to see what the underlying c library is like
+dnl These checks need to do two things: 
+dnl 1) make sure the name is declared when using the c++ compiler
+dnl 2) make sure the name has "C" linkage
+dnl This might seem like overkill but experience has shown that it's not...
+dnl
+dnl Define HAVE_ISATTY if "isatty" is declared and links
+dnl
+dnl GLIBCPP_CHECK_UNISTD_SUPPORT
+AC_DEFUN(GLIBCPP_CHECK_UNISTD_SUPPORT, [
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS='-fno-builtins -D_GNU_SOURCE'
+
+  GLIBCPP_CHECK_UNISTD_DECL_AND_LINKAGE_1(isatty)
+  
+  CXXFLAGS="$ac_save_CXXFLAGS"
+])
 
 dnl
 dnl Check to see what the underlying c library or math library is like.
@@ -876,9 +921,9 @@ dnl compilation, pick them up here.
 dnl 
 dnl GLIBCPP_CHECK_TARGET
 AC_DEFUN(GLIBCPP_CHECK_TARGET, [
-    . [$]{glibcpp_basedir}/configure.target
-    AC_MSG_RESULT(CPU config directory is $cpu_include_dir)
-    AC_MSG_RESULT(OS config directory is $os_include_dir)
+  . [$]{glibcpp_basedir}/configure.target
+  AC_MSG_RESULT(CPU config directory is $cpu_include_dir)
+  AC_MSG_RESULT(OS config directory is $os_include_dir)
 ])
 
 
@@ -1075,14 +1120,14 @@ fi
 dnl Run through flags (either default or command-line) and set anything
 dnl extra (e.g., #defines) that must accompany particular g++ options.
 if test -n "$enable_cxx_flags"; then
-    for f in $enable_cxx_flags; do
-        case "$f" in
-            -fhonor-std)  ;;
-            -*)  ;;
-            *)   # and we're trying to pass /what/ exactly?
-                 AC_MSG_ERROR([compiler flags start with a -]) ;;
-        esac
-    done
+  for f in $enable_cxx_flags; do
+    case "$f" in
+      -fhonor-std)  ;;
+      -*)  ;;
+      *)   # and we're trying to pass /what/ exactly?
+           AC_MSG_ERROR([compiler flags start with a -]) ;;
+    esac
+  done
 fi
 EXTRA_CXX_FLAGS="$enable_cxx_flags"
 AC_SUBST(EXTRA_CXX_FLAGS)
@@ -1687,9 +1732,8 @@ dnl
 dnl GLIBCPP_ENABLE_CHEADERS
 dnl --enable-cheaders= [does stuff].
 dnl --disable-cheaders [does not do anything, really].
-dnl  +  This will eventually need to be 'c_shadow' by default.
 dnl  +  Usage:  GLIBCPP_ENABLE_CHEADERS[(DEFAULT)]
-dnl       Where DEFAULT is either `c' or `c_std' or 'c_shadow'.  
+dnl       Where DEFAULT is either `c' or `c_std'.
 dnl       If ommitted, it defaults to `c_std'.
 AC_DEFUN(GLIBCPP_ENABLE_CHEADERS, [dnl
 define([GLIBCPP_ENABLE_CHEADERS_DEFAULT], ifelse($1, c_std, c_std, c_std))dnl
@@ -1705,9 +1749,6 @@ changequote([, ])
    c_std)  
         enable_cheaders=c_std 
         ;;
-   c_shadow)  
-        enable_cheaders=c_shadow 
-        ;;
    *)   AC_MSG_ERROR([Unknown argument to enable/disable "C" headers]) 
         ;;
   esac],
@@ -1716,9 +1757,6 @@ changequote([, ])
 
   dnl Option parsed, now set things appropriately
   case "$enable_cheaders" in
-    c_shadow) 
-        C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_shadow'
-        ;;
     c_std)   
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_std'
         ;;
@@ -1767,7 +1805,6 @@ dnl TOPLEVEL_INCLUDES
 dnl LIBMATH_INCLUDES
 dnl LIBSUPCXX_INCLUDES
 dnl LIBIO_INCLUDES
-dnl CSHADOW_INCLUDES
 dnl
 dnl GLIBCPP_EXPORT_INCLUDES
 AC_DEFUN(GLIBCPP_EXPORT_INCLUDES, [
@@ -2202,6 +2239,7 @@ case $enable_symvers in
       ;;
   gnu)
       LINKER_MAP=config/linker-map.gnu
+      AC_DEFINE(_GLIBCPP_SYMVER)	
       ;;
 esac
 

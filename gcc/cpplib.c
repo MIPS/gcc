@@ -207,7 +207,7 @@ skip_rest_of_line (pfile)
      cpp_reader *pfile;
 {
   /* Discard all stacked contexts.  */
-  while (pfile->context != &pfile->base_context)
+  while (pfile->context->prev)
     _cpp_pop_context (pfile);
 
   /* Sweep up all tokens remaining on the line.  */
@@ -300,7 +300,7 @@ prepare_directive_trad (pfile)
   pfile->state.prevent_expansion++;
 }
 
-/* Output diagnostics for a directive DIR.  INDENTED is non-zero if
+/* Output diagnostics for a directive DIR.  INDENTED is nonzero if
    the '#' was indented.  */
 static void
 directive_diagnostics (pfile, dir, indented)
@@ -336,10 +336,10 @@ directive_diagnostics (pfile, dir, indented)
     }
 }
 
-/* Check if we have a known directive.  INDENTED is non-zero if the
+/* Check if we have a known directive.  INDENTED is nonzero if the
    '#' of the directive was indented.  This function is in this file
    to save unnecessarily exporting dtable etc. to cpplex.c.  Returns
-   non-zero if the line of tokens has been handled, zero if we should
+   nonzero if the line of tokens has been handled, zero if we should
    continue processing the line.  */
 int
 _cpp_handle_directive (pfile, indented)
@@ -367,7 +367,7 @@ _cpp_handle_directive (pfile, indented)
       if (dname->val.node->directive_index)
 	dir = &dtable[dname->val.node->directive_index - 1];
     }
-  /* We do not recognise the # followed by a number extension in
+  /* We do not recognize the # followed by a number extension in
      assembler code.  */
   else if (dname->type == CPP_NUMBER && CPP_OPTION (pfile, lang) != CLK_ASM)
     {
@@ -1277,9 +1277,6 @@ destringize_and_run (pfile, in)
 {
   const unsigned char *src, *limit;
   char *dest, *result;
-  cpp_context saved_context;
-  cpp_context *saved_cur_context;
-  unsigned int saved_line;
 
   dest = result = alloca (in->len + 1);
   for (src = in->text, limit = src + in->len; src < limit;)
@@ -1291,24 +1288,29 @@ destringize_and_run (pfile, in)
     }
   *dest = '\0';
 
-  /* FIXME.  All this saving is a horrible kludge to handle the case
-     when we're in a macro expansion.
+  /* Ugh; an awful kludge.  We are really not set up to be lexing
+     tokens when in the middle of a macro expansion.  Use a new
+     context to force cpp_get_token to lex, and so skip_rest_of_line
+     doesn't go beyond the end of the text.  Also, remember the
+     current lexing position so we can return to it later.
 
-     A better strategy it to not convert _Pragma to #pragma if doing
-     preprocessed output, but to just pass it through as-is, unless it
-     is a CPP pragma in which case is should be processed normally.
-     When compiling the preprocessed output the _Pragma should be
-     handled.  This will be become necessary when we move to
-     line-at-a-time lexing since we will be macro-expanding the line
-     before outputting / compiling it.  */
-  saved_line = pfile->line;
-  saved_context = pfile->base_context;
-  saved_cur_context = pfile->context;
-  pfile->context = &pfile->base_context;
-  run_directive (pfile, T_PRAGMA, result, dest - result);
-  pfile->context = saved_cur_context;
-  pfile->base_context = saved_context;
-  pfile->line = saved_line;
+     Something like line-at-a-time lexing should remove the need for
+     this.  */
+  {
+    cpp_context *saved_context = pfile->context;
+    cpp_token *saved_cur_token = pfile->cur_token;
+    tokenrun *saved_cur_run = pfile->cur_run;
+
+    pfile->context = xnew (cpp_context);
+    pfile->context->macro = 0;
+    pfile->context->prev = 0;
+    run_directive (pfile, T_PRAGMA, result, dest - result);
+    free (pfile->context);
+    pfile->context = saved_context;
+    pfile->cur_token = saved_cur_token;
+    pfile->cur_run = saved_cur_run;
+    pfile->line--;
+  }
 
   /* See above comment.  For the moment, we'd like
 
@@ -1686,7 +1688,7 @@ find_answer (node, candidate)
 }
 
 /* Test an assertion within a preprocessor conditional.  Returns
-   non-zero on failure, zero on success.  On success, the result of
+   nonzero on failure, zero on success.  On success, the result of
    the test is written into VALUE.  */
 int
 _cpp_test_assertion (pfile, value)
@@ -1984,7 +1986,7 @@ _cpp_pop_buffer (pfile)
     }
 }
 
-/* Enter all recognised directives in the hash table.  */
+/* Enter all recognized directives in the hash table.  */
 void
 _cpp_init_directives (pfile)
      cpp_reader *pfile;

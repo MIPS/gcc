@@ -177,14 +177,18 @@ public abstract class ClassLoader
 
     if (c == null)
       {
-	try {
-	  if (parent != null)
-	    return parent.loadClass (name, link);
-	  else
-	    c = gnu.gcj.runtime.VMClassLoader.instance.findClass (name);
-	} catch (ClassNotFoundException ex) {
-	  /* ignore, we'll try findClass */;
-	}
+	try
+	  {
+	    ClassLoader cl = parent;
+	    if (parent == null)
+	      cl = gnu.gcj.runtime.VMClassLoader.instance;
+	    if (cl != this)
+	      c = cl.loadClass (name, link);
+	  }
+	catch (ClassNotFoundException ex)
+	  {
+	    /* ignore, we'll try findClass */;
+	  }
       }
 
     if (c == null)
@@ -432,17 +436,24 @@ public abstract class ClassLoader
   {
     synchronized (clazz)
       {
-	try {
-	  linkClass0 (clazz);
-	} catch (Throwable x) {
-	  markClassErrorState0 (clazz);
+	try
+	  {
+	    linkClass0 (clazz);
+	  }
+	catch (Throwable x)
+	  {
+	    markClassErrorState0 (clazz);
 
-	  if (x instanceof Error)
-	    throw (Error)x;
-	  else    
-	    throw new java.lang.InternalError
-	      ("unexpected exception during linking: " + x);
-	}
+	    if (x instanceof Error)
+	      throw (Error)x;
+	    else
+	      {
+		InternalError e
+		  = new InternalError ("unexpected exception during linking");
+		e.initCause (x);
+		throw e;
+	      }
+	  }
       }
   }
 

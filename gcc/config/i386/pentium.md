@@ -53,6 +53,12 @@
 	 (and (eq_attr "type" "rotate")
 	      (match_operand 2 "const_int_1_operand" ""))
 	   (const_string "pu")
+	 (and (eq_attr "type" "ishift1")
+	      (match_operand 1 "const_int_operand" ""))
+	   (const_string "pu")
+	 (and (eq_attr "type" "rotate1")
+	      (match_operand 1 "const_int_1_operand" ""))
+	   (const_string "pu")
 	 (and (eq_attr "type" "call")
 	      (match_operand 0 "constant_call_address_operand" ""))
 	   (const_string "pv")
@@ -77,7 +83,7 @@
 ;;            |
 ;;           fpu
 ;; We add dummy "port" pipes allocated only first cycle of
-;; instruction to specify this behaviour.
+;; instruction to specify this behavior.
 
 (define_cpu_unit "pentium-portu,pentium-portv" "pentium")
 (define_cpu_unit "pentium-u,pentium-v" "pentium")

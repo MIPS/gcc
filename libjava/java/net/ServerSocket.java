@@ -38,6 +38,8 @@ exception statement from your version. */
 package java.net;
 
 import java.io.IOException;
+import java.nio.channels.IllegalBlockingModeException;
+import java.nio.channels.ServerSocketChannel;
 
 /* Written using on-line Java Platform 1.2 API Specification.
  * Status:  I believe all methods are implemented.
@@ -49,7 +51,7 @@ import java.io.IOException;
  * listens for and accepts connections.  At that point the client and
  * server sockets are ready to communicate with one another utilizing
  * whatever application layer protocol they desire.
- * <p>
+ *
  * As with the <code>Socket</code> class, most instance methods of this class 
  * simply redirect their calls to an implementation class.
  *
@@ -58,15 +60,10 @@ import java.io.IOException;
  */
 public class ServerSocket
 {
-
-  // Class Variables
-
   /**
    * This is the user defined SocketImplFactory, if one is supplied
    */
   private static SocketImplFactory factory;
-
-  // Instance Variables
 
   /**
    * This is the SocketImp object to which most instance methods in this
@@ -75,14 +72,26 @@ public class ServerSocket
   private SocketImpl impl;
 
   /**
-   * Private constructor that simply sets the implementation.
+   * ServerSocketChannel of this ServerSocket. This channel only exists
+   * when the socket is created by ServerSocketChannel.open().
    */
-  private ServerSocket()
+  private ServerSocketChannel ch;
+
+  /**
+   * Constructor that simply sets the implementation.
+   * 
+   * @exception IOException If an error occurs
+   *
+   * @specnote This constructor is public since JDK 1.4
+   */
+  public ServerSocket() throws IOException
   {
     if (factory != null)
       impl = factory.createSocketImpl();
     else
       impl = new PlainSocketImpl();
+
+    impl.create(true);
   }
 
   /**
@@ -93,9 +102,11 @@ public class ServerSocket
    * @param port The port number to bind to
    * 
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
    */
   public ServerSocket (int port)
-    throws java.io.IOException
+    throws IOException
   {
     this(port, 50);
   }
@@ -110,9 +121,11 @@ public class ServerSocket
    * @param backlog The length of the pending connection queue
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
    */
   public ServerSocket (int port, int backlog)
-    throws java.io.IOException
+    throws IOException
   {
     this(port, backlog, null);
   }
@@ -129,13 +142,16 @@ public class ServerSocket
    * @param bindAddr The address to bind to, or null to bind to all addresses
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
    *
    * @since 1.1
    */
   public ServerSocket (int port, int backlog, InetAddress bindAddr)
-    throws java.io.IOException
+    throws IOException
   {
     this();
+
     if (impl == null)
       throw new IOException("Cannot initialize Socket implementation");
 
@@ -157,22 +173,16 @@ public class ServerSocket
    * @param endpoint The socket address to bind to
    *
    * @exception IOException If an error occurs
+   * @exception IllegalArgumentException If address type is not supported
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
    * 
    * @since 1.4
    */
   public void bind (SocketAddress endpoint)
     throws IOException
   {
-    if (impl == null)
-      throw new IOException ("Cannot initialize Socket implementation");
-
-    InetSocketAddress tmp = (InetSocketAddress) endpoint;
-    
-    SecurityManager s = System.getSecurityManager ();
-    if (s != null)
-      s.checkListen (tmp.getPort ());
-
-    impl.bind (tmp.getAddress (), tmp.getPort ());
+    bind (endpoint, 50);
   }
  
   /**
@@ -180,13 +190,21 @@ public class ServerSocket
    *
    * @param endpoint The socket address to bind to
    * @param backlog The length of the pending connection queue
+   * 
    * @exception IOException If an error occurs
+   * @exception IllegalArgumentException If address type is not supported
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
+   *
+   * @since 1.4
    */
-  public void bind (SocketAddress endpoint, int backlog)
-    throws java.io.IOException 
+  public void bind (SocketAddress endpoint, int backlog) throws IOException
   {
     if (impl == null)
       throw new IOException ("Cannot initialize Socket implementation");
+
+    if (! (endpoint instanceof InetSocketAddress))
+      throw new IllegalArgumentException ("Address type not supported");
 
     InetSocketAddress tmp = (InetSocketAddress) endpoint;
     
@@ -246,9 +264,22 @@ public class ServerSocket
    * connection is available.
    *
    * @exception IOException If an error occurs
+   * @exception SecurityException If a security manager exists and its
+   * checkListen method doesn't allow the operation
+   * @exception IllegalBlockingModeException If this socket has an associated
+   * channel, and the channel is in non-blocking mode
+   * @exception SocketTimeoutException If a timeout was previously set with
+   * setSoTimeout and the timeout has been reached
    */
-  public Socket accept ()  throws IOException
+  public Socket accept () throws IOException
   {
+    if (impl == null)
+      throw new IOException ("Cannot initialize Socket implementation");
+
+    SecurityManager sm = System.getSecurityManager ();
+    if (sm != null)
+      sm.checkListen (impl.getLocalPort ());
+
     Socket s = new Socket();
     implAccept (s);
 
@@ -263,11 +294,17 @@ public class ServerSocket
    * @param socket The socket that is used for the accepted connection
    *
    * @exception IOException If an error occurs
+   * @exception IllegalBlockingModeException If this socket has an associated
+   * channel, and the channel is in non-blocking mode
    *
    * @since 1.1
    */
-  protected final void implAccept (Socket s)  throws IOException
+  protected final void implAccept (Socket s)
+    throws IOException
   {
+    if (ch != null && !ch.isBlocking())
+      throw new IllegalBlockingModeException();
+	    
     impl.accept(s.impl);
   }
 
@@ -282,6 +319,50 @@ public class ServerSocket
   }
 
   /**
+   * Returns the unique ServerSocketChannel object
+   * associated with this socket, if any.
+   *
+   * The socket only has a ServerSocketChannel if its created
+   * by ServerSocketChannel.open.
+   * 
+   * @since 1.4
+   */
+  public ServerSocketChannel getChannel()
+  {
+    return ch;
+  }
+
+  /**
+   * Returns true then the socket is bound, otherwise false
+   * 
+   * @since 1.4
+   */
+  public boolean isBound()
+  {
+    try
+      {
+        Object bindaddr = impl.getOption (SocketOptions.SO_BINDADDR);
+      }
+    catch (SocketException e)
+      {
+	return false;
+      }
+    
+    return true;
+  }
+
+  /**
+   * Returns true if the socket is closed, otherwise false
+   * 
+   * @since 1.4
+   */
+  public boolean isClosed()
+  {
+    // FIXME: implement this
+    return false;
+  }
+
+  /**
    * Sets the value of SO_TIMEOUT.  A value of 0 implies that SO_TIMEOUT is
    * disabled (ie, operations never time out).  This is the number of 
    * milliseconds a socket operation can block before an
@@ -289,7 +370,7 @@ public class ServerSocket
    *
    * @param timeout The new SO_TIMEOUT value
    *
-   * @exception IOException If an error occurs
+   * @exception SocketException If an error occurs
    *
    * @since 1.1
    */
@@ -368,6 +449,7 @@ public class ServerSocket
    * @param size The new receive buffer size.
    * 
    * @exception SocketException If an error occurs or Socket is not connected
+   * @exception IllegalArgumentException If size is 0 or negative
    *
    * @since 1.4
    */

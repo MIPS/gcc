@@ -353,7 +353,7 @@ static void sjlj_output_call_site_table		PARAMS ((void));
 
 
 /* Routine to see if exception handling is turned on.
-   DO_WARN is non-zero if we want to inform the user that exception
+   DO_WARN is nonzero if we want to inform the user that exception
    handling is turned off.
 
    This is used to ensure that -fexceptions has been specified if the
@@ -2992,6 +2992,16 @@ expand_builtin_extract_return_addr (addr_tree)
      tree addr_tree;
 {
   rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, 0);
+
+  if (GET_MODE (addr) != Pmode
+      && GET_MODE (addr) != VOIDmode)
+    {
+#ifdef POINTERS_EXTEND_UNSIGNED
+      addr = convert_memory_address (Pmode, addr);
+#else
+      addr = convert_to_mode (Pmode, addr, 0);
+#endif
+    }
 
   /* First mask out any unwanted bits.  */
 #ifdef MASK_RETURN_ADDR

@@ -121,7 +121,7 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
       /* We will not inline a function which uses computed goto.  The
 	 addresses of its local labels, which may be tucked into
 	 global storage, are of course not constant across
-	 instantiations, which causes unexpected behaviour.  */
+	 instantiations, which causes unexpected behavior.  */
       if (TREE_CODE (t) != LABEL_DECL)
 	return node;
 
@@ -132,6 +132,22 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
 	return node;
 
       break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      /* We cannot inline a function of the form
+
+	   void F (int i) { struct S { int ar[i]; } s; }
+
+	 Attempting to do so produces a catch-22 in tree-inline.c.
+	 If walk_tree examines the TYPE_FIELDS chain of RECORD_TYPE/
+	 UNION_TYPE nodes, then it goes into infinite recursion on a
+	 structure containing a pointer to its own type.  If it doesn't,
+	 then the type node for S doesn't get adjusted properly when
+	 F is inlined, and we abort in find_function_data.  */
+      for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
+	if (variably_modified_type_p (TREE_TYPE (t)))
+	  return node;
 
     default:
       break;

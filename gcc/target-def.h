@@ -103,6 +103,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 # endif
 #endif
 
+#define TARGET_ASM_OUTPUT_MI_THUNK NULL
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_false
+
 #if defined(TARGET_ASM_CONSTRUCTOR) && defined(TARGET_ASM_DESTRUCTOR)
 #define TARGET_HAVE_CTORS_DTORS true
 #else
@@ -124,6 +127,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #ifndef TARGET_HAVE_SRODATA_SECTION
 #define TARGET_HAVE_SRODATA_SECTION false
+#endif
+
+#ifndef TARGET_TERMINATE_DW2_EH_FRAME_INFO
+#ifdef EH_FRAME_SECTION_NAME
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
+#else
+#define TARGET_TERMINATE_DW2_EH_FRAME_INFO true
+#endif
 #endif
 
 #ifndef TARGET_ASM_EXCEPTION_SECTION
@@ -165,7 +176,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
 			TARGET_ASM_CONSTRUCTOR,			\
-			TARGET_ASM_DESTRUCTOR}
+			TARGET_ASM_DESTRUCTOR,                  \
+                        TARGET_ASM_OUTPUT_MI_THUNK,             \
+                        TARGET_ASM_CAN_OUTPUT_MI_THUNK }
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -272,7 +285,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
-  TARGET_HAVE_SRODATA_SECTION			\
+  TARGET_HAVE_SRODATA_SECTION,			\
+  TARGET_TERMINATE_DW2_EH_FRAME_INFO		\
 }
 
 #include "hooks.h"

@@ -1,5 +1,5 @@
 /* Definitions for Unix assembler syntax for the Intel 80386.
-   Copyright (C) 1988, 1994, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1994, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -65,8 +65,3 @@ Boston, MA 02111-1307, USA.  */
    and returns float values in the 387.  */
 
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-    x86_output_mi_thunk (FILE, DELTA, FUNCTION);

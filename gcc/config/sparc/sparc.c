@@ -176,6 +176,8 @@ static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
 
 static void sparc_encode_section_info PARAMS ((tree, int));
+static void sparc_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					   HOST_WIDE_INT, tree));
 
 /* Option handling.  */
 
@@ -238,6 +240,11 @@ enum processor_type sparc_cpu;
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK sparc_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -455,7 +462,7 @@ v9_regcmp_p (code)
 
 /* Operand constraints.  */
 
-/* Return non-zero only if OP is a register of mode MODE,
+/* Return nonzero only if OP is a register of mode MODE,
    or const0_rtx.  */
 
 int
@@ -476,7 +483,7 @@ reg_or_0_operand (op, mode)
   return 0;
 }
 
-/* Return non-zero only if OP is const1_rtx.  */
+/* Return nonzero only if OP is const1_rtx.  */
 
 int
 const1_operand (op, mode)
@@ -1410,7 +1417,7 @@ sparc_emit_set_const32 (op0, op1)
 }
 
 
-/* Sparc-v9 code-model support.  */
+/* SPARC-v9 code-model support.  */
 void
 sparc_emit_set_symbolic_const64 (op0, op1, temp1)
      rtx op0;
@@ -3074,7 +3081,7 @@ short_branch (uid1, uid2)
   return 0;
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels or calls or jumps.  */
 int
@@ -3158,7 +3165,7 @@ pic_address_needs_scratch (x)
 
 /* Legitimize PIC addresses.  If the address is already position-independent,
    we return ORIG.  Newly generated position-independent addresses go into a
-   reg.  This is REG if non zero, otherwise we allocate register(s) as
+   reg.  This is REG if nonzero, otherwise we allocate register(s) as
    necessary.  */
 
 rtx
@@ -4757,7 +4764,7 @@ function_arg_record_value_2 (type, startbitpos, parms)
 }
 
 /* Used by function_arg and function_value to implement the complex
-   Sparc64 structure calling conventions.  */
+   SPARC64 structure calling conventions.  */
 
 static rtx
 function_arg_record_value (type, mode, slotno, named, regbase)
@@ -5370,11 +5377,11 @@ sparc_va_arg (valist, type)
    XEXP (OP, 0) is assumed to be a condition code register (integer or
    floating point) and its mode specifies what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.
+   NOOP is nonzero if we have to follow this branch by a noop.
 
    INSN, if set, is the insn.  */
 
@@ -5803,11 +5810,11 @@ sparc_emit_floatunsdi (operands)
    operand number of the reg.  OP is the conditional expression.  The mode
    of REG says what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.  */
+   NOOP is nonzero if we have to follow this branch by a noop.  */
 
 char *
 output_v9branch (op, dest, reg, label, reversed, annul, noop, insn)
@@ -7763,7 +7770,6 @@ set_extends (insn)
 	  return INTVAL (op1) >= 0;
 	return (GET_CODE (op1) == REG && sparc_check_64 (op1, insn) == 1);
       }
-    case ASHIFT:
     case LSHIFTRT:
       return GET_MODE (SET_SRC (pat)) == SImode;
       /* Positive integers leave the high bits zero.  */
@@ -8449,11 +8455,12 @@ sparc_encode_section_info (decl, first)
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
 
-void
-sparc_output_mi_thunk (file, thunk_fndecl, delta, function)
+static void
+sparc_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
      FILE *file;
      tree thunk_fndecl ATTRIBUTE_UNUSED;
      HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree function;
 {
   rtx this, insn, funexp, delta_rtx, tmp;

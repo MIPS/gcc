@@ -47,7 +47,6 @@ bits_headers = \
 	${bits_srcdir}/fpos.h \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
-	${bits_srcdir}/generic_shadow.h \
 	${bits_srcdir}/gslice.h \
 	${bits_srcdir}/gslice_array.h \
 	${bits_srcdir}/indirect_array.h \
@@ -312,8 +311,7 @@ target_headers = \
 	${target_srcdir}/ctype_inline.h \
 	${target_srcdir}/ctype_noninline.h \
 	${target_srcdir}/os_defines.h \
-	${glibcpp_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h \
-	${glibcpp_srcdir}/@CPU_LIMITS_INC_SRCDIR@/cpu_limits.h 
+	${glibcpp_srcdir}/@ATOMICITY_INC_SRCDIR@/atomicity.h 
 # These target_headers_extra files are all built with ad hoc naming rules.
 target_headers_extra = \
 	${target_builddir}/basic_file.h \

@@ -514,7 +514,7 @@ recursively_demangle PARAMS ((struct work_stuff *, const char **, string *,
 			      int));
 
 static void
-grow_vect PARAMS ((void **, size_t *, size_t, int));
+grow_vect PARAMS ((char **, size_t *, size_t, int));
 
 /* Translate count to integer, consuming tokens in the process.
    Conversion terminates on the first non-digit character.
@@ -936,7 +936,7 @@ cplus_demangle (mangled, options)
 
 static void
 grow_vect (old_vect, size, min_size, element_size)
-     void **old_vect;
+     char **old_vect;
      size_t *size;
      size_t min_size;
      int element_size;
@@ -946,7 +946,7 @@ grow_vect (old_vect, size, min_size, element_size)
       *size *= 2;
       if (*size < min_size)
 	*size = min_size;
-      *old_vect = xrealloc (*old_vect, *size * element_size);
+      *old_vect = (void *) xrealloc (*old_vect, *size * element_size);
     }
 }
 
@@ -969,8 +969,7 @@ ada_demangle (mangled, option)
   char *demangled = NULL;
   int at_start_name;
   int changed;
-  char *demangling_buffer = NULL;
-  size_t demangling_buffer_size = 0;
+  size_t demangled_size = 0;
   
   changed = 0;
 
@@ -998,10 +997,9 @@ ada_demangle (mangled, option)
     }
   
   /* Make demangled big enough for possible expansion by operator name.  */
-  grow_vect ((void **) &(demangling_buffer),
-	     &demangling_buffer_size,  2 * len0 + 1,
+  grow_vect (&demangled,
+	     &demangled_size,  2 * len0 + 1,
 	     sizeof (char));
-  demangled = demangling_buffer;
   
   if (ISDIGIT ((unsigned char) mangled[len0 - 1])) {
     for (i = len0 - 2; i >= 0 && ISDIGIT ((unsigned char) mangled[i]); i -= 1)
@@ -1051,10 +1049,10 @@ ada_demangle (mangled, option)
     return demangled;
   
  Suppress:
-  grow_vect ((void **) &(demangling_buffer),
-	     &demangling_buffer_size,  strlen (mangled) + 3,
+  grow_vect (&demangled,
+	     &demangled_size,  strlen (mangled) + 3,
 	     sizeof (char));
-  demangled = demangling_buffer;
+
   if (mangled[0] == '<')
      strcpy (demangled, mangled);
   else
@@ -1206,7 +1204,7 @@ work_stuff_copy_to_from (to, from)
 
   if (from->ntmpl_args)
     to->tmpl_argvec
-      = xmalloc (from->ntmpl_args * sizeof (to->tmpl_argvec[0]));
+      = (char **) xmalloc (from->ntmpl_args * sizeof (to->tmpl_argvec[0]));
 
   for (i = 0; i < from->ntmpl_args; i++)
     {

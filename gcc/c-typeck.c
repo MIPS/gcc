@@ -51,7 +51,7 @@ static int missing_braces_mentioned;
 static int undeclared_variable_notice;
 
 static tree qualify_type		PARAMS ((tree, tree));
-static int comp_target_types		PARAMS ((tree, tree));
+static int comp_target_types		PARAMS ((tree, tree, int));
 static int function_types_compatible_p	PARAMS ((tree, tree));
 static int type_lists_compatible_p	PARAMS ((tree, tree));
 static tree decl_constant_value_for_broken_optimization PARAMS ((tree));
@@ -579,16 +579,21 @@ comptypes (type1, type2)
 }
 
 /* Return 1 if TTL and TTR are pointers to types that are equivalent,
-   ignoring their qualifiers.  */
+   ignoring their qualifiers.  REFLEXIVE is only used by ObjC - set it
+   to 1 or 0 depending if the check of the pointer types is meant to
+   be reflexive or not (typically, assignments are not reflexive,
+   while comparisons are reflexive).
+*/
 
 static int
-comp_target_types (ttl, ttr)
+comp_target_types (ttl, ttr, reflexive)
      tree ttl, ttr;
+     int reflexive;
 {
   int val;
 
   /* Give objc_comptypes a crack at letting these types through.  */
-  if ((val = objc_comptypes (ttl, ttr, 1)) >= 0)
+  if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
     return val;
 
   val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
@@ -1958,7 +1963,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
-	  && comp_target_types (type0, type1))
+	  && comp_target_types (type0, type1, 1))
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -2148,7 +2153,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    result_type = common_type (type0, type1);
 	  else if (VOID_TYPE_P (tt0))
 	    {
@@ -2195,7 +2200,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	shorten = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (pedantic 
@@ -2220,7 +2225,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
@@ -3443,7 +3448,7 @@ build_conditional_expr (ifexp, op1, op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      if (comp_target_types (type1, type2))
+      if (comp_target_types (type1, type2, 1))
 	result_type = common_type (type1, type2);
       else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
 	       && TREE_CODE (orig_op1) != NOP_EXPR)
@@ -3754,6 +3759,23 @@ build_c_cast (type, expr)
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
 
+      if (TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (expr) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (expr, 0))
+	  && flag_strict_aliasing && warn_strict_aliasing
+	  && !VOID_TYPE_P (TREE_TYPE (type)))
+	{
+ 	  /* Casting the address of a decl to non void pointer. Warn
+	     if the cast breaks type based aliasing.  */
+	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+	    warning ("type-punning to incomplete type might break strict-aliasing rules");
+	  else if (!alias_sets_conflict_p
+		   (get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0))),
+		    get_alias_set (TREE_TYPE (type))))
+	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	}
+      
       ovalue = value;
       value = convert (type, value);
 
@@ -4010,8 +4032,9 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
     {
       overflow_warning (rhs);
-      /* Check for Objective-C protocols.  This will issue a warning if
-	 there are protocol violations.  No need to use the return value.  */
+      /* Check for Objective-C protocols.  This will automatically
+	 issue a warning if there are protocol violations.  No need to
+	 use the return value.  */
       if (flag_objc)
 	objc_comptypes (type, rhstype, 0);
       return rhs;
@@ -4086,7 +4109,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
 	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		  || comp_target_types (memb_type, rhstype))
+		  || comp_target_types (memb_type, rhstype, 0))
 		{
 		  /* If this type won't generate any warnings, use it.  */
 		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
@@ -4161,7 +4184,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || comp_target_types (type, rhstype)
+	  || comp_target_types (type, rhstype, 0)
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
@@ -4186,7 +4209,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		       || comp_target_types (type, rhstype))
+		       || comp_target_types (type, rhstype, 0))
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (pedantic)
@@ -4286,7 +4309,8 @@ c_convert_parm_for_inlining (parm, value, fn)
 
 /* Print a warning using MSGID.
    It gets OPNAME as its one parameter.
-   If OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
+   if OPNAME is null and ARGNUM is 0, it is replaced by "passing arg of `FUNCTION'".
+   Otherwise if OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
    FUNCTION and ARGNUM are handled specially if we are building an
    Objective-C selector.  */
 
@@ -4307,7 +4331,27 @@ warn_for_assignment (msgid, opname, function, argnum)
 	  function = selector;
 	  argnum -= 2;
 	}
-      if (function)
+      if (argnum == 0)
+	{
+	  if (function)
+	    {	    
+	      /* Function name is known; supply it.  */
+	      const char *const argstring = _("passing arg of `%s'");
+	      new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
+					    + strlen (argstring) + 1
+					    + 1);
+	      sprintf (new_opname, argstring,
+		       IDENTIFIER_POINTER (function));
+	    }
+	  else
+	    {
+	      /* Function name unknown (call through ptr).  */
+	      const char *const argnofun = _("passing arg of pointer to function");
+	      new_opname = (char *) alloca (strlen (argnofun) + 1 + 1);
+	      sprintf (new_opname, argnofun);
+	    }
+	}
+      else if (function)
 	{
 	  /* Function name is known; supply it.  */
 	  const char *const argstring = _("passing arg %d of `%s'");
@@ -5549,7 +5593,7 @@ pop_init_level (implicit)
 }
 
 /* Common handling for both array range and field name designators.
-   ARRAY argument is non-zero for array ranges.  Returns zero for success.  */
+   ARRAY argument is nonzero for array ranges.  Returns zero for success.  */
 
 static int
 set_designator (array)
@@ -6913,7 +6957,11 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
+    {
+      o[i] = TREE_VALUE (tail);
+      if (o[i] == error_mark_node)
+	return;
+    }
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */

@@ -42,6 +42,12 @@ Boston, MA 02111-1307, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
+/* The svr4 ABI for the i386 says that records and unions are returned
+   in memory.  In the 64bit compilation we will turn this flag off in
+   override_options, as we never do pcc_struct_return scheme on this target.  */
+#undef DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 1
+
 /* Provide a LINK_SPEC.  Here we provide support for the special GCC
    options -static and -shared, which allow us to link things in one
    of these three modes by applying the appropriate combinations of
@@ -59,10 +65,6 @@ Boston, MA 02111-1307, USA.  */
       %{m32:%{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.2}} \
       %{!m32:%{!dynamic-linker:-dynamic-linker /lib64/ld-linux-x86-64.so.2}}} \
     %{static:-static}}"
-
-#define STARTFILE_PREFIX_SPEC "\
-  %{m32: /usr/local/lib/ /lib/ /usr/lib/} \
-  %{!m32: /usr/local/lib64/ /lib64/ /usr/lib64/}"
 
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC \

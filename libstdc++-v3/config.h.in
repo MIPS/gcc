@@ -3,11 +3,11 @@
 /* Define if you have a working `mmap' system call.  */
 #undef HAVE_MMAP
 
+/* Define if you need to in order for stat and other things to work.  */
+#undef _POSIX_SOURCE
+
 // Define if GCC supports weak symbols.
 #undef _GLIBCPP_SUPPORTS_WEAK
-
-// Define if gthr-default.h exists (meaning that threading support is enabled).
-#undef HAVE_GTHR_DEFAULT
 
 // Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCPP_USE_LONG_LONG
@@ -23,6 +23,35 @@
 
 // Define to use concept checking code from the boost libraries.
 #undef _GLIBCPP_CONCEPT_CHECKS
+
+// Define to use symbol versioning in the shared library.
+#undef _GLIBCPP_SYMVER
+
+// Define symbol versioning in assember directives. If symbol
+// versioning is beigng used, and the assembler supports this kind of
+// thing, then use it.
+// NB: _GLIBCPP_AT_AT is a hack to work around quoting issues in m4.
+#if _GLIBCPP_SYMVER
+  #define _GLIBCPP_ASM_SYMVER(cur, old, version) \
+   asm (".symver " #cur "," #old _GLIBCPP_AT_AT #version);
+#else
+  #define _GLIBCPP_ASM_SYMVER(cur, old, version)
+#endif
+
+// Define if gthr-default.h exists (meaning that threading support is enabled).
+#undef HAVE_GTHR_DEFAULT
+
+// Define if drand48 exists.
+#undef HAVE_DRAND48
+
+// Define if getpagesize exists.
+#undef HAVE_GETPAGESIZE
+
+// Define if setenv exists.
+#undef HAVE_SETENV
+
+// Define if sigsetjmp exists.
+#undef HAVE_SIGSETJMP
 
 // Define if mbstate_t exists in wchar.h.
 #undef HAVE_MBSTATE_T
@@ -434,6 +463,9 @@
 
 /* Define if you have the iconv_open function.  */
 #undef HAVE_ICONV_OPEN
+
+/* Define if you have the isatty function.  */
+#undef HAVE_ISATTY
 
 /* Define if you have the isinf function.  */
 #undef HAVE_ISINF

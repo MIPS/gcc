@@ -195,10 +195,12 @@ public final class DatagramPacket
    * @param address The socket address to send to
    *
    * @exception SocketException If an error occurs
+   * @exception IllegalArgumentException If address type is not supported
    *
    * @since 1.4
    */
-  public DatagramPacket(byte[] buf, int offset, int length, SocketAddress address)
+  public DatagramPacket(byte[] buf, int offset, int length,
+		        SocketAddress address)
      throws SocketException
   {
     this(buf, offset, length, ((InetSocketAddress)address).getAddress(),
@@ -214,6 +216,7 @@ public final class DatagramPacket
    * @param address The socket address to send to
    *
    * @exception SocketException If an error occurs
+   * @exception IllegalArgumentException If address type is not supported
    *
    * @since 1.4
    */
@@ -320,7 +323,7 @@ public final class DatagramPacket
    *
    * @param address The socket address of the remove host
    *
-   * @exception IllegalArgumentException If an error occurs
+   * @exception IllegalArgumentException If address type is not supported
    *
    * @since 1.4
    */
@@ -352,6 +355,8 @@ public final class DatagramPacket
    *
    * @param buf The new buffer for this packet
    *
+   * @exception NullPointerException If the argument is null
+   *
    * @since 1.1
    */
   public synchronized void setData(byte[] buf)
@@ -370,6 +375,8 @@ public final class DatagramPacket
    * @param buf The byte array containing the data for this packet.
    * @param offset The offset into the buffer to start reading data from.
    * @param length The number of bytes of data in the buffer.
+   *
+   * @exception NullPointerException If the argument is null
    *
    * @since 1.2
    */
@@ -395,7 +402,10 @@ public final class DatagramPacket
   /**
    * Sets the length of the data in the buffer. 
    *
-   * @param length The new length.  (Where len <= buf.length)
+   * @param length The new length.  (Where len &lt;= buf.length)
+   *
+   * @exception IllegalArgumentException If the length is negative or
+   * if the length is greater than the packet's data buffer length
    *
    * @since 1.1
    */

@@ -40,11 +40,23 @@ public class URLClassLoader extends SecureClassLoader
       return null;
   }
 
+  /**
+   * Createa a new URL class loader object
+   *
+   * @exception SecurityException If a security manager exists and its
+   * checkCreateClassLoader method doesn't allow creation of a class loader
+   */
   public URLClassLoader (URL[] urls)
   { 
     this (urls, null, null);
   }
-  
+ 
+  /**
+   * Createa a new URL class loader object
+   *
+   * @exception SecurityException If a security manager exists and its
+   * checkCreateClassLoader method doesn't allow creation of a class loader
+   */
   public URLClassLoader (URL[] urls, ClassLoader parent)
   { 
     this (urls, parent, null);
@@ -100,10 +112,20 @@ public class URLClassLoader extends SecureClassLoader
     info.addElement (conn);
   }
 
+  /**
+   * Createa a new URL class loader object
+   *
+   * @exception SecurityException If a security manager exists and its
+   * checkCreateClassLoader method doesn't allow creation of a class loader
+   */
   public URLClassLoader (URL[] urls, ClassLoader parent,
 			 URLStreamHandlerFactory fac)
   { 
     super (parent);
+
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkCreateClassLoader();
 
     factory = fac;
 
@@ -119,7 +141,7 @@ public class URLClassLoader extends SecureClassLoader
 
     for (int i = 0; i < urls.length; i++)
       {
-	// Convert a Jar File URL into a Jar URL is possible. 
+	// Convert a Jar File URL into a Jar URL if possible.
 	URL u = jarFileize(urls[i]);
 
 	path.addElement (u);
@@ -150,7 +172,13 @@ public class URLClassLoader extends SecureClassLoader
     path.copyInto (urls);
     return urls;
   }
-  
+ 
+  /**
+   * Returns an Enumeration of URLs representing all of the resources on the
+   * URL search path having the specified name
+   *
+   * @exception IOException If an error occurs
+   */
   public Enumeration findResources (String name)
   {
     Vector results = new Vector ();
@@ -165,7 +193,8 @@ public class URLClassLoader extends SecureClassLoader
 	  if (conn != null)
 	    {
 	      if (conn.getJarFile().getJarEntry (name) != null)
-		results.addElement (new URL(u, name, getHandler0 (u.getProtocol())));
+		results.addElement (new URL(u, name,
+					getHandler0 (u.getProtocol())));
 	    }
 	  else
 	    {
@@ -223,7 +252,12 @@ public class URLClassLoader extends SecureClassLoader
     return null;
   }
 
-  // and finally, we can implement our class loader functionality.
+  /**
+   * Finds and loads the class with the specified name from the
+   * URL search path
+   *
+   * @exception ClassNotFoundException If the class could not be found
+   */
   protected Class findClass (String name)
     throws ClassNotFoundException
   {
@@ -265,7 +299,7 @@ public class URLClassLoader extends SecureClassLoader
 	    int i = u.indexOf ('!');
 	    if (i >= 0)
 	      u = u.substring (0, i);
-	    url = new URL("jar", "", u);
+	    url = new URL(u);
 
 	    source = new CodeSource(url, certificates);
 	  }
@@ -403,7 +437,7 @@ public class URLClassLoader extends SecureClassLoader
    * system class loader.
    * @param urls the initial URLs used to resolve classes and resources
    */
-  public static URLClassLoader newInstance(URL urls[]) throws
+  public static URLClassLoader newInstance(URL[] urls) throws
     SecurityException
   {
     return new URLClassLoader(urls);
@@ -415,7 +449,7 @@ public class URLClassLoader extends SecureClassLoader
    * @param urls the initial URLs used to resolve classes and resources
    * @param parent the parent class loader
    */
-  public static URLClassLoader newInstance(URL urls[],
+  public static URLClassLoader newInstance(URL[] urls,
 					   ClassLoader parent)
     throws SecurityException
   {

@@ -515,6 +515,15 @@ try_forward_edges (mode, b)
 
 	      if (GET_CODE (insn) == NOTE)
 		break;
+
+	      /* Do not clean up branches to just past the end of a loop
+		 at this time; it can mess up the loop optimizer's
+		 recognition of some patterns.  */
+
+	      insn = PREV_INSN (target->head);
+	      if (insn && GET_CODE (insn) == NOTE
+		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
+		break;
 	    }
 
 	  counter++;
@@ -902,8 +911,9 @@ insns_match_p (mode, i1, i2)
      equal, they were constructed identically.  */
 
   if (GET_CODE (i1) == CALL_INSN
-      && !rtx_equal_p (CALL_INSN_FUNCTION_USAGE (i1),
-		       CALL_INSN_FUNCTION_USAGE (i2)))
+      && (!rtx_equal_p (CALL_INSN_FUNCTION_USAGE (i1),
+		        CALL_INSN_FUNCTION_USAGE (i2))
+	  || SIBLING_CALL_P (i1) != SIBLING_CALL_P (i2)))
     return false;
 
 #ifdef STACK_REGS

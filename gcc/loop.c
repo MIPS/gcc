@@ -151,7 +151,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
- ? HARD_REGNO_NREGS ((REGNO), GET_MODE (SET_DEST)) : 1)
+ ? (int) HARD_REGNO_NREGS ((REGNO), GET_MODE (SET_DEST)) : 1)
 
 
 /* Vector mapping INSN_UIDs to luids.
@@ -830,7 +830,7 @@ scan_loop (loop, flags)
 			  the loop starts, or the value before the set is
 			  needed before the set occurs...
 
-			  ??? Note we have quadratic behaviour here, mitigated
+			  ??? Note we have quadratic behavior here, mitigated
 			  by the fact that the previous test will often fail for
 			  large loops.  Rather than re-scanning the entire loop
 			  each time for register usage, we should build tables
@@ -946,7 +946,7 @@ scan_loop (loop, flags)
 		  m->savings = regs->array[regno].n_times_set;
 		  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
 		    m->savings += libcall_benefit (p);
-		  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, SET_DEST (set)); i++)
+		  for (i = 0; i < LOOP_REGNO_NREGS (regno, SET_DEST (set)); i++)
 		    regs->array[regno+i].set_in_loop = move_insn ? -2 : -1;
 		  /* Add M to the end of the chain MOVABLES.  */
 		  loop_movables_add (movables, m);
@@ -1050,7 +1050,7 @@ scan_loop (loop, flags)
 		      m->lifetime = LOOP_REG_LIFETIME (loop, regno);
 		      m->savings = 1;
 		      for (i = 0;
-			   i < (int) LOOP_REGNO_NREGS (regno, SET_DEST (set));
+			   i < LOOP_REGNO_NREGS (regno, SET_DEST (set));
 			   i++)
 			regs->array[regno+i].set_in_loop = -1;
 		      /* Add M to the end of the chain MOVABLES.  */
@@ -2193,7 +2193,7 @@ move_movables (loop, movables, threshold, insn_count)
 	      if (! m->partial)
 		{
 		  int i;
-		  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, m->set_dest); i++)
+		  for (i = 0; i < LOOP_REGNO_NREGS (regno, m->set_dest); i++)
 		    regs->array[regno+i].set_in_loop = 0;
 		}
 
@@ -2258,7 +2258,7 @@ move_movables (loop, movables, threshold, insn_count)
 			{
 			  int i;
 			  for (i = 0;
-			       i < (int) LOOP_REGNO_NREGS (regno, m1->set_dest);
+			       i < LOOP_REGNO_NREGS (regno, m1->set_dest);
 			       i++)
 			    regs->array[m1->regno+i].set_in_loop = 0;
 			}
@@ -2475,7 +2475,8 @@ prescan_loop (loop)
   loop_info->first_loop_store_insn = NULL_RTX;
   loop_info->mems_idx = 0;
   loop_info->num_mem_sets = 0;
-
+  /* If loop opts run twice, this was set on 1st pass for 2nd.  */
+  loop_info->preconditioned = NOTE_PRECONDITIONED (end);
 
   for (insn = start; insn && GET_CODE (insn) != CODE_LABEL;
        insn = PREV_INSN (insn))
@@ -3272,6 +3273,13 @@ loop_invariant_p (loop, x)
 	  && REGNO (x) < FIRST_PSEUDO_REGISTER && call_used_regs[REGNO (x)])
 	return 0;
 
+      /* Out-of-range regs can occur when we are called from unrolling.
+	 These have always been created by the unroller and are set in
+	 the loop, hence are never invariant. */
+
+      if (REGNO (x) >= regs->num)
+	return 0;
+
       if (regs->array[REGNO (x)].set_in_loop < 0)
 	return 2;
 
@@ -3518,7 +3526,7 @@ count_one_set (regs, insn, x, last_set)
 	{
 	  int i;
 	  int regno = REGNO (dest);
-	  for (i = 0; i < (int) LOOP_REGNO_NREGS (regno, dest); i++)
+	  for (i = 0; i < LOOP_REGNO_NREGS (regno, dest); i++)
 	    {
 	      /* If this is the first setting of this reg
 		 in current basic block, and it was set before,
@@ -3583,7 +3591,7 @@ struct prefetch_info
   HOST_WIDE_INT index;
   HOST_WIDE_INT stride;		/* Prefetch stride in bytes in each
 				   iteration.  */
-  unsigned int bytes_accessed;	/* Sum of sizes of all acceses to this
+  unsigned int bytes_accessed;	/* Sum of sizes of all accesses to this
 				   prefetch area in one iteration.  */
   unsigned int total_bytes;	/* Total bytes loop will access in this block.
 				   This is set only for loops with known
@@ -4222,7 +4230,7 @@ emit_prefetch_instructions (loop)
 
 static rtx note_insn;
 
-/* Dummy register to have non-zero DEST_REG for DEST_ADDR type givs.  */
+/* Dummy register to have nonzero DEST_REG for DEST_ADDR type givs.  */
 
 static rtx addr_placeholder;
 
@@ -4450,7 +4458,7 @@ loop_bivs_find (loop)
 }
 
 
-/* Determine how BIVS are initialised by looking through pre-header
+/* Determine how BIVS are initialized by looking through pre-header
    extended basic block.  */
 static void
 loop_bivs_init_find (loop)
@@ -4594,7 +4602,7 @@ loop_givs_check (loop)
 }
 
 
-/* Return non-zero if it is possible to eliminate the biv BL provided
+/* Return nonzero if it is possible to eliminate the biv BL provided
    all givs are reduced.  This is possible if either the reg is not
    used outside the loop, or we can compute what its final value will
    be.  */
@@ -5089,7 +5097,7 @@ strength_reduce (loop, flags)
       return;
     }
 
-  /* Determine how BIVS are initialised by looking through pre-header
+  /* Determine how BIVS are initialized by looking through pre-header
      extended basic block.  */
   loop_bivs_init_find (loop);
 
@@ -5827,7 +5835,10 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
     abort ();
 
   if (type == DEST_ADDR)
-    v->replaceable = 1;
+    {
+      v->replaceable = 1;
+      v->not_replaceable = 0;
+    }
   else
     {
       /* The giv can be replaced outright by the reduced register only if all
@@ -5862,6 +5873,7 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, ext_val,
 	     using this biv anyways.  */
 
 	  v->replaceable = 1;
+	  v->not_replaceable = 0;
 	  for (b = bl->biv; b; b = b->next_iv)
 	    {
 	      if (INSN_UID (b->insn) >= max_uid_for_loop
@@ -5973,6 +5985,7 @@ check_final_value (loop, v)
       rtx last_giv_use;
 
       v->replaceable = 1;
+      v->not_replaceable = 0;
 
       /* When trying to determine whether or not a biv increment occurs
 	 during the lifetime of the giv, we can ignore uses of the variable
@@ -6498,7 +6511,7 @@ general_induction_var (loop, x, src_reg, add_val, mult_val, ext_val,
    expression that is neither invariant nor a biv or giv), this routine
    returns 0.
 
-   For a non-zero return, the result will have a code of CONST_INT, USE,
+   For a nonzero return, the result will have a code of CONST_INT, USE,
    REG (for a BIV), PLUS, or MULT.  No other codes will occur.
 
    *BENEFIT will be incremented by the benefit of any sub-giv encountered.  */
@@ -6851,7 +6864,7 @@ simplify_giv_expr (loop, x, ext_val, benefit)
 		      return simplify_giv_expr (loop, m->match->set_dest,
 						ext_val, benefit);
 
-		    /* If consec is non-zero, this is a member of a group of
+		    /* If consec is nonzero, this is a member of a group of
 		       instructions that were moved together.  We handle this
 		       case only to the point of seeking to the last insn and
 		       looking for a REG_EQUAL.  Fail if we don't find one.  */
@@ -8586,7 +8599,7 @@ check_dbra_loop (loop, insn_count)
 /* Verify whether the biv BL appears to be eliminable,
    based on the insns in the loop that refer to it.
 
-   If ELIMINATE_P is non-zero, actually do the elimination.
+   If ELIMINATE_P is nonzero, actually do the elimination.
 
    THRESHOLD and INSN_COUNT are from loop_optimize and are used to
    determine whether invariant insns should be placed inside or at the
@@ -8658,7 +8671,7 @@ maybe_eliminate_biv (loop, bl, eliminate_p, threshold, insn_count)
 }
 
 /* INSN and REFERENCE are instructions in the same insn chain.
-   Return non-zero if INSN is first.  */
+   Return nonzero if INSN is first.  */
 
 int
 loop_insn_first_p (insn, reference)
@@ -8691,7 +8704,7 @@ loop_insn_first_p (insn, reference)
     }
 }
 
-/* We are trying to eliminate BIV in INSN using GIV.  Return non-zero if
+/* We are trying to eliminate BIV in INSN using GIV.  Return nonzero if
    the offset that we have to take into account due to auto-increment /
    div derivation is zero.  */
 static int
@@ -8718,10 +8731,10 @@ biv_elimination_giv_has_0_offset (biv, giv, insn)
 
    If BIV does not appear in X, return 1.
 
-   If ELIMINATE_P is non-zero, actually do the elimination.
+   If ELIMINATE_P is nonzero, actually do the elimination.
    WHERE_INSN/WHERE_BB indicate where extra insns should be added.
    Depending on how many items have been moved out of the loop, it
-   will either be before INSN (when WHERE_INSN is non-zero) or at the
+   will either be before INSN (when WHERE_INSN is nonzero) or at the
    start of the loop (when WHERE_INSN is zero).  */
 
 static int
@@ -9191,14 +9204,14 @@ update_reg_last_use (x, insn)
    If the condition cannot be understood, or is an inequality floating-point
    comparison which needs to be reversed, 0 will be returned.
 
-   If REVERSE is non-zero, then reverse the condition prior to canonizing it.
+   If REVERSE is nonzero, then reverse the condition prior to canonizing it.
 
-   If EARLIEST is non-zero, it is a pointer to a place where the earliest
+   If EARLIEST is nonzero, it is a pointer to a place where the earliest
    insn used in locating the condition was found.  If a replacement test
    of the condition is desired, it should be placed in front of that
    insn and we will be sure that the inputs are still valid.
 
-   If WANT_REG is non-zero, we wish the condition to be relative to that
+   If WANT_REG is nonzero, we wish the condition to be relative to that
    register, if possible.  Therefore, do not canonicalize the condition
    further.  */
 
@@ -9240,7 +9253,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 	 && op1 == CONST0_RTX (GET_MODE (op0))
 	 && op0 != want_reg)
     {
-      /* Set non-zero when we find something of interest.  */
+      /* Set nonzero when we find something of interest.  */
       rtx x = 0;
 
 #ifdef HAVE_cc0
@@ -9292,6 +9305,9 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
       if (set)
 	{
 	  enum machine_mode inner_mode = GET_MODE (SET_DEST (set));
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  REAL_VALUE_TYPE fsfv;
+#endif
 
 	  /* ??? We may not combine comparisons done in a CCmode with
 	     comparisons not done in a CCmode.  This is to aid targets
@@ -9319,8 +9335,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == LT
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'))
@@ -9339,8 +9355,8 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 #ifdef FLOAT_STORE_FLAG_VALUE
 		     || (code == GE
 			 && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
-			 && (REAL_VALUE_NEGATIVE
-			     (FLOAT_STORE_FLAG_VALUE (inner_mode))))
+			 && (fsfv = FLOAT_STORE_FLAG_VALUE (inner_mode),
+			     REAL_VALUE_NEGATIVE (fsfv)))
 #endif
 		     ))
 		   && GET_RTX_CLASS (GET_CODE (SET_SRC (set))) == '<'
@@ -9445,7 +9461,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
    inequality floating-point comparison which needs to be reversed, 0 will
    be returned.
 
-   If EARLIEST is non-zero, it is a pointer to a place where the earliest
+   If EARLIEST is nonzero, it is a pointer to a place where the earliest
    insn used in locating the condition was found.  If a replacement test
    of the condition is desired, it should be placed in front of that
    insn and we will be sure that the inputs are still valid.  */
@@ -9672,6 +9688,25 @@ loop_regs_scan (loop, extra_size)
 
       if (GET_CODE (insn) == CODE_LABEL || GET_CODE (insn) == JUMP_INSN)
 	memset (last_set, 0, regs->num * sizeof (rtx));
+
+      /* Invalidate all registers used for function argument passing.
+	 We check rtx_varies_p for the same reason as below, to allow
+	 optimizing PIC calculations.  */
+      if (GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx link;
+	  for (link = CALL_INSN_FUNCTION_USAGE (insn); 
+	       link; 
+	       link = XEXP (link, 1))
+	    {
+	      rtx op, reg;
+
+	      if (GET_CODE (op = XEXP (link, 0)) == USE
+		  && GET_CODE (reg = XEXP (op, 0)) == REG
+		  && rtx_varies_p (reg, 1))
+		regs->array[REGNO (reg)].may_not_optimize = 1;
+	    }
+	}
     }
 
   /* Invalidate all hard registers clobbered by calls.  With one exception:
@@ -10445,7 +10480,7 @@ loop_insn_emit_after (loop, where_bb, where_insn, pattern)
 }
 
 
-/* If WHERE_INSN is non-zero emit insn for PATTERN before WHERE_INSN
+/* If WHERE_INSN is nonzero emit insn for PATTERN before WHERE_INSN
    in basic block WHERE_BB (ignored in the interim) within the loop
    otherwise hoist PATTERN into the loop pre-header.  */
 

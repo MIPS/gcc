@@ -53,14 +53,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_PROFILE_COUNTERS
 
-#undef FUNCTION_PROFILER
-#define FUNCTION_PROFILER(FILE, LABELNO)  \
-{									\
-  if (flag_pic)								\
-    fprintf (FILE, "\tcall\t*mcount@GOT(%%ebx)\n");			\
-  else									\
-    fprintf (FILE, "\tcall\tmcount\n");					\
-}
+#undef MCOUNT_NAME
+#define MCOUNT_NAME "mcount"
 
 /* The GLIBC version of mcount for the x86 assumes that there is a
    frame, so we cannot allow profiling without a frame pointer.  */
@@ -230,9 +224,13 @@ Boston, MA 02111-1307, USA.  */
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
 #ifdef IN_LIBGCC2
+/* There's no sys/ucontext.h for some (all?) libc1, so no
+   signal-turned-exceptions for them.  There's also no configure-run for
+   the target, so we can't check on (e.g.) HAVE_SYS_UCONTEXT_H.  Using the
+   target libc1 macro should be enough.  */
+#ifndef USE_GNULIBC_1
 #include <signal.h>
 #include <sys/ucontext.h>
-#endif
 
 #define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
   do {									\
@@ -287,3 +285,5 @@ Boston, MA 02111-1307, USA.  */
     (FS)->retaddr_column = 8;						\
     goto SUCCESS;							\
   } while (0)
+#endif /* not USE_GNULIBC_1 */
+#endif /* IN_LIBGCC2 */

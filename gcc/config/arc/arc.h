@@ -131,7 +131,7 @@ extern int target_flags;
 /* Instruction set characteristics.
    These are internal macros, set by the appropriate -mcpu= option.  */
 
-/* Non-zero means the cpu has a barrel shifter.  */
+/* Nonzero means the cpu has a barrel shifter.  */
 #define TARGET_SHIFTER 0
 
 extern const char *arc_cpu_string;
@@ -149,7 +149,7 @@ extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 extern int arc_cpu_type;
 
 /* Check if CPU is an extension and set `arc_cpu_type' and `arc_mangle_cpu'
-   appropriately.  The result should be non-zero if the cpu is recognized,
+   appropriately.  The result should be nonzero if the cpu is recognized,
    otherwise zero.  This is intended to be redefined in a cover file.
    This is used by arc_init.  */
 #define ARC_EXTENSION_CPU(cpu) 0
@@ -231,7 +231,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -989,7 +989,7 @@ do { \
 #define SELECT_CC_MODE(OP, X, Y) \
 arc_select_cc_mode (OP, X, Y)
 
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
+/* Return nonzero if SELECT_CC_MODE will never return MODE for a
    floating point inequality comparison.  */
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 

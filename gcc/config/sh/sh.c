@@ -2244,6 +2244,10 @@ typedef struct
   rtx label;			/* Label of value.  */
   rtx wend;			/* End of window.  */
   enum machine_mode mode;	/* Mode of value.  */
+
+  /* True if this constant is accessed as part of a post-increment
+     sequence.  Note that HImode constants are never accessed in this way.  */
+  bool part_of_sequence_p;
 } pool_node;
 
 /* The maximum number of constants that can fit into one pool, since
@@ -2317,12 +2321,16 @@ add_constant (x, mode, last_value)
   /* Need a new one.  */
   pool_vector[pool_size].value = x;
   if (last_value && rtx_equal_p (last_value, pool_vector[pool_size - 1].value))
-    lab = 0;
+    {
+      lab = 0;
+      pool_vector[pool_size - 1].part_of_sequence_p = true;
+    }
   else
     lab = gen_label_rtx ();
   pool_vector[pool_size].mode = mode;
   pool_vector[pool_size].label = lab;
   pool_vector[pool_size].wend = NULL_RTX;
+  pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
       newref = gen_rtx_LABEL_REF (VOIDmode, pool_window_label);
@@ -2395,7 +2403,7 @@ dump_table (scan)
 	      break;
 	    case SImode:
 	    case SFmode:
-	      if (align_insn)
+	      if (align_insn && !p->part_of_sequence_p)
 		{
 		  for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		    emit_label_before (lab, align_insn);
@@ -2508,7 +2516,7 @@ dump_table (scan)
   pool_window_last = 0;
 }
 
-/* Return non-zero if constant would be an ok source for a
+/* Return nonzero if constant would be an ok source for a
    mov.w instead of a mov.l.  */
 
 static int
@@ -2520,7 +2528,7 @@ hi_const (src)
 	  && INTVAL (src) <= 32767);
 }
 
-/* Non-zero if the insn is a move instruction which needs to be fixed.  */
+/* Nonzero if the insn is a move instruction which needs to be fixed.  */
 
 /* ??? For a DImode/DFmode moves, we don't need to fix it if each half of the
    CONST_DOUBLE input value is CONST_OK_FOR_I.  For a SFmode move, we don't
@@ -3718,7 +3726,6 @@ machine_dependent_reorg (first)
 	     behind.  */
 	  rtx barrier = find_barrier (num_mova, mova, insn);
 	  rtx last_float_move, last_float = 0, *last_float_addr;
-	  int may_need_align = 1;
 
 	  if (num_mova && ! mova_p (mova))
 	    {
@@ -3776,27 +3783,11 @@ machine_dependent_reorg (first)
 		      if (last_float
 			  && reg_set_between_p (r0_rtx, last_float_move, scan))
 			last_float = 0;
-		      if (TARGET_SHCOMPACT)
-			{
-			  /* The first SFmode constant after a DFmode
-			     constant may be pulled before a sequence
-			     of DFmode constants, so the second SFmode
-			     needs a label, just in case.  */
-			  if (GET_MODE_SIZE (mode) == 4)
-			    {
-			      if (last_float && may_need_align)
-				last_float = 0;
-			      may_need_align = 0;
-			    }
-			  if (last_float
-			      && (GET_MODE_SIZE (GET_MODE (last_float))
-				  != GET_MODE_SIZE (mode)))
-			    {
-			      last_float = 0;
-			      if (GET_MODE_SIZE (mode) == 4)
-				may_need_align = 1;
-			    }
-			}
+		      if (last_float
+			  && TARGET_SHCOMPACT
+			  && GET_MODE_SIZE (mode) != 4
+			  && GET_MODE_SIZE (GET_MODE (last_float)) == 4)
+			last_float = 0;
 		      lab = add_constant (src, mode, last_float);
 		      if (lab)
 			emit_insn_before (gen_mova (lab), scan);
@@ -3862,7 +3853,7 @@ machine_dependent_reorg (first)
   split_branches (first);
 
   /* The INSN_REFERENCES_ARE_DELAYED in sh.h is problematic because it
-     also has an effect on the register that holds the addres of the sfunc.
+     also has an effect on the register that holds the address of the sfunc.
      Insert an extra dummy insn in front of each sfunc that pretends to
      use this register.  */
   if (flag_delayed_branch)
@@ -4442,7 +4433,11 @@ calc_live_regs (count_ptr, live_regs_mask)
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
 	     && reg != T_REG && reg != GBR_REG)
 	  : (/* Only push those regs which are used and need to be saved.  */
-	     regs_ever_live[reg] && ! call_used_regs[reg]))
+	     (TARGET_SHCOMPACT
+	      && flag_pic
+	      && current_function_args_info.call_cookie
+	      && reg == PIC_OFFSET_TABLE_REGNUM)
+	     || (regs_ever_live[reg] && ! call_used_regs[reg])))
 	{
 	  live_regs_mask[reg / 32] |= 1 << (reg % 32);
 	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
@@ -6177,6 +6172,25 @@ binary_float_operator (op, mode)
 }
 
 int
+binary_logical_operator (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_MODE (op) != mode)
+    return 0;
+  switch (GET_CODE (op))
+    {
+    case IOR:
+    case AND:
+    case XOR:
+      return 1;
+    default:
+      break;
+    }
+  return 0;
+}
+
+int
 equality_comparison_operator (op, mode)
      rtx op;
      enum machine_mode mode;
@@ -6429,7 +6443,7 @@ branch_dest (branch)
   return INSN_ADDRESSES (dest_uid);
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels.  It may live past calls or jumps though.  */
 int
@@ -6971,7 +6985,7 @@ sh_can_redirect_branch (branch1, branch2)
   return 0;
 }
 
-/* Return non-zero if register old_reg can be renamed to register new_reg.  */
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
 int
 sh_hard_regno_rename_ok (old_reg, new_reg)
      unsigned int old_reg ATTRIBUTE_UNUSED;
@@ -7137,7 +7151,7 @@ sh_pr_n_sets ()
   return REG_N_SETS (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG);
 }
 
-/* This Function returns non zero if the DFA based scheduler interface
+/* This Function returns nonzero if the DFA based scheduler interface
    is to be used.  At present this is supported for the SH4 only.  */
 static int
 sh_use_dfa_interface()
@@ -7712,6 +7726,50 @@ sh_expand_binop_v2sf (code, op0, op1, op2)
 
   emit_insn ((*fn) (op0, op1, op2, op, sel0, sel0, sel0));
   emit_insn ((*fn) (op0, op1, op2, op, sel1, sel1, sel1));
+}
+
+/* Return the class of registers for which a mode change from FROM to TO
+   is invalid.  */
+enum reg_class 
+sh_cannot_change_mode_class (from, to)
+     enum machine_mode from, to;
+{
+  if (GET_MODE_SIZE (from) != GET_MODE_SIZE (to))
+    {
+       if (TARGET_LITTLE_ENDIAN)
+         {
+	   if (GET_MODE_SIZE (to) < 8 || GET_MODE_SIZE (from) < 8)
+	     return DF_REGS;
+	 }
+       else
+	 {
+	   if (GET_MODE_SIZE (from) < 8)
+	     return DF_HI_REGS;
+	 }
+    }
+  return NO_REGS;
+}
+
+
+/* If ADDRESS refers to a CODE_LABEL, add NUSES to the number of times
+   that label is used.  */
+
+void
+sh_mark_label (address, nuses)
+     rtx address;
+     int nuses;
+{
+  if (GOTOFF_P (address))
+    {
+      /* Extract the label or symbol.  */
+      address = XEXP (address, 0);
+      if (GET_CODE (address) == PLUS)
+	address = XEXP (address, 0);
+      address = XVECEXP (address, 0, 0);
+    }
+  if (GET_CODE (address) == LABEL_REF
+      && GET_CODE (XEXP (address, 0)) == CODE_LABEL)
+    LABEL_NUSES (XEXP (address, 0)) += nuses;
 }
 
 #include "gt-sh.h"
