@@ -1,3 +1,8 @@
+2003-08-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (var_ann_d): Convert is_in_va_arg_expr into a
+	bitfield.
+
 2003-08-27  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-ssa-pre.c: Update comments to reflect reality.

@@ -99,7 +99,7 @@ struct var_ann_d GTY(())
      forces all operands to this variable to always be virtual, because
      VA_ARG_EXPR both reads and modifies its argument and it can't be
      modified by optimizations.  */
-  unsigned is_in_va_arg_expr;
+  unsigned is_in_va_arg_expr : 1;
 
   /* A VAR_DECL used to associated pointers with the memory location that
      they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
