@@ -205,19 +205,24 @@ namespace std
 	    {	 
  	      // At the beginning of the buffer, need to make a
 	      // putback position available.
-	      this->seekoff(-1, ios_base::cur);
-	      this->underflow();
- 	      if (!__testeof)
+ 	      // But the seek may fail (f.i., at the beginning of
+ 	      // a file, see libstdc++/9439) and in that case
+ 	      // we return traits_type::eof()
+ 	      if (this->seekoff(-1, ios_base::cur) >= 0)
  		{
-		  if (!traits_type::eq(__c, *_M_in_cur))
+		  this->underflow();
+		  if (!__testeof)
 		    {
-		      _M_pback_create();
-		      *_M_in_cur = __c;
+		      if (!traits_type::eq(__c, *_M_in_cur))
+			{
+			  _M_pback_create();
+			  *_M_in_cur = __c;
+			}
+		      __ret = __i;
 		    }
- 		  __ret = __i;
- 		}
- 	      else
- 		__ret = traits_type::not_eof(__i);
+		  else
+		    __ret = traits_type::not_eof(__i);
+		}
  	    }
 	}
       _M_last_overflowed = false;	
@@ -431,7 +436,8 @@ namespace std
 	      //in
 	      else if (__testget && __way == ios_base::cur)
 		__computed_off += _M_in_cur - _M_filepos;
-	  
+
+	      // Return pos_type(off_type(-1)) in case of failure.
 	      __ret = _M_file.seekoff(__computed_off, __way, __mode);
 	      _M_set_indeterminate();
 	    }
@@ -439,8 +445,12 @@ namespace std
 	  // state, ie _M_file._offset == -1
 	  else
 	    {
-	      __ret = _M_file.seekoff(__off, ios_base::cur, __mode);
-	      __ret += max(_M_out_cur, _M_in_cur) - _M_filepos;
+ 	      pos_type __tmp =
+ 		_M_file.seekoff(__off, ios_base::cur, __mode);
+ 	      if (__tmp >= 0)
+ 		// Seek successful.
+ 		__ret = __tmp +
+ 		  std::max(this->_M_out_cur, this->_M_in_cur) - _M_filepos;
 	    }
 	}
       _M_last_overflowed = false;	
