@@ -1,3 +1,8 @@
+2004-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/unwind-ia64.c (uw_frame_state_for): Don't assume a
+	leaf function without unwind info at RP 0.
+
 2004-05-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/sparc/linux64.h (TARGET_DEFAULT): Make 64-bit by default
