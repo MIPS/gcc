@@ -414,6 +414,7 @@ extern bool is_ctrl_altering_stmt (tree);
 extern bool is_computed_goto (tree);
 extern void dump_tree_bb (FILE *, const char *, basic_block, int);
 extern void debug_tree_bb (basic_block);
+extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
@@ -523,7 +524,6 @@ static inline bool may_propagate_copy (tree, tree);
 
 /* In tree-must-alias.c  */
 void tree_compute_must_alias (tree);
-
 
 #include "tree-flow-inline.h"
 

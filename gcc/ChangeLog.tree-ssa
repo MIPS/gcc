@@ -1,3 +1,10 @@
+2003-09-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (remove_unreachable_blocks): Clean up.
+	(debug_tree_bb_n): New.
+	(is_ctrl_structure): Remove LOOP_EXPR.
+	* tree-flow.h (debug_tree_bb_n): Declare.
+				
 2003-09-12  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (calculate_live_on_entry): Use default_def to add 

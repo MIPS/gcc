@@ -1751,18 +1751,21 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 bool
 remove_unreachable_blocks (void)
 {
-  basic_block bb;
+  int i;
   bool ret = false;
+  basic_block bb;
 
   find_unreachable_blocks ();
 
   /* Remove unreachable blocks in reverse.  That will expose more unnecessary
      COMPOUND_EXPRs that we can remove.  */
-  FOR_EACH_BB_REVERSE (bb)
+  for (i = last_basic_block - 1; i >= 0; i--)
     {
+      bb = BASIC_BLOCK (i);
+
       /* The block may have been removed in a previous iteration if it was
 	 inside an unreachable control structure.  */
-      if (bb == NULL || bb->index == INVALID_BLOCK)
+      if (bb == NULL)
 	continue;
 
       if (!(bb->flags & BB_REACHABLE))
@@ -2723,6 +2726,14 @@ debug_tree_bb (basic_block bb)
   dump_tree_bb (stderr, "", bb, 0);
 }
 
+/* Dump a basic block N on stderr.  */
+
+basic_block
+debug_tree_bb_n (int n)
+{
+  debug_tree_bb (BASIC_BLOCK (n));
+  return BASIC_BLOCK (n);
+}	 
 
 /* Dump the CFG on stderr.
 
@@ -2998,7 +3009,6 @@ is_ctrl_structure (tree t)
 #endif
 
   return (TREE_CODE (t) == COND_EXPR
-	  || TREE_CODE (t) == LOOP_EXPR
 	  || TREE_CODE (t) == CATCH_EXPR
 	  || TREE_CODE (t) == EH_FILTER_EXPR
 	  || TREE_CODE (t) == TRY_CATCH_EXPR
