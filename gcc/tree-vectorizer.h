@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -146,7 +146,6 @@ extern struct data_reference *vec_analyze_array (struct loop *, tree, tree);
    (for example, to exploit data reuse across loops?).  */
 #undef ANALYZE_ALL_THEN_VECTORIZE_ALL
 
-#define DBG_VEC(A) A
 #define DBG_VECT(A)
 #define DBG_VECT2(A)
 
