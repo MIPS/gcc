@@ -1,3 +1,8 @@
+2002-12-10  Janis Johnson  <janis187@us.ibm.com>
+
+	PR other/8882
+	* doc/tm.texi (PUSH_ARGS): Remove misplaced line.
+
 2002-12-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/linux.h (LIB_SPEC): If -pthread, add -lpthread even if
