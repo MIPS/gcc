@@ -319,6 +319,8 @@ done
 # installed using proper name.
 mv $DEST_DIR$DEST_ROOT/share/man/man1/g++.1 \
    $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1
+ln -f $DEST_DIR$DEST_ROOT/share/man/man1/g++-$MAJ_VERS.1 \
+   $DEST_DIR$DEST_ROOT/share/man/man1/c++-$MAJ_VERS.1
 for t in $TARGETS ; do
   ln -f $DEST_DIR$DEST_ROOT/share/man/man1/gcc-$MAJ_VERS.1 \
      $DEST_DIR$DEST_ROOT/share/man/man1/$t-apple-darwin-gcc-$MAJ_VERS.1
