@@ -1,3 +1,8 @@
+2005-01-09  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3941146
+	* gcc.dg/pr17133.c:  New test.
+
 2004-11-08  Ziemowit Laski  <zlaski@apple.com>
 
         Radar 3853429
