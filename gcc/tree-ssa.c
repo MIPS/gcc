@@ -2693,7 +2693,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */
-      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+      EXECUTE_IF_SET_IN_BITMAP (vars, 0, i,
 	{
 	  var_ann (referenced_var (i))->out_of_ssa_tag = 0;
 	});
