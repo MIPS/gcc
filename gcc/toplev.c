@@ -4284,6 +4284,7 @@ rest_of_compilation (decl)
 	print_rtl_graph_with_bb (dump_base_name, ".flow2", insns);
     }
 
+#ifdef HAVE_peephole2
   if (optimize > 0 && flag_peephole2)
     {
       if (peephole2_dump)
@@ -4298,7 +4299,8 @@ rest_of_compilation (decl)
 	    print_rtl_graph_with_bb (dump_base_name, ".peephole2", insns);
 	}
     }
-	  
+#endif
+
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
       if (sched2_dump)

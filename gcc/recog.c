@@ -2713,6 +2713,7 @@ recog_next_insn (insn, n, newinsn)
   return PATTERN (insn);
 }
 
+#ifdef HAVE_peephole2
 /* Perform the peephole2 optimization pass. */
 void
 peephole2_optimize (dump_file)
@@ -2752,3 +2753,4 @@ peephole2_optimize (dump_file)
 
   free_resource_info ();
 }
+#endif

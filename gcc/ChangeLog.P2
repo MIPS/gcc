@@ -3,6 +3,14 @@
 	* i386.md (movstricthi_1): Fix parenthesis in conditional.
 	(movstrictqi_1): Likewise.
 
+	* genconfig.c (have_peephole_flag, have_peephole2_flag): New.
+	(main): Set them; emit HAVE_foo based on them.
+	* final.c (peephole): Only conditionally declare.
+	(final_scan_insn): Notice HAVE_peephole.
+	* genpeep.c (main): Likewise.
+	* recog.c (peephole2_optimize): Notice HAVE_peephole2.
+	* toplev.c (rest_of_compilation): Likewise.
+
 1999-07-08  Jan Hubicka  <hubicka@freesoft.cz>
 
 	* i386.md: New peep2 patterns for TEST to AND conversion.
