@@ -2758,6 +2758,18 @@ expand_call (exp, target, ignore)
 				       (pass == 0 ? 0
 					: preferred_stack_boundary));
 
+
+      /* We maintain constant offset of stack pointer to frame pointer at
+         entry of each basic block in order to make stack unwinding possible.
+	 The constraint may break when two noreturn calls are unified by
+	 crossjumping but their stack offset differs due to stack adjustment
+	 combining.  Avoid this scenario.   */
+      if ((flags & (ECF_NORETURN))
+	  && unadjusted_args_size
+	  && !ACCUMULATE_OUTGOING_ARGS
+	  && flag_crossjumping)
+	do_pending_stack_adjust ();
+
       old_stack_allocated = stack_pointer_delta - pending_stack_adjust;
 
       /* The argument block when performing a sibling call is the
