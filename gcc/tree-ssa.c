@@ -148,8 +148,8 @@ static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_block (basic_block);
 static void check_for_new_variables (void);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
-static inline void rewrite_operand (tree *, bool);
-static void register_new_def (tree, tree, varray_type *, bool);
+static inline void rewrite_operand (tree *);
+static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type);
 static tree remove_annotations_r (tree *, int *, void *);
 static tree get_reaching_def (tree);
@@ -182,6 +182,7 @@ static inline void set_if_valid (var_map, sbitmap, tree);
 static inline void add_conflicts_if_valid (root_var_p, conflict_graph,
 					   var_map, sbitmap, tree);
 static void replace_variable (var_map, tree *);
+static void eliminate_extraneous_phis (var_map);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.  VARS is an sbitmap representing variables that need to be
@@ -777,7 +778,7 @@ rewrite_block (basic_block bb)
      node introduces a new version for the associated variable.  */
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
-		      &block_defs, false);
+		      &block_defs);
 
   /* Step 2.  Rewrite every variable used in each statement the block with
      its immediate reaching definitions.  Update the current definition of
@@ -985,21 +986,34 @@ eliminate_build (elim_graph g, basic_block B, int i)
   
   for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
     {
-      if (!SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi))
-	  || !SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
-	continue;
-
       T0 = var_to_partition_to_var (g->map, PHI_RESULT (phi));
-      Ti = var_to_partition_to_var (g->map, PHI_ARG_DEF (phi, i));
-      if (T0 != Ti)
+      if (PHI_ARG_EDGE (phi, i) == g->e)
+	Ti = PHI_ARG_DEF (phi, i);
+      else
         {
-	  eliminate_name (g, T0);
-	  eliminate_name (g, Ti);
-	  p0 = var_to_partition (g->map, T0);
-	  pi = var_to_partition (g->map, Ti);
-	  bitmap_set_bit (g->pred[pi], p0);
-	  bitmap_set_bit (g->succ[p0], pi);
-	  edges++;
+	  /* On rare occasions, a PHI node may not have the arguments
+	     in the same order as all of the other PHI nodes. If they don't 
+	     match, find the appropriate index here.  */
+	  pi = phi_arg_from_edge (phi, g->e);
+	  if (pi == -1)
+	    abort();
+	  Ti = PHI_ARG_DEF (phi, pi);
+	}
+      if (TREE_CONSTANT (Ti))
+	insert_copy_on_edge (g->e, T0, Ti);
+      else
+        {
+	  Ti = var_to_partition_to_var (g->map, Ti);
+	  if (T0 != Ti)
+	    {
+	      eliminate_name (g, T0);
+	      eliminate_name (g, Ti);
+	      p0 = var_to_partition (g->map, T0);
+	      pi = var_to_partition (g->map, Ti);
+	      bitmap_set_bit (g->pred[pi], p0);
+	      bitmap_set_bit (g->succ[p0], pi);
+	      edges++;
+	    }
 	}
     }
   return edges;
@@ -1098,8 +1112,6 @@ elim_create (elim_graph g, int T)
 static void
 eliminate_phi (edge e, int i, elim_graph g)
 {
-  tree phi;
-  int num_phi = 0;
   int num_nodes = 0;
   int x, limit;
   basic_block B = e->dest;
@@ -1108,11 +1120,6 @@ eliminate_phi (edge e, int i, elim_graph g)
   if (i == -1)
     abort ();
 #endif
-
-  for (phi = phi_nodes (B); phi; phi = TREE_CHAIN (phi))
-    {
-      num_phi++;
-    }
 
   num_nodes = num_var_partitions (g->map);
   g->e = e;
@@ -1335,20 +1342,21 @@ coalesce_ssa_name (var_map map)
 	       edge, and attempt to coalesce the argument with the result.  */
 	    var = PHI_RESULT (phi);
 
-	    /* Ignore SSA names that have no real references, as those
-	       don't generate code.  */
-	    if (!SSA_NAME_HAS_REAL_REFS (var))
-	      continue;
-
 	    x = var_to_partition (map, var);
 	    y = phi_arg_from_edge (phi, e);
 	    if (y == -1)
 	      abort ();
 
 	    tmp = PHI_ARG_DEF (phi, y);
-	    if (!SSA_NAME_HAS_REAL_REFS (tmp))
-	      continue;
-
+	    if (TREE_CONSTANT (tmp))
+	      {
+		fprintf (stderr, "\nConstant argument in PHI. Can't insert :");
+		print_generic_expr (stderr, var, TDF_SLIM);
+		fprintf (stderr, " = ");
+		print_generic_expr (stderr, tmp, TDF_SLIM);
+		fprintf (stderr, "' across an abnormal edge\n");
+		abort ();
+	      }
 	    y = var_to_partition (map, tmp);
 	    if (x == NO_PARTITION || y == NO_PARTITION)
 	      abort ();
@@ -1474,6 +1482,7 @@ assign_vars (var_map map)
 	     partition doesn't have the same root variable. Simply marked
 	     the variable as assigned.  */
 	  ann = var_ann (var);
+	  set_is_used (var);
 	  ann->out_of_ssa_tag = 1;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1502,6 +1511,7 @@ assign_vars (var_map map)
 	  if (!ann->out_of_ssa_tag)
 	    {
 	      change_partition_var (map, var, i);
+	      set_is_used (var);
 	      continue;
 	    }
 
@@ -1536,24 +1546,27 @@ replace_variable (var_map map, tree *p)
 {
   tree new_var;
   tree var = *p;
-  tree copy;
 
   new_var = var_to_partition_to_var (map, var);
   if (new_var)
     *p = new_var;
-  else
+}
+
+
+/* Remove any PHI node which is not in the partition map.  */
+static void
+eliminate_extraneous_phis (var_map map)
+{
+  basic_block bb;
+  tree phi, next;
+
+  FOR_EACH_BB (bb)
     {
-      /* Replace (*var)_version with just (*var).  */
-      if (TREE_CODE (SSA_NAME_VAR (var)) == INDIRECT_REF)
-	{
-	  tree var2 = TREE_OPERAND (SSA_NAME_VAR (var), 0);
-	  new_var = var_to_partition_to_var (map, var2);
-	  copy = copy_node (SSA_NAME_VAR (var));
-	  if (new_var)
-	    TREE_OPERAND (copy, 0) = new_var;
-	  else
-	    TREE_OPERAND (copy, 0) = var2;
-	  *p = copy;
+      for (phi = phi_nodes (bb); phi; phi = next)
+        {
+	  next = TREE_CHAIN (phi);
+	  if (var_to_partition_to_var (map, PHI_RESULT (phi)) == NULL_TREE)
+	    remove_phi_node (phi, NULL_TREE, bb);
 	}
     }
 }
@@ -1579,6 +1592,7 @@ rewrite_out_of_ssa (tree fndecl)
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   map = create_ssa_var_map ();
+  eliminate_extraneous_phis (map);
 
   /* Shrink the map to include only referenced variables.  Exclude variables
      which have only one SSA version since there is nothing to coalesce.  */
@@ -2033,13 +2047,13 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     {
       tree *op_p = VARRAY_GENERIC_PTR (uses, i);
       if (TREE_CODE (*op_p) != SSA_NAME)
-	rewrite_operand (op_p, true);
+	rewrite_operand (op_p);
     }
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
     if (TREE_CODE (VARRAY_TREE (vuses, i)) != SSA_NAME)
-      rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
+      rewrite_operand (&(VARRAY_TREE (vuses, i)));
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
@@ -2048,7 +2062,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       if (TREE_CODE (*def_p) != SSA_NAME)
 	{
 	  *def_p = make_ssa_name (*def_p, stmt);
-	  register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
+	  register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
 	}
     }
 
@@ -2060,11 +2074,11 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       if (TREE_CODE (VDEF_RESULT (vdef)) == SSA_NAME)
 	continue;
 
-      rewrite_operand (&(VDEF_OP (vdef)), false);
+      rewrite_operand (&(VDEF_OP (vdef)));
 
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
-			VDEF_RESULT (vdef), block_defs_p, false);
+			VDEF_RESULT (vdef), block_defs_p);
     }
 }
 
@@ -2083,7 +2097,7 @@ set_is_used (tree t)
    definition.  IS_REAL_OPERAND is true when this is a USE operand.  */
 
 static inline void
-rewrite_operand (tree *op_p, bool is_real_operand)
+rewrite_operand (tree *op_p)
 {
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
@@ -2091,8 +2105,6 @@ rewrite_operand (tree *op_p, bool is_real_operand)
 #endif
 
   *op_p = get_reaching_def (*op_p);
-  if (is_real_operand)
-    SSA_NAME_HAS_REAL_REFS (*op_p) = true;
 }
 
 
@@ -2101,8 +2113,7 @@ rewrite_operand (tree *op_p, bool is_real_operand)
    IS_REAL_OPERAND is true when DEF is a real definition.  */
 
 static void
-register_new_def (tree var, tree def, varray_type *block_defs_p,
-		  bool is_real_operand)
+register_new_def (tree var, tree def, varray_type *block_defs_p)
 {
   tree currdef = get_value_for (var, currdefs);
 
@@ -2121,9 +2132,6 @@ register_new_def (tree var, tree def, varray_type *block_defs_p,
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_value_for (var, def, currdefs);
-
-  if (is_real_operand)
-    SSA_NAME_HAS_REAL_REFS (def) = true;
 }
 
 

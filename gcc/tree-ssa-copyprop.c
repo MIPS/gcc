@@ -168,9 +168,6 @@ copyprop_phi (tree phi)
 	    }
 
 	  PHI_ARG_DEF (phi, i) = orig;
-
-	  if (SSA_NAME_HAS_REAL_REFS (orig))
-	    SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = 1;
 	}
     }
 }

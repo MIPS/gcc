@@ -1773,8 +1773,12 @@ print_call_name (output_buffer *buffer, tree node)
       break;
 
     case COND_EXPR:
-      PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 1));
-      PRINT_FUNCTION_NAME (TREE_OPERAND (TREE_OPERAND (op0, 0), 2));
+      output_add_string (buffer, "(");
+      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
+      output_add_string (buffer, ") ? ");
+      dump_generic_node (buffer, TREE_OPERAND (op0, 1), 0, 0);
+      output_add_string (buffer, " : ");
+      dump_generic_node (buffer, TREE_OPERAND (op0, 2), 0, 0);
       break;
 
     case COMPONENT_REF:
@@ -1795,6 +1799,10 @@ print_call_name (output_buffer *buffer, tree node)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       else
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+      break;
+
+    case SSA_NAME:
+      dump_generic_node (buffer, op0, 0, 0);
       break;
 
     default:

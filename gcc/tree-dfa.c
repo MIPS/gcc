@@ -889,10 +889,6 @@ add_phi_arg (tree phi, tree def, edge e)
   PHI_ARG_DEF (phi, i) = def;
   PHI_ARG_EDGE (phi, i) = e;
   PHI_NUM_ARGS (phi)++;
-
-  /* Propagate HAS_REAL_REFS to the result of the PHI node.  */
-  if (SSA_NAME_HAS_REAL_REFS (def))
-    SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = true;
 }
 
 
@@ -941,12 +937,6 @@ void
 remove_phi_arg_num (tree phi, int i)
 {
   int num_elem = PHI_NUM_ARGS (phi);
-  bool last_real_arg_p;
-
-  /* If argument ARG was the last argument used as a real operand, we will
-     want to update PHI_RESULT so that it is not considered by the
-     coalescer in the SSA->normal pass.  */
-  last_real_arg_p = SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i));
 
   /* If we are not at the last element, switch the last element
      with the element we want to delete.  */
@@ -960,18 +950,6 @@ remove_phi_arg_num (tree phi, int i)
   PHI_ARG_DEF (phi, num_elem - 1) = NULL_TREE;
   PHI_ARG_EDGE (phi, num_elem - 1) = NULL;
   PHI_NUM_ARGS (phi)--;
-
-  /* Update SSA_NAME_HAS_REAL_REFS for the LHS of the PHI, if needed.  */
-  if (last_real_arg_p)
-    {
-      for (i = 0; i < num_elem - 1; i++)
-	if (SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
-	  return;
-
-      /* There are no arguments left with real references, update the LHS of
-	the PHI.  */
-      SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)) = false;
-    }
 }
 
 

@@ -351,7 +351,7 @@ static void
 visit_phi_node (tree phi)
 {
   int i;
-  value phi_val;
+  value phi_val, *curr_val;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -364,13 +364,21 @@ visit_phi_node (tree phi)
       print_generic_expr (dump_file, phi, 0);
     }
 
-  phi_val.lattice_val = UNDEFINED;
-  phi_val.const_val = NULL_TREE;
+  curr_val = get_value (PHI_RESULT (phi));
+  if (curr_val->lattice_val != CONSTANT)
+    {
+      phi_val.lattice_val = UNDEFINED;
+      phi_val.const_val = NULL_TREE;
+    }
+  else
+    {
+      phi_val.lattice_val = curr_val->lattice_val;
+      phi_val.const_val = curr_val->const_val;
+    }
 
   /* If the variable is volatile or the variable is never referenced in a
      real operand, then consider the PHI node VARYING.  */
-  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi)))
-      || !SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)))
+  if (TREE_THIS_VOLATILE (SSA_NAME_VAR (PHI_RESULT (phi))))
     phi_val.lattice_val = VARYING;
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)

@@ -1,3 +1,46 @@
+2003-07-22  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (visit_phi_node): Assume default value of CONSTANT 
+	if the PHI value was already constant.
+
+2003-07-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-pretty-print.c (print_call_name): Handle COND_EXPR correctly.
+	* tree-pretty-print.c (print_call_name): Handle COND_EXPR correctly and
+	handle SSA_NAME.
+	* tree-dfa.c (add_phi_arg, remove_phi_arg_num): Remove references to 
+	SSA_NAME_HAS_REAL_REFS.
+	* tree-ssa-ccp.c (visit_phi_node): Remove SSA_NAME_HAS_REAL_REFS.
+	* tree-ssa-copyprop.c (copyprop_phi): Remove SSA_NAME_HAS_REAL_REFS.
+	* tree-ssa-live.c (register_ssa_partition): Register the PHI and it's 
+	arguments if this variable is defined by a PHI.
+	(create_ssa_var_map): Only register real uses and defs, and virtual
+	operands of ASM_EXPR's. Remove SSA_NAME_HAS_REAL_REFS. Don't set 
+	used flag on variables here.
+	(calculate_live_on_entry): Ignore constants in PHI arguments.
+	(calculate_live_on_exit): Ignore constants in PHI arguments.
+	(dump_live_info): New. Dump live range information.
+	* tree-ssa-live.h (dump_live_info): New prototype and flags.
+	* tree-ssa-pre.c (create_expr_ref, finalize_1, repair_use_injury, 
+	code_motion): Remove SSA_NAME_HAS_REAL_REFS.
+	* tree-ssa.c (rewrite_operand, register_new_def): Remove real_ref 
+	parameter and SSA_NAME_HAS_REAL_REFS.
+	(rewrite_block): Remove real_ref parameter from register_new_def call.
+	(eliminate_build): Remove SSA_NAME_HAS_REAL_REFS. Insert copy if PHI
+	argument is a constant. Handle irregular PHI argument ordering.
+	(elim_create): Remove dead code to count PHI nodes.
+	(assign_vars): Set used flag on variables when assigned.
+	(replace_variable): Eliminate dead code.
+	(coalesce_ssa_name): Remove SSA_NAME_HAS_REAL_REFS. Print error for
+	constant argument across an abnormal edge.
+	(eliminate_extraneous_phis): New. Remove PHI nodes which are not in
+	the partition.
+	(rewrite_out_of_ssa): Call eliminate_extraneous_phis. 
+	(rewrite_stmt): Remove real_ref parameter from rewrite_operand and 
+	register_new_def.
+	* tree.h (SSA_NAME_HAS_REAL_REFS): Remove.
+	(struct tree_ssa_name): Remove 'has_real_refs' field.
+
 2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (factor_through_injuries): Take new argument specifying
@@ -17,7 +60,7 @@
 	necessary due to PHI.
 	(repair_use_injury): Note the repair in the stats. Insert repair
 	in right place.
-    (repair_euse_injury): Fix handling of PHI_NODE.
+	(repair_euse_injury): Fix handling of PHI_NODE.
 	(code_motion): Fix algorithm so it can handle using reaching_def all the
 	time (needed for SR).
 	Use reaching_def rather than EREF_TEMP.

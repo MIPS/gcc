@@ -519,7 +519,6 @@ create_expr_ref (struct expr_info *ei, tree expr, enum tree_code type,
 	len++;
 
       EREF_TEMP (ret) = make_phi_node (ei->temp, len);
-      SSA_NAME_HAS_REAL_REFS (PHI_RESULT (EREF_TEMP (ret))) = true;
     }
   else
     ret = make_node (type);
@@ -2024,7 +2023,6 @@ finalize_1 (struct expr_info *ei)
 		  EREF_STMT (x) = NULL;
 		  expr = *EREF_STMT (tempx);		  
 		  newtemp = make_ssa_name (temp, expr);
-		  SSA_NAME_HAS_REAL_REFS (newtemp) = true;
 		  TREE_OPERAND (expr, 0) = newtemp;
 		  copy = TREE_OPERAND (expr, 1);
 		  EREF_TEMP (x) = newtemp;
@@ -2517,7 +2515,6 @@ repair_use_injury (struct expr_info *ei, tree use, tree temp)
 	  continue;
       expr = build (MODIFY_EXPR, TREE_TYPE (temp), temp, expr);
       newtemp = make_ssa_name (temp, expr);
-      SSA_NAME_HAS_REAL_REFS (newtemp) = true;
       modify_stmt (expr);
       TREE_OPERAND (expr, 0) = newtemp;
       set_bb_for_stmt (expr, bb_for_stmt (injury));
@@ -2683,7 +2680,6 @@ code_motion (struct expr_info *ei)
 	  walk_tree (&copy, copy_tree_r, NULL, NULL);
 	  newexpr = build (MODIFY_EXPR, TREE_TYPE (temp), temp, copy);
 	  newtemp = make_ssa_name (temp, newexpr);
-	  SSA_NAME_HAS_REAL_REFS (newtemp) = true;
 	  EREF_TEMP (use) = newtemp;
 	  TREE_OPERAND (newexpr, 0) = newtemp;
 	  TREE_OPERAND (*use_stmt_p, 1) = newtemp;

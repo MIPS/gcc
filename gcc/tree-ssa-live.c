@@ -101,9 +101,29 @@ delete_var_map (var_map map)
 static inline void
 register_ssa_partition (var_map map, tree ssa_var)
 {
+  tree stmt, arg;
+  int version, i;
+
+#if defined ENABLE_CHECKING
   if (TREE_CODE (ssa_var) != SSA_NAME)
     abort ();
-  map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
+#endif
+
+  version = SSA_NAME_VERSION (ssa_var);
+  if (map->partition_to_var[version] == NULL_TREE)
+    {
+      map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
+
+      /* If this is a PHI node, register all the PHI elements as well.  */
+      stmt = SSA_NAME_DEF_STMT (ssa_var);
+      if (stmt && TREE_CODE (stmt) == PHI_NODE)
+	for (i = 0; i < PHI_NUM_ARGS (stmt); i++)
+	  {
+	    arg = PHI_ARG_DEF (stmt, i);
+	    if (!TREE_CONSTANT (arg))
+	      register_ssa_partition (map, arg);
+	  }
+    }
 }
 
 /* This function will combine 2 partitions.  */
@@ -286,10 +306,9 @@ create_ssa_var_map (void)
   block_stmt_iterator bsi;
   basic_block bb;
   tree *dest, *use;
-  tree stmt, phi;
+  tree stmt;
   varray_type ops;
   unsigned x;
-  int i;
   var_map map;
 
   map = init_var_map (next_ssa_version + 1);
@@ -307,7 +326,6 @@ create_ssa_var_map (void)
 	    {
 	      use = VARRAY_GENERIC_PTR (ops, x);
 	      register_ssa_partition (map, *use);
-	      set_is_used (*use);
 	    }
 
 	  ops = def_ops (stmt);
@@ -315,7 +333,6 @@ create_ssa_var_map (void)
 	    {
 	      dest = VARRAY_GENERIC_PTR (ops, x);
 	      register_ssa_partition (map, *dest);
-	      set_is_used (*dest);
 	    }
 
 	  /* While we do not care about virtual operands for
@@ -328,27 +345,6 @@ create_ssa_var_map (void)
 	  ops = vdef_ops (stmt);
 	  for (x = 0; ops && x < VARRAY_ACTIVE_SIZE (ops); x++)
 	    set_is_used (VDEF_OP (VARRAY_TREE (ops, x)));
-	}
-
-      /* Now register elements of PHI nodes.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
-	  /* Only register PHI node variables that have had real uses in
-	     the program.  */
-	  if (SSA_NAME_HAS_REAL_REFS (PHI_RESULT (phi)))
-	    {
-	      register_ssa_partition (map, PHI_RESULT (phi));
-	      set_is_used (PHI_RESULT (phi));
-
-	      /* Similarly, only register PHI arguments that have had real uses
-		in the program.  */
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		if (SSA_NAME_HAS_REAL_REFS (PHI_ARG_DEF (phi, i)))
-		  {
-		    register_ssa_partition (map, PHI_ARG_DEF (phi, i));
-		    set_is_used (PHI_ARG_DEF (phi, i));
-		  }
-	    }
 	}
     }
 
@@ -493,6 +489,8 @@ calculate_live_on_entry (var_map map)
 	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
 	      var = PHI_ARG_DEF (phi, i);
+	      if (TREE_CONSTANT (var))
+	        continue;
 	      stmt = SSA_NAME_DEF_STMT (var);
 	      e = PHI_ARG_EDGE (phi, i);
 	      /* Any uses in PHIs which either don't have def's or are not
@@ -620,7 +618,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 	    { 
 	      t = PHI_ARG_DEF (phi, i);
 	      e = PHI_ARG_EDGE (phi, i);
-	      if (e->src == ENTRY_BLOCK_PTR)
+	      if (TREE_CONSTANT (t) || e->src == ENTRY_BLOCK_PTR)
 	        continue;
 	      set_if_valid (map, on_exit[e->src->index], t);
 	    }
@@ -812,3 +810,45 @@ dump_var_map (FILE *f, var_map map)
     }
   fprintf (f, "\n");
 }
+
+/* Output live range info.  */
+
+void
+dump_live_info (FILE *f, tree_live_info_p live, int flag)
+{
+  basic_block bb;
+  int i;
+  var_map map = live->map;
+
+  if ((flag & LIVEDUMP_ENTRY) && live->livein)
+    {
+      FOR_EACH_BB (bb)
+	{
+	  fprintf (f, "\nLive on entry to BB%d : ", bb->index);
+	  for (i = 0; i < num_var_partitions (map); i++)
+	    {
+	      if (TEST_BIT (live_entry_blocks (live, i), bb->index))
+	        {
+		  print_generic_expr (f, partition_to_var (map, i), TDF_SLIM);
+		  fprintf (f, "  ");
+		}
+	    }
+	  fprintf (f, "\n");
+	}
+    }
+
+  if ((flag & LIVEDUMP_EXIT) && live->liveout)
+    {
+      FOR_EACH_BB (bb)
+	{
+	  fprintf (f, "\nLive on exit from BB%d : ", bb->index);
+	  EXECUTE_IF_SET_IN_SBITMAP (live->liveout[bb->index], 0, i,
+	    {
+	      print_generic_expr (f, partition_to_var (map, i), TDF_SLIM);
+	      fprintf (f, "  ");
+	    });
+	  fprintf (f, "\n");
+	}
+    }
+}
+

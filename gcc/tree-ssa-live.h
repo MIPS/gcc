@@ -180,6 +180,11 @@ extern tree_live_info_p calculate_live_on_entry (var_map);
 extern void calculate_live_on_exit (tree_live_info_p);
 extern void delete_tree_live_info (tree_live_info_p);
 
+#define LIVEDUMP_ENTRY	0x01
+#define LIVEDUMP_EXIT	0x02
+#define LIVEDUMP_ALL	(LIVEDUMP_ENTRY | LIVEDUMP_EXIT)
+extern void dump_live_info (FILE *, tree_live_info_p, int);
+
 
 static inline int partition_is_global (tree_live_info_p, int);
 static inline sbitmap live_entry_blocks (tree_live_info_p, int);
