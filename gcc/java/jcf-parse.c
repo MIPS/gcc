@@ -874,7 +874,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   char *list, *next;
   tree node;
   FILE *finput = NULL;
-
+  int in_quotes = 0;
+ 
   if (flag_filelist_file)
     {
       int avail = 2000;
@@ -917,8 +918,9 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       for (next = list; ; )
 	{
 	  char ch = *next;
-	  if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' '
-	      || ch == '&' /* FIXME */)
+	  if (flag_filelist_file && ! in_quotes
+	      && (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' '
+		  || ch == '&') /* FIXME */)
 	    {
 	      if (next == list)
 		{
@@ -931,6 +933,15 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 		  *next++ = '\0';
 		  break;
 		}
+	    }
+	  if (flag_filelist_file && ch == '"')
+	    {
+	      in_quotes = ! in_quotes;
+	      *next++ = '\0';
+	      if (in_quotes) 
+		list = next;
+	      else 
+		break;
 	    }
 	  if (ch == '\0')
 	    {
