@@ -559,7 +559,7 @@ while (0)
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
-#ifdef IN_LIBGCC2
+#if defined(IN_LIBGCC2) && !defined(inhibit_libc)
 #include <signal.h>
 #ifdef __powerpc64__
 #include <sys/ucontext.h>
@@ -582,9 +582,7 @@ struct kernel_old_ucontext {
 enum { SIGNAL_FRAMESIZE = 64 };
 #endif
 
-#endif
-
-#ifdef __powerpc64__
+#ifdef __powerpc64__ 
 
 /* If the current unwind info (FS) does not contain explicit info
    saving R2, then we have to do a minor amount of code reading to
@@ -731,5 +729,7 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)
+
+#endif
 
 #endif

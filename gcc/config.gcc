@@ -1736,13 +1736,22 @@ avr-*-*)
 #	tmake_file="${tmake_file} rs6000/t-fprules "
 #	extra_headers=
 #	;;
-powerpc64-*-linux*)
+powerpc64-*-linux*|powerpc-wrs-linux-gnu)
 	tm_file="rs6000/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	case x$with_cpu in
 	x|xpowerpc64|xdefault64) tm_file="${tm_file} rs6000/default64.h";;
 	esac
 	tm_file="${tm_file} rs6000/linux64.h"
-	tmake_file="rs6000/t-fprules t-slibgcc-elf-ver t-linux rs6000/t-ppccomm rs6000/t-linux64"
+	tmake_file="rs6000/t-fprules t-slibgcc-elf-ver t-linux rs6000/t-ppccomm" 
+	case ${target} in
+	powerpc-wrs-linux-gnu)
+		# This configuration does not use t-linux64, as there
+	        # are no 64-bit multilibs.  
+		;;
+	*)
+		tmake_file="$tmake_file rs6000/t-linux64"
+		;;
+	esac
 	;;
 powerpc64-*-gnu*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux64.h rs6000/gnu.h"
@@ -1817,11 +1826,6 @@ powerpc-*-linux*spe*)
 powerpc-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos t-slibgcc-elf-ver t-linux rs6000/t-ppccomm"
-	case ${target} in
-	powerpc-wrs-linux-gnu) 
-	  	target_cpu_default="\\\"603\\\""
-	        ;;
-	esac
 	;;
 powerpc-*-gnu-gnualtivec*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h rs6000/gnu.h"

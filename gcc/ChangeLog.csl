@@ -1,3 +1,9 @@
+2005-01-27  Mark Mitchell <mark@codesourcery.com>
+
+	* config.gcc (powerpc-wrs-linux-gnu): Add 64-bit support.
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Define
+	only in libgcc and when inhibit_libc is not defined.
+	
 2005-01-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* version.c (version_string): Update.
