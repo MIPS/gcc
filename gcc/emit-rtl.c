@@ -3478,8 +3478,6 @@ reorder_insns (from, to, after)
     {
       rtx x;
       bb->flags |= BB_DIRTY;
-
-      bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
 	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
@@ -5032,11 +5030,11 @@ emit_copy_of_insn_after (insn, after)
       break;
 
     case JUMP_INSN:
-      new = emit_jump_insn (copy_insn (PATTERN (insn)));
+      new = emit_jump_insn_after (copy_insn (PATTERN (insn)), after);
       break;
 
     case CALL_INSN:
-      new = emit_call_insn (copy_insn (PATTERN (insn)));
+      new = emit_call_insn_after (copy_insn (PATTERN (insn)), after);
       if (CALL_INSN_FUNCTION_USAGE (insn))
 	CALL_INSN_FUNCTION_USAGE (new)
 	  = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));

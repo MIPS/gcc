@@ -2260,6 +2260,8 @@ can_hoist_insn_p (insn, val, live)
 	return false;
       break;
     case USE:
+      /* USES do have sick semantics, so do not move them.  */
+      return false;
       break;
     case CLOBBER:
       if (!hoist_test_store (XEXP (pat, 0), val, live))
@@ -2276,6 +2278,10 @@ can_hoist_insn_p (insn, val, live)
 		return false;
 	      break;
 	    case USE:
+	      /* We need to fix callers to really ensure availability
+	         of all values inisn uses, but for now it is safe to prohibit
+		 hoisting of any insn having such a hiden uses.  */
+	      return false;
 	      break;
 	    case CLOBBER:
 	      if (!hoist_test_store (SET_DEST (x), val, live))
