@@ -6432,7 +6432,9 @@ bundling (dump, verbose, prev_head_insn, tail)
 	       curr_state->cost,
 	       curr_state->before_nops_num, curr_state->after_nops_num,
 	       curr_state->accumulated_insns_num, curr_state->branch_deviation,
-	       ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state,
+	       (ia64_cpu == PROCESSOR_ITANIUM
+		? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
+		: ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
 	       INSN_UID (insn));
 	  }
     }
@@ -6481,7 +6483,9 @@ bundling (dump, verbose, prev_head_insn, tail)
 	     curr_state->cost,
 	     curr_state->before_nops_num, curr_state->after_nops_num,
 	     curr_state->accumulated_insns_num, curr_state->branch_deviation,
-	     ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state,
+	     (ia64_cpu == PROCESSOR_ITANIUM
+	      ? ((struct DFA_chip *) curr_state->dfa_state)->oneb_automaton_state
+	      : ((struct DFA_chip *) curr_state->dfa_state)->twob_automaton_state),
 	     INSN_UID (insn));
 	}
       max_pos = get_max_pos (curr_state->dfa_state);
@@ -6961,33 +6965,64 @@ ia64_reorg (insns)
 	  add_cycles = (int *) xmalloc (clocks_length * sizeof (int));
 	  memset (add_cycles, 0, clocks_length * sizeof (int));
 	}
-      pos_1 = get_cpu_unit_code ("1_1");
-      pos_2 = get_cpu_unit_code ("1_2");
-      pos_3 = get_cpu_unit_code ("1_3");
-      pos_4 = get_cpu_unit_code ("1_4");
-      pos_5 = get_cpu_unit_code ("1_5");
-      pos_6 = get_cpu_unit_code ("1_6");
-      _0mii_ = get_cpu_unit_code ("1b_0mii.");
-      _0mmi_ = get_cpu_unit_code ("1b_0mmi.");
-      _0mfi_ = get_cpu_unit_code ("1b_0mfi.");
-      _0mmf_ = get_cpu_unit_code ("1b_0mmf.");
-      _0bbb_ = get_cpu_unit_code ("1b_0bbb.");
-      _0mbb_ = get_cpu_unit_code ("1b_0mbb.");
-      _0mib_ = get_cpu_unit_code ("1b_0mib.");
-      _0mmb_ = get_cpu_unit_code ("1b_0mmb.");
-      _0mfb_ = get_cpu_unit_code ("1b_0mfb.");
-      _0mlx_ = get_cpu_unit_code ("1b_0mlx.");
-      _1mii_ = get_cpu_unit_code ("1b_1mii.");
-      _1mmi_ = get_cpu_unit_code ("1b_1mmi.");
-      _1mfi_ = get_cpu_unit_code ("1b_1mfi.");
-      _1mmf_ = get_cpu_unit_code ("1b_1mmf.");
-      _1bbb_ = get_cpu_unit_code ("1b_1bbb.");
-      _1mbb_ = get_cpu_unit_code ("1b_1mbb.");
-      _1mib_ = get_cpu_unit_code ("1b_1mib.");
-      _1mmb_ = get_cpu_unit_code ("1b_1mmb.");
-      _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
-      _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
-      
+      if (ia64_cpu == PROCESSOR_ITANIUM2)
+	{
+	  pos_1 = get_cpu_unit_code ("2_1");
+	  pos_2 = get_cpu_unit_code ("2_2");
+	  pos_3 = get_cpu_unit_code ("2_3");
+	  pos_4 = get_cpu_unit_code ("2_4");
+	  pos_5 = get_cpu_unit_code ("2_5");
+	  pos_6 = get_cpu_unit_code ("2_6");
+	  _0mii_ = get_cpu_unit_code ("2b_0mii.");
+	  _0mmi_ = get_cpu_unit_code ("2b_0mmi.");
+	  _0mfi_ = get_cpu_unit_code ("2b_0mfi.");
+	  _0mmf_ = get_cpu_unit_code ("2b_0mmf.");
+	  _0bbb_ = get_cpu_unit_code ("2b_0bbb.");
+	  _0mbb_ = get_cpu_unit_code ("2b_0mbb.");
+	  _0mib_ = get_cpu_unit_code ("2b_0mib.");
+	  _0mmb_ = get_cpu_unit_code ("2b_0mmb.");
+	  _0mfb_ = get_cpu_unit_code ("2b_0mfb.");
+	  _0mlx_ = get_cpu_unit_code ("2b_0mlx.");
+	  _1mii_ = get_cpu_unit_code ("2b_1mii.");
+	  _1mmi_ = get_cpu_unit_code ("2b_1mmi.");
+	  _1mfi_ = get_cpu_unit_code ("2b_1mfi.");
+	  _1mmf_ = get_cpu_unit_code ("2b_1mmf.");
+	  _1bbb_ = get_cpu_unit_code ("2b_1bbb.");
+	  _1mbb_ = get_cpu_unit_code ("2b_1mbb.");
+	  _1mib_ = get_cpu_unit_code ("2b_1mib.");
+	  _1mmb_ = get_cpu_unit_code ("2b_1mmb.");
+	  _1mfb_ = get_cpu_unit_code ("2b_1mfb.");
+	  _1mlx_ = get_cpu_unit_code ("2b_1mlx.");
+	}
+      else
+	{
+	  pos_1 = get_cpu_unit_code ("1_1");
+	  pos_2 = get_cpu_unit_code ("1_2");
+	  pos_3 = get_cpu_unit_code ("1_3");
+	  pos_4 = get_cpu_unit_code ("1_4");
+	  pos_5 = get_cpu_unit_code ("1_5");
+	  pos_6 = get_cpu_unit_code ("1_6");
+	  _0mii_ = get_cpu_unit_code ("1b_0mii.");
+	  _0mmi_ = get_cpu_unit_code ("1b_0mmi.");
+	  _0mfi_ = get_cpu_unit_code ("1b_0mfi.");
+	  _0mmf_ = get_cpu_unit_code ("1b_0mmf.");
+	  _0bbb_ = get_cpu_unit_code ("1b_0bbb.");
+	  _0mbb_ = get_cpu_unit_code ("1b_0mbb.");
+	  _0mib_ = get_cpu_unit_code ("1b_0mib.");
+	  _0mmb_ = get_cpu_unit_code ("1b_0mmb.");
+	  _0mfb_ = get_cpu_unit_code ("1b_0mfb.");
+	  _0mlx_ = get_cpu_unit_code ("1b_0mlx.");
+	  _1mii_ = get_cpu_unit_code ("1b_1mii.");
+	  _1mmi_ = get_cpu_unit_code ("1b_1mmi.");
+	  _1mfi_ = get_cpu_unit_code ("1b_1mfi.");
+	  _1mmf_ = get_cpu_unit_code ("1b_1mmf.");
+	  _1bbb_ = get_cpu_unit_code ("1b_1bbb.");
+	  _1mbb_ = get_cpu_unit_code ("1b_1mbb.");
+	  _1mib_ = get_cpu_unit_code ("1b_1mib.");
+	  _1mmb_ = get_cpu_unit_code ("1b_1mmb.");
+	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
+	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
+	}
       schedule_ebbs (rtl_dump_file);
       finish_bundle_states ();
       if (ia64_cpu == PROCESSOR_ITANIUM)
