@@ -20,7 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* This is the contribution to the `default_compilers' array in gcc.c for
-   g++.  */
+   g++.  When editing it, kindly also edit objcp/lang-specs.h as needed.
+ */
 
 #ifndef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC 0

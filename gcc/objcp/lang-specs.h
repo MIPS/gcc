@@ -1,5 +1,5 @@
 /* Definitions for specs for Objective-C++.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -20,10 +20,11 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* This is the contribution to the `default_compilers' array in gcc.c for
-   g++.  */
+   obj-c++.  It is based on -- and should be kept in sync with -- the g++
+   spec (found in cp/lang-specs.h).  */
 
-#ifndef OBJCPLUSPLUS_CPP_SPEC
-#define OBJCPLUSPLUS_CPP_SPEC 0
+#ifndef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC 0
 #endif
 
   {".mm",  "@objective-c++", 0},
@@ -37,7 +38,7 @@ Boston, MA 02111-1307, USA.  */
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\
         -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*}%V}}}",
-     OBJCPLUSPLUS_CPP_SPEC},
+     CPLUSPLUS_CPP_SPEC},
   {"@objective-c++",
     "%{E|M|MM:cc1objplus -E %(cpp_options) %2 %(cpp_debug_options)}\
      %{!E:%{!M:%{!MM:\
@@ -47,7 +48,7 @@ Boston, MA 02111-1307, USA.  */
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\
        %{!fsyntax-only:%(invoke_as)}}}}",
-     OBJCPLUSPLUS_CPP_SPEC},
+     CPLUSPLUS_CPP_SPEC},
   {".mii", "@objective-c++-cpp-output", 0},
   {"@objective-c++-cpp-output",
    "%{!M:%{!MM:%{!E:\
