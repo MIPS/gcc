@@ -262,14 +262,14 @@ static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void 
 static void
 mf_init_extern_trees ()
 {
+  tree tmp;
+
   static int done = 0;
   if (done) return;
 
 #define mf_lookup_name(id) \
-  ({ tree t = lookup_name (id); \
-     if (t == NULL_TREE) \
-       internal_error ("mudflap: cannot find declarations from mf-runtime.h"); \
-   t; })
+  (tmp = lookup_name (id), \
+   (tmp ? tmp : (internal_error ("mudflap: cannot find declarations from mf-runtime.h"), tmp)))
 
   mf_uintptr_type = TREE_TYPE (mf_lookup_name (get_identifier ("uintptr_t")));
 
