@@ -1,5 +1,13 @@
 2003-03-12  Jeff Law  <law@redhat.com>
 
+	* c-decl.c (finish_function): No longer save/restore the
+	current filename or linenumber around simplification.  Instead
+	save/restore it around inlining.
+	(c_expand_body_1): Save/restore current filename and linenumber
+	around expansion of trees into RTL.
+	* gimplify.c (simplify_function_tree): Make the current file/line
+	number match the non-gimple code at the end of a function.
+
 	* tree-cfg.c: Include toplev.h.
 	(remove_bb): Warn about unreachable code.
 

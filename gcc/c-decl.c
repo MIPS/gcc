@@ -6351,8 +6351,6 @@ finish_function (nested, can_defer_p)
      int can_defer_p;
 {
   tree fndecl = current_function_decl;
-  int saved_lineno;
-  const char *saved_filename;
 
 #if 0
   /* This caused &foo to be of type ptr-to-const-function which then
@@ -6409,12 +6407,6 @@ finish_function (nested, can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
-  /* Genericizing can change the current line number and filename.
-     We need to save/restore so that we can emit the proper line
-     note for the end of the function later.  */
-  saved_lineno = lineno;
-  saved_filename = input_filename;
-
   /* Genericize before inlining.  */
   if (!flag_disable_simple)
     c_genericize (fndecl);
@@ -6425,10 +6417,6 @@ finish_function (nested, can_defer_p)
      CFUN.  Do so explicitly.  */
   free_after_compilation (cfun);
   cfun = NULL;
-
-  /* Restore file and line information.  */
-  lineno = saved_lineno;
-  input_filename = saved_filename;
 
   if (flag_unit_at_a_time && can_defer_p)
     {
@@ -6466,6 +6454,12 @@ finish_function (nested, can_defer_p)
 
       if (flag_inline_trees)
 	{
+	  /* Inlining can change the current line number and filename.
+	     We need to save/restore so that we can emit the proper line
+	     note for the end of the function later.  */
+	  int saved_lineno = lineno;
+	  const char *saved_filename = input_filename;
+
 	  /* First, cache whether the current function is inlinable.  Some
 	     predicates depend on cfun and current_function_decl to
 	     function completely.  */
@@ -6487,6 +6481,9 @@ finish_function (nested, can_defer_p)
 	  
 	  /* Then, inline any functions called in it.  */
 	  optimize_inline_calls (fndecl);
+
+	  lineno = saved_lineno;
+	  saved_filename = input_filename;
 	  timevar_pop (TV_INTEGRATION);
 	}
 
@@ -6536,6 +6533,8 @@ c_expand_body_1 (fndecl, nested_p)
      tree fndecl;
      int nested_p;
 {
+  const char *saved_input_filename = input_filename;
+  int saved_lineno = lineno;
   timevar_push (TV_EXPAND);
 
   if (nested_p)
@@ -6627,6 +6626,9 @@ c_expand_body_1 (fndecl, nested_p)
      above us from being collected while we're compiling this function.  */
   if (nested_p)
     ggc_push_context ();
+
+  input_filename = saved_input_filename;
+  lineno = saved_lineno;
 
   /* Run the optimizers and output the assembler code for this function.  */
   rest_of_compilation (fndecl);

@@ -194,6 +194,8 @@ simplify_function_tree (fndecl)
   int done;
   tree oldfn;
   tree tmp;
+  const char *saved_input_filename = input_filename;
+  int saved_lineno = lineno;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -230,6 +232,13 @@ simplify_function_tree (fndecl)
     {
       fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
       TREE_SIDE_EFFECTS (fnbody) = 1;
+      lineno = get_lineno (fndecl);
+      input_filename = get_filename (fndecl);
+    }
+  else
+    {
+      lineno = saved_lineno;
+      input_filename = saved_input_filename;
     }
 
   DECL_SAVED_TREE (fndecl) = fnbody;
