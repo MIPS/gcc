@@ -1,5 +1,6 @@
 /* top.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1999, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1999, 2001, 2003
+   Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -177,10 +178,6 @@ int
 ffe_handle_option (size_t scode, const char *arg, int value)
 {
   enum opt_code code = (enum opt_code) scode;
-
-  /* Ignore file names.  */
-  if (code == N_OPTS)
-    return 1;
 
   switch (code)
     {
@@ -633,7 +630,7 @@ ffe_file (ffewhereFile wf, FILE *f)
    Performs per-image invocation.  */
 
 void
-ffe_init_0 ()
+ffe_init_0 (void)
 {
   ++ffe_count_0;
   ffe_in_0 = TRUE;
@@ -668,7 +665,7 @@ ffe_init_0 ()
    Performs per-source-file invocation (not including INCLUDEd files).	*/
 
 void
-ffe_init_1 ()
+ffe_init_1 (void)
 {
   ++ffe_count_1;
   ffe_in_1 = TRUE;
@@ -708,7 +705,7 @@ ffe_init_1 ()
    Performs per-program-unit invocation.  */
 
 void
-ffe_init_2 ()
+ffe_init_2 (void)
 {
   ++ffe_count_2;
   ffe_in_2 = TRUE;
@@ -752,7 +749,7 @@ ffe_init_2 ()
    of inits, from 0-3, breaks here; level 4 must be invoked independently).  */
 
 void
-ffe_init_3 ()
+ffe_init_3 (void)
 {
   ++ffe_count_3;
   ffe_in_3 = TRUE;
@@ -788,7 +785,7 @@ ffe_init_3 ()
    ffe_init_4();  */
 
 void
-ffe_init_4 ()
+ffe_init_4 (void)
 {
   ++ffe_count_4;
   ffe_in_4 = TRUE;
@@ -821,7 +818,7 @@ ffe_init_4 ()
    ffe_terminate_0();  */
 
 void
-ffe_terminate_0 ()
+ffe_terminate_0 (void)
 {
   ffe_count_1 = 0;
   ffe_in_0 = FALSE;
@@ -854,7 +851,7 @@ ffe_terminate_0 ()
    ffe_terminate_1();  */
 
 void
-ffe_terminate_1 ()
+ffe_terminate_1 (void)
 {
   ffe_count_2 = 0;
   ffe_in_1 = FALSE;
@@ -893,7 +890,7 @@ ffe_terminate_1 ()
    ffe_terminate_2();  */
 
 void
-ffe_terminate_2 ()
+ffe_terminate_2 (void)
 {
   ffe_count_3 = 0;
   ffe_in_2 = FALSE;
@@ -932,7 +929,7 @@ ffe_terminate_2 ()
    ffe_terminate_3();  */
 
 void
-ffe_terminate_3 ()
+ffe_terminate_3 (void)
 {
   ffe_count_4 = 0;
   ffe_in_3 = FALSE;
@@ -969,7 +966,7 @@ ffe_terminate_3 ()
    ffe_terminate_4();  */
 
 void
-ffe_terminate_4 ()
+ffe_terminate_4 (void)
 {
   ffe_in_4 = FALSE;
 

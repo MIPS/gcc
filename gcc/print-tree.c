@@ -47,10 +47,9 @@ static struct bucket **table;
    down to a depth of six.  */
 
 void
-debug_tree (node)
-     tree node;
+debug_tree (tree node)
 {
-  table = (struct bucket **) xcalloc (HASH_SIZE, sizeof (struct bucket *));
+  table = xcalloc (HASH_SIZE, sizeof (struct bucket *));
   print_node (stderr, "", node, 0);
   free (table);
   table = 0;
@@ -60,11 +59,7 @@ debug_tree (node)
 /* Print a node in brief fashion, with just the code, address and name.  */
 
 void
-print_node_brief (file, prefix, node, indent)
-     FILE *file;
-     const char *prefix;
-     tree node;
-     int indent;
+print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 {
   char class;
 
@@ -77,8 +72,8 @@ print_node_brief (file, prefix, node, indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s ", prefix, tree_code_name[(int) TREE_CODE (node)]);
-  fprintf (file, HOST_PTR_PRINTF, (char *) node);
+  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
+	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
 
   if (class == 'd')
     {
@@ -141,9 +136,7 @@ print_node_brief (file, prefix, node, indent)
 }
 
 void
-indent_to (file, column)
-     FILE *file;
-     int column;
+indent_to (FILE *file, int column)
 {
   int i;
 
@@ -158,11 +151,7 @@ indent_to (file, column)
    starting in column INDENT.  */
 
 void
-print_node (file, prefix, node, indent)
-     FILE *file;
-     const char *prefix;
-     tree node;
-     int indent;
+print_node (FILE *file, const char *prefix, tree node, int indent)
 {
   int hash;
   struct bucket *b;
@@ -211,7 +200,7 @@ print_node (file, prefix, node, indent)
       }
 
   /* Add this node to the table.  */
-  b = (struct bucket *) xmalloc (sizeof (struct bucket));
+  b = xmalloc (sizeof (struct bucket));
   b->node = node;
   b->next = table[hash];
   table[hash] = b;
@@ -220,8 +209,8 @@ print_node (file, prefix, node, indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s ", prefix, tree_code_name[(int) TREE_CODE (node)]);
-  fprintf (file, HOST_PTR_PRINTF, (char *) node);
+  fprintf (file, "%s <%s " HOST_PTR_PRINTF,
+	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
 
   /* Print the name, if any.  */
   if (class == 'd')
@@ -458,8 +447,8 @@ print_node (file, prefix, node, indent)
 	       && DECL_SAVED_INSNS (node) != 0)
 	{
 	  indent_to (file, indent + 4);
-	  fprintf (file, "saved-insns ");
-	  fprintf (file, HOST_PTR_PRINTF, (char *) DECL_SAVED_INSNS (node));
+	  fprintf (file, "saved-insns " HOST_PTR_PRINTF,
+		   (void *) DECL_SAVED_INSNS (node));
 	}
 
       /* Print the decl chain only if decl is at second level.  */
@@ -612,7 +601,7 @@ print_node (file, prefix, node, indent)
 	      indent_to (file, indent + 4);
 	      fprintf (file, "rtl %d ", i);
 	      if (TREE_OPERAND (node, i))
-		print_rtl (file, (struct rtx_def *) TREE_OPERAND (node, i));
+		print_rtl (file, (rtx) TREE_OPERAND (node, i));
 	      else
 		fprintf (file, "(nil)");
 	      fprintf (file, "\n");

@@ -62,14 +62,14 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static ffenameSpace ffeglobal_filewide_ = NULL;
 static const char *const ffeglobal_type_string_[] =
 {
-  [FFEGLOBAL_typeNONE] "??",
-  [FFEGLOBAL_typeMAIN] "main program",
-  [FFEGLOBAL_typeEXT] "external",
-  [FFEGLOBAL_typeSUBR] "subroutine",
-  [FFEGLOBAL_typeFUNC] "function",
-  [FFEGLOBAL_typeBDATA] "block data",
-  [FFEGLOBAL_typeCOMMON] "common block",
-  [FFEGLOBAL_typeANY] "?any?"
+  [FFEGLOBAL_typeNONE] = "??",
+  [FFEGLOBAL_typeMAIN] = "main program",
+  [FFEGLOBAL_typeEXT] = "external",
+  [FFEGLOBAL_typeSUBR] = "subroutine",
+  [FFEGLOBAL_typeFUNC] = "function",
+  [FFEGLOBAL_typeBDATA] = "block data",
+  [FFEGLOBAL_typeCOMMON] = "common block",
+  [FFEGLOBAL_typeANY] = "?any?"
 };
 #endif
 
@@ -107,8 +107,7 @@ ffeglobal_new_ (ffename n)
 
   assert (n != NULL);
 
-  g = (ffeglobal) malloc_new_ks (malloc_pool_image (), "FFEGLOBAL",
-				 sizeof (*g));
+  g = malloc_new_ks (malloc_pool_image (), "FFEGLOBAL", sizeof (*g));
   g->n = n;
   g->hook = FFECOM_globalNULL;
   g->tick = 0;
@@ -124,7 +123,7 @@ ffeglobal_new_ (ffename n)
    ffeglobal_init_1();	*/
 
 void
-ffeglobal_init_1 ()
+ffeglobal_init_1 (void)
 {
 #if FFEGLOBAL_ENABLED
   if (ffeglobal_filewide_ != NULL)
@@ -780,10 +779,9 @@ ffeglobal_proc_def_nargs (ffesymbol s, int n_args)
       return;
     }
 
-  g->u.proc.arg_info
-    = (ffeglobalArgInfo_) malloc_new_ks (malloc_pool_image (),
-					 "ffeglobalArgInfo_",
-					 n_args * sizeof (g->u.proc.arg_info[0]));
+  g->u.proc.arg_info = malloc_new_ks (malloc_pool_image (),
+				      "ffeglobalArgInfo_",
+				      n_args * sizeof (g->u.proc.arg_info[0]));
   while (n_args-- > 0)
     g->u.proc.arg_info[n_args].t = NULL;
 }
@@ -1123,10 +1121,9 @@ ffeglobal_proc_ref_nargs (ffesymbol s, int n_args, ffelexToken t)
       return TRUE;
     }
 
-  g->u.proc.arg_info
-    = (ffeglobalArgInfo_) malloc_new_ks (malloc_pool_image (),
-					 "ffeglobalArgInfo_",
-					 n_args * sizeof (g->u.proc.arg_info[0]));
+  g->u.proc.arg_info = malloc_new_ks (malloc_pool_image (),
+				      "ffeglobalArgInfo_",
+				      n_args * sizeof (g->u.proc.arg_info[0]));
   while (n_args-- > 0)
     g->u.proc.arg_info[n_args].t = NULL;
 
@@ -1584,6 +1581,6 @@ ffeglobal_size_common (ffesymbol s, ffetargetOffset size)
 
 #endif
 void
-ffeglobal_terminate_1 ()
+ffeglobal_terminate_1 (void)
 {
 }

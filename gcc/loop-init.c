@@ -31,8 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Initialize loop optimizer.  */
 
 struct loops *
-loop_optimizer_init (dumpfile)
-     FILE *dumpfile;
+loop_optimizer_init (FILE *dumpfile)
 {
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
@@ -93,9 +92,7 @@ loop_optimizer_init (dumpfile)
 
 /* Finalize loop optimizer.  */
 void
-loop_optimizer_finalize (loops, dumpfile)
-     struct loops *loops;
-     FILE *dumpfile;
+loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 {
   basic_block bb;
 
@@ -106,16 +103,13 @@ loop_optimizer_finalize (loops, dumpfile)
       if (bb->next_bb != EXIT_BLOCK_PTR)
 	bb->rbi->next = bb->next_bb;
 
-  if (loops)
-    {
-      /* Another dump.  */
-      flow_loops_dump (loops, dumpfile, NULL, 1);
-      
-      /* Clean up.  */
-      flow_loops_free (loops);
-      free (loops);
-    }
- 
+  /* Another dump.  */
+  flow_loops_dump (loops, dumpfile, NULL, 1);
+
+  /* Clean up.  */
+  flow_loops_free (loops);
+  free (loops);
+
   /* Finalize changes.  */
   if (cfg_level == AT_RTL_LEVEL)
     cfg_layout_finalize ();
@@ -125,4 +119,3 @@ loop_optimizer_finalize (loops, dumpfile)
   verify_flow_info ();
 #endif
 }
-

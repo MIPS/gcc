@@ -150,8 +150,7 @@ static void
 read_counts_file (void)
 {
   gcov_unsigned_t fn_ident = 0;
-  gcov_unsigned_t version, checksum = -1;
-  unsigned ix;
+  gcov_unsigned_t checksum = -1;
   counts_entry_t *summaried = NULL;
   unsigned seen_summary = 0;
   gcov_unsigned_t tag;
@@ -160,28 +159,28 @@ read_counts_file (void)
   if (!gcov_open (da_file_name, 1))
     return;
 
-  if (gcov_read_unsigned () != GCOV_DATA_MAGIC)
+  if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
     {
       warning ("`%s' is not a gcov data file", da_file_name);
       gcov_close ();
       return;
     }
-  else if ((version = gcov_read_unsigned ()) != GCOV_VERSION)
+  else if ((tag = gcov_read_unsigned ()) != GCOV_VERSION)
     {
       char v[4], e[4];
-      gcov_unsigned_t required = GCOV_VERSION;
 
-      for (ix = 4; ix--; required >>= 8, version >>= 8)
-	{
-	  v[ix] = version;
-	  e[ix] = required;
-	}
+      GCOV_UNSIGNED2STRING (v, tag);
+      GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
+
       warning ("`%s' is version `%.4s', expected version `%.4s'",
-	       da_file_name, v, e);
+ 	       da_file_name, v, e);
       gcov_close ();
       return;
     }
 
+  /* Read and discard the stamp.  */
+  gcov_read_unsigned ();
+  
   counts_hash = htab_create (10,
 			     htab_counts_entry_hash, htab_counts_entry_eq,
 			     htab_counts_entry_del);
@@ -233,7 +232,7 @@ read_counts_file (void)
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
 	{
 	  counts_entry_t **slot, *entry, elt;
-	  unsigned n_counts = length / 8;
+	  unsigned n_counts = GCOV_TAG_COUNTER_NUM (length);
 	  unsigned ix;
 
 	  elt.ident = fn_ident;
@@ -443,8 +442,9 @@ coverage_begin_output (void)
 	    error ("cannot open %s", bbg_file_name);
 	  else
 	    {
-	      gcov_write_unsigned (GCOV_GRAPH_MAGIC);
+	      gcov_write_unsigned (GCOV_NOTE_MAGIC);
 	      gcov_write_unsigned (GCOV_VERSION);
+	      gcov_write_unsigned (local_tick);
 	    }
 	  bbg_file_opened = 1;
 	}
@@ -708,6 +708,14 @@ build_gcov_info (void)
   fields = field;
   value = tree_cons (field, null_pointer_node, value);
 
+  /* stamp */
+  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  TREE_CHAIN (field) = fields;
+  fields = field;
+  value = tree_cons (field, convert (unsigned_intSI_type_node,
+				     build_int_2 (local_tick, 0)),
+		     value);
+
   /* Filename */
   string_type = build_pointer_type (build_qualified_type (char_type_node,
 						    TYPE_QUAL_CONST));
@@ -880,14 +888,14 @@ coverage_init (const char *filename)
   int len = strlen (filename);
 
   /* Name of da file.  */
-  da_file_name = (char *) xmalloc (len + strlen (GCOV_DATA_SUFFIX) + 1);
+  da_file_name = xmalloc (len + strlen (GCOV_DATA_SUFFIX) + 1);
   strcpy (da_file_name, filename);
   strcat (da_file_name, GCOV_DATA_SUFFIX);
 
   /* Name of bbg file.  */
-  bbg_file_name = (char *) xmalloc (len + strlen (GCOV_GRAPH_SUFFIX) + 1);
+  bbg_file_name = xmalloc (len + strlen (GCOV_NOTE_SUFFIX) + 1);
   strcpy (bbg_file_name, filename);
-  strcat (bbg_file_name, GCOV_GRAPH_SUFFIX);
+  strcat (bbg_file_name, GCOV_NOTE_SUFFIX);
 
   read_counts_file ();
 }
@@ -905,13 +913,9 @@ coverage_finish (void)
 
       if (error)
 	unlink (bbg_file_name);
-#if SELF_COVERAGE
-      /* If the compiler is instrumented, we should not
-         unconditionally remove the counts file, because we might be
-         recompiling ourselves. The .da files are all removed during
-         copying the stage1 files.  */
-      if (error)
-#endif
+      if (!local_tick)
+	/* Only remove the da file, if we cannot stamp it. If we can
+	   stamp it, libgcov will DTRT.  */
 	unlink (da_file_name);
     }
 }

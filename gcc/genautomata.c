@@ -1922,15 +1922,15 @@ gen_automaton (rtx def)
 void
 gen_automata_option (rtx def)
 {
-  if (strcmp ((char *) XSTR (def, 0), NO_MINIMIZATION_OPTION + 1) == 0)
+  if (strcmp (XSTR (def, 0), NO_MINIMIZATION_OPTION + 1) == 0)
     no_minimization_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), TIME_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), TIME_OPTION + 1) == 0)
     time_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), V_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), V_OPTION + 1) == 0)
     v_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), W_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), W_OPTION + 1) == 0)
     w_flag = 1;
-  else if (strcmp ((char *) XSTR (def, 0), NDFA_OPTION + 1) == 0)
+  else if (strcmp (XSTR (def, 0), NDFA_OPTION + 1) == 0)
     ndfa_flag = 1;
   else
     fatal ("invalid option `%s' in automata_option", XSTR (def, 0));
@@ -8572,7 +8572,7 @@ output_dead_lock_func (void)
 static void
 output_internal_reset_func (void)
 {
-  fprintf (output_file, "static void\n%s (struct %s *%s)\n",
+  fprintf (output_file, "static inline void\n%s (struct %s *%s)\n",
 	   INTERNAL_RESET_FUNC_NAME, CHIP_NAME, CHIP_PARAMETER_NAME);
   fprintf (output_file, "{\n  memset (%s, 0, sizeof (struct %s));\n}\n\n",
 	   CHIP_PARAMETER_NAME, CHIP_NAME);
@@ -8842,8 +8842,7 @@ output_get_cpu_unit_code_func (void)
 	   LOW_VARIABLE_NAME, MIDDLE_VARIABLE_NAME, HIGH_VARIABLE_NAME);
   fprintf (output_file, "  static struct %s %s [] =\n    {\n",
 	   NAME_CODE_STRUCT_NAME, NAME_CODE_TABLE_NAME);
-  units = (unit_decl_t *) xmalloc (sizeof (unit_decl_t)
-				   * description->units_num);
+  units = xmalloc (sizeof (unit_decl_t) * description->units_num);
   memcpy (units, units_array, sizeof (unit_decl_t) * description->units_num);
   qsort (units, description->units_num, sizeof (unit_decl_t), units_cmp);
   for (i = 0; i < description->units_num; i++)
@@ -8927,7 +8926,7 @@ output_dfa_start_func (void)
   fprintf (output_file,
 	   "void\n%s (void)\n{\n  %s = get_max_uid ();\n",
 	   DFA_START_FUNC_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
-  fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
+  fprintf (output_file, "  %s = xmalloc (%s * sizeof (int));\n",
 	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   fprintf (output_file, "  %s ();\n}\n\n", DFA_CLEAN_INSN_CACHE_FUNC_NAME);
 }
@@ -9437,7 +9436,7 @@ make_insn_alts_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (INSN_ALTS_FUNC_NAME) + 1,
 				   "*%s", INSN_ALTS_FUNC_NAME),
-		      condexp, 0);
+		      condexp, ATTR_NONE);
 }
 
 
@@ -9474,7 +9473,7 @@ make_internal_dfa_insn_code_attr (void)
     (attr_printf (sizeof ("*")
 		  + strlen (INTERNAL_DFA_INSN_CODE_FUNC_NAME) + 1,
 		  "*%s", INTERNAL_DFA_INSN_CODE_FUNC_NAME),
-     condexp, 0);
+     condexp, ATTR_STATIC);
 }
 
 
@@ -9508,7 +9507,7 @@ make_default_insn_latency_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (INSN_DEFAULT_LATENCY_FUNC_NAME)
 				   + 1, "*%s", INSN_DEFAULT_LATENCY_FUNC_NAME),
-		      condexp, 0);
+		      condexp, ATTR_NONE);
 }
 
 
@@ -9557,7 +9556,7 @@ make_bypass_attr (void)
   make_internal_attr (attr_printf (sizeof ("*")
 				   + strlen (BYPASS_P_FUNC_NAME) + 1,
 				   "*%s", BYPASS_P_FUNC_NAME),
-		      result_rtx, 0);
+		      result_rtx, ATTR_NONE);
 }
 
 

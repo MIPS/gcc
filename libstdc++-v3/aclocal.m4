@@ -311,7 +311,8 @@ dnl
 dnl Define SECTION_LDFLAGS='-Wl,--gc-sections' if possible.
 dnl Define OPT_LDFLAGS='-Wl,-O1' if possible.
 dnl Define LD, with_gnu_ld, and (possibly) glibcxx_gnu_ld_version as
-dnl side-effects of testing.
+dnl side-effects of testing.  The last will be a single integer, e.g.,
+dnl version 1.23.45.0.67.89 will set glibcxx_gnu_ld_version to 12345.
 dnl
 dnl GLIBCXX_CHECK_LINKER_FEATURES
 AC_DEFUN(GLIBCXX_CHECK_LINKER_FEATURES, [
@@ -2173,6 +2174,23 @@ AC_DEFUN(GLIBCXX_CHECK_POLL, [
   fi
 ])
 
+dnl
+dnl Check whether writev is available in <sys/uio.h>.
+dnl
+
+AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
+  AC_CACHE_VAL(glibcxx_cv_WRITEV, [
+    AC_TRY_COMPILE([#include <sys/uio.h>],
+                [struct iovec iov[2]; writev(0, iov, 0); ],
+                [glibcxx_cv_WRITEV=yes],
+                [glibcxx_cv_WRITEV=no])
+  ])
+  if test x$glibcxx_cv_WRITEV = xyes; then
+    AC_DEFINE(HAVE_WRITEV)
+  fi
+])
+
+
 # Check whether LC_MESSAGES is available in <locale.h>.
 # Ulrich Drepper <drepper@cygnus.com>, 1995.
 #
@@ -2270,37 +2288,33 @@ if test $enable_symvers != no; then
   AC_MSG_RESULT($glibcxx_shared_libgcc)
 fi
 
-# For GNU ld, we need at least this version.  It's 2.14 in the same format
-# as the tested-for version.  See GLIBCXX_CHECK_LINKER_FEATURES for more.
+# For GNU ld, we need at least this version.  The format is described in
+# GLIBCXX_CHECK_LINKER_FEATURES above.
 glibcxx_min_gnu_ld_version=21400
 
-# Check to see if unspecified "yes" value can win, given results
-# above.
+# Check to see if unspecified "yes" value can win, given results above.
+# Change "yes" into either "no" or a style name.
 if test $enable_symvers = yes ; then
   if test $with_gnu_ld = yes &&
-    test $glibcxx_shared_libgcc = yes ;
+     test $glibcxx_shared_libgcc = yes ;
   then
     if test $glibcxx_gnu_ld_version -ge $glibcxx_min_gnu_ld_version ; then
-        enable_symvers=gnu
+      enable_symvers=gnu
     else
-      ac_test_CFLAGS="${CFLAGS+set}"
-      ac_save_CFLAGS="$CFLAGS"
-      CFLAGS='-shared -Wl,--version-script,conftest.map'
+      # The right tools, the right setup, but too old.  Fallbacks?
+      AC_MSG_WARN(=== Linker version $glibcxx_gnu_ld_version is too old for)
+      AC_MSG_WARN(=== full symbol versioning support in this release of GCC.)
+      AC_MSG_WARN(=== You would need to upgrade your binutils to version)
+      AC_MSG_WARN(=== $glibcxx_min_gnu_ld_version or later and rebuild GCC.)
+      AC_MSG_WARN([=== Symbol versioning will be disabled.])
       enable_symvers=no
-      changequote(,)
-      echo 'FOO { global: f[a-z]o; local: *; };' > conftest.map
-      changequote([,])
-      AC_TRY_LINK([int foo;],, enable_symvers=gnu)
-      if test "$ac_test_CFLAGS" = set; then
-	CFLAGS="$ac_save_CFLAGS"
-      else
-	# this is the suspicious part
-	CFLAGS=''
-      fi
-      rm -f conftest.map
     fi
   else
     # just fail for now
+    AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
+    AC_MSG_WARN([=== either you are not using a supported linker, or you are])
+    AC_MSG_WARN([=== not building a shared libgcc_s (which is required).])
+    AC_MSG_WARN([=== Symbol versioning will be disabled.])
     enable_symvers=no
   fi
 fi
@@ -2317,7 +2331,7 @@ case $enable_symvers in
 esac
 
 AC_SUBST(SYMVER_MAP)
-AC_SUBST(port_specific_symbol_file)
+AC_SUBST(port_specific_symbol_files)
 AM_CONDITIONAL(GLIBCXX_BUILD_VERSIONED_SHLIB, test $enable_symvers != no)
 AC_MSG_CHECKING([versioning on shared library symbols])
 AC_MSG_RESULT($enable_symvers)

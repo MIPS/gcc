@@ -41,6 +41,7 @@ namespace std
   // moneypunct, money_get, and money_put
   template class moneypunct<char, false>;
   template class moneypunct<char, true>;
+  template struct __moneypunct_cache<char>;
   template class moneypunct_byname<char, false>;
   template class moneypunct_byname<char, true>;
   template class money_get<char, istreambuf_iterator<char> >;
@@ -49,6 +50,7 @@ namespace std
 #ifdef _GLIBCXX_USE_WCHAR_T
   template class moneypunct<wchar_t, false>;
   template class moneypunct<wchar_t, true>;
+  template struct __moneypunct_cache<wchar_t>;
   template class moneypunct_byname<wchar_t, false>;
   template class moneypunct_byname<wchar_t, true>;
   template class money_get<wchar_t, istreambuf_iterator<wchar_t> >;
@@ -64,40 +66,40 @@ namespace std
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
-		   long) const;
+    _M_insert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		  long) const;
 
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
-		   unsigned long) const;
+    _M_insert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		  unsigned long) const;
 
 #ifdef _GLIBCXX_USE_LONG_LONG
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
-		   long long) const;
+    _M_insert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		  long long) const;
 
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
-		   unsigned long long) const;
+    _M_insert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		  unsigned long long) const;
 #endif
 
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
-		     double) const;
+    _M_insert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
+		    double) const;
 
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
-		     long double) const;
+    _M_insert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
+		    long double) const;
   
 #ifdef _GLIBCXX_USE_WCHAR_T
   template class numpunct<wchar_t>;
@@ -109,44 +111,45 @@ namespace std
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
-		   long) const;
+    _M_insert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
+		  long) const;
 
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
-		   unsigned long) const;
+    _M_insert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
+		  unsigned long) const;
 
 #ifdef _GLIBCXX_USE_LONG_LONG
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
-		   long long) const;
+    _M_insert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
+		  long long) const;
 
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
-		   unsigned long long) const;
+    _M_insert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
+		  unsigned long long) const;
 #endif
 
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
-		     double) const;
-
+    _M_insert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
+		    double) const;
+  
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
-		     long double) const;
+    _M_insert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
+		    long double) const;
 #endif
 
   // time_get and time_put
   template class __timepunct<char>;
+  template struct __timepunct_cache<char>;
   template class time_put<char, ostreambuf_iterator<char> >;
   template class time_put_byname<char, ostreambuf_iterator<char> >;
   template class time_get<char, istreambuf_iterator<char> >;
@@ -154,6 +157,7 @@ namespace std
 
 #ifdef _GLIBCXX_USE_WCHAR_T
   template class __timepunct<wchar_t>;
+  template struct __timepunct_cache<wchar_t>;
   template class time_put<wchar_t, ostreambuf_iterator<wchar_t> >;
   template class time_put_byname<wchar_t, ostreambuf_iterator<wchar_t> >;
   template class time_get<wchar_t, istreambuf_iterator<wchar_t> >;

@@ -24,6 +24,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "splay-tree.h"
 #include "cpplib.h"
+#include "ggc.h"
 
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
@@ -223,6 +224,13 @@ struct c_common_identifier GTY(())
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
+/* In a RECORD_TYPE, a sorted array of the fields of the type, not a tree for size reasons.  */
+struct sorted_fields_type GTY(())
+{
+  int len;
+  tree GTY((length ("%h.len"))) elts[1];
+};
+
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
@@ -344,6 +352,9 @@ extern void c_finish_while_stmt_cond (tree, tree);
 
 enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
 extern void shadow_warning (enum sw_kind, const char *, tree);
+extern int field_decl_cmp (const void *, const void *);
+extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
+                                  void *);
 
 /* Extra information associated with a DECL.  Other C dialects extend
    this structure in various ways.  The C front-end only uses this
@@ -353,7 +364,6 @@ extern void shadow_warning (enum sw_kind, const char *, tree);
 struct c_lang_decl GTY(()) {
   unsigned declared_inline : 1;
 };
-
 
 /* Nonzero if we can read a PCH file now.  */
 
@@ -840,6 +850,11 @@ extern int max_tinst_depth;
 
 extern int skip_evaluation;
 
+/* The count of input filenames.  Only really valid for comparisons
+   against 1.  */
+
+extern unsigned num_in_fnames;
+
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
 #define C_TYPE_OBJECT_P(type) \
@@ -891,6 +906,8 @@ extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
 extern void c_common_insert_default_attributes (tree);
 extern int c_common_handle_option (size_t code, const char *arg, int value);
+extern void c_common_handle_filename (const char *filename);
+extern bool c_common_missing_argument (const char *opt, size_t code);
 extern tree c_common_type_for_mode (enum machine_mode, int);
 extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_unsigned_type (tree);
@@ -955,6 +972,14 @@ extern HOST_WIDE_INT c_common_get_alias_set (tree);
 extern bool c_promoting_integer_type_p (tree);
 extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
+
+/* This function resets the parsers' state in preparation for parsing
+   a new file.  */
+extern void c_reset_state (void);
+/* This is the basic parsing function.  */
+extern void c_parse_file (void);
+/* This is misnamed, it actually performs end-of-compilation processing.  */
+extern void finish_file	(void);
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -1118,11 +1143,11 @@ enum c_tree_code {
    langhook should take care of initialization of this array.  */
 extern bool statement_code_p[MAX_TREE_CODES];
 
-#define STATEMENT_CODE_P(CODE) statement_code_p[(size_t) (CODE)]
+#define STATEMENT_CODE_P(CODE) statement_code_p[(int) (CODE)]
 
 #define INIT_STATEMENT_CODES(STMT_CODES)			\
   do {								\
-    size_t i;						\
+    unsigned int i;						\
     memset (&statement_code_p, 0, sizeof (statement_code_p));	\
     for (i = 0; i < ARRAY_SIZE (STMT_CODES); i++)		\
       statement_code_p[STMT_CODES[i]] = true;			\
@@ -1274,6 +1299,7 @@ extern void c_common_write_pch (void);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
+extern int c_estimate_num_insns (tree decl);
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);

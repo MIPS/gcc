@@ -46,7 +46,7 @@ struct lang_identifier GTY(())
 
 union lang_tree_node 
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -109,8 +109,7 @@ struct lang_decl GTY(())
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type GTY(())
 {
-  int len;
-  tree GTY((length ("%h.len"))) elts[1];
+  struct sorted_fields_type * GTY ((reorder ("resort_sorted_fields"))) s; 
 };
 
 /* Record whether a type or decl was written with nonconstant size.
@@ -146,10 +145,20 @@ struct lang_type GTY(())
 	|| (TYPE_ARG_TYPES (TREE_TYPE (EXP)) == 0	\
 	    && !DECL_BUILT_IN (EXP)))
 
+/* Nonzero for a decl which is at file scope.  */
+#define C_DECL_FILE_SCOPE(EXP) 					\
+  (! DECL_CONTEXT (EXP)						\
+   || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
 /* For FUNCTION_TYPE, a hidden list of types of arguments.  The same as
    TYPE_ARG_TYPES for functions with prototypes, but created for functions
    without prototypes.  */
 #define TYPE_ACTUAL_ARG_TYPES(NODE) TYPE_BINFO (NODE)
+
+/* Values for the first parameter to poplevel.  */
+#define KEEP_NO		0
+#define KEEP_YES	1
+#define KEEP_MAYBE	2
 
 
 /* in c-lang.c and objc-act.c */
@@ -157,7 +166,6 @@ extern tree lookup_interface (tree);
 extern tree is_class_name (tree);
 extern tree objc_is_id (tree);
 extern void objc_check_decl (tree);
-extern void finish_file (void);
 extern int objc_comptypes (tree, tree, int);
 extern tree objc_message_selector (void);
 extern tree lookup_objc_ivar (tree);
@@ -172,7 +180,6 @@ extern void gen_aux_info_record (tree, int, int, int);
 
 /* in c-decl.c */
 extern int global_bindings_p (void);
-extern int kept_level_p (void);
 extern tree getdecls (void);
 extern void pushlevel (int);
 extern void insert_block (tree);
@@ -188,7 +195,9 @@ extern tree build_enumerator (tree, tree);
 extern void check_for_loop_decls (void);
 extern void clear_parm_order (void);
 extern int  complete_array_type (tree, tree, int);
-extern void declare_parm_level (int);
+extern void declare_parm_level (void);
+extern void undeclared_variable (tree);
+extern tree declare_label (tree);
 extern tree define_label (location_t, tree);
 extern void finish_decl (tree, tree, tree);
 extern tree finish_enum (tree, tree, tree);
@@ -206,14 +215,10 @@ extern void parmlist_tags_warning (void);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
-extern void pop_label_level (void);
-extern void push_label_level (void);
 extern void push_parm_decl (tree);
 extern tree pushdecl_top_level (tree);
-extern tree pushdecl_function_level (tree, tree);
 extern void pushtag (tree, tree);
 extern tree set_array_declarator_type (tree, tree, int);
-extern tree shadow_label (tree);
 extern void shadow_tag (tree);
 extern void shadow_tag_warned (tree, int);
 extern tree start_enum (tree);
@@ -225,7 +230,9 @@ extern tree xref_tag (enum tree_code, tree);
 extern tree c_begin_compound_stmt (void);
 extern void c_expand_deferred_function (tree);
 extern int c_expand_decl (tree);
+extern void c_static_assembler_name (tree);
 extern tree make_pointer_declarator (tree, tree);
+extern void merge_translation_unit_decls (void);
 
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (tree);
@@ -242,9 +249,17 @@ extern bool c_warn_unused_global_decl (tree);
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 
 #define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
+
 /* in c-typeck.c */
+
+/* For use with comptypes.  */
+enum {
+  COMPARE_STRICT = 0,
+  COMPARE_DIFFERENT_TU = 1
+};
+
 extern tree require_complete_type (tree);
-extern int comptypes (tree, tree);
+extern int comptypes (tree, tree, int);
 extern tree c_size_in_bytes (tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (tree, tree);
@@ -301,6 +316,7 @@ extern int system_header_p;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
+extern void c_write_global_declarations (void);
 
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;

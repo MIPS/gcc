@@ -162,6 +162,9 @@ toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
 
 toolexecmainlib_DATA = libgcj.spec
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libgcj.pc
+
 jardir = $(datadir)/java
 jar_DATA = libgcj-@gcc_version@.jar
 
@@ -519,6 +522,8 @@ gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
 gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/EmbeddedWindow.java \
+gnu/java/awt/EmbeddedWindowSupport.java \
 gnu/java/awt/EventModifier.java \
 gnu/java/awt/GLightweightPeer.java \
 gnu/java/awt/image/ImageDecoder.java \
@@ -1868,7 +1873,6 @@ gnu/java/locale/LocaleInformation_zh_SG.java \
 gnu/java/locale/LocaleInformation_zh_TW.java \
 gnu/java/math/MPN.java \
 gnu/java/nio/DatagramChannelImpl.java \
-gnu/java/nio/FileChannelImpl.java \
 gnu/java/nio/FileLockImpl.java \
 gnu/java/nio/PipeImpl.java \
 gnu/java/nio/SelectionKeyImpl.java \
@@ -2029,6 +2033,7 @@ java/nio/channels/ClosedSelectorException.java \
 java/nio/channels/ConnectionPendingException.java \
 java/nio/channels/DatagramChannel.java \
 java/nio/channels/FileChannel.java \
+java/nio/channels/FileChannelImpl.java \
 java/nio/channels/FileLock.java \
 java/nio/channels/FileLockInterruptionException.java \
 java/nio/channels/GatheringByteChannel.java \
@@ -2333,7 +2338,7 @@ gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natStackTrace.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/runtime/natVMClassLoader.cc \
-gnu/java/nio/natFileChannelImpl.cc \
+gnu/java/awt/natEmbeddedWindow.cc \
 gnu/java/nio/natFileLockImpl.cc \
 gnu/java/nio/natSelectorImpl.cc \
 java/io/natFile.cc \
@@ -2365,6 +2370,7 @@ java/net/natInetAddress.cc \
 java/net/natPlainDatagramSocketImpl.cc \
 java/net/natPlainSocketImpl.cc \
 java/nio/natDirectByteBufferImpl.cc \
+java/nio/channels/natFileChannelImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natTimeZone.cc \
@@ -2438,6 +2444,7 @@ AM_MAKEFLAGS = \
 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
 	"CFLAGS=$(CFLAGS)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
+	"CPPFLAGS=$(CPPFLAGS)" \
 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
@@ -2484,7 +2491,7 @@ MULTIDO = true
 MULTICLEAN = true
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 CONFIG_HEADER = ./include/config.h ./gcj/libgcj-config.h
-CONFIG_CLEAN_FILES =  libgcj.spec libgcj-test.spec
+CONFIG_CLEAN_FILES =  libgcj.pc libgcj.spec libgcj-test.spec
 LTLIBRARIES =  $(toolexeclib_LTLIBRARIES)
 
 
@@ -2507,7 +2514,7 @@ gnu/gcj/io/shs.lo gnu/gcj/protocol/core/natCoreInputStream.lo \
 gnu/gcj/runtime/natFinalizerThread.lo gnu/gcj/runtime/natFirstThread.lo \
 gnu/gcj/runtime/natNameFinder.lo gnu/gcj/runtime/natSharedLibLoader.lo \
 gnu/gcj/runtime/natStackTrace.lo gnu/gcj/runtime/natStringBuffer.lo \
-gnu/gcj/runtime/natVMClassLoader.lo gnu/java/nio/natFileChannelImpl.lo \
+gnu/gcj/runtime/natVMClassLoader.lo gnu/java/awt/natEmbeddedWindow.lo \
 gnu/java/nio/natFileLockImpl.lo gnu/java/nio/natSelectorImpl.lo \
 java/io/natFile.lo java/io/natFileDescriptor.lo \
 java/io/natObjectInputStream.lo java/io/natVMObjectStreamClass.lo \
@@ -2522,7 +2529,8 @@ java/lang/reflect/natConstructor.lo java/lang/reflect/natField.lo \
 java/lang/reflect/natMethod.lo java/lang/reflect/natProxy.lo \
 java/net/natNetworkInterface.lo java/net/natInetAddress.lo \
 java/net/natPlainDatagramSocketImpl.lo java/net/natPlainSocketImpl.lo \
-java/nio/natDirectByteBufferImpl.lo java/text/natCollator.lo \
+java/nio/natDirectByteBufferImpl.lo \
+java/nio/channels/natFileChannelImpl.lo java/text/natCollator.lo \
 java/util/natResourceBundle.lo java/util/natTimeZone.lo \
 java/util/zip/natDeflater.lo java/util/zip/natInflater.lo
 lib_org_xml_sax_la_LDFLAGS = 
@@ -2668,11 +2676,11 @@ COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CF
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-DATA =  $(jar_DATA) $(toolexecmainlib_DATA)
+DATA =  $(jar_DATA) $(pkgconfig_DATA) $(toolexecmainlib_DATA)
 
 DIST_COMMON =  README COPYING ChangeLog Makefile.am Makefile.in NEWS \
 THANKS acinclude.m4 aclocal.m4 configure configure.in \
-libgcj-test.spec.in libgcj.spec.in
+libgcj-test.spec.in libgcj.pc.in libgcj.spec.in
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
@@ -2768,10 +2776,13 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/gcj/xlib/natXImage.P .deps/gnu/gcj/xlib/natXUnmapEvent.P \
 .deps/gnu/java/awt/BitMaskExtent.P .deps/gnu/java/awt/Buffers.P \
 .deps/gnu/java/awt/ComponentDataBlitOp.P \
+.deps/gnu/java/awt/EmbeddedWindow.P \
+.deps/gnu/java/awt/EmbeddedWindowSupport.P \
 .deps/gnu/java/awt/EventModifier.P \
 .deps/gnu/java/awt/GLightweightPeer.P \
 .deps/gnu/java/awt/image/ImageDecoder.P \
 .deps/gnu/java/awt/image/XBMDecoder.P \
+.deps/gnu/java/awt/natEmbeddedWindow.P \
 .deps/gnu/java/awt/peer/gtk/GdkFontMetrics.P \
 .deps/gnu/java/awt/peer/gtk/GdkGraphics.P \
 .deps/gnu/java/awt/peer/gtk/GtkArg.P \
@@ -2970,9 +2981,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/locale/LocaleInformation_zh_SG.P \
 .deps/gnu/java/locale/LocaleInformation_zh_TW.P \
 .deps/gnu/java/math/MPN.P .deps/gnu/java/nio/DatagramChannelImpl.P \
-.deps/gnu/java/nio/FileChannelImpl.P .deps/gnu/java/nio/FileLockImpl.P \
-.deps/gnu/java/nio/PipeImpl.P .deps/gnu/java/nio/SelectionKeyImpl.P \
-.deps/gnu/java/nio/SelectorImpl.P \
+.deps/gnu/java/nio/FileLockImpl.P .deps/gnu/java/nio/PipeImpl.P \
+.deps/gnu/java/nio/SelectionKeyImpl.P .deps/gnu/java/nio/SelectorImpl.P \
 .deps/gnu/java/nio/SelectorProviderImpl.P \
 .deps/gnu/java/nio/ServerSocketChannelImpl.P \
 .deps/gnu/java/nio/SocketChannelImpl.P \
@@ -2984,9 +2994,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/java/nio/charset/UTF_16Decoder.P \
 .deps/gnu/java/nio/charset/UTF_16Encoder.P \
 .deps/gnu/java/nio/charset/UTF_16LE.P \
-.deps/gnu/java/nio/charset/UTF_8.P \
-.deps/gnu/java/nio/natFileChannelImpl.P \
-.deps/gnu/java/nio/natFileLockImpl.P \
+.deps/gnu/java/nio/charset/UTF_8.P .deps/gnu/java/nio/natFileLockImpl.P \
 .deps/gnu/java/nio/natSelectorImpl.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectInputStream.P \
 .deps/gnu/java/rmi/RMIMarshalledObjectOutputStream.P \
@@ -3516,6 +3524,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/channels/ConnectionPendingException.P \
 .deps/java/nio/channels/DatagramChannel.P \
 .deps/java/nio/channels/FileChannel.P \
+.deps/java/nio/channels/FileChannelImpl.P \
 .deps/java/nio/channels/FileLock.P \
 .deps/java/nio/channels/FileLockInterruptionException.P \
 .deps/java/nio/channels/GatheringByteChannel.P \
@@ -3539,6 +3548,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/nio/channels/UnresolvedAddressException.P \
 .deps/java/nio/channels/UnsupportedAddressTypeException.P \
 .deps/java/nio/channels/WritableByteChannel.P \
+.deps/java/nio/channels/natFileChannelImpl.P \
 .deps/java/nio/channels/spi/AbstractInterruptibleChannel.P \
 .deps/java/nio/channels/spi/AbstractSelectableChannel.P \
 .deps/java/nio/channels/spi/AbstractSelectionKey.P \
@@ -4294,6 +4304,8 @@ config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
 $(srcdir)/configure: @MAINTAINER_MODE_TRUE@$(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
 	cd $(srcdir) && $(AUTOCONF)
+libgcj.pc: $(top_builddir)/config.status libgcj.pc.in
+	cd $(top_builddir) && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 libgcj.spec: $(top_builddir)/config.status libgcj.spec.in
 	cd $(top_builddir) && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 libgcj-test.spec: $(top_builddir)/config.status libgcj-test.spec.in
@@ -4467,6 +4479,25 @@ uninstall-jarDATA:
 	@$(NORMAL_UNINSTALL)
 	list='$(jar_DATA)'; for p in $$list; do \
 	  rm -f $(DESTDIR)$(jardir)/$$p; \
+	done
+
+install-pkgconfigDATA: $(pkgconfig_DATA)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(pkgconfigdir)
+	@list='$(pkgconfig_DATA)'; for p in $$list; do \
+	  if test -f $(srcdir)/$$p; then \
+	    echo " $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgconfigdir)/$$p"; \
+	    $(INSTALL_DATA) $(srcdir)/$$p $(DESTDIR)$(pkgconfigdir)/$$p; \
+	  else if test -f $$p; then \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(pkgconfigdir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(pkgconfigdir)/$$p; \
+	  fi; fi; \
+	done
+
+uninstall-pkgconfigDATA:
+	@$(NORMAL_UNINSTALL)
+	list='$(pkgconfig_DATA)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(pkgconfigdir)/$$p; \
 	done
 
 install-toolexecmainlibDATA: $(toolexecmainlib_DATA)
@@ -4703,7 +4734,8 @@ install-exec-am: install-toolexeclibLTLIBRARIES install-binPROGRAMS \
 		install-binSCRIPTS install-toolexecmainlibDATA
 install-exec: install-exec-recursive
 
-install-data-am: install-jarDATA install-data-local
+install-data-am: install-jarDATA install-pkgconfigDATA \
+		install-data-local
 install-data: install-data-recursive
 
 install-am: all-am
@@ -4711,7 +4743,7 @@ install-am: all-am
 install: install-recursive
 uninstall-am: uninstall-toolexeclibLTLIBRARIES uninstall-binPROGRAMS \
 		uninstall-binSCRIPTS uninstall-jarDATA \
-		uninstall-toolexecmainlibDATA
+		uninstall-pkgconfigDATA uninstall-toolexecmainlibDATA
 uninstall: uninstall-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
 all-redirect: all-recursive
@@ -4721,6 +4753,7 @@ installdirs: installdirs-recursive
 installdirs-am:
 	$(mkinstalldirs)  $(DESTDIR)$(toolexeclibdir) $(DESTDIR)$(bindir) \
 		$(DESTDIR)$(bindir) $(DESTDIR)$(jardir) \
+		$(DESTDIR)$(pkgconfigdir) \
 		$(DESTDIR)$(toolexecmainlibdir)
 
 
@@ -4780,7 +4813,8 @@ distclean-binPROGRAMS clean-binPROGRAMS maintainer-clean-binPROGRAMS \
 uninstall-binPROGRAMS install-binPROGRAMS mostlyclean-noinstPROGRAMS \
 distclean-noinstPROGRAMS clean-noinstPROGRAMS \
 maintainer-clean-noinstPROGRAMS uninstall-binSCRIPTS install-binSCRIPTS \
-uninstall-jarDATA install-jarDATA uninstall-toolexecmainlibDATA \
+uninstall-jarDATA install-jarDATA uninstall-pkgconfigDATA \
+install-pkgconfigDATA uninstall-toolexecmainlibDATA \
 install-toolexecmainlibDATA install-data-recursive \
 uninstall-data-recursive install-exec-recursive \
 uninstall-exec-recursive installdirs-recursive uninstalldirs-recursive \

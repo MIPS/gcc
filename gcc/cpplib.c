@@ -21,9 +21,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-
 #include "cpplib.h"
 #include "cpphash.h"
 #include "obstack.h"
@@ -109,6 +106,7 @@ static unsigned int read_flag (cpp_reader *, unsigned int);
 static int strtoul_for_line (const uchar *, unsigned int, unsigned long *);
 static void do_diagnostic (cpp_reader *, int, int);
 static cpp_hashnode *lex_macro_node (cpp_reader *);
+static int undefine_macros (cpp_reader *, cpp_hashnode *, void *);
 static void do_include_common (cpp_reader *, enum include_type);
 static struct pragma_entry *lookup_pragma_entry (struct pragma_entry *,
                                                  const cpp_hashnode *);
@@ -279,7 +277,7 @@ prepare_directive_trad (cpp_reader *pfile)
 				    || pfile->directive == &dtable[T_ELIF]);
       if (no_expand)
 	pfile->state.prevent_expansion++;
-      scan_out_logical_line (pfile, NULL);
+      _cpp_scan_out_logical_line (pfile, NULL);
       if (no_expand)
 	pfile->state.prevent_expansion--;
       pfile->state.skipping = was_skipping;
@@ -540,6 +538,45 @@ do_undef (cpp_reader *pfile)
   check_eol (pfile);
 }
 
+/* Undefine a single macro/assertion/whatever.  */
+
+static int
+undefine_macros (cpp_reader *pfile, cpp_hashnode *h, 
+		 void *data_p ATTRIBUTE_UNUSED)
+{
+  switch (h->type)
+    {
+    case NT_VOID:
+      break;
+      
+    case NT_MACRO:
+      if (pfile->cb.undef)
+        (*pfile->cb.undef) (pfile, pfile->directive_line, h);
+
+      if (CPP_OPTION (pfile, warn_unused_macros))
+        _cpp_warn_if_unused_macro (pfile, h, NULL);
+
+      /* and fall through...  */
+    case NT_ASSERTION:
+      _cpp_free_definition (h);
+      break;
+
+    default:
+      abort ();
+    }
+  h->flags &= ~NODE_POISONED;
+  return 1;
+}
+
+/* Undefine all macros and assertions.  */
+
+void
+cpp_undef_all (cpp_reader *pfile)
+{
+  cpp_forall_identifiers (pfile, undefine_macros, NULL);
+}
+
+
 /* Helper routine used by parse_include.  Reinterpret the current line
    as an h-char-sequence (< ... >); we are looking at the first token
    after the <.  Returns a malloced filename.  */
@@ -733,21 +770,6 @@ strtoul_for_line (const uchar *str, unsigned int len, long unsigned int *nump)
   return 0;
 }
 
-/* Subroutine of do_line and do_linemarker.  Convert escape sequences
-   in a string, but do not perform character set conversion.  */
-static bool
-interpret_string_notranslate (cpp_reader *pfile, const cpp_string *in,
-			      cpp_string *out)
-{
-  iconv_t save_narrow_cset_desc = pfile->narrow_cset_desc;
-  bool retval;
-
-  pfile->narrow_cset_desc = (iconv_t) -1;
-  retval = cpp_interpret_string (pfile, in, 1, out, false);
-  pfile->narrow_cset_desc = save_narrow_cset_desc;
-  return retval;
-}
-
 /* Interpret #line command.
    Note that the filename string (if any) is a true string constant
    (escapes are interpreted), unlike in #line.  */
@@ -780,7 +802,7 @@ do_line (cpp_reader *pfile)
   if (token->type == CPP_STRING)
     {
       cpp_string s = { 0, 0 };
-      if (interpret_string_notranslate (pfile, &token->val.str, &s))
+      if (_cpp_interpret_string_notranslate (pfile, &token->val.str, &s))
 	new_file = (const char *)s.text;
       check_eol (pfile);
     }
@@ -829,7 +851,7 @@ do_linemarker (cpp_reader *pfile)
   if (token->type == CPP_STRING)
     {
       cpp_string s = { 0, 0 };
-      if (interpret_string_notranslate (pfile, &token->val.str, &s))
+      if (_cpp_interpret_string_notranslate (pfile, &token->val.str, &s))
 	new_file = (const char *)s.text;
       
       new_sysp = 0;
@@ -1783,7 +1805,7 @@ cpp_define (cpp_reader *pfile, const char *str)
      tack " 1" on the end.  */
 
   count = strlen (str);
-  buf = (char *) alloca (count + 3);
+  buf = alloca (count + 3);
   memcpy (buf, str, count);
 
   p = strchr (str, '=');
@@ -1844,7 +1866,7 @@ handle_assertion (cpp_reader *pfile, const char *str, int type)
 
   /* Copy the entire option so we can modify it.  Change the first
      "=" in the string to a '(', and tack a ')' on the end.  */
-  char *buf = (char *) alloca (count + 2);
+  char *buf = alloca (count + 2);
 
   memcpy (buf, str, count);
   if (p)

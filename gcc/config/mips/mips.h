@@ -65,7 +65,9 @@ enum processor_type {
   PROCESSOR_R5000,
   PROCESSOR_R5400,
   PROCESSOR_R5500,
+  PROCESSOR_R7000,
   PROCESSOR_R8000,
+  PROCESSOR_R9000,
   PROCESSOR_SB1,
   PROCESSOR_SR71000
 };
@@ -114,11 +116,6 @@ extern char mips_reg_names[][8];	/* register names (a0 vs. $4).  */
 extern char mips_print_operand_punct[256]; /* print_operand punctuation chars */
 extern const char *current_function_file; /* filename current function is in */
 extern int num_source_filenames;	/* current .file # */
-extern int inside_function;		/* != 0 if inside of a function */
-extern int ignore_line_number;		/* != 0 if we are to ignore next .loc */
-extern int file_in_function_warning;	/* warning given about .file in func */
-extern int sdb_label_count;		/* block start/end next label # */
-extern int sdb_begin_function_line;     /* Starting Line of current function */
 extern int mips_section_threshold;	/* # bytes of data/sdata cutoff */
 extern int sym_lineno;			/* sgi next label # for each stmt */
 extern int set_noreorder;		/* # of nested .set noreorder's  */
@@ -148,10 +145,6 @@ extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 
-/* Functions to change what output section we are using.  */
-extern void		sdata_section PARAMS ((void));
-extern void		sbss_section PARAMS ((void));
-
 /* Macros to silence warnings about numbers being signed in traditional
    C and unsigned in ISO C when compiled on 32-bit hosts.  */
 
@@ -168,7 +161,8 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_INT64	   0x00000001	/* ints are 64 bits */
 #define MASK_LONG64	   0x00000002	/* longs are 64 bits */
 #define MASK_SPLIT_ADDR	   0x00000004	/* Address splitting is enabled.  */
-#define MASK_GPOPT	   0x00000008	/* Optimize for global pointer */
+#define MASK_NO_FUSED_MADD 0x00000008   /* Don't generate floating point
+					   multiply-add operations.  */
 #define MASK_GAS	   0x00000010	/* Gas used instead of MIPS as */
 #define MASK_NAME_REGS	   0x00000020	/* Use MIPS s/w reg name convention */
 #define MASK_EXPLICIT_RELOCS 0x00000040 /* Use relocation operators.  */
@@ -193,8 +187,6 @@ extern void		sbss_section PARAMS ((void));
 #define MASK_UNINIT_CONST_IN_RODATA \
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
-#define MASK_NO_FUSED_MADD 0x01000000   /* Don't generate floating point
-					   multiply-add operations.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -236,9 +228,6 @@ extern void		sbss_section PARAMS ((void));
 
 					/* Reg. Naming in .s ($21 vs. $a0) */
 #define TARGET_NAME_REGS	(target_flags & MASK_NAME_REGS)
-
-					/* Optimize for Sdata/Sbss */
-#define TARGET_GP_OPT		(target_flags & MASK_GPOPT)
 
 					/* call memcpy instead of inline code */
 #define TARGET_MEMCPY		(target_flags & MASK_MEMCPY)
@@ -342,6 +331,8 @@ extern void		sbss_section PARAMS ((void));
 #define TARGET_MIPS5KC              (mips_arch == PROCESSOR_5KC)
 #define TARGET_MIPS5400             (mips_arch == PROCESSOR_R5400)
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
+#define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
+#define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
 #define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
@@ -353,6 +344,8 @@ extern void		sbss_section PARAMS ((void));
 #define TUNE_MIPS5400               (mips_tune == PROCESSOR_R5400)
 #define TUNE_MIPS5500               (mips_tune == PROCESSOR_R5500)
 #define TUNE_MIPS6000               (mips_tune == PROCESSOR_R6000)
+#define TUNE_MIPS7000               (mips_tune == PROCESSOR_R7000)
+#define TUNE_MIPS9000               (mips_tune == PROCESSOR_R9000)
 #define TUNE_SB1                    (mips_tune == PROCESSOR_SB1)
 #define TUNE_SR71K                  (mips_tune == PROCESSOR_SR71000)
 
@@ -532,14 +525,14 @@ extern void		sbss_section PARAMS ((void));
      N_("Use symbolic register names")},				\
   {"no-rnames",		 -MASK_NAME_REGS,				\
      N_("Don't use symbolic register names")},				\
-  {"gpOPT",		  MASK_GPOPT,					\
-     N_("Use GP relative sdata/sbss sections")},			\
-  {"gpopt",		  MASK_GPOPT,					\
-     N_("Use GP relative sdata/sbss sections")},			\
-  {"no-gpOPT",		 -MASK_GPOPT,					\
-     N_("Don't use GP relative sdata/sbss sections")},			\
-  {"no-gpopt",		 -MASK_GPOPT,					\
-     N_("Don't use GP relative sdata/sbss sections")},			\
+  {"gpOPT",		  0,						\
+     N_("Use GP relative sdata/sbss sections (now ignored)")},		\
+  {"gpopt",		  0,						\
+     N_("Use GP relative sdata/sbss sections (now ignored)")},		\
+  {"no-gpOPT",		  0,					\
+     N_("Don't use GP relative sdata/sbss sections (now ignored)")},	\
+  {"no-gpopt",		  0,					\
+     N_("Don't use GP relative sdata/sbss sections (now ignored)")},	\
   {"stats",		  0,						\
      N_("Output compiler statistics (now ignored)")},			\
   {"no-stats",		  0,						\
@@ -775,6 +768,8 @@ extern void		sbss_section PARAMS ((void));
 #define GENERATE_MULT3_SI       ((TARGET_MIPS3900                       \
                                   || TARGET_MIPS5400                    \
                                   || TARGET_MIPS5500                    \
+                                  || TARGET_MIPS7000                    \
+                                  || TARGET_MIPS9000                    \
                                   || ISA_MIPS32	                        \
                                   || ISA_MIPS32R2                       \
                                   || ISA_MIPS64)                        \
@@ -1265,13 +1260,8 @@ extern int mips_abi;
 #endif
 
 
-#define SDB_DEBUGGING_INFO 1		/* generate info for mips-tfile */
 #define DBX_DEBUGGING_INFO 1		/* generate stabs (OSF/rose) */
 #define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
-
-#ifndef PREFERRED_DEBUGGING_TYPE	/* assume SDB_DEBUGGING_INFO */
-#define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
-#endif
 
 /* By default, turn on GDB extensions.  */
 #define DEFAULT_GDB_EXTENSIONS 1
@@ -1299,12 +1289,6 @@ extern int mips_abi;
 #ifndef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX	""
 #endif
-
-/* Forward references to tags are allowed.  */
-#define SDB_ALLOW_FORWARD_REFERENCES
-
-/* Unknown tags are also allowed.  */
-#define SDB_ALLOW_UNKNOWN_REFERENCES
 
 /* On Sun 4, this limit is 2048.  We use 1500 to be safe,
    since the length can run past this up to a continuation point.  */
@@ -1338,60 +1322,6 @@ extern int mips_abi;
 
 #define FIND_BASE_TERM(X) mips_delegitimize_address (X)
 
-#define PUT_SDB_DEF(a)					\
-do {							\
-  fprintf (asm_out_file, "\t%s.def\t",			\
-	   (TARGET_GAS) ? "" : "#");			\
-  ASM_OUTPUT_LABELREF (asm_out_file, a); 		\
-  fputc (';', asm_out_file);				\
-} while (0)
-
-#define PUT_SDB_PLAIN_DEF(a)				\
-do {							\
-  fprintf (asm_out_file, "\t%s.def\t.%s;",		\
-	   (TARGET_GAS) ? "" : "#", (a));		\
-} while (0)
-
-/* For block start and end, we create labels, so that
-   later we can figure out where the correct offset is.
-   The normal .ent/.end serve well enough for functions,
-   so those are just commented out.  */
-
-#define PUT_SDB_BLOCK_START(LINE)			\
-do {							\
-  fprintf (asm_out_file,				\
-	   "%sLb%d:\n\t%s.begin\t%sLb%d\t%d\n",		\
-	   LOCAL_LABEL_PREFIX,				\
-	   sdb_label_count,				\
-	   (TARGET_GAS) ? "" : "#",			\
-	   LOCAL_LABEL_PREFIX,				\
-	   sdb_label_count,				\
-	   (LINE));					\
-  sdb_label_count++;					\
-} while (0)
-
-#define PUT_SDB_BLOCK_END(LINE)				\
-do {							\
-  fprintf (asm_out_file,				\
-	   "%sLe%d:\n\t%s.bend\t%sLe%d\t%d\n",		\
-	   LOCAL_LABEL_PREFIX,				\
-	   sdb_label_count,				\
-	   (TARGET_GAS) ? "" : "#",			\
-	   LOCAL_LABEL_PREFIX,				\
-	   sdb_label_count,				\
-	   (LINE));					\
-  sdb_label_count++;					\
-} while (0)
-
-#define PUT_SDB_FUNCTION_START(LINE)
-
-#define PUT_SDB_FUNCTION_END(LINE)			\
-do {							\
-  ASM_OUTPUT_SOURCE_LINE (asm_out_file, LINE + sdb_begin_function_line, 0); \
-} while (0)
-
-#define PUT_SDB_EPILOGUE_END(NAME)
-
 /* Correct the offset of automatic variables and arguments.  Note that
    the MIPS debug format wants all automatic variables and arguments
    to be in terms of the virtual frame pointer (stack pointer before
@@ -1403,10 +1333,6 @@ do {							\
   mips_debugger_offset (X, (HOST_WIDE_INT) 0)
 #define DEBUGGER_ARG_OFFSET(OFFSET, X)			\
   mips_debugger_offset (X, (HOST_WIDE_INT) OFFSET)
-
-/* Tell collect that the object format is ECOFF */
-#define OBJECT_FORMAT_COFF	/* Object file looks like COFF */
-#define EXTENDED_COFF		/* ECOFF, not normal coff */
 
 /* Target machine storage layout */
 
@@ -3649,12 +3575,7 @@ do									\
 while (0)
 
 
-/* How to tell the debugger about changes of source files.  Note, the
-   mips ECOFF format cannot deal with changes of files inside of
-   functions, which means the output of parser generators like bison
-   is generally not debuggable without using the -l switch.  Lose,
-   lose, lose.  Silicon graphics seems to want all .file's hardwired
-   to 1.  */
+/* How to tell the debugger about changes of source files.  */
 
 #ifndef SET_FILE_NUMBER
 #define SET_FILE_NUMBER() ++num_source_filenames
@@ -3696,23 +3617,9 @@ while (0)
 	$Lc[0-9]+	Label for use in s<xx> operation.
 	$Le[0-9]+	End blocks for MIPS debug support  */
 
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM any text necessary for declaring the name NAME of an
-   initialized variable which is being defined.  This macro must
-   output the label definition (perhaps using `ASM_OUTPUT_LABEL').
-   The argument DECL is the `VAR_DECL' tree node representing the
-   variable.
-
-   If this macro is not defined, then the variable name is defined
-   in the usual manner as a label (by means of `ASM_OUTPUT_LABEL').  */
-
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)			\
-do									\
- {									\
-   mips_declare_object (STREAM, NAME, "", ":\n", 0);			\
- }									\
-while (0)
+#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL) \
+  mips_declare_object (STREAM, NAME, "", ":\n", 0)
 
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.globl\t"
@@ -3863,35 +3770,6 @@ do {									\
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */
 
-#define SMALL_DATA_SECTION	sdata_section
-
-/* What other sections we support other than the normal .data/.text.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata
-
-/* Define the additional functions to select our additional sections.  */
-
-/* on the MIPS it is not a good idea to put constants in the text
-   section, since this defeats the sdata/data mechanism. This is
-   especially true when -O is used. In this case an effort is made to
-   address with faster (gp) register relative addressing, which can
-   only get at sdata and sbss items (there is no stext !!)  However,
-   if the constant is too large for sdata, and it's readonly, it
-   will go into the .rdata section.  */
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
-void									\
-sdata_section ()							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}
-
 /* Given a decl node or constant node, choose the section to output it in
    and select that section.  */
 
@@ -3935,19 +3813,6 @@ while (0)
 #ifndef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 #endif
-
-
-/* Macros for mips-tfile.c to encapsulate stabs in ECOFF, and for
-   and mips-tdump.c to print them out.
-
-   These must match the corresponding definitions in gdb/mipsread.c.
-   Unfortunately, gcc and gdb do not currently share any directories.  */
-
-#define CODE_MASK 0x8F300
-#define MIPS_IS_STAB(sym) (((sym)->index & 0xFFF00) == CODE_MASK)
-#define MIPS_MARK_STAB(code) ((code)+CODE_MASK)
-#define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
-
 
 /* Default definitions for size_t and ptrdiff_t.  We must override the
    definitions from ../svr4.h on mips-*-linux-gnu.  */

@@ -446,10 +446,12 @@ extern void abort (void);
 #ifndef HOST_PTR_PRINTF
 # ifdef HAVE_PRINTF_PTR
 #  define HOST_PTR_PRINTF "%p"
+# elif SIZEOF_INT == SIZEOF_VOID_P
+#  define HOST_PTR_PRINTF "%x"
+# elif SIZEOF_LONG == SIZEOF_VOID_P
+#  define HOST_PTR_PRINTF "%lx"
 # else
-#  define HOST_PTR_PRINTF \
-    (sizeof (int) == sizeof (char *) ? "%x" \
-     : sizeof (long) == sizeof (char *) ? "%lx" : "%llx")
+#  define HOST_PTR_PRINTF "%llx"
 # endif
 #endif /* ! HOST_PTR_PRINTF */
 
@@ -590,7 +592,7 @@ typedef char _Bool;
    headers and were not used, and may be obsolete or may never have
    been used.  */
  #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG CPP_PREDEFINES	   \
-	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT		   \
+	ASM_OUTPUT_EH_REGION_END ASM_OUTPUT_LABELREF_AS_INT SMALL_STACK    \
 	DOESNT_NEED_UNWINDER EH_TABLE_LOOKUP OBJC_SELECTORS_WITHOUT_LABELS \
 	OMIT_EH_TABLE EASY_DIV_EXPR IMPLICIT_FIX_EXPR			   \
 	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE ASM_IDENTIFY_GCC	   \
@@ -607,7 +609,7 @@ typedef char _Bool;
 	DBX_LBRAC_FIRST DBX_OUTPUT_ENUM DBX_OUTPUT_SOURCE_FILENAME	   \
 	DBX_WORKING_DIRECTORY INSN_CACHE_DEPTH INSN_CACHE_SIZE		   \
 	INSN_CACHE_LINE_WIDTH INIT_SECTION_PREAMBLE NEED_ATEXIT ON_EXIT	   \
-	EXIT_BODY OBJECT_FORMAT_ROSE
+	EXIT_BODY OBJECT_FORMAT_ROSE MULTIBYTE_CHARS MAP_CHARACTER
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

@@ -755,10 +755,6 @@ dump_generic_node (output_buffer *buffer, tree node, int spc, int flags)
       output_add_character (buffer, ')');
       break;
 
-    case METHOD_CALL_EXPR:
-      NIY;
-      break;
-
     case WITH_CLEANUP_EXPR:
       NIY;
       break;

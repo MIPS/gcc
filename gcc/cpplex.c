@@ -21,8 +21,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "cpplib.h"
 #include "cpphash.h"
 
@@ -90,8 +88,8 @@ add_line_note (cpp_buffer *buffer, const uchar *pos, unsigned int type)
   if (buffer->notes_used == buffer->notes_cap)
     {
       buffer->notes_cap = buffer->notes_cap * 2 + 200;
-      buffer->notes = (_cpp_line_note *)
-	xrealloc (buffer->notes, buffer->notes_cap * sizeof (_cpp_line_note));
+      buffer->notes = xrealloc (buffer->notes,
+				buffer->notes_cap * sizeof (_cpp_line_note));
     }
 
   buffer->notes[buffer->notes_used].pos = pos;
@@ -246,9 +244,12 @@ _cpp_process_line_notes (cpp_reader *pfile, int in_comment)
 				     note->type,
 				     (int) _cpp_trigraph_map[note->type]);
 	      else
-		cpp_error_with_line (pfile, DL_WARNING, pfile->line, col,
-				     "trigraph ??%c ignored",
-				     note->type);
+		{
+		  cpp_error_with_line 
+		    (pfile, DL_WARNING, pfile->line, col,
+		     "trigraph ??%c ignored, use -trigraphs to enable",
+		     note->type);
+		}
 	    }
 	}
       else
@@ -1422,8 +1423,7 @@ _cpp_extend_buff (cpp_reader *pfile, _cpp_buff **pbuff, size_t min_extra)
 
 /* Free a chain of buffers starting at BUFF.  */
 void
-_cpp_free_buff (buff)
-     _cpp_buff *buff;
+_cpp_free_buff (_cpp_buff *buff)
 {
   _cpp_buff *next;
 

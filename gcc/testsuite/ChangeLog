@@ -1,8 +1,332 @@
+2003-07-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/compat.exp: Handle dg-options per source file.
+	* g++.dg/compat/abi/bitfield1_x.C: Specify dg-options.
+	* g++.dg/compat/abi/bitfield1_y.C: Ditto.
+	* g++.dg/compat/abi/bitfield2_x.C: Ditto.
+	* g++.dg/compat/abi/bitfield2_y.C: Ditto.
+	* g++.dg/compat/abi/vbase8-10_x.C: Ditto.
+	* g++.dg/compat/abi/vbase8-10_y.C: Ditto.
+	* g++.dg/compat/abi/vbase8-21_x.C: Ditto.
+	* g++.dg/compat/abi/vbase8-21_y.C: Ditto.
+	* g++.dg/compat/abi/vbase8-22_x.C: Ditto.
+	* g++.dg/compat/abi/vbase8-22_y.C: Ditto.
+	* g++.dg/compat/abi/vbase8-4_x.C: Ditto.
+	* g++.dg/compat/abi/vbase8-4_y.C: Ditto.
+	* g++.dg/compat/break/bitfield7_x.C: Ditto.
+	* g++.dg/compat/break/bitfield7_y.C: Ditto.
+
+2003-07-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/10320
+	* gcc.c-torture/execute/20030718-1.c: New test.
+
+2003-07-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+        PR optimization/11536
+	* gcc.dg/20030721-1.c: New test.
+
+2003-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11546
+	* g++.dg/template/lookup1.C: New test.
+
+2003-07-19  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/noncompile/label-1.c: New comprehensive test case for
+	diagnostics of ill-formed constructs involving labels.
+	* gcc.dg/noncompile/label-lineno-1.c: Add error regexp for
+	the new 'previously defined here' message.
+
+2003-07-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/parse/non-dependent2.C: New test.
+
+2003-07-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/init/init-ref4.C: xfail on targets without
+	weak symbols.
+
+2003-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/11087
+	* gcc.c-torture/execute/20030717-1.c: New test.
+
+2003-07-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/cfg1.C: New test.
+
+2003-07-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/11557
+	* gcc.dg/20030717-1.c: New test.
+
+2003-07-17  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR c++/10476
+	* g++.dg/expr/crash-1.C: New test.
+
+	PR c++/11027
+	* g++.dg/template/init3.C: New test.
+
+	PR c++/8222
+	* g++.dg/template/non-dependent1.C: New test.
+
+	PR c++/11070
+	* g++.dg/template/non-dependent2.C: New test.
+
+	PR c++/11071
+	* g++.dg/template/non-dependent3.C: New test.
+
+	PR c++/9907
+	* g++.dg/template/sizeof5.C: New test.
+
+2003-07-17  Geoffrey Keating  <geoffk@apple.com>
+
+	PR 11498
+	* gcc.c-torture/compile/mangle-1.c: New file.
+
+2003-07-17  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7809
+	* g++.dg/parse/access3.C: New test.
+
+2003-07-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/11384
+	* g++.dg/init/init-ref4.C: New test.
+
+2003-07-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11547
+	* g++.dg/parse/constant3.C: New test.
+	* g++.dg/parse/crash7.C: Likewise.
+
+2003-07-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/11008
+	* gcc.dg/i386-pentium4-not-mull.c: New.
+
+2003-07-16  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.dg/asm-names.c (ymain): Make it weak.
+
+2003-07-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/5421
+	* g++.dg/template/friend21.C: New test.
+
+2003-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cleanup-8.c: New test.
+	* gcc.dg/cleanup-9.c: New test.
+
+2003-07-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* g++.dg/ext/dll-MI1.h: New file.
+	* g++.dg/ext/dllexport-MI1.C: New file.
+	* g++.dg/ext/dllimport-MI1.C: New file.
+
+2003-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/string-opt-8.c (main): Remove i370 and s390,
+	it does not have cmpstrsi patterns (just cmpmemsi).
+
+2003-07-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR debug/11473
+	* g++.dg/debug/debug8.C: New test.
+
+2003-07-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10108
+	* g++.dg/template/crash7.C: New test.
+
+2003-07-15  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/10795
+	* gcc.c-torture/compile/20030708-1.c: New.
+
+2003-07-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20030715-1.c: New test.
+
+2003-07-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/inline-3.c: New file.
+	* gcc.dg/pch/inline-3.hs: New file.
+	* gcc.dg/pch/inline-4.c: New file.
+	* gcc.dg/pch/inline-4.hs: New file.
+
+2003-07-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11509
+	* g++.dg/template/crash6.C: New test.
+
+	PR c++/7053
+	* g++.dg/template/friend20.C: New test.
+
+	PR c++/7019
+	* g++.dg/template/overload2.C: New test.
+
+2003-07-14  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR optimization/11440
+	* gcc.c-torture/execute/20030714-1.c: New test.
+
+2003-07-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11154
+	* g++.dg/template/partial2.C: New test.
+
+2003-07-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11503
+	* g++.dg/template/anon1.C: New test.
+
+	PR c++/11493
+	PR c++/11495
+	* g++.dg/parse/template9.C: Likewise.
+	* g++.dg/template/crash4.C: New test.
+	* g++.dg/template/koenig1.C: Likewise.
+	* g++.old-deja/g++.benjamin/tem03.C: Adjust error markers.
+	* g++.old-deja/g++.benjamin/tem06.C: Declare "x".
+	* g++.old-deja/g++.jason/overload33.C: Use this-> when calling
+	functions.
+	* g++.old-deja/g++.jason/template36.C: Likewise.
+	* g++.old-deja/g++.mike/p1989.C: Likewise.
+	* g++.old-deja/g++.pt/lookup2.C: Use -fpermissive when compiling.
+	* g++.old-deja/g++.pt/ttp20.C: Use this->.
+	* g++.old-deja/g++.pt/ttp21.C: Use this->.
+	* g++.old-deja/g++.pt/typename13.C: Use -fpermissive when
+	compiling.
+	* g++.old-deja/g++.pt/union2.C: Use this->.
+
+2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030711-1.c: New test.
+
+2003-07-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/11050
+	* g++.dg/parse/args1.C: New test.
+	* g++.pt/defarg8.C: Change expected errors.
+
+2003-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8164
+	* g++.dg/template/nontype2.C: New test.
+
+	PR c++/10558
+	* g++.dg/parse/template8.C: New test.
+
+	PR c++/8327
+	* g++.dg/template/scope1.C: New test.
+
+	* g++.dg/warn/Wsign-compare-1.C: New test.
+
+2003-07-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/20021018-1.c: Disable if the sizeof (int) < 4.
+
+2003-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9411
+	* g++.dg/template/explicit2.C: New test.
+
+	PR c++/10032
+	* g++.dg/warn/pedantic1.C: New test.
+
+2003-07-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++ 9483
+	* g++.dg/other/field1.C: New test.
+
+2003-07-10  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR c/11449
+	* gcc.c-torture/compile/20030707-1.c: New.
+
+2003-07-10  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/10849
+	* g++.dg/template/access12.C: New test.
+
+2003-07-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/bprob/bprob.exp (prof_ext): Update.
+	* g77.dg/bprob/bprob.exp (prof_ext): Update.
+	* gcc.misc-tests/bprob.exp (prof_ext): Update.
+	* gcc.misc-tests/gcov.exp: Update
+	* g++.dg/gcov/gcov.exp: Update
+	* lib/gcov.exp: Update.
+
+2003-07-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/abi/mangle17.C: Make sure template expressions are
+	dependent.
+	* g++.dg/abi/mangle4.C: Mark erroneous casts.
+	* g++.dg/debug/debug7.C: Mark erronous new-declarator.
+	* g++.dg/opt/stack1.C: Remove erroneous code.
+	* g++.dg/parse/template7.C: New test.
+	* g++.dg/template/dependent-expr1.C: Mark erroneous code.
+	* g++.old-deja/g++.pt/crash4.C: Likewise.
+
+2003-07-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/const-elim-1.c (dg-final): Change regexp to match labels
+	with zero or one occurence of `$' after the initial `L'.
+
+2003-07-08  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/compile/20030704-1.c: Add a comment.
+
+2003-07-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/11370
+	* gcc.dg/Wunreachable-6.c: New testcase.
+	* gcc.dg/Wunreachable-7.c: New testcase.
+
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/11420
+	* gcc.dg/20030708-1.c: New test.
+
+2003-07-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/compat/sdata-section.h: New file.
+	* gcc.dg/compat/sdata-1_{x,y,main}.c: New test.
+	* gcc.dg/torture/mips-sdata-1.c: New test.
+
+2003-07-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/11030
+	* g++.dg/template/friend19.C: New test.
+
+2003-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/opt/strength-reduce.C: New test.
+
+2003-07-07  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/10979
+	* gcc.dg/20030707-1.c: New testcase.
+
+2003-07-07  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/11059
+	* g++.dg/opt/emptyunion.C: New testcase.
+
+2003-07-07  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+	    Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/stack1.C: New test.
+
 2003-07-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.old-deja/g++.jason/typeid1.C: Make it a compile test, not a
 	run test.
-	
+
 	PR c++/11431
 	* g++.dg/expr/static_cast3.C: New test.
 
@@ -32,18 +356,18 @@
 2003-07-04  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	PR c++/5287, PR c++/7910,  PR c++/11021
-	* testsuite/g++.dg/ext/dllimport1.C: Add mingw32 as target. Add
+	* g++.dg/ext/dllimport1.C: Add mingw32 as target. Add
 	tests for warnings.
-	* testsuite/g++.dg/ext/dllimport2.C: Add tests for warnings.
-	* testsuite/g++.dg/ext/dllimport3.C: Likewise.
-	* testsuite/g++.dg/ext/dllimport4.C: New file.
-	* testsuite/g++.dg/ext/dllimport5.C: New file.
-	* testsuite/g++.dg/ext/dllimport6.C: New file.
-	* testsuite/g++.dg/ext/dllimport7.C: New file.
-	* testsuite/g++.dg/ext/dllimport8.C: New file.
-	* testsuite/g++.dg/ext/dllimport9.C: New file.
-	* testsuite/g++.dg/ext/dllimport10.C: New file.
-	* testsuite/g++.dg/ext/dllexport1.C: New file.
+	* g++.dg/ext/dllimport2.C: Add tests for warnings.
+	* g++.dg/ext/dllimport3.C: Likewise.
+	* g++.dg/ext/dllimport4.C: New file.
+	* g++.dg/ext/dllimport5.C: New file.
+	* g++.dg/ext/dllimport6.C: New file.
+	* g++.dg/ext/dllimport7.C: New file.
+	* g++.dg/ext/dllimport8.C: New file.
+	* g++.dg/ext/dllimport9.C: New file.
+	* g++.dg/ext/dllimport10.C: New file.
+	* g++.dg/ext/dllexport1.C: New file.
 
 2003-07-03  Mark Mitchell  <mark@codesourcery.com>
 

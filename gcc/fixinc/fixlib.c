@@ -49,7 +49,7 @@ load_file_data (fp)
       if (space_left < 1024)
         {
           space_left += 4096;
-	  pz_data = xrealloc ((void*)pz_data, space_left + space_used + 1 );
+	  pz_data = xrealloc (pz_data, space_left + space_used + 1 );
         }
       size_read = fread (pz_data + space_used, 1, space_left, fp);
 
@@ -73,7 +73,7 @@ load_file_data (fp)
       space_used += size_read;
     } while (! feof (fp));
 
-  pz_data = xrealloc ((void*)pz_data, space_used+1 );
+  pz_data = xrealloc (pz_data, space_used+1 );
   pz_data[ space_used ] = NUL;
 
   return pz_data;
@@ -131,7 +131,7 @@ template[ \t]*<|\
       if (!compiled)
 	compile_re (cxxpat, &cxxre, 0, "contents check", "is_cxx_header");
 
-      if (regexec (&cxxre, text, 0, 0, 0) == 0)
+      if (xregexec (&cxxre, text, 0, 0, 0) == 0)
 	return BOOL_TRUE;
     }
 		   
@@ -181,7 +181,7 @@ skip_quote( q, text )
    Compile one regular expression pattern for later use.  PAT contains
    the pattern, RE points to a regex_t structure (which should have
    been bzeroed).  MATCH is 1 if we need to know where the regex
-   matched, 0 if not. If regcomp fails, prints an error message and
+   matched, 0 if not. If xregcomp fails, prints an error message and
    aborts; E1 and E2 are strings to shove into the error message.
 
    The patterns we search for are all egrep patterns.
@@ -201,7 +201,7 @@ compile_re( pat, re, match, e1, e2 )
 
   flags = (match ? REG_EXTENDED|REG_NEWLINE
 	   : REG_EXTENDED|REG_NEWLINE|REG_NOSUB);
-  err = regcomp (re, pat, flags);
+  err = xregcomp (re, pat, flags);
 
   if (err)
     {

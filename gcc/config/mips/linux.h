@@ -34,71 +34,10 @@ Boston, MA 02111-1307, USA.  */
    used.  */
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 
-#define SBSS_SECTION_ASM_OP	"\t.section .sbss"
-
-/* Like `ASM_OUTPUT_BSS' except takes the required alignment as a
-   separate, explicit argument.  If you define this macro, it is used
-   in place of `ASM_OUTPUT_BSS', and gives you more flexibility in
-   handling the required alignment of the variable.  The alignment is
-   specified as the number of bits.
-
-   Try to use function `asm_output_aligned_bss' defined in file
-   `varasm.c' when defining this macro.  */
-#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
-do {								\
-  if (SIZE > 0 && (long)(SIZE) <= mips_section_threshold)	\
-    sbss_section ();						\
-  else								\
-    bss_section ();						\
-  ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
-  last_assemble_variable_decl = DECL;				\
-  ASM_DECLARE_OBJECT_NAME (FILE, NAME, DECL);			\
-  ASM_OUTPUT_SKIP (FILE, SIZE ? SIZE : 1);			\
-} while (0)
-
-/* These macros generate the special .type and .size directives which
-   are used to set the corresponding fields of the linker symbol table
-   entries in an ELF object file under SVR4.  These macros also output
-   the starting labels for the relevant functions/objects.  */
-
-/* Write the extra assembler code needed to declare an object properly.  */
+#define ASM_OUTPUT_ALIGNED_BSS mips_output_aligned_bss
 
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
-  do {									\
-    HOST_WIDE_INT size;							\
-    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
-    size_directive_output = 0;						\
-    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
-      {									\
-	size_directive_output = 1;					\
-	size = int_size_in_bytes (TREE_TYPE (DECL));			\
-	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
-      }									\
-    mips_declare_object (FILE, NAME, "", ":\n", 0);			\
-  } while (0)
-
-#define TARGET_ASM_UNIQUE_SECTION  mips_unique_section
-
-/* A list of other sections which the compiler might be "in" at any
-   given time.  */
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS                                         \
-  SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)
-
-#define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)			\
-void FN ()							\
-{								\
-  if (in_section != ENUM)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", OP);			\
-      in_section = ENUM;					\
-    }								\
-}
+#define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
 #undef TARGET_VERSION
 #if TARGET_ENDIAN_DEFAULT == 0
@@ -109,9 +48,6 @@ void FN ()							\
 
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-
-/* Required to keep collect2.c happy */
-#undef OBJECT_FORMAT_COFF
 
 /* If we don't set MASK_ABICALLS, we can't default to PIC.  */
 #undef TARGET_DEFAULT
@@ -247,10 +183,6 @@ void FN ()							\
    presence of $gp-relative calls.  */
 #undef ASM_OUTPUT_REG_PUSH
 #undef ASM_OUTPUT_REG_POP
-
-/* The current Linux binutils uses MIPS_STABS_ELF and doesn't support
-   COFF.  */
-#undef SDB_DEBUGGING_INFO
 
 #undef LIB_SPEC
 #define LIB_SPEC "\

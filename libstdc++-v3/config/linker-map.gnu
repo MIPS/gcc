@@ -55,7 +55,9 @@ GLIBCXX_3.4 {
       std::__num_base::_S_format_int*;
       std::__num_base::_S_atoms_in;
       std::__num_base::_S_atoms_out;
-      std::__numpunct_cache*
+      std::__moneypunct_cache*;
+      std::__numpunct_cache*;
+      std::__timepunct_cache*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -72,6 +74,14 @@ GLIBCXX_3.4 {
 
     # bool has_facet 
     _ZSt9has_facet*;
+
+    # _Rb_tree
+    _ZNSt22_Rb_tree_base_iterator12_M_decrementEv;
+    _ZNSt22_Rb_tree_base_iterator12_M_incrementEv;
+    _ZSt18_Rb_tree_rebalancePSt18_Rb_tree_node_baseRS0_;
+    _ZSt20_Rb_tree_rotate_leftPSt18_Rb_tree_node_baseRS0_;
+    _ZSt21_Rb_tree_rotate_rightPSt18_Rb_tree_node_baseRS0_;
+    _ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_;
 
     # virtual table
     _ZTVNSt8ios_base7failureE;

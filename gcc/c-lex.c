@@ -123,7 +123,7 @@ get_fileinfo (const char *name)
   if (n)
     return (struct c_fileinfo *) n->value;
 
-  fi = (struct c_fileinfo *) xmalloc (sizeof (struct c_fileinfo));
+  fi = xmalloc (sizeof (struct c_fileinfo));
   fi->time = 0;
   fi->interface_only = 0;
   fi->interface_unknown = 1;
@@ -184,7 +184,7 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
       cpp_string cstr = { 0, 0 };
       if (cpp_interpret_string (pfile, str, 1, &cstr, false))
 	{
-	  ASM_OUTPUT_IDENT (asm_out_file, cstr.text);
+	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
 	  free ((void *)cstr.text);
 	}
     }

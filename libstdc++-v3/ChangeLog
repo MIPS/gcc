@@ -1,3 +1,301 @@
+2003-07-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* scripts/testsuite_flags.in (--build-includes): Remove extraneous
+	paths for libio.
+	* testsuite/27_io/basic_istream/sentry/char/3983-fstream.cc
+	(test03): Include typeinfo for bad_cast.
+	* testsuite/27_io/basic_ostream/sentry/char/3983-sstream.cc: Same.
+	* testsuite/27_io/basic_ostream/sentry/char/3983-fstream.cc: Same.
+	* testsuite/27_io/basic_istream/sentry/char/3983-sstream.cc: Same.
+
+2003-07-21  Doug Gregor  <dgregor@apple.com.>
+
+	* include/bits/boost_concept_check.h:
+	(_EqualityComparableConcept::__constraints): Remove != from the 
+        list of constraints; it is not listed in Table 28 of the C++98 
+        standard.
+
+2003-07-18  Andreas Jaeger  <aj@suse.de>
+
+	* config/abi/sparc-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/mips-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt: New file.
+	* config/abi/x86_64-linux-gnu/baseline_symbols.txt: Regenerated.
+
+2003-07-17  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* config/linker-map.gnu: Add __moneypunct_cache, __timepunct_cache.
+	* config/locale/generic/messages_members.h: Tweaks.
+	* config/locale/generic/monetary_members.cc
+	(moneypunct::_M_initialize_moneypunct): Use cache.
+	(moneypunct::~moneypunct): Delete cache.
+	* config/locale/generic/time_members.cc:
+	(__timepunct::_M_initialize_timepunct): Use cache.
+	* config/locale/generic/time_members.h:
+	(__timepunct::~__timepunct): Delete cache.
+	(__timepunct::__timepunct): Set cache.
+	* config/locale/gnu/messages_members.h: Tweaks.
+	* config/locale/gnu/monetary_members.cc:
+	(moneypunct::_M_initialize_moneypunct): Use cache.
+	(moneypunct::~moneypunct): Delete cache.
+	* config/locale/gnu/time_members.cc:
+	(__timepunct::_M_initialize_timepunct): Use cache.
+	* config/locale/gnu/time_members.h:
+	(__timepunct::~__timepunct): Delete cache.
+	(__timepunct::__timepunct): Set cache.
+	* include/bits/locale_facets.h (__timepunct_cache): New.
+	(__moneypunct_cache): New.
+	* include/bits/locale_facets.tcc: Tweak.
+	* src/locale.cc (__timepunct::_S_timezones): Adjust for cache.
+	* src/locale-inst.cc: Instantiate caches.
+	* src/globals.cc: Add "C" caches.
+	* src/localename.cc: Use external "C" caches.
+
+2003-07-17  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/guide.html:  Fix typo.
+
+2003-07-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pod_char_traits.h: Add state template argument.
+
+2003-07-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h (__num_base::_S_atoms_in): Add -+xX.
+	(num_get::_M_convert_int): To _M_insert_int.
+	(num_get::_M_convert_float): To _M_insert_float.	
+	* include/bits/locale_facets.tcc (num_get::_M_extract_float):
+	Use caches for ctype, num_get.
+	(num_get::_M_extract_int): Same.
+	(num_get::get(bool)): Same.
+	(__verify_grouping): Use size_t.
+	* src/locale-inst.cc: Update.
+	* src/locale.cc: Adjust _S_atoms_in.
+
+2003-07-16  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/mainpage.html:  Move building/writing instructions...
+	* docs/doxygen/guide.html:  ...to here.  New file.
+
+2003-07-16  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/ext/howto.html: Update URL for SGI STL docs.
+	* docs/html/faq/index.html: Same.
+	* docs/html/faq/index.txt: Regenerate.
+
+2003-07-16  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/11528
+	* include/bits/locale_facets.tcc (money_get::do_get):
+	Strip only _leading_ zeros.
+	* testsuite/22_locale/money_get/get/char/11528.cc: Add.
+	* testsuite/22_locale/money_get/get/wchar_t/11528.cc: Add.
+
+2003-07-16  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* include/ext/hash_map (class hash_multimap): Remove extra
+	semicolons from __glibcxx_class_requires3 entries.
+	* include/ext/hash_set (class hash_set): Ditto.
+	(class hash_multiset): Ditto.
+
+2003-07-15  Petur Runolfsson  <peturr02@ru.is>
+
+	* include/bits/char_traits.h (char_traits<wchar_t>::move):
+	Change last parameter from int_type to size_t.
+
+2003-07-15  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/stl_algo.h (includes, set_union, set_intersection,
+        set_difference, set_symmetric_difference, max_element, min_element,
+        next_permutation, prev_permutation, find_first_of, find_end):
+        Document.
+	* include/bits/stl_algobase.h (copy,copy_backward):  Clarify overlap
+        restrictions in docs.
+	* include/bits/stl_heap.h (push_heap, pop_heap, make_heap, sort_heap):
+        Document.
+	* docs/doxygen/doxygroups.cc (setoperations):  New group.
+
+2003-07-15  Jerry Quinn  <jlquinn@optonline.net>
+
+        * include/bits/basic_string.h:  Document public functions.
+	* docs/doxygen/TODO:  Update c21 todo.
+
+2003-07-15  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/stl_list.h:  Document more functions.
+	* docs/doxygen/TODO:  Update c23 todo.
+
+2003-07-14  Paolo Carlini  <pcarlini@unitus.it>
+
+	* config/locale/gnu/c_locale.h (__convert_from_v): One more
+	qualification.
+
+2003-07-14  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/stl_tempbuf.h: Qualify free with std::.
+	* src/locale.cc: Include <cstdlib>, qualify getenv.
+
+2003-07-14  Paolo Carlini  <pcarlini@unitus.it>
+
+	* config/locale/gnu/c_locale.h (__convert_from_v): Include
+	<cstdio>. Qualify names.
+	* config/locale/generic/c_locale.h (__convert_from_v): Ditto.
+
+2003-07-14  Paolo Carlini  <pcarlini@unitus.it>
+	    Nathan C. Myers  <ncm-nospam@cantrip.org>
+
+	PR libstdc++/11378
+	* include/std/std_fstream.h (xsputn): Declare only.
+	* include/bits/fstream.tcc (xsputn): Define, optimize for the
+	always_noconv() case: when __n is sufficiently large flush 
+	the buffer and issue a direct write, if possible combining the
+	two with writev in __basic_file<>::xsputn_2.
+	* config/io/basic_file_stdio.h (__basic_file<>::xsputn_2):
+	New, declare.
+	* config/io/basic_file_stdio.cc (__basic_file<>::xsputn_2):
+	Define.
+	* acinclude.m4 (GLIBCXX_CHECK_WRITE): New macro, checking for
+	the availability of writev in <sys/uio.h>.
+	* configure.in: Call here.
+	* acconfig.h: Add undef for the corresponding symbol.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* testsuite/27_io/basic_filebuf/setbuf/char/3.cc: Tweak.
+
+	* include/std/std_fstream.h (sync): Constify a variable.
+
+2003-07-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Fix line numbers.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Same.
+	
+2003-07-14  Gabriel Dos Reis  <gcc@integrable-solutions.net>
+
+	* config/locale/gnu/c_locale.h (__convert_from_v): Include
+	<cstring> and <cstdlib>. Qualify names.
+
+2003-07-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/locale/generic/c_locale.h: Include <cstdlib> and
+	<cstring>.
+	* include/bits/boost_concept_check.h: Add this-> to unqualified
+	method calls.
+	* include/bits/deque.tcc: Likewise.
+	* include/bits/locale_facets.h : Likewise.
+	* include/bits/ostream.tcc: Likewise.
+	* include/bits/stl_algo.h: Likewise.
+	* include/bits/stl_bvector.h: Likewise.
+	* include/bits/stl_deque.h: Likewise.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_tree.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+	* include/bits/vector.tcc: Likewise.
+	* include/ext/rope: Likewise.
+	* include/ext/ropeimpl.h: Likewise.
+	* include/ext/stdio_filebuf.h: Likewise.
+
+2003-07-11  Jerry Quinn  <jlquinn@optonline.net>
+
+	* include/bits/basic_ios.h (copyfmt): Document.
+	* include/bits/ios_base.h (event, event_callback, register_callback,
+	xalloc, iword, pword):  Document.
+	(imbue, ~ios_base): Update docs on callbacks.
+
+2003-07-11  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4 (GLIBCC_ENABLE_SYMVERS):  Tweak comments.  Add
+	warning messages if the environment cannot support symbol versioning.
+	(port_specific_symbol_file):  It's plural, add an 's' on the end.
+	* configure.host:  Likewise.
+	* src/Makefile.am:  Likewise.
+	* config/linker-map.gnu:  Remove one semicolon, heh.
+	* scripts/extract_symvers:  Don't assume useful 'export' syntax.
+	Set LANG as well as LC_ALL for possibly-broken sort(1)s.
+	* aclocal.m4, configure, src/Makefile.in:  Regenerated.
+
+2003-07-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.tcc: Use function object for
+	__use_cache instead of template function. Partially specialize for 
+	__numpunct<_CharT>.
+	* include/bits/locale_classes.h: Update friend declaration for
+	__use_cache.
+	(_M_install_cache): No throw exception specs.
+	* src/locale.cc: Remove __use_cache specializations.
+	* include/ext/pod_char_traits.h (length): Tweak.
+	* include/bits/locale_facets.h (__numpunct_cache): Remove
+	char_type typedef.
+	* testsuite/testsuite_hooks.h (pod_unsigned_int): Remove.
+	(pod_long): Remove.
+	* testsuite/22_locale/numpunct/members/char/cache_1.cc: New.
+	* testsuite/22_locale/numpunct/members/char/cache_2.cc: New.
+	* testsuite/22_locale/numpunct/members/wchar_t/cache_1.cc: New.
+	* testsuite/22_locale/numpunct/members/wchar_t/cache_2.cc: New.
+	* testsuite/22_locale/numpunct/members/pod/1.cc: New.
+	* testsuite/22_locale/numpunct/members/pod/2.cc: New.
+	
+2003-07-09  Jerry Quinn  <jlquinn@optonline.net>
+
+	* src/ios.cc (_M_grow_words):  Fix spelling.
+
+2003-07-09  Gawain Bolton  <gp.bolton@computer.org>
+
+	* include/bits/stl_tree.h: Move larger member functions in
+	_Rb_tree_base_iterator and _Rb_tree_node to...
+	* src/stl_tree.cc: Here.
+	* src/Makefile.in: Add stl_tree.cc.
+	* src/Makefile.in: Regenerated.
+	* config/linker-map.gnu: Add symbols here.
+
+2003-07-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/pod_char_traits.cc: New.
+	* include/ext/pod_char_traits.h: New.
+	* include/Makefile.am (ext_headers): Add pod_char_traits.h.
+	* include/Makefile.in: Regenerate.
+	* docs/html/21_strings/howto.html: Update.
+		
+2003-07-08  Gawain Bolton  <gp.bolton@computer.org>
+
+	* testsuite/performance/list_create_fill_sort.cc: New.
+
+2003-07-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/locale/generic/numeric_members.cc: Correct type info.
+	* config/locale/gnu/numeric_members.cc: Same.
+	* include/bits/locale_facets.h: Same.
+	
+	* include/bits/char_traits.h: Correct spacing.
+
+	* src/locale.cc: Wrap to 80 col.
+	
+2003-07-07  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_complex.h: Partially revert last
+	changes: cmath functions must not be qualified.
+
+2003-07-06  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS):  Do not test for binutils
+	2.11 with globbing backport fix.
+	* aclocal.m4, configure:  Regenerated.
+
+2003-07-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/std/std_fstream.h (xsputn): Don't call _M_destroy_pback:
+	if output is at all possible (!_M_reading), cannot be active.
+
+	* include/std/std_fstream.h: Tweak comments to doxygen style.
+
+2003-07-06  Paolo Carlini  <pcarlini@unitus.it>
+
+	* include/bits/locale_classes.h: Fully qualify standard
+	functions with std::, thus avoiding Koenig lookup.
+	* include/bits/locale_facets.tcc: Likewise.
+	* src/locale.cc: Likewise.
+	* src/localename.cc: Likewise.
+
 2003-07-06  Phil Edwards  <pme@gcc.gnu.org>
 
 	* include/bits/allocator_traits.h:  Fix doxygen markup.
@@ -41,7 +339,9 @@
 2003-07-05  Gawain Bolton  <gp.bolton@computer.org>
 
 	* include/bits/stl_list.h: Performance and memory usage
-	improvements.
+	improvements. In particular, the behaviour of the constructor and
+	destructor as the list header node is no longer dynamically
+	allocated/de-allocated.
 	* include/bits/list.tcc: Likewise.
 
 2003-07-05  Paolo Carlini  <pcarlini@unitus.it>

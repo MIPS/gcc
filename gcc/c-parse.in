@@ -50,10 +50,6 @@ end ifc
 #include "toplev.h"
 #include "ggc.h"
 
-#ifdef MULTIBYTE_CHARS
-#include <locale.h>
-#endif
-
 ifobjc
 #include "objc-act.h"
 end ifobjc
@@ -79,15 +75,13 @@ do {									\
   newsize = *(YYSSZ) *= 2;						\
   if (malloced_yyss)							\
     {									\
-      newss = (short *)							\
-	really_call_realloc (*(SS), newsize * sizeof (short));		\
-      newvs = (YYSTYPE *)						\
-	really_call_realloc (*(VS), newsize * sizeof (YYSTYPE));	\
+      newss = really_call_realloc (*(SS), newsize * sizeof (short));	\
+      newvs = really_call_realloc (*(VS), newsize * sizeof (YYSTYPE));	\
     }									\
   else									\
     {									\
-      newss = (short *) really_call_malloc (newsize * sizeof (short));	\
-      newvs = (YYSTYPE *) really_call_malloc (newsize * sizeof (YYSTYPE)); \
+      newss = really_call_malloc (newsize * sizeof (short));		\
+      newvs = really_call_malloc (newsize * sizeof (YYSTYPE));		\
       if (newss)							\
         memcpy (newss, *(SS), (SSSIZE));				\
       if (newvs)							\
@@ -336,16 +330,16 @@ static bool parsing_iso_function_signature;
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
 
-static void yyprint	  PARAMS ((FILE *, int, YYSTYPE));
-static void yyerror	  PARAMS ((const char *));
-static int yylexname	  PARAMS ((void));
-static inline int _yylex  PARAMS ((void));
-static int  yylex	  PARAMS ((void));
-static void init_reswords PARAMS ((void));
+static void yyprint (FILE *, int, YYSTYPE);
+static void yyerror (const char *);
+static int yylexname (void);
+static inline int _yylex (void);
+static int  yylex (void);
+static void init_reswords (void);
 
   /* Initialisation routine for this file.  */
 void
-c_parse_init ()
+c_parse_init (void)
 {
   init_reswords ();
 }
@@ -356,20 +350,8 @@ c_parse_init ()
 program: /* empty */
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids an empty source file");
-		  finish_file ();
 		}
 	| extdefs
-		{
-		  /* In case there were missing closebraces,
-		     get us back to the global binding level.  */
-		  while (! global_bindings_p ())
-		    poplevel (0, 0, 0);
-		  /* __FUNCTION__ is defined at file scope ("").  This
-		     call may not be necessary as my tests indicate it
-		     still works without it.  */
-		  finish_fname_decls ();
-                  finish_file ();
-		}
 	;
 
 /* the reason for the strange actions in this rule
@@ -682,8 +664,6 @@ primary:
 
 		   if (pedantic)
 		     pedwarn ("ISO C forbids braced-groups within expressions");
-		  pop_label_level ();
-
 		  saved_last_tree = COMPOUND_BODY ($1);
 		  RECHAIN_STMTS ($1, COMPOUND_BODY ($1));
 		  last_tree = saved_last_tree;
@@ -695,7 +675,6 @@ primary:
 		}
 	| compstmt_primary_start error ')'
 		{
-		  pop_label_level ();
 		  last_tree = COMPOUND_BODY ($1);
 		  TREE_CHAIN (last_tree) = NULL_TREE;
 		  $$ = error_mark_node;
@@ -722,7 +701,7 @@ primary:
 		  e1 = TYPE_MAIN_VARIANT (groktypename ($3));
 		  e2 = TYPE_MAIN_VARIANT (groktypename ($5));
 
-		  $$ = comptypes (e1, e2)
+		  $$ = comptypes (e1, e2, COMPARE_STRICT)
 		    ? build_int_2 (1, 0) : build_int_2 (0, 0);
 		}
 	| primary '[' expr ']'   %prec '.'
@@ -1858,7 +1837,7 @@ component_decl:
 	| declspecs_nosc_nots
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids member declarations with no members");
-		  shadow_tag($1);
+		  shadow_tag_warned ($1, pedantic);
 		  $$ = NULL_TREE; }
 	| error
 		{ $$ = NULL_TREE; }
@@ -2103,7 +2082,7 @@ c99_block_end: /* empty */
                 { if (flag_isoc99)
 		    {
 		      tree scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-		      $$ = poplevel (kept_level_p (), 0, 0);
+		      $$ = poplevel (KEEP_MAYBE, 0, 0);
 		      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
 			= SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
 			= $$;
@@ -2131,9 +2110,8 @@ label_decl:
 		{ tree link;
 		  for (link = $2; link; link = TREE_CHAIN (link))
 		    {
-		      tree label = shadow_label (TREE_VALUE (link));
+		      tree label = declare_label (TREE_VALUE (link));
 		      C_DECLARED_LABEL_FLAG (label) = 1;
-		      pushdecl (label);
 		      add_decl_stmt (label);
 		    }
 		}
@@ -2154,7 +2132,7 @@ compstmt_start: '{' { compstmt_count++;
 compstmt_nostart: '}'
 		{ $$ = convert (void_type_node, integer_zero_node); }
 	| pushlevel maybe_label_decls compstmt_contents_nonempty '}' poplevel
-		{ $$ = poplevel (kept_level_p (), 1, 0);
+		{ $$ = poplevel (KEEP_MAYBE, 1, 0);
 		  SCOPE_STMT_BLOCK (TREE_PURPOSE ($5))
 		    = SCOPE_STMT_BLOCK (TREE_VALUE ($5))
 		    = $$; }
@@ -2177,7 +2155,6 @@ compstmt_primary_start:
 		     there is a way to turn off the entire subtree of blocks
 		     that are contained in it.  */
 		  keep_next_level ();
-		  push_label_level ();
 		  compstmt_count++;
 		  $$ = add_stmt (build_stmt (COMPOUND_STMT, last_tree));
 		}
@@ -2449,10 +2426,10 @@ label:	  CASE expr_no_commas ':'
 
 maybe_type_qual:
 	/* empty */
-		{ emit_line_note (input_filename, input_line);
+		{ emit_line_note (input_location);
 		  $$ = NULL_TREE; }
 	| TYPE_QUAL
-		{ emit_line_note (input_filename, input_line); }
+		{ emit_line_note (input_location); }
 	;
 
 xexpr:
@@ -2499,7 +2476,7 @@ parmlist:
 	  maybe_attribute
 		{ pushlevel (0);
 		  clear_parm_order ();
-		  declare_parm_level (0); }
+		  declare_parm_level (); }
 	  parmlist_1
 		{ $$ = $3;
 		  parmlist_tags_warning ();
@@ -2621,7 +2598,7 @@ parmlist_or_identifiers:
 	  maybe_attribute
 		{ pushlevel (0);
 		  clear_parm_order ();
-		  declare_parm_level (1); }
+		  declare_parm_level (); }
 	  parmlist_or_identifiers_1
 		{ $$ = $3;
 		  parmlist_tags_warning ();
@@ -3531,7 +3508,7 @@ static const short rid_to_yy[RID_MAX] =
 };
 
 static void
-init_reswords ()
+init_reswords (void)
 {
   unsigned int i;
   tree id;
@@ -3541,7 +3518,7 @@ init_reswords ()
   if (!c_dialect_objc ())
      mask |= D_OBJC;
 
-  ridpointers = (tree *) ggc_calloc ((int) RID_MAX, sizeof (tree));
+  ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
   for (i = 0; i < N_reswords; i++)
     {
       /* If a keyword is disabled, do not enter it into the table
@@ -3559,8 +3536,7 @@ init_reswords ()
 #define NAME(type) cpp_type2name (type)
 
 static void
-yyerror (msgid)
-     const char *msgid;
+yyerror (const char *msgid)
 {
   const char *string = _(msgid);
 
@@ -3587,7 +3563,7 @@ yyerror (msgid)
 }
 
 static int
-yylexname ()
+yylexname (void)
 {
   tree decl;
 
@@ -3646,7 +3622,7 @@ end ifobjc
 }
 
 static inline int
-_yylex ()
+_yylex (void)
 {
  get_next:
   last_token = c_lex (&yylval.ttype);
@@ -3750,7 +3726,7 @@ _yylex ()
 }
 
 static int
-yylex()
+yylex (void)
 {
   int r;
   timevar_push (TV_LEX);
@@ -3762,10 +3738,7 @@ yylex()
 /* Function used when yydebug is set, to print a token in more detail.  */
 
 static void
-yyprint (file, yychar, yyl)
-     FILE *file;
-     int yychar;
-     YYSTYPE yyl;
+yyprint (FILE *file, int yychar, YYSTYPE yyl)
 {
   tree t = yyl.ttype;
 
@@ -3802,12 +3775,29 @@ yyprint (file, yychar, yyl)
 /* Free malloced parser stacks if necessary.  */
 
 void
-free_parser_stacks ()
+free_parser_stacks (void)
 {
+}
+
+/* Parse the file.  */
+void
+c_parse_file (void)
+{
+  yyparse ();
+  /* In case there were missing closebraces, get us back to the global
+     binding level.  */
+  while (! global_bindings_p ())
+    poplevel (0, 0, 0);
+  /* __FUNCTION__ is defined at file scope ("").  This
+     call may not be necessary as my tests indicate it
+     still works without it.  */
+  finish_fname_decls ();
+
   if (malloced_yyss)
     {
       free (malloced_yyss);
       free (malloced_yyvs);
+      malloced_yyss = 0;
     }
 }
 

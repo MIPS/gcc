@@ -443,18 +443,36 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
   enum machine_mode mode = TYPE_MODE (char_type_node);
   rtx addr = expand_expr (address, NULL_RTX, VOIDmode, 0);
   rtx mem = gen_rtx_MEM (BLKmode, addr);
+  bool wrote_return_column = false;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (DWARF_FRAME_REGNUM (i) < DWARF_FRAME_REGISTERS)
       {
 	HOST_WIDE_INT offset = DWARF_FRAME_REGNUM (i) * GET_MODE_SIZE (mode);
-	HOST_WIDE_INT size = GET_MODE_SIZE (reg_raw_mode[i]);
+	enum machine_mode save_mode = reg_raw_mode[i];
+	HOST_WIDE_INT size;
 
+	if (HARD_REGNO_CALL_PART_CLOBBERED (i, save_mode))
+	  save_mode = choose_hard_reg_mode (i, 1, true);
+	if (DWARF_FRAME_REGNUM (i) == DWARF_FRAME_RETURN_COLUMN)
+	  {
+	    if (save_mode == VOIDmode)
+	      continue;
+	    wrote_return_column = true;
+	  }
+	size = GET_MODE_SIZE (save_mode);
 	if (offset < 0)
 	  continue;
 
 	emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
       }
+  if (! wrote_return_column)
+    {
+      enum machine_mode save_mode = Pmode;
+      HOST_WIDE_INT offset = DWARF_FRAME_RETURN_COLUMN * GET_MODE_SIZE (mode);
+      HOST_WIDE_INT size = GET_MODE_SIZE (save_mode);
+      emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
+    }
 }
 
 /* Convert a DWARF call frame info. operation to its string name */
@@ -535,7 +553,7 @@ dwarf_cfi_name (unsigned int cfi_opc)
 static inline dw_cfi_ref
 new_cfi (void)
 {
-  dw_cfi_ref cfi = (dw_cfi_ref) ggc_alloc (sizeof (dw_cfi_node));
+  dw_cfi_ref cfi = ggc_alloc (sizeof (dw_cfi_node));
 
   cfi->dw_cfi_next = NULL;
   cfi->dw_cfi_oprnd1.dw_cfi_reg_num = 0;
@@ -2230,8 +2248,7 @@ void
 dwarf2out_frame_init (void)
 {
   /* Allocate the initial hunk of the fde_table.  */
-  fde_table = (dw_fde_ref) ggc_alloc_cleared (FDE_TABLE_INCREMENT
-					      * sizeof (dw_fde_node));
+  fde_table = ggc_alloc_cleared (FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
   fde_table_allocated = FDE_TABLE_INCREMENT;
   fde_table_in_use = 0;
 
@@ -2701,8 +2718,7 @@ static inline dw_loc_descr_ref
 new_loc_descr (enum dwarf_location_atom op, long unsigned int oprnd1,
 	       long unsigned int oprnd2)
 {
-  dw_loc_descr_ref descr
-    = (dw_loc_descr_ref) ggc_alloc_cleared (sizeof (dw_loc_descr_node));
+  dw_loc_descr_ref descr = ggc_alloc_cleared (sizeof (dw_loc_descr_node));
 
   descr->dw_loc_opc = op;
   descr->dw_loc_oprnd1.val_class = dw_val_class_unsigned_const;
@@ -4426,7 +4442,7 @@ AT_class (dw_attr_ref a)
 static inline void
 add_AT_flag (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int flag)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4449,7 +4465,7 @@ AT_flag (dw_attr_ref a)
 static inline void
 add_AT_int (dw_die_ref die, enum dwarf_attribute attr_kind, long int int_val)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4473,7 +4489,7 @@ static inline void
 add_AT_unsigned (dw_die_ref die, enum dwarf_attribute attr_kind,
 		 long unsigned int unsigned_val)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4497,7 +4513,7 @@ static inline void
 add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
 		  long unsigned int val_hi, long unsigned int val_low)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4513,7 +4529,7 @@ static inline void
 add_AT_float (dw_die_ref die, enum dwarf_attribute attr_kind,
 	      unsigned int length, long int *array)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4543,7 +4559,7 @@ debug_str_eq (const void *x1, const void *x2)
 static inline void
 add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
   struct indirect_string_node *node;
   void **slot;
 
@@ -4620,7 +4636,7 @@ AT_string_form (dw_attr_ref a)
 static inline void
 add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_die)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4662,7 +4678,7 @@ set_AT_ref_external (dw_attr_ref a, int i)
 static inline void
 add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int targ_fde)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4676,7 +4692,7 @@ add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int tar
 static inline void
 add_AT_loc (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_descr_ref loc)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4697,7 +4713,7 @@ AT_loc (dw_attr_ref a)
 static inline void
 add_AT_loc_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_list_ref loc_list)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4721,7 +4737,7 @@ AT_loc_list (dw_attr_ref a)
 static inline void
 add_AT_addr (dw_die_ref die, enum dwarf_attribute attr_kind, rtx addr)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4744,7 +4760,7 @@ AT_addr (dw_attr_ref a)
 static inline void
 add_AT_lbl_id (dw_die_ref die, enum dwarf_attribute attr_kind, const char *lbl_id)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4758,7 +4774,7 @@ add_AT_lbl_id (dw_die_ref die, enum dwarf_attribute attr_kind, const char *lbl_i
 static inline void
 add_AT_lbl_offset (dw_die_ref die, enum dwarf_attribute attr_kind, const char *label)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4772,7 +4788,7 @@ add_AT_lbl_offset (dw_die_ref die, enum dwarf_attribute attr_kind, const char *l
 static inline void
 add_AT_offset (dw_die_ref die, enum dwarf_attribute attr_kind, long unsigned int offset)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -4787,7 +4803,7 @@ static void
 add_AT_range_list (dw_die_ref die, enum dwarf_attribute attr_kind,
 		   long unsigned int offset)
 {
-  dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
@@ -5073,7 +5089,7 @@ splice_child_die (dw_die_ref parent, dw_die_ref child)
 static inline dw_die_ref
 new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 {
-  dw_die_ref die = (dw_die_ref) ggc_alloc_cleared (sizeof (die_node));
+  dw_die_ref die = ggc_alloc_cleared (sizeof (die_node));
 
   die->die_tag = tag_value;
 
@@ -5137,7 +5153,7 @@ equate_decl_number_to_die (tree decl, dw_die_ref decl_die)
       decl_die_table = ggc_realloc (decl_die_table,
 				    sizeof (dw_die_ref) * num_allocated);
 
-      memset ((char *) &decl_die_table[decl_die_table_allocated], 0,
+      memset (&decl_die_table[decl_die_table_allocated], 0,
 	     (num_allocated - decl_die_table_allocated) * sizeof (dw_die_ref));
       decl_die_table_allocated = num_allocated;
     }
@@ -5647,7 +5663,7 @@ compute_section_prefix (dw_die_ref unit_die)
 {
   const char *die_name = get_AT_string (unit_die, DW_AT_name);
   const char *base = die_name ? lbasename (die_name) : "anonymous";
-  char *name = (char *) alloca (strlen (base) + 64);
+  char *name = alloca (strlen (base) + 64);
   char *p;
   int i, mark;
   unsigned char checksum[16];
@@ -6038,7 +6054,7 @@ build_abbrev_table (dw_die_ref die)
 	  abbrev_die_table = ggc_realloc (abbrev_die_table,
 					  sizeof (dw_die_ref) * n_alloc);
 
-	  memset ((char *) &abbrev_die_table[abbrev_die_table_allocated], 0,
+	  memset (&abbrev_die_table[abbrev_die_table_allocated], 0,
 		 (n_alloc - abbrev_die_table_allocated) * sizeof (dw_die_ref));
 	  abbrev_die_table_allocated = n_alloc;
 	}
@@ -6708,7 +6724,7 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
   oldsym = die->die_symbol;
   if (oldsym)
     {
-      tmp = (char *) alloca (strlen (oldsym) + 24);
+      tmp = alloca (strlen (oldsym) + 24);
 
       sprintf (tmp, ".gnu.linkonce.wi.%s", oldsym);
       secname = tmp;
@@ -6755,9 +6771,8 @@ add_pubname (tree decl, dw_die_ref die)
     {
       pubname_table_allocated += PUBNAME_TABLE_INCREMENT;
       pubname_table
-	= (pubname_ref) ggc_realloc (pubname_table,
-				     (pubname_table_allocated
-				      * sizeof (pubname_entry)));
+	= ggc_realloc (pubname_table,
+		       (pubname_table_allocated * sizeof (pubname_entry)));
       memset (pubname_table + pubname_table_in_use, 0,
 	      PUBNAME_TABLE_INCREMENT * sizeof (pubname_entry));
     }
@@ -6916,9 +6931,9 @@ add_ranges (tree block)
   if (in_use == ranges_table_allocated)
     {
       ranges_table_allocated += RANGES_TABLE_INCREMENT;
-      ranges_table = (dw_ranges_ref)
-	ggc_realloc (ranges_table, (ranges_table_allocated
-				    * sizeof (struct dw_ranges_struct)));
+      ranges_table
+	= ggc_realloc (ranges_table, (ranges_table_allocated
+				      * sizeof (struct dw_ranges_struct)));
       memset (ranges_table + ranges_table_in_use, 0,
 	      RANGES_TABLE_INCREMENT * sizeof (struct dw_ranges_struct));
     }
@@ -7068,10 +7083,8 @@ output_file_names (void)
     }
 
   /* Allocate the various arrays we need.  */
-  files = (struct file_info *) alloca (VARRAY_ACTIVE_SIZE (file_table)
-				       * sizeof (struct file_info));
-  dirs = (struct dir_info *) alloca (VARRAY_ACTIVE_SIZE (file_table)
-				     * sizeof (struct dir_info));
+  files = alloca (VARRAY_ACTIVE_SIZE (file_table) * sizeof (struct file_info));
+  dirs = alloca (VARRAY_ACTIVE_SIZE (file_table) * sizeof (struct dir_info));
 
   /* Sort the file names.  */
   for (i = 1; i < VARRAY_ACTIVE_SIZE (file_table); i++)
@@ -7146,8 +7159,8 @@ output_file_names (void)
      where we would have to check out every combination of every single
      possible prefix.  Instead we use a heuristic which provides nearly optimal
      results in most cases and never is much off.  */
-  saved = (int *) alloca (ndirs * sizeof (int));
-  savehere = (int *) alloca (ndirs * sizeof (int));
+  saved = alloca (ndirs * sizeof (int));
+  savehere = alloca (ndirs * sizeof (int));
 
   memset (saved, '\0', ndirs * sizeof (saved[0]));
   for (i = 0; i < ndirs; i++)
@@ -7204,7 +7217,7 @@ output_file_names (void)
   /* We have to emit them in the order they appear in the file_table array
      since the index is used in the debug info generation.  To do this
      efficiently we generate a back-mapping of the indices first.  */
-  backmap = (int *) alloca (VARRAY_ACTIVE_SIZE (file_table) * sizeof (int));
+  backmap = alloca (VARRAY_ACTIVE_SIZE (file_table) * sizeof (int));
   for (i = 1; i < VARRAY_ACTIVE_SIZE (file_table); i++)
     {
       backmap[files[i].file_idx] = i;
@@ -9076,7 +9089,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	  {
 	    unsigned length = GET_MODE_SIZE (mode) / 4;
-	    long *array = (long *) ggc_alloc (sizeof (long) * length);
+	    long *array = ggc_alloc (sizeof (long) * length);
 	    REAL_VALUE_TYPE rv;
 
 	    REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
@@ -10314,14 +10327,15 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  add_name_attribute (enum_die,
 			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
 
-	  if (host_integerp (TREE_VALUE (link), 0))
+	  if (host_integerp (TREE_VALUE (link), 
+			     TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (link)))))
 	    {
 	      if (tree_int_cst_sgn (TREE_VALUE (link)) < 0)
 		add_AT_int (enum_die, DW_AT_const_value,
 			    tree_low_cst (TREE_VALUE (link), 0));
 	      else
 		add_AT_unsigned (enum_die, DW_AT_const_value,
-				 tree_low_cst (TREE_VALUE (link), 0));
+				 tree_low_cst (TREE_VALUE (link), 1));
 	    }
 	}
     }
@@ -12212,12 +12226,11 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 	    {
 	      separate_line_info_table_allocated += LINE_INFO_TABLE_INCREMENT;
 	      separate_line_info_table
-		= (dw_separate_line_info_ref)
-		  ggc_realloc (separate_line_info_table,
+		= ggc_realloc (separate_line_info_table,
 			       separate_line_info_table_allocated
 			       * sizeof (dw_separate_line_info_entry));
-	      memset ((separate_line_info_table
-		       + separate_line_info_table_in_use),
+	      memset (separate_line_info_table
+		       + separate_line_info_table_in_use,
 		      0,
 		      (LINE_INFO_TABLE_INCREMENT
 		       * sizeof (dw_separate_line_info_entry)));

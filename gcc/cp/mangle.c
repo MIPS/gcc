@@ -1333,9 +1333,8 @@ discriminator_for_local_entity (tree entity)
    string literals used in FUNCTION.  */
 
 static int
-discriminator_for_string_literal (function, string)
-     tree function ATTRIBUTE_UNUSED;
-     tree string ATTRIBUTE_UNUSED;
+discriminator_for_string_literal (tree function ATTRIBUTE_UNUSED,
+				  tree string ATTRIBUTE_UNUSED)
 {
   /* For now, we don't discriminate amongst string literals.  */
   return 0;
@@ -1927,8 +1926,6 @@ write_expression (tree expr)
 	    {
 	      template_args = TREE_OPERAND (member, 1);
 	      member = TREE_OPERAND (member, 0);
-	      if (TREE_CODE (member) == LOOKUP_EXPR)
-		member = TREE_OPERAND (member, 0);
 	    }
 	  else
 	    template_args = NULL_TREE;
@@ -2020,6 +2017,19 @@ write_expression (tree expr)
 	  write_type (TREE_OPERAND (expr, 0));
 	  if (TREE_CODE (TREE_OPERAND (expr, 1)) == IDENTIFIER_NODE)
 	    write_source_name (TREE_OPERAND (expr, 1));
+	  else if (TREE_CODE (TREE_OPERAND (expr, 1)) == TEMPLATE_ID_EXPR)
+	    {
+	      tree template_id;
+	      tree name;
+
+	      template_id = TREE_OPERAND (expr, 1);
+	      name = TREE_OPERAND (template_id, 0);
+	      /* FIXME: What about operators?  */
+	      my_friendly_assert (TREE_CODE (name) == IDENTIFIER_NODE,
+				  20030707);
+	      write_source_name (TREE_OPERAND (template_id, 0));
+	      write_template_args (TREE_OPERAND (template_id, 1));
+	    }
 	  else
 	    {
 	      /* G++ 3.2 incorrectly put out both the "sr" code and
@@ -2198,14 +2208,7 @@ write_pointer_to_member_type (const tree type)
    TEMPLATE_TEMPLATE_PARM, BOUND_TEMPLATE_TEMPLATE_PARM or a
    TEMPLATE_PARM_INDEX.
 
-     <template-param> ::= T </parameter/ number> _
-
-   If we are internally mangling then we distinguish level and, for
-   non-type parms, type too. The mangling appends
-   
-     </level/ number> _ </non-type type/ type> _
-
-   This is used by mangle_conv_op_name_for_type.  */
+     <template-param> ::= T </parameter/ number> _  */
 
 static void
 write_template_param (const tree parm)

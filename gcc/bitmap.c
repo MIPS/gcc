@@ -131,8 +131,7 @@ bitmap_element_allocate (bitmap head)
 					  obstack_chunk_free);
 	    }
 
-	  element = (bitmap_element *) obstack_alloc (&bitmap_obstack,
-						      sizeof (bitmap_element));
+	  element = obstack_alloc (&bitmap_obstack, sizeof (bitmap_element));
 	}
     }
   else
@@ -728,23 +727,17 @@ debug_bitmap_file (FILE *file, bitmap head)
 {
   bitmap_element *ptr;
 
-  fprintf (file, "\nfirst = ");
-  fprintf (file, HOST_PTR_PRINTF, (void *) head->first);
-  fprintf (file, " current = ");
-  fprintf (file, HOST_PTR_PRINTF, (void *) head->current);
-  fprintf (file, " indx = %u\n", head->indx);
+  fprintf (file, "\nfirst = " HOST_PTR_PRINTF
+	   " current = " HOST_PTR_PRINTF " indx = %u\n",
+	   (void *) head->first, (void *) head->current, head->indx);
 
   for (ptr = head->first; ptr; ptr = ptr->next)
     {
       unsigned int i, j, col = 26;
 
-      fprintf (file, "\t");
-      fprintf (file, HOST_PTR_PRINTF, (void *) ptr);
-      fprintf (file, " next = ");
-      fprintf (file, HOST_PTR_PRINTF, (void *) ptr->next);
-      fprintf (file, " prev = ");
-      fprintf (file, HOST_PTR_PRINTF, (void *) ptr->prev);
-      fprintf (file, " indx = %u\n\t\tbits = {", ptr->indx);
+      fprintf (file, "\t" HOST_PTR_PRINTF " next = " HOST_PTR_PRINTF
+	       " prev = " HOST_PTR_PRINTF " indx = %u\n\t\tbits = {",
+	       (void*) ptr, (void*) ptr->next, (void*) ptr->prev, ptr->indx);
 
       for (i = 0; i < BITMAP_ELEMENT_WORDS; i++)
 	for (j = 0; j < BITMAP_WORD_BITS; j++)

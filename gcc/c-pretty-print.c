@@ -823,10 +823,6 @@ dump_c_node (buffer, node, spc, brief_dump)
       output_add_character (buffer, ')');
       break;
 
-    case METHOD_CALL_EXPR:
-      NIY;
-      break;
-
     case WITH_CLEANUP_EXPR:
       NIY;
       break;

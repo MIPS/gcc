@@ -21,8 +21,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "cpplib.h"
 #include "cpphash.h"
 #include "mkdeps.h"
@@ -132,7 +130,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   /* Initialize this instance of the library if it hasn't been already.  */
   init_library ();
 
-  pfile = (cpp_reader *) xcalloc (1, sizeof (cpp_reader));
+  pfile = xcalloc (1, sizeof (cpp_reader));
 
   cpp_set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_import) = 1;
@@ -194,7 +192,9 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   _cpp_expand_op_stack (pfile);
 
   /* Initialize the buffer obstack.  */
-  gcc_obstack_init (&pfile->buffer_ob);
+  _obstack_begin (&pfile->buffer_ob, 0, 0,
+		  (void *(*) (long)) xmalloc,
+		  (void (*) (void *)) free);
 
   _cpp_init_includes (pfile);
 
@@ -427,6 +427,15 @@ cpp_add_dependency_target (cpp_reader *pfile, const char *target, int quote)
   deps_add_target (pfile->deps, target, quote);
 }
 
+/* This sets up for processing input from the file FNAME.  
+   It returns false on error.  */
+bool
+cpp_read_next_file (cpp_reader *pfile, const char *fname)
+{
+  /* Open the main input file.  */
+  return _cpp_read_file (pfile, fname);
+}
+
 /* This is called after options have been parsed, and partially
    processed.  Setup for processing input from the file named FNAME,
    or stdin if it is the empty string.  Return the original filename
@@ -451,9 +460,8 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
       deps_add_default_target (pfile->deps, fname);
     }
 
-  /* Open the main input file.  */
   pfile->line = 1;
-  if (!_cpp_read_file (pfile, fname))
+  if (!cpp_read_next_file (pfile, fname))
     return NULL;
 
   /* Set this here so the client can change the option if it wishes,

@@ -174,6 +174,14 @@ lvalue_p_1 (tree ref,
       return (DECL_NONSTATIC_MEMBER_FUNCTION_P (ref) 
 	      ? clk_none : clk_ordinary);
 
+    case NON_DEPENDENT_EXPR:
+      /* We must consider NON_DEPENDENT_EXPRs to be lvalues so that
+	 things like "&E" where "E" is an expression with a
+	 non-dependent type work. It is safe to be lenient because an
+	 error will be issued when the template is instantiated if "E"
+	 is not an lvalue.  */
+      return clk_ordinary;
+
     default:
       break;
     }
@@ -360,86 +368,6 @@ get_target_expr (tree init)
   return build_target_expr_with_type (init, TREE_TYPE (init));
 }
 
-/* Recursively perform a preorder search EXP for CALL_EXPRs, making
-   copies where they are found.  Returns a deep copy all nodes transitively
-   containing CALL_EXPRs.  */
-
-tree
-break_out_calls (tree exp)
-{
-  register tree t1, t2 = NULL_TREE;
-  register enum tree_code code;
-  register int changed = 0;
-  register int i;
-
-  if (exp == NULL_TREE)
-    return exp;
-
-  code = TREE_CODE (exp);
-
-  if (code == CALL_EXPR)
-    return copy_node (exp);
-
-  /* Don't try and defeat a save_expr, as it should only be done once.  */
-    if (code == SAVE_EXPR)
-       return exp;
-
-  switch (TREE_CODE_CLASS (code))
-    {
-    default:
-      abort ();
-
-    case 'c':  /* a constant */
-    case 't':  /* a type node */
-    case 'x':  /* something random, like an identifier or an ERROR_MARK.  */
-      return exp;
-
-    case 'd':  /* A decl node */
-      return exp;
-
-    case 'b':  /* A block node */
-      {
-	/* Don't know how to handle these correctly yet.   Must do a
-	   break_out_calls on all DECL_INITIAL values for local variables,
-	   and also break_out_calls on all sub-blocks and sub-statements.  */
-	abort ();
-      }
-      return exp;
-
-    case 'e':  /* an expression */
-    case 'r':  /* a reference */
-    case 's':  /* an expression with side effects */
-      for (i = TREE_CODE_LENGTH (code) - 1; i >= 0; i--)
-	{
-	  t1 = break_out_calls (TREE_OPERAND (exp, i));
-	  if (t1 != TREE_OPERAND (exp, i))
-	    {
-	      exp = copy_node (exp);
-	      TREE_OPERAND (exp, i) = t1;
-	    }
-	}
-      return exp;
-
-    case '<':  /* a comparison expression */
-    case '2':  /* a binary arithmetic expression */
-      t2 = break_out_calls (TREE_OPERAND (exp, 1));
-      if (t2 != TREE_OPERAND (exp, 1))
-	changed = 1;
-    case '1':  /* a unary arithmetic expression */
-      t1 = break_out_calls (TREE_OPERAND (exp, 0));
-      if (t1 != TREE_OPERAND (exp, 0))
-	changed = 1;
-      if (changed)
-	{
-	  if (TREE_CODE_LENGTH (code) == 1)
-	    return build1 (code, TREE_TYPE (exp), t1);
-	  else
-	    return build (code, TREE_TYPE (exp), t1, t2);
-	}
-      return exp;
-    }
-
-}
 
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments are described by ARGTYPES and whose values
@@ -1060,13 +988,6 @@ build_overload (tree decl, tree chain)
   return ovl_cons (decl, chain);
 }
 
-int
-is_aggr_type_2 (tree t1, tree t2)
-{
-  if (TREE_CODE (t1) != TREE_CODE (t2))
-    return 0;
-  return IS_AGGR_TYPE (t1) && IS_AGGR_TYPE (t2);
-}
 
 #define PRINT_RING_SIZE 4
 

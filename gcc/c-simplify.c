@@ -469,7 +469,7 @@ gimplify_expr_stmt (tree *stmt_p)
 	{
 	  /* Kludge for 20020220-2.c.  warn_if_unused_value shouldn't use
 	     the stmt file location info.  */
-	  set_file_and_line_for_stmt (input_filename, input_line);
+	  set_file_and_line_for_stmt (input_location);
 	  warn_if_unused_value (stmt);
 	}
     }

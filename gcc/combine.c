@@ -456,7 +456,7 @@ do_SUBST (rtx *into, rtx newval)
   if (undobuf.frees)
     buf = undobuf.frees, undobuf.frees = buf->next;
   else
-    buf = (struct undo *) xmalloc (sizeof (struct undo));
+    buf = xmalloc (sizeof (struct undo));
 
   buf->is_int = 0;
   buf->where.r = into;
@@ -484,7 +484,7 @@ do_SUBST_INT (int *into, int newval)
   if (undobuf.frees)
     buf = undobuf.frees, undobuf.frees = buf->next;
   else
-    buf = (struct undo *) xmalloc (sizeof (struct undo));
+    buf = xmalloc (sizeof (struct undo));
 
   buf->is_int = 1;
   buf->where.i = into;
@@ -520,23 +520,18 @@ combine_instructions (rtx f, unsigned int nregs)
 
   combine_max_regno = nregs;
 
-  reg_nonzero_bits = ((unsigned HOST_WIDE_INT *)
-		      xcalloc (nregs, sizeof (unsigned HOST_WIDE_INT)));
-  reg_sign_bit_copies
-    = (unsigned char *) xcalloc (nregs, sizeof (unsigned char));
+  reg_nonzero_bits = xcalloc (nregs, sizeof (unsigned HOST_WIDE_INT));
+  reg_sign_bit_copies = xcalloc (nregs, sizeof (unsigned char));
 
-  reg_last_death = (rtx *) xmalloc (nregs * sizeof (rtx));
-  reg_last_set = (rtx *) xmalloc (nregs * sizeof (rtx));
-  reg_last_set_value = (rtx *) xmalloc (nregs * sizeof (rtx));
-  reg_last_set_table_tick = (int *) xmalloc (nregs * sizeof (int));
-  reg_last_set_label = (int *) xmalloc (nregs * sizeof (int));
-  reg_last_set_invalid = (char *) xmalloc (nregs * sizeof (char));
-  reg_last_set_mode
-    = (enum machine_mode *) xmalloc (nregs * sizeof (enum machine_mode));
-  reg_last_set_nonzero_bits
-    = (unsigned HOST_WIDE_INT *) xmalloc (nregs * sizeof (HOST_WIDE_INT));
-  reg_last_set_sign_bit_copies
-    = (char *) xmalloc (nregs * sizeof (char));
+  reg_last_death = xmalloc (nregs * sizeof (rtx));
+  reg_last_set = xmalloc (nregs * sizeof (rtx));
+  reg_last_set_value = xmalloc (nregs * sizeof (rtx));
+  reg_last_set_table_tick = xmalloc (nregs * sizeof (int));
+  reg_last_set_label = xmalloc (nregs * sizeof (int));
+  reg_last_set_invalid = xmalloc (nregs * sizeof (char));
+  reg_last_set_mode = xmalloc (nregs * sizeof (enum machine_mode));
+  reg_last_set_nonzero_bits = xmalloc (nregs * sizeof (HOST_WIDE_INT));
+  reg_last_set_sign_bit_copies = xmalloc (nregs * sizeof (char));
 
   init_reg_last_arrays ();
 
@@ -548,7 +543,7 @@ combine_instructions (rtx f, unsigned int nregs)
     if (INSN_UID (insn) > i)
       i = INSN_UID (insn);
 
-  uid_cuid = (int *) xmalloc ((i + 1) * sizeof (int));
+  uid_cuid = xmalloc ((i + 1) * sizeof (int));
   max_uid_cuid = i;
 
   nonzero_bits_mode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
@@ -788,14 +783,14 @@ init_reg_last_arrays (void)
 {
   unsigned int nregs = combine_max_regno;
 
-  memset ((char *) reg_last_death, 0, nregs * sizeof (rtx));
-  memset ((char *) reg_last_set, 0, nregs * sizeof (rtx));
-  memset ((char *) reg_last_set_value, 0, nregs * sizeof (rtx));
-  memset ((char *) reg_last_set_table_tick, 0, nregs * sizeof (int));
-  memset ((char *) reg_last_set_label, 0, nregs * sizeof (int));
+  memset (reg_last_death, 0, nregs * sizeof (rtx));
+  memset (reg_last_set, 0, nregs * sizeof (rtx));
+  memset (reg_last_set_value, 0, nregs * sizeof (rtx));
+  memset (reg_last_set_table_tick, 0, nregs * sizeof (int));
+  memset (reg_last_set_label, 0, nregs * sizeof (int));
   memset (reg_last_set_invalid, 0, nregs * sizeof (char));
-  memset ((char *) reg_last_set_mode, 0, nregs * sizeof (enum machine_mode));
-  memset ((char *) reg_last_set_nonzero_bits, 0, nregs * sizeof (HOST_WIDE_INT));
+  memset (reg_last_set_mode, 0, nregs * sizeof (enum machine_mode));
+  memset (reg_last_set_nonzero_bits, 0, nregs * sizeof (HOST_WIDE_INT));
   memset (reg_last_set_sign_bit_copies, 0, nregs * sizeof (char));
 }
 
@@ -1301,9 +1296,14 @@ combinable_i3pat (rtx i3, rtx *loc, rtx i2dest, rtx i1dest,
 	     || GET_CODE (inner_dest) == ZERO_EXTRACT)
 	inner_dest = XEXP (inner_dest, 0);
 
-      /* Check for the case where I3 modifies its output, as
-	 discussed above.  */
-      if ((inner_dest != dest
+      /* Check for the case where I3 modifies its output, as discussed
+	 above.  We don't want to prevent pseudos from being combined
+	 into the address of a MEM, so only prevent the combination if
+	 i1 or i2 set the same MEM.  */
+      if ((inner_dest != dest &&
+	   (GET_CODE (inner_dest) != MEM
+	    || rtx_equal_p (i2dest, inner_dest)
+	    || (i1dest && rtx_equal_p (i1dest, inner_dest)))
 	   && (reg_overlap_mentioned_p (i2dest, inner_dest)
 	       || (i1dest && reg_overlap_mentioned_p (i1dest, inner_dest))))
 
@@ -3476,7 +3476,9 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
 	      if (GET_CODE (new) == CLOBBER && XEXP (new, 0) == const0_rtx)
 		return new;
 
-	      if (GET_CODE (new) == CONST_INT && GET_CODE (x) == SUBREG)
+	      if (GET_CODE (x) == SUBREG
+		  && (GET_CODE (new) == CONST_INT
+		      || GET_CODE (new) == CONST_DOUBLE))
 		{
 		  enum machine_mode mode = GET_MODE (x);
 
@@ -7343,7 +7345,7 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
 
   /* If we are comparing a value against zero, we are done.  */
   if ((code == NE || code == EQ)
-      && GET_CODE (XEXP (x, 1)) == CONST_INT && INTVAL (XEXP (x, 1)) == 0)
+      && XEXP (x, 1) == const0_rtx)
     {
       *ptrue = (code == NE) ? const_true_rtx : const0_rtx;
       *pfalse = (code == NE) ? const0_rtx : const_true_rtx;
@@ -10171,6 +10173,11 @@ gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0, rtx op1)
   rtx result;
   rtx tem;
 
+  if (GET_CODE (op0) == CLOBBER)
+    return op0;
+  else if (GET_CODE (op1) == CLOBBER)
+    return op1;
+  
   if (GET_RTX_CLASS (code) == 'c'
       && swap_commutative_operands_p (op0, op1))
     tem = op0, op0 = op1, op1 = tem;
@@ -11052,6 +11059,17 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		  op0 = gen_lowpart_for_combine (mode, op0);
 		  continue;
 		}
+	    }
+
+	  /* Convert (ne (and (not X) 1) 0) to (eq (and X 1) 0).  */
+	  if (const_op == 0 && equality_comparison_p
+	      && XEXP (op0, 1) == const1_rtx
+	      && GET_CODE (XEXP (op0, 0)) == NOT)
+	    {
+	      op0 = simplify_and_const_int
+		(NULL_RTX, mode, XEXP (XEXP (op0, 0), 0), (HOST_WIDE_INT) 1);
+	      code = (code == NE ? EQ : NE);
+	      continue;
 	    }
 
 	  /* Convert (ne (and (lshiftrt (not X)) 1) 0) to

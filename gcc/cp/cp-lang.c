@@ -54,6 +54,10 @@ static int cp_expand_decl (tree);
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
+#undef LANG_HOOKS_HANDLE_FILENAME
+#define LANG_HOOKS_HANDLE_FILENAME c_common_handle_filename
+#undef LANG_HOOKS_MISSING_ARGUMENT
+#define LANG_HOOKS_MISSING_ARGUMENT c_common_missing_argument
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -141,6 +145,8 @@ static int cp_expand_decl (tree);
 #define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
 #undef LANG_HOOKS_TREE_INLINING_END_INLINING
 #define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
+#undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
+#define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN cp_dump_tree
 #undef LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN
@@ -401,4 +407,11 @@ cp_var_mod_type_p (tree type)
 
   /* All other types are not variably modified.  */
   return false;
+}
+
+/* Stub routine to tell people that this doesn't work yet.  */
+void
+c_reset_state (void)
+{
+  sorry ("inter-module optimisations not implemented yet");
 }

@@ -1,4 +1,3 @@
-#include "ansidecl.h"
 #include "version.h"
 
 /* This is the string reported as the version number by all components
@@ -6,7 +5,7 @@
    please modify this string to indicate that, e.g. by putting your
    organization's name in parentheses at the end of the string.  */
 
-const char version_string[] = "3.5-tree-ssa 20030723 (merged 20030706)";
+const char version_string[] = "3.5-tree-ssa 20030723 (merged 20030722)";
 
 /* This is the location of the online document giving instructions for
    reporting bugs.  If you distribute a modified version of GCC,

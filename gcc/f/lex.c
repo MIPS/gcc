@@ -219,11 +219,6 @@ ffelex_append_to_token_ (char c)
       ffelex_token_->size <<= 1;
       assert (ffelex_token_->length < ffelex_token_->size);
     }
-#ifdef MAP_CHARACTER
-Sorry, MAP_CHARACTER is not going to work as expected in GNU Fortran,
-please contact fortran@gnu.org if you wish to fund work to
-port g77 to non-ASCII machines.
-#endif
   ffelex_token_->text[ffelex_token_->length++] = c;
 }
 
@@ -699,7 +694,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 	      register unsigned bytes_used = (p - q);
 
 	      buffer_length *= 2;
-	      q = (char *)xrealloc (q, buffer_length);
+	      q = xrealloc (q, buffer_length);
 	      p = &q[bytes_used];
 	      r = &q[buffer_length];
 	    }
@@ -759,7 +754,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 		  register unsigned bytes_used = (p - q);
 
 		  buffer_length = bytes_used * 2;
-		  q = (char *)xrealloc (q, buffer_length);
+		  q = xrealloc (q, buffer_length);
 		  p = &q[bytes_used];
 		  r = &q[buffer_length];
 		}
@@ -810,8 +805,7 @@ ffelex_file_pop_ (const char *filename)
 static void
 ffelex_file_push_ (int old_lineno, const char *filename)
 {
-  struct file_stack *p
-    = (struct file_stack *) xmalloc (sizeof (struct file_stack));
+  struct file_stack *p = xmalloc (sizeof (struct file_stack));
 
   input_file_stack->location.line = old_lineno;
   p->next = input_file_stack;
@@ -834,7 +828,7 @@ ffelex_file_push_ (int old_lineno, const char *filename)
    typical fixed-form cases.  */
 
 static void
-ffelex_prepare_eos_ ()
+ffelex_prepare_eos_ (void)
 {
   if (ffelex_token_->type != FFELEX_typeNONE)
     {
@@ -883,7 +877,7 @@ ffelex_prepare_eos_ ()
 }
 
 static void
-ffelex_finish_statement_ ()
+ffelex_finish_statement_ (void)
 {
   if ((ffelex_number_of_tokens_ == 0)
       && (ffelex_token_->type == FFELEX_typeNONE))
@@ -928,7 +922,7 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
 
   if (buffer_length == 0)
     {
-      directive_buffer = (char *)xmalloc (128);
+      directive_buffer = xmalloc (128);
       buffer_length = 128;
     }
 
@@ -944,8 +938,7 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
 	  register unsigned bytes_used = (p - directive_buffer);
 
 	  buffer_length *= 2;
-	  directive_buffer
-	    = (char *)xrealloc (directive_buffer, buffer_length);
+	  directive_buffer = xrealloc (directive_buffer, buffer_length);
 	  p = &directive_buffer[bytes_used];
 	  buffer_limit = &directive_buffer[buffer_length];
 	}
@@ -1398,7 +1391,7 @@ ffelex_image_char_ (int c, ffewhereColumnNumber column)
 }
 
 static void
-ffelex_include_ ()
+ffelex_include_ (void)
 {
   ffewhereFile include_wherefile = ffelex_include_wherefile_;
   FILE *include_file = ffelex_include_file_;
@@ -1508,7 +1501,7 @@ ffelex_is_free_nonc_ctx_contin_ (ffewhereColumnNumber col)
 }
 
 static void
-ffelex_next_line_ ()
+ffelex_next_line_ (void)
 {
   ffelex_linecount_current_ = ffelex_linecount_next_;
   ++ffelex_linecount_next_;
@@ -1516,7 +1509,7 @@ ffelex_next_line_ ()
 }
 
 static void
-ffelex_send_token_ ()
+ffelex_send_token_ (void)
 {
   ++ffelex_number_of_tokens_;
 
@@ -1590,14 +1583,13 @@ ffelex_swallow_tokens_ (ffelexToken t)
 }
 
 static ffelexToken
-ffelex_token_new_ ()
+ffelex_token_new_ (void)
 {
   ffelexToken t;
 
   ++ffelex_total_tokens_;
 
-  t = (ffelexToken) malloc_new_ks (malloc_pool_image (),
-				   "FFELEX token", sizeof (*t));
+  t = malloc_new_ks (malloc_pool_image (), "FFELEX token", sizeof (*t));
   t->id_ = ffelex_token_nextid_++;
   return t;
 }
@@ -1688,7 +1680,7 @@ ffelex_display_token (ffelexToken t)
    return FALSE.  */
 
 bool
-ffelex_expecting_character ()
+ffelex_expecting_character (void)
 {
   return (ffelex_raw_mode_ != 0);
 }
@@ -3825,7 +3817,7 @@ ffelex_hash_kludge (FILE *finput)
 }
 
 void
-ffelex_init_1 ()
+ffelex_init_1 (void)
 {
   unsigned int i;
 
@@ -3906,7 +3898,7 @@ ffelex_init_1 ()
    Must be called while lexer is active, obviously.  */
 
 bool
-ffelex_is_names_expected ()
+ffelex_is_names_expected (void)
 {
   return ffelex_names_;
 }
@@ -3915,7 +3907,7 @@ ffelex_is_names_expected ()
    ffelex_linecount_current_.  */
 
 char *
-ffelex_line ()
+ffelex_line (void)
 {
   return ffelex_card_image_;
 }
@@ -3927,7 +3919,7 @@ ffelex_line ()
    Must be called while lexer is active, obviously.  */
 
 ffewhereColumnNumber
-ffelex_line_length ()
+ffelex_line_length (void)
 {
   return ffelex_card_length_;
 }
@@ -3936,7 +3928,7 @@ ffelex_line_length ()
    is current.  */
 
 ffewhereLineNumber
-ffelex_line_number ()
+ffelex_line_number (void)
 {
   return ffelex_linecount_current_;
 }
@@ -4371,7 +4363,7 @@ ffelex_token_new_character (const char *s, ffewhereLine l, ffewhereColumn c)
 /* Make a new EOF token right after end of file.  */
 
 ffelexToken
-ffelex_token_new_eof ()
+ffelex_token_new_eof (void)
 {
   ffelexToken t;
 

@@ -2936,12 +2936,6 @@ want to support call frame debugging information like that provided by
 DWARF 2.
 @end defmac
 
-@defmac SMALL_STACK
-Define this macro if the stack size for the target is very small.  This
-has the effect of disabling gcc's built-in @samp{alloca}, though
-@samp{__builtin_alloca} is not affected.
-@end defmac
-
 @node Exception Handling
 @subsection Exception Handling Support
 @cindex exception handling
@@ -2997,6 +2991,13 @@ the @code{eh_return} instruction pattern should be used instead.
 
 If you want to support call frame exception handling, you must
 define either this macro or the @code{eh_return} instruction pattern.
+@end defmac
+
+@defmac RETURN_ADDR_OFFSET
+If defined, an integer-valued C expression for which rtl will be generated
+to add it to the exception handler address before it is searched in the
+exception handling tables, and to subtract it again from the address before
+using it to return to the exception handler.
 @end defmac
 
 @defmac ASM_PREFERRED_EH_DATA_FORMAT (@var{code}, @var{global})
@@ -3753,6 +3754,17 @@ implementation of va_arg will attempt to pad down before reading the
 next argument, if that argument is smaller than its aligned space as
 controlled by @code{PARM_BOUNDARY}.  If this macro is not defined, all such
 arguments are padded down if @code{BYTES_BIG_ENDIAN} is true.
+@end defmac
+
+@defmac BLOCK_REG_PADDING (@var{mode}, @var{type}, @var{first})
+Specify padding for the last element of a block move between registers and
+memory.  @var{first} is nonzero if this is the only element.  Defining this
+macro allows better control of register function parameters on big-endian
+machines, without using @code{PARALLEL} rtl.  In particular,
+@code{MUST_PASS_IN_STACK} need not test padding and mode of types in
+registers, as there is no longer a "wrong" part of a register;  For example,
+a three byte aggregate may be passed in the high part of a register if so
+required.
 @end defmac
 
 @defmac FUNCTION_ARG_BOUNDARY (@var{mode}, @var{type})

@@ -130,36 +130,24 @@ struct ssa_rename_from_hash_table_data {
   partition reg_partition;
 };
 
-static rtx gen_sequence
-  PARAMS ((void));
-static void ssa_rename_from_initialize
-  PARAMS ((void));
-static rtx ssa_rename_from_lookup
-  PARAMS ((int reg));
-static unsigned int original_register
-  PARAMS ((unsigned int regno));
-static void ssa_rename_from_insert
-  PARAMS ((unsigned int reg, rtx r));
-static void ssa_rename_from_free
-  PARAMS ((void));
-typedef int (*srf_trav) PARAMS ((int regno, rtx r, sbitmap canonical_elements, partition reg_partition));
-static void ssa_rename_from_traverse
-  PARAMS ((htab_trav callback_function, sbitmap canonical_elements, partition reg_partition));
-/*static Avoid warning message.  */ void ssa_rename_from_print
-  PARAMS ((void));
-static int ssa_rename_from_print_1
-  PARAMS ((void **slot, void *data));
-static hashval_t ssa_rename_from_hash_function
-  PARAMS ((const void * srfp));
-static int ssa_rename_from_equal
-  PARAMS ((const void *srfp1, const void *srfp2));
-static void ssa_rename_from_delete
-  PARAMS ((void *srfp));
+static rtx gen_sequence (void);
+static void ssa_rename_from_initialize (void);
+static rtx ssa_rename_from_lookup (int reg);
+static unsigned int original_register (unsigned int regno);
+static void ssa_rename_from_insert (unsigned int reg, rtx r);
+static void ssa_rename_from_free (void);
+typedef int (*srf_trav) (int regno, rtx r, sbitmap canonical_elements,
+			 partition reg_partition);
+static void ssa_rename_from_traverse (htab_trav callback_function,
+				      sbitmap canonical_elements, partition reg_partition);
+/*static Avoid warning message.  */ void ssa_rename_from_print (void);
+static int ssa_rename_from_print_1 (void **slot, void *data);
+static hashval_t ssa_rename_from_hash_function (const void * srfp);
+static int ssa_rename_from_equal (const void *srfp1, const void *srfp2);
+static void ssa_rename_from_delete (void *srfp);
 
-static rtx ssa_rename_to_lookup
-  PARAMS ((rtx reg));
-static void ssa_rename_to_insert
-  PARAMS ((rtx reg, rtx r));
+static rtx ssa_rename_to_lookup (rtx reg);
+static void ssa_rename_to_insert (rtx reg, rtx r);
 
 /* The number of registers that were live on entry to the SSA routines.  */
 static unsigned int ssa_max_reg_num;
@@ -168,87 +156,66 @@ static unsigned int ssa_max_reg_num;
 
 struct rename_context;
 
-static inline rtx * phi_alternative
-  PARAMS ((rtx, int));
-static void compute_dominance_frontiers_1
-  PARAMS ((bitmap *frontiers, dominance_info idom, int bb, sbitmap done));
-static void find_evaluations_1
-  PARAMS ((rtx dest, rtx set, void *data));
-static void find_evaluations
-  PARAMS ((sbitmap *evals, int nregs));
-static void compute_iterated_dominance_frontiers
-  PARAMS ((sbitmap *idfs, sbitmap *frontiers, sbitmap *evals, int nregs));
-static void insert_phi_node
-  PARAMS ((int regno, int b));
-static void insert_phi_nodes
-  PARAMS ((sbitmap *idfs, sbitmap *evals, int nregs));
-static void create_delayed_rename
-  PARAMS ((struct rename_context *, rtx *));
-static void apply_delayed_renames
-  PARAMS ((struct rename_context *));
-static int rename_insn_1
-  PARAMS ((rtx *ptr, void *data));
-static void rename_block
-  PARAMS ((int b, dominance_info dom));
-static void rename_registers
-  PARAMS ((int nregs, dominance_info idom));
+static inline rtx * phi_alternative (rtx, int);
+static void compute_dominance_frontiers_1 (bitmap *frontiers,
+					   dominance_info idom, int bb,
+					   sbitmap done);
+static void find_evaluations_1 (rtx dest, rtx set, void *data);
+static void find_evaluations (sbitmap *evals, int nregs);
+static void compute_iterated_dominance_frontiers (sbitmap *idfs,
+						  sbitmap *frontiers,
+						  sbitmap *evals, int nregs);
+static void insert_phi_node (int regno, int b);
+static void insert_phi_nodes (sbitmap *idfs, sbitmap *evals, int nregs);
+static void create_delayed_rename (struct rename_context *, rtx *);
+static void apply_delayed_renames (struct rename_context *);
+static int rename_insn_1 (rtx *ptr, void *data);
+static void rename_block (int b, dominance_info dom);
+static void rename_registers (int nregs, dominance_info idom);
 
-static inline int ephi_add_node
-  PARAMS ((rtx reg, rtx *nodes, int *n_nodes));
-static int * ephi_forward
-  PARAMS ((int t, sbitmap visited, sbitmap *succ, int *tstack));
-static void ephi_backward
-  PARAMS ((int t, sbitmap visited, sbitmap *pred, rtx *nodes));
-static void ephi_create
-  PARAMS ((int t, sbitmap visited, sbitmap *pred, sbitmap *succ, rtx *nodes));
-static void eliminate_phi
-  PARAMS ((edge e, partition reg_partition));
-static int make_regs_equivalent_over_bad_edges
-  PARAMS ((int bb, partition reg_partition));
+static inline int ephi_add_node (rtx reg, rtx *nodes, int *n_nodes);
+static int * ephi_forward (int t, sbitmap visited, sbitmap *succ, int *tstack);
+static void ephi_backward (int t, sbitmap visited, sbitmap *pred, rtx *nodes);
+static void ephi_create (int t, sbitmap visited, sbitmap *pred,
+			 sbitmap *succ, rtx *nodes);
+static void eliminate_phi (edge e, partition reg_partition);
+static int make_regs_equivalent_over_bad_edges (int bb,
+						partition reg_partition);
 
 /* These are used only in the conservative register partitioning
    algorithms.  */
 static int make_equivalent_phi_alternatives_equivalent
-  PARAMS ((int bb, partition reg_partition));
-static partition compute_conservative_reg_partition
-  PARAMS ((void));
-static int record_canonical_element_1
-  PARAMS ((void **srfp, void *data));
-static int check_hard_regs_in_partition
-  PARAMS ((partition reg_partition));
+  (int bb, partition reg_partition);
+static partition compute_conservative_reg_partition (void);
+static int record_canonical_element_1 (void **srfp, void *data);
+static int check_hard_regs_in_partition (partition reg_partition);
 
 /* These are used in the register coalescing algorithm.  */
-static int coalesce_if_unconflicting
-  PARAMS ((partition p, conflict_graph conflicts, int reg1, int reg2));
-static int coalesce_regs_in_copies
-  PARAMS ((basic_block bb, partition p, conflict_graph conflicts));
-static int coalesce_reg_in_phi
-  PARAMS ((rtx, int dest_regno, int src_regno, void *data));
-static int coalesce_regs_in_successor_phi_nodes
-  PARAMS ((basic_block bb, partition p, conflict_graph conflicts));
-static partition compute_coalesced_reg_partition
-  PARAMS ((void));
-static int mark_reg_in_phi
-  PARAMS ((rtx *ptr, void *data));
-static void mark_phi_and_copy_regs
-  PARAMS ((regset phi_set));
+static int coalesce_if_unconflicting (partition p, conflict_graph conflicts,
+				      int reg1, int reg2);
+static int coalesce_regs_in_copies (basic_block bb, partition p,
+				    conflict_graph conflicts);
+static int coalesce_reg_in_phi (rtx, int dest_regno, int src_regno,
+				void *data);
+static int coalesce_regs_in_successor_phi_nodes (basic_block bb,
+						 partition p,
+						 conflict_graph conflicts);
+static partition compute_coalesced_reg_partition (void);
+static int mark_reg_in_phi (rtx *ptr, void *data);
+static void mark_phi_and_copy_regs (regset phi_set);
 
-static int rename_equivalent_regs_in_insn
-  PARAMS ((rtx *ptr, void *data));
-static void rename_equivalent_regs
-  PARAMS ((partition reg_partition));
+static int rename_equivalent_regs_in_insn (rtx *ptr, void *data);
+static void rename_equivalent_regs (partition reg_partition);
 
 /* Deal with hard registers.  */
-static int conflicting_hard_regs_p
-  PARAMS ((int reg1, int reg2));
+static int conflicting_hard_regs_p (int reg1, int reg2);
 
 /* ssa_rename_to maps registers and machine modes to SSA pseudo registers.  */
 
 /* Find the register associated with REG in the indicated mode.  */
 
 static rtx
-ssa_rename_to_lookup (reg)
-     rtx reg;
+ssa_rename_to_lookup (rtx reg)
 {
   if (!HARD_REGISTER_P (reg))
     return ssa_rename_to_pseudo[REGNO (reg) - FIRST_PSEUDO_REGISTER];
@@ -259,9 +226,7 @@ ssa_rename_to_lookup (reg)
 /* Store a new value mapping REG to R in ssa_rename_to.  */
 
 static void
-ssa_rename_to_insert(reg, r)
-     rtx reg;
-     rtx r;
+ssa_rename_to_insert (rtx reg, rtx r)
 {
   if (!HARD_REGISTER_P (reg))
     ssa_rename_to_pseudo[REGNO (reg) - FIRST_PSEUDO_REGISTER] = r;
@@ -272,7 +237,7 @@ ssa_rename_to_insert(reg, r)
 /* Prepare ssa_rename_from for use.  */
 
 static void
-ssa_rename_from_initialize ()
+ssa_rename_from_initialize (void)
 {
   /* We use an arbitrary initial hash table size of 64.  */
   ssa_rename_from_ht = htab_create (64,
@@ -285,15 +250,13 @@ ssa_rename_from_initialize ()
    found.  */
 
 static rtx
-ssa_rename_from_lookup (reg)
-     int reg;
+ssa_rename_from_lookup (int reg)
 {
   ssa_rename_from_pair srfp;
   ssa_rename_from_pair *answer;
   srfp.reg = reg;
   srfp.original = NULL_RTX;
-  answer = (ssa_rename_from_pair *)
-    htab_find_with_hash (ssa_rename_from_ht, (void *) &srfp, reg);
+  answer = htab_find_with_hash (ssa_rename_from_ht, (void *) &srfp, reg);
   return (answer == 0 ? NULL_RTX : answer->original);
 }
 
@@ -302,8 +265,7 @@ ssa_rename_from_lookup (reg)
    Otherwise, return this register number REGNO.  */
 
 static unsigned int
-original_register (regno)
-     unsigned int regno;
+original_register (unsigned int regno)
 {
   rtx original_rtx = ssa_rename_from_lookup (regno);
   return original_rtx != NULL_RTX ? REGNO (original_rtx) : regno;
@@ -312,9 +274,7 @@ original_register (regno)
 /* Add mapping from R to REG to ssa_rename_from even if already present.  */
 
 static void
-ssa_rename_from_insert (reg, r)
-     unsigned int reg;
-     rtx r;
+ssa_rename_from_insert (unsigned int reg, rtx r)
 {
   void **slot;
   ssa_rename_from_pair *srfp = xmalloc (sizeof (ssa_rename_from_pair));
@@ -332,11 +292,8 @@ ssa_rename_from_insert (reg, r)
    current use of this function.  */
 
 static void
-ssa_rename_from_traverse (callback_function,
-			  canonical_elements, reg_partition)
-     htab_trav callback_function;
-     sbitmap canonical_elements;
-     partition reg_partition;
+ssa_rename_from_traverse (htab_trav callback_function,
+			  sbitmap canonical_elements, partition reg_partition)
 {
   struct ssa_rename_from_hash_table_data srfhd;
   srfhd.canonical_elements = canonical_elements;
@@ -347,7 +304,7 @@ ssa_rename_from_traverse (callback_function,
 /* Destroy ssa_rename_from.  */
 
 static void
-ssa_rename_from_free ()
+ssa_rename_from_free (void)
 {
   htab_delete (ssa_rename_from_ht);
 }
@@ -356,7 +313,7 @@ ssa_rename_from_free ()
 
 /* static  Avoid erroneous error message.  */
 void
-ssa_rename_from_print ()
+ssa_rename_from_print (void)
 {
   printf ("ssa_rename_from's hash table contents:\n");
   htab_traverse (ssa_rename_from_ht, &ssa_rename_from_print_1, NULL);
@@ -366,9 +323,7 @@ ssa_rename_from_print ()
    attribute DATA.  Used as a callback function with htab_traverse ().  */
 
 static int
-ssa_rename_from_print_1 (slot, data)
-     void **slot;
-     void *data ATTRIBUTE_UNUSED;
+ssa_rename_from_print_1 (void **slot, void *data ATTRIBUTE_UNUSED)
 {
   ssa_rename_from_pair * p = *slot;
   printf ("ssa_rename_from maps pseudo %i to original %i.\n",
@@ -379,8 +334,7 @@ ssa_rename_from_print_1 (slot, data)
 /* Given a hash entry SRFP, yield a hash value.  */
 
 static hashval_t
-ssa_rename_from_hash_function (srfp)
-     const void *srfp;
+ssa_rename_from_hash_function (const void *srfp)
 {
   return ((const ssa_rename_from_pair *) srfp)->reg;
 }
@@ -388,9 +342,7 @@ ssa_rename_from_hash_function (srfp)
 /* Test whether two hash table entries SRFP1 and SRFP2 are equal.  */
 
 static int
-ssa_rename_from_equal (srfp1, srfp2)
-     const void *srfp1;
-     const void *srfp2;
+ssa_rename_from_equal (const void *srfp1, const void *srfp2)
 {
   return ssa_rename_from_hash_function (srfp1) ==
     ssa_rename_from_hash_function (srfp2);
@@ -399,8 +351,7 @@ ssa_rename_from_equal (srfp1, srfp2)
 /* Delete the hash table entry SRFP.  */
 
 static void
-ssa_rename_from_delete (srfp)
-     void *srfp;
+ssa_rename_from_delete (void *srfp)
 {
   free (srfp);
 }
@@ -409,9 +360,7 @@ ssa_rename_from_delete (srfp)
    for predecessor block C.  */
 
 static inline rtx *
-phi_alternative (set, c)
-     rtx set;
-     int c;
+phi_alternative (rtx set, int c)
 {
   rtvec phi_vec = XVEC (SET_SRC (set), 0);
   int v;
@@ -428,9 +377,7 @@ phi_alternative (set, c)
    found for C.  */
 
 int
-remove_phi_alternative (set, block)
-     rtx set;
-     basic_block block;
+remove_phi_alternative (rtx set, basic_block block)
 {
   rtvec phi_vec = XVEC (SET_SRC (set), 0);
   int num_elem = GET_NUM_ELEM (phi_vec);
@@ -461,10 +408,8 @@ static sbitmap *fe_evals;
 static int fe_current_bb;
 
 static void
-find_evaluations_1 (dest, set, data)
-     rtx dest;
-     rtx set ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
+find_evaluations_1 (rtx dest, rtx set ATTRIBUTE_UNUSED,
+		    void *data ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (dest) == REG
       && CONVERT_REGISTER_TO_SSA_P (REGNO (dest)))
@@ -472,9 +417,7 @@ find_evaluations_1 (dest, set, data)
 }
 
 static void
-find_evaluations (evals, nregs)
-     sbitmap *evals;
-     int nregs;
+find_evaluations (sbitmap *evals, int nregs)
 {
   basic_block bb;
 
@@ -518,11 +461,8 @@ find_evaluations (evals, nregs)
 */
 
 static void
-compute_dominance_frontiers_1 (frontiers, idom, bb, done)
-     bitmap *frontiers;
-     dominance_info idom;
-     int bb;
-     sbitmap done;
+compute_dominance_frontiers_1 (bitmap *frontiers, dominance_info idom,
+			       int bb, sbitmap done)
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
@@ -597,9 +537,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
 }
 
 void
-compute_dominance_frontiers (frontiers, idom)
-     bitmap *frontiers;
-     dominance_info idom;
+compute_dominance_frontiers (bitmap *frontiers, dominance_info idom)
 {
   sbitmap done = sbitmap_alloc (last_basic_block);
 
@@ -623,11 +561,8 @@ compute_dominance_frontiers (frontiers, idom)
 */
 
 static void
-compute_iterated_dominance_frontiers (idfs, frontiers, evals, nregs)
-     sbitmap *idfs;
-     sbitmap *frontiers;
-     sbitmap *evals;
-     int nregs;
+compute_iterated_dominance_frontiers (sbitmap *idfs, sbitmap *frontiers,
+				      sbitmap *evals, int nregs)
 {
   sbitmap worklist;
   int reg, passes = 0;
@@ -681,8 +616,7 @@ compute_iterated_dominance_frontiers (idfs, frontiers, evals, nregs)
 /* Insert the phi nodes.  */
 
 static void
-insert_phi_node (regno, bb)
-     int regno, bb;
+insert_phi_node (int regno, int bb)
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
@@ -726,10 +660,7 @@ insert_phi_node (regno, bb)
 }
 
 static void
-insert_phi_nodes (idfs, evals, nregs)
-     sbitmap *idfs;
-     sbitmap *evals ATTRIBUTE_UNUSED;
-     int nregs;
+insert_phi_nodes (sbitmap *idfs, sbitmap *evals ATTRIBUTE_UNUSED, int nregs)
 {
   int reg;
 
@@ -781,12 +712,10 @@ struct rename_context
 
 /* Queue the rename of *REG_LOC.  */
 static void
-create_delayed_rename (c, reg_loc)
-     struct rename_context *c;
-     rtx *reg_loc;
+create_delayed_rename (struct rename_context *c, rtx *reg_loc)
 {
   struct rename_set_data *r;
-  r = (struct rename_set_data *) xmalloc (sizeof(*r));
+  r = xmalloc (sizeof(*r));
 
   if (GET_CODE (*reg_loc) != REG
       || !CONVERT_REGISTER_TO_SSA_P (REGNO (*reg_loc)))
@@ -813,8 +742,7 @@ create_delayed_rename (c, reg_loc)
    applying all the renames on NEW_RENAMES.  */
 
 static void
-apply_delayed_renames (c)
-       struct rename_context *c;
+apply_delayed_renames (struct rename_context *c)
 {
   struct rename_set_data *r;
   struct rename_set_data *last_r = NULL;
@@ -863,9 +791,7 @@ apply_delayed_renames (c)
    Mark pseudos that are set for later update.  Transform uses of pseudos.  */
 
 static int
-rename_insn_1 (ptr, data)
-     rtx *ptr;
-     void *data;
+rename_insn_1 (rtx *ptr, void *data)
 {
   rtx x = *ptr;
   struct rename_context *context = data;
@@ -1019,7 +945,7 @@ rename_insn_1 (ptr, data)
 }
 
 static rtx
-gen_sequence ()
+gen_sequence (void)
 {
   rtx first_insn = get_insns ();
   rtx result;
@@ -1041,9 +967,7 @@ gen_sequence ()
 }
 
 static void
-rename_block (bb, idom)
-     int bb;
-     dominance_info idom;
+rename_block (int bb, dominance_info idom)
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
@@ -1177,17 +1101,15 @@ rename_block (bb, idom)
 }
 
 static void
-rename_registers (nregs, idom)
-     int nregs;
-     dominance_info idom;
+rename_registers (int nregs, dominance_info idom)
 {
   VARRAY_RTX_INIT (ssa_definition, nregs * 3, "ssa_definition");
   ssa_rename_from_initialize ();
 
-  ssa_rename_to_pseudo = (rtx *) alloca (nregs * sizeof(rtx));
-  memset ((char *) ssa_rename_to_pseudo, 0, nregs * sizeof(rtx));
-  memset ((char *) ssa_rename_to_hard, 0,
-	 FIRST_PSEUDO_REGISTER * NUM_MACHINE_MODES * sizeof (rtx));
+  ssa_rename_to_pseudo = alloca (nregs * sizeof(rtx));
+  memset (ssa_rename_to_pseudo, 0, nregs * sizeof(rtx));
+  memset (ssa_rename_to_hard, 0,
+	  FIRST_PSEUDO_REGISTER * NUM_MACHINE_MODES * sizeof (rtx));
 
   rename_block (0, idom);
 
@@ -1200,7 +1122,7 @@ rename_registers (nregs, idom)
 /* The main entry point for moving to SSA.  */
 
 void
-convert_to_ssa ()
+convert_to_ssa (void)
 {
   /* Element I is the set of blocks that set register I.  */
   sbitmap *evals;
@@ -1314,9 +1236,7 @@ convert_to_ssa ()
    index of this register in the node set.  */
 
 static inline int
-ephi_add_node (reg, nodes, n_nodes)
-     rtx reg, *nodes;
-     int *n_nodes;
+ephi_add_node (rtx reg, rtx *nodes, int *n_nodes)
 {
   int i;
   for (i = *n_nodes - 1; i >= 0; --i)
@@ -1333,11 +1253,7 @@ ephi_add_node (reg, nodes, n_nodes)
    no other dependencies.  */
 
 static int *
-ephi_forward (t, visited, succ, tstack)
-     int t;
-     sbitmap visited;
-     sbitmap *succ;
-     int *tstack;
+ephi_forward (int t, sbitmap visited, sbitmap *succ, int *tstack)
 {
   int s;
 
@@ -1357,10 +1273,7 @@ ephi_forward (t, visited, succ, tstack)
    a cycle in the graph, copying the data forward as we go.  */
 
 static void
-ephi_backward (t, visited, pred, nodes)
-     int t;
-     sbitmap visited, *pred;
-     rtx *nodes;
+ephi_backward (int t, sbitmap visited, sbitmap *pred, rtx *nodes)
 {
   int p;
 
@@ -1380,10 +1293,7 @@ ephi_backward (t, visited, pred, nodes)
    and any cycle of which it is a member.  */
 
 static void
-ephi_create (t, visited, pred, succ, nodes)
-     int t;
-     sbitmap visited, *pred, *succ;
-     rtx *nodes;
+ephi_create (int t, sbitmap visited, sbitmap *pred, sbitmap *succ, rtx *nodes)
 {
   rtx reg_u = NULL_RTX;
   int unvisited_predecessors = 0;
@@ -1439,9 +1349,7 @@ ephi_create (t, visited, pred, succ, nodes)
 /* Convert the edge to normal form.  */
 
 static void
-eliminate_phi (e, reg_partition)
-     edge e;
-     partition reg_partition;
+eliminate_phi (edge e, partition reg_partition)
 {
   int n_nodes;
   sbitmap *pred, *succ;
@@ -1471,7 +1379,7 @@ eliminate_phi (e, reg_partition)
      present in Phi(B).  There is an edge from FIND(T0)->FIND(T1) for
      each T0 = PHI(...,T1,...), where T1 is for the edge from block C.  */
 
-  nodes = (rtx *) alloca (n_nodes * sizeof(rtx));
+  nodes = alloca (n_nodes * sizeof(rtx));
   pred = sbitmap_vector_alloc (n_nodes, n_nodes);
   succ = sbitmap_vector_alloc (n_nodes, n_nodes);
   sbitmap_vector_zero (pred, n_nodes);
@@ -1520,7 +1428,7 @@ eliminate_phi (e, reg_partition)
   visited = sbitmap_alloc (n_nodes);
   sbitmap_zero (visited);
 
-  tstack = stack = (int *) alloca (n_nodes * sizeof (int));
+  tstack = stack = alloca (n_nodes * sizeof (int));
 
   for (i = 0; i < n_nodes; ++i)
     if (! TEST_BIT (visited, i))
@@ -1568,9 +1476,7 @@ out:
    regs were not already in the same class.  */
 
 static int
-make_regs_equivalent_over_bad_edges (bb, reg_partition)
-     int bb;
-     partition reg_partition;
+make_regs_equivalent_over_bad_edges (int bb, partition reg_partition)
 {
   int changed = 0;
   basic_block b = BASIC_BLOCK (bb);
@@ -1641,9 +1547,7 @@ make_regs_equivalent_over_bad_edges (bb, reg_partition)
    Return nonzero if any new register classes were unioned.  */
 
 static int
-make_equivalent_phi_alternatives_equivalent (bb, reg_partition)
-     int bb;
-     partition reg_partition;
+make_equivalent_phi_alternatives_equivalent (int bb, partition reg_partition)
 {
   int changed = 0;
   basic_block b = BASIC_BLOCK (bb);
@@ -1726,7 +1630,7 @@ make_equivalent_phi_alternatives_equivalent (bb, reg_partition)
    See Morgan 7.3.1.  */
 
 static partition
-compute_conservative_reg_partition ()
+compute_conservative_reg_partition (void)
 {
   basic_block bb;
   int changed = 0;
@@ -1788,11 +1692,8 @@ compute_conservative_reg_partition ()
    See Morgan figure 11.15.  */
 
 static int
-coalesce_if_unconflicting (p, conflicts, reg1, reg2)
-     partition p;
-     conflict_graph conflicts;
-     int reg1;
-     int reg2;
+coalesce_if_unconflicting (partition p, conflict_graph conflicts,
+			   int reg1, int reg2)
 {
   int reg;
 
@@ -1836,10 +1737,7 @@ coalesce_if_unconflicting (p, conflicts, reg1, reg2)
    See Morgan figure 11.14.  */
 
 static int
-coalesce_regs_in_copies (bb, p, conflicts)
-     basic_block bb;
-     partition p;
-     conflict_graph conflicts;
+coalesce_regs_in_copies (basic_block bb, partition p, conflict_graph conflicts)
 {
   int changed = 0;
   rtx insn;
@@ -1898,11 +1796,8 @@ struct phi_coalesce_context
    phi_coalesce_context struct.  */
 
 static int
-coalesce_reg_in_phi (insn, dest_regno, src_regno, data)
-     rtx insn ATTRIBUTE_UNUSED;
-     int dest_regno;
-     int src_regno;
-     void *data;
+coalesce_reg_in_phi (rtx insn ATTRIBUTE_UNUSED, int dest_regno,
+		     int src_regno, void *data)
 {
   struct phi_coalesce_context *context =
     (struct phi_coalesce_context *) data;
@@ -1924,10 +1819,8 @@ coalesce_reg_in_phi (insn, dest_regno, src_regno, data)
    See Morgan figure 11.14.  */
 
 static int
-coalesce_regs_in_successor_phi_nodes (bb, p, conflicts)
-     basic_block bb;
-     partition p;
-     conflict_graph conflicts;
+coalesce_regs_in_successor_phi_nodes (basic_block bb, partition p,
+				      conflict_graph conflicts)
 {
   struct phi_coalesce_context context;
   context.p = p;
@@ -1945,7 +1838,7 @@ coalesce_regs_in_successor_phi_nodes (bb, p, conflicts)
    The caller is responsible for deallocating the returned partition.  */
 
 static partition
-compute_coalesced_reg_partition ()
+compute_coalesced_reg_partition (void)
 {
   basic_block bb;
   int changed = 0;
@@ -2003,9 +1896,7 @@ compute_coalesced_reg_partition ()
    set all regs.  Called from for_each_rtx.  */
 
 static int
-mark_reg_in_phi (ptr, data)
-     rtx *ptr;
-     void *data;
+mark_reg_in_phi (rtx *ptr, void *data)
 {
   rtx expr = *ptr;
   regset set = (regset) data;
@@ -2029,8 +1920,7 @@ mark_reg_in_phi (ptr, data)
    ssa_definition.  */
 
 static void
-mark_phi_and_copy_regs (phi_set)
-     regset phi_set;
+mark_phi_and_copy_regs (regset phi_set)
 {
   unsigned int reg;
 
@@ -2074,9 +1964,7 @@ mark_phi_and_copy_regs (phi_set)
    partition which specifies equivalences.  */
 
 static int
-rename_equivalent_regs_in_insn (ptr, data)
-     rtx *ptr;
-     void* data;
+rename_equivalent_regs_in_insn (rtx *ptr, void* data)
 {
   rtx x = *ptr;
   partition reg_partition = (partition) data;
@@ -2125,9 +2013,7 @@ rename_equivalent_regs_in_insn (ptr, data)
    as a callback function for traversing ssa_rename_from.  */
 
 static int
-record_canonical_element_1 (srfp, data)
-     void **srfp;
-     void *data;
+record_canonical_element_1 (void **srfp, void *data)
 {
   unsigned int reg = ((ssa_rename_from_pair *) *srfp)->reg;
   sbitmap canonical_elements =
@@ -2145,8 +2031,7 @@ record_canonical_element_1 (srfp, data)
    nonzero if this is the case, i.e., the partition is acceptable.  */
 
 static int
-check_hard_regs_in_partition (reg_partition)
-     partition reg_partition;
+check_hard_regs_in_partition (partition reg_partition)
 {
   /* CANONICAL_ELEMENTS has a nonzero bit if a class with the given register
      number and machine mode has already been seen.  This is a
@@ -2189,8 +2074,7 @@ check_hard_regs_in_partition (reg_partition)
    any SEQUENCE insns.  */
 
 static void
-rename_equivalent_regs (reg_partition)
-     partition reg_partition;
+rename_equivalent_regs (partition reg_partition)
 {
   basic_block b;
 
@@ -2236,7 +2120,7 @@ rename_equivalent_regs (reg_partition)
 /* The main entry point for moving from SSA.  */
 
 void
-convert_from_ssa ()
+convert_from_ssa (void)
 {
   basic_block b, bb;
   partition reg_partition;
@@ -2324,10 +2208,7 @@ convert_from_ssa ()
    value.  Otherwise, returns zero.  */
 
 int
-for_each_successor_phi (bb, fn, data)
-     basic_block bb;
-     successor_phi_fn fn;
-     void *data;
+for_each_successor_phi (basic_block bb, successor_phi_fn fn, void *data)
 {
   edge e;
 
@@ -2384,9 +2265,7 @@ for_each_successor_phi (bb, fn, data)
    different hard registers.  */
 
 static int
-conflicting_hard_regs_p (reg1, reg2)
-     int reg1;
-     int reg2;
+conflicting_hard_regs_p (int reg1, int reg2)
 {
   int orig_reg1 = original_register (reg1);
   int orig_reg2 = original_register (reg2);

@@ -56,13 +56,12 @@ namespace std
    *
    *  See http://gcc.gnu.org/onlinedocs/libstdc++/21_strings/howto.html#5
    *  for advice on how to make use of this class for "unusual" character
-   *  types.
+   *  types. Also, check out include/ext/pod_char_traits.h.
   */
   template<class _CharT>
     struct char_traits
     {
       typedef _CharT 		char_type;
-      // Unsigned as wint_t is unsigned.
       typedef unsigned long  	int_type;
       typedef streampos 	pos_type;
       typedef streamoff 	off_type;
@@ -152,7 +151,7 @@ namespace std
 
       static char_type* 
       copy(char_type* __s1, const char_type* __s2, size_t __n)
-      {  return static_cast<char_type*>(memcpy(__s1, __s2, __n)); }
+      { return static_cast<char_type*>(memcpy(__s1, __s2, __n)); }
 
       static char_type* 
       assign(char_type* __s, size_t __n, char_type __a)
@@ -217,7 +216,7 @@ namespace std
       { return wmemchr(__s, __a, __n); }
 
       static char_type* 
-      move(char_type* __s1, const char_type* __s2, int_type __n)
+      move(char_type* __s1, const char_type* __s2, size_t __n)
       { return wmemmove(__s1, __s2, __n); }
 
       static char_type* 

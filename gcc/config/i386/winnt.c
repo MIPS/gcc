@@ -16,10 +16,9 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -106,8 +105,7 @@ ix86_handle_dll_attribute (pnode, name, args, flags, no_add_attrs)
       if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
           && !DECL_INLINE (node))
 	{
-	  error ("%Hfunction `%D' definition is marked dllimport.",
-		 TREE_LOCUS (node), node);
+	  error_with_decl (node, "function `%s' definition is marked dllimport.");
 	  *no_add_attrs = true;
 	}
 
@@ -115,8 +113,7 @@ ix86_handle_dll_attribute (pnode, name, args, flags, no_add_attrs)
 	{
 	  if (DECL_INITIAL (node))
 	    {
-	      error ("%Hvariable `%D' definition is marked dllimport.",
-		     TREE_LOCUS (node), node);
+	      error_with_decl (node,"variable `%s' definition is marked dllimport.");
 	      *no_add_attrs = true;
 	    }
 
@@ -135,8 +132,8 @@ ix86_handle_dll_attribute (pnode, name, args, flags, no_add_attrs)
       && (TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL)) 
     {
-      error ("%Hexternal linkage required for symbol '%D' because of '%s' attribute.",
-	       TREE_LOCUS (node), node, IDENTIFIER_POINTER (name));
+      error_with_decl (node, "external linkage required for symbol '%s' because of '%s' attribute.",
+		       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -176,9 +173,11 @@ associated_type (decl)
      to the containing class.  So we look at the 'this' arg.  */
   if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
     {
-      /* Artificial methods are not affected by the import/export status of
-	 their class unless they are virtual.  */
-      if (! DECL_ARTIFICIAL (decl) || DECL_VINDEX (decl))
+      /* Artificial methods are not affected by the import/export status
+	 of their class unless they are COMDAT.  Implicit copy ctor's and
+	 dtor's are not affected by class status but virtual and
+	 non-virtual thunks are.  */
+      if (!DECL_ARTIFICIAL (decl) || DECL_COMDAT (decl))
 	t = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl))));
     }
   else if (DECL_CONTEXT (decl)
@@ -254,8 +253,7 @@ i386_pe_dllimport_p (decl)
 	{
 	   /* Don't warn about artificial methods.  */
 	  if (!DECL_ARTIFICIAL (decl))
-	    warning ("%H function '%D' is defined after prior declaration as dllimport: attribute ignored",
-		     TREE_LOCUS (decl), decl);
+	    warning_with_decl (decl,"function '%s' is defined after prior declaration as dllimport: attribute ignored.");
 	  return 0;
 	}
 
@@ -265,8 +263,7 @@ i386_pe_dllimport_p (decl)
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
-	    warning ("%Hinline function '%D' is declared as dllimport: attribute ignored.", 
-		     TREE_LOCUS (decl), decl);
+	    warning_with_decl (decl, "inline function '%s' is declared as dllimport: attribute ignored.");
 	  return 0;
 	}
 
@@ -277,17 +274,18 @@ i386_pe_dllimport_p (decl)
 	       && !DECL_EXTERNAL (decl) && context_imp)
 	{
 	  if (!DECL_VIRTUAL_P (decl))
-	      error ("%Hdefinition of static data member '%D' of dllimport'd class.", 
-		     TREE_LOCUS (decl), decl);
+	      error_with_decl (decl, "definition of static data member '%s' of dllimport'd class.");
            return 0;
 	}
 
       /* Since we can't treat a pointer to a dllimport'd symbol as a
 	 constant address, we turn off the attribute on C++ virtual
-	 methods to allow creation of vtables using thunks. */
+	 methods to allow creation of vtables using thunks.  Don't mark
+	 artificial methods either (in associated_type, only COMDAT
+	 artificial method get import status from class context).  */
       else if (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE
-	       && (DECL_VIRTUAL_P (decl)))
-           return 0;
+	       && (DECL_VIRTUAL_P (decl) || DECL_ARTIFICIAL (decl)))
+	return 0;
 
       return 1;
     }
@@ -337,8 +335,7 @@ i386_pe_mark_dllexport (decl)
     abort ();
   if (i386_pe_dllimport_name_p (oldname))
     {
-      warning ("%Hinconsistent dll linkage for '%D, dllexport assumed.",
-	       TREE_LOCUS (decl), decl);
+      warning_with_decl (decl,"inconsistent dll linkage for '%s': dllexport assumed.");
      /* Remove DLL_IMPORT_PREFIX.  */
       oldname += strlen (DLL_IMPORT_PREFIX);
       DECL_NON_ADDR_CONST_P (decl) = 0;
@@ -389,8 +386,7 @@ i386_pe_mark_dllimport (decl)
       /* Already done, but do a sanity check to prevent assembler errors. */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
 	{
-	  error ("%Hfailure in redeclaration of '%D': dllimport'd symbol lacks external linkage.", 
-		 TREE_LOCUS (decl), decl);
+	  error_with_decl (decl, "failure in redeclaration of '%s': dllimport'd symbol lacks external linkage.");
 	  abort();
 	}
       return;
@@ -536,11 +532,9 @@ i386_pe_encode_section_info (decl, rtl, first)
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
       rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
 
-      warning ("%H%s '%D' %s after being referenced with dllimport linkage.",
-	         TREE_LOCUS (decl),
-	         TREE_CODE (decl) == VAR_DECL ? "variable" : "function", 
-	         decl, (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
-			? "defined locally" : "redeclared without dllimport attribute");
+      warning_with_decl (decl, "'%s' %s after being referenced with dllimport linkage.",
+	         	 (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
+			 ? "defined locally" : "redeclared without dllimport attribute");
 
       XEXP (DECL_RTL (decl), 0) = newrtl;
 

@@ -191,18 +191,18 @@ struct cpp_token
 
 /* A type wide enough to hold any multibyte source character.
    cpplib's character constant interpreter requires an unsigned type.
-   Also, a typedef for the signed equivalent.  */
-#ifndef MAX_WCHAR_TYPE_SIZE
-# define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
-#endif
-#if CHAR_BIT * SIZEOF_INT >= MAX_WCHAR_TYPE_SIZE
+   Also, a typedef for the signed equivalent.
+   The width of this type is capped at 32 bits; there do exist targets
+   where wchar_t is 64 bits, but only in a non-default mode, and there
+   would be no meaningful interpretation for a wchar_t value greater
+   than 2^32 anyway -- the widest wide-character encoding around is
+   ISO 10646, which stops at 2^31.  */
+#if CHAR_BIT * SIZEOF_INT >= 32
 # define CPPCHAR_SIGNED_T int
+#elif CHAR_BIT * SIZEOF_LONG >= 32
+# define CPPCHAR_SIGNED_T long
 #else
-# if CHAR_BIT * SIZEOF_LONG >= MAX_WCHAR_TYPE_SIZE || !HAVE_LONG_LONG
-#  define CPPCHAR_SIGNED_T long
-# else
-#  define CPPCHAR_SIGNED_T long long
-# endif
+# error "Cannot find a least-32-bit signed integer type"
 #endif
 typedef unsigned CPPCHAR_SIGNED_T cppchar_t;
 typedef CPPCHAR_SIGNED_T cppchar_signed_t;
@@ -535,6 +535,10 @@ extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
    too.  If there was an error opening the file, it returns NULL.  */
 extern const char *cpp_read_main_file (cpp_reader *, const char *);
 
+/* This continues processing to a new file.  It will return false if
+   there was an error opening the file.  */
+extern bool cpp_read_next_file (cpp_reader *, const char *);
+
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);
 
@@ -583,6 +587,9 @@ extern void cpp_define (cpp_reader *, const char *);
 extern void cpp_assert (cpp_reader *, const char *);
 extern void cpp_undef (cpp_reader *, const char *);
 extern void cpp_unassert (cpp_reader *, const char *);
+
+/* Undefine all macros and assertions.  */
+extern void cpp_undef_all (cpp_reader *);
 
 extern cpp_buffer *cpp_push_buffer (cpp_reader *, const unsigned char *,
 				    size_t, int, int);

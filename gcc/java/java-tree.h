@@ -918,6 +918,12 @@ union lang_tree_node
 /* The original WFL of a final variable. */
 #define DECL_FIELD_FINAL_WFL(NODE) \
   (DECL_LANG_SPECIFIC(NODE)->u.v.wfl)
+/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
+     the approximate number of instructions in this function.  There is
+     no need for this number to be exact; it is only used in various
+     heuristics regarding optimization.  */
+#define DECL_ESTIMATED_INSNS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 /* True if NODE is a local variable final. */
 #define LOCAL_FINAL_P(NODE) (DECL_LANG_SPECIFIC (NODE) && DECL_FINAL (NODE))
 /* True if NODE is a final field. */
@@ -937,8 +943,7 @@ union lang_tree_node
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
     {								\
       DECL_LANG_SPECIFIC ((T))					\
-	= ((struct lang_decl *)					\
-	   ggc_alloc_cleared (sizeof (struct lang_decl)));	\
+	= ggc_alloc_cleared (sizeof (struct lang_decl));	\
       DECL_LANG_SPECIFIC (T)->desc = LANG_DECL_VAR;		\
     }
 
@@ -1041,9 +1046,8 @@ struct lang_decl GTY(())
 #define MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC(T)				 \
   if (TYPE_LANG_SPECIFIC ((T)) == NULL)					 \
     {									 \
-      TYPE_LANG_SPECIFIC ((T)) = 					 \
-	((struct lang_type *) 						 \
-         ggc_alloc_cleared (sizeof (struct lang_type)));		 \
+      TYPE_LANG_SPECIFIC ((T)) 					 	 \
+        = ggc_alloc_cleared (sizeof (struct lang_type));		 \
     }
 
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC(T)->finit_stmt_list)

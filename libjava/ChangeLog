@@ -1,3 +1,311 @@
+2003-07-21  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(create): Remove unused method implementation.
+	(connectHooks): Remove debug messages.
+
+2003-07-20  Anthony Green  <green@redhat.com>
+
+	* gnu/awt/j2d/AbstractGraphicsState.java (clone): Handle
+	CloneNotSupportedException.
+	* gnu/gcj/xlib/WindowAttributes.java (clone): Ditto.
+	* gnu/gcj/xlib/WMSizeHints.java (clone): Ditto.
+	* gnu/gcj/xlib/GC.java (clone): Ditto.
+	* gnu/awt/xlib/XGraphics.java (clone): Ditto.
+	* gnu/awt/j2d/Graphics2DImpl.java (clone): Ditto.
+
+	* gnu/awt/xlib/XEventLoop.java (postNextEvent): Remove unreachable
+	handler.
+	* gnu/gcj/runtime/NameFinder.java (NameFinder): Ditto.
+
+2003-07-20  Steve Pribyl <steve@netfuel.com.>
+
+	* gnu/gcj/runtime/natSharedLibLoader.cc (init): `libname' now a
+	String.  Put dlerror() message into exception.
+	Include UnsatisfiedLinkError.
+	* gnu/gcj/runtime/SharedLibLoader.java (init): `libname' now a
+	String.  Now native.
+
+2003-07-20  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Runtime.java: Comment fix.
+	* java/lang/ClassLoader.java (isAncestorOf): New method.
+	(getParent): Uncommented security check.  Use isAncestorOf.
+	* include/jvm.h (_Jv_CheckAccess): Declare.
+	* java/lang/reflect/natConstructor.cc (newInstance): Perform
+	access check.
+	Include IllegalAccessException.h, ArrayIndexOutOfBoundsException.h.
+	* java/lang/reflect/natArray.cc (newInstance): Pass caller's
+	class loader to _Jv_GetArrayClass.
+	Include ArrayIndexOutOfBoundsException.h.
+	* java/lang/reflect/Field.java: Update comment to reflect status.
+	(equals): Fixed indentation.
+	* java/lang/Class.h (Class): Declare memberAccessCheck, not
+	checkMemberAccess.  Make _Jv_CheckAccess a friend.
+	* java/lang/Class.java (memberAccessCheck): New method from
+	Classpath.
+	(checkMemberAccess): Removed.
+	(getDeclaredMethod): Use memberAccessCheck.
+	(getField): Likewise.
+	(getMethod): Likewise.
+	* resolve.cc (_Jv_ResolvePoolEntry): Use _Jv_CheckAccess.
+	(_Jv_SearchMethodInClass): Likewise.
+	* prims.cc (_Jv_CheckAccess): New function.
+	* jni.cc (_Jv_JNI_FindClass): Use getClassLoaderInternal.
+	(_Jv_JNI_GetAnyFieldID): Likewise.
+	* java/lang/natClass.cc (forName): Use getClassLoaderInternal.
+	(getClassLoader): Added security check.
+	(getConstructor): Call memberAccessCheck.
+	(getDeclaredClasses): Likewise.
+	(getDeclaredField): Likewise.
+	(getDeclaredFields): Likewise.
+	(_getConstructors): Likewise.
+	(getDeclaredConstructor): Likewise.
+	(getDeclaredMethods): Likewise.
+	(getFields): Likewise.
+	(getMethods): Likewise.
+	(newInstance): Likewise.
+	(_Jv_MakeVTable): Put method name in exception.
+	* java/lang/reflect/natMethod.cc (getType): Use
+	getClassLoaderInternal.
+	(_Jv_GetTypesFromSignature): Likewise.
+	(invoke): Perform access check.
+	(_Jv_CallAnyMethodA): Removed old FIXME comments.
+	Include ArrayIndexOutOfBoundsException.h.
+	* java/lang/reflect/natField.cc (getType): Use
+	getClassLoaderInternal.
+	(_Jv_CheckFieldAccessibility): Removed.
+	(getAddr): Use _Jv_CheckAccess; find caller.
+	Include ArrayIndexOutOfBoundsException.h.
+
+2003-07-20  Michael Koch  <konqueror@gmx.de>
+
+	* java/net/URL.java
+	(URL): Fixed documentation to name an argument correcty, Reformatted
+	one method declaration.
+	(getURLStreamHandler): Added documentation from classpath.
+
+2003-07-19  Tom Tromey  <tromey@redhat.com>
+
+	* mauve-libgcj: Don't run CollationElementIterator tests.
+
+2003-07-19  Jeroen Frijters <jeroen@sumatra.nl>
+
+	* java/net/URLClassLoader.java (addURL): Moved implementation to
+	private addURLImpl() to avoid calling addURL from the constructor.
+	(addURLImpl): Contains the code that was previously in addURL.
+	(addURLs): Call addURLImpl(), not addURL().
+
+2003-07-18  Graydon Hoare  <graydon@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.c: 
+	Handle missing event cases, connect to "value-changed" signal.
+
+2003-07-18  Graydon Hoare  <graydon@redhat.com>
+
+	* java/awt/geom/CubicCurve2D.java,
+	java/awt/geom/Line2D.java,
+	java/awt/geom/QuadCurve2D.java,
+	java/awt/geom/Rectangle2D.java: 
+	Fix path some calculations, make path iterators follow
+	a consistent style.
+
+2003-07-18  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/logging/Handler.java (isLoggable): Check record level
+	smaller or equal.
+
+2003-07-17  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/peer/gtk/GtkToolkit.java:
+	Reworked imports.
+
+2003-07-14  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/rmi/server/UnicastServerRef.java:
+	New version from classpath.
+
+2003-07-14  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/image/MemoryImageSource.java,
+	java/beans/PropertyEditorManager.java,
+	javax/naming/CompoundName.java,
+	javax/naming/spi/NamingManager.java,
+	javax/swing/AbstractButton.java,
+	javax/swing/ButtonModel.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/UIManager.java,
+	javax/swing/colorchooser/DefaultColorSelectionModel.java,
+	javax/swing/event/AncestorEvent.java,
+	javax/swing/event/InternalFrameEvent.java,
+	java/util/zip/ZipFile.java:
+	New versions from classpath.
+
+2003-07-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/FileChannelImpl.java,
+	gnu/java/nio/natFileChannelImpl.cc: Removed.
+	* java/io/FileInputStream.java,
+	java/io/FileOutputStream.java,
+	java/io/RandomAccessFile.java,
+	java/nio/MappedByteBufferImpl.java:
+	Import java.nio.channels.FileChannelImpl instead of
+	gnu.java.nio.FileChannelImpl.
+	* java/nio/channels/FileChannelImpl.java,
+	java/nio/channels/natFileChannelImpl.cc:
+	New files.
+	* Makefile.am
+	(ordinary_java_source_files):
+	Removed gnu/java/nio/FileChannelImpl.java and added
+	java/nio/channels/FileChannelImpl.java.
+	(nat source_files):
+	Removed gnu/java/nio/natFileChannelImpl.cc and added
+	java/nio/channels/natFileChannelImpl.cc.
+	* Makefile.in: Regenerated.
+
+2003-07-13  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/plaf/basic/BasicBorders.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/basic/BasicLookAndFeel.java,
+	javax/swing/plaf/basic/BasicTabbedPaneUI.java,
+	javax/swing/plaf/basic/BasicTextUI.java,
+	javax/swing/plaf/metal/MetalLookAndFeel.java:
+	New versions from classpath.
+
+2003-07-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/peer/gtk/GdkFontMetrics.java
+	* gnu/java/awt/peer/gtk/GdkGraphics.java
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java
+	* gnu/java/awt/peer/gtk/GtkCanvasPeer.java
+	* gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.java
+	* gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.java
+	* gnu/java/awt/peer/gtk/GtkCheckboxPeer.java
+	* gnu/java/awt/peer/gtk/GtkChoicePeer.java
+	* gnu/java/awt/peer/gtk/GtkClipboard.java
+	* gnu/java/awt/peer/gtk/GtkDialogPeer.java
+	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java
+	* gnu/java/awt/peer/gtk/GtkGenericPeer.java
+	* gnu/java/awt/peer/gtk/GtkImage.java
+	* gnu/java/awt/peer/gtk/GtkImagePainter.java
+	* gnu/java/awt/peer/gtk/GtkLabelPeer.java
+	* gnu/java/awt/peer/gtk/GtkListPeer.java
+	* gnu/java/awt/peer/gtk/GtkMenuBarPeer.java
+	* gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java
+	* gnu/java/awt/peer/gtk/GtkMenuItemPeer.java
+	* gnu/java/awt/peer/gtk/GtkMenuPeer.java
+	* gnu/java/awt/peer/gtk/GtkOffScreenImage.java
+	* gnu/java/awt/peer/gtk/GtkPanelPeer.java
+	* gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java
+	* gnu/java/awt/peer/gtk/GtkScrollPanePeer.java
+	* gnu/java/awt/peer/gtk/GtkScrollbarPeer.java
+	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java
+	* gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java
+
+2003-07-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/locale/LocaleInformation_de.java
+	* gnu/java/locale/LocaleInformation_en.java
+	* gnu/java/locale/LocaleInformation_nl.java
+
+2003-07-13  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/EmbeddedWindow.java,
+	gnu/java/awt/EmbeddedWindowSupport.java,
+	gnu/java/awt/natEmbeddedWindow.cc:
+	New files.
+	* java/awt/Window.java
+	(Window): New constructor to support embedded windows.
+	* Makefile.am
+	(awt_java_source_files): Added gnu/java/awt/EmbeddedWindow.java and
+	gnu/java/awt/EmbeddedWindowSupport.java.
+	(nat_source_files): Added gnu/java/awt/natEmbeddedWindow.cc.
+	* Makefile.in: Regenerated.
+
+2003-07-11  Matt Kraai  <kraii@alumni.cmu.edu>
+
+	* gnu/gcj/runtime/SharedLibLoader.java: Fix misspelling.
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Likewise.
+	* java/awt/im/InputContext.java: Remove a redundant
+	partial line.
+
+2003-07-09  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (AM_MAKEFLAGS): Added CPPFLAGS.
+
+2003-07-09  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectOutputStream.java (writeObject): break after
+	calling writeClassDescriptor().
+
+2003-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcj/array.h (JvPrimClass): Don't parenthesize the output.
+
+2003-07-09  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkContainerPeer.java,
+	gnu/java/awt/peer/gtk/GtkDialogPeer.java,
+	gnu/java/awt/peer/gtk/GtkWindowPeer.java:
+	Explicitly import used classes.
+	* java/awt/Container.java: New version from classpath.
+
+2003-07-09  Michael Koch  <konqueror@gmx.de>
+
+	* libgcj.pc.in: New file.
+	* Makefile.am: Install libgcj.pc in $libdir/pkgconfig.
+	* Makefile.in: Regenerated.
+	* configure: Regenrated.
+	* configure.in: Create libgcj.pc from libgcj.pc.in.
+
+2003-07-08  Mark Wielaard <mark@klomp.org>
+
+	* gcj/cni.h: CNI now expands to Compiled Native Interface.
+
+	* java/lang/e_pow.c: CYGNUS LOCAL should be GCJ LOCAL.
+	* java/lang/fdlibm.h: Likewise.
+
+2003-07-07  Adam Megacz <adam@xwt.org>
+
+        * posix.cc: added #include<stdio.h>
+		
+2003-07-07  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c: Fix
+	formatting.
+
+	* gnu/java/awt/peer/gtk/GtkTextComponentPeer.java
+	(setCaretPosition, setEditable): Rely entirely on native
+	implementation.
+	(getArgs): Remove.
+	(postTextEvent): New method.
+	(handleEvent): New method.
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java (handleEvent): New
+	method.
+	* java/awt/event/ActionEvent.java (paramString): Fix formatting.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(keysym_to_awt_keycode): Fix range checks.
+	(generates_key_typed_event): New function.
+	(awt_event_handler): Post AWT_KEY_RELEASED events to event
+	queue.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c
+	(gtkInit): Store TextComponent's postTextEvent method ID.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.c
+	(setText): Post TEXT_VALUE_CHANGED event to event queue.
+
+2003-07-07  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Check for usleep declaration.
+	* acconfig.h (HAVE_USLEEP_DECL): Provide template.
+	* configure: Regenerate.
+	* include/config.h.in: Likewise.
+	* include/posix.h [!HAVE_USLEEP_DECL]: Declare usleep.
+
 2003-07-01  Michael Koch  <konqueror@gmx.de>
 
 	* gnu/gcj/convert/natIconv.cc

@@ -42,20 +42,6 @@ case $machine in
         fixincludes=fixinc.svr4
         ;;
 
-    i?86-*-interix* | \
-    alpha-*-interix*)
-        fixincludes=fixinc.interix
-        ;;
-
-    i?86-*-openbsd*)
-        fixincludes=fixinc.wrap
-        ;;
-
-    alpha*-*-winnt* | \
-    i?86-*-winnt3*)
-        fixincludes=fixinc.winnt
-        ;;
-
     i?86-sequent-ptx* | i?86-sequent-sysv[34]*)
         fixincludes=fixinc.ptx
         ;;
@@ -78,6 +64,7 @@ case $machine in
     i?86-*-cygwin* | \
     i?86-*-mingw32* | \
     i?86-*-uwin* | \
+    i?86-*-interix* | \
     powerpc-*-eabiaix* | \
     powerpc-*-eabisim* | \
     powerpc-*-eabi*    | \

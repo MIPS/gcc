@@ -233,7 +233,7 @@ flush_quick_stack (void)
 
       decl = find_stack_slot (stack_index, type);
       if (decl != node)
-	  expand_assignment (decl, node, 0, 0);
+	  expand_assignment (decl, node, 0);
       stack_index += 1 + TYPE_IS_WIDE (type);
     }
 }
@@ -987,7 +987,7 @@ expand_java_arraystore (tree rhs_type_node)
   expand_assignment (build_java_arrayaccess (array,
 					     rhs_type_node,
 					     index),
-		     rhs_node, 0, 0);
+		     rhs_node, 0);
 }
 
 /* Expand the evaluation of ARRAY[INDEX]. build_java_check_indexed_type makes 
@@ -1275,7 +1275,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
     local_var = find_local_variable (local_var_index, int_type_node, pc);
     constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
     res = fold (build (PLUS_EXPR, int_type_node, local_var, constant_value));
-    expand_assignment (local_var, res, 0, 0);
+    expand_assignment (local_var, res, 0);
 }
 
       
@@ -2353,7 +2353,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 		warning_with_decl (field_decl, "assignment to final field `%s' not in constructor");
 	    }
 	}
-      expand_assignment (field_ref, new_value, 0, 0);
+      expand_assignment (field_ref, new_value, 0);
     }
   else
     push_value (field_ref);
@@ -2424,7 +2424,7 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	input_filename = EXPR_WFL_FILENAME (exp);
 	input_line = EXPR_WFL_LINENO (exp);
         if (EXPR_WFL_EMIT_LINE_NOTE (exp))
-          emit_line_note (input_filename, input_line);
+          emit_line_note (input_location);
 	/* Possibly avoid switching back and forth here.  */
 	to_return = expand_expr (EXPR_WFL_NODE (exp), target, tmode, modifier);
 	input_filename = saved_input_filename;
@@ -2481,7 +2481,7 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	expand_decl (array_decl);
 	tmp = expand_assignment (array_decl,
 				 build_new_array (element_type, length),
-				 1, 0);
+				 1);
 	if (TREE_CONSTANT (init)
 	    && ilength >= 10 && JPRIMITIVE_TYPE_P (element_type))
 	  {
@@ -2500,7 +2500,7 @@ java_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	expand_assignment (build (COMPONENT_REF, TREE_TYPE (data_fld),
 				  build_java_indirect_ref (array_type, 
 					  array_decl, flag_check_references), 
-				  data_fld), init, 0, 0);
+				  data_fld), init, 0);
 	return tmp;
       }
     case BLOCK:
@@ -2837,7 +2837,7 @@ expand_byte_code (JCF *jcf, tree method)
 	      if (pc == PC)
 		{
 		  input_line = GET_u2 (linenumber_pointer - 2);
-		  emit_line_note (input_filename, input_line);
+		  emit_line_note (input_location);
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3100,7 +3100,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     type = TREE_TYPE (value);				\
     decl = find_local_variable (var, type, oldpc);	\
     set_local_type (var, type );			\
-    expand_assignment (decl, value, 0, 0);		\
+    expand_assignment (decl, value, 0);			\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \

@@ -209,6 +209,11 @@ get_original (tree var)
 void
 propagate_copy (tree *op_p, tree var)
 {
+  /* FIXME: Hideous hack.  If *OP_P is a variable forced into a register by
+     the user, don't copy propagate into it.  */
+  if (DECL_LANG_FLAG_4 (SSA_NAME_VAR (*op_p)))
+    return;
+
   /* If VAR doesn't have a memory tag, copy the one from the original
      operand.  */
   if (POINTER_TYPE_P (TREE_TYPE (*op_p)))

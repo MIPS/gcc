@@ -88,119 +88,6 @@ set_mangled_name_for_decl (tree decl)
 }
 
 
-/* This function takes an identifier, ID, and attempts to figure out what
-   it means. There are a number of possible scenarios, presented in increasing
-   order of hair:
-
-   1) not in a class's scope
-   2) in class's scope, member name of the class's method
-   3) in class's scope, but not a member name of the class
-   4) in class's scope, member name of a class's variable
-
-   NAME is $1 from the bison rule. It is an IDENTIFIER_NODE.
-   VALUE is $$ from the bison rule. It is the value returned by lookup_name ($1)
-
-   As a last ditch, try to look up the name as a label and return that
-   address.
-
-   Values which are declared as being of REFERENCE_TYPE are
-   automatically dereferenced here (as a hack to make the
-   compiler faster).  */
-
-tree
-hack_identifier (tree value, tree name)
-{
-  tree type;
-
-  if (value == error_mark_node)
-    return error_mark_node;
-
-  type = TREE_TYPE (value);
-  if (TREE_CODE (value) == FIELD_DECL)
-    value = finish_non_static_data_member (value, 
-					   /*qualifying_scope=*/NULL_TREE);
-  else if ((TREE_CODE (value) == FUNCTION_DECL
-	    && DECL_FUNCTION_MEMBER_P (value))
-	   || (TREE_CODE (value) == OVERLOAD
-	       && DECL_FUNCTION_MEMBER_P (OVL_CURRENT (value))))
-    {
-      tree decl;
-
-      if (TREE_CODE (value) == OVERLOAD)
-	value = OVL_CURRENT (value);
-
-      decl = maybe_dummy_object (DECL_CONTEXT (value), 0);
-      value = finish_class_member_access_expr (decl, name);
-    }
-  else if (really_overloaded_fn (value))
-    ;
-  else if (TREE_CODE (value) == OVERLOAD)
-    /* not really overloaded function */
-    mark_used (OVL_FUNCTION (value));
-  else if (TREE_CODE (value) == TREE_LIST)
-    {
-      /* Ambiguous reference to base members, possibly other cases?.  */
-      tree t = value;
-      while (t && TREE_CODE (t) == TREE_LIST)
-	{
-	  mark_used (TREE_VALUE (t));
-	  t = TREE_CHAIN (t);
-	}
-    }
-  else if (TREE_CODE (value) == NAMESPACE_DECL)
-    {
-      error ("use of namespace `%D' as expression", value);
-      return error_mark_node;
-    }
-  else if (DECL_CLASS_TEMPLATE_P (value))
-    {
-      error ("use of class template `%T' as expression", value);
-      return error_mark_node;
-    }
-  else
-    mark_used (value);
-
-  if (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == PARM_DECL
-      || TREE_CODE (value) == RESULT_DECL)
-    {
-      tree context = decl_function_context (value);
-      if (context != NULL_TREE && context != current_function_decl
-	  && ! TREE_STATIC (value))
-	{
-	  error ("use of %s from containing function",
-		      (TREE_CODE (value) == VAR_DECL
-		       ? "`auto' variable" : "parameter"));
-	  cp_error_at ("  `%#D' declared here", value);
-	  value = error_mark_node;
-	}
-    }
-
-  if (DECL_P (value) && DECL_NONLOCAL (value))
-    {
-      if (DECL_CLASS_SCOPE_P (value)
-	  && DECL_CONTEXT (value) != current_class_type)
-	{
-	  tree path;
-	  path = currently_open_derived_class (DECL_CONTEXT (value));
-	  perform_or_defer_access_check (TYPE_BINFO (path), value);
-	}
-    }
-  else if (TREE_CODE (value) == TREE_LIST 
-	   && TREE_TYPE (value) == error_mark_node)
-    {
-      error ("\
-request for member `%D' is ambiguous in multiple inheritance lattice",
-		name);
-      print_candidates (value);
-      return error_mark_node;
-    }
-
-  if (! processing_template_decl)
-    value = convert_from_reference (value);
-  return value;
-}
-
-
 /* Return a this or result adjusting thunk to FUNCTION.  THIS_ADJUSTING
    indicates whether it is a this or result adjusting thunk.
    FIXED_OFFSET and VIRTUAL_OFFSET indicate how to do the adjustment
@@ -218,7 +105,7 @@ make_thunk (tree function, bool this_adjusting,
   tree thunk;
   
   my_friendly_assert (TREE_CODE (function) == FUNCTION_DECL, 20021025);
-  /* We can have this thunks to covariant thunks, but not vice versa. */
+  /* We can have this thunks to covariant thunks, but not vice versa.  */
   my_friendly_assert (!DECL_THIS_THUNK_P (function), 20021127);
   
   /* Scale the VIRTUAL_OFFSET to be in terms of bytes.  */
@@ -233,7 +120,7 @@ make_thunk (tree function, bool this_adjusting,
   
   /* See if we already have the thunk in question.  For this_adjusting
      thunks VIRTUAL_OFFSET will be an INTEGER_CST, for covariant thunks it
-     will be a BINFO. */
+     will be a BINFO.  */
   for (thunk = DECL_THUNKS (function); thunk; thunk = TREE_CHAIN (thunk))
     if (DECL_THIS_THUNK_P (thunk) == this_adjusting
  	&& THUNK_FIXED_OFFSET (thunk) == d
@@ -313,7 +200,7 @@ finish_thunk (tree thunk)
 /* Adjust PTR by the constant FIXED_OFFSET, and by the vtable
    offset indicated by VIRTUAL_OFFSET, if that is
    non-null. THIS_ADJUSTING is nonzero for a this adjusting thunk and
-   zero for a result adjusting thunk. */
+   zero for a result adjusting thunk.  */
 
 static tree
 thunk_adjust (tree ptr, bool this_adjusting,
@@ -417,7 +304,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   HOST_WIDE_INT fixed_offset, virtual_value;
   bool this_adjusting = DECL_THIS_THUNK_P (thunk_fndecl);
 
-  /* We should have called finish_thunk to give it a name. */
+  /* We should have called finish_thunk to give it a name.  */
   my_friendly_assert (DECL_NAME (thunk_fndecl), 20021127);
 
   if (TREE_ASM_WRITTEN (thunk_fndecl))
@@ -1000,9 +887,7 @@ locate_copy (tree type, void *client_)
       parms = TREE_CHAIN (parms);
       if (!parms)
         continue;
-      src_type = TREE_VALUE (parms);
-      if (TREE_CODE (src_type) == REFERENCE_TYPE)
-        src_type = TREE_TYPE (src_type);
+      src_type = non_reference (TREE_VALUE (parms));
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
         continue;
       if (!sufficient_parms_p (TREE_CHAIN (parms)))

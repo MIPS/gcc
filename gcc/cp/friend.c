@@ -36,8 +36,7 @@ Boston, MA 02111-1307, USA.  */
 /* Returns nonzero if SUPPLICANT is a friend of TYPE.  */
 
 int
-is_friend (type, supplicant)
-     tree type, supplicant;
+is_friend (tree type, tree supplicant)
 {
   int declp;
   register tree list;
@@ -131,8 +130,7 @@ is_friend (type, supplicant)
    DECL is the FUNCTION_DECL of the friend being added.  */
 
 void
-add_friend (type, decl)
-     tree type, decl;
+add_friend (tree type, tree decl)
 {
   tree typedecl;
   tree list;
@@ -172,6 +170,9 @@ add_friend (type, decl)
       list = TREE_CHAIN (list);
     }
 
+  if (DECL_CLASS_SCOPE_P (decl))
+    perform_or_defer_access_check (TYPE_BINFO (DECL_CONTEXT (decl)), decl);
+
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 
   DECL_FRIENDLIST (typedecl)
@@ -194,8 +195,7 @@ add_friend (type, decl)
    be in use at the same time!  */
 
 void
-make_friend_class (type, friend_type)
-     tree type, friend_type;
+make_friend_class (tree type, tree friend_type)
 {
   tree classes;
   int is_template_friend;
@@ -324,12 +324,9 @@ make_friend_class (type, friend_type)
    pointed to by `this'.  */
 
 tree
-do_friend (ctype, declarator, decl, parmdecls, attrlist,
-	   flags, quals, funcdef_flag)
-     tree ctype, declarator, decl, parmdecls, attrlist;
-     enum overload_flags flags;
-     tree quals;
-     int funcdef_flag;
+do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
+	   tree attrlist, enum overload_flags flags, tree quals,
+	   int funcdef_flag)
 {
   int is_friend_template = 0;
 
@@ -339,8 +336,6 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
-      if (TREE_CODE (declarator) == LOOKUP_EXPR)
-	declarator = TREE_OPERAND (declarator, 0);
       if (is_overloaded_fn (declarator))
 	declarator = DECL_NAME (get_first_fn (declarator));
     }
@@ -365,6 +360,8 @@ do_friend (ctype, declarator, decl, parmdecls, attrlist,
 
       if (is_friend_template)
 	decl = DECL_TI_TEMPLATE (push_template_decl (decl));
+      else if (DECL_TEMPLATE_INFO (decl))
+	;
       else if (template_class_depth (current_class_type))
 	decl = push_template_decl_real (decl, /*is_friend=*/1);
 

@@ -1901,8 +1901,7 @@ print_binding_level (struct cp_binding_level* lvl)
 {
   tree t;
   int i = 0, len;
-  fprintf (stderr, " blocks=");
-  fprintf (stderr, HOST_PTR_PRINTF, (void *) lvl->blocks);
+  fprintf (stderr, " blocks=" HOST_PTR_PRINTF, (void *) lvl->blocks);
   if (lvl->tag_transparent)
     fprintf (stderr, " tag-transparent");
   if (lvl->more_cleanups_ok)
@@ -1975,9 +1974,7 @@ print_other_binding_stack (struct cp_binding_level *stack)
   struct cp_binding_level *level;
   for (level = stack; !global_scope_p (level); level = level->level_chain)
     {
-      fprintf (stderr, "binding level ");
-      fprintf (stderr, HOST_PTR_PRINTF, (void *) level);
-      fprintf (stderr, "\n");
+      fprintf (stderr, "binding level " HOST_PTR_PRINTF "\n", (void *) level);
       print_binding_level (level);
     }
 }
@@ -1986,14 +1983,11 @@ void
 print_binding_stack (void)
 {
   struct cp_binding_level *b;
-  fprintf (stderr, "current_binding_level=");
-  fprintf (stderr, HOST_PTR_PRINTF, (void *) current_binding_level);
-  fprintf (stderr, "\nclass_binding_level=");
-  fprintf (stderr, HOST_PTR_PRINTF, (void *) class_binding_level);
-  fprintf (stderr, "\nNAMESPACE_LEVEL (global_namespace)=");
-  fprintf (stderr, HOST_PTR_PRINTF,
+  fprintf (stderr, "current_binding_level=" HOST_PTR_PRINTF
+	   "\nclass_binding_level=" HOST_PTR_PRINTF
+	   "\nNAMESPACE_LEVEL (global_namespace)=" HOST_PTR_PRINTF "\n",
+	   (void *) current_binding_level, (void *) class_binding_level,
            (void *) NAMESPACE_LEVEL (global_namespace));
-  fprintf (stderr, "\n");
   if (class_binding_level)
     {
       for (b = class_binding_level; b; b = b->level_chain)
@@ -2227,7 +2221,7 @@ maybe_push_to_top_level (int pseudo)
   int need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
-  s = (struct saved_scope *) ggc_alloc_cleared (sizeof (struct saved_scope));
+  s = ggc_alloc_cleared (sizeof (struct saved_scope));
 
   b = scope_chain ? current_binding_level : 0;
 
@@ -2378,7 +2372,7 @@ identifier_type_value (tree id)
   if (REAL_IDENTIFIER_TYPE_VALUE (id) != global_type_node)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, REAL_IDENTIFIER_TYPE_VALUE (id));
   /* Have to search for it. It must be on the global level, now.
-     Ask lookup_name not to return non-types. */
+     Ask lookup_name not to return non-types.  */
   id = lookup_name_real (id, 2, 1, 0, LOOKUP_COMPLAIN);
   if (id)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, TREE_TYPE (id));
@@ -3312,6 +3306,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
 	  DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
 	  DECL_INITIALIZED_P (newdecl) |= DECL_INITIALIZED_P (olddecl);
+	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (newdecl)
+	    |= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (olddecl);
 	}
 
       /* Do this after calling `merge_types' so that default
@@ -3536,7 +3532,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      SET_DECL_RTL (newdecl, DECL_RTL (olddecl));
 	    }
 	  else
-	    DECL_NUM_STMTS (newdecl) = DECL_NUM_STMTS (olddecl);
+	    DECL_ESTIMATED_INSNS (newdecl) = DECL_ESTIMATED_INSNS (olddecl);
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
 	  /* Don't clear out the arguments if we're redefining a function.  */
@@ -3565,36 +3561,30 @@ duplicate_decls (tree newdecl, tree olddecl)
       TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
 
       if (DECL_TEMPLATE_INSTANTIATION (newdecl))
-	{
-	  /* If newdecl is a template instantiation, it is possible that
-	     the following sequence of events has occurred:
+	/* If newdecl is a template instantiation, it is possible that
+	   the following sequence of events has occurred:
 
-	     o A friend function was declared in a class template.  The
-	     class template was instantiated.
+	   o A friend function was declared in a class template.  The
+	   class template was instantiated.
 
-	     o The instantiation of the friend declaration was
-	     recorded on the instantiation list, and is newdecl.
+	   o The instantiation of the friend declaration was
+	   recorded on the instantiation list, and is newdecl.
 
-	     o Later, however, instantiate_class_template called pushdecl
-	     on the newdecl to perform name injection.  But, pushdecl in
-	     turn called duplicate_decls when it discovered that another
-	     declaration of a global function with the same name already
-	     existed.
+	   o Later, however, instantiate_class_template called pushdecl
+	   on the newdecl to perform name injection.  But, pushdecl in
+	   turn called duplicate_decls when it discovered that another
+	   declaration of a global function with the same name already
+	   existed.
 
-	     o Here, in duplicate_decls, we decided to clobber newdecl.
+	   o Here, in duplicate_decls, we decided to clobber newdecl.
 
-	     If we're going to do that, we'd better make sure that
-	     olddecl, and not newdecl, is on the list of
-	     instantiations so that if we try to do the instantiation
-	     again we won't get the clobbered declaration.  */
-
-	  tree tmpl = DECL_TI_TEMPLATE (newdecl);
-	  tree decls = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
-
-	  for (; decls; decls = TREE_CHAIN (decls))
-	    if (TREE_VALUE (decls) == newdecl)
-	      TREE_VALUE (decls) = olddecl;
-	}
+	   If we're going to do that, we'd better make sure that
+	   olddecl, and not newdecl, is on the list of
+	   instantiations so that if we try to do the instantiation
+	   again we won't get the clobbered declaration.  */
+	reregister_specialization (newdecl, 
+				   DECL_TI_TEMPLATE (newdecl), 
+				   olddecl);
     }
   else
     {
@@ -4682,8 +4672,7 @@ use_label (tree decl)
       || named_label_uses->label_decl != decl)
     {
       struct named_label_use_list *new_ent;
-      new_ent = ((struct named_label_use_list *)
-		 ggc_alloc (sizeof (struct named_label_use_list)));
+      new_ent = ggc_alloc (sizeof (struct named_label_use_list));
       new_ent->label_decl = decl;
       new_ent->names_in_scope = current_binding_level->names;
       new_ent->binding_level = current_binding_level;
@@ -4720,8 +4709,7 @@ lookup_label (tree id)
   /* Record this label on the list of labels used in this function.
      We do this before calling make_label_decl so that we get the
      IDENTIFIER_LABEL_VALUE before the new label is declared.  */
-  ent = ((struct named_label_list *)
-	 ggc_alloc_cleared (sizeof (struct named_label_list)));
+  ent = ggc_alloc_cleared (sizeof (struct named_label_list));
   ent->old_value = IDENTIFIER_LABEL_VALUE (id);
   ent->next = named_labels;
   named_labels = ent;
@@ -5016,8 +5004,7 @@ static struct cp_switch *switch_stack;
 void
 push_switch (tree switch_stmt)
 {
-  struct cp_switch *p
-    = (struct cp_switch *) xmalloc (sizeof (struct cp_switch));
+  struct cp_switch *p = xmalloc (sizeof (struct cp_switch));
   p->level = current_binding_level;
   p->next = switch_stack;
   p->switch_stmt = switch_stmt;
@@ -5776,11 +5763,15 @@ qualify_lookup (tree val, int flags)
    bindings.  
 
    Returns a DECL (or OVERLOAD, or BASELINK) representing the
-   declaration found.  */
+   declaration found.  If no suitable declaration can be found,
+   ERROR_MARK_NODE is returned.  Iif COMPLAIN is true and SCOPE is
+   neither a class-type nor a namespace a diagnostic is issued.  */
 
 tree
-lookup_qualified_name (tree scope, tree name, bool is_type_p, int flags)
+lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
 {
+  int flags = 0;
+
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     {
       cxx_binding binding;
@@ -5789,12 +5780,19 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, int flags)
       flags |= LOOKUP_COMPLAIN;
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
-      if (!qualified_lookup_using_namespace (name, scope, &binding, flags))
-	return NULL_TREE;
-      return select_decl (&binding, flags);
+      if (qualified_lookup_using_namespace (name, scope, &binding, 
+					    flags))
+	return select_decl (&binding, flags);
     }
-  else
-    return lookup_member (scope, name, 0, is_type_p);
+  else if (is_aggr_type (scope, complain))
+    {
+      tree t;
+      t = lookup_member (scope, name, 0, is_type_p);
+      if (t)
+	return t;
+    }
+
+  return error_mark_node;
 }
 
 /* Check to see whether or not DECL is a variable that would have been
@@ -6217,7 +6215,7 @@ cxx_init_decl_processing (void)
   current_lang_name = NULL_TREE;
 
   /* Adjust various flags based on command-line settings.  */
-  if (! flag_permissive && ! pedantic)
+  if (!flag_permissive)
     flag_pedantic_errors = 1;
   if (!flag_no_inline)
     {
@@ -8263,6 +8261,10 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
   if (was_readonly)
     TREE_READONLY (decl) = 1;
+
+  /* If this was marked 'used', be sure it will be output.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    mark_referenced (DECL_ASSEMBLER_NAME (decl));
 }
 
 /* This is here for a midend callback from c-common.c */
@@ -8982,7 +8984,6 @@ grokfndecl (tree ctype,
               fns = TREE_OPERAND (fns, 1);
             }
 	  my_friendly_assert (TREE_CODE (fns) == IDENTIFIER_NODE
-	                      || TREE_CODE (fns) == LOOKUP_EXPR
 	                      || TREE_CODE (fns) == OVERLOAD, 20001120);
 	  DECL_TEMPLATE_INFO (decl) = tree_cons (fns, args, NULL_TREE);
 
@@ -9804,9 +9805,6 @@ grokdeclarator (tree declarator,
 	      {
 		tree fns = TREE_OPERAND (decl, 0);
 
-		if (TREE_CODE (fns) == LOOKUP_EXPR)
-		  fns = TREE_OPERAND (fns, 0);
-
 		dname = fns;
 		if (TREE_CODE (dname) == COMPONENT_REF)
 		  dname = TREE_OPERAND (dname, 1);
@@ -9915,16 +9913,19 @@ grokdeclarator (tree declarator,
 	      decl = *next;
 	      if (ctype)
 		{
-		  if (TREE_CODE (decl) == IDENTIFIER_NODE
-		      && constructor_name_p (decl, ctype))
+		  tree name = decl;
+
+		  if (TREE_CODE (name) == BIT_NOT_EXPR)
+		    name = TREE_OPERAND (name, 0);
+
+		  if (!constructor_name_p (decl, ctype))
+		    ;
+		  else if (decl == name)
 		    {
 		      sfk = sfk_constructor;
 		      ctor_return_type = ctype;
 		    }
-		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
-			   && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
-			   && constructor_name_p (TREE_OPERAND (decl, 0),
-						  ctype))
+		  else
 		    {
 		      sfk = sfk_destructor;
 		      ctor_return_type = ctype;
@@ -11490,7 +11491,10 @@ grokdeclarator (tree declarator,
 	       members of other classes.  */
 	    /* All method decls are public, so tell grokfndecl to set
 	       TREE_PUBLIC, also.  */
-	    decl = grokfndecl (ctype, type, declarator, declarator,
+	    decl = grokfndecl (ctype, type,
+			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
+			       ? declarator : dname,
+			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
 			       template_count, in_namespace);
@@ -12330,9 +12334,7 @@ grok_op_properties (tree decl, int friendp)
 	      if (p)
 		for (; TREE_CODE (TREE_VALUE (p)) != VOID_TYPE ; p = TREE_CHAIN (p))
 		  {
-		    tree arg = TREE_VALUE (p);
-		    if (TREE_CODE (arg) == REFERENCE_TYPE)
-		      arg = TREE_TYPE (arg);
+		    tree arg = non_reference (TREE_VALUE (p));
 
 		    /* This lets bad template code slip through.  */
 		    if (IS_AGGR_TYPE (arg)
@@ -13525,7 +13527,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
   begin_stmt_tree (&DECL_SAVED_TREE (decl1));
 
   /* Don't double-count statements in templates.  */
-  DECL_NUM_STMTS (decl1) = 0;
+  DECL_ESTIMATED_INSNS (decl1) = 0;
 
   /* Let the user know we're compiling this function.  */
   announce_function (decl1);
@@ -13771,8 +13773,7 @@ save_function_data (tree decl)
 		      19990908);
 
   /* Make a copy.  */
-  f = ((struct language_function *)
-       ggc_alloc (sizeof (struct language_function)));
+  f = ggc_alloc (sizeof (struct language_function));
   memcpy (f, cp_function_chain, sizeof (struct language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
@@ -14459,8 +14460,7 @@ void
 cxx_push_function_context (struct function * f)
 {
   struct language_function *p
-    = ((struct language_function *)
-       ggc_alloc_cleared (sizeof (struct language_function)));
+    = ggc_alloc_cleared (sizeof (struct language_function));
   f->language = p;
 
   /* It takes an explicit call to expand_body to generate RTL for a

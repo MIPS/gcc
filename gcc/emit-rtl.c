@@ -206,7 +206,7 @@ int split_branch_probability = -1;
 static hashval_t
 const_int_htab_hash (const void *x)
 {
-  return (hashval_t) INTVAL ((struct rtx_def *) x);
+  return (hashval_t) INTVAL ((rtx) x);
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -772,7 +772,7 @@ gen_rtvec (int n, ...)
   if (n == 0)
     return NULL_RTVEC;		/* Don't allocate an empty rtvec...	*/
 
-  vector = (rtx *) alloca (n * sizeof (rtx));
+  vector = alloca (n * sizeof (rtx));
 
   for (i = 0; i < n; i++)
     vector[i] = va_arg (p, rtx);
@@ -845,8 +845,8 @@ gen_reg_rtx (enum machine_mode mode)
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
 
-      new1 = (rtx *) ggc_realloc (f->emit->x_regno_reg_rtx,
-				  old_size * 2 * sizeof (rtx));
+      new1 = ggc_realloc (f->emit->x_regno_reg_rtx,
+			  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
@@ -1915,11 +1915,14 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       else if (TREE_CODE (t) == ARRAY_REF)
 	{
 	  tree off_tree = size_zero_node;
+	  /* We can't modify t, because we use it at the end of the
+	     function.  */
+	  tree t2 = t;
 
 	  do
 	    {
-	      tree index = TREE_OPERAND (t, 1);
-	      tree array = TREE_OPERAND (t, 0);
+	      tree index = TREE_OPERAND (t2, 1);
+	      tree array = TREE_OPERAND (t2, 0);
 	      tree domain = TYPE_DOMAIN (TREE_TYPE (array));
 	      tree low_bound = (domain ? TYPE_MIN_VALUE (domain) : 0);
 	      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (array)));
@@ -1936,7 +1939,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		 WITH_RECORD_EXPR; if the component size is, pass our
 		 component to one.  */
 	      if (CONTAINS_PLACEHOLDER_P (index))
-		index = build (WITH_RECORD_EXPR, TREE_TYPE (index), index, t);
+		index = build (WITH_RECORD_EXPR, TREE_TYPE (index), index, t2);
 	      if (CONTAINS_PLACEHOLDER_P (unit_size))
 		unit_size = build (WITH_RECORD_EXPR, sizetype,
 				   unit_size, array);
@@ -1947,28 +1950,28 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 					    index,
 					    unit_size)),
 			       off_tree));
-	      t = TREE_OPERAND (t, 0);
+	      t2 = TREE_OPERAND (t2, 0);
 	    }
-	  while (TREE_CODE (t) == ARRAY_REF);
+	  while (TREE_CODE (t2) == ARRAY_REF);
 
-	  if (DECL_P (t))
+	  if (DECL_P (t2))
 	    {
-	      expr = t;
+	      expr = t2;
 	      offset = NULL;
 	      if (host_integerp (off_tree, 1))
 		{
 		  HOST_WIDE_INT ioff = tree_low_cst (off_tree, 1);
 		  HOST_WIDE_INT aoff = (ioff & -ioff) * BITS_PER_UNIT;
-		  align = DECL_ALIGN (t);
+		  align = DECL_ALIGN (t2);
 		  if (aoff && (unsigned HOST_WIDE_INT) aoff < align)
 	            align = aoff;
 		  offset = GEN_INT (ioff);
 		  apply_bitpos = bitpos;
 		}
 	    }
-	  else if (TREE_CODE (t) == COMPONENT_REF)
+	  else if (TREE_CODE (t2) == COMPONENT_REF)
 	    {
-	      expr = component_ref_for_mem_expr (t);
+	      expr = component_ref_for_mem_expr (t2);
 	      if (host_integerp (off_tree, 1))
 		{
 		  offset = GEN_INT (tree_low_cst (off_tree, 1));
@@ -1978,10 +1981,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		 the size we got from the type?  */
 	    }
 	  else if (flag_argument_noalias > 1
-		   && TREE_CODE (t) == INDIRECT_REF
-		   && TREE_CODE (TREE_OPERAND (t, 0)) == PARM_DECL)
+		   && TREE_CODE (t2) == INDIRECT_REF
+		   && TREE_CODE (TREE_OPERAND (t2, 0)) == PARM_DECL)
 	    {
-	      expr = t;
+	      expr = t2;
 	      offset = NULL;
 	    }
 	}
@@ -4665,35 +4668,31 @@ emit_barrier (void)
   return barrier;
 }
 
-/* Make an insn of code NOTE
-   with data-fields specified by FILE and LINE
-   and add it to the end of the doubly-linked list,
-   but only if line-numbers are desired for debugging info.  */
+/* Make line numbering NOTE insn for LOCATION add it to the end
+   of the doubly-linked list, but only if line-numbers are desired for
+   debugging info and it doesn't match the previous one.  */
 
 rtx
-emit_line_note (const char *file, int line)
+emit_line_note (location_t location)
 {
   rtx note;
-
-  if (line < 0)
-    abort ();
-
-  set_file_and_line_for_stmt (file, line);
-
-  if (file && last_location.file && !strcmp (file, last_location.file)
-      && line == last_location.line)
+  
+  set_file_and_line_for_stmt (location);
+  
+  if (location.file && last_location.file
+      && !strcmp (location.file, last_location.file)
+      && location.line == last_location.line)
     return NULL_RTX;
-  last_location.file = file;
-  last_location.line = line;
-
+  last_location = location;
+  
   if (no_line_numbers)
     {
       cur_insn_uid++;
       return NULL_RTX;
     }
 
-  note = emit_note (line);
-  NOTE_SOURCE_FILE (note) = file;
+  note = emit_note (location.line);
+  NOTE_SOURCE_FILE (note) = location.file;
   
   return note;
 }
@@ -4739,17 +4738,8 @@ emit_note (int note_no)
   return note;
 }
 
-/* Emit a NOTE, and don't omit it even if LINE is the previous note.  */
-
-rtx
-emit_line_note_force (const char *file, int line)
-{
-  last_location.line = -1;
-  return emit_line_note (file, line);
-}
-
 /* Cause next statement to emit a line note even if the line number
-   has not changed.  This is used at the beginning of a function.  */
+   has not changed.  */
 
 void
 force_next_line_note (void)
@@ -4884,7 +4874,7 @@ start_sequence (void)
       free_sequence_stack = tem->next;
     }
   else
-    tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
+    tem = ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -5215,7 +5205,7 @@ init_emit (void)
 {
   struct function *f = cfun;
 
-  f->emit = (struct emit_status *) ggc_alloc (sizeof (struct emit_status));
+  f->emit = ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   seq_rtl_expr = NULL;
@@ -5232,11 +5222,11 @@ init_emit (void)
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = (unsigned char *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
-					   * sizeof (unsigned char));
+    = ggc_alloc_cleared (f->emit->regno_pointer_align_length
+			 * sizeof (unsigned char));
 
   regno_reg_rtx
-    = (rtx *) ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
+    = ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,

@@ -23,6 +23,9 @@ AC_PREREQ(2.13)
 AC_CANONICAL_SYSTEM
 AC_ARG_PROGRAM
 
+# Get 'install' or 'install-sh' and its variants.
+AC_PROG_INSTALL
+
 sinclude(config/acx.m4)
 
 ### we might need to use some other shell than /bin/sh for running subshells
@@ -397,6 +400,9 @@ case "${target}" in
     # newlib is not 64 bit ready
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
+  am33_2.0-*-linux*)
+    noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
+    ;;
   sh-*-linux*)
     noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss"
     ;;    
@@ -709,6 +715,9 @@ case "${target}" in
     ;;
   vax-*-*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
+    ;;
+  xtensa-*-*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   ip2k-*-*)
     noconfigdirs="$noconfigdirs target-libiberty target-libstdc++-v3 ${libgcj}"

@@ -956,10 +956,6 @@ dump_decl (tree t, int flags)
       }
       break;
 
-    case LOOKUP_EXPR:
-      dump_decl (TREE_OPERAND (t, 0), flags);
-      break;
-
     case LABEL_DECL:
       print_tree_identifier (scratch_buffer, DECL_NAME (t));
       break;
@@ -986,6 +982,10 @@ dump_decl (tree t, int flags)
 
     case BASELINK:
       dump_decl (BASELINK_FUNCTIONS (t), flags);
+      break;
+
+    case NON_DEPENDENT_EXPR:
+      dump_expr (t, flags);
       break;
 
     default:
@@ -1514,7 +1514,7 @@ dump_expr (tree t, int flags)
     case COMPOUND_EXPR:
       print_left_paren (scratch_buffer);
       /* Within templates, a COMPOUND_EXPR has only one operand,
-         containing a TREE_LIST of the two operands. */
+         containing a TREE_LIST of the two operands.  */
       if (TREE_CODE (TREE_OPERAND (t, 0)) == TREE_LIST)
       {
         if (TREE_OPERAND (t, 1))
@@ -1949,10 +1949,6 @@ dump_expr (tree t, int flags)
       print_right_paren (scratch_buffer);
       break;
 
-    case LOOKUP_EXPR:
-      print_tree_identifier (scratch_buffer, TREE_OPERAND (t, 0));
-      break;
-
     case ARROW_EXPR:
       dump_expr (TREE_OPERAND (t, 0), flags);
       output_add_string (scratch_buffer, "->");
@@ -1972,6 +1968,14 @@ dump_expr (tree t, int flags)
       else
         dump_expr (TREE_OPERAND (t, 0), flags);
       print_right_paren (scratch_buffer);
+      break;
+
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      print_identifier (scratch_buffer,
+                        operator_name_info[TREE_CODE (t)].name);
+      output_add_space (scratch_buffer);
+      dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
     case DEFAULT_ARG:
@@ -2024,7 +2028,17 @@ dump_expr (tree t, int flags)
       dump_expr (get_first_fn (t), flags & ~TFF_EXPR_IN_PARENS);
       break;
 
-      /* else fall through */
+    case EMPTY_CLASS_EXPR:
+      dump_type (TREE_TYPE (t), flags);
+      print_left_paren (scratch_buffer);
+      print_right_paren (scratch_buffer);
+      break;
+
+    case NON_DEPENDENT_EXPR:
+      output_add_string (scratch_buffer, "<expression of type ");
+      dump_type (TREE_TYPE (t), flags);
+      output_add_character (scratch_buffer, '>');
+      break;
 
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
@@ -2157,7 +2171,7 @@ decl_to_string (tree decl, int verbose)
       || TREE_CODE (decl) == UNION_TYPE || TREE_CODE (decl) == ENUMERAL_TYPE)
     flags = TFF_CLASS_KEY_OR_ENUM;
   if (verbose)
-    flags |= TFF_DECL_SPECIFIERS | TFF_FUNCTION_DEFAULT_ARGUMENTS;
+    flags |= TFF_DECL_SPECIFIERS;
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE;
   flags |= TFF_TEMPLATE_HEADER;
@@ -2226,6 +2240,8 @@ language_to_string (enum languages c)
 static const char *
 parm_to_string (int p)
 {
+  reinit_global_formatting_buffer ();
+
   if (p < 0)
     output_add_string (scratch_buffer, "'this'");
   else

@@ -317,6 +317,8 @@ readonly_fields_p (tree type)
 int
 objects_must_conflict_p (tree t1, tree t2)
 {
+  HOST_WIDE_INT set1, set2;
+
   /* If neither has a type specified, we don't know if they'll conflict
      because we may be using them to store objects of various types, for
      example the argument and local variables areas of inlined functions.  */
@@ -337,15 +339,15 @@ objects_must_conflict_p (tree t1, tree t2)
       || (t1 != 0 && TYPE_VOLATILE (t1) && t2 != 0 && TYPE_VOLATILE (t2)))
     return 1;
 
-  /* If one is aggregate and the other is scalar then they may not
-     conflict.  */
-  if ((t1 != 0 && AGGREGATE_TYPE_P (t1))
-      != (t2 != 0 && AGGREGATE_TYPE_P (t2)))
-    return 0;
+  set1 = t1 ? get_alias_set (t1) : 0;
+  set2 = t2 ? get_alias_set (t2) : 0;
 
-  /* Otherwise they conflict only if the alias sets conflict.  */
-  return alias_sets_conflict_p (t1 ? get_alias_set (t1) : 0,
-				t2 ? get_alias_set (t2) : 0);
+  /* Otherwise they conflict if they have no alias set or the same. We
+     can't simply use alias_sets_conflict_p here, because we must make
+     sure that every subtype of t1 will conflict with every subtype of
+     t2 for which a pair of subobjects of these respective subtypes
+     overlaps on the stack.  */
+  return set1 == 0 || set2 == 0 || set1 == set2;
 }
 
 /* T is an expression with pointer type.  Find the DECL on which this
@@ -630,8 +632,7 @@ record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
-      superset_entry
-	= (alias_set_entry) xmalloc (sizeof (struct alias_set_entry));
+      superset_entry = xmalloc (sizeof (struct alias_set_entry));
       superset_entry->alias_set = superset;
       superset_entry->children
 	= splay_tree_new (splay_tree_compare_ints, 0, 0);
@@ -2715,17 +2716,16 @@ init_alias_analysis (void)
      optimization.  Loop unrolling can create a large number of
      registers.  */
   reg_base_value_size = maxreg * 2;
-  reg_base_value = (rtx *) ggc_alloc_cleared (reg_base_value_size
-					      * sizeof (rtx));
+  reg_base_value = ggc_alloc_cleared (reg_base_value_size * sizeof (rtx));
 
-  new_reg_base_value = (rtx *) xmalloc (reg_base_value_size * sizeof (rtx));
-  reg_seen = (char *) xmalloc (reg_base_value_size);
+  new_reg_base_value = xmalloc (reg_base_value_size * sizeof (rtx));
+  reg_seen = xmalloc (reg_base_value_size);
   if (! reload_completed && flag_old_unroll_loops)
     {
       /* ??? Why are we realloc'ing if we're just going to zero it?  */
-      alias_invariant = (rtx *)xrealloc (alias_invariant,
-					 reg_base_value_size * sizeof (rtx));
-      memset ((char *)alias_invariant, 0, reg_base_value_size * sizeof (rtx));
+      alias_invariant = xrealloc (alias_invariant,
+				  reg_base_value_size * sizeof (rtx));
+      memset (alias_invariant, 0, reg_base_value_size * sizeof (rtx));
     }
 
   /* The basic idea is that each pass through this loop will use the
@@ -2762,10 +2762,10 @@ init_alias_analysis (void)
       copying_arguments = true;
 
       /* Wipe the potential alias information clean for this pass.  */
-      memset ((char *) new_reg_base_value, 0, reg_base_value_size * sizeof (rtx));
+      memset (new_reg_base_value, 0, reg_base_value_size * sizeof (rtx));
 
       /* Wipe the reg_seen array clean.  */
-      memset ((char *) reg_seen, 0, reg_base_value_size);
+      memset (reg_seen, 0, reg_base_value_size);
 
       /* Mark all hard registers which may contain an address.
 	 The stack, frame and argument pointers may contain an address.

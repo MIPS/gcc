@@ -52,7 +52,9 @@ static int saved_lineno;
 static cpp_options *cpp_opts;
 
 /* Input filename.  */
-static const char *in_fname;
+static const char **in_fnames;
+unsigned num_in_fnames;
+static const char *this_input_filename;
 
 /* Filename and stream for preprocessed output.  */
 static const char *out_fname;
@@ -97,9 +99,7 @@ static size_t include_cursor;
 /* Permit Fotran front-end options.  */
 static bool permit_fortran_options;
 
-void missing_arg (enum opt_code);
 static void set_Wimplicit (int);
-static void print_help (void);
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
 static void set_std_c89 (int, int);
@@ -110,7 +110,7 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (void);
+static void finish_options (const char *);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -125,50 +125,37 @@ static struct deferred_opt
   const char *arg;
 } *deferred_opts;
 
-/* Complain that switch OPT_INDEX expects an argument but none was
-   provided.  */
-void
-missing_arg (enum opt_code code)
+/* Complain that switch CODE expects an argument but none was
+   provided.  OPT was the command-line option.  Return FALSE to get
+   the default message in opts.c, TRUE if we provide a specialized
+   one.  */
+bool
+c_common_missing_argument (const char *opt, size_t code)
 {
-  const char *opt_text = cl_options[code].opt_text;
-
   switch (code)
     {
-    case OPT__output_pch_:
-    case OPT_Wformat_:
-    case OPT_d:
-    case OPT_fabi_version_:
-    case OPT_fbuiltin_:
-    case OPT_fname_mangling_version_:
-    case OPT_ftabstop_:
-    case OPT_fexec_charset_:
-    case OPT_fwide_exec_charset_:
-    case OPT_ftemplate_depth_:
-    case OPT_iprefix:
-    case OPT_iwithprefix:
-    case OPT_iwithprefixbefore:
     default:
-      error ("missing argument to \"-%s\"", opt_text);
-      break;
+      /* Pick up the default message.  */
+      return false;
 
     case OPT_fconstant_string_class_:
-      error ("no class name specified with \"-%s\"", opt_text);
+      error ("no class name specified with \"%s\"", opt);
       break;
 
     case OPT_A:
-      error ("assertion missing after \"-%s\"", opt_text);
+      error ("assertion missing after \"%s\"", opt);
       break;
 
     case OPT_D:
     case OPT_U:
-      error ("macro name missing after \"-%s\"", opt_text);
+      error ("macro name missing after \"%s\"", opt);
       break;
 
     case OPT_I:
     case OPT_idirafter:
     case OPT_isysroot:
     case OPT_isystem:
-      error ("missing path after \"-%s\"", opt_text);
+      error ("missing path after \"%s\"", opt);
       break;
 
     case OPT_MF:
@@ -177,14 +164,16 @@ missing_arg (enum opt_code code)
     case OPT_include:
     case OPT_imacros:
     case OPT_o:
-      error ("missing filename after \"-%s\"", opt_text);
+      error ("missing filename after \"%s\"", opt);
       break;
 
     case OPT_MQ:
     case OPT_MT:
-      error ("missing target after \"-%s\"", opt_text);
+      error ("missing makefile target after \"%s\"", opt);
       break;
     }
+
+  return true;
 }
 
 /* Defer option CODE with argument ARG.  */
@@ -230,8 +219,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
 
-  deferred_opts = (struct deferred_opt *)
-    xmalloc (argc * sizeof (struct deferred_opt));
+  deferred_opts = xmalloc (argc * sizeof (struct deferred_opt));
 
   result = lang_flags[c_language];
 
@@ -260,26 +248,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   enum opt_code code = (enum opt_code) scode;
   int result = 1;
 
-  if (code == N_OPTS)
-    {
-      if (!in_fname)
-	in_fname = arg;
-      else if (!out_fname)
-	out_fname = arg;
-      else
-	  error ("too many filenames given.  Type %s --help for usage",
-		 progname);
-      return 1;
-    }
-
   switch (code)
     {
     default:
       result = permit_fortran_options;
-      break;
-
-    case OPT__help:
-      print_help ();
       break;
 
     case OPT__output_pch_:
@@ -715,7 +687,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       if (value)
 	flag_external_templates = true;
     cp_deprecated:
-      warning ("switch \"%s\" is deprecated, please see documentation for details", option->opt_text);
+      warning ("switch \"%s\" is deprecated, please see documentation "
+	       "for details", option->opt_text);
       break;
 
     case OPT_fasm:
@@ -1053,13 +1026,27 @@ c_common_handle_option (size_t scode, const char *arg, int value)
   return result;
 }
 
+/* Handle FILENAME from the command line.  */
+void
+c_common_handle_filename (const char *filename)
+{
+  num_in_fnames++;
+  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
+  in_fnames[num_in_fnames - 1] = filename;
+}
+
 /* Post-switch processing.  */
 bool
 c_common_post_options (const char **pfilename)
 {
   /* Canonicalize the input and output filenames.  */
-  if (in_fname == NULL || !strcmp (in_fname, "-"))
-    in_fname = "";
+  if (in_fnames == NULL)
+    {
+      in_fnames = xmalloc (sizeof (in_fnames[0]));
+      in_fnames[0] = "";
+    }
+  else if (strcmp (in_fnames[0], "-") == 0)
+    in_fnames[0] = "";
 
   if (out_fname == NULL || !strcmp (out_fname, "-"))
     out_fname = "";
@@ -1125,6 +1112,10 @@ c_common_post_options (const char **pfilename)
 	  return false;
 	}
 
+      if (num_in_fnames > 1)
+	error ("too many filenames given.  Type %s --help for usage",
+	       progname);
+
       init_pp_output (out_stream);
     }
   else
@@ -1138,7 +1129,7 @@ c_common_post_options (const char **pfilename)
   cpp_get_callbacks (parse_in)->file_change = cb_file_change;
 
   /* NOTE: we use in_fname here, not the one supplied.  */
-  *pfilename = cpp_read_main_file (parse_in, in_fname);
+  *pfilename = cpp_read_main_file (parse_in, in_fnames[0]);
 
   saved_lineno = input_line;
   input_line = 0;
@@ -1171,7 +1162,7 @@ c_common_init (void)
 
   if (flag_preprocess_only)
     {
-      finish_options ();
+      finish_options (in_fnames[0]);
       preprocess_file (parse_in);
       return false;
     }
@@ -1182,23 +1173,43 @@ c_common_init (void)
   return true;
 }
 
-/* A thin wrapper around the real parser that initializes the
-   integrated preprocessor after debug output has been initialized.
-   Also, make sure the start_source_file debug hook gets called for
-   the primary source file.  */
+/* Initialize the integrated preprocessor after debug output has been
+   initialized; loop over each input file.  */
 void
 c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
+  unsigned file_index;
+  
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
   warning ("YYDEBUG not defined");
 #endif
 
-  finish_options();
-  pch_init();
-  yyparse ();
+  file_index = 0;
+  
+  do
+    {
+      if (file_index > 0)
+	{
+	  /* Reset the state of the parser.  */
+	  c_reset_state();
+
+	  /* Reset cpplib's macros and start a new file.  */
+	  cpp_undef_all (parse_in);
+	  cpp_read_next_file (parse_in, in_fnames[file_index]);
+	}
+
+      finish_options(in_fnames[file_index]);
+      if (file_index == 0)
+	pch_init();
+      c_parse_file ();
+
+      file_index++;
+    } while (file_index < num_in_fnames);
+  
   free_parser_stacks ();
+  finish_file ();
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1345,9 +1356,11 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  */
+/* Handle -D, -U, -A, -imacros, and the first -include.  
+   TIF is the input file to which we will return after processing all
+   the includes.  */
 static void
-finish_options (void)
+finish_options (const char *tif)
 {
   if (!cpp_opts->preprocessed)
     {
@@ -1397,6 +1410,8 @@ finish_options (void)
 	}
     }
 
+  include_cursor = 0;
+  this_input_filename = tif;
   push_command_line_include ();
 }
 
@@ -1417,9 +1432,8 @@ push_command_line_include (void)
 
   if (include_cursor == deferred_count)
     {
-      free (deferred_opts);
       /* Restore the line map from <command line>.  */
-      cpp_change_file (parse_in, LC_RENAME, main_input_filename);
+      cpp_change_file (parse_in, LC_RENAME, this_input_filename);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
       include_cursor++;
@@ -1516,92 +1530,4 @@ handle_OPT_d (const char *arg)
 	flag_dump_includes = 1;
 	break;
       }
-}
-
-/* Handle --help output.  */
-static void
-print_help (void)
-{
-  /* To keep the lines from getting too long for some compilers, limit
-     to about 500 characters (6 lines) per chunk.  */
-  fputs (_("\
-Switches:\n\
-  -include <file>           Include the contents of <file> before other files\n\
-  -imacros <file>           Accept definition of macros in <file>\n\
-  -iprefix <path>           Specify <path> as a prefix for next two options\n\
-  -iwithprefix <dir>        Add <dir> to the end of the system include path\n\
-  -iwithprefixbefore <dir>  Add <dir> to the end of the main include path\n\
-  -isystem <dir>            Add <dir> to the start of the system include path\n\
-"), stdout);
-  fputs (_("\
-  -idirafter <dir>          Add <dir> to the end of the system include path\n\
-  -I <dir>                  Add <dir> to the end of the main include path\n\
-  -I-                       Fine-grained include path control; see info docs\n\
-  -nostdinc                 Do not search system include directories\n\
-                             (dirs specified with -isystem will still be used)\n\
-  -nostdinc++               Do not search system include directories for C++\n\
-  -o <file>                 Put output into <file>\n\
-"), stdout);
-  fputs (_("\
-  -trigraphs                Support ISO C trigraphs\n\
-  -std=<std name>           Specify the conformance standard; one of:\n\
-                            gnu89, gnu99, c89, c99, iso9899:1990,\n\
-                            iso9899:199409, iso9899:1999, c++98\n\
-  -w                        Inhibit warning messages\n\
-  -W[no-]trigraphs          Warn if trigraphs are encountered\n\
-  -W[no-]comment{s}         Warn if one comment starts inside another\n\
-"), stdout);
-  fputs (_("\
-  -W[no-]traditional        Warn about features not present in traditional C\n\
-  -W[no-]undef              Warn if an undefined macro is used by #if\n\
-  -W[no-]import             Warn about the use of the #import directive\n\
-"), stdout);
-  fputs (_("\
-  -W[no-]error              Treat all warnings as errors\n\
-  -W[no-]system-headers     Do not suppress warnings from system headers\n\
-  -W[no-]all                Enable most preprocessor warnings\n\
-"), stdout);
-  fputs (_("\
-  -M                        Generate make dependencies\n\
-  -MM                       As -M, but ignore system header files\n\
-  -MD                       Generate make dependencies and compile\n\
-  -MMD                      As -MD, but ignore system header files\n\
-  -MF <file>                Write dependency output to the given file\n\
-  -MG                       Treat missing header file as generated files\n\
-"), stdout);
-  fputs (_("\
-  -MP			    Generate phony targets for all headers\n\
-  -MQ <target>              Add a MAKE-quoted target\n\
-  -MT <target>              Add an unquoted target\n\
-"), stdout);
-  fputs (_("\
-  -D<macro>                 Define a <macro> with string '1' as its value\n\
-  -D<macro>=<val>           Define a <macro> with <val> as its value\n\
-  -A<question>=<answer>     Assert the <answer> to <question>\n\
-  -A-<question>=<answer>    Disable the <answer> to <question>\n\
-  -U<macro>                 Undefine <macro> \n\
-  -v                        Display the version number\n\
-"), stdout);
-  fputs (_("\
-  -H                        Print the name of header files as they are used\n\
-  -C                        Do not discard comments\n\
-  -dM                       Display a list of macro definitions active at end\n\
-  -dD                       Preserve macro definitions in output\n\
-  -dN                       As -dD except that only the names are preserved\n\
-  -dI                       Include #include directives in the output\n\
-"), stdout);
-  fputs (_("\
-  -f[no-]preprocessed       Treat the input file as already preprocessed\n\
-  -ftabstop=<number>        Distance between tab stops for column reporting\n\
-  -ftarget-charset=<c>      Convert all strings and character constants\n\
-                            to character set <c>\n\
-  -ftarget-wide-charset=<c> Convert all wide strings and character constants\n\
-                            to character set <c>\n\
-"), stdout);
-  fputs (_("\
-  -isysroot <dir>           Set <dir> to be the system root directory\n\
-  -P                        Do not generate #line directives\n\
-  -remap                    Remap file names when including files\n\
-  --help                    Display this information\n\
-"), stdout);
 }

@@ -22,8 +22,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "line-map.h"
 #include "intl.h"
 
@@ -82,8 +80,7 @@ add_line_map (struct line_maps *set, enum lc_reason reason,
   if (set->used == set->allocated)
     {
       set->allocated = 2 * set->allocated + 256;
-      set->maps = (struct line_map *)
-	xrealloc (set->maps, set->allocated * sizeof (struct line_map));
+      set->maps = xrealloc (set->maps, set->allocated * sizeof (struct line_map));
     }
 
   map = &set->maps[set->used++];

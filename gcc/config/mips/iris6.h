@@ -281,30 +281,11 @@ Boston, MA 02111-1307, USA.  */
    ? READONLY_DATA_SECTION_ASM_OP_64		\
    : READONLY_DATA_SECTION_ASM_OP_32)
 
-/* A default list of other sections which we might be "in" at any given
-   time.  For targets that use additional sections (e.g. .tdesc) you
-   should override this definition in the target-specific file which
-   includes this file.  */
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata
-
-/* A default list of extra section function definitions.  For targets
-   that use additional sections (e.g. .tdesc) you should override this
-   definition in the target-specific file which includes this file.  */
+/* Define functions to read the name and flags of the current section.
+   They are used by iris6_asm_output_align.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-void									\
-sdata_section ()							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}									\
-									\
 const char *								\
 current_section_name ()							\
 {									\
@@ -313,7 +294,6 @@ current_section_name ()							\
     case no_section:	return NULL;					\
     case in_text:	return ".text";					\
     case in_data:	return ".data";					\
-    case in_sdata:	return ".sdata";				\
     case in_bss:	return ".bss";					\
     case in_readonly_data:						\
       if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
@@ -334,7 +314,6 @@ current_section_flags ()						\
     case no_section:	return 0;					\
     case in_text:	return SECTION_CODE;				\
     case in_data:	return SECTION_WRITE;				\
-    case in_sdata:	return SECTION_WRITE | SECTION_SMALL;		\
     case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
     case in_readonly_data: return 0;					\
     case in_named:	return get_named_section_flags (in_named_name);	\
@@ -391,51 +370,17 @@ while (0)
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
 
-/* Write the extra assembler code needed to declare an object properly.  */
-
-#undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)			\
-do									\
- {									\
-   HOST_WIDE_INT size;							\
-   size_directive_output = 0;						\
-   if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
-     {									\
-       size_directive_output = 1;					\
-       size = int_size_in_bytes (TREE_TYPE (DECL));			\
-       ASM_OUTPUT_SIZE_DIRECTIVE (STREAM, NAME, size);			\
-     }									\
-   mips_declare_object (STREAM, NAME, "", ":\n", 0);			\
- }									\
-while (0)
-
 /* Define the `__builtin_va_list' type for the ABI.  On IRIX 6, this
    type is `char *'.  */
 #undef BUILD_VA_LIST_TYPE
 #define BUILD_VA_LIST_TYPE(VALIST) \
   (VALIST) = build_pointer_type (char_type_node)
 
-/* Output the size directive for a decl in rest_of_decl_compilation
-   in the case where we did not do so before the initializer.
-   Once we find the error_mark_node, we know that the value of
-   size_directive_output was set
-   by ASM_DECLARE_OBJECT_NAME when it was run for the same decl.  */
+#undef ASM_DECLARE_OBJECT_NAME
+#define ASM_DECLARE_OBJECT_NAME mips_declare_object_name
 
 #undef ASM_FINISH_DECLARE_OBJECT
-#define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
-do {									 \
-     const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
-     HOST_WIDE_INT size;						 \
-     if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
-         && ! AT_END && TOP_LEVEL					 \
-	 && DECL_INITIAL (DECL) == error_mark_node			 \
-	 && !size_directive_output)					 \
-       {								 \
-	 size_directive_output = 1;					 \
-	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
-	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
-       }								 \
-   } while (0)
+#define ASM_FINISH_DECLARE_OBJECT mips_finish_declare_object
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ((mips_abi == ABI_32 || mips_abi == ABI_O64) \

@@ -30,13 +30,15 @@ struct cgraph_local_info GTY(())
   /* Set when function function is visible in current compilation unit only
      and it's address is never taken.  */
   bool local;
-  /* Set when function is small enough to be inlinable many times.  */
-  bool inline_many;
-  /* Set when function can be inlined once (false only for functions calling
-     alloca, using varargs and so on).  */
-  bool can_inline_once;
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
+
+  /* False when there is something making inlining impossible (such as va_arg) */
+  bool inlinable;
+  /* True when function should be inlined independently on it's size.  */
+  bool disgread_inline_limits;
+  /* Size of the function before inlining.  */
+  int self_insns;
 };
 
 /* Information about the function that needs to be computed globally
@@ -46,6 +48,20 @@ struct cgraph_global_info GTY(())
 {
   /* Set when the function will be inlined exactly once.  */
   bool inline_once;
+
+  /* Estimated size of the function after inlining.  */
+  int insns;
+
+  /* Number of direct calls not inlined into the function body.  */
+  int calls;
+
+  /* Number of times given function will be cloned during output.  */
+  int cloned_times;
+
+  /* Set to true for all reachable functions before inlining is decided.
+     Once we inline all calls to the function and the function is local,
+     it is set to false.  */
+  bool will_be_output;
 };
 
 /* Information about the function that is propagated by the RTL backend.
@@ -62,7 +78,7 @@ struct cgraph_rtl_info GTY(())
 /* The cgraph data strutcture.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
-struct cgraph_node GTY(())
+struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
 {
   tree decl;
   struct cgraph_edge *callees;
@@ -77,6 +93,8 @@ struct cgraph_node GTY(())
   struct cgraph_node *next_nested;
   /* Pointer to the next function in cgraph_nodes_queue.  */
   struct cgraph_node *next_needed;
+  /* Unique id of the node.  */
+  int uid;
   PTR GTY ((skip (""))) aux;
 
   /* Set when function must be output - it is externally visible
@@ -102,6 +120,7 @@ struct cgraph_edge GTY(())
   struct cgraph_node *callee;
   struct cgraph_edge *next_caller;
   struct cgraph_edge *next_callee;
+  bool inline_call;
 };
 
 /* The cgraph_varpool data strutcture.
@@ -124,24 +143,27 @@ struct cgraph_varpool_node GTY(())
 
 extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
+extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
+extern FILE *cgraph_dump_file;
 
 extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
 
 /* In cgraph.c  */
-void dump_cgraph			PARAMS ((FILE *));
-void cgraph_remove_call			PARAMS ((tree, tree));
-void cgraph_remove_node			PARAMS ((struct cgraph_node *));
-struct cgraph_edge *cgraph_record_call	PARAMS ((tree, tree));
-struct cgraph_node *cgraph_node		PARAMS ((tree decl));
-struct cgraph_node *cgraph_node_for_identifier	PARAMS ((tree id));
-bool cgraph_calls_p			PARAMS ((tree, tree));
-struct cgraph_local_info *cgraph_local_info PARAMS ((tree));
-struct cgraph_global_info *cgraph_global_info PARAMS ((tree));
-struct cgraph_rtl_info *cgraph_rtl_info PARAMS ((tree));
+void dump_cgraph (FILE *);
+void cgraph_remove_call (tree, tree);
+void cgraph_remove_node (struct cgraph_node *);
+struct cgraph_edge *cgraph_record_call (tree, tree);
+struct cgraph_node *cgraph_node (tree decl);
+struct cgraph_node *cgraph_node_for_identifier (tree id);
+bool cgraph_calls_p (tree, tree);
+struct cgraph_local_info *cgraph_local_info (tree);
+struct cgraph_global_info *cgraph_global_info (tree);
+struct cgraph_rtl_info *cgraph_rtl_info (tree);
+const char * cgraph_node_name (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
 struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
@@ -150,10 +172,11 @@ void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
 
 /* In cgraphunit.c  */
-void cgraph_finalize_function		PARAMS ((tree, tree));
-void cgraph_finalize_compilation_unit	PARAMS ((void));
-void cgraph_create_edges		PARAMS ((tree, tree));
-void cgraph_optimize			PARAMS ((void));
-void cgraph_mark_needed_node		PARAMS ((struct cgraph_node *, int));
+void cgraph_finalize_function (tree, tree);
+void cgraph_finalize_compilation_unit (void);
+void cgraph_create_edges (tree, tree);
+void cgraph_optimize (void);
+void cgraph_mark_needed_node (struct cgraph_node *, int);
+bool cgraph_inline_p (tree, tree);
 
 #endif  /* GCC_CGRAPH_H  */

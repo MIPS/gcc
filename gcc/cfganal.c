@@ -139,11 +139,11 @@ mark_dfs_back_edges (void)
   bool found = false;
 
   /* Allocate the preorder and postorder number arrays.  */
-  pre = (int *) xcalloc (last_basic_block, sizeof (int));
-  post = (int *) xcalloc (last_basic_block, sizeof (int));
+  pre = xcalloc (last_basic_block, sizeof (int));
+  post = xcalloc (last_basic_block, sizeof (int));
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -402,8 +402,7 @@ find_unreachable_blocks (void)
   edge e;
   basic_block *tos, *worklist, bb;
 
-  tos = worklist =
-	(basic_block *) xmalloc (sizeof (basic_block) * n_basic_blocks);
+  tos = worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
 
   /* Clear all the reachability flags.  */
 
@@ -473,10 +472,10 @@ create_edge_list (void)
 	num_edges++;
     }
 
-  elist = (struct edge_list *) xmalloc (sizeof (struct edge_list));
+  elist = xmalloc (sizeof (struct edge_list));
   elist->num_blocks = block_count;
   elist->num_edges = num_edges;
-  elist->index_to_edge = (edge *) xmalloc (sizeof (edge) * num_edges);
+  elist->index_to_edge = xmalloc (sizeof (edge) * num_edges);
 
   num_edges = 0;
 
@@ -751,7 +750,7 @@ flow_reverse_top_sort_order_compute (int *rts_order)
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -820,7 +819,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -925,12 +924,11 @@ flow_preorder_transversal_compute (int *pot_order)
   basic_block bb;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = (edge *) xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
   sp = 0;
 
   /* Allocate the tree.  */
-  dfst = (struct dfst_node *) xcalloc (last_basic_block,
-				       sizeof (struct dfst_node));
+  dfst = xcalloc (last_basic_block, sizeof (struct dfst_node));
 
   FOR_EACH_BB (bb)
     {
@@ -940,9 +938,7 @@ flow_preorder_transversal_compute (int *pot_order)
 
       dfst[bb->index].node
 	= (max_successors
-	   ? (struct dfst_node **) xcalloc (max_successors,
-					    sizeof (struct dfst_node *))
-	   : NULL);
+	   ? xcalloc (max_successors, sizeof (struct dfst_node *)) : NULL);
     }
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -1054,8 +1050,8 @@ static void
 flow_dfs_compute_reverse_init (depth_first_search_ds data)
 {
   /* Allocate stack for back-tracking up CFG.  */
-  data->stack = (basic_block *) xmalloc ((n_basic_blocks - (INVALID_BLOCK + 1))
-					 * sizeof (basic_block));
+  data->stack = xmalloc ((n_basic_blocks - (INVALID_BLOCK + 1))
+			 * sizeof (basic_block));
   data->sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */

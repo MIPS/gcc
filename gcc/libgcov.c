@@ -91,22 +91,22 @@ static struct gcov_info *gcov_list;
    object file included in multiple programs.  */
 static gcov_unsigned_t gcov_crc32;
 
-static void
-gcov_version_mismatch (struct gcov_info *ptr, gcov_unsigned_t version)
+static int
+gcov_version (struct gcov_info *ptr, gcov_unsigned_t version)
 {
-  gcov_unsigned_t expected = GCOV_VERSION;
-  unsigned ix;
-  char e[4], v[4];
-
-  for (ix = 4; ix--; expected >>= 8, version >>= 8)
+  if (version != GCOV_VERSION)
     {
-      e[ix] = expected;
-      v[ix] = version;
+      char v[4], e[4];
+
+      GCOV_UNSIGNED2STRING (v, version);
+      GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
+      
+      fprintf (stderr,
+	       "profiling:%s:Version mismatch - expected %.4s got %.4s\n",
+	       ptr->filename, e, v);
+      return 0;
     }
-  
-  fprintf (stderr,
-	   "profiling:%s:Version mismatch - expected %.4s got %.4s\n",
-	   ptr->filename, e, v);
+  return 1;
 }
 
 /* Dump the coverage counts. We merge with existing counts when
@@ -163,12 +163,13 @@ gcov_exit (void)
       struct gcov_ctr_summary *cs_ptr;
       struct gcov_ctr_summary *cs_obj, *cs_tobj, *cs_prg, *cs_tprg, *cs_all;
       int error = 0;
-      int merging;
       gcov_unsigned_t tag, length;
       gcov_position_t summary_pos = 0;
 
-      /* Totals for this object file.  */
       memset (&this_object, 0, sizeof (this_object));
+      memset (&object, 0, sizeof (object));
+      
+      /* Totals for this object file.  */
       for (t_ix = c_ix = 0,
 	     ci_ptr = gi_ptr->counts, cs_ptr = this_object.ctrs;
 	   t_ix != GCOV_COUNTERS_SUMMABLE; t_ix++, cs_ptr++)
@@ -198,18 +199,17 @@ gcov_exit (void)
 	  fi_stride &= ~(__alignof__ (struct gcov_fn_info) - 1);
 	}
       
-      /* Open for modification, if possible */
-      merging = gcov_open (gi_ptr->filename, 0);
-      if (!merging)
+      if (!gcov_open (gi_ptr->filename))
 	{
 	  fprintf (stderr, "profiling:%s:Cannot open\n", gi_ptr->filename);
 	  continue;
 	}
-      
-      if (merging > 0)
+
+      tag = gcov_read_unsigned ();
+      if (tag)
 	{
 	  /* Merge data from file.  */
-	  if (gcov_read_unsigned () != GCOV_DATA_MAGIC)
+	  if (tag != GCOV_DATA_MAGIC)
 	    {
 	      fprintf (stderr, "profiling:%s:Not a gcov data file\n",
 		       gi_ptr->filename);
@@ -218,10 +218,16 @@ gcov_exit (void)
 	      continue;
 	    }
 	  length = gcov_read_unsigned ();
-	  if (length != GCOV_VERSION)
+	  if (!gcov_version (gi_ptr, length))
+	    goto read_fatal;
+
+	  length = gcov_read_unsigned ();
+	  if (length != gi_ptr->stamp)
 	    {
-	      gcov_version_mismatch (gi_ptr, length);
-	      goto read_fatal;
+	      /* Read from a different compilation. Overwrite the
+		 file.  */
+	      gcov_truncate ();
+	      goto rewrite;
 	    }
 	  
 	  /* Merge execution counts for each function.  */
@@ -288,18 +294,17 @@ gcov_exit (void)
 		  goto rewrite;
 		}
 	    }
-	  if (!gcov_is_eof ())
-	    {
-	    read_error:;
-	      fprintf (stderr, error < 0 ? "profiling:%s:Overflow merging\n"
-		       : "profiling:%s:Error merging\n", gi_ptr->filename);
-	      goto read_fatal;
-	    }
-	rewrite:;
-	  gcov_rewrite ();
 	}
-      else
-	memset (&object, 0, sizeof (object));
+      
+      if (!gcov_is_eof ())
+ 	{
+ 	read_error:;
+ 	  fprintf (stderr, error < 0 ? "profiling:%s:Overflow merging\n"
+ 		   : "profiling:%s:Error merging\n", gi_ptr->filename);
+ 	  goto read_fatal;
+ 	}
+    rewrite:;
+      gcov_rewrite ();
       if (!summary_pos)
 	memset (&program, 0, sizeof (program));
 
@@ -355,6 +360,7 @@ gcov_exit (void)
       
       /* Write out the data.  */
       gcov_write_tag_length (GCOV_DATA_MAGIC, GCOV_VERSION);
+      gcov_write_unsigned (gi_ptr->stamp);
       
       /* Write execution counts for each function.  */
       for (f_ix = gi_ptr->n_functions, fi_ptr = gi_ptr->functions; f_ix--;
@@ -404,9 +410,7 @@ __gcov_init (struct gcov_info *info)
 {
   if (!info->version)
     return;
-  if (info->version != GCOV_VERSION)
-    gcov_version_mismatch (info, info->version);
-  else
+  if (gcov_version (info, info->version))
     {
       const char *ptr = info->filename;
       gcov_unsigned_t crc32 = gcov_crc32;
@@ -477,10 +481,12 @@ __gcov_merge_add (gcov_type *counters, unsigned n_counters)
 #endif /* L_gcov_merge_add */
 
 #ifdef L_gcov_merge_single
-/* The profile merging function for choosing the most common value.  It is given
-   an array COUNTERS of N_COUNTERS old counters and it reads the same number
-   of counters from the gcov file.  The counters are split into 3-tuples
-   where the members of the tuple have meanings:
+/* The profile merging function for choosing the most common value.
+   It is given an array COUNTERS of N_COUNTERS old counters and it
+   reads the same number of counters from the gcov file.  The counters
+   are split into 3-tuples where the members of the tuple have
+   meanings:
+   
    -- the stored candidate on the most common value of the measured entity
    -- counter
    -- total number of evaluations of the value  */
@@ -490,9 +496,7 @@ __gcov_merge_single (gcov_type *counters, unsigned n_counters)
   unsigned i, n_measures;
   gcov_type value, counter, all;
 
-  if (n_counters % 3)
-    abort ();
-
+  GCOV_CHECK (!(n_counters % 3));
   n_measures = n_counters / 3;
   for (i = 0; i < n_measures; i++, counters += 3)
     {
@@ -515,11 +519,12 @@ __gcov_merge_single (gcov_type *counters, unsigned n_counters)
 #endif /* L_gcov_merge_single */
 
 #ifdef L_gcov_merge_delta
-/* The profile merging function for choosing the most common difference between
-   two consecutive evaluations of the value.  It is given an array COUNTERS of
-   N_COUNTERS old counters and it reads the same number of counters from the
-   gcov file.  The counters are split into 4-tuples where the members of the
-   tuple have meanings:
+/* The profile merging function for choosing the most common
+   difference between two consecutive evaluations of the value.  It is
+   given an array COUNTERS of N_COUNTERS old counters and it reads the
+   same number of counters from the gcov file.  The counters are split
+   into 4-tuples where the members of the tuple have meanings:
+   
    -- the last value of the measured entity
    -- the stored candidate on the most common difference
    -- counter
@@ -530,9 +535,7 @@ __gcov_merge_delta (gcov_type *counters, unsigned n_counters)
   unsigned i, n_measures;
   gcov_type last, value, counter, all;
 
-  if (n_counters % 4)
-    abort ();
-
+  GCOV_CHECK (!(n_counters % 4));
   n_measures = n_counters / 4;
   for (i = 0; i < n_measures; i++, counters += 4)
     {

@@ -73,7 +73,7 @@ Boston, MA 02111-1307, USA.  */
 /* The IDENTIFIER_NODE naming the real class.  */
 #define TINFO_REAL_NAME(NODE) TREE_PURPOSE (NODE)
 
-/* A varray of all tinfo decls that haven't yet been emitted. */
+/* A varray of all tinfo decls that haven't yet been emitted.  */
 varray_type unemitted_tinfo_decls;
 
 static tree build_headof (tree);
@@ -213,11 +213,8 @@ get_tinfo_decl_dynamic (tree exp)
   if (exp == error_mark_node)
     return error_mark_node;
 
-  type = TREE_TYPE (exp);
-
   /* peel back references, so they match.  */
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    type = TREE_TYPE (type);
+  type = non_reference (TREE_TYPE (exp));
 
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
@@ -373,7 +370,7 @@ get_tinfo_decl (tree type)
       /* Remember the type it is for.  */
       TREE_TYPE (name) = type;
 
-      /* Add decl to the global array of tinfo decls. */
+      /* Add decl to the global array of tinfo decls.  */
       my_friendly_assert (unemitted_tinfo_decls != 0, 20030312);
       VARRAY_PUSH_TREE (unemitted_tinfo_decls, d);
     }
@@ -408,8 +405,7 @@ get_typeid (tree type)
   /* If the type of the type-id is a reference type, the result of the
      typeid expression refers to a type_info object representing the
      referenced type.  */
-  if (TREE_CODE (type) == REFERENCE_TYPE)
-    type = TREE_TYPE (type);
+  type = non_reference (type);
 
   /* The top-level cv-qualifiers of the lvalue expression or the type-id
      that is the operand of typeid are always ignored.  */
@@ -1129,7 +1125,7 @@ create_pseudo_type_info (const char *real_name, int ident, ...)
   va_start (ap, ident);
 
   /* Generate the pseudo type name.  */
-  pseudo_name = (char *)alloca (strlen (real_name) + 30);
+  pseudo_name = alloca (strlen (real_name) + 30);
   strcpy (pseudo_name, real_name);
   strcat (pseudo_name, "_pseudo");
   if (ident)

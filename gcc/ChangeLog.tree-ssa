@@ -1,3 +1,7 @@
+2003-07-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree.h (DECL_ESTIMATED_INSNS): Move from c-common.h.
+
 2003-07-23  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Make

@@ -164,7 +164,8 @@ encode (HOST_WIDE_INT *words, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
    The integer is stored into *LOW and *HI as two `HOST_WIDE_INT' pieces.  */
 
 static void
-decode (HOST_WIDE_INT *words, unsigned HOST_WIDE_INT *low, HOST_WIDE_INT *hi)
+decode (HOST_WIDE_INT *words, unsigned HOST_WIDE_INT *low,
+	HOST_WIDE_INT *hi)
 {
   *low = words[0] + words[1] * BASE;
   *hi = words[2] + words[3] * BASE;
@@ -257,8 +258,9 @@ force_fit_type (tree t, int overflow)
    The value is stored as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 int
-add_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT l2,
-	    HOST_WIDE_INT h2, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
+add_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+	    unsigned HOST_WIDE_INT l2, HOST_WIDE_INT h2,
+	    unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
 {
   unsigned HOST_WIDE_INT l;
   HOST_WIDE_INT h;
@@ -277,8 +279,8 @@ add_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT 
    The value is stored as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 int
-neg_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT *lv,
-	    HOST_WIDE_INT *hv)
+neg_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+	    unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
 {
   if (l1 == 0)
     {
@@ -301,8 +303,9 @@ neg_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT 
    The value is stored as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 int
-mul_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT l2,
-	    HOST_WIDE_INT h2, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
+mul_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+	    unsigned HOST_WIDE_INT l2, HOST_WIDE_INT h2,
+	    unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
 {
   HOST_WIDE_INT arg1[4];
   HOST_WIDE_INT arg2[4];
@@ -315,7 +318,7 @@ mul_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT 
   encode (arg1, l1, h1);
   encode (arg2, l2, h2);
 
-  memset ((char *) prod, 0, sizeof prod);
+  memset (prod, 0, sizeof prod);
 
   for (i = 0; i < 4; i++)
     {
@@ -358,9 +361,9 @@ mul_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, unsigned HOST_WIDE_INT 
    Store the value as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 void
-lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
-	       unsigned int prec, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv,
-	       int arith)
+lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+	       HOST_WIDE_INT count, unsigned int prec,
+	       unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv, int arith)
 {
   unsigned HOST_WIDE_INT signmask;
 
@@ -422,8 +425,9 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
    Store the value as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 void
-rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
-	       unsigned int prec, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv,
+rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+	       HOST_WIDE_INT count, unsigned int prec,
+	       unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv,
 	       int arith)
 {
   unsigned HOST_WIDE_INT signmask;
@@ -484,8 +488,9 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
    Store the value as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 void
-lrotate_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
-		unsigned int prec, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
+lrotate_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+		HOST_WIDE_INT count, unsigned int prec,
+		unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
 {
   unsigned HOST_WIDE_INT s1l, s2l;
   HOST_WIDE_INT s1h, s2h;
@@ -505,8 +510,9 @@ lrotate_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count
    Store the value as two `HOST_WIDE_INT' pieces in *LV and *HV.  */
 
 void
-rrotate_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1, HOST_WIDE_INT count,
-		unsigned int prec, unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
+rrotate_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+		HOST_WIDE_INT count, unsigned int prec,
+		unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv)
 {
   unsigned HOST_WIDE_INT s1l, s2l;
   HOST_WIDE_INT s1h, s2h;
@@ -535,7 +541,8 @@ div_and_round_double (enum tree_code code, int uns,
 		      unsigned HOST_WIDE_INT lnum_orig, /* num == numerator == dividend */
 		      HOST_WIDE_INT hnum_orig,
 		      unsigned HOST_WIDE_INT lden_orig, /* den == denominator == divisor */
-		      HOST_WIDE_INT hden_orig, unsigned HOST_WIDE_INT *lquo,
+		      HOST_WIDE_INT hden_orig,
+		      unsigned HOST_WIDE_INT *lquo,
 		      HOST_WIDE_INT *hquo, unsigned HOST_WIDE_INT *lrem,
 		      HOST_WIDE_INT *hrem)
 {
@@ -589,10 +596,10 @@ div_and_round_double (enum tree_code code, int uns,
       goto finish_up;
     }
 
-  memset ((char *) quo, 0, sizeof quo);
+  memset (quo, 0, sizeof quo);
 
-  memset ((char *) num, 0, sizeof num);	/* to zero 9th element */
-  memset ((char *) den, 0, sizeof den);
+  memset (num, 0, sizeof num);	/* to zero 9th element */
+  memset (den, 0, sizeof den);
 
   encode (num, lnum, hnum);
   encode (den, lden, hden);
@@ -911,7 +918,8 @@ negate_expr (tree t)
    same type as IN, but they will have the same signedness and mode.  */
 
 static tree
-split_tree (tree in, enum tree_code code, tree *conp, tree *litp, tree *minus_litp, int negate_p)
+split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
+	    tree *minus_litp, int negate_p)
 {
   tree var = 0;
 
@@ -1225,13 +1233,30 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 
   if (TREE_CODE (arg1) == REAL_CST)
     {
+      enum machine_mode mode;
       REAL_VALUE_TYPE d1;
       REAL_VALUE_TYPE d2;
       REAL_VALUE_TYPE value;
-      tree t;
+      tree t, type;
 
       d1 = TREE_REAL_CST (arg1);
       d2 = TREE_REAL_CST (arg2);
+
+      type = TREE_TYPE (arg1);
+      mode = TYPE_MODE (type);
+
+      /* Don't perform operation if we honor signaling NaNs and
+	 either operand is a NaN.  */
+      if (HONOR_SNANS (mode)
+	  && (REAL_VALUE_ISNAN (d1) || REAL_VALUE_ISNAN (d2)))
+	return NULL_TREE;
+
+      /* Don't perform operation if it would raise a division
+	 by zero exception.  */
+      if (code == RDIV_EXPR
+	  && REAL_VALUES_EQUAL (d2, dconst0)
+	  && (flag_trapping_math || ! MODE_HAS_INFINITIES (mode)))
+	return NULL_TREE;
 
       /* If either operand is a NaN, just return it.  Otherwise, set up
 	 for floating-point trap; we return an overflow.  */
@@ -1242,9 +1267,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
 
       REAL_ARITHMETIC (value, code, d1, d2);
 
-      t = build_real (TREE_TYPE (arg1),
-		      real_value_truncate (TYPE_MODE (TREE_TYPE (arg1)),
-					   value));
+      t = build_real (type, real_value_truncate (mode, value));
 
       TREE_OVERFLOW (t)
 	= (force_fit_type (t, 0)
@@ -2427,7 +2450,8 @@ distribute_bit_expr (enum tree_code code, tree type, tree arg0, tree arg1)
    starting at BITPOS.  The field is unsigned if UNSIGNEDP is nonzero.  */
 
 static tree
-make_bit_field_ref (tree inner, tree type, int bitsize, int bitpos, int unsignedp)
+make_bit_field_ref (tree inner, tree type, int bitsize, int bitpos,
+		    int unsignedp)
 {
   tree result = build (BIT_FIELD_REF, type, inner,
 		       size_int (bitsize), bitsize_int (bitpos));
@@ -2458,7 +2482,8 @@ make_bit_field_ref (tree inner, tree type, int bitsize, int bitpos, int unsigned
    tree.  Otherwise we return zero.  */
 
 static tree
-optimize_bit_field_compare (enum tree_code code, tree compare_type, tree lhs, tree rhs)
+optimize_bit_field_compare (enum tree_code code, tree compare_type,
+			    tree lhs, tree rhs)
 {
   HOST_WIDE_INT lbitpos, lbitsize, rbitpos, rbitsize, nbitpos, nbitsize;
   tree type = TREE_TYPE (lhs);
@@ -2632,8 +2657,9 @@ optimize_bit_field_compare (enum tree_code code, tree compare_type, tree lhs, tr
    do anything with.  */
 
 static tree
-decode_field_reference (tree exp, HOST_WIDE_INT *pbitsize, HOST_WIDE_INT *pbitpos,
-			enum machine_mode *pmode, int *punsignedp, int *pvolatilep,
+decode_field_reference (tree exp, HOST_WIDE_INT *pbitsize,
+			HOST_WIDE_INT *pbitpos, enum machine_mode *pmode,
+			int *punsignedp, int *pvolatilep,
 			tree *pmask, tree *pand_mask)
 {
   tree outer_type = 0;
@@ -2730,8 +2756,8 @@ all_ones_mask_p (tree mask, int size)
 static tree
 sign_bit_p (tree exp, tree val)
 {
-  unsigned HOST_WIDE_INT lo;
-  HOST_WIDE_INT hi;
+  unsigned HOST_WIDE_INT mask_lo, lo;
+  HOST_WIDE_INT mask_hi, hi;
   int width;
   tree t;
 
@@ -2750,14 +2776,25 @@ sign_bit_p (tree exp, tree val)
     {
       hi = (unsigned HOST_WIDE_INT) 1 << (width - HOST_BITS_PER_WIDE_INT - 1);
       lo = 0;
+
+      mask_hi = ((unsigned HOST_WIDE_INT) -1
+		 >> (2 * HOST_BITS_PER_WIDE_INT - width));
+      mask_lo = -1;
     }
   else
     {
       hi = 0;
       lo = (unsigned HOST_WIDE_INT) 1 << (width - 1);
+
+      mask_hi = 0;
+      mask_lo = ((unsigned HOST_WIDE_INT) -1
+		 >> (HOST_BITS_PER_WIDE_INT - width));
     }
 
-  if (TREE_INT_CST_HIGH (val) == hi && TREE_INT_CST_LOW (val) == lo)
+  /* We mask off those bits beyond TREE_TYPE (exp) so that we can
+     treat VAL as if it were unsigned.  */
+  if ((TREE_INT_CST_HIGH (val) & mask_hi) == hi
+      && (TREE_INT_CST_LOW (val) & mask_lo) == lo)
     return exp;
 
   /* Handle extension from a narrower type.  */
@@ -2832,8 +2869,8 @@ simple_operand_p (tree exp)
    type if both are specified.  */
 
 static tree
-range_binop (enum tree_code code, tree type, tree arg0, int upper0_p, tree arg1,
-	     int upper1_p)
+range_binop (enum tree_code code, tree type, tree arg0, int upper0_p,
+	     tree arg1, int upper1_p)
 {
   tree tem;
   int result;
@@ -2919,7 +2956,8 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh)
 
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
 	{
-	  arg0 = TREE_OPERAND (exp, 0);
+	  if (first_rtl_op (code) > 0)
+	    arg0 = TREE_OPERAND (exp, 0);
 	  if (TREE_CODE_CLASS (code) == '<'
 	      || TREE_CODE_CLASS (code) == '1'
 	      || TREE_CODE_CLASS (code) == '2')
@@ -3238,8 +3276,8 @@ build_range_check (tree type, tree exp, int in_p, tree low, tree high)
    can, 0 if we can't.  Set the output range into the specified parameters.  */
 
 static int
-merge_ranges (int *pin_p, tree *plow, tree *phigh, int in0_p, tree low0, tree high0,
-	      int in1_p, tree low1, tree high1)
+merge_ranges (int *pin_p, tree *plow, tree *phigh, int in0_p, tree low0,
+	      tree high0, int in1_p, tree low1, tree high1)
 {
   int no_overlap;
   int subset;
@@ -4407,7 +4445,8 @@ count_cond (tree expr, int lim)
    original expression.  */
 
 static tree
-fold_binary_op_with_conditional_arg (enum tree_code code, tree type, tree cond, tree arg, int cond_first_p)
+fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
+				     tree cond, tree arg, int cond_first_p)
 {
   tree test, true_value, false_value;
   tree lhs = NULL_TREE;
@@ -4585,7 +4624,8 @@ fold_real_zero_addition_p (tree type, tree addend, int negate)
    can be made, and NULL_TREE otherwise.  */
 
 static tree
-fold_mathfn_compare (enum built_in_function fcode, enum tree_code code, tree type, tree arg0, tree arg1)
+fold_mathfn_compare (enum built_in_function fcode, enum tree_code code,
+		     tree type, tree arg0, tree arg1)
 {
   REAL_VALUE_TYPE c;
 
@@ -4795,11 +4835,8 @@ fold_inf_compare (enum tree_code code, tree type, tree arg0, tree arg1)
    NULL.  TYPE is the desired result type.  */
  
 tree
-fold_single_bit_test (code, arg0, arg1, result_type)
-    enum tree_code code;
-    tree arg0;
-    tree arg1;
-    tree result_type;
+fold_single_bit_test (enum tree_code code, tree arg0, tree arg1,
+		      tree result_type)
 {
   /* If this is a TRUTH_NOT_EXPR, it may have a single bit test inside
      operand 0.  */
@@ -4840,6 +4877,10 @@ fold_single_bit_test (code, arg0, arg1, result_type)
 			      convert (stype, arg00),
 			      convert (stype, integer_zero_node)));
 	}
+
+      /* At this point, we know that arg0 is not testing the sign bit.  */
+      if (TYPE_PRECISION (type) - 1 == bitnum)
+	abort ();
       
       /* Otherwise we have (A & C) != 0 where C is a single bit, 
 	 convert that into ((A >> C2) & 1).  Where C2 = log2(C).
@@ -4861,13 +4902,11 @@ fold_single_bit_test (code, arg0, arg1, result_type)
       /* If we are going to be able to omit the AND below, we must do our
 	 operations as unsigned.  If we must use the AND, we have a choice.
 	 Normally unsigned is faster, but for some machines signed is.  */
-      ops_unsigned = (bitnum == TYPE_PRECISION (type) - 1 ? 1
 #ifdef LOAD_EXTEND_OP
-		      : (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND ? 0 : 1)
+      ops_unsigned = (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND ? 0 : 1);
 #else
-		      : 1
+      ops_unsigned = 1;
 #endif
-		      );
 
       signed_type = (*lang_hooks.types.type_for_mode) (operand_mode, 0);
       unsigned_type = (*lang_hooks.types.type_for_mode) (operand_mode, 1);
@@ -4881,9 +4920,8 @@ fold_single_bit_test (code, arg0, arg1, result_type)
 		       inner, integer_one_node);
 
       /* Put the AND last so it can combine with more things.  */
-      if (bitnum != TYPE_PRECISION (type) - 1)
-	inner = build (BIT_AND_EXPR, ops_unsigned ? unsigned_type : signed_type,
-		       inner, integer_one_node);
+      inner = build (BIT_AND_EXPR, ops_unsigned ? unsigned_type : signed_type,
+		     inner, integer_one_node);
 
       /* Make sure to return the proper type.  */
       if (TREE_TYPE (inner) != result_type)
@@ -7626,6 +7664,31 @@ fold (tree expr)
     default:
       return t;
     } /* switch (code) */
+}
+
+/* Perform constant folding and related simplification of intializer
+   expression EXPR.  This behaves identically to "fold" but ignores
+   potential run-time traps and exceptions that fold must preserve.  */
+
+tree
+fold_initializer (tree expr)
+{
+  int saved_signaling_nans = flag_signaling_nans;
+  int saved_trapping_math = flag_trapping_math;
+  int saved_trapv = flag_trapv;
+  tree result;
+
+  flag_signaling_nans = 0;
+  flag_trapping_math = 0;
+  flag_trapv = 0;
+
+  result = fold (expr);
+
+  flag_signaling_nans = saved_signaling_nans;
+  flag_trapping_math = saved_trapping_math;
+  flag_trapv = saved_trapv;
+
+  return result;
 }
 
 /* Determine if first argument is a multiple of second argument.  Return 0 if

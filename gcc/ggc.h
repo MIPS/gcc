@@ -19,6 +19,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_GGC_H
+#define GCC_GGC_H
+
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
 
@@ -197,14 +200,14 @@ extern void *ggc_realloc (void *, size_t);
 extern void *ggc_calloc (size_t, size_t);
 
 #define ggc_alloc_rtx(NSLOTS)						  \
-  ((struct rtx_def *) ggc_alloc (sizeof (struct rtx_def)		  \
-				 + ((NSLOTS) - 1) * sizeof (rtunion)))
+  ((rtx) ggc_alloc (sizeof (struct rtx_def)				  \
+		    + ((NSLOTS) - 1) * sizeof (rtunion)))
 
 #define ggc_alloc_rtvec(NELT)						  \
-  ((struct rtvec_def *) ggc_alloc (sizeof (struct rtvec_def)		  \
-				   + ((NELT) - 1) * sizeof (rtx)))
+  ((rtvec) ggc_alloc (sizeof (struct rtvec_def)				  \
+		      + ((NELT) - 1) * sizeof (rtx)))
 
-#define ggc_alloc_tree(LENGTH) ((union tree_node *) ggc_alloc (LENGTH))
+#define ggc_alloc_tree(LENGTH) ((tree) ggc_alloc (LENGTH))
 
 #define htab_create_ggc(SIZE, HASH, EQ, DEL) \
   htab_create_alloc (SIZE, HASH, EQ, DEL, ggc_calloc, NULL)
@@ -259,3 +262,5 @@ extern void stringpool_statistics (void);
 extern int ggc_min_expand_heuristic (void);
 extern int ggc_min_heapsize_heuristic (void);
 extern void init_ggc_heuristics (void);
+
+#endif

@@ -204,9 +204,6 @@ construct_call_graph (buffer, t, spc)
 	    break;
 	  }
 
-	case METHOD_CALL_EXPR:
-	  NIY;
-
 	case ADDR_EXPR:
 	  /* May be a function pointer passed as a parameter to a function.  */
 	  if (TREE_CODE (TREE_OPERAND (node, 0)) == FUNCTION_DECL)
