@@ -223,6 +223,9 @@ struct stmt_ann_d GTY(())
   /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a 
      tree list of all the directly reachable exception handlers.  */
   tree reachable_exception_handlers;
+
+  /* Array of variables that have had their address taken in the statement.  */
+  varray_type addresses_taken;
 };
 
 
@@ -260,6 +263,7 @@ static inline varray_type vdef_ops		PARAMS ((tree));
 static inline varray_type vuse_ops		PARAMS ((tree));
 static inline varray_type use_ops		PARAMS ((tree));
 static inline tree *def_op			PARAMS ((tree));
+static inline varray_type addresses_taken	PARAMS ((tree));
 static inline varray_type immediate_uses	PARAMS ((tree));
 static inline varray_type reaching_defs		PARAMS ((tree));
 static inline bool has_hidden_use		PARAMS ((tree));
@@ -363,7 +367,6 @@ extern GTY(()) varray_type call_clobbered_vars;
 #define add_call_clobbered_var(v) VARRAY_PUSH_TREE (call_clobbered_vars, v)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)
 
-
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\
 		  ? (x)					\
@@ -415,6 +418,7 @@ extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_arg (tree, basic_block);
 extern void remove_phi_arg_num (tree, int);
 extern void remove_phi_node (tree, tree, basic_block);
+extern void remove_all_phi_nodes_for (sbitmap);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
 extern void debug_referenced_vars (void);
@@ -445,7 +449,8 @@ extern void create_global_var (void);
 
 
 /* In tree-ssa.c  */
-extern void rewrite_into_ssa (tree);
+extern void init_tree_ssa (void);
+extern void rewrite_into_ssa (tree, sbitmap);
 extern void rewrite_out_of_ssa (tree);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -469,11 +474,21 @@ void fold_stmt (tree);
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree);
 
+
 /* In tree-ssa-copyprop.c  */
 void tree_ssa_copyprop (tree);
+void propagate_copy (tree *, tree);
 
+
+/* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
 static inline struct phi_arg_d *phi_element_for_edge (tree, edge);
+static inline bool is_unchanging_value (tree val);
+
+
+/* In tree-must-alias.c  */
+void tree_compute_must_alias (tree);
+
 
 #include "tree-flow-inline.h"
 

@@ -352,7 +352,7 @@ static void
 visit_phi_node (tree phi)
 {
   int i;
-  value phi_val;
+  value phi_val, *curr_val;
 
   /* If the PHI node has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -701,7 +701,7 @@ ccp_fold (tree stmt)
 	 replacement for an argument (as it would create non-gimple
 	 code).  But the new expression can still be used to derive
 	 other constants.  */
-      if (! retval && really_constant_p (op0))
+      if (! retval && is_unchanging_value (op0))
 	return build1 (code, TREE_TYPE (rhs), op0);
     }
 
@@ -750,8 +750,8 @@ ccp_fold (tree stmt)
 	 code).  But the new expression can still be used to derive
 	 other constants.  */
       if (! retval
-	  && really_constant_p (op0)
-	  && really_constant_p (op1))
+	  && is_unchanging_value (op0)
+	  && is_unchanging_value (op1))
 	return build (code, TREE_TYPE (rhs), op0, op1);
     }
 
@@ -819,7 +819,7 @@ evaluate_stmt (tree stmt)
   else
     simplified = NULL_TREE;
 
-  if (simplified && really_constant_p (simplified))
+  if (simplified && is_unchanging_value (simplified))
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
@@ -1138,7 +1138,7 @@ replace_uses_in (tree stmt)
       tree *use = VARRAY_GENERIC_PTR (uses, i);
       value *val = get_value (*use);
 
-      if (val->lattice_val == CONSTANT && is_gimple_val (val->const_val))
+      if (val->lattice_val == CONSTANT)
 	{
 	  *use = val->const_val;
 	  replaced = true;
@@ -1199,7 +1199,7 @@ fold_stmt (tree stmt)
   tree rhs, result;
 
   rhs = get_rhs (stmt);
-  if (rhs)
+  if (rhs && !TREE_CONSTANT (rhs))
     {
       result = fold (rhs);
       set_rhs (stmt, result);
@@ -1332,7 +1332,7 @@ get_default_value (tree var)
 
       if (TREE_READONLY (sym)
 	  && DECL_INITIAL (sym)
-	  && really_constant_p (DECL_INITIAL (sym)))
+	  && is_unchanging_value (DECL_INITIAL (sym)))
 	{
 	  val.lattice_val = CONSTANT;
 	  val.const_val = DECL_INITIAL (sym);

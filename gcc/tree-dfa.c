@@ -107,11 +107,12 @@ static const int opf_is_def 	= 1 << 0;
 /* Consider the operand virtual, regardlessof aliasing information.  */
 static const int opf_force_vop	= 1 << 1;
 
+/* Debugging dumps.  */
+static FILE *dump_file;
+static int dump_flags;
 
 /* Data and functions shared with tree-ssa.c.  */
 struct dfa_stats_d dfa_stats;
-extern FILE *tree_ssa_dump_file;
-extern int tree_ssa_dump_flags;
 
 
 /* Local functions.  */
@@ -132,7 +133,7 @@ static void add_referenced_var (tree, struct walk_state *);
 static tree get_memory_tag_for (tree);
 static void compute_immediate_uses_for (tree, int);
 static void add_may_alias (tree, tree);
-static bool call_may_clobber (tree);
+static int get_call_flags (tree);
 static void find_hidden_use_vars (tree);
 static tree find_hidden_use_vars_r (tree *, int *, void *);
 
@@ -183,13 +184,12 @@ get_stmt_operands (tree stmt)
   /* Remove any existing operands as they will be scanned again.  */
   ann->ops = NULL;
 
-  /* We cannot remove existing virtual operands because we would lose their
-     SSA versions.  Instead, we save them on PREV_VOPS.  When add_vdef and
-     add_vuse are called, they will do nothing if PREV_VOPS is set.
-     FIXME: This means that passes that modify virtual operands must
-            make the changes on their own.  */
+  /* Before removing existing virtual operands, save them in PREV_VOPS so 
+     that we can re-use their SSA versions.  */
   if (ann->vops)
     prev_vops = ann->vops;
+
+  ann->vops = NULL;
 
   code = TREE_CODE (stmt);
   switch (code)
@@ -305,13 +305,20 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
     {
       enum tree_code subcode = TREE_CODE (TREE_OPERAND (expr, 0));
 
+      /* Taking the address of a variable does not represent a
+	 reference to it, but the fact that STMT takes its address will be
+	 of interest to some passes (e.g. must-alias resolution).  */
+      if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
+	{
+	  add_stmt_operand (expr_p, stmt, 0, NULL);
+	  return;
+	}
+
       /* Only a few specific types of ADDR_EXPR expressions are
        	 of interest.  */
       if (subcode != COMPONENT_REF
 	  && subcode != INDIRECT_REF
-	  && subcode != ARRAY_REF
-	  && subcode != PARM_DECL
-	  && subcode != VAR_DECL)
+	  && subcode != ARRAY_REF)
 	return;
 
       /* Avoid recursion.  */
@@ -357,7 +364,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       tree ptr = TREE_OPERAND (expr, 0);
 
 #if defined ENABLE_CHECKING
-      if (!SSA_VAR_P (ptr) && !TREE_CONSTANT (ptr))
+      if (!SSA_VAR_P (ptr)
+	  && !TREE_CONSTANT (ptr)
+	  && TREE_CODE (ptr) != ADDR_EXPR)
 	abort ();
 #endif
 
@@ -368,7 +377,23 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	    add_stmt_operand (&ann->mem_tag, stmt, flags|opf_force_vop,
 			      prev_vops);
 	}
+      else if (TREE_CODE (ptr) == ADDR_EXPR)
+	{
+	  /* Fold *&VAR into VAR, add an operand for VAR and return.  */
+	  tree var = TREE_OPERAND (ptr, 0);
+	  *expr_p = var;
 
+	  /* If VAR is of type ARRAY_TYPE, we can't return VAR because
+	     this INDIRECT_REF node is actually VAR[0].  */
+	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	    *expr_p = build (ARRAY_REF, TREE_TYPE (expr), var,
+			     integer_zero_node);
+
+	  add_stmt_operand (&TREE_OPERAND (ptr, 0), stmt, flags, prev_vops);
+	  return;
+	}
+
+      /* Add a USE operand for the base pointer.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
       return;
     }
@@ -419,7 +444,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   if (code == CALL_EXPR)
     {
       tree op;
-      bool may_clobber = call_may_clobber (expr);
+      int call_flags = get_call_flags (expr);
 
       /* Find uses in the called function.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
@@ -427,14 +452,23 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
 	add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
-      /* If the called function is neither pure nor const and there are
-	 call clobbered variables, create a definition of GLOBAL_VAR and
-	 mark the statement as a clobbering statement.  */
-      if (may_clobber && num_call_clobbered_vars > 0)
+      if (num_call_clobbered_vars > 0)
 	{
-	  stmt_ann (stmt)->makes_clobbering_call = may_clobber;
-	  add_stmt_operand (&global_var, stmt, opf_is_def|opf_force_vop,
-			    prev_vops);
+	  if (!(call_flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)))
+	    {
+	      /* Functions that are not const, pure or never return may
+		 clobber call-clobbered variables.  Add a VDEF for
+		 .GLOBAL_VAR.  */
+	      stmt_ann (stmt)->makes_clobbering_call = true;
+	      add_stmt_operand (&global_var, stmt, opf_force_vop|opf_is_def,
+		                prev_vops);
+	    }
+	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
+	    {
+	      /* Otherwise, if the function is not pure, it may reference
+		 memory.  Add a VUSE for .GLOBAL_VAR.  */
+	      add_stmt_operand (&global_var, stmt, opf_force_vop, prev_vops);
+	    }
 	}
 
       return;
@@ -527,6 +561,22 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   var = *var_p;
   STRIP_NOPS (var);
 
+  s_ann = stmt_ann (stmt);
+
+  /* If the operand is an ADDR_EXPR, add its operand to the list of
+     variables that have had their address taken in this statement.  */
+  if (TREE_CODE (var) == ADDR_EXPR)
+    {
+      var = TREE_OPERAND (var, 0);
+      if (SSA_VAR_P (var))
+	{
+	  if (s_ann->addresses_taken == NULL)
+	    VARRAY_TREE_INIT (s_ann->addresses_taken, 2, "addresses_taken");
+	  VARRAY_PUSH_TREE (s_ann->addresses_taken, var);
+	}
+      return;
+    }
+
   /* If the original variable is not a scalar, it will be added to the list
      of virtual operands.  In that case, use its base symbol as the virtual
      variable representing it.  */
@@ -538,7 +588,6 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  s_ann = stmt_ann (stmt);
   v_ann = var_ann (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
 
   /* FIXME: Currently, global and local static variables are always treated as
@@ -690,12 +739,35 @@ add_vdef (tree var, tree stmt, voperands_t prev_vops)
   tree vdef;
   stmt_ann_t ann;
   size_t i;
+  bool found;
 
-  /* The statement already had virtual definitions.  Do nothing.  */
+  /* If the statement already had virtual definitions, see if any of the
+     existing VDEFs matches VAR.  If so, re-use it, otherwise add a new
+     VDEF for VAR.  */
+  found = false;
   if (prev_vops && prev_vops->vdef_ops)
-    return;
+    {
+      size_t i;
 
-  vdef = build_vdef_expr (var);
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
+	{
+	  tree t;
+	  vdef = VARRAY_TREE (prev_vops->vdef_ops, i);
+	  t = VDEF_RESULT (vdef);
+	  if (t == var
+	      || (TREE_CODE (t) == SSA_NAME
+		  && SSA_NAME_VAR (t) == var))
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+    }
+
+  /* If no previous VDEF operand was found for VAR, create one now.  */
+  if (!found)
+    vdef = build_vdef_expr (var);
+
   ann = stmt_ann (stmt);
   if (ann->vops == NULL)
     {
@@ -725,10 +797,33 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
 {
   stmt_ann_t ann;
   size_t i;
+  bool found;
+  tree vuse;
 
-  /* The statement already had virtual uses.  Do nothing.  */
+  /* If the statement already had virtual uses, see if any of the
+     existing VUSEs matches VAR.  If so, re-use it, otherwise add a new
+     VUSE for VAR.  */
+  found = false;
   if (prev_vops && prev_vops->vuse_ops)
-    return;
+    {
+      size_t i;
+
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vuse_ops); i++)
+	{
+	  vuse = VARRAY_TREE (prev_vops->vuse_ops, i);
+	  if (vuse == var
+	      || (TREE_CODE (vuse) == SSA_NAME
+		  && SSA_NAME_VAR (vuse) == var))
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+    }
+
+  /* If VAR existed already in PREV_VOPS, re-use it.  */
+  if (found)
+    var = vuse;
 
   ann = stmt_ann (stmt);
   if (ann->vops == NULL)
@@ -910,6 +1005,43 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
 	remove_phi_node (t, prev, bb);
     }
 }
+
+
+/* Remove all the PHI nodes for variables in the VARS bitmap.  */
+
+void
+remove_all_phi_nodes_for (sbitmap vars)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      /* Build a new PHI list for BB without variables in VARS.  */
+      tree phi, new_phi_list, tmp;
+      bb_ann_t ann = bb_ann (bb);
+
+      tmp = new_phi_list = NULL_TREE;
+      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+	{
+	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
+
+	  /* If the PHI node is for a variable in VARS, skip it.  */
+	  if (TEST_BIT (vars, var_ann (var)->uid))
+	    continue;
+
+	  if (new_phi_list == NULL_TREE)
+	    new_phi_list = tmp = phi;
+	  else
+	    {
+	      TREE_CHAIN (tmp) = phi;
+	      tmp = phi;
+	    }
+	}
+
+      ann->phi_nodes = new_phi_list;
+    }
+}
+
 
 
 /*---------------------------------------------------------------------------
@@ -1703,10 +1835,12 @@ compute_alias_sets (void)
       }
 
   /* Debugging dumps.  */
-  if (tree_ssa_dump_file && tree_ssa_dump_flags & TDF_ALIAS)
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
+  if (dump_file && dump_flags & TDF_ALIAS)
     {
-      dump_alias_info (tree_ssa_dump_file);
-      dump_referenced_vars (tree_ssa_dump_file);
+      dump_alias_info (dump_file);
+      dump_referenced_vars (dump_file);
+      dump_end (TDI_ssa, dump_file);
     }
 }
 
@@ -1986,8 +2120,7 @@ find_decl_location (tree decl, tree block)
    the function.  */
 
 static tree
-find_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-	     void *data)
+find_vars_r (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
   struct walk_state *walk_state = (struct walk_state *)data;
@@ -2062,7 +2195,7 @@ find_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   if (TREE_CODE (*tp) == CALL_EXPR)
     {
       tree op;
-      bool may_clobber = call_may_clobber (*tp);
+      int call_flags = get_call_flags (*tp);
 
       for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
 	{
@@ -2075,16 +2208,15 @@ find_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	    }
 	}
 
-      /* If the function may clobber globals and addressable locals, add a
-	 reference to GLOBAL_VAR.  */
-      if (may_clobber)
-	{
-	  walk_state->is_store = 1;
-	  if (global_var == NULL_TREE)
-	    create_global_var ();
-	  add_referenced_var (global_var, walk_state);
-	}
+      if (global_var == NULL_TREE)
+	create_global_var ();
 
+      /* If the function may clobber globals and addressable locals,
+	 consider this call as a store operation to .GLOBAL_VAR.  */
+      if (!(call_flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)))
+	walk_state->is_store = 1;
+
+      add_referenced_var (global_var, walk_state);
       walk_state->is_store = saved_is_store;
     }
 
@@ -2145,10 +2277,9 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, (void *) alias_map);
 	}
 
-      /* If the variable is a writeable memory tag, a global or an
-	 addressable local, it may be clobbered by function calls.  */
-      if (!TREE_READONLY (var)
-	  && (is_addressable || v_ann->is_mem_tag))
+      /* Addressable variables and memory tags may be used or clobbered by
+	 function calls.  */
+      if (is_addressable || v_ann->is_mem_tag)
 	{
 	  add_call_clobbered_var (var);
 	  v_ann->is_call_clobbered = 1;
@@ -2273,21 +2404,21 @@ get_virtual_var (tree var)
 }
 
 
-/* Return true if EXPR is a CALL_EXPR tree to a function that may clobber
-   globals and local addressable variables.  */
+/* Return the ECF_ flags associated with the function called by the
+   CALL_EXPR node EXPR.  */
 
-static bool
-call_may_clobber (tree expr)
+static int
+get_call_flags (tree expr)
 {
   tree callee;
-  int flags;
 
+#if defined ENABLE_CHECKING
   if (TREE_CODE (expr) != CALL_EXPR)
-    return false;
+    abort ();
+#endif
 
   callee = get_callee_fndecl (expr);
-  flags = (callee) ? flags_from_decl_or_type (callee) : 0;
-  return (! (flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)));
+  return (callee) ? flags_from_decl_or_type (callee) : 0;
 }
 
 

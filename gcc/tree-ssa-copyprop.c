@@ -44,7 +44,7 @@ static int dump_flags;
 /* Local functions.  */
 static void copyprop_stmt (tree);
 static void copyprop_phi (tree);
-static inline tree get_original (tree, tree *);
+static inline tree get_original (tree);
 
 
 /* Main entry point to the copy propagator.  The algorithm is a simple
@@ -108,9 +108,8 @@ copyprop_stmt (tree stmt)
   uses = use_ops (stmt);
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree vuse;
       tree *use_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
-      tree orig = get_original (*use_p, &vuse);
+      tree orig = get_original (*use_p);
 
       if (orig
 	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*use_p)
@@ -125,9 +124,7 @@ copyprop_stmt (tree stmt)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  *use_p = orig;
-	  if (vuse)
-	    add_vuse (vuse, stmt, NULL);
+	  propagate_copy (use_p, orig);
 	  modified = true;
 	}
     }
@@ -154,9 +151,8 @@ copyprop_phi (tree phi)
 
   for (i = 0; i < PHI_NUM_ARGS (phi); i++)
     {
-      tree vuse;
       tree arg = PHI_ARG_DEF (phi, i);
-      tree orig = get_original (arg, &vuse);
+      tree orig = get_original (arg);
 
       if (orig
 	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg)
@@ -184,12 +180,11 @@ copyprop_phi (tree phi)
    VAR = ORIG, return ORIG.  Otherwise, return NULL.  */
 
 static inline tree
-get_original (tree var, tree *vuse_p)
+get_original (tree var)
 {
   tree def_stmt;
 
   def_stmt = SSA_NAME_DEF_STMT (var);
-  *vuse_p = NULL_TREE;
 
   /* If VAR is not the LHS of its defining statement, it means that VAR is
      defined by a VDEF node.  This implies aliasing or structure updates.
@@ -207,4 +202,25 @@ get_original (tree var, tree *vuse_p)
     return TREE_OPERAND (def_stmt, 1);
 
   return NULL_TREE;
+}
+
+
+/* Replace the operand pointed to by OP_P with variable VAR.  If *OP_P is a
+   pointer, copy the memory tag used originally by *OP_P into VAR.  This is
+   needed in cases where VAR had never been dereferenced in the program.  */
+   
+void
+propagate_copy (tree *op_p, tree var)
+{
+  /* If VAR doesn't have a memory tag, copy the one from the original
+     operand.  */
+  if (POINTER_TYPE_P (TREE_TYPE (*op_p)))
+    {
+      var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
+      var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
+      if (new_ann->mem_tag == NULL_TREE)
+	new_ann->mem_tag = orig_ann->mem_tag;
+    }
+
+  *op_p = var;
 }

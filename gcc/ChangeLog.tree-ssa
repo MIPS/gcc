@@ -1,3 +1,117 @@
+2003-07-14  Diego Novillo  <dnovillo@redhat.com>
+
+	Must alias analysis.  Allow the SSA rename pass to be done on a set
+	of variables.
+
+	* Makefile.in (OBJS): Add tree-must-alias.o.
+	* flags.h (flag_tree_must_alias): Declare.
+	* timevar.def (TV_TREE_MUST_ALIAS): Define.
+	* toplev.c (flag_tree_must_alias): Declare.
+	(f_options): Add entry for -ftree-must-alias.
+	(parse_options_and_default_flags): Enable must-alias analysis at -O1.
+
+	* tree-cfg.c (remove_useless_stmts_and_vars): Do not remove
+	addressable variables.
+
+	* tree-dfa.c (dump_file, dump_flags): New local variables to
+	replace tree_ssa_dump_file and tree_ssa_dump_flags.  Update every
+	user.
+	(get_stmt_operands): Clear the array of virtual operands before
+	scanning the statement.
+	(get_expr_operands): Do not add an operand for ADDR_EXPR if the
+	expression takes the address of a VAR_DECL or a PARM_DECL.  Instead
+	add the variable to the list of variables whose address has been
+	taken by the statement.
+	Allow INDIRECT_REF expressions of the form *&VAR.  Convert them
+	into an operand for VAR.
+	When processing function calls, add a VUSE for .GLOBAL_VAR if the
+	function is pure but not const.
+	(add_stmt_operand): If the operand is an ADDR_EXPR, add the
+	variable to the list of variables whose address has been taken by
+	the statement.
+	(add_vdef): If the statement had virtual definitions, try to find
+	an existing VDEF for the variable, to preserve SSA information.  If
+	none is found, create a new one.
+	(add_vuse): Likewise.
+	(remove_all_phi_nodes_for): New function.
+	(get_call_flags): New function to replace call_may_clobber.  Update
+	all callers.
+
+	* tree-dump.c (dump_files): Add entry for -fdump-tree-mustalias.
+	* tree-flow-inline.h (addresses_taken): New function.
+	(is_unchanging_value): New function.
+
+	* tree-flow.h (addresses_taken): Declare.
+	(remove_all_phi_nodes): Declare.
+	(init_tree_ssa): Declare.
+	(propagate_copy): Declare.
+	(is_unchanging_value): Declare.
+	(tree_compute_must_alias): Declare.
+
+	* tree-inline.c (copy_body_r): Fold instances of *&VAR.
+
+	* tree-must-alias.c: New file.
+
+	* tree-optimize.c (optimize_function_tree): Call init_tree_ssa and
+	compute_may_aliases before calling rewrite_into_ssa.
+	After the SSA pass, run dead code elimination and compute
+	must-aliases.
+
+	* tree-simple.c (is_gimple_call_expr): Add comment that
+	is_gimple_* predicates should not have side effects.
+
+	* tree-ssa-ccp.c: Replace calls to really_constant_p with
+	is_unchanging_value everywhere.
+	(fold_stmt): Don't fold if the RHS is already a constant.
+
+	* tree-ssa-copyprop.c (copyprop_stmt): Remove unnecessary
+	variable 'vuse'.
+	Call propagate_copy to replace the operand with its new value.
+	(copyprop_phi): Remove unnecessary variable 'vuse'.
+	(get_original): Remove unused parameter 'vuse_p'.
+	(propagate_copy): New function.
+
+	* tree-ssa-dce.c (need_to_preserve_store): Update comments.
+
+	* tree-ssa.c (dump_file, dump_flags): New local variables to
+	replace globals tree_ssa_dump_file and tree_ssa_dump_flags.  Update
+	all users.
+	(addr_expr_propagated_p): New local variable.
+	(vars_to_rename): New local variable.
+	(check_for_new_variables): New local function.
+	(rewrite_into_ssa): Add new argument VARS which is a bitmap
+	representing all the variables that should be renamed into SSA.  If
+	VARS is NULL, all the variables in the program are renamed.
+	Don't call init_tree_ssa nor compute_may_aliases.
+	Initialize all the local hash tables and bitmaps.
+	Add support for repeating the SSA rename process more than once.
+	If the dominator optimizations produced new symbols, repeat the
+	process.
+	(mark_def_sites): Ignore operands that are in SSA form already.
+	(insert_phi_nodes): Only add PHI nodes for variables in the
+	VARS_TO_RENAME bitmap.
+	(rewrite_block): Ignore PHI nodes that have been renamed already.
+	(rewrite_and_optimize_stmt): Ignore operands that are already in
+	SSA form.
+	When propagating ADDR_EXPR set addr_expr_propagated_p to 'true'.
+	Call propagate_copy when doing copy propagation.
+	Call is_unchanging_value to decide if the RHS of an assignment is a
+	constant.
+	(rewrite_stmt): Ignore operands that are already in SSA form.
+	(init_tree_ssa): Make external.
+	Move initialization of local hash tables and bitmaps to
+	rewrite_into_ssa.
+	(remove_annotations_r): Don't special case MODIFY_EXPR nodes.
+	(lookup_avail_expr): Call is_unchanging_value.
+	(get_eq_expr_value): Likewise.
+
+	* tree.h (enum tree_dump_index): Add TDI_must_alias.
+
+	* cp/optimize.c (optimize_function): Don't call the tree optimizers
+	  if -fdisable-tree-ssa is given.
+
+	* doc/invoke.texi: Add documentation for -ftree-must-alias.
+
 2003-07-07  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (nondestructive_fold_unary_to_constant: For BIT_NOT_EXPR

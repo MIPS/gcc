@@ -927,6 +927,9 @@ int flag_tree_copyprop;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable promotion of virtual to real operands in must-alias situations.  */
+int flag_tree_must_alias = 0;
+
 /* Enable dominator optimizations while re-writing into SSA form.  */
 int flag_tree_dom = 0;
 
@@ -1269,7 +1272,9 @@ static const lang_independent_options f_options[] =
   { "tree-dce", &flag_tree_dce, 1,
    N_("Enable SSA dead code elimination optimization on trees") },
   { "tree-dominator-opts", &flag_tree_dom, 1,
-   N_("Enable dominator optimizations while re-writing into SSA form") }
+   N_("Enable dominator optimizations while re-writing into SSA form") },
+  { "tree-must-alias", &flag_tree_must_alias, 1,
+   N_("Detect must-alias relations to remove pointer de-references") }
 };
 
 /* Table of language-specific options.  */
@@ -5114,6 +5119,7 @@ parse_options_and_default_flags (argc, argv)
       flag_tree_dce = 1;
       flag_tree_copyprop = 1;
       flag_tree_dom = 1;
+      flag_tree_must_alias = 1;
     }
 
   if (optimize >= 2)

@@ -1605,6 +1605,7 @@ remove_useless_stmts_and_vars (tree *first_p, int first_iteration)
 		      && ! ann->may_aliases
 		      && ! ann->used
 		      && ! ann->has_hidden_use
+		      && ! TREE_ADDRESSABLE (vars)
 		      && (DECL_ARTIFICIAL (vars) || optimize >= 2))
 		    {
 		      /* Remove the variable from the BLOCK structures.  */

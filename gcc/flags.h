@@ -683,6 +683,9 @@ extern int flag_tree_dce;
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
 
+/* Enable promotion of virtual to real operands in must-alias situations.  */
+extern int flag_tree_must_alias;
+
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

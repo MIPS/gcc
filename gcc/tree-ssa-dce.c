@@ -201,10 +201,6 @@ need_to_preserve_store (tree var)
   if (decl_function_context (base_symbol) == NULL)
     return true;
   
-  /* Stores through parameter pointers must be preserved.
-     FIXME: We cannot detect this here anymore!  It needs to be done at the
-	    spot where we see the INDIRECT_REF itself.  */
-
   /* Static locals must be preserved as well.  */
   if (TREE_STATIC (base_symbol))
     return true;
@@ -213,10 +209,8 @@ need_to_preserve_store (tree var)
   if (may_alias_global_mem_p (sym))
     return true;
 
-  /* If SYM is used in some way we can not readily see in the IL, then
-     we need to preserve it.
-
-     Long term this needs to go away.  */
+  /* If SYM is used in some way that we can not readily see in the IL, then
+     we need to preserve it.  FIXME: Long term this needs to go away.  */
   if (has_hidden_use (sym))
     return true;
 

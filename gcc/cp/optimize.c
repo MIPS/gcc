@@ -88,7 +88,7 @@ optimize_function (tree fn)
       dump_function (TDI_gimple, fn);
 
       /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1)
+      if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fn);
     }
 

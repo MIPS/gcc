@@ -62,9 +62,28 @@ optimize_function_tree (fndecl)
   /* Begin analysis and optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
+      /* Initialize common SSA structures.  */
+      init_tree_ssa ();
+
+      /* Compute aliasing information for all the variables referenced in
+	 the function.  */
+      compute_may_aliases (fndecl);
+
       /* Rewrite the function into SSA form.  */
-      rewrite_into_ssa (fndecl);
-      
+      rewrite_into_ssa (fndecl, NULL);
+
+      if (flag_tree_dce)
+	{
+	  /* If the dominator optimizations propagated ADDR_EXPRs into
+	     INDIRECT_REF expressions, we may be able to promote may-alias
+	     into must-alias relations.  If DCE eliminated all the pointer
+	     assignments that were taking the address of a local variable X,
+	     we can now rename X as a non-aliased local.  */
+	  tree_ssa_dce (fndecl);
+	  if (flag_tree_dom && flag_tree_must_alias)
+	    tree_compute_must_alias (fndecl);
+	}
+
       if (flag_tree_pre)
 	tree_perform_ssapre (fndecl);
 

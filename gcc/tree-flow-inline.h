@@ -248,6 +248,14 @@ vuse_ops (stmt)
 }
 
 static inline varray_type
+addresses_taken (stmt)
+     tree stmt;
+{
+  stmt_ann_t ann = stmt_ann (stmt);
+  return ann ? ann->addresses_taken : NULL;
+}
+
+static inline varray_type
 immediate_uses (stmt)
      tree stmt;
 {
@@ -533,5 +541,19 @@ empty_bsi_stack (list)
   VARRAY_POP (stmt_stack);					\
   for ( ; VARRAY_ACTIVE_SIZE (stmt_stack) > 0 ; 		\
 	      stmt = VARRAY_TOP_TREE (stmt_stack), VARRAY_POP (stmt_stack))	
+
+
+static inline bool
+is_unchanging_value (tree val)
+{
+  /* FIXME: It should be possible to accept type-casted ADDR_EXPRs if we
+     made sure that the folded INDIRECT_REF kept the type-cast.  See for
+     instance, gcc.c-torture/compile/990203-1.c.  */
+  return ((TREE_CODE (val) == ADDR_EXPR
+	   && (TREE_CODE (TREE_OPERAND (val, 0)) == VAR_DECL
+	       || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL))
+          || ((TREE_CONSTANT (val) || really_constant_p (val))
+	      && is_gimple_val (val)));
+}
 
 #endif /* _TREE_FLOW_INLINE_H  */

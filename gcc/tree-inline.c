@@ -472,6 +472,25 @@ copy_body_r (tp, walk_subtrees, data)
 		}
 	    }
 	}
+      else if (TREE_CODE (*tp) == INDIRECT_REF)
+	{
+	  /* Get rid of *& from inline substitutions that can happen when a
+	     pointer argument is an ADDR_EXPR.  */
+	  tree decl = TREE_OPERAND (*tp, 0), value;
+	  splay_tree_node n;
+
+	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
+	  if (n)
+	    {
+	      value = (tree) n->value;
+	      STRIP_NOPS (value);
+	      if (TREE_CODE (value) == ADDR_EXPR)
+		{
+		  *tp = (tree) n->value;
+		  return copy_body_r (tp, walk_subtrees, data);
+		}
+	    }
+	}
 
       copy_tree_r (tp, walk_subtrees, NULL);
 

@@ -62,8 +62,8 @@ Boston, MA 02111-1307, USA.  */
 unsigned int next_ssa_version;
 
 /* Dump file and flags.  */
-FILE *tree_ssa_dump_file;
-int tree_ssa_dump_flags;
+static FILE *dump_file;
+static int dump_flags;
 
 /* Workstack for computing PHI node insertion points.  */
 static GTY (()) varray_type work_stack = NULL;
@@ -154,8 +154,15 @@ struct ssa_stats_d
 
 static struct ssa_stats_d ssa_stats;
 
+/* Bitmap representing variables that need to be renamed into SSA form.  */
+static sbitmap vars_to_rename;
+
+/* Flag to indicate whether the dominator optimizations propagated an
+   ADDR_EXPR.  If that happens, we may need to run another SSA pass because
+   new symbols may have been exposed.  */
+static bool addr_expr_propagated_p;
+
 /* Local functions.  */
-static void init_tree_ssa (void);
 static void delete_tree_ssa (tree);
 static void mark_def_sites (dominance_info, sbitmap);
 static void compute_global_livein (varray_type);
@@ -166,6 +173,7 @@ static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_block (basic_block, tree);
 static int rewrite_and_optimize_stmt (block_stmt_iterator, varray_type *,
 				      varray_type *);
+static void check_for_new_variables (void);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *, bool);
 static void register_new_def (tree, tree, varray_type *, bool);
@@ -207,7 +215,11 @@ static inline void add_conflicts_if_valid (root_var_p, conflict_graph,
 static void replace_variable (var_map, tree *);
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
-   to convert.
+   to convert.  VARS is an sbitmap representing variables that need to be
+   renamed into SSA form.  A variable in REFERENCED_VARS will be renamed
+   into SSA if the element corresponding to the variable's UID is set in
+   VARS.  If VARS is NULL, all variables in REFERENCED_VARS will be
+   processed.
 
    Every statement has two different sets of operands: real and virtual.
    Real operands are those that use scalar, non-aliased variables.  Virtual
@@ -288,45 +300,115 @@ static void replace_variable (var_map, tree *);
    increased compilation time.  */
 
 void
-rewrite_into_ssa (tree fndecl)
+rewrite_into_ssa (tree fndecl, sbitmap vars)
 {
   bitmap *dfs;
   sbitmap globals;
   dominance_info idom;
-  int i;
+  int i, rename_count;
+  bool compute_df;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
-  /* Initialize common SSA structures.  */
-  init_tree_ssa ();
-
   /* Debugging dumps.  */
-  tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
 
-  /* Compute aliasing information.  */
-  compute_may_aliases (fndecl);
+  /* Initialize the array of variables to rename.  */
+  if (vars == NULL)
+    {
+      vars_to_rename = sbitmap_alloc (num_referenced_vars);
+      sbitmap_ones (vars_to_rename);
+    }
+  else
+    vars_to_rename = vars;
 
+  /* Allocate memory for the DEF_BLOCKS hash table.  */
+  def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
+			    def_blocks_hash, def_blocks_eq, def_blocks_free);
+
+  /* Allocate memory for the CURRDEFS hash table.  */
+  currdefs = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
+			  var_value_hash, var_value_eq, free);
+
+  /* Allocate memory for the AVAIL_EXPRS hash table.  */
+  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
+
+  /* Allocate memory for the CONST_AND_COPIES hash table.  */
+  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
+
+  /* Allocate memory for the GLOBALS bitmap which will indicate which
+     variables are live across basic block boundaries.  Note that this
+     bitmap is indexed by variable UID, so it must always be large enough
+     to accomodate all the variables referenced in the program, not just
+     the ones we are renaming.  */
   globals = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (globals);
 
-  /* Compute immediate dominators and dominance frontiers.  */
-  idom = calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Find variable references and mark definition sites.  */
-  mark_def_sites (idom, globals);
-
+  /* Initialize dominance frontier and immediate dominator bitmaps.  */
   dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
   for (i = 0; i < n_basic_blocks; i++)
-    dfs[i] = BITMAP_XMALLOC ();
-  compute_dominance_frontiers (dfs, idom);
+    {
+      dfs[i] = BITMAP_XMALLOC ();
+      bb_ann (BASIC_BLOCK (i))->dom_children = NULL;
+    }
 
-  /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs, globals);
+  /* Compute immediate dominators.  */
+  idom = calculate_dominance_info (CDI_DOMINATORS);
 
-  /* Rewrite all the basic blocks in the program.  */
-  timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
-  rewrite_block (ENTRY_BLOCK_PTR, NULL_TREE);
-  timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
+  /* Start the SSA rename process.  This may need to be repeated if the
+     dominator optimizations exposed more symbols to rename by propagating
+     ADDR_EXPR values into INDIRECT_REF expressions.  */
+  rename_count = 0;
+  compute_df = true;
+  addr_expr_propagated_p = false;
+  do
+    {
+      /* Find variable references and mark definition sites.  */
+      mark_def_sites (idom, globals);
+
+      /* Compute dominance frontiers (only once) and insert PHI nodes at
+	 dominance frontiers of definition blocks.  */
+      if (compute_df)
+	{
+	  compute_dominance_frontiers (dfs, idom);
+	  compute_df = false;
+	}
+
+      insert_phi_nodes (dfs, globals);
+
+      /* Rewrite all the basic blocks in the program.  */
+      timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
+      sbitmap_zero (vars_to_rename);
+      rewrite_block (ENTRY_BLOCK_PTR, NULL_TREE);
+      timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
+
+      /* If the dominator optimizations propagated ADDR_EXPRs, we may need
+	 to repeat the SSA renaming process for the new symbols that may
+	 have been exposed.  Re-scan the program for operands not in SSA
+	 form and if new symbols are added to VARS_TO_RENAME, repeat the
+	 process.  */
+      if (addr_expr_propagated_p)
+	{
+	  check_for_new_variables ();
+	  if (sbitmap_first_set_bit (vars_to_rename) >= 0)
+	    {
+	      /* Remove PHI nodes for the new symbols, clear the hash
+		 tables and bitmaps and run SSA again on the new exposed
+		 variables.  */
+	      remove_all_phi_nodes_for (vars_to_rename);
+	      htab_empty (def_blocks);
+	      htab_empty (currdefs);
+	      htab_empty (avail_exprs);
+	      htab_empty (const_and_copies);
+	      sbitmap_zero (globals);
+	    }
+	}
+
+      /* Sanity check, we shouldn't need to iterate more than twice.  */
+      if (rename_count++ > 1)
+	abort ();
+    }
+  while (sbitmap_first_set_bit (vars_to_rename) >= 0);
 
   /* Free allocated memory.  */
   for (i = 0; i < n_basic_blocks; i++)
@@ -338,18 +420,20 @@ rewrite_into_ssa (tree fndecl)
   htab_delete (currdefs);
   htab_delete (avail_exprs);
   htab_delete (const_and_copies);
+  if (vars == NULL)
+    sbitmap_free (vars_to_rename);
 
   /* Debugging dumps.  */
-  if (tree_ssa_dump_file)
+  if (dump_file)
     {
-      if (tree_ssa_dump_flags & TDF_STATS)
+      if (dump_flags & TDF_STATS)
 	{
-	  dump_dfa_stats (tree_ssa_dump_file);
-	  dump_tree_ssa_stats (tree_ssa_dump_file);
+	  dump_dfa_stats (dump_file);
+	  dump_tree_ssa_stats (dump_file);
 	}
 
-      dump_end (TDI_ssa, tree_ssa_dump_file);
-      tree_ssa_dump_file = NULL;
+      dump_end (TDI_ssa, dump_file);
+      dump_file = NULL;
     }
 
   dump_function (TDI_ssa, fndecl);
@@ -466,10 +550,13 @@ mark_def_sites (dominance_info idom, sbitmap globals)
   block_stmt_iterator si;
   sbitmap kills;
 
+  /* Notice that this bitmap is indexed using variable UIDs, so it must be
+     large enough to accomodate all the variables referenced in the
+     function, not just the ones we are renaming.  */
   kills = sbitmap_alloc (num_referenced_vars);
 
-  /* Mark all the blocks that have definitions for each variable referenced
-     in the function.  */
+  /* Mark all the blocks that have definitions for each variable in the
+     VARS_TO_RENAME bitmap.  */
   FOR_EACH_BB (bb)
     {
       /* Add BB to the set of dominator children of BB's immediate
@@ -496,7 +583,13 @@ mark_def_sites (dominance_info idom, sbitmap globals)
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *use = VARRAY_GENERIC_PTR (ops, i);
-	      size_t uid = var_ann (*use)->uid;
+	      size_t uid;
+
+	      /* Ignore variables that have been renamed already.  */
+	      if (TREE_CODE (*use) == SSA_NAME)
+		continue;
+	      
+	      uid = var_ann (*use)->uid;
 
 	      if (! TEST_BIT (kills, uid))
 		{
@@ -510,7 +603,13 @@ mark_def_sites (dominance_info idom, sbitmap globals)
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree use = VARRAY_TREE (ops, i);
-	      size_t uid = var_ann (use)->uid;
+	      size_t uid;
+
+	      /* Ignore variables that have been renamed already.  */
+	      if (TREE_CODE (use) == SSA_NAME)
+		continue;
+	      
+	      uid = var_ann (use)->uid;
 
 	      if (! TEST_BIT (kills, uid))
 	        {
@@ -523,13 +622,19 @@ mark_def_sites (dominance_info idom, sbitmap globals)
 	     KILLED_VARS because a VDEF does not constitute a killing
 	     definition of the variable.  However, the operand of a virtual
 	     definitions is a use of the variable, so it may affect
-	     NONLOCAL_VARS.  */
+	     GLOBALS.  */
 	  ops = vdef_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, i);
 	      tree vdef_op = VDEF_OP (vdef);
-	      size_t uid = var_ann (vdef_op)->uid;
+	      size_t uid;
+
+	      /* Ignore variables that have been renamed already.  */
+	      if (TREE_CODE (vdef_op) == SSA_NAME)
+		continue;
+
+	      uid = var_ann (vdef_op)->uid;
 
 	      set_def_block (VDEF_RESULT (vdef), bb);
 	      if (!TEST_BIT (kills, uid))
@@ -539,9 +644,10 @@ mark_def_sites (dominance_info idom, sbitmap globals)
 		}
 	    }
 
-	  /* Now process the definition made by this statement.  */
+	  /* Now process the definition made by this statement.  If the
+	     definition has been renamed already, do nothing.  */
 	  dest = def_op (stmt);
-	  if (dest)
+	  if (dest && TREE_CODE (*dest) != SSA_NAME)
 	    {
 	      set_def_block (*dest, bb);
 	      SET_BIT (kills, var_ann (*dest)->uid);
@@ -610,9 +716,9 @@ set_livein_block (tree var, basic_block bb)
    definitions.  DFS contains the dominance frontier information for the
    flowgraph.
    
-   NONLOCAL_VARs is a bitmap representing the set of variables which are
-   live across basic block boundaries.  Only variables in NONLOCAL_VARs
-   need PHI nodes.  */
+   GLOBALS is a bitmap representing the set of variables which are live
+   across basic block boundaries.  Only variables in GLOBALS need PHI
+   nodes.  */
 
 static void
 insert_phi_nodes (bitmap *dfs, sbitmap globals)
@@ -628,19 +734,22 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
      an assignment or PHI node will be pushed to this stack.  */
   VARRAY_BB_INIT (work_stack, last_basic_block, "work_stack");
 
-  /* Iterate over all referenced variables in the function.  For each
-     variable, add to the work list all the blocks that have a definition
-     for the variable.  PHI nodes will be added to the dominance frontier
-     blocks of each definition block.  */
-  for (i = 0; i < num_referenced_vars; i++)
+  /* Iterate over all variables in VARS_TO_RENAME.  For each variable, add
+     to the work list all the blocks that have a definition for the
+     variable.  PHI nodes will be added to the dominance frontier blocks of
+     each definition block.  */
+  EXECUTE_IF_SET_IN_SBITMAP (vars_to_rename, 0, i,
     {
+      tree var = referenced_var (i);
+      var_ann_t ann = var_ann (var);
+
       /* If we have queued enough variables, then drain the queue.  */
       if (VARRAY_ACTIVE_SIZE (def_maps) == HOST_BITS_PER_WIDE_INT)
 	insert_phis_for_deferred_variables (def_maps);
 
-      if (TEST_BIT (globals, i))
-	insert_phi_nodes_for (referenced_var (i), dfs, def_maps);
-    }
+      if (TEST_BIT (globals, ann->uid))
+	insert_phi_nodes_for (var, dfs, def_maps);
+    });
 
   if (VARRAY_ACTIVE_SIZE (def_maps) != 0)
     insert_phis_for_deferred_variables (def_maps);
@@ -723,8 +832,8 @@ rewrite_block (basic_block bb, tree eq_expr_value)
   if (flag_tree_dom)
     VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
-    fprintf (tree_ssa_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given and we are doing dominator
      optimizations, register the VALUE as a new value for VAR, so that
@@ -776,9 +885,15 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
+	  tree currdef;
+
+	  /* Ignore PHI nodes that have already been renamed.  */
+	  if (PHI_NUM_ARGS (phi) == PHI_ARG_CAPACITY (phi))
+	    continue;
+
 	  /* FIXME.  [UNSSA] If -ftree-dominator-opts, allow constants and
 	     copies to be propagated into PHI arguments.  */
-	  tree currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
+	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  add_phi_arg (phi, currdef, e);
 	}
     }
@@ -890,14 +1005,14 @@ insert_copy_on_edge (edge e, tree dest, tree src)
   tree copy;
 
   copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_ssa_dump_file,
+      fprintf (dump_file,
 	       "Inserting a copy on edge BB%d->BB%d :",
 	       e->src->index,
 	       e->dest->index);
-      print_generic_expr (tree_ssa_dump_file, copy, tree_ssa_dump_flags);
-      fprintf (tree_ssa_dump_file, "\n");
+      print_generic_expr (dump_file, copy, dump_flags);
+      fprintf (dump_file, "\n");
     }
   bsi_insert_on_edge (e, copy);
 }
@@ -1319,15 +1434,15 @@ coalesce_ssa_name (var_map map)
 	      abort ();
 	    }
 
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_ssa_dump_file, "Must coalesce ");
-	      print_generic_expr (tree_ssa_dump_file, 
+	      fprintf (dump_file, "Must coalesce ");
+	      print_generic_expr (dump_file, 
 				  partition_to_var (map, x), 
 				  TDF_SLIM);
-	      fprintf (tree_ssa_dump_file, " with the root variable ");
-	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
-	      fprintf (tree_ssa_dump_file, ".\n");
+	      fprintf (dump_file, " with the root variable ");
+	      print_generic_expr (dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, ".\n");
 	    }
 
 	  change_partition_var (map, var, x);
@@ -1393,18 +1508,18 @@ coalesce_ssa_name (var_map map)
 		    /* Now map the partitions back to their real variables.  */
 		    var = partition_to_var (map, x);
 		    tmp = partition_to_var (map, y);
-		    if (tree_ssa_dump_file 
-			&& (tree_ssa_dump_flags & TDF_DETAILS))
+		    if (dump_file 
+			&& (dump_flags & TDF_DETAILS))
 		      {
-			fprintf (tree_ssa_dump_file , "ABNORMAL: Coalescing ");
-			print_generic_expr (tree_ssa_dump_file, 
+			fprintf (dump_file , "ABNORMAL: Coalescing ");
+			print_generic_expr (dump_file, 
 					    var, 
 					    TDF_SLIM);
-			fprintf (tree_ssa_dump_file , " and ");
-			print_generic_expr (tree_ssa_dump_file, 
+			fprintf (dump_file , " and ");
+			print_generic_expr (dump_file, 
 					    tmp, 
 					    TDF_SLIM);
-			fprintf (tree_ssa_dump_file , " over abnormal edge.\n");
+			fprintf (dump_file , " over abnormal edge.\n");
 		      }
 		    var_union (map, var, tmp);
 		    conflict_graph_merge_regs (graph, x, y);
@@ -1425,9 +1540,9 @@ coalesce_ssa_name (var_map map)
 	      }
 	  }
 
-    if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    if (dump_file && (dump_flags & TDF_DETAILS))
       {
-        dump_var_map (tree_ssa_dump_file, map);
+        dump_var_map (dump_file, map);
       }
 
 
@@ -1489,11 +1604,11 @@ assign_vars (var_map map)
 	     the variable as assigned.  */
 	  ann = var_ann (var);
 	  ann->out_of_ssa_tag = 1;
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf(tree_ssa_dump_file, "partition %d has variable ", x);
-	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
-	      fprintf(tree_ssa_dump_file, " assigned to it.\n");
+	      fprintf (dump_file, "partition %d has variable ", x);
+	      print_generic_expr (dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, " assigned to it.\n");
 	    }
 
 	}
@@ -1519,23 +1634,23 @@ assign_vars (var_map map)
 	      continue;
 	    }
 
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_ssa_dump_file, "Overlap :  '");
-	      print_generic_expr (tree_ssa_dump_file, t, TDF_SLIM);
-	      fprintf (tree_ssa_dump_file, "'  conflicts with  '");
-	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, "Overlap :  '");
+	      print_generic_expr (dump_file, t, TDF_SLIM);
+	      fprintf (dump_file, "'  conflicts with  '");
+	      print_generic_expr (dump_file, var, TDF_SLIM);
 	    }
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, i);
 	  ann = var_ann (var);
 
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_ssa_dump_file, "'     New temp:  '");
-	      print_generic_expr (tree_ssa_dump_file, var, TDF_SLIM);
-	      fprintf (tree_ssa_dump_file, "'\n");
+	      fprintf (dump_file, "'     New temp:  '");
+	      print_generic_expr (dump_file, var, TDF_SLIM);
+	      fprintf (dump_file, "'\n");
 	    }
 	}
     }
@@ -1587,10 +1702,10 @@ rewrite_out_of_ssa (tree fndecl)
 
   timevar_push (TV_TREE_SSA_TO_NORMAL);
 
-  tree_ssa_dump_file = dump_begin (TDI_optimized, &tree_ssa_dump_flags);
+  dump_file = dump_begin (TDI_optimized, &dump_flags);
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_ssa_dump_file, tree_ssa_dump_flags & ~TDF_DETAILS);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   map = create_ssa_var_map ();
 
@@ -1598,15 +1713,15 @@ rewrite_out_of_ssa (tree fndecl)
      which have only one SSA version since there is nothing to coalesce.  */
   compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
-    dump_var_map (tree_ssa_dump_file, map);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_var_map (dump_file, map);
 
   coalesce_ssa_name (map);
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf(tree_ssa_dump_file, "After Coalescing:\n");
-      dump_var_map (tree_ssa_dump_file, map);
+      fprintf (dump_file, "After Coalescing:\n");
+      dump_var_map (dump_file, map);
     }
 
   /* This is the final var list, so assign real variables to the different
@@ -1615,10 +1730,10 @@ rewrite_out_of_ssa (tree fndecl)
   compact_var_map (map, VARMAP_NORMAL);
   assign_vars (map);
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf(tree_ssa_dump_file, "After Root variable replacement:\n");
-      dump_var_map (tree_ssa_dump_file, map);
+      fprintf (dump_file, "After Root variable replacement:\n");
+      dump_var_map (dump_file, map);
     }
 
   g = new_elim_graph (map->num_partitions);
@@ -1687,8 +1802,8 @@ rewrite_out_of_ssa (tree fndecl)
   /* If any copies were inserted on edges, actually insert them now.  */
   bsi_commit_edge_inserts (0, NULL);
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
-    dump_tree_cfg (tree_ssa_dump_file, tree_ssa_dump_flags & ~TDF_DETAILS);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   /* Do some cleanups which reduce the amount of data the
      tree->rtl expanders deal with.  */
@@ -1707,8 +1822,8 @@ rewrite_out_of_ssa (tree fndecl)
   delete_var_map (map);
   timevar_pop (TV_TREE_SSA_TO_NORMAL);
 
-  if (tree_ssa_dump_file)
-    dump_end (TDI_optimized, tree_ssa_dump_file);
+  if (dump_file)
+    dump_end (TDI_optimized, dump_file);
 }
 
 
@@ -1918,7 +2033,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
 
       VARRAY_POP (work_stack);
       
-
       EXECUTE_IF_SET_IN_BITMAP (dfs[bb_index], 0, bb_index,
 	{
           basic_block bb = BASIC_BLOCK (bb_index);
@@ -2031,11 +2145,11 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_ssa_dump_file, "Renaming statement ");
-      print_generic_stmt (tree_ssa_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_ssa_dump_file, "\n");
+      fprintf (dump_file, "Renaming statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
 #if defined ENABLE_CHECKING
@@ -2064,6 +2178,11 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
     {
       tree val;
       tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+
+      /* If the operand is already in SSA form, do nothing.  */
+      if (TREE_CODE (*op_p) == SSA_NAME)
+	continue;
+
       rewrite_operand (op_p, true);
 
       /* If the operand has a known constant value or it is known to be a
@@ -2074,30 +2193,41 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       if (val)
 	{
 	  /* Gather statistics.  */
-	  if (TREE_CONSTANT (val))
+	  if (is_unchanging_value (val))
 	    ssa_stats.num_const_prop++;
 	  else
 	    ssa_stats.num_copy_prop++;
 
 	  /* Replace the operand with its known constant value or copy.  */
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_ssa_dump_file, "  Replaced '");
-	      print_generic_expr (tree_ssa_dump_file, *op_p, 0);
-	      fprintf (tree_ssa_dump_file, "' with %s '",
-		       TREE_CONSTANT (val) ? "constant" : "variable");
-	      print_generic_expr (tree_ssa_dump_file, val, 0);
-	      fprintf (tree_ssa_dump_file, "'\n");
+	      fprintf (dump_file, "  Replaced '");
+	      print_generic_expr (dump_file, *op_p, 0);
+	      fprintf (dump_file, "' with %s '",
+		       is_unchanging_value (val) ? "constant" : "variable");
+	      print_generic_expr (dump_file, val, 0);
+	      fprintf (dump_file, "'\n");
 	    }
 
-	  *op_p = val;
+	  /* If VAL is an ADDR_EXPR, notify that we may need to have a
+	     second SSA pass to rename variables exposed by the folding of
+	     *&VAR expressions.  */
+	  if (TREE_CODE (val) == ADDR_EXPR)
+	    addr_expr_propagated_p = true;
+
+	  if (TREE_CODE (val) == SSA_NAME)
+	    propagate_copy (op_p, val);
+	  else
+	    *op_p = val;
+
 	  ann->modified = 1;
 	}
     }
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
+    if (TREE_CODE (VARRAY_TREE (vuses, i)) != SSA_NAME)
+      rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
 
   /* If the statement has been modified with constant replacements,
       fold its RHS before checking for redundant computations.  */
@@ -2124,13 +2254,13 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       ssa_stats.num_exprs_considered++;
       if (cached_lhs && TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p))
 	{
-	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_ssa_dump_file, "  Replaced redundant expr '");
-	      print_generic_expr (tree_ssa_dump_file, TREE_OPERAND (stmt, 1), 0);
-	      fprintf (tree_ssa_dump_file, "' with '");
-	      print_generic_expr (tree_ssa_dump_file, cached_lhs, 0);
-	      fprintf (tree_ssa_dump_file, "'\n");
+	      fprintf (dump_file, "  Replaced redundant expr '");
+	      print_generic_expr (dump_file, TREE_OPERAND (stmt, 1), 0);
+	      fprintf (dump_file, "' with '");
+	      print_generic_expr (dump_file, cached_lhs, 0);
+	      fprintf (dump_file, "'\n");
 	    }
 
 	  if (cached_lhs && get_value_for (*def_p, currdefs) == cached_lhs)
@@ -2149,8 +2279,8 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
     }
 
   /* Step 3.  If the computation wasn't redundant, register its DEF and
-     VDEF operands.  */
-  if (def_p)
+     VDEF operands.  Do nothing if the definition is already in SSA form.  */
+  if (def_p && TREE_CODE (*def_p) != SSA_NAME)
     {
       tree rhs;
 
@@ -2162,8 +2292,7 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
       rhs = TREE_OPERAND (stmt, 1);
       if (may_optimize_p)
 	{
-	  if (TREE_CODE (rhs) == SSA_NAME
-	      || (TREE_CONSTANT (rhs) && is_gimple_val (rhs)))
+	  if (TREE_CODE (rhs) == SSA_NAME || is_unchanging_value (rhs))
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
     }
@@ -2172,13 +2301,72 @@ rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
+
+      if (TREE_CODE (VDEF_RESULT (vdef)) == SSA_NAME)
+	continue;
+
       rewrite_operand (&(VDEF_OP (vdef)), false);
+
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p, false);
     }
 
   return 0;
+}
+
+
+/* Scan all the statements looking for symbols not in SSA form.  If any are
+   found, add them to VARS_TO_RENAME to trigger a second SSA pass.  */
+
+static void
+check_for_new_variables (void)
+{
+  basic_block bb;
+  
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator si;
+
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	{
+	  varray_type ops;
+	  size_t i;
+	  tree *def_p;
+
+	  tree stmt = bsi_stmt (si);
+
+	  get_stmt_operands (stmt);
+
+	  def_p = def_op (stmt);
+	  if (def_p && DECL_P (*def_p))
+	    SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
+
+	  ops = use_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
+	      if (DECL_P (*use_p))
+		SET_BIT (vars_to_rename, var_ann (*use_p)->uid);
+	    }
+
+	  ops = vdef_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+	      if (DECL_P (var))
+		SET_BIT (vars_to_rename, var_ann (var)->uid);
+	    }
+
+	  ops = vuse_ops (stmt);
+	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+	    {
+	      tree var = VARRAY_TREE (ops, i);
+	      if (DECL_P (var))
+		SET_BIT (vars_to_rename, var_ann (var)->uid);
+	    }
+	}
+    }
 }
 
 
@@ -2206,11 +2394,11 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 
-  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_ssa_dump_file, "Renaming statement ");
-      print_generic_stmt (tree_ssa_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_ssa_dump_file, "\n");
+      fprintf (dump_file, "Renaming statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
     }
 
 #if defined ENABLE_CHECKING
@@ -2238,15 +2426,17 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
       tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
-      rewrite_operand (op_p, true);
+      if (TREE_CODE (*op_p) != SSA_NAME)
+	rewrite_operand (op_p, true);
     }
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
+    if (TREE_CODE (VARRAY_TREE (vuses, i)) != SSA_NAME)
+      rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
-  if (def_p)
+  if (def_p && TREE_CODE (*def_p) != SSA_NAME)
     {
       *def_p = make_ssa_name (*def_p, stmt);
       register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
@@ -2256,7 +2446,12 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
+
+      if (TREE_CODE (VDEF_RESULT (vdef)) == SSA_NAME)
+	continue;
+
       rewrite_operand (&(VDEF_OP (vdef)), false);
+
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p, false);
@@ -2327,7 +2522,7 @@ register_new_def (tree var, tree def, varray_type *block_defs_p,
 ---------------------------------------------------------------------------*/
 /* Initialize DFA/SSA structures.  */
 
-static void
+void
 init_tree_ssa (void)
 {
   next_ssa_version = 1;
@@ -2335,20 +2530,6 @@ init_tree_ssa (void)
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
   memset ((void *) &ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
-
-  /* Allocate memory for the DEF_BLOCKS hash table.  */
-  def_blocks = htab_create (num_referenced_vars, def_blocks_hash,
-			    def_blocks_eq, def_blocks_free);
-
-  /* Allocate memory for the CURRDEFS hash table.  */
-  currdefs = htab_create (num_referenced_vars, var_value_hash, var_value_eq,
-			  free);
-
-  /* Allocate memory for the AVAIL_EXPRS hash table.  */
-  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-
-  /* Allocate memory for the CONST_AND_COPIES hash table.  */
-  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
 }
 
 
@@ -2383,6 +2564,7 @@ remove_annotations_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   enum tree_code code = TREE_CODE (t);
 
   t->common.ann = NULL;
+
   /* If the node is not a container, then it has nothing interesting
      underneath it.  */
   if (code != LOOP_EXPR
@@ -2394,11 +2576,6 @@ remove_annotations_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       && code != BIND_EXPR
       && code != COMPOUND_EXPR)
     {
-      /* Ugh.  A MODIFY_EXPR has an annotation on its RHS for the
-         benefit of SSA-PRE.  See tree-dfa.c::create_stmt_ann.  */
-      if (code == MODIFY_EXPR)
-	TREE_OPERAND (t, 1)->common.ann = NULL;
-
       *walk_subtrees = 0;
       return NULL_TREE;
     }
@@ -2584,8 +2761,8 @@ lookup_avail_expr (tree stmt,
      Constants and copy operations are handled by the constant/copy propagator
      in rewrite_and_optimize_stmt.  */
   rhs = TREE_OPERAND (stmt, 1);
-  if (TREE_CONSTANT (rhs)
-      || TREE_CODE (rhs) == SSA_NAME)
+  if (TREE_CODE (rhs) == SSA_NAME
+      || is_unchanging_value (rhs))
     return NULL_TREE;
 
   slot = htab_find_slot (avail_exprs, stmt, INSERT);
@@ -2628,7 +2805,7 @@ get_eq_expr_value (tree if_stmt)
   /* If the conditional is of the form 'X == Y', return 'X = Y'.  */
   else if (TREE_CODE (cond) == EQ_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-	   && (TREE_CONSTANT (TREE_OPERAND (cond, 1))
+	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
 	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
     value = build (MODIFY_EXPR, TREE_TYPE (cond),
 		   TREE_OPERAND (cond, 0),

@@ -457,7 +457,8 @@ is_gimple_call_expr (t)
     {
       /* Mark the CALL_EXPR not gimplifiable so that optimizers don't
          assume anything about it.  Return nonzero to prevent any more
-	 gimplification on this expression.  */
+	 gimplification on this expression.  FIXME: is_gimple_* predicates
+	 should not have side effects.  */
       mark_not_gimple (&t);
       return 1;
     }
