@@ -1,3 +1,9 @@
+2002-11-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Compare .s files with/without PCH,
+	rather than trying to build and run a program using PCH.
+	* gcc.dg/pch: Remove dg-do commands from test files.
+	
 2002-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/pch/macro-3.c: New.

@@ -1,5 +1,3 @@
-/* { dg-do run } */
-
 #include "macro-1.hp"
 
 int main(void) 

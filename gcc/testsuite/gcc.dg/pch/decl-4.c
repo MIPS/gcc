@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 #include "decl-4.h"
 
 int bar (foo_p f)

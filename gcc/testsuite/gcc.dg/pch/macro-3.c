@@ -1,5 +1,3 @@
-/* { dg-do run } */
-
 #define DEFINED_FUNC_2(x) (3 + (x))
 
 #include "macro-3.hp"

@@ -1,5 +1,3 @@
-/* { dg-do run } */
-
 #define DEFINED_VALUE_2 3
 
 #include "macro-2.hp"

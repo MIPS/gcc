@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 #include "inline-1.h"
 int bar(int a, int b)
 {

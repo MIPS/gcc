@@ -23,6 +23,8 @@ load_lib gcc-dg.exp
 # Initialize `dg'.
 dg-init
 
+set old_dg_do_what_default "${dg-do-what-default}"
+
 # Main loop.
 foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
     global runtests torture_without_loops dg-do-what-default
@@ -36,6 +38,8 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
 
     catch { file delete "$bname.hp.pch" }
     catch { file delete "$bname.h.pch" }
+    catch { file delete "$bname.s" }
+    catch { file delete "$bname.s-pch" }
 
     # We don't try to use the loop-optimizing options, since they are highly
     # unlikely to make any difference to PCH.
@@ -43,10 +47,11 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
 	verbose "Testing $nshort, $flags" 1
 
 	# For the header files, the default is to precompile.
-	set old_dg_do_what_default "${dg-do-what-default}"
 	set dg-do-what-default precompile
 	dg-test -keep-output "[file rootname $test].h" $flags ""
-	set dg-do-what-default "$old_dg_do_what_default"
+
+	# For the rest, the default is to compile to .s.
+	set dg-do-what-default compile
 
 	if { [ file exists "$bname.h.pch" ] } {
 	    # To ensure that the PCH is used, not the original header,
@@ -56,13 +61,39 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
 		remote_download host "$bname.hp.pch"
 	    }
 
-	    dg-test $test $flags "-I."
+	    dg-test -keep-output $test $flags "-I."
 	    file delete "$bname.hp.pch"
+	    if { [ file exists "$bname.s" ] } {
+		file rename "$bname.s" "$bname.s-pch"
+		if { [ is_remote host ] } {
+		    remote_upload host "[file rootname $test].h" "$bname.hp"
+		} else {
+		    file copy "[file rootname $test].h" "$bname.hp"
+		}
+		dg-test -keep-output $test $flags "-I."
+		remote_file host delete "$bname.hp"
+		set tmp [ diff "$bname.s" "$bname.s-pch" ]
+		if { $tmp == 0 } {
+		    untested "$nshort $flags assembly comparison"
+		} elseif { $tmp == 1 } {
+		    pass "$nshort $flags assembly comparison"
+		} else {
+		    fail "$nshort $flags assembly comparison"
+		}
+		file delete "$bname.s"
+		file delete "$bname.s-pch"
+	    } else {
+		untested "$nshort $flags assembly comparison"
+	    }
+
 	} else {
-	    untested $test
+	    untested $nshort
+	    untested "$nshort $flags assembly comparison"
 	}
     }
 }
+
+set dg-do-what-default "$old_dg_do_what_default"
 
 # All done.
 dg-finish

@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 #include "static-1.h"
 static int bar(void)
 {

@@ -1,4 +1,3 @@
-/* { dg-do compile } */
 #include "decl-3.h"
 
 foo_p bar (void) 
