@@ -1,3 +1,107 @@
+2003-04-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/10377
+	* config/cris/cris.md ("*mov_sideqi", "*mov_sidehi")
+	("*mov_sidesi", "*mov_sideqi_mem", "*mov_sidehi_mem")
+	("*mov_sidesi_mem", "*clear_sidesi", "*clear_sidehi")
+	("*clear_sideqi", "*ext_sideqihi", "*ext_sideqisi")
+	("*ext_sidehisi", "*op_sideqi", "*op_sidehi", "*op_sidesi")
+	("*op_swap_sideqi", "*op_swap_sidehi", "*op_swap_sidesi")
+	("*extopqihi_side", "*extopqisi_side", "*extophisi_side")
+	("*extopqihi_swap_side", "*extopqisi_swap_side")
+	("*extophisi_swap_side", 8th, 9th, 10th, 11th, 14th peepholes):
+	When next to constraint R, replace constraint i with n.
+
+Mon Apr 14 16:14:37 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	PR opt/10024
+	* cfgrtl.c (force_nonfallthru_and_redirect): Use unchecked_make_edge.
+
+2003-04-14  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* doc/contrib.texi (Contributors): Correct my entry.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11-protos.h 
+	(m68hc11_eq_compare_operator): Declare
+	* config/m68hc11/m68hc11.h (PREDICATE_CODES): Register new predicate.
+	* config/m68hc11/m68hc11.c (m68hc11_eq_compare_operator): New predicate
+	(d_register_operand): Check the operand mode.
+	(hard_addr_reg_operand): Likewise.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("decrement_and_branch_until_zero"): New
+	pattern for dbcc/ibcc generation for 68HC12.
+	("doloop_end"): New pattern.
+	("m68hc12_dbcc_dec_hi"): New pattern for dbeq/dbne.
+	("m68hc12_dbcc_inc_hi"): New pattern for ibeq/ibne.
+	("m68hc12_dbcc_dec_qi"): New pattern.
+	("m68hc12_dbcc_inc_qi"): New pattern.
+	(split): Add split for the above when we can't use dbcc/ibcc due to
+	reloading.
+	(peephole2): Add peephole2 to generate the above when possible.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("bitcmpqi" split): No need to test the
+	mode of operand 0.
+	(peephole2 optimize const load): Likewise for operand 2.
+	("*rotlhi3_with_carry"): Change pattern to a const 1 rotate which
+	clobbers CC_REGNUM.
+	("*rotrhi3_with_carry"): Likewise.
+	(ashift:DI 1 split): Update pattern to create the above rotate.
+	(lshiftrt:DI 1 split): Likewise.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md (SOFT_Z_REGNUM): New constant.
+	("tstqi_z_used" split): Use it.
+	("cmphi_z_used"): Likewise.
+	("bitcmpqi_z_used"): Likewise; also use SP_REGNUM constant.
+	("cmpqi_z_used"): Likewise.
+
+2003-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7910
+	* config/i386/winnt.c (i386_pe_mark_dllimport): Fix thinko.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (TARGET_SWITCHES): Fix -mnominmax option;
+	recognize -mnorelax.
+	(reg_class): Add Z_OR_S_REGS to represent soft registers with Z
+	(REG_CLASS_NAMES): Add its name.
+	(REG_CLASS_CONTENTS): Define its content.
+
+2003-04-12  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/larith.asm (memcpy): Use ARG macro to access stack
+	parameters so that offsets are valid for far definition.
+	(__mulsi3): Likewise and use ret to return.
+	(___adddi3, ___subdi3, ___notdi2, ): Don't use it to save the result.
+
+2003-04-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/extend.texi (Empty Structures): New.
+
+2003-04-11  Richard Henderson  <rth@redhat.com>
+
+        PR c++/10202
+        * expr.c (expand_expr): Use COMPLETE_OR_UNBOUND_ARRAY_TYPE_P
+        not COMPLETE_TYPE_P for re-invoking layout_decl.
+
+2003-04-11  Simon Law  <sfllaw@engmail.uwaterloo.ca>
+
+	* doc/bugreport.texi: Fix paragraph breaking between sections
+	in preparation for TeXinfo's paragraph indentation fixes.
+	* doc/extend.texi: Ditto.
+	* doc/invoke.texi: Ditto.
+	* doc/objc.texi: Ditto.
+	* doc/gcov.texi: Wrap 'gcov' in @command{}.
+	* doc/invoke.texi (Darwin Options): Add a preamble.
+
 2003-04-11  Richard Henderson  <rth@redhat.com>
 
         PR c/10201

@@ -436,6 +436,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
+* Empty Structures::    Structures with no members.
 * Variadic Macros::	Macros with a variable number of arguments.
 * Escaped Newlines::    Slightly looser rules for escaped newlines.
 * Multi-line Strings::  String literals with embedded newlines.
@@ -486,7 +487,6 @@ extensions, accepted by GCC in C89 mode and in C++.
 
 @c the above section title wrapped and causes an underfull hbox.. i
 @c changed it from "within" to "in". --mew 4feb93
-
 A compound statement enclosed in parentheses may appear as an expression
 in GNU C@.  This allows you to use loops, switches, and local variables
 within an expression.
@@ -1033,6 +1033,7 @@ This will work with all versions of GCC@.
 @cindex lvalues, generalized
 @cindex extensions, @code{?:}
 @cindex @code{?:} extensions
+
 Compound expressions, conditional expressions and casts are allowed as
 lvalues provided their operands are lvalues.  This means that you can take
 their addresses or store values into them.
@@ -1357,6 +1358,21 @@ struct bar b = @{ @{ 1, @{ 2, 3, 4 @} @} @};    // @r{Invalid.}
 struct bar c = @{ @{ 1, @{ @} @} @};            // @r{Valid.}
 struct foo d[1] = @{ @{ 1 @{ 2, 3, 4 @} @} @};  // @r{Invalid.}
 @end example
+
+@node Empty Structures
+@section Structures With No Members
+@cindex empty structures
+@cindex zero-size structures
+
+GCC permits a C structure to have no members:
+
+@example
+struct empty @{
+@};
+@end example
+
+The structure will have size zero.  In C++, empty structures are part
+of the language, and the language standard says they have size 1.
 
 @node Variable Length
 @section Arrays of Variable Length
@@ -7188,7 +7204,6 @@ If any calls were not inlined, you will get linker errors.
 
 @node Template Instantiation
 @section Where's the Template?
-
 @cindex template instantiation
 
 C++ templates are the first language feature to require more
@@ -7334,7 +7349,6 @@ more discussion of these pragmas.
 
 @node Bound member functions
 @section Extracting the function pointer from a bound pointer to member function
-
 @cindex pmf
 @cindex pointer to member function
 @cindex bound pointer to member function
