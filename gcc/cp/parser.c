@@ -17496,8 +17496,12 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
 	{
 	  /* Handle pragma, if any.  */
 	  cp_token *token1 = cp_lexer_peek_token (parser->lexer);
+
 	  if (token1->type == CPP_PRAGMA)
 	    cp_lexer_handle_pragma (parser->lexer);
+	  /* Allow stray semicolons.  */
+	  else if (token1->type == CPP_SEMICOLON)
+	    cp_lexer_consume_token (parser->lexer);
 	  else
 	    cp_parser_block_declaration (parser, /*statement_p=*/false);
 	}
