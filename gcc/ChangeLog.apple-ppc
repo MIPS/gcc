@@ -1,3 +1,6 @@
+2004-06-14  Fariborz Jahanian <fjahanian@apple.com> 
+        * version.c: Remove word tree-ssa from version string.
+
 2004-06-12  Devang Patel  <dpatel@apple.com>
 
         * Makefile.in (OBJS-common): Add tree-if-conv.o.
