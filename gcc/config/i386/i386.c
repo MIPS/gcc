@@ -647,6 +647,7 @@ static char internal_label_prefix[16];
 static int internal_label_prefix_len;
 
 static int local_symbolic_operand PARAMS ((rtx, enum machine_mode));
+static int ix86_use_dfa_pipeline_interface PARAMS ((void));
 static void output_pic_addr_const PARAMS ((FILE *, rtx, int));
 static void put_condition_code PARAMS ((enum rtx_code, enum machine_mode,
 				       int, int, FILE *));
@@ -766,6 +767,8 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 						    enum x86_64_reg_class));
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE ix86_use_dfa_pipeline_interface
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -10243,25 +10246,16 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	{
-	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
-	    cost += 2;
-	  else
-	    cost += 3;
-        }
+      if (GET_CODE (dep_insn) == JUMP_INSN || GET_CODE (dep_insn) == CALL_INSN)
+	return 0;
+
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
 	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
  	{
-	  /* Claim moves to take one cycle, as core can issue one load
-	     at time and the next load can start cycle later.  */
-	  if (dep_insn_type == TYPE_IMOV
-	      || dep_insn_type == TYPE_FMOV)
-	    cost = 0;
-	  else if (cost >= 3)
+	  if (cost >= 3)
 	    cost -= 3;
 	  else
 	    cost = 0;
@@ -10272,6 +10266,14 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
     }
 
   return cost;
+}
+
+static int
+ix86_use_dfa_pipeline_interface ()
+{
+  if (TARGET_ATHLON)
+    return 1;
+  return 0;
 }
 
 static union
