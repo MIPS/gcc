@@ -130,6 +130,14 @@ tree_ssa_return (void)
       if (!returnstmt_other || TREE_CODE (returnstmt_other) != RETURN_EXPR)
         continue;
 
+      /* If we do not have a modify expression on both returns, there is no point
+         in doing this optimization. */
+      if (TREE_CODE (TREE_OPERAND (returnstmt, 0)) != MODIFY_EXPR)
+	continue;
+
+      if (TREE_CODE (TREE_OPERAND (returnstmt_other, 0)) != MODIFY_EXPR)
+	continue;
+
       /* No reason to do this if we are not returning a value.   */
       if (TREE_OPERAND (returnstmt_other, 0) == NULL)
         continue;
@@ -144,6 +152,7 @@ tree_ssa_return (void)
       
       bsi = bsi_last (bb);
       bsi_other = bsi_last (bb_other);
+
       
       ret_decl = TREE_OPERAND (TREE_OPERAND (returnstmt, 0), 0);
       
