@@ -1,3 +1,50 @@
+2003-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.host: Add powerpc64*-linux* entry.
+	[x86_64-*]: Add DIVIDESPEC.
+
+2003-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.host [i?86-*|x86_64-*|powerpc*-*]: Remove
+	slow_pthread_self.
+
+2003-03-22  Richard Henderson  <rth@redhat.com>
+
+	* sysdep/ia64/locks.h: Include ia64intrin.h.
+	(compare_and_swap): Use __sync_bool_compare_and_swap.
+	(compare_and_swap_release): Expose ar.ccv assignment.
+
+2003-02-03  Andrew Haley  <aph@redhat.com>
+
+	* configure.host (x86_64): Enable interpreter.
+
+2003-01-03  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.host (sparc*-*): Enable bytecode interpreter.
+
+2002-10-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host [s390*-*]: Enable Java interpreter.
+	Enable hash synchronization.  Add sysdeps dir.
+	* sysdep/s390/locks.h: New file.
+
+2002-07-30  Jeff Sturm  <jsturm@one-point.com>
+
+	* configure.in (LIBFFIINCS): Don't prepend MULTIBUILDTOP.
+	* configure: Rebuilt.
+
+2002-07-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* sysdep/powerpc/locks.h: Formatting.
+	(_LARX): Define.
+	(_STCX): Define.
+	(compare_and_swap): Use _LARX and _STCX.
+	(compare_and_swap_release): Likewise.
+
+2002-07-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* configure.host: Add powerpc64*-* entry.
+
 2003-02-05  Release Manager
 
 	* GCC 3.2.2 Released.

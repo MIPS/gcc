@@ -437,6 +437,7 @@ void ffi_call(/*@dependent@*/ ffi_cif *cif,
   
   switch (cif->abi) 
     {
+#ifndef POWERPC64
     case FFI_SYSV:
     case FFI_GCC_SYSV:
       /*@-usedef@*/
@@ -444,12 +445,15 @@ void ffi_call(/*@dependent@*/ ffi_cif *cif,
 		    cif->flags, ecif.rvalue, fn);
       /*@=usedef@*/
       break;
+#endif
     default:
       FFI_ASSERT(0);
       break;
     }
 }
 
+
+#ifndef POWERPC64
 
 static void flush_icache(char *, int);
 
@@ -461,6 +465,11 @@ ffi_prep_closure (ffi_closure* closure,
 {
   unsigned int *tramp;
 
+#ifdef POWERPC64
+  FFI_ASSERT (cif->abi == FFI_LINUX64);
+  /* To be implemented.  */
+  FFI_ASSERT (0);
+#else
   FFI_ASSERT (cif->abi == FFI_GCC_SYSV);
 
   tramp = (unsigned int *) &closure->tramp[0];
@@ -481,7 +490,7 @@ ffi_prep_closure (ffi_closure* closure,
 
   /* Flush the icache.  */
   flush_icache(&closure->tramp[0],FFI_TRAMPOLINE_SIZE);
-
+#endif
   return FFI_OK;
 }
 
@@ -679,7 +688,4 @@ ffi_closure_helper_SYSV (ffi_closure* closure, void * rvalue,
 
 }
 
-
-
-
-
+#endif

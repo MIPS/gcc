@@ -2846,7 +2846,7 @@ if test "$with_libffi" != no; then
 EOF
 
    LIBFFI=../libffi/libffi_convenience.la
-   LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I$(MULTIBUILDTOP)../libffi/include'
+   LIBFFIINCS='-I$(top_srcdir)/../libffi/include -I../libffi/include'
 fi
 
 

@@ -61,7 +61,7 @@ sparc64-*-linux*) TARGET=SPARC; TARGETDIR=sparc;;
 alpha*-*-linux* | alpha*-*-osf* | alpha*-*-freebsd*) TARGET=ALPHA; TARGETDIR=alpha;;
 ia64*-*-*) TARGET=IA64; TARGETDIR=ia64;;
 m68k-*-linux*) TARGET=M68K; TARGETDIR=m68k;;
-powerpc-*-linux* | powerpc-*-sysv*) TARGET=POWERPC; TARGETDIR=powerpc;;
+powerpc*-*-linux* | powerpc-*-sysv*) TARGET=POWERPC; TARGETDIR=powerpc;;
 powerpc-*-beos*) TARGET=POWERPC; TARGETDIR=powerpc;;
 powerpc-*-darwin*) TARGET=POWERPC_DARWIN; TARGETDIR=powerpc;;
 powerpc-*-aix*) TARGET=POWERPC_AIX; TARGETDIR=powerpc;;

@@ -1,3 +1,36 @@
+2003-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/ffi.h.in (POWERPC64): Define on ppc64.
+	(enum ffi_abi): Add FFI_LINUX64, set FFI_DEFAULT_ABI
+	to FFI_LINUX64 on ppc64.
+	(FFI_CLOSURES): Define to 0 on ppc64.
+	* src/powerpc/ppc_closure.S: Surround whole file with
+	#ifndef __powerpc64__.
+	* src/powerpc/sysv.S: Likewise.
+	* src/powerpc/ffi.c (ffi_call): #ifdef out 32-bit ABIs
+	on POWERPC64.
+	(ffi_prep_closure): Ifdef out on POWERPC64.
+	* configure.in: Set TARGET=POWERPC on powerpc64-*-linux*.
+	* configure: Rebuilt.
+
+2003-03-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* include/ffi.h.in: Define X86 instead of X86_64 in 32
+	bit mode.
+
+2003-01-28  Andrew Haley  <aph@redhat.com>
+
+	* include/ffi.h.in: Enable FFI_CLOSURES for x86_64.
+	* src/x86/ffi64.c (ffi_prep_closure): New.
+	(ffi_closure_UNIX64_inner): New.
+	* src/x86/unix64.S (ffi_closure_UNIX64): New.
+
+2003-01-14  Andrew Haley  <aph@redhat.com>
+
+	* src/x86/ffi64.c (ffi_prep_args): Check for void retval.
+	(ffi_prep_cif_machdep): Likewise.
+	* src/x86/unix64.S: Add unwind info.
+
 2003-02-08  Andreas Tobler <a.tobler@schweiz.ch>
 	     
 	* libffi/src/powerpc/darwin_closure.S:

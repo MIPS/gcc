@@ -29,6 +29,7 @@
 #include <ffi.h>
 #include <powerpc/asm.h>
 
+#ifndef __powerpc64__
 	.globl ffi_prep_args
 ENTRY(ffi_call_SYSV)
 .LFB1:
@@ -171,3 +172,4 @@ __FRAME_BEGIN__:
       .byte     0x1c     /*  uleb128 0x1c */
       .align 2
 .LEFDE1:
+#endif

@@ -158,6 +158,12 @@ extern "C" {
 #define SIZEOF_ARG SIZEOF_VOID_P
 #endif
 
+#ifdef POWERPC
+#if defined (__powerpc64__)
+#define POWERPC64
+#endif
+#endif
+
 #ifdef SPARC
 #if defined(__arch64__) || defined(__sparcv9)
 #define SPARC64
@@ -167,6 +173,13 @@ extern "C" {
 #ifdef S390
 #if defined (__s390x__)
 #define S390X
+#endif
+#endif
+
+#ifdef X86_64
+#if defined (__i386__)
+#undef X86_64
+#define X86
 #endif
 #endif
 
@@ -241,7 +254,12 @@ typedef enum ffi_abi {
 #ifdef POWERPC
   FFI_SYSV,
   FFI_GCC_SYSV,
+  FFI_LINUX64,
+# ifdef POWERPC64
+  FFI_DEFAULT_ABI = FFI_LINUX64,
+# else
   FFI_DEFAULT_ABI = FFI_GCC_SYSV,
+# endif
 #endif
 
 #ifdef POWERPC_AIX
@@ -419,7 +437,11 @@ struct ffi_ia64_trampoline_struct {
 
 #elif defined(POWERPC)
 
+#if defined(POWERPC64)
+#define FFI_CLOSURES 0
+#else
 #define FFI_CLOSURES 1
+#endif
 #define FFI_TRAMPOLINE_SIZE 40
 #define FFI_NATIVE_RAW_API 0
 
@@ -455,6 +477,12 @@ struct ffi_ia64_trampoline_struct {
 #else
 #define FFI_TRAMPOLINE_SIZE 16
 #endif
+#define FFI_NATIVE_RAW_API 0
+
+#elif defined(__x86_64__)
+
+#define FFI_CLOSURES 1
+#define FFI_TRAMPOLINE_SIZE 24
 #define FFI_NATIVE_RAW_API 0
 
 #else 
