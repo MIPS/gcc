@@ -1,3 +1,6 @@
+2004-06-10  Dale Johannesen  <dalej@apple.com>
+	* tree-scalar-evolution.c (scev_finalize): Remove wild load.
+
 2004-06-10  Fariborz Jahanian <fjahanian@apple.com>
 	* version.c: Change version date to 20040529 (date of
 	last merge).
