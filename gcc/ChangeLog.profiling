@@ -1,5 +1,9 @@
 2004-03-15  Jan Hubicka  <jh@suse.cz>
 
+	* cfgexpand.c (tree_expand_cfg): Do not cleanup control flow.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
 	* cfgcleanup.c (try_forward_edges): Take into account PRE_LOOP flag
 	only when loop optimizer is run.
 

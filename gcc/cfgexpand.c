@@ -331,11 +331,6 @@ tree_expand_cfg (void)
   int dump_flags;
   FILE *dump_file = dump_begin (TDI_expand, &dump_flags);
 
-  /* Code updating conditional jumps rely that no conditionals will be
-     simplified into unconditional jumps.  This also serve as usefull sanity
-     checking.  */
-  cleanup_control_flow ();
-
   /* Write the flowgraph to a dot file.  */
   rtl_register_cfg_hooks ();
 
