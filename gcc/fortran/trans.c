@@ -247,7 +247,7 @@ gfc_finish_block (stmtblock_t * stmtblock)
   tree expr;
   tree block;
 
-  expr = rationalize_compound_expr (stmtblock->head);
+  expr = stmtblock->head;
   stmtblock->head = NULL_TREE;
 
   if (stmtblock->has_scope)
@@ -263,7 +263,7 @@ gfc_finish_block (stmtblock_t * stmtblock)
 	poplevel (0, 0, 0);
     }
 
-  return expr;
+  return rationalize_compound_expr (expr);
 }
 
 
