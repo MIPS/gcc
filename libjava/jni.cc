@@ -1880,6 +1880,11 @@ static jint
 			           const JNINativeMethod *methods,
 			           jint nMethods)
 {
+  // Synchronize while we do the work.  This must match
+  // synchronization in some other functions that manipulate or use
+  // the nathash table.
+  JvSynchronize sync (global_ref_table);
+
   // Look at each descriptor given us, and find the corresponding
   // method in the class.
   for (int j = 0; j < nMethods; ++j)
