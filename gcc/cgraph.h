@@ -40,6 +40,9 @@ struct cgraph_local_info GTY(())
   /* Set when function is defined in another compilation unit.  */
   bool external;
 
+  /* Set when function is visible by other units.  */
+  bool externally_visible;
+
   /* Set when this function calls a function external of the
      compilation unit.  In general, such calls are modeled as reading
      and writing all variables (both bits on) but sometime there are
@@ -233,6 +236,8 @@ struct cgraph_varpool_node GTY(())
   bool finalized;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  /* Set when function is visible by other units.  */
+  bool externally_visible;
 };
 
 extern GTY(()) struct cgraph_node *cgraph_nodes;

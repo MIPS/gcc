@@ -210,7 +210,6 @@ static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
-static void cgraph_mark_local_and_external_functions (void);
 static bool cgraph_default_inline_p (struct cgraph_node *n);
 static void cgraph_analyze_function (struct cgraph_node *node);
 static void cgraph_decide_inlining_incrementally (struct cgraph_node *);
@@ -266,6 +265,31 @@ static bool
 decide_is_function_needed (struct cgraph_node *node, tree decl)
 {
   tree origin;
+  if (MAIN_NAME_P (DECL_NAME (decl))
+      && TREE_PUBLIC (decl))
+    {
+      node->local.externally_visible = true;
+      return true;
+    }
+
+  /* If the user told us it is used, then it must be so.  */
+  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+    {
+      if (TREE_PUBLIC (decl))
+        node->local.externally_visible = true;
+      return true;
+    }
+
+  /* ??? If the assembler name is set by hand, it is possible to assemble
+     the name later after finalizing the function and the fact is noticed
+     in assemble_name then.  This is arguably a bug.  */
+  if (DECL_ASSEMBLER_NAME_SET_P (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      if (TREE_PUBLIC (decl))
+        node->local.externally_visible = true;
+      return true;
+    }
 
   /* If we decided it was needed before, but at the time we didn't have
      the body of the function available, then it's still needed.  We have
@@ -275,23 +299,13 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
 
   /* Externally visible functions must be output.  The exception is
      COMDAT functions that must be output only when they are needed.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+  if ((TREE_PUBLIC (decl) && !flag_whole_program)
+      && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
   /* Constructors and destructors are reachable from the runtime by
      some mechanism.  */
   if (DECL_STATIC_CONSTRUCTOR (decl) || DECL_STATIC_DESTRUCTOR (decl))
-    return true;
-
-  /* If the user told us it is used, then it must be so.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    return true;
-
-  /* ??? If the assembler name is set by hand, it is possible to assemble
-     the name later after finalizing the function and the fact is noticed
-     in assemble_name then.  This is arguably a bug.  */
-  if (DECL_ASSEMBLER_NAME_SET_P (decl)
-      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     return true;
 
   if (flag_unit_at_a_time)
@@ -606,6 +620,13 @@ cgraph_finalize_function (tree decl, bool nested)
   if (decide_is_function_needed (node, decl))
     cgraph_mark_needed_node (node);
 
+  /* Since we reclaim unrechable nodes at the end of every language
+     level unit, we need to be conservative about possible entry points
+     there.  */
+  if (flag_whole_program
+      && (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl)))
+    cgraph_mark_reachable_node (node);
+
   /* If not unit at a time, go ahead and emit everything we've found
      to be reachable at this time.  */
   if (!nested)
@@ -635,7 +656,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
       /* ??? Really, we should mark this decl as *potentially* referenced
 	 by this function and re-examine whether the decl is actually used
 	 after rtl has been generated.  */
-      if (TREE_STATIC (t))
+      if (TREE_STATIC (t) || DECL_EXTERNAL (t))
 	{
 	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
 	  if (lang_hooks.callgraph.analyze_expr)
@@ -894,7 +915,7 @@ cgraph_varpool_assemble_pending_decls (void)
       struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
 
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
-      if (!TREE_ASM_WRITTEN (decl))
+      if (!TREE_ASM_WRITTEN (decl) && !DECL_EXTERNAL (decl))
 	{
 	  assemble_variable (decl, 0, 1, 0);
 	  changed = true;
@@ -1321,10 +1342,11 @@ cgraph_reduced_inorder (struct cgraph_node **order, bool reduce)
 }
 
 /* Perform reachability analysis and reclaim all unreachable nodes.
-   This function also remove unneeded bodies of extern inline functions
-   and thus needs to be done only after inlining decisions has been made.  */
+   If BEFORE_INLINING_P is true this function is called before inlining
+   decisions has been made.  If BEFORE_INLINING_P is false this function also 
+   removes unneeded bodies of extern inline functions.  */
 static bool
-cgraph_remove_unreachable_nodes (void)
+cgraph_remove_unreachable_nodes (bool before_inlining_p)
 {
   struct cgraph_node *first = (void *) 1;
   struct cgraph_node *node;
@@ -1342,7 +1364,9 @@ cgraph_remove_unreachable_nodes (void)
 #endif
   for (node = cgraph_nodes; node; node = node->next)
     if (node->needed && !node->global.inlined_to
-	&& (!DECL_EXTERNAL (node->decl) || !node->analyzed))
+	&& ((!DECL_EXTERNAL (node->decl)) 
+            || !node->analyzed
+            || before_inlining_p))
       {
 	node->aux = first;
 	first = node;
@@ -1363,8 +1387,9 @@ cgraph_remove_unreachable_nodes (void)
 	if (!e->callee->aux
 	    && node->analyzed
 	    && (!e->inline_failed || !e->callee->analyzed
-		|| !DECL_EXTERNAL (e->callee->decl)))
-	  {
+		|| (!DECL_EXTERNAL (e->callee->decl))
+                || before_inlining_p))
+        {
 	    e->callee->aux = first;
 	    first = e->callee;
 	  }
@@ -1392,7 +1417,8 @@ cgraph_remove_unreachable_nodes (void)
 	    local_insns = 0;
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
-	  if (!node->analyzed || !DECL_EXTERNAL (node->decl))
+	  if (!node->analyzed || !DECL_EXTERNAL (node->decl)
+              || before_inlining_p)
 	    cgraph_remove_node (node);
 	  else
 	    {
@@ -2011,7 +2037,7 @@ cgraph_decide_inlining (void)
   /* We will never output extern functions we didn't inline. 
      ??? Perhaps we can prevent accounting of growth of external
      inline functions.  */
-  cgraph_remove_unreachable_nodes ();
+  cgraph_remove_unreachable_nodes (false);
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file,
@@ -2790,23 +2816,56 @@ cgraph_expand_all_functions (void)
    address is not taken as local.
 
    An external function is one whose body is outside the current
-   compilation unit.  */
+   compilation unit.  
+   
+   We also change the TREE_PUBLIC flag of all declarations that are public
+   in language point of view but we want to overwrite this default
+   via -fwhole-program for the backend point of view.  */
 
 static void
-cgraph_mark_local_and_external_functions (void)
+cgraph_function_and_variable_visibility (void)
 {
   struct cgraph_node *node;
+  struct cgraph_varpool_node *vnode;
 
-  /* Figure out functions we want to assemble.  */
   for (node = cgraph_nodes; node; node = node->next)
     {
+      if (node->reachable
+	  && (DECL_COMDAT (node->decl)
+	      || (TREE_PUBLIC (node->decl) && !DECL_EXTERNAL (node->decl)
+		  && !flag_whole_program)))
+	node->local.externally_visible = 1;
+      if (!node->local.externally_visible && node->analyzed
+	  && !DECL_EXTERNAL (node->decl))
+	{
+	  gcc_assert (flag_whole_program || !TREE_PUBLIC (node->decl));
+	  TREE_PUBLIC (node->decl) = 0;
+	}
       node->local.local = (!node->needed
-		           && DECL_SAVED_TREE (node->decl)
-		           && !TREE_PUBLIC (node->decl));
-      node->local.external = (!DECL_SAVED_TREE (node->decl)
-			   && TREE_PUBLIC (node->decl));
+			   && node->analyzed
+			   && !TREE_PUBLIC (node->decl));
+      node->local.external = (!node->analyzed
+			      && TREE_PUBLIC (node->decl));
+    }
+  for (vnode = cgraph_varpool_nodes_queue; vnode; vnode = vnode->next_needed)
+    {
+      if (vnode->needed
+	  && (DECL_COMDAT (vnode->decl)
+	      || (TREE_PUBLIC (vnode->decl) && !flag_whole_program)))
+	vnode->externally_visible = 1;
+      if (!vnode->externally_visible)
+	{
+	  gcc_assert (flag_whole_program || !TREE_PUBLIC (vnode->decl));
+	  TREE_PUBLIC (vnode->decl) = 0;
+	}
     }
 
+  /* Because we have to be conservative on the boundaries of source level units,
+     it is possible that we marked some functions in reachable just because they
+     might be used later via external linkage, but after making them local they
+     are really unreachable now.  */
+  if (flag_whole_program)
+    cgraph_remove_unreachable_nodes (true);
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nMarking local functions:");
@@ -2819,8 +2878,8 @@ cgraph_mark_local_and_external_functions (void)
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->local.external)
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
-    fprintf (cgraph_dump_file, "\n\n");
-}
+      fprintf (cgraph_dump_file, "\n\n");
+    }
 }
 
 /* Return true when function body of DECL still needs to be kept around
@@ -2854,13 +2913,14 @@ cgraph_optimize (void)
       cgraph_varpool_assemble_pending_decls ();
       return;
     }
+
+  cgraph_function_and_variable_visibility ();
+
   if (flag_ipa_cp && flag_ipa_no_cloning)
     ipcp_driver ();
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
     fprintf (stderr, "Performing intraprocedural optimizations\n");
-
-  cgraph_mark_local_and_external_functions ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Marked ");

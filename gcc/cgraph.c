@@ -618,26 +618,33 @@ cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
 static bool
 decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
 {
-  /* If we decided it was needed before, but at the time we didn't have
-     the body of the function available, then it's still needed.  We have
-     to go back and re-check its dependencies now.  */
-  if (node->needed)
-    return true;
-
-  /* Externally visible functions must be output.  The exception is
-     COMDAT functions that must be output only when they are needed.  */
-  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
-    return true;
-
   /* If the user told us it is used, then it must be so.  */
   if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
-    return true;
+    {
+      if (TREE_PUBLIC (decl))
+        node->externally_visible = true;
+      return true;
+    }
 
   /* ??? If the assembler name is set by hand, it is possible to assemble
      the name later after finalizing the function and the fact is noticed
      in assemble_name then.  This is arguably a bug.  */
   if (DECL_ASSEMBLER_NAME_SET_P (decl)
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    {
+      if (TREE_PUBLIC (decl))
+        node->externally_visible = true;
+      return true;
+    }
+
+  /* If we decided it was needed before, but at the time we didn't have
+     the definition available, then it's still needed.  */
+  if (node->needed)
+    return true;
+
+  /* Externally visible functions must be output.  The exception is
+     COMDAT functions that must be output only when they are needed.  */
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
   if (flag_unit_at_a_time)

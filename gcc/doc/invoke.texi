@@ -321,7 +321,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
---param @var{name}=@var{value}
+-fwhole-program --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
 @item Preprocessor Options
@@ -4702,6 +4702,13 @@ Perform loop vectorization on trees.
 Perform tail duplication to enlarge superblock size. This transformation
 simplifies the control flow of the function allowing other optimizations to do
 better job.
+
+@item -fwhole-program
+@opindex fwhole-program
+Assume that the whole program is exposed in the current compialation unit.
+All public symbols defined by program with exception of function main and those
+marged by attribute @code{used} are assumed to be local and may be altered by
+compiler.
 
 @item -funroll-loops
 @opindex funroll-loops
