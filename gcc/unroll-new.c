@@ -42,8 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "output.h"
 
-static basic_block simple_exit PARAMS ((struct loops *, struct loop *,
-					basic_block *, int *));
 static bool simple_condition_p PARAMS ((struct loop *, basic_block *,
 					rtx, struct loop_desc *));
 static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
@@ -52,6 +50,11 @@ static basic_block simple_increment PARAMS ((struct loops *, struct loop *,
 static rtx variable_initial_value PARAMS ((struct loop *, rtx));
 static bool simple_loop_p PARAMS ((struct loops *, struct loop *,
 				   struct loop_desc *));
+static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
+					edge, basic_block *,
+					struct loop_desc *));
+static bool constant_iterations PARAMS ((struct loop_desc *,
+					 unsigned HOST_WIDE_INT *));
 static rtx count_loop_iterations PARAMS ((struct loop_desc *, bool));
 static void unroll_or_peel_loop PARAMS ((struct loops *, struct loop *, int));
 static bool peel_loop_simple PARAMS ((struct loops *, struct loop *, int));
@@ -97,47 +100,6 @@ unroll_and_peel_loops (loops, flags)
 #endif
       loop = next;
     }
-}
-
-/* Checks whether LOOP (consisting of BODY -- just not to have to find
-   it again and again) have simple exit (i.e. exit is in exactly one block
-   that is executed in every iteration exactly once). FALLTRHU_OUT
-   is set if the exit edge is fallthru.  Exit block is returned.  */
-static basic_block
-simple_exit (loops, loop, body, fallthru_out)
-     struct loops *loops;
-     struct loop *loop;
-     basic_block *body;
-     int *fallthru_out;
-{
-  basic_block exit_bb;
-  int i;
-  edge e;
-
-  /* Loop must have single exit only.  */
-  exit_bb = NULL;
-  for (i = 0; i < loop->num_nodes; i++)
-    for (e = body[i]->succ; e; e = e->succ_next)
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	{
-	  if (exit_bb)
-	    return NULL;
-	  else
-	    exit_bb = body[i];
-	  *fallthru_out = (e->flags & EDGE_FALLTHRU);
-	}
-  if (!exit_bb)
-    return NULL;
-
-  /* And it must be tested once during any iteration.  */
-  if (!just_once_each_iteration_p (loops, loop, exit_bb))
-    return NULL;
-
-  /* It must end in a simple conditional jump.  */
-  if (!any_condjump_p (exit_bb->end))
-    return NULL;
-
-  return exit_bb;
 }
 
 /* Checks whether CONDITION is a simple comparison in that one of operands
@@ -320,7 +282,7 @@ variable_initial_value (loop, var)
 	    return NULL;
 
 	  note = find_reg_equal_equiv_note (insn);
-	  if (note)
+	  if (note && GET_CODE (XEXP (note, 0)) != EXPR_LIST)
 	    val = XEXP (note, 0);
 	  else
 	    val = SET_SRC (set);
@@ -346,40 +308,109 @@ simple_loop_p (loops, loop, desc)
      struct loop *loop;
      struct loop_desc *desc;
 {
-  basic_block exit_bb, *body, mod_bb;
-  int fallthru_out;
-  rtx condition;
-  edge ei, eo, tmp;
-
+  int i;
+  basic_block *body;
+  edge e;
+  struct loop_desc act;
+  bool any = false;
+  
   body = get_loop_body (loop);
 
-  /* There must be only a single exit from loop.  */
-  if (!(exit_bb = simple_exit (loops, loop, body, &fallthru_out)))
-    goto ret_false;
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      for (e = body[i]->succ; e; e = e->succ_next)
+	if (!flow_bb_inside_loop_p (loop, e->dest)
+	    && simple_loop_exit_p (loops, loop, e, body, &act))
+	  {
+	    /* Prefer constant iterations; the less the better.  */
+	    if (!any)
+	      any = true;
+	    else if (!act.const_iter
+		     || (desc->const_iter && act.niter >= desc->niter))
+	      continue;
+	    *desc = act;
+	  }
+    }
+
+  free (body);
+  return any;
+}
+
+/* Counts constant number of iterations of the loop described by DESC;
+   returns false if impossible.  */
+static bool
+constant_iterations (desc, niter)
+     struct loop_desc *desc;
+     unsigned HOST_WIDE_INT *niter;
+{
+  rtx test, expr;
+
+  test = test_for_iteration (desc, 0);
+  if (test && test == const0_rtx)
+    {
+      *niter = 0;
+      return true;
+    }
+
+  if (!(expr = count_loop_iterations (desc, true)))
+    abort ();
+
+  if (GET_CODE (expr) != CONST_INT)
+    return false;
+
+  *niter = INTVAL (expr);
+  return true;
+}
+
+/* Tests whether exit at EXIT_EDGE from LOOP is simple.  Returns simple loop
+   description joined to it in in DESC.  */
+static bool
+simple_loop_exit_p (loops, loop, exit_edge, body, desc)
+     struct loops *loops;
+     struct loop *loop;
+     edge exit_edge;
+     basic_block *body;
+     struct loop_desc *desc;
+{
+  basic_block mod_bb, exit_bb;
+  int fallthru_out;
+  rtx condition;
+  edge ei;
+
+  exit_bb = exit_edge->src;
+
+  fallthru_out = (exit_edge->flags & EDGE_FALLTHRU);
+
+  if (!exit_bb)
+    return false;
+
+  /* It must be tested once during any iteration.  */
+  if (!just_once_each_iteration_p (loops, loop, exit_bb))
+    return false;
+
+  /* It must end in a simple conditional jump.  */
+  if (!any_condjump_p (exit_bb->end))
+    return false;
 
   ei = exit_bb->succ;
-  eo = exit_bb->succ->succ_next;
   if ((ei->flags & EDGE_FALLTHRU) && fallthru_out)
-    {
-      tmp = ei;
-      ei = eo;
-      eo = tmp;
-    }
-  desc->out_edge = eo;
+    ei = exit_bb->succ->succ_next;
+
+  desc->out_edge = exit_edge;
   desc->in_edge = ei;
 
   /* Condition must be a simple comparison in that one of operands
      is register and the other one is invariant.  */
   if (!(condition = get_condition (exit_bb->end, NULL)))
-    goto ret_false;
+    return false;
  
   if (!simple_condition_p (loop, body, condition, desc))
-    goto ret_false;
+    return false;
  
   /*  Var must be simply incremented or decremented in exactly one insn that
       is executed just once every iteration.  */
   if (!(mod_bb = simple_increment (loops, loop, body, desc)))
-    goto ret_false;
+    return false;
 
   /* OK, it is simple loop.  Now just fill in remaining info.  */
   desc->postincr = !dominated_by_p (loops->cfg.dom, exit_bb, mod_bb);
@@ -388,17 +419,10 @@ simple_loop_p (loops, loop, desc)
   /* Find initial value of var.  */
   desc->init = variable_initial_value (loop, desc->var);
 
-  /* Find numeric values of bounds.  */
-  if (GET_CODE (desc->lim) == CONST_INT)
-    desc->lim_n = INTVAL (desc->lim);
-  if (desc->init && GET_CODE (desc->init) == CONST_INT)
-    desc->init_n = INTVAL (desc->init);
-
-  desc->const_iter = GET_CODE (desc->lim) == CONST_INT
-  		     && desc->init
-		     && GET_CODE (desc->init) == CONST_INT;
-
-  free (body);
+  /* Number of iterations. */
+  if (!count_loop_iterations (desc, false))
+    return false;
+  desc->const_iter = constant_iterations (desc, &desc->niter);
 
   if (rtl_dump_file)
     {
@@ -437,10 +461,6 @@ simple_loop_p (loops, loop, desc)
 	}
     }
   return true;
-
-  ret_false:
-  free (body);
-  return false;
 }
 
 /* Return RTX expression representing number of iterations of loop as bounded
@@ -454,7 +474,7 @@ simple_loop_p (loops, loop, desc)
    These cases needs to be eighter cared by copying the loop test in the front
    of loop or keeping the test in first iteration of loop.
    
-   When INITIAL is set, the initial values ov reigsters are used instead
+   When INITIAL is set, the initial values of reigsters are used instead
    of registers themselves, that may lead to expression to be simplified
    and computed at compile time.  */
 static rtx
@@ -628,19 +648,8 @@ peel_loop_completely (loops, loop, desc)
   edge e;
   int n_remove_edges, i;
   edge *remove_edges;
-  rtx exp;
-  rtx test;
   
-  test = test_for_iteration (desc, 0);
-  if (test && test == const0_rtx)
-    npeel = 0;
-  else
-    {
-      exp = count_loop_iterations (desc, true);
-      if (!exp || GET_CODE (exp) != CONST_INT)
-	abort ();
-      npeel = INTVAL (exp);
-    }
+  npeel = desc->niter;
 
   wont_exit = sbitmap_alloc (npeel + 2);
   sbitmap_ones (wont_exit);
@@ -689,13 +698,8 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
   sbitmap wont_exit;
   int n_remove_edges, i;
   edge *remove_edges;
-  rtx exp;
 
-  /* Normalization.  */
-  exp = count_loop_iterations (desc, true);
-  if (!exp || GET_CODE (exp) != CONST_INT)
-    abort ();
-  niter = INTVAL (exp);
+  niter = desc->niter;
 
   if (niter <= (unsigned) max_unroll)
     abort ();  /* Should get into peeling instead.  */
@@ -713,7 +717,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
 	 in the first copy.  */
 
       if (rtl_dump_file)
-        fprintf (rtl_dump_file, ";; Condition on beginning of loop.\n");
+	fprintf (rtl_dump_file, ";; Condition on beginning of loop.\n");
 
       /* Peel exit_mod iterations.  */
       RESET_BIT (wont_exit, 0);
@@ -730,7 +734,7 @@ unroll_loop_constant_iterations (loops, loop, max_unroll, desc)
       /* Leave exit test in last copy.  */
 
       if (rtl_dump_file)
-        fprintf (rtl_dump_file, ";; Condition on end of loop.\n");
+	fprintf (rtl_dump_file, ";; Condition on end of loop.\n");
 
       /* We know that niter >= max_unroll + 1; so we do not need to care of
 	 case when we would exit before reaching the loop.  So just peel
@@ -825,9 +829,9 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
       n_peel = max_unroll + 1;
       skip_first_test = true;
       /* First check for zero is obviously unnecessary now; it might seem
-         we could do better by increasing it before AND; but we must have
-         guaranteed that exit condition will be checked in first iteration,
-         so that we won't miscompile loop with negative number of iterations.  */
+	 we could do better by increasing it before AND; but we must have
+	 guaranteed that exit condition will be checked in first iteration,
+	 so that we won't miscompile loop with negative number of iterations.  */
     }
 
   niter = expand_simple_binop (GET_MODE (desc->var), PLUS,
@@ -873,8 +877,8 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
 	make_edge (preheader, fake, 0);
 
       /* We must be a bit careful here, as we might have negative
-         number of iterations.  Also, in case of postincrement we do
-         not know whether we should not exit before reaching the loop.  */
+	 number of iterations.  Also, in case of postincrement we do
+	 not know whether we should not exit before reaching the loop.  */
       sbitmap_zero (wont_exit);
       if (desc->postincr && (i || desc->cond == NE))
 	SET_BIT (wont_exit, 1);
@@ -1083,26 +1087,20 @@ unroll_or_peel_loop (loops, loop, flags)
   exact = false;
   if (simple)
     {
-      rtx exp = count_loop_iterations (&desc, true);
-      rtx test = test_for_iteration (&desc, 0);
-
       /* Loop iterating 0 times.  These should really be elliminated earlier,
 	 but we may create them by other transformations.  */
 
-      if (test && test == const0_rtx)
+      if (desc.const_iter && desc.niter == 0)
 	{
 	  flags |= UAP_PEEL;
 	  exact = true;
 	  niter = 0;
 	}
-      else if (!exp)
-	simple = false;
-      /* Loop with constant number of iterations?  */
-      else if (GET_CODE (exp) == CONST_INT
-	       && test && test == const_true_rtx)
-	exact = true, niter = INTVAL (exp);
-      else
-	exact = false;
+      else 
+	{
+	  exact = desc.const_iter;
+	  niter = desc.niter;
+	}
     }
 
   if (!exact)

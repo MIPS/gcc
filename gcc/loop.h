@@ -441,9 +441,9 @@ struct loop_desc
   rtx stride;		/* Value added to VAR in each iteration.  */
   rtx lim;		/* Expression var is compared with.  */
   rtx init;		/* Initial value of var.  */
-  HOST_WIDE_INT lim_n;
-  HOST_WIDE_INT init_n;	/* And their integer values.  */
-  bool const_iter;      /* True if both limits are integer constants.  */
+  bool const_iter;      /* True if it iterates constant number of times.  */
+  unsigned HOST_WIDE_INT niter;
+			/* Number of iterations if it is constant.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
   edge out_edge;	/* The exit edge.  */
