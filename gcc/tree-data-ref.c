@@ -56,7 +56,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    composed of the access functions for a given dimension.  Example:
    Given A[f1][f2][f3] and B[g1][g2][g3], there are three subscripts:
    (f1, g1), (f2, g2), (f3, g3).
-   
+
+   - Diophantine equation: an equation whose coefficients and
+   solutions are integer constants, for example the equation 
+   |   3*x + 2*y = 1
+   has an integer solution x = 1 and y = -1.
+     
    References:
    
    - "Advanced Compilation for High Performance Computing" by Randy
@@ -94,48 +99,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static unsigned int data_ref_id = 0;
 
 
-/* Greatest common divisor.  */
 
-static tree 
-tree_fold_gcd (tree a, tree b)
-{
-  tree a_mod_b;
-  tree type = TREE_TYPE (a);
-  
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (a) != INTEGER_CST
-      || TREE_CODE (b) != INTEGER_CST)
-    abort ();
-#endif
-  
-  if (integer_zerop (a)) 
-    return b;
-  
-  if (integer_zerop (b)) 
-    return a;
-  
-  if (tree_int_cst_sgn (a) == -1)
-    a = fold (build (MULT_EXPR, type, a,
-		     convert (type, integer_minus_one_node)));
-  
-  if (tree_int_cst_sgn (b) == -1)
-    b = fold (build (MULT_EXPR, type, b,
-		     convert (type, integer_minus_one_node)));
- 
-  while (1)
-    {
-      a_mod_b = fold (build (CEIL_MOD_EXPR, type, a, b));
- 
-      if (!TREE_INT_CST_LOW (a_mod_b)
-	  && !TREE_INT_CST_HIGH (a_mod_b))
-	return b;
-
-      a = b;
-      b = a_mod_b;
-    }
-}
-
-/* Determines whether (a divides b), or (a == gcd (a, b)).  */
+/* Returns true iff A divides B.  */
 
 static inline bool 
 tree_fold_divides_p (tree type, 
@@ -145,23 +110,24 @@ tree_fold_divides_p (tree type,
   if (integer_onep (a))
     return true;
   
+  /* Determines whether (A == gcd (A, B)).  */
   return integer_zerop 
     (fold (build (MINUS_EXPR, type, a, tree_fold_gcd (a, b))));
 }
 
-/* Bezout: Let a1 and a2 be two integers; there exist two integers u11
-   and u12 such that, 
+/* Bezout: Let A1 and A2 be two integers; there exist two integers U11
+   and U12 such that, 
    
-   |  u11 * a1 + u12 * a2 = gcd (a1, a2).
+   |  U11 * A1 + U12 * A2 = gcd (A1, A2).
    
    This function computes the greatest common divisor using the
    Blankinship algorithm.  The gcd is returned, and the coefficients
-   of the unimodular matrix U are (u11, u12, u21, u22) such that, 
+   of the unimodular matrix U are (U11, U12, U21, U22) such that, 
 
    |  U.A = S
    
-   |  (u11 u12) (a1) = (gcd)
-   |  (u21 u22) (a2)   (0)
+   |  (U11 U12) (A1) = (gcd)
+   |  (U21 U22) (A2)   (0)
    
    FIXME: Use lambda_..._hermite for implementing this function.
 */
@@ -425,9 +391,10 @@ dump_data_dependence_direction (FILE *file,
 
 
 /* Given an ARRAY_REF node REF, records its access functions.
-   Example: given A[i][3], record the opnd1 function, ie. the constant
-   "3", then recursively call the function on opnd0, ie. the ARRAY_REF
-   "A[i]".  The function returns the base name: "A".  */
+   Example: given A[i][3], record in ACCESS_FNS the opnd1 function,
+   ie. the constant "3", then recursively call the function on opnd0,
+   ie. the ARRAY_REF "A[i]".  The function returns the base name:
+   "A".  */
 
 static tree
 analyze_array_indexes (struct loop *loop,
@@ -459,8 +426,9 @@ analyze_array_indexes (struct loop *loop,
 }
 
 /* For a data reference REF contained in the statemet STMT, initialize
-   a DATA_REFERENCE structure, and return it.  Set the IS_READ flag to
-   true when REF is in the right hand side of an assignment.  */
+   a DATA_REFERENCE structure, and return it.  IS_READ flag has to be
+   set to true when REF is in the right hand side of an
+   assignment.  */
 
 struct data_reference *
 analyze_array (tree stmt, tree ref, bool is_read)
@@ -617,11 +585,10 @@ finalize_ddr_dependent (struct data_dependence_relation *ddr,
 
 
 
-/* This section contains the classic Banerjee.  The functions are
-   represented by chains of recurrences.  */
+/* This section contains the classic Banerjee tests.  */
 
-/* This is the ZIV test.  ZIV = Zero Index Variable, ie. both
-   functions do not depend on the iterations of a loop.  */
+/* Returns true iff CHREC_A and CHREC_B are not dependent on any index
+   variables, i.e., if the ZIV (Zero Index Variable) test is true.  */
 
 static inline bool
 ziv_subscript_p (tree chrec_a, 
@@ -631,8 +598,8 @@ ziv_subscript_p (tree chrec_a,
 	  && evolution_function_is_constant_p (chrec_b));
 }
 
-/* Determines whether the subscript depends on the evolution of a
-   single loop or not.  SIV = Single Index Variable.  */
+/* Returns true iff CHREC_A and CHREC_B are dependent on an index
+   variable, i.e., if the SIV (Single Index Variable) test is true.  */
 
 static bool
 siv_subscript_p (tree chrec_a,
@@ -668,7 +635,12 @@ siv_subscript_p (tree chrec_a,
   return false;
 }
 
-/* Analyze a ZIV (Zero Index Variable) subscript.  */
+/* Analyze a ZIV (Zero Index Variable) subscript.  *OVERLAPS_A and
+   *OVERLAPS_B are initialized to the functions that describe the
+   relation between the elements accessed twice by CHREC_A and
+   CHREC_B.  For k >= 0, the following property is verified:
+
+   CHREC_A (*OVERLAPS_A (k)) = CHREC_B (*OVERLAPS_B (k)).  */
 
 static void 
 analyze_ziv_subscript (tree chrec_a, 
@@ -713,8 +685,13 @@ analyze_ziv_subscript (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
+/* Analyze a SIV (Single Index Variable) subscript where CHREC_A is a
+   constant, and CHREC_B is an affine function.  *OVERLAPS_A and
+   *OVERLAPS_B are initialized to the functions that describe the
+   relation between the elements accessed twice by CHREC_A and
+   CHREC_B.  For k >= 0, the following property is verified:
+
+   CHREC_A (*OVERLAPS_A (k)) = CHREC_B (*OVERLAPS_B (k)).  */
 
 static void
 analyze_siv_subscript_cst_affine (tree chrec_a, 
@@ -836,8 +813,13 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
     }
 }
 
-/* This is a part of the SIV subscript analyzer (Single Index
-   Variable).  */
+/* Analyze a SIV (Single Index Variable) subscript where CHREC_A is an
+   affine function, and CHREC_B is a constant.  *OVERLAPS_A and
+   *OVERLAPS_B are initialized to the functions that describe the
+   relation between the elements accessed twice by CHREC_A and
+   CHREC_B.  For k >= 0, the following property is verified:
+
+   CHREC_A (*OVERLAPS_A (k)) = CHREC_B (*OVERLAPS_B (k)).  */
 
 static void
 analyze_siv_subscript_affine_cst (tree chrec_a, 
@@ -1089,10 +1071,12 @@ analyze_subscript_affine_affine (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
-/* Analyze single index variable subscript.  Note that the dependence
-   testing is not commutative, and that's why both versions of
-   analyze_siv_subscript_x_y and analyze_siv_subscript_y_x are
-   implemented.  */
+/* Analyze a SIV (Single Index Variable) subscript.  *OVERLAPS_A and
+   *OVERLAPS_B are initialized to the functions that describe the
+   relation between the elements accessed twice by CHREC_A and
+   CHREC_B.  For k >= 0, the following property is verified:
+
+   CHREC_A (*OVERLAPS_A (k)) = CHREC_B (*OVERLAPS_B (k)).  */
 
 static void
 analyze_siv_subscript (tree chrec_a, 
@@ -1128,8 +1112,8 @@ analyze_siv_subscript (tree chrec_a,
     fprintf (dump_file, ")\n");
 }
 
-/* Helper for determining whether the evolution steps of an affine
-   CHREC divide the constant CST.  */
+/* Return true when the evolution steps of an affine CHREC divide the
+   constant CST.  */
 
 static bool
 chrec_steps_divide_constant_p (tree chrec, 
@@ -1147,7 +1131,12 @@ chrec_steps_divide_constant_p (tree chrec,
     }
 }
 
-/* This is the MIV subscript analyzer (Multiple Index Variable).  */
+/* Analyze a MIV (Multiple Index Variable) subscript.  *OVERLAPS_A and
+   *OVERLAPS_B are initialized to the functions that describe the
+   relation between the elements accessed twice by CHREC_A and
+   CHREC_B.  For k >= 0, the following property is verified:
+
+   CHREC_A (*OVERLAPS_A (k)) = CHREC_B (*OVERLAPS_B (k)).  */
 
 static void
 analyze_miv_subscript (tree chrec_a, 
@@ -1223,8 +1212,9 @@ analyze_miv_subscript (tree chrec_a,
 }
 
 /* Determines the iterations for which CHREC_A is equal to CHREC_B.
-   OVERLAP_ITERATIONS_A and OVERLAP_ITERATIONS_B are two functions
-   that describe the iterations that contain conflicting elements.
+   OVERLAP_ITERATIONS_A and OVERLAP_ITERATIONS_B are initialized with
+   two functions that describe the iterations that contain conflicting
+   elements.
    
    Remark: For an integer k >= 0, the following equality is true:
    
@@ -1284,8 +1274,7 @@ analyze_overlapping_iterations (tree chrec_a,
 
 /* This section contains the affine functions dependences detector.  */
 
-/* This is the subscript dependence tester (SubDT).  It computes the
-   conflicting iterations.  */
+/* Computes the conflicting iterations, and initialize DDR.  */
 
 static void
 subscript_dependence_tester (struct data_dependence_relation *ddr)
@@ -1567,8 +1556,8 @@ build_classic_dir_vector (struct data_dependence_relation *res,
   VARRAY_PUSH_GENERIC_PTR (*classic_dir, dir_v);
 }
 
-/* Determine whether the access functions are affine functions, in
-   which case the dependence tester can be runned.  */
+/* Returns true when all the access functions of A are affine or
+   constant.  */
 
 static bool 
 access_functions_are_affine_or_constant_p (struct data_reference *a)
@@ -1630,8 +1619,9 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 
 /* Compute a subset of the data dependence relation graph.  Don't
    compute read-read relations, and avoid the computation of the
-   opposite relation, ie. when AB has been computed, don't compute
-   BA.  */
+   opposite relation, ie. when AB has been computed, don't compute BA.
+   DATAREFS contains a list of data references, and the result is set
+   in DEPENDENCE_RELATIONS.  */
 
 static void 
 compute_rw_wr_ww_dependences (varray_type datarefs, 
@@ -1719,8 +1709,11 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 
 /* This section contains all the entry points.  */
 
-/* Entry point.  "Give me a loop nest, I will return you a set of
-   distance/direction vectors."  */
+/* Given a loop nest LOOP, the following vectors are returned:
+   *DATAREFS is initialized to all the array elements contained in this loop, 
+   *DEPENDENCE_RELATIONS contains the relations between the data references, 
+   *CLASSIC_DIST contains the set of distance vectors,
+   *CLASSIC_DIR contains the set of direction vectors.  */
 
 void
 compute_data_dependences_for_loop (unsigned nb_loops, 
@@ -1788,11 +1781,6 @@ analyze_all_data_dependences (struct loops *loops)
   varray_type dependence_relations;
   varray_type classic_dist, classic_dir;
   int nb_data_refs = 10;
-
-#if 0
-  dump_file = stderr;
-  dump_flags = 31;
-#endif
 
   VARRAY_GENERIC_PTR_INIT (classic_dist, 10, "classic_dist");
   VARRAY_GENERIC_PTR_INIT (classic_dir, 10, "classic_dir");

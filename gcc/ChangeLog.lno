@@ -1,3 +1,10 @@
+2004-07-13  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c: Fix some comments for inclusion in mainline.
+	(tree_fold_gcd): Moved...
+	* tree.c (tree_fold_gcd): ...here.
+	* tree.h (tree_fold_gcd): Declared here.
+
 2004-07-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-niter.c (mark_maybe_infinite_loops): Handle abnormal

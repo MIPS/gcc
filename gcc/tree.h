@@ -3588,6 +3588,7 @@ extern void build_common_tree_nodes_2 (int);
 extern tree build_range_type (tree, tree, tree);
 extern bool cst_and_fits_in_hwi (tree);
 extern HOST_WIDE_INT int_cst_value (tree);
+extern tree tree_fold_gcd (tree, tree);
 extern tree build_int_cst (tree, unsigned HOST_WIDE_INT);
 
 /* In function.c */

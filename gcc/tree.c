@@ -5672,4 +5672,46 @@ build_int_cst (tree type, unsigned HOST_WIDE_INT val)
   return convert (type, ival);
 }
 
+/* Returns the greatest common divisor of A and B, which must be
+   INTEGER_CSTs.  */
+
+tree 
+tree_fold_gcd (tree a, tree b)
+{
+  tree a_mod_b;
+  tree type = TREE_TYPE (a);
+  
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (a) != INTEGER_CST
+      || TREE_CODE (b) != INTEGER_CST)
+    abort ();
+#endif
+  
+  if (integer_zerop (a)) 
+    return b;
+  
+  if (integer_zerop (b)) 
+    return a;
+  
+  if (tree_int_cst_sgn (a) == -1)
+    a = fold (build (MULT_EXPR, type, a,
+		     convert (type, integer_minus_one_node)));
+  
+  if (tree_int_cst_sgn (b) == -1)
+    b = fold (build (MULT_EXPR, type, b,
+		     convert (type, integer_minus_one_node)));
+ 
+  while (1)
+    {
+      a_mod_b = fold (build (CEIL_MOD_EXPR, type, a, b));
+ 
+      if (!TREE_INT_CST_LOW (a_mod_b)
+	  && !TREE_INT_CST_HIGH (a_mod_b))
+	return b;
+
+      a = b;
+      b = a_mod_b;
+    }
+}
+
 #include "gt-tree.h"
