@@ -8900,7 +8900,7 @@ rs6000_init_machine_status (void)
 {
   /* APPLE LOCAL begin volatile pic base reg in leaves */
   machine_function *mf = (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
-  mf->substitute_pic_base_reg = -1;
+  mf->substitute_pic_base_reg = INVALID_REGNUM;
   return mf;
   /* APPLE LOCAL end volatile pic base reg in leaves */
 }
@@ -10654,7 +10654,7 @@ first_reg_to_save (void)
   if (flag_pic
       && current_function_uses_pic_offset_table
       /* APPLE LOCAL volatile pic base reg in leaves */
-      && cfun->machine->substitute_pic_base_reg == -1
+      && cfun->machine->substitute_pic_base_reg == INVALID_REGNUM
       && first_reg > RS6000_PIC_OFFSET_TABLE_REGNUM)
     return RS6000_PIC_OFFSET_TABLE_REGNUM;
 #endif
@@ -12488,7 +12488,8 @@ rs6000_emit_prologue (void)
 		    /* APPLE LOCAL begin volatile pic base reg in leaves */
 		    || (DEFAULT_ABI == ABI_DARWIN && flag_pic
 			&& current_function_uses_pic_offset_table
-			&& cfun->machine->substitute_pic_base_reg == -1))))
+			&& cfun->machine->substitute_pic_base_reg 
+			    == INVALID_REGNUM))))
 	            /* APPLE LOCAL end volatile pic base reg in leaves */
 	  {
 	    rtx addr, reg, mem;
@@ -12575,7 +12576,8 @@ rs6000_emit_prologue (void)
   if (objc_method_using_pic)
       rs6000_maybe_dead (
 	   emit_move_insn (gen_rtx_REG (Pmode,
-				  cfun->machine->substitute_pic_base_reg == -1 
+				  cfun->machine->substitute_pic_base_reg
+					== INVALID_REGNUM
 				  ? PIC_OFFSET_TABLE_REGNUM 
 				  : cfun->machine->substitute_pic_base_reg),
 			   gen_rtx_REG (Pmode, 12)));
@@ -12690,7 +12692,8 @@ rs6000_emit_prologue (void)
       rs6000_maybe_dead (
 	 emit_move_insn (
 		 gen_rtx_REG (Pmode,
-			      cfun->machine->substitute_pic_base_reg == -1
+			      cfun->machine->substitute_pic_base_reg 
+				    == INVALID_REGNUM
 			      ? RS6000_PIC_OFFSET_TABLE_REGNUM
 			      : cfun->machine->substitute_pic_base_reg),
 		 dest));
@@ -12990,7 +12993,8 @@ rs6000_emit_epilogue (int sibcall)
 		  /* APPLE LOCAL begin darwin native */
 		  || (DEFAULT_ABI == ABI_DARWIN && flag_pic
 		      && current_function_uses_pic_offset_table
-		      && cfun->machine->substitute_pic_base_reg == -1))))
+		      && cfun->machine->substitute_pic_base_reg 
+			    == INVALID_REGNUM))))
 		  /* APPLE LOCAL end darwin native */
 	{
 	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 

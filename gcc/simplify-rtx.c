@@ -967,9 +967,11 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  if (GET_CODE (op) == NEG)
 	    return XEXP (op, 0);
 
+	  /* APPLE LOCAL disallow generating NOT (sym) */
 	  /* (neg (plus X 1)) can become (not X).  */
 	  if (GET_CODE (op) == PLUS
-	      && XEXP (op, 1) == const1_rtx)
+	      && XEXP (op, 1) == const1_rtx
+	      && GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
 	    return simplify_gen_unary (NOT, mode, XEXP (op, 0), mode);
 
 	  /* Similarly, (neg (not X)) is (plus X 1).  */
@@ -987,9 +989,11 @@ simplify_unary_operation (enum rtx_code code, enum machine_mode mode,
 	    return simplify_gen_binary (MINUS, mode, XEXP (op, 1),
 					XEXP (op, 0));
 
+	  /* APPLE LOCAL don't allow subtraction of symbol address */
 	  if (GET_CODE (op) == PLUS
 	      && !HONOR_SIGNED_ZEROS (mode)
-	      && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
+	      && !HONOR_SIGN_DEPENDENT_ROUNDING (mode)
+	      && GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
 	    {
 	      /* (neg (plus A C)) is simplified to (minus -C A).  */
 	      if (GET_CODE (XEXP (op, 1)) == CONST_INT

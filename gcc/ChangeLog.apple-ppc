@@ -1,3 +1,12 @@
+2004-05-22  Dale Johannesen  <dalej@apple.com>
+
+	* simplify-rtx.c (simplify_unary_operation):  Don't create NOT(SYM)
+	or (MINUS(CON SYM)).
+	* config/rs6000/rs6000.h (machine_function):  Make substitute_pic_base_reg
+	unsigned.
+	* config/rs6000/rs6000.md:  Compare it to INVALID_REGNUM not -1.
+	* config/rs6000/rs6000.c (throughout):  Ditto.
+
 2004-05-21  Ziemowit Laski  <zlaski@apple.com>
 
 	* opts.c (common_handle_option): Do not const-qualify a char buffer

@@ -1771,7 +1771,7 @@ typedef struct machine_function GTY(())
   int ra_needs_full_frame;
   /* APPLE LOCAL volatile pic base reg in leaves */
   /* Substitute PIC register in leaf functions */
-  int substitute_pic_base_reg;
+  unsigned int substitute_pic_base_reg;
   /* Some local-dynamic symbol.  */
   const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
