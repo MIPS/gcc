@@ -1,3 +1,8 @@
+2003-09-25  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-ander.c:  Fixup comment spacing.
+	(andersen_op_assign):  Handle >2 operands case.
+
 2003-09-24  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-dfa.c (compute_immediate_uses_for): Split up in two

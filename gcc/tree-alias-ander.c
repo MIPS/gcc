@@ -176,6 +176,7 @@ static int pta_get_ptsize (contents_type);
 /* Hook for debugging.  This function is called instead of
    aterm_inclusion, and lets us print the actual constraints as they
    are generated.  */
+
 static void
 term_inclusion (aterm t1, aterm t2)
 {
@@ -192,6 +193,7 @@ term_inclusion (aterm t1, aterm t2)
 }
 
 /* Initialize libbanshee's constraint engine.  */
+
 static void
 pta_init (void)
 {
@@ -200,13 +202,12 @@ pta_init (void)
 
 /* Reset libbanshee's constraint engine.  We do this when we are done
    using it, as it releases the memory libbanshee is using.  */
+
 static void
 pta_reset (void)
 {
   andersen_terms_reset ();
 }
-
-
 
 static aterm
 get_ref (aterm t)
@@ -218,7 +219,9 @@ get_ref (aterm t)
 
   return r_decon.f1;
 }
+
 /* Make a function record out of the arguments.  */
+
 static argterm
 fun_rec_aterm (aterm_list args)
 {
@@ -258,6 +261,7 @@ pta_make_lam (const char *id, aterm ret, aterm_list args)
 }
 
 /* Make a label reference to the given id.  */
+
 static aterm
 pta_make_ref (const char *id)
 {
@@ -270,6 +274,7 @@ pta_make_ref (const char *id)
 }
 
 /* Return the empty set.  */
+
 static aterm
 pta_bottom (void)
 {
@@ -278,6 +283,7 @@ pta_bottom (void)
 
 /* Join two terms, such that anything in set t1 will also be in set
    t2, and vice versa.  */
+
 static aterm
 pta_join (aterm t1, aterm t2)
 {
@@ -296,6 +302,7 @@ pta_join (aterm t1, aterm t2)
 }
 
 /* Generate the constraint for a dereference of term t1.  */
+
 static aterm
 pta_deref (aterm t1)
 {
@@ -303,6 +310,7 @@ pta_deref (aterm t1)
 }
 
 /* Generate the constraint for t1 being an rvalue.  */
+
 static aterm
 pta_rvalue (aterm t1)
 {
@@ -310,6 +318,7 @@ pta_rvalue (aterm t1)
 }
 
 /* Generate the constraint for taking the address of t1.  */
+
 static aterm
 pta_address (aterm t1)
 {
@@ -317,6 +326,7 @@ pta_address (aterm t1)
 }
 
 /* Generate the constraint for assigning t2 to t1.  */
+
 static void
 pta_assignment (aterm t1, aterm t2)
 {
@@ -324,6 +334,7 @@ pta_assignment (aterm t1, aterm t2)
 }
 
 /* Make a function from the given name, return value, and arguments.  */
+
 static aterm
 pta_make_fun (const char *name, aterm ret, aterm_list args)
 {
@@ -344,6 +355,7 @@ pta_make_fun (const char *name, aterm ret, aterm_list args)
 
 /* Return the constraint for calling function T with arguments
    ACTUALS.  */
+
 static aterm
 pta_application (aterm t, aterm_list actuals)
 {
@@ -354,6 +366,7 @@ pta_application (aterm t, aterm_list actuals)
 }
 
 /* Return the contents of set expression T.  */
+
 static contents_type
 pta_get_contents (aterm t)
 {
@@ -364,6 +377,7 @@ pta_get_contents (aterm t)
 }
 
 /* Print out a points-to set element.  */
+
 static void
 pr_ptset_aterm_elem (aterm t)
 {
@@ -386,6 +400,7 @@ pr_ptset_aterm_elem (aterm t)
 
 
 /* Print out a points-to set.  */
+
 static void
 pta_pr_ptset (contents_type t)
 {
@@ -456,8 +471,8 @@ print_out_result (splay_tree_node node, void *data ATTRIBUTE_UNUSED)
   return 0;
 }
 
-/* Cleanup after Andersen alias analysis.
-   Currently does nothing.  */
+/* Cleanup after Andersen alias analysis.  */
+
 static void
 andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
@@ -518,6 +533,7 @@ andersen_add_var (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl)
 /* Add a variable to the analyzer that is equivalent (as far as
    aliases go) to some existing typevar.
    For Andersen, we just call a function that does this for us.  */
+
 static alias_typevar
 andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
 		       alias_typevar tv)
@@ -548,6 +564,7 @@ andersen_add_var_same (struct tree_alias_ops *ops ATTRIBUTE_UNUSED, tree decl,
 }
 
 /* Inference for simple assignment (lhs = rhs) */
+
 static void
 andersen_simple_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			alias_typevar lhs, alias_typevar rhs)
@@ -566,6 +583,7 @@ andersen_simple_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 }
 
 /* Inference for address assignment (lhs = &addr) */
+
 static void
 andersen_addr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		      alias_typevar lhs, alias_typevar addr)
@@ -585,6 +603,7 @@ andersen_addr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 
 /* Inference for pointer assignment (lhs = *ptr) */
+
 static void
 andersen_ptr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		     alias_typevar lhs, alias_typevar ptr)
@@ -601,8 +620,10 @@ andersen_ptr_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		  pta_rvalue (pta_deref (ALIAS_TVAR_ATERM (ptr))));
 
 }
+
 /* Determine if OP destroys the current assumed to be valid pointer
    (whether it generates a new valid pointer is not relevant).  */
+
 static bool
 pointer_destroying_op (tree op)
 {
@@ -629,7 +650,9 @@ pointer_destroying_op (tree op)
     }
   return false;
 }
-/* Inference rule for operations (lhs = operation(operands)) */
+
+/* Inference rule for operations (lhs = operation(operands)).  */
+
 static void
 andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar lhs, varray_type operands, tree operation)
@@ -655,15 +678,25 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
       pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (pta_bottom ()));
       return;
     }
-  /* We should only ever have 1 or 2 operands in GIMPLE.  */
-  if (VARRAY_ACTIVE_SIZE (operands) > 2)
-    abort ();
-
+  
   /* Operations in general we can't track the exact effect of.  Thus,
      we conservatively assume that it could make the LHS point to
      *anything* the RHS points to.  To signify this, we join the RHS
      variables together and assign it to the LHS.  */
-  if (VARRAY_ACTIVE_SIZE (operands) == 2)
+  /* The >2 case occurs when we are dealing with constructors.  */
+  if (VARRAY_ACTIVE_SIZE (operands) > 2)
+    {
+      size_t i;
+      alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
+      newvar = ALIAS_TVAR_ATERM (tv1);
+      for (i = 1; i < VARRAY_ACTIVE_SIZE (operands); i++)
+	{
+	  alias_typevar tempvar = VARRAY_GENERIC_PTR (operands, i);
+	  aterm t2 = ALIAS_TVAR_ATERM (tempvar);
+	  newvar = pta_join (newvar, t2);
+	}
+    }
+  else if (VARRAY_ACTIVE_SIZE (operands) == 2)
     {
       alias_typevar tv1 = VARRAY_GENERIC_PTR (operands, 0);
       alias_typevar tv2 = VARRAY_GENERIC_PTR (operands, 1);
@@ -680,7 +713,8 @@ andersen_op_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   pta_assignment (ALIAS_TVAR_ATERM (lhs), pta_rvalue (newvar));
 }
 
-/* Inference for heap assignment (lhs = alloc) */
+/* Inference for heap assignment (lhs = alloc).  */
+
 static void
 andersen_heap_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		      alias_typevar lhs ATTRIBUTE_UNUSED)
@@ -696,7 +730,8 @@ andersen_heap_assign (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 #endif
 }
 
-/* Inference for assignment to a pointer (*ptr = rhs) */
+/* Inference for assignment to a pointer (*ptr = rhs).  */
+
 static void
 andersen_assign_ptr (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		     alias_typevar ptr, alias_typevar rhs)
@@ -714,7 +749,7 @@ andersen_assign_ptr (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		  pta_rvalue (ALIAS_TVAR_ATERM (rhs)));
 }
 
-/* Inference for a function definition. */
+/* Inference for a function definition.  */
 
 static void
 andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
@@ -741,7 +776,8 @@ andersen_function_def (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
   pta_assignment (ALIAS_TVAR_ATERM (func), fun_type);
 }
 
-/* Inference for a function call assignment */
+/* Inference for a function call assignment.  */
+
 static int
 andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			alias_typevar lhs, alias_typevar func,
@@ -789,6 +825,7 @@ andersen_function_call (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 
 /* Simple pointer comparison function for list sorting.  */
+
 static int 
 simple_cmp (const aterm a, const aterm b)
 {
@@ -810,6 +847,7 @@ extern tree old_global_var;
 
 /* Simple function that returns false if the aterm is the global
    variable's aterm, and true otherwise.  */
+
 static bool 
 throwaway_global (const aterm a)
 {
@@ -825,6 +863,7 @@ throwaway_global (const aterm a)
    When we didn't create global_var, we can just get the two points-to
    sets and compare the lengths, then the names.
    When we did create global_var, we have to filter it out.  */
+
 static bool
 andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 			     alias_typevar ptrtv, alias_typevar vartv)
@@ -889,6 +928,7 @@ andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 
 /* Determine if two variables may alias.  In our case, this means
    whether the decl represented by PTRTV can point to VARTV.  */
+
 static bool
 andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar ptrtv, alias_typevar vartv)
