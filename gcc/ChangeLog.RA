@@ -1,3 +1,8 @@
+2003-10-16  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (select_regclass): Subtract call_fixed_regs &
+	call_used_regs).
+
 2003-10-15  Michael Matz  <matz@suse.de>
 
 	* df.h (enum df_ref_type): Add member DF_REF_REG_CLOBBER.

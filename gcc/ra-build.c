@@ -3012,10 +3012,20 @@ select_regclass ()
 	{
 	  unsigned int num_refs = web->num_uses + web->num_defs;
 	  unsigned int num_calls = web->num_calls;
+	  HARD_REG_SET s;
+	  /* Remove also those regs which aren't caller-save, but
+	     for which we are unable to generate the necessary
+	     mem-reg moves in caller-save.c.  */
 	  if (!flag_caller_saves
 	      || !CALLER_SAVE_PROFITABLE (num_refs, num_calls))
 	    AND_COMPL_HARD_REG_SET (web->usable_regs,
 				    regs_invalidated_by_call);
+	  /* call_fixed_reg_set includes also non call-used regs
+	     (in fact all of them).  We don't want to subtract
+	     those.  */
+	  COPY_HARD_REG_SET (s, call_fixed_reg_set);
+	  AND_HARD_REG_SET (s, call_used_reg_set);
+	  AND_COMPL_HARD_REG_SET (web->usable_regs, s);
 	}
       if (web->live_over_abnormal)
 	AND_COMPL_HARD_REG_SET (web->usable_regs, regs_invalidated_by_call);
