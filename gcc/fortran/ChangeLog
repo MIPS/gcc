@@ -1,3 +1,8 @@
+2004-04-24  Victor Leikehman  <lei@il.ibm.com>
+
+	* trans-io.c (transfer_expr): Implemented recursive printing
+	of derived types.
+
 2004-04-24  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gfortranspec.c: Do not include multilib.h.

@@ -1,3 +1,7 @@
+2004-04-24  Victor Leikehman  <lei@il.ibm.com>
+
+	* gfortran.fortran-torture/execute/der_io.f90: New test.
+
 2004-04-24  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/15113
