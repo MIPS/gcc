@@ -161,14 +161,6 @@ static ptr_t GC_first_common()
 
 #endif  /* SUNOS4 ... */
 
-# if defined(SUNOS4) || defined(SUNOS5DL)
-/* Add dynamic library data sections to the root set.		*/
-# if !defined(PCR) && !defined(SOLARIS_THREADS) && defined(THREADS)
-#   ifndef SRC_M3
-	--> fix mutual exclusion with dlopen
-#   endif  /* We assume M3 programs don't call dlopen for now */
-# endif
-
 # if defined(LINUX_THREADS) || defined(SOLARIS_THREADS) \
      || defined(HPUX_THREADS) || defined(IRIX_THREADS)
   /* Make sure we're not in the middle of a collection, and make	*/
@@ -187,14 +179,13 @@ static ptr_t GC_first_common()
     GC_bool result;
     LOCK();
     result = GC_dont_gc;
-    while (GC_incremental && GC_collection_inProgress()) {
+    while (GC_incremental && GC_collection_in_progress()) {
 	GC_collect_a_little_inner(1000);
     }
     GC_dont_gc = TRUE;
     UNLOCK();
     return(result);
   }
-
 
   /* Redefine dlopen to guarantee mutual exclusion with	*/
   /* GC_register_dynamic_libraries.			*/
@@ -231,6 +222,14 @@ static ptr_t GC_first_common()
 /* BTL: added to fix circular dlopen definition if SOLARIS_THREADS defined */
 # if defined(GC_must_restore_redefined_dlopen)
 #   define dlopen GC_dlopen
+# endif
+
+# if defined(SUNOS4) || defined(SUNOS5DL)
+/* Add dynamic library data sections to the root set.		*/
+# if !defined(PCR) && !defined(SOLARIS_THREADS) && defined(THREADS)
+#   ifndef SRC_M3
+	--> fix mutual exclusion with dlopen
+#   endif  /* We assume M3 programs don't call dlopen for now */
 # endif
 
 # ifndef USE_PROC_FOR_LIBRARIES

@@ -196,6 +196,7 @@ void GC_suspend_handler(int sig)
 #   ifdef NO_SIGNALS
       if (sigdelset(&mask, SIGINT) != 0) ABORT("sigdelset() failed");
       if (sigdelset(&mask, SIGQUIT) != 0) ABORT("sigdelset() failed");
+      if (sigdelset(&mask, SIGTERM) != 0) ABORT("sigdelset() failed");
 #   endif
     do {
 	    me->signal = 0;
@@ -476,7 +477,8 @@ void GC_thr_init()
     }
 #   ifdef NO_SIGNALS
       if (sigdelset(&act.sa_mask, SIGINT) != 0
-	  || sigdelset(&act.sa_mask, SIGQUIT != 0)) {
+	  || sigdelset(&act.sa_mask, SIGQUIT != 0)
+	  || sigdelset(&act.sa_mask, SIGTERM != 0)) {
         ABORT("sigdelset() failed");
       }
 #   endif
