@@ -72,6 +72,7 @@ definitions and other extensions.  */
 #include "debug.h"
 #include "tree-inline.h"
 #include "tree-dump.h"
+#include "tree-flow.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -7480,6 +7481,7 @@ source_end_java_method (void)
       && ! flag_emit_class_files
       && ! flag_emit_xref)
     {
+      /* PLEASE PLEASE PLEASE WORK ON USING TREE_REST_OF_COMPILATION!  */
       /* Convert function tree to GIMPLE.  */
       if (!flag_disable_gimple)
 	{
@@ -7501,6 +7503,9 @@ source_end_java_method (void)
 
 	  /* Debugging dump after gimplification.  */
 	  dump_function (TDI_gimple, fndecl);
+
+	  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+	  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
 
 	  /* Run SSA optimizers if gimplify succeeded.  */
 	  if (optimize > 0 && !flag_disable_tree_ssa)

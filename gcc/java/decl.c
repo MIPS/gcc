@@ -46,6 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "timevar.h"
 #include "tree-inline.h"
 #include "tree-dump.h"
+#include "tree-flow.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -1903,8 +1904,14 @@ end_java_method (void)
 
   cfun->x_whole_function_mode_p = 1;
 
+  /* PLEASE PLEASE PLEASE WORK ON USING TREE_REST_OF_COMPILATION!  */
+
   gimplify_function_tree (fndecl);
   dump_function (TDI_gimple, fndecl);
+
+  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
+
   if (optimize > 0 && !flag_disable_tree_ssa)
     optimize_function_tree (fndecl);
   

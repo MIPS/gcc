@@ -1,3 +1,9 @@
+2003-10-01  Richard Henderson  <rth@redhat.com>
+
+        * decl.c (end_java_method): Invoke remove_useless_stmts_and_vars
+        and lower_eh_constructs.
+        * parse.y (source_end_java_method): Likewise.
+
 2003-09-24  Jason Merrill  <jason@redhat.com>
 
 	* decl.c, jcf-parse.c, jcf-write.c, parse.h, parse.y, resource.c:
