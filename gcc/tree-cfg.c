@@ -113,11 +113,12 @@ static bool phi_alternatives_equal (basic_block, edge, edge);
 void
 build_tree_cfg (tree *tp)
 {
+  /* Register specific tree functions.  */
+  tree_register_cfg_hooks ();
+
   /* If CFG already built, do nothing.  */
   if (basic_block_info)
     return;
-  /* Register specific tree functions.  */
-  tree_register_cfg_hooks ();
 
   /* Initialize the basic block array.  */
   init_flow ();
