@@ -160,7 +160,7 @@ extern void compute_affine_dependence (struct data_dependence_relation *);
    Make these two functions externally visible.  */
 extern void compute_subscript_distance (struct data_dependence_relation *);
 extern bool build_classic_dist_vector (struct data_dependence_relation *, int, 
-				       unsigned int);
+				       int);
 /* APPLE LOCAL end AV data dependence. -dpatel */
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 

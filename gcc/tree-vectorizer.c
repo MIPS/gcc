@@ -4003,7 +4003,7 @@ vect_build_dist_vector (struct loop *loop,
 
   /* Compute distance vector.  */
   compute_subscript_distance (ddr);
-  build_classic_dist_vector (ddr, loops_num, loop->num);
+  build_classic_dist_vector (ddr, loops_num, loop->depth);
 
   return loop_depth - 1;
 }
