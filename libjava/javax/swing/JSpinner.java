@@ -343,7 +343,7 @@ public class JSpinner extends JComponent
    */
   public ChangeListener[] getChangeListeners()
   {
-    return (ChangeListener[]) listenerList.getListeners(ChangeListener.class);;    
+    return (ChangeListener[]) listenerList.getListeners(ChangeListener.class);
   }
 
   /**

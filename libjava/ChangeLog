@@ -1,5 +1,10 @@
 2004-08-14  Mark Wielaard  <mark@klomp.org>
 
+	* javax/swing/JSpinner.java (getChangeListeners): Remove double
+	semi-colon.
+
+2004-08-14  Mark Wielaard  <mark@klomp.org>
+
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c:
 	Declare variables at top of functions/block.
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c: Likewise.
