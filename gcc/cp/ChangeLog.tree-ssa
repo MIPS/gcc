@@ -1,3 +1,11 @@
+2003-05-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* Make-lang.in (optimize.o): Add dependency on tree-simple.h
+	* decl.c (grokdeclarator): Don't abort when the declarator is
+	ERROR_MARK_NODE.
+	* optimize.c (optimize_function): Unshare all trees after
+	optimizing inline calls.
+
 2003-05-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* class.c (dump_array): Call CONSTRUCTOR_ELTS to access

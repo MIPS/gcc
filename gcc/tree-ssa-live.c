@@ -328,11 +328,16 @@ create_ssa_var_map ()
       /* Now register elements of PHI nodes.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
         {
-	  register_ssa_partition (map, PHI_RESULT (phi));
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    register_ssa_partition (map, PHI_ARG_DEF (phi, i));
+	  tree var = PHI_RESULT (phi);
+	  
+	  /* Only process variables that have real references.  */
+	  if (var_ann (var)->has_real_refs)
+	    {
+	      register_ssa_partition (map, var);
+	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+		register_ssa_partition (map, PHI_ARG_DEF (phi, i));
+	    }
 	}
-
     }
 
   return map;

@@ -385,8 +385,6 @@ is_simple_unary_expr (t)
   if (t == NULL_TREE)
     return 1;
 
-  STRIP_NOPS (t);
-
   /* Additions to the original grammar.  Allow VTABLE_REF
      wrappers.  */
   if (TREE_CODE (t) == VTABLE_REF)
@@ -897,7 +895,6 @@ get_base_symbol (t)
 
 	case ARRAY_REF:
 	case COMPONENT_REF:
-	case INDIRECT_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  t = TREE_OPERAND (t, 0);

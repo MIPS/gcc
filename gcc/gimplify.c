@@ -2157,16 +2157,16 @@ create_tmp_alias_var (type, prefix)
   
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
-#if defined ENABLE_CHECKING
-  /* If the type is an array, something is wrong.  */
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    abort ();
-#endif
-
-  /* Make the type of the variable writable.  */
-  type = build_type_variant (type, 0, 0);
-
+#if 0
+  /* FIXME: build_decl tries to layout the decl again.  This is causing a
+     miscompilation of g++.dg/debug/debug5.C because at this point CFUN
+     doesn't exist anymore.  Besides, laying the decl again seems to be
+     unnecessary work.  */
   tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
+#endif
+  tmp_var = make_node (VAR_DECL);
+  DECL_NAME (tmp_var) = get_identifier (tmp_name);
+  TREE_TYPE (tmp_var) = type;
 
   /* The variable was declared by the compiler.  */
   DECL_ARTIFICIAL (tmp_var) = 1;
@@ -2175,8 +2175,10 @@ create_tmp_alias_var (type, prefix)
   TREE_READONLY (tmp_var) = 0;
 
   DECL_EXTERNAL (tmp_var) = 0;
+  DECL_CONTEXT (tmp_var) = current_function_decl;
   TREE_STATIC (tmp_var) = 0;
   TREE_USED (tmp_var) = 1;
+  TREE_THIS_VOLATILE (tmp_var) = TREE_THIS_VOLATILE (type);
 
 
   return tmp_var;

@@ -322,7 +322,7 @@ maybe_find_rhs_use_for_var (def, var)
   varray_type uses;
   size_t i;
   
-  if (SSA_DECL_P (def))
+  if (SSA_VAR_P (def))
     {    
       if (names_match_p (var, def))
 	return def;
@@ -1917,13 +1917,13 @@ finalize_1 (ei, temp)
 		  newtemp = make_ssa_name (temp, expr);
 		  TREE_OPERAND (expr, 0) = newtemp;
 		  if (TREE_OPERAND (copy, 0)
-		      && SSA_DECL_P (TREE_OPERAND (copy, 0)))
+		      && SSA_VAR_P (TREE_OPERAND (copy, 0)))
 		    TREE_OPERAND (copy, 0) =
 		      reaching_def (TREE_OPERAND (copy, 0),
 				    NULL_TREE, bb_for_stmt (x), NULL_TREE);
 		  
 		  if (TREE_OPERAND (copy, 1) 
-		      && SSA_DECL_P (TREE_OPERAND (copy, 1)))
+		      && SSA_VAR_P (TREE_OPERAND (copy, 1)))
 		    TREE_OPERAND (copy, 1) = 
 		      reaching_def (TREE_OPERAND (copy, 1),
 				    NULL_TREE, bb_for_stmt (x), NULL_TREE);
@@ -1999,7 +1999,7 @@ injured_ephi_operand (ei, ephi, opnum)
       int j;
       tree phi;
       if ((TREE_CODE_CLASS (TREE_CODE (ei->expr)) == '1' && i == 1) 
-         || !SSA_DECL_P (TREE_OPERAND (ei->expr, i)))
+         || !SSA_VAR_P (TREE_OPERAND (ei->expr, i)))
 	continue;
       for (phi = phi_nodes (bb_for_stmt (ephi)); phi; phi = TREE_CHAIN (phi))
 	{
@@ -2386,7 +2386,7 @@ repair_euse_injury (ei, euse, temp)
     {
       tree var;      
       if ((TREE_CODE_CLASS (TREE_CODE (ei->expr)) == '1' && i == 1)
-	 || !SSA_DECL_P (TREE_OPERAND (ei->expr, i)))
+	 || !SSA_VAR_P (TREE_OPERAND (ei->expr, i)))
 	continue;
       var = find_rhs_use_for_var (*(EREF_STMT (euse)), 
 				  TREE_OPERAND (ei->expr, i));

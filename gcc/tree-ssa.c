@@ -174,8 +174,6 @@ static void rewrite_stmt		PARAMS ((block_stmt_iterator,
 						 varray_type *));
 static inline void rewrite_operand	PARAMS ((tree *));
 static void register_new_def		PARAMS ((tree, tree, varray_type *));
-static void update_indirect_ref_vuses	PARAMS ((tree, tree, varray_type));
-static void update_pointer_vuses	PARAMS ((tree, tree, varray_type));
 static void insert_phi_nodes_for	PARAMS ((tree, bitmap *, varray_type));
 static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
 static tree get_reaching_def		PARAMS ((tree));
@@ -216,20 +214,6 @@ static inline void add_conflicts_if_valid	PARAMS ((root_var_p, conflict_graph, v
 static bool var_is_live			PARAMS ((tree, basic_block));
 #endif
 
-/* Return nonzero if RHS may be copy propagated into subsequent
-   uses of LHS.  */
-#define MAY_COPYPROP_P(LHS, RHS)					\
-    (TREE_CODE (RHS) == SSA_NAME					\
-     /* Don't copy propagate assignments of the form T = *P.  It	\
-        increases the amount of indirect memory references.  */		\
-     && ! (TREE_CODE (SSA_NAME_VAR (LHS)) != INDIRECT_REF		\
-	   && TREE_CODE (SSA_NAME_VAR (RHS)) == INDIRECT_REF)		\
-     /* FIXME.  For now, don't propagate pointers if they haven't been	\
-        dereferenced (see update_indirect_ref_vuses).  */		\
-     && (!POINTER_TYPE_P (TREE_TYPE (RHS)) || indirect_ref (RHS))	\
-     && ! var_ann (SSA_NAME_VAR (LHS))->occurs_in_abnormal_phi		\
-     && ! var_ann (SSA_NAME_VAR (RHS))->occurs_in_abnormal_phi)
-
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
    to convert.
@@ -259,18 +243,13 @@ static bool var_is_live			PARAMS ((tree, basic_block));
    instance,
 
    	a = 4;			a_1 = 4;
-	*p = a;			(*p)_3 = a_1;
-
-   Notice that the SSA builder treats INDIRECT_REF expressions as if they
-   were variables.  It renames both P and *P separately.  Every time P is
-   assigned a new value, *P is considered clobbered.  But new versions of
-   *P do not affect P.
+	*p = a;			*p_3 = a_1;
 
 
    Dealing with aliases
    --------------------
 
-   Assume that in the following code fragment, variable *p may alias b:
+   Assume that in the following code fragment, pointer p may point to b:
 
 	    1	b = 4;
 	    2	*p = 5;
@@ -281,16 +260,16 @@ static bool var_is_live			PARAMS ((tree, basic_block));
    2.  We cannot just rewrite the use of 'b' to be a use of '*p':
 
 	    1	b_1 = 4;
-	    2	(*p)_2 = 5;
-	    3	... = (*p)_2;
+	    2	*p_2 = 5;
+	    3	... = *p_2;
 
-   The above transformation is wrong, because *p and b MAY alias, the
+   The above transformation is wrong, because p and b MAY alias, the
    compiler doesn't know whether they will always alias at runtime.  On the
    other hand, ignoring the may alias relation also leads to an incorrect
    transformation:
    
 	    1	b_1 = 4;
-	    2	(*p)_2 = 5;
+	    2	*p_2 = 5;
 	    3	... = b_1;
 
    With this version, the optimizers will not notice that the assignment to
@@ -300,15 +279,17 @@ static bool var_is_live			PARAMS ((tree, basic_block));
    the original operand untouched.  So, the above code fragment is converted
    into:
 
-	     	# (*p)_2 = VDEF <(*p)_1>;
+	     	# AT.1_2 = VDEF <AT.1_1>;
 	    1	b = 4;
-	    2	(*p)_3 = 5;
-	     	# VUSE <(*p)_3>
+	        # AT.1_3 = VDEF <AT.1_2>;
+	    2	*p_3 = 5;
+	     	# VUSE <AT.1_3>
 	    3	... = b;
 
    Notice how variable 'b' is not rewritten anymore.  Instead, references
-   to it are moved to the virtual operands which are all rewritten using *p
-   instead of b.
+   to it are moved to the virtual operands which are all rewritten using
+   AT.1, which is an artificial variable representing all the variables
+   aliased by 'p'.
 
    Virtual operands provide safe information about potential references to
    the operands in a statement.  But they are imprecise by nature.
@@ -881,27 +862,13 @@ create_temp (t)
     t = SSA_NAME_VAR (t);
  
   if (TREE_CODE (t) != VAR_DECL 
-      && TREE_CODE (t) != PARM_DECL
-      && TREE_CODE (t) != INDIRECT_REF)
+      && TREE_CODE (t) != PARM_DECL)
     abort ();
 
-  if (TREE_CODE (t) == INDIRECT_REF)
-    {
-      if (TREE_CODE (TREE_OPERAND (t, 0)) != VAR_DECL 
-          && TREE_CODE (TREE_OPERAND (t, 0)) != PARM_DECL)
-        abort ();
-      type = TREE_TYPE (TREE_OPERAND (t,0));
-      tmp = DECL_NAME (TREE_OPERAND(t, 0));
-      if (tmp)
-	name = IDENTIFIER_POINTER (tmp);
-    }
-  else
-    {
-      type = TREE_TYPE (t);
-      tmp = DECL_NAME (t);
-      if (tmp)
-	name = IDENTIFIER_POINTER (tmp);
-    }
+  type = TREE_TYPE (t);
+  tmp = DECL_NAME (t);
+  if (tmp)
+    name = IDENTIFIER_POINTER (tmp);
 
   if (name == NULL)
     name = "temp";
@@ -1400,6 +1367,12 @@ coalesce_ssa_name (map)
 	    /* Visit each PHI on the destination side of this abnormal
 	       edge, and attempt to coalesce the argument with the result.  */
 	    var = PHI_RESULT (phi);
+
+	    /* Ignore variables that have no real references, as those
+	       don't generate code.  */
+	    if (!var_ann (var)->has_real_refs)
+	      continue;
+
 	    x = var_to_partition (map, var);
 	    y = phi_arg_from_edge (phi, e);
 	    if (y == -1)
@@ -2102,31 +2075,11 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	    }
 #endif
 
-	  /* If the replacement is a constant, mark the statement modified
-	     because it just lost an operand.  */
+	  /* Gather statistics.  */
 	  if (TREE_CONSTANT (val))
-	    {
-	      ssa_stats.num_const_prop++;
-	      ann->modified = 1;
-	    }
+	    ssa_stats.num_const_prop++;
 	  else
 	    ssa_stats.num_copy_prop++;
-
-	  if (TREE_CODE (val) == SSA_NAME && vuses)
-	    {
-	      /* If we are replacing a pointer, the statement may have a VUSE
-		 for the pointer's associated INDIRECT_REF (this happens if
-		 this operand is an argument to a const function call).  We
-		 need to update that VUSE appropriately.  */
-	      if (POINTER_TYPE_P (TREE_TYPE (SSA_NAME_VAR (val))))
-		update_indirect_ref_vuses (*op_p, val, vuses);
-
-	      /* Similarly, if we are replacing an INDIRECT_REF, the
-		 statement will have a VUSE for the old base pointer.
-		 Replace it with the new one.  */
-	      if (TREE_CODE (SSA_NAME_VAR (val)) == INDIRECT_REF)
-		update_pointer_vuses (*op_p, val, vuses);
-	    }
 
 	  /* Replace the operand with its known constant value or copy.  */
 	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
@@ -2140,6 +2093,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
 	    }
 
 	  *op_p = val;
+	  ann->modified = 1;
 	}
     }
 
@@ -2228,7 +2182,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
       rhs = TREE_OPERAND (stmt, 1);
       if (may_optimize_p)
 	{
-	  if (MAY_COPYPROP_P (*def_p, rhs)
+	  if (TREE_CODE (rhs) == SSA_NAME
 	      || (TREE_CONSTANT (rhs) && is_simple_val (rhs)))
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
@@ -2253,37 +2207,12 @@ static inline void
 rewrite_operand (op_p)
      tree *op_p;
 {
-  tree op;
-
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
     abort ();
 #endif
 
-  /* If the operand is an INDIRECT_REF variable, we may need to change its
-     base pointer.  Consider the following situation:
-
-	    1	p = q + 1;
-	    2	q = q + 1;
-	    3	... = (*q);
-
-     The rewriting process will determine that 'q + 1' is redundant at line
-     2.  Therefore, the assignment will be eliminated and every reference
-     to 'q' needs to be replaced with 'p'.  This includes changing the base
-     pointer for every INDIRECT_REF node that uses 'q' as its base pointer.
-     So, we need to change *q to be the INDIRECT_REF variable
-     associated with the current reaching definition of 'q' (i.e., instead
-     of getting the current definition of *q, we actually want to get the
-     current definition of *p).  */
-  op = *op_p;
-  if (TREE_CODE (op) == INDIRECT_REF)
-    {
-      tree base = get_value_for (TREE_OPERAND (op, 0), currdefs);
-      if (base && SSA_NAME_VAR (base) != TREE_OPERAND (op, 0))
-	op = indirect_ref (base);
-    }
-
-  *op_p = get_reaching_def (op);
+  *op_p = get_reaching_def (*op_p);
 }
 
 
@@ -2313,66 +2242,6 @@ register_new_def (var, def, block_defs_p)
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_value_for (var, def, currdefs);
-}
-
-
-/* Update all virtual uses of the indirect reference associated with
-   ORIG_PTR to become virtual uses of the indirect reference for pointer
-   COPY_PTR.  VUSES is the array with all the virtual uses to be examined.
-   Note that this assumes that both ORIG_PTR and COPY_PTR have been renamed
-   into SSA form, but entries in VUSES are still in normal form.  */
-
-static void
-update_indirect_ref_vuses (orig_ptr, copy_ptr, vuses)
-     tree orig_ptr;
-     tree copy_ptr;
-     varray_type vuses;
-{
-  size_t i;
-  tree orig_indirect = indirect_ref (orig_ptr);
-  tree copy_indirect = indirect_ref (copy_ptr);
-
-#if defined ENABLE_CHECKING
-  /* FIXME.  We should remove this limitation.  The problem is that if we
-     still haven't created a dereference variable for this pointer, we may
-     propagate it into a statement that does dereference the pointer.
-     That causes all sorts of problems in add_stmt_operand later on,
-     because the variable has not been properly renamed.  */
-  if (copy_indirect == NULL_TREE)
-    abort ();
-#endif
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    if (orig_indirect == VARRAY_TREE (vuses, i))
-      {
-	VARRAY_TREE (vuses, i) = copy_indirect;
-	return;
-      }
-}
-
-
-/* Update all virtual uses of the base pointer for ORIG_INDIRECT with the
-   base pointer for COPY_INDIRECT.  VUSES is the array with all the virtual
-   uses to be examined.  Note that this assumes that both ORIG_INDIRECT and
-   COPY_INDIRECT have been renamed into SSA form, but entries in VUSES are
-   still in normal form.  */
-
-static void
-update_pointer_vuses (orig_indirect, copy_indirect, vuses)
-     tree orig_indirect;
-     tree copy_indirect;
-     varray_type vuses;
-{
-  size_t i;
-  tree orig_ptr = TREE_OPERAND (SSA_NAME_VAR (orig_indirect), 0);
-  tree copy_ptr = TREE_OPERAND (SSA_NAME_VAR (copy_indirect), 0);
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    if (orig_ptr == VARRAY_TREE (vuses, i))
-      {
-	VARRAY_TREE (vuses, i) = copy_ptr;
-	return;
-      }
 }
 
 
@@ -2695,9 +2564,7 @@ get_eq_expr_value (if_stmt)
   else if (TREE_CODE (cond) == EQ_EXPR
 	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
 	   && (TREE_CONSTANT (TREE_OPERAND (cond, 1))
-	       || (TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME
-		   && MAY_COPYPROP_P (TREE_OPERAND (cond, 0),
-				      TREE_OPERAND (cond, 1)))))
+	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
     value = build (MODIFY_EXPR, TREE_TYPE (cond),
 		   TREE_OPERAND (cond, 0),
 		   TREE_OPERAND (cond, 1));

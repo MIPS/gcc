@@ -71,17 +71,8 @@ struct var_ann_d GTY(())
 	   has been performed.  */
   unsigned has_hidden_use : 1;
 
-  /* Nonzero if this variable was stored/written in the function.
-     
-     Note this only applies to objects which are subject to
-     alias analysis.  */
+  /* Nonzero if this variable was stored/written in the function.  */
   unsigned is_stored : 1;
-
-  /* Nonzero if this variable was loaded/read in this function.
-
-     Note this only applies to objects which are subject to
-     alias analysis.  */
-  unsigned is_loaded : 1;
 
   /* Nonzero if the variable may be modified by function calls.  */
   unsigned is_call_clobbered : 1;
@@ -96,13 +87,28 @@ struct var_ann_d GTY(())
   /* Nonzero if the variable occurs in an abnormal PHI.  */
   unsigned occurs_in_abnormal_phi : 1;
 
-  /* Unused bits.  */
-  unsigned unused : 23;
+  /* Nonzero if this variable is a memory tag used to represent the memory
+     pointed-to by the pointer in MEM_TAG.  */
+  unsigned is_mem_tag : 1;
 
-  /* An INDIRECT_REF expression representing all the dereferences of this
-     pointer.  Used to store aliasing information for pointer dereferences
-     (see add_stmt_operand and find_vars_r).  */
-  tree indirect_ref;
+  /* Nonzero if this variable is an alias tag that represents references to
+     other variables (i.e., this variable appears in the MAY_ALIASES array
+     of other variables).  */
+  unsigned is_alias_tag : 1;
+
+  /* Nonzero if this variable is used as a real operand in this function.
+     This is used by the SSA->normal pass to determine which variables to
+     ignore in the coalescing phase.  By default, all variables start with
+     this flag set to 0.  This changes if the variable is added as an
+     operand using add_use or set_def.  */
+  unsigned has_real_refs : 1;
+
+  /* A VAR_DECL used to associated pointers with the memory location that
+     they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
+     pointer associated to this memory tag.  If IS_MEM_TAG is zero, then
+     MEM_TAG is the memory tag associated to this pointer (see
+     compute_alias_sets).  */
+  tree mem_tag;
 
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
@@ -241,21 +247,20 @@ typedef struct stmt_ann_d *stmt_ann_t;
 
 static inline tree tree_stmt			PARAMS ((tree));
 static inline var_ann_t var_ann			PARAMS ((tree));
+static inline var_ann_t get_var_ann		PARAMS ((tree));
 static inline stmt_ann_t stmt_ann		PARAMS ((tree));
+static inline stmt_ann_t get_stmt_ann		PARAMS ((tree));
 static inline enum tree_ann_type ann_type	PARAMS ((tree_ann));
 static inline basic_block bb_for_stmt		PARAMS ((tree));
 extern void set_bb_for_stmt      		PARAMS ((tree, basic_block));
 static inline void modify_stmt			PARAMS ((tree));
 static inline void unmodify_stmt		PARAMS ((tree));
 static inline bool stmt_modified_p		PARAMS ((tree));
-static inline tree create_indirect_ref		PARAMS ((tree));
 static inline varray_type may_aliases		PARAMS ((tree));
 static inline void set_may_alias_global_mem	PARAMS ((tree));
 static inline bool may_alias_global_mem_p 	PARAMS ((tree));
 static inline bool may_point_to_global_mem_p 	PARAMS ((tree));
 static inline void set_may_point_to_global_mem	PARAMS ((tree));
-static inline void set_indirect_ref		PARAMS ((tree, tree));
-static inline tree indirect_ref			PARAMS ((tree));
 static inline int get_lineno			PARAMS ((tree));
 static inline const char *get_filename		PARAMS ((tree));
 static inline bool is_exec_stmt			PARAMS ((tree));

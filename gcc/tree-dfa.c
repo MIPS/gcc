@@ -68,15 +68,17 @@ struct clobber_data_d
   voperands_t prev_vops;
 };
 
-/* Alias sets for type-based alias computation.  Each entry in the array
-   ALIAS_SETS represents a unique tag that represents a group of variables
-   with conflicting alias types.  This is only used when points-to analysis
-   is disabled (-ftree-points-to).  */
+/* Alias sets.  Each entry in the array ALIAS_SETS represents a unique tag
+   that represents a group of variables with conflicting alias types.  */
 struct alias_set_d
 {
+  /* Variable or memory tag representing all the variables in this set.  */
   tree tag;
-  tree tag_sym;
+
+  /* Alias set of the memory pointed-to by TAG.  */
   HOST_WIDE_INT tag_set;
+
+  /* Number of elements in this set.  */
   size_t num_elements;
 };
 
@@ -85,9 +87,15 @@ static varray_type alias_sets;
 /* State information for find_vars_r.  */
 struct walk_state
 {
+  /* Hash tables used to avoid adding the same variable more than once.  */
   htab_t vars_found;
   htab_t aliased_objects_found;
+
+  /* Nonzero if the variables found under the current tree are written to.  */
   int is_store;
+
+  /* Nonzero if the walker is inside an INDIRECT_REF node.  */
+  int is_indirect_ref;
 };
 
 
@@ -101,9 +109,6 @@ static const int opf_is_def 	= 1 << 0;
 
 /* Consider the operand virtual, regardlessof aliasing information.  */
 static const int opf_force_vop	= 1 << 1;
-
-/* For an INDIRECT_REF operand, don't add a VUSE for its base pointer.  */
-static const int opf_ignore_bp	= 1 << 2;
 
 
 /* Data and functions shared with tree-ssa.c.  */
@@ -119,11 +124,11 @@ static void collect_dfa_stats		PARAMS ((struct dfa_stats_d *));
 static tree collect_dfa_stats_r		PARAMS ((tree *, int *, void *));
 static tree clobber_vars_r		PARAMS ((tree *, int *, void *));
 static void compute_alias_sets		PARAMS ((void));
-static void register_alias_set		PARAMS ((tree, tree));
-static void find_alias_for		PARAMS ((tree, tree));
-static bool may_alias_p			PARAMS ((tree, tree, HOST_WIDE_INT,
-						 tree, tree, HOST_WIDE_INT));
-static bool may_access_global_mem_p 	PARAMS ((tree, tree));
+static void register_alias_set		PARAMS ((tree));
+static void find_alias_for		PARAMS ((tree, HOST_WIDE_INT));
+static bool may_alias_p			PARAMS ((tree, HOST_WIDE_INT,
+						 tree, HOST_WIDE_INT));
+static bool may_access_global_mem_p 	PARAMS ((tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
 static void add_vdef			PARAMS ((tree, tree, voperands_t));
@@ -131,11 +136,9 @@ static void add_stmt_operand		PARAMS ((tree *, tree, int,
       						 voperands_t));
 static void add_immediate_use		PARAMS ((tree, tree));
 static tree find_vars_r			PARAMS ((tree *, int *, void *));
-static void add_referenced_var		PARAMS ((tree, tree,
-						 struct walk_state *));
-static void add_indirect_ref_var	PARAMS ((tree, struct walk_state *));
+static void add_referenced_var		PARAMS ((tree, struct walk_state *));
 static void compute_immediate_uses_for	PARAMS ((tree, int));
-static void add_may_alias		PARAMS ((tree, tree, tree, tree));
+static void add_may_alias		PARAMS ((tree, tree));
 static bool call_may_clobber		PARAMS ((tree));
 static void find_hidden_use_vars	PARAMS ((tree));
 static tree find_hidden_use_vars_r	PARAMS ((tree *, int *, void *));
@@ -158,17 +161,15 @@ static size_t num_aliased_objects;
    A potentially aliased memory object can come from the following
    sources:
 
-     * INDIRECT_REFs
+     * Memory tags associated with dereferenced pointers
      * Addressable variable which is used or assigned
      * global scoped variable which is used or assigned
      * ASM_OUTPUTs, ASM_CLOBBERS and ASM_INPUTs
      * CALL_EXPRs which load and store GLOBAL_VAR
 
    ALIASED_OBJECTS contains the object 
-   ALIASED_OBJECTS_BASE contains the base symbol for those objects
    ALIASED_OBJECTS_ALIAS_SET contains the alias set for those objects.  */
 static GTY(()) varray_type aliased_objects;
-static GTY(()) varray_type aliased_objects_base;
 static GTY(()) varray_type aliased_objects_alias_set;
 
 /* The total number of unique call clobbered variables in the function.  */
@@ -204,20 +205,18 @@ get_stmt_operands (stmt)
   if (!stmt_modified_p (stmt))
     return;
 
-  ann = stmt_ann (stmt);
-  if (ann == NULL)
-    ann = create_stmt_ann (stmt);
+  ann = get_stmt_ann (stmt);
 
   /* Remove any existing operands as they will be scanned again.  */
   ann->ops = NULL;
 
   /* We cannot remove existing virtual operands because we would lose their
      SSA versions.  Instead, we save them on PREV_VOPS.  When add_vdef and
-     add_vuse are called, they will search for the operand in PREV_VOPS
-     first.  */
+     add_vuse are called, they will do nothing if PREV_VOPS is set.
+     FIXME: This means that passes that modify virtual operands must
+            make the changes on their own.  */
   if (ann->vops)
     prev_vops = ann->vops;
-  ann->vops = NULL;
 
   code = TREE_CODE (stmt);
   switch (code)
@@ -341,6 +340,7 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
 	return;
 
       /* Avoid recursion.  */
+      flags |= opf_force_vop;
       code = subcode;
       class = TREE_CODE_CLASS (code);
       expr_p = &TREE_OPERAND (expr, 0);
@@ -372,6 +372,29 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
   if (SSA_VAR_P (expr))
     {
       add_stmt_operand (expr_p, stmt, flags, prev_vops);
+      return;
+    }
+
+  /* Pointer dereferences always represent a use of the base pointer.  */
+  if (code == INDIRECT_REF)
+    {
+      var_ann_t ann;
+      tree ptr = TREE_OPERAND (expr, 0);
+
+#if defined ENABLE_CHECKING
+      if (!SSA_VAR_P (ptr) && !TREE_CONSTANT (ptr))
+	abort ();
+#endif
+
+      if (SSA_VAR_P (ptr))
+	{
+	  ann = var_ann (ptr);
+	  if (ann->mem_tag)
+	    add_stmt_operand (&ann->mem_tag, stmt, flags|opf_force_vop,
+			      prev_vops);
+	}
+
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
       return;
     }
 
@@ -426,52 +449,8 @@ get_expr_operands (stmt, expr_p, flags, prev_vops)
       /* Find uses in the called function.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
 
-      /* Add all the arguments to the function.  For every pointer argument
-	 to the function, add a VUSE for its dereferenced pointer.  This is
-	 to address the following problem: Suppose that function 'foo'
-	 receives a pointer to a local variable:
-
-	    int foo (int *x)
-	    {
-	      return *x;
-	    }
-
-	    int bar()
-	    {
-	      i = 10;
-	      p = &i;
-	      return foo (p);
-	    }
-
-	 Since p has never been dereferenced in function bar(), the alias
-	 analyzer will never associate 'i' with '*p', which then causes DCE
-	 to kill the assignment to 'i' because it's never used in bar().
-	 To address this problem, we add a VUSE<*p> at the call site of
-	 foo().  */
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-	{
-	  tree arg = TREE_VALUE (op);
-
-	  add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
-
-	  /* If the function may not clobber locals, add a VUSE<*p> for
-	     every pointer p passed in the argument list (see note above).
-	     It's not necessary to do this for clobbering calls because we
-	     will be adding a VDEF for .GLOBAL_VAR for this call.  */
-	  if (!may_clobber
-	      && SSA_DECL_P (arg)
-	      && POINTER_TYPE_P (TREE_TYPE (arg)))
-	    {
-	      tree deref = indirect_ref (arg);
-
-	      /* By default, adding a reference to an INDIRECT_REF
-		 variable, adds a VUSE of the base pointer.  Since we have
-		 already added a real USE for the pointer, we don't need to
-		 add a VUSE for it as well.  */
-	      add_stmt_operand (&deref, stmt, opf_force_vop|opf_ignore_bp,
-				prev_vops);
-	    }
-	}
+	add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
       /* If the called function is neither pure nor const and there are
 	 call clobbered variables, create a definition of GLOBAL_VAR and
@@ -571,7 +550,8 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   tree var;
   varray_type aliases;
   size_t i;
-  stmt_ann_t ann;
+  stmt_ann_t s_ann;
+  var_ann_t v_ann;
 
   var = *var_p;
   STRIP_NOPS (var);
@@ -587,33 +567,38 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  /* FIXME: Currently, global variables are always treated as virtual
-     operands.  Otherwise, we would have to insert copy-in/copy-out
+  s_ann = stmt_ann (stmt);
+  v_ann = var_ann (var);
+
+  /* FIXME: Currently, global and local static variables are always treated as
+     virtual operands.  Otherwise, we would have to insert copy-in/copy-out
      operations at escape points in the function (e.g., at call sites and
      return points). The additional overhead of inserting these copies may
      negate the optimizations enabled by renaming globals.  */
-  if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0)
-    flags |= opf_force_vop;
+  if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0
+      || TREE_STATIC ((!DECL_P (var) ? get_base_symbol (var) : var)))
+    {
+      flags |= opf_force_vop;
+      s_ann->has_volatile_ops = 1;
+    }
 
-  if (TREE_STATIC ((!DECL_P (var) ? get_base_symbol (var) : var)))
-    flags |= opf_force_vop;
-
-  ann = stmt_ann (stmt);
-
-  aliases = may_aliases (var);
+  aliases = v_ann->may_aliases;
   if (aliases == NULL)
     {
-      /* The variable is not aliased.  If it's a scalar, process it as a
-	 real operand.  Otherwise, add it to the virtual operands.  Note
-	 that we never consider ASM_EXPR operands as real.  They are always
-	 added to virtual operands so that optimizations don't try to
-	 optimize them.
+      /* The variable is not aliased.  If it's a scalar that is not used as
+	 an alias tag for other variables, process it as a real operand.
+	 Otherwise, add it to the virtual operands.  Note that we never
+	 consider ASM_EXPR operands as real.  They are always added to
+	 virtual operands so that optimizations don't try to optimize them.
 
 	 FIXME: This is true for CCP.  It tries to propagate constants in
 		some __asm__ operands causing ICEs during RTL expansion
 		(execute/20020107-1.c).  Do we really need to be this
 		drastic?  Or should each optimization take care when
 		dealing with ASM_EXPRs?  */
+      if (v_ann->is_alias_tag)
+	flags |= opf_force_vop;
+
       if (flags & opf_is_def)
 	{
 	  if (is_scalar
@@ -622,6 +607,10 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
 	    set_def (var_p, stmt);
 	  else
 	    add_vdef (var, stmt, prev_vops);
+
+	  /* If the variable is an alias tag, mark the statement.  */
+	  if (v_ann->is_alias_tag)
+	    s_ann->makes_aliased_stores = 1;
 	}
       else
 	{
@@ -631,90 +620,44 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
 	    add_use (var_p, stmt);
 	  else
 	    add_vuse (var, stmt, prev_vops);
+
+	  /* If the variable is an alias tag, mark the statement.  */
+	  if (v_ann->is_alias_tag)
+	    s_ann->makes_aliased_stores = 1;
 	}
 
       /* If the variable is volatile, inform the statement that it makes
 	 volatile storage references.  */
       if (TREE_THIS_VOLATILE (var))
-	ann->has_volatile_ops = 1;
+	s_ann->has_volatile_ops = 1;
     }
   else
     {
       /* The variable is aliased.  Add its aliases to the virtual operands.  */
       if (flags & opf_is_def)
 	{
+	  /* If the variable is also an alias tag, add a virtual operand
+	     for it, otherwise we will miss representing references to the
+	     members of the variable's alias set.  This fixes the bug in
+	     gcc.c-torture/execute/20020503-1.c.  */
+	  if (v_ann->is_alias_tag)
+	    add_vdef (var, stmt, prev_vops);
+
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	    add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
 
-	  ann->makes_aliased_stores = 1;
+	  s_ann->makes_aliased_stores = 1;
 	}
       else
 	{
+	  if (v_ann->is_alias_tag)
+	    add_vuse (var, stmt, prev_vops);
+
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	    add_vuse (VARRAY_TREE (aliases, i), stmt, prev_vops);
 
-	  ann->makes_aliased_loads = 1;
+	  s_ann->makes_aliased_loads = 1;
 	}
-    }
-
-  /* An assignment to a pointer variable 'p' may make 'p' point to memory
-     outside of the current scope.  Therefore, dereferences of 'p' should be
-     treated as references to global variables.  */
-  if ((flags & opf_is_def)
-      && SSA_DECL_P (var)
-      && POINTER_TYPE_P (TREE_TYPE (var)))
-    {
-      tree deref;
-
-      if (TREE_CODE (stmt) == MODIFY_EXPR
-	  && may_access_global_mem_p (TREE_OPERAND (stmt, 1),
-		  		    get_base_symbol (TREE_OPERAND (stmt, 1))))
-	set_may_point_to_global_mem (var);
-
-      /* A definition of a pointer variable 'p' clobbers its associated
-	 indirect variable '*p', because now 'p' is pointing to a different
-	 memory location.  */
-      deref = indirect_ref (var);
-      if (deref)
-	{
-	  /* Add a VDEF for '*p' (or its aliases if it has any).  */
-	  aliases = may_aliases (deref);
-	  if (aliases == NULL)
-	    add_vdef (deref, stmt, prev_vops);
-	  else
-	    for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	      add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
-
-	  /* If 'p' may point to global memory, then '*p' and its aliases are
-	     an alias for global memory.  */
-	  if (may_point_to_global_mem_p (var))
-	    {
-	      varray_type aliases = may_aliases (deref);
-	      set_may_alias_global_mem (deref);
-	      for (i = 0; aliases && i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		{
-		  tree alias = VARRAY_TREE (aliases, i);
-		  set_may_alias_global_mem (alias);
-		  if (TREE_CODE (alias) == INDIRECT_REF)
-		    set_may_point_to_global_mem (TREE_OPERAND (alias, 0));
-		}
-	    }
-	}
-    }
-  else if (!(flags & opf_ignore_bp))
-    {
-      /* If VAR is a pointer dereference, we need to add a VUSE for its
-	 base pointer.  If needed, strip its SSA version, to access the
-	 base pointer.  Otherwise we won't recognize use of pointers after
-	 variables have been renamed. For instance, in (*p)_35, we need to
-	 add an operand for 'p', and for that we need to remove the SSA
-	 version number first.  */
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
-
-      if (TREE_CODE (var) == INDIRECT_REF)
-	add_stmt_operand (&TREE_OPERAND (var, 0), stmt, opf_force_vop,
-			  prev_vops);
     }
 }
 
@@ -742,6 +685,7 @@ set_def (def_p, stmt)
     }
 
   ann->ops->def_op = def_p;
+  get_var_ann (*def_p)->has_real_refs = 1;
 }
 
 
@@ -772,13 +716,14 @@ add_use (use_p, stmt)
     VARRAY_GENERIC_PTR_INIT (ann->ops->use_ops, 3, "use_ops");
 
   VARRAY_PUSH_GENERIC_PTR (ann->ops->use_ops, use_p);
+  get_var_ann (*use_p)->has_real_refs = 1;
 }
 
 
 /* Add a new VDEF_EXPR for variable VAR to statement STMT.  If PREV_VOPS
-   is not NULL, it will be searched for an existing VDEF_EXPR to VAR.  If
-   found, the existing VDEF_EXPR will be added to STMT.  This is done to
-   preserve the SSA numbering of virtual operands.  */
+   is not NULL, the existing entries are preserved and no new entries are
+   added here.  This is done to preserve the SSA numbering of virtual
+   operands.  */
 
 static void
 add_vdef (var, stmt, prev_vops)
@@ -791,25 +736,7 @@ add_vdef (var, stmt, prev_vops)
   size_t i;
 
   if (prev_vops && prev_vops->vdef_ops)
-    {
-      vdef = NULL;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vdef_ops); i++)
-	{
-	  tree d = VARRAY_TREE (prev_vops->vdef_ops, i);
-	  if (var == SSA_NAME_VAR (VDEF_RESULT (d)))
-	    {
-	      vdef = d;
-	      break;
-	    }
-	}
-
-      /* FIXME.  If we didn't find an existing VDEF for VAR, it means that
-	 we would have to rewrite this statement into SSA form again.
-	 Which means that we would have to update other statements, insert
-	 PHI nodes, etc.  We don't handle this situation.  */
-      if (vdef == NULL)
-	abort ();
-    }
+    return;
   else
     vdef = build_vdef_expr (var);
 
@@ -832,10 +759,10 @@ add_vdef (var, stmt, prev_vops)
 }
 
 
-/* Add VAR to the list of virtual uses for STMT.  If PREV_VOPS is not NULL,
-   it will be searched for an existing VUSE of VAR.  If found, the
-   existing VUSE will be added to STMT.  This is done to preserve the
-   SSA numbering of virtual operands.  */
+/* Add VAR to the list of virtual uses for STMT.  If PREV_VOPS
+   is not NULL, the existing entries are preserved and no new entries are
+   added here.  This is done to preserve the SSA numbering of virtual
+   operands.  */
 
 void
 add_vuse (var, stmt, prev_vops)
@@ -847,29 +774,7 @@ add_vuse (var, stmt, prev_vops)
   size_t i;
 
   if (prev_vops && prev_vops->vuse_ops)
-    {
-      tree vuse = NULL_TREE;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (prev_vops->vuse_ops); i++)
-	{
-	  tree u = VARRAY_TREE (prev_vops->vuse_ops, i);
-	  if (var == SSA_NAME_VAR (u))
-	    {
-	      vuse = u;
-	      break;
-	    }
-	}
-
-      if (vuse)
-	var = vuse;
-      else
-	{
-	  /* FIXME.  If we didn't find an existing VUSE of VAR, it means
-	     that we would have to rewrite this statement into SSA form
-	     again.  Which means that we would have to find its current
-	     reaching definition.  We don't handle this situation.  */
-	  abort ();
-	}
-    }
+    return;
 
   ann = stmt_ann (stmt);
   if (ann->vops == NULL)
@@ -1143,10 +1048,7 @@ add_immediate_use (stmt, use_stmt)
      tree stmt;
      tree use_stmt;
 {
-  stmt_ann_t ann = stmt_ann (stmt);
-
-  if (ann == NULL)
-    ann = create_stmt_ann (stmt);
+  stmt_ann_t ann = get_stmt_ann (stmt);
 
   if (ann->df == NULL)
     {
@@ -1281,6 +1183,7 @@ dump_variable (file, var)
      FILE *file;
      tree var;
 {
+  var_ann_t ann;
   varray_type aliases;
 
   if (var == NULL_TREE)
@@ -1291,30 +1194,47 @@ dump_variable (file, var)
 
   print_generic_expr (file, var, 0);
   
-  aliases = may_aliases (var);
+  ann = var_ann (var);
+
+  if (ann->mem_tag)
+    {
+      fprintf (file, ", memory tag: ");
+      print_generic_expr (file, ann->mem_tag, 0);
+    }
+
+  aliases = ann->may_aliases;
   if (aliases)
     {
       size_t i, num_aliases = VARRAY_ACTIVE_SIZE (aliases);
-      fprintf (file, ", may aliases: ");
+      fprintf (file, ", may aliases: { ");
       for (i = 0; i < num_aliases; i++)
 	{
 	  print_generic_expr (file, VARRAY_TREE (aliases, i), 0);
-	  if (i < num_aliases - 1)
-	    fprintf (file, ", ");
+	  fprintf (file, " ");
 	}
+      fprintf (file, "}");
     }
 
-  if (may_alias_global_mem_p (var))
+  if (ann->is_alias_tag)
+    fprintf (file, ", is an alias tag");
+
+  if (ann->may_alias_global_mem)
     fprintf (file, ", may alias global memory");
 
-  if (has_hidden_use (var))
+  if (ann->has_hidden_use)
     fprintf (file, ", has a hidden use");
 
-  if (may_point_to_global_mem_p (var))
+  if (ann->may_point_to_global_mem)
     fprintf (file, ", may point to global memory");
 
-  if (var_ann (var)->is_call_clobbered)
+  if (ann->is_call_clobbered)
     fprintf (file, ", call clobbered");
+
+  if (ann->occurs_in_abnormal_phi)
+    fprintf (file, ", occurs in an abnormal PHI node");
+
+  if (ann->is_stored)
+    fprintf (file, ", is stored");
 
   fprintf (file, "\n");
 }
@@ -1658,8 +1578,8 @@ compute_may_aliases (fndecl)
 
   num_aliased_objects = 0;
   VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
-  VARRAY_TREE_INIT (aliased_objects_base, 20, "aliased_objects_base");
-  VARRAY_WIDE_INT_INIT (aliased_objects_alias_set, 20, "aliased_objects_alias_set");
+  VARRAY_WIDE_INT_INIT (aliased_objects_alias_set, 20,
+			"aliased_objects_alias_set");
 
   /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
@@ -1671,6 +1591,7 @@ compute_may_aliases (fndecl)
   walk_state.vars_found = vars_found;
   walk_state.aliased_objects_found = aliased_objects_found;
   walk_state.is_store = 0;
+  walk_state.is_indirect_ref = 0;
 
   /* Find all the variables referenced in the function.  */
   FOR_EACH_BB (bb)
@@ -1698,7 +1619,6 @@ compute_may_aliases (fndecl)
 
   num_aliased_objects = 0;
   aliased_objects = NULL;
-  aliased_objects_base = NULL;
   aliased_objects_alias_set = NULL;
 
   timevar_pop (TV_TREE_MAY_ALIAS);
@@ -1727,7 +1647,6 @@ static void
 compute_alias_sets ()
 {
   size_t i;
-  tree var, sym;
 
   VARRAY_GENERIC_PTR_INIT (alias_sets, 20, "alias_sets");
 
@@ -1737,59 +1656,27 @@ compute_alias_sets ()
      entry, create a new entry for P.  */
   for (i = 0; i < num_aliased_objects; i++)
     {
-      var = VARRAY_TREE (aliased_objects, i);
-      sym = VARRAY_TREE (aliased_objects_base, i);
+      tree var = VARRAY_TREE (aliased_objects, i);
       if (var_ann (var)->is_stored)
-	register_alias_set (var, sym);
+	register_alias_set (var);
     }
 
-  /* Now for every potentially aliased object, see the object's alias
+  /* Now for every potentially aliased object, see if the object's alias
      set conflicts with any of the alias sets for objects which were
      stored.  */
   for (i = 0; i < num_aliased_objects; i++)
     {
-      var = VARRAY_TREE (aliased_objects, i);
-      sym = VARRAY_TREE (aliased_objects_base, i);
-      find_alias_for (var, sym);
+      tree var = VARRAY_TREE (aliased_objects, i);
+      find_alias_for (var, VARRAY_WIDE_INT (aliased_objects_alias_set, i));
     }
 
-  /* Alias sets with exactly one entry are for variables that are not found
-     to alias anything else but themselves.  This is not necessary, so we
-     remove these sets.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
-    {
-      struct alias_set_d *as;
-      size_t num_sets;
-
-      as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
-      if (as->num_elements == 1)
-	{
-	  var_ann_t ann = var_ann (as->tag);
-	  ann->may_alias_global_mem = 0;
-	  ann->may_aliases = NULL;
-
-	  /* Remove the alias set by swapping the current and the last
-	     element, and popping the array.  */
-	  num_sets = VARRAY_ACTIVE_SIZE (alias_sets);
-	  if (i < num_sets - 1)
-	    {
-	      VARRAY_GENERIC_PTR (alias_sets, i) =
-		  VARRAY_GENERIC_PTR (alias_sets, num_sets - 1);
-	      i--;	/* Reset the iterator to avoid missing the entry we
-			   just swapped.  */
-	    }
-	  VARRAY_POP (alias_sets);
-	}
-    }
-
-  /* If the function has calls to clobbering functions, make GLOBAL_VAR alias
-     all call-clobbered variables.  */
+  /* If the function has calls to clobbering functions, make GLOBAL_VAR
+     an alias for all call-clobbered variables.  */
   if (global_var)
     for (i = 0; i < num_call_clobbered_vars; i++)
       {
-	var = call_clobbered_var (i);
-	sym = get_base_symbol (var);
-	add_may_alias (var, sym, global_var, global_var);
+	tree var = call_clobbered_var (i);
+	add_may_alias (var, global_var);
       }
 
   /* Debugging dumps.  */
@@ -1811,125 +1698,101 @@ compute_alias_sets ()
 }
 
 
-/* Potentially add DEREF as a new alias tag in ALIAS_SETS.  DEREF_SYM
-   is the base symbol of DEREF. 
+/* Potentially add VAR as a new alias tag in ALIAS_SETS.  VAR is assumed to
+   be an addressable local, a global or the memory tag of a dereferenced
+   pointer.  Furthermore, this function assumes that VAR is stored at least
+   once (for aliasing, we are only interested in stores, if two variables
+   alias each other but are never stored, the fact that they alias is
+   irrelevant for the optimizer).
 
-   Note that if DEREF == DEREF_SYM, then we know implicitly that
-   DEREF is an addressable DECL.  */
+   Addressable and global variables are distinguished from memory tags by
+   checking the IS_MEM_TAG annotation.  If VAR has IS_MEM_TAG set, then VAR
+   is a memory tag representing dereferences of the pointer in
+   var_ann(VAR)->mem_tag.
+
+   Note that aliasing can only occur between regular variables and memory
+   tags representing pointer dereferences.  Therefore, when deciding if two
+   objects may alias each other, we only need to compare regular variables
+   against memory tags.
+   
+   To decide whether VAR should start a new alias set, VAR is compared
+   against all the existing entries in ALIAS_SETS.  If VAR does not
+   conflict with any entry, then a new entry is added for it.
+
+   The following are the rules used to determine if a new entry should be
+   added for VAR:
+
+   1- If VAR is a regular variable, an entry in ALIAS_SETS will be added
+      only if VAR's alias set is not already represented, or if all the
+      entries that have the same alias set as VAR are also regular
+      variables (because two regular variables cannot possibly alias each
+      other).
+
+   2- If VAR is a memory tag, an entry in ALIAS_SETS will be added only if
+      VAR's alias set is not already represented.  */
 
 static void
-register_alias_set (deref, deref_sym)
-     tree deref;
-     tree deref_sym;
+register_alias_set (var)
+     tree var;
 {
-  size_t i, num_sets;
+  size_t i;
   struct alias_set_d *curr;
-  HOST_WIDE_INT deref_set;
-  int replaced, found;
+  HOST_WIDE_INT var_set;
+  bool found;
+  var_ann_t ann;
 
-  deref_set = get_alias_set (deref);
+  var_set = get_alias_set (var);
+  ann = var_ann (var);
 
-  /* Search the alias_sets list for entries which match DEREF_SET.
-
-     If we find a matching entry that is an INDIRECT_REF, then stop
-     the loop as the existing entry carries all the required aliases.
-
-     Else if we find a matching entry and DEREF is an INDIRECT_REF,
-     then replace the existing entry with DEREF and remove all other
-     matching entries.
-
-     Else add DEREF to the list and quit.  */
-  /* FIXME: ALIAS_SETS will usually be small (<< 10 entries).  If it becomes
-     a performance problem, try with a splay tree.  */
-  replaced = 0;
-  found = 0;
+  /* Search the ALIAS_SETS list for entries which match VAR_SET.  FIXME:
+     ALIAS_SETS will usually be small (<< 10 entries).  If it becomes a
+     performance problem, try with a splay tree.  */
+  found = false;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {
+      var_ann_t tag_ann;
+
       curr = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
+      tag_ann = var_ann (curr->tag);
 
       /* See if we have any entries with the same alias set.  */
-      if (curr->tag_set == deref_set)
+      if (curr->tag_set == var_set)
         {
-	  found = 1;
+	  /* If VAR is a regular variable and the current entry is another
+	     regular variable, keep looking (rule #1 above).  */
+	  if (!tag_ann->is_mem_tag && !ann->is_mem_tag)
+	    continue;
 
-	  /* We found an INDIRECT_REF in ALIAS_SETS, it carries all
-	     our aliases.  */
-	  if (curr->tag != curr->tag_sym)
-	    break;
-
-	  /* We have a VAR_DECL and we found a VAR_DECL in ALIAS_SETS.
-	     Just add a new entry entry to the list and quit.  */
-	  if (deref == deref_sym)
-	    {
-	      curr = xmalloc (sizeof (*curr));
-	      curr->tag = deref;
-	      curr->tag_set = deref_set;
-	      curr->tag_sym = deref_sym;
-	      curr->num_elements = 0;
-	      VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
-	      break;
-	    }
-
-	  /* We have an INDIRECT_REF and ALIAS_SETS contains VAR_DECLs.
-	     We need to replace the first entry with our INDIRECT_REF
-	     and delete the VAR_DECLs.  */
-	  if (replaced == 0)
-	    {
-	      curr->tag = deref;
-	      curr->tag_sym = deref_sym;
-	      curr->tag_set = deref_set;
-	      replaced = 1;
-	    }
-	  else
-	    {
-	      /* Swap the current and the last element, and pop the array. 
-	         Don't forget to free the element we are deleting!  */
-	      curr = VARRAY_GENERIC_PTR (alias_sets, i);
-	      free (curr);
-	      num_sets = VARRAY_ACTIVE_SIZE (alias_sets);
-	      if (i < num_sets - 1)
-		{
-		  VARRAY_GENERIC_PTR (alias_sets, i) =
-		  VARRAY_GENERIC_PTR (alias_sets, num_sets - 1);
-		  i--;
-		}
-	      VARRAY_POP (alias_sets);
-	    }
-        }
+	  /* Otherwise, we have found a matching entry.  Since the current
+	     tag and/or VAR are a memory tag, we don't need to keep
+	     looking (rules #1 and #2 above).  */
+	  found = true;
+	  break;
+	}
     }
 
   /* If we did not find an entry in ALIAS_SETS with a matching
      alias set, create a new entry.  */
-  if (! found)
+  if (!found)
     {
       curr = xmalloc (sizeof (*curr));
-      curr->tag = deref;
-      curr->tag_set = deref_set;
-      curr->tag_sym = deref_sym;
+      curr->tag = var;
+      curr->tag_set = var_set;
       curr->num_elements = 0;
       VARRAY_PUSH_GENERIC_PTR (alias_sets, (void *) curr);
     }
 }
 
-/* Set an alias between VAR and any entry in ALIAS_SETS that has a
-   conflicting alias set with VAR.  SYM is VAR's base symbol (needed when
-   VAR is an INDIRECT_REF node).
 
-   We can have multiple entries with the same alias set on the
-   aliase_sets list.  How?  Consider two addressable VAR_DECLs of
-   the same type.  They have the same alias set, but they are
-   distinct objects (ie, they are known to be distinct from
-   each other).  */
+/* Set an alias between VAR and any entry in ALIAS_SETS that has a
+   conflicting alias set with VAR.  */
 
 static void
-find_alias_for (var, sym)
+find_alias_for (var, var_set)
      tree var;
-     tree sym;
+     HOST_WIDE_INT var_set;
 {
   size_t i;
-  HOST_WIDE_INT var_set;
-
-  var_set = get_alias_set (var);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
     {
@@ -1937,74 +1800,77 @@ find_alias_for (var, sym)
 
       as = (struct alias_set_d *) VARRAY_GENERIC_PTR (alias_sets, i);
 
-      /* If AS->TAG aliases VAR, add it to the set of may-aliases for VAR
-	 and return.  */
-      if (may_alias_p (var, sym, var_set, as->tag, as->tag_sym, as->tag_set))
+      /* If AS->TAG aliases VAR, add it to the set of may-aliases for VAR.  */
+      if (may_alias_p (as->tag, as->tag_set, var, var_set))
 	{
-	  /* Set the tag to be the alias for VAR.  */
-	  add_may_alias (var, sym, as->tag, as->tag_sym);
+	  /* Add AS->TAG to the list of aliases for VAR.  */
+	  add_may_alias (var, as->tag);
 	  as->num_elements++;
 	}
     }
 }
 
 
-/* Return TRUE if variables V1 and V2 may alias. 
- 
-   V1_BASE is the base symbol for V1
-   V1_ALIAS_SET is the alias set for V1
-   V2_BASE is the base symbol for V2
-   V2_ALIAS_SET is the base symbol for V2.  */
+/* Return TRUE if variables V1 and V2 may alias.  V1_ALIAS_SET is the alias
+   set for V1.  V2_ALIAS_SET is the alias set for V2.  */
 
 static bool
-may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
+may_alias_p (v1, v1_alias_set, v2, v2_alias_set)
      tree v1;
-     tree v1_base;
      HOST_WIDE_INT v1_alias_set;
      tree v2;
-     tree v2_base;
      HOST_WIDE_INT v2_alias_set;
 {
-  tree ptr, var, ptr_sym, var_sym;
-  HOST_WIDE_INT ptr_alias_set, var_alias_set;
+  tree var;
+  HOST_WIDE_INT var_alias_set;
+  tree tag;
+  HOST_WIDE_INT tag_alias_set;
+  var_ann_t v_ann, t_ann, v1_ann, v2_ann;
+  tree tag_ptr;
 
+  /* A variable cannot alias itself.  */
   if (v1 == v2)
-    return true;
+    return false;
 
-  /* One of the two variables needs to be an INDIRECT_REF, otherwise they
-     can't possibly alias each other.  */
-  if (TREE_CODE (v1) == INDIRECT_REF)
+  v1_ann = var_ann (v1);
+  v2_ann = var_ann (v2);
+
+  /* One of the two variables must be a memory tag.  Otherwise V1 and V2
+     cannot alias each other.  */
+  if (v1_ann->is_mem_tag)
     {
-      ptr = v1;
-      ptr_sym = v1_base;
-      ptr_alias_set = v1_alias_set;
       var = v2;
-      var_sym = v2_base;
       var_alias_set = v2_alias_set;
+      v_ann = v2_ann;
+      tag = v1;
+      tag_alias_set = v1_alias_set;
+      t_ann = v1_ann;
     }
-  else if (TREE_CODE (v2) == INDIRECT_REF)
+  else if (v2_ann->is_mem_tag)
     {
-      ptr = v2;
-      ptr_sym = v2_base;
-      ptr_alias_set = v2_alias_set;
       var = v1;
-      var_sym = v1_base;
       var_alias_set = v1_alias_set;
+      v_ann = v1_ann;
+      tag = v2;
+      tag_alias_set = v2_alias_set;
+      t_ann = v2_ann;
     }
   else
     return false;
 
-  /* If the alias sets don't conflict then PTR cannot alias VAR.  */
-  if (!alias_sets_conflict_p (ptr_alias_set, var_alias_set))
+  tag_ptr = t_ann->mem_tag;
+
+  /* If the alias sets don't conflict then TAG cannot alias VAR.  */
+  if (!alias_sets_conflict_p (tag_alias_set, var_alias_set))
     {
-      /* Handle aliases to structure fields.  If either VAR or PTR are
+      /* Handle aliases to structure fields.  If either VAR or TAG are
 	 aggregate types, they may not have conflicting types, but one of
 	 the structures could contain a pointer to the other one.
 
 	 For instance, given
 
-		struct P *p;
-		struct Q *q;
+		TAG -> struct P *p;
+		VAR -> struct Q *q;
 
 	 It may happen that '*p' and '*q' can't alias because 'struct P'
 	 and 'struct Q' have non-conflicting alias sets.  However, it could
@@ -2015,56 +1881,49 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
 	 or 'struct Q' aliases 'struct P *'.  Notice, that since GIMPLE
 	 does not have more than one-level pointers, we don't need to
 	 recurse into the structures.  */
-      if (AGGREGATE_TYPE_P (TREE_TYPE (ptr))
+      if (AGGREGATE_TYPE_P (TREE_TYPE (tag))
 	  || AGGREGATE_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree ptr_to_var;
+	  tree ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
 
-	  /* If VAR is not an INDIRECT_REF, we use the canonical pointer-to
-	     VAR's type.  */
-	  if (TREE_CODE (var) == INDIRECT_REF)
-	    ptr_to_var = var_sym;
-	  else
-	    {
-	      ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
-	      /* If no pointer-to VAR exists, then PTR can't possibly alias
-		  VAR.  */
-	      if (ptr_to_var == NULL_TREE)
-		return false;
-	    }
+	  /* If no pointer-to VAR exists, then TAG can't alias VAR.  */
+	  if (ptr_to_var == NULL_TREE)
+	    return false;
 
-	return 
-	  alias_sets_conflict_p (ptr_alias_set, get_alias_set (ptr_to_var))
-	  || alias_sets_conflict_p (var_alias_set, get_alias_set (ptr_sym));
+	  /* Otherwise, return true if TAG aliases a pointer to VAR or VAR
+	     aliases TAG's pointer.  */
+	  return 
+	    alias_sets_conflict_p (tag_alias_set, get_alias_set (ptr_to_var))
+	    || alias_sets_conflict_p (var_alias_set, get_alias_set (tag_ptr));
 	}
       else
 	return false;
     }
 
-  /* If -ftree-points-to is given, check if PTR may point to VAR.  */
+  /* If -ftree-points-to is given, check if TAG may point to VAR.  */
   if (flag_tree_points_to)
-    if (!ptr_may_alias_var (ptr_sym, var_sym))
+    if (!ptr_may_alias_var (tag_ptr, var))
       return false;
 
   return true;
 }
 
-/* Add ALIAS to the set of variables that may alias VAR.  VAR_SYM and
-   ALIAS_SYM are the base symbols for VAR and ALIAS respectively.  */
+
+/* Add ALIAS to the set of variables that may alias VAR.  */
 
 static void
-add_may_alias (var, var_sym, alias, alias_sym)
+add_may_alias (var, alias)
      tree var;
-     tree var_sym;
      tree alias;
-     tree alias_sym;
 {
   size_t i;
-  var_ann_t v_ann = var_ann (var);
-  var_ann_t a_ann = var_ann (alias);
+  var_ann_t v_ann = get_var_ann (var);
+  var_ann_t a_ann = get_var_ann (alias);
 
-  if (v_ann == NULL)
-    v_ann = create_var_ann (var);
+#if defined ENABLE_CHECKING
+  if (var == alias)
+    abort ();
+#endif
 
   if (v_ann->may_aliases == NULL)
     VARRAY_TREE_INIT (v_ann->may_aliases, 2, "aliases");
@@ -2076,19 +1935,14 @@ add_may_alias (var, var_sym, alias, alias_sym)
 
   /* If either VAR or ALIAS may access global memory, then mark the other
      one as a global memory alias.  */
-  if (var != alias)
-    {
-      if (a_ann == NULL)
-	a_ann = create_var_ann (alias);
+  if (may_access_global_mem_p (var))
+    a_ann->may_alias_global_mem = 1;
 
-      if (may_access_global_mem_p (var, var_sym))
-	a_ann->may_alias_global_mem = 1;
-
-      if (may_access_global_mem_p (alias, alias_sym))
-	v_ann->may_alias_global_mem = 1;
-    }
+  if (may_access_global_mem_p (alias))
+    v_ann->may_alias_global_mem = 1;
 
   VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
+  a_ann->is_alias_tag = 1;
 }
 
 
@@ -2152,9 +2006,8 @@ debug_alias_info ()
    function scope.  */
 
 static bool
-may_access_global_mem_p (expr, expr_base)
+may_access_global_mem_p (expr)
      tree expr;
-     tree expr_base;
 {
   char class;
 
@@ -2162,12 +2015,10 @@ may_access_global_mem_p (expr, expr_base)
     return false;
 
   /* Function arguments and global variables may reference global memory.  */
-  if (expr_base != NULL_TREE)
-    {
-      if (TREE_CODE (expr_base) == PARM_DECL
-	  || decl_function_context (expr_base) == NULL_TREE)
-	return true;
-    }
+  if (DECL_P (expr)
+      && (TREE_CODE (expr) == PARM_DECL
+	  || decl_function_context (expr) == NULL_TREE))
+    return true;
 
   /* If the expression is a variable that may point to or alias global memory,
      return true.  */
@@ -2194,8 +2045,7 @@ may_access_global_mem_p (expr, expr_base)
       unsigned char i;
 
       for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
-	if (may_access_global_mem_p (TREE_OPERAND (expr, i),
-				   get_base_symbol (TREE_OPERAND (expr, i))))
+	if (may_access_global_mem_p (TREE_OPERAND (expr, i)))
 	  return true;
     }
 
@@ -2288,6 +2138,16 @@ find_vars_r (tp, walk_subtrees, data)
       walk_state->is_store = 0;
       walk_tree (&TREE_OPERAND (t, 1), find_vars_r, data, NULL);
       walk_state->is_store = saved_is_store;
+
+      /* If this is an assignment to a pointer and the RHS may point to
+	 global memory, mark the pointer on the LHS.  FIXME: This causes a
+	 second traversal of the RHS of the assignment, we should set a bit
+	 in WALK_STATE as we walk the RHS.  */
+      if (SSA_VAR_P (TREE_OPERAND (t, 0))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0)))
+	  && may_access_global_mem_p (TREE_OPERAND (t, 1)))
+	set_may_point_to_global_mem (TREE_OPERAND (t, 0));
+
       return t;
     }
   else if (TREE_CODE (t) == ASM_EXPR)
@@ -2300,36 +2160,25 @@ find_vars_r (tp, walk_subtrees, data)
       walk_state->is_store = saved_is_store;
       return t;
     }
+  else if (TREE_CODE (t) == INDIRECT_REF)
+    {
+      walk_state->is_indirect_ref = 1;
+      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, data, NULL);
+      /* INDIRECT_REF nodes cannot be nested in GIMPLE, so there is no need
+	 of saving/restoring the state.  */
+      walk_state->is_indirect_ref = 0;
+      return NULL_TREE;
+    }
 
   if (SSA_VAR_P (*tp))
     {
-      tree sym, var, deref;
-
-      var = *tp;
-      sym = get_base_symbol (var);
-
-      /* If VAR is an INDIRECT_REF node rewrite *TP with the first
-	 INDIRECT_REF we found (if any).  We need to share INDIRECT_REF
-	 nodes because we treat them as regular variables and several
-	 passes rely on pointer equality for testing if two variables are
-	 the same.  */
-      if (TREE_CODE (var) == INDIRECT_REF)
-	{
-	  deref = indirect_ref (sym);
-	  if (deref)
-	    *tp = var = deref;
-	  else
-	    set_indirect_ref (sym, var);
-	}
-
-      add_referenced_var (var, sym, walk_state);
-
+      add_referenced_var (*tp, walk_state);
       return NULL_TREE;
     }
 
   /* A function call that receives pointer arguments may dereference them.
-     For every pointer 'p' add '*p' to the list of referenced variables.
-     See the handler for CALL_EXPR nodes in get_expr_operands for details.  */
+     For every pointer 'p' in the argument to the function call, add a
+     reference to '*p'.  */
   if (TREE_CODE (*tp) == CALL_EXPR)
     {
       tree op;
@@ -2338,14 +2187,11 @@ find_vars_r (tp, walk_subtrees, data)
       for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
-	  if (SSA_DECL_P (arg)
-	      && POINTER_TYPE_P (TREE_TYPE (arg)))
+	  if (SSA_VAR_P (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
-	      if (may_clobber && !TREE_READONLY (arg))
-		walk_state->is_store = 1;
-
-	      add_indirect_ref_var (arg, walk_state);
-	      walk_state->is_store = saved_is_store;
+	      walk_state->is_indirect_ref = 1;
+	      add_referenced_var (arg, walk_state);
+	      walk_state->is_indirect_ref = 0;
 	    }
 	}
 
@@ -2356,7 +2202,7 @@ find_vars_r (tp, walk_subtrees, data)
 	  walk_state->is_store = 1;
 	  if (global_var == NULL_TREE)
 	    create_global_var ();
-	  add_referenced_var (global_var, global_var, walk_state);
+	  add_referenced_var (global_var, walk_state);
 	}
 
       walk_state->is_store = saved_is_store;
@@ -2366,124 +2212,102 @@ find_vars_r (tp, walk_subtrees, data)
 }
 
 
-/* Add VAR to the list of dereferenced variables.  SYM is the base symbol
-   when VAR is anything but a _DECL node.  Otherwise, SYM and VAR are the
-   same tree.
-   
-   Also add VAR to the ALIASED_OBJECTS set of varrays that are needed for
-   alias analysis.
-   
+/* Add VAR to the list of dereferenced variables.  If VAR is a candidate
+   for aliasing, add it to the ALIASED_OBJECTS set of varrays that are
+   needed for alias analysis.
+
    WALK_STATE is an array with two hash tables used to avoid adding the
-   same variable more than once to its corresponding set as well as a bit
+   same variable more than once to its corresponding set as well as flags
    indicating if we're processing a load or store.  Note that this function
    assumes that VAR is a valid SSA variable.  */
 
 static void
-add_referenced_var (var, sym, walk_state)
+add_referenced_var (var, walk_state)
      tree var;
-     tree sym;
      struct walk_state *walk_state;
 {
   void **slot;
   htab_t vars_found = walk_state->vars_found;
   htab_t aliased_objects_found = walk_state->aliased_objects_found;
-  int is_store = walk_state->is_store;
+  var_ann_t ann = get_var_ann (var);
 
-  /* First handle aliasing information.  INDIRECT_REF, global and
-     addressable local variables are all potentially aliased and call
-     clobbered.  */
-  if (TREE_CODE (var) == INDIRECT_REF
-      || TREE_ADDRESSABLE (sym)
-      || decl_function_context (sym) == NULL)
+  /* Remember if the variable has been written to.  This is important for
+     alias analysis.  If a variable is never modified, it is not
+     interesting as an entry in ALIAS_SETS (see compute_may_aliases).  */
+  if (walk_state->is_store)
+    ann->is_stored = 1;
+
+  /* Handle aliasing information.  Memory tags, global and addressable
+     local variables are all potentially aliased and call clobbered.  */
+  if (ann->is_mem_tag
+      || TREE_ADDRESSABLE (var)
+      || decl_function_context (var) == NULL)
     {
-      var_ann_t ann = var_ann (var);
-      if (! ann)
-	ann = create_var_ann (var);
-
       slot = htab_find_slot (aliased_objects_found, (void *) var, INSERT);
       if (*slot == NULL)
 	{
 	  *slot = (void *) var;
-
 	  VARRAY_PUSH_TREE (aliased_objects, var);
-	  VARRAY_PUSH_TREE (aliased_objects_base, sym);
 	  VARRAY_PUSH_INT (aliased_objects_alias_set, get_alias_set (var));
 	  num_aliased_objects++;
 
 	  /* If the variable is not read-only (or if var isn't a variable),
 	     it may also be clobbered by function calls.  */
-	  if (var != sym || !TREE_READONLY (var))
+	  if (!TREE_READONLY (var))
 	    {
 	      VARRAY_PUSH_TREE (call_clobbered_vars, var);
 	      num_call_clobbered_vars++;
 	      ann->is_call_clobbered = 1;
 	    }
 	}
-
-      /* Note if this object was loaded or stored.  */
-      if (is_store)
-	ann->is_stored = 1;
-      else
-	ann->is_loaded = 1;
     }
 
   slot = htab_find_slot (vars_found, (void *) var, INSERT);
   if (*slot == NULL)
     {
-      var_ann_t ann;
-
       /* This is the first time we find this variable, add it to the
          REFERENCED_VARS array, also annotate it with its unique id.  */
       *slot = (void *) var;
       VARRAY_PUSH_TREE (referenced_vars, var);
-      ann = var_ann (var);
-      if (! ann)
-	ann = create_var_ann (var);
       ann->uid = num_referenced_vars++;
 
       /* Arguments or global variable pointers may point to memory outside
 	 the current function.  */
       if (POINTER_TYPE_P (TREE_TYPE (var))
-	  && DECL_P (var)
 	  && (TREE_CODE (var) == PARM_DECL
 	      || decl_function_context (var) == NULL_TREE))
-	set_may_point_to_global_mem (var);
+	ann->may_point_to_global_mem = 1;
 
-      /* Dereferences of pointers that may point to global memory must be
-	 marked as global memory aliases.  Note that we still can't use the
-	 may_point_to_global_mem_p predicate here, because we may not have
-	 processed the base pointer yet.  */
-      if (TREE_CODE (var) == INDIRECT_REF
-	  && (TREE_CODE (sym) == PARM_DECL
-	      || decl_function_context (sym) == NULL_TREE))
-	{
-	  set_may_point_to_global_mem (sym);
-	  set_may_alias_global_mem (var);
-	}
+      /* By default, assume that the variable has no real references.  If
+	 the variable is used as a real operand to a statement (i.e.,
+	 add_use and set_def), this field will be set to 1.  */
+      ann->has_real_refs = 0;
     }
-}
 
-
-/* Add a reference to the INDIRECT_REF node of variable VAR.  If VAR has
-   not been dereferenced yet, create a new INDIRECT_REF node for it.
-   WALK_STATE is as in add_referenced_var.  Note that VAR is assumed to be
-   a valid pointer decl.  */
-
-static void
-add_indirect_ref_var (ptr, walk_state)
-     tree ptr;
-     struct walk_state *walk_state;
-{
-  tree deref = indirect_ref (ptr);
-  if (deref == NULL_TREE)
+  /* If VAR is a pointer referenced in an INDIRECT_REF node, create a
+     memory tag to represent the location pointed-to by VAR.  */
+  if (walk_state->is_indirect_ref)
     {
-      tree type = TREE_TYPE (TREE_TYPE (ptr));
-      deref = build1 (INDIRECT_REF, type, ptr);
-      TREE_READONLY (deref) = TYPE_READONLY (type);
-      set_indirect_ref (ptr, deref);
-    }
+      tree tag;
+      var_ann_t tag_ann;
 
-  add_referenced_var (deref, ptr, walk_state);
+      /* If pointer VAR still doesn't have a memory tag associated with it,
+	 create it now.  */
+      tag = ann->mem_tag;
+      if (tag == NULL_TREE)
+	{
+	  tag = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (var)), "MT");
+	  tag_ann = get_var_ann (tag);
+	  tag_ann->mem_tag = var;
+	  tag_ann->is_mem_tag = 1;
+	  if (ann->may_point_to_global_mem)
+	    tag_ann->may_alias_global_mem = 1;
+	  ann->mem_tag = tag;
+	}
+
+      walk_state->is_indirect_ref = 0;
+      add_referenced_var (tag, walk_state);
+    }
 }
 
 
@@ -2505,9 +2329,7 @@ get_virtual_var (var)
   while (code == ARRAY_REF
          || code == COMPONENT_REF
 	 || code == REALPART_EXPR
-	 || code == IMAGPART_EXPR
-	 || (code == INDIRECT_REF
-	     && !DECL_P (TREE_OPERAND (var, 0))))
+	 || code == IMAGPART_EXPR)
     {
       var = TREE_OPERAND (var, 0);
       code = TREE_CODE (var);
@@ -2586,7 +2408,7 @@ find_hidden_use_vars_r (tp, walk_subtrees, data)
      uses in the variable's type, but that's unreliable if the
      type's size contains a SAVE_EXPR for a different function
      context than the variable is used within.  */
-  if (SSA_DECL_P (*tp)
+  if (SSA_VAR_P (*tp)
       && ((DECL_SIZE (*tp)
 	   && ! really_constant_p (DECL_SIZE (*tp)))
 	  || (DECL_SIZE_UNIT (*tp)
@@ -2600,7 +2422,7 @@ find_hidden_use_vars_r (tp, walk_subtrees, data)
 		 inside_vla, NULL);
       *inside_vla = save;
     }
-  else if (*inside_vla && SSA_DECL_P (*tp))
+  else if (*inside_vla && SSA_VAR_P (*tp))
     set_has_hidden_use (*tp);
 
   return NULL_TREE;

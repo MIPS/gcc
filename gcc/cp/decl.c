@@ -11076,6 +11076,7 @@ grokdeclarator (tree declarator,
     }
 
   if (declarator == NULL_TREE
+      || TREE_CODE (declarator) == ERROR_MARK
       || TREE_CODE (declarator) == IDENTIFIER_NODE
       || (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
 	  && (TREE_CODE (type) == FUNCTION_TYPE

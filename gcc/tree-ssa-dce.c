@@ -206,10 +206,9 @@ need_to_preserve_store (var)
   if (decl_function_context (base_symbol) == NULL)
     return true;
   
-  /* Stores through parameter pointers must be perserved.  */
-  if (TREE_CODE (sym) == INDIRECT_REF
-      && TREE_CODE (base_symbol) == PARM_DECL)
-    return true;
+  /* Stores through parameter pointers must be preserved.
+     FIXME: We cannot detect this here anymore!  It needs to be done at the
+	    spot where we see the INDIRECT_REF itself.  */
 
   /* Static locals must be preserved as well.  */
   if (TREE_STATIC (base_symbol))

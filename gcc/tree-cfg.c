@@ -2750,13 +2750,13 @@ is_ctrl_altering_stmt (t)
   /* A CALL_EXPR also alters flow control if it does not return.  */
   if (code == CALL_EXPR
       && call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP))
-    return 1;
+    return true;
 
   /* A CALL_EXPR also alters flow control if it may throw.  */
   if (code == CALL_EXPR
       && (VARRAY_ACTIVE_SIZE (eh_stack) > 0
 	  || stmt_ann (t)->reachable_exception_handlers))
-    return 1;
+    return true;
 
   /* A MODIFY_EXPR may contain a CALL_EXPR, which in turn may have
      an abnormal edge if the current function has nonlocal labels.  */
@@ -2765,7 +2765,6 @@ is_ctrl_altering_stmt (t)
       && (FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl)
           || VARRAY_ACTIVE_SIZE (eh_stack) > 0
 	  || stmt_ann (t)->reachable_exception_handlers))
-      	
     return true;
 
   return false;
@@ -3316,7 +3315,7 @@ set_bb_for_stmt (t, bb)
 	  VARRAY_PUSH_BB (label_to_block_map, bb);
 	}
 
-      ann = stmt_ann (t) ? stmt_ann (t) : create_stmt_ann (t);
+      ann = get_stmt_ann (t);
       ann->bb = bb;
       t = (TREE_CODE (t) == COMPOUND_EXPR) ? TREE_OPERAND (t, 0) : NULL_TREE;
     }

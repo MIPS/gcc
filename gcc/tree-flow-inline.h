@@ -33,7 +33,8 @@ var_ann (t)
   if (!SSA_VAR_P (t))
     abort ();
 #endif
-  /* SSA_NAME nodes share the same annotations as the VAR_DECL/INDIRECT_REF
+
+  /* SSA_NAME nodes share the same annotations as the VAR_DECL
      node that they wrap.  */
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
@@ -41,6 +42,15 @@ var_ann (t)
   return (t->common.ann && t->common.ann->common.type == VAR_ANN)
 	 ? (var_ann_t) t->common.ann
 	 : NULL;
+}
+
+/* Return the annotation for variable VAR.  If none exists, create a new
+   one.  */
+static inline var_ann_t
+get_var_ann (tree var)
+{
+  var_ann_t ann = var_ann (var);
+  return (ann) ? ann : create_var_ann (var);
 }
 
 static inline tree
@@ -57,6 +67,15 @@ stmt_ann (t)
   return (t->common.ann && t->common.ann->common.type == STMT_ANN)
 	 ? (stmt_ann_t) t->common.ann
 	 : NULL;
+}
+
+/* Return the annotation for statement STMT.  If none exists, create a new
+   one.  */
+static inline stmt_ann_t
+get_stmt_ann (tree stmt)
+{
+  stmt_ann_t ann = stmt_ann (stmt);
+  return (ann) ? ann : create_stmt_ann (stmt);
 }
 
 static inline enum tree_ann_type
@@ -123,25 +142,6 @@ may_point_to_global_mem_p (var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_point_to_global_mem : false;
-}
-
-static inline void
-set_indirect_ref (var, indirect)
-     tree var;
-     tree indirect;
-{
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->indirect_ref = indirect;
-}
-
-static inline tree
-indirect_ref (var)
-     tree var;
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->indirect_ref : NULL_TREE;
 }
 
 static inline bool
@@ -224,17 +224,6 @@ stmt_modified_p (t)
      modified.  This will force the next call to get_stmt_operands to scan the
      statement.  */
   return ann ? ann->modified : true;
-}
-
-static inline tree
-create_indirect_ref (ptr_sym)
-     tree ptr_sym;
-{
-#if defined ENABLE_CHECKING
-  if (!POINTER_TYPE_P (TREE_TYPE (ptr_sym)))
-    abort ();
-#endif
-  return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (ptr_sym)), ptr_sym);
 }
 
 static inline tree *

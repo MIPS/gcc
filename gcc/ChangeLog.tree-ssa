@@ -1,3 +1,109 @@
+2003-05-24  Diego Novillo  <dnovillo@redhat.com>
+
+	Do not consider INDIRECT_REF nodes to be variables.
+
+	* gimplify.c (create_tmp_alias_var): Allow temporaries of
+	ARRAY_TYPE to be created.
+	Create new temporaries with function scope.
+	Don't call build_type_variant.
+	Mark the temporary volatile if its type is volatile.
+
+	* tree-dfa.c: Change every function that received a variable and
+	its base symbol to just receive the variable.  Update all callers.
+	(struct alias_set_d): Remove field 'tag_sym'.
+	Add documentation for fields.
+	(struct walk_state): Add field 'is_indirect_ref'.
+	Add documentation for fields.
+	(opf_ignore_bp): Remove.  Update all users.
+	(aliased_objects_base): Remove.  Update all users.
+	(get_stmt_operands): If the statement had virtual operands, do not
+	scan them again.
+	(get_expr_operands): Handle INDIRECT_REF nodes by adding an operand
+	for the memory tag represented and a use for the base pointer.
+	Don't add VUSE operands for pointer arguments to functions.
+	Force a virtual operand when processing ADDR_EXPR nodes.
+	(add_stmt_operand): If the variable is an alias tag, always add it
+	as a virtual operand.
+	Remove code to handle INDIRECT_REF nodes.
+	Move code to determine if a pointer may point to global memory to
+	find_vars_r.
+	Set has_volatile_ops flag in the statement when adding operands for
+	globals and local statics.
+	If the variable is an alias tag, mark the statement as making
+	aliased loads or stores.
+	(set_def): Mark the variable as having real references.
+	(add_use): Likewise.
+	(add_vdef): Remove code to re-add previous virtual operands.
+	If PREV_VOPS is set, don't add a new virtual operand.
+	(add_vuse): Likewise.
+	(dump_variable): Show annotation bitfields 'mem_tag',
+	'occurs_in_abnormal_phi', 'is_alias_tag' and 'is_stored'.
+	(compute_may_aliases): Initialize walk_state.is_indirect_ref to 0.
+	(compute_alias_sets): Don't remove alias sets with exactly one
+	entry.
+	(register_alias_set): Re-implement to support memory tags instead
+	of INDIRECT_REF nodes.  Document algorithm.
+	(find_alias_for): Likewise.
+	(may_alias_p): Likewise.
+	(add_may_alias): Likewise.
+	(find_vars_r): If a pointer assignment is found and the RHS of the
+	assignment may access global memory, mark the pointer as pointing
+	to global memory.
+	Handle INDIRECT_REF nodes by marking the base pointer as
+	dereferenced.
+	Do not share INDIRECT_REF nodes.
+	(add_referenced_var): Don't handle INDIRECT_REF nodes.
+	If called from a store operation, mark the variable as stored.
+	By default mark the variable as not having real references.
+	When processing a pointer that has been dereferenced, create a
+	memory tag for the pointer.
+	(add_indirect_ref_var): Remove.  Update all callers.
+	(get_virtual_var): Don't handle INDIRECT_REF nodes.
+	(find_hidden_use_vars_r):
+
+	* tree-flow-inline.h (get_var_ann): New function.  Change all
+	functions that called var_ann and create_var_ann to call
+	get_var_ann.
+	(get_stmt_ann): Likewise.
+	(set_indirect_ref): Remove.  Update all callers.
+	(indirect_ref): Remove.  Update all callers.
+	(create_indirect_ref): Remove.  Update all callers.
+
+	* tree-flow.h (struct var_ann_d): Remove fields 'is_loaded',
+	'unused' and 'indirect_ref'.
+	Add fields 'mem_tag', 'is_mem_tag', 'is_alias_tag' and
+	'has_real_refs'.
+	(get_var_ann, get_stmt_ann): Declare.
+	(create_indirect_ref, set_indirect_ref, indirect_ref): Remove.
+
+	* tree-pretty-print.c (dump_generic_node): Don't handle
+	INDIRECT_REF nodes inside SSA_NAME nodes.
+
+	* tree-simple.c (get_base_symbol): Don't handle INDIRECT_REF nodes.
+	(is_simple_unary_expr): Don't call STRIP_NOPS.
+
+	* tree-ssa-copyprop.c (get_original): Don't handle INDIRECT_REF
+	nodes.  Allow pointers to be copy propagated.
+
+	* tree-ssa-dce.c (need_to_preserve_store): Don't handle
+	INDIRECT_REF nodes.
+
+	* tree-ssa-live.c (create_ssa_var_map): Only process variables that
+	have real references.
+
+	* tree-ssa.c: Update documentation regarding INDIRECT_REF nodes.
+	(update_indirect_ref_vuses): Remove.  Update all users.
+	(update_pointer_vuses): Remove.  Update all users.
+	(MAY_COPYPROP_P): Remove.  Update all users.
+	(create_temp): Don't handle INDIRECT_REF nodes.
+	(coalesce_ssa_name): Ignore variables that have no real references.
+	(rewrite_stmt): Mark the statement modified if a new copy or
+	constant was propagated into it.
+	Don't special-case pointers.
+	(rewrite_operand): Don't handle INDIRECT_REF nodes.
+	* tree.h (SSA_VAR_P): Remove.  Update all users.
+	(SSA_DECL_P): Rename to SSA_VAR_P.
+
 2003-05-22  Jeff Law  <law@redhat.com>
 
 	* gimplify.c (simplify_expr): Avoid gimplifying expressions which

@@ -1697,22 +1697,15 @@ struct tree_type GTY(())
 /* Nonzero if DECL represents a decl.  */
 #define DECL_P(DECL)	(TREE_CODE_CLASS (TREE_CODE (DECL)) == 'd')
 
-/* Nonzero if DECL represents a decl or an SSA name for a decl.  */
-#define SSA_DECL_P(DECL) \
+/* Nonzero if DECL represents a variable for the SSA passes.  */
+#define SSA_VAR_P(DECL) \
 	(TREE_CODE (DECL) == VAR_DECL	\
 	 || TREE_CODE (DECL) == PARM_DECL \
 	 || TREE_CODE (DECL) == RESULT_DECL \
 	 || (TREE_CODE (DECL) == SSA_NAME \
 	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL \
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL)))
-			      
-
-/* Nonzero if NODE is a variable for the SSA analyzer.  Variables are SSA
-   decls, SSA names and INDIRECT_REF nodes.  */
-#define SSA_VAR_P(NODE) (SSA_DECL_P (NODE) \
-    			 || TREE_CODE (NODE) == SSA_NAME \
-    			 || (TREE_CODE (NODE) == INDIRECT_REF \
-			     && DECL_P (TREE_OPERAND (NODE, 0))))
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL \
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL)))
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */

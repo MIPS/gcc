@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "tree-simple.h"
 
 /* Prototypes.  */
 
@@ -70,8 +71,11 @@ optimize_function (tree fn)
       && !DECL_THUNK_P (fn))
     {
       optimize_inline_calls (fn);
-
       dump_function (TDI_inlined, fn);
+      /* FIXME: The inliner is creating shared nodes.  This was causing a
+	 compile failure in g++.dg/opt/cleanup1.C because COMPONENT_REF
+	 nodes were being shared.  This is probably a bit heavy handed.  */
+      unshare_all_trees (DECL_SAVED_TREE (fn));
     }
   
   /* Undo the call to ggc_push_context above.  */

@@ -181,9 +181,7 @@ copyprop_phi (phi)
 
 
 /* If the unique definition for VAR comes from an assignment of the form
-   VAR = ORIG, return ORIG.  Otherwise, return NULL.  If ORIG is an
-   INDIRECT_REF variable, *VUSE_P will contain the SSA name of ORIG's base
-   pointer.  */
+   VAR = ORIG, return ORIG.  Otherwise, return NULL.  */
 
 static inline tree
 get_original (var, vuse_p)
@@ -194,12 +192,6 @@ get_original (var, vuse_p)
 
   def_stmt = SSA_NAME_DEF_STMT (var);
   *vuse_p = NULL_TREE;
-
-  /* FIXME.  Pointers are not yet propagated.  To do this, we need to
-     rewrite every pointer dereference from *VAR to *ORIG and re-scan all
-     the VDEFs and VUSEs for statements that dereference *VAR.  */
-  if (POINTER_TYPE_P (TREE_TYPE (var)))
-    return NULL_TREE;
 
   /* If VAR is not the LHS of its defining statement, it means that VAR is
      defined by a VDEF node.  This implies aliasing or structure updates.
@@ -214,28 +206,7 @@ get_original (var, vuse_p)
   if (TREE_CODE (def_stmt) == MODIFY_EXPR
       && TREE_OPERAND (def_stmt, 0) == var
       && TREE_CODE (TREE_OPERAND (def_stmt, 1)) == SSA_NAME)
-    {
-      tree orig = TREE_OPERAND (def_stmt, 1);
-
-      /* If the original variable is an INDIRECT_REF, then DEF_STMT will
-	 contain a virtual use of the variable's base pointer.  We also
-	 need to copy that.  */
-      if (TREE_CODE (SSA_NAME_VAR (orig)) == INDIRECT_REF)
-	{
-	  size_t i;
-	  varray_type vuses = vuse_ops (def_stmt);
-	  tree base_ptr = TREE_OPERAND (SSA_NAME_VAR (orig), 0);
-
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
-	    if (base_ptr == SSA_NAME_VAR (VARRAY_TREE (vuses, i)))
-	      {
-		*vuse_p = VARRAY_TREE (vuses, i);
-		break;
-	      }
-	}
-
-      return orig;
-    }
+    return TREE_OPERAND (def_stmt, 1);
 
   return NULL_TREE;
 }
