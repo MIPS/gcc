@@ -188,7 +188,10 @@ compiler::find_class (const std::string &name)
 model_class *
 compiler::find_class (const std::list<std::string> &name)
 {
-  assert (state > PARSING_FILES);
+  // FIXME: this is called by classify_package_name, which is called
+  // by the parsers.  Probably they should call some new function to
+  // force creation of a package.
+  //  assert (state > PARSING_FILES);
   Iname *obj = find_name (name);
   if (obj == NULL)
     {

@@ -1,6 +1,6 @@
 // Walking the model.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -25,6 +25,10 @@
 class visitor
 {
 public:
+
+  virtual ~visitor ()
+  {
+  }
 
   virtual void visit_method (model_method *,
 			     const std::list<ref_variable_decl> &,

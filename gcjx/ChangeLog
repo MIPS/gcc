@@ -1,3 +1,9 @@
+2005-02-19  Tom Tromey  <tromey@redhat.com>
+
+	* compiler.cc (find_class): Removed assertion.
+
+	* visitor.hh (~visitor): New virtual destructor.
+
 2005-02-09  Tom Tromey  <tromey@redhat.com>
 
 	* aot/mangle.cc (mangler): New constructor.
