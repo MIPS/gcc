@@ -935,6 +935,8 @@ machopic_finish (asm_out_file)
 			    GET_MODE_ALIGNMENT (Pmode), 1);
 	}
     }
+  machopic_stubs = NULL_TREE;
+  machopic_non_lazy_pointers = NULL_TREE;
 }
 
 int 

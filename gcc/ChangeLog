@@ -1,3 +1,8 @@
+2003-09-12  Per Bothner  <pbothner@apple.com>
+
+	* config/darwin.c (machopic_finish):  Zero out machopic_stubs and
+	machopic_non_lazy_pointers when done.  Needed for compile-server.
+
 2003-09-11  Mike Stump  <mrs@apple.com>
 
 	* c-lex.c (fe_file_change): Don't transform to_line with SOURCE_LINE.
