@@ -3142,6 +3142,7 @@ do {						\
 		       LABEL_REF, SUBREG, REG, MEM}},			\
   {"pic_symbolic_operand", {CONST}},					\
   {"call_insn_operand", {REG, SUBREG, MEM, SYMBOL_REF}},		\
+  {"sibcall_insn_operand", {REG, SUBREG, SYMBOL_REF}},			\
   {"constant_call_address_operand", {SYMBOL_REF, CONST}},		\
   {"const0_operand", {CONST_INT, CONST_DOUBLE}},			\
   {"const1_operand", {CONST_INT}},					\

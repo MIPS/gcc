@@ -63,6 +63,7 @@ extern int initial_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int local_exec_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int pic_symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int call_insn_operand PARAMS ((rtx, enum machine_mode));
+extern int sibcall_insn_operand PARAMS ((rtx, enum machine_mode));
 extern int constant_call_address_operand PARAMS ((rtx, enum machine_mode));
 extern int const0_operand PARAMS ((rtx, enum machine_mode));
 extern int const1_operand PARAMS ((rtx, enum machine_mode));

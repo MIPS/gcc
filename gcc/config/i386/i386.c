@@ -3177,6 +3177,32 @@ call_insn_operand (op, mode)
   return general_operand (op, Pmode);
 }
 
+/* Test for a valid operand for a call instruction.  Don't allow the
+   arg pointer register or virtual regs since they may decay into
+   reg + const, which the patterns can't handle.  */
+
+int
+sibcall_insn_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  /* Disallow indirect through a virtual register.  This leads to
+     compiler aborts when trying to eliminate them.  */
+  if (GET_CODE (op) == REG
+      && (op == arg_pointer_rtx
+	  || op == frame_pointer_rtx
+	  || (REGNO (op) >= FIRST_PSEUDO_REGISTER
+	      && REGNO (op) <= LAST_VIRTUAL_REGISTER)))
+    return 0;
+
+  /* Explicitly allow SYMBOL_REF even if pic.  */
+  if (GET_CODE (op) == SYMBOL_REF)
+    return 1;
+
+  /* Otherwise we can only allow register operands.  */
+  return register_operand (op, Pmode);
+}
+
 int
 constant_call_address_operand (op, mode)
      rtx op;
