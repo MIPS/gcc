@@ -21,6 +21,7 @@ struct tree_alias_ops
   void (*function_call) (struct tree_alias_ops *, alias_typevar,
 			 alias_typevar, varray_type);
   void *data;
+  int ip:1; /*Interprocedural */
 };
 extern struct tree_alias_ops *steen_alias_ops;
 extern void create_alias_vars PARAMS ((void));

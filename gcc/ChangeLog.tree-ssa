@@ -1,3 +1,19 @@
+2002-08-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-steen.h (struct tree_alias_ops): Add flag for interprocedural.
+
+	* tree-alias-steen.c (steen_alias_ops): Set interprocedural to 0
+	for now.
+	(intra_function_call): New function to handle intraprocedural calling.
+	(finc_func_aliases): Use it.
+	Handle *x = *y, *x = &y, and *x = (cast) y.
+	(display_points_to_set_helper): New function, split from ...
+	(display_points_to_set): Here.
+	(create_alias_vars): Try to print all alias vars we find in the
+	alias_vars array, rather than just those that are linked directly to
+	trees.
+	Clear arrays when we finish if we aren't interprocedural.
+
 2002-08-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	static object registration support:

@@ -69,19 +69,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 /* Todo list:
-   * Intraprocedural call handling.
    * Create SSA may/must def variables.
    * Reduce memory usage (mainly due to fragmentation, not leakage).
    * Don't pass alias ops as first argument, just have a global 
      "current_alias_ops".
    * Finish post-pass cleanup.
 */
- 
+
 static splay_tree alias_annot;
 static GTY ((param_is (struct alias_typevar_def))) varray_type alias_vars = NULL;
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
 #define STEEN_DEBUG 1
+
+
 static void steen_simple_assign PARAMS ((struct tree_alias_ops *,
 					 alias_typevar, alias_typevar));
 static void steen_addr_assign PARAMS ((struct tree_alias_ops *,
@@ -112,6 +113,7 @@ static tree find_func_decls PARAMS ((tree *, int *, void *));
 static alias_typevar create_fun_alias_var_ptf PARAMS ((tree, tree));
 static alias_typevar create_fun_alias_var PARAMS ((tree, int));
 static alias_typevar create_alias_var PARAMS ((tree));
+static void intra_function_call PARAMS ((varray_type));
 
 static struct tree_alias_ops steen_ops = {
   steen_init,
@@ -126,7 +128,8 @@ static struct tree_alias_ops steen_ops = {
   steen_assign_ptr,
   steen_function_def,
   steen_function_call,
-  0
+  0, /* data */
+  0 /* Currently non-interprocedural */
 };
 struct tree_alias_ops *steen_alias_ops = &steen_ops;
 
@@ -748,6 +751,54 @@ get_alias_var (expr)
       }
     }
 }
+static void
+intra_function_call (args)
+     varray_type args;
+{
+  size_t l = VARRAY_ACTIVE_SIZE (args);
+  size_t i;
+  tree globvar = getdecls();
+
+  /* We assume that an actual parameter can point to any global. */
+  while (globvar)
+    {
+      if (TREE_CODE (globvar) == VAR_DECL)
+	{
+	  alias_typevar av = get_alias_var (globvar);
+	  for (i = 0; i < l; i++)
+	    {
+	      alias_typevar argav = VARRAY_GENERIC_PTR (args, i);
+	      
+	      /* Restricted pointers can't be aliased with other
+		 restricted pointers. */	      
+	      if (!TYPE_RESTRICT (TREE_TYPE (argav->decl)) 
+		  || !TYPE_RESTRICT (TREE_TYPE (av->decl)))
+		steen_alias_ops->addr_assign (steen_alias_ops, argav, av);
+	    }
+	}
+      globvar = TREE_CHAIN (globvar);
+    }
+
+  /* We assume assignments among the actual parameters. */
+  for (i = 0; i < l; i++) 
+    {
+      alias_typevar argi = VARRAY_GENERIC_PTR (args, i);
+      size_t j;
+      for (j = 0; j < l; j++)
+	{
+	  alias_typevar argj;
+	  if (i == j)
+	    continue;
+	  argj = VARRAY_GENERIC_PTR (args, j);
+
+	  /* Restricted pointers can't be aliased with other
+	     restricted pointers. */
+	  if (!TYPE_RESTRICT (TREE_TYPE (argi->decl)) 
+	      || !TYPE_RESTRICT (TREE_TYPE (argj->decl)))
+	    steen_alias_ops->simple_assign (steen_alias_ops, argi, argj);
+	}
+    }
+}
 static tree
 find_func_aliases (tp, walk_subtrees, data)
      tree *tp;
@@ -768,9 +819,7 @@ find_func_aliases (tp, walk_subtrees, data)
 
       *walk_subtrees = 0;
       op0 = TREE_OPERAND (*tp, 0);
-      STRIP_NOPS (op0);
       op1 = TREE_OPERAND (*tp, 1);
-      STRIP_NOPS (op1);
 
       /* lhsAV should always have an alias variable */
       lhsAV = get_alias_var (op0);
@@ -839,14 +888,9 @@ find_func_aliases (tp, walk_subtrees, data)
 		  create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
 		  steen_alias_ops->function_call (steen_alias_ops, lhsAV, 
 						  get_alias_var (callop0),
-						  args);
-		  /* FIXME: If this is the non-interprocedural
-		     version, or we don't have the alias info for the
-		     called function, we need to handle it.
-		     In particular, the actual arguments can alias
-		     each other, and could take the address of any
-		     global. */
-
+						  args);		  
+		  if (!steen_alias_ops->ip)
+		    intra_function_call (args);
 		}
 
 	    }
@@ -901,6 +945,45 @@ find_func_aliases (tp, walk_subtrees, data)
 		steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, 
 					     rhsAV);
 	    }
+	  /* *x = &y */
+	  else if (TREE_CODE (op0) == INDIRECT_REF
+		   && TREE_CODE (op1) == ADDR_EXPR)
+	    {
+	      /* This becomes temp = &y and *x = temp . */
+	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+								create_tmp_alias_var
+								(void_type_node,
+								 "aliastmp"));   
+	      steen_alias_ops->addr_assign (steen_alias_ops, tempvar, rhsAV);
+	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	    }
+	  
+	  /* *x = *y */
+	  else if (TREE_CODE (op0) == INDIRECT_REF
+		   && TREE_CODE (op1) == INDIRECT_REF)
+	    {
+	      /* This becomes temp = *y and *x = temp . */
+	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+								create_tmp_alias_var
+								(void_type_node,
+								 "aliastmp"));   
+	      steen_alias_ops->ptr_assign (steen_alias_ops, tempvar, rhsAV);
+	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	    }
+	  
+	  /* *x = (cast) y */
+	  else if (TREE_CODE (op0) == INDIRECT_REF
+		   && is_simple_cast (op1))
+	    {
+	      /* This becomes temp = (cast) y and  *x = temp. */
+	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+								create_tmp_alias_var
+								(void_type_node,
+								 "aliastmp"));
+	      
+	      steen_alias_ops->simple_assign (steen_alias_ops, tempvar, rhsAV);
+	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	    }
 	  /* *x = <something else */
 	  else
 	    {
@@ -926,8 +1009,9 @@ find_func_aliases (tp, walk_subtrees, data)
       steen_alias_ops->function_call (steen_alias_ops, NULL, 
 				      get_alias_var (TREE_OPERAND (*tp, 0)),
 				      args);
-      /* FIXME: Same caveats as above for calls to functions we have no
-	alias variables for. */
+      if (!steen_alias_ops->ip)
+	intra_function_call (args);
+
 
     }
       
@@ -962,6 +1046,10 @@ find_func_decls (tp, walk_subtrees, data)
    2. The arguments.
    3. The locals.
    4. The return value.
+   
+   DECL is the function declaration.
+   FORCE determines whether we force creation of the alias variable,
+   regardless of whether one exists or not. 
 */
 static alias_typevar
 create_fun_alias_var (decl, force)
@@ -986,7 +1074,7 @@ create_fun_alias_var (decl, force)
       for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	{
 	  alias_typevar tvar = create_alias_var (arg);
-	  splay_tree_insert (alias_annot, (splay_tree_key) arg, (splay_tree_value) tvar);
+	  splay_tree_insert (alias_annot, (splay_tree_key) arg, (splay_tree_value) tvar); 
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	}
     }
@@ -1127,22 +1215,18 @@ create_alias_var (decl)
 static unsigned int splaycount = 0;
 static int splay_tree_count PARAMS ((splay_tree_node, void *));
 static int display_points_to_set PARAMS ((splay_tree_node, void *));
+static void display_points_to_set_helper PARAMS ((alias_typevar));
 unsigned int splay_tree_size PARAMS ((splay_tree));
-
-/* Display the points to set for the given alias_typevar (in the
-   splay tree node.) */
-static int
-display_points_to_set (node, data)
-     splay_tree_node node;
-     void *data ATTRIBUTE_UNUSED;
+static void
+display_points_to_set_helper (tvar)
+	alias_typevar tvar;
 {
-  varray_type tmp;
   size_t i;
-  
-  tmp = alias_tvar_pointsto ((alias_typevar) node->value);
+  varray_type tmp;
+  tmp = alias_tvar_pointsto (tvar);
   if (VARRAY_ACTIVE_SIZE (tmp) <= 0)
-    return 0;
-  print_c_node (stderr, (tree) node->key);
+    return;
+  print_c_node (stderr, tvar->decl);
   fprintf (stderr, " => { ");
   for (i = 0; i < VARRAY_ACTIVE_SIZE (tmp); i++)
     {
@@ -1151,6 +1235,15 @@ display_points_to_set (node, data)
       fprintf (stderr, ", ");
     }
   fprintf (stderr, " }\n");
+}
+static int
+display_points_to_set (node, data)
+     splay_tree_node node;
+     void *data ATTRIBUTE_UNUSED;
+{
+/* Display the points to set for the given alias_typevar (in the
+   splay tree node.) */
+  display_points_to_set_helper ((alias_typevar)node->value); 
   return 0;
 }
 
@@ -1192,11 +1285,21 @@ create_alias_vars ()
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
 				find_func_aliases, NULL);
-  splay_tree_foreach (alias_annot, display_points_to_set, NULL);
+  fprintf (stderr, "\nPoints to sets for function %s:\n",
+	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_vars); i++)
+     display_points_to_set_helper (VARRAY_GENERIC_PTR (alias_vars, i));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
      splay_tree_remove (alias_annot, (splay_tree_key) VARRAY_GENERIC_PTR (local_alias_vars, i));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
     VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
+  if (!steen_alias_ops->ip)
+    {
+      splay_tree_delete (alias_annot);
+      VARRAY_CLEAR (alias_vars);
+      VARRAY_CLEAR (local_alias_vars);
+      VARRAY_CLEAR (local_alias_varnums);
+    }
 }
 void
 init_alias_vars ()
@@ -1204,9 +1307,9 @@ init_alias_vars ()
   init_alias_type ();
   VARRAY_GENERIC_PTR_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");
-  if (alias_vars == NULL)
+  if (!steen_alias_ops->ip || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if (alias_annot == NULL)
+  if (!steen_alias_ops->ip || alias_annot == NULL)
     alias_annot = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 }
 #include "gt-tree-alias-steen.h"
