@@ -4328,6 +4328,26 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
       else if (require_constant
 	       && (code == VECTOR_TYPE && TREE_CODE (init) == CONSTRUCTOR))
 	  return inside_init;
+      else if (require_constant
+	       && (code == VECTOR_TYPE && TREE_CODE (init) == NOP_EXPR))
+	{
+	  /* User is using FSF style vector const. It must be converted to
+	    VECTOR_CST so it is generated at assebly time. */
+	  while (TREE_CODE (init) == NOP_EXPR)
+	    init = TREE_OPERAND (init, 0);
+	  if (TREE_CODE (init) == COMPOUND_LITERAL_EXPR)
+	    {
+	      init = COMPOUND_LITERAL_EXPR_DECL (init);
+	      if (TREE_CODE (init) == VAR_DECL && DECL_INITIAL (init))
+	        {
+		  init = DECL_INITIAL (init);
+		  if (TREE_CODE (init) == VECTOR_CST)
+		    return convert (type, init);
+		}
+	    }
+	  error_init ("initializer element is not constant");
+	  inside_init = error_mark_node;
+	}
       /* APPLE LOCAL end AltiVec */
       else if (require_constant
 	       && !initializer_constant_valid_p (inside_init,
