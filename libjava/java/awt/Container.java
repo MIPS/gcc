@@ -1248,10 +1248,17 @@ public class Container extends Component
                           Component comp)
   {
     Rectangle bounds = comp.getBounds();
+    Rectangle candidate = comp.getBounds();
     Rectangle oldClip = gfx.getClipBounds();
     if (oldClip == null)
       oldClip = bounds;
-    Rectangle clip = oldClip.intersection(bounds);
+    else
+    {
+      candidate.x += oldClip.x;
+      candidate.y += oldClip.y;
+    }
+
+    Rectangle clip = oldClip.intersection(candidate);
 
     if (clip.isEmpty()) return;
 
@@ -1668,6 +1675,21 @@ class LightweightDispatcher implements Serializable
         MouseEvent me = (MouseEvent) e;
 
         acquireComponentForMouseEvent(me);
+	  
+	// If the event is a drag, then we have to dispatch 
+	// to the component who was last pressed. We can't
+	// use mouseEventTarget since the target should
+	// still be able to move. (For mouse move events).
+	if (e.getID() == MouseEvent.MOUSE_DRAGGED && 
+	    pressedComponent != null && 
+	    pressedComponent.isShowing())
+	{
+	  MouseEvent newEvt = 
+	    SwingUtilities.convertMouseEvent(nativeContainer, me,
+	                                     pressedComponent);
+          pressedComponent.dispatchEvent(newEvt);
+	  return e.isConsumed();
+	}
 
         // Avoid dispatching ENTERED and EXITED events twice.
         if (mouseEventTarget != null

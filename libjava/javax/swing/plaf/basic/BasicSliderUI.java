@@ -333,7 +333,8 @@ public class BasicSliderUI extends SliderUI
     /** The current Y position of the mouse. */
     protected int currentMouseY;
 
-    /** FIXME: Figure out what this is used for. */
+    /** The offset between the current slider value
+        and the cursor's position. */
     protected int offset;
 
     /**
@@ -345,8 +346,18 @@ public class BasicSliderUI extends SliderUI
      */
     public void mouseDragged(MouseEvent e)
     {
-      // FIXME: When we receive dragging events, fix this.
-      // System.out.println("JSLIDER - Mouse Dragged");
+      currentMouseX = e.getX();
+      currentMouseY = e.getY();
+      if (slider.getValueIsAdjusting())
+      {
+        int value;
+        if (slider.getOrientation() == JSlider.HORIZONTAL)
+	  value = valueForXPosition(currentMouseX) - offset;
+	else
+	  value = valueForYPosition(currentMouseY) - offset;
+	
+	slider.setValue(value);
+      }
     }
 
     /**
@@ -357,8 +368,7 @@ public class BasicSliderUI extends SliderUI
      */
     public void mouseMoved(MouseEvent e)
     {
-      // FIXME: When we receive mouve events, fix this.
-      // System.out.println("JSLIDER - Mouse Moved");
+      // Don't care that we're moved unless we're dragging.
     }
 
     /**
@@ -387,9 +397,7 @@ public class BasicSliderUI extends SliderUI
 	return;
 
       // If the thumb is hit, then we don't need to set the timers to move it. 
-      if (thumbRect.contains(e.getPoint()))
-	slider.setValue(value);
-      else
+      if (!thumbRect.contains(e.getPoint()))
         {
 	  // The mouse has hit some other part of the slider.
 	  // The value moves no matter where in the slider you hit.
@@ -398,6 +406,11 @@ public class BasicSliderUI extends SliderUI
 	  else
 	    scrollDueToClickInTrack(NEGATIVE_SCROLL);
         }
+      else
+        {
+	  slider.setValueIsAdjusting(true);
+          offset = value - slider.getValue();
+	}
     }
 
     /**
@@ -411,6 +424,12 @@ public class BasicSliderUI extends SliderUI
       currentMouseX = e.getX();
       currentMouseY = e.getY();
 
+      if (slider.getValueIsAdjusting())
+      {
+        slider.setValueIsAdjusting(false);
+	if (slider.getSnapToTicks())
+	  slider.setValue(findClosestTick(slider.getValue()));
+      }
       if (scrollTimer != null)
 	scrollTimer.stop();
     }
@@ -2000,6 +2019,8 @@ public class BasicSliderUI extends SliderUI
    */
   protected void scrollDueToClickInTrack(int dir)
   {
+    scrollTimer.stop();
+  
     scrollListener.setDirection(dir);
     scrollListener.setScrollByBlock(true);
 

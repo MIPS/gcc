@@ -96,7 +96,6 @@ public class JSeparator extends JComponent implements SwingConstants,
    */
   public JSeparator(int orientation)
   {
-    System.out.println("MAKING IT");
     if (orientation != HORIZONTAL && orientation != VERTICAL)
       throw new IllegalArgumentException(orientation
                                          + " is not a valid orientation.");
@@ -134,8 +133,6 @@ public class JSeparator extends JComponent implements SwingConstants,
   {
     setUI((SeparatorUI) UIManager.getUI(this));
     invalidate();
-    if (ui == null)
-      System.out.println("CRAP");
   }
 
   /**

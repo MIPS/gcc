@@ -93,6 +93,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      */
     public void mousePressed(MouseEvent e)
     {
+      scrollTimer.stop();
       scrollListener.setScrollByBlock(false);
       if (e.getSource() == incrButton)
 	scrollListener.setDirection(POSITIVE_SCROLL);
@@ -257,7 +258,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     /** The current Y coordinate of the mouse. */
     protected int currentMouseY;
 
-    /** FIXME: use for something */
+    /** The offset between the current mouse cursor and the 
+        current value of the scrollbar. */
     protected int offset;
 
     /**
@@ -268,8 +270,18 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      */
     public void mouseDragged(MouseEvent e)
     {
-      // FIXME: implement.
-      System.out.println("DRAGGING");
+      currentMouseX = e.getX();
+      currentMouseY = e.getY();
+      if (scrollbar.getValueIsAdjusting())
+      {
+        int value;
+        if (scrollbar.getOrientation() == SwingConstants.HORIZONTAL)
+	  value = valueForXPosition(currentMouseX) - offset;
+	else
+	  value = valueForYPosition(currentMouseY) - offset;
+	
+	scrollbar.setValue(value);
+      }
     }
 
     /**
@@ -279,8 +291,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      */
     public void mouseMoved(MouseEvent e)
     {
-      // FIXME: implement.
-      System.out.println("MOVING");
+      // Not interested in where the mouse
+      // is unless it is being dragged.
     }
 
     /**
@@ -304,10 +316,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       if (value == scrollbar.getValue())
 	return;
 
-      if (thumbRect.contains(e.getPoint()))
-	scrollbar.setValue(value);
-      else
+      if (!thumbRect.contains(e.getPoint()))
         {
+	  scrollTimer.stop();
 	  scrollListener.setScrollByBlock(true);
 	  if (value > scrollbar.getValue())
 	    {
@@ -321,6 +332,17 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	    }
 	  scrollTimer.start();
         }
+      else
+        {
+	  // We'd like to keep track of where the cursor
+	  // is inside the thumb.
+	  // This works because the scrollbar's value represents 
+	  // "lower" edge of the thumb. The value at which
+	  // the cursor is at must be greater or equal
+	  // to that value.
+	  scrollbar.setValueIsAdjusting(true);
+	  offset = value - scrollbar.getValue();
+	}
       scrollbar.repaint();      
     }
 
@@ -334,6 +356,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     {
       trackHighlight = NO_HIGHLIGHT;
       scrollTimer.stop();
+      
+      if (scrollbar.getValueIsAdjusting())
+        scrollbar.setValueIsAdjusting(false);
       scrollbar.repaint();
     }
     
@@ -583,7 +608,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     if (orientation == SwingConstants.HORIZONTAL)
       incrButton.setIcon(rightIcon);
     else
-      incrButton.setIcon(upIcon);
+      incrButton.setIcon(downIcon);
 
     return incrButton;
   }
@@ -603,7 +628,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     if (orientation == SwingConstants.HORIZONTAL)
       decrButton.setIcon(leftIcon);
     else
-      decrButton.setIcon(downIcon);
+      decrButton.setIcon(upIcon);
 
     return decrButton;
   }
@@ -738,7 +763,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	                 decrButton.getPreferredSize().width);
 	width = Math.max(getMinimumThumbSize().width, width);
 	width = Math.max(20, width);
-	width = Math.min(getMaximumThumbSize().height, height);
+	width = Math.min(getMaximumThumbSize().width, width);
       }
 
     Insets insets = scrollbar.getInsets();
@@ -811,7 +836,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       {
 	thumbRect.x = trackRect.x;
 	thumbRect.y = trackRect.y
-	              + (max - value - extent) * trackRect.height / (max - min);
+	              + value * trackRect.height / (max - min);
 
 	thumbRect.width = trackRect.width;
 	thumbRect.height = extent * trackRect.height / (max - min);
@@ -996,9 +1021,9 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     Dimension incrDims = incrButton.getPreferredSize();
     Dimension decrDims = decrButton.getPreferredSize();
 
-    incrButton.setBounds(vr.x, vr.y, trackRect.width, incrDims.height);
-    decrButton.setBounds(vr.x, trackRect.y + trackRect.height,
-                         trackRect.width, decrDims.height);
+    decrButton.setBounds(vr.x, vr.y, trackRect.width, decrDims.height);
+    incrButton.setBounds(vr.x, trackRect.y + trackRect.height,
+                         trackRect.width, incrDims.height);
   }
 
   /**
@@ -1055,10 +1080,8 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       g.fillRect(trackRect.x, trackRect.y, thumbRect.x - trackRect.x,
                  trackRect.height);
     else
-      g.fillRect(trackRect.x, thumbRect.y + thumbRect.height, 
-                 trackRect.width,
-                 trackRect.y + trackRect.height - thumbRect.y - 
-		 thumbRect.height);
+      g.fillRect(trackRect.x, trackRect.y, trackRect.width, 
+                 thumbRect.y - trackRect.y);
     g.setColor(saved);
   }
 
@@ -1078,9 +1101,11 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
       g.fillRect(thumbRect.x + thumbRect.width, trackRect.y,
                  trackRect.x + trackRect.width - thumbRect.x - thumbRect.width,
                  trackRect.height);
-    else
-      g.fillRect(trackRect.x, trackRect.y, trackRect.width, 
-                 thumbRect.y - trackRect.y);
+    else   
+      g.fillRect(trackRect.x, thumbRect.y + thumbRect.height, 
+                 trackRect.width,
+                 trackRect.y + trackRect.height - thumbRect.y - 
+		 thumbRect.height);
     g.setColor(saved);
   }
 
@@ -1328,7 +1353,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
     if (len == 0)
       return ((max - min) / 2);
 
-    value = ((len - (yPos - trackRect.y)) * (max - min) / len + min);
+    value = ((yPos - trackRect.y) * (max - min) / len + min);
 
     // If this isn't a legal value, then we'll have to move to one now.
     if (value > max)

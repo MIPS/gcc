@@ -1,3 +1,40 @@
+2004-03-09  Kim Ho  <kho@redhat.com>
+
+	* java/awt/Container.java: (visitChild): Move
+	the x and y coordinate of the component rectangle
+	to correct position.
+	(handleEvent): Forward drag events to the pressed
+	component.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java:
+	Fix comments.
+	(ArrowButtonListener::mousePressed): Stop the
+	existing timer.
+	(mouseDragged): Implement.
+	(TrackListener::mousePressed): Only react if
+	the press doesn't occur on the thumb, otherwise
+	just set the offset.
+	(TrackListener::mouseReleased): Unset the isAdjusting
+	value.
+	(createIncreaseIcon): Switch icon.
+	(createDecreaseIcon): Switch icon.
+	(calculatePreferredSize): Use width.
+	(getThumbBounds): Use the top as the lower value.
+	(layoutVScrollBar): Switch the button locations.
+	(paintIncreaseHighlight): Paint correct side of thumb.
+	(paintDecreaseHighlight): ditto.
+	(valueForYPosition): Use top as the lower value.
+	* javax/swing/plaf/basic/BasicSliderUI.java:
+	Fix comments.
+	(mouseDragged): Implement.
+	(mousePressed): Only react when the thumb isn't
+	pressed, otherwise just set offset.
+	(mouseReleased): Handle a release of the thumb.
+	(scrollDueToClickInTrack): Stop the timer first.
+	* javax/swing/JProgressBar.java:
+	(setString): Fix change condition.
+	* javax/swing/JSeparator.java:
+	Remove println's.
+
 2004-03-08  David Jee  <djee@redhat.com>
 
 	* java/awt/image/AffineTransformOp.java:

@@ -392,8 +392,9 @@ public class JProgressBar extends JComponent implements SwingConstants,
    */
   public void setString(String string)
   {
-    if ((string == null || progressString == null &&
-        string != progressString) || ! string.equals(progressString))
+    if (((string == null || progressString == null) &&
+        string != progressString) || (string != null &&
+	! string.equals(progressString)))
       {
 	String oldString = progressString;
 	progressString = string;
