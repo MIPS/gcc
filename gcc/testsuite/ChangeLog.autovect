@@ -1,3 +1,7 @@
+2005-02-22  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-39.c: Pass loop bound as a parameter.
+
 2005-02-21  Devang Patel  <dpatel@apple.com>
 
 	* gcc.dg/vect/vect-dv-1.c: New test.

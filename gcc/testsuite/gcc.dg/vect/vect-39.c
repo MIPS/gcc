@@ -7,10 +7,9 @@
 
 int ia[N];
 
-int main1 ()
+int main1 (int n)
 {
   unsigned int i;
-  int n;
 
   /* Loop bound is int and IV is unsigned int.  */
   for (i = 0; i < n; i++)
@@ -32,7 +31,7 @@ int main (void)
 {
   check_vect ();
 
-  return main1 ();
+  return main1 (N);
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
