@@ -1,3 +1,14 @@
+2003-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_inline_context): New structure.
+	(cgrpah_mark_inline, cgraph_check_inline_limits): Use context
+	instead of passing all arguments by hand.
+	(cgraph_create_inline_context, cgraph_free_inline_context,
+	cgraph_inline_context_set_caller, cgraph_inline_context_clear_caller,
+	cgraph_inline_context_set_callee, cgrpah_inline_context_clear_callee,
+	cgraph_recursive_inlining_p): New static function.
+	(cgraph_decide_inline*):  Reorganize to use context.
+
 2003-11-30  Paul Brook  <paul@nowt.org>
 
 	* Makefile.in (GTFILES): Remove stray '\'.
