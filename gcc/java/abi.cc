@@ -52,7 +52,24 @@ cxx_abi::build_method_call (tree_builtins *builtins,
     }
   else if (meth->get_declaring_class ()->interface_p ())
     {
-      // FIXME: interface call.
+      // FIXME: use _Jv_LookupInterfaceMethodIdx.
+
+      tree klass_tree
+	= builtins->map_class_object (meth->get_declaring_class ());
+      tree name_tree = builtins->map_utf8const (meth->get_name ());
+      // FIXME: use our own get_descriptor().
+      tree desc_tree = builtins->map_utf8const (meth->get_descriptor ());
+
+      tree lookup_args
+	= tree_cons (NULL_TREE, klass_tree,
+		     tree_cons (NULL_TREE, name_tree,
+				build_tree_list (NULL_TREE, desc_tree)));
+
+      func = build3 (CALL_EXPR, ptr_type_node,
+		     builtin_Jv_LookupInterfaceMethod,
+		     lookup_args, NULL_TREE);
+      func = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (meth_tree)),
+		     func);
     }
   else if (is_super || meth->final_p () || meth->constructor_p ())
     {

@@ -108,6 +108,7 @@ tree builtin_Jv_NewMultiArray;
 tree builtin_Jv_ThrowBadArrayIndex;
 tree builtin_Jv_ThrowNullPointerException;
 tree builtin_Jv_CheckArrayStore;
+tree builtin_Jv_LookupInterfaceMethod;
 tree builtin_Jv_LookupInterfaceMethodIdx;
 tree builtin_Jv_LookupJNIMethod;
 tree builtin_Jv_GetJNIEnvNewFrame;
@@ -661,6 +662,18 @@ initialize_builtin_functions ()
 			      0, NOT_BUILT_IN, NULL, NULL_TREE);
   builtin_Jv_CheckArrayStore
     = build_address_of (builtin_Jv_CheckArrayStore);
+
+  t = tree_cons (NULL_TREE, type_class_ptr,
+		 tree_cons (NULL_TREE, type_utf8const_ptr,
+			    tree_cons (NULL_TREE, type_utf8const_ptr,
+				       void_list_node)));
+  builtin_Jv_LookupInterfaceMethod
+    = gcjx::builtin_function ("_Jv_LookupInterfaceMethod",
+			      build_function_type (ptr_type_node, t),
+			      0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_PURE (builtin_Jv_LookupInterfaceMethod) = 1;
+  builtin_Jv_LookupInterfaceMethod
+    = build_address_of (builtin_Jv_LookupInterfaceMethod);
 
   t = tree_cons (NULL_TREE, ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,

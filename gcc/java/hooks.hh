@@ -74,6 +74,7 @@ extern GTY (()) tree builtin_Jv_NewMultiArray;
 extern GTY (()) tree builtin_Jv_ThrowBadArrayIndex;
 extern GTY (()) tree builtin_Jv_ThrowNullPointerException;
 extern GTY (()) tree builtin_Jv_CheckArrayStore;
+extern GTY (()) tree builtin_Jv_LookupInterfaceMethod;
 extern GTY (()) tree builtin_Jv_LookupInterfaceMethodIdx;
 extern GTY (()) tree builtin_Jv_LookupJNIMethod;
 extern GTY (()) tree builtin_Jv_GetJNIEnvNewFrame;
