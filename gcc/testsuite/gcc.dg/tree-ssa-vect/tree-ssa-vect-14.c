@@ -6,22 +6,22 @@
 #include <signal.h>
 
 #define N 16
- 
-int main1 ()
-{  
-  char cb[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
-  char ca[N];
-  int i;
 
-  for (i = 0; i < N; i++)
-    {
-      ca[i] = cb[i];
-    }
+int main1 ()
+{
+  int i;
+  int ia[N];
+
+
+  /* Not vetorizable yet (induction).  */
+  for ( i = 0; i < N; i++) {
+    ia[i] = i;
+  }
 
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (ca[i] != cb[i])
+      if (ia[i] != i)
         abort ();
     }
 
@@ -30,10 +30,10 @@ int main1 ()
 
 void
 sig_ill_handler (int sig)
-{
+{   
     exit(0);
 }
-  
+
 int main (void)
 { 
   /* Exit on systems without altivec.  */
@@ -43,7 +43,6 @@ int main (void)
   signal (SIGILL, SIG_DFL);
   
   return main1 ();
-} 
+}
 
-
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail *-*-* } } } */
