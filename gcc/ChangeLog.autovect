@@ -1,3 +1,7 @@
+2005-03-02  Devang Patel  <dpatel@apple.com>
+
+	* tree-vect-analyze.c (vect_build_dist_vector): Use loop_nest's depth.
+
 2005-02-24  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* Makefile.in (tree-vect-analyze.o, tree-vect-transform.o): New.
