@@ -6384,6 +6384,9 @@ output_reserved_units_table_name (f, automaton)
 /* Name of cache of insn dfa codes.  */
 #define DFA_INSN_CODES_VARIABLE_NAME "dfa_insn_codes"
 
+/* Name of length of cache of insn dfa codes. */
+#define DFA_INSN_CODES_LENGTH_VARIABLE_NAME "dfa_insn_codes_length"
+
 /* Names of the PHR interface functions: */
 #define SIZE_FUNC_NAME "state_size"
 
@@ -7403,7 +7406,21 @@ output_dfa_insn_code_func ()
 	   DFA_INSN_CODE_FUNC_NAME);
   fprintf (output_file, "static int\n%s (%s)\n\trtx %s;\n",
 	   DFA_INSN_CODE_FUNC_NAME, INSN_PARAMETER_NAME, INSN_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s;\n\n", INTERNAL_INSN_CODE_NAME);
+  fprintf (output_file, "{\n  int %s;\n  int %s;\n\n",
+	   INTERNAL_INSN_CODE_NAME, TEMPORARY_VARIABLE_NAME);
+  fprintf (output_file, "  if (INSN_UID (%s) >= %s)\n    {\n",
+	   INSN_PARAMETER_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  fprintf (output_file, "      %s = %s;\n      %s = 2 * INSN_UID (%s);\n",
+	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, INSN_PARAMETER_NAME);
+  fprintf (output_file, "      %s = xrealloc (%s, %s * sizeof (int));\n",
+	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
+  fprintf (output_file,
+	   "      for (; %s < %s; %s++)\n        %s [%s] = -1;\n    }\n",
+	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME,
+	   TEMPORARY_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
+	   TEMPORARY_VARIABLE_NAME);
   fprintf (output_file, "  if ((%s = %s [INSN_UID (%s)]) < 0)\n    {\n",
 	   INTERNAL_INSN_CODE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
 	   INSN_PARAMETER_NAME);
@@ -7636,8 +7653,8 @@ output_internal_insn_latency_func ()
 	   INTERNAL_INSN_LATENCY_FUNC_NAME);
   fprintf (output_file, "static int\n%s (%s, %s, %s, %s)",
 	   INTERNAL_INSN_LATENCY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   INTERNAL_INSN2_CODE_NAME,
-	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
+	   INTERNAL_INSN2_CODE_NAME, INSN_PARAMETER_NAME,
+	   INSN2_PARAMETER_NAME);
   fprintf (output_file, "\n\tint %s;\n\tint %s;\n",
 	   INTERNAL_INSN_CODE_NAME, INTERNAL_INSN2_CODE_NAME);
   fprintf (output_file,
@@ -7869,14 +7886,16 @@ static void
 output_dfa_start_func ()
 {
   fprintf (output_file,
-	   "void\n%s ()\n{\n  int %s;\n  int %s = get_max_uid ();\n\n",
-	   DFA_START_FUNC_NAME, I_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME);
+	   "void\n%s ()\n{\n  int %s;\n\n  %s = get_max_uid ();\n",
+	   DFA_START_FUNC_NAME, I_VARIABLE_NAME,
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
-	   DFA_INSN_CODES_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME);
+	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   fprintf (output_file,
 	   "  for (%s = 0; %s < %s; %s++)\n    %s [%s] = -1;\n}\n\n",
-	   I_VARIABLE_NAME, I_VARIABLE_NAME, TEMPORARY_VARIABLE_NAME,
-	   I_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME, I_VARIABLE_NAME);
+	   I_VARIABLE_NAME, I_VARIABLE_NAME,
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, I_VARIABLE_NAME,
+	   DFA_INSN_CODES_VARIABLE_NAME, I_VARIABLE_NAME);
 }
 
 /* The function outputs PHR interface function `dfa_finish'.  */
@@ -8693,7 +8712,9 @@ write_automata ()
   output_internal_min_issue_delay_func ();
   output_internal_trans_func ();
   /* Cache of insn dfa codes: */
-  fprintf (output_file, "\nstatic int *%s;\n\n", DFA_INSN_CODES_VARIABLE_NAME);
+  fprintf (output_file, "\nstatic int *%s;\n", DFA_INSN_CODES_VARIABLE_NAME);
+  fprintf (output_file, "\nstatic int %s;\n\n",
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   output_dfa_insn_code_func ();
   output_trans_func ();
   fprintf (output_file, "\n#if %s\n\n", AUTOMATON_STATE_ALTS_MACRO_NAME);
