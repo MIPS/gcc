@@ -1,3 +1,33 @@
+2002-04-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_expr): Add arguments simple_tree_f and
+	is_lhs.  Update all callers.
+	Call simplify_call_expr, simplify_cond_expr, simplify_arglist and
+	simplify_modify_expr.
+	Call is_unop and is_binop to check for unary and binary operators.
+	(simplify_binary_expr): Remove.
+	(simplify_call_expr): New function.
+	(simplify_arglist): New function.
+	(simplify_cond_expr): New function.
+	(simplify_modify_expr): New function.
+	(keep_stmt_p): Remove.
+	(is_binop): New function.
+	(is_unop): New function.
+	(simplify_stmt): Don't call keep_stmt_p.
+	(simplify_decl_stmt): Call add_assignment_tree.
+	* tree-simple.c: Include c-tree.h
+	Add expression-statements to the SIMPLE grammar.
+	(is_simple_modify_expr_lhs): New function.
+	(is_simple_modify_expr): Call it.
+	(is_simple_relop): Update comment.
+	(is_simple_unary_expr): Allow expression-statements.
+	(is_simple_arglist): New function.
+	(is_simple_call_expr): Call it.
+	(is_simple_id): Accept expressions taking the address of a
+	function.
+	* tree-simple.h (is_simple_modify_expr_lhs): Declare.
+	(is_simple_arglist): Declare.
+
 2002-04-01  Richard Henderson  <rth@redhat.com>
 
 	PR target/1538

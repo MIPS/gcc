@@ -22,19 +22,17 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+/* ??? SIMPLE trees use many tree nodes defined in the C front end.  These
+       should be moved to tree.def.  */ 
+#include "c-tree.h"
 #include "tree-simple.h"
 
-/* {{{ Grammar for SIMPLE trees.  */
-
-/** Original grammar available at:
+/** SIMPLE C Grammar
+  
+    Original grammar available at:
 
 	      http://www-acaps.cs.mcgill.ca/info/McCAT/McCAT.html
 
-                                SIMPLE C Grammar
-
-    ----------------------------------------------------------------------
-
-    The BNF rules for SIMPLE C
 
       Statements
 
@@ -123,6 +121,11 @@ Boston, MA 02111-1307, USA.  */
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
+	      | '({' all_stmts '})'	=> Original grammar does not
+	                                   allow expression-statements.
+					   We shouldn't, either.  But
+					   for now it is easier if we
+					   do.
 
 	      (cast here stands for all valid C typecasts)
 
@@ -185,8 +188,6 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
-/* }}} */
-
 /** {{{ is_simple_expr ()
 
     Return non-zero if T is an expression that complies with the SIMPLE
@@ -238,8 +239,23 @@ is_simple_modify_expr (t)
      tree t;
 {
   return (TREE_CODE (t) == MODIFY_EXPR
-          && is_simple_varname (TREE_OPERAND (t, 0))
+	  && is_simple_modify_expr_lhs (TREE_OPERAND (t, 0))
 	  && is_simple_rhs (TREE_OPERAND (t, 1)));
+}
+
+/* }}} */
+
+/** {{{ is_simple_modify_expr_lhs ()
+
+    Return non-zero if T is a valid LHS for a SIMPLE assignment expression.  */
+
+int
+is_simple_modify_expr_lhs (t)
+     tree t;
+{
+  return (is_simple_varname (t)
+	  || (TREE_CODE (t) == INDIRECT_REF
+	      && is_simple_id (TREE_OPERAND (t, 0))));
 }
 
 /* }}} */
@@ -312,6 +328,11 @@ is_simple_relop (t)
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
+	      | '({' all_stmts '})'	=> Original grammar does not
+	                                   allow expression-statements.
+					   We shouldn't, either.  But
+					   for now it is easier if we
+					   do.
 
 	      (cast here stands for all valid C typecasts)  */
 
@@ -340,6 +361,10 @@ is_simple_unary_expr (t)
       && is_simple_val (TREE_OPERAND (t, 0)))
     return 1;
 
+  if (TREE_CODE (t) == STMT_EXPR
+      /* && is_simple_stmt (STMT_EXPR_STMT (t))  */)
+    return 1;
+
  return is_simple_cast (t);
 }
 
@@ -360,7 +385,7 @@ int
 is_simple_call_expr (t)
      tree t;
 {
-  tree addr, callee, op;
+  tree addr, callee;
 
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
@@ -371,8 +396,27 @@ is_simple_call_expr (t)
   if (! is_simple_id (callee))
     return 0;
 
+  return (is_simple_arglist (TREE_OPERAND (t, 1)));
+}
+
+/* }}} */
+
+/** {{{ is_simple_arglist ()
+
+    Return non-zero if T is a SIMPLE argument list:
+
+      arglist
+	      : arglist ',' val
+	      | val  */
+
+int
+is_simple_arglist (t)
+     tree t;
+{
+  tree op;
+
   /* Check that each argument is also in SIMPLE form.  */
-  for (op = TREE_OPERAND (t, 1); op; op = TREE_CHAIN (op))
+  for (op = t; op; op = TREE_CHAIN (op))
     if (! is_simple_val (TREE_VALUE (op)))
       return 0;
 
@@ -429,6 +473,8 @@ is_simple_id (t)
 {
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
+	  || (TREE_CODE (t) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
 	  || TREE_CODE (t) == PARM_DECL
 	  || TREE_CODE (t) == FIELD_DECL);
 }
