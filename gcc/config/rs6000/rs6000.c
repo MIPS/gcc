@@ -583,8 +583,9 @@ gpc_reg_operand (op, mode)
 {
   return (register_operand (op, mode)
 	  && (GET_CODE (op) != REG
-	      || (REGNO (op) >= 67 && !FPMEM_REGNO_P (REGNO (op)))
-	      || REGNO (op) < 64));
+	      || (REGNO (op) >= ARG_POINTER_REGNUM 
+		  && !FPMEM_REGNO_P (REGNO (op)))
+	      || REGNO (op) < MQ_REGNO));
 }
 
 /* Returns 1 if OP is either a pseudo-register or a register denoting a
@@ -1159,7 +1160,7 @@ and64_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
-  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+  if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis. */
     return (gpc_reg_operand (op, mode) || mask64_operand (op, mode));
 
   return (logical_operand (op, mode) || mask64_operand (op, mode));
@@ -1173,7 +1174,7 @@ and_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
-  if (fixed_regs[68])	/* CR0 not available, don't do andi./andis. */
+  if (fixed_regs[CR0_REGNO])	/* CR0 not available, don't do andi./andis. */
     return (gpc_reg_operand (op, mode) || mask_operand (op, mode));
 
   return (logical_operand (op, mode) || mask_operand (op, mode));
@@ -1964,7 +1965,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       && next_cum.fregno <= FP_ARG_V4_MAX_REG)
     {
       int fregno = next_cum.fregno;
-      rtx cr1 = gen_rtx_REG (CCmode, 69);
+      rtx cr1 = gen_rtx_REG (CCmode, CR1_REGNO);
       rtx lab = gen_label_rtx ();
       int off = (GP_ARG_NUM_REG * reg_size) + ((fregno - FP_ARG_MIN_REG) * 8);
 
@@ -2726,7 +2727,7 @@ mtcrf_operation (op, mode)
 	  || ! CR_REGNO_P (REGNO (SET_DEST (exp))))
 	return 0;
       unspec = SET_SRC (exp);
-      maskval = 1 << (75 - REGNO (SET_DEST (exp)));
+      maskval = 1 << (MAX_CR_REGNO - REGNO (SET_DEST (exp)));
       bitmap |= maskval;
       
       if (GET_CODE (unspec) != UNSPEC
@@ -3168,7 +3169,7 @@ ccr_bit (op, scc_p)
 
   cc_mode = GET_MODE (reg);
   cc_regnum = REGNO (reg);
-  base_bit = 4 * (cc_regnum - 68);
+  base_bit = 4 * (cc_regnum - CR0_REGNO);
 
   /* In CCEQmode cases we have made sure that the result is always in the
      third bit of the CR field.  */
@@ -3346,7 +3347,7 @@ print_operand (file, x, code)
       if ((GET_CODE (x) == LE || GET_CODE (x) == GE)
 	  && GET_MODE (XEXP (x, 0)) == CCFPmode)
 	{
-	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - 68);
+	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - CR0_REGNO);
 
 	  fprintf (file, "cror %d,%d,%d\n\t", base_bit + 3,
 		   base_bit + 2, base_bit + (GET_CODE (x) == GE));
@@ -3360,7 +3361,7 @@ print_operand (file, x, code)
       if (GET_CODE (x) == LE || GET_CODE (x) == GE
 	  || GET_CODE (x) == LEU || GET_CODE (x) == GEU)
 	{
-	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - 68);
+	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - CR0_REGNO);
 
 	  fprintf (file, "cror %d,%d,%d\n\t", base_bit + 3,
 		   base_bit + 2,
@@ -3369,7 +3370,7 @@ print_operand (file, x, code)
 
       else if (GET_CODE (x) == NE)
 	{
-	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - 68);
+	  int base_bit = 4 * (REGNO (XEXP (x, 0)) - CR0_REGNO);
 
 	  fprintf (file, "crnor %d,%d,%d\n\t", base_bit + 3,
 		   base_bit + 2, base_bit + 2);
@@ -3381,7 +3382,7 @@ print_operand (file, x, code)
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
 	output_operand_lossage ("invalid %%E value");
 
-      fprintf(file, "%d", 4 * (REGNO (x) - 68) + 3);
+      fprintf(file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 3);
       return;
 
     case 'f':
@@ -3390,7 +3391,7 @@ print_operand (file, x, code)
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
 	output_operand_lossage ("invalid %%f value");
       else
-	fprintf (file, "%d", 4 * (REGNO (x) - 68));
+	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO));
       return;
 
     case 'F':
@@ -3399,7 +3400,7 @@ print_operand (file, x, code)
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
 	output_operand_lossage ("invalid %%F value");
       else
-	fprintf (file, "%d", 32 - 4 * (REGNO (x) - 68));
+	fprintf (file, "%d", 32 - 4 * (REGNO (x) - CR0_REGNO));
       return;
 
     case 'G':
@@ -3620,7 +3621,7 @@ print_operand (file, x, code)
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
 	output_operand_lossage ("invalid %%R value");
       else
-	fprintf (file, "%d", 128 >> (REGNO (x) - 68));
+	fprintf (file, "%d", 128 >> (REGNO (x) - CR0_REGNO));
       return;
 
     case 's':
@@ -4196,7 +4197,9 @@ rs6000_stack_info ()
     }
 
   /* Determine if we need to save the condition code registers.  */
-  if (regs_ever_live[70] || regs_ever_live[71] || regs_ever_live[72])
+  if (regs_ever_live[CR2_REGNO] 
+      || regs_ever_live[CR3_REGNO]
+      || regs_ever_live[CR4_REGNO])
     {
       info_ptr->cr_save_p = 1;
       if (abi == ABI_V4 || abi == ABI_SOLARIS)
@@ -5076,7 +5079,7 @@ rs6000_emit_prologue()
 	 register is saved in this stack slot.  The thrower's epilogue
 	 will then restore all the call-saved registers.  */
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
-			    cr_save_rtx, gen_rtx_REG (SImode, 68));
+			    cr_save_rtx, gen_rtx_REG (SImode, CR0_REGNO));
     }
 
   /* Update stack and set back pointer unless this is V.4, 
@@ -5339,7 +5342,7 @@ rs6000_emit_epilogue(sibcall)
 	  int count = 0;
 
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
 	      {
 		mask |= 1 << (7-i);
 		count++;
@@ -5352,13 +5355,13 @@ rs6000_emit_epilogue(sibcall)
 	  RTVEC_ELT (p, 0) = gen_rtx_USE (VOIDmode, GEN_INT (mask));
 	  count = 1;
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
 	      {
 		rtvec r = rtvec_alloc (2);
 		RTVEC_ELT (r, 0) = r12_rtx;
 		RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
 		RTVEC_ELT (p, count) =
-		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, 68+i), 
+		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO+i), 
 			       gen_rtx_UNSPEC (CCmode, r, 20));
 		count++;
 	      }
@@ -5366,10 +5369,10 @@ rs6000_emit_epilogue(sibcall)
 	}
       else
 	for (i = 0; i < 8; i++)
-	  if (regs_ever_live[68+i] && ! call_used_regs[68+i])
+	  if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
 	    {
 	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode, 
-							   68+i),
+							   CR0_REGNO+i),
 					      r12_rtx));
 	    }
     }

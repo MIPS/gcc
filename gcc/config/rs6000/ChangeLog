@@ -1,3 +1,13 @@
+2000-02-29  Clinton Popetz  <cpopetz@cygnus.com>
+
+	* config/rs6000/rs6000.h (MQ_REGNO, CR0_REGNO, CR1_REGNO, CR2_REGNO, 
+	CR3_REGNO, CR4_REGNO, MAX_CR_REGNO): Define.
+	(CR0_REGNO_P) Remove.
+	* config/rs6000/rs6000.c (gpc_reg_operand, and64_operand, and_operand, 
+	setup_incoming_varargs, mtcrf_operation, print_operand, 
+	rs6000_stack_info, rs6000_emit_prologue, rs6000_emit_epilogue): 
+	Use the above macros.
+
 2000-02-24  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* config/rs6000/rs6000.md: Added a new alternative for each

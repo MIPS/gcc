@@ -678,6 +678,14 @@ extern int rs6000_debug_arg;		/* debug argument handling */
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1}
 
+#define MQ_REGNO     64
+#define CR0_REGNO    68
+#define CR1_REGNO    69
+#define CR2_REGNO    70
+#define CR3_REGNO    71
+#define CR4_REGNO    72
+#define MAX_CR_REGNO 75
+
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
 
@@ -721,9 +729,6 @@ extern int rs6000_debug_arg;		/* debug argument handling */
 
 /* True if register is a condition register.  */
 #define CR_REGNO_P(N) ((N) >= 68 && (N) <= 75)
-
-/* True if register is condition register 0.  */
-#define CR0_REGNO_P(N) ((N) == 68)
 
 /* True if register is a condition register, but not cr0.  */
 #define CR_REGNO_NOT_CR0_P(N) ((N) >= 69 && (N) <= 75)
