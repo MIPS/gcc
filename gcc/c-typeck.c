@@ -6056,14 +6056,42 @@ build_asm_expr (tree string, tree outputs, tree inputs, tree clobbers,
 {
   tree tail;
   tree args;
+  int i;
+  const char *constraint;
+  bool allows_mem, allows_reg, is_inout;
+  int ninputs;
+  int noutputs;
+
+  ninputs = list_length (inputs);
+  noutputs = list_length (outputs);
 
   /* Remove output conversions that change the type but not the mode.  */
-  for (tail = outputs; tail; tail = TREE_CHAIN (tail))
+  for (i = 0, tail = outputs; tail; ++i, tail = TREE_CHAIN (tail))
     {
       tree output = TREE_VALUE (tail);
       STRIP_NOPS (output);
       TREE_VALUE (tail) = output;
       lvalue_or_else (output, "invalid lvalue in asm statement");
+
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (tail)));
+
+      if (!parse_output_constraint (&constraint, i, ninputs, noutputs,
+                                    &allows_mem, &allows_reg, &is_inout))
+        {
+          /* By marking this operand as erroneous, we will not try
+          to process this operand again in expand_asm_operands.  */
+          TREE_VALUE (tail) = error_mark_node;
+          continue;
+        }
+
+      /* If the operand is a DECL that is going to end up in
+        memory, assume it is addressable.  This is a bit more
+        conservative than it would ideally be; the exact test is
+        buried deep in expand_asm_operands and depends on the
+        DECL_RTL for the OPERAND -- which we don't have at this
+        point.  */
+      if (!allows_reg && DECL_P (output))
+        c_mark_addressable (output);
     }
 
   /* Perform default conversions on array and function inputs.

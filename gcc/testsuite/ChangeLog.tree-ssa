@@ -1,3 +1,8 @@
+2004-05-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/15062
+	* gcc.c-torture/compile/pr15062.c: New test.
+
 2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR optimization/15245
