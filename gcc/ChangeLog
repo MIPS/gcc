@@ -1,3 +1,8 @@
+2003-03-19  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Only require a frame
+	when debugging on XCOFF targets.
+
 2003-02-26  Alan Modra  <amodra@bigpond.net.au>
 
 	PR target/9681
