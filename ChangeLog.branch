@@ -1,6 +1,8 @@
 2003-06-06  Nathanael Nerode  <neroden@gcc.gnu.org>
 
-	(top level)
+	* Makefile.tpl: Make all-bootstrap depend on maybe-all-build-libiberty.
+	* Makefile.in: Regenerate.
+
 	* configure.in: Make build modules and $(build_subdir)
 	even when native.
 	* configure: Regenerate.
