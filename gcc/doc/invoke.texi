@@ -976,7 +976,7 @@ has not been used at all).
 @opindex ObjC++
 These are similar in effect to @option{-x objective-c} and @option{-x
 objective-c++}, but affect only the choice of compiler for files already
-identified as source files. (APPLE ONLY)
+identified as source files.  (APPLE ONLY)
 @c APPLE LOCAL end -ObjC 2001-08-03 --sts **
 
 @c APPLE LOCAL begin fat builds
@@ -986,7 +986,7 @@ values are @samp{i386} and @samp{ppc}.  Multiple options work, and
 direct the compiler to produce ``fat'' binaries including object code
 for each architecture specified with @option{-arch}.  This option only
 works if assembler and libraries are available for each architecture
-specified. (APPLE ONLY)
+specified.  (APPLE ONLY)
 @opindex arch
 @c APPLE LOCAL end fat builds
 
@@ -1265,7 +1265,7 @@ PIM.  This includes the recognition of @code{vector} and @code{pixel} as
 (context-dependent) keywords, the definition of built-in functions such
 as @code{vec_add}, and other extensions.  Note that unlike the option
 @samp{-maltivec}, the extensions do not require the inclusion of any
-special header files. (APPLE ONLY)
+special header files.  (APPLE ONLY)
 @c APPLE LOCAL end AltiVec
 
 @c APPLE LOCAL begin CW asm blocks
@@ -1449,7 +1449,7 @@ string literals.
 @item -fcoalesce
 @opindex fcoalesce
 Coalesce duplicated functions and data. The linker will discard all
-but one, saving space.  Enabled by default. (APPLE ONLY)
+but one, saving space.  Enabled by default.  (APPLE ONLY)
 
 @item -fweak-coalesced 
 @opindex fweak-coalesced
@@ -1608,7 +1608,7 @@ errors if these functions are not inlined everywhere they are called.
 @item -fcoalesce-templates
 @opindex fcoalesce-templates
 Mark instantiated templates as ``coalesced'': the linker will discard
-all but one, thus saving space. (APPLE ONLY)
+all but one, thus saving space.  (APPLE ONLY)
 @c APPLE LOCAL end coalescing 2002-04-11 --turly **
 
 @item -fms-extensions
@@ -2811,7 +2811,7 @@ warnings described in @ref{C++ Dialect Options} and
 @c APPLE LOCAL -Wmost
 @item -Wmost
 @opindex Wmost
-This is equivalent to -Wall -Wno-parentheses. (APPLE ONLY)
+This is equivalent to -Wall -Wno-parentheses.  (APPLE ONLY)
 @end table
 
 The following @option{-W@dots{}} options are not implied by @option{-Wall}.
@@ -3414,8 +3414,6 @@ use of these extensions is likely to make other debuggers crash or
 refuse to read the program.
 
 @c APPLE LOCAL prune man page
-(Other debug formats, such as @option{-gcoff}, are not supported in
-Darwin or Mac OS X.)
 @ignore
 
 @item -gcoff
@@ -3436,11 +3434,18 @@ using GNU extensions understood only by the GNU debugger (GDB)@.  The
 use of these extensions is likely to make other debuggers crash or
 refuse to read the program, and may cause assemblers other than the GNU
 assembler (GAS) to fail with an error.
+@c APPLE LOCAL prune man page
+@end ignore
 
 @item -gdwarf-2
 @opindex gdwarf-2
 Produce debugging information in DWARF version 2 format (if that is
 supported).  This is the format used by DBX on IRIX 6.
+
+@c APPLE LOCAL prune man page
+(Other debug formats, such as @option{-gcoff}, are not supported in
+Darwin or Mac OS X.)
+@ignore
 
 @item -gvms
 @opindex gvms
@@ -5926,7 +5931,7 @@ mechanism when this option is specified.
 @c APPLE LOCAL begin radar 2466994 - -no-c++filt  --ilr
 @item -no-c++filt
 By default all linker diagnostic output is piped through c++filt.
-This option suppresses that behavior. (APPLE ONLY)
+This option suppresses that behavior.  (APPLE ONLY)
 @c APPLE LOCAL end radar 2466994 - -no-c++filt  --ilr
 
 @item -nostdlib
@@ -7442,17 +7447,19 @@ enable gdb to dynamically load @code{.o} files into already running
 programs.  @option{-findirect-data} and @option{-ffix-and-continue}
 are provided for backwards compatibility.
 
-/* APPLE LOCAL begin KEXT */
+@c APPLE LOCAL KEXT
 @item -fapple-kext
-/* APPLE LOCAL KEXT indirect-virtual-calls --sts */
+@c APPLE LOCAL KEXT indirect-virtual-calls --sts
 @itemx -findirect-virtual-calls
-/* APPLE LOCAL begin terminated-vtables */
+@c APPLE LOCAL begin terminated-vtables
 @itemx -fterminated-vtables
+@c APPLE LOCAL KEXT
 @opindex fapple-kext
-/* APPLE LOCAL KEXT indirect-virtual-calls --sts */
+@c APPLE LOCAL KEXT indirect-virtual-calls --sts
 @opindex findirect-virtual-calls
-/* APPLE LOCAL begin terminated-vtables */
+@c APPLE LOCAL begin terminated-vtables
 @opindex fterminated-vtables
+@c APPLE LOCAL begin KEXT
 Alter vtables, destructors, and other implementation details to more
 closely resemble the GCC 2.95 ABI.  This is to make kernel extensions
 loadable by Darwin kernels, and is required to build any Darwin kernel
@@ -7460,11 +7467,11 @@ extension.  In addition, virtual calls are not made directly, instead,
 code is generated to always go through the virtual table, as virtual
 tables can be patched by the kernel module loader.  Vtables are
 altered by adding a zero word at the end of every vtable.
-@option{-fno-exceptions} and @option{-static} must also be
-used with this flag.  @option{-fapple-kext},
-@option{-findirect-virtual-calls} and @option{-fterminated-vtables} are
-accepted for backwards compatibility but will be removed in the future.
-/* APPLE LOCAL end KEXT */
+@option{-fno-exceptions} and @option{-static} must also be used with
+this flag.  @option{-findirect-virtual-calls} and
+@option{-fterminated-vtables} are accepted for backwards compatibility
+but will be removed in the future.  (APPLE ONLY)
+@c APPLE LOCAL end KEXT
 
 @item -all_load
 @opindex all_load
