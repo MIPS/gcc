@@ -1,3 +1,15 @@
+2004-03-23  Graydon Hoare  <graydon@redhat.com>
+
+	* java/text/AttributedString.java 
+	(addAttribute): Fix off-by-one.
+	(getIterator): Likewise.	
+	* java/text/AttributedStringIterator.java 
+	(getRunLimit): Correct logic.
+	(getRunStart): Likewise.
+	(getAttribute): Fix inequality.
+	(getAttributes): Likewise.
+	* testsuite/libjava.mauve/xfails: Remove AttributedString xfail.
+
 2004-03-23  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/plaf/basic/BasicTabbedPaneUI.java:
