@@ -941,7 +941,8 @@ initialize ()
 
 	  /* Default definitions for incoming parameters and global
 	     variables should be considered varying.  */
-	  if ((TREE_CODE (var) == PARM_DECL || DECL_CONTEXT (var) == NULL)
+	  if ((TREE_CODE (var) == PARM_DECL
+	       || decl_function_context (var) == NULL)
 	      && ref_type (r) == (V_DEF | M_DEFAULT))
 	    values[id].lattice_val = VARYING;
 

@@ -1449,7 +1449,7 @@ add_call_site_clobbers ()
 	  /* Add global _DECLs and addressable _DECLs (only if the function
 	     receives pointer arguments).  */
 	  if ((add_addressable && TREE_ADDRESSABLE (sym))
-	      || DECL_CONTEXT (sym) == NULL)
+	      || decl_function_context (sym) == NULL)
 	    {
 	      struct ref_list_node *call_ref_node;
 	      tree_ref clobber, may_use;

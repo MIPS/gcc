@@ -492,7 +492,7 @@ analyze_rdefs ()
       /* Uninitialized warning messages are only given for local variables
 	 with auto declarations.  */
       if (TREE_CODE (var) != VAR_DECL
-	  || DECL_CONTEXT (var) == NULL
+	  || decl_function_context (var) == NULL
 	  || TREE_STATIC (var)
 	  || TREE_ADDRESSABLE (var))
 	continue;

@@ -1,3 +1,10 @@
+2002-09-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (add_call_site_clobbers): Call decl_function_context
+	instead of DECL_CONTEXT.
+	* tree-ssa-ccp.c (initialize): Ditto.
+	* tree-ssa.c (analyze_rdefs): Ditto.
+
 2002-09-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_stmt): Call clobber_vars_r to clobber
