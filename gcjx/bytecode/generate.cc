@@ -730,11 +730,11 @@ bytecode_generator::visit_for_enhanced (model_for_enhanced *fstmt,
     else
       {
 	model_class *iterator_type
-	  = assert_cast<model_class *> (global->get_compiler ()->java_util_Iterator ());
+	  = global->get_compiler ()->java_util_Iterator ();
 	model_class *object_type
-	  = assert_cast<model_class *> (global->get_compiler ()->java_lang_Object ());
+	  = global->get_compiler ()->java_lang_Object ();
 	model_class *iterable_type
-	  = assert_cast<model_class *> (global->get_compiler ()->java_lang_Iterable ());
+	  = global->get_compiler ()->java_lang_Iterable ();
 
 	model_method *iter_meth
 	  = find_method ("iterator", iterable_type, NULL,

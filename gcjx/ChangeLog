@@ -1,3 +1,8 @@
+2005-01-14  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/generate.cc (visit_for_enhanced): Removed unnecessary
+	casts.
+
 2005-01-12  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in, aclocal.m4, configure: Rebuilt.
