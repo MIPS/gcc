@@ -2,3 +2,12 @@
 
 	* Makefile.in (gtfiles): Add reload1.c.
 	* emit-rtl.c (copy_insn_1): Leave code 'B' untouched.
+	* genoutput.c (struct operand_data): Add new member is_output.
+	(null_operand): Add the extra member.
+	(scan_operands): Add new argument is_output.  Use it to set new
+	member of struct operand_data.  All callers changed.
+	(validate_insn_alternatives): Make sure output operands don't have
+	empty constraints.
+
+
+	

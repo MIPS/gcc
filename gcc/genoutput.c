@@ -131,13 +131,14 @@ struct operand_data
   char strict_low;
   char eliminable;
   char seen;
+  char is_output;
 };
 
 /* Begin with a null operand at index 0.  */
 
 static struct operand_data null_operand =
 {
-  0, 0, "", "", VOIDmode, 0, 0, 0, 0, 0
+    0, 0, "", "", VOIDmode, 0, 0, 0, 0, 0, 0
 };
 
 static struct operand_data *odata = &null_operand;
@@ -178,7 +179,6 @@ static void output_prologue (void);
 static void output_operand_data (void);
 static void output_insn_data (void);
 static void output_get_insn_name (void);
-static void scan_operands (struct data *, rtx, int, int);
 static int compare_operands (struct operand_data *,
 			     struct operand_data *);
 static void place_operands (struct data *);
@@ -417,14 +417,17 @@ output_get_insn_name (void)
    the operand data into `d->operand[i]'.
 
    THIS_ADDRESS_P is nonzero if the containing rtx was an ADDRESS.
-   THIS_STRICT_LOW is nonzero if the containing rtx was a STRICT_LOW_PART.  */
+   THIS_STRICT_LOW is nonzero if the containing rtx was a STRICT_LOW_PART.
+   IS_OUTPUT is 1 if this is the SET_DEST of a SET, 2 if it is the
+   argument of a clobber, 0 otherwise.  IS_OUTPUT is propagated through
+   strict_low_part expressions.*/
 
 static int max_opno;
 static int num_dups;
 
 static void
 scan_operands (struct data *d, rtx part, int this_address_p,
-	       int this_strict_low)
+	       int this_strict_low, int is_output)
 {
   int i, j;
   const char *format_ptr;
@@ -458,6 +461,7 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       d->operand[opno].strict_low = this_strict_low;
       d->operand[opno].predicate = XSTR (part, 1);
       d->operand[opno].constraint = strip_whitespace (XSTR (part, 2));
+      d->operand[opno].is_output = is_output;
       d->operand[opno].n_alternatives
 	= n_occurrences (',', d->operand[opno].constraint) + 1;
       d->operand[opno].address_p = this_address_p;
@@ -520,7 +524,7 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       d->operand[opno].address_p = 0;
       d->operand[opno].eliminable = 0;
       for (i = 0; i < XVECLEN (part, 2); i++)
-	scan_operands (d, XVECEXP (part, 2, i), 0, 0);
+	scan_operands (d, XVECEXP (part, 2, i), 0, 0, 0);
       return;
 
     case MATCH_DUP:
@@ -530,13 +534,20 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       break;
 
     case ADDRESS:
-      scan_operands (d, XEXP (part, 0), 1, 0);
+      scan_operands (d, XEXP (part, 0), 1, 0, 0);
       return;
 
     case STRICT_LOW_PART:
-      scan_operands (d, XEXP (part, 0), 0, 1);
+      scan_operands (d, XEXP (part, 0), 0, 1, is_output);
       return;
 
+    case SET:
+      scan_operands (d, SET_SRC (part), 0, 0, 0);
+      scan_operands (d, SET_DEST (part), 0, 0, 1);
+      return;
+    case CLOBBER:
+      scan_operands (d, SET_DEST (part), 0, 0, 2);
+      return;
     default:
       break;
     }
@@ -548,12 +559,12 @@ scan_operands (struct data *d, rtx part, int this_address_p,
       {
       case 'e':
       case 'u':
-	scan_operands (d, XEXP (part, i), 0, 0);
+	scan_operands (d, XEXP (part, i), 0, 0, 0);
 	break;
       case 'E':
 	if (XVEC (part, i) != NULL)
 	  for (j = 0; j < XVECLEN (part, i); j++)
-	    scan_operands (d, XVECEXP (part, i, j), 0, 0);
+	    scan_operands (d, XVECEXP (part, i, j), 0, 0, 0);
 	break;
       }
 }
@@ -796,6 +807,28 @@ validate_insn_alternatives (struct data *d)
 
   /* Record the insn's overall number of alternatives.  */
   d->n_alternatives = n;
+  for (start = 0; start < d->n_operands; start++)
+    {
+      struct operand_data *p = d->operand + start;
+      char *str;
+      int i;
+
+      if (! p->constraint || p->constraint[0] != '\0' || ! p->is_output)
+	continue;
+
+      str = (char *) xmalloc (p->is_output + 2 * n);
+      p->constraint = str; 
+      str[0] = '=';
+      if (p->is_output == 2)
+	str[1] = '&';
+      for (i = 0; i + 1 < n; i++)
+	{
+	  str[p->is_output + i * 2] = 'X';
+	  str[p->is_output + i * 2 + 1] = 'X';
+	}
+      str[p->is_output + i * 2] = 'X';
+      str[p->is_output + i * 2 + 1] = '\0';
+    }
 }
 
 /* Verify that there are no gaps in operand numbers for INSNs.  */
@@ -843,7 +876,7 @@ gen_insn (rtx insn, int lineno)
   memset (d->operand, 0, sizeof (d->operand));
 
   for (i = 0; i < XVECLEN (insn, 1); i++)
-    scan_operands (d, XVECEXP (insn, 1, i), 0, 0);
+    scan_operands (d, XVECEXP (insn, 1, i), 0, 0, 0);
 
   d->n_operands = max_opno + 1;
   d->n_dups = num_dups;
@@ -885,7 +918,7 @@ gen_peephole (rtx peep, int lineno)
      peephole optimizer.  But ignore all the rest of the information
      thus obtained.  */
   for (i = 0; i < XVECLEN (peep, 0); i++)
-    scan_operands (d, XVECEXP (peep, 0, i), 0, 0);
+    scan_operands (d, XVECEXP (peep, 0, i), 0, 0, 0);
 
   d->n_operands = max_opno + 1;
   d->n_dups = 0;
@@ -928,7 +961,7 @@ gen_expand (rtx insn, int lineno)
 
   if (XVEC (insn, 1))
     for (i = 0; i < XVECLEN (insn, 1); i++)
-      scan_operands (d, XVECEXP (insn, 1, i), 0, 0);
+      scan_operands (d, XVECEXP (insn, 1, i), 0, 0, 0);
 
   d->n_operands = max_opno + 1;
   d->n_dups = num_dups;
@@ -968,7 +1001,7 @@ gen_split (rtx split, int lineno)
      split patterns.  But ignore all the rest of the information thus
      obtained.  */
   for (i = 0; i < XVECLEN (split, 0); i++)
-    scan_operands (d, XVECEXP (split, 0, i), 0, 0);
+    scan_operands (d, XVECEXP (split, 0, i), 0, 0, 0);
 
   d->n_operands = max_opno + 1;
   d->n_dups = 0;
