@@ -1,3 +1,7 @@
+2003-03-22  Alan Modra  <amodra@bigpond.net.au>
+
+	* combine.c (simplify_comparison <AND>): Use gen_int_mode.  Tidy.
+
 2002-09-19 Dale Johannesen <dalej@apple.com>
 
 	* rtl.h: Add NOTE_PRECONDITIONED.
