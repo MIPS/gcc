@@ -1,3 +1,8 @@
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (layout_var_decl): Call layout_decl even for variables
+	whose type is an array with unspecified bounds.
+
 2002-10-11  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PRs C++/6803, C++/7721 and C++/7803
