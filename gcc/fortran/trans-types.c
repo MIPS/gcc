@@ -246,6 +246,10 @@ gfc_get_logical_type (int kind)
 {
   switch (kind)
     {
+    case 1:
+      return (gfc_logical1_type_node);
+    case 2:
+      return (gfc_logical2_type_node);
     case 4:
       return (gfc_logical4_type_node);
     case 8:
