@@ -433,7 +433,12 @@ static int initted = 0;
 static void
 andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 {
-  if (!initted || !flag_unit_at_a_time)
+#if 0
+  /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
+  if (!flag_unit_at_a_time)   
+#endif
+    andersen_ops.ip_partial = 0;
+  if (!initted || (!andersen_ops.ip_partial && !andersen_ops.ip))
     {
       pta_init ();
       andersen_rgn = newregion ();
@@ -442,11 +447,6 @@ andersen_init (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 
   ptamap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
-#if 0
-  /* Don't claim we can do ip partial unless we have unit_at_a_time on. */
-  if (!flag_unit_at_a_time)   
-#endif
-    andersen_ops.ip_partial = 0;
 }
 
 static int
@@ -477,7 +477,7 @@ andersen_cleanup (struct tree_alias_ops *ops ATTRIBUTE_UNUSED)
 
   splay_tree_delete (ptamap);
 
-  if (!flag_unit_at_a_time) 
+  if (!andersen_ops.ip_partial && !andersen_ops.ip)
     {
       pta_reset ();
       deleteregion (andersen_rgn);

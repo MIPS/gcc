@@ -1,3 +1,9 @@
+2004-02-04  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-ander.c (andersen_init): Reorder/Redo code so that we 
+	actually free the memory in intraprocedural mode.
+	(andersen_cleanup): Ditto.
+
 2004-02-04  Richard Henderson  <rth@redhat.com>
 
 	* tree-ssa-ccp.c (get_value, visit_phi_node,
