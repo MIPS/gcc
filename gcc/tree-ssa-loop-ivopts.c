@@ -4012,6 +4012,7 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
       new_name = make_ssa_name (new_var, copy);
     }
   TREE_OPERAND (copy, 0) = new_name;
+  update_stmt (copy);
   bsi_insert_before (bsi, copy, BSI_SAME_STMT);
   with = new_name;
 
@@ -4074,7 +4075,7 @@ rewrite_use_compare (struct ivopts_data *data,
       *use->op_p = build2 (compare, boolean_type_node,
 			  var_at_stmt (data->current_loop,
 				       cand, use->stmt), op);
-      modify_stmt (use->stmt);
+      update_stmt (use->stmt);
       return;
     }
 
@@ -4306,7 +4307,7 @@ rewrite_use (struct ivopts_data *data,
       default:
 	gcc_unreachable ();
     }
-  modify_stmt (use->stmt);
+  update_stmt (use->stmt);
 }
 
 /* Rewrite the uses using the selected induction variables.  */

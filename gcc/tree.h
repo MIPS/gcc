@@ -1334,6 +1334,21 @@ struct tree_exp GTY(())
 struct ptr_info_def;
 #endif
 
+
+
+/* Immediate use linking structure. THis structure is used for maintaining
+   a doubly linked list of uses of an SSA_NAME.  */
+typedef struct ssa_imm_use_d GTY(())
+{
+  struct ssa_imm_use_d* GTY((skip(""))) prev;
+  struct ssa_imm_use_d* GTY((skip(""))) next;
+  tree GTY((skip(""))) stmt;
+  tree *GTY((skip(""))) use;
+} ssa_imm_use_t;
+
+/* Return the immediate_use information for an SSA_NAME. */
+#define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
+
 struct tree_ssa_name GTY(())
 {
   struct tree_common common;
@@ -1358,6 +1373,9 @@ struct tree_ssa_name GTY(())
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
+
+  /* Immediate uses list for this SSA_NAME.  */
+  struct ssa_imm_use_d imm_uses;
 };
 
 /* In a PHI_NODE node.  */
@@ -1378,12 +1396,13 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_EDGE(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I).e
 #define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
-#define PHI_DF(NODE)			PHI_NODE_CHECK (NODE)->phi.df
+#define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
 struct edge_def;
 
 struct phi_arg_d GTY(())
 {
+  struct ssa_imm_use_d imm_use;	/* imm_use MUST be first element in struct.  */
   tree def;
   struct edge_def * GTY((skip (""))) e;
   bool nonzero;
@@ -1402,9 +1421,6 @@ struct tree_phi_node GTY(())
 
   /* Basic block to that the phi node belongs.  */
   struct basic_block_def *bb;
-
-  /* Dataflow information.  */
-  struct dataflow_d *df;
 
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.capacity"))) a[1];
 };
@@ -3876,6 +3892,7 @@ enum tree_dump_index
 #define TDF_TREE	(1 << 9)	/* is a tree dump */
 #define TDF_RTL		(1 << 10)	/* is a RTL dump */
 #define TDF_IPA		(1 << 11)	/* is an IPA dump */
+#define TDF_STMT_ADDR	(1 << 12)	/* Address of stmt.  */
 
 typedef struct dump_info *dump_info_p;
 

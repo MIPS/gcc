@@ -424,6 +424,20 @@ tree_ssa_dominator_optimize (void)
       if (value && !is_gimple_min_invariant (value))
 	SSA_NAME_VALUE (name) = NULL;
     }
+
+
+  {
+    block_stmt_iterator bsi;
+    basic_block bb;
+    FOR_EACH_BB (bb)
+      {
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    get_stmt_operands (bsi_stmt (bsi));
+	  }
+      }
+  }
+
 }
 
 static bool

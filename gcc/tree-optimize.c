@@ -316,7 +316,6 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
           
 }
 
-/* Construct the pass tree.  */
 
 void
 init_tree_optimization_passes (void)
@@ -413,8 +412,10 @@ static void execute_pass_list (struct tree_opt_pass *);
 static unsigned int last_verified;
 
 static void
-execute_todo (int properties, unsigned int flags)
+execute_todo (struct tree_opt_pass *pass, unsigned int flags)
 {
+  int properties = pass->properties_required;
+
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
@@ -437,11 +438,21 @@ execute_todo (int properties, unsigned int flags)
     }
 
   if (flags & TODO_ggc_collect)
-    ggc_collect ();
+    {
+      ggc_collect ();
+    }
+
+#ifdef ENABLE_CHECKING
+      if ((pass->properties_required & PROP_ssa)
+          && !(pass->properties_destroyed & PROP_ssa))
+      {
+	test_imm_links (dump_file);
+      }
+#endif
 
 #ifdef ENABLE_CHECKING
   if (flags & TODO_verify_ssa)
-    verify_ssa ();
+    verify_ssa  (true);
   if (flags & TODO_verify_flow)
     verify_flow_info ();
   if (flags & TODO_verify_stmts)
@@ -465,7 +476,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run pre-pass verification.  */
   todo = pass->todo_flags_start & ~last_verified;
   if (todo)
-    execute_todo (pass->properties_required, todo);
+    execute_todo (pass, todo);
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
@@ -511,7 +522,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   todo = pass->todo_flags_finish;
   last_verified = todo & TODO_verify_all;
   if (todo)
-    execute_todo (pass->properties_provided, todo);
+    execute_todo (pass, todo);
 
   /* Close down timevar and dump file.  */
   if (pass->tv_id)

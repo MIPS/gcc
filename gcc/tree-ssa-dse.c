@@ -94,8 +94,6 @@ static void dse_optimize_stmt (struct dom_walk_data *,
 			       block_stmt_iterator);
 static void dse_record_phis (struct dom_walk_data *, basic_block);
 static void dse_finalize_block (struct dom_walk_data *, basic_block);
-static void fix_phi_uses (tree, tree);
-static void fix_stmt_v_may_defs (tree, tree);
 static void record_voperand_set (bitmap, bitmap *, unsigned int);
 
 static unsigned max_stmt_uid;	/* Maximal uid of a statement.  Uids to phi
@@ -121,73 +119,6 @@ static bool
 need_imm_uses_for (tree var)
 {
   return !is_gimple_reg (var);
-}
-
-
-/* Replace uses in PHI which match V_MAY_DEF_RESULTs in STMT with the 
-   corresponding V_MAY_DEF_OP in STMT.  */
-
-static void
-fix_phi_uses (tree phi, tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-  v_may_def_optype v_may_defs;
-  unsigned int i;
-  int j;
-
-  get_stmt_operands (stmt);
-  v_may_defs = V_MAY_DEF_OPS (ann);
-
-  /* Walk each V_MAY_DEF in STMT.  */
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-    {
-      tree v_may_def = V_MAY_DEF_RESULT (v_may_defs, i);
-
-      /* Find any uses in the PHI which match V_MAY_DEF and replace
-	 them with the appropriate V_MAY_DEF_OP.  */
-      for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-	if (v_may_def == PHI_ARG_DEF (phi, j))
-	  SET_PHI_ARG_DEF (phi, j, V_MAY_DEF_OP (v_may_defs, i));
-    }
-}
-
-/* Replace the V_MAY_DEF_OPs in STMT1 which match V_MAY_DEF_RESULTs 
-   in STMT2 with the appropriate V_MAY_DEF_OPs from STMT2.  */
-
-static void
-fix_stmt_v_may_defs (tree stmt1, tree stmt2)
-{
-  stmt_ann_t ann1 = stmt_ann (stmt1);
-  stmt_ann_t ann2 = stmt_ann (stmt2);
-  v_may_def_optype v_may_defs1;
-  v_may_def_optype v_may_defs2;
-  unsigned int i, j;
-
-  get_stmt_operands (stmt1);
-  get_stmt_operands (stmt2);
-  v_may_defs1 = V_MAY_DEF_OPS (ann1);
-  v_may_defs2 = V_MAY_DEF_OPS (ann2);
-
-  /* Walk each V_MAY_DEF_OP in stmt1.  */
-  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs1); i++)
-    {
-      tree v_may_def1 = V_MAY_DEF_OP (v_may_defs1, i);
-
-      /* Find the appropriate V_MAY_DEF_RESULT in STMT2.  */
-      for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs2); j++)
-	{
-	  if (v_may_def1 == V_MAY_DEF_RESULT (v_may_defs2, j))
-	    {
-	      /* Update.  */
-	      SET_V_MAY_DEF_OP (v_may_defs1, i, V_MAY_DEF_OP (v_may_defs2, j));
-	      break;
-	    }
-	}
-
-      /* If we did not find a corresponding V_MAY_DEF_RESULT, then something
-	 has gone terribly wrong.  */
-      gcc_assert (j != NUM_V_MAY_DEFS (v_may_defs2));
-    }
 }
 
 
@@ -261,21 +192,37 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
     return;
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
-      dataflow_t df = get_immediate_uses (stmt);
-      unsigned int num_uses = num_immediate_uses (df);
-      tree use;
-      tree skipped_phi;
+      unsigned int num_uses = 0, count = 0;
+      use_operand_p first_use_p = NULL_USE_OPERAND_P;
+      use_operand_p use_p;
+      tree use, use_stmt;
+      tree defvar = NULL_TREE, usevar = NULL_TREE;
+      use_operand_p var2;
+      def_operand_p var1;
+      ssa_op_iter op_iter;
 
+      FOR_EACH_SSA_MAYDEF_OPERAND (var1, var2, stmt, op_iter)
+        {
+	  defvar = DEF_FROM_PTR (var1);
+	  usevar = USE_FROM_PTR (var2);
+	  num_uses += num_imm_uses (defvar);
+	  count++;
+	  if (num_uses > 1 || count > 1)
+	    break;
+	}
 
-      /* If there are no uses then there is nothing left to do.  */
-      if (num_uses == 0)
+      if (count == 1 && num_uses == 1)
+        {
+	  single_imm_use (defvar, &use_p, &use_stmt);
+	  gcc_assert (use_p != NULL_USE_OPERAND_P);
+	  first_use_p = use_p;
+	  use = USE_FROM_PTR (use_p);
+	}
+      else
 	{
 	  record_voperand_set (dse_gd->stores, &bd->stores, ann->uid);
 	  return;
 	}
-
-      use = immediate_use (df, 0);
-      skipped_phi = NULL;
 
       /* Skip through any PHI nodes we have already seen if the PHI
 	 represents the only use of this store.
@@ -283,36 +230,25 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	 Note this does not handle the case where the store has
 	 multiple V_MAY_DEFs which all reach a set of PHI nodes in the
 	 same block.  */
-      while (num_uses == 1
-	     && TREE_CODE (use) == PHI_NODE
-	     && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use)))
+      while (use_p != NULL_USE_OPERAND_P
+	     && TREE_CODE (use_stmt) == PHI_NODE
+	     && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use_stmt)))
 	{
-	  /* Record the first PHI we skip so that we can fix its
-	     uses if we find that STMT is a dead store.  */
-	  if (!skipped_phi)
-	    skipped_phi = use;
-
 	  /* Skip past this PHI and loop again in case we had a PHI
 	     chain.  */
-	  df = get_immediate_uses (use);
-	  num_uses = num_immediate_uses (df);
-	  use = immediate_use (df, 0);
+	  if (single_imm_use (PHI_RESULT (use_stmt), &use_p, &use_stmt))
+	    use = USE_FROM_PTR (use_p);
 	}
 
       /* If we have precisely one immediate use at this point, then we may
 	 have found redundant store.  */
-      if (num_uses == 1
-	  && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use))
+      if (use_p != NULL_USE_OPERAND_P
+	  && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use_stmt))
 	  && operand_equal_p (TREE_OPERAND (stmt, 0),
-			      TREE_OPERAND (use, 0), 0))
+			      TREE_OPERAND (use_stmt, 0), 0))
 	{
-	  /* We need to fix the operands if either the first PHI we
-	     skipped, or the store which we are not deleting if we did
-	     not skip any PHIs.  */
-	  if (skipped_phi)
-	    fix_phi_uses (skipped_phi, stmt);
-	  else
-	    fix_stmt_v_may_defs (use, stmt);
+	  /* We need to fix the operand of the consuming stmt.  */
+	  SET_USE (first_use_p, usevar);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
             {
@@ -321,21 +257,12 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
               fprintf (dump_file, "'\n");
             }
 
-	  /* Any immediate uses which reference STMT need to instead
-	     reference the new consumer, either SKIPPED_PHI or USE.  
-	     This allows us to cascade dead stores.  */
-	  redirect_immediate_uses (stmt, skipped_phi ? skipped_phi : use);
-
-	  /* Be sure to remove any dataflow information attached to
-	     this statement.  */
-	  free_df_for_stmt (stmt);
+	  /* Remove the dead store.  */
+	  bsi_remove (&bsi);
 
 	  /* And release any SSA_NAMEs set in this statement back to the
 	     SSA_NAME manager.  */
 	  release_defs (stmt);
-
-	  /* Finally remove the dead store.  */
-	  bsi_remove (&bsi);
 	}
 
       record_voperand_set (dse_gd->stores, &bd->stores, ann->uid);
@@ -402,9 +329,6 @@ tree_ssa_dse (void)
      dominators.  */
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
-  /* We also need immediate use information for virtual operands.  */
-  compute_immediate_uses (TDFA_USE_VOPS, need_imm_uses_for);
-
   /* Dead store elimination is fundamentally a walk of the post-dominator
      tree and a backwards walk of statements within each block.  */
   walk_data.walk_stmts_backward = true;
@@ -434,9 +358,6 @@ tree_ssa_dse (void)
 
   /* Release the main bitmap.  */
   BITMAP_XFREE (dse_gd.stores);
-
-  /* Free dataflow information.  It's probably out of date now anyway.  */
-  free_df ();
 
   /* For now, just wipe the post-dominator information.  */
   free_dominance_info (CDI_POST_DOMINATORS);

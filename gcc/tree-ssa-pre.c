@@ -1882,7 +1882,7 @@ eliminate (void)
 		    }
 		  pre_stats.eliminations++;
 		  propagate_tree_value (rhs_p, sprime);
-		  modify_stmt (stmt);
+		  update_stmt (stmt);
 
 		  /* If we removed EH side effects from the statement, clean
 		     its EH information.  */

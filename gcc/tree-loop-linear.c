@@ -365,5 +365,4 @@ linear_transform_loops (struct loops *loops)
       free_data_refs (datarefs);
     }
   rewrite_into_loop_closed_ssa ();
-  free_df ();
 }

@@ -1904,7 +1904,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       COND_EXPR_COND (exitcond) = build (testtype,
 					 boolean_type_node,
 					 ivvarinced, newupperbound);
-      modify_stmt (exitcond);
+      update_stmt (exitcond);
       VEC_replace (tree, new_ivs, i, ivvar);
 
       i++;
@@ -1916,12 +1916,18 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
   temp = old_loopnest;
   for (i = 0; i < VEC_length (tree, old_ivs); i++)
     {
-      int j;
+      imm_use_iterator imm_iter;
+      use_operand_p imm_use;
+      tree oldiv_def;
       tree oldiv = VEC_index (tree, old_ivs, i);
-      dataflow_t imm = get_immediate_uses (SSA_NAME_DEF_STMT (oldiv));
-      for (j = 0; j < num_immediate_uses (imm); j++)
+      tree oldiv_stmt = SSA_NAME_DEF_STMT (oldiv);
+
+      gcc_assert (NUM_DEFS (STMT_DEF_OPS (oldiv_stmt)) == 1);
+      oldiv_def = DEF_OP (STMT_DEF_OPS (oldiv_stmt), 0);
+
+      FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, oldiv_def)
 	{
-	  tree stmt = immediate_use (imm, j);
+	  tree stmt = USE_STMT (imm_use);
 	  use_operand_p use_p;
 	  ssa_op_iter iter;
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
@@ -1942,7 +1948,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 		     expression.  */
 		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 		  propagate_value (use_p, newiv);
-		  modify_stmt (stmt);
+		  update_stmt (stmt);
 		  
 		}
 	    }
@@ -2029,16 +2035,15 @@ stmt_is_bumper_for_loop (struct loop *loop, tree stmt)
   tree use;
   tree def;
   def_optype defs = STMT_DEF_OPS (stmt);
-  dataflow_t imm;
-  int i;
+  imm_use_iterator iter;
+  use_operand_p use_p;
   
   if (NUM_DEFS (defs) != 1)
     return false;
   def = DEF_OP (defs, 0);
-  imm = get_immediate_uses (stmt);
-  for (i = 0; i < num_immediate_uses (imm); i++)
+  FOR_EACH_IMM_USE_FAST (use_p, iter, def)
     {
-      use = immediate_use (imm, i);
+      use = USE_FROM_PTR (use_p);
       if (TREE_CODE (use) == PHI_NODE)
 	{
 	  if (phi_loop_edge_uses_def (loop, use, def))

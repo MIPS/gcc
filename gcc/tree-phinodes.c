@@ -165,7 +165,7 @@ tree
 make_phi_node (tree var, int len)
 {
   tree phi;
-  int size;
+  int size, i;
   int bucket = NUM_BUCKETS - 2;
 
   len = ideal_phi_node_len (len);
@@ -208,6 +208,14 @@ make_phi_node (tree var, int len)
   else
     SET_PHI_RESULT (phi, make_ssa_name (var, phi));
 
+  for (i = 0; i < len; i++)
+    {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (phi, i));
+      imm->prev = NULL;
+      imm->stmt = phi;
+    }
   return phi;
 }
 
@@ -218,6 +226,14 @@ release_phi_node (tree phi)
 {
   int bucket;
   int len = PHI_ARG_CAPACITY (phi);
+  int x;
+
+  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+    {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (phi, x));
+      delink_imm_use (imm);
+    }
 
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
@@ -270,12 +286,25 @@ resize_phi_node (tree *phi, int len)
     }
 
   memcpy (new_phi, *phi, old_size);
-
   old_len = PHI_ARG_CAPACITY (new_phi);
+  for (i = 0 ; i < old_len; i++)
+    {
+      ssa_imm_use_t *imm, *old_imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      old_imm = &(PHI_ARG_IMM_USE_NODE (*phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      relink_imm_use_stmt (imm, old_imm, new_phi);
+    }
+
   PHI_ARG_CAPACITY (new_phi) = len;
                                                                                 
   for (i = old_len; i < len; i++)
     {
+      ssa_imm_use_t * imm;
+      imm = &(PHI_ARG_IMM_USE_NODE (new_phi, i));
+      imm->use = &(PHI_ARG_DEF_TREE (new_phi, i));
+      imm->prev = NULL;
+      imm->stmt = new_phi;
       SET_PHI_ARG_DEF (new_phi, i, NULL_TREE);
       PHI_ARG_EDGE (new_phi, i) = NULL;
       PHI_ARG_NONZERO (new_phi, i) = false;
@@ -441,8 +470,8 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
 
       /* If we are deleting the PHI node, then we should release the
 	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
       release_phi_node (phi);
+      release_ssa_name (PHI_RESULT (phi));
     }
   else if (phi == phi_nodes (bb))
     {
@@ -451,8 +480,8 @@ remove_phi_node (tree phi, tree prev, basic_block bb)
 
       /* If we are deleting the PHI node, then we should release the
 	 SSA_NAME node so that it can be reused.  */
-      release_ssa_name (PHI_RESULT (phi));
       release_phi_node (phi);
+      release_ssa_name (PHI_RESULT (phi));
     }
   else
     {

@@ -124,10 +124,9 @@ tree check_build_stmt;
 #endif
 
 def_operand_p NULL_DEF_OPERAND_P = { NULL };
-use_operand_p NULL_USE_OPERAND_P = { NULL };
 
 static void note_addressable (tree, stmt_ann_t);
-static void get_expr_operands (tree, tree *, int);
+static void get_expr_operands (tree, tree *, int, stmt_operands_t *);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
@@ -160,7 +159,7 @@ allocate_use_optype (unsigned num)
 {
   use_optype use_ops;
   unsigned size;
-  size = sizeof (struct use_optype_d) + sizeof (tree *) * (num - 1);
+  size = sizeof (struct use_optype_d) + sizeof (use_operand_type_t) * (num - 1);
   use_ops =  ggc_alloc (size);
   use_ops->num_uses = num;
   return use_ops;
@@ -189,7 +188,8 @@ allocate_vuse_optype (unsigned num)
 {
   vuse_optype vuse_ops;
   unsigned size;
-  size = sizeof (struct vuse_optype_d) + sizeof (tree) * (num - 1);
+  size = sizeof (struct vuse_optype_d) 
+       + sizeof (vuse_operand_type_t) * (num - 1);
   vuse_ops =  ggc_alloc (size);
   vuse_ops->num_vuses = num;
   return vuse_ops;
@@ -217,6 +217,10 @@ free_uses (use_optype *uses)
 {
   if (*uses)
     {
+      unsigned int x;
+      use_optype use = *uses;
+      for (x = 0; x < use->num_uses; x++)
+        delink_imm_use (&(use->uses[x]));
       ggc_free (*uses);
       *uses = NULL;
     }
@@ -243,6 +247,10 @@ free_vuses (vuse_optype *vuses)
 {
   if (*vuses)
     {
+      unsigned int x;
+      vuse_optype vuse = *vuses;
+      for (x = 0; x < vuse->num_vuses; x++)
+        delink_imm_use (&(vuse->vuses[x].imm_use));
       ggc_free (*vuses);
       *vuses = NULL;
     }
@@ -256,6 +264,10 @@ free_v_may_defs (v_may_def_optype *v_may_defs)
 {
   if (*v_may_defs)
     {
+      unsigned int x;
+      v_may_def_optype v_may_def = *v_may_defs;
+      for (x = 0; x < v_may_def->num_v_may_defs; x++)
+        delink_imm_use (&(v_may_def->v_may_defs[x].imm_use));
       ggc_free (*v_may_defs);
       *v_may_defs = NULL;
     }
@@ -305,6 +317,43 @@ fini_ssa_operands (void)
   build_v_must_defs = NULL;
 }
 
+/* Initialize V_USES index INDEX to VAL for STMT.  If OLD is present, preserve
+   the position of the may-def in the immediate_use list.  */
+
+static inline void
+initialize_vuse_operand (vuse_optype vuses, unsigned int index, tree val, 
+			 tree stmt, ssa_imm_use_t *old)
+{
+  vuse_operand_type_t *ptr;
+  ptr = &(vuses->vuses[index]);
+  ptr->use = val;
+  ptr->imm_use.use = &(ptr->use);
+  if (old)
+    relink_imm_use_stmt (&(ptr->imm_use), old, stmt);
+  else
+    link_imm_use_stmt (&(ptr->imm_use), ptr->use, stmt);
+}
+
+
+/* Initialize V_MAY_DEF_OPS index X to be DEF = MAY_DEF <USE> for STMT.  If
+   OLD is present, preserve the position of the may-def in the immediate_use
+   list.  */
+
+static inline void
+initialize_v_may_def_operand (v_may_def_optype v_may_def_ops, unsigned int x, 
+			      tree def, tree use, tree stmt, ssa_imm_use_t *old)
+{
+  v_may_def_operand_type_t *ptr;
+  ptr = &(v_may_def_ops->v_may_defs[x]);
+  ptr->def = def;
+  ptr->use = use;
+  ptr->imm_use.use = &(ptr->use);
+  if (old)
+    relink_imm_use_stmt (&(ptr->imm_use), old, stmt);
+  else
+    link_imm_use_stmt (&(ptr->imm_use), ptr->use, stmt);
+}
+
 
 /* All the finalize_ssa_* routines do the work required to turn the build_
    VARRAY into an operand_vector of the appropriate type.  The original vector,
@@ -315,7 +364,7 @@ fini_ssa_operands (void)
 /* Return a new def operand vector for STMT, comparing to OLD_OPS_P.  */
 
 static def_optype
-finalize_ssa_defs (def_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
+finalize_ssa_defs (def_optype *old_ops_p, tree stmt)
 {
   unsigned num, x;
   def_optype def_ops, old_ops;
@@ -326,13 +375,13 @@ finalize_ssa_defs (def_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
     return NULL;
 
   /* There should only be a single real definition per assignment.  */
-  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
+  gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
 
   old_ops = *old_ops_p;
 
   /* Compare old vector and new array.  */
   build_diff = true;
-  if (old_ops && old_ops->num_defs == num)
+  if (stmt && old_ops && old_ops->num_defs == num)
     {
       build_diff = false;
       for (x = 0; x < num; x++)
@@ -361,12 +410,40 @@ finalize_ssa_defs (def_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
 }
 
 
+/* Make sure PTR is inn the correct immediate use list.  Since uses are simply
+   pointers into the stmt TREE, there is no way of telling if anyone has
+   changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
+   THe contents are different, but the the pointer is still the same.  This
+   routine will check to make sure PTR is in the correct list, and if it isn't
+   put it in the correct list.  */
+
+static inline void
+correct_use_link (ssa_imm_use_t *ptr)
+{
+  ssa_imm_use_t *prev;
+  tree root;
+
+  prev = ptr->prev;
+  if (prev)
+    {
+      while (prev->use)
+        prev = prev->prev;
+      root = prev->stmt;
+      if (root == *(ptr->use))
+	return;
+    }
+  /* Its in the wrong list if we reach here.  */
+  delink_imm_use (ptr);
+  link_imm_use (ptr, *(ptr->use));
+}
+
+
 /* Return a new use operand vector for STMT, comparing to OLD_OPS_P.  */
 
 static use_optype
-finalize_ssa_uses (use_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
+finalize_ssa_uses (use_optype *old_ops_p, tree stmt)
 {
-  unsigned num, x;
+  unsigned num, x, num_old, i;
   use_optype use_ops, old_ops;
   bool build_diff;
 
@@ -386,30 +463,53 @@ finalize_ssa_uses (use_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
   }
 #endif
   old_ops = *old_ops_p;
+  num_old = ((stmt && old_ops) ? old_ops->num_uses : 0);
 
   /* Check if the old vector and the new array are the same.  */
   build_diff = true;
-  if (old_ops && old_ops->num_uses == num)
+  if (stmt && old_ops && num_old == num)
     {
       build_diff = false;
       for (x = 0; x < num; x++)
-        if (old_ops->uses[x].use != VARRAY_TREE_PTR (build_uses, x))
-	  {
-	    build_diff = true;
-	    break;
-	  }
+        {
+	  tree *var_p = VARRAY_TREE_PTR (build_uses, x);
+	  tree *node = old_ops->uses[x].use;
+	  /* Check the pointer values to see if they are the same. */
+	  if (node != var_p)
+	    {
+	      build_diff = true;
+	      break;
+	    }
+	}
     }
 
   if (!build_diff)
     {
       use_ops = old_ops;
       *old_ops_p = NULL;
+      for (i = 0; i < num_old; i++)
+        correct_use_link (&(use_ops->uses[i]));
     }
   else
     {
       use_ops = allocate_use_optype (num);
       for (x = 0; x < num ; x++)
-	use_ops->uses[x].use = VARRAY_TREE_PTR (build_uses, x);
+        {
+	  tree *var = VARRAY_TREE_PTR (build_uses, x);
+	  use_ops->uses[x].use = var;
+	  for (i = 0; i < num_old; i++)
+	    {
+	      ssa_imm_use_t *ptr = &(old_ops->uses[i]);
+	      if (ptr->use == var)
+		{
+		  relink_imm_use_stmt (&(use_ops->uses[x]), ptr, stmt);
+		  correct_use_link (&(use_ops->uses[x]));
+		  break;
+		}
+	    }
+	  if (i == num_old)
+	    link_imm_use_stmt (&(use_ops->uses[x]), *var, stmt);
+	}
     }
   VARRAY_POP_ALL (build_uses);
 
@@ -420,7 +520,7 @@ finalize_ssa_uses (use_optype *old_ops_p, tree stmt ATTRIBUTE_UNUSED)
 /* Return a new v_may_def operand vector for STMT, comparing to OLD_OPS_P.  */
 
 static v_may_def_optype
-finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
+finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p, tree stmt)
 {
   unsigned num, x, i, old_num;
   v_may_def_optype v_may_def_ops, old_ops;
@@ -435,7 +535,7 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
 
   /* Check if the old vector and the new array are the same.  */
   build_diff = true;
-  if (old_ops && old_ops->num_v_may_defs == num)
+  if (stmt && old_ops && old_ops->num_v_may_defs == num)
     {
       old_num = num;
       build_diff = false;
@@ -458,6 +558,8 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
     {
       v_may_def_ops = old_ops;
       *old_ops_p = NULL;
+      for (x = 0; x < num; x++)
+        correct_use_link (&(v_may_def_ops->v_may_defs[x].imm_use));
     }
   else
     {
@@ -473,14 +575,18 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
 		result = SSA_NAME_VAR (result);
 	      if (result == var)
 	        {
-		  v_may_def_ops->v_may_defs[x] = old_ops->v_may_defs[i];
+		  initialize_v_may_def_operand (v_may_def_ops, x, 
+						old_ops->v_may_defs[i].def,
+						old_ops->v_may_defs[i].use,
+						stmt, 
+						&(old_ops->v_may_defs[i].imm_use));
 		  break;
 		}
 	    }
 	  if (i == old_num)
 	    {
-	      v_may_def_ops->v_may_defs[x].def = var;
-	      v_may_def_ops->v_may_defs[x].use = var;
+	      initialize_v_may_def_operand (v_may_def_ops, x, var, var, stmt, 
+					    NULL);
 	    }
 	}
     }
@@ -494,7 +600,7 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
 /* Return a new vuse operand vector, comparing to OLD_OPS_P.  */
 
 static vuse_optype
-finalize_ssa_vuses (vuse_optype *old_ops_p)
+finalize_ssa_vuses (vuse_optype *old_ops_p, tree stmt)
 {
   unsigned num, x, i, num_v_may_defs, old_num;
   vuse_optype vuse_ops, old_ops;
@@ -568,14 +674,14 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
 
   /* Determine whether vuses is the same as the old vector.  */
   build_diff = true;
-  if (old_ops && old_ops->num_vuses == num)
+  if (stmt && old_ops && old_ops->num_vuses == num)
     {
       old_num = num;
       build_diff = false;
       for (x = 0; x < num ; x++)
         {
 	  tree v;
-	  v = old_ops->vuses[x];
+	  v = old_ops->vuses[x].use;
 	  if (TREE_CODE (v) == SSA_NAME)
 	    v = SSA_NAME_VAR (v);
 	  if (v != VARRAY_TREE (build_vuses, x))
@@ -592,6 +698,8 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
     {
       vuse_ops = old_ops;
       *old_ops_p = NULL;
+      for (x = 0; x < num; x++)
+        correct_use_link (&(vuse_ops->vuses[x].imm_use));
     }
   else
     {
@@ -602,17 +710,18 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
 	  /* Look for VAR in the old vector, and use that SSA_NAME.  */
 	  for (i = 0; i < old_num; i++)
 	    {
-	      result = old_ops->vuses[i];
+	      result = old_ops->vuses[i].use;
 	      if (TREE_CODE (result) == SSA_NAME)
 		result = SSA_NAME_VAR (result);
 	      if (result == var)
 	        {
-		  vuse_ops->vuses[x] = old_ops->vuses[i];
+		  initialize_vuse_operand (vuse_ops, x, old_ops->vuses[i].use, 
+					   stmt, &(old_ops->vuses[i].imm_use));
 		  break;
 		}
 	    }
 	  if (i == old_num)
-	    vuse_ops->vuses[x] = var;
+	    initialize_vuse_operand (vuse_ops, x, var, stmt, NULL);
 	}
     }
 
@@ -627,8 +736,7 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
 /* Return a new v_must_def operand vector for STMT, comparing to OLD_OPS_P.  */
 
 static v_must_def_optype
-finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p, 
-			  tree stmt ATTRIBUTE_UNUSED)
+finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p, tree stmt)
 {
   unsigned num, x, i, old_num = 0;
   v_must_def_optype v_must_def_ops, old_ops;
@@ -639,13 +747,13 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
     return NULL;
 
   /* There should only be a single V_MUST_DEF per assignment.  */
-  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
+  gcc_assert ((stmt && TREE_CODE (stmt) != MODIFY_EXPR) || num <= 1);
 
   old_ops = *old_ops_p;
 
   /* Check if the old vector and the new array are the same.  */
   build_diff = true;
-  if (old_ops && old_ops->num_v_must_defs == num)
+  if (stmt && old_ops && old_ops->num_v_must_defs == num)
     {
       old_num = num;
       build_diff = false;
@@ -707,8 +815,9 @@ finalize_ssa_stmt_operands (tree stmt, stmt_operands_p old_ops,
   new_ops->use_ops = finalize_ssa_uses (&(old_ops->use_ops), stmt);
   new_ops->v_must_def_ops 
     = finalize_ssa_v_must_defs (&(old_ops->v_must_def_ops), stmt);
-  new_ops->v_may_def_ops = finalize_ssa_v_may_defs (&(old_ops->v_may_def_ops));
-  new_ops->vuse_ops = finalize_ssa_vuses (&(old_ops->vuse_ops));
+  new_ops->v_may_def_ops 
+    = finalize_ssa_v_may_defs (&(old_ops->v_may_def_ops), stmt);
+  new_ops->vuse_ops = finalize_ssa_vuses (&(old_ops->vuse_ops), stmt);
 }
 
 
@@ -792,10 +901,14 @@ append_v_must_def (tree var)
 
 /* Create an operands cache for STMT, returning it in NEW_OPS. OLD_OPS are the
    original operands, and if ANN is non-null, appropriate stmt flags are set
-   in the stmt's annotation.  Note that some fields in old_ops may 
-   change to NULL, although none of the memory they originally pointed to 
-   will be destroyed.  It is appropriate to call free_stmt_operands() on 
-   the value returned in old_ops.
+   in the stmt's annotation.  If ANN is NULL, this is not considered a "real"
+   stmt, and none of the operands will be entered into their respective
+   immediate uses tables.  This is to allow stmts to be processed when they
+   are not actually in the CFG.
+
+   Note that some fields in old_ops may change to NULL, although none of the
+   memory they originally pointed to will be destroyed.  It is appropriate
+   to call free_stmt_operands() on the value returned in old_ops.
 
    The rationale for this: Certain optimizations wish to examine the difference
    between new_ops and old_ops after processing.  If a set of operands don't
@@ -835,7 +948,7 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, old_ops);
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
@@ -845,18 +958,18 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	     modified in that case.  FIXME we should represent somehow
 	     that it is killed on the fallthrough path.  */
 	  || tree_could_throw_p (TREE_OPERAND (stmt, 1)))
-        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def);
+        get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, old_ops);
       else
         get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), 
-	                   opf_is_def | opf_kill_def);
+	                   opf_is_def | opf_kill_def, old_ops);
       break;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none);
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, old_ops);
       break;
 
     case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none);
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, old_ops);
       break;
 
     case ASM_EXPR:
@@ -864,15 +977,15 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
       break;
 
     case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, old_ops);
       break;
 
     case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none);
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, old_ops);
       break;
 
     case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none);
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, old_ops);
       break;
 
       /* These nodes contain no variable references.  */
@@ -891,11 +1004,14 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	 append_use.  This default will handle statements like empty
 	 statements, or CALL_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none);
+      get_expr_operands (stmt, &stmt, opf_none, old_ops);
       break;
     }
 
-  finalize_ssa_stmt_operands (stmt, old_ops, new_ops);
+  if (ann)
+    finalize_ssa_stmt_operands (stmt, old_ops, new_ops);
+  else
+    finalize_ssa_stmt_operands (NULL, old_ops, new_ops);
   stmt->common.ann = saved_ann;
 }
 
@@ -920,7 +1036,7 @@ free_ssa_operands (stmt_operands_p ops)
 
 /* Get the operands of statement STMT.  Note that repeated calls to
    get_stmt_operands for the same statement will do nothing until the
-   statement is marked modified by a call to modify_stmt().  */
+   statement is marked modified by a call to mark_stmt_modified().  */
 
 void
 get_stmt_operands (tree stmt)
@@ -928,6 +1044,10 @@ get_stmt_operands (tree stmt)
   stmt_ann_t ann;
   stmt_operands_t old_operands;
 
+  /* If get_stmt_operands is called before SSA is initialized, dont
+  do anything.  */
+  if (build_defs == NULL)
+    return;
   /* The optimizers cannot handle statements that are nothing but a
      _DECL.  This indicates a bug in the gimplifier.  */
   gcc_assert (!SSA_VAR_P (stmt));
@@ -952,7 +1072,7 @@ get_stmt_operands (tree stmt)
 
   /* Clear the modified bit for STMT.  Subsequent calls to
      get_stmt_operands for this statement will do nothing until the
-     statement is marked modified by a call to modify_stmt().  */
+     statement is marked modified by a call to mark_stmt_modified().  */
   ann->modified = 0;
 
   timevar_pop (TV_TREE_OPS);
@@ -964,7 +1084,7 @@ get_stmt_operands (tree stmt)
    operands found.  */
 
 static void
-get_expr_operands (tree stmt, tree *expr_p, int flags)
+get_expr_operands (tree stmt, tree *expr_p, int flags, stmt_operands_t *old_ops)
 {
   enum tree_code code;
   enum tree_code_class class;
@@ -997,7 +1117,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	 does not allow non-registers as array indices).  */
       flags |= opf_no_vops;
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
       return;
 
     case SSA_NAME:
@@ -1011,7 +1131,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case MISALIGNED_INDIRECT_REF:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
       /* fall through */
 
     case ALIGN_INDIRECT_REF:
@@ -1031,11 +1151,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none, old_ops);
       return;
 
     case COMPONENT_REF:
@@ -1059,17 +1179,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, flags);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
 
       if (code == COMPONENT_REF)
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
       return;
 
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
       return;
 
     case CALL_EXPR:
@@ -1078,9 +1198,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, old_ops);
       return;
 
     case MODIFY_EXPR:
@@ -1088,7 +1208,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	int subflags;
 	tree op;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, old_ops);
 
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
@@ -1102,7 +1222,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	else
 	  subflags = opf_is_def | opf_kill_def;
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), subflags, old_ops);
 	return;
       }
 
@@ -1113,7 +1233,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
 	tree t;
 	for (t = TREE_OPERAND (expr, 0); t ; t = TREE_CHAIN (t))
-	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none);
+	  get_expr_operands (stmt, &TREE_VALUE (t), opf_none, old_ops);
 
 	return;
       }
@@ -1122,7 +1242,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case BIT_FIELD_REF:
     case VIEW_CONVERT_EXPR:
     do_unary:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
       return;
 
     case TRUTH_AND_EXPR:
@@ -1143,6 +1263,16 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	   when the statement is modified.  */
 	if (tree_swap_operands_p (op0, op1, false))
 	  {
+	    use_operand_p use1 = NULL_USE_OPERAND_P;
+	    use_operand_p use2 = NULL_USE_OPERAND_P;
+#if 0
+	    if (old_ops && NUM_USES (old_ops->use_ops) == 2)
+	      {
+	        use1 = USE_OP_PTR (old_ops->use_ops, 0);
+	        use2 = USE_OP_PTR (old_ops->use_ops, 1);
+	      }
+#endif
+
 	    /* For relationals we need to swap the operands
 	       and change the code.  */
 	    if (code == LT_EXPR
@@ -1151,28 +1281,48 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		|| code == GE_EXPR)
 	      {
 		TREE_SET_CODE (expr, swap_tree_comparison (code));
-		TREE_OPERAND (expr, 0) = op1;
-		TREE_OPERAND (expr, 1) = op0;
+		if (use1 != NULL_USE_OPERAND_P)
+		  {
+		    SET_USE (use1, op1);
+		    SET_USE (use2, op0);
+		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
+		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
+		  }
+		else
+		  {
+		    TREE_OPERAND (expr, 0) = op1;
+		    TREE_OPERAND (expr, 1) = op0;
+		  }
 	      }
 	  
 	    /* For a commutative operator we can just swap the operands.  */
 	    else if (commutative_tree_code (code))
 	      {
-		TREE_OPERAND (expr, 0) = op1;
-		TREE_OPERAND (expr, 1) = op0;
+		if (use1 != NULL_USE_OPERAND_P)
+		  {
+		    SET_USE (use1, op1);
+		    SET_USE (use2, op0);
+		    gcc_assert (TREE_OPERAND (expr, 0) == op1);
+		    gcc_assert (TREE_OPERAND (expr, 1) == op0);
+		  }
+		else
+		  {
+		    TREE_OPERAND (expr, 0) = op1;
+		    TREE_OPERAND (expr, 1) = op0;
+		  }
 	      }
 	  }
 
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
 	return;
       }
 
     case REALIGN_LOAD_EXPR:
       {
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
-        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, old_ops);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, old_ops);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags, old_ops);
         return;
       }
 
@@ -1237,7 +1387,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def, NULL);
     }
 
   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
@@ -1256,7 +1406,7 @@ get_asm_expr_operands (tree stmt)
 	    note_addressable (t, s_ann);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), 0);
+      get_expr_operands (stmt, &TREE_VALUE (link), 0,  NULL);
     }
 
 
@@ -1380,7 +1530,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
       /* Mark the object itself with a VUSE.  */
       pptr = &TREE_OPERAND (*pptr, 0);
-      get_expr_operands (stmt, pptr, flags);
+      get_expr_operands (stmt, pptr, flags, NULL);
       return;
     }
 
@@ -1389,7 +1539,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
     gcc_unreachable ();
 
   /* Add a USE operand for the base pointer.  */
-  get_expr_operands (stmt, pptr, opf_none);
+  get_expr_operands (stmt, pptr, opf_none, NULL);
 }
 
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
@@ -1402,12 +1552,12 @@ get_call_expr_operands (tree stmt, tree expr)
   tree callee = get_callee_fndecl (expr);
 
   /* Find uses in the called function.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, NULL);
 
   for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-    get_expr_operands (stmt, &TREE_VALUE (op), opf_none);
+    get_expr_operands (stmt, &TREE_VALUE (op), opf_none, NULL);
 
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none, NULL);
 
   if (bitmap_first_set_bit (call_clobbered_vars) >= 0)
     {
@@ -1704,7 +1854,7 @@ copy_virtual_operands (tree dst, tree src)
     {
       *vuses_new = allocate_vuse_optype (NUM_VUSES (vuses));
       for (i = 0; i < NUM_VUSES (vuses); i++)
-	SET_VUSE_OP (*vuses_new, i, VUSE_OP (vuses, i));
+	initialize_vuse_operand (*vuses_new, i, VUSE_OP (vuses, i), dst, NULL);
     }
 
   if (v_may_defs)
@@ -1712,15 +1862,17 @@ copy_virtual_operands (tree dst, tree src)
       *v_may_defs_new = allocate_v_may_def_optype (NUM_V_MAY_DEFS (v_may_defs));
       for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  SET_V_MAY_DEF_OP (*v_may_defs_new, i, V_MAY_DEF_OP (v_may_defs, i));
-	  SET_V_MAY_DEF_RESULT (*v_may_defs_new, i, 
-				V_MAY_DEF_RESULT (v_may_defs, i));
+	  initialize_v_may_def_operand (*v_may_defs_new, i, 
+					V_MAY_DEF_RESULT (v_may_defs, i),
+					V_MAY_DEF_OP (v_may_defs, i), dst,
+					NULL);
 	}
     }
 
   if (v_must_defs)
     {
-      *v_must_defs_new = allocate_v_must_def_optype (NUM_V_MUST_DEFS (v_must_defs));
+      *v_must_defs_new 
+	 = allocate_v_must_def_optype (NUM_V_MUST_DEFS (v_must_defs));
       for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
 	SET_V_MUST_DEF_OP (*v_must_defs_new, i, V_MUST_DEF_OP (v_must_defs, i));
     }
@@ -1768,7 +1920,218 @@ create_ssa_artficial_load_stmt (stmt_operands_p old_ops, tree new_stmt)
     }
 
   /* Now set the vuses for this new stmt.  */
-  ann->operands.vuse_ops = finalize_ssa_vuses (&(tmp.vuse_ops));
+  ann->operands.vuse_ops = finalize_ssa_vuses (&(tmp.vuse_ops), NULL);
+}
+
+
+#ifdef ENABLE_CHECKING
+static void
+test_imm_print (FILE *file, use_operand_p var, tree stmt)
+{
+  if (TREE_CODE (USE_FROM_PTR (var)) == SSA_NAME)
+    {
+      if (stmt_modified_p (stmt) && TREE_CODE (stmt) != PHI_NODE)
+        {
+	  fprintf (file, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  print_generic_stmt (file, stmt, TDF_SLIM);
+	}
+      if (var->prev == NULL)
+	{
+	  fprintf (file, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
+	  print_generic_expr (file, USE_FROM_PTR (var), TDF_SLIM);
+	  fprintf (file, " is not in a list\n");
+	  fprintf (file, "<0x%x> ", (unsigned int)stmt);
+	  print_generic_stmt (file, stmt, TDF_VOPS);
+	}
+    }
+
+}
+#endif
+
+void
+test_imm_links(FILE *file ATTRIBUTE_UNUSED)
+{
+#ifdef  ENABLE_CHECKING
+  unsigned int x;
+  basic_block bb;
+  use_operand_p var;
+
+  if (file == NULL)
+    file = stderr;
+
+  for (x = 1; x < num_ssa_names; x++)
+    if (ssa_name(x))
+      verify_imm_links (&(SSA_NAME_IMM_USE_NODE (ssa_name(x))));
+
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      tree phi;
+      int x;
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+        {
+	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	    {
+	      var = &(PHI_ARG_IMM_USE_NODE(phi, x));
+	      test_imm_print (file, var, phi);
+	    }
+	}
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+        {
+	  tree stmt = bsi_stmt (i);
+	  ssa_op_iter iter;
+	  get_stmt_operands (stmt);
+	  FOR_EACH_SSA_USE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
+	    {
+	      test_imm_print (file, var, stmt);
+	    }
+	    
+	}
+    }
+
+#endif
+}
+
+#ifdef ENABLE_CHECKING
+static void 
+verify_abort(ssa_imm_use_t *var)
+{
+  tree stmt;
+  if ((stmt = var->stmt))
+    {
+      if (stmt_modified_p(stmt))
+	{
+	  fprintf (stderr, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  print_generic_stmt (stderr, stmt, TDF_SLIM);
+	}
+    }
+  fprintf (stderr, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
+  print_generic_expr (stderr, USE_FROM_PTR (var), TDF_SLIM);
+  abort ();
+}
+#endif
+
+void
+verify_imm_links (ssa_imm_use_t *list ATTRIBUTE_UNUSED)
+{
+#ifdef ENABLE_CHECKING
+  ssa_imm_use_t *ptr, *prev, *root = NULL;
+  int count;
+
+  if (list->prev == NULL)
+    return;
+
+  prev = list;
+  if (list->use == NULL)
+    root = list;
+  count = 0;
+  for (ptr = list->next; ptr != list; )
+    {
+      if (prev != ptr->prev)
+	verify_abort (ptr);
+
+      if (ptr->use == NULL)
+        {
+	  if (root)
+	    verify_abort(ptr);  	/* 2 roots.  */
+	  else
+	    {
+	      root = ptr;
+	      if (*(prev->use) != root->stmt)
+		verify_abort(ptr);
+	    }
+	}
+      else
+	if (root)
+	  {
+	    if (*(ptr->use) != root->stmt)
+	      verify_abort (ptr);
+	  }
+	else
+	  if (*(prev->use) != *(ptr->use))
+	    verify_abort(ptr);
+      prev = ptr;
+      ptr = ptr->next;
+      if (count++ > 30000)
+        verify_abort (ptr);
+    }
+
+  prev = list;
+  count = 0;
+  for (ptr = list->prev; ptr != list; )
+    {
+      if (prev != ptr->next)
+        verify_abort (ptr);
+      prev = ptr;
+      ptr = ptr->prev;
+      if (count++ > 30000)
+        verify_abort (ptr);
+    }
+#endif
+}
+
+
+/* Dump all the immediate uses to FILE.  */
+
+void
+dump_immediate_uses_for (FILE *file, tree var)
+{
+  imm_use_iterator iter;
+  use_operand_p use_p;
+
+  gcc_assert (var && TREE_CODE (var) == SSA_NAME);
+
+  print_generic_expr (file, var, TDF_SLIM);
+  fprintf (file, " : -->");
+  if (has_zero_uses (var))
+    fprintf (file, " no uses.\n");
+  else
+    if (has_single_use (var))
+      fprintf (file, " single use.\n");
+    else
+      fprintf (file, "%d uses.\n", num_imm_uses (var));
+
+  FOR_EACH_IMM_USE_FAST (use_p, iter, var)
+    {
+      print_generic_stmt (file, USE_STMT (use_p), TDF_SLIM);
+    }
+  fprintf(file, "\n");
+}
+
+/* Dump all the immediate uses to FILE.  */
+
+void
+dump_immediate_uses (FILE *file)
+{
+  tree var;
+  unsigned int x;
+
+  fprintf (file, "Immediate_uses: \n\n");
+  for (x = 1; x < num_ssa_names; x++)
+    {
+      var = ssa_name(x);
+      if (!var)
+        continue;
+      dump_immediate_uses_for (file, var);
+    }
+}
+
+
+/* Dump def-use edges on stderr.  */
+
+void
+debug_immediate_uses (void)
+{
+  dump_immediate_uses (stderr);
+}
+
+/* Dump def-use edges on stderr.  */
+
+void
+debug_immediate_uses_for (tree var)
+{
+  dump_immediate_uses_for (stderr, var);
 }
 
 #include "gt-tree-ssa-operands.h"
