@@ -22,8 +22,8 @@ Boston, MA 02111-1307, USA.  */
 
   /* Compare two RTX's.  */
 #define MATCHES(x, y) \
- (x == y || (x != 0 && (GET_CODE (x) == REG				\
-			? GET_CODE (y) == REG && REGNO (x) == REGNO (y)	\
+ (x == y || (x != 0 && (REG_P (x)				\
+			? REG_P (y) && REGNO (x) == REGNO (y)	\
 			: rtx_equal_p (x, y) && ! side_effects_p (x))))
 
   /* Indicates if two reloads purposes are for similar enough things that we

@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -140,8 +140,8 @@ spill_coalescing (sbitmap coalesce, sbitmap spilled)
 	       T from the web which was coalesced into T, which at the time
 	       of combine() were not already on the SELECT stack or were
 	       itself coalesced to something other.  */
-	    if (t->type != SPILLED || s->type != SPILLED)
-	      abort ();
+	    gcc_assert (t->type == SPILLED
+			&& s->type == SPILLED);
 	    remove_list (t->dlink, &WEBS(SPILLED));
 	    put_web (t, COALESCED);
 	    t->alias = s;
@@ -353,7 +353,6 @@ allocate_spill_web (struct web *web)
  alloc_slot:
   slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
 			     inherent_size == total_size ? 0 : -1);
-  RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
   set_mem_alias_set (slot, new_alias_set ());
   web->stack_slot = slot;
   */
@@ -397,7 +396,7 @@ choose_spill_colors (void)
 	    && HARD_REGNO_MODE_OK (c, PSEUDO_REGNO_MODE (web->regno)))
 	  {
 	    int i, size;
-	    size = HARD_REGNO_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
+	    size = hard_regno_nregs[c][PSEUDO_REGNO_MODE (web->regno)];
 	    for (i = 1; i < size
 		 && TEST_HARD_REG_BIT (avail, c + i); i++);
 	    if (i == size)
@@ -493,8 +492,8 @@ rewrite_program (bitmap new_deaths)
 		end_sequence ();
 		emit_insn_before (insns, insn);
 
-	        if (bb->head == insn)
-		  bb->head = NEXT_INSN (prev);
+	        if (BB_HEAD (bb) == insn)
+		  BB_HEAD (bb) = NEXT_INSN (prev);
 		for (insn = PREV_INSN (insn); insn != prev;
 		     insn = PREV_INSN (insn))
 		  {
@@ -543,8 +542,8 @@ rewrite_program (bitmap new_deaths)
 	      if (insns)
 		{
 		  emit_insn_after (insns, insn);
-		  if (bb->end == insn)
-		    bb->end = PREV_INSN (following);
+		  if (BB_END (bb) == insn)
+		    BB_END (bb) = PREV_INSN (following);
 		  for (insn = insns; insn != following;
 		       insn = NEXT_INSN (insn))
 		    {
@@ -619,7 +618,7 @@ slots_overlap_p (rtx s1, rtx s2)
   if (GET_CODE (s1) != GET_CODE (s2))
     return 0;
 
-  if (GET_CODE (s1) == REG && GET_CODE (s2) == REG)
+  if (REG_P (s1) && REG_P (s2))
     {
       if (REGNO (s1) != REGNO (s2))
 	return 0;
@@ -627,14 +626,13 @@ slots_overlap_p (rtx s1, rtx s2)
 	return 0;
       return 1;
     }
-  if (GET_CODE (s1) != MEM || GET_CODE (s2) != MEM)
-    abort ();
+  gcc_assert (MEM_P (s1) && GET_CODE (s2) == MEM);
   s1 = XEXP (s1, 0);
   s2 = XEXP (s2, 0);
-  if (GET_CODE (s1) != PLUS || GET_CODE (XEXP (s1, 0)) != REG
+  if (GET_CODE (s1) != PLUS || !REG_P (XEXP (s1, 0))
       || GET_CODE (XEXP (s1, 1)) != CONST_INT)
     return 1;
-  if (GET_CODE (s2) != PLUS || GET_CODE (XEXP (s2, 0)) != REG
+  if (GET_CODE (s2) != PLUS || !REG_P (XEXP (s2, 0))
       || GET_CODE (XEXP (s2, 1)) != CONST_INT)
     return 1;
   base1 = XEXP (s1, 0);
@@ -725,7 +723,7 @@ insert_stores (bitmap new_deaths)
 
       /* If we reach a basic block border, which has more than one
 	 outgoing edge, we simply forget all already emitted stores.  */
-      if (GET_CODE (insn) == BARRIER
+      if (BARRIER_P (insn)
 	  || JUMP_P (insn) || can_throw_internal (insn))
 	{
 	  last_slot = NULL_RTX;
@@ -840,8 +838,8 @@ insert_stores (bitmap new_deaths)
 		  if (insns)
 		    {
 		      emit_insn_after (insns, insn);
-		      if (bb->end == insn)
-			bb->end = PREV_INSN (following);
+		      if (BB_END (bb) == insn)
+			BB_END (bb) = PREV_INSN (following);
 		      for (ni = insns; ni != following; ni = NEXT_INSN (ni))
 			{
 			  set_block_for_insn (ni, bb);
@@ -910,9 +908,9 @@ insert_stores (bitmap new_deaths)
 	    {
 	      /* rtx d = SET_DEST (set); */
 	      note_uses_partial (&set, delete_overlapping_uses, (void *)&slots);
-	      /*if (1 || GET_CODE (SET_SRC (set)) == MEM)
+	      /*if (1 || MEM_P (SET_SRC (set)))
 		delete_overlapping_slots (&slots, SET_SRC (set));*/
-	      /*if (REG_P (d) || GET_CODE (d) == MEM
+	      /*if (REG_P (d) || MEM_P (d)
 		|| (GET_CODE (d) == SUBREG && REG_P (SUBREG_REG (d))))
 		remember_slot (&slots, d);*/
 	    }
@@ -933,9 +931,9 @@ spill_same_color_p (struct web *web1, struct web *web2)
     return 0;
 
   size1 = web1->type == PRECOLORED
-          ? 1 : HARD_REGNO_NREGS (c1, PSEUDO_REGNO_MODE (web1->regno));
+          ? 1 : hard_regno_nregs[c1][PSEUDO_REGNO_MODE (web1->regno)];
   size2 = web2->type == PRECOLORED
-          ? 1 : HARD_REGNO_NREGS (c2, PSEUDO_REGNO_MODE (web2->regno));
+          ? 1 : hard_regno_nregs[c2][PSEUDO_REGNO_MODE (web2->regno)];
   if (c1 >= c2 + size2 || c2 >= c1 + size1)
     return 0;
   return 1;
@@ -970,7 +968,7 @@ update_spill_colors (HARD_REG_SET *in_use, struct web *web, int add)
   if ((c = alias (find_web_for_subweb (web))->color) < 0
       || c == an_unusable_color)
     return;
-  size = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+  size = hard_regno_nregs[c][GET_MODE (web->orig_x)];
   if (SUBWEB_P (web))
     {
       c += subreg_regno_offset (c, GET_MODE (SUBREG_REG (web->orig_x)),
@@ -1001,7 +999,7 @@ spill_is_free (HARD_REG_SET *in_use, struct web *web)
   if (c == an_unusable_color)
     return 1;
   size = web->type == PRECOLORED
-         ? 1 : HARD_REGNO_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
+         ? 1 : hard_regno_nregs[c][PSEUDO_REGNO_MODE (web->regno)];
   for (; size--;)
     if (TEST_HARD_REG_BIT (*in_use, c + size))
       return 0;
@@ -1067,8 +1065,7 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
       if (!web)
 	continue;
       supweb = find_web_for_subweb (web);
-      if (SPILL_SLOT_P (supweb->regno))
-	abort ();
+      gcc_assert (!SPILL_SLOT_P (supweb->regno));
       /* Check for web being a spilltemp, if we only want to
 	 load spilltemps.  Also remember, that we emitted that
 	 load, which we don't need to do when we have a death,
@@ -1095,8 +1092,7 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	     (at least then disallow spilling them, which we already ensure
 	     when flag_ra_break_aliases), or not take the pattern but a
 	     stackslot.  */
-	  if (aweb != supweb)
-	    abort ();
+	  gcc_assert (aweb == supweb);
 	  slot = copy_rtx (supweb->pattern);
 	  innermode = GET_MODE (supweb->orig_x);
 	}
@@ -1218,8 +1214,8 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	      rtx foll = NEXT_INSN (after);
 	      bb = BLOCK_FOR_INSN (after);
 	      emit_insn_after (ni, after);
-	      if (bb->end == after)
-		bb->end = PREV_INSN (foll);
+	      if (BB_END (bb) == after)
+		BB_END (bb) = PREV_INSN (foll);
 	      for (ni = NEXT_INSN (after); ni != foll; ni = NEXT_INSN (ni))
 		{
 		  set_block_for_insn (ni, bb);
@@ -1233,8 +1229,8 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	      rtx prev = PREV_INSN (before);
 	      bb = BLOCK_FOR_INSN (before);
 	      emit_insn_before (ni, before);
-	      if (bb->head == before)
-		bb->head = NEXT_INSN (prev);
+	      if (BB_HEAD (bb) == before)
+		BB_HEAD (bb) = NEXT_INSN (prev);
 	      for (; ni != before; ni = NEXT_INSN (ni))
 		{
 		  set_block_for_insn (ni, bb);
@@ -1258,9 +1254,7 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 
 /* Test LIVE for partial WEB live.  */
 int
-is_partly_dead (live, web)
-     sbitmap live;
-     struct web *web;
+is_partly_dead (sbitmap live, struct web *web)
 {
   struct web *sweb;
   
@@ -1276,9 +1270,7 @@ is_partly_dead (live, web)
 
 /* Set live bit in LIVE for WEB or all his subwebs.  */
 void
-set_web_live (live, web)
-     sbitmap live;
-     struct web *web;
+set_web_live (sbitmap live, struct web *web)
 {
   struct web *sweb;
 
@@ -1291,9 +1283,7 @@ set_web_live (live, web)
 
 /* Reset live bit in LIVE for WEB or all his subwebs.  */
 void
-reset_web_live (live, web)
-     sbitmap live;
-     struct web *web;
+reset_web_live (sbitmap live, struct web *web)
 {
   struct web *sweb;
 
@@ -1336,13 +1326,14 @@ reloads_to_loads (struct rewrite_info *ri, struct ref **refs,
       if (is_partly_dead (ri->live, web))
 	{
 	  int old_num_r = num_reloads;
+	  bitmap_iterator bi;
+
 	  bitmap_clear (ri->scratch);
-	  EXECUTE_IF_SET_IN_BITMAP (ri->need_reload, 0, j,
+	  EXECUTE_IF_SET_IN_BITMAP (ri->need_reload, 0, j, bi)
 	    {
 	      struct web *web2 = ID2WEB (j);
 	      struct web *aweb2 = alias (find_web_for_subweb (web2));
-	      if (spill_is_free (&(ri->colors_in_use), aweb2) == 0)
-		abort ();
+	      gcc_assert (spill_is_free (&(ri->colors_in_use), aweb2) != 0);
 	      if (spill_same_color_p (supweb, aweb2)
 		  /* && interfere (web, web2) */)
 		{
@@ -1354,7 +1345,7 @@ reloads_to_loads (struct rewrite_info *ri, struct ref **refs,
 		  bitmap_set_bit (ri->scratch, j);
 		  num_reloads--;
 		}
-	    });
+	    }
 	  if (num_reloads != old_num_r)
 	    bitmap_operation (ri->need_reload, ri->need_reload, ri->scratch,
 			      BITMAP_AND_COMPL);
@@ -1386,6 +1377,8 @@ rewrite_program2 (bitmap new_deaths)
       basic_block last_bb = NULL;
       rtx last_block_insn;
       int i, j;
+      bitmap_iterator bi;
+
       if (!INSN_P (insn))
 	insn = prev_real_insn (insn);
       while (insn && !(bb = BLOCK_FOR_INSN (insn)))
@@ -1397,7 +1390,7 @@ rewrite_program2 (bitmap new_deaths)
 
       sbitmap_zero (ri.live);
       CLEAR_HARD_REG_SET (ri.colors_in_use);
-      EXECUTE_IF_SET_IN_BITMAP (live_at_end[i - 2], 0, j,
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[i - 2], 0, j, bi)
 	{
 	  struct web *web = use2web[j];
 	  struct web *aweb = alias (find_web_for_subweb (web));
@@ -1414,7 +1407,7 @@ rewrite_program2 (bitmap new_deaths)
 	      if (aweb->type != SPILLED)
 	        update_spill_colors (&(ri.colors_in_use), web, 1);
 	    }
-	});
+	}
 
       bitmap_clear (ri.need_reload);
       ri.num_reloads = 0;
@@ -1450,10 +1443,15 @@ rewrite_program2 (bitmap new_deaths)
 	  unsigned int n;
 	  HARD_REG_SET earlyclobber_colors;
 
+	  /* XXX only needed to avoid warning.  Should be avoided.  */
+	  memset (&info, 0, sizeof info);
+
 	  if (INSN_P (insn) && BLOCK_FOR_INSN (insn) != last_bb)
 	    {
 	      int index = BLOCK_FOR_INSN (insn)->index + 2;
-	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[index - 2], 0, j,
+	      bitmap_iterator bi;
+
+	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[index - 2], 0, j, bi)
 		{
 		  struct web *web = use2web[j];
 		  struct web *aweb = alias (find_web_for_subweb (web));
@@ -1462,9 +1460,9 @@ rewrite_program2 (bitmap new_deaths)
 		      set_web_live (ri.live, web);
 		      update_spill_colors (&(ri.colors_in_use), web, 1);
 		    }
-		});
+		}
 	      bitmap_clear (ri.scratch);
-	      EXECUTE_IF_SET_IN_BITMAP (ri.need_reload, 0, j,
+	      EXECUTE_IF_SET_IN_BITMAP (ri.need_reload, 0, j, bi)
 		{
 		  struct web *web2 = ID2WEB (j);
 		  struct web *supweb2 = find_web_for_subweb (web2);
@@ -1479,7 +1477,7 @@ rewrite_program2 (bitmap new_deaths)
 		      bitmap_set_bit (ri.scratch, j);
 		      ri.num_reloads--;
 		    }
-		});
+		}
 	      bitmap_operation (ri.need_reload, ri.need_reload, ri.scratch,
 				BITMAP_AND_COMPL);
 	      last_bb = BLOCK_FOR_INSN (insn);
@@ -1577,7 +1575,7 @@ rewrite_program2 (bitmap new_deaths)
 	     XXX Note, that sometimes reload barfs when we emit insns between
 	     a call and the insn which copies the return register into a
 	     pseudo.  */
-	  if (GET_CODE (insn) == CALL_INSN)
+	  if (CALL_P (insn))
 	    ri.need_load = 1;
 	  else if (INSN_P (insn))
 	    for (n = 0; n < info.num_uses; n++)
@@ -1672,7 +1670,7 @@ rewrite_program2 (bitmap new_deaths)
 	  /* Now that the effect of this insn are all handled the colors
 	     of early clobber operand are free.  */
 	  AND_COMPL_HARD_REG_SET (ri.colors_in_use, earlyclobber_colors);
-	  if (GET_CODE (insn) == CODE_LABEL)
+	  if (LABEL_P (insn))
 	    break;
 	}
 
@@ -1682,26 +1680,33 @@ rewrite_program2 (bitmap new_deaths)
 	  int in_ir = 0;
 	  edge e;
 	  int num = 0;
+	  edge_iterator ei;
+	  bitmap_iterator bi;
+
 	  HARD_REG_SET cum_colors, colors;
 	  CLEAR_HARD_REG_SET (cum_colors);
-	  for (e = bb->pred; e && num < 5; e = e->pred_next, num++)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      int j;
+
+	      if (num >= 5)
+		break;
 	      CLEAR_HARD_REG_SET (colors);
-	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[e->src->index], 0, j,
+	      EXECUTE_IF_SET_IN_BITMAP (live_at_end[e->src->index], 0, j, bi)
 		{
 		  struct web *web = use2web[j];
 		  struct web *aweb = alias (find_web_for_subweb (web));
 		  if (aweb->type != SPILLED)
 		    update_spill_colors (&colors, web, 1);
-		});
+		}
 	      IOR_HARD_REG_SET (cum_colors, colors);
+	      num++;
 	    }
 	  if (num == 5)
 	    in_ir = 1;
 
 	  bitmap_clear (ri.scratch);
-	  EXECUTE_IF_SET_IN_BITMAP (ri.need_reload, 0, j,
+	  EXECUTE_IF_SET_IN_BITMAP (ri.need_reload, 0, j, bi)
 	    {
 	      struct web *web2 = ID2WEB (j);
 	      struct web *supweb2 = find_web_for_subweb (web2);
@@ -1722,15 +1727,14 @@ rewrite_program2 (bitmap new_deaths)
 		  bitmap_set_bit (ri.scratch, j);
 		  ri.num_reloads--;
 		}
-	    });
+	  }
 	  bitmap_operation (ri.need_reload, ri.need_reload, ri.scratch,
 			    BITMAP_AND_COMPL);
 	}
 
       ri.need_load = 1;
       emit_loads (&ri, nl_first_reload, last_block_insn);
-      if (ri.nl_size != 0 /*|| ri.num_reloads != 0*/)
-	abort ();
+      gcc_assert (ri.nl_size == 0);
       if (!insn)
 	break;
     }
@@ -1745,10 +1749,8 @@ rewrite_program2 (bitmap new_deaths)
    Layout of webs isn't changed they are only mentioned in changed
    insns. */
 static void
-mark_insn_refs_for_checking (info, already_webs, uses_as_bitmap)
-     struct ra_insn_info *info;
-     sbitmap already_webs;
-     bitmap uses_as_bitmap;
+mark_insn_refs_for_checking (struct ra_insn_info *info, sbitmap already_webs,
+			     bitmap uses_as_bitmap)
 {
   int i, n;
   int num_refs;
@@ -1825,6 +1827,7 @@ detect_web_parts_to_rebuild (void)
   unsigned int i, pass;
   int uid;
   struct dlist *d;
+  bitmap_iterator bi;
   sbitmap already_webs = sbitmap_alloc (num_webs);
 
   uses_as_bitmap = BITMAP_XMALLOC ();
@@ -1836,7 +1839,7 @@ detect_web_parts_to_rebuild (void)
 
   /* One of our callers isn't allocating split_webs.  */
   if (split_webs)
-    EXECUTE_IF_SET_IN_BITMAP (split_webs, 0, i,
+    EXECUTE_IF_SET_IN_BITMAP (split_webs, 0, i, bi)
       {
         struct web *web = ID2WEB (i);
         if (web->type != SPILLED)
@@ -1844,9 +1847,9 @@ detect_web_parts_to_rebuild (void)
             remove_web_from_list (web);
             put_web (web, SPILLED);
           }
-      });
+      }
   if (webs_changed_layout)
-    EXECUTE_IF_SET_IN_BITMAP (webs_changed_layout, 0, i,
+    EXECUTE_IF_SET_IN_BITMAP (webs_changed_layout, 0, i, bi)
       {
         struct web *web = alias (ID2WEB (i));
         if (web->type != PRECOLORED && web->type != SPILLED)
@@ -1854,7 +1857,7 @@ detect_web_parts_to_rebuild (void)
             remove_web_from_list (web);
             put_web (web, SPILLED);
 	  }
-      });
+      }
 
   /* We generally want to handle all webs whose layout changed, plus the webs
      which conflicted with them (for those we only need to recheck their
@@ -1890,6 +1893,7 @@ detect_web_parts_to_rebuild (void)
         struct web *web = DLIST_WEB (d);
 	struct conflict_link *wl;
 	unsigned int j;
+
 	/* This check is only needed for coalesced nodes, but hey.  */
 #if 1
 	if (alias (web)->type != SPILLED)
@@ -1941,7 +1945,7 @@ detect_web_parts_to_rebuild (void)
 	    if (0 && !web->changed && alias (wl->t)->type != SPILLED)
 	      wl->t->changed = 0;
 	  }
-	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j,
+	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j, bi)
 	  {
 	    struct web *web2 = ID2WEB (j);
 	    if (TEST_BIT (already_webs, web2->id))
@@ -1950,23 +1954,22 @@ detect_web_parts_to_rebuild (void)
 	    mark_refs_for_checking (web2, uses_as_bitmap);
 	    if (0 && !web->changed && alias (web2)->type != SPILLED)
 	      web2->changed = 0;
-	  });
-	
+	  }
       }
 
-  EXECUTE_IF_SET_IN_BITMAP (last_changed_insns, 0, uid,
-  {
-    if (uid < insn_df_max_uid)
-      mark_insn_refs_for_checking (&insn_df[uid], already_webs,
-				   uses_as_bitmap);
-  });
+  EXECUTE_IF_SET_IN_BITMAP (last_changed_insns, 0, uid, bi)
+    {
+      if (uid < insn_df_max_uid)
+        mark_insn_refs_for_checking (&insn_df[uid], already_webs,
+				     uses_as_bitmap);
+    };
     
   /* We also recheck unconditionally all uses of any hardregs.  This means
      we _can_ delete all these uses from the live_at_end[] bitmaps.
      And because we sometimes delete insn referring to hardregs (when
      they became useless because they setup a rematerializable pseudo, which
      then was rematerialized), some of those uses will go away with the next
-     df_analyse().  This means we even _must_ delete those uses from
+     df_analyze().  This means we even _must_ delete those uses from
      the live_at_end[] bitmaps.  For simplicity we simply delete
      all of them.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1987,10 +1990,10 @@ detect_web_parts_to_rebuild (void)
 		      BITMAP_AND_COMPL);
   live_at_end += 2;
 
-  if (rtl_dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
+  if (dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
     {
       ra_debug_msg (DUMP_REBUILD, "need to check these uses:\n");
-      dump_sbitmap_file (rtl_dump_file, last_check_uses);
+      dump_sbitmap_file (dump_file, last_check_uses);
     }
   sbitmap_free (already_webs);
   BITMAP_XFREE (uses_as_bitmap);
@@ -2002,11 +2005,10 @@ static unsigned HOST_WIDE_INT deleted_def_cost;
 
 extern int flag_non_call_exceptions;
 
-static void try_delete_useless_def PARAMS ((rtx, rtx));
+static void try_delete_useless_def (rtx, rtx);
 
 static void
-try_delete_useless_def (insn, set)
-     rtx insn, set;
+try_delete_useless_def (rtx insn, rtx set)
 {
   unsigned int n;
   rtx dest = SET_DEST (set);
@@ -2057,10 +2059,12 @@ static void
 delete_useless_defs (void)
 {
   unsigned int i;
+  bitmap_iterator bi;
+
   /* If the insn only sets the def without any sideeffect (besides
      clobbers or uses), we can delete it.  single_set() also tests
      for INSN_P(insn).  */
-  EXECUTE_IF_SET_IN_BITMAP (useless_defs, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (useless_defs, 0, i, bi)
     {
       rtx insn = DF_REF_INSN (df->defs[i]);
       rtx set = single_set (insn);
@@ -2070,7 +2074,7 @@ delete_useless_defs (void)
         {
 	  try_delete_useless_def (insn, set);
 	}
-    });
+    }
 }
 
 /* Look for spilled webs, on whose behalf no insns were emitted.
@@ -2109,9 +2113,9 @@ detect_non_changed_webs (void)
     }
 }
 
-static int need_rebuild PARAMS ((void));
+static int need_rebuild (void);
 static int
-need_rebuild ()
+need_rebuild (void)
 {
   struct dlist *d;
   for (d = WEBS(SPILLED); d; d = d->next)
@@ -2140,7 +2144,7 @@ reset_changed_flag (void)
    IMHO(denisc@overta.ru): This check must be supported in different
    manner.  */
 int
-subst_to_stack_p ()
+subst_to_stack_p (void)
 {
   struct dlist *d;
   for (d = WEBS(COLORED); d; d = d->next)
@@ -2173,6 +2177,7 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
 {
   int i;
   int rebuildit = 1;
+  bitmap_iterator bi;
   bitmap new_deaths;
 
   /* If we have a webs colored by an_unusable_color (ie we think that they are
@@ -2210,8 +2215,8 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
   insns_with_deaths = sbitmap_alloc (get_max_uid ());
   death_insns_max_uid = get_max_uid ();
   sbitmap_zero (insns_with_deaths);
-  EXECUTE_IF_SET_IN_BITMAP (new_deaths, 0, i,
-    { SET_BIT (insns_with_deaths, i);});
+  EXECUTE_IF_SET_IN_BITMAP (new_deaths, 0, i, bi)
+    SET_BIT (insns_with_deaths, i);
   if (ra_pass > 1)
     {
       rebuildit = need_rebuild ();
@@ -2228,13 +2233,14 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
 
 static void allocate_stack_slots PARAMS ((void));
 static void
-allocate_stack_slots ()
+allocate_stack_slots (void)
 {
   unsigned int *stack_color, *max_size, *need_align;
   rtx *slots;
   unsigned int max_color;
   unsigned int i, max_num;
   bitmap conflicts = BITMAP_XMALLOC ();
+  bitmap_iterator bi;
 
   if (BYTES_BIG_ENDIAN)
     abort();
@@ -2256,11 +2262,11 @@ allocate_stack_slots ()
 	for (wl = web->conflict_list; wl; wl = wl->next)
 	  if (stack_color[wl->t->id])
 	    bitmap_set_bit (conflicts, stack_color[wl->t->id]);
-	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j,
+	EXECUTE_IF_SET_IN_BITMAP (web->useless_conflicts, 0, j, bi)
 	  {
 	    if (stack_color[j])
 	      bitmap_set_bit (conflicts, stack_color[j]);
-	  });
+	  }
 	for (this_color = 1; bitmap_bit_p (conflicts, this_color);
 	     this_color++) ;
 	stack_color[i] = this_color;
@@ -2282,7 +2288,6 @@ allocate_stack_slots ()
       rtx place;
       mode = mode_for_size (max_size[i] * BITS_PER_UNIT, MODE_INT, 1);
       place = assign_stack_local (mode, max_size[i], need_align[i] ? -1 : 0);
-      /* XXX do something with RTX_UNCHANGING_P ?  */
       set_mem_alias_set (place, new_alias_set ());
       slots[i] = place;
     }
@@ -2313,7 +2318,7 @@ allocate_stack_slots ()
 /* Remove all REG_EQUIV notes found in the insn chain.  */
 
 static void
-purge_reg_equiv_notes ()
+purge_reg_equiv_notes (void)
 {
   rtx insn, note;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -2326,7 +2331,7 @@ purge_reg_equiv_notes ()
    Replace all uses and defs to stack slots in all possible cases.  */
 
 static void
-assign_stack_slots ()
+assign_stack_slots (void)
 {
   int i;
   struct dlist *d, *d_next;
@@ -2354,7 +2359,7 @@ assign_stack_slots ()
       insns_with_deaths = sbitmap_alloc (get_max_uid ());
       sbitmap_zero (insns_with_deaths);
       EXECUTE_IF_SET_IN_SBITMAP (old_deaths, 0, i,
-      { SET_BIT (insns_with_deaths, i);});
+        SET_BIT (insns_with_deaths, i));
       sbitmap_free (old_deaths);
     }
   death_insns_max_uid = get_max_uid ();
@@ -2366,10 +2371,7 @@ assign_stack_slots ()
    Remove dead move insns.
    This is the same as coalesce and substitute. */
 static int
-coalesce_spill_slot (web, ref, place)
-     struct web *web;
-     struct ref *ref;
-     rtx place;
+coalesce_spill_slot (struct web *web, struct ref *ref, rtx place)
 {
   rtx source;
   struct web *dweb;
@@ -2497,7 +2499,7 @@ coalesce_spill_slot (web, ref, place)
    This function also perform a simple elimination of dead insns.  */
 
 static void
-assign_stack_slots_1 ()
+assign_stack_slots_1 (void)
 {
   unsigned int j, i, n, webs_count;
   struct ref **refs;
@@ -2549,8 +2551,6 @@ assign_stack_slots_1 ()
 	      bitmap_set_bit (rewrite_stack_slots, web->regno);
 	    }
 #endif
-	  RTX_UNCHANGING_P (place) =
-	    RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
 	  set_mem_alias_set (place, new_alias_set ());
 	}
       if (web->pattern)
@@ -2630,8 +2630,8 @@ assign_stack_slots_1 ()
 	      {
 		rtx pi;
 		emit_insn_before (insns, insn);
-		if (bb->head == insn)
-		  bb->head = NEXT_INSN (aux_insn);
+		if (BB_HEAD (bb) == insn)
+		  BB_HEAD (bb) = NEXT_INSN (aux_insn);
 		for (pi = PREV_INSN (insn); pi != aux_insn;
 		     pi = PREV_INSN (pi))
 		  {
@@ -2645,8 +2645,8 @@ assign_stack_slots_1 ()
 	      {
 		rtx ni;
 		emit_insn_after (insns, insn);
-		if (bb->end == insn)
-		  bb->end = PREV_INSN (aux_insn);
+		if (BB_END (bb) == insn)
+		  BB_END (bb) = PREV_INSN (aux_insn);
 		for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
 		  {
 		    set_block_for_insn (ni, bb);
@@ -2762,8 +2762,6 @@ emit_colors (struct df *df)
 	      rtx place = assign_stack_local (PSEUDO_REGNO_MODE (web->regno),
 					      total_size,
 					      inherent_size == total_size ? 0: -1);
-	      RTX_UNCHANGING_P (place) =
-		  RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
 	      set_mem_alias_set (place, new_alias_set ());
 	      web->reg_rtx = place;
 	    }
@@ -2985,7 +2983,7 @@ remove_suspicious_death_notes (void)
 	    rtx note = *pnote;
 	    if ((REG_NOTE_KIND (note) == REG_DEAD
 		 || REG_NOTE_KIND (note) == REG_UNUSED)
-		&& (GET_CODE (XEXP (note, 0)) == REG
+		&& (REG_P (XEXP (note, 0))
 		    && bitmap_bit_p (regnos_coalesced_to_hardregs,
 				     REGNO (XEXP (note, 0)))))
 	      *pnote = XEXP (note, 1);
@@ -3019,10 +3017,9 @@ setup_renumber (int free_it)
     }
 }
 
-static struct web * get_aliased_aequivalent PARAMS ((struct web *));
+static struct web * get_aliased_aequivalent (struct web *);
 static struct web *
-get_aliased_aequivalent (web)
-     struct web *web;
+get_aliased_aequivalent (struct web *web)
 {
   struct web *supweb = find_web_for_subweb (web);
   struct web *aweb = alias (supweb);
@@ -3050,13 +3047,13 @@ get_aliased_aequivalent (web)
    functions are not confused by partial sets, which _we_ know are the
    initial defines.  */
 void
-create_flow_barriers ()
+create_flow_barriers (void)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
     {
       rtx insn;
-      for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
+      for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
 	if (INSN_P (insn))
 	  {
 	    unsigned int d;
@@ -3104,12 +3101,13 @@ create_flow_barriers_2 (void)
     {
       int j;
       rtx insn, prev_insn;
+      bitmap_iterator bi;
       sbitmap_zero (live);
-      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j, bi)
 	{
 	  set_web_live (live, get_aliased_aequivalent (use2web[j]));
-	});
-      for (insn = bb->end; insn; insn = prev_insn)
+	}
+      for (insn = BB_END (bb); insn; insn = prev_insn)
 	{
 	  prev_insn = PREV_INSN (insn);
 
@@ -3136,7 +3134,7 @@ create_flow_barriers_2 (void)
 		  set_web_live (live, web);
 		}
 
-	      EXECUTE_IF_SET_IN_BITMAP (partly_defined, 0, j,
+	      EXECUTE_IF_SET_IN_BITMAP (partly_defined, 0, j, bi)
 		{
 		  struct web *web = ID2WEB (j);
 		  if (web->type != PRECOLORED
@@ -3149,10 +3147,10 @@ create_flow_barriers_2 (void)
 		      emit_insn_before (gen_rtx_CLOBBER (VOIDmode,
 							 web->reg_rtx), insn);
 		    }
-		});
+		}
 	    }
 
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
     }
@@ -3172,14 +3170,11 @@ struct split_cost
 static struct split_cost *split_costs;
 static sbitmap *live_at_begin;
 
-static void set_web_live_s PARAMS ((sbitmap, bitmap, struct web*));
-static void reset_web_live_s PARAMS ((sbitmap, bitmap, struct web*));
+static void set_web_live_s (sbitmap, bitmap, struct web*);
+static void reset_web_live_s (sbitmap, bitmap, struct web*);
 
 static void
-set_web_live_s (live, suplive, web)
-     sbitmap live;
-     bitmap suplive;
-     struct web *web;
+set_web_live_s (sbitmap live, bitmap suplive, struct web *web)
 {
   set_web_live (live, web);
   web = find_web_for_subweb (web);
@@ -3190,10 +3185,7 @@ set_web_live_s (live, suplive, web)
 }
 
 static void
-reset_web_live_s (live, suplive, web)
-     sbitmap live;
-     bitmap suplive;
-     struct web *web;
+reset_web_live_s (sbitmap live, bitmap suplive, struct web *web)
 {
   reset_web_live (live, web);
   web = find_web_for_subweb (web);
@@ -3215,17 +3207,18 @@ have_splits_p (void)
   return 0;
 }
 
-extern int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
-extern void init_split_costs PARAMS ((void));
-extern int find_splits PARAMS ((struct web *));
-extern void free_split_costs PARAMS ((void));
+extern int copy_insn_p (rtx, rtx *, rtx *);
+extern void init_split_costs (void);
+extern int find_splits (struct web *);
+extern void free_split_costs (void);
 
 void
-init_split_costs ()
+init_split_costs (void)
 {
   basic_block bb;
   unsigned int i;
   sbitmap live;
+  bitmap_iterator bi;
   bitmap suplive = BITMAP_XMALLOC ();
   live = sbitmap_alloc (num_webs);
   contained = (bitmap *) xmalloc ((num_webs - num_subwebs) * sizeof (bitmap));
@@ -3248,11 +3241,11 @@ init_split_costs ()
       int j;
       rtx insn;
       sbitmap_zero (live);
-      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j, bi)
 	{
 	  set_web_live (live, use2web[j]);
-	});
-      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+	}
+      for (insn = BB_END (bb); insn; insn = PREV_INSN (insn))
 	{
 	  if (INSN_P (insn))
 	    {
@@ -3265,7 +3258,7 @@ init_split_costs ()
 	      for (n = 0; n < info.num_uses; n++)
 		set_web_live (live, use2web[DF_REF_ID (info.uses[n])]);
 	    }
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
       sbitmap_copy (live_at_begin[bb->index], live);
@@ -3274,15 +3267,16 @@ init_split_costs ()
     {
       int j;
       edge e;
+      edge_iterator ei;
       rtx insn;
       sbitmap_zero (live);
-      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
-	set_web_live_s (live, suplive, use2web[j]));
-      for (e = bb->succ; e; e = e->succ_next)
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j, bi)
+	set_web_live_s (live, suplive, use2web[j]);
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
 	    continue;
-	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j, bi)
 	    {
 	      if (!is_partly_live (live_at_begin[e->dest->index], ID2WEB (j)))
 	        {
@@ -3292,19 +3286,19 @@ init_split_costs ()
 		  else
 		    split_costs[j].loads += (4 * (e->dest->frequency + 1)) / 3;
 		}
-	    });
+	    }
 	}
 
       /* We can't split around webs which have a reference in the last
 	 insn of a basic block, if one of the outgoing edges is non
 	 splittable (for now critical, because we don't yet split).  */
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR
 	    && EDGE_CRITICAL_P (e))
 	  {
 	    unsigned int n;
 	    struct ra_insn_info info;
-	    insn = bb->end;
+	    insn = BB_END (bb);
 	    if (!INSN_P (insn))
 	      insn = prev_real_insn (insn);
 	    info = insn_df[INSN_UID (insn)];
@@ -3319,7 +3313,7 @@ init_split_costs ()
 	    break;
 	  }
 
-      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+      for (insn = BB_END (bb); insn; insn = PREV_INSN (insn))
 	{
 	  if (INSN_P (insn))
 	    {
@@ -3337,10 +3331,10 @@ init_split_costs ()
 		  web = find_web_for_subweb (web);
 		  if (!is_partly_live (live, web))
 		    {
-		      if (insn != bb->end)
+		      if (insn != BB_END (bb))
 			split_costs[web->id].loads += (4 * (bb->frequency + 1)) / 3;
 		      else
-			for (e = bb->succ; e; e = e->succ_next)
+			FOR_EACH_EDGE (e, ei, bb->succs)
 			  split_costs[web->id].loads += (4 * (e->dest->frequency + 1)) / 3;
 		    }
 		}
@@ -3398,14 +3392,14 @@ init_split_costs ()
 		  struct web *web1 = def2web[DF_REF_ID (info.defs[n])];
 		  web1 = find_web_for_subweb (web1);
 		  if (!web1->pattern)
-		    EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+		    EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j, bi)
                       {
 		        struct web *web2 = ID2WEB (j);
 			if (web1 != web2
 			    && hard_regs_intersect_p (&web1->orig_usable_regs,
 						      &web2->orig_usable_regs))
 			  bitmap_set_bit (contained[j], web1->id);
-		      });
+		      }
 		}
 	      /* All defs' webs are now not live anymore, except for
 		 early clobber ones.  */
@@ -3419,14 +3413,14 @@ init_split_costs ()
 		{
 		  struct web *web1 = use2web[DF_REF_ID (info.uses[n])];
 		  web1 = find_web_for_subweb (web1);
-		  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+		  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j, bi)
                     {
 		      struct web *web2 = ID2WEB (j);
 		      if (web1 != web2
 			  && hard_regs_intersect_p (&web1->orig_usable_regs,
 						    &web2->orig_usable_regs))
 			bitmap_set_bit (contained[j], web1->id);
-		    });
+		    }
 		}
 	      /* Now all effects of the insn have been seen, so also
 		 early clobber webs are not live anymore.  */
@@ -3445,7 +3439,7 @@ init_split_costs ()
 	      for (n = 0; n < info.num_uses; n++)
 		set_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[n])]);
 	    }
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
     }
@@ -3457,8 +3451,7 @@ init_split_costs ()
 }
 
 int
-find_splits (web)
-     struct web *web;
+find_splits (struct web *web)
 {
   struct conflict_link *wl;
   unsigned int *min_color;
@@ -3605,15 +3598,11 @@ find_splits (web)
     return 0;
 }
 
-static void split_insert_load PARAMS ((struct web *, rtx, int, sbitmap));
-static void split_insert_store PARAMS ((struct web *, rtx, int, sbitmap, sbitmap, bitmap));
+static void split_insert_load (struct web *, rtx, int, sbitmap);
+static void split_insert_store (struct web *, rtx, int, sbitmap, sbitmap, bitmap);
 
 static void
-split_insert_load (web, insn, before, live)
-     struct web *web;
-     rtx insn;
-     int before;
-     sbitmap live;
+split_insert_load (struct web *web, rtx insn, int before, sbitmap live)
 {
   rtx slot, ni;
   struct web *aweb;
@@ -3672,27 +3661,23 @@ split_insert_load (web, insn, before, live)
 	  i2 = insn;
 	}
       if (!before && (debug_new_regalloc & DUMP_PROCESS))
-	ra_print_rtx_top (rtl_dump_file, insn, 1);
+	ra_print_rtx_top (dump_file, insn, 1);
       for (ni = i1; ni != i2; ni = NEXT_INSN (ni))
 	{
 	  df_insn_modify (df, bb, ni);
 	  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
 	  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
 	  if (debug_new_regalloc & DUMP_PROCESS)
-	    ra_print_rtx_top (rtl_dump_file, ni, 0);
+	    ra_print_rtx_top (dump_file, ni, 0);
 	}
       if (before && (debug_new_regalloc & DUMP_PROCESS))
-	ra_print_rtx_top (rtl_dump_file, insn, 1);
+	ra_print_rtx_top (dump_file, insn, 1);
     }
 }
 
 static void
-split_insert_store (web, insn, before, live, need_load, new_deaths)
-     struct web *web;
-     rtx insn;
-     int before;
-     sbitmap live, need_load;
-     bitmap new_deaths;
+split_insert_store (struct web *web, rtx insn, int before, sbitmap live,
+		    sbitmap need_load, bitmap new_deaths)
 {
   rtx ni;
   struct web *aweb;
@@ -3749,26 +3734,26 @@ split_insert_store (web, insn, before, live, need_load, new_deaths)
 	  i2 = insn;
 	}
       if (!before && (debug_new_regalloc & DUMP_PROCESS))
-	ra_print_rtx_top (rtl_dump_file, insn, 1);
+	ra_print_rtx_top (dump_file, insn, 1);
       for (ni = i1; ni != i2; ni = NEXT_INSN (ni))
 	{
 	  df_insn_modify (df, bb, ni);
 	  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
 	  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
 	  if (debug_new_regalloc & DUMP_PROCESS)
-	    ra_print_rtx_top (rtl_dump_file, ni, 0);
+	    ra_print_rtx_top (dump_file, ni, 0);
 	}
       if (before && (debug_new_regalloc & DUMP_PROCESS))
-	ra_print_rtx_top (rtl_dump_file, insn, 1);
+	ra_print_rtx_top (dump_file, insn, 1);
     }
 }
 
 void
-insert_splits (new_deaths)
-     bitmap new_deaths;
+insert_splits (bitmap new_deaths)
 {
   basic_block bb;
   sbitmap live, need_load;
+  bitmap_iterator bi;
   bitmap suplive, split_those_1, lazy_store;
   if (!have_splits_p ())
     return;
@@ -3781,18 +3766,19 @@ insert_splits (new_deaths)
     {
       int j;
       edge e;
+      edge_iterator ei;
       rtx insn;
       sbitmap_zero (live);
       bitmap_zero (suplive);
       bitmap_zero (lazy_store);
-      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j,
-	set_web_live_s (live, suplive, use2web[j]));
+      EXECUTE_IF_SET_IN_BITMAP (live_at_end[bb->index], 0, j, bi)
+	set_web_live_s (live, suplive, use2web[j]);
       sbitmap_copy (need_load, live);
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
 	    continue;
-	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j,
+	  EXECUTE_IF_SET_IN_BITMAP (suplive, 0, j, bi)
 	    {
 	      if (!is_partly_live (live_at_begin[e->dest->index], ID2WEB (j)))
 	        {
@@ -3803,15 +3789,16 @@ insert_splits (new_deaths)
 		  else
 		    {
 		      int w;
-		      EXECUTE_IF_SET_IN_BITMAP (split_around[j], 0, w,
+		      bitmap_iterator bw;
+		      EXECUTE_IF_SET_IN_BITMAP (split_around[j], 0, w, bw)
 			split_insert_load (ID2WEB (w),
-					   next_real_insn (e->dest->head), 1,
-					   live_at_begin[e->dest->index]));
+					   next_real_insn (BB_HEAD (e->dest)),
+					   1, live_at_begin[e->dest->index]);
 		    }
 		}
-	    });
+	    }
 	}
-      for (insn = bb->end; insn; insn = PREV_INSN (insn))
+      for (insn = BB_END (bb); insn; insn = PREV_INSN (insn))
 	{
 	  if (INSN_P (insn)
 	      && INSN_UID (insn) < insn_df_max_uid)
@@ -3909,21 +3896,25 @@ insert_splits (new_deaths)
 		}
 	      if (split_those)
 		{
-		  if (insn != bb->end || !JUMP_P (insn))
-		    EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
-		      split_insert_load (ID2WEB (w), insn, 0, need_load);
-		      reset_web_live (need_load, ID2WEB (w));
-		      bitmap_clear_bit (lazy_store, w));
+		  if (insn != BB_END (bb) || !JUMP_P (insn))
+		    EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w, bi)
+		      {
+			split_insert_load (ID2WEB (w), insn, 0, need_load);
+			reset_web_live (need_load, ID2WEB (w));
+			bitmap_clear_bit (lazy_store, w);
+		      }
 		  else
 		    {
-		      for (e = bb->succ; e; e = e->succ_next)
-		        EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
+		      FOR_EACH_EDGE (e, ei, bb->succs)
+		        EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w, bi)
 			  split_insert_load (ID2WEB (w),
-					     next_real_insn (e->dest->head),
-					     1, need_load));
-		      EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w,
-		        reset_web_live (need_load, ID2WEB (w));
-		        bitmap_clear_bit (lazy_store, w));
+					     next_real_insn (BB_HEAD (e->dest)),
+					     1, need_load);
+		      EXECUTE_IF_SET_IN_BITMAP (split_those, 0, w, bi)
+			{
+			  reset_web_live (need_load, ID2WEB (w));
+			  bitmap_clear_bit (lazy_store, w);
+			}
 		    }
 		}
 
@@ -3957,6 +3948,7 @@ insert_splits (new_deaths)
 		  if (!complete_define)
 		    continue;
 		  EXECUTE_IF_SET_IN_BITMAP (split_around[supweb->id], 0, w,
+					    bi)
 		    {
 		      struct web *web = ID2WEB (w);
 		      if (!web->pattern)
@@ -3966,7 +3958,7 @@ insert_splits (new_deaths)
 		        /*split_insert_store (web, insn, 1, live, need_load,
 			  new_deaths); */
 			}
-		    });
+		    };
 		}
 	      /*for (n = 0; n < info.num_uses; n++)
 		{
@@ -3987,11 +3979,11 @@ insert_splits (new_deaths)
 		      rtx insn2;
 		      for (insn2 = insn;
 			   insn2 != web->last_use_insn
-			   && insn2 != NEXT_INSN (bb->end);
+			   && insn2 != NEXT_INSN (BB_END (bb));
 			   insn2 = NEXT_INSN (insn2))
 			if (1 || bitmap_bit_p (new_deaths, INSN_UID (insn2)))
 			  break;
-		      if (insn2 == NEXT_INSN (bb->end))
+		      if (insn2 == NEXT_INSN (BB_END (bb)))
 			abort ();
 		      if (insn2 == web->last_use_insn)
 		        split_insert_store (web, insn2, 1, live, need_load, new_deaths);
@@ -4012,28 +4004,28 @@ insert_splits (new_deaths)
 		  set_web_live (need_load, use2web[DF_REF_ID (info.uses[n])]);
 		}
 	    }
-	  if (insn == bb->head)
+	  if (insn == BB_HEAD (bb))
 	    break;
 	}
-      insn = INSN_P (bb->head) ? bb->head : next_real_insn (bb->head);
-      EXECUTE_IF_SET_IN_BITMAP (lazy_store, 0, j,
+      insn = INSN_P (BB_HEAD (bb)) ? BB_HEAD (bb) : next_real_insn (BB_HEAD (bb));
+      EXECUTE_IF_SET_IN_BITMAP (lazy_store, 0, j, bi)
 	{
 	  struct web *web = ID2WEB (j);
 	  rtx insn2;
 	  for (insn2 = insn;
 	       insn2 != web->last_use_insn
-	       && insn2 != NEXT_INSN (bb->end);
+	       && insn2 != NEXT_INSN (BB_END (bb));
 	       insn2 = NEXT_INSN (insn2))
 	    if (1 || bitmap_bit_p (new_deaths, INSN_UID (insn2)))
 	      break;
-	  if (insn2 == NEXT_INSN (bb->end))
+	  if (insn2 == NEXT_INSN (BB_END (bb)))
 	    abort ();
 	  if (insn2 == web->last_use_insn)
 	    split_insert_store (web, insn2, 1, live, need_load, new_deaths);
 	  else
 	    split_insert_store (web, insn2, 0, live, need_load, new_deaths);
 	/*split_insert_store (ID2WEB (j), insn, 1, live, need_load, new_deaths)*/
-	});
+	};
     }
   sbitmap_free (need_load);
   sbitmap_free (live);
@@ -4043,7 +4035,7 @@ insert_splits (new_deaths)
 }
 
 void
-free_split_costs ()
+free_split_costs (void)
 {
   unsigned int i;
   if (!live_at_begin)
@@ -4066,9 +4058,7 @@ free_split_costs ()
 /* The WEB can't have a single color. The REF is a constraining ref.
    The REF will be spilled out from the WEB.  */
 void
-web_class_spill_ref (web, ref)
-     struct web *web;
-     struct ref *ref;
+web_class_spill_ref (struct web *web, struct ref *ref)
 {
   rtx insns;
   rtx insn = DF_REF_INSN (ref);
@@ -4144,8 +4134,8 @@ web_class_spill_ref (web, ref)
       rtx pi;
       rtx aux_insn = PREV_INSN (insn);
       emit_insn_before (insns, insn);
-      if (bb->head == insn)
-	bb->head = NEXT_INSN (aux_insn);
+      if (BB_HEAD (bb) == insn)
+	BB_HEAD (bb) = NEXT_INSN (aux_insn);
       for (pi = PREV_INSN (insn); pi != aux_insn;
 	   pi = PREV_INSN (pi))
 	{
@@ -4165,8 +4155,8 @@ web_class_spill_ref (web, ref)
       rtx ni;
       rtx aux_insn = NEXT_INSN (insn);
       emit_insn_after (insns, insn);
-      if (bb->end == insn)
-	bb->end = PREV_INSN (aux_insn);
+      if (BB_END (bb) == insn)
+	BB_END (bb) = PREV_INSN (aux_insn);
       for (ni = insns; ni != aux_insn; ni = NEXT_INSN (ni))
 	{
 	  set_block_for_insn (ni, bb);

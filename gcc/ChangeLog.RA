@@ -1,3 +1,20 @@
+2004-11-03  Michael Matz  <matz@suse.de>
+
+	* ra-build.c (select_regclass): Clear usable_regs for call-crossing
+	webs.
+	(web_class_spill): #if 0 around debug code.
+	* ra.c (first_hard_reg): New function.
+	(single_reg_in_regclass): New variable.
+	(init_ra): Initialize it.
+	* ra-colorize.c (ok_class): New function.
+	(coalesce, aggressive_coalesce, extended_coalesce_2): Use it.
+	* ra.h (single_reg_in_regclass): Declare.
+	* pre-reload.c (pre_reload_decompose): Silence uninit warning.
+
+2004-11-03  Michael Matz  <matz@suse.de>
+
+	Merge to HEAD at tree-cleanup-merge-20041024 .
+
 2004-04-02  Michael Matz  <matz@suse.de>
 
 	* df.c (df_def_record_1, df_uses_record): Set DF_REF_MODE_CHANGE.
@@ -1818,7 +1835,7 @@ Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
         (allocate_spill_web): Don't abort if already having a stack slot.
         (rewrite_program): Deal with webs coalesced to spilled ones.
 
-2001-06-30  Michael Matz <matzmich@cv.tu-berlin.de>
+2001-06-30  Michael Matz <matzmich@cs.tu-berlin.de>
  
         * ra.c : (colorize_one_web): Two passes over conflicts trying to
         spill colored webs.  First potential-spill ones, then others.

@@ -85,6 +85,7 @@
    * use the constraints from asms
   */
 
+static int first_hard_reg (HARD_REG_SET);
 static struct obstack ra_obstack;
 static void create_insn_info (struct df *);
 static void free_insn_info (void);
@@ -151,6 +152,7 @@ unsigned int remember_conflicts;
 HARD_REG_SET never_use_colors;
 HARD_REG_SET usable_regs[N_REG_CLASSES];
 unsigned int num_free_regs[N_REG_CLASSES];
+int single_reg_in_regclass[N_REG_CLASSES];
 HARD_REG_SET hardregs_for_mode[NUM_MACHINE_MODES];
 HARD_REG_SET invalid_mode_change_regs;
 unsigned char byte2bitcount[256];
@@ -231,6 +233,21 @@ hard_regs_count (HARD_REG_SET rs)
   return count;
 }
 
+/* Returns the first hardreg in HARD_REG_SET RS. Assumes there is at
+   least one reg in the set.  */
+
+static int
+first_hard_reg (HARD_REG_SET rs)
+{
+  int c;
+  
+  for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
+    if (TEST_HARD_REG_BIT (rs, c))
+      break;
+  gcc_assert (c < FIRST_PSEUDO_REGISTER);
+  return c;
+}
+
 /* Basically like emit_move_insn (i.e. validifies constants and such),
    but also handle MODE_CC moves (but then the operands must already
    be basically valid).  */
@@ -295,8 +312,7 @@ create_insn_info (struct df *df)
       act_refs += n;
       insn_df[uid].num_uses = n;
     }
-  if (refs_for_insn_df + (df->def_id + df->use_id) < act_refs)
-    abort ();
+  gcc_assert (refs_for_insn_df + (df->def_id + df->use_id) >= act_refs);
 }
 
 /* Free the insn_df structures.  */
@@ -319,8 +335,7 @@ struct web *
 find_subweb (struct web *web, rtx reg)
 {
   struct web *w;
-  if (GET_CODE (reg) != SUBREG)
-    abort ();
+  gcc_assert (GET_CODE (reg) == SUBREG);
   for (w = web->subreg_next; w; w = w->subreg_next)
     if (GET_MODE (w->orig_x) == GET_MODE (reg)
 	&& SUBREG_BYTE (w->orig_x) == SUBREG_BYTE (reg))
@@ -377,9 +392,7 @@ lose:
    Return nonzero if they do.   */
 
 int
-hard_regs_combinable_p (w1, w2)
-     struct web *w1;
-     struct web *w2;
+hard_regs_combinable_p (struct web *w1, struct web *w2)
 {
   HARD_REG_SET c;
   COPY_HARD_REG_SET (c, w1->usable_regs);
@@ -390,8 +403,7 @@ hard_regs_combinable_p (w1, w2)
 /* Returns 1 of hard register set A and B are equal.  */
 
 int
-hard_regs_same_p (a, b)
-     HARD_REG_SET a, b;
+hard_regs_same_p (HARD_REG_SET a, HARD_REG_SET b)
 {
   GO_IF_HARD_REG_EQUAL (a, b, equal);
   return 0;
@@ -543,9 +555,7 @@ init_ra (void)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-#endif
        || FRAME_POINTER_REQUIRED);
 
 #ifdef ORDER_REGS_FOR_LOCAL_ALLOC
@@ -567,26 +577,26 @@ init_ra (void)
     {
       if (! CAN_ELIMINATE (eliminables[j].from, eliminables[j].to)
 	  || (eliminables[j].to == STACK_POINTER_REGNUM && need_fp))
-	for (i = HARD_REGNO_NREGS (eliminables[j].from, Pmode); i--;)
+	for (i = hard_regno_nregs[eliminables[j].from][Pmode]; i--;)
 	  SET_HARD_REG_BIT (never_use_colors, eliminables[j].from + i);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (need_fp)
-    for (i = HARD_REGNO_NREGS (HARD_FRAME_POINTER_REGNUM, Pmode); i--;)
+    for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
       SET_HARD_REG_BIT (never_use_colors, HARD_FRAME_POINTER_REGNUM + i);
 #endif
 
 #else
   if (need_fp)
-    for (i = HARD_REGNO_NREGS (FRAME_POINTER_REGNUM, Pmode); i--;)
+    for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
       SET_HARD_REG_BIT (never_use_colors, FRAME_POINTER_REGNUM + i);
 #endif
 
   /* Stack and argument pointer are also rather useless to us.  */
-  for (i = HARD_REGNO_NREGS (STACK_POINTER_REGNUM, Pmode); i--;)
+  for (i = hard_regno_nregs[STACK_POINTER_REGNUM][Pmode]; i--;)
     SET_HARD_REG_BIT (never_use_colors, STACK_POINTER_REGNUM + i);
 
-  for (i = HARD_REGNO_NREGS (ARG_POINTER_REGNUM, Pmode); i--;)
+  for (i = hard_regno_nregs[ARG_POINTER_REGNUM][Pmode]; i--;)
     SET_HARD_REG_BIT (never_use_colors, ARG_POINTER_REGNUM + i);
 
   for (i = 0; i < 256; i++)
@@ -610,6 +620,10 @@ init_ra (void)
       size = hard_regs_count (rs);
       num_free_regs[i] = size;
       COPY_HARD_REG_SET (usable_regs[i], rs);
+      if (size == 1)
+	single_reg_in_regclass[i] = first_hard_reg (rs);
+      else
+	single_reg_in_regclass[i] = -1;
     }
 
   /* Setup hardregs_for_mode[].
@@ -623,7 +637,7 @@ init_ra (void)
       for (reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
 	if (HARD_REGNO_MODE_OK (reg, i)
 	    /* Ignore VOIDmode and similar things.  */
-	    && (size = HARD_REGNO_NREGS (reg, i)) != 0
+	    && (size = hard_regno_nregs[reg][i]) != 0
 	    && (reg + size) <= FIRST_PSEUDO_REGISTER)
 	  {
 	    while (size--)
@@ -652,8 +666,8 @@ init_ra (void)
        an_unusable_color++)
     if (TEST_HARD_REG_BIT (never_use_colors, an_unusable_color))
       break;
-  if (an_unusable_color == FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (an_unusable_color != FIRST_PSEUDO_REGISTER);
+
   init_long_blocks_for_classes ();
   compute_bb_for_insn ();
   ra_reg_renumber = NULL;
@@ -668,7 +682,7 @@ init_ra (void)
   gcc_obstack_init (&ra_obstack);
 }
 
-/* Check the consistency of DF.  This aborts if it violates some
+/* Check the consistency of DF.  This asserts if it violates some
    invariances we expect.  */
 
 static void
@@ -699,19 +713,21 @@ check_df (struct df *df)
       {
 	bitmap_clear (b);
 	for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
-	  if (!link->ref || bitmap_bit_p (empty_defs, DF_REF_ID (link->ref))
-	      || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	    abort ();
-	  else
+	  {
+	    gcc_assert (link->ref);
+	    gcc_assert (!bitmap_bit_p (empty_defs, DF_REF_ID (link->ref)));
+	    gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	    bitmap_set_bit (b, DF_REF_ID (link->ref));
+	  }
 
 	bitmap_clear (b);
 	for (link = DF_INSN_USES (df, insn); link; link = link->next)
-	  if (!link->ref || bitmap_bit_p (empty_uses, DF_REF_ID (link->ref))
-	      || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	    abort ();
-	  else
+	  {
+	    gcc_assert (link->ref);
+	    gcc_assert (!bitmap_bit_p (empty_uses, DF_REF_ID (link->ref)));
+	    gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	    bitmap_set_bit (b, DF_REF_ID (link->ref));
+	  }
       }
 
   /* Now the same for the chains per register number.  */
@@ -719,19 +735,21 @@ check_df (struct df *df)
     {
       bitmap_clear (b);
       for (link = df->regs[regno].defs; link; link = link->next)
-	if (!link->ref || bitmap_bit_p (empty_defs, DF_REF_ID (link->ref))
-	    || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	  abort ();
-	else
+	{
+	  gcc_assert (link->ref);
+	  gcc_assert (!bitmap_bit_p (empty_defs, DF_REF_ID (link->ref)));
+	  gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	  bitmap_set_bit (b, DF_REF_ID (link->ref));
+	}
 
       bitmap_clear (b);
       for (link = df->regs[regno].uses; link; link = link->next)
-	if (!link->ref || bitmap_bit_p (empty_uses, DF_REF_ID (link->ref))
-	    || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	  abort ();
-	else
+	{
+	  gcc_assert (link->ref);
+	  gcc_assert (!bitmap_bit_p (empty_uses, DF_REF_ID (link->ref)));
+	  gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	  bitmap_set_bit (b, DF_REF_ID (link->ref));
+	}
     }
 
   BITMAP_XFREE (empty_uses);
@@ -753,19 +771,19 @@ validify_one_insn (rtx insn)
   for (i = 0; i < n_ops; i++)
     if (strchr (recog_data.constraints[i], '%') != NULL)
       commutative = i;
-  ra_print_rtx_top (rtl_dump_file, insn, 0);
+  ra_print_rtx_top (dump_file, insn, 0);
   if (recog_data.n_alternatives == 0 || n_ops == 0)
     {
       if (!valid)
 	abort ();
-      fprintf (rtl_dump_file,
+      fprintf (dump_file,
 	       "   --> has no constrained operands, i.e. is valid\n");
     }
   else if (valid)
     {
       if (alt < 0)
 	abort ();
-      fprintf (rtl_dump_file, "   --> matched alternative %d\n", alt);
+      fprintf (dump_file, "   --> matched alternative %d\n", alt);
       for (i = 0; i < n_ops; i++)
 	{
 	  char *constraint = xstrdup (recog_op_alt[i][alt].constraint);
@@ -774,22 +792,22 @@ validify_one_insn (rtx insn)
 	  if (comma)
 	    *comma = 0;
 	  len = strlen (constraint);
-	  fprintf (rtl_dump_file, "\top%d: %s\t", i, constraint);
+	  fprintf (dump_file, "\top%d: %s\t", i, constraint);
 	  if (len <= 2)
-	    fprintf (rtl_dump_file, "\t");
+	    fprintf (dump_file, "\t");
 	  if (comma)
 	    *comma = ',';
-	  ra_print_rtx (rtl_dump_file, recog_data.operand[i], 0);
-	  fprintf (rtl_dump_file, "\n");
+	  ra_print_rtx (dump_file, recog_data.operand[i], 0);
+	  fprintf (dump_file, "\n");
 	  free (constraint);
 	}
     }
   else
     {
-      fprintf (rtl_dump_file, "  --> invalid insn");
+      fprintf (dump_file, "  --> invalid insn");
       if (commutative >= 0)
-	fprintf (rtl_dump_file, ", but commutative in op %d", commutative);
-      fprintf (rtl_dump_file, "\n");
+	fprintf (dump_file, ", but commutative in op %d", commutative);
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -798,7 +816,7 @@ make_insns_structurally_valid (void)
 {
   rtx insn;
   int old_rip = reload_in_progress;
-  if (!rtl_dump_file || (debug_new_regalloc & DUMP_VALIDIFY) == 0)
+  if (!dump_file || (debug_new_regalloc & DUMP_VALIDIFY) == 0)
     return;
   reload_in_progress = 0;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -854,7 +872,7 @@ detect_possible_mem_refs (struct df *df)
    the allocator.  */
 
 static void
-cleanup_insn_stream ()
+cleanup_insn_stream (void)
 {
   rtx insn;
   for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
@@ -883,10 +901,10 @@ split_critical_edges (void)
   basic_block bb;
   FOR_EACH_BB (bb)
     {
-      edge e, e_succ;
-      for (e = bb->succ; e; e = e_succ)
+      edge_iterator ei;
+      edge e;
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  e_succ = e->succ_next;
 	  if (EDGE_CRITICAL_P (e)
 	      && (e->flags & EDGE_ABNORMAL) == 0)
 	    split_edge (e);
@@ -903,7 +921,7 @@ void
 reg_alloc (void)
 {
   int changed;
-  FILE *ra_dump_file = rtl_dump_file;
+  FILE *ra_dump_file = dump_file;
   rtx last;
   bitmap use_insns = BITMAP_XMALLOC ();
 
@@ -928,10 +946,12 @@ reg_alloc (void)
   if (last)
     {
       edge e;
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  basic_block bb = e->src;
-	  last = bb->end;
+	  last = BB_END (bb);
 	  if (!INSN_P (last) || GET_CODE (PATTERN (last)) != USE)
 	    {
 	      rtx insn, insns;
@@ -961,7 +981,7 @@ reg_alloc (void)
 	      break;
       case 6: debug_new_regalloc = DUMP_VALIDIFY; break;
     }
-  if (!rtl_dump_file)
+  if (!dump_file)
     debug_new_regalloc = 0;
 
   /* First cleanup the insn stream of confusing clobber and self-copy
@@ -973,10 +993,10 @@ reg_alloc (void)
      for each pseudo.  Deactivate emitting of debug info, if it's not
      explicitly requested.  */
   if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
-    rtl_dump_file = NULL;
+    dump_file = NULL;
   if (!flag_ra_pre_reload)
-    regclass (get_insns (), max_reg_num (), rtl_dump_file);
-  rtl_dump_file = ra_dump_file;
+    regclass (get_insns (), max_reg_num (), dump_file);
+  dump_file = ra_dump_file;
 
   /* Initialize the different global arrays and regsets.  */
   init_ra ();
@@ -1038,11 +1058,11 @@ reg_alloc (void)
       if (flag_ra_pre_reload)
 	{
 	  pre_reload (ra_info, ra_modified_insns);
-	  if (rtl_dump_file && ra_pass == 1 && (debug_new_regalloc & DUMP_RTL))
+	  if (dump_file && ra_pass == 1 && (debug_new_regalloc & DUMP_RTL))
 	    {
 	      ra_debug_msg (DUMP_NEARLY_EVER, "Original function:\n");
-	      ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
-	      fflush (rtl_dump_file);
+	      ra_print_rtl_with_bb (dump_file, get_insns ());
+	      fflush (dump_file);
 	    }
 	}
 
@@ -1075,7 +1095,7 @@ reg_alloc (void)
       /* First collect all the register refs and put them into
 	 chains per insn, and per regno.  In later passes only update
 	 that info from the new and modified insns.  */
-      df_analyse (df, (ra_pass == 1) ? 0 : (bitmap) -1,
+      df_analyze (df, (ra_pass == 1) ? 0 : (bitmap) -1,
 		  DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN | DF_FOR_REGALLOC);
 
       if (flag_ra_pre_reload)
@@ -1084,10 +1104,10 @@ reg_alloc (void)
       if ((debug_new_regalloc & DUMP_DF) != 0)
 	{
 	  rtx insn;
-	  df_dump (df, DF_HARD_REGS, rtl_dump_file);
+	  df_dump (df, DF_HARD_REGS, dump_file);
 	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
             if (INSN_P (insn))
-	      df_insn_debug_regno (df, insn, rtl_dump_file);
+	      df_insn_debug_regno (df, insn, dump_file);
 	}
       check_df (df);
 
@@ -1095,8 +1115,8 @@ reg_alloc (void)
 	 first pass), reallocate only additional memory.  */
       alloc_mem (df);
       /*ra_debug_msg (DUMP_EVER, "before one_pass()\n");
-      if (rtl_dump_file)
-	print_rtl_with_bb (rtl_dump_file, get_insns ());
+      if (dump_file)
+	print_rtl_with_bb (dump_file, get_insns ());
       verify_flow_info ();*/
 
       detect_possible_mem_refs (df);
@@ -1104,8 +1124,8 @@ reg_alloc (void)
 	 spill insns.  This also might delete certain move insns.  */
       changed = one_pass (df, ra_pass > 1);
       /*ra_debug_msg (DUMP_EVER, "after one_pass()\n");
-      if (rtl_dump_file)
-        print_rtl_with_bb (rtl_dump_file, get_insns ());
+      if (dump_file)
+        print_rtl_with_bb (dump_file, get_insns ());
       verify_flow_info ();*/
 
       if (flag_ra_pre_reload)
@@ -1140,7 +1160,7 @@ reg_alloc (void)
 	     therefore repeat some things, including some initialization
 	     of global data structures.  */
 	  if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
-	    rtl_dump_file = NULL;
+	    dump_file = NULL;
 	  /* We have new pseudos (the stackwebs).  */
 	  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 	  /* And new insns.  */
@@ -1157,8 +1177,8 @@ reg_alloc (void)
 	  max_regno = max_reg_num ();
 	  /* And they need usefull classes too.  */
 	  if (!flag_ra_pre_reload)
-	    regclass (get_insns (), max_reg_num (), rtl_dump_file);
-	  rtl_dump_file = ra_dump_file;
+	    regclass (get_insns (), max_reg_num (), dump_file);
+	  dump_file = ra_dump_file;
 	  /* Remember the number of defs and uses, so we can distinguish
 	     new from old refs in the next pass.  */
 	  last_def_id = df->def_id;
@@ -1169,8 +1189,8 @@ reg_alloc (void)
       dump_ra (df);
       if (changed && (debug_new_regalloc & DUMP_RTL) != 0)
 	{
-	  ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
-	  fflush (rtl_dump_file);
+	  ra_print_rtl_with_bb (dump_file, get_insns ());
+	  fflush (dump_file);
 	}
 
       /* Reset the web lists.  */
@@ -1194,27 +1214,28 @@ reg_alloc (void)
   ra_debug_msg (DUMP_COSTS, "ticks for build-phase: %ld\n", ticks_build);
   ra_debug_msg (DUMP_COSTS, "ticks for rebuild-phase: %ld\n", ticks_rebuild);
   if ((debug_new_regalloc & (DUMP_FINAL_RTL | DUMP_RTL)) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
+    ra_print_rtl_with_bb (dump_file, get_insns ());
 
   /* We might have new pseudos, so allocate the info arrays for them.  */
   if ((debug_new_regalloc & DUMP_SM) == 0)
-    rtl_dump_file = NULL;
+    dump_file = NULL;
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
   while_newra = 1;
   no_new_pseudos = 1;
   newra_in_progress = 0;
-  rtl_dump_file = ra_dump_file;
+  dump_file = ra_dump_file;
 
     {
+      edge_iterator ei;
       edge e;
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  basic_block bb = e->src;
-	  last = bb->end;
-	  for (last = bb->end; last; last = PREV_INSN (last))
+	  last = BB_END (bb);
+	  for (last = BB_END (bb); last; last = PREV_INSN (last))
 	    {
-	      if (last == bb->head)
+	      if (last == BB_HEAD (bb))
 		break;
 	      if (bitmap_bit_p (use_insns, INSN_UID (last)))
 		delete_insn (last);
@@ -1236,14 +1257,14 @@ reg_alloc (void)
 
   /* Cleanup the flow graph.  */
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
-    rtl_dump_file = NULL;
-  life_analysis (get_insns (), rtl_dump_file,
+    dump_file = NULL;
+  life_analysis (dump_file,
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   recompute_reg_usage (get_insns (), TRUE);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
-  rtl_dump_file = ra_dump_file;
+  if (dump_file)
+    dump_flow_info (dump_file);
+  dump_file = ra_dump_file;
 
   /* update_equiv_regs() can't be called after register allocation.
      It might delete some pseudos, and insert other insns setting
@@ -1313,7 +1334,7 @@ reg_alloc (void)
 	      = reg_renumber[i] >= 0 ? reg_renumber[i] : i;
       /*mark_regs_live_at_end (EXIT_BLOCK_PTR->global_live_at_start);
       update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_DEATH_NOTES);*/
-      life_analysis (get_insns (), rtl_dump_file, PROP_DEATH_NOTES);
+      life_analysis (get_insns (), dump_file, PROP_DEATH_NOTES);
       for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
 	if (regno_reg_rtx[i] && GET_CODE (regno_reg_rtx[i]) == REG)
 	  REGNO (regno_reg_rtx[i]) = i;
@@ -1322,16 +1343,17 @@ reg_alloc (void)
 #endif
 
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
-  dump_static_insn_cost (rtl_dump_file,
+    ra_print_rtl_with_bb (dump_file, get_insns ());
+  dump_static_insn_cost (dump_file,
 			 "after allocation/spilling, before reload", NULL);
 
   /* Allocate the reg_equiv_memory_loc array for reload.  */
-  reg_equiv_memory_loc = xcalloc (max_regno, sizeof (rtx));
+  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
+  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
   /* And possibly initialize it.  */
   allocate_initial_values (reg_equiv_memory_loc);
   /* And one last regclass pass just before reload.  */
-  regclass (get_insns (), max_reg_num (), rtl_dump_file);
+  regclass (get_insns (), max_reg_num (), dump_file);
   BITMAP_XFREE (emitted_by_spill);
   BITMAP_XFREE (spill_slot_regs);
 #ifdef SPILLING_STATISTICS

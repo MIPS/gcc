@@ -110,10 +110,7 @@ static int indirect_levels = -1;
 
 /* Create a link in a def-use or use-def chain.  */
 static inline struct ra_link *
-ra_link_create (ra_info, ref, next)
-     struct ra_info *ra_info;
-     ra_ref *ref;
-     struct ra_link *next;
+ra_link_create (struct ra_info *ra_info, ra_ref *ref, struct ra_link *next)
 {
   struct ra_link *link;
 
@@ -132,12 +129,8 @@ ra_link_create (ra_info, ref, next)
    Returns first insn emitted.  */
 
 static rtx
-gen_pre_reload (out, in, opnum, type, class)
-     rtx out;
-     rtx in;
-     int opnum;
-     enum reload_type type;
-     enum reg_class class;
+gen_pre_reload (rtx out, rtx in, int opnum, enum reload_type type,
+		enum reg_class class)
 {
   rtx last = get_last_insn ();
 
@@ -343,10 +336,7 @@ gen_pre_reload (out, in, opnum, type, class)
    Return the instruction that stores into RELOADREG.  */
 
 static rtx
-inc_for_pre_reload (reloadreg, in, value, inc_amount)
-     rtx reloadreg;
-     rtx in, value;
-     int inc_amount;
+inc_for_pre_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 {
   rtx last;
   rtx inc;
@@ -432,11 +422,8 @@ inc_for_pre_reload (reloadreg, in, value, inc_amount)
    has the number J.  OLD contains the value to be used as input.  */
 
 static void
-emit_input_pre_reload_insns (insn, rl, old, j)
-     rtx insn;
-     struct reload *rl;
-     rtx old;
-     int j ATTRIBUTE_UNUSED;
+emit_input_pre_reload_insns (rtx insn, struct reload *rl, rtx old,
+			     int j ATTRIBUTE_UNUSED)
 {
   rtx reloadreg = rl->reg_rtx;
   rtx oldequiv = 0;
@@ -599,10 +586,7 @@ emit_input_pre_reload_insns (insn, rl, old, j)
    ??? At some point we need to support handling output reloads of
    JUMP_INSNs or insns that set cc0.  */
 static void
-do_output_pre_reload (insn, rl, j)
-     rtx insn;
-     struct reload *rl;
-     int j;
+do_output_pre_reload (rtx insn, struct reload *rl, int j)
 {
   rtx old;
   /* If this is an output reload that stores something that is
@@ -631,11 +615,8 @@ do_output_pre_reload (insn, rl, j)
    If SETS is nonzero, also consider SETs.  */
 
 static int
-pseudo_clobbered_p (regno, insn, mode, sets)
-     unsigned int regno;
-     rtx insn;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-     int sets;
+pseudo_clobbered_p (unsigned int regno, rtx insn,
+		    enum machine_mode mode ATTRIBUTE_UNUSED, int sets)
 {
   if ((GET_CODE (PATTERN (insn)) == CLOBBER
        || (sets && GET_CODE (PATTERN (insn)) == SET))
@@ -671,10 +652,8 @@ pseudo_clobbered_p (regno, insn, mode, sets)
 /* Generate insns to for the output reload RL, which is for the insn described
    by CHAIN and has the number J.  */
 static void
-emit_output_pre_reload_insns (insn, rl, j)
-     rtx insn;
-     struct reload *rl;
-     int j ATTRIBUTE_UNUSED;
+emit_output_pre_reload_insns (rtx insn, struct reload *rl,
+			      int j ATTRIBUTE_UNUSED)
 {
   rtx reloadreg = rl->reg_rtx;
   int special = 0;
@@ -762,10 +741,7 @@ emit_output_pre_reload_insns (insn, rl, j)
 /* Do input reloading for reload RL, which is for the insn described by CHAIN
    and has the number J.  */
 static void
-do_input_pre_reload (insn, rl, j)
-     rtx insn;
-     struct reload *rl;
-     int j;
+do_input_pre_reload (rtx insn, struct reload *rl, int j)
 {
   rtx old = (rl->in && GET_CODE (rl->in) == MEM
 	     ? rl->in_reg : rl->in);
@@ -782,8 +758,7 @@ do_input_pre_reload (insn, rl, j)
 /* Output insns to reload values in and out of the chosen reload regs.  */
 
 void
-emit_pre_reload_insns (insn)
-     rtx insn;
+emit_pre_reload_insns (rtx insn)
 {
   int j;
   rtx following_insn = NEXT_INSN (insn);
@@ -827,11 +802,11 @@ emit_pre_reload_insns (insn)
   other_operand_reload_insns = 0;
 
   /* Dump reloads into the dump file.  */
-  if (rtl_dump_file)
+  if (dump_file)
     {
-      fprintf (rtl_dump_file, "\nReloads for insn # %d\n", INSN_UID (insn));
-      debug_reload_to_stream (rtl_dump_file);
-      fprintf (rtl_dump_file, "\n");
+      fprintf (dump_file, "\nReloads for insn # %d\n", INSN_UID (insn));
+      debug_reload_to_stream (dump_file);
+      fprintf (dump_file, "\n");
     }
 
   /* Now output the instructions to copy the data into and out of the
@@ -903,8 +878,7 @@ emit_pre_reload_insns (insn)
    Return the rtx that X translates into; usually X, but modified.  */
 
 void
-subst_pre_reloads (insn)
-     rtx insn ATTRIBUTE_UNUSED;
+subst_pre_reloads (rtx insn ATTRIBUTE_UNUSED)
 {
   int i;
 
@@ -994,11 +968,9 @@ subst_pre_reloads (insn)
    call find_reloads_address on the location being returned.  */
 
 rtx
-get_pre_secondary_mem (x, mode, opnum, type)
-     rtx x ATTRIBUTE_UNUSED;
-     enum machine_mode mode;
-     int opnum ATTRIBUTE_UNUSED;
-     enum reload_type type ATTRIBUTE_UNUSED;
+get_pre_secondary_mem (rtx x ATTRIBUTE_UNUSED, enum machine_mode mode,
+		       int opnum ATTRIBUTE_UNUSED,
+		       enum reload_type type ATTRIBUTE_UNUSED)
 {
   rtx loc;
 
@@ -1053,15 +1025,11 @@ get_pre_secondary_mem (x, mode, opnum, type)
    is safe from the earlyclobber).  */
 
 static rtx
-find_dummy_pre_reload (real_in, real_out, inloc, outloc,
-		       inmode, outmode, class, for_real, earlyclobber)
-     rtx real_in, real_out;
-     rtx *inloc ATTRIBUTE_UNUSED;
-     rtx *outloc;
-     enum machine_mode inmode, outmode;
-     enum reg_class class;
-     int for_real ATTRIBUTE_UNUSED;
-     int earlyclobber ATTRIBUTE_UNUSED;
+find_dummy_pre_reload (rtx real_in, rtx real_out, rtx *inloc ATTRIBUTE_UNUSED,
+		       rtx *outloc, enum machine_mode inmode,
+		       enum machine_mode outmode, enum reg_class class,
+		       int for_real ATTRIBUTE_UNUSED,
+		       int earlyclobber ATTRIBUTE_UNUSED)
 {
   rtx in = real_in;
   rtx out = real_out;
@@ -1167,16 +1135,9 @@ find_dummy_pre_reload (real_in, real_out, inloc, outloc,
    distinguish them.  */
 
 static int
-push_pre_reload (in, out, inloc, outloc, class,
-		 inmode, outmode, strict_low, optional, opnum, type)
-     rtx in, out;
-     rtx *inloc, *outloc;
-     enum reg_class class;
-     enum machine_mode inmode, outmode;
-     int strict_low;
-     int optional;
-     int opnum;
-     enum reload_type type;
+push_pre_reload (rtx in, rtx out, rtx *inloc, rtx *outloc, enum reg_class class,
+		 enum machine_mode inmode, enum machine_mode outmode,
+		 int strict_low, int optional, int opnum, enum reload_type type)
 {
   int i;
   int dont_share = 0;
@@ -1621,8 +1582,7 @@ push_pre_reload (in, out, inloc, outloc, class,
    so we set the SAFE field.  */
 
 static struct decomposition
-pre_reload_decompose (x)
-     rtx x;
+pre_reload_decompose (rtx x)
 {
   struct decomposition val;
   int all_const = 0;
@@ -1750,7 +1710,10 @@ pre_reload_decompose (x)
   else if (CONSTANT_P (x)
 	   /* This hasn't been assigned yet, so it can't conflict yet.  */
 	   || GET_CODE (x) == SCRATCH)
-    val.safe = 1;
+    {
+      val.start = val.end = 0;
+      val.safe = 1;
+    }
   else
     abort ();
   return val;
@@ -1760,9 +1723,7 @@ pre_reload_decompose (x)
    Y is also described by YDATA, which should be decompose (Y).  */
 
 static int
-pre_reload_immune_p (x, y, ydata)
-     rtx x, y;
-     struct decomposition ydata;
+pre_reload_immune_p (rtx x, rtx y, struct decomposition ydata)
 {
   struct decomposition xdata;
 
@@ -1825,15 +1786,9 @@ pre_reload_immune_p (x, y, ydata)
    result of find_reloads_address.  */
 
 static rtx
-find_pre_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
-			 address_reloaded)
-     rtx x;
-     int opnum;
-     enum reload_type type;
-     int ind_levels;
-     int is_set_dest;
-     rtx insn;
-     int *address_reloaded;
+find_pre_reloads_toplev (rtx x, int opnum, enum reload_type type,
+			 int ind_levels, int is_set_dest, rtx insn,
+			 int *address_reloaded)
 {
   RTX_CODE code = GET_CODE (x);
 
@@ -1916,10 +1871,8 @@ find_pre_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
    If REG will occupies multiple hard regs, all of them must be in CLASS.  */
 
 static int
-pseudo_fits_class_p (operand, class, mode)
-     rtx operand ATTRIBUTE_UNUSED;
-     enum reg_class class;
-     enum machine_mode mode;
+pseudo_fits_class_p (rtx operand ATTRIBUTE_UNUSED, enum reg_class class,
+		     enum machine_mode mode)
 {
   static int max_consecutive[FIRST_PSEUDO_REGISTER];
   int i;
@@ -1963,9 +1916,7 @@ static ra_ref * scan_addr_create_ref PARAMS ((struct ra_info *, rtx *,
    FIXME: Must be substituted by define_address.  */
 
 static int
-scan_addr_func (loc, scan_state)
-     rtx *loc;
-     struct scan_addr_state *scan_state;
+scan_addr_func (rtx *loc, struct scan_addr_state *scan_state)
 {
   switch (GET_CODE (*loc))
     {
@@ -2053,11 +2004,9 @@ scan_addr_func (loc, scan_state)
 /* Helper for scan_addr_func. Create, fill and return re_ref structure.  */
 
 static ra_ref *
-scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
-     struct ra_info *ra_info;
-     rtx *loc;
-     struct scan_addr_state *scan_state;
-     enum ra_ref_type ref_type;
+scan_addr_create_ref (struct ra_info *ra_info, rtx *loc,
+		      struct scan_addr_state *scan_state,
+		      enum ra_ref_type ref_type)
 {
   ra_ref *ref = (ra_ref *)obstack_alloc (&ra_info->obstack, sizeof (ra_ref));
   ref->type = ref_type;
@@ -2088,8 +2037,7 @@ scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
 }
 
 static int
-pre_operands_match_p (x, y)
-     rtx x, y;
+pre_operands_match_p (rtx x, rtx y)
 {
   rtx s = (GET_CODE (x) == SUBREG) ? x : y;
   rtx t = (s == x) ? y : x;
@@ -2125,8 +2073,7 @@ pre_operands_match_p (x, y)
    swapping) are a subset of the conflicts of the other one.  */
 
 static int
-prefer_swapped (insn, op0, op1)
-     rtx insn, op0, op1;
+prefer_swapped (rtx insn, rtx op0, rtx op1)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   if (GET_CODE (op0) == SUBREG)
@@ -2144,7 +2091,7 @@ prefer_swapped (insn, op0, op1)
       if (find_reg_note (insn, REG_DEAD, op1))
         return 1;
       insn = NEXT_INSN (insn);
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
   return 0;
@@ -2177,17 +2124,13 @@ static int scan_alternative PARAMS ((struct alternative_info [], char *[],
 /* Scan one alternative and fill alternative info.  */
 
 static int
-scan_alternative (this_alt, constraints, modified, address_reloaded,
-		  operands_match, swapped, commut, pfree, prej)
-     struct alternative_info this_alt[];
-     char *constraints[];
-     enum reload_usage modified[];
-     int address_reloaded[];
-     char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
-     int swapped;
-     int *commut;
-     int *pfree;
-     int *prej;
+scan_alternative (struct alternative_info this_alt[],
+		  char *constraints[],
+		  enum reload_usage modified[],
+		  int address_reloaded[],
+		  char operands_match[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS],
+		  int swapped,
+		  int *commut, int *pfree, int *prej)
 {
   int i;
   int j;
@@ -2869,13 +2812,9 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
    N_DEFS will be set to count of defs and N_USES to count of uses.  */
 
 static void
-collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
-     struct ra_info *ra_info;
-     rtx insn;
-     ra_ref **def_refs;
-     ra_ref **use_refs;
-     int *n_defs;
-     int *n_uses;
+collect_insn_info (struct ra_info *ra_info, rtx insn,
+		   ra_ref **def_refs, ra_ref **use_refs,
+		   int *n_defs, int *n_uses)
 {
   int insn_code_number;
   int i, j;
@@ -3612,8 +3551,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 /* Recognize the insn INSN and check constraints validity very
    strictly.  */
 int
-ra_check_constraints (insn)
-     rtx insn;
+ra_check_constraints (rtx insn)
 {
   int insn_code_number;
   int i;
@@ -3881,9 +3819,7 @@ ra_check_constraints (insn)
 
 /* Increase the insn info table for handling SIZE elements.  */
 static void
-ra_insn_table_realloc (ra_info, size)
-     struct ra_info *ra_info;
-     int size;
+ra_insn_table_realloc (struct ra_info *ra_info, int size)
 {
   /* Make table 25 percent larger by default.  */
   if (! size)
@@ -3904,9 +3840,7 @@ ra_insn_table_realloc (ra_info, size)
 
 /* Increase the reg info table for handling SIZE elements.  */
 static void
-ra_reg_table_realloc (ra_info, size)
-     struct ra_info *ra_info;
-     int size;
+ra_reg_table_realloc (struct ra_info *ra_info, int size)
 {
   /* Make table 25 percent larger by default.  */
   if (! size)
@@ -3926,8 +3860,7 @@ ra_reg_table_realloc (ra_info, size)
 
 /* Allocate and initialise dataflow memory.  */
 struct ra_info *
-ra_info_init (n_regs)
-     int n_regs;
+ra_info_init (int n_regs)
 {
   int n_insns;
   struct ra_info *ra_info;
@@ -3962,8 +3895,7 @@ ra_info_init (n_regs)
 
 /* Free all the dataflow info.  */
 void
-ra_info_free (ra_info)
-     struct ra_info *ra_info;
+ra_info_free (struct ra_info *ra_info)
 {
   if (ra_info->insns)
     free (ra_info->insns);
@@ -3984,9 +3916,7 @@ ra_info_free (ra_info)
 /* Print all defs/uses for INSN from RA_INFO.  */
 
 static void
-debug_ra_insn_refs (ra_info, insn)
-     struct ra_info *ra_info;
-     rtx insn;
+debug_ra_insn_refs (struct ra_info *ra_info, rtx insn)
 {
   int i;
   struct ra_link *link;
@@ -4102,10 +4032,7 @@ debug_ra_reg_refs (struct ra_info *ra_info, int regno)
    ra_info->insns array can be reallocated.  */
 
 static void
-ra_info_add_insn_refs (ra_info, insn, refs)
-     struct ra_info *ra_info;
-     rtx insn;
-     struct ra_refs *refs;
+ra_info_add_insn_refs (struct ra_info *ra_info, rtx insn, struct ra_refs *refs)
 {
   int uid = INSN_UID (insn);
   
@@ -4120,10 +4047,8 @@ ra_info_add_insn_refs (ra_info, insn, refs)
 /* Add reference to ra_info->regs array for each register of INSN.
    ra_info->regs array can be reallocated.  */
 static void
-ra_info_add_reg_refs (ra_info, insn, refs)
-     struct ra_info *ra_info;
-     rtx insn ATTRIBUTE_UNUSED;
-     struct ra_refs *refs;
+ra_info_add_reg_refs (struct ra_info *ra_info, rtx insn ATTRIBUTE_UNUSED,
+		      struct ra_refs *refs)
 {
   int regno;
   struct ra_link *link;
@@ -4171,12 +4096,9 @@ ra_info_add_reg_refs (ra_info, insn, refs)
    List builded from plain arrays DEF_REFS and USE_REFS.  */
 
 static struct ra_refs *
-build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
-     struct ra_info *ra_info;
-     ra_ref **def_refs;
-     ra_ref **use_refs;
-     int n_defs;
-     int n_uses;
+build_ra_refs_for_insn (struct ra_info *ra_info,
+			ra_ref **def_refs, ra_ref **use_refs,
+			int n_defs, int n_uses)
 {
   int n;
   struct ra_refs *ra_refs
@@ -4287,9 +4209,7 @@ df_link2ra_link (struct df2ra df2ra, rtx insn ATTRIBUTE_UNUSED,
 }
 
 struct df2ra
-build_df2ra (df, ra_info)
-     struct df *df;
-     struct ra_info *ra_info;
+build_df2ra (struct df *df, struct ra_info *ra_info)
 {
   struct df2ra df2ra;
   rtx insn;
@@ -4322,9 +4242,7 @@ build_df2ra (df, ra_info)
 }
 
 void
-pre_reload (ra_info, modified)
-     struct ra_info *ra_info;
-     bitmap modified;
+pre_reload (struct ra_info *ra_info, bitmap modified)
 {
   int j;
   int max;
@@ -4355,9 +4273,9 @@ pre_reload (ra_info, modified)
 
   if (modified)
     {
+      bitmap_iterator bi;
       max = 0;
-      EXECUTE_IF_SET_IN_BITMAP
-	(modified, 0, j,
+      EXECUTE_IF_SET_IN_BITMAP (modified, 0, j, bi)
 	 {
 	   if (j > max)
 	     max = j;
@@ -4366,7 +4284,7 @@ pre_reload (ra_info, modified)
 	       ra_info_remove_refs (ra_info, ra_info->insns[j]);
 	       ra_info->insns[j] = NULL;
 	     }
-	 });
+	 }
       if (max >= ra_info->insn_size)
 	ra_insn_table_realloc (ra_info, max);
     }
@@ -4375,9 +4293,7 @@ pre_reload (ra_info, modified)
 
 /* Collect all defs/uses for all insns.  */
 static void
-pre_reload_collect (ra_info, modified)
-     struct ra_info *ra_info;
-     bitmap modified;
+pre_reload_collect (struct ra_info *ra_info, bitmap modified)
 {
   rtx insn;
   int cnt;
@@ -4390,8 +4306,8 @@ pre_reload_collect (ra_info, modified)
 
   FOR_EACH_BB (bb)
     {
-      for (insn = bb->head;
-	   insn && PREV_INSN (insn) != bb->end;
+      for (insn = BB_HEAD (bb);
+	   insn && PREV_INSN (insn) != BB_END (bb);
 	   insn = NEXT_INSN (insn))
 	{
 	  enum rtx_code pat_code;
@@ -4441,24 +4357,24 @@ pre_reload_collect (ra_info, modified)
 		  if (ra_pass > 1)
 		    abort ();
 #endif	  
-		  if (rtl_dump_file)
+		  if (dump_file)
 		    {
-		      fprintf (rtl_dump_file, "Reload for insn:\n");
-		      print_rtl_single (rtl_dump_file, insn);
-		      fprintf (rtl_dump_file, "\n");
+		      fprintf (dump_file, "Reload for insn:\n");
+		      print_rtl_single (dump_file, insn);
+		      fprintf (dump_file, "\n");
 		    }
 		  
 		  emit_pre_reload_insns (insn);
 		  subst_pre_reloads (insn);
 		  
-		  if (rtl_dump_file)
+		  if (dump_file)
 		    {
-		      fprintf (rtl_dump_file, "Reload results:\n");
+		      fprintf (dump_file, "Reload results:\n");
 		      for (deb_insn = NEXT_INSN (before); deb_insn != after;
 			   deb_insn = NEXT_INSN (deb_insn))
 			{
-			  print_rtl_single (rtl_dump_file, deb_insn);
-			  fprintf (rtl_dump_file, "\n");
+			  print_rtl_single (dump_file, deb_insn);
+			  fprintf (dump_file, "\n");
 			}
 		    }
 		  
@@ -4483,19 +4399,19 @@ pre_reload_collect (ra_info, modified)
 	      insn = NEXT_INSN (insn);
 	    }
 	  /* Keep basic block info up to date.  */
-	  if (bb->head == orig_insn)
+	  if (BB_HEAD (bb) == orig_insn)
 	    {
 	      if (prev)
-		bb->head = NEXT_INSN (prev);
+		BB_HEAD (bb) = NEXT_INSN (prev);
 	      else
-		bb->head = get_insns ();
+		BB_HEAD (bb) = get_insns ();
 	    }
-	  if (bb->end == orig_insn)
+	  if (BB_END (bb) == orig_insn)
 	    {
 	      if (next)
-		bb->end = PREV_INSN (next);
+		BB_END (bb) = PREV_INSN (next);
 	      else
-		bb->end = get_last_insn ();
+		BB_END (bb) = get_last_insn ();
 	    }
 	}
     }
@@ -4503,9 +4419,7 @@ pre_reload_collect (ra_info, modified)
 
 /* Remove all references which referenced in REFS.  */
 static void
-ra_info_remove_refs (ra_info, refs)
-     struct ra_info *ra_info;
-     struct ra_refs *refs;
+ra_info_remove_refs (struct ra_info *ra_info, struct ra_refs *refs)
 {
   int regno;
   struct ra_link *link;
@@ -4547,8 +4461,7 @@ ra_info_remove_refs (ra_info, refs)
 /* Compare constraints based incrementally updated ra_info with ra_info
    collected from scratch.  */
 void
-compare_ra_info (ra1)
-     struct ra_info *ra1;
+compare_ra_info (struct ra_info *ra1)
 {
   struct ra_info *ra2;
   rtx insn;
@@ -4671,11 +4584,7 @@ static int num_changes = 0;
    Otherwise, perform the change and return 1.  */
 
 int
-ra_validate_change (object, loc, new, in_group)
-    rtx object;
-    rtx *loc;
-    rtx new;
-    int in_group;
+ra_validate_change (rtx object, rtx *loc, rtx new, int in_group)
 {
   rtx old = *loc;
 
@@ -4729,7 +4638,7 @@ ra_validate_change (object, loc, new, in_group)
    Return 1 if all changes are valid, zero otherwise.  */
 
 int
-ra_apply_change_group ()
+ra_apply_change_group (void)
 {
   int i;
   rtx last_validated = NULL_RTX;
@@ -4783,8 +4692,7 @@ ra_apply_change_group ()
 /* Retract the changes numbered NUM and up.  */
 
 void
-ra_cancel_changes (num)
-     int num;
+ra_cancel_changes (int num)
 {
   int i;
 

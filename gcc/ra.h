@@ -18,6 +18,14 @@
    with GCC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_RA_H
+#define GCC_RA_H
+
+#include "bitmap.h"
+#include "sbitmap.h"
+#include "hard-reg-set.h"
+#include "insn-modes.h"
+
 /* Double linked list to implement the per-type lists of webs
    and moves.  */
 struct dlist
@@ -35,7 +43,7 @@ struct dlist
 #define DLIST_MOVE(l) ((l)->value.move)
 
 /* Classification of a given node (i.e. what state it's in).  */
-enum node_type
+enum ra_node_type
 {
   INITIAL = 0, FREE,
   PRECOLORED,
@@ -229,7 +237,7 @@ struct web
   unsigned int have_orig_conflicts:1;
 
   /* Current state of the node.  */
-  ENUM_BITFIELD(node_type) type:5;
+  ENUM_BITFIELD(ra_node_type) type:5;
 
   /* A regclass, combined from preferred and alternate class, or calculated
      from usable_regs.  Used only for debugging, and to determine
@@ -520,6 +528,9 @@ extern HARD_REG_SET never_use_colors;
 extern HARD_REG_SET usable_regs[N_REG_CLASSES];
 /* For each class C the count of hardregs in usable_regs[C].  */
 extern unsigned int num_free_regs[N_REG_CLASSES];
+/* For each class C which has num_free_regs[C]==1, the color of the
+   single register in that class, -1 otherwise.  */
+extern int single_reg_in_regclass[N_REG_CLASSES];
 /* For each mode M the hardregs, which are MODE_OK for M, and have
    enough space behind them to hold an M value.  Additionally
    if reg R is OK for mode M, but it needs two hardregs, then R+1 will
@@ -603,8 +614,8 @@ extern int flag_ra_pre_reload;
    register allocator.  */
 extern int flag_ra_spanned_deaths_from_scratch;
 
-extern inline void * ra_alloc (size_t);
-extern inline void * ra_calloc (size_t);
+extern void * ra_alloc (size_t);
+extern void * ra_calloc (size_t);
 extern int hard_regs_count (HARD_REG_SET);
 extern rtx ra_emit_move_insn (rtx, rtx);
 extern void ra_debug_msg (unsigned int, const char *, ...) ATTRIBUTE_PRINTF_2;
@@ -655,7 +666,7 @@ extern struct dlist * pop_list (struct dlist **);
 extern void record_conflict (struct web *, struct web *);
 extern int memref_is_stack_slot (rtx);
 extern void build_i_graph (struct df *);
-extern void put_web (struct web *, enum node_type);
+extern void put_web (struct web *, enum ra_node_type);
 extern void remove_web_from_list (struct web *);
 extern void reset_lists (void);
 extern struct web * alias (struct web *);
@@ -695,3 +706,5 @@ extern bitmap rewrite_stack_slots;
 /* Number of generated stack slots for spilled webs.  */
 extern int stack_spill_slots_num;
 #endif
+
+#endif /* GCC_RA_H */
