@@ -1716,12 +1716,6 @@ compute_may_aliases (tree fndecl ATTRIBUTE_UNUSED)
 {
   timevar_push (TV_TREE_MAY_ALIAS);
 
-  if (flag_tree_points_to != PTA_NONE)
-    {
-      timevar_push (TV_TREE_PTA);
-      create_alias_vars (fndecl);
-      timevar_pop (TV_TREE_PTA);
-    }
 
   /* Compute alias sets.  */
   compute_alias_sets ();
@@ -1762,6 +1756,13 @@ find_referenced_vars (tree fndecl)
 
   VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
   VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
+  
+  if (flag_tree_points_to != PTA_NONE)
+    {
+      timevar_push (TV_TREE_PTA);
+      create_alias_vars (fndecl);
+      timevar_pop (TV_TREE_PTA);
+    }
 
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs and for nested functions.  Both
@@ -2520,7 +2521,7 @@ get_memory_tag_for (tree ptr)
       struct alias_map_d *curr = VARRAY_GENERIC_PTR (pointers, i);
       if (alias_sets_conflict_p (curr->set, tag_set)
 	  && (flag_tree_points_to == PTA_NONE
-	      || ptr_may_alias_var (ptr, curr->var)))
+	      || same_points_to_set (ptr, curr->var)))
 	{
 	  tag = var_ann (curr->var)->mem_tag;
 	  break;

@@ -1383,6 +1383,8 @@ common_handle_option (size_t scode, const char *arg,
 #else
         warning ("Andersen's PTA not available - libbanshee not compiled.");
 #endif
+      else if (!strcmp (arg, "none"))
+	flag_tree_points_to = PTA_NONE;
       else
 	{
 	  warning ("`%s`: unknown points-to analysis algorithm", arg);

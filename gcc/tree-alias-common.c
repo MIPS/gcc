@@ -89,6 +89,7 @@ static hashval_t annot_hash (const PTR);
 static int annot_eq (const PTR, const PTR);
 static void get_values_from_constructor (tree, varray_type *);
 static bool call_may_clobber (tree);
+bool we_created_global_var = false;
 
 static bool
 call_may_clobber (tree expr)
@@ -320,11 +321,14 @@ intra_function_call (varray_type args)
 	  alias_typevar tempvar;
 	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	  /* Arguments can alias globals, and whatever they point to
-	     can point to a global as well. */
-	  current_alias_ops->addr_assign (current_alias_ops, argav, av);
-	  current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
-	  current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
+	  if (!we_created_global_var)
+	    {
+	      /* Arguments can alias globals, and whatever they point to
+		 can point to a global as well. */
+	      current_alias_ops->addr_assign (current_alias_ops, argav, av);
+	      current_alias_ops->addr_assign (current_alias_ops, tempvar, av);
+	      current_alias_ops->assign_ptr (current_alias_ops, argav, tempvar);
+	    }
 	}
     }
   /* We assume assignments among the actual parameters. */
@@ -419,14 +423,13 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     }
 
   if (is_gimple_modify_expr (stp)
-      || (TREE_CODE (stp) == VAR_DECL
-	  && DECL_INITIAL (stp) != NULL_TREE ))
+      || (DECL_P (stp) && DECL_INITIAL (stp) != NULL_TREE ))
     {
       tree op0, op1;
       alias_typevar lhsAV = NULL;
       alias_typevar rhsAV = NULL;
 
-      if (TREE_CODE (stp) == VAR_DECL)
+      if (DECL_P (stp))
 	{
 	  op0 = stp;
 	  op1 = DECL_INITIAL (stp);
@@ -440,6 +443,16 @@ find_func_aliases (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       lhsAV = get_alias_var (op0);
       /* rhsAV might not have one, c.f. c = 5 */
       rhsAV = get_alias_var (op1);
+
+      if (we_created_global_var)
+	{
+	  rhsAV = rhsAV == get_alias_var (global_var) ? NULL : rhsAV;
+	  if (lhsAV == get_alias_var (global_var))
+	    {
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    }
+	}
 
       /* You would think we could test rhsAV at the top, rather than
 	 50 separate times, but we can't, because it can be NULL for
@@ -734,7 +747,7 @@ create_fun_alias_var (tree decl, int force)
 	      /* FIXME: Need to let analyzer decide in partial case. */
 	      && (!current_alias_ops->ip_partial
 		  || !TREE_STATIC (decl)
-		  || TREE_PUBLIC (decl)))
+		  || TREE_PUBLIC (decl)) && !we_created_global_var)
 	    current_alias_ops->addr_assign (current_alias_ops, tvar,
 					    get_alias_var (global_var));
 	}
@@ -918,7 +931,6 @@ create_alias_var (tree decl)
   return avar;
 }
 
-
 /**
    @brief Create points-to sets for a function.
    @param fndecl Function we are creating alias variables for.
@@ -929,12 +941,12 @@ create_alias_var (tree decl)
 void
 create_alias_vars (tree fndecl)
 {
-  bool we_created_global_var = false;
 #if 0
   tree currdecl = getdecls ();
   tree fnbody;
 #endif
   size_t i;
+  we_created_global_var = false;
   currptadecl = fndecl;
   if (!global_var)
     {
@@ -1032,7 +1044,87 @@ init_alias_vars (void)
     alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
 
 }
+bool
+same_points_to_set (tree ptr, tree var)
+{
+  struct alias_annot_entry entry, *result;
+  alias_typevar ptrtv, vartv;
+  tree ptrcontext;
+  tree varcontext;
 
+#if !FIELD_BASED
+#else
+  if (TREE_CODE (ptr) == COMPONENT_REF)
+    ptr = TREE_OPERAND (ptr, 1);
+  if (TREE_CODE (var) == COMPONENT_REF)
+    var = TREE_OPERAND (var, 1);
+#endif
+
+  ptrcontext = DECL_CONTEXT (ptr);
+  varcontext = DECL_CONTEXT (var);
+  if (TREE_PUBLIC (ptr))
+    ptr = global_var;
+  else
+    {
+      if (ptrcontext != NULL && TREE_CODE (ptrcontext) != FUNCTION_DECL)
+	ptrcontext = decl_function_context (ptr);
+      if (ptrcontext == NULL)
+	ptr = global_var;
+    }
+  if (TREE_PUBLIC (var))
+    var = global_var;
+  else
+    {
+      if (varcontext != NULL && TREE_CODE (varcontext) != FUNCTION_DECL)
+	varcontext = decl_function_context (var);
+      if (varcontext == NULL)
+	var = global_var;
+    }
+  if (ptr == var || (ptrcontext == NULL && varcontext == NULL)
+      || (ptr == global_var))
+    return true;
+
+  if (DECL_P (ptr))
+    {
+      ptrtv = DECL_PTA_TYPEVAR (ptr);
+      if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
+	abort ();
+      else if (!ptrtv)
+	return false;
+    }
+  else
+    {
+      entry.key = ptr;
+      result = htab_find (alias_annot, &entry);
+      if (!result && !current_alias_ops->ip && ptr != global_var)
+	abort ();
+      else if (!result)
+	return false;
+      ptrtv = result->value;
+    }
+  if (var == global_var && global_var == NULL)
+    return false;
+  if (DECL_P (var))
+    {
+      vartv = DECL_PTA_TYPEVAR (var);
+      if (!vartv && !current_alias_ops->ip && var != global_var)
+	abort ();
+      else if (!vartv)
+	return false;
+    }
+  else
+    {
+      entry.key = var;
+      result = htab_find (alias_annot, &entry);
+      if (!result && !current_alias_ops->ip && var != global_var)
+	abort ();
+      else if (!result)
+	return false;
+
+      vartv = result->value;
+    }
+  return current_alias_ops->same_points_to_set (current_alias_ops, vartv, ptrtv);
+}
 /**
    @brief Determine whether two variables may-alias.
 
@@ -1121,7 +1213,6 @@ ptr_may_alias_var (tree ptr, tree var)
     }
 
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
-
 }
 
 #define MASK_POINTER(P)	((unsigned)((unsigned long)(P) & 0xffff))

@@ -9,68 +9,46 @@
 */
 struct tree_alias_ops
 {
-  /**
-     @brief Initialization
-
-     Called right before we start using the other functions.
-  */
+  /* Initialization.
+     Called right before we start using the other functions.  */
   void (*init) (struct tree_alias_ops *);
 
-  /**
-     @brief Cleanup
-
-     Called when we are finished with the alias analyzer.
-  */
+  /* Cleanup. 
+     Called when we are finished with the alias analyzer.  */
   void (*cleanup) (struct tree_alias_ops *);
 
-  /**
-     @brief Add variable
-
+  /* Add variable.
      Called when we want to inform the alias analyzer about a new
-     variable we've found.
-  */
+     variable we've found.  */
   alias_typevar (*add_var) (struct tree_alias_ops *, tree);
 
-  /**
-     @brief Add variable equivalent to existing one.
-
+  /* Add variable equivalent to existing one.
      Called when we want to inform the alias analyzer about a new
-     variable that has the same points-to set as an existing variable.
-  */
+     variable that has the same points-to set as an existing
+     variable.  */ 
   alias_typevar (*add_var_same) (struct tree_alias_ops *, tree,
-			   alias_typevar);
-  /**
-     @brief Process a simple assignment (<tt>a = b</tt>)
-
-     Called to process simple assignment statements of the form <tt>a =
-     b</tt>, where a and b are both variables.
-  */
+				 alias_typevar);
+  
+  /* Process a simple assignment (a = b).
+     Called to process simple assignment statements of the form a = b,
+     where a and b are both variables.  */
   void (*simple_assign) (struct tree_alias_ops *, alias_typevar,
 			 alias_typevar);
-  /**
-     @brief Process an address assignment (<tt>a = &b</tt>)
-
-     Called to process address assignment statements of the form <tt>a =
-     &b</tt>, where a and b are both variables.
-  */
+  /* Process an address assignment (a = &b).
+     Called to process address assignment statements of the form a =
+     &b, where a and b are both variables.  */
   void (*addr_assign) (struct tree_alias_ops *, alias_typevar, alias_typevar);
 
-  /**
-     @brief Process a pointer assignment (<tt>a = *b</tt>)
-
-     Called to process pointer assignment statements of the form <tt>a =
-     *b</tt>, where a and b are both variables.
-  */
+  /* Process a pointer assignment (a = *b).
+     Called to process pointer assignment statements of the form a =
+     *b, where a and b are both variables.  */
   void (*ptr_assign) (struct tree_alias_ops *, alias_typevar, alias_typevar);
 
-  /**
-     @brief Process an operator assignment (<tt>a = op (...)</tt>)
-
-     Called to process operators of the form <tt>a = op(....)</tt>, where a is
-     a variable.
-  */
-  void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type, tree);
-
+  /* Process an operator assignment (a = op (...))
+     Called to process operators of the form a = op(...), where a is a
+     variable.  */
+  void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type, 
+		     tree);
   /**
      @brief Process a heap assignment (<tt>a = alloc (...)</tt>)
 
@@ -110,6 +88,11 @@ struct tree_alias_ops
   */
   bool (*may_alias) (struct tree_alias_ops *, alias_typevar, alias_typevar);
 
+  /*
+     Determine if two typevars have the same points-to set.
+  */
+  bool (*same_points_to_set) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+
   /**
      @brief Private data
   */
@@ -125,6 +108,7 @@ extern void create_alias_vars (tree);
 extern void delete_alias_vars (void);
 extern void init_alias_vars (void);
 extern bool ptr_may_alias_var (tree, tree);
+extern bool same_points_to_set (tree, tree);
 
 extern const char *alias_get_name (tree);
 #endif

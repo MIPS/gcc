@@ -1,3 +1,26 @@
+2003-08-10  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (compute_may_aliases): Move points-to initialization from
+	here.
+	(find_referenced_vars): To here.
+	(get_memory_tag_for): Use new same_points_to_set function.
+
+	* tree-alias-common.h (struct tree_alias_ops): Remove doxygen markers.
+	Add same_points_to_set function to struct.
+	(same_points_to_set): New function.
+
+	* tree-alias-common.c (we_created_global_var): A bit of magic to ignore
+	global var aliasing when we didn't create global var.  This will go
+	away soon
+	(same_points_to_set): New function.
+	
+	* tree-alias-andersen.c (struct andersen_alias_ops): Add
+	andersen_same_points_to_set.
+	(andersen_same_points_to_set): New function. Return true if the two
+	variables have the same points-to set.
+	
+	* opts.c (common_handle_option): Add "none" as a points-to option.
+
 2003-08-10  Paul Brook  <paul@nowt.org>
 
 	* doc/install.texi: Mention --enable-languages=f95.

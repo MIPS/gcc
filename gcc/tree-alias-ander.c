@@ -82,6 +82,8 @@ static int print_out_result (splay_tree_node, void *);
 static void andersen_cleanup (struct tree_alias_ops *);
 static bool andersen_may_alias (struct tree_alias_ops *, alias_typevar,
 				alias_typevar);
+static bool andersen_same_points_to_set (struct tree_alias_ops *, alias_typevar,
+				alias_typevar);
 static alias_typevar andersen_add_var (struct tree_alias_ops *, tree);
 static alias_typevar andersen_add_var_same (struct tree_alias_ops *,
 					    tree, alias_typevar);
@@ -104,6 +106,7 @@ static struct tree_alias_ops andersen_ops = {
   andersen_function_def,
   andersen_function_call,
   andersen_may_alias,
+  andersen_same_points_to_set,
   0, /* data */
   0, /* Currently non-interprocedural */
   1  /* Can do IP on all statics without help. */
@@ -699,7 +702,55 @@ eq_to_var (const aterm term)
 {
   return stupid_hack == term;
 }
+static int simple_eq (const aterm a, const aterm b)
+{
+  return (int *)a - (int *)b;
+}
+extern bool we_created_global_var;
+static bool
+andersen_same_points_to_set (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
+			     alias_typevar ptrtv, alias_typevar vartv)
+{
+  aterm_list ptset1, ptset2;
+  aterm_list_scanner scan1, scan2;
+  void *data1, *data2;
+  size_t length1, length2;
+  region scratch_rgn = newregion ();
 
+  ptset1 = ALIAS_TVAR_PTSET (ptrtv);
+  ptset2 = ALIAS_TVAR_PTSET (vartv);
+  if (!ptset1)
+    {
+      ptset1 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (ptrtv)));
+      ALIAS_TVAR_PTSET (ptrtv) = ptset1;
+    }
+  if (!ptset2)
+    {
+      ptset2 = aterm_tlb (pta_get_contents (ALIAS_TVAR_ATERM (vartv)));
+      ALIAS_TVAR_PTSET (vartv) = ptset2;
+    }
+  if (aterm_list_length (ptset1) != aterm_list_length (ptset2))
+    return false;
+  if (ptset1 == ptset2)
+    return true;
+  length1 = aterm_list_length (ptset1);
+  length2 = aterm_list_length (ptset2);
+  ptset1 = aterm_list_copy (scratch_rgn, ptset1);
+  ptset2 = aterm_list_copy (scratch_rgn, ptset2);
+  
+  ptset1 = aterm_list_sort (ptset1, simple_eq);
+  ptset2 = aterm_list_sort (ptset2, simple_eq);
+  
+  aterm_list_scan (ptset1, &scan1);
+  aterm_list_scan (ptset2, &scan2);
+  while (list_next (&scan1, &data1))
+    {
+      list_next (&scan2, &data2);
+      if (data1 != data2)
+	return false;
+    }
+  return true;  
+}
 static bool
 andersen_may_alias (struct tree_alias_ops *ops ATTRIBUTE_UNUSED,
 		    alias_typevar ptrtv, alias_typevar vartv)
