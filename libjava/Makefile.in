@@ -828,6 +828,7 @@ java/awt/image/ImageConsumer.java \
 java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
+java/awt/image/LookupOp.java \
 java/awt/image/LookupTable.java \
 java/awt/image/MultiPixelPackedSampleModel.java \
 java/awt/image/PackedColorModel.java \
@@ -3059,6 +3060,7 @@ java/awt/image/DataBufferShort.lo java/awt/image/DataBufferUShort.lo \
 java/awt/image/DirectColorModel.lo java/awt/image/Kernel.lo \
 java/awt/image/ImageConsumer.lo java/awt/image/ImageObserver.lo \
 java/awt/image/ImageProducer.lo java/awt/image/IndexColorModel.lo \
+java/awt/image/LookupOp.lo \
 java/awt/image/LookupTable.lo \
 java/awt/image/MultiPixelPackedSampleModel.lo \
 java/awt/image/PackedColorModel.lo \
@@ -4377,6 +4379,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/awt/image/ImageProducer.P \
 .deps/java/awt/image/ImagingOpException.P \
 .deps/java/awt/image/IndexColorModel.P .deps/java/awt/image/Kernel.P \
+.deps/java/awt/image/LookupOp.P \
 .deps/java/awt/image/LookupTable.P \
 .deps/java/awt/image/MemoryImageSource.P \
 .deps/java/awt/image/MultiPixelPackedSampleModel.P \
