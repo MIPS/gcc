@@ -131,31 +131,19 @@ struct d_info
 
 /* Functions and arrays in cp-demangle.c which are referenced by
    functions in cp-demint.c.  */
-#ifdef IN_GLIBCPP_V3
-#define CP_STATIC_IF_GLIBCPP_V3 static
-#else
-#define CP_STATIC_IF_GLIBCPP_V3 extern
-#endif
 
-CP_STATIC_IF_GLIBCPP_V3
-const struct demangle_operator_info cplus_demangle_operators[];
+extern const struct demangle_operator_info cplus_demangle_operators[];
 
 #define D_BUILTIN_TYPE_COUNT (26)
 
-CP_STATIC_IF_GLIBCPP_V3
-const struct demangle_builtin_type_info
+extern const struct demangle_builtin_type_info
 cplus_demangle_builtin_types[D_BUILTIN_TYPE_COUNT];
 
-CP_STATIC_IF_GLIBCPP_V3
-struct demangle_component *
+extern struct demangle_component *
 cplus_demangle_mangled_name PARAMS ((struct d_info *, int));
 
-CP_STATIC_IF_GLIBCPP_V3
-struct demangle_component *
+extern struct demangle_component *
 cplus_demangle_type PARAMS ((struct d_info *));
 
 extern void
 cplus_demangle_init_info PARAMS ((const char *, int, size_t, struct d_info *));
-
-/* cp-demangle.c needs to define this a little differently */
-#undef CP_STATIC_IF_GLIBCPP_V3

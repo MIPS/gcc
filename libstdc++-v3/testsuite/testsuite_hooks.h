@@ -61,6 +61,9 @@
 #include <bits/c++config.h>
 #include <bits/functexcept.h>
 #include <cstddef>
+#include <string>
+#include <cxxabi.h>
+#include <stdexcept>
 #ifdef DEBUG_ASSERT
 # include <cassert>
 # define VERIFY(fn) assert(fn)
@@ -68,7 +71,7 @@
 # define VERIFY(fn) test &= (fn)
 #endif
 #include <list>
-
+  
 namespace __gnu_cxx_test
 {
   // All macros are defined in GLIBCPP_CONFIGURE_TESTSUITE and imported
@@ -351,6 +354,79 @@ namespace std
       static int_type 
       not_eof(const int_type& __c);
     };
+} // namespace std
+
+namespace __gnu_test
+{
+  inline void
+  verify_demangle(const char* mangled, const char* wanted)
+  {
+    int status = 0;
+    const char* s = abi::__cxa_demangle(mangled, 0, 0, &status);
+    if (!s)
+      {
+	switch (status)
+	  {
+	  case 0:
+	    s = "error code = 0: success";
+	    break;
+	  case -1:
+	    s = "error code = -1: memory allocation failure";
+	    break;
+	  case -2:
+	    s = "error code = -2: invalid mangled name";
+	    break;
+	  case -3:
+	    s = "error code = -3: invalid arguments";
+	    break;
+	  default:
+	    s = "error code unknown - who knows what happened";
+	  }
+      }
+
+    std::string w(wanted);
+    if (w != s)
+      throw std::runtime_error(s);
+  }
+
+  inline const char*
+  demangle(const std::string& mangled)
+  {
+    const char* name;
+    if (mangled[0] != '_' || mangled[1] != 'Z')
+      {
+	// This is not a mangled symbol, thus has "C" linkage.
+	name = mangled.c_str();
+      }
+    else
+      {
+	// Use __cxa_demangle to demangle.
+	int status = 0;
+	name = abi::__cxa_demangle(mangled.c_str(), 0, 0, &status);
+	if (!name)
+	  {
+	    switch (status)
+	      {
+	      case 0:
+		name = "error code = 0: success";
+		break;
+	      case -1:
+		name = "error code = -1: memory allocation failure";
+		break;
+	      case -2:
+		name = "error code = -2: invalid mangled name";
+		break;
+	      case -3:
+		name = "error code = -3: invalid arguments";
+		break;
+	      default:
+		name = "error code unknown - who knows what happened";
+	      }
+	  }
+      }
+    return name;
+  }
+
 } // namespace std
 
 #endif // _GLIBCPP_TESTSUITE_HOOKS_H
