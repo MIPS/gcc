@@ -5945,7 +5945,7 @@ retry_ice (const char *prog, const char **argv)
 
 	  if (i != 2)
 	    {
-	      notice ("The bug is not reproduceable, so it is likely a hardware or OS problem\n");
+	      notice ("The bug is not reproducible, so it is likely a hardware or OS problem.\n");
 	      break;
 	    }
 
@@ -6022,7 +6022,7 @@ retry_ice (const char *prog, const char **argv)
 	  if (WIFEXITED (status)
 	      && WEXITSTATUS (status) == SUCCESS_EXIT_CODE)
 	    {
-	      notice ("Preprocessed source stored into %s file, please attach this to your bugreport\n",
+	      notice ("Preprocessed source stored into %s file, please attach this to your bugreport.\n",
 		      temp_filenames[attempt * 2]);
 	      /* Make sure it is not deleted.  */
 	      free (temp_filenames[attempt * 2]);
