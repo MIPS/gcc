@@ -2068,9 +2068,6 @@ gfc_could_be_alias (gfc_ss * lss, gfc_ss * rss)
   gfc_symbol *lsym;
   gfc_symbol *rsym;
 
-/*  if (gfc_option.flag_no_pointer_alias)
-    return 0;*/
-
   lsym = lss->expr->symtree->n.sym;
   rsym = rss->expr->symtree->n.sym;
   if (gfc_symbols_could_alias (lsym, rsym))
@@ -2127,16 +2124,12 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
   gfc_ref *lref;
   gfc_ref *rref;
   gfc_ref *aref;
-  int depends[GFC_MAX_DIMENSIONS];
-  int n;
   int nDepend = 0;
   int temp_dim = 0;
 
   loop->temp_ss = NULL;
   aref = dest->data.info.ref;
   temp_dim = 0;
-  for (n = 0; n < loop->dimen; n++)
-    depends[n] = 0;
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
@@ -2154,7 +2147,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 	  lref = dest->expr->ref;
 	  rref = ss->expr->ref;
 
-	  nDepend = gfc_dep_resolver (lref, rref, depends);
+	  nDepend = gfc_dep_resolver (lref, rref);
 #if 0
 	  /* TODO : loop shifting.  */
 	  if (nDepend == 1)

@@ -1,3 +1,25 @@
+2003-08-18  Paul Brook  <paul@nowt.org>
+
+	* dependency.c (gfc_dependency): New enum.
+	(check_another_array_ref): Remove.
+	(gfc_get_array_from_component): Remove.
+	(get_x): Remove.
+	(get_range): Remove.
+	(get_no_of_elements): Use mpz_t, not mpf_t.
+	(transform_sections): New function.
+	(gfc_check_range_range): Rename ...
+	(gfc_check_section_vs_section): ... to this.  Use new function.
+	(gfc_is_inside_range): Rewrite to match.
+	(gfc_check_element_vs_section): Ditto.
+	(gfc_check_element_vs_element): Ditto.
+	(get_deps): Ditto.
+	(gfc_dep_resolver): Ditto.  Remove unused parameter.
+	* Dependency.h (gfc_check_range_range, gfc_check_element_vs_section,
+	gfc_check_element_vs_element, gfc_is_inside_range,
+	gfc_get_array_from_component): Remove prototypes for static functions.
+	(gfc_dep_resolver): Update prototype.
+	* trans-array.c (gfc_conv_resolve_dependencies): Change to match.
+
 2003-08-15  Paul Brook  <paul@nowt.org>
 
 	* trans-decl.c (gfc_build_qualified_array): Don't add symbols for

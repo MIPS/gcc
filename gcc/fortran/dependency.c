@@ -20,6 +20,10 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* dependency.c -- Expression dependency analysis code.  */
+/* There's probably quite a bit of duplication in this file.  We currently
+   have different dependency checking functions for different types
+   if dependencies.  Ideally these would probably be merged.  */
+   
 
 #include "config.h"
 #include "gfortran.h"
@@ -29,6 +33,17 @@ Boston, MA 02111-1307, USA.  */
 /* static declarations */
 /* Enums  */
 enum range {LHS, RHS, MID};
+
+/* Dependency types.  These must be in reverse order of priority.  */
+typedef enum
+{
+  GFC_DEP_ERROR,
+  GFC_DEP_EQUAL,	/* Identical Ranges.  */
+  GFC_DEP_FORWARD,	/* eg. a(1:3), a(2:4).  */
+  GFC_DEP_OVERLAP,	/* May overlap in some other way.  */
+  GFC_DEP_NODEP		/* Distinct ranges.  */
+}
+gfc_dependency;
 
 /* Macros */
 #define IS_ARRAY_EXPLICIT(as) ((as->type == AS_EXPLICIT ? 1 : 0))
@@ -319,251 +334,104 @@ gfc_check_dependency (gfc_expr * expr1, gfc_expr * expr2, gfc_expr ** vars,
 }
 
 
-/* Check if an array reference has another array reference */
-
-static int
-check_another_arrayref (gfc_ref * ref)
-{
-
-  for (; NULL!=ref; ref = ref->next)
-    {
-       if (ref->type == REF_ARRAY)
-         {
-            if (ref->u.ar.type != AR_ELEMENT)
-              return 1;
-         }
-    }
-  return 0;
-}
-
-
-/* Get the array reference from a component reference */
-
-gfc_ref *
-gfc_get_array_from_component (gfc_ref * ref)
-{
-
-  if (ref->type == REF_ARRAY)
-    {
-      /* Such cases should have detected by front end */
-      if (NULL != ref->next && ref->next->type == REF_COMPONENT)
-        {
-          if (check_another_arrayref (ref->next))
-            gfc_fatal_error ("More than one part references");
-	}
-
-      return ref;
-    }
-
-  while (NULL != ref && ref->type != REF_ARRAY)
-    {
-       if (ref->type == REF_ARRAY)
-         {
-           if (ref->u.ar.type != AR_ELEMENT || ref->u.ar.type != AR_UNKNOWN)
-             {
-               /* Such cases should have detected by front end  */
-	       if (check_another_arrayref (ref))
-	         gfc_fatal_error ("More than one part references");
-	       return ref;
-	     }
-	 }
-         ref = ref->next;
-    }
-
-  return ref;
-}
-
-
-/* Finds if two array references are overlapping or not.
-   Return value
-   	1 : array references are overlapping.
-   	0 : array references are not overlapping.  */
-
-int
-gfc_dep_resolver (gfc_ref * lref, gfc_ref * rref, int *dep)
-{
-  int	n;
-  int fin_dep=1;
-
-
-  /* Check if the array reference has derived type */
-  lref = gfc_get_array_from_component (lref);
-  rref = gfc_get_array_from_component (rref);
-
-  if (NULL == lref || NULL == rref)
-    return 1;
-
-  for (n=0; n < lref->u.ar.dimen; n++)
-    {
-      /* Assume dependency when one of array reference is vector subscript */
-      if (lref->u.ar.dimen_type[n] == DIMEN_VECTOR
-          || rref->u.ar.dimen_type[n] == DIMEN_VECTOR)
-        return 1;
-      if (lref->u.ar.dimen_type[n] == DIMEN_RANGE
-          && rref->u.ar.dimen_type[n] == DIMEN_RANGE)
-        dep[n] = gfc_check_range_range (lref, rref, n);
-      else if (lref->u.ar.dimen_type[n] == DIMEN_ELEMENT
-               && rref->u.ar.dimen_type[n] == DIMEN_RANGE)
-	dep[n] = gfc_check_element_vs_section (lref, rref, n);
-      else if (rref->u.ar.dimen_type[n] == DIMEN_ELEMENT
-               && lref->u.ar.dimen_type[n] == DIMEN_RANGE)
-	dep[n] = gfc_check_element_vs_section (rref, lref, n);
-      else if (rref->u.ar.dimen_type[n] == DIMEN_ELEMENT
-               && lref->u.ar.dimen_type[n] == DIMEN_ELEMENT)
-        dep[n] = gfc_check_element_vs_element (rref, lref, n);
-    }
-  /* we now have type of overlapping in dep for each dimension, we now need
-     to determine if the overall array references are dependenct or not.  We
-     have either or all of 1-4 values in dep array.  Order of priority is
-     4, 3, 2, 1. If 4 appears anywhere in dep there can not be dependecy in
-     array references.
-   */
-
-  for (n = lref->u.ar.dimen - 1; n >= 0; n--)
-    {
-       if (dep[n] > fin_dep) fin_dep=dep[n];
-       /* if fin_dep is 4 , there is no dependency */
-       if (fin_dep == 4)
-         break;
-    }
-  if (fin_dep == 3)
-    return 1;
-  else
-    return 0;
-}
-
-/* calculates size of the array reference using lower bound , upper bound and stride */
+/* Calculates size of the array reference using lower bound, upper bound
+   and stride.  */
 
 static void
-get_no_of_elements(mpf_t * ele, gfc_expr * u1, gfc_expr * l1, gfc_expr * s1)
+get_no_of_elements(mpz_t ele, gfc_expr * u1, gfc_expr * l1, gfc_expr * s1)
 {
-  mpz_t expr1, expr2, stride;
-
   /* nNoOfEle = (u1-l1)/s1  */
 
-  mpz_init (expr1);
-  mpz_init (expr2);
-  mpz_init (stride);
-  mpz_sub (expr1, u1->value.integer, l1->value.integer);
+  mpz_sub (ele, u1->value.integer, l1->value.integer);
 
-  if (NULL == s1)
-    {
-       mpz_set_si (stride,1);
-       mpz_div (expr2,expr1, stride);
-    }
-  else
-    mpz_div (expr2, expr1, s1->value.integer);
-
-  mpf_set_si (*ele, mpz_get_si(expr2));
-
+  if (s1 != NULL)
+    mpz_tdiv_q (ele, ele, s1->value.integer);
 }
 
 
-/* Calculates
-   x = ( ( l2 - l1 ) + (s2 * no of elements ) )/ s1
-   Where l1 and l2 are lower bounds and s1 and s2 are strides of array
-   references.  */
+/* Returns if the ranges ((0..Y), (X1..X2))  overlap.  */
 
-static void
-get_x (mpf_t * x, gfc_expr * l1, gfc_expr * l2, gfc_expr * s1,
-       gfc_expr * s2, mpf_t * no_of_elements)
+static gfc_dependency
+get_deps (mpz_t x1, mpz_t x2, mpz_t y)
 {
-  mpf_t expr1, expr2;
-  mpf_t n;
-  mpf_t ll1, ll2, ss1, ss2;
+  int start;
+  int end;
 
+  start = mpz_cmp_ui (x1, 0);
+  end = mpz_cmp (x2, y);
+  
+  /* Both ranges the same.  */
+  if (start == 0 && end == 0)
+    return GFC_DEP_EQUAL;
 
-  mpf_init (ll1);
-  mpf_init (ll2);
-  mpf_init (ss1);
-  mpf_init (ss2);
-  mpf_init (n);
-  mpf_init (expr1);
-  mpf_init (expr2);
+  /* Distinct ranges.  */
+  if ((start < 0 && mpz_cmp_ui (x2, 0) < 0)
+      || (mpz_cmp (x1, y) > 0 && end > 0))
+    return GFC_DEP_NODEP;
 
-  mpf_set_z (ll1, l1->value.integer);
-  mpf_set_z (ll2, l2->value.integer);
+  /* Overlapping, but with corresponding elements of the second range
+     greater than the first.  */
+  if (start > 0 && end > 0)
+    return GFC_DEP_FORWARD;
 
-  /* If stride is null assume 1  */
-  if (NULL == s1)
-    mpf_set_si (ss1, 1);
-  else
-    mpf_set_z (ss1, s1->value.integer);
-  if (NULL == s2)
-    mpf_set_si (ss2, 1);
-  else
-    mpf_set_z (ss2, s2->value.integer);
-
-  mpf_sub (expr1, ll2, ll1);
-  if (no_of_elements)
-    {
-      mpf_mul (expr2, ss2, *no_of_elements);
-      mpf_add (n, expr1, expr2);
-    }
-  else
-    mpf_set (n, expr1);
-
-  mpf_div (*x, n, ss1);
+  /* Overlapping in some other way.  */
+  return GFC_DEP_OVERLAP;
 }
 
-/* Checks the position of x with respect to range 0-N ,
-   return LHS if x < 0, RHS if x > N , MID otherwise */
 
-static enum range
-get_range (mpf_t x, mpf_t N)
-{
-  int cmp;
-
-  cmp = mpf_cmp_ui (x, 0);
-  if (cmp < 0)
-    return LHS;
-  cmp = mpf_cmp (x, N);
-  if (cmp > 0)
-    return RHS;
-  return MID;
-}
-
-/* Returns if the two ranges are dependent or not
-   Return value
-   1 : ranges are equal
-   2 : ranges are moving in forward direction
-   3 : ranges are dependent
-   4 : ranges are not dependent
-*/
+/* Transforms a sections l and r such that 
+   (l_start:l_end:l_stride) -> (0:no_of_elements)
+   (r_start:r_end:r_stride) -> (X1:X2)
+   Where r_end is implicit as both sections must have the same number of
+   elelments.
+   Returns 0 on success, 1 of the transformation failed.  */
+/* TODO: Should this be (0:no_of_elements-1) */
 
 static int
-get_deps (enum range x1, enum range x2, mpf_t X1, mpf_t X2, mpf_t N)
+transform_sections (mpz_t X1, mpz_t X2, mpz_t no_of_elements,
+		    gfc_expr * l_start, gfc_expr * l_end, gfc_expr * l_stride,
+		    gfc_expr * r_start, gfc_expr * r_stride)
 {
-  mpz_t x1_trun;
-  mpz_t x2_trun;
+  if (NULL == l_start || NULL == l_end || NULL == r_start)
+    return 1;
 
-  mpz_init (x1_trun);
-  mpz_init (x2_trun);
-  mpz_set_f (x1_trun,X1);
-  mpz_set_f (x2_trun,X2);
+  /* TODO : Currently we check the dependency only when start, end and stride
+    are constant.  We could also check for equal (variable) values, and
+    common subexpressions, eg. x vs. x+1.  */
 
-  if ((mpf_cmp_ui(X1, 0) == 0) && (mpf_cmp (X2, N) == 0))
-    return 1;  	      /* To check if the arrays overlap exactly */
-  else if (mpz_cmp(x1_trun,x2_trun)==0)
-    return 4;  	      /* If both values of second arrays are in same region */
-  else if ((x1 == LHS && x2 == LHS) || (x1 == RHS && x2 == RHS))
-    return 4;
-  else if (x1 == MID && x2 == RHS)
-    return 2;
+  if (l_end->expr_type != EXPR_CONSTANT
+      || l_start->expr_type != EXPR_CONSTANT
+      || r_start->expr_type != EXPR_CONSTANT
+      || ((NULL != l_stride) && (l_stride->expr_type != EXPR_CONSTANT))
+      || ((NULL != r_stride) && (r_stride->expr_type != EXPR_CONSTANT)))
+    {
+       return 1;
+    }
+
+
+  get_no_of_elements (no_of_elements, l_end, l_start, l_stride);
+
+  mpz_sub (X1, r_start->value.integer, l_start->value.integer);
+  if (l_stride != NULL)
+    mpz_cdiv_q (X1, X1, l_stride->value.integer);
+  
+  if (r_stride == NULL)
+    mpz_set (X2, no_of_elements);
   else
-    return 3;
+    mpz_mul (X2, no_of_elements, r_stride->value.integer);
+
+  if (l_stride != NULL)
+    mpz_cdiv_q (X2, X2, r_stride->value.integer);
+  mpz_add (X2, X2, X1);
+
+  return 0;
 }
+  
 
+/* Determines overlapping for two array sections.  */
 
-/* Determines overlapping for array references of type DIMEN_RANGE
-   Return values :
-   1 : ranges are equal  e.g. ( a(1:5) , a(1:5 ) )
-   2 : ranges are moving in forward direction e.g. ( a(1:5), a(2:6) )
-   3 : ranges are dependent
-   4 : ranges are not dependent */
-
-int
-gfc_check_range_range (gfc_ref * lref, gfc_ref * rref, int n)
+static gfc_dependency
+gfc_check_section_vs_section (gfc_ref * lref, gfc_ref * rref, int n)
 {
   gfc_expr *l_start;
   gfc_expr *l_end;
@@ -575,133 +443,126 @@ gfc_check_range_range (gfc_ref * lref, gfc_ref * rref, int n)
   gfc_array_ref	l_ar;
   gfc_array_ref	r_ar;
 
-  mpf_t no_of_elements;
-  enum range x1_value, x2_value;
-  mpf_t	X1, X2;
-  int dep;
+  mpz_t no_of_elements;
+  mpz_t	X1, X2;
+  gfc_dependency dep;
 
-  if (lref->type == REF_ARRAY && rref->type == REF_ARRAY)
-    {
-      l_ar = lref->u.ar;
-      r_ar = rref->u.ar;
+  l_ar = lref->u.ar;
+  r_ar = rref->u.ar;
 
-      l_start = l_ar.start[n];
-      l_end = l_ar.end[n];
-      l_stride = l_ar.stride[n];
-      r_start = r_ar.start[n];
-      r_stride = r_ar.stride[n];
+  l_start = l_ar.start[n];
+  l_end = l_ar.end[n];
+  l_stride = l_ar.stride[n];
+  r_start = r_ar.start[n];
+  r_stride = r_ar.stride[n];
 
-      /* if l_start is NULL take it from array specifier  */
-      if (NULL == l_start && IS_ARRAY_EXPLICIT(l_ar.as))
-        l_start = l_ar.as->lower[n];
+  /* if l_start is NULL take it from array specifier  */
+  if (NULL == l_start && IS_ARRAY_EXPLICIT(l_ar.as))
+    l_start = l_ar.as->lower[n];
 
-      /* if l_end is NULL take it from array specifier  */
-      if (NULL == l_end && IS_ARRAY_EXPLICIT(l_ar.as))
-        l_end = l_ar.as->upper[n];
+  /* if l_end is NULL take it from array specifier  */
+  if (NULL == l_end && IS_ARRAY_EXPLICIT(l_ar.as))
+    l_end = l_ar.as->upper[n];
 
-      /* if r_start is NULL take it from array specifier  */
-      if (NULL == r_start && IS_ARRAY_EXPLICIT(r_ar.as))
-        r_start = r_ar.as->lower[n];
+  /* if r_start is NULL take it from array specifier  */
+  if (NULL == r_start && IS_ARRAY_EXPLICIT(r_ar.as))
+    r_start = r_ar.as->lower[n];
 
-      if (NULL == l_start || NULL == l_end || NULL == r_start)
-        return 3;
+  mpz_init (X1);
+  mpz_init (X2);
+  mpz_init (no_of_elements);
 
-      /* TODO : following constraint can be relaxed in case of variables
-        appearing in start,end or stride
-        for exmple a(i:j:k) = a(i:j:k)
-        Currently we check the dependency only when start, end and stride
-        are constant, if stride is NULL we assume it as 1  */
-
-      if (l_end->expr_type != EXPR_CONSTANT
-          || l_start->expr_type != EXPR_CONSTANT
-          || r_start->expr_type != EXPR_CONSTANT
-          || ((NULL != l_stride) && (l_stride->expr_type != EXPR_CONSTANT))
-          || ((NULL != r_stride) && (r_stride->expr_type != EXPR_CONSTANT)))
-        {
-           return 3;
-        }
-
-      mpf_init (no_of_elements);
-      get_no_of_elements (&no_of_elements, l_end, l_start, l_stride);
-      mpf_init (X1);
-      mpf_init (X2);
-
-      get_x (&X1, l_start, r_start, l_stride, r_stride, NULL);
-      get_x (&X2, l_start, r_start, l_stride, r_stride, &no_of_elements);
-
-      x1_value = get_range (X1, no_of_elements);
-      x2_value = get_range (X2, no_of_elements);
-      dep = get_deps(x1_value, x2_value, X1, X2, no_of_elements);
-
-      return dep;
-    }
+  if (transform_sections (X1, X2, no_of_elements,
+			  l_start, l_end, l_stride,
+			  r_start, r_stride))
+    dep = GFC_DEP_OVERLAP;
   else
-    return 3;
+    dep =  get_deps (X1, X2, no_of_elements);
+
+  mpz_clear (no_of_elements);
+  mpz_clear (X1);
+  mpz_clear (X2);
+  return dep;
 }
 
 
-/* Determines overlapping for array references of type DIMEN_ELEMENT and DIMEN_RANGE,
-   Return values are
-   1 : ranges are equal
-   2 : ranges are moving in forward direction
-   3 : ranges are dependent
-   4 : ranges are not dependent */
+/* Checks if the expr chk is inside the range left-right.
+   Returns  GFC_DEP_NODEP if chk is outside the range,
+   GFC_DEP_OVERLAP otherwise.
+   Assumes left<=right.  */
 
-int
-gfc_check_element_vs_section( gfc_ref * lref, gfc_ref * rref ,int n)
+static gfc_dependency
+gfc_is_inside_range (gfc_expr * chk, gfc_expr * left, gfc_expr * right)
+{
+  int l;
+  int r;
+  int s;
+
+  s = gfc_dep_compare_expr (left, right);
+  if (s == -2)
+    return GFC_DEP_OVERLAP;
+
+  l = gfc_dep_compare_expr (chk, left);
+  r = gfc_dep_compare_expr (chk, right);
+
+  /* Check for indeterminate relationships.  */
+  if (l == -2 || r == -2 || s == -2)
+    return GFC_DEP_OVERLAP;
+
+  if (s == 1)
+    {
+      /* When left>right we want to check for right <= chk <= left.  */
+      if (l <= 0 || r >= 0)
+	return GFC_DEP_OVERLAP;
+    }
+  else
+    {
+      /* Otherwise check for left <= chk <= right.  */
+      if (l >= 0 || r <= 0)
+	return GFC_DEP_OVERLAP;
+    }
+  
+  return GFC_DEP_NODEP;
+}
+
+
+/* Determines overlapping for a single element and a section.  */
+
+static gfc_dependency
+gfc_check_element_vs_section( gfc_ref * lref, gfc_ref * rref, int n)
 {
   gfc_array_ref l_ar;
   gfc_array_ref r_ar;
   gfc_expr *l_start;
   gfc_expr *r_start;
   gfc_expr *r_end;
-  int greater;
-  int nIsDep;
 
-  if (lref->type == REF_ARRAY && rref->type == REF_ARRAY)
-    {
-      l_ar = lref->u.ar;
-      r_ar = rref->u.ar;
-      l_start = l_ar.start[n] ;
-      r_start = r_ar.start[n] ;
-      r_end = r_ar.end[n] ;
-      if (NULL == r_start && IS_ARRAY_EXPLICIT (r_ar.as))
-        r_start = r_ar.as->lower[n];
-      if (NULL == r_end && IS_ARRAY_EXPLICIT (r_ar.as))
-	r_end = r_ar.as->upper[n];
-      if (NULL == r_start || NULL == r_end)
-	return  3;
+  l_ar = lref->u.ar;
+  r_ar = rref->u.ar;
+  l_start = l_ar.start[n] ;
+  r_start = r_ar.start[n] ;
+  r_end = r_ar.end[n] ;
+  if (NULL == r_start && IS_ARRAY_EXPLICIT (r_ar.as))
+    r_start = r_ar.as->lower[n];
+  if (NULL == r_end && IS_ARRAY_EXPLICIT (r_ar.as))
+    r_end = r_ar.as->upper[n];
+  if (NULL == r_start || NULL == r_end || l_start == NULL)
+    return GFC_DEP_OVERLAP;
 
-      greater = gfc_dep_compare_expr (r_start, r_end);
-
-      if (greater > 0)
-        nIsDep = gfc_is_inside_range (l_start, r_end, r_start);
-      else
-        nIsDep = gfc_is_inside_range (l_start, r_start, r_end);
-    }
-  else
-    nIsDep = 3;
-
-  return nIsDep;
-
+  return gfc_is_inside_range (l_start, r_end, r_start);
 }
 
 
-/* Determines overlapping for array references of type DIMEN_ELEMENT and DIMEN_ELEMENT,
-   Return values are
-   1 : ranges are equal
-   2 : ranges are moving in forward direction
-   3 : ranges are dependent
-   4 : ranges are not dependent */
+/* Determines overlapping for two single element array references.  */
 
-int
+static gfc_dependency
 gfc_check_element_vs_element (gfc_ref * lref, gfc_ref * rref, int n)
 {
   gfc_array_ref l_ar;
   gfc_array_ref r_ar;
   gfc_expr *l_start;
   gfc_expr *r_start;
-  int nIsDep;
+  gfc_dependency nIsDep;
 
   if (lref->type == REF_ARRAY && rref->type == REF_ARRAY)
     {
@@ -710,35 +571,109 @@ gfc_check_element_vs_element (gfc_ref * lref, gfc_ref * rref, int n)
       l_start = l_ar.start[n] ;
       r_start = r_ar.start[n] ;
       if (gfc_dep_compare_expr (r_start, l_start) == 0)
-        nIsDep = 1;
+        nIsDep = GFC_DEP_EQUAL;
       else
-	nIsDep = 4;
+	nIsDep = GFC_DEP_NODEP;
   }
   else
-    nIsDep = 4;
+    nIsDep = GFC_DEP_NODEP;
 
   return nIsDep;
 }
 
-/* Checks if the expr chk is inside the range left-right.  Returns 3 if chk
-   is inside left-right, otherwise returns 4.  */
+
+/* Finds if two array references are overlapping or not.
+   Return value
+   	1 : array references are overlapping.
+   	0 : array references are not overlapping.  */
+
 int
-gfc_is_inside_range (gfc_expr * chk, gfc_expr * left, gfc_expr * right)
+gfc_dep_resolver (gfc_ref * lref, gfc_ref * rref)
 {
-  int nIsInside;
+  int n;
+  gfc_dependency fin_dep;
+  gfc_dependency this_dep;
 
-  if (NULL == chk)
-    nIsInside = 3;
-  else if ((gfc_dep_compare_expr (chk, left) > -1)) /* chk >= left */
+
+  fin_dep = GFC_DEP_ERROR;
+  /* Dependencies due to pointers should already have been identified.
+     We only need to check for overlapping array references.  */
+
+  while (lref && rref)
     {
-      if (gfc_dep_compare_expr (right, chk) > -1)  /* chk <= end */
-        nIsInside = 3;
-      else
-        nIsInside = 4;
-    }
-  else
-    nIsInside = 4;
+      /* We're resolving from the same base symbol, so both refs should be
+         the same type.  We traverse the reference chain intil we find ranges
+	 that are not equal.  */
+      assert (lref->type == rref->type);
+      switch (lref->type)
+	{
+	case REF_COMPONENT:
+	  /* The two ranges can't overlap if they are from different
+	     components.  */
+	  if (lref->u.c.component != rref->u.c.component)
+	    return 0;
+	  break;
+	  
+	case REF_SUBSTRING:
+	  /* Substring overlaps are handled by the string assignment code.  */
+	  return 0;
+	
+	case REF_ARRAY:
+	  
+	  for (n=0; n < lref->u.ar.dimen; n++)
+	    {
+	      /* Assume dependency when either of array reference is vector
+	         subscript.  */
+	      if (lref->u.ar.dimen_type[n] == DIMEN_VECTOR
+		  || rref->u.ar.dimen_type[n] == DIMEN_VECTOR)
+		return 1;
+	      if (lref->u.ar.dimen_type[n] == DIMEN_RANGE
+		  && rref->u.ar.dimen_type[n] == DIMEN_RANGE)
+		this_dep = gfc_check_section_vs_section (lref, rref, n);
+	      else if (lref->u.ar.dimen_type[n] == DIMEN_ELEMENT
+		       && rref->u.ar.dimen_type[n] == DIMEN_RANGE)
+		this_dep = gfc_check_element_vs_section (lref, rref, n);
+	      else if (rref->u.ar.dimen_type[n] == DIMEN_ELEMENT
+		       && lref->u.ar.dimen_type[n] == DIMEN_RANGE)
+		this_dep = gfc_check_element_vs_section (rref, lref, n);
+	      else 
+		{
+		  assert (rref->u.ar.dimen_type[n] == DIMEN_ELEMENT
+		          && lref->u.ar.dimen_type[n] == DIMEN_ELEMENT);
+		  this_dep = gfc_check_element_vs_element (rref, lref, n);
+		}
 
-   return nIsInside;
+	      /* If any dimension doesn't overlap, we have no dependency.  */
+	      if (this_dep == GFC_DEP_NODEP)
+		return 0;
+
+	      /* Overlap codes are in order of priority.  We only need to
+	         know the worst one.*/
+	      if (this_dep > fin_dep)
+		fin_dep = this_dep;
+	    }
+	  /* Exactly matching and forward overlapping ranges don't cause a
+	     dependency.  */
+	  if (fin_dep < GFC_DEP_OVERLAP)
+	    return 0;
+
+	  /* Keep checking.  We only have a dependency if
+	     subsequent references also overlap.  */
+	  break;
+
+	default:
+	  abort();
+	}
+      lref = lref->next;
+      rref = rref->next;
+    }
+
+  /* If we haven't seen any array refs then something went wrong.  */
+  assert (fin_dep != GFC_DEP_ERROR);
+
+  if (fin_dep < GFC_DEP_OVERLAP)
+    return 0;
+  else
+    return 1;
 }
 
