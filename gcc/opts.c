@@ -505,7 +505,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dce = 1;
       flag_tree_copyprop = 1;
       flag_tree_dom = 1;
-      flag_tree_must_alias = 1;
+      flag_tree_must_alias = 0;
       /* FIXME: Temporary hack to facilitate testing PRE.  */
       if (getenv ("TREE_SSA_DO_PRE"))
 	flag_tree_pre = 1;
