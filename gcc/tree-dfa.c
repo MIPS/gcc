@@ -1492,10 +1492,6 @@ struct walk_state
   int is_store;
 };
 
-/* Hash table of nodes visited when searching for VLA to avoid
-   visiting nodes more than once.  */
-htab_t vla_htab;
-
 /* Compute may-alias information for every variable referenced in the
    program.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
@@ -1515,9 +1511,7 @@ compute_may_aliases ()
      have been used to declare VLAs.  Those variables will be considered
      implicitly live by passes like DCE.  FIXME: This is a hack.  GIMPLE
      should expose VLAs in the code.  */
-  vla_htab = htab_create (30, htab_hash_pointer, htab_eq_pointer, NULL);
   find_vla_decls (DECL_INITIAL (current_function_decl));
-  htab_delete (vla_htab);
 
   num_aliased_objects = 0;
   VARRAY_TREE_INIT (aliased_objects, 20, "aliased_objects");
@@ -2424,7 +2418,7 @@ find_vla_decls (block)
   for (decl = BLOCK_VARS (block); decl; decl = TREE_CHAIN (decl))
     {
       int inside_vla = 0;
-      walk_tree (&decl, find_vla_decls_r, &inside_vla, vla_htab);
+      walk_tree (&decl, find_vla_decls_r, &inside_vla, NULL);
     }
 
   /* Now repeat the search in any sub-blocks.  */
@@ -2449,14 +2443,8 @@ find_vla_decls_r (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) == ARRAY_TYPE)
     {
       *inside_vla = 1;
-      walk_tree (&TYPE_SIZE (*tp), find_vla_decls_r, inside_vla, vla_htab);
-      walk_tree (&TYPE_SIZE_UNIT (*tp), find_vla_decls_r, inside_vla, vla_htab);
-    }
-  else if (TREE_CODE (*tp) == TYPE_DECL)
-    {
-      *inside_vla = 1;
-      walk_tree (&TYPE_FIELDS (TREE_TYPE (*tp)), find_vla_decls_r,
-	         inside_vla, vla_htab);
+      walk_tree (&TYPE_SIZE (*tp), find_vla_decls_r, inside_vla, NULL);
+      walk_tree (&TYPE_SIZE_UNIT (*tp), find_vla_decls_r, inside_vla, NULL);
     }
   else if (*inside_vla && SSA_DECL_P (*tp))
     set_vla_decl (*tp);

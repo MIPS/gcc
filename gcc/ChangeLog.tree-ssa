@@ -1,3 +1,8 @@
+2003-03-21  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c: Revert vla changes from yesterday.
+	(find_vla_decls_r): Do not look inside TYPE_DECLs.
+
 2003-03-20  Jeff Law  <law@redhat.com>
 
 	* gimplify.c (simplify_return_expr): Tighten condition for
