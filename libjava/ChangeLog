@@ -1,3 +1,10 @@
+2004-12-29  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/text/TextAction.java
+	(getTextComponent): Simplified. Added Javadoc.
+	(augmentList): Implemented. Added Javadoc.
+	(getFocusedComponent): Added javadoc.
+
 2004-12-28  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/Scrollbar.java (AccessibleAWTScrollbar,
