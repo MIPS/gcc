@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -2417,9 +2417,6 @@ gfc_match_namelist (void)
 	  if (sym->attr.in_namelist == 0
 	      && gfc_add_in_namelist (&sym->attr, NULL) == FAILURE)
 	    goto error;
-
-	  /* TODO: worry about PRIVATE members of a PUBLIC namelist
-             group.  */
 
 	  nl = gfc_get_namelist ();
 	  nl->sym = sym;

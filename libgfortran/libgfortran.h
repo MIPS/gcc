@@ -171,9 +171,14 @@ typedef off_t gfc_offset;
 
 /* The isfinite macro is only available with C99, but some non-C99
    systems still provide fpclassify, and there is a `finite' function
-   in BSD.  When isfinite is not available, try to use one of the
+   in BSD.
+
+   Also, isfinite is broken on Cygwin.
+
+   When isfinite is not available, try to use one of the
    alternatives, or bail out.  */
-#if !defined(isfinite)
+#if (!defined(isfinite) || defined(__CYGWIN__))
+#undef isfinite
 static inline int
 isfinite (double x)
 {
@@ -292,7 +297,7 @@ enum
 
 typedef struct
 {
-  int stdin_unit, stdout_unit, optional_plus;
+  int stdin_unit, stdout_unit, stderr_unit, optional_plus;
   int allocate_init_flag, allocate_init_value;
   int locus;
 

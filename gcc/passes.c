@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -425,49 +425,6 @@ rest_of_handle_machine_reorg (void)
 }
 
 
-/* Run new register allocator.  Return TRUE if we must exit
-   rest_of_compilation upon return.  */
-static bool
-rest_of_handle_new_regalloc (void)
-{
-  int failure;
-
-  timevar_push (TV_LOCAL_ALLOC);
-  open_dump_file (DFI_lreg, current_function_decl);
-
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_alloc ();
-
-  timevar_pop (TV_LOCAL_ALLOC);
-  close_dump_file (DFI_lreg, NULL, NULL);
-
-  /* XXX clean up the whole mess to bring live info in shape again.  */
-  timevar_push (TV_GLOBAL_ALLOC);
-  open_dump_file (DFI_greg, current_function_decl);
-
-  build_insn_chain (get_insns ());
-  failure = reload (get_insns (), 0);
-
-  timevar_pop (TV_GLOBAL_ALLOC);
-
-  ggc_collect ();
-
-  if (dump_enabled_p (DFI_greg))
-    {
-      timevar_push (TV_DUMP);
-      dump_global_regs (dump_file);
-      timevar_pop (TV_DUMP);
-      close_dump_file (DFI_greg, print_rtl_with_bb, get_insns ());
-    }
-
-  if (failure)
-    return true;
-
-  reload_completed = 1;
-
-  return false;
-}
-
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
 static bool
@@ -734,7 +691,7 @@ rest_of_handle_tracer (void)
     dump_flow_info (dump_file);
   tracer (0);
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
   close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
 }
 
@@ -750,13 +707,13 @@ rest_of_handle_if_conversion (void)
       if (dump_file)
 	dump_flow_info (dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      reg_scan (get_insns (), max_reg_num (), 0);
+      reg_scan (get_insns (), max_reg_num ());
       if_convert (0);
     }
 
   timevar_push (TV_JUMP);
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
@@ -807,7 +764,7 @@ rest_of_handle_web (void)
 
   timevar_pop (TV_WEB);
   close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
 }
 
 /* Do branch profiling and static profile estimation passes.  */
@@ -883,7 +840,7 @@ rest_of_handle_cfg (void)
     {
       /* Alias analysis depends on this information and mark_constant_function
        depends on alias analysis.  */
-      reg_scan (get_insns (), max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num ());
       mark_constant_function ();
     }
 
@@ -898,7 +855,7 @@ rest_of_handle_jump_bypass (void)
   open_dump_file (DFI_bypass, current_function_decl);
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  reg_scan (get_insns (), max_reg_num (), 1);
+  reg_scan (get_insns (), max_reg_num ());
 
   if (bypass_jumps (dump_file))
     {
@@ -959,8 +916,7 @@ rest_of_handle_life (void)
 #endif
   life_analysis (dump_file, PROP_FINAL);
   if (optimize)
-    cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
-		 | CLEANUP_LOG_LINKS
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   if (extra_warnings)
@@ -971,7 +927,7 @@ rest_of_handle_life (void)
 
   if (optimize)
     {
-      if (!flag_new_regalloc && initialize_uninitialized_subregs ())
+      if (initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, and possibly pseudos created, so
 	     things might look a bit different.  */
@@ -1001,7 +957,7 @@ rest_of_handle_cse (void)
     dump_flow_info (dump_file);
   timevar_push (TV_CSE);
 
-  reg_scan (get_insns (), max_reg_num (), 1);
+  reg_scan (get_insns (), max_reg_num ());
 
   tem = cse_main (get_insns (), max_reg_num (), dump_file);
   if (tem)
@@ -1053,7 +1009,7 @@ rest_of_handle_cse2 (void)
       cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
   close_dump_file (DFI_cse2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_CSE2);
 
@@ -1083,7 +1039,7 @@ rest_of_handle_gcse (void)
   if (flag_expensive_optimizations)
     {
       timevar_push (TV_CSE);
-      reg_scan (get_insns (), max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num ());
       tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1104,7 +1060,7 @@ rest_of_handle_gcse (void)
       if (flag_expensive_optimizations)
 	{
 	  timevar_push (TV_CSE);
-	  reg_scan (get_insns (), max_reg_num (), 1);
+	  reg_scan (get_insns (), max_reg_num ());
 	  tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
 	  purge_all_dead_edges (0);
 	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1155,7 +1111,7 @@ rest_of_handle_loop_optimize (void)
 
       /* The regscan pass is currently necessary as the alias
 	 analysis code depends on this information.  */
-      reg_scan (get_insns (), max_reg_num (), 1);
+      reg_scan (get_insns (), max_reg_num ());
     }
   cleanup_barriers ();
   loop_optimize (get_insns (), dump_file, do_prefetch);
@@ -1228,7 +1184,7 @@ rest_of_handle_loop2 (void)
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file);
   close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
@@ -1350,7 +1306,11 @@ rest_of_handle_flow2 (void)
     split_all_insns (0);
 
   if (flag_branch_target_load_optimize)
-    rest_of_handle_branch_target_load_optimize ();
+    {
+      close_dump_file (DFI_flow2, print_rtl_with_bb, get_insns ());
+      rest_of_handle_branch_target_load_optimize ();
+      open_dump_file (DFI_flow2, current_function_decl);
+    }
 
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -1390,7 +1350,7 @@ rest_of_handle_jump2 (void)
     expected_value_to_br_prob ();
 
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num (), 0);
+  reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
@@ -1707,16 +1667,8 @@ rest_of_compilation (void)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  if (flag_new_regalloc)
-    {
-      if (rest_of_handle_new_regalloc ())
-	goto exit_rest_of_compilation;
-    }
-  else
-    {
-      if (rest_of_handle_old_regalloc ())
-	goto exit_rest_of_compilation;
-    }
+  if (rest_of_handle_old_regalloc ())
+    goto exit_rest_of_compilation;
 
   if (optimize > 0)
     rest_of_handle_postreload ();
@@ -1760,6 +1712,11 @@ rest_of_compilation (void)
 #endif
 
   compute_alignments ();
+
+  /* Aggressively duplicate basic blocks ending in computed gotos to the
+     tails of their predecessors, unless we are optimizing for size.  */
+  if (flag_expensive_optimizations && !optimize_size)
+    duplicate_computed_gotos ();
 
   if (flag_var_tracking)
     rest_of_handle_variable_tracking ();

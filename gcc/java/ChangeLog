@@ -1,3 +1,77 @@
+2005-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-write.c (generate_bytecode_insns): Implement RSHIFT_EXPR
+	of unsigned types using iushr and lushr JVM bytecodes.
+
+2005-02-02  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19738
+	* gjavah.c (jni_print_float): Do not emit floating-point
+	initialiser for a static final field.
+	(jni_print_double): Likewise.
+
+2005-02-01  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert:
+	2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+	* gjavah.c (print_field_info): Mark static data members of
+	floating-point type with "__extension__".
+
+2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* gjavah.c (print_field_info): Mark static data members of
+	floating-point type with "__extension__".
+
+2005-02-01  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/9157
+	* parse.y (build_string_concatenation): Remove redundant if.
+	(patch_conditional_expr): Attempt to patch_string() the condition
+	of a ?: as well, in addition to its other operands.
+
+2005-01-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/java-tree-inline.o): Removed.
+
+2005-01-25  Ranjit Mathew  <rmathew@hotmail.com>
+
+	PR java/19070
+	* parse.y (patch_binop): Allow comparisons against NULL only
+	if the other operand is of a reference type.
+
+2005-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (gcj_abi_version): Declare.
+	* class.c (make_class_data): Push gcj_abi_version into "next"
+	field.  Renamed field.
+	* decl.c (gcj_abi_version): New global.
+	(parse_version): New function.
+	(java_init_decl_processing): Call it.  Renamed 'next' field.
+	Include version.h.
+	(GCJ_BINARYCOMPAT_ADDITION): New define.
+
+2005-01-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR java/19295
+	* jcf-write.c (generate_bytecode_insns): Conversions between
+	integer types of the same precision shouldn't generate widening
+	or narrowing conversion bytecodes.
+
+2005-01-22  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* java-except.h, java-tree.h: Remove unused prototypes.
+
+2005-01-20  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	PR java/18091:
+	* jcf-write.c (perform_relocations): Don't call memcpy if source
+	and destination are the same.
+
+2005-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (get_short): Sign extend.
+	(get_int): Likewise.
+
 2005-01-12  Ranjit Mathew  <rmathew@hotmail.com>
 
 	* expr.c (build_jni_stub): Replace mistaken use of TYPE_SIZE_UNIT

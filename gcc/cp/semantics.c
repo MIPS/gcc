@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
@@ -858,7 +858,7 @@ begin_switch_stmt (void)
 
   scope = do_pushlevel (sk_block);
   TREE_CHAIN (r) = scope;
-  begin_cond (&SWITCH_COND (r));
+  begin_cond (&SWITCH_STMT_COND (r));
 
   return r;
 }
@@ -902,11 +902,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  finish_cond (&SWITCH_COND (switch_stmt), cond);
-  SWITCH_TYPE (switch_stmt) = orig_type;
+  finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
+  SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
   push_switch (switch_stmt);
-  SWITCH_BODY (switch_stmt) = push_stmt_list ();
+  SWITCH_STMT_BODY (switch_stmt) = push_stmt_list ();
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -917,7 +917,8 @@ finish_switch_stmt (tree switch_stmt)
 {
   tree scope;
 
-  SWITCH_BODY (switch_stmt) = pop_stmt_list (SWITCH_BODY (switch_stmt));
+  SWITCH_STMT_BODY (switch_stmt) =
+    pop_stmt_list (SWITCH_STMT_BODY (switch_stmt));
   pop_switch (); 
   finish_stmt ();
 
@@ -1206,8 +1207,14 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	    {
 	      /* If the operand is going to end up in memory,
 		 mark it addressable.  */
-	      if (!allows_reg && allows_mem && !cxx_mark_addressable (operand))
-		operand = error_mark_node;
+	      if (!allows_reg && allows_mem)
+		{
+		  /* Strip the nops as we allow this case.  FIXME, this really
+		     should be rejected or made deprecated.  */
+		  STRIP_NOPS (operand);
+		  if (!cxx_mark_addressable (operand))
+		    operand = error_mark_node;
+		}
 	    }
 	  else
 	    operand = error_mark_node;
@@ -1952,7 +1959,12 @@ finish_unary_op_expr (enum tree_code code, tree expr)
       && TREE_CODE (result) == INTEGER_CST
       && !TYPE_UNSIGNED (TREE_TYPE (result))
       && INT_CST_LT (result, integer_zero_node))
-    TREE_NEGATED_INT (result) = 1;
+    {
+      /* RESULT may be a cached INTEGER_CST, so we must copy it before
+	 setting TREE_NEGATED_INT.  */
+      result = copy_node (result);
+      TREE_NEGATED_INT (result) = 1;
+    }
   overflow_warning (result);
   return result;
 }
@@ -2633,9 +2645,17 @@ finish_id_expression (tree id_expression,
 	  /* The same is true for FIELD_DECL, but we also need to
 	     make sure that the syntax is correct.  */
 	  else if (TREE_CODE (decl) == FIELD_DECL)
-	    return finish_non_static_data_member
-		     (decl, current_class_ref,
-		      /*qualifying_scope=*/NULL_TREE);
+	    {
+	      /* Since SCOPE is NULL here, this is an unqualified name.
+		 Access checking has been performed during name lookup
+		 already.  Turn off checking to avoid duplicate errors.  */
+	      push_deferring_access_checks (dk_no_check);
+	      decl = finish_non_static_data_member
+		       (decl, current_class_ref,
+			/*qualifying_scope=*/NULL_TREE);
+	      pop_deferring_access_checks ();
+	      return decl;
+	    }
 	  return id_expression;
 	}
 
@@ -2700,8 +2720,15 @@ finish_id_expression (tree id_expression,
 	    }
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
-	decl = finish_non_static_data_member (decl, current_class_ref,
-					      /*qualifying_scope=*/NULL_TREE);
+	{
+	  /* Since SCOPE is NULL here, this is an unqualified name.
+	     Access checking has been performed during name lookup
+	     already.  Turn off checking to avoid duplicate errors.  */
+	  push_deferring_access_checks (dk_no_check);
+	  decl = finish_non_static_data_member (decl, current_class_ref,
+						/*qualifying_scope=*/NULL_TREE);
+	  pop_deferring_access_checks ();
+	}
       else if (is_overloaded_fn (decl))
 	{
 	  tree first_fn = OVL_CURRENT (decl);

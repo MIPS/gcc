@@ -1,6 +1,6 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -13798,7 +13798,9 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
       /* Types have to be either references or the null type. If
          they're references, it must be possible to convert either
          type to the other by casting conversion. */
-      else if (op1 == null_pointer_node || op2 == null_pointer_node
+      else if ((op1 == null_pointer_node && op2 == null_pointer_node)
+               || (op1 == null_pointer_node && JREFERENCE_TYPE_P (op2_type))
+               || (JREFERENCE_TYPE_P (op1_type) && op2 == null_pointer_node)
 	       || (JREFERENCE_TYPE_P (op1_type) && JREFERENCE_TYPE_P (op2_type)
 		   && (valid_ref_assignconv_cast_p (op1_type, op2_type, 1)
 		       || valid_ref_assignconv_cast_p (op2_type,
@@ -14030,8 +14032,7 @@ build_string_concatenation (tree op1, tree op2)
       /* OP1 is no longer the last node holding a crafted StringBuffer */
       IS_CRAFTED_STRING_BUFFER_P (op1) = 0;
       /* Create a node for `{new...,xxx}.append (op2)' */
-      if (op2)
-	op1 = make_qualified_primary (op1, BUILD_APPEND (op2), 0);
+      op1 = make_qualified_primary (op1, BUILD_APPEND (op2), 0);
     }
 
   /* Mark the last node holding a crafted StringBuffer */
@@ -16045,8 +16046,10 @@ patch_conditional_expr (tree node, tree wfl_cond, tree wfl_op1)
   tree t1, t2, patched;
   int error_found = 0;
 
-  /* Operands of ?: might be StringBuffers crafted as a result of a
-     string concatenation. Obtain a descent operand here.  */
+  /* The condition and operands of ?: might be StringBuffers crafted
+     as a result of a string concatenation.  Obtain decent ones here.  */
+  if ((patched = patch_string (cond)))
+    TREE_OPERAND (node, 0) = cond = patched;
   if ((patched = patch_string (op1)))
     TREE_OPERAND (node, 1) = op1 = patched;
   if ((patched = patch_string (op2)))

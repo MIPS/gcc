@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -481,7 +481,6 @@ decode_options (unsigned int argc, const char **argv)
   if (optimize >= 1)
     {
       flag_defer_pop = 1;
-      flag_thread_jumps = 1;
 #ifdef DELAY_SLOTS
       flag_delayed_branch = 1;
 #endif
@@ -511,14 +510,12 @@ decode_options (unsigned int argc, const char **argv)
 	     the condition is satisfied in the first iteration and therefore
 	     to eliminate it.  Jump threading handles these cases now.  */
 	  flag_tree_ch = 1;
- 
-          /* PRE tends to generate bigger code.  */
-          flag_tree_pre = 1;
 	}
     }
 
   if (optimize >= 2)
     {
+      flag_thread_jumps = 1;
       flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
@@ -543,6 +540,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_unit_at_a_time = 1;
       flag_tree_store_ccp = 1;
       flag_tree_store_copy_prop = 1;
+
+      if (!optimize_size)
+	{
+          /* PRE tends to generate bigger code.  */
+          flag_tree_pre = 1;
+	}
     }
 
   if (optimize >= 3)

@@ -1,3 +1,50 @@
+2005-01-29  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* lang-specs.h, objc-act.c, objc-act.h, objc-lang.c: Update
+	copyright.
+
+2005-01-27  Matt Austern  <austern@apple.com>
+
+	* objc-act.c (objc_finish_file): In ObjC++ mode, set at_eof before
+	calling instantiate_pending_templates.
+	
+2005-01-26  Alexander Malmberg  <alexander@malmberg.org>
+
+	PR objc/18862
+	* objc-act.c (build_selector_translation_table): Use
+	input_location in the diagnostic for the GNU runtime or if
+	TREE_PURPOSE (chain) is NULL.
+
+2005-01-25  Alexander Malmberg  <alexander@malmberg.org>
+
+	PR objc/18408
+	* objc-act.c (objc_types_compatible_p): New function.
+	* objc-act.h (objc_types_compatible_p): Declare.
+	* objc-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define.
+
+2005-01-16  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_push_parm): Call c_type_promotes_to()
+	via a lang-hook.
+
+2005-01-15  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/19321
+	* objc-act.c (get_arg_type_list): Decay function arguments into
+	pointers.
+	(objc_push_parm): Likewise; bring PARM_DECL construction closer
+	in line with what the C front-end does.
+	(objc_get_parm_info): Call pushdecl() and finish_decl() on
+	each PARM_DECL, like the C front-end does.
+	(start_method_def): Remove redundant ARRAY_TYPE decay.
+	(objc_start_function): Bring closer in line with what the
+	C front-end does for functions.
+
+2005-01-14  Mike Stump  <mrs@apple.com>
+
+	* lang-specs.h ("@objective-c"): Use cc1obj when -E is used so
+	that -fobjc-exceptions is accepted.
+
 2004-12-30  Ziemowit Laski  <zlaski@apple.com>
 
 	PR objc/18971

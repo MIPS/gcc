@@ -3236,6 +3236,13 @@ redeclare_class_template (tree type, tree parms)
        type.  */
     return;
 
+  if (!parms)
+    {
+      error ("template specifiers not specified in declaration of %qD",
+	     tmpl);
+      return;
+    }
+
   parms = INNERMOST_TEMPLATE_PARMS (parms);
   tmpl_parms = DECL_INNERMOST_TEMPLATE_PARMS (tmpl);
 
@@ -3332,13 +3339,13 @@ fold_non_dependent_expr (tree expr)
 tree
 fold_decl_constant_value (tree expr)
 {
-  while (true)
+  tree const_expr = expr;
+  do
     {
-      tree const_expr = integral_constant_value (expr);
-      if (expr == const_expr)
-	break;
       expr = fold_non_dependent_expr (const_expr);
+      const_expr = integral_constant_value (expr);
     }
+  while (expr != const_expr);
 
   return expr;
 }
@@ -5073,20 +5080,6 @@ reopen_tinst_level (tree level)
 
   current_tinst_level = level;
   pop_tinst_level ();
-}
-
-/* Return the outermost template instantiation context, for use with
-   -falt-external-templates.  */
-
-tree
-tinst_for_decl (void)
-{
-  tree p = current_tinst_level;
-
-  if (p)
-    for (; TREE_CHAIN (p) ; p = TREE_CHAIN (p))
-      ;
-  return p;
 }
 
 /* DECL is a friend FUNCTION_DECL or TEMPLATE_DECL.  ARGS is the
@@ -6984,8 +6977,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	/* The array dimension behaves like a non-type template arg,
 	   in that we want to fold it as much as possible.  */
 	max = tsubst_template_arg (omax, args, complain, in_decl);
-	if (!processing_template_decl)
-	  max = integral_constant_value (max);
+	max = fold_decl_constant_value (max);
 
 	if (integer_zerop (omax))
 	  {
@@ -8207,9 +8199,9 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case SWITCH_STMT:
       stmt = begin_switch_stmt ();
-      tmp = tsubst_expr (SWITCH_COND (t), args, complain, in_decl);
+      tmp = tsubst_expr (SWITCH_STMT_COND (t), args, complain, in_decl);
       finish_switch_cond (tmp, stmt);
-      tsubst_expr (SWITCH_BODY (t), args, complain, in_decl);
+      tsubst_expr (SWITCH_STMT_BODY (t), args, complain, in_decl);
       finish_switch_stmt (stmt);
       break;
 
@@ -9130,6 +9122,9 @@ fn_type_unification (tree fn,
       int i;
       tree converted_args;
       bool incomplete;
+
+      if (explicit_targs == error_mark_node)
+	return 1;
 
       converted_args
 	= (coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (fn), 

@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2233,6 +2233,7 @@ constrain_operands (int strict)
 
   do
     {
+      int seen_earlyclobber_at = -1;
       int opno;
       int lose = 0;
       funny_match_index = 0;
@@ -2295,6 +2296,8 @@ constrain_operands (int strict)
 
 	      case '&':
 		earlyclobber[opno] = 1;
+		if (seen_earlyclobber_at < 0)
+		  seen_earlyclobber_at = opno;
 		break;
 
 	      case '0':  case '1':  case '2':  case '3':  case '4':
@@ -2543,8 +2546,10 @@ constrain_operands (int strict)
 	  /* See if any earlyclobber operand conflicts with some other
 	     operand.  */
 
-	  if (strict > 0)
-	    for (eopno = 0; eopno < recog_data.n_operands; eopno++)
+	  if (strict > 0  && seen_earlyclobber_at >= 0)
+	    for (eopno = seen_earlyclobber_at;
+		 eopno < recog_data.n_operands;
+		 eopno++)
 	      /* Ignore earlyclobber operands now in memory,
 		 because we would often report failure when we have
 		 two memory operands, one of which was formerly a REG.  */

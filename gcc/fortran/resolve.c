@@ -1,5 +1,5 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -259,27 +259,13 @@ resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
 	   || sym->attr.flavor == FL_VARIABLE))
     return;
 
-  /* Try to find out of what type the function is.  If there was an
-     explicit RESULT clause, try to get the type from it.  If the
-     function is never defined, set it to the implicit type.  If
-     even that fails, give up.  */
+  /* Try to find out of what the return type is.  */
   if (sym->result != NULL)
     sym = sym->result;
 
   if (sym->ts.type == BT_UNKNOWN)
     {
-      /* Assume we can find an implicit type.  */
-      t = SUCCESS;
-
-      if (sym->result == NULL)
-	t = gfc_set_default_type (sym, 0, ns);
-      else
-	{
-	  if (sym->result->ts.type == BT_UNKNOWN)
-	    t = gfc_set_default_type (sym->result, 0, NULL);
-
-	  sym->ts = sym->result->ts;
-	}
+      t = gfc_set_default_type (sym, 0, ns);
 
       if (t == FAILURE)
 	gfc_error ("Contained function '%s' at %L has no IMPLICIT type",
@@ -2579,7 +2565,7 @@ check_case_overlap (gfc_case * list)
 	  /* Count this merge.  */
 	  nmerges++;
 
-	  /* Cut the list in two pieces by steppin INSIZE places
+	  /* Cut the list in two pieces by stepping INSIZE places
              forward in the list, starting from P.  */
 	  psize = 0;
 	  q = p;
@@ -2676,31 +2662,37 @@ check_case_overlap (gfc_case * list)
 }
 
 
-/* Check to see if an expression is suitable for use in a CASE
-   statement.  Makes sure that all case expressions are scalar
-   constants of the same type/kind.  Return FAILURE if anything
-   is wrong.  */
+/* Check to see if an expression is suitable for use in a CASE statement.
+   Makes sure that all case expressions are scalar constants of the same
+   type.  Return FAILURE if anything is wrong.  */
 
 static try
 validate_case_label_expr (gfc_expr * e, gfc_expr * case_expr)
 {
-  gfc_typespec case_ts = case_expr->ts;
-
   if (e == NULL) return SUCCESS;
 
-  if (e->ts.type != case_ts.type)
+  if (e->ts.type != case_expr->ts.type)
     {
       gfc_error ("Expression in CASE statement at %L must be of type %s",
-		 &e->where, gfc_basic_typename (case_ts.type));
+		 &e->where, gfc_basic_typename (case_expr->ts.type));
       return FAILURE;
     }
 
-  if (e->ts.kind != case_ts.kind)
+  /* C805 (R808) For a given case-construct, each case-value shall be of
+     the same type as case-expr.  For character type, length differences
+     are allowed, but the kind type parameters shall be the same.  */
+
+  if (case_expr->ts.type == BT_CHARACTER && e->ts.kind != case_expr->ts.kind)
     {
       gfc_error("Expression in CASE statement at %L must be kind %d",
-                &e->where, case_ts.kind);
+                &e->where, case_expr->ts.kind);
       return FAILURE;
     }
+
+  /* Convert the case value kind to that of case expression kind, if needed.
+     FIXME:  Should a warning be issued?  */
+  if (e->ts.kind != case_expr->ts.kind)
+    gfc_convert_type_warn (e, &case_expr->ts, 2, 0);
 
   if (e->rank != 0)
     {
@@ -2782,6 +2774,40 @@ resolve_select (gfc_code * code)
 
       /* Punt.  */
       return;
+    }
+
+  /* PR 19168 has a long discussion concerning a mismatch of the kinds
+     of the SELECT CASE expression and its CASE values.  Walk the lists
+     of case values, and if we find a mismatch, promote case_expr to
+     the appropriate kind.  */
+
+  if (type == BT_LOGICAL || type == BT_INTEGER)
+    {
+      for (body = code->block; body; body = body->block)
+	{
+	  /* Walk the case label list.  */
+	  for (cp = body->ext.case_list; cp; cp = cp->next)
+	    {
+	      /* Intercept the DEFAULT case.  It does not have a kind.  */
+	      if (cp->low == NULL && cp->high == NULL)
+		continue;
+
+	      /* Unreachable case ranges are discarded, so ignore.  */	
+	      if (cp->low != NULL && cp->high != NULL
+		  && cp->low != cp->high
+		  && gfc_compare_expr (cp->low, cp->high) > 0)
+		continue;
+
+	      /* FIXME: Should a warning be issued?  */
+	      if (cp->low != NULL
+		  && case_expr->ts.kind != gfc_kind_max(case_expr, cp->low))
+		gfc_convert_type_warn (case_expr, &cp->low->ts, 2, 0);
+
+	      if (cp->high != NULL
+		  && case_expr->ts.kind != gfc_kind_max(case_expr, cp->high))
+ 		gfc_convert_type_warn (case_expr, &cp->high->ts, 2, 0);
+	    }
+	 }
     }
 
   /* Assume there is no DEFAULT case.  */
@@ -3855,7 +3881,7 @@ resolve_symbol (gfc_symbol * sym)
   int formal_ns_save, check_constant, mp_flag;
   int i;
   const char *whynot;
-
+  gfc_namelist *nl;
 
   if (sym->attr.flavor == FL_UNKNOWN)
     {
@@ -4017,8 +4043,9 @@ resolve_symbol (gfc_symbol * sym)
 	}
     }
 
-  if (sym->attr.flavor == FL_VARIABLE)
+  switch (sym->attr.flavor)
     {
+    case FL_VARIABLE:
       /* Can the sybol have an initializer?  */
       whynot = NULL;
       if (sym->attr.allocatable)
@@ -4058,6 +4085,25 @@ resolve_symbol (gfc_symbol * sym)
       /* Assign default initializer.  */
       if (sym->ts.type == BT_DERIVED && !(sym->value || whynot))
 	sym->value = gfc_default_initializer (&sym->ts);
+      break;
+
+    case FL_NAMELIST:
+      /* Reject PRIVATE objects in a PUBLIC namelist.  */
+      if (gfc_check_access(sym->attr.access, sym->ns->default_access))
+	{
+	  for (nl = sym->namelist; nl; nl = nl->next)
+	    {
+	      if (!gfc_check_access(nl->sym->attr.access,
+				    nl->sym->ns->default_access))
+		gfc_error ("PRIVATE symbol '%s' cannot be member of "
+			   "PUBLIC namelist at %L", nl->sym->name,
+			   &sym->declared_at);
+	    }
+	}
+      break;
+
+    default:
+      break;
     }
 
 

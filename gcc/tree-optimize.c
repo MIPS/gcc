@@ -1,5 +1,5 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -357,6 +357,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
   NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -404,6 +405,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_calls);
   NEXT_PASS (pass_remove_range_assertions);
+  NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_remove_useless_vars);

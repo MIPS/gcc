@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -269,7 +269,6 @@ int flag_const_strings;
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
-int explicit_flag_signed_bitfields;
 
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
@@ -482,14 +481,6 @@ int max_tinst_depth = 500;
 tree *ridpointers;
 
 tree (*make_fname_decl) (tree, int);
-
-/* If non-NULL, the address of a language-specific function that
-   returns 1 for language-specific statement codes.  */
-int (*lang_statement_code_p) (enum tree_code);
-
-/* If non-NULL, the address of a language-specific function that takes
-   any action required right before expand_function_end is called.  */
-void (*lang_expand_function_end) (void);
 
 /* Nonzero means the expression being parsed will never be evaluated.
    This is a count, since unevaluated expressions can nest.  */
@@ -871,12 +862,7 @@ fix_string_type (tree value)
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
   if (flag_const_strings)
-    {
-      /* bleah, c_build_qualified_type should set TYPE_MAIN_VARIANT.  */
-      tree qa_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
-      TYPE_MAIN_VARIANT (qa_type) = a_type;
-      a_type = qa_type;
-    }
+    a_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
 
   TREE_TYPE (value) = a_type;
   TREE_CONSTANT (value) = 1;
@@ -2492,9 +2478,28 @@ c_build_qualified_type (tree type, int type_quals)
     return type;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
-    return build_array_type (c_build_qualified_type (TREE_TYPE (type),
-						     type_quals),
-			     TYPE_DOMAIN (type));
+    {
+      tree t;
+      tree element_type = c_build_qualified_type (TREE_TYPE (type),
+						  type_quals);
+
+      /* See if we already have an identically qualified type.  */
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  if (TYPE_QUALS (strip_array_types (t)) == type_quals
+	      && TYPE_NAME (t) == TYPE_NAME (type)
+	      && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	      && attribute_list_equal (TYPE_ATTRIBUTES (t),
+				       TYPE_ATTRIBUTES (type)))
+	    break;
+	}
+      if (!t)
+	{
+	  t = build_variant_type_copy (type);
+	  TREE_TYPE (t) = element_type;
+	}
+      return t;
+    }
 
   /* A restrict-qualified pointer type must be a pointer to object or
      incomplete type.  Note that the use of POINTER_TYPE_P also allows
@@ -3685,7 +3690,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
   else
     switch_location = input_location;
 
-  type = SWITCH_TYPE (switch_stmt);
+  type = SWITCH_STMT_TYPE (switch_stmt);
 
   default_node = splay_tree_lookup (cases, (splay_tree_key) NULL);
   if (warn_switch_default && !default_node)
@@ -3697,7 +3702,7 @@ c_do_switch_warnings (splay_tree cases, tree switch_stmt)
      default case, or when -Wswitch-enum was specified.  */
   if (((warn_switch && !default_node) || warn_switch_enum)
       && type && TREE_CODE (type) == ENUMERAL_TYPE
-      && TREE_CODE (SWITCH_COND (switch_stmt)) != INTEGER_CST)
+      && TREE_CODE (SWITCH_STMT_COND (switch_stmt)) != INTEGER_CST)
     {
       tree chain;
 

@@ -1,5 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -157,10 +157,16 @@ create_temp (tree t)
     name = "temp";
   tmp = create_tmp_var (type, name);
 
-  if (DECL_DEBUG_ALIAS_OF (t))
-    DECL_DEBUG_ALIAS_OF (tmp) = DECL_DEBUG_ALIAS_OF (t);  
+  if (DECL_DEBUG_EXPR (t) && DECL_DEBUG_EXPR_IS_FROM (t))
+    {
+      DECL_DEBUG_EXPR (tmp) = DECL_DEBUG_EXPR (t);  
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
   else if (!DECL_IGNORED_P (t))
-    DECL_DEBUG_ALIAS_OF (tmp) = t;
+    {
+      DECL_DEBUG_EXPR (tmp) = t;
+      DECL_DEBUG_EXPR_IS_FROM (tmp) = 1;
+    }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
   add_referenced_tmp_var (tmp);
@@ -2427,7 +2433,7 @@ insert_backedge_copies (void)
 		     start of a loop should be with a COND_EXPR or GOTO_EXPR.
 		     However, better safe than sorry. 
 
-		     If the block ends with a control statment or
+		     If the block ends with a control statement or
 		     something that might throw, then we have to
 		     insert this assignment before the last
 		     statement.  Else insert it after the last statement.  */

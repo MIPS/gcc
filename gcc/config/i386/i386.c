@@ -571,7 +571,11 @@ const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4 | m_NOCONA;
 const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
-const int x86_inter_unit_moves = ~(m_ATHLON_K8);
+
+/* ??? Allowing interunit moves makes it all too easy for the compiler to put
+   integer data in xmm registers.  Which results in pretty abysmal code.  */
+const int x86_inter_unit_moves = 0 /* ~(m_ATHLON_K8) */;
+
 const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPRO;
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
@@ -1557,9 +1561,9 @@ override_options (void)
 	error ("bad value (%s) for -mfpmath= switch", ix86_fpmath_string);
     }
 
-  /* If fpmath doesn't include 387, disable use of x87 intrinsics.  */
-  if (! (ix86_fpmath & FPMATH_387))
-    target_flags |= MASK_NO_FANCY_MATH_387;
+  /* If the i387 is disabled, then do not return values in it. */
+  if (!TARGET_80387)
+    target_flags &= ~MASK_FLOAT_RETURNS;
 
   if ((x86_accumulate_outgoing_args & TUNEMASK)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
@@ -1673,6 +1677,13 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 	  return false;
 	}
     }
+
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+  /* Dllimport'd functions are also called indirectly.  */
+  if (decl && lookup_attribute ("dllimport", DECL_ATTRIBUTES (decl))
+      && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
+    return false;
+#endif
 
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
@@ -7703,6 +7714,8 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  else
 	    emit_insn (gen_rtx_CLOBBER (VOIDmode, op0));
 
+	  if (mode != V4SFmode)
+	    op0 = gen_lowpart (V4SFmode, op0);
 	  m = adjust_address (op1, V2SFmode, 0);
 	  emit_insn (gen_sse_loadlps (op0, op0, m));
 	  m = adjust_address (op1, V2SFmode, 8);
@@ -7752,6 +7765,24 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
     gcc_unreachable ();
 }
 
+/* Expand a push in MODE.  This is some mode for which we do not support
+   proper push instructions, at least from the registers that we expect
+   the value to live in.  */
+
+void
+ix86_expand_push (enum machine_mode mode, rtx x)
+{
+  rtx tmp;
+
+  tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
+			     GEN_INT (-GET_MODE_SIZE (mode)),
+			     stack_pointer_rtx, 1, OPTAB_DIRECT);
+  if (tmp != stack_pointer_rtx)
+    emit_move_insn (stack_pointer_rtx, tmp);
+
+  tmp = gen_rtx_MEM (mode, stack_pointer_rtx);
+  emit_move_insn (tmp, x);
+}
 
 /* Fix up OPERANDS to satisfy ix86_binary_operator_ok.  Return the
    destination to use for the operation.  If different from the true
@@ -7976,6 +8007,56 @@ ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
   return TRUE;
 }
 
+/* A subroutine of ix86_expand_fp_absneg_operator and copysign expanders.
+   Create a mask for the sign bit in MODE for an SSE register.  If VECT is
+   true, then replicate the mask for all elements of the vector register.
+   If INVERT is true, then create a mask excluding the sign bit.  */
+
+rtx
+ix86_build_signbit_mask (enum machine_mode mode, bool vect, bool invert)
+{
+  enum machine_mode vec_mode;
+  HOST_WIDE_INT hi, lo;
+  int shift = 63;
+  rtvec v;
+  rtx mask;
+
+  /* Find the sign bit, sign extended to 2*HWI.  */
+  if (mode == SFmode)
+    lo = 0x80000000, hi = lo < 0;
+  else if (HOST_BITS_PER_WIDE_INT >= 64)
+    lo = (HOST_WIDE_INT)1 << shift, hi = -1;
+  else
+    lo = 0, hi = (HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT);
+
+  if (invert)
+    lo = ~lo, hi = ~hi;
+
+  /* Force this value into the low part of a fp vector constant.  */
+  mask = immed_double_const (lo, hi, mode == SFmode ? SImode : DImode);
+  mask = gen_lowpart (mode, mask);
+
+  if (mode == SFmode)
+    {
+      if (vect)
+	v = gen_rtvec (4, mask, mask, mask, mask);
+      else
+	v = gen_rtvec (4, mask, CONST0_RTX (SFmode),
+		       CONST0_RTX (SFmode), CONST0_RTX (SFmode));
+      vec_mode = V4SFmode;
+    }
+  else
+    {
+      if (vect)
+	v = gen_rtvec (2, mask, mask);
+      else
+	v = gen_rtvec (2, mask, CONST0_RTX (DFmode));
+      vec_mode = V2DFmode;
+    }
+
+  return force_reg (vec_mode, gen_rtx_CONST_VECTOR (vec_mode, v));
+}
+
 /* Generate code for floating point ABS or NEG.  */
 
 void
@@ -7987,79 +8068,19 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
   bool use_sse = false;
   bool vector_mode = VECTOR_MODE_P (mode);
   enum machine_mode elt_mode = mode;
-  enum machine_mode vec_mode = VOIDmode;
 
   if (vector_mode)
     {
       elt_mode = GET_MODE_INNER (mode);
-      vec_mode = mode;
       use_sse = true;
     }
-  if (TARGET_SSE_MATH)
-    {
-      if (mode == SFmode)
-	{
-	  use_sse = true;
-	  vec_mode = V4SFmode;
-	}
-      else if (mode == DFmode && TARGET_SSE2)
-	{
-	  use_sse = true;
-	  vec_mode = V2DFmode;
-	}
-    }
+  else if (TARGET_SSE_MATH)
+    use_sse = SSE_FLOAT_MODE_P (mode);
 
   /* NEG and ABS performed with SSE use bitwise mask operations.
      Create the appropriate mask now.  */
   if (use_sse)
-    {
-      HOST_WIDE_INT hi, lo;
-      int shift = 63;
-      rtvec v;
-
-      /* Find the sign bit, sign extended to 2*HWI.  */
-      if (elt_mode == SFmode)
-        lo = 0x80000000, hi = lo < 0;
-      else if (HOST_BITS_PER_WIDE_INT >= 64)
-        lo = (HOST_WIDE_INT)1 << shift, hi = -1;
-      else
-        lo = 0, hi = (HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT);
-
-      /* If we're looking for the absolute value, then we want
-	 the compliment.  */
-      if (code == ABS)
-        lo = ~lo, hi = ~hi;
-
-      /* Force this value into the low part of a fp vector constant.  */
-      mask = immed_double_const (lo, hi, elt_mode == SFmode ? SImode : DImode);
-      mask = gen_lowpart (elt_mode, mask);
-
-      switch (mode)
-	{
-	case SFmode:
-	  v = gen_rtvec (4, mask, CONST0_RTX (SFmode),
-			 CONST0_RTX (SFmode), CONST0_RTX (SFmode));
-	  break;
-
-	case DFmode:
-	  v = gen_rtvec (2, mask, CONST0_RTX (DFmode));
-	  break;
-
-	case V4SFmode:
-	  v = gen_rtvec (4, mask, mask, mask, mask);
-	  break;
-
-	case V4DFmode:
-	  v = gen_rtvec (2, mask, mask);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-
-      mask = gen_rtx_CONST_VECTOR (vec_mode, v);
-      mask = force_reg (vec_mode, mask);
-    }
+    mask = ix86_build_signbit_mask (elt_mode, vector_mode, code == ABS);
   else
     {
       /* When not using SSE, we don't use the mask, but prefer to keep the
@@ -8101,6 +8122,160 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
 
   if (dst != operands[0])
     emit_move_insn (operands[0], dst);
+}
+
+/* Expand a copysign operation.  Special case operand 0 being a constant.  */
+
+void
+ix86_expand_copysign (rtx operands[])
+{
+  enum machine_mode mode, vmode;
+  rtx dest, op0, op1, mask, nmask;
+
+  dest = operands[0];
+  op0 = operands[1];
+  op1 = operands[2];
+
+  mode = GET_MODE (dest);
+  vmode = mode == SFmode ? V4SFmode : V2DFmode;
+
+  if (GET_CODE (op0) == CONST_DOUBLE)
+    {
+      rtvec v;
+
+      if (real_isneg (CONST_DOUBLE_REAL_VALUE (op0)))
+	op0 = simplify_unary_operation (ABS, mode, op0, mode);
+
+      if (op0 == CONST0_RTX (mode))
+	op0 = CONST0_RTX (vmode);
+      else
+        {
+	  if (mode == SFmode)
+	    v = gen_rtvec (4, op0, CONST0_RTX (SFmode),
+                           CONST0_RTX (SFmode), CONST0_RTX (SFmode));
+	  else
+	    v = gen_rtvec (2, op0, CONST0_RTX (DFmode));
+          op0 = force_reg (vmode, gen_rtx_CONST_VECTOR (vmode, v));
+	}
+
+      mask = ix86_build_signbit_mask (mode, 0, 0);
+
+      if (mode == SFmode)
+	emit_insn (gen_copysignsf3_const (dest, op0, op1, mask));
+      else
+	emit_insn (gen_copysigndf3_const (dest, op0, op1, mask));
+    }
+  else
+    {
+      nmask = ix86_build_signbit_mask (mode, 0, 1);
+      mask = ix86_build_signbit_mask (mode, 0, 0);
+
+      if (mode == SFmode)
+	emit_insn (gen_copysignsf3_var (dest, NULL, op0, op1, nmask, mask));
+      else
+	emit_insn (gen_copysigndf3_var (dest, NULL, op0, op1, nmask, mask));
+    }
+}
+
+/* Deconstruct a copysign operation into bit masks.  Operand 0 is known to
+   be a constant, and so has already been expanded into a vector constant.  */
+
+void
+ix86_split_copysign_const (rtx operands[])
+{
+  enum machine_mode mode, vmode;
+  rtx dest, op0, op1, mask, x;
+
+  dest = operands[0];
+  op0 = operands[1];
+  op1 = operands[2];
+  mask = operands[3];
+
+  mode = GET_MODE (dest);
+  vmode = GET_MODE (mask);
+
+  dest = simplify_gen_subreg (vmode, dest, mode, 0);
+  x = gen_rtx_AND (vmode, dest, mask);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+
+  if (op0 != CONST0_RTX (vmode))
+    {
+      x = gen_rtx_IOR (vmode, dest, op0);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+}
+
+/* Deconstruct a copysign operation into bit masks.  Operand 0 is variable,
+   so we have to do two masks.  */
+
+void
+ix86_split_copysign_var (rtx operands[])
+{
+  enum machine_mode mode, vmode;
+  rtx dest, scratch, op0, op1, mask, nmask, x;
+
+  dest = operands[0];
+  scratch = operands[1];
+  op0 = operands[2];
+  op1 = operands[3];
+  nmask = operands[4];
+  mask = operands[5];
+
+  mode = GET_MODE (dest);
+  vmode = GET_MODE (mask);
+
+  if (rtx_equal_p (op0, op1))
+    {
+      /* Shouldn't happen often (it's useless, obviously), but when it does
+	 we'd generate incorrect code if we continue below.  */
+      emit_move_insn (dest, op0);
+      return;
+    }
+
+  if (REG_P (mask) && REGNO (dest) == REGNO (mask))	/* alternative 0 */
+    {
+      gcc_assert (REGNO (op1) == REGNO (scratch));
+
+      x = gen_rtx_AND (vmode, scratch, mask);
+      emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
+
+      dest = mask;
+      op0 = simplify_gen_subreg (vmode, op0, mode, 0);
+      x = gen_rtx_NOT (vmode, dest);
+      x = gen_rtx_AND (vmode, x, op0);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+  else
+    {
+      if (REGNO (op1) == REGNO (scratch))		/* alternative 1,3 */
+	{
+	  x = gen_rtx_AND (vmode, scratch, mask);
+	}
+      else						/* alternative 2,4 */
+	{
+          gcc_assert (REGNO (mask) == REGNO (scratch));
+          op1 = simplify_gen_subreg (vmode, op1, mode, 0);
+	  x = gen_rtx_AND (vmode, scratch, op1);
+	}
+      emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
+
+      if (REGNO (op0) == REGNO (dest))			/* alternative 1,2 */
+	{
+	  dest = simplify_gen_subreg (vmode, op0, mode, 0);
+	  x = gen_rtx_AND (vmode, dest, nmask);
+	}
+      else						/* alternative 3,4 */
+	{
+          gcc_assert (REGNO (nmask) == REGNO (dest));
+	  dest = nmask;
+	  op0 = simplify_gen_subreg (vmode, op0, mode, 0);
+	  x = gen_rtx_AND (vmode, dest, op0);
+	}
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+
+  x = gen_rtx_IOR (vmode, dest, scratch);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
 }
 
 /* Return TRUE or FALSE depending on whether the first SET in INSN
@@ -8311,7 +8486,7 @@ ix86_prepare_fp_compare_args (enum rtx_code code, rtx *pop0, rtx *pop1)
   enum machine_mode fpcmp_mode = ix86_fp_compare_mode (code);
   rtx op0 = *pop0, op1 = *pop1;
   enum machine_mode op_mode = GET_MODE (op0);
-  int is_sse = SSE_REG_P (op0) || SSE_REG_P (op1);
+  int is_sse = TARGET_SSE_MATH && SSE_FLOAT_MODE_P (op_mode);
 
   /* All of the unordered compare instructions only work on registers.
      The same is true of the fcomi compare instructions.  The same is
@@ -9768,12 +9943,17 @@ ix86_expand_fp_movcc (rtx operands[])
       if (cmode != mode)
 	return 0;
 
-      /* Massage condition to satisfy sse_comparison_operator.  In case we
-	 are in non-ieee mode, try to canonicalize the destination operand
-	 to be first in the comparison - this helps reload to avoid extra
-	 moves.  */
+      /* We have no LTGT as an operator.  We could implement it with
+	 NE & ORDERED, but this requires an extra temporary.  It's
+	 not clear that it's worth it.  */
+      if (code == LTGT || code == UNEQ)
+	return 0;
+
+      /* Massage condition to satisfy sse_comparison_operator.  Try
+	 to canonicalize the destination operand to be first in the
+	 comparison - this helps reload to avoid extra moves.  */
       if (!sse_comparison_operator (operands[1], VOIDmode)
-	  || ((COMMUTATIVE_P (operands[1]) || !TARGET_IEEE_FP)
+	  || (COMMUTATIVE_P (operands[1])
 	      && rtx_equal_p (operands[0], cmp_op1)))
 	{
 	  tmp = cmp_op0;
@@ -9895,8 +10075,48 @@ ix86_split_sse_movcc (rtx operands[])
   mode = GET_MODE (dest);
   vmode = GET_MODE (scratch);
 
-  emit_insn (gen_rtx_SET (VOIDmode, dest, cmp));
+  /* We need to make sure that the TRUE and FALSE operands are out of the
+     way of the destination.  Marking the destination earlyclobber doesn't
+     work, since we want matching constraints for the actual comparison, so
+     at some point we always wind up having to do a copy ourselves here.
+     We very much prefer the TRUE value to be in SCRATCH.  If it turns out
+     that FALSE overlaps DEST, then we invert the comparison so that we
+     still only have to do one move.  */
+  if (rtx_equal_p (op_false, dest))
+    {
+      enum rtx_code code;
 
+      if (rtx_equal_p (op_true, dest))
+	{
+	  /* ??? Really ought not happen.  It means some optimizer managed
+	     to prove the operands were identical, but failed to fold the
+	     conditional move to a straight move.  Do so here, because 
+	     otherwise we'll generate incorrect code.  And since they're
+	     both already in the destination register, nothing to do.  */
+	  return;
+	}
+
+      x = gen_rtx_REG (mode, REGNO (scratch));
+      emit_move_insn (x, op_false);
+      op_false = op_true;
+      op_true = x;
+
+      code = GET_CODE (cmp);
+      code = reverse_condition_maybe_unordered (code);
+      cmp = gen_rtx_fmt_ee (code, mode, XEXP (cmp, 0), XEXP (cmp, 1));
+    }
+  else if (op_true == CONST0_RTX (mode))
+    ;
+  else if (op_false == CONST0_RTX (mode) && !rtx_equal_p (op_true, dest))
+    ;
+  else
+    {
+      x = gen_rtx_REG (mode, REGNO (scratch));
+      emit_move_insn (x, op_true);
+      op_true = x;
+    }
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest, cmp));
   dest = simplify_gen_subreg (vmode, dest, mode, 0);
 
   if (op_false == CONST0_RTX (mode))
@@ -12629,6 +12849,7 @@ enum ix86_builtins
   IX86_BUILTIN_VEC_EXT_V4SF,
   IX86_BUILTIN_VEC_EXT_V4SI,
   IX86_BUILTIN_VEC_EXT_V8HI,
+  IX86_BUILTIN_VEC_EXT_V2SI,
   IX86_BUILTIN_VEC_EXT_V4HI,
   IX86_BUILTIN_VEC_SET_V8HI,
   IX86_BUILTIN_VEC_SET_V4HI,
@@ -13638,6 +13859,11 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_vec_ext_v4hi",
 	       ftype, IX86_BUILTIN_VEC_EXT_V4HI);
 
+  ftype = build_function_type_list (intSI_type_node, V2SI_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin (MASK_MMX, "__builtin_ia32_vec_ext_v2si",
+	       ftype, IX86_BUILTIN_VEC_EXT_V2SI);
+
   /* Access to the vec_set patterns.  */
   ftype = build_function_type_list (V8HI_type_node, V8HI_type_node,
 				    intHI_type_node,
@@ -14450,6 +14676,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_VEC_EXT_V4SF:
     case IX86_BUILTIN_VEC_EXT_V4SI:
     case IX86_BUILTIN_VEC_EXT_V8HI:
+    case IX86_BUILTIN_VEC_EXT_V2SI:
     case IX86_BUILTIN_VEC_EXT_V4HI:
       return ix86_expand_vec_ext_builtin (arglist, target);
 
@@ -14594,34 +14821,65 @@ ix86_free_from_memory (enum machine_mode mode)
 enum reg_class
 ix86_preferred_reload_class (rtx x, enum reg_class class)
 {
-  if (GET_CODE (x) == CONST_VECTOR && x != CONST0_RTX (GET_MODE (x)))
+  /* We're only allowed to return a subclass of CLASS.  Many of the 
+     following checks fail for NO_REGS, so eliminate that early.  */
+  if (class == NO_REGS)
     return NO_REGS;
+
+  /* All classes can load zeros.  */
+  if (x == CONST0_RTX (GET_MODE (x)))
+    return class;
+
+  /* Floating-point constants need more complex checks.  */
   if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != VOIDmode)
     {
-      /* SSE can't load any constant directly yet.  */
-      if (SSE_CLASS_P (class))
-	return NO_REGS;
-      /* Floats can load 0 and 1.  */
-      if (MAYBE_FLOAT_CLASS_P (class) && standard_80387_constant_p (x))
-	{
-	  /* Limit class to non-SSE.  Use GENERAL_REGS if possible.  */
-	  if (MAYBE_SSE_CLASS_P (class))
-	    return (reg_class_subset_p (class, GENERAL_REGS)
-		    ? GENERAL_REGS : FLOAT_REGS);
-	  else
-	    return class;
-	}
       /* General regs can load everything.  */
       if (reg_class_subset_p (class, GENERAL_REGS))
-	return GENERAL_REGS;
-      /* In case we haven't resolved FLOAT or SSE yet, give up.  */
-      if (MAYBE_FLOAT_CLASS_P (class) || MAYBE_SSE_CLASS_P (class))
-	return NO_REGS;
+        return class;
+
+      /* Floats can load 0 and 1 plus some others.  Note that we eliminated
+	 zero above.  We only want to wind up preferring 80387 registers if
+	 we plan on doing computation with them.  */
+      if (TARGET_80387
+	  && (TARGET_MIX_SSE_I387 
+	      || !(TARGET_SSE_MATH && SSE_FLOAT_MODE_P (GET_MODE (x))))
+	  && standard_80387_constant_p (x))
+	{
+	  /* Limit class to non-sse.  */
+	  if (class == FLOAT_SSE_REGS)
+	    return FLOAT_REGS;
+	  if (class == FP_TOP_SSE_REGS)
+	    return FP_TOP_REG;
+	  if (class == FP_SECOND_SSE_REGS)
+	    return FP_SECOND_REG;
+	  if (class == FLOAT_INT_REGS || class == FLOAT_REGS)
+	    return class;
+	}
+
+      return NO_REGS;
     }
   if (MAYBE_MMX_CLASS_P (class) && CONSTANT_P (x))
     return NO_REGS;
-  if (GET_MODE (x) == QImode && ! reg_class_subset_p (class, Q_REGS))
-    return Q_REGS;
+  if (MAYBE_SSE_CLASS_P (class) && CONSTANT_P (x))
+    return NO_REGS;
+
+  /* Generally when we see PLUS here, it's the function invariant
+     (plus soft-fp const_int).  Which can only be computed into general
+     regs.  */
+  if (GET_CODE (x) == PLUS)
+    return reg_class_subset_p (class, GENERAL_REGS) ? class : NO_REGS;
+
+  /* QImode constants are easy to load, but non-constant QImode data
+     must go into Q_REGS.  */
+  if (GET_MODE (x) == QImode && !CONSTANT_P (x))
+    {
+      if (reg_class_subset_p (class, Q_REGS))
+	return class;
+      if (reg_class_subset_p (Q_REGS, class))
+	return Q_REGS;
+      return NO_REGS;
+    }
+
   return class;
 }
 
@@ -14635,6 +14893,7 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
 
    When STRICT is false, we are being called from REGISTER_MOVE_COST, so do not
    enforce these sanity checks.  */
+
 int
 ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
 			      enum machine_mode mode, int strict)
@@ -14648,21 +14907,50 @@ ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
     {
       if (strict)
 	abort ();
-      else
-	return 1;
+      return true;
     }
-  return (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2)
-	  || ((SSE_CLASS_P (class1) != SSE_CLASS_P (class2)
-	       || MMX_CLASS_P (class1) != MMX_CLASS_P (class2))
-	      && ((mode != SImode && (mode != DImode || !TARGET_64BIT))
-		  || (!TARGET_INTER_UNIT_MOVES && !optimize_size))));
+
+  if (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2))
+    return true;
+
+  /* ??? This is a lie.  We do have moves between mmx/general, and for
+     mmx/sse2.  But by saying we need secondary memory we discourage the
+     register allocator from using the mmx registers unless needed.  */
+  if (MMX_CLASS_P (class1) != MMX_CLASS_P (class2))
+    return true;
+
+  if (SSE_CLASS_P (class1) != SSE_CLASS_P (class2))
+    {
+      /* SSE1 doesn't have any direct moves from other classes.  */
+      if (!TARGET_SSE2)
+	return true;
+
+      /* If the target says that inter-unit moves are more expensive 
+	 than moving through memory, then don't generate them.  */
+      if (!TARGET_INTER_UNIT_MOVES && !optimize_size)
+	return true;
+
+      /* Between SSE and general, we have moves no larger than word size.  */
+      if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+	return true;
+
+      /* ??? For the cost of one register reformat penalty, we could use
+	 the same instructions to move SFmode and DFmode data, but the 
+	 relevant move patterns don't support those alternatives.  */
+      if (mode == SFmode || mode == DFmode)
+	return true;
+    }
+
+  return false;
 }
+
 /* Return the cost of moving data from a register in class CLASS1 to
    one in class CLASS2.
 
    It is not required that the cost always equal 2 when FROM is the same as TO;
    on some machines it is expensive to move between registers if they are not
    general registers.  */
+
 int
 ix86_register_move_cost (enum machine_mode mode, enum reg_class class1,
 			 enum reg_class class2)
@@ -16010,7 +16298,7 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
 
       x = gen_reg_rtx (wmode);
       emit_move_insn (x, gen_lowpart (wmode, const_vec));
-      ix86_expand_vector_set (mmx_ok, target, var, one_var >> 1);
+      ix86_expand_vector_set (mmx_ok, x, var, one_var >> 1);
 
       emit_move_insn (target, gen_lowpart (mode, x));
       return true;
@@ -16145,7 +16433,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 	{
 	  rtx tmp = gen_reg_rtx (V4SImode);
 	  vals = gen_rtx_PARALLEL (V4SImode, gen_rtvec_v (4, words));
-	  ix86_expand_vector_init_general (false, V4SImode, target, vals);
+	  ix86_expand_vector_init_general (false, V4SImode, tmp, vals);
 	  emit_move_insn (target, gen_lowpart (mode, tmp));
 	}
       else
@@ -16219,9 +16507,18 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
     {
     case V2SFmode:
     case V2SImode:
-      if (!mmx_ok)
-	break;
-      /* FALLTHRU */
+      if (mmx_ok)
+	{
+	  tmp = gen_reg_rtx (GET_MODE_INNER (mode));
+	  ix86_expand_vector_extract (true, tmp, target, 1 - elt);
+	  if (elt == 0)
+	    tmp = gen_rtx_VEC_CONCAT (mode, tmp, val);
+	  else
+	    tmp = gen_rtx_VEC_CONCAT (mode, val, tmp);
+	  emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+	  return;
+	}
+      break;
 
     case V2DFmode:
     case V2DImode:
@@ -16264,7 +16561,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	  /* op0 = A B X D  */
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (1), GEN_INT (0),
-				       GEN_INT (2), GEN_INT (3)));
+				       GEN_INT (2+4), GEN_INT (3+4)));
 	  return;
 
 	case 2:
@@ -16272,7 +16569,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	  ix86_expand_vector_set (false, target, val, 0);
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (0), GEN_INT (1),
-				       GEN_INT (0), GEN_INT (3)));
+				       GEN_INT (0+4), GEN_INT (3+4)));
 	  return;
 
 	case 3:
@@ -16280,7 +16577,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	  ix86_expand_vector_set (false, target, val, 0);
 	  emit_insn (gen_sse_shufps_1 (target, target, tmp,
 				       GEN_INT (0), GEN_INT (1),
-				       GEN_INT (2), GEN_INT (0)));
+				       GEN_INT (2+4), GEN_INT (0+4)));
 	  return;
 
 	default:
@@ -16390,7 +16687,7 @@ ix86_expand_vector_extract (bool mmx_ok, rtx target, rtx vec, int elt)
 	  tmp = gen_reg_rtx (mode);
 	  emit_insn (gen_sse_shufps_1 (tmp, vec, vec,
 				       GEN_INT (elt), GEN_INT (elt),
-				       GEN_INT (elt), GEN_INT (elt)));
+				       GEN_INT (elt+4), GEN_INT (elt+4)));
 	  break;
 
 	case 2:

@@ -1,6 +1,7 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -87,6 +88,7 @@ DEFTIMEVAR (TV_TREE_FORWPROP	     , "tree forward propagate")
 DEFTIMEVAR (TV_TREE_DCE		     , "tree conservative DCE")
 DEFTIMEVAR (TV_TREE_CD_DCE	     , "tree aggressive DCE")
 DEFTIMEVAR (TV_TREE_DSE		     , "tree DSE")
+DEFTIMEVAR (TV_TREE_MERGE_PHI	     , "PHI merge")
 DEFTIMEVAR (TV_TREE_LOOP	     , "tree loop optimization")
 DEFTIMEVAR (TV_TREE_LOOP_BOUNDS	     , "tree record loop bounds")
 DEFTIMEVAR (TV_LIM                   , "loop invariant motion")

@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1020,7 +1020,7 @@ comptypes (tree t1, tree t2, int strict)
       
       /* We may be dealing with Objective-C instances...  */
       if (TREE_CODE (t1) == RECORD_TYPE
-	  && (retval = objc_comptypes (t1, t2, 0) >= 0))
+	  && ((retval = objc_comptypes (t1, t2, 0)) >= 0))
          return retval;
       /* ...but fall through if we are not.  */
 
@@ -1087,17 +1087,6 @@ at_least_as_qualified_p (tree type1, tree type2)
   
   /* All qualifiers for TYPE2 must also appear in TYPE1.  */
   return (q1 & q2) == q2;
-}
-
-/* Returns 1 if TYPE1 is more qualified than TYPE2.  */
-
-bool
-more_qualified_p (tree type1, tree type2)
-{
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
-  return q1 != q2 && (q1 & q2) == q2;
 }
 
 /* Returns 1 if TYPE1 is more cv-qualified than TYPE2, -1 if TYPE2 is
@@ -2199,7 +2188,7 @@ build_array_ref (tree array, tree idx)
 
       /* Apply integral promotions *after* noticing character types.
 	 (It is unclear why we do these promotions -- the standard
-	 does not say that we should.  In fact, the natual thing would
+	 does not say that we should.  In fact, the natural thing would
 	 seem to be to convert IDX to ptrdiff_t; we're performing
 	 pointer arithmetic.)  */
       idx = perform_integral_promotions (idx);
@@ -5822,57 +5811,6 @@ pfn_from_ptrmemfunc (tree t)
     }
 
   return build_ptrmemfunc_access_expr (t, pfn_identifier);
-}
-
-/* Expression EXPR is about to be implicitly converted to TYPE.  Warn
-   if this is a potentially dangerous thing to do.  Returns a possibly
-   marked EXPR.  */
-
-tree
-dubious_conversion_warnings (tree type, tree expr,
-			     const char *errtype, tree fndecl, int parmnum)
-{
-  type = non_reference (type);
-  
-  /* Issue warnings about peculiar, but valid, uses of NULL.  */
-  if (ARITHMETIC_TYPE_P (type) && expr == null_node)
-    {
-      if (fndecl)
-        warning ("passing NULL used for non-pointer %s %P of %qD",
-                 errtype, parmnum, fndecl);
-      else
-        warning ("%s to non-pointer type %qT from NULL", errtype, type);
-    }
-  
-  /* Warn about assigning a floating-point type to an integer type.  */
-  if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-      && TREE_CODE (type) == INTEGER_TYPE)
-    {
-      if (fndecl)
-	warning ("passing %qT for %s %P of %qD",
-                 TREE_TYPE (expr), errtype, parmnum, fndecl);
-      else
-	warning ("%s to %qT from %qT", errtype, type, TREE_TYPE (expr));
-    }
-  /* And warn about assigning a negative value to an unsigned
-     variable.  */
-  else if (TYPE_UNSIGNED (type) && TREE_CODE (type) != BOOLEAN_TYPE)
-    {
-      if (TREE_CODE (expr) == INTEGER_CST && TREE_NEGATED_INT (expr))
-	{
-	  if (fndecl)
-	    warning ("passing negative value %qE for %s %P of %qD",
-                     expr, errtype, parmnum, fndecl);
-	  else
-	    warning ("%s of negative value %qE to %qT", errtype, expr, type);
-	}
-
-      overflow_warning (expr);
-
-      if (TREE_CONSTANT (expr))
-	expr = fold_if_not_in_template (expr);
-    }
-  return expr;
 }
 
 /* Convert value RHS to type TYPE as preparation for an assignment to

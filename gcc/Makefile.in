@@ -2,7 +2,7 @@
 # Run 'configure' to generate Makefile from Makefile.in
 
 # Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-# 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+# 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -704,7 +704,6 @@ FLAGS_H = flags.h options.h
 EXPR_H = expr.h insn-config.h function.h $(RTL_H) $(FLAGS_H) $(TREE_H) $(MACHMODE_H) $(EMIT_RTL_H)
 OPTABS_H = optabs.h insn-codes.h
 REGS_H = regs.h varray.h $(MACHMODE_H) $(OBSTACK_H) $(BASIC_BLOCK_H)
-RA_H = ra.h bitmap.h sbitmap.h hard-reg-set.h insn-modes.h
 RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h varray.h
@@ -920,8 +919,7 @@ OBJS-common = \
  loop.o modulo-sched.o optabs.o options.o opts.o			   \
  params.o postreload.o postreload-gcse.o predict.o			   \
  insn-preds.o pointer-set.o postreload.o				   \
- print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
- profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
+ print-rtl.o print-tree.o profile.o value-prof.o var-tracking.o		   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
@@ -951,10 +949,7 @@ STAGECOPYSTUFF = insn-flags.h insn-config.h insn-codes.h \
  genrtl.c genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-gen.h
 
 # Files to be moved away after each stage in building.
-STAGEMOVESTUFF = *$(objext) \
- s-flags s-config s-codes s-mlib s-genrtl s-modes s-gtype \
- s-gtyp-gen s-output s-recog s-emit s-extract s-peep s-check s-conditions \
- s-attr s-attrtab s-opinit s-preds s-constants s-crt0 \
+STAGEMOVESTUFF = *$(objext) s-* \
  xgcc$(exeext) cpp$(exeext) cc1$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) \
  protoize$(exeext) unprotoize$(exeext) \
@@ -1668,7 +1663,7 @@ tree-ssa-copyrename.o : tree-ssa-copyrename.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h toplev.h $(TIMEVAR_H) \
-   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H)
+   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H)
 tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
    $(TREE_H) $(TREE_FLOW_H) $(HASHTAB_H) langhooks.h tree-pass.h \
    $(TREE_DUMP_H) diagnostic.h
@@ -2054,7 +2049,7 @@ et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.
 combine.o : combine.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) function.h insn-config.h $(INSN_ATTR_H) $(REGS_H) $(EXPR_H) \
    rtlhooks-def.h $(BASIC_BLOCK_H) $(RECOG_H) real.h hard-reg-set.h \
-   toplev.h $(TM_P_H) $(TREE_H) $(TARGET_H) output.h
+   toplev.h $(TM_P_H) $(TREE_H) $(TARGET_H) output.h $(PARAMS_H)
 regclass.o : regclass.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) $(REGS_H) insn-config.h \
    $(RECOG_H) reload.h real.h toplev.h function.h output.h $(GGC_H) \
@@ -2070,20 +2065,6 @@ global.o : global.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS
 varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) varray.h $(GGC_H) errors.h \
    $(HASHTAB_H)
 vec.o : vec.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) coretypes.h vec.h $(GGC_H) errors.h
-ra.o : ra.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TM_P_H) insn-config.h \
-   $(RECOG_H) $(INTEGRATE_H) function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
-   $(BASIC_BLOCK_H) $(DF_H) $(EXPR_H) output.h toplev.h $(FLAGS_H) reload.h $(RA_H)
-ra-build.o : ra-build.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TM_P_H) \
-   insn-config.h $(RECOG_H) function.h $(REGS_H) hard-reg-set.h \
-   $(BASIC_BLOCK_H) $(DF_H) output.h $(GGC_H) $(RA_H) gt-ra-build.h reload.h
-ra-colorize.o : ra-colorize.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-    $(TM_P_H) function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) output.h $(RA_H)
-ra-debug.o : ra-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   insn-config.h $(RECOG_H) function.h hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) output.h \
-   $(RA_H) $(TM_P_H) $(REGS_H)
-ra-rewrite.o : ra-rewrite.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   $(TM_P_H) function.h $(REGS_H) hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) $(EXPR_H) \
-   output.h except.h $(RA_H) reload.h insn-config.h
 reload.o : reload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) output.h \
    $(EXPR_H) $(OPTABS_H) reload.h $(RECOG_H) hard-reg-set.h insn-config.h \
    $(REGS_H) function.h real.h toplev.h $(TM_P_H) $(PARAMS_H)
@@ -2435,7 +2416,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/function.c \
   $(srcdir)/gcse.c $(srcdir)/integrate.c $(srcdir)/lists.c $(srcdir)/optabs.c \
-  $(srcdir)/profile.c $(srcdir)/ra-build.c $(srcdir)/regclass.c \
+  $(srcdir)/profile.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
@@ -2461,7 +2442,7 @@ gt-function.h gt-integrate.h gt-tree.h gt-varasm.h \
 gt-emit-rtl.h gt-explow.h gt-stor-layout.h gt-regclass.h \
 gt-lists.h gt-alias.h gt-cselib.h gt-gcse.h \
 gt-expr.h gt-sdbout.h gt-optabs.h gt-bitmap.h gt-dojump.h \
-gt-dwarf2out.h gt-ra-build.h gt-reg-stack.h gt-dwarf2asm.h \
+gt-dwarf2out.h gt-reg-stack.h gt-dwarf2asm.h \
 gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gtype-c.h gt-cfglayout.h \
 gt-tree-mudflap.h gt-tree-complex.h \
@@ -2835,6 +2816,20 @@ s-macro_list : $(GCC_PASSES)
 	  sort -u > tmp-macro_list
 	$(SHELL) $(srcdir)/../move-if-change tmp-macro_list macro_list
 	$(STAMP) s-macro_list
+
+# The line below is supposed to avoid accidentally matching the
+# built-in suffix rule `.o:' to build fixincl out of fixincl.o.  You'd
+# expect fixincl to be newer than fixincl.o, such that this situation
+# would never come up.  As it turns out, if you use ccache with
+# CCACHE_HARDLINK enabled, the compiler doesn't embed the current
+# working directory in object files (-g absent, or -fno-working-dir
+# present), and build and host are the same, fixincl for the host will
+# build after fixincl for the build machine, getting a cache hit,
+# thereby updating the timestamp of fixincl.o in the the host tree.
+# Because of CCACHE_HARDLINK, this will also update the timestamp in
+# the build tree, and so fixincl in the build tree will appear to be
+# out of date.  Yuck.
+../$(build_subdir)/fixincludes/fixincl: ; @ :
 
 # Build fixed copies of system files.
 stmp-fixinc: gsyslimits.h macro_list \

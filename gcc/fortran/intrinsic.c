@@ -1,6 +1,6 @@
 /* Build up a list of intrinsic subroutines and functions for the
    name-resolution stage.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -808,8 +808,13 @@ make_generic (const char *name, gfc_generic_isym_id generic_id, int standard)
    freed as a single block.  */
 
 static void
-make_alias (const char *name)
+make_alias (const char *name, int standard)
 {
+
+  /* First check that the intrinsic belongs to the selected standard.
+     If not, don't add it to the symbol list.  */
+  if (!(gfc_option.allow_std & standard))
+    return;
 
   switch (sizing)
     {
@@ -884,7 +889,7 @@ add_functions (void)
 	     NULL, gfc_simplify_abs, gfc_resolve_abs, 
 	     a, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdabs");
+  make_alias ("cdabs", GFC_STD_GNU);
 
   make_generic ("abs", GFC_ISYM_ABS, GFC_STD_F77);
 
@@ -895,7 +900,7 @@ add_functions (void)
   make_generic ("achar", GFC_ISYM_ACHAR, GFC_STD_F95);
 
   add_sym_1 ("acos", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_acos, gfc_resolve_acos,
+	     gfc_check_fn_r, gfc_simplify_acos, gfc_resolve_acos,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dacos", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -917,7 +922,7 @@ add_functions (void)
   make_generic ("adjustr", GFC_ISYM_ADJUSTR, GFC_STD_F95);
 
   add_sym_1 ("aimag", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_aimag, gfc_resolve_aimag,
+	     gfc_check_fn_c, gfc_simplify_aimag, gfc_resolve_aimag,
 	     z, BT_COMPLEX, dz, REQUIRED);
 
   add_sym_1 ("dimag", 1, 1, BT_REAL, dd, GFC_STD_GNU, 
@@ -965,7 +970,7 @@ add_functions (void)
   make_generic ("any", GFC_ISYM_ANY, GFC_STD_F95);
 
   add_sym_1 ("asin", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_asin, gfc_resolve_asin,
+	     gfc_check_fn_r, gfc_simplify_asin, gfc_resolve_asin,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dasin", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -981,7 +986,7 @@ add_functions (void)
   make_generic ("associated", GFC_ISYM_ASSOCIATED, GFC_STD_F95);
 
   add_sym_1 ("atan", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_atan, gfc_resolve_atan,
+	     gfc_check_fn_r, gfc_simplify_atan, gfc_resolve_atan,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("datan", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1102,7 +1107,7 @@ add_functions (void)
   make_generic ("dcmplx", GFC_ISYM_CMPLX, GFC_STD_GNU);
 
   add_sym_1 ("conjg", 1, 1, BT_COMPLEX, dz, GFC_STD_F77,
-	     NULL, gfc_simplify_conjg, gfc_resolve_conjg,
+	     gfc_check_fn_c, gfc_simplify_conjg, gfc_resolve_conjg,
 	     z, BT_COMPLEX, dz, REQUIRED);
 
   add_sym_1 ("dconjg", 1, 1, BT_COMPLEX, dd, GFC_STD_GNU,
@@ -1112,11 +1117,11 @@ add_functions (void)
   make_generic ("conjg", GFC_ISYM_CONJG, GFC_STD_F77);
 
   add_sym_1 ("cos", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_cos, gfc_resolve_cos,
+	     gfc_check_fn_rc, gfc_simplify_cos, gfc_resolve_cos,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dcos", 1, 1, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_cos, gfc_resolve_cos,
+	     gfc_check_fn_rc, gfc_simplify_cos, gfc_resolve_cos,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("ccos", 1, 1, BT_COMPLEX, dz, GFC_STD_F77,
@@ -1127,12 +1132,12 @@ add_functions (void)
 	     NULL, gfc_simplify_cos, gfc_resolve_cos, 
 	     x, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdcos");
+  make_alias ("cdcos", GFC_STD_GNU);
 
   make_generic ("cos", GFC_ISYM_COS, GFC_STD_F77);
 
   add_sym_1 ("cosh", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_cosh, gfc_resolve_cosh,
+	     gfc_check_fn_r, gfc_simplify_cosh, gfc_resolve_cosh,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dcosh", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1158,7 +1163,7 @@ add_functions (void)
 	     gfc_check_dble, gfc_simplify_dble, gfc_resolve_dble,
 	     a, BT_REAL, dr, REQUIRED);
 
-  make_alias ("dfloat");
+  make_alias ("dfloat", GFC_STD_GNU);
 
   make_generic ("dble", GFC_ISYM_DBLE, GFC_STD_F77);
 
@@ -1239,12 +1244,12 @@ add_functions (void)
 	     gfc_check_etime, NULL, NULL,
 	     x, BT_REAL, 4, REQUIRED);
 
-  make_alias ("dtime");
+  make_alias ("dtime", GFC_STD_GNU);
 
   make_generic ("etime", GFC_ISYM_ETIME, GFC_STD_GNU);
 
   add_sym_1 ("exp", 1, 1, BT_REAL, dr,  GFC_STD_F77,
-	     NULL, gfc_simplify_exp, gfc_resolve_exp,
+	     gfc_check_fn_rc, gfc_simplify_exp, gfc_resolve_exp,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dexp", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1259,7 +1264,7 @@ add_functions (void)
 	     NULL, gfc_simplify_exp, gfc_resolve_exp, 
 	     x, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdexp");
+  make_alias ("cdexp", GFC_STD_GNU);
 
   make_generic ("exp", GFC_ISYM_EXP, GFC_STD_F77);
 
@@ -1472,7 +1477,7 @@ add_functions (void)
   make_generic ("llt", GFC_ISYM_LLT, GFC_STD_F77);
 
   add_sym_1 ("log", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_log, gfc_resolve_log,
+	     gfc_check_fn_rc, gfc_simplify_log, gfc_resolve_log,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("alog", 1, 1, BT_REAL, dr, GFC_STD_F77,
@@ -1491,12 +1496,12 @@ add_functions (void)
 	     NULL, gfc_simplify_log, gfc_resolve_log,
 	     x, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdlog");
+  make_alias ("cdlog", GFC_STD_GNU);
 
   make_generic ("log", GFC_ISYM_LOG, GFC_STD_F77);
 
   add_sym_1 ("log10", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_log10, gfc_resolve_log10,
+	     gfc_check_fn_r, gfc_simplify_log10, gfc_resolve_log10,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("alog10", 1, 1, BT_REAL, dr, GFC_STD_F77,
@@ -1713,7 +1718,7 @@ add_functions (void)
 
   /* Compatibility with HP FORTRAN 77/iX Reference.  Note, rand() and ran()
      use slightly different shoddy multiplicative congruential PRNG.  */
-  make_alias ("ran");
+  make_alias ("ran", GFC_STD_GNU);
 
   make_generic ("rand", GFC_ISYM_RAND, GFC_STD_GNU);
 
@@ -1816,7 +1821,7 @@ add_functions (void)
   make_generic ("sign", GFC_ISYM_SIGN, GFC_STD_F77);
 
   add_sym_1 ("sin", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_sin, gfc_resolve_sin,
+	     gfc_check_fn_rc, gfc_simplify_sin, gfc_resolve_sin,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsin", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1831,12 +1836,12 @@ add_functions (void)
 	     NULL, gfc_simplify_sin, gfc_resolve_sin,
 	     x, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdsin");
+  make_alias ("cdsin", GFC_STD_GNU);
 
   make_generic ("sin", GFC_ISYM_SIN, GFC_STD_F77);
 
   add_sym_1 ("sinh", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_sinh, gfc_resolve_sinh,
+	     gfc_check_fn_r, gfc_simplify_sinh, gfc_resolve_sinh,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsinh", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1865,7 +1870,7 @@ add_functions (void)
   make_generic ("spread", GFC_ISYM_SPREAD, GFC_STD_F95);
 
   add_sym_1 ("sqrt", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_sqrt, gfc_resolve_sqrt,
+	     gfc_check_fn_rc, gfc_simplify_sqrt, gfc_resolve_sqrt,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsqrt", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1880,7 +1885,7 @@ add_functions (void)
 	     NULL, gfc_simplify_sqrt, gfc_resolve_sqrt,
 	     x, BT_COMPLEX, dd, REQUIRED);
 
-  make_alias ("cdsqrt");
+  make_alias ("cdsqrt", GFC_STD_GNU);
 
   make_generic ("sqrt", GFC_ISYM_SQRT, GFC_STD_F77);
 
@@ -1904,7 +1909,7 @@ add_functions (void)
   make_generic ("system", GFC_ISYM_SYSTEM, GFC_STD_GNU);
 
   add_sym_1 ("tan", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_tan, gfc_resolve_tan,
+	     gfc_check_fn_r, gfc_simplify_tan, gfc_resolve_tan,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dtan", 1, 1, BT_REAL, dd, GFC_STD_F77,
@@ -1914,7 +1919,7 @@ add_functions (void)
   make_generic ("tan", GFC_ISYM_TAN, GFC_STD_F77);
 
   add_sym_1 ("tanh", 1, 1, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_tanh, gfc_resolve_tanh,
+	     gfc_check_fn_r, gfc_simplify_tanh, gfc_resolve_tanh,
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dtanh", 1, 1, BT_REAL, dd, GFC_STD_F77,

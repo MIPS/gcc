@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2707,13 +2707,14 @@ read_complex_part (rtx cplx, bool imag_p)
 			    true, NULL_RTX, imode, imode);
 }
 
-/* A subroutine of emit_move_via_alt_mode.  Yet another lowpart generator.
+/* A subroutine of emit_move_insn_1.  Yet another lowpart generator.
    NEW_MODE and OLD_MODE are the same size.  Return NULL if X cannot be
-   represented in NEW_MODE.  */
+   represented in NEW_MODE.  If FORCE is true, this will never happen, as
+   we'll force-create a SUBREG if needed.  */
 
 static rtx
 emit_move_change_mode (enum machine_mode new_mode,
-		       enum machine_mode old_mode, rtx x)
+		       enum machine_mode old_mode, rtx x, bool force)
 {
   rtx ret;
 
@@ -2731,32 +2732,19 @@ emit_move_change_mode (enum machine_mode new_mode,
     }
   else
     {
-      /* Note that we do want simplify_subreg's behaviour of validating
+      /* Note that we do want simplify_subreg's behavior of validating
 	 that the new mode is ok for a hard register.  If we were to use
 	 simplify_gen_subreg, we would create the subreg, but would
 	 probably run into the target not being able to implement it.  */
-      ret = simplify_subreg (new_mode, x, old_mode, 0);
+      /* Except, of course, when FORCE is true, when this is exactly what
+	 we want.  Which is needed for CCmodes on some targets.  */
+      if (force)
+	ret = simplify_gen_subreg (new_mode, x, old_mode, 0);
+      else
+	ret = simplify_subreg (new_mode, x, old_mode, 0);
     }
 
   return ret;
-}
-
-/* A subroutine of emit_move_insn_1.  Generate a move from Y into X using
-   ALT_MODE instead of the operand's natural mode, MODE.  CODE is the insn
-   code for the move in ALT_MODE, and is known to be valid.  Returns the
-   instruction emitted, or NULL if X or Y cannot be represented in ALT_MODE.  */
-
-static rtx
-emit_move_via_alt_mode (enum machine_mode alt_mode, enum machine_mode mode,
-			enum insn_code code, rtx x, rtx y)
-{
-  x = emit_move_change_mode (alt_mode, mode, x);
-  if (x == NULL_RTX)
-    return NULL_RTX;
-  y = emit_move_change_mode (alt_mode, mode, y);
-  if (y == NULL_RTX)
-    return NULL_RTX;
-  return emit_insn (GEN_FCN (code) (x, y));
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X using
@@ -2779,7 +2767,13 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
   if (code == CODE_FOR_nothing)
     return NULL_RTX;
 
-  return emit_move_via_alt_mode (imode, mode, code, x, y);
+  x = emit_move_change_mode (imode, mode, x, false);
+  if (x == NULL_RTX)
+    return NULL_RTX;
+  y = emit_move_change_mode (imode, mode, y, false);
+  if (y == NULL_RTX)
+    return NULL_RTX;
+  return emit_insn (GEN_FCN (code) (x, y));
 }
 
 /* A subroutine of emit_move_insn_1.  X is a push_operand in MODE.
@@ -2883,7 +2877,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
   if (push_operand (x, mode))
     return emit_move_complex_push (mode, x, y);
 
-  /* For memory to memory moves, optimial behaviour can be had with the
+  /* For memory to memory moves, optimal behavior can be had with the
      existing block move logic.  */
   if (MEM_P (x) && MEM_P (y))
     {
@@ -2943,7 +2937,11 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
     {
       enum insn_code code = mov_optab->handlers[CCmode].insn_code;
       if (code != CODE_FOR_nothing)
-	return emit_move_via_alt_mode (CCmode, mode, code, x, y);
+	{
+	  x = emit_move_change_mode (CCmode, mode, x, true);
+	  y = emit_move_change_mode (CCmode, mode, y, true);
+	  return emit_insn (GEN_FCN (code) (x, y));
+	}
     }
 
   /* Otherwise, find the MODE_INT mode of the same width.  */
@@ -4274,12 +4272,15 @@ store_expr (tree exp, rtx target, int call_param_p)
    * how many scalar fields are set to non-constant values,
      and place it in  *P_NC_ELTS; and
    * how many scalar fields in total are in CTOR,
-     and place it in *P_ELT_COUNT.  */
+     and place it in *P_ELT_COUNT.
+   * if a type is a union, and the initializer from the constructor
+     is not the largest element in the union, then set *p_must_clear.  */
 
 static void
 categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 			    HOST_WIDE_INT *p_nc_elts,
-			    HOST_WIDE_INT *p_elt_count)
+			    HOST_WIDE_INT *p_elt_count,
+			    bool *p_must_clear)
 {
   HOST_WIDE_INT nz_elts, nc_elts, elt_count;
   tree list;
@@ -4309,11 +4310,11 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 	{
 	case CONSTRUCTOR:
 	  {
-	    HOST_WIDE_INT nz = 0, nc = 0, count = 0;
-	    categorize_ctor_elements_1 (value, &nz, &nc, &count);
+	    HOST_WIDE_INT nz = 0, nc = 0, ic = 0;
+	    categorize_ctor_elements_1 (value, &nz, &nc, &ic, p_must_clear);
 	    nz_elts += mult * nz;
 	    nc_elts += mult * nc;
-	    elt_count += mult * count;
+	    elt_count += mult * ic;
 	  }
 	  break;
 
@@ -4358,6 +4359,40 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 	}
     }
 
+  if (!*p_must_clear
+      && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
+	  || TREE_CODE (TREE_TYPE (ctor)) == QUAL_UNION_TYPE))
+    {
+      tree init_sub_type;
+      bool clear_this = true;
+
+      list = CONSTRUCTOR_ELTS (ctor);
+      if (list)
+	{
+	  /* We don't expect more than one element of the union to be
+	     initialized.  Not sure what we should do otherwise... */
+          gcc_assert (TREE_CHAIN (list) == NULL);
+
+          init_sub_type = TREE_TYPE (TREE_VALUE (list));
+
+	  /* ??? We could look at each element of the union, and find the
+	     largest element.  Which would avoid comparing the size of the
+	     initialized element against any tail padding in the union.
+	     Doesn't seem worth the effort...  */
+	  if (simple_cst_equal (TYPE_SIZE (TREE_TYPE (ctor)), 
+				TYPE_SIZE (init_sub_type)) == 1)
+	    {
+	      /* And now we have to find out if the element itself is fully
+		 constructed.  E.g. for union { struct { int a, b; } s; } u
+		 = { .s = { .a = 1 } }.  */
+	      if (elt_count == count_type_elements (init_sub_type))
+		clear_this = false;
+	    }
+	}
+
+      *p_must_clear = clear_this;
+    }
+
   *p_nz_elts += nz_elts;
   *p_nc_elts += nc_elts;
   *p_elt_count += elt_count;
@@ -4366,12 +4401,15 @@ categorize_ctor_elements_1 (tree ctor, HOST_WIDE_INT *p_nz_elts,
 void
 categorize_ctor_elements (tree ctor, HOST_WIDE_INT *p_nz_elts,
 			  HOST_WIDE_INT *p_nc_elts,
-			  HOST_WIDE_INT *p_elt_count)
+			  HOST_WIDE_INT *p_elt_count,
+			  bool *p_must_clear)
 {
   *p_nz_elts = 0;
   *p_nc_elts = 0;
   *p_elt_count = 0;
-  categorize_ctor_elements_1 (ctor, p_nz_elts, p_nc_elts, p_elt_count);
+  *p_must_clear = false;
+  categorize_ctor_elements_1 (ctor, p_nz_elts, p_nc_elts, p_elt_count,
+			      p_must_clear);
 }
 
 /* Count the number of scalars in TYPE.  Return -1 on overflow or
@@ -4461,8 +4499,12 @@ mostly_zeros_p (tree exp)
 
     {
       HOST_WIDE_INT nz_elts, nc_elts, count, elts;
+      bool must_clear;
 
-      categorize_ctor_elements (exp, &nz_elts, &nc_elts, &count);
+      categorize_ctor_elements (exp, &nz_elts, &nc_elts, &count, &must_clear);
+      if (must_clear)
+	return 1;
+
       elts = count_type_elements (TREE_TYPE (exp));
 
       return nz_elts < elts / 4;
@@ -5177,7 +5219,27 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
 	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0))
     {
-      rtx temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
+      rtx temp;
+
+      /* If EXP is a NOP_EXPR of precision less than its mode, then that
+	 implies a mask operation.  If the precision is the same size as
+	 the field we're storing into, that mask is redundant.  This is
+	 particularly common with bit field assignments generated by the
+	 C front end.  */
+      if (TREE_CODE (exp) == NOP_EXPR)
+	{
+	  tree type = TREE_TYPE (exp);
+	  if (INTEGRAL_TYPE_P (type)
+	      && TYPE_PRECISION (type) < GET_MODE_BITSIZE (TYPE_MODE (type))
+	      && bitsize == TYPE_PRECISION (type))
+	    {
+	      type = TREE_TYPE (TREE_OPERAND (exp, 0));
+	      if (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) >= bitsize)
+		exp = TREE_OPERAND (exp, 0);
+	    }
+	}
+
+      temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);
 
       /* If BITSIZE is narrower than the size of the type of EXP
 	 we will be narrowing TEMP.  Normally, what's wanted are the

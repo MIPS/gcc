@@ -1,3 +1,84 @@
+2005-01-31  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getOption):
+	Support IP_MULTICAST_LOOP.
+	(setOption): Support IP_MULTICAST_LOOP.
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (setOption): Add
+	SO_REUSEADDR support.
+	(getOption): Support SO_REUSEADDR.
+
+2004-01-28  Jeroen Frijters  <jeroen@frijters.net>
+
+	PR libgcj/19649
+	* java/util/Date.java
+	(Date(int,int,int), Date(int,int,int,int,int)): Delegate to other
+	constructor.
+	(Date(int,int,int,int,int,int)): Fixed to handle out-of-range
+	arguments.
+	(getTimezoneOffset): Inverted sign.
+
+2005-01-26  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Update for PR java/19070,
+	remove other passing tests and add new XFAILs.
+
+2005-01-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (next): Updated documentation.  Renamed to
+	'next_or_version'.
+	* java/lang/natClassLoader.cc (_Jv_RegisterClasses): Use
+	_Jv_CheckABIVersion.
+	(_Jv_RegisterClasses_Counted): Likewise.
+	(_Jv_RegisterClassHookDefault): Fix starting condition of
+	duplicate-checking loop.
+	* include/jvm.h (GCJ_VERSION): New define.
+	(GCJ_BINARYCOMPAT_ADDITION): Likewise.
+	(_Jv_CheckABIVersion): New function.
+
+2005-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (libgij_la_LIBADD): Add -L$(here)/.libs.
+	(libgij_la_LDFLAGS): Add.
+	* Makefile.in: Rebuilt.
+
+2005-01-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR java/19295
+	* testsuite/libjava.compile/PR19295.java: New test case.
+
+2005-01-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/VMCompiler.java (compileClass): Ignore UnknownError.
+	* gnu/gcj/runtime/natSharedLibLoader.cc (finalize): Only dlclose
+	if 'handler' is valid.
+
+2005-01-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/MessageFormat.java (scanString): Changed how quoting
+	is handled.
+	(scanFormatElement): Likewise.
+
+2004-12-07  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/MessageFormat.java (scanFormat): Chain thrown exception.
+
+2005-01-15  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/19444
+	* java/net/URI.java
+	(AUTHORITY_REGEXP): New regexp constant.
+	(AUTHORITY_USERINFO_GROUP): New constant.
+	(AUTHORITY_HOST_GROUP): Likewise.
+	(AUTHORITY_PORT_GROUP): Likewise.
+	(port): Changed default value to -1.
+	(parseURI): Parse authority part and initialize host,
+	port and userInfo.
+
+2005-01-14  Robin Green  <greenrd@greenrd.org>
+
+	* java/io/File.java (toURI): Generate a URI which we understand.
+
 2005-01-13  Graydon Hoare  <graydon@redhat.com>
 
 	* include/jni.h (_Jv_JNIEnv::bottom_locals): New field.

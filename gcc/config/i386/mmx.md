@@ -121,9 +121,9 @@
 
 (define_insn "*movv2sf_internal_rex64"
   [(set (match_operand:V2SF 0 "nonimmediate_operand"
-				"=rm,r,*y ,*y ,m ,*y,Y ,x,x ,m,r,x")
+				"=rm,r,*y ,*y ,m ,*y,Y ,x,x,x,m,r,x")
         (match_operand:V2SF 1 "vector_move_operand"
-				"Cr ,m ,C ,*ym,*y,Y ,*y,C,xm,x,x,r"))]
+				"Cr ,m ,C ,*ym,*y,Y ,*y,C,x,m,x,x,r"))]
   "TARGET_64BIT && TARGET_MMX
    && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
   "@
@@ -135,18 +135,19 @@
     movdq2q\t{%1, %0|%0, %1}
     movq2dq\t{%1, %0|%0, %1}
     xorps\t%0, %0
+    movaps\t{%1, %0|%0, %1}
     movlps\t{%1, %0|%0, %1}
     movlps\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}"
-  [(set_attr "type" "imov,imov,mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov")
-   (set_attr "mode" "DI,DI,DI,DI,DI,DI,DI,V4SF,V2SF,V2SF,DI,DI")])
+  [(set_attr "type" "imov,imov,mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov,ssemov")
+   (set_attr "mode" "DI,DI,DI,DI,DI,DI,DI,V4SF,V4SF,V2SF,V2SF,DI,DI")])
 
 (define_insn "*movv2sf_internal"
   [(set (match_operand:V2SF 0 "nonimmediate_operand"
-					"=*y,*y ,m,*y,*Y,*x,*x ,m ,?r ,?m")
+					"=*y,*y ,m,*y,*Y,*x,*x,*x,m ,?r ,?m")
         (match_operand:V2SF 1 "vector_move_operand"
-					"C ,*ym,*y,*Y,*y,C ,*xm,*x,irm,r"))]
+					"C ,*ym,*y,*Y,*y,C ,*x,m ,*x,irm,r"))]
   "TARGET_MMX
    && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
   "@
@@ -156,12 +157,13 @@
     movdq2q\t{%1, %0|%0, %1}
     movq2dq\t{%1, %0|%0, %1}
     xorps\t%0, %0
+    movaps\t{%1, %0|%0, %1}
     movlps\t{%1, %0|%0, %1}
     movlps\t{%1, %0|%0, %1}
     #
     #"
-  [(set_attr "type" "mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,*,*")
-   (set_attr "mode" "DI,DI,DI,DI,DI,V4SF,V2SF,V2SF,DI,DI")])
+  [(set_attr "type" "mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,*,*")
+   (set_attr "mode" "DI,DI,DI,DI,DI,V4SF,V4SF,V2SF,V2SF,DI,DI")])
 
 ;; %%% This multiword shite has got to go.
 (define_split
@@ -172,6 +174,14 @@
    && (!MMX_REG_P (operands[1]) && !SSE_REG_P (operands[1]))"
   [(const_int 0)]
   "ix86_split_long_move (operands); DONE;")
+
+(define_expand "push<mode>1"
+  [(match_operand:MMXMODE 0 "register_operand" "")]
+  "TARGET_SSE"
+{
+  ix86_expand_push (<MODE>mode, operands[0]);
+  DONE;
+})
 
 (define_expand "movmisalign<mode>"
   [(set (match_operand:MMXMODE 0 "nonimmediate_operand" "")
@@ -469,6 +479,51 @@
 {
   ix86_expand_vector_set (false, operands[0], operands[1],
 			  INTVAL (operands[2]));
+  DONE;
+})
+
+(define_insn_and_split "*vec_extractv2sf_0"
+  [(set (match_operand:SF 0 "nonimmediate_operand"     "=x,y,m,m,frxy")
+	(vec_select:SF
+	  (match_operand:V2SF 1 "nonimmediate_operand" " x,y,x,y,m")
+	  (parallel [(const_int 0)])))]
+  "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rtx op1 = operands[1];
+  if (REG_P (op1))
+    op1 = gen_rtx_REG (SFmode, REGNO (op1));
+  else
+    op1 = gen_lowpart (SFmode, op1);
+  emit_move_insn (operands[0], op1);
+  DONE;
+})
+
+(define_insn "*vec_extractv2sf_1"
+  [(set (match_operand:SF 0 "nonimmediate_operand"     "=y,x,frxy")
+	(vec_select:SF
+	  (match_operand:V2SF 1 "nonimmediate_operand" " 0,0,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   punpckhdq\t%0, %0
+   unpckhps\t%0, %0
+   #"
+  [(set_attr "type" "mmxcvt,sselog1,*")
+   (set_attr "mode" "DI,V4SF,SI")])
+
+(define_split
+  [(set (match_operand:SF 0 "register_operand" "")
+	(vec_select:SF
+	  (match_operand:V2SF 1 "memory_operand" "")
+	  (parallel [(const_int 1)])))]
+  "TARGET_MMX && reload_completed"
+  [(const_int 0)]
+{
+  operands[1] = adjust_address (operands[1], SFmode, 4);
+  emit_move_insn (operands[0], operands[1]);
   DONE;
 })
 
@@ -1090,6 +1145,53 @@
 {
   ix86_expand_vector_set (false, operands[0], operands[1],
 			  INTVAL (operands[2]));
+  DONE;
+})
+
+(define_insn_and_split "*vec_extractv2si_0"
+  [(set (match_operand:SI 0 "nonimmediate_operand"     "=x,y,m,m,frxy")
+	(vec_select:SI
+	  (match_operand:V2SI 1 "nonimmediate_operand" " x,y,x,y,m")
+	  (parallel [(const_int 0)])))]
+  "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rtx op1 = operands[1];
+  if (REG_P (op1))
+    op1 = gen_rtx_REG (SImode, REGNO (op1));
+  else
+    op1 = gen_lowpart (SImode, op1);
+  emit_move_insn (operands[0], op1);
+  DONE;
+})
+
+(define_insn "*vec_extractv2si_1"
+  [(set (match_operand:SI 0 "nonimmediate_operand"     "=y,Y,Y,x,frxy")
+	(vec_select:SI
+	  (match_operand:V2SI 1 "nonimmediate_operand" " 0,0,Y,0,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   punpckhdq\t%0, %0
+   punpckhdq\t%0, %0
+   pshufd\t{$85, %1, %0|%0, %1, 85}
+   unpckhps\t%0, %0
+   #"
+  [(set_attr "type" "mmxcvt,sselog1,sselog1,sselog1,*")
+   (set_attr "mode" "DI,TI,TI,V4SF,SI")])
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "")
+	(vec_select:SI
+	  (match_operand:V2SI 1 "memory_operand" "")
+	  (parallel [(const_int 1)])))]
+  "TARGET_MMX && reload_completed"
+  [(const_int 0)]
+{
+  operands[1] = adjust_address (operands[1], SImode, 4);
+  emit_move_insn (operands[0], operands[1]);
   DONE;
 })
 

@@ -1,6 +1,6 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+;; 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
 ;; This file is part of GCC.
@@ -58,6 +58,7 @@
    (UNSPEC_PERR		26)
    (UNSPEC_CTLZ		27)
    (UNSPEC_CTPOP	28)
+   (UNSPEC_COPYSIGN     29)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -2231,6 +2232,42 @@
   [(const_int 0)]
   "alpha_split_tfmode_frobsign (operands, gen_xordi3); DONE;")
 
+(define_insn "copysignsf3"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(unspec:SF [(match_operand:SF 1 "reg_or_0_operand" "fG")
+		    (match_operand:SF 2 "reg_or_0_operand" "fG")]
+		   UNSPEC_COPYSIGN))]
+  "TARGET_FP"
+  "cpys %R2,%R1,%0"
+  [(set_attr "type" "fadd")])
+
+(define_insn "*ncopysignsf3"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(neg:SF (unspec:SF [(match_operand:SF 1 "reg_or_0_operand" "fG")
+			    (match_operand:SF 2 "reg_or_0_operand" "fG")]
+			   UNSPEC_COPYSIGN)))]
+  "TARGET_FP"
+  "cpysn %R2,%R1,%0"
+  [(set_attr "type" "fadd")])
+
+(define_insn "copysigndf3"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(unspec:DF [(match_operand:DF 1 "reg_or_0_operand" "fG")
+		    (match_operand:DF 2 "reg_or_0_operand" "fG")]
+		   UNSPEC_COPYSIGN))]
+  "TARGET_FP"
+  "cpys %R2,%R1,%0"
+  [(set_attr "type" "fadd")])
+
+(define_insn "*ncopysigndf3"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(neg:DF (unspec:DF [(match_operand:DF 1 "reg_or_0_operand" "fG")
+			    (match_operand:DF 2 "reg_or_0_operand" "fG")]
+			   UNSPEC_COPYSIGN)))]
+  "TARGET_FP"
+  "cpysn %R2,%R1,%0"
+  [(set_attr "type" "fadd")])
+
 (define_insn "*addsf_ieee"
   [(set (match_operand:SF 0 "register_operand" "=&f")
 	(plus:SF (match_operand:SF 1 "reg_or_0_operand" "%fG")
@@ -3737,7 +3774,7 @@
    fcmov%D3 %R4,%R5,%0"
   [(set_attr "type" "fcmov")])
 
-(define_expand "maxdf3"
+(define_expand "smaxdf3"
   [(set (match_dup 3)
 	(le:DF (match_operand:DF 1 "reg_or_0_operand" "")
 	       (match_operand:DF 2 "reg_or_0_operand" "")))
@@ -3750,7 +3787,7 @@
   operands[4] = CONST0_RTX (DFmode);
 })
 
-(define_expand "mindf3"
+(define_expand "smindf3"
   [(set (match_dup 3)
 	(lt:DF (match_operand:DF 1 "reg_or_0_operand" "")
 	       (match_operand:DF 2 "reg_or_0_operand" "")))
@@ -3763,7 +3800,7 @@
   operands[4] = CONST0_RTX (DFmode);
 })
 
-(define_expand "maxsf3"
+(define_expand "smaxsf3"
   [(set (match_dup 3)
 	(le:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))
 	       (float_extend:DF (match_operand:SF 2 "reg_or_0_operand" ""))))
@@ -3776,7 +3813,7 @@
   operands[4] = CONST0_RTX (DFmode);
 })
 
-(define_expand "minsf3"
+(define_expand "sminsf3"
   [(set (match_dup 3)
 	(lt:DF (float_extend:DF (match_operand:SF 1 "reg_or_0_operand" ""))
 	       (float_extend:DF (match_operand:SF 2 "reg_or_0_operand" ""))))
@@ -5128,8 +5165,8 @@
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,m,rJ"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,n,m,rJ"))]
   "(TARGET_ABI_OSF || TARGET_ABI_UNICOSMK)
    && (register_operand (operands[0], SImode)
        || reg_or_0_operand (operands[1], SImode))"
@@ -5137,13 +5174,14 @@
    bis $31,%r1,%0
    lda %0,%1($31)
    ldah %0,%h1($31)
+   #
    ldl %0,%1
    stl %r1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ild,ist")])
+  [(set_attr "type" "ilog,iadd,iadd,multi,ild,ist")])
 
 (define_insn "*movsi_nt_vms"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,m")
-	(match_operand:SI 1 "input_operand" "rJ,K,L,s,m,rJ"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m")
+	(match_operand:SI 1 "input_operand" "rJ,K,L,s,n,m,rJ"))]
   "(TARGET_ABI_WINDOWS_NT || TARGET_ABI_OPEN_VMS)
     && (register_operand (operands[0], SImode)
         || reg_or_0_operand (operands[1], SImode))"
@@ -5152,9 +5190,10 @@
    lda %0,%1
    ldah %0,%h1
    lda %0,%1
+   #
    ldl %0,%1
    stl %r1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist")])
+  [(set_attr "type" "ilog,iadd,iadd,ldsym,multi,ild,ist")])
 
 (define_insn "*movhi_nobwx"
   [(set (match_operand:HI 0 "register_operand" "=r,r")
@@ -5221,15 +5260,11 @@
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
-	(match_operand:SI 1 "const_int_operand" ""))]
-  "! add_operand (operands[1], SImode)"
-  [(set (match_dup 0) (match_dup 2))
-   (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 3)))]
+	(match_operand:SI 1 "non_add_const_operand" ""))]
+  ""
+  [(const_int 0)]
 {
-  rtx tem
-    = alpha_emit_set_const (operands[0], SImode, INTVAL (operands[1]), 2);
-
-  if (tem == operands[0])
+  if (alpha_split_const_mov (SImode, operands))
     DONE;
   else
     FAIL;
@@ -5452,8 +5487,8 @@
 })
 
 (define_insn "*movdi_er_nofix"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,*f,*f,Q")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,T,s,m,rJ,*fJ,Q,*f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,r,m,*f,*f,Q")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,T,s,n,m,rJ,*fJ,Q,*f"))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5463,21 +5498,22 @@
    ldah %0,%h1($31)
    #
    #
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    fmov %R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst")
-   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,multi,ild,ist,fcpys,fld,fst")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*")])
 
 ;; The 'U' constraint matches symbolic operands on Unicos/Mk. Those should
 ;; have been split up by the rules above but we shouldn't reject the
 ;; possibility of them getting through.
 
 (define_insn "*movdi_nofix"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,*f,*f,Q")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,U,s,m,rJ,*fJ,Q,*f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,r,m,*f,*f,Q")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,U,s,n,m,rJ,*fJ,Q,*f"))]
   "! TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5487,19 +5523,20 @@
    ldah %0,%h1($31)
    laum %0,%t1($31)\;sll %0,32,%0\;lalm %0,%t1(%0)\;lal %0,%t1(%0)
    lda %0,%1
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    cpys %R1,%R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ldsym,ldsym,ild,ist,fcpys,fld,fst")
-   (set_attr "length" "*,*,*,16,*,*,*,*,*,*")])
+  [(set_attr "type" "ilog,iadd,iadd,ldsym,ldsym,multi,ild,ist,fcpys,fld,fst")
+   (set_attr "length" "*,*,*,16,*,*,*,*,*,*,*")])
 
 (define_insn "*movdi_er_fix"
   [(set (match_operand:DI 0 "nonimmediate_operand"
-				"=r,r,r,r,r,r, m, *f,*f, Q, r,*f")
+				"=r,r,r,r,r,r,r, m, *f,*f, Q, r,*f")
 	(match_operand:DI 1 "input_operand"
-				"rJ,K,L,T,s,m,rJ,*fJ, Q,*f,*f, r"))]
+				"rJ,K,L,T,s,n,m,rJ,*fJ, Q,*f,*f, r"))]
   "TARGET_EXPLICIT_RELOCS && TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5509,6 +5546,7 @@
    ldah %0,%h1($31)
    #
    #
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    fmov %R1,%0
@@ -5516,12 +5554,12 @@
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")
-   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*,*")])
+  [(set_attr "type" "ilog,iadd,iadd,iadd,ldsym,multi,ild,ist,fcpys,fld,fst,ftoi,itof")
+   (set_attr "usegp" "*,*,*,yes,*,*,*,*,*,*,*,*,*")])
 
 (define_insn "*movdi_fix"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,m,*f,*f,Q,r,*f")
-	(match_operand:DI 1 "input_operand" "rJ,K,L,s,m,rJ,*fJ,Q,*f,*f,r"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r,r,r,r,m,*f,*f,Q,r,*f")
+	(match_operand:DI 1 "input_operand" "rJ,K,L,s,n,m,rJ,*fJ,Q,*f,*f,r"))]
   "! TARGET_EXPLICIT_RELOCS && TARGET_FIX
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
@@ -5530,6 +5568,7 @@
    lda %0,%1($31)
    ldah %0,%h1($31)
    lda %0,%1
+   #
    ldq%A1 %0,%1
    stq%A0 %r1,%0
    cpys %R1,%R1,%0
@@ -5537,7 +5576,7 @@
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,iadd,iadd,ldsym,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,iadd,iadd,ldsym,multi,ild,ist,fcpys,fld,fst,ftoi,itof")])
 
 ;; VMS needs to set up "vms_base_regno" for unwinding.  This move
 ;; often appears dead to the life analysis code, at which point we
@@ -5568,15 +5607,11 @@
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "")
-	(match_operand:DI 1 "const_int_operand" ""))]
-  "! add_operand (operands[1], DImode)"
-  [(set (match_dup 0) (match_dup 2))
-   (set (match_dup 0) (plus:DI (match_dup 0) (match_dup 3)))]
+	(match_operand:DI 1 "non_add_const_operand" ""))]
+  ""
+  [(const_int 0)]
 {
-  rtx tem
-    = alpha_emit_set_const (operands[0], DImode, INTVAL (operands[1]), 2);
-
-  if (tem == operands[0])
+  if (alpha_split_const_mov (DImode, operands))
     DONE;
   else
     FAIL;
@@ -6103,6 +6138,19 @@
     DONE;
 })
 
+(define_split
+  [(set (match_operand:VEC 0 "register_operand" "")
+	(match_operand:VEC 1 "non_zero_const_operand" ""))]
+  ""
+  [(const_int 0)]
+{
+  if (alpha_split_const_mov (<MODE>mode, operands))
+    DONE;
+  else
+    FAIL;
+})
+
+
 (define_expand "movmisalign<mode>"
   [(set (match_operand:VEC 0 "nonimmediate_operand" "")
         (match_operand:VEC 1 "general_operand" ""))]
@@ -6113,13 +6161,14 @@
 })
 
 (define_insn "*mov<mode>_fix"
-  [(set (match_operand:VEC 0 "nonimmediate_operand" "=r,r,m,*f,*f,m,r,*f")
-	(match_operand:VEC 1 "input_operand" "rW,m,rW,*fW,m,*f,*f,r"))]
+  [(set (match_operand:VEC 0 "nonimmediate_operand" "=r,r,r,m,*f,*f,m,r,*f")
+	(match_operand:VEC 1 "input_operand" "rW,i,m,rW,*fW,m,*f,*f,r"))]
   "TARGET_FIX
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   "@
    bis $31,%r1,%0
+   #
    ldq %0,%1
    stq %r1,%0
    cpys %R1,%R1,%0
@@ -6127,22 +6176,23 @@
    stt %R1,%0
    ftoit %1,%0
    itoft %1,%0"
-  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst,ftoi,itof")])
+  [(set_attr "type" "ilog,multi,ild,ist,fcpys,fld,fst,ftoi,itof")])
 
 (define_insn "*mov<mode>_nofix"
-  [(set (match_operand:VEC 0 "nonimmediate_operand" "=r,r,m,*f,*f,m")
-	(match_operand:VEC 1 "input_operand" "rW,m,rW,*fW,m,*f"))]
+  [(set (match_operand:VEC 0 "nonimmediate_operand" "=r,r,r,m,*f,*f,m")
+	(match_operand:VEC 1 "input_operand" "rW,i,m,rW,*fW,m,*f"))]
   "! TARGET_FIX
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   "@
    bis $31,%r1,%0
+   #
    ldq %0,%1
    stq %r1,%0
    cpys %R1,%R1,%0
    ldt %0,%1
    stt %R1,%0"
-  [(set_attr "type" "ilog,ild,ist,fcpys,fld,fst")])
+  [(set_attr "type" "ilog,multi,ild,ist,fcpys,fld,fst")])
 
 (define_insn "uminv8qi3"
   [(set (match_operand:V8QI 0 "register_operand" "=r")

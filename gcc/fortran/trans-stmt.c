@@ -1,5 +1,5 @@
 /* Statement translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -945,8 +945,7 @@ gfc_trans_integer_select (gfc_code * code)
 	    }
 
           /* Build a label.  */
-          label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
-          DECL_CONTEXT (label) = current_function_decl;
+          label = gfc_build_label_decl (NULL_TREE);
 
 	  /* Add this case label.
              Add parameter 'label', make it match GCC backend.  */
@@ -2187,7 +2186,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       e<i> = f<i>
       g<i> = h<i>
     end forall
-   (where e,f,g,h<i> are arbitary expressions possibly involving i)
+   (where e,f,g,h<i> are arbitrary expressions possibly involving i)
    Translates to:
     count = ((end + 1 - start) / staride)
     masktmp(:) = maskexpr(:)
@@ -3082,7 +3081,7 @@ gfc_trans_cycle (gfc_code * code)
 }
 
 
-/* EXIT a DO loop. Similair to CYCLE, but now the label is in
+/* EXIT a DO loop. Similar to CYCLE, but now the label is in
    TREE_VALUE (backend_decl) of the gfc_code node at the head of the
    loop.  */
 

@@ -1,3 +1,225 @@
+2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_primary_expression): Don't complain about
+	floating-point literals in integral constant expressions when
+	!pedantic.
+
+2005-02-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* parser.c (cp_parser_template_id): Revert comment patch too.
+	
+	PR c++/18757
+	PR c++/19366
+	PR c++/19499
+	* parser.c (cp_parser_template_id): Revert 2004-12-09's patch.
+	Issue an error when creating the template id.
+	* pt.c (fn_type_unification): Return early if the explicit
+	template arg list is an error_mark_node.
+
+2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (build_enumerator): Do not issue duplicate error messages
+	about invalid enumeration constants.
+	* parser.c (cp_parser_non_integral_constant_expression): Always
+	set parser->non_integral_constant_expression_p.
+	(cp_parser_primary_expression): Add cast_p parameter.  Issue
+	errors about invalid uses of floating-point literals in
+	cast-expressions.
+	(cp_parser_postfix_expression): Add cast_p parameter.
+	(cp_parser_open_square_expression): Pass it.
+	(cp_parser_parenthesized_expression_list): Add cast_p parameter.
+	(cp_parser_unary_expression): Likewise.
+	(cp_parser_new_placement): Pass it.
+	(cp_parser_direct_new_declarator): Likewise.
+	(cp_parser_new_initializer): Likewise.
+	(cp_parser_cast_expression): Add cast_p parameter.
+	(cp_parser_binary_expression): Likewise.
+	(cp_parser_question_colon_clause): Likewise.
+	(cp_parser_assignment_expression): Likewise.
+	(cp_parser_expression): Likewise.
+	(cp_parser_constant_expression): If an integral constant
+	expression is invalid, return error_mark_node.
+	(cp_parser_expression_statement): Pass cast_p.
+	(cp_parser_condition): Likewise.
+	(cp_parser_iteration_statement): Likewise.
+	(cp_parser_jump_statement): Likewise.
+	(cp_parser_mem_initializer): Likewise.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_initializer): Likewise.
+	(cp_parser_throw_expression): Likewise.
+	(cp_parser_attribute_list): Likewise.
+	(cp_parser_simple_cast_expression): Likewise.
+	(cp_parser_functional_cast): Likewise.
+	(cp_parser_late_parsing_default_args): Likewise.
+	(cp_parser_sizeof_operand): Save/restore
+	non_integral_constant_expression_p.
+
+2005-01-31  Mike Stump  <mrs@apple.com>
+
+	* parser.c (cp_lexer_new_main): Get the first token, first, before
+	doing anything.
+
+2005-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (start_decl): Add missing parentheses.
+
+2005-01-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19555
+	* cp-tree.h (DECL_USE_TEMPLATE): Expand documentation.
+	* decl.c (duplicate_decls): Do not discard
+	DECL_IMPLICIT_INSTANTIATION when merging declarations.
+	(start_decl): Do not SET_DECL_TEMPLATE_SPECIALIZATION for
+	variables that do not have DECL_USE_TEMPLATE.
+
+	PR c++/19395
+	* decl.c (grokdeclarator): Refactor code so that qualified names
+	are never allowed as the declarator in a typedef.
+
+	PR c++/19367
+	* name-lookup.c (do_nonmember_using_decl): Avoid overloading
+	builtin declarations.
+
+	PR c++/19457
+	* call.c (convert_like_real): Inline call to
+	dubious_conversion_warnings here.
+	* cp-tree.h (dubious_conversion_warnings): Remove.
+	* semantics.c (finish_unary_op_expr): Copy INTEGER_CSTs before
+	setting TREE_NEGATED_INT.
+	* typeck.c (dubious_conversion_warnings): Remove.
+
+	PR c++/19349
+	* name-lookup.c (pushdecl_namespace_level): Avoid accessing free'd
+	memory. 
+
+2005-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19253
+	* parser.c (cp_parser_diagnose_invalid_type_name): Commit to
+	tentative parses.
+
+	PR c++/19667
+	* pt.c (redeclare_class_template): Robustify.
+
+2005-01-27  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (finish_case_label): Use SWITCH_STMT accessor macros
+	instead of SWITCH_EXPR ones.
+	* pt.c (tsubst_expr): Likewise.
+	* semantics.c (begin_switch_stmt, finish_switch_cond,
+	finish_switch_stmt): Likewise.
+
+2005-01-26  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR c++/18370
+	* parser.c (cp_parser_initializer_clause): Initialize *non_constant_p.
+
+2005-01-25  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* class.c (abort_fndecl_addr): New variable.
+	(build_vtbl_initializer): If we have a pure virtual function
+	share the abort function's address.
+	Include gt-cp-class.h at the end.
+	* config-lang.in (gtfiles): Add cp/class.c.
+
+2005-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cxx-pretty-print.c (pp_cxx_statement): Add prototype. Make static.
+	(pp_cxx_function_definition): Make static.
+	* cxx-pretty-print.h (pp_cxx_statement): Remove prototype.
+	(pp_cxx_function_definition): Likewise.
+
+2005-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* name-lookup.c (print_binding_level): Make static.
+	(constructor_name_full): Make static inline.
+	(current_decl_namespace): Make static.
+	* name-lookup.h (constructor_name_full): Remove prototype.
+	(print_binding_level): Likewise.
+	(current_decl_namespace): Likewise.
+
+2005-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.h (debug_bindings_indentation): Remove.
+
+2005-01-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Fix a comment typo.
+
+2005-01-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/19208
+	* pt.c (fold_decl_constant_value): Always call fold_non_dependent_expr
+	at least once.
+	(tsubst): Use fold_decl_constant_value in place of a bare call to
+	integral_constant_value.
+
+2005-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c (more_qualified_p): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+2005-01-19  Matt Austern  <austern@apple.com>
+
+	* typeck.c (comptypes): Handle return code from objc_comptypes
+	correctly.
+	
+2005-01-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.h, name-lookup.h: Remove unused prototypes.
+
+2005-01-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19375
+	* semantics.c (finish_id_expression): Disable access checking for
+	already lookuped FIELD_DECL.
+
+2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* decl.c (delete_block): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+	* decl.c (vtable_decl_p, vtype_decl_p, walk_globals_data,
+	walk_vtables_r, walk_vtables, walk_globals_r, walk_globals):
+	Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* tree.c (count_functions, bound_pmf_p, cp_is_overload_p,
+	cp_update_decl_after_saving, name_p): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+2005-01-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/19472
+	* semantics.c (finish_asm_stmt): Strip nops off
+	input memory operands.
+
+2005-01-18  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* Make-lang.in, call.c, cvt.c, init.c, rtti.c, tree.c,
+	typeck2.c: Update copyright.
+
+2005-01-16  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c (get_enclosing_class): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* cvt.c (convert_lvalue): Remove.
+	* cp-tree.h: Remove the corresponding prototype.
+
+	* pt.c (tinst_for_decl): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+	* tree.c (hash_chainon): Remove.
+	* cp-tree.h: Remove the corresponding prototypes.
+
+2005-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19263
+	* typeck2.c (split_nonconstant_init_1) <case VECTOR_TYPE>: Put a copy
+	of CONSTRUCTOR's node into MODIFY_EXPR, as the original is modified.
+
 2005-01-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Make-lang.in (cp-warn): Don't append $(WERROR).

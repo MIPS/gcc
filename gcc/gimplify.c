@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -1748,7 +1748,8 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
 	  return GS_OK;
 	}
 
-      if (DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
+      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
         {
 	  tree arglist = TREE_OPERAND (*expr_p, 1);
 	  
@@ -1910,7 +1911,7 @@ shortcut_cond_expr (tree expr)
   tree true_label, false_label, end_label, t;
   tree *true_label_p;
   tree *false_label_p;
-  bool emit_end, emit_false;
+  bool emit_end, emit_false, jump_over_else;
   bool then_se = then_ && TREE_SIDE_EFFECTS (then_);
   bool else_se = else_ && TREE_SIDE_EFFECTS (else_);
 
@@ -1922,6 +1923,7 @@ shortcut_cond_expr (tree expr)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  then_ = shortcut_cond_expr (expr);
+	  then_se = then_ && TREE_SIDE_EFFECTS (then_);
 	  pred = TREE_OPERAND (pred, 0);
 	  expr = build (COND_EXPR, void_type_node, pred, then_, NULL_TREE);
 	}
@@ -1936,6 +1938,7 @@ shortcut_cond_expr (tree expr)
 	{
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  else_ = shortcut_cond_expr (expr);
+	  else_se = else_ && TREE_SIDE_EFFECTS (else_);
 	  pred = TREE_OPERAND (pred, 0);
 	  expr = build (COND_EXPR, void_type_node, pred, NULL_TREE, else_);
 	}
@@ -2012,6 +2015,16 @@ shortcut_cond_expr (tree expr)
   emit_end = (end_label == NULL_TREE);
   emit_false = (false_label == NULL_TREE);
 
+  /* We only emit the jump over the else clause if we have to--if the
+     then clause may fall through.  Otherwise we can wind up with a
+     useless jump and a useless label at the end of gimplified code,
+     which will cause us to think that this conditional as a whole
+     falls through even if it doesn't.  If we then inline a function
+     which ends with such a condition, that can cause us to issue an
+     inappropriate warning about control reaching the end of a
+     non-void function.  */
+  jump_over_else = block_may_fallthru (then_);
+
   pred = shortcut_cond_r (pred, true_label_p, false_label_p);
 
   expr = NULL;
@@ -2020,8 +2033,11 @@ shortcut_cond_expr (tree expr)
   append_to_statement_list (then_, &expr);
   if (else_se)
     {
-      t = build_and_jump (&end_label);
-      append_to_statement_list (t, &expr);
+      if (jump_over_else)
+	{
+	  t = build_and_jump (&end_label);
+	  append_to_statement_list (t, &expr);
+	}
       if (emit_false)
 	{
 	  t = build1 (LABEL_EXPR, void_type_node, false_label);
@@ -2585,11 +2601,12 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	categorize_ctor_elements (ctor, &num_nonzero_elements,
 				  &num_nonconstant_elements,
-				  &num_ctor_elements);
+				  &num_ctor_elements, &cleared);
 
 	/* If a const aggregate variable is being initialized, then it
 	   should never be a lose to promote the variable to be static.  */
 	if (num_nonconstant_elements == 0
+	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
 	    && TREE_CODE (object) == VAR_DECL)
 	  {
@@ -2671,7 +2688,6 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	num_type_elements = count_type_elements (TREE_TYPE (ctor));
 
 	/* If there are "lots" of zeros, then block clear the object first.  */
-	cleared = false;
 	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
 	    && num_nonzero_elements < num_type_elements/4)
 	  cleared = true;
@@ -2760,19 +2776,32 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
     case VECTOR_TYPE:
       /* Go ahead and simplify constant constructors to VECTOR_CST.  */
       if (TREE_CONSTANT (ctor))
-	TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
-      else
 	{
-	  /* Vector types use CONSTRUCTOR all the way through gimple
-	     compilation as a general initializer.  */
-	  for (; elt_list; elt_list = TREE_CHAIN (elt_list))
+	  tree tem;
+
+	  /* Even when ctor is constant, it might contain non-*_CST
+	     elements (e.g. { 1.0/0.0 - 1.0/0.0, 0.0 }) and those don't
+	     belong into VECTOR_CST nodes.  */
+	  for (tem = elt_list; tem; tem = TREE_CHAIN (tem))
+	    if (! CONSTANT_CLASS_P (TREE_VALUE (tem)))
+	      break;
+
+	  if (! tem)
 	    {
-	      enum gimplify_status tret;
-	      tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
-				    is_gimple_val, fb_rvalue);
-	      if (tret == GS_ERROR)
-		ret = GS_ERROR;
+	      TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
+	      break;
 	    }
+	}
+
+      /* Vector types use CONSTRUCTOR all the way through gimple
+	 compilation as a general initializer.  */
+      for (; elt_list; elt_list = TREE_CHAIN (elt_list))
+	{
+	  enum gimplify_status tret;
+	  tret = gimplify_expr (&TREE_VALUE (elt_list), pre_p, post_p,
+				is_gimple_val, fb_rvalue);
+	  if (tret == GS_ERROR)
+	    ret = GS_ERROR;
 	}
       break;
 
@@ -4216,7 +4245,7 @@ gimplify_type_sizes (tree type, tree *list_p)
   tree field, t;
 
   /* Note that we do not check for TYPE_SIZES_GIMPLIFIED already set because
-     that's not supposed to happen on types where gimplifcation does anything.
+     that's not supposed to happen on types where gimplification does anything.
      We should assert that it isn't set, but we can indeed be called multiple
      times on pointers.  Unfortunately, this includes fat pointers which we
      can't easily test for.  We could pass TYPE down to gimplify_one_sizepos

@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -492,7 +492,7 @@
        (ior (match_operand 0 "register_no_elim_operand")
 	    (match_operand 0 "memory_operand"))))
 
-;; Simiarly, but for tail calls, in which we cannot allow memory references.
+;; Similarly, but for tail calls, in which we cannot allow memory references.
 (define_predicate "sibcall_insn_operand"
   (ior (match_operand 0 "constant_call_address_operand")
        (match_operand 0 "register_no_elim_operand")))
@@ -759,9 +759,7 @@
 ;; predicate.
 
 (define_special_predicate "sse_comparison_operator"
-  (ior (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered")
-       (and (match_code "uneq,unlt,unle,ltgt,ge,gt")
-	    (match_test "!TARGET_IEEE_FP"))))
+  (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"

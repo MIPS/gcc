@@ -1,5 +1,5 @@
 /* Check functions
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -81,6 +81,21 @@ int_or_real_check (gfc_expr * e, int n)
   if (e->ts.type != BT_INTEGER && e->ts.type != BT_REAL)
     {
       must_be (e, n, "INTEGER or REAL");
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
+/* Check that an expression is real or complex.  */
+
+static try
+real_or_complex_check (gfc_expr * e, int n)
+{
+  if (e->ts.type != BT_REAL && e->ts.type != BT_COMPLEX)
+    {
+      must_be (e, n, "REAL or COMPLEX");
       return FAILURE;
     }
 
@@ -712,6 +727,42 @@ gfc_check_eoshift (gfc_expr * array, gfc_expr * shift, gfc_expr * boundary,
     }
 
   if (dim_check (dim, 1, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single complex argument.  */
+
+try
+gfc_check_fn_c (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_COMPLEX) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real argument.  */
+
+try
+gfc_check_fn_r (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_REAL) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* A single real or complex argument.  */
+
+try
+gfc_check_fn_rc (gfc_expr * a)
+{
+  if (real_or_complex_check (a, 0) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -143,10 +143,6 @@ extern void leaf_renumber_regs_insn (rtx);
 
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template (int, rtx);
-
-/* Add function NAME to the weak symbols list.  VALUE is a weak alias
-   associated with NAME.  */
-extern int add_weak (tree, const char *, const char *);
 
 /* Functions in flow.c */
 extern int regno_clobbered_at_setjmp (int);

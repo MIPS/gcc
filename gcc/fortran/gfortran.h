@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -1802,6 +1802,7 @@ try gfc_resolve_dt (gfc_dt *);
 void gfc_module_init_2 (void);
 void gfc_module_done_2 (void);
 void gfc_dump_module (const char *, int);
+bool gfc_check_access (gfc_access, gfc_access);
 
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);

@@ -1861,7 +1861,6 @@ delete_caller_save_insns (void)
 static void
 spill_failure (rtx insn, enum reg_class class)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   if (asm_noperands (PATTERN (insn)) >= 0)
     error_for_asm (insn, "can't find a register in class %qs while "
 		   "reloading %<asm%>",
@@ -5590,6 +5589,15 @@ choose_reload_regs (struct insn_chain *chain)
 		      gcc_assert (GET_CODE (equiv) == SUBREG);
 		      regno = subreg_regno (equiv);
 		      equiv = gen_rtx_REG (rld[r].mode, regno);
+		      /* If we choose EQUIV as the reload register, but the
+			 loop below decides to cancel the inheritance, we'll
+			 end up reloading EQUIV in rld[r].mode, not the mode
+			 it had originally.  That isn't safe when EQUIV isn't
+			 available as a spill register since its value might
+			 still be live at this point.  */
+		      for (i = regno; i < regno + (int) rld[r].nregs; i++)
+			if (TEST_HARD_REG_BIT (reload_reg_unavailable, i))
+			  equiv = 0;
 		    }
 		}
 

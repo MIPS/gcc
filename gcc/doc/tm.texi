@@ -1,5 +1,5 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
-@c 2002, 2003, 2004 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -7043,6 +7043,15 @@ the tree nodes are available.
 @findex SET_ASM_OP
 If @code{SET_ASM_OP} is defined, a default definition is provided which is
 correct for most systems.
+@end defmac
+
+@defmac TARGET_DEFERRED_OUTPUT_DEFS (@var{decl_of_name}, @var{decl_of_value})
+A C statement that evaluates to true if the assembler code which defines
+(equates) the symbol whose tree node is @var{decl_of_name} to have the value
+of the tree node @var{decl_of_value} should be emitted near the end of the
+current compilation unit.  The default is to not defer output of defines.
+This macro affects defines output by @samp{ASM_OUTPUT_DEF} and
+@samp{ASM_OUTPUT_DEF_FROM_DECLS}.
 @end defmac
 
 @defmac ASM_OUTPUT_WEAK_ALIAS (@var{stream}, @var{name}, @var{value})

@@ -1,6 +1,6 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -160,7 +160,7 @@ extern const struct real_format *
 /* Declare functions in real.c.  */
 
 /* Binary or unary arithmetic on tree_code.  */
-extern void real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
+extern bool real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			     const REAL_VALUE_TYPE *);
 
 /* Compare reals by tree_code.  */

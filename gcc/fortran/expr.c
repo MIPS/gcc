@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
    Inc.
    Contributed by Andy Vaught
 
@@ -1818,6 +1818,9 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
   if (!conform)
     {
       if (gfc_numeric_ts (&lvalue->ts) && gfc_numeric_ts (&rvalue->ts))
+	return SUCCESS;
+
+      if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return SUCCESS;
 
       gfc_error ("Incompatible types in assignment at %L, %s to %s",

@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -523,7 +523,7 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
         {
           gcc_assert (new_loop_exit_e == orig_entry_e);
           SET_PHI_ARG_DEF (phi_orig,
-                           phi_arg_from_edge (phi_orig, new_loop_exit_e),
+                           new_loop_exit_e->dest_idx,
                            new_ssa_name);
         }
     }
@@ -639,8 +639,7 @@ slpeel_update_phi_nodes_for_guard (edge guard_edge,
       /* 3. Update phi in successor block.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi, e) == loop_arg
                   || PHI_ARG_DEF_FROM_EDGE (update_phi, e) == guard_arg);
-      SET_PHI_ARG_DEF (update_phi, phi_arg_from_edge (update_phi, e),
-                       PHI_RESULT (new_phi));
+      SET_PHI_ARG_DEF (update_phi, e->dest_idx, PHI_RESULT (new_phi));
     }
 
   set_phi_nodes (new_merge_bb, phi_reverse (phi_nodes (new_merge_bb)));
@@ -1408,12 +1407,12 @@ vect_analyze_offset_expr (tree expr,
 {
   tree oprnd0;
   tree oprnd1;
-  tree left_offset = size_zero_node;
-  tree right_offset = size_zero_node;
-  tree left_misalign = size_zero_node;
-  tree right_misalign = size_zero_node;
-  tree left_step = size_zero_node;
-  tree right_step = size_zero_node;
+  tree left_offset = ssize_int (0);
+  tree right_offset = ssize_int (0);
+  tree left_misalign = ssize_int (0);
+  tree right_misalign = ssize_int (0);
+  tree left_step = ssize_int (0);
+  tree right_step = ssize_int (0);
   enum tree_code code;
   tree init, evolution;
 
@@ -1430,9 +1429,9 @@ vect_analyze_offset_expr (tree expr,
      1. Constant.  */
   if (TREE_CODE (expr) == INTEGER_CST)
     {
-      *initial_offset = fold_convert (sizetype, expr);
-      *misalign = fold_convert (sizetype, expr);      
-      *step = size_zero_node;
+      *initial_offset = fold_convert (ssizetype, expr);
+      *misalign = fold_convert (ssizetype, expr);      
+      *step = ssize_int (0);
       return true;
     }
 
@@ -1460,14 +1459,14 @@ vect_analyze_offset_expr (tree expr,
 	return false;
 
       if (TREE_CODE (init) == INTEGER_CST)
-	*misalign = fold_convert (sizetype, init);
+	*misalign = fold_convert (ssizetype, init);
       else
 	/* Not constant, misalignment cannot be calculated.  */
 	*misalign = NULL_TREE;
 
-      *initial_offset = fold_convert (sizetype, init); 
+      *initial_offset = fold_convert (ssizetype, init); 
 
-      *step = evolution ? fold_convert (sizetype, evolution) : size_zero_node;
+      *step = evolution ? fold_convert (ssizetype, evolution) : ssize_int (0);
       return true;      
     }
 
@@ -1512,8 +1511,8 @@ vect_analyze_offset_expr (tree expr,
 	  /* If the left side contains variable that cannot be substituted with 
 	     constant, we check if the right side is a multiple of ALIGNMENT.  */
 	  if (integer_zerop (size_binop (TRUNC_MOD_EXPR, right_offset, 
-					 vectype_alignment)))
-	    *misalign = size_zero_node;
+			          fold_convert (ssizetype, vectype_alignment))))
+	    *misalign = ssize_int (0);
 	  else
 	    /* If the remainder is not zero or the right side isn't constant, we 
 	       can't compute  misalignment.  */
@@ -1552,7 +1551,7 @@ vect_analyze_offset_expr (tree expr,
     }
 
   /* Compute offset.  */
-  *initial_offset = fold_convert (sizetype, 
+  *initial_offset = fold_convert (ssizetype, 
 				  fold (build2 (code, TREE_TYPE (left_offset), 
 						left_offset, 
 						right_offset)));
@@ -1603,9 +1602,9 @@ vect_get_base_and_offset (struct data_reference *dr,
 			  tree *step,
 			  bool *base_aligned_p)
 {
-  tree this_offset = size_zero_node;
-  tree this_misalign = size_zero_node;
-  tree this_step = size_zero_node;
+  tree this_offset = ssize_int (0);
+  tree this_misalign = ssize_int (0);
+  tree this_step = ssize_int (0);
   tree base = NULL_TREE;
   tree next_ref;
   tree oprnd0, oprnd1;
@@ -1625,9 +1624,9 @@ vect_get_base_and_offset (struct data_reference *dr,
     /* These cases end the recursion:  */
     case VAR_DECL:
     case PARM_DECL:
-      *initial_offset = size_zero_node;
-      *step = size_zero_node;
-      *misalign = size_zero_node;
+      *initial_offset = ssize_int (0);
+      *step = ssize_int (0);
+      *misalign = ssize_int (0);
       if (DECL_ALIGN (expr) >= TYPE_ALIGN (vectype))
 	*base_aligned_p = true;
       return expr;
@@ -1645,16 +1644,16 @@ vect_get_base_and_offset (struct data_reference *dr,
       else
 	{	  
 	  *base_aligned_p = true;
-	  *misalign = size_zero_node;
+	  *misalign = ssize_int (0);
 	}
-      *initial_offset = size_zero_node;
-      *step = size_zero_node;
+      *initial_offset = ssize_int (0);
+      *step = ssize_int (0);
       return expr;
       
     case INTEGER_CST:      
-      *initial_offset = fold_convert (sizetype, expr);
-      *misalign = fold_convert (sizetype, expr);
-      *step = size_zero_node;
+      *initial_offset = fold_convert (ssizetype, expr);
+      *misalign = fold_convert (ssizetype, expr);
+      *step = ssize_int (0);
       return expr;
 
     /* These cases continue the recursion:  */
@@ -1680,11 +1679,13 @@ vect_get_base_and_offset (struct data_reference *dr,
 				       &this_offset, &this_misalign, 
 				       &this_step, base_aligned_p);  
       /* Offset was already computed in vect_analyze_pointer_ref_access.  */
-      this_offset = size_zero_node;
+      this_offset = ssize_int (0);
 
       if (!base) 
 	this_misalign = NULL_TREE;
-
+      else
+	this_misalign = size_binop (TREE_CODE (expr), ssize_int (0),
+				    this_misalign);
       next_ref = oprnd0;
       break;
 
@@ -1713,7 +1714,7 @@ vect_get_base_and_offset (struct data_reference *dr,
 
       /* Add bit position to OFFSET and MISALIGN.  */
 
-      bit_pos_in_bytes = size_int (pbitpos/BITS_PER_UNIT);
+      bit_pos_in_bytes = ssize_int (pbitpos/BITS_PER_UNIT);
       /* Check that there is no remainder in bits.  */
       if (pbitpos%BITS_PER_UNIT)
 	{
@@ -1721,8 +1722,8 @@ vect_get_base_and_offset (struct data_reference *dr,
 	    fprintf (dump_file, "bit offset alignment.");
 	  return NULL_TREE;
 	}
-      this_offset = fold (size_binop (PLUS_EXPR, bit_pos_in_bytes, 
-				      fold_convert (sizetype, this_offset)));     
+      this_offset = size_binop (PLUS_EXPR, bit_pos_in_bytes, 
+				fold_convert (ssizetype, this_offset));     
       if (this_misalign) 
 	this_misalign = size_binop (PLUS_EXPR, this_misalign, bit_pos_in_bytes); 
 
@@ -1744,8 +1745,7 @@ vect_get_base_and_offset (struct data_reference *dr,
 
       *step = size_binop (PLUS_EXPR, *step, this_step);
 
-      *initial_offset = fold (build2 (PLUS_EXPR, TREE_TYPE (*initial_offset), 
-				      *initial_offset, this_offset));
+      *initial_offset = size_binop (PLUS_EXPR, *initial_offset, this_offset);
 
       if (vect_debug_details (NULL))
         {
@@ -2504,7 +2504,7 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform assignment.");
 
@@ -2695,7 +2695,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform store");
@@ -2782,7 +2782,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return true;
     }
 
-  /** Trasform.  **/
+  /** Transform.  **/
 
   if (vect_debug_details (NULL))
     fprintf (dump_file, "transform load.");
@@ -3198,7 +3198,7 @@ vect_update_ivs_after_vectorizer (struct loop *loop, tree niters, edge update_e)
       /* Fix phi expressions in the successor bb.  */
       gcc_assert (PHI_ARG_DEF_FROM_EDGE (phi1, update_e) ==
                   PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0)));
-      SET_PHI_ARG_DEF (phi1, phi_arg_from_edge (phi1, update_e), ni_name);
+      SET_PHI_ARG_DEF (phi1, update_e->dest_idx, ni_name);
     }
 }
 
@@ -4212,7 +4212,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 		  && DECL_ALIGN (base) >= TYPE_ALIGN (vectype)));
 
   /* Alignment required, in bytes:  */
-  alignment = size_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
+  alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
   /* Modulo alignment.  */
   misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
@@ -4678,14 +4678,14 @@ vect_analyze_pointer_ref_access (tree memref, tree stmt, bool is_read)
       return NULL;
     }
 
-  STMT_VINFO_VECT_STEP (stmt_info) = fold_convert (sizetype, step);
+  STMT_VINFO_VECT_STEP (stmt_info) = fold_convert (ssizetype, step);
   if (TREE_CODE (init) == PLUS_EXPR 
       || TREE_CODE (init) == MINUS_EXPR)
     STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = 
-      fold (size_binop (TREE_CODE (init), size_zero_node, 
-			fold_convert (sizetype, TREE_OPERAND (init, 1))));
+      size_binop (TREE_CODE (init), ssize_int (0),  
+		  fold_convert (ssizetype, TREE_OPERAND (init, 1)));
   else
-    STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = size_zero_node;
+    STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = ssize_int (0);
 
   indx_access_fn = 
 	build_polynomial_chrec (loopnum, integer_zero_node, integer_one_node);
@@ -4844,9 +4844,9 @@ vect_get_memtag_and_dr (tree memref, tree stmt, bool is_read,
 	  return NULL_TREE;
 	}  
 
-      offset = size_zero_node;
-      misalign = size_zero_node;
-      step = size_zero_node;
+      offset = ssize_int (0);
+      misalign = ssize_int (0);
+      step = ssize_int (0);
 
       /* Analyze data-ref, find its base, initial offset from the base, step,
 	 and alignment.  */
@@ -4861,8 +4861,8 @@ vect_get_memtag_and_dr (tree memref, tree stmt, bool is_read,
 	 vect_analyze_pointer_ref_access, we combine the values here. */
       if (STMT_VINFO_VECT_INIT_OFFSET (stmt_info))
 	STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = 
-	  fold (build2 (PLUS_EXPR, TREE_TYPE (offset), offset,
-			STMT_VINFO_VECT_INIT_OFFSET (stmt_info)));		  
+	  size_binop (PLUS_EXPR, offset, 
+		      STMT_VINFO_VECT_INIT_OFFSET (stmt_info));		  
       else
 	STMT_VINFO_VECT_INIT_OFFSET (stmt_info) = offset;
 

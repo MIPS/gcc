@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -65,6 +65,9 @@ struct ptr_info_def GTY(())
 
   /* Nonzero if this pointer points to a global variable.  */
   unsigned int pt_global_mem : 1;
+
+  /* Nonzero if this pointer points to NULL.  */
+  unsigned int pt_null : 1;
 
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
@@ -574,7 +577,6 @@ DEF_VEC_MALLOC_P (tree_on_heap);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void debug_reaching_defs (void);
 extern void dump_tree_ssa (FILE *);
 extern void debug_tree_ssa (void);
 extern void debug_def_blocks (void);
@@ -729,7 +731,6 @@ enum move_pos
 extern enum move_pos movement_possibility (tree);
 
 /* In tree-flow-inline.h  */
-static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
 static inline void set_is_used (tree);

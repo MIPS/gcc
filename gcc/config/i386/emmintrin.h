@@ -1,4 +1,4 @@
-/* Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1384,6 +1384,44 @@ _mm_cvtsi64x_si128 (long long __A)
   return _mm_set_epi64x (0, __A);
 }
 #endif
+
+/* Casts between various SP, DP, INT vector types.  Note that these do no
+   conversion of values, they just change the type.  */
+static inline __m128
+_mm_castpd_ps(__m128d __A)
+{
+  return (__m128) __A;
+}
+
+static inline __m128i
+_mm_castpd_si128(__m128d __A)
+{
+  return (__m128i) __A;
+}
+
+static inline __m128d
+_mm_castps_pd(__m128 __A)
+{
+  return (__m128d) __A;
+}
+
+static inline __m128i
+_mm_castps_si128(__m128 __A)
+{
+  return (__m128i) __A;
+}
+
+static inline __m128
+_mm_castsi128_ps(__m128i __A)
+{
+  return (__m128) __A;
+}
+
+static inline __m128d
+_mm_castsi128_pd(__m128i __A)
+{
+  return (__m128d) __A;
+}
 
 #endif /* __SSE2__  */
 

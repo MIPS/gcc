@@ -1,5 +1,6 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -287,11 +288,9 @@ do {						\
    The .align directive in the HP assembler allows alignments up to 4096
    bytes.  However, the maximum alignment of a global common symbol is 8
    bytes for objects smaller than the page size (4096 bytes).  For larger
-   objects, the linker provides an alignment of 32 bytes.  */
-#define MAX_OFILE_ALIGNMENT						\
-  (TREE_PUBLIC (decl) && DECL_COMMON (decl)				\
-   ? (host_integerp (DECL_SIZE_UNIT (decl), 1) >= 4096 ? 256 : 64)	\
-   : 32768)
+   objects, the linker provides an alignment of 32 bytes.  Unfortunately,
+   this macro doesn't provide a mechanism to test for common symbols.  */
+#define MAX_OFILE_ALIGNMENT 32768
 
 /* The SOM linker hardcodes paths into binaries.  As a result, dotdots
    must be removed from library prefixes to prevent binaries from depending

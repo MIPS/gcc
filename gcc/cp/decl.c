@@ -80,8 +80,6 @@ static tree record_builtin_java_type (const char *, int);
 static const char *tag_name (enum tag_types);
 static tree lookup_and_check_tag (enum tag_types, tree, tag_scope, bool);
 static int walk_namespaces_r (tree, walk_namespaces_fn, void *);
-static int walk_globals_r (tree, void*);
-static int walk_vtables_r (tree, void*);
 static tree make_label_decl (tree, int);
 static void use_label (tree);
 static void check_previous_goto_1 (tree, struct cp_binding_level *, tree,
@@ -742,29 +740,6 @@ poplevel (int keep, int reverse, int functionbody)
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, block);
 }
 
-/* Delete the node BLOCK from the current binding level.
-   This is used for the block inside a stmt expr ({...})
-   so that the block can be reinserted where appropriate.  */
-
-void
-delete_block (tree block)
-{
-  tree t;
-  if (current_binding_level->blocks == block)
-    current_binding_level->blocks = TREE_CHAIN (block);
-  for (t = current_binding_level->blocks; t;)
-    {
-      if (TREE_CHAIN (t) == block)
-	TREE_CHAIN (t) = TREE_CHAIN (block);
-      else
-	t = TREE_CHAIN (t);
-    }
-  TREE_CHAIN (block) = NULL_TREE;
-  /* Clear TREE_USED which is always set by poplevel.
-     The flag is set again if insert_block is called.  */
-  TREE_USED (block) = 0;
-}
-
 /* Insert BLOCK at the end of the list of subblocks of the
    current binding level.  This is used when a BIND_EXPR is expanded,
    to handle the BLOCK node inside the BIND_EXPR.  */
@@ -775,64 +750,6 @@ insert_block (tree block)
   TREE_USED (block) = 1;
   current_binding_level->blocks
     = chainon (current_binding_level->blocks, block);
-}
-
-/* Returns nonzero if T is a virtual function table.  */
-
-int
-vtable_decl_p (tree t, void* data ATTRIBUTE_UNUSED )
-{
-  return (TREE_CODE (t) == VAR_DECL && DECL_VIRTUAL_P (t));
-}
-
-/* Returns nonzero if T is a TYPE_DECL for a type with virtual
-   functions.  */
-
-int
-vtype_decl_p (tree t, void *data ATTRIBUTE_UNUSED )
-{
-  return (TREE_CODE (t) == TYPE_DECL
-	  && TREE_CODE (TREE_TYPE (t)) == RECORD_TYPE
-	  && TYPE_POLYMORPHIC_P (TREE_TYPE (t)));
-}
-
-struct walk_globals_data {
-  walk_globals_pred p;
-  walk_globals_fn f;
-  void *data;
-};
-
-/* Walk the vtable declarations in NAMESPACE.  Whenever one is found
-   for which P returns nonzero, call F with its address.  If any call
-   to F returns a nonzero value, return a nonzero value.  */
-
-static int
-walk_vtables_r (tree namespace, void* data)
-{
-  struct walk_globals_data* wgd = (struct walk_globals_data *) data;
-  walk_globals_fn f = wgd->f;
-  void *d = wgd->data;
-  tree decl = NAMESPACE_LEVEL (namespace)->vtables;
-  int result = 0;
-
-  for (; decl ; decl = TREE_CHAIN (decl))
-    result |= (*f) (&decl, d);
-
-  return result;
-}
-
-/* Walk the vtable declarations.  Whenever one is found for which P
-   returns nonzero, call F with its address.  If any call to F
-   returns a nonzero value, return a nonzero value.  */
-bool
-walk_vtables (walk_globals_pred p, walk_globals_fn f, void *data)
-{
-  struct walk_globals_data wgd;
-  wgd.p = p;
-  wgd.f = f;
-  wgd.data = data;
-
-  return walk_namespaces (walk_vtables_r, &wgd);
 }
 
 /* Walk all the namespaces contained NAMESPACE, including NAMESPACE
@@ -859,53 +776,6 @@ int
 walk_namespaces (walk_namespaces_fn f, void* data)
 {
   return walk_namespaces_r (global_namespace, f, data);
-}
-
-/* Walk the global declarations in NAMESPACE.  Whenever one is found
-   for which P returns nonzero, call F with its address.  If any call
-   to F returns a nonzero value, return a nonzero value.  */
-
-static int
-walk_globals_r (tree namespace, void* data)
-{
-  struct walk_globals_data* wgd = (struct walk_globals_data *) data;
-  walk_globals_pred p = wgd->p;
-  walk_globals_fn f = wgd->f;
-  void *d = wgd->data;
-  tree *t;
-  int result = 0;
-
-  t = &NAMESPACE_LEVEL (namespace)->names;
-
-  while (*t)
-    {
-      tree glbl = *t;
-
-      if ((*p) (glbl, d))
-	result |= (*f) (t, d);
-
-      /* If F changed *T, then *T still points at the next item to
-	 examine.  */
-      if (*t == glbl)
-	t = &TREE_CHAIN (*t);
-    }
-
-  return result;
-}
-
-/* Walk the global declarations.  Whenever one is found for which P
-   returns true, call F with its address.  If any call to F
-   returns true, return true.  */
-
-bool
-walk_globals (walk_globals_pred p, walk_globals_fn f, void *data)
-{
-  struct walk_globals_data wgd;
-  wgd.p = p;
-  wgd.f = f;
-  wgd.data = data;
-
-  return walk_namespaces (walk_globals_r, &wgd);
 }
 
 /* Call wrapup_globals_declarations for the globals in NAMESPACE.  If
@@ -1799,6 +1669,13 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_COMDAT (newdecl) |= DECL_COMDAT (olddecl);
       DECL_TEMPLATE_INSTANTIATED (newdecl)
 	|= DECL_TEMPLATE_INSTANTIATED (olddecl);
+      /* If the OLDDECL is an implicit instantiation, then the NEWDECL
+	 must be too.  But, it may not yet be marked as such if the
+	 caller has created NEWDECL, but has not yet figured out that
+	 it is a redeclaration.  */
+      if (DECL_IMPLICIT_INSTANTIATION (olddecl)
+	  && !DECL_USE_TEMPLATE (newdecl))
+	SET_DECL_IMPLICIT_INSTANTIATION (newdecl);
       /* Don't really know how much of the language-specific
 	 values we should copy from old to new.  */
       DECL_IN_AGGR_P (newdecl) = DECL_IN_AGGR_P (olddecl);
@@ -2513,7 +2390,7 @@ finish_case_label (tree low_value, tree high_value)
     }
 
   /* Find the condition on which this switch statement depends.  */
-  cond = SWITCH_COND (switch_stack->switch_stmt);
+  cond = SWITCH_STMT_COND (switch_stack->switch_stmt);
   if (cond && TREE_CODE (cond) == TREE_LIST)
     cond = TREE_VALUE (cond);
 
@@ -3828,7 +3705,12 @@ start_decl (const cp_declarator *declarator,
       if ((DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl))
 	  || CLASSTYPE_TEMPLATE_INSTANTIATION (context))
 	{
-	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
+	  /* Do not mark DECL as an explicit specialization if it was
+	     not already marked as an instantiation; a declaration
+	     should never be marked as a specialization unless we know
+	     what template is being specialized.  */ 
+	  if (DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl))
+	    SET_DECL_TEMPLATE_SPECIALIZATION (decl);
 	  /* [temp.expl.spec] An explicit specialization of a static data
 	     member of a template is a definition if the declaration
 	     includes an initializer; otherwise, it is a declaration.
@@ -7654,18 +7536,14 @@ grokdeclarator (const cp_declarator *declarator,
 	TYPE_FOR_JAVA (type) = 1;
 
       if (decl_context == FIELD)
-	{
-	  if (constructor_name_p (unqualified_id, current_class_type))
-	    pedwarn ("ISO C++ forbids nested type %qD with same name "
-                     "as enclosing class",
-		     unqualified_id);
-	  decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
-	}
+	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
       else
+	decl = build_decl (TYPE_DECL, unqualified_id, type);
+      if (id_declarator && declarator->u.id.qualifying_scope)
+	error ("%Jtypedef name may not be a nested-name-specifier", decl);
+
+      if (decl_context != FIELD)
 	{
-	  decl = build_decl (TYPE_DECL, unqualified_id, type);
-	  if (in_namespace || ctype)
-	    error ("%Jtypedef name may not be a nested-name-specifier", decl);
 	  if (!current_function_decl)
 	    DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 	  else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (current_function_decl)
@@ -7677,6 +7555,10 @@ grokdeclarator (const cp_declarator *declarator,
 	       clones.  */
 	    DECL_ABSTRACT (decl) = 1;
 	}
+      else if (constructor_name_p (unqualified_id, current_class_type))
+	pedwarn ("ISO C++ forbids nested type %qD with same name "
+		 "as enclosing class",
+		 unqualified_id);
 
       /* If the user declares "typedef struct {...} foo" then the
 	 struct will have an anonymous name.  Fill that name in now.
@@ -9799,6 +9681,11 @@ build_enumerator (tree name, tree value, tree enumtype)
   tree decl;
   tree context;
   tree type;
+
+  /* If the VALUE was erroneous, pretend it wasn't there; that will
+     result in the enum being assigned the next value in sequence.  */
+  if (value == error_mark_node)
+    value = NULL_TREE;
 
   /* Remove no-op casts from the value.  */
   if (value)

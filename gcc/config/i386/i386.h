@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -967,10 +967,10 @@ extern int x86_prefetch_sse;
    and the register where structure-value addresses are passed.
    Aside from that, you can include as many other registers as you like.
 
-   The value is zero if the register is not fixed on either 32 or
-   64 bit targets, one if the register if fixed on both 32 and 64
-   bit targets, two if it is only fixed on 32bit targets and three
-   if its only fixed on 64bit targets.
+   The value is zero if the register is not call used on either 32 or
+   64 bit targets, one if the register if call used on both 32 and 64
+   bit targets, two if it is only call used on 32bit targets and three
+   if its only call used on 64bit targets.
    Proper values are computed in the CONDITIONAL_REGISTER_USAGE.
 */
 #define CALL_USED_REGISTERS					\
@@ -1307,9 +1307,9 @@ enum reg_class
 #define FLOAT_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), FLOAT_REGS)
 #define SSE_CLASS_P(CLASS) \
-  reg_class_subset_p ((CLASS), SSE_REGS)
+  ((CLASS) == SSE_REGS)
 #define MMX_CLASS_P(CLASS) \
-  reg_class_subset_p ((CLASS), MMX_REGS)
+  ((CLASS) == MMX_REGS)
 #define MAYBE_INTEGER_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), GENERAL_REGS)
 #define MAYBE_FLOAT_CLASS_P(CLASS) \
@@ -1735,7 +1735,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
-  int fastcall;		/* fastcall calling convention is used */
+  int fastcall;			/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */

@@ -1,6 +1,6 @@
 /* Data flow analysis for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -175,12 +175,6 @@ int max_regno;
 /* Indexed by n, giving various register information */
 
 varray_type reg_n_info;
-
-/* Size of a regset for the current function,
-   in (1) bytes and (2) elements.  */
-
-int regset_bytes;
-int regset_size;
 
 /* Regset of regs live when calls to `setjmp'-like functions happen.  */
 /* ??? Does this exist only for the setjmp-clobbered warning message?  */
@@ -1587,7 +1581,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
       pbi->cc0_live = 0;
 
       if (libcall_is_dead)
-	prev = propagate_block_delete_libcall ( insn, note);
+	prev = propagate_block_delete_libcall (insn, note);
       else
 	{
 
@@ -2290,7 +2284,7 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
     {
       rtx r = SET_SRC (x);
 
-      if (REG_P (r))
+      if (REG_P (r) || GET_CODE (r) == SUBREG)
 	{
 	  rtx call = XEXP (note, 0);
 	  rtx call_pat;
@@ -2324,10 +2318,20 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
 	      call_pat = XVECEXP (call_pat, 0, i);
 	    }
 
-	  return insn_dead_p (pbi, call_pat, 1, REG_NOTES (call));
+	  if (! insn_dead_p (pbi, call_pat, 1, REG_NOTES (call)))
+	    return 0;
+
+	  while ((insn = PREV_INSN (insn)) != call)
+	    {
+	      if (! INSN_P (insn))
+		continue;
+	      if (! insn_dead_p (pbi, PATTERN (insn), 0, REG_NOTES (insn)))
+		return 0;
+	    }
+	  return 1;
 	}
     }
-  return 1;
+  return 0;
 }
 
 /* 1 if register REGNO was alive at a place where `setjmp' was called

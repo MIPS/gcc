@@ -1670,7 +1670,7 @@ check_sibcall_argument_overlap_1 (rtx x)
 	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
 	i = INTVAL (XEXP (XEXP (x, 0), 1));
       else
-	return 1;
+	return 0;
 
 #ifdef ARGS_GROW_DOWNWARD
       i = -i - GET_MODE_SIZE (GET_MODE (x));
@@ -2722,7 +2722,7 @@ expand_call (tree exp, rtx target, int ignore)
 	      end_sequence ();
 	      if (flag_unsafe_math_optimizations
 		  && fndecl
-		  && DECL_BUILT_IN (fndecl)
+		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -126,6 +126,7 @@ extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
+extern void ix86_expand_push (enum machine_mode, rtx);
 extern rtx ix86_fixup_binary_operands (enum rtx_code,
 				       enum machine_mode, rtx[]);
 extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
@@ -135,8 +136,12 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
 					    rtx[]);
+extern void ix86_expand_copysign (rtx []);
+extern void ix86_split_copysign_const (rtx []);
+extern void ix86_split_copysign_var (rtx []);
 extern int ix86_unary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern int ix86_match_ccmode (rtx, enum machine_mode);
 extern rtx ix86_expand_compare (enum rtx_code, rtx *, rtx *);
