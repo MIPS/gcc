@@ -20,6 +20,10 @@
 
 2003-08-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_stmt): Strip away certain NOP_EXPRs
+	before determining if we have an equivalence to enter into
+	the const_and_copies table.
+
 	* tree-ssa-dce.c (remove_dead_stmts): Iterate backwards through the
 	basic blocks removing dead statements.  Within each block iterate
 	backwards through the statements removing those which are dead.
