@@ -1,5 +1,6 @@
 /* Arrays.java -- Utility class with methods to operate on arrays
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -1018,7 +1019,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -1180,7 +1181,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -1342,7 +1343,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -1516,7 +1517,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -1690,7 +1691,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -1854,7 +1855,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
@@ -2022,7 +2023,7 @@ public class Arrays
   /**
    * Performs a recursive modified quicksort.
    *
-   * @param a the array to sort
+   * @param array the array to sort
    * @param from the start index (inclusive)
    * @param count the number of elements to sort
    */
