@@ -77,7 +77,7 @@ static void propagate_freq (struct loop *);
 static void estimate_bb_frequencies (struct loops *);
 static int counts_to_freqs (void);
 static void process_note_predictions (basic_block, int *);
-static void process_note_prediction (basic_block, int *, int, int);
+static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
 static void compute_function_frequency (void);
 static void choose_function_section (void);
@@ -806,7 +806,139 @@ estimate_probability (struct loops *loops_info)
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
+/* Return constant EXPR will likely have at execution time, NULL if unknown. 
+   The function is used by builtin_expect branch predictor so the evidence
+   must come from this construct and additional possible constant folding.
+  
+   We may want to implement more involved value guess (such as value range
+   propagation based prediction), but such tricks shall go to new
+   implementation.  */
 
+static tree
+expr_expected_value (tree expr, bitmap visited)
+{
+  if (TREE_CONSTANT (expr))
+    return expr;
+  else if (TREE_CODE (expr) == SSA_NAME)
+    {
+      tree def = SSA_NAME_DEF_STMT (expr);
+
+      /* If we were already here, break the infinite cycle.  */
+      if (bitmap_bit_p (visited, SSA_NAME_VERSION (expr)))
+	return NULL;
+      bitmap_set_bit (visited, SSA_NAME_VERSION (expr));
+
+      if (TREE_CODE (def) == PHI_NODE)
+	{
+	  /* All the arguments of the PHI node must have the same constant
+	     length.  */
+	  int i;
+	  tree val = NULL, new_val;
+
+	  for (i = 0; i < PHI_NUM_ARGS (def); i++)
+	    {
+	      tree arg = PHI_ARG_DEF (def, i);
+
+	      /* If this PHI has itself as an argument, we cannot
+		 determine the string length of this argument.  However,
+		 if we can find a constant string length for the other
+		 PHI args then we can still be sure that this is a
+		 constant string length.  So be optimistic and just
+		 continue with the next argument.  */
+	      if (arg == PHI_RESULT (def))
+		continue;
+
+	      new_val = expr_expected_value (arg, visited);
+	      if (!new_val)
+		return NULL;
+	      if (!val)
+		val = new_val;
+	      else if (!operand_equal_p (val, new_val, false))
+		return NULL;
+	    }
+	  return val;
+	}
+      if (TREE_CODE (def) != MODIFY_EXPR || TREE_OPERAND (def, 0) != expr)
+	return NULL;
+      return expr_expected_value (TREE_OPERAND (def, 1), visited);
+    }
+  else if (TREE_CODE (expr) == CALL_EXPR)
+    {
+      tree decl = get_callee_fndecl (expr);
+      if (!decl)
+	return NULL;
+      if (DECL_BUILT_IN (decl) && DECL_FUNCTION_CODE (decl) == BUILT_IN_EXPECT)
+	{
+	  tree arglist = TREE_OPERAND (expr, 1);
+	  tree val;
+
+	  if (arglist == NULL_TREE
+	      || TREE_CHAIN (arglist) == NULL_TREE)
+	    return NULL; 
+	  val = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	  if (TREE_CONSTANT (val))
+	    return val;
+	  return TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	}
+    }
+  if (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
+      || TREE_CODE_CLASS (TREE_CODE (expr)) == '<')
+    {
+      tree op0, op1, res;
+      op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
+      if (!op0)
+	return NULL;
+      op1 = expr_expected_value (TREE_OPERAND (expr, 1), visited);
+      if (!op1)
+	return NULL;
+      res = fold (build (TREE_CODE (expr), TREE_TYPE (expr), op0, op1));
+      if (TREE_CONSTANT (res))
+	return res;
+      return NULL;
+    }
+  if (TREE_CODE_CLASS (TREE_CODE (expr)) == '1')
+    {
+      tree op0, res;
+      op0 = expr_expected_value (TREE_OPERAND (expr, 0), visited);
+      if (!op0)
+	return NULL;
+      res = fold (build1 (TREE_CODE (expr), TREE_TYPE (expr), op0));
+      if (TREE_CONSTANT (res))
+	return res;
+      return NULL;
+    }
+  return NULL;
+}
+
+/* Get rid of all builtin_expect calls we no longer need.  */
+static void
+strip_builtin_expect (void)
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bi;
+      for (bi = bsi_start (bb); !bsi_end_p (bi); bsi_next (&bi))
+	{
+	  tree stmt = bsi_stmt (bi);
+	  tree fndecl;
+	  tree arglist;
+
+	  if (TREE_CODE (stmt) == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
+	      && (fndecl = get_callee_fndecl (TREE_OPERAND (stmt, 1)))
+	      && DECL_BUILT_IN (fndecl)
+	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
+	      && (arglist = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1))
+	      && TREE_CHAIN (arglist))
+	    {
+	      TREE_OPERAND (stmt, 1) = TREE_VALUE (arglist);
+	      modify_stmt (stmt);
+	    }
+	}
+    }
+}
+
 /* Predict using opcode of the last statement in basic block.  */
 static void
 tree_predict_by_opcode (basic_block bb)
@@ -816,6 +948,8 @@ tree_predict_by_opcode (basic_block bb)
   tree cond;
   tree op0;
   tree type;
+  tree val;
+  bitmap visited;
 
   if (!stmt || TREE_CODE (stmt) != COND_EXPR)
     return;
@@ -827,6 +961,17 @@ tree_predict_by_opcode (basic_block bb)
     return;
   op0 = TREE_OPERAND (cond, 0);
   type = TREE_TYPE (op0);
+  visited = BITMAP_XMALLOC ();
+  val = expr_expected_value (cond, visited);
+  BITMAP_XFREE (visited);
+  if (val)
+    {
+      if (integer_zerop (val))
+	predict_edge_def (then_edge, PRED_BUILTIN_EXPECT, NOT_TAKEN);
+      else
+	predict_edge_def (then_edge, PRED_BUILTIN_EXPECT, TAKEN);
+      return;
+    }
   /* Try "pointer heuristic."
      A comparison ptr == 0 is predicted as false.
      Similarly, a comparison ptr1 == ptr2 is predicted as false.  */
@@ -911,6 +1056,94 @@ tree_predict_by_opcode (basic_block bb)
       }
 }
 
+/* Try to guess whether the value of return means error code.  */
+static enum br_predictor
+return_prediction (tree val)
+{
+  /* VOID.  */
+  if (!val)
+    return PRED_NO_PREDICTION;
+  /* Different heuristics for pointers and scalars.  */
+  if (POINTER_TYPE_P (TREE_TYPE (val)))
+    {
+      /* NULL is usually not returned.  */
+      if (integer_zerop (val))
+	return PRED_NULL_RETURN;
+    }
+  else
+    {
+      /* Negative return values are often used to indicate
+         errors.  */
+      if (TREE_CODE (val) == INTEGER_CST
+	  && tree_int_cst_sgn (val) < 0)
+	return PRED_NEGATIVE_RETURN;
+      /* Constant return values are also usually erors,
+         zero/one often mean booleans so exclude them from the
+	 heuristics.  */
+      if (TREE_CONSTANT (val)
+	  && (!integer_zerop (val) && !integer_onep (val)))
+	return PRED_CONST_RETURN;
+    }
+  return PRED_NO_PREDICTION;
+}
+
+/* Look for basic block that contains unlikely to happen events
+   (such as noreturn calls) and mark all paths leading to execution
+   of this basic blocks as unlikely.  */
+
+static void
+tree_bb_level_predictions (void)
+{
+  basic_block bb;
+  int *heads;
+
+  heads = xmalloc (sizeof (int) * last_basic_block);
+  memset (heads, -1, sizeof (int) * last_basic_block);
+  heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
+
+  /* Process all prediction notes.  */
+
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi = bsi_last (bb);
+      enum br_predictor pred;
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  switch (TREE_CODE (stmt))
+	    {
+	      case MODIFY_EXPR:
+		if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+		  {
+		    stmt = TREE_OPERAND (stmt, 1);
+		    goto call_expr;
+		  }
+		break;
+	      case CALL_EXPR:
+		if (call_expr_flags (stmt) & ECF_NORETURN)
+		  predict_paths_leading_to (bb, heads, PRED_NORETURN,
+		      			    NOT_TAKEN);
+call_expr:;
+		break;
+	      case RETURN_EXPR:
+		stmt = TREE_OPERAND (stmt, 0);
+		if (stmt && TREE_CODE (stmt) == MODIFY_EXPR)
+		  stmt = TREE_OPERAND (stmt, 1);
+		pred = return_prediction (stmt);
+		if (pred != PRED_NO_PREDICTION)
+		  predict_paths_leading_to (bb, heads, pred,
+		      			    NOT_TAKEN);
+		break;
+	      default:
+		break;
+	    }
+	}
+    }
+
+  free (heads);
+}
+
 /* Predict branch probabilities and estimate profile of the tree CFG.  */
 static void
 tree_estimate_probability (void)
@@ -922,9 +1155,12 @@ tree_estimate_probability (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     flow_loops_dump (&loops_info, dump_file, NULL, 0);
 
+  add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  tree_bb_level_predictions ();
 
   predict_loops (&loops_info, false);
 
@@ -938,7 +1174,7 @@ tree_estimate_probability (void)
 	     We should use high level prediction scheme here.  Also it has
 	     reversed hitrate until we implement NULL/CONST/NEGATIVE_RETURN
 	     heursitics.  */
-#if 0
+#if 1
 	  /* Predict early returns to be probable, as we've already taken
 	     care for error returns and other are often used for fast paths
 	     trought function.  */
@@ -986,6 +1222,7 @@ tree_estimate_probability (void)
   FOR_EACH_BB (bb)
     combine_predictions_for_bb (dump_file, bb);
 
+  strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_edges ();
@@ -1088,13 +1325,11 @@ last_basic_block_p (basic_block bb)
    on demand, so -1 may be there in case this was not needed yet).  */
 
 static void
-process_note_prediction (basic_block bb, int *heads, int pred, int flags)
+predict_paths_leading_to (basic_block bb, int *heads, enum br_predictor pred,
+			  enum prediction taken)
 {
   edge e;
   int y;
-  bool taken;
-
-  taken = flags & IS_TAKEN;
 
   if (heads[bb->index] < 0)
     {
@@ -1131,7 +1366,7 @@ process_note_prediction (basic_block bb, int *heads, int pred, int flags)
 
   /* Now find the edge that leads to our branch and aply the prediction.  */
 
-  if (y == last_basic_block || !can_predict_insn_p (BB_END (BASIC_BLOCK (y))))
+  if (y == last_basic_block)
     return;
   for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
     if (e->dest->index >= 0
@@ -1175,9 +1410,11 @@ process_note_predictions (basic_block bb, int *heads)
 	{
 	  int alg = (int) NOTE_PREDICTION_ALG (insn);
 	  /* Process single prediction note.  */
-	  process_note_prediction (bb,
-				   heads,
-				   alg, (int) NOTE_PREDICTION_FLAGS (insn));
+	  predict_paths_leading_to (bb,
+				    heads,
+				    alg,
+				    NOTE_PREDICTION_FLAGS (insn) & IS_TAKEN
+				    ? TAKEN : NOT_TAKEN);
 	  delete_insn (insn);
 	}
     }
@@ -1189,7 +1426,7 @@ process_note_predictions (basic_block bb, int *heads)
       /* This block ended from other reasons than because of return.
          If it is because of noreturn call, this should certainly not
          be taken.  Otherwise it is probably some error recovery.  */
-      process_note_prediction (bb, heads, PRED_NORETURN, NOT_TAKEN);
+      predict_paths_leading_to (bb, heads, PRED_NORETURN, NOT_TAKEN);
     }
 }
 

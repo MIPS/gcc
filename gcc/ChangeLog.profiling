@@ -1,3 +1,17 @@
+2004-04-02  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (expect): Make const/notrhow.
+	* predict.c (process_note_prediction): Rename to:
+	(predict_paths_leading_to): ... this one.
+	(expr_expected_value): New function.
+	(tree_predict_by_opcode): Analyze builtin_expect.
+	(return_prediction): New function.
+	(tree_bb_level_predictions): New function.
+	(strip_builtin_expect): New function.
+	(tree_esitmate_probability): Add noreturn edges; do
+	bb_level_predictions; enable return heuristics; strip
+	builtin_expect_calls.
+
 2004-03-31  Jan Hubicka  <jh@suse.cz>
 
 	* cfgbuild.c (control_flow_insn_p):  Conditional noreturn call is not
