@@ -222,7 +222,7 @@ entry_register (entry, ref, used, use_addressof)
       REG_POINTER (newreg) = REG_POINTER (reg);
       REG_LOOP_TEST_P (newreg) = REG_LOOP_TEST_P (reg);
       RTX_UNCHANGING_P (newreg) = RTX_UNCHANGING_P (reg);
-      REGNO_DECL (REGNO (newreg)) = REGNO_DECL (REGNO (reg));
+      REG_ATTRS (newreg) = REG_ATTRS (reg);
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
 		 REGNO (newreg));
