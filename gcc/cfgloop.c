@@ -39,10 +39,11 @@ static basic_block flow_loop_pre_header_find PARAMS ((basic_block,
 						      const sbitmap *));
 static int flow_loop_level_compute	PARAMS ((struct loop *));
 static int flow_loops_level_compute	PARAMS ((struct loops *));
-static basic_block make_forwarder_block PARAMS ((basic_block, bool, bool,
+static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
 						 edge, int));
 static void canonicalize_loop_headers   PARAMS ((void));
 static bool glb_enum_p PARAMS ((basic_block));
+static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
 
 
 /* Dump loop related CFG information.  */
@@ -531,6 +532,25 @@ flow_loop_scan (loops, loop, flags)
 #define HEADER_BLOCK(B) (* (int *) (B)->aux)
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
 
+/* Redirect edge and update latch and header info.  */
+static void
+redirect_edge_with_latch_update (e, to)
+     edge e;
+     basic_block to;
+{
+  basic_block jump;
+
+  jump = redirect_edge_and_branch_force (e, to);
+  if (jump)
+    {
+      alloc_aux_for_block (jump, sizeof (int));
+      HEADER_BLOCK (jump) = 0;
+      alloc_aux_for_edge (jump->pred, sizeof (int));
+      LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
+      LATCH_EDGE (jump->pred) = 0;
+    }
+}
+
 /* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
    marked as latch into entry part, analogically for REDIRECT_NONLATCH.
    In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
@@ -541,8 +561,8 @@ static basic_block
 make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
 		      conn_latch)
      basic_block bb;
-     bool redirect_latch;
-     bool redirect_nonlatch;
+     int redirect_latch;
+     int redirect_nonlatch;
      edge except;
      int conn_latch;
 {
@@ -563,29 +583,13 @@ make_forwarder_block (bb, redirect_latch, redirect_nonlatch, except,
   /* Redirect back edges we want to keep. */
   for (e = dummy->pred; e; e = next_e)
     {
-      basic_block jump;
       next_e = e->pred_next;
       if (e == except
 	  || !((redirect_latch && LATCH_EDGE (e))
 	       || (redirect_nonlatch && !LATCH_EDGE (e))))
 	{
-	  /* ??? Hack - we can not redirect these edges so just don't do that.
-	     The structure is invalid then and before we will use it to actually
-	     modify CFG, we must resolve this issue.  */
-
-	  if (e->src == ENTRY_BLOCK_PTR
-	      || (e->flags & EDGE_ABNORMAL))
-	    continue;
 	  dummy->frequency -= EDGE_FREQUENCY (e);
-	  jump = redirect_edge_and_branch_force (e, bb);
-	  if (jump)
-	    {
-	      alloc_aux_for_block (jump, sizeof (int));
-	      HEADER_BLOCK (jump) = 0;
-	      alloc_aux_for_edge (jump->pred, sizeof (int));
-	      LATCH_EDGE (jump->succ) = LATCH_EDGE (e);
-	      LATCH_EDGE (jump->pred) = 0;
-	    }
+	  redirect_edge_with_latch_update (e, bb);
 	}
     }
 
@@ -636,6 +640,34 @@ canonicalize_loop_headers ()
 	HEADER_BLOCK (header) = 0;
       else
 	HEADER_BLOCK (header) = num_latches;
+    }
+
+  if (HEADER_BLOCK (ENTRY_BLOCK_PTR->succ->dest))
+    {
+      rtx insn;
+      edge fallthru, next_e;
+      basic_block bb;
+      /* We could not redirect edges freely here. On the other hand,
+         we know that no abnormal edge enters this block, so we can simply
+	 split it into two...  */
+      bb = ENTRY_BLOCK_PTR->succ->dest;
+      insn = PREV_INSN (first_insn_after_basic_block_note (bb));
+      fallthru = split_block (bb, insn);
+ 
+      /* And redirect all edges to second part.  */
+      for (e = fallthru->src->pred; e; e = next_e)
+        {
+	  next_e = e->pred_next;
+	  if (e->src == ENTRY_BLOCK_PTR)
+	    continue;
+	  fallthru->src->frequency -= EDGE_FREQUENCY (e);
+	  redirect_edge_with_latch_update (e, fallthru->dest);
+	}
+      alloc_aux_for_edge (fallthru, sizeof (int));
+      LATCH_EDGE (fallthru) = 0;
+      alloc_aux_for_block (fallthru->dest, sizeof (int));
+      HEADER_BLOCK (fallthru->dest) = HEADER_BLOCK (fallthru->src);
+      HEADER_BLOCK (fallthru->src) = 0;
     }
 
   for (b = 0; b < n_basic_blocks; )
@@ -758,13 +790,14 @@ flow_loops_find (loops, flags)
   num_loops = 0;
   for (b = 0; b < n_basic_blocks; b++)
     {
+      int more_latches = 0;
+     
       header = BASIC_BLOCK (b);
       header->loop_depth = 0;
 
       for (e = header->pred; e; e = e->pred_next)
 	{
 	  basic_block latch = e->src;
-	  int more_latches = 0;
 
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
