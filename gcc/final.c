@@ -68,6 +68,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "debug.h"
 #include "expr.h"
+#include "profile.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -113,9 +114,6 @@ static int high_function_linenum;
 
 /* Filename of last NOTE.  */
 static const char *last_filename;
-
-/* Number of instrumented arcs when profile_arc_flag is set.  */
-extern int count_instrumented_edges;
 
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
@@ -212,6 +210,17 @@ struct bb_list
   int func_label_num;		/* LPBC<n> label # for stored function name */
 };
 
+struct function_list
+{
+  struct function_list *next; 	/* next function */
+  const char *name; 		/* function name */
+  long cfg_checksum;		/* function checksum */
+  long count_edges;		/* number of intrumented edges in this function */
+};
+
+static struct function_list *functions_head = 0;
+static struct function_list **functions_tail = &functions_head;
+
 /* Linked list to hold the strings for each file and function name output.  */
 
 struct bb_str
@@ -273,11 +282,12 @@ end_final (filename)
       int align = exact_log2 (BIGGEST_ALIGNMENT / BITS_PER_UNIT);
       int size, rounded;
       int long_bytes = LONG_TYPE_SIZE / BITS_PER_UNIT;
+      int int_bytes = INT_TYPE_SIZE / BITS_PER_UNIT;
       int gcov_type_bytes = GCOV_TYPE_SIZE / BITS_PER_UNIT;
       int pointer_bytes = POINTER_SIZE / BITS_PER_UNIT;
       unsigned int align2 = LONG_TYPE_SIZE;
 
-      size = gcov_type_bytes * count_instrumented_edges;
+      size = gcov_type_bytes * profile_info.count_instrumented_edges;
       rounded = size;
 
       rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
@@ -297,16 +307,12 @@ end_final (filename)
 	 1:  address of file name (LPBX1).
 	 2:  address of table of counts (LPBX2).
 	 3:  number of counts in the table.
-	 4:  always 0, for compatibility with Sun.
+	 4:  always 0, libgcc2 uses this as a pointer to next ``struct bb''
 
          The following are GNU extensions:
 
-	 5:  address of table of start addrs of basic blocks (LPBX3).
-	 6:  Number of bytes in this header.
-	 7:  address of table of function names (LPBX4).
-	 8:  address of table of line numbers (LPBX5) or 0.
-	 9:  address of table of file names (LPBX6) or 0.
-	10:  space reserved for basic block profiling.  */
+	 5:  Number of bytes in this header.
+	 6:  address of table of function checksums (LPBX7).  */
 
       ASM_OUTPUT_ALIGN (asm_out_file, align);
 
@@ -326,26 +332,19 @@ end_final (filename)
 			align2, 1);
 
       /* Count of the # of instrumented arcs.  */
-      assemble_integer (GEN_INT (count_instrumented_edges),
+      assemble_integer (GEN_INT (profile_info.count_instrumented_edges),
 			long_bytes, align2, 1);
 
       /* Zero word (link field).  */
       assemble_integer (const0_rtx, pointer_bytes, align2, 1);
 
-      assemble_integer (const0_rtx, pointer_bytes, align2, 1);
-
       /* Byte count for extended structure.  */
-      assemble_integer (GEN_INT (11 * UNITS_PER_WORD), long_bytes, align2, 1);
+      assemble_integer (GEN_INT (7 * UNITS_PER_WORD), long_bytes, align2, 1);
 
-      /* Address of function name table.  */
-      assemble_integer (const0_rtx, pointer_bytes, align2, 1);
-
-      /* Address of line number and filename tables if debugging.  */
-      assemble_integer (const0_rtx, pointer_bytes, align2, 1);
-      assemble_integer (const0_rtx, pointer_bytes, align2, 1);
-
-      /* Space for extension ptr (link field).  */
-      assemble_integer (const0_rtx, UNITS_PER_WORD, align2, 1);
+      /* Address of function chcksums.  */
+      ASM_GENERATE_INTERNAL_LABEL (name, "LPBX", 7);
+      assemble_integer (gen_rtx_SYMBOL_REF (Pmode, name),
+	  pointer_bytes, align2, 1);
 
       /* Output the file name changing the suffix to .d for
 	 Sun tcov compatibility.  */
@@ -392,6 +391,37 @@ end_final (filename)
 #endif
 #endif
 	}
+
+	  
+      /* Output function names with their checksums.  */
+      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LPBX", 7);
+
+      {
+	struct function_list *item;
+	int i;
+
+	for ((item = functions_head), (i = 0); item != 0; (item = item->next), i++)
+	  {
+	    assemble_integer (GEN_INT (item->cfg_checksum), long_bytes, align2, 1);
+	    assemble_integer (GEN_INT (item->count_edges), int_bytes, align2, 1);
+	    ASM_GENERATE_INTERNAL_LABEL (name, "LPBXX", i);
+	    assemble_integer (gen_rtx_SYMBOL_REF (Pmode, name),
+		pointer_bytes, align2, 1);
+
+	  }
+
+	assemble_integer (const0_rtx, long_bytes, align2, 1);
+	assemble_integer (GEN_INT (-1), int_bytes, align2, 1);
+	assemble_integer (const0_rtx, pointer_bytes, align2, 1);  /* last item */
+
+	/* function names */
+	for ((item = functions_head), (i = 0); item != 0; (item = item->next), i++)
+	  {
+	    ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LPBXX", i);
+	    assemble_string (item->name, strlen (item->name) + 1);
+	  }
+
+      }
     }
 }
 
@@ -1807,6 +1837,24 @@ final (first, file, optimize, prescan)
       insn = final_scan_insn (insn, file, optimize, prescan, 0);
     }
 
+  /* Store function names for edge-profiling.  */
+
+  if (profile_arc_flag)
+  {
+    struct function_list *new_item = xmalloc (sizeof (struct function_list));
+
+    /* Add function to linked list.  */
+    new_item->next = 0;
+    *functions_tail = new_item;
+    functions_tail = &new_item->next;
+
+    /* Set values.  */
+    new_item->cfg_checksum = profile_info.current_function_cfg_checksum;
+    new_item->count_edges = profile_info.count_edges_instrumented_now;
+    new_item->name = xstrdup (current_function_name);
+    
+  }
+  
   free (line_note_exists);
   line_note_exists = NULL;
 }
