@@ -346,6 +346,7 @@ init_tree_optimization_passes (void)
   /* NEXT_PASS (pass_gimple); */
   NEXT_PASS (pass_inline);
   NEXT_PASS (pass_remove_useless_stmts);
+  NEXT_PASS (pass_struct_reorg);
   NEXT_PASS (pass_mudflap_1);
   /* NEXT_PASS (pass_lower_cf);  */
   /* NEXT_PASS (pass_lower_eh);  */

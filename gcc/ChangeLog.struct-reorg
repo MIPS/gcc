@@ -1,3 +1,10 @@
+2004-09-27  Mostafa Hagog  <mustafa@il.ibm.com>
+
+	* struct-reorg.c : Bug fixes.
+	* struct-reorg-cp.c (dump_cpg): New function.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_struct_reorg.
+
 2004-09-20  Mostafa Hagog  <mustafa@il.ibm.com>
 
 	* Makefile.in (struct-reorg.o, struct-reorg-cpg.o): New files.

@@ -78,7 +78,10 @@ struct tree_opt_pass pass_struct_reorg =
   TODO_verify_stmts                     /* todo_flags_finish */
 };
 
+/* Not used yet.  Commented it out so we can bootstrap.  */
+#if 0 
 static htab_t visited_nodes;
+#endif
 
 struct struct_list {
   struct data_structure *struct_data;
@@ -94,7 +97,7 @@ get_fields (tree struct_decl, int num_fields)
 
   list = (struct data_field_entry * ) xmalloc (num_fields
 					       * sizeof
-					              (struct data_field_entry));
+				              (struct data_field_entry));
 
   for (idx = 0 ; t; t = TREE_CHAIN (t), idx++)
     if (TREE_CODE (t) == FIELD_DECL)
@@ -107,16 +110,143 @@ get_fields (tree struct_decl, int num_fields)
   return list;
 }
 
-/* Calculates the list of accessed fields (of the given DS) in the given
-   statement STMT.  */
-static sbitmap 
-get_stmt_accessed_fields (tree stmt, struct data_structure *ds);
+/* Record STMT as the access site of the filed with INDEX of DS data
+   structure.  OP is the COMPONENT_REF is access to the field in STMT.  */
+static void
+add_field_access_site (struct data_structure *ds, int index,
+		       tree stmt, tree op)
+{
+   struct access_site *as;
 
-/* Calculates the access distance that the given statement (STMT)
-   imposes.  This is a function of the memory accessed in STMT
-   (memory other than accesses to fields of DS.  */
+   if (index < 0 )
+     abort ();
+
+   as = (struct access_site *)xcalloc (1, sizeof (struct access_site));
+   as->stmt = stmt;
+   as->field_access = op;
+   as->next = ds->fields[index].acc_sites;
+   ds->fields[index].acc_sites = as;
+}
+
+/* Given the field declaration tree (F_DECL) return the 
+   appropraite field index in DS.  */
+static int 
+get_field_index (struct data_structure *ds, tree f_decl)
+{
+  int i;
+  
+  for (i = 0; i < ds->num_fields; i++)
+    if (ds->fields[i].decl == f_decl)
+      return i;
+
+  return -1;  
+}
+
+/* A helper function for get_stmt_accessed_fields.  */
 static int
-get_stmt_access_distance (tree stmt, struct data_structure *ds);
+get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds)
+{
+  int i, code, total_dist = 0;
+
+  code = TREE_CODE (op);
+  switch (code)
+    {
+      case COMPONENT_REF:
+        {
+          /* This is a reference to a field check if this is to a relevant
+	     field.  */
+          tree struct_var = TREE_OPERAND (op, 0);
+          tree field_decl = TREE_OPERAND (op, 1);
+          tree field_decl_type = TREE_TYPE (field_decl);
+	  tree struct_type = NULL_TREE;
+          int index;
+
+	  if (TREE_CODE (struct_var) == VAR_DECL)
+	    struct_type = TREE_TYPE (struct_var);
+	  else if (TREE_CODE (struct_var) == INDIRECT_REF)
+	    struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
+
+          if (ds->decl != struct_type )
+            {
+              if (TREE_CODE (TYPE_SIZE (field_decl_type)) == INTEGER_CST)
+                return - int_cst_value (TYPE_SIZE (field_decl_type));
+              else
+                return -1;
+            }
+          if ((index = get_field_index (ds, field_decl)) < 0)
+            abort ();
+
+          /* Add a field access site here.  */
+          add_field_access_site (ds, index, stmt, op);
+
+          /* We return the field index + 1 becuase field IDs starts
+	     at 0 and the 0 return value has a special meaning.  */
+          return index + 1;
+          break;
+        }
+      case BIT_FIELD_REF:
+        {
+          tree struct_type = TREE_TYPE (TREE_OPERAND (op, 0));
+          tree n_bits = TREE_OPERAND (op, 1);
+
+          /* Mark the structure as not appropriate for optimization.  */
+          if (ds->decl == struct_type)
+            ds->unresolved_field_access = true;
+          if (TREE_CODE (n_bits) == INTEGER_CST)
+            return - (int_cst_value (n_bits)/BITS_PER_UNIT);
+          else
+            return -1;
+        }
+      case ADDR_EXPR:
+        {
+          /* Mark the structure as not appropriate for optimization.  */
+          return 0;
+        }
+      default:
+  	for (i = 0; i < TREE_CODE_LENGTH (code); i++)
+    	  {
+            int dist;
+
+	    tree opi = TREE_OPERAND (op, i);
+           
+            if (! opi)
+	      continue;
+      	    dist = get_stmt_accessed_fields_1 (stmt, opi, ds);
+            if (dist > 0)
+              return dist;
+            else
+              total_dist += dist;
+    	  }
+    }
+
+  return total_dist;
+}
+
+/* Analyze the statement STMT and search for field accesses of the given
+   data structure DS.  Returns the "ID + 1" of the accessed field if there
+   is any, otherwise it returns the accesses distance produced by this
+   instruction as a negative number or zero (if this is not a memory
+   access).  We assume this is a GIMPLE statement meaning that a memory
+   access must be in a MODIFY_EXPR, and the memory can be in one side
+   of the MODIFY_EXPR.  That means that only one field could be
+   accessed within this GIMPLE statement.  */
+static int
+get_stmt_accessed_fields (tree stmt, struct data_structure *ds)
+{
+  int code, dist;
+
+  code = TREE_CODE (stmt);
+  if (code != MODIFY_EXPR)
+    return 0;
+
+  /* Analyze the left side of the MODIFY.  If dist is not zero it means
+     that the left side (OP0) is a memory access that means that the
+     right side cannot be a memory access, so just return DIST.  */
+  dist = get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 0), ds);
+  if (dist)
+    return dist;
+  return get_stmt_accessed_fields_1 (stmt, TREE_OPERAND (stmt, 1), ds);
+}
 
 /* return the last access to a field in a given basic block, if there
    is no field accesses the a dummy element (with -1 as field index)
@@ -148,33 +278,24 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
 
   /* Go over the basic block statements and create a linked list of
      the accessed fields.  */
-  for (bsi = bsi_start (bb); bsi_stmt (bsi); bsi_next (&bsi))
+  for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
-      sbitmap fields;
+      int index;
 
-      fields = get_stmt_accessed_fields (stmt, ds);
-      if ( sbitmap_first_set_bit (fields) < 0)
-        crr->distance_to_next += get_stmt_access_distance (stmt, ds);
+      index = get_stmt_accessed_fields (stmt, ds);
+      if ( index <= 0)
+        crr->distance_to_next += (- index);
       else
         {
-          int i;
-
-          /* A statement may access more than one field; in such case the
-             distance is zero between fields in the same statement.  */
-          for (i = 0; i < ds->num_fields; i++)
-            {
-              if ( ! TEST_BIT (fields, i))
-                continue;
-              /* The disntance to the next is zeroed here, if the next
-	         access is in the same statement it will not be advanced
-		 at all, and we will get a distance of zero.  */
-              crr->next = xcalloc (1, sizeof (struct bb_field_access));
-              crr->next->f_indx = i;
-              crr = crr->next;
-              /* Update the access count for a single field.  */
-              ds->fields[i].count += bb->count;
-            }
+          /* The disntance to the next is zeroed here, if the next
+	     access is in the same statement it will not be advanced
+	     at all, and we will get a distance of zero.  */
+          crr->next = xcalloc (1, sizeof (struct bb_field_access));
+          crr->next->f_indx = index - 1;
+          crr = crr->next;
+          /* Update the access count for a single field.  */
+          ds->fields[crr->f_indx].count += bb->count;
         }
     }
   return head;
@@ -187,7 +308,7 @@ build_access_list_for_struct (struct data_structure *ds)
 {
   basic_block bb;
 
-  ds->bbs_f_acc_lists = 
+  ds->bbs_f_acc_lists =
     (struct bb_field_access **) xcalloc (last_basic_block,
                                 sizeof (struct bb_field_access *));
   /* Build the access list in each one of the basic blocks.  */
@@ -206,7 +327,10 @@ do_peel (ATTRIBUTE_UNUSED struct data_structure *struct_data)
 {
 }
 
-
+/* The following aren't imeplemnted yet, so we comment them out
+   for now to be able to bootstrap.  */
+#if 0
+/* ??? This is should be the same as get_stmt_field_accesses.  */
 static tree
 tree_contains_struct_access (ATTRIBUTE_UNUSED tree t,ATTRIBUTE_UNUSED  void *data)
 {
@@ -214,17 +338,18 @@ tree_contains_struct_access (ATTRIBUTE_UNUSED tree t,ATTRIBUTE_UNUSED  void *dat
 }
 
 static tree
-find_struct_data (ATTRIBUTE_UNUSED tree *tp, ATTRIBUTE_UNUSED int *walk_subtrees, 
+find_struct_data (ATTRIBUTE_UNUSED tree *tp, ATTRIBUTE_UNUSED int *walk_subtrees,
 		  ATTRIBUTE_UNUSED void *data)
 {
   return NULL_TREE;
 }
 
 static void
-verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl, 
+verify_library_parameters (ATTRIBUTE_UNUSED tree fdecl,
 			   ATTRIBUTE_UNUSED struct struct_list *data_struct_list)
 {
 }
+#endif 
 
 /* Perform data structure peeling.  */
 static void
@@ -290,6 +415,8 @@ peel_structs (void)
 	  temp_node->struct_data = d_node;
 	  temp_node->next = data_struct_list;
 	  data_struct_list = temp_node;
+          /* Build the access sites list for fields and also the field
+	     access lists for basic blocks.  */
 	  build_access_list_for_struct (d_node);
 	}
     }
@@ -309,12 +436,13 @@ peel_structs (void)
   for (current_struct = data_struct_list; current_struct;
        current_struct = current_struct->next)
     {
-      success = cache_aware_data_reorganization (current_struct->struct_data, reordering_only);
+      struct data_structure *crr_ds = current_struct->struct_data;
+      success = cache_aware_data_reorganization (crr_ds, reordering_only);
 
       /* Stage 3:  Do the actual transformation decided on in stage 2.  */
 
       if (success)
-        do_peel (current_struct->struct_data);
+        do_peel (crr_ds);
     }
 }
 

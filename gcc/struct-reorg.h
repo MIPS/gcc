@@ -97,6 +97,10 @@ struct field_cluster {
    clustering/reordering.  */
 struct data_structure {
   tree decl;
+  /* This is set to indicate that we cannot determind some the field
+     accesses of this structure, meaning that we cannot perform
+     data reorganization on them.  */
+  bool unresolved_field_access;
   /* Number of fields in the structure.  */
   int num_fields;
   /* According to profiling information number of times a field of the
@@ -116,47 +120,13 @@ struct data_structure {
   struct bb_field_access **bbs_f_acc_lists;
 };
 
-/*extern struct bb_field_access * get_last_field_access (struct data_structure *ds, 
+/*extern struct bb_field_access * get_last_field_access (struct data_structure *ds,
 						       basic_block bb);*/
 struct bb_field_access *
 get_last_field_access (struct data_structure *ds, basic_block bb);
-/* Stage 2 (profile based clustering) API:
-   Given a DATA_STRUCTURE with the following data initialized properly:
-   DECL, NUM_FIELDS, FIELDS, ALLOC_SITES. The FIELDS array contains entry
-   for each one of the fields of the structure, a field could be an
-   atomic type or a complex type. In any case it must contain all the
-   fields of the data structure. When stage 1 has a complex field it can
-   choose to refer to it as a complete one field or a separated fields
-   and allocate entry for each one of its fields. The later case means
-   that stage 2 can separate fields of that sub-structure from each other.
-   An example when this is not possible is when the complex field address
-   is taken - In such a case stage 1 must add one entry for the complex
-   field.
-   This function performs the algorithm for profile based cache aware
-   data reorganization and represents its results in STRUCT_CLUSTERING
-   field of the given DATA_STRUCTURE STR.  This function should
-   be called for each one of the structure that stage 1 has found relevant
-   for clustering or field reordering. If only field reordering is
-   applicable then the parameter REORDERING_ONLY should be true, other
-   wise we assume that any clustering of the structure is legal.
-   If the parameter REORDERING_ONLY is true no clustering will be
-   performed and only a cache aware field reordering will be made.
-   return false in unexpected failure, true otherwise.
 
-   EXAMPLE:
-        struct s1 {
-          struct s11
-          { int f11, f12, f13} f1;
-          int f2, f3,f4;
-          struct s2 *f5;
-        };
-        struct s2 {
-          int f1, f2, f3, f2;
-        }
-
-   Stage 1 can construct one of two possible arrays for FIELDS:
-   {f1,f2,f3,f4,f5} or {f11,f12,f13,f2,f3,f4,f5}
-   In the first case fields f11, f12, f13 will always be adjacent.
-   In the later case the preferred clustering may separate them.  */
+/* Stage 2 (profile based clustering) API.  Detailed comment in
+   struct-reorg-cpg.c  */
 bool
-cache_aware_data_reorganization (struct data_structure *str, bool reordering_only);
+cache_aware_data_reorganization (struct data_structure *str,
+				 bool reordering_only);
