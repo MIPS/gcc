@@ -2201,7 +2201,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h $(srcdir)/cpplib.h \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c \
   $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-ssa.c $(srcdir)/tree-dfa.c $(srcdir)/tree-ssa-ccp.c \
-  $(srcdir)/tree-ssa-pre.c $(srcdir)/tree-iterator.c \
+  $(srcdir)/tree-iterator.c \
   $(srcdir)/tree-alias-type.h $(srcdir)/tree-alias-common.h \
   $(srcdir)/tree-alias-type.c $(srcdir)/tree-alias-common.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
@@ -2224,7 +2224,7 @@ gt-dbxout.h gt-c-common.h gt-c-decl.h gt-c-parse.h \
 gt-c-pragma.h gtype-c.h gt-input.h gt-cfglayout.h \
 gt-tree-alias-common.h gt-tree-mudflap.h \
 gt-tree-ssa.h gt-tree-dfa.h gt-tree-ssa-ccp.h gt-tree-eh.h \
-gt-tree-ssa-pre.h gt-tree-ssanames.h gt-tree-iterator.h \
+gt-tree-ssanames.h gt-tree-iterator.h \
 gt-tree-phinodes.h gt-tree-cfg.h \
 gt-stringpool.h gt-langhooks.h : s-gtype ; @true
 

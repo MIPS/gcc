@@ -1,3 +1,12 @@
+2004-01-05  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (added_phis): Removed.
+	Remove gt-tree-ssa-pre.h.
+	(process_left_occs_and_kills): ASM_EXPR's block load pre.
+	
+	* Makefile.in (GTFILES): Don't process tree-ssa-pre.c.
+	gt-tree-ssa-pre.h isn't a gtfile anymore.
+
 2004-01-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* config.gcc (powerpc-*-darwin*): Make libbanshee rebuild

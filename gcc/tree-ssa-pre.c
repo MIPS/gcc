@@ -102,10 +102,8 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* TODOS:
-   Reimplement load PRE.
    Do strength reduction on a +-b and -a, not just a * <constant>.
-   Get rid of the ephis array in expr_info, since it's not necessary
-   anymore.  */
+   */
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -281,11 +279,6 @@ struct ephi_use_entry
   tree phi;
   int opnd_indx;
 };
-
-/* In order to prevent GC from deleting the phis we've added, we need
-   to put them in a marked array, because the bb annotations are not
-   marked.  */
-static GTY(()) varray_type added_phis;
 
 /* PRE Expression specific info.  */  
 struct expr_info
@@ -2586,7 +2579,6 @@ code_motion (struct expr_info *ei)
 	  bb = bb_for_stmt (use);
 	  /* Add the new PHI node to the list of PHI nodes for block BB.  */
 	  bb_ann (bb)->phi_nodes = chainon (phi_nodes (bb), EREF_TEMP (use));
-	  VARRAY_PUSH_TREE (added_phis, EREF_TEMP (use));
 	}
       else if (EPHI_IDENTITY (use))
 	{
@@ -2886,6 +2878,11 @@ process_left_occs_and_kills (varray_type bexprs, tree expr)
 	{
 	  if (names_match_p (DEF_OP (defs, i), ei->expr))    
 	    {
+	      if (TREE_CODE (expr) == ASM_EXPR)
+		{
+		  ei->loadpre_cand = false;
+		  continue;
+		}
 	      VARRAY_PUSH_TREE (ei->lefts, expr);
 	      VARRAY_PUSH_TREE (ei->occurs, NULL);
 	      VARRAY_PUSH_TREE (ei->kills, NULL);
@@ -2962,6 +2959,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
   compute_down_safety (ei);
   compute_du_info (ei);
   compute_will_be_avail (ei);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "EPHI's for expression ");
@@ -2977,7 +2975,7 @@ pre_expression (struct expr_info *slot, void *data, bitmap vars_to_rename)
 	  }
       }
     }
-  
+
   if (finalize_1 (ei))
     {
       finalize_2 (ei);
@@ -3167,8 +3165,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   ephi_use_pool = create_alloc_pool ("EPHI use node pool",
               sizeof (struct ephi_use_entry), 30);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
-  VARRAY_TREE_INIT (added_phis, 1, "Added phis");
-
   /* Compute immediate dominators.  */
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -3235,7 +3231,6 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   for (i = 0; i < currbbs; i++)
     if (idfs_cache[i] != NULL)
       BITMAP_XFREE (idfs_cache[i]);
-  added_phis = NULL;
   
   /* Rewrite any new temporaries load PRE inserted.  */
   if (bitmap_first_set_bit (vars_to_rename) != -1)
@@ -3245,4 +3240,3 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   timevar_pop (TV_TREE_PRE);
 }
 
-#include "gt-tree-ssa-pre.h"
