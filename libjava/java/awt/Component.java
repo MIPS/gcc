@@ -869,9 +869,14 @@ public abstract class Component
    */
   public void show()
   {
+    // We must set visible before showing the peer.  Otherwise the
+    // peer could post paint events before visible is true, in which
+    // case lightweight components are not initially painted --
+    // Container.paint first calls isShowing () before painting itself
+    // and its children.
+    this.visible = true;
     if (peer != null)
       peer.setVisible(true);
-    this.visible = true;
   }
 
   /**
@@ -4247,6 +4252,7 @@ p   * <li>the set of backward traversal keys
 	  default:
 	    throw new IllegalArgumentException("unknown paint event");
 	  }
+	event.consume ();
       }
     finally
       {

@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,11 +58,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "predict.h"
 #include "optabs.h"
 #include "target.h"
-
-/* Assume that case vectors are not pc-relative.  */
-#ifndef CASE_VECTOR_PC_RELATIVE
-#define CASE_VECTOR_PC_RELATIVE 0
-#endif
 
 /* Functions and data structures for expanding case statements.  */
 
@@ -361,6 +356,7 @@ struct stmt_status GTY(())
      record the expr's type and its RTL value here.  */
   tree x_last_expr_type;
   rtx x_last_expr_value;
+  rtx x_last_expr_alt_rtl;
 
   /* Nonzero if within a ({...}) grouping, in which case we must
      always compute a value for each expr-stmt in case it is the last one.  */
@@ -383,6 +379,7 @@ struct stmt_status GTY(())
 #define current_block_start_count (cfun->stmt->x_block_start_count)
 #define last_expr_type (cfun->stmt->x_last_expr_type)
 #define last_expr_value (cfun->stmt->x_last_expr_value)
+#define last_expr_alt_rtl (cfun->stmt->x_last_expr_alt_rtl)
 #define expr_stmts_for_value (cfun->stmt->x_expr_stmts_for_value)
 #define emit_locus (cfun->stmt->x_emit_locus)
 #define goto_fixup_chain (cfun->stmt->x_goto_fixup_chain)
@@ -1104,7 +1101,8 @@ expand_asm (tree string, int vol)
   if (TREE_CODE (string) == ADDR_EXPR)
     string = TREE_OPERAND (string, 0);
 
-  body = gen_rtx_ASM_INPUT (VOIDmode, TREE_STRING_POINTER (string));
+  body = gen_rtx_ASM_INPUT (VOIDmode,
+			    ggc_strdup (TREE_STRING_POINTER (string)));
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -1693,7 +1691,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   body = gen_rtx_ASM_OPERANDS ((noutputs == 0 ? VOIDmode
 				: GET_MODE (output_rtx[0])),
-			       TREE_STRING_POINTER (string),
+			       ggc_strdup (TREE_STRING_POINTER (string)),
 			       empty_string, 0, argvec, constraintvec,
 			       locus.file, locus.line);
 
@@ -1774,7 +1772,8 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       ASM_OPERANDS_INPUT (body, i) = op;
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
-	= gen_rtx_ASM_INPUT (TYPE_MODE (type), constraints[i + noutputs]);
+	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
+			     ggc_strdup (constraints[i + noutputs]));
 
       if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
 	clobber_conflict_found = 1;
@@ -1815,7 +1814,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
   if (noutputs == 1 && nclobbers == 0)
     {
-      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = constraints[0];
+      ASM_OPERANDS_OUTPUT_CONSTRAINT (body) = ggc_strdup (constraints[0]);
       emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
 
@@ -1843,8 +1842,9 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 			   output_rtx[i],
 			   gen_rtx_ASM_OPERANDS
 			   (GET_MODE (output_rtx[i]),
-			    TREE_STRING_POINTER (string),
-			    constraints[i], i, argvec, constraintvec,
+			    ggc_strdup (TREE_STRING_POINTER (string)),
+			    ggc_strdup (constraints[i]),
+			    i, argvec, constraintvec,
 			    locus.file, locus.line));
 
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
@@ -2213,6 +2213,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
 {
   rtx value;
   tree type;
+  rtx alt_rtl = NULL;
 
   if (want_value == -1)
     want_value = expr_stmts_for_value != 0;
@@ -2239,8 +2240,8 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
   /* The call to `expand_expr' could cause last_expr_type and
      last_expr_value to get reset.  Therefore, we set last_expr_value
      and last_expr_type *after* calling expand_expr.  */
-  value = expand_expr (exp, want_value ? NULL_RTX : const0_rtx,
-		       VOIDmode, 0);
+  value = expand_expr_real (exp, want_value ? NULL_RTX : const0_rtx,
+			    VOIDmode, 0, &alt_rtl);
   type = TREE_TYPE (exp);
 
   /* If all we do is reference a volatile value in memory,
@@ -2276,6 +2277,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
   if (want_value)
     {
       last_expr_value = value;
+      last_expr_alt_rtl = alt_rtl;
       last_expr_type = type;
     }
 
@@ -2395,6 +2397,7 @@ clear_last_expr (void)
 {
   last_expr_type = NULL_TREE;
   last_expr_value = NULL_RTX;
+  last_expr_alt_rtl = NULL_RTX;
 }
 
 /* Begin a statement-expression, i.e., a series of statements which
@@ -2442,6 +2445,7 @@ expand_end_stmt_expr (tree t)
   if (! last_expr_value || ! last_expr_type)
     {
       last_expr_value = const0_rtx;
+      last_expr_alt_rtl = NULL_RTX;
       last_expr_type = void_type_node;
     }
   else if (GET_CODE (last_expr_value) != REG && ! CONSTANT_P (last_expr_value))
@@ -2452,6 +2456,7 @@ expand_end_stmt_expr (tree t)
 
   TREE_TYPE (t) = last_expr_type;
   RTL_EXPR_RTL (t) = last_expr_value;
+  RTL_EXPR_ALT_RTL (t) = last_expr_alt_rtl;
   RTL_EXPR_SEQUENCE (t) = get_insns ();
 
   rtl_expr_chain = tree_cons (NULL_TREE, t, rtl_expr_chain);
@@ -3855,6 +3860,7 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
       /* Don't let cleanups affect ({...}) constructs.  */
       int old_expr_stmts_for_value = expr_stmts_for_value;
       rtx old_last_expr_value = last_expr_value;
+      rtx old_last_expr_alt_rtl = last_expr_alt_rtl;
       tree old_last_expr_type = last_expr_type;
       expr_stmts_for_value = 0;
 
@@ -3871,6 +3877,7 @@ expand_end_bindings (tree vars, int mark_ends, int dont_jump_in)
 
       expr_stmts_for_value = old_expr_stmts_for_value;
       last_expr_value = old_last_expr_value;
+      last_expr_alt_rtl = old_last_expr_alt_rtl;
       last_expr_type = old_last_expr_type;
 
       /* Restore the stack level.  */
@@ -5144,6 +5151,14 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
   emit_jump (default_label);
 }
 
+#ifndef HAVE_casesi
+#define HAVE_casesi 0
+#endif
+
+#ifndef HAVE_tablejump
+#define HAVE_tablejump 0
+#endif
+
 /* Terminate a case (Pascal) or switch (C) statement
    in which ORIG_INDEX is the expression to be tested.
    If ORIG_TYPE is not NULL, it is the original ORIG_INDEX
@@ -5319,7 +5334,10 @@ expand_end_case_type (tree orig_index, tree orig_type)
 #ifndef ASM_OUTPUT_ADDR_DIFF_ELT
 	       || flag_pic
 #endif
-	       || TREE_CONSTANT (index_expr))
+	       || TREE_CONSTANT (index_expr)
+	       /* If neither casesi or tablejump is available, we can
+		  only go this way.  */
+	       || (!HAVE_casesi && !HAVE_tablejump))
 	{
 	  index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
 

@@ -1634,7 +1634,7 @@ rename_1 (struct expr_info *ei)
 
       /* If the stack is empty, we assign a new version since it isn't
 	 dominated by any other version.  */
-      if (VARRAY_TOP_TREE (stack) == NULL || VARRAY_ACTIVE_SIZE (stack) == 0)
+      if (VARRAY_ACTIVE_SIZE (stack) == 0 || VARRAY_TOP_TREE (stack) == NULL)
 	{
 	  if (TREE_CODE (occur) == EPHI_NODE)
 	    assign_new_class (occur, &stack, NULL);

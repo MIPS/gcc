@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -791,6 +791,12 @@ package body Exp_Pakd is
 
          Set_Has_Delayed_Freeze (PAT, False);
          Set_Has_Delayed_Freeze (Etype (PAT), False);
+
+         --  If we did allocate a freeze node, then clear out the reference
+         --  since it is obsolete (should we delete the freeze node???)
+
+         Set_Freeze_Node (PAT, Empty);
+         Set_Freeze_Node (Etype (PAT), Empty);
       end Install_PAT;
 
       -----------------
@@ -958,15 +964,21 @@ package body Exp_Pakd is
                Typedef :=
                  Make_Unconstrained_Array_Definition (Loc,
                    Subtype_Marks => Indexes,
-                   Subtype_Indication =>
-                      New_Occurrence_Of (Ctyp, Loc));
+                   Component_Definition =>
+                     Make_Component_Definition (Loc,
+                       Aliased_Present    => False,
+                       Subtype_Indication =>
+                          New_Occurrence_Of (Ctyp, Loc)));
 
             else
                Typedef :=
                   Make_Constrained_Array_Definition (Loc,
                     Discrete_Subtype_Definitions => Indexes,
-                    Subtype_Indication =>
-                      New_Occurrence_Of (Ctyp, Loc));
+                    Component_Definition =>
+                      Make_Component_Definition (Loc,
+                        Aliased_Present    => False,
+                        Subtype_Indication =>
+                          New_Occurrence_Of (Ctyp, Loc)));
             end if;
 
             Decl :=
@@ -1055,11 +1067,11 @@ package body Exp_Pakd is
          Set_Parent (Len_Expr, Typ);
          Analyze_Per_Use_Expression (Len_Expr, Standard_Integer);
 
-         --  Use a modular type if possible. We can do this if we are we
-         --  have static bounds, and the length is small enough, and the
-         --  length is not zero. We exclude the zero length case because the
-         --  size of things is always at least one, and the zero length object
-         --  would have an anomous size.
+         --  Use a modular type if possible. We can do this if we have
+         --  static bounds, and the length is small enough, and the length
+         --  is not zero. We exclude the zero length case because the size
+         --  of things is always at least one, and the zero length object
+         --  would have an anomalous size.
 
          if Compile_Time_Known_Value (Len_Expr) then
             Len_Bits := Expr_Value (Len_Expr) * Csize;

@@ -1,5 +1,5 @@
 /* CPP Library - traditional lexical analysis and macro expansion.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
    Contributed by Neil Booth, May 2002
 
 This program is free software; you can redistribute it and/or modify it
@@ -361,7 +361,7 @@ _cpp_scan_out_logical_line (cpp_reader *pfile, cpp_macro *macro)
   pfile->out.cur = pfile->out.base;
   pfile->out.first_line = pfile->line;
   /* start_of_input_line is needed to make sure that directives really,
-     really start at the first character of the line. */
+     really start at the first character of the line.  */
   start_of_input_line = pfile->buffer->cur;
  new_context:
   context = pfile->context;

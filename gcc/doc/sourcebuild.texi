@@ -1,4 +1,4 @@
-@c Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+@c Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -171,8 +171,8 @@ The GCC test suites (except for those for runtime libraries).
 
 The @file{gcc} directory is configured with an Autoconf-generated
 script @file{configure}.  The @file{configure} script is generated
-from @file{configure.in} and @file{aclocal.m4}.  From the files
-@file{configure.in} and @file{acconfig.h}, Autoheader generates the
+from @file{configure.ac} and @file{aclocal.m4}.  From the files
+@file{configure.ac} and @file{acconfig.h}, Autoheader generates the
 file @file{config.in}.  The file @file{cstamp-h.in} is used as a
 timestamp.
 
@@ -195,8 +195,8 @@ files, kept in the top level directory, are used.  FIXME: when is the
 the top level one) used?
 
 @item The file @file{config.gcc} is used to handle configuration
-specific to the particular target machine.  The file 
-@file{config.build} is used to handle configuration specific to the 
+specific to the particular target machine.  The file
+@file{config.build} is used to handle configuration specific to the
 particular build machine.  The file @file{config.host} is used to handle
 configuration specific to the particular host machine.  (In general,
 these should only be used for features that cannot reasonably be tested in
@@ -279,7 +279,7 @@ headers to work with GCC, some other headers may also be installed in
 @file{config} to be installed on some systems.
 
 GCC installs its own version of @code{<float.h>}, from @file{ginclude/float.h}.
-This is done to cope with command-line options that change the 
+This is done to cope with command-line options that change the
 representation of floating point numbers.
 
 GCC also installs its own version of @code{<limits.h>}; this is generated
@@ -666,7 +666,7 @@ that should not be configured if this front end is not built.
 If defined to @samp{no}, this language front end is not built unless
 enabled in a @option{--enable-languages} argument.  Otherwise, front
 ends are built by default, subject to any special logic in
-@file{configure.in} (as is present to disable the Ada front end if the
+@file{configure.ac} (as is present to disable the Ada front end if the
 Ada compiler is not already installed).
 @item boot_language
 If defined to @samp{yes}, this front end is built in stage 1 of the
@@ -908,13 +908,13 @@ GCC contains the following C language test suites, in the
 
 @table @file
 @item gcc.dg
-This contains tests of particular features of the C compiler, using the 
+This contains tests of particular features of the C compiler, using the
 more modern @samp{dg} harness.  Correctness tests for various compiler
 features should go here if possible.
 
-Magic comments determine whether the file 
-is preprocessed, compiled, linked or run.  In these tests, error and warning 
-message texts are compared against expected texts or regular expressions 
+Magic comments determine whether the file
+is preprocessed, compiled, linked or run.  In these tests, error and warning
+message texts are compared against expected texts or regular expressions
 given in comments.  These tests are run with the options @samp{-ansi -pedantic}
 unless other options are given in the test.  Except as noted below they
 are not run with multiple optimization options.
@@ -943,7 +943,7 @@ FIXME: describe this.
 This contains particular code fragments which have historically broken easily.
 These tests are run with multiple optimization options, so tests for features
 which only break at some optimization levels belong here.  This also contains
-tests to check that certain optimizations occur.  It might be worthwhile to 
+tests to check that certain optimizations occur.  It might be worthwhile to
 separate the correctness tests cleanly from the code quality tests, but
 it hasn't been done yet.
 

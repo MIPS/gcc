@@ -1,6 +1,6 @@
 /* real.c - software floating point emulation.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -3235,53 +3235,23 @@ encode_ibm_extended (const struct real_format *fmt, long *buf,
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
-  switch (r->class)
+  /* u = IEEE double precision portion of significand.  */
+  u = *r;
+  round_for_format (base_fmt, &u);
+  encode_ieee_double (base_fmt, &buf[0], &u);
+
+  if (r->class == rvc_normal)
     {
-    case rvc_zero:
-      /* Both doubles have sign bit set.  */
-      buf[0] = FLOAT_WORDS_BIG_ENDIAN ? r->sign << 31 : 0;
-      buf[1] = FLOAT_WORDS_BIG_ENDIAN ? 0 : r->sign << 31;
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      break;
-
-    case rvc_inf:
-    case rvc_nan:
-      /* Both doubles set to Inf / NaN.  */
-      encode_ieee_double (base_fmt, &buf[0], r);
-      buf[2] = buf[0];
-      buf[3] = buf[1];
-      return;
-
-    case rvc_normal:
-      /* u = IEEE double precision portion of significand.  */
-      u = *r;
-      clear_significand_below (&u, SIGNIFICAND_BITS - 53);
-
-      normalize (&u);
-      /* If the upper double is zero, we have a denormal double, so
-	 move it to the first double and leave the second as zero.  */
-      if (u.class == rvc_zero)
-	{
-	  v = u;
-	  u = *r;
-	  normalize (&u);
-	}
-      else
-	{
-	  /* v = remainder containing additional 53 bits of significand.  */
-	  do_add (&v, r, &u, 1);
-	  round_for_format (base_fmt, &v);
-	}
-
-      round_for_format (base_fmt, &u);
-
-      encode_ieee_double (base_fmt, &buf[0], &u);
+      do_add (&v, r, &u, 1);
+      round_for_format (base_fmt, &v);
       encode_ieee_double (base_fmt, &buf[2], &v);
-      break;
-
-    default:
-      abort ();
+    }
+  else
+    {
+      /* Inf, NaN, 0 are all representable as doubles, so the
+	 least-significant part can be 0.0.  */
+      buf[2] = 0;
+      buf[3] = 0;
     }
 }
 
@@ -4569,11 +4539,13 @@ void
 real_floor (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	    const REAL_VALUE_TYPE *x)
 {
-  do_fix_trunc (r, x);
-  if (! real_identical (r, x) && r->sign)
-    do_add (r, r, &dconstm1, 0);
+  REAL_VALUE_TYPE t;
+
+  do_fix_trunc (&t, x);
+  if (! real_identical (&t, x) && x->sign)
+    do_add (&t, &t, &dconstm1, 0);
   if (mode != VOIDmode)
-    real_convert (r, mode, r);
+    real_convert (r, mode, &t);
 }
 
 /* Round X to the smallest integer not less then argument, i.e. round
@@ -4583,9 +4555,25 @@ void
 real_ceil (REAL_VALUE_TYPE *r, enum machine_mode mode,
 	   const REAL_VALUE_TYPE *x)
 {
-  do_fix_trunc (r, x);
-  if (! real_identical (r, x) && ! r->sign)
-    do_add (r, r, &dconst1, 0);
+  REAL_VALUE_TYPE t;
+
+  do_fix_trunc (&t, x);
+  if (! real_identical (&t, x) && ! x->sign)
+    do_add (&t, &t, &dconst1, 0);
+  if (mode != VOIDmode)
+    real_convert (r, mode, &t);
+}
+
+/* Round X to the nearest integer, but round halfway cases away from
+   zero.  */
+
+void
+real_round (REAL_VALUE_TYPE *r, enum machine_mode mode,
+	    const REAL_VALUE_TYPE *x)
+{
+  do_add (r, x, &dconsthalf, x->sign);
+  do_fix_trunc (r, r);
   if (mode != VOIDmode)
     real_convert (r, mode, r);
 }
+

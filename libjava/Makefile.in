@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -96,10 +96,12 @@ GOBJECT_QUERY = @GOBJECT_QUERY@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
+HAVE_LIB = @HAVE_LIB@
 IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
+LIB = @LIB@
 LIBART_CFLAGS = @LIBART_CFLAGS@
 LIBART_CONFIG = @LIBART_CONFIG@
 LIBART_LIBS = @LIBART_LIBS@
@@ -113,6 +115,7 @@ LIBICONV = @LIBICONV@
 LIBLTDL = @LIBLTDL@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
+LTLIB = @LTLIB@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
@@ -367,6 +370,9 @@ jni/classpath/primlib.h
 
 
 lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -393,6 +399,10 @@ org/w3c/dom/traversal/DocumentTraversal.java \
 org/w3c/dom/traversal/NodeFilter.java \
 org/w3c/dom/traversal/NodeIterator.java \
 org/w3c/dom/traversal/TreeWalker.java
+
+lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
@@ -425,6 +435,10 @@ org/xml/sax/SAXNotSupportedException.java \
 org/xml/sax/SAXParseException.java \
 org/xml/sax/XMLFilter.java \
 org/xml/sax/XMLReader.java
+
+lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
+lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
@@ -561,6 +575,7 @@ gnu/awt/j2d/IntegerGraphicsState.java \
 gnu/awt/j2d/MappedRaster.java \
 gnu/java/awt/BitMaskExtent.java \
 gnu/java/awt/Buffers.java \
+gnu/java/awt/BitwiseXORComposite.java \
 gnu/java/awt/ComponentDataBlitOp.java \
 gnu/java/awt/ClasspathToolkit.java \
 gnu/java/awt/EmbeddedWindow.java \
@@ -1502,15 +1517,35 @@ javax/print/attribute/TextSyntax.java \
 javax/print/attribute/UnmodifiableSetException.java \
 javax/print/attribute/URISyntax.java \
 javax/print/attribute/standard/Copies.java \
+javax/print/attribute/standard/DateTimeAtCompleted.java \
+javax/print/attribute/standard/DateTimeAtCreation.java \
+javax/print/attribute/standard/DateTimeAtProcessing.java \
+javax/print/attribute/standard/DocumentName.java \
+javax/print/attribute/standard/JobHoldUntil.java \
 javax/print/attribute/standard/JobImpressions.java \
+javax/print/attribute/standard/JobImpressionsCompleted.java \
+javax/print/attribute/standard/JobKOctets.java \
+javax/print/attribute/standard/JobKOctetsProcessed.java \
 javax/print/attribute/standard/JobMediaSheets.java \
+javax/print/attribute/standard/JobMediaSheetsCompleted.java \
+javax/print/attribute/standard/JobMessageFromOperator.java \
+javax/print/attribute/standard/JobName.java \
+javax/print/attribute/standard/JobOriginatingUserName.java \
 javax/print/attribute/standard/JobPriority.java \
+javax/print/attribute/standard/JobPrioritySupported.java \
 javax/print/attribute/standard/NumberOfDocuments.java \
 javax/print/attribute/standard/NumberOfInterveningJobs.java \
 javax/print/attribute/standard/NumberUp.java \
+javax/print/attribute/standard/OutputDeviceAssigned.java \
 javax/print/attribute/standard/PagesPerMinute.java \
 javax/print/attribute/standard/PagesPerMinuteColor.java \
+javax/print/attribute/standard/PrinterInfo.java \
+javax/print/attribute/standard/PrinterLocation.java \
+javax/print/attribute/standard/PrinterMakeAndModel.java \
+javax/print/attribute/standard/PrinterMessageFromOperator.java \
+javax/print/attribute/standard/PrinterName.java \
 javax/print/attribute/standard/QueuedJobCount.java \
+javax/print/attribute/standard/RequestingUserName.java \
 javax/security/auth/x500/X500Principal.java \
 javax/sql/ConnectionEvent.java \
 javax/sql/ConnectionEventListener.java \
@@ -2480,6 +2515,7 @@ java/lang/natString.cc \
 java/lang/natStringBuffer.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
+java/lang/natVMClassLoader.cc \
 java/lang/natVMSecurityManager.cc \
 java/lang/ref/natReference.cc \
 java/lang/reflect/natArray.cc \
@@ -2648,17 +2684,16 @@ java/lang/natClassLoader.lo java/lang/natConcreteProcess.lo \
 java/lang/natDouble.lo java/lang/natFloat.lo java/lang/natMath.lo \
 java/lang/natObject.lo java/lang/natRuntime.lo java/lang/natString.lo \
 java/lang/natStringBuffer.lo java/lang/natSystem.lo \
-java/lang/natThread.lo java/lang/natVMSecurityManager.lo \
-java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
-java/lang/reflect/natConstructor.lo java/lang/reflect/natField.lo \
-java/lang/reflect/natMethod.lo java/lang/reflect/natProxy.lo \
-java/net/natNetworkInterface.lo java/net/natInetAddress.lo \
-java/nio/natDirectByteBufferImpl.lo \
+java/lang/natThread.lo java/lang/natVMClassLoader.lo \
+java/lang/natVMSecurityManager.lo java/lang/ref/natReference.lo \
+java/lang/reflect/natArray.lo java/lang/reflect/natConstructor.lo \
+java/lang/reflect/natField.lo java/lang/reflect/natMethod.lo \
+java/lang/reflect/natProxy.lo java/net/natNetworkInterface.lo \
+java/net/natInetAddress.lo java/nio/natDirectByteBufferImpl.lo \
 java/nio/channels/natFileChannelImpl.lo java/text/natCollator.lo \
 java/util/natResourceBundle.lo java/util/natTimeZone.lo \
 java/util/zip/natDeflater.lo java/util/zip/natInflater.lo
-lib_org_xml_sax_la_LDFLAGS = 
-lib_org_xml_sax_la_LIBADD = 
+lib_org_xml_sax_la_DEPENDENCIES =  libgcj.la
 lib_org_xml_sax_la_OBJECTS =  org/xml/sax/ext/DeclHandler.lo \
 org/xml/sax/ext/LexicalHandler.lo \
 org/xml/sax/helpers/AttributeListImpl.lo \
@@ -2680,8 +2715,7 @@ org/xml/sax/SAXException.lo org/xml/sax/SAXNotRecognizedException.lo \
 org/xml/sax/SAXNotSupportedException.lo \
 org/xml/sax/SAXParseException.lo org/xml/sax/XMLFilter.lo \
 org/xml/sax/XMLReader.lo
-lib_org_w3c_dom_la_LDFLAGS = 
-lib_org_w3c_dom_la_LIBADD = 
+lib_org_w3c_dom_la_DEPENDENCIES =  libgcj.la
 lib_org_w3c_dom_la_OBJECTS =  org/w3c/dom/Attr.lo \
 org/w3c/dom/CDATASection.lo org/w3c/dom/CharacterData.lo \
 org/w3c/dom/Comment.lo org/w3c/dom/DOMException.lo \
@@ -2697,8 +2731,83 @@ org/w3c/dom/traversal/DocumentTraversal.lo \
 org/w3c/dom/traversal/NodeFilter.lo \
 org/w3c/dom/traversal/NodeIterator.lo \
 org/w3c/dom/traversal/TreeWalker.lo
-lib_gnu_java_awt_peer_gtk_la_LDFLAGS = 
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = 
+@GTK_CAIRO_FALSE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkFontMetrics.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGlyphVector.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics2D.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkPixbufDecoder.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArg.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArgList.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkButtonPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCanvasPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkChoicePeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkClipboard.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkComponentPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkContainerPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkDialogPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFileDialogPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFontPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFramePeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkGenericPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkImage.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkImagePainter.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkLabelPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkListPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMainThread.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuBarPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuComponentPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuItemPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkOffScreenImage.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkPanelPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkPopupMenuPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkScrollPanePeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkScrollbarPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextAreaPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextComponentPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextFieldPeer.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkToolkit.lo \
+@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkWindowPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo \
+@GTK_CAIRO_FALSE@jni/gtk-peer/gthread-jni.lo jni/classpath/jcl.lo \
+@GTK_CAIRO_FALSE@jni/classpath/jnilink.lo jni/classpath/native_state.lo \
+@GTK_CAIRO_FALSE@jni/classpath/primlib.lo
 @GTK_CAIRO_TRUE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkClasspathFontPeer.lo \
 @GTK_CAIRO_TRUE@gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.lo \
@@ -2779,82 +2888,6 @@ lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES =
 @GTK_CAIRO_TRUE@jni/gtk-peer/gthread-jni.lo jni/classpath/jcl.lo \
 @GTK_CAIRO_TRUE@jni/classpath/jnilink.lo jni/classpath/native_state.lo \
 @GTK_CAIRO_TRUE@jni/classpath/primlib.lo
-@GTK_CAIRO_FALSE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkFontMetrics.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGlyphVector.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkGraphics2D.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkPixbufDecoder.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArg.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkArgList.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkButtonPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCanvasPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxGroupPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxMenuItemPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkCheckboxPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkChoicePeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkClipboard.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkComponentPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkContainerPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkDialogPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFileDialogPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFontPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkFramePeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkGenericPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkImage.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkImagePainter.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkLabelPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkListPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMainThread.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuBarPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuComponentPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuItemPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkMenuPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkOffScreenImage.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkPanelPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkPopupMenuPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkScrollPanePeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkScrollbarPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextAreaPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextComponentPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkTextFieldPeer.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkToolkit.lo \
-@GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GtkWindowPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCanvasPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxMenuItemPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkCheckboxPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkChoicePeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkClipboard.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEmbeddedWindowPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImagePainter.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkLabelPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuBarPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPanelPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkPopupMenuPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollBarPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkScrollPanePeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextComponentPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.lo \
-@GTK_CAIRO_FALSE@jni/gtk-peer/gthread-jni.lo jni/classpath/jcl.lo \
-@GTK_CAIRO_FALSE@jni/classpath/jnilink.lo jni/classpath/native_state.lo \
-@GTK_CAIRO_FALSE@jni/classpath/primlib.lo
 lib_gnu_awt_xlib_la_OBJECTS =  gnu/gcj/xlib/natClip.lo \
 gnu/gcj/xlib/natColormap.lo gnu/gcj/xlib/natDisplay.lo \
 gnu/gcj/xlib/natDrawable.lo gnu/gcj/xlib/natFont.lo \
@@ -2979,7 +3012,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/gnu/gcj/xlib/natXColor.P .deps/gnu/gcj/xlib/natXConfigureEvent.P \
 .deps/gnu/gcj/xlib/natXException.P .deps/gnu/gcj/xlib/natXExposeEvent.P \
 .deps/gnu/gcj/xlib/natXImage.P .deps/gnu/gcj/xlib/natXUnmapEvent.P \
-.deps/gnu/java/awt/BitMaskExtent.P .deps/gnu/java/awt/Buffers.P \
+.deps/gnu/java/awt/BitMaskExtent.P \
+.deps/gnu/java/awt/BitwiseXORComposite.P .deps/gnu/java/awt/Buffers.P \
 .deps/gnu/java/awt/ClasspathToolkit.P \
 .deps/gnu/java/awt/ComponentDataBlitOp.P \
 .deps/gnu/java/awt/EmbeddedWindow.P \
@@ -3684,7 +3718,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/java/lang/natMath.P .deps/java/lang/natObject.P \
 .deps/java/lang/natRuntime.P .deps/java/lang/natString.P \
 .deps/java/lang/natStringBuffer.P .deps/java/lang/natSystem.P \
-.deps/java/lang/natThread.P .deps/java/lang/natVMSecurityManager.P \
+.deps/java/lang/natThread.P .deps/java/lang/natVMClassLoader.P \
+.deps/java/lang/natVMSecurityManager.P \
 .deps/java/lang/ref/PhantomReference.P .deps/java/lang/ref/Reference.P \
 .deps/java/lang/ref/ReferenceQueue.P \
 .deps/java/lang/ref/SoftReference.P .deps/java/lang/ref/WeakReference.P \
@@ -4221,15 +4256,35 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/print/attribute/URISyntax.P \
 .deps/javax/print/attribute/UnmodifiableSetException.P \
 .deps/javax/print/attribute/standard/Copies.P \
+.deps/javax/print/attribute/standard/DateTimeAtCompleted.P \
+.deps/javax/print/attribute/standard/DateTimeAtCreation.P \
+.deps/javax/print/attribute/standard/DateTimeAtProcessing.P \
+.deps/javax/print/attribute/standard/DocumentName.P \
+.deps/javax/print/attribute/standard/JobHoldUntil.P \
 .deps/javax/print/attribute/standard/JobImpressions.P \
+.deps/javax/print/attribute/standard/JobImpressionsCompleted.P \
+.deps/javax/print/attribute/standard/JobKOctets.P \
+.deps/javax/print/attribute/standard/JobKOctetsProcessed.P \
 .deps/javax/print/attribute/standard/JobMediaSheets.P \
+.deps/javax/print/attribute/standard/JobMediaSheetsCompleted.P \
+.deps/javax/print/attribute/standard/JobMessageFromOperator.P \
+.deps/javax/print/attribute/standard/JobName.P \
+.deps/javax/print/attribute/standard/JobOriginatingUserName.P \
 .deps/javax/print/attribute/standard/JobPriority.P \
+.deps/javax/print/attribute/standard/JobPrioritySupported.P \
 .deps/javax/print/attribute/standard/NumberOfDocuments.P \
 .deps/javax/print/attribute/standard/NumberOfInterveningJobs.P \
 .deps/javax/print/attribute/standard/NumberUp.P \
+.deps/javax/print/attribute/standard/OutputDeviceAssigned.P \
 .deps/javax/print/attribute/standard/PagesPerMinute.P \
 .deps/javax/print/attribute/standard/PagesPerMinuteColor.P \
+.deps/javax/print/attribute/standard/PrinterInfo.P \
+.deps/javax/print/attribute/standard/PrinterLocation.P \
+.deps/javax/print/attribute/standard/PrinterMakeAndModel.P \
+.deps/javax/print/attribute/standard/PrinterMessageFromOperator.P \
+.deps/javax/print/attribute/standard/PrinterName.P \
 .deps/javax/print/attribute/standard/QueuedJobCount.P \
+.deps/javax/print/attribute/standard/RequestingUserName.P \
 .deps/javax/rmi/BAD_OPERATION.P .deps/javax/rmi/CORBA/ClassDesc.P \
 .deps/javax/rmi/CORBA/ObjectImpl.P \
 .deps/javax/rmi/CORBA/PortableRemoteObjectDelegate.P \
@@ -4827,7 +4882,7 @@ uninstall-toolexecmainlibDATA:
 all-recursive install-data-recursive install-exec-recursive \
 installdirs-recursive install-recursive uninstall-recursive  \
 check-recursive installcheck-recursive info-recursive dvi-recursive:
-	@set fnord $$MAKEFLAGS; amf=$$2; \
+	@set fnord $(MAKEFLAGS); amf=$$2; \
 	dot_seen=no; \
 	target=`echo $@ | sed s/-recursive//`; \
 	list='$(SUBDIRS)'; for subdir in $$list; do \
@@ -4847,11 +4902,11 @@ check-recursive installcheck-recursive info-recursive dvi-recursive:
 
 mostlyclean-recursive clean-recursive distclean-recursive \
 maintainer-clean-recursive:
-	@set fnord $$MAKEFLAGS; amf=$$2; \
+	@set fnord $(MAKEFLAGS); amf=$$2; \
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \
-	  test "$$subdir" != "." || dot_seen=yes; \
+	  test "$$subdir" = "." && dot_seen=yes; \
 	done; \
 	test "$$dot_seen" = "no" && rev=". $$rev"; \
 	target=`echo $@ | sed s/-recursive//`; \
@@ -5201,11 +5256,14 @@ $(gtk_c_files): %.lo: %.c
 
 $(gtk_c_files): $(gtk_c_headers)
 
-$(javao_files) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
 	$(GCJCOMPILE) -fjni -o $@ $<
+
+gnu/gcj/runtime/StackTrace.lo: gnu/gcj/runtime/StackTrace.java
+	$(GCJCOMPILE) -fno-optimize-sibling-calls -o $@ $<
 
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES)
 	@echo Creating list of files to link...

@@ -1,5 +1,5 @@
 /* Calculate (post)dominators in slightly super-linear time.
-   Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz (matz@ifh.de).
 
    This file is part of GCC.
@@ -670,7 +670,7 @@ set_immediate_dominator (enum cdi_direction dir, basic_block bb,
     dom_computed[dir] = DOM_NO_FAST_QUERY;
 }
 
-/* Store all basic blocks immediatelly dominated by BB into BBS and return
+/* Store all basic blocks immediately dominated by BB into BBS and return
    their number.  */
 int
 get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)

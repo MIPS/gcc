@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -182,7 +183,10 @@ static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
 static enum machine_mode hfa_element_mode (tree, int);
+static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree, int *, int);
 static bool ia64_function_ok_for_sibcall (tree, tree);
+static bool ia64_return_in_memory (tree, tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
 static void fix_range (const char *);
 static struct machine_function * ia64_init_machine_status (void);
@@ -260,6 +264,7 @@ static void ia64_vms_init_libfuncs (void)
 
 static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
+static rtx ia64_struct_value_rtx (tree, int);
 
 
 /* Table of valid machine attributes.  */
@@ -365,6 +370,34 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO ia64_encode_section_info
+
+/* ??? ABI doesn't allow us to define this.  */
+#if 0
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#endif
+
+/* ??? ABI doesn't allow us to define this.  */
+#if 0
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#endif
+
+/* ??? Investigate.  */
+#if 0
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#endif
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX ia64_struct_value_rtx
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY ia64_return_in_memory
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS ia64_setup_incoming_varargs
+#undef TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1361,10 +1394,11 @@ ia64_emit_cond_move (rtx op0, rtx op1, rtx cond)
 					  PATTERN (insn));
 }
 
-/* Split a post-reload TImode reference into two DImode components.  */
+/* Split a post-reload TImode or TFmode reference into two DImode
+   components.  */
 
-rtx
-ia64_split_timode (rtx out[2], rtx in, rtx scratch)
+static rtx
+ia64_split_tmode (rtx out[2], rtx in, rtx scratch)
 {
   switch (GET_CODE (in))
     {
@@ -1417,12 +1451,77 @@ ia64_split_timode (rtx out[2], rtx in, rtx scratch)
 
     case CONST_INT:
     case CONST_DOUBLE:
-      split_double (in, &out[0], &out[1]);
+      if (GET_MODE (in) != TFmode)
+	split_double (in, &out[0], &out[1]);
+      else
+	/* split_double does not understand how to split a TFmode
+	   quantity into a pair of DImode constants.  */
+	{
+	  REAL_VALUE_TYPE r;
+	  unsigned HOST_WIDE_INT p[2];
+	  long l[4];  /* TFmode is 128 bits */
+
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, in);
+	  real_to_target (l, &r, TFmode);
+
+	  if (FLOAT_WORDS_BIG_ENDIAN)
+	    {
+	      p[0] = (((unsigned HOST_WIDE_INT) l[0]) << 32) + l[1];
+	      p[1] = (((unsigned HOST_WIDE_INT) l[2]) << 32) + l[3];
+	    }
+	  else
+	    {
+	      p[0] = (((unsigned HOST_WIDE_INT) l[3]) << 32) + l[2];
+	      p[1] = (((unsigned HOST_WIDE_INT) l[1]) << 32) + l[0];
+	    }
+	  out[0] = GEN_INT (p[0]);
+	  out[1] = GEN_INT (p[1]);
+	}
       return NULL_RTX;
 
     default:
       abort ();
     }
+}
+
+/* Split a TImode or TFmode move instruction after reload.
+   This is used by *movtf_internal and *movti_internal.  */
+void
+ia64_split_tmode_move (rtx operands[])
+{
+  rtx adj1, adj2, in[2], out[2], insn;
+  int first;
+
+  adj1 = ia64_split_tmode (in, operands[1], operands[2]);
+  adj2 = ia64_split_tmode (out, operands[0], operands[2]);
+
+  first = 0;
+  if (reg_overlap_mentioned_p (out[0], in[1]))
+    {
+      if (reg_overlap_mentioned_p (out[1], in[0]))
+	abort ();
+      first = 1;
+    }
+
+  if (adj1 && adj2)
+    abort ();
+  if (adj1)
+    emit_insn (adj1);
+  if (adj2)
+    emit_insn (adj2);
+  insn = emit_insn (gen_rtx_SET (VOIDmode, out[first], in[first]));
+  if (GET_CODE (out[first]) == MEM
+      && GET_CODE (XEXP (out[first], 0)) == POST_MODIFY)
+    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC,
+					  XEXP (XEXP (out[first], 0), 0),
+					  REG_NOTES (insn));
+  insn = emit_insn (gen_rtx_SET (VOIDmode, out[!first], in[!first]));
+  if (GET_CODE (out[!first]) == MEM
+      && GET_CODE (XEXP (out[!first], 0)) == POST_MODIFY)
+    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC,
+					  XEXP (XEXP (out[!first], 0), 0),
+					  REG_NOTES (insn));
+
 }
 
 /* ??? Fixing GR->FR XFmode moves during reload is hard.  You need to go
@@ -3309,17 +3408,19 @@ ia64_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 
    We generate the actual spill instructions during prologue generation.  */
 
-void
-ia64_setup_incoming_varargs (CUMULATIVE_ARGS cum, int int_mode, tree type,
-			     int * pretend_size,
+static void
+ia64_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			     tree type, int * pretend_size,
 			     int second_time ATTRIBUTE_UNUSED)
 {
-  /* Skip the current argument.  */
-  ia64_function_arg_advance (&cum, int_mode, type, 1);
+  CUMULATIVE_ARGS next_cum = *cum;
 
-  if (cum.words < MAX_ARGUMENT_SLOTS)
+  /* Skip the current argument.  */
+  ia64_function_arg_advance (&next_cum, mode, type, 1);
+
+  if (next_cum.words < MAX_ARGUMENT_SLOTS)
     {
-      int n = MAX_ARGUMENT_SLOTS - cum.words;
+      int n = MAX_ARGUMENT_SLOTS - next_cum.words;
       *pretend_size = n * UNITS_PER_WORD;
       cfun->machine->n_varargs = n;
     }
@@ -3407,9 +3508,50 @@ hfa_element_mode (tree type, int nested)
   return VOIDmode;
 }
 
+/* Return the number of words required to hold a quantity of TYPE and MODE
+   when passed as an argument.  */
+static int
+ia64_function_arg_words (tree type, enum machine_mode mode)
+{
+  int words;
+
+  if (mode == BLKmode)
+    words = int_size_in_bytes (type);
+  else
+    words = GET_MODE_SIZE (mode);
+
+  return (words + UNITS_PER_WORD - 1) / UNITS_PER_WORD;  /* round up */
+}
+
+/* Return the number of registers that should be skipped so the current
+   argument (described by TYPE and WORDS) will be properly aligned.
+
+   Integer and float arguments larger than 8 bytes start at the next
+   even boundary.  Aggregates larger than 8 bytes start at the next
+   even boundary if the aggregate has 16 byte alignment.  Note that
+   in the 32-bit ABI, TImode and TFmode have only 8-byte alignment
+   but are still to be aligned in registers.
+
+   ??? The ABI does not specify how to handle aggregates with
+   alignment from 9 to 15 bytes, or greater than 16.  We handle them
+   all as if they had 16 byte alignment.  Such aggregates can occur
+   only if gcc extensions are used.  */
+static int
+ia64_function_arg_offset (CUMULATIVE_ARGS *cum, tree type, int words)
+{
+  if ((cum->words & 1) == 0)
+    return 0;
+
+  if (type
+      && TREE_CODE (type) != INTEGER_TYPE
+      && TREE_CODE (type) != REAL_TYPE)
+    return TYPE_ALIGN (type) > 8 * BITS_PER_UNIT;
+  else
+    return words > 1;
+}
+
 /* Return rtx for register where argument is passed, or zero if it is passed
    on the stack.  */
-
 /* ??? 128-bit quad-precision floats are always passed in general
    registers.  */
 
@@ -3418,24 +3560,9 @@ ia64_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 		   int named, int incoming)
 {
   int basereg = (incoming ? GR_ARG_FIRST : AR_ARG_FIRST);
-  int words = (((mode == BLKmode ? int_size_in_bytes (type)
-		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
-	       / UNITS_PER_WORD);
-  int offset = 0;
+  int words = ia64_function_arg_words (type, mode);
+  int offset = ia64_function_arg_offset (cum, type, words);
   enum machine_mode hfa_mode = VOIDmode;
-
-  /* Integer and float arguments larger than 8 bytes start at the next even
-     boundary.  Aggregates larger than 8 bytes start at the next even boundary
-     if the aggregate has 16 byte alignment.  Net effect is that types with
-     alignment greater than 8 start at the next even boundary.  */
-  /* ??? The ABI does not specify how to handle aggregates with alignment from
-     9 to 15 bytes, or greater than 16.   We handle them all as if they had
-     16 byte alignment.  Such aggregates can occur only if gcc extensions are
-     used.  */
-  if ((type ? (TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
-       : (words > 1))
-      && (cum->words & 1))
-    offset = 1;
 
   /* If all argument slots are used, then it must go on the stack.  */
   if (cum->words + offset >= MAX_ARGUMENT_SLOTS)
@@ -3590,17 +3717,8 @@ int
 ia64_function_arg_partial_nregs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 				 tree type, int named ATTRIBUTE_UNUSED)
 {
-  int words = (((mode == BLKmode ? int_size_in_bytes (type)
-		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
-	       / UNITS_PER_WORD);
-  int offset = 0;
-
-  /* Arguments with alignment larger than 8 bytes start at the next even
-     boundary.  */
-  if ((type ? (TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
-       : (words > 1))
-      && (cum->words & 1))
-    offset = 1;
+  int words = ia64_function_arg_words (type, mode);
+  int offset = ia64_function_arg_offset (cum, type, words);
 
   /* If all argument slots are used, then it must go on the stack.  */
   if (cum->words + offset >= MAX_ARGUMENT_SLOTS)
@@ -3624,22 +3742,13 @@ void
 ia64_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			   tree type, int named)
 {
-  int words = (((mode == BLKmode ? int_size_in_bytes (type)
-		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
-	       / UNITS_PER_WORD);
-  int offset = 0;
+  int words = ia64_function_arg_words (type, mode);
+  int offset = ia64_function_arg_offset (cum, type, words);
   enum machine_mode hfa_mode = VOIDmode;
 
   /* If all arg slots are already full, then there is nothing to do.  */
   if (cum->words >= MAX_ARGUMENT_SLOTS)
     return;
-
-  /* Arguments with alignment larger than 8 bytes start at the next even
-     boundary.  */
-  if ((type ? (TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
-       : (words > 1))
-      && (cum->words & 1))
-    offset = 1;
 
   cum->words += words + offset;
 
@@ -3750,9 +3859,12 @@ ia64_va_arg (tree valist, tree type)
       return gen_rtx_MEM (ptr_mode, addr);
     }
 
-  /* Arguments with alignment larger than 8 bytes start at the next even
-     boundary.  */
-  if (TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
+  /* Aggregate arguments with alignment larger than 8 bytes start at
+     the next even boundary.  Integer and floating point arguments
+     do so if they are larger than 8 bytes, whether or not they are
+     also aligned larger than 8 bytes.  */
+  if ((TREE_CODE (type) == REAL_TYPE || TREE_CODE (type) == INTEGER_TYPE)
+      ? int_size_in_bytes (type) > 8 : TYPE_ALIGN (type) > 8 * BITS_PER_UNIT)
     {
       t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
 		 build_int_2 (2 * UNITS_PER_WORD - 1, 0));
@@ -3769,8 +3881,8 @@ ia64_va_arg (tree valist, tree type)
 /* Return 1 if function return value returned in memory.  Return 0 if it is
    in a register.  */
 
-int
-ia64_return_in_memory (tree valtype)
+static bool
+ia64_return_in_memory (tree valtype, tree fntype ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -3782,7 +3894,7 @@ ia64_return_in_memory (tree valtype)
     {
       byte_size = int_size_in_bytes (valtype);
       if (byte_size < 0)
-	return 1;
+	return true;
     }
 
   /* Hfa's with up to 8 elements are returned in the FP argument registers.  */
@@ -3793,14 +3905,14 @@ ia64_return_in_memory (tree valtype)
       int hfa_size = GET_MODE_SIZE (hfa_mode);
 
       if (byte_size / hfa_size > MAX_ARGUMENT_SLOTS)
-	return 1;
+	return true;
       else
-	return 0;
+	return false;
     }
   else if (byte_size > UNITS_PER_WORD * MAX_INT_RETURN_SLOTS)
-    return 1;
+    return true;
   else
-    return 0;
+    return false;
 }
 
 /* Return rtx for register that holds the function return value.  */
@@ -3839,7 +3951,7 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
       else
 	return gen_rtx_PARALLEL (mode, gen_rtvec_v (i, loc));
     }
-  else if (FLOAT_TYPE_P (valtype) && mode != TFmode)
+  else if (FLOAT_TYPE_P (valtype) && mode != TFmode && mode != TCmode)
     return gen_rtx_REG (mode, FR_ARG_FIRST);
   else
     {
@@ -4380,7 +4492,7 @@ ia64_secondary_reload_class (enum reg_class class,
     case GR_REGS:
       /* Since we have no offsettable memory addresses, we need a temporary
 	 to hold the address of the second word.  */
-      if (mode == TImode)
+      if (mode == TImode || mode == TFmode)
 	return GR_REGS;
       break;
 
@@ -8724,6 +8836,15 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   reload_completed = 0;
   epilogue_completed = 0;
   no_new_pseudos = 0;
+}
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+ia64_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, GR_REG (8));
 }
 
 #include "gt-ia64.h"

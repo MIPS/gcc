@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -624,7 +624,7 @@ rtl_can_merge_blocks (basic_block a,basic_block b)
 	  /* If the jump insn has side effects,
 	     we can't kill the edge.  */
 	  && (GET_CODE (BB_END (a)) != JUMP_INSN
-	      || (flow2_completed
+	      || (reload_completed
 		  ? simplejump_p (BB_END (a)) : onlyjump_p (BB_END (a)))));
 }
 
@@ -650,7 +650,7 @@ block_label (basic_block block)
    apply only if all edges now point to the same block.  The parameters and
    return values are equivalent to redirect_edge_and_branch.  */
 
-static edge
+edge
 try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 {
   basic_block src = e->src;
@@ -666,7 +666,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 
   if (tmp || !onlyjump_p (insn))
     return NULL;
-  if ((!optimize || flow2_completed) && tablejump_p (insn, NULL, NULL))
+  if ((!optimize || reload_completed) && tablejump_p (insn, NULL, NULL))
     return NULL;
 
   /* Avoid removing branch with side effects.  */
@@ -937,14 +937,11 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return NULL;
 
+  if (e->dest == target)
+    return e;
+
   if ((ret = try_redirect_by_replacing_jump (e, target, false)) != NULL)
     return ret;
-
-  /* Do this fast path late, as we want above code to simplify for cases
-     where called on single edge leaving basic block containing nontrivial
-     jump insn.  */
-  else if (e->dest == target)
-    return NULL;
 
   return redirect_branch_edge (e, target);
 }
@@ -2380,12 +2377,12 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return NULL;
 
+  if (e->dest == dest)
+    return e;
+
   if (e->src != ENTRY_BLOCK_PTR
       && (ret = try_redirect_by_replacing_jump (e, dest, true)))
     return ret;
-
-  if (e->dest == dest)
-    return NULL;
 
   if (e->src == ENTRY_BLOCK_PTR
       && (e->flags & EDGE_FALLTHRU) && !(e->flags & EDGE_COMPLEX))
@@ -2406,10 +2403,18 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
     {
       /* Redirect any branch edges unified with the fallthru one.  */
       if (GET_CODE (BB_END (src)) == JUMP_INSN
-	  && JUMP_LABEL (BB_END (src)) == BB_HEAD (e->dest))
+	  && label_is_jump_target_p (BB_HEAD (e->dest),
+				     BB_END (src)))
 	{
-          if (!redirect_jump (BB_END (src), block_label (dest), 0))
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Fallthru edge unified with branch "
+		     "%i->%i redirected to %i\n",
+		     e->src->index, e->dest->index, dest->index);
+	  e->flags &= ~EDGE_FALLTHRU;
+	  if (!redirect_branch_edge (e, dest))
 	    abort ();
+	  e->flags |= EDGE_FALLTHRU;
+	  return e;
 	}
       /* In case we are redirecting fallthru edge to the branch edge
          of conditional jump, remove it.  */
@@ -2541,7 +2546,7 @@ cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 	  /* If the jump insn has side effects,
 	     we can't kill the edge.  */
 	  && (GET_CODE (BB_END (a)) != JUMP_INSN
-	      || (flow2_completed
+	      || (reload_completed
 		  ? simplejump_p (BB_END (a)) : onlyjump_p (BB_END (a)))));
 }
 
@@ -2561,7 +2566,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
   /* We should have fallthru edge in a, or we can do dummy redirection to get
      it cleaned up.  */
   if (GET_CODE (BB_END (a)) == JUMP_INSN)
-    redirect_edge_and_branch (a->succ, b);
+    try_redirect_by_replacing_jump (a->succ, b, true);
   if (GET_CODE (BB_END (a)) == JUMP_INSN)
     abort ();
 

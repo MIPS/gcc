@@ -960,16 +960,21 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 	}
       break;
     case GDK_ENTER_NOTIFY:
-      (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
-				  AWT_MOUSE_ENTERED, 
-				  (jlong)event->crossing.time,
-				  state_to_awt_mods (event->crossing.state), 
-				  (jint)event->crossing.x,
-				  (jint)event->crossing.y, 
-				  0,
-				  JNI_FALSE);
+      /* We are not interested in enter events that are due to
+         grab/ungrab and not to actually crossing boundaries */
+      if (event->crossing.mode == GDK_CROSSING_NORMAL)
+        (*gdk_env)->CallVoidMethod (gdk_env, peer, postMouseEventID,
+				    AWT_MOUSE_ENTERED, 
+				    (jlong)event->crossing.time,
+				    state_to_awt_mods (event->crossing.state), 
+				    (jint)event->crossing.x,
+				    (jint)event->crossing.y, 
+				    0,
+				    JNI_FALSE);
       break;
     case GDK_LEAVE_NOTIFY:
+      /* We are not interested in leave events that are due to
+         grab/ungrab and not to actually crossing boundaries */
       if (event->crossing.mode == GDK_CROSSING_NORMAL)
 	(*gdk_env)->CallVoidMethod (gdk_env, peer,
 				    postMouseEventID,
@@ -989,30 +994,18 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
 	    
 	if (widget && GTK_WIDGET_TOPLEVEL (widget))
 	  {
-	    gint top, left, right, bottom;
-
 	    /* Configure events are not posted to the AWT event
 	       queue, and as such, the gdk/gtk peer functions will
 	       be called back before postConfigureEvent
 	       returns. */
 	    gdk_threads_leave ();
 
-	    /* FIXME: hard-code these values for now. */
-	    top = 20;
-	    left = 6;
-	    bottom = 6;
-	    right = 6;
-
  	    (*gdk_env)->CallVoidMethod (gdk_env, peer,
 					postConfigureEventID,
 					(jint) event->configure.x,
 					(jint) event->configure.y,
 					(jint) event->configure.width,
-					(jint) event->configure.height,
-					(jint) top,
-					(jint) left,
-					(jint) bottom,
-					(jint) right);
+					(jint) event->configure.height);
 	    gdk_threads_enter ();
 	  }
       }

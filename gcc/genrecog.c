@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -378,7 +378,7 @@ find_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -429,7 +429,7 @@ find_matching_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -812,7 +812,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	 beyond the end of the vector.  */
       test = new_decision_test (DT_veclen_ge, &place);
       test->u.veclen = XVECLEN (pattern, 2);
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERAND:
     case MATCH_SCRATCH:

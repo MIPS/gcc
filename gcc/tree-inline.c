@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -1151,7 +1151,10 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (do_warning)
+      if (lookup_attribute ("always_inline",
+			    DECL_ATTRIBUTES (fn)))
+	sorry (inline_forbidden_reason, fn, fn);
+      else if (do_warning)
 	warning (inline_forbidden_reason, fn, fn);
 
       inlinable = false;
@@ -1479,9 +1482,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      inlining.  */
   if (!cgraph_inline_p (edge, &reason))
     {
-      if (warn_inline && DECL_DECLARED_INLINE_P (fn)
-	  && !DECL_IN_SYSTEM_HEADER (fn)
-	  && strlen (reason))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	{
+	  sorry ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
+	  sorry ("called from here");
+	}
+      else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
+	       && !DECL_IN_SYSTEM_HEADER (fn)
+	       && strlen (reason))
 	{
 	  warning ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  warning ("called from here");

@@ -576,7 +576,7 @@ do {									\
 #define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
 
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
-   longer. */
+   longer.  */
 #define INT_TYPE_SIZE 32
 
 /* Width in bits of a `long'.  */
@@ -3197,13 +3197,6 @@ extern int rtx_equal_function_value_matters;
       && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)		\
     (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	\
     (MODE) = (TARGET_SH1 ? SImode : DImode);
-
-/* Defining PROMOTE_FUNCTION_ARGS eliminates some unnecessary zero/sign
-   extensions applied to char/short functions arguments.  Defining
-   PROMOTE_FUNCTION_RETURN does the same for function returns.  */
-
-#define PROMOTE_FUNCTION_ARGS
-#define PROMOTE_FUNCTION_RETURN
 
 #define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 

@@ -1,6 +1,6 @@
 /* Control flow optimization code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -67,13 +67,14 @@ enum bb_flags
 
 #define FORWARDER_BLOCK_P(BB) (BB_FLAGS (BB) & BB_FORWARDER_BLOCK)
 
+/* Set to true when we are running first pass of try_optimize_cfg loop.  */
+static bool first_pass;
 static bool try_crossjump_to_edge (int, edge, edge);
 static bool try_crossjump_bb (int, basic_block);
 static bool outgoing_edges_match (int, basic_block, basic_block);
 static int flow_find_cross_jump (int, basic_block, basic_block, rtx *, rtx *);
 static bool insns_match_p (int, rtx, rtx);
 
-static bool label_is_jump_target_p (rtx, rtx);
 static bool tail_recursion_label_p (rtx);
 static void merge_blocks_move_predecessor_nojumps (basic_block, basic_block);
 static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
@@ -430,6 +431,7 @@ try_forward_edges (int mode, basic_block b)
       int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
+      bool may_thread = first_pass | (b->flags & BB_DIRTY);
 
       next = e->succ_next;
 
@@ -448,6 +450,7 @@ try_forward_edges (int mode, basic_block b)
 	{
 	  basic_block new_target = NULL;
 	  bool new_target_threaded = false;
+	  may_thread |= target->flags & BB_DIRTY;
 
 	  if (FORWARDER_BLOCK_P (target)
 	      && target->succ->dest != EXIT_BLOCK_PTR)
@@ -460,7 +463,7 @@ try_forward_edges (int mode, basic_block b)
 
 	  /* Allow to thread only over one edge at time to simplify updating
 	     of probabilities.  */
-	  else if (mode & CLEANUP_THREADING)
+	  else if ((mode & CLEANUP_THREADING) && may_thread)
 	    {
 	      edge t = thread_jump (mode, e, target);
 	      if (t)
@@ -646,33 +649,6 @@ try_forward_edges (int mode, basic_block b)
   return changed;
 }
 
-/* Return true if LABEL is a target of JUMP_INSN.  This applies only
-   to non-complex jumps.  That is, direct unconditional, conditional,
-   and tablejumps, but not computed jumps or returns.  It also does
-   not apply to the fallthru case of a conditional jump.  */
-
-static bool
-label_is_jump_target_p (rtx label, rtx jump_insn)
-{
-  rtx tmp = JUMP_LABEL (jump_insn);
-
-  if (label == tmp)
-    return true;
-
-  if (tablejump_p (jump_insn, NULL, &tmp))
-    {
-      rtvec vec = XVEC (PATTERN (tmp),
-			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
-      int i, veclen = GET_NUM_ELEM (vec);
-
-      for (i = 0; i < veclen; ++i)
-	if (XEXP (RTVEC_ELT (vec, i), 0) == label)
-	  return true;
-    }
-
-  return false;
-}
-
 /* Return true if LABEL is used for tail recursion.  */
 
 static bool
@@ -1603,6 +1579,12 @@ try_crossjump_bb (int mode, basic_block bb)
 	     If there is a match, we'll do it the other way around.  */
 	  if (e == fallthru)
 	    continue;
+	  /* If nothing changed since the last attempt, there is nothing
+	     we can do.  */
+	  if (!first_pass
+	      && (!(e->src->flags & BB_DIRTY)
+		  && !(fallthru->src->flags & BB_DIRTY)))
+	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, fallthru))
 	    {
@@ -1645,6 +1627,13 @@ try_crossjump_bb (int mode, basic_block bb)
 	  if (e->src->index > e2->src->index)
 	    continue;
 
+	  /* If nothing changed since the last attempt, there is nothing
+	     we can do.  */
+	  if (!first_pass
+	      && (!(e->src->flags & BB_DIRTY)
+		  && !(e2->src->flags & BB_DIRTY)))
+	    continue;
+
 	  if (try_crossjump_to_edge (mode, e, e2))
 	    {
 	      changed = true;
@@ -1674,11 +1663,12 @@ try_optimize_cfg (int mode)
   FOR_EACH_BB (bb)
     update_forwarder_flag (bb);
 
-  if (mode & CLEANUP_UPDATE_LIFE)
+  if (mode & (CLEANUP_UPDATE_LIFE | CLEANUP_CROSSJUMP | CLEANUP_THREADING))
     clear_bb_flags ();
 
   if (! (* targetm.cannot_modify_jumps_p) ())
     {
+      first_pass = true;
       /* Attempt to merge blocks as made possible by edge removal.  If
 	 a block has only one successor, and the successor has only
 	 one predecessor, they may be combined.  */
@@ -1796,7 +1786,7 @@ try_optimize_cfg (int mode)
 			   /* If the jump insn has side effects,
 			      we can't kill the edge.  */
 			   && (GET_CODE (BB_END (b)) != JUMP_INSN
-			       || (flow2_completed
+			       || (reload_completed
 				   ? simplejump_p (BB_END (b))
 				   : onlyjump_p (BB_END (b))))
 			   && (next = merge_blocks_move (s, b, c, mode)))
@@ -1815,13 +1805,13 @@ try_optimize_cfg (int mode)
 	      /* If B has a single outgoing edge, but uses a
 		 non-trivial jump instruction without side-effects, we
 		 can either delete the jump entirely, or replace it
-		 with a simple unconditional jump.  Use
-		 redirect_edge_and_branch to do the dirty work.  */
+		 with a simple unconditional jump.  */
 	      if (b->succ
 		  && ! b->succ->succ_next
 		  && b->succ->dest != EXIT_BLOCK_PTR
 		  && onlyjump_p (BB_END (b))
-		  && redirect_edge_and_branch (b->succ, b->succ->dest))
+		  && try_redirect_by_replacing_jump (b->succ, b->succ->dest,
+						     (mode & CLEANUP_CFGLAYOUT) != 0))
 		{
 		  update_forwarder_flag (b);
 		  changed_here = true;
@@ -1854,6 +1844,7 @@ try_optimize_cfg (int mode)
 #endif
 
 	  changed_overall |= changed;
+	  first_pass = false;
 	}
       while (changed);
     }
@@ -1953,7 +1944,8 @@ cleanup_cfg (int mode)
 						 PROP_DEATH_NOTES
 						 | PROP_SCAN_DEAD_CODE
 						 | PROP_KILL_DEAD_CODE
-						 | PROP_LOG_LINKS))
+			  			 | ((mode & CLEANUP_LOG_LINKS)
+						    ? PROP_LOG_LINKS : 0)))
 	    break;
 	}
       else if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_PRE_SIBCALL))

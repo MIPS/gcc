@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -4334,14 +4334,14 @@ reshape_init (tree type, tree *initp)
 		}
 	    }
 	}
-      else if (TREE_CODE (type) == ARRAY_TYPE)
+      else if ((TREE_CODE (type) == ARRAY_TYPE)|| (TREE_CODE (type) == VECTOR_TYPE))
 	{
 	  tree index;
 	  tree max_index;
 
 	  /* If the bound of the array is known, take no more initializers
 	     than are allowed.  */
-	  max_index = (TYPE_DOMAIN (type) 
+	  max_index = ((TYPE_DOMAIN (type) && (TREE_CODE (type) == ARRAY_TYPE))
 		       ? array_type_nelts (type) : NULL_TREE);
 	  /* Loop through the array elements, gathering initializers.  */
 	  for (index = size_zero_node;
@@ -4399,6 +4399,7 @@ static tree
 check_initializer (tree decl, tree init, int flags, tree *cleanup)
 {
   tree type = TREE_TYPE (decl);
+  tree init_code = NULL;
 
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
   if (init != NULL_TREE && DECL_INITIAL (decl) == NULL_TREE)
@@ -4515,7 +4516,10 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	{
 	dont_use_constructor:
 	  if (TREE_CODE (init) != TREE_VEC)
-	    init = store_init_value (decl, init);
+	    {
+	      init_code = store_init_value (decl, init);
+	      init = NULL;
+	    }
 	}
     }
   else if (DECL_EXTERNAL (decl))
@@ -4538,9 +4542,9 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     check_for_uninitialized_const_var (decl);
 
   if (init && init != error_mark_node)
-    init = build (INIT_EXPR, type, decl, init);
+    init_code = build (INIT_EXPR, type, decl, init);
 
-  return init;
+  return init_code;
 }
 
 /* If DECL is not a local variable, give it RTL.  */
@@ -4883,8 +4887,19 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  || TREE_CODE (type) == METHOD_TYPE)
 	abstract_virtuals_error (decl,
 				 strip_array_types (TREE_TYPE (type)));
+      else if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+      {
+	/* If it's either a pointer or an array type, strip through all
+	   of them but the last one. If the last is an array type, issue 
+	   an error if the element type is abstract.  */
+	while (POINTER_TYPE_P (TREE_TYPE (type)) 
+	       || TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)
+	  type = TREE_TYPE (type);
+	if (TREE_CODE (type) == ARRAY_TYPE)
+	  abstract_virtuals_error (decl, TREE_TYPE (type));
+      }
       else
-	abstract_virtuals_error (decl, strip_array_types (type));
+	abstract_virtuals_error (decl, type);
 
       if (TREE_CODE (decl) == FUNCTION_DECL 
 	  || TREE_TYPE (decl) == error_mark_node)
@@ -6068,9 +6083,8 @@ compute_array_index_type (tree name, tree size)
 	    error ("size of array is negative");
 	  size = integer_one_node;
 	}
-      /* Except that an extension we allow zero-sized arrays.  We
-	 always allow them in system headers because glibc uses
-	 them.  */
+      /* As an extension we allow zero-sized arrays.  We always allow
+	 them in system headers because glibc uses them.  */
       else if (integer_zerop (size) && pedantic && !in_system_header)
 	{
 	  if (name)
@@ -9474,7 +9488,15 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
 	redeclare_class_template (t, current_template_parms);
     }
 
-  TYPE_ATTRIBUTES (t) = attributes;
+  /* Add attributes only when defining a class. */
+  if (attributes)
+    {
+      /* The only place that xref_tag is called with non-null
+	 attributes is in cp_parser_class_head(), when defining a
+	 class.  */ 
+      my_friendly_assert (TYPE_ATTRIBUTES (t) == NULL_TREE, 20040113);
+      TYPE_ATTRIBUTES (t) = attributes;
+    }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
 }
@@ -10728,8 +10750,6 @@ finish_function (int flags)
       which then got a warning when stored in a ptr-to-function variable.  */
 
   my_friendly_assert (building_stmt_tree (), 20000911);
-
-  finish_fname_decls ();
   
   /* For a cloned function, we've already got all the code we need;
      there's no need to add any extra bits.  */
@@ -10753,6 +10773,8 @@ finish_function (int flags)
 			      (TREE_TYPE (current_function_decl)),
 			      current_eh_spec_block);
     }
+
+  finish_fname_decls ();
 
   /* If we're saving up tree structure, tie off the function now.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));

@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -605,6 +605,9 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 		    - predictor_info [(int) PRED_LOOP_EXIT].hitrate)
 		   / exits);
 	}
+      
+      /* Free basic blocks from get_loop_body.  */
+      free (bbs);
     }
 }
 

@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -270,7 +270,7 @@ struct cpp_buffer
   const uchar *cur;		/* Current location.  */
   const uchar *line_base;	/* Start of current physical line.  */
   const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
-  
+
   const uchar *buf;		/* Entire character buffer.  */
   const uchar *rlimit;		/* Writable byte at end of file.  */
 
@@ -313,6 +313,10 @@ struct cpp_buffer
 
   /* Used for buffer overlays by cpptrad.c.  */
   const uchar *saved_cur, *saved_rlimit;
+
+  /* Descriptor for converting from the input character set to the
+     source character set.  */
+  struct cset_converter input_cset_desc;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -330,7 +334,7 @@ struct cpp_reader
   struct lexer_state state;
 
   /* Source line tracking.  */
-  struct line_maps line_maps;
+  struct line_maps *line_table;
   const struct line_map *map;
   fileline line;
 
@@ -526,6 +530,8 @@ extern void _cpp_report_missing_guards (cpp_reader *);
 extern void _cpp_init_files (cpp_reader *);
 extern void _cpp_cleanup_files (cpp_reader *);
 extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
+extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
+extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
 
 /* In cppexp.c */
 extern bool _cpp_parse_expr (cpp_reader *);
@@ -557,6 +563,9 @@ extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 				 unsigned int, unsigned int);
 extern void _cpp_pop_buffer (cpp_reader *);
+extern uchar *_cpp_input_to_utf8 (cpp_reader *, const unsigned char *, cppchar_t);
+extern void _cpp_init_iconv_buffer (cpp_reader *, const char *);
+extern void _cpp_close_iconv_buffer (cpp_reader *);
 
 /* In cpptrad.c.  */
 extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);

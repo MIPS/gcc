@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -72,11 +72,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #else
 #define STACK_PUSH_CODE PRE_INC
 #endif
-#endif
-
-/* Assume that case vectors are not pc-relative.  */
-#ifndef CASE_VECTOR_PC_RELATIVE
-#define CASE_VECTOR_PC_RELATIVE 0
 #endif
 
 /* Convert defined/undefined to boolean.  */
@@ -4002,6 +3997,7 @@ rtx
 store_expr (tree exp, rtx target, int want_value)
 {
   rtx temp;
+  rtx alt_rtl = NULL_RTX;
   int dont_return_target = 0;
   int dont_store_target = 0;
 
@@ -4183,8 +4179,10 @@ store_expr (tree exp, rtx target, int want_value)
     }
   else
     {
-      temp = expand_expr (exp, target, GET_MODE (target),
-			  want_value & 2 ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+      temp = expand_expr_real (exp, target, GET_MODE (target),
+			       (want_value & 2 
+				? EXPAND_STACK_PARM : EXPAND_NORMAL),
+			       &alt_rtl);
       /* Return TARGET if it's a specified hardware register.
 	 If TARGET is a volatile mem ref, either return TARGET
 	 or return a reg copied *from* TARGET; ANSI requires this.
@@ -4232,10 +4230,7 @@ store_expr (tree exp, rtx target, int want_value)
       /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
 	 but TARGET is not valid memory reference, TEMP will differ
 	 from TARGET although it is really the same location.  */
-      && !(GET_CODE (target) == MEM
-	   && GET_CODE (XEXP (target, 0)) != QUEUED
-	   && (!memory_address_p (GET_MODE (target), XEXP (target, 0))
-	       || (flag_force_addr && !REG_P (XEXP (target, 0)))))
+      && !(alt_rtl && rtx_equal_p (alt_rtl, target))
       /* If there's nothing to copy, don't bother.  Don't call expr_size
 	 unless necessary, because some front-ends (C++) expr_size-hook
 	 aborts on objects that are not supposed to be bit-copied or
@@ -5912,7 +5907,7 @@ safe_from_p (rtx x, tree exp, int top_p)
     case '<':
       if (!safe_from_p (x, TREE_OPERAND (exp, 1), 0))
 	return 0;
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case '1':
       return safe_from_p (x, TREE_OPERAND (exp, 0), 0);
@@ -6347,13 +6342,20 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
    marked TARGET so that it's safe from being trashed by libcalls.  We
    don't want to use TARGET for anything but the final result;
    Intermediate values must go elsewhere.   Additionally, calls to
-   emit_block_move will be flagged with BLOCK_OP_CALL_PARM.  */
+   emit_block_move will be flagged with BLOCK_OP_CALL_PARM.  
 
-static rtx expand_expr_1 (tree, rtx, enum machine_mode, enum expand_modifier);
+   If EXP is a VAR_DECL whose DECL_RTL was a MEM with an invalid
+   address, and ALT_RTL is non-NULL, then *ALT_RTL is set to the
+   DECL_RTL of the VAR_DECL.  *ALT_RTL is also set if EXP is a
+   COMPOUND_EXPR whose second argument is such a VAR_DECL, and so on
+   recursively.  */
+
+static rtx expand_expr_real_1 (tree, rtx, enum machine_mode,
+			       enum expand_modifier, rtx *);
 
 rtx
-expand_expr (tree exp, rtx target, enum machine_mode tmode,
-	     enum expand_modifier modifier)
+expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
+		  enum expand_modifier modifier, rtx *alt_rtl)
 {
   int rn = -1;
   rtx ret, last = NULL;
@@ -6369,8 +6371,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
   if (flag_non_call_exceptions)
     {
       rn = lookup_stmt_eh_region (exp);
-      /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
-	 throw.  */
+      /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't throw.  */
       if (rn >= 0)
 	last = get_last_insn ();
     }
@@ -6393,13 +6394,13 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
       if (cfun->dont_emit_block_notes)
 	record_block_change (TREE_BLOCK (exp));
 
-      ret = expand_expr_1 (exp, target, tmode, modifier);
+      ret = expand_expr_real_1 (exp, target, tmode, modifier, alt_rtl);
 
       input_location = saved_location;
     }
   else
     {
-      ret = expand_expr_1 (exp, target, tmode, modifier);
+      ret = expand_expr_real_1 (exp, target, tmode, modifier, alt_rtl);
     }
 
   /* If using non-call exceptions, mark all insns that may trap.
@@ -6428,8 +6429,8 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode,
 }
 
 static rtx
-expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
-	       enum expand_modifier modifier)
+expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
+		    enum expand_modifier modifier, rtx *alt_rtl)
 {
   rtx op0, op1, temp;
   tree type = TREE_TYPE (exp);
@@ -6629,8 +6630,12 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 				       XEXP (DECL_RTL (exp), 0))
 		   || (flag_force_addr
 		       && GET_CODE (XEXP (DECL_RTL (exp), 0)) != REG)))
-	temp = replace_equiv_address (DECL_RTL (exp),
-				      copy_rtx (XEXP (DECL_RTL (exp), 0)));
+	{
+	  if (alt_rtl)
+	    *alt_rtl = DECL_RTL (exp);
+	  temp = replace_equiv_address (DECL_RTL (exp),
+					copy_rtx (XEXP (DECL_RTL (exp), 0)));
+	}
 
       /* If we got something, return it.  But first, set the alignment
 	 if the address is a register.  */
@@ -6969,6 +6974,8 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	}
       preserve_rtl_expr_result (RTL_EXPR_RTL (exp));
       free_temps_for_rtl_expr (exp);
+      if (alt_rtl)
+	*alt_rtl = RTL_EXPR_ALT_RTL (exp);
       return RTL_EXPR_RTL (exp);
 
     case CONSTRUCTOR:
@@ -7689,7 +7696,8 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == BUILT_IN_FRONTEND)
 	    return (*lang_hooks.expand_expr) (exp, original_target,
-					      tmode, modifier);
+					      tmode, modifier,
+					      alt_rtl);
 	  else
 	    return expand_builtin (exp, target, subtarget, tmode, ignore);
 	}
@@ -7720,7 +7728,12 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	    }
 
 	  if (target == 0)
-	    target = assign_temp (type, 0, 1, 1);
+	    {
+	      if (TYPE_MODE (type) != BLKmode)
+		target = gen_reg_rtx (TYPE_MODE (type));
+	      else
+		target = assign_temp (type, 0, 1, 1);
+	    }
 
 	  if (GET_CODE (target) == MEM)
 	    /* Store data into beginning of memory target.  */
@@ -8450,20 +8463,11 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       return temp;
 
     case COMPOUND_EXPR:
-      /* Avoid deep recursion for long block.  */
-      for (; TREE_CODE (exp) == COMPOUND_EXPR; exp = TREE_OPERAND (exp, 1))
-	{
-	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
-	  emit_queue ();
-#if 0
-	  /* FIXME try this.  */
-	  /* Free any temporaries used to evaluate this expression.  */
-	  if (ignore)
-	    free_temp_slots ();
-#endif
-	}
-      return expand_expr (exp, (ignore ? const0_rtx : target), VOIDmode,
-	                  modifier);
+      expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, 0);
+      emit_queue ();
+      return expand_expr_real (TREE_OPERAND (exp, 1),
+			       (ignore ? const0_rtx : target),
+			       VOIDmode, modifier, alt_rtl);
 
     case STATEMENT_LIST:
       {
@@ -9405,7 +9409,8 @@ expand_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       return const0_rtx;
 
     default:
-      return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier);
+      return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier,
+					alt_rtl);
     }
 
   /* Here to do an ordinary binary operator, generating an instruction

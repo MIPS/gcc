@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -124,7 +124,8 @@ init_library (void)
 
 /* Initialize a cpp_reader structure.  */
 cpp_reader *
-cpp_create_reader (enum c_lang lang, hash_table *table)
+cpp_create_reader (enum c_lang lang, hash_table *table,
+		   struct line_maps *line_table)
 {
   cpp_reader *pfile;
 
@@ -161,6 +162,9 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   CPP_OPTION (pfile, narrow_charset) = 0;
   CPP_OPTION (pfile, wide_charset) = 0;
 
+  /* Default the input character set to iso-8859-1 for now. */
+  CPP_OPTION (pfile, input_charset) = "ISO-8859-1";
+
   /* A fake empty "directory" used as the starting point for files
      looked up without a search path.  Name cannot be '/' because we
      don't want to prepend anything at all to filenames using it.  All
@@ -169,7 +173,7 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
 
   /* Initialize the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
-  linemap_init (&pfile->line_maps);
+  pfile->line_table = line_table;
   pfile->line = 1;
 
   /* Initialize lexer state.  */
@@ -259,7 +263,6 @@ cpp_destroy (cpp_reader *pfile)
       free (context);
     }
 
-  linemap_free (&pfile->line_maps);
   free (pfile);
 }
 
@@ -498,7 +501,7 @@ cpp_push_main_file (cpp_reader *pfile)
   /* Set this here so the client can change the option if it wishes,
      and after stacking the main file so we don't trace the main
      file.  */
-  pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
+  pfile->line_table->trace_includes = CPP_OPTION (pfile, print_include_names);
 }
 
 /* For preprocessed files, if the first tokens are of the form # NUM.

@@ -1,6 +1,7 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -553,7 +554,7 @@ typedef char _Bool;
 #define really_call_calloc calloc
 #define really_call_realloc realloc
 
-#if defined(FLEX_SCANNER) || defined(YYBISON)
+#if defined(FLEX_SCANNER) || defined(YYBISON) || defined(YYBYACC)
 /* Flex and bison use malloc and realloc.  Yuk.  Note that this means
    really_call_* cannot be used in a .l or .y file.  */
 #define malloc xmalloc
@@ -595,7 +596,8 @@ typedef char _Bool;
 	INIT_GOFAST_OPTABS MULSI3_LIBCALL MULDI3_LIBCALL DIVSI3_LIBCALL \
 	DIVDI3_LIBCALL UDIVSI3_LIBCALL UDIVDI3_LIBCALL MODSI3_LIBCALL	\
 	MODDI3_LIBCALL UMODSI3_LIBCALL UMODDI3_LIBCALL BUILD_VA_LIST_TYPE \
-	PRETEND_OUTGOING_VARARGS_NAMED
+	PRETEND_OUTGOING_VARARGS_NAMED STRUCT_VALUE_INCOMING_REGNUM	\
+	ASM_OUTPUT_SECTION_NAME
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -621,7 +623,10 @@ typedef char _Bool;
 	EXIT_BODY OBJECT_FORMAT_ROSE MULTIBYTE_CHARS MAP_CHARACTER	   \
 	LIBGCC_NEEDS_DOUBLE FINAL_PRESCAN_LABEL DEFAULT_CALLER_SAVES	   \
 	LOAD_ARGS_REVERSED MAX_INTEGER_COMPUTATION_MODE			   \
-	CONVERT_HARD_REGISTER_TO_SSA_P
+	CONVERT_HARD_REGISTER_TO_SSA_P ASM_OUTPUT_MAIN_SOURCE_FILENAME	   \
+	FIRST_INSN_ADDRESS TEXT_SECTION SHARED_BSS_SECTION_ASM_OP	   \
+	PROMOTED_MODE EXPAND_BUILTIN_VA_END				   \
+	LINKER_DOES_NOT_WORK_WITH_DWARF2
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

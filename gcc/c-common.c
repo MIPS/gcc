@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1063,7 +1063,13 @@ finish_fname_decls (void)
       tree *p = &DECL_SAVED_TREE (current_function_decl);
       /* Skip the dummy EXPR_STMT and any EH_SPEC_BLOCK.  */
       while (TREE_CODE (*p) != COMPOUND_STMT)
-	p = &TREE_CHAIN (*p);
+       {
+         if (TREE_CODE (*p) == EXPR_STMT)
+           p = &TREE_CHAIN (*p);
+         else
+           p = &TREE_OPERAND(*p, 0);
+       }
+
       p = &COMPOUND_BODY (*p);
       if (TREE_CODE (*p) == SCOPE_STMT)
 	p = &TREE_CHAIN (*p);
@@ -2916,9 +2922,9 @@ c_common_get_alias_set (tree t)
 	 But, the standard is wrong.  In particular, this code is
 	 legal C++:
 
-	    int *ip;
-	    int **ipp = &ip;
-	    const int* const* cipp = &ipp;
+            int *ip;
+            int **ipp = &ip;
+            const int* const* cipp = ipp;
 
 	 And, it doesn't make sense for that to be legal unless you
 	 can dereference IPP and CIPP.  So, we ignore cv-qualifiers on
@@ -4199,7 +4205,9 @@ finish_label_address_expr (tree label)
    gimplification routines.  */
 
 rtx
-c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
+c_expand_expr (tree exp, rtx target, enum machine_mode tmode, 
+	       int modifier /* Actually enum_modifier.  */,
+	       rtx *alt_rtl)
 {
   switch (TREE_CODE (exp))
     {
@@ -4209,7 +4217,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
 	   literal, then return the variable.  */
 	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
 	emit_local_var (decl);
-	return expand_expr (decl, target, tmode, modifier);
+	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
       }
 
     default:
@@ -5878,15 +5886,34 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case MODIFY_EXPR:
     case CONSTRUCTOR:
       {
-	int size = int_size_in_bytes (TREE_TYPE (x));
+	HOST_WIDE_INT size;
 
-	if (!size || size > MOVE_MAX_PIECES)
+	size = int_size_in_bytes (TREE_TYPE (x));
+
+	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
 	  *count += 10;
 	else
-	  *count += 2 * (size + MOVE_MAX - 1) / MOVE_MAX;
-	return NULL;
+	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     /* Few special cases of expensive operations.  This is usefull
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
@@ -5898,7 +5925,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
     /* Various containers that will produce no code themselves.  */

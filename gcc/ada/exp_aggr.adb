@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -264,6 +264,8 @@ package body Exp_Aggr is
    --    5. The array component type is tagged, which may necessitate
    --       reassignment of proper tags.
 
+   --    6. The array component type might have unaligned bit components
+
    function Backend_Processing_Possible (N : Node_Id) return Boolean is
       Typ : constant Entity_Id := Etype (N);
       --  Typ is the correct constrained array subtype of the aggregate.
@@ -317,7 +319,7 @@ package body Exp_Aggr is
          return False;
       end if;
 
-      --  Checks 4  (array must not be multi-dimensional Fortran case)
+      --  Checks 4 (array must not be multi-dimensional Fortran case)
 
       if Convention (Typ) = Convention_Fortran
         and then Number_Dimensions (Typ) > 1
@@ -347,6 +349,12 @@ package body Exp_Aggr is
       --    JVM, object tags are handled implicitly)
 
       if Is_Tagged_Type (Component_Type (Typ)) and then not Java_VM then
+         return False;
+      end if;
+
+      --  Checks 6 (component type must not have bit aligned components)
+
+      if Type_May_Have_Bit_Aligned_Components (Component_Type (Typ)) then
          return False;
       end if;
 
@@ -1910,21 +1918,20 @@ package body Exp_Aggr is
 
       Comp := First (Component_Associations (N));
       while Present (Comp) loop
-         Selector  := Entity (First (Choices (Comp)));
+         Selector := Entity (First (Choices (Comp)));
 
          --  Ada0Y (AI-287): Default initialization of a limited component
 
          if Box_Present (Comp)
             and then Is_Limited_Type (Etype (Selector))
          then
-
             --  Ada0Y (AI-287): If the component type has tasks then generate
             --  the activation chain and master entities (except in case of an
             --  allocator because in that case these entities are generated
             --  by Build_Task_Allocate_Block_With_Init_Stmts)
 
             declare
-               Ctype            : Entity_Id := Etype (Selector);
+               Ctype            : constant Entity_Id := Etype (Selector);
                Inside_Allocator : Boolean   := False;
                P                : Node_Id   := Parent (N);
 
@@ -1941,7 +1948,10 @@ package body Exp_Aggr is
 
                   if not Inside_Init_Proc and not Inside_Allocator then
                      Build_Activation_Chain_Entity (N);
-                     Build_Master_Entity (Etype (N));
+
+                     if not Has_Master_Entity (Current_Scope) then
+                        Build_Master_Entity (Etype (N));
+                     end if;
                   end if;
                end if;
             end;
@@ -3054,8 +3064,11 @@ package body Exp_Aggr is
                Type_Definition =>
                  Make_Constrained_Array_Definition (Loc,
                    Discrete_Subtype_Definitions => Indices,
-                   Subtype_Indication =>
-                     New_Occurrence_Of (Component_Type (Typ), Loc)));
+                   Component_Definition =>
+                     Make_Component_Definition (Loc,
+                       Aliased_Present => False,
+                       Subtype_Indication =>
+                         New_Occurrence_Of (Component_Type (Typ), Loc))));
 
          Insert_Action (N, Decl);
          Analyze (Decl);
@@ -3520,7 +3533,8 @@ package body Exp_Aggr is
 
       function Must_Slide (N : Node_Id; Typ : Entity_Id) return Boolean
       is
-         Obj_Type : Entity_Id := Etype (Defining_Identifier (Parent (N)));
+         Obj_Type : constant Entity_Id :=
+                      Etype (Defining_Identifier (Parent (N)));
 
          L1, L2, H1, H2 : Node_Id;
 
@@ -4341,6 +4355,12 @@ package body Exp_Aggr is
       --  size of the data.
 
       elsif Has_Mutable_Components (Typ) then
+         Convert_To_Assignments (N, Typ);
+
+      --  If the type involved has any non-bit aligned components, then
+      --  we are not sure that the back end can handle this case correctly.
+
+      elsif Type_May_Have_Bit_Aligned_Components (Typ) then
          Convert_To_Assignments (N, Typ);
 
       --  In all other cases we generate a proper aggregate that

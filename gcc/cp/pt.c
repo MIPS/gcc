@@ -1,6 +1,6 @@
 /* Handle parameterized types (templates) for GNU C++.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -4519,17 +4519,6 @@ for_each_template_parm_r (tree* tp, int* walk_subtrees, void* d)
   struct pair_fn_data *pfd = (struct pair_fn_data *) d;
   tree_fn_t fn = pfd->fn;
   void *data = pfd->data;
-  void **slot;
-
-  /* If we have already visited this tree, there's no need to walk
-     subtrees.  Otherwise, add it to the visited table.  */
-  slot = htab_find_slot (pfd->visited, *tp, INSERT);
-  if (*slot)
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-  *slot = *tp;
 
   if (TYPE_P (t)
       && for_each_template_parm (TYPE_CONTEXT (t), fn, data, pfd->visited))
@@ -4722,7 +4711,7 @@ for_each_template_parm (tree t, tree_fn_t fn, void* data, htab_t visited)
   result = walk_tree (&t, 
 		      for_each_template_parm_r, 
 		      &pfd,
-		      NULL) != NULL_TREE;
+		      pfd.visited) != NULL_TREE;
 
   /* Clean up.  */
   if (!visited)
@@ -5390,7 +5379,9 @@ instantiate_class_template (tree type)
 	      tree newtag;
 
 	      newtag = tsubst (tag, args, tf_error, NULL_TREE);
-	      my_friendly_assert (newtag != error_mark_node, 20010206);
+	      if (newtag == error_mark_node)
+		continue;
+
 	      if (TREE_CODE (newtag) != ENUMERAL_TYPE)
 		{
 		  if (TYPE_LANG_SPECIFIC (tag) && CLASSTYPE_IS_TEMPLATE (tag))
@@ -5922,6 +5913,9 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	if (TREE_CODE (decl) == TYPE_DECL)
 	  {
 	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    if (new_type == error_mark_node)
+	      return error_mark_node;
+
 	    TREE_TYPE (r) = new_type;
 	    CLASSTYPE_TI_TEMPLATE (new_type) = r;
 	    DECL_TEMPLATE_RESULT (r) = TYPE_MAIN_DECL (new_type);
@@ -6586,23 +6580,6 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (!processing_template_decl)
 	  max = decl_constant_value (max);
 
-	if (processing_template_decl 
-	    /* When providing explicit arguments to a template
-	       function, but leaving some arguments for subsequent
-	       deduction, MAX may be template-dependent even if we're
-	       not PROCESSING_TEMPLATE_DECL.  We still need to check for
-	       template parms, though; MAX won't be an INTEGER_CST for
-	       dynamic arrays, either.  */
-	    || (TREE_CODE (max) != INTEGER_CST
-		&& uses_template_parms (max)))
-	  {
-	    tree itype = make_node (INTEGER_TYPE);
-	    TYPE_MIN_VALUE (itype) = size_zero_node;
-	    TYPE_MAX_VALUE (itype) = build_min (MINUS_EXPR, sizetype, max,
-						integer_one_node);
-	    return itype;
-	  }
-
 	if (integer_zerop (omax))
 	  {
 	    /* Still allow an explicit array of size zero.  */
@@ -6984,7 +6961,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	   The deduction may fail for any of the following reasons: 
 
 	   -- Attempting to create an array with an element type that
-	      is void, a function type, or a reference type.  */
+	      is void, a function type, or a reference type, or [DR337] 
+	      an abstract class type.  */
 	if (TREE_CODE (type) == VOID_TYPE 
 	    || TREE_CODE (type) == FUNCTION_TYPE
 	    || TREE_CODE (type) == REFERENCE_TYPE)
@@ -6992,6 +6970,13 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    if (complain & tf_error)
 	      error ("creating array of `%T'", type);
 	    return error_mark_node;
+	  }
+	if (CLASS_TYPE_P (type) && CLASSTYPE_PURE_VIRTUALS (type))
+	  {
+	    if (complain & tf_error)
+	      error ("creating array of `%T', which is an abstract class type", 
+		     type);
+	    return error_mark_node;	    
 	  }
 
 	r = build_cplus_array_type (type, domain);
@@ -7135,13 +7120,13 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case TYPEOF_TYPE:
       {
-	tree e1 = tsubst_expr (TYPE_FIELDS (t), args, complain, in_decl);
-	if (e1 == error_mark_node)
-	  return error_mark_node;
+	tree type;
 
-	return cp_build_qualified_type_real (TREE_TYPE (e1),
+	type = finish_typeof (tsubst_expr (TYPE_FIELDS (t), args, complain, 
+					   in_decl));
+	return cp_build_qualified_type_real (type,
 					     cp_type_quals (t)
-					     | cp_type_quals (TREE_TYPE (e1)),
+					     | cp_type_quals (type),
 					     complain);
       }
 
@@ -7724,7 +7709,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    if (decl == error_mark_node)
 	      qualified_name_lookup_error (scope, name);
 	    else
-	      do_local_using_decl (decl);
+	      do_local_using_decl (decl, scope, name);
 	  }
 	else
 	  {
@@ -8308,11 +8293,18 @@ tsubst_copy_and_build (tree t,
 	if (TREE_CODE (function) == OFFSET_REF)
 	  return build_offset_ref_call_from_tree (function, call_args);
 	if (TREE_CODE (function) == COMPONENT_REF)
-	  return (build_new_method_call 
-		  (TREE_OPERAND (function, 0),
-		   TREE_OPERAND (function, 1),
-		   call_args, NULL_TREE, 
-		   qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL));
+	  {
+	    if (!BASELINK_P (TREE_OPERAND (function, 1)))
+	      return finish_call_expr (function, call_args,
+				       /*disallow_virtual=*/false,
+				       /*koenig_p=*/false);
+	    else
+	      return (build_new_method_call 
+		      (TREE_OPERAND (function, 0),
+		       TREE_OPERAND (function, 1),
+		       call_args, NULL_TREE, 
+		       qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL));
+	  }
 	return finish_call_expr (function, call_args, 
 				 /*disallow_virtual=*/qualified_p,
 				 koenig_p);
@@ -10910,11 +10902,6 @@ instantiate_decl (tree d, int defer_ok)
   /* We may be in the middle of deferred access check.  Disable it now.  */
   push_deferring_access_checks (dk_no_deferred);
 
-  /* Our caller does not expect collection to happen, which it might if
-     we decide to compile the function to rtl now.  Arrange for a new
-     gc context to be created if so.  */
-  function_depth++;
-
   /* Set TD to the template whose DECL_TEMPLATE_RESULT is the pattern
      for the instantiation.  */
   td = template_for_substitution (d);
@@ -11028,6 +11015,10 @@ instantiate_decl (tree d, int defer_ok)
   if (need_push)
     push_to_top_level ();
 
+  /* Mark D as instantiated so that recursive calls to
+     instantiate_decl do not try to instantiate it again.  */
+  DECL_TEMPLATE_INSTANTIATED (d) = 1;
+
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
@@ -11063,13 +11054,14 @@ instantiate_decl (tree d, int defer_ok)
 	     instantiation.  There, we cannot implicitly instantiate a
 	     defined static data member in more than one translation
 	     unit, so import_export_decl marks the declaration as
-	     external; we must rely on explicit instantiation.  */
+	     external; we must rely on explicit instantiation.
+
+             Reset instantiated marker to make sure that later
+             explicit instantiation will be processed.  */
+          DECL_TEMPLATE_INSTANTIATED (d) = 0;
 	}
       else
 	{
-	  /* Mark D as instantiated so that recursive calls to
-	     instantiate_decl do not try to instantiate it again.  */
-	  DECL_TEMPLATE_INSTANTIATED (d) = 1;
 	  /* This is done in analogous to `start_decl'.  It is
 	     required for correct access checking.  */
 	  push_nested_class (DECL_CONTEXT (d));
@@ -11152,7 +11144,6 @@ out:
   input_location = saved_loc;
   pop_deferring_access_checks ();
   pop_tinst_level ();
-  function_depth--;
 
   timevar_pop (TV_PARSE);
 
@@ -11679,6 +11670,9 @@ value_dependent_expression_p (tree expression)
     }
   if (TREE_CODE (expression) == SCOPE_REF)
     return dependent_scope_ref_p (expression, value_dependent_expression_p);
+  if (TREE_CODE (expression) == COMPONENT_REF)
+    return (value_dependent_expression_p (TREE_OPERAND (expression, 0))
+	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expression))))
@@ -12006,6 +12000,10 @@ build_non_dependent_expr (tree expr)
      "char *" are allowed, even though normally a "const char *"
      cannot be used to initialize a "char *".  */
   if (TREE_CODE (expr) == STRING_CST)
+    return expr;
+  /* Preserve arithmetic constants, as an optimization -- there is no
+     reason to create a new node.  */
+  if (TREE_CODE (expr) == INTEGER_CST || TREE_CODE (expr) == REAL_CST)
     return expr;
 
   if (TREE_CODE (expr) == COND_EXPR)

@@ -140,6 +140,9 @@ f95.info: $(srcdir)/fortran/gfortran.info
 f95.dvi: fortran/gfortran.dvi
 f95.generated-manpages:
 
+f95.man:
+f95.srcman:
+
 check-f95 : check-gfortran
 lang_checks += check-gfortran
 

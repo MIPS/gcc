@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -590,10 +590,12 @@ read_scan_file (char *in_fname, int argc, char **argv)
   struct fn_decl *fn;
   int i, strings_processed;
   struct symbol_list *cur_symbols;
+  struct line_maps line_table;
 
   obstack_init (&scan_file_obstack);
 
-  scan_in = cpp_create_reader (CLK_GNUC89, NULL);
+  linemap_init (&line_table);
+  scan_in = cpp_create_reader (CLK_GNUC89, NULL, &line_table);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 

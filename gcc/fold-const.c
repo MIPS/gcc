@@ -802,7 +802,7 @@ div_and_round_double (enum tree_code code, int uns,
       abort ();
     }
 
-  /* compute true remainder:  rem = num - (quo * den)  */
+  /* Compute true remainder:  rem = num - (quo * den)  */
   mul_double (*lquo, *hquo, lden_orig, hden_orig, lrem, hrem);
   neg_double (*lrem, *hrem, lrem, hrem);
   add_double (lnum_orig, hnum_orig, *lrem, *hrem, lrem, hrem);
@@ -4734,7 +4734,7 @@ fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
 	{
 	  arg = save_expr (arg);
 	  lhs = rhs = 0;
-	  save = 1;
+	  save = saved_expr_p (arg);
 	}
     }
 
@@ -4745,6 +4745,12 @@ fold_binary_op_with_conditional_arg (enum tree_code code, tree type,
 
   test = fold (build (COND_EXPR, type, test, lhs, rhs));
 
+  /* If ARG involves a SAVE_EXPR, we need to ensure it is evaluated
+     ahead of the COND_EXPR we made.  Otherwise we would have it only
+     evaluated in one branch, with the other branch using the result
+     but missing the evaluation code.  Beware that the save_expr call
+     above might not return a SAVE_EXPR, so testing the TREE_CODE
+     of ARG is not enough to decide here.  */
   if (save)
     return build (COMPOUND_EXPR, type,
 		  convert (void_type_node, arg),
@@ -7983,12 +7989,12 @@ fold (tree expr)
     case COMPOUND_EXPR:
       /* When pedantic, a compound expression can be neither an lvalue
 	 nor an integer constant expression.  */
-      if (TREE_SIDE_EFFECTS (arg0) || pedantic)
+      if (TREE_SIDE_EFFECTS (arg0) || TREE_CONSTANT (arg1))
 	return t;
       /* Don't let (0, 0) be null pointer constant.  */
       if (integer_zerop (arg1))
-	return build1 (NOP_EXPR, type, arg1);
-      return convert (type, arg1);
+	return pedantic_non_lvalue (build1 (NOP_EXPR, type, arg1));
+      return pedantic_non_lvalue (convert (type, arg1));
 
     case COMPLEX_EXPR:
       if (wins)
@@ -8238,7 +8244,7 @@ fold_checksum_tree (tree expr, struct md5_ctx *ctx, htab_t ht)
 	case WITH_CLEANUP_EXPR: len = 2; break;
 	default: break;
 	}
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 'r':
     case '<':
     case '1':

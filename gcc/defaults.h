@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -80,13 +80,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
+do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
      (*targetm.asm_out.internal_label) (FILE, "L", (VALUE));			\
      fputc ('\n', FILE);						\
    } while (0)
 #endif
 
-/* choose a reasonable default for ASM_OUTPUT_ASCII.  */
+/* Choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII(MYFILE, MYSTRING, MYLENGTH) \
@@ -688,6 +688,11 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    functions that have frame pointers.  */
 #ifndef EXIT_IGNORE_STACK
 #define EXIT_IGNORE_STACK 0
+#endif
+
+/* Assume that case vectors are not pc-relative.  */
+#ifndef CASE_VECTOR_PC_RELATIVE
+#define CASE_VECTOR_PC_RELATIVE 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

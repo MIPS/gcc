@@ -1,6 +1,6 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
 
-extern int mips_reg_mode_ok_for_base_p (rtx, enum machine_mode, int);
+extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, int);
 extern int mips_address_insns (rtx, enum machine_mode);
 extern int mips_const_insns (rtx);
 extern int mips_fetch_insns (rtx);
@@ -83,8 +83,6 @@ extern int function_arg_partial_nregs (const CUMULATIVE_ARGS *,
 				       enum machine_mode, tree, int);
 extern bool mips_pad_arg_upward (enum machine_mode, tree);
 extern bool mips_pad_reg_upward (enum machine_mode, tree);
-extern int mips_setup_incoming_varargs (const CUMULATIVE_ARGS *,
-					enum machine_mode, tree, int);
 extern void mips_va_start (tree, rtx);
 extern struct rtx_def *mips_va_arg (tree, tree);
 
@@ -124,6 +122,8 @@ extern int function_arg_pass_by_reference (const CUMULATIVE_ARGS *,
 
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
+extern bool mips_dangerous_for_la25_p (rtx);
+extern enum reg_class mips_preferred_reload_class (rtx, enum reg_class);
 extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, int);
@@ -139,7 +139,6 @@ extern const char *mips_output_conditional_branch (rtx, rtx *, int, int,
 						   int, int);
 extern const char *mips_output_division (const char *, rtx *);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
-extern int mips_return_in_memory (tree);
 extern const char *mips_emit_prefetch (rtx *);
 
 extern void irix_asm_output_align (FILE *, unsigned);

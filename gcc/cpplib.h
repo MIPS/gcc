@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -332,6 +332,9 @@ struct cpp_options
   /* Holds the name of the target wide character set.  */
   const char *wide_charset;
 
+  /* Holds the name of the input character set.  */
+  const char *input_charset;
+
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
 
@@ -417,7 +420,7 @@ struct cpp_dir
   /* Mapping of file names for this directory for MS-DOS and related
      platforms.  A NULL-terminated array of (from, to) pairs.  */
   const char **name_map;
-    
+
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
   ino_t ino;
@@ -481,7 +484,7 @@ struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
-  unsigned int directive_index : 7;	/* If is_directive, 
+  unsigned int directive_index : 7;	/* If is_directive,
 					   then index into directive table.
 					   Otherwise, a NODE_OPERATOR.  */
   unsigned char rid_code;		/* Rid code - for front ends.  */
@@ -507,7 +510,8 @@ struct cpp_hashnode GTY(())
    pointer.  Otherwise you should pass in an initialized hash table
    that cpplib will share; this technique is used by the C front
    ends.  */
-extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *);
+extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
+				      struct line_maps *);
 
 /* Call this to change the selected language standard (e.g. because of
    command line options).  */

@@ -1,5 +1,5 @@
 /* longlong.h -- definitions for mixed size 32/64 bit arithmetic.
-   Copyright (C) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2004
    Free Software Foundation, Inc.
 
    This definition file is free software; you can redistribute it
@@ -414,11 +414,8 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "1" ((USItype) (al)),					\
 	     "g" ((USItype) (bl)))
 
-/* The '020, '030, '040 and CPU32 have 32x32->64 and 64/32->32q-32r.  */
-#if defined (__mc68020__) || defined(mc68020) \
-	|| defined(__mc68030__) || defined(mc68030) \
-	|| defined(__mc68040__) || defined(mc68040) \
-	|| defined(__mcpu32__) || defined(mcpu32)
+/* The '020, '030, '040, '060 and CPU32 have 32x32->64 and 64/32->32q-32r.  */
+#if defined (__mc68020__)
 #define umul_ppmm(w1, w0, u, v) \
   __asm__ ("mulu%.l %3,%1:%0"						\
 	   : "=d" ((USItype) (w0)),					\
@@ -519,11 +516,7 @@ UDItype __umulsidi3 (USItype, USItype);
 
 /* The '020, '030, '040 and '060 have bitfield insns.
    cpu32 disguises as a 68020, but lacks them.  */
-#if ( defined (__mc68020__) || defined(mc68020) \
-		|| defined(__mc68030__) || defined(mc68030) \
-		|| defined(__mc68040__) || defined(mc68040) \
-		|| defined(__mc68060__) || defined(mc68060) ) \
-	&& !defined(__mcpu32__)
+#if defined (__mc68020__) && !defined(__mcpu32__)
 #define count_leading_zeros(count, x) \
   __asm__ ("bfffo %1{%b2:%b2},%0"					\
 	   : "=d" ((USItype) (count))					\

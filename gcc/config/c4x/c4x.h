@@ -306,11 +306,14 @@ extern int target_flags;
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
-/* Define some options to control code generation.  */
+/* Nonzero to use load_immed_addr pattern rather than forcing memory
+   addresses into memory.  */
 #define TARGET_LOAD_ADDRESS	(1 || (! TARGET_C3X && ! TARGET_SMALL))
+
 /* Nonzero to convert direct memory references into HIGH/LO_SUM pairs
    during RTL generation.  */
 #define TARGET_EXPOSE_LDP	0
+
 /* Nonzero to force loading of direct memory references into a register.  */
 #define TARGET_LOAD_DIRECT_MEMS	0
 
@@ -319,8 +322,6 @@ extern int target_flags;
    and less than max-cycles.  */
 
 #define TARGET_RPTS_CYCLES(CYCLES) (TARGET_RPTS || (CYCLES) < c4x_rpts_cycles)
-
-#define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
 
 /* -mcpu=XX    with XX = target DSP version number.  */
 
@@ -1259,7 +1260,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 0))				\
+  if (c4x_legitimate_address_p (MODE, X, 0))				\
     goto ADDR;								\
 }
 
@@ -1275,7 +1276,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 1))				\
+  if (c4x_legitimate_address_p (MODE, X, 1))				\
     goto ADDR;								\
 }
 
@@ -1284,6 +1285,7 @@ CUMULATIVE_ARGS;
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) \
 {									\
   rtx new;								\
+									\
   new = c4x_legitimize_address (X, MODE);				\
   if (new != NULL_RTX)							\
   {									\
@@ -1305,7 +1307,7 @@ CUMULATIVE_ARGS;
       if (! TARGET_SMALL)						\
 	{								\
           int i;							\
-      	  X = gen_rtx_LO_SUM (GET_MODE (X),				\
+      	  (X) = gen_rtx_LO_SUM (GET_MODE (X),				\
 			      gen_rtx_HIGH (GET_MODE (X), X), X);	\
           i = push_reload (XEXP (X, 0), NULL_RTX,			\
 			   &XEXP (X, 0), NULL,				\
@@ -1315,6 +1317,12 @@ CUMULATIVE_ARGS;
 	     normally not be used so force it.  */			\
           rld[i].reg_rtx = gen_rtx_REG (Pmode, DP_REGNO); 		\
           rld[i].nocombine = 1; 					\
+        }								\
+      else								\
+        {								\
+          /* make_memloc in reload will substitute invalid memory       \
+             references.  We need to fix them up.  */                   \
+          (X) = gen_rtx_LO_SUM (Pmode, gen_rtx_REG (Pmode, DP_REGNO), (X)); \
         }								\
       goto WIN;								\
    }									\
@@ -1912,3 +1920,8 @@ enum c4x_builtins
   C4X_BUILTIN_FRIEEE,	/*	frieee	   (only C4x)	*/
   C4X_BUILTIN_RCPF	/*	fast_invf  (only C4x)	*/
 };
+
+
+/* Hack to overcome use of libgcc2.c using auto-host.h to determine
+   HAVE_GAS_HIDDEN.  */
+#undef HAVE_GAS_HIDDEN

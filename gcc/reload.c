@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -104,6 +104,7 @@ a register with any other reload.  */
 #include "output.h"
 #include "function.h"
 #include "toplev.h"
+#include "params.h"
 
 #ifndef REGNO_MODE_OK_FOR_BASE_P
 #define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
@@ -6383,6 +6384,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   int need_stable_sp = 0;
   int nregs;
   int valuenregs;
+  int num = 0;
 
   if (goal == 0)
     regno = goalreg;
@@ -6423,6 +6425,7 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   else
     return 0;
 
+  num = 0;
   /* Scan insns back from INSN, looking for one that copies
      a value into or out of GOAL.
      Stop and give up if we reach a label.  */
@@ -6430,7 +6433,9 @@ find_equiv_reg (rtx goal, rtx insn, enum reg_class class, int other,
   while (1)
     {
       p = PREV_INSN (p);
-      if (p == 0 || GET_CODE (p) == CODE_LABEL)
+      num++;
+      if (p == 0 || GET_CODE (p) == CODE_LABEL
+	  || num > PARAM_VALUE (PARAM_MAX_RELOAD_SEARCH_INSNS))
 	return 0;
 
       if (GET_CODE (p) == INSN

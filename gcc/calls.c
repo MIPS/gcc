@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2456,16 +2456,17 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Compute number of named args.
      Normally, don't include the last named arg if anonymous args follow.
-     We do include the last named arg if STRICT_ARGUMENT_NAMING is nonzero.
+     We do include the last named arg if
+     targetm.calls.strict_argument_naming() returns nonzero.
      (If no anonymous args follow, the result of list_length is actually
      one too large.  This is harmless.)
 
      If targetm.calls.pretend_outgoing_varargs_named() returns
-     nonzero, and STRICT_ARGUMENT_NAMING is zero, this machine will be
-     able to place unnamed args that were passed in registers into the
-     stack.  So treat all args as named.  This allows the insns
-     emitting for a specific argument list to be independent of the
-     function declaration.
+     nonzero, and targetm.calls.strict_argument_naming() returns zero,
+     this machine will be able to place unnamed args that were passed
+     in registers into the stack.  So treat all args as named.  This
+     allows the insns emitting for a specific argument list to be
+     independent of the function declaration.
 
      If targetm.calls.pretend_outgoing_varargs_named() returns zero,
      we do not have any reliable way to pass unnamed args in
@@ -3024,6 +3025,14 @@ expand_call (tree exp, rtx target, int ignore)
 		    && check_sibcall_argument_overlap (before_arg,
 						       &args[i], 1)))
 	      sibcall_failure = 1;
+
+	    if (flags & ECF_CONST
+		&& args[i].stack
+		&& args[i].value == args[i].stack)
+	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+					       gen_rtx_USE (VOIDmode,
+							    args[i].value),
+					       call_fusage);
 	  }
 
       /* If we have a parm that is passed in registers but not in memory
@@ -4686,7 +4695,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      if (XEXP (x, 0) != current_function_internal_arg_pointer)
 		i = INTVAL (XEXP (XEXP (x, 0), 1));
 
-	      /* expand_call should ensure this */
+	      /* expand_call should ensure this.  */
 	      if (arg->locate.offset.var || GET_CODE (size_rtx) != CONST_INT)
 		abort ();
 

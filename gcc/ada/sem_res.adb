@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -382,7 +382,7 @@ package body Sem_Res is
 
          if Nkind (P) = N_Range_Constraint
            and then Nkind (Parent (P)) = N_Subtype_Indication
-           and then Nkind (Parent (Parent (P))) = N_Component_Declaration
+           and then Nkind (Parent (Parent (P))) = N_Component_Definition
          then
             Error_Msg_N ("discriminant cannot constrain scalar type", N);
 
@@ -408,9 +408,10 @@ package body Sem_Res is
               and then Scope (Disc) = Current_Scope
               and then not
                 (Nkind (Parent (P)) = N_Subtype_Indication
-                 and then
-                  (Nkind (Parent (Parent (P))) = N_Component_Declaration
-                   or else Nkind (Parent (Parent (P))) = N_Subtype_Declaration)
+                   and then
+                    (Nkind (Parent (Parent (P))) = N_Component_Definition
+                       or else
+                     Nkind (Parent (Parent (P))) = N_Subtype_Declaration)
                   and then Paren_Count (N) = 0)
             then
                Error_Msg_N
@@ -419,8 +420,9 @@ package body Sem_Res is
             end if;
 
             --   Detect a common beginner error:
+
             --   type R (D : Positive := 100) is record
-            --     Name: String (1 .. D);
+            --     Name : String (1 .. D);
             --   end record;
 
             --  The default value causes an object of type R to be
@@ -559,7 +561,7 @@ package body Sem_Res is
 
          if (Nkind (P) = N_Subtype_Indication
               and then
-                (Nkind (Parent (P)) = N_Component_Declaration
+                (Nkind (Parent (P)) = N_Component_Definition
                    or else
                  Nkind (Parent (P)) = N_Derived_Type_Definition)
               and then D = Constraint (P))
@@ -1832,7 +1834,24 @@ package body Sem_Res is
             --  doesn't think of them this way!)
 
             if Typ = Standard_Void_Type then
-               Error_Msg_N ("expect procedure name in procedure call", N);
+
+               --  Special case message if function used as a procedure
+
+               if Nkind (N) = N_Procedure_Call_Statement
+                 and then Is_Entity_Name (Name (N))
+                 and then Ekind (Entity (Name (N))) = E_Function
+               then
+                  Error_Msg_NE
+                    ("cannot use function & in a procedure call",
+                     Name (N), Entity (Name (N)));
+
+               --  Otherwise give general message (not clear what cases
+               --  this covers, but no harm in providing for them!)
+
+               else
+                  Error_Msg_N ("expect procedure name in procedure call", N);
+               end if;
+
                Found := True;
 
             --  Otherwise we do have a subexpression with the wrong type
@@ -3788,8 +3807,7 @@ package body Sem_Res is
          Check_Intrinsic_Call (N);
       end if;
 
-      --  If we fall through we definitely have a non-static call
-
+      Eval_Call (N);
       Check_Elab_Call (N);
    end Resolve_Call;
 
@@ -6535,10 +6553,10 @@ package body Sem_Res is
          Subtype_Id := Create_Itype (E_String_Literal_Subtype, N);
       end if;
 
-      Set_String_Literal_Length    (Subtype_Id,
-        UI_From_Int (String_Length (Strval (N))));
-      Set_Etype                    (Subtype_Id, Base_Type (Typ));
-      Set_Is_Constrained           (Subtype_Id);
+      Set_String_Literal_Length (Subtype_Id, UI_From_Int
+                                               (String_Length (Strval (N))));
+      Set_Etype                 (Subtype_Id, Base_Type (Typ));
+      Set_Is_Constrained        (Subtype_Id);
 
       --  The low bound is set from the low bound of the corresponding
       --  index type. Note that we do not store the high bound in the

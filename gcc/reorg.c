@@ -1,6 +1,6 @@
 /* Perform instruction reorganizations for delay slot filling.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -1621,7 +1621,7 @@ try_merge_delay_insns (rtx insn, rtx thread)
    If we are not careful, this routine can take up a significant fraction
    of the total compilation time (4%), but only wins rarely.  Hence we
    speed this routine up by making two passes.  The first pass goes back
-   until it hits a label and sees if it find an insn with an identical
+   until it hits a label and sees if it finds an insn with an identical
    pattern.  Only in this (relatively rare) event does it check for
    data conflicts.
 

@@ -1,6 +1,6 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1050,24 +1050,36 @@ rtx
 gen_lowpart_common (enum machine_mode mode, rtx x)
 {
   int msize = GET_MODE_SIZE (mode);
-  int xsize = GET_MODE_SIZE (GET_MODE (x));
+  int xsize;
   int offset = 0;
+  enum machine_mode innermode;
 
-  if (GET_MODE (x) == mode)
+  /* Unfortunately, this routine doesn't take a parameter for the mode of X,
+     so we have to make one up.  Yuk.  */
+  innermode = GET_MODE (x);
+  if (GET_CODE (x) == CONST_INT && msize <= HOST_BITS_PER_WIDE_INT)
+    innermode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
+  else if (innermode == VOIDmode)
+    innermode = mode_for_size (HOST_BITS_PER_WIDE_INT * 2, MODE_INT, 0);
+  
+  xsize = GET_MODE_SIZE (innermode);
+
+  if (innermode == VOIDmode || innermode == BLKmode)
+    abort ();
+
+  if (innermode == mode)
     return x;
 
   /* MODE must occupy no more words than the mode of X.  */
-  if (GET_MODE (x) != VOIDmode
-      && ((msize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD
-	  > ((xsize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)))
+  if ((msize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD
+      > ((xsize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))
     return 0;
 
   /* Don't allow generating paradoxical FLOAT_MODE subregs.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE (x) != VOIDmode && msize > xsize)
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT && msize > xsize)
     return 0;
 
-  offset = subreg_lowpart_offset (mode, GET_MODE (x));
+  offset = subreg_lowpart_offset (mode, innermode);
 
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
       && (GET_MODE_CLASS (mode) == MODE_INT
@@ -1083,154 +1095,15 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
 
       if (GET_MODE (XEXP (x, 0)) == mode)
 	return XEXP (x, 0);
-      else if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (XEXP (x, 0))))
+      else if (msize < GET_MODE_SIZE (GET_MODE (XEXP (x, 0))))
 	return gen_lowpart_common (mode, XEXP (x, 0));
-      else if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (x)))
+      else if (msize < xsize)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || GET_CODE (x) == REG
-	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR)
-    return simplify_gen_subreg (mode, x, GET_MODE (x), offset);
-  else if (VECTOR_MODE_P (mode) && GET_MODE (x) == VOIDmode)
-    return simplify_gen_subreg (mode, x, int_mode_for_mode (mode), offset);
-  /* If X is a CONST_INT or a CONST_DOUBLE, extract the appropriate bits
-     from the low-order part of the constant.  */
-  else if ((GET_MODE_CLASS (mode) == MODE_INT
-	    || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-	   && GET_MODE (x) == VOIDmode
-	   && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE))
-    {
-      /* If MODE is twice the host word size, X is already the desired
-	 representation.  Otherwise, if MODE is wider than a word, we can't
-	 do this.  If MODE is exactly a word, return just one CONST_INT.  */
-
-      if (GET_MODE_BITSIZE (mode) >= 2 * HOST_BITS_PER_WIDE_INT)
-	return x;
-      else if (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
-	return 0;
-      else if (GET_MODE_BITSIZE (mode) == HOST_BITS_PER_WIDE_INT)
-	return (GET_CODE (x) == CONST_INT ? x
-		: GEN_INT (CONST_DOUBLE_LOW (x)));
-      else
-	{
-	  /* MODE must be narrower than HOST_BITS_PER_WIDE_INT.  */
-	  HOST_WIDE_INT val = (GET_CODE (x) == CONST_INT ? INTVAL (x)
-			       : CONST_DOUBLE_LOW (x));
-
-	  /* Sign extend to HOST_WIDE_INT.  */
-	  val = trunc_int_for_mode (val, mode);
-
-	  return (GET_CODE (x) == CONST_INT && INTVAL (x) == val ? x
-		  : GEN_INT (val));
-	}
-    }
-
-  /* The floating-point emulator can handle all conversions between
-     FP and integer operands.  This simplifies reload because it
-     doesn't have to deal with constructs like (subreg:DI
-     (const_double:SF ...)) or (subreg:DF (const_int ...)).  */
-  /* Single-precision floats are always 32-bits and double-precision
-     floats are always 64-bits.  */
-
-  else if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	   && GET_MODE_BITSIZE (mode) == 32
-	   && GET_CODE (x) == CONST_INT)
-    {
-      REAL_VALUE_TYPE r;
-      long i = INTVAL (x);
-
-      real_from_target (&r, &i, mode);
-      return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
-    }
-  else if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	   && GET_MODE_BITSIZE (mode) == 64
-	   && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
-	   && GET_MODE (x) == VOIDmode)
-    {
-      REAL_VALUE_TYPE r;
-      HOST_WIDE_INT low, high;
-      long i[2];
-
-      if (GET_CODE (x) == CONST_INT)
-	{
-	  low = INTVAL (x);
-	  high = low >> (HOST_BITS_PER_WIDE_INT - 1);
-	}
-      else
-	{
-	  low = CONST_DOUBLE_LOW (x);
-	  high = CONST_DOUBLE_HIGH (x);
-	}
-
-      if (HOST_BITS_PER_WIDE_INT > 32)
-	high = low >> 31 >> 1;
-
-      /* REAL_VALUE_TARGET_DOUBLE takes the addressing order of the
-	 target machine.  */
-      if (WORDS_BIG_ENDIAN)
-	i[0] = high, i[1] = low;
-      else
-	i[0] = low, i[1] = high;
-
-      real_from_target (&r, i, mode);
-      return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
-    }
-  else if ((GET_MODE_CLASS (mode) == MODE_INT
-	    || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-	   && GET_CODE (x) == CONST_DOUBLE
-	   && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-    {
-      REAL_VALUE_TYPE r;
-      long i[4];  /* Only the low 32 bits of each 'long' are used.  */
-      int endian = WORDS_BIG_ENDIAN ? 1 : 0;
-
-      /* Convert 'r' into an array of four 32-bit words in target word
-         order.  */
-      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      switch (GET_MODE_BITSIZE (GET_MODE (x)))
-	{
-	case 32:
-	  REAL_VALUE_TO_TARGET_SINGLE (r, i[3 * endian]);
-	  i[1] = 0;
-	  i[2] = 0;
-	  i[3 - 3 * endian] = 0;
-	  break;
-	case 64:
-	  REAL_VALUE_TO_TARGET_DOUBLE (r, i + 2 * endian);
-	  i[2 - 2 * endian] = 0;
-	  i[3 - 2 * endian] = 0;
-	  break;
-	case 96:
-	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i + endian);
-	  i[3 - 3 * endian] = 0;
-	  break;
-	case 128:
-	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i);
-	  break;
-	default:
-	  abort ();
-	}
-      /* Now, pack the 32-bit elements of the array into a CONST_DOUBLE
-	 and return it.  */
-#if HOST_BITS_PER_WIDE_INT == 32
-      return immed_double_const (i[3 * endian], i[1 + endian], mode);
-#else
-      if (HOST_BITS_PER_WIDE_INT != 64)
-	abort ();
-
-      return immed_double_const ((((unsigned long) i[3 * endian])
-				  | ((HOST_WIDE_INT) i[1 + endian] << 32)),
-				 (((unsigned long) i[2 - endian])
-				  | ((HOST_WIDE_INT) i[3 - 3 * endian] << 32)),
-				 mode);
-#endif
-    }
-  /* If MODE is a condition code and X is a CONST_INT, the value of X
-     must already have been "recognized" by the back-end, and we can
-     assume that it is valid for this mode.  */
-  else if (GET_MODE_CLASS (mode) == MODE_CC
-	   && GET_CODE (x) == CONST_INT)
-    return x;
+	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
+	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
+    return simplify_gen_subreg (mode, x, innermode, offset);
 
   /* Otherwise, we can't do this.  */
   return 0;
@@ -1481,162 +1354,6 @@ subreg_lowpart_p (rtx x)
 	  == SUBREG_BYTE (x));
 }
 
-
-/* Helper routine for all the constant cases of operand_subword.
-   Some places invoke this directly.  */
-
-rtx
-constant_subword (rtx op, int offset, enum machine_mode mode)
-{
-  int size_ratio = HOST_BITS_PER_WIDE_INT / BITS_PER_WORD;
-  HOST_WIDE_INT val;
-
-  /* If OP is already an integer word, return it.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      && GET_MODE_SIZE (mode) == UNITS_PER_WORD)
-    return op;
-
-  /* The output is some bits, the width of the target machine's word.
-     A wider-word host can surely hold them in a CONST_INT. A narrower-word
-     host can't.  */
-  if (HOST_BITS_PER_WIDE_INT >= BITS_PER_WORD
-      && GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE_BITSIZE (mode) == 64
-      && GET_CODE (op) == CONST_DOUBLE)
-    {
-      long k[2];
-      REAL_VALUE_TYPE rv;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
-
-      /* We handle 32-bit and >= 64-bit words here.  Note that the order in
-	 which the words are written depends on the word endianness.
-	 ??? This is a potential portability problem and should
-	 be fixed at some point.
-
-	 We must exercise caution with the sign bit.  By definition there
-	 are 32 significant bits in K; there may be more in a HOST_WIDE_INT.
-	 Consider a host with a 32-bit long and a 64-bit HOST_WIDE_INT.
-	 So we explicitly mask and sign-extend as necessary.  */
-      if (BITS_PER_WORD == 32)
-	{
-	  val = k[offset];
-	  val = ((val & 0xffffffff) ^ 0x80000000) - 0x80000000;
-	  return GEN_INT (val);
-	}
-#if HOST_BITS_PER_WIDE_INT >= 64
-      else if (BITS_PER_WORD >= 64 && offset == 0)
-	{
-	  val = k[! WORDS_BIG_ENDIAN];
-	  val = (((val & 0xffffffff) ^ 0x80000000) - 0x80000000) << 32;
-	  val |= (HOST_WIDE_INT) k[WORDS_BIG_ENDIAN] & 0xffffffff;
-	  return GEN_INT (val);
-	}
-#endif
-      else if (BITS_PER_WORD == 16)
-	{
-	  val = k[offset >> 1];
-	  if ((offset & 1) == ! WORDS_BIG_ENDIAN)
-	    val >>= 16;
-	  val = ((val & 0xffff) ^ 0x8000) - 0x8000;
-	  return GEN_INT (val);
-	}
-      else
-	abort ();
-    }
-  else if (HOST_BITS_PER_WIDE_INT >= BITS_PER_WORD
-	   && GET_MODE_CLASS (mode) == MODE_FLOAT
-	   && GET_MODE_BITSIZE (mode) > 64
-	   && GET_CODE (op) == CONST_DOUBLE)
-    {
-      long k[4];
-      REAL_VALUE_TYPE rv;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
-
-      if (BITS_PER_WORD == 32)
-	{
-	  val = k[offset];
-	  val = ((val & 0xffffffff) ^ 0x80000000) - 0x80000000;
-	  return GEN_INT (val);
-	}
-#if HOST_BITS_PER_WIDE_INT >= 64
-      else if (BITS_PER_WORD >= 64 && offset <= 1)
-	{
-	  val = k[offset * 2 + ! WORDS_BIG_ENDIAN];
-	  val = (((val & 0xffffffff) ^ 0x80000000) - 0x80000000) << 32;
-	  val |= (HOST_WIDE_INT) k[offset * 2 + WORDS_BIG_ENDIAN] & 0xffffffff;
-	  return GEN_INT (val);
-	}
-#endif
-      else
-	abort ();
-    }
-
-  /* Single word float is a little harder, since single- and double-word
-     values often do not have the same high-order bits.  We have already
-     verified that we want the only defined word of the single-word value.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_MODE_BITSIZE (mode) == 32
-      && GET_CODE (op) == CONST_DOUBLE)
-    {
-      long l;
-      REAL_VALUE_TYPE rv;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
-
-      /* Sign extend from known 32-bit value to HOST_WIDE_INT.  */
-      val = l;
-      val = ((val & 0xffffffff) ^ 0x80000000) - 0x80000000;
-
-      if (BITS_PER_WORD == 16)
-	{
-	  if ((offset & 1) == ! WORDS_BIG_ENDIAN)
-	    val >>= 16;
-	  val = ((val & 0xffff) ^ 0x8000) - 0x8000;
-	}
-
-      return GEN_INT (val);
-    }
-
-  /* The only remaining cases that we can handle are integers.
-     Convert to proper endianness now since these cases need it.
-     At this point, offset == 0 means the low-order word.
-
-     We do not want to handle the case when BITS_PER_WORD <= HOST_BITS_PER_INT
-     in general.  However, if OP is (const_int 0), we can just return
-     it for any word.  */
-
-  if (op == const0_rtx)
-    return op;
-
-  if (GET_MODE_CLASS (mode) != MODE_INT
-      || (GET_CODE (op) != CONST_INT && GET_CODE (op) != CONST_DOUBLE)
-      || BITS_PER_WORD > HOST_BITS_PER_WIDE_INT)
-    return 0;
-
-  if (WORDS_BIG_ENDIAN)
-    offset = GET_MODE_SIZE (mode) / UNITS_PER_WORD - 1 - offset;
-
-  /* Find out which word on the host machine this value is in and get
-     it from the constant.  */
-  val = (offset / size_ratio == 0
-	 ? (GET_CODE (op) == CONST_INT ? INTVAL (op) : CONST_DOUBLE_LOW (op))
-	 : (GET_CODE (op) == CONST_INT
-	    ? (INTVAL (op) < 0 ? ~0 : 0) : CONST_DOUBLE_HIGH (op)));
-
-  /* Get the value we want into the low bits of val.  */
-  if (BITS_PER_WORD < HOST_BITS_PER_WIDE_INT)
-    val = ((val >> ((offset % size_ratio) * BITS_PER_WORD)));
-
-  val = trunc_int_for_mode (val, word_mode);
-
-  return GEN_INT (val);
-}
-
 /* Return subword OFFSET of operand OP.
    The word number, OFFSET, is interpreted as the word number starting
    at the low-order address.  OFFSET 0 is the low-order word if not
@@ -2123,6 +1840,9 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
     mode = GET_MODE (memref);
   if (addr == 0)
     addr = XEXP (memref, 0);
+  if (mode == GET_MODE (memref) && addr == XEXP (memref, 0)
+      && (!validate || memory_address_p (mode, addr)))
+    return memref;
 
   if (validate)
     {
@@ -2152,6 +1872,10 @@ change_address (rtx memref, enum machine_mode mode, rtx addr)
   rtx new = change_address_1 (memref, mode, addr, 1);
   enum machine_mode mmode = GET_MODE (new);
 
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    return new;
+
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0,
 		     mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode)),
@@ -2177,6 +1901,11 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
   rtx memoffset = MEM_OFFSET (memref);
   rtx size = 0;
   unsigned int memalign = MEM_ALIGN (memref);
+
+  /* If there are no changes, just return the original memory reference.  */
+  if (mode == GET_MODE (memref) && !offset
+      && (!validate || memory_address_p (mode, addr)))
+    return memref;
 
   /* ??? Prefer to create garbage instead of creating shared rtl.
      This may happen even if offset is nonzero -- consider
@@ -2268,6 +1997,10 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
   update_temp_slot_address (XEXP (memref, 0), new);
   new = change_address_1 (memref, VOIDmode, new, 1);
 
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    return new;
+
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
   MEM_ATTRS (new)
@@ -2311,6 +2044,10 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
   tree expr = MEM_EXPR (new);
   rtx memoffset = MEM_OFFSET (new);
   unsigned int size = GET_MODE_SIZE (mode);
+
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    return new;
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
@@ -2514,8 +2251,12 @@ verify_rtx_sharing (rtx orig, rtx insn)
     case PC:
     case CC0:
     case SCRATCH:
-      /* SCRATCH must be shared because they represent distinct values.  */
       return;
+      /* SCRATCH must be shared because they represent distinct values.  */
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	return;
+      break;
 
     case CONST:
       /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
@@ -2810,6 +2551,10 @@ repeat:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
       return;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	return;
+      break;
 
     case CONST:
       /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
@@ -2876,7 +2621,7 @@ repeat:
 	      if (copied && len > 0)
 		XVEC (x, i) = gen_rtvec_v (len, XVEC (x, i)->elem);
               
-              /* Call recsusively on all inside the vector.  */
+              /* Call recursively on all inside the vector.  */
 	      for (j = 0; j < len; j++)
                 {
 		  if (last_ptr)
@@ -4666,6 +4411,9 @@ emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   rtx last = emit_insn_after (pattern, after);
 
+  if (pattern == NULL_RTX)
+    return last;
+
   after = NEXT_INSN (after);
   while (1)
     {
@@ -4683,6 +4431,9 @@ rtx
 emit_jump_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   rtx last = emit_jump_insn_after (pattern, after);
+
+  if (pattern == NULL_RTX)
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
@@ -4702,6 +4453,9 @@ emit_call_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   rtx last = emit_call_insn_after (pattern, after);
 
+  if (pattern == NULL_RTX)
+    return last;
+
   after = NEXT_INSN (after);
   while (1)
     {
@@ -4720,6 +4474,9 @@ emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
   rtx first = PREV_INSN (before);
   rtx last = emit_insn_before (pattern, before);
+
+  if (pattern == NULL_RTX)
+    return last;
 
   first = NEXT_INSN (first);
   while (1)
@@ -5291,6 +5048,10 @@ copy_insn_1 (rtx orig)
     case CC0:
     case ADDRESSOF:
       return orig;
+    case CLOBBER:
+      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
+	return orig;
+      break;
 
     case SCRATCH:
       for (i = 0; i < copy_insn_n_scratches; i++)
@@ -5805,6 +5566,17 @@ emit_copy_of_insn_after (rtx insn, rtx after)
     }
   INSN_CODE (new) = INSN_CODE (insn);
   return new;
+}
+
+static GTY((deletable(""))) rtx hard_reg_clobbers [NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
+rtx
+gen_hard_reg_clobber (enum machine_mode mode, unsigned int regno)
+{
+  if (hard_reg_clobbers[mode][regno])
+    return hard_reg_clobbers[mode][regno];
+  else
+    return (hard_reg_clobbers[mode][regno] =
+	    gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (mode, regno)));
 }
 
 #include "gt-emit-rtl.h"

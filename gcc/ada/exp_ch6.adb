@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -59,7 +59,6 @@ with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
-with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
@@ -1829,32 +1828,10 @@ package body Exp_Ch6 is
          Check_Restriction (No_Abort_Statements, N);
       end if;
 
-      --  Some more special cases for cases other than explicit dereference
-
-      if Nkind (Name (N)) /= N_Explicit_Dereference then
-
-         --  Calls to an enumeration literal are replaced by the literal
-         --  This case occurs only when we have a call to a function that
-         --  is a renaming of an enumeration literal. The normal case of
-         --  a direct reference to an enumeration literal has already been
-         --  been dealt with by Resolve_Call. If the function is itself
-         --  inherited (see 7423-001) the literal of the parent type must
-         --  be explicitly converted to the return type of the function.
-
-         if Ekind (Subp) = E_Enumeration_Literal then
-            if Base_Type (Etype (Subp)) /= Base_Type (Etype (N)) then
-               Rewrite
-                 (N, Convert_To (Etype (N), New_Occurrence_Of (Subp, Loc)));
-            else
-               Rewrite (N, New_Occurrence_Of (Subp, Loc));
-            end if;
-
-            Resolve (N);
-         end if;
+      if Nkind (Name (N)) = N_Explicit_Dereference then
 
       --  Handle case of access to protected subprogram type
 
-      else
          if Ekind (Base_Type (Etype (Prefix (Name (N))))) =
                                E_Access_Protected_Subprogram_Type
          then
@@ -2989,10 +2966,7 @@ package body Exp_Ch6 is
               Expression (Last (Pragma_Argument_Associations (TB_Pragma)));
          else
             Sec_Stack_Len :=
-              Make_Integer_Literal (Loc,
-                Intval =>
-                  Expr_Value
-                   (Constant_Value (RTE (RE_Default_Secondary_Stack_Size))));
+              New_Occurrence_Of (RTE (RE_Default_Secondary_Stack_Size), Loc);
          end if;
 
          Sec_Stack_Len := Convert_To (RTE (RE_Storage_Offset), Sec_Stack_Len);
@@ -3120,7 +3094,16 @@ package body Exp_Ch6 is
 
       --  If this is a Pure function which has any parameters whose root
       --  type is System.Address, reset the Pure indication, since it will
-      --  likely cause incorrect code to be generated.
+      --  likely cause incorrect code to be generated as the parameter is
+      --  probably a pointer, and the fact that the same pointer is passed
+      --  does not mean that the same value is being referenced.
+
+      --  Note that if the programmer gave an explicit Pure_Function pragma,
+      --  then we believe the programmer, and leave the subprogram Pure.
+
+      --  This code should probably be at the freeze point, so that it
+      --  happens even on a -gnatc (or more importantly -gnatt) compile
+      --  so that the semantic tree has Is_Pure set properly ???
 
       if Is_Pure (Spec_Id)
         and then Is_Subprogram (Spec_Id)

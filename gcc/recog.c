@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1707,7 +1707,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	      || (GET_CODE (op) == CONST_DOUBLE
 		  && GET_MODE (op) == VOIDmode))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'i':
 	  if (CONSTANT_P (op)
@@ -2445,12 +2445,25 @@ constrain_operands (int strict)
 		break;
 
 	      case 'm':
-		if (GET_CODE (op) == MEM
-		    /* Before reload, accept what reload can turn into mem.  */
-		    || (strict < 0 && CONSTANT_P (op))
-		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		/* Memory operands must be valid, to the extent
+		   required by STRICT.  */
+		if (GET_CODE (op) == MEM)
+		  {
+		    if (strict > 0
+			&& !strict_memory_address_p (GET_MODE (op),
+						     XEXP (op, 0)))
+		      break;
+		    if (strict == 0
+			&& !memory_address_p (GET_MODE (op), XEXP (op, 0)))
+		      break;
+		    win = 1;
+		  }
+		/* Before reload, accept what reload can turn into mem.  */
+		else if (strict < 0 && CONSTANT_P (op))
+		  win = 1;
+		/* During reload, accept a pseudo  */
+		else if (reload_in_progress && GET_CODE (op) == REG
+			 && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		  win = 1;
 		break;
 

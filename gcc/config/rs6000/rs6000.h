@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -160,7 +160,10 @@ extern int target_flags;
    function, and one less allocable register.  */
 #define MASK_MINIMAL_TOC	0x00000200
 
-/* Nonzero for the 64bit model: longs and pointers are 64 bits.  */
+/* Nonzero for the 64 bit ABIs: longs and pointers are 64 bits.  The
+   chip is running in "64-bit mode", in which CR0 is set in dot
+   operations based on all 64 bits of the register, bdnz works on 64-bit
+   ctr, lr is 64 bits, and so on.  Requires MASK_POWERPC64.  */
 #define MASK_64BIT		0x00000400
 
 /* Disable use of FPRs.  */
@@ -811,19 +814,27 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
 
-/* Add 32 dwarf columns for synthetic SPE registers.  The SPE
-   synthetic registers are 113 through 145.  */
+/* Add 32 dwarf columns for synthetic SPE registers.  */
 #define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 32)
 
-/* The SPE has an additional 32 synthetic registers starting at 1200.
-   We must map them here to sane values in the unwinder to avoid a
-   huge hole in the unwind tables.
+/* The SPE has an additional 32 synthetic registers, with DWARF debug
+   info numbering for these registers starting at 1200.  While eh_frame
+   register numbering need not be the same as the debug info numbering,
+   we choose to number these regs for eh_frame at 1200 too.  This allows
+   future versions of the rs6000 backend to add hard registers and
+   continue to use the gcc hard register numbering for eh_frame.  If the
+   extra SPE registers in eh_frame were numbered starting from the
+   current value of FIRST_PSEUDO_REGISTER, then if FIRST_PSEUDO_REGISTER
+   changed we'd need to introduce a mapping in DWARF_FRAME_REGNUM to
+   avoid invalidating older SPE eh_frame info.
 
-   FIXME: the AltiVec ABI has AltiVec registers being 1124-1155, and
-   the VRSAVE SPR (SPR256) assigned to register 356.  When AltiVec EH
-   is verified to be working, this macro should be changed
-   accordingly.  */
-#define DWARF_REG_TO_UNWIND_COLUMN(r) ((r) > 1200 ? ((r) - 1200 + 113) : (r))
+   We must map them here to avoid huge unwinder tables mostly consisting
+   of unused space.  */ 
+#define DWARF_REG_TO_UNWIND_COLUMN(r) \
+  ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER) : (r))
+
+/* Use gcc hard register numbering for eh_frame.  */
+#define DWARF_FRAME_REGNUM(REGNO) (REGNO)
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -1408,6 +1419,7 @@ enum reg_class
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
    'W' is a vector constant that can be easily generated (no mem refs).
+   'Y' is a indexed or word-aligned displacement memory operand. 
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1422,7 +1434,15 @@ enum reg_class
 		       || !logical_operand (OP, DImode))		\
 		   && !mask64_operand (OP, DImode))			\
    : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
+   : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
    : 0)
+
+/* Defining, which contraints are memory contraints. Tells reload,
+   that any memory address can be reloaded by copying the 
+   memory address into a base register if required.  */
+
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
+  ((C) == 'Q' || (C) == 'Y')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1841,10 +1861,6 @@ typedef struct rs6000_args
 
 #define PAD_VARARGS_DOWN \
    (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
-
-/* Define this macro to be a nonzero value if the location where a function
-   argument is passed depends on whether or not it is a named argument.  */
-#define STRICT_ARGUMENT_NAMING 1
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

@@ -1,5 +1,5 @@
 # Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2003 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2004 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -144,6 +144,7 @@ exeext =
 arext  = .a
 soext  = .so
 shext  =
+hyphen = -
 
 # Define this as & to perform parallel make on a Sequent.
 # Note that this has some bugs, and it seems currently necessary 
@@ -1126,6 +1127,7 @@ endif
 ifeq ($(strip $(filter-out alpha% ia64 dec vms% openvms% alphavms%,$(host))),)
 
 soext  = .exe
+hyphen = _
 
 .SUFFIXES: .sym
 
@@ -1207,6 +1209,7 @@ endif
   # This command transforms (YYYYMMDD) into YY,MMDD
   GSMATCH_VERSION := $(shell grep "^ *Gnat_Static_Version_String" $(fsrcpfx)gnatvsn.ads | sed -e 's/.*(\(.*\)).*/\1/' -e 's/\(..\)\(..\)\(....\)/\2,\3/')
   TOOLS_LIBS_LO := --for-linker=sys\\$$\$$library:trace.exe
+  LIBRARY_VERSION := $(subst .,_,$(LIB_VERSION))
 endif
 
 ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
@@ -1241,6 +1244,8 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
   EXTRA_GNATMAKE_OBJS = mdll.o mdll-utl.o mdll-fil.o
   EXTRA_GNATRTL_NONTASKING_OBJS = g-regist.o
   soext = .dll
+# ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT auto-import
+# support for array/record will be done.
   GNATLIB_SHARED = gnatlib-shared-win32
   LIBRARY_VERSION := $(LIB_VERSION)
 endif
@@ -1269,6 +1274,8 @@ endif
 ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<4lintnam.ads \
+  a-numaux.adb<86numaux.adb \
+  a-numaux.ads<86numaux.ads \
   s-inmaop.adb<7sinmaop.adb \
   s-intman.adb<7sintman.adb \
   s-osinte.ads<5iosinte.ads \
@@ -1280,11 +1287,13 @@ ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
   system.ads<5nsystem.ads
 
   TOOLS_TARGET_PAIRS=mlib-tgt.adb<5lml-tgt.adb
-  MISCLIB=
+  SYMLIB = -laddr2line -lbfd -liberty $(LIBINTL)
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB = gmemlib
   PREFIX_OBJS=$(PREFIX_REAL_OBJS)
   LIBRARY_VERSION := $(LIB_VERSION)
+
 endif
 
 # The runtime library for gnat comprises two directories.  One contains the
@@ -1444,7 +1453,7 @@ RAVEN_OBJS = \
 ADA_INCLUDE_SRCS =\
  ada.ads calendar.ads directio.ads gnat.ads interfac.ads ioexcept.ads \
  machcode.ads text_io.ads unchconv.ads unchdeal.ads \
- sequenio.ads system.ads Makefile.adalib Makefile.prolog Makefile.generic \
+ sequenio.ads system.ads Makefile.prolog Makefile.generic \
  memtrack.adb \
  a-*.adb a-*.ads g-*.ad? i-*.ad? \
  s-[a-o]*.adb s-[p-z]*.adb \
@@ -1688,7 +1697,7 @@ install-gnatlib: ../stamp-gnatlib
 	-$(INSTALL_DATA) rts/Makefile.prolog $(DESTDIR)$(ADA_SHARE_MAKE_DIR)
 	-$(INSTALL_DATA) rts/Makefile.generic $(DESTDIR)$(ADA_SHARE_MAKE_DIR)
 	for file in rts/*.ali; do \
-	    $(INSTALL_DATA) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	done
 	-$(INSTALL_DATA) rts/g-trasym$(objext) $(DESTDIR)$(ADA_RTL_OBJ_DIR)
 	-for file in rts/*$(arext);do \
@@ -1698,20 +1707,16 @@ install-gnatlib: ../stamp-gnatlib
 #     of $(INSTALL_DATA). The latter may force a mode inappropriate
 #     for shared libraries on some targets, e.g. on HP-UX where the x
 #     permission is required.
-ifeq ($(strip $(filter-out alpha% dec vms% openvms% alphavms%,$(targ))),)
-	-for file in rts/lib*$(soext);do \
-	    $(INSTALL) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	for file in gnat gnarl; do \
+	   if [ -f rts/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) ]; then \
+	      $(INSTALL) rts/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
+			 $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   fi; \
+	   if [ -f rts/lib$${file}$(soext) ]; then \
+	      $(LN_S) lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
+	      $(DESTDIR)$(ADA_RTL_OBJ_DIR)/lib$${file}$(soext); \
+	   fi; \
 	done
-else
-	-for file in rts/lib*-*$(soext);do \
-	    $(INSTALL) $$file $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
-	done
-endif
-	if [ -f rts/libgnat-*$(soext) ]; then \
-	   (cd $(DESTDIR)$(ADA_RTL_OBJ_DIR) && \
-	    $(LN_S) libgnat-*$(soext) libgnat$(soext) && \
-	    $(LN_S) libgnarl-*$(soext) libgnarl$(soext)) \
-	fi
 # This copy must be done preserving the date on the original file.
 	for file in rts/*.adb rts/*.ads; do \
 	    $(INSTALL_DATA_DATE) $$file $(DESTDIR)$(ADA_INCLUDE_DIR); \
@@ -1891,15 +1896,19 @@ gnatlib-shared-default:
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnat-$(LIBRARY_VERSION)$(soext) \
+		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
-		$(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) $(MISCLIB) -lm
+		$(SO_OPTS)libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(MISCLIB) -lm
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnarl-$(LIBRARY_VERSION)$(soext) \
+		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) $(THREADSLIB)
-	cd rts; $(LN_S) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
-	cd rts; $(LN_S) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
+		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(THREADSLIB)
+	cd rts; $(LN_S) libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		libgnat$(soext)
+	cd rts; $(LN_S) libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		libgnarl$(soext)
 
 gnatlib-shared-dual:
 	$(MAKE) $(FLAGS_TO_PASS) \
@@ -1916,10 +1925,25 @@ gnatlib-shared-dual:
              gnatlib
 	$(MV) libgna*$(soext) rts
 
-# Note that on Win32 the auto-import does not work for DLL, so on the
-# platform we have a specific setup. The libgnat.dll contains only
-# non-tasking objects and libgnarl.dll contains tasking and non-tasking
-# objects. A tasking program must be linked with libgnarl.dll only.
+gnatlib-shared-dual-win32:
+	$(MAKE) $(FLAGS_TO_PASS) \
+             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(TARGET_LIBGCC2_CFLAGS)" \
+	     THREAD_KIND="$(THREAD_KIND)" \
+             gnatlib-shared-win32
+	$(MV) rts/libgna*$(soext) .
+	$(RM) ../stamp-gnatlib2
+	$(MAKE) $(FLAGS_TO_PASS) \
+             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	     THREAD_KIND="$(THREAD_KIND)" \
+             gnatlib
+	$(MV) libgna*$(soext) rts
+
+# ??? we need to add the option to support auto-import of arrays/records to
+# the GNATLIBFLAGS when this will be supported by GNAT. At this point we will
+# use the gnatlib-shared-dual-win32 target to build the GNAT runtimes on
+# Windows.
 gnatlib-shared-win32:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
@@ -1928,16 +1952,14 @@ gnatlib-shared-win32:
              gnatlib
 	$(RM) rts/libgnat$(soext) rts/libgnarl$(soext)
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnat-$(LIBRARY_VERSION)$(soext) \
+		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
-		$(SO_OPTS)libgnat-$(LIBRARY_VERSION)$(soext) $(MISCLIB)
+		$(SO_OPTS)libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) $(MISCLIB)
 	cd rts; ../../xgcc -B../../ -shared $(TARGET_LIBGCC2_CFLAGS) \
-		-o libgnarl-$(LIBRARY_VERSION)$(soext) \
+		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl-$(LIBRARY_VERSION)$(soext) \
-		$(THREADSLIB) -Wl,libgnat-$(LIBRARY_VERSION)$(soext)
-	cd rts; $(LN_S) libgnat-$(LIBRARY_VERSION)$(soext) libgnat$(soext)
-	cd rts; $(LN_S) libgnarl-$(LIBRARY_VERSION)$(soext) libgnarl$(soext)
+		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(THREADSLIB) -Wl,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
 
 gnatlib-shared-vms:
 	$(MAKE) $(FLAGS_TO_PASS) \
@@ -1951,7 +1973,7 @@ gnatlib-shared-vms:
 	$(SHLIB_SYMVEC) >> SYMVEC_$$$$.opt && \
 	echo "case_sensitive=NO" >> SYMVEC_$$$$.opt && \
 	../../xgcc -g -B../../ -nostartfiles -shared -shared-libgcc \
-	   -o libgnat_s$(soext) libgnat.a \
+	   -o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) libgnat.a \
 	   sys\$$library:trace.exe \
 	   --for-linker=/noinform \
 	   --for-linker=SYMVEC_$$$$.opt \
@@ -1961,8 +1983,8 @@ gnatlib-shared-vms:
 	$(SHLIB_SYMVEC) >> SYMVEC_$$$$.opt && \
 	echo "case_sensitive=NO" >> SYMVEC_$$$$.opt && \
 	../../xgcc -g -B../../ -nostartfiles -shared -shared-libgcc \
-	   -o libgnarl_s$(soext) \
-	   libgnarl.a libgnat_s$(soext) \
+	   -o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+	   libgnarl.a libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 	   sys\$$library:trace.exe \
 	   --for-linker=/noinform \
 	   --for-linker=SYMVEC_$$$$.opt \
@@ -2007,7 +2029,7 @@ b_gnatm.o : b_gnatm.c
 
 ADA_INCLUDE_DIR = $(libsubdir)/adainclude
 ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
-ADA_SHARE_MAKE_DIR = $(prefix)/share/make
+ADA_SHARE_MAKE_DIR = $(prefix)/share/gnat
 
 # force no sibling call optimization on s-traceb.o so the number of stack
 # frames to be skipped when computing a call chain is not modified by

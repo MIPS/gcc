@@ -1,6 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -527,7 +527,10 @@ extern tree find_placeholder (tree, tree *);
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-extern rtx expand_expr (tree, rtx, enum machine_mode, enum expand_modifier);
+#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
+  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
 
 extern void expand_var (tree);
 

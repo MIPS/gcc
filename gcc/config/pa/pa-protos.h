@@ -1,5 +1,5 @@
 /* Prototypes for pa.c functions used in the md file & elsewhere.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,11 +133,9 @@ extern int insn_refs_are_delayed (rtx);
 /* Prototype function used in macro CONST_OK_FOR_LETTER_P.  */
 extern int zdepi_cint_p (unsigned HOST_WIDE_INT);
 
-extern struct rtx_def *hppa_builtin_saveregs (void);
-
 extern void override_options (void);
 extern void output_ascii (FILE *, const char *, int);
-extern int compute_frame_size (int, int *);
+extern HOST_WIDE_INT compute_frame_size (HOST_WIDE_INT, int *);
 extern int and_mask_p (unsigned HOST_WIDE_INT);
 extern int cint_ok_for_move (HOST_WIDE_INT);
 extern void hppa_expand_prologue (void);
@@ -164,4 +162,5 @@ extern rtx function_value (tree, tree);
 extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
 				       enum machine_mode,
 				       tree, int);
+extern bool pa_return_in_memory (tree, tree);
 #endif /* TREE_CODE */

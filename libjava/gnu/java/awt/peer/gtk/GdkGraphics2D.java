@@ -44,6 +44,8 @@ import java.awt.font.*;
 import java.awt.color.*;
 import java.awt.image.*;
 import java.awt.image.renderable.*;
+import java.util.HashMap;
+import java.util.Map;
 
 import java.text.AttributedCharacterIterator;
 import java.util.Map;
@@ -66,7 +68,9 @@ public class GdkGraphics2D extends Graphics2D
       {
         System.loadLibrary("gtkpeer");
       }
-    initStaticState ();
+
+    if (GtkToolkit.useGraphics2D ())
+      initStaticState ();
   }
   native static void initStaticState ();
   private final int native_state = GtkGenericPeer.getUniqueInteger();  
@@ -79,6 +83,7 @@ public class GdkGraphics2D extends Graphics2D
   private AffineTransform transform;
   private GtkComponentPeer component;
   private Font font;  
+  private RenderingHints hints;
 
   private Stack stateStack;
   
@@ -106,6 +111,7 @@ public class GdkGraphics2D extends Graphics2D
   {
     paint = g.paint;
     stroke = g.stroke;
+    hints = g.hints;
 
     if (g.fg.getAlpha() != -1)
       fg = new Color (g.fg.getRed (), g.fg.getGreen (), 
@@ -125,7 +131,7 @@ public class GdkGraphics2D extends Graphics2D
       clip = new Rectangle (g.getClipBounds ());
 
     if (g.transform == null)
-      transform = AffineTransform.getTranslateInstance (0.5, 0.5);
+      transform = new AffineTransform ();
     else
       transform = new AffineTransform (g.transform);
 
@@ -150,8 +156,9 @@ public class GdkGraphics2D extends Graphics2D
     setBackground (Color.black);
     setPaint (getColor());
     setFont (new Font("SansSerif", Font.PLAIN, 12));
-    setTransform (AffineTransform.getTranslateInstance (0.5, 0.5));
+    setTransform (new AffineTransform ());
     setStroke (new BasicStroke ());
+    setRenderingHints (new HashMap ());
 
     stateStack = new Stack();
   }
@@ -165,8 +172,9 @@ public class GdkGraphics2D extends Graphics2D
     setBackground (new Color (rgb[3], rgb[4], rgb[5]));
     setPaint (getColor());
     setFont (new Font("SansSerif", Font.PLAIN, 12));
-    setTransform (AffineTransform.getTranslateInstance (0.5, 0.5));
+    setTransform (new AffineTransform ());
     setStroke (new BasicStroke ());
+    setRenderingHints (new HashMap ());
 
     stateStack = new Stack ();
   }
@@ -333,6 +341,29 @@ public class GdkGraphics2D extends Graphics2D
   }
 
 
+  private Map getDefaultHints()
+  {
+    HashMap defaultHints = new HashMap ();
+    
+    defaultHints.put (RenderingHints.KEY_TEXT_ANTIALIASING, 
+                      RenderingHints.VALUE_TEXT_ANTIALIAS_DEFAULT);
+		      
+    defaultHints.put (RenderingHints.KEY_STROKE_CONTROL, 
+                      RenderingHints.VALUE_STROKE_DEFAULT);    
+		      
+    defaultHints.put (RenderingHints.KEY_FRACTIONALMETRICS, 
+                      RenderingHints.VALUE_FRACTIONALMETRICS_OFF);    
+		      
+    defaultHints.put (RenderingHints.KEY_ANTIALIASING, 
+                      RenderingHints.VALUE_ANTIALIAS_OFF);    
+		      
+    defaultHints.put (RenderingHints.KEY_RENDERING,  
+                      RenderingHints.VALUE_RENDER_DEFAULT);
+    
+    return defaultHints;
+    
+  }
+
   //////////////////////////////////////////////////
   ////// Implementation of Graphics2D Methods //////
   //////////////////////////////////////////////////
@@ -349,6 +380,14 @@ public class GdkGraphics2D extends Graphics2D
 
     stateSave ();
     cairoNewPath ();
+
+    boolean normalize;
+    normalize = hints.containsValue (RenderingHints.VALUE_STROKE_NORMALIZE)
+                || hints.containsValue (RenderingHints.VALUE_STROKE_DEFAULT);
+
+    if (normalize)
+      translate (0.5,0.5);      
+    
     if (s instanceof Rectangle2D)
       {
         Rectangle2D r = (Rectangle2D)s;
@@ -357,6 +396,10 @@ public class GdkGraphics2D extends Graphics2D
     else      
       walkPath (s.getPathIterator (null));
     cairoStroke ();
+    
+    if (normalize)
+      translate (-0.5,-0.5);
+      
     stateRestore ();
   }
 
@@ -546,7 +589,7 @@ public class GdkGraphics2D extends Graphics2D
 
   public void setXORMode (Color c) 
   { 
-    setComposite (new BitwiseXorComposite (c)); 
+    setComposite (new gnu.java.awt.BitwiseXORComposite(c)); 
   }
 
   public void setColor (Color c)
@@ -638,6 +681,19 @@ public class GdkGraphics2D extends Graphics2D
     stateSave ();
     
     cairoNewPath ();
+    
+    boolean normalize;
+    normalize = hints.containsValue (RenderingHints.VALUE_STROKE_NORMALIZE)
+                || hints.containsValue (RenderingHints.VALUE_STROKE_DEFAULT);
+		
+    if (normalize) 
+      {
+    	x1 += 0.5;
+	y1 += 0.5; 
+	x2 += 0.5;
+	y2 += 0.5; 
+      }
+    
     setColor (light);
     cairoMoveTo (x1, y1);
     cairoLineTo (x2, y1);
@@ -720,7 +776,7 @@ public class GdkGraphics2D extends Graphics2D
   {    
     if (nPoints < 1)
       return;
-    GeneralPath gp = new GeneralPath ();
+    GeneralPath gp = new GeneralPath (PathIterator.WIND_EVEN_ODD);
     gp.moveTo ((float)xPoints[0], (float)yPoints[0]);
     for (int i = 1; i < nPoints; i++)
       gp.lineTo ((float)xPoints[i], (float)yPoints[i]);
@@ -978,76 +1034,6 @@ public class GdkGraphics2D extends Graphics2D
   }
 
 
-  private class BitwiseXorComposite implements Composite
-  {
-    // this is a special class which does a bitwise XOR composite, for
-    // backwards compatibility sake. it does *not* implement the
-    // porter-duff XOR operator.  the porter-duff XOR is unrelated to
-    // bitwise XOR; it just happens to have a similar name but it
-    // represents a desire to composite the exclusive or of overlapping
-    // subpixel regions. bitwise XOR is for drawing "highlights" such as
-    // cursors (in a cheap oldskool bitblit fashion) by inverting colors
-    // temporarily and then inverting them back.
-
-    Color xorColor;
-    
-    class BitwiseXorCompositeContext implements CompositeContext
-    {
-      ColorModel srcColorModel;
-      ColorModel dstColorModel;
-      
-      public BitwiseXorCompositeContext (ColorModel s,
-                                         ColorModel d)
-      {
-        srcColorModel = s;
-        dstColorModel = d;
-      }
-
-      public void dispose () 
-      {
-      }
-
-      public void compose (Raster src,
-                           Raster dstIn,
-                           WritableRaster dstOut)
-      {
-        Rectangle srcRect = src.getBounds ();
-        Rectangle dstInRect = dstIn.getBounds ();
-        Rectangle dstOutRect = dstOut.getBounds ();
-        
-        int xp = xorColor.getRGB ();
-        int x = 0, y = 0;
-        int w = Math.min (Math.min (srcRect.width, dstOutRect.width), dstInRect.width);
-        int h = Math.min (Math.min (srcRect.height, dstOutRect.height), dstInRect.height);
-        Object srcPix = null, dstPix = null;
-
-        for (y = 0; y < h; y++)
-          for (x = 0; x < w; x++)
-            {
-              srcPix = src.getDataElements (x + srcRect.x, y + srcRect.y, srcPix);
-              dstPix = dstIn.getDataElements (x + dstInRect.x, y + dstInRect.y, dstPix);
-              int sp = srcColorModel.getRGB (srcPix);
-              int dp = dstColorModel.getRGB (dstPix);
-              int rp = sp ^ xp ^ dp;
-              dstOut.setDataElements (x + dstOutRect.x, y + dstOutRect.y, 
-                                      dstColorModel.getDataElements (rp, null));
-            }
-      }
-    }
-    
-    public BitwiseXorComposite (Color c)
-    {
-      xorColor = c;
-    }
-    
-    public CompositeContext createContext (ColorModel srcColorModel, 
-                                           ColorModel dstColorModel, 
-                                           RenderingHints hints) 
-    {
-      return new BitwiseXorCompositeContext (srcColorModel, dstColorModel);
-    }
-  }  
-
 
   ///////////////////////////////////////////////
   ////// Unimplemented Stubs and Overloads //////
@@ -1074,27 +1060,28 @@ public class GdkGraphics2D extends Graphics2D
   public void setRenderingHint(RenderingHints.Key hintKey,
                                Object hintValue)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    hints.put (hintKey, hintValue);    
   }
 
   public Object getRenderingHint(RenderingHints.Key hintKey)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    return hints.get (hintKey);
   }
   
   public void setRenderingHints(Map hints)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    this.hints = new RenderingHints (getDefaultHints ());
+    this.hints.add (new RenderingHints (hints));
   }
 
   public void addRenderingHints(Map hints)
   {
-    throw new java.lang.UnsupportedOperationException ();
+    this.hints.add (new RenderingHints (hints));
   }
 
   public RenderingHints getRenderingHints()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    return hints;
   }
 
   public Composite getComposite()

@@ -1,6 +1,6 @@
 /* Part of CPP library.  (Macro and #define handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -80,7 +80,7 @@ _cpp_warn_if_unused_macro (cpp_reader *pfile, cpp_hashnode *node,
       cpp_macro *macro = node->value.macro;
 
       if (!macro->used
-	  && MAIN_FILE_P (linemap_lookup (&pfile->line_maps, macro->line)))
+	  && MAIN_FILE_P (linemap_lookup (pfile->line_table, macro->line)))
 	cpp_error_with_line (pfile, CPP_DL_WARNING, macro->line, 0,
 			     "macro \"%s\" is not used", NODE_NAME (node));
     }
@@ -136,7 +136,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 
 	if (node->value.builtin == BT_BASE_FILE)
 	  while (! MAIN_FILE_P (map))
-	    map = INCLUDED_FROM (&pfile->line_maps, map);
+	    map = INCLUDED_FROM (pfile->line_table, map);
 
 	name = map->to_file;
 	len = strlen (name);
@@ -153,7 +153,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
       /* The line map depth counts the primary source as level 1, but
 	 historically __INCLUDE_DEPTH__ has called the primary source
 	 level 0.  */
-      number = pfile->line_maps.depth - 1;
+      number = pfile->line_table->depth - 1;
       break;
 
     case BT_SPECLINE:

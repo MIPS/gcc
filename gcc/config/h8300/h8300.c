@@ -1,6 +1,6 @@
-/* Subroutines for insn-output.c for Hitachi H8/300.
+/* Subroutines for insn-output.c for Renesas H8/300.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -52,7 +52,7 @@ static int h8300_interrupt_function_p (tree);
 static int h8300_saveall_function_p (tree);
 static int h8300_monitor_function_p (tree);
 static int h8300_os_task_function_p (tree);
-static void dosize (int, unsigned int);
+static void h8300_emit_stack_adjustment (int, unsigned int);
 static int round_frame_size (int);
 static unsigned int compute_saved_regs (void);
 static void push (int);
@@ -365,7 +365,7 @@ byte_reg (rtx x, int b)
    SIZE to adjust the stack pointer.  */
 
 static void
-dosize (int sign, unsigned int size)
+h8300_emit_stack_adjustment (int sign, unsigned int size)
 {
   /* H8/300 cannot add/subtract a large constant with a single
      instruction.  If a temporary register is available, load the
@@ -506,7 +506,7 @@ h8300_expand_prologue (void)
     }
 
   /* Leave room for locals.  */
-  dosize (-1, round_frame_size (get_frame_size ()));
+  h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()));
 
   /* Push the rest of the registers in ascending order.  */
   saved_regs = compute_saved_regs ();
@@ -631,7 +631,7 @@ h8300_expand_epilogue (void)
     }
 
   /* Deallocate locals.  */
-  dosize (1, round_frame_size (get_frame_size ()));
+  h8300_emit_stack_adjustment (1, round_frame_size (get_frame_size ()));
 
   /* Pop frame pointer if we had one.  */
   if (frame_pointer_needed)
@@ -1556,7 +1556,7 @@ final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 /* Prepare for an SI sized move.  */
 
 int
-do_movsi (rtx operands[])
+h8300_expand_movsi (rtx operands[])
 {
   rtx src = operands[1];
   rtx dst = operands[0];
@@ -4552,6 +4552,51 @@ h8300_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
 
   return 1;
 }
+
+/* Return nonzero if X is a legitimate constant.  */
+
+int
+h8300_legitimate_constant_p (rtx x ATTRIBUTE_UNUSED)
+{
+  return 1;
+}
+
+/* Return nonzero if X is a REG or SUBREG suitable as a base register.  */
+
+static int
+h8300_rtx_ok_for_base_p (rtx x, int strict)
+{
+  /* Strip off SUBREG if any.  */
+  if (GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
+
+  return (REG_P (x)
+	  && (strict
+	      ? REG_OK_FOR_BASE_STRICT_P (x)
+	      : REG_OK_FOR_BASE_NONSTRICT_P (x)));
+}
+
+/* Return nozero if X is a legitimate address.  On the H8/300, a
+   legitimate address has the form REG, REG+CONSTANT_ADDRESS or
+   CONSTANT_ADDRESS.  */
+
+int
+h8300_legitimate_address_p (rtx x, int strict)
+{
+  /* The register indirect addresses like @er0 is always valid.  */
+  if (h8300_rtx_ok_for_base_p (x, strict))
+    return 1;
+
+  if (CONSTANT_ADDRESS_P (x))
+    return 1;
+
+  if (GET_CODE (x) == PLUS
+      && CONSTANT_ADDRESS_P (XEXP (x, 1))
+      && h8300_rtx_ok_for_base_p (XEXP (x, 0), strict))
+    return 1;
+
+  return 0;
+}
 
 /* Perform target dependent optabs initialization.  */
 static void
@@ -4562,6 +4607,13 @@ h8300_init_libfuncs (void)
   set_optab_libfunc (udiv_optab, HImode, "__udivhi3");
   set_optab_libfunc (smod_optab, HImode, "__modhi3");
   set_optab_libfunc (umod_optab, HImode, "__umodhi3");
+}
+
+static bool
+h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return (TYPE_MODE (type) == BLKmode
+	  || GET_MODE_SIZE (TYPE_MODE (type)) > (TARGET_H8300 ? 4 : 8));
 }
 
 /* Initialize the GCC target structure.  */
@@ -4590,5 +4642,10 @@ h8300_init_libfuncs (void)
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS h8300_init_libfuncs
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY h8300_return_in_memory
 
 struct gcc_target targetm = TARGET_INITIALIZER;

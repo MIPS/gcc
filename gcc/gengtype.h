@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -155,10 +155,6 @@ struct outf
 };
 
 typedef struct outf * outf_p;
-
-/* The output header file that is included into pretty much every
-   source file.  */
-extern outf_p header_file;
 
 /* An output file, suitable for definitions, that can see declarations
    made in INPUT_FILE and is linked into every language that uses

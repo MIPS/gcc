@@ -35,7 +35,6 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-
 package java.text;
 
 import java.util.Enumeration;
@@ -62,7 +61,10 @@ import java.util.Vector;
  * <li> Reset: '&amp;' : <text>
  * </ul>
  * The modifier character indicates that accents sort backward as is the
- * case with French.  The relational operators specify how the text 
+ * case with French.  The modifier applies to all rules <b>after</b>
+ * the modifier but before the next primary sequence. If placed at the end
+ * of the sequence if applies to all unknown accented character.
+ * The relational operators specify how the text 
  * argument relates to the previous term.  The relation characters have
  * the following meanings:
  * <ul>
@@ -113,6 +115,9 @@ import java.util.Vector;
  * anywhere in the previous rule string segment so the rule following the
  * reset rule cannot be inserted.
  * <p>
+ * "&lt; a &amp; A @ &lt; e &amp; E &lt; f&amp; F" - This sequence is equivalent to the following
+ * "&lt; a &amp; A &lt; E &amp; e &lt; f &amp; F".
+ * <p>
  * For a description of the various comparison strength types, see the
  * documentation for the <code>Collator</code> class.
  * <p>
@@ -134,23 +139,25 @@ import java.util.Vector;
  *
  * @author Aaron M. Renn <arenn@urbanophile.com>
  * @author Tom Tromey <tromey@cygnus.com>
- * @date March 25, 1999
+ * @author Guilhem Lavaux <guilhem@kaffe.org>
  */
-
 public class RuleBasedCollator extends Collator
 {
+  /**
+   * This class describes what rank has a character (or a sequence of characters) 
+   * in the lexicographic order. Each element in a rule has a collation element.
+   */
   final class CollationElement
   {
     String key;
     char relation;
 
-    CollationElement (String key, char relation)
+    CollationElement(String key, char relation)
     {
       this.key = key;
       this.relation = relation;
     }
-
-  } // inner class CollationElement
+  }
 
   // True if we are using French-style accent ordering.
   private boolean frenchAccents;
@@ -178,23 +185,23 @@ public class RuleBasedCollator extends Collator
    *
    * @exception ParseException If the rule string contains syntax errors.
    */
-  public RuleBasedCollator (String rules) throws ParseException
+  public RuleBasedCollator(String rules) throws ParseException
   {
-    if (rules.equals (""))
-      throw new ParseException ("empty rule set", 0);
+    if (rules.equals(""))
+      throw new ParseException("empty rule set", 0);
     
     this.rules = rules;
-    this.frenchAccents = false;
 
     // We keep each rule in order in a vector.  At the end we traverse
     // the vector and compute collation values from it.
     int insertion_index = 0;
     Vector vec = new Vector ();
 
-    StringBuffer argument = new StringBuffer ();
-
+    int index;
+    StringBuffer argument = new StringBuffer();
     int len = rules.length();
-    for (int index = 0; index < len; ++index)
+
+    for (index = 0; index < len; ++index)
       {
 	char c = rules.charAt(index);
 
@@ -331,7 +338,7 @@ public class RuleBasedCollator extends Collator
 	return cei.lookahead;
       }
 
-    int save = cei.index;
+    int save = cei.textIndex;
     int max = cei.text.length();
     String s = null;
 
@@ -360,7 +367,7 @@ public class RuleBasedCollator extends Collator
       }
 
     // Update state.
-    cei.index = i;
+    cei.textIndex = i;
 
     if (obj == null)
       {
@@ -409,20 +416,20 @@ public class RuleBasedCollator extends Collator
    * the second.  The value depends not only on the collation rules in
    * effect, but also the strength and decomposition settings of this object.
    *
-   * @param s1 The first <code>String</code> to compare.
-   * @param s2 A second <code>String</code> to compare to the first.
+   * @param source The first <code>String</code> to compare.
+   * @param target A second <code>String</code> to compare to the first.
    *
-   * @return A negative integer if s1 &lt; s2, a positive integer
-   * if s1 &gt; s2, or 0 if s1 == s2.
+   * @return A negative integer if source &lt; target, a positive integer
+   * if source &gt; target, or 0 if source == target.
    */
-  public int compare (String source, String target)
+  public int compare(String source, String target)
   {
     CollationElementIterator cs, ct;
 
-    cs = new CollationElementIterator (source, this);
-    ct = new CollationElementIterator (target, this);
+    cs = new CollationElementIterator(this, source);
+    ct = new CollationElementIterator(this, target);
 
-    while (true)
+    for(;;)
       {
 	int os = next (cs, strength);
 	int ot = next (ct, strength);
@@ -455,9 +462,10 @@ public class RuleBasedCollator extends Collator
    *
    * @param obj The <code>Object</code> to compare against this object.
    *
-   * @return <code>true</code> if the specified object is equal to this object, <code>false</code> otherwise.
+   * @return <code>true</code> if the specified object is equal to this object,
+   * <code>false</code> otherwise.
    */
-  public boolean equals (Object obj)
+  public boolean equals(Object obj)
   {
     if (! (obj instanceof RuleBasedCollator) || ! super.equals(obj))
       return false;
@@ -473,17 +481,21 @@ public class RuleBasedCollator extends Collator
    * for the specified <code>String</code> under the collation rules for this
    * object.
    *
-   * @param str The <code>String</code> to return the <code>CollationElementIterator</code> instance for.
+   * @param source The <code>String</code> to return the
+   * <code>CollationElementIterator</code> instance for.
    *
-   * @return A <code>CollationElementIterator</code> for the specified <code>String</code>.
+   * @return A <code>CollationElementIterator</code> for the specified
+   * <code>String</code>.
    */
-  public CollationElementIterator getCollationElementIterator (String source)
+  public CollationElementIterator getCollationElementIterator(String source)
   {
-    StringBuffer expand = new StringBuffer (source.length());
-    int max = source.length();
-    for (int i = 0; i < max; ++i)
-      decomposeCharacter (source.charAt(i), expand);
-    return new CollationElementIterator (expand.toString(), this);
+    int len = source.length();
+    StringBuffer expand = new StringBuffer(len);
+    
+    for (int index = 0; index < len; ++index)
+      decomposeCharacter(source.charAt(index), expand);
+    
+    return new CollationElementIterator(this, expand.toString());
   }
 
   /**
@@ -491,19 +503,21 @@ public class RuleBasedCollator extends Collator
    * for the <code>String</code> represented by the specified
    * <code>CharacterIterator</code>.
    *
-   * @param ci The <code>CharacterIterator</code> with the desired <code>String</code>.
+   * @param source The <code>CharacterIterator</code> with the desired <code>String</code>.
    *
    * @return A <code>CollationElementIterator</code> for the specified <code>String</code>.
    */
-  public CollationElementIterator getCollationElementIterator (CharacterIterator source)
+  public CollationElementIterator getCollationElementIterator(CharacterIterator source)
   {
-    StringBuffer expand = new StringBuffer ();
-    for (char c = source.first ();
+    StringBuffer expand = new StringBuffer("");
+    
+    // Right now we assume that we will read from the beginning of the string.
+    for (char c = source.first();
 	 c != CharacterIterator.DONE;
-	 c = source.next ())
-      decomposeCharacter (c, expand);
+	 c = source.next())
+      decomposeCharacter(c, expand);
 
-    return new CollationElementIterator (expand.toString(), this);
+    return new CollationElementIterator(this, expand.toString());
   }
 
   /**
@@ -513,14 +527,14 @@ public class RuleBasedCollator extends Collator
    * provide speed benefits if multiple comparisons are performed, such
    * as during a sort.
    *
-   * @param str The <code>String</code> to create a <code>CollationKey</code> for.
+   * @param source The <code>String</code> to create a <code>CollationKey</code> for.
    *
    * @return A <code>CollationKey</code> for the specified <code>String</code>.
    */
-  public CollationKey getCollationKey (String source)
+  public CollationKey getCollationKey(String source)
   {
-    return new CollationKey (getCollationElementIterator (source), source,
-			     strength);
+    return new CollationKey(this, getCollationElementIterator(source), source,
+			    strength);
   }
 
   /**

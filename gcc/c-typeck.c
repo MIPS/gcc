@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,8 +60,6 @@ static tree default_function_array_conversion (tree);
 static tree lookup_field (tree, tree);
 static tree convert_arguments (tree, tree, tree, tree);
 static tree pointer_diff (tree, tree);
-static tree unary_complex_lvalue (enum tree_code, tree, int);
-static void pedantic_lvalue_warning (enum tree_code);
 static tree internal_build_compound_expr (tree, int);
 static tree convert_for_assignment (tree, tree, const char *, tree, tree,
 				    int);
@@ -474,12 +472,13 @@ comptypes (tree type1, tree type2, int flags)
       && TYPE_DOMAIN (t2) != 0)
     t2 = TYPE_DOMAIN (t2);
 
-  /* Treat an enum type as the integer type of the same width and
-     signedness.  */
+  /* Enumerated types are compatible with integer types, but this is
+     not transitive: two enumerated types in the same translation unit
+     are compatible with each other only if they are the same type.  */
 
-  if (TREE_CODE (t1) == ENUMERAL_TYPE)
+  if (TREE_CODE (t1) == ENUMERAL_TYPE && TREE_CODE (t2) != ENUMERAL_TYPE)
     t1 = c_common_type_for_size (TYPE_PRECISION (t1), TREE_UNSIGNED (t1));
-  if (TREE_CODE (t2) == ENUMERAL_TYPE)
+  else if (TREE_CODE (t2) == ENUMERAL_TYPE && TREE_CODE (t1) != ENUMERAL_TYPE)
     t2 = c_common_type_for_size (TYPE_PRECISION (t2), TREE_UNSIGNED (t2));
 
   if (t1 == t2)
@@ -1301,7 +1300,7 @@ build_component_ref (tree datum, tree component)
   tree ref;
 
   /* If DATUM is a COMPOUND_EXPR, move our reference inside it.
-     If pedantic ensure that the arguments are not lvalues; otherwise,
+     Ensure that the arguments are not lvalues; otherwise,
      if the component is an array, it would wrongly decay to a pointer in
      C89 mode.
      We cannot do this with a COND_EXPR, because in a conditional expression
@@ -1314,7 +1313,7 @@ build_component_ref (tree datum, tree component)
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
-		      TREE_OPERAND (datum, 0), pedantic_non_lvalue (value));
+		      TREE_OPERAND (datum, 0), non_lvalue (value));
       }
     default:
       break;
@@ -2276,12 +2275,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
     case POSTINCREMENT_EXPR:
     case PREDECREMENT_EXPR:
     case POSTDECREMENT_EXPR:
-      /* Handle complex lvalues (when permitted)
-	 by reduction to simpler cases.  */
-
-      val = unary_complex_lvalue (code, arg, 0);
-      if (val != 0)
-	return val;
 
       /* Increment or decrement the real part of the value,
 	 and don't change the imaginary part.  */
@@ -2349,57 +2342,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 
 	inc = convert (argtype, inc);
 
-	/* Handle incrementing a cast-expression.  */
-
-	while (1)
-	  switch (TREE_CODE (arg))
-	    {
-	    case NOP_EXPR:
-	    case CONVERT_EXPR:
-	    case FLOAT_EXPR:
-	    case FIX_TRUNC_EXPR:
-	    case FIX_FLOOR_EXPR:
-	    case FIX_ROUND_EXPR:
-	    case FIX_CEIL_EXPR:
-	      pedantic_lvalue_warning (CONVERT_EXPR);
-	      /* If the real type has the same machine representation
-		 as the type it is cast to, we can make better output
-		 by adding directly to the inside of the cast.  */
-	      if ((TREE_CODE (TREE_TYPE (arg))
-		   == TREE_CODE (TREE_TYPE (TREE_OPERAND (arg, 0))))
-		  && (TYPE_MODE (TREE_TYPE (arg))
-		      == TYPE_MODE (TREE_TYPE (TREE_OPERAND (arg, 0)))))
-		arg = TREE_OPERAND (arg, 0);
-	      else
-		{
-		  tree incremented, modify, value;
-		  if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
-		    value = boolean_increment (code, arg);
-		  else
-		    {
-		      arg = stabilize_reference (arg);
-		      if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
-			value = arg;
-		      else
-			value = save_expr (arg);
-		      incremented = build (((code == PREINCREMENT_EXPR
-					     || code == POSTINCREMENT_EXPR)
-					    ? PLUS_EXPR : MINUS_EXPR),
-					   argtype, value, inc);
-		      TREE_SIDE_EFFECTS (incremented) = 1;
-		      modify = build_modify_expr (arg, NOP_EXPR, incremented);
-		      value = build (COMPOUND_EXPR, TREE_TYPE (arg), modify, value);
-		    }
-		  TREE_USED (value) = 1;
-		  return value;
-		}
-	      break;
-
-	    default:
-	      goto give_up;
-	    }
-      give_up:
-
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
 				    || code == POSTINCREMENT_EXPR)
@@ -2445,12 +2387,6 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  return build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
 				  TREE_OPERAND (arg, 1), 1);
 	}
-
-      /* Handle complex lvalues (when permitted)
-	 by reduction to simpler cases.  */
-      val = unary_complex_lvalue (code, arg, flag);
-      if (val != 0)
-	return val;
 
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
@@ -2563,67 +2499,6 @@ lvalue_or_else (tree ref, const char *msgid)
   return win;
 }
 
-/* Apply unary lvalue-demanding operator CODE to the expression ARG
-   for certain kinds of expressions which are not really lvalues
-   but which we can accept as lvalues.  If FLAG is nonzero, then
-   non-lvalues are OK since we may be converting a non-lvalue array to
-   a pointer in C99.
-
-   If ARG is not a kind of expression we can handle, return zero.  */
-
-static tree
-unary_complex_lvalue (enum tree_code code, tree arg, int flag)
-{
-  /* Handle (a, b) used as an "lvalue".  */
-  if (TREE_CODE (arg) == COMPOUND_EXPR)
-    {
-      tree real_result = build_unary_op (code, TREE_OPERAND (arg, 1), 0);
-
-      /* If this returns a function type, it isn't really being used as
-	 an lvalue, so don't issue a warning about it.  */
-      if (TREE_CODE (TREE_TYPE (arg)) != FUNCTION_TYPE && !flag)
-	pedantic_lvalue_warning (COMPOUND_EXPR);
-
-      return build (COMPOUND_EXPR, TREE_TYPE (real_result),
-		    TREE_OPERAND (arg, 0), real_result);
-    }
-
-  /* Handle (a ? b : c) used as an "lvalue".  */
-  if (TREE_CODE (arg) == COND_EXPR)
-    {
-      if (!flag)
-	pedantic_lvalue_warning (COND_EXPR);
-      if (TREE_CODE (TREE_TYPE (arg)) != FUNCTION_TYPE && !flag)
-	pedantic_lvalue_warning (COMPOUND_EXPR);
-
-      return (build_conditional_expr
-	      (TREE_OPERAND (arg, 0),
-	       build_unary_op (code, TREE_OPERAND (arg, 1), flag),
-	       build_unary_op (code, TREE_OPERAND (arg, 2), flag)));
-    }
-
-  return 0;
-}
-
-/* If pedantic, warn about improper lvalue.   CODE is either COND_EXPR
-   COMPOUND_EXPR, or CONVERT_EXPR (for casts).  */
-
-static void
-pedantic_lvalue_warning (enum tree_code code)
-{
-  switch (code)
-    {
-    case COND_EXPR:
-      pedwarn ("use of conditional expressions as lvalues is deprecated");
-      break;
-    case COMPOUND_EXPR:
-      pedwarn ("use of compound expressions as lvalues is deprecated");
-      break;
-    default:
-      pedwarn ("use of cast expressions as lvalues is deprecated");
-      break;
-    }
-}
 
 /* Warn about storing in something that is `const'.  */
 
@@ -2760,6 +2635,14 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   type2 = TREE_TYPE (op2);
   code2 = TREE_CODE (type2);
 
+  /* C90 does not permit non-lvalue arrays in conditional expressions.
+     In C99 they will be pointers by now.  */
+  if (code1 == ARRAY_TYPE || code2 == ARRAY_TYPE)
+    {
+      error ("non-lvalue array in conditional expression");
+      return error_mark_node;
+    }
+
   /* Quickly detect the usual case where op1 and op2 have the same type
      after promotion.  */
   if (TYPE_MAIN_VARIANT (type1) == TYPE_MAIN_VARIANT (type2))
@@ -2884,7 +2767,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
     op2 = convert_and_check (result_type, op2);
 
   if (TREE_CODE (ifexp) == INTEGER_CST)
-    return pedantic_non_lvalue (integer_zerop (ifexp) ? op2 : op1);
+    return non_lvalue (integer_zerop (ifexp) ? op2 : op1);
 
   return fold (build (COND_EXPR, result_type, ifexp, op1, op2));
 }
@@ -3109,6 +2992,25 @@ build_c_cast (tree type, tree expr)
 	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
 	}
 
+      /* If pedantic, warn for conversions between function and object
+	 pointer types, except for converting a null pointer constant
+	 to function pointer type.  */
+      if (pedantic
+	  && TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (TREE_TYPE (otype)) == FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (type)) != FUNCTION_TYPE)
+	pedwarn ("ISO C forbids conversion of function pointer to object pointer type");
+
+      if (pedantic
+	  && TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
+	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
+	  && !(integer_zerop (value) && TREE_TYPE (otype) == void_type_node
+	       && TREE_CODE (expr) != NOP_EXPR))
+	pedwarn ("ISO C forbids conversion of object pointer to function pointer type");
+
       ovalue = value;
       /* Replace a nonvolatile const static variable with its value.  */
       if (optimize && TREE_CODE (value) == VAR_DECL)
@@ -3123,14 +3025,14 @@ build_c_cast (tree type, tree expr)
 	}
     }
 
-  /* Pedantically, don't let (void *) (FOO *) 0 be a null pointer constant.  */
-  if (pedantic && TREE_CODE (value) == INTEGER_CST
+  /* Don't let (void *) (FOO *) 0 be a null pointer constant.  */
+  if (TREE_CODE (value) == INTEGER_CST
       && TREE_CODE (expr) == INTEGER_CST
       && TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE)
     value = non_lvalue (value);
 
-  /* If pedantic, don't let a cast be an lvalue.  */
-  if (value == expr && pedantic)
+  /* Don't let a cast be an lvalue.  */
+  if (value == expr)
     value = non_lvalue (value);
 
   return value;
@@ -3181,45 +3083,6 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
   newrhs = rhs;
 
-  /* Handle control structure constructs used as "lvalues".  */
-
-  switch (TREE_CODE (lhs))
-    {
-      /* Handle (a, b) used as an "lvalue".  */
-    case COMPOUND_EXPR:
-      pedantic_lvalue_warning (COMPOUND_EXPR);
-      newrhs = build_modify_expr (TREE_OPERAND (lhs, 1), modifycode, rhs);
-      if (TREE_CODE (newrhs) == ERROR_MARK)
-	return error_mark_node;
-      return build (COMPOUND_EXPR, lhstype,
-		    TREE_OPERAND (lhs, 0), newrhs);
-
-      /* Handle (a ? b : c) used as an "lvalue".  */
-    case COND_EXPR:
-      pedantic_lvalue_warning (COND_EXPR);
-      rhs = save_expr (rhs);
-      {
-	/* Produce (a ? (b = rhs) : (c = rhs))
-	   except that the RHS goes through a save-expr
-	   so the code to compute it is only emitted once.  */
-	tree cond
-	  = build_conditional_expr (TREE_OPERAND (lhs, 0),
-				    build_modify_expr (TREE_OPERAND (lhs, 1),
-						       modifycode, rhs),
-				    build_modify_expr (TREE_OPERAND (lhs, 2),
-						       modifycode, rhs));
-	if (TREE_CODE (cond) == ERROR_MARK)
-	  return cond;
-	/* Make sure the code to compute the rhs comes out
-	   before the split.  */
-	return build (COMPOUND_EXPR, TREE_TYPE (lhs),
-		      /* But cast it to void to avoid an "unused" error.  */
-		      convert (void_type_node, rhs), cond);
-      }
-    default:
-      break;
-    }
-
   /* If a binary op has been requested, combine the old LHS value with the RHS
      producing the value we should actually store into the LHS.  */
 
@@ -3228,42 +3091,6 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       lhs = stabilize_reference (lhs);
       newrhs = build_binary_op (modifycode, lhs, rhs, 1);
     }
-
-  /* Handle a cast used as an "lvalue".
-     We have already performed any binary operator using the value as cast.
-     Now convert the result to the cast type of the lhs,
-     and then true type of the lhs and store it there;
-     then convert result back to the cast type to be the value
-     of the assignment.  */
-
-  switch (TREE_CODE (lhs))
-    {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
-    case FLOAT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
-    case FIX_CEIL_EXPR:
-      newrhs = default_function_array_conversion (newrhs);
-      {
-	tree inner_lhs = TREE_OPERAND (lhs, 0);
-	tree result;
-	result = build_modify_expr (inner_lhs, NOP_EXPR,
-				    convert (TREE_TYPE (inner_lhs),
-					     convert (lhstype, newrhs)));
-	if (TREE_CODE (result) == ERROR_MARK)
-	  return result;
-	pedantic_lvalue_warning (CONVERT_EXPR);
-	return convert (TREE_TYPE (lhs), result);
-      }
-
-    default:
-      break;
-    }
-
-  /* Now we have handled acceptable kinds of LHS that are not truly lvalues.
-     Reject anything strange now.  */
 
   if (!lvalue_or_else (lhs, "invalid lvalue in assignment"))
     return error_mark_node;
@@ -4072,9 +3899,12 @@ digest_init (tree type, tree init, int require_constant)
 	  || (code == VECTOR_TYPE
 	      && comptypes (TREE_TYPE (inside_init), type, COMPARE_STRICT))
 	  || (code == POINTER_TYPE
-	      && (TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE
-		  || TREE_CODE (TREE_TYPE (inside_init)) == FUNCTION_TYPE)
+	      && TREE_CODE (TREE_TYPE (inside_init)) == ARRAY_TYPE
 	      && comptypes (TREE_TYPE (TREE_TYPE (inside_init)),
+			    TREE_TYPE (type), COMPARE_STRICT))
+	  || (code == POINTER_TYPE
+	      && TREE_CODE (TREE_TYPE (inside_init)) == FUNCTION_TYPE
+	      && comptypes (TREE_TYPE (inside_init),
 			    TREE_TYPE (type), COMPARE_STRICT))))
     {
       if (code == POINTER_TYPE)
@@ -4266,9 +4096,6 @@ static int require_constant_elements;
    such as (struct foo) {...}.  */
 static tree constructor_decl;
 
-/* start_init saves the ASMSPEC arg here for really_start_incremental_init.  */
-static const char *constructor_asmspec;
-
 /* Nonzero if this is an initializer for a top-level decl.  */
 static int constructor_top_level;
 
@@ -4340,7 +4167,6 @@ struct initializer_stack
 {
   struct initializer_stack *next;
   tree decl;
-  const char *asmspec;
   struct constructor_stack *constructor_stack;
   struct constructor_range_stack *constructor_range_stack;
   tree elements;
@@ -4357,17 +4183,12 @@ struct initializer_stack *initializer_stack;
 /* Prepare to parse and output the initializer for variable DECL.  */
 
 void
-start_init (tree decl, tree asmspec_tree, int top_level)
+start_init (tree decl, tree asmspec_tree ATTRIBUTE_UNUSED, int top_level)
 {
   const char *locus;
   struct initializer_stack *p = xmalloc (sizeof (struct initializer_stack));
-  const char *asmspec = 0;
-
-  if (asmspec_tree)
-    asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   p->decl = constructor_decl;
-  p->asmspec = constructor_asmspec;
   p->require_constant_value = require_constant_value;
   p->require_constant_elements = require_constant_elements;
   p->constructor_stack = constructor_stack;
@@ -4381,7 +4202,6 @@ start_init (tree decl, tree asmspec_tree, int top_level)
   initializer_stack = p;
 
   constructor_decl = decl;
-  constructor_asmspec = asmspec;
   constructor_designated = 0;
   constructor_top_level = top_level;
 
@@ -4435,8 +4255,9 @@ finish_init (void)
     abort ();
 
   /* Pop back to the data of the outer initializer (if any).  */
+  free (spelling_base);
+  
   constructor_decl = p->decl;
-  constructor_asmspec = p->asmspec;
   require_constant_value = p->require_constant_value;
   require_constant_elements = p->require_constant_elements;
   constructor_stack = p->constructor_stack;

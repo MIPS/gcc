@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1569,7 +1569,8 @@ build_class_member_access_expr (tree object, tree member,
      The type of the first expression shall be "class object" (of a
      complete type).  */
   object_type = TREE_TYPE (object);
-  if (!complete_type_or_else (object_type, object))
+  if (!currently_open_class (object_type) 
+      && !complete_type_or_else (object_type, object))
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {
@@ -1855,7 +1856,8 @@ finish_class_member_access_expr (tree object, tree name)
 
      The type of the first expression shall be "class object" (of a
      complete type).  */
-  if (!complete_type_or_else (object_type, object))
+  if (!currently_open_class (object_type) 
+      && !complete_type_or_else (object_type, object))
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {

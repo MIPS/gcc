@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -113,6 +113,12 @@ package body Exp_Ch3 is
    procedure Build_Record_Init_Proc (N : Node_Id; Pe : Entity_Id);
    --  Build record initialization procedure. N is the type declaration
    --  node, and Pe is the corresponding entity for the record type.
+
+   procedure Build_Slice_Assignment (Typ : Entity_Id);
+   --  Build assignment procedure for one-dimensional arrays of controlled
+   --  types. Other array and slice assignments are expanded in-line, but
+   --  the code expansion for controlled components (when control actions
+   --  are active) can lead to very large blocks that GCC3 handles poorly.
 
    procedure Build_Variant_Record_Equality (Typ  : Entity_Id);
    --  Create An Equality function for the non-tagged variant record 'Typ'
@@ -1527,7 +1533,7 @@ package body Exp_Ch3 is
          --  aggregate that will be expanded inline
 
          if Kind = N_Qualified_Expression then
-            Kind := Nkind (Parent (N));
+            Kind := Nkind (Expression (N));
          end if;
 
          if Controlled_Type (Typ)
@@ -1937,7 +1943,8 @@ package body Exp_Ch3 is
          Decl := First_Non_Pragma (Component_Items (Comp_List));
          while Present (Decl) loop
             Loc := Sloc (Decl);
-            Build_Record_Checks (Subtype_Indication (Decl), Check_List);
+            Build_Record_Checks
+              (Subtype_Indication (Component_Definition (Decl)), Check_List);
 
             Id := Defining_Identifier (Decl);
             Typ := Etype (Id);
@@ -2473,6 +2480,287 @@ package body Exp_Ch3 is
       end if;
    end Build_Record_Init_Proc;
 
+   ----------------------------
+   -- Build_Slice_Assignment --
+   ----------------------------
+
+   --  Generates the following subprogram:
+   --    procedure Assign
+   --     (Source,   Target   : Array_Type,
+   --      Left_Lo,  Left_Hi, Right_Lo, Right_Hi : Index;
+   --      Rev :     Boolean)
+   --    is
+   --       Li1 : Index;
+   --       Ri1 : Index;
+   --    begin
+   --       if Rev  then
+   --          Li1 := Left_Hi;
+   --          Ri1 := Right_Hi;
+   --       else
+   --          Li1 := Left_Lo;
+   --          Ri1 := Right_Lo;
+   --       end if;
+   --
+   --       loop
+   --             Target (Li1) := Source (Ri1);
+   --             if Rev then
+   --                exit when Li2 = Left_Lo;
+   --                Li2 := Index'pred (Li2);
+   --                Ri2 := Index'pred (Ri2);
+   --             else
+   --                exit when Li2 = Left_Hi;
+   --                Li2 := Index'succ (Li2);
+   --                Ri2 := Index'succ (Ri2);
+   --             end if;
+   --       end loop;
+   --    end Assign;
+
+   procedure Build_Slice_Assignment (Typ : Entity_Id) is
+      Loc   : constant Source_Ptr := Sloc (Typ);
+      Index : constant Entity_Id  := Base_Type (Etype (First_Index (Typ)));
+
+      --  Build formal parameters of procedure
+
+      Larray   : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('A'));
+      Rarray   : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Left_Lo  : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('L'));
+      Left_Hi  : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('L'));
+      Right_Lo : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Right_Hi : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Rev      : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('D'));
+      Proc_Name : constant Entity_Id :=
+                    Make_Defining_Identifier (Loc,
+                      Chars => Make_TSS_Name (Typ, TSS_Slice_Assign));
+
+      Lnn :  constant Entity_Id :=
+               Make_Defining_Identifier (Loc, New_Internal_Name ('L'));
+      Rnn :  constant Entity_Id :=
+               Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
+      --  subscripts for left and right sides
+
+      Decls  : List_Id;
+      Loops  : Node_Id;
+      Stats  : List_Id;
+
+   begin
+
+      --  Build declarations for indices.
+
+      Decls := New_List;
+
+      Append_To (Decls,
+         Make_Object_Declaration (Loc,
+           Defining_Identifier => Lnn,
+           Object_Definition  =>
+             New_Occurrence_Of (Index, Loc)));
+
+      Append_To (Decls,
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Rnn,
+          Object_Definition  =>
+            New_Occurrence_Of (Index, Loc)));
+
+      Stats := New_List;
+
+      --  Build initializations for indices.
+
+      declare
+         F_Init : constant List_Id := New_List;
+         B_Init : constant List_Id := New_List;
+
+      begin
+         Append_To (F_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression => New_Occurrence_Of (Left_Lo, Loc)));
+
+         Append_To (F_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression => New_Occurrence_Of (Right_Lo, Loc)));
+
+         Append_To (B_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression => New_Occurrence_Of (Left_Hi, Loc)));
+
+         Append_To (B_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression => New_Occurrence_Of (Right_Hi, Loc)));
+
+         Append_To (Stats,
+           Make_If_Statement (Loc,
+             Condition => New_Occurrence_Of (Rev, Loc),
+             Then_Statements => B_Init,
+             Else_Statements => F_Init));
+      end;
+
+      --  Now construct the assignment statement
+
+      Loops :=
+        Make_Loop_Statement (Loc,
+          Statements => New_List (
+            Make_Assignment_Statement (Loc,
+              Name =>
+                Make_Indexed_Component (Loc,
+                  Prefix => New_Occurrence_Of (Larray, Loc),
+                  Expressions => New_List (New_Occurrence_Of (Lnn, Loc))),
+              Expression =>
+                Make_Indexed_Component (Loc,
+                  Prefix => New_Occurrence_Of (Rarray, Loc),
+                  Expressions => New_List (New_Occurrence_Of (Rnn, Loc))))),
+          End_Label  => Empty);
+
+      --  Build the increment/decrement statements.
+
+      declare
+         F_Ass : constant List_Id := New_List;
+         B_Ass : constant List_Id := New_List;
+
+      begin
+         Append_To (F_Ass,
+           Make_Exit_Statement (Loc,
+             Condition =>
+               Make_Op_Eq (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Lnn, Loc),
+                 Right_Opnd => New_Occurrence_Of (Left_Hi, Loc))));
+
+         Append_To (B_Ass,
+           Make_Exit_Statement (Loc,
+             Condition =>
+               Make_Op_Eq (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Lnn, Loc),
+                 Right_Opnd => New_Occurrence_Of (Left_Lo, Loc))));
+
+         Append_To (F_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Succ,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Lnn, Loc)))));
+
+         Append_To (F_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Succ,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Rnn, Loc)))));
+
+         Append_To (B_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Pred,
+                   Expressions => New_List (
+                     New_Occurrence_Of (Lnn, Loc)))));
+
+         Append_To (B_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Pred,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Rnn, Loc)))));
+
+         Append_To (Statements (Loops),
+           Make_If_Statement (Loc,
+             Condition => New_Occurrence_Of (Rev, Loc),
+             Then_Statements => B_Ass,
+             Else_Statements => F_Ass));
+      end;
+
+      Append_To (Stats, Loops);
+
+      declare
+         Spec      : Node_Id;
+         Formals   : List_Id := New_List;
+
+      begin
+         Formals := New_List (
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Larray,
+             Out_Present => True,
+             Parameter_Type =>
+               New_Reference_To (Base_Type (Typ), Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Rarray,
+             Parameter_Type =>
+               New_Reference_To (Base_Type (Typ), Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Left_Lo,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Left_Hi,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Right_Lo,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Right_Hi,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)));
+
+         Append_To (Formals,
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Rev,
+             Parameter_Type =>
+               New_Reference_To (Standard_Boolean, Loc)));
+
+         Spec :=
+           Make_Procedure_Specification (Loc,
+             Defining_Unit_Name       => Proc_Name,
+             Parameter_Specifications => Formals);
+
+         Discard_Node (
+           Make_Subprogram_Body (Loc,
+             Specification              => Spec,
+             Declarations               => Decls,
+             Handled_Statement_Sequence =>
+               Make_Handled_Sequence_Of_Statements (Loc,
+                 Statements => Stats)));
+      end;
+
+      Set_TSS (Typ, Proc_Name);
+      Set_Is_Pure (Proc_Name);
+   end Build_Slice_Assignment;
+
    ------------------------------------
    -- Build_Variant_Record_Equality --
    ------------------------------------
@@ -2725,7 +3013,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier => Parent_N,
-          Subtype_Indication  => New_Reference_To (Par_Subtype, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Par_Subtype, Loc)));
 
       if Null_Present (Rec_Ext_Part) then
          Set_Component_List (Rec_Ext_Part,
@@ -2882,7 +3173,7 @@ package body Exp_Ch3 is
 
    begin
       --  Don't do anything for deferred constants. All proper actions will
-      --  be expanded during the redeclaration.
+      --  be expanded during the full declaration.
 
       if No (Expr) and Constant_Present (N) then
          return;
@@ -3018,7 +3309,7 @@ package body Exp_Ch3 is
          --  When we have the appropriate type of aggregate in the
          --  expression (it has been determined during analysis of the
          --  aggregate by setting the delay flag), let's perform in
-         --  place assignment and thus avoid creating a temporay.
+         --  place assignment and thus avoid creating a temporary.
 
          if Is_Delayed_Aggregate (Expr_Q) then
             Convert_Aggr_In_Object_Decl (N);
@@ -3302,7 +3593,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier =>  Ent,
-          Subtype_Indication  => New_Reference_To (Controller_Type, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Controller_Type, Loc)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3393,8 +3687,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Sloc_N,
           Defining_Identifier => Tag_Component (T),
-          Subtype_Indication  =>
-            New_Reference_To (RTE (RE_Tag), Sloc_N));
+          Component_Definition =>
+            Make_Component_Definition (Sloc_N,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (RTE (RE_Tag), Sloc_N)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3410,7 +3706,7 @@ package body Exp_Ch3 is
       --  already been analyzed previously. Here we just insure that the
       --  tree is coherent with the semantic decoration
 
-      Find_Type (Subtype_Indication (Comp_Decl));
+      Find_Type (Subtype_Indication (Component_Definition (Comp_Decl)));
 
    exception
       when RE_Not_Available =>
@@ -3474,6 +3770,12 @@ package body Exp_Ch3 is
 
          if Typ = Base and then Has_Controlled_Component (Base) then
             Build_Controlling_Procs (Base);
+
+            if not Is_Limited_Type (Component_Type (Typ))
+              and then Number_Dimensions (Typ) = 1
+            then
+               Build_Slice_Assignment (Typ);
+            end if;
          end if;
 
       --  For packed case, there is a default initialization, except
@@ -3579,7 +3881,10 @@ package body Exp_Ch3 is
                           High_Bound =>
                             Make_Integer_Literal (Loc, Num - 1))))),
 
-              Subtype_Indication => New_Reference_To (Typ, Loc)),
+              Component_Definition =>
+                Make_Component_Definition (Loc,
+                  Aliased_Present => False,
+                  Subtype_Indication => New_Reference_To (Typ, Loc))),
 
           Expression =>
             Make_Aggregate (Loc,

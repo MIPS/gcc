@@ -2,7 +2,7 @@
    - some flags HAVE_... saying which simple standard instructions are
    available for this machine.
    Copyright (C) 1987, 1991, 1995, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -209,7 +209,7 @@ gen_insn (rtx insn)
     max_id_len = len;
 
   if (truth == 0)
-    /* emit nothing */;
+    /* Emit nothing.  */;
   else if (truth == 1)
     printf ("#define HAVE_%s 1\n", name);
   else

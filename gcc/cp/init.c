@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -228,14 +228,17 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       max_index = nelts ? nelts : array_type_nelts (type);
       my_friendly_assert (TREE_CODE (max_index) == INTEGER_CST, 20030618);
 
-      for (index = size_zero_node;
-	   !tree_int_cst_lt (max_index, index);
-	   index = size_binop (PLUS_EXPR, index, size_one_node))
-	inits = tree_cons (index,
-			   build_zero_init (TREE_TYPE (type),
-					    /*nelts=*/NULL_TREE,
-					    static_storage_p),
-			   inits);
+      /* A zero-sized array, which is accepted as an extension, will
+	 have an upper bound of -1.  */
+      if (!tree_int_cst_equal (max_index, integer_minus_one_node))
+	for (index = size_zero_node;
+	     !tree_int_cst_lt (max_index, index);
+	     index = size_binop (PLUS_EXPR, index, size_one_node))
+	  inits = tree_cons (index,
+			     build_zero_init (TREE_TYPE (type),
+					      /*nelts=*/NULL_TREE,
+					      static_storage_p),
+			     inits);
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
   else if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -1253,8 +1256,8 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
    from TRUE_EXP.  In constructors, we don't know anything about
    the value being initialized.
 
-   FLAGS is just passes to `build_method_call'.  See that function for
-   its description.  */
+   FLAGS is just passed to `build_new_method_call'.  See that function
+   for its description.  */
 
 static void
 expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
@@ -1277,8 +1280,9 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
       /* If store_init_value returns NULL_TREE, the INIT has been
 	 record in the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
-      if (store_init_value (exp, init))
-	finish_expr_stmt (build (INIT_EXPR, type, exp, init));
+      init = store_init_value (exp, init);
+      if (init)
+	finish_expr_stmt (init);
       return;
     }
 
@@ -2035,6 +2039,7 @@ build_new_1 (tree exp)
   else
     {
       tree fnname;
+      tree fns;
 
       fnname = ansi_opname (code);
 
@@ -2053,11 +2058,18 @@ build_new_1 (tree exp)
 	    }
 	  /* Create the argument list.  */
 	  args = tree_cons (NULL_TREE, size, placement);
-	  /* Call the function.  */
-	  alloc_call = build_method_call (build_dummy_object (true_type),
-					  fnname, args, 
-					  TYPE_BINFO (true_type),
-					  LOOKUP_NORMAL);
+	  /* Do name-lookup to find the appropriate operator.  */
+	  fns = lookup_fnfields (true_type, fnname, /*protect=*/2);
+	  if (TREE_CODE (fns) == TREE_LIST)
+	    {
+	      error ("request for member `%D' is ambiguous", fnname);
+	      print_candidates (fns);
+	      return error_mark_node;
+	    }
+	  alloc_call = build_new_method_call (build_dummy_object (true_type),
+					      fns, args,
+					      /*conversion_path=*/NULL_TREE,
+					      LOOKUP_NORMAL);
 	}
       else
 	{

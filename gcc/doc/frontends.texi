@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -12,7 +12,7 @@
 @cindex Java
 @cindex Ada
 @cindex treelang
-Several versions of the compiler (C, C++, Objective-C, Ada, Fortran 77,
+Several versions of the compiler (C, C++, Objective-C, Ada,
 Fortran, Java and treelang) are integrated; this is why we use the name
 ``GNU Compiler Collection''.  GCC can compile programs written in any of these
 languages.  The Ada, Fortran 77, Fortran, Java and treelang compilers are

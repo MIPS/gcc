@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2003, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2004, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -36,6 +36,7 @@
 #include "ggc.h"
 #include "debug.h"
 #include "convert.h"
+#include "target.h"
 
 #include "ada.h"
 #include "types.h"
@@ -1566,15 +1567,16 @@ process_attributes (tree decl, struct attrib *attr_list)
 	break;
 
       case ATTR_LINK_SECTION:
-#ifdef ASM_OUTPUT_SECTION_NAME
-	DECL_SECTION_NAME (decl)
-	  = build_string (IDENTIFIER_LENGTH (attr_list->name),
-			  IDENTIFIER_POINTER (attr_list->name));
-	DECL_COMMON (decl) = 0;
-#else
-	post_error ("?section attributes are not supported for this target",
-		    attr_list->error_point);
-#endif
+	if (targetm.have_named_sections)
+	  {
+	    DECL_SECTION_NAME (decl)
+	      = build_string (IDENTIFIER_LENGTH (attr_list->name),
+			      IDENTIFIER_POINTER (attr_list->name));
+	    DECL_COMMON (decl) = 0;
+	  }
+	else
+	  post_error ("?section attributes are not supported for this target",
+		      attr_list->error_point);
 	break;
       }
 }

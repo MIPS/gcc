@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -1057,6 +1057,13 @@ dwarf2out_stack_adjust (rtx insn)
   const char *label;
   int i;
 
+  /* Don't handle epilogues at all.  Certainly it would be wrong to do so
+     with this function.  Proper support would require all frame-related
+     insns to be marked, and to be able to handle saving state around
+     epilogues textually in the middle of the function.  */
+  if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
+    return;
+
   if (!flag_asynchronous_unwind_tables && GET_CODE (insn) == CALL_INSN)
     {
       /* Extract the size of the args from the CALL rtx itself.  */
@@ -1783,11 +1790,19 @@ dw_cfi_oprnd2_desc (enum dwarf_call_frame_info cfi)
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
+/* Map register numbers held in the call frame info that gcc has
+   collected using DWARF_FRAME_REGNUM to those that should be output in
+   .debug_frame and .eh_frame.  */
+#ifndef DWARF2_FRAME_REG_OUT
+#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
+#endif
+
 /* Output a Call Frame Information opcode and its operand(s).  */
 
 static void
 output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 {
+  unsigned long r;
   if (cfi->dw_cfi_opc == DW_CFA_advance_loc)
     dw2_asm_output_data (1, (cfi->dw_cfi_opc
 			     | (cfi->dw_cfi_oprnd1.dw_cfi_offset & 0x3f)),
@@ -1795,17 +1810,17 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 			 cfi->dw_cfi_oprnd1.dw_cfi_offset);
   else if (cfi->dw_cfi_opc == DW_CFA_offset)
     {
-      dw2_asm_output_data (1, (cfi->dw_cfi_opc
-			       | (cfi->dw_cfi_oprnd1.dw_cfi_reg_num & 0x3f)),
-			   "DW_CFA_offset, column 0x%lx",
-			   cfi->dw_cfi_oprnd1.dw_cfi_reg_num);
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+      dw2_asm_output_data (1, (cfi->dw_cfi_opc | (r & 0x3f)),
+			   "DW_CFA_offset, column 0x%lx", r);
       dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
     }
   else if (cfi->dw_cfi_opc == DW_CFA_restore)
-    dw2_asm_output_data (1, (cfi->dw_cfi_opc
-			     | (cfi->dw_cfi_oprnd1.dw_cfi_reg_num & 0x3f)),
-			 "DW_CFA_restore, column 0x%lx",
-			 cfi->dw_cfi_oprnd1.dw_cfi_reg_num);
+    {
+      r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+      dw2_asm_output_data (1, (cfi->dw_cfi_opc | (r & 0x3f)),
+			   "DW_CFA_restore, column 0x%lx", r);
+    }
   else
     {
       dw2_asm_output_data (1, cfi->dw_cfi_opc,
@@ -1850,15 +1865,15 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 
 	case DW_CFA_offset_extended:
 	case DW_CFA_def_cfa:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
 	  break;
 
 	case DW_CFA_offset_extended_sf:
 	case DW_CFA_def_cfa_sf:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  dw2_asm_output_data_sleb128 (cfi->dw_cfi_oprnd2.dw_cfi_offset, NULL);
 	  break;
 
@@ -1866,15 +1881,15 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	case DW_CFA_undefined:
 	case DW_CFA_same_value:
 	case DW_CFA_def_cfa_register:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  break;
 
 	case DW_CFA_register:
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd1.dw_cfi_reg_num,
-				       NULL);
-	  dw2_asm_output_data_uleb128 (cfi->dw_cfi_oprnd2.dw_cfi_reg_num,
-				       NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd1.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
+	  r = DWARF2_FRAME_REG_OUT (cfi->dw_cfi_oprnd2.dw_cfi_reg_num, for_eh);
+	  dw2_asm_output_data_uleb128 (r, NULL);
 	  break;
 
 	case DW_CFA_def_cfa_offset:
@@ -1904,7 +1919,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
     }
 }
 
-/* Output the call frame information used to used to record information
+/* Output the call frame information used to record information
    that relates to calculating the frame pointer, and records the
    location of saved registers.  */
 
@@ -3696,8 +3711,8 @@ static void output_file_names (void);
 static dw_die_ref base_type_die (tree);
 static tree root_type (tree);
 static int is_base_type (tree);
-static bool is_ada_subrange_type (tree);
-static dw_die_ref subrange_type_die (tree);
+static bool is_subrange_type (tree);
+static dw_die_ref subrange_type_die (tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
 static int type_is_enum (tree);
 static unsigned int reg_number (rtx);
@@ -3755,7 +3770,7 @@ static void gen_entry_point_die (tree, dw_die_ref);
 static void gen_inlined_enumeration_type_die (tree, dw_die_ref);
 static void gen_inlined_structure_type_die (tree, dw_die_ref);
 static void gen_inlined_union_type_die (tree, dw_die_ref);
-static void gen_enumeration_type_die (tree, dw_die_ref);
+static dw_die_ref gen_enumeration_type_die (tree, dw_die_ref);
 static dw_die_ref gen_formal_parameter_die (tree, dw_die_ref);
 static void gen_unspecified_parameters_die (tree, dw_die_ref);
 static void gen_formal_types_die (tree, dw_die_ref);
@@ -4863,7 +4878,7 @@ AT_lbl (dw_attr_ref a)
 
 /* Get the attribute of type attr_kind.  */
 
-static inline dw_attr_ref
+static dw_attr_ref
 get_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
   dw_attr_ref a;
@@ -7807,33 +7822,56 @@ simple_type_size_in_bits (tree type)
    emitted as a subrange type.  */
 
 static inline bool
-is_ada_subrange_type (tree type)
+is_subrange_type (tree type)
 {
-  /* We do this for INTEGER_TYPEs that have names, parent types, and when
-     we are compiling Ada code.  */
-  return (TREE_CODE (type) == INTEGER_TYPE
-	  && TYPE_NAME (type) != 0 && TREE_TYPE (type) != 0
-	  && TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE
-	  && TREE_UNSIGNED (TREE_TYPE (type)) && is_ada ());
+  tree subtype = TREE_TYPE (type);
+
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && subtype != NULL_TREE)
+    {
+      if (TREE_CODE (subtype) == INTEGER_TYPE)
+        return true;
+      if (TREE_CODE (subtype) == ENUMERAL_TYPE)
+        return true;
+    }
+  return false;
 }
 
 /*  Given a pointer to a tree node for a subrange type, return a pointer
     to a DIE that describes the given type.  */
 
 static dw_die_ref
-subrange_type_die (tree type)
+subrange_type_die (tree type, dw_die_ref context_die)
 {
   dw_die_ref subtype_die;
   dw_die_ref subrange_die;
   tree name = TYPE_NAME (type);
+  const HOST_WIDE_INT size_in_bytes = int_size_in_bytes (type);
 
-  subtype_die = base_type_die (TREE_TYPE (type));
+  if (context_die == NULL)
+    context_die = comp_unit_die;
 
-  if (TREE_CODE (name) == TYPE_DECL)
-    name = DECL_NAME (name);
+  if (TREE_CODE (TREE_TYPE (type)) == ENUMERAL_TYPE)
+    subtype_die = gen_enumeration_type_die (TREE_TYPE (type), context_die);
+  else
+    subtype_die = base_type_die (TREE_TYPE (type));
 
-  subrange_die = new_die (DW_TAG_subrange_type, comp_unit_die, type);
-  add_name_attribute (subrange_die, IDENTIFIER_POINTER (name));
+  subrange_die = new_die (DW_TAG_subrange_type, context_die, type);
+
+  if (name != NULL)
+    {
+      if (TREE_CODE (name) == TYPE_DECL)
+        name = DECL_NAME (name);
+      add_name_attribute (subrange_die, IDENTIFIER_POINTER (name));
+    }
+
+  if (int_size_in_bytes (TREE_TYPE (type)) != size_in_bytes)
+    {
+      /* The size of the subrange type and its base type do not match,
+         so we need to generate a size attribute for the subrange type.  */
+      add_AT_unsigned (subrange_die, DW_AT_byte_size, size_in_bytes);
+    }
+
   if (TYPE_MIN_VALUE (type) != NULL)
     add_bound_info (subrange_die, DW_AT_lower_bound,
                     TYPE_MIN_VALUE (type));
@@ -7936,8 +7974,8 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 #endif
 	  item_type = TREE_TYPE (type);
 	}
-      else if (is_ada_subrange_type (type))
-        mod_type_die = subrange_type_die (type);
+      else if (is_subrange_type (type))
+        mod_type_die = subrange_type_die (type, context_die);
       else if (is_base_type (type))
 	mod_type_die = base_type_die (type);
       else
@@ -8505,7 +8543,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	  indirect_p = 1;
 	  break;
 	}
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case PARM_DECL:
     case RESULT_DECL:
@@ -9112,11 +9150,6 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
   switch (GET_CODE (rtl))
     {
     case CONST_INT:
-      /* Note that a CONST_INT rtx could represent either an integer
-	 or a floating-point constant.  A CONST_INT is used whenever
-	 the constant will fit into a single word.  In all such
-	 cases, the original mode of the constant value is wiped
-	 out, and the CONST_INT rtx is assigned VOIDmode.  */
       {
 	HOST_WIDE_INT val = INTVAL (rtl);
 
@@ -9374,7 +9407,8 @@ rtl_for_decl_location (tree decl)
 				   TREE_STRING_LENGTH (init) - 1) == 0
 	      && ((size_t) TREE_STRING_LENGTH (init)
 		  == strlen (TREE_STRING_POINTER (init)) + 1))
-	    rtl = gen_rtx_CONST_STRING (VOIDmode, TREE_STRING_POINTER (init));
+	    rtl = gen_rtx_CONST_STRING (VOIDmode,
+					ggc_strdup (TREE_STRING_POINTER (init)));
 	}
       /* If the initializer is something that we know will expand into an
 	 immediate RTL constant, expand it now.  Expanding anything else
@@ -10353,7 +10387,7 @@ gen_inlined_union_type_die (tree type, dw_die_ref context_die)
    enumerated type name/value is listed as a child of the enumerated type
    DIE.  */
 
-static void
+static dw_die_ref
 gen_enumeration_type_die (tree type, dw_die_ref context_die)
 {
   dw_die_ref type_die = lookup_type_die (type);
@@ -10366,7 +10400,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
       add_name_attribute (type_die, type_tag (type));
     }
   else if (! TYPE_SIZE (type))
-    return;
+    return type_die;
   else
     remove_AT (type_die, DW_AT_declaration);
 
@@ -10409,6 +10443,8 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
     }
   else
     add_AT_flag (type_die, DW_AT_declaration, 1);
+
+  return type_die;
 }
 
 /* Generate a DIE to represent either a real live formal parameter decl or to
@@ -11898,7 +11934,7 @@ gen_namespace_die (tree decl)
   dw_die_ref context_die = setup_namespace_context (decl, comp_unit_die);
 
   /* Namespace aliases have a DECL_ABSTRACT_ORIGIN of the namespace
-     they are an alias of. */
+     they are an alias of.  */
   if (DECL_ABSTRACT_ORIGIN (decl) == NULL)
     {
       /* Output a real namespace.  */

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Renesas M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -115,6 +115,7 @@
   do						\
     {						\
       builtin_define ("__M32R__");		\
+      builtin_define ("__m32r__");		\
       builtin_assert ("cpu=m32r");		\
       builtin_assert ("machine=m32r");		\
       builtin_define (TARGET_BIG_ENDIAN		\
@@ -183,6 +184,8 @@
   { "relax",			RELAX_SPEC },				\
   SUBTARGET_EXTRA_SPECS
 
+#define CPP_SPEC "%(cpp_cpu)"
+
 #undef  CC1_SPEC
 #define CC1_SPEC "%{G*} %(cc1_cpu)"
 
@@ -240,7 +243,7 @@ extern int target_flags;
 
 /* Support extended instruction set of m32r2.  */
 #define TARGET_M32R2_MASK       (1 << 6)
-#define TARGET_M32R2            (target_flags & TARGET_M32RX_MASK)
+#define TARGET_M32R2            (target_flags & TARGET_M32R2_MASK)
 #undef  TARGET_M32R
 #define TARGET_M32R             (! TARGET_M32RX && ! TARGET_M32R2)
 
@@ -1271,7 +1274,7 @@ L2:     .word STATIC
 #endif
 
 /* Length in bytes of the trampoline for entering a nested function.  */
-#define TRAMPOLINE_SIZE 12
+#define TRAMPOLINE_SIZE 24
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -1510,12 +1513,6 @@ L2:     .word STATIC
    itself with an explicit address than to call an address kept in a
    register.  */
 #define NO_RECURSIVE_FUNCTION_CSE
-
-/* When the `length' insn attribute is used, this macro specifies the
-   value to be assigned to the address of the first insn in a
-   function.  If not specified, 0 is used.  */
-#define FIRST_INSN_ADDRESS m32r_first_insn_address ()
-
 
 /* Section selection.  */
 
@@ -1748,19 +1745,19 @@ extern char m32r_punct_chars[256];
     }									\
   while (0)
 
-/* Like `ASM_OUTPUT_BSS' except takes the required alignment as a
-   separate, explicit argument.  If you define this macro, it is used in
-   place of `ASM_OUTPUT_BSS', and gives you more flexibility in
-   handling the required alignment of the variable.  The alignment is
-   specified as the number of bits.
-
-   For the M32R we need sbss support.  */
-
-#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
-  do								\
-    {								\
-      ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
-    }								\
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
+  do									\
+    {									\
+      if (! TARGET_SDATA_NONE						\
+          && (SIZE) > 0 && (SIZE) <= g_switch_value)			\
+        named_section (0, ".sbss", 0);					\
+      else								\
+        bss_section ();							\
+      ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
+      last_assemble_variable_decl = DECL;				\
+      ASM_DECLARE_OBJECT_NAME (FILE, NAME, DECL);			\
+      ASM_OUTPUT_SKIP (FILE, SIZE ? SIZE : 1);				\
+    }									\
   while (0)
 
 /* Debugging information.  */

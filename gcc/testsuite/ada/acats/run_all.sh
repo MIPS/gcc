@@ -10,7 +10,7 @@
 # gnatflags="-gnatN"
 
 gccflags=""
-gnatflags="-q -gnatws"
+gnatflags="-gnatws"
 
 target_run () {
 $*
@@ -47,7 +47,12 @@ if [ "$dir" = "$testdir" ]; then
   exit 1
 fi
 
+target_gnatchop () {
+  gnatchop --GCC="$GCC_DRIVER" $*
+}
+
 target_gnatmake () {
+  echo gnatmake --GCC=\"$GCC\" $gnatflags $gccflags $* -largs $EXTERNAL_OBJECTS --GCC=\"$GCC\"
   gnatmake --GCC="$GCC" $gnatflags $gccflags $* -largs $EXTERNAL_OBJECTS --GCC="$GCC"
 }
 
@@ -101,7 +106,7 @@ mkdir -p $dir/run
 cp -pr $testdir/tests $dir/
 
 for i in $dir/support/*.ada $dir/support/*.a; do 
-   gnatchop $i >> $dir/acats.log 2>&1
+   host_gnatchop $i >> $dir/acats.log 2>&1
 done
 
 # These tools are used to preprocess some ACATS sources
@@ -139,10 +144,10 @@ if [ $? -ne 0 ]; then
    exit 1
 fi
 
-gnatchop *.adt >> $dir/acats.log 2>&1
+target_gnatchop *.adt >> $dir/acats.log 2>&1
 
-target_gnatmake -c -gnato -gnatE *.ads > /dev/null 2>&1
-target_gnatmake -c -gnato -gnatE *.adb
+target_gnatmake -c -gnato -gnatE *.ads >> $dir/acats.log 2>&1
+target_gnatmake -c -gnato -gnatE *.adb >> $dir/acats.log 2>&1
 
 display " done."
 display ""
@@ -186,9 +191,16 @@ for chapter in $chapters; do
          extraflags="$extraflags -gnatE"
       fi
       test=$dir/tests/$chapter/$i
-      mkdir $test
-      cd $test
-      gnatchop -c -w `ls ${test}*.a ${test}*.ada ${test}*.adt ${test}*.am ${test}*.dep 2> /dev/null` >> $dir/acats.log 2>&1
+      mkdir $test && cd $test >> $dir/acats.log 2>&1
+
+      if [ $? -ne 0 ]; then
+         display "FAIL:	$i"
+         failed="${failed}${i} "
+         clean_dir
+         continue
+      fi
+
+      target_gnatchop -c -w `ls ${test}*.a ${test}*.ada ${test}*.adt ${test}*.am ${test}*.dep 2> /dev/null` >> $dir/acats.log 2>&1
       ls ${i}?.adb > ${i}.lst 2> /dev/null
       ls ${i}*m.adb >> ${i}.lst 2> /dev/null
       ls ${i}.adb >> ${i}.lst 2> /dev/null

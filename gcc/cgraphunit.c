@@ -184,6 +184,7 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->global, 0, sizeof (node->global));
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
+      node->local.redefined_extern_inline = true;
       while (node->callees)
 	cgraph_remove_edge (node->callees);
 
@@ -219,7 +220,10 @@ cgraph_finalize_function (tree decl, bool nested)
   /* If not unit at a time, go ahead and emit everything we've found
      to be reachable at this time.  */
   if (!nested)
-    cgraph_assemble_pending_functions ();
+    {
+      if (!cgraph_assemble_pending_functions ())
+	ggc_collect ();
+    }
 
   /* If we've not yet emitted decl, tell the debug info about it.  */
   if (!TREE_ASM_WRITTEN (decl))
@@ -467,8 +471,15 @@ cgraph_analyze_function (struct cgraph_node *node)
     node->local.disregard_inline_limits
       = (*lang_hooks.tree_inlining.disregard_inline_limits) (decl);
   for (e = node->callers; e; e = e->next_caller)
-    e->inline_failed = (!node->local.inlinable ? N_("function not inlinable")
-			: N_("function not considered for inlining"));
+    {
+      if (node->local.redefined_extern_inline)
+	e->inline_failed = N_("redefined extern inline functions are not "
+			   "considered for inlining");
+      else if (!node->local.inlinable)
+	e->inline_failed = N_("function not inlinable");
+      else
+	e->inline_failed = N_("function not considered for inlining");
+    }
   if (flag_really_no_inline && !node->local.disregard_inline_limits)
     node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */

@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1065,6 +1065,8 @@ enum label_kind
 
 /* in rtlanal.c */
 extern unsigned int subreg_lsb (rtx);
+extern unsigned int subreg_lsb_1 (enum machine_mode, enum machine_mode,
+				  unsigned int);
 extern unsigned int subreg_regno_offset	(unsigned int, enum machine_mode,
 					 unsigned int, enum machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
@@ -1485,7 +1487,6 @@ extern rtx gen_highpart_mode (enum machine_mode, enum machine_mode, rtx);
 extern rtx gen_realpart (enum machine_mode, rtx);
 extern rtx gen_imagpart (enum machine_mode, rtx);
 extern rtx operand_subword (rtx, unsigned int, int, enum machine_mode);
-extern rtx constant_subword (rtx, int, enum machine_mode);
 
 /* In emit-rtl.c */
 extern rtx operand_subword_force (rtx, unsigned int, enum machine_mode);
@@ -1507,10 +1508,10 @@ extern void push_to_sequence (rtx);
 extern void end_sequence (void);
 extern void push_to_full_sequence (rtx, rtx);
 extern void end_full_sequence (rtx*, rtx*);
-
-/* In varasm.c  */
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       enum machine_mode);
+
+/* In varasm.c  */
 extern rtx force_const_mem (enum machine_mode, rtx);
 
 /* In varasm.c  */
@@ -1573,6 +1574,19 @@ extern rtx prev_label (rtx);
 extern rtx next_label (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
+
+#define emit_insn_before_sameloc(INSN, BEFORE) \
+  emit_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
+#define emit_jump_insn_before_sameloc(INSN, BEFORE) \
+  emit_jump_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
+#define emit_call_insn_before_sameloc(INSN, BEFORE) \
+  emit_call_insn_before_setloc (INSN, BEFORE, INSN_LOCATOR (BEFORE))
+#define emit_insn_after_sameloc(INSN, AFTER) \
+  emit_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
+#define emit_jump_insn_after_sameloc(INSN, AFTER) \
+  emit_jump_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
+#define emit_call_insn_after_sameloc(INSN, AFTER) \
+  emit_call_insn_after_setloc (INSN, AFTER, INSN_LOCATOR (AFTER))
 
 /* In cfglayout.c  */
 extern tree choose_inner_scope (tree, tree);
@@ -1726,6 +1740,7 @@ extern int insns_safe_to_move_p (rtx, rtx, rtx *);
 extern int loc_mentioned_in_p (rtx *, rtx);
 extern rtx find_first_parameter_load (rtx, rtx);
 extern bool keep_with_call_p (rtx);
+extern bool label_is_jump_target_p (rtx, rtx);
 
 /* flow.c */
 
@@ -1986,7 +2001,7 @@ struct cse_basic_block_data;
    N times that of a fast register-to-register instruction.  */
 #define COSTS_N_INSNS(N) ((N) * 4)
 
-/* Maximum cost of a rtl expression.  This value has the special meaning
+/* Maximum cost of an rtl expression.  This value has the special meaning
    not to use an rtx with this cost under any circumstances.  */
 #define MAX_COST INT_MAX
 
@@ -1998,6 +2013,7 @@ extern int cse_main (rtx, int, int, FILE *);
 #endif
 extern void cse_end_of_basic_block (rtx, struct cse_basic_block_data *,
 				    int, int, int);
+extern void cse_condition_code_reg (void);
 
 /* In jump.c */
 extern int comparison_dominates_p (enum rtx_code, enum rtx_code);
@@ -2294,6 +2310,7 @@ extern void end_alias_analysis (void);
 extern rtx addr_side_effect_eval (rtx, int, int);
 extern bool memory_modified_in_insn_p (rtx, rtx);
 extern rtx find_base_term (rtx);
+extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
 
 /* In sibcall.c */
 typedef enum {

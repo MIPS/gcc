@@ -1,5 +1,5 @@
 /* Handle exceptions for GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -319,6 +319,7 @@ tree
 prepare_eh_table_type (tree type)
 {
   tree exp;
+  tree *slot;
   const char *name;
   char *buf;
   tree decl;
@@ -331,8 +332,16 @@ prepare_eh_table_type (tree type)
    * rewritten to point to the appropriate class.  */
 
   if (type == NULL_TREE)
-    exp = NULL_TREE;
-  else if (is_compiled_class (type) && !flag_indirect_dispatch)
+    return NULL_TREE;
+
+  if (TYPE_TO_RUNTIME_MAP (output_class) == NULL)
+    TYPE_TO_RUNTIME_MAP (output_class) = java_treetreehash_create (10, 1);
+  
+  slot = java_treetreehash_new (TYPE_TO_RUNTIME_MAP (output_class), type);
+  if (*slot != NULL)
+    return TREE_VALUE (*slot);
+
+  if (is_compiled_class (type) && !flag_indirect_dispatch)
     {
       name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
       buf = alloca (strlen (name) + 5);
@@ -346,9 +355,7 @@ prepare_eh_table_type (tree type)
       DECL_INITIAL (decl) = build_class_ref (type);
       layout_decl (decl, 0);
       pushdecl (decl);
-      rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
-      make_decl_rtl (decl, (char*) 0);
-      exp = build1 (ADDR_EXPR, ptr_type_node, decl);
+      exp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)), decl);
     }
   else
     {
@@ -364,14 +371,42 @@ prepare_eh_table_type (tree type)
       TREE_THIS_VOLATILE (decl) = 0;
       layout_decl (decl, 0);
       pushdecl (decl);
-      rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
-      make_decl_rtl (decl, (char*) 0);
       exp = build1 (ADDR_EXPR, build_pointer_type (utf8const_ptr_type), decl);
-      catch_classes = tree_cons (NULL, make_catch_class_record (exp, utf8_ref), catch_classes);
+      TYPE_CATCH_CLASSES (output_class) = 
+	tree_cons (NULL, make_catch_class_record (exp, utf8_ref), 
+		   TYPE_CATCH_CLASSES (output_class));
     }
+
+  exp = convert (ptr_type_node, exp);
+
+  *slot = tree_cons (type, exp, NULL_TREE);
+
   return exp;
 }
 
+static int
+expand_catch_class (void **entry, void *x ATTRIBUTE_UNUSED)
+{
+  struct treetreehash_entry *ite = (struct treetreehash_entry *) *entry;
+  tree addr = TREE_VALUE ((tree)ite->value);
+  tree decl;
+  STRIP_NOPS (addr);
+  decl = TREE_OPERAND (addr, 0);
+  rest_of_decl_compilation (decl, (char*) 0, global_bindings_p (), 0);
+  return true;
+}
+  
+/* For every class in the TYPE_TO_RUNTIME_MAP, expand the
+   corresponding object that is used by the runtime type matcher.  */
+
+void
+java_expand_catch_classes (tree this_class)
+{
+  if (TYPE_TO_RUNTIME_MAP (this_class))
+    htab_traverse 
+      (TYPE_TO_RUNTIME_MAP (this_class),
+       expand_catch_class, NULL);
+}
 
 /* Build a reference to the jthrowable object being carried in the
    exception header.  */
@@ -412,6 +447,8 @@ expand_end_java_handler (struct eh_range *range)
 
       if (type == NULL)
 	type = throwable_type_node;
+
+      type = prepare_eh_table_type (type);
 
       if (compound)
 	{

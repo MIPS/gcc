@@ -1,6 +1,6 @@
 /* Generate code from machine description to compute values of attributes.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -1155,7 +1155,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
 	  have_error = 1;
 	  break;
 	}
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case IOR:
     case AND:

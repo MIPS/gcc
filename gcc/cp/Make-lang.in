@@ -1,5 +1,5 @@
 # Top level -*- makefile -*- fragment for GNU C++.
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -37,10 +37,10 @@
 # - define the names for selecting the language in LANGUAGES.
 
 # Actual names to use when installing a native compiler.
-CXX_INSTALL_NAME = `echo c++|sed '$(program_transform_name)'`
-GXX_INSTALL_NAME = `echo g++|sed '$(program_transform_name)'`
-CXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo c++|sed '$(program_transform_name)'`
-GXX_TARGET_INSTALL_NAME = $(target_noncanonical)-`echo g++|sed '$(program_transform_name)'`
+CXX_INSTALL_NAME := $(shell echo c++|sed '$(program_transform_name)')
+GXX_INSTALL_NAME := $(shell echo g++|sed '$(program_transform_name)')
+CXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo c++|sed '$(program_transform_name)')
+GXX_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo g++|sed '$(program_transform_name)')
 
 #
 # Define the names for selecting c++ in LANGUAGES.
@@ -110,13 +110,19 @@ c++.all.build: g++$(exeext)
 c++.all.cross: g++-cross$(exeext)
 c++.start.encap: g++$(exeext)
 c++.rest.encap:
+c++.info:
+c++.srcinfo:
+c++.srcextra:
 
 c++.tags: force
 	cd $(srcdir)/cp; etags -o TAGS.sub *.c *.h --language=none \
 	  --regex='/DEFTREECODE [(]\([A-Z_]+\)/\1/' cp-tree.def; \
 	etags --include TAGS.sub --include ../TAGS.sub
 
-generated-manpages:: $(docobjdir)/g++.1
+c++.man: doc/g++.1
+
+c++.srcman: doc/g++.1
+	-cp -p $^ $(srcdir)/doc
 
 check-c++ : check-g++
 lang_checks += check-g++
@@ -156,16 +162,17 @@ c++.install-common: installdirs
 	  fi ; \
 	fi
 
-$(docobjdir)/g++.1:
-	-rm -f $@
-	-echo ".so man1/$(GCC_INSTALL_NAME).1" > $@
+# We can't use links because not everyone supports them, and we can't use
+# .so because Irix 6.5 doesn't support them.  So just copy the manpage.
+doc/g++.1: doc/gcc.1
+	cp doc/gcc.1 doc/g++.1
 
-c++.install-man: installdirs $(docobjdir)/g++.1
-	-if [ -f cc1plus$(exeext) ] ; then \
-	  rm -f $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	  $(INSTALL_DATA) $(docobjdir)/g++.1 $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	  chmod a-x $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext); \
-	else true; fi
+c++.install-man: installdirs $(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext) 
+
+$(DESTDIR)$(man1dir)/$(GXX_INSTALL_NAME)$(man1ext): doc/g++.1
+	-rm -f $@
+	-$(INSTALL_DATA) $< $@
+	-chmod a-x $@
 
 c++.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(CXX_INSTALL_NAME)$(exeext)
@@ -177,7 +184,7 @@ c++.uninstall:
 # We just have to delete files specific to us.
 
 c++.mostlyclean:
-	-rm -f $(docobjdir)/g++.1
+	-rm -f doc/g++.1
 	-rm -f cp/*$(objext)
 	-rm -f cp/*$(coverageexts)
 c++.clean:

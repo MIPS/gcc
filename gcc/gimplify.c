@@ -1688,7 +1688,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   ret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
 		       code != ARRAY_REF ? fb_either : fb_lvalue);
 
-  for (; VARRAY_ACTIVE_SIZE (stack) > 0; VARRAY_POP (stack))
+  for (; VARRAY_ACTIVE_SIZE (stack) > 0; )
     {
       tree t = VARRAY_TOP_TREE (stack);
       if (TREE_CODE (t) == ARRAY_REF)
@@ -1701,6 +1701,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	    ret = GS_ERROR;
 	}
       recalculate_side_effects (t);
+      VARRAY_POP (stack);
     }
 
   /* If the outermost expression is a COMPONENT_REF, canonicalize its type.  */

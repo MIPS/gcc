@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -227,7 +227,6 @@ int n_vtable_searches = 0;
 int n_vtable_elems = 0;
 int n_convert_harshness = 0;
 int n_compute_conversion_costs = 0;
-int n_build_method_call = 0;
 int n_inner_fields_searched = 0;
 #endif
 
@@ -456,8 +455,8 @@ build_vtbl_ref_1 (tree instance, tree idx)
   assemble_external (vtbl);
 
   aref = build_array_ref (vtbl, idx);
-  TREE_CONSTANT (aref) = 1;
-  TREE_INVARIANT (aref) = 1;
+  TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
+  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
 
   return aref;
 }
@@ -3877,6 +3876,9 @@ build_clone (tree fn, tree name)
       if (exceptions)
 	TREE_TYPE (clone) = build_exception_variant (TREE_TYPE (clone),
 						     exceptions);
+      TREE_TYPE (clone) 
+	= build_type_attribute_variant (TREE_TYPE (clone),
+					TYPE_ATTRIBUTES (TREE_TYPE (fn)));
     }
 
   /* Copy the function parameters.  But, DECL_ARGUMENTS on a TEMPLATE_DECL
@@ -4940,6 +4942,8 @@ layout_class_type (tree t, tree *virtuals_p)
 	    DECL_FIELD_OFFSET (*next_field) = DECL_FIELD_OFFSET (field);
 	    DECL_FIELD_BIT_OFFSET (*next_field)
 	      = DECL_FIELD_BIT_OFFSET (field);
+	    DECL_SIZE (*next_field) = DECL_SIZE (field);
+	    DECL_MODE (*next_field) = DECL_MODE (field);
 	    next_field = &TREE_CHAIN (*next_field);
 	  }
 
@@ -6287,8 +6291,6 @@ print_class_statistics (void)
 #ifdef GATHER_STATISTICS
   fprintf (stderr, "convert_harshness = %d\n", n_convert_harshness);
   fprintf (stderr, "compute_conversion_costs = %d\n", n_compute_conversion_costs);
-  fprintf (stderr, "build_method_call = %d (inner = %d)\n",
-	   n_build_method_call, n_inner_fields_searched);
   if (n_vtables)
     {
       fprintf (stderr, "vtables = %d; vtable searches = %d\n",

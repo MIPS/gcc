@@ -274,6 +274,9 @@ struct tree_common GTY(())
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
 
+       TYPE_ALIGN_OK in
+	   ..._TYPE
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
@@ -794,13 +797,13 @@ struct tree_real_cst GTY(())
 
 /* In a STRING_CST */
 #define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
-#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.pointer)
+#define TREE_STRING_POINTER(NODE) (STRING_CST_CHECK (NODE)->string.str)
 
 struct tree_string GTY(())
 {
   struct tree_common common;
   int length;
-  const char *pointer;
+  const char str[1];
 };
 
 /* In a COMPLEX_CST node.  */
@@ -893,6 +896,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -1743,12 +1747,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\

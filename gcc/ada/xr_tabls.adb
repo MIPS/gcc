@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -749,8 +749,7 @@ package body Xr_Tabls is
 
    function Get_File
      (Decl     : Declaration_Reference;
-      With_Dir : Boolean := False)
-      return     String
+      With_Dir : Boolean := False) return String
    is
    begin
       return Get_File (Decl.Decl.File, With_Dir);
@@ -758,8 +757,7 @@ package body Xr_Tabls is
 
    function Get_File
      (Ref      : Reference;
-      With_Dir : Boolean := False)
-      return     String
+      With_Dir : Boolean := False) return String
    is
    begin
       return Get_File (Ref.File, With_Dir);
@@ -768,8 +766,7 @@ package body Xr_Tabls is
    function Get_File
      (File     : File_Reference;
       With_Dir : in Boolean := False;
-      Strip    : Natural    := 0)
-      return     String
+      Strip    : Natural    := 0) return String
    is
       Tmp : GNAT.OS_Lib.String_Access;
 
@@ -1416,7 +1413,7 @@ package body Xr_Tabls is
      (Sorted : Boolean := True)
       return   Declaration_Array_Access
    is
-      Arr   : Declaration_Array_Access :=
+      Arr   : constant Declaration_Array_Access :=
                 new Declaration_Array (1 .. Entities_Count);
       Decl  : Declaration_Reference := Entities_HTable.Get_First;
       Index : Natural               := Arr'First;

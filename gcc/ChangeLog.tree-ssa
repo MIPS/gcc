@@ -1,3 +1,8 @@
+2004-01-30  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure.ac: Move configuration for libbanshee and
+	libgmp from configure.in.
+
 2004-01-30  Richard Henderson  <rth@redhat.com>
 
 	PR opt/13524

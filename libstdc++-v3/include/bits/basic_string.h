@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -129,9 +129,8 @@ namespace std
     private:
       // _Rep: string representation
       //   Invariants:
-      //   1. String really contains _M_length + 1 characters; last is set
-      //      to 0 only on call to c_str().  We avoid instantiating
-      //      _CharT() where the interface does not require it.
+      //   1. String really contains _M_length + 1 characters: due to 21.3.4
+      //      must be kept null-terminated.
       //   2. _M_capacity >= _M_length
       //      Allocated memory is always _M_capacity + (1 * sizeof(_CharT)).
       //   3. _M_refcount has three states:
@@ -284,21 +283,20 @@ namespace std
 	  _M_leak_hard();
       }
 
-      iterator
-      _M_check(size_type __pos) const
+      size_type
+      _M_check(size_type __pos, const char* __s) const
       {
 	if (__pos > this->size())
-	  __throw_out_of_range(__N("basic_string::_M_check"));
-	return _M_ibegin() + __pos;
+	  __throw_out_of_range(__N(__s));
+	return __pos;
       }
 
-      // NB: _M_fold doesn't check for a bad __pos1 value.
-      iterator
-      _M_fold(size_type __pos, size_type __off) const
+      // NB: _M_limit doesn't check for a bad __pos value.
+      size_type
+      _M_limit(size_type __pos, size_type __off) const
       {
 	const bool __testoff =  __off < this->size() - __pos;
-	const size_type __newoff = __testoff ? __off : this->size() - __pos;
-	return (_M_ibegin() + __pos + __newoff);
+	return __testoff ? __off : this->size() - __pos;
       }
 
       // _S_copy_chars is a separate template to permit specialization
@@ -379,10 +377,13 @@ namespace std
 		   size_type __n, const _Alloc& __a);
 
       /**
-       *  @brief  Construct string as copy of a C substring.
-       *  @param  s  Source C string.
+       *  @brief  Construct string initialized by a character array.
+       *  @param  s  Source character array.
        *  @param  n  Number of characters to copy.
        *  @param  a  Allocator to use (default is default allocator).
+       *  
+       *  NB: s must have at least n characters, '\0' has no special
+       *  meaning.
        */
       basic_string(const _CharT* __s, size_type __n,
 		   const _Alloc& __a = _Alloc());
@@ -748,7 +749,8 @@ namespace std
        *  Appends n copies of c to this string.
        */
       basic_string&
-      append(size_type __n, _CharT __c);
+      append(size_type __n, _CharT __c)
+      { return _M_replace_aux(this->size(), size_type(0), __n, __c); }
 
       /**
        *  @brief  Append a range of characters.
@@ -769,7 +771,7 @@ namespace std
        */
       void
       push_back(_CharT __c)
-      { this->replace(_M_iend(), _M_iend(), 1, __c); }
+      { _M_replace_aux(this->size(), size_type(0), size_type(1), __c); }
 
       /**
        *  @brief  Set value to contents of another string.
@@ -792,7 +794,10 @@ namespace std
        *  of available characters in @a str, the remainder of @a str is used.
        */
       basic_string&
-      assign(const basic_string& __str, size_type __pos, size_type __n);
+      assign(const basic_string& __str, size_type __pos, size_type __n)
+      { return this->assign(__str._M_data()
+			    + __str._M_check(__pos, "basic_string::assign"),
+			    __str._M_limit(__pos, __n)); }
 
       /**
        *  @brief  Set value to a C substring.
@@ -834,7 +839,7 @@ namespace std
        */
       basic_string&
       assign(size_type __n, _CharT __c)
-      { return this->replace(_M_ibegin(), _M_iend(), __n, __c); }
+      { return _M_replace_aux(size_type(0), this->size(), __n, __c); }
 
       /**
        *  @brief  Set value to a range of characters.
@@ -893,7 +898,7 @@ namespace std
       */
       basic_string&
       insert(size_type __pos1, const basic_string& __str)
-      { return this->insert(__pos1, __str, 0, __str.size()); }
+      { return this->insert(__pos1, __str, size_type(0), __str.size()); }
 
       /**
        *  @brief  Insert a substring.
@@ -915,7 +920,10 @@ namespace std
       */
       basic_string&
       insert(size_type __pos1, const basic_string& __str,
-	     size_type __pos2, size_type __n);
+	     size_type __pos2, size_type __n)
+      { return this->insert(__pos1, __str._M_data()
+			    + __str._M_check(__pos2, "basic_string::insert"),
+			    __str._M_limit(__pos2, __n)); }
 
       /**
        *  @brief  Insert a C substring.
@@ -976,10 +984,8 @@ namespace std
       */
       basic_string&
       insert(size_type __pos, size_type __n, _CharT __c)
-      {
-	this->insert(_M_check(__pos), __n, __c);
-	return *this;
-      }
+      { return _M_replace_aux(_M_check(__pos, "basic_string::insert"),
+			      size_type(0), __n, __c); }
 
       /**
        *  @brief  Insert one character.
@@ -987,7 +993,6 @@ namespace std
        *  @param c  The character to insert.
        *  @return  Iterator referencing newly inserted char.
        *  @throw  std::length_error  If new length exceeds @c max_size().
-       *  @throw  std::out_of_range  If @a p is beyond the end of this string.
        *
        *  Inserts character @a c at position referenced by @a p.  If adding
        *  character causes the length to exceed max_size(), length_error is
@@ -999,7 +1004,7 @@ namespace std
       {
 	_GLIBCXX_DEBUG_PEDASSERT(__p >= _M_ibegin() && __p <= _M_iend());
 	const size_type __pos = __p - _M_ibegin();
-	this->insert(_M_check(__pos), size_type(1), __c);
+	_M_replace_aux(__pos, size_type(0), size_type(1), __c);
 	_M_rep()->_M_set_leaked();
  	return this->_M_ibegin() + __pos;
       }
@@ -1010,7 +1015,6 @@ namespace std
        *  @param p  Iterator referencing position in string to insert at.
        *  @return  Iterator referencing newly inserted char.
        *  @throw  std::length_error  If new length exceeds @c max_size().
-       *  @throw  std::out_of_range  If @a p is beyond the end of this string.
        *
        *  Inserts a default-constructed character at position
        *  referenced by @a p.  If adding character causes the length
@@ -1039,20 +1043,15 @@ namespace std
       */
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
-      {
-	return this->replace(_M_check(__pos), _M_fold(__pos, __n),
-			     _M_data(), _M_data());
-      }
+      { return _M_replace_safe(_M_check(__pos, "basic_string::erase"),
+			       _M_limit(__pos, __n), NULL, size_type(0)); }
 
       /**
        *  @brief  Remove one character.
        *  @param position  Iterator referencing the character to remove.
        *  @return  iterator referencing same location after removal.
-       *  @throw  std::out_of_range  If @a position is beyond the end of this
-       *  string. 
        *
-       *  Removes the character at @a position from this string.  If @a
-       *  position is beyond end of string, out_of_range is thrown.  The value
+       *  Removes the character at @a position from this string. The value
        *  of the string doesn't change if an error is thrown.
       */
       iterator
@@ -1060,10 +1059,10 @@ namespace std
       {
 	_GLIBCXX_DEBUG_PEDASSERT(__position >= _M_ibegin() 
 				 && __position < _M_iend());
-	const size_type __i = __position - _M_ibegin();
-        this->replace(__position, __position + 1, _M_data(), _M_data());
+	const size_type __pos = __position - _M_ibegin();
+	_M_replace_safe(__pos, size_type(1), NULL, size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __i;
+	return _M_ibegin() + __pos;
       }
 
       /**
@@ -1071,22 +1070,19 @@ namespace std
        *  @param first  Iterator referencing the first character to remove.
        *  @param last  Iterator referencing the end of the range.
        *  @return  Iterator referencing location of first after removal.
-       *  @throw  std::out_of_range  If @a first is beyond the end of this
-       *  string. 
        *
        *  Removes the characters in the range [first,last) from this string.
-       *  If @a first is beyond end of string, out_of_range is thrown.  The
-       *  value of the string doesn't change if an error is thrown.
+       *  The value of the string doesn't change if an error is thrown.
       */
       iterator
       erase(iterator __first, iterator __last)
       {
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
 				 && __last <= _M_iend());
-        const size_type __i = __first - _M_ibegin();
-	this->replace(__first, __last, _M_data(), _M_data());
+        const size_type __pos = __first - _M_ibegin();
+	_M_replace_safe(__pos, __last - __first, NULL, size_type(0));
 	_M_rep()->_M_set_leaked();
-	return _M_ibegin() + __i;
+	return _M_ibegin() + __pos;
       }
 
       /**
@@ -1129,7 +1125,10 @@ namespace std
       */
       basic_string&
       replace(size_type __pos1, size_type __n1, const basic_string& __str,
-	      size_type __pos2, size_type __n2);
+	      size_type __pos2, size_type __n2)
+      { return this->replace(__pos1, __n1, __str._M_data()
+			     + __str._M_check(__pos2, "basic_string::replace"),
+			     __str._M_limit(__pos2, __n2)); }
 
       /**
        *  @brief  Replace characters with value of a C substring.
@@ -1192,7 +1191,8 @@ namespace std
       */
       basic_string&
       replace(size_type __pos, size_type __n1, size_type __n2, _CharT __c)
-      { return this->replace(_M_check(__pos), _M_fold(__pos, __n1), __n2, __c); }
+      { return _M_replace_aux(_M_check(__pos, "basic_string::replace"),
+			      _M_limit(__pos, __n1), __n2, __c); }
 
       /**
        *  @brief  Replace range of characters with string.
@@ -1209,11 +1209,7 @@ namespace std
       */
       basic_string&
       replace(iterator __i1, iterator __i2, const basic_string& __str)
-      { 
-	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				 && __i2 <= _M_iend());
-	return this->replace(__i1, __i2, __str._M_data(), __str.size()); 
-      }
+      { return this->replace(__i1, __i2, __str._M_data(), __str.size()); }
 
       /**
        *  @brief  Replace range of characters with C substring.
@@ -1230,9 +1226,12 @@ namespace std
        *  change if an error is thrown.
       */
       basic_string&
-      replace(iterator __i1, iterator __i2,
-	      const _CharT* __s, size_type __n)
-      { return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n); }
+      replace(iterator __i1, iterator __i2, const _CharT* __s, size_type __n)
+      {
+	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				 && __i2 <= _M_iend());	
+	return this->replace(__i1 - _M_ibegin(), __i2 - __i1, __s, __n);
+      }
 
       /**
        *  @brief  Replace range of characters with C string.
@@ -1250,8 +1249,6 @@ namespace std
       basic_string&
       replace(iterator __i1, iterator __i2, const _CharT* __s)
       { 
-	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
-				 && __i2 <= _M_iend());
 	__glibcxx_requires_string(__s);
 	return this->replace(__i1, __i2, __s, traits_type::length(__s)); 
       }
@@ -1275,7 +1272,7 @@ namespace std
       { 
 	_GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
 				 && __i2 <= _M_iend());
-	return _M_replace_aux(__i1, __i2, __n, __c); 
+	return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __c); 
       }
 
       /**
@@ -1353,30 +1350,34 @@ namespace std
 	basic_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n, 
 			    _Integer __val, __true_type)
-        { return _M_replace_aux(__i1, __i2, __n, __val); }
+        { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
 
       template<class _InputIterator>
 	basic_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _InputIterator __k1,
-			    _InputIterator __k2, __false_type)
-        { 
-	  typedef typename iterator_traits<_InputIterator>::iterator_category
-	    _Category;
-	  return _M_replace(__i1, __i2, __k1, __k2, _Category());
-	}
+			    _InputIterator __k2, __false_type);
 
       basic_string&
-      _M_replace_aux(iterator __i1, iterator __i2, size_type __n2, _CharT __c);
+      _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
+		     _CharT __c)
+      {
+	if (this->max_size() - (this->size() - __n1) < __n2)
+	  __throw_length_error("basic_string::_M_replace_aux");
+	_M_mutate(__pos1, __n1, __n2);
+	if (__n2)
+	  traits_type::assign(_M_data() + __pos1, __n2, __c);
+	return *this;	
+      }
 
-      template<class _InputIterator>
-        basic_string&
-        _M_replace(iterator __i1, iterator __i2, _InputIterator __k1,
-		   _InputIterator __k2, input_iterator_tag);
-
-      template<class _ForwardIterator>
-        basic_string&
-        _M_replace_safe(iterator __i1, iterator __i2, _ForwardIterator __k1,
-		   _ForwardIterator __k2);
+      basic_string&
+      _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
+		      size_type __n2)
+      {
+	_M_mutate(__pos1, __n1, __n2);
+	if (__n2)
+	  traits_type::copy(_M_data() + __pos1, __s, __n2);
+	return *this;	
+      }
 
       // _S_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIter is an integral type
@@ -1457,12 +1458,7 @@ namespace std
       */
       const _CharT*
       c_str() const
-      {
-	// MT: This assumes concurrent writes are OK.
-	const size_type __n = this->size();
-	traits_type::assign(_M_data()[__n], _Rep::_S_terminal);
-        return _M_data();
-      }
+      { return _M_data(); }
 
       /**
        *  @brief  Return const pointer to contents.
@@ -1849,11 +1845,7 @@ namespace std
       */
       basic_string
       substr(size_type __pos = 0, size_type __n = npos) const
-      {
-	if (__pos > this->size())
-	  __throw_out_of_range(__N("basic_string::substr"));
-	return basic_string(*this, __pos, __n);
-      }
+      { return basic_string(*this, _M_check(__pos, "basic_string::substr"), __n); }
 
       /**
        *  @brief  Compare to a string.
@@ -1955,21 +1947,23 @@ namespace std
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
 
       /**
-       *  @brief  Compare substring against a C substring.
+       *  @brief  Compare substring against a character array.
        *  @param pos1  Index of first character of substring.
        *  @param n1  Number of characters in substring.
-       *  @param s  C string to compare against.
-       *  @param n2  Number of characters in substring of s.
+       *  @param s  character array to compare against.
+       *  @param n2  Number of characters of s.
        *  @return  Integer < 0, 0, or > 0.
        *
        *  Form the substring of this string from the @a n1 characters starting
-       *  at @a pos1.  Form the substring of @a s from the first @a n
-       *  characters of @a s.  Returns an integer < 0 if this substring is
-       *  ordered before the substring of @a s, 0 if their values are
-       *  equivalent, or > 0 if this substring is ordered after the substring
-       *  of @a s.  If the lengths of this substring and @a n are different,
-       *  the shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(substring.data(),s,size());
+       *  at @a pos1.  Form a string from the first @a n2 characters of @a s.
+       *  Returns an integer < 0 if this substring is ordered before the string
+       *  from @a s, 0 if their values are equivalent, or > 0 if this substring
+       *  is ordered after the string from @a s. If the lengths of this substring
+       *  and @a n2 are different, the shorter one is ordered first.  If they are
+       *  the same, returns the result of traits::compare(substring.data(),s,size());
+       *
+       *  NB: s must have at least n2 characters, '\0' has no special
+       *  meaning.
       */
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s,

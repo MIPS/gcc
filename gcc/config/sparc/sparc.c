@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -137,6 +137,7 @@ static void sparc_init_modes (void);
 static int save_regs (FILE *, int, int, const char *, int, int, HOST_WIDE_INT);
 static int restore_regs (FILE *, int, int, const char *, int, int);
 static void build_big_number (FILE *, HOST_WIDE_INT, const char *);
+static void scan_record_type (tree, int *, int *, int *);
 static int function_arg_slotno (const CUMULATIVE_ARGS *, enum machine_mode,
 				tree, int, int, int *, int *);
 
@@ -4539,7 +4540,7 @@ sparc_nonflat_function_epilogue (FILE *file,
 		     ? "\treturn\t%i7+12\n"
 		     : "\treturn\t%i7+8\n", file);
 	      final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-			       file, 1, 0, 0);
+			       file, 1, 0, 0, NULL);
 	    }
 	  else
 	    {
@@ -4564,7 +4565,7 @@ sparc_nonflat_function_epilogue (FILE *file,
 	      insn = emit_jump_insn (insn);
 
 	      sparc_emitting_epilogue = true;
-	      final_scan_insn (insn, file, 1, 0, 1);
+	      final_scan_insn (insn, file, 1, 0, 1, NULL);
 	      sparc_emitting_epilogue = false;
 	    }
 	}
@@ -4586,7 +4587,7 @@ sparc_nonflat_function_epilogue (FILE *file,
 	abort ();
       fprintf (file, "\t%s\n", ret);
       final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, 0, 1);
+		       file, 1, 0, 1, NULL);
     }
   /* Output 'nop' instead of 'sub %sp,-0,%sp' when no frame, so as to
 	 avoid generating confusing assembly language output.  */
@@ -4629,7 +4630,7 @@ output_sibcall (rtx insn, rtx call_operand)
 	  if (! delay)
 	    abort ();
 
-	  final_scan_insn (delay, asm_out_file, 1, 0, 1);
+	  final_scan_insn (delay, asm_out_file, 1, 0, 1, NULL);
 	  PATTERN (delay) = gen_blockage ();
 	  INSN_CODE (delay) = -1;
 	  delay_slot = 0;
@@ -4659,7 +4660,7 @@ output_sibcall (rtx insn, rtx call_operand)
 	  if (! delay)
 	    abort ();
 
-	  final_scan_insn (delay, asm_out_file, 1, 0, 1);
+	  final_scan_insn (delay, asm_out_file, 1, 0, 1, NULL);
 	  PATTERN (delay) = gen_blockage ();
 	  INSN_CODE (delay) = -1;
 	  delay_slot = 0;
@@ -4816,8 +4817,39 @@ init_cumulative_args (struct sparc_args *cum, tree fntype,
   cum->libcall_p = fntype == 0;
 }
 
+/* Scan the record type TYPE and return the following predicates:
+    - INTREGS_P: the record contains at least one field or sub-field
+      that is eligible for promotion in integer registers.
+    - FP_REGS_P: the record contains at least one field or sub-field
+      that is eligible for promotion in floating-point registers.
+    - PACKED_P: the record contains at least one field that is packed.
+
+   Sub-fields are not taken into account for the PACKED_P predicate.  */
+
+static void
+scan_record_type (tree type, int *intregs_p, int *fpregs_p, int *packed_p)
+{
+  tree field;
+
+  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+    {
+      if (TREE_CODE (field) == FIELD_DECL)
+	{
+	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
+	    scan_record_type (TREE_TYPE (field), intregs_p, fpregs_p, 0);
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field)) && TARGET_FPU)
+	    *fpregs_p = 1;
+	  else
+	    *intregs_p = 1;
+
+	  if (packed_p && DECL_PACKED (field))
+	    *packed_p = 1;
+	}
+    }
+}
+
 /* Compute the slot number to pass an argument in.
-   Returns the slot number or -1 if passing on the stack.
+   Return the slot number or -1 if passing on the stack.
 
    CUM is a variable of type CUMULATIVE_ARGS which gives info about
     the preceding args and about the function being called.
@@ -4916,27 +4948,14 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 	}
       else
 	{
-	  tree field;
-	  int intregs_p = 0, fpregs_p = 0;
-	  /* The ABI obviously doesn't specify how packed
-	     structures are passed.  These are defined to be passed
-	     in int regs if possible, otherwise memory.  */
-	  int packed_p = 0;
+	  int intregs_p = 0, fpregs_p = 0, packed_p = 0;
 
-	  /* First see what kinds of registers we need.  */
-	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	    {
-	      if (TREE_CODE (field) == FIELD_DECL)
-		{
-		  if (TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		      && TARGET_FPU)
-		    fpregs_p = 1;
-		  else
-		    intregs_p = 1;
-		  if (DECL_PACKED (field))
-		    packed_p = 1;
-		}
-	    }
+	  /* First see what kinds of registers we would need.  */
+	  scan_record_type (type, &intregs_p, &fpregs_p, &packed_p);
+
+	  /* The ABI obviously doesn't specify how packed structures
+	     are passed.  These are defined to be passed in int regs
+	     if possible, otherwise memory.  */
 	  if (packed_p || !named)
 	    fpregs_p = 0, intregs_p = 1;
 
@@ -4972,7 +4991,7 @@ struct function_arg_record_value_parms
   int named;		/* whether the argument is named.  */
   int regbase;		/* regno of the base register.  */
   int stack;		/* 1 if part of the argument is on the stack.  */
-  int intoffset;	/* offset of the pending integer field.  */
+  int intoffset;	/* offset of the first pending integer field.  */
   unsigned int nregs;	/* number of words passed in registers.  */
 };
 
@@ -4983,6 +5002,7 @@ static void function_arg_record_value_2
 static void function_arg_record_value_1
  (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
+static rtx function_arg_union_value (int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
@@ -5029,20 +5049,20 @@ function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
 	    				 bitpos,
 					 parms,
 					 packed_p);
-	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
-			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
-			    == REAL_TYPE)))
-	           && TARGET_FPU
-	           && ! packed_p
-	           && parms->named)
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field))
+		   && TARGET_FPU
+		   && parms->named
+		   && ! packed_p)
 	    {
 	      if (parms->intoffset != -1)
 		{
+		  unsigned int startbit, endbit;
 		  int intslots, this_slotno;
 
-		  intslots = (bitpos - parms->intoffset + BITS_PER_WORD - 1)
-		    / BITS_PER_WORD;
+		  startbit = parms->intoffset & -BITS_PER_WORD;
+		  endbit   = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+
+		  intslots = (endbit - startbit) / BITS_PER_WORD;
 		  this_slotno = parms->slotno + parms->intoffset
 		    / BITS_PER_WORD;
 
@@ -5121,6 +5141,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
 
       this_slotno += 1;
       intoffset = (intoffset | (UNITS_PER_WORD-1)) + 1;
+      mode = word_mode;
       parms->nregs += 1;
       intslots -= 1;
     }
@@ -5166,13 +5187,10 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 	    				 bitpos,
 					 parms,
 					 packed_p);
-	  else if ((TREE_CODE (TREE_TYPE (field)) == REAL_TYPE
-		    || (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE
-			&& (TREE_CODE (TREE_TYPE (TREE_TYPE (field)))
-			    == REAL_TYPE)))
-	           && TARGET_FPU
-	           && ! packed_p
-	           && parms->named)
+	  else if (FLOAT_TYPE_P (TREE_TYPE (field))
+		   && TARGET_FPU
+		   && parms->named
+		   && ! packed_p)
 	    {
 	      int this_slotno = parms->slotno + bitpos / BITS_PER_WORD;
 	      int regno;
@@ -5248,6 +5266,7 @@ function_arg_record_value (tree type, enum machine_mode mode,
   parms.intoffset = 0;
   function_arg_record_value_1 (type, 0, &parms, false);
 
+  /* Take into account pending integer fields.  */
   if (parms.intoffset != -1)
     {
       unsigned int startbit, endbit;
@@ -5317,6 +5336,34 @@ function_arg_record_value (tree type, enum machine_mode mode,
   return parms.ret;
 }
 
+/* Used by function_arg and function_value to implement the conventions
+   of the 64-bit ABI for passing and returning unions.
+   Return an expression valid as a return value for the two macros
+   FUNCTION_ARG and FUNCTION_VALUE.
+
+   SIZE is the size in bytes of the union.
+   REGNO is the hard register the union will be passed in.  */
+
+static rtx
+function_arg_union_value (int size, int regno)
+{
+  enum machine_mode mode;
+  rtx reg;
+
+  if (size <= UNITS_PER_WORD)
+    mode = word_mode;
+  else
+    mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+
+  reg = gen_rtx_REG (mode, regno);
+
+  /* Unions are passed left-justified.  */
+  return gen_rtx_PARALLEL (mode,
+			   gen_rtvec (1, gen_rtx_EXPR_LIST (VOIDmode,
+							    reg,
+							    const0_rtx)));
+}
+
 /* Handle the FUNCTION_ARG macro.
    Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -5353,13 +5400,32 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
       reg = gen_rtx_REG (mode, regno);
       return reg;
     }
+    
+  if (type && TREE_CODE (type) == RECORD_TYPE)
+    {
+      /* Structures up to 16 bytes in size are passed in arg slots on the
+	 stack and are promoted to registers where possible.  */
 
+      if (int_size_in_bytes (type) > 16)
+	abort (); /* shouldn't get here */
+
+      return function_arg_record_value (type, mode, slotno, named, regbase);
+    }
+  else if (type && TREE_CODE (type) == UNION_TYPE)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+
+      if (size > 16)
+	abort (); /* shouldn't get here */
+
+      return function_arg_union_value (size, regno);
+    }
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
      If no prototype is in scope fp values in register slots get passed
      in two places, either fp regs and int regs or fp regs and memory.  */
-  if ((GET_MODE_CLASS (mode) == MODE_FLOAT
-       || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+  else if ((GET_MODE_CLASS (mode) == MODE_FLOAT
+	    || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
       && SPARC_FP_REG_P (regno))
     {
       reg = gen_rtx_REG (mode, regno);
@@ -5422,27 +5488,6 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 	      return gen_rtx_PARALLEL (mode, gen_rtvec (2, v0, v1));
 	    }
 	}
-    }
-  else if (type && TREE_CODE (type) == RECORD_TYPE)
-    {
-      /* Structures up to 16 bytes in size are passed in arg slots on the
-	 stack and are promoted to registers where possible.  */
-
-      if (int_size_in_bytes (type) > 16)
-	abort (); /* shouldn't get here */
-
-      return function_arg_record_value (type, mode, slotno, named, regbase);
-    }
-  else if (type && TREE_CODE (type) == UNION_TYPE)
-    {
-      enum machine_mode mode;
-      int bytes = int_size_in_bytes (type);
-
-      if (bytes > 16)
-	abort ();
-
-      mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
-      reg = gen_rtx_REG (mode, regno);
     }
   else
     {
@@ -5628,12 +5673,13 @@ rtx
 function_value (tree type, enum machine_mode mode, int incoming_p)
 {
   int regno;
-  int regbase = (incoming_p
-		 ? SPARC_OUTGOING_INT_ARG_FIRST
-		 : SPARC_INCOMING_INT_ARG_FIRST);
 
   if (TARGET_ARCH64 && type)
     {
+      int regbase = (incoming_p
+		     ? SPARC_OUTGOING_INT_ARG_FIRST
+		     : SPARC_INCOMING_INT_ARG_FIRST);
+
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
 	  /* Structures up to 32 bytes in size are passed in registers,
@@ -5643,6 +5689,15 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	    abort (); /* shouldn't get here */
 
 	  return function_arg_record_value (type, mode, 0, 1, regbase);
+	}
+      else if (TREE_CODE (type) == UNION_TYPE)
+	{
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
+
+	  if (size > 32)
+	    abort (); /* shouldn't get here */
+
+	  return function_arg_union_value (size, regbase);
 	}
       else if (AGGREGATE_TYPE_P (type))
 	{
@@ -5655,13 +5710,10 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 
 	  mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
 	}
+      else if (GET_MODE_CLASS (mode) == MODE_INT
+	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+	mode = word_mode;
     }
-    
-  if (TARGET_ARCH64
-      && GET_MODE_CLASS (mode) == MODE_INT 
-      && GET_MODE_SIZE (mode) < UNITS_PER_WORD
-      && type && ! AGGREGATE_TYPE_P (type))
-    mode = DImode;
 
   if (incoming_p)
     regno = BASE_RETURN_VALUE_REG (mode);
@@ -7916,7 +7968,7 @@ sparc_flat_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	{
 	  if (size)
 	    abort ();
-	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1);
+	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1, NULL);
 	}
 
       else if (size > 4096)
@@ -8478,6 +8530,8 @@ sparc_elf_asm_named_section (const char *name, unsigned int flags)
     fputs (",#alloc", asm_out_file);
   if (flags & SECTION_WRITE)
     fputs (",#write", asm_out_file);
+  if (flags & SECTION_TLS)
+    fputs (",#tls", asm_out_file);
   if (flags & SECTION_CODE)
     fputs (",#execinstr", asm_out_file);
 

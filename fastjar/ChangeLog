@@ -1,3 +1,16 @@
+2004-01-09  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in: Rename file to ...
+	* configure.ac: ... this.  Add in AC_PREREQ(2.57)
+	* config.h.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+
+2004-01-07  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jartool.c (make_manifest): Fix off-by-one bug when creating
+	an empty MANIFEST.MF.
+
 2003-12-01  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Makefile.am: Define AM_MAKINFOFLAGS.  Remove Automake 1.4 hack.

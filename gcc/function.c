@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -267,7 +267,7 @@ static void reorder_fix_fragments (tree);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
-/* We always define `record_insns' even if its not used so that we
+/* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
 static void record_insns (rtx, varray_type *) ATTRIBUTE_UNUSED;
 static int contains (rtx, varray_type);
@@ -6388,9 +6388,6 @@ allocate_struct_function (tree fndecl)
 
   init_stmt_for_function ();
   init_eh_for_function ();
-  init_emit ();
-  init_expr ();
-  init_varasm_status (cfun);
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
@@ -6401,8 +6398,6 @@ allocate_struct_function (tree fndecl)
 
   DECL_SAVED_INSNS (fndecl) = cfun;
   cfun->decl = fndecl;
-
-  current_function_name = (*lang_hooks.decl_printable_name) (fndecl, 2);
 
   result = DECL_RESULT (fndecl);
   if (aggregate_value_p (result, fndecl))
@@ -6436,6 +6431,9 @@ prepare_function_start (tree fndecl)
     cfun = DECL_SAVED_INSNS (fndecl);
   else
     allocate_struct_function (fndecl);
+  init_emit ();
+  init_varasm_status (cfun);
+  init_expr ();
 
   cse_not_expected = ! optimize;
 
@@ -7222,7 +7220,7 @@ record_insns (rtx insns, varray_type *vecp)
     }
 }
 
-/* Set the specified locator to the insn chain.  */
+/* Set the locator of the insn chain starting at INSN to LOC.  */
 static void
 set_insn_locators (rtx insn, int loc)
 {
@@ -7863,6 +7861,7 @@ epilogue_done:
 #endif
 
 #ifdef HAVE_prologue
+  /* This is probably all useless now that we use locators.  */
   if (prologue_end)
     {
       rtx insn, prev;
@@ -8088,4 +8087,12 @@ free_block_changes (void)
 {
   cfun->ib_boundaries_block = NULL;
 }
+
+/* Returns the name of the current function.  */
+const char *
+current_function_name (void)
+{
+  return (*lang_hooks.decl_printable_name) (cfun->decl, 2);
+}
+
 #include "gt-function.h"

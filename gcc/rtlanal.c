@@ -1,6 +1,6 @@
 /* Analyze RTL for C-Compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -99,7 +99,7 @@ rtx_unstable_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -189,7 +189,7 @@ rtx_varies_p (rtx x, int for_alias)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -3023,6 +3023,11 @@ commutative_operand_precedence (rtx op)
 {
   /* Constants always come the second operand.  Prefer "nice" constants.  */
   if (GET_CODE (op) == CONST_INT)
+    return -7;
+  if (GET_CODE (op) == CONST_DOUBLE)
+    return -6;
+  op = avoid_constant_pool_reference (op);
+  if (GET_CODE (op) == CONST_INT)
     return -5;
   if (GET_CODE (op) == CONST_DOUBLE)
     return -4;
@@ -3182,46 +3187,57 @@ loc_mentioned_in_p (rtx *loc, rtx in)
   return 0;
 }
 
+/* Helper function for subreg_lsb.  Given a subreg's OUTER_MODE, INNER_MODE,
+   and SUBREG_BYTE, return the bit offset where the subreg begins
+   (counting from the least significant bit of the operand).  */
+
+unsigned int
+subreg_lsb_1 (enum machine_mode outer_mode,
+	      enum machine_mode inner_mode,
+	      unsigned int subreg_byte)
+{
+  unsigned int bitpos;
+  unsigned int byte;
+  unsigned int word;
+
+  /* A paradoxical subreg begins at bit position 0.  */
+  if (GET_MODE_BITSIZE (outer_mode) > GET_MODE_BITSIZE (inner_mode))
+    return 0;
+
+  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+    /* If the subreg crosses a word boundary ensure that
+       it also begins and ends on a word boundary.  */
+    if ((subreg_byte % UNITS_PER_WORD
+	 + GET_MODE_SIZE (outer_mode)) > UNITS_PER_WORD
+	&& (subreg_byte % UNITS_PER_WORD
+	    || GET_MODE_SIZE (outer_mode) % UNITS_PER_WORD))
+	abort ();
+
+  if (WORDS_BIG_ENDIAN)
+    word = (GET_MODE_SIZE (inner_mode)
+	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) / UNITS_PER_WORD;
+  else
+    word = subreg_byte / UNITS_PER_WORD;
+  bitpos = word * BITS_PER_WORD;
+
+  if (BYTES_BIG_ENDIAN)
+    byte = (GET_MODE_SIZE (inner_mode)
+	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) % UNITS_PER_WORD;
+  else
+    byte = subreg_byte % UNITS_PER_WORD;
+  bitpos += byte * BITS_PER_UNIT;
+
+  return bitpos;
+}
+
 /* Given a subreg X, return the bit offset where the subreg begins
    (counting from the least significant bit of the reg).  */
 
 unsigned int
 subreg_lsb (rtx x)
 {
-  enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
-  enum machine_mode mode = GET_MODE (x);
-  unsigned int bitpos;
-  unsigned int byte;
-  unsigned int word;
-
-  /* A paradoxical subreg begins at bit position 0.  */
-  if (GET_MODE_BITSIZE (mode) > GET_MODE_BITSIZE (inner_mode))
-    return 0;
-
-  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
-    /* If the subreg crosses a word boundary ensure that
-       it also begins and ends on a word boundary.  */
-    if ((SUBREG_BYTE (x) % UNITS_PER_WORD
-	 + GET_MODE_SIZE (mode)) > UNITS_PER_WORD
-	&& (SUBREG_BYTE (x) % UNITS_PER_WORD
-	    || GET_MODE_SIZE (mode) % UNITS_PER_WORD))
-	abort ();
-
-  if (WORDS_BIG_ENDIAN)
-    word = (GET_MODE_SIZE (inner_mode)
-	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) / UNITS_PER_WORD;
-  else
-    word = SUBREG_BYTE (x) / UNITS_PER_WORD;
-  bitpos = word * BITS_PER_WORD;
-
-  if (BYTES_BIG_ENDIAN)
-    byte = (GET_MODE_SIZE (inner_mode)
-	    - (SUBREG_BYTE (x) + GET_MODE_SIZE (mode))) % UNITS_PER_WORD;
-  else
-    byte = SUBREG_BYTE (x) % UNITS_PER_WORD;
-  bitpos += byte * BITS_PER_UNIT;
-
-  return bitpos;
+  return subreg_lsb_1 (GET_MODE (x), GET_MODE (SUBREG_REG (x)),
+		       SUBREG_BYTE (x));
 }
 
 /* This function returns the regno offset of a subreg expression.
@@ -3709,3 +3725,31 @@ hoist_insn_to_edge (rtx insn, edge e, rtx val, rtx new)
   end_sequence ();
   return new_insn;
 }
+
+/* Return true if LABEL is a target of JUMP_INSN.  This applies only
+   to non-complex jumps.  That is, direct unconditional, conditional,
+   and tablejumps, but not computed jumps or returns.  It also does
+   not apply to the fallthru case of a conditional jump.  */
+
+bool
+label_is_jump_target_p (rtx label, rtx jump_insn)
+{
+  rtx tmp = JUMP_LABEL (jump_insn);
+
+  if (label == tmp)
+    return true;
+
+  if (tablejump_p (jump_insn, NULL, &tmp))
+    {
+      rtvec vec = XVEC (PATTERN (tmp),
+			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
+      int i, veclen = GET_NUM_ELEM (vec);
+
+      for (i = 0; i < veclen; ++i)
+	if (XEXP (RTVEC_ELT (vec, i), 0) == label)
+	  return true;
+    }
+
+  return false;
+}
+

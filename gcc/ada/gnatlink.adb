@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,7 +26,6 @@
 
 --  Gnatlink usage: please consult the gnat documentation
 
-with Ada.Exceptions; use Ada.Exceptions;
 with ALI;      use ALI;
 with Gnatvsn;  use Gnatvsn;
 with Hostparm;
@@ -40,6 +39,7 @@ with Table;
 with Types;
 
 with Ada.Command_Line;     use Ada.Command_Line;
+with Ada.Exceptions;       use Ada.Exceptions;
 with GNAT.OS_Lib;          use GNAT.OS_Lib;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
 with System.CRTL;
@@ -234,9 +234,10 @@ procedure Gnatlink is
 
    procedure Delete (Name : in String) is
       Status : int;
-
+      pragma Unreferenced (Status);
    begin
       Status := unlink (Name'Address);
+      --  Is it really right to ignore an error here ???
    end Delete;
 
    ---------------
@@ -602,6 +603,9 @@ procedure Gnatlink is
       Nfirst : Integer;
       --  Current line slice (the slice does not contain line terminator)
 
+      Last : Integer;
+      --  Current line last character for shared libraries (without version)
+
       Objs_Begin : Integer := 0;
       --  First object file index in Linker_Objects table
 
@@ -669,12 +673,17 @@ procedure Gnatlink is
       --  Predicate indicating whether this target uses the GNU linker. In
       --  this case we must output a GNU linker compatible response file.
 
+      Opening : aliased constant String := """";
+      Closing : aliased constant String := '"' & ASCII.LF;
+      --  Needed to quote object paths in object list files when GNU linker
+      --  is used.
+
       procedure Get_Next_Line;
       --  Read the next line from the binder file without the line
       --  terminator.
 
       function Index (S, Pattern : String) return Natural;
-      --  Return the first occurrence of Pattern in S, or 0 if none.
+      --  Return the last occurrence of Pattern in S, or 0 if none.
 
       function Is_Option_Present (Opt : in String) return Boolean;
       --  Return true if the option Opt is already present in
@@ -723,8 +732,9 @@ procedure Gnatlink is
 
       function Index (S, Pattern : String) return Natural is
          Len : constant Natural := Pattern'Length;
+
       begin
-         for J in S'First .. S'Last - Len + 1 loop
+         for J in reverse S'First .. S'Last - Len + 1 loop
             if Pattern = S (J .. J + Len - 1) then
                return J;
             end if;
@@ -878,6 +888,8 @@ procedure Gnatlink is
          --  If target is using the GNU linker we must add a special header
          --  and footer in the response file.
          --  The syntax is : INPUT (object1.o object2.o ... )
+         --  Because the GNU linker does not like name with characters such
+         --  as '!', we must put the object paths between double quotes.
 
          if Using_GNU_Linker then
             declare
@@ -890,9 +902,22 @@ procedure Gnatlink is
          end if;
 
          for J in Objs_Begin .. Objs_End loop
+            --  Opening quote for GNU linker
+            if Using_GNU_Linker then
+               Status := Write (Tname_FD, Opening'Address, 1);
+            end if;
+
             Status := Write (Tname_FD, Linker_Objects.Table (J).all'Address,
-              Linker_Objects.Table (J).all'Length);
-            Status := Write (Tname_FD, ASCII.LF'Address, 1);
+                             Linker_Objects.Table (J).all'Length);
+
+            --  Closing quote for GNU linker
+
+            if Using_GNU_Linker then
+               Status := Write (Tname_FD, Closing'Address, 2);
+
+            else
+               Status := Write (Tname_FD, ASCII.LF'Address, 1);
+            end if;
 
             Response_File_Objects.Increment_Last;
             Response_File_Objects.Table (Response_File_Objects.Last) :=
@@ -986,20 +1011,45 @@ procedure Gnatlink is
                elsif Next_Line (Nfirst .. Nlast) = "-ldecgnat"
                  or else Next_Line (Nfirst .. Nlast) = "-lgnarl"
                  or else Next_Line (Nfirst .. Nlast) = "-lgnat"
+                 or else Next_Line
+                     (1 .. Natural'Min (Nlast, 8 + Library_Version'Length)) =
+                       Shared_Lib ("gnarl")
+                 or else Next_Line
+                     (1 .. Natural'Min (Nlast, 7 + Library_Version'Length)) =
+                       Shared_Lib ("gnat")
                then
+                  --  If it is a shared library, remove the library version.
+                  --  We will be looking for the static version of the library
+                  --  as it is in the same directory as the shared version.
+
+                  if Next_Line (Nlast - Library_Version'Length + 1 .. Nlast)
+                       = Library_Version
+                  then
+                     --  Set Last to point to last character before the
+                     --  library version.
+
+                     Last := Nlast - Library_Version'Length - 1;
+                  else
+                     Last := Nlast;
+                  end if;
+
                   --  Given a Gnat standard library, search the
                   --  library path to find the library location
 
                   declare
                      File_Path : String_Access;
+
                      Object_Lib_Extension : constant String :=
-                       Value (Object_Library_Ext_Ptr);
+                                              Value (Object_Library_Ext_Ptr);
+
                      File_Name : constant String := "lib" &
-                                   Next_Line (Nfirst + 2 .. Nlast) &
-                                                  Object_Lib_Extension;
+                                   Next_Line (Nfirst + 2 .. Last) &
+                                   Object_Lib_Extension;
+
                      Run_Path_Opt : constant String :=
                        Value (Run_Path_Option_Ptr);
-                     GCC_Index    : Natural;
+
+                     GCC_Index          : Natural;
                      Run_Path_Opt_Index : Natural := 0;
 
                   begin
@@ -1032,7 +1082,42 @@ procedure Gnatlink is
                                  --  Also add path to find libgcc_s.so, if
                                  --  relevant.
 
-                                 GCC_Index := Index (File_Path.all, "gcc-lib");
+                                 --  To find the location of the shared version
+                                 --  of libgcc, we look for "gcc-lib" in the
+                                 --  path of the library. However, this
+                                 --  subdirectory is no longer present in
+                                 --  in recent version of GCC. So, we look for
+                                 --  the last subdirectory "lib" in the path.
+
+                                 GCC_Index :=
+                                   Index (File_Path.all, "gcc-lib");
+
+                                 if GCC_Index /= 0 then
+                                    --  The shared version of libgcc is
+                                    --  located in the parent directory.
+
+                                    GCC_Index := GCC_Index - 1;
+
+                                 else
+                                    GCC_Index :=
+                                      Index (File_Path.all, "/lib/");
+
+                                    if GCC_Index = 0 then
+                                       GCC_Index :=
+                                         Index (File_Path.all,
+                                                Directory_Separator &
+                                                "lib" &
+                                                Directory_Separator);
+                                    end if;
+
+                                    --  We have found a subdirectory "lib",
+                                    --  this is where the shared version of
+                                    --  libgcc should be located.
+
+                                    if GCC_Index /= 0 then
+                                       GCC_Index := GCC_Index + 3;
+                                    end if;
+                                 end if;
 
                                  --  Look for an eventual run_path_option in
                                  --  the linker switches.
@@ -1095,7 +1180,7 @@ procedure Gnatlink is
                                                  (1 .. File_Path'Length
                                                        - File_Name'Length)
                                              & Path_Separator
-                                             & File_Path (1 .. GCC_Index - 1));
+                                             & File_Path (1 .. GCC_Index));
 
                                     else
                                        Linker_Options.Table
@@ -1108,7 +1193,7 @@ procedure Gnatlink is
                                                  (1 .. File_Path'Length
                                                        - File_Name'Length)
                                              & Path_Separator
-                                             & File_Path (1 .. GCC_Index - 1));
+                                             & File_Path (1 .. GCC_Index));
                                     end if;
                                  end if;
                               end if;
@@ -1189,7 +1274,7 @@ procedure Gnatlink is
          Write_Eol;
          Write_Str ("GNATLINK ");
          Write_Str (Gnat_Version_String);
-         Write_Str (" Copyright 1995-2003 Free Software Foundation, Inc");
+         Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc");
          Write_Eol;
       end if;
    end Write_Header;
@@ -1586,7 +1671,7 @@ begin
                --  Remove duplicate IDENTIFICATION directives (VMS)
 
                if Linker_Options.Table (J)'Length > 27
-                 and then Linker_Options.Table (J) (1 .. 27)
+                 and then Linker_Options.Table (J) (1 .. 28)
                           = "--for-linker=IDENTIFICATION="
                then
                   if IDENT_Op then
