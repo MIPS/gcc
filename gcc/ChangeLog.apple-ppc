@@ -1,3 +1,18 @@
+2004-02-16  Devang Patel  <dpatel@apple.com>
+
+        Radar 3964387
+        * build_gcc: Build darwin-driver-rs6000.c and darwin-driver-i386.c
+        * config/darwin-driver-rs6000.c: New file
+        * config/darwin-driver-i386.c: New file
+        * config/darwin-driver.h: New file
+        * config/darwin-driver.c (darwin-driver.h): Include.
+        (ppc_specific_args, ppc_specific_args_size, ppc_specific_arg_count,
+        x86_specific_args, x86_specific_args_size, x86_specific_arg_count,
+        is_ppc_specific_option, is_x86_specific_option): New.
+        (remove_arch_options): New parameter.
+        (add_arch_options): Insert arch specific options.
+        (main): Interpret arch specific options.
+        
 2005-02-16  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3970655
