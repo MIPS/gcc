@@ -1,3 +1,10 @@
+2002-06-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-simplify.c (simplify_return_stmt): Update folding markers.
+	(build_addr_expr): Ditto.
+	* langhooks.h (struct langhooks): Document simplify_function_tree
+	hook.
+
 2002-06-09  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_expr_common): Handle creating both lvalue

@@ -351,6 +351,9 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
+  /* Given FUNCTION_DECL tree node, this function converts the body of the
+     function into SIMPLE form.  The SIMPLE grammar is defined and
+     documented in tree-simple.c  */
   int (*simplify_function_tree) PARAMS ((tree));
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h

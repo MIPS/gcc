@@ -941,7 +941,7 @@ simplify_return_stmt (stmt, pre_p)
 
 /* Simplification of expression trees.  */
 
-/** {{{ simplify_expr ()
+/** {{{ simplify_expr_common ()
 
     Simplifies the expression tree pointed by EXPR_P.
 
@@ -1229,8 +1229,10 @@ simplify_expr_either (expr_p, pre_p, post_p, simple_test_f, stmt)
 
 /* }}} */
 
-/* Build an expression for the address of T.  Folds away INDIRECT_REF to
-   avoid confusing the simplify process.  */
+/** {{{ build_addr_expr ()
+  
+    Build an expression for the address of T.  Folds away INDIRECT_REF to
+    avoid confusing the simplify process.  */
 
 static tree
 build_addr_expr (t)
@@ -1248,6 +1250,8 @@ build_addr_expr (t)
 
   return t;
 }
+
+/* }}} */
   
 /** {{{ simplify_array_ref ()
 
