@@ -1,3 +1,12 @@
+2005-02-02  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3984134
+	* config/darwin-driver.c (initialize): Allow for extra NULL in
+	new_argv.  Update comment for lipo_argv.
+	(do_lipo): Add NULL at end.  Check for NULL at end when printing.
+	(do_compile): Add NULL at end of current_argv.
+	(main): Add NULL at end of new_argv.
+
 2005-02-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 3983593

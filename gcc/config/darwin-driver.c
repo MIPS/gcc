@@ -371,9 +371,10 @@ initialize (void)
 
      Sometimes linker wants to see "-final_output" "outputname". 
 
-     In the end, We need FOUR extra argument.  */
+     In the end, we may need five extra arguments, plus one extra
+     space for the NULL terminator.  */
 
-  new_argv = (const char **) malloc ((total_argc + 4) * sizeof (const char *));
+  new_argv = (const char **) malloc ((total_argc + 6) * sizeof (const char *));
   if (!new_argv)
     abort ();
 
@@ -382,7 +383,7 @@ initialize (void)
 
   /* For each -arch, three arguments are needed.
      For example, "-arch" "ppc" "file".  Additional slots are for
-     "lipo" "-create" "-o" and "outputfilename". */
+     "lipo" "-create" "-o" "outputfilename" and the NULL. */
   lipo_argv = (const char **) malloc ((total_argc * 3 + 5) * sizeof (const char *));
   if (!lipo_argv)
     abort ();
@@ -477,13 +478,16 @@ do_lipo (int start_outfile_index, const char *out_file)
   for (i = 0; i < num_arches; i++)
     lipo_argv[j++] = out_files[start_outfile_index + i];
 
+  /* Add the NULL at the end.  */
+  lipo_argv[j++] = NULL;
+
 #ifdef DEBUG
   debug_command_line (lipo_argv, j);
 #endif
  
   if (verbose_flag)
     {
-      for (i = 0; i < j; i++)
+      for (i = 0; lipo_argv[i]; i++)
 	fprintf (stderr, "%s ", lipo_argv[i]);
       fprintf (stderr, "\n");
     }
@@ -528,8 +532,10 @@ do_compile (const char **current_argv, int current_argc)
       commands[index].prog = current_argv[0];
       commands[index].argv = current_argv;
 
+      current_argv[argc_count] = NULL;
+
 #ifdef DEBUG
-      debug_command_line (current_argv, of_index);
+      debug_command_line (current_argv, argc_count);
 #endif
       commands[index].pid = pexecute (current_argv[0], 
 				      (char *const *)current_argv, 
@@ -1302,10 +1308,13 @@ main (int argc, const char **argv)
 	  new_argv[new_argc++] = output_filename;
 	}
 
+      /* Add the NULL.  */
+      new_argv[new_argc] = NULL;
+  
 #ifdef DEBUG
       debug_command_line (new_argv, new_argc);
 #endif
-  
+
       pid = pexecute (new_argv[0], (char *const *)new_argv, progname, NULL, 
 		      &errmsg_fmt, &errmsg_arg, PEXECUTE_SEARCH | PEXECUTE_LAST); 
       
