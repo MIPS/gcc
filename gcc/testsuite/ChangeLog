@@ -1,3 +1,8 @@
+2003-03-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* objc.dg/naming-1.m: Use "(parse|syntax) error".
+	* objc.dg/naming-2.m: Likewise.
+
 2003-01-31  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc.dg/20030129-1.c: New test.
