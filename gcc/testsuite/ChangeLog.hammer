@@ -1,3 +1,11 @@
+2003-11-01  Andreas Schwab  <schwab@suse.de>
+
+	Merge from mainline:
+
+	2003-04-25  H.J. Lu <hjl@gnu.org>
+
+	* gcc.dg/ia64-sync-4.c: New test.
+
 2003-07-18  Josef Zlomek  <zlomekj@suse.cz>
 
 	PR optimization/11559
