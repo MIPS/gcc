@@ -1,3 +1,6 @@
+gcjx also fails on PR 19629, though differently
+it creates the anonymous constructor incorrectly
+
 in a few places in the bytecode back end we
 add_utf(...->get_descriptor()).  this fails if the class is a member
 instead we need a new method on the constant pool

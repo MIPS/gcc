@@ -21,13 +21,6 @@
 
 #include "typedefs.hh"
 
-// Like gcj, we don't implement the JLS hypothetical assignment model
-// for handling loops.  This looked hard, and not very important.  In
-// practice only contrived code seems to run into these situations.
-// Instead we just disallow assignments inside a loop to final
-// variables declared outside the loop.  If you want to fix this,
-// though, be my guest.
-
 class variable_state
 {
   typedef std::map<const model_variable_decl *, bool> map_type;
@@ -164,7 +157,7 @@ public:
     map_type::const_iterator it = assign.find (decl);
     if (it == assign.end ())
       return false;
-     return (*it).second;
+    return (*it).second;
   }
 
   bool unassigned_p (const model_variable_decl *decl) const
@@ -175,17 +168,41 @@ public:
     return (*it).second;
   }
 
+  // Perform checking after a loop completes.  THIS is the state
+  // before the loop.  OTHER is the state after the loop.  Look for
+  // final variables which are not definitely unassigned in OTHER but
+  // are definitely unassigned here and issue errors for them.
+  void check_loop (model_element *request, const variable_state &other)
+  {
+    for (map_type::const_iterator i = other.unassign.begin ();
+	 i != other.unassign.end ();
+	 ++i)
+      {
+	if ((*i).first->final_p () && ! (*i).second)
+	  {
+	    if (unassigned_p ((*i).first))
+	      {
+		std::cerr << request->error ("variable %1 may be assigned "
+					     "multiple times")
+		  // FIXME: need operator% for this.
+		  % (*i).first->get_name ();
+	      }
+	  }
+      }
+  }
+
   /// For debugging convenience.
   void print ()
   {
+    std::cout << "================" << std::endl;
     for (map_type::iterator i = assign.begin ();
 	 i != assign.end ();
 	 ++i)
-      std::cout << "assigned: " << (*i).first->get_name ();
+      std::cout << "assigned: " << (*i).first->get_name () << std::endl;
     for (map_type::iterator i = unassign.begin ();
 	 i != unassign.end ();
 	 ++i)
-      std::cout << "unassigned: " << (*i).first->get_name ();
+      std::cout << "unassigned: " << (*i).first->get_name () << std::endl;
   }
 };
 
@@ -315,9 +332,6 @@ class definite_assignment_visitor : public visitor
   // Stack of all our join states.
   std::deque<join_state *> target_stack;
 
-  // Number of loops on the target stack.
-  int loop_depth;
-
   // True if this is visiting <clinit>.
   bool static_init;
   // True if this is visiting a constructor.
@@ -345,7 +359,6 @@ public:
 
   definite_assignment_visitor ()
     : visiting_lhs (NONE),
-      loop_depth (0),
       static_init (false),
       constructor (false),
       current_class (NULL),
@@ -356,7 +369,6 @@ public:
 
   virtual ~definite_assignment_visitor ()
   {
-    assert (loop_depth == 0);
     assert (switch_state == NULL);
   }
 
@@ -521,18 +533,20 @@ public:
   void visit_do (model_do *dostmt, const ref_expression &expr,
 		 const ref_stmt &stmt)
   {
+    variable_state pre_loop = current;
+
     join_state save (dostmt, current);
     save.set_continue ();
     stack_temporary<join_state *> push (target_stack, &save);
 
-    ++loop_depth;
     stmt->visit (this);
     save.merge_continue (current);
     current = save.get_continue_state ();
     // Don't use our 'visit' wrapper, it does the wrong thing for
     // booleans here.
     expr->visit (this);
-    --loop_depth;
+
+    pre_loop.check_loop (dostmt, when_true);
 
     save.merge (when_false);
     current = save.get_state ();
@@ -549,14 +563,24 @@ public:
     visit (expr);
   }
 
-  void visit_for_enhanced (model_for_enhanced *,
+  void visit_for_enhanced (model_for_enhanced *forstmt,
 			   const ref_stmt &body, const ref_expression &expr,
 			   const ref_variable_decl &var)
   {
+    variable_state pre_loop = current;
+
+    join_state save (forstmt, current);
+    save.set_continue ();
+    stack_temporary<join_state *> push (target_stack, &save);
+
     current.insert (var.get ());
     visit (expr);
     current.set_assign (var.get ());
     body->visit (this);
+
+    save.merge_continue (current);
+    current = save.get_continue_state ();
+    pre_loop.check_loop (forstmt, current);
   }
 
   void visit_for (model_for *forstmt, const ref_stmt &init,
@@ -567,9 +591,10 @@ public:
     save.set_continue ();
     stack_temporary<join_state *> push (target_stack, &save);
 
-    ++loop_depth;
     if (init)
       init->visit (this);
+    variable_state pre_loop = current;
+
     if (cond)
       {
 	// Don't use our 'visit' wrapper, it does the wrong thing for
@@ -585,7 +610,7 @@ public:
     if (update)
       update->visit (this);
 
-    --loop_depth;
+    pre_loop.check_loop (forstmt, current);
 
     current = save.get_state ();
   }
@@ -779,11 +804,11 @@ public:
   void visit_while (model_while *whilestmt, const ref_expression &cond,
 		    const ref_stmt &statement)
   {
+    variable_state pre_loop = current;
     join_state save (whilestmt, current);
     save.set_continue ();
     stack_temporary<join_state *> push (target_stack, &save);
 
-    ++loop_depth;
     // Don't use our 'visit' wrapper, it does the wrong thing for
     // booleans here.
     cond->visit (this);
@@ -792,8 +817,8 @@ public:
     current = when_true;
     statement->visit (this);
 
-    --loop_depth;
-
+    save.merge_continue (current);
+    pre_loop.check_loop (whilestmt, save.get_continue_state ());
     current = save.get_state ();
   }
 

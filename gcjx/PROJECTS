@@ -70,8 +70,6 @@ The code in name.cc is fairly inefficient for the most part.
 classify_ambiguous_name needs to be written.  Perhaps it should be
 called classify_expression_name, as that is more correct.
 
-Definite assignment is incomplete.
-
 some inner class things still don't work properly.  look through jacks
 results to see the errors.  for example there are some variable
 capture cases that are incorrect.  static context handling still

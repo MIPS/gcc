@@ -1,3 +1,17 @@
+2005-01-25  Tom Tromey  <tromey@redhat.com>
+
+	* defassign.cc (variable_state::check_loop): New method.
+	(definite_assignment_visitor::visit_for_enhanced): Use it.
+	(definite_assignment_visitor::visit_for): Likewise.
+	(definite_assignment_visitor::visit_while): Likewise.
+	(definite_assignment_visitor::visit_do): Likewise.
+	(definite_assignment_visitor::loop_depth): Removed.
+	(definite_assignment_visitor): Updated.
+	(~definite_assignment_visitor): Likewise.
+	(variable_state::print): Updated.
+	(definite_assignment_visitor::visit_for_enhanced): Create a join
+	state.
+
 2005-01-23  Tom Tromey  <tromey@redhat.com>
 
 	* defassign.cc (join_state::pending_target): New structure.
