@@ -1,3 +1,21 @@
+2000-01-05  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+        * rs6000.h: Continue cleanup.
+	* aix.h: Likewise.
+	* lynx.h: Likewise.
+	* netware.h: Likewise.
+	* sol2.h: Likewise.
+	* sysv4.h: Likewise.
+	* win-nt.h: Likewise.
+
+	* rs6000.h (TARGET_SWITCHES): Add descriptions.
+	(TARGET_OPTIONS): Likewise.
+
+	* sysv4.h (SUBTARGET_SWITCHES): Add descriptions.
+	(SUBTARGET_OPTIONS): Likewise.
+
+	* rs6000.md: Fix compile time warnings.
+
 2000-01-04  Geoff Keating  <geoffk@cygnus.com>
 
 	vxworks patches from the Cygnus tree originally by

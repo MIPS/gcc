@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for PowerPC
    running Windows/NT.
-   Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GNU CC.
@@ -67,8 +67,6 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_SWITCHES	\
    { "windows",	0 },		\
    { "crtmt",	0 },
-
-#undef XCOFF_DEBUGGING_INFO
 
 /* this is pure coff, not xcoff */
 #define SDB_DEBUGGING_INFO

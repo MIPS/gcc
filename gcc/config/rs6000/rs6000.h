@@ -200,9 +200,6 @@ Boston, MA 02111-1307, USA.  */
 /* gcc must do the search itself to find libgcc.a, not use -l.  */
 #define LIBGCC_SPEC "libgcc.a%s"
 
-/* Don't turn -B into -L if the argument specifies a relative file name.  */
-#define RELATIVE_PREFIX_NOT_LINKDIR
-
 /* Architecture type.  */
 
 extern int target_flags;
@@ -307,50 +304,89 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES							\
- {{"power",		MASK_POWER  | MASK_MULTIPLE | MASK_STRING},	\
+ {{"power",		MASK_POWER  | MASK_MULTIPLE | MASK_STRING,	\
+			"Use POWER instruction set"},			\
   {"power2",		(MASK_POWER | MASK_MULTIPLE | MASK_STRING	\
-			 | MASK_POWER2)},				\
-  {"no-power2",		- MASK_POWER2},					\
+			 | MASK_POWER2),				\
+			"Use POWER2 instruction set"},			\
+  {"no-power2",		- MASK_POWER2,					\
+			"Do not use POWER2 instruction set"},		\
   {"no-power",		- (MASK_POWER | MASK_POWER2 | MASK_MULTIPLE	\
-			   | MASK_STRING)},				\
-  {"powerpc",		MASK_POWERPC},					\
+			   | MASK_STRING),				\
+			"Do not use POWER instruction set"},		\
+  {"powerpc",		MASK_POWERPC,					\
+			"Use PowerPC instruction set"},			\
   {"no-powerpc",	- (MASK_POWERPC | MASK_PPC_GPOPT		\
-			   | MASK_PPC_GFXOPT | MASK_POWERPC64)},	\
-  {"powerpc-gpopt",	MASK_POWERPC | MASK_PPC_GPOPT},			\
-  {"no-powerpc-gpopt",	- MASK_PPC_GPOPT},				\
-  {"powerpc-gfxopt",	MASK_POWERPC | MASK_PPC_GFXOPT},		\
-  {"no-powerpc-gfxopt",	- MASK_PPC_GFXOPT},				\
-  {"powerpc64",		MASK_POWERPC64},				\
-  {"no-powerpc64",	- MASK_POWERPC64},				\
-  {"new-mnemonics",	MASK_NEW_MNEMONICS},				\
-  {"old-mnemonics",	-MASK_NEW_MNEMONICS},				\
+			   | MASK_PPC_GFXOPT | MASK_POWERPC64),		\
+			"Do not use PowerPC instruction set"},		\
+  {"powerpc-gpopt",	MASK_POWERPC | MASK_PPC_GPOPT,			\
+			"Use PowerPC General Purpose group optional instructions"},\
+  {"no-powerpc-gpopt",	- MASK_PPC_GPOPT,				\
+			"Don't use PowerPC General Purpose group optional instructions"},\
+  {"powerpc-gfxopt",	MASK_POWERPC | MASK_PPC_GFXOPT,			\
+			"Use PowerPC Graphics group optional instructions"},\
+  {"no-powerpc-gfxopt",	- MASK_PPC_GFXOPT,				\
+			"Don't use PowerPC Graphics group optional instructions"},\
+  {"powerpc64",		MASK_POWERPC64,					\
+			"Use PowerPC-64 instruction set"},		\
+  {"no-powerpc64",	- MASK_POWERPC64,				\
+			"Don't use PowerPC-64 instruction set"},	\
+  {"new-mnemonics",	MASK_NEW_MNEMONICS,				\
+			"Use new mnemonics for PowerPC architecture"},	\
+  {"old-mnemonics",	-MASK_NEW_MNEMONICS,				\
+			"Use old mnemonics for PowerPC architecture"},	\
   {"full-toc",		- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC	\
-			   | MASK_MINIMAL_TOC)},			\
-  {"fp-in-toc",		- MASK_NO_FP_IN_TOC},				\
-  {"no-fp-in-toc",	MASK_NO_FP_IN_TOC},				\
-  {"sum-in-toc",	- MASK_NO_SUM_IN_TOC},				\
-  {"no-sum-in-toc",	MASK_NO_SUM_IN_TOC},				\
-  {"minimal-toc",	MASK_MINIMAL_TOC},				\
-  {"minimal-toc",	- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC)},	\
-  {"no-minimal-toc",	- MASK_MINIMAL_TOC},				\
-  {"hard-float",	- MASK_SOFT_FLOAT},				\
-  {"soft-float",	MASK_SOFT_FLOAT},				\
-  {"multiple",		MASK_MULTIPLE | MASK_MULTIPLE_SET},		\
-  {"no-multiple",	- MASK_MULTIPLE},				\
-  {"no-multiple",	MASK_MULTIPLE_SET},				\
-  {"string",		MASK_STRING | MASK_STRING_SET},			\
-  {"no-string",		- MASK_STRING},					\
-  {"no-string",		MASK_STRING_SET},				\
-  {"update",		- MASK_NO_UPDATE},				\
-  {"no-update",		MASK_NO_UPDATE},				\
-  {"fused-madd",	- MASK_NO_FUSED_MADD},				\
-  {"no-fused-madd",	MASK_NO_FUSED_MADD},				\
-  {"sched-prolog",      MASK_SCHED_PROLOG},                             \
-  {"no-sched-prolog",   -MASK_SCHED_PROLOG},                            \
-  {"sched-epilog",      MASK_SCHED_EPILOG},                             \
-  {"no-sched-epilog",   -MASK_SCHED_EPILOG},                            \
+			   | MASK_MINIMAL_TOC),				\
+			"no description yet"},				\
+  {"fp-in-toc",		- MASK_NO_FP_IN_TOC,				\
+			"Place floating point constants in TOC"},	\
+  {"no-fp-in-toc",	MASK_NO_FP_IN_TOC,				\
+			"Don't place floating point constants in TOC"},	\
+  {"sum-in-toc",	- MASK_NO_SUM_IN_TOC,				\
+			"Place symbol+offset constants in TOC"},	\
+  {"no-sum-in-toc",	MASK_NO_SUM_IN_TOC,				\
+			"Don't place symbol+offset constants in TOC"},	\
+  {"minimal-toc",	MASK_MINIMAL_TOC,				\
+			"no description yet"},				\
+  {"minimal-toc",	- (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC),	\
+			"no description yet"},				\
+  {"no-minimal-toc",	- MASK_MINIMAL_TOC,				\
+			"no description yet"},				\
+  {"hard-float",	- MASK_SOFT_FLOAT,				\
+			"Use hardware fp"},				\
+  {"soft-float",	MASK_SOFT_FLOAT,				\
+			"Do not use hardware fp"},			\
+  {"multiple",		MASK_MULTIPLE | MASK_MULTIPLE_SET,		\
+			"Generate load/store multiple instructions"},	\
+  {"no-multiple",	- MASK_MULTIPLE,				\
+			"Do not generate load/store multiple instructions"},\
+  {"no-multiple",	MASK_MULTIPLE_SET,				\
+			"Do not generate load/store multiple instructions"},\
+  {"string",		MASK_STRING | MASK_STRING_SET,			\
+			"Generate string instructions for block moves"},\
+  {"no-string",		- MASK_STRING,					\
+			"Do not generate string instructions for block moves"},\
+  {"no-string",		MASK_STRING_SET,				\
+			"Do not generate string instructions for block moves"},\
+  {"update",		- MASK_NO_UPDATE,				\
+			"Generate load/store with update instructions"},\
+  {"no-update",		MASK_NO_UPDATE,					\
+			"Do not generate load/store with update instructions"},\
+  {"fused-madd",	- MASK_NO_FUSED_MADD,				\
+			"Generate fused multiply/add instructions"},	\
+  {"no-fused-madd",	MASK_NO_FUSED_MADD,				\
+			"Don't generate fused multiply/add instructions"},\
+  {"sched-prolog",      MASK_SCHED_PROLOG,                              \
+			"no description yet"},				\
+  {"no-sched-prolog",   -MASK_SCHED_PROLOG,                             \
+			"no description yet"},				\
+  {"sched-epilog",      MASK_SCHED_EPILOG,                              \
+			"no description yet"},				\
+  {"no-sched-epilog",   -MASK_SCHED_EPILOG,                             \
+			"no description yet"},				\
   SUBTARGET_SWITCHES							\
-  {"",			TARGET_DEFAULT}}
+  {"",			TARGET_DEFAULT,					\
+			""}}
 
 #define TARGET_DEFAULT (MASK_POWER | MASK_MULTIPLE | MASK_STRING)
 
@@ -413,13 +449,13 @@ extern enum processor_type rs6000_cpu;
 /* This is meant to be overridden in target specific files.  */
 #define	SUBTARGET_OPTIONS
 
-#define TARGET_OPTIONS				\
-{						\
-   {"cpu=",  &rs6000_select[1].string},		\
-   {"tune=", &rs6000_select[2].string},		\
-   {"debug-", &rs6000_debug_name},		\
-   {"debug=", &rs6000_debug_name},		\
-   SUBTARGET_OPTIONS				\
+#define TARGET_OPTIONS							\
+{									\
+   {"cpu=",  &rs6000_select[1].string, "Use features of and schedule code for given CPU" },\
+   {"tune=", &rs6000_select[2].string, "Schedule code for given CPU" },	\
+   {"debug-", &rs6000_debug_name, "Enable debug output" },		\
+   {"debug=", &rs6000_debug_name, "Enable debug output" },		\
+   SUBTARGET_OPTIONS							\
 }
 
 /* rs6000_select[0] is reserved for the default cpu defined via --with-cpu */
@@ -2159,38 +2195,6 @@ do {                                                                    \
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
 
-/* The RS/6000 uses the XCOFF format.  */
-
-#define XCOFF_DEBUGGING_INFO
-
-/* Define if the object format being used is COFF or a superset.  */
-#define OBJECT_FORMAT_COFF
-
-/* Define the magic numbers that we recognize as COFF.
-
-   AIX 4.3 adds U803XTOCMAGIC (0757) for 64-bit objects, but collect2.c
-   does not include files in the correct order to conditionally define
-   the symbolic name in this macro. 
-
-   The AIX linker accepts import/export files as object files,
-   so accept "#!" (0x2321) magic number.  */
-#define MY_ISCOFF(magic) \
-  ((magic) == U802WRMAGIC || (magic) == U802ROMAGIC \
-   || (magic) == U802TOCMAGIC || (magic) == 0757 || (magic) == 0x2321)
-
-/* This is the only version of nm that collect2 can work with.  */
-#define REAL_NM_FILE_NAME "/usr/ucb/nm"
-
-/* We don't have GAS for the RS/6000 yet, so don't write out special
-   .stabs in cc1plus.  */
-
-#define FASCIST_ASSEMBLER
-
-/* AIX does not have any init/fini or ctor/dtor sections, so create
-   static constructors and destructors as normal functions.  */
-/* #define ASM_OUTPUT_CONSTRUCTOR(file, name) */
-/* #define ASM_OUTPUT_DESTRUCTOR(file, name) */
-
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1

@@ -21,6 +21,17 @@ Boston, MA 02111-1307, USA.  */
 
 #include "rs6000/rs6000.h"
 
+/* Undefine some things which are defined by the generic svr4.h.  */
+
+#undef ASM_FILE_END
+#undef READONLY_DATA_SECTION
+#undef SELECT_SECTION
+#undef ASM_DECLARE_FUNCTION_NAME
+
+/* Use the regular svr4 definitions.  */
+
+#include "svr4.h"
+
 /* Yes!  We are ELF.  */
 #define	TARGET_OBJECT_FORMAT OBJECT_ELF
 
@@ -30,9 +41,11 @@ Boston, MA 02111-1307, USA.  */
 /* Default ABI to use */
 #define RS6000_ABI_NAME "sysv"
 
+/* override rs6000.h definition */
 #undef ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC "-mppc"
 
+/* override rs6000.h definition */
 #undef CPP_DEFAULT_SPEC
 #define CPP_DEFAULT_SPEC "-D_ARCH_PPC"
 
@@ -79,58 +92,57 @@ extern enum rs6000_sdata_type rs6000_sdata;
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
 
+/* override rs6000.h definition */
 #undef SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name},					\
-  { "sdata=", &rs6000_sdata_name}
+  { "call-",  &rs6000_abi_name, "Select ABI calling convention." },			\
+  { "sdata=", &rs6000_sdata_name, "Select method for sdata handling." }
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
 extern int g_switch_value;		/* value of the -G xx switch */
 extern int g_switch_set;		/* whether -G xx was passed.  */
 
-#ifndef SDATA_DEFAULT_SIZE
 #define SDATA_DEFAULT_SIZE 8
-#endif
 
 /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be just
    the same as -mminimal-toc.  */
 #undef	SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES						\
-  { "bit-align",	-MASK_NO_BITFIELD_TYPE },			\
-  { "no-bit-align",	 MASK_NO_BITFIELD_TYPE },			\
-  { "strict-align",	 MASK_STRICT_ALIGN },				\
-  { "no-strict-align",	-MASK_STRICT_ALIGN },				\
-  { "relocatable",	 MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC }, \
-  { "no-relocatable",	-MASK_RELOCATABLE },				\
-  { "relocatable-lib",	 MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC }, \
-  { "no-relocatable-lib", -MASK_RELOCATABLE },				\
-  { "little-endian",	 MASK_LITTLE_ENDIAN },				\
-  { "little",		 MASK_LITTLE_ENDIAN },				\
-  { "big-endian",	-MASK_LITTLE_ENDIAN },				\
-  { "big",		-MASK_LITTLE_ENDIAN },				\
-  { "no-toc",		 0 },						\
-  { "toc",		 MASK_MINIMAL_TOC },				\
-  { "full-toc",		 MASK_MINIMAL_TOC },				\
-  { "prototype",	 MASK_PROTOTYPE },				\
-  { "no-prototype",	-MASK_PROTOTYPE },				\
-  { "no-traceback",	 0 },						\
-  { "eabi",		 MASK_EABI },					\
-  { "no-eabi",		-MASK_EABI },					\
-  { "regnames",		  MASK_REGNAMES },				\
-  { "no-regnames",	 -MASK_REGNAMES },				\
-  { "sdata",		 0 },						\
-  { "no-sdata",		 0 },						\
-  { "sim",		 0 },						\
-  { "ads",		 0 },						\
-  { "yellowknife",	 0 },						\
-  { "mvme",		 0 },						\
-  { "emb",		 0 },						\
-  { "vxworks",		 0 },						\
-  { "solaris-cclib",	 0 },						\
-  { "shlib",		 0 },						\
-  EXTRA_SUBTARGET_SWITCHES                                              \
-  { "newlib",		 0 },
+  { "bit-align",	-MASK_NO_BITFIELD_TYPE, "Align to the base type of the bitfield." },\
+  { "no-bit-align",	 MASK_NO_BITFIELD_TYPE, "Don't align to the base type of the bitfield." },\
+  { "strict-align",	 MASK_STRICT_ALIGN, "Don't assume that unaligned accesses are handled by the system" },\
+  { "no-strict-align",	-MASK_STRICT_ALIGN, "Assume that unaligned accesses are handled by the system" },\
+  { "relocatable",	 MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC, "Produce code relocatable at runtime." },\
+  { "no-relocatable",	-MASK_RELOCATABLE, "Don't produce code relocatable at runtime." },\
+  { "relocatable-lib",	 MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC, "Produce code relocatable at runtime." },\
+  { "no-relocatable-lib", -MASK_RELOCATABLE, "Don't produce code relocatable at runtime." },\
+  { "little-endian",	 MASK_LITTLE_ENDIAN, "Produce little endian code." },	\
+  { "little",		 MASK_LITTLE_ENDIAN, "Produce little endian code." },	\
+  { "big-endian",	-MASK_LITTLE_ENDIAN, "Produce big endian code." },	\
+  { "big",		-MASK_LITTLE_ENDIAN, "Produce big endian code." },	\
+  { "no-toc",		 0, "no description yet" },				\
+  { "toc",		 MASK_MINIMAL_TOC, "no description yet" },		\
+  { "full-toc",		 MASK_MINIMAL_TOC, "no description yet" },		\
+  { "prototype",	 MASK_PROTOTYPE, "no description yet" },		\
+  { "no-prototype",	-MASK_PROTOTYPE, "no description yet" },		\
+  { "no-traceback",	 0, "no description yet" },				\
+  { "eabi",		 MASK_EABI, "Use EABI." },				\
+  { "no-eabi",		-MASK_EABI, "Don't use EABI." },			\
+  { "regnames",		  MASK_REGNAMES, "Use alternate register names." },	\
+  { "no-regnames",	 -MASK_REGNAMES, "Don't use alternate register names." },\
+  { "sdata",		 0, "no description yet" },				\
+  { "no-sdata",		 0, "no description yet" },				\
+  { "sim",		 0, "Link with libsim.a, libc.a and sim-crt0.o." },	\
+  { "ads",		 0, "Link with libads.a, libc.a and crt0.o." },		\
+  { "yellowknife",	 0, "Link with libyk.a, libc.a and crt0.o." },		\
+  { "mvme",		 0, "Link with libmvme.a, libc.a and crt0.o." },	\
+  { "emb",		 0, "Set the PPC_EMB bit in the ELF flags header" },	\
+  { "vxworks",		 0, "no description yet" },				\
+  { "solaris-cclib",	 0, "no description yet" },				\
+  { "shlib",		 0, "no description yet" },				\
+  EXTRA_SUBTARGET_SWITCHES							\
+  { "newlib",		 0, "no description yet" },
 
 /* This is meant to be redefined in the host dependent files */
 #define EXTRA_SUBTARGET_SWITCHES
@@ -329,36 +341,9 @@ do {									\
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
 
-/* Don't generate XCOFF debugging information.  */
-
-#undef XCOFF_DEBUGGING_INFO
-
-/* Don't use the COFF object file format.  */
-
-#undef OBJECT_FORMAT_COFF
-
 /* Put jump tables in read-only memory, rather than in .text.  */
 #undef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
-
-/* Disable AIX-ism that disables turning -B into -L if the argument specifies a
-   relative file name.  This breaks setting GCC_EXEC_PREFIX to D:\path under
-   Windows.  */
-#undef RELATIVE_PREFIX_NOT_LINKDIR
-
-/* Undefine some things which are defined by the generic svr4.h.  */
-
-#undef ASM_FILE_END
-#undef ASM_OUTPUT_EXTERNAL_LIBCALL
-#undef READONLY_DATA_SECTION
-#undef SELECT_SECTION
-#undef ASM_DECLARE_FUNCTION_NAME
-#undef ASM_OUTPUT_CONSTRUCTOR
-#undef ASM_OUTPUT_DESTRUCTOR
-
-/* Use the regular svr4 definitions.  */
-
-#include "svr4.h"
 
 /* Prefix and suffix to use to saving floating point */
 #define	SAVE_FP_PREFIX "_savefpr_"
@@ -666,6 +651,39 @@ extern int rs6000_pic_labelno;
     fprintf (FILE, "%s:\n", orig_name);					\
   } while (0)
 
+/* A C compound statement that outputs the assembler code for a thunk function,
+    used to implement C++ virtual function calls with multiple inheritance.  The
+    thunk acts as a wrapper around a virtual function, adjusting the implicit
+    object parameter before handing control off to the real function.
+
+    First, emit code to add the integer DELTA to the location that contains the
+    incoming first argument.  Assume that this argument contains a pointer, and
+    is the one used to pass the this' pointer in C++.  This is the incoming
+    argument *before* the function prologue, e.g. %o0' on a sparc.  The
+    addition must preserve the values of all other incoming arguments.
+
+    After the addition, emit code to jump to FUNCTION, which is a
+    FUNCTION_DECL'.  This is a direct pure jump, not a call, and does not touch
+    the return address.  Hence returning from FUNCTION will return to whoever
+    called the current thunk'.
+
+    The effect must be as if FUNCTION had been called directly with the adjusted
+    first argument.  This macro is responsible for emitting all of the code for
+    a thunk function; FUNCTION_PROLOGUE' and FUNCTION_EPILOGUE' are not
+    invoked.
+
+    The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
+    extracted from it.)  It might possibly be useful on some targets, but
+    probably not.
+
+    If you do not define this macro, the target-independent code in the C++
+    frontend will generate a less efficient heavyweight thunk that calls
+    FUNCTION instead of jumping to it.  The generic approach does not support
+    varargs.  */
+
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
+
 /* How to renumber registers for dbx and gdb.  */
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
@@ -688,13 +706,9 @@ extern int rs6000_pic_labelno;
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#ifndef LOCAL_ASM_OP
 #define LOCAL_ASM_OP	".local"
-#endif
 
-#ifndef LCOMM_ASM_OP
 #define LCOMM_ASM_OP	".lcomm"
-#endif
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
@@ -799,6 +813,40 @@ do {									\
       fprintf (FILE, "\t.long ");					\
       output_addr_const (FILE, (VALUE));				\
       fprintf (FILE, "\n");						\
+    }									\
+} while (0)
+
+
+/* This is how to output an assembler line defining an address 
+   constant for the dwarf call unwinding information.
+   For -mrelocatable, we mark all addresses that need to be fixed up
+   in the .fixup section.  */
+
+extern int dwarflabelno;
+
+#undef	ASM_OUTPUT_DWARF_ADDR
+#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)		                \
+do {									\
+  if ((TARGET_RELOCATABLE || flag_pic))					\
+    {									\
+      char buf[256], *p;						\
+									\
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCDW", dwarflabelno++);	\
+      STRIP_NAME_ENCODING (p, buf);					\
+      fprintf (FILE, "%s:\n", p);					\
+      fprintf (FILE, "\t.4byte\t");					\
+      assemble_name (FILE, LABEL);      				\
+      fprintf (FILE, "\n");					        \
+      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			\
+      ASM_OUTPUT_ALIGN (FILE, 2);					\
+      fprintf (FILE, "\t.long\t%s\n", p);				\
+      fprintf (FILE, "\t.previous\n");					\
+    }									\
+  else                                                                  \
+    {									\
+      fprintf (FILE, "\t.4byte\t");                                     \
+      assemble_name (FILE, LABEL);                                      \
+      fprintf (FILE, "\n");					        \
     }									\
 } while (0)
 
@@ -971,20 +1019,14 @@ do {									\
     %{mcall-solaris: -mlittle -msolaris} \
     %{mcall-linux: -mbig} }}}}"
 
-#ifndef CC1_ENDIAN_BIG_SPEC
 #define CC1_ENDIAN_BIG_SPEC ""
-#endif
 
-#ifndef CC1_ENDIAN_LITTLE_SPEC
 #define CC1_ENDIAN_LITTLE_SPEC "\
 %{!mstrict-align: %{!mno-strict-align: \
 	-mstrict-align \
 }}"
-#endif
 
-#ifndef CC1_ENDIAN_DEFAULT_SPEC
 #define CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big_spec)"
-#endif
 
 #undef CC1_SPEC
 /* Pass -G xxx to the compiler and set correct endian mode */
@@ -1030,7 +1072,6 @@ do {									\
 #endif
 
 /* Default starting address if specified */
-#ifndef LINK_START_SPEC
 #define LINK_START_SPEC "\
 %{mads: %(link_start_ads) } \
 %{myellowknife: %(link_start_yellowknife) } \
@@ -1039,12 +1080,10 @@ do {									\
 %{mcall-linux: %(link_start_linux) } \
 %{mcall-solaris: %(link_start_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(link_start_default) }}}}}}"
-#endif
 
-#ifndef	LINK_START_DEFAULT_SPEC
 #define LINK_START_DEFAULT_SPEC ""
-#endif
 
+/* override svr4.h definition */
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %{h*} %{v:-V} %{G*} \
@@ -1060,7 +1099,6 @@ do {									\
 #define NO_SHARED_LIB_SUPPORT
 #endif
 
-#undef  LINK_SHLIB_SPEC
 #ifndef NO_SHARED_LIB_SUPPORT
 /* Shared libraries are default.  */
 #define LINK_SHLIB_SPEC "\
@@ -1081,13 +1119,11 @@ do {									\
 #endif
 
 /* Override the default target of the linker.  */
-#undef	LINK_TARGET_SPEC
 #define	LINK_TARGET_SPEC "\
 %{mlittle: -oformat elf32-powerpcle } %{mlittle-endian: -oformat elf32-powerpcle } \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: %{mcall-solaris: -oformat elf32-powerpcle}}}}}"
 
 /* Any specific OS flags */
-#ifndef LINK_OS_SPEC
 #define LINK_OS_SPEC "\
 %{mads: %(link_os_ads) } \
 %{myellowknife: %(link_os_yellowknife) } \
@@ -1096,11 +1132,8 @@ do {									\
 %{mcall-linux: %(link_os_linux) } \
 %{mcall-solaris: %(link_os_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(link_os_default) }}}}}}"
-#endif
 
-#ifndef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC ""
-#endif
 
 #define CPP_SYSV_SPEC \
 "%{mrelocatable*: -D_RELOCATABLE} \
@@ -1134,6 +1167,7 @@ do {									\
 
 #define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
 
+/* override rs6000.h definition */
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_sysv) %(cpp_endian) %(cpp_cpu) \
 %{mads: %(cpp_os_ads) } \
@@ -1144,10 +1178,9 @@ do {									\
 %{mcall-solaris: %(cpp_os_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(cpp_os_default) }}}}}}"
 
-#ifndef CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC ""
-#endif
 
+/* override svr4.h definition */
 #undef  STARTFILE_SPEC
 #define	STARTFILE_SPEC "\
 %{mads: %(startfile_ads) } \
@@ -1158,9 +1191,9 @@ do {									\
 %{mcall-solaris: %(startfile_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(startfile_default) }}}}}}"
 
-#undef	STARTFILE_DEFAULT_SPEC
 #define	STARTFILE_DEFAULT_SPEC ""
 
+/* override svr4.h definition */
 #undef	LIB_SPEC
 #define	LIB_SPEC "\
 %{mads: %(lib_ads) } \
@@ -1171,13 +1204,13 @@ do {									\
 %{mcall-solaris: %(lib_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(lib_default) }}}}}}"
 
+/* override rs6000.h definition */
 #undef	LIBGCC_SPEC
 #define	LIBGCC_SPEC "libgcc.a%s"
 
-#ifndef LIB_DEFAULT_SPEC
 #define LIB_DEFAULT_SPEC ""
-#endif
 
+/* override svr4.h definition */
 #undef	ENDFILE_SPEC
 #define	ENDFILE_SPEC "\
 %{mads: ecrtn.o%s} \
@@ -1189,111 +1222,61 @@ do {									\
 %{mvxworks: %(endfile_vxworks) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %{!mvxworks: %(endfile_default) }}}}}}}"
 
-#undef	ENDFILE_DEFAULT_SPEC
 #define	ENDFILE_DEFAULT_SPEC ""
 
 /* Motorola ADS support.  */
-#ifndef	LIB_ADS_SPEC
 #define LIB_ADS_SPEC "--start-group -lads -lc --end-group"
-#endif
 
-#ifndef	STARTFILE_ADS_SPEC
 #define	STARTFILE_ADS_SPEC "ecrti.o%s crt0.o%s"
-#endif
 
-#ifndef	ENDFILE_ADS_SPEC
 #define	ENDFILE_ADS_SPEC "ecrtn.o%s"
-#endif
 
-#ifndef LINK_START_ADS_SPEC
 #define LINK_START_ADS_SPEC "-T ads.ld%s"
-#endif
 
-#ifndef LINK_OS_ADS_SPEC
 #define LINK_OS_ADS_SPEC ""
-#endif
 
-#ifndef CPP_OS_ADS_SPEC
 #define CPP_OS_ADS_SPEC ""
-#endif
 
 /* Motorola Yellowknife support.  */
-#ifndef	LIB_YELLOWKNIFE_SPEC
 #define LIB_YELLOWKNIFE_SPEC "--start-group -lyk -lc --end-group"
-#endif
 
-#ifndef	STARTFILE_YELLOWKNIFE_SPEC
 #define	STARTFILE_YELLOWKNIFE_SPEC "ecrti.o%s crt0.o%s"
-#endif
 
-#ifndef	ENDFILE_YELLOWKNIFE_SPEC
 #define	ENDFILE_YELLOWKNIFE_SPEC "ecrtn.o%s"
-#endif
 
-#ifndef LINK_START_YELLOWKNIFE_SPEC
 #define LINK_START_YELLOWKNIFE_SPEC "-T yellowknife.ld%s"
-#endif
 
-#ifndef LINK_OS_YELLOWKNIFE_SPEC
 #define LINK_OS_YELLOWKNIFE_SPEC ""
-#endif
 
-#ifndef CPP_OS_YELLOWKNIFE_SPEC
 #define CPP_OS_YELLOWKNIFE_SPEC ""
-#endif
 
 /* Motorola MVME support.  */
-#ifndef	LIB_MVME_SPEC
 #define LIB_MVME_SPEC "--start-group -lmvme -lc --end-group"
-#endif
 
-#ifndef	STARTFILE_MVME_SPEC
 #define	STARTFILE_MVME_SPEC "ecrti.o%s crt0.o%s"
-#endif
 
-#ifndef	ENDFILE_MVME_SPEC
 #define	ENDFILE_MVME_SPEC "ecrtn.o%s"
-#endif
 
-#ifndef LINK_START_MVME_SPEC
 #define LINK_START_MVME_SPEC "%{!Wl,-T*: %{!T*: -Ttext 0x40000}}"
-#endif
 
-#ifndef LINK_OS_MVME_SPEC
 #define LINK_OS_MVME_SPEC ""
-#endif
 
-#ifndef CPP_OS_MVME_SPEC
 #define CPP_OS_MVME_SPEC ""
-#endif
 
 /* PowerPC simulator based on netbsd system calls support.  */
-#ifndef	LIB_SIM_SPEC
 #define LIB_SIM_SPEC "--start-group -lsim -lc --end-group"
-#endif
 
-#ifndef	STARTFILE_SIM_SPEC
 #define	STARTFILE_SIM_SPEC "ecrti.o%s sim-crt0.o%s"
-#endif
 
-#ifndef	ENDFILE_SIM_SPEC
 #define	ENDFILE_SIM_SPEC "ecrtn.o%s"
-#endif
 
-#ifndef LINK_START_SIM_SPEC
 #define LINK_START_SIM_SPEC "-Ttext 0x10000074"
-#endif
 
-#ifndef LINK_OS_SIM_SPEC
 #define LINK_OS_SIM_SPEC ""
-#endif
 
-#ifndef CPP_OS_SIM_SPEC
 #define CPP_OS_SIM_SPEC ""
-#endif
 
 /* GNU/Linux support.  */
-#ifndef	LIB_LINUX_SPEC
 #ifdef USE_GNULIBC_1
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
 %{!mnewlib: -lc }"
@@ -1302,30 +1285,20 @@ do {									\
 %{!mnewlib: %{shared:-lc} %{!shared: %{pthread:-lpthread } \
 %{profile:-lc_p} %{!profile:-lc}}}"
 #endif
-#endif
 
-#ifndef	STARTFILE_LINUX_SPEC
 #define	STARTFILE_LINUX_SPEC "\
 %{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} \
 %{mnewlib: ecrti.o%s} \
 %{!mnewlib: crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
-#endif
 
-#ifndef	ENDFILE_LINUX_SPEC
 #define	ENDFILE_LINUX_SPEC "\
 %{mnewlib: ecrtn.o%s} \
 %{!mnewlib: %{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s}"
-#endif
 
-#ifndef LINK_START_LINUX_SPEC
 #define LINK_START_LINUX_SPEC "-Ttext 0x400074"
-#endif
 
-#ifndef LINK_OS_LINUX_SPEC
 #define LINK_OS_LINUX_SPEC ""
-#endif
 
-#ifndef CPP_OS_LINUX_SPEC
 #ifdef USE_GNULIBC_1
 #define CPP_OS_LINUX_SPEC "-D__unix__ -D__linux__ \
 %{!undef:%{!ansi:%{!std=*:-Dunix -Dlinux}%{std=gnu*:-Dunix -Dlinux}}} \
@@ -1334,7 +1307,6 @@ do {									\
 #define CPP_OS_LINUX_SPEC "-D__unix__ -D__linux__ \
 %{!undef:%{!ansi:%{!std=*:-Dunix -Dlinux}%{std=gnu*:-Dunix -Dlinux}}} \
 -Asystem(unix) -Asystem(posix) %{pthread:-D_REENTRANT}"
-#endif
 #endif
 
 /* Solaris support.  */
@@ -1349,7 +1321,6 @@ do {									\
    value of `_lib_version') if they will act in a strictly ANSI conforming
    manner or not.  */
 
-#ifndef	LIB_SOLARIS_SPEC
 #define LIB_SOLARIS_SPEC "\
 %{mnewlib: --start-group -lsolaris -lc --end-group } \
 %{!mnewlib: \
@@ -1360,67 +1331,45 @@ do {									\
 	%{compat-bsd:-lucb -lsocket -lnsl -lelf -laio} \
     %{solaris-cclib: /opt/SUNWspro/SC4.0/lib/libabi.a} \
     %{!shared: %{!symbolic: -lc }}}"
-#endif
 
-#ifndef	STARTFILE_SOLARIS_SPEC
 #define	STARTFILE_SOLARIS_SPEC "\
 %{!msolaris-cclib: scrti.o%s scrt0.o%s} \
 %{msolaris-cclib: /opt/SUNWspro/SC4.0/lib/crti.o%s /opt/SUNWspro/SC4.0/lib/crt1.o%s}"
-#endif
 
-#ifndef	ENDFILE_SOLARIS_SPEC
 #define	ENDFILE_SOLARIS_SPEC "\
 %{!msolaris-cclib: scrtn.o%s} \
 %{msolaris-cclib: /opt/SUNWspro/SC4.0/lib/crtn.o%s}"
-#endif
 
-#ifndef LINK_START_SOLARIS_SPEC
 #ifdef CROSS_COMPILER
 #define LINK_START_SOLARIS_SPEC "-Ttext 0x2000074"
 #else
 #define LINK_START_SOLARIS_SPEC ""
 #endif
-#endif
 
-#ifndef LINK_OS_SOLARIS_SPEC
 #define LINK_OS_SOLARIS_SPEC ""
-#endif
 
-#ifndef CPP_OS_SOLARIS_SPEC
 #define CPP_OS_SOLARIS_SPEC "-D__ppc -D__sun__=1 -D__unix__ -D__svr4__  -D__SVR4__ \
 %{!undef:%{!ansi:%{!std=*:-Dsun=1 -Dunix -DSVR4 -D__EXTENSIONS__} \
                %{std=gnu*:-Dsun=1 -Dunix -DSVR4 -D__EXTENSIONS__}}} \
 -Amachine(prep)"
-#endif
 
 /* VxWorks support.  */
 /* VxWorks does all the library stuff itself.  */
-#ifndef	LIB_VXWORKS_SPEC
 #define LIB_VXWORKS_SPEC ""
-#endif
 
 /* VxWorks provides the functionality of crt0.o and friends itself.  */
 
-#ifndef	STARTFILE_VXWORKS_SPEC
 #define	STARTFILE_VXWORKS_SPEC ""
-#endif
 
-#ifndef	ENDFILE_VXWORKS_SPEC
 #define	ENDFILE_VXWORKS_SPEC ""
-#endif
 
 /* Because it uses ld -r, vxworks has no start/end files, nor starting
    address.  */
 
-#ifndef LINK_START_VXWORKS_SPEC
 #define LINK_START_VXWORKS_SPEC ""
-#endif
 
-#ifndef LINK_OS_VXWORKS_SPEC
 #define LINK_OS_VXWORKS_SPEC "-r"
-#endif
 
-#ifndef CPP_OS_VXWORKS_SPEC
 #define CPP_OS_VXWORKS_SPEC "\
 -DCPU_FAMILY=PPC \
 %{!mcpu*: \
@@ -1443,7 +1392,6 @@ do {									\
 %{mcpu=821: -DCPU=PPC603} \
 %{mcpu=823: -DCPU=PPC603} \
 %{mcpu=860: -DCPU=PPC603}"
-#endif
 
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef	SUBTARGET_EXTRA_SPECS
@@ -1521,7 +1469,6 @@ do {									\
    the target makefile fragment or if none of the options listed in
    `MULTILIB_OPTIONS' are set by default.  *Note Target Fragment::.  */
 
-#undef	MULTILIB_DEFAULTS
 #define	MULTILIB_DEFAULTS { "mbig", "mcall-sysv" }
 
 /* Define this macro if the code for function profiling should come
@@ -1531,6 +1478,3 @@ do {									\
 
 /* Function name to call to do profiling.  */
 #define RS6000_MCOUNT "_mcount"
-
-/* r13 is used for the small data pointer under SVR4.  */
-#define FIXED_R13 1
