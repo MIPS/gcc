@@ -69,10 +69,6 @@ enum bb_flags
 
 static bool try_crossjump_to_edge	PARAMS ((int, edge, edge));
 static bool try_crossjump_bb		PARAMS ((int, basic_block));
-static bool outgoing_edges_match	PARAMS ((int,
-						 basic_block, basic_block));
-static int flow_find_cross_jump		PARAMS ((int, basic_block, basic_block,
-						 rtx *, rtx *));
 static bool insns_match_p		PARAMS ((int, rtx, rtx));
 
 static bool label_is_jump_target_p	PARAMS ((rtx, rtx));
@@ -89,7 +85,6 @@ static bool try_forward_edges		PARAMS ((int, basic_block));
 static edge thread_jump			PARAMS ((int, edge, basic_block));
 static bool mark_effect			PARAMS ((rtx, bitmap));
 static void notice_new_block		PARAMS ((basic_block));
-static void update_forwarder_flag	PARAMS ((basic_block));
 static int mentions_nonequal_regs	PARAMS ((rtx *, void *));
 
 /* Set flags for newly created block.  */
@@ -107,7 +102,7 @@ notice_new_block (bb)
 
 /* Recompute forwarder flag after block has been modified.  */
 
-static void
+void
 update_forwarder_flag (bb)
      basic_block bb;
 {
@@ -1031,7 +1026,7 @@ insns_match_p (mode, i1, i2)
    To simplify callers of this function, if the blocks match exactly,
    store the head of the blocks in *F1 and *F2.  */
 
-static int
+int
 flow_find_cross_jump (mode, bb1, bb2, f1, f2)
      int mode ATTRIBUTE_UNUSED;
      basic_block bb1, bb2;
@@ -1141,13 +1136,24 @@ flow_find_cross_jump (mode, bb1, bb2, f1, f2)
    the branch instruction.  This means that if we commonize the control
    flow before end of the basic block, the semantic remains unchanged.
 
-   We may assume that there exists one edge with a common destination.  */
+   We may assume that there exists one edge with a common destination.
+ 
+   If EDGE1 and EDGE2 are not NULL, they are some of the successors of
+   BB1 and BB2 and we consider them to go to the same destination.
+   (For now this is done only for simple conditional jumps; this is
+   conservatively correct for loop rerolling where we use it).
 
-static bool
-outgoing_edges_match (mode, bb1, bb2)
+   If CONSIDER_PROB, also check that the probablilities of outgoing
+   edges are simmilar.  */
+
+bool
+outgoing_edges_match (mode, bb1, bb2, edge1, edge2, consider_prob)
      int mode;
      basic_block bb1;
      basic_block bb2;
+     edge edge1;
+     edge edge2;
+     int consider_prob;
 {
   int nehedges1 = 0, nehedges2 = 0;
   edge fallthru1 = 0, fallthru2 = 0;
@@ -1186,6 +1192,12 @@ outgoing_edges_match (mode, bb1, bb2)
       b2 = BRANCH_EDGE (bb2);
       f1 = FALLTHRU_EDGE (bb1);
       f2 = FALLTHRU_EDGE (bb2);
+
+      /* Let's ensure that edge1 behaves identically to edge2.  */
+      if (f1 == edge1)
+	f1 = edge2;
+      if (b1 == edge1)
+	b1 = edge2;
 
       /* Get around possible forwarders on fallthru edges.  Other cases
          should be optimized out already.  */
@@ -1243,6 +1255,7 @@ outgoing_edges_match (mode, bb1, bb2)
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
       if (match
+	  && consider_prob
 	  && !optimize_size
 	  && maybe_hot_bb_p (bb1)
 	  && maybe_hot_bb_p (bb2))
@@ -1462,7 +1475,7 @@ try_crossjump_to_edge (mode, e1, e2)
     return false;
 
   /* Look for the common insn sequence, part the first ...  */
-  if (!outgoing_edges_match (mode, src1, src2))
+  if (!outgoing_edges_match (mode, src1, src2, NULL, NULL, true))
     return false;
 
   /* ... and part the second.  */

@@ -412,3 +412,4 @@ enum
 
 extern void unroll_and_peel_loops	PARAMS ((struct loops *, int));
 extern void doloop_optimize_loops	PARAMS ((struct loops *));
+extern bool reroll_loops		PARAMS ((void));

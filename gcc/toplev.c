@@ -262,6 +262,7 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
+  DFI_reroll,
   DFI_ce3,
   DFI_bbro,
   DFI_sched2,
@@ -316,6 +317,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
+  { "reroll",	'L', 1, 0, 0 },
   { "ce3",	'E', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
@@ -578,6 +580,9 @@ int flag_unroll_loops;
 
 /* Enables unrolling of all loops in loop-unroll.c.  */
 int flag_unroll_all_loops;
+
+/* Enables rerolling of non-optimized unrolled loops.  */
+int flag_reroll_loops;
 
 /* Nonzero enables loop peeling.  */
 int flag_peel_loops;
@@ -1086,6 +1091,8 @@ static const lang_independent_options f_options[] =
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
    N_("Perform loop unrolling for all loops") },
+  {"reroll-loops", &flag_reroll_loops, 1,
+   N_("Reroll unoptimized unrolled loops") },
   {"old-unroll-loops", &flag_old_unroll_loops, 1,
    N_("Perform loop unrolling when iteration count is known") },
   {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1,
@@ -3717,6 +3724,15 @@ rest_of_compilation (decl)
       timevar_pop (TV_REORDER_BLOCKS);
     }
 
+  if (flag_unroll_all_loops && flag_reroll_loops)
+    {
+      timevar_push (TV_REROLL);
+      open_dump_file (DFI_reroll, decl);
+      reroll_loops ();
+      close_dump_file (DFI_reroll, print_rtl_with_bb, insns);
+      timevar_pop (TV_REROLL);
+    }
+
   if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
@@ -5399,7 +5415,12 @@ process_options ()
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
   if (flag_unroll_all_loops)
-    flag_unroll_loops = 1;
+    {
+      flag_unroll_loops = 1;
+
+      /* And including rerolling helps it a bit.  */
+      flag_reroll_loops = 1;
+    }
 
   if (flag_unroll_loops)
     {

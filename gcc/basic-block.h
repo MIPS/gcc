@@ -582,6 +582,12 @@ extern void alloc_aux_for_edge		PARAMS ((edge, int));
 extern void alloc_aux_for_edges		PARAMS ((int));
 extern void clear_aux_for_edges		PARAMS ((void));
 extern void free_aux_for_edges		PARAMS ((void));
+extern bool outgoing_edges_match	PARAMS ((int,
+						 basic_block, basic_block,
+						 edge, edge, int));
+extern int flow_find_cross_jump		PARAMS ((int, basic_block, basic_block,
+						 rtx *, rtx *));
+extern void update_forwarder_flag	PARAMS ((basic_block));
 
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about

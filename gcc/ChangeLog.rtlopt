@@ -1,3 +1,20 @@
+2003-04-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (loop-reroll.o): New.
+	* basic-block.h (outgoing_edges_match, flow_find_cross_jump,
+	update_forwarder_flag): Declare.
+	* cfgcleanup.c (flow_find_cross_jump, update_forwarder_flag):
+	Export.
+	(outgoing_edges_match): Export; update for rerolling.
+	* cfgloop.h (reroll_loops): Declare.
+	* timevar.def (TV_REROLL): New.
+	* toplev.c (DFI_reroll): New.
+	(dump_file): Add loop rerolling.
+	(flag_reroll_loops): New.
+	(lang_independent_options): Add -freroll-loops.
+	(rest_of_compilation): Add loop rerolling.
+	(process_options): Enable it when unrolling all loops.
+
 2003-04-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* bitmap.c (bitmap_element_link): Removed.
