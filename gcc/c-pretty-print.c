@@ -1,5 +1,5 @@
 /* Pretty formatting of a tree in C syntax.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -339,10 +339,10 @@ dump_c_node (buffer, node, spc)
 
     case INTEGER_CST:
       if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
-	/* In the case of a pointer, divise by the size of the pointed type.  */
+	/* In the case of a pointer, divide by the size of the pointed-to type.  */
 	output_decimal (buffer,
-			TREE_INT_CST_LOW (node) / 
-			TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (node))));
+			TREE_INT_CST_LOW (node) * BITS_PER_UNIT /
+			(TYPE_PRECISION (TREE_TYPE (TREE_TYPE (node)))));
       else
 	output_decimal (buffer, TREE_INT_CST_LOW (node));
       break;

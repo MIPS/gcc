@@ -1,3 +1,8 @@
+2002-06-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* c-pretty-print.c (dump_c_node): Correct scaling of pointer-type
+	integer constants by type precision.
+
 2002-06-12  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (fallback_t): New enum.
