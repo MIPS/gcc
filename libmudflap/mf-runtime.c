@@ -43,6 +43,17 @@ XXX: libgcc license?
 /* ------------------------------------------------------------------------ */
 /* Utility macros */
 
+
+/* Codes to describe the context in which a violation occurs. */
+
+#define __MF_VIOL_UNKNOWN 0
+#define __MF_VIOL_READ 1
+#define __MF_VIOL_WRITE 2
+#define __MF_VIOL_REGISTER 3
+#define __MF_VIOL_UNREGISTER 4
+#define __MF_VIOL_WATCH 5
+
+
 /* Protect against recursive calls. */
 #define BEGIN_RECURSION_PROTECT           \
   enum __mf_state old_state;              \
@@ -95,6 +106,7 @@ __mf_set_default_options ()
   __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
   __mf_opts.abbreviate = 1;
+  __mf_opts.check_initialization = 0;
   __mf_opts.verbose_violations = 1;
   __mf_opts.multi_threaded = 0;
   __mf_opts.free_queue_length = 4;
@@ -166,6 +178,9 @@ options [] =
     {"print-leaks", 
      "print any memory leaks at program shutdown",
      set_option, 1, &__mf_opts.print_leaks},
+    {"check-initialization", 
+     "detect uninitialized object reads",
+     set_option, 1, &__mf_opts.check_initialization},
     {"verbose-violations", 
      "print verbose messages when memory violations occur",
      set_option, 1, &__mf_opts.verbose_violations},
@@ -254,7 +269,7 @@ __mf_usage ()
 	  break;
 	case read_integer_option:
 	  strncpy (buf, opt->name, 128);
-	  strncpy (buf + strnlen (opt->name, 128), "=N", 2);
+	  strncpy (buf + strlen (opt->name), "=N", 2);
 	  fprintf (stderr, "-%-23.23s %s", buf, opt->description);
 	  fprintf (stderr, " [%d]\n", * opt->target);
 	  break;	  
@@ -462,7 +477,8 @@ typedef struct __mf_object
   const char *name;
   char type; /* __MF_TYPE_something */
   char watching_p; /* Trigger a VIOL_WATCH on access? */
-  unsigned check_count; /* Number of times __mf_check was called on this object.  */
+  unsigned read_count; /* Number of times __mf_check/read was called on this object.  */
+  unsigned write_count; /* Likewise for __mf_check/write.  */
   unsigned liveness; /* A measure of recent checking activity.  */
   unsigned description_epoch; /* Last epoch __mf_describe_object printed this.  */
 
@@ -501,7 +517,7 @@ static void __mf_age_tree (__mf_object_tree_t *obj);
 static void __mf_adapt_cache ();
 static void __mf_unlink_object (__mf_object_tree_t *obj);
 static void __mf_describe_object (__mf_object_t *obj);
-static unsigned __mf_watch_or_not (uintptr_t ptr, uintptr_t sz, char flag);
+static unsigned __mf_watch_or_not (void *ptr, size_t sz, char flag);
 
 
 
@@ -537,7 +553,7 @@ void __mf_init ()
   __mf_describe_object (NULL);
 
 #define REG_RESERVED(obj) \
-  __mf_register ((uintptr_t) & obj, (uintptr_t) sizeof(obj), __MF_TYPE_NOACCESS, # obj)
+  __mf_register (& obj, sizeof(obj), __MF_TYPE_NOACCESS, # obj)
 
   REG_RESERVED (__mf_lookup_cache);
   REG_RESERVED (__mf_lc_mask);
@@ -552,13 +568,12 @@ void __mf_init ()
   if (__mf_opts.heur_argv_environ)
     {
       int foo = 0;
-      __mf_register ((uintptr_t) & foo,
-		     (uintptr_t) 0xC0000000 - (uintptr_t) (& foo),
+      __mf_register (& foo,
+		     (size_t) 0xC0000000 - (size_t) (& foo),
 		     __MF_TYPE_GUESS,
 		     "argv/environ area");
       /* XXX: separate heuristic? */
-      __mf_register ((uintptr_t) & errno,
-		     (uintptr_t) sizeof (errno),
+      __mf_register (& errno, sizeof (errno),
 		     __MF_TYPE_GUESS,
 		     "errno area");
     }
@@ -577,17 +592,18 @@ void __mf_fini ()
 /* ------------------------------------------------------------------------ */
 /* __mf_check */
 
-void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
+void __mf_check (void *ptr, size_t sz, int type, const char *location)
 {
   unsigned entry_idx = __MF_CACHE_INDEX (ptr);
   struct __mf_cache *entry = & __mf_lookup_cache [entry_idx];
   int judgement = 0; /* 0=undecided; <0=violation; >0=okay */
+  uintptr_t ptr_low = (uintptr_t) ptr;
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
   struct __mf_cache old_entry = *entry;
 
   BEGIN_RECURSION_PROTECT;
-  TRACE ("mf: check p=%08lx s=%lu "
-	 "location=`%s'\n", ptr, sz, location);
+  TRACE ("mf: check p=%08lx s=%lu %s location=`%s'\n",
+	 ptr, sz, (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
     {
@@ -596,7 +612,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
       break;
 
     case mode_populate:
-      entry->low = ptr;
+      entry->low = ptr_low;
       entry->high = ptr_high;
       judgement = 1;
       break;
@@ -632,21 +648,30 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 	    __mf_object_tree_t* ovr_obj[1];
 	    unsigned obj_count;
 
-	    obj_count = __mf_find_objects (ptr, ptr_high, ovr_obj, 1);
+	    obj_count = __mf_find_objects (ptr_low, ptr_high, ovr_obj, 1);
 
 	    if (LIKELY (obj_count == 1)) /* A single hit! */
 	      {
 		__mf_object_t *obj = & ovr_obj[0]->data;
 		assert (obj != NULL);
-		if (LIKELY (ptr >= obj->low && ptr_high <= obj->high))
+		if (LIKELY (ptr_low >= obj->low && ptr_high <= obj->high))
 		  {
-		    obj->check_count ++;  /* XXX: what about overflow?  */
+		    /* XXX: hope for no overflow!  */
+		    if (type == __MF_CHECK_READ)
+		      obj->read_count ++;
+		    else
+		      obj->write_count ++;
+
 		    obj->liveness ++;
 		    
 		    if (UNLIKELY (obj->type == __MF_TYPE_NOACCESS))
 		      judgement = -1;
 		    else if (UNLIKELY (obj->watching_p))
-		      judgement = -2;
+		      judgement = -2; /* trigger VIOL_WATCH */
+		    else if (UNLIKELY (__mf_opts.check_initialization &&
+				       type == __MF_CHECK_READ &&
+				       obj->write_count == 0))
+		      judgement = -1;
 		    else
 		      {
 			/* Valid access.  */
@@ -667,11 +692,11 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		all_ovr_objs = CALL_REAL (malloc, (sizeof (__mf_object_tree_t *) *
 						   obj_count));
 		if (all_ovr_objs == NULL) abort ();
-		n = __mf_find_objects (ptr, ptr_high, all_ovr_objs, obj_count);
+		n = __mf_find_objects (ptr_low, ptr_high, all_ovr_objs, obj_count);
 		assert (n == obj_count);
 
 		/* Confirm that accessed range is covered by first/last object. */
-		if (LIKELY ((ptr >= all_ovr_objs[0]->data.low) &&
+		if (LIKELY ((ptr_low >= all_ovr_objs[0]->data.low) &&
 			    (ptr_high <= all_ovr_objs[obj_count-1]->data.high)))
 		  {
 		    /* Presume valid access.  */
@@ -703,7 +728,11 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 			   same literal string pointer is normally
 			   used when creating regions.  */
 
-			obj->check_count ++;  /* XXX: what about overflow?  */
+			/* XXX: hope for no overflow!  */
+			if (type == __MF_CHECK_READ)
+			  obj->read_count ++;
+			else
+			  obj->write_count ++;
 			obj->liveness ++;
 		      }
 
@@ -714,7 +743,25 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 			unsigned i;
 			for (i=0; i<obj_count; i++)
 			  if (all_ovr_objs[i]->data.watching_p)
-			    judgement = -2;
+			    judgement = -2;  /* trigger VIOL_WATCH */
+		      }
+
+		    /* Check for uninitialized reads.  */
+		    if (judgement > 0 &&
+			__mf_opts.check_initialization &&
+			type == __MF_CHECK_READ)
+		      {
+			unsigned i;
+			unsigned written_count = 0;
+
+			for (i=0; i<obj_count; i++)
+			  if (all_ovr_objs[i]->data.write_count)
+			    written_count ++;
+			
+			/* Check for ALL pieces having been written-to.
+			   XXX: should this be ANY instead?  */
+			if (written_count != obj_count)
+			  judgement = -1;
 		      }
 
 		    /* Fill out the cache with the bounds of the first
@@ -743,7 +790,7 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 	    if (judgement == 0)
 	      {
 		if (heuristics++ < 2) /* XXX parametrize this number? */
-		  judgement = __mf_heuristic_check (ptr, ptr_high);
+		  judgement = __mf_heuristic_check (ptr_low, ptr_high);
 		else
 		  judgement = -1;
 	      }
@@ -771,7 +818,9 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
   if (UNLIKELY (judgement < 0))
     __mf_violation (ptr, sz,
 		    (uintptr_t) __builtin_return_address (0), location,
-		    ((judgement == -1) ? __MF_VIOL_CHECK : __MF_VIOL_WATCH));
+		    ((judgement == -1) ? 
+		     (type == __MF_CHECK_READ ? __MF_VIOL_READ : __MF_VIOL_WRITE) :
+		     __MF_VIOL_WATCH));
 }
 
 
@@ -788,6 +837,9 @@ __mf_insert_new_object (uintptr_t low, uintptr_t high, int type,
   new_obj->data.type = type;
   new_obj->data.name = name;
   new_obj->data.alloc_pc = pc;
+  if (type == __MF_TYPE_STATIC ||
+      type == __MF_TYPE_GUESS)
+    new_obj->data.write_count = 1; /* assume initialized */
   gettimeofday (& new_obj->data.alloc_time, NULL);
   
   if (__mf_opts.backtrace > 0 && type == __MF_TYPE_HEAP)
@@ -804,7 +856,9 @@ static void
 __mf_uncache_object (__mf_object_t *old_obj)
 {
   /* Remove any low/high pointers for this object from the lookup cache.  */
-  if (LIKELY (old_obj->check_count)) /* Can it possibly exist in the cache?  */
+  
+  /* Can it possibly exist in the cache?  */
+  if (LIKELY (old_obj->read_count + old_obj->write_count))
     {
       uintptr_t low = old_obj->low;
       uintptr_t high = old_obj->high;
@@ -829,7 +883,7 @@ __mf_uncache_object (__mf_object_t *old_obj)
 
 
 void
-__mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
+__mf_register (void *ptr, size_t sz, int type, const char *name)
 {
   /* if (UNLIKELY (!(__mf_state == active || __mf_state == starting))) return; */
 
@@ -850,8 +904,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
       break;
       
     case mode_violate:
-      __mf_violation (ptr, sz, (uintptr_t) 
-		      __builtin_return_address (0), NULL,
+      __mf_violation (ptr, sz, (uintptr_t) __builtin_return_address (0), NULL,
 		      __MF_VIOL_REGISTER);
       break;
 
@@ -867,7 +920,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
       {
 	__mf_object_tree_t *ovr_objs [1];
 	unsigned num_overlapping_objs;
-	uintptr_t low = ptr;
+	uintptr_t low = (uintptr_t) ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
 	uintptr_t pc = (uintptr_t) __builtin_return_address (0);
 	
@@ -948,14 +1001,14 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 		    if (all_ovr_objs[n]->data.low > next_low) /* Gap? */
 		      {
 			uintptr_t next_high = CLAMPSUB (all_ovr_objs[n]->data.low, 1);
-			__mf_register (next_low, next_high-next_low+1,
+			__mf_register ((void *) next_low, next_high-next_low+1,
 				       __MF_TYPE_GUESS, name);
 		      }
 		    next_low = CLAMPADD (all_ovr_objs[n]->data.high, 1);
 		  }
 		/* Add in any leftover room at the top.  */
 		if (next_low <= high)
-		  __mf_register (next_low, high-next_low+1,
+		  __mf_register ((void *) next_low, high-next_low+1,
 				 __MF_TYPE_GUESS, name);
 
 		/* XXX: future optimization: allow consecutive GUESS regions to
@@ -983,9 +1036,10 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
   		   located GUESS region should end up being split up
   		   in any case.  */
 		END_RECURSION_PROTECT;
-		__mf_unregister (old_low, old_high-old_low+1);
-		__mf_register (low, sz, type, name);
-		__mf_register (old_low, old_high-old_low+1, __MF_TYPE_GUESS, old_name);
+		__mf_unregister ((void *) old_low, old_high-old_low+1);
+		__mf_register ((void *) low, sz, type, name);
+		__mf_register ((void *) old_low, old_high-old_low+1,
+			       __MF_TYPE_GUESS, old_name);
 		return;
 	      }
 
@@ -993,7 +1047,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	    else
 	      {
 		/* Two or more *real* mappings here. */
-		__mf_violation (ptr, sz,
+		__mf_violation ((void *) ptr, sz,
 				(uintptr_t) __builtin_return_address (0), NULL,
 				__MF_VIOL_REGISTER);
 	      }
@@ -1006,7 +1060,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	  }
 	
 	/* We could conceivably call __mf_check() here to prime the cache,
-	   but then the check_count field is not reliable.  */
+	   but then the read_count/write_count field is not reliable.  */
 	
 	END_RECURSION_PROTECT;
 	break;
@@ -1017,7 +1071,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
 
 void
-__mf_unregister (uintptr_t ptr, uintptr_t sz)
+__mf_unregister (void *ptr, size_t sz)
 {
   DECLARE (void, free, void *ptr);
   BEGIN_RECURSION_PROTECT;
@@ -1052,7 +1106,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	/* Treat unknown size indication as 1.  */
 	if (sz == 0) sz = 1;
 	
-	num_overlapping_objs = __mf_find_objects (ptr, CLAMPSZ (ptr, sz), objs, 1);
+	num_overlapping_objs = __mf_find_objects ((uintptr_t) ptr,
+						  CLAMPSZ (ptr, sz), objs, 1);
 
 	/* XXX: handle unregistration of big old GUESS region, that has since
 	   been splintered.  */
@@ -1121,7 +1176,7 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	if (__mf_opts.print_leaks)
 	  {
-	    if (old_obj->data.check_count == 0 &&
+	    if ((old_obj->data.read_count + old_obj->data.write_count) == 0 &&
 		old_obj->data.type == __MF_TYPE_HEAP)
 	      {
 		fprintf (stderr, 
@@ -1243,7 +1298,8 @@ __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 {
   assert (obj != NULL);
 
-  if (obj->data.check_count) /* Exclude never-accessed objects.  */
+  /* Exclude never-accessed objects.  */
+  if (obj->data.read_count + obj->data.write_count)
     {
       s->obj_count ++;
       s->total_size += (obj->data.high - obj->data.low + 1);
@@ -1608,7 +1664,7 @@ __mf_describe_object (__mf_object_t *obj)
 
   fprintf (stderr,
 	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] size=%lu area=%s checked=%u liveness=%u watching=%d\n"
+	   "bounds=[%08lx,%08lx] size=%lu area=%s check=%ur/%uw liveness=%u watching=%d\n"
 	   "alloc time=%lu.%06lu pc=%08lx\n",
 	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
@@ -1617,7 +1673,7 @@ __mf_describe_object (__mf_object_t *obj)
 	    obj->type == __MF_TYPE_STATIC ? "static" :
 	    obj->type == __MF_TYPE_GUESS ? "guess" :
 	    "no-access"),
-	   obj->check_count, obj->liveness, obj->watching_p,
+	   obj->read_count, obj->write_count, obj->liveness, obj->watching_p,
 	   obj->alloc_time.tv_sec, obj->alloc_time.tv_usec, obj->alloc_pc);
 
   if (__mf_opts.backtrace > 0)
@@ -1732,6 +1788,8 @@ __mf_report ()
   if (__mf_opts.print_leaks && (__mf_opts.mudflap_mode == mode_check))
     {
       unsigned l;
+      DECLARE (void *, alloca, size_t n);
+
       /* Free up any remaining alloca()'d blocks.  */
       (void) CALL_WRAP (alloca, 0); /* XXX: doesn't work in shared mode. */
       __mf_describe_object (NULL); /* Reset description epoch.  */
@@ -1833,7 +1891,7 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
 /* __mf_violation */
 
 void
-__mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc, 
+__mf_violation (void *ptr, size_t sz, uintptr_t pc, 
 		const char *location, int type)
 {
   char buf [128];
@@ -1863,7 +1921,8 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	     "mudflap violation %u (%s): time=%lu.%06lu "
 	     "ptr=%08lx size=%lu pc=%08lx%s%s%s\n", 
 	     violation_number,
-	     ((type == __MF_VIOL_CHECK) ? "check" :
+	     ((type == __MF_VIOL_READ) ? "check/read" :
+	      (type == __MF_VIOL_WRITE) ? "check/write" :
 	      (type == __MF_VIOL_REGISTER) ? "register" :
 	      (type == __MF_VIOL_UNREGISTER) ? "unregister" :
 	      "unknown"),
@@ -1906,7 +1965,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	unsigned tries = 0;
 	unsigned i;
 	
-	s_low = ptr;
+	s_low = (uintptr_t) ptr;
 	s_high = CLAMPSZ (ptr, sz);
 
 	while (tries < 16) /* magic */
@@ -1931,7 +1990,7 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 	for (i = 0; i < min (num_objs, max_objs); i++)
 	  {
 	    __mf_object_t *obj = & objs[i]->data;
-	    uintptr_t low = ptr;
+	    uintptr_t low = (uintptr_t) ptr;
 	    uintptr_t high = CLAMPSZ (ptr, sz);
 	    unsigned before1 = (low < obj->low) ? obj->low - low : 0;
 	    unsigned after1 = (low > obj->high) ? low - obj->high : 0;
@@ -1987,21 +2046,22 @@ __mf_violation (uintptr_t ptr, uintptr_t sz, uintptr_t pc,
 /* ------------------------------------------------------------------------ */
 /* __mf_check */
 
-unsigned __mf_watch (uintptr_t ptr, uintptr_t sz)
+unsigned __mf_watch (void *ptr, size_t sz)
 {
   return __mf_watch_or_not (ptr, sz, 1);
 }
 
-unsigned __mf_unwatch (uintptr_t ptr, uintptr_t sz)
+unsigned __mf_unwatch (void *ptr, size_t sz)
 {
   return __mf_watch_or_not (ptr, sz, 0);
 }
 
 
 static unsigned
-__mf_watch_or_not (uintptr_t ptr, uintptr_t sz, char flag)
+__mf_watch_or_not (void *ptr, size_t sz, char flag)
 {
   uintptr_t ptr_high = CLAMPSZ (ptr, sz);
+  uintptr_t ptr_low = (uintptr_t) ptr;
   unsigned count = 0;
 
   TRACE ("mf: %s p=%08lx s=%lu",
@@ -2023,13 +2083,13 @@ __mf_watch_or_not (uintptr_t ptr, uintptr_t sz, char flag)
 	DECLARE (void *, malloc, size_t c);
 	DECLARE (void, free, void *p);
 
-	obj_count = __mf_find_objects (ptr, ptr_high, NULL, 0);
+	obj_count = __mf_find_objects (ptr_low, ptr_high, NULL, 0);
 	VERBOSE_TRACE (" %u:", obj_count);
 
 	all_ovr_objs = CALL_REAL (malloc, (sizeof (__mf_object_tree_t *) *
 					   obj_count));
 	if (all_ovr_objs == NULL) abort ();
-	n = __mf_find_objects (ptr, ptr_high, all_ovr_objs, obj_count);
+	n = __mf_find_objects (ptr_low, ptr_high, all_ovr_objs, obj_count);
 	assert (n == obj_count);
 
 	for (n = 0; n < obj_count; n ++)

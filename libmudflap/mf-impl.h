@@ -20,15 +20,16 @@
 
 /* Address calculation macros.  */
 
+
 /* XXX: these macros should be in an __MF*-like namespace. */
 
 #define MINPTR ((uintptr_t) 0)
 #define MAXPTR (~ (uintptr_t) 0)
 
 /* Clamp the addition/subtraction of uintptr_t's to [MINPTR,MAXPTR] */
-#define CLAMPSUB(ptr,offset) ((ptr) >= (offset) ? (ptr)-(offset) : MINPTR)
-#define CLAMPADD(ptr,offset) ((ptr) <= MAXPTR-(offset) ? (ptr)+(offset) : MAXPTR)
-#define CLAMPSZ(ptr,size) ((size) ? ((ptr) <= MAXPTR-(size)+1 ? (ptr)+(size)-1 : MAXPTR) : (ptr))
+#define CLAMPSUB(ptr,offset) (((uintptr_t) ptr) >= (offset) ? ((uintptr_t) ptr)-((uintptr_t) offset) : MINPTR)
+#define CLAMPADD(ptr,offset) (((uintptr_t) ptr) <= MAXPTR-(offset) ? ((uintptr_t) ptr)+((uintptr_t) offset) : MAXPTR)
+#define CLAMPSZ(ptr,size) ((size) ? (((uintptr_t) ptr) <= MAXPTR-(size)+1 ? ((uintptr_t) ptr)+((uintptr_t) size) - 1 : MAXPTR) : ((uintptr_t) ptr))
 
 #define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
 #define __MF_CACHE_MISS_P(ptr,sz) ({ \
@@ -41,7 +42,7 @@
 
 /* Private functions. */ 
 
-extern void __mf_violation (uintptr_t ptr, uintptr_t sz, 
+extern void __mf_violation (void *ptr, size_t sz, 
 			    uintptr_t pc, const char *location, 
 			    int type);
 
@@ -88,6 +89,9 @@ struct __mf_options
 
   /* Print list of leaked heap objects on shutdown. */
   unsigned print_leaks;       
+
+  /* Detect reads of uninitialized objects. */
+  unsigned check_initialization;       
 
   /* Print verbose description of violations. */
   unsigned verbose_violations;

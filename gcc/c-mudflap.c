@@ -100,8 +100,7 @@ mflang_register_call (label, regsize, regtype, regname)
   tree call_params;
   tree call_stmt;
 
-  /* XXX: would be nicer not to duplicate these. */
-  tree mf_uintptr_type = TREE_TYPE (mflang_lookup_decl ("uintptr_t"));
+  /* XXX: would be nicer not to duplicate this. */
   tree mf_register_fndecl = mflang_lookup_decl ("__mf_register");
 
   /* See gcc-checker's c-bounds.c (declare_private_statics)  */
@@ -122,12 +121,12 @@ mflang_register_call (label, regsize, regtype, regname)
   /* make_decl_rtl (decl,  build_string (strlen (label) + 1, label)); */
 
   call_params = tree_cons (NULL_TREE,
-			   convert (mf_uintptr_type, 
+			   convert (ptr_type_node, 
 				    mx_flag (build1 (ADDR_EXPR, 
 						     build_pointer_type (TREE_TYPE (decl)),
 						     decl))),
 			   tree_cons (NULL_TREE, 
-				      convert (mf_uintptr_type, regsize),
+				      convert (size_type_node, regsize),
 				      tree_cons (NULL_TREE,
 						 regtype,
 						 tree_cons (NULL_TREE,

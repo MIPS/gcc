@@ -1,3 +1,26 @@
+2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am (TESTS_ENVIRONMENT): Remove redundant "-mode-check".
+	(TESTS): Add fail22 and pass29 tests.
+	* mf-runtime.h.in: Change API to take void*/size_t region parameters.
+	Add new access-type parameter for __mf_check.  Move __MF_VIOL* out.
+	* mf-impl.h: Corresponding changes.  Update CLAMP* macros for void*
+	values.  Move __MF_VIOL* here.
+	* mf-runtime.c (*): Adapt to void*/size_t API in mf-runtime.h.
+	(check_initialization): New field in __mf_opts.  Default off.
+	(read_count,write_count): New fields in __mf_object.
+	(__mf_check): Implement basic initialization checking.
+	(__mf_insert_new_object): Assume STATIC|GUESS regions are initialized.
+	(__mf_describe_object): Print new fields.
+	(__mf_violation): Identify check/read vs. check/write in messages.
+	* test/pass29-frag.c, test/fail22-frag.c: Basic tests for new
+	"-check-initialized" mudflap option.
+	* test/pass25-frag.c, test/fail21-frag.c: Adapt to API changes.
+	* mf-hooks.c (MF_VALIDATE_EXTENT): Add new access-type parameter.
+	Drop __FILE__/__LINE__ hack.  Update callers.
+	(*): Adapt to new mf-runtime.h API.
+	* Makefile.in: regenerated.
+
 2003-01-24  Frank Ch. Eigler  <fche@redhat.com>
 
 	* configure.in: Build mf-runtime.h a more proper way.

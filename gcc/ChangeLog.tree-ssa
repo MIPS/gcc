@@ -1,3 +1,10 @@
+2003-01-29  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mx_xfn_indirect_ref): Use a stack of flags for
+	tracking pointer deference reads vs writes.
+	(mf_build_check_statement_for): Pass access-type value to __mf_check.
+	* c-mudflap.c (mflang_register_call): Adapt to mf-runtime.h API change.
+
 2003-01-29  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (ssa.o): Add dependency on $(TIMEVAR_H).

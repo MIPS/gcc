@@ -60,7 +60,7 @@ static tree mx_xfn_indirect_ref PARAMS ((tree *, int *, void *));
 static tree mx_xfn_xform_decls PARAMS ((tree *, int *, void *));
 
 static tree mf_offset_expr_of_array_ref PARAMS ((tree, tree *, tree *, tree *));
-static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, 
+static tree mf_build_check_statement_for PARAMS ((tree, tree, tree, tree, tree,
 						  const char *, int));
 static void mx_register_decls PARAMS ((tree, tree *));
 
@@ -126,7 +126,7 @@ static GTY (()) tree mf_cache_mask_decl;   /* extern const uintptr_t __mf_lc_mas
 static GTY (()) tree mf_cache_shift_decl_l; /* auto const unsigned char __mf_lc_shift_l; */
 static GTY (()) tree mf_cache_mask_decl_l;  /* auto const uintptr_t __mf_lc_mask_l; */
 
-static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, const char *); */
+static GTY (()) tree mf_check_fndecl;      /* extern void __mf_check (void *ptr, size_t sz, int type, const char *); */
 static GTY (()) tree mf_register_fndecl;   /* extern void __mf_register (void *ptr, size_t sz, int type, const char *); */
 static GTY (()) tree mf_unregister_fndecl; /* extern void __mf_unregister (void *ptr, size_t sz); */
 
@@ -304,7 +304,7 @@ mf_varname_tree (decl)
 
   /* Add <variable-declaration>, possibly demangled.  */
   {
-    char *declname = NULL;
+    const char *declname = NULL;
    
     if (strcmp ("GNU C++", lang_hooks.name) == 0 &&
 	DECL_NAME (decl) != NULL)
@@ -481,11 +481,12 @@ mf_offset_expr_of_array_ref (t, offset, base, decls)
 
 
 static tree 
-mf_build_check_statement_for (ptrvalue, chkbase, chksize, 
+mf_build_check_statement_for (ptrvalue, chkbase, chksize, acctype,
 			      chkdecls, filename, lineno)
      tree ptrvalue;
      tree chkbase;
      tree chksize;
+     tree acctype;
      tree chkdecls;
      const char *filename;
      int lineno;
@@ -503,6 +504,10 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
   tree t1_3_1;
   tree t1_4_1, t1_4_2;
   tree t0;
+
+  /* Provide a default access type number */
+  if (acctype == NULL_TREE)
+    acctype = integer_zero_node; /* __MF_CHECK_READ */
 
   /* Insert any supplied helper declarations.  */
   while (chkdecls != NULL_TREE)
@@ -598,12 +603,14 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
   t1_4_2 = NULL_TREE;
   add_tree (build_function_call (mf_check_fndecl,
 				 tree_cons (NULL_TREE,
-					    t1_2a_1,
+					    convert (ptr_type_node, t1_2a_1),
 					    tree_cons (NULL_TREE, 
-						       t1_2b_1,
+						       convert (size_type_node, t1_2b_1),
 						       tree_cons (NULL_TREE,
-								  location_string,
-								  NULL_TREE)))),
+								  acctype,
+								  tree_cons (NULL_TREE,
+									     location_string,
+									     NULL_TREE))))),
 	    & t1_4_2);
   add_tree (build (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
 		   mf_cache_shift_decl_l, mf_cache_shift_decl),
@@ -672,6 +679,10 @@ mf_build_check_statement_for (ptrvalue, chkbase, chksize,
 */
 
 
+/* for lvalue/rvalue tracking */
+static GTY (()) varray_type tree_roles;
+static int tree_roles_init;
+
 static tree
 mx_xfn_indirect_ref (t, continue_p, data)
      tree *t;
@@ -681,12 +692,25 @@ mx_xfn_indirect_ref (t, continue_p, data)
   static const char *last_filename = NULL;
   static int last_lineno = -1;
   htab_t verboten = (htab_t) data;
+  tree tree_role;
 
 #if 0
   fprintf (stderr, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
   print_generic_expr (stderr, *t, 0);
   fprintf (stderr, "\n");
 #endif
+
+  /* Track lvalue/rvalue status for this subtree.  */
+  if (! tree_roles_init)
+    {
+      VARRAY_TREE_INIT (tree_roles, 10, "tree lvalue/rvalue role stack");
+      tree_roles_init = 1;
+    }
+
+  if (VARRAY_ACTIVE_SIZE (tree_roles) > 0)
+    tree_role = VARRAY_TREE (tree_roles, 0);
+  else
+    tree_role = NULL_TREE;
 
   *continue_p = 1;
 
@@ -720,6 +744,26 @@ mx_xfn_indirect_ref (t, continue_p, data)
   /* Process some node types.  */
   switch (TREE_CODE (*t))
     {
+      /* lvalue / rvalue detection.  */
+    case MODIFY_EXPR:
+    case INIT_EXPR:
+      {
+	/* We recurse through the operands manually, so that we can
+	   communicate to them a general lvalue-vs-rvalue indication.  */
+
+	VARRAY_PUSH_TREE (tree_roles, integer_one_node); /* __MF_CHECK_WRITE */
+	walk_tree_without_duplicates (& TREE_OPERAND (*t, 0),
+				      mx_xfn_indirect_ref, (void*) verboten);
+	VARRAY_POP (tree_roles);
+	VARRAY_PUSH_TREE (tree_roles, integer_zero_node); /* __MF_CHECK_READ */
+	walk_tree_without_duplicates (& TREE_OPERAND (*t, 1),
+				      mx_xfn_indirect_ref, (void*) verboten);
+	VARRAY_POP (tree_roles);
+
+	* continue_p = 0;
+      }
+      break;
+
     default:
       ; /* Continue traversal.  */
       break;
@@ -830,7 +874,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 	    * (htab_find_slot (verboten, check_ptr, INSERT)) = check_ptr;
 	    
 	    tmp = mf_build_check_statement_for (value_ptr, check_ptr, check_size,
-						check_decls,
+						tree_role, check_decls,
 						last_filename, last_lineno);
 	    *t = mx_flag (build1 (INDIRECT_REF, base_obj_type, tmp));
 	  }
@@ -850,7 +894,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 				      TYPE_SIZE_UNIT (TREE_TYPE
 						      (TREE_TYPE
 						       (TREE_OPERAND (*t, 0)))),
-				      NULL_TREE, last_filename, last_lineno);
+				      tree_role, NULL_TREE, 
+				      last_filename, last_lineno);
 	/* Prevent this transform's reapplication to this tree node.
 	   Note that we do not prevent recusion in walk_tree toward
 	   subtrees of this node, in case of nested pointer expressions.  */
@@ -877,10 +922,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 					 field_offset, field_size));
 
 	  *pointer = 
-	    mf_build_check_statement_for (*pointer,
-					  *pointer,
-					  check_size,
-					  NULL_TREE,
+	    mf_build_check_statement_for (*pointer, *pointer, check_size,
+					  tree_role, NULL_TREE,
 					  last_filename, last_lineno);
 	  
 	  /* Don't instrument the nested INDIRECT_REF. */ 
@@ -906,10 +949,8 @@ mx_xfn_indirect_ref (t, continue_p, data)
 			 build_int_2 (BITS_PER_UNIT, 0)));
 
 	  *pointer = 
-	    mf_build_check_statement_for (*pointer,
-					  *pointer,
-					  check_size,
-					  NULL_TREE,
+	    mf_build_check_statement_for (*pointer, *pointer, check_size,
+					  tree_role, NULL_TREE,
 					  last_filename, last_lineno);
 	  
 	  /* Don't instrument the nested INDIRECT_REF. */ 
@@ -972,12 +1013,12 @@ mx_register_decls (decl, compound_expr)
 	  /* (& VARIABLE, sizeof (VARIABLE)) */
 	  tree unregister_fncall_params =
 	    tree_cons (NULL_TREE,
-		       convert (mf_uintptr_type, 
+		       convert (ptr_type_node, 
 				mx_flag (build1 (ADDR_EXPR, 
 						 build_pointer_type (TREE_TYPE (decl)),
 						 decl))),
 		       tree_cons (NULL_TREE, 
-				  convert (mf_uintptr_type, 
+				  convert (size_type_node, 
 					   TYPE_SIZE_UNIT (TREE_TYPE (decl))),
 				  NULL_TREE));
 	  /* __mf_unregister (...) */
@@ -989,12 +1030,12 @@ mx_register_decls (decl, compound_expr)
 	  tree variable_name = mf_varname_tree (decl);
 	  tree register_fncall_params =
 	    tree_cons (NULL_TREE,
-		   convert (mf_uintptr_type, 
+		   convert (ptr_type_node, 
 			    mx_flag (build1 (ADDR_EXPR, 
 					     build_pointer_type (TREE_TYPE (decl)),
 					     decl))),
 		       tree_cons (NULL_TREE, 
-				  convert (mf_uintptr_type, 
+				  convert (size_type_node, 
 					   TYPE_SIZE_UNIT (TREE_TYPE (decl))),
 				  tree_cons (NULL_TREE,
 					     build_int_2 (2, 0),
