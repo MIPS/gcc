@@ -1103,7 +1103,7 @@ static struct frame_state *
 ___frame_state_for (void *pc_target, struct frame_state *state_in, void *pfp,
                     int i0);
 
-static struct frame_state *
+static struct frame_state * __attribute__((used))
 ___frame_state_for (void *pc_target, struct frame_state *state_in, void *pfp,
                     int i0)
 #elif defined(__linux__) && defined(__alpha__)
