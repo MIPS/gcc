@@ -9,6 +9,10 @@ details.  */
 #include <config.h>
 #include <platform.h>
 
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+
 #ifndef DISABLE_JAVA_NET
 #ifdef WIN32
 #include <windows.h>
