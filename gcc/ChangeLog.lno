@@ -1,3 +1,7 @@
+2004-02-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from tree-ssa branch (lno-merge-20040221).
+
 2004-02-20  Devang Patel  <dpatel@apple.com>
 
 	* tree-vectorizer.c (vect_analyze_data_ref_dependence): Use

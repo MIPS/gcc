@@ -71,7 +71,7 @@ program specifics
   intrinsic alog
   intrinsic exp
   intrinsic sign
-  intrinsic mod
+  intrinsic amod
 
   intrinsic dabs
   intrinsic dint
@@ -109,7 +109,7 @@ program specifics
   call test_r (alog, 2.0, alog(2.0))
   call test_r (exp, 1.0, exp(1.0))
   call test_r2 (sign, 1.0, -2.0, sign(1.0, -2.0))
-  call test_r2 (mod, 3.5, 2.0, mod(3.5, 2.0))
+  call test_r2 (amod, 3.5, 2.0, amod(3.5, 2.0))
   
   call test_d (dabs, -1d0, abs(-1d0))
   call test_d (dint, 1.7d0, 1d0)

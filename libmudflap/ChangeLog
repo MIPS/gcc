@@ -1,10 +1,23 @@
+2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/pass36-frag.c: Add missing free() call.
+	* testsuite/libmudflap.c/pass46-frag.c: New test for -fmudflapir.
+	* testsuite/libmudflap.cth/cthfrags.exp: Add -DSTATIC to compiler
+	flags for static linking permutation.
+	* testsuite/libmudflap.cth/pass40-frag.c: When -DSTATIC, avoid
+	some pthreads code that croaks on linux glibc tls.
+
+2004-01-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	* testsuite/libmudflap.c/fail31-frag.c, pass45-frag.c: New tests.
+
 2004-01-15  Frank Ch. Eigler  <fche@redhat.com>
 
-	* testsuite/libmudflap.c/pass44.c: New test.
+	* testsuite/libmudflap.c/pass44-frag.c: New test.
 
 2004-01-12  Frank Ch. Eigler  <fche@redhat.com>
 
-	* testsuite/libmudflap.c/fail{28,29,30}.c: New tests.
+	* testsuite/libmudflap.c/fail{28,29,30}-frag.c: New tests.
 
 2004-01-08  Frank Ch. Eigler  <fche@redhat.com>
 

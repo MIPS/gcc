@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -264,7 +264,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   if (TREE_USED (node))
     fputs (" used", file);
   if (TREE_NOTHROW (node))
-    fputs (" nothrow", file);
+    fputs (TYPE_P (node) ? " align-ok" : " nothrow", file);
   if (TREE_PUBLIC (node))
     fputs (" public", file);
   if (TREE_PRIVATE (node))
@@ -444,11 +444,11 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    }
 	}
       else if (TREE_CODE (node) == FUNCTION_DECL
-	       && DECL_SAVED_INSNS (node) != 0)
+	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
 	  indent_to (file, indent + 4);
 	  fprintf (file, "saved-insns " HOST_PTR_PRINTF,
-		   (void *) DECL_SAVED_INSNS (node));
+		   (void *) DECL_STRUCT_FUNCTION (node));
 	}
 
       /* Print the decl chain only if decl is at second level.  */

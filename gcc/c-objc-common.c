@@ -44,7 +44,7 @@ static bool c_tree_printer (pretty_printer *, text_info *);
 static tree start_cdtor (int);
 static void finish_cdtor (tree);
 
-int
+bool
 c_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is not ok for freestanding implementations and
@@ -81,7 +81,7 @@ c_cannot_inline_tree_fn (tree *fnp)
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it "
-		 "is supressed using -fno-inline", fn, fn);
+		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
 
@@ -171,7 +171,6 @@ c_objc_common_init (void)
      putting them here anyway.  The diagnostic format decoder might
      want an enhanced ObjC implementation.  */
   diagnostic_format_decoder (global_dc) = &c_tree_printer;
-  lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
   /* If still unspecified, make it match -std=c99
      (allowing for -pedantic-errors).  */
@@ -336,3 +335,32 @@ c_tree_printer (pretty_printer *pp, text_info *text)
   pp_string (pp, n);
   return true;
 }
+
+tree
+c_objc_common_truthvalue_conversion (tree expr)
+{
+ retry:
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case ARRAY_TYPE:
+      expr = default_conversion (expr);
+      if (TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
+	goto retry;
+
+      error ("used array that cannot be converted to pointer where scalar is required");
+      return error_mark_node;
+
+    case RECORD_TYPE:
+      error ("used struct type value where scalar is required");
+      return error_mark_node;
+
+    case UNION_TYPE:
+      error ("used union type value where scalar is required");
+      return error_mark_node;
+    default:
+      break;
+    }
+
+  return c_common_truthvalue_conversion (expr);
+}
+

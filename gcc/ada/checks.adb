@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,6 +38,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Eval; use Sem_Eval;
@@ -463,13 +464,16 @@ package body Checks is
       Expr : Node_Id;
       Loc  : Source_Ptr;
 
+      Alignment_Required : constant Boolean := Maximum_Alignment > 1;
+      --  Constant to show whether target requires alignment checks
+
    begin
       --  See if check needed. Note that we never need a check if the
       --  maximum alignment is one, since the check will always succeed
 
       if No (AC)
         or else not Check_Address_Alignment (AC)
-        or else Maximum_Alignment = 1
+        or else not Alignment_Required
       then
          return;
       end if;
@@ -511,7 +515,7 @@ package body Checks is
       else
          --  Skip generation of this code if we don't want elab code
 
-         if not Restrictions (No_Elaboration_Code) then
+         if not Restriction_Active (No_Elaboration_Code) then
             Insert_After_And_Analyze (N,
               Make_Raise_Program_Error (Loc,
                 Condition =>
@@ -1191,7 +1195,7 @@ package body Checks is
                  N_Full_Type_Declaration
                then
                   declare
-                     Type_Def : Node_Id :=
+                     Type_Def : constant Node_Id :=
                                  Type_Definition
                                    (Original_Node (Parent (T_Typ)));
                   begin

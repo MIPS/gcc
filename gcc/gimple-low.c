@@ -381,6 +381,8 @@ record_vars (tree vars)
       /* Nothing to do in this case.  */
       if (DECL_EXTERNAL (var))
 	continue;
+      if (TREE_CODE (var) == FUNCTION_DECL)
+	continue;
 
       /* Record the variable.  */
       cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  NS32000 version.
    Copyright (C) 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
       else if (TARGET_32081)				\
 	builtin_define ("__ns32081__");			\
 							\
-      /* Misc. */					\
+      /* Misc.  */					\
       if (TARGET_RTD)					\
 	builtin_define ("__RTD__");			\
 							\
@@ -56,7 +56,7 @@ Boston, MA 02111-1307, USA.  */
 /* ABSOLUTE PREFIX, IMMEDIATE_PREFIX and EXTERNAL_PREFIX can be defined
    to cover most NS32k addressing syntax variations.  This way we don't
    need to redefine long macros in all the tm.h files for just slight
-   variations in assembler syntax. */
+   variations in assembler syntax.  */
 
 #ifndef ABSOLUTE_PREFIX
 #define ABSOLUTE_PREFIX '@'
@@ -360,10 +360,10 @@ while (0)
 /* NS32000 pc is not overloaded on a register.  */
 /* #define PC_REGNUM */
 
-/* Register to use for pushing function arguments. */
+/* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM 25
 
-/* Base register for access to local variables of the function. */
+/* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM 24
 
 
@@ -383,7 +383,7 @@ while (0)
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
-   for any hard reg, then this must be 0 for correct output. */
+   for any hard reg, then this must be 0 for correct output.  */
 
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
   ((FLOAT_MODE_P(MODE1) && FLOAT_MODE_P(MODE2)				\
@@ -404,7 +404,7 @@ while (0)
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 2
+#define NS32K_STRUCT_VALUE_REGNUM 2
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -569,7 +569,7 @@ enum reg_class
    Before the prologue, RA is at 0(sp).  */
 
 #define INCOMING_RETURN_ADDR_RTX \
-  gen_rtx (MEM, VOIDmode, gen_rtx (REG, VOIDmode, STACK_POINTER_REGNUM))
+  gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
 
 /* A C expression whose value is RTL representing the value of the
    return address for the frame COUNT steps up from the current frame,
@@ -581,7 +581,7 @@ enum reg_class
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)					\
   ((COUNT> 0 && flag_omit_frame_pointer)? NULL_RTX			\
-   : gen_rtx (MEM, Pmode, gen_rtx (PLUS, Pmode, (FRAME), GEN_INT(4))))
+   : gen_rtx_MEM (Pmode, gen_rtx_PLUS (Pmode, (FRAME), GEN_INT(4))))
 
 /* A C expression whose value is an integer giving the offset, in
    bytes, from the value of the stack pointer register to the top of
@@ -675,7 +675,7 @@ enum reg_class
 
    On the ns32k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -1102,13 +1102,13 @@ __transfer_from_trampoline ()		\
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
    HI mode is more efficient but the range is not wide enough for
-   all programs. */
+   all programs.  */
 #define CASE_VECTOR_MODE SImode
 
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
-   Do not define this if the table should contain absolute addresses. */
+   Do not define this if the table should contain absolute addresses.  */
 #define CASE_VECTOR_PC_RELATIVE 1
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
@@ -1264,7 +1264,7 @@ __transfer_from_trampoline ()		\
 /* This is how to output an assembler line defining an external/static
    address which is not in tree format (for collect.c).  */
 
-/* The prefix to add to user-visible assembler symbols. */
+/* The prefix to add to user-visible assembler symbols.  */
 #define USER_LABEL_PREFIX "_"
 
 /* This is how to output an insn to push a register on the stack.

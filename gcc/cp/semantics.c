@@ -4,7 +4,7 @@
    and during the instantiation of template functions. 
 
    Copyright (C) 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -135,7 +135,8 @@ static GTY(()) deferred_access *deferred_access_free_list;
 /* Save the current deferred access states and start deferred
    access checking iff DEFER_P is true.  */
 
-void push_deferring_access_checks (deferring_kind deferring)
+void
+push_deferring_access_checks (deferring_kind deferring)
 {
   deferred_access *d;
 
@@ -163,7 +164,8 @@ void push_deferring_access_checks (deferring_kind deferring)
 /* Resume deferring access checks again after we stopped doing
    this previously.  */
 
-void resume_deferring_access_checks (void)
+void
+resume_deferring_access_checks (void)
 {
   if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
     deferred_access_stack->deferring_access_checks_kind = dk_deferred;
@@ -171,7 +173,8 @@ void resume_deferring_access_checks (void)
 
 /* Stop deferring access checks.  */
 
-void stop_deferring_access_checks (void)
+void
+stop_deferring_access_checks (void)
 {
   if (deferred_access_stack->deferring_access_checks_kind == dk_deferred)
     deferred_access_stack->deferring_access_checks_kind = dk_no_deferred;
@@ -180,7 +183,8 @@ void stop_deferring_access_checks (void)
 /* Discard the current deferred access checks and restore the
    previous states.  */
 
-void pop_deferring_access_checks (void)
+void
+pop_deferring_access_checks (void)
 {
   deferred_access *d = deferred_access_stack;
   deferred_access_stack = d->next;
@@ -198,7 +202,8 @@ void pop_deferring_access_checks (void)
    access occurred; the TREE_VALUE is the declaration named.
    */
 
-tree get_deferred_access_checks (void)
+tree
+get_deferred_access_checks (void)
 {
   return deferred_access_stack->deferred_access_checks;
 }
@@ -207,7 +212,8 @@ tree get_deferred_access_checks (void)
    previous states if we also defer checks previously.
    Otherwise perform checks now.  */
 
-void pop_to_parent_deferring_access_checks (void)
+void
+pop_to_parent_deferring_access_checks (void)
 {
   tree deferred_check = get_deferred_access_checks ();
   deferred_access *d1 = deferred_access_stack;
@@ -248,7 +254,8 @@ void pop_to_parent_deferring_access_checks (void)
    We have to perform deferred access of `A::X', first with `A::a',
    next with `x'.  */
 
-void perform_deferred_access_checks (void)
+void
+perform_deferred_access_checks (void)
 {
   tree deferred_check;
   for (deferred_check = deferred_access_stack->deferred_access_checks;
@@ -262,7 +269,8 @@ void perform_deferred_access_checks (void)
 /* Defer checking the accessibility of DECL, when looked up in
    BINFO.  */
 
-void perform_or_defer_access_check (tree binfo, tree decl)
+void
+perform_or_defer_access_check (tree binfo, tree decl)
 {
   tree check;
 
@@ -669,6 +677,13 @@ finish_for_cond (tree cond, tree for_stmt)
 void
 finish_for_expr (tree expr, tree for_stmt)
 {
+  /* If EXPR is an overloaded function, issue an error; there is no
+     context available to use to perform overload resolution.  */
+  if (expr && type_unknown_p (expr))
+    {
+      cxx_incomplete_type_error (expr, TREE_TYPE (expr));
+      expr = error_mark_node;
+    }
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -1540,7 +1555,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
 	{
-	  result = build_nt (CALL_EXPR, fn, args);
+	  result = build_nt (CALL_EXPR, fn, args, NULL_TREE);
 	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  return result;
 	}
@@ -1615,7 +1630,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       if (processing_template_decl)
 	{
 	  if (type_dependent_expression_p (object))
-	    return build_nt (CALL_EXPR, orig_fn, orig_args);
+	    return build_nt (CALL_EXPR, orig_fn, orig_args, NULL_TREE);
 	  object = build_non_dependent_expr (object);
 	}
 
@@ -1647,7 +1662,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
   if (processing_template_decl)
     {
-      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn, orig_args);
+      result = build (CALL_EXPR, TREE_TYPE (result), orig_fn,
+		      orig_args, NULL_TREE);
       KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;
@@ -1690,42 +1706,6 @@ finish_this_expr (void)
     }
 
   return result;
-}
-
-/* Finish a member function call using OBJECT and ARGS as arguments to
-   FN.  Returns an expression for the call.  */
-
-tree 
-finish_object_call_expr (tree fn, tree object, tree args)
-{
-  if (DECL_DECLARES_TYPE_P (fn))
-    {
-      if (processing_template_decl)
-	/* This can happen on code like:
-
-	   class X;
-	   template <class T> void f(T t) {
-	     t.X();
-	   }  
-
-	   We just grab the underlying IDENTIFIER.  */
-	fn = DECL_NAME (fn);
-      else
-	{
-	  error ("calling type `%T' like a method", fn);
-	  return error_mark_node;
-	}
-    }
-  
-  if (processing_template_decl)
-    return build_nt (CALL_EXPR,
-		     build_nt (COMPONENT_REF, object, fn),
-		     args);
-
-  if (name_p (fn))
-    return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-  else
-    return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
 }
 
 /* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
@@ -1896,10 +1876,24 @@ check_template_template_default_arg (tree argument)
 {
   if (TREE_CODE (argument) != TEMPLATE_DECL
       && TREE_CODE (argument) != TEMPLATE_TEMPLATE_PARM
-      && TREE_CODE (argument) != TYPE_DECL
       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
     {
-      error ("invalid default template argument");
+      if (TREE_CODE (argument) == TYPE_DECL)
+	{
+	  tree t = TREE_TYPE (argument);
+
+	  /* Try to emit a slightly smarter error message if we detect
+	     that the user is using a template instantiation.  */
+	  if (CLASSTYPE_TEMPLATE_INFO (t) 
+	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
+	    error ("invalid use of type `%T' as a default value for a "
+	           "template template-parameter", t);
+	  else
+	    error ("invalid use of `%D' as a default value for a template "
+	           "template-parameter", argument);
+	}
+      else
+	error ("invalid default argument for a template template parameter");
       return error_mark_node;
     }
 
@@ -2457,6 +2451,12 @@ finish_id_expression (tree id_expression,
 	  if (integral_constant_expression_p)
 	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
+	  /* If we found a variable, then name lookup during the
+	     instantiation will always resolve to the same VAR_DECL
+	     (or an instantiation thereof).  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL)
+	    return decl;
 	  return id_expression;
 	}
 
@@ -2789,14 +2789,14 @@ expand_body (tree fn)
   /* ??? When is this needed?  */
   saved_function = current_function_decl;
 
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
+
   tree_rest_of_compilation (fn, function_depth > 1);
 
   current_function_decl = saved_function;
 
   extract_interface_info ();
-
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
 
   /* If this function is marked with the constructor attribute, add it
      to the list of functions to be called along with constructors
@@ -2837,14 +2837,8 @@ void
 expand_or_defer_fn (tree fn)
 {
   /* When the parser calls us after finishing the body of a template
-     function, we don't really want to expand the body.  When we're
-     processing an in-class definition of an inline function,
-     PROCESSING_TEMPLATE_DECL will no longer be set here, so we have
-     to look at the function itself.  */
-  if (processing_template_decl
-      || (DECL_LANG_SPECIFIC (fn) 
-	  && DECL_TEMPLATE_INFO (fn)
-	  && uses_template_parms (DECL_TI_ARGS (fn))))
+     function, we don't really want to expand the body.  */
+  if (processing_template_decl)
     {
       /* Normally, collection only occurs in rest_of_compilation.  So,
 	 if we don't collect here, we never collect junk generated

@@ -721,8 +721,7 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   array_ptr = vect_get_new_vect_var (ptr_type, vect_pointer_var,
 		 get_name (array_base));
   add_referenced_tmp_var (array_ptr);
-  get_var_ann (array_ptr)->mem_tag = array_base;
-
+  get_var_ann (array_ptr)->type_mem_tag = array_base;
 
   /*** create: p = (vectype *)&a; ***/
   vec_stmt = build (MODIFY_EXPR, ptr_type, array_ptr,
@@ -745,7 +744,7 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
 
   if (TREE_CODE (array_base) == VAR_DECL)
     {
-      get_var_ann (T0)->mem_tag = array_base;
+      get_var_ann (T0)->type_mem_tag = array_base;
       bitmap_set_bit (vars_to_rename, var_ann (array_base)->uid);
     }
   else

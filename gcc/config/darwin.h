@@ -1,5 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -710,7 +710,7 @@ objc_section_init (void)			\
 
 /* Emit an assembler directive to set visibility for a symbol.  Used
    to support visibility attribute and Darwin's private extern
-   feature. */
+   feature.  */
 #undef TARGET_ASM_ASSEMBLE_VISIBILITY
 #define TARGET_ASM_ASSEMBLE_VISIBILITY darwin_assemble_visibility
 

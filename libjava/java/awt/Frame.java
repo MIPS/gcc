@@ -1,5 +1,5 @@
 /* Frame.java -- AWT toplevel window
-   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -341,9 +341,15 @@ getMenuBar()
 public synchronized void
 setMenuBar(MenuBar menuBar)
 {
-  this.menuBar = menuBar;
   if (peer != null)
+  {
+    if (this.menuBar != null)
+      this.menuBar.removeNotify();  
+    if (menuBar != null)
+      menuBar.addNotify();
     ((FramePeer) peer).setMenuBar(menuBar);
+  }
+  this.menuBar = menuBar;
 }
 
 /*************************************************************************/
@@ -430,9 +436,18 @@ remove(MenuComponent menu)
 public void
 addNotify()
 {
+  if (menuBar != null)
+    menuBar.addNotify();
   if (peer == null)
     peer = getToolkit ().createFrame (this);
   super.addNotify();
+}
+
+public void removeNotify()
+{
+  if (menuBar != null)
+    menuBar.removeNotify();
+  super.removeNotify();
 }
 
 /*************************************************************************/

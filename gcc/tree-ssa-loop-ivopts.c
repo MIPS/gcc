@@ -4036,12 +4036,12 @@ rewrite_use_address (struct iv_use *use, struct iv_cand *cand)
       add_referenced_tmp_var (tmp_var);
       SSA_NAME_VAR (op) = tmp_var;
 	 
-      var = get_base_symbol (*use->op_p);
+      var = get_base_decl (*use->op_p);
 
-      if (var_ann (var)->mem_tag)
-	var = var_ann (var)->mem_tag;
+      if (var_ann (var)->type_mem_tag)
+	var = var_ann (var)->type_mem_tag;
 
-      var_ann (tmp_var)->mem_tag = var;
+      var_ann (tmp_var)->type_mem_tag = var;
     }
 
   *use->op_p = build1 (INDIRECT_REF, TREE_TYPE (*use->op_p), op);

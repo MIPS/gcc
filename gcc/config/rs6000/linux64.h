@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -89,11 +90,21 @@
 	      target_flags &= ~MASK_PROTOTYPE;			\
 	      error (INVALID_64BIT, "prototype");		\
 	    }							\
+          if ((target_flags & MASK_POWERPC64) == 0)		\
+	    {							\
+	      target_flags |= MASK_POWERPC64;			\
+	      error ("-m64 requires a PowerPC64 cpu");		\
+	    }							\
 	}							\
       else							\
 	{							\
 	  if (!RS6000_BI_ARCH_P)				\
 	    error (INVALID_32BIT, "32");			\
+	  if (TARGET_PROFILE_KERNEL)				\
+	    {							\
+	      target_flags &= ~MASK_PROFILE_KERNEL;		\
+	      error (INVALID_32BIT, "profile-kernel");		\
+	    }							\
 	}							\
     }								\
   while (0)
@@ -180,7 +191,7 @@
 
 #endif
 
-#define	MASK_PROFILE_KERNEL	0x00080000
+#define	MASK_PROFILE_KERNEL	0x00100000
 
 /* Non-standard profiling for kernels, which just saves LR then calls
    _mcount without worrying about arg saves.  The idea is to change
@@ -218,19 +229,17 @@
    : (COMPUTED))
 
 /* PowerPC64 Linux increases natural record alignment to doubleword if
-   the first field is an FP double.  */
+   the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)		\
-  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)			\
-   : (TARGET_64BIT						\
-      && (TREE_CODE (STRUCT) == RECORD_TYPE			\
-	  || TREE_CODE (STRUCT) == UNION_TYPE			\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-      && TYPE_FIELDS (STRUCT) != 0				\
-      && TARGET_ALIGN_NATURAL == 0				\
-      && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)			\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)		\
+   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				\
+   : (TARGET_64BIT							\
+      && (TREE_CODE (STRUCT) == RECORD_TYPE				\
+	  || TREE_CODE (STRUCT) == UNION_TYPE				\
+	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
+      && TARGET_ALIGN_NATURAL == 0)					\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* Indicate that jump tables go in the text section.  */
@@ -277,10 +286,6 @@
 /* Override svr4.h  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
-
-/* Override sysv4.h  */
-#undef	CPP_SYSV_SPEC
-#define	CPP_SYSV_SPEC ""
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()            		\
@@ -546,13 +551,27 @@ while (0)
 
 #ifdef IN_LIBGCC2
 #include <signal.h>
+#ifdef __powerpc64__
 #include <sys/ucontext.h>
 
-#ifdef __powerpc64__
 enum { SIGNAL_FRAMESIZE = 128 };
+
 #else
+
+/* During the 2.5 kernel series the kernel ucontext was changed, but
+   the new layout is compatible with the old one, so we just define
+   and use the old one here for simplicity and compatibility.  */
+
+struct kernel_old_ucontext {
+  unsigned long     uc_flags;
+  struct ucontext  *uc_link;
+  stack_t           uc_stack;
+  struct sigcontext_struct uc_mcontext;
+  sigset_t          uc_sigmask;
+};
 enum { SIGNAL_FRAMESIZE = 64 };
 #endif
+
 #endif
 
 #ifdef __powerpc64__
@@ -624,16 +643,10 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
 									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
-    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
-    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
-    (FS)->retaddr_column = CR0_REGNO;					\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].how = REG_SAVED_OFFSET;		\
+    (FS)->regs.reg[ARG_POINTER_REGNUM].loc.offset 			\
+      = (long)&(sc_->regs->nip) - new_cfa_;				\
+    (FS)->retaddr_column = ARG_POINTER_REGNUM;				\
     goto SUCCESS;							\
   } while (0)
 
@@ -670,7 +683,7 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	  struct siginfo *pinfo;					\
 	  void *puc;							\
 	  struct siginfo info;						\
-	  struct ucontext uc;						\
+	  struct kernel_old_ucontext uc;				\
 	} *rt_ = (CONTEXT)->cfa;					\
 	sc_ = &rt_->uc.uc_mcontext;					\
       }									\
@@ -694,15 +707,9 @@ enum { SIGNAL_FRAMESIZE = 64 };
     (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
       = (long)&(sc_->regs->link) - new_cfa_;				\
 									\
-    /* The unwinder expects the IP to point to the following insn,	\
-       whereas the kernel returns the address of the actual		\
-       faulting insn. We store NIP+4 in an unused register slot to	\
-       get the same result for multiple evaluation of the same signal	\
-       frame.  */							\
-    sc_->regs->gpr[47] = sc_->regs->nip + 4;  				\
     (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
     (FS)->regs.reg[CR0_REGNO].loc.offset 				\
-      = (long)&(sc_->regs->gpr[47]) - new_cfa_;				\
+      = (long)&(sc_->regs->nip) - new_cfa_;				\
     (FS)->retaddr_column = CR0_REGNO;					\
     goto SUCCESS;							\
   } while (0)

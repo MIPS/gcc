@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -51,9 +51,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (%s)", TARGET_NAME);           
 
-/* The structure return address arrives as an "argument" on VMS.  */
-#undef STRUCT_VALUE_REGNUM
-#define STRUCT_VALUE 0
 #undef PCC_STATIC_STRUCT_RETURN
 
 /* "long" is 32 bits, but 64 bits for Ada.  */
@@ -175,7 +172,7 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
    For a library call, FNTYPE is 0.  */
 
 #undef INIT_CUMULATIVE_ARGS
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (CUM).num_args = 0;						\
   (CUM).atypes[0] = (CUM).atypes[1] = (CUM).atypes[2] = I64;	\
   (CUM).atypes[3] = (CUM).atypes[4] = (CUM).atypes[5] = I64;

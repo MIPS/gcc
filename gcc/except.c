@@ -1,6 +1,6 @@
 /* Implements exception handling.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -189,6 +189,7 @@ struct eh_region GTY(())
     struct eh_region_u_fixup {
       tree cleanup_exp;
       struct eh_region *real_region;
+      bool resolved;
     } GTY ((tag ("ERT_FIXUP"))) fixup;
   } GTY ((desc ("%0.type"))) u;
 
@@ -405,10 +406,8 @@ init_eh (void)
       tmp = build_int_2 (FIRST_PSEUDO_REGISTER + 2 - 1, 0);
 #endif
 #else
-      /* This is 2 for builtin_setjmp, plus whatever the target requires
-	 via STACK_SAVEAREA_MODE (SAVE_NONLOCAL).  */
-      tmp = build_int_2 ((GET_MODE_SIZE (STACK_SAVEAREA_MODE (SAVE_NONLOCAL))
-			  / GET_MODE_SIZE (Pmode)) + 2 - 1, 0);
+      /* builtin_setjmp takes a pointer to 5 words.  */
+      tmp = build_int_2 (5 * BITS_PER_WORD / POINTER_SIZE - 1, 0);
 #endif
       tmp = build_index_type (tmp);
       tmp = build_array_type (ptr_type_node, tmp);
@@ -1005,29 +1004,49 @@ collect_eh_region_array (void)
 }
 
 static void
+resolve_one_fixup_region (struct eh_region *fixup)
+{
+  struct eh_region *cleanup, *real;
+  int j, n;
+
+  n = cfun->eh->last_region_number;
+  cleanup = 0;
+
+  for (j = 1; j <= n; ++j)
+    {
+      cleanup = cfun->eh->region_array[j];
+      if (cleanup && cleanup->type == ERT_CLEANUP
+	  && cleanup->u.cleanup.exp == fixup->u.fixup.cleanup_exp)
+	break;
+    }
+  if (j > n)
+    abort ();
+
+  real = cleanup->outer;
+  if (real && real->type == ERT_FIXUP)
+    {
+      if (!real->u.fixup.resolved)
+	resolve_one_fixup_region (real);
+      real = real->u.fixup.real_region;
+    }
+
+  fixup->u.fixup.real_region = real;
+  fixup->u.fixup.resolved = true;
+}
+
+static void
 resolve_fixup_regions (void)
 {
-  int i, j, n = cfun->eh->last_region_number;
+  int i, n = cfun->eh->last_region_number;
 
   for (i = 1; i <= n; ++i)
     {
       struct eh_region *fixup = cfun->eh->region_array[i];
-      struct eh_region *cleanup = 0;
 
-      if (! fixup || fixup->type != ERT_FIXUP)
+      if (!fixup || fixup->type != ERT_FIXUP || fixup->u.fixup.resolved)
 	continue;
 
-      for (j = 1; j <= n; ++j)
-	{
-	  cleanup = cfun->eh->region_array[j];
-	  if (cleanup && cleanup->type == ERT_CLEANUP
-	      && cleanup->u.cleanup.exp == fixup->u.fixup.cleanup_exp)
-	    break;
-	}
-      if (j > n)
-	abort ();
-
-      fixup->u.fixup.real_region = cleanup->outer;
+      resolve_one_fixup_region (fixup);
     }
 }
 
@@ -2598,14 +2617,14 @@ void
 for_each_eh_label (void (*callback) (rtx))
 {
   htab_traverse (cfun->eh->exception_handler_label_map, for_each_eh_label_1,
-		 (void *)callback);
+		 (void *) &callback);
 }
 
 static int
 for_each_eh_label_1 (void **pentry, void *data)
 {
   struct ehl_map_entry *entry = *(struct ehl_map_entry **)pentry;
-  void (*callback) (rtx) = (void (*) (rtx)) data;
+  void (*callback) (rtx) = *(void (**) (rtx)) data;
 
   (*callback) (entry->label);
   return 1;
@@ -3276,6 +3295,26 @@ expand_eh_return (void)
     }
 
   emit_label (around_label);
+}
+
+/* Convert a ptr_mode address ADDR_TREE to a Pmode address controlled by
+   POINTERS_EXTEND_UNSIGNED and return it.  */
+
+rtx
+expand_builtin_extend_pointer (tree addr_tree)
+{
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  int extend;
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+  extend = POINTERS_EXTEND_UNSIGNED;
+#else
+  /* The previous EH code did an unsigned extend by default, so we do this also
+     for consistency.  */
+  extend = 1;
+#endif
+
+  return convert_modes (word_mode, ptr_mode, addr, extend);
 }
 
 /* In the following functions, we represent entries in the action table

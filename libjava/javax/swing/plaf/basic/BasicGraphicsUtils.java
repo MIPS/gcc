@@ -595,6 +595,7 @@ public class BasicGraphicsUtils
     Rectangle iconRect = new Rectangle();
     Rectangle textRect = new Rectangle();
     Insets insets = b.getInsets();
+    Insets margin = b.getMargin();
     
     /* For determining the ideal size, do not assume a size restriction. */
     viewRect = new Rectangle(0, 0,
@@ -613,8 +614,8 @@ public class BasicGraphicsUtils
       b.getToolkit().getFontMetrics(b.getFont()), // see comment above
       b.getText(),
       b.getIcon(),
-      b.getVerticalAlignment(),
-      b.getHorizontalAlignment(),
+      SwingUtilities.TOP,    // important:
+      SwingUtilities.LEFT,   // large vrect, stick to the top left
       b.getVerticalTextPosition(),
       b.getHorizontalTextPosition(),
       viewRect, iconRect, textRect,
@@ -630,7 +631,11 @@ public class BasicGraphicsUtils
      */
     contentRect = textRect.union(iconRect);
 
-    return new Dimension(insets.left + contentRect.width + insets.right,
-                         insets.top + contentRect.height + insets.bottom);
+    return new Dimension(insets.left + margin.left
+			 + contentRect.width 
+			 + insets.right + margin.right,
+                         insets.top + margin.top
+			 + contentRect.height 
+			 + insets.bottom + margin.bottom);
   }
 }

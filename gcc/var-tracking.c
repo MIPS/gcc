@@ -112,7 +112,7 @@ enum micro_operation_type
   MO_SET,	/* Set location.  */
   MO_CLOBBER,	/* Clobber location.  */
   MO_CALL,	/* Call insn.  */
-  MO_ADJUST	/* Adjust stack pointer.  */
+  MO_ADJUST	/* Adjust stack pointer. */
 };
 
 /* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
@@ -262,7 +262,7 @@ static htab_t changed_variables;
 static bool emit_notes;
 
 /* Fake variable for stack pointer.  */
-GTY(()) tree frame_base_decl;
+tree frame_base_decl;
 
 /* Local function prototypes.  */
 static void stack_adjust_offset_pre_post (rtx, HOST_WIDE_INT *,

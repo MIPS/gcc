@@ -81,6 +81,7 @@ mflang_flush_calls (tree enqueued_call_stmt_chain)
 
   DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
   TREE_PUBLIC (current_function_decl) = 0;
+  TREE_USED (current_function_decl) = 1;
   mf_mark (current_function_decl);
 
   body = c_begin_compound_stmt ();

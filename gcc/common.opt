@@ -251,6 +251,10 @@ fbranch-target-load-optimize2
 Common
 Perform branch target load optimization after prologue / epilogue threading
 
+fbtr-bb-exclusive
+Common
+Restrict target load migration not to re-use registers in any basic block
+
 fcall-saved-
 Common Joined RejectNegative
 -fcall-saved-<register>	Mark <register> as being preserved across functions
@@ -302,10 +306,6 @@ Delete useless null pointer checks
 fdiagnostics-show-location=
 Common Joined RejectNegative
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics
-
-fdisable-tree-ssa
-Common RejectNegative
-Disable SSA optimizations on trees
 
 fdump-
 Common Joined RejectNegative
@@ -467,7 +467,15 @@ Force all loop invariant computations out of loops
 
 fmudflap
 Common RejectNegative
-Add mudflap bounds-checking instrumentation (-fmudflapth includes multithreading support)
+Add mudflap bounds-checking instrumentation for single-threaded program.
+
+fmudflapth
+Common RejectNegative
+Add mudflap bounds-checking instrumentation for multi-threaded program.
+
+fmudflapir
+Common RejectNegative
+Ignore read operations when inserting mudflap instrumentation.
 
 fnew-ra
 Common
@@ -707,13 +715,17 @@ ftrapv
 Common
 Trap for signed overflow in addition, subtraction and multiplication
 
+ftree-based-profiling
+Common
+Use tree-ssa based implementation of profiling
+
 ftree-ccp
 Common
 Enable SSA-CCP optimization on trees
 
 ftree-ch
 Common
-Enable loop copy headers on trees
+Enable loop header copying on trees
 
 ftree-combine-temps
 Common
@@ -726,6 +738,10 @@ Enable SSA dead code elimination optimization on trees
 ftree-dominator-opts
 Common
 Enable dominator optimizations
+
+ftree-dse
+Common
+Enable dead store elimination
 
 ftree-loop-optimize
 Common
@@ -781,6 +797,10 @@ Perform loop unswitching
 funwind-tables
 Common
 Just generate unwind tables for exception handling
+
+fvar-tracking
+Common
+Perform variable tracking
 
 fverbose-asm
 Common

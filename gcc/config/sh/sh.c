@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1997, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com). 
 
@@ -49,6 +49,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ra.h"
 #include "cfglayout.h"
 #include "intl.h"
+#include "ggc.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -91,7 +92,7 @@ static int pragma_trapa;
    interrupted.  */
 int pragma_nosave_low_regs;
 
-/* This is used for communication between SETUP_INCOMING_VARARGS and
+/* This is used for communication between TARGET_SETUP_INCOMING_VARARGS and
    sh_expand_prologue.  */
 int current_function_anonymous_args;
 
@@ -675,8 +676,8 @@ expand_block_move (rtx *operands)
 	  tree entry_name;
 	  rtx sym;
 	  rtx func_addr_rtx;
-	  rtx r4 = gen_rtx (REG, SImode, 4);
-	  rtx r5 = gen_rtx (REG, SImode, 5);
+	  rtx r4 = gen_rtx_REG (SImode, 4);
+	  rtx r5 = gen_rtx_REG (SImode, 5);
 
 	  entry_name = get_identifier ("__movstrSI12_i4");
 
@@ -693,9 +694,9 @@ expand_block_move (rtx *operands)
 	  rtx sym;
 	  rtx func_addr_rtx;
 	  int dwords;
-	  rtx r4 = gen_rtx (REG, SImode, 4);
-	  rtx r5 = gen_rtx (REG, SImode, 5);
-	  rtx r6 = gen_rtx (REG, SImode, 6);
+	  rtx r4 = gen_rtx_REG (SImode, 4);
+	  rtx r5 = gen_rtx_REG (SImode, 5);
+	  rtx r6 = gen_rtx_REG (SImode, 6);
 
 	  entry_name = get_identifier (bytes & 4
 				       ? "__movstr_i4_odd"
@@ -955,15 +956,15 @@ prepare_scc_operands (enum rtx_code code)
 
   if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
     (mode == SFmode ? emit_sf_insn : emit_df_insn)
-     (gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2,
-		gen_rtx (SET, VOIDmode, t_reg,
-			 gen_rtx (code, SImode,
-				  sh_compare_op0, sh_compare_op1)),
-		gen_rtx (USE, VOIDmode, get_fpscr_rtx ()))));
+     (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2,
+		gen_rtx_SET (VOIDmode, t_reg,
+			     gen_rtx_fmt_ee (code, SImode,
+					     sh_compare_op0, sh_compare_op1)),
+		gen_rtx_USE (VOIDmode, get_fpscr_rtx ()))));
   else
-    emit_insn (gen_rtx (SET, VOIDmode, t_reg,
-			gen_rtx (code, SImode, sh_compare_op0,
-				 sh_compare_op1)));
+    emit_insn (gen_rtx_SET (VOIDmode, t_reg,
+			    gen_rtx_fmt_ee (code, SImode,
+					    sh_compare_op0, sh_compare_op1)));
 
   return t_reg;
 }
@@ -996,13 +997,13 @@ from_compare (rtx *operands, int code)
   else
     insn = gen_rtx_SET (VOIDmode,
 			gen_rtx_REG (SImode, T_REG),
-			gen_rtx (code, SImode, sh_compare_op0,
-				 sh_compare_op1));
+			gen_rtx_fmt_ee (code, SImode,
+					sh_compare_op0, sh_compare_op1));
   if (TARGET_SH4 && GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
-      insn = gen_rtx (PARALLEL, VOIDmode,
+      insn = gen_rtx_PARALLEL (VOIDmode,
 		      gen_rtvec (2, insn,
-				 gen_rtx (USE, VOIDmode, get_fpscr_rtx ())));
+				 gen_rtx_USE (VOIDmode, get_fpscr_rtx ())));
       (mode == SFmode ? emit_sf_insn : emit_df_insn) (insn);
     }
   else
@@ -1095,7 +1096,7 @@ output_movedouble (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
 static void
 print_slot (rtx insn)
 {
-  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 0, 1);
+  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 0, 1, NULL);
 
   INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
 }
@@ -1336,7 +1337,7 @@ sh_file_start (void)
   if (TARGET_ELF)
     /* We need to show the text section with the proper
        attributes as in TEXT_SECTION_ASM_OP, before dwarf2out
-       emits it without attributes in TEXT_SECTION, else GAS
+       emits it without attributes in TEXT_SECTION_ASM_OP, else GAS
        will complain.  We can teach GAS specifically about the
        default attributes for our choice of text section, but
        then we would have to change GAS again if/when we change
@@ -2426,7 +2427,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
 		  {
 		    operands[2] = GEN_INT (shift2 + 1);
 		    gen_shifty_op (ASHIFT, operands);
-		    operands[2] = GEN_INT (1);
+		    operands[2] = const1_rtx;
 		    gen_shifty_op (ASHIFTRT, operands);
 		    break;
 		  }
@@ -2480,7 +2481,7 @@ gen_shl_sext (rtx dest, rtx left_rtx, rtx size_rtx, rtx source)
       operands[2] = kind == 7 ? GEN_INT (left + 1) : left_rtx;
       gen_shifty_op (ASHIFT, operands);
       if (kind == 7)
-	emit_insn (gen_ashrsi3_k (dest, dest, GEN_INT (1)));
+	emit_insn (gen_ashrsi3_k (dest, dest, const1_rtx));
       break;
     default:
       return -1;
@@ -2999,7 +3000,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 		 the limit is the same, but the alignment requirements
 		 are higher.  We may waste up to 4 additional bytes
 		 for alignment, and the DF/DI constant may have
-		 another SF/SI constant placed before it. */
+		 another SF/SI constant placed before it.  */
 	      if (TARGET_SHCOMPACT
 		  && ! found_di
 		  && (mode == DFmode || mode == DImode))
@@ -3368,6 +3369,14 @@ gen_block_redirect (rtx jump, int addr, int need_block)
       else if (recog_memoized (prev) == CODE_FOR_block_branch_redirect)
 	need_block = 0;
     }
+  if (GET_CODE (PATTERN (jump)) == RETURN)
+    {
+      if (! need_block)
+	return prev;
+      /* Reorg even does nasty things with return insns that cause branches
+	 to go out of range - see find_end_label and callers.  */
+      return emit_insn_before (gen_block_branch_redirect (const0_rtx) , jump);
+    }
   /* We can't use JUMP_LABEL here because it might be undefined
      when not optimizing.  */
   dest = XEXP (SET_SRC (PATTERN (jump)), 0);
@@ -3535,11 +3544,16 @@ gen_far_branch (struct far_branch *bp)
   JUMP_LABEL (jump) = bp->far_label;
   if (! invert_jump (insn, label, 1))
     abort ();
-  (emit_insn_after
-   (gen_stuff_delay_slot
-    (GEN_INT (INSN_UID (XEXP (SET_SRC (PATTERN (jump)), 0))),
-     GEN_INT (recog_memoized (insn) == CODE_FOR_branch_false)),
-    insn));
+  /* If we are branching around a jump (rather than a return), prevent
+     reorg from using an insn from the jump target as the delay slot insn -
+     when reorg did this, it pessimized code (we rather hide the delay slot)
+     and it could cause branches to go out of range.  */
+  if (bp->far_label)
+    (emit_insn_after
+     (gen_stuff_delay_slot
+      (GEN_INT (INSN_UID (XEXP (SET_SRC (PATTERN (jump)), 0))),
+       GEN_INT (recog_memoized (insn) == CODE_FOR_branch_false)),
+      insn));
   /* Prevent reorg from undoing our splits.  */
   gen_block_redirect (jump, bp->address += 2, 2);
 }
@@ -4078,8 +4092,10 @@ sh_reorg (void)
 		  if (GET_CODE (dst) == REG && FP_ANY_REGISTER_P (REGNO (dst)))
 		    {
 		      /* This must be an insn that clobbers r0.  */
-		      rtx clobber = XVECEXP (PATTERN (scan), 0,
-					     XVECLEN (PATTERN (scan), 0) - 1);
+		      rtx *clobberp = &XVECEXP (PATTERN (scan), 0,
+						XVECLEN (PATTERN (scan), 0)
+						- 1);
+		      rtx clobber = *clobberp;
 
 		      if (GET_CODE (clobber) != CLOBBER
 			  || ! rtx_equal_p (XEXP (clobber, 0), r0_rtx))
@@ -4115,7 +4131,7 @@ sh_reorg (void)
 			}
 		      last_float_move = scan;
 		      last_float = src;
-		      newsrc = gen_rtx (MEM, mode,
+		      newsrc = gen_rtx_MEM (mode,
 					(((TARGET_SH4 && ! TARGET_FMOVD)
 					  || REGNO (dst) == FPUL_REG)
 					 ? r0_inc_rtx
@@ -4123,7 +4139,8 @@ sh_reorg (void)
 		      last_float_addr = &XEXP (newsrc, 0);
 
 		      /* Remove the clobber of r0.  */
-		      XEXP (clobber, 0) = gen_rtx_SCRATCH (Pmode);
+		      *clobberp = gen_rtx_CLOBBER (GET_MODE (clobber),
+						   gen_rtx_SCRATCH (Pmode));
 		      RTX_UNCHANGING_P (newsrc) = 1;
 		    }
 		  /* This is a mova needing a label.  Create it.  */
@@ -4731,7 +4748,7 @@ shmedia_target_regs_stack_space (HARD_REG_SET *live_regs_mask)
     if ((! call_used_regs[reg] || interrupt_handler)
         && ! TEST_HARD_REG_BIT (*live_regs_mask, reg))
       /* Leave space to save this target register on the stack,
-	 in case target register allocation wants to use it. */
+	 in case target register allocation wants to use it.  */
       stack_space += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
   return stack_space;
 }
@@ -5888,7 +5905,7 @@ sh_builtin_saveregs (void)
 	  mem = gen_rtx_MEM (DFmode, fpregs);
 	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem, 
-			  gen_rtx (REG, DFmode, BASE_ARG_REG (DFmode) + regno));
+			  gen_rtx_REG (DFmode, BASE_ARG_REG (DFmode) + regno));
 	}
       regno = first_floatreg;
       if (regno & 1)
@@ -5897,7 +5914,7 @@ sh_builtin_saveregs (void)
 	  mem = gen_rtx_MEM (SFmode, fpregs);
 	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem,
-			  gen_rtx (REG, SFmode, BASE_ARG_REG (SFmode) + regno
+			  gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno
 						- (TARGET_LITTLE_ENDIAN != 0)));
 	}
     }
@@ -6390,7 +6407,7 @@ sh_function_arg_advance (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	     ca->call_cookie
 	       |= CALL_COOKIE_INT_REG (ca->arg_count[(int) SH_ARG_INT]
 				       - numregs, 1);
-	     /* N.B. We want this also for outgoing.   */
+	     /* N.B. We want this also for outgoing.  */
 	     ca->stack_regs += numregs;
 	   }
 	 else if (ca->byref)
@@ -6503,10 +6520,6 @@ sh_function_arg_advance (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 	  : ROUND_ADVANCE (GET_MODE_SIZE (mode)))));
 }
 
-/* If the structure value address is not passed in a register, define
-   `STRUCT_VALUE' as an expression returning an RTX for the place
-   where the address is passed.  If it returns 0, the address is
-   passed as an "invisible" first argument.  */
 /* The Renesas calling convention doesn't quite fit into this scheme since
    the address is passed like an invisible argument, but one that is always
    passed in memory.  */
@@ -6517,6 +6530,8 @@ sh_struct_value_rtx (tree fndecl, int incoming ATTRIBUTE_UNUSED)
     return 0;
   return gen_rtx_REG (Pmode, 2);
 }
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
 sh_return_in_memory (tree type, tree fndecl)
@@ -7639,7 +7654,7 @@ get_fpscr_rtx (void)
 {
   if (! fpscr_rtx)
     {
-      fpscr_rtx = gen_rtx (REG, PSImode, FPSCR_REG);
+      fpscr_rtx = gen_rtx_REG (PSImode, FPSCR_REG);
       REG_USERVAR_P (fpscr_rtx) = 1;
       mark_user_reg (fpscr_rtx);
     }
@@ -8100,7 +8115,7 @@ sh_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED, rtx dep_insn, int cost)
   if (TARGET_SHMEDIA)
     {
       /* On SHmedia, if the dependence is an anti-dependence or
-         output-dependence, there is no cost. */              
+         output-dependence, there is no cost.  */
       if (REG_NOTE_KIND (link) != 0)
         cost = 0;
 
@@ -8398,14 +8413,14 @@ sh_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
 				 movishori));
       emit_insn (gen_rotrdi3_mextr (quad0, quad0,
 				    GEN_INT (TARGET_LITTLE_ENDIAN ? 24 : 56)));
-      emit_insn (gen_ashldi3_media (quad0, quad0, GEN_INT (2)));
+      emit_insn (gen_ashldi3_media (quad0, quad0, const2_rtx));
       emit_move_insn (gen_rtx_MEM (DImode, tramp), quad0);
       emit_insn (gen_mshflo_w_x (gen_rtx_SUBREG (V4HImode, cxtload, 0),
 				 gen_rtx_SUBREG (V2HImode, cxt, 0),
 				 movishori));
       emit_insn (gen_rotrdi3_mextr (cxtload, cxtload,
 				    GEN_INT (TARGET_LITTLE_ENDIAN ? 24 : 56)));
-      emit_insn (gen_ashldi3_media (cxtload, cxtload, GEN_INT (2)));
+      emit_insn (gen_ashldi3_media (cxtload, cxtload, const2_rtx));
       if (TARGET_LITTLE_ENDIAN)
 	{
 	  emit_insn (gen_mshflo_l_di (quad1, ptabs, cxtload));
@@ -8519,10 +8534,10 @@ static const char signature_args[][4] =
 #define SH_BLTIN_PV 20
   { 0, 8 },
 };
-/* mcmv: operands considered unsigned. */
+/* mcmv: operands considered unsigned.  */
 /* mmulsum_wq, msad_ubq: result considered unsigned long long.  */
-/* mperm: control value considered unsigned int. */
-/* mshalds, mshard, mshards, mshlld, mshlrd: shift count is unsigned int. */
+/* mperm: control value considered unsigned int.  */
+/* mshalds, mshard, mshards, mshlld, mshlrd: shift count is unsigned int.  */
 /* mshards_q: returns signed short.  */
 /* nsb: takes long long arg, returns unsigned char.  */
 static const struct builtin_description bdesc[] =
@@ -8943,7 +8958,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      SH that it's best to do this completely machine independently.
      "this" is passed as first argument, unless a structure return pointer 
      comes first, in which case "this" comes second.  */
-  INIT_CUMULATIVE_ARGS (cum, funtype, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (cum, funtype, NULL_RTX, 0, 1);
 #ifndef PCC_STATIC_STRUCT_RETURN
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
     structure_value_byref = 1;
@@ -9156,7 +9171,7 @@ sh_expand_t_scc (enum rtx_code code, rtx target)
     {
       emit_insn (gen_rtx_CLOBBER (VOIDmode, result));
       emit_insn (gen_subc (result, result, result));
-      emit_insn (gen_addsi3 (result, result, GEN_INT (1)));
+      emit_insn (gen_addsi3 (result, result, const1_rtx));
     }
   else if (code == EQ || code == NE)
     emit_insn (gen_move_insn (result, GEN_INT (code == NE)));
@@ -9165,6 +9180,53 @@ sh_expand_t_scc (enum rtx_code code, rtx target)
   if (result != target)
     emit_move_insn (target, result);
   return 1;
+}
+
+/* INSN is an sfunc; return the rtx that describes the address used.  */
+static rtx
+extract_sfunc_addr (rtx insn)
+{
+  rtx pattern, part = NULL_RTX;
+  int len, i;
+
+  pattern = PATTERN (insn);
+  len = XVECLEN (pattern, 0);
+  for (i = 0; i < len; i++)
+    {
+      part = XVECEXP (pattern, 0, i);
+      if (GET_CODE (part) == USE && GET_MODE (XEXP (part, 0)) == Pmode
+	  && GENERAL_REGISTER_P (true_regnum (XEXP (part, 0))))
+	return XEXP (part, 0);
+    }
+  if (GET_CODE (XVECEXP (pattern, 0, 0)) == UNSPEC_VOLATILE)
+    return XVECEXP (XVECEXP (pattern, 0, 0), 0, 1);
+  abort ();
+}
+
+/* Verify that the register in use_sfunc_addr still agrees with the address
+   used in the sfunc.  This prevents fill_slots_from_thread from changing
+   use_sfunc_addr.
+   INSN is the use_sfunc_addr instruction, and REG is the register it
+   guards.  */
+int
+check_use_sfunc_addr (rtx insn, rtx reg)
+{
+  /* Search for the sfunc.  It should really come right after INSN.  */
+  while ((insn = NEXT_INSN (insn)))
+    {
+      if (GET_CODE (insn) == CODE_LABEL || GET_CODE (insn) == JUMP_INSN)
+	break;
+      if (! INSN_P (insn))
+	continue;
+	
+      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+	insn = XVECEXP (PATTERN (insn), 0, 0);
+      if (GET_CODE (PATTERN (insn)) != PARALLEL
+	  || get_attr_type (insn) != TYPE_SFUNC)
+	continue;
+      return rtx_equal_p (extract_sfunc_addr (insn), reg);
+    }
+  abort ();
 }
 
 #include "gt-sh.h"

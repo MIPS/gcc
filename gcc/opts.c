@@ -448,7 +448,8 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
       /* Interpret "-" or a non-switch as a file name.  */
       if (opt[0] != '-' || opt[1] == '\0')
 	{
-	  main_input_filename = opt;
+	  if (main_input_filename == NULL)
+	    main_input_filename = opt;
 	  add_input_filename (opt);
 	  n = 1;
 	  continue;
@@ -541,7 +542,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
-      flag_tree_ch = 1;
+      flag_tree_dse = 1;
       flag_tree_loop = 0;
       flag_tree_vectorize = 0;
       flag_tree_pre = 1;
@@ -550,6 +551,15 @@ decode_options (unsigned int argc, const char **argv)
       flag_ddg = 0;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
+
+      if (!optimize_size)
+	{
+	  /* Loop header copying usually increases size of the code.  This used
+	     not to be true, since quite often it is possible to verify that
+	     the condition is satisfied in the first iteration and therefore
+	     to eliminate it.  Jump threading handles these cases now.  */
+	  flag_tree_ch = 1;
+	}
     }
 
   if (optimize >= 2)
@@ -913,6 +923,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_branch_target_load_optimize2 = value;
       break;
 
+    case OPT_fbtr_bb_exclusive:
+      flag_btr_bb_exclusive = value;
+      break;
+
     case OPT_fcall_used_:
       fix_register (arg, 0, 1);
       break;
@@ -969,10 +983,6 @@ common_handle_option (size_t scode, const char *arg,
 	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	return 0;
-      break;
-
-    case OPT_fdisable_tree_ssa:
-      flag_disable_tree_ssa = value;
       break;
 
     case OPT_fdump_:
@@ -1137,6 +1147,15 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fmudflap:
       flag_mudflap = value;
+      break;
+
+    case OPT_fmudflapth:
+      flag_mudflap = value;
+      flag_mudflap_threads = value;
+      break;
+
+    case OPT_fmudflapir:
+      flag_mudflap_ignore_reads = value;
       break;
 
     case OPT_fnew_ra:
@@ -1427,6 +1446,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_trapv = value;
       break;
 
+    case OPT_ftree_based_profiling:
+      flag_tree_based_profiling = value;
+      break;
+
     case OPT_ftree_ccp:
       flag_tree_ccp = value;
       break;
@@ -1465,6 +1488,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_ch:
       flag_tree_ch = value;
+      break;
+
+    case OPT_ftree_dse:
+      flag_tree_dse = value;
       break;
 
     case OPT_ftree_loop_optimize:
@@ -1518,6 +1545,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_funwind_tables:
       flag_unwind_tables = value;
+      break;
+
+    case OPT_fvar_tracking:
+      flag_var_tracking = value;
       break;
 
     case OPT_fverbose_asm:

@@ -25,4 +25,4 @@ struct s foo (struct s r)
 
 /* There should be no references to any of "temp_struct*"
    temporaries.  */
-/* { dg-final { scan-tree-dump-times "temp_struct" 0 "optimized"} } */
+/* { dg-final { scan-tree-dump-times "temp_struct" 0 "optimized" { xfail *-*-* } } } */

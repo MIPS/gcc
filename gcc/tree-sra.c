@@ -195,6 +195,38 @@ lookup_scalar (struct sra_elt *key, tree type)
       *slot = res;
       *res = *key;
       res->replace = make_temp (type, "SR");
+
+      if (DECL_NAME (key->base) && !DECL_IGNORED_P (key->base))
+	{
+	  char *name = NULL;
+	  switch (key->kind)
+	    {
+	    case COMPONENT_REF:
+	      if (!DECL_NAME (key->field))
+		break;
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$",
+			     IDENTIFIER_POINTER (DECL_NAME (key->field)),
+			     NULL);
+	      break;
+	    case REALPART_EXPR:
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$real", NULL);
+	      break;
+	    case IMAGPART_EXPR:
+	      name = concat (IDENTIFIER_POINTER (DECL_NAME (key->base)),
+			     "$imag", NULL);
+	      break;
+	    default:
+	      abort ();
+	    }
+	  if (name)
+	    {
+	      DECL_NAME (res->replace) = get_identifier (name);
+	      free (name);
+	    }
+	}
+      DECL_SOURCE_LOCATION (res->replace) = DECL_SOURCE_LOCATION (key->base);
     }
 
   return res->replace;
@@ -830,19 +862,19 @@ scalarize_stmt (block_stmt_iterator *si_p)
       && TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR)
     scalarize_modify_expr (si_p);
 
-  /* Handle function calls.  */
-  else if (TREE_CODE (stmt) == CALL_EXPR
-	   || (TREE_CODE (stmt) == MODIFY_EXPR
-	       && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+  /* Handle RETURN_EXPR.  */
+  else if (TREE_CODE (stmt) == RETURN_EXPR)
+    scalarize_return_expr (si_p);
+
+  /* Handle function calls (note that this must be handled after
+     MODIFY_EXPR and RETURN_EXPR because a function call can appear in
+     both).  */
+  else if (get_call_expr_in (stmt) != NULL_TREE)
     scalarize_call_expr (si_p);
 
   /* Handle ASM_EXPRs.  */
   else if (TREE_CODE (stmt) == ASM_EXPR)
     scalarize_asm_expr (si_p);
-
-  /* Handle RETURN_EXPR.  */
-  else if (TREE_CODE (stmt) == RETURN_EXPR)
-    scalarize_return_expr (si_p);
 }
 
 

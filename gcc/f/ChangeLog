@@ -1,3 +1,58 @@
+2004-02-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* com.c (ffecom_member_phase2_): Use gen_rtx_MEM instead of
+	gen_rtx.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/g77.dvi): Use $(abs_docdir). 
+
+2004-01-28  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* Make-lang.in (f/str-*.h, f/str-*.j): Use stamp files and
+	move-if-change to avoid changing these files unnecessarily.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(TEXI_G77_FILES): Define.
+	(f77.rebuilt): Delete.
+	(f77.srcextra): Add dependencies on f/BUGS and f/NEWS.
+	(f77.srcman, f77.srcinfo, f77.man, f77.info): New rules.
+	(doc/g77.info, doc/g77.dvi): Depend on TEXI_G77_FILES.  Always build in
+	doc directory.  Use $(MAKEINFOFLAGS).
+	(info, dvi, generated_manpages): Update to look in doc directory.
+	(f/BUGS, f/NEWS): Generate in build directory.
+	(f77.mostlyclean): Delete BUGS and NEWS from build directory.
+	(f77.maintainer-clean): Adjust to delete from source directory.
+	(f77.install-man): Revamp rule.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (G77_INSTALL_NAME): Define via a immediate $(shell)
+	instead of deferred backquote.
+
+2004-01-15  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (f77.srcextra): Dummy entry.
+
+2004-01-13  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	PR fortran/6491
+	* expr.c (ffeexpr_reduce_): When handling AND, OR, and XOR, and
+	when using -fugly-logint, if both operands are logical, convert
+	the result back to logical.
+	(ffeexpr_reduced_ugly2log_): Add bothlogical parameter.  Change
+	all callers.  Convert logical operands to integer.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* README: Remove.
+
+2004-01-07  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* com.h (ffecom_gfrt_basictype): Correct return type.
+
 2003-12-29  Roger Sayle  <roger@eyesopen.com>
 
 	PR fortran/12632

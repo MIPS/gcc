@@ -1,5 +1,5 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
-@c 2002, 2003 Free Software Foundation, Inc.
+@c 2002, 2003, 2004 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -356,12 +356,12 @@ used.
 
 The @file{config/rs6000/rs6000.h} target file defines:
 
-@example
+@smallexample
 #define EXTRA_SPECS \
   @{ "cpp_sysv_default", CPP_SYSV_DEFAULT @},
 
 #define CPP_SYS_DEFAULT ""
-@end example
+@end smallexample
 
 The @file{config/rs6000/sysv.h} target file defines:
 @smallexample
@@ -561,7 +561,7 @@ operating system, code the component name as @samp{0}.
 
 For example, here is the definition used for VAX/VMS:
 
-@example
+@smallexample
 #define INCLUDE_DEFAULTS \
 @{                                       \
   @{ "GNU_GXX_INCLUDE:", "G++", 1, 1@},   \
@@ -570,7 +570,7 @@ For example, here is the definition used for VAX/VMS:
   @{ ".", 0, 0, 0@},                      \
   @{ 0, 0, 0, 0@}                         \
 @}
-@end example
+@end smallexample
 @end defmac
 
 Here is the order of prefixes tried for exec files:
@@ -1253,7 +1253,7 @@ If your aim is to make GCC use the same conventions for laying out
 bit-fields as are used by another compiler, here is how to investigate
 what the other compiler does.  Compile and run this program:
 
-@example
+@smallexample
 struct foo1
 @{
   char x;
@@ -1276,7 +1276,7 @@ main ()
           sizeof (struct foo2));
   exit (0);
 @}
-@end example
+@end smallexample
 
 If this prints 2 and 5, then the compiler's behavior is what you would
 get from @code{PCC_BITFIELD_TYPE_MATTERS}.
@@ -1535,14 +1535,6 @@ the size of that type.  If you don't define this, the default is the
 value of @code{LONG_TYPE_SIZE}.
 @end defmac
 
-@defmac MAX_LONG_TYPE_SIZE
-Maximum number for the size in bits of the type @code{long} on the
-target machine.  If this is undefined, the default is
-@code{LONG_TYPE_SIZE}.  Otherwise, it is the constant value that is the
-largest value that @code{LONG_TYPE_SIZE} can have at run-time.  This is
-used in @code{cpp}.
-@end defmac
-
 @defmac LONG_LONG_TYPE_SIZE
 A C expression for the size in bits of the type @code{long long} on the
 target machine.  If you don't define this, the default is two
@@ -1577,14 +1569,6 @@ words.
 A C expression for the size in bits of the type @code{long double} on
 the target machine.  If you don't define this, the default is two
 words.
-@end defmac
-
-@defmac MAX_LONG_DOUBLE_TYPE_SIZE
-Maximum number for the size in bits of the type @code{long double} on the
-target machine.  If this is undefined, the default is
-@code{LONG_DOUBLE_TYPE_SIZE}.  Otherwise, it is the constant value that is
-the largest value that @code{LONG_DOUBLE_TYPE_SIZE} can have at run-time.
-This is used in @code{cpp}.
 @end defmac
 
 @defmac TARGET_FLT_EVAL_METHOD
@@ -1659,22 +1643,6 @@ characters.  This is used in @code{cpp}, which cannot make use of
 @code{WCHAR_TYPE}.
 @end defmac
 
-@defmac MAX_WCHAR_TYPE_SIZE
-Maximum number for the size in bits of the data type for wide
-characters.  If this is undefined, the default is
-@code{WCHAR_TYPE_SIZE}.  Otherwise, it is the constant value that is the
-largest value that @code{WCHAR_TYPE_SIZE} can have at run-time.  This is
-used in @code{cpp}.
-@end defmac
-
-@defmac GCOV_TYPE_SIZE
-A C expression for the size in bits of the type used for gcov counters on the
-target machine.  If you don't define this, the default is one
-@code{LONG_TYPE_SIZE} in case it is greater or equal to 64-bit and
-@code{LONG_LONG_TYPE_SIZE} otherwise.  You may want to re-define the type to
-ensure atomicity for counters in multithreaded programs.
-@end defmac
-
 @defmac WINT_TYPE
 A C expression for a string describing the name of the data type to
 use for wide characters passed to @code{printf} and returned from
@@ -1712,7 +1680,7 @@ int}.
 The C++ compiler represents a pointer-to-member-function with a struct
 that looks like:
 
-@example
+@smallexample
   struct @{
     union @{
       void (*fn)();
@@ -1720,7 +1688,7 @@ that looks like:
     @};
     ptrdiff_t delta;
   @};
-@end example
+@end smallexample
 
 @noindent
 The C++ compiler must use one bit to indicate whether the function that
@@ -2288,9 +2256,9 @@ in many of the tables described below.
 @defmac N_REG_CLASSES
 The number of distinct register classes, defined as follows:
 
-@example
+@smallexample
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
-@end example
+@end smallexample
 @end defmac
 
 @defmac REG_CLASS_NAMES
@@ -2409,9 +2377,9 @@ to use when it is necessary to copy value @var{x} into a register in class
 another, smaller class.  On many machines, the following definition is
 safe:
 
-@example
+@smallexample
 #define PREFERRED_RELOAD_CLASS(X,CLASS) CLASS
-@end example
+@end smallexample
 
 Sometimes returning a more restrictive class makes better code.  For
 example, on the 68000, when @var{x} is an integer constant that is in range
@@ -2623,11 +2591,11 @@ does not store the low-order 32 bits, as would be the case for a normal
 register.  Therefore, @file{alpha.h} defines @code{CANNOT_CHANGE_MODE_CLASS}
 as below:
 
-@example
+@smallexample
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
    ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
-@end example
+@end smallexample
 @end defmac
 
 Three other special macros describe which operands fit which constraint
@@ -3289,6 +3257,26 @@ column number to use instead.
 See the PowerPC's SPE target for an example.
 @end defmac
 
+@defmac DWARF_FRAME_REGNUM (@var{regno})
+
+Define this macro if the target's representation for dwarf registers
+used in .eh_frame or .debug_frame is different from that used in other
+debug info sections.  Given a gcc hard register number, this macro
+should return the .eh_frame register number.  The default is
+@code{DBX_REGISTER_NUMBER (@var{regno})}.
+
+@end defmac
+
+@defmac DWARF2_FRAME_REG_OUT (@var{regno}, @var{for_eh})
+
+Define this macro to map register numbers held in the call frame info
+that gcc has collected using @code{DWARF_FRAME_REGNUM} to those that
+should be output in .debug_frame (@code{@var{for_eh}} is zero) and
+.eh_frame (@code{@var{for_eh}} is nonzero).  The default is to 
+return @code{@var{regno}}.
+
+@end defmac
+
 @node Elimination
 @subsection Eliminating Frame Pointer and Arg Pointer
 
@@ -3347,12 +3335,12 @@ replacing it with either the frame pointer or the argument pointer,
 depending on whether or not the frame pointer has been eliminated.
 
 In this case, you might specify:
-@example
+@smallexample
 #define ELIMINABLE_REGS  \
 @{@{ARG_POINTER_REGNUM, STACK_POINTER_REGNUM@}, \
  @{ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM@}, \
  @{FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM@}@}
-@end example
+@end smallexample
 
 Note that the elimination of the argument pointer with the stack pointer is
 specified first since that is the preferred elimination.
@@ -3413,18 +3401,18 @@ stack when an instruction attempts to push @var{npushed} bytes.
 
 On some machines, the definition
 
-@example
+@smallexample
 #define PUSH_ROUNDING(BYTES) (BYTES)
-@end example
+@end smallexample
 
 @noindent
 will suffice.  But on other machines, instructions that appear
 to push one byte actually push two bytes in an attempt to maintain
 alignment.  Then the definition should be
 
-@example
+@smallexample
 #define PUSH_ROUNDING(BYTES) (((BYTES) + 1) & ~1)
-@end example
+@end smallexample
 @end defmac
 
 @findex current_function_outgoing_args_size
@@ -3705,7 +3693,7 @@ arguments are passed on the stack, there is no need to store anything in
 should not be empty, so use @code{int}.
 @end defmac
 
-@defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl})
+@defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
 A C statement (sans semicolon) for initializing the variable
 @var{cum} for the state at the beginning of the argument list.  The
 variable has type @code{CUMULATIVE_ARGS}.  The value of @var{fntype}
@@ -3714,7 +3702,10 @@ the args, or 0 if the args are to a compiler support library function.
 For direct calls that are not libcalls, @var{fndecl} contain the
 declaration node of the function.  @var{fndecl} is also set when
 @code{INIT_CUMULATIVE_ARGS} is used to find arguments for the function
-being compiled.
+being compiled.  @var{n_named_args} is set to the number of named
+arguments, including a structure return address if it is passed as a
+parameter, when making a call.  When processing incoming arguments,
+@var{n_named_args} is set to -1.
 
 When processing a call to a compiler support library function,
 @var{libname} identifies which one.  It is a @code{symbol_ref} rtx which
@@ -3841,7 +3832,7 @@ register where the return value is stored.  The value can also be a
 @code{parallel} RTX, if the return value is in multiple places.  See
 @code{FUNCTION_ARG} for an explanation of the @code{parallel} form.
 
-If @code{TARGET_PROMOTE_FUNCTION_RETURN} is defined, you must apply the same
+If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply the same
 promotion rules specified in @code{PROMOTE_MODE} if @var{valtype} is a
 scalar type.
 
@@ -3853,7 +3844,7 @@ known.
 
 @code{FUNCTION_VALUE} is not used for return vales with aggregate data
 types, because these are returned in another way.  See
-@code{STRUCT_VALUE_REGNUM} and related macros, below.
+@code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
 @end defmac
 
 @defmac FUNCTION_OUTGOING_VALUE (@var{valtype}, @var{func})
@@ -3871,7 +3862,7 @@ If @code{FUNCTION_OUTGOING_VALUE} is not defined,
 
 @code{FUNCTION_OUTGOING_VALUE} is not used for return vales with
 aggregate data types, because these are returned in another way.  See
-@code{STRUCT_VALUE_REGNUM} and related macros, below.
+@code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
 @end defmac
 
 @defmac LIBCALL_VALUE (@var{mode})
@@ -3901,9 +3892,9 @@ second of a pair (for a value of type @code{double}, say) need not be
 recognized by this macro.  So for most machines, this definition
 suffices:
 
-@example
+@smallexample
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
-@end example
+@end smallexample
 
 If the machine has register windows, so that the caller and the called
 function use different registers for the return value, this macro
@@ -3944,7 +3935,7 @@ is called the @dfn{structure value address}.
 This section describes how to control returning structure values in
 memory.
 
-@deftypefn {Target Hook} bool RETURN_IN_MEMORY (tree @var{type}, tree @var{fntype})
+@deftypefn {Target Hook} bool TARGET_RETURN_IN_MEMORY (tree @var{type}, tree @var{fntype})
 This target hook should return a nonzero value to say to return the
 function value in memory, just as large structures are always returned.
 Here @var{type} will be the data type of the value, and @var{fntype}
@@ -3968,7 +3959,8 @@ Define this macro to be 1 if all structure and union return values must be
 in memory.  Since this results in slower code, this should be defined
 only if needed for compatibility with other compilers or with an ABI@.
 If you define this macro to be 0, then the conventions used for structure
-and union return values are decided by the @code{RETURN_IN_MEMORY} macro.
+and union return values are decided by the @code{TARGET_RETURN_IN_MEMORY}
+target hook.
 
 If not defined, this defaults to the value 1.
 @end defmac
@@ -3977,7 +3969,9 @@ If not defined, this defaults to the value 1.
 This target hook should return the location of the structure value
 address (normally a @code{mem} or @code{reg}), or 0 if the address is
 passed as an ``invisible'' first argument.  Note that @var{fndecl} may
-be @code{NULL}, for libcalls.
+be @code{NULL}, for libcalls.  You do not need to define this target
+hook if the address is always passed as an ``invisible'' first
+argument.
 
 On some architectures the place where the structure value address
 is found by the called function is not the same place that the
@@ -4283,9 +4277,9 @@ A function like @code{TARGET_ASM_OUTPUT_MI_THUNK}, except that if
 after adding @code{delta}.  In particular, if @var{p} is the
 adjusted pointer, the following adjustment should be made:
 
-@example
+@smallexample
 p += (*((ptrdiff_t **)p))[vcall_offset/sizeof(ptrdiff_t)]
-@end example
+@end smallexample
 
 @noindent
 If this function is defined, it will always be used in place of
@@ -4374,12 +4368,12 @@ below.
 Use this built-in function to save the argument registers in memory so
 that the varargs mechanism can access them.  Both ISO and traditional
 versions of @code{va_start} must use @code{__builtin_saveregs}, unless
-you use @code{SETUP_INCOMING_VARARGS} (see below) instead.
+you use @code{TARGET_SETUP_INCOMING_VARARGS} (see below) instead.
 
 On some machines, @code{__builtin_saveregs} is open-coded under the
-control of the macro @code{EXPAND_BUILTIN_SAVEREGS}.  On other machines,
-it calls a routine written in assembler language, found in
-@file{libgcc2.c}.
+control of the target hook @code{TARGET_EXPAND_BUILTIN_SAVEREGS}.  On
+other machines, it calls a routine written in assembler language,
+found in @file{libgcc2.c}.
 
 Code generated for the call to @code{__builtin_saveregs} appears at the
 beginning of the function, as opposed to where the call to
@@ -4504,7 +4498,7 @@ If you need to conditionally change ABIs so that one works with
 @code{TARGET_SETUP_INCOMING_VARARGS}, but the other works like neither
 @code{TARGET_SETUP_INCOMING_VARARGS} nor @code{TARGET_STRICT_ARGUMENT_NAMING} was
 defined, then define this hook to return @code{true} if
-@code{SETUP_INCOMING_VARARGS} is used, @code{false} otherwise.
+@code{TARGET_SETUP_INCOMING_VARARGS} is used, @code{false} otherwise.
 Otherwise, you should not define this hook.
 @end deftypefn
 
@@ -4668,7 +4662,7 @@ library routines.
 The default is to do nothing.  Most ports don't need to define this hook.
 @end deftypefn
 
-@defmac TARGET_FLOAT_LIB_COMPARE_RETURNS_BOOL (@var{mode}, @var{comparison})
+@defmac FLOAT_LIB_COMPARE_RETURNS_BOOL (@var{mode}, @var{comparison})
 This macro should return @code{true} if the library routine that
 implements the floating point comparison operator @var{comparison} in
 mode @var{mode} will return a boolean, and @var{false} if it will
@@ -4906,9 +4900,9 @@ A C compound statement that attempts to replace @var{x} with a valid
 memory address for an operand of mode @var{mode}.  @var{win} will be a
 C statement label elsewhere in the code; the macro definition may use
 
-@example
+@smallexample
 GO_IF_LEGITIMATE_ADDRESS (@var{mode}, @var{x}, @var{win});
-@end example
+@end smallexample
 
 @noindent
 to avoid further processing if the address has become legitimate.
@@ -5155,6 +5149,34 @@ follows:
    ((x) == reverse_condition (y))
 @end smallexample
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_FIXED_CONDITION_CODE_REGS (unsigned int *, unsigned int *)
+On targets which do not use @code{(cc0)}, and which use a hard
+register rather than a pseudo-register to hold condition codes, the
+regular CSE passes are often not able to identify cases in which the
+hard register is set to a common value.  Use this hook to enable a
+small pass which optimizes such cases.  This hook should return true
+to enable this pass, and it should set the integers to which its
+arguments point to the hard register numbers used for condition codes.
+When there is only one such register, as is true on most systems, the
+integer pointed to by the second argument should be set to
+@code{INVALID_REGNUM}.
+
+The default version of this hook returns false.
+@end deftypefn
+
+@deftypefn {Target Hook} enum machine_mode TARGET_CC_MODES_COMPATIBLE (enum machine_mode, enum machine_mode)
+On targets which use multiple condition code modes in class
+@code{MODE_CC}, it is sometimes the case that a comparison can be
+validly done in more than one mode.  On such a system, define this
+target hook to take two mode arguments and to return a mode in which
+both comparisons may be validly done.  If there is no such mode,
+return @code{VOIDmode}.
+
+The default version of this hook checks whether the modes are the
+same.  If they are, it returns that mode.  If they are different, it
+returns @code{VOIDmode}.
+@end deftypefn
 
 @node Costs
 @section Describing Relative Costs of Operations
@@ -5665,23 +5687,23 @@ insns with indexes greater than given index.
 
 @deftypefn {Target Hook} bool IS_COSTLY_DEPENDENCE (rtx @var{insn1}, rtx @var{insn2}, rtx @var{dep_link}, int @var{dep_cost}, int @var{distance})
 This hook is used to define which dependences are considered costly by
-the target, so costly that it is not advisable to schedule the insns that 
+the target, so costly that it is not advisable to schedule the insns that
 are involved in the dependence too close to one another.  The parameters
-to this hook are as follows:  The second parameter @var{insn2} is dependent 
-upon the first parameter @var{insn1}.  The dependence between @var{insn1} 
-and @var{insn2} is represented by the third parameter @var{dep_link}.  The 
-fourth parameter @var{cost} is the cost of the dependence, and the fifth 
-parameter @var{distance} is the distance in cycles between the two insns. 
+to this hook are as follows:  The second parameter @var{insn2} is dependent
+upon the first parameter @var{insn1}.  The dependence between @var{insn1}
+and @var{insn2} is represented by the third parameter @var{dep_link}.  The
+fourth parameter @var{cost} is the cost of the dependence, and the fifth
+parameter @var{distance} is the distance in cycles between the two insns.
 The hook returns @code{true} if considering the distance between the two
 insns the dependence between them is considered costly by the target,
 and @code{false} otherwise.
 
 Defining this hook can be useful in multiple-issue out-of-order machines,
-where (a) it's practically hopeless to predict the actual data/resource 
+where (a) it's practically hopeless to predict the actual data/resource
 delays, however: (b) there's a better chance to predict the actual grouping
-that will be formed, and (c) correctly emulating the grouping can be very 
+that will be formed, and (c) correctly emulating the grouping can be very
 important.  In such targets one may want to allow issuing dependent insns
-closer to one another - i.e, closer than the dependence distance;  however, 
+closer to one another - i.e, closer than the dependence distance;  however,
 not in cases of "costly dependences", which this hooks allows to define.
 @end deftypefn
 
@@ -5736,13 +5758,6 @@ assembler operation that should precede instructions and read-only data.
 Normally @code{"\t.text"} is right.
 @end defmac
 
-@defmac TEXT_SECTION
-A C statement that switches to the default section containing instructions.
-Normally this is not needed, as simply defining @code{TEXT_SECTION_ASM_OP}
-is enough.  The MIPS port uses this to sort all functions after all data
-declarations.
-@end defmac
-
 @defmac HOT_TEXT_SECTION_NAME
 If defined, a C string constant for the name of the section containing most
 frequently executed functions of the program.  If not defined, GCC will provide
@@ -5776,12 +5791,6 @@ does not have a special read-only data section, and does not put data
 in the text section.
 @end defmac
 
-@defmac SHARED_SECTION_ASM_OP
-If defined, a C expression whose value is a string, including spacing,
-containing the assembler operation to identify the following data as
-shared data.  If not defined, @code{DATA_SECTION_ASM_OP} will be used.
-@end defmac
-
 @defmac BSS_SECTION_ASM_OP
 If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
@@ -5790,13 +5799,6 @@ uninitialized global data.  If not defined, and neither
 uninitialized global data will be output in the data section if
 @option{-fno-common} is passed, otherwise @code{ASM_OUTPUT_COMMON} will be
 used.
-@end defmac
-
-@defmac SHARED_BSS_SECTION_ASM_OP
-If defined, a C expression whose value is a string, including spacing,
-containing the assembler operation to identify the following data as
-uninitialized global shared data.  If not defined, and
-@code{BSS_SECTION_ASM_OP} is, the latter will be used.
 @end defmac
 
 @defmac INIT_SECTION_ASM_OP
@@ -6288,9 +6290,9 @@ the address of this pool entry.  The definition of this macro is
 responsible for outputting the label definition at the proper place.
 Here is how to do this:
 
-@example
+@smallexample
 @code{(*targetm.asm_out.internal_label)} (@var{file}, "LC", @var{labelno});
-@end example
+@end smallexample
 
 When you output a pool entry specially, you should end with a
 @code{goto} to the label @var{jumpto}.  This will prevent the same pool
@@ -6949,9 +6951,9 @@ support a @dfn{.init} section which is executed at program startup,
 parts of @file{crtstuff.c} are compiled into that section.  The
 program is linked by the @command{gcc} driver like this:
 
-@example
+@smallexample
 ld -o @var{output_file} crti.o crtbegin.o @dots{} -lgcc crtend.o crtn.o
-@end example
+@end smallexample
 
 The prologue of a function (@code{__init}) appears in the @code{.init}
 section of @file{crti.o}; the epilogue appears in @file{crtn.o}.  Likewise
@@ -7370,10 +7372,10 @@ definitions of these labels are output using
 @code{(*targetm.asm_out.internal_label)}, and they must be printed in the same
 way here.  For example,
 
-@example
+@smallexample
 fprintf (@var{stream}, "\t.word L%d-L%d\n",
          @var{value}, @var{rel})
-@end example
+@end smallexample
 
 You must provide this macro on machines where the addresses in a
 dispatch table are relative to the table's own address.  If defined, GCC
@@ -7392,9 +7394,9 @@ a label.  @var{value} is the number of an internal label whose
 definition is output using @code{(*targetm.asm_out.internal_label)}.
 For example,
 
-@example
+@smallexample
 fprintf (@var{stream}, "\t.word L%d\n", @var{value})
-@end example
+@end smallexample
 @end defmac
 
 @defmac ASM_OUTPUT_CASE_LABEL (@var{stream}, @var{prefix}, @var{num}, @var{table})
@@ -7693,8 +7695,7 @@ debugging output.  Currently, the allowable values are @code{DBX_DEBUG},
 
 When the user specifies @option{-ggdb}, GCC normally also uses the
 value of this macro to select the debugging output format, but with two
-exceptions.  If @code{DWARF2_DEBUGGING_INFO} is defined and
-@code{LINKER_DOES_NOT_WORK_WITH_DWARF2} is not defined, GCC uses the
+exceptions.  If @code{DWARF2_DEBUGGING_INFO} is defined, GCC uses the
 value @code{DWARF2_DEBUG}.  Otherwise, if @code{DBX_DEBUGGING_INFO} is
 defined, GCC uses @code{DBX_DEBUG}.
 
@@ -7992,13 +7993,6 @@ Define this macro to a nonzero value if GCC should always output
 Dwarf 2 frame information.  If @code{DWARF2_UNWIND_INFO}
 (@pxref{Exception Region Output} is nonzero, GCC will output this
 information not matter how you define @code{DWARF2_FRAME_INFO}.
-@end defmac
-
-@defmac LINKER_DOES_NOT_WORK_WITH_DWARF2
-Define this macro if the linker does not work with Dwarf version 2.
-Normally, if the user specifies only @option{-ggdb} GCC will use Dwarf
-version 2 if available; this macro disables this.  See the description
-of the @code{PREFERRED_DEBUGGING_TYPE} macro for more details.
 @end defmac
 
 @defmac DWARF2_GENERATE_TEXT_SECTION_LABEL
@@ -8326,7 +8320,7 @@ call @code{merge_attributes} to handle machine-independent merging.
 
 @findex TARGET_DLLIMPORT_DECL_ATTRIBUTES
 If the only target-specific handling you require is @samp{dllimport} for
-Windows targets, you should define the macro
+Microsoft Windows targets, you should define the macro
 @code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  This links in a function
 called @code{merge_dllimport_decl_attributes} which can then be defined
 as the expansion of @code{TARGET_MERGE_DECL_ATTRIBUTES}.  This is done
@@ -8415,7 +8409,7 @@ and @code{TARGET_OPTIONS}.  It is given data which came from
 is no need for extensive validity checking).  It returns @code{NULL} if
 it is safe to load a PCH file with this data, or a suitable error message
 if not.  The error message will be presented to the user, so it should
-be localised.
+be localized.
 @end deftypefn
 
 @node Misc
@@ -8486,8 +8480,10 @@ flags can be updated.
 
 @defmac CASE_VECTOR_PC_RELATIVE
 Define this macro to be a C expression to indicate when jump-tables
-should contain relative addresses.  If jump-tables never contain
-relative addresses, then you need not define this macro.
+should contain relative addresses.  You need not define this macro if
+jump-tables never contain relative addresses, or jump-tables should
+contain relative addresses only when @option{-fPIC} or @option{-fPIC}
+is in effect.
 @end defmac
 
 @defmac CASE_DROPS_THROUGH
@@ -8519,20 +8515,31 @@ smaller than a word are always performed on the entire register.
 Most RISC machines have this property and most CISC machines do not.
 @end defmac
 
-@defmac LOAD_EXTEND_OP (@var{mode})
+@defmac LOAD_EXTEND_OP (@var{mem_mode})
 Define this macro to be a C expression indicating when insns that read
-memory in @var{mode}, an integral mode narrower than a word, set the
-bits outside of @var{mode} to be either the sign-extension or the
+memory in @var{mem_mode}, an integral mode narrower than a word, set the
+bits outside of @var{mem_mode} to be either the sign-extension or the
 zero-extension of the data read.  Return @code{SIGN_EXTEND} for values
-of @var{mode} for which the
+of @var{mem_mode} for which the
 insn sign-extends, @code{ZERO_EXTEND} for which it zero-extends, and
 @code{NIL} for other modes.
 
-This macro is not called with @var{mode} non-integral or with a width
+This macro is not called with @var{mem_mode} non-integral or with a width
 greater than or equal to @code{BITS_PER_WORD}, so you may return any
 value in this case.  Do not define this macro if it would always return
 @code{NIL}.  On machines where this macro is defined, you will normally
 define it as the constant @code{SIGN_EXTEND} or @code{ZERO_EXTEND}.
+
+You may return a non-@code{NIL} value even if for some hard registers
+the sign extension is not performed, if for the @code{REGNO_REG_CLASS}
+of these hard registers @code{CANNOT_CHANGE_MODE_CLASS} returns nonzero
+when the @var{from} mode is @var{mem_mode} and the @var{to} mode is any
+integral mode larger than this but not larger than @code{word_mode}.
+
+You must return @code{NIL} if for some hard registers that allow this
+mode, @code{CANNOT_CHANGE_MODE_CLASS} says that they cannot change to
+@code{word_mode}, but that they can change to another integral mode that
+is larger then @var{mem_mode} but still smaller than @code{word_mode}.
 @end defmac
 
 @defmac SHORT_IMMEDIATES_SIGN_EXTEND
@@ -8741,16 +8748,6 @@ to @code{Pmode}.
 An alias for the machine mode used for memory references to functions
 being called, in @code{call} RTL expressions.  On most machines this
 should be @code{QImode}.
-@end defmac
-
-@defmac INTEGRATE_THRESHOLD (@var{decl})
-A C expression for the maximum number of instructions above which the
-function @var{decl} should not be inlined.  @var{decl} is a
-@code{FUNCTION_DECL} node.
-
-The default definition of this macro is 64 plus 8 times the number of
-arguments that the function accepts.  Some people think a larger
-threshold should be used on RISC machines.
 @end defmac
 
 @defmac STDC_0_IN_SYSTEM_HEADERS
@@ -9121,7 +9118,7 @@ lists.
 Define this macro to a C expression representing a variant of the
 method call @var{mdecl}, if Java Native Interface (JNI) methods
 must be invoked differently from other methods on your target.
-For example, on 32-bit Windows, JNI methods must be invoked using
+For example, on 32-bit Microsoft Windows, JNI methods must be invoked using
 the @code{stdcall} calling convention and this macro is then
 defined as this expression:
 

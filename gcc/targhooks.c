@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -70,72 +70,12 @@ default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 #endif
 }
 
-bool
-default_promote_function_args (tree fntype ATTRIBUTE_UNUSED)
+enum machine_mode
+default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
 {
-#ifdef PROMOTE_FUNCTION_ARGS
-  return true;
-#else
-  return false;
-#endif
-}
-
-bool
-default_promote_function_return (tree fntype ATTRIBUTE_UNUSED)
-{
-#ifdef PROMOTE_FUNCTION_RETURN
-  return true;
-#else
-  return false;
-#endif
-}
-
-bool
-default_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
-{
-  if (PROMOTE_PROTOTYPES)
-    return true;
-  else
-    return false;
-}
-
-rtx
-default_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED, int incoming)
-{
-  rtx rv = 0;
-  if (incoming)
-    {
-#ifdef STRUCT_VALUE_INCOMING
-      rv = STRUCT_VALUE_INCOMING;
-#else
-#ifdef STRUCT_VALUE_INCOMING_REGNUM
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_INCOMING_REGNUM);
-#else
-#ifdef STRUCT_VALUE
-      rv = STRUCT_VALUE;
-#else
-#ifndef STRUCT_VALUE_REGNUM
-      abort();
-#else
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
-#endif
-#endif
-#endif
-    }
-  else
-    {
-#ifdef STRUCT_VALUE
-      rv = STRUCT_VALUE;
-#else
-#ifndef STRUCT_VALUE_REGNUM
-      abort();
-#else
-      rv = gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM);
-#endif
-#endif
-    }
-  return rv;
+  if (m1 == m2)
+    return m1;
+  return VOIDmode;
 }
 
 bool
@@ -152,12 +92,8 @@ default_return_in_memory (tree type,
 rtx
 default_expand_builtin_saveregs (void)
 {
-#ifdef EXPAND_BUILTIN_SAVEREGS
-  return EXPAND_BUILTIN_SAVEREGS ();
-#else
   error ("__builtin_saveregs not supported by this target");
   return const0_rtx;
-#endif
 }
 
 void
@@ -167,29 +103,20 @@ default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 				int *pretend_arg_size ATTRIBUTE_UNUSED,
 				int second_time ATTRIBUTE_UNUSED)
 {
-#ifdef SETUP_INCOMING_VARARGS
-  SETUP_INCOMING_VARARGS ((*ca), mode, type, (*pretend_arg_size), second_time);
-#endif
 }
 
+/* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
+
 bool
-default_strict_argument_naming (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-#ifdef STRICT_ARGUMENT_NAMING
-  return STRICT_ARGUMENT_NAMING;
-#else
-  return 0;
-#endif
+  return false;
 }
 
 bool
 default_pretend_outgoing_varargs_named(CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-#ifdef SETUP_INCOMING_VARARGS
-  return 1;
-#else
   return (targetm.calls.setup_incoming_varargs != default_setup_incoming_varargs);
-#endif
 }
 
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */

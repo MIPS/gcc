@@ -1,6 +1,6 @@
 // 2001-06-14  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,32 +58,8 @@ void test01()
   VERIFY( check_delete );
 }
 
-// libstdc++/8230
-void test02()
-{
-  bool test __attribute__((unused)) = true;
-  try 
-    {
-      std::allocator<int> alloc;
-      const std::allocator<int>::size_type n = alloc.max_size();
-      int* p = alloc.allocate(n + 1);
-      p[n] = 2002;
-    } 
-  catch(const std::bad_alloc& e) 
-    {
-      // Allowed.
-      test = true;
-    }
-  catch(...) 
-    {
-      test = false;
-    }
-  VERIFY( test );
-}
-
 int main()
 {
   test01();
-  test02();
   return 0;
 }

@@ -317,7 +317,7 @@ gfc_build_function_call (tree fndecl, tree arglist)
   tree call;
 
   fn = gfc_build_addr_expr (NULL, fndecl);
-  call = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), fn, arglist);
+  call = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), fn, arglist, NULL);
   TREE_SIDE_EFFECTS (call) = 1;
 
   return call;

@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -76,6 +76,9 @@ struct lang_hooks_for_functions
 
   /* Called when leaving a nested function.  */
   void (*leave_nested) (struct function *);
+
+  /* Determines if it's ok for a function to have no noreturn attribute.  */
+  bool (*missing_noreturn_ok_p) (tree);
 };
 
 /* Lang hooks for rtl code generation.  */
@@ -283,7 +286,7 @@ struct lang_hooks
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int);
+  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
   /* Called by expand_expr to generate the definition of a decl.  Returns
      1 if handled, 0 otherwise.  */
@@ -393,10 +396,6 @@ struct lang_hooks
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
-
-  /* Called from uninitialized_vars_warning to find out if a variable is
-     uninitialized based on DECL_INITIAL.  */
-  bool (*decl_uninit) (tree);
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a

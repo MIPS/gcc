@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003 Free Software Foundation, Inc.
+;;   2002, 2003, 2004 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -2305,7 +2305,7 @@
 			  (const_int 4))
 		 (match_operand:SI 2 "register_operand" "")))
    (set (mem:SI (match_dup 0))
-        (match_operand:SI 3 "reg_or_0_operand" ""))]
+        (match_operand:SI 3 "register_operand" ""))]
   "!TARGET_SOFT_FLOAT
    && REG_OK_FOR_BASE_P (operands[2])
    && FP_REGNO_P (REGNO (operands[3]))"
@@ -2604,7 +2604,7 @@
 ;; Note since this pattern can be created at reload time (via movsi), all
 ;; the same rules for movsi apply here.  (no new pseudos, no temporaries).
 (define_insn ""
-  [(set (match_operand 0 "pmode_register_operand" "=r")
+  [(set (match_operand 0 "pmode_register_operand" "=a")
 	(match_operand 1 "pic_label_operand" ""))]
   "TARGET_PA_20"
   "*
@@ -3194,7 +3194,7 @@
 (define_insn "movstrsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:SI 1 "register_operand" "r,r")))
-   (clobber (match_operand:SI 2 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:SI 3 "register_operand" "=&r,&r"))	;item tmp1
    (clobber (match_operand:SI 6 "register_operand" "=&r,&r"))	;item tmp2
    (clobber (match_operand:SI 7 "register_operand" "=&r,&r"))	;item tmp3
@@ -3263,9 +3263,9 @@
 }")
 
 (define_insn "movstrsi_postreload"
-  [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
-	(mem:BLK (match_operand:SI 1 "register_operand" "r,r")))
-   (clobber (match_operand:SI 2 "register_operand" "=r,r"))	;loop cnt/tmp
+  [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
+	(mem:BLK (match_operand:SI 1 "register_operand" "+r,r")))
+   (clobber (match_operand:SI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:SI 3 "register_operand" "=&r,&r"))	;item tmp1
    (clobber (match_operand:SI 6 "register_operand" "=&r,&r"))	;item tmp2
    (clobber (match_dup 0))
@@ -3360,7 +3360,7 @@
 (define_insn "movstrdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(mem:BLK (match_operand:DI 1 "register_operand" "r,r")))
-   (clobber (match_operand:DI 2 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:DI 3 "register_operand" "=&r,&r"))	;item tmp1
    (clobber (match_operand:DI 6 "register_operand" "=&r,&r"))	;item tmp2
    (clobber (match_operand:DI 7 "register_operand" "=&r,&r"))	;item tmp3
@@ -3429,9 +3429,9 @@
 }")
 
 (define_insn "movstrdi_postreload"
-  [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
-	(mem:BLK (match_operand:DI 1 "register_operand" "r,r")))
-   (clobber (match_operand:DI 2 "register_operand" "=r,r"))	;loop cnt/tmp
+  [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
+	(mem:BLK (match_operand:DI 1 "register_operand" "+r,r")))
+   (clobber (match_operand:DI 2 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:DI 3 "register_operand" "=&r,&r"))	;item tmp1
    (clobber (match_operand:DI 6 "register_operand" "=&r,&r"))	;item tmp2
    (clobber (match_dup 0))
@@ -3482,7 +3482,7 @@
 (define_insn "clrstrsi_prereload"
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
 	(const_int 0))
-   (clobber (match_operand:SI 1 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:SI 4 "register_operand" "=&r,&r"))	;tmp1
    (use (match_operand:SI 2 "arith_operand" "J,1"))	 ;byte count
    (use (match_operand:SI 3 "const_int_operand" "n,n"))] ;alignment
@@ -3530,9 +3530,9 @@
 }")
 
 (define_insn "clrstrsi_postreload"
-  [(set (mem:BLK (match_operand:SI 0 "register_operand" "r,r"))
+  [(set (mem:BLK (match_operand:SI 0 "register_operand" "+r,r"))
 	(const_int 0))
-   (clobber (match_operand:SI 1 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:SI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_dup 0))
    (use (match_operand:SI 2 "arith_operand" "J,1"))	 ;byte count
    (use (match_operand:SI 3 "const_int_operand" "n,n"))  ;alignment
@@ -3580,7 +3580,7 @@
 (define_insn "clrstrdi_prereload"
   [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
 	(const_int 0))
-   (clobber (match_operand:DI 1 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_operand:DI 4 "register_operand" "=&r,&r"))	;item tmp1
    (use (match_operand:DI 2 "arith_operand" "J,1"))	 ;byte count
    (use (match_operand:DI 3 "const_int_operand" "n,n"))] ;alignment
@@ -3628,9 +3628,9 @@
 }")
 
 (define_insn "clrstrdi_postreload"
-  [(set (mem:BLK (match_operand:DI 0 "register_operand" "r,r"))
+  [(set (mem:BLK (match_operand:DI 0 "register_operand" "+r,r"))
 	(const_int 0))
-   (clobber (match_operand:DI 1 "register_operand" "=r,r"))	;loop cnt/tmp
+   (clobber (match_operand:DI 1 "register_operand" "=&r,&r"))	;loop cnt/tmp
    (clobber (match_dup 0))
    (use (match_operand:DI 2 "arith_operand" "J,1"))	 ;byte count
    (use (match_operand:DI 3 "const_int_operand" "n,n"))  ;alignment
@@ -4877,7 +4877,7 @@
   if (intval % 2 == 0 && cint_ok_for_move (intval / 2))
     {
       operands[2] = GEN_INT (intval / 2);
-      operands[3] = GEN_INT (2);
+      operands[3] = const2_rtx;
     }
   else if (intval % 4 == 0 && cint_ok_for_move (intval / 4))
     {

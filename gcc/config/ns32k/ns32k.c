@@ -1,5 +1,5 @@
 /* Subroutines for assembler code output on the NS32000.
-   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -73,6 +73,7 @@ static void ns32k_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void ns32k_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static bool ns32k_rtx_costs (rtx, int, int, int *);
 static int ns32k_address_cost (rtx);
+static rtx ns32k_struct_value_rtx (tree, int);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ATTRIBUTE_TABLE
@@ -95,6 +96,9 @@ static int ns32k_address_cost (rtx);
 #define TARGET_RTX_COSTS ns32k_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST ns32k_address_cost
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX ns32k_struct_value_rtx
 
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
@@ -539,7 +543,7 @@ register_move_cost (enum reg_class CLASS1, enum reg_class CLASS2)
 
 #if 0
 /* We made the insn definitions copy from floating point to general
-  registers via the stack. */
+  registers via the stack.  */
 int
 secondary_memory_needed (enum reg_class CLASS1,
 			 enum reg_class CLASS2,
@@ -554,7 +558,7 @@ secondary_memory_needed (enum reg_class CLASS1,
 
 /* TARGET_ADDRESS_COST calls this.  This function is not optimal
    for the 32032 & 32332, but it probably is better than
-   the default. */
+   the default.  */
 
 static int
 ns32k_address_cost (rtx operand)
@@ -878,7 +882,7 @@ expand_block_move (rtx operands[])
 	      /* Use movmd. It is slower than multiple movd's but more
 		 compact. It is also slower than movsd for large copies
 		 but causes less registers reloading so is better than movsd
-		 for small copies. */
+		 for small copies.  */
 	      rtx src, dest;
 	      dest = copy_addr_to_reg (XEXP (operands[0], 0));
 	      src = copy_addr_to_reg (XEXP (operands[1], 0));
@@ -918,7 +922,7 @@ expand_block_move (rtx operands[])
   else if (align == UNITS_PER_WORD)
     {
       /* insns to copy by words */
-      emit_insn (gen_lshrsi3 (count_reg, bytes_rtx, GEN_INT (2)));
+      emit_insn (gen_lshrsi3 (count_reg, bytes_rtx, const2_rtx));
       emit_insn (gen_movstrsi1 (GEN_INT (4)));
       if (constp)
 	{
@@ -959,7 +963,7 @@ expand_block_move (rtx operands[])
 	emit_label (aligned_label);
 
       /* insns to copy by words */
-      emit_insn (gen_lshrsi3 (count_reg, bytes_reg, GEN_INT (2)));
+      emit_insn (gen_lshrsi3 (count_reg, bytes_reg, const2_rtx));
       emit_insn (gen_movstrsi1 (GEN_INT (4)));
 
       /* insns to copy rest */
@@ -1556,4 +1560,11 @@ output_move_dconst (int n, const char *s)
     strcpy (r, "movd ");
   strcat (r, s);
   return r;
+}
+
+static rtx
+ns32k_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+			int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, NS32K_STRUCT_VALUE_REGNUM);
 }

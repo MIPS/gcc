@@ -1,5 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -91,6 +92,11 @@ static void cris_print_index (rtx, FILE *);
 
 static struct machine_function * cris_init_machine_status (void);
 
+static rtx cris_struct_value_rtx (tree, int);
+
+static void cris_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
+					 tree type, int *, int);
+
 static int cris_initial_frame_pointer_offset (void);
 
 static int saved_regs_mentioned (rtx);
@@ -174,6 +180,15 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_RTX_COSTS cris_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST cris_address_cost
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
+
+#undef TARGET_SETUP_INCOMING_VARARGS
+#define TARGET_SETUP_INCOMING_VARARGS cris_setup_incoming_varargs
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1259,7 +1274,7 @@ cris_target_asm_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
       /* Output the delay-slot-insn the mandated way.  */
       final_scan_insn (XEXP (current_function_epilogue_delay_list, 0),
-		       file, 1, -2, 1);
+		       file, 1, -2, 1, NULL);
     }
   else if (file)
     {
@@ -1293,7 +1308,7 @@ cris_print_operand (FILE *file, rtx x, int code)
   switch (code)
     {
     case 'b':
-      /* Print the unsigned supplied integer as if it was signed
+      /* Print the unsigned supplied integer as if it were signed
 	 and < 0, i.e print 255 or 65535 as -1, 254, 65534 as -2, etc.  */
       if (GET_CODE (x) != CONST_INT
 	  || ! CONST_OK_FOR_LETTER_P (INTVAL (x), 'O'))
@@ -1719,7 +1734,7 @@ cris_initial_elimination_offset (int fromreg, int toreg)
     = regs_ever_live[CRIS_SRP_REGNUM]
     || cfun->machine->needs_return_address_on_stack != 0;
 
-  /* Here we act as if the frame-pointer is needed.  */
+  /* Here we act as if the frame-pointer were needed.  */
   int ap_fp_offset = 4 + (return_address_on_stack ? 4 : 0);
 
   if (fromreg == ARG_POINTER_REGNUM
@@ -3173,6 +3188,34 @@ restart:
 
     default:
       LOSE_AND_RETURN ("unexpected address expression", x);
+    }
+}
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+cris_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, CRIS_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
+
+static void
+cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type ATTRIBUTE_UNUSED,
+			     int *pretend_arg_size,
+			     int second_time)
+{
+  if (ca->regs < CRIS_MAX_ARGS_IN_REGS)
+    *pretend_arg_size = (CRIS_MAX_ARGS_IN_REGS - ca->regs) * 4;
+  if (TARGET_PDEBUG)
+    {
+      fprintf (asm_out_file,
+	       "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n",
+	       ca->regs, *pretend_arg_size, second_time);
     }
 }
 

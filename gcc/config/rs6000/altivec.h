@@ -1,5 +1,5 @@
 /* PowerPC AltiVec include file.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez (aldyh@redhat.com).
 
    This file is part of GCC.
@@ -117,6 +117,8 @@ extern int __altivec_link_error_invalid_argument ();
 #define vec_vxor vec_xor
 
 #ifdef __cplusplus
+
+extern "C++" {
 
 /* Prototypes for builtins that take literals and must always be
    inlined.  */
@@ -6117,6 +6119,8 @@ struct __vec_step_help<vector float>
 
 #define vec_step(t)  __vec_step_help<typeof(t)>::_S_elem
 
+}//extern "C++"
+
 #else /* not C++ */
 
 /* "... and so I think no man in a century will suffer as greatly as
@@ -8532,6 +8536,7 @@ __ch (__bin_args_eq (vector float, (a1), vector float, (a2)), \
 #define vec_any_numeric(a1) __builtin_altivec_vcmpeqfp_p (__CR6_EQ_REV, (a1), (a1))
 
 #define vec_any_out(a1, a2) __builtin_altivec_vcmpbfp_p (__CR6_EQ_REV, (a1), (a2))
+
 
 #endif /* __cplusplus */
 

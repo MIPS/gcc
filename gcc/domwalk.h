@@ -1,5 +1,5 @@
 /* Generic dominator tree walker
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -21,10 +21,25 @@ Boston, MA 02111-1307, USA.  */
 
 /* This is the main data structure for the dominator walker.  It provides
    the callback hooks as well as a convenient place to hang block local
-   data.  Eventually it will probably include pass global data as well.  */
+   data and pass-global data.  */
 
 struct dom_walk_data
 {
+  /* This is the direction of the dominator tree we want to walk.  ie,
+     if it is set to CDI_DOMINATORS, then we walk the dominator tree,
+     if it is set to CDI_POST_DOMINATORS, then we walk the post
+     dominator tree.  */
+  ENUM_BITFIELD (cdi_direction) dom_direction : 2;
+
+  /* Nonzero if the statement walker should walk the statements from
+     last to first within a basic block instead of first to last.
+
+     Note this affects both statement walkers.  We haven't yet needed
+     to use the second statement walker for anything, so it's hard to
+     predict if we really need the ability to select their direction
+     independently.  */
+  bool walk_stmts_backward : 1;
+
   /* Function to initialize block local data.
 
      Note that the dominator walker infrastructure may provide a new
@@ -43,27 +58,27 @@ struct dom_walk_data
      This typically initializes an block local data and pushes that
      data onto BLOCK_DATA_STACK.  */
   void (*before_dom_children_before_stmts) (struct dom_walk_data *,
-					    basic_block, tree);
+					    basic_block);
 
   /* Function to call to walk statements before the recursive walk
      of the dominator children.  */
   void (*before_dom_children_walk_stmts) (struct dom_walk_data *,
-					  basic_block, tree);
+					  basic_block, block_stmt_iterator);
 
   /* Function to call after the statement walk occurring before the
      recursive walk of the dominator children.  */
   void (*before_dom_children_after_stmts) (struct dom_walk_data *,
-					   basic_block, tree);
+					   basic_block);
 
   /* Function to call before the statement walk occurring after the
      recursive walk of the dominator children.  */
   void (*after_dom_children_before_stmts) (struct dom_walk_data *,
-					   basic_block, tree);
+					   basic_block);
 
   /* Function to call to walk statements after the recursive walk
      of the dominator children.  */
   void (*after_dom_children_walk_stmts) (struct dom_walk_data *,
-					 basic_block, tree);
+					 basic_block, block_stmt_iterator);
 
   /* Function to call after the statement walk occurring after the
      recursive walk of the dominator children. 
@@ -71,7 +86,7 @@ struct dom_walk_data
      This typically finalizes any block local data and pops
      that data from BLOCK_DATA_STACK.  */
   void (*after_dom_children_after_stmts) (struct dom_walk_data *,
-					  basic_block, tree);
+					  basic_block);
 
   /* Global data for a walk through the dominator tree.  */
   void *global_data;
@@ -92,6 +107,6 @@ struct dom_walk_data
   varray_type free_block_data;
 };
 
-void walk_dominator_tree (struct dom_walk_data *, basic_block, tree);
+void walk_dominator_tree (struct dom_walk_data *, basic_block);
 void init_walk_dominator_tree (struct dom_walk_data *);
 void fini_walk_dominator_tree (struct dom_walk_data *);

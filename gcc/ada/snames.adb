@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -173,6 +173,7 @@ package body Snames is
      "polling#" &
      "persistent_data#" &
      "persistent_object#" &
+     "profile#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -334,6 +335,8 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_requeue#" &
+     "no_task_attributes#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &
@@ -690,6 +693,7 @@ package body Snames is
    --    xxxRA   RAs type access routine for type xxx               (Exp_TSS)
    --    xxxRD   RAs type dereference routine for type xxx          (Exp_TSS)
    --    xxxRP   Rep to Pos conversion for enumeration type xxx     (Exp_TSS)
+   --    xxxSA   array/slice assignment for controlled comp. arrays (Exp_TSS)
    --    xxxSI   stream input attribute subprogram for type xxx     (Exp_TSS)
    --    xxxSO   stream output attribute subprogram for type xxx    (Exp_TSS)
    --    xxxSR   stream read attribute subprogram for type xxx      (Exp_TSS)

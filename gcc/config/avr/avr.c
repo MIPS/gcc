@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
    This file is part of GCC.
@@ -77,14 +78,15 @@ static void avr_asm_out_dtor (rtx, int);
 static int default_rtx_costs (rtx, enum rtx_code, enum rtx_code);
 static bool avr_rtx_costs (rtx, int, int, int *);
 static int avr_address_cost (rtx);
+static bool avr_return_in_memory (tree, tree);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
 
-/* Temporary register RTX (gen_rtx (REG,QImode,TMP_REGNO)) */
+/* Temporary register RTX (gen_rtx_REG (QImode, TMP_REGNO)) */
 static GTY(()) rtx tmp_reg_rtx;
 
-/* Zeroed register RTX (gen_rtx (REG,QImode,ZERO_REGNO)) */
+/* Zeroed register RTX (gen_rtx_REG (QImode, ZERO_REGNO)) */
 static GTY(()) rtx zero_reg_rtx;
 
 /* AVR register names {"r0", "r1", ..., "r31"} */
@@ -241,6 +243,12 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ADDRESS_COST avr_address_cost
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG avr_reorg
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY avr_return_in_memory
+
+#undef TARGET_STRICT_ARGUMENT_NAMING
+#define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -662,13 +670,14 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
     }
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
+      const char *cfun_name = current_function_name ();
       fprintf (file, ("\t"
 		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
       fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
-		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB)
-	       ,current_function_name, current_function_name);
+		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB),
+	       cfun_name, cfun_name);
       
       prologue_size += 4;
       
@@ -684,7 +693,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 		   (18 - live_seq) * 2);
 	  ++prologue_size;
 	}
-      fprintf (file, ".L_%s_body:\n", current_function_name);
+      fprintf (file, ".L_%s_body:\n", cfun_name);
     }
   else
     {
@@ -700,32 +709,30 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 	}
       if (frame_pointer_needed)
 	{
-	  {
-	    fprintf (file, "\t"
-		     AS1 (push,r28) CR_TAB
-		     AS1 (push,r29) CR_TAB
-		     AS2 (in,r28,__SP_L__) CR_TAB
-		     AS2 (in,r29,__SP_H__) "\n");
-	    prologue_size += 4;
-	    if (size)
-	      {
-		fputs ("\t", file);
-		prologue_size += out_adj_frame_ptr (file, size);
+	  fprintf (file, "\t"
+		   AS1 (push,r28) CR_TAB
+		   AS1 (push,r29) CR_TAB
+		   AS2 (in,r28,__SP_L__) CR_TAB
+		   AS2 (in,r29,__SP_H__) "\n");
+	  prologue_size += 4;
+	  if (size)
+	    {
+	      fputs ("\t", file);
+	      prologue_size += out_adj_frame_ptr (file, size);
 
-		if (interrupt_func_p)
-		  {
-		    prologue_size += out_set_stack_ptr (file, 1, 1);
-		  }
-		else if (signal_func_p)
-		  {
-		    prologue_size += out_set_stack_ptr (file, 0, 0);
-		  }
-		else
-		  {
-		    prologue_size += out_set_stack_ptr (file, -1, -1);
-		  }
-	      }
-	  }
+	      if (interrupt_func_p)
+		{
+		  prologue_size += out_set_stack_ptr (file, 1, 1);
+		}
+	      else if (signal_func_p)
+		{
+		  prologue_size += out_set_stack_ptr (file, 0, 0);
+		}
+	      else
+		{
+		  prologue_size += out_set_stack_ptr (file, -1, -1);
+		}
+	    }
 	}
     }
 
@@ -873,7 +880,7 @@ avr_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 
  out:
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name,
+  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name (),
 	   prologue_size + function_size + epilogue_size, function_size);
   commands_in_file += prologue_size + function_size + epilogue_size;
   commands_in_prologues += prologue_size;
@@ -1463,7 +1470,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   int bytes = avr_num_arg_regs (mode, type);
 
   if (cum->nregs && bytes <= cum->nregs)
-    return gen_rtx (REG, mode, cum->regno - bytes);
+    return gen_rtx_REG (mode, cum->regno - bytes);
 
   return NULL_RTX;
 }
@@ -2773,7 +2780,7 @@ out_shift_with_cnt (const char *template, rtx insn, rtx operands[],
 	  /* No scratch register available, use one from LD_REGS (saved in
 	     __tmp_reg__) that doesn't overlap with registers to shift.  */
 
-	  op[3] = gen_rtx (REG, QImode,
+	  op[3] = gen_rtx_REG (QImode,
 			   ((true_regnum (operands[0]) - 1) & 15) + 16);
 	  op[4] = tmp_reg_rtx;
 	  saved_in_tmp = 1;
@@ -4992,9 +4999,8 @@ avr_reorg (void)
 	      rtx t = XEXP (src,0);
 
 	      PUT_CODE (t, swap_condition (GET_CODE (t)));
-	      SET_SRC (pattern) = gen_rtx (NEG,
-					   GET_MODE (SET_SRC (pattern)),
-					   SET_SRC (pattern));
+	      SET_SRC (pattern) = gen_rtx_NEG (GET_MODE (SET_SRC (pattern)),
+					       SET_SRC (pattern));
 	      INSN_CODE (next) = -1;
 	      INSN_CODE (insn) = -1;
 	    }
@@ -5019,7 +5025,7 @@ avr_libcall_value (enum machine_mode mode)
   int offs = GET_MODE_SIZE (mode);
   if (offs < 2)
     offs = 2;
-  return gen_rtx (REG, mode, RET_REGISTER + 2 - offs);
+  return gen_rtx_REG (mode, RET_REGISTER + 2 - offs);
 }
 
 /* Create an RTX representing the place where a
@@ -5041,7 +5047,7 @@ avr_function_value (tree type, tree func ATTRIBUTE_UNUSED)
   else if (offs > GET_MODE_SIZE (SImode) && offs < GET_MODE_SIZE (DImode))
     offs = GET_MODE_SIZE (DImode);
   
-  return gen_rtx (REG, BLKmode, RET_REGISTER + 2 - offs);
+  return gen_rtx_REG (BLKmode, RET_REGISTER + 2 - offs);
 }
 
 /* Returns nonzero if the number MASK has only one bit set.  */
@@ -5353,6 +5359,8 @@ avr_out_sbxx_branch (rtx insn, rtx operands[])
   return "";
 }
 
+/* Worker function for TARGET_ASM_CONSTRUCTOR.  */
+
 static void
 avr_asm_out_ctor (rtx symbol, int priority)
 {
@@ -5360,11 +5368,27 @@ avr_asm_out_ctor (rtx symbol, int priority)
   default_ctor_section_asm_out_constructor (symbol, priority);
 }
 
+/* Worker function for TARGET_ASM_DESTRUCTOR.  */
+
 static void
 avr_asm_out_dtor (rtx symbol, int priority)
 {
   fputs ("\t.global __do_global_dtors\n", asm_out_file);
   default_dtor_section_asm_out_destructor (symbol, priority);
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+avr_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  if (TYPE_MODE (type) == BLKmode)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      return (size == -1 || size > 8);
+    }
+  else
+    return false;
 }
 
 #include "gt-avr.h"

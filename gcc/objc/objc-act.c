@@ -50,6 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-tree.h"
 #include "c-common.h"
 #include "flags.h"
+#include "langhooks.h"
 #include "objc-act.h"
 #include "input.h"
 #include "except.h"
@@ -2850,7 +2851,7 @@ objc_build_try_enter_fragment (void)
   cond = build_unary_op (TRUTH_NOT_EXPR,
 			 build_function_call (objc_setjmp_decl, func_params),
 			 0);
-  c_expand_start_cond (c_common_truthvalue_conversion (cond),
+  c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (cond),
 		       0, if_stmt);
   objc_enter_block ();
 }
@@ -2978,7 +2979,7 @@ objc_build_try_epilogue (int also_catch_prologue)
       val_stack_push (&catch_count_stack, 1);
       if_stmt = c_begin_if_stmt ();
       if_nesting_count++;
-      c_expand_start_cond (c_common_truthvalue_conversion (boolean_false_node),
+      c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (boolean_false_node),
 			   0, if_stmt);
       objc_enter_block ();
 
@@ -3068,7 +3069,7 @@ objc_build_catch_stmt (tree catch_expr)
       cond = build_function_call (objc_exception_match_decl, func_params);
     }
 
-  c_expand_start_cond (c_common_truthvalue_conversion (cond),
+  c_expand_start_cond ((*lang_hooks.truthvalue_conversion) (cond),
 		       0, if_stmt);
   objc_enter_block ();
   objc_declare_variable (RID_REGISTER, var_name,
@@ -3138,7 +3139,7 @@ objc_build_finally_prologue (void)
   tree if_stmt = c_begin_if_stmt ();
   if_nesting_count++;
 
-  c_expand_start_cond (c_common_truthvalue_conversion
+  c_expand_start_cond ((*lang_hooks.truthvalue_conversion)
 		       (build_unary_op
 		        (TRUTH_NOT_EXPR,
 			 TREE_VALUE (objc_rethrow_exception), 0)),
@@ -3166,7 +3167,7 @@ objc_build_finally_epilogue (void)
   if_nesting_count++;
 
   c_expand_start_cond
-    (c_common_truthvalue_conversion (TREE_VALUE (objc_rethrow_exception)),
+    ((*lang_hooks.truthvalue_conversion) (TREE_VALUE (objc_rethrow_exception)),
      0, if_stmt);
   objc_enter_block ();
   objc_build_throw_stmt (TREE_VALUE (objc_rethrow_exception));
@@ -4343,11 +4344,19 @@ build_super_template (void)
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   field_decl_chain = field_decl;
 
+#ifdef OBJCPLUS
+  /* struct objc_class *super_class; */
+#else
   /* struct objc_class *class; */
+#endif
 
   decl_specs = get_identifier (UTAG_CLASS);
   decl_specs = build_tree_list (NULL_TREE, xref_tag (RECORD_TYPE, decl_specs));
+#ifdef OBJCPLUS
+  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("super_class"));
+#else
   field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("class"));
+#endif
 
   field_decl = grokfield (field_decl, decl_specs, NULL_TREE);
   chainon (field_decl_chain, field_decl);
@@ -5890,21 +5899,18 @@ build_objc_method_call (int super_flag, tree method_prototype,
 
   if (flag_next_runtime)
     {
-#ifdef STRUCT_VALUE
       /* If we are returning a struct in memory, and the address
 	 of that memory location is passed as a hidden first
 	 argument, then change which messenger entry point this
 	 expr will call.  NB: Note that sender_cast remains
 	 unchanged (it already has a struct return type).  */
-      if ((TREE_CODE (ret_type) == RECORD_TYPE
-	   || TREE_CODE (ret_type) == UNION_TYPE)
-#if defined (DEFAULT_PCC_STRUCT_RETURN) && DEFAULT_PCC_STRUCT_RETURN == 0
-	   && RETURN_IN_MEMORY (ret_type)
-#endif
-	   && STRUCT_VALUE == 0)
+      if (!targetm.calls.struct_value_rtx (0, 0)
+	  && (TREE_CODE (ret_type) == RECORD_TYPE
+	      || TREE_CODE (ret_type) == UNION_TYPE)
+	  && targetm.calls.return_in_memory (ret_type, 0))
 	sender = (super_flag ? umsg_super_stret_decl :
 		flag_nil_receivers ? umsg_stret_decl : umsg_nonnil_stret_decl);
-#endif
+
       method_params = tree_cons (NULL_TREE, lookup_object,
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
@@ -7886,8 +7892,13 @@ get_super_receiver (void)
       super_expr_list = build_tree_list (NULL_TREE, super_expr);
 
       /* Set class to begin searching.  */
+#ifdef OBJCPLUS
+      super_expr = build_component_ref (UOBJC_SUPER_decl,
+					get_identifier ("super_class"));
+#else
       super_expr = build_component_ref (UOBJC_SUPER_decl,
 					get_identifier ("class"));
+#endif
 
       if (TREE_CODE (objc_implementation_context) == CLASS_IMPLEMENTATION_TYPE)
 	{

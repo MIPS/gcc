@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, NetBSD/arm ELF version.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GCC.
@@ -57,14 +57,11 @@
 #define SUBTARGET_EXTRA_ASM_SPEC	\
   "-matpcs %{fpic|fpie:-k} %{fPIC|fPIE:-k}"
 
-/* Default floating point model is soft-VFP.
-   FIXME: -mhard-float currently implies FPA.  */
+/* Default to full VFP if -mhard-float is specified.  */
 #undef SUBTARGET_ASM_FLOAT_SPEC
 #define SUBTARGET_ASM_FLOAT_SPEC	\
-  "%{mhard-float:-mfpu=fpa} \
-   %{msoft-float:-mfpu=softvfp} \
-   %{!mhard-float: \
-     %{!msoft-float:-mfpu=softvfp}}"
+  "%{mhard-float:{!mfpu=*:-mfpu=vfp}}   \
+   %{mfloat-abi=hard:{!mfpu=*:-mfpu=vfp}}"
 
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS				\
@@ -145,9 +142,9 @@
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
 do									\
   {									\
-    emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 8)),	\
+    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 8)),	\
 		    (CXT));						\
-    emit_move_insn (gen_rtx (MEM, SImode, plus_constant ((TRAMP), 12)),	\
+    emit_move_insn (gen_rtx_MEM (SImode, plus_constant ((TRAMP), 12)),	\
 		    (FNADDR));						\
     emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
 		       0, VOIDmode, 2, TRAMP, Pmode,			\
@@ -171,3 +168,7 @@ do									\
     (void) sysarch (0, &s);						\
   }									\
 while (0)
+
+#undef FPUTYPE_DEFAULT
+#define FPUTYPE_DEFAULT FPUTYPE_VFP
+

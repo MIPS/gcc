@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -35,7 +35,7 @@
 #include <bits/atomicity.h>
 #include <bits/concurrence.h>
 
-namespace __gnu_cxx
+namespace __gnu_internal
 {
   // Defined in globals.cc.
   extern std::locale 		c_locale;
@@ -88,35 +88,28 @@ namespace __gnu_cxx
   extern std::__moneypunct_cache<wchar_t>	moneypunct_cache_wt;
   extern std::__timepunct_cache<wchar_t>	timepunct_cache_w;
 #endif
-} // namespace __gnu_cxx
+} // namespace __gnu_internal
 
 namespace std 
 {
-  using namespace __gnu_cxx;
+  using namespace __gnu_internal;
 
   locale::locale() throw()
   { 
     _S_initialize(); 
-    __glibcxx_mutex_define_initialized(lock);
-    __glibcxx_mutex_lock(lock);
     _S_global->_M_add_reference();
     _M_impl = _S_global;
-    __glibcxx_mutex_unlock(lock);
   }
 
   locale
   locale::global(const locale& __other)
   {
     _S_initialize();
-    __glibcxx_mutex_define_initialized(lock);
-    __glibcxx_mutex_lock(lock);
     _Impl* __old = _S_global;
     __other._M_impl->_M_add_reference();
     _S_global = __other._M_impl; 
-    if (_S_global->_M_check_same_name() 
-	&& (std::strcmp(_S_global->_M_names[0], "*") != 0))
+    if (__other.name() != "*")
       setlocale(LC_ALL, __other.name().c_str());
-    __glibcxx_mutex_unlock(lock);
 
     // Reference count sanity check: one reference removed for the
     // subsition of __other locale, one added by return-by-value. Net

@@ -222,8 +222,9 @@ java_gimplify_try_expr (tree try_expr)
   while (handler)
     {
       tree java_catch = TREE_OPERAND (handler, 0);
+      tree catch_type = TREE_TYPE (TREE_TYPE (BLOCK_EXPR_DECLS (java_catch)));
       tree expr = build (CATCH_EXPR, void_type_node,
-			 TREE_TYPE (TREE_TYPE (BLOCK_EXPR_DECLS (java_catch))),
+			 prepare_eh_table_type (catch_type),
 			 handler);
       if (catch)
 	catch = build (COMPOUND_EXPR, void_type_node, catch, expr);

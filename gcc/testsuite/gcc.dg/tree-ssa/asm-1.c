@@ -9,7 +9,7 @@ void f()
   int i = 42;
   int j = 63;
   
-  asm ("":"+m"(i), "+r"(j));
+  asm ("": "=m"(i), "+r"(j) : "m"(i));
 }
 
 /* { dg-final { scan-tree-dump-times "42" 1 "optimized" } } */

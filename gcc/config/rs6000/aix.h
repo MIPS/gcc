@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -51,11 +51,36 @@
 #define REAL_NM_FILE_NAME "/usr/ucb/nm"
 
 #define USER_LABEL_PREFIX  ""
+
 /* Don't turn -B into -L if the argument specifies a relative file name.  */
 #define RELATIVE_PREFIX_NOT_LINKDIR
 
 /* Because of the above, we must have gcc search itself to find libgcc.a.  */
 #define LINK_LIBGCC_SPECIAL_1
+
+#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
+ -brename:malloc,__wrap_malloc -brename:__real_malloc,malloc \
+ -brename:free,__wrap_free -brename:__real_free,free \
+ -brename:calloc,__wrap_calloc -brename:__real_calloc,calloc \
+ -brename:realloc,__wrap_realloc -brename:__real_realloc,realloc \
+ -brename:mmap,__wrap_mmap -brename:__real_mmap,mmap \
+ -brename:munmap,__wrap_munmap -brename:__real_munmap,munmap \
+ -brename:alloca,__wrap_alloca -brename:__real_alloca,alloca \
+} %{fmudflapth: \
+ -brename:pthread_create,__wrap_pthread_create \
+ -brename:__real_pthread_create,pthread_create \
+ -brename:pthread_join,__wrap_pthread_join \
+ -brename:__real_pthread_join,pthread_join \
+ -brename:pthread_exit,__wrap_pthread_exit \
+ -brename:__real_pthread_exit,pthread_exit \
+}} %{fmudflap|fmudflapth: \
+ -brename:main,__wrap_main -brename:__real_main,main \
+}"
+
+#define MFLIB_SPEC " %{fmudflap: -lmudflap \
+ %{static:%(link_gcc_c_sequence) -lmudflap}} \
+ %{fmudflapth: -lmudflapth -lpthread \
+ %{static:%(link_gcc_c_sequence) -lmudflapth}} "
 
 /* Names to predefine in the preprocessor for this target machine.  */
 #define TARGET_OS_CPP_BUILTINS()         \
@@ -139,14 +164,12 @@
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)				\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE						\
+    || TREE_CODE (STRUCT) == UNION_TYPE						\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)					\
+   && TARGET_ALIGN_NATURAL == 0							\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* The AIX ABI isn't explicit on whether aggregates smaller than a

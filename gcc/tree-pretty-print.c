@@ -519,7 +519,17 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case LABEL_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    {
+	      if (LABEL_DECL_UID (node) != -1)
+		pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
+			   LABEL_DECL_UID (node));
+	      else
+		pp_printf (buffer, "<D%u>", DECL_UID (node));
+	    }
+	}
       else if (LABEL_DECL_UID (node) != -1)
         pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
 		   LABEL_DECL_UID (node));
@@ -529,7 +539,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case CONST_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    pp_printf (buffer, "<D%u>", DECL_UID (node));
+	}
       else
         pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
@@ -566,7 +580,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VAR_DECL:
     case PARM_DECL:
       if (DECL_NAME (node))
-	pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	{
+	  pp_string (buffer, IDENTIFIER_POINTER (DECL_NAME (node)));
+	  if (flags & TDF_DETAILS)
+	    pp_printf (buffer, "<D%u>", DECL_UID (node));
+	}
       else
         pp_printf (buffer, "<D%u>", DECL_UID (node));
       break;
@@ -850,6 +868,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (op1)
 	dump_generic_node (buffer, op1, spc, flags, false);
       pp_character (buffer, ')');
+
+      op1 = TREE_OPERAND (node, 2);
+      if (op1)
+	{
+	  pp_string (buffer, " [static-chain: ");
+	  dump_generic_node (buffer, op1, spc, flags, false);
+	  pp_character (buffer, ']');
+	}
       break;
 
     case WITH_CLEANUP_EXPR:
@@ -1056,7 +1082,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case NON_LVALUE_EXPR:
+      pp_string (buffer, "NON_LVALUE_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_character (buffer, '>');
       break;
 
     case SAVE_EXPR:
@@ -1174,6 +1202,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       dump_generic_node (buffer, op0, spc, flags, false);
       pp_character (buffer, ':');
+      if (DECL_NONLOCAL (op0))
+	pp_string (buffer, " [non-local]");
       break;
 
     case LABELED_BLOCK_EXPR:
@@ -1965,7 +1995,7 @@ print_call_name (pretty_printer *buffer, tree node)
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
       else
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+	dump_generic_node (buffer, op0, 0, 0, false);
       break;
 
     case SSA_NAME:
@@ -2157,7 +2187,16 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
       for (e = bb->pred; e; e = e->pred_next)
-	dump_edge_info (buffer->buffer->stream, e, 0);
+        if (flags & TDF_SLIM)
+	  {
+	    pp_string (buffer, " ");
+	    if (e->src == ENTRY_BLOCK_PTR)
+	      pp_string (buffer, "ENTRY");
+	    else
+	      pp_decimal_int (buffer, e->src->index);
+	  }
+	else
+	  dump_edge_info (buffer->buffer->stream, e, 0);
       pp_newline (buffer);
     }
   else
@@ -2178,7 +2217,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
    spaces.  */
 
 static void
-dump_bb_end (pretty_printer *buffer, basic_block bb, int indent)
+dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
 
@@ -2186,7 +2225,16 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent)
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
   for (e = bb->succ; e; e = e->succ_next)
-    dump_edge_info (buffer->buffer->stream, e, 1);
+    if (flags & TDF_SLIM)
+      {
+	pp_string (buffer, " ");
+	if (e->dest == EXIT_BLOCK_PTR)
+	  pp_string (buffer, "EXIT");
+	else
+	  pp_decimal_int (buffer, e->dest->index);
+      }
+    else
+      dump_edge_info (buffer->buffer->stream, e, 1);
   pp_newline (buffer);
 }
 
@@ -2271,7 +2319,8 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   dump_bb_header (buffer, bb, indent, flags);
 
-  dump_phi_nodes (buffer, bb, indent, flags);
+  if (bb_ann (bb))
+    dump_phi_nodes (buffer, bb, indent, flags);
   
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -2289,5 +2338,5 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
   dump_implicit_edges (buffer, bb, indent);
 
   if (flags & TDF_BLOCKS)
-    dump_bb_end (buffer, bb, indent);
+    dump_bb_end (buffer, bb, indent, flags);
 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +42,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sdefault; use Sdefault;
 with Sem;      use Sem;
@@ -604,10 +605,14 @@ package body Sem_Attr is
          --  prefix may have been a tagged formal object, which is
          --  defined to be aliased even when the actual might not be
          --  (other instance cases will have been caught in the generic).
+         --  Similarly, within an inlined body we know that the attribute
+         --  is legal in the original subprogram, and therefore legal in
+         --  the expansion.
 
          if Aname /= Name_Unrestricted_Access
            and then not Is_Aliased_View (P)
            and then not In_Instance
+           and then not In_Inlined_Body
          then
             Error_Attr ("prefix of % attribute must be aliased", P);
          end if;
@@ -1424,7 +1429,7 @@ package body Sem_Attr is
             ------------
 
             function On_X86 return Boolean is
-               T : String := Sdefault.Target_Name.all;
+               T : constant String := Sdefault.Target_Name.all;
 
             begin
                --  There is no clean way to check this. That's not surprising,
@@ -4457,6 +4462,18 @@ package body Sem_Attr is
          Compile_Time_Known_Attribute (N, Alignment (P_Entity));
          return;
 
+      --  If this is an access attribute that is known to fail accessibility
+      --  check, rewrite accordingly.
+
+      elsif Attribute_Name (N) = Name_Access
+        and then Raises_Constraint_Error (N)
+      then
+         Rewrite (N,
+           Make_Raise_Program_Error (Loc,
+             Reason => PE_Accessibility_Check_Failed));
+         Set_Etype (N, C_Type);
+         return;
+
       --  No other cases are foldable (they certainly aren't static, and at
       --  the moment we don't try to fold any cases other than these three).
 
@@ -6501,6 +6518,9 @@ package body Sem_Attr is
                      null;  --  Nothing to check
 
                   --  Check the static accessibility rule of 3.10.2(32)
+                  --  In an instance body, if subprogram and type are both
+                  --  local, other rules prevent dangling references, and no
+                  --  warning  is needed.
 
                   elsif Attr_Id = Attribute_Access
                     and then Subprogram_Access_Level (Entity (P))
@@ -6510,7 +6530,8 @@ package body Sem_Attr is
                         Error_Msg_N
                           ("subprogram must not be deeper than access type",
                             P);
-                     else
+
+                     elsif Scope (Entity (P)) /= Scope (Btyp) then
                         Error_Msg_N
                           ("subprogram must not be deeper than access type?",
                              P);
@@ -6521,7 +6542,7 @@ package body Sem_Attr is
 
                   --  Check the restriction of 3.10.2(32) that disallows
                   --  the type of the access attribute to be declared
-                  --  outside a generic body when the attribute occurs
+                  --  outside a generic body when the subprogram is declared
                   --  within that generic body.
 
                   elsif Enclosing_Generic_Body (Entity (P))

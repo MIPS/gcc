@@ -1,5 +1,5 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
 
-/* Define global data defined in frv.c */
+/* Define global data defined in frv.c.  */
 extern const char *frv_branch_cost_string;	/* -mbranch-cost option */
 extern int frv_branch_cost_int;			/* value of -mbranch_cost */
 
@@ -91,15 +91,6 @@ extern int frv_function_arg_pass_by_reference	(CUMULATIVE_ARGS *,
 extern int frv_function_arg_callee_copies	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
-
-extern int frv_function_arg_keep_as_reference	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
-extern rtx frv_expand_builtin_saveregs		(void);
-extern void frv_setup_incoming_varargs		(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int *, int);
 
 extern void frv_expand_builtin_va_start		(tree, rtx);
 extern rtx frv_expand_builtin_va_arg		(tree, tree);

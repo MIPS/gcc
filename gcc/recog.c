@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1707,7 +1707,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	      || (GET_CODE (op) == CONST_DOUBLE
 		  && GET_MODE (op) == VOIDmode))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'i':
 	  if (CONSTANT_P (op)
@@ -2445,12 +2445,25 @@ constrain_operands (int strict)
 		break;
 
 	      case 'm':
-		if (GET_CODE (op) == MEM
-		    /* Before reload, accept what reload can turn into mem.  */
-		    || (strict < 0 && CONSTANT_P (op))
-		    /* During reload, accept a pseudo  */
-		    || (reload_in_progress && GET_CODE (op) == REG
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		/* Memory operands must be valid, to the extent
+		   required by STRICT.  */
+		if (GET_CODE (op) == MEM)
+		  {
+		    if (strict > 0
+			&& !strict_memory_address_p (GET_MODE (op),
+						     XEXP (op, 0)))
+		      break;
+		    if (strict == 0
+			&& !memory_address_p (GET_MODE (op), XEXP (op, 0)))
+		      break;
+		    win = 1;
+		  }
+		/* Before reload, accept what reload can turn into mem.  */
+		else if (strict < 0 && CONSTANT_P (op))
+		  win = 1;
+		/* During reload, accept a pseudo  */
+		else if (reload_in_progress && GET_CODE (op) == REG
+			 && REGNO (op) >= FIRST_PSEUDO_REGISTER)
 		  win = 1;
 		break;
 
@@ -2653,7 +2666,7 @@ reg_fits_class_p (rtx operand, enum reg_class class, int offset,
     {
       int sr;
       regno += offset;
-      for (sr = HARD_REGNO_NREGS (regno, mode) - 1;
+      for (sr = hard_regno_nregs[regno][mode] - 1;
 	   sr > 0; sr--)
 	if (! TEST_HARD_REG_BIT (reg_class_contents[(int) class],
 				 regno + sr))
@@ -2782,7 +2795,7 @@ split_all_insns (int upd_life)
 
   if (changed && upd_life)
     update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES | PROP_REG_INFO);
+		      PROP_DEATH_NOTES);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -2897,7 +2910,7 @@ peep2_reg_dead_p (int ofs, rtx reg)
     abort ();
 
   regno = REGNO (reg);
-  n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+  n = hard_regno_nregs[regno][GET_MODE (reg)];
   while (--n >= 0)
     if (REGNO_REG_SET_P (peep2_insn_data[ofs].live_before, regno + n))
       return 0;
@@ -2985,7 +2998,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	continue;
 
       success = 1;
-      for (j = HARD_REGNO_NREGS (regno, mode) - 1; j >= 0; j--)
+      for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
 	{
 	  if (TEST_HARD_REG_BIT (*reg_set, regno + j)
 	      || TEST_HARD_REG_BIT (live, regno + j))
@@ -2996,7 +3009,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	}
       if (success)
 	{
-	  for (j = HARD_REGNO_NREGS (regno, mode) - 1; j >= 0; j--)
+	  for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
 	    SET_HARD_REG_BIT (*reg_set, regno + j);
 
 	  /* Start the next search with the next register.  */

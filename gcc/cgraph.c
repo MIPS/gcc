@@ -19,6 +19,66 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/*  This file contains basic routines manipulating call graph and variable pool
+  
+The callgraph:
+
+    The call-graph is data structure designed for intra-procedural optimization
+    but it is also used in non-unit-at-a-time compilation to allow easier code
+    sharing.
+
+    The call-graph consist of nodes and edges represented via linked lists.
+    Each function (external or not) corresponds to the unique node (in
+    contrast to tree DECL nodes where we can have multiple nodes for each
+    function).
+
+    The mapping from declarations to call-graph nodes is done using hash table
+    based on DECL_ASSEMBLER_NAME, so it is essential for assembler name to
+    not change once the declaration is inserted into the call-graph.
+    The call-graph nodes are created lazily using cgraph_node function when
+    called for unknown declaration.
+    
+    When built, there is one edge for each direct call.  It is possible that
+    the reference will be later optimized out.  The call-graph is built
+    conservatively in order to make conservative data flow analysis possible.
+
+    The callgraph at the moment does not represent indirect calls or calls
+    from other compilation unit.  Flag NEEDED is set for each node that may
+    be accessed in such a invisible way and it shall be considered an
+    entry point to the callgraph.
+
+    Intraprocedural information:
+
+      Callgraph is place to store data needed for intraprocedural optimization.
+      All datastructures are divided into three components: local_info that
+      is produced while analyzing the function, global_info that is result
+      of global walkking of the callgraph on the end of compilation and
+      rtl_info used by RTL backend to propagate data from already compiled
+      functions to their callers.
+
+    Inlining plans:
+
+      The function inlining information is decided in advance and maintained
+      in the callgraph as so called inline plan.
+      For each inlined call, the calle's node is clonned to represent the
+      new function copy produced by inlininer.
+      Each inlined call gets unque corresponding clone node of the callee
+      and the datastructure is updated while inlining is performed, so
+      the clones are elliminated and their callee edges redirected to the
+      caller. 
+
+      Each edge has "inline_failed" field.  When the field is set to NULL,
+      the call will be inlined.  When it is non-NULL it contains an reason
+      why inlining wasn't performaned.
+
+
+The varpool data structure:
+
+    Varpool is used to maintain variables in similar manner as call-graph
+    is used for functions.  Most of the API is symmetric replacing cgraph
+    function prefix by cgraph_varpool  */
+
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -198,6 +258,9 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 
   if (!DECL_SAVED_TREE (callee->decl))
     edge->inline_failed = N_("function body not available");
+  else if (callee->local.redefined_extern_inline)
+    edge->inline_failed = N_("redefined extern inline functions are not "
+			     "considered for inlining");
   else if (callee->local.inlinable)
     edge->inline_failed = N_("function not considered for inlining");
   else
@@ -295,7 +358,10 @@ cgraph_remove_node (struct cgraph_node *node)
 	{
           htab_clear_slot (cgraph_hash, slot);
 	  if (!dump_enabled_p (TDI_all))
-            DECL_SAVED_TREE (node->decl) = NULL;
+	    {
+              DECL_SAVED_TREE (node->decl) = NULL;
+	      DECL_STRUCT_FUNCTION (node->decl) = NULL;
+	    }
 	  check_dead = false;
 	}
     }
@@ -320,7 +386,10 @@ cgraph_remove_node (struct cgraph_node *node)
 		&& !TREE_ASM_WRITTEN (n->decl) && !DECL_EXTERNAL (n->decl)))
 	  break;
       if (!n && !dump_enabled_p (TDI_all))
-        DECL_SAVED_TREE (node->decl) = NULL;
+	{
+	  DECL_SAVED_TREE (node->decl) = NULL;
+	  DECL_STRUCT_FUNCTION (node->decl) = NULL;
+	}
     }
   cgraph_n_nodes--;
   /* Do not free the structure itself so the walk over chain can continue.  */
@@ -338,16 +407,6 @@ cgraph_mark_reachable_node (struct cgraph_node *node)
 
       node->next_needed = cgraph_nodes_queue;
       cgraph_nodes_queue = node;
-
-      /* At the moment frontend automatically emits all nested functions.  */
-      if (node->nested)
-	{
-	  struct cgraph_node *node2;
-
-	  for (node2 = node->nested; node2; node2 = node2->next_nested)
-	    if (!node2->reachable)
-	      cgraph_mark_reachable_node (node2);
-	}
     }
 }
 
@@ -736,10 +795,6 @@ cgraph_clone_node (struct cgraph_node *n)
       new->next_nested = new->origin->nested;
       new->origin->nested = new;
     }
-  /* Cloning of functions with nested functions would require cloning of 
-     the nested functions too.  Just sanity check that we don't do that.  */
-  if (new->nested)
-    abort ();
   new->analyzed = n->analyzed;
   new->local = n->local;
   new->global = n->global;

@@ -1,5 +1,5 @@
 /* Generic dominator tree walker
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -29,40 +29,122 @@ Boston, MA 02111-1307, USA.  */
 #include "domwalk.h"
 #include "ggc.h"
 
-/* This file implements a generic walker for dominator trees.  */
+/* This file implements a generic walker for dominator trees. 
 
-/* Recursively walk the dominator tree.  This is meant to provide a generic
-   engine for performing transformations on the tree structure.  For
-   example, it is currently used to:
+  To understand the dominator walker one must first have a grasp of dominators,
+  immediate dominators and the dominator tree.
 
-     1. Perform SSA rewriting to convert the function into SSA form.
+  Dominators
+    A block B1 is said to dominate B2 if every path from the entry to B2 must
+    pass through B1.  Given the dominance relationship, we can proceed to
+    compute immediate dominators.  Note it is not important whether or not
+    our definition allows a block to dominate itself.
 
-     2. Redundancy elimination and copy propagation.
+  Immediate Dominators:
+    Every block in the CFG has no more than one immediate dominator.  The
+    immediate dominator of block BB must dominate BB and must not dominate
+    any other dominator of BB and must not be BB itself.
 
-   We expect other optimizations to be able to plug into this engine.
+  Dominator tree:
+    If we then construct a tree where each node is a basic block and there
+    is an edge from each block's immediate dominator to the block itself, then
+    we have a dominator tree.
+
+
+  [ Note this walker can also walk the post-dominator tree, which is
+    defined in a similar manner.  ie, block B1 is said to post-dominate
+    block B2 if all paths from B2 to the exit block must pass through
+    B1.  ]
+
+  For example, given the CFG
+
+                   1
+                   |
+                   2
+                  / \
+                 3   4
+                    / \
+       +---------->5   6
+       |          / \ /
+       |    +--->8   7
+       |    |   /    |
+       |    +--9    11
+       |      /      |
+       +--- 10 ---> 12
+	  
+  
+  We have a dominator tree which looks like
+
+                   1
+                   |
+                   2
+                  / \
+                 /   \
+                3     4
+                   / / \ \
+                   | | | |
+                   5 6 7 12
+                   |   |
+                   8   11
+                   |
+                   9
+                   |
+                  10
+  
+  
+  
+  The dominator tree is the basis for a number of analysis, transformation
+  and optimization algorithms that operate on a semi-global basis.
+  
+  The dominator walker is a generic routine which visits blocks in the CFG
+  via a depth first search of the dominator tree.  In the example above
+  the dominator walker might visit blocks in the following order
+  1, 2, 3, 4, 5, 8, 9, 10, 6, 7, 11, 12.
+  
+  The dominator walker has a number of callbacks to perform actions
+  during the walk of the dominator tree.  There are two callbacks
+  which walk statements, one before visiting the dominator children,
+  one after visiting the dominator children.  There is a callback 
+  before and after each statement walk callback.  In addition, the
+  dominator walker manages allocation/deallocation of data structures
+  which are local to each block visited.
+  
+  The dominator walker is meant to provide a generic means to build a pass
+  which can analyze or transform/optimize a function based on walking
+  the dominator tree.  One simply fills in the dominator walker data
+  structure with the appropriate callbacks and calls the walker.
+  
+  We currently use the dominator walker to prune the set of variables
+  which might need PHI nodes (which can greatly improve compile-time
+  performance in some cases).
+  
+  We also use the dominator walker to rewrite the function into SSA form
+  which reduces code duplication since the rewriting phase is inherently
+  a walk of the dominator tree.
+
+  And (of course), we use the dominator walker to drive a our dominator
+  optimizer, which is a semi-global optimizer.
+
+  TODO:
+
+    Walking statements is based on the block statement iterator abstraction,
+    which is currently an abstraction over walking tree statements.  Thus
+    the dominator walker is currently only useful for trees.  */
+
+/* Recursively walk the dominator tree.
 
    WALK_DATA contains a set of callbacks to perform pass-specific
    actions during the dominator walk as well as a stack of block local
    data maintained during the dominator walk.
 
-   BB is the basic block we are currently visiting.
-
-   LAST is the last statement in our parent's block if our parent's block
-   ended with a control structure.  Long term this argument should probably
-   go away.  Once that happens this engine could also be used in the 
-   RTL optimizers.
-
-   Right now we have no pass-global data attached to the dominator walker
-   datastructure.  That will probably change in the future.  */
+   BB is the basic block we are currently visiting.  */
 
 void
-walk_dominator_tree (struct dom_walk_data *walk_data,
-		     basic_block bb,
-		     tree last)
+walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 {
   void *bd = NULL;
   basic_block dest;
-  tree clast;
+  block_stmt_iterator bsi;
 
   /* Callback to initialize the local data structure.  */
   if (walk_data->initialize_block_local_data)
@@ -94,47 +176,55 @@ walk_dominator_tree (struct dom_walk_data *walk_data,
   /* Callback for operations to execute before we have walked the
      dominator children, but before we walk statements.  */
   if (walk_data->before_dom_children_before_stmts)
-    (*walk_data->before_dom_children_before_stmts) (walk_data, bb, last);
+    (*walk_data->before_dom_children_before_stmts) (walk_data, bb);
 
   /* Statement walk before walking dominator children.  */
   if (walk_data->before_dom_children_walk_stmts)
-    (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, last);
+    {
+      if (walk_data->walk_stmts_backward)
+	for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, bsi);
+      else
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb, bsi);
+    }
 
   /* Callback for operations to execute before we have walked the
      dominator children, and after we walk statements.  */
   if (walk_data->before_dom_children_after_stmts)
-    (*walk_data->before_dom_children_after_stmts) (walk_data, bb, last);
-
-  /* If this block ends with a control statement, pass it down so that we
-     might reason with it.  */
-  clast = last_stmt (bb);
-  if (clast && !is_ctrl_stmt (clast))
-    clast = NULL;
+    (*walk_data->before_dom_children_after_stmts) (walk_data, bb);
 
   /* Recursively call ourselves on the dominator children of BB.  */
-  for (dest = first_dom_son (CDI_DOMINATORS, bb);
+  for (dest = first_dom_son (walk_data->dom_direction, bb);
        dest;
-       dest = next_dom_son (CDI_DOMINATORS, dest))
+       dest = next_dom_son (walk_data->dom_direction, dest))
     {
       /* The destination block may have become unreachable, in
 	 which case there's no point in optimizing it.  */
       if (dest->pred)
-	walk_dominator_tree (walk_data, dest, clast);
+	walk_dominator_tree (walk_data, dest);
     }
 
   /* Callback for operations to execute after we have walked the
      dominator children, but before we walk statements.  */
   if (walk_data->after_dom_children_before_stmts)
-    (*walk_data->after_dom_children_before_stmts) (walk_data, bb, last);
+    (*walk_data->after_dom_children_before_stmts) (walk_data, bb);
 
   /* Statement walk after walking dominator children.  */
   if (walk_data->after_dom_children_walk_stmts)
-    (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, last);
+    {
+      if (walk_data->walk_stmts_backward)
+	for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, bsi);
+      else
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb, bsi);
+    }
 
   /* Callback for operations to execute after we have walked the
      dominator children and after we have walked statements.  */
   if (walk_data->after_dom_children_after_stmts)
-    (*walk_data->after_dom_children_after_stmts) (walk_data, bb, last);
+    (*walk_data->after_dom_children_after_stmts) (walk_data, bb);
 
   if (walk_data->initialize_block_local_data)
     {

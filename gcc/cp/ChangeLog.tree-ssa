@@ -1,3 +1,39 @@
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (poplevel): Don't output nested inline functions.
+
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* call.c (build_call, build_over_call, build_new_method_call): Add
+	static chain operand to call_expr.
+	* decl.c (build_offset_ref_call_from_tree): Likewise.
+	* parser.c (cp_parser_postfix_expression): Likewise.
+	* semantics.c (finish_call_expr): Likewise.
+	* cp-lang.c (cp_expand_decl): Don't declare_nonlocal_label.
+
+2004-02-09  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P): New.
+	* cp-tree.h (cp_missing_noreturn_ok_p): Declare.
+	* decl.c (cp_missing_noreturn_ok_p): Export.
+	(cxx_init_decl_processing): Don't set lang_missing_noreturn_ok_p.
+
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/13863
+	* cp-lang.c (LANG_HOOKS_DECL_UNINIT): Remove.
+
+2004-02-03  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/13325
+	* call.c, cvt.c, init.c, typeck.c: Use TREE_NO_WARNING instead
+	of TREE_NO_UNUSED_WARNING.
+	* cvt.c (convert_to_void): Also use it for "has no effect" warning.
+	
+2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
+
+	* cp-mudflap.c (mflang_flush_calls): Mark static ctor as TREE_USED.
+
 2004-01-12  Jason Merrill  <jason@redhat.com>
 
 	* cp-lang.c (ok_to_generate_alias_set_for_type): Remove.

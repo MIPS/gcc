@@ -1,5 +1,6 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -83,17 +84,17 @@ extern int target_flags;
 
 #define MASK_INLINE_FLOAT_DIV_THR 0x00001000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_INT_DIV_LAT   0x00000800 /* inline div, min latency.  */
+#define MASK_INLINE_INT_DIV_LAT   0x00002000 /* inline div, min latency.  */
 
-#define MASK_INLINE_INT_DIV_THR   0x00001000 /* inline div, max throughput.  */
+#define MASK_INLINE_INT_DIV_THR   0x00004000 /* inline div, max throughput.  */
 
-#define MASK_INLINE_SQRT_LAT      0x00002000 /* inline sqrt, min latency.  */
+#define MASK_INLINE_SQRT_LAT      0x00008000 /* inline sqrt, min latency.  */
 
-#define MASK_INLINE_SQRT_THR      0x00004000 /* inline sqrt, max throughput. */
+#define MASK_INLINE_SQRT_THR      0x00010000 /* inline sqrt, max throughput.  */
 
-#define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
+#define MASK_DWARF2_ASM 0x00020000	/* test dwarf2 line info via gas.  */
 
-#define MASK_EARLY_STOP_BITS 0x00002000 /* tune stop bits for the model.  */
+#define MASK_EARLY_STOP_BITS 0x00040000 /* tune stop bits for the model.  */
 
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
 
@@ -250,7 +251,7 @@ extern const char *ia64_tls_size_string;
 
 enum processor_type
 {
-  PROCESSOR_ITANIUM,			/* Original Itanium. */
+  PROCESSOR_ITANIUM,			/* Original Itanium.  */
   PROCESSOR_ITANIUM2,
   PROCESSOR_max
 };
@@ -344,12 +345,6 @@ do									\
   }									\
 while (0)
 
-/* ??? ABI doesn't allow us to define this.  */
-/* #define PROMOTE_FUNCTION_ARGS */
-
-/* ??? ABI doesn't allow us to define this.  */
-/* #define PROMOTE_FUNCTION_RETURN */
-
 #define PARM_BOUNDARY 64
 
 /* Define this macro if you wish to preserve a certain alignment for the stack
@@ -433,8 +428,6 @@ while (0)
 #define SHORT_TYPE_SIZE 16
 
 #define LONG_TYPE_SIZE (TARGET_ILP32 ? 32 : 64)
-
-#define MAX_LONG_TYPE_SIZE 64
 
 #define LONG_LONG_TYPE_SIZE 64
 
@@ -1267,13 +1260,6 @@ enum reg_class
 
 /* Passing Function Arguments on the Stack */
 
-/* Define this macro if an argument declared in a prototype as an integral type
-   smaller than `int' should actually be passed as an `int'.  In addition to
-   avoiding errors in certain cases of mismatch, it also makes for better code
-   on certain machines.  */
-/* ??? Investigate.  */
-/* #define PROMOTE_PROTOTYPES */
-
 /* If defined, the maximum amount of space required for outgoing arguments will
    be computed and placed into the variable
    `current_function_outgoing_args_size'.  */
@@ -1350,7 +1336,7 @@ typedef struct ia64_args
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 do {									\
   (CUM).words = 0;							\
   (CUM).int_regs = 0;							\
@@ -1434,21 +1420,7 @@ do {									\
 
 /* How Large Values are Returned */
 
-/* A nonzero value says to return the function value in memory, just as large
-   structures are always returned.  */
-
-#define RETURN_IN_MEMORY(TYPE) \
-  ia64_return_in_memory (TYPE)
-
-/* If you define this macro to be 0, then the conventions used for structure
-   and union return values are decided by the `RETURN_IN_MEMORY' macro.  */
-
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-/* If the structure value address is passed in a register, then
-   `STRUCT_VALUE_REGNUM' should be the number of that register.  */
-
-#define STRUCT_VALUE_REGNUM GR_REG (8)
 
 
 /* Caller-Saves Register Allocation */
@@ -1523,21 +1495,6 @@ do {									\
   fputs ("\tmov out2 = b0\n", FILE);					\
   fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
 } while (0)
-
-/* Implementing the Varargs Macros.  */
-
-/* Define this macro to store the anonymous register arguments into the stack
-   so that all the arguments appear to have been passed consecutively on the
-   stack.  */
-
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_ARGS_SIZE, SECOND_TIME) \
-    ia64_setup_incoming_varargs (ARGS_SO_FAR, MODE, TYPE, & PRETEND_ARGS_SIZE, SECOND_TIME)
-
-/* Define this macro if the location where a function argument is passed
-   depends on whether or not it is a named argument.  */
-
-#define STRICT_ARGUMENT_NAMING  1
-
 
 /* Trampolines for Nested Functions.  */
 

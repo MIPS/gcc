@@ -1,5 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
@@ -57,6 +57,7 @@ static void xstormy16_init_builtins (void);
 static rtx xstormy16_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static bool xstormy16_rtx_costs (rtx, int, int, int *);
 static int xstormy16_address_cost (rtx);
+static bool xstormy16_return_in_memory (tree, tree);
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -232,7 +233,7 @@ xstormy16_emit_cbranch (enum rtx_code code, rtx loc)
       op0 = tmp;
     }
 
-  condition_rtx = gen_rtx (code, mode, op0, op1);
+  condition_rtx = gen_rtx_fmt_ee (code, mode, op0, op1);
   loc_ref = gen_rtx_LABEL_REF (VOIDmode, loc);
   branch = gen_rtx_SET (VOIDmode, pc_rtx,
 			gen_rtx_IF_THEN_ELSE (VOIDmode, condition_rtx,
@@ -1233,16 +1234,6 @@ xstormy16_function_arg (CUMULATIVE_ARGS cum, enum machine_mode mode,
   return gen_rtx_REG (mode, cum + 2);
 }
 
-/* Do any needed setup for a variadic function.  CUM has not been updated
-   for the last named argument which has type TYPE and mode MODE.  */
-void
-xstormy16_setup_incoming_varargs (CUMULATIVE_ARGS cum ATTRIBUTE_UNUSED,
-				  int int_mode ATTRIBUTE_UNUSED,
-				  tree type ATTRIBUTE_UNUSED,
-				  int *pretend_size ATTRIBUTE_UNUSED)
-{
-}
-
 /* Build the va_list type.
 
    For this chip, va_list is a record containing a counter and a pointer.
@@ -1429,24 +1420,8 @@ xstormy16_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
   emit_move_insn (reg_addr_mem, reg_fnaddr);
 }
 
-/* Create an RTX representing the place where a function returns a
-   value of data type VALTYPE.  VALTYPE is a tree node representing a
-   data type.  Write `TYPE_MODE (VALTYPE)' to get the machine mode
-   used to represent that type.  On many machines, only the mode is
-   relevant.  (Actually, on most machines, scalar values are returned
-   in the same place regardless of mode).
+/* Worker function for FUNCTION_VALUE.  */
 
-   If `PROMOTE_FUNCTION_RETURN' is defined, you must apply the same promotion
-   rules specified in `PROMOTE_MODE' if VALTYPE is a scalar type.
-
-   If the precise function being called is known, FUNC is a tree node
-   (`FUNCTION_DECL') for it; otherwise, FUNC is a null pointer.  This makes it
-   possible to use a different value-returning convention for specific
-   functions when all their calls are known.
-
-   `FUNCTION_VALUE' is not used for return vales with aggregate data types,
-   because these are returned in another way.  See `STRUCT_VALUE_REGNUM' and
-   related macros.  */
 rtx
 xstormy16_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
@@ -1721,7 +1696,7 @@ xstormy16_expand_casesi (rtx index, rtx lower_bound, rtx range,
   emit_cmp_and_jump_insns (index, range, GTU, NULL_RTX, SImode, 1,
 			   default_label);
   int_index = gen_lowpart_common (HImode, index);
-  emit_insn (gen_ashlhi3 (int_index, int_index, GEN_INT (2)));
+  emit_insn (gen_ashlhi3 (int_index, int_index, const2_rtx));
   emit_jump_insn (gen_tablejump_pcrel (int_index, table));
 }
 
@@ -1880,8 +1855,8 @@ xstormy16_expand_arith (enum machine_mode mode, enum rtx_code code,
 	      && INTVAL (w_src1) == -(code == AND))
 	    continue;
 	  
-	  insn = gen_rtx_SET (VOIDmode, w_dest, gen_rtx (code, mode,
-							 w_src0, w_src1));
+	  insn = gen_rtx_SET (VOIDmode, w_dest, gen_rtx_fmt_ee (code, mode,
+								w_src0, w_src1));
 	  break;
 
 	case NOT:
@@ -2194,7 +2169,15 @@ xstormy16_expand_builtin(tree exp, rtx target,
 
   return retval;
 }
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
+static bool
+xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  HOST_WIDE_INT size = int_size_in_bytes (type);
+  return (size == -1 || size > UNITS_PER_WORD * NUM_ARGUMENT_REGISTERS);
+}
 
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.hword\t"
@@ -2211,7 +2194,17 @@ xstormy16_expand_builtin(tree exp, rtx target,
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST xstormy16_address_cost
 
-#undef TARGET_BUILD_BUILTIN_VA_LIST_TYPE
-#define TARGET_BUILD_BUILTIN_VA_LIST_TYPE xstormy16_build_builtin_va_list
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST xstormy16_build_builtin_va_list
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY xstormy16_return_in_memory
 
 struct gcc_target targetm = TARGET_INITIALIZER;

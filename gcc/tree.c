@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -232,8 +232,8 @@ make_node (enum tree_code code)
 #endif
   struct tree_common ttmp;
 
-  /* We can't allocate a TREE_VEC or PHI_NODE without knowing how many elements
-     it will have.  */
+  /* We can't allocate a TREE_VEC, PHI_NODE, EPHI_NODE or STRING_CST
+     without knowing how many elements it will have.  */
   if (code == TREE_VEC || code == PHI_NODE || code == EPHI_NODE)
     abort ();
 
@@ -1610,6 +1610,13 @@ unsafe_for_reeval (tree expr)
     case TARGET_EXPR:
       unsafeness = 1;
       break;
+
+    case EXIT_BLOCK_EXPR:
+      /* EXIT_BLOCK_LABELED_BLOCK, a.k.a. TREE_OPERAND (expr, 0), holds
+	 a reference to an ancestor LABELED_BLOCK, so we need to avoid
+	 unbounded recursion in the 'e' traversal code below.  */
+      exp = EXIT_BLOCK_RETURN (expr);
+      return exp ? unsafe_for_reeval (exp) : 0;
 
     default:
       tmp = (*lang_hooks.unsafe_for_reeval) (expr);
@@ -4220,10 +4227,10 @@ get_unwidened (tree op, tree for_type)
 	 The resulting extension to its nominal type (a fullword type)
 	 must fit the same conditions as for other extensions.  */
 
-      if (INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
+      if (type != 0
+	  && INT_CST_LT_UNSIGNED (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (op)))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
-	  && (! uns || final_prec <= innerprec || unsignedp)
-	  && type != 0)
+	  && (! uns || final_prec <= innerprec || unsignedp))
 	{
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
 		       TREE_OPERAND (op, 1));
@@ -4972,6 +4979,10 @@ build_common_tree_nodes (int signed_char)
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+  
+  access_public_node = get_identifier ("public");
+  access_protected_node = get_identifier ("protected");
+  access_private_node = get_identifier ("private");
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.
@@ -5095,20 +5106,74 @@ build_common_tree_nodes_2 (int short_double)
   V4DF_type_node = build_vector_type_with_mode (V4DFmode, double_type_node);
 }
 
-/* Returns a vector tree node given a vector mode and inner type.  */
+/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
+   better way.
 
-static tree
-build_vector_type_with_mode (enum machine_mode mode, tree innertype)
+   If we requested a pointer to a vector, build up the pointers that
+   we stripped off while looking for the inner type.  Similarly for
+   return values from functions.
+
+   The argument TYPE is the top of the chain, and BOTTOM is the
+   new type which we will point to.  */
+
+tree
+reconstruct_complex_type (tree type, tree bottom)
+{
+  tree inner, outer;
+
+  if (POINTER_TYPE_P (type))
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_pointer_type (inner);
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_array_type (inner, TYPE_DOMAIN (type));
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+    }
+  else if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
+					  inner, 
+					  TYPE_ARG_TYPES (type));
+    }
+  else
+    return bottom;
+
+  TREE_READONLY (outer) = TREE_READONLY (type);
+  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
+
+  return outer;
+}
+
+/* Returns a vector tree node given a vector mode, the inner type, and
+   the signness.  */
+tree
+make_vector (enum machine_mode mode, tree innertype, int unsignedp)
 {
   tree t;
 
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = innertype;
   TYPE_MODE (t) = mode;
-  TREE_UNSIGNED (t) = TREE_UNSIGNED (innertype);
+  TREE_UNSIGNED (t) = unsignedp;
   finish_vector_type (t);
 
   return t;
+}
+
+/* Returns a vector tree node given a vector mode and inner type.  */
+
+static tree
+build_vector_type_with_mode (enum machine_mode mode, tree innertype)
+{
+  return make_vector (mode, innertype, TREE_UNSIGNED (innertype));
 }
 
 /* Similarly, but takes inner type and units.  */
@@ -5137,41 +5202,48 @@ build_vector_type (tree innertype, int nunits)
 bool
 initializer_zerop (tree init)
 {
+  tree elt;
+
   STRIP_NOPS (init);
 
   switch (TREE_CODE (init))
     {
     case INTEGER_CST:
       return integer_zerop (init);
+
     case REAL_CST:
+      /* ??? Note that this is not correct for C4X float formats.  There,
+	 a bit pattern of all zeros is 1.0; 0.0 is encoded with the most
+	 negative exponent.  */
       return real_zerop (init)
 	&& ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (init));
+
     case COMPLEX_CST:
       return integer_zerop (init)
 	|| (real_zerop (init)
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_REALPART (init)))
 	    && ! REAL_VALUE_MINUS_ZERO (TREE_REAL_CST (TREE_IMAGPART (init))));
-    case CONSTRUCTOR:
-      {
-	/* Set is empty if it has no elements.  */
-        if ((TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
-             && CONSTRUCTOR_ELTS (init))
+
+    case VECTOR_CST:
+      for (elt = TREE_VECTOR_CST_ELTS (init); elt; elt = TREE_CHAIN (elt))
+	if (!initializer_zerop (TREE_VALUE (elt)))
 	  return false;
+      return true;
 
-	if (AGGREGATE_TYPE_P (TREE_TYPE (init)))
-	  {
-	    tree aggr_init = CONSTRUCTOR_ELTS (init);
+    case CONSTRUCTOR:
+      elt = CONSTRUCTOR_ELTS (init);
+      if (elt == NULL_TREE)
+	return true;
 
-	    while (aggr_init)
-	      {
-		if (! initializer_zerop (TREE_VALUE (aggr_init)))
-		  return false;
-		aggr_init = TREE_CHAIN (aggr_init);
-	      }
-	    return true;
-	  }
+      /* A set is empty only if it has no elements.  */
+      if (TREE_CODE (TREE_TYPE (init)) == SET_TYPE)
 	return false;
-      }
+
+      for (; elt ; elt = TREE_CHAIN (elt))
+	if (! initializer_zerop (TREE_VALUE (elt)))
+	  return false;
+      return true;
+
     default:
       return false;
     }
@@ -5231,6 +5303,21 @@ in_array_bounds_p (tree array, tree idx)
     return false;
 
   return true;
+}
+
+/* Return true if T (assumed to be a DECL) must be assigned a memory
+   location.  */
+
+bool
+needs_to_live_in_memory (tree t)
+{
+  return (DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (t)
+	  || TREE_STATIC (t)
+          || DECL_EXTERNAL (t)
+	  || DECL_NONLOCAL (t)
+	  || (TREE_CODE (t) == RESULT_DECL
+	      && aggregate_value_p (t, current_function_decl))
+	  || decl_function_context (t) != current_function_decl);
 }
 
 #include "gt-tree.h"

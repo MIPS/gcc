@@ -91,6 +91,7 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 
 # Sources present in the src directory.
 sources = \
+	allocator.cc \
 	codecvt.cc \
 	complex_io.cc \
 	ctype.cc \
@@ -104,13 +105,14 @@ sources = \
 	ios_init.cc \
 	ios_locale.cc \
 	limits.cc \
+	list.cc \
 	locale.cc \
 	locale_init.cc \
 	locale_facets.cc \
 	localename.cc \
 	stdexcept.cc \
-	stl_tree.cc \
 	strstream.cc \
+	tree.cc \
 	allocator-inst.cc \
 	concept-inst.cc \
 	fstream-inst.cc \
@@ -159,14 +161,6 @@ concept-inst.lo: concept-inst.cc
 	$(LTCXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
 concept-inst.o: concept-inst.cc
 	$(CXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
-
-# Use special rules for the demangler, so that an additional implicit
-# instantiation file is not necessary.
-demangle.lo: demangle.cc
-	$(LTCXXCOMPILE) -fimplicit-templates -c $<
-demangle.o: demangle.cc
-	$(CXXCOMPILE) -fimplicit-templates -c $<
-
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually

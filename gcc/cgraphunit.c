@@ -19,6 +19,150 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* This module implements main driver of compilation process as well as
+   few basic intraprocedural optimizers.
+
+   The main scope of this file is to act as an interface in between
+   tree based frontends and the backend (and middle end)
+
+   The front-end is supposed to use following functionality:
+
+    - cgraph_finalize_function
+
+      This function is called once front-end has parsed whole body of function
+      and it is certain that the function body nor the declaration will change.
+
+      (There is one exception needed for implementing GCC extern inline function.)
+
+    - cgraph_varpool_finalize_variable
+
+      This function has same behaviour as the above but is used for static
+      variables.
+
+    - cgraph_finalize_compilation_unit
+
+      This function is called once compilation unit is finalized and it will
+      no longer change.
+
+      In the unit-at-a-time the call-graph construction and local function
+      analysis takes place here.  Bodies of unreachable functions are released
+      to conserve memory usage.
+
+      ???  The compilation unit in this point of view should be compilation
+      unit as defined by the language - for instance C frontend allows multiple
+      compilation units to be parsed at once and it should call function each
+      time parsing is done so we save memory.
+
+    - cgraph_optimize
+
+      In this unit-at-a-time compilation the intra procedural analysis takes
+      place here.  In particular the static functions whose address is never
+      taken are marked as local.  Backend can then use this information to
+      modify calling conventions, do better inlining or similar optimizations.
+
+    - cgraph_assemble_pending_functions
+    - cgraph_varpool_assemble_pending_variables
+
+      In non-unit-at-a-time mode these functions can be used to force compilation
+      of functions or variables that are known to be needed at given stage
+      of compilation
+
+    - cgraph_mark_needed_node
+    - cgraph_varpool_mark_needed_node
+
+      When function or variable is referenced by some hidden way (for instance
+      via assembly code and marked by attribute "used"), the call-graph data structure
+      must be updated accordingly by this function.
+
+    - analyze_expr callback
+
+      This function is responsible for lowering tree nodes not understood by
+      generic code into understandable ones or alternatively marking
+      callgraph and varpool nodes referenced by the as needed.
+
+      ??? On the tree-ssa genericizing should take place here and we will avoid
+      need for these hooks (replacing them by genericizing hook)
+
+    - expand_function callback
+
+      This function is used to expand function and pass it into RTL back-end.
+      Front-end should not make any assumptions about when this function can be
+      called.  In particular cgraph_assemble_pending_functions,
+      cgraph_varpool_assemble_pending_variables, cgraph_finalize_function,
+      cgraph_varpool_finalize_function, cgraph_optimize can cause arbitrarily
+      previously finalized functions to be expanded.
+
+    We implement two compilation modes.
+
+      - unit-at-a-time:  In this mode analyzing of all functions is deferred
+	to cgraph_finalize_compilation_unit and expansion into cgraph_optimize.
+
+	In cgraph_finalize_compilation_unit the reachable functions are
+	analyzed.  During analysis the call-graph edges from reachable
+	functions are constructed and their destinations are marked as
+	reachable.  References to functions and variables are discovered too
+	and variables found to be needed output to the assembly file.  Via
+	mark_referenced call in assemble_variable functions referenced by
+	static variables are noticed too.
+
+	The intra-procedural information is produced and it's existence
+	indicated by global_info_ready.  Once this flag is set it is impossible
+	to change function from !reachable to reachable and thus
+	assemble_variable no longer call mark_referenced.
+
+	Finally the call-graph is topologically sorted and all reachable functions
+	that has not been completely inlined or are not external are output.
+
+	??? It is possible that reference to function or variable is optimized
+	out.  We can not deal with this nicely because topological order is not
+	suitable for it.  For tree-ssa we may consider another pass doing
+	optimization and re-discovering reachable functions.
+
+	??? Reorganize code so variables are output very last and only if they
+	really has been referenced by produced code, so we catch more cases
+	where reference has been optimized out.
+
+      - non-unit-at-a-time
+
+	All functions are variables are output as early as possible to conserve
+	memory consumption.  This may or may not result in less memory used but
+	it is still needed for some legacy code that rely on particular ordering
+	of things output from the compiler.
+
+	Varpool data structures are not used and variables are output directly.
+
+	Functions are output early using call of
+	cgraph_assemble_pending_function from cgraph_finalize_function.  The
+	decision on whether function is needed is made more conservative so
+	uninlininable static functions are needed too.  During the call-graph
+	construction the edge destinations are not marked as reachable and it
+	is completely relied upn assemble_variable to mark them.
+	
+     Inlining decision heuristics
+        ??? Move this to separate file after tree-ssa merge.
+
+	We separate inlining decisions from the inliner itself and store it
+	inside callgraph as so called inline plan.  Reffer to cgraph.c
+	documentation about particular representation of inline plans in the
+	callgraph
+
+	The implementation of particular heuristics is separated from
+	the rest of code to make it easier to replace it with more complicated
+	implementation in the future.  The rest of inlining code acts as a
+	library aimed to modify the callgraph and verify that the parameters
+	on code size growth fits.
+
+	To mark given call inline, use cgraph_mark_inline function, the
+	verification is performed by cgraph_default_inline_p and
+	cgraph_check_inline_limits.
+
+	The heuristics implements simple knapsack style algorithm ordering
+	all functions by their "profitability" (estimated by code size growth)
+	and inlining them in priority order.
+
+	cgraph_decide_inlining implements heuristics taking whole callgraph
+	into account, while cgraph_decide_inlining_incrementally considers
+	only one function at a time and is used in non-unit-at-a-time mode.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -138,7 +282,7 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->origin && !n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -184,6 +328,7 @@ cgraph_finalize_function (tree decl, bool nested)
       memset (&node->global, 0, sizeof (node->global));
       memset (&node->rtl, 0, sizeof (node->rtl));
       node->analyzed = false;
+      node->local.redefined_extern_inline = true;
       while (node->callees)
 	cgraph_remove_edge (node->callees);
 
@@ -219,7 +364,10 @@ cgraph_finalize_function (tree decl, bool nested)
   /* If not unit at a time, go ahead and emit everything we've found
      to be reachable at this time.  */
   if (!nested)
-    cgraph_assemble_pending_functions ();
+    {
+      if (!cgraph_assemble_pending_functions ())
+	ggc_collect ();
+    }
 
   /* If we've not yet emitted decl, tell the debug info about it.  */
   if (!TREE_ASM_WRITTEN (decl))
@@ -460,15 +608,20 @@ cgraph_analyze_function (struct cgraph_node *node)
   cgraph_create_edges (node, DECL_SAVED_TREE (decl));
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  if (!DECL_ESTIMATED_INSNS (decl))
-    DECL_ESTIMATED_INSNS (decl) = estimate_num_insns (DECL_SAVED_TREE (decl));
-  node->local.self_insns = DECL_ESTIMATED_INSNS (decl);
+  node->local.self_insns = estimate_num_insns (DECL_SAVED_TREE (decl));
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = (*lang_hooks.tree_inlining.disregard_inline_limits) (decl);
   for (e = node->callers; e; e = e->next_caller)
-    e->inline_failed = (!node->local.inlinable ? N_("function not inlinable")
-			: N_("function not considered for inlining"));
+    {
+      if (node->local.redefined_extern_inline)
+	e->inline_failed = N_("redefined extern inline functions are not "
+			   "considered for inlining");
+      else if (!node->local.inlinable)
+	e->inline_failed = N_("function not inlinable");
+      else
+	e->inline_failed = N_("function not considered for inlining");
+    }
   if (flag_really_no_inline && !node->local.disregard_inline_limits)
     node->local.inlinable = 0;
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
@@ -597,12 +750,12 @@ cgraph_mark_functions_to_output (void)
 	  && !node->global.inlined_to
 	  && (node->needed
 	      || (e && node->reachable))
-	  && !TREE_ASM_WRITTEN (decl) && !node->origin
+	  && !TREE_ASM_WRITTEN (decl)
 	  && !DECL_EXTERNAL (decl))
 	node->output = 1;
       /* We should've reclaimed all functions that are not needed.  */
       else if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
-	       && !node->origin && !DECL_EXTERNAL (decl))
+	       && !DECL_EXTERNAL (decl))
 	{
 	  dump_cgraph_node (stderr, node);
 	  abort ();
@@ -629,13 +782,19 @@ cgraph_expand_function (struct cgraph_node *node)
   (*lang_hooks.callgraph.expand_function) (decl);
 
   /* Make sure that BE didn't gave up on compiling.  */
-  if (!TREE_ASM_WRITTEN (node->decl))
+  /* ??? Can happen with nested function of extern inline.  */
+  if (0 && !TREE_ASM_WRITTEN (node->decl))
     abort ();
 
   current_function_decl = NULL;
   if (DECL_SAVED_TREE (node->decl)
       && !cgraph_preserve_function_body_p (node->decl))
-    DECL_SAVED_TREE (node->decl) = NULL;
+    {
+      DECL_SAVED_TREE (node->decl) = NULL;
+      DECL_STRUCT_FUNCTION (node->decl) = NULL;
+      DECL_ARGUMENTS (node->decl) = NULL;
+      DECL_INITIAL (node->decl) = error_mark_node;
+    }
 }
 
 /* Fill array order with all nodes with output flag set in the reverse
@@ -711,7 +870,9 @@ cgraph_remove_unreachable_nodes (void)
   bool changed = false;
   int insns = 0;
 
+#ifdef ENABLE_CHECKING
   verify_cgraph ();
+#endif
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nReclaiming functions:");
 #ifdef ENABLE_CHECKING
@@ -763,7 +924,7 @@ cgraph_remove_unreachable_nodes (void)
 	  int local_insns;
 	  tree decl = node->decl;
 
-	  if (DECL_SAVED_INSNS (decl))
+	  if (DECL_STRUCT_FUNCTION (decl))
 	    local_insns = node->local.self_insns;
 	  else
 	    local_insns = 0;
@@ -787,7 +948,12 @@ cgraph_remove_unreachable_nodes (void)
 		    if (clone->aux)
 		      break;
 		  if (!clone)
-		    DECL_SAVED_TREE (node->decl) = NULL_TREE;
+		    {
+		      DECL_SAVED_TREE (node->decl) = NULL;
+		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
+		      DECL_ARGUMENTS (node->decl) = NULL;
+		      DECL_INITIAL (node->decl) = error_mark_node;
+		    }
 		  while (node->callees)
 		    cgraph_remove_edge (node->callees);
 		  node->analyzed = false;
@@ -804,7 +970,6 @@ cgraph_remove_unreachable_nodes (void)
     node->aux = NULL;
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nReclaimed %i insns", insns);
-  verify_cgraph ();
   return changed;
 }
 
@@ -833,7 +998,7 @@ cgraph_estimate_growth (struct cgraph_node *node)
   /* ??? Wrong for self recursive functions or cases where we decide to not
      inline for different reasons, but it is not big deal as in that case
      we will keep the body around, but we will also avoid some inlining.  */
-  if (!node->needed && !node->origin && !DECL_EXTERNAL (node->decl))
+  if (!node->needed && !DECL_EXTERNAL (node->decl))
     growth -= node->global.insns;
 
   return growth;
@@ -853,7 +1018,6 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
      case just go ahead and re-use it.  */
   if (!e->callee->callers->next_caller
       && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
-      && !e->callee->origin
       && duplicate
       && flag_unit_at_a_time)
     {
@@ -894,11 +1058,13 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
 
   if (!e->callee->global.inlined && flag_unit_at_a_time)
     {
+      void **slot;
       if (!cgraph_inline_hash)
         cgraph_inline_hash = htab_create_ggc (42, htab_hash_pointer,
 					      htab_eq_pointer, NULL);
-      htab_find_slot (cgraph_inline_hash,
-		      DECL_ASSEMBLER_NAME (e->callee->decl), INSERT);
+      slot = htab_find_slot (cgraph_inline_hash,
+			     DECL_ASSEMBLER_NAME (e->callee->decl), INSERT);
+      *slot = DECL_ASSEMBLER_NAME (e->callee->decl);
     }
   e->callee->global.inlined = true;
 
@@ -1602,10 +1768,6 @@ cgraph_optimize (void)
 
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->analyzed
-	    /* ??? We don't handle memory management of nested functions quite
-	       right.  It probably does not worth the effort as these functions
-	       should go away soon.  */
-	    && !node->origin
 	    && (node->global.inlined_to
 	        || DECL_SAVED_TREE (node->decl)))
 	  {

@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -63,7 +63,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "max-inline-insns-auto",
 	  "The maximum number of instructions when automatically inlining",
-	  150)
+	  120)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE,
 	  "max-inline-insns-recursive",
@@ -130,7 +130,7 @@ DEFPARAM(PARAM_MAX_PENDING_LIST_LENGTH,
 DEFPARAM(PARAM_LARGE_FUNCTION_INSNS,
 	 "large-function-insns",
 	 "The size of function body to be considered large",
-	 10000)
+	 3000)
 DEFPARAM(PARAM_LARGE_FUNCTION_GROWTH,
 	 "large-function-growth",
 	 "Maximal growth due to inlining of large function (in percent)",
@@ -275,16 +275,15 @@ DEFPARAM(PARAM_LIM_EXPENSIVE,
 
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */
-DEFPARAM(PARAM_MAX_CALLS_GLOBAL_VAR,
-	"calls-threshold-global-var",
-	"The number of calls to use when deciding whether to use .GLOBAL_VAR",
-	2500)
+DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
+	"global-var-threshold",
+	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger than this limit",
+	500000)
 
-/* See preceding.  */
-DEFPARAM(PARAM_MAX_CLOBBERED_VARS_GLOBAL_VAR,
-	"clobbered-vars-threshold-global-var",
-	"The number of clobbered vars to use when deciding whether to use .GLOBAL_VAR",
-	200)
+DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
+	 "max-cselib-memory-locations",
+	 "The maximum memory locations recorded by cselib",
+	 500)
 
 #ifdef ENABLE_GC_ALWAYS_COLLECT
 # define GGC_MIN_EXPAND_DEFAULT 0
@@ -307,6 +306,16 @@ DEFPARAM(GGC_MIN_HEAPSIZE,
 
 #undef GGC_MIN_EXPAND_DEFAULT
 #undef GGC_MIN_HEAPSIZE_DEFAULT
+
+DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
+	 "max-reload-search-insns",
+	 "The maximum number of instructions to search backward when looking for equivalent reload",
+	 100)
+
+DEFPARAM(PARAM_MAX_ALIASED_VOPS,
+         "max-aliased-vops",
+	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping.",
+	 500)
 
 /*
 Local variables:

@@ -1,3 +1,7 @@
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* utils.c (max_size): Add static chain op for call_expr.
+
 2003-09-25  Jason Merrill  <jason@redhat.com>
 
 	* trans.c, utils.c: Revert 2003-01-15 change.

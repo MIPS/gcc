@@ -1,6 +1,6 @@
 /* Default error handlers for CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998, 1999, 2000,
-   2001, 2002  Free Software Foundation, Inc.
+   2001, 2002, 2004 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -45,8 +45,8 @@ print_location (cpp_reader *pfile, fileline line, unsigned int col)
       const struct line_map *map;
       unsigned int lin;
 
-      map = linemap_lookup (&pfile->line_maps, line);
-      linemap_print_containing_files (&pfile->line_maps, map);
+      map = linemap_lookup (pfile->line_table, line);
+      linemap_print_containing_files (pfile->line_table, map);
 
       lin = SOURCE_LINE (map, line);
       if (col == 0)

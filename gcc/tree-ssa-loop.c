@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "tree-inline.h"
 #include "flags.h"
+#include "tree-inline.h"
 
 /* The main entry into loop optimization pass.  PHASE indicates which dump file
    from the DUMP_FILES array to use when dumping debugging information.
@@ -98,17 +99,6 @@ struct tree_opt_pass pass_loop =
   TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
 };
 
-/* Checks whether the STMT is a call, and if so, returns the call_expr.  */
-
-static tree
-call_expr_p (tree stmt)
-{
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
-    stmt = TREE_OPERAND (stmt, 1);
-
-  return TREE_CODE (stmt) == CALL_EXPR ? stmt : NULL_TREE;
-}
-
 /* Check whether we should duplicate HEADER of LOOP.  At most *LIMIT
    instructions should be duplicated, limit is decreased by the actual
    amount.  */
@@ -145,7 +135,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (TREE_CODE (last) != COND_EXPR)
     return false;
 
-  /* Aproximately copy the conditions that used to be used in jump.c --
+  /* Approximately copy the conditions that used to be used in jump.c --
      at most 20 insns and no calls.  */
   for (bsi = bsi_start (header); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -154,7 +144,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (TREE_CODE (last) == LABEL_EXPR)
 	continue;
 
-      if (call_expr_p (last))
+      if (get_call_expr_in (last))
 	return false;
 
       *limit -= estimate_num_insns (last);
@@ -205,7 +195,9 @@ mark_defs_for_rewrite (basic_block bb)
 	}
 
       /* We also need to rewrite vuses, since we will copy the statements
-	 and the ssa versions could not be recovered in the copy.  */
+	 and the ssa versions could not be recovered in the copy.  We do
+	 not have to do this for operands of VDEFS explicitly, since
+	 they have the same underlying variable as the results.  */
       vuses = VUSE_OPS (ann);
       for (i = 0; i < NUM_VUSES (vuses); i++)
 	{
@@ -231,6 +223,10 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
       header = preheader_edge->dest;
 
+      /* It is sufficient to rewrite the definitions, since the uses of
+	 the operands defined outside of the duplicated basic block are
+	 still valid (every basic block that dominates the original block
+	 also dominates the duplicate).  */
       mark_defs_for_rewrite (header);
     }
 
@@ -274,29 +270,9 @@ duplicate_blocks (varray_type bbs_to_duplicate)
     }
 }
 
-/* Checks whether LOOP is a do-while style loop.  */
-
-static bool
-do_while_loop_p (struct loop *loop)
-{
-  tree stmt = last_stmt (loop->latch);
-
-  /* If the latch of the loop is not empty, it is not a do-while loop.  */
-  if (stmt
-      && TREE_CODE (stmt) != LABEL_EXPR)
-    return false;
-
-  /* If the header contains just a condition, it is not a do-while loop.  */
-  stmt = last_and_only_stmt (loop->header);
-  if (stmt
-      && TREE_CODE (stmt) == COND_EXPR)
-    return false;
-
-  return true;
-}
-
 /* For all loops, copy the condition at the end of the loop body in front
-   of the loop.  */
+   of the loop.  This is beneficial since it increases effectivity of
+   code motion optimizations.  It also saves one jump on entry to the loop.  */
 
 static void
 copy_loop_headers (void)
@@ -334,20 +310,13 @@ copy_loop_headers (void)
       preheader_edge = loop_preheader_edge (loop);
       header = preheader_edge->dest;
 
-      /* If the loop is already a do-while style one (either because it was
-	 written as such, or because jump threading transformed it into one),
-	 we might be in fact peeling the first iteration of the loop.  This
-	 in general is not a good idea.  */
-      if (do_while_loop_p (loop))
-	continue;
-
       /* Iterate the header copying up to limit; this takes care of the cases
 	 like while (a && b) {...}, where we want to have both of the conditions
 	 copied.  TODO -- handle while (a || b) - like cases, by not requiring
 	 the header to have just a single successor and copying up to
 	 postdominator. 
 	 
-	 We do not really copy the blocks immediatelly, so that we do not have
+	 We do not really copy the blocks immediately, so that we do not have
 	 to worry about updating loop structures, and also so that we do not
 	 have to rewrite variables out of and into ssa form for each block.
 	 Instead we just record the block into worklist and duplicate all of

@@ -160,23 +160,23 @@ struct rewrite_block_data
 static struct ssa_stats_d ssa_stats;
 
 /* Local functions.  */
-static void rewrite_finalize_block (struct dom_walk_data *, basic_block, tree);
+static void rewrite_finalize_block (struct dom_walk_data *, basic_block);
 static void rewrite_initialize_block_local_data (struct dom_walk_data *,
 						 basic_block, bool);
-static void rewrite_initialize_block (struct dom_walk_data *,
-				      basic_block, tree);
-static void rewrite_walk_stmts (struct dom_walk_data *, basic_block, tree);
-static void rewrite_add_phi_arguments (struct dom_walk_data *,
-				       basic_block, tree);
+static void rewrite_initialize_block (struct dom_walk_data *, basic_block);
+static void rewrite_add_phi_arguments (struct dom_walk_data *, basic_block);
 static void mark_def_sites (struct dom_walk_data *walk_data,
-			    basic_block bb,
-			    tree parent_block_last_stmt ATTRIBUTE_UNUSED);
+			    basic_block bb, block_stmt_iterator);
+static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
+					     basic_block bb);
 static void compute_global_livein (bitmap, bitmap);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *);
-static void rewrite_stmt (block_stmt_iterator, varray_type *);
+static void rewrite_stmt (struct dom_walk_data *,
+			  basic_block,
+			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
 static void insert_phi_nodes_for (tree, bitmap *);
 static tree get_reaching_def (tree);
@@ -205,7 +205,7 @@ static int elim_unvisited_predecessor (elim_graph, int);
 static void elim_backward (elim_graph, int);
 static void elim_create (elim_graph, int);
 static void eliminate_phi (edge, int, elim_graph);
-static tree_live_info_p coalesce_ssa_name (var_map);
+static tree_live_info_p coalesce_ssa_name (var_map, int);
 static void assign_vars (var_map);
 static bool replace_variable (var_map, tree *, tree *);
 static void eliminate_virtual_phis (void);
@@ -335,7 +335,35 @@ rewrite_into_ssa (void)
 
   /* Initialize the array of variables to rename.  */
   if (vars_to_rename != NULL)
-    remove_all_phi_nodes_for (vars_to_rename);
+    {
+      size_t i;
+      bool rename_name_tags_p;
+
+      /* If any of the variables in VARS_TO_RENAME is a pointer, we need to
+	 invalidate all the name memory tags associated with the variables
+	 that we are about to rename.  FIXME: Currently we just invalidate
+	 *all* the NMTs.  Make this more selective.  */
+      rename_name_tags_p = false;
+      EXECUTE_IF_SET_IN_BITMAP (vars_to_rename, 0, i,
+	  if (POINTER_TYPE_P (TREE_TYPE (referenced_var (i))))
+	    {
+	      rename_name_tags_p = true;
+	      break;
+	    });
+
+      if (rename_name_tags_p)
+	for (i = 0; i < num_referenced_vars; i++)
+	  {
+	    var_ann_t ann = var_ann (referenced_var (i));
+
+	    if (ann->mem_tag_kind == NAME_TAG)
+	      bitmap_set_bit (vars_to_rename, ann->uid);
+	  }
+
+      /* Now remove all the existing PHI nodes (if any) for the variables
+	 that we are about to rename into SSA.  */
+      remove_all_phi_nodes_for (vars_to_rename);
+    }
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
@@ -368,8 +396,10 @@ rewrite_into_ssa (void)
 
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
+  walk_data.walk_stmts_backward = false;
+  walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = NULL;
-  walk_data.before_dom_children_before_stmts = NULL;
+  walk_data.before_dom_children_before_stmts = mark_def_sites_initialize_block;
   walk_data.before_dom_children_walk_stmts = mark_def_sites;
   walk_data.before_dom_children_after_stmts = NULL; 
   walk_data.after_dom_children_before_stmts =  NULL;
@@ -389,7 +419,7 @@ rewrite_into_ssa (void)
   init_walk_dominator_tree (&walk_data);
 
   /* Recursively walk the dominator tree.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -404,9 +434,11 @@ rewrite_into_ssa (void)
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Setup callbacks for the generic dominator tree walker.  */
+  walk_data.walk_stmts_backward = false;
+  walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.initialize_block_local_data = rewrite_initialize_block_local_data;
   walk_data.before_dom_children_before_stmts = rewrite_initialize_block;
-  walk_data.before_dom_children_walk_stmts = rewrite_walk_stmts;
+  walk_data.before_dom_children_walk_stmts = rewrite_stmt;
   walk_data.before_dom_children_after_stmts = rewrite_add_phi_arguments; 
   walk_data.after_dom_children_before_stmts =  NULL;
   walk_data.after_dom_children_walk_stmts =  NULL;
@@ -419,7 +451,7 @@ rewrite_into_ssa (void)
 
   /* Recursively walk the dominator tree rewriting each statement in
      each basic block.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
   /* Finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
@@ -512,6 +544,18 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   free (worklist);
 }
 
+/* Block initialization routine for mark_def_sites.  Clear the 
+   KILLS bitmap at the start of each block.  */
+static void
+mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
+				 basic_block bb ATTRIBUTE_UNUSED)
+{
+  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  sbitmap kills = gd->kills;
+
+  sbitmap_zero (kills);
+}
+
 /* Collect definition sites for every variable in the function.
    Return a bitmap for the set of referenced variables which are
    "nonlocal", ie those which are live across block boundaries.
@@ -520,87 +564,80 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
 
 static void
 mark_def_sites (struct dom_walk_data *walk_data,
-                basic_block bb,
-                tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+		basic_block bb,
+		block_stmt_iterator bsi)
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
-  block_stmt_iterator si;
+  vdef_optype vdefs;
+  vuse_optype vuses;
+  def_optype defs;
+  use_optype uses;
+  size_t i, uid;
+  tree stmt;
+  stmt_ann_t ann;
 
   /* Mark all the blocks that have definitions for each variable in the
      VARS_TO_RENAME bitmap.  */
-  sbitmap_zero (kills);
+  stmt = bsi_stmt (bsi);
+  get_stmt_operands (stmt);
+  ann = stmt_ann (stmt);
 
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+  /* If a variable is used before being set, then the variable
+     is live across a block boundary, so add it to NONLOCAL_VARS.  */
+  uses = USE_OPS (ann);
+  for (i = 0; i < NUM_USES (uses); i++)
     {
-      vdef_optype vdefs;
-      vuse_optype vuses;
-      def_optype defs;
-      use_optype uses;
-      size_t i, uid;
-      tree stmt;
-      stmt_ann_t ann;
+      tree *use_p = USE_OP_PTR (uses, i);
 
-      stmt = bsi_stmt (si);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      /* If a variable is used before being set, then the variable
-         is live across a block boundary, so add it to NONLOCAL_VARS.  */
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-        {
-          tree *use_p = USE_OP_PTR (uses, i);
-
-          if (prepare_operand_for_rename (use_p, &uid)
-	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb);
-	}
+      if (prepare_operand_for_rename (use_p, &uid)
+	  && !TEST_BIT (kills, uid))
+	set_livein_block (*use_p, bb);
+    }
 	  
-      /* Similarly for virtual uses.  */
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-        {
-          tree *use_p = VUSE_OP_PTR (vuses, i);
+  /* Similarly for virtual uses.  */
+  vuses = VUSE_OPS (ann);
+  for (i = 0; i < NUM_VUSES (vuses); i++)
+    {
+      tree *use_p = VUSE_OP_PTR (vuses, i);
 
-          if (prepare_operand_for_rename (use_p, &uid)
-	      && !TEST_BIT (kills, uid))
-	    set_livein_block (*use_p, bb);
+      if (prepare_operand_for_rename (use_p, &uid)
+	  && !TEST_BIT (kills, uid))
+	set_livein_block (*use_p, bb);
+    }
+
+  /* Note that virtual definitions are irrelevant for computing
+     KILLED_VARS because a VDEF does not constitute a killing
+     definition of the variable.  However, the operand of a virtual
+     definitions is a use of the variable, so it may affect
+     GLOBALS.  */
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      size_t dummy;
+
+      if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
+	  && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), 
+					 &dummy))
+	{
+	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
+
+	  set_def_block (VDEF_RESULT (vdefs, i), bb);
+	  if (!TEST_BIT (kills, uid))
+	    set_livein_block (VDEF_OP (vdefs, i), bb);
 	}
+    }
 
-      /* Note that virtual definitions are irrelevant for computing
-	 KILLED_VARS because a VDEF does not constitute a killing
-	 definition of the variable.  However, the operand of a virtual
-	 definitions is a use of the variable, so it may affect
-	 GLOBALS.  */
-      vdefs = VDEF_OPS (ann);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
-        {
-	  size_t dummy;
+  /* Now process the definition made by this statement.  */
+  defs = DEF_OPS (ann);
+  for (i = 0; i < NUM_DEFS (defs); i++)
+    {
+      tree *def_p = DEF_OP_PTR (defs, i);
 
-          if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid)
-	      && prepare_operand_for_rename (VDEF_RESULT_PTR (vdefs, i), 
-					     &dummy))
-	    {
-	      VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
-
-	      set_def_block (VDEF_RESULT (vdefs, i), bb);
-	      if (!TEST_BIT (kills, uid))
-		set_livein_block (VDEF_OP (vdefs, i), bb);
-	    }
-	}
-
-      /* Now process the definition made by this statement.  */
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-        {
-          tree *def_p = DEF_OP_PTR (defs, i);
-
-          if (prepare_operand_for_rename (def_p, &uid))
-	    {
-	      set_def_block (*def_p, bb);
-	      SET_BIT (kills, uid);
-	    }
+      if (prepare_operand_for_rename (def_p, &uid))
+	{
+	  set_def_block (*def_p, bb);
+	  SET_BIT (kills, uid);
 	}
     }
 }
@@ -820,9 +857,7 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data,
    block.  */
 
 static void
-rewrite_initialize_block (struct dom_walk_data *walk_data,
-			  basic_block bb,
-			  tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree phi;
   struct rewrite_block_data *bd
@@ -843,24 +878,6 @@ rewrite_initialize_block (struct dom_walk_data *walk_data,
     }
 }
 
-/* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
-   the block with its immediate reaching definitions.  Update the current
-   definition of a variable when a new real or virtual definition is found.  */
-
-static void
-rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		    basic_block bb,
-		    tree parent_block_last_stmt ATTRIBUTE_UNUSED)
-{
-  block_stmt_iterator si;
-  struct rewrite_block_data *bd
-    = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
-
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (si, &bd->block_defs);
-}
-
-
 /* SSA Rewriting Step 3.  Visit all the successor blocks of BB looking for
    PHI nodes.  For every PHI node found, add a new argument containing the
    current reaching definition for the variable and the edge through which
@@ -868,8 +885,7 @@ rewrite_walk_stmts (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 static void
 rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-			   basic_block bb,
-			   tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+			   basic_block bb)
 {
   edge e;
 
@@ -898,8 +914,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 static void
 rewrite_finalize_block (struct dom_walk_data *walk_data,
-			basic_block bb ATTRIBUTE_UNUSED,
-			tree parent_block_last_stmt ATTRIBUTE_UNUSED)
+			basic_block bb ATTRIBUTE_UNUSED)
 {
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
@@ -953,16 +968,14 @@ create_temp (tree t)
   tmp = create_tmp_var (type, name);
   add_referenced_tmp_var (tmp);
 
-  /* Mark the new variable as used.  */
-  set_is_used (tmp);
-
   /* add_referenced_tmp_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
-  var_ann (tmp)->mem_tag = var_ann (t)->mem_tag;
+  var_ann (tmp)->type_mem_tag = var_ann (t)->type_mem_tag;
   var_ann (tmp)->is_dereferenced_load = var_ann (t)->is_dereferenced_load;
   var_ann (tmp)->is_dereferenced_store = var_ann (t)->is_dereferenced_store;
-  var_ann (tmp)->is_call_clobbered = var_ann (t)->is_call_clobbered;
+  if (is_call_clobbered (t))
+    mark_call_clobbered (tmp);
   var_ann (tmp)->is_stored = var_ann (t)->is_stored;
 
   return tmp;
@@ -1460,22 +1473,28 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
    which are associated with actual variables at this point are those which 
    are forced to be coalesced for various reason. (live on entry, live 
    across abnormal edges, etc.). 
-   Live range information is returned if flag_tree_combine_temps
-   is set, otherwise NULL.  */
+   Live range information is returned if FLAGS indicates that we are
+   combining temporaries, otherwise NULL is returned.  */
 
 static tree_live_info_p
-coalesce_ssa_name (var_map map)
+coalesce_ssa_name (var_map map, int flags)
 {
-  int num, x;
+  int num, x, i;
   sbitmap live;
-  tree var;
+  tree var, phi;
   root_var_p rv;
   tree_live_info_p liveinfo;
   var_ann_t ann;
   conflict_graph graph;
+  basic_block bb;
+  coalesce_list_p cl = NULL;
 
   if (num_var_partitions (map) <= 1)
     return NULL;
+
+  /* If no preference given, use cheap coalescing of all partitions.  */
+  if ((flags & (SSANORM_COALESCE_PARTITIONS | SSANORM_USE_COALESCE_LIST)) == 0)
+    flags |= SSANORM_COALESCE_PARTITIONS;
   
   liveinfo = calculate_live_on_entry (map);
   calculate_live_on_exit (liveinfo);
@@ -1484,20 +1503,84 @@ coalesce_ssa_name (var_map map)
   /* Remove single element variable from the list.  */
   root_var_compact (rv);
 
+  if (flags & SSANORM_USE_COALESCE_LIST)
+    {
+      cl = create_coalesce_list (map);
+      
+      /* Add all potential copies via PHI arguments to the list.  */
+      FOR_EACH_BB (bb)
+	{
+	  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	    {
+	      tree res = PHI_RESULT (phi);
+	      int p = var_to_partition (map, res);
+	      if (p == NO_PARTITION)
+		continue;
+	      for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+		{
+		  tree arg = PHI_ARG_DEF (phi, x);
+		  int p2;
+
+		  if (TREE_CODE (arg) != SSA_NAME)
+		    continue;
+		  if (SSA_NAME_VAR (res) != SSA_NAME_VAR (arg))
+		    continue;
+		  p2 = var_to_partition (map, PHI_ARG_DEF (phi, x));
+		  if (p2 != NO_PARTITION)
+		    add_coalesce (cl, p, p2, 1);
+		}
+	    }
+	}
+
+      /* Coalesce all the result decls together.  */
+      var = NULL_TREE;
+      i = 0;
+      for (x = 0; x < num_var_partitions (map); x++)
+	{
+	  tree p = partition_to_var (map, x);
+	  if (TREE_CODE (SSA_NAME_VAR(p)) == RESULT_DECL)
+	    {
+	      if (var == NULL_TREE)
+		{
+		  var = p;
+		  i = x;
+		}
+	      else
+		add_coalesce (cl, i, x, 1);
+	    }
+	}
+    }
+
   /* Build a conflict graph.  */
-  graph = build_tree_conflict_graph (liveinfo, rv, NULL);
+  graph = build_tree_conflict_graph (liveinfo, rv, cl);
+
+  if (cl)
+    {
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "Before sorting:\n");
+	  dump_coalesce_list (tree_dump_file, cl);
+	}
+
+      sort_coalesce_list (cl);
+
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "\nAfter sorting:\n");
+	  dump_coalesce_list (tree_dump_file, cl);
+	}
+    }
 
   /* Put the single element variables back in.  */
   root_var_decompact (rv);
 
   /* First, coalesce all live on entry variables to their root variable. 
-     This will ensure the first use is coming from the right memory location. */
+     This will ensure the first use is coming from the correct location. */
 
   live = sbitmap_alloc (num_var_partitions (map));
   sbitmap_zero (live);
 
   /* Set 'live' vector to indicate live on entry partitions.  */
-
   num = num_var_partitions (map);
   for (x = 0 ; x < num; x++)
     {
@@ -1506,7 +1589,7 @@ coalesce_ssa_name (var_map map)
 	SET_BIT (live, x);
     }
 
-  if (!flag_tree_combine_temps)
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
     {
       delete_tree_live_info (liveinfo);
       liveinfo = NULL;
@@ -1545,12 +1628,23 @@ coalesce_ssa_name (var_map map)
   coalesce_abnormal_edges (map, graph, rv);
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    dump_var_map (tree_dump_file, map);
+    {
+      dump_var_map (tree_dump_file, map);
+    }
 
-  /* Coalesce partitions of a root variable wherever possible.  */
-  coalesce_tpa_members (rv, graph, map, NULL, 
-			((tree_dump_flags & TDF_DETAILS) ? tree_dump_file : NULL));
+  /* Coalesce partitions.  */
+  if (flags & SSANORM_USE_COALESCE_LIST)
+    coalesce_tpa_members (rv, graph, map, cl, 
+			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+							   : NULL));
 
+  
+  if (flags & SSANORM_COALESCE_PARTITIONS)
+    coalesce_tpa_members (rv, graph, map, NULL, 
+			  ((tree_dump_flags & TDF_DETAILS) ? tree_dump_file 
+							   : NULL));
+  if (cl)
+    delete_coalesce_list (cl);
   root_var_delete (rv);
   conflict_graph_delete (graph);
 
@@ -1608,18 +1702,20 @@ assign_vars (var_map map)
 
 	  if (t == var || TREE_CODE (t) != SSA_NAME)
 	    continue;
-	  
-	  rep = var_to_partition (map, t);
 
+	  rep = var_to_partition (map, t);
+	  
 	  if (!ann->out_of_ssa_tag)
 	    {
+	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		print_exprs (tree_dump_file, "", t, "  --> ", var, "\n");
 	      change_partition_var (map, var, rep);
 	      continue;
 	    }
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    print_exprs (tree_dump_file, "Overlap :  '", t, "'  conflicts with  '",
-			 var, "");
+	    print_exprs (tree_dump_file, "", t, " not coalesced with ", var, 
+			 "");
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
@@ -1627,7 +1723,7 @@ assign_vars (var_map map)
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "'     New temp:  '");
+	      fprintf (tree_dump_file, " -->  New temp:  '");
 	      print_generic_expr (tree_dump_file, var, TDF_SLIM);
 	      fprintf (tree_dump_file, "'\n");
 	    }
@@ -1760,10 +1856,8 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
 	      if (!phi_ssa_name_p (arg))
 	        continue;
 	      p2 = var_to_partition (map, arg);
-#ifdef ENABLE_CHECKING
 	      if (p2 == NO_PARTITION)
-	        abort();
-#endif
+		continue;
 	      if (p != p2)
 	        add_coalesce (cl, p, p2, 1);
 	    }
@@ -2507,7 +2601,11 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     dump_var_map (tree_dump_file, map);
 
-  liveinfo = coalesce_ssa_name (map);
+  liveinfo = coalesce_ssa_name (map, flags);
+
+  /* Make sure even single occurrence variables are in the list now.  */
+  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
+    compact_var_map (map, VARMAP_NORMAL);
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
@@ -2515,9 +2613,12 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
       dump_var_map (tree_dump_file, map);
     }
 
-  /* Make sure even single occurrence variables are in the list now.  */
-  if ((flags & SSANORM_COMBINE_TEMPS) == 0)
-    compact_var_map (map, VARMAP_NORMAL);
+  if (flags & SSANORM_PERFORM_TER)
+    {
+      values = find_replaceable_exprs (map);
+      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	dump_replaceable_exprs (tree_dump_file, values);
+    }
 
   /* Assign real variables to the partitions now.  */
   assign_vars (map);
@@ -2528,13 +2629,6 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
       dump_var_map (tree_dump_file, map);
     }
 
-  if (flags & SSANORM_PERFORM_TER)
-    {
-      values = find_replaceable_exprs (map);
-      if (values && tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	dump_replaceable_exprs (tree_dump_file, values);
-    }
-   
   if ((flags & SSANORM_COMBINE_TEMPS) && liveinfo)
     {
       coalesce_vars (map, liveinfo);
@@ -2580,6 +2674,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
       basic_block bb;
       tree phi;
       int i;
+      int ssa_flags;
 
       /* Search for PHIs in which one of the PHI arguments is marked for
 	 translation out of SSA form, but for which the PHI result is not
@@ -2663,7 +2758,10 @@ rewrite_vars_out_of_ssa (bitmap vars)
 
       /* Now that we have all the partitions registered, translate the
 	 appropriate variables out of SSA form.  */
-      remove_ssa_form (tree_dump_file, map, 0);
+      ssa_flags = SSANORM_COALESCE_PARTITIONS;
+      if (flag_tree_combine_temps)
+	ssa_flags |= SSANORM_COMBINE_TEMPS;
+      remove_ssa_form (tree_dump_file, map, ssa_flags);
 
       /* And finally, reset the out_of_ssa flag for each of the vars
 	 we just took out of SSA form.  */
@@ -2685,7 +2783,8 @@ rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
-  int ssa_flags = SSANORM_REMOVE_ALL_PHIS;
+  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST
+		   | SSANORM_COALESCE_PARTITIONS);
 
   eliminate_virtual_phis ();
 
@@ -3251,15 +3350,14 @@ insert_phi_nodes_for (tree var, bitmap *dfs)
   phi_insertion_points = NULL;
 }
 
-/* Rewrite statement pointed by iterator SI into SSA form. 
-
-   BLOCK_DEFS_P points to a stack with all the definitions found in the
-   block.  This is used by the dominator tree walker callbacks to restore
-   the current reaching definition for every variable defined in BB after
-   visiting the immediate dominators of BB.  */
+/* SSA Rewriting Step 2.  Rewrite every variable used in each statement in
+   the block with its immediate reaching definitions.  Update the current
+   definition of a variable when a new real or virtual definition is found.  */
 
 static void
-rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
+rewrite_stmt (struct dom_walk_data *walk_data,
+	      basic_block bb ATTRIBUTE_UNUSED,
+	      block_stmt_iterator si)
 {
   size_t i;
   stmt_ann_t ann;
@@ -3268,6 +3366,9 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   vdef_optype vdefs;
   def_optype defs;
   use_optype uses;
+  struct rewrite_block_data *bd;
+
+  bd = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
   stmt = bsi_stmt (si);
   ann = stmt_ann (stmt);
@@ -3311,7 +3412,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (*def_p), *def_p,
-			block_defs_p, currdefs);
+			&bd->block_defs, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -3320,12 +3421,13 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
       rewrite_operand (VDEF_OP_PTR (vdefs, i));
 
       if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	*VDEF_RESULT_PTR (vdefs, i) = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
+	*VDEF_RESULT_PTR (vdefs, i)
+	  = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
+			VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
     }
 }
 
@@ -3335,7 +3437,7 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 void
 set_is_used (tree t)
 {
-  t = get_base_symbol (t);
+  t = get_base_decl (t);
   var_ann (t)->used = 1;
 }
 
@@ -3387,7 +3489,7 @@ void
 init_tree_ssa (void)
 {
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
-  VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
+  call_clobbered_vars = BITMAP_XMALLOC ();
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
@@ -3424,6 +3526,7 @@ delete_tree_ssa (void)
   fini_ssa_operands ();
 
   global_var = NULL_TREE;
+  BITMAP_FREE (call_clobbered_vars);
   call_clobbered_vars = NULL;
   aliases_computed_p = false;
 }
@@ -3591,6 +3694,86 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
+
+/* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
+   described in walk_use_def_chains.  VISITED is a bitmap used to mark
+   visited SSA_NAMEs to avoid infinite loops.  */
+
+static void
+walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
+		       bitmap visited)
+{
+  tree def_stmt;
+
+  if (bitmap_bit_p (visited, SSA_NAME_VERSION (var)))
+    return;
+
+  bitmap_set_bit (visited, SSA_NAME_VERSION (var));
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  if (TREE_CODE (def_stmt) != PHI_NODE)
+    {
+      /* If we reached the end of the use-def chain, call FN.  */
+      (*fn) (var, def_stmt, data);
+    }
+  else
+    {
+      int i;
+
+      /* Otherwise, follow use-def links out of each PHI argument and call
+	 FN after visiting each one.  */
+      for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
+	{
+	  tree arg = PHI_ARG_DEF (def_stmt, i);
+	  if (TREE_CODE (arg) == SSA_NAME)
+	    walk_use_def_chains_1 (arg, fn, data, visited);
+	  (*fn) (arg, def_stmt, data);
+	}
+    }
+}
+  
+
+
+/* Walk use-def chains starting at the SSA variable VAR.  Call function FN
+   at each reaching definition found.  FN takes three arguments: VAR, its
+   defining statement (DEF_STMT) and a generic pointer to whatever state
+   information that FN may want to maintain (DATA).
+
+   Note, that if DEF_STMT is a PHI node, the semantics are slightly
+   different.  For each argument ARG of the PHI node, this function will:
+
+	1- Walk the use-def chains for ARG.
+	2- Call (*FN) (ARG, PHI, DATA).
+
+   Note how the first argument to FN is no longer the original variable
+   VAR, but the PHI argument currently being examined.  If FN wants to get
+   at VAR, it should call PHI_RESULT (PHI).  */
+
+void
+walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data)
+{
+  tree def_stmt;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    abort ();
+#endif
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  /* We only need to recurse if the reaching definition comes from a PHI
+     node.  */
+  if (TREE_CODE (def_stmt) != PHI_NODE)
+    (*fn) (var, def_stmt, data);
+  else
+    {
+      bitmap visited = BITMAP_XMALLOC ();
+      walk_use_def_chains_1 (var, fn, data, visited);
+      BITMAP_XFREE (visited);
+    }
+}
+
 /* Replaces immediate uses of VAR by REPL.  */
 
 static void
@@ -3644,7 +3827,16 @@ replace_immediate_uses (tree var, tree repl)
 	    if (VDEF_OP (vdefs, j) == var)
 	      *VDEF_OP_PTR (vdefs, j) = repl;
 	}
+
       modify_stmt (stmt);
+
+      /* If REPL is a pointer, it may have different memory tags associated
+	 with it.  For instance, VAR may have had a name tag while REPL
+	 only had a type tag.  In these cases, the virtual operands (if
+	 any) in the statement will refer to different symbols which need
+	 to be renamed.  */
+      if (POINTER_TYPE_P (TREE_TYPE (repl)))
+	mark_new_vars_to_rename (stmt, vars_to_rename);
     }
 }
 
@@ -3720,7 +3912,7 @@ raise_value (tree phi, tree val, tree *eq_to)
    The most important effect of this pass is to remove degenerate PHI
    nodes created by removing unreachable code.  */
 
-void
+static void
 kill_redundant_phi_nodes (void)
 {
   tree *eq_to, *ssa_names;
@@ -3816,5 +4008,169 @@ kill_redundant_phi_nodes (void)
   free (eq_to);
   free (ssa_names);
 }
+
+struct tree_opt_pass pass_redundant_phi =
+{
+  "redphi",				/* name */
+  NULL,					/* gate */
+  kill_redundant_phi_nodes,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_rename_vars 
+    | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+};
+
+/* Emit warnings for uninitialized variables.  This is done in two passes.
+
+   The first pass notices real uses of SSA names with default definitions.
+   Such uses are unconditionally uninitialized, and we can be certain that
+   such a use is a mistake.  This pass is run before most optimizations,
+   so that we catch as many as we can.
+
+   The second pass follows PHI nodes to find uses that are potentially
+   uninitialized.  In this case we can't necessarily prove that the use
+   is really uninitialized.  This pass is run after most optimizations,
+   so that we thread as many jumps and possible, and delete as much dead
+   code as possible, in order to reduce false positives.  We also look
+   again for plain uninitialized variables, since optimization may have
+   changed conditionally uninitialized to unconditionally uninitialized.  */
+
+/* Emit a warning for T, an SSA_NAME, being uninitialized.  The exact
+   warning text is in MSGID and LOCUS may contain a location or be null.  */
+
+static void
+warn_uninit (tree t, const char *msgid, location_t *locus)
+{
+  tree var = SSA_NAME_VAR (t);
+  tree def = SSA_NAME_DEF_STMT (t);
+
+  /* Default uses (indicated by an empty definition statement), are
+     uninitialized.  Except for PARMs of course, which are always
+     initialized.  TREE_NO_WARNING either means we already warned,
+     or the front end wishes to suppress the warning.  */
+  if (IS_EMPTY_STMT (def)
+      && TREE_CODE (var) != PARM_DECL
+      && !TREE_NO_WARNING (var))
+    {
+      if (!locus)
+	locus = &DECL_SOURCE_LOCATION (var);
+      warning (msgid, locus, var);
+      TREE_NO_WARNING (var) = 1;
+    }
+}
+   
+/* Called via walk_tree, look for SSA_NAMEs that have empty definitions
+   and warn about them.  */
+
+static tree
+warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
+{
+  location_t *locus = data;
+  tree t = *tp;
+
+  /* We only do data flow with SSA_NAMEs, so that's all we can warn about.  */
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      warn_uninit (t, "%H'%D' is used uninitialized in this function", locus);
+      *walk_subtrees = 0;
+    }
+  else if (DECL_P (t) || TYPE_P (t))
+    *walk_subtrees = 0;
+
+  return NULL_TREE;
+}
+
+/* Look for inputs to PHI that are SSA_NAMEs that have empty definitions
+   and warn about them.  */
+
+static void
+warn_uninitialized_phi (tree phi)
+{
+  int i, n = PHI_NUM_ARGS (phi);
+
+  /* Don't look at memory tags.  */
+  if (!is_gimple_reg (PHI_RESULT (phi)))
+    return;
+
+  for (i = 0; i < n; ++i)
+    {
+      tree op = PHI_ARG_DEF (phi, i);
+      if (TREE_CODE (op) == SSA_NAME)
+	warn_uninit (op, "%H'%D' may be used uninitialized in this function",
+		     NULL);
+    }
+}
+
+static void
+execute_early_warn_uninitialized (void)
+{
+  block_stmt_iterator bsi;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
+		 EXPR_LOCUS (bsi_stmt (bsi)), NULL);
+}
+
+static void
+execute_late_warn_uninitialized (void)
+{
+  basic_block bb;
+  tree phi;
+
+  /* Re-do the plain uninitialized variable check, as optimization may have
+     straightened control flow.  Do this first so that we don't accidentally
+     get a "may be" warning when we'd have seen an "is" warning later.  */
+  execute_early_warn_uninitialized ();
+
+  FOR_EACH_BB (bb)
+    for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+      warn_uninitialized_phi (phi);
+}
+
+static bool
+gate_warn_uninitialized (void)
+{
+  return warn_uninitialized != 0;
+}
+
+struct tree_opt_pass pass_early_warn_uninitialized =
+{
+  NULL,					/* name */
+  gate_warn_uninitialized,		/* gate */
+  execute_early_warn_uninitialized,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+struct tree_opt_pass pass_late_warn_uninitialized =
+{
+  NULL,					/* name */
+  gate_warn_uninitialized,		/* gate */
+  execute_late_warn_uninitialized,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
 
 #include "gt-tree-ssa.h"

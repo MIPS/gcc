@@ -39,7 +39,7 @@ record_component_aliases (type)
     }
 }
 
-/* The call to blah can not be eliminated.
+/* The call to blah can not be eliminated.  */
 /* { dg-final { scan-tree-dump-times "blah \\(\\)" 1 "dom3" } } */
    
 /* There should be four IF conditionals.  */

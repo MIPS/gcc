@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -151,10 +151,12 @@ static tree fold_trunc_transparent_mathfn (tree);
 static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_cabs (tree, rtx);
+static rtx expand_builtin_signbit (tree, rtx);
 static tree fold_builtin_cabs (tree, tree, tree);
 static tree fold_builtin_trunc (tree);
 static tree fold_builtin_floor (tree);
 static tree fold_builtin_ceil (tree);
+static tree fold_builtin_round (tree);
 static tree fold_builtin_bitop (tree);
 static tree fold_builtin_memcpy (tree);
 static tree fold_builtin_mempcpy (tree);
@@ -164,6 +166,7 @@ static tree fold_builtin_strncpy (tree);
 static tree fold_builtin_memcmp (tree);
 static tree fold_builtin_strcmp (tree);
 static tree fold_builtin_strncmp (tree);
+static tree fold_builtin_signbit (tree);
 
 static tree simplify_builtin_memcmp (tree);
 static tree simplify_builtin_strpbrk (tree);
@@ -774,6 +777,79 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
     }
 }
 
+/* Expand a call to __builtin_nonlocal_goto.  We're passed the target label
+   and the address of the save area.  */
+
+static rtx
+expand_builtin_nonlocal_goto (tree arglist)
+{
+  tree t_label, t_save_area;
+  rtx r_label, r_save_area, r_fp, r_sp, insn;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_label = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_save_area = TREE_VALUE (arglist);
+
+  r_label = expand_expr (t_label, NULL_RTX, VOIDmode, 0);
+  r_save_area = expand_expr (t_save_area, NULL_RTX, VOIDmode, 0);
+  r_fp = gen_rtx_MEM (Pmode, r_save_area);
+  r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
+		      plus_constant (r_save_area, GET_MODE_SIZE (Pmode)));
+
+  current_function_has_nonlocal_goto = 1;
+
+#if HAVE_nonlocal_goto
+  /* ??? We no longer need to pass the static chain value, afaik.  */
+  if (HAVE_nonlocal_goto)
+    emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
+  else
+#endif
+    {
+      r_label = copy_to_reg (r_label);
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       gen_rtx_SCRATCH (VOIDmode))));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				  gen_rtx_MEM (BLKmode,
+					       hard_frame_pointer_rtx)));
+ 
+      /* Restore frame pointer for containing function.
+	 This sets the actual hard register used for the frame pointer
+	 to the location of the function's incoming static chain info.
+	 The non-local goto handler will then adjust it to contain the
+	 proper value and reload the argument pointer, if needed.  */
+      emit_move_insn (hard_frame_pointer_rtx, r_fp);
+      emit_stack_restore (SAVE_NONLOCAL, r_sp, NULL_RTX);
+ 
+      /* USE of hard_frame_pointer_rtx added for consistency;
+	 not clear if really needed.  */
+      emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+      emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+      emit_indirect_jump (r_label);
+    }
+ 
+  /* Search backwards to the jump insn and mark it as a
+     non-local goto.  */
+  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) == JUMP_INSN)
+	{
+	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO,
+					      const0_rtx, REG_NOTES (insn));
+	  break;
+	}
+      else if (GET_CODE (insn) == CALL_INSN)
+	break;
+    }
+
+  return const0_rtx;
+}
+
 /* Expand a call to __builtin_prefetch.  For a target that does not support
    data prefetch, evaluate the memory address argument in case it has side
    effects.  */
@@ -966,7 +1042,7 @@ apply_args_size (void)
 		 mode != VOIDmode;
 		 mode = GET_MODE_WIDER_MODE (mode))
 	      if (HARD_REGNO_MODE_OK (regno, mode)
-		  && HARD_REGNO_NREGS (regno, mode) == 1)
+		  && hard_regno_nregs[regno][mode] == 1)
 		best_mode = mode;
 
 	    if (best_mode == VOIDmode)
@@ -1315,7 +1391,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     }
 
   /* All arguments and registers used for the call are set up by now!  */
-  function = prepare_call_address (function, NULL_TREE, &call_fusage, 0, 0);
+  function = prepare_call_address (function, NULL, &call_fusage, 0, 0);
 
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
@@ -2166,7 +2242,10 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	    }
 	}
     }
-  return expand_builtin_mathfn_2 (exp, target, NULL_RTX);
+
+  if (! flag_unsafe_math_optimizations)
+    return NULL_RTX;
+  return expand_builtin_mathfn_2 (exp, target, subtarget);
 }
 
 /* Expand expression EXP which is a call to the strlen builtin.  Return 0
@@ -4018,10 +4097,32 @@ std_expand_builtin_va_arg (tree valist, tree type)
   tree align, alignm1;
   tree rounded_size;
   rtx addr;
+  HOST_WIDE_INT boundary;
 
   /* Compute the rounded size of the type.  */
   align = size_int (PARM_BOUNDARY / BITS_PER_UNIT);
   alignm1 = size_int (PARM_BOUNDARY / BITS_PER_UNIT - 1);
+  boundary = FUNCTION_ARG_BOUNDARY (TYPE_MODE (type), type);
+
+  /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
+     requires greater alignment, we must perform dynamic alignment.  */
+
+  if (boundary > PARM_BOUNDARY)
+    {
+      if (!PAD_VARARGS_DOWN)
+	{
+	  t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		     build (PLUS_EXPR, TREE_TYPE (valist), valist,
+			    build_int_2 (boundary / BITS_PER_UNIT - 1, 0)));
+	  TREE_SIDE_EFFECTS (t) = 1;
+	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+	}
+      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		 build (BIT_AND_EXPR, TREE_TYPE (valist), valist,
+			build_int_2 (~(boundary / BITS_PER_UNIT - 1), -1)));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
   if (type == error_mark_node
       || (type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type))) == NULL
       || TREE_OVERFLOW (type_size))
@@ -4171,15 +4272,10 @@ expand_builtin_va_end (tree arglist)
 {
   tree valist = TREE_VALUE (arglist);
 
-#ifdef EXPAND_BUILTIN_VA_END
-  valist = stabilize_va_list (valist, 0);
-  EXPAND_BUILTIN_VA_END (arglist);
-#else
   /* Evaluate for side effects, if needed.  I hate macros that don't
      do that.  */
   if (TREE_SIDE_EFFECTS (valist))
     expand_expr (valist, const0_rtx, VOIDmode, EXPAND_NORMAL);
-#endif
 
   return const0_rtx;
 }
@@ -4388,7 +4484,7 @@ expand_builtin_fputs (tree arglist, rtx target, bool unlocked)
 	    break;
 	  }
       }
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1: /* length is greater than 1, call fwrite.  */
       {
 	tree string_arg;
@@ -4475,44 +4571,26 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   if (TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
       && (integer_zerop (arg1) || integer_onep (arg1)))
     {
-      int num_jumps = 0;
-      int save_pending_stack_adjust = pending_stack_adjust;
-      rtx insn;
-
-      /* If we fail to locate an appropriate conditional jump, we'll
-	 fall back to normal evaluation.  Ensure that the expression
-	 can be re-evaluated.  */
-      switch (unsafe_for_reeval (arg0))
-	{
-	case 0: /* Safe.  */
-	  break;
-
-	case 1: /* Mildly unsafe.  */
-	  arg0 = unsave_expr (arg0);
-	  break;
-
-	case 2: /* Wildly unsafe.  */
-	  return NULL_RTX;
-	}
+      rtx insn, drop_through_label, temp;
 
       /* Expand the jump insns.  */
       start_sequence ();
       do_jump (arg0, if_false_label, if_true_label);
       ret = get_insns ();
+
+      drop_through_label = get_last_insn ();
+      if (drop_through_label && GET_CODE (drop_through_label) == NOTE)
+	drop_through_label = prev_nonnote_insn (drop_through_label);
+      if (drop_through_label && GET_CODE (drop_through_label) != CODE_LABEL)
+	drop_through_label = NULL_RTX;
       end_sequence ();
 
-      /* For mildly unsafe builtin jump's, if unsave_expr_now
-	 creates a new tree instead of changing the old one
-	 TREE_VALUE (arglist) needs to be updated.  */
-      if (arg0 != TREE_VALUE (arglist)
-	  && TREE_CODE (arg0) == UNSAVE_EXPR
-	  && TREE_OPERAND (arg0, 0) != TREE_VALUE (arglist))
-	TREE_VALUE (arglist) = TREE_OPERAND (arg0, 0);
+      if (! if_true_label)
+	if_true_label = drop_through_label;
+      if (! if_false_label)
+	if_false_label = drop_through_label;
 
-      /* Now that the __builtin_expect has been validated, go through and add
-	 the expect's to each of the conditional jumps.  If we run into an
-	 error, just give up and generate the 'safe' code of doing a SCC
-	 operation and then doing a branch on that.  */
+      /* Go through and add the expect's to each of the conditional jumps.  */
       insn = ret;
       while (insn != NULL_RTX)
 	{
@@ -4521,64 +4599,70 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	  if (GET_CODE (insn) == JUMP_INSN && any_condjump_p (insn))
 	    {
 	      rtx ifelse = SET_SRC (pc_set (insn));
-	      rtx label;
-	      int taken;
+	      rtx then_dest = XEXP (ifelse, 1);
+	      rtx else_dest = XEXP (ifelse, 2);
+	      int taken = -1;
 
-	      if (GET_CODE (XEXP (ifelse, 1)) == LABEL_REF)
+	      /* First check if we recognize any of the labels.  */
+	      if (GET_CODE (then_dest) == LABEL_REF
+		  && XEXP (then_dest, 0) == if_true_label)
+		taken = 1;
+	      else if (GET_CODE (then_dest) == LABEL_REF
+		       && XEXP (then_dest, 0) == if_false_label)
+		taken = 0;
+	      else if (GET_CODE (else_dest) == LABEL_REF
+		       && XEXP (else_dest, 0) == if_false_label)
+		taken = 1;
+	      else if (GET_CODE (else_dest) == LABEL_REF
+		       && XEXP (else_dest, 0) == if_true_label)
+		taken = 0;
+	      /* Otherwise check where we drop through.  */
+	      else if (else_dest == pc_rtx)
 		{
-		  taken = 1;
-		  label = XEXP (XEXP (ifelse, 1), 0);
-		}
-	      /* An inverted jump reverses the probabilities.  */
-	      else if (GET_CODE (XEXP (ifelse, 2)) == LABEL_REF)
-		{
-		  taken = 0;
-		  label = XEXP (XEXP (ifelse, 2), 0);
-		}
-	      /* We shouldn't have to worry about conditional returns during
-		 the expansion stage, but handle it gracefully anyway.  */
-	      else if (GET_CODE (XEXP (ifelse, 1)) == RETURN)
-		{
-		  taken = 1;
-		  label = NULL_RTX;
-		}
-	      /* An inverted return reverses the probabilities.  */
-	      else if (GET_CODE (XEXP (ifelse, 2)) == RETURN)
-		{
-		  taken = 0;
-		  label = NULL_RTX;
-		}
-	      else
-		goto do_next_insn;
+		  if (next && GET_CODE (next) == NOTE)
+		    next = next_nonnote_insn (next);
 
-	      /* If the test is expected to fail, reverse the
-		 probabilities.  */
-	      if (integer_zerop (arg1))
-		taken = 1 - taken;
+		  if (next && GET_CODE (next) == JUMP_INSN
+		      && any_uncondjump_p (next))
+		    temp = XEXP (SET_SRC (pc_set (next)), 0);
+		  else
+		    temp = next;
 
-	      /* If we are jumping to the false label, reverse the
-		 probabilities.  */
-	      if (label == NULL_RTX)
-		;		/* conditional return */
-	      else if (label == if_false_label)
-		taken = 1 - taken;
-	      else if (label != if_true_label)
-		goto do_next_insn;
+		  /* TEMP is either a CODE_LABEL, NULL_RTX or something
+		     else that can't possibly match either target label.  */
+		  if (temp == if_false_label)
+		    taken = 1;
+		  else if (temp == if_true_label)
+		    taken = 0;
+		}
+	      else if (then_dest == pc_rtx)
+		{
+		  if (next && GET_CODE (next) == NOTE)
+		    next = next_nonnote_insn (next);
 
-	      num_jumps++;
-	      predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
+		  if (next && GET_CODE (next) == JUMP_INSN
+		      && any_uncondjump_p (next))
+		    temp = XEXP (SET_SRC (pc_set (next)), 0);
+		  else
+		    temp = next;
+
+		  if (temp == if_false_label)
+		    taken = 0;
+		  else if (temp == if_true_label)
+		    taken = 1;
+		}
+
+	      if (taken != -1)
+		{
+		  /* If the test is expected to fail, reverse the
+		     probabilities.  */
+		  if (integer_zerop (arg1))
+		    taken = 1 - taken;
+	          predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
+		}
 	    }
 
-	do_next_insn:
 	  insn = next;
-	}
-
-      /* If no jumps were modified, fail and do __builtin_expect the normal
-	 way.  */
-      if (num_jumps == 0)
-	{
-	  ret = NULL_RTX;
-	  pending_stack_adjust = save_pending_stack_adjust;
 	}
     }
 
@@ -4975,6 +5059,177 @@ expand_builtin_profile_func (bool exitp)
 
   return const0_rtx;
 }
+
+/* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */
+
+static rtx
+round_trampoline_addr (rtx tramp)
+{
+  rtx temp, addend, mask;
+
+  /* If we don't need too much alignment, we'll have been guaranteed
+     proper alignment by get_trampoline_type.  */
+  if (TRAMPOLINE_ALIGNMENT <= STACK_BOUNDARY)
+    return tramp;
+
+  /* Round address up to desired boundary.  */
+  temp = gen_reg_rtx (Pmode);
+  addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
+  mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
+
+  temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
+			       temp, 0, OPTAB_LIB_WIDEN);
+  tramp = expand_simple_binop (Pmode, AND, temp, mask,
+			       temp, 0, OPTAB_LIB_WIDEN);
+
+  return tramp;
+}
+
+static rtx
+expand_builtin_init_trampoline (tree arglist)
+{
+  tree t_tramp, t_func, t_chain;
+  rtx r_tramp, r_func, r_chain;
+#ifdef TRAMPOLINE_TEMPLATE
+  rtx blktramp;
+#endif
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE,
+			 POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  t_tramp = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_func = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  t_chain = TREE_VALUE (arglist);
+
+  r_tramp = expand_expr (t_tramp, NULL_RTX, VOIDmode, 0);
+  r_func = expand_expr (t_func, NULL_RTX, VOIDmode, 0);
+  r_chain = expand_expr (t_chain, NULL_RTX, VOIDmode, 0);
+
+  /* Generate insns to initialize the trampoline.  */
+  r_tramp = round_trampoline_addr (r_tramp);
+#ifdef TRAMPOLINE_TEMPLATE
+  blktramp = gen_rtx_MEM (BLKmode, r_tramp);
+  set_mem_align (blktramp, TRAMPOLINE_ALIGNMENT);
+  emit_block_move (blktramp, assemble_trampoline_template (),
+		   GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
+#endif
+  trampolines_created = 1;
+  INITIALIZE_TRAMPOLINE (r_tramp, r_func, r_chain);
+
+  return const0_rtx;
+}
+
+static rtx
+expand_builtin_adjust_trampoline (tree arglist)
+{
+  rtx tramp;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tramp = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  tramp = round_trampoline_addr (tramp);
+#ifdef TRAMPOLINE_ADJUST_ADDRESS
+  TRAMPOLINE_ADJUST_ADDRESS (tramp);
+#endif
+
+  return tramp;
+}
+
+/* Expand a call to the built-in signbit, signbitf or signbitl function.
+   Return NULL_RTX if a normal call should be emitted rather than expanding
+   the function in-line.  EXP is the expression that is a call to the builtin
+   function; if convenient, the result should be placed in TARGET.  */
+
+static rtx
+expand_builtin_signbit (tree exp, rtx target)
+{
+  const struct real_format *fmt;
+  enum machine_mode fmode, imode, rmode;
+  HOST_WIDE_INT hi, lo;
+  tree arg, arglist;
+  int bitpos;
+  rtx temp;
+
+  arglist = TREE_OPERAND (exp, 1);
+  if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+  fmode = TYPE_MODE (TREE_TYPE (arg));
+  rmode = TYPE_MODE (TREE_TYPE (exp));
+  fmt = REAL_MODE_FORMAT (fmode);
+
+  /* For floating point formats without a sign bit, implement signbit
+     as "ARG < 0.0".  */
+  if (fmt->signbit < 0)
+  {
+    /* But we can't do this if the format supports signed zero.  */
+    if (fmt->has_signed_zero && HONOR_SIGNED_ZEROS (fmode))
+      return 0;
+
+    arg = fold (build (LT_EXPR, TREE_TYPE (exp), arg,
+		build_real (TREE_TYPE (arg), dconst0)));
+    return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
+  }
+
+  imode = int_mode_for_mode (fmode);
+  if (imode == BLKmode)
+    return 0;
+
+  bitpos = fmt->signbit;
+  /* Handle targets with different FP word orders.  */
+  if (FLOAT_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN)
+    {
+      int nwords = GET_MODE_BITSIZE (fmode) / BITS_PER_WORD;
+      int word = nwords - (bitpos / BITS_PER_WORD) - 1;
+      bitpos = word * BITS_PER_WORD + bitpos % BITS_PER_WORD;
+    }
+
+  /* If the sign bit is not in the lowpart and the floating point format
+     is wider than an integer, check that is twice the size of an integer
+     so that we can use gen_highpart below.  */
+  if (bitpos >= GET_MODE_BITSIZE (rmode)
+      && GET_MODE_BITSIZE (imode) != 2 * GET_MODE_BITSIZE (rmode))
+    return 0;
+
+  temp = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+  temp = gen_lowpart (imode, temp);
+
+  if (GET_MODE_BITSIZE (imode) > GET_MODE_BITSIZE (rmode))
+    {
+      if (BITS_BIG_ENDIAN)
+	bitpos = GET_MODE_BITSIZE (imode) - 1 - bitpos;
+      temp = copy_to_mode_reg (imode, temp);
+      temp = extract_bit_field (temp, 1, bitpos, 1,
+				NULL_RTX, rmode, rmode,
+				GET_MODE_SIZE (imode));
+    }
+  else
+    {
+      if (GET_MODE_BITSIZE (imode) < GET_MODE_BITSIZE (rmode))
+	temp = gen_lowpart (rmode, temp);
+      if (bitpos < HOST_BITS_PER_WIDE_INT)
+	{
+	  hi = 0;
+	  lo = (HOST_WIDE_INT) 1 << bitpos;
+	}
+      else
+	{
+	  hi = (HOST_WIDE_INT) 1 << (bitpos - HOST_BITS_PER_WIDE_INT);
+	  lo = 0;
+	}
+
+      temp = force_reg (rmode, temp);
+      temp = expand_binop (rmode, and_optab, temp,
+			   immed_double_const (lo, hi, rmode),
+			   target, 1, OPTAB_LIB_WIDEN);
+    }
+  return temp;
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -5124,8 +5379,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_POW:
     case BUILT_IN_POWF:
     case BUILT_IN_POWL:
-      if (! flag_unsafe_math_optimizations)
-	break;
       target = expand_builtin_pow (exp, target, subtarget);
       if (target)
 	return target;
@@ -5433,6 +5686,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 
+    case BUILT_IN_NONLOCAL_GOTO:
+      target = expand_builtin_nonlocal_goto (arglist);
+      if (target)
+	return target;
+      break;
+
     case BUILT_IN_TRAP:
       expand_builtin_trap ();
       return const0_rtx;
@@ -5478,6 +5737,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    case BUILT_IN_SIGNBIT:
+    case BUILT_IN_SIGNBITF:
+    case BUILT_IN_SIGNBITL:
+      target = expand_builtin_signbit (exp, target);
+      if (target)
+	return target;
+      break;
+
       /* Various hooks for the DWARF 2 __throw routine.  */
     case BUILT_IN_UNWIND_INIT:
       expand_builtin_unwind_init ();
@@ -5503,6 +5770,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_EH_RETURN_DATA_REGNO:
       return expand_builtin_eh_return_data_regno (arglist);
 #endif
+    case BUILT_IN_EXTEND_POINTER:
+      return expand_builtin_extend_pointer (TREE_VALUE (arglist));
+
     case BUILT_IN_VA_START:
     case BUILT_IN_STDARG_START:
       return expand_builtin_va_start (arglist);
@@ -5520,6 +5790,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return expand_builtin_profile_func (false);
     case BUILT_IN_PROFILE_FUNC_EXIT:
       return expand_builtin_profile_func (true);
+
+    case BUILT_IN_INIT_TRAMPOLINE:
+      return expand_builtin_init_trampoline (arglist);
+    case BUILT_IN_ADJUST_TRAMPOLINE:
+      return expand_builtin_adjust_trampoline (arglist);
 
     default:	/* just do library call, if unknown builtin */
       if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))
@@ -5642,6 +5917,44 @@ fold_builtin_constant_p (tree arglist)
     return integer_zero_node;
 
   return 0;
+}
+
+/* Fold a call to __builtin_expect, if we expect that a comparison against
+   the argument will fold to a constant.  In practice, this means a true
+   constant or the address of a non-weak symbol.  ARGLIST is the argument
+   list of the call.  */
+
+static tree
+fold_builtin_expect (tree arglist)
+{
+  tree arg, inner;
+
+  if (arglist == 0)
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If the argument isn't invariant, then there's nothing we can do.  */
+  if (!TREE_INVARIANT (arg))
+    return 0;
+
+  /* If we're looking at an address of a weak decl, then do not fold.  */
+  inner = arg;
+  STRIP_NOPS (inner);
+  if (TREE_CODE (inner) == ADDR_EXPR)
+    {
+      do
+	{
+	  inner = TREE_OPERAND (inner, 0);
+	}
+      while (TREE_CODE (inner) == COMPONENT_REF
+	     || TREE_CODE (inner) == ARRAY_REF);
+      if (DECL_P (inner) && DECL_WEAK (inner))
+	return 0;
+    }
+
+  /* Otherwise, ARG already has the proper type for the return value.  */
+  return arg;
 }
 
 /* Fold a call to __builtin_classify_type.  */
@@ -5988,6 +6301,38 @@ fold_builtin_ceil (tree exp)
 	  REAL_VALUE_TYPE r;
 
 	  real_ceil (&r, TYPE_MODE (type), &x);
+	  return build_real (type, r);
+	}
+    }
+
+  return fold_trunc_transparent_mathfn (exp);
+}
+
+/* Fold function call to builtin round, roundf or roundl.  Return
+   NULL_TREE if no simplification can be made.  */
+
+static tree
+fold_builtin_round (tree exp)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg;
+
+  if (! validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  /* Optimize ceil of constant value.  */
+  arg = TREE_VALUE (arglist);
+  if (TREE_CODE (arg) == REAL_CST && ! TREE_CONSTANT_OVERFLOW (arg))
+    {
+      REAL_VALUE_TYPE x;
+
+      x = TREE_REAL_CST (arg);
+      if (! REAL_VALUE_ISNAN (x) || ! flag_errno_math)
+	{
+	  tree type = TREE_TYPE (exp);
+	  REAL_VALUE_TYPE r;
+
+	  real_round (&r, TYPE_MODE (type), &x);
 	  return build_real (type, r);
 	}
     }
@@ -6567,11 +6912,49 @@ fold_builtin_strncmp (tree exp)
   return 0;
 }
 
+/* Fold function call to builtin signbit, signbitf or signbitl.  Return
+   NULL_TREE if no simplification can be made.  */
+
+static tree
+fold_builtin_signbit (tree exp)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg, temp;
+
+  if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
+    return NULL_TREE;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If ARG is a compile-time constant, determine the result.  */
+  if (TREE_CODE (arg) == REAL_CST
+      && !TREE_CONSTANT_OVERFLOW (arg))
+    {
+      REAL_VALUE_TYPE c;
+
+      c = TREE_REAL_CST (arg);
+      temp = REAL_VALUE_NEGATIVE (c) ? integer_one_node : integer_zero_node;
+      return convert (TREE_TYPE (exp), temp);
+    }
+
+  /* If ARG is non-negative, the result is always zero.  */
+  if (tree_expr_nonnegative_p (arg))
+    return omit_one_operand (TREE_TYPE (exp), integer_zero_node, arg);
+
+  /* If ARG's format doesn't have signed zeros, return "arg < 0.0".  */
+  if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg))))
+    return fold (build (LT_EXPR, TREE_TYPE (exp), arg,
+			build_real (TREE_TYPE (arg), dconst0)));
+
+  return NULL_TREE;
+}
+
+
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
-tree
-fold_builtin (tree exp)
+static tree
+fold_builtin_1 (tree exp)
 {
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
@@ -6584,6 +6967,9 @@ fold_builtin (tree exp)
     {
     case BUILT_IN_CONSTANT_P:
       return fold_builtin_constant_p (arglist);
+
+    case BUILT_IN_EXPECT:
+      return fold_builtin_expect (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
       return fold_builtin_classify_type (arglist);
@@ -6940,6 +7326,8 @@ fold_builtin (tree exp)
     case BUILT_IN_ROUND:
     case BUILT_IN_ROUNDF:
     case BUILT_IN_ROUNDL:
+      return fold_builtin_round (exp);
+
     case BUILT_IN_NEARBYINT:
     case BUILT_IN_NEARBYINTF:
     case BUILT_IN_NEARBYINTL:
@@ -6986,11 +7374,34 @@ fold_builtin (tree exp)
     case BUILT_IN_STRNCMP:
       return fold_builtin_strncmp (exp);
 
+    case BUILT_IN_SIGNBIT:
+    case BUILT_IN_SIGNBITF:
+    case BUILT_IN_SIGNBITL:
+      return fold_builtin_signbit (exp);
+
     default:
       break;
     }
 
   return 0;
+}
+
+/* A wrapper function for builtin folding that prevents warnings for
+   "statement without effect" and the like, caused by removing the 
+   call node earlier than the warning is generated.  */
+
+tree
+fold_builtin (tree exp)
+{
+  exp = fold_builtin_1 (exp);
+  if (exp)
+    {
+      /* ??? Don't clobber shared nodes such as integer_zero_node.  */
+      if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c')
+	exp = build1 (NOP_EXPR, TREE_TYPE (exp), exp);
+      TREE_NO_WARNING (exp) = 1;
+    }
+  return exp;
 }
 
 /* Conveniently construct a function call expression.  */
@@ -7002,7 +7413,7 @@ build_function_call_expr (tree fn, tree arglist)
 
   call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
   call_expr = build (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
-		     call_expr, arglist);
+		     call_expr, arglist, NULL_TREE);
   return fold (call_expr);
 }
 

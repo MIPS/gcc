@@ -123,7 +123,7 @@ and how to report bugs.
 @emph{Warning:} This document is still under development,
 and might not accurately reflect the status of the
 most recent @command{gfortran}.
-This compiler is stil under development,
+This compiler is still under development,
 and even though efforts are made to keep this document up-to-date,
 for now we will put emphasis on developing the compiler itself
 rather than on writing user documentation.
@@ -186,7 +186,7 @@ or alternative to, the unix @command{f95} command;
 @command{gfortran} is command you'll use to invoke the compiler.
 
 Gfortran is still in an early state of development.
-@command{gfortran} can generate code for most constructs and expressoins,
+@command{gfortran} can generate code for most constructs and expressions,
 but much work remains to be done.
 
 When @command{gfortran} is finished,
@@ -218,7 +218,7 @@ Usually this will be the case if the source code is flawed.
 When writing Fortran, it is easy to make big mistakes.
 The Fortran 90 requires that the compiler can point out
 mistakes to the user.
-An incorect usage of the language causes an @dfn{error message}.
+An incorrect usage of the language causes an @dfn{error message}.
 
 The compiler will also attempt to diagnose cases where the
 user's program contains a correct usage of the language,
@@ -280,7 +280,7 @@ and routines for interaction with files and the operating system.
 
 @item
 The Fortran compiler itself, (@command{f951}).
-This is the gfortan parser and code generator,
+This is the gfortran parser and code generator,
 linked to and interfaced with the GCC backend library.
 @command{f951} ``translates'' the source code to
 assembler code.  You would typically not use this
@@ -318,7 +318,7 @@ The parser takes a source file written in a
 particular computer language, reads and parses it,
 and tries to make sure that the source code conforms to
 the language rules.
-Once te correctness of a program has been established,
+Once the correctness of a program has been established,
 the compiler will build a data structure known as the
 @dfn{Abstract Syntax tree},
 or just @dfn{AST} or ``tree'' for short.
@@ -541,7 +541,7 @@ What is the current status of gfortran?
 The Fortran 95 parser is as good as finished,
 and most of the type and name resolution phase has been
 implemented as well.
-This meanse that @command{gfortran} correctly generates complete syntax
+This means that @command{gfortran} correctly generates complete syntax
 trees from the source files it gets thrown at.
 @command{gfortran} does @emph{not} produce executables for the full
 Fortran 95 language at this stage,
@@ -600,7 +600,7 @@ building the AST and making all this work together.
 
 GCC is moving to a new,
 high level intermediate representation
-(``GENERIC'', essentually a subset three-code variant of C).
+(``GENERIC'', essentially a subset three-code variant of C).
 There's some unfinished but good documentation
 on @code{tree} structures in the GCC manual,
 but these documents appear to be more useful for

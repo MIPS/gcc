@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -732,7 +732,7 @@ actual_hazard_this_instance (int unit, int instance, rtx insn, int clock, int co
    at time CLOCK.  The scheduler using only DFA description should
    never use the following function.  */
 
-HAIFA_INLINE static void
+static void
 schedule_unit (int unit, rtx insn, int clock)
 {
   int i;
@@ -764,7 +764,7 @@ schedule_unit (int unit, rtx insn, int clock)
    was COST.  The scheduler using only DFA description should never
    use the following function.  */
 
-HAIFA_INLINE static int
+static int
 actual_hazard (int unit, rtx insn, int clock, int cost)
 {
   int i;
@@ -949,9 +949,6 @@ priority (rtx insn)
 	    {
 	      rtx next;
 	      int next_priority;
-
-	      if (RTX_INTEGRATED_P (link))
-		continue;
 
 	      next = XEXP (link, 0);
 
@@ -1581,7 +1578,6 @@ restore_line_notes (rtx head, rtx tail)
 	    added_notes++;
 	    new = emit_note_after (NOTE_LINE_NUMBER (note), prev);
 	    NOTE_SOURCE_FILE (new) = NOTE_SOURCE_FILE (note);
-	    RTX_INTEGRATED_P (new) = RTX_INTEGRATED_P (note);
 	  }
       }
   if (sched_verbose && added_notes)

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -174,7 +174,7 @@ extern int target_flags;
    address register) without having to know the specific register or the
    specific offset.  The setback is that there's a limited number of
    registers, and you'll not find out until link time whether you
-   should've compiled with -mno-base-addresses.  */
+   should have compiled with -mno-base-addresses.  */
 #define TARGET_MASK_BASE_ADDRESSES 128
 
 /* FIXME: Get rid of this one.  */
@@ -292,14 +292,6 @@ extern int target_flags;
      if (0) (UNSIGNEDP) = 0;			\
    }						\
  } while (0)
-
-#define PROMOTE_FUNCTION_ARGS
-
-#if 0
-/* Apparently not doing TRT if int < register-size.  FIXME: Perhaps
-   FUNCTION_VALUE and LIBCALL_VALUE needs tweaking as some ports say.  */
-#define PROMOTE_FUNCTION_RETURN
-#endif
 
 /* I'm a little bit undecided about this one.  It might be beneficial to
    promote all operations.  */
@@ -745,7 +737,7 @@ enum reg_class
 
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).regs = 0, (CUM).lib = ((LIBNAME) != 0))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
@@ -779,11 +771,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
  mmix_function_value_regno_p (REGNO)
 
 
-/* Node: Aggregate Return */
-
-#define STRUCT_VALUE_REGNUM MMIX_STRUCT_VALUE_REGNUM
-
-
 /* Node: Caller Saves */
 /* (empty) */
 
@@ -805,12 +792,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
  mmix_function_profiler (FILE, LABELNO)
 
 /* Node: Varargs */
-
-/* For the moment, let's stick to pushing argument registers on the stack.
-   Later, we can parse all arguments in registers, to improve
-   performance.  */
-#define SETUP_INCOMING_VARARGS(A, M, T, P, S)	\
- mmix_setup_incoming_varargs(&(A), M, T, &(P), S)
 
 /* FIXME: This and other EXPAND_BUILTIN_VA_... target macros are not
    documented, although used by several targets.  */

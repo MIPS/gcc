@@ -1,4 +1,5 @@
 dnl Process this with autoconf to create configure
+AC_PREREQ(2.13)
 AC_INIT(java/lang/System.java)
 
 # This works around the fact that libtool configuration may change LD
@@ -875,11 +876,17 @@ else
 
    # Test for Gtk stuff, if asked for.
    if test "$use_gtk_awt" = yes; then
-      AM_PATH_GTK_2_0(2.2.0,,exit 1)
-      AM_PATH_GLIB_2_0(2.2.0,,exit 1,gthread)
-      dnl XXX Fix me when libart.m4 has the compile test fixed!
-      enable_libarttest=no
-      AM_PATH_LIBART(2.1.0,,exit 1)
+      PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.2)
+      AC_SUBST(GTK_CFLAGS)
+      AC_SUBST(GTK_LIBS)
+
+      PKG_CHECK_MODULES(GLIB, glib-2.0 >= 2.2 gthread-2.0 >= 2.2)
+      AC_SUBST(GLIB_CFLAGS)
+      AC_SUBST(GLIB_LIBS)
+
+      PKG_CHECK_MODULES(LIBART, libart-2.0 >= 2.1)
+      AC_SUBST(LIBART_CFLAGS)
+      AC_SUBST(LIBART_LIBS)
    fi
 
    # On Solaris, and maybe other architectures, the Boehm collector
@@ -1127,6 +1134,7 @@ AC_FUNC_MMAP
 AC_CHECK_PROGS(PERL, perl, false)
 
 SYSDEP_SOURCES=
+SIGNAL_HANDLER_AUX=
 
 case "${host}" in
  i?86-*-linux*)
@@ -1142,7 +1150,7 @@ case "${host}" in
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
- powerpc-*-linux*)
+ powerpc*-*-linux*)
     SIGNAL_HANDLER=include/powerpc-signal.h
     ;;
  alpha*-*-linux*)
@@ -1153,6 +1161,7 @@ case "${host}" in
     ;;
  x86_64*-*-linux*)
     SIGNAL_HANDLER=include/x86_64-signal.h
+    SIGNAL_HANDLER_AUX=include/i386-signal.h
     ;;
  sparc*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
@@ -1174,6 +1183,7 @@ esac
 # If we're using sjlj exceptions, forget what we just learned.
 if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
+   SIGNAL_HANDLER_AUX=
 fi
 
 # Define here any compiler flags that you need in order to make backtrace() work.
@@ -1187,7 +1197,12 @@ AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 
-AC_LINK_FILES($SIGNAL_HANDLER, include/java-signal.h)
+if test -z "$SIGNAL_HANDLER_AUX"; then
+  SIGNAL_HANDLER_AUX=$SIGNAL_HANDLER
+fi
+
+AC_LINK_FILES($SIGNAL_HANDLER $SIGNAL_HANDLER_AUX,
+	      include/java-signal.h include/java-signal-aux.h)
 
 if test "${multilib}" = "yes"; then
   multilib_arg="--enable-multilib"

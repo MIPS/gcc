@@ -79,11 +79,10 @@ struct tree_opt_pass
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
 #define TODO_rename_vars	(1 << 1)	/* rewrite new vars to ssa */
-#define TODO_redundant_phi	(1 << 2)	/* kill_redundant_phi_nodes */
-#define TODO_ggc_collect	(1 << 3)	/* run the collector */
-#define TODO_verify_ssa		(1 << 4)
-#define TODO_verify_flow	(1 << 5)
-#define TODO_verify_stmts	(1 << 6)
+#define TODO_ggc_collect	(1 << 2)	/* run the collector */
+#define TODO_verify_ssa		(1 << 3)
+#define TODO_verify_flow	(1 << 4)
+#define TODO_verify_stmts	(1 << 5)
 
 #define TODO_verify_all \
   (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
@@ -95,6 +94,7 @@ extern struct tree_opt_pass pass_remove_useless_stmts;
 extern struct tree_opt_pass pass_lower_cf;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;
+extern struct tree_opt_pass pass_tree_profile;
 extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_build_pta;
 extern struct tree_opt_pass pass_del_pta;
@@ -116,12 +116,20 @@ extern struct tree_opt_pass pass_build_ssa;
 extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
+extern struct tree_opt_pass pass_cd_dce;
 extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
 extern struct tree_opt_pass pass_lower_complex;
 extern struct tree_opt_pass pass_fold_builtins;
+extern struct tree_opt_pass pass_early_warn_uninitialized;
+extern struct tree_opt_pass pass_late_warn_uninitialized;
+extern struct tree_opt_pass pass_warn_function_return;
+extern struct tree_opt_pass pass_phiopt;
+extern struct tree_opt_pass pass_forwprop;
+extern struct tree_opt_pass pass_redundant_phi;
+extern struct tree_opt_pass pass_dse;
 
 
 #endif /* GCC_TREE_PASS_H */

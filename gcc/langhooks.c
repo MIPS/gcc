@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -267,7 +267,8 @@ hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
 rtx
 lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
 		 enum machine_mode mm ATTRIBUTE_UNUSED,
-		 int em ATTRIBUTE_UNUSED)
+		 int em ATTRIBUTE_UNUSED,
+		 rtx *a ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -470,14 +471,6 @@ lhd_expr_size (tree exp)
     return DECL_SIZE_UNIT (exp);
   else
     return size_in_bytes (TREE_TYPE (exp));
-}
-/* lang_hooks.decl_uninit: Find out if a variable is uninitialized based
-   on DECL_INITIAL.  */
-
-bool
-lhd_decl_uninit (tree t ATTRIBUTE_UNUSED)
-{
-  return false;
 }
 
 /* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */

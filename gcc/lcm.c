@@ -1,5 +1,5 @@
 /* Generic partial redundancy elimination with lazy code motion support.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -932,7 +932,7 @@ reg_dies (rtx reg, HARD_REG_SET live)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg)) - 1; nregs >= 0;
+    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
 	 nregs--)
       CLEAR_HARD_REG_BIT (live, regno + nregs);
 }
@@ -953,7 +953,7 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
 
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
-    for (nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg)) - 1; nregs >= 0;
+    for (nregs = hard_regno_nregs[regno][GET_MODE (reg)] - 1; nregs >= 0;
 	 nregs--)
       SET_HARD_REG_BIT (* (HARD_REG_SET *) live, regno + nregs);
 }

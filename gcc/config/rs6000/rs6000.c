@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -230,7 +230,7 @@ int toc_initialized;
 char toc_label_name[10];
 
 /* Alias set for saves and restores from the rs6000 stack.  */
-static int rs6000_sr_alias_set;
+static GTY(()) int rs6000_sr_alias_set;
 
 /* Call distance, overridden by -mlongcall and #pragma longcall(1).
    The only place that looks at this is rs6000_set_default_type_attributes;
@@ -595,10 +595,6 @@ static const char alt_reg_names[][8] =
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
 
-/* Structure return values are passed as an extra parameter.  */
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
-
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY rs6000_return_in_memory
 
@@ -662,8 +658,10 @@ rs6000_override_options (const char *default_cpu)
 	 {"603e", PROCESSOR_PPC603, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
 	 {"604", PROCESSOR_PPC604, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
 	 {"604e", PROCESSOR_PPC604e, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"620", PROCESSOR_PPC620, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"630", PROCESSOR_PPC630, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"620", PROCESSOR_PPC620,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+	 {"630", PROCESSOR_PPC630,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"740", PROCESSOR_PPC750, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
 	 {"7400", PROCESSOR_PPC7400, POWERPC_7400_MASK},
 	 {"7450", PROCESSOR_PPC7450, POWERPC_7400_MASK},
@@ -684,8 +682,10 @@ rs6000_override_options (const char *default_cpu)
 	 {"power", PROCESSOR_POWER, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
 	 {"power2", PROCESSOR_POWER,
 	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
-	 {"power3", PROCESSOR_PPC630, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
-	 {"power4", PROCESSOR_POWER4, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 {"power3", PROCESSOR_PPC630,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
+	 {"power4", PROCESSOR_POWER4,
+	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_POWERPC64},
@@ -695,7 +695,7 @@ rs6000_override_options (const char *default_cpu)
 	  MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING},
 	 {"rsc", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
 	 {"rsc1", PROCESSOR_PPC601, MASK_POWER | MASK_MULTIPLE | MASK_STRING},
-	 {"rs64a", PROCESSOR_RS64A, POWERPC_BASE_MASK},
+	 {"rs64a", PROCESSOR_RS64A, POWERPC_BASE_MASK | MASK_POWERPC64},
       };
 
   const size_t ptt_size = ARRAY_SIZE (processor_target_table);
@@ -834,6 +834,13 @@ rs6000_override_options (const char *default_cpu)
 	       rs6000_long_double_size_string);
       else
 	rs6000_long_double_type_size = size;
+    }
+
+  /* Set Altivec ABI as default for powerpc64 linux.  */
+  if (TARGET_ELF && TARGET_64BIT)
+    {
+      rs6000_altivec_abi = 1;
+      rs6000_altivec_vrsave = 1;
     }
 
   /* Handle -mabi= options.  */
@@ -1676,8 +1683,27 @@ easy_vector_constant (rtx op, enum machine_mode mode)
       && cst2 >= -0x7fff && cst2 <= 0x7fff)
     return 1;
 
-  if (TARGET_ALTIVEC && EASY_VECTOR_15 (cst, op, mode))
-    return 1;
+  if (TARGET_ALTIVEC)
+    switch (mode) 
+      {
+      case V4SImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xffff) != ((cst >> 16) & 0xffff))
+	  break;
+	cst = cst >> 16;
+      case V8HImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+	if ((cst & 0xff) != ((cst >> 8) & 0xff))
+	  break;
+	cst = cst >> 8;
+      case V16QImode:
+	if (EASY_VECTOR_15 (cst, op, mode))
+	  return 1;
+      default: 
+	break;
+      }
 
   if (TARGET_ALTIVEC && EASY_VECTOR_15_ADD_SELF (cst, op, mode))
     return 1;
@@ -1718,23 +1744,37 @@ output_vec_const_move (rtx *operands)
     {
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
-      else if (EASY_VECTOR_15 (cst, vec, mode))
+      else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
+	return "#";
+      else if (easy_vector_constant (vec, mode))
 	{
 	  operands[1] = GEN_INT (cst);
 	  switch (mode)
 	    {
 	    case V4SImode:
-	      return "vspltisw %0,%1";
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisw %0,%1";
+		}
+	      cst = cst >> 16;
 	    case V8HImode:
-	      return "vspltish %0,%1";
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltish %0,%1";
+		}
+	      cst = cst >> 8;
 	    case V16QImode:
-	      return "vspltisb %0,%1";
+	      if (EASY_VECTOR_15 (cst, vec, mode))
+		{
+		  operands[1] = GEN_INT (cst);
+		  return "vspltisb %0,%1";
+		}
 	    default:
 	      abort ();
 	    }
 	}
-      else if (EASY_VECTOR_15_ADD_SELF (cst, vec, mode))
-	return "#";
       else
 	abort ();
     }
@@ -2280,6 +2320,26 @@ input_operand (rtx op, enum machine_mode mode)
   return 0;
 }
 
+
+/* Darwin, AIX increases natural record alignment to doubleword if the first
+   field is an FP double while the FP fields remain word aligned.  */
+
+unsigned int
+rs6000_special_round_type_align (tree type, int computed, int specified)
+{
+  tree field = TYPE_FIELDS (type);
+
+  /* Skip all the static variables only if ABI is greater than
+     1 or equal to 0.   */
+  while (field != NULL && TREE_CODE (field) == VAR_DECL)
+    field = TREE_CHAIN (field);
+
+  if (field == NULL || field == type || DECL_MODE (field) != DFmode)
+    return MAX (computed, specified);
+
+  return MAX (MAX (computed, specified), 64);
+}
+
 /* Return 1 for an operand in small memory on V.4/eabi.  */
 
 int
@@ -2322,6 +2382,27 @@ small_data_operand (rtx op ATTRIBUTE_UNUSED,
 #else
   return 0;
 #endif
+}
+
+/* Return true, if operand is a memory operand and has a
+   displacement divisible by 4.  */
+
+int
+word_offset_memref_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  rtx addr;
+  int off = 0;
+
+  if (!memory_operand (op, mode))
+    return 0;
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) == PLUS
+      && GET_CODE (XEXP (addr, 0)) == REG
+      && GET_CODE (XEXP (addr, 1)) == CONST_INT)
+    off = INTVAL (XEXP (addr, 1));
+
+  return (off % 4) == 0;
 }
 
 /* Return true if either operand is a general purpose register.  */
@@ -2528,7 +2609,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 
   if (TARGET_ELF || TARGET_MACHO)
     {
-      if (DEFAULT_ABI != ABI_AIX && flag_pic)
+      if (DEFAULT_ABI != ABI_AIX && DEFAULT_ABI != ABI_DARWIN && flag_pic)
 	return false;
       if (TARGET_TOC)
 	return false;
@@ -3019,36 +3100,30 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
   if (GET_CODE (x) == SYMBOL_REF
       && DEFAULT_ABI == ABI_DARWIN
       && !ALTIVEC_VECTOR_MODE (mode)
-      && flag_pic)
+      && (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
+      /* Don't do this for TFmode, since the result isn't offsettable.  */
+      && mode != TFmode)
     {
-      /* Darwin load of floating point constant.  */
-      rtx offset = gen_rtx (CONST, Pmode,
-		    gen_rtx (MINUS, Pmode, x,
-		    gen_rtx (SYMBOL_REF, Pmode,
-			machopic_function_base_name ())));
-      x = gen_rtx (LO_SUM, GET_MODE (x),
-	    gen_rtx (PLUS, Pmode, pic_offset_table_rtx,
-		gen_rtx (HIGH, Pmode, offset)), offset);
+      if (flag_pic)
+	{
+	  rtx offset = gen_rtx_CONST (Pmode,
+			 gen_rtx_MINUS (Pmode, x,
+			   gen_rtx_SYMBOL_REF (Pmode,
+			     machopic_function_base_name ())));
+	  x = gen_rtx_LO_SUM (GET_MODE (x),
+		gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+		  gen_rtx_HIGH (Pmode, offset)), offset);
+	}
+      else
+	x = gen_rtx_LO_SUM (GET_MODE (x),
+              gen_rtx_HIGH (Pmode, x), x);
+
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-		opnum, (enum reload_type)type);
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		   opnum, (enum reload_type)type);
       *win = 1;
       return x;
     }
-   if (GET_CODE (x) == SYMBOL_REF
-       && DEFAULT_ABI == ABI_DARWIN
-       && !ALTIVEC_VECTOR_MODE (mode)
-       && MACHO_DYNAMIC_NO_PIC_P)
-     {
-       /* Darwin load of floating point constant.  */
-       x = gen_rtx (LO_SUM, GET_MODE (x),
-               gen_rtx (HIGH, Pmode, x), x);
-       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-               BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-               opnum, (enum reload_type)type);
-       *win = 1;
-       return x;
-     }
 #endif
   if (TARGET_TOC
       && constant_pool_expr_p (x)
@@ -3354,7 +3429,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 		      adjust_address (operands[1], SImode, 4));
       return;
     }
-  
+
   if (!no_new_pseudos)
     {
       if (GET_CODE (operands[1]) == MEM && optimize > 0
@@ -3724,7 +3799,8 @@ rs6000_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 
 void
 init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, 
-	rtx libname ATTRIBUTE_UNUSED, int incoming, int libcall)
+		      rtx libname ATTRIBUTE_UNUSED, int incoming,
+		      int libcall, int n_named_args)
 {
   static CUMULATIVE_ARGS zero_cumulative;
 
@@ -3741,17 +3817,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 	&& (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
 	    != void_type_node));
 
-  if (incoming)
-    cum->nargs_prototype = 1000;		/* don't return a PARALLEL */
-
-  else if (cum->prototype)
-    cum->nargs_prototype = (list_length (TYPE_ARG_TYPES (fntype)) - 1
-			    + (TYPE_MODE (TREE_TYPE (fntype)) == BLKmode
-			       || rs6000_return_in_memory (TREE_TYPE (fntype),
-							   fntype)));
-
-  else
-    cum->nargs_prototype = 0;
+  cum->nargs_prototype = 0;
+  if (incoming || cum->prototype)
+    cum->nargs_prototype = n_named_args;
 
   /* Check for a longcall attribute.  */
   if (fntype
@@ -3775,6 +3843,16 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
       fprintf (stderr, " proto = %d, nargs = %d\n",
 	       cum->prototype, cum->nargs_prototype);
     }
+  
+    if (fntype 
+	&& !TARGET_ALTIVEC 
+	&& TARGET_ALTIVEC_ABI
+        && ALTIVEC_VECTOR_MODE (TYPE_MODE (TREE_TYPE (fntype))))
+      {
+	error ("Cannot return value in vector register because"
+	       " altivec instructions are disabled, use -maltivec"
+	       " to enable them.");
+      }
 }
 
 /* If defined, a C expression which determines whether, and in which
@@ -3867,12 +3945,19 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
       if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
-	cum->vregno++;
-      
-      /* In variable-argument functions, vector arguments get GPRs allocated
-	 even if they are going to be passed in a vector register.  */
-      if (cum->stdarg && DEFAULT_ABI != ABI_V4)
-	{
+        {
+	  cum->vregno++;
+	  if (!TARGET_ALTIVEC)
+	    error ("Cannot pass argument in vector register because"
+		   " altivec instructions are disabled, use -maltivec"
+		   " to enable them.");
+	}
+      /* PowerPC64 Linux and AIX allocates GPRs for a vector argument
+	 even if it is going to be passed in a vector register.  
+	 Darwin does the same for variable-argument functions.  */
+      if ((DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+		   || (cum->stdarg && DEFAULT_ABI != ABI_V4))
+        {
 	  int align;
 	  
 	  /* Vector parameters must be 16-byte aligned.  This places
@@ -4176,7 +4261,32 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   if (USE_ALTIVEC_FOR_ARG_P (cum, mode, type, named))
-    return gen_rtx_REG (mode, cum->vregno);
+    if (TARGET_64BIT && ! cum->prototype)
+      {
+       /* Vector parameters get passed in vector register
+          and also in GPRs or memory, in absence of prototype.  */
+       int align_words;
+       rtx slot;
+       align_words = (cum->words + 1) & ~1;
+
+       if (align_words >= GP_ARG_NUM_REG)
+         {
+           slot = NULL_RTX;
+         }
+       else
+         {
+           slot = gen_rtx_REG (mode, GP_ARG_MIN_REG + align_words);
+         }
+       return gen_rtx_PARALLEL (mode,
+                gen_rtvec (2,
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              slot, const0_rtx),
+                           gen_rtx_EXPR_LIST (VOIDmode,
+                                              gen_rtx_REG (mode, cum->vregno),
+                                              const0_rtx)));
+      }
+    else
+      return gen_rtx_REG (mode, cum->vregno);
   else if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     {
       if (named || abi == ABI_V4)
@@ -4285,7 +4395,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 				    /* If this is partially on the stack, then
 				       we only include the portion actually
 				       in registers here.  */
-				    ? gen_rtx_REG (SImode,
+				    ? gen_rtx_REG (Pmode,
 					       GP_ARG_MIN_REG + align_words)
 				    : gen_rtx_REG (mode,
 					       GP_ARG_MIN_REG + align_words))),
@@ -4361,7 +4471,7 @@ function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 }
 
 static void
-rs6000_move_block_from_reg(int regno, rtx x, int nregs)
+rs6000_move_block_from_reg (int regno, rtx x, int nregs)
 {
   int i;
   enum machine_mode reg_mode = TARGET_32BIT ? SImode : DImode;
@@ -4626,29 +4736,7 @@ rs6000_va_arg (tree valist, tree type)
 	  return expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	}
       else
-	{
-	  /* Altivec arguments must be aligned to a 128-bit boundary.  */
-	  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
-	    {
-	      tree vtype = TREE_TYPE (valist);
-	      tree new_valist, modify;
-	      
-	      /* Round address up to multiple of 16.  Computes
-		 (addr+15)&~0xf.  */
-	      new_valist = fold (build (BIT_AND_EXPR, vtype,
-					fold (build (PLUS_EXPR, vtype, valist,
-						     build_int_2 (15, 0))),
-					build_int_2 (~15, -1)));
-
-	      /* Update valist.  */
-	      modify = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-			      new_valist);
-	      TREE_SIDE_EFFECTS (modify) = 1;
-	      expand_expr (modify, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	    }
-	  
-	  return std_expand_builtin_va_arg (valist, type);
-	}
+	return std_expand_builtin_va_arg (valist, type);
     }
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (va_list_type_node));
@@ -5446,7 +5534,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
   scratch = gen_reg_rtx (mode0);
 
   pat = GEN_FCN (icode) (scratch, op0, op1,
-			 gen_rtx (SYMBOL_REF, Pmode, opcode));
+			 gen_rtx_SYMBOL_REF (Pmode, opcode));
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -7259,6 +7347,8 @@ rs6000_init_libfuncs (void)
 	  /* AIX library routines for float->int conversion.  */
 	  set_conv_libfunc (sfix_optab, SImode, DFmode, "__itrunc");
 	  set_conv_libfunc (ufix_optab, SImode, DFmode, "__uitrunc");
+	  set_conv_libfunc (sfix_optab, SImode, TFmode, "_qitrunc");
+	  set_conv_libfunc (ufix_optab, SImode, TFmode, "_quitrunc");
 	}
 
       /* Standard AIX/Darwin/64-bit SVR4 quad floating point routines.  */
@@ -8250,10 +8340,10 @@ addrs_ok_for_quad_peep (rtx addr1, rtx addr2)
     }
 
   /* Make sure the second address is a (mem (plus (reg) (const_int)))
-      or if it is (mem (reg)) then make sure that offset1 is -8 and the same 
-      register as addr1.  */
+     or if it is (mem (reg)) then make sure that offset1 is -8 and the same 
+     register as addr1.  */
   if (offset1 == -8 && GET_CODE (addr2) == REG && reg1 == REGNO (addr2))
-   return 1;
+    return 1;
   if (GET_CODE (addr2) != PLUS)
     return 0;
 
@@ -9487,8 +9577,8 @@ rs6000_generate_compare (enum rtx_code code)
 	     However, we must be careful to emit correct RTL in
 	     the meantime, so optimizations don't get confused.  */
 
-	  or1 = gen_rtx (NE, SImode, compare_result, const0_rtx);
-	  or2 = gen_rtx (NE, SImode, compare_result2, const0_rtx);
+	  or1 = gen_rtx_NE (SImode, compare_result, const0_rtx);
+	  or2 = gen_rtx_NE (SImode, compare_result2, const0_rtx);
 
 	  /* OR them together.  */
 	  cmp = gen_rtx_SET (VOIDmode, or_result,
@@ -9545,8 +9635,8 @@ rs6000_generate_compare (enum rtx_code code)
 	}
       validate_condition_mode (or1, comp_mode);
       validate_condition_mode (or2, comp_mode);
-      or1_rtx = gen_rtx (or1, SImode, compare_result, const0_rtx);
-      or2_rtx = gen_rtx (or2, SImode, compare_result, const0_rtx);
+      or1_rtx = gen_rtx_fmt_ee (or1, SImode, compare_result, const0_rtx);
+      or2_rtx = gen_rtx_fmt_ee (or2, SImode, compare_result, const0_rtx);
       compare2_rtx = gen_rtx_COMPARE (CCEQmode,
 				      gen_rtx_IOR (SImode, or1_rtx, or2_rtx),
 				      const_true_rtx);
@@ -9558,7 +9648,7 @@ rs6000_generate_compare (enum rtx_code code)
 
   validate_condition_mode (code, GET_MODE (compare_result));
   
-  return gen_rtx (code, VOIDmode, compare_result, const0_rtx);
+  return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
 
@@ -9585,8 +9675,8 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
       
       cc_mode = GET_MODE (XEXP (condition_rtx, 0));
 
-      rev_cond_rtx = gen_rtx (rs6000_reverse_condition (cc_mode, cond_code),
-			      SImode, XEXP (condition_rtx, 0), const0_rtx);
+      rev_cond_rtx = gen_rtx_fmt_ee (rs6000_reverse_condition (cc_mode, cond_code),
+				     SImode, XEXP (condition_rtx, 0), const0_rtx);
       not_op = gen_rtx_COMPARE (CCEQmode, rev_cond_rtx, const0_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, not_result, not_op));
       condition_rtx = gen_rtx_EQ (VOIDmode, not_result, const0_rtx);
@@ -10454,16 +10544,15 @@ rs6000_stack_info (void)
   else
     info_ptr->spe_gp_size = 0;
 
-  if (TARGET_ALTIVEC_ABI && TARGET_ALTIVEC_VRSAVE)
-    {
-      info_ptr->vrsave_mask = compute_vrsave_mask ();
-      info_ptr->vrsave_size  = info_ptr->vrsave_mask ? 4 : 0;
-    }
+  if (TARGET_ALTIVEC_ABI)
+    info_ptr->vrsave_mask = compute_vrsave_mask ();
   else
-    {
-      info_ptr->vrsave_mask = 0;
-      info_ptr->vrsave_size = 0;
-    }
+    info_ptr->vrsave_mask = 0;
+
+  if (TARGET_ALTIVEC_VRSAVE && info_ptr->vrsave_mask)
+    info_ptr->vrsave_size  = 4;
+  else
+    info_ptr->vrsave_size  = 0;
 
   /* Calculate the offsets.  */
   switch (DEFAULT_ABI)
@@ -10882,11 +10971,7 @@ rs6000_ra_ever_killed (void)
   rtx reg;
   rtx insn;
 
-  /* Irritatingly, there are two kinds of thunks -- those created with
-     TARGET_ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go
-     through the regular part of the compiler.  This is a very hacky
-     way to tell them apart.  */
-  if (current_function_is_thunk && !no_new_pseudos)
+  if (current_function_is_thunk)
     return 0;
 
   /* regs_ever_live has LR marked as used if any sibcalls are present,
@@ -11075,21 +11160,21 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
     emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM), operands[0]);
 }
 
+static GTY(()) int set = -1;
+
 int   
 get_TOC_alias_set (void)
 {
-    static int set = -1;
-    if (set == -1)
-      set = new_alias_set ();
-    return set;
+  if (set == -1)
+    set = new_alias_set ();
+  return set;
 }   
 
 /* This returns nonzero if the current function uses the TOC.  This is
-   determined by the presence of (unspec ... UNSPEC_TOC) or
-   use (unspec ... UNSPEC_TOC), which are generated by the various
-   load_toc_* patterns.  */
-
-int
+   determined by the presence of (use (unspec ... UNSPEC_TOC)), which
+   is generated by the ABI_V4 load_toc_* patterns.  */
+#if TARGET_ELF
+static int
 uses_TOC (void) 
 {
   rtx insn;
@@ -11115,6 +11200,7 @@ uses_TOC (void)
       }
   return 0;
 }
+#endif
 
 rtx
 create_TOC_reference (rtx symbol) 
@@ -11625,7 +11711,8 @@ rs6000_emit_prologue (void)
      used in this function, and do the corresponding magic in the
      epilogue.  */
 
-  if (TARGET_ALTIVEC && info->vrsave_mask != 0)
+  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
+      && info->vrsave_mask != 0)
     {
       rtx reg, mem, vrsave;
       int offset;
@@ -12087,7 +12174,8 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   /* Restore VRSAVE if needed.  */
-  if (TARGET_ALTIVEC_ABI && info->vrsave_mask != 0)
+  if (TARGET_ALTIVEC_ABI && TARGET_ALTIVEC_VRSAVE 
+      && info->vrsave_mask != 0)
     {
       rtx addr, mem, reg;
 
@@ -12492,25 +12580,26 @@ rs6000_output_function_epilogue (FILE *file,
       /* Tbtab format type.  Use format type 0.  */
       fputs ("\t.byte 0,", file);
 
-      /* Language type.  Unfortunately, there doesn't seem to be any
-	 official way to get this info, so we use language_string.  C
-	 is 0.  C++ is 9.  No number defined for Obj-C, so use the
-	 value for C for now.  There is no official value for Java,
-         although IBM appears to be using 13.  */
-      if (! strcmp (language_string, "GNU C")
-	  || ! strcmp (language_string, "GNU Objective-C"))
+      /* Language type.  Unfortunately, there does not seem to be any
+	 official way to discover the language being compiled, so we
+	 use language_string.
+	 C is 0.  Fortran is 1.  Pascal is 2.  Ada is 3.  C++ is 9.
+	 Java is 13.  Objective-C is 14.  */
+      if (! strcmp (language_string, "GNU C"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
 	       || ! strcmp (language_string, "GNU F95"))
 	i = 1;
-      else if (! strcmp (language_string, "GNU Ada"))
-	i = 3;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
+      else if (! strcmp (language_string, "GNU Ada"))
+	i = 3;
       else if (! strcmp (language_string, "GNU C++"))
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
 	i = 13;
+      else if (! strcmp (language_string, "GNU Objective-C"))
+	i = 14;
       else
 	abort ();
       fprintf (file, "%d,", i);
@@ -13492,7 +13581,7 @@ output_function_profiler (FILE *file, int labelno)
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
 	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
 
-	  if (current_function_needs_context)
+	  if (cfun->static_chain_decl != NULL)
 	    {
 	      asm_fprintf (file, "\tstd %s,24(%s)\n",
 			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
@@ -14991,7 +15080,7 @@ rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
 	      return machopic_legitimize_pic_address (mem, Pmode, reg);
 	    }
 	}
-      return gen_rtx (PLUS, Pmode, base, offset);
+      return gen_rtx_PLUS (Pmode, base, offset);
     }
 
   /* Fall back on generic machopic code.  */
@@ -15112,7 +15201,7 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
 
   if (TARGET_RELOCATABLE
       && (get_pool_size () != 0 || current_function_profile)
-      && uses_TOC())
+      && uses_TOC ())
     {
       char buf[256];
 
@@ -15616,6 +15705,7 @@ rs6000_complex_function_value (enum machine_mode mode)
   unsigned int regno;
   rtx r1, r2;
   enum machine_mode inner = GET_MODE_INNER (mode);
+  unsigned int inner_bytes = GET_MODE_SIZE (inner);
 
   if (FLOAT_MODE_P (mode))
     regno = FP_ARG_RETURN;
@@ -15624,15 +15714,17 @@ rs6000_complex_function_value (enum machine_mode mode)
       regno = GP_ARG_RETURN;
 
       /* 32-bit is OK since it'll go in r3/r4.  */
-      if (TARGET_32BIT
-	  && GET_MODE_BITSIZE (inner) >= 32)
+      if (TARGET_32BIT && inner_bytes >= 4)
 	return gen_rtx_REG (mode, regno);
     }
+
+  if (inner_bytes >= 8)
+    return gen_rtx_REG (mode, regno);
 
   r1 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno),
 			  const0_rtx);
   r2 = gen_rtx_EXPR_LIST (inner, gen_rtx_REG (inner, regno + 1),
-			  GEN_INT (GET_MODE_UNIT_SIZE (inner)));
+			  GEN_INT (inner_bytes));
   return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
 }
 
@@ -15762,6 +15854,41 @@ rs6000_dwarf_register_span (rtx reg)
 		      : gen_rtvec (2,
 				   gen_rtx_REG (SImode, regno),
 				   gen_rtx_REG (SImode, regno + 1200)));
+}
+
+/* Map internal gcc register numbers to DWARF2 register numbers.  */
+
+unsigned int
+rs6000_dbx_register_number (unsigned int regno)
+{
+  if (regno <= 63 || write_symbols != DWARF2_DEBUG)
+    return regno;
+  if (regno == MQ_REGNO)
+    return 100;
+  if (regno == LINK_REGISTER_REGNUM)
+    return 108;
+  if (regno == COUNT_REGISTER_REGNUM)
+    return 109;
+  if (CR_REGNO_P (regno))
+    return regno - CR0_REGNO + 86;
+  if (regno == XER_REGNO)
+    return 101;
+  if (ALTIVEC_REGNO_P (regno))
+    return regno - FIRST_ALTIVEC_REGNO + 1124;
+  if (regno == VRSAVE_REGNO)
+    return 356;
+  if (regno == VSCR_REGNO)
+    return 67;
+  if (regno == SPE_ACC_REGNO)
+    return 99;
+  if (regno == SPEFSCR_REGNO)
+    return 612;
+  /* SPE high reg number.  We get these values of regno from
+     rs6000_dwarf_register_span.  */
+  if (regno >= 1200 && regno < 1232)
+    return regno;
+
+  abort ();
 }
 
 #include "gt-rs6000.h"

@@ -112,14 +112,13 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
-#undef LANG_HOOKS_DECL_UNINIT
-#define LANG_HOOKS_DECL_UNINIT c_decl_uninit
-
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
 #undef LANG_HOOKS_FUNCTION_FINAL
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
+#undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
+#define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
 
 #undef LANG_HOOKS_RTL_EXPAND_START
 #define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
@@ -314,9 +313,6 @@ cp_expand_decl (tree decl)
     }
   else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     make_rtl_for_local_static (decl);
-  else if (TREE_CODE (decl) == LABEL_DECL 
-	   && C_DECLARED_LABEL_FLAG (decl))
-    declare_nonlocal_label (decl);
   else
     return 0;
 

@@ -1,6 +1,6 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -70,6 +70,9 @@ definitions and other extensions.  */
 #include "except.h"
 #include "ggc.h"
 #include "debug.h"
+#include "tree-inline.h"
+#include "cgraph.h"
+#include "target.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -5449,7 +5452,7 @@ java_fix_constructors (void)
       if (CLASS_INTERFACE (TYPE_NAME (class_type)))
 	continue;
 
-      current_class = class_type;
+      output_class = current_class = class_type;
       for (decl = TYPE_METHODS (class_type); decl; decl = TREE_CHAIN (decl))
 	{
 	  if (DECL_CONSTRUCTOR_P (decl))
@@ -6483,10 +6486,20 @@ check_interface_throws_clauses (tree check_class_decl, tree class_decl)
 {
   for (; class_decl != NULL_TREE; class_decl = CLASSTYPE_SUPER (class_decl))
     {
-      tree bases = TYPE_BINFO_BASETYPES (class_decl);
-      int iface_len = TREE_VEC_LENGTH (bases) - 1;
+      tree bases;
+      int iface_len;
       int i;
 
+      if (! CLASS_LOADED_P (class_decl))
+	{
+	  if (CLASS_FROM_SOURCE_P (class_decl))
+	    safe_layout_class (class_decl);
+	  else
+	    load_class (class_decl, 1);
+	}
+
+      bases = TYPE_BINFO_BASETYPES (class_decl);
+      iface_len = TREE_VEC_LENGTH (bases) - 1;
       for (i = iface_len; i > 0; --i)
 	{
 	  tree interface = BINFO_TYPE (TREE_VEC_ELT (bases, i));
@@ -7559,7 +7572,7 @@ java_reorder_fields (void)
 
   for (current = gclass_list; current; current = TREE_CHAIN (current))
     {
-      current_class = TREE_TYPE (TREE_VALUE (current));
+      output_class = current_class = TREE_TYPE (TREE_VALUE (current));
 
       if (current_class == stop_reordering)
 	break;
@@ -7616,7 +7629,7 @@ java_layout_classes (void)
 
   for (current = gclass_list; current; current = TREE_CHAIN (current))
     {
-      current_class = TREE_TYPE (TREE_VALUE (current));
+      output_class = current_class = TREE_TYPE (TREE_VALUE (current));
       layout_class (current_class);
 
       /* Error reported by the caller */
@@ -7680,7 +7693,7 @@ java_complete_expand_methods (tree class_decl)
 {
   tree clinit, decl, first_decl;
 
-  current_class = TREE_TYPE (class_decl);
+  output_class = current_class = TREE_TYPE (class_decl);
 
   /* Pre-expand <clinit> to figure whether we really need it or
      not. If we do need it, we pre-expand the static fields so they're
@@ -7964,7 +7977,7 @@ start_complete_expand_method (tree mdecl)
       /* TREE_CHAIN (tem) will change after pushdecl. */
       tree next = TREE_CHAIN (tem);
       tree type = TREE_TYPE (tem);
-      if (PROMOTE_PROTOTYPES
+      if (targetm.calls.promote_prototypes (type)
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
 	  && INTEGRAL_TYPE_P (type))
 	type = integer_type_node;
@@ -8958,6 +8971,15 @@ java_expand_classes (void)
 
   for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
     {
+      tree current;
+      for (current = cur_ctxp->class_list; 
+	   current; 
+	   current = TREE_CHAIN (current))
+	gen_indirect_dispatch_tables (TREE_TYPE (current));
+    }
+  
+  for (cur_ctxp = ctxp_for_generation; cur_ctxp; cur_ctxp = cur_ctxp->next)
+    {
       ctxp = cur_ctxp;
       input_filename = ctxp->filename;
       lang_init_source (2);	       /* Error msgs have method prototypes */
@@ -8965,7 +8987,6 @@ java_expand_classes (void)
       java_parse_abort_on_error ();
     }
   input_filename = main_input_filename;
-
 
   /* Find anonymous classes and expand their constructor. This extra pass is
      necessary because the constructor itself is only generated when the
@@ -8976,7 +8997,7 @@ java_expand_classes (void)
       ctxp = cur_ctxp;
       for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
 	{
-	  current_class = TREE_TYPE (current);
+	  output_class = current_class = TREE_TYPE (current);
 	  if (ANONYMOUS_CLASS_P (current_class))
 	    {
 	      tree d;
@@ -9004,7 +9025,7 @@ java_expand_classes (void)
       for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
 	{
 	  tree d;
-	  current_class = TREE_TYPE (current);
+	  output_class = current_class = TREE_TYPE (current);
 	  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
 	    {
 	      if (DECL_RESULT (d) == NULL_TREE)
@@ -9035,7 +9056,7 @@ java_expand_classes (void)
 	      for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
 		{
 		  tree d;
-		  current_class = TREE_TYPE (current);
+		  output_class = current_class = TREE_TYPE (current);
 		  for (d = TYPE_METHODS (current_class); d; d = TREE_CHAIN (d))
 		    {
 		      if (DECL_RESULT (d) == NULL_TREE)
@@ -9100,7 +9121,7 @@ java_expand_classes (void)
 	   current;
 	   current = TREE_CHAIN (current))
 	{
-	  current_class = TREE_TYPE (TREE_VALUE (current));
+	  output_class = current_class = TREE_TYPE (TREE_VALUE (current));
 	  if (flag_emit_class_files)
 	    write_classfile (current_class);
 	  if (flag_emit_xref)
@@ -9121,7 +9142,7 @@ java_finish_classes (void)
       ctxp = cur_ctxp;
       for (current = ctxp->class_list; current; current = TREE_CHAIN (current))
 	{
-	  current_class = TREE_TYPE (current);
+	  output_class = current_class = TREE_TYPE (current);
 	  finish_class ();
 	}
     }
@@ -9791,7 +9812,14 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	    }
 
 	  if (not_accessible_p (TREE_TYPE (decl), decl, type, 0))
- 	    return not_accessible_field_error (qual_wfl, decl);
+	    {
+	      parse_error_context
+		(qual_wfl, "Can't access %s class '%s' from '%s'",
+		 java_accstring_lookup (get_access_flags_from_decl (decl)),
+		 IDENTIFIER_POINTER (DECL_NAME (decl)),
+		 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (current_class))));
+	      return 1;
+	    }
 	  check_deprecation (qual_wfl, decl);
 
 	  type = TREE_TYPE (decl);
@@ -12583,8 +12611,8 @@ patch_assignment (tree node, tree wfl_op1)
   new_rhs = try_builtin_assignconv (wfl_op1, lhs_type, rhs);
 
   /* 5.2 If it failed, try a reference conversion */
-  if (!new_rhs && (new_rhs = try_reference_assignconv (lhs_type, rhs)))
-    lhs_type = promote_type (rhs_type);
+  if (!new_rhs)
+    new_rhs = try_reference_assignconv (lhs_type, rhs);
 
   /* 15.25.2 If we have a compound assignment, convert RHS into the
      type of the LHS */

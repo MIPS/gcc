@@ -1,5 +1,5 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
@@ -200,6 +200,8 @@ static void c4x_globalize_label (FILE *, const char *);
 static bool c4x_rtx_costs (rtx, int, int, int *);
 static int c4x_address_cost (rtx);
 static void c4x_init_libfuncs (void);
+static void c4x_external_libcall (rtx);
+static rtx c4x_struct_value_rtx (tree, int);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -214,6 +216,9 @@ static void c4x_init_libfuncs (void);
 #define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END c4x_file_end
+
+#undef TARGET_ASM_EXTERNAL_LIBCALL
+#define TARGET_ASM_EXTERNAL_LIBCALL c4x_external_libcall
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE c4x_attribute_table
@@ -243,6 +248,9 @@ static void c4x_init_libfuncs (void);
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS c4x_init_libfuncs
+
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX c4x_struct_value_rtx
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -791,18 +799,20 @@ c4x_naked_function_p (void)
 int
 c4x_interrupt_function_p (void)
 {
+  const char *cfun_name;
   if (lookup_attribute ("interrupt",
 			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
     return 1;
 
   /* Look for TI style c_intnn.  */
-  return current_function_name[0] == 'c'
-    && current_function_name[1] == '_'
-    && current_function_name[2] == 'i'
-    && current_function_name[3] == 'n' 
-    && current_function_name[4] == 't'
-    && ISDIGIT (current_function_name[5])
-    && ISDIGIT (current_function_name[6]);
+  cfun_name = current_function_name ();
+  return cfun_name[0] == 'c'
+    && cfun_name[1] == '_'
+    && cfun_name[2] == 'i'
+    && cfun_name[3] == 'n' 
+    && cfun_name[4] == 't'
+    && ISDIGIT (cfun_name[5])
+    && ISDIGIT (cfun_name[6]);
 }
 
 void
@@ -846,7 +856,7 @@ c4x_expand_prologue (void)
 	     storage!  */
 	  if (size > 32767)
 	    error ("ISR %s requires %d words of local vars, max is 32767",
-		   current_function_name, size);
+		   current_function_name (), size);
 
 	  insn = emit_insn (gen_addqi3 (gen_rtx_REG (QImode, SP_REGNO),
 				        gen_rtx_REG (QImode, SP_REGNO),
@@ -1067,7 +1077,7 @@ c4x_expand_epilogue(void)
 					 gen_rtx_PLUS 
 					 (QImode, gen_rtx_REG (QImode,
 							       AR3_REGNO),
-					  GEN_INT(-1)))));
+					  constm1_rtx))));
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      
 	      /* We already have the return value and the fp,
@@ -1234,10 +1244,11 @@ c4x_emit_move_sequence (rtx *operands, enum machine_mode mode)
       && dp_reg_operand (XEXP (op1, 0), mode))
     {
       /* expand_increment will sometimes create a LO_SUM immediate
-	 address.  */
+	 address.  Undo this sillyness.  */
       op1 = XEXP (op1, 1);
     }
-  else if (symbolic_address_operand (op1, mode))
+  
+  if (symbolic_address_operand (op1, mode))
     {
       if (TARGET_LOAD_ADDRESS)
 	{
@@ -1379,13 +1390,13 @@ c4x_emit_libcall (rtx libcall, enum rtx_code code,
     case 2:
       ret = emit_library_call_value (libcall, NULL_RTX, 1, dmode, 1,
 				     operands[1], smode);
-      equiv = gen_rtx (code, dmode, operands[1]);
+      equiv = gen_rtx_fmt_e (code, dmode, operands[1]);
       break;
 
     case 3:
       ret = emit_library_call_value (libcall, NULL_RTX, 1, dmode, 2,
 				     operands[1], smode, operands[2], smode);
-      equiv = gen_rtx (code, dmode, operands[1], operands[2]);
+      equiv = gen_rtx_fmt_ee (code, dmode, operands[1], operands[2]);
       break;
 
     default:
@@ -1420,8 +1431,8 @@ c4x_emit_libcall_mulhi (rtx libcall, enum rtx_code code,
   equiv = gen_rtx_TRUNCATE (mode,
                    gen_rtx_LSHIFTRT (HImode,
                             gen_rtx_MULT (HImode,
-                                     gen_rtx (code, HImode, operands[1]),
-                                     gen_rtx (code, HImode, operands[2])),
+                                     gen_rtx_fmt_e (code, HImode, operands[1]),
+                                     gen_rtx_fmt_e (code, HImode, operands[2])),
                                      GEN_INT (32)));
   insns = get_insns ();
   end_sequence ();
@@ -1430,7 +1441,7 @@ c4x_emit_libcall_mulhi (rtx libcall, enum rtx_code code,
 
 
 int
-c4x_check_legit_addr (enum machine_mode mode, rtx addr, int strict)
+c4x_legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 {
   rtx base = NULL_RTX;		/* Base register (AR0-AR7).  */
   rtx indx = NULL_RTX;		/* Index register (IR0,IR1).  */
@@ -1469,7 +1480,9 @@ c4x_check_legit_addr (enum machine_mode mode, rtx addr, int strict)
 	    || (GET_CODE (op1) != PLUS && GET_CODE (op1) != MINUS))
 	  return 0;
 	base = XEXP (op1, 0);
-	if (base != op0)
+	if (! REG_P (base))
+	    return 0;
+	if (REGNO (base) != REGNO (op0))
 	  return 0;
 	if (REG_P (XEXP (op1, 1)))
 	  indx = XEXP (op1, 1);
@@ -2346,8 +2359,8 @@ c4x_rptb_insert (rtx insn)
     {
       /* We can not use the rptb insn.  Replace it so reorg can use
          the delay slots of the jump insn.  */
-      emit_insn_before (gen_addqi3 (count_reg, count_reg, GEN_INT (-1)), insn);
-      emit_insn_before (gen_cmpqi (count_reg, GEN_INT (0)), insn);
+      emit_insn_before (gen_addqi3 (count_reg, count_reg, constm1_rtx), insn);
+      emit_insn_before (gen_cmpqi (count_reg, const0_rtx), insn);
       emit_insn_before (gen_bge (start_label), insn);
       LABEL_NUSES (start_label)++;
       delete_insn (insn);
@@ -3263,7 +3276,8 @@ src_operand (rtx op, enum machine_mode mode)
       && ((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
 	   || GET_CODE (XEXP (op, 0)) == LABEL_REF
 	   || GET_CODE (XEXP (op, 0)) == CONST)))
-    return ! TARGET_LOAD_DIRECT_MEMS && GET_MODE (op) == mode;
+    return !TARGET_EXPOSE_LDP && 
+      ! TARGET_LOAD_DIRECT_MEMS && GET_MODE (op) == mode;
 
   return general_operand (op, mode);
 }
@@ -3461,7 +3475,7 @@ c4x_S_address_parse (rtx op, int *base, int *incdec, int *index, int *disp)
 	    return;
 	  }
       }
-      /* Fallthrough.  */
+      /* Fall through.  */
 
     default:
       fatal_insn ("invalid indirect (S) memory address", op);
@@ -3731,10 +3745,16 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
 		    enum machine_mode mode ATTRIBUTE_UNUSED,
 		    int force)
 {
+  rtx op0;
   rtx op1;
   rtx op2;
   enum rtx_code code1;
   enum rtx_code code2;
+
+
+  /* FIXME, why can't we tighten the operands for IF_THEN_ELSE?  */
+  if (code == IF_THEN_ELSE)
+      return 1 || (operands[0] == operands[2] || operands[0] == operands[3]);
 
   if (code == COMPARE)
     {
@@ -3747,6 +3767,10 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
       op2 = operands[2];
     }
 
+  op0 = operands[0];
+
+  if (GET_CODE (op0) == SUBREG)
+    op0 = SUBREG_REG (op0);
   if (GET_CODE (op1) == SUBREG)
     op1 = SUBREG_REG (op1);
   if (GET_CODE (op2) == SUBREG)
@@ -3755,6 +3779,7 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
   code1 = GET_CODE (op1);
   code2 = GET_CODE (op2);
 
+  
   if (code1 == REG && code2 == REG)
     return 1;
 
@@ -3765,6 +3790,7 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
       return c4x_R_indirect (op1) && c4x_R_indirect (op2);
     }
 
+  /* We cannot handle two MEMs or two CONSTS, etc.  */
   if (code1 == code2)
     return 0;
 
@@ -3784,6 +3810,7 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
 
 	  /* Any valid memory operand screened by src_operand is OK.  */
   	case MEM:
+	  break;
 	  
 	  /* After CSE, any remaining (ADDRESSOF:P reg) gets converted
 	     into a stack slot memory address comprising a PLUS and a
@@ -3796,54 +3823,71 @@ c4x_valid_operands (enum rtx_code code, rtx *operands,
 	  break;
 	}
       
+      if (GET_CODE (op0) == SCRATCH)
+	  return 1;
+
+      if (!REG_P (op0))
+	  return 0;
+
       /* Check that we have a valid destination register for a two operand
 	 instruction.  */
-      return ! force || code == COMPARE || REGNO (op1) == REGNO (operands[0]);
+      return ! force || code == COMPARE || REGNO (op1) == REGNO (op0);
     }
 
-  /* We assume MINUS is commutative since the subtract patterns
-     also support the reverse subtract instructions.  Since op1
-     is not a register, and op2 is a register, op1 can only
-     be a restricted memory operand for a shift instruction.  */
+
+  /* Check non-commutative operators.  */
   if (code == ASHIFTRT || code == LSHIFTRT
       || code == ASHIFT || code == COMPARE)
     return code2 == REG
       && (c4x_S_indirect (op1) || c4x_R_indirect (op1));
-  
-  switch (code1)
+
+
+  /* Assume MINUS is commutative since the subtract patterns
+     also support the reverse subtract instructions.  Since op1
+     is not a register, and op2 is a register, op1 can only
+     be a restricted memory operand for a shift instruction.  */
+  if (code2 == REG)
     {
-    case CONST_INT:
-      if (c4x_J_constant (op1) && c4x_R_indirect (op2))
-	return 1;
-      break;
+      switch (code1)
+	{
+	case CONST_INT:
+	  break;
       
-    case CONST_DOUBLE:
-      if (! c4x_H_constant (op1))
-	return 0;
-      break;
+	case CONST_DOUBLE:
+	  if (! c4x_H_constant (op1))
+	    return 0;
+	  break;
 
-      /* Any valid memory operand screened by src_operand is OK.  */      
-    case MEM:
-#if 0
-      if (code2 != REG)
-	return 0;
-#endif
-      break;
+	  /* Any valid memory operand screened by src_operand is OK.  */      
+	case MEM:
+	  break;
+	  
+	  /* After CSE, any remaining (ADDRESSOF:P reg) gets converted
+	     into a stack slot memory address comprising a PLUS and a
+	     constant.  */
+	case ADDRESSOF:
+	  break;
+	  
+	default:
+	  abort ();
+	  break;
+	}
 
-      /* After CSE, any remaining (ADDRESSOF:P reg) gets converted
-	 into a stack slot memory address comprising a PLUS and a
-	 constant.  */
-    case ADDRESSOF:
-      break;
-      
-    default:
-      abort ();
-      break;
+      if (GET_CODE (op0) == SCRATCH)
+	  return 1;
+
+      if (!REG_P (op0))
+	  return 0;
+
+      /* Check that we have a valid destination register for a two operand
+	 instruction.  */
+      return ! force || REGNO (op1) == REGNO (op0);
     }
       
-  /* Check that we have a valid destination register for a two operand
-     instruction.  */
-  return ! force || REGNO (op1) == REGNO (operands[0]);
+  if (c4x_J_constant (op1) && c4x_R_indirect (op2))
+    return 1;
+
+  return 0;
 }
 
 
@@ -3910,7 +3954,7 @@ legitimize_operands (enum rtx_code code, rtx *operands, enum machine_mode mode)
 
   /* We can get better code on a C30 if we force constant shift counts
      into a register.  This way they can get hoisted out of loops,
-     tying up a register, but saving an instruction.  The downside is
+     tying up a register but saving an instruction.  The downside is
      that they may get allocated to an address or index register, and
      thus we will get a pipeline conflict if there is a nearby
      indirect address using an address register. 
@@ -3944,6 +3988,17 @@ legitimize_operands (enum rtx_code code, rtx *operands, enum machine_mode mode)
       && (GET_CODE (operands[2]) != CONST_INT))
     operands[2] = gen_rtx_NEG (mode, negate_rtx (mode, operands[2]));
   
+
+  /* When the shift count is greater than 32 then the result 
+     can be implementation dependent.  We truncate the result to
+     fit in 5 bits so that we do not emit invalid code when
+     optimizing---such as trying to generate lhu2 with 20021124-1.c.  */
+  if (((code == ASHIFTRT || code == LSHIFTRT || code == ASHIFT)
+      && (GET_CODE (operands[2]) == CONST_INT))
+      && INTVAL (operands[2]) > (GET_MODE_BITSIZE (mode) - 1))
+      operands[2]
+	  = GEN_INT (INTVAL (operands[2]) & (GET_MODE_BITSIZE (mode) - 1));
+
   return 1;
 }
 
@@ -4969,4 +5024,22 @@ c4x_rtx_costs (rtx x, int code, int outer_code, int *total)
     default:
       return false;
     }
+}
+
+/* Worker function for TARGET_ASM_EXTERNAL_LIBCALL.  */
+
+static void
+c4x_external_libcall (rtx fun)
+{
+  /* This is only needed to keep asm30 happy for ___divqf3 etc.  */
+  c4x_external_ref (XSTR (fun, 0));
+}
+
+/* Worker function for TARGET_STRUCT_VALUE_RTX.  */
+
+static rtx
+c4x_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		      int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, AR0_REGNO);
 }

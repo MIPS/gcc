@@ -344,7 +344,7 @@ free_lim_aux_data (struct lim_aux_data *data)
 
 static void
 determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
-			      basic_block bb, tree last ATTRIBUTE_UNUSED)
+			      basic_block bb)
 {
   enum move_pos pos;
   block_stmt_iterator bsi;
@@ -403,10 +403,10 @@ determine_invariantness (void)
   struct dom_walk_data walk_data;
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
-  walk_data.before_dom_children_walk_stmts = determine_invariantness_stmt;
+  walk_data.before_dom_children_before_stmts = determine_invariantness_stmt;
 
   init_walk_dominator_tree (&walk_data);
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL_TREE);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 }
 
@@ -415,7 +415,7 @@ determine_invariantness (void)
 
 static void
 move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
-			basic_block bb, tree last ATTRIBUTE_UNUSED)
+			basic_block bb)
 {
   struct loop *level;
   block_stmt_iterator bsi;
@@ -466,10 +466,10 @@ move_computations (void)
   int old_last_basic_block, i;
 
   memset (&walk_data, 0, sizeof (struct dom_walk_data));
-  walk_data.before_dom_children_walk_stmts = move_computations_stmt;
+  walk_data.before_dom_children_before_stmts = move_computations_stmt;
 
   init_walk_dominator_tree (&walk_data);
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR, NULL_TREE);
+  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
   old_last_basic_block = last_basic_block;

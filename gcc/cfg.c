@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -189,9 +189,9 @@ alloc_block (void)
 void
 alloc_rbi_pool (void)
 {
-  rbi_pool =  create_alloc_pool ("rbi pool", 
-				 sizeof (struct reorder_block_def),
-				 n_basic_blocks + 2);
+  rbi_pool = create_alloc_pool ("rbi pool", 
+				sizeof (struct reorder_block_def),
+				n_basic_blocks + 2);
 }
 
 /* Free rbi_pool.  */
@@ -202,7 +202,8 @@ free_rbi_pool (void)
   free_alloc_pool (rbi_pool);
 }
 
-/* Initialize rbi for the given basic block.  */
+/* Initialize rbi (the structure containing data used by basic block
+   duplication and reordering) for the given basic block.  */
 
 void
 initialize_bb_rbi (basic_block bb)
@@ -317,7 +318,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
       if (flags == 0)
 	return NULL;
 
-      /* FALLTHRU */
+      /* Fall through.  */
     case 0:
       for (e = src->succ; e; e = e->succ_next)
 	if (e->dest == dst)
@@ -471,54 +472,56 @@ void
 dump_flow_info (FILE *file)
 {
   int i;
-  int max_regno = max_reg_num ();
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  fprintf (file, "%d registers.\n", max_regno);
   if (reg_n_info)
-    for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-      if (REG_N_REFS (i))
-	{
-	  enum reg_class class, altclass;
+    {
+      int max_regno = max_reg_num ();
+      fprintf (file, "%d registers.\n", max_regno);
+      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+	if (REG_N_REFS (i))
+	  {
+	    enum reg_class class, altclass;
 
-	  fprintf (file, "\nRegister %d used %d times across %d insns",
-		   i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
-	  if (REG_BASIC_BLOCK (i) >= 0)
-	    fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
-	  if (REG_N_SETS (i))
-	    fprintf (file, "; set %d time%s", REG_N_SETS (i),
-		     (REG_N_SETS (i) == 1) ? "" : "s");
-	  if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
-	    fprintf (file, "; user var");
-	  if (REG_N_DEATHS (i) != 1)
-	    fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
-	  if (REG_N_CALLS_CROSSED (i) == 1)
-	    fprintf (file, "; crosses 1 call");
-	  else if (REG_N_CALLS_CROSSED (i))
-	    fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	  if (regno_reg_rtx[i] != NULL
-	      && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
-	    fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
+	    fprintf (file, "\nRegister %d used %d times across %d insns",
+		     i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
+	    if (REG_BASIC_BLOCK (i) >= 0)
+	      fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
+	    if (REG_N_SETS (i))
+	      fprintf (file, "; set %d time%s", REG_N_SETS (i),
+		       (REG_N_SETS (i) == 1) ? "" : "s");
+	    if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
+	      fprintf (file, "; user var");
+	    if (REG_N_DEATHS (i) != 1)
+	      fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
+	    if (REG_N_CALLS_CROSSED (i) == 1)
+	      fprintf (file, "; crosses 1 call");
+	    else if (REG_N_CALLS_CROSSED (i))
+	      fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+	    if (regno_reg_rtx[i] != NULL
+		&& PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	      fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
-	  class = reg_preferred_class (i);
-	  altclass = reg_alternate_class (i);
-	  if (class != GENERAL_REGS || altclass != ALL_REGS)
-	    {
-	      if (altclass == ALL_REGS || class == ALL_REGS)
-		fprintf (file, "; pref %s", reg_class_names[(int) class]);
-	      else if (altclass == NO_REGS)
-		fprintf (file, "; %s or none", reg_class_names[(int) class]);
-	      else
-		fprintf (file, "; pref %s, else %s",
-			 reg_class_names[(int) class],
-			 reg_class_names[(int) altclass]);
-	    }
+	    class = reg_preferred_class (i);
+	    altclass = reg_alternate_class (i);
+	    if (class != GENERAL_REGS || altclass != ALL_REGS)
+	      {
+		if (altclass == ALL_REGS || class == ALL_REGS)
+		  fprintf (file, "; pref %s", reg_class_names[(int) class]);
+		else if (altclass == NO_REGS)
+		  fprintf (file, "; %s or none", reg_class_names[(int) class]);
+		else
+		  fprintf (file, "; pref %s, else %s",
+			   reg_class_names[(int) class],
+			   reg_class_names[(int) altclass]);
+	      }
 
-	  if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
-	    fprintf (file, "; pointer");
-	  fprintf (file, ".\n");
-	}
+	    if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
+	      fprintf (file, "; pointer");
+	    fprintf (file, ".\n");
+	  }
+    }
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
@@ -527,8 +530,7 @@ dump_flow_info (FILE *file)
       int sum;
       gcov_type lsum;
 
-      fprintf (file, "\nBasic block %d: first insn %d, last %d, ",
-	       bb->index, INSN_UID (BB_HEAD (bb)), INSN_UID (BB_END (bb)));
+      fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
 	       bb->prev_bb->index, bb->next_bb->index);
       fprintf (file, "loop_depth %d, count ", bb->loop_depth);

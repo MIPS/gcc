@@ -152,7 +152,7 @@ We recommend you browse the entire generic installation instructions before
 you proceed.
 
 Lists of successful builds for released versions of GCC are
-available at @uref{http://gcc.gnu.org/buildstat.html}. 
+available at @uref{http://gcc.gnu.org/buildstat.html}.
 These lists are updated as new information becomes available.
 
 The installation procedure itself is broken into five steps.
@@ -256,7 +256,7 @@ use @command{bash} to be sure.  Then set @env{CONFIG_SHELL} in your
 environment to your ``good'' shell prior to running
 @command{configure}/@command{make}.
 
-@command{zsh} is not a fully compliant POSIX shell and will not 
+@command{zsh} is not a fully compliant POSIX shell and will not
 work when configuring GCC.
 
 @item GNU binutils
@@ -293,14 +293,24 @@ systems' @command{tar} programs will also work, only try GNU
 Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.13 (exactly), but @file{libiberty},
-@file{fastjar}, and @file{libstdc++-v3} require autoconf 2.57 (exactly).
+@file{fastjar}, @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{gcc}
+require autoconf 2.57 (exactly).
 
-@item automake versions 1.4-p? and 1.7.?
+@item automake versions 1.4-gcj and 1.7.9
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
-associated @file{Makefile.in}.  Most directories require a 1.4 series
-automake; @file{libstdc++-v3} and @file{fastjar} requires a 1.7 series
-automake.
+associated @file{Makefile.in}.
+
+Much of GCC does not use automake, so directly edit the @file{Makefile.in}
+file.  Specifically this applies to the @file{gcc}, @file{intl},
+@file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
+of their subdirectories.
+
+The @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{fastjar}
+directories require automake 1.7.9.  However, the Java directories, which
+include @file{boehm-gc}, @file{libffi}, @file{libjava}, and @file{zlib},
+require a modified version of automake 1.4 downloadable from
+@uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
 
 @item gettext version 0.12 (or later)
 
@@ -326,7 +336,7 @@ Necessary to regenerate @file{fixinc/fixincl.x} from
 
 Necessary to run the @file{fixinc} @command{make check}.
 
-Necessary to regenerate the top level @file{Makefile.am} files from
+Necessary to regenerate the top level @file{Makefile.in} file from
 @file{Makefile.tpl} and @file{Makefile.def}.
 
 @item GNU Bison version 1.28 (or later)
@@ -512,11 +522,11 @@ affected by this requirement, see
 
 To configure GCC:
 
-@example
+@smallexample
    % mkdir @var{objdir}
    % cd @var{objdir}
    % @var{srcdir}/configure [@var{options}] [@var{target}]
-@end example
+@end smallexample
 
 
 @heading Target specification
@@ -529,7 +539,7 @@ provide a configure target when configuring a native compiler.
 @item
 @var{target} must be specified as @option{--target=@var{target}}
 when configuring a cross compiler; examples of valid targets would be
-i960-rtems, m68k-coff, sh-elf, etc.
+m68k-coff, sh-elf, etc.
 
 @item
 Specifying just @var{target} instead of @option{--target=@var{target}}
@@ -599,7 +609,7 @@ manual.)
 @item --with-gxx-include-dir=@var{dirname}
 Specify
 the installation directory for G++ header files.  The default is
-@file{@var{prefix}/include/g++-v3}.
+@file{@var{prefix}/include/c++/@var{version}}.
 
 @end table
 
@@ -925,18 +935,27 @@ and SPARC@.
 @itemx --with-arch=@var{cpu}
 @itemx --with-tune=@var{cpu}
 @itemx --with-abi=@var{abi}
+@itemx --with-fpu=@var{type}
 @itemx --with-float=@var{type}
 These configure options provide default values for the @option{-mschedule=},
-@option{-march=}, @option{-mtune=}, and @option{-mabi=} options and for
-@option{-mhard-float} or @option{-msoft-float}.  As with @option{--with-cpu},
-which switches will be accepted and acceptable values of the arguments depend
-on the target.
+@option{-march=}, @option{-mtune=}, @option{-mabi=}, and @option{-mfpu=}
+options and for @option{-mhard-float} or @option{-msoft-float}.  As with
+@option{--with-cpu}, which switches will be accepted and acceptable values
+of the arguments depend on the target.
 
 @item --enable-altivec
 Specify that the target supports AltiVec vector enhancements.  This
 option will adjust the ABI for AltiVec enhancements, as well as generate
 AltiVec code when appropriate.  This option is only available for
 PowerPC systems.
+
+@item --enable-__cxa_atexit
+Define if you want to use __cxa_atexit, rather than atexit, to
+register C++ destructors for local statics and global objects.
+This is essential for fully standards-compliant handling of
+destructors, but requires __cxa_atexit in libc. This option is currently
+only available on systems with GNU libc. When enabled, this will cause
+@option{-fuse-cxa-exit} to be passed by default.
 
 @item --enable-target-optspace
 Specify that target
@@ -979,7 +998,7 @@ If you configure with @option{--enable-generated-files-in-srcdir} then those
 generated files will go into the source directory.  This is mainly intended
 for generating release or prerelease tarballs of the GCC sources, since it
 is not a requirement that the users of source releases to have flex, bison, or
-makeinfo.  
+makeinfo.
 
 @item --enable-version-specific-runtime-libs
 Specify
@@ -998,9 +1017,9 @@ Specify that only a particular subset of compilers and
 their runtime libraries should be built.  For a list of valid values for
 @var{langN} you can issue the following command in the
 @file{gcc} directory of your GCC source tree:@*
-@example
+@smallexample
 grep language= */config-lang.in
-@end example
+@end smallexample
 Currently, you can use any of the following:
 @code{ada}, @code{c}, @code{c++}, @code{f77}, @code{f95}, @code{java},
 @code{objc}.
@@ -1009,6 +1028,12 @@ If you do not pass this flag, all languages available in the @file{gcc}
 sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
 @samp{make bootstrap} @strong{does not} work anymore, as those
 language sub-directories might not have been configured!
+
+@item --disable-libada
+Specify that the run-time libraries and tools used by GNAT should not
+be built.  This can be useful for debugging, or for compatibility with
+previous Ada build procedures, when it was required to explicitely
+do a @samp{make -C gcc gnatlib_and_tools}.
 
 @item --disable-libgcj
 Specify that the run-time libraries
@@ -1029,7 +1054,7 @@ use DWARF 2 debugging information as the default.
 @item --enable-win32-registry
 @itemx --enable-win32-registry=@var{key}
 @itemx --disable-win32-registry
-The @option{--enable-win32-registry} option enables Windows-hosted GCC
+The @option{--enable-win32-registry} option enables Microsoft Windows-hosted GCC
 to look up installations paths in the registry using the following key:
 
 @smallexample
@@ -1089,9 +1114,9 @@ enable optimization. When coverage is enabled, the default level is
 without optimization.
 
 @item --enable-gather-detailed-mem-stats
-When this option is specfied more detailed information on memory
+When this option is specified more detailed information on memory
 allocation is gathered.  This information is printed when using
-@option{-fmem-report}. 
+@option{-fmem-report}.
 
 @item --enable-nls
 @itemx --disable-nls
@@ -1205,7 +1230,7 @@ corresponding @option{--without} option.
 Now that GCC is configured, you are ready to build the compiler and
 runtime libraries.
 
-We @strong{highly} recommend that GCC be built using GNU make; 
+We @strong{highly} recommend that GCC be built using GNU make;
 other versions may work, then again they might not.
 GNU make is required for compiling GNAT (the Ada compiler) and the Java
 runtime library.
@@ -1294,10 +1319,10 @@ without debugging information as in the following example.  This will save
 roughly 40% of disk space both for the bootstrap and the final installation.
 (Libraries will still contain debugging information.)
 
-@example
+@smallexample
      make CFLAGS='-O' LIBCFLAGS='-g -O2' \
        LIBCXXFLAGS='-g -O2 -fno-implicit-templates' bootstrap
-@end example
+@end smallexample
 
 If you wish to use non-default GCC flags when compiling the stage2 and
 stage3 compilers, set @code{BOOT_CFLAGS} on the command line when doing
@@ -1429,30 +1454,14 @@ and has a sufficiently recent version; if too old a GNAT version is
 installed, the build will fail unless @option{--enable-languages} is
 used to disable building the Ada front end.
 
-At the moment, the GNAT library and several tools for GNAT are not built
-by @samp{make bootstrap}.  For a native build, you have to invoke
-@samp{make gnatlib_and_tools} in the @file{@var{objdir}/gcc}
-subdirectory before proceeding with the next steps.
-For a cross build, you need to invoke
-@samp{make gnatlib cross-gnattools ada.all.cross}.  For a canadian
-cross you only need to invoke @samp{make cross-gnattools}; the GNAT
-library would be the same as the one built for the cross compiler.
-
 For example, you can build a native Ada compiler by issuing the
 following commands (assuming @command{make} is GNU make):
 
-@example
+@smallexample
     cd @var{objdir}
     @var{srcdir}/configure --enable-languages=c,ada
-    cd @var{objdir}
     make bootstrap
-    cd gcc
-    make gnatlib_and_tools
-    cd ..
-@end example
-
-Currently, when compiling the Ada front end, you cannot use the parallel
-build feature described in the previous section.
+@end smallexample
 
 @section Building with profile feedback
 
@@ -1519,10 +1528,10 @@ installed are not in the @env{PATH}, you may need to set the following
 environment variables appropriately, as in the following example (which
 assumes that DejaGnu has been installed under @file{/usr/local}):
 
-@example
+@smallexample
      TCL_LIBRARY = /usr/local/share/tcl8.0
      DEJAGNULIBS = /usr/local/share/dejagnu
-@end example
+@end smallexample
 
 (On systems such as Cygwin, these paths are required to be actual
 paths, not mounts or links; presumably this is due to some lack of
@@ -1530,14 +1539,14 @@ portability in the DejaGnu code.)
 
 
 Finally, you can run the testsuite (which may take a long time):
-@example
+@smallexample
      cd @var{objdir}; make -k check
-@end example
+@end smallexample
 
 This will test various components of GCC, such as compiler
 front ends and runtime libraries.  While running the testsuite, DejaGnu
 might emit some harmless messages resembling
-@samp{WARNING: Couldn't find the global config file.} or 
+@samp{WARNING: Couldn't find the global config file.} or
 @samp{WARNING: Couldn't find tool init file} that can be ignored.
 
 @section How can I run the test suite on selected tests?
@@ -1551,16 +1560,16 @@ just run @samp{make check} in a subdirectory of the object directory.
 A more selective way to just run all @command{gcc} execute tests in the
 testsuite is to use
 
-@example
+@smallexample
     make check-gcc RUNTESTFLAGS="execute.exp @var{other-options}"
-@end example
+@end smallexample
 
 Likewise, in order to run only the @command{g++} ``old-deja'' tests in
 the testsuite with filenames matching @samp{9805*}, you would use
 
-@example
+@smallexample
     make check-g++ RUNTESTFLAGS="old-deja.exp=9805* @var{other-options}"
-@end example
+@end smallexample
 
 The @file{*.exp} files are located in the testsuite directories of the GCC
 source, the most important ones being @file{compile.exp},
@@ -1576,9 +1585,9 @@ You can pass multiple options to the testsuite using the
 @samp{RUNTESTFLAGS}, or directly to @command{runtest} if you prefer to
 work outside the makefiles.  For example,
 
-@example
+@smallexample
     make check-g++ RUNTESTFLAGS="--target_board=unix/-O3/-fno-strength-reduce"
-@end example
+@end smallexample
 
 will run the standard @command{g++} testsuites (``unix'' is the target name
 for a standard native testsuite situation), passing
@@ -1588,15 +1597,15 @@ slashes separate options.
 You can run the testsuites multiple times using combinations of options
 with a syntax similar to the brace expansion of popular shells:
 
-@example
+@smallexample
     @dots{}"--target_board=arm-sim@{-mhard-float,-msoft-float@}@{-O1,-O2,-O3,@}"
-@end example
+@end smallexample
 
 (Note the empty option caused by the trailing comma in the final group.)
 The following will run each testsuite eight times using the @samp{arm-sim}
 target, as if you had specified all possible combinations yourself:
 
-@example
+@smallexample
     --target_board=arm-sim/-mhard-float/-O1
     --target_board=arm-sim/-mhard-float/-O2
     --target_board=arm-sim/-mhard-float/-O3
@@ -1605,14 +1614,14 @@ target, as if you had specified all possible combinations yourself:
     --target_board=arm-sim/-msoft-float/-O2
     --target_board=arm-sim/-msoft-float/-O3
     --target_board=arm-sim/-msoft-float
-@end example
+@end smallexample
 
 They can be combined as many times as you wish, in arbitrary ways.  This
 list:
 
-@example
+@smallexample
     @dots{}"--target_board=unix/-Wextra@{-O3,-fno-strength-reduce@}@{-fomit-frame-pointer,@}"
-@end example
+@end smallexample
 
 will generate four combinations, all involving @samp{-Wextra}.
 
@@ -1623,15 +1632,15 @@ parallel by having the shell perform the combinations and @command{make}
 do the parallel runs.  Instead of using @samp{--target_board}, use a
 special makefile target:
 
-@example
+@smallexample
     make -j@var{N} check-@var{testsuite}//@var{test-target}/@var{option1}/@var{option2}/@dots{}
-@end example
+@end smallexample
 
 For example,
 
-@example
+@smallexample
     make -j3 check-gcc//sh-hms-sim/@{-m1,-m2,-m3,-m3e,-m4@}/@{,-nofpu@}
-@end example
+@end smallexample
 
 will run three concurrent ``make-gcc'' testsuites, eventually testing all
 ten combinations as described above.  Note that this is currently only
@@ -1662,8 +1671,8 @@ the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
 The result of running the testsuite are various @file{*.sum} and @file{*.log}
 files in the testsuite subdirectories.  The @file{*.log} files contain a
 detailed log of the compiler invocations and the corresponding
-results, the @file{*.sum} files summarize the results.  These summaries 
-contain status codes for all tests: 
+results, the @file{*.sum} files summarize the results.  These summaries
+contain status codes for all tests:
 
 @itemize @bullet
 @item
@@ -1693,10 +1702,10 @@ problem in future releases.
 If you want to report the results to the GCC project, use the
 @file{contrib/test_summary} shell script.  Start it in the @var{objdir} with
 
-@example
+@smallexample
     @var{srcdir}/contrib/test_summary -p your_commentary.txt \
         -m gcc-testresults@@gcc.gnu.org |sh
-@end example
+@end smallexample
 
 This script uses the @command{Mail} program to send the results, so
 make sure it is in your @env{PATH}.  The file @file{your_commentary.txt} is
@@ -1725,9 +1734,9 @@ messages may be automatically processed.
 @end ifnothtml
 
 Now that GCC has been built (and optionally tested), you can install it with
-@example
+@smallexample
 cd @var{objdir}; make install
-@end example
+@end smallexample
 
 We strongly recommend to install into a target directory where there is
 no previous version of GCC present.
@@ -1755,9 +1764,9 @@ binutils, including assembler and linker.
 Installation into a temporary staging area or into a @command{chroot}
 jail can be achieved with the command
 
-@example
+@smallexample
 make DESTDIR=@var{path-to-rootdir} install
-@end example
+@end smallexample
 
 @noindent where @var{path-to-rootdir} is the absolute path of
 a directory relative to which all installation paths will be
@@ -1915,7 +1924,7 @@ OpenServer/Unixware}.
 
 @item
 Sinix/Reliant Unix---@uref{ftp://ftp.fujitsu-siemens.com/pub/pd/gnu/gcc/,,Siemens}.
- 
+
 @item
 Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
 
@@ -2001,8 +2010,6 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#dos,,DOS}
 @item
-@uref{#dsp16xx,,dsp16xx}
-@item
 @uref{#*-*-freebsd*,,*-*-freebsd*}
 @item
 @uref{#h8300-hms,,h8300-hms}
@@ -2012,8 +2019,6 @@ GNU Compiler Collection on your machine.
 @uref{#hppa*-hp-hpux10,,hppa*-hp-hpux10}
 @item
 @uref{#hppa*-hp-hpux11,,hppa*-hp-hpux11}
-@item
-@uref{#i370-*-*,,i370-*-*}
 @item
 @uref{#*-*-linux-gnu,,*-*-linux-gnu}
 @item
@@ -2158,15 +2163,15 @@ we need to use the old assembler, invoked via the barely documented
 @option{-oldas} option.  To bootstrap GCC, you either need to use the
 Compaq C Compiler:
 
-@example
+@smallexample
    % CC=cc @var{srcdir}/configure [@var{options}] [@var{target}]
-@end example
+@end smallexample
 
 or you can use a copy of GCC 2.95.3 or higher built on Tru64 UNIX V4.0:
 
-@example
+@smallexample
    % CC=gcc -Wa,-oldas @var{srcdir}/configure [@var{options}] [@var{target}]
-@end example
+@end smallexample
 
 As of GNU binutils 2.11.2, neither GNU @command{as} nor GNU @command{ld}
 are supported on Tru64 UNIX, so you must not configure GCC with
@@ -2231,10 +2236,10 @@ need to tell GCC where to find the assembler and the linker.  The
 simplest way to do so is by providing @option{--with-as} and
 @option{--with-ld} to @file{configure}, e.g.@:
 
-@example
+@smallexample
     configure --with-as=/opt/ctl/bin/cam --with-ld=/opt/ctl/bin/cld \
       --enable-languages=c
-@end example
+@end smallexample
 
 The comparison test during @samp{make bootstrap} fails on Unicos/Mk
 because the assembler inserts timestamps into object files.  You should
@@ -2306,9 +2311,9 @@ can also be obtained from:
 We @emph{strongly} recommend using binutils 2.13 or newer.
 
 The following error:
-@example
+@smallexample
   Error: register required
-@end example
+@end smallexample
 
 indicates that you should upgrade to a newer version of the binutils.
 
@@ -2391,12 +2396,6 @@ You cannot install GCC by itself on MSDOS; it will not compile under
 any MSDOS compiler except itself.  You need to get the complete
 compilation package DJGPP, which includes binaries as well as sources,
 and includes all the necessary compilation tools and libraries.
-
-@html
-<hr />
-@end html
-@heading @anchor{dsp16xx}dsp16xx
-A port to the AT&T DSP1610 family of processors.
 
 @html
 <hr />
@@ -2616,13 +2615,6 @@ This port still is undergoing significant development.
 @html
 <hr />
 @end html
-@heading @anchor{i370-*-*}i370-*-*
-This port is very preliminary and has many known bugs.  We hope to
-have a higher-quality port for this machine soon.
-
-@html
-<hr />
-@end html
 @heading @anchor{*-*-linux-gnu}*-*-linux-gnu
 
 Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
@@ -2690,7 +2682,7 @@ A modern bintuils (as well as a plethora of other development related
 GNU utilities) can be found in Support Level Supplement OSS658A, the
 "GNU Development Tools" package.  See the SCO web and ftp sites for details.
 That package also contains the currently "officially supported" version of
-GCC, version 2.95.3.  It is useful for bootstrapping this version.  
+GCC, version 2.95.3.  It is useful for bootstrapping this version.
 
 @html
 <hr />
@@ -2712,10 +2704,10 @@ from the right place) while making the tools not think we're actually
 building a cross compiler.   The easiest way to do this is with a configure
 command like this:
 
-@example
+@smallexample
     CC=/udk/usr/ccs/bin/cc @var{/your/path/to}/gcc/configure \
       --host=i686-pc-udk --target=i686-pc-udk --program-prefix=udk-
-@end example
+@end smallexample
 
 @emph{You should substitute @samp{i686} in the above command with the appropriate
 processor for your host.}
@@ -2803,21 +2795,21 @@ multilib @file{libstdc++.a} installed:
 
 Extract the shared object from each the GCC 3.1 @file{libstdc++.a}
 archive:
-@example
+@smallexample
    % ar -x libstdc++.a libstdc++.so.4
-@end example
+@end smallexample
 
 Enable the @samp{F_LOADONLY} flag so that the shared object will be
 available for runtime dynamic loading, but not linking:
-@example
+@smallexample
    % strip -e libstdc++.so.4
-@end example
+@end smallexample
 
 Archive the runtime-only shared object in the GCC 3.2
 @file{libstdc++.a} archive:
-@example
+@smallexample
    % ar -q libstdc++.a libstdc++.so.4
-@end example
+@end smallexample
 
 Linking executables and shared libraries may produce warnings of
 duplicate symbols.  The assembly files generated by GCC for AIX always
@@ -2950,16 +2942,16 @@ encounter this problem, upgrade your operating system or use BASH (the
 GNU shell) to run @command{fixproto}.  This bug will cause the fixproto
 program to report an error of the form:
 
-@example
+@smallexample
 ./fixproto: sh internal 1K buffer overflow
-@end example
+@end smallexample
 
 To fix this, you can also change the first line of the fixproto script
 to look like:
 
-@example
+@smallexample
 #!/bin/ksh
-@end example
+@end smallexample
 
 @html
 <hr />
@@ -3042,21 +3034,21 @@ ensure that the N32 ABI is in use.  To test this, compile a simple C
 file with @command{cc} and then run @command{file} on the
 resulting object file.  The output should look like:
 
-@example
+@smallexample
 test.o: ELF N32 MSB @dots{}
-@end example
+@end smallexample
 
 If you see:
 
-@example
+@smallexample
 test.o: ELF 32-bit MSB @dots{}
-@end example
+@end smallexample
 
 or
 
-@example
+@smallexample
 test.o: ELF 64-bit MSB @dots{}
-@end example
+@end smallexample
 
 then your version of @command{cc} uses the O32 or N64 ABI by default.  You
 should set the environment variable @env{CC} to @samp{cc -n32}
@@ -3070,15 +3062,15 @@ the ISA depending on the machine where GCC is built.  Using one of them
 as the bootstrap compiler may result in mips4 code, which won't run at
 all on mips3-only systems.  For the test program above, you should see:
 
-@example
+@smallexample
 test.o: ELF N32 MSB mips-3 @dots{}
-@end example
+@end smallexample
 
 If you get:
 
-@example
+@smallexample
 test.o: ELF N32 MSB mips-4 @dots{}
-@end example
+@end smallexample
 
 instead, you should set the environment variable @env{CC} to @samp{cc
 -n32 -mips3} or @samp{gcc -mips3} respectively before configuring GCC@.
@@ -3222,19 +3214,19 @@ Embedded PowerPC system in little endian mode.
 <hr />
 @end html
 @heading @anchor{s390-*-linux*}s390-*-linux*
-S/390 system running Linux for S/390@.
+S/390 system running GNU/Linux for S/390@.
 
 @html
 <hr />
 @end html
 @heading @anchor{s390x-*-linux*}s390x-*-linux*
-zSeries system (64-bit) running Linux for zSeries@.
+zSeries system (64-bit) running GNU/Linux for zSeries@.
 
 @html
 <hr />
 @end html
 @heading @anchor{s390x-ibm-tpf*}s390x-ibm-tpf*
-zSeries system (64-bit) running TPF.  This platform is 
+zSeries system (64-bit) running TPF.  This platform is
 supported as cross-compilation target only.
 
 @html
@@ -3407,9 +3399,9 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 The following compiler flags must be specified in the configure
 step in order to bootstrap this target with the Sun compiler:
 
-@example
+@smallexample
    % CC="cc -xildoff -xarch=v9" @var{srcdir}/configure [@var{options}] [@var{target}]
-@end example
+@end smallexample
 
 @option{-xildoff} turns off the incremental linker, and @option{-xarch=v9}
 specifies the SPARC-V9 architecture to the Sun linker and assembler.
@@ -3443,10 +3435,10 @@ is said to work.  Smaller values may also work.
 
 On System V, if you get an error like this,
 
-@example
+@smallexample
 /usr/local/lib/bison.simple: In function `yyparse':
 /usr/local/lib/bison.simple:625: virtual memory exhausted
-@end example
+@end smallexample
 
 @noindent
 that too indicates a problem with disk space, ulimit, or @code{MAXUMEM}.
@@ -3495,7 +3487,7 @@ to do so.
 GCC's exception handling runtime requires a special ``configlette''
 module, @file{contrib/gthr_supp_vxw_5x.c}.  Follow the instructions in
 that file to add the module to your kernel build.  (Future versions of
-VxWorks will incorporate this module.)  
+VxWorks will incorporate this module.)
 
 @html
 <hr />

@@ -42,6 +42,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "real.h"
 #include "function.h"
+#include "output.h"
+#include "expr.h"
+#include "ggc.h"
 
 static struct gimplify_ctx
 {
@@ -55,9 +58,6 @@ static struct gimplify_ctx
   /* The formal temporary table.  Should this be persistent?  */
   htab_t temp_htab;
 } *gimplify_ctxp;
-
-
-static void declare_tmp_vars (tree vars, tree scope);
 
 
 /* Formal (expression) temporary table handling: Multiple occurrences of
@@ -276,11 +276,32 @@ remove_suffix (char *name, int len)
 tree
 create_artificial_label (void)
 {
-  tree lab = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  tree lab = build_decl (LABEL_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (lab) = 1;
   DECL_CONTEXT (lab) = current_function_decl;
   return lab;
 }
+
+/* Create a new temporary name with PREFIX.  Returns an indentifier.  */
+
+static GTY(()) unsigned int tmp_var_id_num;
+
+static tree
+create_tmp_var_name (const char *prefix)
+{
+  char *tmp_name;
+
+  if (prefix)
+    {
+      char *preftmp = ASTRDUP (prefix);
+      remove_suffix (preftmp, strlen (preftmp));
+      prefix = preftmp;
+    }
+
+  ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix ? prefix : "T", tmp_var_id_num++);
+  return get_identifier (tmp_name);
+}
+
 
 /* Create a new temporary variable declaration of type TYPE.
    Does NOT push it into the current binding.  */
@@ -288,26 +309,14 @@ create_artificial_label (void)
 tree
 create_tmp_var_raw (tree type, const char *prefix)
 {
-  static unsigned int id_num = 1;
-  char *tmp_name;
-  char *preftmp = NULL;
   tree tmp_var;
   tree new_type;
-
-  if (prefix)
-    {
-      preftmp = ASTRDUP (prefix);
-      remove_suffix (preftmp, strlen (preftmp));
-      prefix = preftmp;
-    }
-
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
   /* Make the type of the variable writable.  */
   new_type = build_type_variant (type, 0, 0);
   TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
 
-  tmp_var = build_decl (VAR_DECL, get_identifier (tmp_name), type);
+  tmp_var = build_decl (VAR_DECL, create_tmp_var_name (prefix), type);
 
   /* The variable was declared by the compiler.  */
   DECL_ARTIFICIAL (tmp_var) = 1;
@@ -476,7 +485,7 @@ is_gimple_tmp_var (tree t)
 /* Declares all the variables in VARS in SCOPE.  Returns the last
    DECL_STMT emitted.  */
 
-static void
+void
 declare_tmp_vars (tree vars, tree scope)
 {
   tree last = vars;
@@ -651,12 +660,6 @@ unshare_expr (tree expr)
   return expr;
 }
 
-void
-mark_not_gimple (tree *expr_p)
-{
-  TREE_NOT_GIMPLE (*expr_p) = 1;
-}
-
 /* A terser interface for building a representation of a exception
    specification.  */
 
@@ -794,7 +797,8 @@ gimplify_bind_expr (tree *expr_p, tree *pre_p)
       tree stack_save, stack_restore;
 
       /* Save stack on entry and restore it on exit.  Add a try_finally
-	 block to achieve this.  */
+	 block to achieve this.  Note that mudflap depends on the
+	 format of the emitted code: see mx_register_decls().  */
       build_stack_save_restore (&stack_save, &stack_restore);
 
       t = build (TRY_FINALLY_EXPR, void_type_node,
@@ -999,7 +1003,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
 	  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (t));
 	}
       else
-        *expr_p = SWITCH_BODY (switch_expr);
+	*expr_p = SWITCH_BODY (switch_expr);
 
       SWITCH_BODY (switch_expr) = NULL;
     }
@@ -1097,6 +1101,20 @@ gimplify_exit_expr (tree *expr_p)
   return GS_OK;
 }
 
+/* A helper function to be called via walk_tree.  Mark all labels under *TP
+   as being forced.  To be called for DECL_INITIAL of static variables.  */
+
+tree
+force_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    FORCED_LABEL (*tp) = 1;
+
+  return NULL_TREE;
+}
+
 /* Break out elements of a constructor used as an initializer into separate
    MODIFY_EXPRs.
 
@@ -1113,8 +1131,6 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
   tree type = TREE_TYPE (ctor);
   enum gimplify_status ret;
   tree elt_list;
-  bool cleared;
-  int len, i;
 
   if (TREE_CODE (ctor) != CONSTRUCTOR)
     return GS_UNHANDLED;
@@ -1128,70 +1144,175 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
     case ARRAY_TYPE:
-      /* Aggregate types must lower constructors to initialization of
-	 individual elements.  The exception is that a CONSTRUCTOR node
-	 with no elements indicates zero-initialization of the whole.  */
+      {
+	HOST_WIDE_INT i, num_elements, num_nonzero_elements;
+	HOST_WIDE_INT num_nonconstant_elements;
+	bool cleared;
 
-      if (elt_list == NULL)
-	{
-	  if (want_value)
-	    {
-	      *expr_p = object;
-	      return GS_OK;
-	    }
-	  else
-	    return GS_ALL_DONE;
-	}
+	/* Aggregate types must lower constructors to initialization of
+	   individual elements.  The exception is that a CONSTRUCTOR node
+	   with no elements indicates zero-initialization of the whole.  */
+	if (elt_list == NULL)
+	  {
+	    if (want_value)
+	      {
+		*expr_p = object;
+		return GS_OK;
+	      }
+	    else
+	      return GS_ALL_DONE;
+	  }
 
-      cleared = false;
-      len = list_length (elt_list);
+	categorize_ctor_elements (ctor, &num_nonzero_elements,
+				  &num_nonconstant_elements);
+	num_elements = count_type_elements (TREE_TYPE (ctor));
 
-      if (mostly_zeros_p (ctor))
-	cleared = true;
-      else if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  tree nelts = array_type_nelts (type);
-	  if (TREE_CODE (nelts) != INTEGER_CST
-	      || (unsigned)len != TREE_INT_CST_LOW (nelts)+1)
-	    cleared = 1;
-	}
-      else if (len != fields_length (type))
-	cleared = 1;
+	/* If a const aggregate variable is being initialized, then it
+	   should never be a lose to promote the variable to be static.  */
+	if (num_nonconstant_elements == 0
+	    && TREE_READONLY (object)
+	    && TREE_CODE (object) == VAR_DECL)
+	  {
+	    DECL_INITIAL (object) = ctor;
+	    TREE_STATIC (object) = 1;
+	    if (!DECL_NAME (object))
+	      DECL_NAME (object) = create_tmp_var_name ("C");
+	    walk_tree (&DECL_INITIAL (object), force_labels_r, NULL, NULL);
 
-      if (cleared)
-	{
-	  CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
-	  append_to_statement_list (*expr_p, pre_p);
-	}
+	    /* ??? C++ doesn't automatically append a .<number> to the
+	       assembler name, and even when it does, it looks a FE private
+	       data structures to figure out what that number should be,
+	       which are not set for this variable.  I suppose this is
+	       important for local statics for inline functions, which aren't
+	       "local" in the object file sense.  So in order to get a unique
+	       TU-local symbol, we must invoke the lhd version now.  */
+	    lhd_set_decl_assembler_name (object);
 
-      for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
-	{
-	  tree purpose, value, cref, init;
+	    *expr_p = build_empty_stmt ();
+	    break;
+	  }
 
-	  purpose = TREE_PURPOSE (elt_list);
-	  value = TREE_VALUE (elt_list);
+	/* If there are "lots" of initialized elements, and all of them
+	   are valid address constants, then the entire initializer can
+	   be dropped to memory, and then memcpy'd out.  */
+	if (num_nonconstant_elements == 0)
+	  {
+	    HOST_WIDE_INT size = int_size_in_bytes (type);
+	    unsigned int align;
 
-	  if (cleared && initializer_zerop (value))
-	    continue;
+	    /* ??? We can still get unbounded array types, at least
+	       from the C++ front end.  This seems wrong, but attempt
+	       to work around it for now.  */
+	    if (size < 0)
+	      {
+		size = int_size_in_bytes (TREE_TYPE (object));
+		if (size >= 0)
+		  TREE_TYPE (ctor) = type = TREE_TYPE (object);
+	      }
 
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    {
-	      tree t = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
-	      cref = build (ARRAY_REF, t, object, build_int_2 (i, 0));
-	    }
-	  else
-	    {
-	      cref = build (COMPONENT_REF, TREE_TYPE (purpose),
-			    object, purpose);
-	    }
+	    /* Find the maximum alignment we can assume for the object.  */
+	    /* ??? Make use of DECL_OFFSET_ALIGN.  */
+	    if (DECL_P (object))
+	      align = DECL_ALIGN (object);
+	    else
+	      align = TYPE_ALIGN (type);
 
-	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
-	  /* Each member initialization is a full-expression.  */
-	  gimplify_stmt (&init);
-	  append_to_statement_list (init, pre_p);
-	}
+	    if (size > 0 && !can_move_by_pieces (size, align))
+	      {
+		tree new = create_tmp_var_raw (type, "C");
+		gimple_add_tmp_var (new);
+		TREE_STATIC (new) = 1;
+		TREE_READONLY (new) = 1;
+		DECL_INITIAL (new) = ctor;
+		if (align > DECL_ALIGN (new))
+		  {
+		    DECL_ALIGN (new) = align;
+		    DECL_USER_ALIGN (new) = 1;
+		  }
+	        walk_tree (&DECL_INITIAL (new), force_labels_r, NULL, NULL);
 
-      *expr_p = build_empty_stmt ();
+		TREE_OPERAND (*expr_p, 1) = new;
+		break;
+	      }
+	  }
+
+	/* If there are "lots" of initialized elements, even discounting
+	   those that are not address constants (and thus *must* be 
+	   computed at runtime), then partition the constructor into
+	   constant and non-constant parts.  Block copy the constant
+	   parts in, then generate code for the non-constant parts.  */
+	/* TODO.  There's code in cp/typeck.c to do this.  */
+
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	cleared = false;
+	if (num_elements - num_nonzero_elements > CLEAR_RATIO
+	    && num_nonzero_elements < num_elements/4)
+	  cleared = true;
+
+	/* ??? This bit ought not be needed.  For any element not present
+	   in the initializer, we should simply set them to zero.  Except
+	   we'd need to *find* the elements that are not present, and that
+	   requires trickery to avoid quadratic compile-time behaviour in
+	   large cases or excessive memory use in small cases.  */
+	else
+	  {
+	    HOST_WIDE_INT len = list_length (elt_list);
+	    if (TREE_CODE (type) == ARRAY_TYPE)
+	      {
+		tree nelts = array_type_nelts (type);
+		if (!host_integerp (nelts, 1)
+		    || tree_low_cst (nelts, 1) != len)
+		  cleared = 1;;
+	      }
+	    else if (len != fields_length (type))
+	      cleared = 1;
+	  }
+
+	if (cleared)
+	  {
+	    CONSTRUCTOR_ELTS (ctor) = NULL_TREE;
+	    append_to_statement_list (*expr_p, pre_p);
+	  }
+
+	for (i = 0; elt_list; i++, elt_list = TREE_CHAIN (elt_list))
+	  {
+	    tree purpose, value, cref, init;
+
+	    purpose = TREE_PURPOSE (elt_list);
+	    value = TREE_VALUE (elt_list);
+
+	    if (cleared && initializer_zerop (value))
+	      continue;
+
+	    if (TREE_CODE (type) == ARRAY_TYPE)
+	      {
+		tree t = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (object)));
+
+		/* ??? Here's to hoping the front end fills in all of the
+		   indicies, so we don't have to figure out what's missing
+		   ourselves.  */
+		if (!purpose)
+		  abort ();
+		/* ??? Need to handle this.  */
+		if (TREE_CODE (purpose) == RANGE_EXPR)
+		  abort ();
+
+		cref = build (ARRAY_REF, t, object, purpose);
+	      }
+	    else
+	      {
+		cref = build (COMPONENT_REF, TREE_TYPE (purpose),
+			      object, purpose);
+	      }
+
+	    init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	    /* Each member initialization is a full-expression.  */
+	    gimplify_stmt (&init);
+	    append_to_statement_list (init, pre_p);
+	  }
+
+	*expr_p = build_empty_stmt ();
+      }
       break;
 
     case COMPLEX_TYPE:
@@ -1206,7 +1327,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    elt_list = TREE_CHAIN (elt_list);
 	    if (elt_list)
 	      {
-	        i = TREE_VALUE (elt_list);
+		i = TREE_VALUE (elt_list);
 		if (TREE_CHAIN (elt_list))
 		  abort ();
 	      }
@@ -1580,7 +1701,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
   ret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
 		       code != ARRAY_REF ? fb_either : fb_lvalue);
 
-  for (; VARRAY_ACTIVE_SIZE (stack) > 0; VARRAY_POP (stack))
+  for (; VARRAY_ACTIVE_SIZE (stack) > 0; )
     {
       tree t = VARRAY_TOP_TREE (stack);
       if (TREE_CODE (t) == ARRAY_REF)
@@ -1593,6 +1714,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	    ret = GS_ERROR;
 	}
       recalculate_side_effects (t);
+      VARRAY_POP (stack);
     }
 
   /* If the outermost expression is a COMPONENT_REF, canonicalize its type.  */
@@ -1638,10 +1760,10 @@ gimplify_array_ref (tree *expr_p, tree *pre_p,
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-        *EXPR_P should be stored.
+	*EXPR_P should be stored.
 
     WANT_VALUE is nonzero iff we want to use the value of this expression
-        in another expression.  */
+	in another expression.  */
 
 static enum gimplify_status
 gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
@@ -1762,19 +1884,6 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
     {
       tree new;
 
-      /* Some builtins cannot be gimplified because the require specific
-	 arguments (e.g., MD builtins).  */
-      if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD
-	  /* But we don't care if the call has no arguments.  */
-	  && TREE_OPERAND (*expr_p, 1) != NULL_TREE)
-	{
-	  /* Mark the CALL_EXPR not gimplifiable so that optimizers don't
-	     assume anything about it.  FIXME: Maybe we should add a target
-	     hook for allowing this in the future?  */
-	  mark_not_gimple (expr_p);
-	  return GS_ALL_DONE;
-	}
-
       /* If it is allocation of stack, record the need to restore the memory
 	 when the enclosing bind_expr is exited.  */
       if (DECL_FUNCTION_CODE (decl) == BUILT_IN_STACK_ALLOC)
@@ -1864,9 +1973,9 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
     {
       /* Turn if (a && b) into
 
-         if (a); else goto no;
+	 if (a); else goto no;
 	 if (b) goto yes; else goto no;
-         (no:) */
+	 (no:) */
 
       if (false_label_p == NULL)
 	false_label_p = &local_label;
@@ -1882,9 +1991,9 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p)
     {
       /* Turn if (a || b) into
 
-         if (a) goto yes;
+	 if (a) goto yes;
 	 if (b) goto yes; else goto no;
-         (yes:) */
+	 (yes:) */
 
       if (true_label_p == NULL)
 	true_label_p = &local_label;
@@ -2110,7 +2219,7 @@ gimple_boolify (tree expr)
     The second form is used when *EXPR_P is of type void.
 
     PRE_P points to the list where side effects that must happen before
-        *EXPR_P should be stored.  */
+	*EXPR_P should be stored.  */
 
 static enum gimplify_status
 gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
@@ -2227,10 +2336,10 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, tree target)
 	*EXPR_P should be stored.
 
     POST_P points to the list where side effects that must happen after
-        *EXPR_P should be stored.
+	*EXPR_P should be stored.
 
     WANT_VALUE is nonzero iff we want to use the value of this expression
-        in another expression.  */
+	in another expression.  */
 
 static enum gimplify_status
 gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
@@ -2318,12 +2427,12 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 
     Expressions of the form 'a && b' are gimplified to:
 
-        a && b ? true : false
+	a && b ? true : false
 
     gimplify_cond_expr will do the rest.
 
     PRE_P points to the list where side effects that must happen before
-        *EXPR_P should be stored.  */
+	*EXPR_P should be stored.  */
 
 static enum gimplify_status
 gimplify_boolean_expr (tree *expr_p)
@@ -2362,7 +2471,7 @@ gimplify_compound_expr (tree *expr_p, tree *pre_p, bool want_value)
       if (TREE_CODE (*sub_p) == COMPOUND_EXPR)
 	gimplify_compound_expr (sub_p, pre_p, false);
       else
-        gimplify_stmt (sub_p);
+	gimplify_stmt (sub_p);
       append_to_statement_list (*sub_p, pre_p);
 
       t = TREE_OPERAND (t, 1);
@@ -2411,7 +2520,7 @@ gimplify_statement_list (tree *expr_p)
     that holds the original value of the SAVE_EXPR node.
 
     PRE_P points to the list where side effects that must happen before
-        *EXPR_P should be stored.  */
+	*EXPR_P should be stored.  */
 
 static enum gimplify_status
 gimplify_save_expr (tree *expr_p, tree *pre_p, tree *post_p)
@@ -2592,7 +2701,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	{
 	  (*lang_hooks.mark_addressable) (TREE_VALUE (link));
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-			        is_gimple_lvalue, fb_lvalue | fb_mayfail);
+				is_gimple_lvalue, fb_lvalue | fb_mayfail);
 	  if (tret == GS_ERROR)
 	    {
 	      error ("memory input %d is not directly addressable", i);
@@ -2602,7 +2711,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       else
 	{
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-			        is_gimple_val, fb_rvalue);
+				is_gimple_val, fb_rvalue);
 	  if (tret == GS_ERROR)
 	    ret = tret;
 	}
@@ -2852,8 +2961,8 @@ mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	gimplified expression.
 
     FALLBACK tells the function what sort of a temporary we want.  If the 1
-        bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
-        If both are set, either is OK, but an lvalue is preferable.
+	bit is set, an rvalue is OK.  If the 2 bit is set, an lvalue is OK.
+	If both are set, either is OK, but an lvalue is preferable.
 
     The return value is either GS_ERROR or GS_ALL_DONE, since this function
     iterates until solution.  */
@@ -3085,28 +3194,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case GOTO_EXPR:
-	  {
-	    tree dest = GOTO_DESTINATION (*expr_p);
-
-	    /* If the target is not LABEL, then it is a computed jump
-	       and the target needs to be gimplified.  */
-	    if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
-	      ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
-				   NULL, is_gimple_val, fb_rvalue);
-	    else
-	      {
-		/* If this label is in a different context (function), then
-		   mark it as a nonlocal label and mark its context as
-		   receiving nonlocal gotos.  */
-		tree context = decl_function_context (dest);
-		if (current_function_decl != context)
-		  {
-		    NONLOCAL_LABEL (dest) = 1;
-		    find_function_data (context)->has_nonlocal_label = 1;
-		  }
-	      }
-	    break;
-	  }
+	  /* If the target is not LABEL, then it is a computed jump
+	     and the target needs to be gimplified.  */
+	  if (TREE_CODE (GOTO_DESTINATION (*expr_p)) != LABEL_DECL)
+	    ret = gimplify_expr (&GOTO_DESTINATION (*expr_p), pre_p,
+				 NULL, is_gimple_val, fb_rvalue);
+	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
@@ -3144,7 +3237,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	    enum gimplify_status r0, r1, r2;
 
 	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			        is_gimple_min_lval, fb_either);
+				is_gimple_min_lval, fb_either);
 	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
 				is_gimple_val, fb_rvalue);
 	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p, post_p,
@@ -3214,7 +3307,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = gimplify_statement_list (expr_p);
 	  break;
 
-        case VAR_DECL:
+	case VAR_DECL:
 	  /* ??? If this is a local variable, and it has not been seen in any
 	     outer BIND_EXPR, then it's probably the result of a duplicate
 	     declaration, for which we've already issued an error.  It would
@@ -3579,3 +3672,5 @@ gimplify_function_tree (tree fndecl)
 
   current_function_decl = oldfn;
 }
+
+#include "gt-gimplify.h"

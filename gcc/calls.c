@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,7 +133,8 @@ static int compute_argument_block_size (int, struct args_size *, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
-					     rtx *, int *, int *, int *);
+					     rtx *, int *, int *, int *,
+					     bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -141,7 +142,6 @@ static void load_register_parameters (struct arg_data *, int, rtx *, int,
 static rtx emit_library_call_value_1 (int, rtx, rtx, enum libcall_type,
 				      enum machine_mode, int, va_list);
 static int special_function_p (tree, int);
-static rtx try_to_integrate (tree, tree, rtx, int, tree, rtx);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
@@ -279,16 +279,10 @@ calls_function_1 (tree exp, int which)
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
-		      int reg_parm_seen, int sibcallp)
+prepare_call_address (rtx funexp, rtx static_chain_value,
+		      rtx *call_fusage, int reg_parm_seen, int sibcallp)
 {
-  rtx static_chain_value = 0;
-
   funexp = protect_from_queue (funexp, 0);
-
-  if (fndecl != 0)
-    /* Get possible static chain value for nested function in C.  */
-    static_chain_value = lookup_static_chain (fndecl);
 
   /* Make a valid memory address and copy constants through pseudo-regs,
      but not for a constant address if -fno-function-cse.  */
@@ -1034,7 +1028,10 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    and may be modified by this routine.
 
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
-   flags which may may be modified by this routine.  */
+   flags which may may be modified by this routine. 
+
+   CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
+   the thunked-to function.  */
 
 static void
 initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
@@ -1045,7 +1042,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 CUMULATIVE_ARGS *args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
-				 int *must_preallocate, int *ecf_flags)
+				 int *must_preallocate, int *ecf_flags,
+				 bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1118,7 +1116,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	{
 	  /* If we're compiling a thunk, pass through invisible
              references instead of making a copy.  */
-	  if (current_function_is_thunk
+	  if (call_from_thunk_p
 #ifdef FUNCTION_ARG_CALLEE_COPIES
 	      || (FUNCTION_ARG_CALLEE_COPIES (*args_so_far, TYPE_MODE (type),
 					     type, argpos < n_named_args)
@@ -1731,123 +1729,6 @@ load_register_parameters (struct arg_data *args, int num_actuals,
     }
 }
 
-/* Try to integrate function.  See expand_inline_function for documentation
-   about the parameters.  */
-
-static rtx
-try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
-		  tree type, rtx structure_value_addr)
-{
-  rtx temp;
-  rtx before_call;
-  int i;
-  rtx old_stack_level = 0;
-  int reg_parm_stack_space = 0;
-
-#ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
-#endif
-
-  before_call = get_last_insn ();
-
-  timevar_push (TV_INTEGRATION);
-
-  temp = expand_inline_function (fndecl, actparms, target,
-				 ignore, type,
-				 structure_value_addr);
-
-  timevar_pop (TV_INTEGRATION);
-
-  /* If inlining succeeded, return.  */
-  if (temp != (rtx) (size_t) - 1)
-    {
-      if (ACCUMULATE_OUTGOING_ARGS)
-	{
-	  /* If the outgoing argument list must be preserved, push
-	     the stack before executing the inlined function if it
-	     makes any calls.  */
-
-	  i = reg_parm_stack_space;
-	  if (i > highest_outgoing_arg_in_use)
-	    i = highest_outgoing_arg_in_use;
-	  while (--i >= 0 && stack_usage_map[i] == 0)
-	    ;
-
-	  if (stack_arg_under_construction || i >= 0)
-	    {
-	      rtx first_insn
-		= before_call ? NEXT_INSN (before_call) : get_insns ();
-	      rtx insn = NULL_RTX, seq;
-
-	      /* Look for a call in the inline function code.
-	         If DECL_SAVED_INSNS (fndecl)->outgoing_args_size is
-	         nonzero then there is a call and it is not necessary
-	         to scan the insns.  */
-
-	      if (DECL_SAVED_INSNS (fndecl)->outgoing_args_size == 0)
-		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
-		  if (GET_CODE (insn) == CALL_INSN)
-		    break;
-
-	      if (insn)
-		{
-		  /* Reserve enough stack space so that the largest
-		     argument list of any function call in the inline
-		     function does not overlap the argument list being
-		     evaluated.  This is usually an overestimate because
-		     allocate_dynamic_stack_space reserves space for an
-		     outgoing argument list in addition to the requested
-		     space, but there is no way to ask for stack space such
-		     that an argument list of a certain length can be
-		     safely constructed.
-
-		     Add the stack space reserved for register arguments, if
-		     any, in the inline function.  What is really needed is the
-		     largest value of reg_parm_stack_space in the inline
-		     function, but that is not available.  Using the current
-		     value of reg_parm_stack_space is wrong, but gives
-		     correct results on all supported machines.  */
-
-		  int adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
-				+ reg_parm_stack_space);
-
-		  start_sequence ();
-		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
-		  allocate_dynamic_stack_space (GEN_INT (adjust),
-						NULL_RTX, BITS_PER_UNIT);
-		  seq = get_insns ();
-		  end_sequence ();
-		  emit_insn_before (seq, first_insn);
-		  emit_stack_restore (SAVE_BLOCK, old_stack_level, NULL_RTX);
-		}
-	    }
-	}
-
-      /* If the result is equivalent to TARGET, return TARGET to simplify
-         checks in store_expr.  They can be equivalent but not equal in the
-         case of a function that returns BLKmode.  */
-      if (temp != target && rtx_equal_p (temp, target))
-	return target;
-      return temp;
-    }
-
-  /* If inlining failed, mark FNDECL as needing to be compiled
-     separately after all.  If function was declared inline,
-     give a warning.  */
-  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-      && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
-    {
-      warning ("%Jinlining failed in call to '%F'", fndecl, fndecl);
-      warning ("called from here");
-    }
-  (*lang_hooks.mark_addressable) (fndecl);
-  return (rtx) (size_t) - 1;
-}
-
 /* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
    wouldn't fill up an even multiple of PREFERRED_UNIT_STACK_BOUNDARY
    bytes, then we would need to push some additional bytes to pad the
@@ -2208,8 +2089,6 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Mask of ECF_ flags.  */
   int flags = 0;
-  /* Nonzero if this is a call to an inline function.  */
-  int is_integrable = 0;
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      saved, if any.  */
@@ -2241,43 +2120,17 @@ expand_call (tree exp, rtx target, int ignore)
   HOST_WIDE_INT preferred_stack_boundary;
   /* The alignment of the stack, in bytes.  */
   HOST_WIDE_INT preferred_unit_stack_boundary;
-
+  /* The static chain value to use for this call.  */
+  rtx static_chain_value;
   /* See if this is "nothrow" function call.  */
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
 
-  /* See if we can find a DECL-node for the actual function.
-     As a result, decide whether this is a call to an integrable function.  */
-
+  /* See if we can find a DECL-node for the actual function, and get the
+     function attributes (flags) from the function decl or type node.  */
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
-    {
-      if (!flag_no_inline
-	  && fndecl != current_function_decl
-	  && DECL_INLINE (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)->inlinable)
-	is_integrable = 1;
-      else if (! TREE_ADDRESSABLE (fndecl))
-	{
-	  /* In case this function later becomes inlinable,
-	     record that there was already a non-inline call to it.
-
-	     Use abstraction instead of setting TREE_ADDRESSABLE
-	     directly.  */
-	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-	      && optimize > 0)
-	    {
-	      warning ("%Jcan't inline call to '%F'", fndecl, fndecl);
-	      warning ("called from here");
-	    }
-	  (*lang_hooks.mark_addressable) (fndecl);
-	}
-      flags |= flags_from_decl_or_type (fndecl);
-    }
-
-  /* If we don't have specific function to call, see if we have a
-     attributes set in the type.  */
+    flags |= flags_from_decl_or_type (fndecl);
   else
     flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
 
@@ -2338,15 +2191,6 @@ expand_call (tree exp, rtx target, int ignore)
 #ifdef PCC_STATIC_STRUCT_RETURN
       {
 	pcc_struct_value = 1;
-	/* Easier than making that case work right.  */
-	if (is_integrable)
-	  {
-	    /* In case this is a static function, note that it has been
-	       used.  */
-	    if (! TREE_ADDRESSABLE (fndecl))
-	      (*lang_hooks.mark_addressable) (fndecl);
-	    is_integrable = 0;
-	  }
       }
 #else /* not PCC_STATIC_STRUCT_RETURN */
       {
@@ -2377,17 +2221,6 @@ expand_call (tree exp, rtx target, int ignore)
 	  }
       }
 #endif /* not PCC_STATIC_STRUCT_RETURN */
-    }
-
-  /* If called function is inline, try to integrate it.  */
-
-  if (is_integrable)
-    {
-      rtx temp = try_to_integrate (fndecl, actparms, target,
-				   ignore, TREE_TYPE (exp),
-				   structure_value_addr);
-      if (temp != (rtx) (size_t) - 1)
-	return temp;
     }
 
   /* Figure out the amount to which the stack should be aligned.  */
@@ -2446,26 +2279,19 @@ expand_call (tree exp, rtx target, int ignore)
   for (p = actparms, num_actuals = 0; p; p = TREE_CHAIN (p))
     num_actuals++;
 
-  /* Start updating where the next arg would go.
-
-     On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The last argument in
-     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
-     or not.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl);
-
   /* Compute number of named args.
      Normally, don't include the last named arg if anonymous args follow.
-     We do include the last named arg if STRICT_ARGUMENT_NAMING is nonzero.
+     We do include the last named arg if
+     targetm.calls.strict_argument_naming() returns nonzero.
      (If no anonymous args follow, the result of list_length is actually
      one too large.  This is harmless.)
 
      If targetm.calls.pretend_outgoing_varargs_named() returns
-     nonzero, and STRICT_ARGUMENT_NAMING is zero, this machine will be
-     able to place unnamed args that were passed in registers into the
-     stack.  So treat all args as named.  This allows the insns
-     emitting for a specific argument list to be independent of the
-     function declaration.
+     nonzero, and targetm.calls.strict_argument_naming() returns zero,
+     this machine will be able to place unnamed args that were passed
+     in registers into the stack.  So treat all args as named.  This
+     allows the insns emitting for a specific argument list to be
+     independent of the function declaration.
 
      If targetm.calls.pretend_outgoing_varargs_named() returns zero,
      we do not have any reliable way to pass unnamed args in
@@ -2484,6 +2310,14 @@ expand_call (tree exp, rtx target, int ignore)
     /* If we know nothing, treat all args as named.  */
     n_named_args = num_actuals;
 
+  /* Start updating where the next arg would go.
+
+     On some machines (such as the PA) indirect calls have a different
+     calling convention than normal calls.  The fourth argument in
+     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
+     or not.  */
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
+
   /* Make a vector to hold all the information about each arg.  */
   args = alloca (num_actuals * sizeof (struct arg_data));
   memset (args, 0, num_actuals * sizeof (struct arg_data));
@@ -2494,7 +2328,8 @@ expand_call (tree exp, rtx target, int ignore)
 				   n_named_args, actparms, fndecl,
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
-				   &must_preallocate, &flags);
+				   &must_preallocate, &flags,
+				   CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {
@@ -2998,6 +2833,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
 
+      if (TREE_OPERAND (exp, 2))
+	static_chain_value = expand_expr (TREE_OPERAND (exp, 2),
+					  NULL_RTX, VOIDmode, 0);
+      else
+	static_chain_value = 0;
+
 #ifdef REG_PARM_STACK_SPACE
       /* Save the fixed argument area if it's part of the caller's frame and
 	 is clobbered by argument setup for this call.  */
@@ -3024,6 +2865,14 @@ expand_call (tree exp, rtx target, int ignore)
 		    && check_sibcall_argument_overlap (before_arg,
 						       &args[i], 1)))
 	      sibcall_failure = 1;
+
+	    if (flags & ECF_CONST
+		&& args[i].stack
+		&& args[i].value == args[i].stack)
+	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+					       gen_rtx_USE (VOIDmode,
+							    args[i].value),
+					       call_fusage);
 	  }
 
       /* If we have a parm that is passed in registers but not in memory
@@ -3080,8 +2929,8 @@ expand_call (tree exp, rtx target, int ignore)
 	    use_reg (&call_fusage, struct_value);
 	}
 
-      funexp = prepare_call_address (funexp, fndecl, &call_fusage,
-				     reg_parm_seen, pass == 0);
+      funexp = prepare_call_address (funexp, static_chain_value,
+				     &call_fusage, reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags,
 				pass == 0, &sibcall_failure);
@@ -3411,8 +3260,8 @@ expand_call (tree exp, rtx target, int ignore)
 	 Check for the handler slots since we might not have a save area
 	 for non-local gotos.  */
 
-      if ((flags & ECF_MAY_BE_ALLOCA) && nonlocal_goto_handler_slots != 0)
-	emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
+      if ((flags & ECF_MAY_BE_ALLOCA) && cfun->nonlocal_goto_save_area != 0)
+	update_nonlocal_goto_save_area ();
 
       /* Free up storage we no longer need.  */
       for (i = 0; i < num_actuals; ++i)
@@ -3503,7 +3352,7 @@ expand_call (tree exp, rtx target, int ignore)
   if (flags & ECF_SP_DEPRESSED)
     {
       clear_pending_stack_adjust ();
-      emit_insn (gen_rtx (CLOBBER, VOIDmode, stack_pointer_rtx));
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, stack_pointer_rtx));
       emit_move_insn (virtual_stack_dynamic_rtx, stack_pointer_rtx);
       save_stack_pointer ();
     }
@@ -3772,7 +3621,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
   INIT_CUMULATIVE_LIBCALL_ARGS (args_so_far, outmode, fun);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0, nargs);
 #endif
 
   args_size.constant = 0;
@@ -4147,7 +3996,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   else
     argnum = 0;
 
-  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0, 0);
+  fun = prepare_call_address (fun, NULL, &call_fusage, 0, 0);
 
   /* Now load any reg parms into their regs.  */
 
@@ -4686,7 +4535,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      if (XEXP (x, 0) != current_function_internal_arg_pointer)
 		i = INTVAL (XEXP (XEXP (x, 0), 1));
 
-	      /* expand_call should ensure this */
+	      /* expand_call should ensure this.  */
 	      if (arg->locate.offset.var || GET_CODE (size_rtx) != CONST_INT)
 		abort ();
 

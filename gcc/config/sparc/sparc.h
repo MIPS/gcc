@@ -1,8 +1,8 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
-   64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
+   64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
 
 This file is part of GCC.
@@ -442,12 +442,7 @@ extern int target_flags;
 #define MASK_IMPURE_TEXT 0x100
 #define TARGET_IMPURE_TEXT (target_flags & MASK_IMPURE_TEXT)
 
-/* Nonzero means that we should generate code using a flat register window
-   model, i.e. no save/restore instructions are generated, which is
-   compatible with normal sparc code.
-   The frame pointer is %i7 instead of %fp.  */
-#define MASK_FLAT 0x200
-#define TARGET_FLAT (target_flags & MASK_FLAT)
+/* 0x200 is unused */
 
 /* Nonzero means use the registers that the SPARC ABI reserves for
    application software.  This must be the default to coincide with the
@@ -551,10 +546,6 @@ extern int target_flags;
      N_("Pass -assert pure-text to linker") }, 				\
     {"no-impure-text", -MASK_IMPURE_TEXT,				\
      N_("Do not pass -assert pure-text to linker") }, 			\
-    {"flat", MASK_FLAT,							\
-     N_("Use flat register window model") }, 				\
-    {"no-flat", -MASK_FLAT,						\
-     N_("Do not use flat register window model") }, 			\
     {"app-regs", MASK_APP_REGS,						\
      N_("Use ABI reserved registers") },				\
     {"no-app-regs", -MASK_APP_REGS,					\
@@ -571,20 +562,6 @@ extern int target_flags;
      N_("Utilize Visual Instruction Set") }, 				\
     {"no-vis", -MASK_VIS,						\
      N_("Do not utilize Visual Instruction Set") }, 			\
-    /* ??? These are deprecated, coerced to -mcpu=.  Delete in 2.9.  */ \
-    {"cypress", 0,							\
-     N_("Optimize for Cypress processors") }, 				\
-    {"sparclite", 0,							\
-     N_("Optimize for SPARCLite processors") }, 			\
-    {"f930", 0,								\
-     N_("Optimize for F930 processors") }, 				\
-    {"f934", 0,								\
-     N_("Optimize for F934 processors") }, 				\
-    {"v8", 0,								\
-     N_("Use V8 SPARC ISA") }, 						\
-    {"supersparc", 0,							\
-     N_("Optimize for SuperSPARC processors") }, 			\
-    /* End of deprecated options.  */					\
     {"ptr64", MASK_PTR64,						\
      N_("Pointers are 64-bit") }, 					\
     {"ptr32", -MASK_PTR64,						\
@@ -717,10 +694,6 @@ extern struct sparc_cpu_select sparc_select[];
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	64
 
-#ifdef SPARC_BI_ARCH
-#define MAX_LONG_TYPE_SIZE	64
-#endif
-
 #if 0
 /* ??? This does not work in SunOS 4.x, so it is not enabled here.
    Instead, it is enabled in sol2.h, because it does work under Solaris.  */
@@ -746,28 +719,8 @@ extern struct sparc_cpu_select sparc_select[];
 if (TARGET_ARCH64				\
     && GET_MODE_CLASS (MODE) == MODE_INT	\
     && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)	\
-  (MODE) = DImode;
+  (MODE) = word_mode;
 
-/* Define this macro if the promotion described by PROMOTE_MODE
-   should also be done for outgoing function arguments.  */
-/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
-#define PROMOTE_FUNCTION_ARGS
-
-/* Define this macro if the promotion described by PROMOTE_MODE
-   should also be done for the return value of functions.
-   If this macro is defined, FUNCTION_VALUE must perform the same
-   promotions done by PROMOTE_MODE.  */
-/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  */
-#define PROMOTE_FUNCTION_RETURN
-
-/* Define this macro if the promotion described by PROMOTE_MODE
-   should _only_ be performed for outgoing function arguments or
-   function return values, as specified by PROMOTE_FUNCTION_ARGS
-   and PROMOTE_FUNCTION_RETURN, respectively.  */
 /* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
    for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
    for this value.  For TARGET_ARCH64 we need it, as we don't have instructions
@@ -894,7 +847,7 @@ if (TARGET_ARCH64				\
 
 /* Argument passing regs.  */
 #define SPARC_OUTGOING_INT_ARG_FIRST 8
-#define SPARC_INCOMING_INT_ARG_FIRST (TARGET_FLAT ? 8 : 24)
+#define SPARC_INCOMING_INT_ARG_FIRST 24
 #define SPARC_FP_ARG_FIRST           32
 
 /* 1 for registers that have pervasive standard uses
@@ -1015,19 +968,6 @@ do								\
       fixed_regs[4] = 1;					\
     else if (fixed_regs[4] == 2)				\
       fixed_regs[4] = 0;					\
-    if (TARGET_FLAT)						\
-      {								\
-	int regno;						\
-	/* Let the compiler believe the frame pointer is still	\
-	   %fp, but output it as %i7.  */			\
-	fixed_regs[31] = 1;					\
-	reg_names[HARD_FRAME_POINTER_REGNUM] = "%i7";		\
-	/* Disable leaf functions */				\
-	memset (sparc_leaf_regs, 0, FIRST_PSEUDO_REGISTER);	\
-	/* Make LEAF_REG_REMAP a noop.  */			\
-	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-	  leaf_reg_remap [regno] = regno;			\
-      }								\
   }								\
 while (0)
 
@@ -1120,16 +1060,9 @@ extern int sparc_mode_class[];
    Zero means the frame pointer need not be set up (and parms
    may be accessed via the stack pointer) in functions that seem suitable.
    This is computed in `reload', in reload1.c.
-   Used in flow.c, global.c, and reload1.c.
-
-   Being a non-leaf function does not mean a frame pointer is needed in the
-   flat window model.  However, the debugger won't be able to backtrace through
-   us with out it.  */
-#define FRAME_POINTER_REQUIRED				\
-  (TARGET_FLAT						\
-   ? (current_function_calls_alloca			\
-      || !leaf_function_p ())				\
-   : ! (leaf_function_p () && only_leaf_regs_used ()))
+   Used in flow.c, global.c, and reload1.c.  */
+#define FRAME_POINTER_REQUIRED	\
+  (! (leaf_function_p () && only_leaf_regs_used ()))
 
 /* Base register for access to arguments of the function.  */
 #define ARG_POINTER_REGNUM FRAME_POINTER_REGNUM
@@ -1149,38 +1082,12 @@ extern int sparc_mode_class[];
 
 #define DEFAULT_PCC_STRUCT_RETURN -1
 
-/* SPARC ABI says that quad-precision floats and all structures are returned
-   in memory.
-   For v9: unions <= 32 bytes in size are returned in int regs,
-   structures up to 32 bytes are returned in int and fp regs.  */
-
-#define RETURN_IN_MEMORY(TYPE)				\
-(TARGET_ARCH32						\
- ? (TYPE_MODE (TYPE) == BLKmode				\
-    || TYPE_MODE (TYPE) == TFmode			\
-    || TYPE_MODE (TYPE) == TCmode)			\
- : (TYPE_MODE (TYPE) == BLKmode				\
-    && (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 32))
-
 /* Functions which return large structures get the address
    to place the wanted value at offset 64 from the frame.
    Must reserve 64 bytes for the in and local registers.
    v9: Functions which return large structures get the address to place the
    wanted value from an invisible first argument.  */
-/* Used only in other #defines in this file.  */
 #define STRUCT_VALUE_OFFSET 64
-
-#define STRUCT_VALUE \
-  (TARGET_ARCH64					\
-   ? 0							\
-   : gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, \
-					STRUCT_VALUE_OFFSET)))
-
-#define STRUCT_VALUE_INCOMING \
-  (TARGET_ARCH64						\
-   ? 0								\
-   : gen_rtx_MEM (Pmode, plus_constant (frame_pointer_rtx,	\
-					STRUCT_VALUE_OFFSET)))
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1263,6 +1170,20 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    {-1, -1, 0, 0x20},	/* GENERAL_OR_FP_REGS */	\
    {-1, -1, -1, 0x20},	/* GENERAL_OR_EXTRA_FP_REGS */	\
    {-1, -1, -1, 0x3f}}	/* ALL_REGS */
+
+/* Defines invalid mode changes.  Borrowed from pa64-regs.h.
+
+   SImode loads to floating-point registers are not zero-extended.
+   The definition for LOAD_EXTEND_OP specifies that integer loads
+   narrower than BITS_PER_WORD will be zero-extended.  As a result,
+   we inhibit changes from SImode unless they are to a mode that is
+   identical in size.  */
+
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+  (TARGET_ARCH64						\
+   && (FROM) == SImode						\
+   && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1605,7 +1526,6 @@ extern char leaf_reg_remap[];
 #define REG_PARM_STACK_SPACE(DECL) (6 * UNITS_PER_WORD)
 
 /* Definitions for register elimination.  */
-/* ??? In TARGET_FLAT mode we needn't have a hard frame pointer.  */
 
 #define ELIMINABLE_REGS \
   {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
@@ -1622,17 +1542,11 @@ extern char leaf_reg_remap[];
   do {								\
     (OFFSET) = 0;						\
     if ((TO) == STACK_POINTER_REGNUM)				\
-      {								\
-	/* Note, we always pretend that this is a leaf function	\
-	   because if it's not, there's no point in trying to	\
-	   eliminate the frame pointer.  If it is a leaf	\
-	   function, we guessed right!  */			\
-	if (TARGET_FLAT)					\
-	  (OFFSET) =						\
-	    sparc_flat_compute_frame_size (get_frame_size ());	\
-	else							\
-	  (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
-      }								\
+      /* Note, we always pretend that this is a leaf function	\
+	 because if it's not, there's no point in trying to	\
+	 eliminate the frame pointer.  If it is a leaf		\
+	 function, we guessed right!  */			\
+      (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
     (OFFSET) += SPARC_STACK_BIAS;				\
   } while (0)
 
@@ -1654,29 +1568,18 @@ extern char leaf_reg_remap[];
 /* Some subroutine macros specific to this machine.
    When !TARGET_FPU, put float return values in the general registers,
    since we don't have any fp registers.  */
-#define BASE_RETURN_VALUE_REG(MODE)					\
-  (TARGET_ARCH64							\
-   ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)			\
-   : (((MODE) == SFmode || (MODE) == DFmode) && TARGET_FPU ? 32 : 8))
+#define BASE_RETURN_VALUE_REG(MODE)	\
+  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
 
-#define BASE_OUTGOING_VALUE_REG(MODE)				\
-  (TARGET_ARCH64						\
-   ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32			\
-      : TARGET_FLAT ? 8 : 24)					\
-   : (((MODE) == SFmode || (MODE) == DFmode) && TARGET_FPU ? 32	\
-      : (TARGET_FLAT ? 8 : 24)))
+#define BASE_OUTGOING_VALUE_REG(MODE)	\
+  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
 
 #define BASE_PASSING_ARG_REG(MODE)				\
-  (TARGET_ARCH64						\
-   ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)		\
-   : 8)
+  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
 
 /* ??? FIXME -- seems wrong for v9 structure passing...  */
 #define BASE_INCOMING_ARG_REG(MODE)				\
-  (TARGET_ARCH64						\
-   ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32			\
-      : TARGET_FLAT ? 8 : 24)					\
-   : (TARGET_FLAT ? 8 : 24))
+  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
 
 /* Define this macro if the target machine has "register windows".  This
    C expression returns the register number as seen by the called function
@@ -1684,7 +1587,7 @@ extern char leaf_reg_remap[];
    Return OUT if register number OUT is not an outbound register.  */
 
 #define INCOMING_REGNO(OUT) \
- ((TARGET_FLAT || (OUT) < 8 || (OUT) > 15) ? (OUT) : (OUT) + 16)
+ (((OUT) < 8 || (OUT) > 15) ? (OUT) : (OUT) + 16)
 
 /* Define this macro if the target machine has "register windows".  This
    C expression returns the register number as seen by the calling function
@@ -1692,14 +1595,14 @@ extern char leaf_reg_remap[];
    Return IN if register number IN is not an inbound register.  */
 
 #define OUTGOING_REGNO(IN) \
- ((TARGET_FLAT || (IN) < 24 || (IN) > 31) ? (IN) : (IN) - 16)
+ (((IN) < 24 || (IN) > 31) ? (IN) : (IN) - 16)
 
 /* Define this macro if the target machine has register windows.  This
    C expression returns true if the register is call-saved but is in the
    register window.  */
 
 #define LOCAL_REGNO(REGNO) \
-  (TARGET_FLAT ? 0 : (REGNO) >= 16 && (REGNO) <= 31)
+  ((REGNO) >= 16 && (REGNO) <= 31)
 
 /* Define how to find the value returned by a function.
    VALTYPE is the data type of the value (as a tree).
@@ -1766,7 +1669,7 @@ struct sparc_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
 init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
 
 /* Update the data in CUM to advance over an argument
@@ -1915,15 +1818,13 @@ do {									\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
 
-#define DELAY_SLOTS_FOR_EPILOGUE \
-  (TARGET_FLAT ? sparc_flat_epilogue_delay_slots () : 1)
+#define DELAY_SLOTS_FOR_EPILOGUE 1
+
 #define ELIGIBLE_FOR_EPILOGUE_DELAY(trial, slots_filled) \
-  (TARGET_FLAT ? sparc_flat_eligible_for_epilogue_delay (trial, slots_filled) \
-   : eligible_for_epilogue_delay (trial, slots_filled))
+  eligible_for_epilogue_delay (trial, slots_filled)
 
 /* Define registers used by the epilogue and return instruction.  */
-#define EPILOGUE_USES(REGNO) \
-  (!TARGET_FLAT && REGNO == 31)
+#define EPILOGUE_USES(REGNO) (REGNO == 31)
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -1941,10 +1842,6 @@ do {									\
     else							\
       sparc_initialize_trampoline (TRAMP, FNADDR, CXT)
 
-/* Generate necessary RTL for __builtin_saveregs().  */
-
-#define EXPAND_BUILTIN_SAVEREGS() sparc_builtin_saveregs ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sparc_va_start (valist, nextarg)
@@ -1953,19 +1850,6 @@ do {									\
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   sparc_va_arg (valist, type)
 
-/* Define this macro if the location where a function argument is passed
-   depends on whether or not it is a named argument.
-
-   This macro controls how the NAMED argument to FUNCTION_ARG
-   is set for varargs and stdarg functions.  With this macro defined,
-   the NAMED argument is always true for named arguments, and false for
-   unnamed arguments.  If this is not defined, but SETUP_INCOMING_VARARGS
-   is defined, then all arguments are treated as named.  Otherwise, all named
-   arguments except the last are treated as named.
-   For the v9 we want NAMED to mean what it says it means.  */
-
-#define STRICT_ARGUMENT_NAMING TARGET_V9
-
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
 #define SETUP_FRAME_ADDRESSES()		\
@@ -1973,8 +1857,7 @@ do {									\
 
 /* Given an rtx for the address of a frame,
    return an rtx for the address of the word in the frame
-   that holds the dynamic chain--the previous frame's address.
-   ??? -mflat support? */
+   that holds the dynamic chain--the previous frame's address.  */
 #define DYNAMIC_CHAIN_ADDRESS(frame)	\
   plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
@@ -2372,9 +2255,6 @@ do {                                                                    \
    better than access by words when possible, so grab a whole word
    and maybe make use of that.  */
 #define SLOW_BYTE_ACCESS 1
-
-/* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES (TARGET_ARCH32)
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */

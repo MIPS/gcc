@@ -1,6 +1,6 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,7 +120,7 @@ cleanup_barriers (void)
 	}
     }
 }
-
+
 void
 purge_line_number_notes (rtx f)
 {
@@ -236,7 +236,6 @@ mark_all_labels (rtx f)
 	  }
       }
 }
-
 
 /* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
    notes between START and END out before START.  START and END may be such
@@ -762,7 +761,7 @@ simplejump_p (rtx insn)
 /* Return nonzero if INSN is a (possibly) conditional jump
    and nothing more.
 
-   Use this function is deprecated, since we need to support combined
+   Use of this function is deprecated, since we need to support combined
    branch and compare insns.  Use any_condjump_p instead whenever possible.  */
 
 int
@@ -854,6 +853,8 @@ any_uncondjump_p (rtx insn)
   if (!x)
     return 0;
   if (GET_CODE (SET_SRC (x)) != LABEL_REF)
+    return 0;
+  if (find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
     return 0;
   return 1;
 }
@@ -1262,13 +1263,13 @@ delete_prior_computation (rtx note, rtx insn)
 	      int dest_endregno
 		= (dest_regno
 		   + (dest_regno < FIRST_PSEUDO_REGISTER
-		      ? HARD_REGNO_NREGS (dest_regno,
-					  GET_MODE (SET_DEST (pat))) : 1));
+		      ? hard_regno_nregs[dest_regno]
+					[GET_MODE (SET_DEST (pat))] : 1));
 	      int regno = REGNO (reg);
 	      int endregno
 		= (regno
 		   + (regno < FIRST_PSEUDO_REGISTER
-		      ? HARD_REGNO_NREGS (regno, GET_MODE (reg)) : 1));
+		      ? hard_regno_nregs[regno][GET_MODE (reg)] : 1));
 
 	      if (dest_regno >= regno
 		  && dest_endregno <= endregno)

@@ -142,7 +142,7 @@ struct tree_common GTY(())
   unsigned readonly_flag : 1;
   unsigned unsigned_flag : 1;
   unsigned asm_written_flag: 1;
-  unsigned not_gimple_flag : 1;
+  unsigned nowarning_flag : 1;
 
   unsigned used_flag : 1;
   unsigned nothrow_flag : 1;
@@ -180,8 +180,6 @@ struct tree_common GTY(())
 
        TREE_STATIC in
            VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, ADDR_EXPR
-       TREE_NO_UNUSED_WARNING in
-           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
@@ -222,6 +220,8 @@ struct tree_common GTY(())
        TREE_PROTECTED in
            BLOCK
 	   ..._DECL
+       CALL_FROM_THUNK_P in
+           CALL_EXPR 
 
    side_effects_flag:
 
@@ -243,8 +243,6 @@ struct tree_common GTY(())
            all expressions
        TYPE_READONLY in
            ..._TYPE
-       NONLOCAL_LABEL in
-	   LABEL_DECL
 
    constant_flag:
 
@@ -274,6 +272,9 @@ struct tree_common GTY(())
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
 
+       TYPE_ALIGN_OK in
+	   ..._TYPE
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
@@ -288,6 +289,10 @@ struct tree_common GTY(())
 	TREE_INVARIANT in
 	    all expressions.
 
+   nowarning_flag:
+
+       TREE_NO_WARNING in
+           ... any expr node
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -600,9 +605,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    executed if an exception is thrown, not on normal exit of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
-/* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
-   made implicitly and should not lead to an "unused value" warning.  */
-#define TREE_NO_UNUSED_WARNING(NODE) ((NODE)->common.static_flag)
+/* In an expr node (usually a conversion) this means the node was made
+   implicitly and should not lead to any sort of warning.  */
+#define TREE_NO_WARNING(NODE) ((NODE)->common.nowarning_flag)
 
 /* Nonzero for a TREE_LIST or TREE_VEC node means that the derivation
    chain is via a `virtual' declaration.  */
@@ -663,10 +668,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    when the node is a type).  */
 #define TREE_READONLY(NODE) ((NODE)->common.readonly_flag)
 
-/* In a LABEL_DECL, nonzero means this label is a jump target for
-   a nonlocal goto.  */
-#define NONLOCAL_LABEL(NODE) ((NODE)->common.readonly_flag)
-
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) (TREE_READONLY (NODE) && DECL_P (NODE))
 
@@ -708,6 +709,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
    argument list.  */
 #define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
 
+/* In a CALL_EXPR, means that the call is the jump from a thunk to the
+   thunked-to function.  */
+#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
+
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
    of this type is aligned at least to the alignment of the type, even if it
@@ -728,9 +733,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* Nonzero in an IDENTIFIER_NODE if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) ((NODE)->common.deprecated_flag)
-
-/* Nonzero if the node is not in GIMPLE form.  */
-#define TREE_NOT_GIMPLE(NODE) ((NODE)->common.not_gimple_flag)
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -896,6 +898,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -1751,12 +1754,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\
@@ -1778,8 +1776,9 @@ struct tree_type GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->decl.u2.r)
 
-/* For FUNCTION_DECL, if it is inline, holds the saved insn chain.  */
-#define DECL_SAVED_INSNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
+/* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
+   that describes the status of this function.  */
+#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
 
 /* For FUNCTION_DECL, if it is built-in,
    this identifies which built-in operation it is.  */
@@ -2050,17 +2049,19 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
+/* Nonzero for a decl that has been marked as needing a memory slot.
+   NOTE: Never use this macro directly.  It will give you incomplete
+   information. Most of the time this bit will only be set after alias
+   analysis in the tree optimizers.  It's always better to call
+   needs_to_live_in_memory instead.  To mark memory variables use
+   mark_call_clobbered.  */
+#define DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL(DECL)		\
+  DECL_CHECK (DECL)->decl.needs_to_live_in_memory
 
 /* Enumerate visibility settings.  */
 
@@ -2115,7 +2116,6 @@ struct tree_decl GTY(())
   unsigned declared_inline_flag : 1;
   unsigned seen_in_bind_expr : 1;
   ENUM_BITFIELD(symbol_visibility) visibility : 2;
-  /* No unused bits.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -2125,6 +2125,9 @@ struct tree_decl GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
+
+  unsigned needs_to_live_in_memory : 1;
+  /* 15 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -2287,6 +2290,10 @@ enum tree_index
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
 
+  TI_PUBLIC,
+  TI_PROTECTED,
+  TI_PRIVATE,
+
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
@@ -2372,9 +2379,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 /* Base access nodes.  */
-#define access_public_node		NULL_TREE
-#define access_protected_node		size_zero_node
-#define access_private_node		size_one_node
+#define access_public_node		global_trees[TI_PUBLIC]
+#define access_protected_node	        global_trees[TI_PROTECTED]
+#define access_private_node		global_trees[TI_PRIVATE]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -2520,6 +2527,7 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
+extern tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2985,6 +2993,8 @@ extern int fields_length (tree);
 
 extern bool initializer_zerop (tree);
 
+extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern HOST_WIDE_INT count_type_elements (tree);
 extern int mostly_zeros_p (tree);
 
 /* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
@@ -3154,13 +3164,6 @@ extern tree decl_function_context (tree);
 /* Return the RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE which provides
    this _DECL with its context, or zero if none.  */
 extern tree decl_type_context (tree);
-
-/* Given the FUNCTION_DECL for the current function,
-   return zero if it is ok for this function to be inline.
-   Otherwise return a warning message with a single %s
-   for the function's name.  */
-
-extern const char *function_cannot_inline_p (tree);
 
 /* Return 1 if EXPR is the real constant zero.  */
 extern int real_zerop (tree);
@@ -3355,7 +3358,9 @@ extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
 extern void recompute_tree_invarant_for_addr_expr (tree);
-
+extern bool needs_to_live_in_memory (tree);
+extern tree make_vector (enum machine_mode, tree, int);
+extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (tree);
 extern int real_twop (tree);
@@ -3377,7 +3382,7 @@ extern void init_function_start (tree);
 extern void assign_parms (tree);
 extern void put_var_into_stack (tree, int);
 extern void flush_addressof (tree);
-extern void uninitialized_vars_warning (tree);
+extern void setjmp_vars_warning (tree);
 extern void setjmp_args_warning (void);
 extern void mark_all_temps_used (void);
 extern void init_temp_slots (void);
@@ -3468,9 +3473,7 @@ extern bool alloca_call_p (tree);
 extern tree decl_attributes (tree *, tree, int);
 
 /* In integrate.c */
-extern void save_for_inline (tree);
 extern void set_decl_abstract_flags (tree, int);
-extern void output_inline_function (tree);
 extern void set_decl_origin_self (tree);
 
 /* In stor-layout.c */
@@ -3511,7 +3514,6 @@ extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
 extern void expand_start_case_dummy (void);
-extern void declare_nonlocal_label (tree);
 extern int containing_blocks_have_cleanups_or_stack_level (void);
 
 /* In gimplify.c.  */
@@ -3572,6 +3574,7 @@ enum tree_dump_index
   TDI_class,			/* dump class hierarchy.  */
   TDI_original,			/* dump each function before optimizing it */
   TDI_generic,			/* dump each function after genericizing it */
+  TDI_nested,			/* dump each function after unnesting it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_dot,			/* create a dot graph file for each 
@@ -3608,6 +3611,7 @@ extern const char *dump_flag_name (enum tree_dump_index);
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl (tree, rtx);
+extern void set_decl_incoming_rtl (tree, rtx);
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

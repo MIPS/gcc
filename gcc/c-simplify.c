@@ -46,6 +46,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tree-dump.h"
 #include "c-pretty-print.h"
+#include "cgraph.h"
+
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -133,6 +135,7 @@ c_genericize (tree fndecl)
 {
   FILE *dump_file;
   int dump_flags;
+  struct cgraph_node *cgn;
 
   /* Dump the C-specific tree IR.  */
   dump_file = dump_begin (TDI_original, &dump_flags);
@@ -161,6 +164,13 @@ c_genericize (tree fndecl)
 
   /* Dump the genericized tree IR.  */
   dump_function (TDI_generic, fndecl);
+
+  /* Genericize all nested functions now.  We do things in this order so
+     that items like VLA sizes are expanded properly in the context of
+     the correct function.  */
+  cgn = cgraph_node (fndecl);
+  for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
+    c_genericize (cgn->decl);
 }
 
 /*  Entry point for the tree lowering pass.  Recursively scan
@@ -213,7 +223,7 @@ c_gimplify_stmt (tree *stmt_p)
 	  break;
 
 	case FOR_STMT:
-	  ret = gimplify_for_stmt (&stmt, &pre);
+	  ret = gimplify_for_stmt (&stmt, &next);
 	  break;
 
 	case WHILE_STMT:
@@ -505,7 +515,9 @@ gimplify_expr_stmt (tree *stmt_p)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
-	  if (!IS_EMPTY_STMT (stmt) && !VOID_TYPE_P (TREE_TYPE (stmt)))
+	  if (!IS_EMPTY_STMT (stmt)
+	      && !VOID_TYPE_P (TREE_TYPE (stmt))
+	      && !TREE_NO_WARNING (stmt))
 	    warning ("statement with no effect");
 	}
       else if (warn_unused_value)
@@ -703,16 +715,26 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
    prequeue and hand off to gimplify_c_loop.  */
 
 static enum gimplify_status
-gimplify_for_stmt (tree *stmt_p, tree *pre_p)
+gimplify_for_stmt (tree *stmt_p, tree *next_p)
 {
   tree stmt = *stmt_p;
-
   tree init = FOR_INIT_STMT (stmt);
-  c_gimplify_stmt (&init);
-  append_to_statement_list (init, pre_p);
 
-  *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
-			     FOR_EXPR (stmt), 1);
+  if (init)
+    {
+      /* Reorganize the statements so that we do the right thing with a
+	 CLEANUP_STMT.  We want the FOR_STMT and nothing else to be in the
+	 scope of the cleanup, so play with pointers to accomplish that. */
+      FOR_INIT_STMT (stmt) = NULL_TREE;
+      chainon (init, stmt);
+      *stmt_p = init;
+      *next_p = TREE_CHAIN (stmt);
+      TREE_CHAIN (stmt) = NULL_TREE;
+      c_gimplify_stmt (stmt_p);
+    }
+  else
+    *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
+			       FOR_EXPR (stmt), 1);
 
   return GS_ALL_DONE;
 }
@@ -799,19 +821,6 @@ gimplify_return_stmt (tree *stmt_p)
   return GS_OK;
 }
 
-/* walk_tree helper function for gimplify_decl_stmt.  */
-
-static tree
-mark_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
-{
-  if (TYPE_P (*tp))
-    *walk_subtrees = 0;
-  if (TREE_CODE (*tp) == LABEL_DECL)
-    FORCED_LABEL (*tp) = 1;
-
-  return NULL_TREE;
-}
-
 /* Gimplifies a DECL_STMT node T.
 
    If a declaration V has an initial value I, create an expression 'V = I'
@@ -852,7 +861,8 @@ gimplify_decl_stmt (tree *stmt_p)
 	  tree alloc, size;
 
 	  /* This is a variable-sized decl.  Simplify its size and mark it
-	     for deferred expansion.  */
+	     for deferred expansion.  Note that mudflap depends on the format
+	     of the emitted code: see mx_register_decls().  */
 
 	  size = get_initialized_tmp_var (DECL_SIZE_UNIT (decl), &pre, &post);
 	  DECL_DEFER_OUTPUT (decl) = 1;
@@ -868,6 +878,12 @@ gimplify_decl_stmt (tree *stmt_p)
 	{
 	  if (!TREE_STATIC (decl))
 	    {
+              /* Do not warn about int x = x; as it is a GCC extension
+                 to turn off this warning but only if warn_init_self
+		 is zero.  */
+              if (init == decl && !warn_init_self)
+                TREE_NO_WARNING (decl) = 1;
+              
 	      DECL_INITIAL (decl) = NULL_TREE;
 	      init = build (MODIFY_EXPR, void_type_node, decl, init);
 	      if (stmts_are_full_exprs_p ())
@@ -878,7 +894,7 @@ gimplify_decl_stmt (tree *stmt_p)
 	    {
 	      /* We must still examine initializers for static variables
 		 as they may contain a label address.  */
-	      walk_tree (&init, mark_labels_r, NULL, NULL);
+	      walk_tree (&init, force_labels_r, NULL, NULL);
 	    }
 	}
 

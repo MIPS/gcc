@@ -399,6 +399,10 @@ Wunused-macros
 C ObjC C++ ObjC++
 Warn about macros defined in the main file that are not used
 
+Wvariadic-macros
+C ObjC C++ ObjC++
+Do not warn about using variadic macros when -pedantic
+
 Wwrite-strings
 C ObjC C++ ObjC++
 Give strings the type \"array of char\"
@@ -477,6 +481,11 @@ C++ ObjC++
 fexec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fexec-charset=<cset>	Convert all strings and character constants to character set <cset>
+
+finput-charset=
+C ObjC C++ ObjC++ Joined RejectNegative
+-finput-charset=<cset>      Specify the default character set for source files.
+
 
 fexternal-templates
 C++ ObjC++

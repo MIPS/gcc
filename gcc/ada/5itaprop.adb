@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -201,7 +201,7 @@ package body System.Task_Primitives.Operations is
    procedure Abort_Handler (signo : Signal) is
       pragma Unreferenced (signo);
 
-      Self_Id : Task_ID := Self;
+      Self_Id : constant Task_ID := Self;
       Result  : Interfaces.C.int;
       Old_Set : aliased sigset_t;
 
@@ -656,9 +656,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_ID; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
-
       Result : Interfaces.C.int;
-
    begin
       Result := pthread_cond_signal (T.Common.LL.CV'Access);
       pragma Assert (Result = 0);
@@ -671,7 +669,6 @@ package body System.Task_Primitives.Operations is
    procedure Yield (Do_Yield : Boolean := True) is
       Result : Interfaces.C.int;
       pragma Unreferenced (Result);
-
    begin
       if Do_Yield then
          Result := sched_yield;
@@ -715,6 +712,7 @@ package body System.Task_Primitives.Operations is
            (T.Common.LL.Thread, SCHED_FIFO, Param'Access);
 
       else
+         Param.sched_priority := 0;
          Result := pthread_setschedparam
            (T.Common.LL.Thread, SCHED_OTHER, Param'Access);
       end if;
@@ -988,8 +986,7 @@ package body System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
    begin
       if T.Common.LL.Thread /= Thread_Self then
@@ -1005,8 +1002,7 @@ package body System.Task_Primitives.Operations is
 
    function Resume_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
    begin
       if T.Common.LL.Thread /= Thread_Self then
@@ -1042,12 +1038,6 @@ package body System.Task_Primitives.Operations is
 
    begin
       Environment_Task_ID := Environment_Task;
-
-      Result := pthread_mutexattr_init (Mutex_Attr'Access);
-      pragma Assert (Result = 0 or else Result = ENOMEM);
-
-      Result := pthread_condattr_init (Cond_Attr'Access);
-      pragma Assert (Result = 0 or else Result = ENOMEM);
 
       Initialize_Lock (Single_RTS_Lock'Access, RTS_Lock_Level);
 
@@ -1101,5 +1091,11 @@ begin
             pragma Assert (Result = 0);
          end if;
       end loop;
+
+      Result := pthread_mutexattr_init (Mutex_Attr'Access);
+      pragma Assert (Result = 0);
+
+      Result := pthread_condattr_init (Cond_Attr'Access);
+      pragma Assert (Result = 0);
    end;
 end System.Task_Primitives.Operations;

@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -205,7 +205,7 @@ struct c_common_identifier GTY(())
 
 #define default_function_type		c_global_trees[CTI_DEFAULT_FUNCTION_TYPE]
 
-/* g77 integer types, which which must be kept in sync with f/com.h */
+/* g77 integer types, which must be kept in sync with f/com.h */
 #define g77_integer_type_node		c_global_trees[CTI_G77_INTEGER_TYPE]
 #define g77_uinteger_type_node		c_global_trees[CTI_G77_UINTEGER_TYPE]
 #define g77_longint_type_node		c_global_trees[CTI_G77_LONGINT_TYPE]
@@ -221,7 +221,8 @@ struct c_common_identifier GTY(())
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
 
-/* In a RECORD_TYPE, a sorted array of the fields of the type, not a tree for size reasons.  */
+/* In a RECORD_TYPE, a sorted array of the fields of the type, not a
+   tree for size reasons.  */
 struct sorted_fields_type GTY(())
 {
   int len;
@@ -327,8 +328,6 @@ extern void (*lang_expand_function_end) (void);
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
 extern int yyparse (void);
-extern void free_parser_stacks (void);
-
 extern stmt_tree current_stmt_tree (void);
 extern tree *current_scope_stmt_stack (void);
 extern void begin_stmt_tree (tree *);
@@ -344,8 +343,6 @@ extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
 extern void c_finish_while_stmt_cond (tree, tree);
 
-enum sw_kind { SW_PARAM = 0, SW_LOCAL, SW_GLOBAL };
-extern void shadow_warning (enum sw_kind, const char *, tree);
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
                                   void *);
@@ -1220,7 +1217,7 @@ extern tree finish_label_address_expr (tree);
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
 
-extern rtx c_expand_expr (tree, rtx, enum machine_mode, int);
+extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
 extern int c_safe_from_p (rtx, tree);
 
@@ -1271,7 +1268,6 @@ extern void builtin_define_with_value (const char *, const char *, int);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const struct line_map *);
 extern int c_estimate_num_insns (tree decl);
-extern bool c_decl_uninit (tree t);
 extern void c_parse_error (const char *, enum cpp_ttype, tree);
 
 /* The following have been moved here from c-tree.h, since they're needed
@@ -1291,5 +1287,6 @@ extern void objc_mark_locals_volatile (void *);
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
+extern void pp_dir_change (cpp_reader *, const char *);
 
 #endif /* ! GCC_C_COMMON_H */

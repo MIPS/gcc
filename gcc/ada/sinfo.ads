@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2275,8 +2275,7 @@ package Sinfo is
       --  N_Unconstrained_Array_Definition
       --  Sloc points to ARRAY
       --  Subtype_Marks (List2)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
 
       -----------------------------------
       -- 3.6  Index Subtype Definition --
@@ -2304,8 +2303,7 @@ package Sinfo is
       --  N_Constrained_Array_Definition
       --  Sloc points to ARRAY
       --  Discrete_Subtype_Definitions (List2)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
 
       --------------------------------------
       -- 3.6  Discrete Subtype Definition --
@@ -2318,17 +2316,23 @@ package Sinfo is
       -- 3.6  Component Definition --
       -------------------------------
 
-      --  COMPONENT_DEFINITION ::= [aliased] SUBTYPE_INDICATION
-
-      --  There is no explicit node in the tree for a component definition.
-      --  Instead the subtype indication appears directly, and the ALIASED
-      --  indication (Aliased_Present flag) is in the parent node.
+      --  COMPONENT_DEFINITION ::=
+      --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
       --  Note: although the syntax does not permit a component definition to
       --  be an anonymous array (and the parser will diagnose such an attempt
       --  with an appropriate message), it is possible for anonymous arrays
       --  to appear as component definitions. The semantics and back end handle
       --  this case properly, and the expander in fact generates such cases.
+      --  Access_Definition is an optional field that gives support to Ada 0Y
+      --  (AI-230). The parser generates nodes that have either the
+      --  Subtype_Indication field or else the Access_Definition field.
+
+      --  N_Component_Definition
+      --  Sloc points to ALIASED, ACCESS or to first token of subtype mark
+      --  Aliased_Present (Flag4)
+      --  Subtype_Indication (Node5) (set to Empty if not present)
+      --  Access_Definition (Node3) (set to Empty if not present)
 
       -----------------------------
       -- 3.6.1  Index Constraint --
@@ -2537,8 +2541,7 @@ package Sinfo is
       --  N_Component_Declaration
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
       --  Expression (Node3) (set to Empty if no default expression)
       --  More_Ids (Flag5) (set to False if no more identifiers in list)
       --  Prev_Ids (Flag6) (set to False if no previous identifiers in list)
@@ -3023,7 +3026,7 @@ package Sinfo is
       --  list of selector names in the record aggregate case, or a list of
       --  discrete choices in the array aggregate case or an N_Others_Choice
       --  node (which appears as a singleton list). Box_Present gives support
-      --  to Ada0Y (AI-287).
+      --  to Ada 0Y (AI-287).
 
       ------------------------------------
       --  4.3.1  Commponent Choice List --
@@ -4286,11 +4289,17 @@ package Sinfo is
 
       --  OBJECT_RENAMING_DECLARATION ::=
       --    DEFINING_IDENTIFIER : SUBTYPE_MARK renames object_NAME;
+      --  | DEFINING_IDENTIFIER : ACCESS_DEFINITION renames object_NAME;
+
+      --  Note: Access_Definition is an optional field that gives support to
+      --  Ada 0Y (AI-230). The parser generates nodes that have either the
+      --  Subtype_Indication field or else the Access_Definition field.
 
       --  N_Object_Renaming_Declaration
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
-      --  Subtype_Mark (Node4)
+      --  Subtype_Mark (Node4) (set to Empty if not present)
+      --  Access_Definition (Node3) (set to Empty if not present)
       --  Name (Node2)
       --  Corresponding_Generic_Association (Node5-Sem)
 
@@ -5101,7 +5110,7 @@ package Sinfo is
       --  No_Entities_Ref_In_Spec (Flag8-Sem)
 
       --  Note: Limited_Present and Limited_View_Installed give support to
-      --        Ada0Y (AI-50217).
+      --        Ada 0Y (AI-50217).
 
       ----------------------
       -- With_Type clause --
@@ -6651,6 +6660,7 @@ package Sinfo is
       N_Compilation_Unit,
       N_Compilation_Unit_Aux,
       N_Component_Association,
+      N_Component_Definition,
       N_Component_List,
       N_Derived_Type_Definition,
       N_Decimal_Fixed_Point_Definition,
@@ -6878,6 +6888,9 @@ package Sinfo is
    function Accept_Statement
      (N : Node_Id) return Node_Id;    -- Node2
 
+   function Access_Definition
+     (N : Node_Id) return Node_Id;    -- Node3
+
    function Access_Types_To_Process
      (N : Node_Id) return Elist_Id;   -- Elist2
 
@@ -6967,6 +6980,9 @@ package Sinfo is
 
    function Component_Clauses
      (N : Node_Id) return List_Id;    -- List3
+
+   function Component_Definition
+     (N : Node_Id) return Node_Id;    -- Node4
 
    function Component_Items
      (N : Node_Id) return List_Id;    -- List3
@@ -7658,6 +7674,9 @@ package Sinfo is
    procedure Set_Accept_Statement
      (N : Node_Id; Val : Node_Id);            -- Node2
 
+   procedure Set_Access_Definition
+     (N : Node_Id; Val : Node_Id);            -- Node3
+
    procedure Set_Access_Types_To_Process
      (N : Node_Id; Val : Elist_Id);           -- Elist2
 
@@ -7747,6 +7766,9 @@ package Sinfo is
 
    procedure Set_Component_Clauses
      (N : Node_Id; Val : List_Id);            -- List3
+
+   procedure Set_Component_Definition
+     (N : Node_Id; Val : Node_Id);            -- Node4
 
    procedure Set_Component_Items
      (N : Node_Id; Val : List_Id);            -- List3
@@ -8441,6 +8463,7 @@ package Sinfo is
    pragma Inline (Abstract_Present);
    pragma Inline (Accept_Handler_Records);
    pragma Inline (Accept_Statement);
+   pragma Inline (Access_Definition);
    pragma Inline (Access_Types_To_Process);
    pragma Inline (Actions);
    pragma Inline (Activation_Chain_Entity);
@@ -8471,6 +8494,7 @@ package Sinfo is
    pragma Inline (Compile_Time_Known_Aggregate);
    pragma Inline (Component_Associations);
    pragma Inline (Component_Clauses);
+   pragma Inline (Component_Definition);
    pragma Inline (Component_Items);
    pragma Inline (Component_List);
    pragma Inline (Component_Name);
@@ -8698,6 +8722,7 @@ package Sinfo is
    pragma Inline (Set_Abstract_Present);
    pragma Inline (Set_Accept_Handler_Records);
    pragma Inline (Set_Accept_Statement);
+   pragma Inline (Set_Access_Definition);
    pragma Inline (Set_Access_Types_To_Process);
    pragma Inline (Set_Actions);
    pragma Inline (Set_Activation_Chain_Entity);
@@ -8728,6 +8753,7 @@ package Sinfo is
    pragma Inline (Set_Compile_Time_Known_Aggregate);
    pragma Inline (Set_Component_Associations);
    pragma Inline (Set_Component_Clauses);
+   pragma Inline (Set_Component_Definition);
    pragma Inline (Set_Component_Items);
    pragma Inline (Set_Component_List);
    pragma Inline (Set_Component_Name);

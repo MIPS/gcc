@@ -1,6 +1,6 @@
 /* Declarations for variables relating to reading the source file.
    Used by parsers, lexical analyzers, and error message routines.
-   Copyright (C) 1993, 1997, 1998, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_INPUT_H
 #define GCC_INPUT_H
+
+#include "line-map.h"
+
+extern struct line_maps line_table;
 
 /* The data structure used to record a location in a translation unit.  */
 /* Long-term, we want to get rid of this and typedef fileline location_t.  */

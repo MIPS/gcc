@@ -1175,6 +1175,13 @@ add_coalesce (coalesce_list_p cl, int p1, int p2, int value)
   node->cost += value;
 }
 
+/* Comparison function for qsort to sort in descending order.  */
+
+static
+int compare_pairs (const void *p1, const void *p2)
+{
+  return (*(partition_pair_p *)p2)->cost - (*(partition_pair_p *)p1)->cost;
+}
 
 /* Prepare the coalesce list for removal of preferred pairs.  When finished,
    list element 0 has all the coalesce pairs, sorted in order from most
@@ -1183,79 +1190,67 @@ add_coalesce (coalesce_list_p cl, int p1, int p2, int value)
 void
 sort_coalesce_list (coalesce_list_p cl)
 {
-  int x, num, last, val, odd;
-  partition_pair_p n1, n1_prev ,n2, n2_end, n2_last;
+  int x, num, count;
+  partition_pair_p chain, p;
+  partition_pair_p  *list;
 
   if (!cl->add_mode)
     abort();
 
   cl->add_mode = false;
-  last = 0;
 
-  /* Compact the list so we know how many lists there are.  */
-  num = num_var_partitions (cl->map);
-  for (x = 0; x < num; x++)
+  /* Compact the array of lists to a single list, and count the elements.  */
+  num = 0;
+  chain = NULL;
+  for (x = 0; x < num_var_partitions (cl->map); x++)
     if (cl->list[x] != NULL)
       {
-        if (x != last)
-	  cl->list[last] = cl->list[x];
-	last++;
+        for (p = cl->list[x]; p->next != NULL; p = p->next)
+	  num++;
+	num++;
+	p->next = chain;
+	chain = cl->list[x];
+	cl->list[x] = NULL;
       }
 
-  if (last == 0)
-    return;
-
-  num = last / 2;
-  odd = last % 2;
-
-  /* While there is more than one list, merge lists in pairs until only
-     1 list remains.  */
-  while (num >= 1)
+  /* Only call qsort if there are more than 2 items.  */
+  if (num > 2)
     {
-      last = 0;
-      for (x = 0; x < num; x++)
-        {
-	  n1 = cl->list[x * 2];
-	  n2 = cl->list[x * 2 + 1];
-	  for (n1_prev = NULL; n1 && n2; n1 = n1->next)
-	    {
-	      val = n1->second_partition;
-	      if (n2->second_partition  <= val)
-		{
-		  n2_last = n2;
-		  /* Merge as many as will fit before n1.  */
-		  for (n2_end = n2; n2_end; n2_end = n2_end->next)
-		    {
-		      if (n2_end->second_partition > val)
-			break;
-		      n2_last = n2_end;
-		    }
-		  if (n1_prev)
-		    {
-		      n2_last->next = n1;
-		      n1_prev->next = n2;
-		    }
-		  else
-		    {
-		      n2_last->next = n1;
-		      cl->list[x * 2] = n2;
-		    }
-		  n2 = n2_end;
-		}
-	      n1_prev = n1;
-	    }
-	  /* Append anything left over should be appended to the end.  */
-	  if (n2)
-	    n1_prev->next = n2;
-	  cl->list[last++] = cl->list[x * 2];
+      list = xmalloc (sizeof (partition_pair_p) * num);
+      count = 0;
+      for (p = chain; p != NULL; p = p->next)
+	list[count++] = p;
+
+#ifdef ENABLE_CHECKING
+  if (count != num)
+    abort ();
+#endif
+	
+      qsort (list, count, sizeof (partition_pair_p), compare_pairs);
+
+      p = list[0];
+      for (x = 1; x < num; x++)
+	{
+	  p->next = list[x];
+	  p = list[x];
 	}
-
-      /* If there were an odd number of lists, move the last one up as well.  */
-      if (odd)
-	cl->list[last++] = cl->list[num * 2];
-
-      num = last / 2;
-      odd = last % 2;
+      p->next = NULL;
+      cl->list[0] = list[0];
+      free (list);
+    }
+  else
+    {
+      cl->list[0] = chain;
+      if (num == 2)
+	{
+	  /* Simply swap the two elements if they are in the wrong order.  */
+	  if (chain->cost < chain->next->cost)
+	    {
+	      cl->list[0] = chain->next;
+	      cl->list[0]->next = chain;
+	      chain->next = NULL;
+	    }
+	}
     }
 }
 
@@ -1486,87 +1481,163 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
 
 /* This routine will attempt to coalesce the elements in a TPA list.
-   If a coalesce_list is provided, those coalesces are attempted first.
-   If a file pointer is provided, debug output will be sent there.  */
+   If a coalesce_list is provided, those coalesces are attempted.  Otherwise
+   an attempt is made to coalesce as many elements within a partition as
+   possible.  If a file pointer is provided, debug output will be sent 
+   there.  */
 
 void
 coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map, 
 		      coalesce_list_p cl, FILE *debug)
 {
-  int x, y, z;
+  int x, y, z, w;
   tree var, tmp;
 
-  /* Attempt to coalesce any items in a coalesce list first.  */
+  /* Attempt to coalesce any items in a coalesce list.  */
   if (cl)
     {
       while (pop_best_coalesce (cl, &x, &y) != NO_BEST_COALESCE)
         {
+	  if (debug)
+	    {
+	      fprintf (debug, "Coalesce list: (%d)", x);
+	      print_generic_expr (debug, partition_to_var (map, x), TDF_SLIM);
+	      fprintf (debug, " & (%d)", y);
+	      print_generic_expr (debug, partition_to_var (map, y), TDF_SLIM);
+	    }
+
+	  w = tpa_find_tree (tpa, x);
+	  z = tpa_find_tree (tpa, y);
+	  if (w != z || w == TPA_NONE || z == TPA_NONE)
+	    {
+	      if (debug)
+		{
+		  if (w != z)
+		    fprintf (debug, ": Fail, Non-matching TPA's\n");
+		  if (w == TPA_NONE)
+		    fprintf (debug, ": Fail %d non TPA.\n", x);
+		  else
+		    fprintf (debug, ": Fail %d non TPA.\n", y);
+		}
+	      continue;
+	    }
+	  var = partition_to_var (map, x);
+	  tmp = partition_to_var (map, y);
+	  x = var_to_partition (map, var);
+	  y = var_to_partition (map, tmp);
+	  if (debug)
+	    fprintf (debug, " [map: %d, %d] ", x, y);
+	  if (x == y)
+	    {
+	      if (debug)
+		fprintf (debug, ": Already Coalesced.\n");
+	      continue;
+	    }
 	  if (!conflict_graph_conflict_p (graph, x, y))
 	    {
-	      if (tpa_find_tree (tpa, x) == TPA_NONE 
-		  || tpa_find_tree (tpa, y) == TPA_NONE)
-		continue;
-	      var = partition_to_var (map, x);
-	      tmp = partition_to_var (map, y);
 	      z = var_union (map, var, tmp);
 	      if (z == NO_PARTITION)
-	        continue;
-	      conflict_graph_merge_regs (graph, x, y);
+	        {
+		  if (debug)
+		    fprintf (debug, ": Unable to perform partition union.\n");
+		  continue;
+		}
 
 	      /* z is the new combined partition. We need to remove the other
 	         partition from the list. Set x to be that other partition.  */
 	      if (z == x)
-	        x = y;
-	      z = tpa_find_tree (tpa, x);
-	      tpa_remove_partition (tpa, z, x);
-	      if (debug)
 	        {
-		  fprintf (debug, "Coalesce (list): ");
-		  print_generic_expr (debug, var, TDF_SLIM);
-		  fprintf (debug, " and ");
-		  print_generic_expr (debug, tmp, TDF_SLIM);
-		  fprintf (debug, "\n");
+		  conflict_graph_merge_regs (graph, x, y);
+		  w = tpa_find_tree (tpa, y);
+		  tpa_remove_partition (tpa, w, y);
 		}
-	    }
-	}
+	      else
+	        {
+		  conflict_graph_merge_regs (graph, y, x);
+		  w = tpa_find_tree (tpa, x);
+		  tpa_remove_partition (tpa, w, x);
+		}
 
+	      if (debug)
+		fprintf (debug, ": Success -> %d\n", z);
+	    }
+	  else
+	    if (debug)
+	      fprintf (debug, ": Fail due to conflict\n");
+	}
+      /* If using a coalesce list, don't try to coalesce anything else.  */
+      return;
     }
 
   for (x = 0; x < tpa_num_trees (tpa); x++)
     {
       while (tpa_first_partition (tpa, x) != TPA_NONE)
         {
-	  /* Coalesce first partition with everything that doesn't conflict.  */
+	  int p1, p2;
+	  /* Coalesce first partition with anything that doesn't conflict.  */
 	  y = tpa_first_partition (tpa, x);
 	  tpa_remove_partition (tpa, x, y);
+
 	  var = partition_to_var (map, y);
+	  /* p1 is the partition representative to which y belongs.  */
+	  p1 = var_to_partition (map, var);
+	  
 	  for (z = tpa_next_partition (tpa, y); 
 	       z != TPA_NONE; 
 	       z = tpa_next_partition (tpa, z))
 	    {
 	      tmp = partition_to_var (map, z);
+	      /* p2 is the partition representative to which z belongs.  */
+	      p2 = var_to_partition (map, tmp);
+	      if (debug)
+		{
+		  fprintf (debug, "Coalesce : ");
+		  print_generic_expr (debug, var, TDF_SLIM);
+		  fprintf (debug, " &");
+		  print_generic_expr (debug, tmp, TDF_SLIM);
+		  fprintf (debug, "  (%d ,%d)", p1, p2);
+		}
+
 	      /* If partitions are already merged, don't check for conflict.  */
 	      if (tmp == var)
-	        tpa_remove_partition (tpa, x, z);
-	      else if (!conflict_graph_conflict_p (graph, y, z))
-		{
-		  if (tpa_find_tree (tpa, y) == TPA_NONE 
-		      || tpa_find_tree (tpa, z) == TPA_NONE)
-		    continue;
-		  if (var_union (map, var, tmp) == NO_PARTITION)
-		    continue;
-
+	        {
 		  tpa_remove_partition (tpa, x, z);
-		  conflict_graph_merge_regs (graph, y, z);
 		  if (debug)
-		    {
-		      fprintf (debug, "Coalesce : ");
-		      print_generic_expr (debug, var, TDF_SLIM);
-		      fprintf (debug, " and ");
-		      print_generic_expr (debug, tmp, TDF_SLIM);
-		      fprintf (debug, "\n");
-		    }
+		    fprintf (debug, ": Already coalesced\n");
 		}
+	      else
+		if (!conflict_graph_conflict_p (graph, p1, p2))
+		  {
+		    int v;
+		    if (tpa_find_tree (tpa, y) == TPA_NONE 
+			|| tpa_find_tree (tpa, z) == TPA_NONE)
+		      {
+			if (debug)
+			  fprintf (debug, ": Fail Non TPA member\n");
+			continue;
+		      }
+		    if ((v = var_union (map, var, tmp)) == NO_PARTITION)
+		      {
+			if (debug)
+			  fprintf (debug, ": Fail Unable to combine partitions\n");
+			continue;
+		      }
+
+		    tpa_remove_partition (tpa, x, z);
+		    if (v == p1)
+		      conflict_graph_merge_regs (graph, v, z);
+		    else
+		      {
+			/* Update the first partition's representative.  */
+			conflict_graph_merge_regs (graph, v, y);
+			p1 = v;
+		      }
+		    if (debug)
+		      fprintf (debug, ": Success -> %d\n", v);
+		  }
+		else
+		  if (debug)
+		    fprintf (debug, ": Fail, Conflict\n");
 	    }
 	}
     }
@@ -1636,6 +1707,7 @@ tpa_dump (FILE *f, tpa_p tpa)
 	   i != TPA_NONE;
 	   i = tpa_next_partition (tpa, i))
 	{
+	  fprintf (f, "(%d)",i);
 	  print_generic_expr (f, partition_to_var (tpa->map, i), TDF_SLIM);
 	  fprintf (f, " ");
 #ifdef ENABLE_CHECKING

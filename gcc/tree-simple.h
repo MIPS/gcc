@@ -30,6 +30,7 @@ extern tree create_tmp_var (tree, const char *);
 extern bool is_gimple_tmp_var (tree);
 extern tree get_initialized_tmp_var (tree, tree *, tree *);
 extern tree get_formal_tmp_var (tree, tree *);
+extern void declare_tmp_vars (tree, tree);
 
 extern tree rationalize_compound_expr (tree);
 extern tree right_assocify_expr (tree);
@@ -72,12 +73,9 @@ bool is_gimple_cast (tree);
 bool is_gimple_constructor_elt (tree);
 /* Returns true iff T is a variable that does not need to live in memory.  */
 bool is_gimple_non_addressable (tree t);
-/* Returns true iff T is a variable that may be modified by function
-   calls.  */
-bool is_gimple_call_clobbered (tree t);
-/* Returns true iff T (assumed to be a variable) needs to be assigned a
-   memory location.  */
-bool needs_to_live_in_memory (tree t);
+
+/* If T makes a function call, returns the CALL_EXPR operand.  */
+tree get_call_expr_in (tree t);
 
 void recalculate_side_effects (tree);
 
@@ -110,17 +108,22 @@ void push_gimplify_context (void);
 void pop_gimplify_context (tree);
 
 /* Miscellaneous helpers.  */
-tree get_base_symbol (tree);
+tree get_base_decl (tree);
+tree get_base_var (tree);
+tree get_base_address (tree t);
 void gimple_add_tmp_var (tree);
 tree gimple_current_bind_expr (void);
 void gimple_push_bind_expr (tree);
 void gimple_pop_bind_expr (void);
-void mark_not_gimple (tree *);
 void unshare_all_trees (tree);
 tree voidify_wrapper_expr (tree);
 tree gimple_build_eh_filter (tree, tree, tree);
 tree build_and_jump (tree *);
 tree alloc_stmt_list (void);
 void free_stmt_list (tree);
+tree force_labels_r (tree *, int *, void *);
+
+/* In tree-nested.c.  */
+extern void lower_nested_functions (tree);
 
 #endif /* _TREE_SIMPLE_H  */

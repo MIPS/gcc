@@ -1,5 +1,5 @@
 /* MenuItem.java -- An item in a menu
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -202,15 +202,7 @@ isEnabled()
 public synchronized void
 setEnabled(boolean enabled)
 {
-  if (enabled == this.enabled)
-    return;
-
-  this.enabled = enabled;
-  if (peer != null)
-    {
-      MenuItemPeer mp = (MenuItemPeer) peer;
-      mp.setEnabled (enabled);
-    }
+  enable (enabled);
 }
 
 /*************************************************************************/
@@ -226,7 +218,10 @@ setEnabled(boolean enabled)
 public void
 enable(boolean enabled)
 {
-  setEnabled(enabled);
+  if (enabled)
+    enable ();
+  else
+    disable ();
 }
 
 /*************************************************************************/
@@ -239,7 +234,12 @@ enable(boolean enabled)
 public void
 enable()
 {
-  setEnabled(true);
+  if (enabled)
+    return;
+
+  this.enabled = true;
+  if (peer != null)
+    ((MenuItemPeer) peer).setEnabled (true);
 }
 
 /*************************************************************************/
@@ -252,7 +252,12 @@ enable()
 public void
 disable()
 {
-  setEnabled(false);
+  if (!enabled)
+    return;
+
+  this.enabled = false;
+  if (peer != null)
+    ((MenuItemPeer) peer).setEnabled (false);
 }
 
 /*************************************************************************/
@@ -361,7 +366,7 @@ disableEvents(long events)
 public void
 addNotify()
 {
-  if (peer != null)
+  if (peer == null)
     peer = getToolkit ().createMenuItem (this);
 }
 

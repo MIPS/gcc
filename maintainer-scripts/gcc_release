@@ -239,10 +239,6 @@ EOF
     contrib/gcc_build -d ${SOURCE_DIRECTORY} -o ${OBJECT_DIRECTORY} \
       -c "--enable-generated-files-in-srcdir" build || \
       error "Could not rebuild GCC"
-
-    # Regenerate the Fotran NEWS and BUGS files.
-    (cd ${OBJECT_DIRECTORY}/gcc && make f77.rebuilt) || \
-      error "Could not regenerate Fortran NEWS and BUGS files"
   fi
 
   # Move message catalogs to source directory.
@@ -484,7 +480,7 @@ SOURCE_DIRECTORY=""
 
 # The directories that should be part of the various language-specific
 # tar files.  These are all relative to the top of the source tree.
-ADA_DIRS="gcc/ada"
+ADA_DIRS="gcc/ada libada"
 CPLUSPLUS_DIRS="gcc/cp libstdc++-v3"
 FORTRAN_DIRS="gcc/f libf2c"
 FORTRAN95_DIRS="gcc/fortran libgfortran"

@@ -1,7 +1,7 @@
 /* Definitions of target machine for GCC,
    For Ubicom IP2022 Communications Controller
 
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc and Ubicom, Inc.
 
 This file is part of GCC.
@@ -90,7 +90,6 @@ extern int target_flags;
 
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 32
-#define MAX_LONG_TYPE_SIZE 32
 
 #undef LONG_LONG_TYPE_SIZE
 #define LONG_LONG_TYPE_SIZE	64
@@ -441,7 +440,7 @@ enum reg_class {
 
 #define CUMULATIVE_ARGS	int
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   ((CUM) = 0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)
@@ -462,23 +461,12 @@ enum reg_class {
 
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == REG_RESULT)
 
-#define RETURN_IN_MEMORY(TYPE) \
-  ((TYPE_MODE (TYPE) == BLKmode) ? int_size_in_bytes (TYPE) > 8 : 0)
-
 /* Indicate that large structures are passed by reference.  */
 #define FUNCTION_ARG_PASS_BY_REFERENCE(CUM,MODE,TYPE,NAMED)	0
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-#define STRUCT_VALUE 0
-
-#define STRUCT_VALUE_INCOMING 0
-
 #define EPILOGUE_USES(REGNO) 0
-
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR,MODE,TYPE,		\
-			       PRETEND_ARGS_SIZE,SECOND_TIME)	\
-  ((PRETEND_ARGS_SIZE) = (0))
 
 
 /*  Hmmm.  We don't actually like constants as addresses - they always need
@@ -785,9 +773,6 @@ do {							\
 
 #define FUNCTION_MODE HImode
 
-#define INTEGRATE_THRESHOLD(DECL) \
-  (1 + (3 * list_length (DECL_ARGUMENTS (DECL)) / 2))
-
 #define DOLLARS_IN_IDENTIFIERS 0
 
 extern int ip2k_reorg_in_progress;
@@ -805,21 +790,6 @@ extern int ip2k_reorg_split_himode;
 
 extern int ip2k_reorg_merge_qimode;
 /* Flag to indicate that it's safe to merge QImode operands.  */
-
-#define GIV_SORT_CRITERION(X, Y)			\
-  do {							\
-    if (GET_CODE ((X)->add_val) == CONST_INT		\
-        && GET_CODE ((Y)->add_val) == CONST_INT)	\
-      return INTVAL ((X)->add_val) - INTVAL ((Y)->add_val); \
-  } while (0)
-
-/* In some cases, the strength reduction optimization pass can
-   produce better code if this is defined.  This macro controls the
-   order that induction variables are combined.  This macro is
-   particularly useful if the target has limited addressing modes.
-   For instance, the SH target has only positive offsets in
-   addresses.  Thus sorting to put the smallest address first allows
-   the most combinations to be found.  */
 
 #define TRAMPOLINE_TEMPLATE(FILE) abort ()
 
@@ -888,7 +858,7 @@ extern int ip2k_reorg_merge_qimode;
 
 #define DBX_REGISTER_NUMBER(REGNO)	(REGNO)
 
-/* Miscellaneous macros to describe machine specifics. */
+/* Miscellaneous macros to describe machine specifics.  */
 
 #define IS_PSEUDO_P(R)	(REGNO (R) >= FIRST_PSEUDO_REGISTER)
 

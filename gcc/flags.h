@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003
+   2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -677,6 +677,10 @@ extern int flag_branch_target_load_optimize;
 
 extern int flag_branch_target_load_optimize2;
 
+/* For the bt-load pass, nonzero means don't re-use branch target registers 
+   in any basic block.  */
+extern int flag_btr_bb_exclusive;
+
 
 /* Nonzero means we should do dwarf2 duplicate elimination.  */
 
@@ -696,9 +700,8 @@ extern int flag_non_call_exceptions;
 /* Nonzero means enable mudflap bounds-checking transforms;
    >1 means also to include multithreading locks.  */
 extern int flag_mudflap;
-
-/* Disable SSA optimizations on trees.  */
-extern int flag_disable_tree_ssa;
+extern int flag_mudflap_threads;
+extern int flag_mudflap_ignore_reads;
 
 /* Enable SSA-PRE on trees.  */
 extern int flag_tree_pre;
@@ -727,11 +730,14 @@ extern int flag_tree_combine_temps;
 /* Enable SSA->normal pass expression replacement.  */
 extern int flag_tree_ter;
 
-/* Enable dominator optimizations while re-writing into SSA form.  */
+/* Enable dominator optimizations.  */
 extern int flag_tree_dom;
 
-/* Enable loop copy headers on tree-ssa.  */
+/* Enable loop header copying on tree-ssa.  */
 extern int flag_tree_ch;
+
+/* Enable dead store and redundant load elimination */
+extern int flag_tree_dse;
 
 /* Enable loop optimization on tree-ssa.  */
 extern int flag_tree_loop;
@@ -760,6 +766,9 @@ extern int flag_web;
 /* Nonzero means that we defer emitting functions until they are actually
    used.  */
 extern int flag_remove_unreachable_functions;
+
+/* Nonzero if we should track variables.  */
+extern int flag_var_tracking;
 
 /* A string that's used when a random name is required.  NULL means
    to make it really random.  */

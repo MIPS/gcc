@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct cgraph_local_info GTY(())
 {
+  /* Size of the function before inlining.  */
+  int self_insns;
   /* Set when function function is visible in current compilation unit only
      and it's address is never taken.  */
   bool local;
@@ -38,8 +40,9 @@ struct cgraph_local_info GTY(())
   bool inlinable;
   /* True when function should be inlined independently on it's size.  */
   bool disregard_inline_limits;
-  /* Size of the function before inlining.  */
-  int self_insns;
+  /* True when the function has been originally extern inline, but it is
+     redefined now.  */
+  bool redefined_extern_inline;
 };
 
 /* Information about the function that needs to be computed globally
@@ -47,14 +50,14 @@ struct cgraph_local_info GTY(())
 
 struct cgraph_global_info GTY(())
 {
+  /* For inline clones this points to the function they will be inlined into.  */
+  struct cgraph_node *inlined_to;
+
   /* Estimated size of the function after inlining.  */
   int insns;
 
   /* Set iff the function has been inlined at least once.  */
   bool inlined;
-
-  /* For inline clones this points to the function they will be inlined into.  */
-  struct cgraph_node *inlined_to;
 };
 
 /* Information about the function that is propagated by the RTL backend.
@@ -62,9 +65,9 @@ struct cgraph_global_info GTY(())
 
 struct cgraph_rtl_info GTY(())
 {
+   int preferred_incoming_stack_boundary;
    bool const_function;
    bool pure_function;
-   int preferred_incoming_stack_boundary;
 };
 
 
@@ -88,10 +91,13 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
-  /* Unique id of the node.  */
-  int uid;
   PTR GTY ((skip (""))) aux;
 
+  struct cgraph_local_info local;
+  struct cgraph_global_info global;
+  struct cgraph_rtl_info rtl;
+  /* Unique id of the node.  */
+  int uid;
   /* Set when function must be output - it is externally visible
      or it's address is taken.  */
   bool needed;
@@ -103,9 +109,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
-  struct cgraph_local_info local;
-  struct cgraph_global_info global;
-  struct cgraph_rtl_info rtl;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -115,10 +118,10 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   struct cgraph_edge *next_caller;
   struct cgraph_edge *next_callee;
   tree call_expr;
+  PTR GTY ((skip (""))) aux;
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */
   const char *inline_failed;
-  PTR GTY ((skip (""))) aux;
 };
 
 /* The cgraph_varpool data structure.

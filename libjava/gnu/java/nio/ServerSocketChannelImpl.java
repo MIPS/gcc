@@ -1,5 +1,5 @@
 /* ServerSocketChannelImpl.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -55,7 +55,6 @@ import java.nio.channels.spi.SelectorProvider;
 public final class ServerSocketChannelImpl extends ServerSocketChannel
 {
   private NIOServerSocket serverSocket;
-  private boolean blocking = true;
   private boolean connected;
 
   protected ServerSocketChannelImpl (SelectorProvider provider)
@@ -63,13 +62,14 @@ public final class ServerSocketChannelImpl extends ServerSocketChannel
   {
     super (provider);
     serverSocket = new NIOServerSocket (this);
+    configureBlocking(true);
   }
 
   public int getNativeFD()
   {
     return serverSocket.getPlainSocketImpl().getNativeFD();
   }
- 
+  
   public void finalizer()
   {
     if (connected)
@@ -93,7 +93,6 @@ public final class ServerSocketChannelImpl extends ServerSocketChannel
   protected void implConfigureBlocking (boolean blocking) throws IOException
   {
     serverSocket.setSoTimeout (blocking ? 0 : NIOConstants.DEFAULT_TIMEOUT);
-    this.blocking = blocking;
   }
 
   public SocketChannel accept () throws IOException
@@ -108,6 +107,11 @@ public final class ServerSocketChannelImpl extends ServerSocketChannel
     
     try
       {
+        begin();
+        serverSocket.getPlainSocketImpl().setInChannelOperation(true);
+          // indicate that a channel is initiating the accept operation
+          // so that the socket ignores the fact that we might be in
+          // non-blocking mode.
         NIOSocket socket = (NIOSocket) serverSocket.accept();
         completed = true;
         return socket.getChannel();
@@ -118,6 +122,7 @@ public final class ServerSocketChannelImpl extends ServerSocketChannel
       }
     finally
       {
+        serverSocket.getPlainSocketImpl().setInChannelOperation(false);
         end (completed);
       }
   }

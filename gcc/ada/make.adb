@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -55,15 +55,16 @@ with Sinput.P;
 with Snames;   use Snames;
 with Switch;   use Switch;
 with Switch.M; use Switch.M;
-with System.HTable;
 with Targparm;
 with Tempdir;
 
-with Ada.Exceptions;   use Ada.Exceptions;
-with Ada.Command_Line; use Ada.Command_Line;
+with Ada.Exceptions;            use Ada.Exceptions;
+with Ada.Command_Line;          use Ada.Command_Line;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.Case_Util;            use GNAT.Case_Util;
+
+with System.HTable;
 
 package body Make is
 
@@ -391,6 +392,14 @@ package body Make is
 
    Bind_Shared_Known : Boolean := False;
    --  Set to True after the first time Bind_Shared is computed
+
+   Shared_Libgcc : aliased String := "-shared-libgcc";
+
+   No_Shared_Libgcc_Switch : aliased Argument_List := (1 .. 0 => null);
+   Shared_Libgcc_Switch    : aliased Argument_List :=
+                               (1 => Shared_Libgcc'Access);
+   Link_With_Shared_Libgcc : Argument_List_Access :=
+                               No_Shared_Libgcc_Switch'Access;
 
    procedure Make_Failed (S1 : String; S2 : String := ""; S3 : String := "");
    --  Delete all temp files created by Gnatmake and call Osint.Fail,
@@ -853,7 +862,7 @@ package body Make is
    begin
       Add_Lib_Search_Dir (N);
 
-      if Opt.Verbose_Mode then
+      if Verbose_Mode then
          Write_Str ("Adding object directory """);
          Write_Str (N);
          Write_Str (""".");
@@ -869,7 +878,7 @@ package body Make is
    begin
       Add_Src_Search_Dir (N);
 
-      if Opt.Verbose_Mode then
+      if Verbose_Mode then
          Write_Str ("Adding source directory """);
          Write_Str (N);
          Write_Str (""".");
@@ -1028,7 +1037,7 @@ package body Make is
                         --  modified.
 
                      begin
-                        if Opt.Verbose_Mode then
+                        if Verbose_Mode then
                            Write_Str ("   Adding ");
                            Write_Line (Argv);
                         end if;
@@ -1050,7 +1059,7 @@ package body Make is
                      --  We need a copy, because Name_Buffer may be modified
 
                   begin
-                     if Opt.Verbose_Mode then
+                     if Verbose_Mode then
                         Write_Str ("   Adding ");
                         Write_Line (Argv);
                      end if;
@@ -1308,11 +1317,11 @@ package body Make is
       if Read_Only then
          declare
             Saved_Check_Object_Consistency : constant Boolean :=
-                                               Opt.Check_Object_Consistency;
+                                               Check_Object_Consistency;
          begin
-            Opt.Check_Object_Consistency := False;
+            Check_Object_Consistency := False;
             Text := Read_Library_Info (Lib_File);
-            Opt.Check_Object_Consistency := Saved_Check_Object_Consistency;
+            Check_Object_Consistency := Saved_Check_Object_Consistency;
          end;
 
       else
@@ -1375,7 +1384,7 @@ package body Make is
          --  Don't take Ali file into account if it was generated without
          --  object.
 
-         if Opt.Operating_Mode /= Opt.Check_Semantics
+         if Operating_Mode /= Check_Semantics
            and then ALIs.Table (ALI).No_Object
          then
             Verbose_Msg (Full_Lib_File, "has no corresponding object");
@@ -1385,7 +1394,7 @@ package body Make is
 
          --  Check for matching compiler switches if needed
 
-         if Opt.Check_Switches then
+         if Check_Switches then
 
             --  First, collect all the switches
 
@@ -1456,7 +1465,7 @@ package body Make is
                end loop;
 
                if not Switch_Found then
-                  if Opt.Verbose_Mode then
+                  if Verbose_Mode then
                      Verbose_Msg (ALIs.Table (ALI).Sfile,
                                   "switch mismatch """ &
                                   Switches_To_Check.Table (J).all & '"');
@@ -1471,7 +1480,7 @@ package body Make is
               Integer (Units.Table (ALIs.Table (ALI).First_Unit).Last_Arg -
                        Units.Table (ALIs.Table (ALI).First_Unit).First_Arg + 1)
             then
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Verbose_Msg (ALIs.Table (ALI).Sfile,
                                "different number of switches");
 
@@ -1507,7 +1516,7 @@ package body Make is
          if Modified_Source /= No_File then
             ALI := No_ALI_Id;
 
-            if Opt.Verbose_Mode then
+            if Verbose_Mode then
                Source_Name := Full_Source_Name (Modified_Source);
 
                if Source_Name /= No_File then
@@ -1523,7 +1532,7 @@ package body Make is
             if New_Spec /= No_File then
                ALI := No_ALI_Id;
 
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Source_Name := Full_Source_Name (New_Spec);
 
                   if Source_Name /= No_File then
@@ -2536,14 +2545,14 @@ package body Make is
       end if;
 
       --  The following two flags affect the behavior of ALI.Set_Source_Table.
-      --  We set Opt.Check_Source_Files to True to ensure that source file
-      --  time stamps are checked, and we set Opt.All_Sources to False to
+      --  We set Check_Source_Files to True to ensure that source file
+      --  time stamps are checked, and we set All_Sources to False to
       --  avoid checking the presence of the source files listed in the
       --  source dependency section of an ali file (which would be a mistake
       --  since the ali file may be obsolete).
 
-      Opt.Check_Source_Files := True;
-      Opt.All_Sources        := False;
+      Check_Source_Files := True;
+      All_Sources        := False;
 
       Insert_Q (Main_Source);
       Mark (Main_Source);
@@ -2755,22 +2764,22 @@ package body Make is
 
                declare
                   Saved_Object_Consistency : constant Boolean :=
-                                               Opt.Check_Object_Consistency;
+                                               Check_Object_Consistency;
 
                begin
                   --  If compilation was not OK, or if output is not an
                   --  object file and we don't do the bind step, don't check
                   --  for object consistency.
 
-                  Opt.Check_Object_Consistency :=
-                    Opt.Check_Object_Consistency
+                  Check_Object_Consistency :=
+                    Check_Object_Consistency
                     and Compilation_OK
                     and (Output_Is_Object or Do_Bind_Step);
                   Text := Read_Library_Info (Lib_File);
 
                   --  Restore Check_Object_Consistency to its initial value
 
-                  Opt.Check_Object_Consistency := Saved_Object_Consistency;
+                  Check_Object_Consistency := Saved_Object_Consistency;
                end;
 
                --  If an ALI file was generated by this compilation, scan
@@ -2799,7 +2808,7 @@ package body Make is
 
                --  If we could not read the ALI file that was just generated
                --  then there could be a problem reading either the ALI or the
-               --  corresponding object file (if Opt.Check_Object_Consistency
+               --  corresponding object file (if Check_Object_Consistency
                --  is set Read_Library_Info checks that the time stamp of the
                --  object file is more recent than that of the ALI). For an
                --  example of problems caught by this test see [6625-009].
@@ -2861,7 +2870,7 @@ package body Make is
                      --  If we have a special runtime, we add the standard
                      --  library only if we can find it.
 
-                     if Opt.RTS_Switch then
+                     if RTS_Switch then
                         Add_It := Find_File (Sfile, Osint.Source) /= No_File;
                      end if;
 
@@ -2918,7 +2927,7 @@ package body Make is
             end if;
          end loop;
 
-         if Opt.Display_Compilation_Progress then
+         if Display_Compilation_Progress then
             Write_Str ("completed ");
             Write_Int (Int (Q_Front));
             Write_Str (" out of ");
@@ -3149,7 +3158,7 @@ package body Make is
       if (not Debug.Debug_Flag_N) and Main_Project /= No_Project then
          for Project in 1 .. Projects.Last loop
             if Projects.Table (Project).Config_File_Temp then
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Write_Str ("Deleting temp configuration file """);
                   Write_Str (Get_Name_String
                              (Projects.Table (Project).Config_File_Name));
@@ -3265,7 +3274,7 @@ package body Make is
    --------------------------
 
    procedure Enter_Into_Obsoleted (F : Name_Id) is
-      Name  : String := Get_Name_String (F);
+      Name  : constant String := Get_Name_String (F);
       First : Natural := Name'Last;
       F2    : Name_Id := F;
 
@@ -3382,6 +3391,7 @@ package body Make is
       Make.Initialize;
 
       Bind_Shared := No_Shared_Switch'Access;
+      Link_With_Shared_Libgcc := No_Shared_Libgcc_Switch'Access;
       Bind_Shared_Known := False;
 
       Failed_Links.Set_Last (0);
@@ -3395,10 +3405,58 @@ package body Make is
          --  Do not check for an object file (".o") when compiling to
          --  Java bytecode since ".class" files are generated instead.
 
-         Opt.Check_Object_Consistency := False;
+         Check_Object_Consistency := False;
       end if;
 
-      if Main_Project /= No_Project then
+      --  Special case when switch -B was specified
+
+      if Build_Bind_And_Link_Full_Project then
+
+         --  When switch -B is specified, there must be a project file
+
+         if Main_Project = No_Project then
+            Make_Failed ("-B cannot be used without a project file");
+
+         --  No main program may be specified on the command line
+
+         elsif Osint.Number_Of_Files /= 0 then
+            Make_Failed ("-B cannot be used with a main specified on " &
+                         "the command line");
+
+         --  And the project file cannot be a library project file
+
+         elsif Projects.Table (Main_Project).Library then
+            Make_Failed ("-B cannot be used for a library project file");
+
+         else
+            Insert_Project_Sources
+              (The_Project  => Main_Project,
+               All_Projects => Unique_Compile_All_Projects,
+               Into_Q       => False);
+
+            --  If there are no sources to compile, we fail
+
+            if Osint.Number_Of_Files = 0 then
+               Make_Failed ("no sources to compile");
+            end if;
+
+            --  Specify -n for gnatbind and add the ALI files of all the
+            --  sources, except the one which is a fake main subprogram:
+            --  this is the one for the binder generated file and it will be
+            --  transmitted to gnatlink. These sources are those that are
+            --  in the queue.
+
+            Add_Switch ("-n", Binder, And_Save => True);
+
+            for J in Q.First .. Q.Last - 1 loop
+               Add_Switch
+                 (Get_Name_String
+                    (Lib_File_Name (Q.Table (J).File)),
+                  Binder, And_Save => True);
+            end loop;
+         end if;
+
+      elsif Main_Project /= No_Project then
 
          --  If the main project file is a library project file, main(s)
          --  cannot be specified on the command line.
@@ -3602,9 +3660,10 @@ package body Make is
                   --  all the sources of the project.
 
                   declare
-                     Data : Project_Data := Projects.Table (Main_Project);
+                     Data : constant Project_Data :=
+                              Projects.Table (Main_Project);
 
-                     Languages : Variable_Value :=
+                     Languages : constant Variable_Value :=
                                    Prj.Util.Value_Of
                                      (Name_Languages, Data.Decl.Attributes);
 
@@ -3661,31 +3720,12 @@ package body Make is
                      end loop;
 
                      --  If we did not get any main, it means that all mains
-                     --  in attribute Mains are in a foreign language. So,
-                     --  we put all sources of the main project in the Q.
+                     --  in attribute Mains are in a foreign language and -B
+                     --  was not specified to gnatmake; so, we fail.
 
                      if not At_Least_One_Main then
-
-                        --  First make sure that the binder and the linker
-                        --  will not be invoked if -z is not used.
-
-                        if not No_Main_Subprogram then
-                           Do_Bind_Step := False;
-                           Do_Link_Step := False;
-                        end if;
-
-                        --  Put all the sources in the queue
-
-                        Insert_Project_Sources
-                          (The_Project  => Main_Project,
-                           All_Projects => Unique_Compile_All_Projects,
-                           Into_Q       => False);
-
-                        --  If there are no sources to compile, we fail
-
-                        if Osint.Number_Of_Files = 0 then
-                           Make_Failed ("no sources to compile");
-                        end if;
+                        Make_Failed
+                          ("no Ada mains; use -B to build foreign main");
                      end if;
                   end;
 
@@ -3694,11 +3734,11 @@ package body Make is
          end if;
       end if;
 
-      if Opt.Verbose_Mode then
+      if Verbose_Mode then
          Write_Eol;
          Write_Str ("GNATMAKE ");
          Write_Str (Gnatvsn.Gnat_Version_String);
-         Write_Str (" Copyright 1995-2003 Free Software Foundation, Inc.");
+         Write_Str (" Copyright 1995-2004 Free Software Foundation, Inc.");
          Write_Eol;
       end if;
 
@@ -3738,8 +3778,8 @@ package body Make is
 
       --  If -M was specified, behave as if -n was specified
 
-      if Opt.List_Dependencies then
-         Opt.Do_Not_Execute := True;
+      if List_Dependencies then
+         Do_Not_Execute := True;
       end if;
 
       --  Note that Osint.Next_Main_Source will always return the (possibly
@@ -3751,7 +3791,7 @@ package body Make is
       Add_Switch ("-I-", Compiler, And_Save => True);
 
       if Main_Project = No_Project then
-         if Opt.Look_In_Primary_Dir then
+         if Look_In_Primary_Dir then
 
             Add_Switch
               ("-I" &
@@ -3775,13 +3815,13 @@ package body Make is
          --  sources for other compilation units, when there are extending
          --  projects.
 
-         Opt.Look_In_Primary_Dir := False;
+         Look_In_Primary_Dir := False;
       end if;
 
       --  If the user wants a program without a main subprogram, add the
       --  appropriate switch to the binder.
 
-      if Opt.No_Main_Subprogram then
+      if No_Main_Subprogram then
          Add_Switch ("-z", Binder, And_Save => True);
       end if;
 
@@ -3911,7 +3951,7 @@ package body Make is
 
                   --  We only output the main source file if there is only one
 
-                  if Opt.Verbose_Mode and then Osint.Number_Of_Files = 1 then
+                  if Verbose_Mode and then Osint.Number_Of_Files = 1 then
                      Write_Str ("Main source file: """);
                      Write_Str (Main_Unit_File_Name
                                 (Pos + 1 .. Main_Unit_File_Name'Last));
@@ -3931,7 +3971,7 @@ package body Make is
                --  switches (if any).
 
                if Osint.Number_Of_Files = 1 then
-                  if Opt.Verbose_Mode then
+                  if Verbose_Mode then
                      Write_Str ("Adding gnatmake switches for """);
                      Write_Str (Main_Unit_File_Name);
                      Write_Line (""".");
@@ -3964,7 +4004,7 @@ package body Make is
 
                   begin
                      if Defaults /= Nil_Variable_Value then
-                        if (not Opt.Quiet_Output)
+                        if (not Quiet_Output)
                           and then Switches /= No_Array_Element
                         then
                            Write_Line
@@ -3980,7 +4020,7 @@ package body Make is
                            The_Package => Builder_Package,
                            Program     => None);
 
-                     elsif (not Opt.Quiet_Output)
+                     elsif (not Quiet_Output)
                        and then Switches /= No_Array_Element
                      then
                         Write_Line
@@ -4006,7 +4046,7 @@ package body Make is
             --  Add binder switches from the project file for the first main
 
             if Do_Bind_Step and Binder_Package /= No_Package then
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Write_Str ("Adding binder switches for """);
                   Write_Str (Main_Unit_File_Name);
                   Write_Line (""".");
@@ -4021,7 +4061,7 @@ package body Make is
             --  Add linker switches from the project file for the first main
 
             if Do_Link_Step and Linker_Package /= No_Package then
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Write_Str ("Adding linker switches for""");
                   Write_Str (Main_Unit_File_Name);
                   Write_Line (""".");
@@ -4047,7 +4087,7 @@ package body Make is
             Make_Failed ("*** make failed.");
       end;
 
-      Display_Commands (not Opt.Quiet_Output);
+      Display_Commands (not Quiet_Output);
 
       Check_Steps;
 
@@ -4064,7 +4104,7 @@ package body Make is
                     not MLib.Tgt.Library_Exists_For (Proj);
 
                   if Projects.Table (Proj).Flag1 then
-                     if Opt.Verbose_Mode then
+                     if Verbose_Mode then
                         Write_Str
                           ("Library file does not exist for project """);
                         Write_Str
@@ -4240,7 +4280,7 @@ package body Make is
       --  precedence.
 
       if Saved_Maximum_Processes = 0 then
-         Saved_Maximum_Processes := Opt.Maximum_Processes;
+         Saved_Maximum_Processes := Maximum_Processes;
       end if;
 
       --  Allocate as many temporary mapping file names as the maximum
@@ -4430,15 +4470,15 @@ package body Make is
                   Most_Recent_Obj_Stamp => Youngest_Obj_Stamp,
                   Main_Unit             => Is_Main_Unit,
                   Compilation_Failures  => Compilation_Failures,
-                  Check_Readonly_Files  => Opt.Check_Readonly_Files,
-                  Do_Not_Execute        => Opt.Do_Not_Execute,
-                  Force_Compilations    => Opt.Force_Compilations,
-                  In_Place_Mode         => Opt.In_Place_Mode,
-                  Keep_Going            => Opt.Keep_Going,
+                  Check_Readonly_Files  => Check_Readonly_Files,
+                  Do_Not_Execute        => Do_Not_Execute,
+                  Force_Compilations    => Force_Compilations,
+                  In_Place_Mode         => In_Place_Mode,
+                  Keep_Going            => Keep_Going,
                   Initialize_ALI_Data   => True,
                   Max_Process           => Saved_Maximum_Processes);
 
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Write_Str ("End of compilation");
                   Write_Eol;
                end if;
@@ -4451,7 +4491,7 @@ package body Make is
                  Total_Compilation_Failures + Compilation_Failures;
 
                if Total_Compilation_Failures /= 0 then
-                  if Opt.Keep_Going then
+                  if Keep_Going then
                      goto Next_Main;
 
                   else
@@ -4523,7 +4563,7 @@ package body Make is
                   end loop;
                end if;
 
-               if Opt.List_Dependencies then
+               if List_Dependencies then
                   if First_Compiled_File /= No_File then
                      Inform
                        (First_Compiled_File,
@@ -4534,13 +4574,13 @@ package body Make is
 
                elsif First_Compiled_File = No_File
                  and then not Do_Bind_Step
-                 and then not Opt.Quiet_Output
+                 and then not Quiet_Output
                  and then not Library_Rebuilt
                  and then Osint.Number_Of_Files = 1
                then
                   Inform (Msg => "objects up to date.");
 
-               elsif Opt.Do_Not_Execute
+               elsif Do_Not_Execute
                  and then First_Compiled_File /= No_File
                then
                   Write_Name (First_Compiled_File);
@@ -4558,11 +4598,12 @@ package body Make is
 
                --    4) Made unit cannot be a main unit
 
-               if (Opt.Do_Not_Execute
-                   or Opt.List_Dependencies
+               if (Do_Not_Execute
+                   or List_Dependencies
                    or not Do_Bind_Step
                    or not Is_Main_Unit)
                  and then not No_Main_Subprogram
+                 and then not Build_Bind_And_Link_Full_Project
                then
                   if Osint.Number_Of_Files = 1 then
                      exit Multiple_Main_Loop;
@@ -4618,7 +4659,7 @@ package body Make is
                   --  and otherwise motivate the relink/rebind.
 
                   if not Executable_Obsolete then
-                     if not Opt.Quiet_Output then
+                     if not Quiet_Output then
                         Inform (Executable, "up to date.");
                      end if;
 
@@ -4681,7 +4722,7 @@ package body Make is
             --  library path. In this case, use the corresponding library file
             --  name.
 
-            if Main_ALI_File = No_File and then Opt.In_Place_Mode then
+            if Main_ALI_File = No_File and then In_Place_Mode then
                Get_Name_String (Get_Directory (Full_Source_Name (Src_File)));
                Get_Name_String_And_Append (ALI_File);
                Main_ALI_File := Name_Find;
@@ -4737,6 +4778,12 @@ package body Make is
                           Projects.Table (Proj).Library_Kind /= Static
                         then
                            Bind_Shared := Shared_Switch'Access;
+
+                           if GCC_Version >= 3 then
+                              Link_With_Shared_Libgcc :=
+                                Shared_Libgcc_Switch'Access;
+                           end if;
+
                            exit;
                         end if;
                      end loop;
@@ -5244,14 +5291,16 @@ package body Make is
                   --  And invoke the linker
 
                   begin
-                     Link (Main_ALI_File, Args (Args'First .. Last_Arg));
+                     Link (Main_ALI_File,
+                           Link_With_Shared_Libgcc.all &
+                           Args (Args'First .. Last_Arg));
                      Successful_Links.Increment_Last;
                      Successful_Links.Table (Successful_Links.Last) :=
                        Main_ALI_File;
 
                   exception
                      when Link_Failed =>
-                        if Osint.Number_Of_Files = 1 or not Opt.Keep_Going then
+                        if Osint.Number_Of_Files = 1 or not Keep_Going then
                            raise;
 
                         else
@@ -5353,7 +5402,7 @@ package body Make is
                   --  if any.
 
                   if Do_Bind_Step and Binder_Package /= No_Package then
-                     if Opt.Verbose_Mode then
+                     if Verbose_Mode then
                         Write_Str ("Adding binder switches for """);
                         Write_Str (Main_Unit_File_Name);
                         Write_Line (""".");
@@ -5369,7 +5418,7 @@ package body Make is
                   --  if any.
 
                   if Do_Link_Step and Linker_Package /= No_Package then
-                     if Opt.Verbose_Mode then
+                     if Verbose_Mode then
                         Write_Str ("Adding linker switches for""");
                         Write_Str (Main_Unit_File_Name);
                         Write_Line (""".");
@@ -5600,7 +5649,7 @@ package body Make is
       --  GNATMAKE since we do not need to check source consistency
       --  again once GNATMAKE has looked at the sources to check.
 
-      Opt.Check_Object_Consistency := True;
+      Check_Object_Consistency := True;
 
       --  Package initializations. The order of calls is important here.
 
@@ -5640,14 +5689,14 @@ package body Make is
 
       --  Test for trailing -o switch
 
-      elsif Opt.Output_File_Name_Present
+      elsif Output_File_Name_Present
         and then not Output_File_Name_Seen
       then
          Make_Failed ("output file name missing after -o");
 
       --  Test for trailing -D switch
 
-      elsif Opt.Object_Directory_Present
+      elsif Object_Directory_Present
         and then not Object_Directory_Seen then
          Make_Failed ("object directory missing after -D");
       end if;
@@ -5681,7 +5730,7 @@ package body Make is
 
          --  A project file was specified by a -P switch
 
-         if Opt.Verbose_Mode then
+         if Verbose_Mode then
             Write_Eol;
             Write_Str ("Parsing Project File """);
             Write_Str (Project_File_Name.all);
@@ -5691,7 +5740,7 @@ package body Make is
 
          --  Avoid looking in the current directory for ALI files
 
-         --  Opt.Look_In_Primary_Dir := False;
+         --  Look_In_Primary_Dir := False;
 
          --  Set the project parsing verbosity to whatever was specified
          --  by a possible -vP switch.
@@ -5710,7 +5759,7 @@ package body Make is
             Make_Failed ("""", Project_File_Name.all, """ processing failed");
          end if;
 
-         if Opt.Verbose_Mode then
+         if Verbose_Mode then
             Write_Eol;
             Write_Str ("Parsing of Project File """);
             Write_Str (Project_File_Name.all);
@@ -5892,7 +5941,7 @@ package body Make is
             --  is not marked.
 
             if Sfile /= No_Name and then not Is_Marked (Sfile) then
-               if Opt.Verbose_Mode then
+               if Verbose_Mode then
                   Write_Str ("Adding """);
                   Write_Str (Get_Name_String (Sfile));
                   Write_Line (""" to the queue");
@@ -5910,7 +5959,7 @@ package body Make is
             --  queue. This will allow parallel compilation processes if -jx
             --  switch is used.
 
-            if Opt.Verbose_Mode then
+            if Verbose_Mode then
                Write_Str ("Adding """);
                Write_Str (Get_Name_String (Sfile));
                Write_Line (""" as if on the command line");
@@ -5995,7 +6044,7 @@ package body Make is
 
       else
          declare
-            Name  : String := Get_Name_String (F);
+            Name  : constant String := Get_Name_String (F);
             First : Natural := Name'Last;
             F2    : Name_Id := F;
 
@@ -6180,7 +6229,7 @@ package body Make is
 
          --  We have to provide the full library file name in In_Place_Mode
 
-         if Opt.In_Place_Mode then
+         if In_Place_Mode then
             Lib_Name := Full_Lib_File_Name (Lib_Name);
          end if;
 
@@ -6200,7 +6249,7 @@ package body Make is
             then
                null;
             else
-               if not Opt.Quiet_Output then
+               if not Quiet_Output then
                   Src_Name := Full_Source_Name (Src_Name);
                end if;
 
@@ -6430,7 +6479,7 @@ package body Make is
       --  flag (that is we have seen a -o), then the next argument is
       --  the name of the output executable.
 
-      elsif Opt.Output_File_Name_Present
+      elsif Output_File_Name_Present
         and then not Output_File_Name_Seen
       then
          Output_File_Name_Seen := True;
@@ -6462,7 +6511,7 @@ package body Make is
       --  (that is we have seen a -D), then the next argument is
       --  the path name of the object directory..
 
-      elsif Opt.Object_Directory_Present
+      elsif Object_Directory_Present
         and then not Object_Directory_Seen
       then
          Object_Directory_Seen := True;
@@ -6532,7 +6581,7 @@ package body Make is
 
          if Argv'Length > 2 and then Argv (1 .. 2) = "-I" then
             if Argv (3 .. Argv'Last) = "-" then
-               Opt.Look_In_Primary_Dir := False;
+               Look_In_Primary_Dir := False;
 
             elsif Program_Args = Compiler then
                if Argv (3 .. Argv'Last) /= "-" then
@@ -6634,9 +6683,9 @@ package body Make is
 
                --  Valid --RTS switch
 
-               Opt.No_Stdinc := True;
-               Opt.No_Stdlib := True;
-               Opt.RTS_Switch := True;
+               No_Stdinc := True;
+               No_Stdlib := True;
+               RTS_Switch := True;
 
                declare
                   Src_Path_Name : constant String_Ptr :=
@@ -6688,7 +6737,7 @@ package body Make is
          --  -I-
 
          elsif Argv (2 .. Argv'Last) = "I-" then
-            Opt.Look_In_Primary_Dir := False;
+            Look_In_Primary_Dir := False;
 
          --  Forbid  -?-  or  -??-  where ? is any character
 
@@ -6786,7 +6835,7 @@ package body Make is
          elsif Argv (2) = 'd'
            and then Argv'Last = 2
          then
-            Opt.Display_Compilation_Progress := True;
+            Display_Compilation_Progress := True;
 
          --  -i
 
@@ -6813,7 +6862,7 @@ package body Make is
          elsif Argv (2) = 'm'
            and then Argv'Last = 2
          then
-            Opt.Minimal_Recompilation := True;
+            Minimal_Recompilation := True;
 
          --  -u
 
@@ -6821,7 +6870,7 @@ package body Make is
            and then Argv'Last = 2
          then
             Unique_Compile   := True;
-            Opt.Compile_Only := True;
+            Compile_Only := True;
             Do_Bind_Step     := False;
             Do_Link_Step     := False;
 
@@ -6832,7 +6881,7 @@ package body Make is
          then
             Unique_Compile_All_Projects := True;
             Unique_Compile   := True;
-            Opt.Compile_Only := True;
+            Compile_Only := True;
             Do_Bind_Step     := False;
             Do_Link_Step     := False;
 
@@ -6913,9 +6962,9 @@ package body Make is
             --  step are not executed.
 
             Add_Switch (Argv, Compiler, And_Save => And_Save);
-            Opt.Operating_Mode := Opt.Check_Semantics;
-            Opt.Check_Object_Consistency := False;
-            Opt.Compile_Only             := True;
+            Operating_Mode := Check_Semantics;
+            Check_Object_Consistency := False;
+            Compile_Only             := True;
             Do_Bind_Step                 := False;
             Do_Link_Step                 := False;
 
@@ -6924,7 +6973,7 @@ package body Make is
             --  Don't pass -nostdlib to gnatlink, it will disable
             --  linking with all standard library files.
 
-            Opt.No_Stdlib := True;
+            No_Stdlib := True;
 
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Binder, And_Save => And_Save);
@@ -6933,19 +6982,20 @@ package body Make is
 
             --  Pass -nostdinc to the Compiler and to gnatbind
 
-            Opt.No_Stdinc := True;
+            No_Stdinc := True;
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Binder, And_Save => And_Save);
 
             --  By default all switches with more than one character
             --  or one character switches which are not in 'a' .. 'z'
-            --  (except 'C', 'F', and 'M') are passed to the compiler,
+            --  (except 'C', 'F', 'M' and 'B') are passed to the compiler,
             --  unless we are dealing with a debug switch (starts with 'd')
 
          elsif Argv (2) /= 'd'
            and then Argv (2 .. Argv'Last) /= "C"
            and then Argv (2 .. Argv'Last) /= "F"
            and then Argv (2 .. Argv'Last) /= "M"
+           and then Argv (2 .. Argv'Last) /= "B"
            and then (Argv'Length > 2 or else Argv (2) not in 'a' .. 'z')
          then
             Add_Switch (Argv, Compiler, And_Save => And_Save);
@@ -7165,7 +7215,7 @@ package body Make is
       Prefix : String := "  -> ")
    is
    begin
-      if not Opt.Verbose_Mode then
+      if not Verbose_Mode then
          return;
       end if;
 

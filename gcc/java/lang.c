@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -462,6 +462,11 @@ java_init (void)
 
   if (flag_inline_functions)
     flag_inline_trees = 1;
+
+  /* FIXME: Indirect dispatch isn't yet compatible with static class
+     init optimization.  */
+  if (flag_indirect_dispatch)
+    always_initialize_class_p = true;
 
   /* Force minimum function alignment if g++ uses the least significant
      bit of function pointers to store the virtual bit. This is required
@@ -962,11 +967,9 @@ inline_init_test_initialization (void **entry, void *x)
     (DECL_FUNCTION_INIT_TEST_TABLE (current_function_decl), ite->key);
   if (! h)
     return true;
-
   splay_tree_insert (decl_map,
 		     (splay_tree_key) ite->value,
 		     (splay_tree_value) h);
-
   return true;
 }
 
@@ -1097,7 +1100,7 @@ java_dump_tree (void *dump_info, tree t)
 static bool
 java_decl_ok_for_sibcall (tree decl)
 {
-  return decl != NULL && DECL_CONTEXT (decl) == current_class;
+  return decl != NULL && DECL_CONTEXT (decl) == output_class;
 }
 
 /* Given a call_expr, try to figure out what its target might be.  In
@@ -1108,7 +1111,7 @@ java_decl_ok_for_sibcall (tree decl)
 static tree
 java_get_callee_fndecl (tree call_expr)
 {
-  tree method, table, element;
+  tree method, table, element, atable_methods;
 
   HOST_WIDE_INT index;
 
@@ -1119,10 +1122,14 @@ java_get_callee_fndecl (tree call_expr)
   if (TREE_CODE (method) != ARRAY_REF)
     return NULL;
   table = TREE_OPERAND (method, 0);
-  if (table != atable_decl)
+  if (! DECL_LANG_SPECIFIC(table)
+      || !DECL_OWNER (table) 
+      || TYPE_ATABLE_DECL (DECL_OWNER (table)) != table)
     return NULL;
-  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
 
+  atable_methods = TYPE_ATABLE_METHODS (DECL_OWNER (table));
+  index = TREE_INT_CST_LOW (TREE_OPERAND (method, 1));
+  
   /* FIXME: Replace this for loop with a hash table lookup.  */
   for (element = atable_methods; element; element = TREE_CHAIN (element))
     {
@@ -1137,7 +1144,7 @@ java_get_callee_fndecl (tree call_expr)
 	}
       --index;
     }
-  
+
   return NULL;
 }
 

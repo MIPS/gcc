@@ -1,5 +1,5 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -887,7 +887,12 @@ fixup_fallthru_exit_predecessor (void)
 
 /* Return true in case it is possible to duplicate the basic block BB.  */
 
+/* We do not want to declare the function in a header file, since it should
+   only be used through the cfghooks interface, and we do not want to move
+   it to cfgrtl.c since it would require also moving quite a lot of related
+   code.  */
 extern bool cfg_layout_can_duplicate_bb_p (basic_block);
+
 bool
 cfg_layout_can_duplicate_bb_p (basic_block bb)
 {
@@ -1007,6 +1012,12 @@ duplicate_insn_chain (rtx from, rtx to)
 }
 /* Create a duplicate of the basic block BB.  */
 
+/* We do not want to declare the function in a header file, since it should
+   only be used through the cfghooks interface, and we do not want to move
+   it to cfgrtl.c since it would require also moving quite a lot of related
+   code.  */
+extern basic_block cfg_layout_duplicate_bb (basic_block);
+
 extern basic_block cfg_layout_duplicate_bb (basic_block);
 basic_block
 cfg_layout_duplicate_bb (basic_block bb)
@@ -1059,7 +1070,7 @@ cfg_layout_initialize (void)
 {
   basic_block bb;
 
-  /* Our algorithm depends on fact that there are now dead jumptables
+  /* Our algorithm depends on fact that there are no dead jumptables
      around the code.  */
   alloc_rbi_pool ();
 

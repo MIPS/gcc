@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -165,8 +165,6 @@ extern int ix86_function_arg_boundary (enum machine_mode, tree);
 extern int ix86_return_in_memory (tree);
 extern void ix86_va_start (tree, rtx);
 extern rtx ix86_va_arg (tree, tree);
-extern void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *,
-					 enum machine_mode, tree, int *, int);
 
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
@@ -178,7 +176,6 @@ extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					 enum machine_mode, int);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
-extern void ix86_set_move_mem_attrs (rtx, rtx, rtx, rtx, rtx);
 extern void emit_i387_cw_initialization (rtx, rtx);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);

@@ -1,4 +1,4 @@
-AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= -fno-strict-aliasing
+AM_CFLAGS = -I$(srcdir)/../libcompat -I$(srcdir)/../include -I. -Ddeletes= -Dtraditional= -Dsameregion= -Dparentptr= 
 noinst_LIBRARIES = libbansheeengine.a
 libbansheeengine_a_SOURCES =  array.c bounds.c hash.c hashset.c list.c stamp.c \
 ufind.c util.c setif-sort.c termhash.c setif-var.c flow-var.c flowrow-sort.c \

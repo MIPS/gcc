@@ -1,6 +1,6 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -178,7 +178,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       return;
 
     case MATCH_OP_DUP:
-      printf ("gen_rtx (GET_CODE (operand%d), ", XINT (x, 0));
+      printf ("gen_rtx_fmt_");
+      for (i = 0; i < XVECLEN (x, 1); i++)
+	printf ("e");
+      printf (" (GET_CODE (operand%d), ", XINT (x, 0));
       if (GET_MODE (x) == VOIDmode)
 	printf ("GET_MODE (operand%d)", XINT (x, 0));
       else
@@ -192,7 +195,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
       return;
 
     case MATCH_OPERATOR:
-      printf ("gen_rtx (GET_CODE (operand%d)", XINT (x, 0));
+      printf ("gen_rtx_fmt_");
+      for (i = 0; i < XVECLEN (x, 2); i++)
+	printf ("e");
+      printf (" (GET_CODE (operand%d)", XINT (x, 0));
       printf (", %smode", GET_MODE_NAME (GET_MODE (x)));
       for (i = 0; i < XVECLEN (x, 2); i++)
 	{
@@ -217,6 +223,14 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
     case PC:
       printf ("pc_rtx");
       return;
+    case CLOBBER:
+      if (REG_P (XEXP (x, 0)))
+	{
+	  printf ("gen_hard_reg_clobber (%smode, %i)", GET_MODE_NAME (GET_MODE (XEXP (x, 0))),
+			  			     REGNO (XEXP (x, 0)));
+	  return;
+	}
+      break;
 
     case CC0:
       printf ("cc0_rtx");
@@ -229,6 +243,10 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
 	printf ("const1_rtx");
       else if (INTVAL (x) == -1)
 	printf ("constm1_rtx");
+      else if (-MAX_SAVED_CONST_INT <= INTVAL (x)
+	  && INTVAL (x) <= MAX_SAVED_CONST_INT)
+	printf ("const_int_rtx[MAX_SAVED_CONST_INT + (%d)]",
+		(int) INTVAL (x));
       else if (INTVAL (x) == STORE_FLAG_VALUE)
 	printf ("const_true_rtx");
       else
@@ -693,9 +711,10 @@ output_add_clobbers (void)
   printf ("}\n");
 }
 
-/* Write a function, `added_clobbers_hard_reg_p' this is given an insn_code
-   number that needs clobbers and returns 1 if they include a clobber of a
-   hard reg and 0 if they just clobber SCRATCH.  */
+/* Write a function, `added_clobbers_hard_reg_p' that is given an insn_code
+   number that will have clobbers added (as indicated by `recog') and returns
+   1 if those include a clobber of a hard reg or 0 if all of them just clobber
+   SCRATCH.  */
 
 static void
 output_added_clobbers_hard_reg_p (void)

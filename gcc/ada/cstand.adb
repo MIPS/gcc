@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -258,10 +258,10 @@ package body CStand is
    --  by Initialize_Standard in the semantics module.
 
    procedure Create_Standard is
-      Decl_S : List_Id := New_List;
+      Decl_S : constant List_Id := New_List;
       --  List of declarations in Standard
 
-      Decl_A : List_Id := New_List;
+      Decl_A : constant List_Id := New_List;
       --  List of declarations in ASCII
 
       Decl       : Node_Id;
@@ -559,7 +559,17 @@ package body CStand is
       --  Create type definition node for type String
 
       Tdef_Node := New_Node (N_Unconstrained_Array_Definition, Stloc);
-      Set_Subtype_Indication (Tdef_Node, Identifier_For (S_Character));
+
+      declare
+         CompDef_Node : Node_Id;
+      begin
+         CompDef_Node := New_Node (N_Component_Definition, Stloc);
+         Set_Aliased_Present    (CompDef_Node, False);
+         Set_Access_Definition  (CompDef_Node, Empty);
+         Set_Subtype_Indication (CompDef_Node, Identifier_For (S_Character));
+         Set_Component_Definition (Tdef_Node, CompDef_Node);
+      end;
+
       Set_Subtype_Marks      (Tdef_Node, New_List);
       Append (Identifier_For (S_Positive), Subtype_Marks (Tdef_Node));
       Set_Type_Definition (Parent (Standard_String), Tdef_Node);
@@ -581,7 +591,16 @@ package body CStand is
       --  Create type definition node for type Wide_String
 
       Tdef_Node := New_Node (N_Unconstrained_Array_Definition, Stloc);
-      Set_Subtype_Indication (Tdef_Node, Identifier_For (S_Wide_Character));
+      declare
+         CompDef_Node : Node_Id;
+      begin
+         CompDef_Node := New_Node (N_Component_Definition, Stloc);
+         Set_Aliased_Present    (CompDef_Node, False);
+         Set_Access_Definition  (CompDef_Node, Empty);
+         Set_Subtype_Indication (CompDef_Node,
+                                 Identifier_For (S_Wide_Character));
+         Set_Component_Definition (Tdef_Node, CompDef_Node);
+      end;
       Set_Subtype_Marks (Tdef_Node, New_List);
       Append (Identifier_For (S_Positive), Subtype_Marks (Tdef_Node));
       Set_Type_Definition (Parent (Standard_Wide_String), Tdef_Node);
@@ -1119,7 +1138,11 @@ package body CStand is
             Append (
               Make_Component_Declaration (Stloc,
                 Defining_Identifier => Comp,
-                Subtype_Indication => New_Occurrence_Of (Etype (Comp), Stloc)),
+                Component_Definition =>
+                  Make_Component_Definition (Stloc,
+                    Aliased_Present    => False,
+                    Subtype_Indication => New_Occurrence_Of (Etype (Comp),
+                                                             Stloc))),
               Comp_List);
 
             Next_Entity (Comp);
@@ -1482,7 +1505,6 @@ package body CStand is
             Write_Str (IEEES_First'Universal_Literal_String);
             Write_Str (" .. ");
             Write_Str (IEEES_Last'Universal_Literal_String);
-
 
          elsif Digs = IEEEL_Digits then
             Write_Str (IEEEL_First'Universal_Literal_String);

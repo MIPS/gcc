@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -95,9 +95,6 @@ typedef struct inline_data
   int in_target_cleanup_p;
   /* A list of the functions current function has inlined.  */
   varray_type inlined_fns;
-  /* The approximate number of instructions we have inlined in the
-     current call stack.  */
-  int inlined_insns;
   /* We use the same mechanism to build clones that we do to perform
      inlining.  However, there are a few places where we need to
      distinguish between those two situations.  This flag is true if
@@ -133,7 +130,8 @@ static void expand_calls_inline (tree *, inline_data *);
 static bool inlinable_function_p (tree);
 static tree remap_decl (tree, inline_data *);
 static tree remap_type (tree, inline_data *);
-static tree initialize_inlined_parameters (inline_data *, tree, tree, tree);
+static tree initialize_inlined_parameters (inline_data *, tree,
+					   tree, tree, tree);
 static void remap_block (tree *, inline_data *);
 static tree remap_decls (tree, inline_data *);
 static void copy_bind_expr (tree *, int *, inline_data *);
@@ -692,13 +690,120 @@ copy_body (inline_data *id)
   return body;
 }
 
+static void
+setup_one_parameter (inline_data *id, tree p, tree value,
+		     tree fn, tree *init_stmts, tree *vars,
+		     bool *gimplify_init_stmts_p)
+{
+  tree init_stmt;
+  tree var;
+  tree var_sub;
+
+  /* If the parameter is never assigned to, we may not need to
+     create a new variable here at all.  Instead, we may be able
+     to just use the argument value.  */
+  if (TREE_READONLY (p)
+      && !TREE_ADDRESSABLE (p)
+      && value && !TREE_SIDE_EFFECTS (value))
+    {
+      /* We can't risk substituting complex expressions.  They
+	 might contain variables that will be assigned to later.
+	 Theoretically, we could check the expression to see if
+	 all of the variables that determine its value are
+	 read-only, but we don't bother.  */
+      if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+	  /* We may produce non-gimple trees by adding NOPs or introduce
+	     invalid sharing when operand is not really constant.
+	     It is not big deal to prohibit constant propagation here as
+	     we will constant propagate in DOM1 pass anyway.  */
+	  && (!lang_hooks.gimple_before_inlining
+	      || (is_gimple_min_invariant (value)
+		  && TREE_TYPE (value) == TREE_TYPE (p))))
+	{
+	  /* If this is a declaration, wrap it a NOP_EXPR so that
+	     we don't try to put the VALUE on the list of BLOCK_VARS.  */
+	  if (DECL_P (value))
+	    value = build1 (NOP_EXPR, TREE_TYPE (value), value);
+
+	  /* If this is a constant, make sure it has the right type.  */
+	  else if (TREE_TYPE (value) != TREE_TYPE (p))
+	    value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
+
+	  insert_decl_map (id, p, value);
+	  return;
+	}
+    }
+
+  /* Make an equivalent VAR_DECL.  */
+  var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
+
+  /* See if the frontend wants to pass this by invisible reference.  If
+     so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
+     replace uses of the PARM_DECL with dereferences.  */
+  if (TREE_TYPE (var) != TREE_TYPE (p)
+      && POINTER_TYPE_P (TREE_TYPE (var))
+      && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
+    {
+      insert_decl_map (id, var, var);
+      var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
+    }
+  else
+    var_sub = var;
+
+  /* Register the VAR_DECL as the equivalent for the PARM_DECL;
+     that way, when the PARM_DECL is encountered, it will be
+     automatically replaced by the VAR_DECL.  */
+  insert_decl_map (id, p, var_sub);
+
+  /* Declare this new variable.  */
+  TREE_CHAIN (var) = *vars;
+  *vars = var;
+
+  /* Make gimplifier happy about this variable.  */
+  var->decl.seen_in_bind_expr = lang_hooks.gimple_before_inlining;
+
+  /* Even if P was TREE_READONLY, the new VAR should not be.
+     In the original code, we would have constructed a
+     temporary, and then the function body would have never
+     changed the value of P.  However, now, we will be
+     constructing VAR directly.  The constructor body may
+     change its value multiple times as it is being
+     constructed.  Therefore, it must not be TREE_READONLY;
+     the back-end assumes that TREE_READONLY variable is
+     assigned to only once.  */
+  if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
+    TREE_READONLY (var) = 0;
+
+  /* Initialize this VAR_DECL from the equivalent argument.  Convert
+     the argument to the proper type in case it was promoted.  */
+  if (value)
+    {
+      tree rhs = convert (TREE_TYPE (var), value);
+
+      if (rhs == error_mark_node)
+	return;
+
+      /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
+	 keep our trees in gimple form.  */
+      init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
+      append_to_statement_list (init_stmt, init_stmts);
+
+      /* If the conversion needed to assign VALUE to VAR is not a
+	 GIMPLE expression, flag that we will need to gimplify
+	 INIT_STMTS at the end.  */
+      if (!is_gimple_rhs (rhs))
+	*gimplify_init_stmts_p = true;
+    }
+}
+
 /* Generate code to initialize the parameters of the function at the
    top of the stack in ID from the ARGS (presented as a TREE_LIST).  */
 
 static tree
-initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_expr)
+initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
+			       tree fn, tree bind_expr)
 {
-  tree init_stmts;
+  tree init_stmts = NULL_TREE;
   tree parms;
   tree a;
   tree p;
@@ -711,18 +816,12 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
   if (fn == current_function_decl)
     parms = cfun->saved_args;
 
-  /* Start with no initializations whatsoever.  */
-  init_stmts = NULL_TREE;
-
   /* Loop through the parameter declarations, replacing each with an
      equivalent VAR_DECL, appropriately initialized.  */
   for (p = parms, a = args; p;
        a = a ? TREE_CHAIN (a) : a, p = TREE_CHAIN (p))
     {
-      tree init_stmt;
-      tree var;
       tree value;
-      tree var_sub;
 
       ++argnum;
 
@@ -730,119 +829,8 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
       value = (*lang_hooks.tree_inlining.convert_parm_for_inlining)
 	      (p, a ? TREE_VALUE (a) : NULL_TREE, fn, argnum);
 
-      /* If the parameter is never assigned to, we may not need to
-	 create a new variable here at all.  Instead, we may be able
-	 to just use the argument value.  */
-      if (TREE_READONLY (p)
-	  && !TREE_ADDRESSABLE (p)
-	  && value && !TREE_SIDE_EFFECTS (value))
-	{
-#if 0
-	  /* Simplify the value, if possible.  */
-	  value = fold (DECL_P (value) ? decl_constant_value (value) : value);
-#endif
-
-	  /* We can't risk substituting complex expressions.  They
-	     might contain variables that will be assigned to later.
-	     Theoretically, we could check the expression to see if
-	     all of the variables that determine its value are
-	     read-only, but we don't bother.  */
-	  if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
-	      /* We may produce non-gimple trees by adding NOPs or introduce
-	         invalid sharing when operand is not really constant.
-		 It is not big deal to prohibit constant propagation here as
-		 we will constant propagate in DOM1 pass anyway.  */
-	      && (!lang_hooks.gimple_before_inlining
-		  || (is_gimple_min_invariant (value)
-		      && TREE_TYPE (value) == TREE_TYPE (p))))
-	    {
-	      /* If this is a declaration, wrap it a NOP_EXPR so that
-		 we don't try to put the VALUE on the list of
-		 BLOCK_VARS.  */
-	      if (DECL_P (value))
-		value = build1 (NOP_EXPR, TREE_TYPE (value), value);
-
-	      /* If this is a constant, make sure it has the right type.  */
-	      else if (TREE_TYPE (value) != TREE_TYPE (p))
-		value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
-
-	      insert_decl_map (id, p, value);
-	      continue;
-	    }
-	}
-
-      /* Make an equivalent VAR_DECL.  */
-      var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
-
-      /* See if the frontend wants to pass this by invisible reference.  If
-	 so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
-	 replace uses of the PARM_DECL with dereferences.  */
-      if (TREE_TYPE (var) != TREE_TYPE (p)
-	  && POINTER_TYPE_P (TREE_TYPE (var))
-	  && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
-	var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
-      else
-	var_sub = var;
-
-      /* Register the VAR_DECL as the equivalent for the PARM_DECL;
-	 that way, when the PARM_DECL is encountered, it will be
-	 automatically replaced by the VAR_DECL.  */
-      insert_decl_map (id, p, var_sub);
-
-      /* Declare this new variable.  */
-      TREE_CHAIN (var) = vars;
-      vars = var;
-      /* Make gimplifier happy about this variable.  */
-      var->decl.seen_in_bind_expr = lang_hooks.gimple_before_inlining;
-
-      /* Even if P was TREE_READONLY, the new VAR should not be.
-	 In the original code, we would have constructed a
-	 temporary, and then the function body would have never
-	 changed the value of P.  However, now, we will be
-	 constructing VAR directly.  The constructor body may
-	 change its value multiple times as it is being
-	 constructed.  Therefore, it must not be TREE_READONLY;
-	 the back-end assumes that TREE_READONLY variable is
-	 assigned to only once.  */
-      if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
-	TREE_READONLY (var) = 0;
-
-      /* Initialize this VAR_DECL from the equivalent argument.  Convert
-	 the argument to the proper type in case it was promoted.  */
-      if (value)
-	{
-	  tree rhs = convert (TREE_TYPE (var), value);
-
-	  if (rhs == error_mark_node)
-	    continue;
-
-	  /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
-	     keep our trees in gimple form.  */
-	  init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
-	  append_to_statement_list (init_stmt, &init_stmts);
-
-	  /* If the conversion needed to assign VALUE to VAR is not a
-	     GIMPLE expression, flag that we will need to gimplify
-	     INIT_STMTS at the end.  */
-	  if (!is_gimple_rhs (rhs))
-	    gimplify_init_stmts_p = true;
-	}
-
-#if 0
-      tree cleanup;
-      /* See if we need to clean up the declaration.  */
-      cleanup = (*lang_hooks.maybe_build_cleanup) (var);
-      if (cleanup)
-	{
-	  tree cleanup_stmt;
-	  /* Build the cleanup statement.  */
-	  cleanup_stmt = build_stmt (CLEANUP_STMT, var, cleanup);
-	  /* Add it to the *front* of the list; the list will be
-	     reversed below.  */
-	  TREE_CHAIN (cleanup_stmt) = init_stmts;
-	  init_stmts = cleanup_stmt;
-	}
-#endif
+      setup_one_parameter (id, p, value, fn, &init_stmts, &vars,
+			   &gimplify_init_stmts_p);
     }
 
   /* Evaluate trailing arguments.  */
@@ -850,6 +838,18 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
     {
       tree value = TREE_VALUE (a);
       append_to_statement_list (value, &init_stmts);
+    }
+
+  /* Initialize the static chain.  */
+  p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
+  if (p)
+    {
+      /* No static chain?  Seems like a bug in tree-nested.c.  */
+      if (!static_chain)
+	abort ();
+
+       setup_one_parameter (id, p, static_chain, fn, &init_stmts, &vars,
+			    &gimplify_init_stmts_p);
     }
 
   if (gimplify_init_stmts_p && lang_hooks.gimple_before_inlining)
@@ -883,6 +883,10 @@ declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
   var = ((*lang_hooks.tree_inlining.copy_res_decl_for_inlining)
 	 (result, fn, VARRAY_TREE (id->fns, 0), id->decl_map,
 	  &need_return_decl, return_slot_addr));
+  
+  /* Do not have the rest of GCC warn about this variable as it should
+     not be visible to the user.   */
+  TREE_NO_WARNING (var) = 1;
 
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be
@@ -965,7 +969,7 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  return node;
 	}
 
-      if (DECL_BUILT_IN (t))
+      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
 	switch (DECL_FUNCTION_CODE (t))
 	  {
 	    /* We cannot inline functions that take a variable number of
@@ -974,29 +978,28 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  case BUILT_IN_STDARG_START:
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
-	    {
-	      inline_forbidden_reason
-		= N_("%Jfunction '%F' can never be inlined because it "
-		     "uses variable argument lists");
-	      return node;
-	    }
+	    inline_forbidden_reason
+	      = N_("%Jfunction '%F' can never be inlined because it "
+		   "uses variable argument lists");
+	    return node;
+
 	  case BUILT_IN_LONGJMP:
-	    {
-	      /* We can't inline functions that call __builtin_longjmp at
-		 all.  The non-local goto machinery really requires the
-		 destination be in a different function.  If we allow the
-		 function calling __builtin_longjmp to be inlined into the
-		 function calling __builtin_setjmp, Things will Go Awry.  */
-	      /* ??? Need front end help to identify "regular" non-local
-		 goto.  */
-	      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
-		{
-		  inline_forbidden_reason
-		    = N_("%Jfunction '%F' can never be inlined because "
-			 "it uses setjmp-longjmp exception handling");
-		  return node;
-		}
-	    }
+	    /* We can't inline functions that call __builtin_longjmp at
+	       all.  The non-local goto machinery really requires the
+	       destination be in a different function.  If we allow the
+	       function calling __builtin_longjmp to be inlined into the
+	       function calling __builtin_setjmp, Things will Go Awry.  */
+	    inline_forbidden_reason
+	      = N_("%Jfunction '%F' can never be inlined because "
+		   "it uses setjmp-longjmp exception handling");
+	    return node;
+
+	  case BUILT_IN_NONLOCAL_GOTO:
+	    /* Similarly.  */
+	    inline_forbidden_reason
+	      = N_("%Jfunction '%F' can never be inlined because "
+		   "it uses non-local goto");
+	    return node;
 
 	  default:
 	    break;
@@ -1031,17 +1034,19 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 		 "because it contains a computed goto");
 	  return node;
 	}
+      break;
 
-      /* We cannot inline a nested function that jumps to a nonlocal
-         label.  */
-      if (TREE_CODE (t) == LABEL_DECL && DECL_CONTEXT (t) != fn)
+    case LABEL_EXPR:
+      t = TREE_OPERAND (node, 0);
+      if (DECL_NONLOCAL (t))
 	{
+	  /* We cannot inline a function that receives a non-local goto
+	     because we cannot remap the destination label used in the
+	     function that is performing the non-local goto.  */
 	  inline_forbidden_reason
 	    = N_("%Jfunction '%F' can never be inlined "
-		 "because it contains a nonlocal goto");
-	  return node;
+		 "because it receives a non-local goto");
 	}
-
       break;
 
     case RECORD_TYPE:
@@ -1148,7 +1153,10 @@ inlinable_function_p (tree fn)
 			 && DECL_DECLARED_INLINE_P (fn)
 			 && !DECL_IN_SYSTEM_HEADER (fn));
 
-      if (do_warning)
+      if (lookup_attribute ("always_inline",
+			    DECL_ATTRIBUTES (fn)))
+	sorry (inline_forbidden_reason, fn, fn);
+      else if (do_warning)
 	warning (inline_forbidden_reason, fn, fn);
 
       inlinable = false;
@@ -1465,7 +1473,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       struct cgraph_node *dest = cgraph_node (fn);
 
       /* FN must have address taken so it can be passed as argument.  */
-      if (!dest->needed)
+      /* ??? WTF is this.  */
+      if (0 && !dest->needed)
 	abort ();
       cgraph_create_edge (id->node, dest, t)->inline_failed
 	= N_("originally indirect function call not considered for inlining");
@@ -1476,9 +1485,14 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      inlining.  */
   if (!cgraph_inline_p (edge, &reason))
     {
-      if (warn_inline && DECL_DECLARED_INLINE_P (fn)
-	  && !DECL_IN_SYSTEM_HEADER (fn)
-	  && strlen (reason))
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	{
+	  sorry ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
+	  sorry ("called from here");
+	}
+      else if (warn_inline && DECL_DECLARED_INLINE_P (fn)
+	       && !DECL_IN_SYSTEM_HEADER (fn)
+	       && strlen (reason))
 	{
 	  warning ("%Jinlining failed in call to '%F': %s", fn, fn, reason);
 	  warning ("called from here");
@@ -1519,7 +1533,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
       TREE_TYPE (expr) = void_type_node;
     }
 
-  arg_inits = initialize_inlined_parameters (id, args, fn, expr);
+  arg_inits = initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2),
+					     fn, expr);
   if (arg_inits)
     {
       /* Expand any inlined calls in the initializers.  Do this before we
@@ -1659,22 +1674,12 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      the equivalent inlined version either.  */
   TREE_USED (*tp) = 1;
 
-  /* Our function now has more statements than it did before.  */
-  DECL_ESTIMATED_INSNS (VARRAY_TREE (id->fns, 0)) += DECL_ESTIMATED_INSNS (fn);
-  /* For accounting, subtract one for the saved call/ret.  */
-  id->inlined_insns += DECL_ESTIMATED_INSNS (fn) - 1;
-
   /* Update callgraph if needed.  */
   cgraph_remove_node (edge->callee);
 
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);
   VARRAY_POP (id->fns);
-
-  /* If we've returned to the top level, clear out the record of how
-     much inlining has been done.  */
-  if (VARRAY_ACTIVE_SIZE (id->fns) == id->first_inlined_fn)
-    id->inlined_insns = 0;
 
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
@@ -1741,6 +1746,12 @@ gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
       /* We're gimple.  We should have gotten rid of all these.  */
       abort ();
 
+    case RETURN_EXPR:
+      stmt_p = &TREE_OPERAND (stmt, 0);
+      stmt = *stmt_p;
+      if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+	break;
+      /* FALLTHRU */
     case MODIFY_EXPR:
       stmt_p = &TREE_OPERAND (stmt, 1);
       stmt = *stmt_p;
@@ -1795,8 +1806,6 @@ optimize_inline_calls (tree fn)
   /* Don't allow recursion into FN.  */
   VARRAY_TREE_INIT (id.fns, 32, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
-  if (!DECL_ESTIMATED_INSNS (fn))
-    DECL_ESTIMATED_INSNS (fn) = estimate_num_insns (fn);
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)
@@ -1892,6 +1901,8 @@ save_body (tree fn, tree *arg_copy)
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
     {
       tree new = copy_node (*parg);
+      (*lang_hooks.dup_lang_specific_decl) (new);
+      DECL_ABSTRACT_ORIGIN (new) = DECL_ORIGIN (*parg);
       insert_decl_map (&id, *parg, new);
       TREE_CHAIN (new) = TREE_CHAIN (*parg);
       *parg = new;

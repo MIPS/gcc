@@ -1,3 +1,18 @@
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (poplevel): Don't output nested inline functions.
+
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (java_build_function_call_expr): Add static chain
+	operand to call_expr.
+
+2004-01-29  Richard Henderson  <rth@redhat.com>
+
+        PR java/12906
+        * decl.c (maybe_pushlevels): Careful with TREE_CHAIN when
+        registering decls with push_jvm_slot.
+
 2003-12-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* parse.y (resolve_field_access): Remove superfluous

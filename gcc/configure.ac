@@ -1188,7 +1188,6 @@ else
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
-		--enable-languages=${enable_languages} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
@@ -1623,11 +1622,11 @@ if test "x$gcc_cv_as" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_as=${program_prefix}as$host_exeext
 	else
-		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_as=`echo as | sed ${program_transform_name}`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1679,9 +1678,7 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD_FOR_TARGET"; then
-        gcc_cv_ld="$LD_FOR_TARGET"
-elif test -x "$LD" && test x$host = x$target; then
+elif test -x "$LD"; then
 	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
@@ -1741,11 +1738,11 @@ if test "x$gcc_cv_ld" = x; then
 	if test "x$program_prefix" != xNONE; then
 		gcc_cv_ld=${program_prefix}ld$host_exeext
 	else
-		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
+		gcc_cv_ld=`echo ld | sed ${program_transform_name}`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
+	test_dirs="$test_prefix/lib/gcc-lib/$target_noncanonical/$gcc_version \
+		   $test_prefix/lib/gcc-lib/$target_noncanonical \
 		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
 		   /usr/lib/gcc/$target_noncanonical \
 		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
@@ -1797,7 +1794,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
-	gcc_cv_nm=`echo nm | sed "${program_transform_name}"`$host_exeext
+	gcc_cv_nm=`echo nm | sed ${program_transform_name}`$host_exeext
 fi
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1821,7 +1818,7 @@ elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
 	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$host_exeext
+		sed ${program_transform_name}`$host_exeext
 fi
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
@@ -2807,7 +2804,32 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
+AC_ARG_WITH(libbanshee,
+[  --with-libbanshee	  enable libbanshee],
+libbanshee="$with_libbanshee",
+libbanshee=no)
 
+if test x"$libbanshee" = xyes; then
+	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
+	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
+	ANDER="tree-alias-ander.o"
+	if test x$rebuild_banshee = xyes; then
+		BANSHEEREBUILD="s=\${PWD}; export s && cd ../libbanshee && echo \${PWD} && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
+	else
+		BANSHEEREBUILD=""
+	fi
+	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
+else
+	BANSHEELIB=""
+	BANSHEEINC=""
+	BANSHEEREBUILD=""
+	ANDER=""
+fi
+
+AC_SUBST(ANDER)
+AC_SUBST(BANSHEEINC)
+AC_SUBST(BANSHEELIB)
+AC_SUBST(BANSHEEREBUILD)
 # Make empty files to contain the specs and options for each language.
 # Then add #include lines to for a compiler that has specs and/or options.
 
@@ -2843,6 +2865,7 @@ all_gtfiles="$target_gtfiles"
 # Files for gengtype with language
 all_gtfiles_files_langs=
 all_gtfiles_files_files=
+all_need_gmp="no"
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2861,6 +2884,7 @@ do
 		stagestuff=
 		outputs=
 		gtfiles=
+		need_gmp=
 		. ${srcdir}/$s/config-lang.in
 		if test "x$language" = x
 		then
@@ -2885,6 +2909,10 @@ do
                          all_gtfiles_files_langs="$all_gtfiles_files_langs ${s} "
                          all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
                 done
+		if test "x$need_gmp" = xyes
+		then
+			all_need_gmp="yes"
+		fi
 done
 
 # Pick up gtfiles for c
@@ -2978,6 +3006,59 @@ changequote([, ])dnl
 fi
 AC_SUBST(gcc_tooldir)
 AC_SUBST(dollar)
+
+gmplibs=
+gmpinc=
+# Only check for GMP if one of the frontends needs it.
+if test "x$all_need_gmp" = xyes; then
+  # Specify a location for gmp
+  AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     Specify source directory for GMP library])
+
+  if test "x$with_gmp_dir" != x && test -f "$with_gmp_dir/gmp.h"; then
+    gmpinc="-I$with_gmp_dir"
+    if test -f "$with_gmp_dir/.libs/libgmp.a"; then
+      gmplibs="$with_gmp_dir/.libs/libgmp.a"
+    elif test -f "$with_gmp_dir/_libs/libgmp.a"; then
+      gmplibs="$with_gmp_dir/_libs/libgmp.a"
+    fi
+    # One of the later tests will catch the error if neither library is present.
+  fi
+
+  AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify directory for installed GMP library])
+
+  if test "x$with_gmp" != x && test -d "$with_gmp"; then
+    gmplibs="-L$with_gmp/lib -lgmp"
+    gmpinc="-I$with_gmp/include"
+  fi
+
+  # Use system gmp if nothing else specified
+  if test "x$gmplibs" = x; then
+    gmplibs="-lgmp"
+  fi
+
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $gmpinc"
+  # Check GMP actually works
+  AC_MSG_CHECKING([for correct version of gmp.h])
+  AC_TRY_COMPILE([#include "gmp.h"],[
+#if __GNU_MP_VERSION < 3
+  choke me
+#endif
+], [AC_MSG_RESULT([yes])],
+    [AC_MSG_ERROR([gmp version 3.0 or later is required])])
+
+  AC_MSG_CHECKING([for mpf_init in -lgmp])
+
+  saved_LIBS="$LIBS"
+  LIBS="$LIBS $gmplibs"
+  AC_TRY_LINK([#include <gmp.h>], [mpf_t n; mpf_init(n);],
+    [AC_MSG_RESULT([yes])],  [AC_MSG_ERROR([could not link with libgmp])])
+  LIBS="$saved_LIBS"
+  CFLAGS="$saved_CFLAGS"
+fi
+
+AC_SUBST(gmplibs)
+AC_SUBST(gmpinc)
 
 # Find a directory in which to install a shared libgcc.
 

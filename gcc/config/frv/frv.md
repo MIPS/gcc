@@ -1,5 +1,5 @@
 ;; Frv Machine Description
-;; Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc.
 
 ;; This file is part of GCC.
@@ -309,8 +309,8 @@
 
 ;; Type:	the name of the define_attr type
 ;; Conditions:	"yes" if conditional variants are available
-;; FR500:	Fujitsu's categorisation for the FR500
-;; FR400:	Fujitsu's categorisation for the FR400 (but see below).
+;; FR500:	Fujitsu's categorization for the FR500
+;; FR400:	Fujitsu's categorization for the FR400 (but see below).
 
 ;; On the FR400, media instructions are divided into 2 broad categories.
 ;; Category 1 instructions can execute in either the M0 or M1 unit and can
@@ -502,7 +502,7 @@
 (define_cpu_unit "sl2_i1, sl2_fm1, sl2_b0, sl2_b1" "nodiv")
 (define_cpu_unit "sl3_fm1, sl3_b0, sl3_b1"  "nodiv")
 
-;; The following describes conlicts by slots
+;; The following describes conflicts by slots
 ;; slot0
 (exclusion_set "sl0_i0"  "sl0_fm0,sl0_b0,sl0_c")
 (exclusion_set "sl0_fm0" "sl0_b0,sl0_c")
@@ -523,7 +523,7 @@
 (exclusion_set "sl3_fm1" "sl3_b0,sl3_b1")
 (exclusion_set "sl3_b0"  "sl3_b1")
 
-;; The following describes conlicts by units
+;; The following describes conflicts by units
 ;; fm0
 (exclusion_set "sl0_fm0" "sl1_fm0")
 
@@ -3337,7 +3337,7 @@
 ;;   "iordi3 %0,%1,%2"
 ;;   [(set_attr "length" "4")])
 
-;; Excludive OR, 64 bit integers
+;; Exclusive OR, 64 bit integers
 ;; (define_insn "xordi3"
 ;;   [(set (match_operand:DI 0 "register_operand" "=r")
 ;; 	(xor:DI (match_operand:DI 1 "register_operand" "%r")
@@ -5470,7 +5470,7 @@
   if (GET_CODE (operands[2]) != CONST_INT)
     abort ();
 
-  /* If we can't generate an immediate instruction, promote to register */
+  /* If we can't generate an immediate instruction, promote to register.  */
   if (! IN_RANGE_P (INTVAL (range), -2048, 2047))
     range = force_reg (SImode, range);
 
@@ -5496,13 +5496,13 @@
 
   emit_cmp_and_jump_insns (indx, range, GTU, NULL_RTX, SImode, 1, fail);
 
-  /* Move the table address to a register */
+  /* Move the table address to a register.  */
   treg = gen_reg_rtx (Pmode);
   emit_insn (gen_movsi (treg, gen_rtx_LABEL_REF (VOIDmode, table)));
 
-  /* scale index-low by wordsize */
+  /* Scale index-low by wordsize.  */
   scale = gen_reg_rtx (SImode);
-  emit_insn (gen_ashlsi3 (scale, indx, GEN_INT (2)));
+  emit_insn (gen_ashlsi3 (scale, indx, const2_rtx));
 
   /* Load the address, add the start of the table back in,
      and jump to it.  */

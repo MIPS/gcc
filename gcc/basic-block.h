@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -268,7 +268,7 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* Various flags.  See BB_* below.  */
   int flags;
 
-  /* Additional data maintained by cfg_layout routines.  */
+  /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * GTY ((skip (""))) rbi;
 
   /* Annotations used at the tree level.  */
@@ -277,7 +277,9 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
 
 typedef struct basic_block_def *basic_block;
 
-/* Structure to hold information about the blocks during reordering.  */
+/* Structure to hold information about the blocks during reordering and
+   copying.  */
+
 typedef struct reorder_block_def
 {
   rtx header;
@@ -317,7 +319,7 @@ extern int n_edges;
 
 /* Index by basic block number, get basic block struct info.  */
 
-extern varray_type basic_block_info;
+extern GTY(()) varray_type basic_block_info;
 
 #define BASIC_BLOCK(N)  (VARRAY_BB (basic_block_info, (N)))
 
@@ -405,7 +407,6 @@ extern void commit_edge_insertions_watch_calls (void);
 extern void remove_fake_edges (void);
 extern void add_noreturn_fake_exit_edges (void);
 extern void connect_infinite_loops_to_exit (void);
-extern int flow_call_edges_add (sbitmap);
 extern edge unchecked_make_edge (basic_block, basic_block, int);
 extern edge cached_make_edge (sbitmap *, basic_block, basic_block, int);
 extern edge make_edge (basic_block, basic_block, int);
@@ -533,6 +534,10 @@ enum update_life_extent
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
+				 | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
+				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
 					   except for edge forwarding */
@@ -548,6 +553,7 @@ enum update_life_extent
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
 extern void life_analysis (rtx, FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -701,6 +707,7 @@ extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
+extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 
 #include "cfghooks.h"
 

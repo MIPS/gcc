@@ -1,6 +1,6 @@
 /* ET-trees data structure implementation.
    Contributed by Pavel Nejedly
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -320,7 +320,7 @@ check_path_after (struct et_occ *occ)
 
 /* Splay the occurrence OCC to the root of the tree.  */
 
-static inline void
+static void
 et_splay (struct et_occ *occ)
 {
   struct et_occ *f, *gf, *ggf;

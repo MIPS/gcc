@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,6 +43,7 @@ with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Case; use Sem_Case;
@@ -691,7 +692,7 @@ package body Sem_Ch3 is
 
       Set_Is_Public          (Anon_Type, Is_Public (Scope (Anon_Type)));
 
-      --  Ada0Y (AI-50217): Propagate the attribute that indicates that the
+      --  Ada 0Y (AI-50217): Propagate the attribute that indicates that the
       --  designated type comes from the limited view (for back-end purposes).
 
       Set_From_With_Type     (Anon_Type, From_With_Type (Desig_Type));
@@ -861,7 +862,7 @@ package body Sem_Ch3 is
       --  access type is also imported, and therefore restricted in its use.
       --  The access type may already be imported, so keep setting otherwise.
 
-      --  Ada0Y (AI-50217): If the non-limited view of the designated type is
+      --  Ada 0Y (AI-50217): If the non-limited view of the designated type is
       --  available, use it as the designated type of the access type, so that
       --  the back-end gets a usable entity.
 
@@ -906,7 +907,22 @@ package body Sem_Ch3 is
    begin
       Generate_Definition (Id);
       Enter_Name (Id);
-      T := Find_Type_Of_Object (Subtype_Indication (N), N);
+
+      if Present (Subtype_Indication (Component_Definition (N))) then
+         T := Find_Type_Of_Object
+                (Subtype_Indication (Component_Definition (N)), N);
+
+      --  Ada 0Y (AI-230): Access Definition case
+
+      elsif Present (Access_Definition (Component_Definition (N))) then
+         T := Access_Definition
+                (Related_Nod => N,
+                 N => Access_Definition (Component_Definition (N)));
+
+      else
+         pragma Assert (False);
+         null;
+      end if;
 
       --  If the subtype is a constrained subtype of the enclosing record,
       --  (which must have a partial view) the back-end does not handle
@@ -916,15 +932,16 @@ package body Sem_Ch3 is
       --  removed from discriminant constraints.
 
       if Ekind (T) = E_Access_Subtype
-        and then Is_Entity_Name (Subtype_Indication (N))
+        and then Is_Entity_Name (Subtype_Indication (Component_Definition (N)))
         and then Comes_From_Source (T)
         and then Nkind (Parent (T)) = N_Subtype_Declaration
         and then Etype (Directly_Designated_Type (T)) = Current_Scope
       then
          Rewrite
-           (Subtype_Indication (N),
+           (Subtype_Indication (Component_Definition (N)),
              New_Copy_Tree (Subtype_Indication (Parent (T))));
-         T := Find_Type_Of_Object (Subtype_Indication (N), N);
+         T := Find_Type_Of_Object
+                 (Subtype_Indication (Component_Definition (N)), N);
       end if;
 
       --  If the component declaration includes a default expression, then we
@@ -944,7 +961,7 @@ package body Sem_Ch3 is
       if Is_Indefinite_Subtype (T) and then Chars (Id) /= Name_uParent then
          Error_Msg_N
            ("unconstrained subtype in component declaration",
-            Subtype_Indication (N));
+            Subtype_Indication (Component_Definition (N)));
 
       --  Components cannot be abstract, except for the special case of
       --  the _Parent field (case of extending an abstract tagged type)
@@ -954,9 +971,9 @@ package body Sem_Ch3 is
       end if;
 
       Set_Etype (Id, T);
-      Set_Is_Aliased (Id, Aliased_Present (N));
+      Set_Is_Aliased (Id, Aliased_Present (Component_Definition (N)));
 
-      --  If the this component is private (or depends on a private type),
+      --  If this component is private (or depends on a private type),
       --  flag the record type to indicate that some operations are not
       --  available.
 
@@ -1339,6 +1356,14 @@ package body Sem_Ch3 is
       --  the subtype of the object is constrained by the defaults, so it is
       --  worthile building the corresponding subtype.
 
+      function Count_Tasks (T : Entity_Id) return Uint;
+      --  This function is called when a library level object of type T
+      --  is declared. It's function is to count the static number of
+      --  tasks declared within the type (it is only called if Has_Tasks
+      --  is set for T). As a side effect, if an array of tasks with
+      --  non-static bounds or a variant record type is encountered,
+      --  Check_Restrictions is called indicating the count is unknown.
+
       ---------------------------
       -- Build_Default_Subtype --
       ---------------------------
@@ -1378,6 +1403,60 @@ package body Sem_Ch3 is
          Analyze (Decl);
          return Act;
       end Build_Default_Subtype;
+
+      -----------------
+      -- Count_Tasks --
+      -----------------
+
+      function Count_Tasks (T : Entity_Id) return Uint is
+         C : Entity_Id;
+         X : Node_Id;
+         V : Uint;
+
+      begin
+         if Is_Task_Type (T) then
+            return Uint_1;
+
+         elsif Is_Record_Type (T) then
+            if Has_Discriminants (T) then
+               Check_Restriction (Max_Tasks, N);
+               return Uint_0;
+
+            else
+               V := Uint_0;
+               C := First_Component (T);
+               while Present (C) loop
+                  V := V + Count_Tasks (Etype (C));
+                  Next_Component (C);
+               end loop;
+
+               return V;
+            end if;
+
+         elsif Is_Array_Type (T) then
+            X := First_Index (T);
+            V := Count_Tasks (Component_Type (T));
+            while Present (X) loop
+               C := Etype (X);
+
+               if not Is_Static_Subtype (C) then
+                  Check_Restriction (Max_Tasks, N);
+                  return Uint_0;
+               else
+                  V := V * (UI_Max (Uint_0,
+                                    Expr_Value (Type_High_Bound (C)) -
+                                    Expr_Value (Type_Low_Bound (C)) + Uint_1));
+               end if;
+
+               Next_Index (X);
+            end loop;
+
+            return V;
+
+         else
+            return Uint_0;
+         end if;
+      end Count_Tasks;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -1849,9 +1928,13 @@ package body Sem_Ch3 is
       end if;
 
       if Has_Task (Etype (Id)) then
-         Check_Restriction (Max_Tasks, N);
+         Check_Restriction (No_Tasking, N);
 
-         if not Is_Library_Level_Entity (Id) then
+         if Is_Library_Level_Entity (Id) then
+            Check_Restriction (Max_Tasks, N, Count_Tasks (Etype (Id)));
+
+         else
+            Check_Restriction (Max_Tasks, N);
             Check_Restriction (No_Task_Hierarchy, N);
             Check_Potentially_Blocking_Operation (N);
          end if;
@@ -1933,6 +2016,7 @@ package body Sem_Ch3 is
          Rewrite (N,
            Make_Object_Renaming_Declaration (Loc,
              Defining_Identifier => Id,
+             Access_Definition   => Empty,
              Subtype_Mark        => New_Occurrence_Of
                                       (Base_Type (Etype (Id)), Loc),
              Name                => E));
@@ -2113,13 +2197,8 @@ package body Sem_Ch3 is
 
          case Ekind (T) is
             when Array_Kind =>
-               Set_Ekind                (Id, E_Array_Subtype);
-
-               --  Shouldn't we call Copy_Array_Subtype_Attributes here???
-
-               Set_First_Index          (Id, First_Index        (T));
-               Set_Is_Aliased           (Id, Is_Aliased         (T));
-               Set_Is_Constrained       (Id, Is_Constrained     (T));
+               Set_Ekind                       (Id, E_Array_Subtype);
+               Copy_Array_Subtype_Attributes   (Id, T);
 
             when Decimal_Fixed_Point_Kind =>
                Set_Ekind                (Id, E_Decimal_Fixed_Point_Subtype);
@@ -2454,7 +2533,7 @@ package body Sem_Ch3 is
 
       --  The full view, if present, now points to the current type
 
-      --  Ada0Y (AI-50217): If the type was previously decorated when imported
+      --  Ada 0Y (AI-50217): If the type was previously decorated when imported
       --  through a LIMITED WITH clause, it appears as incomplete but has no
       --  full view.
 
@@ -2727,7 +2806,7 @@ package body Sem_Ch3 is
    ----------------------------
 
    procedure Array_Type_Declaration (T : in out Entity_Id; Def : Node_Id) is
-      Component_Def : constant Node_Id := Subtype_Indication (Def);
+      Component_Def : constant Node_Id := Component_Definition (Def);
       Element_Type  : Entity_Id;
       Implicit_Base : Entity_Id;
       Index         : Node_Id;
@@ -2738,21 +2817,19 @@ package body Sem_Ch3 is
 
    begin
       if Nkind (Def) = N_Constrained_Array_Definition then
-
          Index := First (Discrete_Subtype_Definitions (Def));
-
-         --  Find proper names for the implicit types which may be public.
-         --  in case of anonymous arrays we use the name of the first object
-         --  of that type as prefix.
-
-         if No (T) then
-            Related_Id :=  Defining_Identifier (P);
-         else
-            Related_Id := T;
-         end if;
-
       else
          Index := First (Subtype_Marks (Def));
+      end if;
+
+      --  Find proper names for the implicit types which may be public.
+      --  in case of anonymous arrays we use the name of the first object
+      --  of that type as prefix.
+
+      if No (T) then
+         Related_Id :=  Defining_Identifier (P);
+      else
+         Related_Id := T;
       end if;
 
       Nb_Index := 1;
@@ -2764,7 +2841,21 @@ package body Sem_Ch3 is
          Nb_Index := Nb_Index + 1;
       end loop;
 
-      Element_Type := Process_Subtype (Component_Def, P, Related_Id, 'C');
+      if Present (Subtype_Indication (Component_Def)) then
+         Element_Type := Process_Subtype (Subtype_Indication (Component_Def),
+                                          P, Related_Id, 'C');
+
+      --  Ada 0Y (AI-230): Access Definition case
+
+      elsif Present (Access_Definition (Component_Def)) then
+         Element_Type := Access_Definition
+                           (Related_Nod => Related_Id,
+                            N           => Access_Definition (Component_Def));
+
+      else
+         pragma Assert (False);
+         null;
+      end if;
 
       --  Constrained array case
 
@@ -2830,7 +2921,7 @@ package body Sem_Ch3 is
 
       Set_Component_Type (Base_Type (T), Element_Type);
 
-      if Aliased_Present (Def) then
+      if Aliased_Present (Component_Definition (Def)) then
          Set_Has_Aliased_Components (Etype (T));
       end if;
 
@@ -2874,12 +2965,13 @@ package body Sem_Ch3 is
 
       if Is_Indefinite_Subtype (Element_Type) then
          Error_Msg_N
-           ("unconstrained element type in array declaration ",
-            Component_Def);
+           ("unconstrained element type in array declaration",
+            Subtype_Indication (Component_Def));
 
       elsif Is_Abstract (Element_Type) then
-         Error_Msg_N ("The type of a component cannot be abstract ",
-              Component_Def);
+         Error_Msg_N
+           ("The type of a component cannot be abstract",
+            Subtype_Indication (Component_Def));
       end if;
 
    end Array_Type_Declaration;
@@ -2899,7 +2991,6 @@ package body Sem_Ch3 is
       Discr           : Entity_Id;
       Discr_Con_Elist : Elist_Id;
       Discr_Con_El    : Elmt_Id;
-
       Subt            : Entity_Id;
 
    begin
@@ -2907,8 +2998,8 @@ package body Sem_Ch3 is
       --  an access to a self-referential type, e.g. a standard list
       --  type with a next pointer. Will be reset after subtype is built.
 
-      Set_Directly_Designated_Type (Derived_Type,
-        Designated_Type (Parent_Type));
+      Set_Directly_Designated_Type
+        (Derived_Type, Designated_Type (Parent_Type));
 
       Subt := Process_Subtype (S, N);
 
@@ -5592,10 +5683,10 @@ package body Sem_Ch3 is
                if Discrim_Present then
                   null;
 
-               elsif Nkind (Parent (Def)) = N_Component_Declaration
+               elsif Nkind (Parent (Parent (Def))) = N_Component_Declaration
                  and then
                    Has_Per_Object_Constraint
-                     (Defining_Identifier (Parent (Def)))
+                     (Defining_Identifier (Parent (Parent (Def))))
                then
                   null;
 
@@ -6248,7 +6339,7 @@ package body Sem_Ch3 is
         and then not In_Instance
         and then not In_Inlined_Body
       then
-         --  Ada0Y (AI-287): Relax the strictness of the front-end in case of
+         --  Ada 0Y (AI-287): Relax the strictness of the front-end in case of
          --  limited aggregates and extension aggregates.
 
          if Extensions_Allowed
@@ -6294,10 +6385,16 @@ package body Sem_Ch3 is
                Set_Is_Immediately_Visible (D);
                Set_Homonym (D, Prev);
 
-               --  This restriction gets applied to the full type here; it
-               --  has already been applied earlier to the partial view
+               --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
+               --  record types
 
-               Check_Access_Discriminant_Requires_Limited (Parent (D), N);
+               if not Extensions_Allowed then
+
+                  --  This restriction gets applied to the full type here; it
+                  --  has already been applied earlier to the partial view
+
+                  Check_Access_Discriminant_Requires_Limited (Parent (D), N);
+               end if;
 
                Next_Discriminant (D);
             end loop;
@@ -9525,11 +9622,18 @@ package body Sem_Ch3 is
       Related_Nod : Node_Id) return Entity_Id
    is
       Def_Kind : constant Node_Kind := Nkind (Obj_Def);
-      P        : constant Node_Id   := Parent (Obj_Def);
+      P        : Node_Id := Parent (Obj_Def);
       T        : Entity_Id;
       Nam      : Name_Id;
 
    begin
+      --  If the parent is a component_definition node we climb to the
+      --  component_declaration node
+
+      if Nkind (P) = N_Component_Definition then
+         P := Parent (P);
+      end if;
+
       --  Case of an anonymous array subtype
 
       if Def_Kind = N_Constrained_Array_Definition
@@ -11217,8 +11321,14 @@ package body Sem_Ch3 is
          end if;
 
          if Is_Access_Type (Discr_Type) then
-            Check_Access_Discriminant_Requires_Limited
-              (Discr, Discriminant_Type (Discr));
+
+            --  Ada 0Y (AI-230): Access discriminant allowed in non-limited
+            --  record types
+
+            if not Extensions_Allowed then
+               Check_Access_Discriminant_Requires_Limited
+                 (Discr, Discriminant_Type (Discr));
+            end if;
 
             if Ada_83 and then Comes_From_Source (Discr) then
                Error_Msg_N

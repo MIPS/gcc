@@ -1,7 +1,8 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2004, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
+   Adapted to use control dependence by Steven Bosscher, SUSE Labs.
  
 This file is part of GCC.
    
@@ -30,18 +31,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      Advanced Compiler Design and Implementation,
      Steven Muchnick, Morgan Kaufmann, 1997, Section 18.10.
 
-   Dead-code elimination is the removal of instructions which have no
-   impact on the program's output.  "Dead instructions" have no impact
-   on the program's output, while "necessary instructions" may have
+   Dead-code elimination is the removal of statements which have no
+   impact on the program's output.  "Dead statements" have no impact
+   on the program's output, while "necessary statements" may have
    impact on the output.
 
    The algorithm consists of three phases:
-   1. Marking as necessary all instructions known to be necessary,
-      e.g., function calls, writing a value to memory, etc;
-   2. Propagating necessary instructions, e.g., the instructions
-      giving values to operands in necessary instructions; and
-   3. Removing dead instructions (except replacing dead conditionals
-      with unconditional jumps).  */
+   1. Marking as necessary all statements known to be necessary,
+      e.g. most function calls, writing a value to memory, etc;
+   2. Propagating necessary statements, e.g., the statements
+      giving values to operands in necessary statements; and
+   3. Removing dead statements.  */
 
 #include "config.h"
 #include "system.h"
@@ -49,7 +49,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm.h"
 #include "errors.h"
 #include "ggc.h"
-#include "tree.h"
 
 /* These RTL headers are needed for basic-block.h.  */
 #include "rtl.h"
@@ -57,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 
+#include "tree.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
@@ -65,9 +65,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "flags.h"
 
-
-static varray_type worklist;
-
 static struct stmt_stats
 {
   int total;
@@ -76,62 +73,154 @@ static struct stmt_stats
   int removed_phis;
 } stats;
 
-/* Forward function prototypes.  */
-static inline bool necessary_p (tree);
-static inline void clear_necessary (tree);
-static inline void mark_necessary (tree, tree);
-static void print_stats (void);
-static bool need_to_preserve_store (tree);
-static void find_useful_stmts (void);
-static bool stmt_useful_p (tree);
-static void process_worklist (void);
-static void remove_dead_stmts (void);
-static bool should_remove_dead_stmt (tree);
-static void remove_dead_phis (basic_block);
+static varray_type worklist;
 
-#define NECESSARY(stmt)	   stmt->common.asm_written_flag
-
-/* vector indicating an SSA name has already been processed and marked
+/* Vector indicating an SSA name has already been processed and marked
    as necessary.  */
 static sbitmap processed;
 
-/* Is a tree necessary?  */
+/* Vector indicating that last_stmt if a basic block has already been
+   marked as necessary.  */
+static sbitmap last_stmt_necessary;
 
-static inline bool
-necessary_p (tree t)
+/* Before we can determine whether a control branch is dead, we need to
+   compute which blocks are control dependent on which edges.
+
+   We expect each block to be control dependent on very few edges so we
+   use a bitmap for each block recording its edges.  An array holds the
+   bitmap.  The Ith bit in the bitmap is set if that block is dependent
+   on the Ith edge.  */
+bitmap *control_dependence_map;
+
+/* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
+   for which the block with index N is control dependent.  */
+#define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
+  EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, CODE)
+
+/* Local function prototypes.  */
+static inline void set_control_dependence_map_bit (basic_block, int);
+static inline void clear_control_dependence_bitmap (basic_block);
+static void find_all_control_dependences (struct edge_list *);
+static void find_control_dependence (struct edge_list *, int);
+static inline basic_block find_pdom (basic_block);
+
+static inline void mark_stmt_necessary (tree, bool);
+static inline void mark_operand_necessary (tree);
+
+static bool need_to_preserve_store (tree);
+static void mark_stmt_if_obviously_necessary (tree, bool);
+static void find_obviously_necessary_stmts (bool);
+
+static void mark_control_dependent_edges_necessary (basic_block, struct edge_list *);
+static void propagate_necessity (struct edge_list *);
+
+static void eliminate_unnecessary_stmts (void);
+static void remove_dead_phis (basic_block);
+static void remove_dead_stmt (block_stmt_iterator *, basic_block);
+
+static void print_stats (void);
+static void tree_dce_init (bool);
+static void tree_dce_done (bool);
+
+/* Indicate block BB is control dependent on an edge with index EDGE_INDEX.  */
+static inline void
+set_control_dependence_map_bit (basic_block bb, int edge_index)
 {
-  return NECESSARY (t);
+  if (bb == ENTRY_BLOCK_PTR)
+    return;
+  if (bb == EXIT_BLOCK_PTR)
+    abort ();
+  bitmap_set_bit (control_dependence_map[bb->index], edge_index);
 }
 
-static inline void
-clear_necessary (tree t)
+/* Clear all control dependences for block BB.  */
+static inline
+void clear_control_dependence_bitmap (basic_block bb)
 {
-  NECESSARY (t) = 0;
+  bitmap_clear (control_dependence_map[bb->index]);
 }
 
-/* Mark a tree as necessary.  */
+/* Record all blocks' control dependences on all edges in the edge
+   list EL, ala Morgan, Section 3.6.  */
 
-static inline void
-mark_necessary (tree def, tree stmt)
+static void
+find_all_control_dependences (struct edge_list *el)
 {
-  int ver;
+  int i;
+
+  for (i = 0; i < NUM_EDGES (el); ++i)
+    find_control_dependence (el, i);
+}
+
+/* Determine all blocks' control dependences on the given edge with edge_list
+   EL index EDGE_INDEX, ala Morgan, Section 3.6.  */
+
+static void
+find_control_dependence (struct edge_list *el, int edge_index)
+{
+  basic_block current_block;
+  basic_block ending_block;
+
 #ifdef ENABLE_CHECKING
-  if ((def == NULL && stmt == NULL) || stmt == error_mark_node
+  if (INDEX_EDGE_PRED_BB (el, edge_index) == EXIT_BLOCK_PTR)
+    abort ();
+#endif
+
+  if (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
+    ending_block = ENTRY_BLOCK_PTR->next_bb;
+  else
+    ending_block = find_pdom (INDEX_EDGE_PRED_BB (el, edge_index));
+
+  for (current_block = INDEX_EDGE_SUCC_BB (el, edge_index);
+       current_block != ending_block && current_block != EXIT_BLOCK_PTR;
+       current_block = find_pdom (current_block))
+    {
+      edge e = INDEX_EDGE (el, edge_index);
+
+      /* For abnormal edges, we don't make current_block control
+	 dependent because instructions that throw are always necessary
+	 anyway.  */
+      if (e->flags & EDGE_ABNORMAL)
+	continue;
+
+      set_control_dependence_map_bit (current_block, edge_index);
+    }
+}
+
+/* Find the immediate postdominator PDOM of the specified basic block BLOCK.
+   This function is necessary because some blocks have negative numbers.  */
+
+static inline basic_block
+find_pdom (basic_block block)
+{
+  if (block == ENTRY_BLOCK_PTR)
+    abort ();
+  else if (block == EXIT_BLOCK_PTR)
+    return EXIT_BLOCK_PTR;
+  else
+    {
+      basic_block bb = get_immediate_dominator (CDI_POST_DOMINATORS, block);
+      if (! bb)
+	return EXIT_BLOCK_PTR;
+      return bb;
+    }
+}
+
+#define NECESSARY(stmt)		stmt->common.asm_written_flag
+
+/* If STMT is not already marked necessary, mark it, and add it to the
+   worklist if ADD_TO_WORKLIST is true.  */
+static inline void
+mark_stmt_necessary (tree stmt, bool add_to_worklist)
+{
+#ifdef ENABLE_CHECKING
+  if (stmt == NULL
+      || stmt == error_mark_node
       || (stmt && DECL_P (stmt)))
     abort ();
 #endif
 
-  if (def)
-    {
-      ver = SSA_NAME_VERSION (def);
-      if (TEST_BIT (processed, ver))
-	return;
-      SET_BIT (processed, ver);
-      if (!stmt)
-	stmt = SSA_NAME_DEF_STMT (def);
-    }
-
-  if (necessary_p (stmt))
+  if (NECESSARY (stmt))
     return;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -142,10 +231,482 @@ mark_necessary (tree def, tree stmt)
     }
 
   NECESSARY (stmt) = 1;
-  VARRAY_PUSH_TREE (worklist, stmt);
+  if (add_to_worklist)
+    VARRAY_PUSH_TREE (worklist, stmt);
 }
 
+/* Mark the statement defining operand OP as necessary.  */
 
+static inline void
+mark_operand_necessary (tree op)
+{
+  tree stmt;
+  int ver;
+
+#ifdef ENABLE_CHECKING
+  if (op == NULL)
+    abort ();
+#endif
+
+  ver = SSA_NAME_VERSION (op);
+  if (TEST_BIT (processed, ver))
+    return;
+  SET_BIT (processed, ver);
+
+  stmt = SSA_NAME_DEF_STMT (op);
+#ifdef ENABLE_CHECKING
+  if (stmt == NULL)
+    abort ();
+#endif
+
+  if (NECESSARY (stmt)
+      || IS_EMPTY_STMT (stmt))
+    return;
+
+  NECESSARY (stmt) = 1;
+  VARRAY_PUSH_TREE (worklist, stmt);
+}
+
+/* Return true if a store to a variable needs to be preserved.  */
+
+static inline bool
+need_to_preserve_store (tree var)
+{
+  return (needs_to_live_in_memory (get_base_decl (var)));
+}
+
+
+/* Mark STMT as necessary if it is obviously is.  Add it to the worklist if
+   it can make other statements necessary.
+
+   If AGGRESSIVE is false, control statements are conservatively marked as
+   necessary.  */
+
+static void
+mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
+{
+  def_optype defs;
+  vdef_optype vdefs;
+  stmt_ann_t ann;
+  size_t i;
+
+  /* Statements that are implicitly live.  Most function calls, asm and return
+     statements are required.  Labels and BIND_EXPR nodes are kept because
+     they are control flow, and we have no way of knowing whether they can be
+     removed.  DCE can eliminate all the other statements in a block, and CFG
+     can then remove the block and labels.  */
+  switch (TREE_CODE (stmt))
+    {
+    case BIND_EXPR:
+    case LABEL_EXPR:
+    case CASE_LABEL_EXPR:
+      mark_stmt_necessary (stmt, false);
+      return;
+
+    case ASM_EXPR:
+    case RESX_EXPR:
+    case RETURN_EXPR:
+      mark_stmt_necessary (stmt, true);
+      return;
+
+    case CALL_EXPR:
+      /* Most, but not all function calls are required.  Function calls that
+	 produce no result and have no side effects (i.e. const pure
+	 functions) are unnecessary.  */
+      if (TREE_SIDE_EFFECTS (stmt))
+	mark_stmt_necessary (stmt, true);
+      return;
+
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
+	  && TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
+	{
+	  mark_stmt_necessary (stmt, true);
+	  return;
+	}
+
+      /* These values are mildly magic bits of the EH runtime.  We can't
+	 see the entire lifetime of these values until landing pads are
+	 generated.  */
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == EXC_PTR_EXPR
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == FILTER_EXPR)
+	{
+	  mark_stmt_necessary (stmt, true);
+	  return;
+	}
+      break;
+
+    case GOTO_EXPR:
+      if (! simple_goto_p (stmt))
+	mark_stmt_necessary (stmt, true);
+      return;
+
+    case COND_EXPR:
+      if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
+	  == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
+	{
+	  /* A COND_EXPR is obviously dead if the target labels are the same.
+	     We cannot kill the statement at this point, so to prevent the
+	     statement from being marked necessary, we replace the condition
+	     with a constant.  The stmt is killed later on in cfg_cleanup.  */
+	  COND_EXPR_COND (stmt) = integer_zero_node;
+	  modify_stmt (stmt);
+	  return;
+	}
+      /* Fall through.  */
+
+    case SWITCH_EXPR:
+      if (! aggressive)
+	mark_stmt_necessary (stmt, true);
+      break;
+
+    default:
+      break;
+    }
+
+  ann = stmt_ann (stmt);
+  /* If the statement has volatile operands, it needs to be preserved.  Same
+     for statements that can alter control flow in unpredictable ways.  */
+  if (ann->has_volatile_ops
+      || is_ctrl_altering_stmt (stmt))
+    {
+      mark_stmt_necessary (stmt, true);
+      return;
+    }
+
+  get_stmt_operands (stmt);
+
+  defs = DEF_OPS (ann);
+  for (i = 0; i < NUM_DEFS (defs); i++)
+    {
+      tree def = DEF_OP (defs, i);
+      if (need_to_preserve_store (def))
+	{
+	  mark_stmt_necessary (stmt, true);
+	  return;
+        }
+    }
+
+  vdefs = VDEF_OPS (ann);
+  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+    {
+      tree vdef = VDEF_RESULT (vdefs, i);
+      if (need_to_preserve_store (vdef))
+	{
+	  mark_stmt_necessary (stmt, true);
+	  return;
+        }
+    }
+
+  return;
+}
+
+/* Find obviously necessary statements.  These are things like most function
+   calls, and stores to file level variables.
+
+   If AGGRESSIVE is false, control statements are conservatively marked as
+   necessary.  */
+
+static void
+find_obviously_necessary_stmts (bool aggressive)
+{
+  basic_block bb;
+  block_stmt_iterator i;
+
+  FOR_EACH_BB (bb)
+    {
+      tree phi;
+
+      /* Check any PHI nodes in the block.  */
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	{
+	  NECESSARY (phi) = 0;
+
+	  /* PHIs for virtual variables do not directly affect code
+	     generation and need not be considered inherently necessary
+	     regardless of the bits set in their decl.
+
+	     Thus, we only need to mark PHIs for real variables which
+	     need their result preserved as being inherently necessary.  */
+	  if (is_gimple_reg (PHI_RESULT (phi))
+	      && need_to_preserve_store (PHI_RESULT (phi)))
+	    mark_stmt_necessary (phi, true);
+        }
+
+      /* Check all statements in the block.  */
+      for (i = bsi_start (bb); ! bsi_end_p (i); bsi_next (&i))
+	{
+	  tree stmt = bsi_stmt (i);
+	  NECESSARY (stmt) = 0;
+	  mark_stmt_if_obviously_necessary (stmt, aggressive);
+	}
+
+      /* Mark this basic block as `not visited'.  A block will be marked
+	 visited when the edges that it is control dependent on have been
+	 marked.  */
+      bb->flags &= ~BB_VISITED;
+    }
+}
+
+/* Make corresponding control dependent edges necessary.  We only
+   have to do this once for each basic block, so we clear the bitmap
+   after we're done.  */
+static void
+mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
+{
+  int edge_number;
+
+  EXECUTE_IF_CONTROL_DEPENDENT (bb->index, edge_number,
+    {
+      tree t;
+      basic_block cd_bb = INDEX_EDGE_PRED_BB (el, edge_number);
+
+      if (TEST_BIT (last_stmt_necessary, cd_bb->index))
+	continue;
+      SET_BIT (last_stmt_necessary, cd_bb->index);
+
+      t = last_stmt (cd_bb);
+      if (is_ctrl_stmt (t))
+	mark_stmt_necessary (t, true);
+    });
+}
+
+/* Propagate necessity using the operands of necessary statements.  Process
+   the uses on each statement in the worklist, and add all feeding statements
+   which contribute to the calculation of this value to the worklist.
+
+   In conservative mode, EL is NULL.  */
+
+static void
+propagate_necessity (struct edge_list *el)
+{
+  tree i;
+  bool aggressive = (el ? true : false); 
+
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nProcessing worklist:\n");
+
+  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+    {
+      /* Take `i' from worklist.  */
+      i = VARRAY_TOP_TREE (worklist);
+      VARRAY_POP (worklist);
+
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "processing: ");
+	  print_generic_stmt (tree_dump_file, i, TDF_SLIM);
+	  fprintf (tree_dump_file, "\n");
+	}
+
+      if (aggressive)
+	{
+	  /* Mark the last statements of the basic blocks that the block
+	     containing `i' is control dependent on, but only if we haven't
+	     already done so.  */
+	  basic_block bb = bb_for_stmt (i);
+	  if (! (bb->flags & BB_VISITED))
+	    {
+	      bb->flags |= BB_VISITED;
+	      mark_control_dependent_edges_necessary (bb, el);
+	    }
+	}
+
+      if (TREE_CODE (i) == PHI_NODE)
+	{
+	  /* PHI nodes are somewhat special in that each PHI alternative has
+	     data and control dependencies.  All the statements feeding the
+	     PHI node's arguments are always necessary.  In aggressive mode,
+	     we also consider the control dependent edges leading to the
+	     predecessor block associated with each PHI alternative as
+	     necessary.  */
+	  int k;
+	  for (k = 0; k < PHI_NUM_ARGS (i); k++)
+            {
+	      tree arg = PHI_ARG_DEF (i, k);
+	      if (TREE_CODE (arg) == SSA_NAME)
+		mark_operand_necessary (arg);
+	    }
+
+	  if (aggressive)
+	    {
+	      for (k = 0; k < PHI_NUM_ARGS (i); k++)
+		{
+		  basic_block arg_bb = PHI_ARG_EDGE (i, k)->src;
+		  if (! (arg_bb->flags & BB_VISITED))
+		    {
+		      arg_bb->flags |= BB_VISITED;
+		      mark_control_dependent_edges_necessary (arg_bb, el);
+		    }
+		}
+	    }
+	}
+      else
+	{
+	  /* Propagate through the operands.  Examine all the USE, VUSE and
+	     VDEF operands in this statement.  Mark all the statements which
+	     feed this statement's uses as necessary.  */
+	  vuse_optype vuses;
+	  vdef_optype vdefs;
+	  use_optype uses;
+	  stmt_ann_t ann;
+	  size_t k;
+
+	  get_stmt_operands (i);
+	  ann = stmt_ann (i);
+
+	  uses = USE_OPS (ann);
+	  for (k = 0; k < NUM_USES (uses); k++)
+	    mark_operand_necessary (USE_OP (uses, k));
+
+	  vuses = VUSE_OPS (ann);
+	  for (k = 0; k < NUM_VUSES (vuses); k++)
+	    mark_operand_necessary (VUSE_OP (vuses, k));
+
+	  /* The operands of VDEF expressions are also needed as they
+	     represent potential definitions that may reach this
+	     statement (VDEF operands allow us to follow def-def links).  */
+	  vdefs = VDEF_OPS (ann);
+	  for (k = 0; k < NUM_VDEFS (vdefs); k++)
+	    mark_operand_necessary (VDEF_OP (vdefs, k));
+	}
+    }
+}
+
+/* Eliminate unnecessary statements. Any instruction not marked as necessary
+   contributes nothing to the program, and can be deleted.  */
+
+static void
+eliminate_unnecessary_stmts (void)
+{
+  basic_block bb;
+  block_stmt_iterator i;
+
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "\nEliminating unnecessary statements:\n");
+
+  clear_special_calls ();
+  FOR_EACH_BB (bb)
+    {
+      /* Remove dead PHI nodes.  */
+      remove_dead_phis (bb);
+
+      /* Remove dead statements.  */
+      for (i = bsi_start (bb); ! bsi_end_p (i) ; )
+	{
+	  tree t = bsi_stmt (i);
+
+	  stats.total++;
+
+	  /* If `i' is not necessary then remove it.  */
+	  if (! NECESSARY (t))
+	    remove_dead_stmt (&i, bb);
+	  else
+	    {
+	      if (TREE_CODE (t) == CALL_EXPR)
+		notice_special_calls (t);
+	      else if (TREE_CODE (t) == MODIFY_EXPR
+		       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
+		notice_special_calls (TREE_OPERAND (t, 1));
+	      bsi_next (&i);
+	    }
+	}
+    }
+}
+
+/* Remove dead PHI nodes from block BB.  */
+
+static void
+remove_dead_phis (basic_block bb)
+{
+  tree prev, phi;
+
+  prev = NULL_TREE;
+  phi = phi_nodes (bb);
+  while (phi)
+    {
+      stats.total_phis++;
+
+      if (! NECESSARY (phi))
+	{
+	  tree next = TREE_CHAIN (phi);
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "Deleting : ");
+	      print_generic_stmt (tree_dump_file, phi, TDF_SLIM);
+	      fprintf (tree_dump_file, "\n");
+	    }
+
+	  remove_phi_node (phi, prev, bb);
+	  stats.removed_phis++;
+	  phi = next;
+	}
+      else
+	{
+	  prev = phi;
+	  phi = TREE_CHAIN (phi);
+	}
+    }
+}
+
+/* Remove dead statement pointed by iterator I.  Receives the basic block BB
+   containing I so that we don't have to look it up.  */
+
+static void
+remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
+{
+  tree t = bsi_stmt (*i);
+
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_dump_file, "Deleting : ");
+      print_generic_stmt (tree_dump_file, t, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
+    }
+
+  stats.removed++;
+
+  /* If we have determined that a conditional branch statement contributes
+     nothing to the program, then we not only remove it, but we also change
+     the flow graph so that the current block will simply fall-thru to its
+     immediate post-dominator.  The blocks we are circumventing will be
+     removed by cleaup_cfg if this change in the flow graph makes them
+     unreachable.  */
+  if (is_ctrl_stmt (t))
+    {
+      basic_block post_dom_bb;
+      edge e;
+#ifdef ENABLE_CHECKING
+      /* The post dominance info has to be up-to-date.  */
+      if (dom_computed[CDI_POST_DOMINATORS] != DOM_OK)
+	abort ();
+#endif
+      /* Get the immediate post dominator of bb.  */
+      post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, bb);
+      /* Some blocks don't have an immediate post dominator.  This can happen
+	 for example with infinite loops.  Removing an infinite loop is an
+	 inappropriate transformation anyway...  */
+      if (! post_dom_bb)
+	{
+	  bsi_next (i);
+	  return;
+	}
+
+      /* Remove all outgoing edges, and add an edge to the post dominator.  */
+      for (e = bb->succ; e != NULL;)
+	{
+	  edge tmp = e;
+	  e = e->succ_next;
+	  remove_edge (tmp);
+	}
+      make_edge (bb, post_dom_bb,
+		 (post_dom_bb == EXIT_BLOCK_PTR ? 0 : EDGE_FALLTHRU));
+    }
+
+  bsi_remove (i);
+}
+
 /* Print out removed statement statistics.  */
 
 static void
@@ -169,382 +730,99 @@ print_stats (void)
     }
 }
 
-
-/* Return true if a store to a variable needs to be preserved.  */
-
-static bool
-need_to_preserve_store (tree var)
-{
-  tree base_symbol;
-  tree sym;
-
-  if (var == NULL)
-    return false;
-
-  sym = SSA_NAME_VAR (var);
-  base_symbol = get_base_symbol (var);
-
-  /* Store to global variables must be preserved.  */
-  if (decl_function_context (base_symbol) != current_function_decl)
-    return true;
-
-  /* Static locals must be preserved as well.  */
-  if (TREE_STATIC (base_symbol))
-    return true;
-
-  /* If SYM may alias global memory, we also need to preserve the store.  */
-  if (may_alias_global_mem_p (sym))
-    return true;
-
-  return false;
-}
-
-
-/* Find obviously useful instructions.  These are things like function
-   calls and stores to file level variables.  */
+
+/* Initialization for this pass.  Set up the used data structures.  */
 
 static void
-find_useful_stmts (void)
-{
-  basic_block bb;
-  block_stmt_iterator i;
-
-  FOR_EACH_BB (bb)
-    {
-      tree phi;
-
-      /* Check any PHI nodes in the block.  */
-      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-	{
-	  clear_necessary (phi);
-
-	  /* PHIs for virtual variables do not directly affect code
-	     generation and need not be considered inherently necessary
-	     regardless of the bits set in their decl.
-
-	     Thus, we only need to mark PHIs for real variables which
-	     need their result preserved as being inherently necessary.  */
-	  if (is_gimple_reg (PHI_RESULT (phi))
-	      && need_to_preserve_store (PHI_RESULT (phi)))
-	    mark_necessary (PHI_RESULT (phi), phi);
-	}
-
-      /* Check all statements in the block.  */
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	{
-	  tree stmt = bsi_stmt (i);
-
-	  clear_necessary (stmt);
-	  if (stmt_useful_p (stmt))
-	    mark_necessary (NULL_TREE, stmt);
-	}
-    }
-}
-
-
-/* Return true if STMT is necessary.  */
-
-static bool
-stmt_useful_p (tree stmt)
-{
-  def_optype defs;
-  vdef_optype vdefs;
-  stmt_ann_t ann;
-  size_t i;
-
-  /* Instructions that are implicitly live.  Function calls, asm and return
-     statements are required.  Labels and BIND_EXPR nodes are kept because
-     they are control flow, and we have no way of knowing whether they can
-     be removed.   DCE can eliminate all the other statements in a block,
-     and CFG can then remove the block and labels.  */
-  switch (TREE_CODE (stmt))
-    {
-    case ASM_EXPR:
-    case RETURN_EXPR:
-    case CASE_LABEL_EXPR:
-    case LABEL_EXPR:
-    case BIND_EXPR:
-    case RESX_EXPR:
-      return true;
-    case CALL_EXPR:
-      return TREE_SIDE_EFFECTS (stmt);
-
-    case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
-	  && TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1)))
-	return true;
-
-      /* These values are mildly magic bits of the EH runtime.  We can't
-	 see the entire lifetime of these values until landing pads are
-	 generated.  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == EXC_PTR_EXPR)
-	return true;
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == FILTER_EXPR)
-	return true;
-      break;
-
-    case COND_EXPR:
-      /* Check if the dest labels are the same. If they are, the condition
-	 is useless.  */
-      if (GOTO_DESTINATION (COND_EXPR_THEN (stmt))
-	  == GOTO_DESTINATION (COND_EXPR_ELSE (stmt)))
-	return false;
-
-    default:
-      break;
-    }
-
-  if (is_ctrl_stmt (stmt) || is_ctrl_altering_stmt (stmt))
-    return true;
-
-  /* If the statement has volatile operands, it needs to be preserved.  */
-  ann = stmt_ann (stmt);
-  if (ann->has_volatile_ops)
-    return true;
-
-  get_stmt_operands (stmt);
-
-  defs = DEF_OPS (ann);
-  for (i = 0; i < NUM_DEFS (defs); i++)
-    if (need_to_preserve_store (DEF_OP (defs, i)))
-      return true;
-
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    if (need_to_preserve_store (VDEF_RESULT (vdefs, i)))
-      return true;
-
-  return false;
-}
-
-
-/* Process worklist.  Process the uses on each statement in the worklist,
-   and add all feeding statements which contribute to the calculation of 
-   this value to the worklist.  */
-
-static void
-process_worklist (void)
-{
-  tree i;
-
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
-    {
-      /* Take `i' from worklist.  */
-      i = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
-
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	{
-	  fprintf (tree_dump_file, "processing: ");
-	  print_generic_stmt (tree_dump_file, i, TDF_SLIM);
-	  fprintf (tree_dump_file, "\n");
-	}
-
-      if (TREE_CODE (i) == PHI_NODE)
-	{
-	  int k;
-
-	  /* All the statements feeding this PHI node's arguments are
-	     necessary.  */
-	  for (k = 0; k < PHI_NUM_ARGS (i); k++)
-	    {
-	      tree arg = PHI_ARG_DEF (i, k);
-	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_necessary (arg, NULL);
-	    }
-	}
-      else
-	{
-	  /* Examine all the USE, VUSE and VDEF operands in this statement.
-	     Mark all the statements which feed this statement's uses as
-	     necessary.  */
-	  vuse_optype vuses;
-	  vdef_optype vdefs;
-	  use_optype uses;
-	  stmt_ann_t ann;
-	  size_t k;
-
-	  get_stmt_operands (i);
-	  ann = stmt_ann (i);
-
-	  uses = USE_OPS (ann);
-	  for (k = 0; k < NUM_USES (uses); k++)
-	    {
-	      tree use = USE_OP (uses, k);
-	      mark_necessary (use, NULL_TREE);
-	    }
-
-	  vuses = VUSE_OPS (ann);
-	  for (k = 0; k < NUM_VUSES (vuses); k++)
-	    {
-	      tree vuse = VUSE_OP (vuses, k);
-	      mark_necessary (vuse, NULL_TREE);
-	    }
-
-	  /* The operands of VDEF expressions are also needed as they
-	     represent potential definitions that may reach this
-	     statement (VDEF operands allow us to follow def-def links).  */
-	  vdefs = VDEF_OPS (ann);
-	  for (k = 0; k < NUM_VDEFS (vdefs); k++)
-	    mark_necessary (VDEF_OP (vdefs, k), NULL_TREE);
-	}
-    }
-}
-
-
-/* Eliminate unnecessary instructions. Any instruction not marked as necessary
-   contributes nothing to the program, and can be deleted.  */
-
-static void
-remove_dead_stmts (void)
-{
-  basic_block bb;
-  block_stmt_iterator i;
-
-  clear_special_calls ();
-  FOR_EACH_BB_REVERSE (bb)
-    {
-      /* Remove dead PHI nodes.  */
-      remove_dead_phis (bb);
-
-      /* Remove dead statements.  */
-      for (i = bsi_last (bb); !bsi_end_p (i) ; )
-	{
-	  tree t = bsi_stmt (i);
-
-	  stats.total++;
-
-	  /* If `i' is not in `necessary' then remove from B.  */
-	  if (!necessary_p (t) && should_remove_dead_stmt (t))
-	    {
-	      block_stmt_iterator j = i;
-	      bsi_prev (&i);
-	      bsi_remove (&j);
-	    }
-	  else
-	    {
-	      if (TREE_CODE (t) == CALL_EXPR)
-		notice_special_calls (t);
-	      else if (TREE_CODE (t) == MODIFY_EXPR
-		       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR)
-		notice_special_calls (TREE_OPERAND (t, 1));
-	      bsi_prev (&i);
-	    }
-	}
-    }
-}
-
-
-/* Remove dead PHI nodes from block BB.  */
-
-static void
-remove_dead_phis (basic_block bb)
-{
-  tree prev, phi;
-
-  prev = NULL_TREE;
-  phi = phi_nodes (bb);
-  while (phi)
-    {
-      stats.total_phis++;
-
-      if (!necessary_p (phi))
-	{
-	  tree next = TREE_CHAIN (phi);
-
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (tree_dump_file, "Deleting : ");
-	      print_generic_stmt (tree_dump_file, phi, TDF_SLIM);
-	      fprintf (tree_dump_file, "\n");
-	    }
-
-	  remove_phi_node (phi, prev, bb);
-	  stats.removed_phis++;
-	  phi = next;
-	}
-      else
-	{
-	  prev = phi;
-	  phi = TREE_CHAIN (phi);
-	}
-    }
-}
-
-
-/* Remove dead statement pointed by iterator I.  */
-
-static bool
-should_remove_dead_stmt (tree t)
-{
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    {
-      fprintf (tree_dump_file, "Deleting : ");
-      print_generic_stmt (tree_dump_file, t, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
-    }
-
-  stats.removed++;
-
-  if (TREE_CODE (t) == COND_EXPR)
-    {
-      /* A dead COND_EXPR means the condition is dead. We dont change any
-         flow, just replace the expression with a constant.  */
-      COND_EXPR_COND (t) = integer_zero_node;
-      modify_stmt (t);
-
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	{
-	  fprintf (tree_dump_file, "   by replacing the condition with 0:\n");
-	  print_generic_stmt (tree_dump_file, t, TDF_SLIM);
-	  fprintf (tree_dump_file, "\n");
-	}
-
-      return false;
-    }
-
-#ifdef ENABLE_CHECKING
-  if (is_ctrl_stmt (t) || is_ctrl_altering_stmt (t))
-    abort ();
-#endif
-
-  return true;
-}
-
-/* Cleanup the dead code, but avoid cfg changes.  */
-
-void
-tree_ssa_dce_no_cfg_changes (void)
+tree_dce_init (bool aggressive)
 {
   memset ((void *) &stats, 0, sizeof (stats));
 
-  VARRAY_TREE_INIT (worklist, 64, "work list");
+  if (aggressive)
+    {
+      int i;
+
+      control_dependence_map 
+	= xmalloc (last_basic_block * sizeof (bitmap));
+      for (i = 0; i < last_basic_block; ++i)
+	control_dependence_map[i] = BITMAP_XMALLOC ();
+
+      last_stmt_necessary = sbitmap_alloc (last_basic_block);
+      sbitmap_zero (last_stmt_necessary);
+    }
 
   processed = sbitmap_alloc (highest_ssa_version + 1);
   sbitmap_zero (processed);
 
-  find_useful_stmts ();
-
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nProcessing worklist:\n");
-
-  process_worklist ();
-
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\nEliminating unnecessary instructions:\n");
-
-  sbitmap_free (processed);
-
-  remove_dead_stmts ();
+  VARRAY_TREE_INIT (worklist, 64, "work list");
 }
 
-/* Main routine to eliminate dead code.  */
+/* Cleanup after this pass.  */
 
 static void
-tree_ssa_dce (void)
+tree_dce_done (bool aggressive)
 {
-  tree_ssa_dce_no_cfg_changes ();
-  cleanup_tree_cfg ();
+  if (aggressive)
+    {
+      int i;
+
+      for (i = 0; i < last_basic_block; ++i)
+	BITMAP_XFREE (control_dependence_map[i]);
+      free (control_dependence_map);
+
+      sbitmap_free (last_stmt_necessary);
+    }
+
+  sbitmap_free (processed);
+}
+
+/* Main routine to eliminate dead code.
+
+   AGGRESSIVE controls the aggressiveness of the algorithm.
+   In conservative mode, we ignore control dependence and simply declare
+   all but the most trivially dead branches necessary.  This mode is fast.
+   In aggressive mode, control dependences are taken into account, which
+   results in more dead code elimination, but at the cost of some time.
+
+   If NO_CFG_CHANGES is true, avoid changing cfg.
+
+   FIXME: Aggressive mode before PRE doesn't work currently because
+	  the dominance info is not invalidated after DCE1.  This is
+	  not an issue right now because we only run aggressive DCE
+	  as the last tree SSA pass, but keep this in mind when you
+	  start experimenting with pass ordering.  */
+
+static void
+perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
+{
+  struct edge_list *el = NULL;
+
+  if (no_cfg_changes && aggressive)
+    abort ();
+
+  tree_dce_init (aggressive);
+
+  if (aggressive)
+    {
+      /* Compute control dependence.  */
+      timevar_push (TV_CONTROL_DEPENDENCES);
+      calculate_dominance_info (CDI_POST_DOMINATORS);
+      el = create_edge_list ();
+      find_all_control_dependences (el);
+      timevar_pop (TV_CONTROL_DEPENDENCES);
+    }
+
+  find_obviously_necessary_stmts (aggressive);
+
+  propagate_necessity (el);
+
+  eliminate_unnecessary_stmts ();
+
+  if (aggressive)
+    free_dominance_info (CDI_POST_DOMINATORS);
+
+  if (!no_cfg_changes)
+    cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
   if (tree_dump_file)
@@ -553,6 +831,29 @@ tree_ssa_dce (void)
 			     tree_dump_file, tree_dump_flags);
       print_stats ();
     }
+
+  tree_dce_done (aggressive);
+}
+
+/* Cleanup the dead code, but avoid cfg changes.  */
+
+void
+tree_ssa_dce_no_cfg_changes (void)
+{
+  perform_tree_ssa_dce (false, true);
+}
+
+/* Pass entry points.  */
+static void
+tree_ssa_dce (void)
+{
+  perform_tree_ssa_dce (/*aggressive=*/false, false);
+}
+
+static void
+tree_ssa_cd_dce (void)
+{
+  perform_tree_ssa_dce (/*aggressive=*/optimize >= 2, false);
 }
 
 static bool
@@ -561,7 +862,7 @@ gate_dce (void)
   return flag_tree_dce != 0;
 }
 
-struct tree_opt_pass pass_dce = 
+struct tree_opt_pass pass_dce =
 {
   "dce",				/* name */
   gate_dce,				/* gate */
@@ -576,3 +877,21 @@ struct tree_opt_pass pass_dce =
   0,					/* todo_flags_start */
   TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
 };
+
+struct tree_opt_pass pass_cd_dce =
+{
+  "cddce",				/* name */
+  gate_dce,				/* gate */
+  tree_ssa_cd_dce,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_CD_DCE,			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow
+					/* todo_flags_finish */
+};
+

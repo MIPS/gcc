@@ -1738,8 +1738,8 @@ add_conversions (void)
 	if (i == j)
 	  continue;
 
-	add_conv (BT_LOGICAL, gfc_real_kinds[i].kind,
-		  BT_LOGICAL, gfc_real_kinds[j].kind, gfc_convert_constant);
+	add_conv (BT_LOGICAL, gfc_logical_kinds[i].kind,
+		  BT_LOGICAL, gfc_logical_kinds[j].kind, gfc_convert_constant);
       }
 }
 

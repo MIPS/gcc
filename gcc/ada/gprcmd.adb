@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---         Copyright (C) 2002-2003 Free Software Foundation, Inc.           --
+--         Copyright (C) 2002-2004 Free Software Foundation, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,7 +61,8 @@ procedure Gprcmd is
    --  If the file cannot be read, exit the process with an error code.
 
    procedure Check_Args (Condition : Boolean);
-   --  If Condition is false, print the usage, and exit the process.
+   --  If Condition is false, print command invoked, then the usage,
+   --  and exit the process.
 
    procedure Deps (Objext : String; File : String; GCC : Boolean);
    --  Process $(CC) dependency file. If GCC is True, add a rule so that make
@@ -109,6 +110,16 @@ procedure Gprcmd is
    procedure Check_Args (Condition : Boolean) is
    begin
       if not Condition then
+         Put_Line
+           (Standard_Error,
+            "bad call to gprcmd with" & Argument_Count'Img & " arguments.");
+
+         for J in 0 .. Argument_Count loop
+            Put (Standard_Error, Argument (J) & " ");
+         end loop;
+
+         New_Line (Standard_Error);
+
          Usage;
       end if;
    end Check_Args;
@@ -249,7 +260,7 @@ procedure Gprcmd is
    procedure Extend (Dir : String) is
 
       procedure Recursive_Extend (D : String);
-      --  Recursively display all subdirectories of D.
+      --  Recursively display all subdirectories of D
 
       ----------------------
       -- Recursive_Extend --
@@ -336,6 +347,8 @@ procedure Gprcmd is
                                 "post process dependency makefiles");
       Put_Line (Standard_Error, "  stamp       " &
                                 "copy file time stamp from file1 to file2");
+      Put_Line (Standard_Error, "  prefix      " &
+                                "get the prefix of the GNAT installation");
       OS_Exit (1);
    end Usage;
 
@@ -355,7 +368,7 @@ begin
          Put (Standard_Error, "GPRCMD ");
          Put (Standard_Error, Gnatvsn.Gnat_Version_String);
          Put_Line (Standard_Error,
-                   " Copyright 2002-2003, Free Software Fundation, Inc.");
+                   " Copyright 2002-2004, Free Software Fundation, Inc.");
          Usage;
 
       elsif Cmd = "pwd" then
@@ -437,8 +450,8 @@ begin
          Find_Program_Name;
 
          declare
-            Path : String_Access :=
-                     Locate_Exec_On_Path (Name_Buffer (1 .. Name_Len));
+            Path  : constant String_Access :=
+                      Locate_Exec_On_Path (Name_Buffer (1 .. Name_Len));
             Index : Natural;
 
          begin
@@ -454,12 +467,17 @@ begin
                  and then Path (Index - 3 .. Index - 1) = "bin"
                  and then Path (Index - 4) = Directory_Separator
                then
-                  --  We have found the <prefix>, return it.
+                  --  We have found the <prefix>, return it
 
                   Put (Path (Path'First .. Index - 5));
                end if;
             end if;
          end;
+
+      --  Unknown command
+
+      else
+         Check_Args (False);
       end if;
    end;
 end Gprcmd;

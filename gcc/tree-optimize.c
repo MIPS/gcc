@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -116,7 +116,7 @@ static struct tree_opt_pass pass_rebuild_bind =
 static bool
 gate_all_optimizations (void)
 {
-  return (optimize >= 1 && !flag_disable_tree_ssa
+  return (optimize >= 1
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }
@@ -276,12 +276,17 @@ init_tree_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_build_cfg);
+  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_build_pta);
   NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_early_warn_uninitialized);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
+  NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_forwprop);
+  NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_del_pta);
@@ -289,17 +294,28 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
   NEXT_PASS (DUP_PASS (pass_dominator));
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (pass_dse);
+  NEXT_PASS (DUP_PASS (pass_forwprop));
+  NEXT_PASS (DUP_PASS (pass_phiopt));
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ccp);
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
   NEXT_PASS (pass_fold_builtins);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_scev);
   NEXT_PASS (pass_loop);
   NEXT_PASS (DUP_PASS (pass_dominator));
-  NEXT_PASS (DUP_PASS (pass_dce));
+  NEXT_PASS (DUP_PASS (pass_redundant_phi));
+  NEXT_PASS (pass_cd_dce);
+  NEXT_PASS (DUP_PASS (pass_dse));
+  NEXT_PASS (DUP_PASS (pass_forwprop));
+  NEXT_PASS (DUP_PASS (pass_phiopt));
   NEXT_PASS (pass_tail_calls);
+  NEXT_PASS (pass_late_warn_uninitialized);
+  NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_del_ssa);
   NEXT_PASS (pass_del_cfg);
   *p = NULL;
@@ -326,7 +342,8 @@ static void execute_pass_list (struct tree_opt_pass *);
 static unsigned int current_properties;
 static unsigned int last_verified;
 
-static void execute_todo (unsigned int flags)
+static void
+execute_todo (unsigned int flags)
 {
   if (flags & TODO_rename_vars)
     {
@@ -334,9 +351,6 @@ static void execute_todo (unsigned int flags)
 	rewrite_into_ssa ();
       BITMAP_XFREE (vars_to_rename);
     }
-
-  if (flags & TODO_redundant_phi)
-    kill_redundant_phi_nodes ();
 
   if ((flags & TODO_dump_func) && tree_dump_file)
     dump_function_to_file (current_function_decl,
@@ -603,7 +617,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   else
     DECL_SAVED_TREE (fndecl) = NULL;
   cfun = 0;
-  DECL_SAVED_INSNS (fndecl) = 0;
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will
@@ -631,15 +644,20 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 
   if (!nested_p && !flag_inline_trees)
     {
-      /* Stop pointing to the local nodes about to be freed.
-	 But DECL_INITIAL must remain nonzero so we know this
-	 was an actual function definition.
-	 For a nested function, this is done in c_pop_function_context.
-	 If rest_of_compilation set this to 0, leave it 0.  */
-      if (DECL_INITIAL (fndecl) != 0)
-	DECL_INITIAL (fndecl) = error_mark_node;
+      DECL_SAVED_TREE (fndecl) = NULL;
+      if (DECL_STRUCT_FUNCTION (fndecl) == 0
+	  && !cgraph_node (fndecl)->origin)
+	{
+	  /* Stop pointing to the local nodes about to be freed.
+	     But DECL_INITIAL must remain nonzero so we know this
+	     was an actual function definition.
+	     For a nested function, this is done in c_pop_function_context.
+	     If rest_of_compilation set this to 0, leave it 0.  */
+	  if (DECL_INITIAL (fndecl) != 0)
+	    DECL_INITIAL (fndecl) = error_mark_node;
 
-      DECL_ARGUMENTS (fndecl) = 0;
+	  DECL_ARGUMENTS (fndecl) = 0;
+	}
     }
 
   input_location = saved_loc;

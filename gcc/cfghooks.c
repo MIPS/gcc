@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -397,6 +397,7 @@ split_edge (edge e)
   basic_block ret;
   gcov_type count = e->count;
   int freq = EDGE_FREQUENCY (e);
+  edge f;
 
   if (!cfg_hooks->split_edge)
     internal_error ("%s does not support split_edge.", cfg_hooks->name);
@@ -411,9 +412,33 @@ split_edge (edge e)
     set_immediate_dominator (CDI_DOMINATORS, ret, ret->pred->src);
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
-    set_immediate_dominator (CDI_DOMINATORS, ret->succ->dest,
-			     recount_dominator (CDI_DOMINATORS,
-						ret->succ->dest));
+    {
+      /* There are two cases:
+
+	 If the immediate dominator of e->dest is not e->src, it
+	 remains unchanged.
+
+	 If immediate dominator of e->dest is e->src, it may become
+	 ret, provided that all other predecessors of e->dest are
+	 dominated by e->dest.  */
+
+      if (get_immediate_dominator (CDI_DOMINATORS, ret->succ->dest)
+	  == ret->pred->src)
+	{
+	  for (f = ret->succ->dest->pred; f; f = f->pred_next)
+	    {
+	      if (f == ret->succ)
+		continue;
+
+	      if (!dominated_by_p (CDI_DOMINATORS, f->src,
+				   ret->succ->dest))
+		break;
+	    }
+
+	  if (!f)
+	    set_immediate_dominator (CDI_DOMINATORS, ret->succ->dest, ret);
+	}
+    };
 
   return ret;
 }
@@ -725,4 +750,46 @@ duplicate_block (basic_block bb, edge e)
   bb->rbi->copy = new_bb;
 
   return new_bb;
+}
+
+/* Return 1 if BB ends with a call, possibly followed by some
+   instructions that must stay with the call, 0 otherwise.  */
+
+bool 
+block_ends_with_call_p (basic_block bb)
+{
+  if (!cfg_hooks->block_ends_with_call_p)
+    internal_error ("%s does not support block_ends_with_call_p", cfg_hooks->name);
+
+  return (cfg_hooks->block_ends_with_call_p) (bb);
+}
+
+/* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
+
+bool 
+block_ends_with_condjump_p (basic_block bb)
+{
+  if (!cfg_hooks->block_ends_with_condjump_p)
+    internal_error ("%s does not support block_ends_with_condjump_p",
+		    cfg_hooks->name);
+
+  return (cfg_hooks->block_ends_with_condjump_p) (bb);
+}
+
+/* Add fake edges to the function exit for any non constant and non noreturn
+   calls, volatile inline assembly in the bitmap of blocks specified by
+   BLOCKS or to the whole CFG if BLOCKS is zero.  Return the number of blocks
+   that were split.
+
+   The goal is to expose cases in which entering a basic block does not imply
+   that all subsequent instructions must be executed.  */
+
+int
+flow_call_edges_add (sbitmap blocks)
+{
+  if (!cfg_hooks->flow_call_edges_add)
+    internal_error ("%s does not support flow_call_edges_add", 
+		    cfg_hooks->name);
+
+  return (cfg_hooks->flow_call_edges_add) (blocks);
 }

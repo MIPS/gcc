@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dce4" } */
+/* { dg-options "-O1 -fdump-tree-cddce" } */
       
 
 struct rtx_def;
@@ -32,8 +32,8 @@ delete_dead_jumptables ()
 /* There should be no loads of ->code.  If any exist, then we failed to
    optimize away all the IF statements and the statements feeding
    their conditions.  */
-/* { dg-final { scan-tree-dump-times "->code" 0 "dce4"} } */
+/* { dg-final { scan-tree-dump-times "->code" 0 "cddce"} } */
    
 /* There should be no IF statements.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dce4"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "cddce"} } */
 

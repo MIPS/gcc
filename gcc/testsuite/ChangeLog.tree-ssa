@@ -1,3 +1,128 @@
+2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/copy-headers.c: New test.
+	* gcc.dg/tree-ssa/20030711-1.c: Update outcome.
+	* gcc.dg/tree-ssa/20030714-2.c: Ditto.
+	* gcc.dg/tree-ssa/20030807-3.c: Ditto.
+
+2004-02-10  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040219-1.c: New test.
+
+2004-02-16  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-4.c: Remove bogus test.
+
+	* gcc.dg/tree-ssa/20040216-1.c: New test.
+	* gcc.dg/tree-ssa/20040211-1.c: New test.
+
+2004-02-15  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13433
+	* gfortran.fortran-torture/execute/straret.f90: New test.
+
+2004-02-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20030120-3.c: Remove duplicate of 920415-1.c.
+
+2004-02-11  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040210-1.c: New test.
+
+2004-02-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/20000603-1.c: Resolve alias ambiguity and
+	point to DR#236.
+
+2004-02-09  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/noreturn-1.c: Adjust line numbers on warnings.
+	* gcc.dg/noreturn-4.c: Likewise.
+	* gcc.dg/noreturn-7.c: Likewise.  Adjust warnings for
+	changes to tail-call optimizations.
+	* gcc.dg/return-type-3.c: Turn on optimization.
+	* gcc.dg/uninit-6.c: Adjust line numbers on warnings.
+	* gcc.dg/uninit-8.c: XFAIL.
+
+2004-02-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/specifics.f90: Fix mod type.
+
+2004-02-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040209-2.c: New test.
+
+2004-02-06  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/intrinsic_dotprod.f90: Add complex
+	test.
+
+2004-02-07  Bud Davis  <bdavis9659@comcast.net>
+
+	PR libfortran/14038
+	* gfortran.fortran-torture/execute/holletith.f90: New test.
+
+2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13127
+	* gcc.dg/20040206-1.c: New test.
+
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/opt/bool1.C: Declare abort.
+
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-ccp-10.c: Look at fab dump.
+
+2004-02-03  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040204-1.c: Rename from ssa-ccp-5.c.
+	Look at .optimized output.  XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-11.c: XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-3.c: XFAIL.
+	* gcc.dg/tree-ssa/ssa-ccp-4.c: Remove.
+	* gcc.dg/tree-ssa/ssa-ccp-6.c: Remove.
+	* gcc.dg/tree-ssa/ssa-ccp-8.c: Remove.
+
+	* gcc.dg/tree-ssa/20030731-1.c: XFAIL.
+	* gcc.dg/tree-ssa/20030814-6.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-1.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-2.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-3.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-4.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-5.c: XFAIL.
+	* gcc.dg/tree-ssa/20031106-6.c: XFAIL.
+	* gcc.dg/tree-ssa/sra-2.c: XFAIL.
+	* gcc.dg/tree-ssa/sra-3.c: XFAIL.
+
+	* gcc.dg/i386-ssetype-1.c: XFAIL.
+	* gcc.dg/i386-ssetype-3.c: XFAIL.
+
+2004-02-03  Steven Bosscher  <stevenb@suse.de>
+
+	* gcc.dg/tree-ssa/20030709-2.c: Replace `dce4' with `cddce' for
+	tree dump scans.
+	* gcc.dg/tree-ssa/20030808-1.c: Likewise.
+
+2004-01-31  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* gfortran.fortran-torture/execute/intrinsic_mmloc_4.f90:
+	Delete print statements.
+
+2004-01-25  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/930529-1.x: Disable, update commentary.
+
+2004-01-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/asm-1.c: Fix memory constaint.
+
+2004-01-21  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.dg/tree-ssa/20040121-1.c: New test.
+
 2004-01-17  Richard Henderson  <rth@redhat.com>
 
 	* gcc.c-torture/execute/string-opt-18.x: Remove.

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,6 +40,7 @@ with Lib.Xref; use Lib.Xref;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
+with Rident;   use Rident;
 with Restrict; use Restrict;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
@@ -1214,12 +1215,13 @@ package body Sem_Ch12 is
          Error_Msg_N ("premature usage of incomplete type", Def);
 
       elsif Is_Internal (Component_Type (T))
-        and then Nkind (Original_Node (Subtype_Indication (Def)))
+        and then Nkind (Original_Node
+                        (Subtype_Indication (Component_Definition (Def))))
           /= N_Attribute_Reference
       then
          Error_Msg_N
            ("only a subtype mark is allowed in a formal",
-              Subtype_Indication (Def));
+              Subtype_Indication (Component_Definition (Def)));
       end if;
 
    end Analyze_Formal_Array_Type;
@@ -1467,7 +1469,7 @@ package body Sem_Ch12 is
 
       if K = E_Generic_In_Parameter then
 
-         --  Ada0Y (AI-287): Limited aggregates allowed in generic formals
+         --  Ada 0Y (AI-287): Limited aggregates allowed in generic formals
 
          if not Extensions_Allowed and then Is_Limited_Type (T) then
             Error_Msg_N
@@ -1604,6 +1606,27 @@ package body Sem_Ch12 is
              Gen_Id);
          Restore_Env;
          return;
+
+      elsif In_Open_Scopes (Gen_Unit) then
+         if Is_Compilation_Unit (Gen_Unit)
+           and then Is_Child_Unit (Current_Scope)
+         then
+            --  Special-case the error when the formal is a parent, and
+            --  continue analysis to minimize cascaded errors.
+
+            Error_Msg_N
+              ("generic parent cannot be used as formal package "
+                & "of a child unit",
+                Gen_Id);
+
+         else
+            Error_Msg_N
+              ("generic package cannot be used as a formal package "
+                & "within itself",
+                Gen_Id);
+            Restore_Env;
+            return;
+         end if;
       end if;
 
       --  Check for a formal package that is a package renaming.
@@ -2355,7 +2378,7 @@ package body Sem_Ch12 is
 
       elsif Ekind (Gen_Unit) /= E_Generic_Package then
 
-         --  Ada0Y (AI-50217): Instance can not be used in limited with_clause
+         --  Ada 0Y (AI-50217): Instance can not be used in limited with_clause
 
          if From_With_Type (Gen_Unit) then
             Error_Msg_N
@@ -2577,7 +2600,7 @@ package body Sem_Ch12 is
 
             if In_Open_Scopes (Scope (Scope (Gen_Unit))) then
                declare
-                  Decl : Node_Id :=
+                  Decl : constant Node_Id :=
                            Original_Node
                              (Unit_Declaration_Node (Scope (Gen_Unit)));
                begin
@@ -6248,7 +6271,7 @@ package body Sem_Ch12 is
          Gen_Anc  : Entity_Id)
          return     Boolean
       is
-         Gen_Par : Entity_Id := Generic_Parent (Act_Spec);
+         Gen_Par : constant Entity_Id := Generic_Parent (Act_Spec);
 
       begin
          if No (Gen_Par) then
@@ -7768,8 +7791,7 @@ package body Sem_Ch12 is
 
                begin
                   Decl := First (Actual_Decls);
-
-                  while (Present (Decl)) loop
+                  while Present (Decl) loop
                      if Nkind (Decl) = N_Subtype_Declaration
                        and then Chars (Defining_Identifier (Decl)) =
                                                     Chars (Etype (A_Gen_T))

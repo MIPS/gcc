@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -30,6 +30,9 @@
 /* @@@ Really this should be out of line, but this also causes link
    compatibility problems with the base ABI.  This is slightly better
    than duplicating code, however.  */
+
+#ifndef GCC_UNWIND_PE_H
+#define GCC_UNWIND_PE_H
 
 /* If using C++, references to abort have to be qualified with std::.  */
 #if __cplusplus
@@ -284,3 +287,5 @@ read_encoded_value (struct _Unwind_Context *context, unsigned char encoding,
 }
 
 #endif
+
+#endif /* unwind-pe.h */

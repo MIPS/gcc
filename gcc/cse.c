@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -601,7 +601,7 @@ static bool fixed_base_plus_p (rtx x);
 static int notreg_cost (rtx, enum rtx_code);
 static int approx_reg_cost_1 (rtx *, void *);
 static int approx_reg_cost (rtx);
-static int preferrable (int, int, int, int);
+static int preferable (int, int, int, int);
 static void new_basic_block (void);
 static void make_new_qty (unsigned int, enum machine_mode);
 static void make_regs_eqv (unsigned int, unsigned int);
@@ -658,6 +658,9 @@ static void flush_hash_table (void);
 static bool insn_live_p (rtx, int *);
 static bool set_live_p (rtx, rtx, int *);
 static bool dead_libcall_p (rtx, int *);
+static int cse_change_cc_mode (rtx *, void *);
+static void cse_change_cc_mode_insns (rtx, rtx, rtx);
+static enum machine_mode cse_cc_succs (basic_block, rtx, rtx, bool);
 
 /* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
    virtual regs here because the simplify_*_operation routines are called
@@ -758,7 +761,7 @@ approx_reg_cost (rtx x)
    Return a positive value if A is less desirable, or 0 if the two are
    equally good.  */
 static int
-preferrable (int cost_a, int regcost_a, int cost_b, int regcost_b)
+preferable (int cost_a, int regcost_a, int cost_b, int regcost_b)
 {
   /* First, get rid of cases involving expressions that are entirely
      unwanted.  */
@@ -1159,7 +1162,7 @@ mention_regs (rtx x)
       unsigned int regno = REGNO (x);
       unsigned int endregno
 	= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		   : HARD_REGNO_NREGS (regno, GET_MODE (x)));
+		   : hard_regno_nregs[regno][GET_MODE (x)]);
       unsigned int i;
 
       for (i = regno; i < endregno; i++)
@@ -1510,7 +1513,7 @@ lookup_as_function (rtx x, enum rtx_code code)
    If necessary, update table showing constant values of quantities.  */
 
 #define CHEAPER(X, Y) \
- (preferrable ((X)->cost, (X)->regcost, (Y)->cost, (Y)->regcost) < 0)
+ (preferable ((X)->cost, (X)->regcost, (Y)->cost, (Y)->regcost) < 0)
 
 static struct table_elt *
 insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mode)
@@ -1526,7 +1529,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (GET_CODE (x) == REG && REGNO (x) < FIRST_PSEUDO_REGISTER)
     {
       unsigned int regno = REGNO (x);
-      unsigned int endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (x));
+      unsigned int endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
       unsigned int i;
 
       for (i = regno; i < endregno; i++)
@@ -1625,7 +1628,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
       int exp_q = REG_QTY (REGNO (classp->exp));
       struct qty_table_elem *exp_ent = &qty_table[exp_q];
 
-      exp_ent->const_rtx = gen_lowpart_if_possible (exp_ent->mode, x);
+      exp_ent->const_rtx = gen_lowpart (exp_ent->mode, x);
       exp_ent->const_insn = this_insn;
     }
 
@@ -1644,7 +1647,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 	      struct qty_table_elem *x_ent = &qty_table[x_q];
 
 	      x_ent->const_rtx
-		= gen_lowpart_if_possible (GET_MODE (x), p->exp);
+		= gen_lowpart (GET_MODE (x), p->exp);
 	      x_ent->const_insn = this_insn;
 	      break;
 	    }
@@ -1768,6 +1771,7 @@ struct check_dependence_data
 {
   enum machine_mode mode;
   rtx exp;
+  rtx addr;
 };
 
 static int
@@ -1775,7 +1779,8 @@ check_dependence (rtx *x, void *data)
 {
   struct check_dependence_data *d = (struct check_dependence_data *) data;
   if (*x && GET_CODE (*x) == MEM)
-    return true_dependence (d->exp, d->mode, *x, cse_rtx_varies_p);
+    return canon_true_dependence (d->exp, d->mode, d->addr, *x,
+		    		  cse_rtx_varies_p);
   else
     return 0;
 }
@@ -1797,6 +1802,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 {
   int i;
   struct table_elt *p;
+  rtx addr;
 
   switch (GET_CODE (x))
     {
@@ -1836,7 +1842,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 	    HOST_WIDE_INT in_table
 	      = TEST_HARD_REG_BIT (hard_regs_in_table, regno);
 	    unsigned int endregno
-	      = regno + HARD_REGNO_NREGS (regno, GET_MODE (x));
+	      = regno + hard_regno_nregs[regno][GET_MODE (x)];
 	    unsigned int tregno, tendregno, rn;
 	    struct table_elt *p, *next;
 
@@ -1863,7 +1869,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 
 		    tregno = REGNO (p->exp);
 		    tendregno
-		      = tregno + HARD_REGNO_NREGS (tregno, GET_MODE (p->exp));
+		      = tregno + hard_regno_nregs[tregno][GET_MODE (p->exp)];
 		    if (tendregno > regno && tregno < endregno)
 		      remove_from_table (p, hash);
 		  }
@@ -1887,6 +1893,7 @@ invalidate (rtx x, enum machine_mode full_mode)
       return;
 
     case MEM:
+      addr = canon_rtx (get_addr (XEXP (x, 0)));
       /* Calculate the canonical version of X here so that
 	 true_dependence doesn't generate new RTL for X on each call.  */
       x = canon_rtx (x);
@@ -1914,6 +1921,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 		  if (!p->canon_exp)
 		    p->canon_exp = canon_rtx (p->exp);
 		  d.exp = x;
+		  d.addr = addr;
 		  d.mode = full_mode;
 		  if (for_each_rtx (&p->canon_exp, check_dependence, &d))
 		    remove_from_table (p, i);
@@ -2073,7 +2081,7 @@ invalidate_for_call (void)
 	    continue;
 
 	  regno = REGNO (p->exp);
-	  endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (p->exp));
+	  endregno = regno + hard_regno_nregs[regno][GET_MODE (p->exp)];
 
 	  for (i = regno; i < endregno; i++)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
@@ -2532,7 +2540,7 @@ exp_equiv_p (rtx x, rtx y, int validate, int equal_values)
 	unsigned int regno = REGNO (y);
 	unsigned int endregno
 	  = regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		     : HARD_REGNO_NREGS (regno, GET_MODE (y)));
+		     : hard_regno_nregs[regno][GET_MODE (y)]);
 	unsigned int i;
 
 	/* If the quantities are not the same, the expressions are not
@@ -3348,24 +3356,8 @@ fold_rtx (rtx x, rtx insn)
 	    return new;
 	}
 
-      /* If this is a narrowing SUBREG and our operand is a REG, see if
-	 we can find an equivalence for REG that is an arithmetic operation
-	 in a wider mode where both operands are paradoxical SUBREGs
-	 from objects of our result mode.  In that case, we couldn't report
-	 an equivalent value for that operation, since we don't know what the
-	 extra bits will be.  But we can find an equivalence for this SUBREG
-	 by folding that operation is the narrow mode.  This allows us to
-	 fold arithmetic in narrow modes when the machine only supports
-	 word-sized arithmetic.
-
-	 Also look for a case where we have a SUBREG whose operand is the
-	 same as our result.  If both modes are smaller than a word, we
-	 are simply interpreting a register in different modes and we
-	 can use the inner value.  */
-
       if (GET_CODE (folded_arg0) == REG
-	  && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (folded_arg0))
-	  && subreg_lowpart_p (x))
+	  && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (folded_arg0)))
 	{
 	  struct table_elt *elt;
 
@@ -3378,95 +3370,122 @@ fold_rtx (rtx x, rtx insn)
 	  if (elt)
 	    elt = elt->first_same_value;
 
-	  for (; elt; elt = elt->next_same_value)
-	    {
-	      enum rtx_code eltcode = GET_CODE (elt->exp);
+	  if (subreg_lowpart_p (x))
+	    /* If this is a narrowing SUBREG and our operand is a REG, see
+	       if we can find an equivalence for REG that is an arithmetic
+	       operation in a wider mode where both operands are paradoxical
+	       SUBREGs from objects of our result mode.  In that case, we
+	       couldn-t report an equivalent value for that operation, since we
+	       don't know what the extra bits will be.  But we can find an
+	       equivalence for this SUBREG by folding that operation in the
+	       narrow mode.  This allows us to fold arithmetic in narrow modes
+	       when the machine only supports word-sized arithmetic.
 
-	      /* Just check for unary and binary operations.  */
-	      if (GET_RTX_CLASS (GET_CODE (elt->exp)) == '1'
-		  && GET_CODE (elt->exp) != SIGN_EXTEND
-		  && GET_CODE (elt->exp) != ZERO_EXTEND
-		  && GET_CODE (XEXP (elt->exp, 0)) == SUBREG
-		  && GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode
-		  && (GET_MODE_CLASS (mode)
-		      == GET_MODE_CLASS (GET_MODE (XEXP (elt->exp, 0)))))
-		{
-		  rtx op0 = SUBREG_REG (XEXP (elt->exp, 0));
+	       Also look for a case where we have a SUBREG whose operand
+	       is the same as our result.  If both modes are smaller
+	       than a word, we are simply interpreting a register in
+	       different modes and we can use the inner value.	*/
 
-		  if (GET_CODE (op0) != REG && ! CONSTANT_P (op0))
-		    op0 = fold_rtx (op0, NULL_RTX);
+	    for (; elt; elt = elt->next_same_value)
+	      {
+		enum rtx_code eltcode = GET_CODE (elt->exp);
 
-		  op0 = equiv_constant (op0);
-		  if (op0)
-		    new = simplify_unary_operation (GET_CODE (elt->exp), mode,
-						    op0, mode);
-		}
-	      else if ((GET_RTX_CLASS (GET_CODE (elt->exp)) == '2'
-			|| GET_RTX_CLASS (GET_CODE (elt->exp)) == 'c')
-		       && eltcode != DIV && eltcode != MOD
-		       && eltcode != UDIV && eltcode != UMOD
-		       && eltcode != ASHIFTRT && eltcode != LSHIFTRT
-		       && eltcode != ROTATE && eltcode != ROTATERT
-		       && ((GET_CODE (XEXP (elt->exp, 0)) == SUBREG
-			    && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 0)))
-				== mode))
-			   || CONSTANT_P (XEXP (elt->exp, 0)))
-		       && ((GET_CODE (XEXP (elt->exp, 1)) == SUBREG
-			    && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 1)))
-				== mode))
-			   || CONSTANT_P (XEXP (elt->exp, 1))))
-		{
-		  rtx op0 = gen_lowpart_common (mode, XEXP (elt->exp, 0));
-		  rtx op1 = gen_lowpart_common (mode, XEXP (elt->exp, 1));
+	        /* Just check for unary and binary operations.  */
+	        if (GET_RTX_CLASS (GET_CODE (elt->exp)) == '1'
+		    && GET_CODE (elt->exp) != SIGN_EXTEND
+		    && GET_CODE (elt->exp) != ZERO_EXTEND
+		    && GET_CODE (XEXP (elt->exp, 0)) == SUBREG
+		    && GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode
+		    && (GET_MODE_CLASS (mode)
+		        == GET_MODE_CLASS (GET_MODE (XEXP (elt->exp, 0)))))
+		  {
+		    rtx op0 = SUBREG_REG (XEXP (elt->exp, 0));
 
-		  if (op0 && GET_CODE (op0) != REG && ! CONSTANT_P (op0))
-		    op0 = fold_rtx (op0, NULL_RTX);
+		    if (GET_CODE (op0) != REG && ! CONSTANT_P (op0))
+		      op0 = fold_rtx (op0, NULL_RTX);
 
-		  if (op0)
 		    op0 = equiv_constant (op0);
+		    if (op0)
+		      new = simplify_unary_operation (GET_CODE (elt->exp), mode,
+						      op0, mode);
+		  }
+	        else if ((GET_RTX_CLASS (GET_CODE (elt->exp)) == '2'
+			  || GET_RTX_CLASS (GET_CODE (elt->exp)) == 'c')
+		         && eltcode != DIV && eltcode != MOD
+		         && eltcode != UDIV && eltcode != UMOD
+		         && eltcode != ASHIFTRT && eltcode != LSHIFTRT
+		         && eltcode != ROTATE && eltcode != ROTATERT
+		         && ((GET_CODE (XEXP (elt->exp, 0)) == SUBREG
+			      && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 0)))
+				  == mode))
+			     || CONSTANT_P (XEXP (elt->exp, 0)))
+		         && ((GET_CODE (XEXP (elt->exp, 1)) == SUBREG
+			      && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 1)))
+				  == mode))
+			     || CONSTANT_P (XEXP (elt->exp, 1))))
+		  {
+		    rtx op0 = gen_lowpart_common (mode, XEXP (elt->exp, 0));
+		    rtx op1 = gen_lowpart_common (mode, XEXP (elt->exp, 1));
 
-		  if (op1 && GET_CODE (op1) != REG && ! CONSTANT_P (op1))
-		    op1 = fold_rtx (op1, NULL_RTX);
+		    if (op0 && GET_CODE (op0) != REG && ! CONSTANT_P (op0))
+		      op0 = fold_rtx (op0, NULL_RTX);
 
-		  if (op1)
-		    op1 = equiv_constant (op1);
+		    if (op0)
+		      op0 = equiv_constant (op0);
 
-		  /* If we are looking for the low SImode part of
-		     (ashift:DI c (const_int 32)), it doesn't work
-		     to compute that in SImode, because a 32-bit shift
-		     in SImode is unpredictable.  We know the value is 0.  */
-		  if (op0 && op1
-		      && GET_CODE (elt->exp) == ASHIFT
-		      && GET_CODE (op1) == CONST_INT
-		      && INTVAL (op1) >= GET_MODE_BITSIZE (mode))
-		    {
-		      if (INTVAL (op1) < GET_MODE_BITSIZE (GET_MODE (elt->exp)))
+		    if (op1 && GET_CODE (op1) != REG && ! CONSTANT_P (op1))
+		      op1 = fold_rtx (op1, NULL_RTX);
 
-			/* If the count fits in the inner mode's width,
-			   but exceeds the outer mode's width,
-			   the value will get truncated to 0
-			   by the subreg.  */
-			new = const0_rtx;
-		      else
-			/* If the count exceeds even the inner mode's width,
+		    if (op1)
+		      op1 = equiv_constant (op1);
+
+		    /* If we are looking for the low SImode part of
+		       (ashift:DI c (const_int 32)), it doesn't work
+		       to compute that in SImode, because a 32-bit shift
+		       in SImode is unpredictable.  We know the value is 0.  */
+		    if (op0 && op1
+		        && GET_CODE (elt->exp) == ASHIFT
+		        && GET_CODE (op1) == CONST_INT
+		        && INTVAL (op1) >= GET_MODE_BITSIZE (mode))
+		      {
+		        if (INTVAL (op1)
+			    < GET_MODE_BITSIZE (GET_MODE (elt->exp)))
+			  /* If the count fits in the inner mode's width,
+			     but exceeds the outer mode's width,
+			     the value will get truncated to 0
+			     by the subreg.  */
+			  new = CONST0_RTX (mode);
+		        else
+			  /* If the count exceeds even the inner mode's width,
 			   don't fold this expression.  */
-			new = 0;
-		    }
-		  else if (op0 && op1)
-		    new = simplify_binary_operation (GET_CODE (elt->exp), mode,
-						     op0, op1);
-		}
+			  new = 0;
+		      }
+		    else if (op0 && op1)
+		      new = simplify_binary_operation (GET_CODE (elt->exp),							       mode, op0, op1);
+		  }
 
-	      else if (GET_CODE (elt->exp) == SUBREG
-		       && GET_MODE (SUBREG_REG (elt->exp)) == mode
-		       && (GET_MODE_SIZE (GET_MODE (folded_arg0))
-			   <= UNITS_PER_WORD)
-		       && exp_equiv_p (elt->exp, elt->exp, 1, 0))
-		new = copy_rtx (SUBREG_REG (elt->exp));
+	        else if (GET_CODE (elt->exp) == SUBREG
+		         && GET_MODE (SUBREG_REG (elt->exp)) == mode
+		         && (GET_MODE_SIZE (GET_MODE (folded_arg0))
+			     <= UNITS_PER_WORD)
+		         && exp_equiv_p (elt->exp, elt->exp, 1, 0))
+		  new = copy_rtx (SUBREG_REG (elt->exp));
 
-	      if (new)
-		return new;
-	    }
+	        if (new)
+		  return new;
+	      }
+	  else
+	    /* A SUBREG resulting from a zero extension may fold to zero if
+	       it extracts higher bits than the ZERO_EXTEND's source bits.
+	       FIXME: if combine tried to, er, combine these instructions,
+	       this transformation may be moved to simplify_subreg.  */
+	    for (; elt; elt = elt->next_same_value)
+	      {
+	      	if (GET_CODE (elt->exp) == ZERO_EXTEND
+		    && subreg_lsb (x)
+		       >= GET_MODE_BITSIZE (GET_MODE (XEXP (elt->exp, 0))))
+		  return CONST0_RTX (mode);
+	      }
 	}
 
       return x;
@@ -3558,7 +3577,7 @@ fold_rtx (rtx x, rtx insn)
 	    if (((BYTES_BIG_ENDIAN
 		  && offset == GET_MODE_SIZE (GET_MODE (constant)) - 1)
 		 || (! BYTES_BIG_ENDIAN && offset == 0))
-		&& (new = gen_lowpart_if_possible (mode, constant)) != 0)
+		&& (new = gen_lowpart (mode, constant)) != 0)
 	      return new;
 	  }
 
@@ -3664,7 +3683,7 @@ fold_rtx (rtx x, rtx insn)
 		    && GET_CODE (arg_ent->const_rtx) != REG
 		    && GET_CODE (arg_ent->const_rtx) != PLUS)
 		  const_arg
-		    = gen_lowpart_if_possible (GET_MODE (arg),
+		    = gen_lowpart (GET_MODE (arg),
 					       arg_ent->const_rtx);
 	      }
 	    break;
@@ -4270,7 +4289,7 @@ equiv_constant (rtx x)
       struct qty_table_elem *x_ent = &qty_table[x_q];
 
       if (x_ent->const_rtx)
-	x = gen_lowpart_if_possible (GET_MODE (x), x_ent->const_rtx);
+	x = gen_lowpart (GET_MODE (x), x_ent->const_rtx);
     }
 
   if (x == 0 || CONSTANT_P (x))
@@ -4308,7 +4327,7 @@ equiv_constant (rtx x)
 
    If the requested operation cannot be done, 0 is returned.
 
-   This is similar to gen_lowpart in emit-rtl.c.  */
+   This is similar to gen_lowpart_general in emit-rtl.c.  */
 
 rtx
 gen_lowpart_if_possible (enum machine_mode mode, rtx x)
@@ -4423,7 +4442,7 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
-      rtx tem = gen_lowpart_if_possible (inner_mode, op1);
+      rtx tem = gen_lowpart (inner_mode, op1);
 
       record_jump_cond (code, mode, SUBREG_REG (op0),
 			tem ? tem : gen_rtx_SUBREG (inner_mode, op1, 0),
@@ -4435,7 +4454,7 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op1));
-      rtx tem = gen_lowpart_if_possible (inner_mode, op0);
+      rtx tem = gen_lowpart (inner_mode, op0);
 
       record_jump_cond (code, mode, SUBREG_REG (op1),
 			tem ? tem : gen_rtx_SUBREG (inner_mode, op0, 0),
@@ -4455,7 +4474,7 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
-      rtx tem = gen_lowpart_if_possible (inner_mode, op1);
+      rtx tem = gen_lowpart (inner_mode, op1);
 
       record_jump_cond (code, mode, SUBREG_REG (op0),
 			tem ? tem : gen_rtx_SUBREG (inner_mode, op1, 0),
@@ -4468,7 +4487,7 @@ record_jump_cond (enum rtx_code code, enum machine_mode mode, rtx op0,
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1)))))
     {
       enum machine_mode inner_mode = GET_MODE (SUBREG_REG (op1));
-      rtx tem = gen_lowpart_if_possible (inner_mode, op0);
+      rtx tem = gen_lowpart (inner_mode, op0);
 
       record_jump_cond (code, mode, SUBREG_REG (op1),
 			tem ? tem : gen_rtx_SUBREG (inner_mode, op0, 0),
@@ -5157,7 +5176,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   const_elt; const_elt = const_elt->next_same_value)
 		if (GET_CODE (const_elt->exp) == REG)
 		  {
-		    src_related = gen_lowpart_if_possible (mode,
+		    src_related = gen_lowpart (mode,
 							   const_elt->exp);
 		    break;
 		  }
@@ -5181,7 +5200,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	       GET_MODE_SIZE (tmode) <= UNITS_PER_WORD;
 	       tmode = GET_MODE_WIDER_MODE (tmode))
 	    {
-	      rtx inner = gen_lowpart_if_possible (tmode, XEXP (src, 0));
+	      rtx inner = gen_lowpart (tmode, XEXP (src, 0));
 	      struct table_elt *larger_elt;
 
 	      if (inner)
@@ -5197,7 +5216,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		    if (GET_CODE (larger_elt->exp) == REG)
 		      {
 			src_related
-			  = gen_lowpart_if_possible (mode, larger_elt->exp);
+			  = gen_lowpart (mode, larger_elt->exp);
 			break;
 		      }
 
@@ -5242,7 +5261,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   larger_elt; larger_elt = larger_elt->next_same_value)
 		if (GET_CODE (larger_elt->exp) == REG)
 		  {
-		    src_related = gen_lowpart_if_possible (mode,
+		    src_related = gen_lowpart (mode,
 							   larger_elt->exp);
 		    break;
 		  }
@@ -5405,14 +5424,14 @@ cse_insn (rtx insn, rtx libcall_insn)
 	     of equal cost, use this order:
 	     src_folded, src, src_eqv, src_related and hash table entry.  */
 	  if (src_folded
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_cost, src_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_eqv_cost, src_eqv_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_related_cost, src_related_regcost) <= 0
-	      && preferrable (src_folded_cost, src_folded_regcost,
-			      src_elt_cost, src_elt_regcost) <= 0)
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_cost, src_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_eqv_cost, src_eqv_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_related_cost, src_related_regcost) <= 0
+	      && preferable (src_folded_cost, src_folded_regcost,
+			     src_elt_cost, src_elt_regcost) <= 0)
 	    {
 	      trial = src_folded, src_folded_cost = MAX_COST;
 	      if (src_folded_force_flag)
@@ -5423,22 +5442,22 @@ cse_insn (rtx insn, rtx libcall_insn)
 		}
 	    }
 	  else if (src
-		   && preferrable (src_cost, src_regcost,
-				   src_eqv_cost, src_eqv_regcost) <= 0
-		   && preferrable (src_cost, src_regcost,
-				   src_related_cost, src_related_regcost) <= 0
-		   && preferrable (src_cost, src_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_cost, src_regcost,
+				  src_eqv_cost, src_eqv_regcost) <= 0
+		   && preferable (src_cost, src_regcost,
+				  src_related_cost, src_related_regcost) <= 0
+		   && preferable (src_cost, src_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = src, src_cost = MAX_COST;
 	  else if (src_eqv_here
-		   && preferrable (src_eqv_cost, src_eqv_regcost,
-				   src_related_cost, src_related_regcost) <= 0
-		   && preferrable (src_eqv_cost, src_eqv_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_eqv_cost, src_eqv_regcost,
+				  src_related_cost, src_related_regcost) <= 0
+		   && preferable (src_eqv_cost, src_eqv_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_eqv_here), src_eqv_cost = MAX_COST;
 	  else if (src_related
-		   && preferrable (src_related_cost, src_related_regcost,
-				   src_elt_cost, src_elt_regcost) <= 0)
+		   && preferable (src_related_cost, src_related_regcost,
+				  src_elt_cost, src_elt_regcost) <= 0)
 	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
 	  else
 	    {
@@ -5700,10 +5719,20 @@ cse_insn (rtx insn, rtx libcall_insn)
 	     and hope for the best.  */
 	  if (n_sets == 1)
 	    {
-	      rtx new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
+	      rtx new, note;
 
+	      new = emit_jump_insn_after (gen_jump (XEXP (src, 0)), insn);
 	      JUMP_LABEL (new) = XEXP (src, 0);
 	      LABEL_NUSES (XEXP (src, 0))++;
+
+	      /* Make sure to copy over REG_NON_LOCAL_GOTO.  */
+	      note = find_reg_note (insn, REG_NON_LOCAL_GOTO, 0);
+	      if (note)
+		{
+		  XEXP (note, 1) = NULL_RTX;
+		  REG_NOTES (new) = note;
+		}
+
 	      delete_insn (insn);
 	      insn = new;
 
@@ -5953,7 +5982,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      unsigned int regno = REGNO (x);
 	      unsigned int endregno
 		= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-			   : HARD_REGNO_NREGS (regno, GET_MODE (x)));
+			   : hard_regno_nregs[regno][GET_MODE (x)]);
 	      unsigned int i;
 
 	      for (i = regno; i < endregno; i++)
@@ -6066,8 +6095,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 	   we are also doing (set (reg:m2 foo) (subreg:m2 (bar:m1) 0)) so
 	   make that equivalence as well.
 
-	   However, BAR may have equivalences for which gen_lowpart_if_possible
-	   will produce a simpler value than gen_lowpart_if_possible applied to
+	   However, BAR may have equivalences for which gen_lowpart
+	   will produce a simpler value than gen_lowpart applied to
 	   BAR (e.g., if BAR was ZERO_EXTENDed from M2), so we will scan all
 	   BAR's equivalences.  If we don't get a simplified form, make
 	   the SUBREG.  It will not be used in an equivalence, but will
@@ -6412,7 +6441,7 @@ cse_process_notes (rtx x, rtx object)
 	      && (CONSTANT_P (ent->const_rtx)
 		  || GET_CODE (ent->const_rtx) == REG))
 	    {
-	      rtx new = gen_lowpart_if_possible (GET_MODE (x), ent->const_rtx);
+	      rtx new = gen_lowpart (GET_MODE (x), ent->const_rtx);
 	      if (new)
 		return new;
 	    }
@@ -6963,6 +6992,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
   constant_pool_entries_cost = 0;
   constant_pool_entries_regcost = 0;
   val.path_size = 0;
+  gen_lowpart = gen_lowpart_if_possible;
 
   init_recog ();
   init_alias_analysis ();
@@ -7082,6 +7112,7 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
   free (uid_cuid);
   free (reg_eqv_table);
   free (val.path);
+  gen_lowpart = gen_lowpart_general;
 
   return cse_jumps_altered || recorded_label_ref;
 }
@@ -7102,6 +7133,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
   int to_usage = 0;
   rtx libcall_insn = NULL_RTX;
   int num_insns = 0;
+  int no_conflict = 0;
 
   /* This array is undefined before max_reg, so only allocate
      the space actually needed and adjust the start.  */
@@ -7181,11 +7213,26 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	      if ((p = find_reg_note (insn, REG_LIBCALL, NULL_RTX)))
 		libcall_insn = XEXP (p, 0);
 	      else if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-		libcall_insn = 0;
+		{
+		  /* Keep libcall_insn for the last SET insn of a no-conflict
+		     block to prevent changing the destination.  */
+		  if (! no_conflict)
+		    libcall_insn = 0;
+		  else
+		    no_conflict = -1;
+		}
+	      else if (find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
+		no_conflict = 1;
 	    }
 
 	  cse_insn (insn, libcall_insn);
 
+	  if (no_conflict == -1)
+	    {
+	      libcall_insn = 0;
+	      no_conflict = 0;
+	    }
+	    
 	  /* If we haven't already found an insn where we added a LABEL_REF,
 	     check this one.  */
 	  if (GET_CODE (insn) == INSN && ! recorded_label_ref
@@ -7631,4 +7678,337 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   free (counts);
   timevar_pop (TV_DELETE_TRIVIALLY_DEAD);
   return ndead;
+}
+
+/* This function is called via for_each_rtx.  The argument, NEWREG, is
+   a condition code register with the desired mode.  If we are looking
+   at the same register in a different mode, replace it with
+   NEWREG.  */
+
+static int
+cse_change_cc_mode (rtx *loc, void *data)
+{
+  rtx newreg = (rtx) data;
+
+  if (*loc
+      && GET_CODE (*loc) == REG
+      && REGNO (*loc) == REGNO (newreg)
+      && GET_MODE (*loc) != GET_MODE (newreg))
+    {
+      *loc = newreg;
+      return -1;
+    }
+  return 0;
+}
+
+/* Change the mode of any reference to the register REGNO (NEWREG) to
+   GET_MODE (NEWREG), starting at START.  Stop before END.  Stop at
+   any instruction after START which modifies NEWREG.  */
+
+static void
+cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
+{
+  rtx insn;
+
+  for (insn = start; insn != end; insn = NEXT_INSN (insn))
+    {
+      if (! INSN_P (insn))
+	continue;
+
+      if (insn != start && reg_set_p (newreg, insn))
+	return;
+
+      for_each_rtx (&PATTERN (insn), cse_change_cc_mode, newreg);
+      for_each_rtx (&REG_NOTES (insn), cse_change_cc_mode, newreg);
+    }
+}
+
+/* BB is a basic block which finishes with CC_REG as a condition code
+   register which is set to CC_SRC.  Look through the successors of BB
+   to find blocks which have a single predecessor (i.e., this one),
+   and look through those blocks for an assignment to CC_REG which is
+   equivalent to CC_SRC.  CAN_CHANGE_MODE indicates whether we are
+   permitted to change the mode of CC_SRC to a compatible mode.  This
+   returns VOIDmode if no equivalent assignments were found.
+   Otherwise it returns the mode which CC_SRC should wind up with.
+
+   The main complexity in this function is handling the mode issues.
+   We may have more than one duplicate which we can eliminate, and we
+   try to find a mode which will work for multiple duplicates.  */
+
+static enum machine_mode
+cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
+{
+  bool found_equiv;
+  enum machine_mode mode;
+  unsigned int insn_count;
+  edge e;
+  rtx insns[2];
+  enum machine_mode modes[2];
+  rtx last_insns[2];
+  unsigned int i;
+  rtx newreg;
+
+  /* We expect to have two successors.  Look at both before picking
+     the final mode for the comparison.  If we have more successors
+     (i.e., some sort of table jump, although that seems unlikely),
+     then we require all beyond the first two to use the same
+     mode.  */
+
+  found_equiv = false;
+  mode = GET_MODE (cc_src);
+  insn_count = 0;
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      rtx insn;
+      rtx end;
+
+      if (e->flags & EDGE_COMPLEX)
+	continue;
+
+      if (! e->dest->pred
+	  || e->dest->pred->pred_next
+	  || e->dest == EXIT_BLOCK_PTR)
+	continue;
+
+      end = NEXT_INSN (BB_END (e->dest));
+      for (insn = BB_HEAD (e->dest); insn != end; insn = NEXT_INSN (insn))
+	{
+	  rtx set;
+
+	  if (! INSN_P (insn))
+	    continue;
+
+	  /* If CC_SRC is modified, we have to stop looking for
+	     something which uses it.  */
+	  if (modified_in_p (cc_src, insn))
+	    break;
+
+	  /* Check whether INSN sets CC_REG to CC_SRC.  */
+	  set = single_set (insn);
+	  if (set
+	      && GET_CODE (SET_DEST (set)) == REG
+	      && REGNO (SET_DEST (set)) == REGNO (cc_reg))
+	    {
+	      bool found;
+	      enum machine_mode set_mode;
+	      enum machine_mode comp_mode;
+
+	      found = false;
+	      set_mode = GET_MODE (SET_SRC (set));
+	      comp_mode = set_mode;
+	      if (rtx_equal_p (cc_src, SET_SRC (set)))
+		found = true;
+	      else if (GET_CODE (cc_src) == COMPARE
+		       && GET_CODE (SET_SRC (set)) == COMPARE
+		       && mode != set_mode
+		       && rtx_equal_p (XEXP (cc_src, 0),
+				       XEXP (SET_SRC (set), 0))
+		       && rtx_equal_p (XEXP (cc_src, 1),
+				       XEXP (SET_SRC (set), 1)))
+			   
+		{
+		  comp_mode = (*targetm.cc_modes_compatible) (mode, set_mode);
+		  if (comp_mode != VOIDmode
+		      && (can_change_mode || comp_mode == mode))
+		    found = true;
+		}
+
+	      if (found)
+		{
+		  found_equiv = true;
+		  if (insn_count < ARRAY_SIZE (insns))
+		    {
+		      insns[insn_count] = insn;
+		      modes[insn_count] = set_mode;
+		      last_insns[insn_count] = end;
+		      ++insn_count;
+
+		      if (mode != comp_mode)
+			{
+			  if (! can_change_mode)
+			    abort ();
+			  mode = comp_mode;
+			  PUT_MODE (cc_src, mode);
+			}
+		    }
+		  else
+		    {
+		      if (set_mode != mode)
+			{
+			  /* We found a matching expression in the
+			     wrong mode, but we don't have room to
+			     store it in the array.  Punt.  This case
+			     should be rare.  */
+			  break;
+			}
+		      /* INSN sets CC_REG to a value equal to CC_SRC
+			 with the right mode.  We can simply delete
+			 it.  */
+		      delete_insn (insn);
+		    }
+
+		  /* We found an instruction to delete.  Keep looking,
+		     in the hopes of finding a three-way jump.  */
+		  continue;
+		}
+
+	      /* We found an instruction which sets the condition
+		 code, so don't look any farther.  */
+	      break;
+	    }
+
+	  /* If INSN sets CC_REG in some other way, don't look any
+	     farther.  */
+	  if (reg_set_p (cc_reg, insn))
+	    break;
+	}
+
+      /* If we fell off the bottom of the block, we can keep looking
+	 through successors.  We pass CAN_CHANGE_MODE as false because
+	 we aren't prepared to handle compatibility between the
+	 further blocks and this block.  */
+      if (insn == end)
+	{
+	  enum machine_mode submode;
+
+	  submode = cse_cc_succs (e->dest, cc_reg, cc_src, false);
+	  if (submode != VOIDmode)
+	    {
+	      if (submode != mode)
+		abort ();
+	      found_equiv = true;
+	      can_change_mode = false;
+	    }
+	}
+    }
+
+  if (! found_equiv)
+    return VOIDmode;
+
+  /* Now INSN_COUNT is the number of instructions we found which set
+     CC_REG to a value equivalent to CC_SRC.  The instructions are in
+     INSNS.  The modes used by those instructions are in MODES.  */
+
+  newreg = NULL_RTX;
+  for (i = 0; i < insn_count; ++i)
+    {
+      if (modes[i] != mode)
+	{
+	  /* We need to change the mode of CC_REG in INSNS[i] and
+	     subsequent instructions.  */
+	  if (! newreg)
+	    {
+	      if (GET_MODE (cc_reg) == mode)
+		newreg = cc_reg;
+	      else
+		newreg = gen_rtx_REG (mode, REGNO (cc_reg));
+	    }
+	  cse_change_cc_mode_insns (NEXT_INSN (insns[i]), last_insns[i],
+				    newreg);
+	}
+
+      delete_insn (insns[i]);
+    }
+
+  return mode;
+}
+
+/* If we have a fixed condition code register (or two), walk through
+   the instructions and try to eliminate duplicate assignments.  */
+
+void
+cse_condition_code_reg (void)
+{
+  unsigned int cc_regno_1;
+  unsigned int cc_regno_2;
+  rtx cc_reg_1;
+  rtx cc_reg_2;
+  basic_block bb;
+
+  if (! (*targetm.fixed_condition_code_regs) (&cc_regno_1, &cc_regno_2))
+    return;
+
+  cc_reg_1 = gen_rtx_REG (CCmode, cc_regno_1);
+  if (cc_regno_2 != INVALID_REGNUM)
+    cc_reg_2 = gen_rtx_REG (CCmode, cc_regno_2);
+  else
+    cc_reg_2 = NULL_RTX;
+
+  FOR_EACH_BB (bb)
+    {
+      rtx last_insn;
+      rtx cc_reg;
+      rtx insn;
+      rtx cc_src_insn;
+      rtx cc_src;
+      enum machine_mode mode;
+      enum machine_mode orig_mode;
+
+      /* Look for blocks which end with a conditional jump based on a
+	 condition code register.  Then look for the instruction which
+	 sets the condition code register.  Then look through the
+	 successor blocks for instructions which set the condition
+	 code register to the same value.  There are other possible
+	 uses of the condition code register, but these are by far the
+	 most common and the ones which we are most likely to be able
+	 to optimize.  */
+
+      last_insn = BB_END (bb);
+      if (GET_CODE (last_insn) != JUMP_INSN)
+	continue;
+
+      if (reg_referenced_p (cc_reg_1, PATTERN (last_insn)))
+	cc_reg = cc_reg_1;
+      else if (cc_reg_2 && reg_referenced_p (cc_reg_2, PATTERN (last_insn)))
+	cc_reg = cc_reg_2;
+      else
+	continue;
+
+      cc_src_insn = NULL_RTX;
+      cc_src = NULL_RTX;
+      for (insn = PREV_INSN (last_insn);
+	   insn && insn != PREV_INSN (BB_HEAD (bb));
+	   insn = PREV_INSN (insn))
+	{
+	  rtx set;
+
+	  if (! INSN_P (insn))
+	    continue;
+	  set = single_set (insn);
+	  if (set
+	      && GET_CODE (SET_DEST (set)) == REG
+	      && REGNO (SET_DEST (set)) == REGNO (cc_reg))
+	    {
+	      cc_src_insn = insn;
+	      cc_src = SET_SRC (set);
+	      break;
+	    }
+	  else if (reg_set_p (cc_reg, insn))
+	    break;
+	}
+
+      if (! cc_src_insn)
+	continue;
+
+      if (modified_between_p (cc_src, cc_src_insn, NEXT_INSN (last_insn)))
+	continue;
+
+      /* Now CC_REG is a condition code register used for a
+	 conditional jump at the end of the block, and CC_SRC, in
+	 CC_SRC_INSN, is the value to which that condition code
+	 register is set, and CC_SRC is still meaningful at the end of
+	 the basic block.  */
+
+      orig_mode = GET_MODE (cc_src);
+      mode = cse_cc_succs (bb, cc_reg, cc_src, true);
+      if (mode != VOIDmode)
+	{
+	  if (mode != GET_MODE (cc_src))
+	    abort ();
+	  if (mode != orig_mode)
+	    cse_change_cc_mode_insns (cc_src_insn, NEXT_INSN (last_insn),
+				      gen_rtx_REG (mode, REGNO (cc_reg)));
+	}
+    }
 }

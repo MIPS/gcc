@@ -1,6 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -527,7 +527,10 @@ extern tree find_placeholder (tree, tree *);
 /* Generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
    In the case of a void EXP, const0_rtx is returned.  */
-extern rtx expand_expr (tree, rtx, enum machine_mode, enum expand_modifier);
+#define expand_expr(EXP, TARGET, MODE, MODIFIER) \
+  expand_expr_real((EXP), (TARGET), (MODE), (MODIFIER), NULL)
+extern rtx expand_expr_real (tree, rtx, enum machine_mode, 
+			     enum expand_modifier, rtx *);
 
 extern void expand_var (tree);
 
@@ -579,8 +582,6 @@ extern rtx expr_size (tree);
    if the size can vary or is larger than an integer.  */
 extern HOST_WIDE_INT int_expr_size (tree);
 
-extern rtx lookup_static_chain (tree);
-
 /* Convert a stack slot address ADDR valid in function FNDECL
    into an address valid in this function (using a static chain).  */
 extern rtx fix_lexical_addr (rtx, tree);
@@ -592,7 +593,7 @@ extern rtx trampoline_address (tree);
    in its original home.  This becomes invalid if any more code is emitted.  */
 extern rtx hard_function_value (tree, tree, int);
 
-extern rtx prepare_call_address (rtx, tree, rtx *, int, int);
+extern rtx prepare_call_address (rtx, rtx, rtx *, int, int);
 
 extern rtx expand_call (tree, rtx, int);
 
@@ -608,7 +609,6 @@ extern rtx expand_divmod (int, enum tree_code, enum machine_mode, rtx, rtx,
 extern void locate_and_pad_parm (enum machine_mode, tree, int, int, tree,
 				 struct args_size *,
 				 struct locate_and_pad_arg_data *);
-extern rtx expand_inline_function (tree, tree, rtx, int, tree, rtx);
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */
 extern rtx label_rtx (tree);
@@ -761,6 +761,9 @@ extern void emit_stack_save (enum save_level, rtx *, rtx);
 
 /* Restore the stack pointer from a save area of the specified level.  */
 extern void emit_stack_restore (enum save_level, rtx, rtx);
+
+/* Invoke emit_stack_save for the nonlocal_goto_save_area.  */
+extern void update_nonlocal_goto_save_area (void);
 
 /* Allocate some space on the stack dynamically and return its address.  An rtx
    says how many bytes.  */

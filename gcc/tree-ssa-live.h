@@ -61,6 +61,8 @@ typedef struct _var_map
 #define SSANORM_PERFORM_TER		0x1
 #define SSANORM_COMBINE_TEMPS		0x2
 #define SSANORM_REMOVE_ALL_PHIS		0x4
+#define SSANORM_COALESCE_PARTITIONS	0x8
+#define SSANORM_USE_COALESCE_LIST	0x10
 
 extern var_map init_var_map (int);
 extern void delete_var_map (var_map);
@@ -355,7 +357,21 @@ tpa_next_partition (tpa_p tpa, int i)
 static inline int 
 tpa_find_tree (tpa_p tpa, int i)
 {
-  return tpa->partition_to_tree_map[i];
+  int index;
+
+  index = tpa->partition_to_tree_map[i];
+  /* When compressed, any index higher than the number of tree elements is 
+     a compressed element, so return TPA_NONE.  */
+  if (index != TPA_NONE && index >= tpa_num_trees (tpa))
+    {
+#ifdef ENABLE_CHECKING
+      if (tpa->uncompressed_num == -1)
+        abort ();
+#endif
+      index = TPA_NONE;
+    }
+
+  return index;
 }
 
 /* Compacting removes lists with single elements. This routine puts them
@@ -585,8 +601,8 @@ typedef struct partition_pair_d
 /* This structure maintains the list of coalesce pairs.  
    When add_mode is true, list is a triangular shaped list of coalesce pairs.
    The smaller partition number is used to index the list, and the larger is
-   index is located in a partition_pair_p object. Each of these lists are sorted
-   from smallest to largest second_partition.  New coalesce pairs are allowed
+   index is located in a partition_pair_p object. These lists are sorted from 
+   smallest to largest by 'second_partition'.  New coalesce pairs are allowed
    to be added in this mode.
    When add_mode is false, the lists have all been merged into list[0]. The
    rest of the lists are not used. list[0] is ordered from most desirable

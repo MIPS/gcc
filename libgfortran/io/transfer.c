@@ -340,7 +340,7 @@ write_constant_string (fnode * f)
   for (; length > 0; length--)
     {
       c = *p++ = *q++;
-      if (c == delimiter)
+      if (c == delimiter && c != 'H')
 	q++;			/* Skip the doubled delimiter */
     }
 }
