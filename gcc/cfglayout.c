@@ -1000,7 +1000,8 @@ cfg_layout_duplicate_bb (bb, e)
 	end = get_last_insn ();
     }
 
-  new_bb = create_basic_block (n_basic_blocks, NEXT_INSN (pre_head), end);
+  new_bb = create_basic_block (n_basic_blocks, NEXT_INSN (pre_head),
+		 	       NEXT_INSN (pre_head) ? end : NULL);
 
   if (bb->global_live_at_start)
     {
