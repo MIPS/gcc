@@ -1,3 +1,10 @@
+2003-06-01  Daniel Berlin  <dberlin@dberlin.org
+
+	* tree-alias-common.c: Remove setting of DECL_CONTEXT in temp vars,
+	it's done in create_tmp_alias_var for us.
+	(ptr_may_alias_var): Check if the variables are memory tags, and get
+	the associated pointers if they are.
+
 2003-05-30  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mudflap_c_function, enqueue_constant, enqueue_decl):

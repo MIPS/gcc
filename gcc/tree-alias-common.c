@@ -288,7 +288,6 @@ get_alias_var (expr)
 	   expression. */
 	tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
 	alias_typevar tempvar;
-	DECL_CONTEXT (temp) = currptadecl;
 	tempvar = current_alias_ops->add_var (current_alias_ops,
 					      temp);	
 	return tempvar;
@@ -324,7 +323,6 @@ intra_function_call (args)
 	{
 	  alias_typevar tempvar;
 	  tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	  DECL_CONTEXT (temp) = currptadecl;
 	  tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	  /* Arguments can alias globals, and whatever they point to
 	     can point to a global as well. */
@@ -607,7 +605,6 @@ find_func_aliases (tp, walk_subtrees, data)
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
 	      tree temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	      DECL_CONTEXT (temp) = currptadecl;
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->addr_assign (current_alias_ops, tempvar, 
 					      rhsAV);
@@ -624,7 +621,6 @@ find_func_aliases (tp, walk_subtrees, data)
 	      alias_typevar tempvar;
 	      tree temp;
 	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	      DECL_CONTEXT (temp) = currptadecl;
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, 
 					     rhsAV);
@@ -641,7 +637,6 @@ find_func_aliases (tp, walk_subtrees, data)
 	      alias_typevar tempvar;
 	      tree temp;
 	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	      DECL_CONTEXT (temp) = currptadecl;
 	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
 	      
 	      current_alias_ops->simple_assign (current_alias_ops, tempvar, 
@@ -764,7 +759,6 @@ create_fun_alias_var (decl, force)
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "normarg");
 	  alias_typevar tvar;
-	  DECL_CONTEXT (fakedecl) = decl;
 	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);	  
 	  
@@ -790,7 +784,6 @@ create_fun_alias_var (decl, force)
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
       alias_typevar fakevar;
-      DECL_CONTEXT (fakedecl) = decl;
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
@@ -798,7 +791,6 @@ create_fun_alias_var (decl, force)
   if (!DECL_RESULT (decl))
     {
       rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
-      DECL_CONTEXT (rdecl) = decl;
       retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
     }
   else
@@ -856,7 +848,6 @@ create_fun_alias_var_ptf (decl, type)
 	{
 	  tree fakedecl = create_tmp_alias_var (TREE_VALUE (arg), "ptfarg");
 	  alias_typevar tvar;
-	  DECL_CONTEXT (fakedecl) = decl;
 	  tvar = get_alias_var (fakedecl);
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	}
@@ -869,13 +860,11 @@ create_fun_alias_var_ptf (decl, type)
     {
       tree fakedecl = create_tmp_alias_var (void_type_node, "fakearg");
       alias_typevar fakevar;
-      DECL_CONTEXT (fakedecl) = decl;
       fakevar = get_alias_var (fakedecl);
       VARRAY_PUSH_GENERIC_PTR (params, fakevar);
     }
 
   rdecl = create_tmp_alias_var (TREE_TYPE (type), "_rv_");
-  DECL_CONTEXT (rdecl) = decl;
   retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
   
@@ -1063,7 +1052,16 @@ ptr_may_alias_var (ptr, var)
 {
   struct alias_annot_entry entry, *result;
   alias_typevar ptrtv, vartv;
-
+  var_ann_t tempann;
+  tree ptrcontext;
+  tree varcontext;
+  
+  tempann = get_var_ann (var);
+  if (tempann && tempann->is_mem_tag && tempann->mem_tag)
+    var = tempann->mem_tag;
+  tempann = get_var_ann (ptr);
+  if (tempann && tempann->is_mem_tag && tempann->mem_tag)
+    ptr = tempann->mem_tag;
 #if !FIELD_BASED
 #else
   if (TREE_CODE (ptr) == COMPONENT_REF)
@@ -1071,9 +1069,9 @@ ptr_may_alias_var (ptr, var)
   if (TREE_CODE (var) == COMPONENT_REF)
     var = TREE_OPERAND (var, 1);
 #endif
-  tree ptrcontext = DECL_CONTEXT (ptr);
-  tree varcontext = DECL_CONTEXT (var);
   
+  ptrcontext = DECL_CONTEXT (ptr);
+  varcontext = DECL_CONTEXT (var);
   if (ptrcontext != NULL)
     ptrcontext = decl_function_context (ptr);
   if (varcontext != NULL)
