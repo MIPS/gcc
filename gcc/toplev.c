@@ -3032,6 +3032,7 @@ rest_of_compilation (decl)
 	}
       timevar_push (TV_JUMP);
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      delete_trivially_dead_insns (insns, max_reg_num ());
       reg_scan (insns, max_reg_num (), 0);
       timevar_pop (TV_JUMP);
       close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
@@ -3077,6 +3078,7 @@ rest_of_compilation (decl)
 
       
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      delete_trivially_dead_insns (insns, max_reg_num ());
       reg_scan (insns, max_reg_num (), 0);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);

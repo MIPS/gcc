@@ -1,3 +1,7 @@
+Fri Nov  1 01:10:33 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilations):  Remove dead code after unrolling.
+
 Wed Oct 30 23:33:53 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (sse_loadss, sse_loadsd):  Canonicalize; add expander
