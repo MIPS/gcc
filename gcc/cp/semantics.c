@@ -874,9 +874,9 @@ finish_compound_stmt (has_no_scope, compound_stmt)
    CLOBBERS.  */
 
 tree
-finish_asm_stmt (cv_qualifier, string, output_operands,
+finish_asm_stmt (volatile_p, string, output_operands,
 		 input_operands, clobbers)
-     tree cv_qualifier;
+     int volatile_p;
      tree string;
      tree output_operands;
      tree input_operands;
@@ -884,14 +884,6 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 {
   tree r;
   tree t;
-
-  if (cv_qualifier != NULL_TREE
-      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-    {
-      warning ("%s qualifier ignored on asm",
-		  IDENTIFIER_POINTER (cv_qualifier));
-      cv_qualifier = NULL_TREE;
-    }
 
   if (!processing_template_decl)
     {
@@ -954,9 +946,10 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
 	}
     }
 
-  r = build_stmt (ASM_STMT, cv_qualifier, string,
+  r = build_stmt (ASM_STMT, string,
 		  output_operands, input_operands,
 		  clobbers);
+  ASM_VOLATILE_P (r) = volatile_p;
   return add_stmt (r);
 }
 

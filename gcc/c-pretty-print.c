@@ -1295,11 +1295,16 @@ dump_c_node (buffer, node, spc, brief_dump)
       if (ASM_VOLATILE_P (node))
 	output_add_string (buffer, " __volatile__");
       output_add_character (buffer, '(');
-      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      dump_c_node (buffer, ASM_STRING (node), spc, brief_dump);
       output_add_character (buffer, ':');
-      dump_c_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
+      dump_c_node (buffer, ASM_OUTPUTS (node), spc, brief_dump);
       output_add_character (buffer, ':');
-      dump_c_node (buffer, TREE_OPERAND (node, 3), spc, brief_dump);
+      dump_c_node (buffer, ASM_INPUTS (node), spc, brief_dump);
+      if (ASM_CLOBBERS (node))
+	{
+	  output_add_character (buffer, ':');
+	  dump_c_node (buffer, ASM_CLOBBERS (node), spc, brief_dump);
+	}
       output_add_string (buffer, ");");
       if (!brief_dump)
 	output_add_newline (buffer);      

@@ -7596,7 +7596,7 @@ tsubst_expr (t, args, complain, in_decl)
     case ASM_STMT:
       prep_stmt (t);
       tmp = finish_asm_stmt
-	(ASM_CV_QUAL (t),
+	(ASM_VOLATILE_P (t),
 	 tsubst_expr (ASM_STRING (t), args, complain, in_decl),
 	 tsubst_expr (ASM_OUTPUTS (t), args, complain, in_decl),
 	 tsubst_expr (ASM_INPUTS (t), args, complain, in_decl), 

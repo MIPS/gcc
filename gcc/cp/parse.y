@@ -130,6 +130,7 @@ static tree parse_handle_class_head (tree, tree, tree, int, int *);
 static void parse_decl_instantiation (tree, tree, tree);
 static int parse_begin_function_definition (tree, tree);
 static tree parse_finish_call_expr (tree, tree, int);
+extern tree parse_asm_stmt PARAMS ((tree, tree, tree, tree, tree));
 
 /* Cons up an empty parameter list.  */
 static inline tree
@@ -3504,28 +3505,28 @@ simple_stmt:
 	| RETURN_KEYWORD expr ';'
                 { $$ = finish_return_stmt ($2); }
 	| asm_keyword maybe_cv_qualifier '(' STRING ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, NULL_TREE,
+		{ $$ = parse_asm_stmt ($2, $4, NULL_TREE, NULL_TREE,
 					NULL_TREE);
 		  ASM_INPUT_P ($$) = 1; }
 	/* This is the case with just output operands.  */
 	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, $6, NULL_TREE, NULL_TREE); }
+		{ $$ = parse_asm_stmt ($2, $4, $6, NULL_TREE, NULL_TREE); }
 	/* This is the case with input operands as well.  */
 	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ':'
 	  asm_operands ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, $6, $8, NULL_TREE); }
+		{ $$ = parse_asm_stmt ($2, $4, $6, $8, NULL_TREE); }
 	| asm_keyword maybe_cv_qualifier '(' STRING SCOPE asm_operands ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, $6, NULL_TREE); }
+		{ $$ = parse_asm_stmt ($2, $4, NULL_TREE, $6, NULL_TREE); }
 	/* This is the case with clobbered registers as well.  */
 	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands ':'
 	  asm_operands ':' asm_clobbers ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, $6, $8, $10); }
+		{ $$ = parse_asm_stmt ($2, $4, $6, $8, $10); }
 	| asm_keyword maybe_cv_qualifier '(' STRING SCOPE asm_operands ':'
 	  asm_clobbers ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, NULL_TREE, $6, $8); }
+		{ $$ = parse_asm_stmt ($2, $4, NULL_TREE, $6, $8); }
 	| asm_keyword maybe_cv_qualifier '(' STRING ':' asm_operands SCOPE
 	  asm_clobbers ')' ';'
-		{ $$ = finish_asm_stmt ($2, $4, $6, NULL_TREE, $8); }
+		{ $$ = parse_asm_stmt ($2, $4, $6, NULL_TREE, $8); }
 	| GOTO '*' expr ';'
                 {
 		  if (pedantic)
@@ -4273,6 +4274,27 @@ parse_finish_call_expr (tree fn, tree args, int koenig)
     return build_nt (CALL_EXPR, fn, args, NULL_TREE);
 
   return build_call_from_tree (fn, args, disallow_virtual);
+}
+
+static tree
+parse_asm_stmt (cv_qualifier, string, output_operands,
+		 input_operands, clobbers)
+     tree cv_qualifier;
+     tree string;
+     tree output_operands;
+     tree input_operands;
+     tree clobbers;
+{
+  if (cv_qualifier != NULL_TREE
+      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
+    {
+      warning ("%s qualifier ignored on asm",
+		  IDENTIFIER_POINTER (cv_qualifier));
+      cv_qualifier = NULL_TREE;
+    }
+
+  return finish_asm_stmt (cv_qualifier != NULL_TREE, string,
+			  output_operands, input_operands, clobbers);
 }
 
 #include "gt-cp-parse.h"

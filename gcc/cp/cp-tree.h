@@ -4103,7 +4103,7 @@ extern void finish_handler                      PARAMS ((tree));
 extern void finish_cleanup                      PARAMS ((tree, tree));
 extern tree begin_compound_stmt                 PARAMS ((int));
 extern tree finish_compound_stmt                PARAMS ((int, tree));
-extern tree finish_asm_stmt                     PARAMS ((tree, tree, tree, tree, tree));
+extern tree finish_asm_stmt                     PARAMS ((int, tree, tree, tree, tree));
 extern void finish_label_stmt                   PARAMS ((tree));
 extern void finish_label_decl                   PARAMS ((tree));
 extern void finish_subobject                    PARAMS ((tree));

@@ -6742,20 +6742,20 @@ expand_expr (exp, target, tmode, modifier)
 
     case BIND_EXPR:
       {
-	tree vars = TREE_OPERAND (exp, 0);
+	tree vars;
+	tree block = BIND_EXPR_BLOCK (exp);
 	int vars_need_expansion = 0;
 
 	/* Need to open a binding contour here because
 	   if there are any cleanups they must be contained here.  */
-	expand_start_bindings (2);
+	expand_start_bindings_and_block (block ? 0 : 2, block);
 
 	/* Mark the corresponding BLOCK for output in its proper place.  */
-	if (TREE_OPERAND (exp, 2) != 0
-	    && ! TREE_USED (TREE_OPERAND (exp, 2)))
-	  (*lang_hooks.decls.insert_block) (TREE_OPERAND (exp, 2));
+	if (block && ! TREE_USED (block))
+	  (*lang_hooks.decls.insert_block) (block);
 
 	/* If VARS have not yet been expanded, expand them now.  */
-	while (vars)
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
 	  {
 	    if (!DECL_RTL_SET_P (vars))
 	      {
@@ -6770,12 +6770,26 @@ expand_expr (exp, target, tmode, modifier)
 		  (*lang_hooks.expand_decl) (vars);
 	      }
 	    expand_decl_init (vars);
-	    vars = TREE_CHAIN (vars);
 	  }
 
 	temp = expand_expr (TREE_OPERAND (exp, 1), target, tmode, modifier);
 
-	expand_end_bindings (TREE_OPERAND (exp, 0), 0, 0);
+	expand_end_bindings (TREE_OPERAND (exp, 0), !!block, 0);
+
+	/* If we're at the end of a scope that contains inlined nested
+	   functions, we have to decide whether or not to write them out.  */
+	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
+	  {
+	    if (TREE_CODE (vars) == FUNCTION_DECL 
+		&& DECL_CONTEXT (vars) == current_function_decl
+		&& !TREE_ASM_WRITTEN (vars)
+		&& TREE_ADDRESSABLE (vars))
+	      {
+		push_function_context ();
+		output_inline_function (vars);
+		pop_function_context ();
+	      }
+	  }
 
 	return temp;
       }
@@ -9093,14 +9107,7 @@ expand_expr (exp, target, tmode, modifier)
       }
 
     case ASM_EXPR:
-      if (ASM_INPUT_P (exp))
-	expand_asm (ASM_STRING (exp));
-      else
-	expand_asm_operands (ASM_STRING (exp), ASM_OUTPUTS (exp),
-			     ASM_INPUTS (exp), ASM_CLOBBERS (exp),
-			     ASM_VOLATILE_P (exp),
-			     input_filename, lineno);
-      /* FIXME copy outputs into proper locations?  */
+      expand_asm_expr (exp);
       return const0_rtx;
 
     default:

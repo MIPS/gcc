@@ -68,7 +68,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 void c_simplify_stmt          PARAMS ((tree *));
 static void simplify_expr_stmt       PARAMS ((tree *));
-static void simplify_decl_stmt       PARAMS ((tree *));
+static void simplify_decl_stmt       PARAMS ((tree *, tree *));
 static void simplify_for_stmt        PARAMS ((tree *, tree *));
 static void simplify_while_stmt      PARAMS ((tree *));
 static void simplify_do_stmt         PARAMS ((tree *));
@@ -137,6 +137,8 @@ struct c_simplify_ctx
   /* For handling break and continue.  */
   tree current_bc_label;
   tree bc_id[2];
+
+  tree current_bind_expr;
 } *ctxp;
 
 static void
@@ -273,7 +275,10 @@ wrap_with_wfl (stmt_p)
      tree *stmt_p;
 {
   if (TREE_CODE (*stmt_p) != EXPR_WITH_FILE_LOCATION)
-    *stmt_p = build_expr_wfl (*stmt_p, wfl_filename, wfl_lineno, 0);
+    {
+      *stmt_p = build_expr_wfl (*stmt_p, wfl_filename, wfl_lineno, 0);
+      EXPR_WFL_EMIT_LINE_NOTE (*stmt_p) = 1;
+    }
 }
 
 void
@@ -374,7 +379,7 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case DECL_STMT:
-	  simplify_decl_stmt (&stmt);
+	  simplify_decl_stmt (&stmt, &next);
 	  break;
 
 	case LABEL_STMT:
@@ -403,8 +408,11 @@ c_simplify_stmt (stmt_p)
 	  goto cont;
 
 	case ASM_STMT:
-	  stmt = copy_node (stmt);
-	  TREE_CODE (stmt) = ASM_EXPR;
+	  stmt = build (ASM_EXPR, void_type_node, ASM_STRING (stmt),
+			ASM_OUTPUTS (stmt), ASM_INPUTS (stmt),
+			ASM_CLOBBERS (stmt));
+	  ASM_INPUT_P (stmt) = ASM_INPUT_P (*stmt_p);
+	  ASM_VOLATILE_P (stmt) = ASM_VOLATILE_P (*stmt_p);
 	  break;
 
 	case FILE_STMT:
@@ -452,6 +460,60 @@ c_simplify_stmt (stmt_p)
   *stmt_p = rationalize_compound_expr (outer_pre);
 }
 
+static void
+add_block_to_enclosing (block)
+     tree block;
+{
+  tree enclosing;
+
+  for (enclosing = ctxp->current_bind_expr;
+       enclosing; enclosing = TREE_CHAIN (enclosing))
+    if (BIND_EXPR_BLOCK (enclosing))
+      break;
+
+  enclosing = BIND_EXPR_BLOCK (enclosing);	 
+  BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
+}
+
+/* Genericize a scope by creating a new BIND_EXPR.
+   BLOCK is either a BLOCK representing the scope or a chain of _DECLs.
+     In the latter case, we need to create a new BLOCK and add it to the
+     BLOCK_SUBBLOCKS of the enclosing block.
+   BODY is a chain of C _STMT nodes for the contents of the scope, to be
+     genericized.  */
+
+static tree
+c_build_bind_expr (block, body)
+     tree block;
+     tree body;
+{
+  tree decls, bind;
+
+  if (block == NULL_TREE)
+    decls = NULL_TREE;
+  else if (TREE_CODE (block) == BLOCK)
+    decls = BLOCK_VARS (block);
+  else
+    {
+      decls = block;
+      block = make_node (BLOCK);
+      BLOCK_VARS (block) = decls;
+      add_block_to_enclosing (block);
+    }
+
+  bind = build (BIND_EXPR, void_type_node, decls, body, block);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  
+  TREE_CHAIN (bind) = ctxp->current_bind_expr;
+  ctxp->current_bind_expr = bind;
+
+  c_simplify_stmt (&BIND_EXPR_BODY (bind));
+
+  ctxp->current_bind_expr = TREE_CHAIN (ctxp->current_bind_expr);
+
+  return bind;
+}
+
 /* Genericize a syntactic block by removing the bracketing SCOPE_STMTs and
    wrapping the intervening code in a BIND_EXPR.  This function assumes
    that matching SCOPE_STMTs will always appear in the same statement
@@ -492,11 +554,7 @@ simplify_block (stmt_p, next_p)
   *next_p = TREE_CHAIN (*p);
   *p = NULL_TREE;
 
-  bind = build (BIND_EXPR, void_type_node,
-		block ? BLOCK_VARS (block) : NULL_TREE,
-		TREE_CHAIN (*stmt_p), block);
-  TREE_SIDE_EFFECTS (bind) = 1;
-  c_simplify_stmt (&BIND_EXPR_BODY (bind));
+  bind = c_build_bind_expr (block, TREE_CHAIN (*stmt_p));
   *stmt_p = bind;
 }
 
@@ -522,7 +580,7 @@ simplify_expr_stmt (stmt_p)
      In this case we will not want to emit the simplified statement.
      However, we may still want to emit a warning, so we do that before
      simplification.  */
-  if (extra_warnings || warn_unused_value)
+  if (stmt && (extra_warnings || warn_unused_value))
     {
       if (!expr_has_effect (stmt))
 	warning ("statement with no effect");
@@ -792,20 +850,60 @@ simplify_return_expr (stmt, pre_p)
     different if the DECL_STMT is somehow embedded in an expression.  */
 
 static void
-simplify_decl_stmt (stmt_p)
+simplify_decl_stmt (stmt_p, next_p)
     tree *stmt_p;
+    tree *next_p;
 {
   tree stmt = *stmt_p;
   tree decl = DECL_STMT_DECL (stmt);
-  tree init = DECL_INITIAL (decl);
+  tree pre = NULL_TREE;
 
-  if (init && init != error_mark_node && !TREE_STATIC (decl))
+  if (TREE_CODE (decl) == VAR_DECL)
     {
-      DECL_INITIAL (decl) = NULL_TREE;
-      *stmt_p = build (INIT_EXPR, void_type_node, decl, init);
+      tree init = DECL_INITIAL (decl);
+
+      if (!TREE_CONSTANT (DECL_SIZE (decl)))
+	{
+	  /* This is a variable-sized decl.  We need to wrap it in a new
+	     block so that we can simplify the expressions for calculating
+	     its size, and so that any other local variables used in those
+	     expressions will have been initialized.  */
+
+	  tree size = DECL_SIZE (decl);
+	  tree usize = DECL_SIZE_UNIT (decl);
+	  tree bind;
+	  tree *p;
+
+	  size = get_initialized_tmp_var (size, &pre);
+	  usize = get_initialized_tmp_var (usize, &pre);
+
+	  /* FIXME also simplify field sizes.  */
+	  DECL_SIZE (decl) = TYPE_SIZE (TREE_TYPE (decl)) = size;
+	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
+
+	  /* Prune this decl and any others after it out of the enclosing block.  */
+	  for (p = &BIND_EXPR_VARS (ctxp->current_bind_expr);
+	       *p != decl; p = &TREE_CHAIN (*p))
+	    /* search */;
+	  *p = NULL_TREE;
+	  if (BLOCK_VARS (BIND_EXPR_BLOCK (ctxp->current_bind_expr)) == decl)
+	    BLOCK_VARS (BIND_EXPR_BLOCK (ctxp->current_bind_expr)) = NULL_TREE;
+
+	  bind = c_build_bind_expr (decl, TREE_CHAIN (stmt));
+
+	  add_tree (bind, &pre);
+
+	  *next_p = NULL_TREE;
+	}
+
+      if (init && init != error_mark_node && !TREE_STATIC (decl))
+	{
+	  DECL_INITIAL (decl) = NULL_TREE;
+	  add_tree (build (INIT_EXPR, void_type_node, decl, init), &pre);
+	}
     }
-  else
-    *stmt_p = NULL_TREE;
+
+  *stmt_p = pre;
 }
 
 /* Simplifies a CONSTRUCTOR node T.
@@ -845,7 +943,7 @@ simplify_compound_literal_expr (expr_p, pre_p)
   /* This decl isn't mentioned in the enclosing block, so add it to
      the list of temps.  */
   pushdecl (decl);
-  simplify_decl_stmt (&decl_s);
+  simplify_decl_stmt (&decl_s, NULL);
   add_tree (decl_s, pre_p);
   *expr_p = decl;
 }
@@ -1085,6 +1183,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p, simple_test_f,
 			 fb_rvalue);
 	  recalculate_side_effects (*expr_p);
+	  break;
+
+	case ASM_EXPR:
+	  simplify_asm_expr (*expr_p, pre_p);
 	  break;
 
 	  /* If *EXPR_P does not need to be special-cased, handle it
@@ -1955,6 +2057,13 @@ simplify_addr_expr (expr_p, pre_p, post_p)
     *expr_p = TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0);
 }
 
+static void
+simplify_asm_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  /* punt */
+}
 
 /* Code generation.  */
 
