@@ -1,3 +1,7 @@
+2003-11-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-dump.c (dump_options): Remove TDF_LINENO from all setting.
+
 2003-11-06  Jan Hubicka  <jh@suse.cz>
 
 	* builtins.c (expand_builtin_strstr, expand_builtin_strchr,
