@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 AC_INIT(engine/flowrow-sort.c, 0.9, dberlin@dberlin.org)
 AM_INIT_AUTOMAKE(libbanshee, 0.9)
-AM_CONFIG_HEADER([config.h])
+AM_CONFIG_HEADER(config.h)
 
 # Checks for programs.
 AC_PROG_CC
