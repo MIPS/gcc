@@ -797,10 +797,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  if (!tag_stored_p && !var_stored_p)
 	    continue;
 	     
-	  /* Skip memory tags which are written if the variable is readonly.  */
-	  if (tag_stored_p && TREE_READONLY (var))
-	    continue;
-
 	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
 	    {
 	      size_t num_tag_refs = ai->num_references[tag_ann->uid];
@@ -1337,7 +1333,12 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       if (AGGREGATE_TYPE_P (TREE_TYPE (mem))
 	  || AGGREGATE_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
+	  tree ptr_to_var;
+	  
+	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	    ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (var)));
+	  else
+	    ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
 
 	  /* If no pointer-to VAR exists, then MEM can't alias VAR.  */
 	  if (ptr_to_var == NULL_TREE)

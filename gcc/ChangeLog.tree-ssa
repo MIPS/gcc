@@ -1,3 +1,11 @@
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Do not
+	ignore read-only variables.
+	(may_alias_p): Fix pointer-to-var calculation when 'var' is an
+	array.
+
 2004-03-17  Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa.c (rewrite_into_ssa, compute_global_livein): Fix.

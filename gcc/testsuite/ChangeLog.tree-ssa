@@ -1,3 +1,8 @@
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* g++.dg/tree-ssa/20040317-1.C: New test.
+
 2004-03-13  Diego Novillo  <dnovillo@redhat.com>
 
 	PR optimization/14553
