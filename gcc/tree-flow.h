@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -104,11 +104,11 @@ struct var_ann_d GTY(())
 
   /* Variables that may alias this variable.  */
   varray_type may_aliases;
-  
+
   /* Unique ID of this variable.  */
   size_t uid;
 
-  /* Used when going out of SSA form to indicate which partition this 
+  /* Used when going out of SSA form to indicate which partition this
      variable represents storage for.  */
   unsigned partition;
 
@@ -150,7 +150,7 @@ struct dataflow_d GTY(())
 
   /* Reached uses.  This is a list of all the possible program statements
      that may be reached directly or indirectly by definitions made in this
-     statement.  Notice that this is a superset of IMMEDIATE_USES. 
+     statement.  Notice that this is a superset of IMMEDIATE_USES.
      For instance, given the following piece of code:
 
 	    1	a1 = 10;
@@ -220,7 +220,7 @@ struct stmt_ann_d GTY(())
      structure to which this statement belongs to.  */
   tree parent_stmt;
 
-  /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a 
+  /* For nodes which can throw REACHABLE_EXCEPTION_HANDLERS contains a
      tree list of all the directly reachable exception handlers.  */
   tree reachable_exception_handlers;
 
@@ -240,35 +240,35 @@ typedef union tree_ann_d *tree_ann;
 typedef struct var_ann_d *var_ann_t;
 typedef struct stmt_ann_d *stmt_ann_t;
 
-static inline var_ann_t var_ann			PARAMS ((tree));
-static inline var_ann_t get_var_ann		PARAMS ((tree));
-static inline stmt_ann_t stmt_ann		PARAMS ((tree));
-static inline stmt_ann_t get_stmt_ann		PARAMS ((tree));
-static inline enum tree_ann_type ann_type	PARAMS ((tree_ann));
-static inline basic_block bb_for_stmt		PARAMS ((tree));
-extern void set_bb_for_stmt      		PARAMS ((tree, basic_block));
-static inline void modify_stmt			PARAMS ((tree));
-static inline void unmodify_stmt		PARAMS ((tree));
-static inline bool stmt_modified_p		PARAMS ((tree));
-static inline varray_type may_aliases		PARAMS ((tree));
-static inline void set_may_alias_global_mem	PARAMS ((tree));
-static inline bool may_alias_global_mem_p 	PARAMS ((tree));
-static inline bool may_point_to_global_mem_p 	PARAMS ((tree));
-static inline void set_may_point_to_global_mem	PARAMS ((tree));
-static inline int get_lineno			PARAMS ((tree));
-static inline const char *get_filename		PARAMS ((tree));
-static inline bool is_exec_stmt			PARAMS ((tree));
-static inline bool is_label_stmt		PARAMS ((tree));
-static inline varray_type vdef_ops		PARAMS ((tree));
-static inline varray_type vuse_ops		PARAMS ((tree));
-static inline varray_type use_ops		PARAMS ((tree));
-static inline tree *def_op			PARAMS ((tree));
-static inline varray_type addresses_taken	PARAMS ((tree));
-static inline varray_type immediate_uses	PARAMS ((tree));
-static inline varray_type reaching_defs		PARAMS ((tree));
-static inline bool has_hidden_use		PARAMS ((tree));
-static inline void set_has_hidden_use		PARAMS ((tree));
-static inline tree parent_stmt			PARAMS ((tree));
+static inline var_ann_t var_ann (tree);
+static inline var_ann_t get_var_ann (tree);
+static inline stmt_ann_t stmt_ann (tree);
+static inline stmt_ann_t get_stmt_ann (tree);
+static inline enum tree_ann_type ann_type (tree_ann);
+static inline basic_block bb_for_stmt (tree);
+extern void set_bb_for_stmt (tree, basic_block);
+static inline void modify_stmt (tree);
+static inline void unmodify_stmt (tree);
+static inline bool stmt_modified_p (tree);
+static inline varray_type may_aliases (tree);
+static inline void set_may_alias_global_mem (tree);
+static inline bool may_alias_global_mem_p (tree);
+static inline bool may_point_to_global_mem_p (tree);
+static inline void set_may_point_to_global_mem (tree);
+static inline int get_lineno (tree);
+static inline const char *get_filename (tree);
+static inline bool is_exec_stmt (tree);
+static inline bool is_label_stmt (tree);
+static inline varray_type vdef_ops (tree);
+static inline varray_type vuse_ops (tree);
+static inline varray_type use_ops (tree);
+static inline tree *def_op (tree);
+static inline varray_type addresses_taken (tree);
+static inline varray_type immediate_uses (tree);
+static inline varray_type reaching_defs (tree);
+static inline bool has_hidden_use (tree);
+static inline void set_has_hidden_use (tree);
+static inline tree parent_stmt (tree);
 
 
 /*---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ struct bb_ann_d
 {
   /* Chain of PHI nodes created in this block.  */
   tree phi_nodes;
-  
+
   tree ephi_nodes;
 
   /* Set of blocks immediately dominated by this node.  */
@@ -288,11 +288,11 @@ struct bb_ann_d
 typedef struct bb_ann_d *bb_ann_t;
 
 /* Accessors for basic block annotations.  */
-static inline bb_ann_t bb_ann		PARAMS ((basic_block));
-static inline basic_block parent_block	PARAMS ((basic_block));
-static inline tree phi_nodes		PARAMS ((basic_block));
-static inline void add_dom_child	PARAMS ((basic_block, basic_block));
-static inline bitmap dom_children	PARAMS ((basic_block));
+static inline bb_ann_t bb_ann (basic_block);
+static inline basic_block parent_block (basic_block);
+static inline tree phi_nodes (basic_block);
+static inline void add_dom_child (basic_block, basic_block);
+static inline bitmap dom_children (basic_block);
 
 
 /*---------------------------------------------------------------------------
@@ -306,19 +306,19 @@ typedef struct {
   tree context;		/* Stack for decending into BIND_EXPR's.  */
 } block_stmt_iterator;
 
-extern block_stmt_iterator bsi_start 	PARAMS ((basic_block));
-extern block_stmt_iterator bsi_last	PARAMS ((basic_block));
-static inline bool bsi_end_p		PARAMS ((block_stmt_iterator));
-static inline void bsi_next		PARAMS ((block_stmt_iterator *));
-extern void bsi_prev			PARAMS ((block_stmt_iterator *));
-static inline tree bsi_stmt		PARAMS ((block_stmt_iterator));
-static inline tree *bsi_stmt_ptr	PARAMS ((block_stmt_iterator));
-static inline tree *bsi_container	PARAMS ((block_stmt_iterator));
+extern block_stmt_iterator bsi_start (basic_block);
+extern block_stmt_iterator bsi_last (basic_block);
+static inline bool bsi_end_p (block_stmt_iterator);
+static inline void bsi_next (block_stmt_iterator *);
+extern void bsi_prev (block_stmt_iterator *);
+static inline tree bsi_stmt (block_stmt_iterator);
+static inline tree *bsi_stmt_ptr (block_stmt_iterator);
+static inline tree *bsi_container (block_stmt_iterator);
 
-extern block_stmt_iterator bsi_from_tsi	PARAMS ((tree_stmt_iterator));
-static inline tree_stmt_iterator tsi_from_bsi	PARAMS ((block_stmt_iterator));
+extern block_stmt_iterator bsi_from_tsi (tree_stmt_iterator);
+static inline tree_stmt_iterator tsi_from_bsi (block_stmt_iterator);
 
-extern void bsi_remove			PARAMS ((block_stmt_iterator *));
+extern void bsi_remove (block_stmt_iterator *);
 
 enum bsi_iterator_update
 {
@@ -328,22 +328,22 @@ enum bsi_iterator_update
 
 /* Single stmt insertion routines.  */
 
-extern void bsi_insert_before	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
-extern void bsi_insert_after	PARAMS ((block_stmt_iterator *, tree, enum bsi_iterator_update));
-extern void bsi_insert_on_edge	PARAMS ((edge, tree));
-extern int bsi_commit_edge_inserts	PARAMS ((int, int *));
-extern block_stmt_iterator bsi_insert_on_edge_immediate	
-		PARAMS ((edge, tree, block_stmt_iterator *, basic_block *));
+extern void bsi_insert_before (block_stmt_iterator *, tree, enum bsi_iterator_update);
+extern void bsi_insert_after (block_stmt_iterator *, tree, enum bsi_iterator_update);
+extern void bsi_insert_on_edge (edge, tree);
+extern int bsi_commit_edge_inserts (int, int *);
+extern block_stmt_iterator bsi_insert_on_edge_immediate
+ (edge, tree, block_stmt_iterator *, basic_block *);
 
-extern void bsi_replace		PARAMS ((block_stmt_iterator, tree));
+extern void bsi_replace (block_stmt_iterator, tree);
 
 /* Stmt list insertion routines.  */
 
-extern void bsi_insert_list_before	PARAMS ((block_stmt_iterator *, tree_stmt_anchor));
-extern void bsi_insert_list_after	PARAMS ((block_stmt_iterator *, tree_stmt_anchor));
-extern block_stmt_iterator bsi_insert_list_on_edge	PARAMS ((edge, tree_stmt_anchor));
+extern void bsi_insert_list_before (block_stmt_iterator *, tree_stmt_anchor);
+extern void bsi_insert_list_after (block_stmt_iterator *, tree_stmt_anchor);
+extern block_stmt_iterator bsi_insert_list_on_edge (edge, tree_stmt_anchor);
 
-void bsi_next_in_bb			PARAMS ((block_stmt_iterator *, basic_block));
+void bsi_next_in_bb (block_stmt_iterator *, basic_block);
 
 /*---------------------------------------------------------------------------
 			      Global declarations
@@ -463,7 +463,7 @@ extern void ssa_remove_edge (edge);
 extern void set_is_used (tree);
 
 /* In tree-ssa-pre.c  */
-extern void tree_perform_ssapre		PARAMS ((tree));
+extern void tree_perform_ssapre (tree);
 
 
 /* In tree-ssa-ccp.c  */

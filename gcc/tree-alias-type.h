@@ -35,5 +35,5 @@ typedef union alias_typevar_def *alias_typevar;
 union alias_type_def;
 typedef union alias_type_def *alias_type;
 
-alias_typevar alias_tvar_new_with_aterm PARAMS ((tree, struct aterm_ *));
+alias_typevar alias_tvar_new_with_aterm (tree, struct aterm_ *);
 #endif

@@ -1,3 +1,15 @@
+2003-07-14  Andreas Jaeger  <aj@suse.de>
+
+	* tree-alias-common.h: Convert prototypes to ISO C90, remove extra
+	whitespace.
+	* tree-alias-type.h: Convert prototypes to ISO C90.
+	* tree-dchain.h: Likewise.
+	* tree-flow-inline.h: Likewise.
+	* tree-flow.h: Likewise.
+	* tree-iterator.h: Likewise.
+	* tree-mudflap.h: Likewise.
+	* tree-simple.h: Likewise.
+
 2003-07-14  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (tree_perform_ssapre): Fix dom_children after DCE
@@ -147,7 +159,7 @@
 2003-07-05  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (defs_match_p): Check for copies of the same version.
-	
+
 2003-07-03  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-nomudflap.c (mf_marked_p, mf_mark): New dummy functions.
@@ -187,7 +199,7 @@
 	Add EREF_INJURED macro.
 
 2003-07-01  Daniel Berlin  <dberlin@dberlin.org>
-    
+
 	* tree-flow-inline.h (stmt_ann): We have stmt_ann on E*_NODE's as well,
 	so use is_essa_node as well.
 	* tree-dfa.c (create_stmt_ann): Ditto.
@@ -205,7 +217,7 @@
 	cases where a containing block has a stack level.  Handle
 	cases where one arm is a GOTO_EXPR and the other arm has
 	side effects.
-                                                                                
+
 	* stmt.c (containing_blocks_have_cleanups_or_stack_level): New
 	function.
 	(any_pending_cleanups): Further simplification.
@@ -285,10 +297,10 @@
 
 	* c-simplify.c (gimplify_c_loop): Don't return a LOOP_EXPR for
 	a do ... while (0) loop.
- 
+
 	* expr.c (expand_expr, case COND_EXPR): Be smarter about expanding
 	a COND_EXPR with only one useful arm, which happens to be a GOTO_EXPR.
- 
+
 	* tree-cfg.c (remove_useless_stmts_and_vars): Don't remove user
 	variables unless we're at -O2 or higher.
 
@@ -298,9 +310,9 @@
 	if we have > some very large number of ephi operands, as it will
 	take an ungodly amount of memory and time.
 	(pre_expression): Push/pop gc context so we can do gc collection
-	in between expressions.  
+	in between expressions.
 	Throw away expression info right after done optimizing it.
-	
+
 2003-06-30  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Check PUSH_ARGS_REVERSED.
@@ -330,7 +342,7 @@
 	(search_dt_preorder): Ditto.
 	(handle_bb_creation): Fix to work properly.
 	(tree_perform_ssapre): Remove remnants of domchildren.
-	Redo dominator info if we have to due to a new block.		
+	Redo dominator info if we have to due to a new block.
 
 2003-06-26  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -367,7 +379,7 @@
 	related fun.
 	(maybe_find_rhs_use_for_var): Stop using tree_stmt.
 	(code_motion): Always get the temporary from the right place.
-	
+
 2003-06-24  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (gimplify_self_mod_expr): Add want_value parm.
@@ -397,7 +409,7 @@
 
 	* tree-ssa.c (avail_expr_eq): Verify types are the same before
 	handing expressions to operand_equal_p.
- 
+
 	* tree-cfg.c (make_edges): Remove fake edges before building
 	extra edges for TRY_FINALLY_EXPRs.  Delete unnecessary edges
 	leaving the TRY block in a TRY_FINALLY_EXPR.
@@ -420,7 +432,7 @@
 	All callers changed.
 	(make_edges): No longer need TRY_TARGETS bitmap.  Kill it.
 	Simplify code which creates additional edges out of the TRY
-	block and the FINALLY block in a TRY_FINALLY_EXPR.  
+	block and the FINALLY block in a TRY_FINALLY_EXPR.
 
 2003-06-23  Diego Novillo  <dnovillo@redhat.com>
 
@@ -468,20 +480,20 @@
 
 	* tree-cfg.c (make_edges): Walk TRY_FINALLYs inner to outer and
 	simplify creation of special edges related to the TRY_FINALLY_EXPR.
- 
+
 	* tree-cfg.c (remove_useless_stmts_and_vars): More aggressively
 	remove TRY_CATCH_EXPRs and TRY_FINALLY_EXPRs.
-                                                                                
+
 	* tree-cfg.c (make_edges): Remove fake edges.
 	(make_exit_edges): Mark edges from nonreturning functions to the
 	exit block as being fake edges.
- 
+
 	* gimplify.c (gimplify_modify_expr): Don't create a new MODIFY_EXPR,
 	reuse the existing one.
 
 2003-06-23  Andrew MacLeod  <amacleod@redhat.com>
 
-	* tree-cfg.c (find_insert_location): Default case should insert after 
+	* tree-cfg.c (find_insert_location): Default case should insert after
 	the last stmt in the block.
 
 2003-06-22  Jeff Sturm  <jsturm@one-point.com>
@@ -497,7 +509,7 @@
 
 	* gimplify.c (gimplify_modify_expr): If the RHS of an MODIFY_EXPR
 	might throw, then make sure its result goes into a temporary.
- 
+
 	* tree-cfg.c (handle_switch_split): Handle case where target
 	block has only one statement (the case label itself).
 
@@ -564,7 +576,7 @@
 
 2003-06-16  Jeff Law  <law@redhat.com>
             Jason Merrill  <jason@redhat.com>
- 
+
 	* except.c (enum eh_region_type): Don't declare the enumeration
 	members here.  Instead do it in except.h.
 	(expand_eh_hander): Use expr_first instead of open-coding it.
@@ -578,7 +590,7 @@
 	EH_STACK varray.  For a cleanup, record which cleanup higher
 	in the EH_STACK it can reach.
 	(make_edges): Use last_exec_block.
-	(make_ctrl_stmt_edges): Thread cleanups as needed. 
+	(make_ctrl_stmt_edges): Thread cleanups as needed.
 	(compute_reachable_eh):  Use get_eh_region_type.  Properly
 	track when we can skip cleanups.  Skip cleanups when possible.
 	* tree-flow.h (could_trap_p): Prototype.
@@ -607,7 +619,7 @@
 
 	* tree-ssa-ccp.c (visit_phi_node): If the PHI is already known
 	to be varying, don't recompute its value.
-	
+
 2003-06-14  Jeff Law  <law@redhat.com>
 	    Jason Merrill <jason@redhat.com>
 
@@ -657,14 +669,14 @@
 	* tree-cfg.c (bsi_commit_first_edge_insert): Only consider non-abnormal
 	edges when determining whether an edge needs to be split.
 
-	* tree-ssa-dce.c (process_worklist): When checking for GOTO and 
+	* tree-ssa-dce.c (process_worklist): When checking for GOTO and
 	COND_EXPR's that are necessary, check each BB's predecessors only once.
 
 2003-06-12  Jeff Law  <law@redhat.com>
 
 	* tree-ssa.c (avail_expr_eq): Add some checking code to
 	detect when equal expressions have different hash values.
- 
+
 	* tree.c (iterative_hash_expr): Don't hash types associated
 	with conversions.  Instead hash on the signedness of the
 	toplevel object and the operand of the conversion.
@@ -691,7 +703,7 @@
 	Use bsi_insert_on_edge for ephi insertions.
 	Set EREF_TEMP on inserted euses.
 	(repair_phi_injury): Note (to dump file)  injuries we have
-	repaired already. 
+	repaired already.
 	(repair_use_injury): Ditto.
 	(repair_euse_injury): Ditto.
 	(count_stmts_in_bb): Count both forwards and backwards, and make
@@ -722,7 +734,7 @@
 	Add TDI_predot.
 
 	* tree-dump.c: Ditto.
-	
+
 2003-06-11  Jeff Law  <law@redhat.com>
 
 	* gimplify.c (simplify_call_expr): Clear TREE_SIDE_EFFECTS for
@@ -741,7 +753,7 @@
 
 	* tree-ssa.c (rewrite_and_optimize_stmt): Do not special case
 	CALL_EXPRs they're caught by the TREE_SIDE_EFFECTS test.
-                                                                                
+
 	* tree-ssa.c (rewrite_and_optimize_stmt): Improve/correct setting of
 	may_optimize_p.  Simplify later code knowing may_optimize_p is
 	correctly set.
@@ -786,12 +798,12 @@
 
         * c-simplify.c (c_simplify_stmt): case ASM_STMT: Ensure qualifiers
         come from input statement.
- 
+
 2003-06-09  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (handle_switch_split): Update PHI nodes when splitting.
 	(tree_split_edge): Update PHI nodes in destination block.
-  
+
 2003-06-09  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* basic-block.h, tree-dfa.c, tree-ssa.c, tree-cfg.c,
@@ -846,7 +858,7 @@
 
 2003-06-04  Andrew MacLeod  <amacleod@redhat.com>
 
-	* toplev.c (parse_options_and_default_flags): Turn tree_copyprop on by 
+	* toplev.c (parse_options_and_default_flags): Turn tree_copyprop on by
 	default.
 	* tree-cfg.c (linearize_control_structures, linearize_cond_expr,
 	replace_stmt, merge_tree_blocks, remap_stmts): Fix PROTOS.
@@ -897,7 +909,7 @@
 
 	* tree-alias-common (ptr_may_alias_var): Cleanup determination of
 	global vars and whatnot.
-	
+
 2003-06-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa.o, tree-cfg.o): Add dependency on cfgloop.h
@@ -926,7 +938,7 @@
 
 	* tree-cfg.c (bsi_insert_before): Update end of block pointer if we
 	inserted before the last stmt in a block. (The container changed).
-	* tree-ssa.c (elim_backward): Inserting copy should be within 
+	* tree-ssa.c (elim_backward): Inserting copy should be within
 	conditional check.
 	(elim_create): Only select one bit instead of the all.
 
@@ -1133,10 +1145,10 @@
 
 	* expr.c (expand_expr, case COND_EXPR): Avoid useless RTL generation
 	when the THEN or ELSE arm is empty.
-                                                                                
+
 	* tree-cfg.c (make_loop_expr_blocks): Do not accept next_block_link
 	as an argument, make it a local variable.  Callers changed.
- 
+
 	* tree-cfg.c (remove_useless_stmts_and_empty_vars): Eliminate
 	GOTO_EXPRs which jump to the next statement occuring in an
 	outer control/block structure nest.
@@ -1147,7 +1159,7 @@
 	RETURN_EXPR nodes.
 
 2003-05-19  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-alias-common.c (alias_get_name): Handle unnamed variables once
 	and for all.
 
@@ -1160,8 +1172,8 @@
 2003-05-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-pretty-print.c (MASK_POINTER): Parameter is P, not node.
-	
-2003-05-17  Daniel Berlin  <dberlin@dberlin.org>	
+
+2003-05-17  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-alias-common.c (get_alias_var): Handle REFERENCE_EXPR.
 	(find_func_aliases): Ditto.
@@ -1181,7 +1193,7 @@
 2003-05-16  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-flow.h (ssa_make_edge): Remove prototype.
-	* tree-ssa-dce.c (remove_dead_stmt): Change comment about removing 
+	* tree-ssa-dce.c (remove_dead_stmt): Change comment about removing
 	conditionals.
 	(remove_conditional): Don't update PHI nodes or call ssa_make_edge.
 	* tree-ssa.c (ssa_make_edge): Remove.
@@ -1190,7 +1202,7 @@
 
 	* tree-cfg.c (remove_useless_stmts_and_vars): Handle case where
 	both arms of an if-then-else simply jump to the same location.
- 
+
 	* tree-ssa-ccp.c (get_rhs): Correctly handle MODIFY_EXPR embedded in
 	a RETURN_EXPR.
 	(set_rhs): Likewise.
@@ -1236,7 +1248,7 @@
 	* gimplify.c (gimplify_ctx): Add temp_htab field.
 	(push_gimplify_context): Initialize it.
 	(pop_gimplify_context): Destroy it.
-	(simplify_expr): If there's no internal postqueue, generate an 
+	(simplify_expr): If there's no internal postqueue, generate an
 	expression temporary.
 	(gimple_tree_hash, gimple_tree_eq): New fns.
 	(create_tmp_from_val, lookup_tmp_var): New fns.
@@ -1265,7 +1277,7 @@
 
 	* tree-cfg.c (cleanup_tree_cfg): Update comments.   Set repeat
 	anytime we remove a control structure.
- 
+
 	* tree-flow.h (struct var_ann_d): New field occurs_in_abnormal_phi.
 	* tree-ssa.c (MAY_COPYPROP_P): Do not allow copy propagations
 	if either argument occurs in an abnormal phi.
@@ -1312,7 +1324,7 @@
 
 	* c-simplify.c (simplify_cleanup): Remove code which optimizes
 	TRY_FINALLY and TRY_CATCH.  It doesn't trigger.
- 
+
 	* tree-cfg.c (remove_useless_stmts_and_vars): Optimize away
 	TRY_CATCH and TRY_FINALLY blocks when possible.
 
@@ -1326,17 +1338,17 @@
 	* tree-cfg.c (pdom_info): New file level static.
 	(cleanup_tree_cfg): Free dominance info, if it was used.
 	(bsi_replace): New. Replace a stmt with a new one.
-	(linearize_cond_expr): Use post dominator info to determine is a 
+	(linearize_cond_expr): Use post dominator info to determine is a
 	conditional can be safely removed.
-	(find_insert_location): New. Determine where to insert a new stmt that 
+	(find_insert_location): New. Determine where to insert a new stmt that
 	is placed on a split edge.
 	(bsi_commit_first_edge_insert): Use find_insert_location to determine
 	where to link a stmt when splitting an edge.
 	(merge_tree_blocks): When deleting a basic block, remove it from the
 	dominance structure if it exists.
-	* tree-dfa.c (add_stmt_operand): Don't rename local statics. Treat 
+	* tree-dfa.c (add_stmt_operand): Don't rename local statics. Treat
 	them just like globals.
-	* tree-flow.h (struct var_ann_d): Add root_var_processed bit and 
+	* tree-flow.h (struct var_ann_d): Add root_var_processed bit and
 	root_index fields.
 	* tree-ssa-dce.c (process_worklist): Mark conditions feeding PHI's as
 	necessary as well.
@@ -1355,7 +1367,7 @@
 	(coalesce_ssa_name): Coalesce live-on-entry variables to their root.
 	Coalesce partitions across abnormal edges.
 	(assign_vars): Remove redundant initialization code. Handle root_vars
-	which have already been coalesced to a partition. 
+	which have already been coalesced to a partition.
 	(rewrite_out_of_ssa): Add debug info & remove PHI nodes when processed.
 	(rewrite_stmt): Don't redefine redundant expressions.
 
@@ -1363,7 +1375,7 @@
 
 	* c-simplify.c (simplify_expr_stmt): Make sure to
 	simplify the body of the EXPR_STMT.
- 
+
 	* tree-dfa.c (remove_decl): Accept new argument for the block
 	to start the search.
 	* tree-flow.h (remove_decl): Update prototype.
@@ -1489,7 +1501,7 @@
 
 2003-05-01  Jeff Law  <law@redhat.com>
 
-	* tree-dfa.c (find_hidden_use_vars): Renamed from find_vla_decls.  
+	* tree-dfa.c (find_hidden_use_vars): Renamed from find_vla_decls.
 	Now returns a value indicating if nested function was found.
 	When nested functions are found, mark suitable variables as
 	having hidden uses.
@@ -1538,7 +1550,7 @@
 	context pointer to represent the basic block.
 	(bsi_insert_after): Handle inserting into empty blocks better.
 	(bsi_insert_before): Call bsi_insert_after to handle empty blocks.
-	* tree-ssa.c (elim_create): Clear bitmap after its been processed 
+	* tree-ssa.c (elim_create): Clear bitmap after its been processed
 	instead of during loop.
 
 2003-04-27  Diego Novillo  <dnovillo@redhat.com>
@@ -1624,7 +1636,7 @@
 	(set_if_valid): Set partition bit if variable is in a partition.
 	(add_livein_if_notdef): Set live on entry bit for a var's partition
 	if a definition has not been seen.
-	(calculate_live_on_entry): Create partition live on entry bitmaps for 
+	(calculate_live_on_entry): Create partition live on entry bitmaps for
 	all basic blocks .
 	(calculate_live_on_exit): Calculate live on exit information for each
 	basic block.
@@ -1639,7 +1651,7 @@
 	(var_to_partition): Return NO_PARTITION if var is not in a partition.
 	(struct tree_live_info_d): Define live range info structure.
 	(partition_is_global): Return 1 if used outside a basic block.
-	(live_entry_blocks): Return bitmap over blocks that partition is live 
+	(live_entry_blocks): Return bitmap over blocks that partition is live
 	on entry to.
 	(live_on_exit): Return bitmap of partitions live on exit from a block.
 	(struct root_var_d): Define a root_var structure.
@@ -1651,11 +1663,11 @@
 	(find_root_var): Find root_var index for a specific partition.
 	* tree-ssa.c (eliminate_extraneous_phis): Remove.
 	(set_if_valid): Set partition bit if variable is in a partition.
-	(add_conflicts_if_valid): Add conflict between variable and all 
+	(add_conflicts_if_valid): Add conflict between variable and all
 	related partitions set in a bitvector.
-	(coalesce_ssa_name): Create a conflict graph and coalesce all 
+	(coalesce_ssa_name): Create a conflict graph and coalesce all
 	partitions which don't conflict and are related by the same root_var.
-	(assign_vars): Use a root_var object, and assign different real 
+	(assign_vars): Use a root_var object, and assign different real
 	variables to all partitions.
 	(rewrite_out_of_ssa): Call compact_var_map() once, and don't call
 	eliminate_extraneous_phis.
@@ -1663,9 +1675,9 @@
 2003-04-23  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow.h (create_global_var): Add prototype.
-	
+
 	* tree-dfa.c (create_global_var): Externalize.
-	
+
 	* tree-alias-common.c: Set DECL_CONTEXT on our temp alias vars.
 	(call_may_clobber): Make a copy of this function, since our version
 	will be slightly different soon.
@@ -1755,22 +1767,22 @@
 	(tree_make_forwarder_block): New static function.
 	(blocks_headers): Declared static.
 	(HEADER_BLOCK): Use blocks_headers instead of bb's .aux field.
-	(redirect_edge_with_latch_update, make_forwarder_block, 
-	canonicalize_loop_headers): Don't allocate .aux, but makes grow 
+	(redirect_edge_with_latch_update, make_forwarder_block,
+	canonicalize_loop_headers): Don't allocate .aux, but makes grow
 	the blocks_headers array.
-	(canonicalize_loop_headers): Register tree_make_forwarder_block 
-	into the tree_cfg_hooks and rtl_make_forwarder_block into the 
+	(canonicalize_loop_headers): Register tree_make_forwarder_block
+	into the tree_cfg_hooks and rtl_make_forwarder_block into the
 	rtl_cfg_hooks structure.
-	(canonicalize_loop_headers): Initialize/free the blocks_headers 
+	(canonicalize_loop_headers): Initialize/free the blocks_headers
 	array rather than the bb's .aux field.
 	* cfgloopmanip.c (loop_split_edge_with_NULL): New static function.
-	(remove_path, force_single_succ_latches): 
+	(remove_path, force_single_succ_latches):
 	Call loop_split_edge_with_NULL instead of loop_split_edge_with.
 	* cfgrtl.c (split_block): Update the comment.
 	(split_edge): Renamed rtl_split_edge.
 	(verify_flow_info): Renamed rtl_verify_flow_info.
-	* loop-init.c (loop_optimizer_init, loop_optimizer_finalize): 
-	Execute code following the value of cfg_level. 
+	* loop-init.c (loop_optimizer_init, loop_optimizer_finalize):
+	Execute code following the value of cfg_level.
 	* toplev.c (rest_of_compilation): Call rtl_register_cfg_hooks.
 	* tree-cfg.c (create_bb): Declared extern.
 	(build_tree_cfg): Call tree_register_cfg_hooks.
@@ -1778,7 +1790,7 @@
 	(bsi_commit_first_edge_insert): Use split_edge.
 	(tree_split_edge, tree_verify_flow_info): New functions.
 	* tree-optimize.c (cfgloop.h): Included.
-	(optimize_function_tree): Add #if 0'ed calls to 
+	(optimize_function_tree): Add #if 0'ed calls to
 	loop_optimizer_init and loop_optimizer_finalize.
 
 2003-04-16  Jeff Law  <law@redhat.com>
@@ -1933,7 +1945,7 @@
 	(num_var_partitions): Number of partitions.
 	(partition_to_var): Return variable for partition.
 	(var_to_partition): Return partition variable is in.
-	(var_to_partition_to_var): Return variable representing partition 
+	(var_to_partition_to_var): Return variable representing partition
 	another variable is in.
 	(register_ssa_partition): Initialize a partition element as used.
 	* tree-ssa-live.c: New file.
@@ -1965,7 +1977,7 @@
 	(bsi_insert_on_edge): New. Add stmt to edge's pending insert list.
 	* tree-flow-inline.h (phi_arg_from_edge): Return PHI index for an edge.
 	(phi_element_for_edge): Return PHI element for an edge.
-	* tree-flow.h (struct var_ann_d): Add auxiallary field and new 
+	* tree-flow.h (struct var_ann_d): Add auxiallary field and new
 	bit 'processed_out_of_ssa'.
 	* tree-ssa.c (_var_map): Structure for variable parition map.
 	(struct _elim_graph): Elimination graph for out-of-ssa pass.
@@ -1984,10 +1996,10 @@
 	(new_elim_graph): Create a new elimination graph.
 	(clear_elim_graph): clear an elimination graph.
 	(delete_elim_graph): Delete an elimination graph.
-	(eliminate_name, eliminate_build, elim_forward, 
-	elim_unvisited_predecessor, elim_backward, elim_create, 
+	(eliminate_name, eliminate_build, elim_forward,
+	elim_unvisited_predecessor, elim_backward, elim_create,
 	eliminate_phi): Routines to implement Morgans PHI elimination algorithm.
-	(eliminate_extraneous_phis): Eliminate PHI nodes which will never 
+	(eliminate_extraneous_phis): Eliminate PHI nodes which will never
 	generate code.
 	(rewrite_out_of_ssa): Use partitions and PHI elimination algorithm.
 
@@ -2002,7 +2014,7 @@
 	* tree-dfa.c (dump_immediate_uses): Likewise.
 	* tree-pretty-print.c (dump_generic_node): Dump the EH_FILTER_FAILURE
 	nodes attached to an EH_FILTER_EXPR.
-	
+
 	* tree-dfa.c (get_stmt_operands): Add cases for TRY_FINALLY_EXPR,
 	TRY_CATCH_EXPR, CATCH_EXPR and EH_FILTER_EXPR.
 	(get_expr_operands): Add case for EXC_PTR_EXPR.
@@ -2058,7 +2070,7 @@
 
 2003-03-28  Diego Novillo  <dnovillo@redhat.com>
 
-	* tree-ssa.c (rewrite_block): Add new argument 'eq_expr_value'. 
+	* tree-ssa.c (rewrite_block): Add new argument 'eq_expr_value'.
 	Update all users.
 	If 'eq_expr_value' is given, use it to register a new
 	value for the variable given on the LHS.
@@ -2090,7 +2102,7 @@
 	(defs_y_dom_x): Factor through injuries properly.
 	(defs_match_p): Ditto.
 	(phi_opnd_from_res): Attempt to fix, and remove useless argument.
-	(reset_can_be_avail): Fix broken condition that would cause infinite 
+	(reset_can_be_avail): Fix broken condition that would cause infinite
 	loop.
 	(update_old_new): #if 0 updating of bb heads.
 	(finalize_1): We occasionally get 5 + a rather than a + 5, so we
@@ -2105,7 +2117,7 @@
 
 	* tree.h: Add EREF_DELAYED_RENAME.
 	(struct tree_eref_common): Add delayed_rename bit.
-	
+
 2003-03-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-simple.c: Use tree codes to document grammar for relational
@@ -2240,15 +2252,15 @@
 	within a nested BIND_EXPR.
 	(bsi_update_from_tsi): Insert helper which is more efficient than
 	bsi_from_tsi().
-	(bsi_link_after): link in a new stmt and update the basic block 
+	(bsi_link_after): link in a new stmt and update the basic block
 	data structures.
 	(bsi_insert_after): Insert a new stmt into a block.
 	(bsi_insert_before): Insert a new stmt into a block.
 	(bsi_insert_on_edge): Insert a new stmt on an edge.
-	* tree-flow-inline.h (is_label_stmt): Return true if stmt can be a 
+	* tree-flow-inline.h (is_label_stmt): Return true if stmt can be a
 	target of a control transfer.
 	* tree-flow.h (is_label_stmt, bsi_last): New prototypes.
-	
+
 2003-03-12  Jeff Law  <law@redhat.com>
 
 	* c-simplify.c (simplify_switch_stmt): Save the type of the original
@@ -2301,7 +2313,7 @@
 	callers updated.  Call simplify_builtin to try and simplify builtin
 	function calls before we simplify their arguments.
 	* tree.h (simplify_builtin): Prototype.
-	
+
 2003-03-11  Jeff Law  <law@redhat.com>
 
 	* timevar.def (TV_TREE_SSA_TO_NORMAL): New timevar.
@@ -2345,7 +2357,7 @@
 2003-03-10  Andrew MacLeod  <amacleod@redhat.com>
 
 	* Makefile.in (tree.o): Add tree-iterator.h dependancy.
-	* sbitmap.c (sbitmap_realloc): Grow a sbitmap structure. 
+	* sbitmap.c (sbitmap_realloc): Grow a sbitmap structure.
 	* sbitmap.h (sbitmap_realloc): New Prototype.
 	* tree-cfg.c (remove_bb): Use new format for bsi_remove.
 	(bsi_remove): Update iterator to refer to the next stmt.
@@ -2406,7 +2418,7 @@
 	(rewrite_operand): If a pointer has been copy propagated into
 	another one, rewrite INDIRECT_REF nodes of the original pointer to
 	refer to the new one.
-	(register_new_def): Add new argument 'var' indicating which 
+	(register_new_def): Add new argument 'var' indicating which
 	variable is this new definition for.  Update all users.
 	(update_indirect_ref_vuses): New function.
 	(update_pointer_vuses): New function.
@@ -2711,7 +2723,7 @@
 	* tree-ssa-dce.c (mark_control_parent_necessary): Be much more
 	selective about what statements in the control parents are marked
 	as necessary.
-	
+
 	* tree-dfa.c (INDIRECT_REFs and ADDRESSABLE_VARs varrays): Replace
 	with a single ALIASED_OBJECTs set of varrays.
 	(dump_dfa_stats): Corresponding changes.
@@ -2728,8 +2740,8 @@
 	(struct walk_state): New structure for statement walker callbacks.
 	(find_vars_r): Add logic to track loads and stores of potentially
 	aliased objects separately.  Various changes related to
-	using a single set of varrays for all aliased objects. 
-	(add_referenced_var): Record in the var's annotation if the 
+	using a single set of varrays for all aliased objects.
+	(add_referenced_var): Record in the var's annotation if the
 	var is read or written.  Various changes related to using a
 	single set of varrays for all the aliased objects.
 	(add_stmt_operand): Only set may_point_to_global_mem for INDIRECT_REFs.
@@ -2793,13 +2805,13 @@
 	"constant" value has changed to a new constant value, then the
 	object has a VARYING value.
 
- 	* tree-ssa-ccp.c (tree_ssa_ccp): Work through the entire
+	* tree-ssa-ccp.c (tree_ssa_ccp): Work through the entire
 	ssa_edges worklist each iteration through the main loop.
 
 2002-02-13  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c: Fix comment formatting glitches.
-	
+
 	* tree-ssa-ccp.c (may_fold_p): New function.  Returns nonzero if
 	the given statement may fold after replacement of operands with
 	constants.
@@ -2819,7 +2831,7 @@
 	* tree-pretty-print.c (debug_generic_expr): New function.
 	(debug_generic_stmt): Ditto.
 	(dump_generic_node): Pretty print EUSE's, EREF's,  and EPHI's.
-	
+
 	* tree-ssa-pre.c: Rewrite almost entirely. Now performs more
 	strength reduction, EPHI minimization, and keeps SSA up to date.
 	* tree.c (tree_size): Handle EUSE, EPHI, EREF nodes.

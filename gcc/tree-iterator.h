@@ -1,4 +1,4 @@
-/* Iterator routines for manipulating GENERIC and GIMPLE tree statements.  
+/* Iterator routines for manipulating GENERIC and GIMPLE tree statements.
    Copyright (C) 2003 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
@@ -21,11 +21,11 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* This file is dependant upon the implementation of tree's. It provides an
-   abstract interface to the tree objects such that if all tree creation and 
-   manipulations are done through this interface, we can easily change the 
+   abstract interface to the tree objects such that if all tree creation and
+   manipulations are done through this interface, we can easily change the
    implementation of tree's, and not impact other code.
 
-   In particular, we wish to replace the current linking scheme which uses 
+   In particular, we wish to replace the current linking scheme which uses
    COMPOUND_EXPR nodes to link statements. We'd like to either use doubly
    linked lists, or another mechanism which takes the links completely out
    of the tree nodes all together. Before this can be done, the front end
@@ -44,20 +44,19 @@ typedef struct {
   tree *tp;
 } tree_stmt_iterator;
 
-static inline tree_stmt_iterator tsi_start 	PARAMS ((tree *));
-static inline tree_stmt_iterator tsi_last 	PARAMS ((tree *));
-static inline bool tsi_end_p			PARAMS ((tree_stmt_iterator));
-static inline bool tsi_one_before_end_p		PARAMS ((tree_stmt_iterator));
-static inline void tsi_next			PARAMS ((tree_stmt_iterator *));
-static inline void tsi_prev			PARAMS ((tree_stmt_iterator *));
-static inline tree tsi_stmt			PARAMS ((tree_stmt_iterator));
-static inline tree *tsi_stmt_ptr		PARAMS ((tree_stmt_iterator));
-static inline tree *tsi_container		PARAMS ((tree_stmt_iterator));
+static inline tree_stmt_iterator tsi_start (tree *);
+static inline tree_stmt_iterator tsi_last (tree *);
+static inline bool tsi_end_p (tree_stmt_iterator);
+static inline bool tsi_one_before_end_p (tree_stmt_iterator);
+static inline void tsi_next (tree_stmt_iterator *);
+static inline void tsi_prev (tree_stmt_iterator *);
+static inline tree tsi_stmt (tree_stmt_iterator);
+static inline tree *tsi_stmt_ptr (tree_stmt_iterator);
+static inline tree *tsi_container (tree_stmt_iterator);
 
 
 static inline tree_stmt_iterator
-tsi_start (tp)
-     tree *tp;
+tsi_start (tree *tp)
 {
   tree_stmt_iterator i;
   i.tp = tp;
@@ -66,8 +65,7 @@ tsi_start (tp)
 
 /* Return an iterator pointing to the last stmt in a chain.  */
 static inline tree_stmt_iterator
-tsi_last (tp)
-     tree *tp;
+tsi_last (tree *tp)
 {
   tree_stmt_iterator i;
 
@@ -79,15 +77,13 @@ tsi_last (tp)
 }
 
 static inline bool
-tsi_end_p (i)
-     tree_stmt_iterator i;
+tsi_end_p (tree_stmt_iterator i)
 {
   return (i.tp == NULL || *(i.tp) == error_mark_node);
 }
 
 static inline void
-tsi_next (i)
-     tree_stmt_iterator *i;
+tsi_next (tree_stmt_iterator *i)
 {
   tree t = *(i->tp);
   if (TREE_CODE (t) == COMPOUND_EXPR)
@@ -97,24 +93,21 @@ tsi_next (i)
 }
 
 static inline void
-tsi_prev (i)
-     tree_stmt_iterator *i;
+tsi_prev (tree_stmt_iterator *i)
 {
   printf (" tsi_prev (%p) is not implemented yet\n",(void *)i);
   abort();
 }
 
 static inline bool
-tsi_one_before_end_p (i)
-     tree_stmt_iterator i;
+tsi_one_before_end_p (tree_stmt_iterator i)
 {
   tsi_next (&i);
   return tsi_end_p (i);
 }
 
 static inline tree *
-tsi_stmt_ptr (i)
-     tree_stmt_iterator i;
+tsi_stmt_ptr (tree_stmt_iterator i)
 {
   tree t;
 
@@ -132,8 +125,7 @@ tsi_stmt_ptr (i)
 }
 
 static inline tree
-tsi_stmt (i)
-     tree_stmt_iterator i;
+tsi_stmt (tree_stmt_iterator i)
 {
   tree t = *(tsi_stmt_ptr (i));
   if (t == error_mark_node)
@@ -142,8 +134,7 @@ tsi_stmt (i)
 }
 
 static inline tree *
-tsi_container (i)
-     tree_stmt_iterator i;
+tsi_container (tree_stmt_iterator i)
 {
   return i.tp;
 }
@@ -161,10 +152,10 @@ enum tsi_iterator_update
   TSI_SAME_STMT
 };
 
-void tsi_link_before			PARAMS ((tree_stmt_iterator *, tree, enum tsi_iterator_update));
-void tsi_link_after			PARAMS ((tree_stmt_iterator *, tree, enum tsi_iterator_update));
-void tsi_delink				PARAMS ((tree_stmt_iterator *));
-tree_stmt_iterator tsi_new_stmt_list	PARAMS ((tree, tree_stmt_anchor *));
-tree_stmt_iterator tsi_stmt_list_head	PARAMS ((tree_stmt_anchor));
+void tsi_link_before (tree_stmt_iterator *, tree, enum tsi_iterator_update);
+void tsi_link_after (tree_stmt_iterator *, tree, enum tsi_iterator_update);
+void tsi_delink (tree_stmt_iterator *);
+tree_stmt_iterator tsi_new_stmt_list (tree, tree_stmt_anchor *);
+tree_stmt_iterator tsi_stmt_list_head (tree_stmt_anchor);
 
 #endif /* _TREE_ITERATOR_H  */

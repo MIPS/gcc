@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -26,8 +26,7 @@ Boston, MA 02111-1307, USA.  */
    tree-flow.h.  See tree-flow.h for documentation.  */
 
 static inline var_ann_t
-var_ann (t)
-     tree t;
+var_ann (tree t)
 {
 #if defined ENABLE_CHECKING
   if (t == NULL_TREE
@@ -48,8 +47,7 @@ get_var_ann (tree var)
 }
 
 static inline stmt_ann_t
-stmt_ann (t)
-     tree t;
+stmt_ann (tree t)
 {
 #if defined ENABLE_CHECKING
   if (!is_gimple_stmt (t) && !is_essa_node (t))
@@ -67,31 +65,27 @@ get_stmt_ann (tree stmt)
 }
 
 static inline enum tree_ann_type
-ann_type (ann)
-     tree_ann ann;
+ann_type (tree_ann ann)
 {
   return ann->common.type;
 }
 
 static inline basic_block
-bb_for_stmt (t)
-     tree t;
+bb_for_stmt (tree t)
 {
   stmt_ann_t ann = stmt_ann (t);
   return ann ? ann->bb : NULL;
 }
 
 static inline varray_type
-may_aliases (var)
-     tree var;
+may_aliases (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_aliases : NULL;
 }
 
 static inline void
-set_may_alias_global_mem (var)
-     tree var;
+set_may_alias_global_mem (tree var)
 {
   var_ann_t ann = var_ann (var);
   if (ann == NULL)
@@ -100,16 +94,14 @@ set_may_alias_global_mem (var)
 }
 
 static inline bool
-may_alias_global_mem_p (var)
-     tree var;
+may_alias_global_mem_p (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_alias_global_mem : false;
 }
 
 static inline void
-set_may_point_to_global_mem (var)
-     tree var;
+set_may_point_to_global_mem (tree var)
 {
   var_ann_t ann;
 
@@ -125,24 +117,21 @@ set_may_point_to_global_mem (var)
 }
 
 static inline bool
-may_point_to_global_mem_p (var)
-     tree var;
+may_point_to_global_mem_p (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_point_to_global_mem : false;
 }
 
 static inline bool
-has_hidden_use (var)
-     tree var;
+has_hidden_use (tree var)
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->has_hidden_use : false;
 }
 
 static inline void
-set_has_hidden_use (var)
-     tree var;
+set_has_hidden_use (tree var)
 {
   var_ann_t ann = var_ann (var);
   if (ann == NULL)
@@ -151,8 +140,7 @@ set_has_hidden_use (var)
 }
 
 static inline int
-get_lineno (expr)
-     tree expr;
+get_lineno (tree expr)
 {
   if (expr == NULL_TREE)
     return -1;
@@ -167,8 +155,7 @@ get_lineno (expr)
 }
 
 static inline const char *
-get_filename (expr)
-     tree expr;
+get_filename (tree expr)
 {
   if (expr == NULL_TREE)
     return "???";
@@ -183,8 +170,7 @@ get_filename (expr)
 }
 
 static inline void
-modify_stmt (t)
-     tree t;
+modify_stmt (tree t)
 {
   stmt_ann_t ann = stmt_ann (t);
   if (ann == NULL)
@@ -193,8 +179,7 @@ modify_stmt (t)
 }
 
 static inline void
-unmodify_stmt (t)
-     tree t;
+unmodify_stmt (tree t)
 {
   stmt_ann_t ann = stmt_ann (t);
   if (ann == NULL)
@@ -203,8 +188,7 @@ unmodify_stmt (t)
 }
 
 static inline bool
-stmt_modified_p (t)
-     tree t;
+stmt_modified_p (tree t)
 {
   stmt_ann_t ann = stmt_ann (t);
 
@@ -215,16 +199,14 @@ stmt_modified_p (t)
 }
 
 static inline tree *
-def_op (stmt)
-     tree stmt;
+def_op (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->ops ? ann->ops->def_op : NULL) : NULL;
 }
 
 static inline varray_type
-use_ops (stmt)
-     tree stmt;
+use_ops (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->ops ? ann->ops->use_ops : NULL) : NULL;
@@ -232,71 +214,62 @@ use_ops (stmt)
 
 
 static inline varray_type
-vdef_ops (stmt)
-     tree stmt;
+vdef_ops (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->vops ? ann->vops->vdef_ops : NULL) : NULL;
 }
 
 static inline varray_type
-vuse_ops (stmt)
-     tree stmt;
+vuse_ops (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->vops ? ann->vops->vuse_ops : NULL) : NULL;
 }
 
 static inline varray_type
-addresses_taken (stmt)
-     tree stmt;
+addresses_taken (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? ann->addresses_taken : NULL;
 }
 
 static inline varray_type
-immediate_uses (stmt)
-     tree stmt;
+immediate_uses (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->df ? ann->df->immediate_uses : NULL) : NULL;
 }
 
 static inline varray_type
-reaching_defs (stmt)
-     tree stmt;
+reaching_defs (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (ann->df ? ann->df->reaching_defs : NULL) : NULL;
 }
 
 static inline bb_ann_t
-bb_ann (bb)
-     basic_block bb;
+bb_ann (basic_block bb)
 {
   return (bb_ann_t)bb->aux;
 }
 
 static inline basic_block
-parent_block (bb)
-     basic_block bb;
+parent_block (basic_block bb)
 {
   tree parent = (bb->head_tree_p) ? parent_stmt (*bb->head_tree_p) : NULL_TREE;
   return parent ? bb_for_stmt (parent) : NULL;
 }
 
 static inline tree
-parent_stmt (stmt)
-     tree stmt;
+parent_stmt (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return (ann) ? ann->parent_stmt : NULL_TREE;
 }
 
 static inline tree
-phi_nodes (bb)
-     basic_block bb;
+phi_nodes (basic_block bb)
 {
   return bb_ann (bb)->phi_nodes;
 }
@@ -304,9 +277,7 @@ phi_nodes (bb)
 
 /* Return the phi index number for an edge.  */
 static inline int
-phi_arg_from_edge (phi, e)
-     tree phi;
-     edge e;
+phi_arg_from_edge (tree phi, edge e)
 {
   int i;
 #if defined ENABLE_CHECKING
@@ -324,9 +295,7 @@ phi_arg_from_edge (phi, e)
 
 /* Return the phi argument number for an edge.  */
 static inline struct phi_arg_d *
-phi_element_for_edge (phi, e)
-     tree phi;
-     edge e;
+phi_element_for_edge (tree phi, edge e)
 {
   int i;
 
@@ -338,9 +307,7 @@ phi_element_for_edge (phi, e)
 }
 
 static inline void
-add_dom_child (bb, child_bb)
-     basic_block bb;
-     basic_block child_bb;
+add_dom_child (basic_block bb, basic_block child_bb)
 {
   bb_ann_t ann = bb_ann (bb);
   if (ann->dom_children == NULL)
@@ -349,8 +316,7 @@ add_dom_child (bb, child_bb)
 }
 
 static inline bitmap
-dom_children (bb)
-     basic_block bb;
+dom_children (basic_block bb)
 {
   return bb_ann (bb)->dom_children;
 }
@@ -358,8 +324,7 @@ dom_children (bb)
 /*  -----------------------------------------------------------------------  */
 
 static inline bool
-bsi_end_p (i)
-block_stmt_iterator i;
+bsi_end_p (block_stmt_iterator i)
 {
   return (i.tp == NULL || bsi_stmt (i) == NULL_TREE);
 }
@@ -368,8 +333,7 @@ block_stmt_iterator i;
    has bb_for_stmt() set (can't be an empty statement node).  */
 
 static inline void
-bsi_next (i)
-     block_stmt_iterator *i;
+bsi_next (block_stmt_iterator *i)
 {
   extern void bsi_next_in_bb (block_stmt_iterator *, basic_block);
 
@@ -378,8 +342,7 @@ bsi_next (i)
 }
 
 static inline tree *
-bsi_stmt_ptr (i)
-     block_stmt_iterator i;
+bsi_stmt_ptr (block_stmt_iterator i)
 {
 #if defined ENABLE_CHECKING
   if (i.tp == NULL || *i.tp == NULL_TREE)
@@ -393,15 +356,13 @@ bsi_stmt_ptr (i)
 }
 
 static inline tree
-bsi_stmt (i)
-     block_stmt_iterator i;
+bsi_stmt (block_stmt_iterator i)
 {
   return *(bsi_stmt_ptr (i));
 }
 
 static inline tree *
-bsi_container (i)
-     block_stmt_iterator i;
+bsi_container (block_stmt_iterator i)
 {
   return i.tp;
 }
@@ -409,15 +370,13 @@ bsi_container (i)
 /* Return a tree_stmt_iterator for the stmt a block iterator refers to.  */
 
 static inline tree_stmt_iterator
-tsi_from_bsi (bi)
-     block_stmt_iterator bi;
+tsi_from_bsi (block_stmt_iterator bi)
 {
   return tsi_start (bi.tp);
 }
 
 static inline bool
-is_exec_stmt (t)
-     tree t;
+is_exec_stmt (tree t)
 {
   return (t && !IS_EMPTY_STMT (t) && t != error_mark_node);
 }
@@ -426,8 +385,7 @@ is_exec_stmt (t)
 /* Return true if this stmt can be the target of a control transfer stmt such
    as a goto.  */
 static inline bool
-is_label_stmt (t)
-     tree t;
+is_label_stmt (tree t)
 {
   if (t)
     switch (TREE_CODE (t))
@@ -455,16 +413,15 @@ typedef struct bsi_list_d {
 } *bsi_list_p;
 
 
-static inline bsi_list_p new_bsi_list	PARAMS ((void));
-static inline int empty_bsi_stack	PARAMS ((bsi_list_p));
-extern void push_bsi			PARAMS ((bsi_list_p *, 
-						 block_stmt_iterator));
-extern block_stmt_iterator pop_bsi	PARAMS ((bsi_list_p *));
+static inline bsi_list_p new_bsi_list (void);
+static inline int empty_bsi_stack (bsi_list_p);
+extern void push_bsi (bsi_list_p *, block_stmt_iterator);
+extern block_stmt_iterator pop_bsi (bsi_list_p *);
 
 
 /* Allocate a bsi_list structure.  */
 static inline bsi_list_p
-new_bsi_list ()
+new_bsi_list (void)
 {
   bsi_list_p b;
   b = (bsi_list_p) xmalloc (sizeof (struct bsi_list_d));
@@ -476,8 +433,7 @@ new_bsi_list ()
 
 /* Is the iterator stack empty?  */
 static inline int
-empty_bsi_stack (list)
-     bsi_list_p list;
+empty_bsi_stack (bsi_list_p list)
 {
   if (!list || (list->curr_index < 0 && list->next == NULL))
     return 1;
@@ -486,11 +442,11 @@ empty_bsi_stack (list)
 
 
 /* Process an entire block of bsi's in reverse by pushing them on a stack
-   as they are encountered, and then popping them off as they are needed.  
-   There are a couple of odd things. Since the last loop is a for loop, 
+   as they are encountered, and then popping them off as they are needed.
+   There are a couple of odd things. Since the last loop is a for loop,
    a dummy entry is pushed on the beginning of the stack, this allows the first
    item pushed on the stack to be processed in the final for loop, as well
-   as guaranteeing there will be at least one to pop off.  
+   as guaranteeing there will be at least one to pop off.
 
    usage:
      bsi_list_p  stack;
@@ -513,11 +469,11 @@ empty_bsi_stack (list)
 
 /* This macro can be used if all that is ever examined is the stmt nodes
    of bsi. Ie, if the usage is
-      FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi) 
+      FOR_EACH_BSI_IN_REVERSE (stack, bb, bsi)
         {
 	  tree stmt = bsi_stmt (bsi);
 	  ...
-  Then less overhead exists to simply use this macro.  
+  Then less overhead exists to simply use this macro.
 
   usage:
     varray_type stmt_stack;
@@ -539,8 +495,8 @@ empty_bsi_stack (list)
   }								\
   stmt = VARRAY_TOP_TREE (stmt_stack);				\
   VARRAY_POP (stmt_stack);					\
-  for ( ; VARRAY_ACTIVE_SIZE (stmt_stack) > 0 ; 		\
-	      stmt = VARRAY_TOP_TREE (stmt_stack), VARRAY_POP (stmt_stack))	
+  for ( ; VARRAY_ACTIVE_SIZE (stmt_stack) > 0 ;		\
+	      stmt = VARRAY_TOP_TREE (stmt_stack), VARRAY_POP (stmt_stack))
 
 
 static inline bool

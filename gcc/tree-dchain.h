@@ -1,5 +1,5 @@
-/* Interface to the double linked statement chain. 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* Interface to the double linked statement chain.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -24,24 +24,23 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NEXT_STMT(NODE) TREE_CHAIN (NODE)
 
 /* In tree-dchain.c  */
-extern void double_chain_stmts             PARAMS ((tree));
-extern void double_chain_free              PARAMS ((tree));
-extern void dchain_insert_stmt_after       PARAMS ((tree, tree));
-extern void dchain_insert_stmt_before      PARAMS ((tree, tree));
-extern void dchain_delete_stmts            PARAMS ((tree, tree));
-extern void dchain_insert_chain            PARAMS ((tree, tree, tree, tree));
-extern void dchain_two_chains              PARAMS ((tree, tree, tree, tree, 
-						    tree, tree, tree, tree));
-extern tree dchain_deep_copy_node          PARAMS ((tree));
-extern void dchain_replace_stmt            PARAMS ((tree, tree));
-extern void dchain_build_scope             PARAMS ((tree *));
-extern tree dchain_declare_tmp_vars        PARAMS ((tree, tree));
-extern void dchain_delete_labels           PARAMS ((tree));
+extern void double_chain_stmts (tree);
+extern void double_chain_free (tree);
+extern void dchain_insert_stmt_after (tree, tree);
+extern void dchain_insert_stmt_before (tree, tree);
+extern void dchain_delete_stmts (tree, tree);
+extern void dchain_insert_chain (tree, tree, tree, tree);
+extern void dchain_two_chains (tree, tree, tree, tree, tree, tree, tree, tree);
+extern tree dchain_deep_copy_node (tree);
+extern void dchain_replace_stmt (tree, tree);
+extern void dchain_build_scope (tree *);
+extern tree dchain_declare_tmp_vars (tree, tree);
+extern void dchain_delete_labels (tree);
 
 
-/* Define a double linked list interface for the COMPOUND_STMT path tree. 
-   This interface is used in goto and break elimination passes. 
-   The first element pointed by PATH_TOP is the innermost statement.  
+/* Define a double linked list interface for the COMPOUND_STMT path tree.
+   This interface is used in goto and break elimination passes.
+   The first element pointed by PATH_TOP is the innermost statement.
    This implementation uses a TREE_LIST node as its basic element.  */
 #define PATH_TYPE tree
 #define PATH_TOP compound_stmt_path
@@ -82,16 +81,16 @@ extern void dchain_delete_labels           PARAMS ((tree));
 
 
 /* In simple-break-elim.c  */
-extern void break_continue_elimination     PARAMS ((tree));
-extern int chain_contains_stmt_p           PARAMS ((tree, enum tree_code));
-extern void flow_out_of                    PARAMS ((PATH_TYPE, PATH_TYPE, tree, tree, void (*) 
-						    PARAMS ((tree, tree, tree, tree))));
-extern void insert_andif_in_condition      PARAMS ((tree, tree));
-extern void insert_orif_in_condition       PARAMS ((tree, tree));
-extern void eliminate_compound_stmts       PARAMS ((tree));
+extern void break_continue_elimination (tree);
+extern int chain_contains_stmt_p (tree, enum tree_code);
+extern void flow_out_of (PATH_TYPE, PATH_TYPE, tree, tree,
+			 void (*) (tree, tree, tree, tree));
+extern void insert_andif_in_condition (tree, tree);
+extern void insert_orif_in_condition (tree, tree);
+extern void eliminate_compound_stmts (tree);
 
 
 /* In simple-goto-elim.c  */
-extern void goto_elimination               PARAMS ((tree));
-extern void eliminate_with_if              PARAMS ((tree, tree, tree, 
-						    void (*) PARAMS ((tree, tree, tree, tree))));
+extern void goto_elimination (tree);
+extern void eliminate_with_if (tree, tree, tree,
+			       void (*) (tree, tree, tree, tree));
