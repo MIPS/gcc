@@ -1,4 +1,12 @@
-2003-02-13  Diego Novillo  <dnovillo@redhat.com>
+2002-02-13  Jeff Law  <law@redhat.com>
+	
+	* tree-ssa-ccp.c (may_fold_p): New function.  Returns nonzero if
+	the given statement may fold after replacement of operands with
+	constants.
+	(evaluate_stmt): Only create a copy of the statement if there is
+	a reasonable chance the statement will fold.
+
+2002-02-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (OBJS): Add tree-ssa-pre.o.
 

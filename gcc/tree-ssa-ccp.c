@@ -115,6 +115,7 @@ static value evaluate_stmt		PARAMS ((tree));
 static void dump_lattice_value		PARAMS ((FILE *, const char *, value));
 static tree widen_bitfield		PARAMS ((tree, tree, tree));
 static bool replace_uses_in		PARAMS ((tree));
+static bool may_fold_p			PARAMS ((tree));
 static void fold_stmt			PARAMS ((tree));
 static tree get_rhs			PARAMS ((tree));
 static void set_rhs			PARAMS ((tree, tree));
@@ -618,10 +619,16 @@ evaluate_stmt (stmt)
   val.lattice_val = VARYING;
   val.const_val = NULL_TREE;
 
-  /* Evaluate a copy of the original statement.  */
-  copy = copy_stmt (stmt);
-  if (replace_uses_in (copy))
-    fold_stmt (copy);
+  if (may_fold_p (stmt))
+    {
+      /* Evaluate a copy of the original statement with operands
+         replaced with their current constant value.  */
+      copy = copy_stmt (stmt);
+      replace_uses_in (copy);
+      fold_stmt (copy);
+    }
+  else
+    copy = stmt;
 
   /* Extract the folded value from the statement.  */
   simplified = get_rhs (copy);
@@ -885,6 +892,35 @@ replace_uses_in (stmt)
     }
 
   return replaced;
+}
+
+
+/* Return nonzero if STMT has a reasonable chance of folding into
+   something simpler.
+
+   We consider STMT likely to fold if at least one of its operands
+   is a constant.  */
+
+static bool
+may_fold_p (stmt)
+     tree stmt;
+{
+  varray_type uses;
+  size_t i;
+
+  get_stmt_operands (stmt);
+
+  uses = use_ops (stmt);
+  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+    {
+      tree *use = VARRAY_GENERIC_PTR (uses, i);
+      value *val = get_value (*use);
+
+      if (val->lattice_val == CONSTANT)
+	return true;
+    }
+
+  return false;
 }
 
 
