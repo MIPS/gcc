@@ -10,7 +10,11 @@
 
 	* arm.c (arm_debugger_arg_offset): An offset of 0 is also valid
 	in ARM code if the frame pointer has been eliminated.
-	
+
+	* arm.md (epilogue, *epilogue_insns, consttable_*, align_4): Renumber
+	unspec_volatile arguments to avoid duplicates.
+	(consttable_1, consttable_2): Fixes for big-endian mode.
+
 2000-03-16  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h (ASM_OUTPUT_MI_THUNK): Fix compile time

@@ -7926,7 +7926,7 @@
 )
 
 (define_expand "epilogue"
-  [(unspec_volatile [(return)] 6)]
+  [(unspec_volatile [(return)] 1)]
   "TARGET_EITHER"
   "
   if (TARGET_THUMB)
@@ -7939,13 +7939,13 @@
   emit_jump_insn (gen_rtx_UNSPEC_VOLATILE (VOIDmode,
 	gen_rtvec (1,
 		gen_rtx_RETURN (VOIDmode)),
-	6));
+	1));
   DONE;
   "
 )
 
 (define_insn "*epilogue_insns"
-  [(unspec_volatile [(return)] 6)]
+  [(unspec_volatile [(return)] 1)]
   "TARGET_EITHER"
   "*
   if (TARGET_ARM)
@@ -8125,23 +8125,43 @@
 
 ;; Special patterns for dealing with the constant pool
 
+(define_insn "align_4"
+  [(unspec_volatile [(const_int 0)] 2)]
+  "TARGET_EITHER"
+  "*
+  assemble_align (32);
+  return \"\";
+  "
+)
+
+(define_insn "consttable_end"
+  [(unspec_volatile [(const_int 0)] 3)]
+  "TARGET_EITHER"
+  "*
+  making_const_table = FALSE;
+  return \"\";
+  "
+)
+
 (define_insn "consttable_1"
-  [(unspec_volatile [(match_operand 0 "" "")] 8)]
+  [(unspec_volatile [(match_operand 0 "" "")] 4)]
   "TARGET_THUMB"
   "*
   making_const_table = TRUE;
-  assemble_integer (operands[0], 4, 1);
+  assemble_integer (operands[0], 1, 1);
+  assemble_zeros (3);
   return \"\";
   "
   [(set_attr "length" "4")]
 )
 
 (define_insn "consttable_2"
-  [(unspec_volatile [(match_operand 0 "" "")] 7)]
+  [(unspec_volatile [(match_operand 0 "" "")] 5)]
   "TARGET_THUMB"
   "*
   making_const_table = TRUE;
-  assemble_integer (operands[0], 4, 1);
+  assemble_integer (operands[0], 2, 1);
+  assemble_zeros (2);
   return \"\";
   "
   [(set_attr "length" "4")]
@@ -8172,7 +8192,7 @@
 )
 
 (define_insn "consttable_8"
-  [(unspec_volatile [(match_operand 0 "" "")] 3)]
+  [(unspec_volatile [(match_operand 0 "" "")] 7)]
   "TARGET_EITHER"
   "*
   {
@@ -8193,24 +8213,6 @@
     return \"\";
   }"
   [(set_attr "length" "8")]
-)
-
-(define_insn "consttable_end"
-  [(unspec_volatile [(const_int 0)] 4)]
-  "TARGET_EITHER"
-  "*
-  making_const_table = FALSE;
-  return \"\";
-  "
-)
-
-(define_insn "align_4"
-  [(unspec_volatile [(const_int 0)] 5)]
-  "TARGET_EITHER"
-  "*
-  assemble_align (32);
-  return \"\";
-  "
 )
 
 ;; Miscellaneous Thumb patterns
