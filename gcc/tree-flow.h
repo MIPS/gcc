@@ -682,6 +682,8 @@ extern void delete_ssa			PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));
 extern void debug_reaching_defs		PARAMS ((void));
+extern void dump_tree_ssa		PARAMS ((FILE *));
+extern void debug_tree_ssa		PARAMS ((void));
 
 /* Functions in tree-alias-steen.c  */
 extern void create_alias_vars		PARAMS ((void));
@@ -858,7 +860,8 @@ replace_ref_operand_with (ref, op)
      tree_ref ref;
      tree op;
 {
-  *(ref->common.operand_p) = op;
+  if (ref->common.operand_p)
+    *(ref->common.operand_p) = op;
 }
 
 /* Restores the operand for REF with its original value (i.e., with the
@@ -867,7 +870,8 @@ static inline void
 restore_ref_operand (ref)
      tree_ref ref;
 {
-  *(ref->common.operand_p) = ref->common.orig_operand;
+  if (ref->common.operand_p)
+    *(ref->common.operand_p) = ref->common.orig_operand;
 }
 
 /* Return the annotation attached to T.  Create a new one if necessary.  */
@@ -875,6 +879,12 @@ static inline tree_ann
 tree_annotation (t)
      tree t;
 {
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 't'
+      || TREE_CODE (t) == IDENTIFIER_NODE)
+    abort ();
+#endif
   return ((t->common.aux) ? (tree_ann)t->common.aux : create_tree_ann (t));
 }
 

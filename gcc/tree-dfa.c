@@ -873,8 +873,8 @@ remove_tree_ann (t)
 
 /* Return 1 if the function may call itself.
    
-   ??? Currently this is very limited because we do not have call-graph
-       information.  */
+   FIXME Currently this is very limited because we do not have call-graph
+	 information.  */
 
 int
 function_may_recurse_p ()
@@ -1092,7 +1092,7 @@ dump_ref (outf, prefix, ref, indent, details)
 	  dump_ref_array (outf, prefix, EXPRPHI_PHI_ARGS (ref), indent + 4, 1);
 	}	
 
-      if ((ref_type (ref) & (V_DEF | V_PHI)) && imm_uses (ref))
+      if ((ref_type (ref) & V_DEF) && imm_uses (ref))
 	{
 	  fputs (" immediate uses:\n", outf);
 	  dump_ref_list (outf, prefix, imm_uses (ref), indent + 4, 0);
@@ -1218,7 +1218,9 @@ dump_referenced_vars (file)
     {
       tree var = referenced_var (i);
       print_node_brief (file, "", var, 0);
-      fputc ('\n', file);
+      fprintf (file, " (");
+      print_c_node (file, var);
+      fprintf (file, " )\n");
       dump_ref_list (file, "", tree_refs (var), 4, 1);
       fputc ('\n', file);
     }

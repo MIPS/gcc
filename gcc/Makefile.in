@@ -1381,7 +1381,8 @@ tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 	$(C_COMMON_H)
 tree-ssa.o : tree-ssa.c tree-optimize.h tree-flow.h $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) $(C_COMMON_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h tree-simple.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h ggc.h tree-simple.h \
+   $(C_TREE_H)
 tree-ssa-pre.o : tree-ssa-pre.c tree-optimize.h tree-flow.h $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(BASIC_BLOCK_H) $(EXPR_H) \
    $(C_COMMON_H) $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h

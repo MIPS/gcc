@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
+#include "c-tree.h"
 #include "bitmap.h"
 
 #include "tree-optimize.h"
@@ -103,21 +104,7 @@ tree_build_ssa ()
 
   if (dump_file)
     {
-      basic_block bb;
-
-      fputc ('\n', dump_file);
-      fprintf (dump_file, ";; Function %s\n\n",
-	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-      fputs ("SSA information\n\n", dump_file);
-
-      FOR_EACH_BB (bb)
-	{
-	  tree_dump_bb (dump_file, "", bb, 0);
-	  dump_ref_list (dump_file, "    ", bb_refs (bb), 0, 1);
-	  fputs ("\n\n", dump_file);
-	}
-
+      dump_tree_ssa (dump_file);
       dump_end (TDI_ssa, dump_file);
     }
 }
@@ -665,7 +652,9 @@ tree_ssa_remove_phi_alternative (phi_node, block)
     }
 }
 
+
 /* Dump reaching definitions for all the definitions in the function.  */
+
 void
 dump_reaching_defs (dump_file)
      FILE *dump_file;
@@ -684,7 +673,7 @@ dump_reaching_defs (dump_file)
       tree_ref u;
 
       fprintf (dump_file, "Variable: ");
-      print_node_brief (dump_file, "", var, 0);
+      print_c_node (dump_file, var);
       fprintf (dump_file, "\n");
 
       FOR_EACH_REF (u, tmp, tree_refs (var))
@@ -707,4 +696,36 @@ void
 debug_reaching_defs ()
 {
   dump_reaching_defs (stderr);
+}
+
+
+/* Dump SSA information to DUMP_FILE.  */
+
+void
+dump_tree_ssa (dump_file)
+     FILE *dump_file;
+{
+  basic_block bb;
+
+  fputc ('\n', dump_file);
+  fprintf (dump_file, ";; Function %s\n\n",
+      IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+
+  fputs ("SSA information\n\n", dump_file);
+
+  FOR_EACH_BB (bb)
+    {
+      tree_dump_bb (dump_file, "", bb, 0);
+      dump_ref_list (dump_file, "    ", bb_refs (bb), 0, 1);
+      fputs ("\n\n", dump_file);
+    }
+}
+
+
+/* Dump SSA information to stderr.  */
+
+void
+debug_tree_ssa ()
+{
+  dump_tree_ssa (stderr);
 }

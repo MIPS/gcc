@@ -2814,19 +2814,14 @@ mark_not_simple_r (tp, walk_subtrees, data)
      int *walk_subtrees;
      void *data ATTRIBUTE_UNUSED;
 {
-  switch (TREE_CODE_CLASS (TREE_CODE (*tp)))
-    {
-      case 'c':
-      case 'd':
-      case 't':
-	/* Don't mark constants, declarations nor types.  */
-	*walk_subtrees = 0;
-	break;
+  const enum tree_code code = TREE_CODE (*tp);
+  const char class = TREE_CODE_CLASS (code);
 
-      default:
-	set_tree_flag (*tp, TF_NOT_SIMPLE);
-	break;
-    }
+  /* Don't mark constants, identifier nodes, declarations nor types.  */
+  if (class == 'c' || class == 'd' || class == 't' || code == IDENTIFIER_NODE)
+    *walk_subtrees = 0;
+  else
+    set_tree_flag (*tp, TF_NOT_SIMPLE);
 
   return NULL_TREE;
 }

@@ -1,3 +1,22 @@
+2002-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Add dependency on c-tree.h
+	* c-simplify.c (mark_not_simple_r): Don't mark IDENTIFIER_NODEs.
+	* tree-dfa.c (function_may_recurse_p): Fix comment.
+	(dump_ref): Don't dump immediate uses for PHI nodes more than once.
+	(dump_referenced_vars): Unparse the name of the variable.
+	* tree-flow.h (dump_tree_ssa): Declare.
+	(debug_tree_ssa): Declare.
+	(replace_ref_operand_with): Check if OPERAND_P is NULL.
+	(restore_ref_operand): Ditto.
+	(tree_annotation): Check that constants, types and IDENTIFIER_NODEs
+	are not being annotated.
+	* tree-ssa.c: Include c-tree.h.
+	(dump_reaching_defs): Unparse the variable name.
+	(dump_tree_ssa): New function.
+	(tree_build_ssa): Call it.
+	(debug_tree_ssa): New function.
+
 2002-09-14  Steven Bosscher <s.bosscher@student.tudelft.nl>
 
 	* dwarf2out.c (is_fortran): Return true for
