@@ -2341,42 +2341,6 @@ extern int rs6000_trunc_used;
    the end of the line.  */
 #define ASM_COMMENT_START " #"
 
-/* Output at beginning of assembler file.
-
-   Initialize the section names for the RS/6000 at this point.
-
-   Specify filename, including full path, to assembler.
-
-   We want to go into the TOC section so at least one .toc will be emitted.
-   Also, in order to output proper .bs/.es pairs, we need at least one static
-   [RW] section emitted.
-
-   We then switch back to text to force the gcc2_compiled. label and the space
-   allocated after it (when profiling) into the text section.
-
-   Finally, declare mcount when profiling to make the assembler happy.  */
-
-#define ASM_FILE_START(FILE)					\
-{								\
-  rs6000_gen_section_name (&xcoff_bss_section_name,		\
-			   main_input_filename, ".bss_");	\
-  rs6000_gen_section_name (&xcoff_private_data_section_name,	\
-			   main_input_filename, ".rw_");	\
-  rs6000_gen_section_name (&xcoff_read_only_section_name,	\
-			   main_input_filename, ".ro_");	\
-								\
-  fprintf (FILE, "\t.file\t\"%s\"\n", main_input_filename);	\
-  if (TARGET_64BIT)						\
-    fputs ("\t.machine\t\"ppc64\"\n", FILE);			\
-  toc_section ();						\
-  if (write_symbols != NO_DEBUG)				\
-    private_data_section ();					\
-  text_section ();						\
-  if (profile_flag)						\
-    fprintf (FILE, "\t.extern %s\n", RS6000_MCOUNT);		\
-  rs6000_file_start (FILE, TARGET_CPU_DEFAULT);			\
-}
-
 /* We define this to prevent the name mangler from putting dollar signs into
    function names.  */
 
@@ -2412,46 +2376,6 @@ extern int rs6000_trunc_used;
 /* Flag to say the TOC is initialized */
 extern int toc_initialized;
 
-/* This macro produces the initial definition of a function name.
-   On the RS/6000, we need to place an extra '.' in the function name and
-   output the function descriptor.
-
-   The csect for the function will have already been created by the
-   `text_section' call previously done.  We do have to go back to that
-   csect, however.
-
-   The third and fourth parameters to the .function pseudo-op (16 and 044)
-   are placeholders which no longer have any use.  */
-
-#define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)		\
-{ if (TREE_PUBLIC (DECL))					\
-    {								\
-      fputs ("\t.globl .", FILE);				\
-      RS6000_OUTPUT_BASENAME (FILE, NAME);			\
-      putc ('\n', FILE);					\
-    }								\
-  else								\
-    {								\
-      fputs ("\t.lglobl .", FILE);				\
-      RS6000_OUTPUT_BASENAME (FILE, NAME);			\
-      putc ('\n', FILE);					\
-    }								\
-  fputs ("\t.csect ", FILE);					\
-  RS6000_OUTPUT_BASENAME (FILE, NAME);				\
-  fputs (TARGET_32BIT ? "[DS]\n" : "[DS],3\n", FILE);		\
-  RS6000_OUTPUT_BASENAME (FILE, NAME);				\
-  fputs (":\n", FILE);						\
-  fputs (TARGET_32BIT ? "\t.long ." : "\t.llong .", FILE);	\
-  RS6000_OUTPUT_BASENAME (FILE, NAME);				\
-  fputs (", TOC[tc0], 0\n", FILE);				\
-  fputs (TARGET_32BIT						\
-	 ? "\t.csect .text[PR]\n." : "\t.csect .text[PR],3\n.", FILE); \
-  RS6000_OUTPUT_BASENAME (FILE, NAME);				\
-  fputs (":\n", FILE);						\
-  if (write_symbols == XCOFF_DEBUG)				\
-    xcoffout_declare_function (FILE, DECL, NAME);		\
-}
-
 /* Return non-zero if this entry is to be written into the constant pool
    in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF or a CONST
    containing one of them.  If -mfp-in-toc (the default), we also do
@@ -2473,19 +2397,6 @@ extern int toc_initialized;
 #if 0
 	   && BITS_PER_WORD == HOST_BITS_PER_INT)))
 #endif
-
-/* Select section for constant in constant pool.
-
-   On RS/6000, all constants are in the private read-only data area.
-   However, if this is being placed in the TOC it must be output as a
-   toc entry.  */
-
-#define SELECT_RTX_SECTION(MODE, X)		\
-{ if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (X))	\
-    toc_section ();				\
-  else						\
-    read_only_private_data_section ();		\
-}
 
 /* Macro to output a special constant pool entry.  Go to WIN if we output
    it.  Otherwise, it is written the usual way.
@@ -2718,38 +2629,11 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
   do { fputs ("\t.globl ", FILE);	\
        RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
 
-/* This is how to output a reference to a user-level label named NAME.
-   `assemble_name' uses this.  */
-
-#define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  fputs (NAME, FILE)
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-  fprintf (FILE, "%s..%d:\n", PREFIX, NUM)
-
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
 
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   fprintf (FILE, "%s..", PREFIX)
-
-/* This is how to output a label for a jump table.  Arguments are the same as
-   for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
-   passed. */
-
-#define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
-{ ASM_OUTPUT_ALIGN (FILE, 2); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
-
-/* This is how to store into the string LABEL
-   the symbol_ref name of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  */
-
-#define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*%s..%d", PREFIX, NUM)
 
 /* This is how to output an assembler line defining a `double' constant.  */
 
@@ -2811,11 +2695,6 @@ do {									\
 #define ASM_OUTPUT_BYTE(FILE,VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
-/* This is how to output an assembler line to define N characters starting
-   at P to FILE.  */
-
-#define ASM_OUTPUT_ASCII(FILE, P, N)  output_ascii ((FILE), (P), (N))
-
 /* This is how to output an element of a case-vector that is absolute.
    (RS/6000 does not use such vectors, but we must define this macro
    anyway.)   */
@@ -2848,21 +2727,6 @@ do {									\
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
-
-#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", (SIZE))
-
-/* This says how to output an assembler line
-   to define a global common symbol.  */
-
-#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNMENT)	\
-  do { fputs (".comm ", (FILE));			\
-       RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
-       if ( (SIZE) > 4)					\
-         fprintf ((FILE), ",%d,3\n", (SIZE));		\
-       else						\
-	 fprintf( (FILE), ",%d\n", (SIZE));		\
-  } while (0)
 
 /* This says how to output an assembler line
    to define a local common symbol.

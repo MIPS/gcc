@@ -1,3 +1,16 @@
+2000-01-27  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* rs6000.h (SELECT_RTX_SECTION): Move to aix.h.
+	(ASM_FILE_START): Likewise.
+	(ASM_DECLARE_FUNCTION_NAME): Likewise.
+	(ASM_OUTPUT_LABELREF): Likewise.
+	(ASM_OUTPUT_SKIP): Likewise.
+	(ASM_OUTPUT_INTERNAL_LABEL): Likewise.
+	(ASM_GENERATE_INTERNAL_LABEL): Likewise.
+	(ASM_OUTPUT_CASE_LABEL): Likewise.
+	(ASM_OUTPUT_ALIGNED_COMMON): Likewise.
+	(ASM_OUTPUT_ASCII): Likewise.
+
 2000-01-27  Clinton Popetz  <cpopetz@cygnus.com>
 
         * rs6000.c (rs6000_emit_load_toc_table): Use "LCG" and
