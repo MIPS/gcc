@@ -1,3 +1,11 @@
+2004-03-14  Ulrich Weigand  <uweigand@de.ibm.com> 
+
+	Merge from 3.3 branch:
+	2004-03-13  Jakub Jelinek  <jakub@redhat.com>
+        PR target/14533
+	* config/s390/s390.c (legitimize_pic_address): Don't abort on UNSPEC
+        other than 100.
+
 2004-03-11  Alan Modra  <amodra@bigpond.net.au>
 
 	* real.c (encode_ibm_extended): Do round low word.
