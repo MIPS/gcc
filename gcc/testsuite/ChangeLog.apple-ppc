@@ -1,3 +1,9 @@
+2004-11-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 2810013 (includes fix from mainline)
+	* obj-c++.dg/local-decl-1.mm: New test.
+	* objc.dg/local-decl-2.m: New test.
+
 2004-10-29  Stuart Hastings  <stuart@apple.com>
 
 	* gcc.apple/special/liblongcall.c: Add #include <stdio.h>.

@@ -3089,6 +3089,13 @@ cp_parser_primary_expression (cp_parser *parser,
 	       been issued.  */
 	    if (ambiguous_p)
 	      return error_mark_node;
+
+	    /* APPLE LOCAL begin Objective-C++ */
+	    /* In Objective-C++, an instance variable (ivar) may be preferred
+	       to whatever cp_parser_lookup_name() found.  */
+	    decl = objc_lookup_ivar (decl, id_expression);
+	    /* APPLE LOCAL end Objective-C++ */
+
 	    /* If name lookup gives us a SCOPE_REF, then the
 	       qualifying scope was dependent.  Just propagate the
 	       name.  */
@@ -4215,24 +4222,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p)
       if (idk == CP_ID_KIND_UNQUALIFIED
 	  && TREE_CODE (postfix_expression) == IDENTIFIER_NODE
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
-	/* APPLE LOCAL begin Objective-C++ */
-	{
-	  /* We may be referring to an Objective-C++ instance variable.  */
-	  if (c_dialect_objc ())
-	    {
-	      tree ivar = objc_lookup_ivar (postfix_expression);
-
-	      postfix_expression
-		= (ivar
-		   ? ivar
-		   : unqualified_name_lookup_error (postfix_expression));
-	    }
-	  else
-	    /* It is not a Koenig lookup function call.  */
-	    postfix_expression
-	      = unqualified_name_lookup_error (postfix_expression);
-	}
-	/* APPLE LOCAL end Objective-C++ */
+	/* It is not a Koenig lookup function call.  */
+	postfix_expression
+	  = unqualified_name_lookup_error (postfix_expression);
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
