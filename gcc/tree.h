@@ -3651,7 +3651,8 @@ extern void sort_case_labels (tree);
 void lower_function_body (void);
 
 /* In tree-eh.c */
-void duplicate_stmt_eh_region_mapping (struct function *, tree, tree);
+void duplicate_stmt_eh_region_mapping (struct function *, 
+			    struct function *, tree, tree, bool);
 void lower_eh_constructs (void);
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.

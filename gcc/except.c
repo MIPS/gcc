@@ -579,6 +579,15 @@ set_eh_region_tree_label (struct eh_region *region, tree lab)
 {
   region->tree_label = lab;
 }
+
+struct eh_region *
+eh_region_must_not_throw_p (int region)
+{
+  if (cfun->eh->region_array[region]->type == ERT_MUST_NOT_THROW)
+    return cfun->eh->region_array[region];
+  else
+   return 0;
+}
 
 void
 expand_resx_expr (tree exp)
@@ -1268,8 +1277,10 @@ tree_duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
   switch (n->type)
     {
     case ERT_TRY:
-      n->u.try.catch = n_array[o->u.try.catch->region_number];
-      n->u.try.last_catch = n_array[o->u.try.last_catch->region_number];
+      if (o->u.try.catch)
+        n->u.try.catch = n_array[o->u.try.catch->region_number];
+      if (o->u.try.last_catch)
+        n->u.try.last_catch = n_array[o->u.try.last_catch->region_number];
       break;
       
     case ERT_CATCH:
@@ -1277,6 +1288,11 @@ tree_duplicate_eh_region_2 (struct eh_region *o, struct eh_region **n_array)
 	n->u.catch.next_catch = n_array[o->u.catch.next_catch->region_number];
       if (o->u.catch.prev_catch)
 	n->u.catch.prev_catch = n_array[o->u.catch.prev_catch->region_number];
+      break;
+
+    case ERT_CLEANUP:
+      if (o->u.cleanup.prev_try)
+	n->u.cleanup.prev_try = n_array[o->u.cleanup.prev_try->region_number];
       break;
       
     default:
@@ -3982,6 +3998,13 @@ htab_t
 get_eh_throw_stmt_table (struct function *fun)
 {
   return fun->eh->throw_stmt_table;
+}
+
+htab_t
+get_maybe_saved_eh_throw_stmt_table (struct function *fun)
+{
+  return fun->saved_eh ? fun->saved_eh->throw_stmt_table
+			: fun->eh->throw_stmt_table;
 }
 
 int

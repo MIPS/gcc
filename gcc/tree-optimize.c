@@ -345,8 +345,7 @@ init_tree_optimization_passes (void)
   p = &all_passes;
   /* NEXT_PASS (pass_gimple); */
   NEXT_PASS (pass_inline);
-  /* Kludge: until this optimization learns to update the CFG, omit it.  */
-  /* NEXT_PASS (pass_remove_useless_stmts); */
+  NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   /* NEXT_PASS (pass_lower_cf);  */
   /* NEXT_PASS (pass_lower_eh);  */

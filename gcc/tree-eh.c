@@ -169,6 +169,10 @@ lookup_stmt_eh_region_fn (struct function *ifun, tree t)
 int
 lookup_stmt_eh_region (tree t)
 {
+  /* We can get called from initialized data when -fnon-call-exceptions
+     is on; prevent crash.  */
+  if (!cfun)
+    return -1;
   return lookup_stmt_eh_region_fn (cfun, t);
 }
 
@@ -179,14 +183,17 @@ lookup_stmt_eh_region (tree t)
    duplicate function tree is complete.  */
 
 void
-duplicate_stmt_eh_region_mapping (struct function *ifun, tree old_tree, 
-				  tree new_tree)
+duplicate_stmt_eh_region_mapping (struct function *ifun, 
+				  struct function *cfun,
+				  tree old_tree, 
+				  tree new_tree,
+				  bool adjust_number)
 {
   struct throw_stmt_node *p, old, *new;
   htab_t cfun_hash, ifun_hash;
   void **slot;
   
-  ifun_hash = (htab_t)get_eh_throw_stmt_table (ifun);
+  ifun_hash = (htab_t)get_maybe_saved_eh_throw_stmt_table (ifun);
   if (!ifun_hash)
     return;
   
@@ -207,7 +214,9 @@ duplicate_stmt_eh_region_mapping (struct function *ifun, tree old_tree,
 	 mapping for new_tree.  */
       new = (struct throw_stmt_node *)ggc_alloc (sizeof (*new));
       new->stmt = new_tree;
-      new->region_nr = p->region_nr + get_eh_last_region_number (cfun);
+      new->region_nr = p->region_nr;
+      if (adjust_number)
+	new->region_nr += get_eh_last_region_number (cfun);
       slot = htab_find_slot (cfun_hash, (void *)new, INSERT);
       if (*slot)
 	abort ();
@@ -1440,7 +1449,6 @@ lower_catch (struct leh_state *state, tree *tp)
   if (!get_eh_region_may_contain_throw (try_region))
     {
       *tp = TREE_OPERAND (*tp, 0);
-      /*remove_eh_handler (try_region);*/
       return;
     }
 
@@ -1504,7 +1512,6 @@ lower_eh_filter (struct leh_state *state, tree *tp)
   if (!get_eh_region_may_contain_throw (this_region))
     {
       *tp = TREE_OPERAND (*tp, 0);
-      /*remove_eh_handler (this_region);*/
       return;
     }
 
@@ -1544,7 +1551,6 @@ lower_cleanup (struct leh_state *state, tree *tp)
   if (!get_eh_region_may_contain_throw (this_region))
     {
       *tp = TREE_OPERAND (*tp, 0);
-      /*remove_eh_handler (this_region);*/
       return;
     }
 
@@ -1750,6 +1756,12 @@ make_eh_edges (tree stmt)
     }
 
   foreach_reachable_handler (region_nr, is_resx, make_eh_edge, stmt);
+  /* If a MUST_NOT_THROW region contains a call that throws, and we
+     inline it, we will need the terminate call, so make sure we
+     don't remove it, even though it can't be reached if we don't
+     do the inline.  */
+  if (!is_resx && eh_region_must_not_throw_p (region_nr))
+    make_eh_edge (eh_region_must_not_throw_p (region_nr), stmt);
 }
 
 

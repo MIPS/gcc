@@ -347,7 +347,7 @@ make_blocks (tree stmt_list)
 	{
 	  if (!first_stmt_of_list)
 	    {
-	    stmt_list = tsi_split_statement_list_before (&i);
+	      stmt_list = tsi_split_statement_list_before (&i);
 	      TREE_CHAIN (prev_stmt) = stmt;
 	    }
 	  bb = create_basic_block (stmt_list, NULL, bb);
@@ -363,7 +363,7 @@ make_blocks (tree stmt_list)
 
       /* If STMT is a basic block terminator, set START_NEW_BLOCK for the
 	 next iteration.  */
-      if (stmt_ends_bb_p (stmt))
+      if (stmt_ends_bb_p (stmt) || lookup_stmt_eh_region (stmt) > 0)
 	start_new_block = true;
 
       tsi_next (&i);
@@ -394,7 +394,7 @@ create_bb (void *h, void *e, basic_block after)
 
   /* Add the new block to the linked list of blocks.  */
   if (after)
-  link_block (bb, after);
+    link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
   if ((size_t) last_basic_block >= VARRAY_SIZE (basic_block_info))
@@ -446,7 +446,7 @@ make_edges (void)
 	    make_ctrl_stmt_edges (bb);
 
 	  /* Edges for statements that sometimes alter flow control.  */
-	  if (is_ctrl_altering_stmt (last))
+	  if (is_ctrl_altering_stmt (last) || lookup_stmt_eh_region (last) > 0)
 	    make_exit_edges (bb);
 	}
 
@@ -1197,6 +1197,7 @@ remove_useless_stmts_warn_notreached (tree stmt)
   return false;
 }
 
+#if 0
 static void
 remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 {
@@ -1451,7 +1452,7 @@ remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
       data->repeat = true;
     }
 }
-
+#endif
 
 static void
 remove_useless_stmts_goto (tree *stmt_p, struct rus_data *data)
@@ -1542,20 +1543,15 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
   switch (TREE_CODE (t))
     {
     case COND_EXPR:
-      remove_useless_stmts_cond (tp, data);
+      /*remove_useless_stmts_cond (tp, data);*/
+      fold_stmt (tp);
       break;
 
     case TRY_FINALLY_EXPR:
-      remove_useless_stmts_tf (tp, data);
-      break;
-
     case TRY_CATCH_EXPR:
-      remove_useless_stmts_tc (tp, data);
-      break;
-
     case BIND_EXPR:
-      remove_useless_stmts_bind (tp, data);
-      break;
+      /* We're gimple now.  */
+      abort ();
 
     case GOTO_EXPR:
       remove_useless_stmts_goto (tp, data);
@@ -1567,6 +1563,12 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 
     case RETURN_EXPR:
       fold_stmt (tp);
+      op = get_call_expr_in (t);
+      if (op)
+	{
+	  update_call_expr_flags (op);
+	  notice_special_calls (op);
+	}
       data->last_goto = NULL;
       data->may_branch = true;
       break;
@@ -1628,6 +1630,11 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       break;
     }
 }
+
+/* This cleanup runs just after the inliner; it is not currently
+   CFG aware and thus does not do any removal of unneeded
+   control-flow statements, but could be made to do this.
+   Tree has been gimplified and EH has been lowered.  */
 
 static void
 remove_useless_stmts (void)

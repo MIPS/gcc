@@ -534,6 +534,16 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 	if (DECL_INITIAL (step))
 	  walk_tree (&DECL_INITIAL (step), record_call_1, node, visited_nodes);
     }
+  /* Also look here for private statics.  */
+  if (DECL_STRUCT_FUNCTION (body))
+    for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
+	 step;
+	 step = TREE_CHAIN (step))
+      {
+	tree decl = TREE_VALUE (step);
+	if (DECL_INITIAL (decl) && TREE_STATIC (decl))
+	  walk_tree (&DECL_INITIAL (decl), record_call_1, node, visited_nodes);
+      }
   htab_delete (visited_nodes);
   visited_nodes = NULL;
 }
