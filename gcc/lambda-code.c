@@ -1724,11 +1724,11 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	for (j = 0; j < NUM_USES (uses); j++)
 	  {
 	    size_t k;
-	    tree *use = USE_OP_PTR (uses, j);
+	    use_operand_p use = USE_OP_PTR (uses, j);
 	    for (k = 0; k < VARRAY_ACTIVE_SIZE (old_ivs); k++)
 	      {
 		tree oldiv = VARRAY_TREE (old_ivs, k);
-		if (*use == oldiv)
+		if (USE_FROM_PTR (use) == oldiv)
 		  {
 		    tree newiv, stmts;
 		    lambda_body_vector lbv;
@@ -1751,12 +1751,12 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 		      {
 			fprintf (dump_file, 
 				 "Replacing induction variable use of ");
-			print_generic_stmt (dump_file, *use, 0);
+			print_generic_stmt (dump_file, USE_FROM_PTR (use), 0);
 			fprintf (dump_file, " with ");
 			print_generic_stmt (dump_file, newiv, 0);
 			fprintf (dump_file, "\n");
 		      }
-		    *use = newiv;
+		    SET_USE (use, newiv);
 		  }
 	      }
 	    

@@ -72,7 +72,7 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 
 	      new_e = bb->pred;
 	      e = (peeling && bb->rbi->copy_number == 1 ? entry : latch);
-	      def = phi_element_for_edge (phi, e)->def;
+	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      add_phi_arg (&new_phi, def, new_e);
 	      continue;
 	    }
@@ -83,7 +83,7 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 	      if (!e)
 		abort ();
 
-	      def = phi_element_for_edge (phi, e)->def;
+	      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      add_phi_arg (&new_phi, def, new_e);
 	    }
 	}
@@ -99,8 +99,10 @@ copy_phi_nodes (struct loop *loop, unsigned first_new_block, bool peeling)
 	 both edges.  */
       for (phi = phi_nodes (loop->header); phi; phi = TREE_CHAIN (phi))
 	{
-	  def = phi_element_for_edge (phi, latch)->def;
-	  phi_element_for_edge (phi, entry)->def = def;
+	  int i;
+	  def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
+	  i = phi_arg_from_edge (phi, entry);
+	  SET_PHI_ARG_DEF (phi, i, def);
 	}
     }
 }
@@ -186,17 +188,14 @@ allocate_new_names (tree definitions, unsigned ndupl, bool origin)
    copy of the loop body we are renaming.  */
 
 static void
-rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
+rename_use_op (use_operand_p op_p, unsigned n_copy)
 {
   tree *new_names;
 
-  if(!op_p)
+  if (TREE_CODE (USE_FROM_PTR (op_p)) != SSA_NAME)
     return;
 
-  if (TREE_CODE (*op_p) != SSA_NAME)
-    return;
-
-  new_names = SSA_NAME_AUX (*op_p);
+  new_names = SSA_NAME_AUX (USE_FROM_PTR (op_p));
 
   /* Something defined outside of the loop.  */
   if (!new_names)
@@ -204,9 +203,31 @@ rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
 
   /* An ordinary ssa name defined in the loop.  */
 
-  *op_p = new_names[n_copy];
-  if (def)
-    SSA_NAME_DEF_STMT (*op_p) = stmt;
+  SET_USE (op_p, new_names[n_copy]);
+}
+
+/* Renames the variable *OP_P in statement STMT.  If DEF is true,
+   *OP_P is defined by the statement.  N_COPY is the number of the
+   copy of the loop body we are renaming.  */
+
+static void
+rename_def_op (def_operand_p op_p, tree stmt, unsigned n_copy)
+{
+  tree *new_names;
+
+  if (TREE_CODE (DEF_FROM_PTR (op_p)) != SSA_NAME)
+    return;
+
+  new_names = SSA_NAME_AUX (DEF_FROM_PTR (op_p));
+
+  /* Something defined outside of the loop.  */
+  if (!new_names)
+    return;
+
+  /* An ordinary ssa name defined in the loop.  */
+
+  SET_DEF (op_p, new_names[n_copy]);
+  SSA_NAME_DEF_STMT (DEF_FROM_PTR (op_p)) = stmt;
 }
 
 /* Renames the variables in basic block BB.  */
@@ -227,7 +248,7 @@ rename_variables_in_bb (basic_block bb)
   edge e;
 
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    rename_op (&PHI_RESULT (phi), true, phi, nbb);
+    rename_def_op (PHI_RESULT_PTR (phi), phi, nbb);
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
@@ -237,32 +258,32 @@ rename_variables_in_bb (basic_block bb)
 
       uses = USE_OPS (ann);
       for (i = 0; i < NUM_USES (uses); i++)
-	rename_op (USE_OP_PTR (uses, i), false, stmt, nbb);
+	rename_use_op (USE_OP_PTR (uses, i), nbb);
 
       defs = DEF_OPS (ann);
       for (i = 0; i < NUM_DEFS (defs); i++)
-	rename_op (DEF_OP_PTR (defs, i), true, stmt, nbb);
+	rename_def_op (DEF_OP_PTR (defs, i), stmt, nbb);
 
       vuses = VUSE_OPS (ann);
       for (i = 0; i < NUM_VUSES (vuses); i++)
-	rename_op (VUSE_OP_PTR (vuses, i), false, stmt, nbb);
+	rename_use_op (VUSE_OP_PTR (vuses, i), nbb);
 
       v_may_defs = V_MAY_DEF_OPS (ann);
       for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  rename_op (V_MAY_DEF_OP_PTR (v_may_defs, i), false, stmt, nbb);
-	  rename_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), true, stmt, nbb);
+	  rename_use_op (V_MAY_DEF_OP_PTR (v_may_defs, i), nbb);
+	  rename_def_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, nbb);
 	}
 
       v_must_defs = V_MUST_DEF_OPS (ann);
       for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	rename_op (V_MUST_DEF_OP_PTR (v_must_defs, i), true, stmt, nbb);
+	rename_def_op (V_MUST_DEF_OP_PTR (v_must_defs, i), stmt, nbb);
 
     }
 
   for (e = bb->succ; e; e = e->succ_next)
     for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-      rename_op (&phi_element_for_edge (phi, e)->def, false, phi, nbb);
+      rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), nbb);
 }
 
 /* Renames variables in the area copied by tree_duplicate_loop_to_header_edge.
@@ -331,7 +352,7 @@ extend_exit_phi_nodes (unsigned first_new_block, edge exit)
 
   for (phi = phi_nodes (exit_block); phi; phi = TREE_CHAIN (phi))
     {
-      def = phi_element_for_edge (phi, exit)->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
 
       for (ae = exit_block->pred; ae; ae = ae->pred_next)
 	{
@@ -1007,7 +1028,7 @@ tdlte_copy_phi_nodes (struct loop *loop, struct loop *new_loop)
     {
       new_phi = create_phi_node (PHI_RESULT (phi), new_loop->header);
       new_e = new_loop->header->pred;
-      def = phi_element_for_edge (phi, latch)->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, latch);
       add_phi_arg (&new_phi, def, new_e);
     }
 
@@ -1167,7 +1188,7 @@ tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
   for (phi = phi_nodes (new_loop->header); phi; phi = TREE_CHAIN (phi))
     {
       pred = new_loop->header->pred;
-      def = phi_element_for_edge (phi, pred)->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, pred);
 
       if (TREE_CODE (def) != SSA_NAME)
 	continue;

@@ -239,7 +239,22 @@ get_v_must_def_ops (stmt_ann_t ann)
   return ann ? ann->v_must_def_ops : NULL;
 }
 
-static inline tree *
+/* Return the tree pointer to by USE.  */
+static inline tree
+get_use_from_ptr (use_operand_p use)
+{
+  return *(use.use);
+}
+
+/* Return the tree pointer to by DEF.  */
+static inline tree
+get_def_from_ptr (def_operand_p def)
+{
+  return *(def.def);
+}
+
+/* Return a use_operand_p pointer for element INDEX of USES.  */
+static inline use_operand_p
 get_use_op_ptr (use_optype uses, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
@@ -249,7 +264,8 @@ get_use_op_ptr (use_optype uses, unsigned int index)
   return uses->uses[index];
 }
 
-static inline tree *
+/* Return a def_operand_p pointer for element INDEX of DEFS.  */
+static inline def_operand_p
 get_def_op_ptr (def_optype defs, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
@@ -259,44 +275,75 @@ get_def_op_ptr (def_optype defs, unsigned int index)
   return defs->defs[index];
 }
 
-static inline tree *
-get_v_may_def_result_ptr(v_may_def_optype v_may_defs, unsigned int index)
+
+/* Return a def_operand_p pointer for element INDEX of V_MAY_DEFS.  */
+static inline def_operand_p
+get_v_may_def_result_ptr (v_may_def_optype v_may_defs, unsigned int index)
 {
+   def_operand_p op;
 #ifdef ENABLE_CHECKING
   if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(v_may_defs->v_may_defs[index * 2]);
+  op.def = &(v_may_defs->v_may_defs[index * 2]);
+  return op;
 }
 
-static inline tree *
+/* Return a use_operand_p pointer for element INDEX of V_MAY_DEFS.  */
+static inline use_operand_p
 get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
+  use_operand_p op;
 #ifdef ENABLE_CHECKING
   if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(v_may_defs->v_may_defs[index * 2 + 1]);
+  op.use = &(v_may_defs->v_may_defs[index * 2 + 1]);
+  return op;
 }
 
-static inline tree *
+/* Return a use_operand_p pointer for element INDEX of VUSES.  */
+static inline use_operand_p
 get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
 {
+  use_operand_p op;
 #ifdef ENABLE_CHECKING
   if (index >= vuses->num_vuses)
     abort();
 #endif
-  return &(vuses->vuses[index]);
+  op.use = &(vuses->vuses[index]);
+  return op;
 }
 
-static inline tree *
+/* Return a def_operand_p pointer for element INDEX of V_MUST_DEFS.  */
+static inline def_operand_p
 get_v_must_def_op_ptr (v_must_def_optype v_must_defs, unsigned int index)
 {
+  def_operand_p op;
 #ifdef ENABLE_CHECKING
   if (index >= v_must_defs->num_v_must_defs)
     abort();
 #endif
-  return &(v_must_defs->v_must_defs[index]);
+  op.def = &(v_must_defs->v_must_defs[index]);
+  return op;
+}
+
+/* Return a def_operand_p pointer for the result of PHI.  */
+static inline def_operand_p
+get_phi_result_ptr (tree phi)
+{
+  def_operand_p op;
+  op.def = &(PHI_RESULT_TREE (phi));
+  return op;
+}
+
+/* Return a use_operand_p pointer for argument I of phinode PHI.  */
+static inline use_operand_p
+get_phi_arg_def_ptr (tree phi, int i)
+{
+  use_operand_p op;
+  op.use = &(PHI_ARG_DEF_TREE (phi, i));
+  return op;
 }
 
 static inline void
@@ -392,20 +439,6 @@ phi_arg_from_edge (tree phi, edge e)
       return i;
 
   return -1;
-}
-
-
-/* Return the phi argument number for an edge.  */
-static inline struct phi_arg_d *
-phi_element_for_edge (tree phi, edge e)
-{
-  int i;
-
-  i = phi_arg_from_edge (phi, e);
-  if (i != -1)
-    return &(PHI_ARG_ELT (phi, i));
-  else
-    return (struct phi_arg_d *)NULL;
 }
 
 /*  -----------------------------------------------------------------------  */

@@ -1747,7 +1747,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
 			      }
 			  }
 
-		      PHI_ARG_DEF (phi1, j) = ni_name;
+		      SET_PHI_ARG_DEF (phi1, j, ni_name);
 		      PHI_ARG_EDGE (phi1, j) = pe;
 		      
 		      break;

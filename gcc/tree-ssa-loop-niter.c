@@ -734,8 +734,8 @@ get_base_for (struct loop *loop, tree x)
   if (!phi)
     return NULL_TREE;
 
-  init = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
-  next = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
+  init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
+  next = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));
 
   if (TREE_CODE (next) != SSA_NAME)
     return NULL_TREE;
@@ -756,8 +756,9 @@ get_base_for (struct loop *loop, tree x)
 static tree
 get_val_for (tree x, tree base)
 {
-  tree stmt, *op, nx, val;
+  tree stmt, nx, val;
   use_optype uses;
+  use_operand_p op;
 
   if (!x)
     return base;
@@ -769,11 +770,11 @@ get_val_for (tree x, tree base)
   uses = STMT_USE_OPS (stmt);
   op = USE_OP_PTR (uses, 0);
 
-  nx = *op;
+  nx = USE_FROM_PTR (op);
   val = get_val_for (nx, base);
-  *op = val;
+  SET_USE (op, val);
   val = fold (TREE_OPERAND (stmt, 1));
-  *op = nx;
+  SET_USE (op, nx);
 
   return val;
 }
@@ -825,10 +826,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
     {
       if (TREE_CODE (phi[j]) == PHI_NODE)
 	{
-	  val[j] = phi_element_for_edge (phi[j],
-					 loop_preheader_edge (loop))->def;
-	  next[j] = phi_element_for_edge (phi[j],
-					  loop_latch_edge (loop))->def;
+	  val[j] = PHI_ARG_DEF_FROM_EDGE (phi[j], loop_preheader_edge (loop));
+	  next[j] = PHI_ARG_DEF_FROM_EDGE (phi[j], loop_latch_edge (loop));
 	}
       else
 	{

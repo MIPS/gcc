@@ -1098,7 +1098,7 @@ find_bivs (struct ivopts_data *data)
 	  && int_cst_value (step) == 0)
 	continue;
 
-      base = phi_element_for_edge (phi, loop_preheader_edge (loop))->def;
+      base = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
       if (contains_abnormal_ssa_name_p (base))
 	continue;
 
@@ -1129,7 +1129,7 @@ mark_bivs (struct ivopts_data *data)
       if (!iv)
 	continue;
 
-      var = phi_element_for_edge (phi, loop_latch_edge (loop))->def;
+      var = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));
       incr_iv = get_iv (data, var);
       if (!incr_iv)
 	continue;
@@ -1334,7 +1334,7 @@ find_interesting_uses_outer_or_nonlin (struct ivopts_data *data, tree op,
 {
   struct iv *iv;
   struct iv *civ;
-  tree stmt, *op_p;
+  tree stmt;
   struct iv_use *use;
 
   if (TREE_CODE (op) != SSA_NAME)
@@ -1368,14 +1368,11 @@ find_interesting_uses_outer_or_nonlin (struct ivopts_data *data, tree op,
   *civ = *iv;
 
   stmt = SSA_NAME_DEF_STMT (op);
-  if (TREE_CODE (stmt) == PHI_NODE)
-    op_p = &PHI_RESULT (stmt);
-  else if (TREE_CODE (stmt) == MODIFY_EXPR)
-    op_p = &TREE_OPERAND (stmt, 0);
-  else
+  if (TREE_CODE (stmt) != PHI_NODE
+      && TREE_CODE (stmt) != MODIFY_EXPR)
     abort ();
 
-  use = record_use (data, op_p, civ, stmt, type);
+  use = record_use (data, NULL, civ, stmt, type);
   iv->use_id = use->id;
 
   return use;
@@ -1608,7 +1605,7 @@ static void
 find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 {
   struct iv *iv;
-  tree *op_p, lhs, rhs;
+  tree op, lhs, rhs;
   use_optype uses = NULL;
   unsigned i, n;
 
@@ -1680,18 +1677,18 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
   for (i = 0; i < n; i++)
     {
       if (TREE_CODE (stmt) == PHI_NODE)
-	op_p = &PHI_ARG_DEF (stmt, i);
+	op = PHI_ARG_DEF (stmt, i);
       else
-	op_p = USE_OP_PTR (uses, i);
+	op = USE_OP (uses, i);
 
-      if (TREE_CODE (*op_p) != SSA_NAME)
+      if (TREE_CODE (op) != SSA_NAME)
 	continue;
 
-      iv = get_iv (data, *op_p);
+      iv = get_iv (data, op);
       if (!iv)
 	continue;
 
-      find_interesting_uses_op (data, *op_p);
+      find_interesting_uses_op (data, op);
     }
 }
 
@@ -1705,7 +1702,7 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 
   for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
     {
-      def = phi_element_for_edge (phi, exit)->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       find_interesting_uses_outer (data, def);
     }
 }
@@ -1907,8 +1904,7 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
     {
       /* Additionally record the possibility of leaving the original iv
 	 untouched.  */
-      def = phi_element_for_edge (phi,
-				  loop_latch_edge (data->current_loop))->def;
+      def = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (data->current_loop));
       cand = add_candidate_1 (data,
 			      iv->base, iv->step, true, IP_ORIGINAL, NULL,
 			      SSA_NAME_DEF_STMT (def));
@@ -4066,7 +4062,7 @@ remove_statement (tree stmt, bool including_defined_name)
       if (!including_defined_name)
 	{
 	  /* Prevent the ssa name defined by the statement from being removed.  */
-	  PHI_RESULT (stmt) = NULL;
+	  SET_PHI_RESULT (stmt, NULL);
 	}
       remove_phi_node (stmt, NULL_TREE, bb_for_stmt (stmt));
     }
@@ -4106,13 +4102,15 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	  bsi_next (&pbsi);
 	}
     }
-  else
+  else if (TREE_CODE (use->stmt) == MODIFY_EXPR)
     {
       tgt = TREE_OPERAND (use->stmt, 0);
       bsi = stmt_bsi (use->stmt);
     }
+  else
+    abort ();
 
-  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (*use->op_p));
+  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (tgt));
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
@@ -4284,17 +4282,18 @@ split_loop_exit_edge (edge exit)
 {
   basic_block dest = exit->dest;
   basic_block bb = loop_split_edge_with (exit, NULL);
-  tree phi, *def_p, new_phi, new_name;
+  tree phi, new_phi, new_name;
+  use_operand_p op_p;
 
   for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
     {
-      def_p = &phi_element_for_edge (phi, bb->succ)->def;
+      op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, bb->succ);
 
-      new_name = duplicate_ssa_name (*def_p, NULL);
+      new_name = duplicate_ssa_name (USE_FROM_PTR (op_p), NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;
-      add_phi_arg (&new_phi, *def_p, exit);
-      *def_p = new_name;
+      add_phi_arg (&new_phi, USE_FROM_PTR (op_p), exit);
+      SET_USE (op_p, new_name);
     }
 }
 
@@ -4302,16 +4301,17 @@ split_loop_exit_edge (edge exit)
    violating loop closed ssa form.  */
 
 static void
-protect_loop_closed_ssa_form_use (edge exit, tree *op_p)
+protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
 {
   basic_block def_bb;
   struct loop *def_loop;
-  tree phi;
+  tree phi, use;
 
-  if (TREE_CODE (*op_p) != SSA_NAME)
+  use = USE_FROM_PTR (op_p);
+  if (TREE_CODE (use) != SSA_NAME)
     return;
 
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (*op_p));
+  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
   if (!def_bb)
     return;
 
@@ -4321,20 +4321,20 @@ protect_loop_closed_ssa_form_use (edge exit, tree *op_p)
 
   /* Try finding a phi node that copies the value out of the loop.  */
   for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
-    if (phi_element_for_edge (phi, exit)->def == *op_p)
+    if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
       break;
 
   if (!phi)
     {
       /* Create such a phi node.  */
-      tree new_name = duplicate_ssa_name (*op_p, NULL);
+      tree new_name = duplicate_ssa_name (use, NULL);
 
       phi = create_phi_node (new_name, exit->dest);
       SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (&phi, *op_p, exit);
+      add_phi_arg (&phi, use, exit);
     }
 
-  *op_p = PHI_RESULT (phi);
+  SET_USE (op_p, PHI_RESULT (phi));
 }
 
 /* Ensure that operands of STMT may be used at the end of EXIT without
@@ -4398,7 +4398,7 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
     {
       next = TREE_CHAIN (phi);
 
-      if (phi_element_for_edge (phi, exit)->def == op)
+      if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
 	{
 	  def = PHI_RESULT (phi);
 	  remove_statement (phi, false);
@@ -4418,9 +4418,15 @@ rewrite_use_outer (struct ivopts_data *data,
 		   struct iv_use *use, struct iv_cand *cand)
 {
   edge exit;
-  tree value, op, stmts, tgt = *use->op_p;
+  tree value, op, stmts, tgt;
   tree phi;
 
+  if (TREE_CODE (use->stmt) == PHI_NODE)
+    tgt = PHI_RESULT (use->stmt);
+  else if (TREE_CODE (use->stmt) == MODIFY_EXPR)
+    tgt = TREE_OPERAND (use->stmt, 0);
+  else
+    abort ();
   exit = loop_data (data->current_loop)->single_exit;
 
   if (exit)
@@ -4443,10 +4449,10 @@ rewrite_use_outer (struct ivopts_data *data,
 
       for (phi = phi_nodes (exit->dest); phi; phi = TREE_CHAIN (phi))
 	{
-	  tree *def_p = &phi_element_for_edge (phi, exit)->def;
+	  use_operand_p use_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, exit);
 
-	  if (*def_p == tgt)
-	    *def_p = op;
+	  if (USE_FROM_PTR (use_p) == tgt)
+	    SET_USE (use_p, op);
 	}
 
       if (stmts)
