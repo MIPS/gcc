@@ -1,5 +1,11 @@
 2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
 
+        * testsuite/gcc.c-torture/compile/simd-6.c: New.
+
+        * c-typeck.c (digest_init): Handle arrays of vector constants.
+
+2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
         * testsuite/gcc.dg/20030505.c: New.
 
         * c-typeck.c (convert_for_assignment): Opaque pointers can
