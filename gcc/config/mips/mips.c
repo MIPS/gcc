@@ -6295,8 +6295,8 @@ mips_reloc_string (reloc)
     case RELOC_GPREL16:	  return "%gprel(";
     case RELOC_GOT_HI:	  return "%got_hi(";
     case RELOC_GOT_LO:	  return "%got_lo(";
-    case RELOC_GOT_PAGE:  return "%got_page(";
-    case RELOC_GOT_DISP:  return "%got_disp(";
+    case RELOC_GOT_PAGE:  return (TARGET_NEWABI ? "%got_page(" : "%got(");
+    case RELOC_GOT_DISP:  return (TARGET_NEWABI ? "%got_disp(" : "%got(");
     case RELOC_CALL16:	  return "%call16(";
     case RELOC_CALL_HI:	  return "%call_hi(";
     case RELOC_CALL_LO:	  return "%call_lo(";
@@ -8486,8 +8486,31 @@ mips_encode_section_info (decl, first)
 
   else if (TARGET_ABICALLS)
     {
-      /* Mark the symbol if it is local to this compilation unit.  */
-      SYMBOL_REF_FLAG (symbol) = (*targetm.binds_local_p) (decl);
+      /* Mark the symbol if we should treat it as SYMBOL_GOT_LOCAL.
+	 There are three cases to consider:
+
+	    - o32 PIC (either with or without explicit relocs)
+	    - n32/n64 PIC without explict relocs
+	    - n32/n64 PIC with explicit relocs
+
+	 In the first case, both local and global accesses will use an
+	 R_MIPS_GOT16 relocation.  We must correctly predict which of
+	 the two semantics (local or global) the assembler and linker
+	 will apply.  The choice doesn't depend on the symbol's
+	 visibility, so we deliberately ignore decl_visiblity and
+	 binds_local_p here.
+
+	 In the second case, the assembler will not use R_MIPS_GOT16
+	 relocations, but it chooses between local and global accessees
+	 in the same way as for o32 PIC.
+
+	 In the third case we have more freedom since both forms of
+	 access will work for any kind of symbol.  However, there seems
+	 little point in doing things differently.  */
+      if (DECL_P (decl) && TREE_PUBLIC (decl))
+	SYMBOL_REF_FLAG (symbol) = 0;
+      else
+	SYMBOL_REF_FLAG (symbol) = 1;
     }
 
   else if (TREE_CODE (decl) == VAR_DECL

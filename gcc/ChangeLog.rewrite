@@ -1,3 +1,11 @@
+2003-02-23  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.c (mips_reloc_string): Return "%got(" for
+	RELOC_GOT_PAGE and RELOC_GOT_DISP if !TARGET_NEWABI.
+	(mips_encode_section_info): Don't take symbol visibility into
+	account if TARGET_ABICALLS.  Add more commentary.
+	* config/mips/mips.md: Add commentary above reloc constants.
+
 2003-02-12  Richard Sandiford  <rsandifo@redhat.com>
 
 	* config/mips/mips.c (mips_legitimize_const_move): New, extracted

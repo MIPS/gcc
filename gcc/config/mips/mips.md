@@ -50,6 +50,11 @@
    (UNSPEC_ALIGN_8		20)
    (UNSPEC_CPADD		21)
    (UNSPEC_HIGH			22)
+
+   ;; Constants used in relocation unspecs.  RELOC_GOT_PAGE and RELOC_GOT_DISP
+   ;; are really only available for n32 and n64.  However, it is convenient
+   ;; to reuse them for SVR4 PIC, where they represent the local and global
+   ;; forms of R_MIPS_GOT16.
    (RELOC_GPREL16		100)
    (RELOC_GOT_HI		101)
    (RELOC_GOT_LO		102)
