@@ -288,10 +288,6 @@ typedef struct loop_replace_args
    && INSN_LUID (INSN) >= INSN_LUID (START)	\
    && INSN_LUID (INSN) <= INSN_LUID (END))
 
-/* Indirect_jump_in_function is computed once per function.  */
-static int indirect_jump_in_function;
-static int indirect_jump_in_function_p PARAMS ((rtx));
-
 static int compute_luids PARAMS ((rtx, rtx, int));
 
 static int biv_elimination_giv_has_0_offset PARAMS ((struct induction *,
@@ -446,10 +442,6 @@ loop_optimize (f, dumpfile, flags)
   for (i = 0; i < max_uid_for_loop; i++)
     if (uid_luid[i] == 0)
       uid_luid[i] = uid_luid[i - 1];
-
-  /* Determine if the function has indirect jump.  On some systems
-     this prevents low overhead loop instructions from being used.  */
-  indirect_jump_in_function = indirect_jump_in_function_p (f);
 
   /* Now scan the loops, last ones first, since this means inner ones are done
      before outer ones.  */
@@ -2420,7 +2412,6 @@ prescan_loop (loop)
      might end up between the two.  */
   rtx exit_target = next_nonnote_insn (end);
 
-  loop_info->has_indirect_jump = indirect_jump_in_function;
   loop_info->pre_header_has_call = 0;
   loop_info->has_call = 0;
   loop_info->has_nonconst_call = 0;
@@ -8845,23 +8836,6 @@ get_condition_for_loop (loop, x)
 
   return gen_rtx_fmt_ee (swap_condition (GET_CODE (comparison)), VOIDmode,
 			 XEXP (comparison, 1), XEXP (comparison, 0));
-}
-
-/* Scan the function and determine whether it has indirect (computed) jumps.
-
-   This is taken mostly from flow.c; similar code exists elsewhere
-   in the compiler.  It may be useful to put this into rtlanal.c.  */
-static int
-indirect_jump_in_function_p (start)
-     rtx start;
-{
-  rtx insn;
-
-  for (insn = start; insn; insn = NEXT_INSN (insn))
-    if (computed_jump_p (insn))
-      return 1;
-
-  return 0;
 }
 
 /* Add MEM to the LOOP_MEMS array, if appropriate.  See the

@@ -206,7 +206,9 @@ static void df_bitmaps_free PARAMS((struct df *, int));
 static void df_free PARAMS((struct df *));
 static void df_alloc PARAMS((struct df *, int));
 
+#if 0
 static rtx df_reg_clobber_gen PARAMS((unsigned int));
+#endif
 static rtx df_reg_use_gen PARAMS((unsigned int));
 
 static struct df_link *df_ref_unlink PARAMS((struct df_link **, struct ref *));
@@ -243,7 +245,7 @@ static void df_bb_du_chain_create PARAMS((struct df *, basic_block, bitmap));
 static void df_du_chain_create PARAMS((struct df *, bitmap));
 static void df_bb_ud_chain_create PARAMS((struct df *, basic_block));
 static void df_ud_chain_create PARAMS((struct df *, bitmap));
-static void df_bb_rd_local_compute PARAMS((struct df *, basic_block));
+static void df_bb_rd_local_compute (struct df *, basic_block, bitmap *, bitmap);
 static void df_rd_local_compute PARAMS((struct df *, bitmap));
 static void df_bb_ru_local_compute PARAMS((struct df *, basic_block));
 static void df_ru_local_compute PARAMS((struct df *, bitmap));
@@ -598,7 +600,7 @@ static rtx df_reg_use_gen (regno)
   return use;
 }
 
-
+#if 0
 /* Return a CLOBBER for register REGNO.  */
 static rtx df_reg_clobber_gen (regno)
      unsigned int regno;
@@ -611,6 +613,7 @@ static rtx df_reg_clobber_gen (regno)
   use = gen_rtx_CLOBBER (GET_MODE (reg), reg);
   return use;
 }
+#endif
 
 /* Local chain manipulation routines.  */
 
@@ -1255,6 +1258,11 @@ df_insn_refs_record (df, bb, insn)
 	{
 	  rtx note;
 
+	  /* The problem here is that there are awfully many hard registers
+	     clobbered by call and "defs" created through them are not
+	     interesting.  So we must just make sure we include them when
+	     computing kill bitmaps.  */
+#if 0
 	  if (df->flags & DF_HARD_REGS)
 	    {
 	      /* Kill all registers invalidated by a call.  */
@@ -1265,6 +1273,7 @@ df_insn_refs_record (df, bb, insn)
 		    df_defs_record (df, reg_clob, bb, insn);
 		  }
 	    }
+#endif
 
 	  /* There may be extra registers to be clobbered.  */
 	  for (note = CALL_INSN_FUNCTION_USAGE (insn);
@@ -1645,15 +1654,15 @@ df_lr_transfer_function (bb, changed, in, out, use, def, data)
 
 /* Compute local reaching def info for basic block BB.  */
 static void
-df_bb_rd_local_compute (df, bb)
-     struct df *df;
-     basic_block bb;
+df_bb_rd_local_compute (struct df *df, basic_block bb, bitmap *regno_defs,
+			bitmap call_killed_defs)
 {
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
+  bitmap seen = BITMAP_XMALLOC ();
+  int call_seen = 0;
 
-  for (insn = bb->head; insn && insn != NEXT_INSN (bb->end);
-       insn = NEXT_INSN (insn))
+  for (insn = bb->end; insn != PREV_INSN (bb->head); insn = PREV_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
       struct df_link *def_link;
@@ -1665,27 +1674,27 @@ df_bb_rd_local_compute (df, bb)
 	{
 	  struct ref *def = def_link->ref;
 	  unsigned int regno = DF_REF_REGNO (def);
-	  struct df_link *def2_link;
 
-	  for (def2_link = df->regs[regno].defs; def2_link;
-	       def2_link = def2_link->next)
-	    {
-	      struct ref *def2 = def2_link->ref;
+	  if (bitmap_bit_p (seen, regno)
+	      || (call_seen
+		  && regno < FIRST_PSEUDO_REGISTER
+		  && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)))
+	    continue;
 
-	      /* Add all defs of this reg to the set of kills.  This
-		 is greedy since many of these defs will not actually
-		 be killed by this BB but it keeps things a lot
-		 simpler.  */
-	      bitmap_set_bit (bb_info->rd_kill, DF_REF_ID (def2));
-
-	      /* Zap from the set of gens for this BB.  */
-	      bitmap_clear_bit (bb_info->rd_gen, DF_REF_ID (def2));
-	    }
-
+	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
+			    regno_defs[regno], BITMAP_IOR);
 	  bitmap_set_bit (bb_info->rd_gen, DF_REF_ID (def));
+	  bitmap_set_bit (seen, regno);
+	}
+      if (GET_CODE (insn) == CALL_INSN && (df->flags & DF_HARD_REGS))
+	{
+	  bitmap_operation (bb_info->rd_kill, bb_info->rd_kill,
+			    call_killed_defs, BITMAP_IOR);
+	  call_seen = 1;
 	}
     }
 
+  BITMAP_XFREE (seen);
   bb_info->rd_valid = 1;
 }
 
@@ -1697,11 +1706,37 @@ df_rd_local_compute (df, blocks)
      bitmap blocks;
 {
   basic_block bb;
+  bitmap *regno_defs;
+  bitmap killed_by_call = NULL;
+  struct df_link *def_link;
+  unsigned regno;
+
+  regno_defs = xmalloc (sizeof (bitmap) * df->reg_size);
+  for (regno = 0; regno < df->reg_size; regno++)
+    {
+      regno_defs[regno] = BITMAP_XMALLOC ();
+      for (def_link = df->regs[regno].defs; def_link; def_link = def_link->next)
+	bitmap_set_bit (regno_defs[regno], DF_REF_ID (def_link->ref));
+    }
+  if (df->flags & DF_HARD_REGS)
+    {
+      killed_by_call = BITMAP_XMALLOC ();
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
+	  bitmap_operation (killed_by_call, killed_by_call,
+			    regno_defs[regno], BITMAP_IOR);
+    }
 
   FOR_EACH_BB_IN_BITMAP (blocks, 0, bb,
   {
-    df_bb_rd_local_compute (df, bb);
+    df_bb_rd_local_compute (df, bb, regno_defs, killed_by_call);
   });
+
+  for (regno = 0; regno < df->reg_size; regno++)
+    BITMAP_XFREE (regno_defs[regno]);
+  free (regno_defs);
+  if (df->flags & DF_HARD_REGS)
+    BITMAP_XFREE (killed_by_call);
 }
 
 

@@ -1,3 +1,77 @@
+2003-07-09  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-invariant.c: New file.
+	* Makefile.in (STRICT_WARN, STRICT2_WARN): Remove -Wtraditional.
+	(OBJS): Add loop-invariant.o.
+	(loop-init.o): Add flags.h and $(TIMEVAR_H) dependency.
+	(loop-invariant.o): New.
+	* algebraic.c: Ansify.
+	(substitute_into_expr): Handle SIE_DEFAULT_ID.
+	* algebraic.h: Ansify.
+	(SIE_DEFAULT_ID): New flag for substitute_into_expr.
+	* basic-block.h (def_enum_to_p): Declare.
+	(fast_dom): Declare.
+	(fast_dominated_by_p, create_fq_dominators, release_fq_dominators):
+	Use global fast dominance structure.
+	* cfganal.c (can_fallthru): Fix.
+	* cfglayout.c (fixup_reorder_chain): Handle jumptables.
+	* cfgloop.c (glb_enum_p): Renamed to ...
+	(def_enum_to_p): ... and exported.
+	(get_loop_body): Use it.
+	(get_loop_exit_edges): Fix.
+	(verify_loop_structure): Check landing pads.
+	* cfgloop.h: Ansify.
+	(struct loop): Added fields info and landing_pad.
+	(LOOPS_HAVE_LANDING_PADS): New flag.
+	(struct iv_occurence): Add field value.
+	(struct movable_list, struct loop_df_info): New.
+	(DF_REF_AUX_VALUE, DF_REF_AUX_MOVABLE): New.
+	(loop_df, block_dominance_order): Declare.
+	(loop_optimizer_optimize, find_movables, loops_invariant_motion,
+	create_landing_pads): New.
+	* cfgloopanal.c (get_loop_level): New.
+	* cfgloopmanip.c (create_landing_pads): New.
+	* cfgrtl.c (can_delete_note_p): Export.
+	(force_nonfallthru_and_redirect): Don't skip dead jumptable.
+	* df.c (df_reg_clobber_gen): Removed.
+	(df_bb_rd_local_compute, df_insn_refs_record, df_rd_local_compute):
+	Make more effective for hard regs.
+	* doloop.c (get_loop_level): Moved to cfgloopanal.c.
+	* dominance.c (fast_dom): New variable.
+	(create_fq_dominators, release_fq_dominators): Work on global
+	structure.
+	* flags.h (flag_unroll_loops, flag_unroll_all_loops,
+	flag_reroll_loops, flag_peel_loops): Declare.
+	* loop-init.c: Include flags.h and timevar.h.
+	(loop_optimizer_optimize): New.
+	* loop-iv.c (block_dominance_order): Export.
+	(df): Rename to ...
+	(loop_df): ... and export.
+	(dom): Removed.
+	(enter_iv_occurence, record_iv_occurences_1): Initialize value field.
+	(dump_insn_ivs, record_def_value, record_use_value, get_def_value,
+	get_use_value, clear_reg_values, get_reg_value_at,
+	iv_load_used_values, compute_reg_values, simplify_reg_values,
+	fill_loop_rd_in_for_def, fill_rd_for_defs, initialize_iv_analysis,
+	finalize_iv_analysis, compute_loop_end_values, compute_initial_values,
+	record_iv_occurences, iv_new_insn_changes_commit): Use DF_REF_AUX_VALUE.
+	(iv_emit_insn_before, iv_emit_insn_after): Return the last insn
+	emitted.
+	(initialize_iv_analysis): Create df also for hard regs.
+	* loop-unroll.c (unroll_and_peel_loops): Kill landing pads.
+	* loop.h (struct loop_info): Add bb_after_exit, bb_after_call and
+	body fields.
+	* params.def (LIM_SPILL_COST, LIM_N_USABLE_REGS, LIM_N_CALL_REGS,
+	LIM_REGS_PER_LOOP_LEVEL, LIM_INSNS_PER_REG, LIM_LIFESPAN_WEIGHT,
+	LIM_GAIN_WEIGHT, LIM_REG_WEIGHT): New params.
+	* rtl.h (can_delete_note_p): Declare.
+	* toplev.c (rest_of_compilation): Disable old loop optimizer. Call
+	loop_optimizer_optimize.  Move one copy propagation pass after new
+	loop optimizer.
+	* config/i386/i386.c (override_options): Disable red zone on i386.
+	* loop.c (indirect_jump_in_function, indirect_jump_in_function_p):
+	Removed.
+
 2003-06-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* el-rtx.h: New.

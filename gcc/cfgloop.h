@@ -96,11 +96,17 @@ struct loop
   struct loop_desc desc;
   int has_desc;
 
+  /* Various information about loop.  */
+  struct loop_info *info;
+
   /* Number of loop insns.  */
   unsigned ninsns;
 
   /* Average number of executed insns per iteration.  */
   unsigned av_ninsns;
+
+  /* Landing pad, if the loop has one.  */
+  basic_block landing_pad;
 
   /* Array of edges along the preheader extended basic block trace.
      The source of the first edge is the root node of preheader
@@ -226,7 +232,8 @@ enum
   LOOPS_HAVE_PREHEADERS = 1,
   LOOPS_HAVE_SIMPLE_LATCHES = 2,
   LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
-  LOOPS_HAVE_HISTOGRAMS_ON_EDGES = 8
+  LOOPS_HAVE_HISTOGRAMS_ON_EDGES = 8,
+  LOOPS_HAVE_LANDING_PADS = 16
 };
 
 /* Structure to hold CFG information about natural loops within a function.  */
@@ -318,6 +325,7 @@ struct iv_occurence
 					   initial values.  It includes value
 					   of delta, i.e. the iv has also
 					   value local_base + iteration * step.  */
+  rtx value;				/* And the value itself.  */
   rtx insn;				/* The insn where the iv occurs.  */
   rtx *occurence;			/* The occurence itself. Either
 					   a set with this value, or a mem
@@ -344,52 +352,68 @@ struct iv_occurence_step_class
   rtx step;				/* Step of ivs in this class.  */
 };
 
+struct movable_list
+{
+  struct movable *elt;
+  struct movable_list *next;
+};
+
+struct loop_df_info
+{
+  rtx value;			/* For induction variable analysis.  */
+  struct movable *movable;	/* For loop invariant motion.  */
+};
+#define DF_REF_AUX_VALUE(REF) (((struct loop_df_info *) (REF)->aux)->value)
+#define DF_REF_AUX_MOVABLE(REF) (((struct loop_df_info *) (REF)->aux)->movable)
 
 /* For each loop, a linklist of induction variable occurences.  */
 extern struct iv_occurence_step_class **iv_occurences;
 
+/* The dataflow information.  */
+extern struct df *loop_df;
+
+/* The list of blocks in dominance order.  */
+extern basic_block *block_dominance_order;
+
 /* Loop recognition.  */
-extern int flow_loops_find		PARAMS ((struct loops *, int flags));
-extern int flow_loops_update		PARAMS ((struct loops *, int flags));
-extern void flow_loops_free		PARAMS ((struct loops *));
-extern void flow_loops_dump		PARAMS ((const struct loops *, FILE *,
-						void (*)(const struct loop *,
-						FILE *, int), int));
-extern void flow_loop_dump		PARAMS ((const struct loop *, FILE *,
-						void (*)(const struct loop *,
-						FILE *, int), int));
-extern int flow_loop_scan		PARAMS ((struct loops *,
-						struct loop *, int));
-extern void flow_loop_free		PARAMS ((struct loop *));
-void mark_irreducible_loops		PARAMS ((struct loops *));
+extern int flow_loops_find (struct loops *, int flags);
+extern int flow_loops_update (struct loops *, int flags);
+extern void flow_loops_free (struct loops *);
+extern void flow_loops_dump (const struct loops *, FILE *,
+			     void (*)(const struct loop *, FILE *, int), int);
+extern void flow_loop_dump (const struct loop *, FILE *,
+			    void (*)(const struct loop *, FILE *, int), int);
+extern int flow_loop_scan (struct loops *, struct loop *, int);
+extern void flow_loop_free (struct loop *);
+void mark_irreducible_loops (struct loops *);
 
 /* Loop datastructure manipulation/querying.  */
-extern void flow_loop_tree_node_add	PARAMS ((struct loop *, struct loop *));
-extern void flow_loop_tree_node_remove	PARAMS ((struct loop *));
-extern bool flow_loop_outside_edge_p	PARAMS ((const struct loop *, edge));
-extern bool flow_loop_nested_p		PARAMS ((const struct loop *,
-						const struct loop *));
-extern bool flow_bb_inside_loop_p	PARAMS ((const struct loop *,
-						const basic_block));
-extern struct loop * find_common_loop	PARAMS ((struct loop *, struct loop *));
-extern int num_loop_insns		PARAMS ((struct loop *));
-extern int average_num_loop_insns	PARAMS ((struct loop *));
+extern void flow_loop_tree_node_add (struct loop *, struct loop *);
+extern void flow_loop_tree_node_remove (struct loop *);
+extern bool flow_loop_outside_edge_p (const struct loop *, edge);
+extern bool flow_loop_nested_p (const struct loop *, const struct loop *);
+extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
+extern struct loop *find_common_loop (struct loop *, struct loop *);
+extern int num_loop_insns (struct loop *);
+extern int average_num_loop_insns (struct loop *);
+extern int get_loop_level (const struct loop *);
 
 /* Loops & cfg manipulation.  */
-extern basic_block *get_loop_body	PARAMS ((const struct loop *));
-extern edge *get_loop_exit_edges	PARAMS ((const struct loop *, unsigned *));
+extern basic_block *get_loop_body (const struct loop *);
+extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
+extern rtx loop_first_insn (const struct loop *);
 
-extern edge loop_preheader_edge		PARAMS ((const struct loop *));
-extern edge loop_latch_edge		PARAMS ((const struct loop *));
+extern edge loop_preheader_edge (const struct loop *);
+extern edge loop_latch_edge (const struct loop *);
 
-extern void add_bb_to_loop		PARAMS ((basic_block, struct loop *));
-extern void remove_bb_from_loops	PARAMS ((basic_block));
+extern void add_bb_to_loop (basic_block, struct loop *);
+extern void remove_bb_from_loops (basic_block);
 
-extern void cancel_loop			PARAMS ((struct loops *, struct loop *));
-extern void cancel_loop_tree		PARAMS ((struct loops *, struct loop *));
+extern void cancel_loop (struct loops *, struct loop *);
+extern void cancel_loop_tree (struct loops *, struct loop *);
 
-extern basic_block loop_split_edge_with PARAMS ((edge, rtx, struct loops *));
-extern int fix_loop_placement		PARAMS ((struct loop *));
+extern basic_block loop_split_edge_with (edge, rtx, struct loops *);
+extern int fix_loop_placement (struct loop *);
 
 enum
 {
@@ -397,68 +421,67 @@ enum
   CP_INSIDE_CFGLAYOUT = 2
 };
 
-extern void create_preheaders		PARAMS ((struct loops *, int));
-extern void force_single_succ_latches	PARAMS ((struct loops *));
+extern void create_preheaders (struct loops *, int);
+extern void force_single_succ_latches (struct loops *);
+extern void create_landing_pads (struct loops *);
 
-extern void move_histograms_to_loops	PARAMS ((struct loops *));
-extern struct loop_histogram *copy_histogram PARAMS ((struct loop_histogram *, int));
-extern void add_histogram		PARAMS ((struct loop_histogram *, struct loop_histogram *, int));
-extern void free_histogram		PARAMS ((struct loop_histogram *));
+extern void move_histograms_to_loops (struct loops *);
+extern struct loop_histogram *copy_histogram (struct loop_histogram *, int);
+extern void add_histogram (struct loop_histogram *, struct loop_histogram *,
+			   int);
+extern void free_histogram (struct loop_histogram *);
 
-extern void verify_loop_structure	PARAMS ((struct loops *));
+extern void verify_loop_structure (struct loops *);
 
 /* Loop analysis.  */
-extern void compute_simple_loop_info	PARAMS ((struct loops *));
-extern bool simple_loop_p		PARAMS ((struct loops *, struct loop *,
-						struct loop_desc *));
-extern rtx count_loop_iterations	PARAMS ((struct loop_desc *, rtx, rtx));
-extern bool just_once_each_iteration_p	PARAMS ((struct loops *,struct loop *,
-						 basic_block));
-extern unsigned expected_loop_iterations PARAMS ((const struct loop *));
+extern void compute_simple_loop_info (struct loops *);
+extern bool simple_loop_p (struct loops *, struct loop *, struct loop_desc *);
+extern rtx count_loop_iterations (struct loop_desc *, rtx, rtx);
+extern bool just_once_each_iteration_p (struct loops *,struct loop *,
+					basic_block);
+extern unsigned expected_loop_iterations (const struct loop *);
 
 /* Loop manipulation.  */
-extern bool can_duplicate_loop_p	PARAMS ((struct loop *loop));
+extern bool can_duplicate_loop_p (struct loop *loop);
 
 #define DLTHE_FLAG_UPDATE_FREQ		1
 #define DLTHE_PROB_UPDATING(X)		(X & 6)
 #define DLTHE_USE_HISTOGRAM_PROB	0
 #define DLTHE_USE_WONT_EXIT		2
-extern int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge,
-						struct loops *, unsigned,
-						sbitmap, edge, edge *,
-						unsigned *, int));
-extern struct loop *loopify		PARAMS ((struct loops *, edge,
-						edge, basic_block));
-extern void unloop			PARAMS ((struct loops *, struct loop *));
-extern bool remove_path			PARAMS ((struct loops *, edge));
-extern edge split_loop_bb		PARAMS ((struct loops *, basic_block,
-						rtx));
+extern int duplicate_loop_to_header_edge (struct loop *, edge,
+					  struct loops *, unsigned,
+					  sbitmap, edge, edge *,
+					  unsigned *, int);
+extern struct loop *loopify (struct loops *, edge, edge, basic_block);
+extern void unloop (struct loops *, struct loop *);
+extern bool remove_path (struct loops *, edge);
+extern edge split_loop_bb (struct loops *, basic_block, rtx);
 
 /* Induction variables analysis.  */
-extern void initialize_iv_analysis	PARAMS ((struct loops *));
-extern void finalize_iv_analysis	PARAMS ((void));
-extern void analyse_induction_variables	PARAMS ((void));
+extern void initialize_iv_analysis (struct loops *);
+extern void finalize_iv_analysis (void);
+extern void analyse_induction_variables (void);
 
 /* Functions to query and manipulate iv analysis results.  */
-extern void iv_load_used_values		PARAMS ((rtx, rtx *));
-extern rtx get_def_value		PARAMS ((rtx, unsigned));
-extern rtx get_use_value		PARAMS ((rtx, unsigned));
+extern void iv_load_used_values (rtx, rtx *);
+extern rtx get_def_value (rtx, unsigned);
+extern rtx get_use_value (rtx, unsigned);
 
 /* Some functions to manipulate iv rtxes.  */
-extern rtx iv_simplify_using_initial_values PARAMS ((enum rtx_code, rtx,
-						     struct loop *));
-extern rtx iv_omit_initial_values	PARAMS ((rtx));
+extern rtx iv_simplify_using_initial_values (enum rtx_code, rtx, struct loop *);
+extern rtx iv_omit_initial_values (rtx);
 
 /* Functions to alter insns while keeping the iv information up-to-date.  */
-extern void iv_emit_insn_before		PARAMS ((rtx, rtx));
-extern void iv_emit_insn_after		PARAMS ((rtx, rtx));
+extern rtx iv_emit_insn_before (rtx, rtx);
+extern rtx iv_emit_insn_after (rtx, rtx);
 
-/* Loop optimizer initialization.  */
-extern struct loops *loop_optimizer_init PARAMS ((FILE *));
-extern void loop_optimizer_finalize	PARAMS ((struct loops *, FILE *));
+/* Loop optimizer driver.  */
+extern struct loops *loop_optimizer_init (FILE *);
+extern void loop_optimizer_optimize (struct loops *);
+extern void loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Optimization passes.  */
-extern void unswitch_loops		PARAMS ((struct loops *));
+extern void unswitch_loops (struct loops *);
 
 enum
 {
@@ -467,8 +490,10 @@ enum
   UAP_UNROLL_ALL = 4	/* Enables peeling of all loops.  */
 };
 
-extern void decide_unrolling_and_peeling PARAMS ((struct loops *, int));
-extern void unroll_and_peel_loops	PARAMS ((struct loops *));
-extern void doloop_optimize_loops	PARAMS ((struct loops *));
-extern void prefetch_loop_arrays	PARAMS ((struct loops *));
-extern bool reroll_loops		PARAMS ((void));
+extern void decide_unrolling_and_peeling (struct loops *, int);
+extern void unroll_and_peel_loops (struct loops *);
+extern void doloop_optimize_loops (struct loops *);
+extern void prefetch_loop_arrays (struct loops *);
+extern bool reroll_loops (void);
+extern struct movable_list *find_movables (struct loops *);
+extern void loops_invariant_motion (struct loops *, struct movable_list *);

@@ -2720,6 +2720,7 @@ rest_of_compilation (decl)
       timevar_pop (TV_BRANCH_PROB);
     }
 
+
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
   if (flag_optimize_sibling_calls)
@@ -3048,7 +3049,7 @@ rest_of_compilation (decl)
 
   /* Move constant computations out of loops.  */
 
-  if (optimize > 0 && flag_loop_optimize)
+  if (0 && optimize > 0 && flag_loop_optimize)
     {
       int do_unroll;
 
@@ -3103,32 +3104,6 @@ rest_of_compilation (decl)
       reg_scan (insns, max_reg_num (), 1);
       close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
       timevar_pop (TV_GCSE);
-    }
-
-  /* Perform jump bypassing and control flow optimizations.  */
-  if (optimize > 0 && flag_gcse)
-    {
-      timevar_push (TV_BYPASS);
-      open_dump_file (DFI_bypass, decl);
-
-      cleanup_cfg (CLEANUP_EXPENSIVE);
-      tem = bypass_jumps (rtl_dump_file);
-
-      if (tem)
-        {
-          rebuild_jump_labels (insns);
-          cleanup_cfg (CLEANUP_EXPENSIVE);
-          delete_trivially_dead_insns (insns, max_reg_num ());
-        }
-
-      close_dump_file (DFI_bypass, print_rtl_with_bb, insns);
-      timevar_pop (TV_BYPASS);
-
-      ggc_collect ();
-
-#ifdef ENABLE_CHECKING
-      verify_flow_info ();
-#endif
     }
 
   /* Do control and data flow analysis; wrote some of the results to
@@ -3241,17 +3216,7 @@ rest_of_compilation (decl)
     }
 
   /* Perform loop optimalizations.  */
-  if (optimize > 0
-      && (flag_unswitch_loops
-	  || flag_peel_loops
-	  || flag_unroll_loops
-#ifdef HAVE_doloop_end
-	  || (HAVE_doloop_end && flag_branch_on_count_reg)
-#endif
-#ifdef HAVE_prefetch
-	  || (HAVE_prefetch && flag_prefetch_loop_arrays)
-#endif
-	  ))
+  if (optimize > 0 && flag_loop_optimize)
     {
       struct loops *loops;
       timevar_push (TV_LOOP2);
@@ -3263,41 +3228,9 @@ rest_of_compilation (decl)
 
       if (loops)
 	{
-	  /* Here will go optimalizations.  */
-	  if (flag_unswitch_loops)
-	    unswitch_loops (loops);
-
-	  timevar_push (TV_IV_ANAL);
-	  initialize_iv_analysis (loops);
-	  analyse_induction_variables ();
-	  compute_simple_loop_info (loops);
-
-	  /* Do this decision now, so that we know the number of unrollings
-	     in prefetching.  */
-	  decide_unrolling_and_peeling (loops, 
-		(flag_peel_loops ? UAP_PEEL : 0) |
-		(flag_unroll_loops ? UAP_UNROLL : 0) |
-		(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
-
-#ifdef HAVE_prefetch
-	  if (HAVE_prefetch && flag_prefetch_loop_arrays)
-	    prefetch_loop_arrays (loops);
-#endif
-
-	  finalize_iv_analysis ();
-	  timevar_pop (TV_IV_ANAL);
-
-	  if (flag_peel_loops || flag_unroll_loops)
-	    unroll_and_peel_loops (loops);
-
-#ifdef HAVE_doloop_end
-	  if (HAVE_doloop_end && flag_branch_on_count_reg)
-	    doloop_optimize_loops (loops);
-#endif
-
+	  loop_optimizer_optimize (loops);
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
-
       
       cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (insns, max_reg_num ());
@@ -3308,6 +3241,33 @@ rest_of_compilation (decl)
       timevar_pop (TV_LOOP2);
       ggc_collect ();
     }
+
+  /* Perform jump bypassing and control flow optimizations.  */
+  if (optimize > 0 && flag_gcse)
+    {
+      timevar_push (TV_BYPASS);
+      open_dump_file (DFI_bypass, decl);
+
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      tem = bypass_jumps (rtl_dump_file);
+
+      if (tem)
+        {
+          rebuild_jump_labels (insns);
+          cleanup_cfg (CLEANUP_EXPENSIVE);
+          delete_trivially_dead_insns (insns, max_reg_num ());
+        }
+
+      close_dump_file (DFI_bypass, print_rtl_with_bb, insns);
+      timevar_pop (TV_BYPASS);
+
+      ggc_collect ();
+
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
+    }
+
   if (flag_web)
     {
       open_dump_file (DFI_web, decl);

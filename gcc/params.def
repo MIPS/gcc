@@ -297,6 +297,58 @@ DEFPARAM(GGC_MIN_HEAPSIZE,
 #undef GGC_MIN_EXPAND_DEFAULT
 #undef GGC_MIN_HEAPSIZE_DEFAULT
 
+/* Parameters for invariant motion. The values here are optimized for i686,
+   they of course must be overriden for other targets.  */
+
+/* Cost for replacing invariant computation in case there is not enough
+   registers.  */
+DEFPARAM(LIM_SPILL_COST,
+	 "lim-spill-cost",
+	 "Cost for replacing invariant computation without available register.",
+	 5)
+
+/* Number of registers available for invariant motion.  */
+DEFPARAM(LIM_N_USABLE_REGS,
+	 "lim-n-usable-regs",
+	 "Number of registers available for invariant motion.",
+	 6)
+
+/* Number of registers subtracted if the loop contains a call.  */
+DEFPARAM(LIM_N_CALL_REGS,
+	 "lim-n-call-regs",
+	 "Number of registers subtracted if the loop contains a call.",
+	 5)
+
+/* Number of registers subtracted for each level of nested loops.  */
+DEFPARAM(LIM_REGS_PER_LOOP_LEVEL,
+	 "lim-regs-per-loop-level",
+	 "Number of registers subtracted for each level of nested loops.",
+	 2)
+
+/* Number of insns per one subtracted register.  */
+DEFPARAM(LIM_INSNS_PER_REG,
+	 "lim-insns-per-reg",
+	 "Number of insns per one subtracted register.",
+	 30)
+
+/* Weight for change of lifespan of registers in decision heuristics.  */
+DEFPARAM(LIM_LIFESPAN_WEIGHT,
+	 "lim-lifespan-weight",
+	 "Weight for change of lifespan of registers in decision heuristics.",
+	 20)
+
+/* Weight for change of computation cost in decision heuristics.  */
+DEFPARAM(LIM_GAIN_WEIGHT,
+	 "lim-gain-weight",
+	 "Weight for change of computation cost in decision heuristics.",
+	 10)
+
+/* Weight for change of number of registers in decision heuristics. */
+DEFPARAM(LIM_REG_WEIGHT,
+	 "lim-reg-weight",
+	 "Weight for change of number of registers in decision heuristics.",
+	 1000)
+
 /*
 Local variables:
 mode:c

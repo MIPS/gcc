@@ -72,7 +72,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 rtx label_value_list;
 rtx tail_recursion_label_list;
 
-static int can_delete_note_p		PARAMS ((rtx));
 static int can_delete_label_p		PARAMS ((rtx));
 static void commit_one_edge_insertion	PARAMS ((edge, int));
 static bool try_redirect_by_replacing_jump PARAMS ((edge, basic_block));
@@ -83,7 +82,7 @@ static basic_block force_nonfallthru_and_redirect PARAMS ((edge, basic_block));
 /* Return true if NOTE is not one of the ones that must be kept paired,
    so that we may simply delete it.  */
 
-static int
+int
 can_delete_note_p (note)
      rtx note;
 {
@@ -1002,6 +1001,7 @@ force_nonfallthru_and_redirect (e, target)
       /* ... and ADDR_VECs.  */
       if (note != NULL
 	  && GET_CODE (note) == CODE_LABEL
+	  && LABEL_NUSES (note) != 0
 	  && NEXT_INSN (note)
 	  && GET_CODE (NEXT_INSN (note)) == JUMP_INSN
 	  && (GET_CODE (PATTERN (NEXT_INSN (note))) == ADDR_DIFF_VEC

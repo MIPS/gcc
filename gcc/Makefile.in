@@ -141,8 +141,8 @@ coverageexts = .{da,bbg}
 # with other compilers.  This is partially controlled by configure in
 # stage1, as not all versions of gcc understand -Wno-long-long.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
-STRICT_WARN = -Wtraditional @strict1_warn@
-STRICT2_WARN = -Wtraditional -pedantic -Wno-long-long
+STRICT_WARN = @strict1_warn@
+STRICT2_WARN = -pedantic -Wno-long-long
 
 # This is set by --enable-checking.  The idea is to catch forgotten
 # "extern" tags in header files.
@@ -799,17 +799,17 @@ C_OBJS = c-parse.o c-lang.o c-pretty-print.o $(C_AND_OBJC_OBJS)
 
 OBJS = algebraic.o alias.o bb-reorder.o bitmap.o builtins.o caller-save.o  \
  calls.o cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o	   \
- cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
- cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
- debug.o df.o diagnostic.o dojump.o doloop.o dominance.o loop-iv.o	   \
- dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o expmed.o  \
- expr.o final.o flow.o fold-const.o function.o gcse.o gcse-utils.o	   \
- gcse-classic.o gcse-hoist.o gcse-cprop.o gcse-pre.o gcse-store.o	   \
- gcse-null.o gcse.o gcse-utils.o loop-reroll.o loop-prefetch.o		   \
- genrtl.o ggc-common.o global.o graph.o gtype-desc.o heap.o		   \
- haifa-sched.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o	   \
- insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
- integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
+ cfgloopanal.o cfgloopmanip.o cfgrtl.o combine.o conflict.o convert.o	   \
+ cse.o cselib.o dbxout.o debug.o df.o diagnostic.o dojump.o doloop.o	   \
+ dominance.o dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o	   \
+ explow.o expmed.o expr.o final.o flow.o fold-const.o function.o gcse.o	   \
+ gcse-utils.o gcse-classic.o gcse-hoist.o gcse-cprop.o gcse-pre.o	   \
+ gcse-store.o gcse-null.o gcse.o gcse-utils.o genrtl.o ggc-common.o	   \
+ global.o graph.o gtype-desc.o heap.o haifa-sched.o hashtable.o hooks.o	   \
+ ifcvt.o insn-attrtab.o insn-emit.o insn-extract.o insn-opinit.o	   \
+ insn-output.o insn-peep.o insn-recog.o integrate.o intl.o jump.o	   \
+ langhooks.o lcm.o lists.o local-alloc.o loop-reroll.o loop-prefetch.o	   \
+ loop-init.o loop-unswitch.o loop-unroll.o loop-iv.o loop-invariant.o	   \
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
@@ -818,7 +818,8 @@ OBJS = algebraic.o alias.o bb-reorder.o bitmap.o builtins.o caller-save.o  \
  sibcall.o simplify-rtx.o sreal.o ssa.o ssa-ccp.o ssa-dce.o stmt.o	   \
  stor-layout.o stringpool.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o vpt.o	   \
- alloc-pool.o xcoffout.o et-forest.o web.o var-tracking.o cgraph.o cgraphunit.o		   \
+ alloc-pool.o xcoffout.o et-forest.o web.o var-tracking.o cgraph.o	   \
+ cgraphunit.o								   \
  $(GGC) $(out_object_file) $(EXTRA_OBJS) $(host_hook_obj)
 
 BACKEND = main.o libbackend.a
@@ -1688,7 +1689,7 @@ cfgloopmanip.o : cfgloopmanip.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h output.h coretypes.h $(TM_H)
 loop-init.o : loop-init.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) gcov-io.h \
    gcov-iov.h $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h profile.h \
-   coretypes.h $(TM_H)
+   coretypes.h $(TM_H) flags.h $(TIMEVAR_H)
 loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_H)
@@ -1697,9 +1698,13 @@ loop-iv.o : loop-iv.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    output.h $(EXPR_H) coretypes.h $(TM_H) function.h df.h algebraic.h el-rtx.h
 algebraic.o : algebraic.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(EXPR_H) coretypes.h $(TM_H) algebraic.h sbitmap.h $(GGC_H) el-rtx.h
+loop-invariant.o: loop-invariant.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h loop.h cfglayout.h params.h \
+   output.h $(EXPR_H) coretypes.h $(TM_P_H) $(RECOG_H) insn-config.h \
+   $(REGS_H) function.h df.h flags.h algebraic.h el-rtx.h
 loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
-   output.h $(EXPR_H) coretypes.h $(TM_H)
+   output.h $(EXPR_H) coretypes.h
 loop-reroll.o: loop-reroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h output.h coretypes.h $(TM_H) \
    cfgloop.h $(EXPR_H)

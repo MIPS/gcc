@@ -110,12 +110,12 @@ can_fallthru (src, target)
      basic_block src, target;
 {
   rtx insn = src->end;
-  rtx insn2 = target->head;
+  rtx insn2 = target == EXIT_BLOCK_PTR ? NULL : target->head;
 
   if (src->next_bb != target)
     return 0;
 
-  if (!active_insn_p (insn2))
+  if (insn2 && !active_insn_p (insn2))
     insn2 = next_active_insn (insn2);
 
   /* ??? Later we may add code to move jump tables offline.  */

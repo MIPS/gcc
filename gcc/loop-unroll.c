@@ -54,6 +54,10 @@ unroll_and_peel_loops (loops)
   struct loop *loop, *next;
   int check;
 
+  /* Unrolling may destroy landing pads (by making them shared between
+     several copies of the loop).  */
+  loops->state &= ~LOOPS_HAVE_LANDING_PADS;
+
   loop = loops->tree_root;
   while (loop->inner)
     loop = loop->inner;

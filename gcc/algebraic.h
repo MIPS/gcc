@@ -22,7 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef EL_RTX
 #include "el-rtx.h"
 #else
-#error "You must specify representation of expressions to use this file."
+ #error "You must specify representation of expressions to use this file."
 #endif
 
 /* A predicate for what we consider a constant.  */
@@ -63,7 +63,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 enum
 {
   SIE_SIMPLIFY = 1,	/* Simplify the resulting expression.  */
-  SIE_ONLY_SIMPLE = 2	/* Only substitute the simple expressions.  */
+  SIE_ONLY_SIMPLE = 2,	/* Only substitute the simple expressions.  */
+  SIE_DEFAULT_ID = 4	/* NULL members of substitution should be considered
+			   identity.  */
 };
 
 #define init_algebraic ELNF (init_algebraic)
@@ -75,14 +77,14 @@ enum
 #define gen_bival ELNF (gen_bival)
 #define iv_split ELNF (iv_split)
 
-extern void init_algebraic		PARAMS ((void));
-extern EXPR substitute_into_expr 	PARAMS ((EXPR, sbitmap, EXPR *, int));
-extern EXPR simplify_alg_expr_shorten	PARAMS ((EXPR, EXPR_TYPE, EXPR_TYPE));
-extern EXPR simplify_alg_expr		PARAMS ((EXPR));
-extern EXPR simplify_alg_expr_using_values PARAMS ((EXPR, sbitmap, EXPR *));
+extern void init_algebraic (void);
+extern EXPR substitute_into_expr (EXPR, sbitmap, EXPR *, int);
+extern EXPR simplify_alg_expr_shorten (EXPR, EXPR_TYPE, EXPR_TYPE);
+extern EXPR simplify_alg_expr (EXPR);
+extern EXPR simplify_alg_expr_using_values (EXPR, sbitmap, EXPR *);
 
 /* These functions are directly specific to induction variable analysis,
    but it is easier to include them here due to a common code shared.  */
-extern EXPR gen_iteration		PARAMS ((EXPR_TYPE));
-extern EXPR gen_bival			PARAMS ((EXPR_TYPE, EXPR, EXPR));
-extern void iv_split			PARAMS ((EXPR, EXPR *, EXPR *));
+extern EXPR gen_iteration (EXPR_TYPE);
+extern EXPR gen_bival (EXPR_TYPE, EXPR, EXPR);
+extern void iv_split (EXPR, EXPR *, EXPR *);

@@ -1517,6 +1517,68 @@ force_single_succ_latches (loops)
   loops->state |= LOOPS_HAVE_SIMPLE_LATCHES;
 }
 
+/* For each loop in loop tree LOOPS, if there is single block to that lead all
+   exit edges from loop, make this exit block to be only reachable through the
+   loop.  */
+void
+create_landing_pads (loops)
+     struct loops *loops;
+{
+  unsigned i, j;
+  struct loop *loop;
+  edge *edges = NULL;
+  unsigned n, pn;
+  edge e;
+  basic_block pad, new_pad;
+
+  loops->tree_root->landing_pad = NULL;
+  for (i = 1;
+       i < loops->num;
+       (edges ? (free (edges), 0) : 0), i++)
+    {
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
+      loop->landing_pad = NULL;
+
+      edges = get_loop_exit_edges (loop, &n);
+      if (n == 0)
+	continue;
+
+      pad = edges[0]->dest;
+      for (j = 1; j < n; j++)
+	if (edges[j]->dest != pad)
+	  break;
+      if (j != n)
+	continue;
+      pn = 0;
+      for (e = pad->pred; e; e = e->pred_next)
+	pn++;
+      if (n == pn)
+	{
+	  loop->landing_pad = edges[0]->dest;
+	  /* Ensure that we have a label in the pad.  */
+	  block_label (loop->landing_pad);
+	  continue;
+	}
+      for (j = 0; j < n; j++)
+	if (edges[j]->flags & EDGE_ABNORMAL)
+	  break;
+      if (j != n)
+	continue;
+
+      new_pad = loop_split_edge_with (edges[0], NULL, loops);
+      for (j = 1; j < n; j++)
+	cfg_layout_redirect_edge (edges[j], new_pad);
+      set_immediate_dominator (loops->cfg.dom, new_pad,
+			       recount_dominator (loops->cfg.dom, new_pad));
+      loop->landing_pad = new_pad;
+      /* Ensure that we have a label in the pad.  */
+      block_label (loop->landing_pad);
+    }
+  loops->state |= LOOPS_HAVE_LANDING_PADS;
+}
+
 /* A quite stupid function to put INSNS on edge E. They are supposed to form
    just one basic block.  Jumps in INSNS are not handled, so cfg do not have to
    be ok after this function.  The created block is placed on correct place

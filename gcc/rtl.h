@@ -2050,6 +2050,7 @@ extern void renumber_insns                      PARAMS ((FILE *));
 extern void remove_unnecessary_notes             PARAMS ((void));
 extern rtx delete_insn			PARAMS ((rtx));
 extern void delete_insn_chain		PARAMS ((rtx, rtx));
+extern int can_delete_note_p		PARAMS ((rtx));
 extern rtx delete_insn_and_edges	PARAMS ((rtx));
 extern void delete_insn_chain_and_edges	PARAMS ((rtx, rtx));
 

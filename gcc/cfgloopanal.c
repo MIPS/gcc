@@ -1754,3 +1754,20 @@ compute_simple_loop_info (loops)
       loop->has_desc = 1;
     }
 }
+
+/* Returns the maximum level of nesting of subloops of LOOP.  */
+int
+get_loop_level (const struct loop *loop)
+{
+  const struct loop *ploop;
+  int mx = -1, l;
+
+  for (ploop = loop->inner; ploop; ploop = ploop->next)
+    {
+      l = get_loop_level (ploop);
+      if (l > mx)
+	mx = l;
+    }
+  return mx + 1;
+}
+

@@ -47,7 +47,6 @@ static void establish_preds		PARAMS ((struct loop *));
 static basic_block make_forwarder_block PARAMS ((basic_block, int, int,
 						 edge, int));
 static void canonicalize_loop_headers   PARAMS ((void));
-static bool glb_enum_p PARAMS ((basic_block, void *));
 static void redirect_edge_with_latch_update PARAMS ((edge, basic_block));
 
 /* Dump loop related CFG information.  */
@@ -1051,8 +1050,8 @@ flow_loop_outside_edge_p (loop, e)
 }
 
 /* Enumeration predicate for get_loop_body.  */
-static bool
-glb_enum_p (bb, glb_header)
+bool
+def_enum_to_p (bb, glb_header)
      basic_block bb;
      void *glb_header;
 {
@@ -1084,7 +1083,7 @@ get_loop_body (loop)
     }
   else if (loop->latch != loop->header)
     {
-      tv = dfs_enumerate_from (loop->latch, 1, glb_enum_p,
+      tv = dfs_enumerate_from (loop->latch, 1, def_enum_to_p,
 			       tovisit + 1, loop->num_nodes - 1,
 			       loop->header) + 1;
     }
@@ -1102,7 +1101,7 @@ get_loop_exit_edges (loop, n_edges)
 {
   edge *edges, e;
   unsigned i, n;
-  basic_block * body;
+  basic_block *body;
 
   if (loop->latch == EXIT_BLOCK_PTR)
     abort ();
@@ -1113,8 +1112,13 @@ get_loop_exit_edges (loop, n_edges)
     for (e = body[i]->succ; e; e = e->succ_next)
       if (!flow_bb_inside_loop_p (loop, e->dest))
 	n++;
-  edges = xmalloc (n * sizeof (edge));
   *n_edges = n;
+  if (!n)
+    {
+      free (body);
+      return NULL;
+    }
+  edges = xmalloc (n * sizeof (edge));
   n = 0;
   for (i = 0; i < loop->num_nodes; i++)
     for (e = body[i]->succ; e; e = e->succ_next)
@@ -1222,6 +1226,7 @@ cancel_loop_tree (loops, loop)
      -- loop latches have only single successor that is header of their loop
      -- irreducible loops are correctly marked
      -- loop histograms are in loop headers
+     -- landing pads are correctly determined
   */
 void
 verify_loop_structure (loops)
@@ -1266,12 +1271,42 @@ verify_loop_structure (loops)
       bbs = get_loop_body (loop);
 
       for (j = 0; j < loop->num_nodes; j++)
-	if (!flow_bb_inside_loop_p (loop, bbs[j]))
-	  {
-	    error ("Bb %d do not belong to loop %d.",
-		    bbs[j]->index, i);
-	    err = 1;
-	  }
+	{
+	  if (!flow_bb_inside_loop_p (loop, bbs[j]))
+	    {
+	      error ("Bb %d do not belong to loop %d.",
+		     bbs[j]->index, i);
+	      err = 1;
+	    }
+	  /* Check landing pads.  */
+	  if ((loops->state & LOOPS_HAVE_LANDING_PADS)
+	      && loop->landing_pad)
+	    {
+	      for (e = bb->succ; e; e = e->succ_next)
+		{
+		  if (flow_bb_inside_loop_p (loop, e->dest)
+		      || e->dest == loop->landing_pad)
+		    continue;
+		  error ("Exit edge %d -> %d does not lead to"
+			 "landing pad %d of loop %d.",
+			 e->src->index, e->dest->index,
+			 loop->landing_pad->index, i);
+		  err = 1;
+		}
+	    }
+	  if ((loops->state & LOOPS_HAVE_LANDING_PADS)
+	      && loop->landing_pad)
+	    {
+	      for (e = loop->landing_pad->pred; e; e = e->pred_next)
+		if (!flow_bb_inside_loop_p (loop, e->src))
+		  {
+		    error ("Entry edge %d -> %d of landing pad of loop %d"
+			   "does not lead from the loop.",
+			   e->src->index, e->dest->index, i);
+		    err = 1;
+		  }
+	    }
+	}
       free (bbs);
     }
 

@@ -579,6 +579,16 @@ fixup_reorder_chain ()
     }
   prev_bb->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = prev_bb;
+
+  /* Anoying special case - jump around dead jumptables left in the code.  */
+  FOR_EACH_BB (bb)
+    {
+      edge e;
+      for (e = bb->succ; e && !(e->flags & EDGE_FALLTHRU); e = e->succ_next)
+	continue;
+      if (e && !can_fallthru (e->src, e->dest))
+	force_nonfallthru (e);
+    }
 }
 
 /* Perform sanity checks on the insn chain.

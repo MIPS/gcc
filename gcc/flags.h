@@ -311,6 +311,21 @@ extern int flag_prefetch_loop_arrays;
 
 extern int flag_reduce_all_givs;
 
+/* Enables unrolling of simple loops in loop-unroll.c.  */
+extern int flag_unroll_loops;
+
+/* Enables unrolling of all loops in loop-unroll.c.  */
+extern int flag_unroll_all_loops;
+
+/* Enables rerolling of non-optimized unrolled loops.  */
+extern int flag_reroll_loops;
+
+/* Nonzero enables loop peeling.  */
+extern int flag_peel_loops;
+
+/* Nonzero enables loop unswitching.  */
+extern int flag_unswitch_loops;
+
 /* Nonzero for -fcse-follow-jumps:
    have cse follow jumps to do a more extensive job.  */
 

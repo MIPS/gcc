@@ -310,8 +310,16 @@ struct loop_info
   /* Nonzero if there are ways to leave the loop other than falling
      off the end.  */
   int has_multiple_exit_targets;
-  /* Nonzero if there is an indirect jump in the current function.  */
-  int has_indirect_jump;
+  /* Body of the loop.  */
+
+  basic_block *body;
+  /* Bitmap of blocks that don't have to be reached because the control
+     may exit the loop without entering them.  */
+  sbitmap bb_after_exit;
+  /* Bitmap of blocks that don't have to be reached because they are after
+     call that does not have to return.  */
+  sbitmap bb_after_call;
+
   /* Whether loop unrolling has emitted copies of the loop body so
      that the main loop needs no exit tests.  */
   int preconditioned;

@@ -384,6 +384,7 @@ extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 extern void flow_reverse_top_sort_order_compute	PARAMS ((int *));
 extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
 extern void flow_preorder_transversal_compute	PARAMS ((int *));
+extern bool def_enum_to_p (basic_block, void *);
 extern int dfs_enumerate_from		PARAMS ((basic_block, int,
 						bool (*)(basic_block, void *),
 						basic_block *, int, void *));
@@ -668,9 +669,11 @@ extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
 void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
 extern void verify_dominators PARAMS ((dominance_info));
 
-#define fast_dominated_by_p(DOM, BB1, BB2) \
-  ((DOM)[(BB1)->index][0] >= (DOM)[(BB2)->index][0] \
-   && (DOM)[(BB1)->index][1] <= (DOM)[(BB2)->index][1])
-extern fast_dominance_info create_fq_dominators PARAMS ((dominance_info));
-extern void release_fq_dominators PARAMS ((fast_dominance_info));
+extern fast_dominance_info fast_dom;
+#define fast_dominated_by_p(BB1, BB2) \
+  (fast_dom[(BB1)->index][0] >= fast_dom[(BB2)->index][0] \
+   && fast_dom[(BB1)->index][1] <= fast_dom[(BB2)->index][1])
+extern void create_fq_dominators PARAMS ((dominance_info));
+extern void release_fq_dominators PARAMS ((void));
+
 #endif /* GCC_BASIC_BLOCK_H */

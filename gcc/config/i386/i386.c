@@ -1383,7 +1383,13 @@ override_options ()
       ix86_fpmath = FPMATH_SSE;
      }
   else
-    ix86_fpmath = FPMATH_387;
+    {
+      ix86_fpmath = FPMATH_387;
+      /* i386 ABI does not specify red zone.  It still makes sense to use it
+	 when programmer takes care to stack from being destroyed.  */
+      if (!(target_flags_explicit & MASK_NO_RED_ZONE))
+	target_flags |= MASK_NO_RED_ZONE;
+    }
 
   if (ix86_fpmath_string != 0)
     {

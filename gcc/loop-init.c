@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "gcov-io.h"
 #include "profile.h"
+#include "flags.h"
+#include "timevar.h"
 
 /* Initialize loop optimizer.  */
 
@@ -116,6 +118,59 @@ loop_optimizer_finalize (loops, dumpfile)
   /* Checking.  */
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
+#endif
+}
+
+/* The driver that runs all loop optimizations.  */
+void
+loop_optimizer_optimize (struct loops *loops)
+{
+  struct movable_list *movables;
+
+  if (flag_unswitch_loops)
+    unswitch_loops (loops);
+  
+  /* Now comes the part where we don't change cfg structure,
+     just play with the code.  It will be nice to have landing
+     pads in that part; we cannot create them in loop_optimizer_init,
+     as unswitching might destroy them.  */
+  create_landing_pads (loops);
+
+  timevar_push (TV_IV_ANAL);
+  initialize_iv_analysis (loops);
+  analyse_induction_variables ();
+  compute_simple_loop_info (loops);
+  timevar_pop (TV_IV_ANAL);
+
+  /* Do this decision now, so that we know the number of unrollings
+     in prefetching.  */
+  decide_unrolling_and_peeling (loops, 
+				(flag_peel_loops ? UAP_PEEL : 0) |
+				(flag_unroll_loops ? UAP_UNROLL : 0) |
+				(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+
+#ifdef HAVE_prefetch
+  if (HAVE_prefetch && flag_prefetch_loop_arrays)
+    prefetch_loop_arrays (loops);
+#endif
+
+  /* Detect the movables, using the iv information we have.  */
+  movables = find_movables (loops);
+
+  timevar_push (TV_IV_ANAL);
+  finalize_iv_analysis ();
+  timevar_pop (TV_IV_ANAL);
+
+  /* Now move the movables; it is easier to have it split into two parts,
+     so that we do not have to update iv information.  */
+  loops_invariant_motion (loops, movables);
+
+  if (flag_peel_loops || flag_unroll_loops)
+    unroll_and_peel_loops (loops);
+
+#ifdef HAVE_doloop_end
+  if (HAVE_doloop_end && flag_branch_on_count_reg)
+    doloop_optimize_loops (loops);
 #endif
 }
 

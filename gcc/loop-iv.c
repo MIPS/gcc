@@ -100,13 +100,13 @@ static struct loops *current_loops;
 static unsigned real_loops_num;
 
 /* Basic blocks in a breath-first search order in a dominance tree.  */
-static basic_block *block_dominance_order;
+basic_block *block_dominance_order;
 
 /* The array of loops ordered by the dominance relation on their headers.  */
 static struct loop **loops_dominance_order;
 
 /* Dataflow informations.  */
-static struct df *df;
+struct df *loop_df;
 
 /* The induction variables at loop entries.  */
 rtx **loop_entry_values;
@@ -122,9 +122,6 @@ static sbitmap *modified_regs;
 
 /* Bitmap of insns that we already processed.  */
 static sbitmap insn_processed;
-
-/* The dominator relation.  */
-static fast_dominance_info dom;
 
 /* Values of registers at current point.  This array is never cleared,
    so the user is responsible for initializing those fields that he's going
@@ -171,10 +168,9 @@ static void compute_initial_values	PARAMS ((struct loop *));
 static void fill_loop_rd_in_for_def	PARAMS ((struct ref *));
 static void fill_rd_for_defs		PARAMS ((basic_block, bitmap));
 static void fill_loops_dominance_order	PARAMS ((void));
-static void enter_iv_occurence		PARAMS ((struct iv_occurence_step_class **,
-						 rtx, rtx, rtx, rtx, rtx, rtx *,
-						 enum machine_mode, enum machine_mode,
-						 enum rtx_code));
+static void enter_iv_occurence (struct iv_occurence_step_class **, rtx, rtx,
+				rtx, rtx, rtx, rtx, rtx *, enum machine_mode,
+				enum machine_mode, enum rtx_code);
 static int record_iv_occurences_1	PARAMS ((rtx *, void *));
 static void record_iv_occurences	PARAMS ((struct iv_occurence_step_class **,
 						 rtx));
@@ -216,8 +212,8 @@ dump_insn_ivs (file, insn)
      FILE *file;
      rtx insn;
 {
-  struct df_link *def = DF_INSN_DEFS (df, insn);
-  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *def = DF_INSN_DEFS (loop_df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
 
   fprintf (file, "USES:\n");
   for (; use; use = use->next)
@@ -225,7 +221,7 @@ dump_insn_ivs (file, insn)
       if (!TEST_BIT (iv_interesting_reg, DF_REF_REGNO (use->ref)))
 	continue;
       fprintf (file, " reg %d:\n", DF_REF_REGNO (use->ref));
-      print_rtl (file, use->ref->aux);
+      print_rtl (file, DF_REF_AUX_VALUE (use->ref));
       fprintf (file, "\n");
     }
 
@@ -235,7 +231,7 @@ dump_insn_ivs (file, insn)
       if (!TEST_BIT (iv_interesting_reg, DF_REF_REGNO (def->ref)))
 	continue;
       fprintf (file, " reg %d:\n", DF_REF_REGNO (def->ref));
-      print_rtl (file, def->ref->aux);
+      print_rtl (file, DF_REF_AUX_VALUE (def->ref));
       fprintf (file, "\n");
     }
 }
@@ -312,7 +308,7 @@ record_def_value (insn, regno, value)
      unsigned regno;
      rtx value;
 {
-  struct df_link *def = DF_INSN_DEFS (df, insn);
+  struct df_link *def = DF_INSN_DEFS (loop_df, insn);
 
   for (; def; def = def->next)
     if (DF_REF_REGNO (def->ref) == regno)
@@ -320,7 +316,7 @@ record_def_value (insn, regno, value)
   if (!def)
     abort ();
 
-  def->ref->aux = value;
+  DF_REF_AUX_VALUE (def->ref) = value;
 }
 
 /* Record VALUE to use of register REGNO in INSN.  */
@@ -330,7 +326,7 @@ record_use_value (insn, regno, value)
      unsigned regno;
      rtx value;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
 
   for (; use; use = use->next)
     if (DF_REF_REGNO (use->ref) == regno)
@@ -338,7 +334,7 @@ record_use_value (insn, regno, value)
   if (!use)
     abort ();
 
-  use->ref->aux = value;
+  DF_REF_AUX_VALUE (use->ref) = value;
 }
 
 /* Get value from def of register REGNO in INSN.  */
@@ -347,7 +343,7 @@ get_def_value (insn, regno)
      rtx insn;
      unsigned regno;
 {
-  struct df_link *def = DF_INSN_DEFS (df, insn);
+  struct df_link *def = DF_INSN_DEFS (loop_df, insn);
 
   for (; def; def = def->next)
     if (DF_REF_REGNO (def->ref) == regno)
@@ -355,7 +351,7 @@ get_def_value (insn, regno)
   if (!def)
     abort ();
 
-  return (rtx) def->ref->aux;
+  return DF_REF_AUX_VALUE (def->ref);
 }
 
 /* Get VALUE from use of register REGNO in INSN.  */
@@ -364,7 +360,7 @@ get_use_value (insn, regno)
      rtx insn;
      unsigned regno;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
 
   for (; use; use = use->next)
     if (DF_REF_REGNO (use->ref) == regno)
@@ -372,7 +368,7 @@ get_use_value (insn, regno)
   if (!use)
     abort ();
 
-  return (rtx) use->ref->aux;
+  return DF_REF_AUX_VALUE (use->ref);
 }
 
 /* Called through for_each_rtx from iv_omit_initial_values.  */
@@ -571,20 +567,20 @@ clear_reg_values (including_top)
   unsigned i;
   struct ref *ref;
 
-  for (i = 0; i < df->n_defs; i++)
+  for (i = 0; i < loop_df->n_defs; i++)
     {
-      ref = df->defs[i];
+      ref = loop_df->defs[i];
       if (!including_top && !DF_REF_BB (ref)->loop_father->outer)
 	continue;
-      ref->aux = NULL_RTX;
+      DF_REF_AUX_VALUE (ref) = NULL_RTX;
     }
 
-  for (i = 0; i < df->n_uses; i++)
+  for (i = 0; i < loop_df->n_uses; i++)
     {
-      ref = df->uses[i];
+      ref = loop_df->uses[i];
       if (!including_top && !DF_REF_BB (ref)->loop_father->outer)
 	continue;
-      ref->aux = NULL_RTX;
+      DF_REF_AUX_VALUE (ref) = NULL_RTX;
     }
 }
 
@@ -644,9 +640,9 @@ get_reg_value_at (bb, insn, ref)
 
       /* The definition that dominates us.  */
       if (def_bb == bb
-	  && DF_INSN_LUID (df, def_insn) < DF_INSN_LUID (df, insn))
+	  && DF_INSN_LUID (loop_df, def_insn) < DF_INSN_LUID (loop_df, insn))
 	break;
-      if (def_bb != bb && fast_dominated_by_p (dom, bb, def_bb))
+      if (def_bb != bb && fast_dominated_by_p (bb, def_bb))
 	break;
 
       if (!TEST_BIT (loop_rd_in_ok, defno))
@@ -680,14 +676,14 @@ iv_load_used_values (insn, values)
      rtx insn;
      rtx *values;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
   unsigned regno;
 
-  use = DF_INSN_USES (df, insn);
+  use = DF_INSN_USES (loop_df, insn);
   for (; use; use = use->next)
     {
       regno = DF_REF_REGNO (use->ref);
-      values[regno] = (rtx) use->ref->aux;
+      values[regno] = DF_REF_AUX_VALUE (use->ref);
     }
 }
 
@@ -697,7 +693,7 @@ compute_reg_values (bb, insn)
      basic_block bb;
      rtx insn;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
   unsigned regno;
 
   if (TEST_BIT (insn_processed, INSN_UID (insn)))
@@ -714,7 +710,8 @@ compute_reg_values (bb, insn)
       if (!TEST_BIT (iv_interesting_reg, regno))
 	continue;
 
-      use->ref->aux = (void *) get_reg_value_at (bb, insn, use->ref);
+      DF_REF_AUX_VALUE (use->ref) =
+	      (void *) get_reg_value_at (bb, insn, use->ref);
     }
 
   /* Now simulate the computation to fill in the values of defs.  */
@@ -761,8 +758,8 @@ simplify_reg_values (bb, insn)
      basic_block bb;
      rtx insn;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
-  struct df_link *def = DF_INSN_DEFS (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
+  struct df_link *def = DF_INSN_DEFS (loop_df, insn);
   rtx svalue;
   rtx *values = initial_values[bb->loop_father->num];
 
@@ -771,21 +768,21 @@ simplify_reg_values (bb, insn)
 
   for (; use; use = use->next)
     {
-      if (!use->ref->aux)
+      if (!DF_REF_AUX_VALUE (use->ref))
 	continue;
-      svalue = simplify_alg_expr_using_values (use->ref->aux,
+      svalue = simplify_alg_expr_using_values (DF_REF_AUX_VALUE (use->ref),
 					       iv_interesting_reg, values);
       if (svalue)
-	use->ref->aux = svalue;
+	DF_REF_AUX_VALUE (use->ref) = svalue;
     }
   for (; def; def = def->next)
     {
-      if (!def->ref->aux)
+      if (!DF_REF_AUX_VALUE (def->ref))
 	continue;
-      svalue = simplify_alg_expr_using_values (def->ref->aux,
+      svalue = simplify_alg_expr_using_values (DF_REF_AUX_VALUE (def->ref),
 					       iv_interesting_reg, values);
       if (svalue)
-	def->ref->aux = svalue;
+	DF_REF_AUX_VALUE (def->ref) = svalue;
     }
 }
 
@@ -821,7 +818,7 @@ fill_loop_rd_in_for_def (def)
 
   SET_BIT (loop_rd_in_ok, defno);
   if (!TEST_BIT (iv_interesting_reg, DF_REF_REGNO (def))
-      || !bitmap_bit_p (DF_BB_INFO (df, def_bb)->rd_out, defno)
+      || !bitmap_bit_p (DF_BB_INFO (loop_df, def_bb)->rd_out, defno)
       || !def_bb->succ)
     return;
 
@@ -840,7 +837,7 @@ fill_loop_rd_in_for_def (def)
 	    continue;
 
 	  bitmap_set_bit (loop_rd_in[dest->index], defno);
-	  if (!bitmap_bit_p (DF_BB_INFO (df, dest)->rd_kill, defno))
+	  if (!bitmap_bit_p (DF_BB_INFO (loop_df, dest)->rd_kill, defno))
 	    break;
 	}
 
@@ -868,11 +865,11 @@ fill_rd_for_defs (bb, defs)
   int stack_top = 0;
   sbitmap processed;
 
-  bitmap_operation (DF_BB_INFO (df, bb)->rd_gen,
-		    DF_BB_INFO (df, bb)->rd_gen,
+  bitmap_operation (DF_BB_INFO (loop_df, bb)->rd_gen,
+		    DF_BB_INFO (loop_df, bb)->rd_gen,
 		    defs, BITMAP_IOR);
-  bitmap_operation (DF_BB_INFO (df, bb)->rd_out,
-		    DF_BB_INFO (df, bb)->rd_out,
+  bitmap_operation (DF_BB_INFO (loop_df, bb)->rd_out,
+		    DF_BB_INFO (loop_df, bb)->rd_out,
 		    defs, BITMAP_IOR);
 
   stack = xmalloc (sizeof (edge) * n_basic_blocks);
@@ -890,13 +887,13 @@ fill_rd_for_defs (bb, defs)
 	    continue;
 
 	  SET_BIT (processed, dest->index);
-	  bitmap_operation (DF_BB_INFO (df, dest)->rd_in,
-			    DF_BB_INFO (df, dest)->rd_in,
+	  bitmap_operation (DF_BB_INFO (loop_df, dest)->rd_in,
+			    DF_BB_INFO (loop_df, dest)->rd_in,
 			    defs, BITMAP_IOR);
 	  if (dest != bb)
 	    {
-	      bitmap_operation (DF_BB_INFO (df, dest)->rd_out,
-				DF_BB_INFO (df, dest)->rd_out,
+	      bitmap_operation (DF_BB_INFO (loop_df, dest)->rd_out,
+				DF_BB_INFO (loop_df, dest)->rd_out,
 				defs, BITMAP_IOR);
 	      break;
 	    }
@@ -962,20 +959,25 @@ initialize_iv_analysis (loops)
   basic_block bb;
   enum machine_mode mode;
 
-  df = df_init ();
-  df_analyse (df, 0, DF_UD_CHAIN | DF_RD);
+  create_fq_dominators (loops->cfg.dom);
+  loop_df = df_init ();
+  df_analyse (loop_df, 0,
+	      DF_UD_CHAIN | DF_RD | DF_RU_CHAIN | DF_HARD_REGS | DF_EQUIV_NOTES);
+  for (i = 0; i < loop_df->n_defs; i++)
+    loop_df->defs[i]->aux = xcalloc (1, sizeof (struct loop_df_info));
+  for (i = 0; i < loop_df->n_uses; i++)
+    loop_df->uses[i]->aux = xcalloc (1, sizeof (struct loop_df_info));
+
   loop_rd_in = xmalloc (sizeof (bitmap) * last_basic_block);
   FOR_EACH_BB (bb)
     {
       loop_rd_in[bb->index] = BITMAP_XMALLOC ();
       bitmap_zero (loop_rd_in[bb->index]);
     }
-  loop_rd_in_ok = sbitmap_alloc (df->n_defs);
+  loop_rd_in_ok = sbitmap_alloc (loop_df->n_defs);
   sbitmap_zero (loop_rd_in_ok);
 
   current_loops = loops;
-  dom = create_fq_dominators (current_loops->cfg.dom);
-
   max_regno = max_reg_num ();
 
   iv_interesting_reg = sbitmap_alloc (max_regno);
@@ -1058,7 +1060,6 @@ finalize_iv_analysis ()
 
   free (initial_value_rtx);
 
-  df_finish (df);
   FOR_EACH_BB (bb)
     {
       BITMAP_XFREE (loop_rd_in[bb->index]);
@@ -1084,9 +1085,15 @@ finalize_iv_analysis ()
       }
   free (iv_occurences);
 
-  release_fq_dominators (dom);
   free (loops_dominance_order);
   free (block_dominance_order);
+
+  for (i = 0; i < loop_df->n_defs; i++)
+    free (loop_df->defs[i]->aux);
+  for (i = 0; i < loop_df->n_uses; i++)
+    free (loop_df->uses[i]->aux);
+  df_finish (loop_df);
+  release_fq_dominators ();
 }
 
 /* Computes values of modified registers at end of LOOP, putting the result
@@ -1107,16 +1114,16 @@ compute_loop_end_values (loop, values)
   /* There must be exactly one definition of reg coming from inside of the
      loop that dominates the loop latch and belongs directly to the loop.  */
 
-  EXECUTE_IF_SET_IN_BITMAP (DF_BB_INFO (df, loop->latch)->rd_out, 0, defno,
+  EXECUTE_IF_SET_IN_BITMAP (DF_BB_INFO (loop_df, loop->latch)->rd_out, 0, defno,
     {
-      def = df->defs[defno];
+      def = loop_df->defs[defno];
       def_bb = DF_REF_BB (def);
       regno = DF_REF_REGNO (def);
       if (TEST_BIT (modified_regs[loop->num], regno)
 	  && flow_bb_inside_loop_p (loop, def_bb))
 	{
 	  if (def_bb->loop_father == loop
-	      && fast_dominated_by_p (dom, loop->latch, def_bb))
+	      && fast_dominated_by_p (loop->latch, def_bb))
 	    found_def[regno] = def;
 	  else
 	    SET_BIT (invalid, regno);
@@ -1128,7 +1135,7 @@ compute_loop_end_values (loop, values)
       if (!TEST_BIT (invalid, regno))
 	{
 	  if (found_def[regno])
-	    values[regno] = found_def[regno]->aux;
+	    values[regno] = DF_REF_AUX_VALUE (found_def[regno]);
 	  else
 	    values[regno] = gen_initial_value (regno);
   	}
@@ -1229,14 +1236,14 @@ compute_initial_values (loop)
      to determine values of registers that are either only defined outside of
      the outer loop (using the initial values of the outer loop), or have
      exactly one definition in the outer loop that dominates the preheader.  */
-  EXECUTE_IF_SET_IN_BITMAP (DF_BB_INFO (df, preheader)->rd_out, 0, defno,
+  EXECUTE_IF_SET_IN_BITMAP (DF_BB_INFO (loop_df, preheader)->rd_out, 0, defno,
     {
-      def = df->defs[defno];
+      def = loop_df->defs[defno];
       def_bb = DF_REF_BB (def);
       regno = DF_REF_REGNO (def);
       if (flow_bb_inside_loop_p (outer, def_bb))
 	{
-	  if (!fast_dominated_by_p (dom, preheader, def_bb))
+	  if (!fast_dominated_by_p (preheader, def_bb))
 	    SET_BIT (invalid, regno);
 	  else if (found_def[regno])
 	    abort ();
@@ -1254,7 +1261,7 @@ compute_initial_values (loop)
 	values[regno] = gen_value_at (regno, preheader->end, true);
       else if (def)
 	values[regno] = iv_make_initial_value (DF_REF_BB (def)->loop_father,
-					       def->insn, def->aux, regno);
+					       def->insn, DF_REF_AUX_VALUE (def), regno);
       else
 	values[regno] = outer_values[regno];
     }
@@ -1266,18 +1273,10 @@ compute_initial_values (loop)
    the parameters see definition of struct iv_occurence (and related
    structures).  */
 static void
-enter_iv_occurence (to, base, delta, local_base, step, insn, occurence,
-		    real_mode, extended_mode, extend)
-     struct iv_occurence_step_class **to;
-     rtx base;
-     rtx delta;
-     rtx local_base;
-     rtx step;
-     rtx insn;
-     rtx *occurence;
-     enum machine_mode real_mode;
-     enum machine_mode extended_mode;
-     enum rtx_code extend;
+enter_iv_occurence (struct iv_occurence_step_class **to, rtx value, rtx base,
+		    rtx delta, rtx local_base, rtx step, rtx insn,
+		    rtx *occurence, enum machine_mode real_mode,
+		    enum machine_mode extended_mode, enum rtx_code extend)
 {
   struct iv_occurence *nw = xmalloc (sizeof (struct iv_occurence));
   struct iv_occurence_base_class **bc;
@@ -1306,6 +1305,7 @@ enter_iv_occurence (to, base, delta, local_base, step, insn, occurence,
 
   nw->insn = insn;
   nw->occurence = occurence;
+  nw->value = value;
   nw->delta = delta;
   nw->local_base = local_base;
   nw->real_mode = real_mode;
@@ -1395,7 +1395,7 @@ record_iv_occurences_1 (expr, data)
   else
     delta = const0_rtx;
 
-  enter_iv_occurence (to, base, delta, lbase, step, current_insn, expr,
+  enter_iv_occurence (to, val, base, delta, lbase, step, current_insn, expr,
 		      real_mode, extended_mode, extend);
   return 0;
 }
@@ -1406,20 +1406,20 @@ record_iv_occurences (to, insn)
      struct iv_occurence_step_class **to;
      rtx insn;
 {
-  struct df_link *use = DF_INSN_USES (df, insn);
-  struct df_link *def = DF_INSN_DEFS (df, insn);
+  struct df_link *use = DF_INSN_USES (loop_df, insn);
+  struct df_link *def = DF_INSN_DEFS (loop_df, insn);
 
   /* Check that there is anything to bother with.  */
   for (; use; use = use->next)
     if (DF_REF_REG_MEM_P (use->ref)
 	&& TEST_BIT (iv_interesting_reg, DF_REF_REGNO (use->ref))
-	&& fast_expr_mentions_operator_p ((rtx) use->ref->aux, ITERATION))
+	&& fast_expr_mentions_operator_p (DF_REF_AUX_VALUE (use->ref), ITERATION))
       break;
   if (!use)
     {
       for (; def; def = def->next)
 	if (TEST_BIT (iv_interesting_reg, DF_REF_REGNO (def->ref))
-	    && fast_expr_mentions_operator_p ((rtx) def->ref->aux, ITERATION))
+	    && fast_expr_mentions_operator_p (DF_REF_AUX_VALUE (def->ref), ITERATION))
 	  break;
       if (!def)
 	return;
@@ -1470,13 +1470,13 @@ iv_new_insn_changes_commit (bb, first, last)
   struct df_link *def;
   struct loop *loop = bb->loop_father;
 
-  df_refs_queue (df);
+  df_refs_queue (loop_df);
   for (x = first; x != NEXT_INSN (last); x = NEXT_INSN (x))
     {
-      df_insn_modify (df, bb, x);
-      df_insn_refs_record (df, bb, x);
+      df_insn_modify (loop_df, bb, x);
+      df_insn_refs_record (loop_df, bb, x);
     }
-  df_refs_process (df);
+  df_refs_process (loop_df);
     
   if (new_max_regno > max_regno)
     {
@@ -1535,35 +1535,45 @@ iv_new_insn_changes_commit (bb, first, last)
 		initial_values[i][regno] = NULL_RTX;
 	      }
 	  }
-      df->reg_def_last = xrealloc (df->reg_def_last,
+      loop_df->reg_def_last = xrealloc (loop_df->reg_def_last,
 				   new_max_regno * sizeof (struct ref *));
-      df_reg_table_realloc (df, new_max_regno);
-      df->n_regs = new_max_regno;
+      df_reg_table_realloc (loop_df, new_max_regno);
+      loop_df->n_regs = new_max_regno;
       max_regno = new_max_regno;
     }
 
-  if (df->def_id > df->n_defs)
+  if (loop_df->def_id > loop_df->n_defs)
     {
       bitmap defs = BITMAP_XMALLOC ();
-      loop_rd_in_ok = sbitmap_resize (loop_rd_in_ok, df->def_id, 0);
+      loop_rd_in_ok = sbitmap_resize (loop_rd_in_ok, loop_df->def_id, 0);
 
-      for (i = df->n_defs; i < df->def_id; i++)
+      for (i = loop_df->n_defs; i < loop_df->def_id; i++)
 	{
-	  struct ref *def = df->defs[i];
+	  struct ref *def = loop_df->defs[i];
 	  bitmap_set_bit (defs, i);
-	  df->regs[DF_REF_REGNO (def)].defs =
-	    df_link_create (def, df->regs[DF_REF_REGNO (def)].defs);
+	  loop_df->regs[DF_REF_REGNO (def)].defs =
+	    df_link_create (def, loop_df->regs[DF_REF_REGNO (def)].defs);
+	  def->aux = xcalloc (1, sizeof (struct loop_df_info));
 	}
       fill_rd_for_defs (bb, defs);
       BITMAP_XFREE (defs);
-      df->n_defs = df->def_id;
+      loop_df->n_defs = loop_df->def_id;
     }
-
-  df->n_uses = df->use_id;
+  if (loop_df->use_id > loop_df->n_uses)
+    {
+      for (i = loop_df->n_uses; i < loop_df->use_id; i++)
+	{
+	  struct ref *use = loop_df->uses[i];
+	  loop_df->regs[DF_REF_REGNO (use)].uses =
+	    df_link_create (use, loop_df->regs[DF_REF_REGNO (use)].uses);
+	  use->aux = xcalloc (1, sizeof (struct loop_df_info));
+	}
+      loop_df->n_uses = loop_df->use_id;
+    }
 
   insn_processed = sbitmap_resize (insn_processed, get_max_uid () + 1, 0);
 
-  memset (df->reg_def_last, 0, max_regno * sizeof (struct ref *));
+  memset (loop_df->reg_def_last, 0, max_regno * sizeof (struct ref *));
   for (x = bb->head; x != first; x = NEXT_INSN (x))
     {
       if (! INSN_P (x))
@@ -1571,22 +1581,22 @@ iv_new_insn_changes_commit (bb, first, last)
 
       /* For each def in insn record the last def of each reg.  We could
 	 instead pass reg-def chains for uses, which perhaps might be faster.  */
-      for (def = DF_INSN_DEFS (df, x); def; def = def->next)
+      for (def = DF_INSN_DEFS (loop_df, x); def; def = def->next)
 	{
 	  struct ref *ref = def->ref;
 	  int dregno = DF_REF_REGNO (ref);
 
-	  df->reg_def_last[dregno] = ref;
+	  loop_df->reg_def_last[dregno] = ref;
 	}
     }
   
-  df_bb_luids_set (df, bb);
+  df_bb_luids_set (loop_df, bb);
   for (x = first; x != NEXT_INSN (last); x = NEXT_INSN (x))
     {
       if (! INSN_P (x))
 	continue;
 
-      df_insn_ud_chain_create (df, bb, x);
+      df_insn_ud_chain_create (loop_df, bb, x);
       compute_reg_values (bb, x);
       record_iv_occurences (&iv_occurences[loop->num], x);
     }
@@ -1594,37 +1604,43 @@ iv_new_insn_changes_commit (bb, first, last)
 
 /* Insert insns SEQ before INSN. The sequence must not contain jumps
    and must not set any registers that are not entirely new.  */
-void
+rtx
 iv_emit_insn_before (seq, insn)
      rtx seq;
      rtx insn;
 {
   rtx prev = PREV_INSN (insn);
   basic_block bb = BLOCK_FOR_INSN (insn);
+  rtx ret;
 
   if (!seq)
-    return;
-  emit_insn_before (seq, insn);
+    return NULL;
+  ret = emit_insn_before (seq, insn);
 
   prev = prev ? NEXT_INSN (prev) : get_insns ();
   iv_new_insn_changes_commit (bb, prev, PREV_INSN (insn));
+
+  return ret;
 }
 
 /* Insert insns SEQ before INSN. The sequence must not contain jumps
    and must not set any registers that are not entirely new.  */
-void
+rtx
 iv_emit_insn_after (seq, insn)
      rtx seq;
      rtx insn;
 {
   rtx next = NEXT_INSN (insn);
   basic_block bb = BLOCK_FOR_INSN (insn);
+  rtx ret;
 
   if (!seq)
-    return;
-  emit_insn_after (seq, insn);
+    return NULL;
+  ret = emit_insn_after (seq, insn);
   next = next ? PREV_INSN (next) : get_last_insn ();
   iv_new_insn_changes_commit (bb, NEXT_INSN (insn), next);
+
+  return ret;
 }
 
 /* The main entry point.  Run the analysis for all LOOPS starting from

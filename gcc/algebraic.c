@@ -62,28 +62,22 @@ static sbitmap suitable_operator;	/* Bitmap of operators we are able
 static GTY (()) rtx iteration_rtx[NUM_MACHINE_MODES];
 #endif
 
-static bool equal_when_iteration_zero_p	PARAMS ((EXPR, EXPR));
-static EXPR straighten_ops		PARAMS ((EXPR));
-static EXPR sort_ops			PARAMS ((EXPR));
-static int alg_compare_expr		PARAMS ((EXPR, EXPR));
-static EXPR use_distributive_law	PARAMS ((EXPR));
-static EXPR simplify_alg_expr_mult	PARAMS ((EXPR));
-static EXPR simplify_alg_expr_plus	PARAMS ((EXPR));
-static EXPR simplify_alg_expr_relational PARAMS ((EXPR, EXPR_TYPE));
-static EXPR float_if_then_else		PARAMS ((EXPR));
-static EXPR simplify_alg_expr_one_level	PARAMS ((EXPR, EXPR_TYPE));
-static bool combine_constants		PARAMS ((EXPR, EXPR, EXPR_TYPE,
-						 EXPR *));
-static EXPR compare_with_type_bounds	PARAMS ((OPERATOR,
-						 EXPR,
-						 EXPR_TYPE,
-						 EXPR_TYPE));
+static bool equal_when_iteration_zero_p (EXPR, EXPR);
+static EXPR straighten_ops (EXPR);
+static EXPR sort_ops (EXPR);
+static int alg_compare_expr (EXPR, EXPR);
+static EXPR use_distributive_law (EXPR);
+static EXPR simplify_alg_expr_mult (EXPR);
+static EXPR simplify_alg_expr_plus (EXPR);
+static EXPR simplify_alg_expr_relational (EXPR, EXPR_TYPE);
+static EXPR float_if_then_else (EXPR);
+static EXPR simplify_alg_expr_one_level (EXPR, EXPR_TYPE);
+static bool combine_constants (EXPR, EXPR, EXPR_TYPE, EXPR *);
+static EXPR compare_with_type_bounds (OPERATOR, EXPR, EXPR_TYPE, EXPR_TYPE);
 
 /* Checks whether EXPR1 == EXPR2, provided that iteration == 0.  */
 static bool
-equal_when_iteration_zero_p (expr1, expr2)
-     EXPR expr1;
-     EXPR expr2;
+equal_when_iteration_zero_p (EXPR expr1, EXPR expr2)
 {
   EXPR e1, e2;
   EXPR zero = CONST_INT_EXPR (0);
@@ -103,9 +97,7 @@ equal_when_iteration_zero_p (expr1, expr2)
    Note that the fact that we return 0 does not neccessarily imply that
    expressions are equal.  */
 static int
-alg_compare_expr (expr1, expr2)
-     EXPR expr1;
-     EXPR expr2;
+alg_compare_expr (EXPR expr1, EXPR expr2)
 {
   int i, length, cmp;
   OPERATOR op1 = GET_OPERATOR (expr1), op2 = GET_OPERATOR (expr2);
@@ -174,8 +166,7 @@ alg_compare_expr (expr1, expr2)
    expression in the same shape but the operands sorted according to
    alg_compare_expr.  The sorting is done in-place using bubble sort.  */
 static EXPR
-sort_ops (expr)
-     EXPR expr;
+sort_ops (EXPR expr)
 {
   EXPR pos, *op1, *op2, tmp;
   OPERATOR code = GET_OPERATOR (expr);
@@ -213,8 +204,7 @@ sort_ops (expr)
    transform it into (((((a op b) op c) op d) op e) op f).  The straightening
    is done in-place.  */
 static EXPR
-straighten_ops (expr)
-     EXPR expr;
+straighten_ops (EXPR expr)
 {
   EXPR tmp;
   OPERATOR code = GET_OPERATOR (expr);
@@ -239,8 +229,7 @@ straighten_ops (expr)
    simplify_alg_expr.  Use distributive law to express it as sum of
    products.  The transformation is partially done in-place.  */
 static EXPR
-use_distributive_law (expr)
-     EXPR expr;
+use_distributive_law (EXPR expr)
 {
   EXPR exprl, exprr, aexprr, ml, mr, prod, tmp, *act;
   EXPR result = NULL_EXPR, *ares = &result;
@@ -297,8 +286,7 @@ use_distributive_law (expr)
    sort operands according to alg_compare_expr here.  The simplification
    is done in-place.  */
 static EXPR
-simplify_alg_expr_mult (expr)
-     EXPR expr;
+simplify_alg_expr_mult (EXPR expr)
 {
   EXPR_TYPE mode = GET_EXPR_TYPE (expr);
   EXPR folded_constant = CONST_INT_EXPR (1);
@@ -346,11 +334,8 @@ simplify_alg_expr_mult (expr)
 /* If EXPR1 and EXPR2 differ only by a multiplicative constant,
    add the multiplicative constant of EXPR2 to FOLDED_CONSTANT.  */
 static bool
-combine_constants (expr1, expr2, mode, folded_constant)
-     EXPR expr1;
-     EXPR expr2;
-     EXPR_TYPE mode;
-     EXPR *folded_constant;
+combine_constants (EXPR expr1, EXPR expr2, EXPR_TYPE mode,
+		   EXPR *folded_constant)
 {
   EXPR cnst;
 
@@ -393,8 +378,7 @@ combine_constants (expr1, expr2, mode, folded_constant)
    (where c_i are constants) and sort operands according to
    alg_compare_expr.  The simplification is done in-place.  */
 static EXPR
-simplify_alg_expr_plus (expr)
-     EXPR expr;
+simplify_alg_expr_plus (EXPR expr)
 {
   EXPR_TYPE mode = GET_EXPR_TYPE (expr);
   EXPR *act1, *pact2, *act2, op, *tmp, *last;
@@ -509,10 +493,7 @@ simplify_alg_expr_plus (expr)
 /* Tries to simplify MODE subreg of EXPR of mode EXPR_MODE (important for
    constants).  The simplification is done in place.  */
 EXPR
-simplify_alg_expr_shorten (expr, expr_mode, mode)
-     EXPR expr;
-     EXPR_TYPE expr_mode;
-     EXPR_TYPE mode;
+simplify_alg_expr_shorten (EXPR expr, EXPR_TYPE expr_mode, EXPR_TYPE mode)
 {
   EXPR_TYPE inner_mode;
 
@@ -562,11 +543,8 @@ simplify_alg_expr_shorten (expr, expr_mode, mode)
    on right side.  If it is always true, return const_true_rtx.  Otherwise
    return NULL.  */
 static EXPR
-compare_with_type_bounds (code, par, mode, inner_mode)
-     OPERATOR code;
-     EXPR par;
-     EXPR_TYPE mode;
-     EXPR_TYPE inner_mode;
+compare_with_type_bounds (OPERATOR code, EXPR par, EXPR_TYPE mode,
+			  EXPR_TYPE inner_mode)
 {
   EXPR mmin, mmax, rlow, rhigh;
 
@@ -598,9 +576,7 @@ compare_with_type_bounds (code, par, mode, inner_mode)
 /* Attempt to simplify relational expression EXPR, whose operands are
    in mode INNER_MODE.  The simplification is done in place.  */
 static EXPR
-simplify_alg_expr_relational (expr, inner_mode)
-     EXPR expr;
-     EXPR_TYPE inner_mode;
+simplify_alg_expr_relational (EXPR expr, EXPR_TYPE inner_mode)
 {
   EXPR left, right, comp;
   OPERATOR code, left_code, right_code, extend;
@@ -683,8 +659,7 @@ simplify_alg_expr_relational (expr, inner_mode)
    to extend it to more general class of if_then_else transformations,
    so that this special case is not that ugly.  Done in-place.  */
 static EXPR
-float_if_then_else (expr)
-     EXPR expr;
+float_if_then_else (EXPR expr)
 {
   int i, length;
   EXPR right;
@@ -732,9 +707,7 @@ float_if_then_else (expr)
    (it might become VOIDmode due to it). The simplification is partly done
    in-place.  */
 static EXPR
-simplify_alg_expr_one_level (expr, inner_mode)
-     EXPR expr;
-     EXPR_TYPE inner_mode;
+simplify_alg_expr_one_level (EXPR expr, EXPR_TYPE inner_mode)
 {
   int i, length;
   OPERATOR code = GET_OPERATOR (expr);
@@ -863,8 +836,7 @@ simplify_alg_expr_one_level (expr, inner_mode)
    for our purposes, and does basically the reverse of transformations
    we want.  The simplification is partly done in-place.  */
 EXPR
-simplify_alg_expr (expr)
-     EXPR expr;
+simplify_alg_expr (EXPR expr)
 {
   EXPR_TYPE mode, inner_mode = EXPR_UNSPECIFIED_TYPE;
   HOST_WIDE_INT val;
@@ -1040,11 +1012,8 @@ init_algebraic ()
    If INTERESTING_REG is NULL, then we replace iteration rtl by *substitution
    instead (??? this should be done in a cleaner way!).  */
 EXPR
-substitute_into_expr (expr, interesting_reg, substitution, flags)
-     EXPR expr;
-     sbitmap interesting_reg;
-     EXPR *substitution;
-     int flags;
+substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
+		      int flags)
 {
   EXPR old_expr, new_expr, sub_expr;
   unsigned regno;
@@ -1074,7 +1043,12 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
 
       val = substitution[regno];
       if (!val)
-	return NULL_EXPR;
+	{
+	  if (flags & SIE_DEFAULT_ID)
+	    val = old_expr;
+	  else
+	    return NULL_EXPR;
+	}
     }
   else if (!interesting_reg && code == OP_ITERATION)
     {
@@ -1158,10 +1132,8 @@ substitute_into_expr (expr, interesting_reg, substitution, flags)
    of VAR or VAR if no simplification is possible.  Strongly biased
    for an induction variable analysis.  Partially done in-place.  */
 EXPR
-simplify_alg_expr_using_values (var, interesting_reg, initial_values)
-     EXPR var;
-     sbitmap interesting_reg;
-     EXPR *initial_values;
+simplify_alg_expr_using_values (EXPR var, sbitmap interesting_reg,
+				EXPR *initial_values)
 {
   EXPR base, step, sbase, sstep, wrap = NULL_EXPR, svar;
   int changed;
@@ -1267,10 +1239,7 @@ simplify_alg_expr_using_values (var, interesting_reg, initial_values)
    EXPR to come from simplify_alg_expr.  EXPR is not modified, but part of
    it may be shared as BASE or STEP.  */
 void
-iv_split (expr, base, step)
-     EXPR expr;
-     EXPR *base;
-     EXPR *step;
+iv_split (EXPR expr, EXPR *base, EXPR *step)
 {
   EXPR abase, astep, *pabase = &abase, *pastep = &astep;
   EXPR next, *act, tmp;
@@ -1367,13 +1336,12 @@ iv_split (expr, base, step)
 
 /* Generate OP_ITERATION in MODE (they are shared, so just return the EXPR).  */
 EXPR
-gen_iteration (mode)
-     EXPR_TYPE mode;
+gen_iteration (EXPR_TYPE mode)
 {
 #ifdef EL_RTX
   return iteration_rtx[mode];
 #else
-#error "Something really, really weird is happening."
+ #error "Something really, really weird is happening."
 #endif
 }
 
@@ -1382,10 +1350,7 @@ gen_iteration (mode)
    OTHER_ITERATIONS in the remaining ones.  ITMODE is a mode in that
    iteration count is measured.  */
 EXPR
-gen_bival (mode, first_iteration, other_iterations)
-     EXPR_TYPE mode;
-     EXPR first_iteration;
-     EXPR other_iterations;
+gen_bival (EXPR_TYPE mode, EXPR first_iteration, EXPR other_iterations)
 {
   return GEN_TERNARY (OP_IF_THEN_ELSE, mode,
 		      GEN_BINARY (EQ, STD_INT_TYPE,

@@ -72,25 +72,6 @@ static bool doloop_modify
   PARAMS ((const struct loop *, rtx, rtx, rtx, rtx));
 static bool doloop_modify_runtime
   PARAMS ((struct loops *, struct loop *, rtx, rtx, rtx));
-static int get_loop_level
-  PARAMS ((const struct loop *));
-
-/* Returns the maximum level of nesting of subloops of LOOP.  */
-static int
-get_loop_level (loop)
-     const struct loop *loop;
-{
-  const struct loop *ploop;
-  int mx = -1, l;
-
-  for (ploop = loop->inner; ploop; ploop = ploop->next)
-    {
-      l = get_loop_level (ploop);
-      if (l > mx)
-	mx = l;
-    }
-  return mx + 1;
-}
 
 /* Return the loop termination condition for PATTERN or zero
    if it is not a decrement and branch jump insn.  */
