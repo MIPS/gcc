@@ -1414,7 +1414,6 @@ c_common_parse_file (int set_yydebug)
 	      (0, input_filename, cpp_get_stabs_checksum ());
 	}
         /* APPLE LOCAL end Symbol Separation */
-      pch_init ();
       push_file_scope ();
       c_parse_file ();
       /* APPLE LOCAL Objective-C++ */
