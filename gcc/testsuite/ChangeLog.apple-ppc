@@ -1,3 +1,8 @@
+2005-03-30  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3955567
+	* gcc.apple/bitreverse-[0-9].c:  New.
+
 2005-03-21  Stuart Hastings  <stuart@apple.com>
 
 	Radars 3805723 4010664 3965893 4010496 4015764
