@@ -499,6 +499,7 @@ cp_lexer_get_preprocessor_token (lexer, token)
 {
   const char *saved_filename;
   int saved_lineno;
+  bool done;
 
   /* If there's no INPUT_STREAM, return a terminating CPP_EOF token.  */
   if (!lexer->input_stream)
@@ -518,10 +519,46 @@ cp_lexer_get_preprocessor_token (lexer, token)
   saved_lineno = lineno;
   saved_filename = input_filename;
 
-  /* Get a new token from the preprocessor.  The call to c_lex should
-     really require us to pass the INPUT_STREAM, but it is hardwired
-     to use a global value.  */
-  token->type = c_lex (&token->value);
+  done = false;
+  /* Keep going until we get a token we like.  */
+  while (!done)
+    {
+      bool tentative_diagnostics_p;
+
+      /* Lexing the token might generate error messages.  Any such error
+	 messages should be issued right away because if we are parsing
+	 tentatively we will not re-lex the token if we reject this
+	 tentative parse.  */
+      tentative_diagnostics_p 
+	= diagnostic_buffer->ds->tentative_diagnostic;
+      if (tentative_diagnostics_p)
+	diagnostic_issue_immediately (diagnostic_buffer);
+      /* Get a new token from the preprocessor.  The call to c_lex should
+	 really require us to pass the INPUT_STREAM, but it is hardwired
+	 to use a global value.  */
+      token->type = c_lex (&token->value);
+      /* Issue messages about tokens we cannot process.  */
+      switch (token->type)
+	{
+	case CPP_ATSIGN:
+	case CPP_HASH:
+	case CPP_PASTE:
+	  cp_error ("invalid token");
+	  break;
+
+	case CPP_OTHER:
+	  /* These tokens are already warned about by c_lex.  */
+	  break;
+
+	default:
+	  /* This is a good token, so we exit the loop.  */
+	  done = true;
+	  break;
+	}
+      /* If we switched diagnostic modes, switch back now.  */
+      if (tentative_diagnostics_p)
+	diagnostic_cease_issuing_immediately (diagnostic_buffer);
+    }
   /* Now we've got our token.  */
   token->line_number = lineno;
   token->file_name = input_filename;
@@ -1201,6 +1238,10 @@ typedef struct cp_parser
   /* The number of classes whose definitions are currently in
      progress.  */
   unsigned num_classes_being_defined;
+
+  /* Te number of template parameter lists that apply directly to the
+     current declaration.  */
+  unsigned num_template_parameter_lists;
 } cp_parser;
 
 /* The type of a function that parses some kind of expression  */
@@ -1392,7 +1433,7 @@ static void cp_parser_linkage_specification
 /* Declarators [gram.dcl.decl] */
 
 static tree cp_parser_init_declarator
-  PARAMS ((cp_parser *, tree, tree, tree, bool, bool, unsigned, bool *));
+  PARAMS ((cp_parser *, tree, tree, tree, bool, bool, bool *));
 static tree cp_parser_declarator
   PARAMS ((cp_parser *, bool, bool *));
 static tree cp_parser_direct_declarator
@@ -1416,7 +1457,7 @@ static tree cp_parser_parameter_declaration_list
 static tree cp_parser_parameter_declaration
   PARAMS ((cp_parser *, bool));
 static tree cp_parser_function_definition
-  PARAMS ((cp_parser *, unsigned, bool *));
+  PARAMS ((cp_parser *, bool *));
 static void cp_parser_function_body
   PARAMS ((cp_parser *));
 static tree cp_parser_initializer
@@ -1497,7 +1538,7 @@ static tree cp_parser_template_argument
 static void cp_parser_explicit_instantiation
   PARAMS ((cp_parser *));
 static void cp_parser_explicit_specialization
-  PARAMS ((cp_parser *, unsigned));
+  PARAMS ((cp_parser *));
 
 /* Exception handling [gram.exception] */
 
@@ -1543,8 +1584,12 @@ static tree cp_parser_lookup_name_simple
   PARAMS ((cp_parser *, tree));
 static tree cp_parser_resolve_typename_type
   PARAMS ((tree));
+static tree cp_parser_maybe_treat_template_as_class
+  PARAMS ((tree));
+static bool cp_parser_check_declarator_template_parameters
+  PARAMS ((cp_parser *, tree));
 static bool cp_parser_check_template_parameters
-  PARAMS ((tree, unsigned));
+  PARAMS ((cp_parser *, unsigned));
 static tree cp_parser_binary_expression
   PARAMS ((cp_parser *, 
 	   cp_parser_token_tree_map,
@@ -1558,9 +1603,9 @@ static tree cp_parser_function_definition_from_specifiers_and_declarator
 static tree cp_parser_function_definition_after_declarator
   PARAMS ((cp_parser *, bool));
 static void cp_parser_template_declaration_after_export
-  PARAMS ((cp_parser *, bool, unsigned));
+  PARAMS ((cp_parser *, bool));
 static tree cp_parser_single_declaration
-  PARAMS ((cp_parser *, unsigned, bool, bool *));
+  PARAMS ((cp_parser *, bool, bool *));
 static tree cp_parser_functional_cast
   PARAMS ((cp_parser *, tree));
 static void cp_parser_late_parsing_for_member
@@ -1605,8 +1650,6 @@ static void cp_parser_skip_to_end_of_statement
   PARAMS ((cp_parser *));
 static void cp_parser_skip_to_end_of_block_or_statement
   PARAMS ((cp_parser *));
-static void cp_parser_skip_tokens
-  PARAMS ((cp_parser *, enum cpp_ttype));
 static bool cp_parser_error_occurred
   PARAMS ((cp_parser *));
 static bool cp_parser_allow_gnu_extensions_p
@@ -1793,29 +1836,6 @@ cp_parser_commit_to_construct (parser)
     parser->context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
 }
 
-/* Consume tokens until the next token has the indicated
-   TOKEN_TYPE, or until the next token has type CPP_EOF.  */
-
-static void
-cp_parser_skip_tokens (parser, token_type)
-     cp_parser *parser;
-     enum cpp_ttype token_type;
-{
-  cp_token *token;
-
-  while (true)
-    {
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If it's what we want, stop.  */
-      if (token->type == token_type
-	  || token->type == CPP_EOF)
-	break;
-      /* Otherwise, consume the token.  */
-      cp_lexer_consume_token (parser->lexer);
-    }
-}
-
 /* Consume tokens up to, and including, the next non-nested closing `)'. 
    Returns TRUE iff we found a closing `)'.  */
 
@@ -1977,6 +1997,9 @@ cp_parser_new ()
 
   /* There are no classes being defined.  */
   parser->num_classes_being_defined = 0;
+
+  /* No template parameters apply.  */
+  parser->num_template_parameter_lists = 0;
 
   /* Register the new parser with the garbage collector.  */
   ggc_add_root (parser, 1, sizeof (cp_parser), &cp_parser_ggc_mark);
@@ -3901,14 +3924,15 @@ cp_parser_new_declarator_opt (parser)
       /* Parse another optional declarator.  */
       declarator = cp_parser_new_declarator_opt (parser);
 
-      /* FIXME: Factor this code.  */
       /* Create the representation of the declarator.  */
       if (code == INDIRECT_REF)
-	return make_pointer_declarator (cv_qualifier_seq,
-					declarator);
+	declarator = make_pointer_declarator (cv_qualifier_seq,
+					      declarator);
       else
-	return make_reference_declarator (cv_qualifier_seq,
-					  declarator);
+	declarator = make_reference_declarator (cv_qualifier_seq,
+						declarator);
+
+      return declarator;
     }
 
   /* If the next token is a `[', there is a direct-new-declarator.  */
@@ -5504,8 +5528,7 @@ cp_parser_declaration (parser)
       /* `template <>' indicates a template specialization.  */
       if (token2.type == CPP_LESS
 	  && cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_GREATER)
-	cp_parser_explicit_specialization (parser, 
-					   /*num_parameter_lists=*/0);
+	cp_parser_explicit_specialization (parser);
       /* `template <' indicates a template declaration.  */
       else if (token2.type == CPP_LESS)
 	cp_parser_template_declaration (parser, /*member_p=*/false);
@@ -5678,7 +5701,6 @@ cp_parser_simple_declaration (parser, function_definition_allowed_p)
 				 access_checks,
 				 function_definition_allowed_p,
 				 /*member_p=*/false,
-				 /*num_template_parameter_lists=*/0,
 				 &function_definition_p);
       /* Handle function definitions specially.  */
       if (function_definition_p)
@@ -6677,9 +6699,7 @@ cp_parser_template_declaration (parser, member_p)
       cp_warning ("keyword `export' not implemented, and will be ignored");
     }
 
-  cp_parser_template_declaration_after_export (parser, 
-					       member_p,
-					       /*num_parameter_lists=*/0);
+  cp_parser_template_declaration_after_export (parser, member_p);
 }
 
 /* Parse a template-parameter-list.
@@ -7306,9 +7326,8 @@ cp_parser_explicit_instantiation (parser)
      template <> template-declaration  */
 
 static void
-cp_parser_explicit_specialization (parser, num_parameter_lists)
+cp_parser_explicit_specialization (parser)
      cp_parser *parser;
-     unsigned num_parameter_lists;
 {
   /* Look for the `template' keyword.  */
   cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
@@ -7317,7 +7336,7 @@ cp_parser_explicit_specialization (parser, num_parameter_lists)
   /* Look for the `>'.  */
   cp_parser_require (parser, CPP_GREATER, "`>'");
   /* We have processed another parameter list.  */
-  ++num_parameter_lists;
+  ++parser->num_template_parameter_lists;
   /* Let the front end know that we are beginning a specialization.  */
   begin_specialization ();
 
@@ -7328,20 +7347,20 @@ cp_parser_explicit_specialization (parser, num_parameter_lists)
     if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_LESS
 	&& cp_lexer_peek_nth_token (parser->lexer, 3)->type != CPP_GREATER)
       cp_parser_template_declaration_after_export (parser,
-						   /*member_p=*/false,
-						   num_parameter_lists);
+						   /*member_p=*/false);
     else
-      cp_parser_explicit_specialization (parser, num_parameter_lists);
+      cp_parser_explicit_specialization (parser);
   }
   else
     /* Parse the dependent declaration.  */
     cp_parser_single_declaration (parser, 
-				  num_parameter_lists,
 				  /*member_p=*/false,
 				  /*friend_p=*/NULL);
 
   /* We're done with the specialization.  */
   end_specialization ();
+  /* We're done with this parameter list.  */
+  --parser->num_template_parameter_lists;
 }
 
 /* Parse a type-specifier.
@@ -7808,6 +7827,8 @@ cp_parser_elaborated_type_specifier (parser, is_friend, is_declaration)
 				    /*check_access=*/true,
 				    /*is_type=*/true,
 				    /*check_dependency=*/true);
+      decl = cp_parser_maybe_treat_template_as_class (decl);
+
       if (TREE_CODE (decl) != TYPE_DECL)
 	{
 	  cp_error ("expected type-name");
@@ -8210,8 +8231,6 @@ cp_parser_using_declaration (parser)
   if (parser->scope)
     identifier = build_nt (SCOPE_REF, parser->scope, identifier);
 
-  /* FIXME: Write a single function in semantics.c that performs this
-     dispatch.  */
   /* The function we call to handle a using-declaration is different
      depending on what scope we are in.  */
   scope = current_scope ();
@@ -8403,11 +8422,9 @@ cp_parser_asm_definition (parser)
 
    The DECL_SPECIFIERS and PREFIX_ATTRIBUTES apply to this declarator.
    Returns a reprsentation of the entity declared.  The ACCESS_CHECKS
-   represent deferred access checks from the decl-specifier-seq.
-   NUM_TEMPLATE_PARAMETER_LISTS is the number of template parameter
-   lists that apply to the declaration.  If MEMBER_P is TRUE, then
-   this declarator appears in a class scope.  The new DECL created by
-   this declarator is returned.
+   represent deferred access checks from the decl-specifier-seq.  If
+   MEMBER_P is TRUE, then this declarator appears in a class scope.
+   The new DECL created by this declarator is returned.
 
    If FUNCTION_DEFINITION_ALLOWED_P then we handle the declarator and
    for a function-definition here as well.  If the declarator is a
@@ -8425,7 +8442,6 @@ cp_parser_init_declarator (parser,
 			   access_checks,
 			   function_definition_allowed_p,
 			   member_p,
-			   num_template_parameter_lists,
 			   function_definition_p)
      cp_parser *parser;
      tree decl_specifiers;
@@ -8433,7 +8449,6 @@ cp_parser_init_declarator (parser,
      tree access_checks;
      bool function_definition_allowed_p;
      bool member_p;
-     unsigned num_template_parameter_lists;
      bool *function_definition_p;
 {
   cp_token *token;
@@ -8570,9 +8585,8 @@ cp_parser_init_declarator (parser,
   friend_p = cp_parser_friend_p (decl_specifiers);
 
   /* Check that the number of template-parameter-lists is OK.  */
-  if (!cp_parser_check_template_parameters 
-      (declarator,
-       num_template_parameter_lists))
+  if (!cp_parser_check_declarator_template_parameters (parser, 
+						       declarator))
     return error_mark_node;
   /* Figure out what scope the entity declared by the DECLARATOR is
      located in.  */
@@ -8934,8 +8948,6 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 		  || constructor_name_p (unqualified_name,
 					 current_class_type)))
 	    *ctor_dtor_or_conv_p = true;
-
-	  /* FIXME: Check for conversions.  */
 	}
     }
   /* But for an abstract declarator, the initial direct-declarator can
@@ -9234,27 +9246,7 @@ cp_parser_declarator_id (parser)
 {
   tree id_expression;
 
-  /* FIXME: Enable this, if necessary.  */
-#if 0
-  tree type_decl;
-
-  /* Try the second alternative (used to declare a constructor)
-     first.  */
-  cp_parser_parse_tentatively (parser);
-  /* Look for the optional `::' operator.  */
-  cp_parser_global_scope_opt (parser,
-			      /*current_scope_valid_p=*/false);
-  /* Look for the optional nested-name-specifier.  */
-  cp_parser_nested_name_specifier_opt (parser);
-  /* Look for the type-name indicating the type constructed.  */
-  type_decl = cp_parser_type_name (parser);
-  /* If all went well, we have a constructor name.  */
-  if (cp_parser_parse_definitely (parser))
-    /* FIXME: Implement this.  */
-    cp_parser_unimplemented ();
-#endif
-
-  /* In this case, it must be an id-expression.  Assume that qualified
+  /* The expression must be an id-expression.  Assume that qualified
      names are the names of types so that:
 
        template <class T>
@@ -9732,17 +9724,13 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
    function-definition:
      __extension__ function-definition 
 
-   NUM_TEMPLATE_PARAMETER_LISTS is the number of template parameter
-   lists that apply to the function definition.  Returns the
-   FUNCTION_DECL for the function.  If FRIEND_P is non-NULL, *FRIEND_P
-   is set to TRUE iff the function was declared to be a `friend'.  */
+   Returns the FUNCTION_DECL for the function.  If FRIEND_P is
+   non-NULL, *FRIEND_P is set to TRUE iff the function was declared to
+   be a `friend'.  */
 
 static tree
-cp_parser_function_definition (parser, 
-			       num_template_parameter_lists,
-			       friend_p)
+cp_parser_function_definition (parser, friend_p)
      cp_parser *parser;
-     unsigned num_template_parameter_lists;
      bool *friend_p;
 {
   tree decl_specifiers;
@@ -9766,9 +9754,7 @@ cp_parser_function_definition (parser,
   if (cp_parser_extension_opt (parser, &saved_pedantic))
     {
       /* Parse the function-definition.  */
-      fn = cp_parser_function_definition (parser,
-					  num_template_parameter_lists,
-					  friend_p);
+      fn = cp_parser_function_definition (parser, friend_p);
       /* Restore the PEDANTIC flag.  */
       pedantic = saved_pedantic;
 
@@ -9923,10 +9909,12 @@ cp_parser_function_definition (parser,
     }
 
   /* Check that the number of template-parameter-lists is OK.  */
-  if (!cp_parser_check_template_parameters 
-      (declarator, num_template_parameter_lists))
-    /* FIXME: Skip tokens?  */
-    cp_parser_unimplemented ();
+  if (!cp_parser_check_declarator_template_parameters (parser, 
+						       declarator))
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
 
   return (cp_parser_function_definition_from_specifiers_and_declarator
 	  (parser, decl_specifiers, attributes, declarator, access_checks));
@@ -10213,20 +10201,7 @@ cp_parser_class_name (parser,
 	}
     }
   
-  /* If the DECL is a TEMPLATE_DECL for a class type, and we are in
-     the scope of the class, then treat the TEMPLATE_DECL as a
-     class-name.  For example, in:
-
-       template <class T> struct S {
-         S s;
-       };
-
-     is OK.  */
-  if (DECL_CLASS_TEMPLATE_P (decl)
-      && current_class_type
-      && same_type_p (TREE_TYPE (DECL_TEMPLATE_RESULT (decl)),
-		      current_class_type))
-    return DECL_TEMPLATE_RESULT (decl);
+  decl = cp_parser_maybe_treat_template_as_class (decl);
 
   /* If this is a typename, create a TYPENAME_TYPE.  */
   if (typename_p && decl != error_mark_node)
@@ -10234,9 +10209,6 @@ cp_parser_class_name (parser,
 					  /*complain=*/1));
 
   /* Check to see that it is really the name of a class.  */
-  /* FIXME: This accepts typedefs for a class.  Is that OK?  */
-  /* FIXME: This accepts template-type-parameters which are
-     type-names, but not class-names.  */
   if (decl == error_mark_node
       || TREE_CODE (decl) != TYPE_DECL
       || !IS_AGGR_TYPE (TREE_TYPE (decl)))
@@ -10266,12 +10238,20 @@ cp_parser_class_specifier (parser)
   bool nested_name_specifier_p;
   bool deferring_access_checks_p;
   tree saved_access_checks;
+  unsigned saved_num_template_parameter_lists;
 
   /* Parse the class-head.  */
   type = cp_parser_class_head (parser,
 			       &nested_name_specifier_p,
 			       &deferring_access_checks_p,
 			       &saved_access_checks);
+  /* If the class-head was a semantic disaster, skip the entire body
+     of the class.  */
+  if (!type)
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
   /* Look for the `{'.  */
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
     return error_mark_node;
@@ -10282,6 +10262,11 @@ cp_parser_class_specifier (parser)
   cp_parser_commit_to_tentative_parse (parser);
   /* Remember that we are defining one more class.  */
   ++parser->num_classes_being_defined;
+  /* Inside the class, surrounding template-parameter-lists do not
+     apply.  */
+  saved_num_template_parameter_lists 
+    = parser->num_template_parameter_lists; 
+  parser->num_template_parameter_lists = 0;
   /* Start the class.  */
   type = begin_class_definition (type);
   /* Parse the member-specification.  */
@@ -10376,6 +10361,10 @@ cp_parser_class_specifier (parser)
       parser->context->deferred_access_checks = saved_access_checks;
     }
 
+  /* Restore the count of active template-parameter-lists.  */
+  parser->num_template_parameter_lists
+    = saved_num_template_parameter_lists;
+
   return type;
 }
 
@@ -10393,7 +10382,11 @@ cp_parser_class_specifier (parser)
    Sets *DEFERRING_ACCESS_CHECKS_P to TRUE iff we were deferring
    access checks before this class-head.  In that case,
    *SAVED_ACCESS_CHECKS is set to the current list of deferred access
-   checks.  */
+   checks.  
+
+   Returns NULL_TREE if the class-head is syntactically valid, but
+   semantically invalid in a way that means we should skip the entire
+   body of the class.  */
 
 static tree
 cp_parser_class_head (parser, 
@@ -10411,9 +10404,13 @@ cp_parser_class_head (parser,
   tree id = NULL_TREE;
   tree type = NULL_TREE;
   bool template_id_p = false;
+  unsigned num_templates;
 
   /* Assume no nested-name-specifier will be present.  */
   *nested_name_specifier_p = false;
+  /* Assume no template parameter lists will be used in defining the
+     type.  */
+  num_templates = 0;
 
   /* Look for the class-key.  */
   class_key = cp_parser_class_key (parser);
@@ -10502,6 +10499,22 @@ cp_parser_class_head (parser,
 	  nested_name_specifier = NULL_TREE;
 	  id = make_error_name ();
 	}
+      /* Otherwise, count the number of templates used in TYPE and its
+	 containing scopes.  */
+      else 
+	{
+	  tree scope;
+
+	  for (scope = TREE_TYPE (type); 
+	       scope && TREE_CODE (scope) != NAMESPACE_DECL;
+	       scope = (TYPE_P (scope) 
+			? TYPE_CONTEXT (scope)
+			: DECL_CONTEXT (scope))) 
+	    if (TYPE_P (scope) 
+		&& CLASSTYPE_TEMPLATE_INFO (scope)
+		&& PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
+	      ++num_templates;
+	}
     }
   /* Otherwise, the identifier is optional.  */
   else
@@ -10522,7 +10535,10 @@ cp_parser_class_head (parser,
 	    id = NULL_TREE;
 	}
       else
-	template_id_p = true;
+	{
+	  template_id_p = true;
+	  ++num_templates;
+	}
     }
 
   /* Peek at the next token.  */
@@ -10536,6 +10552,13 @@ cp_parser_class_head (parser,
       cp_parser_error (parser, "expected `{' or `:'");
       return error_mark_node;
     }
+
+  /* Make sure that the right number of template parameters were
+     present.  */
+  if (!cp_parser_check_template_parameters (parser, num_templates))
+    /* If something went wrong, there is no point in even trying to
+       process the class-definition.  */
+    return NULL_TREE;
 
   /* We do not need to defer access checks for entities declared
      within the class.  But, we do need to save any access checks that
@@ -10984,9 +11007,7 @@ cp_parser_member_declaration (parser)
     }
 
   /* Parse the function-definition.  */
-  decl = cp_parser_function_definition (parser,
-					/*num_template_parameter_lists=*/0,
-					&friend_p);
+  decl = cp_parser_function_definition (parser,	&friend_p);
   /* If the member was not a friend, declare it here.  */
   if (!friend_p)
     finish_member_declaration (decl);
@@ -11016,7 +11037,9 @@ cp_parser_pure_specifier (parser)
     return error_mark_node;
   /* Look for the `0' token.  */
   token = cp_parser_require (parser, CPP_NUMBER, "`0'");
-  /* FIXME: This will probably accept `0L' and `0x00' as well.  */
+  /* Unfortunately, this will accept `0L' and `0x00' as well.  We need
+     to get information from the lexer about how the number was
+     spelled in order to fix this problem.  */
   if (!token || !integer_zerop (token->value))
     return error_mark_node;
 
@@ -11179,8 +11202,6 @@ cp_parser_base_specifier (parser)
 
   /* Map `virtual_p' and `access' onto one of the access 
      tree-nodes.  */
-  /* FIXME: This is a frightful way to express what should be a struct
-     with two fields.  */
   if (!virtual_p)
     switch (access)
       {
@@ -12145,15 +12166,40 @@ cp_parser_resolve_typename_type (type)
   return type;
 }
 
+/* If DECL is a TEMPLATE_DECL that can be treated like a TYPE_DECL in
+   the current context, return the TYPE_DECL.  Otherwise, return
+   DECL.  */
+
+static tree
+cp_parser_maybe_treat_template_as_class (decl)
+     tree decl;
+{
+  /* If the DECL is a TEMPLATE_DECL for a class type, and we are in
+     the scope of the class, then treat the TEMPLATE_DECL as a
+     class-name.  For example, in:
+
+       template <class T> struct S {
+         S s;
+       };
+
+     is OK.  */
+  if (DECL_CLASS_TEMPLATE_P (decl)
+      && current_class_type
+      && same_type_p (TREE_TYPE (DECL_TEMPLATE_RESULT (decl)),
+		      current_class_type))
+    return DECL_TEMPLATE_RESULT (decl);
+
+  return decl;
+}
+
 /* If too many, or too few, template-parameter lists apply to the
    declarator, issue an error message.  Returns TRUE if all went well,
    and FALSE otherwise.  */
 
 static bool
-cp_parser_check_template_parameters (declarator, 
-				     num_parameter_lists)
+cp_parser_check_declarator_template_parameters (parser, declarator)
+     cp_parser *parser;
      tree declarator;
-     unsigned num_parameter_lists;
 {
   unsigned num_templates;
 
@@ -12169,8 +12215,8 @@ cp_parser_check_template_parameters (declarator,
       {
 	tree main_declarator = TREE_OPERAND (declarator, 0);
 	return
-	  cp_parser_check_template_parameters (main_declarator,
-					       num_parameter_lists);
+	  cp_parser_check_declarator_template_parameters (parser, 
+							  main_declarator);
       }
 
     case SCOPE_REF:
@@ -12185,8 +12231,8 @@ cp_parser_check_template_parameters (declarator,
 	   in the SCOPE, because it does not qualify the thing that is
 	   being declared.  */
 	if (TREE_CODE (member) == INDIRECT_REF)
-	  return cp_parser_check_template_parameters (member,
-						      num_parameter_lists);
+	  return (cp_parser_check_declarator_template_parameters
+		  (parser, member));
 
 	while (scope && CLASS_TYPE_P (scope))
 	  {
@@ -12218,30 +12264,43 @@ cp_parser_check_template_parameters (declarator,
       if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
 	++num_templates;
 
-      /* If there are more template classes than parameter lists, we 
-	 have something like:
-	   
-	 template <class T> void S<T>::R<T>::f ();  */
-      if (num_parameter_lists < num_templates)
-	{
-	  cp_error ("too few template-parameter-lists");
-	  return false;
-	}
-      /* If there are the same number of template classes and
-	 parameter lists, that's OK.  */
-      if (num_parameter_lists == num_templates)
-	return true;
-      /* If there are more, but only one more, then we are referring
-	 to a member template.  That's OK too.  */
-      if (num_parameter_lists == num_templates + 1)
-	return true;
-      /* Otherwise, there are too many template parameter lists.  We
-	 have something like:
+      return cp_parser_check_template_parameters (parser, 
+						  num_templates);
+    }
+}
 
-	 template <class T> template <class U> void S<T>::f();  */
-      cp_error ("too many template-parameter-lists");
+/* NUM_TEMPLATES were used in the current declaration.  If that is
+   invalid, return FALSE and issue an error messages.  Otherwise,
+   return TRUE.  */
+
+static bool
+cp_parser_check_template_parameters (parser, num_templates)
+     cp_parser *parser;
+     unsigned num_templates;
+{
+  /* If there are more template classes than parameter lists, we have
+     something like:
+     
+       template <class T> void S<T>::R<T>::f ();  */
+  if (parser->num_template_parameter_lists < num_templates)
+    {
+      cp_error ("too few template-parameter-lists");
       return false;
     }
+  /* If there are the same number of template classes and parameter
+     lists, that's OK.  */
+  if (parser->num_template_parameter_lists == num_templates)
+    return true;
+  /* If there are more, but only one more, then we are referring to a
+     member template.  That's OK too.  */
+  if (parser->num_template_parameter_lists == num_templates + 1)
+    return true;
+  /* Otherwise, there are too many template parameter lists.  We have
+     something like:
+
+     template <class T> template <class U> void S::f();  */
+  cp_error ("too many template-parameter-lists");
+  return false;
 }
 
 /* Parse a binary-expression of the general form:
@@ -12492,6 +12551,7 @@ cp_parser_function_definition_after_declarator (parser,
   tree fn;
   bool ctor_initializer_p = false;
   bool saved_in_unbraced_linkage_specification_p;
+  unsigned saved_num_template_parameter_lists;
 
   /* If the next token is `return', then the code may be trying to
      make use of the "named return value" extension that G++ used to
@@ -12510,6 +12570,11 @@ cp_parser_function_definition_after_declarator (parser,
   saved_in_unbraced_linkage_specification_p 
     = parser->in_unbraced_linkage_specification_p;
   parser->in_unbraced_linkage_specification_p = false;
+  /* Inside the function, surrounding template-parameter-lists do not
+     apply.  */
+  saved_num_template_parameter_lists 
+    = parser->num_template_parameter_lists; 
+  parser->num_template_parameter_lists = 0;
   /* If the next token is `try', then we are looking at a
      function-try-block.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TRY))
@@ -12529,25 +12594,23 @@ cp_parser_function_definition_after_declarator (parser,
 			(inline_p ? 2 : 0));
   /* Generate code for it, if necessary.  */
   expand_body (fn);
-  /* Restore the saved value.  */
+  /* Restore the saved values.  */
   parser->in_unbraced_linkage_specification_p 
     = saved_in_unbraced_linkage_specification_p;
+  parser->num_template_parameter_lists 
+    = saved_num_template_parameter_lists;
 
   return fn;
 }
 
 /* Parse a template-declaration, assuming that the `export' (and
    `extern') keywords, if present, has already been scanned.  MEMBER_P
-   is as for cp_parser_template_declaration.  NUM_PARAMETER_LISTS is
-   the number of parameter lists that have been processed thus far.  */
+   is as for cp_parser_template_declaration.  */
 
 static void
-cp_parser_template_declaration_after_export (parser,
-					     member_p, 
-					     num_parameter_lists)
+cp_parser_template_declaration_after_export (parser, member_p)
      cp_parser *parser;
      bool member_p;
-     unsigned num_parameter_lists;
 {
   tree decl = NULL_TREE;
   tree parameter_list;
@@ -12570,24 +12633,21 @@ cp_parser_template_declaration_after_export (parser,
   if (cp_parser_require (parser, CPP_GREATER, "`>'"))
     {
       /* We just processed one more parameter list.  */
-      ++num_parameter_lists;
+      ++parser->num_template_parameter_lists;
       /* If the next token is `template', there are more template
 	 parameters.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, 
 					  RID_TEMPLATE))
-	cp_parser_template_declaration_after_export (parser,
-						     member_p,
-						     num_parameter_lists);
+	cp_parser_template_declaration_after_export (parser, member_p);
       else
 	{
 	  decl = cp_parser_single_declaration (parser,
-					       num_parameter_lists,
 					       member_p,
 					       &friend_p);
 
 	  /* If this is a member template declaration, let the front
 	     end know.  */
-	  if (member_p)
+	  if (member_p && decl)
 	    {
 	      if (TYPE_P (decl))
 		{
@@ -12599,6 +12659,8 @@ cp_parser_template_declaration_after_export (parser,
 		decl = finish_member_template_decl (decl);
 	    }
 	}
+      /* We are done with the current parameter list.  */
+      --parser->num_template_parameter_lists;
     }
 
   /* Finish up.  */
@@ -12620,20 +12682,17 @@ cp_parser_template_declaration_after_export (parser,
 }
 
 /* Parse a `decl-specifier-seq [opt] init-declarator [opt] ;' or
-   `function-definition' sequence.  NUM_PARAMETER_LISTS is the number
-   of template-parameter lists that apply to this declaration.  If
-   MEMBER_P is true, this declaration appears in a class scope.
+   `function-definition' sequence.  MEMBER_P is true, this declaration
+   appears in a class scope.
 
    Returns the DECL for the declared entity.  If FRIEND_P is non-NULL,
    *FRIEND_P is set to TRUE iff the declaration is a friend.  */
 
 static tree
 cp_parser_single_declaration (parser, 
-			      num_parameter_lists,
 			      member_p,
 			      friend_p)
      cp_parser *parser;
-     unsigned num_parameter_lists;
      bool member_p;
      bool *friend_p;
 {
@@ -12666,15 +12725,20 @@ cp_parser_single_declaration (parser,
 					    friend_p);
   else
     decl = NULL_TREE;
-  /* If it's not a template class, try for a template function.  */
-  if (!decl)
+  /* If it's not a template class, try for a template function.  If
+     the next token is a `;', then this declaration does not declare
+     anything.  But, If there were errors in the decl-specifiers, then
+     the error might well have come from an attempted class-specifier.
+     In that case, there's no need to warn about a missing declarator.  */
+  if (!decl
+      && (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON)
+	  || !value_member (error_mark_node, decl_specifiers)))
     decl = cp_parser_init_declarator (parser, 
 				      decl_specifiers,
 				      attributes,
 				      access_checks,
 				      /*function_definition_allowed_p=*/false,
 				      member_p,
-				      num_parameter_lists,
 				      /*function_definition_p=*/NULL);
   /* Clear any current qualification; whatever comes next is the start
      of something new.  */
@@ -12689,9 +12753,7 @@ cp_parser_single_declaration (parser,
     }
   /* Otherwise, try a function-definition.  */
   else
-    decl = cp_parser_function_definition (parser,
-					  num_parameter_lists,
-					  friend_p);
+    decl = cp_parser_function_definition (parser, friend_p);
 
   return decl;
 }

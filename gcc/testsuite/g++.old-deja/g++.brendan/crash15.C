@@ -18,5 +18,5 @@ main() {
   B b;
   b.~A();// ERROR -  destructor
   std::cout << "done\n";
-};
+}
 

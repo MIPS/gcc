@@ -1,10 +1,8 @@
 // Build don't link:
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 17 Nov 2000 <nathan@codesourcery.com>
 
-// bug 43. Two failings, bison parser ickiness caused us to find the member
-// named the same as a friend, and then when instantiating, we'd lookup in
-// the wrong scope.
+// bug 43. When instantiating, we'd lookup in the wrong scope.
 
 namespace X {
   template <class T> class P;
@@ -17,7 +15,7 @@ namespace X {
     V (const T&);
   
     void operator- ();
-    friend void operator-<> (const P<T>& a);
+    friend void ::X::operator-<> (const P<T>& a);
   };
 }
 

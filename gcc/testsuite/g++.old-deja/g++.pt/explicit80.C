@@ -10,6 +10,7 @@ struct A
   class B;
 };
 
+template <>
 class A<int>::B { };
 
 template class A<int>;

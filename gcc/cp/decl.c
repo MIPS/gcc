@@ -6835,6 +6835,7 @@ check_tag_decl (declspecs, friend_p)
   tree ob_modifier = NULL_TREE;
   register tree link;
   register tree t = NULL_TREE;
+  bool error_p = false;
 
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
@@ -6883,12 +6884,14 @@ check_tag_decl (declspecs, friend_p)
 	       || value == ridpointers[(int) RID_VOLATILE]
 	       || value == ridpointers[(int) RID_EXPLICIT])
 	ob_modifier = value;
+      else if (value == error_mark_node)
+	error_p = true;
     }
 
   if (found_type > 1)
     error ("multiple types in one declaration");
 
-  if (t == NULL_TREE && ! saw_friend)
+  if (t == NULL_TREE && ! saw_friend && !error_p)
     pedwarn ("declaration does not declare anything");
 
   /* Check for an anonymous union.  */

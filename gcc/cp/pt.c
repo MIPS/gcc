@@ -263,7 +263,7 @@ template_class_depth_real (type, count_specializations)
 }
 
 /* Returns the template nesting level of the indicated class TYPE.
-   Like template_class_depth_real, but instantiations do not count in
+   Like template_class_depth_real, but specializations do not count in
    the depth.  */
 
 int 
@@ -1335,6 +1335,14 @@ check_explicit_specialization (declarator, decl, flags)
 	     
        That's a specialization -- but of the entire template.  */
     specialization = 1;
+
+  if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
+      && uses_template_parms (declarator))
+    {
+      cp_error ("partial specialization `%D' of function template",
+		declarator);
+      return decl;
+    }
 
   if (specialization || member_specialization)
     {
