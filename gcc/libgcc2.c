@@ -922,28 +922,20 @@ __fixxfdi (XFtype a)
 DWtype
 __fixunsdfDI (DFtype a)
 {
-  DFtype b;
-  UDWtype v;
+  UWtype hi, lo;
 
-  if (a < 0)
-    return 0;
+  /* Get high part of result.  The division here will just moves the radix
+     point and will not cause any rounding.  Then the conversion to integral
+     type chops result as desired.  */
+  hi = a / HIGH_WORD_COEFF;
 
-  /* Compute high word of result, as a flonum.  */
-  b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DWtype!),
-     and shift it into the high word.  */
-  v = (UWtype) b;
-  v <<= WORD_SIZE;
-  /* Remove high part from the DFtype, leaving the low part as flonum.  */
-  a -= (DFtype)v;
-  /* Convert that to fixed (but not to DWtype!) and add it in.
-     Sometimes A comes out negative.  This is significant, since
-     A has more bits than a long int does.  */
-  if (a < 0)
-    v -= (UWtype) (- a);
-  else
-    v += (UWtype) a;
-  return v;
+  /* Get low part of result.  Convert `hi' to floating type and scale it back,
+     then subtract this from the number being converted.  This leaves the low
+     part.  Convert that to integral type.  */
+  lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
+
+  /* Assemble result from the two parts.  */
+  return ((UDWtype) hi << WORD_SIZE) | lo;
 }
 #endif
 
@@ -968,28 +960,20 @@ __fixunssfDI (SFtype original_a)
      to lose any bits.  Some day someone else can write a faster version
      that avoids converting to DFtype, and verify it really works right.  */
   DFtype a = original_a;
-  DFtype b;
-  UDWtype v;
+  UWtype hi, lo;
 
-  if (a < 0)
-    return 0;
+  /* Get high part of result.  The division here will just moves the radix
+     point and will not cause any rounding.  Then the conversion to integral
+     type chops result as desired.  */
+  hi = a / HIGH_WORD_COEFF;
 
-  /* Compute high word of result, as a flonum.  */
-  b = (a / HIGH_WORD_COEFF);
-  /* Convert that to fixed (but not to DWtype!),
-     and shift it into the high word.  */
-  v = (UWtype) b;
-  v <<= WORD_SIZE;
-  /* Remove high part from the DFtype, leaving the low part as flonum.  */
-  a -= (DFtype) v;
-  /* Convert that to fixed (but not to DWtype!) and add it in.
-     Sometimes A comes out negative.  This is significant, since
-     A has more bits than a long int does.  */
-  if (a < 0)
-    v -= (UWtype) (- a);
-  else
-    v += (UWtype) a;
-  return v;
+  /* Get low part of result.  Convert `hi' to floating type and scale it back,
+     then subtract this from the number being converted.  This leaves the low
+     part.  Convert that to integral type.  */
+  lo = (a - ((DFtype) hi) * HIGH_WORD_COEFF);
+
+  /* Assemble result from the two parts.  */
+  return ((UDWtype) hi << WORD_SIZE) | lo;
 }
 #endif
 

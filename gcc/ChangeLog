@@ -1,3 +1,8 @@
+2002-09-26  Torbjorn Granlund  <tege@swox.com>
+
+	* libgcc2.c (fixunsdfdi, fixunssfdi): Rewrite, avoiding `long long'
+	arithmetic.
+
 2002-09-25  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.c (input_suffix_matches, switch_matches,
