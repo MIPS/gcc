@@ -1462,8 +1462,7 @@ m32r_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
 			      plus_constant (arg_pointer_rtx,
 					     FIRST_PARM_OFFSET (0)));
       set_mem_alias_set (regblock, get_varargs_alias_set ());
-      move_block_from_reg (first_reg_offset, regblock,
-			   size, size * UNITS_PER_WORD);
+      move_block_from_reg (first_reg_offset, regblock, size);
 
       *pretend_size = (size * UNITS_PER_WORD);
     }
