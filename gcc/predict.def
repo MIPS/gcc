@@ -100,8 +100,14 @@ DEF_PREDICTOR (PRED_ERROR_RETURN, "error return", PROB_LIKELY, 0)
 /* Branch containing goto is probably not taken.  */
 DEF_PREDICTOR (PRED_GOTO, "goto", HITRATE (70), 0)
 
+/* Branch containing goto is probably not taken.  */
+DEF_PREDICTOR (PRED_CONTINUE, "continue", HITRATE (70), 0)
+
 /* Branch ending with return constant is probably not taken.  */
 DEF_PREDICTOR (PRED_CONST_RETURN, "const return", HITRATE (70), 0)
+
+/* Branch ending with return negative constant is probably not taken.  */
+DEF_PREDICTOR (PRED_NEGATIVE_RETURN, "negative return", HITRATE (70), 0)
 
 /* Branch ending with return; is probably not taken */
 DEF_PREDICTOR (PRED_NIL_RETURN, "nil return", HITRATE (70), 0)

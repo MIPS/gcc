@@ -323,7 +323,7 @@ the input file name.
 @opindex fweb
 @item
 This pass constructs webs as commonly used for register allocation purposes.
-After that each web gets assigned individual pseudo. This allows our register
+After that each web gets assigned individual pseudo.  This allows our register
 allocation pass to operate on pseudos directly, but also strengthens several
 other optimization passes, such as CSE, loop optimizer and trivial dead code
 remover.

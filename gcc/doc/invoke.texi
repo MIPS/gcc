@@ -3836,7 +3836,7 @@ a ``home register''.
 @item -fweb
 @opindex fweb
 Constructs webs as commonly used for register allocation purposes and assign
-each web individual pseudo register. This allows our register allocation pass
+each web individual pseudo register.  This allows our register allocation pass
 to operate on pseudos directly, but also strengthens several other optimization
 passes, such as CSE, loop optimizer and trivial dead code remover.  It can,
 however, make debugging impossible, since variables will no longer stay in a

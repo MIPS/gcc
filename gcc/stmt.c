@@ -48,12 +48,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "loop.h"
-#include "predict.h"
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "predict.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -411,7 +411,7 @@ static tree resolve_operand_names	PARAMS ((tree, tree, tree,
 						 const char **));
 static char *resolve_operand_name_1	PARAMS ((char *, tree, tree));
 static void expand_null_return_1	PARAMS ((rtx));
-static int maybe_error_return           PARAMS ((rtx));
+static enum br_predictor return_prediction PARAMS ((rtx));
 static void expand_value_return		PARAMS ((rtx));
 static int tail_recursion_args		PARAMS ((tree, tree));
 static void expand_cleanups		PARAMS ((tree, tree, int, int));
@@ -788,14 +788,7 @@ expand_goto (label)
      tree label;
 {
   tree context;
-  rtx note;
 
-  /* Emit information for branch prediction.  */
-
-  note = emit_note (NULL, NOTE_INSN_PREDICTION);
-
-  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_GOTO, NOT_TAKEN);
-            
   /* Check for a nonlocal goto to a containing function.  */
   context = decl_function_context (label);
   if (context != 0 && context != current_function_decl)
@@ -2918,6 +2911,11 @@ int
 expand_continue_loop (whichloop)
      struct nesting *whichloop;
 {
+  /* Emit information for branch prediction.  */
+  rtx note;
+
+  note = emit_note (NULL, NOTE_INSN_PREDICTION);
+  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONTINUE, 0);
   last_expr_type = 0;
   if (whichloop == 0)
     whichloop = loop_stack;
@@ -3045,13 +3043,6 @@ expand_null_return ()
 {
   rtx last_insn;
 
-  rtx note;
-
-  /* Emit information for branch prediction.  */
-
-  note = emit_note (NULL, NOTE_INSN_PREDICTION); 
-  NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_NIL_RETURN, NOT_TAKEN | IGNORE_IN_LAST);
-  
   emit_note (NULL, NOTE_INSN_RETURN);
 
   last_insn = get_last_insn ();
@@ -3065,20 +3056,32 @@ expand_null_return ()
 }
 
 /* Try to guess whether the value of return means error code.  */
-static int
-maybe_error_return (val)
+static enum br_predictor
+return_prediction (val)
      rtx val;
 {
-  /* Non-constant value is unlikely to be an error code.  */
-  if (!CONSTANT_P (val))
-    return 0;
-
-  /* Zero/one often mean booleans.  */
-  if (val == const0_rtx || val == const1_rtx)
-    return 0;
-  
-  /* Other constants.  We should probably handle pointers specially too?  */
-  return 1;
+  /* Different heuristics for pointers and scalars.  */
+  if (POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+    {
+      /* NULL is usually not returned.  */
+      if (val == const0_rtx)
+	return PRED_NIL_RETURN;
+    }
+  else
+    {
+      /* Negative return values are often used to indicate
+         errors.  */
+      if (GET_CODE (val) == CONST_INT
+	  && INTVAL (val) < 0)
+	return PRED_NEGATIVE_RETURN;
+      /* Constant return values are also usually erors,
+         zero/one often mean booleans so exclude them from the
+	 heuristics.  */
+      if (CONSTANT_P (val)
+	  && (val != const0_rtx && val != const1_rtx))
+	return PRED_CONST_RETURN;
+    }
+  return PRED_NO_PREDICTION;
 }
 
 /* Generate RTL to return from the current function, with value VAL.  */
@@ -3089,15 +3092,16 @@ expand_value_return (val)
 {
   rtx last_insn;
   rtx return_reg;
+  enum br_predictor pred;
 
-  if (maybe_error_return (val))
+  if ((pred = return_prediction (val)) != PRED_NO_PREDICTION)
     {
       /* Emit information for branch prediction.  */
       rtx note;
 
       note = emit_note (NULL, NOTE_INSN_PREDICTION);
 
-      NOTE_PREDICTION (note) = NOTE_PREDICT (PRED_CONST_RETURN, NOT_TAKEN | IGNORE_IN_LAST);
+      NOTE_PREDICTION (note) = NOTE_PREDICT (pred, NOT_TAKEN | IGNORE_IN_LAST);
 
     }
   emit_note (NULL, NOTE_INSN_RETURN);

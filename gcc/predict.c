@@ -675,7 +675,7 @@ process_note_predictions (bb, heads, dominators, post_dominators)
 {
   rtx insn;
   edge e;
-  
+
   /* Additionaly, we check here for blocks with no successors.  */
   int contained_return = 0;
   int contained_noreturn_call = 0;
@@ -686,37 +686,36 @@ process_note_predictions (bb, heads, dominators, post_dominators)
        was_bb_head |= (insn == bb->head), insn = PREV_INSN (insn))
     {
       if (GET_CODE (insn) != NOTE)
-        {
-          if (was_bb_head)
-            break;
-          else
-            {
-              /* Noreturn calls cause program to exit, therefore they are
-                 always predicted as not taken.  */
-              if (GET_CODE (insn) == CALL_INSN
-	          && find_reg_note (insn, REG_NORETURN, NULL))
-                contained_noreturn_call = 1;
-              continue;
-            }
-        }
+	{
+	  if (was_bb_head)
+	    break;
+	  else
+	    {
+	      /* Noreturn calls cause program to exit, therefore they are
+	         always predicted as not taken.  */
+	      if (GET_CODE (insn) == CALL_INSN
+		  && find_reg_note (insn, REG_NORETURN, NULL))
+		contained_noreturn_call = 1;
+	      continue;
+	    }
+	}
       if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
-        {
-          int alg = (int) NOTE_PREDICTION_ALG (insn);
-          /* Process single prediction note.  */
-          process_note_prediction (bb,
-            heads,
-            dominators,
-            post_dominators,
-            alg,
-            (int) NOTE_PREDICTION_FLAGS (insn));
-          NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-        }
+	{
+	  int alg = (int) NOTE_PREDICTION_ALG (insn);
+	  /* Process single prediction note.  */
+	  process_note_prediction (bb,
+				   heads,
+				   dominators,
+				   post_dominators,
+				   alg, (int) NOTE_PREDICTION_FLAGS (insn));
+	  delete_insn (insn);
+	}
       if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RETURN)
-        {
-          /* Record that block is noreturn due to return.  */
-          contained_return = 1;
-          NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-        }
+	{
+	  /* Record that block is noreturn due to return.  */
+	  contained_return = 1;
+	  delete_insn (insn);
+	}
     }
   for (e = bb->succ; e; e = e->succ_next)
     if (!(e->flags & EDGE_FAKE))
@@ -727,11 +726,11 @@ process_note_predictions (bb, heads, dominators, post_dominators)
          If it is because of noreturn call, this should certainly not
          be taken.  Otherwise it is probably some error recovery.  */
       process_note_prediction (bb,
-        heads,
-        dominators,
-        post_dominators,
-        contained_noreturn_call ? PRED_NORETURN : PRED_ERROR_RETURN,
-        NOT_TAKEN);
+			       heads,
+			       dominators,
+			       post_dominators,
+			       contained_noreturn_call ? PRED_NORETURN :
+			       PRED_ERROR_RETURN, NOT_TAKEN);
     }
 }
 
