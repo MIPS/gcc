@@ -360,6 +360,21 @@ case "${target}" in
   *-*-freebsd[[12]] | *-*-freebsd[[12]].* | *-*-freebsd*aout*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
+  *-*-freebsd* | *-*-kfreebsd*-gnu)
+    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
+    if test -f /usr/local/include/gmp.h; then
+      extra_host_args="--with-gmp=/usr/local"
+    fi
+
+    # Skip some stuff that's unsupported on some FreeBSD configurations.
+    case "${target}" in
+      i*86-*-*) ;;
+      alpha*-*-*) ;;
+      *)
+	noconfigdirs="$noconfigdirs ${libgcj}"
+	;;
+    esac
+    ;;
   *-*-kaos*)
     # Remove unsupported stuff on all kaOS configurations.
     skipdirs="target-libiberty ${libgcj} target-libstdc++-v3 target-libf2c target-librx"
@@ -409,9 +424,6 @@ case "${target}" in
     ;;
   alpha*-*-linux*)
     # newlib is not 64 bit ready
-    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
-    ;;
-  alpha*-*-freebsd* | alpha*-*-kfreebsd*-gnu)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
     ;;
   alpha*-*-*)
@@ -531,9 +543,6 @@ case "${target}" in
     ;;
   i[[3456789]]86-*-coff | i[[3456789]]86-*-elf)
     noconfigdirs="$noconfigdirs ${libgcj}"
-    ;;
-  i[[3456789]]86-*-freebsd* | i[[3456789]]86-*-kfreebsd*-gnu)
-    noconfigdirs="$noconfigdirs target-newlib target-libgloss"
     ;;
   i[[3456789]]86-*-linux*)
     # The GCC port for glibc1 has no MD_FALLBACK_FRAME_STATE_FOR, so let's
