@@ -4467,12 +4467,22 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 	  upper_bound = lower_bound + arg->size.constant;
 #endif
 
-	  for (i = lower_bound; i < upper_bound; i++)
-	    if (stack_usage_map[i]
-		/* Don't store things in the fixed argument area at this point;
-		   it has already been saved.  */
-		&& i > reg_parm_stack_space)
-	      break;
+	  if (lower_bound >= STACK_USAGE_MAP_MAX)
+	    i = upper_bound;
+	  else
+	    for (i = lower_bound; i < upper_bound; i++)
+	      {
+		if (i >= STACK_USAGE_MAP_MAX)
+		  {
+		    i = upper_bound;
+		    break;
+		  }
+		if (stack_usage_map[i]
+		    /* Don't store things in the fixed argument area at this point;
+		       it has already been saved.  */
+		    && i > reg_parm_stack_space)
+		  break;
+	      }
 
 	  if (i != upper_bound)
 	    {

@@ -1,3 +1,7 @@
+2003-12-08  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (store_one_arg):  Fix array overrun.
+
 2003-12-07  Jan Hubicka  <jh@suse.cz>
 
 	* c-decl.c (finish_decl): Use change_decl_assembler-name.
