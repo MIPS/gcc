@@ -1,5 +1,13 @@
 2003-07-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	Merge from mainline:
+	2003-03-20 Richard Earnshaw  <rearnsha@arm.com>
+
+		* ifcvt.c (find_if_case_1): If we add a new bb, update the
+		dominance information.
+
+2003-07-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (cfgloopmanip.o): Add predict.h dependency.
 	* cfglayout.c (cfg_layout_duplicate_bb): Put new blocks
 	on more sane place in chain.
