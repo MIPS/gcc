@@ -16,12 +16,12 @@
    variants.  TARGET_C99_FUNCTIONS is only defined if all C99
    functions are present.  Therefore, on systems using newlib, tests
    of builtins will fail for both the "f" and the "l" variants, and we
-   should therefore not define HAVE_C99_RUNTIME.  Including <limits.h>
-   gives us a way of seeing if _NEWLIB_VERSION is defined.  Include
+   should therefore not define HAVE_C99_RUNTIME.  Including <ctype.h>
+   gives us a way of seeing if _NEWLIB_VERSION is defined.  Including
    <math.h> would work too, but the GLIBC math inlines cause us to
    generate inferior code, which causes the test to fail, so it is
    not safe to include <math.h>.  */
-#include <limits.h>
+#include <ctype.h>
 #ifdef _NEWLIB_VERSION
 #else
 #define HAVE_C99_RUNTIME
