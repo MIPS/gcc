@@ -1,3 +1,8 @@
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (fold_builtin_expect): New.
+	(fold_builtin_1): Call it.
+
 2004-02-04  Jeff Law  <law@redhat.com>
 
 	* jump.c (duplicate_loop_exit_test): Allow copying of the loop

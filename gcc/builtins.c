@@ -5650,6 +5650,44 @@ fold_builtin_constant_p (tree arglist)
   return 0;
 }
 
+/* Fold a call to __builtin_expect, if we expect that a comparison against
+   the argument will fold to a constant.  In practice, this means a true
+   constant or the address of a non-weak symbol.  ARGLIST is the argument
+   list of the call.  */
+
+static tree
+fold_builtin_expect (tree arglist)
+{
+  tree arg, inner;
+
+  if (arglist == 0)
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+
+  /* If the argument isn't invariant, then there's nothing we can do.  */
+  if (!TREE_INVARIANT (arg))
+    return 0;
+
+  /* If we're looking at an address of a weak decl, then do not fold.  */
+  inner = arg;
+  STRIP_NOPS (inner);
+  if (TREE_CODE (inner) == ADDR_EXPR)
+    {
+      do
+	{
+	  inner = TREE_OPERAND (inner, 0);
+	}
+      while (TREE_CODE (inner) == COMPONENT_REF
+	     || TREE_CODE (inner) == ARRAY_REF);
+      if (DECL_P (inner) && DECL_WEAK (inner))
+	return 0;
+    }
+
+  /* Otherwise, ARG already has the proper type for the return value.  */
+  return arg;
+}
+
 /* Fold a call to __builtin_classify_type.  */
 
 static tree
@@ -6622,6 +6660,9 @@ fold_builtin_1 (tree exp)
     {
     case BUILT_IN_CONSTANT_P:
       return fold_builtin_constant_p (arglist);
+
+    case BUILT_IN_EXPECT:
+      return fold_builtin_expect (arglist);
 
     case BUILT_IN_CLASSIFY_TYPE:
       return fold_builtin_classify_type (arglist);
