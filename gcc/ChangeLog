@@ -1,5 +1,23 @@
 2002-12-24  Geoffrey Keating  <geoffk@apple.com>
 
+	* cpplib.c (count_registered_pragmas): New function.
+	(save_registered_pragmas): New function.
+	(_cpp_save_pragma_names): New function.
+	(restore_registered_pragmas): New function.
+	(_cpp_restore_pragma_names): New function.
+	* cpphash.h (_cpp_save_pragma_names): Prototype.
+	(_cpp_restore_pragma_names): Likewise.
+	* cpppch.c (struct save_macro_item): Split from save_macro_data.
+	(struct save_macro_data): New field 'saved_pragmas'.
+	(save_macros): Update for changes to struct save_macro_data.
+	(cpp_prepare_state): Call _cpp_save_pragma_names, update
+	for changes to struct save_macro_data.
+	(cpp_read_state): Call _cpp_restore_pragma_names, update
+	for changes to struct save_macro_data.
+
+	* cpppch.c (cpp_read_state): Restore the hashtable references
+	in the cpp_reader.
+	
 	* tree.h (built_in_decls): Mark for PCH.
 
 	* dbxout.c (lastfile): Don't mark for PCH.

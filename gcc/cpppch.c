@@ -481,12 +481,20 @@ cpp_valid_state (r, name, fd)
    This code assumes that there might be hundreds, but not thousands of
    existing definitions.  */
 
-struct save_macro_data {
-  struct save_macro_data *next;
-  size_t count;
+struct save_macro_item {
+  struct save_macro_item *next;
   struct cpp_hashnode macs[64];
 };
 
+struct save_macro_data 
+{
+  struct save_macro_item *macros;
+  size_t count;
+  char **saved_pragmas;
+};
+
+/* Save the definition of a single macro, so that it will persist across
+   a PCH restore.  */
 
 static int 
 save_macros (r, h, data_p)
@@ -494,20 +502,20 @@ save_macros (r, h, data_p)
      cpp_hashnode *h;
      void *data_p;
 {
-  struct save_macro_data **data = (struct save_macro_data **)data_p;
+  struct save_macro_data *data = (struct save_macro_data *)data_p;
   if (h->type != NT_VOID
       && (h->flags & NODE_BUILTIN) == 0)
     {
       cpp_hashnode *save;
-      if ((*data)->count == ARRAY_SIZE ((*data)->macs))
+      if (data->count == ARRAY_SIZE (data->macros->macs))
 	{
-	  struct save_macro_data *d = *data;
-	  *data = xmalloc (sizeof (struct save_macro_data));
-	  (*data)->next = d;
-	  (*data)->count = 0;
+	  struct save_macro_item *d = data->macros;
+	  data->macros = xmalloc (sizeof (struct save_macro_item));
+	  data->macros->next = d;
+	  data->count = 0;
 	}
-      save = (*data)->macs + (*data)->count;
-      (*data)->count++;
+      save = data->macros->macs + data->count;
+      data->count++;
       memcpy (save, h, sizeof (struct cpp_hashnode));
       HT_STR (&save->ident) = xmemdup (HT_STR (HT_NODE (save)),
 				       HT_LEN (HT_NODE (save)),
@@ -516,6 +524,9 @@ save_macros (r, h, data_p)
   return 1;
 }
 
+/* Prepare to restore the state, by saving the currently-defined
+   macros in 'data'.  */
+
 void
 cpp_prepare_state (r, data)
      cpp_reader *r;
@@ -523,12 +534,12 @@ cpp_prepare_state (r, data)
 {
   struct save_macro_data *d = xmalloc (sizeof (struct save_macro_data));
   
-  d->next = NULL;
-  d->count = 0;
-  cpp_forall_identifiers (r, save_macros, &d);
+  d->macros = NULL;
+  d->count = ARRAY_SIZE (d->macros->macs);
+  cpp_forall_identifiers (r, save_macros, d);
+  d->saved_pragmas = _cpp_save_pragma_names (r);
   *data = d;
 }
-
 
 /* Erase all the existing macros and assertions.  */
 
@@ -562,21 +573,32 @@ cpp_read_state (r, name, f, data)
   size_t defnlen = 256;
   unsigned char *defn = xmalloc (defnlen);
   struct lexer_state old_state;
-  struct save_macro_data *d;
-  size_t i;
+  struct save_macro_item *d;
+  size_t i, mac_count;
   int saved_line = r->line;
 
-  /* First, erase all the existing hashtable entries for macros.  At
-     this point, they're all from the PCH file, and their pointers
-     won't be valid.  */
+  /* Erase all the existing hashtable entries for macros.  At this
+     point, they're all from the PCH file, and their pointers won't be
+     valid.  */
   cpp_forall_identifiers (r, reset_ht, NULL);
 
+  /* Restore spec_nodes, which will be full of references to the old 
+     hashtable entries and so will now be invalid.  */
+  {
+    struct spec_nodes *s = &r->spec_nodes;
+    s->n_defined	= cpp_lookup (r, DSC("defined"));
+    s->n_true		= cpp_lookup (r, DSC("true"));
+    s->n_false		= cpp_lookup (r, DSC("false"));
+    s->n__VA_ARGS__     = cpp_lookup (r, DSC("__VA_ARGS__"));
+  }
+
   /* Run through the carefully-saved macros, insert them.  */
-  d = data;
+  d = data->macros;
+  mac_count = data->count;
   while (d)
     {
-      struct save_macro_data *nextd;
-      for (i = 0; i < d->count; i++)
+      struct save_macro_item *nextd;
+      for (i = 0; i < mac_count; i++)
 	{
 	  cpp_hashnode *h;
 	  
@@ -590,7 +612,12 @@ cpp_read_state (r, name, f, data)
       nextd = d->next;
       free (d);
       d = nextd;
+      mac_count = ARRAY_SIZE (d->macs);
     }
+
+  _cpp_restore_pragma_names (r, data->saved_pragmas);
+
+  free (data);
 
   old_state = r->state;
 
