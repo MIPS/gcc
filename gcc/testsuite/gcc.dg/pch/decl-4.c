@@ -1,4 +1,4 @@
-#include "decl-4.h"
+#include "decl-4.hp"
 
 int bar (foo_p f)
 {

@@ -1,3 +1,20 @@
+2002-11-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.in (GTFILES): Add cpplib.h.
+	* c-common.h (struct c_common_identifier): Don't skip 'node' field.
+	* c-decl.c (build_compound_literal): Don't use var_labelno.
+	* cpplib.h (struct cpp_hashnode): Use gengtype to mark.
+	* dwarf2asm.c (dw2_force_const_mem): Don't use const_labelno.
+	* varasm.c (const_labelno): Use gengtype to mark.
+	(var_labelno): Likewise.
+	(in_section): Likewise.
+	(in_named_name): Likewise.
+	(struct in_named_entry): Likewise.
+	(in_named_htab): Likewise.
+	(set_named_section_flags): Use GGC to allocate struct in_named_entry.
+	(init_varasm_once): Use GGC to allocate in_named_htab.
+	* config/darwin.c (current_pic_label_num): Mark for PCH.
+
 2002-11-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* ggc-simple.c (init_ggc_pch): New stub procedure.

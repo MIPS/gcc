@@ -40,6 +40,7 @@ foreach test [lsort [glob -nocomplain $srcdir/$subdir/*.c]] {
     catch { file delete "$bname.h.pch" }
     catch { file delete "$bname.s" }
     catch { file delete "$bname.s-pch" }
+    catch { file delete "$bname.hp" }
 
     # We don't try to use the loop-optimizing options, since they are highly
     # unlikely to make any difference to PCH.

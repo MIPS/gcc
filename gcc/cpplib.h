@@ -482,7 +482,7 @@ enum builtin_type
 /* The common part of an identifier node shared amongst all 3 C front
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
-struct cpp_hashnode
+struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
   unsigned short arg_index;		/* Macro argument index.  */
@@ -491,13 +491,17 @@ struct cpp_hashnode
   ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
   unsigned char flags;			/* CPP flags.  */
 
-  union
+  union cpp_hashnode_u
   {
-    cpp_macro *macro;			/* If a macro.  */
-    struct answer *answers;		/* Answers to an assertion.  */
-    enum cpp_ttype operator;		/* Code for a named operator.  */
-    enum builtin_type builtin;		/* Code for a builtin macro.  */
-  } value;
+    /* If a macro.  */
+    cpp_macro * GTY((skip (""))) macro;
+    /* Answers to an assertion.  */
+    struct answer * GTY ((skip (""))) answers;
+    /* Code for a named operator.  */
+    enum cpp_ttype GTY ((tag ("0"))) operator;
+    /* Code for a builtin macro.  */
+    enum builtin_type GTY ((tag ("1"))) builtin; 
+  } GTY ((desc ("0"))) value;
 };
 
 /* Call this first to get a handle to pass to other functions.  */

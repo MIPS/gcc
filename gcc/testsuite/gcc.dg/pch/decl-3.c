@@ -1,4 +1,4 @@
-#include "decl-3.h"
+#include "decl-3.hp"
 
 foo_p bar (void) 
 {

@@ -1,4 +1,4 @@
-#include "inline-2.h"
+#include "inline-2.hp"
 extern inline char
 bar(int a)
 {

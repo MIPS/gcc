@@ -692,6 +692,8 @@ static int dw2_output_indirect_constant_1 PARAMS ((splay_tree_node, void *));
 
 static GTY((param1_is (char *), param2_is (tree))) splay_tree indirect_pool;
 
+static GTY(()) int dw2_const_labelno;
+
 #if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
 # define USE_LINKONCE_INDIRECT 1
 #else
@@ -739,11 +741,10 @@ dw2_force_const_mem (x)
 	}
       else
 	{
-	  extern int const_labelno;
 	  char label[32];
 
-	  ASM_GENERATE_INTERNAL_LABEL (label, "LC", const_labelno);
-	  ++const_labelno;
+	  ASM_GENERATE_INTERNAL_LABEL (label, "LDFCM", dw2_const_labelno);
+	  ++dw2_const_labelno;
 	  id = get_identifier (label);
 	  decl = build_decl (VAR_DECL, id, ptr_type_node);
 	  DECL_ARTIFICIAL (decl) = 1;

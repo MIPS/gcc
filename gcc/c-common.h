@@ -181,7 +181,7 @@ enum c_tree_index
 struct c_common_identifier GTY(())
 {
   struct tree_common common;
-  struct cpp_hashnode GTY ((skip (""))) node;
+  struct cpp_hashnode node;
 };
 
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]

@@ -1838,7 +1838,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 	$(STAMP) s-preds
 
 GTFILES = $(GCONFIG_H) \
-  $(HASHTAB_H) $(SPLAY_TREE_H) \
+  $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/cpplib.h \
   $(srcdir)/location.h $(srcdir)/bitmap.h $(srcdir)/function.h \
   $(srcdir)/rtl.h $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/libfuncs.h \
   $(srcdir)/hashtable.h $(srcdir)/real.h \

@@ -1,2 +1,2 @@
-#include "decl-5.h"
+#include "decl-5.hp"
 static int (*t)(void) = foo;

@@ -1,3 +1,11 @@
+2002-11-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/pch.exp: Ensure that <test>.hp doesn't exist before
+	running test.
+	* gcc.dg/pch: Include *.hp not *.h.
+	* gcc.dg/pch/system-1.h: New.
+	* gcc.dg/pch/system-1.c: New.
+
 2002-11-11  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/pch/pch.exp: Compare .s files with/without PCH,
