@@ -128,7 +128,8 @@ aot_class::add_item (const pool_entry &entry)
     {
       const pool_entry &it (*i);
       if (entry.tag == it.tag && entry.value == it.value)
-	return index;
+	// We don't use index 0.
+	return index + 1;
     }
 
   pool.push_back (entry);

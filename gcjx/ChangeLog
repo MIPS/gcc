@@ -1,5 +1,9 @@
 2005-03-03  Tom Tromey  <tromey@redhat.com>
 
+	* aot/aotclass.cc (add_item): Ignore index 0.
+
+2005-03-03  Tom Tromey  <tromey@redhat.com>
+
 	* bytecode/classreader.cc (parse_constant_value): Special case
 	initializers of boolean fields.
 
