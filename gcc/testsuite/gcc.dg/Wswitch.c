@@ -26,10 +26,10 @@ foo (int i, int j, enum e ei, enum e ej, enum e ek, enum e el,
     {
     default: break;
     }
-  switch (ek)
+  switch (ek) /* { dg-warning "enumeration value `e2' not handled in switch" "enum e2" } */
     {
     case e1: return 1;
-    } /* { dg-warning "enumeration value `e2' not handled in switch" "enum e2" } */
+    }
   switch (el)
     {
     case e1: return 1;
@@ -46,12 +46,12 @@ foo (int i, int j, enum e ei, enum e ej, enum e ek, enum e el,
     case e2: return 2;
     default: break;
     }
-  switch (eo)
+  switch (eo) /* { dg-warning "case value `3' not in enumerated type `e'" "excess 3" } */
     {
     case e1: return 1;
     case e2: return 2;
     case 3: return 3;
-    } /* { dg-warning "case value `3' not in enumerated type `e'" "excess 3" } */
+    }
   switch (ep)
     {
     case e1: return 1;

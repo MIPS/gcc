@@ -756,6 +756,8 @@ simplify_switch_stmt (stmt_p)
   tree body = SWITCH_BODY (stmt);
   tree break_block, switch_;
   tree cond = SWITCH_COND (stmt);
+  const char *stmt_filename = input_filename;
+  int stmt_lineno = input_line;
 
   simplify_condition (&cond);
 
@@ -764,7 +766,7 @@ simplify_switch_stmt (stmt_p)
   c_simplify_stmt (&body);
 
   switch_ = build (SWITCH_EXPR, SWITCH_TYPE (stmt), cond, body, NULL_TREE);
-  annotate_with_file_line (switch_, input_filename, input_line);
+  annotate_with_file_line (switch_, stmt_filename, stmt_lineno);
 
   switch_ = finish_bc_block (break_block, switch_);
 

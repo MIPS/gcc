@@ -1,3 +1,8 @@
+2003-05-26  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (simplify_switch_stmt): A SWITCH_EXPR also gets the
+	source location of its first line.
+
 2003-05-24  Diego Novillo  <dnovillo@redhat.com>
 
 	Do not consider INDIRECT_REF nodes to be variables.
