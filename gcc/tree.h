@@ -3731,7 +3731,7 @@ enum tree_dump_index
   TDI_nested,			/* dump each function after unnesting it */
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
-  TDI_dot,			/* create a dot graph file for each 
+  TDI_vcg,			/* create a VCG graph file for each 
 				   function's flowgraph.  */
   TDI_xml,                      /* dump function call graph.   */
   TDI_all,			/* enable all the dumps.  */

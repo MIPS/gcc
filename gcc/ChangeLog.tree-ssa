@@ -1,3 +1,14 @@
+2004-05-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (tree_cfg2vcg): Rename from tree_cfg2dot.  Update all
+	users.
+	Emit flowgraph using VCG syntax.
+	* tree-dump.c (dump_files): Rename -fdump-tree-dot to
+	-fdump-tree-vcg.
+	* tree.h (enum tree_dump_index): Rename TDI_dot to TDI_vcg.
+	* doc/invoke.texi: Update documentation to describe
+	-fdump-tree-vcg.
+
 2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
 
         * objc/objc-act.c (build_objc_string_object):

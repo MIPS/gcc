@@ -94,7 +94,7 @@ static void tree_make_forwarder_block (edge);
 static bool thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void bsi_commit_edge_inserts_1 (edge e);
-static void tree_cfg2dot (FILE *);
+static void tree_cfg2vcg (FILE *);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -165,14 +165,14 @@ build_tree_cfg (tree *tp)
 
   /* Debugging dumps.  */
 
-  /* Write the flowgraph to a dot file.  */
+  /* Write the flowgraph to a VCG file.  */
   {
     int local_dump_flags;
-    FILE *dump_file = dump_begin (TDI_dot, &local_dump_flags);
+    FILE *dump_file = dump_begin (TDI_vcg, &local_dump_flags);
     if (dump_file)
       {
-	tree_cfg2dot (dump_file);
-	dump_end (TDI_dot, dump_file);
+	tree_cfg2vcg (dump_file);
+	dump_end (TDI_vcg, dump_file);
       }
   }
 
@@ -2229,10 +2229,10 @@ debug_cfg_stats (void)
 }
 
 
-/* Dump the flowgraph to a .dot FILE.  */
+/* Dump the flowgraph to a .vcg FILE.  */
 
 static void
-tree_cfg2dot (FILE *file)
+tree_cfg2vcg (FILE *file)
 {
   edge e;
   basic_block bb;
@@ -2240,17 +2240,22 @@ tree_cfg2dot (FILE *file)
     = (*lang_hooks.decl_printable_name) (current_function_decl, 2);
 
   /* Write the file header.  */
-  fprintf (file, "digraph %s\n{\n", funcname);
+  fprintf (file, "graph: { title: \"%s\"\n", funcname);
+  fprintf (file, "node: { title: \"ENTRY\" label: \"ENTRY\" }\n");
+  fprintf (file, "node: { title: \"EXIT\" label: \"EXIT\" }\n");
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      fprintf (file, "\tENTRY -> %d", e->dest->index);
+      fprintf (file, "edge: { sourcename: \"ENTRY\" targetname: \"%d\"",
+	       e->dest->index);
 
       if (e->flags & EDGE_FAKE)
-	fprintf (file, " [weight=0, style=dotted]");
+	fprintf (file, " linestyle: dotted priority: 10");
+      else
+	fprintf (file, " linestyle: solid priority: 100");
 
-      fprintf (file, ";\n");
+      fprintf (file, " }\n");
     }
   fputc ('\n', file);
 
@@ -2281,21 +2286,23 @@ tree_cfg2dot (FILE *file)
       else
 	end_name = "no-statement";
 
-      fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
+      fprintf (file, "node: { title: \"%d\" label: \"#%d\\n%s (%d)\\n%s (%d)\"}\n",
 	       bb->index, bb->index, head_name, head_line, end_name,
 	       end_line);
 
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
-	    fprintf (file, "\t%d -> EXIT", bb->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"EXIT\"", bb->index);
 	  else
-	    fprintf (file, "\t%d -> %d", bb->index, e->dest->index);
+	    fprintf (file, "edge: { sourcename: \"%d\" targetname: \"%d\"", bb->index, e->dest->index);
 
 	  if (e->flags & EDGE_FAKE)
-	    fprintf (file, " [weight=0, style=dotted]");
+	    fprintf (file, " priority: 10 linestyle: dotted");
+	  else
+	    fprintf (file, " priority: 100 linestyle: solid");
 
-	  fprintf (file, ";\n");
+	  fprintf (file, " }\n");
 	}
 
       if (bb->next_bb != EXIT_BLOCK_PTR)

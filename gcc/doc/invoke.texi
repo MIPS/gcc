@@ -249,7 +249,7 @@ in the following sections.
 -fdump-tree-original@r{[}-@var{n}@r{]}  @gol
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
--fdump-tree-cfg -fdump-tree-dot -fdump-tree-alias @gol
+-fdump-tree-cfg -fdump-tree-vcg -fdump-tree-alias @gol
 -fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
@@ -3498,10 +3498,13 @@ file name is made by appending @file{.gimple} to the source file name.
 Dump the control flow graph of each function to a file.  The file name is
 made by appending @file{.cfg} to the source file name.
 
-@item dot
-@opindex fdump-tree-dot
-Dump a dot language representation of the control flow graph to a file.  The
-file name is made by appending @file{.dot} to the source file name.
+@item vcg
+@opindex fdump-tree-vcg
+Dump the control flow graph of each function to a file in VCG format.  The
+file name is made by appending @file{.vcg} to the source file name.  Note
+that if the file contains more than one function, the generated file cannot
+be used directly by VCG.  You will need to cut and paste each function's
+graph into its own separate file first.
 
 @item ch
 @opindex fdump-tree-ch
