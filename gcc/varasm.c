@@ -2660,7 +2660,6 @@ output_constant_def (exp, defer)
   int after_function = 0;
   int labelno = -1;
   rtx rtl;
-  HOST_WIDE_INT size;
 
 
   /* We can't just use the saved RTL if this is a deferred string constant

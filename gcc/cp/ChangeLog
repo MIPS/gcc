@@ -1,6 +1,37 @@
-2003-08-04  Release Manager
+2003-09-03  Mark Mitchell  <mark@codesourcery.com>
 
-	* GCC 3.3.1 Released.
+	PR c++/12053
+	* class.c (include_empty_classes): Correct logic for ABI version 1.
+
+2003-09-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12114
+	* cp-tree.h (initialize_reference): Change prototype.
+	* call.c (initialize_reference): Add cleanup parameter.
+	* decl.c (grok_reference_init): Likewise.
+	(check_initializer): Likewise.
+	(cp_finish_decl): Insert a CLEANUP_STMT if necessary.
+	(duplicate_decls): When replacing an anticipated builtin, do not
+	honor TREE_NOTHROW.
+	* typeck.c (convert_for_initialization): Correct call to
+	initialize_reference.
+
+2003-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11928
+	* search.c (add_conversions): Avoid adding two conversion
+	operators for the same type.
+
+2003-08-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (build_function_call_real): Remove unused parameter.
+	* typeck.c (build_function_call_real): Likewise.  Caller changed.
+	* decl.c (binding_table_reverse_maybe_remap): Initialize variable.
+
+2003-08-19  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/5293
+	* call.c (initialize_reference): Improve diagnostic.
 
 2003-08-04  Mark Mitchell  <mark@codesourcery.com>
 

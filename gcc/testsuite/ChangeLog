@@ -1,3 +1,64 @@
+2003-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12053
+	* g++.dg/abi/layout4.C: New test.
+
+2003-09-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12114
+	* g++.dg/init/ref9.C: New test.
+
+2003-08-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11928
+	* g++.dg/inherit/conv1.C: New test.
+
+2003-08-26  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/noncompile/20030818-1.c: Expect second line of error.
+
+2003-08-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.dg/20030702-1.c: New test.
+
+2003-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20030815-1.c: New test.
+
+2003-08-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/cpp/separate-1.c: New test.
+	* gcc.dg/cpp/spacing1.c: Update.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.misc-tests/linkage.exp: Treat all HP-UX platforms
+	identically.
+
+2003-08-22  Roger Sayle  <roger@eyesopen.com>
+	    Jim Wilson  <wilson@tuliptree.org>
+
+	* gcc.dg/uninit-C.c: Only test TImode on 64-bit platforms.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.ext/attrib5.C: XFAIL on hppa2*-hp-hpux11*.
+
+	* gcc.dg/20020313-1.c: Add "-w" to dg-options.
+
+	* gcc.misc-tests/linkage.exp: Add logic for ia64-hp-hpux*.
+
+	* g++.dg/other/packed1.C: Add XFAIL marker for ia64-hp-hpux*.
+
+2003-08-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/11805
+	* gcc.c-torture/compile/20030821-1.c: New.
+
+2003-08-18  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* gcc.dg/noncompile/20030818-1.c: New.
+
 2003-08-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/11693

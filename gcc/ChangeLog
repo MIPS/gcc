@@ -1,3 +1,72 @@
+2003-09-02  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	This is a fix for PR 10988:
+	* m32r.c (m32r_print_operand): Correct comment.
+	(m32r_expand_block_move): Correct the handling of leftover/small
+	blocks.
+	(m32r_block_small_immediate_operand): New predicate.
+	* m32r.md (movstrsi_small_internal): New pattern.
+	* m32r.h (PREDICATE_CODES): Add m32r_block_small_immediate_operand.
+	* m32r-protos.h: Add prototype for m32r_block_small_immediate_operand.	
+
+2003-08-25  Richard Henderson  <rth@redhat.com>
+
+        * config/i386.i386.c (ix86_return_in_memory): Reformat.  Return true
+        for 16-byte vector modes if sse not enabled; warn for abi change.
+        (ix86_value_regno): Only return xmm0 for 16-byte vector types.
+
+2003-08-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* config.gcc (hppa*-*-hpux11*, ia64*-*-hpux*): Remove
+	commented-out logic to use DCE threads (if present), add
+	support for POSIX threads.
+	* config/ia64/hpux.h: Define CPP_SPEC to set appropriate
+	#defines for -pthread.  Add -lpthread to LIB_SPEC when
+	-pthread.  In both cases take -mt as a synonym for -pthread
+	for acc compatibility.
+	Define GTHREAD_USE_WEAK to 0.
+	* config/pa/pa-hpux11.h: Likewise for CPP_SPEC and LIB_SPEC.
+	Remove old logic for DCE threads from LIB_SPEC.
+	* config/pa/pa64-hpux.h: Define GTHREAD_USE_WEAK to 0.
+
+2003-08-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* combine.c (distribute_notes): Handle REG_ALWAYS_RETURN.
+
+2003-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (pushdecl): Only put decls which finish_struct will do
+	something about onto incomplete chain.
+	(finish_struct): If not removing type from incomplete
+	list, update prev.
+
+2003-08-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cppmain.c (cb_line_change): Don't skip line changing while
+	parsing macro arguments in the top-level context.
+
+2003-08-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/ia64/hpux.h (SUPPORTS_INIT_PRIORITY): Define to 0.
+
+	* config/ia64/ia64.c (ia64_output_mi_thunk): Support ILP32 mode.
+
+2003-08-21  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/11805
+	* config/h8300/h8300.md (two anonymous patterns): Remove.
+
+2003-08-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* stmt.c (expand_asm_operands): Avoid string concatenation.
+	* tree.c (default_flag_random_seed): Avoid ISO C definition.
+	* varasm.c (output_constant_def): Delete unused variable.
+
+2003-08-18  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	PR c/11207
+	* c-typeck.c (set_init_index): Check for negative index.
+
 2003-08-14  Mark Mitchell  <mark@codesourcery.com>
 
 	* version.c (version_string): Use "prerelease" not "experimental".
