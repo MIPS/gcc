@@ -391,8 +391,6 @@ rtl_delete_block (basic_block b)
 
   insn = b->head;
 
-  never_reached_warning (insn, b->end);
-
   if (GET_CODE (insn) == CODE_LABEL)
     maybe_remove_eh_handler (insn);
 

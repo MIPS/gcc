@@ -1,3 +1,10 @@
+2003-11-14  Steven Bosscher  <stevenb@suse.de>
+
+	* jump.c (never_reached_warning): Remove function.
+	* rtl.h (never_reached_warning): Don't declare it.
+	* cfgrtl.c (never_reached_warning): Don't call it.
+	* cse.c (never_reached_warning): Ditto.
+
 2003-11-13  Jeff Law  <law@redhat.com>
 
 	* tree-cfg.c (bsi_replace): Restore accidentally removed code.
@@ -7,6 +14,7 @@
  
 2003-11-13  Steven Bosscher  <steven@suse.de>
 
+	PR middle-end/11514
 	* tree-inline.c (walk_tree): Handle PLACEHOLDER_EXPR.
 
 2003-11-13  Richard Henderson  <rth@redhat.com>

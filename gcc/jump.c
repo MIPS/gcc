@@ -1828,75 +1828,6 @@ delete_for_peephole (rtx from, rtx to)
      is also an unconditional jump in that case.  */
 }
 
-/* We have determined that AVOIDED_INSN is never reached, and are
-   about to delete it.  If the insn chain between AVOIDED_INSN and
-   FINISH contains more than one line from the current function, and
-   contains at least one operation, print a warning if the user asked
-   for it.  If FINISH is NULL, look between AVOIDED_INSN and a LABEL.
-
-   CSE and inlining can duplicate insns, so it's possible to get
-   spurious warnings from this.  */
-
-void
-never_reached_warning (rtx avoided_insn, rtx finish)
-{
-  rtx insn;
-  rtx a_line_note = NULL;
-  int two_avoided_lines = 0, contains_insn = 0, reached_end = 0;
-
-  if (!warn_notreached)
-    return;
-
-  /* Back up to the first of any NOTEs preceding avoided_insn; flow passes
-     us the head of a block, a NOTE_INSN_BASIC_BLOCK, which often follows
-     the line note.  */
-  insn = avoided_insn;
-  while (1)
-    {
-      rtx prev = PREV_INSN (insn);
-      if (prev == NULL_RTX
-	  || GET_CODE (prev) != NOTE)
-	break;
-      insn = prev;
-    }
-
-  /* Scan forwards, looking at LINE_NUMBER notes, until we hit a LABEL
-     in case FINISH is NULL, otherwise until we run out of insns.  */
-
-  for (; insn != NULL; insn = NEXT_INSN (insn))
-    {
-      if ((finish == NULL && GET_CODE (insn) == CODE_LABEL)
-	  || GET_CODE (insn) == BARRIER)
-	break;
-
-      if (GET_CODE (insn) == NOTE		/* A line number note?  */
-	  && NOTE_LINE_NUMBER (insn) >= 0)
-	{
-	  if (a_line_note == NULL)
-	    a_line_note = insn;
-	  else
-	    two_avoided_lines |= (NOTE_LINE_NUMBER (a_line_note)
-				  != NOTE_LINE_NUMBER (insn));
-	}
-      else if (INSN_P (insn))
-	{
-	  if (reached_end)
-	    break;
-	  contains_insn = 1;
-	}
-
-      if (insn == finish)
-	reached_end = 1;
-    }
-  if (two_avoided_lines && contains_insn)
-    {
-      location_t locus;
-      locus.file = NOTE_SOURCE_FILE (a_line_note);
-      locus.line = NOTE_LINE_NUMBER (a_line_note);
-      warning ("%Hwill never be executed", &locus);
-    }
-}
-
 /* Throughout LOC, redirect OLABEL to NLABEL.  Treat null OLABEL or
    NLABEL as a return.  Accrue modifications into the change group.  */
 
