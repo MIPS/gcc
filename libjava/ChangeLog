@@ -1,3 +1,8 @@
+2004-10-04  Tom Tromey  <tromey@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Correctly indicate base pointer when
+	marking IDT.
+
 2004-09-29  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.am (libgcj_la_SOURCES): Mention link.cc, not

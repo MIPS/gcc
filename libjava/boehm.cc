@@ -215,13 +215,13 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	  if (c->isInterface())
 	    {
 	      p = (ptr_t) c->idt->iface.ioffsets;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c->idt);
 	    }
 	  else if (! c->isPrimitive())
 	    {
 	      // This field is only valid for ordinary classes.
 	      p = (ptr_t) c->idt->cls.itable;
-	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c->idt);
 	    }
 	}
 
