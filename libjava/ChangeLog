@@ -1,3 +1,20 @@
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/DefaultButtonModel.java
+	(ARMED): Made public final, fixed value.
+	(ENABLED): Likewise.
+	(PRESSED): Likewise.
+	(ROLLOVER): Likewise.
+	(SELECTED): Likewise.
+	(stateMask): Initialize directly.
+	(listenerList): Likewise.
+	(mnemonic): Likewise.
+	(fireStateChanged): Removed argument, use changeEvent as event.
+	All places where this method is called are fixed too.
+	(getActionCommant): Fixed javadoc.
+	(setGroup): Fixed javadoc.
+	(getGroup): New method.
+
 2004-06-09  Olga Rodimina <rodimina@redhat.com>
 
 	* javax/swing/AbstractButton.java
