@@ -1,5 +1,10 @@
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
+	* fold-const.c (try_move_mult_to_index):  New.
+	(fold):  Use it (2 places).
+
+2004-11-16  Dale Johannesen  <dalej@apple.com>
+
 	* tree.c (build_low_bits_mask):  New.
 	tree.h:  Declare it.
 	tree-ssa-loop-niter.c (number_of_iterations_cond):  Use it.
