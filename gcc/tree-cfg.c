@@ -4543,7 +4543,7 @@ tree_split_edge (edge edge_in)
   new_bb = create_bb ();
   create_block_annotation (new_bb);
   redirect_edge_succ  (edge_in, new_bb);
-  new_edge = make_edge (new_bb, dest, 0);
+  new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
 
   /* Find all the PHI arguments on the original edge, and change them to
      the new edge.  */

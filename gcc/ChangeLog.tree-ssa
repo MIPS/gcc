@@ -1,3 +1,7 @@
+2003-10-06  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-cfg.c (tree_split_edge): Mark edge as FALLTHRU when splitting.
+
 2003-10-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa.c (rewrite_block): Test vars_to_rename instead of
