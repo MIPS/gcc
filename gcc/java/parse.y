@@ -9495,8 +9495,8 @@ strip_out_static_field_access_decl (tree node)
 	   tree call = TREE_OPERAND (op1, 0);
 	   if (TREE_CODE (call) == CALL_EXPR
 	       && TREE_CODE (TREE_OPERAND (call, 0)) == ADDR_EXPR
-	       && TREE_OPERAND (TREE_OPERAND (call, 0), 0)
-	       == soft_initclass_node)
+	       && (TREE_OPERAND (TREE_OPERAND (call, 0), 0)
+		   == soft_initclass_node))
 	     return TREE_OPERAND (op1, 1);
 	 }
       else if (JDECL_P (op1))

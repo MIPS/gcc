@@ -1,3 +1,7 @@
+2004-08-13  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (strip_out_static_field_access_decl): Indentation fix.
+
 2004-08-11  Tom Tromey  <tromey@redhat.com>
 
 	* gcj.texi (libgcj Runtime Properties): Document new properties.
