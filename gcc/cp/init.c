@@ -1641,10 +1641,18 @@ resolve_offset_ref (exp)
   
   if (TREE_CODE (TREE_TYPE (member)) == METHOD_TYPE)
     {
-      if (!flag_ms_extensions)
-        /* A single non-static member, make sure we don't allow a
-           pointer-to-member.  */
-        exp = ovl_cons (member, NULL_TREE);
+      if (flag_ms_extensions)
+	{
+	  /* A single non-static member. This is ill-formed, except in
+	     MS-land where it decays to a PMF.  */
+	  exp = build_unary_op (ADDR_EXPR, member, 0);
+	  exp = build_ptrmemfunc (TREE_TYPE (exp), exp, 0);
+	  return exp;
+	}
+      
+      /* A single non-static member, make sure we don't allow a
+         pointer-to-member.  */
+      exp = ovl_cons (member, NULL_TREE);
       
       return build_unary_op (ADDR_EXPR, exp, 0);
     }
