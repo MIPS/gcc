@@ -880,7 +880,12 @@ group_aliases_into (tree tag, sbitmap tag_aliases, struct alias_info *ai)
       /* Make TAG the unique alias of VAR.  */
       ann->is_alias_tag = 0;
       ann->may_aliases = NULL;
-      add_may_alias (var, tag);
+
+      /* Note that VAR and TAG may be the same if the function has no
+	 addressable variables (see the discussion at the end of
+	 setup_pointers_and_addressables). */
+      if (var != tag)
+	add_may_alias (var, tag);
 
       /* Reduce total number of virtual operands contributed
 	 by TAG on behalf of VAR.  Notice that the references to VAR
@@ -1071,6 +1076,23 @@ group_aliases (struct alias_info *ai)
 }
 
 
+/* Create a new alias set entry for VAR in AI->ADDRESSABLE_VARS.  */
+
+static void
+create_alias_map_for (tree var, struct alias_info *ai)
+{
+  struct alias_map_d *alias_map;
+  alias_map = xcalloc (1, sizeof (*alias_map));
+  alias_map->var = var;
+
+  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
+  else
+    alias_map->set = get_alias_set (var);
+  ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
+}
+
+
 /* Create memory tags for all the dereferenced pointers and build the
    ADDRESSABLE_VARS and POINTERS arrays used for building the may-alias
    sets.  Based on the address escape and points-to information collected
@@ -1109,8 +1131,9 @@ setup_pointers_and_addressables (struct alias_info *ai)
      because some TREE_ADDRESSABLE variables will be marked
      non-addressable below and only pointers with unique type tags are
      going to be added to POINTERS.  */
-  ai->addressable_vars = xcalloc (num_addressable_vars, sizeof (tree));
-  ai->pointers = xcalloc (num_pointers, sizeof (tree));
+  ai->addressable_vars = xcalloc (num_addressable_vars,
+				  sizeof (struct alias_map_d *));
+  ai->pointers = xcalloc (num_pointers, sizeof (struct alias_map_d *));
   ai->num_addressable_vars = 0;
   ai->num_pointers = 0;
 
@@ -1157,16 +1180,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
          entry in ADDRESSABLE_VARS for VAR.  */
       if (may_be_aliased (var))
 	{
-	  /* Create a new alias set entry for VAR.  */
-	  struct alias_map_d *alias_map;
-	  alias_map = xcalloc (1, sizeof (*alias_map));
-	  alias_map->var = var;
-
-	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
-	    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
-	  else
-	    alias_map->set = get_alias_set (var);
-	  ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
+	  create_alias_map_for (var, ai);
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 
@@ -1202,6 +1216,41 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	     TAG.  Since TAG can be associated with several pointers, add
 	     the dereferences of VAR to the TAG.  */
 	  ai->num_references[t_ann->uid] += ai->num_references[v_ann->uid];
+	}
+    }
+
+  /* If we found no addressable variables, but we have more than one
+     pointer, we will need to check for conflicts between the
+     pointers.  Otherwise, we would miss alias relations as in
+     testsuite/gcc.dg/tree-ssa/20040319-1.c:
+
+		struct bar { int count;  int *arr;};
+
+		void foo (struct bar *b)
+		{
+		  b->count = 0;
+		  *(b->arr) = 2;
+		  if (b->count == 0)
+		    abort ();
+		}
+
+     b->count and *(b->arr) could be aliased if b->arr == &b->count.
+     To do this, we add all the memory tags for the pointers in
+     AI->POINTERS to AI->ADDRESSABLE_VARS, so that
+     compute_flow_insensitive_aliasing will naturally compare every
+     pointer to every type tag.  */
+  if (ai->num_addressable_vars == 0
+      && ai->num_pointers > 1)
+    {
+      free (ai->addressable_vars);
+      ai->addressable_vars = xcalloc (ai->num_pointers,
+				      sizeof (struct alias_map_d *));
+      ai->num_addressable_vars = 0;
+      for (i = 0; i < ai->num_pointers; i++)
+	{
+	  struct alias_map_d *p = ai->pointers[i];
+	  tree tag = var_ann (p->var)->type_mem_tag;
+	  create_alias_map_for (tag, ai);
 	}
     }
 }
@@ -1768,7 +1817,13 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   HOST_WIDE_INT tag_set = get_alias_set (tag_type);
 
   /* To avoid creating unnecessary memory tags, only create one memory tag
-     per alias set class.  */
+     per alias set class.  Note that it may be tempting to group
+     memory tags based on conflicting alias sets instead of
+     equivalence.  That would be wrong because alias sets are not
+     necessarily transitive (as demonstrated by the libstdc++ test
+     23_containers/vector/cons/4.cc).  Given three alias sets A, B, C
+     such that conflicts (A, B) == true and conflicts (A, C) == true,
+     it does not necessarily follow that conflicts (B, C) == true.  */
   for (i = 0, tag = NULL_TREE; i < ai->num_pointers; i++)
     {
       struct alias_map_d *curr = ai->pointers[i];

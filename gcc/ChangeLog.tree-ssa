@@ -1,3 +1,17 @@
+2004-03-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14643
+	* tree-ssa-alias.c (group_aliases_into): Don't add a variable
+	to its own may-alias set.
+	(create_alias_map_for): New.
+	(setup_pointers_and_addressables): Call it.
+	Fix allocation of AI->ADDRESSABLE_VARS and AI->POINTERS.
+	If there are no addressable variables and more than one
+	dereferenced pointers, add type tags to the ADDRESSABLE_VARS
+	array.
+	(get_tmt_for): Add comment about using alias set equality when
+	checking for existing tags.
+
 2004-03-19  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* fold-const.c (fold_relational_const): Remove dead code.
@@ -9,7 +23,7 @@
 
 2004-03-19  Jeff Law  <law@redhat.com>
 
-        * tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
         Eliminate unnecessary test of VAL.
 
 	* tree-dfa.c (find_hidden_use_vars): Also look inside the
