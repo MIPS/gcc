@@ -16,7 +16,7 @@
 	instruction needs a memory clobber.
 	(cw_asm_stmt): Likewise.
 	(print_cw_asm_operand): Add support for static duration variables.
-	
+
 	(cw_get_identifier): New.
 	(cw_ha16, cw_hi16, cw_lo16): New.
 	(get_cw_asm_label): Add support for ha16(x), hi16(x) and lo16(x).
@@ -28,13 +28,14 @@
 
 	* doc/extend.texi (Asm Blocks and Functions): Document memory
 	clobbers and instructions that take a memory operand.
-	
+
 2004-12-06  Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 3893215
 	Following FSF mainline patch fixes it.
 
 2004-11-11  Zdenek Dvorak  <dvorakz@suse.cz>
-        
+
         PR tree-optimization/17742
         * tree-scalar-evolution.c (follow_ssa_edge_in_rhs): Handle
         MINUS_EXPR correctly.
@@ -60,7 +61,7 @@
 	* bitmap.h (bitmap_empty_p):  New macro.
 	* common.opt (ftree-loop-memset):  Add new flag for optimization.
 	* tree-flow.h (tree_ssa_memset):  Add function declaration.
-	* tree-optimize.c (init_tree_optimization_passes):  Add loops-to-memset 
+	* tree-optimize.c (init_tree_optimization_passes):  Add loops-to-memset
 	pass.
 	* tree-pass.h (pass_memset):  Add extern declaration for loops-to-memset
 	pass.
@@ -88,6 +89,7 @@
 	* config/i386/darwin.h (CC1_SPEC): Same.
 
 2004-12-02  Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 3893215 - part 1
 	* tree-scalar-evolution.c (follow_ssa_edge_in_condition_phi):
 	Added missing check for unknown evolution_of_loop.
@@ -127,7 +129,7 @@
 	* doc/invoke.text: Remove outdated docs for -fscalar-evolutions and
 	-fall-data-deps. Document not disabling of -fstrict-aliasing, when
 	auto vectorization is used, in Apple GCC compiler.
-	* opts.c (decode_options): Disable -fstrict-aliasing only if -ftree-vectorize 
+	* opts.c (decode_options): Disable -fstrict-aliasing only if -ftree-vectorize
 	is not used.
 
 2004-11-22  Dale Johannesen  <dalej@apple.com>
@@ -164,7 +166,7 @@
 	2004-11-12  Devang Patel  <dpatel@apple.com>
 
 	* optabs.c (vector_compare_rtx): Use COMPARISON_CLASS_P.
-	
+
 	2004-11-12  Devang Patel  <dpatel@apple.com>
 
 	Backport from Mainline.
@@ -175,7 +177,7 @@
         compute the first overlapping iterations.
 
 	2004-11-12  Devang Patel  <dpatel@apple.com>
-	
+
 	* tree-data-ref.c (compute_subscript_distance): Make externally visible.
 	(build_class_dist_vector): Same.
 	* tree-data-ref.h (compute_subscript_distance): New external decl.
@@ -234,7 +236,7 @@
 	pass_identify_vector_use): Remove.
 	* tree-optimzie.c (init_tree_optimization_passes): Remove pass_identify_vector_use.
 	* tree-pass.h (pass_identify_vector_use): Remove extern decl.
-	
+
 2004-11-16  Caroline Tice  <ctice@apple.com>
 
         * varasm.c (assemble_start_function):  Don't print out section label
@@ -296,7 +298,7 @@
 	(hypot) Likewise.
 	(remainder) Likewise.
 	(nexttoward) Use proper number of arguments for TGMATH_REAL_1_2.
-	
+
 2004-11-11  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3875337
@@ -318,7 +320,7 @@
 
 	* c-common.c (vector_constructor_from_expr): Remove replication
 	of missing initializer.
-	* tree.c (build_vector): Replicate missing initializer. 
+	* tree.c (build_vector): Replicate missing initializer.
 	* cp/typeck.c (build_c_cast): Move building of vector constant
 	past checking for processing of template declaration.
 
@@ -350,6 +352,7 @@
 	(cp_parser_objc_class_interface): Get protocol qualified type.
 
 2004-11-05  Stuart Hastings <stuart@apple.com>
+
 	Radar 3848818
         * gcc/cfgcleanup.c(merge_memattrs): copied from FSF mainline.
 
@@ -371,7 +374,7 @@
 	* opts.c (decode_options):  Use mainline-style loop opts.
 
 2004-11-04  Dale Johannesen  <dalej@apple.com>
-	
+
 	* config/rs6000/rs6000.md (*save_fpregs_with_label_si):
 	Use any_parallel_operand to remove a warning.
 	* config/rs6000/darwin.md (*save_fpregs_with_label_di):  Ditto.
@@ -387,7 +390,7 @@
 	pass_identify_vector_use): New.
 	* tree-optimzie.c (init_tree_optimization_passes): Add pass_identify_vector_use.
 	* tree-pass.h (pass_identify_vector_use): New extern decl.
-	
+
 2004-11-04  Devang Patel  <dpatel@apple.com>
 
 	Back out 3837840 fix.
@@ -489,7 +492,7 @@
 2004-10-26  Matt Austern  <austern@apple.com>
 
 	* ginclude/tgmath.h (fabs): Fix typo (complex abs is cabs, not cfabs)
-	
+
 2004-10-22  Fariborz Jahanian <fjahanian@apple.com>
 
 	* config/rs6000/darwin.md: Remove vecstore/vecload patterns
@@ -561,7 +564,7 @@
         Radar 3753408
         * Makefile.in (GTFILES): Remove APPLE LOCAL comments.
         * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
         TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Remove #defines.
         (TARGET_VECT): Remove vector select and compare members.
         * target.h (struct gcc_target): Remove vector select and
@@ -591,16 +594,20 @@
 	* objcp/objcp-lang.c (tree_code_type):  Fix merge omission.
 
 2004-10-15  Mike Stump  FIXME
+
 	merge
 
 2004-10-15  Stuart Hastings <stuart@apple.com>
+
         * gcc/simplify-rtx.c(simplify_relational_operation): copied from FSF mainline.
 
 2004-10-15  Stuart Hastings <stuart@apple.com>
+
         * gcc/c-common.c(print_cw_asm_operand): proper casting.
         * gcc/expr.c(expand_expr_addr_expr): delete problematic assertions.
 
 2004-10-14  Robert Bowdidge <bowdidge@apple.com>
+
         * config/darwin-driver.c: Remove off-by-one error in QA_OVERIDE...
           machinery.
 
@@ -634,10 +641,10 @@
 	use during 64-bit bringup.
 
 2004-09-27  Robert Bowdidge  <bowdidge@apple.com>
+
 	* opts.c: Remove QA_OVERRIDE_GCC3_OPTIONS machinery.
         * config/darwin-driver.c: Reimplement QA_OVERRIDE_GCC3_OPTIONS in
         driver-driver.
-     
 
 2004-09-27  Dale Johannesen  <dalej@apple.com>
 
@@ -646,8 +653,8 @@
 
 2004-09-26  Caroline Tice  <ctice@apple.com>
 	    Dale Johannesen  <dalej@apple.com>
-	    
-	* value-prof.c (insn_prefetch_values_to_profile): 
+
+	* value-prof.c (insn_prefetch_values_to_profile):
 	Don't instrument clobbers.
 
 2004-09-26  Dale Johannesen  <dalej@apple.com>
@@ -686,7 +693,7 @@
 	Radar 3807942, backported from FSF mainline
 	* config/darwin.c (darwin_make_decl_one_only)
 	Allow coalesced symbol to appear in static archive's table of contents
-	
+
 2004-09-17  Devang Patel  <dpatel@apple.com>
 
 	* gcc.c: Use .gch extension instead of .pch.
@@ -723,7 +730,7 @@
 	(cw_asm_primary): Likewise.
 	* c-typeck.c (cw_asm_c_build_component_ref): Change build2 to build3 and
 	add NULL as the last argument for COMPONENT_REF.
-	
+
 2004-09-10  Dale Johannesen  <dalej@apple.com>
 
 	* config/rs6000/power4.md: Increase store latency (mainline).
@@ -736,7 +743,7 @@
 
         * cfgrtl.c (rtl_verify_flow_info_1):  Add new edge flag,
         EDGE_CROSSING, to flags test case.
-        
+
 2004-08-31  Devang Patel  <dpatel@apple.com>
 
 	* config/darwin-driver.c (get_arch_name): Replace abort() with
@@ -878,15 +885,15 @@
 	(assemble_start_function): Remove APPLE LOCAL markers from code
 	added to FSF mainline;  Add code to properly align cold section at
 	start of function.
-	
+
 2004-08-16  Devang Patel  <dpatel@apple.com>
-	
+
 	Merge from mainlne.
-	2004-08-16  Devang Patel  <dpatel@apple.com>                                                         
-                                                                                                     
+	2004-08-16  Devang Patel  <dpatel@apple.com>
+
         * c-common.c (handle_used_attribute): Set DECL_PRESERVE_P.
         * print-tree.c (print_node): Print DECL_PRESERVE_P.
-        * target-def.h (TARGET_ASM_MARK_DECL_PRESERVED): New #define. 
+        * target-def.h (TARGET_ASM_MARK_DECL_PRESERVED): New #define.
         (TARGET_ASM_OUT): New member, TARGET_ASM_MARK_DECL_PRESERVED
         * target.h (struct gcc_target): New member, mark_decl_preserved.
         * hooks.c (hook_void_charptr): Rename to ...
@@ -907,7 +914,7 @@
 	Radar 2872232
 	* ginclude/tgmath.h: New file.
 	* Makefile.in: Add tgmath.h to list of installed headers.
-	
+
 2004-08-13  Devang Patel  <dpatel@apple.com>
 
 	Radar 3729261. Reviewed by Dale.
@@ -919,7 +926,7 @@
 2004-08-13  Devang Patel  <dpatel@apple.com>
 
 	Merge from mainline. Radar 3739309.
-	2004-08-11  Devang Patel  <dpatel@apple.com>	
+	2004-08-11  Devang Patel  <dpatel@apple.com>
 
 	* dbxout.c (dbxout_begin_prologue): New function.
 	(dbx_debug_hooks): Use new begin prologue hook.
@@ -977,7 +984,7 @@
         Remove Symbol Separation.
 	Radar 3555440. Reviewed by Mike Stump.
         * c-common.c (cb_restore_write_symbols, cb_clear_write_symbols,
-        cb_start_symbol_repository, cb_end_symbol_repository, 
+        cb_start_symbol_repository, cb_end_symbol_repository,
         cb_is_builtin_identifier). Remove.
         (debug.h): Do not include.
         * c-common.h  (dbg_dir): Remove.
@@ -1032,7 +1039,7 @@
 	* opts.c (set_debug_level): Remove the handling of -gused and -gfull as they
 	are already handled in CC1_SPECs.
 	* config/rs6000/darwin.h (CC1_SPEC): Change the APPLE LOCAL tag to be what is
-	really local now.	
+	really local now.
 
 2004-08-06  Dale Johannesen  <dalej@apple.com>
 
@@ -1118,8 +1125,8 @@
 
 2004-08-01  Devang Patel  <dpatel@apple.com>
 
-         Re-implement -fwritable-strings support. 
-         Radar : 3699482 
+         Re-implement -fwritable-strings support.
+         Radar : 3699482
 
         * c-common.c (fix_string_type): Check flag_writable_strings.
         (fix_string_type): Likewise.
@@ -1188,7 +1195,7 @@
         (make_cond_modify_expr): Update comment before function body.
         (replace_phi_with_cond_modify_expr): Same.
         (tree_if_convert_stmt): Same. Use new fn name, bb_with_exit_edge_p.
-        (if_convertable_loop_p): New function name. Remove some dead code. 
+        (if_convertable_loop_p): New function name. Remove some dead code.
         (collapse_blocks): Update comment before function body. Format code.
         Use bb_with_exit_edge_p.
         (tree_if_conversion): Move this function body at the end of file.
@@ -1218,14 +1225,14 @@
         (vect_is_supportable_select): Fix typo. Allow SSA_NAME as 2nd
         operand.
         (exist_non_indexing_operands_for_use_p): Handle conditional modify
-        expr.   
+        expr.
         config/rs6000/rs6000.c (rs6000_vector_compare_for_p): New parameter.
-        (get_vector_compare_for): New parameter. Use it to find appropriate 
+        (get_vector_compare_for): New parameter. Use it to find appropriate
         builtin.
 
 2004-06-26  Fariborz Jahanian <fjahanian@apple.com>
 
-	* gcc.c: Don't use -fpredictive-compilation when 
+	* gcc.c: Don't use -fpredictive-compilation when
 	-fpreprocessed appears on command line.
 
 2004-07-01  Devang Patel  <dpatel@apple.com>
@@ -1246,14 +1253,14 @@
 
 2004-06-29  Dorit Naishlos <dorit@il.ibm.com>
 
-	* tree-vectorizer.c (vect_create_data_ref) INDIRECT_REF check moved to 
-	analysis. Redundant checks removed. 
+	* tree-vectorizer.c (vect_create_data_ref) INDIRECT_REF check moved to
+	analysis. Redundant checks removed.
 	(vect_analyze_data_refs): Make sure we have a mem_tag.
 	(vect_transform_loop): Make sure that we have a preheader bb.
 	(vect_init_vector): Insert on preheader edge instead of using bsi.
 	(vect_finish_stmt_generation_in_preheader): Now that a preheader bb is
-	created before vectorizing stmts, we do not expect a new bb to be 
-	created (thereofore, abort instead of add_bb_to_loop). 
+	created before vectorizing stmts, we do not expect a new bb to be
+	created (thereofore, abort instead of add_bb_to_loop).
 	* config/rs6000/rs6000.c (rs6000_build_vmul_uch): Likewise.
 	(rs6000_build_vector_init): Likewise. Also replace mark_call_clobbered
 	with direct setting of DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL.
@@ -1269,15 +1276,15 @@
 	scalar_evolution_info.
 	* tree-ssa-loop-manip.c (tree-scalar-evolution.h): Include.
 	(tree_duplicate_loop_to_header_edge): Call scev_reset().
-	
+
 2004-06-28  Devang Patel  <dpatel@apple.com>
 
 	* tree-if-conv.c (make_ifcvt_temp_variable): Fix formatting.
 
 2004-06-28  Devang Patel  <dpatel@apple.com>
 
-	* tree-if-conv.c (make_ifcvt_temp_variable): Add new parameter for 
-	original stmt. Update new statement's vuse approritatly based on 
+	* tree-if-conv.c (make_ifcvt_temp_variable): Add new parameter for
+	original stmt. Update new statement's vuse approritatly based on
 	original stmt.
 	(make_cond_modify_expr): Supply current statement as additional
 	parameter to make_ifcvt_temp_variable call.
@@ -1417,6 +1424,7 @@
 
 
 2004-06-17  Jon Ziegler  <jonz@apple.com>
+
 	Radar 3691917
 	* Revert version string in gcc/version.c to as of apple-gcc-1762.
 
@@ -1431,11 +1439,11 @@
 	* tree-ssa-dom.c (thread_across_edge): fix from FSF.
 
 2004-06-15  Dorit Naishlos  <DORIT@il.ibm.com>
-        
+
         Radar 3619941
  	* tree-data-ref.c (init_data_ref): New function.
         * tree-data-ref.h (init_data_ref): New function.
-        * tree-vectorizer.c (vect_get_array_first_index): Return index instead	
+        * tree-vectorizer.c (vect_get_array_first_index): Return index instead
         of success status, and support pointers.
         (vect_create_index_for_array_ref): Remove ARRAY_REF restriction, and
         change call to vect_get_array_first_index.
@@ -1490,7 +1498,7 @@
 	* gimplify.c (copy_if_shared_r): Add missing APPLE LOCAL.
 	* config/rs6000/t-darwin: Ditto.
 
-2004-06-14  Fariborz Jahanian <fjahanian@apple.com> 
+2004-06-14  Fariborz Jahanian <fjahanian@apple.com>
 
         * version.c: Remove word tree-ssa from version string.
 
@@ -1499,7 +1507,7 @@
         * Makefile.in (OBJS-common): Add tree-if-conv.o.
         (tree-if-conv.o): New rule.
         * target-def.h (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
         TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): New.
         (TARGET_INITIALIZER): New members.
         * target.h (tree.h): Include.
@@ -1535,7 +1543,7 @@
         (default_vector_select_p): New function.
         (default_vector_select_for_p): New function.
         (default_vector_select_stmt): New function.
-        (vect_transform_stmt): Handle select_vec_info_type and 
+        (vect_transform_stmt): Handle select_vec_info_type and
         compare_vec_info_type.
         (vect_is_supportable_op): Use vect_is_supportable_operation.
         (vect_analyze_operations): Check select and compare support.
@@ -1543,7 +1551,7 @@
         (vect_analyze_loop_form): Use if-conversion and update loop->num_nodes
         check.
         (vectorize_loops): Use vect_loop_version. Handle second loop version.
-        * tree-vectorizer.h (struct _stmt_vec_info): New members - 
+        * tree-vectorizer.h (struct _stmt_vec_info): New members -
         select_vec_info_type and compare_vec_info_type.
         (default_vector_compare_p): New function decl.
         (default_vector_compare_for_p): New function decl.
@@ -1561,7 +1569,7 @@
         (rs6000_vector_select_for_p): New function.
         (rs6000_vector_select_stmt): New function.
         (TARGET_VECTOR_COMPARE_P, TARGET_VECTOR_COMPARE_FOR_P,
-        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P, 
+        TARGET_VECTOR_COMPARE_STMT, TARGET_VECTOR_SELECT_P,
         TARGET_VECTOR_SELECT_FOR_P, TARGET_VECTOR_SELECT_STMT): Define.
         (def_builtin): Record builtin fn node in vector_builtin_fns.
         * rs6000.h (enum rs6000_builtins):  New entry - RS6000_BUILTIN_MAX.
@@ -1569,8 +1577,8 @@
 2004-06-12  Devang Patel  <dpatel@apple.com>
 
 	Radar 3681611
-	* gcc.c (do_spec_1):  Disable local IMA patch that creats new temp. file for 
-	each source file. 
+	* gcc.c (do_spec_1):  Disable local IMA patch that creats new temp. file for
+	each source file.
 
 2004-06-12  Dorit Naishlos  <DORIT@il.ibm.com>
 	    Olga Golovanevsky  <OLGA@il.ibm.com>
@@ -1636,11 +1644,11 @@
 2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
 
 	* varasm.c (assemble_variable): Resotored zerofill size optimization.
-	* config/rs6000/rs6000.c (rs6000_override_options): Place 
+	* config/rs6000/rs6000.c (rs6000_override_options): Place
 	rs6000_init_hard_regno_mode_ok after setting of -fast flags.
 
 2004-06-08  Caroline Tice  <ctice@apple.com>
-        
+
         * common.opt (fcreate-profile):  Add new command line option.
 	(fuse-profile): Likewise.
 	* gcc.c (LINK_COMMAND_SPEC):  Add fcreate-profile to list of flags
@@ -1672,7 +1680,7 @@
 
 2004-06-07  Ayal Zaks <zaks@il.ibm.com>
 
-	Radar 3619935 - Part 1	
+	Radar 3619935 - Part 1
 	* target-def.h (TARGET_VECT, TARGET_VECT_BUILD_BUILTIN_LVSL,
 	TARGET_VECT_SUPPORT_MISALIGNED_LOADS,
 	TARGET_VECT_PERMUTE_MISALIGNED_LOADS,
@@ -1717,10 +1725,10 @@
 2004-06-07  Caroline Tice  <ctice@apple.com>
 
 	* doc/invoke.texi (-fast): Add documentation for "-fast" option.
-	
+
 2004-05-29  Dale Johannesen  <dalej@apple.com>
 
-	* config/rs6000/rs6000.c (rs6000_override_options):  Enable 
+	* config/rs6000/rs6000.c (rs6000_override_options):  Enable
 	hot/cold partitioning with -fast -profile-use.
 
 2004-05-28  Ziemowit Laski  <zlaski@apple.com>
@@ -1772,7 +1780,7 @@
 	(text_section): Remove call to assemble_align.
 	(unlikely_text_section):  Modify to build & use unlikely_text_section_name
 	rather than directly using UNLIKELY_EXECUTED_TEXT_SECTION NAME; remove
-	call to assemble_align; move code to free/initialize 
+	call to assemble_align; move code to free/initialize
 	unlikely_section_label to assemble_start_function.
 	(in_unlikely_text_section):  Modify to use unlikely_text_section_name.
 	(named_section): Add code to initialize unlikely_text_section_name if
@@ -1798,7 +1806,7 @@
 
 2004-05-25  Dale Johannesen  <dalej@apple.com>
 
-	Merge from LNO branch as of 05-18.  
+	Merge from LNO branch as of 05-18.
 	--The following files are identical to lno branch:
 	df.c:  Merge.
 	lambda-code.c:  Merge.
@@ -1831,7 +1839,7 @@
 	-- Other stuff:
 	fold-const.c:  Remove unused variable.
 	config/rs6000/rs6000-c.c:  Make #define of bool work.
-	config/rs6000/t-rs6000:  Make #define of bool work.  Remove 
+	config/rs6000/t-rs6000:  Make #define of bool work.  Remove
 	-Wno-error requirements.
 
 2004-05-25  Mike Stump  <mrs@apple.com>
@@ -1856,7 +1864,7 @@
 	(warn_about_long_double): Change wording to account for new long
 	double size.
 	* doc/invoke.texi (-Wlong-double): Likewise.
-	
+
 2004-05-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 3644687
@@ -1909,7 +1917,7 @@
 	* target.h (gcc_target): Remove 'expand_macro_p' target hook.
 
 2004-05-20  Devang Patel  <dpatel@apple.com>
- 
+
 	* config/darwin-driver.c (main): Prepand "-Wl," before
 	-final_output to make it linker option.
 
@@ -1942,7 +1950,7 @@
 	* Makefile.in:  Remove local -Wno-error dependencies.
 
 2004-05-13  Caroline Tice  <ctice@apple.com>
-        
+
         * c-common.c (builtin_function_disabled_p):  Remove "static" from
 	function declaration and definition.
 	* c-common.h (builtin_function_disabled_p):  Add extern function
@@ -1988,7 +1996,7 @@
 	-header-mapfile support.
 	* common.opt: Same.
 	* c.opt: Remove -header-mapfile support.
-	
+
 2004-05-11  Caroline Tice  <ctice@apple.com>
 
 	* rtl.c (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  Add this note back
@@ -2044,12 +2052,12 @@
 2004-04-30  Caroline Tice  <ctice@apple.com>
 
         * varasm.c (unlikely_section_label): New global variable.
-        (unlikely_text_section): Change variable name from 
+        (unlikely_text_section): Change variable name from
         'unlikely_section_name' to 'unlikely_section_label', make it a global
-        variable, and move the code to generate its value to 
+        variable, and move the code to generate its value to
         assemble_start_function.
         (assemble_start_function):  Add code to generate *correct* value for
-        'unlikely_section_label'.  Now makes use of value from 'fnname' 
+        'unlikely_section_label'.  Now makes use of value from 'fnname'
         parameter.
 
 2004-04-29  Devang Patel  <dpatel@apple.com>
@@ -2073,13 +2081,13 @@
 	add 2nd iteration over vector arguments if needed.
 	* target-def.h (default_skip_vec_args, TARGET_SKIP_VEC_ARGS): New.
 	* target.h (skip_vec_args): Added to calls structure.
-	* targhooks.c (default_skip_vec_args): Default 
+	* targhooks.c (default_skip_vec_args): Default
 	definition.
 	* targhooks.h (default_skip_vec_args): Declaration.
 	* config/rs6000/rs6000.c (skip_vec_args): New definition.
-		
+
 2004-04-28  Stuart Hastings  <stuart@apple.com>
-	
+
 	* config/rs6000/rs6000.c (macho_branch_islands): Fix sprintf arguments.
 	* config/rs6000/rs6000.md (output_call): Fix arguments.
 
@@ -2115,7 +2123,7 @@
 	* ../libstdc++-v3/include/std/std_fstream.h (basic_ifstream): Make
 	_M_filebuf 8-byte aligned.
 	(basic_ofstream): Ditto.
-	
+
 2004-04-22  Devang Patel  <dpatel@apple.com>
 
 	Radar 3401402 and 3511029
@@ -2156,10 +2164,10 @@
 
 2004-04-15  Caroline Tice  <ctice@apple.com>
 
-	Fix various problems related to hot/cold partitioning (but not all of 
+	Fix various problems related to hot/cold partitioning (but not all of
 	them yet).
 	* bb-reorder.c  (tm_p.h): Add new include statement.
-	(HAVE_return): Define HAVE_return appropriately if not already defined.  
+	(HAVE_return): Define HAVE_return appropriately if not already defined.
 	(find_rarely_executed_basic_blocks_and_crossing_edges):  Modify to
 	only mark crossing edges if architecture supports named sections.
 	(fix_crossing_conditional_branches):  Add test for HAVE_return before
@@ -2236,7 +2244,7 @@
 
 2004-04-13  Fariborz Jahanian <fjahanian@apple.com>
 
-	* combine.c (combine_instructions): 
+	* combine.c (combine_instructions):
 	Try insn with each REG_EQUAL note it links back to.
 	(unmentioned_reg_p_1, unmentioned_reg_p): New functions.
 	Brought from tree-ssa branch.
@@ -2249,14 +2257,14 @@
 	* rtl.h (assign_stack_local_with_alias): Declare it.
 	* config/rs6000/rs6000.c (rs6000_override_options): Turn on strict
 	aliasing with -fast.
-	* config/rs6000/rs6000.md (floatsidf2): Use 
+	* config/rs6000/rs6000.md (floatsidf2): Use
 	assign_stack_local_with_alias.
 	(floatunssidf2): Ditto.
 	(fix_truncdfsi2): Ditto.
 
 2004-04-07  Fariborz Jahanian <fjahanian@apple.com>
 
-	Roll in Ziem Laski's Altivec front-end fixes to 
+	Roll in Ziem Laski's Altivec front-end fixes to
 	support MOTOROLA's Altivec syntax.
 	* Makefile.in: Add c-lex.o dependencies.
 	* c-common.c (vector_constructor_from_expr): New function.
@@ -2265,7 +2273,7 @@
 	for new syntax.
 	(c_lex_prepend): new function. (c_lex_peek): new function.
 	* c-pragma.h: add (c_lex_peek, c_lex_prepend) declarations.
-	 	
+
 2004-04-06  Dale Johannesen <dalej@apple.com>
 
 	Roll in Zdenek Dvorak's rewrite of doloop optimization.
@@ -2291,12 +2299,12 @@
 
 	* Makefile.in: add $(PARAMS_H) $(TM_P_H) dependencies
 	for sched-rgn.o.
-	* params.def: add definitions for 
+	* params.def: add definitions for
 	max-sched-region-blocks and max-sched-region-insns.
 	* sched-rgn.c (too_large): change return type to bool.
 	Use the parametrized values of max-sched-region-blocks,
 	max-sched-region-insns for computing upper limits for
-	interblock scheduling. 
+	interblock scheduling.
 	* doc/invoke.texi: Document max-sched-region-blocks,
 	max-sched-region-insns.
 
@@ -2306,9 +2314,9 @@
 	(struct basic_block_def):  Add new field, partition.
 	(UNPARTITIONED, HOT_PARTITION, COLD_PARTITION):  New constant macro
 	definitions.
-	(partition_hot_cold_basic_blocks): Add extern function 
+	(partition_hot_cold_basic_blocks): Add extern function
 	declaration.
-        * bb-reorder.c (function.h, obstack.h, expr.h, regs.h):  Add four new 
+        * bb-reorder.c (function.h, obstack.h, expr.h, regs.h):  Add four new
 	include	statements.
 	(N_ROUNDS): Increase the maximum number of rounds by 1.
 	(branch_threshold): Add array value for new round.
@@ -2329,19 +2337,19 @@
 	basic blocks.
 	(find_traces_1_round): Add a parameter.  Modify to push all cold blocks,
 	and only cold blocks, into the last (extra) round of collecting traces.
-	(better_edge_p): Add a parameter.  Modify to favor non-crossing edges 
+	(better_edge_p): Add a parameter.  Modify to favor non-crossing edges
 	over crossing edges.
-	(bb_to_key):  Add code to correctly identify cold blocks when 
+	(bb_to_key):  Add code to correctly identify cold blocks when
 	doing partitioning.
 	(connect_traces): Modify to connect all the non-cold traces first, then
 	go back and connect up all the cold traces.
 	(reorder_basic_blocks):  Add call to add_unlikely_executed_notes.
 	* cfg.c (entry_exit_blocks): Add initialization for partition field in
 	entry and exit blocks.
-	* cfgbuild.c (make_edges): Update current_function_has_computed_jump  
+	* cfgbuild.c (make_edges): Update current_function_has_computed_jump
 	if we are doing hot/cold partitioning.
 	* cfgcleanup.c (cfglayout.h): Add new include statement.
-	(try_simplify_condjump): Modify to not attempt on blocks with jumps 
+	(try_simplify_condjump): Modify to not attempt on blocks with jumps
 	that cross section boundaries.
 	(try_forward_edges): Likewise.
 	(merge_blocks_move_predecessor_nojumps): Likewise.
@@ -2356,12 +2364,12 @@
 	jumps that cross section boundaries.
         * cfglayout.c (flags.h): Add new include statement.
 	(update_unlikely_executed_notes):  New function.
-	(fixup_reorder_chain):  Add code so when a new jumping basic block is 
-        added, it's UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes are 
+	(fixup_reorder_chain):  Add code so when a new jumping basic block is
+        added, it's UNLIKELY_EXECUTED_CODE and REG_CROSSING_JUMP notes are
 	updated appropriately.
 	(duplicate_insn_chain):  Add code to duplicate the new NOTE insn
 	introduced by this optimization.
-        * cfglayout.h (scan_ahead_for_unlikely_executed_note):  Add new 
+        * cfglayout.h (scan_ahead_for_unlikely_executed_note):  Add new
         extern function declaration.
 	* cfgrtl.c (can_delete_note_p):  Add NOTE_INSN_UNLIKELY_EXECUTED_CODE to
 	list of notes that can be deleted.
@@ -2371,7 +2379,7 @@
 	(try_redirect_by_replacing_jump):  Modify to not attempt on jumps that
 	cross section boundaries.
 	(commit_one_edge_insertion): Add code so newly created basic block
-	ends up in correct (hot or cold) section.  Modify to disallow 
+	ends up in correct (hot or cold) section.  Modify to disallow
 	insertions before NOTE_INSN_UNLIKELY_EXECUTED_CODE notes.
 	(rtl_verify_flow_info_1):  Add code to verify that no fall_thru edge
 	crosses section boundaries.
@@ -2379,44 +2387,44 @@
 	cross section boundaries.
 	(force_nonfallthru_and_redirect): Modify to make sure new basic block
 	ends up in correct section, with correct notes attached.
-        * common.opt (freorder-blocks-and-partition):  Add new flag for this 
+        * common.opt (freorder-blocks-and-partition):  Add new flag for this
         optimization.
         * dbxout.c (dbx_function_end):  Add code to make sure scope labels at
-        the end of functions are written into the correct (hot or cold) 
+        the end of functions are written into the correct (hot or cold)
         section.
 	(dbx_source_file): Add code so writing debug file information
 	doesn't incorrectly change sections.
         * defaults.h (NORMAL_TEXT_SECTION_NAME): New constant macro, for use
 	in partitioning hot/cold basic blocks into separate sections.
-	(SECTION_FORMAT_STRING): New constant macro, for linux/i386 hot/cold 
+	(SECTION_FORMAT_STRING): New constant macro, for linux/i386 hot/cold
 	section partitioning.
 	(HAS_LONG_COND_BRANCH): New constant macro, indicating whether or not
 	conditional branches can span all of memory.
 	(HAS_LONG_UNCOND_BRANCH): New constant macro, indicationg whether or not
 	unconditional branches can span all of memory.
         * final.c (scan_ahead_for_unlikely_executed_note):  New function.
-	(final_scan_insn):  Add code to check for NOTE instruction indicating 
-        whether basic block belongs in hot or cold section, and to make sure 
-        the current basic block is being written to the appropriate section.  
-        Also added code to ensure that jump table basic blocks end up in the 
+	(final_scan_insn):  Add code to check for NOTE instruction indicating
+        whether basic block belongs in hot or cold section, and to make sure
+        the current basic block is being written to the appropriate section.
+        Also added code to ensure that jump table basic blocks end up in the
         correct section.
         * flags.h (flag_reorder_blocks_and_partition):  New flag.
 	* ifcvt.c (find_if_case_1):  Modify to not attempt if conversion if
 	one of the branches has a jump that crosses between sections.
 	(find_if_case_2): Likewise.
-	(ifcvt): Modify to not attempt to mark loop exit edges after 
+	(ifcvt): Modify to not attempt to mark loop exit edges after
 	hot/cold partitioning has occurred.
-        * opts.c (decode_options): Code to handle new flag, 
+        * opts.c (decode_options): Code to handle new flag,
         flag_reorder_blocks_and_partition; also to turn it off if
 	flag_exceptions is on.
-	(common_handle_option): Code to handle new flag, 
+	(common_handle_option): Code to handle new flag,
         flag_reorder_blocks_and_partition.
         * output.h (unlikely_text_section): New extern function declaration.
 	(in_unlikely_text_section): New extern function declaration.
-	* passes.c (rest_of_handle_stack_regs):  Add 
-	flag_reorder_blocks_and_partition as an 'or' condition for calling 
+	* passes.c (rest_of_handle_stack_regs):  Add
+	flag_reorder_blocks_and_partition as an 'or' condition for calling
 	reorder_basic_blocks.
-	(rest_of_handle_reorder_blocks):  Add flag_reorder_blocks_and_partition 
+	(rest_of_handle_reorder_blocks):  Add flag_reorder_blocks_and_partition
 	as an 'or' condition for calling reorder_basic_blocks.
 	(rest_of_compilation):  Add call to partition_hot_cold_basic_blocks.
         * print-rtl.c (print_rtx): Add code for handling new note,
@@ -2424,53 +2432,52 @@
         * rtl.c  (NOTE_INSN_UNLIKELY_EXECUTED_CODE): New note insn (see below).
 	(REG_CROSSING_JUMP): New kind of reg_note, to mark jumps that
 	cross between section boundaries.
-        * rtl.h (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  New note instruction, 
+        * rtl.h (NOTE_INSN_UNLIKELY_EXECUTED_CODE):  New note instruction,
         indicating the basic block containing it belongs in the cold section.
 	(REG_CROSSING_JUMP): New type of reg_note, to mark jumps that cross
 	between hot and cold sections.
-        * toplev.c (flag_reorder_blocks_and_partition):  Add code to 
-        initialize this flag, and to tie it to the command-line option 
+        * toplev.c (flag_reorder_blocks_and_partition):  Add code to
+        initialize this flag, and to tie it to the command-line option
         freorder-blocks-and-partition.
         * varasm.c (cfglayout.h):  Add new include statement.
-	(unlikely_section_label_printed):  New global variable, used for 
+	(unlikely_section_label_printed):  New global variable, used for
         determining when to output section name labels for cold sections.
 	(in_section):  Add in_unlikely_executed_text to enum data structure.
 	(text_section):  Modify code to use SECTION_FORMAT_STRING and
 	NORMAL_TEXT_SECTION_NAME macros.
 	(unlikely_text_section):  New function.
 	(in_unlikely_text_section):  New function.
-	(function_section):  Add code to make sure beginning of function is 
+	(function_section):  Add code to make sure beginning of function is
         written into correct section (hot or cold).
-	(assemble_start_function):  Add code to make sure stuff is written to 
+	(assemble_start_function):  Add code to make sure stuff is written to
         the correct section.
-	(assemble_zeros):  Add in_unlikely_text_section as an 'or' condition 
+	(assemble_zeros):  Add in_unlikely_text_section as an 'or' condition
         to an if statement that was checking 'in_text_section'.
-	(assemble_variable):  Add 'in_unlikely_text_section' as an 'or' 
+	(assemble_variable):  Add 'in_unlikely_text_section' as an 'or'
         condition to an if statement that was checking 'in_text_section'.
-        (default_section_type_flags_1):  Add check: if in cold section 
+        (default_section_type_flags_1):  Add check: if in cold section
         flags = SECTION_CODE.
 	* config/darwin.c (darwin_asm_named_section):  Modify to use
 	SECTION_FORMAT_STRING if we are partitioning hot/cold blocks.
-	* config/i386/i386.h (HAS_LONG_COND_BRANCH): Defined this macro 
+	* config/i386/i386.h (HAS_LONG_COND_BRANCH): Defined this macro
 	specifically for the i386.
 	(HAS_LONG_UNCOND_BRANCH):  Defined this macro specifically for the i386.
         * config/rs6000/darwin.h (UNLIKELY_EXECUTED_TEXT_SECTION_NAME): Change
 	text string to something more informative.
 	(NORMAL_TEXT_SECTION_NAME): Add new definition.
 	(SECTION_FORMAT_STRING):  Add new definition.
-        * config/rs6000/rs6000.c (rs6000_assemble_integer):  Add 
-        '!in_unlikely_text_section' as an 'and' condition to an if statement 
+        * config/rs6000/rs6000.c (rs6000_assemble_integer):  Add
+        '!in_unlikely_text_section' as an 'and' condition to an if statement
         that was already checking '!in_text_section'.
 	(rs6000_override_options):  Turn on flag_reorder_blocks_and_partition
 	with "-fast".
         * config/rs6000/sysv4.h (HOT_TEXT_SECTION_NAME,NORMAL_TEXT_SECTION_NAME,
         UNLIKELY_EXECUTED_TEXT_SECTION_NAME,SECTION_FORMAT_STRING): Make
         sure these are properly defined for linux on ppc.
-        * doc/invoke.texi  (freorder-blocks-and-partition): Add documentation 
+        * doc/invoke.texi  (freorder-blocks-and-partition): Add documentation
         for this new flag.
 	* doc/rtl.texi (REG_CROSSING_JUMP):  Add documentation for new
 	reg_note.
-        * doc/tm.texi (NORMAL_TEXT_SECTION_NAME, SECTION_FORMAT_STRING, 
-	HAS_LONG_COND_BRANCH, HAS_LONG_UNCOND_BRANCH): Add documentation for 
+        * doc/tm.texi (NORMAL_TEXT_SECTION_NAME, SECTION_FORMAT_STRING,
+	HAS_LONG_COND_BRANCH, HAS_LONG_UNCOND_BRANCH): Add documentation for
 	these new macros.
-
