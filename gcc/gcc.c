@@ -1004,15 +1004,15 @@ static const struct compiler default_compilers[] =
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
-       %{!combine:%{!fast:\
+       %{!combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)}}}\
-          %{!fsyntax-only:%(invoke_as)}}} \
-      %{combine|fast:\
+          %{!fsyntax-only:%(invoke_as)}} \
+      %{combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
