@@ -57,6 +57,7 @@ public class GtkButtonPeer extends GtkComponentPeer
   native void gtkSetFont(String name, int style, int size);
   native void gtkSetLabel(String label);
   native void gtkWidgetSetForeground (int red, int green, int blue);
+  native void gtkActivate ();
 
   public GtkButtonPeer (Button b)
   {
@@ -87,8 +88,11 @@ public class GtkButtonPeer extends GtkComponentPeer
       {
 	KeyEvent ke = (KeyEvent) e;
 	if (!ke.isConsumed () && ke.getKeyCode () == KeyEvent.VK_SPACE)
-	  postActionEvent (((Button)awtComponent).getActionCommand (),
-			   ke.getModifiers ());
+          {
+            postActionEvent (((Button) awtComponent).getActionCommand (),
+                             ke.getModifiers ());
+            gtkActivate ();
+          }
       }
 
     super.handleEvent (e);

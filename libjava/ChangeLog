@@ -1,3 +1,11 @@
+2004-05-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkButtonPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c
+	(handleEvent): Activate GTK button when the space bar key is
+	pressed.
+	(gtkActivate): New method.
+
 2004-05-06  David Jee  <djee@redhat.com>
 
 	* java/awt/image/CropImageFilter.java

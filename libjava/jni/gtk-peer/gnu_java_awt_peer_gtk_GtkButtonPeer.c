@@ -173,3 +173,18 @@ Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkWidgetSetForeground
 
   gdk_threads_leave ();
 }
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkButtonPeer_gtkActivate
+  (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  gtk_widget_activate (GTK_WIDGET (ptr));
+
+  gdk_threads_leave ();
+}
