@@ -1,3 +1,19 @@
+2004-08-03  Kim Ho  <kho@redhat.com>
+
+	* java/awt/Component.java:
+	(processMouseEvent): Consume event after
+	listeners process it.
+	(processMouseMotionEvent): ditto.
+	(processMouseWheelEvent): ditto.
+	* java/awt/Container.java:
+	(acquireComponentForMouseEvent):
+	Do not dispatch to events that have been
+	removed from the Container.
+	(handleEvent): Consume the MouseEvents.
+	* javax/swing/RepaintManager.java:
+	(paintDirtyRegions): Do not add to list of 
+	damaged areas if the component has no root.
+
 2004-07-31  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/plaf/basic/BasicMenuItemUI.java: Clean ip imports.
