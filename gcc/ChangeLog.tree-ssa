@@ -1,3 +1,7 @@
+2003-12-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (opf_none, opf_is_def, opf_no_vops): Change to #define.
+
 2003-12-04  Canqun Yang  <canqun@nudt.edu.cn>
 
 	* stor-layout.c (update_alignment_for_field): Export.

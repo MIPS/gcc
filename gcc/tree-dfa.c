@@ -107,10 +107,10 @@ struct walk_state
 /* Flags to describe operand properties in get_stmt_operands and helpers.  */
 
 /* By default, operands are loaded.  */
-static const int opf_none	= 0;
+#define opf_none	0
 
 /* Operand is the target of an assignment expression.  */
-static const int opf_is_def 	= 1 << 0;
+#define opf_is_def 	(1 << 0)
 
 /* No virtual operands should be created in the expression.  This is used
    when traversing ADDR_EXPR nodes which have different semantics than
@@ -118,7 +118,7 @@ static const int opf_is_def 	= 1 << 0;
    need to consider are indices into arrays.  For instance, &a.b[i] should
    generate a USE of 'i' but it should not generate a VUSE for 'a' nor a
    VUSE for 'b'.  */
-static const int opf_no_vops 	= 1 << 1;
+#define opf_no_vops 	(1 << 1)
 
 /* Debugging dumps.  */
 static FILE *dump_file;
