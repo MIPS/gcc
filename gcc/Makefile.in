@@ -786,7 +786,7 @@ C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
 OBJS = tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o tree-simple.o      \
  tree-alias-type.o gimplify.o tree-nomudflap.o tree-pretty-print.o         \
  tree-alias-common.o tree-ssa-ccp.o tree-browser.o @ANDER@ tree-ssa-dce.o  \
- tree-ssa-pre.o tree-ssa-copyprop.o                                        \
+ tree-ssa-pre.o tree-ssa-copyprop.o tree-ssa-live.o 			   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	           \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
@@ -1458,7 +1458,11 @@ tree-alias-common.o: tree-alias-common.c tree-alias-common.h $(SYSTEM_H) \
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
-   $(TM_H) coretypes.h $(TREE_DUMP_H)
+   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h
+tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
+   $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
+   ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h \
+   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-ssa-live.h
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h $(TIMEVAR_H) \
