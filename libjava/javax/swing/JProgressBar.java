@@ -255,6 +255,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   public JProgressBar(int minimum, int maximum, int orientation)
   {
     model = new DefaultBoundedRangeModel(minimum, 0, minimum, maximum);
+    if (orientation != HORIZONTAL && orientation != VERTICAL)
+      throw new IllegalArgumentException(orientation + " is not a legal orientation");    
     this.orientation = orientation;
     changeListener = createChangeListener();
     model.addChangeListener(changeListener);
@@ -271,6 +273,10 @@ public class JProgressBar extends JComponent implements SwingConstants,
   public JProgressBar(BoundedRangeModel model)
   {
     this.model = model;
+    changeListener = createChangeListener();
+    model.addChangeListener(changeListener);
+    changeListenerList = new EventListenerList();
+    updateUI();    
   }
 
   /**
@@ -516,6 +522,17 @@ public class JProgressBar extends JComponent implements SwingConstants,
   {
     changeListenerList.remove(ChangeListener.class, listener);
   }
+  
+  /**
+   * This method returns an array of all ChangeListeners listening to this
+   * progress bar.
+   *
+   * @return An array of ChangeListeners listening to this progress bar.
+   */
+  public ChangeListener[] getChangeListeners()
+  {
+    return (ChangeListener[]) changeListenerList.getListenerList();
+  }  
 
   /**
    * This method is called when the JProgressBar receives a ChangeEvent
@@ -553,7 +570,9 @@ public class JProgressBar extends JComponent implements SwingConstants,
   {
     if (model != this.model)
       {
+        this.model.removeChangeListener(changeListener);
 	this.model = model;
+	this.model.addChangeListener(changeListener);
 	fireStateChanged();
       }
   }

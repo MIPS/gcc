@@ -670,8 +670,17 @@ public class SwingUtilities implements SwingConstants
         iconR.width = icon.getIconWidth();
         iconR.height = icon.getIconHeight();
       }
-    textR.width = fm.stringWidth(text);
-    textR.height = fm.getHeight(); 
+    if (text == null)
+      {
+        textIconGap = 0;
+	textR.width = 0;
+	textR.height = 0;
+      }
+    else
+      {
+        textR.width = fm.stringWidth(text);
+        textR.height = fm.getHeight(); 
+      }
 
     // Work out the position of text and icon, assuming the top-left coord
     // starts at (0,0). We will fix that up momentarily, after these

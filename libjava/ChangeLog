@@ -1,3 +1,35 @@
+2004-02-26  Kim Ho  <kho@redhat.com>
+
+	* Makefile.am: Add new files.
+	* Makefile.in: Re-generate.
+	* javax/swing/JProgressBar.java: 
+	(JProgressBar(int, int int)): Throw
+	IllegalArgumentException if orientation is
+	invalid.
+	(JProgressBar(BoundedRangeModel)): Create
+	ChangeListener and register it. UpdateUI.
+	(getChangeListeners): Implement.
+	(setModel): Reset ChangeListener.
+	* javax/swing/JScrollBar.java: Implement.
+	* javax/swing/JSeparator.java: Implement.
+	* javax/swing/JSlider.java:
+	(JSlider(int, int, int, int)): Throw 
+	IllegalArgumentException if orientation
+	is invalid.
+	(getChangeListeners): Fix method name.
+	* javax/swing/SwingUtilities.java:
+	(layoutCompoundLabel): If there is no text,
+	set the text rectangle dimensions to 0.
+	* javax/swing/plaf/basic/BasicButtonUI.java:
+	(paint): If there is no text, don't paint it.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java:
+	Implement.
+	* javax/swing/plaf/basic/BasicSeparatorUI.java:
+	Implement.
+	* javax/swing/plaf/basic/BasicSliderUI.java: 
+	(propertyChange): If the model changes, change
+	the listeners accordingly.
+
 2004-02-25  Graydon Hoare  <graydon@redhat.com>
 
 	* javax/swing/AbstractButton.java: Add "final" qualifiers.

@@ -69,6 +69,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
+import javax.swing.BoundedRangeModel;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.MouseInputAdapter;
@@ -227,6 +228,13 @@ public class BasicSliderUI extends SliderUI
       // Check for orientation changes.
       if (e.getPropertyName().equals(JSlider.ORIENTATION_CHANGED_PROPERTY))
 	recalculateIfOrientationChanged();
+      else if (e.getPropertyName().equals(JSlider.MODEL_CHANGED_PROPERTY))
+      {
+        BoundedRangeModel oldModel = (BoundedRangeModel) e.getOldValue();
+	oldModel.removeChangeListener(changeListener);
+	slider.getModel().addChangeListener(changeListener);
+	calculateThumbLocation();
+      }
       // elif the componentOrientation changes (this is a bound property,
       // just undocumented) we change leftToRightCache. In Sun's 
       // implementation, the LTR cache changes on a repaint. This is strange

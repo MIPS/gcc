@@ -338,8 +338,9 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
   public JSlider(int orientation, int minimum, int maximum, int value)
   {
     sliderModel = new DefaultBoundedRangeModel(value, 0, minimum, maximum);
-    if (orientation == HORIZONTAL || orientation == VERTICAL)
-      this.orientation = orientation;
+    if (orientation != HORIZONTAL && orientation != VERTICAL)
+      throw new IllegalArgumentException(orientation + " is not a legal orientation");
+    this.orientation = orientation;
     changeListener = createChangeListener();
     changeListenerList = new EventListenerList();
     sliderModel.addChangeListener(changeListener);
@@ -488,7 +489,7 @@ public class JSlider extends JComponent implements SwingConstants, Accessible,
    *
    * @return An array of ChangeListeners listening to this slider.
    */
-  public ChangeListener[] getChangeListener()
+  public ChangeListener[] getChangeListeners()
   {
     return (ChangeListener[]) changeListenerList.getListenerList();
   }
