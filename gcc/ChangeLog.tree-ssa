@@ -1,5 +1,10 @@
 2003-10-31  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-optimize.c (optimize_function_tree): Fix comment
+	describing SSA pass after DOM2.
+
+2003-10-31  Diego Novillo  <dnovillo@redhat.com>
+
 	Fix PR optimization/12825
 	* tree-optimize.c (optimize_function_tree): Run SSA renamer after
 	second DOM pass.
