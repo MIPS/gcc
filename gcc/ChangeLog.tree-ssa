@@ -1,3 +1,8 @@
+2004-01-16  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-optimize.c (init_tree_optimization_passes): Run DCE
+	before the first dominator optimization pass.
+
 2004-01-15  Brian Booth <bbooth@redhat.com>
 	    Richard Henderson  <rth@redhat.com>
 
