@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "c-common.h"
 #include "tree-mudflap.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "tree-inline.h"
 

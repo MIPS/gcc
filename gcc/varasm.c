@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "tree-mudflap.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "cfglayout.h"
 
@@ -1416,6 +1417,10 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   /* Do no output if -fsyntax-only.  */
   if (flag_syntax_only)
+    return;
+
+  /* APPLE LOCAL duplicate decls in multiple files.  */
+  if (DECL_DUPLICATE_DECL (decl))
     return;
 
   app_disable ();
