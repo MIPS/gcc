@@ -399,7 +399,7 @@ struct tree_wrapper
 struct tree_srcloc
 {
   char common[sizeof (struct tree_common)];
-  char *filename;
+  const char *filename;
   int linenum;
 };
 
@@ -1298,21 +1298,15 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   ((CP_TYPE_QUALS (NODE) & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE))	\
    == TYPE_QUAL_CONST)
 
-#define DELTA_FROM_VTABLE_ENTRY(ENTRY) \
-  (!flag_vtable_thunks ? \
-     TREE_VALUE (CONSTRUCTOR_ELTS (ENTRY)) \
-   : TREE_CODE (TREE_OPERAND ((ENTRY), 0)) != THUNK_DECL ? integer_zero_node \
-   : build_int_2 (THUNK_DELTA (TREE_OPERAND ((ENTRY), 0)), 0))
-
 /* Virtual function addresses can be gotten from a virtual function
    table entry using this macro.  */
-#define FNADDR_FROM_VTABLE_ENTRY(ENTRY) \
-  (!flag_vtable_thunks ? \
-     TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (ENTRY)))) \
-   : TREE_CODE (TREE_OPERAND ((ENTRY), 0)) != THUNK_DECL ? (ENTRY) \
+#define FNADDR_FROM_VTABLE_ENTRY(ENTRY)					\
+  (!flag_vtable_thunks ?						\
+     TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (ENTRY))))	\
+   : !DECL_THUNK_P (TREE_OPERAND ((ENTRY), 0))				\
+   ? (ENTRY)								\
    : DECL_INITIAL (TREE_OPERAND ((ENTRY), 0)))
-#define SET_FNADDR_FROM_VTABLE_ENTRY(ENTRY,VALUE) \
-  (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CONSTRUCTOR_ELTS (ENTRY)))) = (VALUE))
+
 #define FUNCTION_ARG_CHAIN(NODE) (TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (NODE))))
 #define PROMOTES_TO_AGGR_TYPE(NODE,CODE)	\
   (((CODE) == TREE_CODE (NODE)			\
@@ -1324,6 +1318,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) (get_base_distance (PARENT, TYPE, 0, (tree *)0) >= 0)
 #define ACCESSIBLY_DERIVED_FROM_P(PARENT, TYPE) (get_base_distance (PARENT, TYPE, -1, (tree *)0) >= 0)
 #define ACCESSIBLY_UNIQUELY_DERIVED_P(PARENT, TYPE) (get_base_distance (PARENT, TYPE, 1, (tree *)0) >= 0)
+#define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) (get_base_distance (PARENT, TYPE, 2, (tree *)0) >= 0)
 #define DERIVED_FROM_P(PARENT, TYPE) (get_base_distance (PARENT, TYPE, 0, (tree *)0) != -1)
 
 /* This structure provides additional information above and beyond
@@ -1749,8 +1744,11 @@ struct lang_type
 #define SET_BINFO_VTABLE_PATH_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?SET_CLASSTYPE_MARKED3(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_3(NODE)=1))
 #define CLEAR_BINFO_VTABLE_PATH_MARKED(NODE) (TREE_VIA_VIRTUAL(NODE)?CLEAR_CLASSTYPE_MARKED3(BINFO_TYPE(NODE)):(TREE_LANG_FLAG_3(NODE)=0))
 
-/* Nonzero means B (a BINFO) needs a new vtable.  B is part of the
-   hierarchy dominated by C.  */
+/* Nonzero means B (a BINFO) has its own vtable.  Under the old ABI,
+   secondary vtables are sometimes shared.  Any copies will not have
+   this flag set.
+
+   B is part of the hierarchy dominated by C.  */
 #define BINFO_NEW_VTABLE_MARKED(B, C) \
   (TREE_LANG_FLAG_4 (CANONICAL_BINFO (B, C)))
 #define SET_BINFO_NEW_VTABLE_MARKED(B, C) \
@@ -1901,6 +1899,10 @@ struct lang_decl_flags
     /* In a namespace-scope FUNCTION_DECL, this is
        GLOBAL_INIT_PRIORITY.  */
     int init_priority;
+
+    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
+       THUNK_VCALL_OFFSET.  */
+    HOST_WIDE_INT vcall_offset;
   } u2;
 };
 
@@ -1989,7 +1991,7 @@ struct lang_decl
    && DECL_NAME (NODE) == base_dtor_identifier)
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a destructor for a complete
-   object.  */
+   object that deletes the object after it has been destroyed.  */
 #define DECL_DELETING_DESTRUCTOR_P(NODE)		\
   (DECL_DESTRUCTOR_P (NODE) 				\
    && DECL_NAME (NODE) == deleting_dtor_identifier)
@@ -2102,6 +2104,27 @@ struct lang_decl
 /* Nonzero for FUNCTION_DECL means that this member function
    must be overridden by derived classes.  */
 #define DECL_NEEDS_FINAL_OVERRIDER_P(NODE) (DECL_LANG_SPECIFIC(NODE)->decl_flags.needs_final_overrider)
+
+/* Nonzero if NODE is a thunk, rather than an ordinary function.  */
+#define DECL_THUNK_P(NODE)			\
+  (TREE_CODE (NODE) == FUNCTION_DECL		\
+   && DECL_LANG_FLAG_7 (NODE))
+
+/* Nonzero if NODE is a FUNCTION_DECL, but not a thunk.  */
+#define DECL_NON_THUNK_FUNCTION_P(NODE)				\
+  (TREE_CODE (NODE) == FUNCTION_DECL && !DECL_THUNK_P (NODE))
+
+/* Nonzero if NODE is `extern "C"'.  */
+#define DECL_EXTERN_C_P(NODE) \
+  (DECL_LANGUAGE (NODE) == lang_c)
+
+/* Nonzero if NODE is an `extern "C"' function.  */
+#define DECL_EXTERN_C_FUNCTION_P(NODE) \
+  (DECL_NON_THUNK_FUNCTION_P (NODE) && DECL_EXTERN_C_P (NODE))
+
+/* Set DECL_THUNK_P for node.  */
+#define SET_DECL_THUNK_P(NODE) \
+  (DECL_LANG_FLAG_7 (NODE) = 1)
 
 /* Nonzero if this DECL is the __PRETTY_FUNCTION__ variable in a
    template function.  */
@@ -2990,6 +3013,27 @@ extern int flag_new_for_scope;
 #define DECL_REALLY_EXTERN(NODE) \
   (DECL_EXTERNAL (NODE) && ! DECL_NOT_REALLY_EXTERN (NODE))
 
+/* A thunk is a stub function.
+
+   A thunk is an alternate entry point for an ordinary FUNCTION_DECL.
+   The address of the ordinary FUNCTION_DECL is given by the
+   DECL_INITIAL, which is always an ADDR_EXPR whose operand is a
+   FUNCTION_DECL.  The job of the thunk is to adjust the `this'
+   pointer before transferring control to the FUNCTION_DECL.
+
+   A thunk may perform either, or both, of the following operations:
+
+   o Adjust the `this' pointer by a constant offset.
+   o Adjust the `this' pointer by looking up a vcall-offset
+     in the vtable.
+
+   If both operations are performed, then the constant adjument to
+   `this' is performed first.
+
+   The constant adjustment is given by THUNK_DELTA.  If the
+   vcall-offset is required, the index into the vtable is given by
+   THUNK_VCALL_OFFSET.  */
+
 /* An integer indicating how many bytes should be subtracted from the
    `this' pointer when this function is called.  */
 #define THUNK_DELTA(DECL) (DECL_CHECK (DECL)->decl.u1.i)
@@ -2998,7 +3042,8 @@ extern int flag_new_for_scope;
    vtable for the `this' pointer to find the vcall offset.  (The vptr
    is always located at offset zero from the f `this' pointer.)  If
    zero, then there is no vcall offset.  */
-#define THUNK_VCALL_OFFSET(DECL) (DECL_CHECK (DECL)->decl.u2.i)
+#define THUNK_VCALL_OFFSET(DECL) \
+  (DECL_LANG_SPECIFIC (DECL)->decl_flags.u2.vcall_offset)
 
 /* DECL_NEEDED_P holds of a declaration when we need to emit its
    definition.  This is true when the back-end tells us that
@@ -3177,12 +3222,21 @@ typedef enum access_kind {
   ak_private = 3           /* Accessible, as a `private' thing.  */
 } access_kind;
 
+/* The various kinds of special functions.  If you add to this list,
+   you should update special_function_p as well.  */
 typedef enum special_function_kind {
-  sfk_none,                /* Not a special function.  */
+  sfk_none = 0,            /* Not a special function.  This enumeral
+			      must have value zero; see
+			      special_function_p.  */
   sfk_constructor,         /* A constructor.  */
   sfk_copy_constructor,    /* A copy constructor.  */
   sfk_assignment_operator, /* An assignment operator.  */
   sfk_destructor,          /* A destructor.  */
+  sfk_complete_destructor, /* A destructor for complete objects.  */
+  sfk_base_destructor,     /* A destructor for base subobjects.  */
+  sfk_deleting_destructor, /* A destructor for complete objects that
+			      deletes the object after it has been
+			      destroyed.  */
   sfk_conversion           /* A conversion operator.  */
 } special_function_kind;
 
@@ -3292,7 +3346,7 @@ struct tinst_level
 {
   tree decl;
   int line;
-  char *file;
+  const char *file;
   struct tinst_level *next;
 };
 
@@ -3471,8 +3525,7 @@ extern tree original_function_name;
 /* Returns non-zero iff NODE is a declaration for the global function
    `main'.  */
 #define DECL_MAIN_P(NODE)				\
-   (TREE_CODE (NODE) == FUNCTION_DECL			\
-    && DECL_LANGUAGE (NODE) == lang_c	 		\
+   (DECL_EXTERN_C_FUNCTION_P (NODE)                     \
     && DECL_NAME (NODE) != NULL_TREE			\
     && MAIN_NAME_P (DECL_NAME (NODE)))
 
@@ -3483,7 +3536,7 @@ struct pending_inline
 {
   struct pending_inline *next;	/* pointer to next in chain */
   int lineno;			/* line number we got the text from */
-  char *filename;		/* name of file we were processing */
+  const char *filename;		/* name of file we were processing */
   tree fndecl;			/* FUNCTION_DECL that brought us here */
   int token;			/* token we were scanning */
   int token_value;		/* value of token we were scanning (YYSTYPE) */
@@ -3860,7 +3913,7 @@ extern void push_class_level_binding		PARAMS ((tree, tree));
 extern tree implicitly_declare			PARAMS ((tree));
 extern tree lookup_label			PARAMS ((tree));
 extern tree declare_local_label                 PARAMS ((tree));
-extern tree define_label			PARAMS ((char *, int, tree));
+extern tree define_label			PARAMS ((const char *, int, tree));
 extern void push_switch				PARAMS ((void));
 extern void pop_switch				PARAMS ((void));
 extern void define_case_label			PARAMS ((void));
@@ -4064,6 +4117,7 @@ extern void expand_exception_blocks		PARAMS ((void));
 extern tree build_throw				PARAMS ((tree));
 extern void mark_all_runtime_matches            PARAMS ((void));
 extern int nothrow_libfn_p			PARAMS ((tree));
+extern void check_handlers			PARAMS ((tree));
 
 /* in expr.c */
 extern void init_cplus_expand			PARAMS ((void));
@@ -4299,7 +4353,6 @@ extern tree dfs_walk_real                      PARAMS ((tree,
 						       tree (*) (tree, void *),
 						       void *));
 extern tree dfs_unmark                          PARAMS ((tree, void *));
-extern tree dfs_vtable_path_unmark              PARAMS ((tree, void *));
 extern tree markedp                             PARAMS ((tree, void *));
 extern tree unmarkedp                           PARAMS ((tree, void *));
 extern tree dfs_skip_nonprimary_vbases_unmarkedp PARAMS ((tree, void *));
@@ -4482,6 +4535,7 @@ extern void remap_save_expr                     PARAMS ((tree *, splay_tree, tre
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), /*complain=*/1)
 extern tree build_shared_int_cst                PARAMS ((int));
+extern special_function_kind special_function_p PARAMS ((tree));
 
 /* in typeck.c */
 extern int string_conv_p			PARAMS ((tree, tree, int));
@@ -4542,7 +4596,7 @@ extern tree build_x_modify_expr			PARAMS ((tree, enum tree_code, tree));
 extern tree build_modify_expr			PARAMS ((tree, enum tree_code, tree));
 extern tree dubious_conversion_warnings         PARAMS ((tree, tree, const char *, tree, int));
 extern tree convert_for_initialization		PARAMS ((tree, tree, tree, int, const char *, tree, int));
-extern void c_expand_asm_operands		PARAMS ((tree, tree, tree, tree, int, char *, int));
+extern void c_expand_asm_operands		PARAMS ((tree, tree, tree, tree, int, const char *, int));
 extern void c_expand_return			PARAMS ((tree));
 extern tree c_expand_start_case			PARAMS ((tree));
 extern int comp_ptr_ttypes			PARAMS ((tree, tree));

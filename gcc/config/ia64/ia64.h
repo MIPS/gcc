@@ -66,6 +66,10 @@ extern int target_flags;
 
 #define MASK_NO_SDATA   0x00000080	/* Disable sdata/scommon/sbss.  */
 
+#define MASK_CONST_GP	0x00000100	/* treat gp as program-wide constant */
+
+#define MASK_AUTO_PIC	0x00000200	/* generate automatically PIC */
+
 #define MASK_DWARF2_ASM 0x40000000	/* test dwarf2 line info via gas.  */
 
 #define TARGET_BIG_ENDIAN	(target_flags & MASK_BIG_ENDIAN)
@@ -84,13 +88,17 @@ extern int target_flags;
 
 #define TARGET_NO_SDATA		(target_flags & MASK_NO_SDATA)
 
+#define TARGET_CONST_GP		(target_flags & MASK_CONST_GP)
+
+#define TARGET_AUTO_PIC		(target_flags & MASK_AUTO_PIC)
+
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
 
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
    each command option.  */
 
-#define TARGET_SWITCHES \
+#define TARGET_SWITCHES							\
 {									\
   { "big-endian",	MASK_BIG_ENDIAN,				\
       "Generate big endian code" },					\
@@ -118,6 +126,10 @@ extern int target_flags;
       "Disable use of sdata/scommon/sbss"},				\
   { "sdata",		-MASK_NO_SDATA,					\
       "Enable use of sdata/scommon/sbss"},				\
+  { "constant-gp",	MASK_CONST_GP,					\
+      "gp is constant (but save/restore gp on indirect calls)" },	\
+  { "auto-pic",		MASK_AUTO_PIC,					\
+      "Generate self-relocatable code" },				\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       "Enable Dwarf 2 line debug info via GNU as"},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -1129,7 +1141,7 @@ enum reg_class
    address would be in b0 (rp).  */
 
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR) \
-  ((count == 0)								\
+  (((COUNT) == 0)							\
    ? gen_rtx_REG (Pmode, RETURN_ADDRESS_REGNUM)				\
    : (rtx) 0)
 
@@ -1910,9 +1922,13 @@ do {									\
 /* #define MEMORY_MOVE_COST(M,C,I) */
 
 /* A C expression for the cost of a branch instruction.  A value of 1 is the
-   default; other values are interpreted relative to that.  */
-/* ??? Investigate.  Might get better code by defining this.  */
-/* #define BRANCH_COST */
+   default; other values are interpreted relative to that.  Used by the 
+   if-conversion code as max instruction count.  */
+/* ??? This requires investigation.  The primary effect might be how
+   many additional insn groups we run into, vs how good the dynamic
+   branch predictor is.  */
+
+#define BRANCH_COST 6
 
 /* Define this macro as a C expression which is nonzero if accessing less than
    a word of memory (i.e. a `char' or a `short') is no faster than accessing a
@@ -1977,6 +1993,15 @@ do {									\
    (such as what section it is in).  */
 
 #define ENCODE_SECTION_INFO(DECL) ia64_encode_section_info (DECL)
+
+/* If a variable is weakened, made one only or moved into a different
+   section, it may be necessary to redo the section info to move the
+   variable out of sdata. */
+
+#define REDO_SECTION_INFO_P(DECL)					\
+   ((TREE_CODE (DECL) == VAR_DECL)					\
+    && (DECL_ONE_ONLY (decl) || DECL_WEAK (decl) || DECL_COMMON (decl)	\
+	|| DECL_SECTION_NAME (decl) != 0))
 
 #define SDATA_NAME_FLAG_CHAR '@'
 
@@ -2107,10 +2132,10 @@ do {									\
 #define ASM_OUTPUT_DOUBLE_INT(FILE, VALUE)				\
 do {									\
   fprintf (FILE, "\tdata8\t");						\
-  if (SYMBOL_REF_FLAG (VALUE))						\
+  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
     fprintf (FILE, "@fptr(");						\
   output_addr_const (FILE, (VALUE));					\
-  if (SYMBOL_REF_FLAG (VALUE))						\
+  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC) && SYMBOL_REF_FLAG (VALUE))	\
     fprintf (FILE, ")");						\
   fprintf (FILE, "\n");							\
 } while (0)
@@ -2152,16 +2177,16 @@ do {									\
 
 #define ASM_OUTPUT_XDATA_DOUBLE_INT(FILE, SECTION, VALUE)		\
 do {									\
+  int need_closing_paren = 0;						\
   fprintf (FILE, "\t.xdata8\t\"%s\", ", SECTION);			\
-  if (GET_CODE (VALUE) == SYMBOL_REF)					\
+  if (!(TARGET_NO_PIC || TARGET_AUTO_PIC)				\
+      && GET_CODE (VALUE) == SYMBOL_REF)				\
     {									\
-      if (SYMBOL_REF_FLAG (VALUE))					\
-	fprintf (FILE, "@fptr(");					\
-      else								\
-	fprintf (FILE, "@segrel(");					\
+      fprintf (FILE, SYMBOL_REF_FLAG (VALUE) ? "@fptr(" : "@segrel(");	\
+      need_closing_paren = 1;						\
     }									\
-  output_addr_const (FILE, (VALUE));					\
-  if (GET_CODE (VALUE) == SYMBOL_REF)					\
+  output_addr_const (FILE, VALUE);					\
+  if (need_closing_paren)						\
     fprintf (FILE, ")");						\
   fprintf (FILE, "\n");							\
 } while (0)
@@ -2184,7 +2209,7 @@ do {									\
    to assemble a single byte containing the number VALUE.  */
 
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "\t%s\t0x%x\n", ASM_BYTE_OP, (VALUE))
+  fprintf (STREAM, "\t%s\t0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
 
 /* These macros are defined as C string constant, describing the syntax in the
    assembler for grouping arithmetic expressions.  */
@@ -2705,7 +2730,8 @@ do {									\
 { "reg_or_fp01_operand", {SUBREG, REG, CONST_DOUBLE, CONSTANT_P_RTX}},	\
 { "normal_comparison_operator", {EQ, NE, GT, LE, GTU, LEU}},		\
 { "adjusted_comparison_operator", {LT, GE, LTU, GEU}},			\
-{ "call_multiple_values_operation", {PARALLEL}},
+{ "call_multiple_values_operation", {PARALLEL}},			\
+{ "predicate_operator", {NE, EQ}},
 
 /* An alias for a machine mode name.  This is the machine mode that elements of
    a jump-table should have.  */

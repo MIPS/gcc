@@ -163,7 +163,7 @@ static void pipe_closed PARAMS ((int)) ATTRIBUTE_NORETURN;
 /* This might or might not be used in ASM_IDENTIFY_LANGUAGE. */
 static void output_lang_identify PARAMS ((FILE *)) ATTRIBUTE_UNUSED;
 #endif
-static void compile_file PARAMS ((char *));
+static void compile_file PARAMS ((const char *));
 static void display_help PARAMS ((void));
 static void mark_file_stack PARAMS ((void *));
 
@@ -195,13 +195,13 @@ char **save_argv;
 /* Name of current original source file (what was input to cpp).
    This comes from each #-command in the actual input.  */
 
-char *input_filename;
+const char *input_filename;
 
 /* Name of top-level original source file (what was input to cpp).
    This comes from the #-command at the beginning of the actual input.
    If there isn't any there, then this is the cc1 input file name.  */
 
-char *main_input_filename;
+const char *main_input_filename;
 
 /* Current line number in real source file.  */
 
@@ -272,9 +272,9 @@ enum dump_file_index
   DFI_flow2,
   DFI_ce2,
   DFI_peephole2,
+  DFI_rnreg,
   DFI_sched2,
   DFI_bbro,
-  DFI_rnreg,
   DFI_jump2,
   DFI_mach,
   DFI_dbr,
@@ -314,9 +314,9 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "ce2",	'E', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
+  { "rnreg",	'n', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
-  { "rnreg",	'n', 1, 0, 0 },
   { "jump2",	'J', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
@@ -1305,9 +1305,30 @@ int extra_warnings = 0;
 
 int warnings_are_errors = 0;
 
-/* Nonzero to warn about unused local variables.  */
+/* Nonzero to warn about unused variables, functions et.al.  */
 
-int warn_unused;
+int warn_unused_function;
+int warn_unused_label;
+int warn_unused_parameter;
+int warn_unused_variable;
+int warn_unused_value;
+
+void
+set_Wunused (setting)
+     int setting;
+{
+  warn_unused_function = setting;
+  warn_unused_label = setting;
+  /* Unused function parameter warnings are reported when either ``-W
+     -Wunused'' or ``-Wunused-parameter'' is specified.  Differentiate
+     -Wunused by setting WARN_UNUSED_PARAMETER to -1 */
+  if (!setting)
+    warn_unused_parameter = 0;
+  else if (!warn_unused_parameter)
+    warn_unused_parameter = -1;
+  warn_unused_variable = setting;
+  warn_unused_value = setting;
+}
 
 /* Nonzero to warn about code which is never reached.  */
 
@@ -1370,7 +1391,11 @@ int warn_padded;
 
 lang_independent_options W_options[] =
 {
-  {"unused", &warn_unused, 1, "Warn when a variable is unused" },
+  {"unused-function", &warn_unused_function, 1, "Warn when a function is unused" },
+  {"unused-label", &warn_unused_label, 1, "Warn when a label is unused" },
+  {"unused-parameter", &warn_unused_parameter, 1, "Warn when a function parameter is unused" },
+  {"unused-variable", &warn_unused_variable, 1, "Warn when a variable is unused" },
+  {"unused-value", &warn_unused_value, 1, "Warn when an expression value is unused" },
   {"error", &warnings_are_errors, 1, ""},
   {"shadow", &warn_shadow, 1, "Warn when one local variable shadows another" },
   {"switch", &warn_switch, 1,
@@ -1679,12 +1704,8 @@ output_file_directive (asm_file, input_name)
   /* NA gets INPUT_NAME sans directory names.  */
   while (na > input_name)
     {
-      if (na[-1] == '/')
-	break;
-#ifdef DIR_SEPARATOR
-      if (na[-1] == DIR_SEPARATOR)
-	break;
-#endif
+      if (IS_DIR_SEPARATOR (na[-1]))
+        break;
       na--;
     }
 
@@ -1925,7 +1946,7 @@ check_global_declarations (vec, len)
 	 because many programs have static variables
 	 that exist only to get some text into the object file.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
-	  && (warn_unused
+	  && (warn_unused_function
 	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
@@ -1946,9 +1967,10 @@ check_global_declarations (vec, len)
       /* Warn about static fns or vars defined but not used,
 	 but not about inline functions or static consts
 	 since defining those in header files is normal practice.  */
-      if (warn_unused
-	  && ((TREE_CODE (decl) == FUNCTION_DECL && ! DECL_INLINE (decl))
-	      || (TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
+      if (((warn_unused_function
+	    && TREE_CODE (decl) == FUNCTION_DECL && ! DECL_INLINE (decl))
+	   || (warn_unused_variable
+	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
 	  && ! DECL_IN_SYSTEM_HEADER (decl)
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
@@ -2012,7 +2034,7 @@ check_global_declarations (vec, len)
 
 void
 push_srcloc (file, line)
-     char *file;
+     const char *file;
      int line;
 {
   struct file_stack *fs;
@@ -2057,7 +2079,7 @@ pop_srcloc ()
 
 static void
 compile_file (name)
-     char *name;
+     const char *name;
 {
   tree globals;
 
@@ -2145,8 +2167,9 @@ compile_file (name)
 #endif
     }
 
-  if (ggc_p)
+  if (ggc_p && name != 0)
     name = ggc_alloc_string (name, strlen (name));
+
   input_filename = name;
 
   /* Put an entry on the input file stack for the main input file.  */
@@ -2636,7 +2659,7 @@ rest_of_compilation (decl)
   /* Then remove any notes we don't need.  That will make iterating
      over the instruction sequence faster, and allow the garbage
      collector to reclaim the memory used by the notes.  */
-  remove_unncessary_notes ();
+  remove_unnecessary_notes ();
 
   /* In function-at-a-time mode, we do not attempt to keep the BLOCK
      tree in sensible shape.  So, we just recalculate it here.  */
@@ -3036,7 +3059,7 @@ rest_of_compilation (decl)
 	{
 	  /* We only want to perform unrolling once.  */
 	       
-	  loop_optimize (insns, rtl_dump_file, 0, 0);
+	  loop_optimize (insns, rtl_dump_file, 0);
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
@@ -3048,7 +3071,7 @@ rest_of_compilation (decl)
 		  analysis code depends on this information.  */
 	  reg_scan (insns, max_reg_num (), 1);
 	}
-      loop_optimize (insns, rtl_dump_file, flag_unroll_loops, 1);
+      loop_optimize (insns, rtl_dump_file, (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT);
 
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
@@ -3207,7 +3230,8 @@ rest_of_compilation (decl)
 	     global_live_at_end.  We then run sched1, which updates things
 	     properly, discovers the wierdness and aborts.  */
 	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			    PROP_DEATH_NOTES);
+			    PROP_DEATH_NOTES | PROP_KILL_DEAD_CODE
+			    | PROP_SCAN_DEAD_CODE);
 
 	  timevar_pop (TV_FLOW);
 	}
@@ -3248,12 +3272,22 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
-  if (optimize && n_basic_blocks)
+#ifdef OPTIMIZE_MODE_SWITCHING
+  if (optimize)
     {
       timevar_push (TV_GCSE);
-      optimize_mode_switching (NULL_PTR);
+
+      if (optimize_mode_switching (NULL_PTR))
+	{
+	  /* We did work, and so had to regenerate global life information.
+	     Take advantage of this and don't re-recompute register life
+	     information below.  */
+	  no_new_pseudos = 1;
+	}
+
       timevar_pop (TV_GCSE);
     }
+#endif
 
 #ifdef INSN_SCHEDULING
 
@@ -3294,9 +3328,7 @@ rest_of_compilation (decl)
      RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
      jump optimizer after register allocation and reloading are finished.  */
 
-  /* We recomputed reg usage as part of updating the rest
-     of life info during sched.  */
-  if (! flag_schedule_insns)
+  if (! no_new_pseudos)
     {
       recompute_reg_usage (insns, ! optimize_size);
 
@@ -3384,7 +3416,8 @@ rest_of_compilation (decl)
   timevar_push (TV_FLOW2);
   open_dump_file (DFI_flow2, decl);
 
-  jump_optimize_minimal (insns);
+  jump_optimize (insns, !JUMP_CROSS_JUMP,
+		 !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
@@ -3398,7 +3431,7 @@ rest_of_compilation (decl)
       cleanup_cfg (insns);
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
 
-      /* This is kind of heruistics.  We need to run combine_stack_adjustments
+      /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
          and ACCUMULATE_OUTGOING_ARGS.  We expect that only ports having
          push instructions will have popping returns.  */
@@ -3440,6 +3473,17 @@ rest_of_compilation (decl)
     }
 #endif
 
+  if (optimize > 0 && flag_rename_registers)
+    {
+      timevar_push (TV_RENAME_REGISTERS);
+      open_dump_file (DFI_rnreg, decl);
+
+      regrename_optimize ();
+
+      close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
+      timevar_pop (TV_RENAME_REGISTERS);
+    }    
+
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
@@ -3473,17 +3517,6 @@ rest_of_compilation (decl)
 
       close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
       timevar_pop (TV_REORDER_BLOCKS);
-    }    
-
-  if (optimize > 0 && flag_rename_registers)
-    {
-      timevar_push (TV_RENAME_REGISTERS);
-      open_dump_file (DFI_rnreg, decl);
-
-      regrename_optimize ();
-
-      close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
-      timevar_pop (TV_RENAME_REGISTERS);
     }    
 
   /* One more attempt to remove jumps to .+1 left by dead-store elimination. 
@@ -3724,6 +3757,7 @@ display_help ()
 		W_options[i].string, description);
     }
   
+  printf ("  -Wunused                Enable unused warnings\n");
   printf ("  -Wid-clash-<num>        Warn if 2 identifiers have the same first <num> chars\n");
   printf ("  -Wlarger-than-<number>  Warn if an object is larger than <number> bytes\n");
   printf ("  -p                      Enable function profiling\n");
@@ -4033,6 +4067,14 @@ decode_W_option (arg)
 
       if (larger_than_size != -1)
 	warn_larger_than = 1;
+    }
+  else if (!strcmp (arg, "unused"))
+    {
+      set_Wunused (1);
+    }
+  else if (!strcmp (arg, "no-unused"))
+    {
+      set_Wunused (0);
     }
   else
     return 0;
@@ -4380,11 +4422,7 @@ main (argc, argv)
   save_argv = argv;
 
   p = argv[0] + strlen (argv[0]);
-  while (p != argv[0] && p[-1] != '/'
-#ifdef DIR_SEPARATOR
-	 && p[-1] != DIR_SEPARATOR
-#endif
-	 )
+  while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))
     --p;
   progname = p;
 
@@ -4873,7 +4911,7 @@ print_switch_values (file, pos, max, indent, sep, term)
 
 void
 debug_start_source_file (filename)
-     register char *filename ATTRIBUTE_UNUSED;
+     register const char *filename ATTRIBUTE_UNUSED;
 {
 #ifdef DBX_DEBUGGING_INFO
   if (write_symbols == DBX_DEBUG)
@@ -4964,16 +5002,26 @@ debug_undef (lineno, buffer)
 #endif /* DWARF2_DEBUGGING_INFO */
 }
 
-/* Tell the debugging backend that we've decided not to emit any
-   debugging information for BLOCK, so it can clean up after any local
-   classes or nested functions.  */
+/* Returns nonzero if it is appropriate not to emit any debugging
+   information for BLOCK, because it doesn't contain any instructions.
+   This may not be the case for blocks containing nested functions, since
+   we may actually call such a function even though the BLOCK information
+   is messed up.  */
 
-void
+int
 debug_ignore_block (block)
      tree block ATTRIBUTE_UNUSED;
 {
+  /* Never delete the BLOCK for the outermost scope
+     of the function; we can refer to names from
+     that scope even if the block notes are messed up.  */
+  if (is_body_block (block))
+    return 0;
+
 #ifdef DWARF2_DEBUGGING_INFO
   if (write_symbols == DWARF2_DEBUG)
-    dwarf2out_ignore_block (block);
+    return dwarf2out_ignore_block (block);
 #endif
+
+  return 1;
 }

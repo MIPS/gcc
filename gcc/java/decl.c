@@ -295,6 +295,7 @@ tree string_ptr_type_node;
 tree throwable_type_node;
 tree runtime_exception_type_node;
 tree error_exception_type_node;
+tree rawdata_ptr_type_node;
 tree *predef_filenames;
 int  predef_filenames_size;
 
@@ -381,6 +382,9 @@ tree soft_checkarraystore_node;
 tree soft_monitorenter_node;
 tree soft_monitorexit_node;
 tree soft_lookupinterfacemethod_node;
+tree soft_lookupjnimethod_node;
+tree soft_getjnienvnewframe_node;
+tree soft_jnipopsystemframe_node;
 tree soft_fmod_node;
 tree soft_exceptioninfo_call_node;
 tree soft_idiv_node;
@@ -584,10 +588,12 @@ init_decl_processing ()
     lookup_class (get_identifier ("java.lang.RuntimeException"));
   error_exception_type_node = 
     lookup_class (get_identifier ("java.lang.Error"));
+  rawdata_ptr_type_node
+    = promote_type (lookup_class (get_identifier ("gnu.gcj.RawData")));
 
   /* This section has to be updated as items are added to the previous
      section. */
-  predef_filenames_size = 6;
+  predef_filenames_size = 7;
   predef_filenames = (tree *)xmalloc (predef_filenames_size * sizeof (tree));
   predef_filenames [0] = get_identifier ("java/lang/Class.java");
   predef_filenames [1] = get_identifier ("java/lang/Error.java");
@@ -595,6 +601,7 @@ init_decl_processing ()
   predef_filenames [3] = get_identifier ("java/lang/RuntimeException.java");
   predef_filenames [4] = get_identifier ("java/lang/String.java");
   predef_filenames [5] = get_identifier ("java/lang/Throwable.java");
+  predef_filenames [6] = get_identifier ("gnu/gcj/RawData.java");
 
   methodtable_type = make_node (RECORD_TYPE);
   layout_type (methodtable_type);
@@ -754,12 +761,13 @@ init_decl_processing ()
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL_PTR);
   DECL_IS_MALLOC (alloc_object_node) = 1;
+
+  t = tree_cons (NULL_TREE, ptr_type_node, endlink);
   soft_initclass_node = builtin_function ("_Jv_InitClass",
 					  build_function_type (void_type_node,
 							       t),
 					  0, NOT_BUILT_IN,
 					  NULL_PTR);
-  t = tree_cons (NULL_TREE, ptr_type_node, endlink);
   throw_node[0] = builtin_function ("_Jv_Throw",
 				    build_function_type (ptr_type_node, t),
 				    0, NOT_BUILT_IN, NULL_PTR);
@@ -849,6 +857,24 @@ init_decl_processing ()
     = builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			build_function_type (ptr_type_node, t),
 			0, NOT_BUILT_IN, NULL_PTR);
+
+  t = tree_cons (NULL_TREE, object_ptr_type_node,
+		 tree_cons (NULL_TREE, ptr_type_node,
+			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
+  soft_lookupjnimethod_node
+    = builtin_function ("_Jv_LookupJNIMethod",
+			build_function_type (ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL_PTR);
+  t = tree_cons (NULL_TREE, ptr_type_node, endlink);
+  soft_getjnienvnewframe_node
+    = builtin_function ("_Jv_GetJNIEnvNewFrame",
+			build_function_type (ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL_PTR);
+  soft_jnipopsystemframe_node
+    = builtin_function ("_Jv_JNI_PopSystemFrame",
+			build_function_type (ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL_PTR);
+
   t = tree_cons (NULL_TREE, double_type_node,
 		 tree_cons (NULL_TREE, double_type_node, endlink));
   soft_fmod_node
@@ -1362,7 +1388,7 @@ poplevel (keep, reverse, functionbody)
 	      define_label (input_filename, lineno,
 			    DECL_NAME (label));
 	    }
-	  else if (warn_unused && !TREE_USED (label))
+	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
 	    warning_with_decl (label, "label `%s' defined but not used");
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
@@ -1727,7 +1753,7 @@ complete_start_java_method (fndecl)
 
   if (METHOD_SYNCHRONIZED (fndecl) && ! flag_emit_class_files)
     {
-      /* Warp function body with a monitorenter plus monitorexit cleanup. */
+      /* Wrap function body with a monitorenter plus monitorexit cleanup. */
       tree enter, exit, lock;
       if (METHOD_STATIC (fndecl))
 	lock = build_class_ref (DECL_CONTEXT (fndecl));

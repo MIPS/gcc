@@ -164,9 +164,7 @@ extern int fputs_unlocked PARAMS ((const char *, FILE *));
 #define TARGET_ESC 033
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 
 #include <errno.h>
 
@@ -480,6 +478,11 @@ extern void abort PARAMS ((void));
 #define S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)
 #endif
 
+/* Test if something is a block special file.  */
+#ifndef S_ISBLK
+#define S_ISBLK(m) (((m) & S_IFMT) == S_IFBLK)
+#endif
+
 /* Test if something is a socket.  */
 #ifndef S_ISSOCK
 # ifdef S_IFSOCK
@@ -574,5 +577,8 @@ extern void abort PARAMS ((void));
 #define ENUM_BITFIELD(TYPE) unsigned int
 #endif
 
+#ifndef offsetof
+#define offsetof(TYPE, MEMBER)	((size_t) &((TYPE *)0)->MEMBER)
+#endif
 
 #endif /* __GCC_SYSTEM_H__ */

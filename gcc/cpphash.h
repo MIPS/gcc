@@ -23,6 +23,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define __GCC_CPPHASH__
 
 typedef unsigned char U_CHAR;
+#define U (const U_CHAR *)  /* Intended use: U"string" */
 
 /* The structure of a node in the hash table.  The hash table
    has entries for all tokens defined by #define commands (type T_MACRO),
@@ -48,7 +49,8 @@ enum node_type
   T_MACRO,	   /* object-like macro */
   T_FMACRO,	   /* function-like macro */
   T_IDENTITY,	   /* macro defined to itself */
-  T_EMPTY	   /* macro defined to nothing */
+  T_EMPTY,	   /* macro defined to nothing */
+  T_ASSERTION	   /* predicate for #assert */
 };
 
 typedef struct hashnode HASHNODE;
@@ -60,13 +62,20 @@ struct hashnode
   char disabled;			/* macro turned off for rescan? */
 
   union {
-    const char *cpval;			/* some predefined macros */
+    const U_CHAR *cpval;		/* some predefined macros */
     const struct object_defn *odefn;	/* #define foo bar */
     const struct funct_defn *fdefn;	/* #define foo(x) bar(x) */
-    struct hashnode *aschain;		/* #assert */
+    struct predicate *pred;		/* #assert */
   } value;
 
-  const U_CHAR *name;
+  const U_CHAR name[1];			/* name[length] */
+};
+
+/* Structure used for assertion predicates.  */
+struct predicate
+{
+  struct predicate *next;
+  struct cpp_toklist answer;
 };
 
 /* List of directories to look for include files in. */
@@ -217,14 +226,14 @@ extern void _cpp_free_definition	PARAMS ((HASHNODE *));
 extern int _cpp_create_definition	PARAMS ((cpp_reader *,
 						 cpp_toklist *, HASHNODE *));
 extern void _cpp_dump_definition	PARAMS ((cpp_reader *, HASHNODE *));
-extern void _cpp_quote_string		PARAMS ((cpp_reader *, const char *));
+extern void _cpp_quote_string		PARAMS ((cpp_reader *, const U_CHAR *));
 extern void _cpp_macroexpand		PARAMS ((cpp_reader *, HASHNODE *));
 extern void _cpp_init_macro_hash	PARAMS ((cpp_reader *));
 extern void _cpp_dump_macro_hash	PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern void _cpp_simplify_pathname	PARAMS ((char *));
-extern void _cpp_execute_include	PARAMS ((cpp_reader *, char *,
+extern void _cpp_execute_include	PARAMS ((cpp_reader *, U_CHAR *,
 						 unsigned int, int,
 						 struct file_name_list *));
 extern void _cpp_init_include_hash	PARAMS ((cpp_reader *));
@@ -249,11 +258,71 @@ extern enum cpp_ttype _cpp_get_directive_token
 					PARAMS ((cpp_reader *));
 extern enum cpp_ttype _cpp_get_define_token
 					PARAMS ((cpp_reader *));
-extern void _cpp_scan_line		PARAMS ((cpp_reader *, cpp_toklist *));
+extern enum cpp_ttype _cpp_scan_until	PARAMS ((cpp_reader *, cpp_toklist *,
+						 enum cpp_ttype));
+extern void _cpp_init_toklist		PARAMS ((cpp_toklist *));
+extern void _cpp_clear_toklist		PARAMS ((cpp_toklist *));
+extern void _cpp_free_toklist		PARAMS ((cpp_toklist *));
+extern void _cpp_slice_toklist		PARAMS ((cpp_toklist *,
+						 const cpp_token *,
+						 const cpp_token *));
+extern void _cpp_squeeze_toklist	PARAMS ((cpp_toklist *));
+extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
+						 const cpp_token *));
+extern int _cpp_equiv_toklists		PARAMS ((const cpp_toklist *,
+						 const cpp_toklist *));
+
 
 /* In cpplib.c */
 extern int _cpp_handle_directive	PARAMS ((cpp_reader *));
-extern void _cpp_handle_eof		PARAMS ((cpp_reader *));
-extern void _cpp_check_directive        PARAMS((cpp_toklist *, cpp_token *));
+extern void _cpp_unwind_if_stack	PARAMS ((cpp_reader *, cpp_buffer *));
+extern void _cpp_check_directive        PARAMS ((cpp_toklist *, cpp_token *));
+
+/* These are inline functions instead of macros so we can get type
+   checking.  */
+
+static inline int ustrcmp	PARAMS ((const U_CHAR *, const U_CHAR *));
+static inline int ustrncmp	PARAMS ((const U_CHAR *, const U_CHAR *,
+					 size_t));
+static inline size_t ustrlen	PARAMS ((const U_CHAR *));
+static inline U_CHAR *uxstrdup	PARAMS ((const U_CHAR *));
+static inline U_CHAR *ustrchr	PARAMS ((const U_CHAR *, int));
+
+static inline int
+ustrcmp (s1, s2)
+     const U_CHAR *s1, *s2;
+{
+  return strcmp ((const char *)s1, (const char *)s2);
+}
+
+static inline int
+ustrncmp (s1, s2, n)
+     const U_CHAR *s1, *s2;
+     size_t n;
+{
+  return strncmp ((const char *)s1, (const char *)s2, n);
+}
+
+static inline size_t
+ustrlen (s1)
+     const U_CHAR *s1;
+{
+  return strlen ((const char *)s1);
+}
+
+static inline U_CHAR *
+uxstrdup (s1)
+     const U_CHAR *s1;
+{
+  return (U_CHAR *) xstrdup ((const char *)s1);
+}
+
+static inline U_CHAR *
+ustrchr (s1, c)
+     const U_CHAR *s1;
+     int c;
+{
+  return (U_CHAR *) strchr ((const char *)s1, c);
+}
 
 #endif

@@ -1033,11 +1033,10 @@ get_aligned_mem (ref, paligned_mem, pbitnum)
 
   *paligned_mem = gen_rtx_MEM (SImode, plus_constant (base, offset & ~3));
   MEM_COPY_ATTRIBUTES (*paligned_mem, ref);
-  RTX_UNCHANGING_P (*paligned_mem) = RTX_UNCHANGING_P (ref);
 
   /* Sadly, we cannot use alias sets here because we may overlap other
      data in a different alias set.  */
-  /* MEM_ALIAS_SET (*paligned_mem) = MEM_ALIAS_SET (ref); */
+  MEM_ALIAS_SET (*paligned_mem) = 0;
 
   *pbitnum = GEN_INT ((offset & 3) * 8);
 }
@@ -4864,9 +4863,9 @@ alpha_output_lineno (stream, line)
 struct shadow_summary
 {
   struct {
-    unsigned long i     : 31;	/* Mask of int regs */
-    unsigned long fp    : 31;	/* Mask of fp regs */
-    unsigned long mem   :  1;	/* mem == imem | fpmem */
+    unsigned int i     : 31;	/* Mask of int regs */
+    unsigned int fp    : 31;	/* Mask of fp regs */
+    unsigned int mem   :  1;	/* mem == imem | fpmem */
   } used, defd;
 };
 

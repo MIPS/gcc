@@ -74,7 +74,7 @@ static int count_bb_insns		PARAMS ((basic_block));
 static rtx first_active_insn		PARAMS ((basic_block));
 static int last_active_insn_p		PARAMS ((basic_block, rtx));
 
-static int cond_exec_process_insns	PARAMS ((rtx, rtx, rtx, int));
+static int cond_exec_process_insns	PARAMS ((rtx, rtx, rtx, rtx, int));
 static rtx cond_exec_get_condition	PARAMS ((rtx));
 static int cond_exec_process_if_block	PARAMS ((basic_block, basic_block,
 						 basic_block, basic_block));
@@ -179,10 +179,11 @@ last_active_insn_p (bb, insn)
    insns were processed.  */
 
 static int
-cond_exec_process_insns (start, end, test, mod_ok)
+cond_exec_process_insns (start, end, test, prob_val, mod_ok)
      rtx start;			/* first insn to look at */
      rtx end;			/* last insn to look at */
      rtx test;			/* conditional execution test */
+     rtx prob_val;		/* probability of branch taken.  */
      int mod_ok;		/* true if modifications ok last insn.  */
 {
   int must_be_last = FALSE;
@@ -195,6 +196,19 @@ cond_exec_process_insns (start, end, test, mod_ok)
 
       if (GET_CODE (insn) != INSN && GET_CODE (insn) != CALL_INSN)
 	abort ();
+
+      /* Remove USE and CLOBBER insns that get in the way.  */
+      if (reload_completed
+	  && (GET_CODE (PATTERN (insn)) == USE
+	      || GET_CODE (PATTERN (insn)) == CLOBBER))
+	{
+	  /* ??? Ug.  Actually unlinking the thing is problematic, 
+	     given what we'd have to coordinate with our callers.  */
+	  PUT_CODE (insn, NOTE);
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	  NOTE_SOURCE_FILE (insn) = 0;
+	  goto insn_done;
+	}
 
       /* Last insn wasn't last?  */
       if (must_be_last)
@@ -211,6 +225,11 @@ cond_exec_process_insns (start, end, test, mod_ok)
       validate_change (insn, &PATTERN (insn),
 		       gen_rtx_COND_EXEC (VOIDmode, copy_rtx (test),
 					  PATTERN (insn)), 1);
+
+      if (GET_CODE (insn) == CALL_INSN && prob_val)
+	validate_change (insn, &REG_NOTES (insn),
+			 alloc_EXPR_LIST (REG_BR_PROB, prob_val,
+					  REG_NOTES (insn)), 1);
 
     insn_done:
       if (insn == end)
@@ -267,6 +286,8 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
   int then_mod_ok;		/* whether conditional mods are ok in THEN */
   rtx true_expr;		/* test for else block insns */
   rtx false_expr;		/* test for then block insns */
+  rtx true_prob_val;		/* probability of else block */
+  rtx false_prob_val;		/* probability of then block */
   int n_insns;
 
   /* Find the conditional jump to the ELSE or JOIN part, and isolate
@@ -279,6 +300,10 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
 
   then_start = then_bb->head;
   then_end = then_bb->end;
+
+  /* Skip a label heading THEN block.  */
+  if (GET_CODE (then_start) == CODE_LABEL)
+    then_start = NEXT_INSN (then_start);
 
   /* Skip a (use (const_int 0)) or branch as the final insn.  */
   if (GET_CODE (then_end) == INSN
@@ -324,6 +349,15 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
 			       GET_MODE (true_expr), XEXP (true_expr, 0),
 			       XEXP (true_expr, 1));
 
+  true_prob_val = find_reg_note (test_bb->end, REG_BR_PROB, NULL_RTX);
+  if (true_prob_val)
+    {
+      true_prob_val = XEXP (true_prob_val, 0);
+      false_prob_val = GEN_INT (REG_BR_PROB_BASE - INTVAL (true_prob_val));
+    }
+  else
+    false_prob_val = NULL_RTX;
+
   /* For IF-THEN-ELSE blocks, we don't allow modifications of the test
      on then THEN block.  */
   then_mod_ok = (else_bb == NULL_BLOCK);
@@ -333,12 +367,12 @@ cond_exec_process_if_block (test_bb, then_bb, else_bb, join_bb)
 
   if (then_end
       && ! cond_exec_process_insns (then_start, then_end,
-				    false_expr, then_mod_ok))
+				    false_expr, false_prob_val, then_mod_ok))
     goto fail;
 
   if (else_bb
       && ! cond_exec_process_insns (else_start, else_end,
-				    true_expr, TRUE))
+				    true_expr, true_prob_val, TRUE))
     goto fail;
 
   if (! apply_change_group ())
@@ -843,9 +877,9 @@ noce_try_cmove_arith (if_info)
     }
 
   /* ??? We could handle this if we knew that a load from A or B could
-     not fault.  This is true of stack memories or if we've already loaded
+     not fault.  This is also true if we've already loaded
      from the address along the path from ENTRY.  */
-  else if (GET_CODE (a) == MEM || GET_CODE (b) == MEM)
+  else if (may_trap_p (a) || may_trap_p (b))
     return FALSE;
 
   /* if (test) x = a + b; else x = c - d;
@@ -1054,11 +1088,6 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
   x = SET_DEST (set_a);
   a = SET_SRC (set_a);
 
-  /* X may not be mentioned between cond_earliest and the jump.  */
-  for (insn = jump; insn != if_info.cond_earliest; insn = PREV_INSN (insn))
-    if (INSN_P (insn) && reg_mentioned_p (x, insn))
-      return FALSE;
-
   /* Look for the other potential set.  Make sure we've got equivalent
      destinations.  */
   /* ??? This is overconservative.  Storing to two different mems is
@@ -1083,10 +1112,23 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
 	  || GET_CODE (insn_b) != INSN
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
-	  || reg_mentioned_p (x, cond))
+	  || reg_mentioned_p (x, cond)
+	  || reg_mentioned_p (x, a)
+	  || reg_mentioned_p (x, SET_SRC (set_b)))
 	insn_b = set_b = NULL_RTX;
     }
   b = (set_b ? SET_SRC (set_b) : x);
+
+  /* X may not be mentioned in the range (cond_earliest, jump].  */
+  for (insn = jump; insn != if_info.cond_earliest; insn = PREV_INSN (insn))
+    if (INSN_P (insn) && reg_mentioned_p (x, insn))
+      return FALSE;
+
+  /* A and B may not be modified in the range [cond_earliest, jump).  */
+  for (insn = if_info.cond_earliest; insn != jump; insn = NEXT_INSN (insn))
+    if (INSN_P (insn)
+	&& (modified_in_p (a, insn) || modified_in_p (b, insn)))
+      return FALSE;
 
   /* Only operate on register destinations, and even then avoid extending
      the lifetime of hard registers on small register class machines.  */
@@ -1133,8 +1175,8 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
 	    else_bb->end = PREV_INSN (insn_b);
 	  reorder_insns (insn_b, insn_b, PREV_INSN (if_info.cond_earliest));
 	  insn_b = NULL_RTX;
-	  x = orig_x;
 	}
+      x = orig_x;
       goto success;
     }
 
@@ -1250,37 +1292,8 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
      get their addresses taken.  */
   if (else_bb)
     {
-      if (LABEL_NUSES (else_bb->head) == 0
-	  && ! LABEL_PRESERVE_P (else_bb->head)
-	  && ! LABEL_NAME (else_bb->head))
-	{
-	  /* We can merge the ELSE.  */
-	  merge_blocks_nomove (combo_bb, else_bb);
-	  num_removed_blocks++;
-	}
-      else
-	{
-	  /* We cannot merge the ELSE.  */
-
-	  /* Properly rewire the edge out of the now combined
-	     TEST-THEN block to point here.  */
-	  remove_edge (combo_bb->succ);
-	  if (combo_bb->succ || else_bb->pred)
-	    abort ();
-	  make_edge (NULL, combo_bb, else_bb, EDGE_FALLTHRU);
-
-	  /* Remove the jump and cruft from the end of the TEST-THEN block.  */
-	  tidy_fallthru_edge (combo_bb->succ, combo_bb, else_bb);
-
-	  /* Make sure we update life info properly.  */
-	  SET_UPDATE_LIFE(combo_bb);
-	  if (else_bb->global_live_at_end)
-	    COPY_REG_SET (else_bb->global_live_at_start,
-			  else_bb->global_live_at_end);
-
-	  /* The ELSE is the new combo block.  */
-	  combo_bb = else_bb;
-	}
+      merge_blocks_nomove (combo_bb, else_bb);
+      num_removed_blocks++;
     }
 
   /* If there was no join block reported, that means it was not adjacent
@@ -1300,12 +1313,11 @@ merge_if_block (test_bb, then_bb, else_bb, join_bb)
 	abort ();
     }
 
-  /* The JOIN block had a label.  It may have had quite a number
-     of other predecessors too, but probably not.  See if we can
-     merge this with the others.  */
-  else if (LABEL_NUSES (join_bb->head) == 0
-      && ! LABEL_PRESERVE_P (join_bb->head)
-      && ! LABEL_NAME (join_bb->head))
+  /* The JOIN block may have had quite a number of other predecessors too.
+     Since we've already merged the TEST, THEN and ELSE blocks, we should
+     have only one remaining edge from our if-then-else diamond.  If there
+     is more than one remaining edge, it must come from elsewhere.  */
+  else if (join_bb->pred->pred_next == NULL)
     {
       /* We can merge the JOIN.  */
       if (combo_bb->global_live_at_end)
@@ -1411,11 +1423,6 @@ find_if_block (test_bb, then_edge, else_edge)
   if (then_succ == NULL_EDGE
       || then_succ->succ_next != NULL_EDGE
       || (then_succ->flags & EDGE_COMPLEX))
-    return FALSE;
-
-  /* The THEN block may not start with a label, as might happen with an
-     unused user label that has had its address taken.  */
-  if (GET_CODE (then_bb->head) == CODE_LABEL)
     return FALSE;
 
   /* If the THEN block's successor is the other edge out of the TEST block,
@@ -1575,10 +1582,6 @@ find_if_case_1 (test_bb, then_edge, else_edge)
   if (then_bb->pred->pred_next != NULL)
     return FALSE;
 
-  /* THEN has no label.  */
-  if (GET_CODE (then_bb->head) == CODE_LABEL)
-    return FALSE;
-
   /* ELSE follows THEN.  (??? could be moved)  */
   if (else_bb->index != then_bb->index + 1)
     return FALSE;
@@ -1647,12 +1650,6 @@ find_if_case_2 (test_bb, then_edge, else_edge)
 
   /* ELSE has one predecessor.  */
   if (else_bb->pred->pred_next != NULL)
-    return FALSE;
-
-  /* ELSE has a label we can delete.  */
-  if (LABEL_NUSES (else_bb->head) > 1
-      || LABEL_PRESERVE_P (else_bb->head)
-      || LABEL_NAME (else_bb->head))
     return FALSE;
 
   /* ELSE is predicted or SUCC(ELSE) postdominates THEN.  */
@@ -1784,15 +1781,24 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 	 All that's left is making sure the insns involved can actually
 	 be predicated.  */
 
-      rtx cond;
+      rtx cond, prob_val;
 
       cond = cond_exec_get_condition (jump);
-      if (reversep)
-	cond = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)),
-			       GET_MODE (cond), XEXP (cond, 0),
-			       XEXP (cond, 1));
 
-      if (! cond_exec_process_insns (head, end, cond, 0))
+      prob_val = find_reg_note (jump, REG_BR_PROB, NULL_RTX);
+      if (prob_val)
+	prob_val = XEXP (prob_val, 0);
+
+      if (reversep)
+	{
+	  cond = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)),
+			         GET_MODE (cond), XEXP (cond, 0),
+			         XEXP (cond, 1));
+	  if (prob_val)
+	    prob_val = GEN_INT (REG_BR_PROB_BASE - INTVAL (prob_val));
+	}
+
+      if (! cond_exec_process_insns (head, end, cond, prob_val, 0))
 	goto cancel;
 
       earliest = jump;
@@ -1935,10 +1941,11 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
     }
 
   /* Move the insns out of MERGE_BB to before the branch.  */
-  if (end == merge_bb->end)
-    merge_bb->end = merge_bb->head;
   if (head != NULL)
     {
+      if (end == merge_bb->end)
+	merge_bb->end = PREV_INSN (head);
+
       head = squeeze_notes (head, end);
       if (GET_CODE (end) == NOTE
 	  && (NOTE_LINE_NUMBER (end) == NOTE_INSN_BLOCK_END
@@ -2000,7 +2007,8 @@ if_convert (life_data_ok)
 	block_num++;
     }
 
-  sbitmap_vector_free (post_dominators);
+  if (post_dominators)
+    sbitmap_vector_free (post_dominators);
 
   if (rtl_dump_file)
     fflush (rtl_dump_file);

@@ -33,72 +33,10 @@ Boston, MA 02111-1307, USA.  */
 
 #include "server.h"
 
-#define NO_BOGOSITY
-
-/*  Quality Assurance Marker  :-)
-
-    Any file that contains this string is presumed to have
-    been carefully constructed and will not be fixed  */
-
 /*  The contents of this string are not very important.  It is mostly
     just used as part of the "I am alive and working" test.  */
 
 static const char program_id[] = "fixincl version 1.1";
-
-/*  Test Descriptor
-
-    Each fix may have associated tests that determine
-    whether the fix needs to be applied or not.
-    Each test has a type (from the te_test_type enumeration);
-    associated test text; and, if the test is TT_EGREP or
-    the negated form TT_NEGREP, a pointer to the compiled
-    version of the text string.
-
-    */
-typedef enum
-{
-  TT_TEST, TT_EGREP, TT_NEGREP, TT_FUNCTION
-} te_test_type;
-
-typedef struct test_desc tTestDesc;
-
-struct test_desc
-{
-  te_test_type type;
-  const char *pz_test_text;
-  regex_t *p_test_regex;
-};
-
-typedef struct patch_desc tPatchDesc;
-
-/*  Fix Descriptor
-
-    Everything you ever wanted to know about how to apply
-    a particular fix (which files, how to qualify them,
-    how to actually make the fix, etc...)
-
-    NB:  the FD_ defines are BIT FLAGS
-
-    */
-#define FD_MACH_ONLY      0x0000
-#define FD_MACH_IFNOT     0x0001
-#define FD_SHELL_SCRIPT   0x0002
-#define FD_SUBROUTINE     0x0004
-#define FD_REPLACEMENT    0x0008
-#define FD_SKIP_TEST      0x8000
-
-typedef struct fix_desc tFixDesc;
-struct fix_desc
-{
-  const char*   fix_name;       /* Name of the fix */
-  const char*   file_list;      /* List of files it applies to */
-  const char**  papz_machs;     /* List of machine/os-es it applies to */
-  regex_t*      unused;
-  int           test_ct;
-  int           fd_flags;
-  tTestDesc*    p_test_desc;
-  const char**  patch_args;
-};
 
 /*  Working environment strings.  Essentially, invocation 'options'.  */
 char *pz_dest_dir = NULL;
@@ -152,14 +90,12 @@ void do_version ();
 char *load_file  _P_((const char *));
 void process  _P_((char *, const char *));
 void run_compiles ();
-void initialize ();
+void initialize _P_((int argc,char** argv));
 void process ();
 
 /*  External Source Code */
 
 #include "fixincl.x"
-#include "fixtests.c"
-#include "fixfixes.c"
 
 /* * * * * * * * * * * * * * * * * * *
  *
@@ -172,28 +108,7 @@ main (argc, argv)
 {
   char *file_name_buf;
 
-  switch (argc)
-    {
-    case 1:
-      break;
-
-    case 2:
-      if (strcmp (argv[1], "-v") == 0)
-        do_version ();
-      if (freopen (argv[1], "r", stdin) == (FILE*)NULL)
-        {
-          fprintf (stderr, "Error %d (%s) reopening %s as stdin\n",
-                   errno, xstrerror (errno), argv[1] );
-          exit (EXIT_FAILURE);
-        }
-      break;
-
-    default:
-      fputs ("fixincl ERROR:  too many command line arguments\n", stderr);
-      exit (EXIT_FAILURE);
-    }
-
-  initialize ();
+  initialize ( argc, argv );
 
   have_tty = isatty (fileno (stderr));
 
@@ -244,33 +159,7 @@ main (argc, argv)
         continue;
       *pz_end = NUL;
 
-#ifdef NO_BOGOSITY
       process ();
-#else
-      /*  Prevent duplicate output by child process  */
-
-      fflush (stdout);
-      fflush (stderr);
-
-      {
-        void wait_for_pid _P_(( pid_t ));
-        pid_t child = fork ();
-        if (child == NULLPROCESS)
-          {
-            process ();
-            return EXIT_SUCCESS;
-          }
-
-        if (child == NOPROCESS)
-          {
-            fprintf (stderr, "Error %d (%s) forking in main\n",
-                     errno, xstrerror (errno));
-            exit (EXIT_FAILURE);
-          }
-
-        wait_for_pid( child );
-      }
-#endif
     } /*  for (;;) */
 
 #ifdef DO_STATS
@@ -297,23 +186,46 @@ do_version ()
 
   /* The 'version' option is really used to test that:
      1.  The program loads correctly (no missing libraries)
-     2.  we can correctly run our server shell process
-     3.  that we can compile all the regular expressions.
+     2.  that we can compile all the regular expressions.
+     3.  we can correctly run our server shell process
   */
   run_compiles ();
   sprintf (zBuf, zFmt, program_id);
-  fputs (zBuf + 5, stdout);
+  puts (zBuf + 5);
   exit (strcmp (run_shell (zBuf), program_id));
 }
 
 /* * * * * * * * * * * * */
 
 void
-initialize ()
+initialize ( argc, argv )
+  int argc;
+  char** argv;
 {
   static const char var_not_found[] =
     "fixincl ERROR:  %s environment variable not defined\n\
 \tTARGET_MACHINE, DESTDIR, SRCDIR and FIND_BASE are required\n";
+
+  switch (argc)
+    {
+    case 1:
+      break;
+
+    case 2:
+      if (strcmp (argv[1], "-v") == 0)
+        do_version ();
+      if (freopen (argv[1], "r", stdin) == (FILE*)NULL)
+        {
+          fprintf (stderr, "Error %d (%s) reopening %s as stdin\n",
+                   errno, xstrerror (errno), argv[1] );
+          exit (EXIT_FAILURE);
+        }
+      break;
+
+    default:
+      fputs ("fixincl ERROR:  too many command line arguments\n", stderr);
+      exit (EXIT_FAILURE);
+    }
 
   {
     static const char var[] = "TARGET_MACHINE";
@@ -401,79 +313,13 @@ initialize ()
   run_compiles ();
 
   signal (SIGQUIT, SIG_IGN);
+#ifdef SIGIOT
   signal (SIGIOT,  SIG_IGN);
+#endif
   signal (SIGPIPE, SIG_IGN);
   signal (SIGALRM, SIG_IGN);
   signal (SIGTERM, SIG_IGN);
-#ifndef NO_BOGOSITY
-  /*
-     Make sure that if we opened a server process, we close it now.
-     This is the grandparent process.  We don't need the server anymore
-     and our children should make their own.  */
-
-  close_server ();
-  (void)wait ( (int*)NULL );
-#endif
 }
-
-#ifndef NO_BOGOSITY
-/* * * * * * * * * * * * *
-
-   wait_for_pid  -  Keep calling `wait(2)' until it returns
-   the process id we are looking for.  Not every system has
-   `waitpid(2)'.  We also ensure that the children exit with success. */
-
-void
-wait_for_pid(child)
-     pid_t child;
-{
-  for (;;) {
-    int status;
-    pid_t dead_kid = wait (&status);
-
-    if (dead_kid == child)
-      {
-        if (! WIFEXITED( status ))
-          {
-            if (WSTOPSIG( status ) == 0)
-              break;
-
-            fprintf (stderr, "child process %d is hung on signal %d\n",
-                     child, WSTOPSIG( status ));
-            exit (EXIT_FAILURE);
-          }
-        if (WEXITSTATUS( status ) != 0)
-          {
-            fprintf (stderr, "child process %d exited with status %d\n",
-                     child, WEXITSTATUS( status ));
-            exit (EXIT_FAILURE);
-          }
-        break; /* normal child completion */
-      }
-
-    /*
-       IF there is an error, THEN see if it is retryable.
-       If it is not retryable, then break out of this loop.  */
-    if (dead_kid == NOPROCESS)
-      {
-        switch (errno) {
-        case EINTR:
-        case EAGAIN:
-          break;
-
-        default:
-          if (NOT_SILENT)
-            fprintf (stderr, "Error %d (%s) waiting for %d to finish\n",
-                     errno, xstrerror( errno ), child );
-          /* FALLTHROUGH */
-
-        case ECHILD: /* no children to wait for?? */
-          return;
-        }
-      }
-  } done_waiting:;
-}
-#endif /* NO_BOGOSITY */
 
 /* * * * * * * * * * * * *
 
@@ -539,7 +385,6 @@ run_compiles ()
   int fix_ct = FIX_COUNT;
   tTestDesc *p_test;
   int test_ct;
-  int re_ct = REGEX_COUNT;
   const char *pz_err;
   regex_t *p_re = (regex_t *) malloc (REGEX_COUNT * sizeof (regex_t));
 
@@ -556,7 +401,12 @@ run_compiles ()
   memset ( (void*)&incl_quote_re, '\0', sizeof (regex_t) );
 
   compile_re (incl_quote_pat, &incl_quote_re, 1,
-	      "quoted include", "run_compiles");
+              "quoted include", "run_compiles");
+
+  /*  Allow machine name tests to be ignored (testing, mainly) */
+
+  if (pz_machine && ((*pz_machine == '\0') || (*pz_machine == '*')))
+    pz_machine = (char*)NULL;
 
   /* FOR every fixup, ...  */
   do
@@ -645,20 +495,21 @@ run_compiles ()
             {
             case TT_EGREP:
             case TT_NEGREP:
-              /*  You might consider putting the following under #ifdef.
-                  The number of re's used is computed by autogen.
-                  So, it is static and known at compile time.  */
+#ifdef DEBUG
+              {
+                static int re_ct = REGEX_COUNT;
 
-              if (--re_ct < 0)
-                {
-                  fputs ("out of RE's\n", stderr);
-                  exit (EXIT_FAILURE);
-                }
-
+                if (--re_ct < 0)
+                  {
+                    fputs ("out of RE's\n", stderr);
+                    exit (EXIT_FAILURE);
+                  }
+              }
+#endif
               p_test->p_test_regex = p_re++;
-	      compile_re (p_test->pz_test_text, p_test->p_test_regex, 0,
-			  "select test", p_fixd->fix_name);
-	    }
+              compile_re (p_test->pz_test_text, p_test->p_test_regex, 0,
+                          "select test", p_fixd->fix_name);
+            }
           p_test++;
         }
     }
@@ -767,14 +618,27 @@ else echo FALSE\n\
 fi";
 
   char *pz_res;
-  int res = SKIP_FIX;
+  int res;
 
   static char cmd_buf[4096];
 
   sprintf (cmd_buf, cmd_fmt, pz_test_file, p_test->pz_test_text);
   pz_res = run_shell (cmd_buf);
-  if (*pz_res == 'T')
+
+  switch (*pz_res) {
+  case 'T':
     res = APPLY_FIX;
+    break;
+
+  case 'F':
+    res = SKIP_FIX;
+    break;
+
+  default:
+    fprintf (stderr, "Script yielded bogus result of `%s':\n%s\n\n",
+             pz_res, cmd_buf );
+  }
+
   free ((void *) pz_res);
   return res;
 }
@@ -991,10 +855,8 @@ internal_fix (read_fd, p_fixd)
    */
   fcntl (fd[1], F_DUPFD, STDOUT_FILENO);
   fcntl (read_fd, F_DUPFD, STDIN_FILENO);
-  fdopen (STDIN_FILENO, "r");
-  fdopen (STDOUT_FILENO, "w");
 
-  apply_fix (p_fixd->patch_args[0], pz_curr_file);
+  apply_fix (p_fixd, pz_curr_file);
   exit (0);
 }
 
@@ -1089,7 +951,8 @@ fix_applies (p_fixd)
   tFixDesc *p_fixd;
 {
 #ifdef DEBUG
-  static const char z_failed[] = "not applying %s to %s - test %d failed\n";
+  static const char z_failed[] = "not applying %s %s to %s - "
+    "test %d failed\n";
 #endif
   const char *pz_fname = pz_curr_file;
   const char *pz_scan = p_fixd->file_list;
@@ -1145,8 +1008,8 @@ fix_applies (p_fixd)
           if (test_test (p_test, pz_curr_file) != APPLY_FIX) {
 #ifdef DEBUG
             if (VLEVEL( VERB_EVERYTHING ))
-              fprintf (stderr, z_failed, p_fixd->fix_name, pz_fname,
-                       p_fixd->test_ct - test_ct);
+              fprintf (stderr, z_failed, "TEST", p_fixd->fix_name,
+                       pz_fname, p_fixd->test_ct - test_ct);
 #endif
             return BOOL_FALSE;
           }
@@ -1156,8 +1019,8 @@ fix_applies (p_fixd)
           if (egrep_test (pz_curr_data, p_test) != APPLY_FIX) {
 #ifdef DEBUG
             if (VLEVEL( VERB_EVERYTHING ))
-              fprintf (stderr, z_failed, p_fixd->fix_name, pz_fname,
-                       p_fixd->test_ct - test_ct);
+              fprintf (stderr, z_failed, "EGREP", p_fixd->fix_name,
+                       pz_fname, p_fixd->test_ct - test_ct);
 #endif
             return BOOL_FALSE;
           }
@@ -1167,8 +1030,8 @@ fix_applies (p_fixd)
           if (egrep_test (pz_curr_data, p_test) == APPLY_FIX) {
 #ifdef DEBUG
             if (VLEVEL( VERB_EVERYTHING ))
-              fprintf (stderr, z_failed, p_fixd->fix_name, pz_fname,
-                       p_fixd->test_ct - test_ct);
+              fprintf (stderr, z_failed, "NEGREP", p_fixd->fix_name,
+                       pz_fname, p_fixd->test_ct - test_ct);
 #endif
             /*  Negated sense  */
             return BOOL_FALSE;
@@ -1180,8 +1043,8 @@ fix_applies (p_fixd)
               != APPLY_FIX) {
 #ifdef DEBUG
             if (VLEVEL( VERB_EVERYTHING ))
-              fprintf (stderr, z_failed, p_fixd->fix_name, pz_fname,
-                       p_fixd->test_ct - test_ct);
+              fprintf (stderr, z_failed, "FTEST", p_fixd->fix_name,
+                       pz_fname, p_fixd->test_ct - test_ct);
 #endif
             return BOOL_FALSE;
           }

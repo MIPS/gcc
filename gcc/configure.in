@@ -321,6 +321,12 @@ AC_CANONICAL_SYSTEM
 
 # Find the native compiler
 AC_PROG_CC
+AC_PROG_CC_C_O
+if test $ac_cv_prog_cc_${ac_cc}_c_o = no; then
+  NO_MINUS_C_MINUS_O=yes
+fi
+AC_SUBST(NO_MINUS_C_MINUS_O)
+
 gcc_AC_C_LONG_DOUBLE
 
 # If the native compiler is GCC, we can enable warnings even in stage1.  
@@ -382,6 +388,30 @@ AC_CHECK_HEADER(pthread.h, [have_pthread_h=yes], [have_pthread_h=])
 
 # See if GNAT has been installed
 AC_CHECK_PROG(gnat, gnatbind, yes, no)
+
+# Do we have a single-tree copy of texinfo?
+if test -f $srcdir/../texinfo/Makefile.in; then
+  MAKEINFO='$(objdir)/../texinfo/makeinfo/makeinfo'
+  gcc_cv_prog_makeinfo_modern=yes
+  AC_MSG_RESULT([Using makeinfo from the unified source tree.])
+else
+  # See if makeinfo has been installed and is modern enough
+  # that we can use it.
+  gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+  [GNU texinfo.* \([0-9][0-9.]*\)],
+  [3.1[2-9] | 3.[2-9][0-9] | 4.* | 1.6[89] | 1.7[0-9]])
+fi
+
+if test $gcc_cv_prog_makeinfo_modern = no; then
+  AC_MSG_WARN([
+*** Makeinfo is missing or too old.
+*** Info documentation will not be built or installed.])
+  BUILD_INFO=
+  INSTALL_INFO=
+else
+  BUILD_INFO=info		AC_SUBST(BUILD_INFO)
+  INSTALL_INFO=install-info	AC_SUBST(INSTALL_INFO)
+fi
 
 # See if the stage1 system preprocessor understands the ANSI C
 # preprocessor stringification operator.
@@ -671,7 +701,7 @@ changequote([,])dnl
 	alpha*-*-linux-gnulibc1*)
 		tm_file="${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h"
 		target_cpu_default="MASK_GAS"
-		tmake_file="t-linux t-linux-gnulibc1 alpha/t-alpha alpha/t-linux alpha/t-crtbe alpha/t-ieee"
+		tmake_file="t-linux t-linux-gnulibc1 alpha/t-alpha alpha/t-crtbe alpha/t-ieee"
 		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 		xmake_file=none
 		gas=yes gnu_ld=yes
@@ -682,7 +712,7 @@ changequote([,])dnl
 	alpha*-*-linux-gnu*)
 		tm_file="${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h"
 		target_cpu_default="MASK_GAS"
-		tmake_file="t-linux alpha/t-linux alpha/t-crtbe alpha/t-alpha alpha/t-ieee"
+		tmake_file="t-linux alpha/t-crtbe alpha/t-alpha alpha/t-ieee"
 		extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
 		xmake_file=none
 		gas=yes gnu_ld=yes
@@ -1091,6 +1121,30 @@ changequote([,])dnl
 		install_headers_dir=install-headers-cpio
 		use_collect2=yes
 		;;
+	hppa*64*-*-hpux11*)
+		target_cpu_default="MASK_PA_11"
+		xm_file=pa/xm-pa64hpux.h
+		xmake_file=pa/x-pa-hpux
+		tmake_file=pa/t-pa
+		tm_file="pa/pa64-start.h ${tm_file} pa/pa64-regs.h pa/long_double.h pa/elf.h pa/pa-hpux.h pa/pa-hpux11.h pa/pa-64.h"
+		float_format=i128
+		tmake_file=pa/t-pa64
+		target_cpu_default="(MASK_PA_11|MASK_PA_20)"
+
+		if [[ x$gas = xyes ]]
+		then
+			tm_file="${tm_file} pa/pa-gas.h"
+		fi
+#		if [[ x$enable_threads = x ]]; then
+#		    enable_threads=$have_pthread_h
+#		fi
+# 		if [[ x$enable_threads = xyes ]]; then
+#			thread_file='dce'
+#			tmake_file="${tmake_file} pa/t-dce-thr"
+#		fi
+		install_headers_dir=install-headers-cpio
+		use_collect2=yes
+		;;
 	hppa1.1-*-hpux11* | hppa2*-*-hpux11*)
 		target_cpu_default="MASK_PA_11"
 		tm_file="${tm_file} pa/pa32-regs.h pa/long_double.h pa/som.h pa/pa-hpux.h pa/pa-hpux11.h"
@@ -1428,6 +1482,7 @@ changequote([,])dnl
 			tmake_file=i386/t-crtstuff
 			extra_parts="crtbegin.o crtend.o"
 		fi
+		tmake_file="$tmake_file i386/t-i386bare"
 		install_headers_dir=install-headers-cpio
 		;;
 changequote(,)dnl
@@ -1498,6 +1553,7 @@ changequote([,])dnl
 		gnu_ld=yes
 		gas=yes
 		exeext=.exe
+		float_format=none
 		case $host in *pc-msdosdjgpp*)
 			target_alias=djgpp
 			;;
@@ -1585,6 +1641,7 @@ changequote([,])dnl
 		else
 			tmake_file=i386/t-sco5
 		fi
+		tmake_file="$tmake_file i386/t-i386bare"
 		extra_parts="crti.o crtbegin.o crtend.o crtbeginS.o crtendS.o"
 		;;
 changequote(,)dnl
@@ -1604,6 +1661,7 @@ changequote([,])dnl
 			tmake_file=i386/t-crtstuff
 			extra_parts="crtbegin.o crtend.o"
 		fi
+		tmake_file="$tmake_file i386/t-i386bare"
 		# The default EAFS filesystem supports long file names.
 		# Truncating the target makes $host != $target which
 		# makes gcc think it is doing a cross-compile.
@@ -1625,6 +1683,7 @@ changequote([,])dnl
 			extra_parts="crtbegin.o crtend.o"
 			tmake_file=i386/t-crtstuff
 		fi
+		tmake_file="$tmake_file i386/t-i386bare"
 		truncate_target=yes
 		;;
 changequote(,)dnl
@@ -1637,7 +1696,7 @@ changequote([,])dnl
 			# Only needed if gas does not support -s
 			tm_file="i386/sol2gas.h ${tm_file}"
 		fi
-		tmake_file=i386/t-sol2
+		tmake_file="i386/t-i386bare i386/t-sol2"
 		extra_parts="crt1.o crti.o crtn.o gcrt1.o gmon.o crtbegin.o crtend.o"
 		xmake_file=x-svr4
 		if test x${enable_threads} = x; then
@@ -1664,7 +1723,7 @@ changequote([,])dnl
                then
                        tm_file="${tm_file} dbx.h"
                fi
-               tmake_file=i386/t-crtpic
+               tmake_file="i386/t-i386bare i386/t-crtpic"
                xmake_file=x-svr4
                extra_parts="crtbegin.o crtend.o"
 	       if test x$enable_threads = xyes; then
@@ -1681,7 +1740,7 @@ changequote([,])dnl
 		then
 			tm_file="${tm_file} dbx.h"
 		fi
-		tmake_file=i386/t-crtpic
+		tmake_file="i386/t-i386bare i386/t-crtpic"
 		xmake_file=x-svr4
 		extra_parts="crtbegin.o crtend.o"
 		;;
@@ -1691,7 +1750,7 @@ changequote([,])dnl
 		xm_file="xm-alloca.h ${xm_file}"
 		xm_defines="USG POSIX"
 		tm_file=i386/udk.h
-		tmake_file="i386/t-crtpic i386/t-udk"
+		tmake_file="i386/t-i386bare i386/t-crtpic i386/t-udk"
 		xmake_file=x-svr4
 		extra_parts="crtbegin.o crtend.o"
 		install_headers_dir=install-headers-cpio
@@ -1734,6 +1793,7 @@ changequote([,])dnl
 			extra_parts="crtbegin.o crtend.o"
 			tmake_file=i386/t-crtstuff
 		fi
+		tmake_file="$tmake_file i386/t-crtpic"
 		;;
 	i386-*-vsta)			# Intel 80386's running VSTa kernel
 		xm_file="${xm_file} i386/xm-vsta.h"
@@ -4681,7 +4741,7 @@ all_boot_languages=
 all_compilers=
 all_stagestuff=
 all_diff_excludes=
-all_outputs='Makefile intl/Makefile po/Makefile.in fixinc/Makefile gccbug'
+all_outputs='Makefile intl/Makefile po/Makefile.in fixinc/Makefile gccbug mklibgcc'
 # List of language makefile fragments.
 all_lang_makefiles=
 all_headers=

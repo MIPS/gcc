@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 
 static int rtx_addr_can_trap_p	PARAMS ((rtx));
 static void reg_set_p_1		PARAMS ((rtx, rtx, void *));
+static void insn_dependant_p_1	PARAMS ((rtx, rtx, void *));
 static void reg_set_last_1	PARAMS ((rtx, rtx, void *));
 
 
@@ -687,6 +688,45 @@ modified_in_p (x, insn)
 
   return 0;
 }
+
+/* Return true if anything in insn X is (anti,output,true) dependant on
+   anything in insn Y.  */
+
+int
+insn_dependant_p (x, y)
+     rtx x, y;
+{
+  rtx tmp;
+
+  if (! INSN_P (x) || ! INSN_P (y))
+    abort ();
+
+  tmp = PATTERN (y);
+  note_stores (PATTERN (x), insn_dependant_p_1, &tmp);
+  if (tmp == NULL_RTX)
+    return 1;
+
+  tmp = PATTERN (x);
+  note_stores (PATTERN (y), insn_dependant_p_1, &tmp);
+  if (tmp == NULL_RTX)
+    return 1;
+
+  return 0;
+}
+
+/* A helper routine for insn_dependant_p called through note_stores.  */
+
+static void
+insn_dependant_p_1 (x, pat, data)
+     rtx x;
+     rtx pat ATTRIBUTE_UNUSED;
+     void *data;
+{
+  rtx * pinsn = (rtx *) data;
+
+  if (*pinsn && reg_mentioned_p (x, *pinsn))
+    *pinsn = NULL_RTX;
+}
 
 /* Given an INSN, return a SET expression if this insn has only a single SET.
    It may also have CLOBBERs, USEs, or SET whose output
@@ -992,17 +1032,22 @@ reg_overlap_mentioned_p (x, in)
       return reg_mentioned_p (x, in);
 
     case PARALLEL:
-      if (GET_MODE (x) == BLKmode)
-	{
-	  register int i;
+      {
+	int i, n;
 
-	  /* If any register in here refers to it we return true.  */
-	  for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	    if (reg_overlap_mentioned_p (SET_DEST (XVECEXP (x, 0, i)), in))
-	      return 1;
-	  return 0;
-	}
-      break;
+	/* Check for a NULL entry, used to indicate that the parameter goes
+	   both on the stack and in registers.  */
+	if (XEXP (XVECEXP (x, 0, 0), 0))
+	  i = 0;
+	else
+	  i = 1;
+
+	/* If any register in here refers to it we return true.  */
+	for (n = XVECLEN (x, 0); i < n; ++i)
+	  if (reg_overlap_mentioned_p (XEXP (XVECEXP (x, 0, i), 0), in))
+	    return 1;
+	return 0;
+      }
 
     default:
       break;
@@ -1231,7 +1276,7 @@ dead_or_set_regno_p (insn, test_regno)
      unsigned int test_regno;
 {
   unsigned int regno, endregno;
-  rtx link, pattern;
+  rtx pattern;
 
   /* See if there is a death note for something that includes TEST_REGNO.  */
   if (find_regno_note (insn, REG_DEAD, test_regno))
@@ -1738,10 +1783,13 @@ may_trap_p (x)
     case SCRATCH:
       return 0;
 
-      /* Conditional trap can trap!  */
+    case ASM_INPUT:
     case UNSPEC_VOLATILE:
     case TRAP_IF:
       return 1;
+
+    case ASM_OPERANDS:
+      return MEM_VOLATILE_P (x);
 
       /* Memory ref can trap unless it's a static var or a stack slot.  */
     case MEM:

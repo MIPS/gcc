@@ -2386,7 +2386,7 @@ static const short yycheck[] = {     3,
 #define YYPURE 1
 
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/lib/bison.simple"
+#line 3 "/usr/share/misc/bison.simple"
 /* This file comes from bison-1.28.  */
 
 /* Skeleton output parser for bison,
@@ -2600,7 +2600,7 @@ __yy_memcpy (char *to, char *from, unsigned int count)
 #endif
 #endif
 
-#line 217 "/usr/lib/bison.simple"
+#line 217 "/usr/share/misc/bison.simple"
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -5020,7 +5020,7 @@ case 503:
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 543 "/usr/lib/bison.simple"
+#line 543 "/usr/share/misc/bison.simple"
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -5376,7 +5376,7 @@ static void
 java_parser_context_suspend ()
 {
   /* This makes debugging through java_debug_context easier */
-  static char *name = "<inner buffer context>";
+  static const char *name = "<inner buffer context>";
 
   /* Duplicate the previous context, use it to save the globals we're
      interested in */
@@ -5663,7 +5663,7 @@ issue_warning_error_from_context (cl, msg, ap)
      const char *msg;
      va_list ap;
 {
-  char *saved, *saved_input_filename;
+  const char *saved, *saved_input_filename;
   char buffer [4096];
   vsprintf (buffer, msg, ap);
   force_error = 1;
@@ -7857,7 +7857,7 @@ safe_layout_class (class)
      tree class;
 {
   tree save_current_class = current_class;
-  char *save_input_filename = input_filename;
+  const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
@@ -9995,9 +9995,19 @@ java_complete_expand_methods (class_decl)
   /* First, do the ordinary methods. */
   for (decl = first_decl; decl; decl = TREE_CHAIN (decl))
     {
-      /* Skip abstract or native methods */
-      if (METHOD_ABSTRACT (decl) || METHOD_NATIVE (decl))
+      /* Skip abstract or native methods -- but do handle native
+ 	 methods when generating JNI stubs.  */
+      if (METHOD_ABSTRACT (decl)
+ 	  || (! flag_jni && METHOD_NATIVE (decl))
+	  || DECL_CONSTRUCTOR_P (decl) || DECL_CLINIT_P (decl))
 	continue;
+
+      if (METHOD_NATIVE (decl))
+ 	{
+ 	  tree body = build_jni_stub (decl);
+ 	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl)) = body;
+ 	}
+
       java_complete_expand_method (decl);
     }
 
@@ -10127,7 +10137,7 @@ java_complete_expand_method (mdecl)
 	{
 	  block_body = java_complete_tree (block_body);
 
-	  if (!flag_emit_xref)
+	  if (! flag_emit_xref && ! METHOD_NATIVE (mdecl))
 	    check_for_initialization (block_body);
 	  ctxp->explicit_constructor_p = 0;
 	}

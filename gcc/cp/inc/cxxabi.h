@@ -1,9 +1,35 @@
 /* new abi support -*- C++ -*-
    Copyright (C) 2000
    Free Software Foundation, Inc.
-   Written by Nathan Sidwell, Codesourcery LLC, <nathan@codesourcery.com>
+   Written by Nathan Sidwell, Codesourcery LLC, <nathan@codesourcery.com>  */
 
-   This file declares the new abi entry points into the runtime. It is not
+// This file is part of GNU CC.
+//
+// GNU CC is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2, or (at your option)
+// any later version.
+// 
+// GNU CC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with GNU CC; see the file COPYING.  If not, write to
+// the Free Software Foundation, 59 Temple Place - Suite 330,
+// Boston, MA 02111-1307, USA.
+
+// As a special exception, you may use this file as part of a free software
+// library without restriction.  Specifically, if other files instantiate
+// templates or use macros or inline functions from this file, or you compile
+// this file and link it with other files to produce an executable, this
+// file does not by itself cause the resulting executable to be covered by
+// the GNU General Public License.  This exception does not however
+// invalidate any other reasons why the executable file might be covered by
+// the GNU General Public License.
+
+/* This file declares the new abi entry points into the runtime. It is not
    normally necessary for user programs to include this header, or use the
    entry points directly. However, this header is available should that be
    needed.
@@ -23,10 +49,14 @@
 
 #ifdef __cplusplus
 
+// We use the compiler builtins __SIZE_TYPE__ and __PTRDIFF_TYPE__ instead of
+// std::size_t and std::ptrdiff_t respectively. This makes us independant of
+// the conformance level of <cstddef> and whether -fhonor-std was supplied.
+// <cstddef> is not currently available during compiler building anyway.
+// Including <stddef.h> would be wrong, as that would rudely place size_t in
+// the global namespace.
+
 #include <typeinfo>
-// This should really be cstddef, but that currently is not available when
-// building the runtime.
-#include <stddef.h>
 
 namespace __cxxabiv1
 {
@@ -181,11 +211,11 @@ public:
     { return vmi_offset_flags & virtual_mask; }
   bool __is_public_p () const
     { return vmi_offset_flags & public_mask; }
-  std::ptrdiff_t __offset () const
+  __PTRDIFF_TYPE__ __offset () const
     { 
       // This shift, being of a signed type, is implementation defined. GCC
       // implements such shifts as arithmetic, which is what we want.
-      return std::ptrdiff_t (vmi_offset_flags) >> offset_shift;
+      return static_cast<__PTRDIFF_TYPE__> (vmi_offset_flags) >> offset_shift;
     }
 };
 
@@ -251,7 +281,7 @@ public:
      within this type.  If SRC_PTR is one of our SRC_TYPE bases, indicate the
      virtuality. Returns not_contained for non containment or private
      containment. */
-  inline __sub_kind __find_public_src (std::ptrdiff_t __src2dst,
+  inline __sub_kind __find_public_src (__PTRDIFF_TYPE__ __src2dst,
                                        const void *__obj_ptr,
                                        const __class_type_info *__src_type,
                                        const void *__src_ptr) const;
@@ -263,7 +293,7 @@ public:
      indicates the static type started from and SRC_PTR points to that base
      within the most derived object. Fill in RESULT with what we find. Return
      true if we have located an ambiguous match. */
-  virtual bool __do_dyncast (std::ptrdiff_t __src2dst,
+  virtual bool __do_dyncast (__PTRDIFF_TYPE__ __src2dst,
                              __sub_kind __access_path,
                              const __class_type_info *__dst_type,
                              const void *__obj_ptr,
@@ -275,7 +305,7 @@ public:
      inherited by the type started from -- which is not necessarily the
      current type. The current type will be a base of the destination type.
      OBJ_PTR points to the current base. */
-  virtual __sub_kind __do_find_public_src (std::ptrdiff_t __src2dst,
+  virtual __sub_kind __do_find_public_src (__PTRDIFF_TYPE__ __src2dst,
                                            const void *__obj_ptr,
                                            const __class_type_info *__src_type,
                                            const void *__src_ptr) const;
@@ -300,14 +330,14 @@ public:
 
 /* implementation defined member functions */
 protected:
-  virtual bool __do_dyncast (std::ptrdiff_t __src2dst,
+  virtual bool __do_dyncast (__PTRDIFF_TYPE__ __src2dst,
                              __sub_kind __access_path,
                              const __class_type_info *__dst_type,
                              const void *__obj_ptr,
                              const __class_type_info *__src_type,
                              const void *__src_ptr,
                              __dyncast_result &__result) const;
-  virtual __sub_kind __do_find_public_src (std::ptrdiff_t __src2dst,
+  virtual __sub_kind __do_find_public_src (__PTRDIFF_TYPE__ __src2dst,
                                            const void *__obj_ptr,
                                            const __class_type_info *__src_type,
                                            const void *__sub_ptr) const;
@@ -350,14 +380,14 @@ public:
 
 /* implementation defined member functions */
 protected:
-  virtual bool __do_dyncast (std::ptrdiff_t __src2dst,
+  virtual bool __do_dyncast (__PTRDIFF_TYPE__ __src2dst,
                              __sub_kind __access_path,
                              const __class_type_info *__dst_type,
                              const void *__obj_ptr,
                              const __class_type_info *__src_type,
                              const void *__src_ptr,
                              __dyncast_result &__result) const;
-  virtual __sub_kind __do_find_public_src (std::ptrdiff_t __src2dst,
+  virtual __sub_kind __do_find_public_src (__PTRDIFF_TYPE__ __src2dst,
                                            const void *__obj_ptr,
                                            const __class_type_info *__src_type,
                                            const void *__src_ptr) const;
@@ -368,10 +398,11 @@ protected:
 };
 
 /* dynamic cast runtime */
+extern "C++"
 void *__dynamic_cast (const void *__src_ptr,    /* object started from */
                       const __class_type_info *__src_type, /* static type of object */
                       const __class_type_info *__dst_type, /* desired target type */
-                      std::ptrdiff_t __src2dst); /* how src and dst are related */
+                      __PTRDIFF_TYPE__ __src2dst); /* how src and dst are related */
 
     /* src2dst has the following possible values
        >= 0: src_type is a unique public non-virtual base of dst_type
@@ -383,29 +414,33 @@ void *__dynamic_cast (const void *__src_ptr,    /* object started from */
 /* array ctor/dtor routines */
 
 /* allocate and construct array */
-void *__cxa_vec_new (size_t __element_count,
-                     size_t __element_size,
-                     size_t __padding_size,
+extern "C++"
+void *__cxa_vec_new (__SIZE_TYPE__ __element_count,
+                     __SIZE_TYPE__ __element_size,
+                     __SIZE_TYPE__ __padding_size,
                      void (*__constructor) (void *),
                      void (*__destructor) (void *));
 
 /* construct array */
+extern "C++"
 void __cxa_vec_ctor (void *__array_address,
-                     size_t __element_count,
-                     size_t __element_size,
+                     __SIZE_TYPE__ __element_count,
+                     __SIZE_TYPE__ __element_size,
                      void (*__constructor) (void *),
                      void (*__destructor) (void *));
 
 /* destruct array */
+extern "C++"
 void __cxa_vec_dtor (void *__array_address,
-                     size_t __element_count,
-                     size_t __element_size,
+                     __SIZE_TYPE__ __element_count,
+                     __SIZE_TYPE__ __element_size,
                      void (*__destructor) (void *));
 
 /* destruct and release array */
+extern "C++"
 void __cxa_vec_delete (void *__array_address,
-                       size_t __element_size,
-                       size_t __padding_size,
+                       __SIZE_TYPE__ __element_size,
+                       __SIZE_TYPE__ __padding_size,
                        void (*__destructor) (void *));
 
 } /* namespace __cxxabiv1 */

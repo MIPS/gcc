@@ -23,15 +23,10 @@ Boston, MA 02111-1307, USA.  */
 #include "hconfig.h"
 #include "system.h"
 #include "rtl.h"
-#include "obstack.h"
 #include "errors.h"
 #include "insn-config.h"
+#include "gensupport.h"
 
-static struct obstack obstack;
-struct obstack *rtl_obstack = &obstack;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* This structure contains all the information needed to describe one
    set of extractions methods.  Each method may be used by more than 
@@ -345,42 +340,6 @@ print_path (path)
     }
 }
 
-PTR
-xmalloc (size)
-  size_t size;
-{
-  register PTR val = (PTR) malloc (size);
-
-  if (val == 0)
-    fatal ("virtual memory exhausted");
-  return val;
-}
-
-PTR
-xrealloc (old, size)
-  PTR old;
-  size_t size;
-{
-  register PTR ptr;
-  if (old)
-    ptr = (PTR) realloc (old, size);
-  else
-    ptr = (PTR) malloc (size);
-  if (!ptr)
-    fatal ("virtual memory exhausted");
-  return ptr;
-}
-
-char *
-xstrdup (input)
-  const char *input;
-{
-  register size_t len = strlen (input) + 1;
-  register char *output = xmalloc (len);
-  memcpy (output, input, len);
-  return output;
-}
-
 extern int main PARAMS ((int, char **));
 
 int
@@ -389,25 +348,18 @@ main (argc, argv)
      char **argv;
 {
   rtx desc;
-  FILE *infile;
-  int c, i;
+  int i;
   struct extraction *p;
   struct code_ptr *link;
   const char *name;
 
   progname = "genextract";
-  obstack_init (rtl_obstack);
 
   if (argc <= 1)
     fatal ("No input file name.");
 
-  infile = fopen (argv[1], "r");
-  if (infile == 0)
-    {
-      perror (argv[1]);
-      return (FATAL_EXIT_CODE);
-    }
-  read_rtx_filename = argv[1];
+  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+    return (FATAL_EXIT_CODE);
 
   /* Assign sequential codes to all entries in the machine description
      in parallel with the tables in insn-output.c.  */
@@ -446,17 +398,16 @@ from the machine description file `md'.  */\n\n");
 
   while (1)
     {
-      c = read_skip_spaces (infile);
-      if (c == EOF)
-	break;
-      ungetc (c, infile);
+      int line_no;
 
-      desc = read_rtx (infile);
-      if (GET_CODE (desc) == DEFINE_INSN)
+      desc = read_md_rtx (&line_no, &insn_code_number);
+      if (desc == NULL)
+	break;
+
+       if (GET_CODE (desc) == DEFINE_INSN)
 	{
 	  record_insn_name (insn_code_number, XSTR (desc, 0));
 	  gen_insn (desc);
-	  ++insn_code_number;
 	}
 
       else if (GET_CODE (desc) == DEFINE_PEEPHOLE)
@@ -467,13 +418,7 @@ from the machine description file `md'.  */\n\n");
 	  link->insn_code = insn_code_number;
 	  link->next = peepholes;
 	  peepholes = link;
-	  ++insn_code_number;
 	}
-
-      else if (GET_CODE (desc) == DEFINE_EXPAND
-	       || GET_CODE (desc) == DEFINE_PEEPHOLE2
-	       || GET_CODE (desc) == DEFINE_SPLIT)
-	++insn_code_number;
     }
 
   /* Write out code to handle peepholes and the insn_codes that it should

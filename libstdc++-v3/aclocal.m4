@@ -275,7 +275,7 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
         ;;
       powerpc | rs6000)
 	cpu_include_dir="config/cpu/powerpc"
-    	CPUFLAGS='-mnew-mnemonics -Wa,-mppc -mpowerpc'
+    	CPUFLAGS='-mcpu=powerpc'
         ;;
       sparc64 | ultrasparc)
 	cpu_include_dir="config/cpu/sparc/sparc64"
@@ -309,7 +309,7 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
     ctype_default=yes
 
     dnl Test for <ctype> functionality -- gnu-linux
-    AC_MSG_CHECKING([for gnu-linux <ctype>])
+    AC_MSG_CHECKING([<ctype> for gnu-linux ])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -323,9 +323,41 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
       ctype_default=no
     fi
 
+    dnl Test for <ctype> functionality -- FreeBSD 4.0
+    if test $ctype_default = "yes"; then
+    AC_MSG_CHECKING([<ctype> for freebsd 4.0 ])
+    AC_TRY_COMPILE([#include <ctype.h>],
+    [int
+    foo (int a)
+    { return _CTYPE_S + _CTYPE_R + _CTYPE_C + _CTYPE_U + _CTYPE_L + _CTYPE_A \
+	+ _CTYPE_D + _CTYPE_P + _CTYPE_X + _CTYPE_G ;}], \
+    ctype_bsd=yes, ctype_bsd=no)
+    AC_MSG_RESULT($ctype_bsd)
+    if test $ctype_bsd = "yes"; then
+      ctype_include_dir="config/bsd"
+      ctype_default=no
+    fi
+    fi
+
+    dnl Test for <ctype> functionality -- FreeBSD 3.4
+    if test $ctype_default = "yes"; then
+    AC_MSG_CHECKING([<ctype> for freebsd 3.4 ])
+    AC_TRY_COMPILE([#include <ctype.h>],
+    [int
+    foo (int a)
+    { return _S + _R + _C + _U + _L + _A \
+      + _D + _P + _X + _G + __istype (a, 0);}], \
+    ctype_freebsd34=yes, ctype_freebsd34=no)
+    AC_MSG_RESULT($ctype_freebsd34)
+    if test $ctype_freebsd34 = "yes"; then
+      ctype_include_dir="config/bsd"
+      ctype_default=no
+    fi
+    fi
+
     dnl Test for <ctype> functionality -- solaris 2.6 and 2.7
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([for solaris 2.6 or 2.7 <ctype>])
+    AC_MSG_CHECKING([<ctype> for solaris 2.[6,7,8] ])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -348,7 +380,7 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
         ctype_default=no
       else
         ctype_include_dir="config/solaris/solaris2.7"
-        AC_MSG_RESULT("solaris2.7")
+        AC_MSG_RESULT("solaris2.[7,8]")
         ctype_default=no
       fi
     fi
@@ -356,7 +388,7 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
 
     dnl Test for <ctype> functionality -- solaris 2.5.1
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([for solaris 2.5.1 <ctype>])
+    AC_MSG_CHECKING([<ctype> for solaris 2.5.1 ])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -372,7 +404,7 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
 
     dnl Test for <ctype> functionality -- aix
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([for aix <ctype>])
+    AC_MSG_CHECKING([<ctype> for aix ])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -389,7 +421,7 @@ AC_DEFUN(GLIBCPP_CHECK_CTYPE, [
 
     dnl Test for <ctype> functionality -- newlib
     if test $ctype_default = "yes"; then
-    AC_MSG_CHECKING([for newlib <ctype>])
+    AC_MSG_CHECKING([<ctype> for newlib ])
     AC_TRY_COMPILE([#include <ctype.h>],
     [int
     foo (int a)
@@ -633,37 +665,49 @@ AC_SUBST(DEBUGFLAGS)
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for "unusual" flags to pass to the compiler while building.
 dnl
-dnl GLIBCPP_ENABLE_NAMESPACES
-dnl --enable-namespaces sets '-fhonor-std' and defines _GLIBCPP_USE_NAMESPACES
-dnl --disable-namespaces sets '-fno-honor-std' (the macro should be
-dnl     undefined by default in whatever.h.in).
-dnl  +  Eventually, this will go away.
-dnl  +  Usage:  GLIBCPP_ENABLE_NAMESPACES[(DEFAULT)]
-dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
-dnl       defaults to `no'.
-AC_DEFUN(GLIBCPP_ENABLE_NAMESPACES, [dnl
-define([GLIBCPP_ENABLE_NAMESPACES_DEFAULT], ifelse($1, yes, yes, no))dnl
-AC_ARG_ENABLE(namespaces,
+dnl GLIBCPP_ENABLE_CXX_FLAGS
+dnl --enable-cxx-flags='-foo -bar -baz' is a general method for passing
+dnl     experimental flags such as -fhonor-std, -fsquangle, -Dfloat=char, etc.
+dnl     Somehow this same set of flags must be passed when [re]building
+dnl     libgcc.
+dnl --disable-cxx-flags passes nothing.
+dnl  +  See http://sourceware.cygnus.com/ml/libstdc++/2000-q2/msg00131.html
+dnl         http://sourceware.cygnus.com/ml/libstdc++/2000-q2/msg00284.html
+dnl         http://sourceware.cygnus.com/ml/libstdc++/2000-q1/msg00035.html
+dnl  +  Usage:  GLIBCPP_ENABLE_CXX_FLAGS(default flags)
+dnl       If "default flags" is an empty string (or "none"), the effect is
+dnl       the same as --disable or --enable=no.
+AC_DEFUN(GLIBCPP_ENABLE_CXX_FLAGS, [dnl
+define([GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT], ifelse($1,,, $1))dnl
+AC_ARG_ENABLE(cxx-flags,
 changequote(<<, >>)dnl
-<<  --enable-namespaces     turns on 'std' [default=>>GLIBCPP_ENABLE_NAMESPACES_DEFAULT],
+<<  --enable-cxx-flags=FLAGS      pass compiler FLAGS when building library;
+                                [default=>>GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT],
 changequote([, ])dnl
-[case "$enableval" in
- yes) enable_namespaces=yes ;;
- no)  enable_namespaces=no ;;
- *)   AC_MSG_ERROR([Unknown argument to enable/disable namespaces]) ;;
+[case "x$enableval" in
+ xyes)   AC_MSG_ERROR([--enable-cxx-flags needs compiler flags as arguments]) ;;
+ xno|x)  enable_cxx_flags='' ;;
+ *)      enable_cxx_flags="$enableval" ;;
  esac],
-enable_namespaces=GLIBCPP_ENABLE_NAMESPACES_DEFAULT)dnl
-dnl Option parsed, now set things appropriately
-case "$enable_namespaces" in
-    yes)  NAMESPACES='-fhonor-std'
-          AC_DEFINE(_GLIBCPP_USE_NAMESPACES)
-          ;;
-    no)   NAMESPACES='-fno-honor-std'
-          ;;
-esac
-AC_SUBST(NAMESPACES)
+enable_cxx_flags='GLIBCPP_ENABLE_CXX_FLAGS_DEFAULT')dnl
+dnl Thinko on my part during design.  This kludge is the workaround.
+if test "$enable_cxx_flags" = "none"; then enable_cxx_flags=''; fi
+dnl Run through flags (either default or command-line) and set anything
+dnl extra (e.g., #defines) that must accompany particular g++ options.
+if test -n "$enable_cxx_flags"; then
+    for f in $enable_cxx_flags; do
+        case "$f" in
+            -fhonor-std)  ;;
+            -*)  ;;
+            *)   # and we're trying to pass /what/ exactly?
+                 AC_MSG_ERROR([compiler flags start with a -]) ;;
+        esac
+    done
+fi
+EXTRA_CXX_FLAGS="$enable_cxx_flags"
+AC_SUBST(EXTRA_CXX_FLAGS)
 ])
 
 
@@ -878,9 +922,10 @@ dnl
 dnl GLIBCPP_ENABLE_LONG_LONG
 AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
   define([GLIBCPP_ENABLE_LONG_LONG_DEFAULT], ifelse($1, yes, yes, no))dnl
+  AC_MSG_CHECKING([for enabled long long])
   AC_ARG_ENABLE(long-long,
   changequote(<<, >>)dnl
-  <<--enable-long_long      turns on 'long long' [default=>>GLIBCPP_ENABLE_LONG_LONG_DEFAULT],
+  <<--enable-long-long      turns on 'long long' [default=>>GLIBCPP_ENABLE_LONG_LONG_DEFAULT],
   changequote([, ])dnl
   [case "$enableval" in
    yes) enable_long_long=yes ;;
@@ -888,6 +933,7 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
    *)   AC_MSG_ERROR([Unknown argument to enable/disable long long]) ;;
    esac],
   enable_long_long=GLIBCPP_ENABLE_LONG_LONG_DEFAULT)dnl
+  AC_MSG_RESULT($enable_long_long)
   dnl Option parsed, now set things appropriately
   case "$enable_long_long" in
     yes)  AC_DEFINE(_GLIBCPP_USE_LONG_LONG)
@@ -896,14 +942,47 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
 ])
 
 
-
-
-
-
-
-
-
-
+dnl
+dnl Check for certain special build configurations.
+dnl
+dnl GLIBCPP_ENABLE_SHADOW
+dnl --enable-cshadow-headers [does stuff].
+dnl --disable-cshadow-headers [does not do stuff].
+dnl  +  This will eventually need to be on by default.
+dnl  +  Usage:  GLIBCPP_ENABLE_SHADOW[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
+dnl       defaults to `no'.
+AC_DEFUN(GLIBCPP_ENABLE_SHADOW, [dnl
+define([GLIBCPP_ENABLE_SHADOW_DEFAULT], ifelse($1, yes, yes, no))dnl
+AC_MSG_CHECKING([for enabled cshadow headers])
+AC_ARG_ENABLE(cshadow-headers,
+changequote(<<, >>)dnl
+<<  --enable-cshadow-headers construct "shadowed" C header files for
+                           g++ [default=>>GLIBCPP_ENABLE_SHADOW_DEFAULT],
+changequote([, ])dnl
+[case "$enableval" in
+ yes) enable_cshadow_headers=yes 
+	;;
+ no)  enable_cshadow_headers=no 
+	;;
+ *)   AC_MSG_ERROR([Unknown argument to enable/disable shadowed C headers]) 
+	;;
+ esac],
+enable_cshadow_headers=GLIBCPP_ENABLE_SHADOW_DEFAULT)dnl
+AC_MSG_RESULT($enable_cshadow_headers)
+dnl Option parsed, now set things appropriately
+case "$enable_cshadow_headers" in
+    yes) 
+	SHADOW_INCLUDES="-I$srcdir/shadow -I$blddir/cshadow"
+$srcdir/inclosure "-I $blddir/../../gcc/include/ -I /usr/include/ -G machine/ansi.h" | $srcdir/mkcshadow
+	;;
+    no)   
+	SHADOW_INCLUDES=''
+        ;;
+esac
+# SHADOW_INCLUDES is currently not used anywhere in the source
+AC_SUBST(SHADOW_INCLUDES)
+])
 
 
 

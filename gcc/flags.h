@@ -20,7 +20,7 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Name of the input .c file being compiled.  */
-extern char *main_input_filename;
+extern const char *main_input_filename;
 
 enum debug_info_type
 {
@@ -71,9 +71,17 @@ extern int inhibit_warnings;
 
 extern int extra_warnings;
 
-/* Nonzero to warn about unused local variables.  */
+/* Nonzero to warn about unused variables, functions et.al.  Use
+   set_Wunused() to update the -Wunused-* flags that correspond to the
+   -Wunused option. */
 
-extern int warn_unused;
+extern void set_Wunused PARAMS ((int setting));
+
+extern int warn_unused_function;
+extern int warn_unused_label;
+extern int warn_unused_parameter;
+extern int warn_unused_variable;
+extern int warn_unused_value;
 
 /* Nonzero to warn about code which is never reached.  */
 

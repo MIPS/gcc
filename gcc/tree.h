@@ -278,13 +278,13 @@ struct tree_common
    is accessed incorrectly. The macros abort with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
-#define TREE_CHECK(t, code)						\
+#define TREE_CHECK(t, code) __extension__				\
 ({  const tree __t = t;							\
     if (TREE_CODE(__t) != (code))					\
       tree_check_failed (__t, code, __FILE__,				\
 			 __LINE__, __PRETTY_FUNCTION__);		\
     __t; })
-#define TREE_CLASS_CHECK(t, class)					\
+#define TREE_CLASS_CHECK(t, class) __extension__			\
 ({  const tree __t = t;							\
     if (TREE_CODE_CLASS(TREE_CODE(__t)) != (class))			\
       tree_class_check_failed (__t, class, __FILE__,			\
@@ -292,14 +292,14 @@ struct tree_common
     __t; })
 
 /* These checks have to be special cased.  */
-#define CST_OR_CONSTRUCTOR_CHECK(t)					\
+#define CST_OR_CONSTRUCTOR_CHECK(t) __extension__			\
 ({  const tree __t = t;							\
     enum tree_code __c = TREE_CODE(__t);				\
     if (__c != CONSTRUCTOR && TREE_CODE_CLASS(__c) != 'c')		\
       tree_check_failed (__t, CONSTRUCTOR, __FILE__,			\
 			 __LINE__, __PRETTY_FUNCTION__);		\
     __t; })
-#define EXPR_CHECK(t)							\
+#define EXPR_CHECK(t) __extension__					\
 ({  const tree __t = t;							\
     char __c = TREE_CODE_CLASS(TREE_CODE(__t));				\
     if (__c != 'r' && __c != 's' && __c != '<'				\
@@ -1547,7 +1547,7 @@ struct tree_type
 struct tree_decl
 {
   char common[sizeof (struct tree_common)];
-  char *filename;
+  const char *filename;
   int linenum;
   unsigned int uid;
   union tree_node *size;
@@ -1867,13 +1867,13 @@ extern tree maybe_get_identifier	PARAMS ((const char *));
 /* Construct various types of nodes.  */
 
 #define build_int_2(LO,HI)  \
-  build_int_2_wide ((HOST_WIDE_INT) (LO), (HOST_WIDE_INT) (HI))
+  build_int_2_wide ((unsigned HOST_WIDE_INT) (LO), (HOST_WIDE_INT) (HI))
 
 extern tree build			PARAMS ((enum tree_code, tree, ...));
 extern tree build_nt			PARAMS ((enum tree_code, ...));
 extern tree build_parse_node		PARAMS ((enum tree_code, ...));
 
-extern tree build_int_2_wide		PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT));
+extern tree build_int_2_wide		PARAMS ((unsigned HOST_WIDE_INT, HOST_WIDE_INT));
 extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
 extern tree build_real_from_int_cst 	PARAMS ((tree, tree));
 extern tree build_complex		PARAMS ((tree, tree, tree));
@@ -2133,6 +2133,7 @@ extern tree size_int_type_wide		PARAMS ((HOST_WIDE_INT, tree));
 #define sbitsize_int(L) size_int_wide ((HOST_WIDE_INT) (L), SBITSIZETYPE)
 
 extern tree round_up			PARAMS ((tree, int));
+extern tree round_down			PARAMS ((tree, int));
 extern tree get_pending_sizes		PARAMS ((void));
 extern void put_pending_sizes		PARAMS ((tree));
 
@@ -2372,7 +2373,7 @@ extern int real_zerop PARAMS ((tree));
 
 /* Points to the name of the input file from which the current input
    being parsed originally came (before it went into cpp).  */
-extern char *input_filename;
+extern const char *input_filename;
 
 /* Current line number in input file.  */
 extern int lineno;
@@ -2417,7 +2418,7 @@ extern const char *(*decl_printable_name)	PARAMS ((tree, int));
 
 extern void (*incomplete_decl_finalize_hook)	PARAMS ((tree));
 
-extern char *init_parse				PARAMS ((char *));
+extern const char *init_parse			PARAMS ((const char *));
 extern void finish_parse			PARAMS ((void));
 
 extern const char * const language_string;
@@ -2719,7 +2720,7 @@ extern void print_obstack_statistics	PARAMS ((const char *,
 #ifdef BUFSIZ
 extern void print_obstack_name		PARAMS ((char *, FILE *, const char *));
 #endif
-extern void expand_function_end		PARAMS ((char *, int, int));
+extern void expand_function_end		PARAMS ((const char *, int, int));
 extern void expand_function_start	PARAMS ((tree, int));
 extern int real_onep			PARAMS ((tree));
 extern int real_twop			PARAMS ((tree));
@@ -2738,7 +2739,7 @@ extern void mark_varargs		PARAMS ((void));
 extern void init_dummy_function_start	PARAMS ((void));
 extern void expand_dummy_function_end	PARAMS ((void));
 extern void init_function_for_compilation	PARAMS ((void));
-extern void init_function_start		PARAMS ((tree, char *, int));
+extern void init_function_start		PARAMS ((tree, const char *, int));
 extern void assign_parms		PARAMS ((tree));
 extern void put_var_into_stack		PARAMS ((tree));
 extern void flush_addressof		PARAMS ((tree));
@@ -2859,7 +2860,7 @@ extern void emit_nop			PARAMS ((void));
 extern void expand_computed_goto	PARAMS ((tree));
 extern struct rtx_def *label_rtx	PARAMS ((tree));
 extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
-						char *, int));
+						 const char *, int));
 extern int any_pending_cleanups		PARAMS ((int));
 extern void init_stmt			PARAMS ((void));
 extern void init_stmt_for_function	PARAMS ((void));

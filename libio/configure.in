@@ -58,7 +58,6 @@ case "${target}" in
   *-linux-gnulibc1)
 		 frags=linuxlibc1.mt ;;
   *-linux-gnu*)  frags="linux.mt mtsafe.mt" ;;
-  *-sco3.2v[45]*)   frags=sco4.mt ;;
   *-isc*)        frags=isc.mt ;;
   *-netware*)    frags=netware.mt ;;
   *-dgux*)	 frags=dgux.mt ;;
@@ -82,6 +81,7 @@ if [ "${shared}" = "yes" ]; then
     i[3456]86-*-*)	frags="${frags} ../../config/mh-x86pic" ;;
     powerpc*-*-aix*)	;;
     powerpc*-*-*)	frags="${frags} ../../config/mh-ppcpic" ;;
+    sparc*-*-*)		frags="${frags} ../../config/mh-sparcpic" ;;
     *-*-*)		frags="${frags} ../../config/mh-${target_cpu}pic" ;;
   esac
 fi

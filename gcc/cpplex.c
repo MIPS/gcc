@@ -45,7 +45,6 @@ static int copy_comment		PARAMS ((cpp_reader *, int));
 static void skip_string		PARAMS ((cpp_reader *, int));
 static void parse_string	PARAMS ((cpp_reader *, int));
 static U_CHAR *find_position	PARAMS ((U_CHAR *, U_CHAR *, unsigned long *));
-static int null_cleanup		PARAMS ((cpp_buffer *, cpp_reader *));
 static void null_warning        PARAMS ((cpp_reader *, unsigned int));
 
 static void safe_fwrite		PARAMS ((cpp_reader *, const U_CHAR *,
@@ -56,12 +55,102 @@ static void bump_column		PARAMS ((cpp_printer *, unsigned int,
 					 unsigned int));
 static void expand_name_space   PARAMS ((cpp_toklist *, unsigned int));
 static void expand_token_space	PARAMS ((cpp_toklist *));
-static void init_token_list	PARAMS ((cpp_reader *, cpp_toklist *, int));
 static void pedantic_whitespace	PARAMS ((cpp_reader *, U_CHAR *,
 					 unsigned int));
 
 #define auto_expand_name_space(list) \
-    expand_name_space ((list), (list)->name_cap / 2)
+    expand_name_space ((list), 1 + (list)->name_cap / 2)
+
+#ifdef NEW_LEXER
+
+static void expand_comment_space PARAMS ((cpp_toklist *));
+void init_trigraph_map PARAMS ((void));
+static unsigned char* trigraph_replace PARAMS ((cpp_reader *, unsigned char *,
+						unsigned char *));
+static const unsigned char *backslash_start PARAMS ((cpp_reader *,
+						     const unsigned char *));
+static int skip_block_comment2 PARAMS ((cpp_reader *));
+static int skip_line_comment2 PARAMS ((cpp_reader *));
+static void skip_whitespace PARAMS ((cpp_reader *, int));
+static void parse_name PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
+static void parse_number PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
+static void parse_string2 PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *,
+				  unsigned int));
+static int trigraph_ok PARAMS ((cpp_reader *, const unsigned char *));
+static void save_comment PARAMS ((cpp_toklist *, const unsigned char *,
+				  unsigned int, unsigned int, unsigned int));
+void _cpp_lex_line PARAMS ((cpp_reader *, cpp_toklist *));
+
+static void _cpp_output_list PARAMS ((cpp_reader *, cpp_toklist *));
+
+static unsigned char * spell_token PARAMS ((cpp_reader *, cpp_token *,
+					    unsigned char *, int));
+
+typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
+					  cpp_token *));
+
+/* Macros on a cpp_name.  */
+#define INIT_NAME(list, name) \
+  do {(name).len = 0; \
+      (name).text = (list)->namebuf + (list)->name_used;} while (0)
+
+#define IS_DIRECTIVE(list) (TOK_TYPE (list, 0) == CPP_HASH)
+
+/* Maybe put these in the ISTABLE eventually.  */
+#define IS_HSPACE(c) ((c) == ' ' || (c) == '\t')
+#define IS_NEWLINE(c) ((c) == '\n' || (c) == '\r')
+
+/* Handle LF, CR, CR-LF and LF-CR style newlines.  Assumes next
+   character, if any, is in buffer.  */
+#define handle_newline(cur, limit, c) \
+  do {\
+  if ((cur) < (limit) && *(cur) == '\r' + '\n' - c) \
+    (cur)++; \
+  CPP_BUMP_LINE_CUR (pfile, (cur)); \
+  pfile->col_adjust = 0; \
+  } while (0)
+
+#define IMMED_TOKEN() (!(cur_token->flags & PREV_WHITESPACE))
+#define PREV_TOKEN_TYPE (cur_token[-1].type)
+
+#define PUSH_TOKEN(ttype) cur_token++->type = ttype
+#define REVISE_TOKEN(ttype) cur_token[-1].type = ttype
+#define BACKUP_TOKEN(ttype) (--cur_token)->type = ttype
+#define BACKUP_DIGRAPH(ttype) do { \
+  BACKUP_TOKEN(ttype); cur_token->flags |= DIGRAPH;} while (0)
+
+/* An upper bound on the number of bytes needed to spell a token,
+   including preceding whitespace.  */
+#define TOKEN_LEN(token) (5 + (token_spellings[token->type].type > \
+		               SPELL_NONE ? token->val.name.len: 0))
+
+#endif
+
+/* Order here matters.  Those beyond SPELL_NONE store their spelling
+   in the token list, and it's length in the token->val.name.len.  */
+#define SPELL_OPERATOR 0
+#define SPELL_CHAR     2	/* FIXME: revert order after transition. */
+#define SPELL_NONE     1
+#define SPELL_IDENT    3
+#define SPELL_STRING   4
+
+#define T(e, s) {SPELL_OPERATOR, (const U_CHAR *) s},
+#define I(e, s) {SPELL_IDENT, s},
+#define S(e, s) {SPELL_STRING, s},
+#define C(e, s) {SPELL_CHAR, s},
+#define N(e, s) {SPELL_NONE, s},
+
+static const struct token_spelling
+{
+  U_CHAR type;
+  const U_CHAR *spelling;
+} token_spellings [N_TTYPES + 1] = {TTYPE_TABLE {0, 0} };
+
+#undef T
+#undef I
+#undef S
+#undef C
+#undef N
 
 /* Re-allocates PFILE->token_buffer so it will hold at least N more chars.  */
 
@@ -75,14 +164,6 @@ _cpp_grow_token_buffer (pfile, n)
   pfile->token_buffer = (U_CHAR *)
     xrealloc(pfile->token_buffer, pfile->token_buffer_size);
   CPP_SET_WRITTEN (pfile, old_written);
-}
-
-static int
-null_cleanup (pbuf, pfile)
-     cpp_buffer *pbuf ATTRIBUTE_UNUSED;
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-{
-  return 0;
 }
 
 /* Allocate a new cpp_buffer for PFILE, and push it on the input buffer stack.
@@ -107,7 +188,6 @@ cpp_push_buffer (pfile, buffer, length)
   new = (cpp_buffer *) xcalloc (1, sizeof (cpp_buffer));
 
   new->if_stack = pfile->if_stack;
-  new->cleanup = null_cleanup;
   new->buf = new->cur = buffer;
   new->rlimit = buffer + length;
   new->prev = buf;
@@ -125,7 +205,32 @@ cpp_pop_buffer (pfile)
   cpp_buffer *buf = CPP_BUFFER (pfile);
   if (ACTIVE_MARK_P (pfile))
     cpp_ice (pfile, "mark active in cpp_pop_buffer");
-  (*buf->cleanup) (buf, pfile);
+
+  if (buf->ihash)
+    {
+      _cpp_unwind_if_stack (pfile, buf);
+      if (buf->buf)
+	free ((PTR) buf->buf);
+      if (pfile->system_include_depth)
+	pfile->system_include_depth--;
+      if (pfile->potential_control_macro)
+	{
+	  buf->ihash->control_macro = pfile->potential_control_macro;
+	  pfile->potential_control_macro = 0;
+	}
+      pfile->input_stack_listing_current = 0;
+    }
+  else if (buf->macro)
+    {
+      HASHNODE *m = buf->macro;
+  
+      m->disabled = 0;
+      if ((m->type == T_FMACRO && buf->mapped)
+	  || m->type == T_SPECLINE || m->type == T_FILE
+	  || m->type == T_BASE_FILE || m->type == T_INCLUDE_LEVEL
+	  || m->type == T_STDC)
+	free ((PTR) buf->buf);
+    }
   CPP_BUFFER (pfile) = CPP_PREV_BUFFER (buf);
   free (buf);
   pfile->buffer_stack_depth--;
@@ -292,23 +397,22 @@ cpp_output_list (pfile, print, list)
   
   for (i = 0; i < list->tokens_used; i++)
     {
-      if (list->tokens[i].type == CPP_VSPACE)
+      if (TOK_TYPE (list, i) == CPP_VSPACE)
 	{
 	  output_line_command (pfile, print, list->tokens[i].aux);
 	  continue;
 	}
 	  
-      if (curcol < list->tokens[i].col)
+      if (curcol < TOK_COL (list, i))
 	{
 	  /* Insert space to bring the column to what it should be.  */
-	  bump_column (print, curcol - 1, list->tokens[i].col);
-	  curcol = list->tokens[i].col;
+	  bump_column (print, curcol - 1, TOK_COL (list, i));
+	  curcol = TOK_COL (list, i);
 	}
       /* XXX We may have to insert space to prevent an accidental
 	 token paste.  */
-      safe_fwrite (pfile, list->namebuf + list->tokens[i].val.name.offset,
-		   list->tokens[i].val.name.len, print->outf);
-      curcol += list->tokens[i].val.name.len;
+      safe_fwrite (pfile, TOK_NAME (list, i), TOK_LEN (list, i), print->outf);
+      curcol += TOK_LEN (list, i);
     }
 }
 
@@ -321,7 +425,7 @@ _cpp_expand_to_buffer (pfile, buf, length)
      const U_CHAR *buf;
      int length;
 {
-  cpp_buffer *ip;
+  cpp_buffer *stop;
   enum cpp_ttype token;
   U_CHAR *buf1;
 
@@ -338,33 +442,27 @@ _cpp_expand_to_buffer (pfile, buf, length)
   memcpy (buf1, buf, length);
 
   /* Set up the input on the input stack.  */
-  ip = cpp_push_buffer (pfile, buf1, length);
-  if (ip == NULL)
+  stop = CPP_BUFFER (pfile);
+  if (cpp_push_buffer (pfile, buf1, length) == NULL)
     return;
-  ip->has_escapes = 1;
+  CPP_BUFFER (pfile)->has_escapes = 1;
 
   /* Scan the input, create the output.  */
   for (;;)
     {
       token = cpp_get_token (pfile);
-      if (token == CPP_EOF)
+      if (token == CPP_EOF && CPP_BUFFER (pfile) == stop)
 	break;
-      if (token == CPP_POP && CPP_BUFFER (pfile) == ip)
-	{
-	  cpp_pop_buffer (pfile);
-	  break;
-	}
     }
 }
 
-/* Scan until CPP_BUFFER (PFILE) is exhausted, discarding output.
-   Then pop the buffer.  */
+/* Scan until CPP_BUFFER (PFILE) is exhausted, discarding output.  */
 
 void
 cpp_scan_buffer_nooutput (pfile)
      cpp_reader *pfile;
 {
-  cpp_buffer *buffer = CPP_BUFFER (pfile);
+  cpp_buffer *stop = CPP_PREV_BUFFER (CPP_BUFFER (pfile));
   enum cpp_ttype token;
   unsigned int old_written = CPP_WRITTEN (pfile);
   /* In no-output mode, we can ignore everything but directives.  */
@@ -373,45 +471,33 @@ cpp_scan_buffer_nooutput (pfile)
       if (! pfile->only_seen_white)
 	_cpp_skip_rest_of_line (pfile);
       token = cpp_get_token (pfile);
-      if (token == CPP_EOF)
+      if (token == CPP_EOF && CPP_BUFFER (pfile) == stop)
 	break;
-      if (token == CPP_POP && CPP_BUFFER (pfile) == buffer)
-	{
-	  cpp_pop_buffer (pfile);
-	  break;
-	}
     }
   CPP_SET_WRITTEN (pfile, old_written);
 }
 
-/* Scan until CPP_BUFFER (pfile) is exhausted, writing output to PRINT.
-   Then pop the buffer.  */
+/* Scan until CPP_BUFFER (pfile) is exhausted, writing output to PRINT.  */
 
 void
 cpp_scan_buffer (pfile, print)
      cpp_reader *pfile;
      cpp_printer *print;
 {
-  cpp_buffer *buffer = CPP_BUFFER (pfile);
+  cpp_buffer *stop = CPP_PREV_BUFFER (CPP_BUFFER (pfile));
   enum cpp_ttype token;
 
   for (;;)
     {
       token = cpp_get_token (pfile);
-      if ((token == CPP_POP && !CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
-	  || token == CPP_EOF || token == CPP_VSPACE
+      if (token == CPP_VSPACE || token == CPP_EOF
 	  /* XXX Temporary kluge - force flush after #include only */
 	  || (token == CPP_DIRECTIVE
 	      && CPP_BUFFER (pfile)->nominal_fname != print->last_fname))
 	{
 	  cpp_output_tokens (pfile, print);
-	  if (token == CPP_EOF)
+	  if (token == CPP_EOF && CPP_BUFFER (pfile) == stop)
 	    return;
-	  if (token == CPP_POP && CPP_BUFFER (pfile) == buffer)
-	    {
-	      cpp_pop_buffer (pfile);
-	      return;
-	    }
 	}
     }
 }
@@ -438,8 +524,21 @@ expand_name_space (list, len)
      cpp_toklist *list;
      unsigned int len;
 {
+  const U_CHAR *old_namebuf;
+
+  old_namebuf = list->namebuf;
   list->name_cap += len;
   list->namebuf = (unsigned char *) xrealloc (list->namebuf, list->name_cap);
+
+  /* Fix up token text pointers.  */
+  if (list->namebuf != old_namebuf)
+    {
+      unsigned int i;
+
+      for (i = 0; i < list->tokens_used; i++)
+	if (token_spellings[list->tokens[i].type].type > SPELL_NONE)
+	  list->tokens[i].val.name.text += (list->namebuf - old_namebuf);
+    }
 }
 
 /* Expand the number of tokens in a list.  */
@@ -448,63 +547,212 @@ expand_token_space (list)
      cpp_toklist *list;
 {
   list->tokens_cap *= 2;
+  if (list->flags & LIST_OFFSET)
+    list->tokens--;
   list->tokens = (cpp_token *)
-    xrealloc (list->tokens - 1, (list->tokens_cap + 1) * sizeof (cpp_token));
-  list->tokens++;		/* Skip the dummy.  */
+    xrealloc (list->tokens, (list->tokens_cap + 1) * sizeof (cpp_token));
+  if (list->flags & LIST_OFFSET)
+    list->tokens++;		/* Skip the dummy.  */
 }
 
 /* Initialize a token list.  We allocate an extra token in front of
    the token list, as this allows us to always peek at the previous
    token without worrying about underflowing the list.  */
-static void
-init_token_list (pfile, list, recycle)
-     cpp_reader *pfile;
+void
+_cpp_init_toklist (list)
      cpp_toklist *list;
-     int recycle;
 {
-  /* Recycling a used list saves 3 free-malloc pairs.  */
-  if (!recycle)
-    {
-      /* Initialize token space.  Put a dummy token before the start
-         that will fail matches.  */
-      list->tokens_cap = 256;	/* 4K's worth.  */
-      list->tokens = (cpp_token *)
-	xmalloc ((list->tokens_cap + 1) * sizeof (cpp_token));
-      list->tokens[0].type = CPP_EOF;
-      list->tokens++;
+  /* Initialize token space.  Put a dummy token before the start
+     that will fail matches.  */
+  list->tokens_cap = 256;	/* 4K's worth.  */
+  list->tokens = (cpp_token *)
+    xmalloc ((list->tokens_cap + 1) * sizeof (cpp_token));
+  list->tokens[0].type = CPP_EOF;
+  list->tokens++;
 
-      /* Initialize name space.  */
-      list->name_cap = 1024;
-      list->namebuf = (unsigned char *) xmalloc (list->name_cap);
+  /* Initialize name space.  */
+  list->name_cap = 1024;
+  list->namebuf = (unsigned char *) xmalloc (list->name_cap);
 
-      /* Only create a comment space on demand.  */
-      list->comments_cap = 0;
-      list->comments = 0;
-    }
+  /* Only create a comment space on demand.  */
+  list->comments_cap = 0;
+  list->comments = 0;
 
+  list->flags = LIST_OFFSET;
+  _cpp_clear_toklist (list);
+}
+
+/* Clear a token list.  */
+void
+_cpp_clear_toklist (list)
+     cpp_toklist *list;
+{
   list->tokens_used = 0;
   list->name_used = 0;
   list->comments_used = 0;
-  if (pfile->buffer)
-    list->line = pfile->buffer->lineno;
-  list->dir_handler = 0;
-  list->dir_flags = 0;
+  list->dirno = -1;
+  list->flags &= LIST_OFFSET;  /* clear all but that one */
 }
 
-/* Scan an entire line and create a token list for it.  Does not
-   macro-expand or execute directives.  */
-
+/* Free a token list.  Does not free the list itself, which may be
+   embedded in a larger structure.  */
 void
-_cpp_scan_line (pfile, list)
+_cpp_free_toklist (list)
+     cpp_toklist *list;
+{
+  if (list->comments)
+    free (list->comments);
+  if (list->flags & LIST_OFFSET)
+    free (list->tokens - 1);	/* Backup over dummy token.  */
+  else
+    free (list->tokens);
+  free (list->namebuf);
+}
+
+/* Slice a token list: copy the sublist [START, FINISH) into COPY.
+   COPY is assumed not to be initialized.  The comment space is not
+   copied.  */
+void
+_cpp_slice_toklist (copy, start, finish)
+     cpp_toklist *copy;
+     const cpp_token *start, *finish;
+{
+  unsigned int i, n;
+  size_t bytes;
+
+  n = finish - start;
+  copy->tokens_cap = n;
+  copy->tokens = (cpp_token *) xmalloc (n * sizeof (cpp_token));
+  memcpy (copy->tokens, start, n * sizeof (cpp_token));
+
+  bytes = 0;
+  for (i = 0; i < n; i++)
+    if (token_spellings[start[i].type].type > SPELL_NONE)
+      bytes += start[i].val.name.len;
+
+  copy->namebuf = xmalloc (bytes);
+  bytes = 0;
+  for (i = 0; i < n; i++)
+    if (token_spellings[start[i].type].type > SPELL_NONE)
+      {
+	memcpy (copy->namebuf + bytes,
+		start[i].val.name.text, start[i].val.name.len);
+	copy->tokens[i].val.name.text = copy->namebuf + bytes;
+	bytes += start[i].val.name.len;
+      }
+
+  copy->tokens_cap = n;
+  copy->tokens_used = n;
+  copy->name_used = bytes;
+  copy->name_cap = bytes;
+  copy->comments = 0;
+  copy->comments_cap = 0;
+  copy->comments_used = 0;
+  
+  copy->flags = 0;
+  copy->dirno = -1;
+}
+
+/* Shrink a token list down to the minimum size.  */
+void
+_cpp_squeeze_toklist (list)
+     cpp_toklist *list;
+{
+  long delta;
+  const U_CHAR *old_namebuf;
+
+  if (list->flags & LIST_OFFSET)
+    {
+      list->tokens--;
+      memmove (list->tokens, list->tokens + 1,
+	       list->tokens_used * sizeof (cpp_token));
+      list->tokens = xrealloc (list->tokens,
+			       list->tokens_used * sizeof (cpp_token));
+      list->flags &= ~LIST_OFFSET;
+    }
+  else
+    list->tokens = xrealloc (list->tokens,
+			     list->tokens_used * sizeof (cpp_token));
+  list->tokens_cap = list->tokens_used;
+
+  old_namebuf = list->namebuf;
+  list->namebuf = xrealloc (list->namebuf, list->name_used);
+  list->name_cap = list->name_used;
+
+  /* Fix up token text pointers.  */
+  delta = list->namebuf - old_namebuf;
+  if (delta)
+    {
+      unsigned int i;
+
+      for (i = 0; i < list->tokens_used; i++)
+	if (token_spellings[list->tokens[i].type].type > SPELL_NONE)
+	  list->tokens[i].val.name.text += delta;
+    }
+  
+  if (list->comments_cap)
+    {
+      list->comments = xrealloc (list->comments,
+				 list->comments_used * sizeof (cpp_token));
+      list->comments_cap = list->comments_used;
+    }
+}
+
+/* Compare two tokens.  */
+int
+_cpp_equiv_tokens (a, b)
+     const cpp_token *a, *b;
+{
+  if (a->type != b->type
+      || a->flags != b->flags
+      || a->aux != b->aux)
+    return 0;
+
+  if (token_spellings[a->type].type > SPELL_NONE)
+    {
+      if (a->val.name.len != b->val.name.len
+	  || ustrncmp(a->val.name.text,
+		      b->val.name.text,
+		      a->val.name.len))
+	return 0;
+    }
+  return 1;
+}
+
+/* Compare two token lists.  */
+int
+_cpp_equiv_toklists (a, b)
+     const cpp_toklist *a, *b;
+{
+  unsigned int i;
+
+  if (a->tokens_used != b->tokens_used)
+    return 0;
+
+  for (i = 0; i < a->tokens_used; i++)
+    if (! _cpp_equiv_tokens (&a->tokens[i], &b->tokens[i]))
+      return 0;
+  return 1;
+}
+
+/* Scan until we encounter a token of type STOP or a newline, and
+   create a token list for it.  Does not macro-expand or execute
+   directives.  The final token is not included in the list or
+   consumed from the input.  Returns the type of the token stopped at. */
+
+enum cpp_ttype
+_cpp_scan_until (pfile, list, stop)
      cpp_reader *pfile;
      cpp_toklist *list;
+     enum cpp_ttype stop;
 {
   int i, col;
   long written, len;
   enum cpp_ttype type;
   int space_before;
 
-  init_token_list (pfile, list, 1);
+  _cpp_clear_toklist (list);
+  list->line = CPP_BUF_LINE (CPP_BUFFER (pfile));
 
   written = CPP_WRITTEN (pfile);
   i = 0;
@@ -536,27 +784,34 @@ _cpp_scan_line (pfile, list)
       if (type == CPP_MACRO)
 	type = CPP_NAME;
 
-      list->tokens_used++;
-      list->tokens[i].type = type;
-      list->tokens[i].col = col;
-      list->tokens[i].flags = space_before ? PREV_WHITESPACE : 0;
-      
-      if (type == CPP_VSPACE)
+      if (type == CPP_VSPACE || type == stop)
 	break;
 
-      list->tokens[i].val.name.len = len;
-      list->tokens[i].val.name.offset = list->name_used;
-      memcpy (list->namebuf + list->name_used, CPP_PWRITTEN (pfile), len);
-      list->name_used += len;
+      list->tokens_used++;
+      TOK_TYPE  (list, i) = type;
+      TOK_COL   (list, i) = col;
+      TOK_FLAGS (list, i) = space_before ? PREV_WHITESPACE : 0;
+      
+      TOK_LEN (list, i) = len;
+      if (token_spellings[type].type > SPELL_NONE)
+	{
+	  memcpy (list->namebuf + list->name_used, CPP_PWRITTEN (pfile), len);
+	  TOK_NAME (list, i) = list->namebuf + list->name_used;
+	  list->name_used += len;
+	}
+      else
+	TOK_NAME (list, i) = token_spellings[type].spelling;
       i++;
       space_before = 0;
     }
-  list->tokens[i].aux =  CPP_BUFFER (pfile)->lineno + 1;
 
-  /* XXX Temporary kluge: put back the newline.  */
+  /* XXX Temporary kluge: put back the newline (or whatever).  */
   FORWARD(-1);
-}
 
+  /* Don't consider the first token to have white before.  */
+  TOK_FLAGS (list, 0) &= ~PREV_WHITESPACE;
+  return type;
+}
 
 /* Skip a C-style block comment.  We know it's a comment, and point is
    at the second character of the starter.  */
@@ -955,85 +1210,6 @@ parse_string (pfile, c)
       CPP_PUTC_Q (pfile, *start);
 }
 
-/* Read an assertion into the token buffer, converting to
-   canonical form: `#predicate(a n swe r)'  The next non-whitespace
-   character to read should be the first letter of the predicate.
-   Returns 0 for syntax error, 1 for bare predicate, 2 for predicate
-   with answer (see callers for why). In case of 0, an error has been
-   printed. */
-int
-_cpp_parse_assertion (pfile)
-     cpp_reader *pfile;
-{
-  int c, dropwhite;
-  _cpp_skip_hspace (pfile);
-  c = PEEKC();
-  if (c == '\n')
-    {
-      cpp_error (pfile, "assertion without predicate");
-      return 0;
-    }
-  else if (! is_idstart(c))
-    {
-      cpp_error (pfile, "assertion predicate is not an identifier");
-      return 0;
-    }
-  CPP_PUTC(pfile, '#');
-  FORWARD(1);
-  _cpp_parse_name (pfile, c);
-
-  c = PEEKC();
-  if (c != '(')
-    {
-      if (is_hspace(c) || c == '\r')
-	_cpp_skip_hspace (pfile);
-      c = PEEKC();
-    }
-  if (c != '(')
-    return 1;
-
-  CPP_PUTC(pfile, '(');
-  FORWARD(1);
-  dropwhite = 1;
-  while ((c = GETC()) != ')')
-    {
-      if (is_space(c))
-	{
-	  if (! dropwhite)
-	    {
-	      CPP_PUTC(pfile, ' ');
-	      dropwhite = 1;
-	    }
-	}
-      else if (c == '\n' || c == EOF)
-	{
-	  if (c == '\n') FORWARD(-1);
-	  cpp_error (pfile, "un-terminated assertion answer");
-	  return 0;
-	}
-      else if (c == '\r')
-	/* \r cannot be a macro escape here. */
-	CPP_BUMP_LINE (pfile);
-      else
-	{
-	  CPP_PUTC (pfile, c);
-	  dropwhite = 0;
-	}
-    }
-
-  if (pfile->limit[-1] == ' ')
-    pfile->limit[-1] = ')';
-  else if (pfile->limit[-1] == '(')
-    {
-      cpp_error (pfile, "empty token sequence in assertion");
-      return 0;
-    }
-  else
-    CPP_PUTC (pfile, ')');
-
-  return 2;
-}
-
 /* Get the next token, and add it to the text in pfile->token_buffer.
    Return the kind of token we got.  */
 
@@ -1071,11 +1247,7 @@ _cpp_lex_token (pfile)
       if (!CPP_OPTION (pfile, discard_comments))
 	return CPP_COMMENT;
       else if (CPP_TRADITIONAL (pfile))
-	{
-	  if (pfile->parsing_define_directive)
-	    return CPP_COMMENT;
-	  goto get_next;
-	}
+	goto get_next;
       else
 	{
 	  CPP_PUTC (pfile, c);
@@ -1086,42 +1258,24 @@ _cpp_lex_token (pfile)
       CPP_PUTC (pfile, c);
 
     hash:
-      if (pfile->parsing_if_directive)
+      c2 = PEEKC ();
+      if (c2 == '#')
 	{
-	  CPP_ADJUST_WRITTEN (pfile, -1);
-	  if (_cpp_parse_assertion (pfile))
-	    return CPP_ASSERTION;
-	  return CPP_OTHER;
-	}
-
-      if (pfile->parsing_define_directive)
-	{
-	  c2 = PEEKC ();
-	  if (c2 == '#')
-	    {
-	      FORWARD (1);
-	      CPP_PUTC (pfile, c2);
-	    }
-	  else if (c2 == '%' && PEEKN (1) == ':')
-	    {
-	      /* Digraph: "%:" == "#".  */
-	      FORWARD (1);
-	      CPP_RESERVE (pfile, 2);
-	      CPP_PUTC_Q (pfile, c2);
-	      CPP_PUTC_Q (pfile, GETC ());
-	    }
-	  else
-	    return CPP_HASH;
-
+	  FORWARD (1);
+	  CPP_PUTC (pfile, c2);
 	  return CPP_PASTE;
 	}
-
-      if (!pfile->only_seen_white)
-	return CPP_OTHER;
-
-      /* Remove the "#" or "%:" from the token buffer.  */
-      CPP_ADJUST_WRITTEN (pfile, (c == '#' ? -1 : -2));
-      return CPP_DIRECTIVE;
+      else if (c2 == '%' && PEEKN (1) == ':')
+	{
+	  /* Digraph: "%:" == "#".  */
+	  FORWARD (1);
+	  CPP_RESERVE (pfile, 2);
+	  CPP_PUTC_Q (pfile, c2);
+	  CPP_PUTC_Q (pfile, GETC ());
+	  return CPP_PASTE;
+	}
+      else
+	return CPP_HASH;
 
     case '\"':
     case '\'':
@@ -1592,13 +1746,22 @@ cpp_get_token (pfile)
     case CPP_COMMENT:
       return token;
 
-    case CPP_DIRECTIVE:
+    case CPP_HASH:
       pfile->potential_control_macro = 0;
+      if (!pfile->only_seen_white)
+	return CPP_HASH;
+      /* XXX shouldn't have to do this - remove the hash or %: from
+	 the token buffer.  */
+      if (CPP_PWRITTEN (pfile)[-1] == '#')
+	CPP_ADJUST_WRITTEN (pfile, -1);
+      else
+	CPP_ADJUST_WRITTEN (pfile, -2);
+
       if (_cpp_handle_directive (pfile))
-	return CPP_DIRECTIVE;
+	return CPP_DIRECTIVE; 
       pfile->only_seen_white = 0;
       CPP_PUTC (pfile, '#');
-      return CPP_OTHER;
+      return CPP_HASH;
 
     case CPP_MACRO:
       pfile->potential_control_macro = 0;
@@ -1611,21 +1774,13 @@ cpp_get_token (pfile)
     case CPP_EOF:
       if (CPP_BUFFER (pfile) == NULL)
 	return CPP_EOF;
-      if (CPP_BUFFER (pfile)->manual_pop)
-	/* If we've been reading from redirected input, the
-	   frontend will pop the buffer.  */
-	return CPP_EOF;
-
-      if (CPP_BUFFER (pfile)->seen_eof)
+      if (CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
 	{
 	  cpp_pop_buffer (pfile);
 	  goto get_next;
 	}
-      else
-	{
-	  _cpp_handle_eof (pfile);
-	  return CPP_POP;
-	}
+      cpp_pop_buffer (pfile);
+      return CPP_EOF;
     }
 }
 
@@ -1646,16 +1801,17 @@ cpp_get_non_space_token (pfile)
 }
 
 /* Like cpp_get_token, except that it does not execute directives,
-   does not consume vertical space, discards horizontal space, and
-   automatically pops off macro buffers.  */
+   does not consume vertical space, and discards horizontal space.  */
 enum cpp_ttype
 _cpp_get_directive_token (pfile)
      cpp_reader *pfile;
 {
   long old_written;
   enum cpp_ttype token;
+  int at_bol;
 
  get_next:
+  at_bol = (CPP_BUFFER (pfile)->cur == CPP_BUFFER (pfile)->line_base);
   old_written = CPP_WRITTEN (pfile);
   token = _cpp_lex_token (pfile);
   switch (token)
@@ -1670,17 +1826,14 @@ _cpp_get_directive_token (pfile)
       return CPP_VSPACE;
 
     case CPP_HSPACE:
-      if (CPP_PEDANTIC (pfile))
+      /* The purpose of this rather strange check is to prevent pedantic
+	 warnings for ^L in an #ifdefed out block.  */
+      if (CPP_PEDANTIC (pfile) && ! at_bol)
 	pedantic_whitespace (pfile, pfile->token_buffer + old_written,
 			     CPP_WRITTEN (pfile) - old_written);
       CPP_SET_WRITTEN (pfile, old_written);
       goto get_next;
       return CPP_HSPACE;
-
-    case CPP_DIRECTIVE:
-      /* Don't execute the directive, but don't smash it to OTHER either.  */
-      CPP_PUTC (pfile, '#');
-      return CPP_DIRECTIVE;
 
     case CPP_MACRO:
       if (! pfile->no_macro_expand
@@ -1733,13 +1886,13 @@ find_position (start, limit, linep)
 #define UCHAR_MAX 255	/* assume 8-bit bytes */
 #endif
 
-#if (GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L)
+#if (GCC_VERSION >= 2007)
 #define init_chartab()  /* nothing */
-#define CHARTAB static const unsigned char chartab[UCHAR_MAX + 1] = {
+#define CHARTAB __extension__ static const U_CHAR chartab[UCHAR_MAX + 1] = {
 #define END };
 #define s(p, v) [p] = v,
 #else
-#define CHARTAB static unsigned char chartab[UCHAR_MAX + 1] = { 0 }; \
+#define CHARTAB static U_CHAR chartab[UCHAR_MAX + 1] = { 0 }; \
  static void init_chartab PARAMS ((void)) { \
  unsigned char *x = chartab;
 #define END }
@@ -2034,7 +2187,7 @@ _cpp_init_input_buffer (pfile)
   U_CHAR *tmp;
 
   init_chartab ();
-  init_token_list (pfile, &pfile->directbuf, 0);
+  _cpp_init_toklist (&pfile->directbuf);
 
   /* Determine the appropriate size for the input buffer.  Normal C
      source files are smaller than eight K.  */
@@ -2079,7 +2232,7 @@ cpp_idcmp (token, len, string)
     return 1;
 }
 
-#if 0
+#ifdef NEW_LEXER
 
 /* Lexing algorithm.
 
@@ -2172,85 +2325,9 @@ cpp_idcmp (token, len, string)
 
 */
 
-static void expand_comment_space PARAMS ((cpp_toklist *));
-void init_trigraph_map PARAMS ((void));
-static unsigned char* trigraph_replace PARAMS ((cpp_reader *, unsigned char *,
-						unsigned char *));
-static const unsigned char *backslash_start PARAMS ((cpp_reader *,
-						     const unsigned char *));
-static int skip_block_comment PARAMS ((cpp_reader *));
-static int skip_line_comment PARAMS ((cpp_reader *));
-static void skip_whitespace PARAMS ((cpp_reader *, int));
-static void parse_name PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
-static void parse_number PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
-static void parse_string PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *,
-				  unsigned int));
-static int trigraph_ok PARAMS ((cpp_reader *, const unsigned char *));
-static void copy_comment PARAMS ((cpp_toklist *, const unsigned char *,
-				  unsigned int, unsigned int, unsigned int));
-void _cpp_lex_line PARAMS ((cpp_reader *, cpp_toklist *));
-
-static void _cpp_output_list PARAMS ((cpp_reader *, cpp_toklist *));
-
-unsigned int spell_string PARAMS ((unsigned char *, cpp_toklist *,
-				   cpp_token *token));
-unsigned int spell_comment PARAMS ((unsigned char *, cpp_toklist *,
-				    cpp_token *token));
-unsigned int spell_name PARAMS ((unsigned char *, cpp_toklist *,
-				 cpp_token *token));
-
-typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
-					  cpp_token *));
-
-/* Macros on a cpp_name.  */
-#define INIT_NAME(list, name) \
-  do {(name).len = 0; (name).offset = (list)->name_used;} while (0)
-
-#define IS_DIRECTIVE(list) (list->tokens[0].type == CPP_HASH)
-#define COLUMN(cur) ((cur) - buffer->line_base)
-
-/* Maybe put these in the ISTABLE eventually.  */
-#define IS_HSPACE(c) ((c) == ' ' || (c) == '\t')
-#define IS_NEWLINE(c) ((c) == '\n' || (c) == '\r')
-
-/* Handle LF, CR, CR-LF and LF-CR style newlines.  Assumes next
-   character, if any, is in buffer.  */
-#define handle_newline(cur, limit, c) \
-  do {\
-  if ((cur) < (limit) && *(cur) == '\r' + '\n' - c) \
-    (cur)++; \
-  CPP_BUMP_LINE_CUR (pfile, (cur)); \
-  } while (0)
-
-#define IMMED_TOKEN() (!(cur_token->flags & PREV_WHITESPACE))
-#define PREV_TOKEN_TYPE (cur_token[-1].type)
-
-#define SPELL_TEXT     0
-#define SPELL_HANDLER  1
-#define SPELL_CHAR     2
-#define SPELL_NONE     3
-#define SPELL_EOL      4
-
-#define T(e, s) {SPELL_TEXT, s},
-#define H(e, s) {SPELL_HANDLER, s},
-#define C(e, s) {SPELL_CHAR, s},
-#define N(e, s) {SPELL_NONE, s},
-#define E(e, s) {SPELL_EOL, s},
-
-static const struct token_spelling
-{
-  unsigned char type;
-  PTR  speller;
-} token_spellings [N_TTYPES + 1] = {TTYPE_TABLE {0, 0} };
-
-#undef T
-#undef H
-#undef C
-#undef N
-#undef E
-
-static const unsigned char *digraph_spellings [] = {"%:", "%:%:", "<:",
-						    ":>", "<%", "%>"};
+static const unsigned char *digraph_spellings [] = {U"%:", U"%:%:", U"<:",
+						    U":>", U"<%", U"%>"};
+static unsigned char trigraph_map[256];
 
 static void
 expand_comment_space (list)
@@ -2269,19 +2346,6 @@ expand_comment_space (list)
 	xrealloc (list->comments, list->comments_cap);
     }
 }
-
-void
-cpp_free_token_list (list)
-     cpp_toklist *list;
-{
-  if (list->comments)
-    free (list->comments);
-  free (list->tokens - 1);	/* Backup over dummy token.  */
-  free (list->namebuf);
-  free (list);
-}
-
-static unsigned char trigraph_map[256];
 
 void
 init_trigraph_map ()
@@ -2399,7 +2463,7 @@ backslash_start (pfile, cur)
    previous asterisk may be separated by one or more escaped newlines.
    Returns non-zero if comment terminated by EOF, zero otherwise.  */
 static int
-skip_block_comment (pfile)
+skip_block_comment2 (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = pfile->buffer;
@@ -2457,7 +2521,7 @@ skip_block_comment (pfile)
 /* Skip a C++ or Chill line comment.  Handles escaped newlines.
    Returns non-zero if a multiline comment.  */
 static int
-skip_line_comment (pfile)
+skip_line_comment2 (pfile)
      cpp_reader *pfile;
 {
   cpp_buffer *buffer = pfile->buffer;
@@ -2484,7 +2548,9 @@ skip_line_comment (pfile)
   return multiline;
 }
 
-/* Skips whitespace, stopping at next non-whitespace character.  */
+/* Skips whitespace, stopping at next non-whitespace character.
+   Adjusts pfile->col_adjust to account for tabs.  This enables tokens
+   to be assigned the correct column.  */
 static void
 skip_whitespace (pfile, in_directive)
      cpp_reader *pfile;
@@ -2498,6 +2564,12 @@ skip_whitespace (pfile, in_directive)
     {
       unsigned char c = *cur++;
 
+      if (c == '\t')
+	{
+	  unsigned int col = CPP_BUF_COLUMN (buffer, cur - 1);
+	  pfile->col_adjust += (CPP_OPTION (pfile, tabstop) - 1
+				- col % CPP_OPTION(pfile, tabstop));
+	}
       if (IS_HSPACE(c))		/* FIXME: Fix ISTABLE.  */
 	continue;
       if (!is_space(c) || IS_NEWLINE (c)) /* Main loop handles newlines.  */
@@ -2559,7 +2631,7 @@ parse_name (pfile, list, name)
 
  out:
   buffer->cur = cur;
-  name->len = namebuf - (list->namebuf + name->offset);
+  name->len = namebuf - name->text;
   list->name_used = namebuf - list->namebuf;
 }
 
@@ -2609,7 +2681,7 @@ parse_number (pfile, list, name)
   
  out:
   buffer->cur = cur;
-  name->len = namebuf - (list->namebuf + name->offset);
+  name->len = namebuf - name->text;
   list->name_used = namebuf - list->namebuf;
 }
 
@@ -2619,10 +2691,11 @@ parse_number (pfile, list, name)
    escaped newlines.
 
    Can be used for character constants (terminator = '\''), string
-   constants ('"'), angled headers ('>') and assertions (')').  */
+   constants ('"') and angled headers ('>').  Multi-line strings are
+   allowed, except for within directives.  */
 
 static void
-parse_string (pfile, list, name, terminator)
+parse_string2 (pfile, list, name, terminator)
      cpp_reader *pfile;
      cpp_toklist *list;
      cpp_name *name;
@@ -2647,8 +2720,6 @@ parse_string (pfile, list, name, terminator)
 	null_count++;
       else if (c == terminator || IS_NEWLINE (c))
 	{
-	  unsigned char* name_start = list->namebuf + name->offset;
-
 	  /* Needed for trigraph_replace and multiline string warning.  */
 	  buffer->cur = cur;
 
@@ -2656,9 +2727,9 @@ parse_string (pfile, list, name, terminator)
 	  if (CPP_OPTION (pfile, trigraphs)
 	      || CPP_OPTION (pfile, warn_trigraphs))
 	    {
-	      namebuf = trigraph_replace (pfile, name_start + trigraphed_len,
+	      namebuf = trigraph_replace (pfile, name->text + trigraphed_len,
 					    namebuf);
-	      trigraphed_len = namebuf - 2 - (name_start + trigraphed_len);
+	      trigraphed_len = namebuf - 2 - (name->text + trigraphed_len);
 	      if (trigraphed_len < 0)
 		trigraphed_len = 0;
 	    }
@@ -2710,7 +2781,7 @@ parse_string (pfile, list, name, terminator)
 	      /* An odd number of consecutive backslashes represents
 		 an escaped terminator.  */
 	      temp = namebuf - 1;
-	      while (temp >= name_start && *temp == '\\')
+	      while (temp >= name->text && *temp == '\\')
 		temp--;
 
 	      if ((namebuf - temp) & 1)
@@ -2747,7 +2818,7 @@ parse_string (pfile, list, name, terminator)
   
  out:
   buffer->cur = cur;
-  name->len = namebuf - (list->namebuf + name->offset);
+  name->len = namebuf - name->text;
   list->name_used = namebuf - list->namebuf;
 
   if (null_count > 0)
@@ -2755,11 +2826,13 @@ parse_string (pfile, list, name, terminator)
 			 : "null character preserved"));
 }
 
-/* The character C helps us distinguish comment types: '*' = C style,
-   '-' = Chill-style and '/' = C++ style.  For code simplicity, the
-   stored comment includes any C-style comment terminator.  */
+/* The character TYPE helps us distinguish comment types: '*' = C
+   style, '-' = Chill-style and '/' = C++ style.  For code simplicity,
+   the stored comment includes the comment start and any terminator.  */
+
+#define COMMENT_START_LEN 2
 static void
-copy_comment (list, from, len, tok_no, type)
+save_comment (list, from, len, tok_no, type)
      cpp_toklist *list;
      const unsigned char *from;
      unsigned int len;
@@ -2767,6 +2840,9 @@ copy_comment (list, from, len, tok_no, type)
      unsigned int type;
 {
   cpp_token *comment;
+  unsigned char *buffer;
+  
+  len += COMMENT_START_LEN;
 
   if (list->comments_used == list->comments_cap)
     expand_comment_space (list);
@@ -2774,13 +2850,26 @@ copy_comment (list, from, len, tok_no, type)
   if (list->name_used + len > list->name_cap)
     expand_name_space (list, len);
 
+  buffer = list->namebuf + list->name_used;
+
   comment = &list->comments[list->comments_used++];
-  comment->type = type;
+  comment->type = CPP_COMMENT;
   comment->aux = tok_no;
   comment->val.name.len = len;
-  comment->val.name.offset = list->name_used;
+  comment->val.name.text = buffer;
 
-  memcpy (list->namebuf + list->name_used, from, len);
+  if (type == '*')
+    {
+      *buffer++ = '/';
+      *buffer++ = '*';
+    }
+  else
+    {
+      *buffer++ = type;
+      *buffer++ = type;
+    }
+
+  memcpy (buffer, from, len - COMMENT_START_LEN);
   list->name_used += len;
 }
 
@@ -2798,12 +2887,6 @@ copy_comment (list, from, len, tok_no, type)
  *  even when enabled.
  */
 
-#define PUSH_TOKEN(ttype) cur_token++->type = ttype
-#define REVISE_TOKEN(ttype) cur_token[-1].type = ttype
-#define BACKUP_TOKEN(ttype) (--cur_token)->type = ttype
-#define BACKUP_DIGRAPH(ttype) do { \
-  BACKUP_TOKEN(ttype); cur_token->flags |= DIGRAPH;} while (0)
-
 void
 _cpp_lex_line (pfile, list)
      cpp_reader *pfile;
@@ -2814,6 +2897,7 @@ _cpp_lex_line (pfile, list)
   register const unsigned char *cur = buffer->cur;
   unsigned char flags = 0;
 
+  pfile->col_adjust = 0;
  expanded:
   token_limit = list->tokens + list->tokens_cap;
   cur_token = list->tokens + list->tokens_used;
@@ -2822,17 +2906,16 @@ _cpp_lex_line (pfile, list)
     {
       unsigned char c = *cur++;
 
-      /* Optimize whitespace skipping, in particular the case of a
-	 single whitespace character, as every other token is probably
-	 whitespace. (' ' '\t' '\v' '\f' '\0').  */
+      /* Optimize whitespace skipping, as most tokens are probably
+	 separated by whitespace. (' ' '\t' '\v' '\f' '\0').  */
+
       if (is_hspace ((unsigned int) c))
 	{
-	  if (c == '\0' || (cur < buffer->rlimit && is_hspace (*cur)))
-	    {
-	      buffer->cur = cur - (c == '\0');	/* Get the null warning.  */
-	      skip_whitespace (pfile, IS_DIRECTIVE (list));
-	      cur = buffer->cur;
-	    }
+	  /* Step back to get the null warning and tab correction.  */
+	  buffer->cur = cur - 1;
+	  skip_whitespace (pfile, IS_DIRECTIVE (list));
+	  cur = buffer->cur;
+
 	  flags = PREV_WHITESPACE;
 	  if (cur == buffer->rlimit)
 	    break;
@@ -2840,7 +2923,7 @@ _cpp_lex_line (pfile, list)
 	}
 
       /* Initialize current token.  Its type is set in the switch.  */
-      cur_token->col = COLUMN (cur);
+      cur_token->col = CPP_BUF_COLUMN (buffer, cur);
       cur_token->flags = flags;
       flags = 0;
 
@@ -2848,20 +2931,20 @@ _cpp_lex_line (pfile, list)
 	{
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-	  /* Prepend an immediately previous CPP_DOT token.  */
+	  cur--;		/* Backup character.  */
 	  if (PREV_TOKEN_TYPE == CPP_DOT && IMMED_TOKEN ())
 	    {
+	      /* Prepend an immediately previous CPP_DOT token.  */
 	      cur_token--;
 	      if (list->name_cap == list->name_used)
 		auto_expand_name_space (list);
 
 	      cur_token->val.name.len = 1;
-	      cur_token->val.name.offset = list->name_used;
+	      cur_token->val.name.text = list->namebuf + list->name_used;
 	      list->namebuf[list->name_used++] = '.';
 	    }
 	  else
 	    INIT_NAME (list, cur_token->val.name);
-	  cur--;		/* Backup character.  */
 
 	continue_number:
 	  buffer->cur = cur;
@@ -2883,8 +2966,8 @@ _cpp_lex_line (pfile, list)
 	case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
 	case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
 	case 'Y': case 'Z':
-	  INIT_NAME (list, cur_token->val.name);
 	  cur--;		     /* Backup character.  */
+	  INIT_NAME (list, cur_token->val.name);
 	  cur_token->type = CPP_NAME; /* Identifier, macro etc.  */
 
 	continue_name:
@@ -2905,7 +2988,7 @@ _cpp_lex_line (pfile, list)
 	  /* Do we have a wide string?  */
 	  if (cur_token[-1].type == CPP_NAME && IMMED_TOKEN ()
 	      && cur_token[-1].val.name.len == 1
-	      && TOK_NAME (list, cur_token - 1)[0] == 'L'
+	      && cur_token[-1].val.name.text[0] == 'L'
 	      && !CPP_TRADITIONAL (pfile))
 	    {
 	      /* No need for 'L' any more.  */
@@ -2914,10 +2997,10 @@ _cpp_lex_line (pfile, list)
 	    }
 
 	do_parse_string:
-	  /* Here c is one of ' " > or ).  */
+	  /* Here c is one of ' " or >.  */
 	  INIT_NAME (list, cur_token->val.name);
 	  buffer->cur = cur;
-	  parse_string (pfile, list, &cur_token->val.name, c);
+	  parse_string2 (pfile, list, &cur_token->val.name, c);
 	  cur = buffer->cur;
 	  cur_token++;
 	  break;
@@ -2951,14 +3034,13 @@ _cpp_lex_line (pfile, list)
 		      if (cur[-2] != c)
 			cpp_warning (pfile,
 				     "comment start split across lines");
-		      if (skip_line_comment (pfile))
+		      if (skip_line_comment2 (pfile))
 			cpp_error_with_line (pfile, list->line,
 					     cur_token[-1].col,
 					     "multi-line comment");
 		      if (!CPP_OPTION (pfile, discard_comments))
-			copy_comment (list, cur, buffer->cur - cur,
-				      cur_token - 1 - list->tokens, c == '/'
-				      ? CPP_CPP_COMMENT: CPP_CHILL_COMMENT);
+			save_comment (list, cur, buffer->cur - cur,
+				      cur_token - 1 - list->tokens, c);
 		      cur = buffer->cur;
 
 		      /* Back-up to first '-' or '/'.  */
@@ -2981,20 +3063,21 @@ _cpp_lex_line (pfile, list)
 		  if (cur[-2] != '/')
 		    cpp_warning (pfile,
 				 "comment start '/*' split across lines");
-		  if (skip_block_comment (pfile))
+		  if (skip_block_comment2 (pfile))
 		    cpp_error_with_line (pfile, list->line, cur_token[-1].col,
 					 "unterminated comment");
 		  else if (buffer->cur[-2] != '*')
 		    cpp_warning (pfile,
 				 "comment end '*/' split across lines");
 		  if (!CPP_OPTION (pfile, discard_comments))
-		    copy_comment (list, cur, buffer->cur - cur,
-				 cur_token - 1 - list->tokens, CPP_C_COMMENT);
+		    save_comment (list, cur, buffer->cur - cur,
+				 cur_token - 1 - list->tokens, c);
 		  cur = buffer->cur;
 
-		  cur_token -= 2;
+		  cur_token--;
 		  if (!CPP_OPTION (pfile, traditional))
 		    flags = PREV_WHITESPACE;
+		  break;
 		}
 	      else if (CPP_OPTION (pfile, cplusplus))
 		{
@@ -3011,30 +3094,31 @@ _cpp_lex_line (pfile, list)
 	case '\n':
 	case '\r':
 	  handle_newline (cur, buffer->rlimit, c);
-	  if (PREV_TOKEN_TYPE != CPP_BACKSLASH || !IMMED_TOKEN ())
+	  if (PREV_TOKEN_TYPE == CPP_BACKSLASH && IMMED_TOKEN ())
 	    {
-	      if (PREV_TOKEN_TYPE == CPP_BACKSLASH)
-		{
-		  buffer->cur = cur;
-		  cpp_warning (pfile,
-			       "backslash and newline separated by space");
-		}
-	      PUSH_TOKEN (CPP_VSPACE);
-	      goto out;
-	    }
-	  /* Remove the escaped newline.  Then continue to process
-	     any interrupted name or number.  */
-	  cur_token--;
-	  if (IMMED_TOKEN ())
-	    {
+	      /* Remove the escaped newline.  Then continue to process
+		 any interrupted name or number.  */
 	      cur_token--;
-	      if (cur_token->type == CPP_NAME)
-		goto continue_name;
-	      else if (cur_token->type == CPP_NUMBER)
-		goto continue_number;
-	      cur_token++;
+	      if (IMMED_TOKEN ())
+		{
+		  cur_token--;
+		  if (cur_token->type == CPP_NAME)
+		    goto continue_name;
+		  else if (cur_token->type == CPP_NUMBER)
+		    goto continue_number;
+		  cur_token++;
+		}
+	      /* Remember whitespace setting.  */
+	      flags = cur_token->flags;
+	      break;
 	    }
-	  break;
+	  if (PREV_TOKEN_TYPE == CPP_BACKSLASH)
+	    {
+	      buffer->cur = cur;
+	      cpp_warning (pfile, "backslash and newline separated by space");
+	    }
+	  PUSH_TOKEN (CPP_VSPACE);
+	  goto out;
 
 	case '-':
 	  if (IMMED_TOKEN () && PREV_TOKEN_TYPE == CPP_MINUS)
@@ -3133,7 +3217,7 @@ _cpp_lex_line (pfile, list)
 	      break;
 	    }
 	  /* Is this the beginning of a header name?  */
-	  if (list->dir_flags & SYNTAX_INCLUDE)
+	  if (list->flags & SYNTAX_INCLUDE)
 	    {
 	      c = '>';	/* Terminator.  */
 	      cur_token->type = CPP_HEADER_NAME;
@@ -3148,17 +3232,6 @@ _cpp_lex_line (pfile, list)
 	  if (IMMED_TOKEN () && PREV_TOKEN_TYPE == CPP_LESS)
 	    BACKUP_DIGRAPH (CPP_OPEN_BRACE);
 	  cur_token++;
-	  break;
-
-	case '(':
-	  /* Is this the beginning of an assertion string?  */
-	  if (list->dir_flags & SYNTAX_ASSERT)
-	    {
-	      c = ')';	/* Terminator.  */
-	      cur_token->type = CPP_ASSERTION;
-	      goto do_parse_string;
-	    }
-	  PUSH_TOKEN (CPP_OPEN_PAREN);
 	  break;
 
 	case '?':
@@ -3226,6 +3299,7 @@ _cpp_lex_line (pfile, list)
 	case '!': PUSH_TOKEN (CPP_NOT); break;
 	case ',': PUSH_TOKEN (CPP_COMMA); break;
 	case ';': PUSH_TOKEN (CPP_SEMICOLON); break;
+	case '(': PUSH_TOKEN (CPP_OPEN_PAREN); break;
 	case ')': PUSH_TOKEN (CPP_CLOSE_PAREN); break;
 
 	case '$':
@@ -3234,6 +3308,7 @@ _cpp_lex_line (pfile, list)
 	  /* Fall through */
 	default:
 	  cur_token->aux = c;
+	  cur_token->val.name.len = 0; /* FIXME: needed for transition only */
 	  PUSH_TOKEN (CPP_OTHER);
 	  break;
 	}
@@ -3271,198 +3346,145 @@ _cpp_lex_line (pfile, list)
      invalid directives in assembly source, we don't know where the
      comments are, and # may introduce assembler pseudo-ops.  */
 
-  if (IS_DIRECTIVE (list) && list->dir_handler == 0
+  if (IS_DIRECTIVE (list) && list->dirno == -1
       && list->tokens[1].type != CPP_VSPACE
       && !CPP_OPTION (pfile, lang_asm))
     cpp_error_with_line (pfile, list->line, list->tokens[1].col,
 			 "invalid preprocessing directive");
 }
 
-/* Token spelling functions.  Used for output of a preprocessed file,
-   stringizing and token pasting.  They all assume sufficient buffer
-   is allocated, and return exactly how much they used.  */
+/* Write the spelling of a token TOKEN to BUFFER.  The buffer must
+   already contain the enough space to hold the token's spelling.  If
+   WHITESPACE is true, and the token was preceded by whitespace,
+   output a single space before the token proper.  Returns a pointer
+   to the character after the last character written.  */
 
-/* Needs buffer of 3 + len.  */
-unsigned int
-spell_string (buffer, list, token)
-     unsigned char *buffer;
-     cpp_toklist *list;
+static unsigned char *
+spell_token (pfile, token, buffer, whitespace)
+     cpp_reader *pfile;		/* Would be nice to be rid of this...  */
      cpp_token *token;
+     unsigned char *buffer;
+     int whitespace;
 {
-  unsigned char c, *orig_buff = buffer;
-  size_t len;
+  /* Whitespace will not be wanted by handlers of the # and ##
+     operators calling this function, but will be wanted by the
+     function that writes out the preprocessed file.  */
+  if (whitespace && token->flags & PREV_WHITESPACE)
+    *buffer++ = ' ';
 
-  if (token->type == CPP_WSTRING || token->type == CPP_WCHAR)
-    *buffer++ = 'L';
-  c = token->type == CPP_STRING || token->type == CPP_WSTRING ? '"': '\'';
-  *buffer++ = c;
+  switch (token_spellings[token->type].type)
+    {
+    case SPELL_OPERATOR:
+      {
+	const unsigned char *spelling;
+	unsigned char c;
 
-  len = token->val.name.len;
-  memcpy (buffer, TOK_NAME (list, token), len);
-  buffer += len;
-  *buffer++ = c;
-  return buffer - orig_buff;
+	if (token->flags & DIGRAPH)
+	  spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
+	else
+	  spelling = token_spellings[token->type].spelling;
+	
+	while ((c = *spelling++) != '\0')
+	  *buffer++ = c;
+      }
+      break;
+
+    case SPELL_IDENT:
+      memcpy (buffer, token->val.name.text, token->val.name.len);
+      buffer += token->val.name.len;
+      break;
+
+    case SPELL_STRING:
+      {
+	unsigned char c;
+
+	if (token->type == CPP_WSTRING || token->type == CPP_WCHAR)
+	  *buffer++ = 'L';
+	c = '\'';
+	if (token->type == CPP_STRING || token->type == CPP_WSTRING)
+	  c = '"';
+	*buffer++ = c;
+	memcpy (buffer, token->val.name.text, token->val.name.len);
+	buffer += token->val.name.len;
+	*buffer++ = c;
+      }
+      break;
+
+    case SPELL_CHAR:
+      *buffer++ = token->aux;
+      break;
+
+    case SPELL_NONE:
+      cpp_ice (pfile, "Unspellable token");
+      break;
+    }
+
+  return buffer;
 }
 
-/* Needs buffer of len + 2.  */
-unsigned int
-spell_comment (buffer, list, token)
-     unsigned char *buffer;
-     cpp_toklist *list;
-     cpp_token *token;
-{
-  size_t len;
-
-  if (token->type == CPP_C_COMMENT)
-    {
-      *buffer++ = '/';
-      *buffer++ = '*';
-    }
-  else if (token->type == CPP_CPP_COMMENT)
-    {
-      *buffer++ = '/';
-      *buffer++ = '/';
-    }
-  else 
-    {
-      *buffer++ = '-';
-      *buffer++ = '-';
-    }
-
-  len = token->val.name.len;
-  memcpy (buffer, TOK_NAME (list, token), len);
-
-  return len + 2;
-}
-
-/* Needs buffer of len.  */
-unsigned int
-spell_name (buffer, list, token)
-     unsigned char *buffer;
-     cpp_toklist *list;
-     cpp_token *token;
-{
-  size_t len;
-
-  len = token->val.name.len;
-  memcpy (buffer, TOK_NAME (list, token), len);
-  buffer += len;
-
-  return len;
-}
-
+/* Temporary function for illustrative purposes.  */
 void
 _cpp_lex_file (pfile)
      cpp_reader* pfile;
 {
-  int recycle;
   cpp_toklist* list;
 
   init_trigraph_map ();
   list = (cpp_toklist *) xmalloc (sizeof (cpp_toklist));
+  _cpp_init_toklist (list);
 
-  for (recycle = 0; ;)
+  for (;;)
     {
-      init_token_list (pfile, list, recycle);
-      recycle = 1;
-
       _cpp_lex_line (pfile, list);
       if (list->tokens[0].type == CPP_EOF)
 	break;
 
-      if (list->dir_handler)
-	{
-	  if (list->dir_handler (pfile))
-	    {
-	      list = (cpp_toklist *) xmalloc (sizeof (cpp_toklist));
-	      recycle = 0;
-	    }
-	}
+#if 0
+      if (list->dirno)
+	_cpp_handle_directive (pfile, list);
       else
+#endif
 	_cpp_output_list (pfile, list);
+      _cpp_clear_toklist (list);
     }
 }
 
-/* This could be useful to other routines.  If you allocate this many
-   bytes, you have enough room to spell the token.  */
-#define TOKEN_LEN(token) (4 + (token_spellings[token->type].type == \
-			       SPELL_HANDLER ? token->val.name.len: 0))
-
+/* Temporary function for illustrative purposes.  */
 static void
 _cpp_output_list (pfile, list)
      cpp_reader *pfile;
      cpp_toklist *list;
 {
-  unsigned int comment_no = 0;
-  cpp_token *token, *comment_token = 0;
+  cpp_token *token, *comment, *comment_before = 0;
 
   if (list->comments_used > 0)
-    comment_token = list->tokens + list->comments[0].aux;
-
-  CPP_RESERVE (pfile, 2);	/* Always have room for " \n".  */
-  for (token = &list->tokens[0];; token++)
     {
-      if (token->flags & PREV_WHITESPACE)
-	{
-	  /* Output comments if -C.  Otherwise a space will do.  */
-	  if (token == comment_token)
-	    {
-	      cpp_token *comment = &list->comments[comment_no];
-	      do
-		{
-		  CPP_RESERVE (pfile, 2 + TOKEN_LEN (comment));
-		  pfile->limit += spell_comment (pfile->limit, list, comment);
-		  comment_no++, comment++;
-		  if (comment_no == list->comments_used)
-		    break;
-		  comment_token = comment->aux + list->tokens;
-		}
-	      while (comment_token == token);
-	    }
-	  else
-	    CPP_PUTC_Q (pfile, ' ');
-	}
-
-      CPP_RESERVE (pfile, 2 + TOKEN_LEN (token));
-      switch (token_spellings[token->type].type)
-	{
-	case SPELL_TEXT:
-	  {
-	    const unsigned char *spelling;
-	    unsigned char c;
-
-	    if (token->flags & DIGRAPH)
-	      spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
-	    else
-	      spelling = token_spellings[token->type].speller;
-
-	    while ((c = *spelling++) != '\0')
-	      CPP_PUTC_Q (pfile, c);
-	  }
-	  break;
-
-	case SPELL_HANDLER:
-	  {
-	    speller s;
-
-	    s = (speller) token_spellings[token->type].speller;
-	    pfile->limit += s (pfile->limit, list, token);
-	  }
-	  break;
-
-	case SPELL_CHAR:
-	  *pfile->limit++ = token->aux;
-	  break;
-
-	case SPELL_EOL:
-	  CPP_PUTC_Q (pfile, '\n');
-	  return;
-
-	case SPELL_NONE:
-	  cpp_error (pfile, "Unwriteable token");
-	  break;
-	}
+      comment = &list->comments[0];
+      comment_before = &list->tokens[comment->aux];
     }
+
+  token = &list->tokens[0];
+  do
+    {
+      /* Output comments if -C.  */
+      while (token == comment_before)
+	{
+	  /* Make space for the comment, and copy it out.  */
+	  CPP_RESERVE (pfile, TOKEN_LEN (comment));
+	  pfile->limit = spell_token (pfile, comment, pfile->limit, 0);
+
+	  /* Stop if no comments left, or no more comments appear
+             before the current token.  */
+	  comment++;
+	  if (comment == list->comments + list->comments_used)
+	    break;
+	  comment_before = &list->tokens[comment->aux];
+	}
+
+      CPP_RESERVE (pfile, TOKEN_LEN (token));
+      pfile->limit = spell_token (pfile, token, pfile->limit, 1);
+    }
+  while (token++->type != CPP_VSPACE);
 }
 
 #endif

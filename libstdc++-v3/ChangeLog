@@ -1,8 +1,247 @@
+2000-05-18  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW): Change to
+	--enable-cshadow-headers. Add output messages.
+	(GCC_ENABLE_LONG_LONG): Change to --enable-long-long, no
+	underscores (like the rest of the enable options.) Add output messages.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* configure.in: Touch.
+	
+2000-05-17  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* mkcheck.in: Enable shared library testing.
+
+2000-05-17  Nathan C. Myers  <ncm@cantrip.org>
+
+	* bits/std_cmath.h: fix sqrt(float)
+
+2000-05-16  Loren J. Rittle  <ljrittle@acm.org>
+
+        * bits/std_cassert.h: Use system_header pragma.
+        * bits/std_cctype.h: Likewise.
+        * bits/std_cerrno.h: Likewise.
+        * bits/std_cfloat.h: Likewise.
+        * bits/std_climits.h: Likewise.
+        * bits/std_clocale.h: Likewise.
+        * bits/std_cmath.h: Likewise.
+        * bits/std_csetjmp.h: Likewise.
+        * bits/std_csignal.h: Likewise.
+        * bits/std_cstdarg.h: Likewise.
+        * bits/std_cstddef.h: Likewise.
+        * bits/std_cstdio.h: Likewise.
+        * bits/std_cstdlib.h: Likewise.
+        * bits/std_cstring.h: Likewise.
+        * bits/std_ctime.h: Likewise.
+        * bits/std_cwchar.h: Likewise.
+        * bits/std_cwctype.h: Likewise.
+        * bits/std_exception.h: Likewise.
+        * bits/std_new.h: Likewise.
+        * bits/std_typeinfo.h: Likewise.
+        * shadow/bits/std_cassert.h: Likewise.
+        * shadow/bits/std_cctype.h: Likewise.
+        * shadow/bits/std_cerrno.h: Likewise.
+        * shadow/bits/std_cfloat.h: Likewise.
+        * shadow/bits/std_climits.h: Likewise.
+        * shadow/bits/std_clocale.h: Likewise.
+        * shadow/bits/std_cmath.h: Likewise.
+        * shadow/bits/std_csetjmp.h: Likewise.
+        * shadow/bits/std_csignal.h: Likewise.
+        * shadow/bits/std_cstdarg.h: Likewise.
+        * shadow/bits/std_cstddef.h: Likewise.
+        * shadow/bits/std_cstdio.h: Likewise.
+        * shadow/bits/std_cstdlib.h: Likewise.
+        * shadow/bits/std_cstring.h: Likewise.
+        * shadow/bits/std_ctime.h: Likewise.
+        * shadow/bits/std_cwchar.h: Likewise.
+        * shadow/bits/std_cwctype.h: Likewise.
+        * shadow/bits/wrap_libio.h: Likewise.
+        * shadow/bits/wrap_unistd.h: Likewise.
+        * shadow/sys/cdefs.h: Likewise.
+
+2000-05-16  Nathan C. Myers  <ncm@cantrip.org>
+
+        It appears that gcc-2.96 supports the keyword "and" now.
+	* bits/std_ciso646.h: remove.
+	* std/ciso646: gut.
+	* testsuite/17_intro/header_ciso646.c: enable testing.
+	* src/Makefile.am, src/Makefile.in: remove mention of
+	bits/std_ciso646.h
+
+2000-05-16  Nathan C. Myers  <ncm@cantrip.org>
+       
+       * mkcshadow: fix typo s/_C_Swamp_/_C_Swamp/.
+
+2000-05-16  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  Fix typo, switch to decaf...
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2000-05-16  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW):  New macro, stub.
+	* aclocal.m4:  Regenerate.
+	* configure.in:  Call.
+	* configure:  Regenerate.
+	* docs/configopts.html:  Stub documentation.
+
+2000-05-14  Nathan Myers  <ncm@cantrip.org>
+
+        * mkcshadow: build in more-correct directory, create cshadow/
+        directory if needed, report progress.
+
+2000-05-14  LLeweLLyn Reese  <llewelly@dbritsch.dsl.xmission.com>
+
+        * src/Makefile.am: Fix tr commands.
+        * src/Makefile.am: Remove references to [w]stringCTORDUPAL.[lo,cc]
+        * src/string-inst.cc: Remove extra instantiation of
+          S::basic_string(S::size_type, C, S::allocator_type const&);
+        * src/string-inst.cc: Remove extra template keyword.
+
+2000-05-14  Loren J. Rittle  <ljrittle@acm.org>
+
+        * config/bsd/bits/ctype_base.h: Add support for plain BSD4.4.
+        * acinclude.m4 (GLIBCPP_CHECK_CTYPE): Enhance bsd tests.
+        * aclocal.m4: Regenerate.
+        * configure: Regenerate.
+        * */Makefile.in: Regenerate.
+
+2000-05-11  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  Fix minor typo with ctypes, add more sanity to
+	  enable-cxx-flags, and remove GLIBCPP_ENABLE_NAMESPACES altogether.
+	* aclocal.m4:  Regenerate.
+	* configure.in:  Non-blank arguments break fewer Linuxes.
+	* configure:  Regenerate.
+	* src/Makefile.am:  Re-order AC_CXXFLAGS components.
+	* src/Makefile.in:  Regenerate.
+
+2000-05-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* bits/std_cmath.h: Tweaks.
+	* math/mathconf.h: Tweaks and fixes for HP-UX 11.
+	(sqrtf): Define away iff !builtin and !in <math.h>. 
+	(sinf): Same.
+	(cosf): Same.
+	(fabsf): Same.
+	At some point this directory should be converted to c++, the
+	autoconf tests should be run by the c++ compiler (not c), and
+	<cmath> should be used instead of math.h.
+	Move declaration of nan() here.
+	* math/complex-stub.h (cabsl): Remove nan() declaration.
+
+	Finish up FreeBSD4.0 support.
+	* config/bsd/ctype.cc: Scope out toupper, tolower calls.
+	* config/generic/ctype.cc: And here.
+	* testsuite/21_strings/char_traits.cc (test02): Guard with
+	_GLIBCPP_USE_WCHAR_T.
+
+	via Phil Edwards  <pme@sourceware.cygnus.com>
+	* bits/std_cctype.h: Remove _GLIBCPP_USE_NAMESPACES.
+	* acconfig.h: And here.
+	* acinclude.m4: Same.
+	* testsuite/27_io/istream.cc: And here.
+	* testsuite/27_io/ostream.cc: And here.
+
+2000-05-09  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* acinclude.m4 (GLIBCPP_CHECK_CPU): Change powerpc bits to
+	-mcpu=powerpc.
+	* src/Makefile.am: Disable ENABLE_CXX_FLAGS stuff for the moment.
+	
+	* config/generic/bits/ctype_specializations.h (ctype<char>::is):
+	Make more generic.
+
+	* config/bsd: New directory.
+	* config/bsd/ctype.cc: New.
+	* config/bsd/bits/ctype_base.h (ctype_base): New.
+	* config/bsd/bits/ctype_specializations.h: New.
+	* acinclude.m4 (GLIBCPP_CHECK_CTYPE): Add bsd tests.
+	
+2000-05-09  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  New macro, GLIBCPP_ENABLE_CXX_FLAGS.
+	* configure.in:  Call.
+	* src/Makefile.am:  Append results of macro to AC_CXXFLAGS.
+	* aclocal.m4:  Regenerate.
+	* configure:  Ditto.
+	* src/Makefile.in:  Ditto.
+	* docs/configopts.html:  Document.
+	* docs/download.html:  Fix typo (close quote).
+	* docs/footer.html:  Update.
+
+2000-05-09  Loren J. Rittle  <ljrittle@acm.org>
+
+        * backward/iostream.h: Expose endl.  Guard wide types.
+        * src/Makefile.am (headers): Update list to match files.
+        * src/Makefile.in: Regenerate.
+
+2000-05-09  Vadim Egorov  <egorovv@mailandnews.com>
+	    Benjamin Kosnik  <bkoz@gnu.org>
+	    Nathan Myers  <ncm@cantrip.org>
+	    Dietmar Kuehl  <dietmar_kuehl@yahoo.com> 
+
+        * bits/streambuf.tcc (basic_streambuf::xsgetn): Fix uflow case.
+	(basic_streambuf::xsputn): Make consistent.
+	* testsuite/27_io/filebuf.cc: Add tests.
+	
+2000-05-08  Steven King  <sxking@uswest.net>
+
+        * bits/char_traits.h: Use wchar_t utility functions for
+        char_traits<wchar_t> methods.
+        * testsuite/21_string/char_traits.cc: New (test02): test
+        char_traits<wchar_t>
+
+2000-05-08  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_CXXFLAGS): Add bits for solaris2.8.
+
+	* bits/fstream.tcc (filebuf::_M_init_filebuf): Don't set
+	_M_buf_size based on macro, instead use _M_buf_size_opt.
+	* bits/std_streambuf.h (basic_streambuf): Add _M_buf_size_opt.
+	(basic_streambuf()): Set _M_buf_size_opt.
+	* testsuite/27_io/filebuf.cc (filebuf): Use _M_buf_size_opt
+	instead of _M_buf_size.
+
+2000-05-04  Branko Cibej  <branko.cibej@hermes.si>
+
+        * src/complex_io.cc: Don't instantiate inserters and extractors
+        for wide-character streams unless _GLIBCPP_USE_WCHAR_T is defined.
+
+2000-05-03  Phil Edwards  <pme@sourceware.cygnus.com>
+            Felix Natter <fnatter@gmx.net>
+
+	* docs/footer.html:  Update to see if it takes effect.
+	* docs/thanks.html:  More people.
+	* docs/17_intro/headers_cc.txt:  Copy from testsuite, since that can't
+	  be seen from the web pages.  Rename for browser-friendliness...
+	* docs/17_intro/howto.html:  ...and update here.
+	* docs/17_intro/porting-howto.html:  Changes from Felix.
+	* docs/gccrebuild.html:  Mention v3->egcs move.
+	* docs/faq/index.html:  Ditto.  Also misc tweaks and URL updates.
+	* docs/faq/index.txt:  Regenerate.
+
+2000-05-01  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/cpu/powerpc/bits/atomicity.h (__exchange_and_add): More
+	fixes.
+
+2000-05-01  Vadim Egorov  <egorovv@@mailandnews.com>
+
+        * bits/char_traits.h: Fix parameter types.
+        * bits/string.tcc: Avoid traits_type::move.
+
 2000-05-01  Benjamin Kosnik  <bkoz@haight.constant.com>
 
 	* src/Makefile.am (AC_CXXFLAGS): Add CPUFLAGS here.
 	* src/Makefile.in: Regenerate.
 	* acinclude.m4 (GLIBCPP_ENABLE_DEBUG): Revert.
+
+2000-04-30  Steven King <sxking@uswest.net>
+
+        * bits/locale_facets.h: Fix syntax  error.
+        * bits/std_fstream.h: ditto
 
 2000-04-30  Benjamin Kosnik  <bkoz@gnu.org>
 

@@ -95,8 +95,8 @@ typedef struct JCF {
   long zip_offset;    
   jcf_filbuf_t filbuf;
   void *read_state;
-  char *filename;
-  char *classname;
+  const char *filename;
+  const char *classname;
   void *zipd;			/* Directory entry where it was found */
   JCF_u2 access_flags, this_class, super_class;
   CPool cpool;
@@ -131,7 +131,7 @@ typedef struct JCF {
 #define JPOOL_UTF_DATA(JCF, INDEX) \
   ((JCF)->buffer+JPOOL_UINT(JCF, INDEX)+2)
 #endif
-#define JPOOL_INT(JCF, INDEX) ((jint) JPOOL_UINT (JCF, INDEX))
+#define JPOOL_INT(JCF, INDEX) (WORD_TO_INT(JPOOL_UINT (JCF, INDEX)))
 #define JPOOL_FLOAT(JCF, INDEX) WORD_TO_FLOAT (JPOOL_UINT (JCF, INDEX))
 
 #define CPOOL_INDEX_IN_RANGE(CPOOL, INDEX) \
@@ -144,8 +144,8 @@ typedef struct JCF {
 #define JCF_FINISH(JCF) { \
   CPOOL_FINISH(&(JCF)->cpool); \
   if ((JCF)->buffer) FREE ((JCF)->buffer); \
-  if ((JCF)->filename) FREE ((JCF)->filename); \
-  if ((JCF)->classname) FREE ((JCF)->classname); }
+  if ((JCF)->filename) FREE ((char *) (JCF)->filename); \
+  if ((JCF)->classname) FREE ((char *) (JCF)->classname); }
   
 #define CPOOL_INIT(CPOOL) \
   ((CPOOL)->capacity = 0, (CPOOL)->count = 0, (CPOOL)->tags = 0, (CPOOL)->data = 0)

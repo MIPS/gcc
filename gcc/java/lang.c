@@ -117,6 +117,10 @@ int flag_use_boehm_gc = 0;
    object to its synchronization structure.  */
 int flag_hash_synchronization;
 
+/* When non zero, assume all native functions are implemented with
+   JNI, not CNI.  */
+int flag_jni = 0;
+
 /* From gcc/flags.h, and indicates if exceptions are turned on or not.  */
 
 extern int flag_new_exceptions;
@@ -135,7 +139,8 @@ lang_f_options[] =
   {"emit-class-files", &flag_emit_class_files, 1},
   {"use-divide-subroutine", &flag_use_divide_subroutine, 1},
   {"use-boehm-gc", &flag_use_boehm_gc, 1},
-  {"hash-synchronization", &flag_hash_synchronization, 1}
+  {"hash-synchronization", &flag_hash_synchronization, 1},
+  {"jni", &flag_jni, 1}
 };
 
 JCF *current_jcf;
@@ -253,7 +258,7 @@ lang_decode_option (argc, argv)
       flag_redundant = 1;
       /* When -Wall given, enable -Wunused.  We do this because the C
 	 compiler does it, and people expect it.  */
-      warn_unused = 1;
+      set_Wunused (1);
       return 1;
     }
 
@@ -298,9 +303,9 @@ lang_decode_option (argc, argv)
 }
 
 FILE *finput;
-char *
+const char *
 init_parse (filename)
-     char *filename;
+     const char *filename;
 {
   /* Open input file.  */
 

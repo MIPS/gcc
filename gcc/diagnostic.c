@@ -45,10 +45,10 @@ Boston, MA 02111-1307, USA.  */
 /* Prototypes. */
 static int doing_line_wrapping PARAMS ((void));
 
-static const char *vbuild_message_string PARAMS ((const char *, va_list));
-static const char *build_message_string PARAMS ((const char *, ...))
+static char *vbuild_message_string PARAMS ((const char *, va_list));
+static char *build_message_string PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
-static const char *build_location_prefix PARAMS ((const char *, int, int));
+static char *build_location_prefix PARAMS ((const char *, int, int));
 static void output_notice PARAMS ((output_buffer *, const char *));
 static void line_wrapper_printf PARAMS ((FILE *, const char *, ...))
      ATTRIBUTE_PRINTF_2;
@@ -78,6 +78,7 @@ static void v_pedwarn_with_file_and_line PARAMS ((const char *, int,
 static void vsorry PARAMS ((const char *, va_list));
 static void report_file_and_line PARAMS ((const char *, int, int));
 static void vnotice PARAMS ((FILE *, const char *, va_list));
+static void set_real_maximum_length PARAMS ((output_buffer *));
 
 extern int rtl_dump_and_exit;
 extern int inhibit_warnings;
@@ -108,6 +109,10 @@ void (*print_error_function) PARAMS ((const char *)) =
    Zero means don't wrap lines. */
 
 static int output_maximum_width = 0;
+
+/* Used to control every diagnostic message formatting.  Front-ends should
+   call set_message_prefixing_rule to set up their politics.  */
+static current_prefixing_rule = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
 
 /* Predicate. Return 1 if we're in automatic line wrapping mode.  */
 
@@ -126,6 +131,13 @@ set_message_length (n)
     output_maximum_width = n;
 }
 
+void
+set_message_prefixing_rule (rule)
+     int rule;
+{
+  current_prefixing_rule = rule;
+}
+
 /* Returns true if BUFFER is in line-wrappind mode.  */
 int
 output_is_line_wrapping (buffer)
@@ -135,7 +147,7 @@ output_is_line_wrapping (buffer)
 }
 
 /* Return BUFFER's prefix.  */
-const char *
+char *
 output_get_prefix (buffer)
      const output_buffer *buffer;
 {
@@ -178,10 +190,11 @@ output_set_maximum_length (buffer, length)
 void
 output_set_prefix (buffer, prefix)
      output_buffer *buffer;
-     const char *prefix;
+     char *prefix;
 {
   buffer->prefix = prefix;
   set_real_maximum_length (buffer);
+  buffer->emitted_prefix_p = 0;
 }
 
 /* Construct an output BUFFER with PREFIX and of MAXIMUM_LENGTH
@@ -189,13 +202,15 @@ output_set_prefix (buffer, prefix)
 void
 init_output_buffer (buffer, prefix, maximum_length)
      output_buffer *buffer;
-     const char *prefix;
+     char *prefix;
      int maximum_length;
 {
   obstack_init (&buffer->obstack);
   buffer->ideal_maximum_length = maximum_length;
   buffer->line_length = 0;
   output_set_prefix (buffer, prefix);
+  buffer->emitted_prefix_p = 0;
+  buffer->prefixing_rule = current_prefixing_rule;
   
   buffer->cursor = NULL;
 }
@@ -236,8 +251,25 @@ output_emit_prefix (buffer)
 {
   if (buffer->prefix)
     {
-      buffer->line_length = strlen (buffer->prefix);
-      obstack_grow (&buffer->obstack, buffer->prefix, buffer->line_length);
+      switch (buffer->prefixing_rule)
+        {
+        default:
+        case DIAGNOSTICS_SHOW_PREFIX_NEVER:
+          break;
+
+        case DIAGNOSTICS_SHOW_PREFIX_ONCE:
+          if (buffer->emitted_prefix_p)
+            break;
+          else
+            buffer->emitted_prefix_p = 1;
+          /* Fall through.  */
+
+        case DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE:
+          buffer->line_length += strlen (buffer->prefix);
+          obstack_grow
+            (&buffer->obstack, buffer->prefix, buffer->line_length);
+          break;
+        }
     }
 }
 
@@ -397,7 +429,7 @@ output_format (buffer, msg)
   output_finish (buffer);
 }
 
-static const char *
+static char *
 vbuild_message_string (msgid, ap)
      const char *msgid;
      va_list ap;
@@ -411,14 +443,14 @@ vbuild_message_string (msgid, ap)
 /*  Return a malloc'd string containing MSGID formatted a la
     printf.  The caller is reponsible for freeing the memory.  */
 
-static const char *
+static char *
 build_message_string VPARAMS ((const char *msgid, ...))
 {
 #ifndef ANSI_PROTOTYPES
   const char *msgid;
 #endif
   va_list ap;
-  const char *str;
+  char *str;
 
   VA_START (ap, msgid);
 
@@ -437,7 +469,7 @@ build_message_string VPARAMS ((const char *msgid, ...))
 /* Return a malloc'd string describing a location.  The caller is
    responsible for freeing the memory.  */
 
-static const char *
+static char *
 build_location_prefix (file, line, warn)
      const char *file;
      int line;
@@ -466,10 +498,10 @@ output_notice (buffer, msgid)
      output_buffer *buffer;
      const char *msgid;
 {
-  const char *message = vbuild_message_string (msgid, buffer->format_args);
+  char *message = vbuild_message_string (msgid, buffer->format_args);
 
   output_add_string (buffer, message);
-  free ((char *) message);
+  free (message);
 }
 
 
@@ -540,7 +572,7 @@ vline_wrapper_message_with_location (file, line, warn, msgid, ap)
   output_notice (&buffer, msgid);
   output_flush_on (&buffer, stderr);
 
-  free ((char*) output_get_prefix (&buffer));
+  free (output_get_prefix (&buffer));
   fputc ('\n', stderr);
 }
 
@@ -688,7 +720,7 @@ v_message_with_decl (decl, warn, msgid, ap)
   if (doing_line_wrapping())
     {
       output_flush_on (&buffer, stderr);
-      free ((char *) output_get_prefix (&buffer));
+      free (output_get_prefix (&buffer));
     }
   
   fputc ('\n', stderr);
@@ -1137,7 +1169,7 @@ default_print_error_function (file)
 {
   if (last_error_function != current_function_decl)
     {
-      const char *prefix = NULL;
+      char *prefix = NULL;
       output_buffer buffer;
       
       if (file)

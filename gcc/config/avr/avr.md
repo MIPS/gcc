@@ -254,7 +254,7 @@
     case 1:  /* mov r,L */
       return (AS1 (clr,%A0) CR_TAB
 	      AS1 (clr,%B0));
-    case 2: /* mov r,d */
+    case 2: /* ld d,i */
       if (operands[1] == const1_rtx
           && (link = find_reg_note (insn, REG_WAS_0, 0))
 	  /* Make sure the insn that stored the 0 is still present.  */
@@ -272,7 +272,7 @@
       return out_movhi_r_mr (insn, operands, NULL);
     case 4: /* mov m,r*/
         {
-          rtx save1=NULL;
+          rtx save1 = NULL;
           if (operands[1] == const0_rtx)
             {
               save1 = operands[1];
@@ -543,15 +543,6 @@
       short tmp = INTVAL (operands[2]);
       operands[2] = GEN_INT(tmp);
     }
- if (! (reload_completed | reload_in_progress))
-   {
-     if (REGNO (operands[0]) != REGNO (operands[1])
-	 && REGNO (operands[0]) != REGNO (operands[2])&&0)
-       {
-	 emit_move_insn (operands[0], operands[1]);
-	 operands[1] = operands[0];
-       }
-   }
 }")
 
 
@@ -871,21 +862,13 @@
 (define_insn "ashlqi3"
   [(set (match_operand:QI 0 "register_operand" "=r,!d,r,r")
 	(ashift:QI (match_operand:QI 1 "register_operand" "0,0,0,0")
-		   (match_operand:QI 2 "general_operand" "r,i,i,Qm")))]
+		   (match_operand:QI 2 "general_operand" "r,n,n,Qm")))]
   ""
   "* return ashlqi3_out (insn, operands, NULL);"
-  [(set_attr "length" "6,4,6,7")
+  [(set_attr "length" "5,4,6,7")
    (set_attr "cc" "clobber,set_czn,set_czn,clobber")])
 
-(define_expand "ashlhi3"
-  [(parallel [(set (match_operand:HI 0 "register_operand" "")
-		   (ashift:HI (match_operand:HI 1 "register_operand" "")
-			      (match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*ashlhi3_insn"
+(define_insn "ashlhi3"
   [(set (match_operand:HI 0 "register_operand"           "=r,r,r,r,r,r")
 	(ashift:HI (match_operand:HI 1 "register_operand" "0,0,r,0,0,0")
 		   (match_operand:QI 2 "general_operand"  "r,P,O,K,i,Qm")))
@@ -895,15 +878,7 @@
   [(set_attr "length" "7,2,4,2,5,8")
    (set_attr "cc" "clobber,clobber,clobber,clobber,clobber,clobber")])
 
-(define_expand "ashlsi3"
-  [(parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (ashift:SI (match_operand:SI 1 "register_operand" "")
-			      (match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*ashlsi3_insn"
+(define_insn "ashlsi3"
   [(set (match_operand:SI 0 "register_operand"           "=r,r,r,r,r")
 	(ashift:SI (match_operand:SI 1 "register_operand" "0,0,r,0,0")
 		   (match_operand:QI 2 "general_operand"  "r,P,O,i,Qm")))
@@ -916,34 +891,16 @@
 ;; >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >> >>
 ;; arithmetic shift right
 
-(define_expand "ashrqi3"
-  [(parallel [(set (match_operand:QI 0 "register_operand" "")
-		   (ashiftrt:QI (match_operand:QI 1 "register_operand" "")
-				(match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*ashrqi3"
+(define_insn "ashrqi3"
   [(set (match_operand:QI 0 "register_operand" "=r,r,r,r,r")
 	(ashiftrt:QI (match_operand:QI 1 "register_operand" "0,0,0,0,0")
-		     (match_operand:QI 2 "general_operand" "r,P,K,i,Qm")))
-   (clobber (match_scratch:QI 3 "=X,X,X,&d,X"))]
+		     (match_operand:QI 2 "general_operand" "r,P,K,n,Qm")))]
   ""
-  "* return ashrqi3_out (insn,operands, NULL);"
-  [(set_attr "length" "6,1,2,4,7")
-   (set_attr "cc" "clobber,clobber,clobber,clobber,clobber")])
+  "* return ashrqi3_out (insn, operands, NULL);"
+  [(set_attr "length" "5,1,2,5,7")
+   (set_attr "cc" "clobber,set_zn,set_zn,clobber,clobber")])
 
-
-(define_expand "ashrhi3"
-  [(parallel [(set (match_operand:HI 0 "register_operand" "")
-		   (ashiftrt:HI (match_operand:HI 1 "register_operand" "")
-				(match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*ashrhi3_insn"
+(define_insn "ashrhi3"
   [(set (match_operand:HI 0 "register_operand"             "=r,r,r,r,r,r")
 	(ashiftrt:HI (match_operand:HI 1 "register_operand" "0,0,0,r,0,0")
 		     (match_operand:QI 2 "general_operand"  "r,P,K,O,i,Qm")))
@@ -953,15 +910,7 @@
   [(set_attr "length" "7,2,4,2,5,8")
    (set_attr "cc" "clobber,clobber,clobber,clobber,clobber,clobber")])
 
-(define_expand "ashrsi3"
-  [(parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (ashiftrt:SI (match_operand:SI 1 "register_operand" "")
-				(match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*ashrsi3_insn"
+(define_insn "ashrsi3"
   [(set (match_operand:SI 0 "register_operand"             "=r,r,r,r,r")
 	(ashiftrt:SI (match_operand:SI 1 "register_operand" "0,0,r,0,0")
 		     (match_operand:QI 2 "general_operand"  "r,P,O,i,Qm")))
@@ -977,21 +926,13 @@
 (define_insn "lshrqi3"
   [(set (match_operand:QI 0 "register_operand" "=r,d,r,r")
 	(lshiftrt:QI (match_operand:QI 1 "register_operand" "0,0,0,0")
-		     (match_operand:QI 2 "general_operand" "r,i,i,Qm")))]
+		     (match_operand:QI 2 "general_operand" "r,n,n,Qm")))]
   ""
   "* return lshrqi3_out (insn,operands, NULL);"
   [(set_attr "length" "6,4,6,7")
    (set_attr "cc" "clobber,set_czn,set_czn,clobber")])
 
-(define_expand "lshrhi3"
-  [(parallel [(set (match_operand:HI 0 "register_operand" "")
-		   (lshiftrt:HI (match_operand:HI 1 "register_operand" "")
-				(match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*lshrhi3_insn"
+(define_insn "lshrhi3"
   [(set (match_operand:HI 0 "register_operand"             "=r,r,r,r,r,r")
 	(lshiftrt:HI (match_operand:HI 1 "register_operand" "0,0,0,r,0,0")
 		     (match_operand:QI 2 "general_operand"  "r,P,K,O,i,Qm")))
@@ -1001,17 +942,7 @@
   [(set_attr "length" "7,2,4,2,5,8")
    (set_attr "cc" "clobber,clobber,clobber,clobber,clobber,clobber")])
 
-
-
-(define_expand "lshrsi3"
-  [(parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (lshiftrt:SI (match_operand:SI 1 "register_operand" "")
-				(match_operand:QI 2 "general_operand" "")))
-	      (clobber (match_scratch:QI 3 ""))])]
-  ""
-  "")
-
-(define_insn "*lshrsi3_insn"
+(define_insn "lshrsi3"
   [(set (match_operand:SI 0 "register_operand"             "=r,r,r,r,r")
 	(lshiftrt:SI (match_operand:SI 1 "register_operand" "0,0,r,0,0")
 		     (match_operand:QI 2 "general_operand"  "r,P,O,i,Qm")))
@@ -1680,7 +1611,7 @@
    (set (attr "length")
 	(cond [(eq (symbol_ref "which_alternative") (const_int 0))
 	       (const_int 1)
-	       (eq (symbol_ref "which_alternative") (const_int 0))
+	       (eq (symbol_ref "which_alternative") (const_int 1))
 	       (const_int 3)
 	       (eq (symbol_ref "!AVR_MEGA")
 		   (const_int 0))
@@ -1710,7 +1641,7 @@
    (set (attr "length")
 	(cond [(eq (symbol_ref "which_alternative") (const_int 0))
 	       (const_int 1)
-	       (eq (symbol_ref "which_alternative") (const_int 0))
+	       (eq (symbol_ref "which_alternative") (const_int 1))
 	       (const_int 3)
 	       (eq (symbol_ref "!AVR_MEGA")
 		   (const_int 0))
@@ -1815,8 +1746,8 @@
 	(if_then_else (ne (cc0) (const_int 0))
 		      (label_ref (match_operand 2 "" ""))
 		      (pc)))]
-  "(true_regnum (operands[0]) >= LD_REGS
-    && true_regnum (operands[1]) >= LD_REGS)"
+  "(test_hard_reg_class (LD_REGS, operands[0])
+    && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
   if (TEST_HARD_REG_CLASS (ADDW_REGS, true_regnum (operands[0])))
@@ -1853,8 +1784,8 @@
 	(if_then_else (ne (cc0) (const_int 0))
 		      (label_ref (match_operand 2 "" ""))
 		      (pc)))]
-  "(true_regnum (operands[0]) >= LD_REGS
-    && true_regnum (operands[1]) >= LD_REGS)"
+  "(test_hard_reg_class (LD_REGS, operands[0])
+    && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
   if (TEST_HARD_REG_CLASS (ADDW_REGS, true_regnum (operands[0])))
@@ -1885,7 +1816,7 @@
 	(if_then_else (ne (cc0) (const_int 0))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
-  "(true_regnum (operands[0]) >= LD_REGS)"
+  "test_hard_reg_class (LD_REGS, operands[0])"
   "*
 {
   output_asm_insn (AS2 (subi,%A0,1), operands);
@@ -1901,3 +1832,56 @@
           AS1 (jmp,%1));
 }")
 					
+(define_peephole
+  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (lt (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrs %0,7")
+
+(define_peephole
+  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (ge (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrc %0,7")
+					
+(define_peephole
+  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (lt (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrs %B0,7")
+
+(define_peephole
+  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (ge (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrc %B0,7")
+
+(define_peephole
+  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (lt (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrs %D0,7")
+
+(define_peephole
+  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+   (set (pc)
+	(if_then_else (ge (cc0) (const_int 0))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))]
+  "jump_over_one_insn_p (insn, operands[1])"
+  "sbrc %D0,7")

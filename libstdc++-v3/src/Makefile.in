@@ -75,6 +75,7 @@ CXXCPP = @CXXCPP@
 DEBUGFLAGS = @DEBUGFLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
+EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCC_OBJDIR = @GCC_OBJDIR@
 GLIBCPP_CFLAGS = @GLIBCPP_CFLAGS@
 GLIBCPP_CXXFLAGS = @GLIBCPP_CXXFLAGS@
@@ -84,11 +85,11 @@ LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-NAMESPACES = @NAMESPACES@
 OBJDUMP = @OBJDUMP@
 OPTLEVEL = @OPTLEVEL@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
+SHADOW_INCLUDES = @SHADOW_INCLUDES@
 THREADDEPS = @THREADDEPS@
 THREADINCS = @THREADINCS@
 THREADLIBS = @THREADLIBS@
@@ -118,8 +119,8 @@ WERROR = -Werror
 # OPTIMIZE_CXXFLAGS =  -O3 -fstrict-aliasing -fsquangle -fnew-exceptions \
 #                      -fdata-sections -ffunction-sections \
 #		       -fvtable-gc -Wl,--gc-sections
-# AC_CXXFLAGS = @OPTLEVEL@ @DEBUGFLAGS@ @NAMESPACES@
-AC_CXXFLAGS = @CPUFLAGS@ @DEBUGFLAGS@ 
+# AC_CXXFLAGS = @OPTLEVEL@ @CPUFLAGS@ @EXTRA_CXX_FLAGS@ @DEBUGFLAGS@ 
+AC_CXXFLAGS = @CPUFLAGS@ @EXTRA_CXX_FLAGS@ @DEBUGFLAGS@
 AM_CXXFLAGS = -fno-implicit-templates \
 	      -Wall -Wno-format -W -Wwrite-strings -Winline $(WERROR) \
 	      $(OPTIMIZE_CXXFLAGS) $(AC_CXXFLAGS) 
@@ -165,7 +166,7 @@ headers = \
 	bits/valarray_array.h bits/valarray_array.tcc bits/valarray_meta.h \
 	bits/std_valarray.h bits/mask_array.h bits/slice.h bits/slice_array.h \
 	bits/gslice.h bits/gslice_array.h bits/indirect_array.h \
-	bits/std_cassert.h bits/std_cwctype.h bits/std_ciso646.h \
+	bits/std_cassert.h bits/std_cwctype.h \
 	bits/std_cerrno.h bits/std_cfloat.h bits/std_climits.h \
 	bits/std_clocale.h bits/std_cmath.h \
 	bits/std_csetjmp.h bits/std_csignal.h bits/std_cstdarg.h \
@@ -187,8 +188,8 @@ headers = \
 	backward/bvector.h backward/defalloc.h backward/deque.h \
 	backward/function.h backward/hash_map.h backward/hash_set.h \
 	backward/hashtable.h backward/heap.h backward/iterator.h \
-	backward/list.h backward/map.h backward/multimap.h \
-	backward/multiset.h backward/pair.h \
+	backward/list.h backward/map.h backward/multimap.h backward/new.h \
+	backward/multiset.h backward/pair.h backward/iostream.h \
 	backward/rope.h backward/set.h backward/slist.h backward/stack.h \
 	backward/tempbuf.h backward/tree.h backward/vector.h \
 	bits/std_bitset.h bits/std_deque.h bits/std_functional.h \
@@ -254,7 +255,7 @@ cpu_headers = \
 string_sources = \
 	stringMAIN.cc stringCTORNC.cc stringCTORAL.cc \
 	stringCTORCPR.cc stringCTORCPRAL.cc stringCTORPRAL.cc \
-	stringCTORPAL.cc stringCTORDUPAL.cc stringCTORPP.cc stringCTORII.cc \
+	stringCTORPAL.cc stringCTORPP.cc stringCTORII.cc \
 	stringMUTATE.cc stringRESERVE.cc \
 	stringSWAP.cc stringSLOP.cc \
 	stringRESIZE.cc stringAPPCOPY.cc stringAPPCPR.cc stringAPPPR.cc \
@@ -274,7 +275,7 @@ string_sources = \
 wstring_sources = \
 	wstringMAIN.cc wstringCTORNC.cc wstringCTORAL.cc \
 	wstringCTORCPR.cc wstringCTORCPRAL.cc wstringCTORPRAL.cc \
-	wstringCTORPAL.cc wstringCTORDUPAL.cc wstringCTORPP.cc \
+	wstringCTORPAL.cc wstringCTORPP.cc \
 	wstringCTORII.cc \
 	wstringMUTATE.cc wstringRESERVE.cc \
 	wstringSWAP.cc wstringSLOP.cc \
@@ -338,36 +339,35 @@ libinst_string_la_LDFLAGS =
 libinst_string_la_LIBADD = 
 libinst_string_la_OBJECTS =  stringMAIN.lo stringCTORNC.lo \
 stringCTORAL.lo stringCTORCPR.lo stringCTORCPRAL.lo stringCTORPRAL.lo \
-stringCTORPAL.lo stringCTORDUPAL.lo stringCTORPP.lo stringCTORII.lo \
-stringMUTATE.lo stringRESERVE.lo stringSWAP.lo stringSLOP.lo \
-stringRESIZE.lo stringAPPCOPY.lo stringAPPCPR.lo stringAPPPR.lo \
-stringAPPDUP.lo stringAPPII.lo stringASSCP.lo stringASSII.lo \
-stringINSII.lo stringREPRR.lo stringREPIIDUP.lo stringREPII.lo \
-stringREPIII.lo stringREP4I.lo stringREPIIPP.lo stringREPIIPP2.lo \
-stringCOPY.lo stringCONII.lo stringCONIIF.lo stringCONPPF.lo \
-stringCONPPF2.lo stringCONSC.lo stringFIND.lo stringFINDC.lo \
-stringRFIND.lo stringRFINDC.lo stringFFO.lo stringFLO.lo stringFFNO.lo \
-stringFLNO.lo stringFLNOC.lo stringCOMPARE.lo stringCOMPARE2.lo \
-stringCOMPAREP.lo stringCOMPAREP2.lo stringADDPS.lo stringADDCS.lo \
-stringEXTRACT.lo stringINSERT.lo stringGETLINE.lo stringSCOPY.lo \
-stringEQ.lo
+stringCTORPAL.lo stringCTORPP.lo stringCTORII.lo stringMUTATE.lo \
+stringRESERVE.lo stringSWAP.lo stringSLOP.lo stringRESIZE.lo \
+stringAPPCOPY.lo stringAPPCPR.lo stringAPPPR.lo stringAPPDUP.lo \
+stringAPPII.lo stringASSCP.lo stringASSII.lo stringINSII.lo \
+stringREPRR.lo stringREPIIDUP.lo stringREPII.lo stringREPIII.lo \
+stringREP4I.lo stringREPIIPP.lo stringREPIIPP2.lo stringCOPY.lo \
+stringCONII.lo stringCONIIF.lo stringCONPPF.lo stringCONPPF2.lo \
+stringCONSC.lo stringFIND.lo stringFINDC.lo stringRFIND.lo \
+stringRFINDC.lo stringFFO.lo stringFLO.lo stringFFNO.lo stringFLNO.lo \
+stringFLNOC.lo stringCOMPARE.lo stringCOMPARE2.lo stringCOMPAREP.lo \
+stringCOMPAREP2.lo stringADDPS.lo stringADDCS.lo stringEXTRACT.lo \
+stringINSERT.lo stringGETLINE.lo stringSCOPY.lo stringEQ.lo
 libinst_wstring_la_LDFLAGS = 
 libinst_wstring_la_LIBADD = 
 libinst_wstring_la_OBJECTS =  wstringMAIN.lo wstringCTORNC.lo \
 wstringCTORAL.lo wstringCTORCPR.lo wstringCTORCPRAL.lo \
-wstringCTORPRAL.lo wstringCTORPAL.lo wstringCTORDUPAL.lo \
-wstringCTORPP.lo wstringCTORII.lo wstringMUTATE.lo wstringRESERVE.lo \
-wstringSWAP.lo wstringSLOP.lo wstringRESIZE.lo wstringAPPCOPY.lo \
-wstringAPPCPR.lo wstringAPPPR.lo wstringAPPDUP.lo wstringAPPII.lo \
-wstringASSCP.lo wstringASSII.lo wstringINSII.lo wstringREPRR.lo \
-wstringREPIIDUP.lo wstringREPII.lo wstringREPIII.lo wstringREP4I.lo \
-wstringREPIIPP.lo wstringREPIIPP2.lo wstringCOPY.lo wstringCONII.lo \
-wstringCONIIF.lo wstringCONPPF.lo wstringCONPPF2.lo wstringCONSC.lo \
-wstringFIND.lo wstringFINDC.lo wstringRFIND.lo wstringRFINDC.lo \
-wstringFFO.lo wstringFLO.lo wstringFFNO.lo wstringFLNO.lo \
-wstringFLNOC.lo wstringCOMPARE.lo wstringCOMPARE2.lo wstringCOMPAREP.lo \
-wstringCOMPAREP2.lo wstringADDPS.lo wstringADDCS.lo wstringEXTRACT.lo \
-wstringINSERT.lo wstringGETLINE.lo wstringSCOPY.lo wstringEQ.lo
+wstringCTORPRAL.lo wstringCTORPAL.lo wstringCTORPP.lo wstringCTORII.lo \
+wstringMUTATE.lo wstringRESERVE.lo wstringSWAP.lo wstringSLOP.lo \
+wstringRESIZE.lo wstringAPPCOPY.lo wstringAPPCPR.lo wstringAPPPR.lo \
+wstringAPPDUP.lo wstringAPPII.lo wstringASSCP.lo wstringASSII.lo \
+wstringINSII.lo wstringREPRR.lo wstringREPIIDUP.lo wstringREPII.lo \
+wstringREPIII.lo wstringREP4I.lo wstringREPIIPP.lo wstringREPIIPP2.lo \
+wstringCOPY.lo wstringCONII.lo wstringCONIIF.lo wstringCONPPF.lo \
+wstringCONPPF2.lo wstringCONSC.lo wstringFIND.lo wstringFINDC.lo \
+wstringRFIND.lo wstringRFINDC.lo wstringFFO.lo wstringFLO.lo \
+wstringFFNO.lo wstringFLNO.lo wstringFLNOC.lo wstringCOMPARE.lo \
+wstringCOMPARE2.lo wstringCOMPAREP.lo wstringCOMPAREP2.lo \
+wstringADDPS.lo wstringADDCS.lo wstringEXTRACT.lo wstringINSERT.lo \
+wstringGETLINE.lo wstringSCOPY.lo wstringEQ.lo
 libstdc___la_OBJECTS =  limitsMEMBERS.lo c++io.lo cmath.lo complex.lo \
 complexf.lo complexl.lo complex_io.lo stdexcept.lo ios.lo stdstreams.lo \
 strstream.lo locale.lo localename.lo locale-inst.lo stl-inst.lo \
@@ -646,7 +646,6 @@ stringCTORCPR.lo \
 stringCTORCPRAL.lo \
 stringCTORPRAL.lo \
 stringCTORPAL.lo \
-stringCTORDUPAL.lo \
 stringCTORPP.lo \
 stringCTORII.lo \
 stringMUTATE.lo \
@@ -696,7 +695,7 @@ stringGETLINE.lo \
 stringSCOPY.lo \
 stringEQ.lo : string-inst.cc
 	$(LTCXXCOMPILE) -fimplicit-templates \
-	-c -D`echo $@ | tr -dc 'A-Z'` $< -o $@
+	-c -D`echo $@ | tr -dc '0-9A-Z'` $< -o $@
 
 wstringMAIN.lo \
 wstringCTORNC.lo \
@@ -705,7 +704,6 @@ wstringCTORCPR.lo \
 wstringCTORCPRAL.lo \
 wstringCTORPRAL.lo \
 wstringCTORPAL.lo \
-wstringCTORDUPAL.lo \
 wstringCTORPP.lo \
 wstringCTORII.lo \
 wstringMUTATE.lo \
@@ -755,7 +753,7 @@ wstringGETLINE.lo \
 wstringSCOPY.lo \
 wstringEQ.lo : string-inst.cc
 	$(LTCXXCOMPILE) -fimplicit-templates \
-	-c -D`echo $@ | tr -dc 'A-Z'` -DC=wchar_t $< -o $@
+	-c -D`echo $@ | tr -dc '0-9A-Z'` -DC=wchar_t $< -o $@
 
 stringMAIN.o \
 stringCTORNC.o \
@@ -764,7 +762,6 @@ stringCTORCPR.o \
 stringCTORCPRAL.o \
 stringCTORPRAL.o \
 stringCTORPAL.o \
-stringCTORDUPAL.o \
 stringCTORPP.o \
 stringCTORII.o \
 stringMUTATE.o \
@@ -814,7 +811,7 @@ stringGETLINE.o \
 stringSCOPY.o \
 stringEQ.o : string-inst.cc
 	$(CXXCOMPILE) -fimplicit-templates \
-	-c -D`echo $@ | tr -dc 'A-Z'` $< -o $@
+	-c -D`echo $@ | tr -dc '0-9A-Z'` $< -o $@
 
 wstringMAIN.o \
 wstringCTORNC.o \
@@ -823,7 +820,6 @@ wstringCTORCPR.o \
 wstringCTORCPRAL.o \
 wstringCTORPRAL.o \
 wstringCTORPAL.o \
-wstringCTORDUPAL.o \
 wstringCTORPP.o \
 wstringCTORII.o \
 wstringMUTATE.o \
@@ -873,7 +869,7 @@ wstringGETLINE.o \
 wstringSCOPY.o \
 wstringEQ.o : string-inst.cc
 	$(CXXCOMPILE) -fimplicit-templates \
-	-c -D`echo $@ | tr -dc 'A-Z'` -DC=wchar_t $< -o $@
+	-c -D`echo $@ | tr -dc '0-9A-Z'` -DC=wchar_t $< -o $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

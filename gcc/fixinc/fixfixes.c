@@ -9,8 +9,7 @@
 
 NOTE TO DEVELOPERS
 
-The routines you write here must work closely with both the fixincl.c
-and the test_need.c program.
+The routines you write here must work closely with fixincl.c.
 
 Here are the rules:
 
@@ -20,30 +19,24 @@ Here are the rules:
 2.  Use the "FIX_PROC_HEAD()" macro _with_ the "_fix" suffix
     (I cannot use the ## magic from ANSI C) for defining your entry point.
 
-3.  Put your test name into the FIXUP_TABLE
+3.  Put your test name into the FIXUP_TABLE.
 
 4.  Do not read anything from stdin.  It is closed.
 
 5.  Write to stderr only in the event of a reportable error
     In such an event, call "exit(1)".
 
-6.  If "MAIN" is _not_ defined, then you have access to the fixDescList
-    entry for the fix in question.  This may be useful, for example,
-    if there are pre-compiled selection expressions stored there.
+6.  You have access to the fixDescList entry for the fix in question.
+    This may be useful, for example, if there are interesting strings
+    or pre-compiled regular expressions stored there.
 
-    For example, you may do this if you know that the first 
-    test contains a useful regex.  This is okay because, remember,
-    this code perforce works closely with the inclhack.def fixes!!
+    It is also possible to access fix descriptions by using the
+    index of a known fix, "my_fix_name" for example:
 
+        tFixDesc*  p_desc  = fixDescList + MY_FIX_NAME_FIXIDX;
+        tTestDesc* p_tlist = p_desc->p_test_desc;
 
-    tFixDesc*  pMyDesc = fixDescList + MY_FIX_NAME_FIXIDX;
-    tTestDesc* pTestList = pMyDesc->p_test_desc;
-
-    regexec (pTestList->p_test_regex, ...)
-
-
-    If MAIN _is_ defined, then you will have to compile it on
-    your own.
+        regexec (p_tlist->p_test_regex, ...)
 
 = = = = = = = = = = = = = = = = = = = = = = = = =
 
@@ -72,19 +65,18 @@ typedef struct {
 } fix_entry_t;
 
 #define FIXUP_TABLE \
-  _FT_( "no_double_slash",  double_slash_fix ) \
-  _FT_( "else_endif_label", else_endif_label_fix ) \
-  _FT_( "IO_use",	    IO_use_fix ) \
-  _FT_( "CTRL_use",	    CTRL_use_fix) \
-  _FT_( "IO_defn",	    IO_defn_fix ) \
-  _FT_( "CTRL_defn",	    CTRL_defn_fix ) \
-  _FT_( "machine_name",	    machine_name_fix )
+  _FT_( "char_macro_def",   char_macro_def_fix ) \
+  _FT_( "char_macro_use",   char_macro_use_fix ) \
+  _FT_( "format",           format_fix )         \
+  _FT_( "machine_name",     machine_name_fix )   \
+  _FT_( "wrap",             wrap_fix )
 
 
 #define FIX_PROC_HEAD( fix ) \
-static void fix ( filname, text ) \
+static void fix ( filname, text, p_fixd ) \
     const char* filname; \
-    char* text;
+    const char* text; \
+    tFixDesc* p_fixd;
 
 
 /*
@@ -130,234 +122,138 @@ print_quote( q, text )
 }
 
 
-FIX_PROC_HEAD( double_slash_fix )
+/*
+ *  Copy the `format' string to std out, replacing `%n' expressions
+ *  with the matched text from a regular expression evaluation.
+ *  Doubled '%' characters will be replaced with a single copy.
+ *  '%' characters in other contexts and all other characters are
+ *  copied out verbatim.
+ */
+static void
+format_write (format, text, av)
+     tCC* format;
+     tCC* text;
+     regmatch_t av[];
 {
-  /*  Now look for the comment markers in the text */
-  for (;;)
-    {
-      char ch = *(text++);
-      switch (ch)
-        {
-        case '/':
-          switch (*text) /* do not advance `text' here */
-            {
-            case '/':
-              /*
-                We found a "//" pair in open text.
-                Delete text to New-Line
-              */
-              while ((*text != '\n') && (*text != '\0'))  text++;
-              break;
+  int c;
 
-            case '*':
-              {
-                /* We found a C-style comment.  Skip forward to the end */
-                char* pz = strstr( (--text)+2, "*/" );
-                if (pz == (char*)NULL)
-                  {
-                    fputs( text, stdout );
-                    goto fix_done;
-                  }
-                pz += 2;
-                fwrite (text, (pz - text), 1, stdout );
-                text = pz;
-              }
-              break;
+  while ((c = (unsigned)*(format++)) != NUL) {
 
-            default:
-              fputc (ch, stdout );
-            }
-          break;
+    if (c != '%')
+      {
+        putchar(c);
+        continue;
+      }
 
+    c = (unsigned)*(format++);
+
+    /*
+     *  IF the character following a '%' is not a digit,
+     *  THEN we will always emit a '%' and we may or may
+     *  not emit the following character.  We will end on
+     *  a NUL and we will emit only one of a pair of '%'.
+     */
+    if (! isdigit( c ))
+      {
+        putchar( '%' );
+        switch (c) {
         case NUL:
-          goto fix_done;
-
-        case '"':
-        case '\'':
-          text = print_quote (ch, text );
+          return;
+        case '%':
           break;
-
         default:
-          fputc (ch, stdout );
+          putchar(c);
         }
+      }
 
-    } fix_done:;
+    /*
+     *  Emit the matched subexpression numbered 'c'.
+     *  IF, of course, there was such a match...
+     */
+    else {
+      regmatch_t*  pRM = av + (c - (unsigned)'0');
+      size_t len;
 
-  fclose (stdout);;
+      if (pRM->rm_so < 0)
+        continue;
+
+      len = pRM->rm_eo - pRM->rm_so;
+      if (len > 0)
+        fwrite(text + pRM->rm_so, len, 1, stdout);
+    }
+  }
 }
 
 
-FIX_PROC_HEAD( else_endif_label_fix )
+/*
+ *  Search for multiple copies of a regular expression.  Each block
+ *  of matched text is replaced with the format string, as described
+ *  above in `format_write'.
+ */
+FIX_PROC_HEAD( format_fix )
 {
-  static const char label_pat[] = "^[ \t]*#[ \t]*(else|endif)";
-  static regex_t label_re;
+  tSCC  zBad[] = "fixincl error:  `%s' needs %s c_fix_arg\n";
+  tCC*  pz_pat = p_fixd->patch_args[2];
+  tCC*  pz_fmt = p_fixd->patch_args[1];
+  const char *p;
+  regex_t re;
+  regmatch_t rm[10];
 
-  char ch;
-  char* pz_next = (char*)NULL;
-  regmatch_t match[2];
-
-  compile_re (label_pat, &label_re, 1,
-	      "label pattern", "else_endif_label_fix");
-
-  for (;;) /* entire file */
+  /*
+   *  We must have a format
+   */
+  if (pz_fmt == (tCC*)NULL)
     {
-      /*
-        See if we need to advance to the next candidate directive
-        If the scanning pointer passes over the end of the directive,
-        then the directive is inside a comment */
-      if (pz_next < text)
-        {
-          if (regexec (&label_re, text, 2, match, 0) != 0)
-            {
-              fputs( text, stdout );
-              break;
-            }
+      fprintf( stderr, zBad, p_fixd->fix_name, "replacement-format" );
+      exit( 3 );
+    }
 
-          pz_next = text + match[0].rm_eo;
-        }
-
-      /*
-        IF the scan pointer has not reached the directive end, ... */
-      if (pz_next > text)
-        {
-          /*
-            Advance the scanning pointer.  If we are at the start
-            of a quoted string or a comment, then skip the entire unit */
-          ch = *text;
-
-          switch (ch)
-            {
-            case '/':
-              /*
-                Skip comments */
-              if (text[1] == '*')
-                {
-                  char* pz = strstr( text+2, "*/" );
-                  if (pz == (char*)NULL)
-                    {
-                      fputs( text, stdout );
-                      return;
-                    }
-                  pz += 2;
-                  fwrite( text, 1, (pz - text), stdout );
-                  text = pz;
-                  continue;
-                }
-              putc( ch, stdout );
-              text++;
-              break;
-
-            case '"':
-            case '\'':
-              text = print_quote( ch, text+1 );
-              break;
-
-            default:
-              putc( ch, stdout );
-              text++;
-            } /* switch (ch) */
-          continue;
-        } /* if (still shy of directive end) */
-
-      /*
-         The scanning pointer (text) has reached the end of the current
-         directive under test.  Check for bogons here.  */
-      for (;;) /* bogon check */
-        {
-          char ch = *(text++);
-          if (isspace (ch))
-            {
-              putc( ch, stdout );
-              if (ch == '\n')
-                {
-                  /*
-                    It is clean.  No bogons on this directive */
-                  pz_next = (char*)NULL; /* force a new regex search */
-                  goto dont_fix_bogon;
-                }
-              continue;
-            }
-
-          switch (ch)
-            {
-            case NUL:
-              return;
-
-            case '\\':
-              /*
-                Skip escaped newlines.  Otherwise, we have a bogon */
-              if (*text != '\n') {
-                text--;
-                goto fix_the_bogon;
-              }
-
-              /*
-                Emit the escaped newline and keep scanning for possible junk */
-              putc( '\\', stdout );
-              putc( '\n', stdout );
-              text++;
-              break;
-
-            case '/':
-              /*
-                Skip comments.  Otherwise, we have a bogon */
-              if (*text == '*')
-                {
-                  text--;
-                  pz_next = strstr( text+2, "*/" );
-                  if (pz_next == (char*)NULL)
-                    {
-                      putc( '\n', stdout );
-                      return;
-                    }
-                  pz_next += 2;
-                  fwrite( text, 1, (pz_next - text), stdout );
-                  text = pz_next;
-                  break;
-                }
-
-              /* FALLTHROUGH */
-
-            default:
-              /*
-                GOTTA BE A BOGON */
-              text--;
-              goto fix_the_bogon;
-            } /* switch (ch) */
-        } /* for (bogon check loop) */
-
-    fix_the_bogon:
-      /*
-        `text' points to the start of the bogus data */
+  /*
+   *  IF we don't have a search text, then go find the first
+   *  regular expression among the tests.
+   */
+  if (pz_pat == (tCC*)NULL)
+    {
+      tTestDesc* pTD = p_fixd->p_test_desc;
+      int        ct  = p_fixd->test_ct;
       for (;;)
         {
-          /*
-            NOT an escaped newline.  Find the end of line that
-            is not preceeded by an escape character:  */
-          pz_next = strchr( text, '\n' );
-          if (pz_next == (char*)NULL)
+          if (ct-- <= 0)
             {
-              putc( '\n', stdout );
-              return;
+              fprintf( stderr, zBad, p_fixd->fix_name, "search-text" );
+              exit( 3 );
             }
 
-          if (pz_next[-1] != '\\')
+          if (pTD->type == TT_EGREP)
             {
-              text = pz_next;
-              pz_next = (char*)NULL; /* force a new regex search */
+              pz_pat = pTD->pz_test_text;
               break;
             }
 
-          /*
-            The newline was escaped.  We gotta keep going.  */
-          text = pz_next + 1;
+          pTD++;
         }
+    }
 
-    dont_fix_bogon:;
-    } /* for (entire file) loop */
+  /*
+   *  Replace every copy of the text we find
+   */
+  compile_re (pz_pat, &re, 1, "format search-text", "format_fix" );
+  while (regexec (&re, text, 10, rm, 0) == 0)
+    {
+      char* apz[10];
+      int   i;
 
-  return;
+      fwrite( text, rm[0].rm_so, 1, stdout );
+      format_write( pz_fmt, text, rm );
+      text += rm[0].rm_eo;
+    }
+
+  /*
+   *  Dump out the rest of the file
+   */
+  fputs (text, stdout);
 }
+
 
 /* Scan the input file for all occurrences of text like this:
 
@@ -369,186 +265,195 @@ FIX_PROC_HEAD( else_endif_label_fix )
 
    which is the required syntax per the C standard.  (The definition of
    _IO also has to be tweaked - see below.)  'IO' is actually whatever you
-   provide in the STR argument.  */
-void
-fix_char_macro_uses (text, str)
-     const char *text;
-     const char *str;
+   provide as the `c_fix_arg' argument.  */
+
+FIX_PROC_HEAD( char_macro_use_fix )
 {
   /* This regexp looks for a traditional-syntax #define (# in column 1)
      of an object-like macro.  */
-  static const char pat[] =
-    "^#[ \t]*define[ \t]+[_A-Za-z][_A-Za-z0-9]*[ \t]+";
+  static const char zPatFmt[] =
+#ifdef __STDC__
+    /*
+     *  Match up to the replacement text
+     */
+    "^#[ \t]*define[ \t]+[_A-Za-z][_A-Za-z0-9]*[ \t]+"
+    /*
+     *  Match the replacement macro name and openening parenthesis
+     */
+    "[_A-Z][_A-Z0-9]*%s[A-Z]*\\("
+    /*
+     *  Match the single character that must be single-quoted,
+     *  plus some other non-name type character
+     */
+    "([A-Za-z])[^a-zA-Z0-9_]"
+#else
+    /*
+     *  Indecipherable gobbeldygook:
+     */
+
+    "^#[ \t]*define[ \t]+[_A-Za-z][_A-Za-z0-9]*[ \t]+[_A-Z][_A-Z0-9]*\
+%s[A-Z]*\\(([A-Za-z])[^a-zA-Z0-9_]"
+#endif
+    ;
+
+# define SUB_PAT_CT 1
+  char *pz_pat;
+
   static regex_t re;
 
-  regmatch_t rm[1];
-  const char *p, *limit;
-  size_t len = strlen (str);
+  regmatch_t rm[SUB_PAT_CT+1];
 
-  compile_re (pat, &re, 1, "macro pattern", "fix_char_macro_uses");
-
-  for (p = text;
-       regexec (&re, p, 1, rm, 0) == 0;
-       p = limit + 1)
+  if (p_fixd->patch_args[1] == NULL)
     {
-      /* p + rm[0].rm_eo is the first character of the macro replacement.
-	 Find the end of the macro replacement, and the STR we were
-	 sent to look for within the replacement.  */
-      p += rm[0].rm_eo;
-      limit = p - 1;
-      do
-	{
-	  limit = strchr (limit + 1, '\n');
-	  if (!limit)
-	    goto done;
-	}
-      while (limit[-1] == '\\');
-
-      do
-	{
-	  if (*p == str[0] && !strncmp (p+1, str+1, len-1))
-	    goto found;
-	}
-      while (++p < limit - len);
-      /* Hit end of line.  */
-      continue;
-
-    found:
-      /* Found STR on this line.  If the macro needs fixing,
-	 the next few chars will be whitespace or uppercase,
-	 then an open paren, then a single letter.  */
-      while ((isspace (*p) || isupper (*p)) && p < limit) p++;
-      if (*p++ != '(')
-	continue;
-      if (!isalpha (*p))
-	continue;
-      if (isalnum (p[1]) || p[1] == '_')
-	continue;
-
-      /* Splat all preceding text into the output buffer,
-	 quote the character at p, then proceed.  */
-      fwrite (text, 1, p - text, stdout);
-      putchar ('\'');
-      putchar (*p);
-      putchar ('\'');
-      text = p + 1;
+      fprintf (stderr, "%s needs macro-name-string argument",
+              p_fixd->fix_name);
+      exit(3);
     }
- done:
+
+  asprintf (&pz_pat, zPatFmt, p_fixd->patch_args[1]);
+  if (!pz_pat)
+    {
+      fprintf( stderr, "Virtual memory exhausted\n" );
+      exit(3);
+    }
+
+  compile_re (pz_pat, &re, 1, "macro pattern", "char_macro_use_fix");
+  free (pz_pat);
+
+  while (regexec (&re, text, SUB_PAT_CT+1, rm, 0) == 0)
+    {
+      const char* pz = text + rm[1].rm_so;
+
+      /*
+       *  Write up to, but not including, the character we must quote
+       */
+      fwrite( text, 1, rm[1].rm_so, stdout );
+      fputc( '\'', stdout );
+      fputc( *(pz++), stdout );
+      fputc( '\'', stdout );
+      text = pz;
+    }
+
   fputs (text, stdout);
+# undef SUB_PAT_CT
 }
+
 
 /* Scan the input file for all occurrences of text like this:
 
-   #define _IO(x, y) ('x'<<16+y)
+   #define xxxIOxx(x, y) (....'x'<<16....)
 
    and change them to read like this:
 
-   #define _IO(x, y) (x<<16+y)
+   #define xxxIOxx(x, y) (....x<<16....)
 
    which is the required syntax per the C standard.  (The uses of _IO
-   also have to be tweaked - see above.)  'IO' is actually whatever
-   you provide in the STR argument.  */
-void
-fix_char_macro_defines (text, str)
-     const char *text;
-     const char *str;
+   also has to be tweaked - see above.)  'IO' is actually whatever
+   you provide as the `c_fix_arg' argument.  */
+FIX_PROC_HEAD( char_macro_def_fix )
 {
-  /* This regexp looks for any traditional-syntax #define (# in column 1).  */
-  static const char pat[] =
-    "^#[ \t]*define[ \t]+";
+  static const char zPatFmt[] =
+#ifdef __STDC__
+    /*
+     *  Find a #define name and opening parenthesis
+     */
+    "^#[ \t]*define[ \t]+[_A-Z][A-Z0-9_]*%s[A-Z]*\\("
+    /*
+     *  The next character must match a later one
+     */
+    "([a-zA-Z])"  /* rm[1] */
+    /*
+     *  now match over a comma, the argument list, intervening white space
+     *  an opening parenthesis, and on through a single quote character
+     */
+    "[ \t]*,[^)]*\\)[ \t]+\\([^']*'"
+    /*
+     *  Match the character that must match the remembered char above
+     */
+    "([a-zA-Z])'"  /* rm[2] */
+#else
+    /*
+     *  Indecipherable gobbeldygook:
+     */
+
+    "^#[ \t]*define[ \t]+[_A-Z][A-Z0-9_]*%s[A-Z]*\\(\
+([a-zA-Z])[ \t]*,[^)]*\\)[ \t]+\\([^']*'([a-zA-Z])'"
+#endif
+    ;
+
+  char *pz_pat;
+
   static regex_t re;
+# define SUB_PAT_CT 2
+  regmatch_t rm[SUB_PAT_CT+1];
+  const char *p;
+  int  rerr;
 
-  regmatch_t rm[1];
-  const char *p, *limit;
-  size_t len = strlen (str);
-  char arg;
-
-  compile_re (pat, &re, 1, "macro pattern", "fix_char_macro_defines");
-
-  for (p = text;
-       regexec (&re, p, 1, rm, 0) == 0;
-       p = limit + 1)
+  if (p_fixd->patch_args[1] == NULL)
     {
-      /* p + rm[0].rm_eo is the first character of the macro name.
-	 Find the end of the macro replacement, and the STR we were
-	 sent to look for within the name.  */
-      p += rm[0].rm_eo;
-      limit = p - 1;
-      do
-	{
-	  limit = strchr (limit + 1, '\n');
-	  if (!limit)
-	    goto done;
-	}
-      while (limit[-1] == '\\');
-
-      do
-	{
-	  if (*p == str[0] && !strncmp (p+1, str+1, len-1))
-	    goto found;
-	  p++;
-	}
-      while (isalpha (*p) || isalnum (*p) || *p == '_');
-      /* Hit end of macro name without finding the string.  */
-      continue;
-
-    found:
-      /* Found STR in this macro name.  If the macro needs fixing,
-	 there may be a few uppercase letters, then there will be an
-	 open paren with _no_ intervening whitespace, and then a
-	 single letter.  */
-      while (isupper (*p) && p < limit) p++;
-      if (*p++ != '(')
-	continue;
-      if (!isalpha (*p))
-	continue;
-      if (isalnum (p[1]) || p[1] == '_')
-	continue;
-
-      /* The character at P is the one to look for in the following
-	 text.  */
-      arg = *p;
-      p += 2;
-
-      while (p < limit)
-	{
-	  if (p[-1] == '\'' && p[0] == arg && p[1] == '\'')
-	    {
-	      /* Remove the quotes from this use of ARG.  */
-	      p--;
-	      fwrite (text, 1, p - text, stdout);
-	      putchar (arg);
-	      p += 3;
-	      text = p;
-	    }
-	  else
-	    p++;
-	}
+      fprintf (stderr, "%s needs macro-name-string argument",
+              p_fixd->fix_name);
+      exit(3);
     }
- done:
+
+  asprintf (&pz_pat, zPatFmt, p_fixd->patch_args[1]);
+  if (!pz_pat)
+    {
+      fprintf (stderr, "Virtual memory exhausted\n");
+      exit(3);
+    }
+
+  compile_re (pz_pat, &re, 1, "macro pattern", "char_macro_def_fix");
+
+#ifdef DEBUG
+  if ((rerr = regexec (&re, text, SUB_PAT_CT+1, rm, 0)) != 0)
+    {
+      fprintf( stderr, "Match error %d:\n%s\n", rerr, pz_pat );
+      exit(3);
+    }
+#endif
+
+  free (pz_pat);
+  
+  while ((rerr = regexec (&re, text, SUB_PAT_CT+1, rm, 0)) == 0)
+    {
+      const char* pz = text + rm[2].rm_so;
+
+      /*
+       *  Write up to, but not including, the opening single quote.
+       */
+      fwrite( text, 1, rm[2].rm_so-1, stdout );
+
+      /*
+       *  The character inside the single quotes must match the
+       *  first single-character macro argument
+       */
+      if (text[ rm[1].rm_so ] != *pz)
+        {
+          /*
+           *  Advance text past what we have written out and continue
+           */
+          text = pz-1;
+          continue;
+        }
+
+      /*
+       *  emit the now unquoted character
+       */
+      putchar( *pz );
+
+      /*
+       *  Point text to the character after the closing single quote
+       */
+      text = pz+2;
+    }
+
+  /*
+   *  Emit the rest of the text
+   */
   fputs (text, stdout);
+# undef SUB_PAT_CT
 }
-
-/* The various prefixes on these macros are handled automatically
-   because the fixers don't care where they start matching.  */
-FIX_PROC_HEAD( IO_use_fix )
-{
-  fix_char_macro_uses (text, "IO");
-}
-FIX_PROC_HEAD( CTRL_use_fix )
-{
-  fix_char_macro_uses (text, "CTRL");
-}
-
-FIX_PROC_HEAD( IO_defn_fix )
-{
-  fix_char_macro_defines (text, "IO");
-}
-FIX_PROC_HEAD( CTRL_defn_fix )
-{
-  fix_char_macro_defines (text, "CTRL");
-}
-
 
 /* Fix for machine name #ifdefs that are not in the namespace reserved
    by the C standard.  They won't be defined if compiling with -ansi,
@@ -564,7 +469,7 @@ FIX_PROC_HEAD( machine_name_fix )
   fputs( "The target machine has no needed machine name fixes\n", stderr );
 #else
   regmatch_t match[2];
-  char *line, *base, *limit, *p, *q;
+  const char *line, *base, *limit, *p, *q;
   regex_t *label_re, *name_re;
   char scratch[SCRATCHSZ];
   size_t len;
@@ -580,75 +485,126 @@ FIX_PROC_HEAD( machine_name_fix )
     {
       base += match[0].rm_eo;
       /* We're looking at an #if or #ifdef.  Scan forward for the
-	 next non-escaped newline.  */
+         next non-escaped newline.  */
       line = limit = base;
       do
-	{
-	  limit++;
-	  limit = strchr (limit, '\n');
-	  if (!limit)
-	    goto done;
-	}
+        {
+          limit++;
+          limit = strchr (limit, '\n');
+          if (!limit)
+            goto done;
+        }
       while (limit[-1] == '\\');
 
       /* If the 'name_pat' matches in between base and limit, we have
-	 a bogon.  It is not worth the hassle of excluding comments
-	 because comments on #if/#ifdef lines are rare, and strings on
-	 such lines are illegal.
+         a bogon.  It is not worth the hassle of excluding comments
+         because comments on #if/#ifdef lines are rare, and strings on
+         such lines are illegal.
 
-	 REG_NOTBOL means 'base' is not at the beginning of a line, which
-	 shouldn't matter since the name_re has no ^ anchor, but let's
-	 be accurate anyway.  */
+         REG_NOTBOL means 'base' is not at the beginning of a line, which
+         shouldn't matter since the name_re has no ^ anchor, but let's
+         be accurate anyway.  */
 
       for (;;)
-	{
-	again:
-	  if (base == limit)
-	    break;
+        {
+        again:
+          if (base == limit)
+            break;
 
-	  if (regexec (name_re, base, 1, match, REG_NOTBOL))
-	    goto done;  /* No remaining match in this file */
+          if (regexec (name_re, base, 1, match, REG_NOTBOL))
+            goto done;  /* No remaining match in this file */
 
-	  /* Match; is it on the line?  */
-	  if (match[0].rm_eo > limit - base)
-	    break;
+          /* Match; is it on the line?  */
+          if (match[0].rm_eo > limit - base)
+            break;
 
-	  p = base + match[0].rm_so;
-	  base += match[0].rm_eo;
+          p = base + match[0].rm_so;
+          base += match[0].rm_eo;
 
-	  /* One more test: if on the same line we have the same string
-	     with the appropriate underscores, then leave it alone.
-	     We want exactly two leading and trailing underscores.  */
-	  if (*p == '_')
-	    {
-	      len = base - p - ((*base == '_') ? 2 : 1);
-	      q = p + 1;
-	    }
-	  else
-	    {
-	      len = base - p - ((*base == '_') ? 1 : 0);
-	      q = p;
-	    }
-	  if (len + 4 > SCRATCHSZ)
-	    abort ();
-	  memcpy (&scratch[2], q, len);
-	  len += 2;
-	  scratch[len++] = '_';
-	  scratch[len++] = '_';
+          /* One more test: if on the same line we have the same string
+             with the appropriate underscores, then leave it alone.
+             We want exactly two leading and trailing underscores.  */
+          if (*p == '_')
+            {
+              len = base - p - ((*base == '_') ? 2 : 1);
+              q = p + 1;
+            }
+          else
+            {
+              len = base - p - ((*base == '_') ? 1 : 0);
+              q = p;
+            }
+          if (len + 4 > SCRATCHSZ)
+            abort ();
+          memcpy (&scratch[2], q, len);
+          len += 2;
+          scratch[len++] = '_';
+          scratch[len++] = '_';
 
-	  for (q = line; q <= limit - len; q++)
-	    if (*q == '_' && !strncmp (q, scratch, len))
-	      goto again;
-	  
-	  fwrite (text, 1, p - text, stdout);
-	  fwrite (scratch, 1, len, stdout);
+          for (q = line; q <= limit - len; q++)
+            if (*q == '_' && !strncmp (q, scratch, len))
+              goto again;
+          
+          fwrite (text, 1, p - text, stdout);
+          fwrite (scratch, 1, len, stdout);
 
-	  text = base;
-	}
+          text = base;
+        }
     }
  done:
 #endif
   fputs (text, stdout);
+}
+
+
+FIX_PROC_HEAD( wrap_fix )
+{
+  char   z_fixname[ 64 ];
+  tCC*   pz_src  = p_fixd->fix_name;
+  tCC*   pz_name = z_fixname;
+  char*  pz_dst  = z_fixname;
+  size_t len     = 0;
+
+  for (;;) {
+    char ch = *(pz_src++);
+
+    if (islower(ch))
+      *(pz_dst++) = toupper( ch );
+
+    else if (isalnum( ch ))
+      *(pz_dst++) = ch;
+
+    else if (ch == NUL) {
+      *(pz_dst++) = ch;
+      break;
+    }
+    else
+      *(pz_dst++) = '_';
+
+    if (++len >= sizeof( z_fixname )) {
+      void* p = must_malloc( len + strlen( pz_src ) + 1 );
+      memcpy( p, (void*)z_fixname, len );
+      pz_name = (tCC*)p;
+      pz_dst  = (char*)pz_name + len;
+    }
+  }
+
+  printf( "#ifndef FIXINC_%s_CHECK\n", pz_name );
+  printf( "#define FIXINC_%s_CHECK 1\n\n", pz_name );
+
+  if (p_fixd->patch_args[1] == (tCC*)NULL)
+    fputs( text, stdout );
+
+  else {
+    fputs( p_fixd->patch_args[1], stdout );
+    fputs( text, stdout );
+    if (p_fixd->patch_args[2] != (tCC*)NULL)
+      fputs( p_fixd->patch_args[2], stdout );
+  }
+
+  printf( "\n#endif  /* FIXINC_%s_CHECK */\n", pz_name );
+  if (pz_name != z_fixname)
+    free( (void*)pz_name );
 }
 
 
@@ -660,15 +616,16 @@ FIX_PROC_HEAD( machine_name_fix )
 
 */
 void
-apply_fix( fixname, filname )
-  const char* fixname;
-  const char* filname;
+apply_fix( p_fixd, filname )
+  tFixDesc* p_fixd;
+  tCC* filname;
 {
 #define _FT_(n,p) { n, p },
   static fix_entry_t fix_table[] = { FIXUP_TABLE { NULL, NULL }};
 #undef _FT_
 #define FIX_TABLE_CT ((sizeof(fix_table)/sizeof(fix_table[0]))-1)
 
+  tCC* fixname = p_fixd->patch_args[0];
   char* buf;
   int ct = FIX_TABLE_CT;
   fix_entry_t* pfe = fix_table;
@@ -687,30 +644,5 @@ apply_fix( fixname, filname )
     }
 
   buf = load_file_data (stdin);
-  (*pfe->fix_proc)( filname, buf );
+  (*pfe->fix_proc)( filname, buf, p_fixd );
 }
-
-#ifdef MAIN
-
-/* = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-
-     MAIN ROUTINE
-
-     This file is both included in fixincl.c and compiled as a separate
-     program for use by the inclhack.sh script.
-
-*/
-
-int
-main( argc, argv )
-  int argc;
-  char** argv;
-{
-  if (argc != 3)
-    apply_fix ("No test name provided", NULL, NULL, 0 );
-
-  apply_fix (argv[2], argv[1]);
-  return 0;
-}
-
-#endif

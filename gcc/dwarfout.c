@@ -5690,7 +5690,7 @@ dwarfout_undef (lineno, buffer)
 void
 dwarfout_init (asm_out_file, main_input_filename)
      register FILE *asm_out_file;
-     register char *main_input_filename;
+     register const char *main_input_filename;
 {
   /* Remember the name of the primary input file.  */
 
@@ -5876,10 +5876,10 @@ dwarfout_finish ()
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
-  retry_incomplete_types ();
-
   fputc ('\n', asm_out_file);
   ASM_OUTPUT_PUSH_SECTION (asm_out_file, DEBUG_SECTION);
+  retry_incomplete_types ();
+  fputc ('\n', asm_out_file);
 
   /* Mark the end of the chain of siblings which represent all file-scope
      declarations in this compilation unit.  */

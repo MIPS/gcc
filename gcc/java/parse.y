@@ -2678,7 +2678,7 @@ static void
 java_parser_context_suspend ()
 {
   /* This makes debugging through java_debug_context easier */
-  static char *name = "<inner buffer context>";
+  static const char *name = "<inner buffer context>";
 
   /* Duplicate the previous context, use it to save the globals we're
      interested in */
@@ -2965,7 +2965,7 @@ issue_warning_error_from_context (cl, msg, ap)
      const char *msg;
      va_list ap;
 {
-  char *saved, *saved_input_filename;
+  const char *saved, *saved_input_filename;
   char buffer [4096];
   vsprintf (buffer, msg, ap);
   force_error = 1;
@@ -5159,7 +5159,7 @@ safe_layout_class (class)
      tree class;
 {
   tree save_current_class = current_class;
-  char *save_input_filename = input_filename;
+  const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
   push_obstacks (&permanent_obstack, &permanent_obstack);
@@ -7297,9 +7297,19 @@ java_complete_expand_methods (class_decl)
   /* First, do the ordinary methods. */
   for (decl = first_decl; decl; decl = TREE_CHAIN (decl))
     {
-      /* Skip abstract or native methods */
-      if (METHOD_ABSTRACT (decl) || METHOD_NATIVE (decl))
+      /* Skip abstract or native methods -- but do handle native
+ 	 methods when generating JNI stubs.  */
+      if (METHOD_ABSTRACT (decl)
+ 	  || (! flag_jni && METHOD_NATIVE (decl))
+	  || DECL_CONSTRUCTOR_P (decl) || DECL_CLINIT_P (decl))
 	continue;
+
+      if (METHOD_NATIVE (decl))
+ 	{
+ 	  tree body = build_jni_stub (decl);
+ 	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl)) = body;
+ 	}
+
       java_complete_expand_method (decl);
     }
 
@@ -7429,7 +7439,7 @@ java_complete_expand_method (mdecl)
 	{
 	  block_body = java_complete_tree (block_body);
 
-	  if (!flag_emit_xref)
+	  if (! flag_emit_xref && ! METHOD_NATIVE (mdecl))
 	    check_for_initialization (block_body);
 	  ctxp->explicit_constructor_p = 0;
 	}

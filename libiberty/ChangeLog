@@ -1,3 +1,36 @@
+2000-05-18  J. David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* xmalloc.c: Include config.h for HAVE_SBRK definition.
+
+2000-05-16  Horst von Brand <vonbrand@sleipnir.valparaiso.cl>
+
+        * hashtab.c (hash_pointer): Delete low-order bits which are
+	probably zero, also eliminate a warning on alpha.
+
+2000-05-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* Makefile.in: Change "pic" to depend on $(PICFLAG), not
+	on $(enable_shared).
+
+2000-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.table: Use mh-sparcpic for sparc*-*-*.
+
+2000-05-08  Nick Clifton  <nickc@cygnus.com>
+
+	* Makefile.in (CFILES): Add strncmp.c.
+	(NEEDED): Add strncmp.
+
+2000-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cplus-dem.c (cplus_demangle_opname, demangle_function_name):
+	Cast the arguments to `islower' to `unsigned char'.
+	(print_demangler_list): Prototype.
+
+Thu May  4 17:14:41 2000  Philippe De Muyter  <phdm@macqel.be>
+
+	* sort.c (UCHAR_MAX): Provide fallback definition.
+
 2000-04-29  Alexandre Oliva  <aoliva@cygnus.com>
 
 	* Makefile.in (maintainer-clean-subdir): Fix handling of empty

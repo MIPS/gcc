@@ -712,7 +712,7 @@ static tree shadowed_labels;
 
 static tree
 ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
-			 char *array_name)
+			 const char *array_name)
 {
   tree low = TYPE_MIN_VALUE (TYPE_DOMAIN (array));
   tree high = TYPE_MAX_VALUE (TYPE_DOMAIN (array));
@@ -762,30 +762,29 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
       {
       case 0:
 	var = xmalloc (strlen (array_name) + 20);
-	sprintf (&var[0], "%s[%s-substring]",
+	sprintf (var, "%s[%s-substring]",
 		 array_name,
 		 dim ? "end" : "start");
 	len = strlen (var) + 1;
+	arg1 = build_string (len, var);
+	free (var);
 	break;
 
       case 1:
 	len = strlen (array_name) + 1;
-	var = array_name;
+	arg1 = build_string (len, array_name);
 	break;
 
       default:
 	var = xmalloc (strlen (array_name) + 40);
-	sprintf (&var[0], "%s[subscript-%d-of-%d]",
+	sprintf (var, "%s[subscript-%d-of-%d]",
 		 array_name,
 		 dim + 1, total_dims);
 	len = strlen (var) + 1;
+	arg1 = build_string (len, var);
+	free (var);
 	break;
       }
-
-    arg1 = build_string (len, var);
-
-    if (total_dims != 1)
-      free (var);
 
     TREE_TYPE (arg1)
       = build_type_variant (build_array_type (char_type_node,
@@ -877,7 +876,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
   tree element;
   tree tree_type;
   tree tree_type_x;
-  char *array_name;
+  const char *array_name;
   ffetype type;
   ffebld list;
 
@@ -1712,7 +1711,7 @@ ffecom_overlap_ (tree dest_decl, tree dest_offset, tree dest_size,
 	return TRUE;
 
       source_decl = source_tree;
-      source_offset = size_zero_node;
+      source_offset = bitsize_zero_node;
       source_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (source_tree)));
       break;
 
@@ -2072,7 +2071,7 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	ffebld thing = ffebld_right (expr);
 	tree start_tree;
 	tree end_tree;
-	char *char_name;
+	const char *char_name;
 	ffebld left_symter;
 	tree array;
 
@@ -2678,7 +2677,7 @@ ffecom_do_entry_ (ffesymbol fn, int entrynum)
   bool altreturning = FALSE;	/* This entry point has alternate returns. */
   int yes;
   int old_lineno = lineno;
-  char *old_input_filename = input_filename;
+  const char *old_input_filename = input_filename;
 
   input_filename = ffesymbol_where_filename (fn);
   lineno = ffesymbol_where_filelinenum (fn);
@@ -6262,7 +6261,7 @@ ffecom_gen_sfuncdef_ (ffesymbol s, ffeinfoBasictype bt, ffeinfoKindtype kt)
   static bool recurse = FALSE;
   int yes;
   int old_lineno = lineno;
-  char *old_input_filename = input_filename;
+  const char *old_input_filename = input_filename;
 
   ffecom_nested_entry_ = s;
 
@@ -7292,7 +7291,7 @@ ffecom_start_progunit_ ()
   && (ffecom_master_bt_ == FFEINFO_basictypeNONE);
   bool main_program = FALSE;
   int old_lineno = lineno;
-  char *old_input_filename = input_filename;
+  const char *old_input_filename = input_filename;
   int yes;
 
   assert (fn != NULL);
@@ -7528,7 +7527,7 @@ ffecom_sym_transform_ (ffesymbol s)
   ffeglobal g;
   int yes;
   int old_lineno = lineno;
-  char *old_input_filename = input_filename;
+  const char *old_input_filename = input_filename;
 
   /* Must ensure special ASSIGN variables are declared at top of outermost
      block, else they'll end up in the innermost block when their first
@@ -8575,7 +8574,7 @@ ffecom_sym_transform_assign_ (ffesymbol s)
   tree t;			/* Transformed thingy. */
   int yes;
   int old_lineno = lineno;
-  char *old_input_filename = input_filename;
+  const char *old_input_filename = input_filename;
 
   if (ffesymbol_sfdummyparent (s) == NULL)
     {
@@ -9086,9 +9085,9 @@ ffecom_tree_canonize_ptr_ (tree *decl, tree *offset,
 				 *offset, TREE_OPERAND (t, 1)));
 	  /* Convert offset (presumably in bytes) into canonical units
 	     (presumably bits).  */
-	  *offset = fold (build (MULT_EXPR, TREE_TYPE (*offset),
-				 TYPE_SIZE (TREE_TYPE (TREE_TYPE (t))),
-				 *offset));
+	  *offset = size_binop (MULT_EXPR,
+				convert (bitsizetype, *offset),
+				TYPE_SIZE (TREE_TYPE (TREE_TYPE (t))));
 	  break;
 	}
       /* Not a COMMON reference, so an unrecognized pattern.  */
@@ -9249,18 +9248,17 @@ ffecom_tree_canonize_ref_ (tree *decl, tree *offset,
 	    || (*decl == error_mark_node))
 	  return;
 
-	*offset
-	  = size_binop (MULT_EXPR,
-			TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))),
-			convert (sizetype,
-				 fold (build (MINUS_EXPR, TREE_TYPE (element),
-					      element,
-					      TYPE_MIN_VALUE
-					      (TYPE_DOMAIN
-					       (TREE_TYPE (array)))))));;
+	/* Calculate ((element - base) * NBBY) + init_offset.  */
+	*offset = fold (build (MINUS_EXPR, TREE_TYPE (element),
+			       element,
+			       TYPE_MIN_VALUE (TYPE_DOMAIN
+					       (TREE_TYPE (array)))));
 
-	*offset = size_binop (PLUS_EXPR, convert (sizetype, init_offset),
-			      *offset);
+	*offset = size_binop (MULT_EXPR,
+			      convert (bitsizetype, *offset),
+			      TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))));
+
+	*offset = size_binop (PLUS_EXPR, init_offset, *offset);
 
 	*size = TYPE_SIZE (TREE_TYPE (t));
 	return;
@@ -14771,9 +14769,9 @@ init_decl_processing ()
   ffe_init_0 ();
 }
 
-char *
+const char *
 init_parse (filename)
-     char *filename;
+     const char *filename;
 {
   /* Open input file.  */
   if (filename == 0 || !strcmp (filename, "-"))

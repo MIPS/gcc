@@ -203,6 +203,33 @@ DEF_RTL_EXPR(DEFINE_PEEPHOLE, "define_peephole", "EssV", 'x')
 	(`operands' is an alias here for `recog_operand').   */
 DEF_RTL_EXPR(DEFINE_SPLIT, "define_split", "EsES", 'x')
 
+/* Definition of an insn and associated split.
+   This is the concatenation, with a few modifications, of a define_insn
+   and a define_split which share the same pattern.
+   Operand:
+   0: names this instruction.
+      If the name is the null string, the instruction is in the
+      machine description just to be recognized, and will never be emitted by
+      the tree to rtl expander.
+   1: is the pattern.
+   2: is a string which is a C expression
+      giving an additional condition for recognizing this pattern.
+      A null string means no extra condition.
+   3: is the action to execute if this pattern is matched.
+      If this assembler code template starts with a * then it is a fragment of
+      C code to run to decide on a template to use.  Otherwise, it is the
+      template to use.
+   4: C expression that must be true for split.  This may start with "&&"
+      in which case the split condition is the logical and of the insn 
+      condition and what follows the "&&" of this operand.
+   5: vector of insn patterns to place into a SEQUENCE
+   6: optionally, some C code to execute before generating the
+	insns.  This might, for example, create some RTX's and store them in
+	elements of `recog_operand' for use by the vector of insn-patterns.
+	(`operands' is an alias here for `recog_operand').  
+   7: optionally, a vector of attributes for this insn.  */
+DEF_RTL_EXPR(DEFINE_INSN_AND_SPLIT, "define_insn_and_split", "sEsssESV", 'x')
+
 /* Definition of an RTL peephole operation.
    Follows the same arguments as define_split.  */
 DEF_RTL_EXPR(DEFINE_PEEPHOLE2, "define_peephole2", "EsES", 'x')
@@ -282,6 +309,19 @@ DEF_RTL_EXPR(DEFINE_FUNCTION_UNIT, "define_function_unit", "siieiiV", 'x')
 
 /* Define attribute computation for `asm' instructions.  */
 DEF_RTL_EXPR(DEFINE_ASM_ATTRIBUTES, "define_asm_attributes", "V", 'x' )
+
+/* Definition of a conditional execution meta operation.  Automatically
+   generates new instances of DEFINE_INSN, selected by having attribute
+   "predicable" true.  The new pattern will contain a COND_EXEC and the
+   predicate at top-level.
+
+   Operand:
+   0: The predicate pattern.  The top-level form should match a
+      relational operator.  Operands should have only one alternative.
+   1: A C expression giving an additional condition for recognizing
+      the generated pattern.
+   2: A template or C code to produce assembler output.  */
+DEF_RTL_EXPR(DEFINE_COND_EXEC, "define_cond_exec", "Ess", 'x')
 
 /* SEQUENCE appears in the result of a `gen_...' function
    for a DEFINE_EXPAND that wants to make several insns.
@@ -373,28 +413,34 @@ DEF_RTL_EXPR(BARRIER, "barrier", "iuu", 'x')
 
 /* Holds a label that is followed by instructions.
    Operand:
-   3: is a number that is unique in the entire compilation.
-   4: is the user-given name of the label, if any.
-   5: is used in jump.c for the use-count of the label.
-   6: is used in flow.c to point to the chain of label_ref's to this label.
+   3: is used in jump.c for the use-count of the label.
+   4: is used in flow.c to point to the chain of label_ref's to this label.
+   5: is a number that is unique in the entire compilation.
+   6: is the user-given name of the label, if any.
    7: is the alternate label name.  */
-DEF_RTL_EXPR(CODE_LABEL, "code_label", "iuuis00s", 'x')
+DEF_RTL_EXPR(CODE_LABEL, "code_label", "iuu00iss", 'x')
      
 /* Say where in the code a source line starts, for symbol table's sake.
-   Contains a filename and a line number.  Line numbers <= 0 are special:
-   0 is used in a dummy placed at the front of every function
-      just so there will never be a need to delete the first insn;
-   -1 indicates a dummy; insns to be deleted by flow analysis and combining
-      are really changed to NOTEs with a number of -1.
-   -2 means beginning of a name binding contour; output N_LBRAC.
-   -3 means end of a contour; output N_RBRAC.  */
-DEF_RTL_EXPR(NOTE, "note", "iuu0n", 'x')
+   Operand:
+   3: filename, if line number > 0, note-specific data otherwise.
+   4: line number if > 0, enum note_insn otherwise.
+   5: unique number if line number == note_insn_deleted_label.  */
+DEF_RTL_EXPR(NOTE, "note", "iuu0ni", 'x')
 
 /* ----------------------------------------------------------------------
    Top level constituents of INSN, JUMP_INSN and CALL_INSN.
    ---------------------------------------------------------------------- */
    
-/* Several operations to be done in parallel.  */
+/* Conditionally execute code.
+   Operand 0 is the condition that if true, the code is executed.
+   Operand 1 is the code to be executed (typically a SET). 
+
+   Semantics are that there are no side effects if the condition
+   is false.  This pattern is created automatically by the if_convert
+   pass run after reload or by target-specific splitters.  */
+DEF_RTL_EXPR(COND_EXEC, "cond_exec", "ee", 'x')
+
+/* Several operations to be done in parallel (perhaps under COND_EXEC).  */
 DEF_RTL_EXPR(PARALLEL, "parallel", "E", 'x')
 
 /* A string that is passed through to the assembler as input.
@@ -896,13 +942,6 @@ DEF_RTL_EXPR(CALL_PLACEHOLDER, "call_placeholder", "uuuu", 'x')
    of canonical RTL.  It is, however, easier to manipulate this way.  */
 DEF_RTL_EXPR(PHI, "phi", "E", 'x')
 
-/* Conditionally execute code.
-   Operand 0 is the condition that if true, the code is executed.
-   Operand 1 is the code to be executed (typically a SET). 
-
-   Semantics are that there are no side effects if the condition
-   is false.  */
-DEF_RTL_EXPR(COND_EXEC, "cond_exec", "ee", 'x')
 
 /*
 Local variables:

@@ -4407,6 +4407,11 @@ extract_muldiv (t, c, code, wide_type)
       break;
 
     case MIN_EXPR:  case MAX_EXPR:
+      /* If widening the type changes the signedness, then we can't perform
+	 this optimization as that changes the result.  */
+      if (ctype != type && TREE_UNSIGNED (ctype) != TREE_UNSIGNED (type))
+	break;
+
       /* MIN (a, b) / 5 -> MIN (a / 5, b / 5)  */
       if ((t1 = extract_muldiv (op0, c, code, wide_type)) != 0
 	  && (t2 = extract_muldiv (op1, c, code, wide_type)) != 0)
@@ -5266,7 +5271,8 @@ fold (expr)
 	{
 	  if (TREE_CODE (arg0) == INTEGER_CST)
 	    {
-	      HOST_WIDE_INT low, high;
+	      unsigned HOST_WIDE_INT low;
+	      HOST_WIDE_INT high;
 	      int overflow = neg_double (TREE_INT_CST_LOW (arg0),
 					 TREE_INT_CST_HIGH (arg0),
 					 &low, &high);
@@ -5300,7 +5306,8 @@ fold (expr)
 	      if (! TREE_UNSIGNED (type)
 		  && TREE_INT_CST_HIGH (arg0) < 0)
 		{
-		  HOST_WIDE_INT low, high;
+		  unsigned HOST_WIDE_INT low;
+		  HOST_WIDE_INT high;
 		  int overflow = neg_double (TREE_INT_CST_LOW (arg0),
 					     TREE_INT_CST_HIGH (arg0),
 					     &low, &high);

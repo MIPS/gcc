@@ -32,7 +32,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 struct directive
 {
   directive_handler func;	/* Function to handle directive.  */
-  const char *name;		/* Name of directive.  */
+  const U_CHAR *name;		/* Name of directive.  */
   unsigned short length;	/* Length of name.  */
   unsigned short flags;	        /* Flags describing this directive.  */
 };
@@ -52,9 +52,9 @@ typedef struct if_stack IF_STACK;
 
 /* Forward declarations.  */
 
-static void validate_else		PARAMS ((cpp_reader *, const char *));
-static int parse_ifdef			PARAMS ((cpp_reader *, const char *));
-static unsigned int parse_include	PARAMS ((cpp_reader *, const char *));
+static void validate_else		PARAMS ((cpp_reader *, const U_CHAR *));
+static int parse_ifdef			PARAMS ((cpp_reader *, const U_CHAR *));
+static unsigned int parse_include	PARAMS ((cpp_reader *, const U_CHAR *));
 static int conditional_skip		PARAMS ((cpp_reader *, int, int,
 						 U_CHAR *));
 static int skip_if_group		PARAMS ((cpp_reader *));
@@ -114,8 +114,8 @@ D(warning,	T_WARNING,	EXTENSION)		    /*    22 GNU */ \
 D(include_next,	T_INCLUDE_NEXT,	EXTENSION | SYNTAX_INCLUDE) /*    19 GNU */ \
 D(ident,	T_IDENT,	EXTENSION)		    /*    11 SVR4 */ \
 D(import,	T_IMPORT,	EXTENSION | SYNTAX_INCLUDE) /*     0 ObjC */ \
-D(assert,	T_ASSERT,	EXTENSION | SYNTAX_ASSERT)  /*     0 SVR4 */ \
-D(unassert,	T_UNASSERT,	EXTENSION | SYNTAX_ASSERT)  /*     0 SVR4 */ \
+D(assert,	T_ASSERT,	EXTENSION)  		    /*     0 SVR4 */ \
+D(unassert,	T_UNASSERT,	EXTENSION)  		    /*     0 SVR4 */ \
 SCCS_ENTRY
 
 /* Use the table to generate a series of prototypes, an enum for the
@@ -140,7 +140,8 @@ enum
 
 /* Don't invoke CONCAT2 with any whitespace or K&R cc will fail. */
 #define D(name, t, flags) \
-{ CONCAT2(do_,name), STRINGX(name), sizeof STRINGX(name) - 1, flags },
+{ CONCAT2(do_,name), (const U_CHAR *) STRINGX(name), \
+  sizeof STRINGX(name) - 1, flags },
 static const struct directive dtable[] =
 {
 DIRECTIVE_TABLE
@@ -155,18 +156,19 @@ _cpp_check_directive (list, token)
      cpp_toklist *list;
      cpp_token *token;
 {
-  const char *name = list->namebuf + token->val.name.offset;
+  const U_CHAR *name = token->val.name.text;
   size_t len = token->val.name.len;
   unsigned int i;
 
-  list->dir_handler = 0;
-  list->dir_flags = 0;
+  list->dirno = -1;
+  list->flags &= ~SYNTAX_INCLUDE;
 
   for (i = 0; i < N_DIRECTIVES; i++)
-    if (dtable[i].length == len && !strncmp (dtable[i].name, name, len)) 
+    if (dtable[i].length == len && !ustrncmp (dtable[i].name, name, len)) 
       {
-	list->dir_handler = dtable[i].func;
-	list->dir_flags = dtable[i].flags;
+	list->dirno = i;
+	if (dtable[i].flags & SYNTAX_INCLUDE)
+	  list->flags |= SYNTAX_INCLUDE;
 	break;
       }
 }
@@ -215,11 +217,11 @@ _cpp_handle_directive (pfile)
 	return 0;
 
       if (CPP_PEDANTIC (pfile)
-	  && ! CPP_OPTION (pfile, preprocessed)
-	  && ! CPP_BUFFER (pfile)->manual_pop)
+	  && CPP_BUFFER (pfile)->ihash
+	  && ! CPP_OPTION (pfile, preprocessed))
 	cpp_pedwarn (pfile, "# followed by integer");
-      do_line (pfile);
-      return 1;
+      i = T_LINE;
+      goto process_directive;
     }
 
   /* If we are rescanning preprocessed input, don't obey any directives
@@ -237,7 +239,7 @@ _cpp_handle_directive (pfile)
       for (i = 0; i < N_DIRECTIVES; i++)
 	{
 	  if (dtable[i].length == len
-	      && !strncmp (dtable[i].name, ident, len)) 
+	      && !ustrncmp (dtable[i].name, ident, len)) 
 	    goto real_directive;
 	}
       /* Don't complain about invalid directives in assembly source,
@@ -299,6 +301,7 @@ _cpp_handle_directive (pfile)
   pfile->no_macro_expand--;
   CPP_SET_WRITTEN (pfile, old_written);
 
+ process_directive:
   /* Some directives (e.g. #if) may return a request to execute
      another directive handler immediately.  No directive ever
      requests that #define be executed immediately, so it is safe for
@@ -338,32 +341,32 @@ do_define (pfile)
 {
   HASHNODE *node;
   int len;
-  U_CHAR *sym;
+  const U_CHAR *sym;
   cpp_toklist *list = &pfile->directbuf;
 
   pfile->no_macro_expand++;
-  pfile->parsing_define_directive++;
   CPP_OPTION (pfile, discard_comments)++;
 
-  _cpp_scan_line (pfile, list);
+  _cpp_scan_until (pfile, list, CPP_VSPACE);
 
-  /* First token on the line must be a NAME.  There must be at least
-     one token (the VSPACE at the end).  */
-  if (list->tokens[0].type != CPP_NAME)
+  /* First token on the line must be a NAME.  There may not be any
+     tokens in the list (if we had #define all by itself on a line).  */
+  if (list->tokens_used == 0
+      || TOK_TYPE (list, 0) != CPP_NAME)
     {
-      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+      cpp_error_with_line (pfile, list->line, TOK_COL (list, 0),
 			   "#define must be followed by an identifier");
       goto out;
     }
 
-  sym = list->namebuf + list->tokens[0].val.name.offset;
-  len = list->tokens[0].val.name.len;
+  sym = TOK_NAME (list, 0);
+  len = TOK_LEN (list, 0);
 
   /* That NAME is not allowed to be "defined".  (Not clear if the
      standard requires this.)  */
-  if (len == 7 && !strncmp (sym, "defined", 7))
+  if (len == 7 && !ustrncmp (sym, U"defined", 7))
     {
-      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+      cpp_error_with_line (pfile, list->line, TOK_COL (list, 0),
 			   "\"defined\" is not a legal macro name");
       goto out;
     }
@@ -388,7 +391,6 @@ do_define (pfile)
 
  out:
   pfile->no_macro_expand--;
-  pfile->parsing_define_directive--;
   CPP_OPTION (pfile, discard_comments)--;
   return 0;
 }
@@ -398,7 +400,7 @@ do_define (pfile)
 static unsigned int
 parse_include (pfile, name)
      cpp_reader *pfile;
-     const char *name;
+     const U_CHAR *name;
 {
   long old_written = CPP_WRITTEN (pfile);
   enum cpp_ttype token;
@@ -457,12 +459,12 @@ do_include (pfile)
      cpp_reader *pfile;
 {
   unsigned int len;
-  char *token;
+  U_CHAR *token;
 
   len = parse_include (pfile, dtable[T_INCLUDE].name);
   if (len == 0)
     return 0;
-  token = alloca (len + 1);
+  token = (U_CHAR *) alloca (len + 1);
   memcpy (token, CPP_PWRITTEN (pfile), len);
   token[len] = '\0';
   
@@ -478,7 +480,7 @@ do_import (pfile)
      cpp_reader *pfile;
 {
   unsigned int len;
-  char *token;
+  U_CHAR *token;
 
   if (CPP_OPTION (pfile, warn_import)
       && !CPP_BUFFER (pfile)->system_header_p && !pfile->import_warning)
@@ -491,7 +493,7 @@ do_import (pfile)
   len = parse_include (pfile, dtable[T_IMPORT].name);
   if (len == 0)
     return 0;
-  token = alloca (len + 1);
+  token = (U_CHAR *) alloca (len + 1);
   memcpy (token, CPP_PWRITTEN (pfile), len);
   token[len] = '\0';
   
@@ -507,13 +509,13 @@ do_include_next (pfile)
      cpp_reader *pfile;
 {
   unsigned int len;
-  char *token;
+  U_CHAR *token;
   struct file_name_list *search_start = 0;
 
   len = parse_include (pfile, dtable[T_INCLUDE_NEXT].name);
   if (len == 0)
     return 0;
-  token = alloca (len + 1);
+  token = (U_CHAR *) alloca (len + 1);
   memcpy (token, CPP_PWRITTEN (pfile), len);
   token[len] = '\0';
   
@@ -590,7 +592,8 @@ do_line (pfile)
     }
 
   CPP_PUTC (pfile, '\0');  /* not terminated for us */
-  new_lineno = strtoul (pfile->token_buffer + old_written, &x, 10);
+  new_lineno = strtoul ((const char *) (pfile->token_buffer + old_written),
+			&x, 10);
   if (x[0] != '\0')
     {
       cpp_error (pfile, "token after `#line' is not an integer");
@@ -643,12 +646,12 @@ do_line (pfile)
       
       *end_name = '\0';
       
-      if (strcmp (fname, ip->nominal_fname))
+      if (strcmp ((const char *)fname, ip->nominal_fname))
 	{
-	  if (!strcmp (fname, ip->ihash->name))
+	  if (!strcmp ((const char *)fname, ip->ihash->name))
 	    ip->nominal_fname = ip->ihash->name;
 	  else
-	    ip->nominal_fname = _cpp_fake_ihash (pfile, fname);
+	    ip->nominal_fname = _cpp_fake_ihash (pfile, (const char *)fname);
 	}
     }
   else if (token != CPP_VSPACE && token != CPP_EOF)
@@ -809,6 +812,7 @@ do_ident (pfile)
 static int do_pragma_once		PARAMS ((cpp_reader *));
 static int do_pragma_implementation	PARAMS ((cpp_reader *));
 static int do_pragma_poison		PARAMS ((cpp_reader *));
+static int do_pragma_system_header	PARAMS ((cpp_reader *));
 static int do_pragma_default		PARAMS ((cpp_reader *));
 
 static int
@@ -844,6 +848,8 @@ do_pragma (pfile)
     pop = do_pragma_implementation (pfile);
   else if (tokis ("poison"))
     pop = do_pragma_poison (pfile);
+  else if (tokis ("system_header"))
+    pop = do_pragma_system_header (pfile);
   else
     pop = do_pragma_default (pfile);
 #undef tokis
@@ -888,7 +894,7 @@ do_pragma_once (pfile)
   if (CPP_PREV_BUFFER (ip) == NULL)
     cpp_warning (pfile, "`#pragma once' outside include file");
   else
-    ip->ihash->control_macro = (const U_CHAR *) "";  /* never repeat */
+    ip->ihash->control_macro = U"";  /* never repeat */
 
   return 1;
 }
@@ -902,7 +908,7 @@ do_pragma_implementation (pfile)
   enum cpp_ttype token;
   long written = CPP_WRITTEN (pfile);
   U_CHAR *name;
-  U_CHAR *copy;
+  char *copy;
   size_t len;
 
   token = _cpp_get_directive_token (pfile);
@@ -917,7 +923,7 @@ do_pragma_implementation (pfile)
   /* Trim the leading and trailing quote marks from the string.  */
   name = pfile->token_buffer + written + 1;
   len = CPP_PWRITTEN (pfile) - name;
-  copy = (U_CHAR *) alloca (len);
+  copy = alloca (len);
   memcpy (copy, name, len - 1);
   copy[len - 1] = '\0';
   
@@ -977,6 +983,25 @@ do_pragma_poison (pfile)
     }
   return !writeit;
 }
+
+/* Mark the current header as a system header.  This will suppress
+   some categories of warnings (notably those from -pedantic).  It is
+   intended for use in system libraries that cannot be implemented in
+   conforming C, but cannot be certain that their headers appear in a
+   system include directory.  To prevent abuse, it is rejected in the
+   primary source file.  */
+static int
+do_pragma_system_header (pfile)
+     cpp_reader *pfile;
+{
+  cpp_buffer *ip = cpp_file_buffer (pfile);
+  if (CPP_PREV_BUFFER (ip) == NULL)
+    cpp_warning (pfile, "#pragma system_header outside include file");
+  else
+    ip->system_header_p = 1;
+
+  return 1;
+}
  
 /* Just ignore #sccs, on systems where we define it at all.  */
 #ifdef SCCS_DIRECTIVE
@@ -1026,7 +1051,7 @@ detect_if_not_defined (pfile)
   token = _cpp_get_directive_token (pfile);
   if (token != CPP_NAME)
     goto restore;
-  if (strncmp (pfile->token_buffer + token_offset, "defined", 7))
+  if (ustrncmp (pfile->token_buffer + token_offset, U"defined", 7))
     goto restore;
 
   /* ...then an optional '(' and the name, */
@@ -1073,8 +1098,16 @@ static int
 do_if (pfile)
      cpp_reader *pfile;
 {
-  U_CHAR *control_macro = detect_if_not_defined (pfile);
-  int value = _cpp_parse_expr (pfile);
+  U_CHAR *control_macro;
+  int value;
+  int save_only_seen_white = pfile->only_seen_white;
+
+  control_macro = detect_if_not_defined (pfile);  
+
+  pfile->only_seen_white = 0;
+  value = _cpp_parse_expr (pfile);
+  pfile->only_seen_white = save_only_seen_white;
+
   return conditional_skip (pfile, value == 0, T_IF, control_macro);
 }
 
@@ -1122,7 +1155,7 @@ do_elif (pfile)
 static int
 parse_ifdef (pfile, name)
      cpp_reader *pfile;
-     const char *name;
+     const U_CHAR *name;
 {
   U_CHAR *ident;
   unsigned int len;
@@ -1194,7 +1227,7 @@ do_ifndef (pfile)
   skip = parse_ifdef (pfile, dtable[T_IFNDEF].name);
 
   if (start_of_file && !skip)
-    control_macro = (U_CHAR *) xstrdup (CPP_PWRITTEN (pfile));
+    control_macro = uxstrdup (CPP_PWRITTEN (pfile));
 
   return conditional_skip (pfile, skip, T_IFNDEF, control_macro);
 }
@@ -1256,7 +1289,7 @@ consider_directive_while_skipping (pfile, stack)
   for (i = 0; i < N_DIRECTIVES; i++)
     {
       if (dtable[i].length == len
-	  && !strncmp (dtable[i].name, pfile->token_buffer + ident, len)) 
+	  && !ustrncmp (dtable[i].name, pfile->token_buffer + ident, len)) 
 	goto real_directive;
     }
   return 0;
@@ -1345,18 +1378,21 @@ skip_if_group (pfile)
   pfile->no_macro_expand++;
   for (;;)
     {
-      /* We are at the end of a line.  Only cpp_get_token knows how to
-	 advance the line number correctly.  */
-      token = cpp_get_token (pfile);
-      if (token == CPP_POP)
+      /* We are at the end of a line.
+	 XXX Serious layering violation here.  */
+      int c = CPP_BUF_PEEK (CPP_BUFFER (pfile));
+      if (c == EOF)
 	break;  /* Caller will issue error.  */
-      else if (token != CPP_VSPACE)
-	cpp_ice (pfile, "cpp_get_token returned %d in skip_if_group", token);
+      else if (c != '\n')
+	cpp_ice (pfile, "character %c at end of line in skip_if_group", c);
+      CPP_BUFFER (pfile)->cur++;
+      CPP_BUMP_LINE (pfile);
       CPP_SET_WRITTEN (pfile, old_written);
+      pfile->only_seen_white = 1;
 
       token = _cpp_get_directive_token (pfile);
 
-      if (token == CPP_DIRECTIVE)
+      if (token == CPP_HASH)
 	{
 	  ret = consider_directive_while_skipping (pfile, save_if_stack);
 	  if (ret)
@@ -1443,7 +1479,7 @@ do_endif (pfile)
 static void
 validate_else (pfile, directive)
      cpp_reader *pfile;
-     const char *directive;
+     const U_CHAR *directive;
 {
   long old_written;
   if (! CPP_PEDANTIC (pfile))
@@ -1458,15 +1494,18 @@ validate_else (pfile, directive)
   pfile->no_macro_expand--;
 }
 
+/* Called when we reach the end of a macro buffer.  Walk back up the
+   conditional stack till we reach its level at entry to this file,
+   issuing error messages.  */
 void
-_cpp_handle_eof (pfile)
+_cpp_unwind_if_stack (pfile, pbuf)
      cpp_reader *pfile;
+     cpp_buffer *pbuf;
 {
   struct if_stack *ifs, *nifs;
 
-  /* Unwind the conditional stack and generate error messages.  */
   for (ifs = pfile->if_stack;
-       ifs != CPP_BUFFER (pfile)->if_stack;
+       ifs != pbuf->if_stack;
        ifs = nifs)
     {
       cpp_error_with_line (pfile, ifs->lineno, 0,
@@ -1477,59 +1516,86 @@ _cpp_handle_eof (pfile)
       free (ifs);
     }
   pfile->if_stack = ifs;
-  CPP_BUFFER (pfile)->seen_eof = 1;
 }
 
+#define WARNING(msgid) do { cpp_warning(pfile, msgid); goto error; } while (0)
+#define ERROR(msgid) do { cpp_error(pfile, msgid); goto error; } while (0)
+#define ICE(msgid) do { cpp_ice(pfile, msgid); goto error; } while (0)
 static int
 do_assert (pfile)
      cpp_reader *pfile;
 {
   long old_written;
   U_CHAR *sym;
-  int ret;
-  HASHNODE *base, *this;
-  size_t blen, tlen;
+  size_t len;
+  HASHNODE *hp;
+  struct predicate *pred = 0;
+  enum cpp_ttype type;
 
-  old_written = CPP_WRITTEN (pfile);	/* remember where it starts */
-  ret = _cpp_parse_assertion (pfile);
-  if (ret == 0)
-    goto error;
-  else if (ret == 1)
-    {
-      cpp_error (pfile, "missing token-sequence in #assert");
-      goto error;
-    }
-  tlen = CPP_WRITTEN (pfile) - old_written;
+  old_written = CPP_WRITTEN (pfile);
+  pfile->no_macro_expand++;
+
+  CPP_PUTC (pfile, '#');	/* force token out of macro namespace */
+  type = _cpp_get_directive_token (pfile);
+  if (type == CPP_VSPACE)
+    ERROR ("#assert without predicate");
+  else if (type != CPP_NAME)
+    ERROR ("assertion predicate is not an identifier");
+
+  sym = pfile->token_buffer + old_written;
+  len = CPP_WRITTEN (pfile) - old_written;
+  hp = _cpp_lookup (pfile, sym, len);
+
+  if (_cpp_get_directive_token (pfile) != CPP_OPEN_PAREN)
+    ERROR ("missing token-sequence in #assert");
+
+  pred = (struct predicate *) xmalloc (sizeof (struct predicate));
+  _cpp_init_toklist (&pred->answer);
+
+  if (_cpp_scan_until (pfile, &pred->answer, CPP_CLOSE_PAREN)
+      != CPP_CLOSE_PAREN)
+    ERROR ("missing close paren in #assert");
+
+  if (_cpp_get_directive_token (pfile) != CPP_CLOSE_PAREN)
+    ICE ("impossible token, expecting ) in do_assert");
 
   if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
-    {
-      cpp_error (pfile, "junk at end of #assert");
-      goto error;
-    }
-  sym = pfile->token_buffer + old_written;
+    ERROR ("junk at end of #assert");
 
-  this = _cpp_lookup (pfile, sym, tlen);
-  if (this->type == T_ASSERT)
+  if (hp->type == T_ASSERTION)
     {
-      cpp_warning (pfile, "%s re-asserted", sym);
-      goto error;
-    }
-      
-  blen = (U_CHAR *) strchr (sym, '(') - sym;
-  base = _cpp_lookup (pfile, sym, blen);
-  if (base->type == T_VOID)
-    {
-      base->type = T_ASSERT;
-      base->value.aschain = 0;
-    }
+      /* Check for reassertion.  */
+      const struct predicate *old;
 
-  this->type = T_ASSERT;
-  this->value.aschain = base->value.aschain;
-  base->value.aschain = this;
+      for (old = hp->value.pred; old; old = old->next)
+	if (_cpp_equiv_toklists (&pred->answer, &old->answer))
+	  /* We used to warn about this, but SVR4 cc doesn't, so let's
+	     match that (also consistent with #define).  goto error will
+	     clean up.  */
+	  goto error;
+      pred->next = hp->value.pred;
+    }
+  else
+    {
+      hp->type = T_ASSERTION;
+      pred->next = 0;
+    }
+  
+  _cpp_squeeze_toklist (&pred->answer);
+  hp->value.pred = pred;
+  pfile->no_macro_expand--;
+  CPP_SET_WRITTEN (pfile, old_written);
+  return 0;
 
  error:
   _cpp_skip_rest_of_line (pfile);
+  pfile->no_macro_expand--;
   CPP_SET_WRITTEN (pfile, old_written);
+  if (pred)
+    {
+      _cpp_free_toklist (&pred->answer);
+      free (pred);
+    }
   return 0;
 }
 
@@ -1537,68 +1603,90 @@ static int
 do_unassert (pfile)
      cpp_reader *pfile;
 {
-  int ret;
   long old_written;
   U_CHAR *sym;
-  long baselen, thislen;
-  HASHNODE *base, *this, *next;
+  size_t len;
+  HASHNODE *hp;
+  struct predicate *pred = 0;
+  enum cpp_ttype type;
 
   old_written = CPP_WRITTEN (pfile);
-  ret = _cpp_parse_assertion (pfile);
-  if (ret == 0)
-    goto out;
-  thislen = CPP_WRITTEN (pfile) - old_written;
+  pfile->no_macro_expand++;
 
-  if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
-    {
-      cpp_error (pfile, "junk at end of #unassert");
-      goto out;
-    }
+  CPP_PUTC (pfile, '#');	/* force token out of macro namespace */
+  if (_cpp_get_directive_token (pfile) != CPP_NAME)
+    ERROR ("#unassert must be followed by an identifier");
+
   sym = pfile->token_buffer + old_written;
-  CPP_SET_WRITTEN (pfile, old_written);
+  len = CPP_WRITTEN (pfile) - old_written;
+  hp = _cpp_lookup (pfile, sym, len);
 
-  if (ret == 1)
+  type = _cpp_get_directive_token (pfile);
+  if (type == CPP_OPEN_PAREN)
     {
-      base = _cpp_lookup (pfile, sym, thislen);
-      if (base->type == T_VOID)
-	goto out;  /* It isn't an error to #undef what isn't #defined,
-		      so it isn't an error to #unassert what isn't
-		      #asserted either. */
+      pred = (struct predicate *) xmalloc (sizeof (struct predicate));
+      _cpp_init_toklist (&pred->answer);
 
-      for (this = base->value.aschain; this; this = next)
-        {
-	  next = this->value.aschain;
-	  this->value.aschain = NULL;
-	  this->type = T_VOID;
-	}
-      base->value.aschain = NULL;
-      base->type = T_VOID;
+      if (_cpp_scan_until (pfile, &pred->answer, CPP_CLOSE_PAREN)
+	  != CPP_CLOSE_PAREN)
+	ERROR ("missing close paren in #unassert");
+
+      if (_cpp_get_directive_token (pfile) != CPP_CLOSE_PAREN)
+	ICE ("impossible token, expecting ) in do_unassert");
+
+      type = _cpp_get_directive_token (pfile);
+    }
+
+  if (type != CPP_VSPACE)
+    ERROR ("junk at end of #unassert");
+
+  if (hp->type != T_ASSERTION)
+    /* Not an error to #unassert something that isn't asserted.
+       goto error to clean up.  */
+    goto error;
+
+  if (pred)
+    {
+      /* Find this specific answer and remove it.  */
+      struct predicate *o, *p;
+
+      for (p = NULL, o = hp->value.pred; o; p = o, o = o->next)
+	if (_cpp_equiv_toklists (&pred->answer, &o->answer))
+	  {
+	    if (p)
+	      p->next = o->next;
+	    else
+	      hp->value.pred = o->next;
+
+	    _cpp_free_toklist (&o->answer);
+	    free (o);
+	    break;
+	  }
     }
   else
     {
-      baselen = (U_CHAR *) strchr (sym, '(') - sym;
-      base = _cpp_lookup (pfile, sym, baselen);
-      if (base->type == T_VOID) goto out;
-      this = _cpp_lookup (pfile, sym, thislen);
-      if (this->type == T_VOID) goto out;
-
-      next = base;
-      while (next->value.aschain != this)
-	next = next->value.aschain;
-
-      next->value.aschain = this->value.aschain;
-      this->value.aschain = NULL;
-      this->type = T_VOID;
-
-      if (base->value.aschain == NULL)
-	/* Last answer for this predicate deleted. */
-	base->type = T_VOID;
+      struct predicate *o, *p;
+      for (o = hp->value.pred; o; o = p)
+	{
+	  p = o->next;
+	  _cpp_free_toklist ((cpp_toklist *) &o->answer);
+	  free (o);
+	}
+      hp->value.pred = NULL;
     }
-  return 0;
 
- out:
+  if (hp->value.pred == NULL)
+    hp->type = T_VOID;  /* Last answer for this predicate deleted.  */
+
+ error:
   _cpp_skip_rest_of_line (pfile);
+  pfile->no_macro_expand--;
   CPP_SET_WRITTEN (pfile, old_written);
+  if (pred)
+    {
+      _cpp_free_toklist (&pred->answer);
+      free (pred);
+    }
   return 0;
 }
 
@@ -1639,7 +1727,7 @@ cpp_define (pfile, str)
       strcpy (&buf[count-4], " 1\n");
     }
 
-  if (cpp_push_buffer (pfile, buf, count - 1) != NULL)
+  if (cpp_push_buffer (pfile, (U_CHAR *)buf, count - 1) != NULL)
     {
       do_define (pfile);
       cpp_pop_buffer (pfile);
@@ -1658,7 +1746,7 @@ cpp_undef (pfile, macro)
   memcpy (buf, macro, len);
   buf[len]     = '\n';
   buf[len + 1] = '\0';
-  if (cpp_push_buffer (pfile, buf, len + 1))
+  if (cpp_push_buffer (pfile, (U_CHAR *)buf, len + 1) != NULL)
     {
       do_undef (pfile);
       cpp_pop_buffer (pfile);
@@ -1671,7 +1759,7 @@ cpp_assert (pfile, str)
      cpp_reader *pfile;
      const char *str;
 {
-  if (cpp_push_buffer (pfile, str, strlen (str)) != NULL)
+  if (cpp_push_buffer (pfile, (const U_CHAR *)str, strlen (str)) != NULL)
     {
       do_assert (pfile);
       cpp_pop_buffer (pfile);
@@ -1684,7 +1772,7 @@ cpp_unassert (pfile, str)
      cpp_reader *pfile;
      const char *str;
 {
-  if (cpp_push_buffer (pfile, str, strlen (str)) != NULL)
+  if (cpp_push_buffer (pfile, (const U_CHAR *)str, strlen (str)) != NULL)
     {
       do_unassert (pfile);
       cpp_pop_buffer (pfile);

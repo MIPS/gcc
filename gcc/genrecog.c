@@ -53,17 +53,12 @@
 #include "hconfig.h"
 #include "system.h"
 #include "rtl.h"
-#include "obstack.h"
 #include "errors.h"
+#include "gensupport.h"
+
 
 #define OUTPUT_LABEL(INDENT_STRING, LABEL_NUMBER) \
   printf("%sL%d: ATTRIBUTE_UNUSED_LABEL\n", (INDENT_STRING), (LABEL_NUMBER))
-
-static struct obstack obstack;
-struct obstack *rtl_obstack = &obstack;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 /* Holds an array of names indexed by insn_code_number.  */
 static char **insn_name_ptr = 0;
@@ -230,9 +225,6 @@ static const char * special_mode_pred_table[] = {
 #define NUM_SPECIAL_MODE_PREDS \
   (sizeof (special_mode_pred_table) / sizeof (special_mode_pred_table[0]))
 
-static void message_with_line
-  PARAMS ((int, const char *, ...)) ATTRIBUTE_PRINTF_2;
-
 static struct decision *new_decision
   PARAMS ((const char *, struct decision_head *));
 static struct decision_test *new_decision_test
@@ -315,29 +307,6 @@ extern void debug_decision
   PARAMS ((struct decision *));
 extern void debug_decision_list
   PARAMS ((struct decision *));
-
-static void
-message_with_line VPARAMS ((int lineno, const char *msg, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  int lineno;
-  const char *msg;
-#endif
-  va_list ap;
-
-  VA_START (ap, msg);
-
-#ifndef ANSI_PROTOTYPES
-  lineno = va_arg (ap, int);
-  msg = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "%s:%d: ", read_rtx_filename, lineno);
-  vfprintf (stderr, msg, ap);
-  fputc ('\n', stderr);
-
-  va_end (ap);
-}
 
 /* Create a new node in sequence after LAST.  */
 
@@ -2312,10 +2281,11 @@ make_insn_sequence (insn, type)
   struct decision *last;
   struct decision_test *test, **place;
   struct decision_head head;
-  char *c_test_pos = "";
+  char c_test_pos[2];
 
   record_insn_name (next_insn_code, (type == RECOG ? XSTR (insn, 0) : NULL));
 
+  c_test_pos[0] = '\0';
   if (type == PEEPHOLE2)
     {
       int i, j;
@@ -2338,7 +2308,6 @@ make_insn_sequence (insn, type)
 	}
       XVECLEN (x, 0) = j;
 
-      c_test_pos = alloca (2);
       c_test_pos[0] = 'A' + j - 1;
       c_test_pos[1] = '\0';
     }
@@ -2461,7 +2430,6 @@ make_insn_sequence (insn, type)
 	      next_insn_code);
       break;
     }
-  next_insn_code++;
 
   return head;
 }
@@ -2505,11 +2473,8 @@ main (argc, argv)
 {
   rtx desc;
   struct decision_head recog_tree, split_tree, peephole2_tree, h;
-  FILE *infile;
-  register int c;
 
   progname = "genrecog";
-  obstack_init (rtl_obstack);
 
   memset (&recog_tree, 0, sizeof recog_tree);
   memset (&split_tree, 0, sizeof split_tree);
@@ -2518,13 +2483,8 @@ main (argc, argv)
   if (argc <= 1)
     fatal ("No input file name.");
 
-  infile = fopen (argv[1], "r");
-  if (infile == 0)
-    {
-      perror (argv[1]);
-      return FATAL_EXIT_CODE;
-    }
-  read_rtx_filename = argv[1];
+  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+    return (FATAL_EXIT_CODE);
 
   next_insn_code = 0;
   next_index = 0;
@@ -2535,13 +2495,10 @@ main (argc, argv)
 
   while (1)
     {
-      c = read_skip_spaces (infile);
-      if (c == EOF)
+      desc = read_md_rtx (&pattern_lineno, &next_insn_code);
+      if (desc == NULL)
 	break;
-      ungetc (c, infile);
-      pattern_lineno = read_rtx_lineno;
 
-      desc = read_rtx (infile);
       if (GET_CODE (desc) == DEFINE_INSN)
 	{
 	  h = make_insn_sequence (desc, RECOG);
@@ -2558,9 +2515,6 @@ main (argc, argv)
 	  merge_trees (&peephole2_tree, &h);
 	}
 	
-      if (GET_CODE (desc) == DEFINE_PEEPHOLE
-	  || GET_CODE (desc) == DEFINE_EXPAND)
-	next_insn_code++;
       next_index++;
     }
 
@@ -2621,42 +2575,6 @@ record_insn_name (code, name)
   
   insn_name_ptr[code] = new;
 }  
-
-char *
-xstrdup (input)
-  const char *input;
-{
-  register size_t len = strlen (input) + 1;
-  register char *output = xmalloc (len);
-  memcpy (output, input, len);
-  return output;
-}
-
-PTR
-xrealloc (old, size)
-  PTR old;
-  size_t size;
-{
-  register PTR ptr;
-  if (old)
-    ptr = (PTR) realloc (old, size);
-  else
-    ptr = (PTR) malloc (size);
-  if (!ptr)
-    fatal ("virtual memory exhausted");
-  return ptr;
-}
-
-PTR
-xmalloc (size)
-  size_t size;
-{
-  register PTR val = (PTR) malloc (size);
-
-  if (val == 0)
-    fatal ("virtual memory exhausted");
-  return val;
-}
 
 static void
 debug_decision_2 (test)

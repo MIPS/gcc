@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "basic-block.h"
+#include "toplev.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -139,7 +140,7 @@ call_operand (op, mode)
 int
 sdata_symbolic_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   switch (GET_CODE (op))
     {
@@ -162,7 +163,7 @@ sdata_symbolic_operand (op, mode)
 int
 symbolic_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   switch (GET_CODE (op))
     {
@@ -182,7 +183,7 @@ symbolic_operand (op, mode)
 int
 function_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_FLAG (op))
     return 1;
@@ -197,9 +198,9 @@ function_operand (op, mode)
 int
 setjmp_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  char *name;
+  const char *name;
   int retval = 0;
 
   if (GET_CODE (op) != SYMBOL_REF)
@@ -349,7 +350,7 @@ reg_or_22bit_operand (op, mode)
 int
 shift_count_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return ((GET_CODE (op) == CONST_INT && CONST_OK_FOR_M (INTVAL (op)))
 	  || GET_CODE (op) == CONSTANT_P_RTX);
@@ -360,7 +361,7 @@ shift_count_operand (op, mode)
 int
 shift_32bit_count_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return ((GET_CODE (op) == CONST_INT
 	   && (INTVAL (op) >= 0 && INTVAL (op) < 32))
@@ -372,7 +373,7 @@ shift_32bit_count_operand (op, mode)
 int
 shladd_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) == 2 || INTVAL (op) == 4
@@ -384,7 +385,7 @@ shladd_operand (op, mode)
 int
 fetchadd_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
           && (INTVAL (op) == -16 || INTVAL (op) == -8 ||
@@ -415,7 +416,7 @@ normal_comparison_operator (op, mode)
 {
   enum rtx_code code = GET_CODE (op);
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (code == EQ || code == NE 
+	  && (code == EQ || code == NE
 	      || code == GT || code == LE || code == GTU || code == LEU));
 }
 
@@ -442,7 +443,7 @@ call_multiple_values_operation (op, mode)
 {
   int count = XVECLEN (op, 0) - 2;
   int i;
-  int dest_regno;
+  unsigned int dest_regno;
 
   /* Perform a quick check so we don't block up below.  */
   if (count <= 1
@@ -467,7 +468,18 @@ call_multiple_values_operation (op, mode)
   return 1;
 }
 
-  
+/* Return 1 if this operator is valid for predication.  */
+
+int
+predicate_operator (op, mode)
+    register rtx op;
+    enum machine_mode mode;
+{
+  enum rtx_code code = GET_CODE (op);
+  return ((GET_MODE (op) == mode || mode == VOIDmode)
+	  && (code == EQ || code == NE));
+}
+
 /* Structure to be filled in by ia64_compute_frame_size with register
    save masks and offsets for the current function.  */
 
@@ -640,7 +652,7 @@ save_restore_insns (save_p)
 		       + current_frame_info.pretend_pad_size));
       rtx offset_rtx;
       int regno;
-	
+
       /* If there is a frame pointer, then we use it instead of the stack
 	 pointer, so that the stack pointer does not need to be valid when
 	 the epilogue starts.  See EXIT_IGNORE_STACK.  */
@@ -682,7 +694,7 @@ save_restore_insns (save_p)
 	      }
 	    break;
 	  }
-		
+
       /* Must save/restore ar.unat if any GR is spilled/restored.  */
       if (current_frame_info.gr_size != 0
 	  || current_function_varargs || current_function_stdarg)
@@ -705,7 +717,7 @@ save_restore_insns (save_p)
 	      /* The restore happens after the last ld8.fill instruction.  */
 	    }
 	}
-	
+
       for (regno = GR_REG (0); regno <= GR_REG (127); regno++)
 	if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
 	  {
@@ -739,7 +751,7 @@ save_restore_insns (save_p)
 	    if (save_p)
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	  }
-		     
+
       for (regno = BR_REG (0); regno <= BR_REG (7); regno++)
 	if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
 	  {
@@ -912,7 +924,7 @@ ia64_expand_prologue ()
      local register names are known.  */
   if (frame_pointer_needed)
     {
-      reg_names[FRAME_POINTER_REGNUM] 
+      reg_names[FRAME_POINTER_REGNUM]
 	= reg_names[LOC_REG (locals - 3)];
       ia64_fp_regno = LOC_REG (inputs + locals - 3);
     }
@@ -1081,7 +1093,7 @@ ia64_expand_epilogue ()
 void
 ia64_function_prologue (file, size)
      FILE *file;
-     int size;
+     int size ATTRIBUTE_UNUSED;
 {
   rtx insn;
   if (ia64_need_regstk)
@@ -1092,7 +1104,7 @@ ia64_function_prologue (file, size)
 
   /* Emit the .prologue directive. in order to do this, we need to find
      where the stack pointer is moved toa GR, if it is, and mark it.  */
-  
+
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
     {
       if (RTX_FRAME_RELATED_P (insn) && GET_CODE (insn) == INSN)
@@ -1122,8 +1134,8 @@ ia64_function_prologue (file, size)
 
 void
 ia64_function_epilogue (file, size)
-     FILE *file;
-     int size;
+     FILE *file ATTRIBUTE_UNUSED;
+     int size ATTRIBUTE_UNUSED;
 {
 }
 
@@ -1134,7 +1146,7 @@ int
 ia64_direct_return ()
 {
   return (reload_completed && ! frame_pointer_needed
-	  && ia64_compute_frame_size (get_frame_size ()));
+	  && ia64_compute_frame_size (get_frame_size ()) == 0);
 }
 
 
@@ -1143,8 +1155,8 @@ ia64_direct_return ()
 void
 ia64_setup_incoming_varargs (cum, int_mode, type, pretend_size, second_time)
      CUMULATIVE_ARGS cum;
-     int             int_mode;
-     tree            type;
+     int             int_mode ATTRIBUTE_UNUSED;
+     tree            type ATTRIBUTE_UNUSED;
      int *           pretend_size;
      int	     second_time;
 {
@@ -1403,7 +1415,7 @@ ia64_function_arg (cum, mode, type, named, incoming)
 						   (basereg + cum->words
 						    + offset)),
 				      const0_rtx);
-						   
+
       return gen_rtx_PARALLEL (mode, gen_rtvec (2, fp_reg, gr_reg));
     }
 }
@@ -1417,7 +1429,7 @@ ia64_function_arg_partial_nregs (cum, mode, type, named)
      CUMULATIVE_ARGS *cum;
      enum machine_mode mode;
      tree type;
-     int named;
+     int named ATTRIBUTE_UNUSED;
 {
   int words = (((mode == BLKmode ? int_size_in_bytes (type)
 		 : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
@@ -1572,7 +1584,7 @@ ia64_va_arg (valist, type)
     {
       t = build (PLUS_EXPR, TREE_TYPE (valist), valist,
 		 build_int_2 (2 * UNITS_PER_WORD - 1, 0));
-      t = build (BIT_AND_EXPR, TREE_TYPE (t), t, 
+      t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
 		 build_int_2 (-2 * UNITS_PER_WORD, -1));
       t = build (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
       TREE_SIDE_EFFECTS (t) = 1;
@@ -1622,7 +1634,7 @@ ia64_return_in_memory (valtype)
 rtx
 ia64_function_value (valtype, func)
      tree valtype;
-     tree func;
+     tree func ATTRIBUTE_UNUSED;
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -1669,8 +1681,8 @@ ia64_function_value (valtype, func)
 
 void
 ia64_print_operand_address (stream, address)
-     FILE * stream;
-     rtx    address;
+     FILE * stream ATTRIBUTE_UNUSED;
+     rtx    address ATTRIBUTE_UNUSED;
 {
 }
 
@@ -1682,6 +1694,8 @@ ia64_print_operand_address (stream, address)
    F	A floating point constant 0.0 emitted as f0, or 1.0 emitted as f1, or
         a floating point register emitted normally.
    I	Invert a predicate register by adding 1.
+   J    Select the proper predicate register for a condition.
+   j    Select the inverse predicate register for a condition.
    O	Append .acq for volatile load.
    P	Postincrement of a MEM.
    Q	Append .rel for volatile store.
@@ -1701,11 +1715,11 @@ ia64_print_operand (file, x, code)
   switch (code)
     {
       /* XXX Add other codes here.  */
-      
+
     case 0:
       /* Handled below.  */
       break;
-      
+
     case 'B':
       if (TARGET_A_STEP)
 	fputs (" ;; nop 0 ;; nop 0 ;;", file);
@@ -1741,6 +1755,18 @@ ia64_print_operand (file, x, code)
       fputs (reg_names [REGNO (x) + 1], file);
       return;
 
+    case 'J':
+    case 'j':
+      {
+	unsigned int regno = REGNO (XEXP (x, 0));
+	if (GET_CODE (x) == EQ)
+	  regno += 1;
+	if (code == 'j')
+	  regno ^= 1;
+        fputs (reg_names [regno], file);
+      }
+      return;
+
     case 'O':
       if (MEM_VOLATILE_P (x))
 	fputs(".acq", file);
@@ -1768,7 +1794,7 @@ ia64_print_operand (file, x, code)
 
 	if (GET_CODE (XEXP (x, 0)) == POST_DEC)
 	  value = -value;
-    
+
 	fprintf (file, "%d", value);
 	return;
       }
@@ -1779,13 +1805,13 @@ ia64_print_operand (file, x, code)
       return;
 
     case 'S':
-      fprintf (file, HOST_WIDE_INT_PRINT_DEC, exact_log2 (INTVAL (x)));
+      fprintf (file, "%d", exact_log2 (INTVAL (x)));
       return;
 
     case 'T':
       if (! TARGET_GNU_AS && GET_CODE (x) == CONST_INT)
 	{
-	  fprintf (file, "0x%x", INTVAL (x) & 0xffffffff);
+	  fprintf (file, "0x%x", (int) INTVAL (x) & 0xffffffff);
 	  return;
 	}
       break;
@@ -1799,11 +1825,11 @@ ia64_print_operand (file, x, code)
 	      fprintf (file, "0xffffffff");
 	      prefix = "";
 	    }
-	  fprintf (file, "%s%x", prefix, INTVAL (x) & 0xffffffff);
+	  fprintf (file, "%s%x", prefix, (int) INTVAL (x) & 0xffffffff);
 	  return;
 	}
       break;
-      
+
     case 'r':
       /* If this operand is the constant zero, write it as zero.  */
       if (GET_CODE (x) == REG)
@@ -1838,7 +1864,7 @@ ia64_print_operand (file, x, code)
 	fprintf (file, "[%s]", reg_names [REGNO (addr)]);
 	break;
       }
-      
+
     default:
       output_addr_const (file, x);
       break;
@@ -1847,6 +1873,47 @@ ia64_print_operand (file, x, code)
   return;
 }
 
+/* For conditional branches, returns or calls, substitute
+   sptk, dptk, dpnt, or spnt for %s.  */
+
+const char *
+ia64_expand_prediction (insn, template)
+     rtx insn;
+     const char *template;
+{
+  static char const pred_name[4][5] = {
+	"spnt", "dpnt", "dptk", "sptk"
+  };
+  static char new_template[64];
+
+  int pred_val, pred_which;
+  rtx note;
+
+  note = find_reg_note (insn, REG_BR_PROB, 0);
+  if (note)
+    {
+      pred_val = INTVAL (XEXP (note, 0));
+
+      /* Guess top and bottom 10% statically predicted.  */
+      if (pred_val < REG_BR_PROB_BASE / 10)
+	pred_which = 0;
+      else if (pred_val < REG_BR_PROB_BASE / 2)
+	pred_which = 1;
+      else if (pred_val < REG_BR_PROB_BASE * 9 / 10)
+	pred_which = 2;
+      else
+	pred_which = 3;
+    }
+  else
+    pred_which = 2;
+
+  if (strlen (template) >= sizeof (new_template) - 3)
+    abort ();
+
+  sprintf (new_template, template, pred_name[pred_which]);
+
+  return new_template;
+}
 
 
 /* This function returns the register class required for a secondary
@@ -1857,7 +1924,7 @@ ia64_print_operand (file, x, code)
 enum reg_class
 ia64_secondary_reload_class (class, mode, x)
      enum reg_class class;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx x;
 {
   int regno = -1;
@@ -1928,7 +1995,7 @@ void
 ia64_asm_output_external (file, decl, name)
      FILE *file;
      tree decl;
-     char *name;
+     const char *name;
 {
   int save_referenced;
 
@@ -2057,6 +2124,9 @@ ia64_mark_machine_status (p)
 void
 ia64_override_options ()
 {
+  if (TARGET_AUTO_PIC)
+    target_flags |= MASK_CONST_GP;
+
   if (ia64_fixed_range_string)
     fix_range (ia64_fixed_range_string);
 
@@ -2378,6 +2448,27 @@ rtx_needs_barrier (x, flags, pred)
 	}
       break;
 
+    case COND_EXEC:
+      /* X is a predicated instruction.  */
+
+      cond = COND_EXEC_TEST (x);
+      if (pred)
+	abort ();
+      need_barrier = rtx_needs_barrier (cond, flags, 0);
+
+      if (GET_CODE (cond) == EQ)
+	is_complemented = 1;
+      cond = XEXP (cond, 0);
+      if (GET_CODE (cond) != REG
+	  && REGNO_REG_CLASS (REGNO (cond)) != PR_REGS)
+	abort ();
+      pred = REGNO (cond);
+      if (is_complemented)
+	++pred;
+
+      need_barrier |= rtx_needs_barrier (COND_EXEC_CODE (x), flags, pred);
+      return need_barrier;
+
     case CLOBBER:
 #if 0
     case USE:
@@ -2613,9 +2704,6 @@ static void
 emit_insn_group_barriers (insns)
      rtx insns;
 {
-  int need_barrier = 0;
-  int exception_nesting;
-  struct reg_flags flags;
   rtx insn, prev_insn;
 
   memset (rws_sum, 0, sizeof (rws_sum));
@@ -2623,31 +2711,61 @@ emit_insn_group_barriers (insns)
   prev_insn = 0;
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     {
+      int need_barrier = 0;
+      struct reg_flags flags;
+
       memset (&flags, 0, sizeof (flags));
       switch (GET_CODE (insn))
 	{
 	case NOTE:
-	  switch (NOTE_LINE_NUMBER (insn))
-	    {
-	    case NOTE_INSN_EH_REGION_BEG:
-	      exception_nesting++;
-	      break;
-
-	    case NOTE_INSN_EH_REGION_END:
-	      exception_nesting--;
-	      break;
-
-	    case NOTE_INSN_EPILOGUE_BEG:
-	      break;
-
-	    default:
-	      break;
-	    }
 	  break;
 
-	case JUMP_INSN:
 	case CALL_INSN:
 	  flags.is_branch = 1;
+	  memset (rws_insn, 0, sizeof (rws_insn));
+	  need_barrier = rtx_needs_barrier (PATTERN (insn), flags, 0);
+
+	  if (need_barrier)
+	    {
+	      /* PREV_INSN null can happen if the very first insn is a
+		 volatile asm.  */
+	      if (prev_insn)
+		emit_insn_after (gen_insn_group_barrier (), prev_insn);
+	      memcpy (rws_sum, rws_insn, sizeof (rws_sum));
+	    }
+
+	  /* A call must end a group, otherwise the assembler might pack
+	     it in with a following branch and then the function return
+	     goes to the wrong place.  Do this unconditionally for 
+	     unconditional calls, simply because it (1) looks nicer and
+	     (2) keeps the data structures more accurate for the insns
+	     following the call.  */
+
+	  need_barrier = 1;
+	  if (GET_CODE (PATTERN (insn)) == COND_EXEC)
+	    {
+	      rtx next_insn = insn;
+	      do
+		next_insn = next_nonnote_insn (next_insn);
+	      while (next_insn
+		     && GET_CODE (next_insn) == INSN
+		     && (GET_CODE (PATTERN (next_insn)) == USE
+			 || GET_CODE (PATTERN (next_insn)) == CLOBBER));
+	      if (next_insn && GET_CODE (next_insn) != JUMP_INSN)
+		need_barrier = 0;
+	    }
+	  if (need_barrier)
+	    {
+	      emit_insn_after (gen_insn_group_barrier (), insn);
+	      memset (rws_sum, 0, sizeof (rws_sum));
+	      prev_insn = NULL_RTX;
+	    }
+	  break;
+	
+	case JUMP_INSN:
+	  flags.is_branch = 1;
+	  /* FALLTHRU */
+
 	case INSN:
 	  if (GET_CODE (PATTERN (insn)) == USE)
 	    /* Don't care about USE "insns"---those are used to
@@ -2657,7 +2775,7 @@ emit_insn_group_barriers (insns)
 	  else
 	    {
 	      memset (rws_insn, 0, sizeof (rws_insn));
-	      need_barrier = rtx_needs_barrier (PATTERN (insn), flags, 0);
+	      need_barrier |= rtx_needs_barrier (PATTERN (insn), flags, 0);
 
 	      /* Check to see if the previous instruction was a volatile
 		 asm.  */
@@ -2672,7 +2790,6 @@ emit_insn_group_barriers (insns)
 		    emit_insn_after (gen_insn_group_barrier (), prev_insn);
 		  memcpy (rws_sum, rws_insn, sizeof (rws_sum));
 		}
-	      need_barrier = 0;
 	      prev_insn = insn;
 	    }
 	  break;
@@ -2707,6 +2824,16 @@ int
 ia64_epilogue_uses (regno)
      int regno;
 {
+  /* When a function makes a call through a function descriptor, we
+     will write a (potentially) new value to "gp".  After returning
+     from such a call, we need to make sure the function restores the
+     original gp-value, even if the function itself does not use the
+     gp anymore.  */
+  if (regno == R_GR (1)
+      && TARGET_CONST_GP
+      && !(TARGET_AUTO_PIC || TARGET_NO_PIC))
+    return 1;
+
   /* For functions defined with the syscall_linkage attribute, all input
      registers are marked as live at all function exits.  This prevents the
      register allocator from using the input registers, which in turn makes it
@@ -2717,6 +2844,11 @@ ia64_epilogue_uses (regno)
       && (regno < IN_REG (current_function_args_info.words))
       && lookup_attribute ("syscall_linkage",
 			   TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
+    return 1;
+
+  /* Conditional return patterns can't represent the use of `b0' as
+     the return address, so we force the value live this way.  */
+  if (regno == R_BR (0))
     return 1;
 
   return 0;
@@ -2774,8 +2906,21 @@ void
 ia64_encode_section_info (decl)
      tree decl;
 {
+  const char *symbol_str;
+
   if (TREE_CODE (decl) == FUNCTION_DECL)
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+    {
+      SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+      return;
+    }
+
+  /* Careful not to prod global register variables.  */
+  if (TREE_CODE (decl) != VAR_DECL
+      || GET_CODE (DECL_RTL (decl)) != SYMBOL_REF)
+    return;
+    
+  symbol_str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+
   /* We assume that -fpic is used only to create a shared library (dso).
      With -fpic, no global data can ever be sdata.
      Without -fpic, global common uninitialized data can never be sdata, since
@@ -2783,45 +2928,62 @@ ia64_encode_section_info (decl)
   /* ??? Actually, we can put globals in sdata, as long as we don't use gprel
      to access them.  The linker may then be able to do linker relaxation to
      optimize references to them.  Currently sdata implies use of gprel.  */
-  else if (! TARGET_NO_SDATA
-	   && TREE_CODE (decl) == VAR_DECL
-	   && TREE_STATIC (decl)
-	   && ! (TREE_PUBLIC (decl)
-		 && (flag_pic
-		     || (DECL_COMMON (decl)
-			 && (DECL_INITIAL (decl) == 0
-			     || DECL_INITIAL (decl) == error_mark_node))))
-	   /* Either the variable must be declared without a section attribute,
-	      or the section must be sdata or sbss.  */
-	   && (DECL_SECTION_NAME (decl) == 0
-	       || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-			    ".sdata")
-	       || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
-			    ".sbss")))
+  if (! TARGET_NO_SDATA
+      && TREE_STATIC (decl)
+      && ! (DECL_ONE_ONLY (decl) || DECL_WEAK (decl))
+      && ! (TREE_PUBLIC (decl)
+	    && (flag_pic
+		|| (DECL_COMMON (decl)
+		    && (DECL_INITIAL (decl) == 0
+			|| DECL_INITIAL (decl) == error_mark_node))))
+      /* Either the variable must be declared without a section attribute,
+	 or the section must be sdata or sbss.  */
+      && (DECL_SECTION_NAME (decl) == 0
+	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		       ".sdata")
+	  || ! strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		       ".sbss")))
     {
       int size = int_size_in_bytes (TREE_TYPE (decl));
-      char *str = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-      int reloc;
 
-      /* ??? We should redeclare CTOR_LIST, DTOR_END so that we don't have to
-	 special case them here.  Currently we put them in ctor/dtors sections
-	 behind the compiler's back.  We should use section attributes
-	 instead.  */
-      if (! strcmp (str, "__CTOR_LIST__")
-	  || ! strcmp (str, "__DTOR_END__"))
+      /* If the variable has already been defined in the output file, then it
+	 is too late to put it in sdata if it wasn't put there in the first
+	 place.  The test is here rather than above, because if it is already
+	 in sdata, then it can stay there.  */
+
+      if (TREE_ASM_WRITTEN (decl))
 	;
 
       /* If this is an incomplete type with size 0, then we can't put it in
 	 sdata because it might be too big when completed.  */
-      else if (size > 0 && size <= ia64_section_threshold)
+      else if (size > 0 && size <= ia64_section_threshold
+	       && symbol_str[0] != SDATA_NAME_FLAG_CHAR)
 	{
-	  int len = strlen (str);
-	  char *newstr = obstack_alloc (saveable_obstack, len + 2);
+	  int len = strlen (symbol_str);
+	  char *newstr;
 
-	  strcpy (newstr + 1, str);
+	  if (ggc_p)
+	    newstr = ggc_alloc_string (NULL, len + 1);
+	  else
+	    newstr = obstack_alloc (saveable_obstack, len + 2);
+
 	  *newstr = SDATA_NAME_FLAG_CHAR;
+	  memcpy (newstr + 1, symbol_str, len + 1);
+
 	  XSTR (XEXP (DECL_RTL (decl), 0), 0) = newstr;
 	}
+    }
+  /* This decl is marked as being in small data/bss but it shouldn't
+     be; one likely explanation for this is that the decl has been
+     moved into a different section from the one it was in when
+     ENCODE_SECTION_INFO was first called.  Remove the '@'.*/
+  else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
+    {
+      if (ggc_p)
+	XSTR (XEXP (DECL_RTL (decl), 0), 0)
+	  = ggc_alloc_string (symbol_str + 1, -1);
+      else
+        XSTR (XEXP (DECL_RTL (decl), 0), 0) = symbol_str + 1;
     }
 }
 
@@ -2851,7 +3013,7 @@ process_set (asm_out_file, pat)
       && GET_CODE (dest) == REG && GR_REGNO_P (REGNO (dest)))
     {
       /* Assume this is a stack allocate insn.  */
-      fprintf (asm_out_file, "\t.save ar.pfs, r%d\n", 
+      fprintf (asm_out_file, "\t.save ar.pfs, r%d\n",
 	       REGNO (dest) + ia64_input_regs);
       return 1;
     }
@@ -2865,17 +3027,18 @@ process_set (asm_out_file, pat)
 	  rtx op1 = XEXP (src, 1);
 	  if (op0 == dest && GET_CODE (op1) == CONST_INT)
 	    {
-	      fprintf (asm_out_file, "\t.fframe %d\n", -INTVAL (op1));
+	      fputs ("\t.fframe ", asm_out_file);
+	      fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, -INTVAL (op1));
+	      fputc ('\n', asm_out_file);
 	      frame_size = INTVAL (op1);
 	      return 1;
 	    }
-	  else
-	    if (op0 == dest && GET_CODE (op1) == REG)
-	     {
-		fprintf (asm_out_file, "\t.vframe r%d\n", REGNO (op1));
-	        frame_size = 0;
-		return 1;
-	     }
+	  else if (op0 == dest && GET_CODE (op1) == REG)
+	    {
+	      fprintf (asm_out_file, "\t.vframe r%d\n", REGNO (op1));
+	      frame_size = 0;
+	      return 1;
+	    }
 	}
     }
   /* Look for a frame offset.  */
@@ -2909,7 +3072,7 @@ process_set (asm_out_file, pat)
 	  /* Saving return address pointer.  */
 	  if (regno == BR_REG (0))
 	    {
-	      fprintf (asm_out_file, "\t.save rp, r%d\n", 
+	      fprintf (asm_out_file, "\t.save rp, r%d\n",
 		       REGNO (dest) + ia64_input_regs);
 	      return 1;
 	    }
@@ -2936,13 +3099,13 @@ process_set (asm_out_file, pat)
 	  return 1;
 	}
     }
-  if (GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == POST_INC 
+  if (GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == POST_INC
       && GET_CODE (XEXP (XEXP (dest, 0), 0)) == REG)
     {
       int spill_unspec = 0;
       /* We adjust the spill_offset early, so we dont miss it later.  */
-      spill_offset += 8;  
-      sp_offset += 8;  
+      spill_offset += 8;
+      sp_offset += 8;
       if (GET_CODE (src) == UNSPEC)
 	{
 	  spill_unspec = XINT (src, 1);
@@ -2959,7 +3122,7 @@ process_set (asm_out_file, pat)
 	      regno = REGNO (XVECEXP (src, 0, 0));
 	      if (!spill_offset_emitted)
 	        {
-		  fprintf (asm_out_file, "\t.spill %d\n", 
+		  fprintf (asm_out_file, "\t.spill %d\n",
 /*			   (frame_size + 16 - spill_offset ) / 4); */
 			   (-(spill_offset - 8) + 16) / 4);
 		  spill_offset_emitted = 1;
@@ -2971,16 +3134,16 @@ process_set (asm_out_file, pat)
           if (GR_REGNO_P (regno))
 	    {
 	      if (regno >= GR_REG (4) && regno <= GR_REG (7))
-		fprintf (asm_out_file, "\t.save.g 0x%x\n", 
+		fprintf (asm_out_file, "\t.save.g 0x%x\n",
 			 1 << (regno - GR_REG (4)));
 	      else if (tmp_reg != NULL_RTX && regno == REGNO (tmp_reg))
 	        {
-		  /* We saved a special reg to a temp reg, and now we're 
+		  /* We saved a special reg to a temp reg, and now we're
 		     dumping it to memory.  */
 		  tmp_reg = NULL_RTX;
 		  /* register 9 is ar.unat.  */
 		  if (tmp_saved == 9)
-		    fprintf (asm_out_file, "\t.savesp ar.unat, %d\n", 
+		    fprintf (asm_out_file, "\t.savesp ar.unat, %d\n",
 			     (sp_offset - 8) / 4);
 		  else if (tmp_saved == 5)
 		    fprintf (asm_out_file, "\t.savesp pr, %d\n",
@@ -2988,23 +3151,23 @@ process_set (asm_out_file, pat)
 		  else if (tmp_saved >= BR_REG (1) && tmp_saved <= BR_REG (5))
 		    {
 		      /* BR regs are saved this way too.  */
-		      fprintf (asm_out_file, "\t.save.b 0x%x\n", 
+		      fprintf (asm_out_file, "\t.save.b 0x%x\n",
 			       1 << (tmp_saved - BR_REG (1)));
 		    }
 		}
-	      else 
+	      else
 	        return 0;
 	    }
 	  if (FR_REGNO_P (regno))
 	    {
 	      if (regno >= FR_REG (2) && regno <= FR_REG (5))
-		fprintf (asm_out_file, "\t.save.f 0x%x\n", 
+		fprintf (asm_out_file, "\t.save.f 0x%x\n",
 			 1 << (regno - FR_REG (2)));
 	      else
 		if (regno >= FR_REG (16) && regno <= FR_REG (31))
-		  fprintf (asm_out_file, "\t.save.gf 0x0, 0x%x\n", 
+		  fprintf (asm_out_file, "\t.save.gf 0x0, 0x%x\n",
 			   1 << (regno - FR_REG (12)));
-		else 
+		else
 		  return 0;
 	    }
 	  return 1;
@@ -3021,32 +3184,33 @@ process_for_unwind_directive (asm_out_file, insn)
      FILE *asm_out_file;
      rtx insn;
 {
-  if ((flag_unwind_tables 
+  if ((flag_unwind_tables
        || (flag_exceptions && !exceptions_via_longjmp))
       && RTX_FRAME_RELATED_P (insn))
     {
-      rtx code, pat;
-      pat = PATTERN (insn);
+      rtx pat = PATTERN (insn);
 
       switch (GET_CODE (pat))
         {
-	  case SET:
-	    {
-	      process_set (asm_out_file, pat);
-	      break;
-	    }
-	  case PARALLEL:
-	    {
-	      int par_index;
-	      int limit = XVECLEN (pat, 0);
-	      for (par_index = 0; par_index < limit; par_index++)
-	        {
-		  rtx x = XVECEXP (pat, 0, par_index);
-		  if (GET_CODE (x) == SET)
-		    process_set (asm_out_file, x);
-		}
-	      break;
-	    }
+	case SET:
+	  process_set (asm_out_file, pat);
+	  break;
+
+	case PARALLEL:
+	  {
+	    int par_index;
+	    int limit = XVECLEN (pat, 0);
+	    for (par_index = 0; par_index < limit; par_index++)
+	      {
+		rtx x = XVECEXP (pat, 0, par_index);
+		if (GET_CODE (x) == SET)
+		  process_set (asm_out_file, x);
+	      }
+	    break;
+	  }
+
+	default:
+	  abort ();
 	}
     }
 }
@@ -3135,7 +3299,7 @@ ia64_init_builtins ()
 
   /* __sync_lock_test_and_set_di */
   tree di_ftype_pdi_di
-    = build_function_type (long_integer_type_node,  
+    = build_function_type (long_integer_type_node,
                            tree_cons (NULL_TREE, pdi_type_node,
                            tree_cons (NULL_TREE, long_integer_type_node, endlink)));
 
@@ -3231,7 +3395,7 @@ ia64_expand_fetch_and_op (code, mode, operands)
       rtx reg;
       if (GET_CODE (operands[2]) == CONST_INT)
 	reg = gen_reg_rtx (mode);
-      else 
+      else
         reg = operands[2];
       if (mode == SImode)
 	{
@@ -3278,8 +3442,8 @@ ia64_expand_fetch_and_op (code, mode, operands)
   default:
     break;
   }
-    
-  if (mode == SImode) 
+
+  if (mode == SImode)
     emit_insn (gen_cmpxchg_acq_si (tmp_reg, operands[1], tmp_reg));
   else
     emit_insn (gen_cmpxchg_acq_di (tmp_reg, operands[1], tmp_reg));
@@ -3370,8 +3534,8 @@ ia64_expand_op_and_fetch (code, mode, operands)
   default:
     break;
   }
-    
-  if (mode == SImode) 
+
+  if (mode == SImode)
     emit_insn (gen_cmpxchg_acq_si (tmp_reg, operands[1], operands[0]));
   else
     emit_insn (gen_cmpxchg_acq_di (tmp_reg, operands[1], operands[0]));
@@ -3396,9 +3560,9 @@ ia64_expand_compare_and_swap (icode, arglist, target, boolcode)
      int boolcode;
 {
   tree arg0, arg1, arg2;
-  rtx newlabel, newlabel2, op0, op1, op2, pat;
+  rtx op0, op1, op2, pat;
   enum machine_mode tmode, mode0, mode1, mode2;
- 
+
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
   arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
@@ -3477,33 +3641,39 @@ rtx
 ia64_expand_builtin (exp, target, subtarget, mode, ignore)
      tree exp;
      rtx target;
-     rtx subtarget;
-     enum machine_mode mode;
-     int ignore;
+     rtx subtarget ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     int ignore ATTRIBUTE_UNUSED;
 {
-  rtx op0, op1, op2, op3, pat;
+  rtx op0, op1, pat;
   rtx tmp_reg;
-  rtx newlabel, newlabel2;
-  tree arg0, arg1, arg2, arg3;
+  tree arg0, arg1;
   tree arglist = TREE_OPERAND (exp, 1);
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
   int fcode = DECL_FUNCTION_CODE (fndecl);
-  enum machine_mode tmode, mode0, mode1, mode2, mode3;
+  enum machine_mode tmode, mode0, mode1;
   enum insn_code icode;
-  int boolcode = 0;
   int i;
   struct builtin_description *d;
 
   switch (fcode)
     {
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI:
-      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_si, arglist, target, 1);
+      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_si,
+					   arglist, target, 1);
+
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI:
-      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_si, arglist, target, 0);
+      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_si,
+					   arglist, target, 0);
+
     case IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI:
-      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_di, arglist, target, 1);
+      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_di,
+					   arglist, target, 1);
+
     case IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI:
-      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_di, arglist, target, 0);
+      return ia64_expand_compare_and_swap (CODE_FOR_val_compare_and_swap_di,
+					   arglist, target, 0);
+
     case IA64_BUILTIN_SYNCHRONIZE:
       /* Pass a volatile memory operand. */
       tmp_reg = gen_rtx_REG (DImode, GR_REG(0));
@@ -3544,7 +3714,7 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
       op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-      RTX_UNCHANGING_P (op0) = 1; 
+      RTX_UNCHANGING_P (op0) = 1;
       if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
         op1 = copy_to_mode_reg (mode1, op1);
       if (target == 0
@@ -3587,6 +3757,5 @@ ia64_expand_builtin (exp, target, subtarget, mode, ignore)
     if (d->code == fcode)
       return ia64_expand_binop_builtin (d->icode, arglist, target);
 
-  fail:
-    return 0;
+  return 0;
 }

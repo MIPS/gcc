@@ -253,6 +253,7 @@ varray_type basic_block_for_insn;
    bit of surgery to be able to use or co-opt the routines in jump.  */
 
 static rtx label_value_list;
+static rtx tail_recursion_label_list;
 
 /* Holds information for tracking conditional register life information.  */
 struct reg_cond_life_info
@@ -307,7 +308,7 @@ struct propagate_block_info
 
 /* Forward declarations */
 static int count_basic_blocks		PARAMS ((rtx));
-static rtx find_basic_blocks_1		PARAMS ((rtx));
+static void find_basic_blocks_1		PARAMS ((rtx));
 static void clear_edges			PARAMS ((void));
 static void make_edges			PARAMS ((rtx));
 static void make_label_edge		PARAMS ((sbitmap *, basic_block,
@@ -325,6 +326,7 @@ static void delete_eh_regions		PARAMS ((void));
 static int can_delete_note_p		PARAMS ((rtx));
 static void expunge_block		PARAMS ((basic_block));
 static int can_delete_label_p		PARAMS ((rtx));
+static int tail_recursion_label_p	PARAMS ((rtx));
 static int merge_blocks_move_predecessor_nojumps PARAMS ((basic_block,
 							  basic_block));
 static int merge_blocks_move_successor_nojumps PARAMS ((basic_block,
@@ -437,7 +439,7 @@ find_basic_blocks (f, nregs, file)
 
   VARRAY_BB_INIT (basic_block_info, n_basic_blocks, "basic_block_info");
 
-  label_value_list = find_basic_blocks_1 (f);
+  find_basic_blocks_1 (f);
   
   /* Record the block to which an insn belongs.  */
   /* ??? This should be done another way, by which (perhaps) a label is
@@ -535,7 +537,7 @@ count_basic_blocks (f)
    Collect and return a list of labels whose addresses are taken.  This
    will be used in make_edges for use with computed gotos.  */
 
-static rtx
+static void
 find_basic_blocks_1 (f)
      rtx f;
 {
@@ -543,7 +545,8 @@ find_basic_blocks_1 (f)
   int i = 0;
   rtx bb_note = NULL_RTX;
   rtx eh_list = NULL_RTX;
-  rtx label_value_list = NULL_RTX;
+  rtx lvl = NULL_RTX;
+  rtx trll = NULL_RTX;
   rtx head = NULL_RTX;
   rtx end = NULL_RTX;
   
@@ -584,8 +587,8 @@ find_basic_blocks_1 (f)
 	      {
 		if (bb_note == NULL_RTX)
 		  bb_note = insn;
-
-		next = flow_delete_insn (insn);
+		else
+		  next = flow_delete_insn (insn);
 	      }
 	    break;
 	  }
@@ -667,6 +670,12 @@ find_basic_blocks_1 (f)
 	    int region = (note ? INTVAL (XEXP (note, 0)) : 1);
 	    int call_has_abnormal_edge = 0;
 
+	    /* If this is a call placeholder, record its tail recursion
+	       label, if any.  */
+	    if (GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER
+		&& XEXP (PATTERN (insn), 3) != NULL_RTX)
+	      trll = alloc_EXPR_LIST (0, XEXP (PATTERN (insn), 3), trll);
+
 	    /* If there is an EH region or rethrow, we have an edge.  */
 	    if ((eh_list && region > 0)
 		|| find_reg_note (insn, REG_EH_RETHROW, NULL_RTX))
@@ -724,26 +733,30 @@ find_basic_blocks_1 (f)
 		rtx lab = XEXP (note, 0), next;
 
 		if (lab == eh_return_stub_label)
-		    ;
+		  ;
 		else if ((next = next_nonnote_insn (lab)) != NULL
 			 && GET_CODE (next) == JUMP_INSN
 			 && (GET_CODE (PATTERN (next)) == ADDR_VEC
 			     || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
 		  ;
+		else if (GET_CODE (lab) == NOTE)
+		  ;
 		else
-		  label_value_list
-		    = alloc_EXPR_LIST (0, XEXP (note, 0), label_value_list);
+		  lvl = alloc_EXPR_LIST (0, XEXP (note, 0), lvl);
 	      }
 	}
     }
 
   if (head != NULL_RTX)
     create_basic_block (i++, head, end, bb_note);
+  else if (bb_note)
+    flow_delete_insn (bb_note);
 
   if (i != n_basic_blocks)
     abort ();
 
-  return label_value_list;
+  label_value_list = lvl;
+  tail_recursion_label_list = trll;
 }
 
 /* Tidy the CFG by deleting unreachable code and whatnot.  */
@@ -759,7 +772,8 @@ cleanup_cfg (f)
   mark_critical_edges ();
 
   /* Kill the data we won't maintain.  */
-  label_value_list = NULL_RTX;
+  free_EXPR_LIST_list (&label_value_list);
+  free_EXPR_LIST_list (&tail_recursion_label_list);
 }
 
 /* Create a new basic block consisting of the instructions between
@@ -780,13 +794,18 @@ create_basic_block (index, head, end, bb_note)
     {
       /* If we found an existing note, thread it back onto the chain.  */
 
+      rtx after;
+
       if (GET_CODE (head) == CODE_LABEL)
-	add_insn_after (bb_note, head);
+	after = head;
       else
 	{
-	  add_insn_before (bb_note, head);
+	  after = PREV_INSN (head);
 	  head = bb_note;
 	}
+
+      if (after != bb_note && NEXT_INSN (after) != bb_note)
+	reorder_insns (bb_note, bb_note, after);
     }
   else
     {
@@ -1349,19 +1368,14 @@ split_edge (edge_in)
   n_edges++;
 
   memset (bb, 0, sizeof (*bb));
-  bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (function_obstack);
-  bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (function_obstack);
 
   /* ??? This info is likely going to be out of date very soon.  */
   if (old_succ->global_live_at_start)
     {
+      bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (function_obstack);
+      bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (function_obstack);
       COPY_REG_SET (bb->global_live_at_start, old_succ->global_live_at_start);
       COPY_REG_SET (bb->global_live_at_end, old_succ->global_live_at_start);
-    }
-  else
-    {
-      CLEAR_REG_SET (bb->global_live_at_start);
-      CLEAR_REG_SET (bb->global_live_at_end);
     }
 
   /* Wire them up.  */
@@ -1584,7 +1598,7 @@ static void
 commit_one_edge_insertion (e)
      edge e;
 {
-  rtx before = NULL_RTX, after = NULL_RTX, insns, tmp;
+  rtx before = NULL_RTX, after = NULL_RTX, insns, tmp, last;
   basic_block bb;
 
   /* Pull the insns off the edge now since the edge might go away.  */
@@ -1661,37 +1675,38 @@ commit_one_edge_insertion (e)
       emit_insns_before (insns, before);
       if (before == bb->head)
 	bb->head = insns;
+
+      last = prev_nonnote_insn (before);
     }
   else
     {
-      rtx last = emit_insns_after (insns, after);
+      last = emit_insns_after (insns, after);
       if (after == bb->end)
-	{
-	  bb->end = last;
-
-	  if (GET_CODE (last) == JUMP_INSN)
-	    {
-	      if (returnjump_p (last))
-		{
-		  /* ??? Remove all outgoing edges from BB and add one
-		     for EXIT.  This is not currently a problem because
-		     this only happens for the (single) epilogue, which
-		     already has a fallthru edge to EXIT.  */
-
-		  e = bb->succ;
-		  if (e->dest != EXIT_BLOCK_PTR
-		      || e->succ_next != NULL
-		      || (e->flags & EDGE_FALLTHRU) == 0)
-		    abort ();
-		  e->flags &= ~EDGE_FALLTHRU;
-
-		  emit_barrier_after (last);
-		}
-	      else
-		abort ();
-	    }
-	}
+	bb->end = last;
     }
+
+  if (returnjump_p (last))
+    {
+      /* ??? Remove all outgoing edges from BB and add one for EXIT. 
+         This is not currently a problem because this only happens
+	 for the (single) epilogue, which already has a fallthru edge
+	 to EXIT.  */
+
+      e = bb->succ;
+      if (e->dest != EXIT_BLOCK_PTR
+	  || e->succ_next != NULL
+	  || (e->flags & EDGE_FALLTHRU) == 0)
+	abort ();
+      e->flags &= ~EDGE_FALLTHRU;
+
+      emit_barrier_after (last);
+      bb->end = last;
+
+      if (before)
+	flow_delete_insn (before);
+    }
+  else if (GET_CODE (last) == JUMP_INSN)
+    abort ();
 }
 
 /* Update the CFG for all queued instructions.  */
@@ -1851,8 +1866,14 @@ flow_delete_insn_chain (start, finish)
       next = NEXT_INSN (start);
       if (GET_CODE (start) == NOTE && !can_delete_note_p (start))
 	;
-      else if (GET_CODE (start) == CODE_LABEL && !can_delete_label_p (start))
-	;
+      else if (GET_CODE (start) == CODE_LABEL
+	       && ! can_delete_label_p (start))
+	{
+	  const char *name = LABEL_NAME (start);
+	  PUT_CODE (start, NOTE);
+	  NOTE_LINE_NUMBER (start) = NOTE_INSN_DELETED_LABEL;
+	  NOTE_SOURCE_FILE (start) = name;
+	}
       else
 	next = flow_delete_insn (start);
 
@@ -1908,20 +1929,6 @@ flow_delete_block (b)
 	    }
 	  prev = &XEXP (x, 1);
 	}
-
-      /* This label may be referenced by code solely for its value, or
-	 referenced by static data, or something.  We have determined
-	 that it is not reachable, but cannot delete the label itself.
-	 Save code space and continue to delete the balance of the block,
-	 along with properly updating the cfg.  */
-      if (!can_delete_label_p (insn))
-	{
-	  /* If we've only got one of these, skip the whole deleting
-	     insns thing.  */
-	  if (insn == b->end)
-	    goto no_delete_insns;
-	  insn = NEXT_INSN (insn);
-	}
     }
 
   /* Include any jump table following the basic block.  */
@@ -1941,8 +1948,6 @@ flow_delete_block (b)
 
   /* Selectively delete the entire chain.  */
   flow_delete_insn_chain (insn, end);
-
- no_delete_insns:
 
   /* Remove the edges into and out of this block.  Note that there may 
      indeed be edges in, if we are removing an unreachable loop.  */
@@ -2009,7 +2014,8 @@ flow_delete_insn (insn)
 
   PREV_INSN (insn) = NULL_RTX;
   NEXT_INSN (insn) = NULL_RTX;
-
+  INSN_DELETED_P (insn) = 1;
+  
   if (prev)
     NEXT_INSN (prev) = next;
   if (next)
@@ -2022,11 +2028,14 @@ flow_delete_insn (insn)
 
   /* If deleting a jump, decrement the use count of the label.  Deleting
      the label itself should happen in the normal course of block merging.  */
-  if (GET_CODE (insn) == JUMP_INSN && JUMP_LABEL (insn))
+  if (GET_CODE (insn) == JUMP_INSN
+      && JUMP_LABEL (insn)
+      && GET_CODE (JUMP_LABEL (insn)) == CODE_LABEL)
     LABEL_NUSES (JUMP_LABEL (insn))--;
 
   /* Also if deleting an insn that references a label.  */
-  else if ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != NULL_RTX)
+  else if ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != NULL_RTX
+	   && GET_CODE (XEXP (note, 0)) == CODE_LABEL)
     LABEL_NUSES (XEXP (note, 0))--;
 
   return next;
@@ -2058,6 +2067,19 @@ can_delete_label_p (label)
     return 0;
   
   return 1;
+}
+
+static int
+tail_recursion_label_p (label)
+     rtx label;
+{
+  rtx x;
+
+  for (x = tail_recursion_label_list; x ; x = XEXP (x, 1))
+    if (label == XEXP (x, 0))
+      return 1;
+
+  return 0;
 }
 
 /* Blocks A and B are to be merged into a single block A.  The insns
@@ -2177,19 +2199,10 @@ merge_blocks_move_predecessor_nojumps (a, b)
   start = a->head;
   end = a->end;
 
-  /* We want to delete the BARRIER after the end of the insns we are
-     going to move.  If we don't find a BARRIER, then do nothing.  This
-     can happen in some cases if we have labels we can not delete. 
-
-     Similarly, do nothing if we can not delete the label at the start
-     of the target block.  */
   barrier = next_nonnote_insn (end);
-  if (GET_CODE (barrier) != BARRIER
-      || (GET_CODE (b->head) == CODE_LABEL
-	  && ! can_delete_label_p (b->head)))
-    return 0;
-  else
-    flow_delete_insn (barrier);
+  if (GET_CODE (barrier) != BARRIER)
+    abort ();
+  flow_delete_insn (barrier);
 
   /* Move block and loop notes out of the chain so that we do not
      disturb their order.
@@ -2237,20 +2250,23 @@ merge_blocks_move_successor_nojumps (a, b)
 
   start = b->head;
   end = b->end;
+  barrier = NEXT_INSN (end);
 
-  /* We want to delete the BARRIER after the end of the insns we are
-     going to move.  If we don't find a BARRIER, then do nothing.  This
-     can happen in some cases if we have labels we can not delete. 
+  /* Recognize a jump table following block B.  */
+  if (GET_CODE (barrier) == CODE_LABEL
+      && NEXT_INSN (barrier)
+      && GET_CODE (NEXT_INSN (barrier)) == JUMP_INSN
+      && (GET_CODE (PATTERN (NEXT_INSN (barrier))) == ADDR_VEC
+	  || GET_CODE (PATTERN (NEXT_INSN (barrier))) == ADDR_DIFF_VEC))
+    {
+      end = NEXT_INSN (barrier);
+      barrier = NEXT_INSN (end);
+    }
 
-     Similarly, do nothing if we can not delete the label at the start
-     of the target block.  */
-  barrier = next_nonnote_insn (end);
-  if (GET_CODE (barrier) != BARRIER
-      || (GET_CODE (b->head) == CODE_LABEL
-	  && ! can_delete_label_p (b->head)))
-    return 0;
-  else
-    flow_delete_insn (barrier);
+  /* There had better have been a barrier there.  Delete it.  */
+  if (GET_CODE (barrier) != BARRIER)
+    abort ();
+  flow_delete_insn (barrier);
 
   /* Move block and loop notes out of the chain so that we do not
      disturb their order.
@@ -2284,17 +2300,17 @@ merge_blocks (e, b, c)
      edge e;
      basic_block b, c;
 {
+  /* If C has a tail recursion label, do not merge.  There is no
+     edge recorded from the call_placeholder back to this label, as
+     that would make optimize_sibling_and_tail_recursive_calls more
+     complex for no gain.  */
+  if (GET_CODE (c->head) == CODE_LABEL
+      && tail_recursion_label_p (c->head))
+    return 0;
+
   /* If B has a fallthru edge to C, no need to move anything.  */
   if (e->flags & EDGE_FALLTHRU)
     {
-      /* If a label still appears somewhere and we cannot delete the label,
-	 then we cannot merge the blocks.  The edge was tidied already.  */
-
-      rtx insn, stop = NEXT_INSN (c->head);
-      for (insn = NEXT_INSN (b->end); insn != stop; insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == CODE_LABEL && !can_delete_label_p (insn))
-	  return 0;
-
       merge_blocks_nomove (b, c);
 
       if (rtl_dump_file)
@@ -3086,8 +3102,9 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	 global_live_at_start, since they are live only along a
 	 particular edge.  Set those regs that are live because of a
 	 phi node alternative corresponding to this particular block.  */
-      for_each_successor_phi (bb, &set_phi_alternative_reg, 
-			      new_live_at_end);
+      if (in_ssa_form)
+	for_each_successor_phi (bb, &set_phi_alternative_reg, 
+				new_live_at_end);
 
       if (bb == ENTRY_BLOCK_PTR)
 	{
@@ -3473,7 +3490,8 @@ propagate_one_insn (pbi, insn)
 	      {
 		/* We do not want REG_UNUSED notes for these registers.  */
 		mark_set_1 (pbi, CLOBBER, gen_rtx_REG (reg_raw_mode[i], i),
-			    cond, insn, pbi->flags & ~PROP_DEATH_NOTES);
+			    cond, insn,
+			    pbi->flags & ~(PROP_DEATH_NOTES | PROP_REG_INFO));
 	      }
 	}
 
@@ -3576,16 +3594,29 @@ init_propagate_block_info (bb, live, local_set, flags)
       int i;
 
       /* Identify the successor blocks.  */
-      bb_false = bb->succ->succ_next->dest;
       bb_true = bb->succ->dest;
-      if (bb->succ->flags & EDGE_FALLTHRU)
+      if (bb->succ->succ_next != NULL)
 	{
-	  basic_block t = bb_false;
-	  bb_false = bb_true;
-	  bb_true = t;
+          bb_false = bb->succ->succ_next->dest;
+
+	  if (bb->succ->flags & EDGE_FALLTHRU)
+	    {
+	      basic_block t = bb_false;
+	      bb_false = bb_true;
+	      bb_true = t;
+	    }
+	  else if (! (bb->succ->succ_next->flags & EDGE_FALLTHRU))
+	    abort ();
 	}
-      else if (! (bb->succ->succ_next->flags & EDGE_FALLTHRU))
-	abort ();
+      else
+	{
+	  /* This can happen with a conditional jump to the next insn.  */
+	  if (JUMP_LABEL (bb->end) != bb_true->head)
+	    abort ();
+
+	  /* Simplest way to do nothing.  */
+	  bb_false = bb_true;
+	}
      
       /* Extract the condition from the branch.  */
       cond_true = XEXP (SET_SRC (PATTERN (bb->end)), 0);
@@ -3605,7 +3636,7 @@ init_propagate_block_info (bb, live, local_set, flags)
 	{
 	  if (GET_CODE (XEXP (cond_true, 0)) != REG)
 	    abort ();
-	  SET_REGNO_REG_SET (pbi.reg_cond_reg, REGNO (XEXP (cond_true, 0)));
+	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond_true, 0)));
 
 	  /* For each such register, mark it conditionally dead.  */
 	  EXECUTE_IF_SET_IN_REG_SET
@@ -3622,7 +3653,7 @@ init_propagate_block_info (bb, live, local_set, flags)
 		 cond = cond_true;
 	       rcli->condition = alloc_EXPR_LIST (0, cond, NULL_RTX);
 
-	       splay_tree_insert (pbi.reg_cond_dead, i,
+	       splay_tree_insert (pbi->reg_cond_dead, i,
 				  (splay_tree_value) rcli);
 	     });
 	}
@@ -3977,6 +4008,7 @@ regno_clobbered_at_setjmp (regno)
 /* INSN references memory, possibly using autoincrement addressing modes.
    Find any entries on the mem_set_list that need to be invalidated due
    to an address change.  */
+
 static void
 invalidate_mems_from_autoinc (pbi, insn)
      struct propagate_block_info *pbi;
@@ -4254,7 +4286,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 #ifdef HAVE_conditional_execution
       /* Consider conditional death in deciding that the register needs
 	 a death note.  */
-      if (some_was_live
+      if (some_was_live && ! not_dead
 	  /* The stack pointer is never dead.  Well, not strictly true,
 	     but it's very difficult to tell from here.  Hopefully
 	     combine_stack_adjustments will fix up the most egregious
@@ -4376,6 +4408,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 
       /* Mark the register as being dead.  */
       if (some_was_live
+	  && ! not_dead
 	  /* The stack pointer is never dead.  Well, not strictly true,
 	     but it's very difficult to tell from here.  Hopefully
 	     combine_stack_adjustments will fix up the most egregious
@@ -4834,7 +4867,8 @@ find_auto_inc (pbi, x, insn)
 	      /* Count an extra reference to the reg.  When a reg is
 		 incremented, spilling it is worse, so we want to make
 		 that less likely.  */
-	      REG_N_REFS (regno) += pbi->bb->loop_depth + 1;
+	      REG_N_REFS (regno) += (optimize_size ? 1
+				     : pbi->bb->loop_depth + 1);
 
 	      /* Count the increment as a setting of the register,
 		 even though it isn't a SET in rtl.  */
@@ -4915,7 +4949,8 @@ mark_used_reg (pbi, reg, cond, insn)
 	    REG_BASIC_BLOCK (regno) = REG_BLOCK_GLOBAL;
 
 	  /* Count (weighted) number of uses of each reg.  */
-	  REG_N_REFS (regno) += pbi->bb->loop_depth + 1;
+	  REG_N_REFS (regno) += (optimize_size ? 1
+				 : pbi->bb->loop_depth + 1);
 	}
     }
 
@@ -5333,7 +5368,8 @@ try_pre_increment_1 (pbi, insn)
 	 less likely.  */
       if (regno >= FIRST_PSEUDO_REGISTER)
 	{
-	  REG_N_REFS (regno) += pbi->bb->loop_depth + 1;
+	  REG_N_REFS (regno) += (optimize_size ? 1
+				 : pbi->bb->loop_depth + 1);
 	  REG_N_SETS (regno)++;
 	}
       return 1;
@@ -6176,7 +6212,7 @@ verify_flow_info ()
   const rtx rtx_first = get_insns ();
   basic_block *bb_info;
   rtx x;
-  int i, err = 0;
+  int i, last_bb_num_seen, num_bb_notes, err = 0;
 
   bb_info = (basic_block *) xcalloc (max_uid, sizeof (basic_block));
 
@@ -6339,9 +6375,21 @@ verify_flow_info ()
 	}
     }
 
+  last_bb_num_seen = -1;
+  num_bb_notes = 0;
   x = rtx_first;
   while (x)
     {
+      if (GET_CODE (x) == NOTE
+	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_BASIC_BLOCK)
+	{
+	  basic_block bb = NOTE_BASIC_BLOCK (x);
+	  num_bb_notes++;
+	  if (bb->index != last_bb_num_seen + 1)
+	    fatal ("Basic blocks not numbered consecutively");
+	  last_bb_num_seen = bb->index;
+	}
+
       if (!bb_info[INSN_UID (x)])
 	{
 	  switch (GET_CODE (x))
@@ -6376,6 +6424,10 @@ verify_flow_info ()
 
       x = NEXT_INSN (x);
     }
+
+  if (num_bb_notes != n_basic_blocks)
+    fatal ("number of bb notes in insn chain (%d) != n_basic_blocks (%d)",
+	   num_bb_notes, n_basic_blocks);
 
   if (err)
     abort ();

@@ -1614,7 +1614,7 @@ typedef struct rs6000_args
    abi's store the return address.  */
 #define RETURN_ADDRESS_OFFSET						\
  ((DEFAULT_ABI == ABI_AIX						\
-   || DEFAULT_ABI == ABI_AIX_NODESC)	? 8 :				\
+   || DEFAULT_ABI == ABI_AIX_NODESC)	? (TARGET_32BIT ? 8 : 16) :	\
   (DEFAULT_ABI == ABI_V4						\
    || DEFAULT_ABI == ABI_SOLARIS)	? (TARGET_32BIT ? 4 : 8) :	\
   (fatal ("RETURN_ADDRESS_OFFSET not supported"), 0))
@@ -2355,7 +2355,7 @@ extern int toc_initialized;
        || (! (TARGET_NO_FP_IN_TOC && ! TARGET_MINIMAL_TOC)		\
 	   && GET_CODE (X) == CONST_DOUBLE				\
 	   && (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
-	       || (TARGET_POWERPC64 && GET_MODE (X) == DImode)))))
+	       || TARGET_POWERPC64))))
 #if 0
 	   && BITS_PER_WORD == HOST_BITS_PER_INT)))
 #endif
@@ -2381,7 +2381,7 @@ extern int toc_initialized;
 
 #define ASM_OUTPUT_DEF_FROM_DECLS(FILE,decl,target)	\
 do {							\
-  char * alias = XSTR (XEXP (DECL_RTL (decl), 0), 0);	\
+  const char * alias = XSTR (XEXP (DECL_RTL (decl), 0), 0); \
   char * name = IDENTIFIER_POINTER (target);		\
   if (TREE_CODE (decl) == FUNCTION_DECL			\
       && DEFAULT_ABI == ABI_AIX)			\
@@ -2726,10 +2726,8 @@ do {									\
   {"non_add_cint_operand", {CONST_INT}},			\
   {"and_operand", {SUBREG, REG, CONST_INT}},			\
   {"and64_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
-  {"logical_operand", {SUBREG, REG, CONST_INT}}, 		\
-  {"logical_u_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
-  {"non_logical_cint_operand", {CONST_INT}},			\
-  {"non_logical_u_cint_operand", {CONST_INT, CONST_DOUBLE}},	\
+  {"logical_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},	\
+  {"non_logical_cint_operand", {CONST_INT, CONST_DOUBLE}},	\
   {"mask_operand", {CONST_INT}},				\
   {"mask64_operand", {CONST_INT, CONST_DOUBLE}},		\
   {"count_register_operand", {REG}},				\
@@ -2741,11 +2739,15 @@ do {									\
   {"load_multiple_operation", {PARALLEL}},			\
   {"store_multiple_operation", {PARALLEL}},			\
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,		\
-				  GT, LEU, LTU, GEU, GTU}},	\
+				  GT, LEU, LTU, GEU, GTU,	\
+				  UNORDERED, ORDERED,		\
+				  UNEQ, LTGT,			\
+				  UNGE, UNGT, UNLE, UNLT}},	\
   {"scc_comparison_operator", {EQ, NE, LE, LT, GE,		\
 			       GT, LEU, LTU, GEU, GTU}},	\
   {"trap_comparison_operator", {EQ, NE, LE, LT, GE,		\
-				GT, LEU, LTU, GEU, GTU}},
+				GT, LEU, LTU, GEU, GTU}},	\
+  {"boolean_operator", {AND, IOR, XOR}},
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */

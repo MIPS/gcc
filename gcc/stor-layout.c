@@ -53,6 +53,7 @@ unsigned int set_alignment = 0;
 static void finalize_record_size	PARAMS ((record_layout_info));
 static void finalize_type_size		PARAMS ((tree));
 static void place_union_field		PARAMS ((record_layout_info, tree));
+extern void debug_rli			PARAMS ((record_layout_info));
 
 /* SAVE_EXPRs for sizes of types and decls, waiting to be expanded.  */
 
@@ -673,7 +674,7 @@ place_field (rli, field)
   /* Some targets (i.e. VMS) limit struct field alignment
      to a lower boundary than alignment of variables.  */
 #ifdef BIGGEST_FIELD_ALIGNMENT
-  desired_align = MIN (desired_align, BIGGEST_FIELD_ALIGNMENT);
+  desired_align = MIN (desired_align, (unsigned) BIGGEST_FIELD_ALIGNMENT);
 #endif
 #ifdef ADJUST_FIELD_ALIGN
   desired_align = ADJUST_FIELD_ALIGN (field, desired_align);
@@ -1176,6 +1177,9 @@ finish_record_layout (rli)
   /* Compute the TYPE_MODE for the record.  */
   compute_record_mode (rli->t);
 
+  /* Perform any last tweaks to the TYPE_SIZE, etc.  */
+  finalize_type_size (rli->t);
+
   /* Lay out any static members.  This is done now because their type
      may use the record's type.  */
   while (rli->pending_statics)
@@ -1183,9 +1187,6 @@ finish_record_layout (rli)
       layout_decl (TREE_VALUE (rli->pending_statics), 0);
       rli->pending_statics = TREE_CHAIN (rli->pending_statics);
     }
-
-  /* Perform any last tweaks to the TYPE_SIZE, etc.  */
-  finalize_type_size (rli->t);
 
   /* Clean up.  */
   free (rli);

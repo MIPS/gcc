@@ -219,7 +219,7 @@ typedef struct rtvec_def{
 #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)
 /* The bit with a star outside the statement expr and an & inside is
    so that N can be evaluated only once.  */
-#define RTL_CHECK1(RTX, N, C1)						\
+#define RTL_CHECK1(RTX, N, C1) __extension__				\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
@@ -230,7 +230,7 @@ typedef struct rtvec_def{
 			       __PRETTY_FUNCTION__);			\
      &_rtx->fld[_n]; }))
 
-#define RTL_CHECK2(RTX, N, C1, C2)					\
+#define RTL_CHECK2(RTX, N, C1, C2) __extension__			\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
      if (_n < 0 || _n >= GET_RTX_LENGTH (_code))			\
@@ -242,14 +242,14 @@ typedef struct rtvec_def{
 			       __PRETTY_FUNCTION__);			\
      &_rtx->fld[_n]; }))
 
-#define RTL_CHECKC1(RTX, N, C)						\
+#define RTL_CHECKC1(RTX, N, C) __extension__				\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      if (GET_CODE (_rtx) != C)						\
        rtl_check_failed_code1 (_rtx, C, __FILE__, __LINE__,		\
 			       __PRETTY_FUNCTION__);			\
      &_rtx->fld[_n]; }))
 
-#define RTL_CHECKC2(RTX, N, C1, C2)					\
+#define RTL_CHECKC2(RTX, N, C1, C2) __extension__			\
 (*({ rtx _rtx = (RTX); int _n = (N);					\
      enum rtx_code _code = GET_CODE (_rtx);				\
      if (_code != C1 && _code != C2)					\
@@ -257,7 +257,7 @@ typedef struct rtvec_def{
 			       __PRETTY_FUNCTION__);			\
      &_rtx->fld[_n]; }))
 
-#define RTVEC_ELT(RTVEC, I)						\
+#define RTVEC_ELT(RTVEC, I) __extension__				\
 (*({ rtvec _rtvec = (RTVEC); int _i = (I);				\
      if (_i < 0 || _i >= GET_NUM_ELEM (_rtvec))				\
        rtvec_check_failed_bounds (_rtvec, _i, __FILE__, __LINE__,	\
@@ -417,7 +417,7 @@ enum reg_note
      appear on an insn which copies a register parameter to a pseudo-register,
      if there is a memory address which could be used to hold that
      pseudo-register throughout the function.  */
-   REG_EQUIV,
+  REG_EQUIV,
 
   /* Like REG_EQUIV except that the destination is only momentarily equal
      to the specified rtx.  Therefore, it cannot be used for substitution;
@@ -437,7 +437,8 @@ enum reg_note
   REG_RETVAL,
 
   /* The inverse of REG_RETVAL: it goes on the first insn of the library call
-     and points at the one that has the REG_RETVAL.  */
+     and points at the one that has the REG_RETVAL.  This note is also an
+     INSN_LIST.  */
   REG_LIBCALL,
 
   /* The register is always nonnegative during the containing loop.  This is
@@ -459,11 +460,13 @@ enum reg_note
      we permit putting a cc0-setting insn in the delay slot of a branch as
      long as only one copy of the insn exists.  In that case, these notes
      point from one to the other to allow code generation to determine what
-     any require information and to properly update CC_STATUS.  */
+     any require information and to properly update CC_STATUS.  These notes
+     are INSN_LISTs.  */
   REG_CC_SETTER, REG_CC_USER,
 
   /* Points to a CODE_LABEL.  Used by non-JUMP_INSNs to say that the
-     CODE_LABEL contained in the REG_LABEL note is used by the insn.  */
+     CODE_LABEL contained in the REG_LABEL note is used by the insn. 
+     This note is an INSN_LIST.  */
   REG_LABEL,
 
   /* REG_DEP_ANTI and REG_DEP_OUTPUT are used in LOG_LINKS to represent
@@ -544,7 +547,7 @@ extern const char * const reg_note_name[];
 /* The label-number of a code-label.  The assembler label
    is made from `L' and the label-number printed in decimal.
    Label numbers are unique in a compilation.  */
-#define CODE_LABEL_NUMBER(INSN)	XINT(INSN, 3)
+#define CODE_LABEL_NUMBER(INSN)	XINT(INSN, 5)
 
 #define LINE_NUMBER NOTE
 
@@ -664,11 +667,11 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 
 /* The name of a label, in case it corresponds to an explicit label
    in the input source code.  */
-#define LABEL_NAME(RTX) XCSTR(RTX, 4, CODE_LABEL)
+#define LABEL_NAME(RTX) XCSTR(RTX, 6, CODE_LABEL)
 
 /* In jump.c, each label contains a count of the number
    of LABEL_REFs that point at it, so unused labels can be deleted.  */
-#define LABEL_NUSES(RTX) XCINT(RTX, 5, CODE_LABEL)
+#define LABEL_NUSES(RTX) XCINT(RTX, 3, CODE_LABEL)
 
 /* Associate a name with a CODE_LABEL.  */
 #define LABEL_ALTERNATE_NAME(RTX) XCSTR(RTX, 7, CODE_LABEL)
@@ -687,8 +690,8 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 /* Once basic blocks are found in flow.c,
    each CODE_LABEL starts a chain that goes through
    all the LABEL_REFs that jump to that label.
-   The chain eventually winds up at the CODE_LABEL; it is circular.  */
-#define LABEL_REFS(LABEL) XCEXP(LABEL, 6, CODE_LABEL)
+   The chain eventually winds up at the CODE_LABEL: it is circular.  */
+#define LABEL_REFS(LABEL) XCEXP(LABEL, 4, CODE_LABEL)
 
 /* This is the field in the LABEL_REF through which the circular chain
    of references to a particular label is linked.
@@ -760,20 +763,30 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
    not refer to a scalar.*/
 #define MEM_SCALAR_P(RTX) ((RTX)->frame_related)
 
-/* Copy the MEM_VOLATILE_P, MEM_IN_STRUCT_P, and MEM_SCALAR_P
-   attributes from RHS to LHS.  */
+/* Copy the attributes that apply to memory locations from RHS to LHS.  */
 #define MEM_COPY_ATTRIBUTES(LHS, RHS)			\
   (MEM_VOLATILE_P (LHS) = MEM_VOLATILE_P (RHS),		\
    MEM_IN_STRUCT_P (LHS) = MEM_IN_STRUCT_P (RHS),	\
-   MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS))
+   MEM_SCALAR_P (LHS) = MEM_SCALAR_P (RHS),		\
+   MEM_ALIAS_SET (LHS) = MEM_ALIAS_SET (RHS),		\
+   RTX_UNCHANGING_P (LHS) = RTX_UNCHANGING_P (RHS))
 
 /* If VAL is non-zero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
    RTX.  Otherwise, vice versa.  Use this macro only when you are
    *sure* that you know that the MEM is in a structure, or is a
    scalar.  VAL is evaluated only once.  */
-#define MEM_SET_IN_STRUCT_P(RTX, VAL) 				\
-  ((VAL) ? (MEM_IN_STRUCT_P (RTX) = 1, MEM_SCALAR_P (RTX) = 0)	\
-   : (MEM_IN_STRUCT_P (RTX) = 0, MEM_SCALAR_P (RTX) = 1))
+#define MEM_SET_IN_STRUCT_P(RTX, VAL) do {	\
+  if (VAL)					\
+    {						\
+      MEM_IN_STRUCT_P (RTX) = 1;		\
+      MEM_SCALAR_P (RTX) = 0;			\
+    }						\
+  else						\
+    {						\
+      MEM_IN_STRUCT_P (RTX) = 0;		\
+      MEM_SCALAR_P (RTX) = 1;			\
+    }						\
+} while (0)
 
 /* For a MEM rtx, the alias set.  If 0, this MEM is not in any alias
    set, and may alias anything.  Otherwise, the MEM can only alias
@@ -1199,6 +1212,7 @@ extern int modified_between_p		PARAMS ((rtx, rtx, rtx));
 extern int no_labels_between_p		PARAMS ((rtx, rtx));
 extern int no_jumps_between_p		PARAMS ((rtx, rtx));
 extern int modified_in_p		PARAMS ((rtx, rtx));
+extern int insn_dependant_p		PARAMS ((rtx, rtx));
 extern int reg_set_p			PARAMS ((rtx, rtx));
 extern rtx single_set			PARAMS ((rtx));
 extern int multiple_sets		PARAMS ((rtx));
@@ -1499,6 +1513,10 @@ extern void cse_end_of_basic_block	PARAMS ((rtx,
 /* In jump.c */
 extern int comparison_dominates_p	PARAMS ((enum rtx_code, enum rtx_code));
 extern int condjump_p			PARAMS ((rtx));
+extern int any_condjump_p		PARAMS ((rtx));
+extern int any_uncondjump_p		PARAMS ((rtx));
+extern int safe_to_remove_jump_p	PARAMS ((rtx));
+extern rtx pc_set			PARAMS ((rtx));
 extern rtx condjump_label		PARAMS ((rtx));
 extern int simplejump_p			PARAMS ((rtx));
 extern int returnjump_p			PARAMS ((rtx));
@@ -1567,7 +1585,7 @@ extern rtx emit					PARAMS ((rtx));
 int force_line_numbers PARAMS ((void));
 void restore_line_number_status PARAMS ((int old_value));
 extern void renumber_insns                      PARAMS ((FILE *));
-extern void remove_unncessary_notes             PARAMS ((void));
+extern void remove_unnecessary_notes             PARAMS ((void));
 
 /* In insn-emit.c */
 extern void add_clobbers		PARAMS ((rtx, int));
@@ -1602,7 +1620,7 @@ extern void print_inline_rtx		PARAMS ((FILE *, rtx, int));
 extern void init_loop			PARAMS ((void));
 extern rtx libcall_other_reg		PARAMS ((rtx, rtx));
 #ifdef BUFSIZ
-extern void loop_optimize		PARAMS ((rtx, FILE *, int, int));
+extern void loop_optimize		PARAMS ((rtx, FILE *, int));
 #endif
 extern void record_excess_regs		PARAMS ((rtx, rtx, rtx *));
 

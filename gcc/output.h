@@ -407,6 +407,13 @@ extern int sdb_begin_function_line;
 #ifdef BUFSIZ
 extern FILE *asm_out_file;
 #endif
+
+/* The first global object in the file.  */
+extern const char *first_global_object_name;
+
+/* The first weak object in the file.  */
+extern const char *weak_global_object_name;
+
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
@@ -436,6 +443,10 @@ extern int current_function_uses_only_leaf_regs;
 #ifdef BUFSIZ
 extern FILE *rtl_dump_file;
 #endif
+
+/* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
+
+extern struct rtx_def *current_insn_predicate;
 
 /* Decide whether DECL needs to be in a writable section.  RELOC is the same
    as for SELECT_SECTION.  */

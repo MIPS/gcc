@@ -2046,7 +2046,6 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 
 		  newmem = gen_rtx_MEM (wanted_mode,
 					plus_constant (XEXP (tem, 0), offset));
-		  RTX_UNCHANGING_P (newmem) = RTX_UNCHANGING_P (tem);
 		  MEM_COPY_ATTRIBUTES (newmem, tem);
 
 		  /* Make the change and see if the insn remains valid.  */
@@ -2238,7 +2237,6 @@ fixup_var_refs_1 (var, promoted_mode, loc, insn, replacements)
 		    newmem = gen_rtx_MEM (wanted_mode,
 					  plus_constant (XEXP (tem, 0),
 							 offset));
-		    RTX_UNCHANGING_P (newmem) = RTX_UNCHANGING_P (tem);
 		    MEM_COPY_ATTRIBUTES (newmem, tem);
 
 		    /* Make the change and see if the insn remains valid.  */
@@ -2928,7 +2926,6 @@ purge_addressof_1 (loc, insn, force, store, ht)
 	{
 	  sub2 = gen_rtx_MEM (GET_MODE (x), copy_rtx (XEXP (sub, 0)));
 	  MEM_COPY_ATTRIBUTES (sub2, sub);
-	  RTX_UNCHANGING_P (sub2) = RTX_UNCHANGING_P (sub);
 	  sub = sub2;
 	}
       else if (GET_CODE (sub) == REG
@@ -5963,7 +5960,7 @@ init_dummy_function_start ()
 void
 init_function_start (subr, filename, line)
      tree subr;
-     char *filename;
+     const char *filename;
      int line;
 {
   prepare_function_start ();
@@ -6394,7 +6391,7 @@ use_return_register ()
 
 void
 expand_function_end (filename, line, end_bindings)
-     char *filename;
+     const char *filename;
      int line;
      int end_bindings;
 {
@@ -6495,7 +6492,11 @@ expand_function_end (filename, line, end_bindings)
     }
 
   /* Warn about unused parms if extra warnings were specified.  */
-  if (warn_unused && extra_warnings)
+  /* Either ``-W -Wunused'' or ``-Wunused-parameter'' enables this
+     warning.  WARN_UNUSED_PARAMETER is negative when set by
+     -Wunused. */
+  if (warn_unused_parameter > 0
+      || (warn_unused_parameter < 0 && extra_warnings))
     {
       tree decl;
 

@@ -40,7 +40,7 @@ static int list_hash PARAMS ((tree, tree, tree));
 static tree list_hash_lookup PARAMS ((int, tree, tree, tree));
 static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int));
 static tree no_linkage_helper PARAMS ((tree *, int *, void *));
-static tree build_srcloc PARAMS ((char *, int));
+static tree build_srcloc PARAMS ((const char *, int));
 static void mark_list_hash PARAMS ((void *));
 static int statement_code_p PARAMS ((enum tree_code));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
@@ -293,6 +293,9 @@ build_target_expr_with_type (init, type)
 {
   tree slot;
   tree rval;
+
+  if (TREE_CODE (init) == TARGET_EXPR)
+    return init;
 
   slot = build (VAR_DECL, type);
   DECL_ARTIFICIAL (slot) = 1;
@@ -1242,6 +1245,11 @@ walk_tree (tp, func, data)
     {
       int i, len;
 
+      /* Set lineno here so we get the right instantiation context
+	 if we call instantiate_decl from inlinable_function_p.  */
+      if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
+	lineno = STMT_LINENO (*tp);
+
       /* Walk over all the sub-trees of this operand.  */
       len = first_rtl_op (code);
       /* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
@@ -1981,7 +1989,7 @@ build_int_wrapper (i)
 
 static tree
 build_srcloc (file, line)
-     char *file;
+     const char *file;
      int line;
 {
   tree t;
@@ -2404,4 +2412,35 @@ cp_unsave (tp)
 
   /* Clean up.  */
   splay_tree_delete (st);
+}
+
+/* Returns the kind of special function that DECL (a FUNCTION_DECL)
+   is.  Note that this sfk_none is zero, so this function can be used
+   as a predicate to test whether or not DECL is a special function.  */
+
+special_function_kind
+special_function_p (decl)
+     tree decl;
+{
+  /* Rather than doing all this stuff with magic names, we should
+     probably have a field of type `special_function_kind' in
+     DECL_LANG_SPECIFIC.  */
+  if (DECL_COPY_CONSTRUCTOR_P (decl))
+    return sfk_copy_constructor;
+  if (DECL_CONSTRUCTOR_P (decl))
+    return sfk_constructor;
+  if (DECL_NAME (decl) == ansi_opname[(int) MODIFY_EXPR])
+    return sfk_assignment_operator;
+  if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
+    return sfk_destructor;
+  if (DECL_COMPLETE_DESTRUCTOR_P (decl))
+    return sfk_complete_destructor;
+  if (DECL_BASE_DESTRUCTOR_P (decl))
+    return sfk_base_destructor;
+  if (DECL_DELETING_DESTRUCTOR_P (decl))
+    return sfk_deleting_destructor;
+  if (DECL_CONV_FN_P (decl))
+    return sfk_conversion;
+
+  return sfk_none;
 }

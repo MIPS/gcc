@@ -1481,7 +1481,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
      register rtx i3, i2, i1;
      register int *new_direct_jump_p;
 {
-  /* New patterns for I3 and I3, respectively.  */
+  /* New patterns for I3 and I2, respectively.  */
   rtx newpat, newi2pat = 0;
   /* Indicates need to preserve SET in I1 or I2 in I3 if it is not dead.  */
   int added_sets_1, added_sets_2;
@@ -3741,7 +3741,6 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 			   plus_constant (XEXP (inner, 0),
 					  (SUBREG_WORD (x) * UNITS_PER_WORD
 					   + endian_offset)));
-	  RTX_UNCHANGING_P (x) = RTX_UNCHANGING_P (inner);
 	  MEM_COPY_ATTRIBUTES (x, inner);
 	  return x;
 	}
@@ -5923,7 +5922,6 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	    offset = pos / BITS_PER_UNIT;
 
 	  new = gen_rtx_MEM (tmode, plus_constant (XEXP (inner, 0), offset));
-	  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (inner);
 	  MEM_COPY_ATTRIBUTES (new, inner);
 	}
       else if (GET_CODE (inner) == REG)
@@ -6148,7 +6146,7 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 	{
 	  rtx newmem = gen_rtx_MEM (wanted_inner_mode,
 				    plus_constant (XEXP (inner, 0), offset));
-	  RTX_UNCHANGING_P (newmem) = RTX_UNCHANGING_P (inner);
+
 	  MEM_COPY_ATTRIBUTES (newmem, inner);
 	  inner = newmem;
 	}
@@ -8915,7 +8913,7 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
 		new = gen_rtx_MEM (tmode,
 				   plus_constant (XEXP (varop, 0),
 						  count / BITS_PER_UNIT));
-	      RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (varop);
+
 	      MEM_COPY_ATTRIBUTES (new, varop);
 	      varop = gen_rtx_combine (code == ASHIFTRT ? SIGN_EXTEND
 				       : ZERO_EXTEND, mode, new);
@@ -9670,7 +9668,6 @@ gen_lowpart_for_combine (mode, x)
 		     - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
 	}
       new = gen_rtx_MEM (mode, plus_constant (XEXP (x, 0), offset));
-      RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (x);
       MEM_COPY_ATTRIBUTES (new, x);
       return new;
     }

@@ -21,21 +21,7 @@ export TARGET_MACHINE DESTDIR SRCDIR FIND_BASE VERBOSE
 mkdir ${DESTDIR} ${SRCDIR}
 
 ( cd ${SRCDIR}
-  set +e
-  for f in [=
-
-  _EVAL fix.files _stack _join "echo `
-
-  for f in %s
-  do case $f in
-     */* ) echo $f | sed 's;/[^/]*$;;' ;;
-     esac
-  done | sort -u
-
-  ` " _printf _shell =]
-  do
-    mkdir $f || mkdir -p $f
-  done ) > /dev/null 2>&1
+  mkdir netinet rpc sparc sundev sunwindow sys X11 Xm )
 
 [=
 
@@ -54,10 +40,10 @@ cat >> inc/[=
     _IF files _exist =][=
       files[0] =][=
     _ELSE =]testing.h[=
-    _ENDIF =] <<- _HACK_EOF_
+    _ENDIF =] <<- '_HACK_EOF_'
 
 
-	#if defined( [=hackname _up=]_CHECK )
+	#ifndef [=hackname _up=]_CHECK
 [=test_text "\t" _prefix=]
 	#endif  /* [=hackname _up=]_CHECK */
 _HACK_EOF_
@@ -79,7 +65,7 @@ do
     echo "Only in inc:  inc/$f"
   else
     diff -c inc/$f res/$f | \
-      sed -e '1,2s;	.*;;' -e '/MACH_DIFF:/,/no uniform test,/d'
+      sed -e '1,2s;	.*;;'
   fi
 done > NEWDIFF < LIST
 

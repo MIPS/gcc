@@ -838,7 +838,10 @@ finish_handler_sequence (try_block)
      tree try_block;
 {
   if (building_stmt_tree ())
-    RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
+    {
+      RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
+      check_handlers (TRY_HANDLERS (try_block));
+    }
   else
     expand_end_all_catch ();
 }
@@ -852,7 +855,10 @@ finish_function_handler_sequence (try_block)
   in_function_try_handler = 0;
 
   if (building_stmt_tree ())
-    RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
+    {
+      RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
+      check_handlers (TRY_HANDLERS (try_block));
+    }
   else
     expand_end_all_catch ();
 }
@@ -900,6 +906,9 @@ finish_handler_parms (decl, handler)
     }
   else if (building_stmt_tree ())
     blocks = expand_start_catch_block (decl);
+
+  if (decl)
+    TREE_TYPE (handler) = TREE_TYPE (decl);
 
   return blocks;
 }
@@ -2694,7 +2703,7 @@ expand_body (fn)
      tree fn;
 {
   int saved_lineno;
-  char *saved_input_filename;
+  const char *saved_input_filename;
 
   /* When the parser calls us after finishing the body of a template
      function, we don't really want to expand the body.  When we're
@@ -2775,6 +2784,7 @@ expand_body (fn)
 
   start_function (NULL_TREE, fn, NULL_TREE, SF_PRE_PARSED | SF_EXPAND);
   store_parm_decls ();
+  current_function_is_thunk = DECL_THUNK_P (fn);
 
   /* We don't need to redeclare __FUNCTION__, __PRETTY_FUNCTION__, or
      any of the other magic variables we set up when starting a

@@ -106,11 +106,12 @@ plus_constant_wide (x, c)
 
     case CONST_DOUBLE:
       {
-	HOST_WIDE_INT l1 = CONST_DOUBLE_LOW (x);
+	unsigned HOST_WIDE_INT l1 = CONST_DOUBLE_LOW (x);
 	HOST_WIDE_INT h1 = CONST_DOUBLE_HIGH (x);
-	HOST_WIDE_INT l2 = c;
+	unsigned HOST_WIDE_INT l2 = c;
 	HOST_WIDE_INT h2 = c < 0 ? ~0 : 0;
-	HOST_WIDE_INT lv, hv;
+	unsigned HOST_WIDE_INT lv;
+	HOST_WIDE_INT hv;
 
 	add_double (l1, h1, l2, h2, &lv, &hv);
 
@@ -644,21 +645,17 @@ stabilize (x)
     {
       rtx temp = copy_all_regs (addr);
       rtx mem;
+
       if (GET_CODE (temp) != REG)
 	temp = copy_to_reg (temp);
       mem = gen_rtx_MEM (GET_MODE (x), temp);
 
       /* Mark returned memref with in_struct if it's in an array or
-	 structure.  Copy const and volatile from original memref.  */
+	 structure.  Copy everything else from original memref.  */
 
-      RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (x);
       MEM_COPY_ATTRIBUTES (mem, x);
       if (GET_CODE (addr) == PLUS)
 	MEM_SET_IN_STRUCT_P (mem, 1);
-
-      /* Since the new MEM is just like the old X, it can alias only
-	 the things that X could.  */
-      MEM_ALIAS_SET (mem) = MEM_ALIAS_SET (x);
 
       return mem;
     }

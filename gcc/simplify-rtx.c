@@ -1905,7 +1905,7 @@ simplify_ternary_operation (code, mode, op0_mode, op0, op1, op2)
 	  && GET_CODE (op1) == CONST_INT
 	  && GET_CODE (op2) == CONST_INT
 	  && INTVAL (op1) + INTVAL (op2) <= GET_MODE_BITSIZE (op0_mode)
-	  && width <= HOST_BITS_PER_WIDE_INT)
+	  && width <= (unsigned) HOST_BITS_PER_WIDE_INT)
 	{
 	  /* Extracting a bit-field from a constant */
 	  HOST_WIDE_INT val = INTVAL (op0);
@@ -2604,11 +2604,9 @@ add_mem_for_addr (addr_elt, mem_elt, x)
       return;
 
   new = gen_rtx_MEM (GET_MODE (x), addr_elt->u.val_rtx);
-  addr_elt->addr_list = new_elt_list (addr_elt->addr_list, mem_elt);
-
-  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (x);
   MEM_COPY_ATTRIBUTES (new, x);
 
+  addr_elt->addr_list = new_elt_list (addr_elt->addr_list, mem_elt);
   mem_elt->locs = new_elt_loc_list (mem_elt->locs, new);
 }
 

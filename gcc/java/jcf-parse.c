@@ -481,7 +481,7 @@ read_class (name)
 {
   JCF this_jcf, *jcf;
   tree save_current_class = current_class;
-  char *save_input_filename = input_filename;
+  const char *save_input_filename = input_filename;
   JCF *save_current_jcf = current_jcf;
   long saved_pos = 0;
   if (current_jcf->read_state)
@@ -665,7 +665,7 @@ static void
 parse_class_file ()
 {
   tree method;
-  char *save_input_filename = input_filename;
+  const char *save_input_filename = input_filename;
   int save_lineno = lineno;
 
   java_layout_seen_class_methods ();
@@ -684,8 +684,21 @@ parse_class_file ()
     {
       JCF *jcf = current_jcf;
 
-      if (METHOD_NATIVE (method) || METHOD_ABSTRACT (method))
+      if (METHOD_ABSTRACT (method))
 	continue;
+
+      if (METHOD_NATIVE (method))
+	{
+	  if (! flag_jni)
+	    continue;
+	  DECL_MAX_LOCALS (method)
+	    = list_length (TYPE_ARG_TYPES (TREE_TYPE (method)));
+	  start_java_method (method);
+	  give_name_to_locals (jcf);
+	  expand_expr_stmt (build_jni_stub (method));
+	  end_java_method ();
+	  continue;
+	}
 
       if (DECL_CODE_OFFSET (method) == 0)
 	{
@@ -828,7 +841,7 @@ yyparse ()
 
 	  if (twice)
 	    {
-	      char *saved_input_filename = input_filename;
+	      const char *saved_input_filename = input_filename;
 	      input_filename = value;
 	      warning ("source file seen twice on command line and will be compiled only once.");
 	      input_filename = saved_input_filename;

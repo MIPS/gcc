@@ -1,3 +1,103 @@
+2000-05-18  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* jcf-write.c (generate_classfile): Scan the source_file for
+	slashes with the right pointer variable.
+
+Wed May 17 17:27:44 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* lang.c (lang_decode_option): Update -Wunused flags by calling
+ 	set_Wunused.
+	* decl.c (poplevel): Replace warn_unused with warn_unused_label.
+
+2000-05-09  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* check_init.c (check_init): Constify local char *.
+	* class.c (push_class): Constify local char *.
+	* java_tree.h: Update prototypes.
+	* jcf-io.c (open_class): Constify filename parameter and
+	return value.
+	(find_class): Remove redundant string copy.  Cast return from
+	open_class.
+	* jcf-parse.c (read_class, parse_class_file, yyparse):
+	Constify local char *.
+	* jcf-write.c (generate_bytecode_insns, generate_classfile):
+	Constify local char *.
+	* jcf.h (JCF): Constify filename and classname.
+	(JCF_FINISH): Cast args to FREE to char * when appropriate.
+	* lang.c (init_parse): Constify parameter and return value.
+	* lex.c (java_get_line_col): Constify filename parameter.
+	* parse.h: Constify parser_ctxt.filename.  Update prototypes.
+	* parse.y (java_parser_context_suspend,
+	issue_warning_error_from_context, safe_layout_class): Constify
+	local char *.
+	* parse.c: Regenerate.
+
+2000-05-08  Tom Tromey  <tromey@cygnus.com>
+
+	* expr.c (build_jni_stub): Cache the result of
+	_Jv_LookupJNIMethod.
+
+2000-05-05  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* decl.c (predef_filenames_size): Now 7.
+	(predef_filenames): New seventh entry.
+
+2000-05-04  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Don't mark RawData fields.
+	Keep track of when we've seen a reference field after a
+	non-reference field.
+	(get_boehm_type_descriptor): Handle case where we see
+	non-reference fields but no trailing reference field.
+	* decl.c (rawdata_ptr_type_node): Define.
+	(init_decl_processing): Initialize rawdata_ptr_type_node.
+	* java-tree.h (rawdata_ptr_type_node): Declare.
+
+2000-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-dump.c (SPECIAL_IINC): Ensure arguments match format
+	specifiers in calls to fprintf.
+
+2000-05-03  Andrew Haley  <aph@cygnus.com>
+
+	* expr.c (build_java_jsr): Use emit_jump, not expand_goto.
+
+	* javaop.h (WORD_TO_INT): New function.
+	(IMMEDIATE_s4): Use WORD_TO_INT.
+	* jcf.h (JPOOL_INT): Ditto.
+
+	* gjavah.c (decode_signature_piece): Don't treat `$' as namespace
+	separator.
+
+2000-04-19  Tom Tromey  <tromey@cygnus.com>
+
+	* class.c (add_method_1): Set both DECL_EXTERNAL and METHOD_NATIVE
+	on native function.
+	* jcf-parse.c (parse_class_file): Call build_jni_stub for native
+	JNI methods.
+	* expr.c (build_jni_stub): New function.
+	* lang-specs.h: -fjni and -femit-class-file are incompatible.
+	* parse.c: Rebuilt.
+	* parse.y (java_complete_expand_methods): Expand a native method
+	and call build_jni_stub if -fjni given.
+	* lang-options.h: Document -fjni.
+	* lang.c (flag_jni): New global.
+	(lang_f_options): Added `jni' entry.
+	* java-tree.h (soft_lookupjnimethod_node,
+	soft_getjnienvnewframe_node, soft_jnipopsystemframe_node):
+	Declare.
+	(flag_jni): Declare.
+	(build_jni_stub): Declare.
+	(struct lang_decl): Added `native' flag.
+	(METHOD_NATIVE): Redefined to use `native' field of lang specific
+	structure.
+	* decl.c (soft_lookupjnimethod_node, soft_getjnienvnewframe_node,
+	soft_jnipopsystemframe_node): New globals.
+	(init_decl_processing): Set them.  _Jv_InitClass only takes one
+	argument.
+
+	* java-tree.def: Put into `C' mode.
+
 2000-04-27  Tom Tromey  <tromey@cygnus.com>
 
 	Fix for PR gcj/2:

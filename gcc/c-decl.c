@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "defaults.h"
 #include "ggc.h"
+#include "tm_p.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -79,7 +80,7 @@ int ggc_p = 1;
 
 tree pending_invalid_xref;
 /* File and line to appear in the eventual error message.  */
-char *pending_invalid_xref_file;
+const char *pending_invalid_xref_file;
 int pending_invalid_xref_line;
 
 /* While defining an enum type, this is 1 plus the last enumerator
@@ -115,7 +116,7 @@ static tree current_function_parm_tags;
 
 /* Similar, for the file and line that the prototype came from if this is
    an old-style definition.  */
-static char *current_function_prototype_file;
+static const char *current_function_prototype_file;
 static int current_function_prototype_line;
 
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
@@ -756,7 +757,7 @@ c_decode_option (argc, argv)
       warn_implicit_int = 1;
       mesg_implicit_function_declaration = 1;
       warn_return_type = 1;
-      warn_unused = 1;
+      set_Wunused (1);
       warn_switch = 1;
       warn_format = 1;
       warn_char_subscripts = 1;
@@ -1123,7 +1124,7 @@ poplevel (keep, reverse, functionbody)
 	      define_label (input_filename, lineno,
 			    DECL_NAME (label));
 	    }
-	  else if (warn_unused && !TREE_USED (label))
+	  else if (warn_unused_label && !TREE_USED (label))
 	    warning_with_decl (label, "label `%s' defined but not used");
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
@@ -1284,7 +1285,7 @@ pop_label_level ()
 	      define_label (input_filename, lineno,
 			    DECL_NAME (TREE_VALUE (link)));
 	    }
-	  else if (warn_unused && !TREE_USED (TREE_VALUE (link)))
+	  else if (warn_unused_label && !TREE_USED (TREE_VALUE (link)))
 	    warning_with_decl (TREE_VALUE (link), 
 			       "label `%s' defined but not used");
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (TREE_VALUE (link))) = 0;
@@ -2038,7 +2039,7 @@ pushdecl (x)
 
   if (name)
     {
-      char *file;
+      const char *file;
       int line;
       int different_binding_level = 0;
 
@@ -2159,6 +2160,7 @@ pushdecl (x)
 	      DECL_ORIGINAL_TYPE (x) = tt;
               tt = build_type_copy (tt);
               TYPE_NAME (tt) = x;
+	      TREE_USED (tt) = TREE_USED (x);
               TREE_TYPE (x) = tt;
             }
         }
@@ -2708,7 +2710,7 @@ shadow_label (name)
 
 tree
 define_label (filename, line, name)
-     char *filename;
+     const char *filename;
      int line;
      tree name;
 {
@@ -3068,6 +3070,55 @@ init_decl_processing ()
   ptr_ftype_ptr
     = build_function_type (ptr_type_node,
 			   tree_cons (NULL_TREE, ptr_type_node, endlink));
+
+  /* Types which are common to the fortran compiler and libf2c.  When
+     changing these, you also need to be concerned with f/com.h. */
+
+  if (TYPE_PRECISION (float_type_node)
+      == TYPE_PRECISION (long_integer_type_node))
+    {
+      g77_integer_type_node = long_integer_type_node;
+      g77_uinteger_type_node = long_unsigned_type_node;
+    }
+  else if (TYPE_PRECISION (float_type_node)
+	   == TYPE_PRECISION (integer_type_node))
+    {
+      g77_integer_type_node = integer_type_node;
+      g77_uinteger_type_node = unsigned_type_node;
+    }
+  else
+    g77_integer_type_node = g77_uinteger_type_node = NULL_TREE;
+
+  if (g77_integer_type_node != NULL_TREE)
+    {
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_integer"),
+			    g77_integer_type_node));
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_uinteger"),
+			    g77_uinteger_type_node));
+    }
+
+  if (TYPE_PRECISION (float_type_node) * 2
+      == TYPE_PRECISION (long_integer_type_node))
+    {
+      g77_longint_type_node = long_integer_type_node;
+      g77_ulongint_type_node = long_unsigned_type_node;
+    }
+  else if (TYPE_PRECISION (float_type_node) * 2
+	   == TYPE_PRECISION (long_long_integer_type_node))
+    {
+      g77_longint_type_node = long_long_integer_type_node;
+      g77_ulongint_type_node = long_long_unsigned_type_node;
+    }
+  else
+    g77_longint_type_node = g77_ulongint_type_node = NULL_TREE;
+
+  if (g77_longint_type_node != NULL_TREE)
+    {
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_longint"),
+			    g77_longint_type_node));
+      pushdecl (build_decl (TYPE_DECL, get_identifier ("__g77_ulongint"),
+			    g77_ulongint_type_node));
+    }
 
   builtin_function ("__builtin_aggregate_incoming_address",
 		    build_function_type (unbounded_ptr_type_node, NULL_TREE),

@@ -1194,7 +1194,7 @@ pop_label (link)
 	  /* Avoid crashing later.  */
 	  define_label (input_filename, 1, DECL_NAME (label));
 	}
-      else if (warn_unused && !TREE_USED (label))
+      else if (warn_unused_label && !TREE_USED (label))
 	cp_warning_at ("label `%D' defined but not used", label);
     }
 
@@ -2927,8 +2927,8 @@ decls_match (newdecl, olddecl)
       tree p2 = TYPE_ARG_TYPES (f2);
 
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
-	  && ! (DECL_LANGUAGE (newdecl) == lang_c
-		&& DECL_LANGUAGE (olddecl) == lang_c))
+	  && ! (DECL_EXTERN_C_P (newdecl)
+		&& DECL_EXTERN_C_P (olddecl)))
 	return 0;
 
       if (TREE_CODE (f1) != TREE_CODE (f2))
@@ -2937,15 +2937,17 @@ decls_match (newdecl, olddecl)
       if (same_type_p (TREE_TYPE (f1), TREE_TYPE (f2)))
 	{
 	  if ((! strict_prototypes_lang_c || DECL_BUILT_IN (olddecl))
-	      && DECL_LANGUAGE (olddecl) == lang_c
+	      && DECL_EXTERN_C_P (olddecl)
 	      && p2 == NULL_TREE)
 	    {
 	      types_match = self_promoting_args_p (p1);
 	      if (p1 == void_list_node)
 		TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
-	  else if (!strict_prototypes_lang_c && DECL_LANGUAGE (olddecl)==lang_c
-		   && DECL_LANGUAGE (newdecl) == lang_c && p1 == NULL_TREE)
+	  else if (!strict_prototypes_lang_c 
+		   && DECL_EXTERN_C_P (olddecl)
+		   && DECL_EXTERN_C_P (newdecl)
+		   && p1 == NULL_TREE)
 	    {
 	      types_match = self_promoting_args_p (p2);
 	      TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
@@ -3094,8 +3096,8 @@ duplicate_decls (newdecl, olddecl)
 	}
       else if (!types_match)
 	{
-	  if ((DECL_LANGUAGE (newdecl) == lang_c
-	       && DECL_LANGUAGE (olddecl) == lang_c)
+	  if ((DECL_EXTERN_C_P (newdecl)
+	       && DECL_EXTERN_C_P (olddecl))
 	      || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
 			    TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
 	    {
@@ -3203,8 +3205,7 @@ duplicate_decls (newdecl, olddecl)
 	}
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	{
-	  if (DECL_LANGUAGE (newdecl) == lang_c
-	      && DECL_LANGUAGE (olddecl) == lang_c)
+	  if (DECL_EXTERN_C_P (newdecl) && DECL_EXTERN_C_P (olddecl))
 	    {
 	      cp_error ("declaration of C function `%#D' conflicts with",
 			newdecl);
@@ -3801,7 +3802,7 @@ pushdecl (x)
 	      if (duplicate_decls (x, t))
 		return t;
 	    }
-	  else if (((TREE_CODE (x) == FUNCTION_DECL && DECL_LANGUAGE (x) == lang_c)
+	  else if ((DECL_EXTERN_C_FUNCTION_P (x)
 		    || DECL_FUNCTION_TEMPLATE_P (x))
 		   && is_overloaded_fn (t))
 	    /* Don't do anything just yet. */;
@@ -3877,14 +3878,13 @@ pushdecl (x)
 
       /* If this is a function conjured up by the backend, massage it
 	 so it looks friendly.  */
-      if (TREE_CODE (x) == FUNCTION_DECL
-	  && ! DECL_LANG_SPECIFIC (x))
+      if (DECL_NON_THUNK_FUNCTION_P (x) && ! DECL_LANG_SPECIFIC (x))
 	{
 	  retrofit_lang_decl (x);
 	  DECL_LANGUAGE (x) = lang_c;
 	}
 
-      if (TREE_CODE (x) == FUNCTION_DECL && ! DECL_FUNCTION_MEMBER_P (x))
+      if (DECL_NON_THUNK_FUNCTION_P (x) && ! DECL_FUNCTION_MEMBER_P (x))
 	{
 	  t = push_overloaded_decl (x, PUSH_LOCAL);
 	  if (t != x)
@@ -3980,8 +3980,7 @@ pushdecl (x)
 		 the mangled name (i.e., NAME) to the DECL.  But, for
 		 an `extern "C"' function, the mangled name and the
 		 ordinary name are the same so we need not do this.  */
-	      && !(TREE_CODE (x) == FUNCTION_DECL &&
-		   DECL_LANGUAGE (x) == lang_c))
+	      && !DECL_EXTERN_C_FUNCTION_P (x))
 	    {
 	      if (TREE_CODE (x) == FUNCTION_DECL)
 		my_friendly_assert
@@ -4795,7 +4794,7 @@ declare_local_label (id)
 
 tree
 define_label (filename, line, name)
-     char *filename;
+     const char *filename;
      int line;
      tree name;
 {
@@ -7867,9 +7866,13 @@ emit_local_var (decl)
     }
 
   /* Actually do the initialization.  */
-  expand_start_target_temps ();
+  if (stmts_are_full_exprs_p)
+    expand_start_target_temps ();
+
   expand_decl_init (decl);
-  expand_end_target_temps ();
+
+  if (stmts_are_full_exprs_p)
+    expand_end_target_temps ();
 }
 
 /* Finish processing of a declaration;
@@ -8703,7 +8706,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 	{
 	  if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (t)))
 	    {
-	      if (DECL_LANGUAGE (decl) == lang_c)
+	      if (DECL_EXTERN_C_P (decl))
 		/* Allow this; it's pretty common in C.  */;
 	      else
 		cp_pedwarn ("non-local function `%#D' uses anonymous type",
@@ -8794,7 +8797,7 @@ grokfndecl (ctype, type, declarator, orig_declarator, virtualp, flags, quals,
 
   /* Plain overloading: will not be grok'd by grokclassfn.  */
   if (! ctype && ! processing_template_decl
-      && DECL_LANGUAGE (decl) != lang_c
+      && !DECL_EXTERN_C_P (decl)
       && (! DECL_USE_TEMPLATE (decl) || name_mangling_version < 1))
     set_mangled_name_for_decl (decl);
 
@@ -11422,11 +11425,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	    /* 9.2p13 [class.mem] */
 	    if (declarator == constructor_name (current_class_type)
-		/* Divergence from the standard:  In extern "C", we
-		   allow non-static data members here, because C does
-		   and /usr/include/netinet/in.h uses that.  */
-		&& (staticp || ! in_system_header))
-	      cp_pedwarn ("ISO C++ forbids data member `%D' with same name as enclosing class",
+		/* The standard does not allow non-static data members
+		   here either, but we agreed at the 10/99 meeting
+		   to change that in TC 1 so that they are allowed in
+		   classes with no user-defined constructors.  */
+		&& staticp)
+	      cp_pedwarn ("ISO C++ forbids static data member `%D' with same name as enclosing class",
 			  declarator);
 
 	    if (staticp)
@@ -14762,7 +14766,9 @@ lang_mark_tree (t)
       if (ld)
 	{
 	  ggc_mark (ld);
-	  if (!DECL_GLOBAL_CTOR_P (t) && !DECL_GLOBAL_DTOR_P (t))
+	  if (!DECL_GLOBAL_CTOR_P (t) 
+	      && !DECL_GLOBAL_DTOR_P (t)
+	      && !DECL_THUNK_P (t))
 	    ggc_mark_tree (ld->decl_flags.u2.access);
 	  ggc_mark_tree (ld->decl_flags.context);
 	  if (TREE_CODE (t) != NAMESPACE_DECL)

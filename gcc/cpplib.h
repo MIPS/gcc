@@ -109,73 +109,74 @@ typedef struct cpp_name cpp_name;
   T(CPP_MAX,		">?")			\
   C(CPP_OTHER,		0)	/* stray punctuation */ \
 \
-  H(CPP_NAME,		spell_name)	/* word */	\
-  N(CPP_INT,		0)		/* 23 */	\
-  N(CPP_FLOAT,		0)		/* 3.14159 */	\
-  H(CPP_NUMBER,		spell_name)	/* 34_be+ta  */	\
-  H(CPP_CHAR,		spell_string)	/* 'char' */	\
-  H(CPP_WCHAR,		spell_string)	/* L'char' */	\
-  H(CPP_STRING,		spell_string)	/* "string" */	\
-  H(CPP_WSTRING,	spell_string)	/* L"string" */	\
+  I(CPP_NAME,		0)	/* word */	\
+  I(CPP_INT,		0)	/* 23 */	\
+  I(CPP_FLOAT,		0)	/* 3.14159 */	\
+  I(CPP_NUMBER,		0)	/* 34_be+ta  */	\
+  S(CPP_CHAR,		0)	/* 'char' */	\
+  S(CPP_WCHAR,		0)	/* L'char' */	\
+  S(CPP_STRING,		0)	/* "string" */	\
+  S(CPP_WSTRING,	0)	/* L"string" */	\
 \
-  H(CPP_C_COMMENT,	spell_comment)	/* Only if output comments.  */ \
-  H(CPP_CPP_COMMENT,	spell_comment)	/* Only if output comments.  */ \
-  H(CPP_CHILL_COMMENT,	spell_comment)	/* Only if output comments.  */ \
-  N(CPP_MACRO_ARG,      0)              /* Macro argument.  */          \
-  N(CPP_SUBLIST,        0)	        /* Sublist.  */                 \
-  E(CPP_VSPACE,		"\n")		/* End of line.  */		\
-  N(CPP_EOF,		0)		/* End of file.  */		\
-  N(CPP_HEADER_NAME,	0)		/* <stdio.h> in #include */	\
-  N(CPP_ASSERTION,	0)		/* (...) in #assert */		\
+  I(CPP_COMMENT,	0)	/* Only if output comments.  */ \
+  N(CPP_MACRO_ARG,      0)	/* Macro argument.  */          \
+  N(CPP_SUBLIST,        0)	/* Sublist.  */                 \
+  T(CPP_VSPACE,		"\n")	/* End of line.  */		\
+  N(CPP_EOF,		0)	/* End of file.  */		\
+  N(CPP_HEADER_NAME,	0)	/* <stdio.h> in #include */	\
 \
   /* Obsolete - will be removed when no code uses them still.  */	\
-  H(CPP_COMMENT,	0)		/* Only if output comments.  */ \
-  N(CPP_HSPACE,		0)		/* Horizontal white space.  */	\
-  N(CPP_POP,		0)		/* End of buffer.  */		\
-  N(CPP_DIRECTIVE,	0)		/* #define and the like */	\
-  N(CPP_MACRO,		0)		/* Like a NAME, but expanded.  */
+  N(CPP_HSPACE,		0)	/* Horizontal white space.  */	\
+  N(CPP_DIRECTIVE,	0)	/* #define and the like */	\
+  N(CPP_MACRO,		0)	/* Like a NAME, but expanded.  */
 
 #define T(e, s) e,
-#define H(e, s) e,
+#define I(e, s) e,
+#define S(e, s) e,
 #define C(e, s) e,
 #define N(e, s) e,
-#define E(e, s) e,
 enum cpp_ttype
 {
   TTYPE_TABLE
   N_TTYPES
 };
 #undef T
-#undef H
+#undef I
+#undef S
 #undef C
 #undef N
-#undef E
 
 /* Payload of a NAME, NUMBER, FLOAT, STRING, or COMMENT token.  */
 struct cpp_name
 {
   unsigned int len;
-  unsigned int offset;		/* from list->namebuf */
+  const unsigned char *text;
 };
 
-#define TOK_NAME(list, token) ((list)->namebuf + (token)->val.name.offset)
+/* Accessor macros for token lists - all expect you have a
+   list and an index.  */
+
+#define TOK_TYPE(l_, i_)   ((l_)->tokens[i_].type)
+#define TOK_FLAGS(l_, i_)  ((l_)->tokens[i_].flags)
+#define TOK_AUX(l_, i_)    ((l_)->tokens[i_].aux)
+#define TOK_COL(l_, i_)    ((l_)->tokens[i_].col)
+#define TOK_INT(l_, i_)    ((l_)->tokens[i_].val.integer)
+#define TOK_NAME(l_, i_)   ((l_)->tokens[i_].val.name.text)
+#define TOK_LEN(l_, i_)    ((l_)->tokens[i_].val.name.len)
+
+#define TOK_PREV_WHITE(l_, i_) (TOK_FLAGS(l_, i_) & PREV_WHITESPACE)
 
 /* Flags for the cpp_token structure.  */
 #define PREV_WHITESPACE     1	/* If whitespace before this token.  */
 #define DIGRAPH             2	/* If it was a digraph.  */
 #define UNSIGNED_INT        4   /* If int preprocessing token unsigned.  */
 
-/* A preprocessing token.
-   This has been carefully packed and should occupy 16 bytes on
-   both 32- and 64-bit hosts.  */
+/* A preprocessing token.  This has been carefully packed and should
+   occupy 16 bytes on both 32- and 64-bit hosts.  */
 struct cpp_token
 {
   unsigned short col;			/* starting column of this token */
-#ifdef ENUM_BITFIELDS_ARE_UNSIGNED
-  enum cpp_ttype type : CHAR_BIT;	/* node type */
-#else
-  unsigned char type;
-#endif
+  ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* node type */
   unsigned char flags;			/* flags - see above */
   unsigned int aux;			/* CPP_OTHER character.  Hash of a
 					   NAME, or something - see uses
@@ -187,12 +188,13 @@ struct cpp_token
   } val;
 };
 
+/* General flags.  */
+#define LIST_OFFSET    (1 << 0)
+
 /* Directive flags.  */
 #define SYNTAX_INCLUDE (1 << 8)
-#define SYNTAX_ASSERT  (1 << 9)
 
 typedef int (*directive_handler) PARAMS ((cpp_reader *));
-typedef int (*parse_cleanup_t) PARAMS ((cpp_buffer *, cpp_reader *));
 
 struct cpp_toklist
 {
@@ -211,12 +213,12 @@ struct cpp_toklist
   unsigned int comments_used;	/* comment tokens used.  */
   unsigned int comments_cap;	/* comment token capacity.  */
 
-  /* Only used if tokens[0].type == CPP_DIRECTIVE.  This is the
-     handler to call after lexing the rest of this line.  The flags
-     indicate whether the rest of the line gets special treatment
-     during lexing (#include, #if, #assert, #unassert).  */
-  directive_handler dir_handler;
-  unsigned short dir_flags;
+  /* The handler to call after lexing the rest of this line.
+     -1 for none */
+  short dirno;
+
+  /* Per-list flags, see above */
+  unsigned short flags;
 };
 
 struct cpp_buffer
@@ -238,8 +240,6 @@ struct cpp_buffer
      to record control macros. */
   struct ihash *ihash;
 
-  parse_cleanup_t cleanup;
-
   /* If the buffer is the expansion of a macro, this points to the
      macro's hash table entry.  */
   struct hashnode *macro;
@@ -253,9 +253,6 @@ struct cpp_buffer
 
   /* True if this is a header file included using <FILENAME>.  */
   char system_header_p;
-
-  /* True if end-of-file has already been hit once in this buffer.  */
-  char seen_eof;
 
   /* True if buffer contains escape sequences.
      Currently there are two kinds:
@@ -271,17 +268,15 @@ struct cpp_buffer
      from macro expansion text in collect_expansion and/or macarg.  */
   char has_escapes;
 
-  /* Used by the C++ frontend to implement redirected input (such as for
-     default argument and/or template parsing).  */
-  char manual_pop;
-
   /* True if we have already warned about C++ comments in this file.
      The warning happens only for C89 extended mode with -pedantic on,
      or for -Wtraditional, and only once per file (otherwise it would
      be far too noisy).  */
   char warned_cplusplus_comments;
 
-  /* True if this buffer's data is mmapped.  */
+  /* In a file buffer, true if this buffer's data is mmapped
+     (currently never the case).  In a macro buffer, true if this
+     buffer's data must be freed.  */
   char mapped;
 };
 
@@ -308,6 +303,9 @@ struct cpp_options
   /* Name of input and output files.  */
   const char *in_fname;
   const char *out_fname;
+
+  /* Characters between tab stops.  */
+  unsigned int tabstop;
 
   /* Pending options - -D, -U, -A, -I, -ixxx. */
   struct cpp_pending *pending;
@@ -517,6 +515,9 @@ struct cpp_reader
   struct if_stack *if_stack;
   const unsigned char *potential_control_macro;
 
+  /* Token column position adjustment owing to tabs in whitespace.  */
+  unsigned int col_adjust;
+
   /* Buffer of -M output.  */
   struct deps *deps;
 
@@ -544,12 +545,6 @@ struct cpp_reader
 
   /* If true, characters between '<' and '>' are a single (string) token.  */
   unsigned char parsing_include_directive;
-
-  /* If true, # introduces an assertion (see do_assert) */
-  unsigned char parsing_if_directive;
-
-  /* If true, # and ## are the STRINGIZE and TOKPASTE operators */
-  unsigned char parsing_define_directive;
 
   /* True if escape sequences (as described for has_escapes in
      parse_buffer) should be emitted.  */
@@ -593,7 +588,8 @@ struct cpp_printer
 #define CPP_OPTION(PFILE, OPTION) ((PFILE)->opts.OPTION)
 #define CPP_BUFFER(PFILE) ((PFILE)->buffer)
 #define CPP_BUF_LINE(BUF) ((BUF)->lineno)
-#define CPP_BUF_COL(BUF) ((BUF)->cur - (BUF)->line_base)
+#define CPP_BUF_COLUMN(BUF, CUR) ((CUR) - (BUF)->line_base + pfile->col_adjust)
+#define CPP_BUF_COL(BUF) CPP_BUF_COLUMN(BUF, (BUF)->cur)
 
 /* Name under which this program was invoked.  */
 extern const char *progname;

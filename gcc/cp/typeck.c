@@ -2189,9 +2189,7 @@ build_component_ref (datum, component, basetype_path, protect)
       tree base = context;
       while (!same_type_p (base, basetype) && TYPE_NAME (base)
 	     && ANON_AGGR_TYPE_P (base))
-	{
-	  base = TYPE_CONTEXT (base);
-	}
+	base = TYPE_CONTEXT (base);
 
       /* Handle base classes here...  */
       if (base != basetype && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
@@ -5109,13 +5107,13 @@ build_x_compound_expr (list)
       /* the left-hand operand of a comma expression is like an expression
          statement: we should warn if it doesn't have any side-effects,
          unless it was explicitly cast to (void).  */
-      if ((extra_warnings || warn_unused)
+      if ((extra_warnings || warn_unused_value)
            && !(TREE_CODE (TREE_VALUE(list)) == CONVERT_EXPR
                 && TREE_TYPE (TREE_VALUE(list)) == void_type_node))
         warning("left-hand operand of comma expression has no effect");
     }
 #if 0 /* this requires a gcc backend patch to export warn_if_unused_value */
-  else if (warn_unused)
+  else if (warn_unused_value)
     warn_if_unused_value (TREE_VALUE(list));
 #endif
 
@@ -5532,9 +5530,8 @@ build_c_cast (type, expr)
   if (TREE_CODE (type) == POINTER_TYPE
       && TREE_CODE (otype) == INTEGER_TYPE
       && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
-      /* Don't warn about converting 0 to pointer,
-	 provided the 0 was explicit--not cast or made by folding.  */
-      && !(TREE_CODE (value) == INTEGER_CST && integer_zerop (value)))
+      /* Don't warn about converting any constant.  */
+      && !TREE_CONSTANT (value))
     warning ("cast to pointer from integer of different size");
 
   if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -6690,7 +6687,7 @@ void
 c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
      tree string, outputs, inputs, clobbers;
      int vol;
-     char *filename;
+     const char *filename;
      int line;
 {
   int noutputs = list_length (outputs);

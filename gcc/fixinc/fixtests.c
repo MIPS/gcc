@@ -9,8 +9,7 @@
 
 NOTE TO DEVELOPERS
 
-The routines you write here must work closely with both the fixincl.c
-and the test_need.c program.
+The routines you write here must work closely with fixincl.c.
 
 Here are the rules:
 
@@ -73,7 +72,7 @@ static apply_fix_p_t test ( fname, text ) \
  *  a backslash.  Especially a backslash followed by octal digits.
  *  We are not doing a correctness syntax check here.
  */
-tSCC*
+static tCC*
 skip_quote( q, text )
   char  q;
   char* text;
@@ -351,36 +350,3 @@ run_test( tname, fname, text )
            tname );
   exit( 3 );
 }
-
-/* = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-
-     MAIN ROUTINE
-
-     This file is both included in fixincl.c and compiled as a separate
-     program for use by the inclhack.sh script.
-
-*/
-
-#ifdef MAIN
-
-int
-main( argc, argv )
-  int argc;
-  char** argv;
-{
-  char* fname = *++argv;
-  char* tname = *++argv;
-  char* buf;
-
-  if (argc != 3)
-    return run_test( "No test name provided", NULL, NULL, 0 );
-
-  fclose( stdin );
-  fclose( stdout );
-
-  buf = load_file_data (fopen (fname, "r"));
-
-  return run_test( tname, fname, buf );
-}
-
-#endif

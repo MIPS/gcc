@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "dwarfout.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "diagnostic.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -648,6 +649,15 @@ lang_decode_option (argc, argv)
 	set_message_length
 	  (read_integral_parameter (p + 15, p - 2,
 				    /* default line-wrap length */ 72));
+      else if (!strncmp (p, "diagnostics-show-location=", 26))
+        {
+          if (!strncmp (p + 26, "once", 4))
+            set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
+          else if (!strncmp (p + 26, "every-line", 10))
+            set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE);
+          else
+            error ("Unrecognized option `%s'", p - 2);
+        }
       else if (!strncmp (p, "dump-translation-unit-", 22))
 	{
 	  if (p[22] == '\0')
@@ -763,7 +773,7 @@ lang_decode_option (argc, argv)
       else if (!strcmp (p, "all"))
 	{
 	  warn_return_type = setting;
-	  warn_unused = setting;
+	  set_Wunused (setting);
 	  warn_implicit = setting;
 	  warn_switch = setting;
 	  warn_format = setting;
@@ -867,7 +877,7 @@ warn_if_unknown_interface (decl)
     {
       struct tinst_level *til = tinst_for_decl ();
       int sl = lineno;
-      char *sf = input_filename;
+      const char *sf = input_filename;
 
       if (til)
 	{
@@ -2162,7 +2172,7 @@ finish_anon_union (anon_union_decl)
 
   if (public_p)
     {
-      error ("global anonymous unions must be declared static");
+      error ("namespace-scope anonymous aggregates must be static");
       return;
     }
 
@@ -2172,7 +2182,7 @@ finish_anon_union (anon_union_decl)
 
   if (main_decl == NULL_TREE)
     {
-      warning ("anonymous union with no members");
+      warning ("anonymous aggregate with no members");
       return;
     }
 
@@ -2338,7 +2348,7 @@ mark_vtable_entries (decl)
 
       fn = TREE_OPERAND (fnaddr, 0);
       TREE_ADDRESSABLE (fn) = 1;
-      if (TREE_CODE (fn) == THUNK_DECL && DECL_EXTERNAL (fn))
+      if (DECL_THUNK_P (fn) && DECL_EXTERNAL (fn))
 	{
 	  DECL_EXTERNAL (fn) = 0;
 	  emit_thunk (fn);
@@ -3575,7 +3585,7 @@ finish_file ()
 
       /* We lie to the back-end, pretending that some functions are
 	 not defined when they really are.  This keeps these functions
-	 from being put out unncessarily.  But, we must stop lying
+	 from being put out unnecessarily.  But, we must stop lying
 	 when the functions are referenced, or if they are not comdat
 	 since they need to be put out now.  */
       for (i = 0; i < deferred_fns_used; ++i)
@@ -5243,7 +5253,7 @@ mark_used (decl)
      template, we now know that we will need to actually do the
      instantiation. We check that DECL is not an explicit
      instantiation because that is not checked in instantiate_decl.  */
-  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+  if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
       && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))))

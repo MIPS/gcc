@@ -1031,9 +1031,11 @@ do { char dstr[30];					\
 /* We don't have to worry about dbx compatibility for the mn10300.  */
 #define DEFAULT_GDB_EXTENSIONS 1
 
-/* Use stabs debugging info by default.  */
+/* Use dwarf2 debugging info by default.  */
 #undef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+
+#define DWARF2_ASM_LINE_DEBUG_INFO 1
 
 #define DBX_REGISTER_NUMBER(REGNO) REGNO
 

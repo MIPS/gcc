@@ -119,7 +119,6 @@ static int rs6000_sr_alias_set;
 static void rs6000_add_gc_roots PARAMS ((void));
 static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
 static rtx expand_block_move_mem PARAMS ((enum machine_mode, rtx, rtx));
-static int ccr_bit_negated_p PARAMS((rtx));
 static void rs6000_emit_stack_tie PARAMS ((void));
 static void rs6000_frame_related PARAMS ((rtx, rtx, HOST_WIDE_INT, rtx, rtx));
 static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
@@ -950,43 +949,22 @@ logical_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (gpc_reg_operand (op, mode)
-	  || (GET_CODE (op) == CONST_INT
-#if HOST_BITS_PER_WIDE_INT != 32
-	      && INTVAL (op) > 0
-	      && INTVAL (op) < ((HOST_WIDE_INT) 1 << 32)
-#endif
-	      && ((INTVAL (op) & GET_MODE_MASK (mode)
-		   & (~ (HOST_WIDE_INT) 0xffff)) == 0
-		  || (INTVAL (op) & GET_MODE_MASK (mode)
-		      & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0)));
-}
-
-/* Return 1 if the operand is a non-special register or a 32-bit constant
-   that can be used as the operand of an OR or XOR insn on the RS/6000.  */
-
-int
-logical_u_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode;
-{
-  return (gpc_reg_operand (op, mode)
-	  || (GET_CODE (op) == CONST_INT
-	      && INTVAL (op) > 0
-#if HOST_BITS_PER_WIDE_INT != 32
-	      && INTVAL (op) < ((HOST_WIDE_INT) 1 << 32)
-#endif
-	      && ((INTVAL (op) & GET_MODE_MASK (mode)
-		   & (~ (HOST_WIDE_INT) 0xffff)) == 0
-		  || (INTVAL (op) & GET_MODE_MASK (mode)
-		      & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0))
-#if HOST_BITS_PER_WIDE_INT == 32
-	  || (GET_CODE (op) == CONST_DOUBLE
-	      && CONST_DOUBLE_HIGH (op) == 0
+  if (gpc_reg_operand (op, mode))
+    return 1;
+  if (GET_CODE (op) == CONST_INT)
+    {
+      unsigned HOST_WIDE_INT cval = INTVAL (op) & GET_MODE_MASK (mode);
+      return ((cval & (~ (HOST_WIDE_INT) 0xffff)) == 0
+	      || (cval & (~ (HOST_WIDE_INT) 0xffff0000u)) == 0);
+    }
+  else if (GET_CODE (op) == CONST_DOUBLE)
+    {
+      return (CONST_DOUBLE_HIGH (op) == 0
 	      && ((CONST_DOUBLE_LOW (op)
-		   & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0))
-#endif
-      );
+		   & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0));
+    }
+  else
+    return 0;
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -997,40 +975,8 @@ non_logical_cint_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return (GET_CODE (op) == CONST_INT
-#if HOST_BITS_PER_WIDE_INT != 32
-	  && INTVAL (op) < ((HOST_WIDE_INT) 1 << 32)
-#endif
-	  && (INTVAL (op) & GET_MODE_MASK (mode) &
-	      (~ (HOST_WIDE_INT) 0xffff)) != 0
-	  && (INTVAL (op) & GET_MODE_MASK (mode) &
-	      (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) != 0);
-}
-
-/* Return 1 if C is an unsigned 32-bit constant that is not a
-   logical operand (as above).  */
-
-int
-non_logical_u_cint_operand (op, mode)
-     register rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  return ((GET_CODE (op) == CONST_INT
-	   && INTVAL (op) > 0
-#if HOST_BITS_PER_WIDE_INT != 32
-	   && INTVAL (op) < ((HOST_WIDE_INT) 1 << 32)
-#endif
-	   && (INTVAL (op) & GET_MODE_MASK (mode)
-	       & (~ (HOST_WIDE_INT) 0xffff)) != 0
-	   && (INTVAL (op) & GET_MODE_MASK (mode)
-	       & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) != 0)
-#if HOST_BITS_PER_WIDE_INT == 32
-	  || (GET_CODE (op) == CONST_DOUBLE
-	      && CONST_DOUBLE_HIGH (op) == 0
-	      && (CONST_DOUBLE_LOW (op) & (~ (HOST_WIDE_INT) 0xffff)) != 0
-	      && (CONST_DOUBLE_LOW (op)
-		  & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) != 0));
-#endif
+  return ((GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_DOUBLE)
+	  && ! logical_operand (op, mode));
 }
 
 /* Return 1 if C is a constant that can be encoded in a 32-bit mask on the
@@ -2286,7 +2232,6 @@ expand_block_move_mem (mode, addr, orig_mem)
 {
   rtx mem = gen_rtx_MEM (mode, addr);
 
-  RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (orig_mem);
   MEM_COPY_ATTRIBUTES (mem, orig_mem);
 #ifdef MEM_UNALIGNED_P
   MEM_UNALIGNED_P (mem) = MEM_UNALIGNED_P (orig_mem);
@@ -2965,6 +2910,15 @@ trap_comparison_operator (op, mode)
   return (GET_RTX_CLASS (GET_CODE (op)) == '<'
           || GET_CODE (op) == EQ || GET_CODE (op) == NE);
 }
+
+int
+boolean_operator (op, mode)
+    rtx op;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum rtx_code code = GET_CODE (op);
+  return (code == AND || code == IOR || code == XOR);
+}
 
 /* Return 1 if ANDOP is a mask that has no bits on that are not in the
    mask required to convert the result of a rotate insn into a shift
@@ -3195,29 +3149,6 @@ ccr_bit (op, scc_p)
     default:
       abort ();
     }
-}
-
-/* Given a comparison operation, say whether the bit tested (as returned
-   by ccr_bit) should be negated.  */
-
-static int
-ccr_bit_negated_p (op)
-     rtx op;
-{
-  enum rtx_code code = GET_CODE (op);
-  enum machine_mode mode = GET_MODE (XEXP (op, 0));
-  
-  if (code == EQ
-      || code == LT || code == GT
-      || code == LTU || code == GTU)
-    return 0;
-  else if (mode != CCFPmode
-      || code == NE
-      || code == ORDERED
-      || code == UNGE || code == UNLE)
-    return 1;
-  else
-    return 0;
 }
 
 /* Return the GOT register.  */
@@ -3516,7 +3447,7 @@ print_operand (file, x, code)
 	      || (GET_CODE (XEXP (XEXP (x, 0), 0)) != SYMBOL_REF
 		  && GET_CODE (XEXP (XEXP (x, 0), 0)) != LABEL_REF)
 	      || GET_CODE (XEXP (XEXP (x, 0), 1)) != CONST_INT)
-	    output_operand_lossage ("invalid %%l value");
+	    output_operand_lossage ("invalid %%K value");
 	  print_operand_address (file, XEXP (XEXP (x, 0), 0));
 	  fputs ("@l", file);
 	  print_operand (file, XEXP (XEXP (x, 0), 1), 0);
@@ -3655,6 +3586,43 @@ print_operand (file, x, code)
       fprintf (file, "%d", REGNO (XEXP (x, 0)));
       return;
 
+    case 'q':
+      /* This outputs the logical code corresponding to a boolean
+	 expression.  The expression may have one or both operands
+	 negated (if one, only the first one).  */
+      {
+	int neg, op;
+	const char *const *t;
+	const char *s;
+	enum rtx_code code = GET_CODE (x);
+	static const char * const tbl[3][3] = {
+	  { "and", "andc", "nor" },
+	  { "or", "orc", "nand" },
+	  { "xor", "eqv", "xor" } };
+
+	if (code == AND)
+	  t = tbl[0];
+	else if (code == IOR)
+	  t = tbl[1];
+	else if (code == XOR)
+	  t = tbl[2];
+	else
+	  output_operand_lossage ("invalid %%q value");
+
+	if (GET_CODE (XEXP (x, 0)) != NOT)
+	  s = t[0];
+	else
+	  {
+	    if (GET_CODE (XEXP (x, 1)) == NOT)
+	      s = t[2];
+	    else
+	      s = t[1];
+	  }
+	
+	fputs (s, file);
+      }
+      return;
+
     case 'R':
       /* X is a CR register.  Print the mask for `mtcrf'.  */
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
@@ -3733,29 +3701,6 @@ print_operand (file, x, code)
 	  return;
 	}
 
-    case 't':
-      /* Write 12 if this jump operation will branch if true, 4 otherwise. */
-      if (GET_RTX_CLASS (GET_CODE (x)) != '<')
-	output_operand_lossage ("invalid %%t value");
-
-      else if (! ccr_bit_negated_p (x))
-	fputs ("12", file);
-      else
-	putc ('4', file);
-      return;
-      
-    case 'T':
-      /* Opposite of 't': write 4 if this jump operation will branch if true,
-	 12 otherwise.   */
-      if (GET_RTX_CLASS (GET_CODE (x)) != '<')
-	output_operand_lossage ("invalid %%T value");
-
-      else if (! ccr_bit_negated_p (x))
-	putc ('4', file);
-      else
-	fputs ("12", file);
-      return;
-      
     case 'u':
       /* High-order 16 bits of constant for use in unsigned operand.  */
       if (! INT_P (x))
@@ -4010,6 +3955,131 @@ print_operand_address (file, x)
     }
   else
     abort ();
+}
+
+/* Return the string to output a conditional branch to LABEL, which is
+   the operand number of the label, or -1 if the branch is really a
+   conditional return.  
+
+   OP is the conditional expression.  XEXP (OP, 0) is assumed to be a
+   condition code register and its mode specifies what kind of
+   comparison we made.
+
+   REVERSED is non-zero if we should reverse the sense of the comparison.
+
+   INSN is the insn.  */
+
+char *
+output_cbranch (op, label, reversed, insn)
+     rtx op;
+     const char * label;
+     int reversed;
+     rtx insn;
+{
+  static char string[64];
+  enum rtx_code code = GET_CODE (op);
+  rtx cc_reg = XEXP (op, 0);
+  enum machine_mode mode = GET_MODE (cc_reg);
+  int cc_regno = REGNO (cc_reg) - CR0_REGNO;
+  int need_longbranch = label != NULL && get_attr_length (insn) == 12;
+  int really_reversed = reversed ^ need_longbranch;
+  char *s = string;
+  const char *ccode;
+  const char *pred;
+  rtx note;
+
+  /* Work out which way this really branches.  */
+  if (really_reversed)
+    {
+      /* Reversal of FP compares takes care -- an ordered compare
+	 becomes an unordered compare and vice versa.  */
+      if (mode == CCFPmode)
+	code = reverse_condition_maybe_unordered (code);
+      else
+	code = reverse_condition (code);
+    }
+
+  /* If needed, print the CROR required for various floating-point
+     comparisons; and decide on the condition code to test.  */
+  if ((code == LE || code == GE
+       || code == UNEQ || code == LTGT
+       || code == UNGT || code == UNLT)
+      && mode == CCFPmode)
+    {
+      int base_bit = 4 * cc_regno;
+      int bit0, bit1;
+      
+      if (code == UNEQ)
+	bit0 = 2;
+      else if (code == UNGT || code == GE)
+	bit0 = 1;
+      else
+	bit0 = 0;
+      if (code == LTGT)
+	bit1 = 1;
+      else if (code == LE || code == GE)
+	bit1 = 2;
+      else
+	bit1 = 3;
+      
+      s += sprintf (s, "cror %d,%d,%d\n\t", base_bit + 3,
+		    base_bit + bit1, base_bit + bit0);
+      ccode = "so";
+    }
+  else switch (code)
+    {
+      /* Not all of these are actually distinct opcodes, but
+	 we distinguish them for clarity of the resulting assembler.  */
+    case NE: ccode = "ne"; break;
+    case EQ: ccode = "eq"; break;
+    case GE: case GEU: ccode = "ge"; break;
+    case GT: case GTU: ccode = "gt"; break;
+    case LE: case LEU: ccode = "le"; break;
+    case LT: case LTU: ccode = "lt"; break;
+    case UNORDERED: ccode = "un"; break;
+    case ORDERED: ccode = "nu"; break;
+    case UNGE: ccode = "nl"; break;
+    case UNLE: ccode = "ng"; break;
+    default:
+      abort();
+    }
+  
+  /* Maybe we have a guess as to how likely the branch is.  
+     The old mnemonics don't have a way to specify this information.  */
+  note = find_reg_note (insn, REG_BR_PROB, NULL_RTX);
+  if (note != NULL_RTX)
+    {
+      /* PROB is the difference from 50%.  */
+      int prob = INTVAL (XEXP (note, 0)) - REG_BR_PROB_BASE / 2;
+      
+      /* For branches that are very close to 50%, assume not-taken.  */
+      if (abs (prob) > REG_BR_PROB_BASE / 20
+	  && ((prob > 0) ^ need_longbranch))
+	pred = "+";
+      else
+	pred = "-";
+    }
+  else
+    pred = "";
+
+  if (label == NULL)
+    s += sprintf (s, "{b%sr|b%slr%s} ", ccode, ccode, pred);
+  else
+    s += sprintf (s, "{b%s|b%s%s} ", ccode, ccode, pred);
+
+  s += sprintf (s, "%s", reg_names[cc_regno + CR0_REGNO]);
+
+  if (label != NULL)
+    {
+      /* If the branch distance was too far, we may have to use an
+	 unconditional branch to go the distance.  */
+      if (need_longbranch)
+	s += sprintf (s, ",%c$+8 ; b %s", '%', label);
+      else
+	s += sprintf (s, ",%s", label);
+    }
+
+  return string;
 }
 
 /* This page contains routines that are used to determine what the function
@@ -6151,7 +6221,7 @@ output_toc (file, x, labelno)
 	  return;
 	}
     }
-  else if (GET_MODE (x) == DImode
+  else if (GET_MODE (x) == VOIDmode
 	   && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE)
 	   && ! (TARGET_NO_FP_IN_TOC && ! TARGET_MINIMAL_TOC))
     {
@@ -6805,7 +6875,7 @@ rs6000_select_section (decl, reloc)
       else
 	data_section ();
     }
-  else if (TREE_CODE (decl) == VAR_DECL)
+  else if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == CONSTRUCTOR)
     {
       if ((flag_pic && reloc)
 	  || ! TREE_READONLY (decl)

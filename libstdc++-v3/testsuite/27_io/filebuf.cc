@@ -1,6 +1,6 @@
 // 990117 bkoz test functionality of basic_filebuf for char_type == char
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,7 +37,7 @@ class derived_filebuf: public std::filebuf
 {
  public:
   void
-  set_size(int_type __size) { _M_buf_size = __size; }
+  set_size(int_type __size) { _M_buf_size_opt = __size; }
 };
 
 derived_filebuf fb_01; // in 
@@ -503,12 +503,31 @@ bool test03() {
   return test;
 }
 
+bool test04()
+{
+  using namespace std;
+  typedef istream::int_type	int_type;
 
-int main() {
+  bool test = true;
+  ifstream ifs(name_02);
+  char buffer[] = "xxxxxxxxxx";
+  int_type len1 = ifs.rdbuf()->sgetn(buffer, sizeof(buffer));
+  test &= len1 == sizeof(buffer);
+  test &= buffer[0] == 'a';
+
+#ifdef DEBUG_ASSERT
+  assert(test);
+#endif
+  return test;
+}
+
+int main() 
+{
   test00();
   test01();
   test02();
   test03();
+  test04();
 
   return 0;
 }

@@ -586,9 +586,7 @@ canon_rtx (x)
 	{
 	  rtx new = gen_rtx_MEM (GET_MODE (x), addr);
 
-	  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (x);
 	  MEM_COPY_ATTRIBUTES (new, x);
-	  MEM_ALIAS_SET (new) = MEM_ALIAS_SET (x);
 	  x = new;
 	}
     }
@@ -1429,7 +1427,8 @@ nonlocal_reference_p (x)
       if (code == CALL_INSN && CONST_CALL_P (x))
         {
 	  x = CALL_INSN_FUNCTION_USAGE (x);
-	  if (!x) return 0;
+	  if (x == 0)
+	    return 0;
         }
       else
         x = PATTERN (x);

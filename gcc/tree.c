@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "hashtab.h"
+#include "output.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -1390,7 +1391,8 @@ set_identifier_size (size)
 
 tree
 build_int_2_wide (low, hi)
-     HOST_WIDE_INT low, hi;
+     unsigned HOST_WIDE_INT low;
+     HOST_WIDE_INT hi;
 {
   register tree t = make_node (INTEGER_CST);
 
@@ -2464,16 +2466,17 @@ staticp (arg)
     case FUNCTION_DECL:
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
-       return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-              && ! DECL_NON_ADDR_CONST_P (arg);
+      return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
+	&& ! DECL_NON_ADDR_CONST_P (arg);
 
     case VAR_DECL:
       return (TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-             && ! DECL_NON_ADDR_CONST_P (arg);
+	&& ! DECL_NON_ADDR_CONST_P (arg);
 
     case CONSTRUCTOR:
       return TREE_STATIC (arg);
 
+    case LABEL_DECL:
     case STRING_CST:
       return 1;
 
@@ -4465,7 +4468,7 @@ tree_int_cst_msb (t)
 {
   register int prec;
   HOST_WIDE_INT h;
-  HOST_WIDE_INT l;
+  unsigned HOST_WIDE_INT l;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -5582,9 +5585,6 @@ dump_tree_statistics ()
 #endif	/* NO_DOT_IN_LABEL */
 #endif	/* NO_DOLLAR_IN_LABEL */
 
-extern char *first_global_object_name;
-extern char *weak_global_object_name;
-
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
    clashes in cases where we can't reliably choose a unique name.
 
@@ -5640,7 +5640,8 @@ get_file_function_name_long (type)
      const char *type;
 {
   char *buf;
-  register char *p;
+  const char *p;
+  char *q;
 
   if (first_global_object_name)
     p = first_global_object_name;
@@ -5657,10 +5658,11 @@ get_file_function_name_long (type)
       if (! file)
 	file = input_filename;
 
-      p = (char *) alloca (7 + strlen (name) + strlen (file));
+      q = (char *) alloca (7 + strlen (name) + strlen (file));
 
-      sprintf (p, "%s%s", name, file);
-      append_random_chars (p);
+      sprintf (q, "%s%s", name, file);
+      append_random_chars (q);
+      p = q;
     }
 
   buf = (char *) alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p)
@@ -5675,22 +5677,17 @@ get_file_function_name_long (type)
   /* Don't need to pull weird characters out of global names.  */
   if (p != first_global_object_name)
     {
-      for (p = buf+11; *p; p++)
-	if (! ( ISDIGIT(*p)
-#if 0 /* we always want labels, which are valid C++ identifiers (+ `$') */
-#ifndef ASM_IDENTIFY_GCC	/* this is required if `.' is invalid -- k. raeburn */
-	       || *p == '.'
-#endif
-#endif
+      for (q = buf+11; *q; q++)
+	if (! ( ISDIGIT(*q)
 #ifndef NO_DOLLAR_IN_LABEL	/* this for `$'; unlikely, but... -- kr */
-	       || *p == '$'
+	       || *q == '$'
 #endif
 #ifndef NO_DOT_IN_LABEL		/* this for `.'; unlikely, but...  */
-	       || *p == '.'
+	       || *q == '.'
 #endif
-	       || ISUPPER(*p)
-	       || ISLOWER(*p)))
-	  *p = '_';
+	       || ISUPPER(*q)
+	       || ISLOWER(*q)))
+	  *q = '_';
     }
 
   return get_identifier (buf);
@@ -5939,13 +5936,17 @@ build_common_tree_nodes (signed_char)
   intHI_type_node = make_signed_type (GET_MODE_BITSIZE (HImode));
   intSI_type_node = make_signed_type (GET_MODE_BITSIZE (SImode));
   intDI_type_node = make_signed_type (GET_MODE_BITSIZE (DImode));
+#if HOST_BITS_PER_WIDE_INT >= 64
   intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
+#endif
 
   unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
   unsigned_intHI_type_node = make_unsigned_type (GET_MODE_BITSIZE (HImode));
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
+#if HOST_BITS_PER_WIDE_INT >= 64
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
+#endif
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.

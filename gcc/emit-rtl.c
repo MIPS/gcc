@@ -572,7 +572,7 @@ gen_reg_rtx (mode)
 
       new = xrealloc (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
-      f->emit->regno_pointer_align = new;
+      f->emit->regno_pointer_align = (unsigned char *) new;
 
       new1 = (rtx *) xrealloc (f->emit->x_regno_reg_rtx,
 			       old_size * 2 * sizeof (rtx));
@@ -1283,11 +1283,7 @@ operand_subword (op, i, validate_address, mode)
 	}
 
       new = gen_rtx_MEM (word_mode, addr);
-
       MEM_COPY_ATTRIBUTES (new, op);
-      RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (op);
-      MEM_ALIAS_SET (new) = MEM_ALIAS_SET (op);
-
       return new;
     }
 
@@ -1597,9 +1593,7 @@ change_address (memref, mode, addr)
     return memref;
 
   new = gen_rtx_MEM (mode, addr);
-  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (memref);
   MEM_COPY_ATTRIBUTES (new, memref);
-  MEM_ALIAS_SET (new) = MEM_ALIAS_SET (memref);
   return new;
 }
 
@@ -2751,10 +2745,10 @@ reorder_insns_with_line_notes (from, to, after)
 			  to);
 }
 
-/* Remove unncessary notes from the instruction stream.  */
+/* Remove unnecessary notes from the instruction stream.  */
 
 void
-remove_unncessary_notes ()
+remove_unnecessary_notes ()
 {
   rtx insn;
   rtx next;
@@ -2810,13 +2804,8 @@ remove_unncessary_notes ()
 		  if (NOTE_BLOCK (prev) != NOTE_BLOCK (insn))
 		    abort ();
 
-		  /* Never delete the BLOCK for the outermost scope
-		     of the function; we can refer to names from
-		     that scope even if the block notes are messed up.  */
-		  if (! is_body_block (NOTE_BLOCK (insn)))
+		  if (debug_ignore_block (NOTE_BLOCK (insn)))
 		    {
-		      debug_ignore_block (NOTE_BLOCK (insn));
-
 		      remove_insn (prev);
 		      remove_insn (insn);
 		    }
@@ -3904,8 +3893,8 @@ init_emit ()
     = (char *) xcalloc (f->emit->regno_pointer_flag_length, sizeof (char));
 
   f->emit->regno_pointer_align
-    = (char *) xcalloc (f->emit->regno_pointer_flag_length,
-			sizeof (char));
+    = (unsigned char *) xcalloc (f->emit->regno_pointer_flag_length,
+				 sizeof (unsigned char));
 
   regno_reg_rtx 
     = (rtx *) xcalloc (f->emit->regno_pointer_flag_length * sizeof (rtx),

@@ -100,6 +100,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "ggc.h"
+#include "gensupport.h"
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -110,8 +111,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "errors.h"
 
-static struct obstack obstack, obstack1, obstack2;
-struct obstack *rtl_obstack = &obstack;
+static struct obstack obstack1, obstack2;
 struct obstack *hash_obstack = &obstack1;
 struct obstack *temp_obstack = &obstack2;
 
@@ -4304,8 +4304,8 @@ gen_insn (exp)
   switch (GET_CODE (exp))
     {
     case DEFINE_INSN:
-      id->insn_code = insn_code_number++;
-      id->insn_index = insn_index_number++;
+      id->insn_code = insn_code_number;
+      id->insn_index = insn_index_number;
       id->num_alternatives = count_alternatives (exp);
       if (id->num_alternatives == 0)
 	id->num_alternatives = 1;
@@ -4313,8 +4313,8 @@ gen_insn (exp)
       break;
 
     case DEFINE_PEEPHOLE:
-      id->insn_code = insn_code_number++;
-      id->insn_index = insn_index_number++;
+      id->insn_code = insn_code_number;
+      id->insn_index = insn_index_number;
       id->num_alternatives = count_alternatives (exp);
       if (id->num_alternatives == 0)
 	id->num_alternatives = 1;
@@ -5856,32 +5856,6 @@ extend_range (range, min, max)
   if (range->max < max) range->max = max;
 }
 
-PTR
-xrealloc (old, size)
-  PTR old;
-  size_t size;
-{
-  register PTR ptr;
-  if (old)
-    ptr = (PTR) realloc (old, size);
-  else
-    ptr = (PTR) malloc (size);
-  if (!ptr)
-    fatal ("virtual memory exhausted");
-  return ptr;
-}
-
-PTR
-xmalloc (size)
-  size_t size;
-{
-  register PTR val = (PTR) malloc (size);
-
-  if (val == 0)
-    fatal ("virtual memory exhausted");
-  return val;
-}
-
 static rtx
 copy_rtx_unchanging (orig)
      register rtx orig;
@@ -5967,14 +5941,15 @@ main (argc, argv)
      char **argv;
 {
   rtx desc;
-  FILE *infile;
-  register int c;
   struct attr_desc *attr;
   struct insn_def *id;
   rtx tem;
   int i;
 
   progname = "genattrtab";
+
+  if (argc <= 1)
+    fatal ("No input file name.");
 
 #if defined (RLIMIT_STACK) && defined (HAVE_GETRLIMIT) && defined (HAVE_SETRLIMIT)
   /* Get rid of any avoidable limit on stack size.  */
@@ -5988,21 +5963,11 @@ main (argc, argv)
   }
 #endif
 
-  progname = "genattrtab";
-  obstack_init (rtl_obstack);
+  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+    return (FATAL_EXIT_CODE);
+
   obstack_init (hash_obstack);
   obstack_init (temp_obstack);
-
-  if (argc <= 1)
-    fatal ("No input file name.");
-
-  infile = fopen (argv[1], "r");
-  if (infile == 0)
-    {
-      perror (argv[1]);
-      return (FATAL_EXIT_CODE);
-    }
-  read_rtx_filename = argv[1];
 
   /* Set up true and false rtx's */
   true_rtx = rtx_alloc (CONST_INT);
@@ -6021,44 +5986,40 @@ from the machine description file `md'.  */\n\n");
 
   while (1)
     {
-      c = read_skip_spaces (infile);
-      if (c == EOF)
+      int line_no;
+
+      desc = read_md_rtx (&line_no, &insn_code_number);
+      if (desc == NULL)
 	break;
-      ungetc (c, infile);
 
-      desc = read_rtx (infile);
-      if (GET_CODE (desc) == DEFINE_INSN
-	  || GET_CODE (desc) == DEFINE_PEEPHOLE
-	  || GET_CODE (desc) == DEFINE_ASM_ATTRIBUTES)
-	gen_insn (desc);
-
-      else if (GET_CODE (desc) == DEFINE_EXPAND)
-	insn_code_number++, insn_index_number++;
-
-      else if (GET_CODE (desc) == DEFINE_SPLIT)
-	insn_code_number++, insn_index_number++;
-
-      else if (GET_CODE (desc) == DEFINE_PEEPHOLE2)
-	insn_code_number++, insn_index_number++;
-
-      else if (GET_CODE (desc) == DEFINE_ATTR)
+      switch (GET_CODE (desc))
 	{
-	  gen_attr (desc);
-	  insn_index_number++;
-	}
+	  case DEFINE_INSN:
+	  case DEFINE_PEEPHOLE:
+	  case DEFINE_ASM_ATTRIBUTES:
+	      gen_insn(desc);
+	      break;
+	  
+	  case DEFINE_ATTR:
+	      gen_attr (desc);
+	      break;
 
-      else if (GET_CODE (desc) == DEFINE_DELAY)
-	{
-	  gen_delay (desc);
-	  insn_index_number++;
-	}
+	  case DEFINE_DELAY:
+	      gen_delay (desc);
+	      break;
 
-      else if (GET_CODE (desc) == DEFINE_FUNCTION_UNIT)
-	{
-	  gen_unit (desc);
-	  insn_index_number++;
+	  case DEFINE_FUNCTION_UNIT:
+	      gen_unit (desc);
+	      break;
+	      	
+	  default:
+	      break;
 	}
+      if (GET_CODE (desc) != DEFINE_ASM_ATTRIBUTES)
+        insn_index_number++;
     }
+
+  insn_code_number++;
 
   /* If we didn't have a DEFINE_ASM_ATTRIBUTES, make a null one.  */
   if (! got_define_asm_attributes)

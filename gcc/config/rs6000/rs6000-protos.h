@@ -75,6 +75,7 @@ extern int store_multiple_operation PARAMS ((rtx, enum machine_mode));
 extern int branch_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int scc_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int trap_comparison_operator PARAMS ((rtx, enum machine_mode));
+extern int boolean_operator PARAMS ((rtx, enum machine_mode));
 extern int includes_lshift_p PARAMS ((rtx, rtx));
 extern int includes_rshift_p PARAMS ((rtx, rtx));
 extern int registers_ok_for_quad_peep PARAMS ((rtx, rtx));
@@ -84,6 +85,7 @@ extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 extern int ccr_bit PARAMS ((rtx, int));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void print_operand_address PARAMS ((FILE *, rtx));
+extern char * output_cbranch PARAMS ((rtx, const char *, int, rtx));
 extern void output_toc PARAMS ((FILE *, rtx, int));
 extern int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 extern int rs6000_adjust_priority PARAMS ((rtx, int));

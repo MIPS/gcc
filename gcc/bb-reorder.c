@@ -103,10 +103,6 @@ typedef struct reorder_block_def {
   int flags;
   int index;
   basic_block add_jump;
-  edge succ;
-  rtx end;
-  int block_begin;
-  int block_end;
   rtx eff_head;
   rtx eff_end;
   scope scope;
@@ -117,10 +113,6 @@ static struct reorder_block_def rbd_init
     0,			/* flags */
     0,			/* index */
     NULL,		/* add_jump */
-    NULL,		/* succ */
-    NULL_RTX,		/* end */
-    0,			/* block_begin */
-    0,			/* block_end */
     NULL_RTX,		/* eff_head */
     NULL_RTX,		/* eff_end */
     NULL		/* scope */
@@ -139,18 +131,6 @@ static struct reorder_block_def rbd_init
 #define REORDER_BLOCK_ADD_JUMP(bb) \
   ((reorder_block_def) (bb)->aux)->add_jump
 
-#define REORDER_BLOCK_SUCC(bb) \
-  ((reorder_block_def) (bb)->aux)->succ
-
-#define REORDER_BLOCK_OLD_END(bb) \
-  ((reorder_block_def) (bb)->aux)->end
-
-#define REORDER_BLOCK_BEGIN(bb) \
-  ((reorder_block_def) (bb)->aux)->block_begin
-
-#define REORDER_BLOCK_END(bb) \
-  ((reorder_block_def) (bb)->aux)->block_end
-
 #define REORDER_BLOCK_EFF_HEAD(bb) \
   ((reorder_block_def) (bb)->aux)->eff_head
 
@@ -164,13 +144,9 @@ static struct reorder_block_def rbd_init
 static int reorder_index;
 static basic_block reorder_last_visited;
 
-enum reorder_skip_type {REORDER_SKIP_BEFORE, REORDER_SKIP_AFTER,
-			REORDER_SKIP_BLOCK_END};
-
 
 /* Local function prototypes.  */
-static rtx skip_insns_between_block	PARAMS ((basic_block,
-						 enum reorder_skip_type));
+static rtx skip_insns_after_block	PARAMS ((basic_block));
 static basic_block get_common_dest	PARAMS ((basic_block, basic_block));
 static basic_block chain_reorder_blocks	PARAMS ((edge, basic_block));
 static void make_reorder_chain		PARAMS ((basic_block));
@@ -190,114 +166,55 @@ static void free_scope_forest_1		PARAMS ((scope));
 static void free_scope_forest		PARAMS ((scope_forest_info *));
 void dump_scope_forest			PARAMS ((scope_forest_info *));
 static void dump_scope_forest_1		PARAMS ((scope, int));
+static rtx get_next_bb_note		PARAMS ((rtx));
+static rtx get_prev_bb_note		PARAMS ((rtx));
 
-/* Skip over insns BEFORE or AFTER BB which are typically associated with
-   basic block BB.  */
+/* Skip over inter-block insns occurring after BB which are typically
+   associated with BB (e.g., barriers). If there are any such insns,
+   we return the last one. Otherwise, we return the end of BB.  */
 
 static rtx
-skip_insns_between_block (bb, skip_type)
+skip_insns_after_block (bb)
      basic_block bb;
-     enum reorder_skip_type skip_type;
 {
   rtx insn, last_insn;
 
-  if (skip_type == REORDER_SKIP_BEFORE)
+  last_insn = bb->end;
+
+  if (bb == EXIT_BLOCK_PTR)
+    return 0;
+
+  for (insn = NEXT_INSN (bb->end); 
+       insn;
+       last_insn = insn, insn = NEXT_INSN (insn))
     {
-      if (bb == ENTRY_BLOCK_PTR)
-	return 0;
+      if (bb->index + 1 != n_basic_blocks
+	  && insn == BASIC_BLOCK (bb->index + 1)->head)
+	break;
 
-      last_insn = bb->head;
-      for (insn = PREV_INSN (bb->head);
-	   insn && insn != BASIC_BLOCK (bb->index - 1)->end;
-	   last_insn = insn, insn = PREV_INSN (insn))
+      if (GET_CODE (insn) == BARRIER
+	  || GET_CODE (insn) == JUMP_INSN 
+	  || (GET_CODE (insn) == NOTE
+	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)))
+	continue;
+
+      if (GET_CODE (insn) == CODE_LABEL
+	  && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
+	  && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
+	      || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
 	{
-	  if (NEXT_INSN (insn) != last_insn)
-	    break;
-
-	  if (GET_CODE (insn) == NOTE
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK
-	      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END)
-	    continue;
-	  
-	  break;
-	}
-    }
-  else
-    {
-      last_insn = bb->end;
-
-      if (bb == EXIT_BLOCK_PTR)
-	return 0;
-
-      for (insn = NEXT_INSN (bb->end); 
-	   insn;
-	   last_insn = insn, insn = NEXT_INSN (insn))
-	{
-	  if (bb->index + 1 != n_basic_blocks
-	      && insn == BASIC_BLOCK (bb->index + 1)->head)
-	    break;
-
-	  if (GET_CODE (insn) == BARRIER
-	      || GET_CODE (insn) == JUMP_INSN 
-	      || (GET_CODE (insn) == NOTE
-		  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
-		      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)))
-	    continue;
-
-	  if (GET_CODE (insn) == CODE_LABEL
-	      && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
-	      && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
-		  || GET_CODE (PATTERN
-			       (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
-	    {
-	      insn = NEXT_INSN (insn);
-	      continue;
-	    }
-
-	  /* Skip to next non-deleted insn.  */
-	  if (GET_CODE (insn) == NOTE
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL))
-	    continue; 
-
-	  break;
+	  insn = NEXT_INSN (insn);
+	  continue;
 	}
 
-      if (skip_type == REORDER_SKIP_BLOCK_END)
-	{
-	  int found_block_end = 0;
+      /* Skip to next non-deleted insn.  */
+      if (GET_CODE (insn) == NOTE
+	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL))
+	continue; 
 
-	  for (; insn; last_insn = insn, insn = NEXT_INSN (insn))
-	    {
-	      if (bb->index + 1 != n_basic_blocks
-		  && insn == BASIC_BLOCK (bb->index + 1)->head)
-		break;
-
-	      if (GET_CODE (insn) == NOTE
-		  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
-		{
-		  found_block_end = 1;
-		  continue;
-		}
-
-	      if (GET_CODE (insn) == NOTE
-		  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED)
-		continue;
-
-	      if (GET_CODE (insn) == NOTE
-		  && NOTE_LINE_NUMBER (insn) >= 0
-		  && NEXT_INSN (insn)
-		  && GET_CODE (NEXT_INSN (insn)) == NOTE
-		  && (NOTE_LINE_NUMBER (NEXT_INSN (insn))
-		      == NOTE_INSN_BLOCK_END))
-		continue;
-	      break;
-	    }
-
-	  if (! found_block_end)
-	    last_insn = 0;
-	}
+      break;
     }
 
   return last_insn;
@@ -336,8 +253,9 @@ chain_reorder_blocks (e, ceb)
 {
   basic_block sb = e->src;
   basic_block db = e->dest;
-  rtx cebe_insn, cebbe_insn, dbh_insn, dbe_insn;
+  rtx cebe_insn, dbh_insn, dbe_insn;
   edge ee, last_edge;
+  edge e_fallthru, e_jump;
 
   enum cond_types {NO_COND, PREDICT_THEN_WITH_ELSE, PREDICT_ELSE,
 		   PREDICT_THEN_NO_ELSE, PREDICT_NOT_THEN_NO_ELSE};
@@ -350,50 +268,14 @@ chain_reorder_blocks (e, ceb)
     fprintf (rtl_dump_file,
 	     "Edge from basic block %d to basic block %d last visited %d\n",
 	     sb->index, db->index, ceb->index);
-
-  dbh_insn = REORDER_BLOCK_EFF_HEAD (db);
   cebe_insn = REORDER_BLOCK_EFF_END (ceb);
-  cebbe_insn = skip_insns_between_block (ceb, REORDER_SKIP_BLOCK_END);
-
-  {
-    int block_begins = 0;
-    rtx insn;
-
-    for (insn = dbh_insn; insn && insn != db->end; insn = NEXT_INSN (insn))
-      {
-	if (GET_CODE (insn) == NOTE
-	    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG)
-	  {
-	    block_begins += 1;
-	    break;
-	  }
-      }
-    REORDER_BLOCK_BEGIN (sb) = block_begins;
-  }
-
-  if (cebbe_insn)
-    {
-      int block_ends = 0;
-      rtx insn;
-
-      for (insn = cebe_insn; insn; insn = NEXT_INSN (insn))
-	{
-	  if (PREV_INSN (insn) == cebbe_insn)
-	    break;
-	  if (GET_CODE (insn) == NOTE
-	      && NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END)
-	    {
-	      block_ends += 1;
-	      continue;
-	    }
-	}
-      REORDER_BLOCK_END (ceb) = block_ends;
-    }
 
   /* Blocks are in original order.  */
   if (sb->index == ceb->index
       && ceb->index + 1 == db->index && NEXT_INSN (cebe_insn))
     return db;
+
+  e_fallthru = e_jump = e;
 
   /* Get the type of block and type of condition.  */
   cond_type = NO_COND;
@@ -402,18 +284,36 @@ chain_reorder_blocks (e, ceb)
       && condjump_p (sb->end))
     {
       if (e->flags & EDGE_FALLTHRU)
+	{
+	  if (e == sb->succ)
+	    e_jump = sb->succ->succ_next;
+	  else if (e == sb->succ->succ_next)
+	    e_jump = sb->succ;
+	  else
+	    abort ();
+	}
+      else
+	{
+	  if (e == sb->succ)
+	    e_fallthru = sb->succ->succ_next;
+	  else if (e == sb->succ->succ_next)
+	    e_fallthru = sb->succ;
+	  else
+	    abort ();
+	}
+
+      if (e->flags & EDGE_FALLTHRU)
 	cond_block_type = THEN_BLOCK;
-      else if (get_common_dest (sb->succ->dest, sb))
+      else if (get_common_dest (e_fallthru->dest, sb))
 	cond_block_type = NO_ELSE_BLOCK;
       else 
 	cond_block_type = ELSE_BLOCK;
 
-      if (sb->succ->succ_next
-	  && get_common_dest (sb->succ->dest, sb))
+      if (get_common_dest (e_fallthru->dest, sb))
 	{
 	  if (cond_block_type == THEN_BLOCK)
 	    {
-	      if (! (REORDER_BLOCK_FLAGS (sb->succ->succ_next->dest)
+	      if (! (REORDER_BLOCK_FLAGS (e->dest)
 		     & REORDER_BLOCK_VISITED))
 		cond_type = PREDICT_THEN_NO_ELSE;
 	      else
@@ -421,7 +321,7 @@ chain_reorder_blocks (e, ceb)
 	    }
 	  else if (cond_block_type == NO_ELSE_BLOCK)
 	    {
-	      if (! (REORDER_BLOCK_FLAGS (sb->succ->dest)
+	      if (! (REORDER_BLOCK_FLAGS (e->dest)
 		     & REORDER_BLOCK_VISITED))
 		cond_type = PREDICT_NOT_THEN_NO_ELSE;
 	      else
@@ -432,16 +332,16 @@ chain_reorder_blocks (e, ceb)
 	{
 	  if (cond_block_type == THEN_BLOCK)
 	    {
-	      if (! (REORDER_BLOCK_FLAGS (sb->succ->succ_next->dest)
+	      if (! (REORDER_BLOCK_FLAGS (e->dest)
 		     & REORDER_BLOCK_VISITED))
 		cond_type = PREDICT_THEN_WITH_ELSE;
 	      else
 		cond_type = PREDICT_ELSE;
 	    }
 	  else if (cond_block_type == ELSE_BLOCK
-		   && sb->succ->dest != EXIT_BLOCK_PTR)
+		   && e_fallthru->dest != EXIT_BLOCK_PTR)
 	    {
-	      if (! (REORDER_BLOCK_FLAGS (sb->succ->dest)
+	      if (! (REORDER_BLOCK_FLAGS (e->dest)
 		     & REORDER_BLOCK_VISITED))
 		cond_type = PREDICT_ELSE;
 	      else
@@ -474,25 +374,26 @@ chain_reorder_blocks (e, ceb)
       if (rtl_dump_file)
 	fprintf (rtl_dump_file,
 		 "    then jump from block %d to block %d\n",
-		 sb->index, sb->succ->dest->index);
+		 sb->index, e_fallthru->dest->index);
 
       /* Jump to reordered then block.  */
-      REORDER_BLOCK_ADD_JUMP (sb) = sb->succ->dest;
+      REORDER_BLOCK_ADD_JUMP (sb) = e_fallthru->dest;
     }
   
   /* Reflect that then block will jump back when we have no else.  */
   if (cond_block_type != THEN_BLOCK
       && cond_type == PREDICT_NOT_THEN_NO_ELSE)
     {
-      for (ee = sb->succ->dest->succ;
+      basic_block jbb = e_fallthru->dest;
+      for (ee = jbb->succ;
 	   ee && ! (ee->flags & EDGE_FALLTHRU);
 	   ee = ee->succ_next)
 	continue;
 
-      if (ee && ! (GET_CODE (sb->succ->dest->end) == JUMP_INSN
-		   && ! simplejump_p (sb->succ->dest->end)))
+      if (ee && ! (GET_CODE (jbb->end) == JUMP_INSN
+		   && ! simplejump_p (jbb->end)))
 	{
-	  REORDER_BLOCK_ADD_JUMP (sb->succ->dest) = ee->dest;
+	  REORDER_BLOCK_ADD_JUMP (jbb) = ee->dest;
 	}
     }
 
@@ -540,41 +441,10 @@ chain_reorder_blocks (e, ceb)
   cebe_insn = REORDER_BLOCK_EFF_END (ceb);
   dbe_insn = REORDER_BLOCK_EFF_END (db);
 
-  /* Leave behind any lexical block markers.  */
-  if (0 && debug_info_level > DINFO_LEVEL_TERSE
-      && ceb->index + 1 < db->index)
-    {
-      rtx insn, last_insn = get_last_insn ();
-      insn = NEXT_INSN (ceb->end);
-      if (! insn)
-	insn = REORDER_BLOCK_OLD_END (ceb);
-
-      if (NEXT_INSN (cebe_insn) == 0)
-	  set_last_insn (cebe_insn);
-      for (; insn && insn != db->head/*dbh_insn*/;
-	   insn = NEXT_INSN (insn))
-	{
-	  if (GET_CODE (insn) == NOTE
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG))
-	    {
-	      cebe_insn = emit_note_after (NOTE_INSN_BLOCK_BEG, cebe_insn);
-	      delete_insn (insn);
-	    }
-	  if (GET_CODE (insn) == NOTE
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
-	    {
-	      cebe_insn = emit_note_after (NOTE_INSN_BLOCK_END, cebe_insn);
-	      delete_insn (insn);
-	    }      
-	}
-      set_last_insn (last_insn);
-    }
-
   /* Rechain predicted block.  */
   NEXT_INSN (cebe_insn) = dbh_insn;
   PREV_INSN (dbh_insn) = cebe_insn;
 
-  REORDER_BLOCK_OLD_END (db) = NEXT_INSN (dbe_insn);
   if (db->index != n_basic_blocks - 1)
     NEXT_INSN (dbe_insn) = 0;
 
@@ -608,7 +478,7 @@ make_reorder_chain (bb)
       else
 	probability = 0;
 
-      if (probability >= REG_BR_PROB_BASE / 2)
+      if (probability > REG_BR_PROB_BASE / 2)
 	e = bb->succ->succ_next;
     }
 
@@ -628,8 +498,6 @@ make_reorder_chain (bb)
       if (REORDER_BLOCK_FLAGS (e->dest) & REORDER_BLOCK_VISITED)
 	REORDER_BLOCK_FLAGS (e->dest) &= ~REORDER_BLOCK_HEAD;
 	
-      REORDER_BLOCK_SUCC (bb) = e;
-
       visited_edge = e->dest;
 
       reorder_last_visited = chain_reorder_blocks (e, bb);
@@ -1146,10 +1014,11 @@ remove_scope_notes ()
 	  && (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_BEG
 	      || NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END))
 	{
-	  /* Check if the scope end happens to be the end of a bb.  */
-	  if (currbb && x == currbb->end
-	      && NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END)
+	  /* Check if the scope note happens to be the end of a bb.  */
+	  if (currbb && x == currbb->end)
 	    currbb->end = PREV_INSN (x);
+	  if (currbb && x == currbb->head)
+	    abort ();
 
 	  if (PREV_INSN (x))
 	    {
@@ -1471,8 +1340,7 @@ reorder_basic_blocks ()
   for (i = 0; i < n_basic_blocks; i++)
     {
       basic_block bbi = BASIC_BLOCK (i);
-      REORDER_BLOCK_EFF_END (bbi)
-	= skip_insns_between_block (bbi, REORDER_SKIP_AFTER);
+      REORDER_BLOCK_EFF_END (bbi) = skip_insns_after_block (bbi);
       if (i == 0)
 	REORDER_BLOCK_EFF_HEAD (bbi) = get_insns ();
       else 

@@ -43,6 +43,8 @@ UPDATE_OPTIONS=-P
 #        locally.
 # Add -A to reset any sticky tags, dates, or `-k' options.
 
+# Arrange for the value of $0 to be available for functions
+self=$0
 
 # This function prints a list of all generated files, along with their
 # dependencies.  Note that only one target is supported per line: the
@@ -68,8 +70,6 @@ gcc/c-parse.c: gcc/c-parse.y
 gcc/c-parse.h: gcc/c-parse.c
 gcc/c-gperf.h: gcc/c-parse.gperf
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
-gcc/fixinc/inclhack.sh: gcc/fixinc/inclhack.def gcc/fixinc/inclhack.tpl gcc/fixinc/hackshell.tpl
-gcc/fixinc/fixincl.sh: gcc/fixinc/inclhack.def gcc/fixinc/inclhack.tpl
 # And then, language-specific files
 gcc/cp/parse.c: gcc/cp/parse.y
 gcc/cp/parse.h: gcc/cp/parse.c
@@ -114,6 +114,13 @@ touch_files () {
     done
 }
 
+# Whenever we update the tree or install a patch, we may be modifying
+# this script.  By re-execing it, we ensure that the appropriate
+# dependencies and rules will be used.
+touch_files_reexec () {
+    echo "Adjusting file timestamps"
+    exec ${CONFIG_SHELL-/bin/sh} $self --touch
+}    
 
 # This functions applies a patch to an existing tree.
 apply_patch () {
@@ -128,8 +135,7 @@ apply_patch () {
 	    cat $1 | patch -p1 ;;
 	esac
     fi
-    echo "Adjusting file timestamps"
-    touch_files
+    touch_files_reexec
 }
 
 # Check whether this indeed looks like a local tree.
@@ -199,5 +205,4 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Adjusting file timestamps"
-touch_files
+touch_files_reexec

@@ -27,7 +27,7 @@ extern int    arm_process_pragma	PARAMS ((int (*)(void), void (*) (int),
 						char *));
 extern void   arm_finalize_pic		PARAMS ((void));
 extern int    arm_volatile_func		PARAMS ((void));
-extern char * arm_output_epilogue	PARAMS ((void));
+extern char * arm_output_epilogue	PARAMS ((int));
 extern void   output_func_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
 /* Used in arm.md, but defined in output.c.  */
@@ -178,8 +178,8 @@ extern void   thumb_reload_in_hi	PARAMS ((rtx *));
 #endif
 
 /* Defined in pe.c.  */
-extern int  arm_dllexport_name_p 	PARAMS ((char *));
-extern int  arm_dllimport_name_p 	PARAMS ((char *));
+extern int  arm_dllexport_name_p 	PARAMS ((const char *));
+extern int  arm_dllimport_name_p 	PARAMS ((const char *));
 
 #ifdef TREE_CODE
 extern int  arm_pe_valid_machine_decl_attribute

@@ -231,11 +231,13 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 
   mark_all_labels (f, cross_jump);
 
-  /* Keep track of labels used from static data;
-     they cannot ever be deleted.  */
+  /* Keep track of labels used from static data; we don't track them
+     closely enough to delete them here, so make sure their reference
+     count doesn't drop to zero.  */
 
   for (insn = forced_labels; insn; insn = XEXP (insn, 1))
-    LABEL_NUSES (XEXP (insn, 0))++;
+    if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
+      LABEL_NUSES (XEXP (insn, 0))++;
 
   check_exception_handler_labels ();
 
@@ -381,14 +383,6 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 		}
 	    }
 
-	  /* If a jump references the end of the function, try to turn
-	     it into a RETURN insn, possibly a conditional one.  */
-	  if (JUMP_LABEL (insn) != 0
-	      && (next_active_insn (JUMP_LABEL (insn)) == 0
-		  || GET_CODE (PATTERN (next_active_insn (JUMP_LABEL (insn))))
-		      == RETURN))
-	    changed |= redirect_jump (insn, NULL_RTX);
-
 	  reallabelprev = prev_active_insn (JUMP_LABEL (insn));
 
 	  /* Detect jump to following insn.  */
@@ -396,6 +390,13 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 	    {
 	      next = next_real_insn (JUMP_LABEL (insn));
 	      delete_jump (insn);
+
+	      /* Remove the "inactive" but "real" insns (i.e. uses and
+	         clobbers) in between here and there.  */
+	      temp = insn;
+	      while ((temp = next_real_insn (temp)) != next)
+		delete_insn (temp);
+
 	      changed = 1;
 	      continue;
 	    }
@@ -611,7 +612,8 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 		  /* TARGET is nonzero if it is ok to cross jump
 		     to code before TARGET.  If so, see if matches.  */
 		  if (x != 0)
-		    find_cross_jump (insn, x, 2,
+		    find_cross_jump (insn, x,
+				     (optimize_size ? 1 : BRANCH_COST) + 1,
 				     &newjpos, &newlpos);
 
 		  if (newjpos != 0)
@@ -648,7 +650,8 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 
 		  /* TARGET is nonzero if it is ok to cross jump
 		     to code before TARGET.  If so, see if matches.  */
-		  find_cross_jump (insn, JUMP_LABEL (insn), 1,
+		  find_cross_jump (insn, JUMP_LABEL (insn),
+				   optimize_size ? 1 : BRANCH_COST,
 				   &newjpos, &newlpos);
 
 		  /* If cannot cross jump to code before the label,
@@ -663,7 +666,8 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 			  && JUMP_LABEL (target) == JUMP_LABEL (insn)
 			  /* Ignore TARGET if it's deleted.  */
 			  && ! INSN_DELETED_P (target))
-			find_cross_jump (insn, target, 2,
+			find_cross_jump (insn, target,
+					 (optimize_size ? 1 : BRANCH_COST) + 1,
 					 &newjpos, &newlpos);
 
 		  if (newjpos != 0)
@@ -694,7 +698,8 @@ jump_optimize_1 (f, cross_jump, noop_moves, after_regscan,
 		    if (target != insn
 			&& ! INSN_DELETED_P (target)
 			&& GET_CODE (PATTERN (target)) == RETURN)
-		      find_cross_jump (insn, target, 2,
+		      find_cross_jump (insn, target,
+				       (optimize_size ? 1 : BRANCH_COST) + 1,
 				       &newjpos, &newlpos);
 
 		  if (newjpos != 0)
@@ -1262,10 +1267,19 @@ duplicate_loop_exit_test (loop_start)
 	     make them.  */
 	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
 	    if (REG_NOTE_KIND (link) != REG_LABEL)
-	      REG_NOTES (copy)
-		= copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
-					       XEXP (link, 0),
-					       REG_NOTES (copy)));
+	      {
+		if (GET_CODE (link) == EXPR_LIST)
+		  REG_NOTES (copy)
+		    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
+						      XEXP (link, 0),
+						      REG_NOTES (copy)));
+		else
+		  REG_NOTES (copy)
+		    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
+						      XEXP (link, 0),
+						      REG_NOTES (copy)));
+	      }
+
 	  if (reg_map && REG_NOTES (copy))
 	    replace_regs (REG_NOTES (copy), reg_map, max_reg, 1);
 	  break;
@@ -1345,8 +1359,8 @@ duplicate_loop_exit_test (loop_start)
   return 1;
 }
 
-/* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, and
-   loop-end notes between START and END out before START.  Assume that
+/* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
+   eh-beg, eh-end notes between START and END out before START.  Assume that
    END is not such a note.  START may be such a note.  Returns the value
    of the new starting insn, which may be different if the original start
    was such a note.  */
@@ -1367,7 +1381,9 @@ squeeze_notes (start, end)
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP))
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_VTOP
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END))
 	{
 	  if (insn == start)
 	    start = next;
@@ -2086,7 +2102,10 @@ simplejump_p (insn)
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump
-   and nothing more.  */
+   and nothing more.  
+ 
+   Use this function is deprecated, since we need to support combined
+   branch and compare insns.  Use any_condjump_p instead whenever possible.  */
 
 int
 condjump_p (insn)
@@ -2113,7 +2132,10 @@ condjump_p (insn)
 }
 
 /* Return nonzero if INSN is a (possibly) conditional jump inside a
-   PARALLEL.  */
+   PARALLEL.
+ 
+   Use this function is deprecated, since we need to support combined
+   branch and compare insns.  Use any_condjump_p instead whenever possible.  */
 
 int
 condjump_in_parallel_p (insn)
@@ -2145,19 +2167,77 @@ condjump_in_parallel_p (insn)
   return 0;
 }
 
+/* Return set of PC, otherwise NULL.  */
+
+rtx
+pc_set (insn)
+     rtx insn;
+{
+  rtx pat;
+  if (GET_CODE (insn) != JUMP_INSN)
+    return NULL_RTX;
+  pat = PATTERN (insn);
+
+  /* The set is allowed to appear either as the insn pattern or
+     the first set in a PARALLEL.  */
+  if (GET_CODE (pat) == PARALLEL)
+    pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET && GET_CODE (SET_DEST (pat)) == PC)
+    return pat;
+
+  return NULL_RTX;
+}
+
+/* Return true when insn is an unconditional direct jump,
+   possibly bundled inside a PARALLEL.  */
+
+int
+any_uncondjump_p (insn)
+     rtx insn;
+{
+  rtx x = pc_set (insn);
+  if (!x)
+    return 0;
+  if (GET_CODE (SET_SRC (x)) != LABEL_REF)
+    return 0;
+  return 1;
+}
+
+/* Return true when insn is a conditional jump.  This function works for
+   instructions containing PC sets in PARALLELs.  The instruction may have
+   various other effects so before removing the jump you must verify
+   safe_to_remove_jump_p.
+
+   Note that unlike condjump_p it returns false for unconditional jumps.  */
+
+int
+any_condjump_p (insn)
+     rtx insn;
+{
+  rtx x = pc_set (insn);
+  enum rtx_code a, b;
+
+  if (!x)
+    return 0;
+  if (GET_CODE (SET_SRC (x)) != IF_THEN_ELSE)
+    return 0;
+
+  a = GET_CODE (XEXP (SET_SRC (x), 1));
+  b = GET_CODE (XEXP (SET_SRC (x), 2));
+
+  return ((b == PC && (a == LABEL_REF || a == RETURN))
+          || (a == PC && (b == LABEL_REF || b == RETURN)));
+}
+
 /* Return the label of a conditional jump.  */
 
 rtx
 condjump_label (insn)
      rtx insn;
 {
-  register rtx x = PATTERN (insn);
+  rtx x = pc_set (insn);
 
-  if (GET_CODE (x) == PARALLEL)
-    x = XVECEXP (x, 0, 0);
-  if (GET_CODE (x) != SET)
-    return NULL_RTX;
-  if (GET_CODE (SET_DEST (x)) != PC)
+  if (!x)
     return NULL_RTX;
   x = SET_SRC (x);
   if (GET_CODE (x) == LABEL_REF)
@@ -2186,6 +2266,8 @@ int
 returnjump_p (insn)
      rtx insn;
 {
+  if (GET_CODE (insn) != JUMP_INSN)
+    return 0;
   return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
 }
 
@@ -2389,6 +2471,12 @@ mark_jump_label (x, insn, cross_jump, in_mem)
 	rtx note;
 	rtx next;
 
+	/* Ignore remaining references to unreachable labels that
+	   have been deleted.  */
+        if (GET_CODE (label) == NOTE
+	    && NOTE_LINE_NUMBER (label) == NOTE_INSN_DELETED_LABEL)
+	  break;
+
 	if (GET_CODE (label) != CODE_LABEL)
 	  abort ();
 
@@ -2449,7 +2537,7 @@ mark_jump_label (x, insn, cross_jump, in_mem)
 		   is no longer valid because of the more accurate cfg
 		   we build in find_basic_blocks -- it no longer pessimizes
 		   code when it finds a REG_LABEL note.  */
-		REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+		REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, label,
 						      REG_NOTES (insn));
 	      }
 	  }
@@ -2755,9 +2843,10 @@ delete_insn (insn)
 	dont_really_delete = 1;
       else if (! dont_really_delete)
 	{
+	  const char *name = LABEL_NAME (insn);
 	  PUT_CODE (insn, NOTE);
 	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED_LABEL;
-	  NOTE_SOURCE_FILE (insn) = 0;
+	  NOTE_SOURCE_FILE (insn) = name;
 	  dont_really_delete = 1;
 	}
     }

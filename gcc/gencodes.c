@@ -25,14 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #include "hconfig.h"
 #include "system.h"
 #include "rtl.h"
-#include "obstack.h"
 #include "errors.h"
+#include "gensupport.h"
 
-static struct obstack obstack;
-struct obstack *rtl_obstack = &obstack;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 static int insn_code_number;
 
@@ -50,32 +45,6 @@ gen_insn (insn)
 	    insn_code_number);
 }
 
-PTR
-xmalloc (size)
-  size_t size;
-{
-  register PTR val = (PTR) malloc (size);
-
-  if (val == 0)
-    fatal ("virtual memory exhausted");
-  return val;
-}
-
-PTR
-xrealloc (old, size)
-  PTR old;
-  size_t size;
-{
-  register PTR ptr;
-  if (old)
-    ptr = (PTR) realloc (old, size);
-  else
-    ptr = (PTR) malloc (size);
-  if (!ptr)
-    fatal ("virtual memory exhausted");
-  return ptr;
-}
-
 extern int main PARAMS ((int, char **));
 
 int
@@ -84,22 +53,14 @@ main (argc, argv)
      char **argv;
 {
   rtx desc;
-  FILE *infile;
-  register int c;
 
   progname = "gencodes";
-  obstack_init (rtl_obstack);
 
   if (argc <= 1)
     fatal ("No input file name.");
 
-  infile = fopen (argv[1], "r");
-  if (infile == 0)
-    {
-      perror (argv[1]);
-      return (FATAL_EXIT_CODE);
-    }
-  read_rtx_filename = argv[1];
+  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+    return (FATAL_EXIT_CODE);
 
   printf ("/* Generated automatically by the program `gencodes'\n\
 from the machine description file `md'.  */\n\n");
@@ -113,23 +74,14 @@ from the machine description file `md'.  */\n\n");
 
   while (1)
     {
-      c = read_skip_spaces (infile);
-      if (c == EOF)
-	break;
-      ungetc (c, infile);
+      int line_no;
 
-      desc = read_rtx (infile);
+      desc = read_md_rtx (&line_no, &insn_code_number);
+      if (desc == NULL)
+	break;
+
       if (GET_CODE (desc) == DEFINE_INSN || GET_CODE (desc) == DEFINE_EXPAND)
-	{
-	  gen_insn (desc);
-	  insn_code_number++;
-	}
-      if (GET_CODE (desc) == DEFINE_PEEPHOLE
-	  || GET_CODE (desc) == DEFINE_PEEPHOLE2
-	  || GET_CODE (desc) == DEFINE_SPLIT)
-	{
-	  insn_code_number++;
-	}
+	gen_insn (desc);
     }
 
   printf ("  CODE_FOR_nothing };\n");

@@ -88,20 +88,14 @@ Boston, MA 02111-1307, USA.  */
 #include "hconfig.h"
 #include "system.h"
 #include "rtl.h"
-#include "obstack.h"
 #include "errors.h"
+#include "gensupport.h"
 
 /* No instruction can have more operands than this.  Sorry for this
    arbitrary limit, but what machine will have an instruction with
    this many operands?  */
 
 #define MAX_MAX_OPERANDS 40
-
-static struct obstack obstack;
-struct obstack *rtl_obstack = &obstack;
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 
 static int n_occurrences		PARAMS ((int, const char *));
 static const char *strip_whitespace	PARAMS ((const char *));
@@ -720,7 +714,7 @@ gen_insn (insn)
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
-  d->code_number = next_code_number++;
+  d->code_number = next_code_number;
   d->index_number = next_index_number;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
@@ -759,7 +753,7 @@ gen_peephole (peep)
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
-  d->code_number = next_code_number++;
+  d->code_number = next_code_number;
   d->index_number = next_index_number;
   d->name = 0;
 
@@ -797,7 +791,7 @@ gen_expand (insn)
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
-  d->code_number = next_code_number++;
+  d->code_number = next_code_number;
   d->index_number = next_index_number;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
@@ -840,7 +834,7 @@ gen_split (split)
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
-  d->code_number = next_code_number++;
+  d->code_number = next_code_number;
   d->index_number = next_index_number;
   d->name = 0;
 
@@ -868,32 +862,6 @@ gen_split (split)
 
   place_operands (d);
 }
-
-PTR
-xmalloc (size)
-  size_t size;
-{
-  register PTR val = (PTR) malloc (size);
-
-  if (val == 0)
-    fatal ("virtual memory exhausted");
-  return val;
-}
-
-PTR
-xrealloc (old, size)
-  PTR old;
-  size_t size;
-{
-  register PTR ptr;
-  if (old)
-    ptr = (PTR) realloc (old, size);
-  else
-    ptr = (PTR) malloc (size);
-  if (!ptr)
-    fatal ("virtual memory exhausted");
-  return ptr;
-}
 
 extern int main PARAMS ((int, char **));
 
@@ -903,22 +871,14 @@ main (argc, argv)
      char **argv;
 {
   rtx desc;
-  FILE *infile;
-  register int c;
 
   progname = "genoutput";
-  obstack_init (rtl_obstack);
 
   if (argc <= 1)
     fatal ("No input file name.");
 
-  infile = fopen (argv[1], "r");
-  if (infile == 0)
-    {
-      perror (argv[1]);
-      return (FATAL_EXIT_CODE);
-    }
-  read_rtx_filename = argv[1];
+  if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
+    return (FATAL_EXIT_CODE);
 
   output_prologue ();
   next_code_number = 0;
@@ -928,12 +888,12 @@ main (argc, argv)
 
   while (1)
     {
-      c = read_skip_spaces (infile);
-      if (c == EOF)
-	break;
-      ungetc (c, infile);
+      int line_no;
 
-      desc = read_rtx (infile);
+      desc = read_md_rtx (&line_no, &next_code_number);
+      if (desc == NULL)
+	break;
+
       if (GET_CODE (desc) == DEFINE_INSN)
 	gen_insn (desc);
       if (GET_CODE (desc) == DEFINE_PEEPHOLE)

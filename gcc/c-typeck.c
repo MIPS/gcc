@@ -4158,7 +4158,7 @@ internal_build_compound_expr (list, first_p)
       /* The left-hand operand of a comma expression is like an expression
          statement: with -W or -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
-      if ((extra_warnings || warn_unused)
+      if ((extra_warnings || warn_unused_value)
            && ! (TREE_CODE (TREE_VALUE (list)) == CONVERT_EXPR
                 && TREE_TYPE (TREE_VALUE (list)) == void_type_node))
         warning ("left-hand operand of comma expression has no effect");
@@ -4173,7 +4173,7 @@ internal_build_compound_expr (list, first_p)
      side-effects, but computes a value which is not used.  For example, in
      `foo() + bar(), baz()' the result of the `+' operator is not used,
      so we should issue a warning.  */
-  else if (warn_unused)
+  else if (warn_unused_value)
     warn_if_unused_value (TREE_VALUE (list));
 
   return build (COMPOUND_EXPR, TREE_TYPE (rest), TREE_VALUE (list), rest);
@@ -4333,11 +4333,6 @@ build_c_cast (type, expr)
       if (TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (otype) == INTEGER_TYPE
 	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
-#if 0
-	  /* Don't warn about converting 0 to pointer,
-	     provided the 0 was explicit--not cast or made by folding.  */
-	  && !(TREE_CODE (value) == INTEGER_CST && integer_zerop (value))
-#endif
 	  /* Don't warn about converting any constant.  */
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
@@ -7135,7 +7130,7 @@ void
 c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
      tree string, outputs, inputs, clobbers;
      int vol;
-     char *filename;
+     const char *filename;
      int line;
 {
   int noutputs = list_length (outputs);

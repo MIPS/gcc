@@ -1,3 +1,240 @@
+2000-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (finish_anon_union): Generalize error messages to handle
+	anonymous structures.
+	* init.c (perform_member_init): Remove `name' parameter.
+	(build_field_list): New function.
+	(sort_member_init): Handle anonymous union initialization order
+	correctly.  Check for multiple initializations of the same union.
+	(emit_base_init): Don't look up fields by name here.
+	(expand_member_init): Record the result of name lookup for future
+	reference.
+	* typeck.c (build_component_ref): Fix formatting.
+	
+Wed May 17 17:27:44 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* decl.c (pop_label): Replace warn_unused with warn_unused_label.
+  	* typeck.c (build_x_compound_expr): Replace warn_unused with
+ 	warn_unused_value.
+
+	* decl2.c (lang_decode_option): Update -Wall unused flags by
+ 	calling set_Wunused.
+
+2000-05-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-treeh (BINFO_NEW_VTABLE_MARKED): Update documentation.
+	* init.c (dfs_vtable_path_unmark): Remove.
+	* search.c (marked_new_vtable_p): Likewise.
+	(unmarked_new_vtable_p): Likewise.
+	(dfs_search_slot_nonempty_p): Likewise.
+	(dfs_mark): Likewise.
+	(dfs_vtable_path_unmark): Likewise.
+	(dfs_find_vbases): Don't set BINFO_NEW_VTABLE_MARKED.
+	(dfs_int_vbase_pointers): Don't clear BINFO_VTABLE_PATH_MARKED.
+	(dfs_init_vbase_pointers): Remove special-case new ABI code.
+	(dfs_clear_vbase_slots): Don't clear BINFO_NEW_VTABLE_MARKED.
+	(init_vbase_pointers): Simplify.
+	(expand_indirect_vtbls_init): Likewise.
+
+	* class.c (copy_virtuals): New function.
+	(build_primary_table): Use it.
+	(build_secondary_vtable): Likewise.
+	(modify_vtable_entry): Use NULL_TREE, not integer_zero_node, to
+	indicate that no vcall offset is required.
+	(add_virtual_function): Likewise.
+	(modify_all_vtables): Likewise.
+	(dfs_finish_vtbls): Adjust call to build_vtbl_initializer.
+	(dfs_accumulate_vtbl_inits): Likewise.
+	(build_vtbl_initializer): Make changes to handle construction
+	vtables.
+	(dfs_build_vcall_offset_vtbl_entries): Likewise.
+	(build_rtti_vtbl_entries): Likewise.
+	(build_vtable_entries): Handle a NULL vcall_index.
+
+2000-05-15  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* decl2.c (lang_decode_option): Fix thinko.
+
+2000-05-14  Jason Merrill  <jason@casey.cygnus.com>
+
+	* except.c (check_handlers): New fn.
+	* cp-tree.h: Declare it.
+	* semantics.c (finish_handler_sequence): Call it.
+	(finish_function_handler_sequence): Likewise.
+	(finish_handler_parms): Set TREE_TYPE on the handler.
+	* cp-tree.h (PUBLICLY_UNIQUELY_DERIVED_P): New macro.
+	* search.c (get_base_distance_recursive): If protect>1, ignore
+	special access.
+	(get_base_distance): Don't reduce watch_access.
+
+2000-05-13  Gabriel Dos Reis <gdr@codesourcery.com>
+
+	* lex.c: #include diagnostic.h.
+	(lang_init_options): Set default prefixing rules.
+
+	* lang-options.h: Add -fdiagnostics-show-location=.
+	
+	* decl2.c: #include diagnostic.h.
+	(lang_decode_option): Handle -fdiagnostics-show-location=.
+
+2000-05-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tinfo.cc: Revert my 2000-05-08 and 2000-05-07 changes.
+	* vec.cc: Revert my 2000-05-07 change.
+
+2000-05-11  Jason Merrill  <jason@casey.cygnus.com>
+
+	* class.c (check_field_decls): Complain about non-static data
+	members with same name as class in class with constructor.
+
+2000-05-10  Jason Merrill  <jason@casey.cygnus.com>
+
+	* decl.c (grokdeclarator): Allow non-static data members with
+	same name as class.
+
+2000-05-09  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cp-tree.h: Constify tree_srcloc.filename, tinst_level.file,
+	and pending_inline.filename.  Update prototypes.
+	* decl.c (define_label): Constify filename parameter.
+	* decl2.c (warn_if_unknown_interface): Constify local char *.
+	* input.c Constify input_source.filename. Don't declare
+	input_filename or lineno.  Constify filename parameter to feed_input.
+	* lex.c (init_parse): Constify parameter and return value.
+	(cp_pragma_interface, cp_pragma_implementation): Constify
+	filename argument.
+	(reinit_parse_for_method, reinit_parse_for_block,
+	reinit_parse_for_expr, feed_defarg, handle_cp_pragma):
+	Constify local char *.
+	* pt.c: Don't declare lineno or input_filename.
+	(print_template_context, tsubst_friend_function, tsubst_decl,
+	tsubst, instantiate_decl): Constify local char *.
+	* semantics.c (expand_body): Constify local char *.
+	* tree.c (build_srcloc): Constify filename parameter.
+	* typeck.c (c_expand_asm_operands): Constify filename
+	parameter.
+
+2000-05-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tinfo.cc (__dynamic_cast): Use a reinterpret_cast. Fix
+	offsetof expansion.
+
+2000-05-08  Branko Cibej  <branko.cibej@hermes.si>
+
+	* inc/cxxabi.h:  Fix typos in comment.
+	(__base_class_info::__offset): Use a static_cast.
+
+2000-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* inc/cxxabi.h: Use __SIZE_TYPE_ and __PTRDIFF_TYPE__ in place
+	of std::size_t and std::ptrdiff_t respectively.
+	* tinfo.cc: Likewise.
+	* vec.cc: Likewise.
+
+2000-05-06  Richard Henderson  <rth@cygnus.com>
+
+	* typeck.c (build_c_cast): Don't warn integer->pointer size
+	mismatch for constants.
+
+2000-05-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* rtti.c (ptmd_initializer): Set non-public, if class is
+	incomplete.
+	
+	* inc/cxxabi.h (__dynamic_cast): Explicitly say extern "C++".
+	(__cxa_vec_new, __cxa_vec_ctor, __cxa_vec_dtor,
+	__cxa_vec_delete): Likewise.
+	* tinfo.cc (__dynamic_cast): Likewise.
+	* vec.cc (__cxa_vec_new, __cxa_vec_ctor, __cxa_vec_dtor,
+	__cxa_vec_delete): Likewise.
+
+2000-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DELTA_FROM_VTABLE_ENTRY): Remove.
+	(SET_FNADDR_FROM_VTABLE_ENTRY): Likewise.
+	(lang_decl_flags): Add vcall_offset.
+	(THUNK_VCALL_OFFSET): Use it.
+	* decl.c (lang_mark_tree): Don't mark DECL_ACCESS for a thunk.
+	* method.c (make_thunk): Create the lang_decl here, not in
+	emit_thunk.
+	(emit_thunk): Make generic thunks into ordinary functions once
+	they have been fed to expand_body.
+	* semantics.c (expand_body): Set current_function_is_thunk here.
+
+2000-05-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (update_vtable_entry_for_fn): Prototype.
+
+	* pt.c (tsubst_decl): Initialize variables `argvec', `gen_tmpl'
+	and `tmpl'.
+
+	* search.c (dfs_build_inheritance_graph_order): Prototype.
+
+2000-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (special_function_kind): Add various kinds of
+	destructors.
+	(special_function_p): New function.
+	* class.c (overrides): Don't let one kind of destructor override
+	another.
+	* decl2.c (mark_used): Use DECL_NON_THUNK_FUNCTION_P when deciding
+	whether or not to instantiate a template.
+	* tree.c (special_function_p): Define.
+
+2000-05-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.def (THUNK_DECL): Remove.
+	* cp-tree.h (DECL_THUNK_P): New macro.
+	(DECL_NON_THUNK_FUNCTION_P): Likewise.
+	(DECL_EXTERN_C_FUNCTION_P): Likewise.
+	(SET_DECL_THUNK_P): Likewise.
+	(DELTA_FROM_VTABLE_ENTRY): Use DECL_THUNK_P.
+	(FNADDR_FROM_VTABLE_ENTRY): Likewise.
+	(DECL_MAIN_P): Use DECL_EXTERN_C_FUNCTION_P.
+	* decl.c (decls_match): Use DECL_EXTERN_C_P.
+	(duplicate_decls): Likewise.
+	(pushdecl): Likewise.  Adjust thunk handling.
+	(grokfndecl): Use DECL_EXTERN_C_P.
+	* decl2.c (mark_vtable_entries): Use DECL_THUNK_P.
+	* dump.c (dequeue_and_dump): Remove THUNK_DECL handling.
+	* except.c (nothrow_libfn_p): Use DECL_EXTERN_C_P.
+	* expr.c (cplus_expand_expr): Remove THUNK_DECL handling.
+	* method.c (make_thunk): Use SET_DECL_THUNK_P.  Set
+	DECL_NO_STATIC_CHAIN.
+	(emit_thunk): Don't play games with TREE_CODE on thunks.  Don't
+	set DECL_DESTRUCTOR_P or DECL_CONSTRUCTOR_P on a thunk.
+	* search.c (covariant_return_p): Remove THUNK_DECL handling.
+	* ir.texi: Update.
+	
+2000-05-01  Jason Merrill  <jason@casey.cygnus.com>
+
+	* tree.c (walk_tree): Set lineno.
+
+2000-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* exception.cc: Update license notice.
+	* new.cc: Likewise.
+	* new1.cc: Likewise.
+	* new2.cc: Likewise.
+	* tinfo.cc: Likewise.
+	* tinfo2.cc: Likewise.
+	* vec.cc: Likewise.
+	* inc/cxxabi.h: Likewise.
+	* inc/exception: Likewise.
+	* inc/new: Likewise.
+	* inc/new.h: Likewise.
+	* inc/typeinfo: Likewise.
+
+2000-05-01  Jason Merrill  <jason@casey.cygnus.com>
+
+	* tree.c (build_target_expr_with_type): If we already have a
+	TARGET_EXPR, just return it.
+
+	* optimize.c (initialize_inlined_parameters): Don't generate an
+	EXPR_STMT if we can just use DECL_INITIAL.
+	* decl.c (emit_local_var): Only make the initialization a
+	full-expression if stmts_are_full_exprs_p.
+
 2000-05-01  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (same_type_ignoring_top_level_qualifiers_p): New
@@ -98,9 +335,9 @@
 2000-04-24  Gabriel Dos Reis  <gdr@codesourcery.com>
 
 	* call.c (standard_conversion): Accept conversion between
-	COMPLEX_TYPEs 
+	COMPLEX_TYPEs.
 
-	* cvt.c (ocp_convert): Handle conversion to COMPLEX_TYPE
+	* cvt.c (ocp_convert): Handle conversion to COMPLEX_TYPE.
 
 2000-04-24  Zack Weinberg  <zack@wolery.cumb.org>
 

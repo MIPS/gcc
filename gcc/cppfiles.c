@@ -42,7 +42,6 @@ static struct file_name_list *actual_directory
 				PARAMS ((cpp_reader *, const char *));
 static unsigned int hash_IHASH	PARAMS ((const void *));
 static int eq_IHASH		PARAMS ((const void *, const void *));
-static int file_cleanup		PARAMS ((cpp_buffer *, cpp_reader *));
 static int find_include_file	PARAMS ((cpp_reader *, const char *,
 					struct file_name_list *,
 					IHASH **, int *));
@@ -75,8 +74,8 @@ eq_IHASH (x, y)
      const void *x;
      const void *y;
 {
-  const U_CHAR *a = ((const IHASH *)x)->nshort;
-  const U_CHAR *b = ((const IHASH *)y)->nshort;
+  const char *a = ((const IHASH *)x)->nshort;
+  const char *b = ((const IHASH *)y)->nshort;
   return !strcmp (a, b);
 }
 
@@ -133,7 +132,7 @@ redundant_include_p (pfile, ihash, ilist)
 	 return (i->control_macro
 		 && (i->control_macro[0] == '\0'
 		     || cpp_defined (pfile, i->control_macro, 
-				     strlen (i->control_macro))))
+				     ustrlen (i->control_macro))))
 	     ? (IHASH *)-1 : i;
 
   return 0;
@@ -148,7 +147,7 @@ cpp_included (pfile, fname)
 {
   IHASH dummy, *ptr;
   dummy.nshort = fname;
-  dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+  dummy.hash = _cpp_calc_hash ((const U_CHAR *)fname, strlen (fname));
   ptr = htab_find_with_hash (pfile->all_include_files,
 			     (const void *)&dummy, dummy.hash);
   return (ptr != NULL);
@@ -192,24 +191,6 @@ make_IHASH (name, fname, path, hash, slot)
   ih->next_this_file = *slot;
   *slot = ih;
   return ih;
-}
-
-static int
-file_cleanup (pbuf, pfile)
-     cpp_buffer *pbuf;
-     cpp_reader *pfile;
-{
-  if (pbuf->buf)
-    free ((PTR) pbuf->buf);
-  if (pfile->system_include_depth)
-    pfile->system_include_depth--;
-  if (pfile->potential_control_macro)
-    {
-      pbuf->ihash->control_macro = pfile->potential_control_macro;
-      pfile->potential_control_macro = 0;
-    }
-  pfile->input_stack_listing_current = 0;
-  return 0;
 }
 
 /* Centralize calls to open(2) here.  This provides a hook for future
@@ -256,7 +237,7 @@ find_include_file (pfile, fname, search_start, ihash, before)
   char *name;
 
   dummy.nshort = fname;
-  dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+  dummy.hash = _cpp_calc_hash ((const U_CHAR *)fname, strlen (fname));
   path = (fname[0] == '/') ? ABSOLUTE_PATH : search_start;
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
 					      (const void *) &dummy,
@@ -327,7 +308,7 @@ _cpp_fake_ihash (pfile, fname)
   IHASH dummy;
 
   dummy.nshort = fname;
-  dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+  dummy.hash = _cpp_calc_hash ((const U_CHAR *)fname, strlen (fname));
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
 					      (const void *) &dummy,
 					      dummy.hash, INSERT);
@@ -534,14 +515,15 @@ remap_filename (pfile, name, loc)
 
 
 void
-_cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
+_cpp_execute_include (pfile, f, len, no_reinclude, search_start)
      cpp_reader *pfile;
-     char *fname;
+     U_CHAR *f;
      unsigned int len;
      int no_reinclude;
      struct file_name_list *search_start;
 {
   IHASH *ihash;
+  char *fname = (char *)f;
   int fd;
   int angle_brackets = fname[0] == '<';
   int before;
@@ -634,12 +616,12 @@ _cpp_execute_include (pfile, fname, len, no_reinclude, search_start)
 
   /* Actually process the file.  */
   if (no_reinclude)
-    ihash->control_macro = (const U_CHAR *) "";
+    ihash->control_macro = U"";
   
   if (read_include_file (pfile, fd, ihash))
     {
       if (angle_brackets)
-	pfile->system_include_depth++;   /* Decremented in file_cleanup. */
+	pfile->system_include_depth++;
     }
 }
 
@@ -663,7 +645,7 @@ cpp_read_file (pfile, fname)
   if (*fname == 0)
     dummy.hash = 0;
   else
-    dummy.hash = _cpp_calc_hash (fname, strlen (fname));
+    dummy.hash = _cpp_calc_hash ((const U_CHAR *)fname, strlen (fname));
   slot = (IHASH **) htab_find_slot_with_hash (pfile->all_include_files,
 					      (const void *) &dummy,
 					      dummy.hash, INSERT);
@@ -762,7 +744,7 @@ read_include_file (pfile, fd, ihash)
   if (length < 0)
     goto fail;
   if (length == 0)
-    ihash->control_macro = (const U_CHAR *) "";  /* never re-include */
+    ihash->control_macro = U"";  /* never re-include */
 
   close (fd);
   fp->rlimit = fp->buf + length;
@@ -771,7 +753,6 @@ read_include_file (pfile, fd, ihash)
       fp->system_header_p = ihash->foundhere->sysp;
   fp->lineno = 1;
   fp->line_base = fp->buf;
-  fp->cleanup = file_cleanup;
 
   /* The ->actual_dir field is only used when ignore_srcdir is not in effect;
      see do_include */

@@ -1,3 +1,17 @@
+2000-05-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* config.shared: Change "pic" to depend on $(PICFLAG), not
+	on $(enable_shared).
+
+2000-05-11  Robert Lipe <robertlipe@usa.net>
+
+	* configure.in: Remove special casing for sco3.2v[45].
+	* config/sco4.mt: Deleted.
+
+2000-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.in: Use mh-sparcpic for sparc*-*-*.
+
 2000-04-02  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* configure.in: Indent the # of #include_next one space.

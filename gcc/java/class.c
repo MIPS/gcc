@@ -320,7 +320,7 @@ push_class (class_type, class_name)
      tree class_type, class_name;
 {
   tree decl, signature;
-  char *save_input_filename = input_filename;
+  const char *save_input_filename = input_filename;
   int save_lineno = lineno;
   tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
   push_obstacks (&permanent_obstack, &permanent_obstack);
@@ -644,7 +644,11 @@ add_method_1 (handle_class, access_flags, name, function_type)
   if (access_flags & ACC_PROTECTED) METHOD_PROTECTED (fndecl) = 1;
   if (access_flags & ACC_PRIVATE)
     METHOD_PRIVATE (fndecl) = DECL_INLINE (fndecl) = 1;
-  if (access_flags & ACC_NATIVE) METHOD_NATIVE (fndecl) = 1;
+  if (access_flags & ACC_NATIVE)
+    {
+      METHOD_NATIVE (fndecl) = 1;
+      DECL_EXTERNAL (fndecl) = 1;
+    }
   if (access_flags & ACC_STATIC) 
     METHOD_STATIC (fndecl) = DECL_INLINE (fndecl) = 1;
   if (access_flags & ACC_FINAL) 

@@ -132,7 +132,8 @@ in the following sections.
 -Wparentheses -Wpointer-arith  -Wredundant-decls
 -Wreturn-type -Wshadow  -Wsign-compare -Wswitch
 -Wtrigraphs -Wundef  -Wuninitialized  -Wunknown-pragmas -Wunreachable-code 
--Wunused  -Wwrite-strings
+-Wunused -Wunused-function -Wunused-label -Wunused-parameter
+-Wunused-variable -Wunused-value -Wwrite-strings
 @end smallexample
 
 @item C-only Warning Options
@@ -1538,18 +1539,40 @@ provoke warnings when this option is used.
 @item -Wtrigraphs
 Warn if any trigraphs are encountered (assuming they are enabled).
 
+@item -Wunused-function
+Warn whenever a static function is declared but not defined or a
+non\-inline static function is unused.
+
+@item -Wunused-label
+Warn whenever a label is declared but not used.
+
+To suppress this warning use the @samp{unused} attribute
+(@pxref{Variable Attributes}).
+
+@item -Wunused-parameter
+Warn whenever a function parameter is unused aside from its declaration.
+
+To suppress this warning use the @samp{unused} attribute
+(@pxref{Variable Attributes}).
+
+@item -Wunused-variable
+Warn whenever a local variable or non-constant static variable is unused
+aside from its declaration
+
+To suppress this warning use the @samp{unused} attribute
+(@pxref{Variable Attributes}).
+
+@item -Wunused-value
+Warn whenever a statement computes a result that is explicitly not used.
+
+To suppress this warning cast the expression to @samp{void}.
+
 @item -Wunused
-Warn whenever a variable is unused aside from its declaration,
-whenever a function is declared static but never defined, whenever a
-label is declared but not used, and whenever a statement computes a
-result that is explicitly not used.
+All all the above @samp{-Wunused} options combined.
 
 In order to get a warning about an unused function parameter, you must
-specify both @samp{-W} and @samp{-Wunused}.
-
-To suppress this warning for an expression, simply cast it to void.  For
-unused variables, parameters and labels, use the @samp{unused} attribute
-(@pxref{Variable Attributes}).
+either specify @samp{-W -Wunused} or separatly specify
+@samp{-Wunused-parameter}.
 
 @item -Wuninitialized
 Warn if an automatic variable is used without first being initialized or
@@ -5270,15 +5293,15 @@ option, GCC will produce code that is slower and larger but which
 uses extremely little TOC space.  You may wish to use this option
 only on files that contain less frequently executed code. @refill
 
-@item -m64
-@itemx -m32
-@kindex -m64
-@kindex -m32
-Enable 64-bit PowerPC ABI and calling convention: 64-bit pointers, 64-bit
+@item -maix64
+@itemx -maix32
+@kindex -maix64
+@kindex -maix32
+Enable 64-bit AIX ABI and calling convention: 64-bit pointers, 64-bit
 @code{long} type, and the infrastructure needed to support them.
-Specifying @samp{-m64} implies @samp{-mpowerpc64} and
-@samp{-mpowerpc}, while @samp{-m32} disables the 64-bit ABI and
-implies @samp{-mno-powerpc64}.  GCC defaults to @samp{-m32}.
+Specifying @samp{-maix64} implies @samp{-mpowerpc64} and
+@samp{-mpowerpc}, while @samp{-maix32} disables the 64-bit ABI and
+implies @samp{-mno-powerpc64}.  GCC defaults to @samp{-maix32}.
 
 @item -mxl-call
 @itemx -mno-xl-call

@@ -104,8 +104,6 @@ static void expand_upcast_fixups
 static void fixup_virtual_upcast_offsets
 	PARAMS ((tree, tree, int, int, tree, tree, tree, tree,
 	       tree *));
-static tree marked_new_vtablep PARAMS ((tree, void *));
-static tree unmarked_new_vtablep PARAMS ((tree, void *));
 static tree marked_pushdecls_p PARAMS ((tree, void *));
 static tree unmarked_pushdecls_p PARAMS ((tree, void *));
 static tree dfs_debug_unmarkedp PARAMS ((tree, void *));
@@ -153,6 +151,7 @@ static void fixup_all_virtual_upcast_offsets PARAMS ((tree, tree));
 static tree get_shared_vbase_if_not_primary PARAMS ((tree, void *));
 static tree dfs_find_vbase_instance PARAMS ((tree, void *));
 static tree dfs_get_pure_virtuals PARAMS ((tree, void *));
+static tree dfs_build_inheritance_graph_order PARAMS ((tree, void *));
 
 /* Allocate a level of searching.  */
 
@@ -326,7 +325,7 @@ get_base_distance_recursive (binfo, depth, is_private, rval,
   tree binfos;
   int i, n_baselinks;
 
-  if (protect
+  if (protect == 1
       && !current_scope_in_chain
       && is_friend (BINFO_TYPE (binfo), current_scope ()))
     current_scope_in_chain = 1;
@@ -382,12 +381,15 @@ get_base_distance_recursive (binfo, depth, is_private, rval,
       tree base_binfo = TREE_VEC_ELT (binfos, i);
 
       int via_private
-	= (protect
-	   && (is_private
-	       || (!TREE_VIA_PUBLIC (base_binfo)
-		   && !(TREE_VIA_PROTECTED (base_binfo)
-			&& current_scope_in_chain)
-		   && !is_friend (BINFO_TYPE (binfo), current_scope ()))));
+	= ((protect == 1
+	    && (is_private
+		|| (!TREE_VIA_PUBLIC (base_binfo)
+		    && !(TREE_VIA_PROTECTED (base_binfo)
+			 && current_scope_in_chain)
+		    && !is_friend (BINFO_TYPE (binfo), current_scope ()))))
+	   || (protect > 1
+	       && (is_private || !TREE_VIA_PUBLIC (base_binfo))));
+
       int this_virtual = via_virtual || TREE_VIA_VIRTUAL (base_binfo);
 
       rval = get_base_distance_recursive (base_binfo, depth, via_private,
@@ -414,11 +416,14 @@ get_base_distance_recursive (binfo, depth, is_private, rval,
    Return -1 if TYPE is not derived from PARENT.
    Return -2 if PARENT is an ambiguous base class of TYPE, and PROTECT is
     non-negative.
-   Return -3 if PARENT is private to TYPE, and PROTECT is non-zero.
+   Return -3 if PARENT is not accessible in TYPE, and PROTECT is non-zero.
 
    If PATH_PTR is non-NULL, then also build the list of types
    from PARENT to TYPE, with TREE_VIA_VIRTUAL and TREE_VIA_PUBLIC
    set.
+
+   If PROTECT is greater than 1, ignore any special access the current
+   scope might have when determining whether PARENT is inaccessible.
 
    PARENT can also be a binfo, in which case that exact parent is found
    and no other.  convert_pointer_to_real uses this functionality.
@@ -467,7 +472,7 @@ get_base_distance (parent, binfo, protect, path_ptr)
       return 0;
     }
 
-  if (path_ptr)
+  if (path_ptr && watch_access == 0)
     watch_access = 1;
 
   rval = get_base_distance_recursive (binfo, 0, 0, -1,
@@ -1989,8 +1994,7 @@ covariant_return_p (brettype, drettype)
 {
   tree binfo;
 
-  if (TREE_CODE (brettype) == FUNCTION_DECL
-      || TREE_CODE (brettype) == THUNK_DECL)
+  if (TREE_CODE (brettype) == FUNCTION_DECL)
     {
       brettype = TREE_TYPE (TREE_TYPE (brettype));
       drettype = TREE_TYPE (TREE_TYPE (drettype));
@@ -2436,26 +2440,6 @@ unmarked_vtable_pathp (binfo, data)
   return !BINFO_VTABLE_PATH_MARKED (binfo) ? binfo : NULL_TREE; 
 }
 
-static tree 
-marked_new_vtablep (binfo, data) 
-     tree binfo;
-     void *data;
-{
-  struct vbase_info *vi = (struct vbase_info *) data;
-
-  return BINFO_NEW_VTABLE_MARKED (binfo, vi->type) ? binfo : NULL_TREE; 
-}
-
-static tree
-unmarked_new_vtablep (binfo, data) 
-     tree binfo;
-     void *data;
-{ 
-  struct vbase_info *vi = (struct vbase_info *) data;
-
-  return !BINFO_NEW_VTABLE_MARKED (binfo, vi->type) ? binfo : NULL_TREE; 
-}
-
 static tree
 marked_pushdecls_p (binfo, data) 
      tree binfo;
@@ -2474,20 +2458,9 @@ unmarked_pushdecls_p (binfo, data)
 	  && !BINFO_PUSHDECLS_MARKED (binfo)) ? binfo : NULL_TREE;
 }
 
-#if 0
-static int dfs_search_slot_nonempty_p (binfo) tree binfo;
-{ return CLASSTYPE_SEARCH_SLOT (BINFO_TYPE (binfo)) != 0; }
-#endif
-
 /* The worker functions for `dfs_walk'.  These do not need to
    test anything (vis a vis marking) if they are paired with
    a predicate function (above).  */
-
-#if 0
-static void
-dfs_mark (binfo) tree binfo;
-{ SET_BINFO_MARKED (binfo); }
-#endif
 
 tree
 dfs_unmark (binfo, data) 
@@ -2495,17 +2468,6 @@ dfs_unmark (binfo, data)
      void *data ATTRIBUTE_UNUSED;
 { 
   CLEAR_BINFO_MARKED (binfo); 
-  return NULL_TREE;
-}
-
-/* Clear BINFO_VTABLE_PATH_MARKED.  */
-
-tree
-dfs_vtable_path_unmark (binfo, data)
-     tree binfo;
-     void *data ATTRIBUTE_UNUSED;
-{ 
-  CLEAR_BINFO_VTABLE_PATH_MARKED (binfo); 
   return NULL_TREE;
 }
 
@@ -2539,7 +2501,6 @@ dfs_find_vbases (binfo, data)
 	}
     }
   SET_BINFO_VTABLE_PATH_MARKED (binfo);
-  SET_BINFO_NEW_VTABLE_MARKED (binfo, vi->type);
 
   return NULL_TREE;
 }
@@ -2553,8 +2514,6 @@ dfs_init_vbase_pointers (binfo, data)
   tree type = BINFO_TYPE (binfo);
   tree fields;
   tree this_vbase_ptr;
-
-  CLEAR_BINFO_VTABLE_PATH_MARKED (binfo);
 
   if (BINFO_INHERITANCE_CHAIN (binfo))
     {
@@ -2572,10 +2531,6 @@ dfs_init_vbase_pointers (binfo, data)
   /* We're going to iterate through all the pointers to virtual
      base-classes.  They come at the beginning of the class.  */
   fields = TYPE_FIELDS (type);
-  if (fields == TYPE_VFIELD (type))
-    /* If the first field is the vtbl pointer (as happens in the new
-       ABI), skip it.  */
-    fields = TREE_CHAIN (fields);
 
   if (fields == NULL_TREE
       || DECL_NAME (fields) == NULL_TREE
@@ -2608,14 +2563,12 @@ dfs_init_vbase_pointers (binfo, data)
 static tree
 dfs_clear_vbase_slots (binfo, data)
      tree binfo;
-     void *data;
+     void *data ATTRIBUTE_UNUSED;
 {
   tree type = BINFO_TYPE (binfo);
-  struct vbase_info *vi = (struct vbase_info *) data;
 
   CLASSTYPE_SEARCH_SLOT (type) = 0;
   CLEAR_BINFO_VTABLE_PATH_MARKED (binfo);
-  CLEAR_BINFO_NEW_VTABLE_MARKED (binfo, vi->type);
   return NULL_TREE;
 }
 
@@ -2624,6 +2577,8 @@ init_vbase_pointers (type, decl_ptr)
      tree type;
      tree decl_ptr;
 {
+  my_friendly_assert (!vbase_offsets_in_vtable_p (), 20000516);
+
   if (TYPE_USES_VIRTUAL_BASECLASSES (type))
     {
       struct vbase_info vi;
@@ -2647,7 +2602,7 @@ init_vbase_pointers (type, decl_ptr)
 		     marked_vtable_pathp,
 		     &vi);
 
-      dfs_walk (binfo, dfs_clear_vbase_slots, marked_new_vtablep, &vi);
+      dfs_walk (binfo, dfs_clear_vbase_slots, marked_vtable_pathp, NULL);
       flag_this_is_variable = old_flag;
       return vi.inits;
     }
@@ -2944,7 +2899,9 @@ expand_indirect_vtbls_init (binfo, decl_ptr)
      tree binfo;
      tree decl_ptr;
 {
-  tree type = BINFO_TYPE (binfo);
+  tree type;
+
+  type = BINFO_TYPE (binfo);
 
   /* This function executes during the finish_function() segment,
      AFTER the auto variables and temporary stack space has been marked
@@ -2965,9 +2922,9 @@ expand_indirect_vtbls_init (binfo, decl_ptr)
       vi.decl_ptr = decl_ptr;
       vi.vbase_types = vbases;
 
-      dfs_walk (binfo, dfs_find_vbases, unmarked_new_vtablep, &vi);
+      dfs_walk (binfo, dfs_find_vbases, NULL, &vi);
       fixup_all_virtual_upcast_offsets (type, vi.decl_ptr);
-      dfs_walk (binfo, dfs_clear_vbase_slots, marked_new_vtablep, &vi);
+      dfs_walk (binfo, dfs_clear_vbase_slots, marked_vtable_pathp, &vi);
     }
 }
 
