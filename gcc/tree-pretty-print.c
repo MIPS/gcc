@@ -2138,7 +2138,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
   for (; phi; phi = TREE_CHAIN (phi))
     {
-      if (is_gimple_reg (PHI_RESULT (phi)) || (flags && TDF_VOPS))
+      if (is_gimple_reg (PHI_RESULT (phi)) || (flags & TDF_VOPS))
         {
           INDENT (indent);
           pp_string (buffer, "# ");

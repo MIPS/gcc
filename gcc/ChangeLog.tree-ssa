@@ -1,3 +1,7 @@
+2003-12-03  Brian Booth  <bbooth@redhat.com>
+
+	* tree-pretty-print.c (dump_phi_nodes): Removed superfluous ampersand.
+
 2003-12-03  Jeff Law  <law@redhat.com>
 
 	* tree-phinodes.c: Include rtl.h for ceil_log2.
