@@ -1,3 +1,10 @@
+2002-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* dsp16xx-protos.h (dsp16xx_compare_gen): Change to bool.
+	* dsp16xx.c (dsp16xx_compare_gen): Likewise.
+	* dsp16xx.md: Treat dsp16xx_compare_gen as a bool.  Call functions
+	directly instead of using a function pointer.
+
 2002-09-03  Roger Sayle  <roger@eyesopen.com>
 
 	* builtins.c (build_function_call_expr): Remove prototype, export

@@ -58,7 +58,7 @@ const char *save_chip_name;
 
 rtx dsp16xx_compare_op0;
 rtx dsp16xx_compare_op1;
-rtx (*dsp16xx_compare_gen) PARAMS (());
+bool dsp16xx_compare_gen;
 
 static const char *fp;
 static const char *sp;
