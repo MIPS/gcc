@@ -91,9 +91,6 @@ struct walk_state
   /* Nonzero if the walker is inside a non-GIMPLE expression.  */
   int is_not_gimple : 1;
 
-  /* Nonzero if the walker is inside a VA_ARG_EXPR node.  */
-  int is_va_arg_expr : 1;
-
   /* Hash table used to avoid adding the same variable more than once.  */
   htab_t vars_found;
 
@@ -110,9 +107,6 @@ static const int opf_none	= 0;
 
 /* Operand is the target of an assignment expression.  */
 static const int opf_is_def 	= 1 << 0;
-
-/* Consider the operand virtual, regardless of aliasing information.  */
-static const int opf_force_vop	= 1 << 1;
 
 /* Debugging dumps.  */
 static FILE *dump_file;
@@ -360,7 +354,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	return;
 
       /* Avoid recursion.  */
-      flags |= opf_force_vop;
       code = subcode;
       class = TREE_CODE_CLASS (code);
       expr_p = &TREE_OPERAND (expr, 0);
@@ -388,8 +381,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	    ptr = SSA_NAME_VAR (ptr);
 	  ann = var_ann (ptr);
 	  if (ann->mem_tag)
-	    add_stmt_operand (&ann->mem_tag, stmt, flags|opf_force_vop,
-			      prev_vops);
+	    add_stmt_operand (&ann->mem_tag, stmt, flags, prev_vops);
 	}
 
       /* If a constant is used as a pointer, we can't generate a real
@@ -547,17 +539,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
 
 /* Add *VAR_P to the appropriate operand array of STMT.  FLAGS is as in
-   get_expr_operands.  The following are the rules used to decide
-   whether an operand belongs in OPS or VOPS:
-
-   1- Non-aliased scalar and pointer variables are real operands.
-
-   2- If a variable is aliased, all its aliases are added to the virtual
-      operands.
-
-   3- For non-scalar variables (arrays, structures, unions and complex
-      types), their virtual variable (see get_virtual_var) is added to the
-      virtual operands.
+   get_expr_operands.  If *VAR_P is a GIMPLE register, it will be added to
+   the statement's real operands, otherwise it is added to virtual
+   operands.
 
    PREV_VOPS is used when adding virtual operands to statements that
       already had them (See add_vdef and add_vuse).  */
@@ -565,7 +549,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 static void
 add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 {
-  bool is_scalar;
+  bool is_real_op;
   tree var, sym;
   varray_type aliases;
   size_t i;
@@ -588,10 +572,8 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   /* If the original variable is not a scalar, it will be added to the list
      of virtual operands.  In that case, use its base symbol as the virtual
      variable representing it.  */
-  is_scalar = (SSA_VAR_P (var)
-               && !AGGREGATE_TYPE_P (TREE_TYPE (var))
-	       && TREE_CODE (TREE_TYPE (var)) != COMPLEX_TYPE);
-  if (!is_scalar && !DECL_P (var))
+  is_real_op = is_gimple_reg (var);
+  if (!is_real_op && !DECL_P (var))
     var = get_virtual_var (var);
 
   /* If VAR is not a variable that we care to optimize, do nothing.  */
@@ -613,79 +595,65 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
       return;
     }
 
-  /* Globals, call-clobbered, local statics and variables referenced in
-     VA_ARG_EXPR are always accessed using virtual operands.  */
-  if (decl_function_context (sym) != current_function_decl
-      || TREE_STATIC (sym)
-      || v_ann->is_call_clobbered
-      || v_ann->is_in_va_arg_expr)
-    flags |= opf_force_vop;
-
-  /* If the variable is an alias tag, it means that its address has been
-     taken and it's being accessed directly and via pointers.  To avoid
-     mixing real and virtual operands, we treat all references to aliased
-     variables as virtual.  */
-  if (v_ann->is_alias_tag)
-    flags |= opf_force_vop;
-
-  aliases = v_ann->may_aliases;
-  if (aliases == NULL)
+  if (is_real_op)
     {
-      /* The variable is not aliased.  Add it as a real operand (unless
-	 opf_force_vop is set).  */
+      /* The variable is a GIMPLE register.  Add it to real operands.  */
       if (flags & opf_is_def)
-	{
-	  if (is_scalar && !(flags & opf_force_vop))
-	    add_def (var_p, stmt);
-	  else
-	    add_vdef (var, stmt, prev_vops);
-
-	  /* If the variable is an alias tag, mark the statement.  */
-	  if (v_ann->is_alias_tag)
-	    s_ann->makes_aliased_stores = 1;
-	}
+	add_def (var_p, stmt);
       else
-	{
-	  if (is_scalar
-	      && !(flags & opf_force_vop))
-	    add_use (var_p, stmt);
-	  else
-	    add_vuse (var, stmt, prev_vops);
-
-	  /* If the variable is an alias tag, mark the statement.  */
-	  if (v_ann->is_alias_tag)
-	    s_ann->makes_aliased_loads = 1;
-	}
+	add_use (var_p, stmt);
     }
   else
     {
-      if (VARRAY_ACTIVE_SIZE (aliases) == 0)
-	abort ();
-
-      /* The variable is aliased.  Add its aliases to the virtual operands.  */
-      if (flags & opf_is_def)
+      /* The variable is not a GIMPLE register.  Add it (or its aliases) to
+	 virtual operands.  */
+      aliases = v_ann->may_aliases;
+      if (aliases == NULL)
 	{
-	  /* If the variable is also an alias tag, add a virtual operand
-	     for it, otherwise we will miss representing references to the
-	     members of the variable's alias set.  This fixes the bug in
-	     gcc.c-torture/execute/20020503-1.c.  */
-	  if (v_ann->is_alias_tag)
-	    add_vdef (var, stmt, prev_vops);
-
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	    add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
-
-	  s_ann->makes_aliased_stores = 1;
+	  /* The variable is not aliased or it is an alias tag.  */
+	  if (flags & opf_is_def)
+	    {
+	      add_vdef (var, stmt, prev_vops);
+	      if (v_ann->is_alias_tag)
+		s_ann->makes_aliased_stores = 1;
+	    }
+	  else
+	    {
+	      add_vuse (var, stmt, prev_vops);
+	      if (v_ann->is_alias_tag)
+		s_ann->makes_aliased_loads = 1;
+	    }
 	}
       else
 	{
-	  if (v_ann->is_alias_tag)
-	    add_vuse (var, stmt, prev_vops);
+	  /* The variable is aliased.  Add its aliases to the virtual operands.  */
+	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
+	    abort ();
 
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	    add_vuse (VARRAY_TREE (aliases, i), stmt, prev_vops);
+	  if (flags & opf_is_def)
+	    {
+	      /* If the variable is also an alias tag, add a virtual operand
+		for it, otherwise we will miss representing references to the
+		members of the variable's alias set.  This fixes the bug in
+		gcc.c-torture/execute/20020503-1.c.  */
+	      if (v_ann->is_alias_tag)
+		add_vdef (var, stmt, prev_vops);
 
-	  s_ann->makes_aliased_loads = 1;
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+		add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
+
+	      s_ann->makes_aliased_stores = 1;
+	    }
+	  else
+	    {
+	      if (v_ann->is_alias_tag)
+		add_vuse (var, stmt, prev_vops);
+
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+		add_vuse (VARRAY_TREE (aliases, i), stmt, prev_vops);
+
+	      s_ann->makes_aliased_loads = 1;
+	    }
 	}
     }
 }
@@ -900,7 +868,7 @@ add_call_clobber_ops (tree stmt, voperands_t prev_vops)
      operand for every call clobbered variable.  See add_referenced_var for
      the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
   if (global_var)
-    add_stmt_operand (&global_var, stmt, opf_force_vop|opf_is_def, prev_vops);
+    add_stmt_operand (&global_var, stmt, opf_is_def, prev_vops);
   else
     {
       size_t i;
@@ -911,9 +879,9 @@ add_call_clobber_ops (tree stmt, voperands_t prev_vops)
 
 	  /* If VAR is read-only, don't add a VDEF, just a VUSE operand.  */
 	  if (!TREE_READONLY (var))
-	    add_stmt_operand (&var, stmt, opf_force_vop|opf_is_def, prev_vops);
+	    add_stmt_operand (&var, stmt, opf_is_def, prev_vops);
 	  else
-	    add_stmt_operand (&var, stmt, opf_force_vop, prev_vops);
+	    add_stmt_operand (&var, stmt, opf_none, prev_vops);
 	}
     }
 }
@@ -930,7 +898,7 @@ add_call_read_ops (tree stmt, voperands_t prev_vops)
      for each call-clobbered variable.  See add_referenced_var for the
      heuristic used to decide whether to create .GLOBAL_VAR.  */
   if (global_var)
-    add_stmt_operand (&global_var, stmt, opf_force_vop, prev_vops);
+    add_stmt_operand (&global_var, stmt, opf_none, prev_vops);
   else
     {
       size_t i;
@@ -938,7 +906,7 @@ add_call_read_ops (tree stmt, voperands_t prev_vops)
       for (i = 0; i < num_call_clobbered_vars; i++)
 	{
 	  tree var = call_clobbered_var (i);
-	  add_stmt_operand (&var, stmt, opf_force_vop, prev_vops);
+	  add_stmt_operand (&var, stmt, opf_none, prev_vops);
 	}
     }
 }
@@ -1530,9 +1498,6 @@ dump_variable (FILE *file, tree var)
 
   if (ann->is_stored)
     fprintf (file, ", is stored");
-
-  if (ann->is_in_va_arg_expr)
-    fprintf (file, ", is used in va_arg");
 
   if (ann->default_def)
     {
@@ -2509,13 +2474,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 	 references inside (structures and arrays).  */
       return NULL_TREE;
     }
-  else if (TREE_CODE (t) == VA_ARG_EXPR)
-    {
-      walk_state->is_va_arg_expr = 1;
-      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, walk_state, NULL);
-      walk_state->is_va_arg_expr = 0;
-      return t;
-    }
 
   if (SSA_VAR_P (t))
     {
@@ -2573,11 +2531,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 
   v_ann = get_var_ann (var);
 
-  /* If the variable has already been flagged as having hidden uses,
-     ignore it.  */
-  if (v_ann->has_hidden_use)
-    return;
-
   if (walk_state)
     slot = htab_find_slot (walk_state->vars_found, (void *) var, INSERT);
   else
@@ -2627,12 +2580,8 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
 	}
 
-      /* Addressable variables, memory tags, static locals and
-	 DECL_NONLOCALs may be used or clobbered by function calls.  */
-      if (is_addressable
-	  || v_ann->is_mem_tag
-	  || (var != global_var && TREE_STATIC (var))
-	  || DECL_NONLOCAL (var))
+      /* Add call clobbered variables to a separate array.  */
+      if (is_gimple_call_clobbered (var))
 	{
 	  add_call_clobbered_var (var);
 	  v_ann->is_call_clobbered = 1;
@@ -2663,11 +2612,6 @@ add_referenced_var (tree var, struct walk_state *walk_state)
      be in GIMPLE form.  */
   if (walk_state->is_not_gimple)
     v_ann->has_hidden_use = 1;
-
-  /* If VAR is being referenced inside a VA_ARG_EXPR, mark it so that all
-     operands to VAR are always virtual.  */
-  if (walk_state->is_va_arg_expr)
-    v_ann->is_in_va_arg_expr = 1;
 
   /* If the variable is a pointer being clobbered by an ASM_EXPR, the
      pointer may end up pointing to global memory.  */
@@ -2744,6 +2688,9 @@ get_memory_tag_for (tree ptr)
       tag_ann = get_var_ann (tag);
       tag_ann->is_mem_tag = 1;
       tag_ann->mem_tag = NULL_TREE;
+
+      /* Mark the tag volatile to prevent using it as a real operand.  */
+      TREE_THIS_VOLATILE (tag) = 1;
 
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that

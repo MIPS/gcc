@@ -40,37 +40,42 @@ extern void annotate_all_with_locus (tree *, location_t);
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
 
-/* Returns 1 iff T is a valid GIMPLE statement.  */
-int is_gimple_stmt (tree);
+/* Returns true iff T is a valid GIMPLE statement.  */
+bool is_gimple_stmt (tree);
 
-/* Returns 1 iff TYPE is a valid type for a scalar register variable.  */
+/* Returns true iff TYPE is a valid type for a scalar register variable.  */
 bool is_gimple_reg_type (tree);
-/* Returns 1 iff T is a scalar register variable.  */
-int is_gimple_reg (tree);
-/* Returns 1 iff T is any sort of variable.  */
-int is_gimple_variable (tree);
-/* Returns 1 iff T is a variable or an INDIRECT_REF (of a variable).  */
-int is_gimple_min_lval (tree);
-/* Returns 1 iff T is an lvalue other than an INDIRECT_REF.  */
-int is_gimple_addr_expr_arg (tree);
-/* Returns 1 iff T is any valid GIMPLE lvalue.  */
-int is_gimple_lvalue (tree);
+/* Returns true iff T is a scalar register variable.  */
+bool is_gimple_reg (tree);
+/* Returns true iff T is any sort of variable.  */
+bool is_gimple_variable (tree);
+/* Returns true iff T is a variable or an INDIRECT_REF (of a variable).  */
+bool is_gimple_min_lval (tree);
+/* Returns true iff T is an lvalue other than an INDIRECT_REF.  */
+bool is_gimple_addr_expr_arg (tree);
+/* Returns true iff T is any valid GIMPLE lvalue.  */
+bool is_gimple_lvalue (tree);
 
-/* Returns 1 iff T is a GIMPLE restricted function invariant.  */
-int is_gimple_min_invariant (tree);
-/* Returns 1 iff T is a GIMPLE rvalue.  */
-int is_gimple_val (tree);
-/* Returns 1 iff T is a valid rhs for a MODIFY_EXPR.  */
-int is_gimple_rhs (tree);
+/* Returns true iff T is a GIMPLE restricted function invariant.  */
+bool is_gimple_min_invariant (tree);
+/* Returns true iff T is a GIMPLE rvalue.  */
+bool is_gimple_val (tree);
+/* Returns true iff T is a valid rhs for a MODIFY_EXPR.  */
+bool is_gimple_rhs (tree);
 
-/* Returns 1 iff T is a valid if-statement condition.  */
-int is_gimple_condexpr (tree);
+/* Returns true iff T is a valid if-statement condition.  */
+bool is_gimple_condexpr (tree);
 
-/* Returns 1 iff T is a type conversion.  */
-int is_gimple_cast (tree);
-/* Returns 1 iff T is a valid CONSTRUCTOR element (either an rvalue or
+/* Returns true iff T is a type conversion.  */
+bool is_gimple_cast (tree);
+/* Returns true iff T is a valid CONSTRUCTOR element (either an rvalue or
    another CONSTRUCTOR).  */
-int is_gimple_constructor_elt (tree);
+bool is_gimple_constructor_elt (tree);
+/* Returns true iff T is a variable that does not need to live in memory.  */
+bool is_gimple_non_addressable (tree t);
+/* Returns true iff T is a variable that may be modified by function
+   calls.  */
+bool is_gimple_call_clobbered (tree t);
 
 void recalculate_side_effects (tree);
 
@@ -95,7 +100,7 @@ enum gimplify_status {
 };
 
 enum gimplify_status gimplify_expr (tree *, tree *, tree *,
-				    int (*) (tree), fallback_t);
+				    bool (*) (tree), fallback_t);
 void gimplify_stmt (tree *);
 void gimplify_to_stmt_list (tree *);
 void gimplify_body (tree *, tree);

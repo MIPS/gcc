@@ -163,7 +163,8 @@ Boston, MA 02111-1307, USA.  */
 
 */
 
-static int is_gimple_id (tree);
+static inline bool is_gimple_id (tree);
+static inline bool is_gimple_non_addressable_1 (tree t);
 
 /* Validation of GIMPLE expressions.  */
 
@@ -177,7 +178,7 @@ static int is_gimple_id (tree);
 	      | val binop val
 	      | '(' cast ')' val  */
 
-int
+bool
 is_gimple_rhs (tree t)
 {
   enum tree_code code = TREE_CODE (t);
@@ -219,7 +220,7 @@ is_gimple_rhs (tree t)
 /* Returns nonzero if T is a valid CONSTRUCTOR component in GIMPLE, either
    a val or another CONSTRUCTOR.  */
 
-int
+bool
 is_gimple_constructor_elt (tree t)
 {
   return (is_gimple_val (t)
@@ -228,7 +229,7 @@ is_gimple_constructor_elt (tree t)
 
 /*  Return nonzero if T is a valid LHS for a GIMPLE assignment expression.  */
 
-int
+bool
 is_gimple_lvalue (tree t)
 {
   return (is_gimple_addr_expr_arg (t)
@@ -245,7 +246,7 @@ is_gimple_lvalue (tree t)
 	      : val
 	      | val relop val  */
 
-int
+bool
 is_gimple_condexpr (tree t)
 {
   return (is_gimple_val (t)
@@ -260,7 +261,7 @@ is_gimple_condexpr (tree t)
 	      | compref
 	      | ID     */
 
-int
+bool
 is_gimple_addr_expr_arg (tree t)
 {
   return (is_gimple_id (t)
@@ -275,7 +276,7 @@ is_gimple_addr_expr_arg (tree t)
    looks deeper than the TREE_CODE; this is necessary because, e.g.,
    some GIMPLE PLUS_EXPRs are considered invariant and some are not.  */
 
-int
+bool
 is_gimple_min_invariant (tree t)
 {
   tree tmp = t;
@@ -310,7 +311,7 @@ is_gimple_min_invariant (tree t)
 
 /* Return nonzero if T looks like a valid GIMPLE statement.  */
 
-int
+bool
 is_gimple_stmt (tree t)
 {
   enum tree_code code = TREE_CODE (t);
@@ -359,7 +360,7 @@ is_gimple_stmt (tree t)
 
 /* Return nonzero if T is a variable.  */
 
-int
+bool
 is_gimple_variable (tree t)
 {
   return (TREE_CODE (t) == VAR_DECL
@@ -370,7 +371,7 @@ is_gimple_variable (tree t)
 
 /*  Return nonzero if T is a GIMPLE identifier (something with an address).  */
 
-static int
+static inline bool
 is_gimple_id (tree t)
 {
   return (is_gimple_variable (t)
@@ -386,14 +387,30 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  return (TYPE_MODE (type) != BLKmode
-	  && TREE_CODE (type) != ARRAY_TYPE
-	  && !TREE_ADDRESSABLE (type));
+  return (!AGGREGATE_TYPE_P (type)
+          && TREE_CODE (type) != COMPLEX_TYPE);
+}
+
+/* Helper for is_gimple_reg, is_gimple_non_addressable and
+   is_gimple_call_clobbbered.  It silently assumes that T is a gimple
+   variable.  */
+
+static inline
+bool is_gimple_non_addressable_1 (tree t)
+{
+  return (! TREE_STATIC (t)
+	  && ! DECL_EXTERNAL (t)
+	  && ! TREE_ADDRESSABLE (t)
+	  /* A volatile decl is not acceptable because we can't reuse it as
+	     needed.  We need to copy it into a temp first.  */
+	  && ! TREE_THIS_VOLATILE (t)
+	  && ! DECL_NONLOCAL (t)
+	  && decl_function_context (t) == current_function_decl);
 }
 
 /* Return nonzero if T is a scalar register variable.  */
 
-int
+bool
 is_gimple_reg (tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
@@ -401,18 +418,37 @@ is_gimple_reg (tree t)
 
   return (is_gimple_variable (t)
 	  && is_gimple_reg_type (TREE_TYPE (t))
-	  && ! TREE_STATIC (t)
-	  && ! DECL_EXTERNAL (t)
-	  && ! TREE_ADDRESSABLE (t)
-	  /* A volatile decl is not acceptable because we can't reuse it as
-	     needed.  We need to copy it into a temp first.  */
-	  && ! TREE_THIS_VOLATILE (t));
+	  && is_gimple_non_addressable_1 (t));
+}
+
+/* Return nonzero if T does not need to live in memory.  */
+
+bool
+is_gimple_non_addressable (tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
+  return (is_gimple_variable (t)
+	  && is_gimple_non_addressable_1 (t));
+}
+
+/* Return true if T may be clobbered by function calls.  */
+
+bool
+is_gimple_call_clobbered (tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
+  return (is_gimple_variable (t)
+          && !is_gimple_non_addressable_1 (t));
 }
 
 /*  Return nonzero if T is a GIMPLE rvalue, i.e. an identifier or a
     constant.  */
 
-int
+bool
 is_gimple_val (tree t)
 {
   /* Make loads from volatiles and memory vars explicit.  */
@@ -437,7 +473,7 @@ is_gimple_val (tree t)
     This never actually appears in the original SIMPLE grammar, but is
     repeated in several places.  */
 
-int
+bool
 is_gimple_min_lval (tree t)
 {
   return (is_gimple_id (t)
@@ -447,7 +483,7 @@ is_gimple_min_lval (tree t)
 /*  Return nonzero if T is a typecast operation of the form
     '(' cast ')' val.  */
 
-int
+bool
 is_gimple_cast (tree t)
 {
   return (TREE_CODE (t) == NOP_EXPR

@@ -1,3 +1,32 @@
+2003-11-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Change gimple_test_f argument to
+	return bool type.
+	(mark_decls_volatile_r): New local function.
+	(gimplify_expr): Make gimple_test_f return bool type.
+	Call mark_decls_volatile_r when gimplifying VA_ARG_EXPR.
+	* tree-dfa.c (struct walk_state): Remove field is_va_arg_expr.
+	Update all callers.
+	(opf_force_vop): Remove.  Update all users.
+	(add_stmt_operand): Re-structure to add real operands only for
+	GIMPLE register variables.
+	(find_vars_r): Don't handle VA_ARG_EXPR nodes.
+	(add_referenced_var): Also assign a UID to variables with hidden
+	uses.
+	Call is_gimple_call_clobbered to determine if a variable is call
+	clobbered.
+	(get_memory_tag_for): Mark memory tags volatile and static.
+	* tree-flow.h (struct var_ann_d): Remove field is_in_va_arg_expr.
+	Update all users.
+	* tree-simple.c (is_gimple_*): Change return type to bool.  Update
+	all users.
+	(is_gimple_reg_type): Return true only for non aggregate types.
+	(is_gimple_non_addressable_1): New local function.
+	(is_gimple_reg): Call it.
+	(is_gimple_non_addressable): New function.
+	(is_gimple_call_clobbered): New function.
+	* tree-simple.h (is_gimple_*): Change return type to bool.
+
 2003-11-17  Jason Merrill  <jason@redhat.com>
 
 	PR c++/11266

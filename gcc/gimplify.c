@@ -1641,7 +1641,7 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 static enum gimplify_status
 gimplify_call_expr (tree *expr_p, tree *pre_p, tree *post_p,
-		    int (*gimple_test_f) (tree))
+		    bool (*gimple_test_f) (tree))
 {
   tree decl;
   tree arglist;
@@ -2732,6 +2732,21 @@ gimplify_to_stmt_list (tree *stmt_p)
     }
 }
 
+
+/* Mark all the _DECL nodes under *TP as volatile.  FIXME: This must die
+   after VA_ARG_EXPRs are properly lowered.  */
+
+static tree
+mark_decls_volatile_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  if (SSA_VAR_P (*tp))
+    TREE_THIS_VOLATILE (*tp) = 1;
+
+  return NULL_TREE;
+}
+
+
 /*  Gimplifies the expression tree pointed by EXPR_P.  Return 0 if
     gimplification failed.
 
@@ -2763,7 +2778,7 @@ gimplify_to_stmt_list (tree *stmt_p)
 
 enum gimplify_status
 gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
-	       int (* gimple_test_f) (tree), fallback_t fallback)
+	       bool (* gimple_test_f) (tree), fallback_t fallback)
 {
   tree tmp;
   tree internal_pre = NULL_TREE;
@@ -2887,6 +2902,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case VA_ARG_EXPR:
+	  /* Mark any _DECL inside the operand as volatile to avoid the
+	     optimizers messing around with it. FIXME: Remove this once
+	     VA_ARG_EXPRs are properly lowered.  */
+	  walk_tree (&TREE_OPERAND (*expr_p, 0), mark_decls_volatile_r,
+		     NULL, NULL);
+
 	  /* va_arg expressions are in GIMPLE form already.  */
 	  ret = GS_ALL_DONE;
 	  break;
