@@ -166,6 +166,15 @@ struct stmt_ann_d GTY(())
      it should be renamed.  */
   unsigned in_ccp_worklist: 1;
 
+  /* Nonzero if the statement makes aliased loads.  */
+  unsigned makes_aliased_loads : 1;
+
+  /* Nonzero if the statement makes aliased stores.  */
+  unsigned makes_aliased_stores : 1;
+
+  /* Nonzero if the statement makes references to volatile storage.  */
+  unsigned has_volatile_ops : 1;
+
   /* Basic block that contains this statement.  */
   basic_block GTY ((skip (""))) bb;
 
@@ -395,6 +404,8 @@ extern void debug_reaching_defs		PARAMS ((void));
 extern void dump_tree_ssa		PARAMS ((FILE *));
 extern void debug_tree_ssa		PARAMS ((void));
 extern void debug_def_blocks		PARAMS ((void));
+extern void dump_tree_ssa_stats		PARAMS ((FILE *));
+extern void debug_tree_ssa_stats	PARAMS ((void));
 
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre		PARAMS ((tree));

@@ -1,3 +1,58 @@
+2003-03-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_stmt): Don't assume that the statement is in
+	SSA form.
+
+	* tree-flow.h (dump_tree_ssa_stats): Declare.
+	(debug_tree_ssa_stats): Declare.
+	(stmt_ann_d): Add new statement flags 'makes_aliased_loads',
+	'makes_aliased_stores', and 'has_volatile_ops'.
+	* tree-dfa.c (add_stmt_operand): Set new statement flags accordingly.
+
+	* tree-pretty-print.c (dump_generic_node): Various cosmetic changes
+	to the rendering of some expressions.
+
+	* tree-ssa.c (struct var_value_d): Rename from struct currdef_d.
+	Rename field 'currdef' to 'value'.  Update all users.
+	(avail_exprs): New local hash table.
+	(const_and_copies): New local hash table.
+	(struct ssa_stats_d): Declare.
+	(ssa_stats): New local variable.
+	(rewrite_into_ssa): Deallocate avail_exprs and const_and_copies
+	after renaming.
+	Call dump_tree_ssa_stats() if -fdump-tree-ssa-stats is given.
+	(rewrite_block): Document the renaming process.
+	Add new local stack block_avail_exprs to keep track of expressions
+	made available in this block and its children.
+	(rewrite_stmts): Move body inside rewrite_block.
+	(dump_tree_ssa_stats): New function.
+	(debug_tree_ssa_stats): New function.
+	(get_def_blocks): New function.
+	(insert_phi_nodes_for): Call it.
+	(rewrite_stmt): Add support for keeping track of copies, constants
+	and globally redundant expressions.
+	(rewrite_operand): If a pointer has been copy propagated into
+	another one, rewrite INDIRECT_REF nodes of the original pointer to
+	refer to the new one.
+	(register_new_def): Add new argument 'var' indicating which 
+	variable is this new definition for.  Update all users.
+	(update_indirect_ref_vuses): New function.
+	(update_pointer_vuses): New function.
+	(init_tree_ssa): Set variable 'ssa_stats' to zero.
+	Allocate memory for 'avail_exprs' and 'const_and_copies'.
+	(currdef_for): Don't mark inline.
+	Call get_value_for and set_value_for.
+	(set_currdef_for): Remove.  Update all users.
+	(var_value_hash): Rename from currdef_hash.  Update all users.
+	(var_value_eq): Rename from currdef_eq.  Update all users.
+	(get_value_for): New function.
+	(set_value_for): New function.
+	(lookup_avail_expr): New function.
+	(avail_expr_hash): New function.
+	(avail_expr_eq): New function.
+	(get_def_blocks_for): New function.
+	(var_is_live): New function.
+
 2003-03-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-ccp.c (likely_value): Don't assume CONSTANT if the

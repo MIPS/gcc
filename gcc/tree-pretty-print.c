@@ -895,35 +895,27 @@ dump_generic_node (buffer, node, spc, flags)
       break;
 
     case MIN_EXPR:
-      /* #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))  */
+      output_add_string (buffer, "MIN_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " < ");
+      output_add_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
-      output_add_string (buffer, " ? ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " : ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
+      output_add_character (buffer, '>');
       break;
 
     case MAX_EXPR:
-      /* #define MAX(X,Y) ((X) > (Y) ? (X) : (Y))  */
+      output_add_string (buffer, "MAX_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " > ");
+      output_add_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
-      output_add_string (buffer, " ? ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " : ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
+      output_add_character (buffer, '>');
       break;
 
     case ABS_EXPR:
-      /* n < 0 ? -n : n */
+      output_add_string (buffer, "ABS_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " < 0 ? -");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, " : ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
+      output_add_character (buffer, '>');
       break;
+
       
     case FFS_EXPR:
       NIY;
@@ -1000,32 +992,35 @@ dump_generic_node (buffer, node, spc, flags)
       break;
 
     case COMPLEX_EXPR:
-      output_add_string (buffer, "__complex__ (");
+      output_add_string (buffer, "COMPLEX_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
       output_add_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags);
-      output_add_string (buffer, ")");
+      output_add_string (buffer, ">");
       break;
 
     case CONJ_EXPR:
-      output_add_string (buffer, "__builtin_conjf (");
+      output_add_string (buffer, "CONJ_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
+      output_add_string (buffer, ">");
       break;
 
     case REALPART_EXPR:
-      output_add_string (buffer, "__real__ ");
+      output_add_string (buffer, "REALPART_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
+      output_add_string (buffer, ">");
       break;
 
     case IMAGPART_EXPR:
-      output_add_string (buffer, "__imag__ ");
+      output_add_string (buffer, "IMAGPART_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
+      output_add_string (buffer, ">");
       break;
 
     case VA_ARG_EXPR:
-      output_add_string (buffer, "__builtin_va_arg (");
+      output_add_string (buffer, "VA_ARG_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags);
-      output_add_string (buffer, ")");
+      output_add_string (buffer, ">");
       break;
 
     case TRY_FINALLY_EXPR:
@@ -1333,8 +1328,7 @@ dump_generic_node (buffer, node, spc, flags)
 	output_add_string (buffer, " = PHI <");
 	for (i = 0; i < PHI_NUM_ARGS (node); i++)
 	  {
-	    dump_generic_node (buffer, PHI_ARG_DEF (node, i),
-			       spc, flags);
+	    dump_generic_node (buffer, PHI_ARG_DEF (node, i), spc, flags);
 	    if (i < PHI_NUM_ARGS (node) - 1)
 	      output_add_string (buffer, ", ");
 	  }

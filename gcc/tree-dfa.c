@@ -524,6 +524,7 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   tree var;
   varray_type aliases;
   size_t i;
+  stmt_ann_t ann;
 
   var = *var_p;
   STRIP_NOPS (var);
@@ -538,6 +539,8 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
   /* If VAR is not a variable, do nothing.  */
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
+
+  ann = stmt_ann (stmt);
 
   aliases = may_aliases (var);
   if (aliases == NULL)
@@ -571,6 +574,11 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
 	  else
 	    add_vuse (var, stmt, prev_vops);
 	}
+
+      /* If the variable is volatile, inform the statement that it makes
+	 volatile storage references.  */
+      if (TREE_THIS_VOLATILE (var))
+	ann->has_volatile_ops = 1;
     }
   else
     {
@@ -579,11 +587,15 @@ add_stmt_operand (var_p, stmt, flags, prev_vops)
 	{
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	    add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
+
+	  ann->makes_aliased_stores = 1;
 	}
       else
 	{
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	    add_vuse (VARRAY_TREE (aliases, i), stmt, prev_vops);
+
+	  ann->makes_aliased_loads = 1;
 	}
     }
 
@@ -1249,6 +1261,7 @@ debug_immediate_uses_for (stmt)
 {
   dump_immediate_uses_for (stderr, stmt);
 }
+
 
 /* Dump various DFA statistics to FILE.  */
 

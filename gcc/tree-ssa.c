@@ -86,12 +86,49 @@ struct def_blocks_d
    reaching SSA_NAME node.  */
 static htab_t currdefs;
 
-/* Structure to map variables and their current reaching definition.  */
-struct currdef_d
+/* Structure to map variables to values.  It's used to keep track of the
+   current reaching definition, constant values and variable copies while
+   renaming.  */
+struct var_value_d
 {
   tree var;
-  tree currdef;
+  tree value;
 };
+
+/* Hash table with expressions made available during the renaming process.
+   When an assignment of the form X_i = EXPR is found, the statement is
+   stored in this table.  If the same expression EXPR is later found on the
+   RHS of another statement, it is replaced with X_i (thus performing
+   global redundancy elimination). */
+static htab_t avail_exprs;
+
+/* Hash table of constant values and copies indexed by SSA name.  When the
+   renaming pass finds an assignment of a constant (X_i = C) or a copy
+   assignment from another SSA variable (X_i = Y_j), it creates a mapping
+   between X_i and the RHS in this table.  This mapping is used later on,
+   when renaming uses of X_i.  If an assignment to X_i is found in this
+   table, instead of using X_i, we use the RHS of the statement stored in
+   this table (thus performing very simplistic copy and constant
+   propagation).  */
+static htab_t const_and_copies;
+
+
+/* Statistics for dominator optimizations.  */
+struct ssa_stats_d
+{
+  long num_stmts;
+  long num_exprs_considered;
+  long num_const_prop;
+  long num_copy_prop;
+  long num_re;
+  /* FIXME.  [UNSSA] Not needed after SSA->normal pass is working.  */
+#if 1
+  long blocked_optimizations;
+  long blocked_by_life_crossing;
+#endif
+};
+
+static struct ssa_stats_d ssa_stats;
 
 
 /* Local functions.  */
@@ -103,20 +140,33 @@ static void set_def_block		PARAMS ((tree, basic_block));
 static void set_livein_block		PARAMS ((tree, basic_block));
 static void insert_phi_nodes		PARAMS ((bitmap *, sbitmap));
 static void rewrite_block		PARAMS ((basic_block));
-static void rewrite_stmts		PARAMS ((basic_block, varray_type *));
-static void rewrite_stmt		PARAMS ((tree, varray_type *));
+static void rewrite_stmt		PARAMS ((block_stmt_iterator,
+						 varray_type *,
+						 varray_type *));
 static inline void rewrite_operand	PARAMS ((tree *));
-static void register_new_def		PARAMS ((tree, varray_type *));
+static void register_new_def		PARAMS ((tree, tree, varray_type *));
+static void update_indirect_ref_vuses	PARAMS ((tree, tree, varray_type));
+static void update_pointer_vuses	PARAMS ((tree, tree, varray_type));
 static void insert_phi_nodes_for	PARAMS ((tree, bitmap *));
 static tree remove_annotations_r	PARAMS ((tree *, int *, void *));
-static inline tree currdef_for		PARAMS ((tree, int));
-static inline void set_currdef_for	PARAMS ((tree, tree));
+static tree currdef_for			PARAMS ((tree, int));
+static tree get_value_for		PARAMS ((tree, htab_t));
+static void set_value_for		PARAMS ((tree, tree, htab_t));
 static hashval_t def_blocks_hash	PARAMS ((const void *));
 static int def_blocks_eq		PARAMS ((const void *, const void *));
-static hashval_t currdef_hash		PARAMS ((const void *));
-static int currdef_eq			PARAMS ((const void *, const void *));
+static hashval_t var_value_hash		PARAMS ((const void *));
+static int var_value_eq			PARAMS ((const void *, const void *));
 static void def_blocks_free		PARAMS ((void *));
 static int debug_def_blocks_r		PARAMS ((void **, void *));
+static tree lookup_avail_expr		PARAMS ((tree, varray_type *));
+static hashval_t avail_expr_hash	PARAMS ((const void *));
+static int avail_expr_eq		PARAMS ((const void *, const void *));
+static struct def_blocks_d *get_def_blocks_for PARAMS ((tree));
+
+/* FIXME: [UNSSA] Remove once the real unSSA pass is implemented.  */
+#if 1
+static bool var_is_live			PARAMS ((tree, basic_block));
+#endif
 
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
@@ -253,12 +303,17 @@ rewrite_into_ssa (fndecl)
   free_dominance_info (idom);
   htab_delete (def_blocks);
   htab_delete (currdefs);
+  htab_delete (avail_exprs);
+  htab_delete (const_and_copies);
 
   /* Debugging dumps.  */
   if (tree_ssa_dump_file)
     {
       if (tree_ssa_dump_flags & TDF_STATS)
-	dump_dfa_stats (tree_ssa_dump_file);
+	{
+	  dump_dfa_stats (tree_ssa_dump_file);
+	  dump_tree_ssa_stats (tree_ssa_dump_file);
+	}
 
       dump_end (TDI_ssa, tree_ssa_dump_file);
       tree_ssa_dump_file = NULL;
@@ -520,43 +575,108 @@ insert_phi_nodes (dfs, globals)
 
 
 /* Perform a depth-first traversal of the dominator tree looking for
-   variables to rename.  BB is the block where to start searching.  */
+   variables to rename.  BB is the block where to start searching.
+   Renaming is a five step process:
+
+   1- Every definition made by PHI nodes at the start of the blocks is
+      registered as the current definition for the corresponding variable.
+
+   2- Every statement in BB is rewritten.  USE and VUSE operands are
+      rewritten with their corresponding reaching definition.  DEF and
+      VDEF targets are registered as new definitions.
+      
+      This step performs some quick and simple value number optimizations.
+      Expressions computed by each statement are looked up in the
+      AVAIL_EXPRS table.  If a statement is found to make a redundant
+      computation, it is marked for removal.  Otherwise, the expression
+      computed by the statement is assigned a value number and entered into
+      the AVAIL_EXPRS table.  See try_optimize_stmt for details on the
+      types of redundancies handled during renaming.
+
+   3- All the PHI nodes in successor blocks of BB are visited.  The
+      argument corresponding to BB is replaced with its current reaching
+      definition.
+
+   4- Recursively rewrite every dominator child block of BB.
+
+   5- Restore (in reverse order) the current reaching definition for every
+      new definition introduced in this block.  This is done so that when
+      we return from the recursive call, all the current reaching
+      definitions are restored to the names that were valid in the
+      dominator parent of BB.
+
+      This step also removes all the expressions added to the AVAIL_EXPRS
+      table during renaming.  This is because the expressions made
+      available to block BB and its dominator children are not valid for
+      blocks above BB in the dominator tree.  */
 
 static void
 rewrite_block (bb)
      basic_block bb;
 {
   edge e;
-  varray_type block_defs;
+  varray_type block_defs, block_avail_exprs;
   bitmap children;
   unsigned long i;
+  block_stmt_iterator si;
+  tree phi;
 
+  /* Initialize the local stacks.
+     
+     BLOCK_DEFS is used to save all the existing reaching definitions for
+	the new SSA names introduced in this block.  Before registering a
+	new definition for a variable, the existing reaching definition is
+	pushed into this stack so that we can restore it in Step 5.
+
+     BLOCK_AVAIL_EXPRS is used to store all the expressions made available
+	in this block.  Since expressions made available in this block are
+	only valid in blocks dominated by BB, when we finish rewriting BB
+	and its dominator children, we have to remove these expressions
+	from the AVAIL_EXPRS table.  This stack is used to know which
+	expressions to remove from the table.  */
   VARRAY_TREE_INIT (block_defs, 20, "block_defs");
+  VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
 
-  rewrite_stmts (bb, &block_defs);
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    fprintf (tree_ssa_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
-  /* Visit all the successor blocks of BB looking for PHI nodes.  For every
-     PHI node found, add a new argument containing the current reaching
-     definition for the variable and the edge through which that definition
-     is reaching the PHI node.  */
+  /* Step 1.  Register new definitions for every PHI node in the block.
+     Conceptually, all the PHI nodes are executed in parallel and each PHI
+     node introduces a new version for the associated variable.  */
+  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+    register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
+		      &block_defs);
+
+  /* Step 2.  Rewrite every variable used in each statement the block with
+     its immediate reaching definitions.  Update the current definition of
+     a variable when a new real or virtual definition is found.  */
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    rewrite_stmt (si, &block_defs, &block_avail_exprs);
+
+  /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
+     For every PHI node found, add a new argument containing the current
+     reaching definition for the variable and the edge through which that
+     definition is reaching the PHI node.  */
   for (e = bb->succ; e; e = e->succ_next)
     {
       tree phi;
 
       for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
 	{
+	  /* FIXME.  [UNSSA] After fixing the SSA->normal pass, allow
+	     constants and copies to be propagated into PHI arguments.  */
 	  tree currdef = currdef_for (SSA_NAME_VAR (PHI_RESULT (phi)), true);
 	  add_phi_arg (phi, currdef, e);
 	}
     }
 
-  /* Recursively search the dominator children of BB.  */
+  /* Step 4.  Recursively search the dominator children of BB.  */
   children = dom_children (bb);
   if (children)
     EXECUTE_IF_SET_IN_BITMAP (children, 0, i, rewrite_block (BASIC_BLOCK (i)));
 
-  /* Restore the current reaching definition for each variable referenced
-     in the block (in reverse order).  */
+  /* Step 5.  Restore the current reaching definition for each variable
+     referenced in the block (in reverse order).  */
   while (VARRAY_ACTIVE_SIZE (block_defs) > 0)
     {
       tree var;
@@ -573,7 +693,15 @@ rewrite_block (bb)
       else
 	var = SSA_NAME_VAR (saved_def);
 
-      set_currdef_for (var, saved_def);
+      set_value_for (var, saved_def, currdefs);
+    }
+
+  /* Remove all the expressions made available in this block.  */
+  while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
+      VARRAY_POP (block_avail_exprs);
+      htab_remove_elt (avail_exprs, stmt);
     }
 }
 
@@ -583,7 +711,10 @@ rewrite_block (bb)
    FIXME: Need to support overlapping live ranges for different versions of
 	  the same variable.  At the moment, we will silently generate
 	  wrong code if an optimizer pass moves code so that two versions
-	  of the same variable have overlapping live ranges.  */
+	  of the same variable have overlapping live ranges.
+
+	  NOTE: Look for the string '[UNSSA]' to re-enable code that
+	  depends on a properly working unSSA pass.  */
 
 void
 rewrite_out_of_ssa (fndecl)
@@ -648,8 +779,8 @@ remove_phi_arg (phi, block)
 	     with the element we want to delete.  */
 	  if (i != num_elem - 1)
 	    {
-	      PHI_ARG_DEF(phi, i) = PHI_ARG_DEF(phi, num_elem - 1);
-	      PHI_ARG_EDGE(phi, i) = PHI_ARG_EDGE(phi, num_elem - 1);
+	      PHI_ARG_DEF (phi, i) = PHI_ARG_DEF(phi, num_elem - 1);
+	      PHI_ARG_EDGE (phi, i) = PHI_ARG_EDGE(phi, num_elem - 1);
 	    }
 
 	  /* Shrink the vector.  */
@@ -724,6 +855,58 @@ debug_tree_ssa ()
 }
 
 
+/* Dump SSA statistics on FILE.  */
+
+void
+dump_tree_ssa_stats (file)
+     FILE *file;
+{
+  long tmp, n_exprs;
+
+  fprintf (file, "Total number of statements:                   %6ld\n\n",
+	   ssa_stats.num_stmts);
+  fprintf (file, "Exprs considered for dominator optimizations: %6ld\n",
+           ssa_stats.num_exprs_considered);
+
+  n_exprs = ssa_stats.num_exprs_considered;
+  if (n_exprs == 0)
+    n_exprs = 1;
+
+  fprintf (file, "    Constants propagated:                     %6ld (%.0f%%)\n",
+           ssa_stats.num_const_prop, PERCENT (ssa_stats.num_const_prop,
+	                                      n_exprs));
+  fprintf (file, "    Copies propagated:                        %6ld (%.0f%%)\n",
+	   ssa_stats.num_copy_prop, PERCENT (ssa_stats.num_copy_prop,
+					     n_exprs));
+  fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
+	   ssa_stats.num_re, PERCENT (ssa_stats.num_re,
+				      n_exprs));
+
+  /* FIXME.  [UNSSA] Not needed after SSA->normal pass is working.  */
+#if 1
+  fprintf (file, "    Optimizations blocked by lack of unSSA:   %6ld (%.0f%%)\n",
+	   ssa_stats.blocked_optimizations,
+	   PERCENT (ssa_stats.blocked_optimizations, n_exprs));
+
+  tmp = ssa_stats.blocked_optimizations - ssa_stats.blocked_by_life_crossing;
+  fprintf (file, "    Optimizations blocked due to pruned SSA:  %6ld (%.0f%%)\n",
+	   tmp, PERCENT (tmp, n_exprs));
+#endif
+
+  fprintf (file, "\n");
+}
+
+
+/* Dump SSA statistics on stderr.  */
+
+void
+debug_tree_ssa_stats ()
+{
+  dump_tree_ssa_stats (stderr);
+}
+
+
+
 /*---------------------------------------------------------------------------
 		  Helpers for the main SSA building functions
 ---------------------------------------------------------------------------*/
@@ -734,14 +917,13 @@ insert_phi_nodes_for (var, dfs)
      tree var;
      bitmap *dfs;
 {
-  struct def_blocks_d dm, *def_map;
+  struct def_blocks_d *def_map;
   bitmap phi_insertion_points;
   unsigned phi_vector_lengths = 0;
   int use_fully_pruned_ssa = 0;
   int bb_index;
 
-  dm.var = var;
-  def_map = (struct def_blocks_d *) htab_find (def_blocks, (void *) &dm);
+  def_map = get_def_blocks_for (var);
   if (def_map == NULL)
     return;
 
@@ -821,84 +1003,267 @@ insert_phi_nodes_for (var, dfs)
   BITMAP_XFREE (phi_insertion_points);
 }
 
-/* Rewrite all the statements in basic block BB.
+
+/* Rewrite the statement pointed by iterator SI into SSA form.
    
    BLOCK_DEFS_P points to a stack with all the definitions found in the
       block.  This is used by rewrite_block to restore the current reaching
       definition for every variable defined in BB after visiting the
-      immediate dominators of BB.  */
+      immediate dominators of BB.
+
+   BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
+      been computed in this block and are available in children blocks to
+      be reused.
+
+   While renaming a statement, we try to perform some simplistic global
+   redundancy elimination and constant propagation:
+
+   1- To detect global redundancy, we keep track of expressions that have
+      been computed in this block and its dominators.  If we find that the
+      same expression is computed more than once, we eliminate repeated
+      computations by using the target of the first one.  For instance,
+      consider this partially renamed fragment of code:
+
+	    a_1 = b_2 + c_3;
+	    x = b_2 + c_3;
+	    if (x > 0)
+	      ...
+
+      After renaming the first instance of 'b_2 + c_3', it will be added to
+      the AVAIL_EXPRS table with value 'a_1'.  The next time the renaming
+      process finds 'b_2 + c_3', instead of creating a new definition for
+      'x', it will set the current reaching definition of 'x' to be 'a_1'.
+      This way, the renaming process will proceed to generate:
+
+	    a_1 = b_2 + c_3;
+	    <deleted>
+	    if (a_1 > 0)
+	      ...
+
+
+   2- Constant values and copy assignments.  This is used to do very
+      simplistic constant and copy propagation.  When a constant or copy
+      assignment is found, we map the value on the RHS of the assignment to
+      the variable in the LHS in the CONST_AND_COPIES table.  The next time
+      we need to rewrite an operand, we check whether the variable has a
+      known value.  If so, we use that value.  Notice that this does not
+      replace the constant and copy propagation passes.  It only does very
+      simplistic propagation while renaming.  */
 
 static void
-rewrite_stmts (bb, block_defs_p)
-     basic_block bb;
+rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
+     block_stmt_iterator si;
      varray_type *block_defs_p;
-{
-  block_stmt_iterator si;
-  tree phi;
-
-  /* Process PHI nodes in the block.  Conceptually, all the PHI nodes are
-     executed in parallel and each PHI node introduces a new version for
-     the associated variable.  */
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-    register_new_def (PHI_RESULT (phi), block_defs_p);
-
-  /* Rewrite every variable used in each statement the block with its
-     immediate reaching definitions.  Update the current definition of a
-     variable when a new real or virtual definition is found.  */
-  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-    rewrite_stmt (bsi_stmt (si), block_defs_p);
-}
-
-
-/* Rewrite statement STMT into SSA form.  BLOCK_DEFS_P is as in
-   rewrite_stmts.  */
-
-static void
-rewrite_stmt (stmt, block_defs_p)
-     tree stmt;
-     varray_type *block_defs_p;
+     varray_type *block_avail_exprs_p;
 {
   size_t i;
-  varray_type ops;
+  stmt_ann_t ann;
+  tree stmt, *def_p;
+  varray_type uses, vuses, vdefs;
+  bool may_optimize_p;
 
+  stmt = bsi_stmt (si);
   STRIP_NOPS (stmt);
+  ann = stmt_ann (stmt);
+  ssa_stats.num_stmts++;
+
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_ssa_dump_file, "Renaming statement ");
+      print_generic_stmt (tree_ssa_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_ssa_dump_file, "\n");
+    }
 
 #if defined ENABLE_CHECKING
   /* We have just scanned the code for operands.  No statement should
      be modified.  */
-  if (stmt_modified_p (stmt))
+  if (ann->modified)
     abort ();
 #endif
 
-  /* Rewrite uses and virtual uses in the statement (note that we have
-     already collected operands for every statement in mark_def_sites).  If
-     there are aliased loads in the statement, move the operands to VUSES.
-     This way, we will be able to re-write aliased loads to their
-     immediately reaching aliased definition.  */
-  ops = use_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    rewrite_operand ((tree *)VARRAY_GENERIC_PTR (ops, i));
+  /* FIXME: Must change the interface to statement annotations.  Helpers
+	    should receive the annotation, not the statement.  Otherwise,
+	    we call stmt_ann() more than necessary.  */
+  def_p = def_op (stmt);
+  uses = use_ops (stmt);
+  vuses = vuse_ops (stmt);
+  vdefs = vdef_ops (stmt);
 
-  ops = vuse_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    rewrite_operand (&(VARRAY_TREE (ops, i)));
+#if defined ENABLE_CHECKING
+  /* Only assignments may make a new definition.  */
+  if (def_p && TREE_CODE (stmt) != MODIFY_EXPR)
+    abort ();
+#endif
 
-  /* Register new definitions and virtual definitions made by the
-     statement.  */
-  if (def_op (stmt))
+  /* Step 1.  Rewrite USES and VUSES in the statement.  */
+  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
     {
-      tree *def = def_op (stmt);
-      *def = make_ssa_name (*def, stmt);
-      register_new_def (*def, block_defs_p);
+      tree val;
+      tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+      rewrite_operand (op_p);
+
+      /* If the operand has a known constant value or it is known to be a
+	 copy of some other variable, use the value or copy stored in
+	 CONST_AND_COPIES.  */
+      ssa_stats.num_exprs_considered++;
+      val = get_value_for (*op_p, const_and_copies);
+      if (val)
+	{
+#if 1
+	  /* FIXME: [UNSSA] Remove the following check after implementing
+	     SSA->normal.  For the time being, avoid doing copy propagation
+	     if that would make two versions of VAL to be live at the same
+	     time.  */
+	  if (TREE_CODE (val) == SSA_NAME && !var_is_live (val, ann->bb))
+	    {
+	      ssa_stats.blocked_optimizations++;
+	      continue;
+	    }
+#endif
+
+	  /* If the replacement is a constant, mark the statement modified
+	     because it just lost an operand.  */
+	  if (TREE_CONSTANT (val))
+	    {
+	      ssa_stats.num_const_prop++;
+	      ann->modified = 1;
+	    }
+	  else
+	    ssa_stats.num_copy_prop++;
+
+	  if (TREE_CODE (val) == SSA_NAME && vuses)
+	    {
+	      /* If we are replacing a pointer, the statement may have a VUSE
+		 for the pointer's associated INDIRECT_REF (this happens if
+		 this operand is an argument to a const function call).  We
+		 need to update that VUSE appropriately.  */
+	      if (POINTER_TYPE_P (TREE_TYPE (SSA_NAME_VAR (val))))
+		update_indirect_ref_vuses (*op_p, val, vuses);
+
+	      /* Similarly, if we are replacing an INDIRECT_REF, the
+		 statement will have a VUSE for the old base pointer.
+		 Replace it with the new one.  */
+	      if (TREE_CODE (SSA_NAME_VAR (val)) == INDIRECT_REF)
+		update_pointer_vuses (*op_p, val, vuses);
+	    }
+
+	  /* Replace the operand with its known constant value or copy.  */
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "  Replaced '");
+	      print_generic_expr (tree_ssa_dump_file, *op_p, 0);
+	      fprintf (tree_ssa_dump_file, "' with %s '",
+		       TREE_CONSTANT (val) ? "constant" : "variable");
+	      print_generic_expr (tree_ssa_dump_file, val, 0);
+	      fprintf (tree_ssa_dump_file, "'\n");
+	    }
+
+	  *op_p = val;
+	}
     }
 
-  ops = vdef_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+  /* Rewrite virtual uses in the statement.  */
+  for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
+    rewrite_operand (&(VARRAY_TREE (vuses, i)));
+
+  /* If the statement has been modified with constant replacements,
+      fold its RHS before checking for redundant computations.  */
+  if (def_p && ann->modified)
+    TREE_OPERAND (stmt, 1) = fold (TREE_OPERAND (stmt, 1));
+
+
+  /* Step 2.  Check for redundant computations.  Do this optimization only
+     for assignments that make no calls and have no aliased nor volatile
+     references and no side effects (i.e., no VDEFs).  */
+  may_optimize_p = !ann->makes_aliased_loads
+		   && !ann->makes_aliased_stores
+		   && !ann->has_volatile_ops
+		   && vdefs == NULL;
+
+  if (may_optimize_p
+      && def_p
+      && TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR)
     {
-      tree vdef = VARRAY_TREE (ops, i);
+      /* Check if the RHS of the assignment has been computed before.  If
+	 so, use the LHS of the previously computed statement as the
+	 reaching definition for the variable defined by this statement.  */
+      tree cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p);
+      ssa_stats.num_exprs_considered++;
+      if (cached_lhs && TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p))
+	{
+	  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_ssa_dump_file, "  Replaced redundant expr '");
+	      print_generic_expr (tree_ssa_dump_file, TREE_OPERAND (stmt, 1), 0);
+	      fprintf (tree_ssa_dump_file, "' with '");
+	      print_generic_expr (tree_ssa_dump_file, cached_lhs, 0);
+	      fprintf (tree_ssa_dump_file, "'\n");
+	    }
+
+	  /* FIXME: [UNSSA] Re-enable this once the SSA->normal pass is
+	     implemented.  Otherwise, this leads to cases where a PHI node
+	     contains arguments from different variables, which is
+	     something we can't handle with the current unSSA pass.  It may
+	     also lead to cases where we re-use the LHS of a computation at
+	     a point where more than one version of the LHS is live at the
+	     same time.  */
+#if 0
+	  register_new_def (*def_p, cached_lhs, block_defs_p);
+	  ssa_stats.num_re++;
+	  bsi_remove (si);
+	  return;
+#else
+	  if (var_is_live (cached_lhs, ann->bb))
+	    {
+	      register_new_def (*def_p, cached_lhs, block_defs_p);
+	      TREE_OPERAND (stmt, 1) = cached_lhs;
+	      ann->modified = 1;
+	      ssa_stats.num_re++;
+	    }
+	  else
+	    ssa_stats.blocked_optimizations++;
+#endif
+	}
+    }
+
+  /* Step 3.  If the computation wasn't redundant, register its DEF and
+     VDEF operands.  */
+  if (def_p)
+    {
+      tree rhs;
+
+      *def_p = make_ssa_name (*def_p, stmt);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+
+      /* If the RHS of the assignment is a constant or another variable
+	 that may be propagated, register it in the CONST_AND_COPIES table.  */
+      rhs = TREE_OPERAND (stmt, 1);
+      if (may_optimize_p)
+	{
+	  bool may_copyprop_p =
+	    (TREE_CODE (rhs) == SSA_NAME
+	     /* Don't copy propagate assignments of the form T = *P.  It
+		increases the amount of indirect memory references.  */
+	     && ! (TREE_CODE (SSA_NAME_VAR (*def_p)) != INDIRECT_REF
+	           && TREE_CODE (SSA_NAME_VAR (rhs)) == INDIRECT_REF)
+	     /* FIXME.  For now, don't propagate pointers if they haven't been
+	        dereferenced (see update_indirect_ref_vuses).  */
+	     && (!POINTER_TYPE_P (TREE_TYPE (rhs)) || indirect_ref (rhs)));
+
+	  if (may_copyprop_p
+	      || (TREE_CONSTANT (rhs) && is_simple_val (rhs)))
+	    set_value_for (*def_p, rhs, const_and_copies);
+	}
+    }
+
+  /* Register new virtual definitions made by the statement.  */
+  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+    {
+      tree vdef = VARRAY_TREE (vdefs, i);
       rewrite_operand (&(VDEF_OP (vdef)));
       VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
-      register_new_def (VDEF_RESULT (vdef), block_defs_p);
+      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
+			VDEF_RESULT (vdef), block_defs_p);
     }
 }
 
@@ -910,28 +1275,56 @@ static inline void
 rewrite_operand (op_p)
      tree *op_p;
 {
+  tree op, currdef;
+
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*op_p) == SSA_NAME)
     abort ();
 #endif
-  *op_p = currdef_for (*op_p, true);
+
+  /* If the operand is an INDIRECT_REF variable, we may need to change its
+     base pointer.  Consider the following situation:
+
+	    1	p = q + 1;
+	    2	q = q + 1;
+	    3	... = (*q);
+
+     The rewriting process will determine that 'q + 1' is redundant at line
+     2.  Therefore, the assignment will be eliminated and every reference
+     to 'q' needs to be replaced with 'p'.  This includes changing the base
+     pointer for every INDIRECT_REF node that uses 'q' as its base pointer.
+     So, we need to change *q to be the INDIRECT_REF variable
+     associated with the current reaching definition of 'q' (i.e., instead
+     of getting the current definition of *q, we actually want to get the
+     current definition of *p).  */
+  op = *op_p;
+  if (TREE_CODE (op) == INDIRECT_REF)
+    {
+      tree base = currdef_for (TREE_OPERAND (op, 0), false);
+      if (base && SSA_NAME_VAR (base) != TREE_OPERAND (op, 0))
+	op = indirect_ref (base);
+    }
+
+  currdef = currdef_for (op, true);
+  *op_p = currdef;
 }
 
 
-/* Register a new definition for the variable defined by DEF and push its
+/* Register DEF to be a new definition for variable VAR and push VAR's
    current reaching definition into the stack pointed by BLOCK_DEFS_P.  */
 
 static void
-register_new_def (def, block_defs_p)
+register_new_def (var, def, block_defs_p)
+     tree var;
      tree def;
      varray_type *block_defs_p;
 {
-  tree var = SSA_NAME_VAR (def);
   tree currdef = currdef_for (var, false);
 
-  /* If the current reaching definition is NULL, push the variable
-     itself so that rewrite_blocks knows what variable is associated with
-     this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
+  /* If the current reaching definition is NULL or a constant, push the
+     variable itself so that rewrite_blocks knows what variable is
+     associated with this NULL reaching def when unwinding the
+     *BLOCK_DEFS_P stack.  */
   if (currdef == NULL_TREE)
     VARRAY_PUSH_TREE (*block_defs_p, var);
 
@@ -942,7 +1335,67 @@ register_new_def (def, block_defs_p)
   VARRAY_PUSH_TREE (*block_defs_p, currdef);
 
   /* Set the current reaching definition for VAR to be DEF.  */
-  set_currdef_for (var, def);
+  set_value_for (var, def, currdefs);
+}
+
+
+/* Update all virtual uses of the indirect reference associated with
+   ORIG_PTR to become virtual uses of the indirect reference for pointer
+   COPY_PTR.  VUSES is the array with all the virtual uses to be examined.
+   Note that this assumes that both ORIG_PTR and COPY_PTR have been renamed
+   into SSA form, but entries in VUSES are still in normal form.  */
+
+static void
+update_indirect_ref_vuses (orig_ptr, copy_ptr, vuses)
+     tree orig_ptr;
+     tree copy_ptr;
+     varray_type vuses;
+{
+  size_t i;
+  tree orig_indirect = indirect_ref (orig_ptr);
+  tree copy_indirect = indirect_ref (copy_ptr);
+
+#if defined ENABLE_CHECKING
+  /* FIXME.  We should remove this limitation.  The problem is that if we
+     still haven't created a dereference variable for this pointer, we may
+     propagate it into a statement that does dereference the pointer.
+     That causes all sorts of problems in add_stmt_operand later on,
+     because the variable has not been properly renamed.  */
+  if (copy_indirect == NULL_TREE)
+    abort ();
+#endif
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
+    if (orig_indirect == VARRAY_TREE (vuses, i))
+      {
+	VARRAY_TREE (vuses, i) = copy_indirect;
+	return;
+      }
+}
+
+
+/* Update all virtual uses of the base pointer for ORIG_INDIRECT with the
+   base pointer for COPY_INDIRECT.  VUSES is the array with all the virtual
+   uses to be examined.  Note that this assumes that both ORIG_INDIRECT and
+   COPY_INDIRECT have been renamed into SSA form, but entries in VUSES are
+   still in normal form.  */
+
+static void
+update_pointer_vuses (orig_indirect, copy_indirect, vuses)
+     tree orig_indirect;
+     tree copy_indirect;
+     varray_type vuses;
+{
+  size_t i;
+  tree orig_ptr = TREE_OPERAND (SSA_NAME_VAR (orig_indirect), 0);
+  tree copy_ptr = TREE_OPERAND (SSA_NAME_VAR (copy_indirect), 0);
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vuses); i++)
+    if (orig_ptr == VARRAY_TREE (vuses, i))
+      {
+	VARRAY_TREE (vuses, i) = copy_ptr;
+	return;
+      }
 }
 
 
@@ -957,6 +1410,7 @@ init_tree_ssa ()
   next_ssa_version = 1;
   num_referenced_vars = 0;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
+  memset ((void *) &ssa_stats, 0, sizeof (ssa_stats));
 
   /* Declare an artificial global variable to act as a representative of
      all the variables that may be clobbered by function calls.  */
@@ -976,7 +1430,14 @@ init_tree_ssa ()
 			    def_blocks_eq, def_blocks_free);
 
   /* Allocate memory for the CURRDEFS hash table.  */
-  currdefs = htab_create (num_referenced_vars, currdef_hash, currdef_eq, free);
+  currdefs = htab_create (num_referenced_vars, var_value_hash, var_value_eq,
+			  free);
+
+  /* Allocate memory for the AVAIL_EXPRS hash table.  */
+  avail_exprs = htab_create (100, avail_expr_hash, avail_expr_eq, NULL);
+
+  /* Allocate memory for the CONST_AND_COPIES hash table.  */
+  const_and_copies = htab_create (50, var_value_hash, var_value_eq, free);
 }
 
 
@@ -1019,67 +1480,19 @@ remove_annotations_r (tp, walk_subtrees, data)
    CREATE_DEFAULT is nonzero, create a new SSA name to act as the zeroth
    definition for V.  */
 
-static inline tree
+static tree
 currdef_for (v, create_default)
      tree v;
      int create_default;
 {
-  struct currdef_d *def_map, dm;
-
-#if defined ENABLE_CHECKING
-  if (!SSA_VAR_P (v))
-    abort ();
-#endif
-
-  dm.var = v;
-  def_map = (struct currdef_d *) htab_find (currdefs, (void *) &dm);
-  if (def_map && def_map->currdef)
-    return def_map->currdef;
-  else
+  tree def = get_value_for (v, currdefs);
+  if (def == NULL_TREE && create_default)
     {
-      if (create_default)
-	{
-	  tree def = make_ssa_name (v, empty_stmt_node);
-	  set_currdef_for (v, def);
-	  return def;
-	}
-      else
-	return NULL_TREE;
+      def = make_ssa_name (v, empty_stmt_node);
+      set_value_for (v, def, currdefs);
     }
-}
 
-
-/* Set DEF to be the current definition for variable V.  */
-
-static inline void
-set_currdef_for (v, def)
-     tree v;
-     tree def;
-{
-  struct currdef_d *currdef_p, cd;
-  void **slot;
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE_CLASS (TREE_CODE (v)) != 'd'
-      && TREE_CODE (v) != INDIRECT_REF)
-    abort ();
-
-  if (def && TREE_CODE (def) != SSA_NAME)
-    abort ();
-#endif
-
-  cd.var = v;
-  slot = htab_find_slot (currdefs, (void *) &cd, INSERT);
-  if (*slot == NULL)
-    {
-      currdef_p = xmalloc (sizeof *currdef_p);
-      currdef_p->var = v;
-      *slot = (void *) currdef_p;
-    }
-  else
-    currdef_p = (struct currdef_d *) *slot;
-
-  currdef_p->currdef = def;
+  return def;
 }
 
 
@@ -1115,22 +1528,22 @@ def_blocks_eq (p1, p2)
 }
 
 
-/* Hashing and equality functions for CURRDEF.  */
+/* Hashing and equality functions for VAR_VALUE_D.  */
 
 static hashval_t
-currdef_hash (p)
+var_value_hash (p)
      const void *p;
 {
-  return htab_hash_pointer ((const void *)((const struct currdef_d *)p)->var);
+  return htab_hash_pointer ((const void *)((const struct var_value_d *)p)->var);
 }
 
 static int
-currdef_eq (p1, p2)
+var_value_eq (p1, p2)
      const void *p1;
      const void *p2;
 {
-  return ((const struct currdef_d *)p1)->var
-	 == ((const struct currdef_d *)p2)->var;
+  return ((const struct var_value_d *)p1)->var
+	 == ((const struct var_value_d *)p2)->var;
 }
 
 
@@ -1157,7 +1570,7 @@ debug_def_blocks_r (slot, data)
   fprintf (stderr, ", DEF_BLOCKS: { ");
   EXECUTE_IF_SET_IN_BITMAP (db_p->def_blocks, 0, i,
 			    fprintf (stderr, "%ld ", i));
-  fprintf (stderr, "}\n");
+  fprintf (stderr, "}");
   fprintf (stderr, ", LIVEIN_BLOCKS: { ");
   EXECUTE_IF_SET_IN_BITMAP (db_p->livein_blocks, 0, i,
 			    fprintf (stderr, "%ld ", i));
@@ -1165,3 +1578,214 @@ debug_def_blocks_r (slot, data)
 
   return 1;
 }
+
+
+/* Return the value associated with variable VAR in TABLE.  */
+
+static tree
+get_value_for (var, table)
+     tree var;
+     htab_t table;
+{
+  struct var_value_d *vm_p, vm;
+
+#if defined ENABLE_CHECKING
+  if (!SSA_VAR_P (var))
+    abort ();
+#endif
+
+  vm.var = var;
+  vm_p = (struct var_value_d *) htab_find (table, (void *) &vm);
+  return (vm_p) ? vm_p->value : NULL_TREE;
+}
+
+
+/* Associate VALUE to variable VAR in TABLE.  */
+
+static void
+set_value_for (var, value, table)
+     tree var;
+     tree value;
+     htab_t table;
+{
+  struct var_value_d *vm_p, vm;
+  void **slot;
+
+#if defined ENABLE_CHECKING
+  if (!SSA_VAR_P (var))
+    abort ();
+#endif
+
+  vm.var = var;
+  slot = htab_find_slot (table, (void *) &vm, INSERT);
+  if (*slot == NULL)
+    {
+      vm_p = xmalloc (sizeof *vm_p);
+      vm_p->var = var;
+      *slot = (void *) vm_p;
+    }
+  else
+    vm_p = (struct var_value_d *) *slot;
+
+  vm_p->value = value;
+}
+
+
+/* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
+   found, return its LHS. Otherwise insert STMT in the table and return
+   NULL_TREE.
+
+   Also, when an expression is first inserted in the AVAIL_EXPRS table, it
+   is also added to the stack pointed by BLOCK_AVAIL_EXPRS_P, so that they
+   can be removed when we finish processing this block and its children.
+
+   NOTE: This function assumes that STMT is a MODIFY_EXPR node that
+	 contains no CALL_EXPR on its RHS and makes no volatile nor
+	 aliased references.  */
+
+static tree
+lookup_avail_expr (stmt, block_avail_exprs_p)
+     tree stmt;
+     varray_type *block_avail_exprs_p;
+{
+  void **slot;
+  tree rhs;
+
+  /* Don't bother remembering constant assignments, type cast expressions
+     and copy operations.  Constants and copy operations are handled by the
+     constant/copy propagator in rewrite_stmt.  */
+  rhs = TREE_OPERAND (stmt, 1);
+  if (TREE_CONSTANT (rhs)
+      || TREE_CODE (rhs) == SSA_NAME
+      || is_simple_cast (rhs))
+    return NULL_TREE;
+
+  slot = htab_find_slot (avail_exprs, stmt, INSERT);
+  if (*slot == NULL)
+    {
+      *slot = (void *) stmt;
+      VARRAY_PUSH_TREE (*block_avail_exprs_p, stmt);
+      return NULL_TREE;
+    }
+
+  /* Return the LHS of the assignment so that it can be used as the current
+     definition of another variable.  */
+  return TREE_OPERAND ((tree) *slot, 0);
+}
+
+
+/* Hashing and equality functions for AVAIL_EXPRS.  The table stores
+   MODIFY_EXPR statements.  We compute a value number for expressions using
+   the code of the expression and the SSA numbers of its operands.  */
+
+static hashval_t
+avail_expr_hash (p)
+     const void *p;
+{
+  hashval_t val;
+  tree rhs;
+  size_t i;
+  varray_type ops;
+  tree stmt = (tree) p;
+
+  rhs = TREE_OPERAND (stmt, 1);
+  val = (hashval_t) TREE_CODE (rhs);
+
+  /* Add the SSA version numbers of every use operand.  */
+  ops = use_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree op = *((tree *) VARRAY_GENERIC_PTR (ops, i));
+      if (TREE_CODE (op) == SSA_NAME)
+	val += (hashval_t) SSA_NAME_VERSION (op);
+      else
+	val += htab_hash_pointer (op);
+    }
+
+  /* Add the SSA version numbers of every vuse operand.  This is important
+     because compound variables like arrays are not renamed in the
+     operands.  Rather, the rename is done on the virtual variable
+     representing all the elements of the array.  */
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    val += (hashval_t) SSA_NAME_VERSION (VARRAY_TREE (ops, i));
+
+  return val;
+}
+
+
+static int
+avail_expr_eq (p1, p2)
+     const void *p1;
+     const void *p2;
+{
+  tree s1, s2, rhs1, rhs2;
+
+  s1 = (tree) p1;
+  rhs1 = TREE_OPERAND (s1, 1);
+
+  s2 = (tree) p2;
+  rhs2 = TREE_OPERAND (s2, 1);
+
+  return (TREE_CODE (rhs1) == TREE_CODE (rhs2)
+	  && simple_cst_equal (rhs1, rhs2) == 1);
+}
+
+
+/* Return the set of blocks where variable VAR is defined and the blocks
+   where VAR is live on entry (livein).  */
+
+static struct def_blocks_d *
+get_def_blocks_for (var)
+     tree var;
+{
+  struct def_blocks_d dm;
+
+  dm.var = var;
+  return (struct def_blocks_d *) htab_find (def_blocks, (void *) &dm);
+}
+
+#if 1
+/* Return true if the variable VAR is live at this point of the
+   dominator tree walk.  This means that the current reaching definition
+   for VAR is itself and that VAR is livein at basic block BB.
+
+   FIXME: [UNSSA] This will not be necessary when the unSSA pass is
+   implemented.  */
+
+static bool
+var_is_live (var, bb)
+     tree var;
+     basic_block bb;
+{
+  basic_block def_bb;
+  struct def_blocks_d *def_map;
+  tree real_var = SSA_NAME_VAR (var);
+
+  if (currdef_for (real_var, false) != var)
+    {
+      ssa_stats.blocked_by_life_crossing++;
+      return false;
+    }
+
+  /* This is gross, but since it's temporary, close your eyes.  It's needed
+     to avoid miscompiling java/jcf-write.c:generate_classfile, where the
+     fully pruned SSA form is not inserting PHI nodes in the main loop of
+     the function for variable 'ptr'.  This makes two versions of 'ptr'
+     live at the same time.
+
+     If there are any blocks between VAR's definition block and BB where
+     VAR is defined again, then two versions of VAR are live at the same
+     time.  */
+  def_map = get_def_blocks_for (real_var);
+  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
+  if (def_bb && bitmap_first_set_bit (def_map->def_blocks) >= 0)
+    {
+      int i;
+      EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, def_bb->index + 1, i,
+	return ((i < bb->index) ? false : true));
+    }
+
+  return true;
+}
+#endif

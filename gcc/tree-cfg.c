@@ -1218,18 +1218,24 @@ remove_stmt (stmt_p)
   if (TREE_CODE (stmt) == LABEL_EXPR)
     remove_decl (LABEL_EXPR_LABEL (stmt));
 
-  /* Mark all the definitions made in the statement invalid.  FIXME: We
-     should probably traverse all the def-use edges originating at this
-     statement to update each use of the definitions made here, but that is
-     expensive and can easily be checked by every pass by checking if
-     SSA_NAME_DEF_STMT is empty_stmt_node.  */
+  /* If the statement is already in SSA form, mark all the definitions made in
+     the statement invalid.
+
+     FIXME: We should probably traverse all the def-use edges originating at
+	    this statement to update each use of the definitions made here, but
+	    that is expensive and can easily be checked by every pass by
+	    checking if SSA_NAME_DEF_STMT is empty_stmt_node.  */
   def_p = def_op (stmt);
-  if (def_p)
+  if (def_p && TREE_CODE (*def_p) == SSA_NAME)
     SSA_NAME_DEF_STMT (*def_p) = empty_stmt_node;
 
   vdefs = vdef_ops (stmt);
   for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
-    SSA_NAME_DEF_STMT (VDEF_RESULT (VARRAY_TREE (vdefs, i))) = empty_stmt_node;
+    {
+      tree vdef = VDEF_RESULT (VARRAY_TREE (vdefs, i));
+      if (TREE_CODE (vdef) == SSA_NAME)
+	SSA_NAME_DEF_STMT (vdef) = empty_stmt_node;
+    }
 
   stmt->common.ann = NULL;
 
