@@ -92,22 +92,14 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
     {
       char name[20];
       sprintf (name, "stack%d", i);
-      stack_slots[i] = build_decl (VAR_DECL, get_identifier (name),
-				   type_slot_union);
-      DECL_CONTEXT (stack_slots[i]) = current_block;
-      TREE_CHAIN (stack_slots[i]) = BLOCK_VARS (current_block);
-      BLOCK_VARS (current_block) = stack_slots[i];
+      stack_slots[i] = add_temporary (get_identifier (name), type_slot_union);
     }
   local_slots = new tree[max_locals];
   for (int i = 0; i < max_locals; ++i)
     {
       char name[20];
       sprintf (name, "local%d", i);
-      local_slots[i] = build_decl (VAR_DECL, get_identifier (name),
-				   type_slot_union);
-      DECL_CONTEXT (local_slots[i]) = current_block;
-      TREE_CHAIN (local_slots[i]) = BLOCK_VARS (current_block);
-      BLOCK_VARS (current_block) = local_slots[i];
+      local_slots[i] = add_temporary (get_identifier (name), type_slot_union);
     }
 
   model_unit_class *unit
@@ -588,10 +580,8 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
 	    tree expr1 = find_slot (stack_top - 1, stack_types[stack_top - 1]);
 	    tree expr2 = find_slot (stack_top - 2, stack_types[stack_top - 2]);
 
-	    tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (expr1));
-	    DECL_CONTEXT (temp) = current_block;
-	    TREE_CHAIN (temp) = BLOCK_VARS (current_block);
-	    BLOCK_VARS (current_block) = temp;
+	    tree temp = add_temporary (gcc_builtins->get_symbol (),
+				       TREE_TYPE (expr1));
 
 	    tree decl1 = find_slot (stack_top - 2, TREE_TYPE (expr1));
 	    tree decl2 = find_slot (stack_top - 1, TREE_TYPE (expr2));

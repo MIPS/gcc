@@ -104,6 +104,7 @@ class tree_generator : public visitor
   tree wrap_synchronized (tree, tree);
   tree wrap_label (tree, model_element *);
   tree add_var (const ref_variable_decl &);
+  tree add_temporary (tree, tree);
   tree build_class_ref (model_type *, model_element *);
   tree build_class_ref (const std::string &);
   tree handle_instanceof (tree, tree);

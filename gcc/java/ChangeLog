@@ -1,5 +1,12 @@
 2005-03-28  Tom Tromey  <tromey@redhat.com>
 
+	* lower.cc (visit_bytecode_block): Use add_temporary.
+	* tree.hh (tree_generator::add_temporary): Declare.
+	* tree.cc (add_temporary): New method.
+	(visit_for_enhanced): Wrote.
+
+2005-03-28  Tom Tromey  <tromey@redhat.com>
+
 	* tree.hh (tree_generator::array_access): Updated.
 	(tree_generator::array_store): Likewise.
 	* lower.cc (array_access): Added 'mtype' argument.

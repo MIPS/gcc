@@ -85,6 +85,16 @@ tree_generator::add_var (const ref_variable_decl &vardecl)
   return var;
 }
 
+tree
+tree_generator::add_temporary (tree name, tree type)
+{
+  tree var = build_decl (VAR_DECL, name, type);
+  DECL_CONTEXT (var) = method_tree;
+  TREE_CHAIN (var) = BLOCK_VARS (current_block);
+  BLOCK_VARS (current_block) = var;
+  return var;
+}
+
 void
 tree_generator::emit_type_assertion (model_type *to_type,
 				     model_type *from_type)
@@ -583,19 +593,156 @@ tree_generator::visit_for_enhanced (model_for_enhanced *fstmt,
   DECL_CONTEXT (done_tree) = current_block;
   target_map[fstmt] = std::make_pair (update_tree, done_tree);
 
+  // Push a new block around the loop.
+  save_tree saver (current_block, make_node (BLOCK));
+  BLOCK_SUPERCONTEXT (current_block) = saver.get ();
+
   tree body_tree = alloc_stmt_list ();
   tree_stmt_iterator out = tsi_start (body_tree);
 
+  // Generate code to find the container.
+  container->visit (this);
+  tree container_tree = save_expr (current);
+  tree container_ptr_type = TREE_TYPE (current);
+
+  model_type *ctype = container->type ();
+  gcc_builtins->lay_out_class (assert_cast<model_class *> (ctype));
+
+  // The user's variable.
+  tree var_decl = add_var (var);
+
+  tree exit_expr, update_expr, assign_rhs;
+
   if (container->type ()->array_p ())
     {
+      // Make some temporaries: one to hold the index and one to hold
+      // the length of the array.
+      tree index_tree = add_temporary (gcc_builtins->get_symbol (), type_jint);
+      tree len_tree = add_temporary (gcc_builtins->get_symbol (), type_jint);
+
+      tree container_type = TREE_TYPE (container_ptr_type);
+      tree lenfield = gcc_builtins->find_decl (container_type, "length");
+      tree datafield = gcc_builtins->find_decl (container_type, "data");
+
+      // Compute and save the length of the array.
+      tree get_len
+	= build3 (COMPONENT_REF, type_jint,
+		  build1 (INDIRECT_REF, container_type,
+			  // FIXME: there is probably a more optimal
+			  // approach here.
+			  gcc_builtins->check_reference (container_tree)),
+		  lenfield, NULL_TREE);
+      get_len = build2 (MODIFY_EXPR, type_jint, len_tree, get_len);
+      TREE_SIDE_EFFECTS (get_len) = 1;
+      tsi_link_after (&out, get_len, TSI_CONTINUE_LINKING);
+
+      // Initialize the index.
+      tree init = build2 (MODIFY_EXPR, type_jint, index_tree,
+			  fold (convert (type_jint, integer_zero_node)));
+      TREE_SIDE_EFFECTS (init) = 1;
+      tsi_link_after (&out, init, TSI_CONTINUE_LINKING);
+
+      // Code for the exit expression.
+      exit_expr = build2 (EQ_EXPR, type_jboolean, index_tree, len_tree);
+
+      // Code for the update expression.
+      update_expr = build2 (PREINCREMENT_EXPR, type_jint, index_tree,
+			    fold (convert (type_jint, integer_one_node)));
+      TREE_SIDE_EFFECTS (update_expr) = 1;
+
+      // Code to compute the new user variable value.
+      assign_rhs = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (datafield)),
+			   build3 (COMPONENT_REF, TREE_TYPE (datafield),
+				   build1 (INDIRECT_REF, container_type,
+					   container_tree),
+				   datafield, NULL_TREE),
+			   index_tree, NULL_TREE, NULL_TREE);
     }
   else
     {
       // Use an iterator.
+
+      model_class *iterator_type
+	= global->get_compiler ()->java_util_Iterator ();
+      model_class *object_type
+	= global->get_compiler ()->java_lang_Object ();
+      model_class *iterable_type
+	= global->get_compiler ()->java_lang_Iterable ();
+
+      model_method *iter_meth = find_method ("iterator", iterable_type, NULL,
+					     iterator_type, fstmt);
+      model_method *has_next_meth = find_method ("hasNext", iterator_type,
+						 NULL, primitive_boolean_type,
+						 fstmt);
+      model_method *next_meth = find_method ("next", iterator_type, NULL,
+					     object_type, fstmt);
+
+      // Introduce a new variable that holds the iterator.
+      tree iter_tree = add_temporary (gcc_builtins->get_symbol (),
+				      gcc_builtins->map_type (iterator_type));
+
+      // Initialize the iterator and link it in.
+      tree init = build2 (MODIFY_EXPR, TREE_TYPE (iter_tree),
+			  iter_tree,
+			  gcc_builtins->map_method_call (class_wrapper,
+							 container_tree,
+							 NULL_TREE, iter_meth,
+							 false));
+      TREE_SIDE_EFFECTS (init) = 1;
+      tsi_link_after (&out, init, TSI_CONTINUE_LINKING);
+
+      // Compute the exit expression.
+      exit_expr = build1 (TRUTH_NOT_EXPR, type_jboolean,
+			  gcc_builtins->map_method_call (class_wrapper,
+							 iter_tree, NULL_TREE,
+							 has_next_meth,
+							 false));
+      TREE_SIDE_EFFECTS (exit_expr) = 1;
+
+      // Code for the update expression.
+      assign_rhs = gcc_builtins->map_method_call (class_wrapper,
+						  iter_tree, NULL_TREE,
+						  next_meth, false);
+      TREE_SIDE_EFFECTS (assign_rhs) = 1;
+
+      // We don't need a different update expression.
+      update_expr = build_empty_stmt ();
     }
 
-  tsi_link_after (&out, done_tree, TSI_CONTINUE_LINKING);
-  current = body_tree;
+  // We've already linked in the initialization code.  Now start the
+  // loop body.
+  tree loop_tree = alloc_stmt_list ();
+  tree_stmt_iterator loop_out = tsi_start (loop_tree);
+
+  // Link in the exit expression.
+  tsi_link_after (&loop_out, build1 (EXIT_EXPR, void_type_node, exit_expr),
+		  TSI_CONTINUE_LINKING);
+  // Link in the user variable assignment.
+  tree user_assign = build2 (MODIFY_EXPR, TREE_TYPE (var_decl),
+			     var_decl,
+			     convert (TREE_TYPE (var_decl), assign_rhs));
+  TREE_SIDE_EFFECTS (user_assign) = 1;
+  tsi_link_after (&loop_out, user_assign, TSI_CONTINUE_LINKING);
+
+  // Compute and link in the body of the loop.
+  body->visit (this);
+  tsi_link_after (&loop_out, current, TSI_CONTINUE_LINKING);
+
+  // Link in the update label and the update expression.
+  tsi_link_after (&loop_out, wrap_label (update_tree, fstmt),
+		  TSI_CONTINUE_LINKING);
+  tsi_link_after (&loop_out, update_expr, TSI_CONTINUE_LINKING);
+
+  // Wrap up the loop body and link it into the outer statement list.
+  tree loop_contents = build1 (LOOP_EXPR, void_type_node, loop_tree);
+  TREE_SIDE_EFFECTS (loop_contents) = 1;
+  annotate (loop_contents, fstmt);
+  tsi_link_after (&out, loop_contents, TSI_CONTINUE_LINKING);
+
+  tsi_link_after (&out, wrap_label (done_tree, fstmt), TSI_CONTINUE_LINKING);
+
+  current = build3 (BIND_EXPR, void_type_node, BLOCK_VARS (current_block),
+		    body_tree, current_block);
 }
 
 void
