@@ -1,3 +1,7 @@
+2005-01-18  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20050118.
+
 2005-01-12  Christopher Jefferson <chris@bubblescope.net>
 
 	* include/bits/stl_function.h (mem_fun_t, const_mem_fun_t,

@@ -1,3 +1,129 @@
+2005-01-18  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/os_defines.h (_XOPEN_SOURCE): Delete.
+	(_XOPEN_SOURCE_EXTENDED): Delete.
+
+2005-01-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/testsuite_performance.h (time_counter::start):
+	Clear. Tweaks.
+	(clear_counters): Inline.
+	(start_counters): Inline.
+	(stop_counters): Inline.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Return.
+	* testsuite/performance/20_util/allocator/insert.cc: Remove bogus
+	return, add return.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Same.
+	
+2005-01-17  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19433
+	* include/bits/stl_tree.h (_Rb_tree<>::insert_unique(iterator,
+	const _Val&), _Rb_tree<>::insert_equal(iterator, const _Val&)):
+	Obtain amortized constant complexity if t is inserted right after
+	p - not before p - as per Table 69.
+	* testsuite/performance/23_containers/set_insert_from_sorted.cc: New.
+	
+	* testsuite/23_containers/multiset/insert/2.cc: New.
+	* testsuite/23_containers/set/insert/1.cc: Likewise.
+	
+	* testsuite/performance/23_containers/set_create_from_sorted.cc:
+	Simplify.
+
+	* include/bits/stl_tree.h: Add a few missing std:: qualifications.
+
+2005-01-16  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/ext/rope: Qualify calls to std::copy() by sequence_buffer.
+	* testsuite/ext/rope/4.cc: Add.
+
+2005-01-16  Lorenz Minder  <lminder@gmx.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19322
+	* include/c_std/std_cmath.h: Define the C99 classification facilities
+	directly inside namespace std:.
+	* testsuite/26_numerics/cmath/19322.cc: New.
+
+2005-01-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/os/aix/os_defines.h (_G_USING_THUNKS): Delete.
+
+2005-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/19422
+	* include/bits/stl_tree.h (_Rb_tree<>::insert_equal(_II, _II),
+	_Rb_tree<>::insert_unique(_II, _II)): Use insert_equal (insert_unique,
+	respectively) with hint (end()).
+	* testsuite/performance/23_containers/set_create_from_sorted.cc: New.
+
+2005-01-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.host (darwin): On darwin8 or later, no need to build
+	libstdc++ with -flat_namespace.
+
+2005-01-13  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/doxygen/user.cfg.in: Set HAVE_DOT back to YES.
+
+2005-01-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/26_numerics/cmath/c99_classification_macros_c++.cc:
+	Re-enable commented-out test for double type.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/istream.cc (basic_istream<char>::ignore(streamsize),
+	basic_istream<char>::ignore(streamsize, int_type),
+	basic_istream<wchar_t>::ignore(streamsize),
+	basic_istream<wchar_t>::ignore(streamsize, int_type)): In case
+	more than numeric_limits<streamsize>::max() chars are skipped,
+	set _M_gcount = max().
+	* include/bits/istream.tcc (ignore(streamsize), ignore(streamsize,
+	int_type)): Likewise; keep simple, don't forward.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/istream.cc (basic_istream<char>::ignore(streamsize),
+	basic_istream<char>::ignore(streamsize, int_type),
+	basic_istream<wchar_t>::ignore(streamsize),
+	basic_istream<wchar_t>::ignore(streamsize, int_type)): Revert
+	2005-01-05 change: actually, the previous behavior is conforming
+	and consistent with that of get(char_type*, streamsize, char_type),
+	albeit slightly different from that of 3.3/3.4 in a corner case
+	due to the use of snextc.
+	* include/bits/istream.tcc (ignore(streamsize), ignore(streamsize,
+	int_type)): Likewise.
+	* testsuite/27_io/basic_istream/ignore/char/4.cc: Remove.
+	* testsuite/27_io/basic_istream/ignore/wchar_t/4.cc: Likewise.
+
+2005-01-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits: Implement alignment_of and aligned_storage.
+	* testsuite/tr1/4_metaprogramming/other_transformations/
+	aligned_storage/aligned_storage.cc: New.
+	* testsuite/tr1/4_metaprogramming/other_transformations/
+	aligned_storage/typedefs.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	alignment_of/alignment_of.cc: Likewise.
+	* testsuite/tr1/4_metaprogramming/type_properties/
+	alignment_of/typedefs.cc: Likewise.
+
+2005-01-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* Makefile.in: Regenerate.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2005-01-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (lexicographical_compare):
+	Fix concept check.
+
 2005-01-07  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4: Remove CCODECVT_H.
