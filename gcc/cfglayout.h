@@ -18,15 +18,11 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
-struct scope_def;
-typedef struct scope_def *scope;
-
 /* Structure to hold information about the blocks during reordering.  */
 typedef struct reorder_block_def
 {
   rtx eff_head;
   rtx eff_end;
-  scope scope;
   basic_block next;
   basic_block original;
 
@@ -41,3 +37,5 @@ extern void cfg_layout_initialize	PARAMS ((void));
 extern void cfg_layout_finalize		PARAMS ((void));
 extern bool cfg_layout_can_duplicate_bb_p PARAMS ((basic_block));
 extern basic_block cfg_layout_duplicate_bb PARAMS ((basic_block, edge));
+extern void scope_to_insns_initialize	PARAMS ((void));
+extern void scope_to_insns_finalize	PARAMS ((void));

@@ -1,6 +1,6 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+   2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1052,6 +1052,9 @@ convert_move (to, from, unsignedp)
       if ((code = can_extend_p (to_mode, from_mode, unsignedp))
 	  != CODE_FOR_nothing)
 	{
+	  if (flag_force_mem)
+	    from = force_not_mem (from);
+
 	  emit_unop_insn (code, to, from, equiv_code);
 	  return;
 	}
@@ -3152,7 +3155,7 @@ emit_single_push_insn (mode, x, type)
   if (icode != CODE_FOR_nothing)
     {
       if (((pred = insn_data[(int) icode].operand[0].predicate)
-	  && !((*pred) (x, mode))))
+	   && !((*pred) (x, mode))))
 	x = force_reg (mode, x);
       emit_insn (GEN_FCN (icode) (x));
       return;
@@ -3163,7 +3166,7 @@ emit_single_push_insn (mode, x, type)
     {
 #ifdef STACK_GROWS_DOWNWARD
       dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				GEN_INT (-(HOST_WIDE_INT)rounded_size));
+				GEN_INT (-(HOST_WIDE_INT) rounded_size));
 #else
       dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 				GEN_INT (rounded_size));
@@ -5003,9 +5006,7 @@ store_field (target, bitsize, bitpos, mode, exp, value_mode, unsignedp, type,
 	= assign_temp
 	  (build_qualified_type (type, TYPE_QUALS (type) | TYPE_QUAL_CONST),
 	   0, 1, 1);
-      rtx blk_object = copy_rtx (object);
-
-      PUT_MODE (blk_object, BLKmode);
+      rtx blk_object = adjust_address (object, BLKmode, 0);
 
       if (bitsize != (HOST_WIDE_INT) GET_MODE_BITSIZE (GET_MODE (target)))
 	emit_move_insn (object, target);
@@ -6151,7 +6152,7 @@ expand_expr (exp, target, tmode, modifier)
 	      set_mem_attributes (value, exp, 1);
 	      SET_DECL_RTL (exp, value);
 	    }
-	  }
+	}
 
       /* ... fall through ...  */
 
@@ -6452,7 +6453,7 @@ expand_expr (exp, target, tmode, modifier)
 
     case LABELED_BLOCK_EXPR:
       if (LABELED_BLOCK_BODY (exp))
-	expand_expr_stmt (LABELED_BLOCK_BODY (exp));
+	expand_expr_stmt_value (LABELED_BLOCK_BODY (exp), 0, 1);
       /* Should perhaps use expand_label, but this is simpler and safer.  */
       do_pending_stack_adjust ();
       emit_label (label_rtx (LABELED_BLOCK_LABEL (exp)));
@@ -6467,7 +6468,7 @@ expand_expr (exp, target, tmode, modifier)
     case LOOP_EXPR:
       push_temp_slots ();
       expand_start_loop (1);
-      expand_expr_stmt (TREE_OPERAND (exp, 0));
+      expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
       expand_end_loop ();
       pop_temp_slots ();
 
@@ -7337,12 +7338,11 @@ expand_expr (exp, target, tmode, modifier)
 		       (HOST_WIDE_INT) GET_MODE_SIZE (TYPE_MODE (type)));
 	      rtx new = assign_stack_temp_for_type (TYPE_MODE (type),
 						    temp_size, 0, type);
-	      rtx new_with_op0_mode = copy_rtx (new);
+	      rtx new_with_op0_mode = adjust_address (new, GET_MODE (op0), 0);
 
 	      if (TREE_ADDRESSABLE (exp))
 		abort ();
 
-	      PUT_MODE (new_with_op0_mode, GET_MODE (op0));
 	      if (GET_MODE (op0) == BLKmode)
 		emit_block_move (new_with_op0_mode, op0,
 				 GEN_INT (GET_MODE_SIZE (TYPE_MODE (type))));
@@ -7352,7 +7352,7 @@ expand_expr (exp, target, tmode, modifier)
 	      op0 = new;
 	    }
       
-	  PUT_MODE (op0, TYPE_MODE (type));
+	  op0 = adjust_address (op0, TYPE_MODE (type), 0);
 	}
 
       return op0;
@@ -8880,7 +8880,7 @@ expand_increment (exp, post, ignore)
     }
 
   if (TYPE_TRAP_SIGNED (TREE_TYPE (exp)))
-     this_optab = this_optab == add_optab ? addv_optab : subv_optab;
+    this_optab = this_optab == add_optab ? addv_optab : subv_optab;
 
   /* For a preincrement, see if we can do this with a single instruction.  */
   if (!post)

@@ -20,6 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "tree.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
@@ -31,58 +32,24 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* The contents of the current function definition are allocated
    in this obstack, and all are freed at the end of the function.  */
-
 extern struct obstack flow_obstack;
-
-/* Structure to hold information about lexical scopes.  */
-struct scope_def
-{
-  int level;
-
-  /* Tree representation of the given scope block.  */
-  tree block;
-
-  /* The outer scope or NULL if outermost scope.  */
-  struct scope_def *outer;
-
-  /* The first inner scope or NULL if innermost scope.  */
-  struct scope_def *inner;
-
-  /* The last inner scope or NULL if innermost scope.  */
-  struct scope_def *inner_last;
-
-  /* Link to the next (sibling) scope.  */
-  struct scope_def *next;
-};
 
 /* Holds the interesting trailing notes for the function.  */
 static rtx function_tail_eff_head;
-
-/* The scope forst of current function.  */
-static scope scope_tree;
-
-/* Holds scope of each insn.  Indexed by INSN_UID.  */
-static varray_type insn_scope;
-
-#define INSN_SCOPE(I) (VARRAY_GENERIC_PTR (insn_scope, INSN_UID (I)))
 
 static rtx skip_insns_after_block	PARAMS ((basic_block));
 static void record_effective_endpoints	PARAMS ((void));
 static rtx label_for_bb			PARAMS ((basic_block));
 static void fixup_reorder_chain		PARAMS ((void));
 
-static scope make_new_scope		PARAMS ((int, rtx));
-static scope build_scope_tree		PARAMS ((void));
-static void remove_scope_notes		PARAMS ((void));
-static void rebuild_scope_notes		PARAMS ((scope));
-static void free_scope_tree		PARAMS ((scope));
-static void cleanup_unconditional_jumps	PARAMS ((void));
-void dump_scope_tree			PARAMS ((FILE *, scope));
-static void dump_scope_tree_1		PARAMS ((FILE *, scope, int));
+static void set_block_levels		PARAMS ((tree, int));
+static void change_scope		PARAMS ((rtx, tree, tree));
 
 void verify_insn_chain			PARAMS ((void));
-void change_scope			PARAMS ((rtx, scope, scope));
 static void fixup_fallthru_exit_predecessor PARAMS ((void));
+
+/* Map insn uid to lexical block.  */
+static varray_type insn_scopes;
 
 /* Skip over inter-block insns occurring after BB which are typically
    associated with BB (e.g., barriers). If there are any such insns,
@@ -223,128 +190,83 @@ record_effective_endpoints ()
     }
 }
 
-/* Allocate and initialize a new scope structure with scope level LEVEL,
-   and record the NOTE beginning the scope.  */
+/* Build a varray mapping INSN_UID to lexical block.  Return it.  */
 
-static scope 
-make_new_scope (level, note)
-     int level;
-     rtx note;
+void
+scope_to_insns_initialize ()
 {
-  scope new_scope = xcalloc (1, sizeof (struct scope_def));
+  tree block = NULL;
+  rtx insn, next;
 
-  new_scope->level = level;
-  new_scope->block = note ? NOTE_BLOCK (note) : NULL;
-  return new_scope;
-}
+  VARRAY_TREE_INIT (insn_scopes, get_max_uid (), "insn scopes");
 
-
-/* Build a tree representing the scope structure of the function.
-   Return a pointer to a root of tree.  */
-
-static scope
-build_scope_tree ()
-{
-  rtx x;
-  int level, bbi;
-  basic_block curr_bb;
-  scope root, curr_scope;
-
-  root = curr_scope = make_new_scope (-1, NULL);
-  level = -1;
-  curr_bb = NULL;
-  bbi = 0;
-
-  for (x = get_insns (); x; x = NEXT_INSN (x))
+  for (insn = get_insns (); insn; insn = next)
     {
-      if (bbi < n_basic_blocks && x == BASIC_BLOCK (bbi)->head)
-	curr_bb = BASIC_BLOCK (bbi);
+      next = NEXT_INSN (insn);
 
-      if (INSN_P (x))
-	INSN_SCOPE (x) = curr_scope;
-
-      if (GET_CODE (x) == NOTE)
+      if (active_insn_p (insn)
+	  && GET_CODE (PATTERN (insn)) != ADDR_VEC
+	  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
+	VARRAY_TREE (insn_scopes, INSN_UID (insn)) = block;
+      else if (GET_CODE (insn) == NOTE)
 	{
-	  if (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_BEG)
+	  switch (NOTE_LINE_NUMBER (insn))
 	    {
-	      scope new_scope;
-	      if (! curr_scope)
-		abort();
-	      level++;
-	      new_scope = make_new_scope (level, x);
-	      new_scope->outer = curr_scope;
-	      new_scope->next = NULL;
-	      if (! curr_scope->inner)
-		{
-		  curr_scope->inner = new_scope;
-		  curr_scope->inner_last = new_scope;
-		}
-	      else
-		{
-		  curr_scope->inner_last->next = new_scope;
-		  curr_scope->inner_last = new_scope;
-		}
-	      curr_scope = curr_scope->inner_last;
-	    }
-	  else if (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END)
-	    {
-	      if (NOTE_BLOCK (x) != curr_scope->block)
-		abort ();
-	      level--;
-	      curr_scope = curr_scope->outer;
+	    case NOTE_INSN_BLOCK_BEG:
+	      block = NOTE_BLOCK (insn);
+	      delete_insn (insn);
+	      break;
+	    case NOTE_INSN_BLOCK_END:
+	      block = BLOCK_SUPERCONTEXT (block);
+	      delete_insn (insn);
+	      break;
+	    default:
+	      break;
 	    }
 	}
-
-      if (curr_bb && curr_bb->end == x)
-	{
-	  curr_bb = NULL;
-	  bbi++;
-	}
-    } 
-  return root;
+    }
 }
-
-/* Remove all NOTE_INSN_BLOCK_BEG and NOTE_INSN_BLOCK_END notes from the insn
-   chain.  */
+
+/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
+   found in the block tree.  */
 
 static void
-remove_scope_notes ()
+set_block_levels (block, level)
+     tree block;
+     int level;
 {
-  rtx x;
-
-  for (x = get_insns (); x; x = NEXT_INSN (x))
+  while (block)
     {
-      if (GET_CODE (x) == NOTE
-	  && (NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_BEG
-	      || NOTE_LINE_NUMBER (x) == NOTE_INSN_BLOCK_END))
-	delete_insn (x);
+      BLOCK_NUMBER (block) = level;
+      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
+      block = BLOCK_CHAIN (block);
     }
 }
 
-/* Emit BASIC_BLOCK notes needed to change scope from S1 to S2.  */
+/* Emit lexical block notes needed to change scope from S1 to S2.  */
 
-void
+static void
 change_scope (orig_insn, s1, s2)
-     scope s1, s2;
      rtx orig_insn;
+     tree s1, s2;
 {
   rtx insn = orig_insn;
-  scope com = NULL;
-  scope s;
-  scope ts1 = s1, ts2 = s2;
+  tree com = NULL_TREE;
+  tree ts1 = s1, ts2 = s2;
+  tree s;
 
   while (ts1 != ts2)
     {
-      if (!(ts1 && ts2))
+      if (ts1 == NULL || ts2 == NULL)
 	abort ();
-      if (ts1->level > ts2->level)
-	ts1 = ts1->outer;
-      else if (ts2->level > ts1->level)
-	ts2 = ts2->outer;
+      if (BLOCK_NUMBER (ts1) > BLOCK_NUMBER (ts2))
+	ts1 = BLOCK_SUPERCONTEXT (ts1);
+      else if (BLOCK_NUMBER (ts1) < BLOCK_NUMBER (ts2))
+	ts2 = BLOCK_SUPERCONTEXT (ts2);
       else
 	{
-	  ts1 = ts1->outer;
-	  ts2 = ts2->outer;
+	  ts1 = BLOCK_SUPERCONTEXT (ts1);
+	  ts2 = BLOCK_SUPERCONTEXT (ts2);
 	}
     }
   com = ts1;
@@ -353,102 +275,59 @@ change_scope (orig_insn, s1, s2)
   s = s1;
   while (s != com)
     {
-      if (s->block)
-	{
-	  rtx note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
-	  NOTE_BLOCK (note) = s->block;
-	}
-      s = s->outer;
+      rtx note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
+      NOTE_BLOCK (note) = s;
+      s = BLOCK_SUPERCONTEXT (s);
     }
 
   /* Open scopes.  */
   s = s2;
   while (s != com)
     {
-      if (s->block)
-	{
-	  insn = emit_note_before (NOTE_INSN_BLOCK_BEG, insn);
-	  NOTE_BLOCK (insn) = s->block;
-	}
-      s = s->outer;
+      insn = emit_note_before (NOTE_INSN_BLOCK_BEG, insn);
+      NOTE_BLOCK (insn) = s;
+      s = BLOCK_SUPERCONTEXT (s);
     }
 }
 
 /* Rebuild all the NOTE_INSN_BLOCK_BEG and NOTE_INSN_BLOCK_END notes based
-   on the scope tree and the newly reordered basic blocks.  */
+   on the scope tree and the newly reordered instructions.  */
 
-static void
-rebuild_scope_notes (root)
-    scope root;
+void
+scope_to_insns_finalize ()
 {
-  scope scope = root;
-  rtx insn = get_insns ();
-  rtx note;
+  tree cur_block = DECL_INITIAL (cfun->decl);
+  rtx insn, note;
+
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (cur_block, 0);
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (active_insn_p (insn)
-	  && INSN_UID (insn) < insn_scope->num_elements
-	  && GET_CODE (PATTERN (insn)) != ADDR_VEC
-	  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
-	  && INSN_SCOPE (insn)
-	  && INSN_SCOPE (insn) != scope)
+      tree this_block;
+
+      if ((size_t) INSN_UID (insn) >= insn_scopes->num_elements)
+	continue;
+      this_block = VARRAY_TREE (insn_scopes, INSN_UID (insn));
+      if (! this_block)
+	continue;
+
+      if (this_block != cur_block)
 	{
-	  change_scope (insn, scope, INSN_SCOPE (insn));
-	  scope = INSN_SCOPE (insn);
+	  change_scope (insn, cur_block, this_block);
+	  cur_block = this_block;
 	}
     }
+
+  VARRAY_FREE (insn_scopes);
+
   /* change_scope emits before the insn, not after.  */
   note = emit_note (NULL, NOTE_INSN_DELETED);
-  change_scope (get_last_insn (), scope, root);
+  change_scope (note, cur_block, DECL_INITIAL (cfun->decl));
   delete_insn (note);
-}
-
-/* Free the storage associated with the scope tree at S.  */
 
-static void
-free_scope_tree (s)
-    scope s;
-{
-  scope p, next;
-
-  for (p = s->inner; p; p = next)
-    {
-      next = p->next;
-      free_scope_tree (p);
-    }
-
-  free (s);
-}
-
-/* Visualize the scope tree.  */
-
-void
-dump_scope_tree (file, root)
-    FILE *file;
-    scope root;
-{
-  fprintf (file, "\n< Scope tree >\n");
-  dump_scope_tree_1 (file, root, 0);
-}
-
-/* Recursive portion of dump_scope_tree.  */
-
-static void
-dump_scope_tree_1 (file, s, indent)
-     FILE *file;
-     scope s;
-     int indent;
-{
-  scope p;
-
-  fprintf (file, "%*s", indent, "");
-  if (s->level >= 0)
-    fprintf (file, "level %d (block %p)\n", s->level,
-	     (PTR) s->block);
-  
-  for (p = s->inner; p; p = p->next)
-    dump_scope_tree_1 (file, p, indent + 2);
+  reorder_blocks ();
 }
 
 /* Given a reorder chain, rearrange the code to match.  */
@@ -595,7 +474,6 @@ fixup_reorder_chain ()
 	  alloc_aux_for_block (nb, sizeof (struct reorder_block_def));
 	  RBI (nb)->eff_head = nb->head;
 	  RBI (nb)->eff_end = NEXT_INSN (nb->end);
-	  RBI (nb)->scope = RBI (bb)->scope;
 	  RBI (nb)->visited = 1;
 	  RBI (nb)->next = RBI (bb)->next;
 	  RBI (bb)->next = nb;
@@ -825,7 +703,8 @@ cfg_layout_duplicate_bb (bb, e)
 	insn_common:
 	  /* Record the INSN_SCOPE.  */
 	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
-	  INSN_SCOPE (new) = INSN_SCOPE (insn);
+	  VARRAY_TREE (insn_scopes, INSN_UID (new))
+	    = VARRAY_TREE (insn_scopes, INSN_UID (insn));
 
 	  /* Update LABEL_NUSES.  */
 	  mark_jump_label (PATTERN (new), new, 0);
@@ -1024,6 +903,7 @@ cfg_layout_initialize ()
 
   alloc_aux_for_blocks (sizeof (struct reorder_block_def));
   cleanup_unconditional_jumps ();
+  scope_to_insns_initialize ();
   record_effective_endpoints ();
 }
 
@@ -1040,25 +920,11 @@ cfg_layout_finalize ()
   verify_insn_chain ();
 #endif
 
+  scope_to_insns_finalize ();
+
   free_aux_for_blocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-
-  rebuild_scope_notes (scope_tree);
-  free_scope_tree (scope_tree);
-  reorder_blocks ();
-  /* Dump the newly formed tree - this makes visible the changes
-     done by reorder_blocks - it should contain duplicated regions when
-     needed.  */
-  VARRAY_FREE (insn_scope);
-  if (rtl_dump_file)
-    {
-      VARRAY_GENERIC_PTR_INIT (insn_scope, get_max_uid (), "insn scopes");
-      scope_tree = build_scope_tree ();
-      dump_scope_tree (rtl_dump_file, scope_tree);
-      free_scope_tree (scope_tree);
-      VARRAY_FREE (insn_scope);
-    }
 }

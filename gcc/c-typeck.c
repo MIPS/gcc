@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,12 +31,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "rtl.h"
 #include "tree.h"
 #include "c-tree.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "output.h"
-#include "rtl.h"
 #include "expr.h"
 #include "toplev.h"
 #include "intl.h"
@@ -5554,7 +5554,7 @@ pop_init_level (implicit)
       else
 	/* Zero-length arrays are no longer special, so we should no longer
 	   get here.  */
-	abort();
+	abort ();
     }
 
   /* Warn when some struct elements are implicitly initialized to zero.  */
@@ -6274,6 +6274,16 @@ output_init_element (value, type, field, pending)
 	  && !comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (value)),
 			 TYPE_MAIN_VARIANT (type))))
     value = default_conversion (value);
+
+  if (TREE_CODE (value) == COMPOUND_LITERAL_EXPR
+      && require_constant_value && !flag_isoc99 && pending)
+    {
+      /* As an extension, allow initializing objects with static storage
+	 duration with compound literals (which are then treated just as
+	 the brace enclosed list they contain).  */
+      tree decl = COMPOUND_LITERAL_EXPR_DECL (value);
+      value = DECL_INITIAL (decl);
+    }
 
   if (value == error_mark_node)
     constructor_erroneous = 1;

@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -2263,9 +2263,8 @@ copy_rtx_and_substitute (orig, map, for_lhs)
 	  return validize_mem (force_const_mem (const_mode, constant));
 	}
 
-      copy = rtx_alloc (MEM);
-      PUT_MODE (copy, mode);
-      XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (orig, 0), map, 0);
+      copy = gen_rtx_MEM (mode, copy_rtx_and_substitute (XEXP (orig, 0),
+							 map, 0));
       MEM_COPY_ATTRIBUTES (copy, orig);
 
       /* If inlining and this is not for the LHS, turn off RTX_UNCHANGING_P
@@ -2950,10 +2949,6 @@ output_inline_function (fndecl)
       write_symbols = NO_DEBUG;
       debug_hooks = &do_nothing_debug_hooks;
     }
-
-  /* Do any preparation, such as emitting abstract debug info for the inline
-     before it gets mangled by optimization.  */
-  (*debug_hooks->outlining_inline_function) (fndecl);
 
   /* Compile this function all the way down to assembly code.  As a
      side effect this destroys the saved RTL representation, but

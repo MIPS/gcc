@@ -268,13 +268,13 @@ thread_jump (mode, e, b)
   set1 = pc_set (e->src->end);
   set2 = pc_set (b->end);
   if (((e->flags & EDGE_FALLTHRU) != 0)
-      != (XEXP (SET_SRC (set1), 0) == pc_rtx))
+      != (XEXP (SET_SRC (set1), 1) == pc_rtx))
     reverse1 = true;
 
   cond1 = XEXP (SET_SRC (set1), 0);
   cond2 = XEXP (SET_SRC (set2), 0);
   if (reverse1)
-    code1 = reversed_comparison_code (cond1, b->end);
+    code1 = reversed_comparison_code (cond1, e->src->end);
   else
     code1 = GET_CODE (cond1);
 
@@ -412,12 +412,32 @@ try_forward_edges (mode, b)
 	      edge t = thread_jump (mode, e, target);
 	      if (t)
 		{
-		  new_target = t->dest;
-		  new_target_threaded = true;
 		  if (!nthreaded_edges)
 		    threaded_edges = xmalloc (sizeof (*threaded_edges)
 					      * n_basic_blocks);
+		  else
+		    {
+		      int i;
+
+		      /* Detect an infinite loop across blocks not
+			 including the start block.  */
+		      for (i = 0; i < nthreaded_edges; ++i)
+			if (threaded_edges[i] == t)
+			  break;
+		      if (i < nthreaded_edges)
+			break;
+		    }
+
+		  /* Detect an infinite loop across the start block.  */
+		  if (t->dest == b)
+		    break;
+
+		  if (nthreaded_edges >= n_basic_blocks)
+		    abort ();
 		  threaded_edges[nthreaded_edges++] = t;
+
+		  new_target = t->dest;
+		  new_target_threaded = true;
 		}
 	    }
 
@@ -469,7 +489,8 @@ try_forward_edges (mode, b)
 	  int edge_frequency;
 	  int n = 0;
 
-	  if (threaded)
+	  /* Don't force if target is exit block.  */
+	  if (threaded && target != EXIT_BLOCK_PTR)
 	    {
 	      notice_new_block (redirect_edge_and_branch_force (e, target));
 	      if (rtl_dump_file)
@@ -509,7 +530,11 @@ try_forward_edges (mode, b)
 	      if (first->frequency < 0)
 		first->frequency = 0;
 	      if (first->succ->succ_next)
-		t = threaded_edges [n++];
+		{
+		  if (n >= nthreaded_edges)
+		    abort ();
+		  t = threaded_edges [n++];
+		}
 	      else
 		t = first->succ;
 

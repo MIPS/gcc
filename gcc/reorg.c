@@ -1,6 +1,6 @@
 /* Perform instruction reorganizations for delay slot filling.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -489,7 +489,7 @@ emit_delay_sequence (insn, list, length)
   for (li = list; li; li = XEXP (li, 1), i++)
     {
       rtx tem = XEXP (li, 0);
-      rtx note;
+      rtx note, next;
 
       /* Show that this copy of the insn isn't deleted.  */
       INSN_DELETED_P (tem) = 0;
@@ -498,11 +498,26 @@ emit_delay_sequence (insn, list, length)
       PREV_INSN (tem) = XVECEXP (seq, 0, i - 1);
       NEXT_INSN (XVECEXP (seq, 0, i - 1)) = tem;
 
-      /* Remove any REG_DEAD notes because we can't rely on them now
-	 that the insn has been moved.  */
-      for (note = REG_NOTES (tem); note; note = XEXP (note, 1))
-	if (REG_NOTE_KIND (note) == REG_DEAD)
-	  XEXP (note, 0) = const0_rtx;
+      for (note = REG_NOTES (tem); note; note = next)
+	{
+	  next = XEXP (note, 1);
+	  switch (REG_NOTE_KIND (note))
+	    {
+	    case REG_DEAD:
+	      /* Remove any REG_DEAD notes because we can't rely on them now
+		 that the insn has been moved.  */
+	      remove_note (tem, note);
+	      break;
+
+	    case REG_LABEL:
+	      /* Keep the label reference count up to date.  */
+	      LABEL_NUSES (XEXP (note, 0)) ++;
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
     }
 
   NEXT_INSN (XVECEXP (seq, 0, length)) = NEXT_INSN (seq_insn);
@@ -648,7 +663,7 @@ delete_scheduled_jump (insn)
 	  if (GET_CODE (trial) == NOTE)
 	    trial = prev_nonnote_insn (trial);
 	  if (sets_cc0_p (PATTERN (trial)) != 1
-	      || FIND_REG_INC_NOTE (trial, 0))
+	      || FIND_REG_INC_NOTE (trial, NULL_RTX))
 	    return;
 	  if (PREV_INSN (NEXT_INSN (trial)) == trial)
 	    delete_related_insns (trial);
@@ -2239,11 +2254,11 @@ fill_simple_delay_slots (non_jumps_p)
 
                int i = 2;
 
-	       try { 
+	       try {
                  f();
 	         i = 3;
                } catch (...) {}
-	       
+
                return i;
 
 	     Even though `i' is a local variable, we must be sure not
@@ -2703,6 +2718,8 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 		     starting point of this thread.  */
 		  if (own_thread)
 		    {
+		      rtx note;
+
 		      update_block (trial, thread);
 		      if (trial == thread)
 			{
@@ -2710,7 +2727,18 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 			  if (new_thread == trial)
 			    new_thread = thread;
 			}
+
+		      /* We are moving this insn, not deleting it.  We must
+			 temporarily increment the use count on any referenced
+			 label lest it be deleted by delete_related_insns.  */
+		      note = find_reg_note (trial, REG_LABEL, 0);
+		      if (note)
+			LABEL_NUSES (XEXP (note, 0))++;
+
 		      delete_related_insns (trial);
+
+		      if (note)
+			LABEL_NUSES (XEXP (note, 0))--;
 		    }
 		  else
 		    new_thread = next_active_insn (trial);

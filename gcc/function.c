@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GNU C-Compiler
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -727,7 +727,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
 	 and round it now.  We also make sure ALIGNMENT is at least
 	 BIGGEST_ALIGNMENT.  */
       if (mode == BLKmode && align < BIGGEST_ALIGNMENT)
-	abort();
+	abort ();
       p->slot = assign_stack_local (mode,
 				    (mode == BLKmode
 				     ? CEIL_ROUND (size, align / BITS_PER_UNIT)
@@ -6405,6 +6405,10 @@ expand_function_start (subr, parms_have_cleanups)
     = (lookup_attribute ("no_profile", DECL_ATTRIBUTES (current_function_decl))
        != NULL);
 
+  current_function_profile
+    = (profile_flag
+       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
+
   current_function_limit_stack
     = (stack_limit_rtx != NULL_RTX && ! DECL_NO_LIMIT_STACK (subr));
 
@@ -6583,7 +6587,7 @@ expand_function_start (subr, parms_have_cleanups)
     }
 
 #ifdef PROFILE_HOOK
-  if (profile_flag)
+  if (current_function_profile)
     PROFILE_HOOK (profile_label_no);
 #endif
 

@@ -1,6 +1,6 @@
 /* Perform various loop optimizations, including strength reduction.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2450,8 +2450,9 @@ prescan_loop (loop)
   for (insn = NEXT_INSN (start); insn != NEXT_INSN (end);
        insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == NOTE)
+      switch (GET_CODE (insn))
 	{
+	case NOTE:
 	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
 	    {
 	      ++level;
@@ -2459,24 +2460,73 @@ prescan_loop (loop)
 	      loop->level++;
 	    }
 	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	    {
-	      --level;
-	    }
-	}
-      else if (GET_CODE (insn) == CALL_INSN)
-	{
+	    --level;
+	  break;
+
+	case CALL_INSN:
 	  if (! CONST_OR_PURE_CALL_P (insn))
 	    {
 	      loop_info->unknown_address_altered = 1;
 	      loop_info->has_nonconst_call = 1;
 	    }
 	  loop_info->has_call = 1;
-	}
-      else if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
-	{
-	  rtx label1 = NULL_RTX;
-	  rtx label2 = NULL_RTX;
+	  if (can_throw_internal (insn))
+	    loop_info->has_multiple_exit_targets = 1;
+	  break;
 
+	case JUMP_INSN:
+	  if (! loop_info->has_multiple_exit_targets)
+	    {
+	      rtx set = pc_set (insn);
+
+	      if (set)
+		{
+		  rtx label1, label2;
+
+		  if (GET_CODE (SET_SRC (set)) == IF_THEN_ELSE)
+		    {
+		      label1 = XEXP (SET_SRC (set), 1);
+		      label2 = XEXP (SET_SRC (set), 2);
+		    }
+		  else
+		    {
+		      label1 = SET_SRC (PATTERN (insn));
+		      label2 = NULL_RTX;
+		    }
+
+		  do
+		    {
+		      if (label1 && label1 != pc_rtx)
+			{
+			  if (GET_CODE (label1) != LABEL_REF)
+			    {
+			      /* Something tricky.  */
+			      loop_info->has_multiple_exit_targets = 1;
+			      break;
+			    }
+			  else if (XEXP (label1, 0) != exit_target
+				   && LABEL_OUTSIDE_LOOP_P (label1))
+			    {
+			      /* A jump outside the current loop.  */
+			      loop_info->has_multiple_exit_targets = 1;
+			      break;
+			    }
+			}
+
+		      label1 = label2;
+		      label2 = NULL_RTX;
+		    }
+		  while (label1);
+		}
+	      else
+		{
+		  /* A return, or something tricky.  */
+		  loop_info->has_multiple_exit_targets = 1;
+		}
+	    }
+	  /* FALLTHRU */
+
+	case INSN:
 	  if (volatile_refs_p (PATTERN (insn)))
 	    loop_info->has_volatile = 1;
 
@@ -2489,48 +2539,13 @@ prescan_loop (loop)
 	  if (! loop_info->first_loop_store_insn && loop_info->store_mems)
 	    loop_info->first_loop_store_insn = insn;
 
-	  if (! loop_info->has_multiple_exit_targets
-	      && GET_CODE (insn) == JUMP_INSN
-	      && GET_CODE (PATTERN (insn)) == SET
-	      && SET_DEST (PATTERN (insn)) == pc_rtx)
-	    {
-	      if (GET_CODE (SET_SRC (PATTERN (insn))) == IF_THEN_ELSE)
-		{
-		  label1 = XEXP (SET_SRC (PATTERN (insn)), 1);
-		  label2 = XEXP (SET_SRC (PATTERN (insn)), 2);
-		}
-	      else
-		{
-		  label1 = SET_SRC (PATTERN (insn));
-		}
+	  if (flag_non_call_exceptions && can_throw_internal (insn))
+	    loop_info->has_multiple_exit_targets = 1;
+	  break;
 
-	      do
-		{
-		  if (label1 && label1 != pc_rtx)
-		    {
-		      if (GET_CODE (label1) != LABEL_REF)
-			{
-			  /* Something tricky.  */
-			  loop_info->has_multiple_exit_targets = 1;
-			  break;
-			}
-		      else if (XEXP (label1, 0) != exit_target
-			       && LABEL_OUTSIDE_LOOP_P (label1))
-			{
-			  /* A jump outside the current loop.  */
-			  loop_info->has_multiple_exit_targets = 1;
-			  break;
-			}
-		    }
-
-		  label1 = label2;
-		  label2 = NULL_RTX;
-		}
-	      while (label1);
-	    }
+	default:
+	  break;
 	}
-      else if (GET_CODE (insn) == RETURN)
-	loop_info->has_multiple_exit_targets = 1;
     }
 
   /* Now, rescan the loop, setting up the LOOP_MEMS array.  */
@@ -3560,7 +3575,7 @@ check_store (x, pat, data)
      rtx x, pat ATTRIBUTE_UNUSED;
      void *data;
 {
-  struct check_store_data *d = (struct check_store_data *)data;
+  struct check_store_data *d = (struct check_store_data *) data;
 
   if ((GET_CODE (x) == MEM) && rtx_equal_p (d->mem_address, XEXP (x, 0)))
     d->mem_write = 1;
@@ -3658,7 +3673,7 @@ rtx_equal_for_prefetch_p (x, y)
 
 static HOST_WIDE_INT
 remove_constant_addition (x)
-   rtx *x;
+     rtx *x;
 {
   HOST_WIDE_INT addval = 0;
   rtx exp = *x;
@@ -3815,9 +3830,9 @@ emit_prefetch_instructions (loop)
 	      || GET_CODE (iv->mult_val) != CONST_INT
 	      /* Don't handle reversed order prefetches, since they are usually
 		 ineffective.  Later we may be able to reverse such BIVs.  */
-	      || (PREFETCH_NO_REVERSE_ORDER 
+	      || (PREFETCH_NO_REVERSE_ORDER
 		  && (stride = INTVAL (iv->mult_val) * basestride) < 0)
-	      /* Prefetching of accesses with such a extreme stride is probably
+	      /* Prefetching of accesses with such an extreme stride is probably
 		 not worthwhile, either.  */
 	      || (PREFETCH_NO_EXTREME_STRIDE
 		  && stride > PREFETCH_EXTREME_STRIDE)
@@ -5294,7 +5309,7 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 
 	  record_giv (loop, v, p, src_reg, dest_reg, mult_val, add_val,
 		      ext_val, benefit, DEST_REG, not_every_iteration,
-		      maybe_multiple, (rtx*)0);
+		      maybe_multiple, (rtx*) 0);
 
 	}
     }
@@ -6422,13 +6437,13 @@ simplify_giv_expr (loop, x, ext_val, benefit)
 	tem = arg0, arg0 = arg1, arg1 = tem;
 
       if (GET_CODE (arg1) == PLUS)
-	  return
-	    simplify_giv_expr (loop,
-			       gen_rtx_PLUS (mode,
-					     gen_rtx_PLUS (mode, arg0,
-							   XEXP (arg1, 0)),
-					     XEXP (arg1, 1)),
-			       ext_val, benefit);
+	return
+	  simplify_giv_expr (loop,
+			     gen_rtx_PLUS (mode,
+					   gen_rtx_PLUS (mode, arg0,
+							 XEXP (arg1, 0)),
+					   XEXP (arg1, 1)),
+			     ext_val, benefit);
 
       /* Now must have MULT + MULT.  Distribute if same biv, else not giv.  */
       if (GET_CODE (arg0) != MULT || GET_CODE (arg1) != MULT)
@@ -7962,7 +7977,9 @@ check_dbra_loop (loop, insn_count)
 	 which is reversible.  */
       int reversible_mem_store = 1;
 
-      if (bl->giv_count == 0 && ! loop->exit_count)
+      if (bl->giv_count == 0
+	  && !loop->exit_count
+	  && !loop_info->has_multiple_exit_targets)
 	{
 	  rtx bivreg = regno_reg_rtx[bl->regno];
 	  struct iv_class *blt;
@@ -8003,9 +8020,11 @@ check_dbra_loop (loop, insn_count)
 		  }
 	      }
 
-	  /* A biv has uses besides counting if it is used to set another biv.  */
+	  /* A biv has uses besides counting if it is used to set
+	     another biv.  */
 	  for (blt = ivs->list; blt; blt = blt->next)
-	    if (blt->init_set && reg_mentioned_p (bivreg, SET_SRC (blt->init_set)))
+	    if (blt->init_set
+		&& reg_mentioned_p (bivreg, SET_SRC (blt->init_set)))
 	      {
 		no_use_except_counting = 0;
 		break;
@@ -9068,7 +9087,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 
       if ((prev = prev_nonnote_insn (prev)) == 0
 	  || GET_CODE (prev) != INSN
-	  || FIND_REG_INC_NOTE (prev, 0))
+	  || FIND_REG_INC_NOTE (prev, NULL_RTX))
 	break;
 
       set = set_of (op0, prev);
@@ -9275,7 +9294,7 @@ get_condition_for_loop (loop, x)
      const struct loop *loop;
      rtx x;
 {
-  rtx comparison = get_condition (x, (rtx*)0);
+  rtx comparison = get_condition (x, (rtx*) 0);
 
   if (comparison == 0
       || ! loop_invariant_p (loop, XEXP (comparison, 0))
@@ -10458,7 +10477,7 @@ loop_giv_dump (v, file, verbose)
 	  break;
 	case TRUNCATE:
 	  fprintf (file, " ext tr");
-	      break;
+	  break;
 	default:
 	  abort ();
 	}
