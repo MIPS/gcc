@@ -25,7 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      Compute the scalar evolutions for all the scalar variables of a
      condition expression, and based on this information performs a
      proof.  The condition is rewritten based on the result of this
-     proof.
+     static proof.
 
    Examples:
    
@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
      Based on the fact that this algorithm is similar to the Value
      Range Propagation you can have a look at the corresponding
-     papers.  
+     papers: ...
 */
 
 #include "config.h"
@@ -80,7 +80,7 @@ remove_redundant_check (tree cond, bool value)
 {
   /* A dead COND_EXPR means the condition is dead. We don't change any
      flow, just replace the expression with a constant.  */
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "Replacing one of the conditions.\n");
 
   if (value == true)
@@ -102,8 +102,9 @@ try_eliminate_check (tree cond)
   tree test, opnd0, opnd1;
   tree chrec0, chrec1;
   unsigned loop_nb = loop_num (loop_of_stmt (cond));
+  tree nb_iters = number_of_iterations_in_loop (loop_of_stmt (cond));
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_STATS))
     {
       fprintf (dump_file, "(try_eliminate_check \n");
       fprintf (dump_file, "  (cond = ");
@@ -122,16 +123,19 @@ try_eliminate_check (tree cond)
 	break;
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_STATS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, "  (nb_iters = ");
+	  print_generic_expr (dump_file, nb_iters, 0);
+	  fprintf (dump_file, ")\n  (chrec0 = ");
 	  print_generic_expr (dump_file, chrec0, 0);
 	  fprintf (dump_file, ")\n");
 	}
       
-      if (prove_truth_value_ne (chrec0, integer_zero_node, &value))
+      if (prove_truth_value_ne (chrec0, integer_zero_node, nb_iters, &value))
 	remove_redundant_check (cond, value);
       break;
 
@@ -154,11 +158,14 @@ try_eliminate_check (tree cond)
       chrec0 = instantiate_parameters (loop_nb, chrec0);
       chrec1 = instantiate_parameters (loop_nb, chrec1);
       
-      if (dump_file && (dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_STATS))
 	{
 	  fprintf (dump_file, "  (test = ");
 	  print_generic_expr (dump_file, test, 0);
-	  fprintf (dump_file, ")\n  (loop_nb = %d)\n  (chrec0 = ", loop_nb);
+	  fprintf (dump_file, ")\n  (loop_nb = %d)\n", loop_nb);
+	  fprintf (dump_file, "  (nb_iters = ");
+	  print_generic_expr (dump_file, nb_iters, 0);
+	  fprintf (dump_file, ")\n  (chrec0 = ");
 	  print_generic_expr (dump_file, chrec0, 0);
 	  fprintf (dump_file, ")\n  (chrec1 = ");
 	  print_generic_expr (dump_file, chrec1, 0);
@@ -168,32 +175,32 @@ try_eliminate_check (tree cond)
       switch (TREE_CODE (test))
 	{
 	case LT_EXPR:
-	  if (prove_truth_value_lt (chrec0, chrec1, &value))
+	  if (prove_truth_value_lt (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	  
 	case LE_EXPR:
-	  if (prove_truth_value_le (chrec0, chrec1, &value))
+	  if (prove_truth_value_le (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	  
 	case GT_EXPR:
-	  if (prove_truth_value_gt (chrec0, chrec1, &value))
+	  if (prove_truth_value_gt (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	  
 	case GE_EXPR:
-	  if (prove_truth_value_ge (chrec0, chrec1, &value))
+	  if (prove_truth_value_ge (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	    
 	case EQ_EXPR:
-	  if (prove_truth_value_eq (chrec0, chrec1, &value))
+	  if (prove_truth_value_eq (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	  
 	case NE_EXPR:
-	  if (prove_truth_value_ne (chrec0, chrec1, &value))
+	  if (prove_truth_value_ne (chrec0, chrec1, nb_iters, &value))
 	    remove_redundant_check (cond, value);
 	  break;
 	  
@@ -206,7 +213,7 @@ try_eliminate_check (tree cond)
       break;
     }
   
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, ")\n");
 }
 
@@ -237,6 +244,11 @@ eliminate_redundant_checks (void)
 {
   basic_block bb;
   block_stmt_iterator bsi;
+
+#if 0
+  dump_file = stderr;
+  dump_flags = 31;
+#endif
   
   bb = BASIC_BLOCK (0);
   if (bb && bb->loop_father)
