@@ -1,3 +1,10 @@
+2004-11-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* .in: Remove.
+	* INSTALL: Remove.
+	* NEWS: Remove.
+	* README: Remove.
+
 2004-11-10  Biagio Lucini  <lucini@phys.ethz.ch>
 	    Jacob Weismann Poulsen <jwp@dmi.dk>
 
