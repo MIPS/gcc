@@ -851,7 +851,7 @@ gfc_trans_logical_select (gfc_code * code)
 static tree
 gfc_trans_character_select (gfc_code *code)
 {
-  tree init, node, end_label, tmp, args, *labels;
+  tree init, node, end_label, tmp, type, args, *labels;
   stmtblock_t block, body;
   gfc_case *cp, *d;
   gfc_code *c;
@@ -973,15 +973,15 @@ gfc_trans_character_select (gfc_code *code)
       init = tree_cons (NULL_TREE, tmp, init);
     }
 
-  tmp = build_array_type (select_struct,
-                          build_index_type (build_int_2(n - 1, 0)));
+  type = build_array_type (select_struct,
+                           build_index_type (build_int_2(n - 1, 0)));
 
-  init = build1 (CONSTRUCTOR, tmp, nreverse(init));
+  init = build1 (CONSTRUCTOR, type, nreverse(init));
   TREE_CONSTANT (init) = 1;
   TREE_INVARIANT (init) = 1;
   TREE_STATIC (init) = 1;
   /* Create a static variable to hold the jump table.  */
-  tmp = gfc_create_var (tmp, "jumptable");
+  tmp = gfc_create_var (type, "jumptable");
   TREE_CONSTANT (tmp) = 1;
   TREE_INVARIANT (tmp) = 1;
   TREE_STATIC (tmp) = 1;
@@ -990,7 +990,8 @@ gfc_trans_character_select (gfc_code *code)
   init = tmp;
 
   /* Build an argument list for the library call */
-  init = build1 (ADDR_EXPR, pvoid_type_node, init);
+  init = build1 (ADDR_EXPR, build_pointer_type (type), init);
+  init = convert (pvoid_type_node, init);
   args = gfc_chainon_list (NULL_TREE, init);
 
   tmp = build_int_2 (n, 0);
@@ -1248,7 +1249,9 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
     {
       tmpvar = gfc_create_var (build_pointer_type (type), "temp");
       TREE_ADDRESSABLE (tmpvar) = 1;
-      pointer = build1 (ADDR_EXPR, ppvoid_type_node, tmpvar);
+      pointer = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmpvar)),
+			tmpvar);
+      pointer = convert (ppvoid_type_node, pointer);
 
       args = gfc_chainon_list (NULL_TREE, pointer);
       args = gfc_chainon_list (args, bytesize);
@@ -2953,7 +2956,9 @@ gfc_trans_allocate (gfc_code * code)
 	  tree val;
 
 	  val = gfc_create_var (ppvoid_type_node, "ptr");
-	  tmp = build1 (ADDR_EXPR, TREE_TYPE (val), se.expr);
+	  tmp = build_pointer_type (TREE_TYPE (se.expr));
+	  tmp = build1 (ADDR_EXPR, tmp, se.expr);
+	  tmp = convert (ppvoid_type_node, tmp);
 	  gfc_add_modify_expr (&se.pre, val, tmp);
 
 	  tmp = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (se.expr)));

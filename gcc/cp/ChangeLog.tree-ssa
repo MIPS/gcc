@@ -1,3 +1,11 @@
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* call.c (build_java_interface_fn_ref): Use build_address+convert.
+	* except.c (build_eh_type_type): Likewise.
+	* class.c (build_base_path): Use convert+build_indirect_ref.
+	* init.c (expand_virtual_init): Likewise.
+	* rtti.c (get_tinfo_decl_dynamic): Use convert.
+
 2003-11-20  Frank Ch. Eigler  <fche@redhat.com>
 
 	* cp-mudflap.c (mflang_flush_calls): Adapt to direct expansion of

@@ -2998,7 +2998,9 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
 
   type = build_pointer_type (gfc_character1_type_node);
   var = gfc_create_var (type, "pstr");
-  addr = build1 (ADDR_EXPR, ppvoid_type_node, var);
+  type = build_pointer_type (type);
+  addr = build1 (ADDR_EXPR, type, var);
+  addr = convert (ppvoid_type_node, addr);
   len = gfc_create_var (gfc_int4_type_node, "len");
 
   tmp = gfc_conv_intrinsic_function_args (se, expr);

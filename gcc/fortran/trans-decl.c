@@ -1492,6 +1492,7 @@ gfc_build_builtin_function_decls (void)
 static tree
 gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 {
+  tree ptr_to_decl;
   tree tmp;
   tree args;
   tree len;
@@ -1507,9 +1508,11 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   len = gfc_conv_init_string_length (sym, &block);
 
   TREE_ADDRESSABLE (sym->backend_decl) = 1;
-  tmp = build1 (ADDR_EXPR, ppvoid_type_node, sym->backend_decl);
+  tmp = build_pointer_type (TREE_TYPE (sym->backend_decl));
+  tmp = build1 (ADDR_EXPR, tmp, sym->backend_decl);
+  ptr_to_decl = convert (ppvoid_type_node, tmp);
 
-  args = gfc_chainon_list (NULL_TREE, tmp);
+  args = gfc_chainon_list (NULL_TREE, ptr_to_decl);
   args = gfc_chainon_list (args, len);
   tmp = gfc_build_function_call (gfor_fndecl_internal_malloc, args);
   gfc_add_expr_to_block (&block, tmp);
@@ -1521,9 +1524,7 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
 
   gfc_start_block (&block);
 
-  tmp = build1 (ADDR_EXPR, ppvoid_type_node, sym->backend_decl);
-
-  args = tree_cons (NULL_TREE, tmp, NULL_TREE);
+  args = gfc_chainon_list (NULL_TREE, ptr_to_decl);
   tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
   gfc_add_expr_to_block (&block, tmp);
 

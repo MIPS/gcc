@@ -819,8 +819,7 @@ build_indirect_class_ref (tree type)
   tree cl;
   index = alloc_class_constant (type);
   cl = build_ref_from_constant_pool (index); 
-  TREE_TYPE (cl) = promote_type (class_ptr_type);
-  return cl;
+  return convert (promote_type (class_ptr_type), cl);
 }
 
 /* Build a reference to the class TYPE.
@@ -1589,37 +1588,6 @@ make_class_data (tree type)
 void
 finish_class (void)
 {
-  tree method;
-  tree type_methods = TYPE_METHODS (current_class);
-  int saw_native_method = 0;
-
-  /* Find out if we have any native methods.  We use this information
-     later.  */
-  for (method = type_methods;
-       method != NULL_TREE;
-       method = TREE_CHAIN (method))
-    {
-      if (METHOD_NATIVE (method))
-	{
-	  saw_native_method = 1;
-	  break;
-	}
-    }
-
-  /* Emit deferred inline methods. */  
-  for (method = type_methods; method != NULL_TREE; )
-    {
-      if (! TREE_ASM_WRITTEN (method) && DECL_SAVED_INSNS (method) != 0)
-	{
-	  output_inline_function (method);
-	  /* Scan the list again to see if there are any earlier
-	     methods to emit. */
-	  method = type_methods;
-	  continue;
-	}
-      method = TREE_CHAIN (method);
-    }
-
   current_function_decl = NULL_TREE;
   make_class_data (current_class);
   register_class ();

@@ -447,7 +447,8 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
       tmp = build_array_type (gfc_get_element_type (TREE_TYPE (desc)), tmp);
       tmp = gfc_create_var (tmp, "A");
       TREE_ADDRESSABLE (tmp) = 1;
-      tmp = build1 (ADDR_EXPR, TREE_TYPE (data), tmp);
+      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (tmp)), tmp);
+      tmp = convert (TREE_TYPE (data), tmp);
       info->data = gfc_evaluate_now (tmp, &loop->pre);
 
       gfc_add_modify_expr (&loop->pre, data, info->data);
@@ -456,7 +457,8 @@ gfc_trans_allocate_array_storage (gfc_loopinfo * loop, gfc_ss_info * info,
   else
     {
       /* Allocate memory to hold the data.  */
-      info->pdata = build1 (ADDR_EXPR, ppvoid_type_node, data);
+      tmp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (data)), data);
+      info->pdata = convert (ppvoid_type_node, tmp);
 
       /* Build a call to allocate storage.  */
       args = gfc_chainon_list (NULL_TREE, info->pdata);
@@ -1171,7 +1173,9 @@ gfc_conv_array_base (tree descriptor)
 
           base = build (ARRAY_REF, gfc_get_element_type (type), descriptor,
                         base);
-          base = build1 (ADDR_EXPR, gfc_array_dataptr_type (descriptor), base);
+          base = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (base)),
+			 base);
+	  base = convert (gfc_array_dataptr_type (descriptor), base);
         }
       return base;
     }

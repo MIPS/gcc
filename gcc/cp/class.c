@@ -309,14 +309,14 @@ build_base_path (enum tree_code code,
 	  /* In a base member initializer, we cannot rely on
 	     the vtable being set up. We have to use the vtt_parm.  */
 	  tree derived = BINFO_INHERITANCE_CHAIN (v_binfo);
-	  
-	  v_offset = build (PLUS_EXPR, TREE_TYPE (current_vtt_parm),
-			    current_vtt_parm, BINFO_VPTR_INDEX (derived));
-	  
-	  v_offset = build1 (INDIRECT_REF,
-			     TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived))),
-			     v_offset);
-	  
+	  tree t;
+
+	  t = TREE_TYPE (TYPE_VFIELD (BINFO_TYPE (derived)));
+	  t = build_pointer_type (t);
+	  v_offset = convert (t, current_vtt_parm);
+	  v_offset = build (PLUS_EXPR, t, v_offset,
+			    BINFO_VPTR_INDEX (derived));
+	  v_offset = build_indirect_ref (v_offset, NULL);
 	}
       else
 	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),

@@ -4717,7 +4717,8 @@ build_java_interface_fn_ref (tree fn, tree instance)
 		iface);
       return error_mark_node;
     }
-  iface_ref = build1 (ADDR_EXPR, build_pointer_type (iface), iface_ref);
+  iface_ref = build_address (iface_ref);
+  iface_ref = convert (build_pointer_type (iface), iface_ref);
   
   /* Determine the itable index of FN.  */
   i = 1;

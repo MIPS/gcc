@@ -718,7 +718,10 @@ java_check_reference (tree expr, int check)
 tree
 build_java_indirect_ref (tree type, tree expr, int check)
 {
-  return build1 (INDIRECT_REF, type, java_check_reference (expr, check));
+  tree t;
+  t = java_check_reference (expr, check);
+  t = convert (build_pointer_type (type), t);
+  return build1 (INDIRECT_REF, type, t);
 }
 
 /* Implement array indexing (either as l-value or r-value).
@@ -1809,15 +1812,17 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  || (!TREE_PUBLIC (method) && DECL_CONTEXT (method)))
 	{
 	  make_decl_rtl (method, NULL);
-	  func = build1 (ADDR_EXPR, method_ptr_type_node, method);
+	  func = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (method)),
+			 method);
 	}
       else
 	{
 	  tree table_index = build_int_2 (get_symbol_table_index 
 					  (method, &atable_methods), 0);
-	  func = build (ARRAY_REF,  method_ptr_type_node, atable_decl, 
-			table_index);
+	  func = build (ARRAY_REF, TREE_TYPE (TREE_TYPE (atable_decl)),
+			atable_decl, table_index);
 	}
+      func = convert (method_ptr_type_node, func);
     }
   else
     {
@@ -2940,7 +2945,7 @@ java_push_constant_from_pool (JCF *jcf, int index)
       name = get_name_constant (jcf, JPOOL_USHORT1 (jcf, index));
       index = alloc_name_constant (CONSTANT_String, name);
       c = build_ref_from_constant_pool (index);
-      TREE_TYPE (c) = promote_type (string_type_node);
+      c = convert (promote_type (string_type_node), c);
     }
   else
     c = get_constant (jcf, index);

@@ -231,7 +231,7 @@ get_tinfo_decl_dynamic (tree exp)
       /* The RTTI information is at index -1.  */
       index = build_int_2 (-1 * TARGET_VTABLE_DATA_ENTRY_DISTANCE, -1);
       t = build_vtbl_ref (exp, index);
-      TREE_TYPE (t) = type_info_ptr_type;
+      t = convert (type_info_ptr_type, t);
     }
   else
     /* Otherwise return the type_info for the static type of the expr.  */

@@ -2397,20 +2397,6 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
       /* This added an INDIRECT_REF.  Fold it away.  */
       op0 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
 
-      /* ??? The Fortran front end does questionable things with types here,
-	 wanting to create a pointer to an array by taking the address of
-	 an element of the array.  I think we're trying to create some sort
-	 of array slice or something.  Anyway, notice that the type of the
-	 ADDR_EXPR doesn't match the type of the current pointer and add a
-	 cast if necessary.  */
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
-	  != TYPE_MAIN_VARIANT (TREE_TYPE (op0)))
-	{
-	  op0 = build1 (NOP_EXPR, TREE_TYPE (expr), op0);
-	  if (ret != GS_ERROR)
-	    ret = GS_OK;
-	}
-
       *expr_p = op0;
       break;
 
@@ -3323,6 +3309,77 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   return ret;
 }
 
+#ifdef ENABLE_CHECKING
+/* Compare types A and B for a "close enough" match.  */
+
+static bool
+cpt_same_type (tree a, tree b)
+{
+  if (TYPE_MAIN_VARIANT (a) == TYPE_MAIN_VARIANT (b))
+    return true;
+
+  /* ??? Ug.  METHOD_TYPES decompose to FUNCTION_TYPES and they aren't
+     linked together.  Since this routine is intended to catch type errors
+     that will affect the optimizers, and the optimizers don't add new
+     dereferences of function pointers, so ignore it.  */
+  if ((TREE_CODE (a) == FUNCTION_TYPE || TREE_CODE (a) == METHOD_TYPE)
+      && (TREE_CODE (b) == FUNCTION_TYPE || TREE_CODE (b) == METHOD_TYPE))
+    return true;
+
+  /* And because of that, we have to recurse down through pointers.  */
+  if (POINTER_TYPE_P (a) && POINTER_TYPE_P (b))
+    return cpt_same_type (TREE_TYPE (a), TREE_TYPE (b));
+
+  return false;
+}
+
+/* Check for some cases of the front end missing cast expressions.
+   The type of a dereference should correspond to the pointer type;
+   similarly the type of an address should match its object.  */
+
+static tree
+check_pointer_types_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+  tree ptype, otype, dtype;
+
+  switch (TREE_CODE (t))
+    {
+    case INDIRECT_REF:
+    case ARRAY_REF:
+      otype = TREE_TYPE (t);
+      ptype = TREE_TYPE (TREE_OPERAND (t, 0));
+      dtype = TREE_TYPE (ptype);
+      if (!cpt_same_type (otype, dtype))
+	abort ();
+      break;
+
+    case ADDR_EXPR:
+      ptype = TREE_TYPE (t);
+      otype = TREE_TYPE (TREE_OPERAND (t, 0));
+      dtype = TREE_TYPE (ptype);
+      if (!cpt_same_type (otype, dtype))
+	{
+	  /* &array is allowed to produce a pointer to the element,
+	     rather than a pointer to the array type.  */
+	  if (TREE_CODE (otype) == ARRAY_TYPE
+	      && POINTER_TYPE_P (ptype)
+	      && cpt_same_type (TREE_TYPE (otype), dtype))
+	    break;
+	  abort ();
+	}
+      break;
+
+    default:
+      return NULL_TREE;
+    }
+
+
+  return NULL_TREE;
+}
+#endif
+
 /* Gimplify the body of statements pointed by BODY_P.  FNDECL is the
    function decl containing BODY.  */
 
@@ -3369,6 +3426,11 @@ gimplify_body (tree *body_p, tree fndecl)
   declare_tmp_vars (gimplify_ctxp->temps, body);
 
   pop_gimplify_context ();
+
+#ifdef ENABLE_CHECKING
+  walk_tree (body_p, check_pointer_types_r, NULL, NULL);
+#endif
+
   timevar_pop (TV_TREE_GIMPLIFY);
   input_location = saved_location;
 }

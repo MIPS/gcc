@@ -137,6 +137,21 @@ static tree mark_local_for_remap_r (tree *, int *, void *);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree bind_expr, tree vars);
 
+/* Insert a tree->tree mapping for ID.  Despite the name suggests
+   that the trees should be variables, it is used for more than that.  */
+
+static void
+insert_decl_map (inline_data *id, tree key, tree value)
+{
+  splay_tree_insert (id->decl_map, (splay_tree_key) key,
+		     (splay_tree_value) value);
+
+  /* Always insert an identity map as well.  If we see this same new
+     node again, we won't want to duplicate it a second time.  */
+  if (key != value)
+    splay_tree_insert (id->decl_map, (splay_tree_key) value,
+		       (splay_tree_value) value);
+}
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
@@ -205,9 +220,8 @@ remap_decl (tree decl, inline_data *id)
 
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
-      n = splay_tree_insert (id->decl_map,
-			     (splay_tree_key) decl,
-			     (splay_tree_value) t);
+      insert_decl_map (id, decl, t);
+      return t;
     }
 
   return (tree) n->value;
@@ -230,15 +244,13 @@ remap_type (tree type, inline_data *id)
   /* The type only needs remapping if it's variably modified.  */
   if (! variably_modified_type_p (type))
     {
-      splay_tree_insert (id->decl_map, (splay_tree_key) type,
-			 (splay_tree_value) type);
+      insert_decl_map (id, type, type);
       return type;
     }
   
   /* We do need a copy.  build and register it now.  */
   new = copy_node (type);
-  splay_tree_insert (id->decl_map, (splay_tree_key) type,
-		     (splay_tree_value) new);
+  insert_decl_map (id, type, new);
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
@@ -395,9 +407,7 @@ remap_block (tree *block, inline_data *id)
     }
 #endif
   /* Remember the remapped block.  */
-  splay_tree_insert (id->decl_map,
-		     (splay_tree_key) old_block,
-		     (splay_tree_value) new_block);
+  insert_decl_map (id, old_block, new_block);
 }
 
 static void
@@ -522,9 +532,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
          will refer to it, so save a copy ready for remapping.  We
          save it in the decl_map, although it isn't a decl.  */
       tree new_block = copy_node (*tp);
-      splay_tree_insert (id->decl_map,
-			 (splay_tree_key) *tp,
-			 (splay_tree_value) new_block);
+      insert_decl_map (id, *tp, new_block);
       *tp = new_block;
     }
   else if (TREE_CODE (*tp) == EXIT_BLOCK_EXPR)
@@ -709,9 +717,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
 	      else if (TREE_TYPE (value) != TREE_TYPE (p))
 		value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
 
-	      splay_tree_insert (id->decl_map,
-				 (splay_tree_key) p,
-				 (splay_tree_value) value);
+	      insert_decl_map (id, p, value);
 	      continue;
 	    }
 	}
@@ -732,9 +738,7 @@ initialize_inlined_parameters (inline_data *id, tree args, tree fn, tree bind_ex
       /* Register the VAR_DECL as the equivalent for the PARM_DECL;
 	 that way, when the PARM_DECL is encountered, it will be
 	 automatically replaced by the VAR_DECL.  */
-      splay_tree_insert (id->decl_map,
-			 (splay_tree_key) p,
-			 (splay_tree_value) var_sub);
+      insert_decl_map (id, p, var_sub);
 
       /* Declare this new variable.  */
       TREE_CHAIN (var) = vars;
@@ -834,9 +838,7 @@ declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be
      automatically replaced by the VAR_DECL.  */
-  splay_tree_insert (id->decl_map,
-		     (splay_tree_key) result,
-		     (splay_tree_value) var);
+  insert_decl_map (id, result, var);
 
   /* Remember this so we can ignore it in remap_decls.  */
   id->retvar = var;
@@ -2108,6 +2110,7 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
 {
   splay_tree st = (splay_tree) st_;
   splay_tree_node n;
+  tree t;
 
   /* See if we already encountered this SAVE_EXPR.  */
   n = splay_tree_lookup (st, (splay_tree_key) *tp);
@@ -2115,7 +2118,7 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
   /* If we didn't already remap this SAVE_EXPR, do so now.  */
   if (!n)
     {
-      tree t = copy_node (*tp);
+      t = copy_node (*tp);
 
       /* The SAVE_EXPR is now part of the function into which we
 	 are inlining this body.  */
@@ -2123,19 +2126,19 @@ remap_save_expr (tree *tp, void *st_, tree fn, int *walk_subtrees)
       /* And we haven't evaluated it yet.  */
       SAVE_EXPR_RTL (t) = NULL_RTX;
       /* Remember this SAVE_EXPR.  */
-      n = splay_tree_insert (st,
-			     (splay_tree_key) *tp,
-			     (splay_tree_value) t);
+      splay_tree_insert (st, (splay_tree_key) *tp, (splay_tree_value) t);
       /* Make sure we don't remap an already-remapped SAVE_EXPR.  */
       splay_tree_insert (st, (splay_tree_key) t, (splay_tree_value) t);
     }
   else
-    /* We've already walked into this SAVE_EXPR, so we needn't do it
-       again.  */
-    *walk_subtrees = 0;
+    {
+      /* We've already walked into this SAVE_EXPR; don't do it again.  */
+      *walk_subtrees = 0;
+      t = (tree) n->value;
+    }
 
   /* Replace this SAVE_EXPR with the copy.  */
-  *tp = (tree) n->value;
+  *tp = t;
 }
 
 /* Called via walk_tree.  If *TP points to a DECL_STMT for a local
@@ -2148,7 +2151,6 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 {
   tree t = *tp;
   inline_data *id = (inline_data *) data;
-  splay_tree st = id->decl_map;
   tree decl;
 
   /* Don't walk into types.  */
@@ -2174,9 +2176,7 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 				     DECL_CONTEXT (decl));
 
       /* Remember the copy.  */
-      splay_tree_insert (st,
-			 (splay_tree_key) decl, 
-			 (splay_tree_value) copy);
+      insert_decl_map (id, decl, copy);
     }
 
   return NULL_TREE;

@@ -658,7 +658,9 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
       tmp = build_array_type (gfc_character1_type_node, tmp);
       var = gfc_create_var (tmp, "str");
       TREE_ADDRESSABLE (var) = 1;
-      var = build1 (ADDR_EXPR, type, var);
+      tmp = build_pointer_type (tmp);
+      var = build1 (ADDR_EXPR, tmp, var);
+      var = convert (type, var);
     }
   else
     {
@@ -667,7 +669,8 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
       TREE_ADDRESSABLE (var) = 1;
 
       /* Allocate a temporary to hold the result.  */
-      addr = build1 (ADDR_EXPR, ppvoid_type_node, var);
+      addr = build1 (ADDR_EXPR, build_pointer_type (type), var);
+      addr = convert (ppvoid_type_node, var);
 
       args = NULL_TREE;
       args = gfc_chainon_list (args, addr);

@@ -1,3 +1,14 @@
+2003-11-20  Richard Henderson  <rth@redhat.com>
+
+	* except.c (output_function_exception_table): Strip nops.
+	* gimplify.c (gimplify_addr_expr): Kill missing cast workaround.
+	(cpt_same_type, check_pointer_types_r): New.
+	(gimplify_body): Call it.
+	* tree-inline.c (insert_decl_map): New.
+	(remap_decl, remap_type, remap_block, copy_body_r,
+	initialize_inlined_parameters, declare_return_variable,
+	remap_save_expr, mark_local_for_remap_r): Use it.
+
 2003-11-20  Frank Ch. Eigler  <fche@redhat.com>
  
         libstdc++/11696

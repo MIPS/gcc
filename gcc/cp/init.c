@@ -761,7 +761,8 @@ expand_virtual_init (tree binfo, tree decl)
 		     TREE_TYPE (vtt_parm), 
 		     vtt_parm,
 		     vtt_index);
-      vtbl2 = build1 (INDIRECT_REF, TREE_TYPE (vtbl), vtbl2);
+      vtbl2 = build_indirect_ref (vtbl2, NULL);
+      vtbl2 = convert (TREE_TYPE (vtbl), vtbl2);
 
       /* The actual initializer is the VTT value only in the subobject
 	 constructor.  In maybe_clone_body we'll substitute NULL for

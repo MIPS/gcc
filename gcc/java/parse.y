@@ -13966,9 +13966,15 @@ patch_string_cst (tree node)
       location = alloc_name_constant (CONSTANT_String, node);
       node = build_ref_from_constant_pool (location);
     }
-  TREE_TYPE (node) = string_ptr_type_node;
   TREE_CONSTANT (node) = 1;
   TREE_INVARIANT (node) = 1;
+
+  /* ??? Guessing that the class file code can't handle casts.  */
+  if (! flag_emit_class_files)
+    node = convert (string_ptr_type_node, node);
+  else
+    TREE_TYPE (node) = string_ptr_type_node;
+
   return node;
 }
 
