@@ -422,11 +422,20 @@ do {					\
 /* APPLE LOCAL begin Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 #undef LIBGCC_SPEC
 #undef REAL_LIBGCC_SPEC
+/* APPLE LOCAL 64-bit bringup */
+#ifdef ENABLE_SHARED_LIBGCC
 #define REAL_LIBGCC_SPEC 					   \
    "%{static:-lgcc_static}					   \
     %{!static:%{static-libgcc:-lgcc -lgcc_eh}			   \
 	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	   \
 			       %{!shared-libgcc:-lgcc -lgcc_eh}}}"
+#else
+#define REAL_LIBGCC_SPEC 					 \
+   "%{static:-lgcc_static}					 \
+    %{!static:%{static-libgcc:-lgcc}			         \
+	      %{!static-libgcc:%{shared-libgcc:-lgcc_s%M -lgcc}	 \
+			       %{!shared-libgcc:-lgcc}}}"
+#endif /* ENABLE_SHARED_LIBGCC */
 /* APPLE LOCAL end Handle static/shared libgcc correctly (radar 3554191, 3127145) */
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
