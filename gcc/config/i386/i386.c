@@ -15586,7 +15586,10 @@ k8_avoid_jump_misspredicts (first)
     {
       int size;
 
-      if (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == CALL_INSN)
+      if ((GET_CODE (insn) == JUMP_INSN
+	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
+	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
+	  || GET_CODE (insn) == CALL_INSN)
 	njumps++;
       nbytes += min_insn_size (insn);
       while (nbytes - (size = min_insn_size (start)) >= 16)
@@ -15602,7 +15605,10 @@ k8_avoid_jump_misspredicts (first)
 	  while (njumps > 3)
 	    {
 	      padsize += size;
-	      if (GET_CODE (start) == JUMP_INSN || GET_CODE (start) == CALL_INSN)
+	      if ((GET_CODE (start) == JUMP_INSN
+		   && GET_CODE (PATTERN (insn)) != ADDR_VEC
+		   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
+		  || GET_CODE (start) == CALL_INSN)
 		njumps--;
 	      start = NEXT_INSN (start);
 	    }
