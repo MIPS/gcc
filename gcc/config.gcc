@@ -1526,15 +1526,18 @@ i[34567]86-*-win32)
 	exeext=.exe
 	;;
 i[34567]86-*-pe | i[34567]86-*-cygwin*)
+	tm_file=i386/cygwin.h
+	float_format=i386
 	xm_defines=POSIX
 	xm_file=i386/xm-cygwin.h
-	float_format=i386
 	tmake_file=i386/t-cygwin
-	tm_file=i386/cygwin.h
 	extra_objs=winnt.o
+	c_target_objs=cygwin2.o
+	cxx_target_objs=cygwin2.o
 	extra_parts="crtbegin.o crtend.o"
+	target_cpu_default=TARGET_CPU_DEFAULT_pentium
 	if test x$enable_threads = xyes; then
-		thread_file='win32'
+		thread_file='posix'
 	fi
 	exeext=.exe
 	;;
