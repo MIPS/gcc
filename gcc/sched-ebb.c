@@ -470,7 +470,7 @@ schedule_ebbs (dump_file)
 	      break;
 	  if (! e)
 	    break;
-	  if (e->probability < probability_cutoff)
+	  if (e->probability <= probability_cutoff)
 	    break;
 	  bb = bb->next_bb;
 	}
