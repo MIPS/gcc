@@ -763,11 +763,18 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
 	wi->val_only = save_val_only;
 
-	/* If the callback converted the address argument in a context
-	   where we only accept variables (and min_invariant, presumably),
-	   then compute the address into a temporary.  */
-	if (save_val_only && save_sub != TREE_OPERAND (t, 0))
-	  *tp = gimplify_val (wi->info, t, &wi->tsi);
+	if (save_sub != TREE_OPERAND (t, 0))
+	  {
+	    /* If we changed anything, then TREE_INVARIANT is be wrong,
+	       since we're no longer directly referencing a decl.  */
+	    TREE_INVARIANT (t) = 0;
+
+	    /* If the callback converted the address argument in a context
+	       where we only accept variables (and min_invariant, presumably),
+	       then compute the address into a temporary.  */
+	    if (save_val_only)
+	      *tp = gimplify_val (wi->info, t, &wi->tsi);
+	  }
       }
       break;
 
