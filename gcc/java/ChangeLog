@@ -1,3 +1,38 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-10-21  Matthias Klose  <doko@debian.org>
+
+	* Backport, without whitespace change:
+
+	2002-06-10  Akim Demaille  <akim@epita.fr>
+	* parse.y (interface_type_list, class_member_declaration)
+	(unary_expression_not_plus_minus): Remove duplicate %type.
+	Whitespace changes.
+
+	2002-06-13  Akim Demaille  <akim@epita.fr>
+	* parse.y (class_declaration, interface_declaration): Make sure
+	all their rules have an action, in order to avoid meaningless `$$
+	= $1' and their type clashes.
+
+	* parse.y (catch_clause): Terminate with `;'.
+
+2002-10-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR optimization/6627
+	* java/lang.c (java_init): If storing the vbit in function
+	pointers, ensure that force_align_functions_log is atleast
+	one to aid compatability with g++ vtables.
+
 2002-08-14  Release Manager
 
 	* GCC 3.2 Released.
@@ -104,7 +139,7 @@ Tue Apr 23 14:31:23 2002  Anthony Green  <green@redhat.com>
 	* jcf-parse.c (get_constant): CONSTANT_Integer: Use an unsigned
 	HOST_WIDE_INT for num.  Use JPOOL_UINT to get it.
 	CONSTANT_Double: Use JPOOL_UINT to get both halves of a double.
-	
+
 2002-04-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* class.c (make_class_data): Set DECL_ALIGN on static class data,
@@ -112,7 +147,7 @@ Tue Apr 23 14:31:23 2002  Anthony Green  <green@redhat.com>
 	* expr.c (java_expand_expr): Set DECL_ALIGN on static array objects.
 	* decl.c (java_init_decl_processing): Don't set TYPE_ALIGN for
 	class_type_node.
-	
+
 2002-04-16  Mark Wielaard  <mark@klomp.org>
 
 	* jcf-write.c (generate_bytecode_insns): Only write const_0 if not

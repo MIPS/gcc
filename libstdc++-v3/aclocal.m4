@@ -1,6 +1,6 @@
-dnl aclocal.m4 generated automatically by aclocal 1.4
+dnl aclocal.m4 generated automatically by aclocal 1.4-p5
 
-dnl Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+dnl Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
 dnl with or without modifications, as long as this notice is preserved.
@@ -1143,6 +1143,12 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
     	  AC_TRY_RUN([
 	  #define _GNU_SOURCE 1
 	  #include <locale.h>
+	  #include <string.h>
+	  #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+	  extern __typeof(newlocale) __newlocale;
+	  extern __typeof(duplocale) __duplocale;
+	  extern __typeof(strcoll_l) __strcoll_l;
+	  #endif
 	  int main()
 	  {
   	    const char __one[] = "Äuglein Augmen";
@@ -1184,6 +1190,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/generic/c_locale.h
       CLOCALE_CC=config/locale/generic/c_locale.cc
       CCODECVT_H=config/locale/generic/codecvt_specializations.h
+      CCODECVT_CC=config/locale/generic/codecvt_members.cc
       CCOLLATE_CC=config/locale/generic/collate_members.cc
       CCTYPE_CC=config/locale/generic/ctype_members.cc
       CMESSAGES_H=config/locale/generic/messages_members.h
@@ -1191,6 +1198,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMONEY_CC=config/locale/generic/monetary_members.cc
       CNUMERIC_CC=config/locale/generic/numeric_members.cc
       CTIME_CC=config/locale/generic/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
     xgnu)
       AC_MSG_RESULT(gnu)
@@ -1216,6 +1224,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/gnu/c_locale.h
       CLOCALE_CC=config/locale/gnu/c_locale.cc
       CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCODECVT_CC=config/locale/gnu/codecvt_members.cc
       CCOLLATE_CC=config/locale/gnu/collate_members.cc
       CCTYPE_CC=config/locale/gnu/ctype_members.cc
       CMESSAGES_H=config/locale/gnu/messages_members.h
@@ -1223,6 +1232,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMONEY_CC=config/locale/gnu/monetary_members.cc
       CNUMERIC_CC=config/locale/gnu/numeric_members.cc
       CTIME_CC=config/locale/gnu/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/gnu/c++locale_internal.h
       ;;
     xieee_1003.1-2001)
       AC_MSG_RESULT(generic)
@@ -1230,6 +1240,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CLOCALE_H=config/locale/ieee_1003.1-2001/c_locale.h
       CLOCALE_CC=config/locale/ieee_1003.1-2001/c_locale.cc
       CCODECVT_H=config/locale/ieee_1003.1-2001/codecvt_specializations.h
+      CCODECVT_CC=config/locale/generic/codecvt_members.cc
       CCOLLATE_CC=config/locale/generic/collate_members.cc
       CCTYPE_CC=config/locale/generic/ctype_members.cc
       CMESSAGES_H=config/locale/ieee_1003.1-2001/messages_members.h
@@ -1237,6 +1248,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
       CMONEY_CC=config/locale/generic/monetary_members.cc
       CNUMERIC_CC=config/locale/generic/numeric_members.cc
       CTIME_CC=config/locale/generic/time_members.cc
+      CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
     *)
       echo "$enable_clocale is an unknown locale package" 1>&2
@@ -1249,17 +1261,23 @@ AC_DEFUN(GLIBCPP_ENABLE_CLOCALE, [
   glibcpp_localedir=${glibcpp_builddir}/po/share/locale
   AC_SUBST(glibcpp_localedir)
 
+  # For the time being, transform ctype_noninline.h to ctype_members_char.cc
+#  CCTYPE_CHAR_CC=config/${os_include_dir}/ctype_noninline.h
+
   AC_SUBST(USE_NLS)
   AC_SUBST(CLOCALE_H)
   AC_SUBST(CCODECVT_H)
   AC_SUBST(CMESSAGES_H)
   AC_LINK_FILES($CLOCALE_CC, src/c++locale.cc)
-  AC_LINK_FILES($CCOLLATE_CC, src/collate.cc)
-  AC_LINK_FILES($CCTYPE_CC, src/ctype.cc)
-  AC_LINK_FILES($CMESSAGES_CC, src/messages.cc)
-  AC_LINK_FILES($CMONEY_CC, src/monetary.cc)
-  AC_LINK_FILES($CNUMERIC_CC, src/numeric.cc)
-  AC_LINK_FILES($CTIME_CC, src/time.cc)
+  AC_LINK_FILES($CCODECVT_CC, src/codecvt_members.cc)
+  AC_LINK_FILES($CCOLLATE_CC, src/collate_members.cc)
+#  AC_LINK_FILES($CCTYPE_CHAR_CC, src/ctype_members_char.cc)
+  AC_LINK_FILES($CCTYPE_CC, src/ctype_members.cc)
+  AC_LINK_FILES($CMESSAGES_CC, src/messages_members.cc)
+  AC_LINK_FILES($CMONEY_CC, src/monetary_members.cc)
+  AC_LINK_FILES($CNUMERIC_CC, src/numeric_members.cc)
+  AC_LINK_FILES($CTIME_CC, src/time_members.cc)
+  AC_LINK_FILES($CLOCALE_INTERNAL_H, src/c++locale_internal.h)
 ])
 
 
@@ -2036,6 +2054,14 @@ AC_DEFUN(GLIBCPP_CONFIGURE_TESTSUITE, [
 
   # Look for setenv, so that extended locale tests can be performed.
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+
+  # Export file names for ABI checking.
+  baseline_file="${glibcpp_srcdir}/config/abi/${abi_baseline_triplet}/baseline_symbols.txt"
+  AC_SUBST(baseline_file)
+
+  # Don't do ABI checking unless native.
+  AM_CONDITIONAL(GLIBCPP_BUILD_ABI_CHECK,
+                 test x"$build" = x"$host" && test -z "$with_cross_host")
 ])
 
 
@@ -2187,6 +2213,7 @@ case $enable_symvers in
       ;;
   gnu)
       LINKER_MAP=config/linker-map.gnu
+      AC_DEFINE(_GLIBCPP_SYMVER)	
       ;;
 esac
 
@@ -2197,12 +2224,37 @@ AC_MSG_RESULT($enable_symvers)
 ])
 
 
+# isc-posix.m4 serial 1 (gettext-0.10.40)
+dnl Copyright (C) 1995-2002 Free Software Foundation, Inc.
+dnl This file is free software, distributed under the terms of the GNU
+dnl General Public License.  As a special exception to the GNU General
+dnl Public License, this file may be distributed as part of a program
+dnl that contains a configuration script generated by Autoconf, under
+dnl the same distribution terms as the rest of that program.
+
+# This test replaces the one in autoconf.
+# Currently this macro should have the same name as the autoconf macro
+# because gettext's gettext.m4 (distributed in the automake package)
+# still uses it.  Otherwise, the use in gettext.m4 makes autoheader
+# give these diagnostics:
+#   configure.in:556: AC_TRY_COMPILE was called before AC_ISC_POSIX
+#   configure.in:556: AC_TRY_RUN was called before AC_ISC_POSIX
+
+undefine([AC_ISC_POSIX])
+
+AC_DEFUN([AC_ISC_POSIX],
+  [
+    dnl This test replaces the obsolescent AC_ISC_POSIX kludge.
+    AC_CHECK_LIB(cposix, strerror, [LIBS="$LIBS -lcposix"])
+  ]
+)
+
 # Add --enable-maintainer-mode option to configure.
 # From Jim Meyering
 
 # serial 1
 
-AC_DEFUN(AM_MAINTAINER_MODE,
+AC_DEFUN([AM_MAINTAINER_MODE],
 [AC_MSG_CHECKING([whether to enable maintainer-specific portions of Makefiles])
   dnl maintainer-mode is disabled by default
   AC_ARG_ENABLE(maintainer-mode,
@@ -2219,7 +2271,7 @@ AC_DEFUN(AM_MAINTAINER_MODE,
 
 # Define a conditional.
 
-AC_DEFUN(AM_CONDITIONAL,
+AC_DEFUN([AM_CONDITIONAL],
 [AC_SUBST($1_TRUE)
 AC_SUBST($1_FALSE)
 if $2; then
@@ -2239,7 +2291,7 @@ fi])
 dnl Usage:
 dnl AM_INIT_AUTOMAKE(package,version, [no-define])
 
-AC_DEFUN(AM_INIT_AUTOMAKE,
+AC_DEFUN([AM_INIT_AUTOMAKE],
 [AC_REQUIRE([AC_PROG_INSTALL])
 PACKAGE=[$1]
 AC_SUBST(PACKAGE)
@@ -2267,7 +2319,7 @@ AC_REQUIRE([AC_PROG_MAKE_SET])])
 # Check to make sure that the build environment is sane.
 #
 
-AC_DEFUN(AM_SANITY_CHECK,
+AC_DEFUN([AM_SANITY_CHECK],
 [AC_MSG_CHECKING([whether build environment is sane])
 # Just in case
 sleep 1
@@ -2308,7 +2360,7 @@ AC_MSG_RESULT(yes)])
 
 dnl AM_MISSING_PROG(NAME, PROGRAM, DIRECTORY)
 dnl The program must properly implement --version.
-AC_DEFUN(AM_MISSING_PROG,
+AC_DEFUN([AM_MISSING_PROG],
 [AC_MSG_CHECKING(for working $2)
 # Run test in a subshell; some versions of sh will print an error if
 # an executable is not found, even if stderr is redirected.
@@ -2324,7 +2376,7 @@ AC_SUBST($1)])
 
 # Like AC_CONFIG_HEADER, but automatically create stamp file.
 
-AC_DEFUN(AM_CONFIG_HEADER,
+AC_DEFUN([AM_CONFIG_HEADER],
 [AC_PREREQ([2.12])
 AC_CONFIG_HEADER([$1])
 dnl When config.status generates a header, we must update the stamp-h file.

@@ -1,3 +1,225 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR c/8467
+	* gcc.c-torture/execute/20021111-1.c
+
+2002-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7788
+	* g++.dg/rtti/crash1.C: New test.
+
+2002-11-07  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/wint_t-1.c, gcc.dg/wchar_t-1.c: Remove excess-errors
+	markers.
+
+2002-11-02  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/typedef-init.C, gcc.dg/typedef-init.C:
+	Add some more cases.
+
+2002-11-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8391
+	* g++.dg/opt/local1.C: New test.
+
+2002-10-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8160
+	* g++.dg/template/complit1.C: New test.
+
+	PR c++/8149
+	* g++.dg/template/typename4.C: Likewise.
+
+2002-10-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8287
+	* g++.dg/init/dtor2.C: New test.
+
+	* g++.dg/template/alignof1.C: New test.
+
+2002-10-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/20021014-1.c: Bypass errors on solaris2 and irix6.
+
+2002-10-27  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.dg/20021014-1.c: Use dg-error, not dg-build.
+	* gcc.dg/20021014-1.c: Expect build failure on mmix-*-*.
+
+2002-10-25  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.dg/ext/vla1.C, gcc.dg/vla-2.c,
+	g++.dg/template/typename3.C: New tests.
+
+2002-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20021024-1.c: New test.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8067
+	* g++.dg/lookup/pretty1.C: New test.
+
+2002-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7679
+	* g++.dg/parse/inline1.C: New test.
+
+2002-10-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/6579
+	* g++.dg/parse/stmtexpr3.C: New test.
+
+2002-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7209
+	* g++.dg/expr: New directory.
+	* g++.dg/expr/cond1.C: New test.
+
+2002-10-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/noncompile/920923-1.c: Prevent spurious regressions with
+	bison 1.50 or later.
+
+2002-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/7676
+	* g++.dg/overload/method2.C: New test.
+
+2002-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7584
+	* g++.dg/inherit/using3.C: New test.
+
+2002-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7478
+	* g++.dg/template/ref1.C: New test.
+
+	PR c++/8134
+	* g++.dg/init/pm1.C: XFAIL it.
+
+	PR c++/7524
+	* g++.dg/init/array7.C: New test.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/7370
+	* gcc.c-torture/compile/20021015-1.c: New test.
+
+	PR target/8232
+	* gcc.c-torture/compile/20021015-2.c: New test.
+
+2002-10-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20021015-1.c: New test.
+
+2002-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20021014-1.c: New test.
+
+2002-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR optimization/6631
+	* g++.dg/opt/const2.C: New test.
+
+	PR c++/7176
+	* g++.dg/parse/friend1.C: New test.
+	* g++.old-deja/g++.pt/memtemp64.C: Adjust.
+
+2002-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5661
+	* g++.dg/ext/vlm1.C: New test.
+	* g++.dg/ext/vlm2.C: Likewise.
+
+2002-10-09  Zack Weinberg  <zack@codesourcery.com>
+
+	PR c/7353
+	* g++.dg/ext/typedef-init.C: New test.
+	* gcc.dg/typedef-init.c: New test.
+
+2002-10-06  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma4.c: New test.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7754
+	* g++.dg/template/union1.C: New test.
+
+2002-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/7188.
+	* testsuite/g++.dg/template/meminit1.C: New test.
+
+Thu Sep  5 00:34:33 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* gcc.c-torture/execute/loop-14.c: New test.
+
+2002-09-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/cpp/20020927-1.c: New.
+
+2002-09-26  David S. Miller  <davem@redhat.com>
+
+	* gcc.c-torture/compile/trunctfdf.c: New.
+
+2002-09-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* lib/target-supports.exp (check_weak_available): Handle solaris2.
+
+2002-09-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/loop-15.c: New.
+
+2002-09-25  David S. Miller  <davem@redhat.com>
+
+	PR target/7842
+	* gcc.c-torture/execute/shiftdi.c: New test.
+
+2002-09-20  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* gcc.c-torture/execute/ieee/mzero3.c: New test.
+
+2002-09-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.c-torture/execute/extzvsi.c: New test.
+
+2002-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/cxa-atexit1.C: New test.
+
+	* gcc.dg/typeof-2.c: New test.
+
+2002-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/typeof-1.c: New test.
+	* g++.dg/ext/typeof2.C: New test.
+
+2002-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.dg/abi/bitfield5.C: New test.
+	* testsuite/g++.dg/abi/vbase10.C: Likewise.
+
+2002-08-15  Neil Booth  <neil@daikokuya.co.uk>
+
+	* gcc.dg/cpp/_Pragma3.c, gcc.dg/cpp/vararg3.c, gcc.dg/cpp/vararg4.c:
+	New tests.
+
 2002-08-14  Release Manager
 
 	* GCC 3.2 Released.
@@ -47,7 +269,7 @@
 
 	PR c++/7224
 	* g++.dg/overload/error1.C: New test.
-	
+
 2002-07-03  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/6706
@@ -557,8 +779,8 @@
 
 2002-03-26  Richard Henderson  <rth@redhat.com>
 
-        * gcc.c-torture/execute/20020307-2.c (main): Pass a variable sized
-        structure.
+	* gcc.c-torture/execute/20020307-2.c (main): Pass a variable sized
+	structure.
 
 2002-03-26  David Billinghurst  <David.Billinghurst@riotinto.com>
 
@@ -808,7 +1030,7 @@ Sat Mar  9 07:30:53 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2002-02-21  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/attr-alwaysinline.c: New.
+	* gcc.dg/attr-alwaysinline.c: New.
 
 2002-02-21  Jakub Jelinek  <jakub@redhat.com>
 
@@ -885,7 +1107,7 @@ Sat Mar  9 07:30:53 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2002-02-13  Stan Shebs  <shebs@apple.com>
 
-        * gcc.dg/altivec-3.c: New.
+	* gcc.dg/altivec-3.c: New.
 
 2002-02-12  Jakub Jelinek  <jakub@redhat.com>
 
@@ -991,13 +1213,13 @@ Sat Mar  9 07:30:53 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2002-02-06  Nick Clifton  <nickc@cambridge.redhat.com>
 
 	* g++.dg/ext/align1.C: Do not use an explicit alignment value
-        as certain file formats cannot support particularly large
-        alignments.
+	as certain file formats cannot support particularly large
+	alignments.
 
 	* g++.dg/warn/weak1.C: Expect a warning from COFF toolchains,
 	and do not expect to be able to link the executable.
 
-        * g++.old-deja/g++.ext/attrib5.C: Expect the compilation to
+	* g++.old-deja/g++.ext/attrib5.C: Expect the compilation to
 	fail because the COFF format does not support the weak attribute.
 
 2002-02-05  David Billinghurst <David.Billinghurst@riotinto.com>
@@ -1006,8 +1228,8 @@ Sat Mar  9 07:30:53 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2002-02-05  Aldy Hernandez  <aldyh@redhat.com>
 
-        * gcc.dg/altivec-4.c: AltiVec builtin predicates changed format.
-        Fix testcase accordingly.
+	* gcc.dg/altivec-4.c: AltiVec builtin predicates changed format.
+	Fix testcase accordingly.
 
 2002-02-04  Richard Henderson  <rth@redhat.com>
 

@@ -3500,7 +3500,6 @@ duplicate_decls (newdecl, olddecl)
      except for any that we copy here from the old type.  */
   DECL_ATTRIBUTES (newdecl)
     = (*targetm.merge_decl_attributes) (olddecl, newdecl);
-  decl_attributes (&newdecl, DECL_ATTRIBUTES (newdecl), 0);
 
   if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
@@ -5760,6 +5759,12 @@ make_typename_type (context, name, complain)
 	  t = lookup_field (context, name, 0, 1);
 	  if (t)
 	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		{
+		  if (complain & tf_error)
+		    error ("no type named `%#T' in `%#T'", name, context);
+		  return error_mark_node;
+		}
 	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
 		t = TREE_TYPE (t);
 	      if (IMPLICIT_TYPENAME_P (t))
@@ -6516,6 +6521,12 @@ cxx_init_decl_processing ()
       flag_inline_trees = 2;
       flag_inline_functions = 0;
     }
+
+  /* Force minimum function alignment if using the least significant
+     bit of function pointers to store the virtual bit.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && force_align_functions_log < 1)
+    force_align_functions_log = 1;
 
   /* Initially, C.  */
   current_lang_name = lang_name_c;
@@ -7322,14 +7333,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
     switch (TREE_CODE (decl))
       {
       case TYPE_DECL:
-	/* typedef foo = bar  means give foo the same type as bar.
-	   We haven't parsed bar yet, so `cp_finish_decl' will fix that up.
-	   Any other case of an initialization in a TYPE_DECL is an error.  */
-	if (pedantic || list_length (declspecs) > 1)
-	  {
-	    error ("typedef `%D' is initialized", decl);
-	    initialized = 0;
-	  }
+	error ("typedef `%D' is initialized (use __typeof__ instead)", decl);
+	initialized = 0;
 	break;
 
       case FUNCTION_DECL:
@@ -8026,6 +8031,12 @@ maybe_inject_for_scope_var (decl)
 {
   if (!DECL_NAME (decl))
     return;
+  
+  /* Declarations of __FUNCTION__ and its ilk appear magically when
+     the variable is first used.  If that happens to be inside a
+     for-loop, we don't want to do anything special.  */
+  if (DECL_PRETTY_FUNCTION_P (decl))
+    return;
 
   if (current_binding_level->is_for_scope)
     {
@@ -8241,12 +8252,6 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   /* Take care of TYPE_DECLs up front.  */
   if (TREE_CODE (decl) == TYPE_DECL)
     {
-      if (init && DECL_INITIAL (decl))
-	{
-	  /* typedef foo = bar; store the type of bar as the type of foo.  */
-	  TREE_TYPE (decl) = type = TREE_TYPE (init);
-	  DECL_INITIAL (decl) = init = NULL_TREE;
-	}
       if (type != error_mark_node
 	  && IS_AGGR_TYPE (type) && DECL_NAME (decl))
 	{
@@ -8515,6 +8520,7 @@ static tree
 start_cleanup_fn ()
 {
   static int counter = 0;
+  int old_interface_only = interface_only;
   int old_interface_unknown = interface_unknown;
   char name[32];
   tree parmtypes;
@@ -8526,6 +8532,7 @@ start_cleanup_fn ()
   /* No need to mangle this.  */
   push_lang_context (lang_name_c);
 
+  interface_only = 0;
   interface_unknown = 1;
 
   /* Build the parameter-types.  */
@@ -8567,6 +8574,7 @@ start_cleanup_fn ()
   start_function (/*specs=*/NULL_TREE, fndecl, NULL_TREE, SF_PRE_PARSED);
 
   interface_unknown = old_interface_unknown;
+  interface_only = old_interface_only;
 
   pop_lang_context ();
 
@@ -10063,6 +10071,16 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    next = 0;
 	    break;
 
+	  case TEMPLATE_DECL:
+	    /* Sometimes, we see a template-name used as part of a 
+	       decl-specifier like in 
+	             std::allocator alloc;
+               Handle that gracefully.  */
+	    error ("invalid use of template-name '%E' in a declarator", 
+		   decl);
+	    return error_mark_node;
+	    break;
+
 	  default:
 	    internal_error ("`%D' as declarator", decl);
 	  }
@@ -10703,19 +10721,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
 	    type = create_array_type_for_decl (dname, type, size);
 
-	    /* VLAs never work as fields. */
-	    if (decl_context == FIELD && !processing_template_decl
-		&& TREE_CODE (type) == ARRAY_TYPE
-		&& TYPE_DOMAIN (type) != NULL_TREE
-		&& !TREE_CONSTANT (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
-	      {
-		error ("size of member `%D' is not constant", dname);
-		/* Proceed with arbitrary constant size, so that offset
-		   computations don't get confused. */
-		type = create_array_type_for_decl (dname, TREE_TYPE (type),
-						   integer_one_node);
-	      }
-
 	    ctype = NULL_TREE;
 	  }
 	  break;
@@ -11022,8 +11027,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      pop_decl_namespace ();
 	    else if (friendp && (TREE_COMPLEXITY (declarator) < 2))
 	      /* Don't fall out into global scope. Hides real bug? --eichin */ ;
-	    else if (! IS_AGGR_TYPE_CODE
-		     (TREE_CODE (TREE_OPERAND (declarator, 0))))
+	    else if (!TREE_OPERAND (declarator, 0)
+		     || !IS_AGGR_TYPE_CODE
+		          (TREE_CODE (TREE_OPERAND (declarator, 0))))
 	      ;
 	    else if (TREE_COMPLEXITY (declarator) == current_class_depth)
 	      {
@@ -11203,6 +11209,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
       type = error_mark_node;
     }
 
+  if (decl_context == FIELD 
+      && !processing_template_decl 
+      && variably_modified_type_p (type))
+    {
+      error ("data member may not have variably modified type `%T'", type);
+      type = error_mark_node;
+    }
+
   if (explicitp == 1 || (explicitp && friendp))
     {
       /* [dcl.fct.spec] The explicit specifier shall only be used in
@@ -11341,9 +11355,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 
       bad_specifiers (decl, "type", virtualp, quals != NULL_TREE,
 		      inlinep, friendp, raises != NULL_TREE);
-
-      if (initialized)
-	error ("typedef declaration includes an initializer");
 
       return decl;
     }
@@ -14107,6 +14118,10 @@ finish_destructor_body ()
 {
   tree exprstmt;
 
+  /* Any return from a destructor will end up here; that way all base
+     and member cleanups will be run when the function returns.  */
+  add_stmt (build_stmt (LABEL_STMT, dtor_label));
+
   /* And perform cleanups for our bases and members.  */
   perform_base_cleanups ();
 
@@ -14182,14 +14197,7 @@ void
 finish_function_body (compstmt)
      tree compstmt;
 {
-  if (processing_template_decl)
-    /* Do nothing now.  */;
-  else if (DECL_DESTRUCTOR_P (current_function_decl))
-    /* Any return from a destructor will end up here.  Put it before the
-       cleanups so that an explicit return doesn't duplicate them.  */
-    add_stmt (build_stmt (LABEL_STMT, dtor_label));
-
-  /* Close the block; in a destructor, run the member cleanups.  */
+  /* Close the block.  */
   finish_compound_stmt (0, compstmt);
 
   if (processing_template_decl)

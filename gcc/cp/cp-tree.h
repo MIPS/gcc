@@ -934,6 +934,11 @@ extern int flag_operator_names;
 
 extern int flag_gnu_binutils;
 
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+extern int warn_abi;
+
 /* Nonzero means warn about implicit declarations.  */
 
 extern int warn_implicit;
@@ -1246,6 +1251,7 @@ struct lang_type
   unsigned java_interface : 1;
 
   unsigned non_zero_init : 1;
+  unsigned contains_empty_class_p : 1;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1254,7 +1260,7 @@ struct lang_type
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 7;
+  unsigned dummy : 6;
 
   int vsize;
 
@@ -1515,6 +1521,10 @@ struct lang_type
 #define CLASSTYPE_NEARLY_EMPTY_P(NODE) \
   (TYPE_LANG_SPECIFIC (NODE)->nearly_empty_p)
 
+/* Nonzero if this class contains an empty subobject.  */
+#define CLASSTYPE_CONTAINS_EMPTY_CLASS_P(NODE) \
+  (TYPE_LANG_SPECIFIC (NODE)->contains_empty_class_p)
+
 /* A list of class types of which this type is a friend.  The
    TREE_VALUE is normally a TYPE, but will be a TEMPLATE_DECL in the
    case of a template friend.  */
@@ -1529,13 +1539,21 @@ struct lang_type
 #define CLASSTYPE_DECLARED_CLASS(NODE) \
   (TYPE_LANG_SPECIFIC (NODE)->declared_class)
 
-/* Nonzero if this class has const members which have no specified initialization.  */
-#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE) \
-  (TYPE_LANG_SPECIFIC (NODE)->const_needs_init)
+/* Nonzero if this class has const members
+   which have no specified initialization.  */
+#define CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE)	\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? TYPE_LANG_SPECIFIC (NODE)->const_needs_init : 0)
+#define SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT(NODE, VALUE) \
+  (TYPE_LANG_SPECIFIC (NODE)->const_needs_init = (VALUE))
 
-/* Nonzero if this class has ref members which have no specified initialization.  */
-#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE) \
-  (TYPE_LANG_SPECIFIC (NODE)->ref_needs_init)
+/* Nonzero if this class has ref members
+   which have no specified initialization.  */
+#define CLASSTYPE_REF_FIELDS_NEED_INIT(NODE)		\
+  (TYPE_LANG_SPECIFIC (NODE)				\
+   ? TYPE_LANG_SPECIFIC (NODE)->ref_needs_init : 0)
+#define SET_CLASSTYPE_REF_FIELDS_NEED_INIT(NODE, VALUE) \
+  (TYPE_LANG_SPECIFIC (NODE)->ref_needs_init = (VALUE))
 
 /* Nonzero if this class is included from a header file which employs
    `#pragma interface', and it is not included in its implementation file.  */
@@ -2551,32 +2569,6 @@ extern int flag_new_for_scope;
 /* Indicates when overload resolution may resolve to a pointer to
    member function. [expr.unary.op]/3 */
 #define PTRMEM_OK_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
-/* A pointer-to-function member type looks like:
-
-     struct {
-       __P __pfn;
-       ptrdiff_t __delta;
-     };
-
-   If __pfn is NULL, it is a NULL pointer-to-member-function.
-  
-   (Because the vtable is always the first thing in the object, we
-   don't need its offset.)  If the function is virtual, then PFN is
-   one plus twice the index into the vtable; otherwise, it is just a
-   pointer to the function.
-
-   Unfortunately, using the lowest bit of PFN doesn't work in
-   architectures that don't impose alignment requirements on function
-   addresses, or that use the lowest bit to tell one ISA from another,
-   for example.  For such architectures, we use the lowest bit of
-   DELTA instead of the lowest bit of the PFN, and DELTA will be
-   multiplied by 2.  */
-enum ptrmemfunc_vbit_where_t
-{
-  ptrmemfunc_vbit_in_pfn,
-  ptrmemfunc_vbit_in_delta
-};
 
 /* Get the POINTER_TYPE to the METHOD_TYPE associated with this
    pointer to member function.  TYPE_PTRMEMFUNC_P _must_ be true,
@@ -4084,6 +4076,7 @@ extern tree lookup_conversions			PARAMS ((tree));
 extern tree binfo_for_vtable			PARAMS ((tree));
 extern tree binfo_from_vbase			PARAMS ((tree));
 extern tree look_for_overrides_here		PARAMS ((tree, tree));
+extern int check_final_overrider		PARAMS ((tree, tree));
 extern tree dfs_walk                            PARAMS ((tree,
 						       tree (*) (tree, void *),
 						       tree (*) (tree, void *),

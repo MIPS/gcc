@@ -1,3 +1,27 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-11  Tom Tromey  <tromey@redhat.com>
+
+	* dostime.c (dos2unixtime): Mask for seconds is 0x1f.  Correctly
+	compute month.
+	(unix2dostime): Handle years before 1980.  Correctly compute month
+	and day of month.
+
+2002-11-07  Tom Tromey  <tromey@redhat.com>
+
+	* dostime.c: Rewrote from scratch.
+	* dostime.h (dostime): Removed.
+
 2002-08-14  Release Manager
 
 	* GCC 3.2 Released.

@@ -4167,6 +4167,25 @@ build_x_unary_op (code, xarg)
     }
   if (code == ADDR_EXPR)
     {
+      /*  A pointer to member-function can be formed only by saying
+	  &X::mf.  */
+      if (!flag_ms_extensions && TREE_CODE (TREE_TYPE (xarg)) == METHOD_TYPE
+	  && (TREE_CODE (xarg) != OFFSET_REF || !PTRMEM_OK_P (xarg)))
+	{
+	  if (TREE_CODE (xarg) != OFFSET_REF)
+	    {
+	      error ("invalid use of '%E' to form a pointer-to-member-function.  Use a qualified-id.",
+		     xarg);
+	      return error_mark_node;
+	    }
+	  else
+	    {
+	      error ("parenthesis around '%E' cannot be used to form a pointer-to-member-function",
+		     xarg);
+	      PTRMEM_OK_P (xarg) = 1;
+	    }
+	}
+      
       if (TREE_CODE (xarg) == OFFSET_REF)
         {
           ptrmem = PTRMEM_OK_P (xarg);
@@ -5450,7 +5469,10 @@ build_modify_expr (lhs, modifycode, rhs)
 	   so the code to compute it is only emitted once.  */
 	tree cond;
 
-	rhs = save_expr (rhs);
+	if (lvalue_p (rhs))
+	  rhs = stabilize_reference (rhs);
+	else
+	  rhs = save_expr (rhs);
 	
 	/* Check this here to avoid odd errors when trying to convert
 	   a throw to the type of the COND_EXPR.  */

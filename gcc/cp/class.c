@@ -1001,6 +1001,13 @@ add_method (type, method, error_p)
 	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
 		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
 	    same = 0;
+	  
+	  /* For templates, the template parms must be identical.  */
+	  if (TREE_CODE (fn) == TEMPLATE_DECL
+	      && !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
+				       DECL_TEMPLATE_PARMS (method)))
+	    same = 0;
+	  
 	  if (! DECL_STATIC_FUNCTION_P (fn))
 	    parms1 = TREE_CHAIN (parms1);
 	  if (! DECL_STATIC_FUNCTION_P (method))
@@ -1206,9 +1213,12 @@ handle_using_decl (using_decl, t)
   tree flist = NULL_TREE;
   tree old_value;
 
-  binfo = binfo_or_else (ctype, t);
+  binfo = lookup_base (t, ctype, ba_any, NULL);
   if (! binfo)
-    return;
+    {
+      error_not_base_type (t, ctype);
+      return;
+    }
   
   if (name == constructor_name (ctype)
       || name == constructor_name_full (ctype))
@@ -1394,6 +1404,8 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
       TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
       TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
+      CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) 
+	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
     }
 }
 
@@ -2510,6 +2522,10 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
   if (overrider == error_mark_node)
     return;
 
+  /* Check for unsupported covariant returns again now that we've
+     calculated the base offsets.  */
+  check_final_overrider (TREE_PURPOSE (overrider), fn);
+
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
   virtual_base = NULL_TREE;
@@ -3290,10 +3306,18 @@ check_field_decls (t, access_decls, empty_p,
 	    ;
 	  else
 	    {
+	      tree element_type;
+
 	      /* The class is non-empty.  */
 	      *empty_p = 0;
 	      /* The class is not even nearly empty.  */
 	      CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+	      /* If one of the data members contains an empty class,
+		 so does T.  */
+ 	      element_type = strip_array_types (type);
+	      if (CLASS_TYPE_P (element_type) 
+		  && CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type))
+		CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 1;
 	    }
 	}
 
@@ -3375,7 +3399,7 @@ check_field_decls (t, access_decls, empty_p,
  	{
 	  CLASSTYPE_NON_POD_P (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
-	    CLASSTYPE_REF_FIELDS_NEED_INIT (t) = 1;
+	    SET_CLASSTYPE_REF_FIELDS_NEED_INIT (t, 1);
 
 	  /* ARM $12.6.2: [A member initializer list] (or, for an
 	     aggregate, initialization by a brace-enclosed list) is the
@@ -3409,7 +3433,7 @@ check_field_decls (t, access_decls, empty_p,
 	{
 	  C_TYPE_FIELDS_READONLY (t) = 1;
 	  if (DECL_INITIAL (x) == NULL_TREE)
-	    CLASSTYPE_READONLY_FIELDS_NEED_INIT (t) = 1;
+	    SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t, 1);
 
 	  /* ARM $12.6.2: [A member initializer list] (or, for an
 	     aggregate, initialization by a brace-enclosed list) is the
@@ -3425,8 +3449,9 @@ check_field_decls (t, access_decls, empty_p,
       else if (IS_AGGR_TYPE (type))
 	{
 	  C_TYPE_FIELDS_READONLY (t) |= C_TYPE_FIELDS_READONLY (type);
-	  CLASSTYPE_READONLY_FIELDS_NEED_INIT (t) 
-	    |= CLASSTYPE_READONLY_FIELDS_NEED_INIT (type);
+	  SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT (t,
+	    CLASSTYPE_READONLY_FIELDS_NEED_INIT (t)
+	    | CLASSTYPE_READONLY_FIELDS_NEED_INIT (type));
 	}
 
       /* Core issue 80: A nonstatic data member is required to have a
@@ -3560,6 +3585,10 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
       tree field;
       int i;
 
+      /* Avoid recursing into objects that are not interesting.  */
+      if (!CLASSTYPE_CONTAINS_EMPTY_CLASS_P (type))
+	return 0;
+
       /* Record the location of TYPE.  */
       r = (*f) (type, offset, offsets);
       if (r)
@@ -3605,8 +3634,14 @@ walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
+      tree element_type = strip_array_types (type);
       tree domain = TYPE_DOMAIN (type);
       tree index;
+
+      /* Avoid recursing into objects that are not interesting.  */
+      if (!CLASS_TYPE_P (element_type)
+	  || !CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type))
+	return 0;
 
       /* Step through each of the elements in the array.  */
       for (index = size_zero_node; 
@@ -4320,6 +4355,7 @@ check_bases_and_members (t, empty_p)
   /* Assume that the class is nearly empty; we'll clear this flag if
      it turns out not to be nearly empty.  */
   CLASSTYPE_NEARLY_EMPTY_P (t) = 1;
+  CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 0;
 
   /* Check all the base-classes. */
   check_bases (t, &cant_have_default_ctor, &cant_have_const_ctor,
@@ -4604,6 +4640,7 @@ layout_virtual_bases (t, offsets)
 {
   tree vbases, dsize;
   unsigned HOST_WIDE_INT eoc;
+  bool first_vbase = true;
 
   if (CLASSTYPE_N_BASECLASSES (t) == 0)
     return;
@@ -4631,6 +4668,7 @@ layout_virtual_bases (t, offsets)
 
       if (!TREE_VIA_VIRTUAL (vbases))
 	continue;
+
       vbase = binfo_for_vbase (BINFO_TYPE (vbases), t);
 
       if (!BINFO_PRIMARY_P (vbase))
@@ -4648,7 +4686,6 @@ layout_virtual_bases (t, offsets)
 	  /* Add padding so that we can put the virtual base class at an
 	     appropriately aligned offset.  */
 	  dsize = round_up (dsize, desired_align);
-
 	  usize = size_binop (CEIL_DIV_EXPR, dsize, bitsize_unit_node);
 
 	  /* We try to squish empty virtual bases in just like
@@ -4676,11 +4713,30 @@ layout_virtual_bases (t, offsets)
 					      CLASSTYPE_SIZE (basetype)));
 	    }
 
+	  /* If the first virtual base might have been placed at a
+	     lower address, had we started from CLASSTYPE_SIZE, rather
+	     than TYPE_SIZE, issue a warning.  There can be both false
+	     positives and false negatives from this warning in rare
+	     cases; to deal with all the possibilities would probably
+	     require performing both layout algorithms and comparing
+	     the results which is not particularly tractable.  */
+	  if (warn_abi
+	      && first_vbase
+	      && tree_int_cst_lt (size_binop (CEIL_DIV_EXPR,
+					      round_up (CLASSTYPE_SIZE (t),
+							desired_align),
+					      bitsize_unit_node),
+				  BINFO_OFFSET (vbase)))
+	    warning ("offset of virtual base `%T' is not ABI-compliant and may change in a future version of GCC",
+		     basetype);
+
 	  /* Keep track of the offsets assigned to this virtual base.  */
 	  record_subobject_offsets (BINFO_TYPE (vbase), 
 				    BINFO_OFFSET (vbase),
 				    offsets,
 				    /*vbases_p=*/0);
+
+	  first_vbase = false;
 	}
     }
 
@@ -4820,6 +4876,8 @@ layout_class_type (t, empty_p, vfuns_p,
   /* Maps offsets (represented as INTEGER_CSTs) to a TREE_LIST of
      types that appear at that offset.  */
   splay_tree empty_base_offsets;
+  /* True if the last field layed out was a bit-field.  */
+  bool last_field_was_bitfield = false;
 
   /* Keep track of the first non-static data member.  */
   non_static_data_members = TYPE_FIELDS (t);
@@ -4910,6 +4968,18 @@ layout_class_type (t, empty_p, vfuns_p,
       layout_nonempty_base_or_field (rli, field, NULL_TREE,
 				     empty_base_offsets, t);
 
+      /* If a bit-field does not immediately follow another bit-field,
+	 and yet it starts in the middle of a byte, we have failed to
+	 comply with the ABI.  */
+      if (warn_abi
+	  && DECL_C_BIT_FIELD (field) 
+	  && !last_field_was_bitfield
+	  && !integer_zerop (size_binop (TRUNC_MOD_EXPR,
+					 DECL_FIELD_BIT_OFFSET (field),
+					 bitsize_unit_node)))
+	cp_warning_at ("offset of `%D' is not ABI-compliant and may change in a future version of GCC", 
+		       field);
+
       /* If we needed additional padding after this field, add it
 	 now.  */
       if (padding)
@@ -4927,6 +4997,8 @@ layout_class_type (t, empty_p, vfuns_p,
 					 NULL_TREE, 
 					 empty_base_offsets, t);
 	}
+
+      last_field_was_bitfield = DECL_C_BIT_FIELD (field);
     }
 
   /* It might be the case that we grew the class to allocate a
@@ -4987,6 +5059,10 @@ layout_class_type (t, empty_p, vfuns_p,
 
   CLASSTYPE_ALIGN (t) = TYPE_ALIGN (t);
   CLASSTYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (t);
+
+  /* Every empty class contains an empty class.  */
+  if (*empty_p)
+    CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 1;
 
   /* Set the TYPE_DECL for this type to contain the right
      value for DECL_OFFSET, so that we can use it as part

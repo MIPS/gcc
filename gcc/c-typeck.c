@@ -1493,7 +1493,8 @@ build_external_ref (id, fun)
   if (TREE_TYPE (ref) == error_mark_node)
     return error_mark_node;
 
-  assemble_external (ref);
+  if (!skip_evaluation)
+    assemble_external (ref);
   TREE_USED (ref) = 1;
 
   if (TREE_CODE (ref) == CONST_DECL)
@@ -2887,9 +2888,6 @@ build_unary_op (code, xarg, flag)
 	tree inc;
 	tree result_type = TREE_TYPE (arg);
 
-	arg = get_unwidened (arg, 0);
-	argtype = TREE_TYPE (arg);
-
 	/* Compute the increment.  */
 
 	if (typecode == POINTER_TYPE)
@@ -2917,6 +2915,9 @@ build_unary_op (code, xarg, flag)
 	  }
 	else
 	  inc = integer_one_node;
+
+	arg = get_unwidened (arg, 0);
+	argtype = TREE_TYPE (arg);
 
 	inc = convert (argtype, inc);
 

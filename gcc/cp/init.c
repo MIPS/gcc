@@ -348,6 +348,8 @@ build_field_list (t, list, uses_unions_p)
 {
   tree fields;
 
+  *uses_unions_p = 0;
+
   /* Note whether or not T is a union.  */
   if (TREE_CODE (t) == UNION_TYPE)
     *uses_unions_p = 1;
@@ -1094,7 +1096,10 @@ expand_member_init (exp, name, init)
     }
   else
     {
-      field = lookup_field (type, name, 1, 0);
+      if (TREE_CODE (name) == IDENTIFIER_NODE)
+	field = lookup_field (type, name, 1, 0);
+      else
+	field = name;
 
       if (! member_init_ok_or_else (field, type, name))
 	return NULL_TREE;

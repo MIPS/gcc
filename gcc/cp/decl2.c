@@ -172,6 +172,11 @@ int flag_implicit_templates = 1;
 
 int flag_implicit_inline_templates = 1;
 
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+int warn_abi = 0;
+
 /* Nonzero means warn about implicit declarations.  */
 
 int warn_implicit = 1;
@@ -600,7 +605,9 @@ cxx_decode_option (argc, argv)
       if (p[0] == 'n' && p[1] == 'o' && p[2] == '-')
 	setting = 0, p += 3;
 
-      if (!strcmp (p, "implicit"))
+      if (!strcmp (p, "abi"))
+	warn_abi = setting;
+      else if (!strcmp (p, "implicit"))
 	warn_implicit = setting;
       else if (!strcmp (p, "long-long"))
 	warn_long_long = setting;
@@ -1512,7 +1519,13 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
     /* friend or constructor went bad.  */
     return value;
   if (TREE_TYPE (value) == error_mark_node)
-    return error_mark_node;  
+    return error_mark_node;
+
+  if (TREE_CODE (value) == TYPE_DECL && init)
+    {
+      error ("typedef `%D' is initialized (use __typeof__ instead)", value);
+      init = NULL_TREE;
+    }
 
   /* Pass friendly classes back.  */
   if (TREE_CODE (value) == VOID_TYPE)
@@ -1968,26 +1981,31 @@ finish_anon_union (anon_union_decl)
       return;
     }
 
-  main_decl = build_anon_union_vars (anon_union_decl,
-				     &DECL_ANON_UNION_ELEMS (anon_union_decl),
-				     static_p, external_p);
-
-  if (main_decl == NULL_TREE)
+  if (!processing_template_decl)
     {
-      warning ("anonymous aggregate with no members");
-      return;
+      main_decl 
+	= build_anon_union_vars (anon_union_decl,
+				 &DECL_ANON_UNION_ELEMS (anon_union_decl),
+				 static_p, external_p);
+      
+      if (main_decl == NULL_TREE)
+	{
+	  warning ("anonymous aggregate with no members");
+	  return;
+	}
+
+      if (static_p)
+	{
+	  make_decl_rtl (main_decl, 0);
+	  COPY_DECL_RTL (main_decl, anon_union_decl);
+	  expand_anon_union_decl (anon_union_decl, 
+				  NULL_TREE,
+				  DECL_ANON_UNION_ELEMS (anon_union_decl));
+	  return;
+	}
     }
 
-  if (static_p)
-    {
-      make_decl_rtl (main_decl, 0);
-      COPY_DECL_RTL (main_decl, anon_union_decl);
-      expand_anon_union_decl (anon_union_decl, 
-			      NULL_TREE,
-			      DECL_ANON_UNION_ELEMS (anon_union_decl));
-    }
-  else
-    add_decl_stmt (anon_union_decl);
+  add_decl_stmt (anon_union_decl);
 }
 
 /* Finish processing a builtin type TYPE.  It's name is NAME,
@@ -3783,10 +3801,8 @@ build_expr_from_tree (t)
     case ALIGNOF_EXPR:
       {
 	tree r = build_expr_from_tree (TREE_OPERAND (t, 0));
-	if (!TYPE_P (r))
-	  return TREE_CODE (t) == SIZEOF_EXPR ? expr_sizeof (r) : c_alignof_expr (r);
-	else
-	  return TREE_CODE (t) == SIZEOF_EXPR ? c_sizeof (r) : c_alignof (r);
+	return (TREE_CODE (t) == SIZEOF_EXPR
+		? finish_sizeof (r) : finish_alignof (r));
       }
 
     case MODOP_EXPR:
@@ -5179,7 +5195,8 @@ mark_used (decl)
   TREE_USED (decl) = 1;
   if (processing_template_decl)
     return;
-  assemble_external (decl);
+  if (!skip_evaluation)
+    assemble_external (decl);
 
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL

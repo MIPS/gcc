@@ -27,6 +27,7 @@
 # DEFAULTS
 c_model=c_std
 c_compatibility=no
+abi_baseline_triplet=${target}
 
 
 # TARGET-SPECIFIC OVERRIDES 
@@ -60,11 +61,8 @@ case "${target_cpu}" in
   s390 | s390x)
     cpu_include_dir="config/cpu/s390"
     ;;
-  sparc64 | ultrasparc)
-    cpu_include_dir="config/cpu/sparc/sparc64"
-    ;;
-  sparc*)
-    cpu_include_dir="config/cpu/sparc/sparc32"
+  sparc* | ultrasparc)
+    cpu_include_dir="config/cpu/sparc"
     ;;
   x86_64*)
     cpu_include_dir="config/cpu/x86-64"

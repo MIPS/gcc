@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
   %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{!ansi:%{mthreads:-D_MT}}}\
   %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix }\
   %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}}\
-  %{!mno-win32|mno-cygwin:-isystem ../include/w32api%s -isystem ../../include/w32api%s}\
+  %{!nostdinc:%{!mno-win32|mno-cygwin:-isystem ../include/w32api%s -isystem ../../include/w32api%s}}\
 "
 
 #undef STARTFILE_SPEC

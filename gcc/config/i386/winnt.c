@@ -79,6 +79,15 @@ ix86_handle_dll_attribute (node, name, args, flags, no_add_attrs)
 	}
     }
 
+  /* `extern' needn't be specified with dllimport.
+     Specify `extern' now and hope for the best.  Sigh.  */
+  else if (TREE_CODE (*node) == VAR_DECL
+	   && is_attribute_p ("dllimport", name))
+    {
+      DECL_EXTERNAL (*node) = 1;
+      TREE_PUBLIC (*node) = 1;
+    }
+
   return NULL_TREE;
 }
 
