@@ -473,6 +473,7 @@ static bool find_splits PARAMS ((unsigned int, int *));
 static void splits_init PARAMS ((void));
 static void setup_renumber PARAMS ((int));
 static void check_df PARAMS ((struct df *));
+static void remove_suspicious_death_notes PARAMS ((void));
 void reg_alloc PARAMS ((void));
 
 /* XXX use Daniels compressed bitmaps here.  */
@@ -2376,6 +2377,7 @@ init_one_web_common (web, reg)
     }
   else
     {
+      HARD_REG_SET alternate;
       web->color = -1;
       put_web (web, INITIAL);
       /* add_hardregs is wrong in multi-length classes, e.g.
@@ -2387,8 +2389,12 @@ init_one_web_common (web, reg)
       web->num_conflicts = web->add_hardregs;
       COPY_HARD_REG_SET (web->usable_regs,
 			reg_class_contents[reg_preferred_class (web->regno)]);
-      IOR_HARD_REG_SET (web->usable_regs,
+      COPY_HARD_REG_SET (alternate,
 			reg_class_contents[reg_alternate_class (web->regno)]);
+      IOR_HARD_REG_SET (web->usable_regs, alternate);
+      /*IOR_HARD_REG_SET (web->usable_regs,
+			reg_class_contents[reg_alternate_class
+			(web->regno)]);*/
       AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
       prune_hardregs_for_mode (&web->usable_regs,
 			       PSEUDO_REGNO_MODE (web->regno));
@@ -4704,17 +4710,8 @@ ok (target, source)
 {
   struct conflict_link *wl;
   int i;
-  /* Source is PRECOLORED.  We test here, if it isn't one of the fixed
-     registers.  In this case we disallow the coalescing.
-     XXX maybe not all fixed_regs[] have to be excluded.  The actual
-     example I was looking at, was a copy (set (reg a) (reg 7 sp)) (the
-     stackpointer).  It all worked till the assembler. The coalescing
-     resulted in a (%eax, %esp) indexed address, which is invalid.
-     May be we only need to exclude stackpointers.  Esp. the PIC register
-     is interesting.  I guess we can anyway make it available for coloring,
-     as long as it doesn't interfere with any current use.  */
-  if (TEST_HARD_REG_BIT (never_use_colors, source->color))
-    return 0;
+  int color = source->color;
+  int size;
 
   /* Normally one would think, the next test wouldn't be needed.
      We try to coalesce S and T, and S has already a color, and we checked
@@ -4726,10 +4723,28 @@ ok (target, source)
   if (! HARD_REGNO_MODE_OK (source->color, GET_MODE (target->orig_x)))
     return 0;
 
+  /* Sanity for funny modes.  */
+  size = HARD_REGNO_NREGS (color, GET_MODE (target->orig_x));
+  if (!size)
+    return 0;
+
   /* We can't coalesce target with a precolored register which isn't in
      usable_regs.  */
-  for (i = target->add_hardregs; i >= 0; --i)
-    if (!TEST_HARD_REG_BIT (usable_regs[target->regclass], source->color + i))
+  for (i = size; i--;)
+    if (TEST_HARD_REG_BIT (never_use_colors, color + i)
+	|| !TEST_HARD_REG_BIT (target->usable_regs, color + i)
+	/* Before usually calling ok() at all, we already test, if the
+	   candidates conflict in sup_igraph.  But when wide webs are
+	   coalesced to hardregs, we only test the hardweb coalesced into.
+	   This is only the begin color.  When actually coalescing both,
+	   it will also take the following size colors, i.e. their webs.
+	   We nowhere checked if the candidate possibly conflicts with
+	   one of _those_, which is possible with partial conflicts,
+	   so we simply do it here (this does one bit-test more than
+	   necessary, the first color).  Note, that if X is precolored
+	   bit [X*num_webs + Y] can't be set (see add_conflict_edge()).  */
+	|| TEST_BIT (sup_igraph,
+		     target->id * num_webs + hardreg2web[color + i]->id))
       return 0;
 
   for (wl = target->conflict_list; wl; wl = wl->next)
@@ -5405,7 +5420,11 @@ colorize_one_web (web, hard)
          hardregs (and alternate ones).  Currently we don't track the number
          of calls crossed for webs.  We should.  */
       if (web->use_my_regs)
-	COPY_HARD_REG_SET (colors, web->usable_regs);
+	{
+	  COPY_HARD_REG_SET (colors, web->usable_regs);
+	  AND_HARD_REG_SET (colors,
+			    usable_regs[reg_preferred_class (web->regno)]);
+	}
       else
 	COPY_HARD_REG_SET (colors,
 			   usable_regs[reg_preferred_class (web->regno)]);
@@ -5428,10 +5447,13 @@ colorize_one_web (web, hard)
 	c = get_biased_reg (dont_begin, bias, web->prefer_colors,
 			  colors, PSEUDO_REGNO_MODE (web->regno));
       
-      if (!web->use_my_regs && c < 0)
+      if (/*!web->use_my_regs &&*/ c < 0)
 	{
-	  IOR_HARD_REG_SET (colors, usable_regs
-			    [reg_alternate_class (web->regno)]);
+	  if (web->use_my_regs)
+	    IOR_HARD_REG_SET (colors, web->usable_regs);
+	  else
+	    IOR_HARD_REG_SET (colors, usable_regs
+			      [reg_alternate_class (web->regno)]);
 	  COPY_HARD_REG_SET (call_clobbered, colors);
 	  AND_HARD_REG_SET (call_clobbered, call_used_reg_set);
 	  
@@ -5716,6 +5738,8 @@ try_recolor_web (web)
   for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
     {
       int i, nregs;
+      if (!HARD_REGNO_MODE_OK (c, GET_MODE (web->orig_x)))
+	continue;
       nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
       for (i = 0; i < nregs; i++)
 	if (!TEST_HARD_REG_BIT (web->usable_regs, c + i))
@@ -5740,7 +5764,13 @@ try_recolor_web (web)
       if (wl->t->type == COALESCED || web2->type != COLORED)
 	{
 	  if (web2->type == PRECOLORED)
-	    SET_HARD_REG_BIT (precolored_neighbors, web2->color);
+	    {
+	      c1 = min_color[web2->color];
+	      c1 = (c1 == 0) ? web2->color : (c1 - 1);
+	      c2 = web2->color;
+	      for (; c1 <= c2; c1++)
+	        SET_HARD_REG_BIT (precolored_neighbors, c1);
+	    }
 	  continue;
 	}
       /* Mark colors for which some wide webs are involved.  For
@@ -7800,6 +7830,8 @@ actual_spill (void)
   BITMAP_XFREE (new_deaths);
 }
 
+bitmap regnos_coalesced_to_hardregs;
+
 /* Create new pseudos for each web we colored, and set up reg_renumber.  */
 static void
 emit_colors (df)
@@ -7810,6 +7842,10 @@ emit_colors (df)
   struct web *web;
   int old_max_regno = max_reg_num ();
   regset old_regs;
+
+  /* This bitmap is freed in remove_suspicious_death_notes(),
+     which is also the user of it.  */
+  regnos_coalesced_to_hardregs = BITMAP_XMALLOC ();
   /* First create the (REG xx) rtx's for all webs, as we need to know
      the number, to make sure, flow has enough memory for them in the
      various tables.  */
@@ -7823,6 +7859,9 @@ emit_colors (df)
       if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
       web->reg_rtx = gen_reg_rtx (PSEUDO_REGNO_MODE (web->regno));
+      /* Remember the different parts directly coalesced to a hardreg.  */
+      if (web->type == COALESCED)
+	bitmap_set_bit (regnos_coalesced_to_hardregs, REGNO (web->reg_rtx));
     }
   ra_max_regno = max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
@@ -8610,19 +8649,15 @@ init_ra (void)
     {
       int reg, size;
       CLEAR_HARD_REG_SET (rs);
-      for (reg = 0; reg < FIRST_PSEUDO_REGISTER;)
+      for (reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
 	if (HARD_REGNO_MODE_OK (reg, i)
 	    /* Ignore VOIDmode and similar things.  */
-	    && (size = HARD_REGNO_NREGS (reg, i)) != 0)
+	    && (size = HARD_REGNO_NREGS (reg, i)) != 0
+	    && (reg + size) <= FIRST_PSEUDO_REGISTER)
 	  {
-	    while (size-- && reg < FIRST_PSEUDO_REGISTER)
-	      {
-		SET_HARD_REG_BIT (rs, reg);
-		reg++;
-	      }
+	    while (size--)
+	      SET_HARD_REG_BIT (rs, reg + size);
 	  }
-	else
-	  reg++;
       COPY_HARD_REG_SET (hardregs_for_mode[i], rs);
     }
   
@@ -9200,6 +9235,42 @@ check_df (df)
   BITMAP_XFREE (b);
 }
 
+/* Due to resons documented elsewhere we create different pseudos
+   for all webs coalesced to hardregs.  For these parts life_analysis()
+   might have added REG_DEAD notes without considering, that only this part
+   but not the whole coalesced web dies.  The RTL is correct, there is no
+   coalescing yet.  But if later reload's alter_reg() substitutes the
+   hardreg into the REG rtx it looks like that particular hardreg dies here,
+   although (due to coalescing) it still is live.  This might make different
+   places of reload think, it can use that hardreg for reload regs,
+   accidentally overwriting it.  So we need to remove those REG_DEAD notes.
+   (Or better teach life_analysis() and reload about our coalescing, but
+   that comes later) Bah.  */
+static void
+remove_suspicious_death_notes (void)
+{
+  rtx insn;
+  for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	rtx *pnote = &REG_NOTES (insn);
+	while (*pnote)
+	  {
+	    rtx note = *pnote;
+	    if ((REG_NOTE_KIND (note) == REG_DEAD
+		 || REG_NOTE_KIND (note) == REG_UNUSED)
+		&& (GET_CODE (XEXP (note, 0)) == REG
+		    && bitmap_bit_p (regnos_coalesced_to_hardregs,
+				     REGNO (XEXP (note, 0)))))
+	      *pnote = XEXP (note, 1);
+	    else
+	      pnote = &XEXP (*pnote, 1);
+	  }
+      }
+  BITMAP_XFREE (regnos_coalesced_to_hardregs);
+  regnos_coalesced_to_hardregs = NULL;
+}
+
 /* Main register allocator entry point.  */
 void
 reg_alloc (void)
@@ -9386,6 +9457,7 @@ reg_alloc (void)
   setup_renumber (1);
   sbitmap_free (insns_with_deaths);
 
+  remove_suspicious_death_notes ();
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
     ra_print_rtl_with_bb (rtl_dump_file, get_insns ()); 
 }
