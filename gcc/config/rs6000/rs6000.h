@@ -1490,8 +1490,7 @@ typedef struct rs6000_args
    the argument, `downward' to pad below, or `none' to inhibit
    padding.  */
 
-#define FUNCTION_ARG_PADDING(MODE, TYPE) \
-  (enum direction) function_arg_padding (MODE, TYPE)
+#define FUNCTION_ARG_PADDING(MODE, TYPE) function_arg_padding (MODE, TYPE)
 
 /* If defined, a C expression that gives the alignment boundary, in bits,
    of an argument with the specified mode and type.  If it is not defined,
@@ -2833,112 +2832,6 @@ extern int flag_pic;
 extern int optimize;
 extern int flag_expensive_optimizations;
 extern int frame_pointer_needed;
-
-/* Declare functions in rs6000.c */
-extern void optimization_options ();
-extern void output_options ();
-extern void rs6000_override_options ();
-extern void rs6000_file_start ();
-extern struct rtx_def *rs6000_float_const ();
-extern struct rtx_def *rs6000_got_register ();
-extern struct rtx_def *find_addr_reg();
-extern int direct_return ();
-extern int get_issue_rate ();
-extern int any_operand ();
-extern int short_cint_operand ();
-extern int u_short_cint_operand ();
-extern int non_short_cint_operand ();
-extern int gpc_reg_operand ();
-extern int cc_reg_operand ();
-extern int cc_reg_not_cr0_operand ();
-extern int reg_or_short_operand ();
-extern int reg_or_neg_short_operand ();
-extern int reg_or_u_short_operand ();
-extern int reg_or_cint_operand ();
-extern int got_operand ();
-extern int got_no_const_operand ();
-extern int num_insns_constant ();
-extern int easy_fp_constant ();
-extern int volatile_mem_operand ();
-extern int offsettable_mem_operand ();
-extern int mem_or_easy_const_operand ();
-extern int add_operand ();
-extern int non_add_cint_operand ();
-extern int non_logical_cint_operand ();
-extern int logical_operand ();
-extern int mask_operand ();
-extern int mask64_operand ();
-extern int and64_operand ();
-extern int and_operand ();
-extern int count_register_operand ();
-extern int fpmem_operand ();
-extern int reg_or_mem_operand ();
-extern int lwa_operand ();
-extern int call_operand ();
-extern int current_file_function_operand ();
-extern int input_operand ();
-extern int small_data_operand ();
-extern void init_cumulative_args ();
-extern void function_arg_advance ();
-extern int function_arg_boundary ();
-extern struct rtx_def *function_arg ();
-extern int function_arg_partial_nregs ();
-extern int function_arg_pass_by_reference ();
-extern void setup_incoming_varargs ();
-extern union tree_node *rs6000_build_va_list ();
-extern void rs6000_va_start ();
-extern struct rtx_def *rs6000_va_arg ();
-extern struct rtx_def *rs6000_stack_temp ();
-extern int expand_block_move ();
-extern int load_multiple_operation ();
-extern int store_multiple_operation ();
-extern int branch_comparison_operator ();
-extern int scc_comparison_operator ();
-extern int trap_comparison_operator ();
-extern int includes_lshift_p ();
-extern int includes_rshift_p ();
-extern int registers_ok_for_quad_peep ();
-extern int addrs_ok_for_quad_peep ();
-extern enum reg_class secondary_reload_class ();
-extern int ccr_bit ();
-extern void rs6000_finalize_pic ();
-extern void rs6000_reorg ();
-extern void rs6000_save_machine_status ();
-extern void rs6000_restore_machine_status ();
-extern void rs6000_init_expanders ();
-extern void print_operand ();
-extern void print_operand_address ();
-extern int first_reg_to_save ();
-extern int first_fp_reg_to_save ();
-extern int rs6000_makes_calls ();
-extern rs6000_stack_t *rs6000_stack_info ();
-extern void output_prolog ();
-extern void output_epilog ();
-extern void output_mi_thunk ();
-extern void output_toc ();
-extern void output_ascii ();
-extern void rs6000_gen_section_name ();
-extern void output_function_profiler ();
-extern int rs6000_adjust_cost ();
-extern int rs6000_adjust_priority ();
-extern int rs6000_trampoline_size ();
-extern void rs6000_initialize_trampoline ();
-extern int rs6000_comp_type_attributes ();
-extern int rs6000_valid_decl_attribute_p ();
-extern int rs6000_valid_type_attribute_p ();
-extern void rs6000_set_default_type_attributes ();
-extern struct rtx_def *rs6000_dll_import_ref ();
-extern struct rtx_def *rs6000_longcall_ref ();
-extern int function_arg_padding ();
-extern void toc_section ();
-extern void private_data_section ();
-extern void rs6000_fatal_bad_address ();
-extern void rs6000_emit_prologue ();
-extern int stmw_operation ();
-extern void rs6000_emit_load_toc_table ();
-extern void rs6000_emit_epilogue ();
-extern int mtcrf_operation ();
-extern int lmw_operation ();
 
 /* See nonlocal_goto_receiver for when this must be set.  */
 

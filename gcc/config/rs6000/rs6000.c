@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "hashtab.h"
+#include "tm_p.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -112,8 +113,15 @@ int rs6000_debug_arg;		/* debug argument handling */
 /* Flag to say the TOC is initialized */
 int toc_initialized;
 
-static void rs6000_add_gc_roots PROTO ((void));
-
+static void rs6000_add_gc_roots PARAMS ((void));
+static int num_insns_constant_wide PARAMS ((HOST_WIDE_INT));
+static rtx expand_block_move_mem PARAMS ((enum machine_mode, rtx, rtx));
+static void rs6000_emit_allocate_stack PARAMS ((HOST_WIDE_INT, int));
+static unsigned rs6000_hash_constant PARAMS ((rtx));
+static unsigned toc_hash_function PARAMS ((hash_table_entry_t));
+static int toc_hash_eq PARAMS ((hash_table_entry_t, hash_table_entry_t));
+static int toc_hash_mark_entry PARAMS ((hash_table_entry_t, void *));
+static void toc_hash_mark_table PARAMS ((void *));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -1255,7 +1263,6 @@ init_cumulative_args (cum, fntype, libname, incoming)
      int incoming;
 {
   static CUMULATIVE_ARGS zero_cumulative;
-  enum rs6000_abi abi = DEFAULT_ABI;
 
   *cum = zero_cumulative;
   cum->words = 0;
@@ -1308,22 +1315,22 @@ init_cumulative_args (cum, fntype, libname, incoming)
    For the AIX ABI structs are always stored left shifted in their
    argument slot.  */
 
-int
+enum direction
 function_arg_padding (mode, type)
      enum machine_mode mode;
      tree type;
 {
   if (type != 0 && AGGREGATE_TYPE_P (type))
-    return (int)upward;
+    return upward;
 
   /* This is the default definition.  */
   return (! BYTES_BIG_ENDIAN
-          ? (int)upward
+          ? upward
           : ((mode == BLKmode
               ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
                  && int_size_in_bytes (type) < (PARM_BOUNDARY / BITS_PER_UNIT))
               : GET_MODE_BITSIZE (mode) < PARM_BOUNDARY)
-             ? (int)downward : (int)upward));
+             ? downward : upward));
 }
 
 /* If defined, a C expression that gives the alignment boundary, in bits,
@@ -1335,7 +1342,7 @@ function_arg_padding (mode, type)
 int
 function_arg_boundary (mode, type)
      enum machine_mode mode;
-     tree type;
+     tree type ATTRIBUTE_UNUSED;
 {
   if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
       && (mode == DImode || mode == DFmode))
@@ -3062,7 +3069,7 @@ void
 print_operand (file, x, code)
     FILE *file;
     rtx x;
-    char code;
+    int code;
 {
   int i;
   HOST_WIDE_INT val;
@@ -4952,7 +4959,7 @@ output_epilog (file, size)
      different traceback table.  */
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive)
     {
-      char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+      const char *fname = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
       int fixed_parms, float_parms, parm_info;
       int i;
 
@@ -5177,7 +5184,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 {
   const char *this_reg = reg_names[ aggregate_value_p (TREE_TYPE (TREE_TYPE (function))) ? 4 : 3 ];
   const char *prefix;
-  char *fname;
+  const char *fname;
   const char *r0	 = reg_names[0];
 #if TARGET_ELF
   const char *sp	 = reg_names[1];
@@ -5250,7 +5257,7 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 
   fname = XSTR (XEXP (DECL_RTL (function), 0), 0);
 
-  if (current_file_function_operand (XEXP (DECL_RTL (function), 0))
+  if (current_file_function_operand (XEXP (DECL_RTL (function), 0), VOIDmode)
       && ! lookup_attribute ("longcall",
 			     TYPE_ATTRIBUTES (TREE_TYPE (function))))
     {
@@ -5380,7 +5387,7 @@ rs6000_hash_constant (k)
       case 's':
 	{
 	  unsigned i, len;
-	  char *str = XSTR (k, fidx);
+	  const char *str = XSTR (k, fidx);
 	  len = strlen (str);
 	  result = result * 613 + len;
 	  for (i = 0; i < len; i++)
@@ -5416,7 +5423,7 @@ static unsigned
 toc_hash_function (hash_entry)
      hash_table_entry_t hash_entry;
 {
-  return rs6000_hash_constant (((struct toc_hash_struct *) hash_entry)->key);
+  return rs6000_hash_constant (((const struct toc_hash_struct *) hash_entry)->key);
 }
 
 /* Compare H1 and H2 for equivalence.  */
@@ -5425,8 +5432,8 @@ static int
 toc_hash_eq (h1, h2)
      hash_table_entry_t h1, h2;
 {
-  rtx r1 = ((struct toc_hash_struct *) h1)->key;
-  rtx r2 = ((struct toc_hash_struct *) h2)->key;
+  rtx r1 = ((const struct toc_hash_struct *) h1)->key;
+  rtx r2 = ((const struct toc_hash_struct *) h2)->key;
 
   /* Gotcha:  One of these const_doubles will be in memory.
      The other may be on the constant-pool chain.
@@ -5459,7 +5466,7 @@ toc_hash_mark_entry (hash_entry, unused)
      hash_table_entry_t hash_entry;
      void * unused ATTRIBUTE_UNUSED;
 {
-  rtx r = ((struct toc_hash_struct *) hash_entry)->key;
+  rtx r = ((const struct toc_hash_struct *) hash_entry)->key;
   ggc_set_mark ((void *)hash_entry);
   /* For CODE_LABELS, we don't want to drag in the whole insn chain... */
   if (GET_CODE (r) == LABEL_REF)
@@ -5475,9 +5482,11 @@ toc_hash_mark_entry (hash_entry, unused)
 /* Mark all the elements of the TOC hash-table *HT.  */
 
 static void
-toc_hash_mark_table (ht)
-     hash_table_t *ht;
+toc_hash_mark_table (vht)
+     void *vht;
 {
+  hash_table_t *ht = vht;
+  
   traverse_hash_table (*ht, toc_hash_mark_entry, 0);
 }
 
@@ -5491,7 +5500,7 @@ output_toc (file, x, labelno)
      int labelno;
 {
   char buf[256];
-  char *name = buf;
+  const char *name = buf;
   const char *real_name;
   rtx base = x;
   int offset = 0;
@@ -5523,7 +5532,7 @@ output_toc (file, x, labelno)
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
 	  fprintf (file, "%d,", labelno);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
-	  fprintf (file, "%d\n", ((*(struct toc_hash_struct **) 
+	  fprintf (file, "%d\n", ((*(const struct toc_hash_struct **) 
 					      found)->labelno));
 	  return;
 	}
@@ -5785,10 +5794,10 @@ output_ascii (file, p, n)
 void
 rs6000_gen_section_name (buf, filename, section_desc)
      char **buf;
-     char *filename;
-     char *section_desc;
+     const char *filename;
+     const char *section_desc;
 {
-  char *q, *after_last_slash, *last_period = 0;
+  const char *q, *after_last_slash, *last_period = 0;
   char *p;
   int len;
 

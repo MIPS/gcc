@@ -773,7 +773,7 @@ do {									\
 	   && XSTR (VALUE, 0)[0] == '.'					\
 	   && DEFAULT_ABI == ABI_AIX)					\
     {									\
-      char *name = XSTR (VALUE, 0);					\
+      const char *name = XSTR (VALUE, 0);				\
       while (*name == '.')						\
 	name++;								\
 									\
@@ -859,7 +859,7 @@ do {									\
       enum sect_enum {SECT_RW, SECT_RO, SECT_EXEC} type;		\
     } *sections;							\
   struct section_info *s;						\
-  char *mode;								\
+  const char *mode;							\
   enum sect_enum type;							\
 									\
   for (s = sections; s; s = s->next)					\
@@ -1275,7 +1275,7 @@ do {									\
 %{!msolaris-cclib: scrtn.o%s} \
 %{msolaris-cclib: /opt/SUNWspro/SC4.0/lib/crtn.o%s}"
 
-#ifdef CROSS_COMPILER
+#ifdef CROSS_COMPILE
 #define LINK_START_SOLARIS_SPEC "-Ttext 0x2000074"
 #else
 #define LINK_START_SOLARIS_SPEC ""
