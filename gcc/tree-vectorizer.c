@@ -1,4 +1,4 @@
-/* Scalar evolution detector.
+/* Loop Vectorization
    Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
@@ -57,14 +57,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    data: scalars (which are represented by SSA_NAMES), and data-refs. These
    are handled separately both by the analyzer and the loop-transformer.
    Currently, the vectorizer only supports simple data-refs which are
-   limited to ARRAY_REFS that represent one dimentional arrays which base is
+   limited to ARRAY_REFS that represent one dimensional arrays which base is
    an array (not a pointer), and have a simple (consecutive) access pattern.
 
    Analysis phase:
    ===============
 	The driver for the analysis phase is vect_analyze_loop_nest().
    which applies a set of loop analyses. Some of the analyses rely on the
-   motonotic evolution analyzer developed by Sebastian Pop.
+   monotonic evolution analyzer developed by Sebastian Pop.
 
 	During the analysis phase the vectorizer records some information
    per stmt in a stmt_vec_info which is attached to each stmt in the loop,
@@ -73,12 +73,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Transformation phase:
    =====================
-	The loop transformtaion phase scans all the stmts in the loop, and
+	The loop transformation phase scans all the stmts in the loop, and
    creates a vector stmt (or a sequence of stmts) for each scalar stmt S in
    the loop that needs to be vectorized. It insert the vector code sequence
    just before the scalar stmt S, and records a pointer to the vector code
    in STMT_VINFO_VEC_STMT (stmt_info) (where stmt_info is the stmt_vec_info
-   struct that is attched to S). This pointer is used for the vectorization
+   struct that is attached to S). This pointer is used for the vectorization
    of following stmts which use the defs of stmt S. Stmt S is removed
    only if it has side effects (like changing memory). If stmt S does not
    have side effects, we currently rely on dead code elimination for
@@ -358,11 +358,11 @@ vect_get_name_for_new_var (tree var)
 /* POINTER_ARITHMETIC
 
    CHECKME: The RTL expander does not like an ARRAY_REF where the base is a
-   poiner; Until this is fixed, instead of generating
+   pointer; Until this is fixed, instead of generating
 
    var = p[i]
 
-   we generate the following pointer arithemtic sequence:
+   we generate the following pointer arithmetic sequence:
 
    1. T0 = (unsigned int)i
    2. T1 = T0 * N	(N is the size of the vector in bytes)
@@ -385,7 +385,7 @@ vect_get_name_for_new_var (tree var)
    Output:
    If POINTER_ARITHMETIC is defined, this functions returns an offset that
    will be added to a base pointer and used to refer to a memory location.
-   E.g., it will generate stms 1 and 2 above, and return T1.
+   E.g., it will generate stmts 1 and 2 above, and return T1.
 
    FORNOW: we are not trying to be efficient, and just creating the code
    sequence each time from scratch, even if the same offset can be reused.
@@ -393,13 +393,13 @@ vect_get_name_for_new_var (tree var)
    it.
 
    If POINTER_ARITHMETIC is undefined, this functions returns an index that
-   will be usd to index an array, using a pointer as a base.
+   will be used to index an array, using a pointer as a base.
 
    FORNOW: We are only handling array accesses with step 1, so the same
    index as for the scalar access can be reused.
 
    CHECKME: consider using a new index with step = vectorization_factor.
-   This dependes on how we want to handle the loop bound.  */
+   This depends on how we want to handle the loop bound.  */
 
 static tree
 vect_create_index_for_array_ref (tree expr, block_stmt_iterator *bsi)
@@ -433,7 +433,7 @@ vect_create_index_for_array_ref (tree expr, block_stmt_iterator *bsi)
              UNITS_PER_WORD =
                       vectorization_factor * sizeof (data_type (array)).
 
-     FORNOW: The access pattern of all arrays i nthe loop is step 1.  */
+     FORNOW: The access pattern of all arrays in the loop is step 1.  */
 
   /*** create: unsigned int T0; ***/
 
@@ -546,8 +546,8 @@ vect_align_data_ref (tree ref, tree stmt)
    Input:
    STMT: the stmt that references memory
          FORNOW: a load/store of the form 'var = a[i]'/'a[i] = var'.
-   OP: the operand in STMT that is the memory referece
-       FORNOW: and array_ref.
+   OP: the operand in STMT that is the memory reference
+       FORNOW: an array_ref.
    BSI: the block_stmt_iterator where STMT is. Any new stmts created by this
         function can be added here.
 
@@ -1447,7 +1447,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
    the data reference.
    For example, in a data_ref 'a[i_1]', the operand 'i_1' will be returned.
 
-   FORNOW: expecting ref to be a one dimentional ARRAY_REF.
+   FORNOW: expecting ref to be a one dimensional ARRAY_REF.
            (i.e, only one operand is returned.)  */
 
 static tree
@@ -1468,7 +1468,7 @@ get_address_calculation_operands (stmt_vec_info stmt_info)
   ref = DR_REF (dr);
   DBG_VECT2 (fprintf (stderr, "stmt has a data ref\n"));
 
-  /* FORNOW: handling only one dimentional arrays.  */
+  /* FORNOW: handling only one dimensional arrays.  */
   if (TREE_CODE (ref) != ARRAY_REF
       || TREE_CODE (TREE_OPERAND (ref, 0)) == ARRAY_REF)
     {
@@ -1698,7 +1698,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
    Examine all the data references in the loop, and make sure there do not
    exist any data dependences between them.
 
-   FORNOW: We do not contruct a data dependence graph and try to deal with
+   FORNOW: We do not construct a data dependence graph and try to deal with
            dependences, but fail at the first data dependence that we
 	   encounter.
 
@@ -1760,12 +1760,12 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   tree init, step;
   int init_val;
 
-  /* FORNOW: handle only one dimentional arrays.
+  /* FORNOW: handle only one dimensional arrays.
      This restriction will be relaxed in the future.  */
   if (VARRAY_ACTIVE_SIZE (access_fns) != 1)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "multi dimentional array reference.\n");
+	fprintf (dump_file, "multi dimensional array reference.\n");
       return false;
     }
   access_fn = DR_ACCESS_FN (dr, 0);
@@ -1784,7 +1784,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
      to the above we also make sure that the first location
      at which the array is accessed ('init') is on an 'NUNITS'
      boundary, since we are also making sure that the array base
-     is aligned. This restiction will be relaxed in the future.  */
+     is aligned. This restriction will be relaxed in the future.  */
   if (TREE_CODE (init) != INTEGER_CST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1831,7 +1831,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
    FORNOW: the only access pattern that is considered vectorizable is a
 	   simple step 1 (consecutive) access.
 
-   FORNOW: handle only one dimentioanl arrays.  */
+   FORNOW: handle only one dimensional arrays.  */
 
 static bool
 vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
@@ -1867,7 +1867,7 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo)
 
    Find all the data references in the loop.
 
-   FORNOW: Handle only one dimentional ARRAY_REFs which base is really an
+   FORNOW: Handle only one dimensional ARRAY_REFs which base is really an
            array (not a pointer).  */
 
 static bool
@@ -1912,7 +1912,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	      /* CHECKME: multiple vdefs/vuses in a GIMPLE stmt are
 	         assumed to indicate a non vectorizable stmt (e.g, ASM,
 	         CALL_EXPR) or the presence of an aliasing problem. The
-	         first case is ruled out durint vect_analyze_operations;
+	         first case is ruled out during vect_analyze_operations;
 	         As for the second case, currently the vuses/vdefs are
 	         meaningless as they are too conservative. We therefore
 	         ignore them.  */
@@ -1967,7 +1967,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 	  dr = analyze_array (loop, stmt, ref);
 
-	  /* FORNOW: make sure that the array is one dimentional.
+	  /* FORNOW: make sure that the array is one dimensional.
 	     This restriction will be relaxed in the future.  */
 	  if (TREE_CODE (TREE_OPERAND (ref, 0)) == ARRAY_REF)
 	    {
@@ -2119,7 +2119,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
 
    3.    j = j + 1
 
-   Stmt 1 and 3 do not need to be vectorized, because loopo control and
+   Stmt 1 and 3 do not need to be vectorized, because loop control and
    addressing of vectorized data-refs are handled differently.
 
    This pass detects such stmts.  */
@@ -2219,7 +2219,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
       stmt_info = vinfo_for_stmt (stmt);
 
       /* FORNOW: expecting only one such operands.
-         should be extended to support multi-dimentional arrays.  */
+         should be extended to support multi-dimensional arrays.  */
       index_op = get_address_calculation_operands (stmt_info);
 
       for (i = 0; i < NUM_USES (use_ops); i++)
@@ -2258,7 +2258,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 
 /* Function vect_get_loop_niters.
 
-   Determine How many iterations the loop is excuted.
+   Determine How many iterations the loop is executed.
 
    FORNOW: Handling a simple limited set of loop forms. In the future - use
            a more general implementation.  */
@@ -2471,7 +2471,7 @@ vect_analyze_loop (struct loop *loop)
   /* Find all data references in the loop (which correspond to vdefs/vuses)
      and analyze their evolution in the loop.
 
-     FORNOW: Handle only simple, one-dimentional, array references, which
+     FORNOW: Handle only simple, one-dimensional, array references, which
      alignment can be forced.  */
 
   ok = vect_analyze_data_refs (loop_vinfo);
@@ -2497,7 +2497,7 @@ vect_analyze_loop (struct loop *loop)
 
 
   /* Check that all cross-iteration scalar data-flow cycles are OK.
-     Cross-iteration cycles caused by virtual phis are analyzed seperately.  */
+     Cross-iteration cycles caused by virtual phis are analyzed separately.  */
 
   ok = vect_analyze_scalar_cycles (loop_vinfo);
   if (!ok)
@@ -2510,7 +2510,7 @@ vect_analyze_loop (struct loop *loop)
 
 
   /* Analyze data dependences between the data-refs in the loop.
-     FORNOW: We do not contruct a data dependence graph and try to deal
+     FORNOW: We do not construct a data dependence graph and try to deal
      with dependences, but fail at the first data dependence that
      we encounter.  */
 
@@ -2532,7 +2532,7 @@ vect_analyze_loop (struct loop *loop)
 
 
   /* Analyze the access patterns of the data-refs in the loop (consecutive,
-     complex, stc). FORNOW: Only handle consecutive access pattern.  */
+     complex, etc.). FORNOW: Only handle consecutive access pattern.  */
 
   ok = vect_analyze_data_ref_accesses (loop_vinfo);
   if (!ok)
