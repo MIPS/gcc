@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -80,7 +80,7 @@ extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
 /* Clear a bitmap by freeing up the linked list.  */
 extern void bitmap_clear (bitmap);
 
-/* Copy a bitmap to another bitmap.  */
+/* Copy the second bitmap to the first bitmap.  */
 extern void bitmap_copy (bitmap, bitmap);
 
 /* True if two bitmaps are identical.  */

@@ -1965,7 +1965,6 @@ nonoverlapping_component_refs_p (tree x, tree y)
 	  x = TREE_OPERAND (x, 0);
 	}
       while (x && TREE_CODE (x) == COMPONENT_REF);
-#define AGRESSIVE_ALIASING
       /* Never found a common type.  */
 #ifdef AGRESSIVE_ALIASING
       return true;

@@ -1728,6 +1728,11 @@ add_call_clobber_ops (tree stmt, tree callee)
       return;
     }
 
+  /* FIXME - if we have better information from the static vars
+     analysis, we need to make the cache call site specific.  This way
+     we can have the performance benefits even if we are doing good
+     optimization.  */
+
   /* Get info for local and module level statics.  There is a bit
      set for each static if the call being processed does not read
      or write that variable.  */

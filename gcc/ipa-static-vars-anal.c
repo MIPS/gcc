@@ -457,9 +457,10 @@ ipa_static_star_count_of_interesting_type (tree type)
 {
   int count = 0;
   /* Strip the *'s off.  */
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type))
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       count++;
     }
 
@@ -483,9 +484,10 @@ ipa_static_star_count_of_interesting_or_array_type (tree type)
 {
   int count = 0;
   /* Strip the *'s off.  */
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       count++;
     }
 
@@ -510,10 +512,10 @@ ipa_static_type_contained_p (tree type)
   if (initialization_status == UNINITIALIZED)
     return false;
 
-  while (POINTER_TYPE_P (type))
-    type = TREE_TYPE (type);
-
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type))
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+
   uid = unique_type_id_for (TYPE_UID (type), true);
   return !bitmap_bit_p (global_types_full_escape, uid);
 }
@@ -533,11 +535,13 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
   /* Strip off all of the pointer tos on the record type.  Strip the
      same number of pointer tos from the field type.  If the field
      type has fewer, it could not have been aliased. */
+  record_type = TYPE_MAIN_VARIANT (record_type);
+  field_type = TYPE_MAIN_VARIANT (field_type);
   while (POINTER_TYPE_P (record_type))
     {
-      record_type = TREE_TYPE (record_type);
+      record_type = TYPE_MAIN_VARIANT (TREE_TYPE (record_type));
       if (POINTER_TYPE_P (field_type)) 
-	field_type = TREE_TYPE (field_type);
+	field_type = TYPE_MAIN_VARIANT (TREE_TYPE (field_type));
       else 
 	return true;
     }
@@ -547,14 +551,12 @@ ipa_static_address_not_taken_of_field (tree record_type, tree field_type)
   if (!ipa_static_type_contained_p (record_type))
     return false;
 
-  record_type = TYPE_MAIN_VARIANT (record_type);
   uid = unique_type_id_for (TYPE_UID (record_type), false);
   result = splay_tree_lookup (uid_to_addressof_map, (splay_tree_key) uid);
   
   if (result) 
     {
       bitmap field_type_map = (bitmap) result->value;
-      field_type = TYPE_MAIN_VARIANT (field_type);
       uid = unique_type_id_for (TYPE_UID (field_type), true);
       /* If the bit is there, the address was taken. If not, it
 	 wasn't.  */
@@ -716,9 +718,7 @@ reduced_inorder (struct cgraph_node **order, bool reduce)
 
 
 
-/* Mark a TYPE as being seen.  This is only called from two places:
-   mark_type_seen which only calls it with record and union types and
-   mark_interesting_addressof which can mark any field type.  */ 
+/* Mark a TYPE as being seen.  */ 
 
 static bool
 mark_any_type_seen (tree type)
@@ -746,8 +746,9 @@ mark_any_type_seen (tree type)
 static bool
 mark_type_seen (tree type)
 {
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 
   /* We are interested in records, and unions only.  */
   if (TREE_CODE (type) == RECORD_TYPE 
@@ -773,8 +774,9 @@ mark_type (tree type, enum escape_t escape_status)
   bitmap map = NULL;
   int uid;
 
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
   
   switch (escape_status) 
     {
@@ -786,13 +788,13 @@ mark_type (tree type, enum escape_t escape_status)
       break;
     }
 
-  uid = TYPE_UID (TYPE_MAIN_VARIANT (type));
+  uid = TYPE_UID (type);
   if (bitmap_bit_p (map, uid))
     return false;
   else
     {
       bitmap_set_bit (map, uid);
-      mark_type_seen (type);
+      mark_any_type_seen (type);
 
       if (escape_status == FULL_ESCAPE)
 	{
@@ -918,9 +920,10 @@ count_stars (tree* type_ptr)
 {
   tree type = *type_ptr;
   int i = 0;
+  type = TYPE_MAIN_VARIANT (type);
   while (POINTER_TYPE_P (type))
     {
-      type = TREE_TYPE (type);
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       i++;
     }
 
@@ -1033,6 +1036,10 @@ check_function_parameter_and_return_types (tree fn, bool escapes)
     }
   else
     {
+      /* FIXME - According to Geoff Keating, we should never have to
+	 do this; the front ends should always process the arg list
+	 from the TYPE_ARG_LIST. */
+
       for (arg = DECL_ARGUMENTS (fn); arg; arg = TREE_CHAIN (arg))
 	{
 	  if (escapes)
@@ -1108,12 +1115,16 @@ has_proper_scope_for_analysis (ipa_local_static_vars_info_t local,
 	  && is_gimple_min_invariant (DECL_INITIAL (t)))
 	; /* Read of a constant, do not change the function state.  */
       else 
-	/* Just a regular read.  */
-	if (local 
-	    && local->pure_const_not_set_in_source
-	    && local->pure_const_state == IPA_CONST)
-	  local->pure_const_state = IPA_PURE;
-
+	{
+	  /* Just a regular read.  */
+	  if (local 
+	      && local->pure_const_not_set_in_source
+	      && local->pure_const_state == IPA_CONST)
+	    local->pure_const_state = IPA_PURE;
+	 
+	  /* The type escapes for all public and externs. */
+	  mark_interesting_type (TREE_TYPE (t), FULL_ESCAPE);
+	}
       return false;
     }
 
@@ -1446,26 +1457,26 @@ check_call (ipa_local_static_vars_info_t local,
 	      tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
-  tree operandList = TREE_OPERAND (call_expr, 1);
+  tree operand_list = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
   tree argument;
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
-  for (operand = operandList;
+  for (operand = operand_list;
        operand != NULL_TREE;
        operand = TREE_CHAIN (operand))
     {
       tree argument = TREE_VALUE (operand);
       check_rhs_var (local, argument);
     }
-
+  
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
      for the callee, (such as for some of the builtins) we will use
      them, otherwise we will compute our own information.  */
-
+  
   /* Const and pure functions have less clobber effects than other
      functions so we process these first.  Otherwise if it is a call
      outside the compilation unit or an indirect call we punt.  This
@@ -1476,26 +1487,61 @@ check_call (ipa_local_static_vars_info_t local,
   if (callee_t)
     {
       tree arg_type;
-      tree last_arg_type;
+      tree last_arg_type = NULL;
       callee = cgraph_node(callee_t);
       avail = cgraph_function_body_availability (callee);
 
       /* If the function is POINTER_NO_ESCAPE or a wrapper it is
 	 allowed to make an implicit cast to void* without causing the
 	 type to escape.  */
-      if (!flags & ECF_POINTER_NO_ESCAPE) 
+      if (!(flags & ECF_POINTER_NO_ESCAPE)) 
 	{
 	  /* Check that there are no implicit casts in the passing of
 	     parameters.  */
-	  operand = operandList;
-	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
-	       arg_type && TREE_VALUE (arg_type) != void_type_node;
-	       arg_type = TREE_CHAIN (arg_type))
+	  if (TYPE_ARG_TYPES (TREE_TYPE (callee_t)))
 	    {
-	      operand = TREE_CHAIN (operand);
-	      argument = TREE_VALUE (operand);
-	      check_cast (arg_type, argument);
-	      last_arg_type = arg_type;
+	      operand = operand_list;
+	      for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+		   arg_type && TREE_VALUE (arg_type) != void_type_node;
+		   arg_type = TREE_CHAIN (arg_type))
+		{
+		  if (operand)
+		    {
+		      argument = TREE_VALUE (operand);
+		      last_arg_type = TREE_VALUE(arg_type);
+		      check_cast (last_arg_type, argument);
+		      operand = TREE_CHAIN (operand);
+		    }
+		  else 
+		    /* The code reaches here for some unfortunate
+		       builtin functions that do not have a list of
+		       argument types.  */
+		    break; 
+		}
+	    } 
+	  else  
+	    { 
+	      /* FIXME - According to Geoff Keating, we should never
+		 have to do this; the front ends should always process
+		 the arg list from the TYPE_ARG_LIST. */
+	      operand = operand_list;
+	      for (arg_type = DECL_ARGUMENTS (callee_t); 
+		   arg_type;
+		   arg_type = TREE_CHAIN (arg_type))
+		{
+		  if (operand)
+		    {
+		      argument = TREE_VALUE (operand);
+		      last_arg_type = TREE_TYPE(arg_type);
+		      check_cast (last_arg_type, argument);
+		      operand = TREE_CHAIN (operand);
+		    } 
+		  else 
+		    /* The code reaches here for some unfortunate
+		       builtin functions that do not have a list of
+		       argument types.  */
+		    break; 
+		}
 	    }
 	  
 	  /* In the case where we have a var_args function, we need to
@@ -1506,7 +1552,17 @@ check_call (ipa_local_static_vars_info_t local,
 	       operand = TREE_CHAIN (operand))
 	    {
 	      argument = TREE_VALUE (operand);
-	      check_cast (arg_type, argument);
+	      if (arg_type)
+		check_cast (arg_type, argument);
+	      else 
+		{
+		  /* The code reaches here for some unfortunate
+		     builtin functions that do not have a list of
+		     argument types.  Most of these functions have
+		     been marked as having their parameters not
+		     escape, but for the rest, the type is doomed.  */
+		  mark_interesting_type (TREE_TYPE (argument), FULL_ESCAPE);
+		}
 	    }
 	}
 
@@ -1536,11 +1592,11 @@ check_call (ipa_local_static_vars_info_t local,
 
   if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
     {
-      if (!flags & ECF_POINTER_NO_ESCAPE) 
+      if (!(flags & ECF_POINTER_NO_ESCAPE))
 	{
 	  /* If this is a direct call to an external function, mark all of
 	     the parameter and return types.  */
-	  for (operand = operandList;
+	  for (operand = operand_list;
 	       operand != NULL_TREE;
 	       operand = TREE_CHAIN (operand))
 	    {
@@ -1593,8 +1649,8 @@ check_call (ipa_local_static_vars_info_t local,
 static bool 
 okay_pointer_operation (enum tree_code code,  tree op0, tree op1)
 {
-  tree op0type = TREE_TYPE (op0);
-  tree op1type = TREE_TYPE (op1);
+  tree op0type = TYPE_MAIN_VARIANT (TREE_TYPE (op0));
+  tree op1type = TYPE_MAIN_VARIANT (TREE_TYPE (op1));
   if (POINTER_TYPE_P (op1type))
     return false;
   switch (code)
@@ -2179,10 +2235,10 @@ close_type_seen (tree type)
   tree binfo, base_binfo;
 
   /* See thru all pointer tos and array ofs. */
-  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-  
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+  
   uid = TYPE_UID (type);
 
   if (bitmap_bit_p (been_there_done_that, uid))
@@ -2372,10 +2428,10 @@ close_type_full_escape (tree type)
   bitmap subtype_map;
 
   /* Strip off any pointer or array types.  */
-  while (POINTER_TYPE_P (type) || TREE_CODE(type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
   type = TYPE_MAIN_VARIANT (type);
+  while (POINTER_TYPE_P (type) || TREE_CODE(type) == ARRAY_TYPE)
+    type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+
   uid = TYPE_UID (type);
 
   if (bitmap_bit_p (been_there_done_that, uid))
@@ -2579,7 +2635,8 @@ do_type_analysis (void)
   
   /* If a type is set in global_types_full_escape, make sure that the
      unique type is also set in that map.  */
-  EXECUTE_IF_SET_IN_BITMAP (global_types_full_escape, 0, i, bi)
+  bitmap_copy (been_there_done_that, global_types_full_escape);
+  EXECUTE_IF_SET_IN_BITMAP (been_there_done_that, 0, i, bi)
     {
       unsigned int j = unique_type_id_for (i, false);
       if (i != j)
@@ -2588,6 +2645,7 @@ do_type_analysis (void)
 	  bitmap_clear_bit(global_types_full_escape, i);
 	}
     }
+  bitmap_clear (been_there_done_that);
 
   if (dump_file)
     { 
@@ -3087,14 +3145,14 @@ static_execute (void)
 	    switch (node_g->pure_const_state)
 	      {
 	      case IPA_CONST:
-  		TREE_READONLY (w->decl) = 1;
+   		TREE_READONLY (w->decl) = 1;
 		if (dump_file)
 		  fprintf (dump_file, "$$$$CONST: %s\n",  
 			   lang_hooks.decl_printable_name(w->decl, 2)); 
 		break;
 		
 	      case IPA_PURE:
-  		DECL_IS_PURE (w->decl) = 1;
+   		DECL_IS_PURE (w->decl) = 1;
 		if (dump_file)
 		  fprintf (dump_file, "$$$$PURE: %s\n",  
 			   lang_hooks.decl_printable_name(w->decl, 2)); 

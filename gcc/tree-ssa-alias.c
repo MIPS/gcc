@@ -135,7 +135,7 @@ static struct alias_stats_d alias_stats;
 /* Local functions.  */
 static void compute_flow_insensitive_aliasing (struct alias_info *);
 static void dump_alias_stats (FILE *);
-static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
+static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT, bool);
 static tree create_memory_tag (tree type, bool is_type_tag);
 static tree get_tmt_for (tree, struct alias_info *);
 static tree get_nmt_for (tree);
@@ -1039,7 +1039,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  if (!tag_stored_p && !var_stored_p)
 	    continue;
 	     
-	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set))
+	  if (may_alias_p (p_map->var, p_map->set, var, v_map->set, false))
 	    {
 	      size_t num_tag_refs, num_var_refs;
 
@@ -1099,7 +1099,8 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  sbitmap may_aliases2 = p_map2->may_aliases;
 
 	  /* If the pointers may not point to each other, do nothing.  */
-	  if (!may_alias_p (p_map1->var, p_map1->set, p_map2->var, p_map2->set))
+	  if (!may_alias_p (p_map1->var, p_map1->set, 
+			    p_map2->var, p_map2->set, true))
 	    continue;
 
 	  /* The two pointers may alias each other.  If they already have
@@ -1621,7 +1622,8 @@ maybe_create_global_var (struct alias_info *ai)
 
 static bool
 may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
-	     tree var, HOST_WIDE_INT var_alias_set)
+	     tree var, HOST_WIDE_INT var_alias_set,
+	     bool alias_set_only)
 {
   tree mem;
   var_ann_t v_ann, m_ann;
@@ -1680,50 +1682,59 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 
   {
     tree ptr_type = TREE_TYPE (ptr);
+    tree var_type = TREE_TYPE (var);
 
-    /* The star counts are -1 if the type at the end of the pointer_to
-       chain is not a record or union type. */
-    if (ipa_static_star_count_of_interesting_type (var) >= 0)
+     /* The star count is -1 if the type at the end of the pointer_to 
+        chain is not a record or union type. */ 
+    if ((!alias_set_only) &&
+	ipa_static_star_count_of_interesting_type (var_type) >= 0)
       {
-	int ptr_star_count = 0;
-	/* ipa_static_star_count_of_interesting_type is a little too
+ 	int ptr_star_count = 0;
+	/* Ipa_static_star_count_of_interesting_type is a little to
 	   restrictive for the pointer type, need to allow pointers to
 	   primitive types as long as those types cannot be pointers
 	   to everything.  */
-	/* Strip the *'s off.  */
-	while (POINTER_TYPE_P (ptr_type))
-	  {
-	    ptr_type = TREE_TYPE (ptr_type);
-	    ptr_star_count++;
-	  }
+ 	/* Strip the *'s off.  */ 
+ 	while (POINTER_TYPE_P (ptr_type))
+ 	  {
+ 	    ptr_type = TREE_TYPE (ptr_type);
+ 	    ptr_star_count++;
+ 	  }
 
-	/* There does not appear to be a better test to see if the
-	   pointer type was one of the pointer to everything
-	   types.  */
-	if (TREE_CODE (ptr_type) == CHAR_TYPE
-	    && TREE_CODE (ptr_type) == VOID_TYPE)
-	  ptr_star_count = -1;
+ 	/* There does not appear to be a better test to see if the 
+ 	   pointer type was one of the pointer to everything 
+ 	   types.  */
+ 	if (TREE_CODE (ptr_type) == CHAR_TYPE
+ 	    && TREE_CODE (ptr_type) == VOID_TYPE)
+ 	  ptr_star_count = -1;
 
-	if (ptr_star_count > 0)
-	  {
-	    alias_stats.structnoaddress_queries++;
-	    if (ipa_static_address_not_taken_of_field (TREE_TYPE (var), 
-						TREE_TYPE (ptr_type)))
-	      {
-		alias_stats.structnoaddress_resolved++;
-		alias_stats.alias_noalias++;
-		return false;
-	      }
-	  }
-	else if (ptr_star_count == 0)
-	  {
-	    /* If ptr_type was not really a pointer to type, it cannot
-	       alias.  */
-	    alias_stats.structnoaddress_queries++;
-	    alias_stats.structnoaddress_resolved++;
-	    alias_stats.alias_noalias++;
-	    return false;
-	  }
+ 	if (ptr_star_count > 0)
+ 	  {
+/* 	    fprintf(stderr, "calling address_not_taken_of_field\n   var = "); */
+/* 	    print_generic_expr (stderr, var_type, 0); */
+/* 	    fprintf(stderr, "\n   ptr = "); */
+/* 	    print_generic_expr (stderr, TREE_TYPE (TREE_TYPE (ptr)), 0); */
+/* 	    fprintf(stderr, "\n"); */
+
+ 	    alias_stats.structnoaddress_queries++;
+ 	    if (ipa_static_address_not_taken_of_field (var_type,
+ 						       TREE_TYPE (TREE_TYPE (ptr))))
+ 	      {
+/* 		fprintf(stderr, "success\n"); */
+ 		alias_stats.structnoaddress_resolved++;
+ 		alias_stats.alias_noalias++;
+ 		return false;
+ 	      }
+ 	  }
+ 	else if (ptr_star_count == 0)
+ 	  {
+	    /* If ptr_type was not really a pointer to type, it cannot 
+ 	       alias.  */ 
+ 	    alias_stats.structnoaddress_queries++;
+ 	    alias_stats.structnoaddress_resolved++;
+ 	    alias_stats.alias_noalias++;
+ 	    return false;
+ 	  }
       }
   }
 

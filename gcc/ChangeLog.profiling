@@ -1,3 +1,24 @@
+2005-02-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	*bitmap.h: added useful documentation.
+	*builtin-attrs.def: added ATTR_POINTER_NO_ESCAPE_CONST_NOTHROW_LIST.
+	*builtins.def: changed constant_p to use
+	ATTR_POINTER_NO_ESCAPE_CONST_NOTHROW_LIST.
+	*ipa-static-vars-anal.c (ipa_static_star_count_of_interesting_type, 
+	ipa_static_star_count_of_interesting_or_array_type, 
+	ipa_static_type_contained_p, ipa_static_address_not_taken_of_field, 
+	mark_any_type_seen, mark_type, count_stars, 
+	check_function_parameter_and_return_type, check_call, close_type_seen,
+	close_type_full_escape): Changed way types were traversed.
+	*ipa-static-vars-anal.c (has_proper_scope_for_analysis, check_call):
+	Fixed scanning call parms code.
+	*ipa-static-vars-anal.c (do_type_analysis):
+	Fixed improper use of bitvector iterators.
+	*tree-ssa-alias.c (may_alias_p): Changed the way calls into
+	ipa_static_address_not_taken_of_field are set up.
+	*tree-ssa-operands: (add_call_clobber_ops): Added comment to
+	point out future work.
+
 2005-02-12  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050211)
