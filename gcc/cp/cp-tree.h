@@ -4038,7 +4038,6 @@ extern void process_next_inline			PARAMS ((struct unparsed_text *));
 extern void yyungetc				PARAMS ((int, int));
 extern void snarf_method			PARAMS ((tree));
 
-extern void check_for_missing_semicolon		PARAMS ((tree));
 extern void note_got_semicolon			PARAMS ((tree));
 extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));

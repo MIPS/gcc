@@ -34,7 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "tree-inline.h"
 #include "decl.h"
-#include "parse.h"
 #include "lex.h"
 #include "output.h"
 #include "except.h"

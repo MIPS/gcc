@@ -1,3 +1,29 @@
+2002-06-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c: New file.
+	* Make-lang.in (po-generated): Remove parse.c
+	(CXX_OBJS): Replace parse.o with parser.o.
+	(parse.h): Remove target.
+	(parse.c): Likewise.
+	(gt-cp-parse.h): Likewise.
+	(c++.distclean): Do not remove parse.output.
+	(c++.maintainer-clean): Do not remove parse.c or parse.h.
+	(cp/spew.o): Do not depend on parse.h.
+	(cp/lex.o): Likewise.
+	(cp/pt.o): Likewise.
+	(cp/parse.o): Remove target.
+	(cp/TAGS): Remove special handling for parse.c.
+	(cp/parser.o): New target.
+	* cp-tree.h (check_for_missing_semicolon): Remove prototype.
+	* lex.c (parse.h): Do not include it.
+	(yyprint): Remove.
+	(yylval): Likewise.
+	(rid_to_yy): Likewise.
+	(yyprint): Likewise.
+	(check_for_missing_semicolon): Likewise.
+	* pt.c (parse.h): Do not include it.
+	* spew.c (parse.h): Likewise.
+
 2002-06-14  Jason Merrill  <jason@redhat.com>
 
 	* semantics.c (begin_for_stmt): Push the 'for' scope before
