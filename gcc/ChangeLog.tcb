@@ -1,3 +1,17 @@
+2005-01-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (collect2.o-warn): Remove.
+	* tree-optimize.c (init_tree_optimization_passes): Schedule
+	pass_insert_range_assertions after pass_referenced_vars.
+	* tree-vrp.c (opposite_comparison): Remove.
+	(build_assert_exprs): Remove.
+	(negate_assert_exprs): Remove.
+	(build_assert_expr_for): New function.
+	(maybe_add_assert_expr_on_edges): New function.
+	(execute_insert_range_assertions): Change linear traversal of
+	basic blocks to a recursive call maybe_add_assert_expr_on_edges 
+	for the edges going out of ENTRY_BLOCK_PTR.
+
 2004-12-14  Diego Novillo  <dnovillo@redhat.com>
 
 	Add expression assertions to GIMPLE.

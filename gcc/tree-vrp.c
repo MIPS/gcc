@@ -30,166 +30,40 @@ Boston, MA 02111-1307, USA.  */
 #include "timevar.h"
 #include "diagnostic.h"
 
-/* Given a comparison code, return its opposite.  Note that this is *not*
-   the same as inverting its truth value (invert_tree_comparison).  Here we
-   just want to literally flip the comparison around.
-   
-   So, '<' gets '>', '<=' gets '>='.  Both '==' and '!=' are returned
-   unchanged.  */
-
-static enum tree_code
-opposite_comparison (enum tree_code code)
-{
-  switch (code)
-    {
-    case EQ_EXPR:
-    case NE_EXPR:
-    case ORDERED_EXPR:
-    case UNORDERED_EXPR:
-    case LTGT_EXPR:
-    case UNEQ_EXPR:
-      return code;
-    case GT_EXPR:
-      return LT_EXPR;
-    case GE_EXPR:
-      return LE_EXPR;
-    case LT_EXPR:
-      return GT_EXPR;
-    case LE_EXPR:
-      return GE_EXPR;
-    case UNGT_EXPR:
-      return UNLT_EXPR;
-    case UNGE_EXPR:
-      return UNLE_EXPR;
-    case UNLT_EXPR:
-      return UNGT_EXPR;
-    case UNLE_EXPR:
-      return UNGE_EXPR;
-    default:
-      gcc_unreachable ();
-    }
-}
-
-
-/* Given a COND_EXPR node E of the form 'V OP W', return a list of
-   assignments to ASSERT_EXPRs that mimic the comparison operand OP.
-   For instance, given 'V <= W', this function returns the assignments:
-
-   	V = ASSERT_EXPR <V, V <= W>
-	W = ASSERT_EXPR <W, W >= V>  */
+/* Given a COND_EXPR COND of the form 'V OP W', and a symbol V, return
+   the assertion assignment 'V = ASSERT_EXPR <V, V OP W>'.  */
 
 static tree
-build_assert_exprs (tree cond)
+build_assert_expr_for (tree cond, tree v)
 {
-  tree list = NULL_TREE;
-  tree a1 = NULL_TREE;
-  tree a2 = NULL_TREE;
+  tree assertion = NULL_TREE;
+
+  gcc_assert (DECL_P (v));
 
   if (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison)
     {
-      /* Given X OP Y, build the assignments
-
-	 	X = ASSERT_EXPR <X, X OP Y>
-		Y = ASSERT_EXPR <Y, Y opposite<OP> X>
-
-	 Make sure that either X or Y are a renameable _DECL,
-	 otherwise we won't be able to create the assignments.  */
-      tree op0 = TREE_OPERAND (cond, 0);
-      tree op1 = TREE_OPERAND (cond, 1);
-
-      cond = unshare_expr (cond);
-
-      if (DECL_P (op0))
-	{
-	  a1 = build (MODIFY_EXPR, TREE_TYPE (op0), op0,
-		      build (ASSERT_EXPR, TREE_TYPE (op0), op0, cond));
-	}
-
-      if (DECL_P (op1))
-	{
-	  /* Switch the operands around and use the opposite comparison.  */
-	  cond = build (opposite_comparison (TREE_CODE (cond)),
-	                TREE_TYPE (cond), op1, op0);
-	  a2 = build (MODIFY_EXPR, TREE_TYPE (op1), op1,
-		      build (ASSERT_EXPR, TREE_TYPE (op1), op1, cond));
-	}
+      /* Build V = ASSERT_EXPR <V, COND>.  */
+      assertion = build (MODIFY_EXPR, TREE_TYPE (v), v,
+		         build (ASSERT_EXPR, TREE_TYPE (v), v, cond));
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
-      /* Given !X, build the assignment X = false.  */
+      /* Given !V, build the assignment V = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
-      if (DECL_P (op0))
-	a1 = build (MODIFY_EXPR, TREE_TYPE (op0), op0, boolean_false_node);
+      gcc_assert (op0 == v);
+      assertion = build (MODIFY_EXPR, TREE_TYPE (v), v, boolean_false_node);
     }
   else if (DECL_P (cond))
     {
-      /* Given X, build the assignment X = true.  */
-      a1 = build (MODIFY_EXPR, TREE_TYPE (cond), cond, boolean_true_node);
+      /* Given V, build the assignment V = true.  */
+      gcc_assert (v == cond);
+      assertion = build (MODIFY_EXPR, TREE_TYPE (v), v, boolean_true_node);
     }
   else
     gcc_unreachable ();
 
-  if (a1)
-    {
-      list = alloc_stmt_list ();
-      append_to_statement_list (a1, &list);
-      if (a2) append_to_statement_list (a2, &list);
-    }
 
-  return list;
-}
-
-
-/* Given a list L of assertion assignments, build another list with the
-   inverted version of each assertion.  Assertions are inverted by
-   calling invert_truthvalue().  */
-
-static tree
-negate_assert_exprs (tree l)
-{
-  tree_stmt_iterator i;
-  tree neg_l;
-
-  neg_l = alloc_stmt_list ();
-
-  for (i = tsi_start (l); !tsi_end_p (i); tsi_next (&i))
-    {
-      tree rhs, a, neg_a;
-
-      a = tsi_stmt (i);
-
-      gcc_assert (TREE_CODE (a) == MODIFY_EXPR);
-
-      neg_a = unshare_expr (a);
-      rhs = TREE_OPERAND (neg_a, 1);
-
-      if (TREE_CODE (rhs) == ASSERT_EXPR)
-	{
-	  tree op1 = TREE_OPERAND (rhs, 1);
-	  TREE_OPERAND (rhs, 1) = invert_truthvalue (op1);
-
-	  /* The inverted conditional must be GIMPLE, otherwise we lose
-	     the ability to relate the variable on the LHS of the
-	     assignment of an ASSERT_EXPR.  */
-	  gcc_assert (is_gimple_condexpr (TREE_OPERAND (rhs, 1)));
-	}
-      else if (TREE_CODE (rhs) == TRUTH_NOT_EXPR)
-	{
-	  tree op0 = TREE_OPERAND (rhs, 0);
-	  TREE_OPERAND (rhs, 0) = invert_truthvalue (op0);
-	}
-      else if (rhs == boolean_true_node
-	       || rhs == boolean_false_node)
-	{
-	  TREE_OPERAND (neg_a, 1) = invert_truthvalue (rhs);
-	}
-      else
-	gcc_unreachable ();
-
-      append_to_statement_list (neg_a, &neg_l);
-    }
-
-  return neg_l;
+  return assertion;
 }
 
 
@@ -201,6 +75,178 @@ fp_predicate (tree expr)
 {
   return TREE_CODE_CLASS (TREE_CODE (expr)) == tcc_comparison
          && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+}
+
+/* Traverse all the statements in block BB looking for used variables.
+   Variables used in BB are added to bitmap FOUND.  The algorithm
+   works in three main parts:
+
+   1- For every statement S in BB, all the variables used by S are
+      added to bitmap FOUND.
+
+   2- If the last statement of BB is a conditional expression, then
+
+      a) The variables involved in the conditional are removed from
+	  FOUND.
+
+      b) We recurse into the sub-graph starting at the THEN_CLAUSE.
+	 On return, if X and/or Y are marked in FOUND, then an
+	 ASSERT_EXPR is added for the corresponding variable.
+
+      c) Step (b) is repeated on the ELSE_CLAUSE.
+
+      d) X and Y are marked in FOUND.
+
+   3- If BB does not end in a conditional expression, then we recurse
+      into BB's dominator children.
+   
+   At the end of the recursive traversal, ASSERT_EXPRs will have been
+   added to the edges of COND_EXPR blocks that have sub-graphs using
+   one or both predicate operands.  For instance,
+
+   	if (a == 9)
+	  b = a;
+	else
+	  b = c + 1;
+
+   In this case, an assertion on the THEN clause is useful to
+   determine that 'a' is always 9 on that edge.  However, an assertion
+   on the ELSE clause would be unnecessary.
+   
+   FIXME. This may still cause the SSA renamer to add a PHI node for
+	  'a' at the 'endif' block.  This creates unnecessary churn in
+	  the optimizers as this PHI node produces nothing new.
+
+   TODO 1.  It may be better to do some simplified life analysis to
+	    avoid adding ASSERT_EXPRs unnecessarily.  In the example
+	    above, if variable 'a' is set before its first use on the
+	    THEN_CLAUSE, then an ASSERT_EXPR would just be killed by
+	    the first DCE run.
+
+   TODO 2.  Handle SWITCH_EXPR.  */
+
+static bool
+maybe_add_assert_expr_on_edges (basic_block bb, sbitmap found)
+{
+  block_stmt_iterator si;
+  tree last;
+  size_t i;
+  bool added;
+
+  /* This is not a true dominator traversal, so we have to avoid
+     duplicate visits.  See the logic for COND_EXPRs in 'Step 2'
+     below.  */
+  if (bb->flags & BB_VISITED)
+    return false;
+
+  bb->flags |= BB_VISITED;
+
+  /* Step 1.  Mark all the variables used in BB in bitmap FOUND.  */
+  added = false;
+  last = NULL_TREE;
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    {
+      tree stmt;
+      use_optype uses;
+      
+      stmt = bsi_stmt (si);
+      get_stmt_operands (stmt);
+      uses = STMT_USE_OPS (stmt);
+
+      /* Mark all the variables used by STMT in bitmap FOUND. */
+      for (i = 0; i < NUM_USES (uses); i++)
+	SET_BIT (found, var_ann (USE_OP (uses, i))->uid);
+
+      /* Remember the last statement of the block.  */
+      last = stmt;
+    }
+
+  /* Step 2.  If BB's last statement is a conditional expression
+     involving integer operands, recurse into each of the sub-graphs
+     rooted at BB to determine if we need to add ASSERT_EXPRs.  */
+  if (last
+      && TREE_CODE (last) == COND_EXPR
+      && !fp_predicate (COND_EXPR_COND (last)))
+    {
+      edge e;
+      edge_iterator ei;
+      size_t nuses;
+      tree cond = COND_EXPR_COND (last);
+      use_optype uses = STMT_USE_OPS (last);
+
+      /* Remove the COND_EXPR operands from the FOUND bitmap.
+	 Otherwise, when we finish traversing each of the sub-graphs,
+	 we won't know whether the variables were found in the
+	 sub-graphs or if they had been found in a block upstream from
+	 BB.  */
+      nuses = NUM_USES (uses);
+      for (i = 0; i < nuses; i++)
+	RESET_BIT (found, var_ann (USE_OP (uses, i))->uid);
+
+      /* Look for uses of the operands in each of the sub-graphs
+	 rooted at BB.  We need to check each of the outgoing edges
+	 separately, so that we know what kind of ASSERT_EXPR to
+	 insert.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  /* Notice that by traversing the sub-graphs directly, we may
+	     be breaking the dominator traversal we have been doing.
+	     This happens if BB does not dominate one of its clauses:
+
+		    1	if (y <= 10)
+		    2	  {
+		    3	    y = x + 1
+		    4	    if (y > 10)
+		    5	      y--;
+		    6	  }
+		    7	z = y + x;
+
+	     The COND_EXPR at line 4 does not dominate its ELSE_CLAUSE
+	     at line 7, but we still want to add an ASSERT_EXPR at
+	     line 6 as it may still be useful.  */
+	  added |= maybe_add_assert_expr_on_edges (e->dest, found);
+
+	  for (i = 0; i < nuses; i++)
+	    {
+	      tree op = USE_OP (uses, i);
+
+	      if (TEST_BIT (found, var_ann (op)->uid))
+		{
+		  /* We found a use of OP in the sub-graph rooted at
+		     E->DEST.  Add an ASSERT_EXPR according to whether
+		     E goes to THEN_CLAUSE or ELSE_CLAUSE.  */
+		  tree c, t;
+
+		  if (e->flags & EDGE_TRUE_VALUE)
+		    c = unshare_expr (cond);
+		  else if (e->flags & EDGE_FALSE_VALUE)
+		    c = invert_truthvalue (cond);
+		  else
+		    gcc_unreachable ();
+
+		  t = build_assert_expr_for (c, op);
+		  bsi_insert_on_edge (e, t);
+		  added = true;
+		}
+	    }
+	}
+
+      /* Finally, mark all the COND_EXPR operands as found.  */
+      for (i = 0; i < nuses; i++)
+	SET_BIT (found, var_ann (USE_OP (uses, i))->uid);
+    }
+  else
+    {
+      /* Step 3.  Recurse into the dominator children of BB.  */
+      basic_block son;
+
+      for (son = first_dom_son (CDI_DOMINATORS, bb);
+	   son;
+	   son = next_dom_son (CDI_DOMINATORS, son))
+	added |= maybe_add_assert_expr_on_edges (son, found);
+    }
+
+  return added;
 }
 
 
@@ -223,13 +269,11 @@ fp_predicate (tree expr)
    if (x < y)
     {
       x = ASSERT_EXPR <x, x < y>
-      y = ASSERT_EXPR <y, y > x>
       y = x - 2
     }
    else
     {
-      x = ASSERT_EXPR <x, x >= y>
-      y = ASSERT_EXPR <y, y <= x>
+      y = ASSERT_EXPR <y, x <= y>
       x = y + 3
     }
 
@@ -242,40 +286,31 @@ static void
 execute_insert_range_assertions (void)
 {
   basic_block bb;
+  edge e;
+  edge_iterator ei;
+  sbitmap found;
+  
+  found = sbitmap_alloc (num_referenced_vars);
+  sbitmap_zero (found);
 
-  FOR_EACH_BB (bb)
-    {
-      tree stmt = last_stmt (bb);
+  /* FIXME.  Passes are free to assume that BB_VISITED will always be
+     clear.  This is error-prone.  We now have to assert that it is
+     indeed clear to avoid hard-to-find bugs.  */
+#if defined ENABLE_CHECKING
+  FOR_ALL_BB (bb)
+    gcc_assert (!(bb->flags & BB_VISITED));
+#endif
 
-      /* The last statement of the block must be an integer
-	 comparison involving at least one renameable _DECL.  */
-      if (stmt
-	  && TREE_CODE (stmt) == COND_EXPR
-	  && !fp_predicate (TREE_OPERAND (stmt, 0)))
-	{
-	  edge e;
-	  edge_iterator ei;
-	  tree assertions, neg_assertions;
+  calculate_dominance_info (CDI_DOMINATORS);
 
-	  assertions = build_assert_exprs (TREE_OPERAND (stmt, 0));
-	  if (assertions)
-	    neg_assertions = negate_assert_exprs (assertions);
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+    if (maybe_add_assert_expr_on_edges (e->dest, found))
+      bsi_commit_edge_inserts ();
 
-	  if (assertions)
-	    FOR_EACH_EDGE (e, ei, bb->succs)
-	      {
-		if (e->flags & EDGE_TRUE_VALUE)
-		  bsi_insert_on_edge (e, assertions);
-		else if ((e->flags & EDGE_FALSE_VALUE)
-		         && neg_assertions)
-		  bsi_insert_on_edge (e, neg_assertions);
-		else
-		  gcc_unreachable ();
-	      }
-	}
-    }
+  FOR_ALL_BB (bb)
+    bb->flags &= ~BB_VISITED;
 
-  bsi_commit_edge_inserts ();
+  sbitmap_free (found);
 }
 
 struct tree_opt_pass pass_insert_range_assertions =

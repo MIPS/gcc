@@ -203,7 +203,6 @@ SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # recognizing that the loop will always be executed at least once.  We need
 # a new loop optimizer.
 reload1.o-warn = -Wno-error
-collect2.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
