@@ -1,3 +1,8 @@
+2003-02-10  Josef Zlomek  <zlomekj@suse.cz>
+
+	(Merge from mainline:)
+	* bb-reorder.c: Use array of structures instead of several arrays.
+
 Sat Feb  8 20:33:41 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rtlopt-merge-20030208)

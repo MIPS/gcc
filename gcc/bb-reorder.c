@@ -93,20 +93,31 @@ static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
 /* Length of unconditional jump instruction.  */
 static int uncond_jump_length;
 
-/* The current size of the following dynamic arrays.  */
+/* Structure to hold needed information for each basic block.  */
+typedef struct bbro_basic_block_data_def
+{
+  /* Which trace is the bb start of (-1 means it is not a start of a trace).  */
+  int start_of_trace;
+
+  /* Which trace is the bb end of (-1 means it is not an end of a trace).  */
+  int end_of_trace;
+
+  /* Which heap is BB in (if any)?  */
+  fibheap_t heap;
+
+  /* Which heap node is BB in (if any)?  */
+  fibnode_t node;
+} bbro_basic_block_data;
+
+/* The current size of the following dynamic array.  */
 static int array_size;
+
+/* The array which holds needed information for basic blocks.  */
+static bbro_basic_block_data *bbd;
 
 /* To avoid frequent reallocation the size of arrays is greater than needed,
    the number of elements is (not less than) 1.25 * size_wanted.  */
 #define GET_ARRAY_SIZE(X) ((((X) / 4) + 1) * 5)
-
-/* Which trace is the bb start of (-1 means it is not a start of a trace).  */
-static int *start_of_trace;
-static int *end_of_trace;
-
-/* Which heap and node is BB in?  */
-static fibheap_t *bb_heap;
-static fibnode_t *bb_node;
 
 /* Free the memory and set the pointer to NULL.  */
 #define FREE(P) \
@@ -158,29 +169,15 @@ find_traces (n_traces, traces)
   edge e;
   fibheap_t heap;
 
-  /* We need to know some information for each basic block.  */
-  array_size = GET_ARRAY_SIZE (last_basic_block);
-  start_of_trace = xmalloc (array_size * sizeof (int));
-  end_of_trace = xmalloc (array_size * sizeof (int));
-  bb_heap = xmalloc (array_size * sizeof (fibheap_t));
-  bb_node = xmalloc (array_size * sizeof (fibnode_t));
-  for (i = 0; i < array_size; i++)
-    {
-      start_of_trace[i] = -1;
-      end_of_trace[i] = -1;
-      bb_heap[i] = NULL;
-      bb_node[i] = NULL;
-    }
-
   /* Insert entry points of function into heap.  */
   heap = fibheap_new ();
   max_entry_frequency = 0;
   max_entry_count = 0;
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      int bb_index = e->dest->index;
-      bb_heap[bb_index] = heap;
-      bb_node[bb_index] = fibheap_insert (heap, bb_to_key (e->dest), e->dest);
+      bbd[e->dest->index].heap = heap;
+      bbd[e->dest->index].node = fibheap_insert (heap, bb_to_key (e->dest),
+						    e->dest);
       if (e->dest->frequency > max_entry_frequency)
 	max_entry_frequency = e->dest->frequency;
       if (e->dest->count > max_entry_count)
@@ -205,8 +202,6 @@ find_traces (n_traces, traces)
 			   count_threshold, traces, n_traces, i, &heap);
     }
   fibheap_delete (heap);
-  FREE (bb_node);
-  FREE (bb_heap);
 
   if (rtl_dump_file)
     {
@@ -258,7 +253,7 @@ rotate_loop (back_edge, trace, trace_n)
 	    {
 	      /* The best edge is preferred.  */
 	      if (!RBI (e->dest)->visited
-		  || start_of_trace[e->dest->index] >= 0)
+		  || bbd[e->dest->index].start_of_trace >= 0)
 		{
 		  /* The current edge E is also preferred.  */
 		  int freq = EDGE_FREQUENCY (e);
@@ -274,7 +269,7 @@ rotate_loop (back_edge, trace, trace_n)
 	  else
 	    {
 	      if (!RBI (e->dest)->visited
-		  || start_of_trace[e->dest->index] >= 0)
+		  || bbd[e->dest->index].start_of_trace >= 0)
 		{
 		  /* The current edge E is preferred.  */
 		  is_preferred = true;
@@ -323,7 +318,7 @@ rotate_loop (back_edge, trace, trace_n)
 	    {
 	      basic_block header = prev_bb->succ->dest;
 
-	      /* Duplicate HEADER if it is a small block containing condjump
+	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
 	      if (any_condjump_p (header->end) && copy_bb_p (header, 0))
 		{
@@ -349,11 +344,11 @@ mark_bb_visited (bb, trace)
      int trace;
 {
   RBI (bb)->visited = trace;
-  if (bb_heap[bb->index])
+  if (bbd[bb->index].heap)
     {
-      fibheap_delete_node (bb_heap[bb->index], bb_node[bb->index]);
-      bb_heap[bb->index] = NULL;
-      bb_node[bb->index] = NULL;
+      fibheap_delete_node (bbd[bb->index].heap, bbd[bb->index].node);
+      bbd[bb->index].heap = NULL;
+      bbd[bb->index].node = NULL;
     }
 }
 
@@ -385,12 +380,11 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       basic_block bb;
       struct trace *trace;
       edge best_edge, e;
-      int bb_index;
       fibheapkey_t key;
 
       bb = fibheap_extract_min (*heap);
-      bb_heap[bb->index] = NULL;
-      bb_node[bb->index] = NULL;
+      bbd[bb->index].heap = NULL;
+      bbd[bb->index].node = NULL;
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Getting bb %d\n", bb->index);
@@ -400,8 +394,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	  || ((round < N_ROUNDS - 1) && probably_never_executed_bb_p (bb)))
 	{
 	  int key = bb_to_key (bb);
-	  bb_heap[bb->index] = new_heap;
-	  bb_node[bb->index] = fibheap_insert (new_heap, key, bb);
+	  bbd[bb->index].heap = new_heap;
+	  bbd[bb->index].node = fibheap_insert (new_heap, key, bb);
 
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file,
@@ -471,21 +465,22 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 		continue;
 
 	      key = bb_to_key (e->dest);
-	      bb_index = e->dest->index;
 
-	      if (bb_heap[bb_index])
+	      if (bbd[e->dest->index].heap)
 		{
-		  if (key != bb_node[bb_index]->key)
+		  /* E->DEST is already in some heap.  */
+		  if (key != bbd[e->dest->index].node->key)
 		    {
 		      if (rtl_dump_file)
 			{
 			  fprintf (rtl_dump_file,
 				   "Changing key for bb %d from %ld to %ld.\n",
-				   bb_index, (long) bb_node[bb_index]->key,
+				   e->dest->index,
+				   (long) bbd[e->dest->index].node->key,
 				   key);
 			}
-		      fibheap_replace_key (bb_heap[bb_index],
-					   bb_node[bb_index], key);
+		      fibheap_replace_key (bbd[e->dest->index].heap,
+					   bbd[e->dest->index].node, key);
 		    }
 		}
 	      else
@@ -504,15 +499,16 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 			which_heap = new_heap;
 		    }
 
-		  bb_heap[bb_index] = which_heap;
-		  bb_node[bb_index] = fibheap_insert (which_heap, key, e->dest);
+		  bbd[e->dest->index].heap = which_heap;
+		  bbd[e->dest->index].node = fibheap_insert (which_heap,
+								key, e->dest);
 
 		  if (rtl_dump_file)
 		    {
 		      fprintf (rtl_dump_file,
 			       "  Possible start of %s round: %d (key: %ld)\n",
 			       (which_heap == new_heap) ? "next" : "this",
-			       bb_index, (long) key);
+			       e->dest->index, (long) key);
 		    }
 
 		}
@@ -618,8 +614,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	}
       while (best_edge);
       trace->last = bb;
-      start_of_trace[trace->first->index] = *n_traces - 1;
-      end_of_trace[trace->last->index] = *n_traces - 1;
+      bbd[trace->first->index].start_of_trace = *n_traces - 1;
+      bbd[trace->last->index].end_of_trace = *n_traces - 1;
 
       /* The trace is terminated so we have to recount the keys in heap
 	 (some block can have a lower key because now one of its predecessors
@@ -630,19 +626,20 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	      || RBI (e->dest)->visited)
 	    continue;
 
-	  bb_index = e->dest->index;
-	  if (bb_heap[bb_index])
+	  if (bbd[e->dest->index].heap)
 	    {
 	      key = bb_to_key (e->dest);
-	      if (key != bb_node[bb_index]->key)
+	      if (key != bbd[e->dest->index].node->key)
 		{
 		  if (rtl_dump_file)
 		    {
 		      fprintf (rtl_dump_file,
 			       "Changing key for bb %d from %ld to %ld.\n",
-			       bb_index, (long) bb_node[bb_index]->key, key);
+			       e->dest->index,
+			       (long) bbd[e->dest->index].node->key, key);
 		    }
-		  fibheap_replace_key (bb_heap[bb_index], bb_node[bb_index],
+		  fibheap_replace_key (bbd[e->dest->index].heap,
+				       bbd[e->dest->index].node,
 				       key);
 		}
 	    }
@@ -688,30 +685,20 @@ copy_bb (old_bb, e, bb, trace)
 
       new_size = MAX (last_basic_block, new_bb->index + 1);
       new_size = GET_ARRAY_SIZE (new_size);
-
-      start_of_trace = xrealloc (start_of_trace, new_size * sizeof (int));
-      end_of_trace = xrealloc (end_of_trace, new_size * sizeof (int));
+      bbd = xrealloc (bbd, new_size * sizeof (bbro_basic_block_data));
       for (i = array_size; i < new_size; i++)
 	{
-	  start_of_trace[i] = -1;
-	  end_of_trace[i] = -1;
-	}
-      if (bb_heap)
-	{
-	  bb_heap = xrealloc (bb_heap, new_size * sizeof (fibheap_t));
-	  bb_node = xrealloc (bb_node, new_size * sizeof (fibnode_t));
-	  for (i = array_size; i < new_size; i++)
-	    {
-	      bb_heap[i] = NULL;
-	      bb_node[i] = NULL;
-	    }
+	  bbd[i].start_of_trace = -1;
+	  bbd[i].end_of_trace = -1;
+	  bbd[i].heap = NULL;
+	  bbd[i].node = NULL;
 	}
       array_size = new_size;
 
       if (rtl_dump_file)
 	{
 	  fprintf (rtl_dump_file,
-		   "Growing the dynamic arrays to %d elements.\n",
+		   "Growing the dynamic array to %d elements.\n",
 		   array_size);
 	}
     }
@@ -737,7 +724,7 @@ bb_to_key (bb)
      or whose predecessor edge is EDGE_DFS_BACK.  */
   for (e = bb->pred; e; e = e->pred_next)
     {
-      if ((e->src != ENTRY_BLOCK_PTR && end_of_trace[e->src->index] >= 0)
+      if ((e->src != ENTRY_BLOCK_PTR && bbd[e->src->index].end_of_trace >= 0)
 	  || (e->flags & EDGE_DFS_BACK))
 	{
 	  int edge_freq = EDGE_FREQUENCY (e);
@@ -846,21 +833,21 @@ connect_traces (n_traces, traces)
 	      if (e->src != ENTRY_BLOCK_PTR
 		  && (e->flags & EDGE_CAN_FALLTHRU)
 		  && !(e->flags & EDGE_COMPLEX)
-		  && end_of_trace[si] >= 0
-		  && !connected[end_of_trace[si]]
+		  && bbd[si].end_of_trace >= 0
+		  && !connected[bbd[si].end_of_trace]
 		  && (!best
 		      || e->probability > best->probability
 		      || (e->probability == best->probability
-			  && traces[end_of_trace[si]].length > best_len)))
+			  && traces[bbd[si].end_of_trace].length > best_len)))
 		{
 		  best = e;
-		  best_len = traces[end_of_trace[si]].length;
+		  best_len = traces[bbd[si].end_of_trace].length;
 		}
 	    }
 	  if (best)
 	    {
 	      RBI (best->src)->next = best->dest;
-	      t2 = end_of_trace[best->src->index];
+	      t2 = bbd[best->src->index].end_of_trace;
 	      connected[t2] = true;
 	      if (rtl_dump_file)
 		{
@@ -889,15 +876,15 @@ connect_traces (n_traces, traces)
 	      if (e->dest != EXIT_BLOCK_PTR
 		  && (e->flags & EDGE_CAN_FALLTHRU)
 		  && !(e->flags & EDGE_COMPLEX)
-		  && start_of_trace[di] >= 0
-		  && !connected[start_of_trace[di]]
+		  && bbd[di].start_of_trace >= 0
+		  && !connected[bbd[di].start_of_trace]
 		  && (!best
 		      || e->probability > best->probability
 		      || (e->probability == best->probability
-			  && traces[start_of_trace[di]].length > best_len)))
+			  && traces[bbd[di].start_of_trace].length > best_len)))
 		{
 		  best = e;
-		  best_len = traces[start_of_trace[di]].length;
+		  best_len = traces[bbd[di].start_of_trace].length;
 		}
 	    }
 
@@ -908,7 +895,7 @@ connect_traces (n_traces, traces)
 		  fprintf (rtl_dump_file, "Connection: %d %d\n",
 			   best->src->index, best->dest->index);
 		}
-	      t = start_of_trace[best->dest->index];
+	      t = bbd[best->dest->index].start_of_trace;
 	      RBI (traces[last_trace].last)->next = traces[t].first;
 	      connected[t] = true;
 	      last_trace = t;
@@ -938,20 +925,20 @@ connect_traces (n_traces, traces)
 			if (e2->dest == EXIT_BLOCK_PTR
 			    || ((e2->flags & EDGE_CAN_FALLTHRU)
 				&& !(e2->flags & EDGE_COMPLEX)
-				&& start_of_trace[di] >= 0
-				&& !connected[start_of_trace[di]]
+				&& bbd[di].start_of_trace >= 0
+				&& !connected[bbd[di].start_of_trace]
 				&& (EDGE_FREQUENCY (e2) >= freq_threshold)
 				&& (e2->count >= count_threshold)
 				&& (!best2
 				    || e2->probability > best2->probability
 				    || (e2->probability == best2->probability
-					&& traces[start_of_trace[di]].length
+					&& traces[bbd[di].start_of_trace].length
 					   > best2_len))))
 			  {
 			    best = e;
 			    best2 = e2;
 			    if (e2->dest != EXIT_BLOCK_PTR)
-			      best2_len = traces[start_of_trace[di]].length;
+			      best2_len = traces[bbd[di].start_of_trace].length;
 			    else
 			      best2_len = INT_MAX;
 			    next_bb = e2->dest;
@@ -976,7 +963,7 @@ connect_traces (n_traces, traces)
 		  traces[t].last = new_bb;
 		  if (next_bb != EXIT_BLOCK_PTR)
 		    {
-		      t = start_of_trace[next_bb->index];
+		      t = bbd[next_bb->index].start_of_trace;
 		      RBI (traces[last_trace].last)->next = traces[t].first;
 		      connected[t] = true;
 		      last_trace = t;
@@ -1002,8 +989,6 @@ connect_traces (n_traces, traces)
     }
 
   FREE (connected);
-  FREE (end_of_trace);
-  FREE (start_of_trace);
 }
 
 /* Return true when BB can and should be copied. CODE_MAY_GROW is true
@@ -1048,7 +1033,7 @@ copy_bb_p (bb, code_may_grow)
   return false;
 }
 
-/* Return the maximum length of unconditional jump instruction.  */
+/* Return the length of unconditional jump instruction.  */
 
 static int
 get_uncond_jump_length ()
@@ -1072,6 +1057,7 @@ void
 reorder_basic_blocks ()
 {
   int n_traces;
+  int i;
   struct trace *traces;
 
   if (n_basic_blocks <= 1)
@@ -1084,13 +1070,29 @@ reorder_basic_blocks ()
 
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
-  uncond_jump_length = get_uncond_jump_length ();
+
+  /* We are estimating the lenght of uncond jump insn only once since the code
+     for getting the insn lenght always returns the minimal length now.  */
+  if (uncond_jump_length == 0) 
+    uncond_jump_length = get_uncond_jump_length ();
+
+  /* We need to know some information for each basic block.  */
+  array_size = GET_ARRAY_SIZE (last_basic_block);
+  bbd = xmalloc (array_size * sizeof (bbro_basic_block_data));
+  for (i = 0; i < array_size; i++)
+    {
+      bbd[i].start_of_trace = -1;
+      bbd[i].end_of_trace = -1;
+      bbd[i].heap = NULL;
+      bbd[i].node = NULL;
+    }
 
   traces = xmalloc (n_basic_blocks * sizeof (struct trace));
   n_traces = 0;
   find_traces (&n_traces, traces);
   connect_traces (n_traces, traces);
   FREE (traces);
+  FREE (bbd);
 
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
