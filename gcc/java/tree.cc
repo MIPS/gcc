@@ -330,24 +330,45 @@ tree_generator::visit_assert (model_assert *element,
 			      const ref_expression &second)
 {
   if (! global->get_compiler ()->target_assert ())
-    return;
+    {
+      current = build_empty_stmt ();
+      return;
+    }
 
   // Add assertion-related members.
   ref_field disabled = method->get_declaring_class ()->add_assert_members ();
   gcc_builtins->lay_out_class (disabled->get_declaring_class ());
-  tree disabled_tree = gcc_builtins->map_field (disabled.get ());
+  tree disabled_tree = gcc_builtins->map_field_ref (class_wrapper,
+						    NULL_TREE,
+						    disabled.get ());
 
   first->visit (this);
   tree first_tree = current;
-  second->visit (this);
-  tree second_tree = current;
+
+  tree args = NULL_TREE;
+  model_type *arg_type = NULL;
+  if (second)
+    {
+      arg_type = second->type ();
+      second->visit (this);
+      args = build_tree_list (NULL_TREE, current);
+    }
+
+  model_class *errclass = global->get_compiler ()->java_lang_AssertionError ();
+  gcc_builtins->lay_out_class (errclass);
+
+  model_method *init = find_method ("<init>", errclass, arg_type,
+				    primitive_void_type, element);
+  tree init_tree = gcc_builtins->map_method (init);
+
+  tree new_tree = gcc_builtins->map_new (class_wrapper, errclass,
+					 init_tree, args);
 
   // Generate:
   //   if (! $assertionsDisabled && ! FIRST) throw new AssertionError (SECOND)
   tree throw_node = build3 (CALL_EXPR, void_type_node,
 			    builtin_Jv_Throw,
-			    // fixme new ...
-			    tree_cons (NULL_TREE, second_tree, NULL_TREE),
+			    build_tree_list (NULL_TREE, new_tree),
 			    NULL_TREE);
   current = build3 (COND_EXPR, void_type_node,
 		    build2 (TRUTH_ANDIF_EXPR,

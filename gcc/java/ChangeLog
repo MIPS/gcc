@@ -1,5 +1,11 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_assert): Yield empty statement if assertions not
+	desired.  Create new AssertionError.  Correctly handle case where
+	no second argument exists.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* builtins.cc (map_utf8const): Call pushdecl.
 
 2005-03-26  Tom Tromey  <tromey@redhat.com>
