@@ -1,3 +1,10 @@
+2005-02-26  Dale Johanensen  <dalej@apple.com>
+
+	Radar 3988125
+	PR 19360 (from mainline)
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Clear SSA_NAME_VALUE
+	at the end of the main DOM loop rather than just before DOM exits.
+
 2005-02-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4023104
