@@ -1,5 +1,11 @@
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
 
+        PR 14055
+	* arith.c (gfc_convert_integer,gfc_convert_real):  Removed leading '+'
+        before conversion by gmp library call.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
 	PR 12921
 	* trans-io.c (gfc_trans_open): Change RECL= to a value parameter.
 
