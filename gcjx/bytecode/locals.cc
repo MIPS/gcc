@@ -62,12 +62,13 @@ locals::request (model_variable_decl *decl)
 
   if (decl)
     {
-      debug_info &info = vars[decl];
+      debug_info info;
       info.variable = decl;
       info.start = gen->get_current ();
       info.end = NULL;
       info.scope = scope.back ();
       info.index = n;
+      vars[decl] = info;
     }
   return n;
 }
@@ -112,6 +113,10 @@ locals::remove (int n)
 void
 locals::remove (const model_stmt *stmt)
 {
+  assert (stmt != NULL);
+  assert (stmt == scope.back ());
+  scope.pop_back ();
+
   std::list<model_variable_decl *> dels;
   for (std::map<model_variable_decl *, debug_info>::iterator i
 	 = vars.begin ();

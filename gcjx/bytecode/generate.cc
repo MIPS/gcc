@@ -1279,8 +1279,6 @@ bytecode_generator::visit_variable_stmt (model_variable_stmt *stmt,
 {
   note_line (stmt);
 
-  // when debugging, set up new relocs for the debug info.
-
   for (std::list<ref_variable_decl>::const_iterator i = decls.begin ();
        i != decls.end ();
        ++i)

@@ -1,3 +1,10 @@
+2005-02-04  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/locals.cc (request): Minor rearrangement.
+	(remove): Pop 'scope'.
+	* bytecode/generate.cc (visit_variable_stmt): Removed old
+	comment.
+
 2005-01-30  Tom Tromey  <tromey@redhat.com>
 
 	* aot/mangle.cc (mangler): Special case array types.
