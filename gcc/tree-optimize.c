@@ -283,6 +283,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_del_pta);
+  NEXT_PASS (pass_profile);
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
   NEXT_PASS (DUP_PASS (pass_dominator));

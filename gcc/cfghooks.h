@@ -63,6 +63,13 @@ struct cfg_hooks
   /* Merge blocks A and B.  */
   void (*merge_blocks) (basic_block a, basic_block b);
 
+  /* Predict edge E using PREDICTOR to given PROBABILITY.  */
+  void (*predict_edge) (edge e, enum br_predictor predictor, int probability);
+
+  /* Return true if the one of outgoing edges is already predicted by
+     PREDICTOR.  */
+  bool (*predicted_by_p) (basic_block bb, enum br_predictor predictor);
+
   /* Higher level functions representable by primitive operations above if
      we didn't have some oddities in RTL and Tree representations.  */
   basic_block (*split_edge) (edge);
@@ -89,6 +96,8 @@ extern edge make_forwarder_block (basic_block, bool (*)(edge),
 				  void (*) (basic_block));
 extern void tidy_fallthru_edge (edge);
 extern void tidy_fallthru_edges (void);
+extern void predict_edge (edge e, enum br_predictor predictor, int probability);
+extern bool predicted_by_p (basic_block bb, enum br_predictor predictor);
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;

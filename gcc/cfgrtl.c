@@ -2661,6 +2661,8 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_move_block_after,
   rtl_can_merge_blocks,  /* can_merge_blocks_p */
   rtl_merge_blocks,
+  rtl_predict_edge,
+  rtl_predicted_by_p,
   rtl_split_edge,
   rtl_make_forwarder_block,
   rtl_tidy_fallthru_edge
@@ -2682,6 +2684,8 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   rtl_move_block_after,
   cfg_layout_can_merge_blocks_p,
   cfg_layout_merge_blocks,
+  rtl_predict_edge,
+  rtl_predicted_by_p,
   cfg_layout_split_edge,
   rtl_make_forwarder_block,
   NULL

@@ -283,6 +283,16 @@ static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
 static inline bool may_be_aliased (tree);
 
+/*---------------------------------------------------------------------------
+                  Structure representing predictions in tree level.
+---------------------------------------------------------------------------*/
+struct edge_prediction GTY((chain_next ("%h.next")))
+{
+  struct edge_prediction *next;
+  edge edge;
+  enum br_predictor predictor;
+  int probability;
+};
 
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.tree_annotations
@@ -302,6 +312,8 @@ struct bb_ann_d GTY(())
   /* Nonzero if this block is forwardable during cfg cleanups.  This is also
      used to detect loops during cfg cleanups.  */
   unsigned forwardable: 1;
+
+  struct edge_prediction *predictions;
 };
 
 typedef struct bb_ann_d *bb_ann_t;

@@ -3900,6 +3900,8 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_move_block_after,	/* move_block_after  */
   tree_can_merge_blocks_p,	/* can_merge_blocks_p  */
   tree_merge_blocks,		/* merge_blocks  */
+  tree_predict_edge,		/* predict_edge  */
+  tree_predicted_by_p,		/* predicted_by_p  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
   NULL				/* tidy_fallthru_edge  */

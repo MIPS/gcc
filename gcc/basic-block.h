@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "partition.h"
 #include "hard-reg-set.h"
+#include "predict.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -554,6 +555,11 @@ extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
 extern bool probably_never_executed_bb_p (basic_block);
+extern bool tree_predicted_by_p (basic_block, enum br_predictor);
+extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
+extern void tree_predict_edge (edge, enum br_predictor, int);
+extern void rtl_predict_edge (edge, enum br_predictor, int);
+extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 
 /* In flow.c */
 extern void init_flow (void);

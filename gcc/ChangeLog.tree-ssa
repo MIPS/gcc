@@ -1,3 +1,43 @@
+2004-01-14  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h: Include predict.h
+	(tree_predicted_by_p, rtl_predicted_by_p,  rtl_predict_edge,
+	predict_edge_def): Declare.
+	* cfghooks.h (cfg_hooks): add predict_edge and predicted_by_p
+	(predict_edge, predicted_by_p): Declare.
+	* cfghooks.c (predict_edge, predicted_by_p): Declare.
+	* cfgrtl (rtl_cfg_hooks, cfg_layout_rtl_cfg_hook): Add new hooks.
+	* cse.c (struct cse_basic_block_data): Rename enum values to not
+	conflict with profile.h; update all uses.
+	* predict.c:  Include tree-flow.h, ggc.h, tree-dump.h
+	(predicted_by_p): Rename to ...
+	(rtl_predicted_by_p): .. this one; make global
+	(tree_predicted_by_p): New.
+	(dump_prediction): Add FILE argument.
+	(predict_edge): Rename to ...
+	(rtl_predict_edge): .. this one.
+	(tree_predict_edge): New.
+	(combine_predictions_for_insn): Update calls of predict_edge.
+	(predict_loops): Break out from ...
+	(estimate_probability): ... here; update comments; move updating
+	of unknown probabilities from ...
+	(estimate_bb_frequencies): ... here.
+	(combine_predictions_for_bb): New.
+	(tree_predict_by_opcode): New.
+	(tree_estimate_probability): New.
+	* predict.def (PRED_TREE_POINTER, PRED_TREE_OPCODE_POSITIVE,
+	PRED_TREE_OPCODE_NONEQUAL, PRED_TREE_FPOPCODE): New predictors.
+	* predict.h: Add include guard.
+	(predict_edge, predict_edge_def): Move prototypes to basic_block.h
+	* tree-cfg.c (tree_cfg_hooks): Add prediction hooks.
+	* tree-dump.c (dump_files): Add profile.
+	* tree-flow.h (struct edge_prediction): New structure.
+	(struct bb_ann_d): Add field predictions.
+	(tree_estimate_probability): Declare.
+	* tree-optimize.c (optimize_function_tree): Call tree_estimate_probability.
+	* tree.h (tree_dump_index): Add TDI_profile.
+	* tree-pass.h (pass_profile): Declare.
+
 2004-01-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (find_basic_blocks, cleanup_cfg,
