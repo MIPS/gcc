@@ -2546,6 +2546,10 @@ optimize_inline_calls (tree fn)
 	gcc_assert (e->inline_failed);
     }
 #endif
+  /* We need to rescale frequencies again to peak at REG_BR_PROB_BASE as inlining
+     loops might increase the maximum.  */
+  if (ENTRY_BLOCK_PTR->count)
+    counts_to_freqs ();
   /* Inlining a function body that contains a call to abort() can
      render some caller code "unreachable", as the CFG-builder knows
      that abort() never returns.  Such unreachable code will cause
