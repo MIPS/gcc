@@ -67,6 +67,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define MULTILIB_DEFAULTS { "m64" }
 
+/* We arrange for the whole %fs segment to map the tls area.  */
+#undef TARGET_TLS_DIRECT_SEG_REFS_DEFAULT
+#define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT MASK_TLS_DIRECT_SEG_REFS
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  
    Don't use this at all if inhibit_libc is used.  */

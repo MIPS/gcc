@@ -3034,10 +3034,9 @@ find_best_addr (insn, loc, mode)
   if (flag_expensive_optimizations
       && (GET_RTX_CLASS (GET_CODE (*loc)) == '2'
 	  || GET_RTX_CLASS (GET_CODE (*loc)) == 'c')
-      && GET_CODE (XEXP (*loc, 0)) == REG
-      && GET_CODE (XEXP (*loc, 1)) == CONST_INT)
+      && GET_CODE (XEXP (*loc, 0)) == REG)
     {
-      rtx c = XEXP (*loc, 1);
+      rtx op1 = XEXP (*loc, 1);
 
       do_not_record = 0;
       hash = HASH (XEXP (*loc, 0), Pmode);
@@ -3079,7 +3078,7 @@ find_best_addr (insn, loc, mode)
 		    || exp_equiv_p (p->exp, p->exp, 1, 0)))
 	      {
 		rtx new = simplify_gen_binary (GET_CODE (*loc), Pmode,
-					       p->exp, c);
+					       p->exp, op1);
 		int new_cost;
 		new_cost = address_cost (new, mode);
 

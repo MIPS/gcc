@@ -1,3 +1,32 @@
+2003-02-24  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (struct ix86_address): Add seg.
+	(no_seg_address_operand): New function.
+	(ix86_decompose_address): Support segment overrides.
+	(ix86_address_cost): Take segment overrides into account.
+	(legitimate_address_p): Remove UNSPEC_TP special casing.
+	(get_thread_pointer): Add to_reg argument.
+	(legitimize_address): Move TLS emit code...
+	(legitimize_tls_address): ...here.  New function.
+	(print_operand_address): Handle segment overrides.
+	(ix86_expand_move): Use legitimize_tls_address.
+	* config/i386/i386.h (MASK_SVR3_SHLIB, TARGET_SVR3_SHLIB): Remove.
+	(MASK_TLS_DIRECT_SEG_REFS, TARGET_TLS_DIRECT_SEG_REFS): Define.
+	(TARGET_SWITCHES): Remove -msvr3-shlib, add
+	TARGET_TLS_DIRECT_SEG_REFS_DEFAULT to default.
+	(TARGET_TLS_DIRECT_SEG_REFS_DEFAULT): Define to 0 if not defined.
+	(RTX_COSTS): Handle segment overrides.
+	(PREDICATE_CODES): Add no_seg_address_operand.
+	* config/i386/i386.md (UNSPEC_TP_MEM): Define.
+	(lea_1, lea_1_rex64, lea_1_zext, lea_2_rex64): Use
+	no_seg_address_operand.
+	(load_tp_si, load_tp_di, add_tp_si, add_tp_di): New insns.
+	* config/i386/linux.h (TARGET_TLS_DIRECT_SEG_REFS_DEFAULT): Define.
+	* config/i386/linux64.h (TARGET_TLS_DIRECT_SEG_REFS_DEFAULT): Define.
+
+	* cse.c (find_best_addr): Consider binary operators even if second
+	argument is not CONST_INT.
+
 2003-02-24  Vladimir Makarov  <vmakarov@redhat.com>
 	    Richard Henderson  <rth@redhat.com>
 

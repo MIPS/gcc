@@ -109,7 +109,7 @@ extern int target_flags;
 #define MASK_80387		0x00000001	/* Hardware floating point */
 #define MASK_RTD		0x00000002	/* Use ret that pops args */
 #define MASK_ALIGN_DOUBLE	0x00000004	/* align doubles to 2 word boundary */
-#define MASK_SVR3_SHLIB		0x00000008	/* Uninit locals into bss */
+#define MASK_TLS_DIRECT_SEG_REFS	0x00000008	/* Avoid adding %gs:0 */
 #define MASK_IEEE_FP		0x00000010	/* IEEE fp comparisons */
 #define MASK_FLOAT_RETURNS	0x00000020	/* Return float in st(0) */
 #define MASK_NO_FANCY_MATH_387	0x00000040	/* Disable sin, cos, sqrt */
@@ -154,10 +154,6 @@ extern int target_flags;
 /* Accumulate stack adjustments to prologue/epilogue.  */
 #define TARGET_ACCUMULATE_OUTGOING_ARGS \
  (target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
-
-/* Put uninitialized locals into bss, not data.
-   Meaningful only on svr3.  */
-#define TARGET_SVR3_SHLIB (target_flags & MASK_SVR3_SHLIB)
 
 /* Use IEEE floating point comparisons.  These handle correctly the cases
    where the result of a comparison is unordered.  Normally SIGFPE is
@@ -207,6 +203,9 @@ extern int target_flags;
 #endif
 #endif
 #endif
+
+/* Avoid adding %gs:0 in TLS references; use %gs:address directly.  */
+#define TARGET_TLS_DIRECT_SEG_REFS (target_flags & MASK_TLS_DIRECT_SEG_REFS)
 
 #define TARGET_386 (ix86_cpu == PROCESSOR_I386)
 #define TARGET_486 (ix86_cpu == PROCESSOR_I486)
@@ -319,10 +318,6 @@ extern int x86_prefetch_sse;
     N_("Align some doubles on dword boundary") },			      \
   { "no-align-double",		-MASK_ALIGN_DOUBLE,			      \
     N_("Align doubles on word boundary") },				      \
-  { "svr3-shlib",		 MASK_SVR3_SHLIB,			      \
-    N_("Uninitialized locals in .bss")  },				      \
-  { "no-svr3-shlib",		-MASK_SVR3_SHLIB,			      \
-    N_("Uninitialized locals in .data") },				      \
   { "ieee-fp",			 MASK_IEEE_FP,				      \
     N_("Use IEEE math for fp comparisons") },				      \
   { "no-ieee-fp",		-MASK_IEEE_FP,				      \
@@ -393,10 +388,15 @@ extern int x86_prefetch_sse;
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \
     N_("Do not use red-zone in the x86-64 code") },			      \
   SUBTARGET_SWITCHES							      \
-  { "", TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT, 0 }}
+  { "",									      \
+    TARGET_DEFAULT | TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_DEFAULT	      \
+    | TARGET_TLS_DIRECT_SEG_REFS_DEFAULT, 0 }}
 
 #ifndef TARGET_64BIT_DEFAULT
 #define TARGET_64BIT_DEFAULT 0
+#endif
+#ifndef TARGET_TLS_DIRECT_SEG_REFS_DEFAULT
+#define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT 0
 #endif
 
 #define TARGET_DEFAULT 0
@@ -2601,6 +2601,10 @@ do {							\
       TOPLEVEL_COSTS_N_INSNS (ix86_cost->add * 2);			\
     TOPLEVEL_COSTS_N_INSNS (ix86_cost->add);				\
 									\
+  case UNSPEC:								\
+    if (XINT ((X), 1) == UNSPEC_TP)					\
+      return 0;								\
+									\
   egress_rtx_costs:							\
     break;
 
@@ -3126,7 +3130,9 @@ do {						\
   {"global_dynamic_symbolic_operand", {SYMBOL_REF}},			\
   {"local_dynamic_symbolic_operand", {SYMBOL_REF}},			\
   {"initial_exec_symbolic_operand", {SYMBOL_REF}},			\
-  {"local_exec_symbolic_operand", {SYMBOL_REF}},
+  {"local_exec_symbolic_operand", {SYMBOL_REF}},			\
+  {"no_seg_address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF, \
+			      LABEL_REF, SUBREG, REG, MEM, PLUS, MULT}},
 
 /* A list of predicates that do special things with modes, and so
    should not elicit warnings for VOIDmode match_operand.  */
