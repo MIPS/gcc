@@ -4293,15 +4293,19 @@ static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_last (bb);
-  tree t = tsi_stmt (bsi.tsi);
+  if (!bsi_end_p (bsi))
+    {
+      tree t = tsi_stmt (bsi.tsi);
 
-  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
-    t = TREE_OPERAND (t, 0);
+      if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
+	t = TREE_OPERAND (t, 0);
 
-  if (TREE_CODE (t) == MODIFY_EXPR)
-    t = TREE_OPERAND (t, 1);
+      if (TREE_CODE (t) == MODIFY_EXPR)
+	t = TREE_OPERAND (t, 1);
 
-  return TREE_CODE (t) == CALL_EXPR;
+      return TREE_CODE (t) == CALL_EXPR;
+    }
+  return false;
 }
 
 
@@ -4311,8 +4315,13 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
-  tree stmt = tsi_stmt (bsi_last (bb).tsi);
-  return (TREE_CODE (stmt) == COND_EXPR);
+  block_stmt_iterator bsi = bsi_last (bb);
+  if (!bsi_end_p (bsi))
+    {
+      tree stmt = bsi_stmt (bsi);
+      return (TREE_CODE (stmt) == COND_EXPR);
+    }
+  else return false;
 }
 
 
