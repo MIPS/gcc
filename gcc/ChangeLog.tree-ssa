@@ -1,5 +1,10 @@
 2002-10-14  Diego Novillo  <dnovillo@redhat.com>
 
+	* toplev.c (parse_options_and_default_flags): Undo local
+	hack that slipped in the previous commit.
+
+2002-10-14  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (c-decl.o): Add dependency on diagnostic.h.
 	* c-decl.c: Include diagnostic.h
 	(c_expand_body): Call get_name.
