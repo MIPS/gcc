@@ -496,25 +496,37 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	  depends, I guess, but it does make generation of the switch in
 	  lower_try_finally_switch easier.  */
 
-      if (TREE_CODE (ret_expr) == MODIFY_EXPR)
+      if (TREE_CODE (ret_expr) == RESULT_DECL)
 	{
-	  tsi_link_after (&i, ret_expr, TSI_NEW_STMT);
-	  ret_expr = TREE_OPERAND (ret_expr, 0);
-	}
-      if (!*return_value_p)
-	{
-	  if (TREE_CODE (ret_expr) == RESULT_DECL)
+	  if (!*return_value_p)
 	    *return_value_p = ret_expr;
-	  else
-	    *return_value_p = create_tmp_var (TREE_TYPE (ret_expr), "rettmp");
+	  else if (*return_value_p != ret_expr)
+	    abort ();
+          q->cont_stmt = q->stmt;
 	}
-      else if (ret_expr != *return_value_p)
+      else if (TREE_CODE (ret_expr) == MODIFY_EXPR)
 	{
-	  x = build (MODIFY_EXPR, void_type_node, *return_value_p, ret_expr);
-	  tsi_link_after (&i, x, TSI_NEW_STMT);
-	}
+	  tree new, old = TREE_OPERAND (ret_expr, 1);
 
-      q->cont_stmt = build1 (RETURN_EXPR, void_type_node, *return_value_p);
+	  if (!*return_value_p)
+	    {
+	      new = create_tmp_var (TREE_TYPE (old), "rettmp");
+	      *return_value_p = new;
+	    }
+	  else if (TREE_CODE (*return_value_p) == RESULT_DECL)
+	    abort ();
+	  else
+	    new = *return_value_p;
+
+	  x = build (MODIFY_EXPR, TREE_TYPE (new), new, old);
+	  tsi_link_after (&i, x, TSI_NEW_STMT);
+
+	  x = build (MODIFY_EXPR, TREE_TYPE (new),
+		     TREE_OPERAND (ret_expr, 0), new);
+	  q->cont_stmt = build1 (RETURN_EXPR, void_type_node, x);
+	}
+      else
+	abort ();
     }
   else
     {
