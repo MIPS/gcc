@@ -1,0 +1,20 @@
+2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* Make-lang.in (CXX_C_OBJS): Add tree-alias-ecr.c,
+	tree-alias-type.o, tree-alias-steen.o, disjoint-set.o. 
+
+2002-06-21  Andreas Jaeger  <aj@suse.de>
+
+	* Make-lang.in (cp/cp-simplify.o): New.
+
+2002-06-18  Jason Merrill  <jason@redhat.com>
+
+	* cp-simplify.c: New file.
+	* Make-lang.in: Add it.
+	* cp-tree.h: Declare cp_simplify_function_tree.
+	* cp-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define.
+	* optimize.c (optimize_function): Call tree optimizers (but not yet).
+
+	* semantics.c (begin_for_stmt): Push the 'for' scope before
+	adding the FOR_STMT.
+	

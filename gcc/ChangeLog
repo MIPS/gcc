@@ -1,68 +1,3 @@
-2002-07-24  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-alias-ecr.c (ECR_new_with_type): Use correct number in mapping.
-
-2002-07-23  Daniel Berlin  <dberlin@dberlin.org>
-
-	* c-simplify.c (simplify_for_stmt): Deep copy the result of the
-	tail_expression, so it's unshared. 
-
-2002-07-23  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-flow.h: Add prototype for create_alias_vars.
-
-	* tree-alias-steen.c (display_points_to_set): New function.
-	(init_alias_vars): Display points to sets when we are done.
-
-	* disjoint-set.h (disjoint_set_def): ptr_alias to ECR_def so that
-	we mark parent properly.
-	
-
-2002-07-24  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (GTFILES): Move tree-alias-type.[ch],
-	tree-alias-ecr.[ch], tree-alias-steen.[ch] from ...
-	* c-config-lang.in (gtfiles): ... here.
-
-	* tree-simple.c (is_simplifiable_builtin): Replace
-	BUILT_IN_VARARGS_START with BUILT_IN_VA_START.
-
-2002-07-23  Andreas Jaeger  <aj@suse.de>
-
-	* tree-ssa-pre.c (hash_expr_tree): Remove.
-
-	* c-call-graph.c (write_dtd): Remove.
-
-	* tree-ssa.c (delete_refs): Remove.
-
-2002-07-23  Andreas Jaeger  <aj@suse.de>
-
-	* gengtype.c (open_base_files): Add tree.h.
-
-	* tree-alias-type.h: Remove inclusion of tree.h.
-
-	* tree-alias-steen.c: Include tree.h.
-	Add prototype for create_fun_alias_var_ptf.
-
-	* tree-alias-ecr.c: Add prototype for ECR_add_pending.
-
-	* tree-ssa-pre.c (calculate_preorder): Remove unused variables.
-
-	* tree-simple.c: Include expr.h and rtl.h for prototypes.
-
-	* tree-optimize.c: Include tree-alias-steen.h for prototypes.
-
-	* Makefile.in (tree-optimize.o): Add tree-alias-steen.h.
-	(tree-simple.o): Add expr.h and rtl.h.
-	(tree-alias-steen.o): Add tree.h.
-	
-	* diagnostic.h: Add declaration of debug_output_buffer.
-
-	* c-call-graph.c (construct_call_graph): Make static to follow
-	declaration.
-	(construct_call_graph): Use #if 0 instead of C++ comments to
-	disable code.
-
 Sun Jul 21 00:54:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* gcse.c: Include cselib.h
@@ -89,10 +24,6 @@ Sun Jul 21 00:54:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(reduce): Warn about change of sign owing to promotion.
 	* cppinit.c (cpp_handle_option): New warning if -Wall.
 	* cpplib.h (struct cpp_options): New member.
-
-2002-07-20  Andreas Jaeger  <aj@suse.de>
-
-	* doc/invoke.texi (Option Summary): Fix syntax.
 
 2002-07-19  David Edelsohn  <edelsohn@gnu.org>
 
@@ -179,37 +110,6 @@ Sun Jul 21 00:54:54 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* prefix.c (update_path): Don't zap single `.' path components
 	unless followed by another `.' and fix typo last patch.
 
-2002-07-19  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (simplify_return_stmt): Do simplify a returned
-	expression in a void function.
-
-	* c-simplify.c (simplify_stmt_expr): Handle C++ return semantics.
-
-2002-07-19  Jason Merrill  <jason@redhat.com>
-
-	* c-pretty-print.c (dump_c_node) [TARGET_EXPR]: Handle.
-	[COND_EXPR]: Print a returned expression in a void function.
-
-2002-07-19  Ben Elliston  <bje@redhat.com>
- 
- 	* tree-ssa-pre.c (tree_perform_ssapre): Don't dump the original
- 	tree before applying this optimisation.
- 
- 	* flags.h (flag_dump_tree_all_ssa): New flag.
- 	* toplev.c (flag_dump_tree_all_ssa): New flag.
- 	(f_options): Add "dump-tree-all-ssa" option.
- 	(process_options): Process flag_dump_tree_all_ssa.
- 	* tree.h (dump_enable_all_ssa): Declare.
- 	* tree-dump.c (dump_enable_all_ssa): New function.
- 	* doc/invoke.texi (Option Summary): Add -fdump-tree-all-ssa and
- 	-fdump-tree-ssapre options.
- 	(Debugging Options): Describe in more detail.
- 	* c-simplify.c (c_simplify_function_tree): Dump the original tree
- 	only if a TDI_original dump is requested, rather than TDI_simple.
- 
- 	* tree-dump.c (dump_begin): Include phase number in dump filename.
- 
 2002-07-18  Neil Booth  <neil@daikokuya.co.uk>
 
 	* cppexp.c (cpp_num_mul): Remove unused parameter.
@@ -303,47 +203,6 @@ Thu Jul 18 09:38:59 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(ASM_OUTPUT_REG_POP): Define.
 	* config/rs6000/linux64.h (ASM_OUTPUT_REG_PUSH): Undef.
 	(ASM_OUTPUT_REG_POP): Undef.
-
-2002-07-18  Ben Elliston  <bje@redhat.com>
- 
- 	* tree-dump.c (dump_files): Rename "unparse" to "raw".
- 	* tree.h (TDF_UNPARSE): Rename from this ..
- 	(TDF_RAW): .. to this.
- 	* tree-ssa-pre.c (tree_perform_ssapre): Use TDF_RAW and invert the
- 	logical sense of this flag.
- 	* tree-ssa-ccp.c (tree_ssa_ccp): Likewise.
- 	* c-simplify.c (c_simplify_function_tree): Likewise.
- 
-2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-ssa-pre.c (calculate_preorder): New function.
-	(tree_perform_ssapre): Use it, rather than
-	flow_compute_preorder_tranversal, which seems to not do 
-	what we want.
-
-2002-07-18  Daniel Berlin <dberlin@dberlin.org>
-	
-	* tree-alias-type.c: Move gt-tree-alias-type include to end of file.
-
-	* tree-alias-steen.c: Move gt-tree-alias-steen include to end of file.
-
-2002-07-18  Daniel Berlin  <dberlin@dberlin.org>
-
-	* gengtype.c (get_base_file_bitmap): Mark tree-alias-* and
-	disjoint-set* as c/c++/objc files only.
-
-	* Makefile.in (gt-tree-alias-type.h): Add.
-	(tree-alias-type.o): Add dependency on gt-tree-alias-type.h.
-
-	* tree-alias-type.c: Include gt-tree-alias-type.h.
-	(alias_bottom): Add a GTY marked version of alias_bottom here.
-
-	* tree-alias-type.h: Remove the GTY marker from alias_bottom.
-
-2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-alias-ecr.c (ECR_union_pending_sets): Only clear bitmap if
-	it's not NULL.  
 
 2002-07-17  Neil Booth  <neil@daikokuya.co.uk>
 
@@ -498,45 +357,6 @@ Wed Jul 17 17:08:06 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	(movqi_internal1): Rename to movqi_internal and remove
 	TARGET_DEBUG_H_MODE dependency.
 	(movsi_internal1, movhi_internal2, movqi_internal2): Remove.
-
-2002-07-16  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (add_tree): Build an EXPR_STMT immediately.
-	(convert_to_stmt_chain): Remove.
-	(simplify_stmt, simplify_for_stmt, simplify_while_stmt, 
-	simplify_do_stmt, simplify_expr_wfl, tail_expression): Adjust.
-
-2002-07-17  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-alias-ecr.c: New file. Equivalence Class Representation.
-
-	* tree-alias-steen.c: New file. Steengaard Alias Analysis.
-
-	* disjoint-set.c: New file. Disjoint set data structure.
-
-	* tree-alias-type.c: New file. Alias types.
-
-	* c-simplify.c (create_tmp_alias_var): New function, like
-	create_tmp_var, but doesn't add it to the current binding.
-
-	* tree-simple.h: Prototype for create_tmp_alias_var.
-
-	* tree-optimize.c (build_tree_ssa): Create alias variables, if
-	requested.
-
-	* flags.h: Add flag_tree_points_to.
-
-	* toplev.c: Ditto.
-	
-	* gengtype.c (open_base_files): Add disjoint-set.h,
-	tree-alias-ecr.h, tree-alias-type.h, tree-flow.h.
-
-	* Makefile.in (C_AND_OBJC_OBJS): Add disjoint-set.o,
-	tree-alias-ecr.o, tree-alias-type.o, tree-alias-steen.o.
-	(tree-alias-steen.o): Add dependencies.
-	(tree-alias-ecr.o): Ditto.
-	(tree-alias-type.o): Ditto.
-	(disjoint-set.o): Ditto.
 
 2002-07-16  Jim Wilson  <wilson@redhat.com>
 
@@ -1135,43 +955,6 @@ Wed Jul 10 16:06:00 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	Get mode from dest.
 	If simplify_gen_subreg fails, try next equivalent.
 
-2002-07-10  Daniel Berlin  <dberlin@dberlin.org>
-	    Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (C_AND_OBJC_OBJS): Add tree-ssa-ccp.o
-	* flags.h (flag_tree_ssa_ccp): Declare.
-	* fold-const.c (eval_subst): Make extern.
-	* toplev.c (flag_tree_ssa_ccp): Define.
-	(f_options): Document -ftree-ssa-ccp.
-	* tree-dump.c (dump_files): Add -fdump-tree-ccp.
-	* tree-flow.h (tree_perform_ssapre): Move declaration ...
-	* tree-optimize.h: ... here.
-	(tree_ssa_ccp): Declare.
-	* tree-optimize.c (optimize_function_tree): Call tree_ssa_ccp.
-	* tree-ssa-ccp.c: New file.
-	* tree.c (next_decl_uid): Remove static declaration.
-	* tree.h (next_decl_uid): Declare.
-	(tree_dump_index): Add TDI_ccp.
-	* cp/Make-lang.in (CXX_C_OBJS): Add tree-ssa-ccp.o.
-	* doc/invoke.texi: Document -ftree-ssa-pre and -ftree-ssa-ccp.
-
-2002-07-09  Daniel Berlin  <dberlin@dberlin.org>
-
-	s/varrays of refs/ref_list of refs/g
-
-	* tree-flow.h: Add ref_list structure.  
-	Add prototypes for ref_list functions.
- 	(FOR_EACH_REF, FOR_EACH_REF_REV): New macros to iterate through 
-	ref lists.
-	* tree-cfg.c, tree-ssa.c, tree-ssa-pre.c: Update all uses.
-
-	* tree-dfa.c (create_ref_list): New function.
-	(delete_ref_list): Ditto.
-	(empty_ref_list): Ditto.
-	(add_ref_to_list_end): Ditto.
-	(add_ref_to_list_begin): Ditto.
-	(remove_ref_from_list): Ditto.
-
 2002-07-09  Gabriel Dos Reis  <gdr@codesourcery.com>
 
 	* diagnostic.h: #include location.h
@@ -1510,16 +1293,6 @@ Thu Jul  4 07:36:29 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* convert.c (convert_to_integer): Don't strip a NOP_EXPR
 	From a vector mode expression of different size than the
 	target mode.
-
-2002-07-04  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-simple.c (is_simplifiable_builtin): Don't simplify target
-	builtins.
-
-2002-07-03  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (simplify_decl_stmt): Unshare the
-	initializer nodes before simplification.
 
 2002-07-03  Eric Christopher  <echristo@redhat.com>
 
@@ -1869,19 +1642,6 @@ Fri Jun 28 17:22:37 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* unroll.c (loop_iterations): Handle EQ loops.
 
-2002-06-29  Aldy Hernandez  <aldyh@quesejoda.com>
-            Diego Novillo  <dnovillo@redhat.com>
-
-        * c-simplify.c (simplify_call_expr): Do not bail on all builtins.
-        (is_simple_call_expr): Same.
-	(simplify_addr_expr): New function.
-	(simplify_expr): Call it.
-
-        * tree-simple.c (is_simplifiable_builtin): New.
-        (is_simple_compound_lval): Do not bail on INDIRECT_REF.
-
-        * tree-simple.h: New prototype for is_simplifiable_builtin.
-
 2002-06-29  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/rs6000.md (ctrdi): Allocate pseudo for FPR
@@ -2110,17 +1870,6 @@ Wed Jun 26 16:32:57 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config.gcc (vax-*-vms*): Make obselete.
 
-2002-06-26  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-ssa.c (tree_build_ssa): Call free_dominance_info, not
-	free, on idom.
-
-	* tree-ssa-pre.c (compute_domchildren): Update to use new
-	dominance_info structure, rather than idom array.
-	(tree_perform_ssapre): Don't forget to free the dominance info.
-
-	s/VARRAY_FREE/VARRAY_CLEAR/g now that VARRAY's are ggc allocated.
-
 2002-06-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.c (warn_std): Delete.
@@ -2244,15 +1993,6 @@ Thu Jun 20 00:26:53 2002  Denis Chertykov  <denisc@overta.ru>
 
 	* config.gcc: Add support for ip2k.
 
-2002-06-24  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-ssa.c (build_fud_chains): Use dominance_info instead of int *.
-	(search_fud_chains): Ditto.
-	Call get_immediate_dominator.
-	* tree-ssa-pre.c (a_dom_b): Call dominated_by_p.
-	(pre_idom): Change type to dominance_info.  Update all uses.
-	(pre_doms): Remove.  Update all uses.
-
 2002-06-23  Jan Hubicka  <jh@suse.cz>
 	    Jeff Law <law@redhat.com>
 
@@ -2348,44 +2088,6 @@ Thu Jun 20 00:26:53 2002  Denis Chertykov  <denisc@overta.ru>
 	* config/mmix/mmix.c: Ditto.  Fix typo in comment.
 	* config/mmix/mmix-modes.def: Change GNU CC to GCC in file header
 	comment.  Comment extra CC modes.
-
-2002-06-20  Jason Merrill  <jason@redhat.com>
-
-	Simplify DECL_STMT, CONSTRUCTOR and COMPOUND_LITERAL_EXPR.
-	* tree-simple.c (is_simple_decl_stmt): New fn.
-	(is_simple_constructor, is_simple_constructor_elt): New fns.
-	(is_simple_stmt, is_simple_unary_expr): Use them.
-	(is_simple_modify_expr): Accept an INIT_EXPR.
-	(is_simple_id): Don't allow a COMPOUND_LITERAL_EXPR.
-	(is_simple_unary_expr): Here either.
-	* c-simplify.c (simplify_decl_stmt, simplify_constructor): New fns.
-	(simplify_compound_literal_expr): New fn.
-	(simplify_stmt, simplify_expr): Use them.
-	(get_initialized_tmp_var): Use an INIT_EXPR.
-	(simplify_modify_expr): Accept an INIT_EXPR.
-	(simplify_for_stmt): Call simplify_decl_stmt.
-	(get_name): Don't crash if the decl is anonymous.
-	(tail_expression): New fn.
-	* tree-simple.h: Declare new fns.
-	* c-pretty-print.c (dump_c_node) [INIT_EXPR]: Print like MODIFY_EXPR.
-	(dump_c_node, op_prio): Handle COMPOUND_LITERAL_EXPR.
-	* c-simplify.c (simplify_expr_wfl): Only wrap pre and post stuff
-	that came from our subexpression.
-	(simplify_stmt): Restore stmts_are_full_exprs_p.
-
-	* c-simplify.c (simplify_expr_wfl): Bracket substatements with
-	FILE_STMTs rather than wrapping them in EXPR_WITH_FILE_LOCATION.
-	(simplify_stmt): Update lineno and input_filename from stmts.
-	(simplify_expr et al): Don't copy lineno between stmts.  Don't pass 
-	enclosing stmt down.
-	(update_line_number): Remove.
-	
-	* c-simplify.c (simplify_expr_stmt): Don't check
-	is_last_stmt_of_scope.
-	(simplify_stmt_expr): Check it here.  Set *expr_p to void_zero_node
-	instead of NULL_TREE.
-	(expr_has_effect): No need to deal with NULL exprs now.
-	(simplify_expr_wfl): Likewise.
 
 2002-06-20 Jan Hubicka  <jh@suse.cz>
 
@@ -2754,35 +2456,6 @@ Thu Jun 20 12:14:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 2002-06-19  Jason Merrill  <jason@redhat.com>
 
-	* c-simplify.c (simplify_stmt_expr): New fn.
-	(simplify_expr): Call it.
-	(stmt_expr_level): Remove.
-	(stmt_has_effect, c_simplify_function_tree): Remove refs.
-	(expr_has_effect): Deal with null expression.
-	(simplify_expr_wfl): If the subexpression is simplified away, drop
-	this one, too.  Don't wrap statements.
-	* tree-simple.c (is_simple_unary_expr): Don't allow a STMT_EXPR.
-	* tree-inline.c (copy_tree_r): Clear the aux field in the copies.
-
-2002-06-18  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (strip_off_ending): Rename to remove_suffix.
-	Update callers.
-	(is_last_stmt_of_scope): New function.
-	(simplify_expr_stmt): Call it.
-	(stmt_has_effect): Ditto.
-	(c_simplify_function_tree): Update comment.
-
-2002-06-18  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (maybe_fixup_loop_cond): New fn for C++ conditions.
-	(simplify_for_stmt, simplify_while_stmt): Use it.
-	
-	* c-pretty-print.c (dump_c_node) [COMPONENT_REF]: Print "->" if
-	appropriate.
-
-2002-06-19  Jason Merrill  <jason@redhat.com>
-
 	* Makefile.in (unstrap, restrap): New targets.
 	(bootstrap): Mention restrap.
 
@@ -2922,28 +2595,6 @@ Tue Jun 18 20:53:32 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* config/ia64/ia64.md (doloop_end_internal): Correct rtl.
 
 	* doloop.c (doloop_optimize): Extract pattern from insn.
-
-2002-06-17  Frank Ch. Eigler  <fche@redhat.com>
-
-	* c-pretty-print.c (dump_c_node): Print pointer-type
-	integer constants as raw numbers with a "B" (bytes) suffix.
-
-2002-06-17  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (simplify_stmt): Take a tree *.
-	(various): Adjust.
-
-2002-06-16  Daniel Berlin  <dberlin@dberlin.org>
-
-	* c-simplify.c (get_name): New function.
-	(get_initialized_tmp_var): Use it to try to get a prefix for
-	create_tmp_var from the value we are initializing to.
-	(simplify_cond_expr): Add prefix for create_tmp_var.
-	(create_tmp_var): Add prefix argument.
-	
-	* tree-simple.h: Change create_tmp_var prototype to match.
-
-	* tree-ssa-pre.c: Change create_tmp_var call.
 
 2002-06-17  Matt Kraai  <kraai@alumni.cmu.edu>
 
@@ -3133,53 +2784,6 @@ Sun Jun 16 22:16:10 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* config/ia64/hpux.h (MEMBER_TYPE_FORCES_BLK): Same.
 
 	* config/c4x/c4x.h (MEMBER_TYPE_FORCES_BLK): Same.
-
-2002-06-15  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (c-decl.o): Add dependency on langhooks.h
-	(c-simplify.o): Add dependency on flags.h, langhooks.h, toplev.h
-	and rtl.h.
-	* c-decl.c: Include langhooks.h.
-	(c_expand_body): Simplify the function.  If it succeeds and
-	-ftree-ssa is enabled, call optimize_function_tree.
-	* c-simplify.c: Include flags.h, rtl.h and toplev.h.
-	(simplify_expr_stmt): New function.
-	(simplify_stmt): Call it.
-	* tree-optimize.c: Don't include langhooks.h.
-	(optimize_function_tree): Don't call lang_hooks.simplify_function_tree.
-
-	* c-decl.c (c_expand_body): Do not simplify nor optimize the
-	function if -fdisable-simple is given.
-	* c-simplify.c (simplify_expr): Use is_simple_addr_expr_arg when
-	simplifying ADDR_EXPR nodes.
-	* flags.h (flag_disable_simple): Declare.
-	* toplev.c (flag_disable_simple): Define.
-	(f_options): Document -fdisable-simple.
-	(process_options): Warn if -fdisable-simple is used with
-	optimization enabled.
-	* tree-simple.c (is_simple_addr_expr_arg): New function.
-        (is_simple_unary_expr): Call it.
-	* tree-simple.h (is_simple_addr_expr_arg): Declare.
-	* doc/invoke.texi: Document -fdisable-simple.
-
-	* c-pretty-print.c (dump_c_node): Handle DECL_STMT nodes inside
-	FOR_INIT_STMT.
-	* c-simplify.c (c_simplify_function_tree): Don't do anything if the
-	program had errors.
-	(simplify_stmt): Skip DECL_STMTs.
-	(simplify_for_stmt): Handle DECL_STMT nodes inside FOR_INIT_STMT.
-	(simplify_save_expr): New function.
-	(simplify_expr): Call it.
-	(tree_last_decl): Handle cases where DECL_STMTs are found before
-	the body of the function.
-	* tree-simple.c (is_simple_stmt): Handle DECL_STMT nodes inside
-	FOR_INIT_STMT.
-	(is_simple_compound_lval): Handle nodes wrapped in NON_LVALUE_EXPR.
-
-2002-06-14  Frank Ch. Eigler  <fche@redhat.com>
-
-	* c-pretty-print.c (dump_c_node): Print more type qualifiers,
-	especially for pointers.
 
 2002-06-14  Jeff Sturm  <jsturm@one-point.com>
 
@@ -3991,80 +3595,6 @@ Tue Jun 11 21:53:37 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	__gthr_win32_mutex_unlock): New functions, based on
 	static inlines in gthr-win32.h.
 
-2002-06-11  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c: Remove folding markers.
-	(insert_before_first): Remove unused function.
-	* tree-cfg.c: Remove folding markers.
-	* tree-dfa.c: Ditto.
-	* tree-flow.h: Ditto.
-	* tree-optimize.c: Ditto.
-	* tree-optimize.h: Ditto.
-	* tree-simple.c: Ditto.
-	* tree-ssa.c: Ditto.
-
-2002-06-11  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (add_tree): Don't deep-copy expressions.
-	(simplify_for_stmt): Only deep-copy pre_cond_s the first time.
-	Don't deep copy expr_chain.
-
-2002-06-10  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (remove_bb_ann): Don't call VARRAY_FREE.
-	* tree-dfa.c (create_ref): Use sizeof (ref) instead of
-	refs->element_size.
-	* tree.h (struct tree_common): Skip field 'aux' from GC type
-	information.
-	* tree-optimize.c (optimize_function_tree): Don't call
-	VARRAY_REF.
-	* tree-ssa.c (insert_phi_terms): Ditto.
-	(delete_refs): Ditto.
-	* c-simplify.c (simplify_array_ref): Ditto.
-	* simple-break-elim.c: Disable whole file.
-	* simple-goto-elim.c: Disable whole file.
-
-2002-06-10  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (simplify_switch_stmt): Let simplify_expr handle
-	post-effects.  Reorder.
-	(simplify_if_stmt): Likewise.  Don't build redundant comparison.
-	(simplify_do_stmt, simplify_while_stmt): Likewise.
-	(simplify_for_stmt): Likewise.  Remove POST_P parm.
-	(simplify_stmt): Adjust.
-	(insert_before_first): #if 0, no longer used.
-
-	* c-pretty-print.c (dump_c_node): Print FIX_TRUNC_EXPR, FLOAT_EXPR
-	et al as casts.  Add parens as needed.
-
-	* tree-simple.c (is_union_based_ref): New fn.
-	(is_simple_min_lval): Use it.  Rename from is_simple_arraybase.
-	(is_simple_arrayref): Adjust.  Use loop instead of recursion.
-	(is_simple_compref): Likewise.
-	(is_simple_compref_lhs): Remove.
-	* tree-simple.h: Adjust.
-	* c-simplify.c (simplify_array_ref): Adjust.
-	(simplify_component_ref): Adjust.
-
-	* c-simplify.c (simplify_expr_common): Tweak ordering.
-	(get_initialized_tmp_var): Let simplify_expr handle post-effects.
-	* tree-simple.c (is_simple_stmt): Accept an rhs for a return expr.
-
-	* c-simplify.c (simplify_boolean_expr): Avoid redundant tests.
-	Give the temp the appropriate type for a boolean value, and
-	reconvert at the end.
-
-	* c-simplify.c (simplify_self_mod_expr): Don't duplicate side-effects.
-
-	* c-simplify.c (simplify_return_stmt): Accept a SIMPLE rhs.
-	Just hand off to simplify_expr.
-
-	* c-simplify.c (get_initialized_tmp_var): New fn.
-	(simplify_expr_common): Use it.  Handle post-effects internally if
-	POST_P is NULL.
-	(is_simple_tmp_var): Rename from simple_tmp_var_p.
-	* tree-simple.h: Adjust.
-
 2002-06-10  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/xtensa.c (override_options): Don't warn about
@@ -4373,63 +3903,6 @@ Mon Jun 10 18:02:24 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	Add basic Power4 scheduling information.
 	(mfcr/mtcrf): Change type attribute to cr_logical.
 
-2002-06-09  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (simplify_return_stmt): Update folding markers.
-	(build_addr_expr): Ditto.
-	* langhooks.h (struct langhooks): Document simplify_function_tree
-	hook.
-
-2002-06-09  Jason Merrill  <jason@redhat.com>
-
-	* c-simplify.c (simplify_expr_common): Handle creating both lvalue
-	and rvalue temps.  Add new parameter to specify which.
-	(simplify_expr): Now just a wrapper.
-	(simplify_lvalue_expr): Likewise.
-	(simplify_expr_either): New wrapper.
-	(simplify_component_ref): Use it instead of simplify_lvalue_expr.
-
-	* c-pretty-print.c (debug_c_tree): Add a trailing newline.
-	(debug_c_node): Likewise.
-	* gdbinit.in (pct): New macro, calls debug_c_tree.
-
-2002-06-08  Jason Merrill  <jason@redhat.com>
-
-	* tree-simple.c (is_simple_unary_expr): Only allow the address of
-	a varname.
-	(is_simple_id): Allow STRING_CST.
-	* c-simplify.c (simplify_expr_common): Split out from simplify_expr.
-	Do simplify ADDR_EXPR.
-	(simplify_lvalue_expr): Use it and build_addr_expr.  Take
-	simple_test_f.
-	(simplify_modify_expr): Adjust.
-	(build_addr_expr): New fn.
-	(simplify_array_ref): Use simplify_lvalue_expr.
-	(simplify_component_ref): Likewise.
-	
-	* tree-simple.c (is_simple_rhs): Remove condexpr rule.
-	(is_simple_compref_lhs): Remove &ID.idlist rule.
-	(is_simple_relop): New fn.
-	(is_simple_binary_expr, is_simple_condexpr): Use it.
-	* tree-simple.h: Declare it.
-
-	* c-simplify.c (create_tmp_var): Refuse to create an array temp.
-	(simple_tmp_var_p): New fn.
-	(simplify_lvalue_expr): Use it; make sure we don't return a temp.
-	* tree-simple.h: Declare it.
-
-	* c-pretty-print.c (dump_c_node) [ARRAY_REF]: Wrap array in parens
-	as needed.
-	[COMPONENT_REF]: Likewise.
-	[POINTER_TYPE]: Fix pointer-to-function handling.
-	[ARRAY_TYPE]: Don't try to print an unknown dimension.
-
-	* tree-simple.c (is_simple_arraybase): New function.
-	(is_simple_arrayref): Use it to check the array base again.
-	* tree-simple.h: Add declaration.
-	* c-simplify.c (simplify_array_ref): Do simplify the base.
-	* expr.c (expand_expr): First make sure the type has a size.
-
 2002-06-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gengtype.h (error_at_line): Use PARAMS, not VPARAMS.  Add
@@ -4538,11 +4011,6 @@ Mon Jun 10 18:02:24 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* config/netbsd-elf.h (LINK_SPEC): Rename to...
 	(NETBSD_LINK_SPEC_ELF): ...this.  Use %(netbsd_entry_point)
 	to specify program entry point.
-
-2002-06-07  Jason Merrill  <jason@redhat.com>
-
-	* cppexp.c (num_equality_op): Use a temporary variable to work
-	around gcc 3.0.4 bug.
 
 2002-06-07  Jeff Law <law@redhat.com
 
@@ -4713,44 +4181,6 @@ Thu Jun  6 07:17:43 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 	* avr/avr.c (avr_output_function_epilogue): Use above to determine
 	function size.
 	* pa/pa.c (pa_output_function_prologue): Likewise.
-
-2002-06-05  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (BOOT_CFLAGS): Remove -ftree-ssa.
-	* c-decl.c (c_expand_body): Call optimize_function_tree if tree SSA
-	is enabled.
-	* c-lang.c (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define.
-	* c-simplify.c (simplify_tree): Rename to c_simplify_function_tree.
-	Update all callers.
-	Dump function body before and after simplification if
-	-fdump-tree-simple is used.
-	(simplify_expr): Document FIXME for simplification of BIT_FIELD_REF
-	nodes.
-	* c-tree.h (simplify_tree): Rename to c_simplify_function_tree.
-	* langhooks-def.h (LANG_HOOKS_SIMPLIFY_FUNCTION_TREE): Define
-	(LANGHOOKS_INITIALIZER): Add LANG_HOOKS_SIMPLIFY_FUNCTION_TREE.
-	(lhd_simplify_function_tree): Declare.
-	* langhooks.c (lhd_simplify_function_tree): New function.
-	* langhooks.h (lang_hooks): Add simplify_function_tree function
-	pointer.
-	* toplev.c (parse_options_and_default_flags): Set flag_tree_ssa to
-	1 at optimization levels >= 1.
-	Revert to default warning when -Wuninitialized is used without -O.
-	* tree-cfg.c (tree_find_basic_blocks): Rename argument 't' to
-	'fnbody'.
-	* tree-optimize.c: Include langhooks.h.
-	(optimize_tree): Rename to optimize_function_tree.  Update all
-	users.
-	Rename argument 't' to 'fndecl'.
-	Call simplify langhook before building SSA.
-	(build_tree_ssa): Rename argument 't' to 'fndecl'.
-	Adjust call to tree_find_basic_blocks to pass body of the function.
-	* tree-optimize.h (optimize_tree): Rename to
-	optimize_function_tree.
-	* tree-simple.c (is_simple_unary_expr): Document FIXME on
-	BIT_FIELD_REF nodes.
-	* tree-ssa.c: Add whitespace.
-	* testsuite/lib/c-torture.exp: Remove -ftree-ssa flag.
 
 2002-06-05  David S. Miller  <davem@redhat.com>
 
@@ -4988,53 +4418,6 @@ Tue Jun  4 19:29:42 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* gthr-rtems.h: Likewise.
 	* gthr-solaris.h: Likewise.
 	* gthr-win32.h: Likewise.
-
-2002-06-03  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-cfg.c (insert_before_*):  For insertion into FOR_INIT's, if
-	we have an expression statement, transform into a compound
-	expression. 
-	Pick the right place to insert a statement by iterating until we
-	have a first_exec_stmt (first_non_decl_stmt) that is really the
-	first executable non decl statement.
-	(insert_after_*): Ditto.
-
-2002-06-03  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-ssa-pre.c: Update BB stuff to new basic block structure.
-	Add some comments throughout (more coming, particularly describing
-	the algorithm, rather than the implementation).
-	(free_expr_info): Free refs as well.
-	(defs_y_dom_x): Handle unary expressions as well.
-	(insert_euse_in_preorder_dt_order_1): Use block of ref, not block
-	of statement. 
-	Don't insert exit blocks if we hit them before hitting an
-	occurrence (it's pointless).
-	(rename_2): Return set of phi operands we touched, don't forget to
-	free VARRAY's we allocated.
-	(rename_1): Correct downsafety computation. Now get exact same
-	results as Open64.
-	Correct setting of has_real_use.
-	(finalize_1): Fix up insertion.
-	(code_motion): Fix up insertion.
-
-	* tree-dfa.c (dump_varref):  Improve dumping of expression 
-	references.
-
-2002-06-03  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (delete_bb): Rename to tree_delete_bb.  Update callers.
-	(tree_find_basic_blocks): Initializer last_basic_block.
-	(create_bb): Update last_basic_block after creating a new block.
-	(tree_cleanup_cfg): Delete unreachable blocks by traversing the
-	linked list, not the array.  Update comments.
-	(delete_bb): Update comments.
-	(tree_dump_cfg): Also show last_basic_block.
-	* tree-ssa.c (tree_build_ssa): Use last_basic_block instead of
-	n_basic_blocks to allocate dominator arrays.
-	(insert_phi_terms): Ditto.
-	(search_fud_chains): User FOR_EACH_BB to look for dominator
-	children.
 
 2002-06-03  Geoffrey Keating  <geoffk@redhat.com>
 
@@ -7159,30 +6542,6 @@ Thu May 30 20:28:01 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* config/s390/s390.md (cmpstr_64/31): Mark whole
 	input registers as used.
 
-2002-05-29  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (tree_find_basic_blocks): Set next_bb and prev_bb for
-	ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.
-	(create_bb): Set flag BB_NEW for every newly created block.
-	Call link_block to add the new block to the linked list.
-	(tree_split_bb): Traverse basic blocks using FOR_EACH_BB.
-	(make_goto_stmt_edges): Ditto.
-	(remove_unreachable_blocks): Add reminder comment to stop
-	compacting the basic block array every time a block is deleted.
-	(delete_cfg): Traverse basic blocks using FOR_EACH_BB.
-	(tree_dump_bb): Ditto.
-	(tree_dump_cfg): Ditto.
-	(tree_cfg2dot): Ditto.
-	* tree-dfa.c (tree_find_varrefs): Ditto.
-	(create_tree_ann): Ditto.
-	(get_fcalls): Ditto.
-	(find_declaration): Ditto.
-	* tree-ssa.c (tree_build_ssa): Ditto.
-
-2002-05-28  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in: Add -ftree-ssa to BOOT_CFLAGS.
-
 2002-05-28  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386.c (ix86_save_reg): Examine regs_ever_live,
@@ -7432,142 +6791,6 @@ Tue May 28 21:16:18 2002  J"orn Rennecke <joern.rennecke@superh.com>
 	* cppexp.c (interpret_number): Optimize for single-digit
 	and less-than-half-precision cases.
 	(num_trim, num_positive, num_div_op): Cast constants.
-
-2002-05-27  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-decl.c (c_expand_body): Close dump file before simplifying the
-	function.
-	* c-pretty-print.c (dump_c_node): Handle COMPLEX_CST,
-	BIT_FIELD_REF, COMPLEX_EXPR, CONJ_EXPR, REALPART_EXPR,
-	IMAGPART_EXPR and VA_ARG_EXPR nodes.
-	Display all type casts, not just pointer casts.
-	(op_prio): Handle LROTATE_EXPR, RROTATE_EXPR, REALPART_EXPR and
-	IMAGPART_EXPR.
-	* c-simplify.c: Include "tree-inline.h"
-	(dump_file): New local variable.
-	(dump_flags): New local variable.
-	(stmt_expr_level): New local variable.
-	(simplify_tree): Open and close dump file if
-	-fdump-tree-simple-details is given.
-	Initialize stmt_expr_level.
-	(simplify_stmt): Dump statement before and after simplification if
-	-fdump-tree-simple-detail is given.
-	Unshare the expression of an EXPR_STMT before simplifying it.
-	Call simplify_return_stmt to handle RETURN_STMT nodes.
-	Do not simplify DECL_STMT nodes.
-	Call stmt_has_effect before re-chaining side effects.
-	(simplify_for_stmt): Do not return the simplified statement.
-	Update all callers.
-	Simplify FOR_BODY after the headers.
-	Unshare loop header expressions before simplification.
-	(simplify_while_stmt): Do not return the simplified statement.
-	Update all callers.
-	Simplify WHILE_BODY after the headers.
-	Unshare the loop header expression before simplification.
-	(simplify_do_stmt): Do not return the simplified statement.  Update
-	all callers.
-	Unshare the loop header expression before simplification.
-	(simplify_if_stmt): Do not return the simplified statement.  Update
-	all callers.
-	Simplify the condition expression before the clauses.
-	Unshare the condition expression before simplification.
-	(simplify_switch_stmt): Do not return the simplified statement.
-	Update all callers.
-	Simplify the switch expression before the body.
-	Unshare the switch expression before simplification.
-	(simplify_decl_stmt): Remove.
-	(simplify_expr): Remove argument 'needs_lvalue'.
-	Add argument 'stmt'.
-	Replace first argument 'expr' with a pointer to the
-	expression 'expr_p'.
-	Do not return the simplified expression.
-	Update all callers and uses.
-	Handle TRUTH_NOT_EXPR nodes.  Simplify SAVE_EXPR nodes into a
-	SIMPLE id and remove the SAVE_EXPR node.
-	Do not simplify BIT_FIELD_REF nodes.
-	Remove code that tried to create new lvalues.
-	(simplify_array_ref): Replace first argument 'expr' with a pointer
-	to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'.
-	Update all callers and uses.
-	(simplify_self_mod_expr): Replace first argument 'expr' with a
-	pointer to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'.
-	Update all callers and uses.
-	Call simplify_lvalue_expr to simplify a copy of the LHS into an
-	lvalue for the new assignment.
-	Simplify the new binary expression.
-	(simplify_component_ref): Replace first argument 'expr' with a
-	pointer to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'.
-	Update all callers and uses.
-	(simplify_call_expr): Ditto.
-	(simplify_tree_list): Ditto.
-	(simplify_cond_expr): Ditto.
-	Build a replacement IF_STMT and call simplify_if_stmt() to process
-	it.  Set the line number of the new statement from the statement
-	containing the original expression.
-	(simplify_modify_expr): Replace first argument 'expr' with a
-	pointer to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'.
-	Update all callers.
-	Call simplify_lvalue_expr to simplify the LHS of the assignment.
-	(simplify_boolean_expr): Replace first argument 'expr' with a
-	pointer to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'. 
-	Update all callers.
-	Build a new IF_STMT and simplify it all at once by calling
-	simplify_if_stmt.
-	(simplify_compound_expr): Replace first argument 'expr' with a
-	pointer to the expression 'expr_p'.
-	Do not return the simplified expression.
-	Add argument 'stmt'. 
-	Update all callers.
-	(simplify_expr_wfl): Ditto.
-	(simplify_lvalue_expr): New function.
-	(add_tree): Create a copy of each expression before adding it to
-	the list.
-	(deep_copy_node): Call copy_tree_r to copy expression nodes.
-	(stmt_has_effect): Return nonzero if the statement may be the last
-	statement of a statement expression body.
-	(mostly_copy_tree_r): New function.
-	* tree-dump.c (dump_options): Add 'details'.
-	* tree-simple.c: Update documentation about ADDRESSOF expressions.
-	(is_simple_stmt): Test for SIMPLE values when checking return
-	statements.
-	Accept all DECL_STMT nodes.
-	(is_simple_compstmt): Return nonzero if T is NULL.  Do not test
-	DECL_STMT nodes
-	(is_simple_expr): Return nonzero if T is NULL.
-	(is_simple_rhs): Ditto.
-	(is_simple_modify_expr): Ditto.
-	(is_simple_modify_expr_lhs): Ditto.
-	(is_simple_binary_expr): Ditto.
-	(is_simple_cond_expr): Ditto.
-	(is_simple_unary_expr): Call STRIP_NOPS before testing T.
-	Always accept ADDR_EXPR nodes.
-	Always accept BIT_FIELD_REF nodes.
-	(is_simple_call_expr): Return nonzero if T is NULL.
-	(is_simple_const): Ditto.
-	(is_simple_val): Ditto.
-	(is_simple_compref): Ditto.
-	(is_simple_compref_lhs): Ditto.
-	(is_simple_cast): Ditto.
-	(is_simple_cast_op): Ditto.
-	(is_simple_id): Return nonzero if T is NULL.  Allow identifiers
-	wrapped inside NON_LVALUE_EXPR and EXPR_WITH_FILE_LOCATION nodes.
-	Allow real and imaginary parts of a complex variable. 
-	Allow compound literals.
-	(is_simple_arrayref): Allow arrays of complex types.
-	* tree.h (TDF_DETAILS): Define.
-	* cp/pt.c (tsubst_template_parms): Check that 'parms' is non-NULL
-	before calling TMPL_PARMS_DEPTH.
-	* doc/invoke.texi: Document -fdump-tree-simple-details.
 
 2002-05-27  Bo Thorsen  <bo@suse.de>
 
@@ -10223,16 +9446,6 @@ Sat May 11 14:34:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* dwarf2out.c: Likewise.
 	* dwarfout.c: Likewise.
 
-2002-05-10  Daniel Berlin  <dberlin@dberlin.org>
-
-	* c-pretty-print.c (dump_c_node): Print "<unnamed whatever>" for
-	types, variables, etc that have no name, rather than printing
-	nothing.
-	Handle PMF's properly.
-	Print out structure initializers in a somewhat sensible way.
-	Print SAVE_EXPR () around SAVE_EXPRs.
-	(print_call_name): Handle EXPR_WITH_FILE_LOCATION.
-
 2002-05-10  Richard Henderson  <rth@redhat.com>
 
 	* final.c (end_final): Tidy whitespace.  Don't honor flag_pack_struct.
@@ -10305,14 +9518,6 @@ Sat May 11 14:34:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	Make non-static.  Update all callers.
 	* config/avr/avr.md (*cbi, *sbi, *sbix_branch, *sbix_branch_bit7):
 	New insns to clear/set/test a single bit in I/O address space.
-
-2002-05-09  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-dfa.c (dump_varref): Tree inlining generates variables with
-	no name. Don't crash on dumping varref's of them.
-
-	* tree-inline.c (expand_call_inline): Generate a proper STMT_EXPR
-	(it was missing COMPOUND_STMT).
 
 2002-05-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -10657,38 +9862,6 @@ Wed May  8 11:10:31 CEST 2002  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 	(reload_indi): Replace gen_rtx_UNSPEC with gen_hilo_delay.
 	(reload_outdi, reload_outsi): Likewise.
 
-2002-05-08  Daniel Berlin  <dberlin@dberlin.org>
-
-	s/varref_type/treeref_type/g
-	s/create_varref/create_ref/g
-	
-	* tree-flow.h: Add EXPRPHI, EXPRUSE, EXPRKILL, EXPRINJ.
-	Add structures and macros for each.
-	Add tree_perform_ssapre prototype.
-
-	* Makefile.in (C_AND_OBJC_OBJS): Add tree-ssa-pre.o
-	(tree-ssa-pre.o): Add dependencies for tree-ssa-pre.o
-
-	* cp/Make-lang.in: Add tree-ssa-pre.o
-	
-	* flags.h: Add flag_tree_ssa_pre.
-
-	* tree-ssa-pre.c: New file, SSA-PRE.
-
-	* toplev.c: Add flag_tree_ssa_pre.
-	(lang_independent_options): Add tree-ssa-pre.
-
-	* tree-dump.c (dump_files): Add ssapre dump.
-
-	* tree-optimize.c (optimize_tree): Do SSAPRE if requested.
-
-	* tree.h (dump_index): Add TDI_ssa_pre.
-
-	* tree-dfa.c (create_ref): Add support for creating the EXPR*'s refs.
-	(dump_varref): Add support for dumping EXPR* refs.
-
-	* tree-ssa.c (search_fud_chains): Add BB to VARDEF_PHI_CHAIN_BB.
-
 2002-05-07  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* toplev.c: Fix formatting.
@@ -10759,36 +9932,6 @@ Tue May  7 10:06:22 2002  Jeffrey A Law  (law@redhat.com)
 2002-05-07  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.c (bdesc_2arg): Fix vmax typos.
-
-2002-05-07  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-pretty-print.c (op_prio): Handle ABS_EXPR.
-	Don't abort when the operand is not recognized.
-	(op_symbol): Don't abort when the operand is not recognized.
-	* c-simplify.c (simplify_expr): Remove 'const' qualifier from first
-	argument.
-	Do not copy incoming expression.
-	Exclude handling of MODIFY_EXPR, INIT_EXPR, SAVE_EXPR and binary
-	expression nodes.
-	(simplify_array_ref): Remove 'const' qualifier from first argument.
-	Do not copy the incoming expression.
-	(simplify_self_mod_expr): Ditto.
-	Do not simplify the first operand twice.
-	(simplify_component_ref): Remove 'const' qualifier from first
-	argument.  Do not copy the incoming expression.
-	(simplify_call_expr): Ditto.
-	(simplify_tree_list): Ditto.
-	(simplify_cond_expr): Ditto.
-	(simplify_modify_expr): Ditto.
-	(simplify_boolean_expr): Ditto.
-	(simplify_compound_expr): Ditto.
-	(simplify_save_expr): Ditto.
-	(simplify_expr_wfl): Ditto.
-	(tree_build_scope): Re-write.  Do nothing if block already contains
-	a scope.  Use chainon to chain the body with the scope closing
-	node.
-	(deep_copy_node): Do not check for NULL nodes.  Do not deep copy
-	declarations, types and constants.
 
 2002-05-06  David S. Miller  <davem@redhat.com>
 
@@ -10899,29 +10042,6 @@ Mon May  6 18:03:11 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* config/sparc/sparc.c (emit_soft_tfmode_libcall): Do not
 	allow result to overlap input operands in memory.
-
-2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
-
-	* c-simplify.c (deep_copy_node): Don't copy DECL_STMT_DECL's.
-
-2002-05-06  Daniel Berlin  <dberlin@dberlin.org>
-
-	* tree-simple.c (is_simple_compstmt): Don't post-initialize
-	statics or aggregate initializers. 
-
-	* c-simplify.c (simplify_decl_stmt): Ditto.
-
-2002-05-06  Sebastian Pop  <s.pop@laposte.net>
-
-	* Makefile.in (simple-break-elim.o, simple-goto-elim.o, tree-dchain.o): 
-	Added.
-	* c-decl.c: Include tree-dchain.h
-	(c_expand_body): Add entry point to the goto, break elimination 
-	after the simplification pass.
-	* simple-break-elim.c: New file.
-	* simple-goto-elim.c: New file.
-	* tree-dchain.h: New file.
-	* tree-dchain.c: New file.
 
 2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
 
@@ -11380,43 +10500,6 @@ Fri May  3 10:51:38 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* i386.md (sse_clrsf, sse_clrsi): Set memory attribute
 	to none.
 
-2002-05-02  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (simplify_expr): Constify first argument.
-	Always work on a copy of the input expression.
-	Do not simplify COMPOUND_LITERAL_EXPR nor CONSTRUCTOR nodes.
-	(simplify_array_ref): Constify first argument.  Always work on a
-	copy of the input expression.
-	(simplify_self_mod_expr): Ditto.
-	(simplify_component_ref): Ditto.
-	(simplify_call_expr): Ditto.
-	(simplify_tree_list): Ditto.
-	(simplify_cond_expr): Ditto.
-	When building the THEN_CLAUSE and ELSE_CLAUSE for the new IF_STMT,
-	create a scope for them and simplify the scope, not the expression.
-	(simplify_modify_expr): Constify first argument.  Always work on a
-	copy of the input expression.
-	(simplify_boolean_expr): Ditto.
-	(simplify_compound_expr): Ditto.
-	(simplify_save_expr): Ditto.
-	(simplify_expr_wfl): Ditto.
-	* tree-cfg.c (tree_find_basic_blocks): Update comments for
-	-fdump-tree-dot.
-	(tree_dump_cfg): Ditto.
-	* tree-dump.c (dump_files): Rename -fdump-tree-graphviz to
-	-fdump-tree-dot.
-	* tree-simple.c (is_simple_unary_expr): Do not handle &CONST
-	expressions.
-	Handle COMPOUND_LITERAL_EXPR and CONSTRUCTOR nodes.
-	(is_simple_const): Strip NOPS and handle &CONST expressions.
-	* tree.h (enum tree_dump_index): Remove references to GraphViz.
-	* doc/invoke.texi: Update documentation for -fdump-tree-dot.
-
-2002-05-02  Sebastian Pop  <s.pop@laposte.net>
-
-	* c-pretty-print.c (dump_c_node): Don't print declarations
-	from the SCOPE_STMT_BLOCK, use the DECL_STMT instead.
-
 2002-05-02  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* function.c: Fix formatting.
@@ -11586,54 +10669,6 @@ Wed May  1 10:32:37 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* gcc.dg/altivec-7.c: New.
 
 	* config/rs6000/altivec.h: Cleanup.
-
-2002-04-30  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-pretty-print.c (NIY): Display an error string instead of aborting.
-	(op_prio): Add support for COMPOUND_EXPR, TRUTH_XOR_EXPR, MIN_EXPR,
-	MAX_EXPR and NON_LVALUE_EXPR.
-	For EXPR_WITH_FILE_LOCATION nodes, return the priority of
-	the internal node.
-	(op_symbol): Add support for TRUTH_XOR_EXPR.
-	* c-simplify.c (simplify_stmt): Only remove null statements that
-	have been nullified by simplification.
-	Call debug_tree() dump unhandled tree nodes.
-	(simplify_for_stmt): Always deep-copy PRE_COND_S before adding it
-	to PRE_P.
-	(simplify_expr): When simplifying a MODIFY_EXPR node into an
-	rvalue, return operand 0.
-	Handle VA_ARG_EXPR, BIT_FIELD_REF and NON_LVALUE_EXPR nodes.
-	Treat TRUTH_AND_EXPR, TRUTH_OR_EXPR and TRUTH_XOR_EXPR nodes as
-	regular binary expressions.
-	Call debug_tree() to dump an unhandled expression.
-	(simplify_array_ref): Do not simplify the base of an array.
-	(simplify_call_expr): Do not simplify calls to builtins.
-	(simplify_cond_expr): Handle conditional expressions of type void.
-	(simplify_boolean_expr): Return 'T != 0' instead of 'T'.
-	(simplify_save_expr): Do not wrap statement trees inside SAVE_EXPR
-	nodes.
-	(tree_last_decl): Ignore FILE_STMT nodes preceding a SCOPE_STMT.
-	* tree-simple.c: Update grammar to accept any valid C array as the
-	array base.
-	(is_simple_compstmt): Accept DECL_INITIAL expressions for read-only
-	variables.
-	(is_simple_expr): Do not abort if the incoming tree is NULL.
-	(is_simple_modify_expr): Allow SAVE_EXPR, EXPR_WITH_FILE_LOCATION
-	and NON_LVALUE_EXPR wrappers.
-	(is_simple_binary_expr): Ditto.
-	(is_simple_condexpr): Ditto.
-	Accept TRUTH_AND_EXPR, TRUTH_OR_EXPR and TRUTH_XOR_EXPR.
-	(is_simple_unary_expr): Do not abort it the incoming tree is NULL.
-	Allow SAVE_EXPR, EXPR_WITH_FILE_LOCATION and NON_LVALUE_EXPR
-	wrappers.
-	Handle BIT_FIELD_REF and VA_ARG_EXPR nodes.
-	(is_simple_call_expr): Always return 1 for builtin calls.
-	(is_simple_arrayref): Do not check the array base.
-
-2002-04-30  Daniel Berlin  <dberlin@dberlin.org>
-
-	* c-simplify.c (simplify_call_expr): Don't try to simplify
-	call_expr arglist if it's not there. 
 
 2002-04-30  Aldy Hernandez  <aldyh@redhat.com>
 
@@ -12349,74 +11384,6 @@ Mon Apr 29 12:18:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	(declare_weak): Make sure we don't give an error on VAR_DECLs.
 	Mark RTL with SYMBOL_REF_WEAK.
 
-2002-04-27  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-decl.c (c_expand_body): Call simplify_tree to simplify a
-	FUNCTION_DECL node.
-	* c-simplify.c (simplify_tree): New function.
-	(simplify_stmt): Remove variable 'new_vars'.  Update all called
-	functions.
-	Remove argument 'scope'.  Update all callers.
-	Do not keep track of new scope statements as they are entered.
-	Do not call declare_tmp_vars().
-	(simplify_for_stmt): Remove argument new_vars_p.  Update all callers.
-	(simplify_while_stmt): Ditto.
-	(simplify_do_stmt): Ditto.
-	(simplify_if_stmt): Ditto.
-	(simplify_switch_stmt): Ditto.
-	(simplify_decl_stmt): Reformat comments.
-	(simplify_expr): Remove argument new_vars_p.  Update all callers.
-	Call simplify_save_expr() to simplify SAVE_EXPR nodes.
-	Call simplify_expr_wfl() to simplify EXPR_WITH_FILE_LOCATION nodes.
-	Do not call is_unop() and is_binop() when checking for unary and
-	binary operators.
-	Do not return early after simplify statement-expressions.
-	Do not call add_modify_stmt() to create assignment expressions.
-	(simplify_array_ref): Remove argument new_vars_p.  Update all callers.
-	(simplify_self_mod_expr): Ditto.
-	(simplify_component_ref): Ditto.
-	(simplify_call_expr): Ditto.
-	(simplify_tree_list): Ditto.
-	(simplify_cond_expr): Ditto.
-	(simplify_modify_expr): Ditto.
-	(simplify_boolean_expr): Ditto.
-	(simplify_compound_expr): Ditto.
-	(simplify_save_expr): New function.
-	(simplify_expr_wfl): New function.
-	(tree_build_scope): Reformat.
-	(add_tree): Call stmt_has_effect() and expr_has_effect() to decide
-	whether or not to add a new tree to the list.
-	(add_modify_stmt): Remove.
-	(create_tmp_var): Remove 'new_vars_p' argument.
-	Call pushdecl() to insert the newly created variable in the current
-	binding scope.
-	(declare_tmp_vars): Do not create a BLOCK_VARS for the scope.
-	(is_binop): Remove.
-	(is_unop): Remove.
-	(expr_has_effect): New function.
-	* c-tree.h (simplify_tree): Remove second argument.
-	* stmt.c (warn_if_unused_value): Check operand 0 of SAVE_EXPR
-	nodes.
-	* tree-dfa.c (find_refs_in_expr): Call find_refs_in_expr() to look
-	inside an EXPR_WITH_FILE_LOCATION node.
-	* tree-simple.c (is_simple_stmt): Add a case for SCOPE_STMT nodes.
-	(is_simple_compstmt): Assume that T is the first tree in the
-	compound statement's body.
-	Stop when a scope ending SCOPE_STMT node is found.
-	(is_simple_binary_expr): Don't call is_simple_binop().
-	(is_simple_condexpr): Don't call is_simple_relop().
-	(is_simple_binop): Remove.
-	(is_simple_relop): Remove.
-	(is_simple_unary_expr): Accept any operator with tree code class
-	'1' followed by a simple value.
-	Accept simple unary expressions wrapped inside SAVE_EXPR,
-	EXPR_WITH_FILE_LOCATION and NON_LVALUE_EXPR nodes.
-	(is_simple_id): Accept simple identifiers wrapped inside SAVE_EXPR,
-	EXPR_WITH_FILE_LOCATION and NON_LVALUE_EXPR nodes.
-	* tree-simple.h (create_tmp_var): Remove second argument.
-	(is_simple_binop): Remove.
-	(is_simple_relop): Remove.
-
 2002-04-27  Kurt Garloff <garloff@suse.de>
 
 	* tree-inline.c (inlinable_function_p): Improve heuristics
@@ -13002,83 +11969,6 @@ Tue Apr 23 14:24:25 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* config/pa/pa.h: .. here.
 	(FUNCTION_PROFILER): Output profile label here.
 
-2002-04-22  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (stmt_has_effect): New function.
-	(simplify_stmt): Fix example code in comment.
-	Use EXPR_STMT_EXPR to access the expression in an expression
-	statement.
-	Call debug_c_node to display unhandled statements.
-	Call stmt_has_effect to determine whether the statement has been
-	nullified by the simplification process.
-	(simplify_for_stmt): Do not simplify the initialization expression
-	if it's NULL.
-	Do not convert post_cond_s into a statement chain.
-	Do not simplify the expression if it's NULL.
-	(simplify_switch_stmt): initialize post_cond_s to NULL before
-	simplifying the expression.
-	(simplify_expr): Rename argument IS_LHS to NEEDS_LVALUE.  Update
-	all uses.
-	When simplifying assignments, return the LHS of the assignment if
-	the caller wants to use the assignment as an rvalue.
-	Do not simplify ADDR_EXPR nodes.
-	Handle NOP_EXPR, CONVERT_EXPR, FIX_TRUNC_EXPR, FIX_CEIL_EXPR,
-	FIX_ROUND_EXPR, INDIRECT_REF, NEGATE_EXPR, INTEGER_CST, STRING_CST,
-	COMPLEX_CST.
-	Abort if the expression has not been simplified and cannot be used
-	as an rvalue to assign it to a temporary.
-	When creating a new temporary to hold an lvalue, if the expression
-	is an indirect reference, use the address of the referenced object.
-	When creating an indirect reference, use the pointed-to type as the
-	type of the reference.
-	(simplify_self_mod_expr): If the LHS operand needs to be
-	simplified, simplify twice.  Once to produce an lvalue and another
-	to produce a simple value.
-	(simplify_modify_expr): Break assignment chains (a = b = c = ...)
-	into individual assignments.
-	(simplify_compound_expr):
-	(create_tmp_var): If the type is an array, use TYPE_POINTER_TO as
-	the pointer type.
-	(update_line_number): Fix typo in comment.
-	(is_unop): Ditto.
-	(convert_to_stmt_chain): Only add statements that comply with
-	stmt_has_effect().
-	* tree-dfa.c (find_declaration): Fix typo in comment.
-	(debug_varref): Ditto.
-	* tree-flow.h: Ditto.
-	* tree-simple.c (is_simple_stmt): New function.
-	(is_simple_compstmt): New function.
-	(is_simple_expr): Fix typo in comment.
-	(is_simple_rhs): Allow conditional expressions.
-	(is_simple_modify_expr): Fix typo in comment.
-	(is_simple_modify_expr_lhs): Ditto.
-	(is_simple_binary_expr): Ditto.
-	(is_simple_condexpr): Ditto.
-	(is_simple_relop): Ditto.
-	(is_simple_unary_expr): Ditto.
-	Allow taking the address of a constant (for strings).
-	(is_simple_call_expr): Fix typo in comment.
-	Call is_simple_id to determine if the first operand is a SIMPLE
-	function identifier.
-	(is_simple_arglist): Fix typo in comment.
-	(is_simple_varname): Ditto.
-	(is_simple_const): Don't accept casts of SIMPLE constants.
-	(is_simple_id): Don't accept casts of SIMPLE identifiers.
-	(is_simple_val): Fix typo in comment.
-	(is_simple_arrayref): Ditto.
-	(is_simple_compref): Ditto.
-	(is_simple_compref_lhs): Ditto.
-	(is_simple_cast_op): Ditto.
-	(is_simple_exprseq): Allow NULL expression sequences.
-	* tree-simple.h (is_simple_stmt): Declare
-	(is_simple_compstmt): Declare.
-	* tree-ssa.c (follow_chain): Fix typo in comment.
-
-2002-04-22  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-pretty-print.c (dump_c_node): Don't print function
-	bodies of FUNCTION_DECL nodes.
-
 2002-04-22  Eric Christopher  <echristo@redhat.com>
 
 	* config/mips/mips.h (ASM_OUTPUT_ALIGNED_DECL_COMMON): Revert
@@ -13281,10 +12171,6 @@ objc:
 	* objc-lang.c (LANG_HOOKS_FUNCTION_ENTER_NESTED,
 	LANG_HOOKS_FUNCTION_LEAVE_NESTED, LANG_HOOKS_FUNCTION_MARK): Redefine.
 
-2002-04-19  Andreas Jaeger  <aj@suse.de>
-
-	* Makefile.in (c-call-graph.o): New.
-
 2002-04-19  David S. Miller  <davem@redhat.com>
 
 	* config/sparc/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Define.
@@ -13358,14 +12244,6 @@ Fri Apr 19 15:53:03 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	* tree.h (lang_type_promotes_to): Remove.
 objc:
 	* objc-lang.c (LANG_HOOKS_TYPE_PROMOTES_TO): Redefine.
-
-2002-04-18  Sebastian Pop  <s.pop@laposte.net>
-
-	* c-pretty-print.c (PRINT_FUNCTION_NAME): Define.
-	(dump_c_node): Call pretty_print_string to print string.
-	Call print_call_name to print function names.
-	(pretty_print_string): New function.
-	(print_call_name): New function.
 
 2002-04-18  Richard Henderson  <rth@redhat.com>
 
@@ -13518,73 +12396,6 @@ Thu Apr 18 15:49:12 CEST 2002  Jan Hubicka  <jh@suse.cz>
 	PR middle-end/6205
 	* config/i386/i386.md (movsf_1): Use pxor only if TARGET_SSE2,
 	otherwise xorps.
-
-2002-04-17  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (simplify_do_stmt): Call is_simple_condexpr to test
-	if the conditional is in SIMPLE form.
-	(simplify_if_stmt): Ditto.
-
-2002-04-17  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-pretty-print.c (dump_c_node): Handle escape sequences in strings.
-	(op_symbol): Handle TRUTH_NOT_EXPR.
-	* c-simplify.c: Rename 'after' with 'post' and 'before' with 'pre'
-	everywhere.
-	Re-group some functions and add comments.
-	(simplify_stmt): Update calls to simplify_for_stmt,
-	simplify_while_stmt, simplify_do_stmt and simplify_switch_stmt.
-	Call simplify_if_stmt.
-	Do not test if expression is in SIMPLE form before calling
-	simplify_expr.
-	Call convert_to_stmt_chain to emit statement trees for side effects
-	found while simplifying.
-	(simplify_for_stmt): Re-implement.  Do not change structure of the
-	statement.  Simplify each header expression and emit side effects
-	at sequence points.
-	(simplify_while_stmt): Ditto.
-	(simplify_do_stmt): Ditto.
-	(simplify_switch_stmt): Ditto.
-	(new_simplified_if): Rename to simplify_if_stmt.
-	Call simplify_expr to simplify the conditional.
-	(simplify_if_stmt): New name for new_simplified_if.
-	(simplify_expr): Do not default simple_test_f to is_simple_expr.
-	If simple_test_f is not set, abort.
-	Handle COMPOUND_EXPR, MODIFY_EXPR, TRUTH_ANDIF_EXPR,
-	TRUTH_ORIF_EXPR, SAVE_EXPR and EXPR_WITH_FILE_LOCATION.
-	(simplify_arglist): Rename to simplify_tree_list.
-	(simplify_tree_list): New name for simplify_arglist.
-	(simplify_boolean_expr): New function.
-	(simplify_compound_expr): New function.
-	(tree_build_scope): Use SCOPE_BEGIN_P instead of TREE_LANG_FLAG_0
-	to access scope operands.  Use COMPOUND_BODY instead of
-	TREE_OPERAND to access the body of the compound statement.
-	(add_tree): Use a TREE_LIST container instead of directly chaining the
-	trees.
-	(add_assignment_tree): Rename to add_modify_stmt.  Update all
-	callers.
-	(add_modify_stmt): New name for add_assignment_tree.
-	(insert_before_continue_end): Do nothing it the tree to insert is
-	NULL.
-	(copy_stmt_chain): Rename to deep_copy_list.  Update all callers.
-	(deep_copy_list): New name for copy_stmt_chain.
-	(copy_stmt): Rename to deep_copy_node.  Update all callers.
-	(deep_copy_node): New name for copy_stmt.  Handle TREE_LIST
-	trees.
-	(insert_before_first): New function.
-	(is_binop): Add COMPOUND_EXPR.
-	(convert_to_stmt_chain): New function.
-	* tree-cfg.c (make_for_stmt_blocks): Fix comment.
-	* tree-simple.c (is_simple_condexpr): New function.
-	(is_simple_const): Allow casts of SIMPLE constants.
-	(is_simple_id): Allow casts of SIMPLE identifiers.
-	(is_simple_cast): Call is_simple_cast_op.
-	(is_simple_cast_op): New function.
-	(is_simple_exprseq): New function.
-	* tree-simple.h (deep_copy_list): Declare.
-	(deep_copy_node): Declare.
-	(is_simple_cast_op): Declare.
-	(is_simple_exprseq): Declare.
 
 2002-04-17  NIIBE Yutaka  <gniibe@m17n.org>
 
@@ -14603,36 +13414,6 @@ objc:
 
 	* config/sparc/sparc.c (sparc_va_arg): Adjust va_list by
 	UNITS_PER_WORD for zero sized aggregates.
-
-2002-04-03  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-simplify.c (simplify_expr): Add arguments simple_tree_f and
-	is_lhs.  Update all callers.
-	Call simplify_call_expr, simplify_cond_expr, simplify_arglist and
-	simplify_modify_expr.
-	Call is_unop and is_binop to check for unary and binary operators.
-	(simplify_binary_expr): Remove.
-	(simplify_call_expr): New function.
-	(simplify_arglist): New function.
-	(simplify_cond_expr): New function.
-	(simplify_modify_expr): New function.
-	(keep_stmt_p): Remove.
-	(is_binop): New function.
-	(is_unop): New function.
-	(simplify_stmt): Don't call keep_stmt_p.
-	(simplify_decl_stmt): Call add_assignment_tree.
-	* tree-simple.c: Include c-tree.h
-	Add expression-statements to the SIMPLE grammar.
-	(is_simple_modify_expr_lhs): New function.
-	(is_simple_modify_expr): Call it.
-	(is_simple_relop): Update comment.
-	(is_simple_unary_expr): Allow expression-statements.
-	(is_simple_arglist): New function.
-	(is_simple_call_expr): Call it.
-	(is_simple_id): Accept expressions taking the address of a
-	function.
-	* tree-simple.h (is_simple_modify_expr_lhs): Declare.
-	(is_simple_arglist): Declare.
 
 2002-04-03  David S. Miller  <davem@redhat.com>
 
@@ -16177,33 +14958,6 @@ Fri Mar 22 12:08:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(parse_number): Fast path only, use parse_slow otherwise.
 	(_cpp_lex_direct): Update calls to parse_number.
 
-2002-03-21  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (c-simplify.o): Add dependency on varray.h.
-	* c-simplify.c: Include varray.h.
-	Remove comments with SIMPLE grammar.
-	(simplify_array_ref): New.
-	(simplify_self_mod_expr): New.
-	(simplify_component_ref): New.
-	(add_assignment_tree): New.
-	(simplify_expr): Call simplify_array_ref to simplify array
-	references.
-	Call simplify_self_mod_expr to simplify ++, --, += and -=
-	expressions.
-	Call simplify_component_ref to simplify references to structures.
-	(simplify_binary_expr): Do not check whether the expression is
-	already in SIMPLE form.
-	* tree-simple.c: Document changes from original SIMPLE grammar.
-	(is_simple_unary_expr): Add check for *ID.
-	(is_simple_call_expr): Update comments.
-	(is_simple_const): Ditto.
-	(is_simple_id): Do not accept *ID expressions.
-	(is_simple_val): Update comments.
-	(is_simple_arrayref): Accept any variable name as the base address.
-	(is_simple_compref_lhs): New.
-	(is_simple_compref): Call it.
-	* tree-simple.h (is_simple_compref_lhs): Declare.
-
 2002-03-21  DJ Delorie  <dj@redhat.com>
 
 	* bb-reorder.c (make_reorder_chain_1): Protect against
@@ -16530,66 +15284,6 @@ Tue Mar 19 14:12:32 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	Call convert_parm_for_inlining lang hook if needed.
 	* c-typeck.c (c_convert_parm_for_inlining): New function.
 	* c-tree.h (c_convert_parm_for_inlining): Add prototype.
-
-2002-03-18  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (C_AND_OBJC_OBJS): Add tree-simple.o
-	(tree-simple.o): New rule.
-	* c-simplify.c (simplified_p): Remove.
-	(simplified_rec_p): Remove.
-	(simplified_condition_p): Remove.
-	(simplify_for_stmt): Call is_simple_expr instead of
-	simplified_condition_p.
-	(simplify_while_stmt): Ditto.
-	(simplify_do_stmt): Call is_simple_expr instead of simplified_p.
-	(new_simplified_if): Call is_simple_expr instead of
-	simplified_rec_p.
-	(simplify_decl_stmt): Update comment.
-	(simplify_expr): Return the original expression if it's already
-	in SIMPLE form.
-	Do not special case most binary and unary expressions.
-	When simplifying array references, create temporary variables to
-	hold the base address for the array.
-	Simplify COMPONENT_REF expressions separately.
-	Call simplify_binary_expr to handle most binary expressions.
-	(simplify_binary_expr): New function.
-	(keep_stmt_p): Call is_simple_unary_expr to determine whether the
-	statement should be kept or not.
-	* tree-simple.c: New file.
-	* tree-simple.h (is_simple_expr): Declare.
-	(is_simple_rhs): Declare.
-	(is_simple_modify_expr): Declare.
-	(is_simple_binary_expr): Declare.
-	(is_simple_binop): Declare.
-	(is_simple_relop): Declare.
-	(is_simple_unary_expr): Declare.
-	(is_simple_call_expr): Declare.
-	(is_simple_const): Declare.
-	(is_simple_id): Declare.
-	(is_simple_varname): Declare.
-	(is_simple_val): Declare.
-	(is_simple_arrayref): Declare.
-	(is_simple_compref): Declare.
-	(is_simple_cast): Declare.
-	* cp/Make-lang.in (CXX_C_OBJS): Add tree-simple.o
-
-2002-03-18  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-simple.h: New file.
-	* Makefile.in (c-simplify.o): Add dependency on tree-simple.h
-	* c-simplify.c: Reformat some comments.
-	(tree_last_decl): Declare.
-
-2002-03-18  Sebastian Pop  <s.pop@laposte.net>
-
-        * c-simplify.c (insert_stmt_chain): Delete.
-        (simplified_condition_p, insert_after_case_labels): New.
-	(simplify_stmt, simplify_for_stmt, simplify_while_stmt,
-	simplify_do_stmt, new_simplified_if, simplify_switch_stmt): 
-	Returns a single node, generate a chain of statements to be executed
-	before the if, and a list of new variables.
-        (new_simplified_if): Simplify clauses.
-        (simplify_expr): Remove unused parameter scope.
 
 2002-03-18  Mark Mitchell  <mark@codesourcery.com>
 
@@ -16948,16 +15642,6 @@ Sat Mar 16 12:57:28 CET 2002  Jan HUbicka  <jh@suse.cz>
 
 	* toplev.c (wrapup_global_declarations): Clarify variable handling.
 	-fkeep-static-consts doesn't apply to comdats.
-
-2002-03-14  Sebastian Pop  <s.pop@laposte.net>
-
-	* c-simplify.c (simplify_switch_stmt, simplify_expr): Add scope
-	parameter.
-	(simplify_while_stmt, simplify_do_stmt, simplify_for_stmt): Avoid
-	negating loop condition during simplification.
-	(new_simplified_if): Don't simplify the IF_BODY.
-	(copy_stmt_chain): Use copy_stmt.
-	(copy_stmt): New function.
 
 2002-03-14  Richard Henderson  <rth@redhat.com>
 
@@ -18141,80 +16825,6 @@ Fri Mar  1 20:59:14 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* config/h8300/h8300.c (print_operand): Support 16-bit
 	constant addresses.
 	* config/h8300/h8300.h (TINY_CONSTANT_ADDRESS_P): New.
-
-2002-02-28  Sebastian Pop  <s.pop@laposte.net>
-
-	* tree-dfa.c (find_refs_in_stmt): Changed if/else statements in
-	a switch.
-
-2002-02-28  Sebastian Pop  <s.pop@laposte.net>
-
-	* c-simplify.c (simplify_if_stmt): Deleted.
-	(new_simplified_if): New function.
-	(make_type_writable): New function.
-	(insert_before_continue_end): New function.
-	(insert_before_continue): New function.
-	(copy_stmt_chain): New function.
-	(insert_stmt_chain): New function.
-	(update_line_number): New function.
-	(simplified_p): New function.
-	(simplified_rec_p) New function.
-	(simplify_stmt): Modify the way to call simplification 
-	of COMPOUND_STMT, FOR_STMT, WHILE_STMT, DO_STMT, IF_STMT, 
-	and SCOPE_STMT in order to avoid to execute the code after 
-	the switch.  Add FILE_STMT, LABEL_STMT, GOTO_STMT, ASM_STMT cases.
-	Simplified a little the code after the switch.
-	(simplify_for_stmt): Change functions parameters.
-	Add code to simplify the FOR_INIT_STMT, FOR_COND, FOR_EXPR. 
-	(simplify_while_stmt): Change functions parameters.
-	Add code to simplify the WHILE_COND.
-	(simplify_do_stmt): Change functions parameters.
-	Add code to simplify the DO_COND.
-	(simplify_switch_stmt): Change functions parameters.
-	(simplify_expr): Remove scope parameter.
-	Avoid to introduce a new temporary variable for an expression 
-	that is already simplified.
-	([ARRAY|COMPONENT]_REF, COND_EXPR): Handle them apart.
-	(TRUTH_ANDIF_EXPR, TRUTH_ORIF_EXPR): Avoid to evaluate the second 
-	operand if the value can be deduced from the first one.
-	(keep_stmt_p): Add some other cases in which we don't need to keep 
-	a statement after its simplification.
-
-2002-02-28  Sebastian Pop  <s.pop@laposte.net>
-
-	* Makefile.in: Add c-call-graph.o dependence.
-	* c-call-graph.c: New file.
-	* c-decl.c (c_expand_body): Add an entry point for call-graph.
-	* tree-dump.c (dump_files): Add the flag dump-call-graph.
-	* tree.h (tree_dump_index): Add TDI_xml.
-
-2002-02-28  Sebastian Pop  <s.pop@laposte.net>
-
-	* c-pretty-print.c (dump_c_tree): Declare it extern.
-	(dump_c_node): Declare it extern.
-	(dump_c_scope_vars): Deleted, some code moved in print_declaration ().
-	(print_declaration): New function.
-	(print_function_decl): New function.
-	(print_struct_decl): New function.
-	(INDENT_PRINT_C_NODE): Deleted.
-	(INDENT): New macro.
-	(NIY): Define the macro body in a block.
-	(dump_c_node): Add dumping for TREE_PURPOSE operand in TREE_LIST.
-	[VOID|INTEGER|REAL|COMPLEX|VECTOR|ENUMERAL|BOOLEAN|CHAR]_TYPE nodes: 
-	insert some code from print-tree.c:print_node_brief () in order to 
-	stabilise the type printing.
-	[RECORD|UNION]_TYPE nodes: Don't print their contents by default, 
-	move the existing code in print_struct_decl ().
-	[POSTDECREMENT|POSTINCREMENT]_EXPR: Print the operand in post postion.
-	[MIN|MAX|ABS]_EXPR: New code for printing these nodes.
-	FOR_STMT: Don't print the FOR_BODY if it is not present.
-	RETURN_STMT: Don't print the return expression for a void function.
-	ASM_STMT: New code for printing this node.
-	SCOPE_STMT: Use print_declaration instead of dump_c_scope_vars.
-	COMPOUND_LITERAL_EXPR: Add the node as not implemented yet.
-	(op_prio): Fix switch indent.
-	Add node EXPR_WITH_FILE_LOCATION with priority 16.
-	(op_symbol): Fix switch indent.
 
 2002-02-28  Richard Henderson  <rth@redhat.com>
 
@@ -21941,36 +20551,6 @@ Sun Jan 27 13:23:40 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(i[34567]86-*-freebsd*): Don't include svr4.h.
 	* config/i386/freebsd64.h: New file.
 
-2002-01-25  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (c-pretty-print.o): Add dependency on errors.h.
-	* c-decl.c (c_expand_body): React to -ftree-dump-simple.
-	* c-pretty-print.c: Fix typo in header comment.
-	(NYI): Flush output buffer, dump the tree and abort.
-	(dump_c_node): Add unparsing code for ERROR_MARK, IDENTIFIER_NODE,
-	ARRAY_TYPE, UNION_TYPE, STRING_CST, CEIL_DIV_EXPR, FLOOR_DIV_EXPR,
-	ROUND_DIV_EXPR, TRUNC_MOD_EXPR, FLOOR_MOD_EXPR, ROUND_MOD_EXPR,
-	RDIV_EXPR, EXACT_DIV_EXPR, LROTATE_EXPR, RROTATE_EXPR,
-	BIT_ANDTC_EXPR, BIT_NOT_EXPR, UNORDERED_EXPR, SAVE_EXPR and
-	EXPR_WITH_FILE_LOCATION.
-	Unify unparsing code for common binary and unary expressions.
-	Handle indirect references like any other unary expression.
-	(dump_c_scope_vars): Remove unused variable 'context'.
-	Call dump_c_node to print the type.
-	(dump_c_indirect_ref): Remove.
-	(op_prio): New function.
-	(op_symbol): New function.
-	* c-simplify.c (simplify_stmt): Do not simplify a return
-	expression, only its second operand.
-	Fix capitalization in error message.
-	(simplify_expr): Add documentation.
-	Fix capitalization in error message.
-	* tree-dump.c (dump_files): Add entry for -fdump-tree-simple.
-	(dump_options): Add entry for -unparse.
-	* tree.h (TDI_simple): Define.
-	(TDF_UNPARSE): Define.
-	* doc/invoke.texi: Document -fdump-tree-simple.
-
 2002-01-25  Douglas B Rupp  <rupp@gnat.com>
 
 	* config/alpha/x-vms (version): Make static.
@@ -22109,13 +20689,6 @@ Fri Jan 25 20:43:56 CET 2002  Jan Hubicka  <jh@suse.cz>
 2002-01-24  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config/sparc/sparc.md (fix_trunctfdi2): Correct typo in mode.
-
-2002-01-23  Sebastian Pop  <s.pop@laposte.net>
-
-        * c-pretty-print.c: Clean C++ comments.
-	(debug_output_buffer): Remove declaration and definition.
-        * diagnostic.h (debug_output_buffer): Add declaration.
-	* diagnostic.c (debug_output_buffer): Add definition.
 
 2002-01-23  Richard Henderson  <rth@redhat.com>
 
@@ -22513,35 +21086,6 @@ Tue Jan 22 06:26:33 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	config/stormy16/stormy16.h, config/v850/v850.h: Remove commented
 	out target macro definitions and non-target-specific comments
 	mostly taken from old versions of the manual.
-
-2002-01-21  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-dfa.c (find_refs_in_stmt): Fix capitalization in error
-	message.
-	(find_refs_in_expr): Ditto.
-
-2002-01-20  Diego Novillo  <dnovillo@redhat.com>
-            Sebastian Pop  <s.pop@laposte.net>
-
-	* Makefile.in: Add c-simplify.o.
-	* cp/Make-lang.in: Ditto.
-	* c-decl.c (c_expand_body): Call simplify_stmt() before
-	calling optimize_tree().
-	* c-simplify.c: New file.
-	* c-tree.h (simplify_stmt): Declare.
-	(print_c_tree)
-	* tree-dfa.c (find_refs_in_stmt): Fix error message for unhandled
-	statement codes.
-
-2002-01-20  Sebastian Pop  <s.pop@laposte.net>
-
-	* Makefile.in: Add c-pretty-print.o.
-	* cp/Make-lang.in: Ditto.
-	* c-pretty-print.c: New file.
-	* c-tree.h (print_c_tree): Declare.
-	(print_c_node): Declare.
-	(debug_c_tree): Declare.
-	(debug_c_node): Declare.
 
 2002-01-20  Kazu Hirata  <kazu@hxi.com>
 
@@ -24580,775 +23124,4 @@ Tue Jan  1 17:12:56 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(mmix_print_operand): <case '+'>: Emit P for a likely branch.
 	(mmix_print_operand_punct_valid_p): A '+' is valid.
 
-2001-12-29  Diego Novillo  <dnovillo@redhat.com>
-
-	* c-lang.c (c_post_options): Move code to enable tree-ssa
-	if -Wuninitialized is used ...
-	* c-common.c (c_common_post_options): ... here.
-
-2001-12-29  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (tree-optimize.o): Don't depend on c-common.h
-	* tree-cfg.c: Don't include c-tree.h.  Explain why we need to
-	include c-common.h.
-	* tree-dfa.c: Explain why we need to include c-common.h.
-	* tree-ssa.c: Ditto.
-	* tree-optimize.c: Don't include c-common.h
-
-2001-12-21  Nathan Sidwell  <nathan@codesourcery.com>
-
-	Revert my patch of 2001-07-23 for the moment.
-
-2001-10-15  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-dfa.c (create_varref): If the new reference is inside a
-	statement, add it to the list of references for that statement.
-
-2001-10-14  Diego Novillo  <dnovillo@redhat.com>
-
-	* Merge from mainline:
-
-	Tue Sep 11 11:37:52 CEST 2001  Jan Hubicka  <jh@suse.cz>
-
-		* basic-block.h (cached_make_edge): New.
-		(make_edge): Remove first parameter.
-		* flow.c (cached_make_edge): Rename from make_edge; return
-		newly created edge; use obstack allocation.
-		(make_edge): New.
-		(flow_call_edges_add): Updaet make_edge call.
-		(add_noreturn_fake_exit_edges): Likewise.
-		(connect_infinite_loops_to_exit): Liekwise.
-		(make_label_edge, make_edges, find_sub_basic_blocks): Use
-		cached_make_edge.
-		* profile.c (branch_prob): Update make_edge call.
-		* ssa-dce.c (ssa_eliminate_dead_code): Likewise.
-
-2001-10-14  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (tree-ssa.o): Remove dependency on flags.h.
-	(tree-optimize.o): Add dependency on flags.h.
-	* bb-reorder.c (fixup_reorder_chain): Update call to make_edge.
-	* c-lang.c (c_post_options): Set flag_tree_ssa if -Wuninitialized
-	is given.
-	* ifcvt.c (find_if_case_1): Update call to make_edge.
-	* toplev.c (toplev_main): Do not warn about -Wuninitialized without
-	-O if -ftree-ssa is used.
-	* tree-cfg.c (dot_dump_file): Remove.
-	(dot_dump_flags): Remove.
-	(cfg_dump_file): Rename to dump_file.
-	(cfg_dump_flags): Rename to dump_flags.
-	(remove_bb_ann): New function.
-	(tree_find_basic_blocks): Do not open dump files at the beginning
-	of the function.
-	Do not call delete_cfg.
-	Create annotations for ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.
-	(make_for_stmt_blocks): Update FOR_INIT_STMT_BB and FOR_COND_BB
-	when creating the header blocks.
-	Create the blocks for the loop body before the expression block.
-	(make_while_stmt_blocks): Update END_WHILE_BB when creating the
-	header blocks.
-	Create the blocks for the loop body before the end-while block.
-	(make_do_stmt_blocks): Update DO_COND_BB when creating header
-	blocks.
-	Create the blocks for the loop body before the block for DO_COND.
-	(create_bb): When creating loop header blocks, allocate space for
-	the header_blocks union.
-	Call create_bb_ann to create a new annotation.
-	(remove_bb_ann): New function.
-	(tree_split_bb): New function.
-	(make_edges): Remove first argument from call to make_edge,
-	make_ctrl_stmt_edges, make_exit_edges, make_for_stmt_edges,
-	make_while_stmt_edges, make_do_stmt_edges, make_if_stmt_edges,
-	make_goto_stmt_edges, make_break_stmt_edges and
-	make_continue_stmt_edges.
-	When creating edges for the default label, remove the fallthru edge
-	that was created for the associated SWITCH_STMT entry block.
-	Do not call delete_unreachable_blocks.
-	Call tree_cleanup_cfg.
-	(make_ctrl_stmt_edges): Remove first argument.
-	(make_exit_edges): Remove first argument.
-	If the last element of the block is an EXPR_STMT, assume that it is
-	the call to a non-returning function and make an edge to the exit
-	block.
-	Do not call make_return_stmt_edges.  Call make_edge directly.
-	(make_for_stmt_edges): Remove first argument.
-	Simplify the graph for infinite and zero-iteration loops.
-	(make_while_stmt_edges): Remove first argument.
-	Simplify the graph for infinite and zero-iteration loops.
-	(make_do_stmt_edges): Remove first argument.
-	Simplify the graph for infinite and one-iteration loops.
-	(make_if_stmt_edges): Remove first argument.
-	Simplify the graph for always-true and always-false conditionals.
-	(make_goto_stmt_edges): Remove first argument.
-	(make_break_stmt_edges): Remove first argument.
-	(make_continue_stmt_edges): Remove first argument.
-	(make_return_stmt_edges): Remove.
-	(tree_cleanup_cfg): New function.
-	(delete_unreachable_blocks): Do not react to -Wunreachable-code.
-	Write to dump file blocks that have been removed.
-	Call remove_edge.
-	(is_ctrl_altering_stmt): If the statement contains a call to a
-	non-returning function, return 1.
-	(delete_cfg): Call remove_bb_ann.  Also remove annotations for
-	ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR.
-	(latch_block): Use WHILE_COND_BB instead of END_WHILE_BB.
-	(insert_stmt_tree_before): Use cfg_dump_file instead of dump_file.
-	(insert_before_ctrl_stmt): Ditto.
-	(insert_before_normal_stmt): Ditto.
-	(insert_stmt_tree_after): Ditto.
-	(insert_after_ctrl_stmt): Ditto.
-	(insert_after_normal_stmt): Ditto.
-	(replace_expr_in_tree): Ditto.
-	(insert_bb_before): Ditto.
-	* tree-dfa.c (tree_find_varrefs): Call find_refs_in_expr when the
-	tree is not a statement.
-	(find_refs_in_stmt): Update comments.
-	Do not deal with FOR_STMT and DO_STMT trees separately.
-	When processing VAR_DECLs, call find_refs_in_expr with the
-	declaration, not its initial value.
-	(find_refs_in_expr): When processing COMPONENT_REFs and ARRAY_REFs,
-	recurse using the same reference type that was given by the
-	original caller.
-	(create_varref): Insert new PHI terms at the beginning of the
-	BB_REFS array, not the end.
-	* tree-flow.h (struct for_header_blocks): Declare.
-	(union header_blocks): Declare.
-	(struct bb_ann_def): Add new field 'loop_hdr'.
-	(BB_ANN): Re-define so that it can be used as an lvalue.
-	(BB_PARENT): Ditto.
-	(BB_REFS): Ditto.
-	(BB_PREV_CHAIN): Ditto.
-	(BB_BINDING_SCOPE): Ditto.
-	(BB_LOOP_HDR): Define.
-	(FOR_INIT_STMT_BB): Redefine using BB_LOOP_HDR.
-	(FOR_COND_BB): Ditto.
-	(FOR_EXPR_BB): Ditto.
-	(DO_COND_BB): Ditto.
-	(END_WHILE_BB): New name for WHILE_COND_BB.
-	(tree_warn_uninitialized): Declare.
-	(tree_cleanup_cfg): Declare.
-	(tree_split_bb): Declare.
-	* tree-optimize.c: Include flags.h.
-	(init_tree_flow): New function.
-	(optimize_tree): Call build_tree_ssa instead of building SSA
-	in-place.
-	(build_tree_ssa): New function.
-	* tree-optimize.h (build_tree_ssa): Declare.
-	* tree-ssa.c: Don't include toplev.h
-	(tree_warn_uninitialized): Define.
-	(tree_compute_rdefs): Do not call is_upward_exposed.  Instead
-	traverse all the uses of each variable and warn if the use is
-	reached by the ghost definition.
-
-2001-10-10  Graham Stott  <grahams@redhat.com>
-
-	* tree-cfg.c (create_bb): Add new binding_scope parameter which allows
-	the binding scope either to be explicitly specified if non-zero.
-	(make_blocks): Update call to create_bb.
-	(make_for_stmt_blocks): Ditto.
-	(make_while_stmt_blocks): Ditto.
-	(make_do_stmt_blocks): Ditto.
-	(make_if_stmt_blocks): Ditto.
-	(make_switch_stmt_blocks): Ditto.
-	(create_maximal_bb): Ditto.
-	(make_edges): If a statement expression is in the last basic
-        block create an edge to EXIT_BLOCK_PTR and not the next block.
-	(insert_before_normal_stmt): Pass the appropriate binding scope to
-	create_bb.
- 
-2001-10-01  Graham Stott  <grahams@redhat.com>
-            Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-optimize.c (optimize_tree): Early return if the program has
-	errors.
- 
-2001-09-30  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-optimize.c (optimize_tree): Compute reaching definitions
-	after building SSA.
-
-2001-09-30  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (insert_after_ctrl_stmt): Remove unused argument.
-	(make_blocks): Pop top element from scope binding stack when an end
-	of scope statement is found.
-	(create_bb): Remove code for popping top element from scope binding
-	stack.
-	Do not push basic block 0 to initialize scope binding stack.
-	(insert_stmt_tree_after): Remove unused argument from call to
-	insert_after_ctrl_stmt.
-	(tree_dump_bb): Dump BB_BINDING_SCOPE if defined.
-	* doc/invoke.texi: Document debugging option -ftree-dump-ssa-rdefs.
-
-2001-09-29  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (tree-ssa.o): Update dependencies.
-	(tree-cfg.o): Ditto.
-	(tree-optimize.o): Ditto.
-	* basic-block.h (BB_CONTROL_EXPR): Define.
-	(BB_CONTROL_ENTRY): Define.
-	* c-common.h (TDF_RDEFS): Define.
-	* c-dump.c (dump_option_value_in): Add entry for TDF_RDEFS.
-	* tree-cfg.c: Include flags.h and c-tree.h
-	(binding_stack): New local variable.
-	(delete_block): Rename to delete_bb.
-	(tree_find_basic_blocks): Initialize varray 'binding_stack'.
-	Call make_blocks with an additional argument.
-	Adjust size of varray 'basic_block_info' after building CFG.
-	(make_blocks): Add new argument prev_chain_p.
-	Update all callers and callees.
-	Create sub-graphs for statement-expressions.
-	Update prev_chain_p when accessing the next tree in the chain.
-	(make_for_stmt_blocks): Add new argument prev_chain_p.
-	Update all callers and callees.
-	Update flags for control header blocks with BB_CONTROL_ENTRY and/or
-	BB_CONTROL_EXPR.
-	(make_while_stmt_blocks): Ditto.
-	(make_do_stmt_blocks): Ditto.
-	(make_if_stmt_blocks): Ditto.
-	(make_switch_stmt_blocks): Ditto.
-	(create_maximal_bb): Add new argument prev_chain_p.
-	Update all callers and callees.
-	(create_bb): Add new argument prev_chain_p.
-	Push basic block 0 the first time into the binding scope stack.
-	Associate the new basic block to the binding scope at the top of
-	the binding stack.
-	Push new binding scopes when a SCOPE_BEGIN statement is found.
-	Pop the top binding scope when a SCOPE_END statement is found.
-	(make_edges): Handle statement expressions.
-	Handle case labels preceded by scope statements in switch
-	statements.
-	(make_for_stmt_edges): Use FOR_INIT_STMT_BB, FOR_COND_BB and
-	FOR_EXPR_BB to access the header basic blocks.
-	(delete_unreachable_blocks): Call delete_bb instead of
-	delete_block.
-	(delete_block): Rename to delete_bb.
-	(block_invalidates_loop): Use data references to find calls to
-	non-pure functions.
-	(is_ctrl_stmt): Reformat.
-	(loop_body): New function.
-	(set_loop_body): New function.
-	(stmt_starts_bb_p): Statement expression trees also start a new
-	basic block.
-	(delete_cfg): Call VARRAY_FREE to delete all the references in each
-	basic block.
-	(latch_block): Use FOR_EXPR_BB, WHILE_COND_BB and DO_COND_BB to
-	find out the latch block for the loop.
-	(last_exec_stmt): New function.
-	(is_exec_stmt): Scope statements that begin a scope are also
-	considered executables.
-	(is_statement_expression): New function.
-	(first_non_decl_stmt): New function.
-	(first_decl_stmt): New function.
-	(first_non_label_in_bb): New function.
-	(insert_stmt_tree_before): New function.
-	(insert_before_ctrl_stmt): New function.
-	(insert_before_normal_stmt): New function.
-	(insert_stmt_tree_after): New function.
-	(insert_after_ctrl_stmt): New function.
-	(insert_after_normal_stmt): New function.
-	(insert_after_loop_body): New function.
-	(replace_expr_in_tree): New function.
-	(find_expr_in_tree): New function.
-	(insert_bb_before): New function.
-	(tree_dump_bb): Display the contents of BB_PREV_CHAIN_P.
-	* tree-dfa.c (tree_find_varrefs): Use accessor macros for array
-	'referenced_symbols'.
-	(find_refs_in_stmt): Do not process error_mark_node trees.
-	Handle statement-expression nodes as any other statement tree.
-	Do not call find_refs_in_stmt_expr.
-	(find_refs_in_stmt_expr): Remove.
-	(add_ref_to_sym): Remove.
-	(add_ref_to_bb): Remove.
-	(find_refs_in_expr): Do not process error_mark_node trees.
-	ADDR_EXPR trees are not variable references except if used in a
-	CALL_EXPR node.
-	Handle EXPR_WITH_FILE_LOCATION nodes.
-	(create_varref): Remove variable 'is_new'.
-	Initialize data-flow arrays VARDEF_IMM_USES, VARDEF_RUSES,
-	VARDEF_PHI_CHAIN and VARUSE_RDEFS.
-	Do not call add_ref_to_sym and add_ref_to_bb.
-	(add_ref_symbol): Use accessor macros for varray
-	'referenced_symbols'.
-	(function_may_recurse_p): New function.
-	(get_fcalls): New function.
-	(find_declaration): New function.
-	(dump_varref): Handle NULL values of VARREF_EXPR.
-	Use VARDEF_PHI_CHAIN instead of VARPHI_CHAIN.
-	(dump_varref_list): Check if the list is NULL before traversing it.
-	* tree-flow.h (struct vardef): Add fields 'ruses', 'marked' and
-	'phi_chain'.
-	(VARDEF_RUSES): Define.
-	(VARDEF_MARKED): Define.
-	(VARDEF_PHI_CHAIN): Define.
-	(VARPHI_CHAIN): Remove.
-	(struct varphi): Remove.
-	(struct varuse): Add field 'rdefs'.
-	(VARUSE_RDEFS): Define.
-	(union varref_def): Remove field 'phi'.
-	(IS_GHOST_DEF): Define.
-	(IS_ARTIFICIAL_REF): Define.
-	(struct bb_ann_def): Add fields 'prev_chain_p' and 'binding_scope'.
-	(BB_PREV_CHAIN_P): Define.
-	(BB_BINDING_SCOPE): Define.
-	(FOR_INIT_STMT_BB): Define.
-	(FOR_COND_BB): Define.
-	(FOR_EXPR_BB): Define.
-	(WHILE_COND_BB): Define.
-	(DO_COND_BB): Define.
-	(IF_COND_BB): Define.
-	(CASE_COND_BB): Define.
-	(NREF_SYMBOLS): Define.
-	(REF_SYMBOL): Define.
-	(ADD_REF_SYMBOL): Define.
-	(FCALL_NON_PURE): Define.
-	(FCALL_PURE): Define.
-	(FCALL_BUILT_IN): Define.
-	(loop_body): Declare.
-	(set_loop_body): Declare.
-	(last_exec_stmt): Declare.
-	(is_statement_expression): Declare.
-	(first_non_decl_stmt): Declare.
-	(first_decl_stmt): Declare.
-	(first_non_label_in_bb): Declare.
-	(insert_stmt_tree_before): Declare.
-	(insert_stmt_tree_after): Declare.
-	(replace_expr_in_tree): Declare.
-	(find_expr_in_tree): Declare.
-	(insert_bb_before): Declare.
-	(function_may_recurse_p): Declare.
-	(get_fcalls): Declare.
-	(find_declaration): Declare.
-	(tree_compute_rdefs): Declare.
-	(analyze_rdefs): Declare.
-	(is_upward_exposed): Declare.
-	* tree-optimize.c (optimize_tree): Update name for varray
-	referenced_symbols.
-	Free varray referenced_symbols and call delete_ssa on exit.
-	* tree-ssa.c: Include flags.h, diagnostic.h and toplev.h.
-	(tree_build_ssa): Create ghost definitions before building FUD
-	chains.
-	(insert_phi_terms): Use accessor macros for 'referenced_symbols'.
-	Ignore ghost definitions when placing PHI terms.
-	(build_fud_chains): Call get_tree_ann to create an annotation for
-	the symbol if it doesn't already have one.
-	(search_fud_chains): Reformat comments.
-	Do not initialize varray VARDEF_IMM_USES.
-	If a successor basic block does not have references, continue on to
-	the next one, do not stop.
-	Do not initialize varray VARDEF_PHI_CHAIN.
-	(delete_ssa): New function.
-	(delete_refs): New function.
-	(tree_compute_rdefs): New function.
-	(analyze_rdefs): New function.
-	(follow_chain): New function.
-	(is_upward_exposed): New function.
- 
-2001-09-14  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (tree_find_basic_blocks): Remove call to
-	mark_critical_edges.
-	(create_maximal_bb): Do not create annotations for non-executable
-	statements.
-	(map_stmt_to_bb): Rename basic_block_ann with bb_ann.
-	(delete_cfg): Ditto.
-	(is_exec_stmt): Reformat.
-	(create_bb_ann): New function.
-	* tree-dfa.c (create_node): Remove.
-	(ref_symbols_list): Remove.
-	(create_tree_ann): Declare.
-	(referenced_symbols): Declare.
-	(tree_find_varrefs): Replace usage of linked lists with variable
-	arrays.
-	(create_varref): Remove second argument from call to
-	add_ref_symbol.
-	Update comments.
-	(add_ref_to_sym): Replace usage of linked lists with variable
-	arrays.
-	Declare static.
-	(add_ref_to_bb): Ditto.
-	(add_ref_symbol): Ditto.
-	(dump_varref_list): Ditto.
-	(debug_varref_list): Ditto.
-	(create_varref_list): Remove.
-	(push_ref): Remove.
-	(create_node): Remove.
-	(delete_varref_list): Remove.
-	(get_tree_ann): Call create_tree_ann if the tree doesn't have an
-	annotation already.
-	(create_tree_ann): New function.
-	* tree-flow.h (varref_list_def): Remove.
-	(vardef): Change type of field 'imm_uses' to 'varray_type'.
-	(varphi): Change type of field 'phi_chain' to 'varray_type'.
-	(varref_node_def): Remove.
-	(varref_node): Remove.
-	(VARREF_NODE_ELEM): Remove.
-	(VARREF_NODE_NEXT): Remove.
-	(VARREF_NODE_PREV): Remove.
-	(varref_list_def): Remove.
-	(varref_list): Remove.
-	(VARREF_LIST_FIRST): Remove.
-	(VARREF_LIST_LAST): Remove.
-	(tree_ann_def): Change type of field 'refs' to 'varray_type'.
-	(basic_block_ann_def): Rename to 'bb_ann_def'.
-	Change type of field 'refs' to 'varray_type'.
-	(basic_block_ann): Rename to 'bb_ann'.
-	(ref_symbols_list): Remove.
-	(referenced_symbols): Declare.
-	(add_ref_to_sym): Remove.
-	(add_ref_to_bb): Remove.
-	(add_ref_symbol): Remove.
-	(remove_ann_from_sym): Remove.
-	(create_varref_list): Remove.
-	(push_ref): Remove.
-	(delete_varref_list): Remove.
-	(debug_varref_list): Update argument type to be 'varray_type'.
-	(dump_varref_list): Ditto.
-	* tree-optimize.c: Include 'basic-block.h'.
-	(optimize_tree): Replace references to 'ref_symbols_list' with
-	'referenced_symbols'.
-	Remove call to delete_varref_list.
-	* tree-ssa.c (insert_phi_terms): Rename 'work_list' to
-	'work_stack'.
-	Use VARRAY_PUSH and VARRAY_TOP to access 'work_stack' instead of
-	maintaining the stack pointer in 'work_list_top'.
-	Remove code to grow 'work_stack'.
-	Remove references to 'work_list_top'.
-	Replace references to 'ref_symbols_list' with 'referenced_symbols'.
-	(build_fud_chains): Replace references to 'ref_symbols_list' with
-	'referenced_symbols'.
-	(search_fud_chains): If there are no variable references in the
-	basic block, return early.
-	Change usage of linked lists with variable arrays.
-
-2001-09-07  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (tree_find_basic_blocks): Document how to traverse
-	trees inside a basic block.
-	(make_for_stmt_blocks): Make sure that there is always a block for
-	FOR_EXPR, even if the loop does not have an expression.
-	Create a separate block for FOR_INIT_STMT.
-	(make_while_stmt_blocks): Always create an "end_while" block. 
-	(make_if_stmt_blocks): Do not store IF_COND in the header block of
-	an IF statement.
-	(make_for_stmt_edges): Create an edge from the block header to the
-	block for FOR_INIT_STMT.
-	Determine the first block of the loop body calling BB_FOR_STMT on
-	the first executable statement in the body.
-	Remove the special case for missing FOR_EXPR trees.
-	(make_while_stmt_edges): Create a back edge from the end_while
-	block to the header block.
-	Determine the first block of the loop body calling BB_FOR_STMT on
-	the first executable statement in the body.
-	(make_do_stmt_edges): Determine the first block of the loop body
-	calling BB_FOR_STMT on the first executable statement in the body.
-	(condition_block): Rename to latch_block.  Return the latch
-	block for the given loop header.
-	(make_continue_stmt_edges): Rename condition_block to
-	latch_block.
-	(successor_block): Ditto.
-	* tree-flow.h (condition_block): Rename to latch_block.
-
-2001-09-06  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-dfa.c (tree_find_varrefs): Use TDF_REFS instead of TDF_VARREF.
-	* tree-flow.h (TDF_VARREF): Remove.
- 
-2001-09-04  Nathan Sidwell  <nathan@codesourcery.com>
-
-	* c-common.h (tree_dump_index): Add more comments.
-	(TDF_REFS): New dump flag.
-	* c-dump.c (dump_files): Name flags `tree' rather than `ast'.
-	(dump_option_value_info): New struct.
-	(dump_options): New array.
-	(dump_switch_p): Parse switch options symbolically.
-	* doc/invoke.texi (-fdump-ast): Rename to ...
-	(-fdump-tree): ... here. Document options are symbolic, and
-	not all are applicable. Combine ssa related flags into the other
-	tree dump flags.
-
-2001-08-27  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (tree-ssa.o): Update dependencies.
-	(tree-cfg.o): Ditto.
-	(tree-dfa.o): Ditto.
-	(tree-optimize.o): Ditto.
-
-2001-08-26  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (C_AND_OBJC_OBJS): Replace tree-opt.o with
-	tree-optimize.o.
-	(c-decl.o): Ditto.
-	(tree-ssa.o): Ditto.
-	(tree-cfg.o): Ditto.
-	(tree-dfa.o): Ditto.
-	(tree-opt.o): Ditto.
-	* c-decl.c: Replace tree-opt.h with tree-optimize.h.
-	(c_expand_body): Remove call to init_tree_opt.
-	* flow.c (flow_loop_dump): Do not display insn UIDs if this is not
-	an RTL basic block.
-	* tree-cfg.c: Replace tree-opt.h with tree-optimize.h.
-	(block_invalidates_loop): New local function.
-	(validate_loops): New function.
-	(tree_dump_bb): Display the loop depth of the block.
-	* tree-dfa.c: Replace tree-opt.h with tree-optimize.h.
-	* tree-flow.h (validate_loops): Declare.
-	* tree-opt.c: Rename to tree-optimize.c.
-	* tree-opt.h: Rename to tree-optimize.h.
-	* tree-optimize.c: Rename from tree-opt.c.
-	* tree-optimize.h: Rename from tree-opt.h.
-	* tree-ssa.c: Replace tree-opt.h with tree-optimize.h.
-	(tree_build_ssa): Call tree_dump_bb instead of tree_debug_bb.
-	* cp/Make-lang.in: Replace tree-opt.h with tree-optimize.h.
- 
-2001-08-20  Diego Novillo  <dnovillo@redhat.com>
-
-	* basic-block.h (basic_block): Remove field 'reachable'.
-	Add new field 'flags'.
-	(BB_REACHABLE): Define.
-	* c-common.h (tree_dump_index): Add TDI_cfg, TDI_dot, TDI_ssa.
-	* c-decl.c (c_decode_option): Skip '-f' prefix before calling
-	dump_switch_p.
-	* c-dump.c (dump_file_info): Add entries for -fdump-tree-cfg,
-	-fdump-tree-graphviz and -fdump-tree-ssa.
-	* flow.c (find_unreachable_blocks): Use BB_REACHABLE bit in bb->flags
-	instead of bb->reachable.
-	(delete_unreachable_blocks): Ditto.
-	* tree-cfg.c: Minor formatting changes throughout the file.
-	(DEBUG_TREE_FLOW): Remove.
-	(debug_tree_flow): Remove.
-	(cfg_dump_file): New local variable.
-	(dot_dump_file): New local variable.
-	(cfg_dump_flags): New local variable.
-	(dot_dump_flags): New local variable.
-	(tree_find_basic_blocks): Remove unused arguments.
-	Add code to react to -fdump-tree-cfg and -fdump-tree-graphviz.
-	Remove uses of DEBUG_TREE_FLOW.
-	(delete_unreachable_blocks): Use BB_REACHABLE bit in bb->flags
-	instead of bb->reachable.
-	(tree_dump_cfg): New.
-	(tree_debug_cfg): Call tree_dump_cfg().
-	(tree_cfg2dot): Accept a FILE pointer instead of a file name as
-	argument.
-	Name the graph with the current function name.
-	* tree-dfa.c: Minor formatting changes throughout the file.
-	(DEBUG_TREE_DFA): Remove.
-	(debug_tree_dfa): Remove.
-	(dump_file): New local variable.
-	(dump_flags): New local variable.
-	(tree_find_varrefs): Add code to react to -fdump-tree-ssa.
-	Remove uses of DEBUG_TREE_DFA.
-	(find_refs_in_expr): Remove uses of DEBUG_TREE_DFA.
-	(create_varref): Replace VARREF_BLOCK with VARREF_BB.
-	* tree-flow.h: Minor formatting changes throughout the file.
-	(VARREF_BLOCK): Rename to VARREF_BB.
-	(VARREF_NEXT): Remove.
-	(VARREF_PREV): Remove.
-	(TDF_VARREF): Define.
-	(tree_find_basic_blocks): Remove unused arguments.
-	(tree_dump_cfg): Declare.
-	(tree_cfg2dot): Change argument to FILE *.
-	* tree-opt.c: Minor formatting changes throughout the file.
-	(optimize_tree): Remove unused arguments in call to
-	tree_find_basic_blocks().
-	* tree-opt.h: Ditto.
-	* tree-ssa.c: Minor formatting changes throughout the file.
-	(DEBUG_TREE_SSA): Remove.
-	(debug_tree_ssa): Remove.
-	(dump_file): New local variable.
-	(dump_flags): New local variable.
-	(tree_build_ssa): Add code to react to -fdump-tree-ssa.
-	Remove uses of DEBUG_TREE_SSA.
-	(insert_phi_terms): Remove uses of DEBUG_TREE_SSA.
-	* doc/invoke.texi: Add documentation for -fdump-tree-cfg,
-	-fdump-tree-graphviz and -fdump-tree-ssa.
-	Replace existing references to -fdump-tree with -fdump-ast.
-
-2001-08-10  Diego Novillo  <dnovillo@redhat.com>
-
-	* basic-block.h (basic_block): Add new field 'reachable'.
-	(expunge_block): Declare.
-	* flow.c (ENTRY_BLOCK_PTR): Initialize field 'reachable'.
-	(EXIT_BLOCK_PTR): Ditto.
-	(expunge_block): Remove static declaration.
-	(cleanup_cfg): Clear bb->aux on every basic block.
-	(find_unreachable_blocks): Use field 'reachable' when computing
-	reachability.
-	(delete_unreachable_blocks): Use field 'reachable'. 
-
-	* tree-cfg.c: Rename all instance of 'node' with 'block.
-	(get_successor_block): Rename to successor_block.
-	(make_compound_stmt_edges): Remove.
-	(make_switch_stmt_edges): Remove.
-	(delete_unreachable_blocks): New.
-	(delete_block): New.
-	(make_blocks): Add new argument 'compound_stmt'.  Do not include
-	COMPOUND_STMT trees in the flowgraph.
-	(make_for_stmt_blocks): Include FOR_INIT_STMT in the entry block of
-	the loop.
-	If FOR_COND does not exist, create a tree holding the constant 1.
-	Add new argument 'compound_stmt'.
-	(make_while_stmt_blocks): Include WHILE_COND in the entry block of
-	the loop.
-	Add new argument 'compound_stmt'.
-	(make_do_stmt_blocks): Add new argument 'compound_stmt'.
-	(make_if_stmt_blocks): Add new argument 'compound_stmt'.
-	Include IF_COND in the IF header block.
-	(make_switch_stmt_blocks): Add new argument 'compound_stmt'.
-	Include SWITCH_COND in the SWITCH header block.
-	(create_maximal_bb): Remove argument 'is_loop_header'.
-	Add new argument 'compound_stmt'.
-	Update all callers.
-	Return the newly created basic block instead of its last statement.
-	Update comments.
-	Do not store control flow altering statements in bb->exit_stmt.
-	Only add executable statements to the block.
-	Annotate with 'compound_stmt' each tree added to the block.
-	(create_bb): Do not update annotation 'is_loop_header'.
-	(make_edges): Remove naive reachability analysis.
-	When a label node is found, add an edge from the immediately
-	enclosing switch statement.
-	Call delete_unreachable_blocks() after adding all the edges.
-	(make_ctrl_stmt_edges): Do not consider COMPOUND_STMT trees.
-	Do nothing for SWITCH_STMT trees.
-	(make_exit_edges): Use bb->end_tree instead of BB_EXIT_STMT.
-	(make_for_stmt_edges): Remove code that added edges for the block
-	holding FOR_INIT_STMT.
-	Update comments.
-	Do not consider the case where FOR_COND is NULL.
-	Call first_exec_stmt() to determine if FOR_BODY is empty.
-	Only create an edge from expr_bb to cond_bb if FOR_EXPR is
-	non-null.
-	(make_while_stmt_edges): Remove code that added edges for the block
-	holding WHILE_COND.
-	Update comments.
-	Call first_exec_stmt() to determine if WHILE_BODY is empty.
-	(make_do_stmt_edges): Call first_exec_stmt() to determine if
-	DO_BODY is empty.
-	(make_if_stmt_edges): Remove code that added edges for the block
-	holding IF_COND.
-	Call first_exec_stmt() to determine if THEN_CLAUSE or ELSE_CLAUSE
-	are empty.
-	(make_switch_stmt_edges): Remove.
-	(make_goto_stmt_edges): Use bb->end_tree instead of BB_EXIT_STMT.
-	(make_break_stmt_edges): Use bb->end_tree instead of BB_EXIT_STMT.
-	Call switch_parent() and loop_parent() to determine if the
-	statement is inside an appropriate control structure.
-	(make_continue_stmt_edges): Use bb->end_tree instead of
-	BB_EXIT_STMT.
-	(make_return_stmt_edges): Ditto.
-	(get_successor_block): Rename to successor_block.
-	Call first_exec_stmt() to find the first executable statement in
-	TREE_CHAIN.
-	(is_ctrl_stmt): Do not consider COMPOUND_STMT trees.
-	(stmt_starts_bb_p): Ditto.
-	(stmt_ends_bb_p): Reformat comments.
-	(delete_cfg): Reformat comments.
-	(find_loop_parent): Rename to loop_parent.
-	(get_condition_block): Rename to condition_block.
-	Update to use new index numbers for control structure header
-	blocks.
-	(switch_parent): New.
-	(first_exec_stmt): New.
-	(is_exec_stmt): New.
-	(tree_cfg2dot): Reformat comments.
-	* tree-dfa.c (find_refs): Remove.
-	(find_refs_in_stmt): New
-	(find_refs_in_stmt_expr): New.
-	(tree_find_varrefs): Look for variables doing a CFG traversal
-	instead of the trees.  Remove both arguments.
-	(find_refs_in_expr): Add new argument 'bb'.
-	Update all recursive calls.
-	(create_varref): Abort if the basic block 'bb' is NULL.
-	(add_ref_to_sym): Reformat comments.
-	(add_ref_symbol): Ditto.
-	(delete_varref_list): Ditto.
-	* tree-flow.h (struct tree_ann_def): Add 'compound_stmt'.
-	(TREE_COMPOUND_STMT): New macro.
-	(struct basic_block_ann_def): Remove 'exit_stmt' and
-	'is_loop_header'.
-	(BB_EXIT_STMT): Remove.
-	(BB_IS_LOOP_HEADER): Remove.
-	* tree-opt.c (optimize_tree): Call tree_find_varrefs() with no
-	arguments.
-	Only build DFA and SSA information if n_basic_blocks is greater
-	than zero.
-	* tree-ssa.c: Rename all instances of 'node' with 'block'.
-	(tree_build_ssa): Reformat comments.
-	(insert_phi_terms): Ditto.
-
-2001-08-01  Diego Novillo  <dnovillo@redhat.com>
-
-	* tree-cfg.c (USE_TREE_IL): Remove.
-	(make_back_edges): Remove.
-	(make_fallthru_edge): Remove.
-	(get_outermost_scope_block): Remove.
-	(is_last_block_of_loop): Remove.
-	(tree_find_basic_blocks): Do not return early if 'errorcount' is set.
-	(make_edges): Do not treat back edges as a separate case.
-	Do not call make_fallthru_edge to create fall-through edges.
-	Do not emit a warning for unreachable blocks containing a single
-	closing brace.
-	(make_do_stmt_edges): Update comment.
-	(make_goto_stmt_edges): Do not call get_outermost_scope_block().
-	(make_break_stmt_edges): Do not call get_outermost_scope_block().
-	Do not call make_back_edges().
-	(make_continue_stmt_edges): Call find_loop_parent().  Emit an error
-	if the 'continue' statement is not inside a loop.  Call
-	get_condition_block() to find the target node.
-	(make_return_stmt_edges): Do not call get_outermost_scope_block().
-	(get_successor_block): Return EXIT_BLOCK_PTR if 'bb' is the last
-	block in the graph.
-	Return the condition node of the loop if 'bb' doesn't have a
-	natural successor and its parent is a loop header.
-	(tree_cfg2dot): Output fake edges with dotted lines.
-	* tree-dfa.c (USE_TREE_IL): Remove.
-	* tree-opt.c (USE_TREE_IL): Remove.
-	* tree-ssa.c (USE_TREE_IL): Remove.
-	* tree-flow.h (is_last_block_of_loop): Remove.
-
-2001-07-23  Diego Novillo  <dnovillo@redhat.com>
-
-	* Makefile.in (C_AND_OBJC_OBJS): Add tree-cfg.o, tree-dfa.o,
-	tree-ssa.o and tree-opt.o.
-	(c-decl.o): Add dependency on tree-opt.h
-	(tree-ssa.o): New rule.
-	(tree-cfg.o): New rule.
-	(tree-dfa.o): New rule.
-	(tree-opt.o): New rule.
-	* c-decl.c: Include tree-opt.h.
-	(c_expand_body): Call optimize_tree() when the -ftree-ssa flag is
-	given.
-	* flags.h (flag_tree_ssa): Declare.
-	* toplev.c (flag_tree_ssa): Define.
-	(lang_independent_options): Add -ftree-ssa.
-	* tree-cfg.c: New file.
-	* tree-dfa.c: New file.
-	* tree-flow.h: New file.
-	* tree-opt.c: New file.
-	* tree-opt.h: New file.
-	* tree-ssa.c: New file.
-	* cp/Make-lang.in (CXX_C_OBJS): Add tree-cfg.o, tree-dfa.o,
-	tree-opt.o and tree-ssa.o.
-	* doc/invoke.texi: Add documentation for -ftree-ssa.
-
-2001-07-23  Nathan Sidwell  <nathan@codesourcery.com>
-
-	* Makefile.in (calls.o): Depend on intl.h.
-	* calls.c: Include intl.h.
-	(ECF_NEED_STACK_FRAME, ECF_NEED_ARG_FRAME): New flags.
-	(special_function_p): Detect when we need a stack or arg
-	frame. Don't optimize on length.
-	(setjmp_call_p): Remove.
-	(uninlinable_call_p): New function.
-	* tree.h (setjmp_call_p): Remove.
-	(uninlinable_call_p): Declare.
-
-2001-07-22  Nathan Sidwell  <nathan@codesourcery.com>
-
-	* params.def (PARAM_MAX_INLINE_AST): New parameter.
-	(PARAM_ARG_INLINE_AST): New parameter.
-	* doc/invoke.texi (max-inline-ast, arg-inline-ast): Document
-	parameters.
- 
 See ChangeLog.6 for earlier changes.
