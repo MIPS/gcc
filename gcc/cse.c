@@ -6804,6 +6804,7 @@ cse_set_around_loop (x, insn, loop_start)
 		       SET_SRC, add an insn after P to copy its destination
 		       to what we will be replacing SET_SRC with.  */
 		    if (cse_check_loop_start_value
+			&& single_set (p)
 			&& validate_change (insn, &SET_SRC (x),
 					    src_elt->exp, 0))
 		      {
@@ -6822,7 +6823,10 @@ cse_set_around_loop (x, insn, loop_start)
 			      abort ();
 			  }
 			else
-			  emit_insn_after (move, p);
+			  {
+			    emit_insn_after (move, p);
+			    delete_insn (p);
+			  }
 		      }
 		    break;
 		  }
