@@ -123,5 +123,3 @@ objc_post_options ()
 {
   c_common_post_options ();
 }
-
-

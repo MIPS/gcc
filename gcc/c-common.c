@@ -4042,7 +4042,7 @@ enum built_in_attribute
   ATTR_LAST
 };
 
-static tree built_in_attributes[(int) ATTR_LAST];
+static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
 
 static bool c_attrs_initialized = false;
 
@@ -4150,7 +4150,6 @@ c_init_attributes ()
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
 #undef DEF_FN_ATTR
-  ggc_add_tree_root (built_in_attributes, (int) ATTR_LAST);
   c_attrs_initialized = true;
 }
 
@@ -4194,3 +4193,4 @@ shadow_warning (msgid, name, decl)
 			      "shadowed declaration is here");
 }
 
+#include "gt-c-common.h"

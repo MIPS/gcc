@@ -154,7 +154,7 @@ tree string_type_node;
    inventions should be renamed to be canonical.  Note that only
    the ones currently required to be global are so.  */
 
-static tree ffecom_tree_fun_type_void;
+static GTY(()) tree ffecom_tree_fun_type_void;
 
 tree ffecom_integer_type_node;	/* Abbrev for _tree_type[blah][blah]. */
 tree ffecom_integer_zero_node;	/* Like *_*_* with g77's integer type. */
@@ -165,13 +165,14 @@ tree ffecom_tree_type[FFEINFO_basictype][FFEINFO_kindtype];
    just use build_function_type and build_pointer_type on the
    appropriate _tree_type array element.  */
 
-static tree ffecom_tree_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
-static tree ffecom_tree_ptr_to_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
-static tree ffecom_tree_subr_type;
-static tree ffecom_tree_ptr_to_subr_type;
-static tree ffecom_tree_blockdata_type;
+static GTY(()) tree ffecom_tree_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
+static GTY(()) tree 
+  ffecom_tree_ptr_to_fun_type[FFEINFO_basictype][FFEINFO_kindtype];
+static GTY(()) tree ffecom_tree_subr_type;
+static GTY(()) tree ffecom_tree_ptr_to_subr_type;
+static GTY(()) tree ffecom_tree_blockdata_type;
 
-static tree ffecom_tree_xargc_;
+static GTY(()) tree ffecom_tree_xargc_;
 
 ffecomSymbol ffecom_symbol_null_
 =
@@ -187,10 +188,10 @@ ffeinfoKindtype ffecom_label_kind_ = FFEINFO_basictypeNONE;
 
 int ffecom_f2c_typecode_[FFEINFO_basictype][FFEINFO_kindtype];
 tree ffecom_f2c_integer_type_node;
-tree ffecom_f2c_ptr_to_integer_type_node;
+static GTY(()) tree ffecom_f2c_ptr_to_integer_type_node;
 tree ffecom_f2c_address_type_node;
 tree ffecom_f2c_real_type_node;
-tree ffecom_f2c_ptr_to_real_type_node;
+static GTY(()) tree ffecom_f2c_ptr_to_real_type_node;
 tree ffecom_f2c_doublereal_type_node;
 tree ffecom_f2c_complex_type_node;
 tree ffecom_f2c_doublecomplex_type_node;
@@ -388,15 +389,15 @@ static ffesymbol ffecom_primary_entry_ = NULL;
 static ffesymbol ffecom_nested_entry_ = NULL;
 static ffeinfoKind ffecom_primary_entry_kind_;
 static bool ffecom_primary_entry_is_proc_;
-static tree ffecom_outer_function_decl_;
-static tree ffecom_previous_function_decl_;
-static tree ffecom_which_entrypoint_decl_;
-static tree ffecom_float_zero_ = NULL_TREE;
-static tree ffecom_float_half_ = NULL_TREE;
-static tree ffecom_double_zero_ = NULL_TREE;
-static tree ffecom_double_half_ = NULL_TREE;
-static tree ffecom_func_result_;/* For functions. */
-static tree ffecom_func_length_;/* For CHARACTER fns. */
+static GTY(()) tree ffecom_outer_function_decl_;
+static GTY(()) tree ffecom_previous_function_decl_;
+static GTY(()) tree ffecom_which_entrypoint_decl_;
+static GTY(()) tree ffecom_float_zero_;
+static GTY(()) tree ffecom_float_half_;
+static GTY(()) tree ffecom_double_zero_;
+static GTY(()) tree ffecom_double_half_;
+static GTY(()) tree ffecom_func_result_;/* For functions. */
+static GTY(()) tree ffecom_func_length_;/* For CHARACTER fns. */
 static ffebld ffecom_list_blockdata_;
 static ffebld ffecom_list_common_;
 static ffebld ffecom_master_arglist_;
@@ -406,9 +407,9 @@ static ffetargetCharacterSize ffecom_master_size_;
 static int ffecom_num_fns_ = 0;
 static int ffecom_num_entrypoints_ = 0;
 static bool ffecom_is_altreturning_ = FALSE;
-static tree ffecom_multi_type_node_;
-static tree ffecom_multi_retval_;
-static tree
+static GTY(()) tree ffecom_multi_type_node_;
+static GTY(()) tree ffecom_multi_retval_;
+static GTY(()) tree
   ffecom_multi_fields_[FFEINFO_basictype][FFEINFO_kindtype];
 static bool ffecom_member_namelisted_;	/* _member_phase1_ namelisted? */
 static bool ffecom_doing_entry_ = FALSE;
@@ -418,13 +419,7 @@ static int ffecom_typesize_integer1_;
 
 /* Holds pointer-to-function expressions.  */
 
-static tree ffecom_gfrt_[FFECOM_gfrt]
-=
-{
-#define DEFGFRT(CODE,NAME,TYPE,ARGS,VOLATILE,COMPLEX,CONST) NULL_TREE,
-#include "com-rt.def"
-#undef DEFGFRT
-};
+static GTY(()) tree ffecom_gfrt_[FFECOM_gfrt];
 
 /* Holds the external names of the functions.  */
 
@@ -550,11 +545,11 @@ struct f_binding_level GTY(())
 
 /* The binding level currently in effect.  */
 
-static struct f_binding_level *current_binding_level;
+static GTY(()) struct f_binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct f_binding_level *free_binding_level;
+static GTY((deletable (""))) struct f_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
@@ -605,11 +600,11 @@ struct lang_identifier
    that have names.  Here so we can clear out their names' definitions
    at the end of the function.  */
 
-static tree named_labels;
+static GTY(()) tree named_labels;
 
 /* A list of LABEL_DECLs from outer contexts that are currently shadowed.  */
 
-static tree shadowed_labels;
+static GTY(()) tree shadowed_labels;
 
 /* Return the subscript expression, modified to do range-checking.
 
@@ -6267,13 +6262,7 @@ struct tree_ggc_tracker GTY(())
   struct tree_ggc_tracker *next;
   tree trees[NUM_TRACKED_CHUNK];
 };
-static struct tree_ggc_tracker *tracker_head = NULL;
-
-static void
-mark_tracker_head (void *arg)
-{
-  gt_ggc_m_tree_ggc_tracker (* (struct tree_ggc_tracker **) arg);
-}
+static GTY(()) struct tree_ggc_tracker *tracker_head;
 
 void
 ffecom_save_tree_forever (tree t)
@@ -9191,15 +9180,13 @@ ffecom_type_localvar_ (ffesymbol s, ffeinfoBasictype bt,
 
 /* Build Namelist type.  */
 
+static GTY(()) tree ffecom_type_namelist_var;
 static tree
 ffecom_type_namelist_ ()
 {
-  static tree type = NULL_TREE;
-
-  if (type == NULL_TREE)
+  if (ffecom_type_namelist_var == NULL_TREE)
     {
-      static tree namefield, varsfield, nvarsfield;
-      tree vardesctype;
+      tree namefield, varsfield, nvarsfield, vardesctype, type;
 
       vardesctype = ffecom_type_vardesc_ ();
 
@@ -9216,22 +9203,21 @@ ffecom_type_namelist_ ()
       TYPE_FIELDS (type) = namefield;
       layout_type (type);
 
-      ggc_add_tree_root (&type, 1);
+      ffecom_type_namelist_var = type;
     }
 
-  return type;
+  return ffecom_type_namelist_var;
 }
 
 /* Build Vardesc type.  */
 
+static GTY(()) tree ffecom_type_vardesc_var;
 static tree
 ffecom_type_vardesc_ ()
 {
-  static tree type = NULL_TREE;
-  static tree namefield, addrfield, dimsfield, typefield;
-
-  if (type == NULL_TREE)
+  if (ffecom_type_vardesc_var == NULL_TREE)
     {
+      tree namefield, addrfield, dimsfield, typefield, type;
       type = make_node (RECORD_TYPE);
 
       namefield = ffecom_decl_field (type, NULL_TREE, "name",
@@ -9246,10 +9232,10 @@ ffecom_type_vardesc_ ()
       TYPE_FIELDS (type) = namefield;
       layout_type (type);
 
-      ggc_add_tree_root (&type, 1);
+      ffecom_type_vardesc_var = type;
     }
 
-  return type;
+  return ffecom_type_vardesc_var;
 }
 
 static tree
@@ -14070,76 +14056,10 @@ incomplete_type_error (value, type)
   assert ("incomplete type?!?" == NULL);
 }
 
-/* Mark ARG for GC.  */
-static void
-mark_binding_level (void *arg)
-{
-  gt_ggc_m_f_binding_level (*(struct f_binding_level **) arg);
-}
-
 static void
 ffecom_init_decl_processing ()
 {
-  static tree *const tree_roots[] = {
-    &current_function_decl,
-    &string_type_node,
-    &ffecom_tree_fun_type_void,
-    &ffecom_integer_zero_node,
-    &ffecom_integer_one_node,
-    &ffecom_tree_subr_type,
-    &ffecom_tree_ptr_to_subr_type,
-    &ffecom_tree_blockdata_type,
-    &ffecom_tree_xargc_,
-    &ffecom_f2c_integer_type_node,
-    &ffecom_f2c_ptr_to_integer_type_node,
-    &ffecom_f2c_address_type_node,
-    &ffecom_f2c_real_type_node,
-    &ffecom_f2c_ptr_to_real_type_node,
-    &ffecom_f2c_doublereal_type_node,
-    &ffecom_f2c_complex_type_node,
-    &ffecom_f2c_doublecomplex_type_node,
-    &ffecom_f2c_longint_type_node,
-    &ffecom_f2c_logical_type_node,
-    &ffecom_f2c_flag_type_node,
-    &ffecom_f2c_ftnlen_type_node,
-    &ffecom_f2c_ftnlen_zero_node,
-    &ffecom_f2c_ftnlen_one_node,
-    &ffecom_f2c_ftnlen_two_node,
-    &ffecom_f2c_ptr_to_ftnlen_type_node,
-    &ffecom_f2c_ftnint_type_node,
-    &ffecom_f2c_ptr_to_ftnint_type_node,
-    &ffecom_outer_function_decl_,
-    &ffecom_previous_function_decl_,
-    &ffecom_which_entrypoint_decl_,
-    &ffecom_float_zero_,
-    &ffecom_float_half_,
-    &ffecom_double_zero_,
-    &ffecom_double_half_,
-    &ffecom_func_result_,
-    &ffecom_func_length_,
-    &ffecom_multi_type_node_,
-    &ffecom_multi_retval_,
-    &named_labels,
-    &shadowed_labels
-  };
-  size_t i;
-
   malloc_init ();
-
-  /* Record our roots.  */
-  for (i = 0; i < ARRAY_SIZE (tree_roots); i++)
-    ggc_add_tree_root (tree_roots[i], 1);
-  ggc_add_tree_root (&ffecom_tree_type[0][0],
-		     FFEINFO_basictype*FFEINFO_kindtype);
-  ggc_add_tree_root (&ffecom_tree_fun_type[0][0],
-		     FFEINFO_basictype*FFEINFO_kindtype);
-  ggc_add_tree_root (&ffecom_tree_ptr_to_fun_type[0][0],
-		     FFEINFO_basictype*FFEINFO_kindtype);
-  ggc_add_tree_root (ffecom_gfrt_, FFECOM_gfrt);
-  ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-                mark_binding_level);
-  ggc_add_deletable_root (&free_binding_level, sizeof free_binding_level);
-  ggc_add_root (&tracker_head, 1, sizeof tracker_head, mark_tracker_head);
 
   ffe_init_0 ();
 }
@@ -16629,4 +16549,5 @@ typedef doublereal E_f; // real function with -R not specified //
 
 */
 
-#include "f/gt-com.h"
+#include "gt-f-com.h"
+#include "gtype-f.h"

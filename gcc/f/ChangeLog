@@ -1,3 +1,17 @@
+2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in: Add rules to generate gt-f-ste.h gtype-f.h; allow
+	for filename changes.
+	(com.o): Allow for filename changes; add gtype-f.h as dependency.
+	(ste.o): Add gt-f-ste.h as dependency.
+	* config-lang.in (gtfiles): Add com.h, ste.c.
+	* com.c: Replace uses of ggc_add_* with GTY markers.  Include
+	gtype-f.h.
+	(mark_binding_level): Delete.
+	* com.h: Replace uses of ggc_add_* with GTY markers.
+	* ste.c: Replace uses of ggc_add_* with GTY markers.  Include
+	gt-f-ste.h.
+
 2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (f/gt-com.h): Build using gengtype.

@@ -1,3 +1,10 @@
+2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in: Allow for filename changes.  Add gtype-cp.h.
+	(cp/decl.o): Add dependency on gtype-cp.h.
+	* decl.c: Remove use of add_deletable_root, use GTY marker instead.
+	Include gtype-cp.h.  Allow for filename changes.
+
 2002-03-12  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Make-lang.in (cp/gt-decl.h): Generate using gengtype.

@@ -107,17 +107,17 @@ static struct stmt_tree_s c_stmt_tree;
 
 /* The current scope statement stack.  */
 
-static tree c_scope_stmt_stack;
+static GTY(()) tree c_scope_stmt_stack;
 
 /* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
    that have names.  Here so we can clear out their names' definitions
    at the end of the function.  */
 
-static tree named_labels;
+static GTY(()) tree named_labels;
 
 /* A list of LABEL_DECLs from outer contexts that are currently shadowed.  */
 
-static tree shadowed_labels;
+static GTY(()) tree shadowed_labels;
 
 /* Nonzero when store_parm_decls is called indicates a varargs function.
    Value not meaningful after store_parm_decls.  */
@@ -229,17 +229,17 @@ struct binding_level GTY(())
 
 /* The binding level currently in effect.  */
 
-static struct binding_level *current_binding_level;
+static GTY(()) struct binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct binding_level *free_binding_level;
+static GTY((deletable (""))) struct binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
    through the entire run.  */
 
-static struct binding_level *global_binding_level;
+static GTY(()) struct binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
 
@@ -262,7 +262,7 @@ static int keep_next_if_subblocks;
    saved values of named_labels and shadowed_labels for
    a label binding level outside the current one.  */
 
-static struct binding_level *label_level_chain;
+static GTY(()) struct binding_level *label_level_chain;
 
 /* Functions called automatically at the beginning and end of execution.  */
 
@@ -272,7 +272,6 @@ tree static_ctors, static_dtors;
 
 static struct binding_level * make_binding_level	PARAMS ((void));
 static void pop_binding_level		PARAMS ((struct binding_level **));
-static void gt_ggc_mp_binding_level	PARAMS ((void *));
 static void clear_limbo_values		PARAMS ((tree));
 static int duplicate_decls		PARAMS ((tree, tree, int));
 static int redeclaration_error_message	PARAMS ((tree, tree));
@@ -2850,15 +2849,6 @@ lookup_name_current_level (name)
   return t;
 }
 
-/* Mark ARG for GC.  */
-
-static void
-gt_ggc_mp_binding_level (arg)
-     void *arg;
-{
-  gt_ggc_m_binding_level (*(struct binding_level **) arg);
-}
-
 /* Create the predefined scalar types of C,
    and some nodes representing standard constants (0, 1, (void *) 0).
    Initialize the global binding level.
@@ -2967,18 +2957,7 @@ c_init_decl_processing ()
 
   /* Record our roots.  */
 
-  ggc_add_tree_root (c_global_trees, CTI_MAX);
   ggc_add_root (&c_stmt_tree, 1, sizeof c_stmt_tree, mark_stmt_tree);
-  ggc_add_tree_root (&c_scope_stmt_stack, 1);
-  ggc_add_tree_root (&named_labels, 1);
-  ggc_add_tree_root (&shadowed_labels, 1);
-  ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-		gt_ggc_mp_binding_level);
-  ggc_add_root (&label_level_chain, 1, sizeof label_level_chain,
-		gt_ggc_mp_binding_level);
-  ggc_add_deletable_root (&free_binding_level, sizeof (free_binding_level));
-  ggc_add_tree_root (&static_ctors, 1);
-  ggc_add_tree_root (&static_dtors, 1);
 }
 
 /* Create the VAR_DECL for __FUNCTION__ etc. ID is the name to give the

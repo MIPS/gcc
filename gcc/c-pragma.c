@@ -47,9 +47,9 @@ typedef struct align_stack GTY(())
   struct align_stack * prev;
 } align_stack;
 
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-static struct align_stack * alignment_stack = NULL;
+static GTY(()) struct align_stack * alignment_stack;
 
+#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 /* If we have a "global" #pragma pack(<n>) in effect when the first
    #pragma pack(push,<n>) is encountered, this stores the value of 
    maximum_field_alignment in effect.  When the final pop_alignment() 
@@ -139,13 +139,6 @@ pop_alignment (id)
 
       alignment_stack = entry;
     }
-}
-
-static void
-gt_ggc_mp_align_stack (p)
-    void *p;
-{
-  gt_ggc_m_align_stack (*(align_stack **) p);
 }
 #else  /* not HANDLE_PRAGMA_PACK_PUSH_POP */
 #define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = (ALIGN))
@@ -305,11 +298,6 @@ init_pragma ()
 #endif
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS (parse_in);
-#endif
-
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-  ggc_add_root (&alignment_stack, 1, sizeof(alignment_stack),
-		gt_ggc_mp_align_stack);
 #endif
 }
 

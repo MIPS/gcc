@@ -664,24 +664,13 @@ lang_printable_name_wls (decl, v)
 /* Print on stderr the current class and method context.  This function
    is the value of the hook print_error_function, called from toplev.c. */
 
+static GTY(()) tree last_error_function_context;
+static GTY(()) tree last_error_function;
 static void
 lang_print_error (context, file)
      diagnostic_context *context __attribute__((__unused__));
      const char *file;
 {
-  static tree last_error_function_context = NULL_TREE;
-  static tree last_error_function = NULL;
-  static int initialized_p;
-
-  /* Register LAST_ERROR_FUNCTION_CONTEXT and LAST_ERROR_FUNCTION with
-     the garbage collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&last_error_function_context, 1);
-      ggc_add_tree_root (&last_error_function, 1);
-      initialized_p = 1;
-    }
-
   if (current_function_decl != NULL
       && DECL_CONTEXT (current_function_decl) != last_error_function_context)
     {
@@ -747,3 +736,5 @@ java_init_options ()
   flag_exceptions = 1;
   flag_non_call_exceptions = 1;
 }
+
+#include "gt-java-lang.h"

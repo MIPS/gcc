@@ -230,7 +230,7 @@ struct c_common_identifier
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
 
-extern tree c_global_trees[CTI_MAX];
+extern GTY(()) tree c_global_trees[CTI_MAX];
 
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */

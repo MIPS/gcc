@@ -217,7 +217,20 @@ struct filemap {
 
 static filemap_p files;
 FILE * header_file;
+
+enum {
+  BASE_FILE_C,
+  BASE_FILE_OBJC,
+  BASE_FILE_CPLUSPLUS
+};
+static const char *lang_names[] = {
+  "c", "objc", "cp", "f", "ada", "java"
+};
+#define NUM_BASE_FILES (sizeof (lang_names) / sizeof (lang_names[0]))
+FILE *base_files[NUM_BASE_FILES];
+
 static FILE * create_file PARAMS ((const char *));
+static const char * get_file_basename PARAMS ((const char *));
 
 static FILE *
 create_file (name)
@@ -264,16 +277,94 @@ create_file (name)
 static void
 open_base_files (void)
 {
+  size_t i;
+  
   header_file = create_file ("GCC");
+
+  for (i = 0; i < NUM_BASE_FILES; i++)
+    {
+      filemap_p newf;
+      char *s;
+      
+      base_files[i] = create_file (lang_names[i]);
+      newf = xmalloc (sizeof (*newf));
+      newf->next = files;
+      files = newf;
+      newf->input_name = NULL;
+      newf->output = base_files[i];
+      newf->output_name = s = xmalloc (16);
+      sprintf (s, "gtype-%s.h", lang_names[i]);
+    }
+}
+
+#define startswith(len, c, s)  \
+  ((size_t)(len) >= strlen (s) && memcmp (c, s, strlen (s)) == 0)
+
+static const char *
+get_file_basename (f)
+     const char *f;
+{
+  size_t len;
+  const char *basename;
+  
+  /* Determine the output file name.  */
+  len = strlen (f);
+  basename = strrchr (f, '/');
+  if (basename == NULL)
+    basename = f;
+  else
+    basename++;
+  if (startswith (basename - f, basename-2, "f/"))
+    basename -= 2;
+  else if (startswith (basename - f, basename-3, "cp/"))
+    basename -= 3;
+  else if (startswith (basename - f, basename-4, "ada/"))
+    basename -= 4;
+  else if (startswith (basename - f, basename-5, "java/"))
+    basename -= 5;
+  else if (startswith (basename - f, basename-5, "objc/"))
+    basename -= 5;
+
+  return basename;
+}
+
+unsigned
+get_base_file_bitmap (input_file)
+     const char *input_file;
+{
+  const char *basename = get_file_basename (input_file);
+  const char *slashpos = strchr (basename, '/');
+  size_t len = strlen (basename);
+  
+  if (slashpos != NULL)
+    {
+      size_t i;
+      for (i = 0; i < NUM_BASE_FILES; i++)
+	if ((size_t)(slashpos - basename) == strlen (lang_names [i])
+	    && memcmp (basename, lang_names[i], strlen (lang_names[i])) == 0)
+	  return 1 << i;
+    }
+  else if (strcmp (basename, "c-lang.c") == 0)
+    return 1 << BASE_FILE_C;
+  else if (strcmp (basename, "c-parse.in") == 0
+	   || strcmp (basename, "c-tree.h") == 0
+	   || strcmp (basename, "c-decl.c") == 0
+	   || strcmp (basename, "c-objc-common.c") == 0)
+    return 1 << BASE_FILE_C | 1 << BASE_FILE_OBJC;
+  else if (startswith (len, basename, "c-"))
+    return 1 << BASE_FILE_C | 1 << BASE_FILE_OBJC | 1 << BASE_FILE_CPLUSPLUS;
+  else
+    return (1 << NUM_BASE_FILES) - 1;
+  abort ();
 }
 
 FILE *
-get_output_file (input_file)
+get_output_file_with_visibility (input_file)
      const char *input_file;
 {
   filemap_p fm, fmo;
   size_t len;
-  const char *basename, *langname;
+  const char *basename;
 
   /* Do we already know the file?  */
   for (fm = files; fm; fm = fm->next)
@@ -287,42 +378,46 @@ get_output_file (input_file)
   fm->input_name = input_file;
   
   /* Determine the output file name.  */
-  len = strlen (input_file);
-  basename = strrchr (input_file, '/');
-  if (basename == NULL)
-    basename = input_file;
-  else
-    basename++;
-  langname = basename;
-  if (basename - input_file >= 2 && memcmp (basename-2, "f/", 2) == 0)
-    basename -= 2;
-  else if (basename - input_file >= 3 && memcmp (basename-3, "cp/", 3) == 0)
-    basename -= 3;
-  else if (basename - input_file >= 4 && memcmp (basename-4, "ada/", 4) == 0)
-    basename -= 4;
-  else if (basename - input_file >= 5 && memcmp (basename-5, "java/", 5) == 0)
-    basename -= 5;
+  basename = get_file_basename (input_file);
 
-  if (len > 2 && input_file[len-1] == 'c' && input_file[len-2] == '.')
+  len = strlen (basename);
+  if (len > 2 && memcmp (basename+len-2, ".c", 2) == 0
+      || len > 2 && memcmp (basename+len-2, ".y", 2) == 0
+      || len > 3 && memcmp (basename+len-3, ".in", 3) == 0)
     {
-      int l;
       char *s;
       
-      for (l = len-3; l >= 0; l--)
-	if (! isalnum (input_file[l]) && input_file[l] != '-')
-	  break;
-      fm->output_name = s = xmalloc (sizeof ("gt-") + len - l 
-				     + (langname - basename));
-      sprintf (s, "%.*sgt-%.*s.h", 
-	       langname - basename, basename,
-	       len - l - 3, input_file + l + 1);
-      fm->output = create_file (input_file);
+      fm->output_name = s = xmalloc (sizeof ("gt-") + len);
+      sprintf (s, "gt-%s", basename);
+      for (; *s != '.'; s++)
+	if (! isalnum (*s) && *s != '-')
+	  *s = '-';
+      memcpy (s, ".h", sizeof (".h"));
+
+      fm->output = create_file (basename);
       return fm->output;
     }
   else if (strcmp (basename, "c-common.h") == 0)
-    fm->output_name = "gtype-c.c";
-  else
-    fm->output_name = "gtype-desc.c";
+    fm->output_name = "gt-c-common.h";
+  else if (strcmp (basename, "c-tree.h") == 0)
+    fm->output_name = "gt-c-decl.h";
+  else 
+    {
+      size_t i;
+      
+      fm->output_name = "gtype-desc.c";
+      for (i = 0; i < NUM_BASE_FILES; i++)
+	if (memcmp (basename, lang_names[i], strlen (lang_names[i])) == 0
+	    && basename[strlen(lang_names[i])] == '/')
+	  {
+	    char *s;
+	    
+	    s = xmalloc (16);
+	    sprintf (s, "gtype-%s.h", lang_names[i]);
+	    fm->output_name = s;
+	    break;
+	  }
+    }
 
   /* Look through to see if we've ever seen this output filename before.  */
   for (fmo = fm->next; fmo; fmo = fmo->next)
@@ -361,7 +456,7 @@ get_output_file_name (input_file)
   for (fm = files; fm; fm = fm->next)
     if (input_file == fm->input_name)
       return fm->output_name;
-  (void) get_output_file (input_file);
+  (void) get_output_file_with_visibility (input_file);
   return get_output_file_name (input_file);
 }
 
@@ -777,7 +872,7 @@ write_gc_types PARAMS ((type_p structures))
 		 s->u.s.tag);
 
 	/* Output it.  */
-	f = get_output_file (s->u.s.line.file);
+	f = get_output_file_with_visibility (s->u.s.line.file);
 	
 	fputc ('\n', f);
 	fputs ("void\n", f);
@@ -810,23 +905,90 @@ put_mangled_filename (f, fn)
       fputc ('_', f);
 }
 
+struct flist {
+  struct flist *next;
+  int started_p;
+  const char *name;
+  FILE *f;
+};
+
+static void
+finish_root_table (struct flist *flp, const char *pfx, const char *name)
+{
+  struct flist *fli2;
+  unsigned started_bitmap = 0;
+  
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
+	fputs ("};\n\n", fli2->f);
+      }
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	unsigned bitmap = get_base_file_bitmap (fli2->name);
+	int fnum;
+
+	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      fprintf (base_files[fnum],
+		       "extern const struct ggc_root_tab gt_ggc_%s_", 
+		       pfx);
+	      put_mangled_filename (base_files[fnum], fli2->name);
+	      fputs ("[];\n", base_files[fnum]);
+	    }
+      }
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    if (fli2->started_p)
+      {
+	unsigned bitmap = get_base_file_bitmap (fli2->name);
+	int fnum;
+
+	fli2->started_p = 0;
+
+	for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	  if (bitmap & 1)
+	    {
+	      if (! (started_bitmap & (1 << fnum)))
+		{
+		  fprintf (base_files [fnum],
+			   "const struct ggc_root_tab * const %s[] = {\n",
+			   name);
+		  started_bitmap |= 1 << fnum;
+		}
+	      fprintf (base_files[fnum], "  gt_ggc_%s_", pfx);
+	      put_mangled_filename (base_files[fnum], fli2->name);
+	      fputs (",\n", base_files[fnum]);
+	    }
+      }
+
+  {
+    unsigned bitmap;
+    int fnum;
+    
+    for (bitmap = started_bitmap, fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+      if (bitmap & 1)
+	{
+	  fputs ("  NULL\n", base_files[fnum]);
+	  fputs ("};\n\n", base_files[fnum]);
+	}
+  }
+}
+
 static void
 write_gc_roots (variables)
      pair_p variables;
 {
   pair_p v;
-  struct flist {
-    struct flist *next;
-    int started_p;
-    const char *name;
-    FILE *f;
-  } *flp = NULL;
-  struct flist *fli2;
-  FILE *topf;
+  struct flist *flp = NULL;
 
   for (v = variables; v; v = v->next)
     {
-      FILE *f = get_output_file (v->line.file);
+      FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
       const char *length = NULL;
       int deletable_p = 0;
@@ -889,7 +1051,7 @@ write_gc_roots (variables)
 
   for (v = variables; v; v = v->next)
     {
-      FILE *f = get_output_file (v->line.file);
+      FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
       const char *length = NULL;
       int deletable_p = 0;
@@ -964,38 +1126,12 @@ write_gc_roots (variables)
       fputs ("\n  },\n", f);
     }
 
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
-	fputs ("};\n\n", fli2->f);
-      }
 
-  topf = get_output_file ("ggc.h");
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fputs ("extern const struct ggc_root_tab gt_ggc_r_", topf);
-	put_mangled_filename (topf, fli2->name);
-	fputs ("[];\n", topf);
-      }
-
-  fputs ("const struct ggc_root_tab * const gt_ggc_rtab[] = {\n", topf);
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fli2->started_p = 0;
-	
-	fputs ("  gt_ggc_r_", topf);
-	put_mangled_filename (topf, fli2->name);
-	fputs (",\n", topf);
-      }
-  fputs ("  NULL\n", topf);
-  fputs ("};\n\n", topf);
+  finish_root_table (flp, "r", "gt_ggc_rtab");
 
   for (v = variables; v; v = v->next)
     {
-      FILE *f = get_output_file (v->line.file);
+      FILE *f = get_output_file_with_visibility (v->line.file);
       struct flist *fli;
       const char *length = NULL;
       int deletable_p = 0;
@@ -1030,34 +1166,7 @@ write_gc_roots (variables)
 	       v->name, v->name);
     }
   
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fputs ("  LAST_GGC_ROOT_TAB\n", fli2->f);
-	fputs ("};\n\n", fli2->f);
-      }
-
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fputs ("extern const struct ggc_root_tab gt_ggc_rd_", topf);
-	put_mangled_filename (topf, fli2->name);
-	fputs ("[];\n", topf);
-      }
-
-  fputs ("const struct ggc_root_tab * const gt_ggc_deletable_rtab[] = {\n", 
-	 topf);
-  for (fli2 = flp; fli2; fli2 = fli2->next)
-    if (fli2->started_p)
-      {
-	fli2->started_p = 0;
-	
-	fputs ("  gt_ggc_rd_", topf);
-	put_mangled_filename (topf, fli2->name);
-	fputs (",\n", topf);
-      }
-  fputs ("  NULL\n", topf);
-  fputs ("};\n\n", topf);
+  finish_root_table (flp, "rd", "gt_ggc_deletable_rtab");
 }
 
 

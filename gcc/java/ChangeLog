@@ -1,3 +1,34 @@
+2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
+
+	* Make-lang.in (gt-java-class.h, gt-java-constants.h,
+	gt-java-decl.h, gt-java-expr.h, gt-java-jcf-parse.h,
+	gt-java-jcf-write.h, gt-java-lang.h, gt-java-mangle.h,
+	gt-java-parse.h, gtype-java.h): Add rules to generate.
+	(parse.o): Add dependency on gt-java-parse.h, gt-java.h.
+	(class.o): Add dependency on gt-*.h.
+	(constants.o): Likewise.
+	(decl.o): Likewise.
+	(expr.o): Likewise.
+	(jcf-parse.o): Likewise.
+	(jcf-write.o): Likewise.
+	(lang.o): Likewise.
+	* config-lang.in (gtfiles): New.
+	* class.c: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
+	* constants.c: Replace uses of ggc_add_* with GTY markers.
+	Include gt-*.h.
+	* decl.c: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
+	* expr.c: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
+	* java-tree.h: Replace uses of ggc_add_* with GTY markers.
+	* jcf-parse.c: Replace uses of ggc_add_* with GTY markers.
+	Include gt-*.h.
+	* jcf-write.c: Replace uses of ggc_add_* with GTY markers.
+	Include gt-*.h.
+	* lang.c: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
+	* mangle.c: Replace uses of ggc_add_* with GTY markers.  Include
+	gt-*.h.
+	* parse.y: Replace uses of ggc_add_* with GTY markers.  Include gt-*.h.
+	Include gtype-java.h.
+
 2002-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* lang.c (java_tree_code_type, java_tree_code_length,

@@ -65,12 +65,12 @@ extern int always_initialize_class_p;
    DECL_LOCAL_SLOT_CHAIN; the index finds the TREE_VEC element, and then
    we search the chain for a decl with a matching TREE_TYPE. */
 
-tree decl_map;
+static GTY(()) tree decl_map;
 
 /* A list of local variables VAR_DECLs for this method that we have seen
    debug information, but we have not reached their starting (byte) PC yet. */
 
-static tree pending_local_decls = NULL_TREE;
+static GTY(()) tree pending_local_decls;
 
 /* Push a local variable or stack slot into the decl_map,
    and assign it an rtl. */
@@ -910,11 +910,6 @@ java_init_decl_processing ()
   lang_eh_runtime_type = prepare_eh_table_type;
 
   init_jcf_parse ();
-
-  /* Register nodes with the garbage collector.  */
-  ggc_add_tree_root (java_global_trees, ARRAY_SIZE (java_global_trees));
-  ggc_add_tree_root (&decl_map, 1);
-  ggc_add_tree_root (&pending_local_decls, 1);
 
   initialize_builtins ();
 }
@@ -1904,3 +1899,5 @@ lang_mark_tree (t)
 	}
     }
 }
+
+#include "gt-java-decl.h"

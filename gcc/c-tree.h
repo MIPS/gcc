@@ -375,7 +375,7 @@ extern int mesg_implicit_function_declaration;
 /* In c-decl.c */
 extern void finish_incomplete_decl PARAMS ((tree));
 
-extern tree static_ctors;
-extern tree static_dtors;
+extern GTY(()) tree static_ctors;
+extern GTY(()) tree static_dtors;
 
 #endif /* ! GCC_C_TREE_H */

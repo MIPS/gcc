@@ -403,7 +403,7 @@ enum java_tree_index
   JTI_MAX
 };
 
-extern tree java_global_trees[JTI_MAX];
+extern GTY(()) tree java_global_trees[JTI_MAX];
 
 /* "Promoted types" that are used for primitive types smaller
    than int.  We could use int_type_node, but then we would lose

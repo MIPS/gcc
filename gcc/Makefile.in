@@ -1128,7 +1128,8 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 c-errors.o: c-errors.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) flags.h \
     diagnostic.h $(TM_P_H)
 c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) intl.h \
-    $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h $(CPPLIB_H)
+    $(C_TREE_H) input.h flags.h $(SYSTEM_H) toplev.h output.h $(CPPLIB_H) \
+    gt-c-parse.h
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
 
@@ -1213,7 +1214,7 @@ s-under: $(GCC_PASSES)
 c-common.o : c-common.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(OBSTACK_H) \
 	$(C_COMMON_H) flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H) $(TM_P_H) builtin-types.def builtin-attrs.def $(TARGET_H) \
-	diagnostic.h tree-inline.h
+	diagnostic.h tree-inline.h gt-c-common.h
 
 # A file used by all variants of C and some other languages.
 
@@ -1779,18 +1780,21 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 GTFILES = $(GCONFIG_H) \
   $(srcdir)/function.h  $(srcdir)/rtl.h $(srcdir)/optabs.h \
   $(srcdir)/tree.h $(srcdir)/libfuncs.h \
+  $(srcdir)/c-common.h $(srcdir)/c-tree.h \
   $(srcdir)/except.c $(srcdir)/function.c $(srcdir)/integrate.c \
   $(srcdir)/stmt.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/emit-rtl.c $(srcdir)/explow.c $(srcdir)/stor-layout.c \
   $(srcdir)/regclass.c $(srcdir)/lists.c \
+  $(srcdir)/c-common.c $(srcdir)/c-parse.in \
   $(out_file) \
   $(srcdir)/c-decl.c $(srcdir)/c-pragma.c \
   @all_gtfiles@
 
-gtype-desc.h gtype-desc.c gtype-c.h gt-except.h gt-function.h : s-gtype; @true
+gtype-desc.h gtype-desc.c gt-except.h gt-function.h : s-gtype; @true
 gt-integrate.h gt-stmt.h gt-tree.h gt-varasm.h gt-emit-rtl.h : s-gtype; @true
 gt-explow.h gt-stor-layout.h gt-regclass.h gt-lists.h : s-gtype; @true
-gt-c-decl.h gt-c-pragma.h : s-gtype; @true
+gt-c-common.h gt-c-decl.h gt-c-parse.h gt-c-pragma.h : s-gtype; @true
+gtype-c.h : s-gtype ; @true
 
 s-gtype: gengtype$(build_exeext) $(GTFILES)
 	./gengtype $(GTFILES)

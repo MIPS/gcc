@@ -298,7 +298,6 @@ static void handle_class_ref			PARAMS ((tree));
 static void generate_struct_by_value_array	PARAMS ((void))
      ATTRIBUTE_NORETURN;
 static void objc_act_parse_init			PARAMS ((void));
-static void ggc_mark_imp_list			PARAMS ((void *));
 static void ggc_mark_hash_table			PARAMS ((void *));
 
 /*** Private Interface (data) ***/
@@ -6150,7 +6149,7 @@ continue_class (class)
       if (!objc_class_template)
 	build_class_template ();
 
-      imp_entry = (struct imp_entry *) xmalloc (sizeof (struct imp_entry));
+      imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
 
       imp_entry->next = imp_list;
       imp_entry->imp_context = class;
@@ -8323,21 +8322,6 @@ handle_impent (impent)
 }
 
 static void
-ggc_mark_imp_list (arg)
-     void *arg;
-{
-  struct imp_entry *impent;
-
-  for (impent = *(struct imp_entry **)arg; impent; impent = impent->next)
-    {
-      ggc_mark_tree (impent->imp_context);
-      ggc_mark_tree (impent->imp_template);
-      ggc_mark_tree (impent->class_decl);
-      ggc_mark_tree (impent->meta_decl);
-    }
-}
-
-static void
 ggc_mark_hash_table (arg)
      void *arg;
 {
@@ -8361,8 +8345,6 @@ ggc_mark_hash_table (arg)
 static void
 objc_act_parse_init ()
 {
-  ggc_add_tree_root (objc_global_trees, OCTI_MAX);
-  ggc_add_root (&imp_list, 1, sizeof imp_list, ggc_mark_imp_list);
   ggc_add_root (&nst_method_hash_list, 1, sizeof nst_method_hash_list, ggc_mark_hash_table);
   ggc_add_root (&cls_method_hash_list, 1, sizeof cls_method_hash_list, ggc_mark_hash_table);
 }
@@ -8387,3 +8369,5 @@ lookup_objc_ivar (id)
   else
     return 0;
 }
+
+#include "gtype-objc.h"

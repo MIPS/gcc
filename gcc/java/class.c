@@ -60,8 +60,8 @@ static struct hash_entry *init_test_hash_newfunc PARAMS ((struct hash_entry *,
 							  hash_table_key));
 static tree build_method_symbols_entry PARAMS ((tree));
 
-static rtx registerClass_libfunc;
-static rtx registerResource_libfunc;
+static GTY(()) rtx registerClass_libfunc;
+static GTY(()) rtx registerResource_libfunc;
 
 extern struct obstack permanent_obstack;
 struct obstack temporary_obstack;
@@ -95,8 +95,7 @@ static assume_compiled_node *find_assume_compiled_node
 
 static assume_compiled_node *assume_compiled_tree;
 
-static tree class_roots[5]
-= { NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE };
+static GTY(()) tree class_roots[5];
 #define registered_class class_roots[0]
 #define fields_ident class_roots[1]  /* get_identifier ("fields") */
 #define info_ident class_roots[2]  /* get_identifier ("info") */
@@ -2322,12 +2321,12 @@ emit_offset_symbol_table ()
 void
 init_class_processing ()
 {
-  registerClass_libfunc = gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterClass");
+  registerClass_libfunc = gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterClass");
   registerResource_libfunc = 
-    gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterResource");
-  ggc_add_tree_root (class_roots, ARRAY_SIZE (class_roots));
+    gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterResource");
   fields_ident = get_identifier ("fields");
   info_ident = get_identifier ("info");
-  ggc_add_rtx_root (&registerClass_libfunc, 1);
   gcc_obstack_init (&temporary_obstack);
 }
+
+#include "gt-java-class.h"

@@ -185,3 +185,5 @@ finish_file ()
 {
   c_objc_common_finish_file ();
 }
+
+#include "gtype-c.h"

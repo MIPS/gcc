@@ -153,7 +153,7 @@ extern hash *cls_method_hash_list;
 
 /* Objective-C/Objective-C++ @implementation list.  */
 
-struct imp_entry
+struct imp_entry GTY(())
 {
   struct imp_entry *next;
   tree imp_context;
@@ -162,7 +162,7 @@ struct imp_entry
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
 };
 
-extern struct imp_entry *imp_list;
+extern GTY(()) struct imp_entry *imp_list;
 extern int imp_count;	/* `@implementation' */
 extern int cat_count;	/* `@category' */
 
@@ -247,7 +247,7 @@ enum objc_tree_index
     OCTI_MAX
 };
 
-extern tree objc_global_trees[OCTI_MAX];
+extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 /* List of classes with list of their static instances.  */
 #define objc_static_instances	objc_global_trees[OCTI_STATIC_NST]

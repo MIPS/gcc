@@ -374,54 +374,54 @@ static const enum tree_code binop_lookup[19] =
 #define BINOP_COMPOUND_CANDIDATES 11
 
 /* The "$L" identifier we use to create labels.  */
-static tree label_id = NULL_TREE;
+static GTY(()) tree label_id;
 
 /* The "StringBuffer" identifier used for the String `+' operator. */
-static tree wfl_string_buffer = NULL_TREE; 
+static GTY(()) tree wfl_string_buffer; 
 
 /* The "append" identifier used for String `+' operator.  */
-static tree wfl_append = NULL_TREE;
+static GTY(()) tree wfl_append;
 
 /* The "toString" identifier used for String `+' operator. */
-static tree wfl_to_string = NULL_TREE;
+static GTY(()) tree wfl_to_string;
 
 /* The "java.lang" import qualified name.  */
-static tree java_lang_id = NULL_TREE;
+static GTY(()) tree java_lang_id;
 
 /* The generated `inst$' identifier used for generated enclosing
    instance/field access functions.  */
-static tree inst_id = NULL_TREE;
+static GTY(()) tree inst_id;
 
 /* The "java.lang.Cloneable" qualified name.  */
-static tree java_lang_cloneable = NULL_TREE;
+static GTY(()) tree java_lang_cloneable;
 
 /* The "java.io.Serializable" qualified name.  */
-static tree java_io_serializable = NULL_TREE; 
+static GTY(()) tree java_io_serializable; 
 
 /* Context and flag for static blocks */
-static tree current_static_block = NULL_TREE;
+static GTY(()) tree current_static_block;
 
 /* The generated `write_parm_value$' identifier.  */
-static tree wpv_id;
+static GTY(()) tree wpv_id;
 
 /* The list of all packages we've seen so far */
-static tree package_list = NULL_TREE;
+static GTY(()) tree package_list;
  
 /* Hold THIS for the scope of the current method decl.  */
-static tree current_this;
+static GTY(()) tree current_this;
 
 /* Hold a list of catch clauses list. The first element of this list is
    the list of the catch clauses of the currently analysed try block. */
-static tree currently_caught_type_list;
+static GTY(()) tree currently_caught_type_list;
 
 /* This holds a linked list of all the case labels for the current
    switch statement.  It is only used when checking to see if there
    are duplicate labels.  FIXME: probably this should just be attached
    to the switch itself; then it could be referenced via
    `ctxp->current_loop'.  */
-static tree case_label_list; 
+static GTY(()) tree case_label_list; 
 
-static tree src_parse_roots[1];
+static GTY(()) tree src_parse_roots[1];
 
 /* All classes seen from source code */
 #define gclass_list src_parse_roots[0]
@@ -608,20 +608,6 @@ goal:
                 {
 		  /* Register static variables with the garbage
 		     collector.  */
-		  ggc_add_tree_root (&label_id, 1);
-		  ggc_add_tree_root (&wfl_string_buffer, 1);
-		  ggc_add_tree_root (&wfl_append, 1);
-		  ggc_add_tree_root (&wfl_to_string, 1);
-		  ggc_add_tree_root (&java_lang_id, 1);
-		  ggc_add_tree_root (&inst_id, 1);
-		  ggc_add_tree_root (&java_lang_cloneable, 1);
-		  ggc_add_tree_root (&java_io_serializable, 1);
-		  ggc_add_tree_root (&current_static_block, 1);
-		  ggc_add_tree_root (&wpv_id, 1);
-		  ggc_add_tree_root (&package_list, 1);
-		  ggc_add_tree_root (&current_this, 1);
-		  ggc_add_tree_root (&currently_caught_type_list, 1);
-		  ggc_add_tree_root (&case_label_list, 1);
 		  ggc_add_root (&ctxp, 1, 
 				sizeof (struct parser_ctxt *),
 				mark_parser_ctxt);
@@ -4814,32 +4800,23 @@ constructor_circularity_msg (from, to)
 /* Verify a circular call to METH. Return 1 if an error is found, 0
    otherwise.  */
 
+static GTY(()) tree vcc_list;
 static int
 verify_constructor_circularity (meth, current)
      tree meth, current;
 {
-  static tree list = NULL_TREE;
-  static int initialized_p;
   tree c;
-
-  /* If we haven't already registered LIST with the garbage collector,
-     do so now.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&list, 1);
-      initialized_p = 1;
-    }
 
   for (c = DECL_CONSTRUCTOR_CALLS (current); c; c = TREE_CHAIN (c))
     {
       if (TREE_VALUE (c) == meth)
 	{
 	  char *t;
-	  if (list)
+	  if (vcc_list)
 	    {
 	      tree liste;
-	      list = nreverse (list);
-	      for (liste = list; liste; liste = TREE_CHAIN (liste))
+	      vcc_list = nreverse (vcc_list);
+	      for (liste = vcc_list; liste; liste = TREE_CHAIN (liste))
 		{
 		  parse_error_context 
 		    (TREE_PURPOSE (TREE_PURPOSE (liste)), "%s",
@@ -4853,16 +4830,16 @@ verify_constructor_circularity (meth, current)
 			       "%s: recursive invocation of constructor `%s'",
 			       constructor_circularity_msg (current, meth), t);
 	  free (t);
-	  list = NULL_TREE;
+	  vcc_list = NULL_TREE;
 	  return 1;
 	}
     }
   for (c = DECL_CONSTRUCTOR_CALLS (current); c; c = TREE_CHAIN (c))
     {
-      list = tree_cons (c, current, list);
+      vcc_list = tree_cons (c, current, vcc_list);
       if (verify_constructor_circularity (meth, TREE_VALUE (c)))
 	return 1;
-      list = TREE_CHAIN (list);
+      vcc_list = TREE_CHAIN (vcc_list);
     }
   return 0;
 }
@@ -6630,34 +6607,33 @@ lookup_java_method2 (clas, method_decl, do_interface)
 /* Return the line that matches DECL line number, and try its best to
    position the column number. Used during error reports.  */
 
+static GTY(()) tree cl_v;
 static tree
 lookup_cl (decl)
      tree decl;
 {
-  static tree cl = NULL_TREE;
   char *line, *found;
   
   if (!decl)
     return NULL_TREE;
 
-  if (cl == NULL_TREE)
+  if (cl_v == NULL_TREE)
     {
-      cl = build_expr_wfl (NULL_TREE, NULL, 0, 0);
-      ggc_add_tree_root (&cl, 1);
+      cl_v = build_expr_wfl (NULL_TREE, NULL, 0, 0);
     }
 
-  EXPR_WFL_FILENAME_NODE (cl) = get_identifier (DECL_SOURCE_FILE (decl));
-  EXPR_WFL_SET_LINECOL (cl, DECL_SOURCE_LINE_FIRST (decl), -1);
+  EXPR_WFL_FILENAME_NODE (cl_v) = get_identifier (DECL_SOURCE_FILE (decl));
+  EXPR_WFL_SET_LINECOL (cl_v, DECL_SOURCE_LINE_FIRST (decl), -1);
 
-  line = java_get_line_col (EXPR_WFL_FILENAME (cl), 
-			    EXPR_WFL_LINENO (cl), EXPR_WFL_COLNO (cl));
+  line = java_get_line_col (EXPR_WFL_FILENAME (cl_v), 
+			    EXPR_WFL_LINENO (cl_v), EXPR_WFL_COLNO (cl_v));
 
   found = strstr ((const char *)line, 
 		  (const char *)IDENTIFIER_POINTER (DECL_NAME (decl)));
   if (found)
-    EXPR_WFL_SET_LINECOL (cl, EXPR_WFL_LINENO (cl), found - line);
+    EXPR_WFL_SET_LINECOL (cl_v, EXPR_WFL_LINENO (cl_v), found - line);
 
-  return cl;
+  return cl_v;
 }
 
 /* Look for a simple name in the single-type import list */
@@ -7551,19 +7527,11 @@ void java_layout_seen_class_methods ()
     }
 }
 
+static GTY(()) tree stop_reordering;
 void
 java_reorder_fields ()
 {
-  static tree stop_reordering = NULL_TREE;
-  static int initialized_p;
   tree current;
-
-  /* Register STOP_REORDERING with the garbage collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&stop_reordering, 1);
-      initialized_p = 1;
-    }
 
   for (current = gclass_list; current; current = TREE_CHAIN (current))
     {
@@ -8627,26 +8595,18 @@ maybe_build_thisn_access_method (type)
    This function can be invoked with TYPE to NULL, available and then
    has to count the parser context.  */
 
+static GTY(()) tree saved_thisn;
+static GTY(()) tree saved_type;
+
 static tree
 build_current_thisn (type)
     tree type;
 {
   static int saved_i = -1;
-  static tree saved_thisn = NULL_TREE;
-  static tree saved_type = NULL_TREE;
   static int saved_type_i = 0;
-  static int initialized_p;
   tree decl;
   char buffer [24];
   int i = 0;
-
-  /* Register SAVED_THISN and SAVED_TYPE with the garbage collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&saved_thisn, 1);
-      ggc_add_tree_root (&saved_type, 1);
-      initialized_p = 1;
-    }
 
   if (type)
     {
@@ -8704,6 +8664,9 @@ build_thisn_assign ()
         throw new NoClassDefFoundError(e.getMessage());}
     } */
 
+static GTY(()) tree get_message_wfl;
+static GTY(()) tree type_parm_wfl;
+
 static tree
 build_dot_class_method (class)
      tree class;
@@ -8713,14 +8676,10 @@ build_dot_class_method (class)
   tree args, tmp, saved_current_function_decl, mdecl;
   tree stmt, throw_stmt;
 
-  static tree get_message_wfl, type_parm_wfl;
-
   if (!get_message_wfl)
     {
       get_message_wfl = build_wfl_node (get_identifier ("getMessage"));
       type_parm_wfl = build_wfl_node (get_identifier ("type$"));
-      ggc_add_tree_root (&get_message_wfl, 1);
-      ggc_add_tree_root (&type_parm_wfl, 1);
     }
 
   /* Build the arguments */
@@ -10060,15 +10019,15 @@ check_deprecation (wfl, decl)
 
 /* Returns 1 if class was declared in the current package, 0 otherwise */
 
+static GTY(()) tree cicp_cache;
 static int
 class_in_current_package (class)
      tree class;
 {
-  static tree cache = NULL_TREE;
   int qualified_flag;
   tree left;
 
-  if (cache == class)
+  if (cicp_cache == class)
     return 1;
 
   qualified_flag = QUALIFIED_P (DECL_NAME (TYPE_NAME (class)));
@@ -10089,15 +10048,7 @@ class_in_current_package (class)
   breakdown_qualified (&left, NULL, DECL_NAME (TYPE_NAME (class)));
   if (ctxp->package == left)
     {
-      static int initialized_p;
-      /* Register CACHE with the garbage collector.  */
-      if (!initialized_p)
-	{
-	  ggc_add_tree_root (&cache, 1);
-	  initialized_p = 1;
-	}
-
-      cache = class;
+      cicp_cache = class;
       return 1;
     }
   return 0;
@@ -11149,24 +11100,14 @@ find_most_specific_methods_list (list)
    corresponding parameter of M1. Implementation expects M2_OR_ARGLIST
    to change less often than M1. */
 
+static GTY(()) tree m2_arg_value;
+static GTY(()) tree m2_arg_cache;
+
 static int
 argument_types_convertible (m1, m2_or_arglist)
     tree m1, m2_or_arglist;
 {
-  static tree m2_arg_value = NULL_TREE;
-  static tree m2_arg_cache = NULL_TREE;
-  static int initialized_p;
-
   register tree m1_arg, m2_arg;
-
-  /* Register M2_ARG_VALUE and M2_ARG_CACHE with the garbage
-     collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&m2_arg_value, 1);
-      ggc_add_tree_root (&m2_arg_cache, 1);
-      initialized_p = 1;
-    }
 
   SKIP_THIS_AND_ARTIFICIAL_PARMS (m1_arg, m1)
 
@@ -16001,8 +15942,6 @@ mark_parser_ctxt (p)
 void
 init_src_parse ()
 {
-  /* Register roots with the garbage collector.  */
-  ggc_add_tree_root (src_parse_roots, ARRAY_SIZE (src_parse_roots));
 }
 
 
@@ -16080,3 +16019,6 @@ emit_test_initialization (entry, info)
 
   return true;
 }
+
+#include "gt-java-parse.h"
+#include "gtype-java.h"

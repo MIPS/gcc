@@ -106,6 +106,24 @@ extern int yyparse PARAMS ((void));
 extern void parse_file PARAMS ((char *name));
 
 /* Output file handling.  */
+
 FILE *get_output_file PARAMS ((const char *input_file));
 const char *get_output_file_name PARAMS ((const char *));
+
+/* The output header file that is included into pretty much every
+   source file.  */
 extern FILE *header_file;
+
+/* An output file, suitable for definitions, that can see declarations
+   made in INPUT_FILE and is linked into every language that uses
+   INPUT_FILE.  */
+extern FILE *get_output_file_with_visibility PARAMS ((const char *input_file));
+
+/* A list of output files suitable for definitions.  There is one
+   BASE_FILES entry for each language.  */
+extern FILE *base_files[];
+
+/* A bitmap that specifies which of BASE_FILES should be used to
+   output a definition that is different for each language and must be
+   defined once in each language that uses INPUT_FILE.  */
+extern unsigned get_base_file_bitmap PARAMS ((const char *input_file));

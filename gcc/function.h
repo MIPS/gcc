@@ -479,7 +479,7 @@ struct function GTY(())
 };
 
 /* The function currently being compiled.  */
-extern struct function *cfun;
+extern GTY(()) struct function *cfun;
 
 /* Nonzero if we've already converted virtual regs to hard regs.  */
 extern int virtuals_instantiated;

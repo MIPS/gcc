@@ -2847,6 +2847,7 @@ release_jcf_state (state)
    in the .class file representation.  The list can be written to a
    .class file using write_chunks.  Allocate chunks from obstack WORK. */
 
+static GTY(()) tree SourceFile_node;
 static struct chunk *
 generate_classfile (clas, state)
      tree clas;
@@ -2860,7 +2861,6 @@ generate_classfile (clas, state)
   int fields_count = 0;
   char *methods_count_ptr;
   int methods_count = 0;
-  static tree SourceFile_node = NULL_TREE;
   tree part;
   int total_supers
     = clas == object_type_node ? 0
@@ -3148,7 +3148,6 @@ generate_classfile (clas, state)
   if (SourceFile_node == NULL_TREE) 
     {
       SourceFile_node = get_identifier ("SourceFile");
-      ggc_add_tree_root (&SourceFile_node, 1);
     }
 
   i = find_utf8_constant (&state->cpool, SourceFile_node);
@@ -3168,18 +3167,17 @@ generate_classfile (clas, state)
   return state->first;
 }
 
+static GTY(()) tree Synthetic_node;
 static unsigned char *
 append_synthetic_attribute (state)
      struct jcf_partial *state;
 {
-  static tree Synthetic_node = NULL_TREE;
   unsigned char *ptr = append_chunk (NULL, 6, state);
   int i;
 
   if (Synthetic_node == NULL_TREE)
     {
       Synthetic_node = get_identifier ("Synthetic");
-      ggc_add_tree_root (&Synthetic_node, 1);
     }
   i = find_utf8_constant (&state->cpool, Synthetic_node);
   PUT2 (i);		/* Attribute string index */
@@ -3206,12 +3204,12 @@ append_gcj_attribute (state, class)
   PUT4 (0);			/* Attribute length */
 }
 
+static tree InnerClasses_node;
 static void
 append_innerclasses_attribute (state, class)
      struct jcf_partial *state;
      tree class;
 {
-  static tree InnerClasses_node = NULL_TREE;
   tree orig_decl = TYPE_NAME (class);
   tree current, decl;
   int length = 0, i;
@@ -3225,7 +3223,6 @@ append_innerclasses_attribute (state, class)
   if (InnerClasses_node == NULL_TREE) 
     {
       InnerClasses_node = get_identifier ("InnerClasses");
-      ggc_add_tree_root (&InnerClasses_node, 1);
     }
   i = find_utf8_constant (&state->cpool, InnerClasses_node);
   PUT2 (i);
@@ -3387,3 +3384,5 @@ write_classfile (clas)
    string concatenation
    synchronized statement
    */
+
+#include "gt-java-jcf-write.h"

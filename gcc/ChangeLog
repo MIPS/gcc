@@ -1,5 +1,47 @@
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* Makefile.in (c-parse.o): Update dependencies.
+	(c-common.o): Likewise.
+	(GTFILES): Add c-common.h, c-tree.h, c-common.c, c-parse.in.
+	Add dependencies for the files they generate.
+	* c-common.c: Replace ggc_add_* uses with GTY annotations.
+	* c-common.h: Likewise.
+	* c-decl.c: Likewise.
+	(gt_ggc_mp_binding_level): Delete.
+	* c-lang.c: Include gtype-c.h.
+	* c-parse.in: Replace ggc_add_* uses with GTY annotations.  Include
+	gt-c-parse.h.
+	* c-pragma.h: Replace ggc_add_* uses with GTY annotations.
+	(gt_ggc_mp_align_stack): Delete.
+	* c-tree.h: Replace ggc_add_* uses with GTY annotations.
+	* function.c: Replace ggc_add_* uses with GTY annotations.
+	(gt_ggc_mp_function): Delete.
+	* function.h: Replace ggc_add_* uses with GTY annotations.
+	* gengtype.c (lang_names): New.
+	(NUM_BASE_FILES): New.
+	(open_base_files): Create language base files.
+	(startswith): New.
+	(get_file_basename): New.
+	(get_base_file_bitmap): New.
+	(get_output_file_with_visibility): Rename from get_output_file.
+	Add more mappings for various C/Objc filenames.
+	(finish_root_table): New.
+	(write_gc_roots): Handle dependencies and scoping properly.
+	* gengtype.h: Add prototypes for new functions.
+	* ggc-common.c (struct deletable_root): Delete.
+	(deletables): Delete.
+	(ggc_add_deletable_root): Delete.
+	(ggc_mark_roots): No need to deal with deleted functionality.
+	* ggc.h (ggc_add_deletable_root): Delete prototype.
+	* objc/Make-lang.in (objc-act.o): Add gtype-objc.h dependency.
+	(gtype-objc.h): Add rule to create.
+	* objc/config-lang.in (gtfiles): New.
+	* objc/objc-act.c: Allocate imp_list using GGC.  Replace uses of
+	ggc_add_* with GTY markers.  Include gtype-objc.h.
+	(ggc_mark_imp_list): Delete.
+	* objc/objc-act.h: Replace uses of ggc_add_* with GTY markers.
+	* objc/objc-lang.c: Random Whitespace Change.
+
 	* except.h (exception_handler_labels): Delete.
 	(get_exception_handler_labels): New.
 	* except.c (exception_handler_labels): Delete.

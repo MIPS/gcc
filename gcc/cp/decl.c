@@ -467,7 +467,7 @@ struct cp_binding_level GTY(())
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static struct cp_binding_level *free_binding_level;
+static GTY((deletable (""))) struct cp_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
@@ -6599,7 +6599,6 @@ cxx_init_decl_processing ()
   ggc_add_tree_root (&size_zero_node, 1);
   ggc_add_root (&global_binding_level, 1, sizeof global_binding_level,
 		mark_binding_level);
-  ggc_add_deletable_root (&free_binding_level, sizeof (free_binding_level));
   ggc_add_root (&scope_chain, 1, sizeof scope_chain, &mark_saved_scope);
   ggc_add_tree_root (&static_ctors, 1);
   ggc_add_tree_root (&static_dtors, 1);
@@ -14709,4 +14708,5 @@ cp_missing_noreturn_ok_p (decl)
   return DECL_MAIN_P (decl);
 }
 
-#include "cp/gt-decl.h"
+#include "gt-cp-decl.h"
+#include "gtype-cp.h"

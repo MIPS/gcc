@@ -85,11 +85,11 @@ static bool emit_init_test_initialization PARAMS ((struct hash_entry *,
 						   PTR ptr));
 static int get_offset_table_index PARAMS ((tree));
 
-static tree operand_type[59];
+static GTY(()) tree operand_type[59];
 extern struct obstack permanent_obstack;
 
-static tree methods_ident = NULL_TREE;
-static tree ncode_ident = NULL_TREE;
+static GTY(()) tree methods_ident;
+static GTY(()) tree ncode_ident;
 tree dtable_ident = NULL_TREE;
 
 /* Set to non-zero value in order to emit class initilization code
@@ -123,10 +123,10 @@ int always_initialize_class_p;
    So dup cannot just add an extra element to the quick_stack, but iadd can.
 */
 
-static tree quick_stack = NULL_TREE;
+static GTY(()) tree quick_stack;
 
 /* A free-list of unused permamnet TREE_LIST nodes. */
-static tree tree_list_free_list = NULL_TREE;
+static GTY((deletable (""))) tree tree_list_free_list;
 
 /* The stack pointer of the Java virtual machine.
    This does include the size of the quick_stack. */
@@ -144,11 +144,6 @@ init_expr_processing()
   operand_type[23] = operand_type[56] = float_type_node;
   operand_type[24] = operand_type[57] = double_type_node;
   operand_type[25] = operand_type[58] = ptr_type_node;
-  ggc_add_tree_root (operand_type, 59);
-  ggc_add_tree_root (&methods_ident, 1);
-  ggc_add_tree_root (&ncode_ident, 1);
-  ggc_add_tree_root (&quick_stack, 1);
-  ggc_add_tree_root (&tree_list_free_list, 1);
 }
 
 tree
@@ -1982,11 +1977,11 @@ build_invokevirtual (dtable, method)
   return func;
 }
 
+static GTY(()) tree class_ident;
 tree
 build_invokeinterface (dtable, method)
      tree dtable, method;
 {
-  static tree class_ident = NULL_TREE;
   tree lookup_arg;
   tree interface;
   tree idx;
@@ -2001,7 +1996,6 @@ build_invokeinterface (dtable, method)
   if (class_ident == NULL_TREE)
     {
       class_ident = get_identifier ("class");
-      ggc_add_tree_root (&class_ident, 1);
     }
 
   dtable = build_java_indirect_ref (dtable_type, dtable, flag_check_references);
@@ -3489,3 +3483,6 @@ emit_init_test_initialization (entry, key)
 			   ite->init_test_decl, rhs));
   return true;
 }
+
+#include "gt-java-expr.h"
+

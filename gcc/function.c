@@ -303,10 +303,9 @@ static void compute_insns_for_mem PARAMS ((rtx, rtx, struct hash_table *));
 static void prepare_function_start PARAMS ((void));
 static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
-static void gt_ggc_mp_function PARAMS ((void *));
 
 /* Pointer to chain of `struct function' for containing functions.  */
-static struct function *outer_function_chain;
+static GTY(()) struct function *outer_function_chain;
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
@@ -7861,17 +7860,6 @@ reposition_prologue_and_epilogue_notes (f)
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
 
-/* Mark the struct function pointed to by *ARG for GC, if it is not
-   NULL.  This is used to mark the current function and the outer
-   function chain.  */
-
-static void
-gt_ggc_mp_function (arg)
-     void *arg;
-{
-  gt_ggc_m_function (*(struct function **) arg);
-}
-
 /* Some adaptor functions to mark parts of the function structure.  */
 
 void
@@ -7897,10 +7885,6 @@ gt_ggc_mr_language_function (x)
 void
 init_function_once ()
 {
-  ggc_add_root (&cfun, 1, sizeof cfun, gt_ggc_mp_function);
-  ggc_add_root (&outer_function_chain, 1, sizeof outer_function_chain,
-		gt_ggc_mp_function);
-
   VARRAY_INT_INIT (prologue, 0, "prologue");
   VARRAY_INT_INIT (epilogue, 0, "epilogue");
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
