@@ -268,7 +268,7 @@ enum insn_code reload_out_optab[NUM_MACHINE_MODES];
 /* This obstack is used for allocation of rtl during register elimination.
    The allocated storage can be freed once find_reloads has processed the
    insn.  */
-struct obstack reload_obstack;
+static struct obstack reload_obstack;
 
 /* Points to the beginning of the reload_obstack.  All insn_chain structures
    are allocated first.  */

@@ -178,7 +178,7 @@ static tree fold_builtin_fabs (tree, tree);
 static tree fold_builtin_abs (tree, tree);
 static tree fold_builtin_unordered_cmp (tree, tree, enum tree_code,
 					enum tree_code);
-static tree fold_builtin_1 (tree, bool);
+static tree fold_builtin_1 (tree, tree, bool);
 
 static tree fold_builtin_strpbrk (tree, tree);
 static tree fold_builtin_strstr (tree, tree);
@@ -1758,6 +1758,14 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     case BUILT_IN_RINTF:
     case BUILT_IN_RINTL:
       builtin_optab = rint_optab; break;
+    case BUILT_IN_LRINT:
+    case BUILT_IN_LRINTF:
+    case BUILT_IN_LRINTL:
+      builtin_optab = lrint_optab; break;
+    case BUILT_IN_LLRINT:
+    case BUILT_IN_LLRINTF:
+    case BUILT_IN_LLRINTL:
+      builtin_optab = llrint_optab; break;
     default:
       gcc_unreachable ();
     }
@@ -5261,6 +5269,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_RINT:
     case BUILT_IN_RINTF:
     case BUILT_IN_RINTL:
+    case BUILT_IN_LRINT:
+    case BUILT_IN_LRINTF:
+    case BUILT_IN_LRINTL:
+    case BUILT_IN_LLRINT:
+    case BUILT_IN_LLRINTF:
+    case BUILT_IN_LLRINTL:
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;
@@ -7939,10 +7953,8 @@ fold_builtin_complex_div (tree type, tree arglist)
    if no simplification was possible.  */
 
 static tree
-fold_builtin_1 (tree exp, bool ignore)
+fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
 {
-  tree fndecl = get_callee_fndecl (exp);
-  tree arglist = TREE_OPERAND (exp, 1);
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
   enum built_in_function fcode;
 
@@ -8298,9 +8310,9 @@ fold_builtin_1 (tree exp, bool ignore)
    call node earlier than the warning is generated.  */
 
 tree
-fold_builtin (tree exp, bool ignore)
+fold_builtin (tree fndecl, tree arglist, bool ignore)
 {
-  exp = fold_builtin_1 (exp, ignore);
+  tree exp = fold_builtin_1 (fndecl, arglist, ignore);
   if (exp)
     {
       /* ??? Don't clobber shared nodes such as integer_zero_node.  */

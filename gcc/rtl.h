@@ -1912,6 +1912,7 @@ extern int redirect_jump_1 (rtx, rtx);
 extern void redirect_jump_2 (rtx, rtx, rtx, int, int);
 extern int redirect_jump (rtx, rtx, int);
 extern void rebuild_jump_labels (rtx);
+extern rtx reversed_comparison (rtx, enum machine_mode);
 extern enum rtx_code reversed_comparison_code (rtx, rtx);
 extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
@@ -2186,6 +2187,7 @@ extern void sms_schedule (FILE *);
 struct rtl_hooks
 {
   rtx (*gen_lowpart) (enum machine_mode, rtx);
+  rtx (*gen_lowpart_no_emit) (enum machine_mode, rtx);
   rtx (*reg_nonzero_bits) (rtx, enum machine_mode, rtx, enum machine_mode,
 			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
   rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,

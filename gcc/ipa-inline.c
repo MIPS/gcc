@@ -80,8 +80,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "coverage.h"
 
-#define INSNS_PER_CALL 10
-
 /* Statistics we collect about inlining algorithm.  */
 static int ncalls_inlined;
 static int nfunctions_inlined;
@@ -97,7 +95,12 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
   int size;
-  size = (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  tree fndecl = what->decl, arg;
+  int call_insns = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+
+  for (arg = DECL_ARGUMENTS (fndecl); arg; arg = TREE_CHAIN (arg))
+    call_insns += estimate_move_cost (TREE_TYPE (arg));
+  size = (what->global.insns - call_insns) * times + to->global.insns;
   gcc_assert (size >= 0);
   return size;
 }
@@ -171,7 +174,8 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
       to->global.insns = new_insns;
     }
   gcc_assert (what->global.inlined_to == to);
-  overall_insns += new_insns - old_insns;
+  if (new_insns > old_insns)
+    overall_insns += new_insns - old_insns;
   ncalls_inlined++;
 }
 
@@ -458,7 +462,6 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 
   /* Make sure that function is small enough to be considered for inlining.  */
   if (!max_depth
-      || node->global.insns < INSNS_PER_CALL
       || cgraph_estimate_size_after_inlining (1, node, node)  >= limit)
     return false;
   heap = fibheap_new ();

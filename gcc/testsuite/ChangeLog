@@ -1,3 +1,80 @@
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/max1.C: Run with -Wno-deprecated.
+	* g++.dg/opt/pr7503-2.C: Likewise.
+	* g++.dg/opt/pr7503-3.C: Likewise.
+	* g++.dg/opt/pr7503-4.C: Likewise.
+	* g++.dg/opt/pr7503-5.C: Likewise.
+	* g++.dg/warn/minmax.C: New test.
+
+2005-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* g77_intrinsics_funcs.f: New test.
+	* g77_intrinsics_sub.f: New test.
+
+2005-03-22  Richard Guenther <rguenth@tat.physik.uni-tuebingen.de>
+	    Jan Hubicka  <jh@suse.cz>
+	    Steven Bosscher <stevenb@suse.de
+
+	* gcc.dg/winline-6.c: Modify so inlined function have nonzero cost.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19980
+	* g++.dg/template/redecl3.C: New test.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20499
+	* g++.dg/parse/error16.C: Tweak error markers.
+
+2005-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/20561
+	* gcc.dg/20050321-2.c: New test.
+
+2005-03-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20465
+	PR c++/20381
+	* g++.dg/template/ptrmem12.C: New.
+
+2005-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/20527
+	* gcc.c-torture/execute/pr20527-1.c: New test.
+
+2005-03-22  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/options.exp (check_for_options): Create a real C
+	program, compile it into a real executable and then delete the .c
+	and .x files afterwards, to avoid problems on testglue targets.
+
+2005-03-21  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.target/i386/sse-2.c: New.
+	
+2005-03-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/builtins-46.c: Also check lrint* and llrint*.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* g++.dg/parse/crash25.C: Fix typo.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20461
+	* g++.dg/parse/crash24.C: New test.
+
+	PR c++/20536
+	* g++.dg/parse/crash25.C: New test.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20147	
+	* g++.dg/ext/stmtexpr4.C: New test.
+
 2005-03-20  Roger Sayle  <roger@eyesopen.com>
 
 	PR middle-end/20539

@@ -3444,7 +3444,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_abstract_function,	/* outlining_inline_function */
   debug_nothing_rtx,		/* label */
   debug_nothing_int,		/* handle_pch */
-  dwarf2out_var_location
+  dwarf2out_var_location,
+  1                             /* start_end_main_source_file */
 };
 #endif
 
@@ -3778,9 +3779,6 @@ static int is_tagged_type (tree);
 static const char *dwarf_tag_name (unsigned);
 static const char *dwarf_attr_name (unsigned);
 static const char *dwarf_form_name (unsigned);
-#if 0
-static const char *dwarf_type_encoding_name (unsigned);
-#endif
 static tree decl_ultimate_origin (tree);
 static tree block_ultimate_origin (tree);
 static tree decl_class_context (tree);
@@ -4548,36 +4546,6 @@ dwarf_form_name (unsigned int form)
       return "DW_FORM_<unknown>";
     }
 }
-
-/* Convert a DWARF type code into its string name.  */
-
-#if 0
-static const char *
-dwarf_type_encoding_name (unsigned enc)
-{
-  switch (enc)
-    {
-    case DW_ATE_address:
-      return "DW_ATE_address";
-    case DW_ATE_boolean:
-      return "DW_ATE_boolean";
-    case DW_ATE_complex_float:
-      return "DW_ATE_complex_float";
-    case DW_ATE_float:
-      return "DW_ATE_float";
-    case DW_ATE_signed:
-      return "DW_ATE_signed";
-    case DW_ATE_signed_char:
-      return "DW_ATE_signed_char";
-    case DW_ATE_unsigned:
-      return "DW_ATE_unsigned";
-    case DW_ATE_unsigned_char:
-      return "DW_ATE_unsigned_char";
-    default:
-      return "DW_ATE_<unknown>";
-    }
-}
-#endif
 
 /* Determine the "ultimate origin" of a decl.  The decl may be an inlined
    instance of an inlined instance of a decl which is local to an inline

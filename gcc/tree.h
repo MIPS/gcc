@@ -2070,8 +2070,8 @@ struct tree_binfo GTY (())
 #define DECL_FROM_INLINE(NODE) (DECL_ABSTRACT_ORIGIN (NODE) != NULL_TREE \
 				&& DECL_ABSTRACT_ORIGIN (NODE) != (NODE))
 
-/* Nonzero if a _DECL means that the name of this decl should be ignored
-   for symbolic debug purposes.  */
+/* Nonzero for a given ..._DECL node means that the name of this node should
+   be ignored for symbolic debug purposes.  */ 
 #define DECL_IGNORED_P(NODE) (DECL_CHECK (NODE)->decl.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -2082,8 +2082,8 @@ struct tree_binfo GTY (())
    any code or allocate any data space for such instances.  */
 #define DECL_ABSTRACT(NODE) (DECL_CHECK (NODE)->decl.abstract_flag)
 
-/* Nonzero if a _DECL means that no warnings should be generated just
-   because this decl is unused.  */
+/* Nonzero for a given ..._DECL node means that no warnings should be
+   generated just because this node is unused.  */
 #define DECL_IN_SYSTEM_HEADER(NODE) \
   (DECL_CHECK (NODE)->decl.in_system_header_flag)
 
@@ -3516,6 +3516,9 @@ extern void using_eh_for_cleanups (void);
    subexpressions are not changed.  */
 
 extern tree fold (tree);
+extern tree fold_build1 (enum tree_code, tree, tree);
+extern tree fold_build2 (enum tree_code, tree, tree, tree);
+extern tree fold_build3 (enum tree_code, tree, tree, tree, tree);
 extern tree fold_initializer (tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
@@ -3584,7 +3587,7 @@ extern enum tree_code swap_tree_comparison (enum tree_code);
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
 
 /* In builtins.c */
-extern tree fold_builtin (tree, bool);
+extern tree fold_builtin (tree, tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (tree, tree, tree);
 extern tree fold_builtin_strncpy (tree, tree, tree);
