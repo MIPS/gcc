@@ -76,7 +76,7 @@ struct tree_alias_ops
 			      alias_typevar);
 
   /* Private data.  */
-  void *data
+  void *data;
 
   /* Interprocedural.  */
   int ip:1; 
