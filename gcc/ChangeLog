@@ -1,3 +1,21 @@
+2002-03-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-simple.h: New file.
+	* Makefile.in (c-simplify.o): Add dependency on tree-simple.h
+	* c-simplify.c: Reformat some comments.
+	(tree_last_decl): Declare.
+
+2002-03-18  Sebastian Pop  <s.pop@laposte.net>
+
+        * c-simplify.c (insert_stmt_chain): Delete.
+        (simplified_condition_p, insert_after_case_labels): New.
+	(simplify_stmt, simplify_for_stmt, simplify_while_stmt,
+	simplify_do_stmt, new_simplified_if, simplify_switch_stmt): 
+	Returns a single node, generate a chain of statements to be executed
+	before the if, and a list of new variables.
+        (new_simplified_if): Simplify clauses.
+        (simplify_expr): Remove unused parameter scope.
+
 2002-03-14  Sebastian Pop  <s.pop@laposte.net>
 
 	* c-simplify.c (simplify_switch_stmt, simplify_expr): Add scope
