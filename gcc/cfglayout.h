@@ -43,3 +43,7 @@ extern void scope_to_insns_initialize	PARAMS ((void));
 extern void scope_to_insns_finalize	PARAMS ((void));
 extern bool cfg_layout_redirect_edge	PARAMS ((edge, basic_block));
 extern edge cfg_layout_split_block	PARAMS ((basic_block, rtx));
+extern bool can_copy_bbs_p		PARAMS ((basic_block *, unsigned));
+extern void copy_bbs	PARAMS ((basic_block *, unsigned, basic_block *,
+				 edge *, unsigned, edge *, struct loop *,
+				 struct loops *));

@@ -535,6 +535,8 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 
 /* In predict.c */
 extern void estimate_probability        PARAMS ((struct loops *));
+extern void estimate_frequencies	PARAMS ((struct loops *));
+extern void counts_to_freqs		PARAMS ((void));
 extern void note_prediction_to_br_prob	PARAMS ((void));
 extern void expected_value_to_br_prob	PARAMS ((void));
 extern void note_prediction_to_br_prob	PARAMS ((void));
@@ -573,6 +575,10 @@ extern void flow_nodes_print		PARAMS ((const char *, const sbitmap,
 						 FILE *));
 extern void flow_edge_list_print	PARAMS ((const char *, const edge *,
 						 int, FILE *));
+extern void push_aux_obstacks		PARAMS ((struct obstack *, void **,
+						 struct obstack *, void **));
+extern void pop_aux_obstacks		PARAMS ((struct obstack *, void *,
+						 struct obstack *, void *));
 extern void alloc_aux_for_block		PARAMS ((basic_block, int));
 extern void alloc_aux_for_blocks	PARAMS ((int));
 extern void clear_aux_for_blocks	PARAMS ((void));

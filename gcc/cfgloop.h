@@ -259,6 +259,21 @@ struct loops
 #define LOOP_EDGES		(LOOP_ENTRY_EDGES | LOOP_EXIT_EDGES)
 #define LOOP_ALL	       15	/* All of the above  */
 
+/* The information stored for each edge during the phase in that frequencies
+   and counts are not updated correctly.  */
+struct edge_freq_info
+{
+  gcov_type count;	/* The count edge had before.  */
+  int total_freq;	/* Here the total frequency of the duplicates of edge
+			   at the end is computed.  */
+  int n_dupl;		/* Number of duplicates of the edge.  */
+  edge split_of;	/* If the edge was created by splitting other edge,
+			   the edge from that it originates.  */
+  basic_block split_bb;	/* If the edge was created by splitting a block,
+			   the block from that it comes.  */
+};
+#define EDGE_FREQ_INFO(E) ((struct edge_freq_info *) (E)->aux)
+
 /* Loop recognition.  */
 extern int flow_loops_find		PARAMS ((struct loops *, int flags));
 extern int flow_loops_update		PARAMS ((struct loops *, int flags));
@@ -321,18 +336,17 @@ extern unsigned expected_loop_iterations PARAMS ((const struct loop *));
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p	PARAMS ((struct loop *loop));
 
-#define DLTHE_FLAG_UPDATE_FREQ		1
-#define DLTHE_PROB_UPDATING(X)		(X & 6)
-#define DLTHE_USE_WONT_EXIT		2
 extern int duplicate_loop_to_header_edge PARAMS ((struct loop *, edge,
-						struct loops *, unsigned,
-						sbitmap, edge, edge *,
-						unsigned *, int));
+						  struct loops *, unsigned,
+						  sbitmap, edge, edge *,
+						  unsigned *));
 extern struct loop *loopify		PARAMS ((struct loops *, edge,
 						edge, basic_block));
 extern bool remove_path			PARAMS ((struct loops *, edge));
 extern edge split_loop_bb		PARAMS ((struct loops *, basic_block,
 						rtx));
+extern void prepare_for_recount_frequencies PARAMS ((void));
+extern void recount_frequencies		PARAMS ((struct loops *));
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init PARAMS ((FILE *));

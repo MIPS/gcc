@@ -71,7 +71,6 @@ static void dump_prediction		 PARAMS ((enum br_predictor, int,
 static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
 static void propagate_freq		 PARAMS ((struct loop *));
 static void estimate_bb_frequencies	 PARAMS ((struct loops *));
-static void counts_to_freqs		 PARAMS ((void));
 static void process_note_predictions	 PARAMS ((basic_block, int *,
 						  dominance_info,
 						  dominance_info));
@@ -1102,7 +1101,7 @@ estimate_loops_at_level (first_loop)
 
 /* Convert counts measured by profile driven feedback to frequencies.  */
 
-static void
+void
 counts_to_freqs ()
 {
   gcov_type count_max = 1;
@@ -1158,6 +1157,60 @@ expensive_function_p (threshold)
   return false;
 }
 
+/* Estimate frequencies of basic blocks.  Loop tree is stored in LOOPS.  */
+void
+estimate_frequencies (loops)
+     struct loops *loops;
+{
+  basic_block bb;
+  REAL_VALUE_TYPE freq_max;
+  enum machine_mode double_mode = TYPE_MODE (double_type_node);
+      
+  /* Set up block info for each basic block.  */
+  alloc_aux_for_blocks (sizeof (struct block_info_def));
+  alloc_aux_for_edges (sizeof (struct edge_info_def));
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      edge e;
+
+      BLOCK_INFO (bb)->tovisit = 0;
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  REAL_VALUE_FROM_INT (EDGE_INFO (e)->back_edge_prob,
+			       e->probability, 0, double_mode);
+	  REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
+			   MULT_EXPR, EDGE_INFO (e)->back_edge_prob,
+			   real_inv_br_prob_base);
+	}
+    }
+
+  /* First compute probabilities locally for each loop from innermost
+     to outermost to examine probabilities for back edges.  */
+  estimate_loops_at_level (loops->tree_root);
+
+  memcpy (&freq_max, &real_zero, sizeof (real_zero));
+  FOR_EACH_BB (bb)
+    {
+      if (REAL_VALUES_LESS (freq_max, BLOCK_INFO (bb)->frequency))
+	memcpy (&freq_max, &BLOCK_INFO (bb)->frequency, sizeof (freq_max));
+    }
+
+  REAL_ARITHMETIC (freq_max, RDIV_EXPR, real_bb_freq_max, freq_max);
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      REAL_VALUE_TYPE tmp;
+
+      REAL_ARITHMETIC (tmp, MULT_EXPR, BLOCK_INFO (bb)->frequency,
+		       freq_max);
+      REAL_ARITHMETIC (tmp, PLUS_EXPR, tmp, real_one_half);
+      bb->frequency = REAL_VALUE_UNSIGNED_FIX (tmp);
+    }
+
+  free_aux_for_blocks ();
+  free_aux_for_edges ();
+}
+
 /* Estimate basic blocks frequency by given branch probabilities.  */
 
 static void
@@ -1165,13 +1218,12 @@ estimate_bb_frequencies (loops)
      struct loops *loops;
 {
   basic_block bb;
-  REAL_VALUE_TYPE freq_max;
   enum machine_mode double_mode = TYPE_MODE (double_type_node);
+  static int real_values_initialized = 0;
 
-  if (flag_branch_probabilities)
-    counts_to_freqs ();
-  else
+  if (!real_values_initialized)
     {
+      real_values_initialized = 1;
       REAL_VALUE_FROM_INT (real_zero, 0, 0, double_mode);
       REAL_VALUE_FROM_INT (real_one, 1, 0, double_mode);
       REAL_VALUE_FROM_INT (real_br_prob_base, REG_BR_PROB_BASE, 0, double_mode);
@@ -1180,8 +1232,14 @@ estimate_bb_frequencies (loops)
       REAL_ARITHMETIC (real_one_half, RDIV_EXPR, real_one, real_one_half);
       REAL_ARITHMETIC (real_inv_br_prob_base, RDIV_EXPR, real_one, real_br_prob_base);
       REAL_ARITHMETIC (real_almost_one, MINUS_EXPR, real_one, real_inv_br_prob_base);
+    }
 
+  if (flag_branch_probabilities)
+    counts_to_freqs ();
+  else
+    {
       mark_dfs_back_edges ();
+
       /* Fill in the probability values in flowgraph based on the REG_BR_PROB
          notes.  */
       FOR_EACH_BB (bb)
@@ -1210,49 +1268,7 @@ estimate_bb_frequencies (loops)
 
       ENTRY_BLOCK_PTR->succ->probability = REG_BR_PROB_BASE;
 
-      /* Set up block info for each basic block.  */
-      alloc_aux_for_blocks (sizeof (struct block_info_def));
-      alloc_aux_for_edges (sizeof (struct edge_info_def));
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-	{
-	  edge e;
-
-	  BLOCK_INFO (bb)->tovisit = 0;
-	  for (e = bb->succ; e; e = e->succ_next)
-	    {
-	      REAL_VALUE_FROM_INT (EDGE_INFO (e)->back_edge_prob,
-				   e->probability, 0, double_mode);
-	      REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
-			       MULT_EXPR, EDGE_INFO (e)->back_edge_prob,
-			       real_inv_br_prob_base);
-	    }
-	}
-
-      /* First compute probabilities locally for each loop from innermost
-         to outermost to examine probabilities for back edges.  */
-      estimate_loops_at_level (loops->tree_root);
-
-      memcpy (&freq_max, &real_zero, sizeof (real_zero));
-      FOR_EACH_BB (bb)
-	if (REAL_VALUES_LESS
-	    (freq_max, BLOCK_INFO (bb)->frequency))
-	  memcpy (&freq_max, &BLOCK_INFO (bb)->frequency,
-		  sizeof (freq_max));
-
-      REAL_ARITHMETIC (freq_max, RDIV_EXPR, real_bb_freq_max, freq_max);
-
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-	{
-	  REAL_VALUE_TYPE tmp;
-
-	  REAL_ARITHMETIC (tmp, MULT_EXPR, BLOCK_INFO (bb)->frequency,
-			   freq_max);
-	  REAL_ARITHMETIC (tmp, PLUS_EXPR, tmp, real_one_half);
-	  bb->frequency = REAL_VALUE_UNSIGNED_FIX (tmp);
-	}
-
-      free_aux_for_blocks ();
-      free_aux_for_edges ();
+      estimate_frequencies (loops);
     }
   compute_function_frequency ();
   if (flag_reorder_functions)

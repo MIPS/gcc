@@ -1020,29 +1020,36 @@ cfg_layout_duplicate_bb (bb, e)
     {
       n = make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
-      if (new_count)
-	/* Take care for overflows!  */
-	n->count = s->count * (new_count * 10000 / bb->count) / 10000;
+      if (e && bb->count)
+	{
+	  /* Take care for overflows!  */
+	  n->count = s->count * (new_count * 10000 / bb->count) / 10000;
+	  s->count -= n->count;
+	}
       else
-	n->count = 0;
-      s->count -= n->count;
+	n->count = s->count;
+      n->aux = s->aux;
     }
-
-  new_bb->count = new_count;
-  bb->count -= new_count;
 
   if (e)
     {
+      new_bb->count = new_count;
+      bb->count -= new_count;
+
       new_bb->frequency = EDGE_FREQUENCY (e);
       bb->frequency -= EDGE_FREQUENCY (e);
 
       cfg_layout_redirect_edge (e, new_bb);
+      if (bb->count < 0)
+	bb->count = 0;
+      if (bb->frequency < 0)
+	bb->frequency = 0;
     }
-
-  if (bb->count < 0)
-    bb->count = 0;
-  if (bb->frequency < 0)
-    bb->frequency = 0;
+  else
+    {
+      new_bb->count = bb->count;
+      new_bb->frequency = bb->frequency;
+    }
 
   RBI (new_bb)->original = bb;
   RBI (bb)->copy = new_bb;
@@ -1114,4 +1121,121 @@ cfg_layout_finalize ()
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+}
+
+/* Checks whether all N blocks in BBS array can be copied.  */
+bool
+can_copy_bbs_p (basic_block *bbs, unsigned n)
+{
+  unsigned i;
+  edge e;
+  int ret = true;
+
+  for (i = 0; i < n; i++)
+    RBI (bbs[i])->duplicated = 1;
+
+  for (i = 0; i < n; i++)
+    {
+      /* In case we should redirect abnormal edge during duplication, fail.  */
+      for (e = bbs[i]->succ; e; e = e->succ_next)
+	if ((e->flags & EDGE_ABNORMAL)
+	    && RBI (e->dest)->duplicated)
+	  {
+	    ret = false;
+	    goto end;
+	  }
+
+      if (!cfg_layout_can_duplicate_bb_p (bbs[i]))
+	{
+	  ret = false;
+	  break;
+	}
+    }
+
+end:
+  for (i = 0; i < n; i++)
+    RBI (bbs[i])->duplicated = 0;
+
+  return ret;
+}
+
+/* Duplicates N basic blocks stored in array BBS.  Newly created basic blocks
+   are placed into array NEW_BBS in the same order.  Edges from basic blocks
+   in BBS are also duplicated and copies of those of them
+   that lead into BBS are redirected to appropriate newly created block.  The
+   function assigns bbs into loops (copy of basic block bb is assigned to
+   bb->loop_father->copy loop, so this must be set up correctly in advance)
+   and updates dominators locally (LOOPS structure that contains the information
+   about dominators is passed to enable this).
+
+   BASE is the superloop to that basic block belongs; if its header or latch
+   is copied, we do not set the new blocks as header or latch.
+
+   Created copies of N_EDGES edges in array EDGES are stored in array NEW_EDGES,
+   also in the same order.  */
+
+void
+copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
+	  edge *edges, unsigned n_edges, edge *new_edges,
+	  struct loop *base, struct loops *loops)
+{
+  unsigned i, j;
+  basic_block bb, new_bb, dom_bb;
+  edge e;
+
+  /* Duplicate bbs, update dominators, assign bbs to loops.  */
+  for (i = 0; i < n; i++)
+    {
+      /* Duplicate.  */
+      bb = bbs[i];
+      new_bb = new_bbs[i] = cfg_layout_duplicate_bb (bb, NULL);
+      RBI (bb)->duplicated = 1;
+      /* Add to loop.  */
+      add_bb_to_loop (new_bb, bb->loop_father->copy);
+      add_to_dominance_info (loops->cfg.dom, new_bb);
+      /* Possibly set header.  */
+      if (bb->loop_father->header == bb && bb->loop_father != base)
+	new_bb->loop_father->header = new_bb;
+      /* Or latch.  */
+      if (bb->loop_father->latch == bb && bb->loop_father != base)
+	new_bb->loop_father->latch = new_bb;
+    }
+
+  /* Set dominators.  */
+  for (i = 0; i < n; i++)
+    {
+      bb = bbs[i];
+      new_bb = new_bbs[i];
+
+      dom_bb = get_immediate_dominator (loops->cfg.dom, bb);
+      if (RBI (dom_bb)->duplicated)
+	{
+	  dom_bb = RBI (dom_bb)->copy;
+	  set_immediate_dominator (loops->cfg.dom, new_bb, dom_bb);
+	}
+    }
+
+  /* Redirect edges.  */
+  for (j = 0; j < n_edges; j++)
+    new_edges[j] = NULL;
+  for (i = 0; i < n; i++)
+    {
+      new_bb = new_bbs[i];
+      bb = bbs[i];
+
+      for (e = new_bb->succ; e; e = e->succ_next)
+	{
+	  for (j = 0; j < n_edges; j++)
+	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)
+	      new_edges[j] = e;
+
+	  if (!RBI (e->dest)->duplicated)
+	    continue;
+	  cfg_layout_redirect_edge (e, RBI (e->dest)->copy);
+	}
+    }
+
+  /* Clear information about duplicates.  */
+  for (i = 0; i < n; i++)
+    RBI (bbs[i])->duplicated = 0;
 }

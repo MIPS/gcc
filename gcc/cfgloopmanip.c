@@ -26,19 +26,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfgloop.h"
 #include "cfglayout.h"
 #include "output.h"
+#include "obstack.h"
+#include "flags.h"
 
 static struct loop * duplicate_loop	PARAMS ((struct loops *,
-						struct loop *, struct loop *, int));
+						struct loop *, struct loop *));
 static void duplicate_subloops		PARAMS ((struct loops *, struct loop *,
-						struct loop *, int));
+						struct loop *));
 static void copy_loops_to		PARAMS ((struct loops *, struct loop **,
-						int, struct loop *, int));
+						int, struct loop *));
 static void loop_redirect_edge		PARAMS ((edge, basic_block));
 static bool loop_delete_branch_edge	PARAMS ((edge));
-static void copy_bbs			PARAMS ((basic_block *, int, edge,
-						edge, basic_block **,
-						struct loops *, edge *,
-						edge *, int));
 static void remove_bbs			PARAMS ((dominance_info, basic_block *,
 						int));
 static bool rpe_enum_p			PARAMS ((basic_block, void *));
@@ -50,12 +48,11 @@ static void fix_loop_placements		PARAMS ((struct loop *));
 static int fix_bb_placement		PARAMS ((struct loops *, basic_block));
 static void fix_bb_placements		PARAMS ((struct loops *, basic_block));
 static void place_new_loop		PARAMS ((struct loops *, struct loop *));
-static void scale_loop_frequencies	PARAMS ((struct loop *, int, int));
-static void scale_bbs_frequencies	PARAMS ((basic_block *, int, int, int));
-static void record_exit_edges		PARAMS ((edge, basic_block *, int,
-						edge *, unsigned *, int));
 static basic_block create_preheader	PARAMS ((struct loop *, dominance_info,
 						int));
+static void increase_edge_probability	PARAMS ((edge, int));
+static int prob_after_removal		PARAMS ((struct loop *, edge, edge,
+						 unsigned, sbitmap));
 
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
@@ -71,6 +68,11 @@ split_loop_bb (loops, bb, insn)
 
   /* Split the block.  */
   e = split_block (bb, insn);
+
+  /* Record the origin for purpose of updating frequencies.  */
+  alloc_aux_for_edge (e, sizeof (struct edge_freq_info));
+  EDGE_FREQ_INFO (e)->split_bb = e->src;
+  EDGE_FREQ_INFO (e)->split_of = NULL;
 
   /* Add dest to loop.  */
   add_bb_to_loop (e->dest, e->src->loop_father);
@@ -289,27 +291,16 @@ remove_path (loops, e)
      struct loops *loops;
      edge e;
 {
-  edge ae, other;
+  edge ae;
   basic_block *rem_bbs, *bord_bbs, *dom_bbs, from, bb;
-  basic_block *other_part;
-  int i, nrem, n_bord_bbs, n_dom_bbs, n_other_part;
+  int i, nrem, n_bord_bbs, n_dom_bbs;
   sbitmap seen;
-  int scale;
 
   if (!e->src->succ->succ_next || e->src->succ->succ_next->succ_next)
     abort ();
 
-  other = e->src->succ;
-  if (other == e)
-    other = other->succ_next;
-  if (other->probability == 0)
-    scale = 10;
-  else
-    scale = RDIV (10 * REG_BR_PROB_BASE, other->probability);
-  
   /* First identify the branches.  */
   nrem = find_branch (e, loops->cfg.dom, &rem_bbs);
-  n_other_part = find_branch (other, loops->cfg.dom, &other_part);
 
   /* Find blocks whose immediate dominators may be affected.  */
   n_dom_bbs = 0;
@@ -388,10 +379,6 @@ remove_path (loops, e)
   /* Fix loop placements.  */
   fix_loop_placements (from->loop_father);
 
-  /* Fix frequencies of other affected blocks.  */
-  scale_bbs_frequencies (other_part, n_other_part, scale, 10);
-  free (other_part);
-
   return true;
 }
 
@@ -430,40 +417,6 @@ add_loop (loops, loop)
   free (bbs);
 }
 
-/* Multiplies all frequencies of BBS by NUM/DEN.  */
-static void
-scale_bbs_frequencies (bbs, nbbs, num, den)
-     basic_block *bbs;
-     int nbbs;
-     int num;
-     int den;
-{
-  int i;
-  edge e;
-
-  for (i = 0; i < nbbs; i++)
-    {
-      bbs[i]->frequency = RDIV (bbs[i]->frequency * num, den);
-      bbs[i]->count = RDIV (bbs[i]->count * num, den);
-      for (e = bbs[i]->succ; e; e = e->succ_next)
-	e->count = RDIV (e->count * num, den);
-    }
-}
-
-/* Multiplies all frequencies in LOOP by NUM/DEN.  */
-static void
-scale_loop_frequencies (loop, num, den)
-     struct loop *loop;
-     int num;
-     int den;
-{
-  basic_block *bbs;
-
-  bbs = get_loop_body (loop);
-  scale_bbs_frequencies (bbs, loop->num_nodes, num, den);
-  free (bbs);
-}
-
 /* Make area between HEADER_EDGE and LATCH_EDGE a loop by connecting
    latch to header.  Everything between them plus LATCH_EDGE destination
    must be dominated by HEADER_EDGE destination, and backreachable from
@@ -483,18 +436,9 @@ loopify (loops, latch_edge, header_edge, switch_bb)
   sbitmap seen;
   struct loop *loop = xcalloc (1, sizeof (struct loop));
   struct loop *outer = succ_bb->loop_father->outer;
-  int freq, prob, tot_prob;
-  gcov_type cnt;
 
   loop->header = header_edge->dest;
   loop->latch = latch_edge->src;
-
-  freq = EDGE_FREQUENCY (header_edge);
-  cnt = header_edge->count;
-  prob = switch_bb->succ->probability;
-  tot_prob = prob + switch_bb->succ->succ_next->probability;
-  if (tot_prob == 0)
-    tot_prob = 1;
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
@@ -513,16 +457,6 @@ loopify (loops, latch_edge, header_edge, switch_bb)
 
   /* And add switch_bb to appropriate loop.  */
   add_bb_to_loop (switch_bb, outer);
-
-  /* Now fix frequencies.  */
-  switch_bb->frequency = freq;
-  switch_bb->count = cnt;
-  switch_bb->succ->count =
-   (switch_bb->count * switch_bb->succ->probability) / REG_BR_PROB_BASE;
-  switch_bb->succ->succ_next->count =
-   (switch_bb->count * switch_bb->succ->succ_next->probability) / REG_BR_PROB_BASE;
-  scale_loop_frequencies (loop, prob, tot_prob);
-  scale_loop_frequencies (succ_bb->loop_father, tot_prob - prob, tot_prob);
 
   /* Update dominators of outer blocks.  */
   dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
@@ -620,13 +554,12 @@ place_new_loop (loops, loop)
   loop->num = loops->num++;
 }
 
-/* Copies structure of LOOP into TARGET, scaling histogram by PROB.  */
+/* Copies structure of LOOP into TARGET.  */
 static struct loop *
-duplicate_loop (loops, loop, target, prob)
+duplicate_loop (loops, loop, target)
      struct loops *loops;
      struct loop *loop;
      struct loop *target;
-     int prob;
 {
   struct loop *cloop;
   cloop = xcalloc (1, sizeof (struct loop));
@@ -646,37 +579,35 @@ duplicate_loop (loops, loop, target, prob)
 
 /* Copies structure of subloops of LOOP into TARGET; histograms are scaled by PROB.  */
 static void 
-duplicate_subloops (loops, loop, target, prob)
+duplicate_subloops (loops, loop, target)
      struct loops *loops;
      struct loop *loop;
      struct loop *target;
-     int prob;
 {
   struct loop *aloop, *cloop;
 
   for (aloop = loop->inner; aloop; aloop = aloop->next)
     {
-      cloop = duplicate_loop (loops, aloop, target, prob);
-      duplicate_subloops (loops, aloop, cloop, prob);
+      cloop = duplicate_loop (loops, aloop, target);
+      duplicate_subloops (loops, aloop, cloop);
     }
 }
 
 /*  Copies structure of COPIED_LOOPS into TARGET.  */
 static void 
-copy_loops_to (loops, copied_loops, n, target, prob)
+copy_loops_to (loops, copied_loops, n, target)
      struct loops *loops;
      struct loop **copied_loops;
      int n;
      struct loop *target;
-     int prob;
 {
   struct loop *aloop;
   int i;
 
   for (i = 0; i < n; i++)
     {
-      aloop = duplicate_loop (loops, copied_loops[i], target, prob);
-      duplicate_subloops (loops, copied_loops[i], aloop, prob);
+      aloop = duplicate_loop (loops, copied_loops[i], target);
+      duplicate_subloops (loops, copied_loops[i], aloop);
     }
 }
 
@@ -725,191 +656,73 @@ loop_delete_branch_edge (e)
   return false;  /* To avoid warning, cannot get here.  */
 }
 
-/* Duplicates BBS. Newly created bbs are placed into NEW_BBS, edges to
-   header (target of ENTRY) and copy of header are returned, edge ENTRY
-   is redirected to header copy.  Assigns bbs into loops, updates
-   dominators.  If ADD_IRREDUCIBLE_FLAG, basic blocks that are not
-   member of any inner loop are marked irreducible.  */
-static void
-copy_bbs (bbs, n, entry, latch_edge, new_bbs, loops, header_edge, copy_header_edge, add_irreducible_flag)
-     basic_block *bbs;
-     int n;
-     edge entry;
-     edge latch_edge;
-     basic_block **new_bbs;
-     struct loops *loops;
-     edge *header_edge;
-     edge *copy_header_edge;
-     int add_irreducible_flag;
-{
-  int i;
-  basic_block bb, new_bb, header = entry->dest, dom_bb;
-  edge e;
-
-  /* Duplicate bbs, update dominators, assign bbs to loops.  */
-  (*new_bbs) = xcalloc (n, sizeof (basic_block));
-  for (i = 0; i < n; i++)
-    {
-      /* Duplicate.  */
-      bb = bbs[i];
-      new_bb = (*new_bbs)[i] = cfg_layout_duplicate_bb (bb, NULL);
-      RBI (new_bb)->duplicated = 1;
-      /* Add to loop.  */
-      add_bb_to_loop (new_bb, bb->loop_father->copy);
-      add_to_dominance_info (loops->cfg.dom, new_bb);
-      /* Possibly set header.  */
-      if (bb->loop_father->header == bb && bb != header)
-	new_bb->loop_father->header = new_bb;
-      /* Or latch.  */
-      if (bb->loop_father->latch == bb &&
-	  bb->loop_father != header->loop_father)
-	new_bb->loop_father->latch = new_bb;
-      /* Take care of irreducible loops.  */
-      if (add_irreducible_flag
-	  && bb->loop_father == header->loop_father)
-	new_bb->flags |= BB_IRREDUCIBLE_LOOP;
-    }
-
-  /* Set dominators.  */
-  for (i = 0; i < n; i++)
-    {
-      bb = bbs[i];
-      new_bb = (*new_bbs)[i];
-      if (bb != header)
-	{
-	  /* For anything else than loop header, just copy it.  */
-	  dom_bb = get_immediate_dominator (loops->cfg.dom, bb);
-	  dom_bb = RBI (dom_bb)->copy;
-	}
-      else
-	{
-	  /* Copy of header is dominated by entry source.  */
-	  dom_bb = entry->src;
-	}
-      if (!dom_bb)
-	abort ();
-      set_immediate_dominator (loops->cfg.dom, new_bb, dom_bb);
-    }
-
-  /* Redirect edges.  */
-  for (i = 0; i < n; i++)
-    {
-      edge e_pred;
-      new_bb = (*new_bbs)[i];
-      bb = bbs[i];
-      for (e = bb->pred; e; e = e_pred)
-	{
-	  basic_block src = e->src;
-
-	  e_pred = e->pred_next;
-	  
-	  /* Does this edge interest us? */
-	  if (!RBI (src)->duplicated)
-	    continue;
-
-	  /* So it interests us; redirect it.  */
-	  if (bb != header)
-	    loop_redirect_edge (e, new_bb);
-	}
-    }
-
-  /* Redirect header edge.  */
-  bb = RBI (latch_edge->src)->copy;
-  for (e = bb->succ; e->dest != latch_edge->dest; e = e->succ_next);
-  *header_edge = e;
-  loop_redirect_edge (*header_edge, header);
-
-  /* Redirect entry to copy of header.  */
-  loop_redirect_edge (entry, RBI (header)->copy);
-  *copy_header_edge = entry;
-
-  /* Cancel duplicated flags.  */
-  for (i = 0; i < n; i++)
-   RBI ((*new_bbs)[i])->duplicated = 0;
-}
-
 /* Check whether LOOP's body can be duplicated.  */
 bool
 can_duplicate_loop_p (loop)
      struct loop *loop;
 {
-  basic_block *bbs;
-  unsigned i;
+  int ret;
+  basic_block *bbs = get_loop_body (loop);
 
-  bbs = get_loop_body (loop);
-
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      edge e;
-
-      /* In case loop contains abnormal edge we can not redirect,
-         we can't perform duplication.  */
-
-      for (e = bbs[i]->succ; e; e = e->succ_next)
-	if ((e->flags & EDGE_ABNORMAL)
-	    && flow_bb_inside_loop_p (loop, e->dest))
-	  {
-	    free (bbs);
-	    return false;
-	  }
-
-      if (!cfg_layout_can_duplicate_bb_p (bbs[i]))
-	{
-	  free (bbs);
-	  return false;
-	}
-    }
+  ret = can_copy_bbs_p (bbs, loop->num_nodes);
   free (bbs);
 
-  return true;
+  return ret;
 }
 
-/* Store edges created by copying ORIG edge (simply this ORIG edge if IS_ORIG)
-   (if ORIG is NULL, then all exit edges) into TO_REMOVE array.  */
+/* Increases probability of edge E to PROB, scaling other probabilities
+   accordingly.  */
 static void
-record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
-     edge orig;
-     basic_block *bbs;
-     int nbbs;
-     edge *to_remove;
-     unsigned *n_to_remove;
-     int is_orig;
+increase_edge_probability (e, prob)
+     edge e;
+     int prob;
 {
-  sbitmap my_blocks;
-  int i;
-  edge e;
+  edge f;
+  int old_prob = REG_BR_PROB_BASE - e->probability;
+  int new_prob = REG_BR_PROB_BASE - prob;
+  int rem = REG_BR_PROB_BASE;
 
-  if (orig)
+  if (new_prob > old_prob)
+    abort ();
+  for (f = e->src->succ; f; f = f->succ_next)
+    if (f != e)
+      {
+	f->probability = old_prob ? RDIV (f->probability * new_prob, old_prob) : 0;
+	rem -= f->probability;
+      }
+  e->probability = rem;
+  update_br_prob_note (e->src);
+}
+
+/* Determines probability of copies of edge ORIG after LOOP is duplicated
+   NDUPL times to edge E leading to its header and copies of ORIG edge
+   are removed from copies in WONT_EXIT (for numbering see
+   duplicate_loop_to_header_edge comment).  */
+static int
+prob_after_removal (loop, e, orig, ndupl, wont_exit)
+     struct loop *loop;
+     edge e;
+     edge orig;
+     unsigned ndupl;
+     sbitmap wont_exit;
+{
+  unsigned i, n_rem, p;
+
+  /* We don't try to be very clever here.  More precise calculations of
+     probabilities may be added later.  */
+  if (e->src == loop->latch)
     {
-      if (is_orig)
-	{
-	  to_remove[(*n_to_remove)++] = orig;
-	  return;
-	}
+      for (i = 0, n_rem = 0; i <= ndupl; i++)
+	if (!TEST_BIT (wont_exit, i))
+	  n_rem++;
+      p = RDIV (orig->probability * (ndupl + 1), n_rem);
+      if (p > REG_BR_PROB_BASE)
+	p = REG_BR_PROB_BASE;
 
-      for (e = RBI (orig->src)->copy->succ; e; e = e->succ_next)
-	if (e->dest == orig->dest)
-	  break;
-      if (!e)
-	abort ();
-
-      to_remove[(*n_to_remove)++] = e;
+      return p;
     }
   else
-    {
-      my_blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (my_blocks);
-      for (i = 0; i < nbbs; i++)
-        SET_BIT (my_blocks, bbs[i]->index);
-
-      for (i = 0; i < nbbs; i++)
-	for (e = bbs[i]->succ; e; e = e->succ_next)
-	  if (e->dest == EXIT_BLOCK_PTR ||
-	      !TEST_BIT (my_blocks, e->dest->index))
-	    to_remove[(*n_to_remove)++] = e;
-
-      free (my_blocks);
-    }
+    return orig->probability;
 }
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of
@@ -920,7 +733,7 @@ record_exit_edges (orig, bbs, nbbs, to_remove, n_to_remove, is_orig)
    is impossible.  */
 int
 duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
-			       to_remove, n_to_remove, flags)
+			       to_remove, n_to_remove)
      struct loop *loop;
      edge e;
      struct loops *loops;
@@ -929,19 +742,20 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
      edge orig;
      edge *to_remove;
      unsigned *n_to_remove;
-     int flags;
 {
   struct loop *target, *aloop;
   struct loop **orig_loops;
   unsigned n_orig_loops;
-  basic_block header = loop->header, latch = loop->latch;
+  basic_block latch = loop->latch;
   basic_block *new_bbs, *bbs, *first_active;
   basic_block new_bb, bb, first_active_latch = NULL;
-  edge ae, latch_edge, he;
+  edge latch_edge;
+  edge spec_edges[2], new_spec_edges[2];
+#define SE_LATCH 0
+#define SE_ORIG 1
   unsigned i, j, n;
   int is_latch = (latch == e->src);
-  int scale_act, *scale_step, scale_main, p, freq_in, freq_le, freq_out_orig;
-  int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
+  int new_orig_prob = 0;
   int add_irreducible_flag;
 
   if (e->dest != loop->header)
@@ -961,79 +775,27 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
   bbs = get_loop_body (loop);
 
   /* Check whether duplication is possible.  */
-
-  for (i = 0; i < loop->num_nodes; i++)
+  if (!can_copy_bbs_p (bbs, loop->num_nodes))
     {
-      if (!cfg_layout_can_duplicate_bb_p (bbs[i]))
-	{
-	  free (bbs);
-	  return false;
-	}
+      free (bbs);
+      return false;
     }
+  new_bbs = xmalloc (sizeof (basic_block) * loop->num_nodes);
 
+  /* In case we are doing loop peeling and the loop is in the middle of
+     irreducible region, the peeled copies will be inside it too.  */
   add_irreducible_flag = !is_latch && (e->src->flags & BB_IRREDUCIBLE_LOOP);
 
   /* Find edge from latch.  */
   latch_edge = loop_latch_edge (loop);
 
-  if (flags & DLTHE_FLAG_UPDATE_FREQ)
-    {
-      /* For updating frequencies.  */
-      freq_in = header->frequency;
-      freq_le = EDGE_FREQUENCY (latch_edge);
-      if (freq_in == 0)
-	freq_in = 1;
-      if (freq_in < freq_le)
-	freq_in = freq_le;
-      freq_out_orig = orig ? EDGE_FREQUENCY (orig) : freq_in - freq_le;
-      if (freq_out_orig > freq_in - freq_le)
-	freq_out_orig = freq_in - freq_le;
-      prob_pass_thru = RDIV (REG_BR_PROB_BASE * freq_le, freq_in);
-      prob_pass_wont_exit = RDIV (REG_BR_PROB_BASE * (freq_le + freq_out_orig), freq_in);
-
-      scale_step = xmalloc (ndupl * sizeof (int));
-
-      switch (DLTHE_PROB_UPDATING (flags))
-	{
-	  case DLTHE_USE_WONT_EXIT:
-	    for (i = 1; i <= ndupl; i++)
-	      scale_step[i - 1] = TEST_BIT (wont_exit, i) ? prob_pass_wont_exit : prob_pass_thru;
-	    break;
-
-	  default:
-	    abort ();
-	}
-
-      if (is_latch)
-	{
-	  prob_pass_main = TEST_BIT (wont_exit, 0) ? prob_pass_wont_exit : prob_pass_thru;
-	  p = prob_pass_main;
-	  scale_main = REG_BR_PROB_BASE;
-	  for (i = 0; i < ndupl; i++)
-	    {
-	      scale_main += p;
-	      p = RDIV (p * scale_step[i], REG_BR_PROB_BASE);
-	    }
-	  scale_main = RDIV (REG_BR_PROB_BASE * REG_BR_PROB_BASE, scale_main);
-	  scale_act = RDIV (scale_main * prob_pass_main, REG_BR_PROB_BASE);
-	}
-      else
-	{
-	  scale_main = REG_BR_PROB_BASE;
-	  for (i = 0; i < ndupl; i++)
-	    scale_main = RDIV (scale_main * scale_step[i], REG_BR_PROB_BASE);
-	  scale_act = REG_BR_PROB_BASE - prob_pass_thru;
-	}
-      for (i = 0; i < ndupl; i++)
-	if (scale_step[i] < 0 || scale_step[i] > REG_BR_PROB_BASE)
-	  abort ();
-      if (scale_main < 0 || scale_main > REG_BR_PROB_BASE
-	  || scale_act < 0  || scale_act > REG_BR_PROB_BASE)
-	abort ();
-    }
+  /* Determine the right probability for copies of orig edge that will remain
+     after those in wont_exit are removed.  */
+  if (orig)
+    new_orig_prob = prob_after_removal (loop, e, orig, ndupl, wont_exit);
 
   /* Loop the new bbs will belong to.  */
-  target = find_common_loop (e->src->loop_father, e->dest->loop_father);
+  target = e->src->loop_father;
 
   /* Original loops.  */
   n_orig_loops = 0;
@@ -1048,94 +810,85 @@ duplicate_loop_to_header_edge (loop, e, loops, ndupl, wont_exit, orig,
   /* Original basic blocks.  */
   n = loop->num_nodes;
 
-  first_active = xcalloc(n, sizeof (basic_block));
+  first_active = xmalloc (n * sizeof (basic_block));
   if (is_latch)
     {
       memcpy (first_active, bbs, n * sizeof (basic_block));
       first_active_latch = latch;
     }
 
-  /* Record exit edges in original loop body.  */
-  if (TEST_BIT (wont_exit, 0))
-    record_exit_edges (orig, bbs, n, to_remove, n_to_remove, true);
-  
+  /* Record exit edge in original loop body.  */
+  if (orig)
+    {
+      if (TEST_BIT (wont_exit, 0))
+	to_remove[(*n_to_remove)++] = orig;
+      else
+	increase_edge_probability (orig, new_orig_prob);
+    }
+
+  spec_edges[SE_ORIG] = orig;
+  spec_edges[SE_LATCH] = latch_edge;
+
   for (j = 0; j < ndupl; j++)
     {
       /* Copy loops.  */
-      copy_loops_to (loops, orig_loops, n_orig_loops, target, scale_act);
+      copy_loops_to (loops, orig_loops, n_orig_loops, target);
 
       /* Copy bbs.  */
-      copy_bbs (bbs, n, e, latch_edge, &new_bbs, loops, &e, &he, add_irreducible_flag);
+      copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop, loops);
+
+      /* Redirect the special edges.  */
       if (is_latch)
-	loop->latch = RBI (latch)->copy;
-
-      /* Record exit edges in this copy.  */
-      if (TEST_BIT (wont_exit, j + 1))
-	record_exit_edges (orig, new_bbs, n, to_remove, n_to_remove, false);
-  
-      /* Set counts and frequencies.  */
-      for (i = 0; i < n; i++)
 	{
-	  new_bb = new_bbs[i];
-	  bb = bbs[i];
-
-	  if (flags & DLTHE_FLAG_UPDATE_FREQ)
-	    {
-	      new_bb->count = RDIV (scale_act * bb->count, REG_BR_PROB_BASE);
-	      new_bb->frequency = RDIV (scale_act * bb->frequency,
-     					REG_BR_PROB_BASE);
-	    }
-	  else
-	    {
-	      new_bb->count = bb->count;
-	      new_bb->frequency = bb->frequency;
-	    }
-
-	  for (ae = new_bb->succ; ae; ae = ae->succ_next)
-    	    ae->count = RDIV (new_bb->count * ae->probability,
-			      REG_BR_PROB_BASE);
+	  loop_redirect_edge (latch_edge, new_bbs[0]);
+	  loop_redirect_edge (new_spec_edges[SE_LATCH],
+					  loop->header);
+	  set_immediate_dominator (loops->cfg.dom, new_bbs[0], latch);
+	  latch = loop->latch = new_bbs[1];
+	  e = latch_edge = new_spec_edges[SE_LATCH];
 	}
-      if (flags & DLTHE_FLAG_UPDATE_FREQ)
-	scale_act = RDIV (scale_act * scale_step[j], REG_BR_PROB_BASE);
+      else
+	{
+	  loop_redirect_edge (new_spec_edges[SE_LATCH],
+					  loop->header);
+	  loop_redirect_edge (e, new_bbs[0]);
+	  set_immediate_dominator (loops->cfg.dom, new_bbs[0], e->src);
+	  e = new_spec_edges[SE_LATCH];
+	}
 
+      /* Record exit edge in this copy.  */
+      if (orig)
+	{
+	  if (TEST_BIT (wont_exit, j + 1))
+	    to_remove[(*n_to_remove)++] = new_spec_edges[SE_ORIG];
+	  else
+	    increase_edge_probability (new_spec_edges[SE_ORIG], new_orig_prob);
+	}
+  
+      /* Note whether the blocks and edges belong to an irreducible loop.  */
+      if (add_irreducible_flag)
+	for (i = 0; i < n; i++)
+	  {
+	    new_bb = new_bbs[i];
+	    if (new_bb->loop_father == target)
+	      new_bb->flags |= BB_IRREDUCIBLE_LOOP;
+	  }
+
+      /* Record the first copy in the control flow order if it is not
+	 the original loop (i.e. in case of peeling).  */
       if (!first_active_latch)
 	{
 	  memcpy (first_active, new_bbs, n * sizeof (basic_block));
-	  first_active_latch = RBI (latch)->copy;
-	}
-      
-      free (new_bbs);
-
-      /* Original loop header is dominated by latch copy
-	 if we duplicated on its only entry edge.  */
-      if (!is_latch && !header->pred->pred_next->pred_next)
-	set_immediate_dominator (loops->cfg.dom, header, RBI (latch)->copy);
-      if (is_latch && j == 0)
-	{
-	  /* Update edge from latch.  */
-	  for (latch_edge = RBI (header)->copy->pred;
-	       latch_edge->src != latch;
-	       latch_edge = latch_edge->pred_next);
+	  first_active_latch = latch;
 	}
     }
-  /* Now handle original loop.  */
+  free (new_bbs);
   
-  /* Update edge counts.  */
-  if (flags & DLTHE_FLAG_UPDATE_FREQ)
-    {
-      for (i = 0; i < n; i++)
-	{
-	  bb = bbs[i];
-	  bb->count = RDIV (scale_main * bb->count, REG_BR_PROB_BASE);
-	  bb->frequency = RDIV (scale_main * bb->frequency, REG_BR_PROB_BASE);
-	  for (ae = bb->succ; ae; ae = ae->succ_next)
-	    ae->count = RDIV (bb->count * ae->probability, REG_BR_PROB_BASE);
-	}
-      free (scale_step);
-    }
-  free (orig_loops);
+  /* Update the original loop.  */
+  if (!is_latch)
+    set_immediate_dominator (loops->cfg.dom, e->dest, e->src);
 
-  /* Update dominators of other blocks if affected.  */
+  /* Update dominators of outer blocks if affected.  */
   for (i = 0; i < n; i++)
     {
       basic_block dominated, dom_bb, *dom_bbs;
@@ -1335,6 +1088,18 @@ loop_split_edge_with (e, insns, loops)
   new_bb->frequency = EDGE_FREQUENCY (e);
   cfg_layout_redirect_edge (e, new_bb);
 
+  /* The edge aux (if present) is used to handle recounting of frequencies
+     later.  */
+  if (EDGE_FREQ_INFO (e))
+    {
+      alloc_aux_for_edge (new_e, sizeof (struct edge_freq_info));
+      if (EDGE_FREQ_INFO (e)->split_of)
+	EDGE_FREQ_INFO (new_e)->split_of = EDGE_FREQ_INFO (e)->split_of;
+      else
+	EDGE_FREQ_INFO (new_e)->split_of = e;
+      EDGE_FREQ_INFO (e)->split_bb = NULL;
+    }
+  
   alloc_aux_for_block (new_bb, sizeof (struct reorder_block_def));
   if (insns)
     {
@@ -1355,3 +1120,169 @@ loop_split_edge_with (e, insns, loops)
   return new_bb;
 }
 
+
+/* Prepares the environment before a phase in that frequencies and counts
+   will not be updated correctly; the phase should be finished by calling
+   recount_frequencies.  */
+void
+prepare_for_recount_frequencies ()
+{
+  basic_block bb;
+  edge e;
+
+  alloc_aux_for_edges (sizeof (struct edge_freq_info));
+
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  EDGE_FREQ_INFO (e)->count = e->count;
+	  EDGE_FREQ_INFO (e)->total_freq = 0;
+	  EDGE_FREQ_INFO (e)->n_dupl = 0;
+	  EDGE_FREQ_INFO (e)->split_of = NULL;
+	  EDGE_FREQ_INFO (e)->split_bb = NULL;
+	}
+    }
+}
+
+/* Recounts frequencies and counts from probabilities.  Loop structure
+   is stored in LOOPS.  */
+void
+recount_frequencies (struct loops *loops)
+{
+  reorder_block_def *bb_aux =
+	  xmalloc (sizeof (reorder_block_def) * (last_basic_block + 2));
+  void **edge_aux =
+	  xmalloc (sizeof (void *) * n_edges);
+  int n_stored_edges = 0;
+  basic_block bb, sb, *post =
+	  xmalloc (sizeof (basic_block) * (n_basic_blocks + 2));
+  int i, n_post = 0;
+  edge e, s;
+  struct obstack block_aux_obstack, edge_aux_obstack;
+  void *first_block_aux, *first_edge_aux;
+
+  /* We must store the values of bb->aux and edge->aux fields, as
+     estimate_frequencies uses them as well.  Storing the former is
+     easy, the latter is a bit tricky and relies on that estimate_frequencies
+     does no edge reordering.  */
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      bb_aux[bb->index + 2] = bb->aux;
+      bb->aux = NULL;
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  edge_aux[n_stored_edges++] = e->aux;
+	  e->aux = NULL;
+	}
+    }
+  if (n_stored_edges != n_edges)
+    abort ();
+  push_aux_obstacks (&block_aux_obstack, &first_block_aux,
+		     &edge_aux_obstack, &first_edge_aux);
+
+  mark_dfs_back_edges ();
+  estimate_frequencies (loops);
+
+  pop_aux_obstacks (&block_aux_obstack, first_block_aux,
+		    &edge_aux_obstack, first_edge_aux);
+  n_stored_edges = 0;
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      bb->aux = bb_aux[bb->index + 2];
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  e->aux = edge_aux[n_stored_edges++];
+	  EDGE_FREQ_INFO (e)->total_freq += EDGE_FREQUENCY (e);
+	  EDGE_FREQ_INFO (e)->n_dupl++;
+	}
+    }
+
+  /* Distribute the counts proportionally to frequencies among the original
+     edges & their duplicates.  */
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (EDGE_FREQ_INFO (e)->split_of
+	      || EDGE_FREQ_INFO (e)->split_bb)
+	    continue;
+	  if (EDGE_FREQ_INFO (e)->total_freq > 0)
+	    e->count = RDIV (EDGE_FREQ_INFO (e)->count * EDGE_FREQUENCY (e),
+			     EDGE_FREQ_INFO (e)->total_freq);
+	  else
+	    e->count = RDIV (EDGE_FREQ_INFO (e)->count,
+			     EDGE_FREQ_INFO (e)->n_dupl);
+	}
+    }
+
+  /* Inherite the counts for split edges.  */
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  s = EDGE_FREQ_INFO (e)->split_of;
+	  if (!s || EDGE_FREQ_INFO (e)->split_bb)
+	    continue;
+
+	  if (EDGE_FREQUENCY (s))
+	    e->count = RDIV (EDGE_FREQUENCY (e) * s->count, EDGE_FREQUENCY (s));
+	  else
+	    e->count = s->count;
+	}
+    }
+
+  /* Recount the counts of blocks, and for edges created by splitting them.
+     We assume that such edges do not form cycles (they could if we redirected
+     them, but why would we do it?) and that they do not form long chains.
+     We missuse duplicated field to mark already computed blocks.  */
+  FOR_BB_BETWEEN (bb, EXIT_BLOCK_PTR, NULL, prev_bb)
+    {
+      post[n_post++] = bb;
+      bb->count = 0;
+    }
+  while (n_post)
+    {
+      for (i = n_post - 1; i >= 0; i--)
+	{
+	  bb = post[i];
+	  for (e = bb->pred; e; e = e->pred_next)
+	    if (EDGE_FREQ_INFO (e)->split_bb
+		&& !RBI (EDGE_FREQ_INFO (e)->split_bb)->duplicated)
+	      break;
+	  if (!e)
+	    break;
+	}
+      if (i < 0)
+	abort ();
+      for (e = bb->pred; e; e = e->pred_next)
+	{
+	  sb = EDGE_FREQ_INFO (e)->split_bb;
+	  if (sb)
+	    {
+	      if (sb->frequency)
+		e->count = RDIV (sb->count * EDGE_FREQUENCY (e), sb->frequency);
+	      else
+		e->count = sb->count;
+	    }
+	  bb->count += e->count;
+	}
+      RBI (bb)->duplicated = 1;
+      post[i] = post[--n_post];
+    }
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    {
+      RBI (bb)->duplicated = 0;
+    }
+
+  free_aux_for_edges ();
+  free (bb_aux);
+  free (edge_aux);
+  free (post);
+
+  /* Now comes a trick -- recount frequencies from counts in case we have them.
+     The idea is that then we get the frequencies right at least in areas
+     where we done nothing, and we hope that the rest will be fine as well.  */
+  if (flag_branch_probabilities)
+    counts_to_freqs ();
+}

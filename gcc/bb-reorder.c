@@ -143,7 +143,7 @@ static fibheapkey_t bb_to_key		PARAMS ((basic_block));
 static bool better_edge_p		PARAMS ((basic_block, edge, int, int,
 						 int, int));
 static void connect_traces		PARAMS ((int, struct trace *));
-static bool copy_bb_p			PARAMS ((basic_block, bool));
+static bool copy_bb_p			PARAMS ((basic_block, int));
 static int get_uncond_jump_length	PARAMS ((void));
 
 /* Find the traces for Software Trace Cache.  Chain each trace through
@@ -1016,7 +1016,7 @@ connect_traces (n_traces, traces)
 static bool
 copy_bb_p (bb, code_may_grow)
      basic_block bb;
-     bool code_may_grow;
+     int code_may_grow;
 {
   int size = 0;
   int max_size = uncond_jump_length;

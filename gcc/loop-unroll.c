@@ -54,6 +54,8 @@ unroll_and_peel_loops (loops, flags)
   struct loop *loop, *next;
   int check;
 
+  prepare_for_recount_frequencies ();
+
   /* First perform complete loop peeling (it is almost surely a win,
      and affects parameters for further decision a lot).  */
   peel_loops_completely (loops, flags);
@@ -110,6 +112,8 @@ unroll_and_peel_loops (loops, flags)
 	}
       loop = next;
     }
+
+  recount_frequencies (loops);
 }
 
 /* Check whether to peel loops completely and do so.  */
@@ -378,8 +382,7 @@ peel_loop_completely (loops, loop)
 
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 	loops, npeel + 1,
-	wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-	DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+	wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
     abort ();
 
   free (wont_exit);
@@ -410,7 +413,7 @@ decide_unroll_constant_iterations (loops, loop, flags)
      struct loop *loop;
      int flags;
 {
-  unsigned nunroll, best_copies, best_unroll, n_copies, i;
+  unsigned nunroll, best_copies, best_unroll = -1, n_copies, i;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -532,8 +535,7 @@ unroll_loop_constant_iterations (loops, loop)
       if (exit_mod
 	  && !duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, exit_mod,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
 	abort ();
 
       SET_BIT (wont_exit, 1);
@@ -557,8 +559,7 @@ unroll_loop_constant_iterations (loops, loop)
 
 	  if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, exit_mod + 1,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
 	    abort ();
 
 	  SET_BIT (wont_exit, 0);
@@ -571,8 +572,7 @@ unroll_loop_constant_iterations (loops, loop)
   /* Now unroll the loop.  */
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 		loops, max_unroll,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
     abort ();
 
   free (wont_exit);
@@ -742,8 +742,7 @@ unroll_loop_runtime_iterations (loops, loop)
   ezc_swtch = loop_preheader_edge (loop)->src;
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, 1,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
     abort ();
 
   /* Record the place where switch will be built for preconditioning.  */
@@ -758,8 +757,7 @@ unroll_loop_runtime_iterations (loops, loop)
 	SET_BIT (wont_exit, 1);
       if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 		loops, 1,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
     	abort ();
 
       if (i != n_peel)
@@ -790,6 +788,9 @@ unroll_loop_runtime_iterations (loops, loop)
 	  swtch->succ->probability = REG_BR_PROB_BASE - p;
 	  e = make_edge (swtch, preheader, 0);
 	  e->probability = p;
+	  alloc_aux_for_edge (e, sizeof (struct edge_freq_info));
+	  EDGE_FREQ_INFO (e)->split_bb = swtch;
+	  EDGE_FREQ_INFO (e)->split_of = NULL;
 	}
     }
 
@@ -820,6 +821,9 @@ unroll_loop_runtime_iterations (loops, loop)
       swtch->succ->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader, 0);
       e->probability = p;
+      alloc_aux_for_edge (e, sizeof (struct edge_freq_info));
+      EDGE_FREQ_INFO (e)->split_bb = swtch;
+      EDGE_FREQ_INFO (e)->split_of = NULL;
     }
 
   /* Recount dominators for outer blocks.  */
@@ -832,8 +836,7 @@ unroll_loop_runtime_iterations (loops, loop)
 
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 	 	loops, max_unroll,
-		wont_exit, desc->out_edge, remove_edges, &n_remove_edges,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		wont_exit, desc->out_edge, remove_edges, &n_remove_edges))
     abort ();
 
   free (wont_exit);
@@ -944,8 +947,7 @@ peel_loop_simple (loops, loop)
   sbitmap_zero (wont_exit);
 
   if (!duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-		loops, npeel, wont_exit, NULL, NULL, NULL,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		loops, npeel, wont_exit, NULL, NULL, NULL))
     abort ();
   
   free (wont_exit);
@@ -1032,8 +1034,7 @@ unroll_loop_stupid (loops, loop)
   sbitmap_zero (wont_exit);
 
   if (!duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-		loops, nunroll, wont_exit, NULL, NULL, NULL,
-		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
+		loops, nunroll, wont_exit, NULL, NULL, NULL))
     abort ();
 
   free (wont_exit);

@@ -1,3 +1,48 @@
+2003-07-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (cfgloopmanip.o): Add flags.h and obstack.h dependency.
+	* basic-block.h (estimate_frequencies, counts_to_freqs,
+	push_aux_obstacks, pop_aux_obstacks): Declare.
+	* cfg.c (push_aux_obstacks, pop_aux_obstacks): New function.
+	* cfglayout.c (cfg_layout_duplicate_bb): Don't update frequencies
+	when no incoming edge is given.
+	(can_copy_bbs_p, copy_bbs): New functions.
+	* cfglayout.h (can_copy_bbs_p, copy_bbs): Declare.
+	* cfgloop.h (struct edge_freq_info, EDGE_FREQ_INFO): New.
+	(DLTHE_FLAG_UPDATE_FREQ, DLTHE_PROB_UPDATING, DLTHE_USE_WONT_EXIT):
+	Removed.
+	(duplicate_loop_to_header_edge): Declaration changed.
+	(prepare_for_recount_frequencies, recount_frequencies): Declare.
+	* cfgloopmanip.c: Include obstack.h and flags.h.
+	(duplicate_loop, duplicate_subloops, copy_loops_to): Remove prob
+	parameter.
+	(copy_bbs, scale_loop_frequencies, scale_bbs_frequencies,
+	record_exit_edges): Removed.
+	(increase_edge_probability, prob_after_removal): New.
+	(remove_path, loopify): Don't update frequencies.
+	(can_duplicate_loop_p): Use can_copy_bbs_p.
+	(duplicate_loop_to_header_edge): Don't update frequencies.  Use new
+	copy_bbs.
+	(split_loop_bb, loop_split_edge_with): Record info for recounting
+	frequencies.
+	(prepare_for_recount_frequencies, recount_frequencies): New.
+	* loop-unroll.c (unroll_and_peel_loops): Use recount_frequencies.
+	(peel_loop_completely, unroll_loop_constant_iterations,
+	peel_loop_simple): Modified due to duplicate_loop_to_header_edge
+	change.
+	(unroll_loop_runtime_iterations): Modified due to
+	duplicate_loop_to_header_edge change.  Record info for recounting
+	frequencies.
+	* loop-unswitch.c (unswitch_loops): Use recount_frequencies.
+	(unswitch_loop): Modified due to duplicate_loop_to_header_edge
+	change.
+	* predict.c (counts_to_freqs): Made global.
+	(estimate_frequencies): New.
+	(estimate_bb_frequencies): Partially moved to estimate_frequencies.
+
+	* bb-reorder.c (copy_bb_p): Avoid warning.
+	* loop-unroll.c (decide_unroll_constant_iterations): Avoid warning.
+
 2003-07-02  Ulrich Weigand  <uweigand@de.ibm.com>
             Hartmut Penner  <hpenner@de.ibm.com>
 

@@ -652,6 +652,37 @@ static void *first_block_aux_obj = 0;
 static struct obstack edge_aux_obstack;
 static void *first_edge_aux_obj = 0;
 
+/* Store state of obstacks currently used to the corresponding arguments
+   and reset them.  */
+void
+push_aux_obstacks (block_aux, first_block_aux, edge_aux, first_edge_aux)
+     struct obstack *block_aux;
+     void **first_block_aux;
+     struct obstack *edge_aux;
+     void **first_edge_aux;
+{
+  *block_aux = block_aux_obstack;
+  *first_block_aux = first_block_aux_obj;
+  first_block_aux_obj = NULL;
+  *edge_aux = edge_aux_obstack;
+  *first_edge_aux = first_edge_aux_obj;
+  first_edge_aux_obj = NULL;
+}
+
+/* Restore state of obstacks stored by push_aux_obstacks.  */
+void
+pop_aux_obstacks (block_aux, first_block_aux, edge_aux, first_edge_aux)
+     struct obstack *block_aux;
+     void *first_block_aux;
+     struct obstack *edge_aux;
+     void *first_edge_aux;
+{
+  block_aux_obstack = *block_aux;
+  first_block_aux_obj = first_block_aux;
+  edge_aux_obstack = *edge_aux;
+  first_edge_aux_obj = first_edge_aux;
+}
+
 /* Allocate a memory block of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_blocks.  */
 

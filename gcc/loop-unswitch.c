@@ -45,6 +45,8 @@ unswitch_loops (loops)
   int i, num;
   struct loop *loop;
 
+  prepare_for_recount_frequencies ();
+
   /* Go through inner loops (only original ones).  */
   num = loops->num;
   
@@ -64,6 +66,8 @@ unswitch_loops (loops)
       verify_loop_structure (loops);
 #endif
     }
+
+  recount_frequencies (loops);
 }
 
 /* Checks whether we can unswitch LOOP on basic block BB.  LOOP BODY
@@ -322,7 +326,7 @@ unswitch_loop (loops, loop, unswitch_on)
   zero_bitmap = sbitmap_alloc (2);
   sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, loops, 1,
-	zero_bitmap, NULL, NULL, NULL, 0))
+	zero_bitmap, NULL, NULL, NULL))
     return NULL;
   free (zero_bitmap);
   src->flags |= irred_flag;
