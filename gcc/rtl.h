@@ -1906,6 +1906,9 @@ extern rtx expand_mult_highpart		PARAMS ((enum machine_mode, rtx,
 extern int gcse_main			PARAMS ((rtx, FILE *));
 #endif
 
+/* In web.c */
+extern void web_main			PARAMS ((void));
+
 /* In global.c */
 extern void mark_elimination		PARAMS ((int, int));
 #ifdef BUFSIZ

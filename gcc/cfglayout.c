@@ -849,7 +849,7 @@ cfg_layout_duplicate_bb (bb, e)
 {
   rtx last = get_last_insn ();
   rtx insn, new = NULL_RTX;
-  rtx note1, note2;
+  rtx note1, note2, link;
   rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
@@ -871,10 +871,47 @@ cfg_layout_duplicate_bb (bb, e)
 	{
 	case INSN:
 	  new = emit_insn (copy_insn (PATTERN (insn)));
+
+	  /* This code is common to INSN, JUMP_INSN and CALL_INSN.  */
+	insn_common:
+	  /* Record the INSN_SCOPE.  */
 	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
 	  INSN_SCOPE (new) = INSN_SCOPE (insn);
-	  if (REG_NOTES (insn))
-	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
+
+	  /* Update LABEL_NUSES.  */
+	  mark_jump_label (PATTERN (new), new, 0);
+
+	  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
+	     make them.  */
+	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	    if (REG_NOTE_KIND (link) != REG_LABEL)
+	      {
+		if (GET_CODE (link) == EXPR_LIST)
+		  REG_NOTES (new)
+		    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
+						      XEXP (link, 0),
+						      REG_NOTES (new)));
+		else
+		  REG_NOTES (new)
+		    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
+						      XEXP (link, 0),
+						      REG_NOTES (new)));
+	      }
+
+	  /* Fix the libcall sequences.  */
+	  if ((note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
+	    {
+	      rtx p = new;
+	      while ((note2 =
+		      find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
+		{
+		  p = PREV_INSN (p);
+		  if (p == pre_head)
+		    abort ();
+		}
+	      XEXP (note1, 0) = p;
+	      XEXP (note2, 0) = new;
+	    }
 	  break;
 
 	case JUMP_INSN:
@@ -885,27 +922,16 @@ cfg_layout_duplicate_bb (bb, e)
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    abort ();
 	  new = emit_jump_insn (copy_insn (PATTERN (insn)));
-	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
-	  INSN_SCOPE (new) = INSN_SCOPE (insn);
-	  if (REG_NOTES (insn))
-	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
-	  mark_jump_label (PATTERN (new), new, 0);
-	  if (JUMP_LABEL (new))
-	    LABEL_NUSES (JUMP_LABEL (new))++;
-	  break;
+	  goto insn_common;
 
 	case CALL_INSN:
 	  new = emit_call_insn (copy_insn (PATTERN (insn)));
-	  VARRAY_GROW (insn_scope, INSN_UID (new) + 1);
-	  INSN_SCOPE (new) = INSN_SCOPE (insn);
-	  if (REG_NOTES (insn))
-	    REG_NOTES (new) = copy_insn (REG_NOTES (insn));
 	  if (CALL_INSN_FUNCTION_USAGE (insn))
 	    CALL_INSN_FUNCTION_USAGE (new)
 	      = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));
 	  SIBLING_CALL_P (new) = SIBLING_CALL_P (insn);
 	  CONST_OR_PURE_CALL_P (new) = CONST_OR_PURE_CALL_P (insn);
-	  break;
+	  goto insn_common;
 
 	case CODE_LABEL:
 	  break;
@@ -958,7 +984,7 @@ cfg_layout_duplicate_bb (bb, e)
 	      if (NOTE_LINE_NUMBER (insn) < 0)
 		abort ();
 	      /* It is possible that no_line_number is set and the note
-		 won't be emitted.  */
+	         won't be emitted.  */
 	      {
 		rtx x = emit_note (NOTE_SOURCE_FILE (insn),
 				   NOTE_LINE_NUMBER (insn));
@@ -969,20 +995,6 @@ cfg_layout_duplicate_bb (bb, e)
 	  break;
 	default:
 	  abort ();
-	}
-      /* Fix the libcall sequences.  */
-      if (new && INSN_P (new)
-	  && (note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
-	{
-	  rtx p = new;
-	  while ((note2 = find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
-	    {
-	      p = PREV_INSN (p);
-	      if (p == pre_head)
-		abort ();
-	    }
-	  XEXP (note1, 0) = p;
-	  XEXP (note2, 0) = new;
 	}
       if (bb->end == insn)
 	end = get_last_insn ();

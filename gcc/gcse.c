@@ -3927,10 +3927,12 @@ try_replace_reg (from, to, insn)
     }
 
   /* If we've failed to do replacement, have a single SET, and don't already
-     have a note, add a REG_EQUAL note to not lose information.  */
-  if (!success && note == 0 && set != 0)
-    note = set_unique_reg_note (insn, REG_EQUAL, src);
+     have a note, add a REG_EQUAL note to not lose information.
 
+     The copy is required, as simplify_replace_rtx does not copy the
+     parts that has not been touched.  */
+  if (!success && note == 0 && set != 0)
+    note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
   /* If there is already a NOTE, update the expression in it with our
      replacement.  */
   else if (note != 0)

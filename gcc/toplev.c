@@ -268,6 +268,7 @@ enum dump_file_index
   DFI_ussa,
   DFI_cse,
   DFI_addressof,
+  DFI_web,
   DFI_gcse,
   DFI_loop,
   DFI_cfg,
@@ -315,6 +316,7 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
+  { "web",      'Z', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
@@ -665,6 +667,9 @@ int flag_syntax_only = 0;
 /* Nonzero means perform global cse.  */
 
 static int flag_gcse;
+
+/* Nonzero means performs web construction pass.  */
+static int flag_web;
 
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
@@ -1081,6 +1086,8 @@ lang_independent_options f_options[] =
    N_("Return 'short' aggregates in registers") },
   {"delayed-branch", &flag_delayed_branch, 1,
    N_("Attempt to fill delay slots of branch instructions") },
+  {"web", &flag_web, 1,
+   N_("Construct webs and split unrelated uses of single variable") },
   {"gcse", &flag_gcse, 1,
    N_("Perform the global common subexpression elimination") },
   {"gcse-lm", &flag_gcse_lm, 1,
@@ -2973,6 +2980,19 @@ rest_of_compilation (decl)
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
  		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
+      if (flag_web)
+	{
+	  timevar_push (TV_WEB);
+	  open_dump_file (DFI_web, decl);
+
+	  web_main ();
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+
+	  close_dump_file (DFI_web, print_rtl_with_bb, insns);
+	  timevar_pop (TV_WEB);
+	}
+
       /* ??? Run if-conversion before delete_null_pointer_checks,
          since the later does not preserve the CFG.  This should
 	 be changed -- no since converting if's that are going to
@@ -3244,6 +3264,12 @@ rest_of_compilation (decl)
       open_dump_file (DFI_tracer, decl);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       tracer ();
+      if (flag_web)
+	{
+	  web_main ();
+	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+	}
       close_dump_file (DFI_tracer, print_rtl_with_bb, insns);
       timevar_pop (TV_TRACER);
 #ifdef ENABLE_CHECKING
@@ -4763,6 +4789,7 @@ toplev_main (argc, argv)
   if (optimize >= 2)
     {
       flag_optimize_sibling_calls = 1;
+      flag_web = 1;
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
