@@ -17,8 +17,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: regex.h,v 1.3 1999/01/11 13:34:25 law Exp $ */
-
 #ifndef __REGEXP_LIBRARY_H__
 #define __REGEXP_LIBRARY_H__
 

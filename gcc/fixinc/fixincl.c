@@ -1,5 +1,4 @@
 /*
- * $Id: fixincl.c,v 1.2 1998/12/16 21:19:03 law Exp $
  *
  * Install modified versions of certain ANSI-incompatible system header
  * files which are fixed to work correctly with ANSI C and placed in a
@@ -25,9 +24,18 @@
  *             Boston,  MA  02111-1307, USA.
  */
 
+#ifdef FIXINC_BROKEN
+/* The fixincl program is known to not run properly on this particular
+ * system.  Instead of producing a probably broken executable, we
+ * force a compilation error and let the mkfixinc.sh script use
+ * the fixincl.sh shell script instead.
+ */
+# include "The fixincl program does not work properly on this system!"
+#endif
+
+#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <stdio.h>
@@ -40,6 +48,18 @@
 
 #include "regex.h"
 #include "server.h"
+
+#define MINIMUM_MAXIMUM_LINES   128
+
+/* If this particular system's header files define the macro `MAXPATHLEN',
+   we happily take advantage of it; otherwise we use a value which ought
+   to be large enough.  */
+#ifndef MAXPATHLEN
+# define MAXPATHLEN     4096
+#endif
+#define NAME_TABLE_SIZE (MINIMUM_MAXIMUM_LINES * MAXPATHLEN)
+
+char *pzFileNameBuf;
 
 #define tSCC static const char
 #define tCC  const char
@@ -101,14 +121,14 @@ pid_t chainHead = (pid_t) - 1;
 const char zInclQuote[] = "^[ \t]*#[ \t]*include[ \t]*\"[^/]";
 regex_t inclQuoteRegex;
 
-char zFileNameBuf[0x8000];
-
 char *loadFile (const char *pzFile);
 void process (char *data, const char *dir, const char *file);
 void runCompiles (void);
 
 #include "fixincl.x"
 
+static const char zProgramId[] =
+        "$Id: fixincl.c,v 1.1.2.4 1998/12/10 06:15:42 manfred Exp $";
 
 int
 main (argc, argv)
@@ -121,29 +141,49 @@ main (argc, argv)
       "fixincl ERROR:  %s environment variable not defined\n";
 
 #ifndef NO_BOGOSITY_LIMITS
-# define BOGUS_LIMIT 256
+# define BOGUS_LIMIT    MINIMUM_MAXIMUM_LINES
   size_t loopCt;
 #endif
 
   char *apzNames[BOGUS_LIMIT];
   size_t fileNameCt;
 
-  if (argc != 1)
+  /*
+   *  Before anything else, ensure we can allocate our
+   *  file name buffer
+   */
+  pzFileNameBuf = (char *) malloc (NAME_TABLE_SIZE);
+  if (pzFileNameBuf == (char *) NULL)
     {
-      if (argc != 2)
-        {
-          fputs ("fixincl ERROR:  too many command line arguments\n", stderr);
-          exit (EXIT_FAILURE);
-        }
-
-      if (strcmp (argv[1], "-v") == 0)
-        {
-          fputs ("$Id: fixincl.c,v 1.2 1998/12/16 21:19:03 law Exp $\n", stderr);
-          exit (EXIT_SUCCESS);
-        }
-
-      freopen (argv[1], "r", stdin);
+      fprintf (stderr, "fixincl cannot allocate 0x%08X bytes\n",
+               NAME_TABLE_SIZE);
+      exit (EXIT_FAILURE);
     }
+
+  switch (argc) {
+  case 1:
+    break;
+
+  case 2:
+    if (strcmp (argv[1], "-v") == 0) {
+      static const char zFmt[] = "echo '%s'";
+
+      /*
+       *  The 'version' option is really used to test that:
+       *  1.  The program loads correctly (no missing libraries)
+       *  2.  we can correctly run our server shell process
+       */
+      sprintf( pzFileNameBuf, zFmt, zProgramId );
+      fputs( pzFileNameBuf+5, stdout );
+      exit( strcmp( runShell( pzFileNameBuf ), zProgramId ));
+    }
+    freopen (argv[1], "r", stdin);
+    break;
+
+  default:
+    fputs ("fixincl ERROR:  too many command line arguments\n", stderr);
+    exit (EXIT_FAILURE);
+  }
 
   {
     static const char zVar[] = "TARGET_MACHINE";
@@ -195,17 +235,19 @@ main (argc, argv)
        *  confusing the world.  (How does the child tell the
        *  parent to skip forward?  Pipes and files behave differently.)
        */
-      for (fileNameCt = 0, pzBuf = zFileNameBuf;
+      for (fileNameCt = 0, pzBuf = pzFileNameBuf;
            (fileNameCt < BOGUS_LIMIT)
            && (pzBuf
-               < (zFileNameBuf + sizeof (zFileNameBuf) - MAXPATHLEN));
-        )
+               < (pzFileNameBuf + NAME_TABLE_SIZE - MAXPATHLEN));
+           /* no iteration action */ )
         {
 
           if (fgets (pzBuf, MAXPATHLEN, stdin) == (char *) NULL)
             break;
           while (isspace (*pzBuf))
             pzBuf++;
+          if ((*pzBuf == '\0') || (*pzBuf == '#'))
+            continue;
           apzNames[fileNameCt++] = pzBuf;
           pzBuf += strlen (pzBuf);
           while (isspace (pzBuf[-1]))
@@ -214,7 +256,7 @@ main (argc, argv)
         }
 
       if (fileNameCt == 0)
-        return EXIT_SUCCESS;
+        return EXIT_SUCCESS;  /* Parent process successful exit */
 
       child = fork ();
       if (child == NULLPROCESS)
@@ -249,10 +291,10 @@ main (argc, argv)
                    pzFile, getcwd ((char *) NULL, MAXPATHLEN),
                    erno, strerror (erno));
         }
+
       else if (pzData = loadFile (pzFile),
                (pzData != (char *) NULL))
         {
-
           if (strstr (pzData, zGnuLib) == (char *) NULL)
             process (pzData, pzDestDir, pzFile);
 
@@ -376,7 +418,7 @@ runCompiles ()
 
       if (pFD->papzMachs != (const char**)NULL) {
         const char** papzMachs = pFD->papzMachs;
-        char*        pz = zFileNameBuf;
+        char*        pz = pzFileNameBuf;
         char*        pzSep = "";
         tCC*         pzIfTrue;
         tCC*         pzIfFalse;
@@ -404,7 +446,7 @@ runCompiles ()
         }
         sprintf( pz, " )\n    echo %s ;;\n  * )\n    echo %s ;;\nesac",
                  pzIfTrue, pzIfFalse );
-        pz = runShell( zFileNameBuf );
+        pz = runShell( pzFileNameBuf );
         if (*pz == 's') {
           pFD->fdFlags |= FD_SKIP_TEST;
           continue;
@@ -754,6 +796,7 @@ process (pzDta, pzDir, pzFile)
 
           for (;;)
             {
+              static int failCt = 0;
               int newFd = chainOpen (fdp.readFd,
                                      (tpChar *) pFD->papzPatchArgs,
                                      (chainHead == -1)
@@ -768,7 +811,7 @@ process (pzDta, pzDir, pzFile)
                        "for %s\n", errno, strerror (errno),
                        pFD->pzFixName);
 
-              if (errno != EAGAIN)
+              if ((errno != EAGAIN) || (++failCt > 10))
                 exit (EXIT_FAILURE);
               sleep (1);
             }
