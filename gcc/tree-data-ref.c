@@ -522,7 +522,7 @@ estimate_niter_from_size_of_data (struct loop *loop,
 				 fold (build2 (MINUS_EXPR, integer_type_node, 
 					       data_size, init)), step));
 
-      record_estimate_niter (loop, estimation, NULL, stmt);
+      record_estimate_niter (loop, estimation, boolean_true_node, stmt);
     }
 }
 
