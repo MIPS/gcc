@@ -863,10 +863,21 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_E500)
     rs6000_isel = 1;
 
+  /* APPLE LOCAL begin radar 3509006 */
   /* If we are optimizing big endian systems for space, use the load/store
-     multiple and string instructions.  */
+     multiple instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
-    target_flags |= MASK_MULTIPLE | MASK_STRING;
+    target_flags |= MASK_MULTIPLE;
+
+  /* If we are optimizing big endian systems for space, use the
+     string instructions.  But do not do this for Darwin, as the 
+     kernel can't properly support some hardware that doesn't have 
+     these instructions.  It's not clear that the compiler is the
+     right place to fix this, but that's how it is for now.  See
+     *extensive* discussion in Radar 3509006.  */
+  if (BYTES_BIG_ENDIAN && optimize_size && DEFAULT_ABI != ABI_DARWIN)
+    target_flags |= MASK_STRING;
+  /* APPLE LOCAL end radar 3509006 */
 
   /* If -mmultiple or -mno-multiple was explicitly used, don't
      override with the processor default */
