@@ -9515,6 +9515,14 @@ fixup_abnormal_edges ()
 	    }
 	}
     }
+  /* We've possibly turned single trapping insn into multiple ones.  */
+  if (flag_non_call_exceptions)
+    {
+      sbitmap blocks;
+      blocks = sbitmap_alloc (last_basic_block);
+      sbitmap_ones (blocks);
+      find_many_sub_basic_blocks (blocks);
+    }
   if (inserted)
     commit_edge_insertions ();
 }

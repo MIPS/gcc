@@ -1,3 +1,9 @@
+Mon Dec 30 21:39:48 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* cfgrtl.c (verify_flow_info):  Use control_flow_insn_p.
+	* reload1.c (fixup_abnormal_edges):  Split basic blocks when EH edges
+	possibly got duplicated.
+
 Mon Dec 30 14:35:14 CET 2002  Josef Zlomek <zlomekj@suse.cz>
 
 	* bb-reorder.c (connect_traces): Get rid of warning.
