@@ -1,4 +1,8 @@
-2003-01-15  Andrew MacLeod  <amacleod@redhat.com>
+2004-01-15  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_xform_derefs): Accept void return statements.
+
+2004-01-15  Andrew MacLeod  <amacleod@redhat.com>
 	    Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (thread_across_edge): Accept dom_walk argument.

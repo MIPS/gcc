@@ -679,7 +679,7 @@ mf_xform_derefs (tree fnbody)
       /* Only a few GIMPLE statements can reference memory.  */
       switch (TREE_CODE (s))
         {
-        case MODIFY_EXPR:
+        case MODIFY_EXPR:  /*  This includes INIT_EXPR after gimplification.  */
           mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
                              integer_one_node);
           mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 1), EXPR_LOCUS (s),
@@ -687,12 +687,15 @@ mf_xform_derefs (tree fnbody)
           break;
 
         case RETURN_EXPR:
-          if (TREE_CODE (TREE_OPERAND (s, 0)) == MODIFY_EXPR)
-            mf_xform_derefs_1 (&i, &TREE_OPERAND (TREE_OPERAND (s, 0), 1), EXPR_LOCUS (s),
-                               integer_zero_node);
-          else
-            mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
-                               integer_zero_node);
+          if (TREE_OPERAND (s, 0) != NULL_TREE)
+            {
+              if (TREE_CODE (TREE_OPERAND (s, 0)) == MODIFY_EXPR)
+                mf_xform_derefs_1 (&i, &TREE_OPERAND (TREE_OPERAND (s, 0), 1), EXPR_LOCUS (s),
+                                   integer_zero_node);
+              else
+                mf_xform_derefs_1 (&i, &TREE_OPERAND (s, 0), EXPR_LOCUS (s),
+                                   integer_zero_node);
+            }
           break;
 
         default:
