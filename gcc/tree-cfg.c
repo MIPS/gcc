@@ -1444,10 +1444,10 @@ cleanup_tree_cfg (void)
      no longer valid.  */
   if (n_basic_blocks != orig_n_basic_blocks)
     {
-      int i;
-
-      for (i = 0; i < n_basic_blocks; i++)
-	clear_dom_children (BASIC_BLOCK (i));
+      basic_block bb;
+      
+      FOR_EACH_BB (bb)
+	clear_dom_children (bb);
     }
 
   timevar_pop (TV_TREE_CLEANUP_CFG);
@@ -1760,16 +1760,14 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 static void
 remove_unreachable_blocks (void)
 {
-  int i;
+  basic_block bb;
 
   find_unreachable_blocks ();
 
   /* Remove unreachable blocks in reverse.  That will expose more unnecessary
      COMPOUND_EXPRs that we can remove.  */
-  for (i = n_basic_blocks - 1; i >= 0; i--)
+  FOR_EACH_BB_REVERSE (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       /* The block may have been removed in a previous iteration if it was
 	 inside an unreachable control structure.  */
       if (bb == NULL || bb->index == INVALID_BLOCK)

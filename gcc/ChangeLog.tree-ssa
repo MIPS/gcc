@@ -1,3 +1,52 @@
+2003-09-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-optimize.c (tree_rest_of_compilation): Return if errorcount
+	or sorrycount are non-zero.
+
+2003-09-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (remove_stmt): Also invalidate the statement's code 
+	when removing annotations.
+	(cleanup_tree_cfg): Traverse basic blocks with FOR_EACH_BB.
+	(remove_useless_stmts_and_vars): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
+	* tree-ssa.c (rewrite_into_ssa): Likewise.
+	* tree-dfa.c (remove_all_phi_nodes_for): Make sure that the new
+	list of PHI nodes is NULL-terminated.
+	Add sanity checks to make sure all the PHI nodes for variables to
+	rename are gone.
+
+2003-09-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct walk_state): Add field 'num_calls'.
+	(add_call_clobber_ops): New local function.
+	(add_call_read_ops): New local function.
+	(get_expr_operands): Call them.
+	(add_stmt_operand): Call-clobbered variables are always added to
+	virtual operands.
+	(find_referenced_vars): If the number of call-clobbered variables
+	and number of call sites is larger than a certain threshold, group
+	all call-clobbered variables under .GLOBAL_VAR.
+	(find_vars_r): Count the number of call sites.
+	Don't add .GLOBAL_VAR to the list of referenced variables.
+	(add_referenced_var): If the addressable variable is an array,
+	register alias set of the type of the elements, not the type of the
+	array.
+	* tree-ssa-dom.c (mark_new_vars_to_rename): Rename from
+	find_new_vars_to_rename.  Update all users.
+	Before scanning the statement for new operands, mark the existing
+	virtual operands to be renamed again.
+	(optimize_stmt): Also check for newly exposed variables when doing
+	redundancy elimination.
+	* tree-ssa.c (rewrite_into_ssa): Don't abort when rename_count is
+	greater than 2.  Simply stop trying at 3.
+	(prepare_operand_for_rename): New function.
+	(mark_def_sites): Call it.
+	(rewrite_stmt): Don't check if the operand is an SSA_NAME before
+	calling rewrite_operand.
+	(rewrite_operand): Don't abort if the operand was already an
+	SSA_NAME.  Ignore it.
+
 2003-09-03  Richard Henderson  <rth@redhat.com>
 
 	* tree-optimize.c (set_save_expr_context, clear_decl_rtl,

@@ -96,6 +96,10 @@ struct walk_state
 
   /* Hash table used to avoid adding the same variable more than once.  */
   htab_t vars_found;
+
+  /* Number of CALL_EXPRs found.  Used to determine whether to group all
+     call-clobbered variables into .GLOBAL_VAR.  */
+  int num_calls;
 };
 
 
@@ -129,6 +133,8 @@ static bool may_access_global_mem_p (tree);
 static void add_def (tree *, tree);
 static void add_use (tree *, tree);
 static void add_vdef (tree, tree, voperands_t);
+static void add_call_clobber_ops (tree, voperands_t);
+static void add_call_read_ops (tree, voperands_t);
 static void add_stmt_operand (tree *, tree, int, voperands_t);
 static void add_immediate_use (tree, tree);
 static tree find_vars_r (tree *, int *, void *);
@@ -440,20 +446,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       if (num_call_clobbered_vars > 0)
 	{
 	  if (!(call_flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)))
-	    {
-	      /* Functions that are not const, pure or never return may
-		 clobber call-clobbered variables.  Add a VDEF for
-		 .GLOBAL_VAR.  */
-	      stmt_ann (stmt)->makes_clobbering_call = true;
-	      add_stmt_operand (&global_var, stmt, opf_force_vop|opf_is_def,
-		                prev_vops);
-	    }
+	    add_call_clobber_ops (stmt, prev_vops);
 	  else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
-	    {
-	      /* Otherwise, if the function is not pure, it may reference
-		 memory.  Add a VUSE for .GLOBAL_VAR.  */
-	      add_stmt_operand (&global_var, stmt, opf_force_vop, prev_vops);
-	    }
+	    add_call_read_ops (stmt, prev_vops);
 	}
 
       return;
@@ -589,10 +584,11 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
       return;
     }
 
-  /* Globals, local statics and variables referenced in VA_ARG_EXPR are
-     always accessed using virtual operands.  */
+  /* Globals, call-clobbered, local statics and variables referenced in
+     VA_ARG_EXPR are always accessed using virtual operands.  */
   if (decl_function_context (sym) == 0
       || TREE_STATIC (sym)
+      || v_ann->is_call_clobbered
       || v_ann->is_in_va_arg_expr)
     flags |= opf_force_vop;
 
@@ -844,6 +840,58 @@ add_vuse (tree var, tree stmt, voperands_t prev_vops)
 }
 
 
+/* Add clobbering definitions for .GLOBAL_VAR or for each of the call
+   clobbered variables in the function.  */
+
+static void
+add_call_clobber_ops (tree stmt, voperands_t prev_vops)
+{
+  /* Functions that are not const, pure or never return may clobber
+     call-clobbered variables.  */
+  stmt_ann (stmt)->makes_clobbering_call = true;
+
+  /* If we had created .GLOBAL_VAR earlier, use it.  Otherwise, add a VDEF
+     operand for every call clobbered variable.  See add_referenced_var for
+     the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
+  if (global_var)
+    add_stmt_operand (&global_var, stmt, opf_force_vop|opf_is_def, prev_vops);
+  else
+    {
+      size_t i;
+
+      for (i = 0; i < num_call_clobbered_vars; i++)
+	{
+	  tree var = call_clobbered_var (i);
+	  add_stmt_operand (&var, stmt, opf_force_vop|opf_is_def, prev_vops);
+	}
+    }
+}
+
+
+/* Add VUSE operands for .GLOBAL_VAR or all call clobbered variables in the
+   function.  */
+
+static void
+add_call_read_ops (tree stmt, voperands_t prev_vops)
+{
+  /* Otherwise, if the function is not pure, it may reference memory.  Add
+     a VUSE for .GLOBAL_VAR if it has been created.  Otherwise, add a VUSE
+     for each call-clobbered variable.  See add_referenced_var for the
+     heuristic used to decide whether to create .GLOBAL_VAR.  */
+  if (global_var)
+    add_stmt_operand (&global_var, stmt, opf_force_vop, prev_vops);
+  else
+    {
+      size_t i;
+
+      for (i = 0; i < num_call_clobbered_vars; i++)
+	{
+	  tree var = call_clobbered_var (i);
+	  add_stmt_operand (&var, stmt, opf_force_vop, prev_vops);
+	}
+    }
+}
+
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
 tree
@@ -1027,28 +1075,40 @@ remove_all_phi_nodes_for (sbitmap vars)
   FOR_EACH_BB (bb)
     {
       /* Build a new PHI list for BB without variables in VARS.  */
-      tree phi, new_phi_list, tmp;
+      tree phi, new_phi_list, last_phi;
       bb_ann_t ann = bb_ann (bb);
 
-      tmp = new_phi_list = NULL_TREE;
+      last_phi = new_phi_list = NULL_TREE;
       for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
 	{
 	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
 
-	  /* If the PHI node is for a variable in VARS, skip it.  */
-	  if (TEST_BIT (vars, var_ann (var)->uid))
-	    continue;
-
-	  if (new_phi_list == NULL_TREE)
-	    new_phi_list = tmp = phi;
-	  else
+	  /* Only add PHI nodes for variables not in VARS.  */
+	  if (!TEST_BIT (vars, var_ann (var)->uid))
 	    {
-	      TREE_CHAIN (tmp) = phi;
-	      tmp = phi;
+	      if (new_phi_list == NULL_TREE)
+		new_phi_list = last_phi = phi;
+	      else
+		{
+		  TREE_CHAIN (last_phi) = phi;
+		  last_phi = phi;
+		}
 	    }
 	}
 
+      /* Make sure the last node in the new list has no successors.  */
+      if (last_phi)
+	TREE_CHAIN (last_phi) = NULL_TREE;
       ann->phi_nodes = new_phi_list;
+
+#if defined ENABLE_CHECKING
+      for (phi = ann->phi_nodes; phi; phi = TREE_CHAIN (phi))
+	{
+	  tree var = SSA_NAME_VAR (PHI_RESULT (phi));
+	  if (TEST_BIT (vars, var_ann (var)->uid))
+	    abort ();
+	}
+#endif
     }
 }
 
@@ -1826,6 +1886,40 @@ find_referenced_vars (tree fndecl)
 	walk_state.is_not_gimple = 0;
       }
 
+  /* Determine whether to use .GLOBAL_VAR to model call clobber semantics.
+     At every call site, we need to emit VDEF expressions.
+     
+     One approach is to group all call-clobbered variables into a single
+     representative that is used as an alias of every call-clobbered
+     variable (.GLOBAL_VAR).  This works well, but it ties the optimizer
+     hands because references to any call clobbered variable is a reference
+     to .GLOBAL_VAR.
+
+     The second approach is to emit a clobbering VDEF for every
+     call-clobbered variable at call sites.  This is the preferred way in
+     terms of optimization opportunities but it may create too many
+     VDEF operands if there are many call clobbered variables and function
+     calls in the function.
+
+     To decide whether or not to use .GLOBAL_VAR we multiply the number of
+     function calls found by the number of call-clobbered variables.  If
+     that product is beyond a certain threshold, we use .GLOBAL_VAR.
+
+     FIXME: This heuristic should be improved.  One idea is to use several
+     .GLOBAL_VARs of different types instead of a single one.  The
+     thresholds have been derived from a typical bootstrap cycle including
+     all target libraries.  Compile times were found to take 1% more
+     compared to using .GLOBAL_VAR.  */
+  {
+    const int n_calls = 2500;
+    const size_t n_clobbers = 200;
+
+    if (walk_state.num_calls * num_call_clobbered_vars < n_calls * n_clobbers)
+      global_var = NULL_TREE;
+    else if (global_var)
+      add_referenced_var (global_var, &walk_state);
+  }
+
   htab_delete (vars_found);
 }
 
@@ -2349,7 +2443,8 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   if (TREE_CODE (t) == CALL_EXPR && walk_state->is_not_gimple == 0)
     {
       tree op;
-      int call_flags = get_call_flags (t);
+
+      walk_state->num_calls++;
 
       for (op = TREE_OPERAND (t, 1); op; op = TREE_CHAIN (op))
 	{
@@ -2362,15 +2457,10 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 	    }
 	}
 
+      /* Note that we may undo this creation after all the variables and
+	 call sites have been found.  See find_referenced_vars.  */
       if (global_var == NULL_TREE)
 	create_global_var ();
-
-      /* If the function may clobber globals and addressable locals,
-	 consider this call as a store operation to .GLOBAL_VAR.  */
-      if (!(call_flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)))
-	walk_state->is_store = 1;
-      add_referenced_var (global_var, walk_state);
-      walk_state->is_store = 0;
     }
 
   return NULL_TREE;
@@ -2436,7 +2526,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  struct alias_map_d *alias_map;
 	  alias_map = ggc_alloc (sizeof (*alias_map));
 	  alias_map->var = var;
-	  alias_map->set = get_alias_set (var);
+
+	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
+	  else
+	    alias_map->set = get_alias_set (var);
 	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
 	}
 
@@ -2509,7 +2603,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 }
 
 
-/* Return the memory tag associated to pointer P.  */
+/* Return the memory tag associated to pointer PTR.  */
 
 static tree
 get_memory_tag_for (tree ptr)

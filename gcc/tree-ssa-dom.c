@@ -95,7 +95,7 @@ static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 static void record_cond_is_false (tree, varray_type *, htab_t);
 static void record_cond_is_true (tree, varray_type *, htab_t);
-static void find_new_vars_to_rename (tree, sbitmap);
+static void mark_new_vars_to_rename (tree, sbitmap);
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -149,7 +149,7 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
      blocks.  */
   do
     {
-      int i;
+      basic_block bb;
 
       /* Optimize the dominator tree.  */
       optimize_block (ENTRY_BLOCK_PTR, NULL, 0, vars_to_rename);
@@ -169,22 +169,18 @@ tree_ssa_dominator_optimize (tree fndecl, sbitmap vars_to_rename)
 
       found_unreachable = false;
 
-      for (i = 0; i < n_basic_blocks; i++)
-	{
-	  basic_block bb = BASIC_BLOCK (i);
+      FOR_EACH_BB (bb)
+	if (! (bb->flags & BB_REACHABLE))
+	  {
+	    /* If a previous iteration determined this block was
+		unreachable, then just ignore the block.  */
+	    if (bitmap_bit_p (unreachable_bitmap, bb->index))
+	      continue;
 
-	  if (! (bb->flags & BB_REACHABLE))
-	    {
-	      /* If a previous iteration determined this block was
-		 unreachable, then just ignore the block.  */
-	      if (bitmap_bit_p (unreachable_bitmap, bb->index))
-		continue;
-
-	      found_unreachable = true;
-	      bitmap_set_bit (unreachable_bitmap, bb->index);
-	      remove_phi_nodes_and_edges_for_unreachable_block (bb);
-	    }
-	}
+	    found_unreachable = true;
+	    bitmap_set_bit (unreachable_bitmap, bb->index);
+	    remove_phi_nodes_and_edges_for_unreachable_block (bb);
+	  }
     }
   while (found_unreachable);
 
@@ -584,7 +580,7 @@ optimize_block (basic_block bb, tree parent_block_last_stmt, int edge_flags,
     {
       tree stmt = VARRAY_TOP_TREE (stmts_to_rescan);
       VARRAY_POP (stmts_to_rescan);
-      find_new_vars_to_rename (stmt, vars_to_rename);
+      mark_new_vars_to_rename (stmt, vars_to_rename);
     }
 }
 
@@ -879,6 +875,10 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
 
 	  if (TREE_CODE (cached_lhs) == SSA_NAME)
 	    fixup_var_scope (cached_lhs, stmt_ann (stmt)->scope);
+	  else if (TREE_CODE (cached_lhs) == ADDR_EXPR
+		   || (POINTER_TYPE_P (TREE_TYPE (*expr_p))
+		       && is_unchanging_value (cached_lhs)))
+	    may_have_exposed_new_symbols = true;
 
 	  *expr_p = cached_lhs;
 	  ann->modified = 1;
@@ -1513,47 +1513,58 @@ avail_expr_eq (const void *p1, const void *p2)
 }
 
 
-/* Scan STMT for operands, if any new exposed symbols are found (i.e.,
-   operands that are not in SSA form), add those symbols to the bitmap
+/* Add all the variables found in STMT's operands to the bitmap
    VARS_TO_RENAME.  */
 
 static void
-find_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
+mark_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
 {
   varray_type ops;
   size_t i;
-  void **slot;
-  bool found_new_symbols = false;
 
-  /* Before scanning for new operands check if STMT wasn't cached in
-     AVAIL_EXPRS.  If so, we may need to replace or remove it afterwards
-     because we are about to modify the STMT's hash value.  */
-  slot = htab_find_slot (avail_exprs, stmt, NO_INSERT);
+  /* Before re-scanning the statement for operands, mark the existing
+     virtual operands to be renamed again.  We do this because when new
+     symbols are exposed, the virtual operands that were here before
+     because of aliasing will probably be removed by the call to
+     get_stmt_operand.  Therefore, we need to flag them to be renamed
+     beforehand.  */
+  ops = vdef_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
+      if (!DECL_P (var))
+	var = SSA_NAME_VAR (var);
+      SET_BIT (vars_to_rename, var_ann (var)->uid);
+    }
 
-  /* Force an operand scan.  */
+  ops = vuse_ops (stmt);
+  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
+    {
+      tree var = VARRAY_TREE (ops, i);
+      if (!DECL_P (var))
+	var = SSA_NAME_VAR (var);
+      SET_BIT (vars_to_rename, var_ann (var)->uid);
+    }
+
+  /* Now force an operand re-scan on the statement and mark any newly
+     exposed variables.  */
   modify_stmt (stmt);
   get_stmt_operands (stmt);
 
   ops = def_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
-      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
-      if (DECL_P (*def_p))
-	{
-	  SET_BIT (vars_to_rename, var_ann (*def_p)->uid);
-	  found_new_symbols = true;
-	}
+      tree *var_p = VARRAY_GENERIC_PTR (ops, i);
+      if (DECL_P (*var_p))
+	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
     }
 
   ops = use_ops (stmt);
   for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
     {
-      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
-      if (DECL_P (*use_p))
-	{
-	  SET_BIT (vars_to_rename, var_ann (*use_p)->uid);
-	  found_new_symbols = true;
-	}
+      tree *var_p = VARRAY_GENERIC_PTR (ops, i);
+      if (DECL_P (*var_p))
+	SET_BIT (vars_to_rename, var_ann (*var_p)->uid);
     }
 
   ops = vdef_ops (stmt);
@@ -1561,10 +1572,7 @@ find_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     {
       tree var = VDEF_RESULT (VARRAY_TREE (ops, i));
       if (DECL_P (var))
-	{
-	  SET_BIT (vars_to_rename, var_ann (var)->uid);
-	  found_new_symbols = true;
-	}
+	SET_BIT (vars_to_rename, var_ann (var)->uid);
     }
 
   ops = vuse_ops (stmt);
@@ -1572,19 +1580,6 @@ find_new_vars_to_rename (tree stmt, sbitmap vars_to_rename)
     {
       tree var = VARRAY_TREE (ops, i);
       if (DECL_P (var))
-	{
-	  SET_BIT (vars_to_rename, var_ann (var)->uid);
-	  found_new_symbols = true;
-	}
-    }
-
-  /* If we found new exposed symbols, we have to remove the statement from
-     the hash table as it is no longer valid.  Otherwise, re-insert it for
-     future use.  */
-  if (slot)
-    {
-      htab_clear_slot (avail_exprs, slot);
-      slot = htab_find_slot (avail_exprs, stmt, INSERT);
-      *slot = (void *) stmt;
+	SET_BIT (vars_to_rename, var_ann (var)->uid);
     }
 }

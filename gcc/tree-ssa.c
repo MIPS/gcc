@@ -145,6 +145,7 @@ static void mark_def_sites (sbitmap);
 static void compute_global_livein (varray_type);
 static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
+static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p);
 static void insert_phi_nodes (bitmap *, sbitmap);
 static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_block (basic_block);
@@ -276,6 +277,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   sbitmap globals;
   dominance_info idom;
   int i, rename_count;
+  basic_block bb;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -309,10 +311,10 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 
   /* Initialize dominance frontier and immediate dominator bitmaps.  */
   dfs = (bitmap *) xmalloc (n_basic_blocks * sizeof (bitmap *));
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      dfs[i] = BITMAP_XMALLOC ();
-      clear_dom_children (BASIC_BLOCK (i));
+      dfs[bb->index] = BITMAP_XMALLOC ();
+      clear_dom_children (bb);
     }
 
   /* Compute immediate dominators.  */
@@ -346,6 +348,14 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	dump_function_to_file (fndecl, dump_file, dump_flags);
 
+      /* Sanity check.  It's possible for the dominator optimizer to expose
+	 new symbols more than once, but we don't want to spend an eternity
+	 repeating this cycle.  FIXME: The threshold 3 was found by trial
+	 and error.  In a bootstrap+test cycle it is only used in
+	 gcc.c-torture/execute/930718-1.c.  */
+      if (rename_count++ >= 3)
+	break;
+
       /* Now optimize all the basic blocks in the program.  */
       sbitmap_zero (vars_to_rename);
       if (flag_tree_dom)
@@ -365,10 +375,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	      sbitmap_zero (globals);
 	    }
 	}
-
-      /* Sanity check.  We should not iterate more than twice.  */
-      if (rename_count++ >= 2)
-	abort ();
     }
   while (sbitmap_first_set_bit (vars_to_rename) >= 0);
 
@@ -515,9 +521,7 @@ compute_global_livein (varray_type def_maps)
   BITMAP_XFREE (in_worklist);
 }
 
-/* Look for variable references in every block of the flowgraph, compute
-   aliasing information and collect definition sites for every variable.
-
+/* Collect definition sites for every variable in the function.
    Return a bitmap for the set of referenced variables which are
    "nonlocal", ie those which are live across block boundaries.
    This information is used to reduce the number of PHI nodes
@@ -544,7 +548,7 @@ mark_def_sites (sbitmap globals)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  varray_type ops;
-	  size_t i;
+	  size_t i, uid;
 	  tree stmt;
 
 	  stmt = bsi_stmt (si);
@@ -555,19 +559,13 @@ mark_def_sites (sbitmap globals)
 	  ops = use_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      tree *use = VARRAY_GENERIC_PTR (ops, i);
-	      size_t uid;
+	      tree *use_p = VARRAY_GENERIC_PTR (ops, i);
 
-	      /* Ignore variables that have been renamed already.  */
-	      if (TREE_CODE (*use) == SSA_NAME)
-		continue;
-	      
-	      uid = var_ann (*use)->uid;
-
-	      if (! TEST_BIT (kills, uid))
+	      if (prepare_operand_for_rename (use_p, &uid)
+		  && !TEST_BIT (kills, uid))
 		{
 	          SET_BIT (globals, uid);
-		  set_livein_block (*use, bb);
+		  set_livein_block (*use_p, bb);
 		}
 	    }
 	  
@@ -575,19 +573,13 @@ mark_def_sites (sbitmap globals)
 	  ops = vuse_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
-	      tree use = VARRAY_TREE (ops, i);
-	      size_t uid;
+	      tree *use_p = &VARRAY_TREE (ops, i);
 
-	      /* Ignore variables that have been renamed already.  */
-	      if (TREE_CODE (use) == SSA_NAME)
-		continue;
-	      
-	      uid = var_ann (use)->uid;
-
-	      if (! TEST_BIT (kills, uid))
+	      if (prepare_operand_for_rename (use_p, &uid)
+		  && !TEST_BIT (kills, uid))
 	        {
 	          SET_BIT (globals, uid);
-		  set_livein_block (use, bb);
+		  set_livein_block (*use_p, bb);
 		}
 	    }
 
@@ -600,33 +592,30 @@ mark_def_sites (sbitmap globals)
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree vdef = VARRAY_TREE (ops, i);
-	      tree vdef_op = VDEF_OP (vdef);
-	      size_t uid;
 
-	      /* Ignore variables that have been renamed already.  */
-	      if (TREE_CODE (vdef_op) == SSA_NAME)
-		continue;
-
-	      uid = var_ann (vdef_op)->uid;
-
-	      set_def_block (VDEF_RESULT (vdef), bb);
-	      if (!TEST_BIT (kills, uid))
+	      if (prepare_operand_for_rename (&VDEF_OP (vdef), &uid))
 		{
-		  SET_BIT (globals, uid);
-	          set_livein_block (vdef_op, bb);
+		  VDEF_RESULT (vdef) = VDEF_OP (vdef);
+
+		  set_def_block (VDEF_RESULT (vdef), bb);
+		  if (!TEST_BIT (kills, uid))
+		    {
+		      SET_BIT (globals, uid);
+		      set_livein_block (VDEF_OP (vdef), bb);
+		    }
 		}
 	    }
 
-	  /* Now process the definition made by this statement.  If the
-	     definition has been renamed already, do nothing.  */
+	  /* Now process the definition made by this statement.  */
 	  ops = def_ops (stmt);
 	  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
 	    {
 	      tree *def_p = VARRAY_GENERIC_PTR (ops, i);
-	      if (TREE_CODE (*def_p) != SSA_NAME)
+
+	      if (prepare_operand_for_rename (def_p, &uid))
 		{
 		  set_def_block (*def_p, bb);
-		  SET_BIT (kills, var_ann (*def_p)->uid);
+		  SET_BIT (kills, uid);
 		}
 	    }
 	}
@@ -685,6 +674,30 @@ set_livein_block (tree var, basic_block bb)
 
   /* Set the bit corresponding to the block where VAR is defined.  */
   bitmap_set_bit (db_p->livein_blocks, bb->index);
+}
+
+
+/* If the operand pointed by OP_P needs to be renamed, strip away SSA_NAME
+   wrappers (if needed) and return true.  The unique ID for the operand's
+   variable will be stored in *UID_P.  */
+
+static bool
+prepare_operand_for_rename (tree *op_p, size_t *uid_p)
+{
+  tree var = (TREE_CODE (*op_p) != SSA_NAME) ? *op_p : SSA_NAME_VAR (*op_p);
+  *uid_p = var_ann (var)->uid;
+
+  /* Ignore variables that don't need to be renamed.  */
+  if (!TEST_BIT (vars_to_rename, *uid_p))
+    return false;
+
+  /* The variable needs to be renamed.  If it already had an
+      SSA_NAME, strip it off.  This way, the SSA rename pass
+      doesn't need to deal with existing SSA names.  */
+  if (TREE_CODE (*op_p) == SSA_NAME)
+    *op_p = var;
+
+  return true;
 }
 
 
@@ -2036,23 +2049,22 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
-    {
-      tree *op_p = VARRAY_GENERIC_PTR (uses, i);
-      if (TREE_CODE (*op_p) != SSA_NAME)
-	rewrite_operand (op_p);
-    }
+    rewrite_operand ((tree *) VARRAY_GENERIC_PTR (uses, i));
 
   /* Rewrite virtual uses in the statement.  */
   for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    if (TREE_CODE (VARRAY_TREE (vuses, i)) != SSA_NAME)
-      rewrite_operand (&(VARRAY_TREE (vuses, i)));
+    rewrite_operand (&VARRAY_TREE (vuses, i));
 
   /* Step 2.  Register the statement's DEF and VDEF operands.  */
   for (i = 0; defs && i < VARRAY_ACTIVE_SIZE (defs); i++)
     {
       tree *def_p = VARRAY_GENERIC_PTR (defs, i);
+
       if (TREE_CODE (*def_p) != SSA_NAME)
 	*def_p = make_ssa_name (*def_p, stmt);
+
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
     }
 
@@ -2061,12 +2073,13 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
     {
       tree vdef = VARRAY_TREE (vdefs, i);
 
-      if (TREE_CODE (VDEF_OP (vdef)) != SSA_NAME)
-	rewrite_operand (&(VDEF_OP (vdef)));
+      rewrite_operand (&(VDEF_OP (vdef)));
 
       if (TREE_CODE (VDEF_RESULT (vdef)) != SSA_NAME)
 	VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
 
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
       register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
 			VDEF_RESULT (vdef), block_defs_p);
     }
@@ -2084,17 +2097,13 @@ set_is_used (tree t)
 
 
 /* Replace the operand pointed by OP_P with its immediate reaching
-   definition.  IS_REAL_OPERAND is true when this is a USE operand.  */
+   definition.  */
 
 static inline void
 rewrite_operand (tree *op_p)
 {
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (*op_p) == SSA_NAME)
-    abort ();
-#endif
-
-  *op_p = get_reaching_def (*op_p);
+  if (TREE_CODE (*op_p) != SSA_NAME)
+    *op_p = get_reaching_def (*op_p);
 }
 
 

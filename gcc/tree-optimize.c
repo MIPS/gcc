@@ -185,6 +185,10 @@ tree_rest_of_compilation (tree fndecl)
   static int nesting = -1;
   tree saved_tree;
 
+  /* Don't bother doing anything if there are errors.  */
+  if (errorcount || sorrycount)
+    return;
+
   timevar_push (TV_EXPAND);
 
   ++nesting;
