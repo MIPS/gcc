@@ -68,6 +68,12 @@ enum darwin_builtins
 static tree machopic_non_lazy_ptr_list_entry PARAMS ((const char*, int));
 static tree machopic_stub_list_entry PARAMS ((const char *));
 
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* Nonzero if the user passes the -mone-byte-bool switch, which forces
+   sizeof(bool) to be 1. */
+const char *darwin_one_byte_bool = 0;
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
+
 int
 name_needs_quotes (const char *name)
 {

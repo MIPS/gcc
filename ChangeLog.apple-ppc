@@ -1,3 +1,15 @@
+2004-07-28  Matt Austern  <austern@apple.com>
+
+	Backport radar 3721776 patch from FSF mainline.
+	* config/darwin.c (darwin_one_byte_bool): New global variable.
+	* config/darwin.h (darwin_one_byte_bool): Declare.
+	(SUBTARGET_OPTIONS): Define macro.  (for -mone-byte-bool flag.)
+	* config/rs6000/darwin.h (BOOL_TYPE_SIZE): Conditionalize on
+	value of darwin_one_byte_bool.
+	* doc/invoke.texi: Document -mone-byte-bool flag.
+	* testsuite/gcc.dg/darwin-bool-1.c: New test.
+	* testsuite/gcc.dg/darwin-bool-2.c: New test.
+
 2004-07-26  Matt Austern  <austern@apple.com>
 
         Radar 3739315 and 3739328

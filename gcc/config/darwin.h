@@ -163,8 +163,19 @@ extern int darwin_pascal_strings;
 extern const char *darwin_pascal_strings_switch;
 extern int darwin_running_cxx;
 
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* Nonzero if the user has chosen to force sizeof(bool) to be 1
+   by providing the -mone-byte-bool switch.  It would be better
+   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
+   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
+   that this switch has no "no-" variant. */
+extern const char *darwin_one_byte_bool;
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
+
 #undef  SUBTARGET_OPTIONS
 #define SUBTARGET_OPTIONS						\
+   /* APPLE LOCAL backport 3721776 fix from FSF mainline. */            \
+   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }, \
    {"constant-cfstrings", &darwin_constant_cfstrings_switch,		\
     N_("Generate compile-time CFString objects"), 0},			\
    {"no-constant-cfstrings", &darwin_constant_cfstrings_switch, "", 0},	\

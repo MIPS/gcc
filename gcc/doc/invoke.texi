@@ -552,7 +552,8 @@ in the following sections.
 -single_module  -static  -sub_library  -sub_umbrella @gol
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
--whatsloaded -F}
+@c APPLE LOCAL backport 3721776 from FSF mainline
+-whatsloaded -F -mone-byte-bool}
 
 @c APPLE LOCAL prune man page
 @ignore
@@ -8410,6 +8411,21 @@ and @samp{"/Local/Library/Frameworks"}.  An example include looks like
 @code{#include <Framework/header.h>}, where @samp{Framework} denotes
 the name of the framework and header.h is found in the
 @samp{"PrivateHeaders"} or @samp{"Headers"} directory.
+
+@c APPLE LOCAL begin backport 3721776 from FSF mainline
+@item -mone-byte-bool
+@opindex -mone-byte-bool
+Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.
+By default @samp{sizeof(bool)} is @samp{4} when compiling for 
+Darwin/PowerPC and @samp{1} when compiling for Darwin/x86, so this
+option has no effect on x86.
+
+@strong{Warning:} The @option{-mone-byte-bool} switch causes GCC
+to generate code that is not binary compatible with code generated
+without that switch.  Using this switch may require recompiling all
+other modules in a program, including system libraries.  Use this 
+switch to conform to a non-default data model.
+@c APPLE LOCAL end backport 3721776 from FSF mainline
 
 @item -all_load
 @opindex all_load
