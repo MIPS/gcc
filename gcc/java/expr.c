@@ -2062,12 +2062,32 @@ build_invokeinterface (tree dtable, tree method)
   
   if (flag_indirect_dispatch)
     {
-      otable_index =
-	build_int_2 (get_symbol_table_index 
-		     (method, &TYPE_OTABLE_METHODS (output_class)), 0);
-      idx = 
-	build (ARRAY_REF, integer_type_node, TYPE_OTABLE_DECL (output_class),
-	       otable_index);
+      // FIXME: We look up the interface by name every time we make an
+      // interface call.  There is an interface cache in the runtime
+      // library, but even so this sucks.
+
+      // PR 12760 says: "... the best solution would be to make the
+      // "otable" for interfaces have a pair of values - interface
+      // where the target method is found in addition to offset.  Both
+      // of these would be passed to _Jv_LookupInterfaceMethodIdx."
+      // However, other Java implementations seem to resolve
+      // interfaces lazily, so there is some compatibility advantage
+      // in doing things this way.
+
+      tree method_signature = TYPE_SIGNATURE (TREE_TYPE (method));
+      tree method_name = DECL_NAME (method);
+
+      lookup_arg = build_tree_list (NULL_TREE, 
+				    (build_utf8_ref 
+				     (unmangle_classname
+				      (IDENTIFIER_POINTER(method_signature),
+				       IDENTIFIER_LENGTH(method_signature)))));
+      lookup_arg = tree_cons (NULL_TREE, dtable,
+			      tree_cons (NULL_TREE, build_utf8_ref (method_name),
+					 lookup_arg));
+      return build (CALL_EXPR, ptr_type_node, 
+		    build_address_of (soft_lookupinterfacemethodbyname_node),
+		    lookup_arg, NULL_TREE);
     }
   else
     {

@@ -10881,11 +10881,20 @@ invocation_mode (tree method, int super)
   if (DECL_CONSTRUCTOR_P (method))
     return INVOKE_STATIC;
 
-  if (access & ACC_FINAL || access & ACC_PRIVATE)
+  if (access & ACC_PRIVATE)
     return INVOKE_NONVIRTUAL;
 
-  if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
-    return INVOKE_NONVIRTUAL;
+  /* Binary compatibility: just because it's final today, that doesn't
+     mean it'll be final tomorrow.  */
+  if (! flag_indirect_dispatch  
+      || DECL_CONTEXT (method) == object_type_node)
+    {
+      if (access & ACC_FINAL)
+	return INVOKE_NONVIRTUAL;
+
+      if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
+	return INVOKE_NONVIRTUAL;
+    }
 
   if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
     return INVOKE_INTERFACE;

@@ -1,3 +1,22 @@
+2004-05-28  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (load_class): Don't try to read a class that we've
+	already read.
+
+	* expr.c (build_invokeinterface): Use the old-fashioned way of
+	doing indirect dispatch: look up interfaces by name.
+	* java-tree.h (enum java_tree_index): Add
+	JTI_SOFT_LOOKUPINTERFACEMETHODBYNAME_NODE
+	* decl.c (java_init_decl_processing): Add
+	soft_lookupinterfacemethodbyname_node.
+
+	* gjavah.c (print_method_info): Final methods have vtable entries,
+	so gjavah needs to output them. 
+	* class.c (layout_class_method): Generate vtable entries for final
+	methods.
+	* parse.y (invocation_mode): Use INVOKE_VIRTUAL for indirect
+	dispatch, even if a method is final.
+
 2004-05-25  Andrew Haley  <aph@redhat.com>
 
 	* class.c (build_symbol_entry): Convert the names of constructors

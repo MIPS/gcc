@@ -908,7 +908,14 @@ java_init_decl_processing (void)
     = builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			build_function_type (ptr_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
-
+  
+  t = tree_cons (NULL_TREE, ptr_type_node,
+		 tree_cons (NULL_TREE, ptr_type_node,
+			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
+  soft_lookupinterfacemethodbyname_node 
+    = builtin_function ("_Jv_LookupInterfaceMethod",
+			build_function_type (ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
 			    tree_cons (NULL_TREE, ptr_type_node, 

@@ -397,6 +397,7 @@ enum java_tree_index
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
   JTI_SOFT_LOOKUPINTERFACEMETHOD_NODE,
+  JTI_SOFT_LOOKUPINTERFACEMETHODBYNAME_NODE,
   JTI_SOFT_LOOKUPJNIMETHOD_NODE,
   JTI_SOFT_GETJNIENVNEWFRAME_NODE,
   JTI_SOFT_JNIPOPSYSTEMFRAME_NODE,
@@ -654,6 +655,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_MONITOREXIT_NODE]
 #define soft_lookupinterfacemethod_node \
   java_global_trees[JTI_SOFT_LOOKUPINTERFACEMETHOD_NODE]
+#define soft_lookupinterfacemethodbyname_node \
+  java_global_trees[JTI_SOFT_LOOKUPINTERFACEMETHODBYNAME_NODE]
 #define soft_lookupjnimethod_node \
   java_global_trees[JTI_SOFT_LOOKUPJNIMETHOD_NODE]
 #define soft_getjnienvnewframe_node \

@@ -2243,12 +2243,20 @@ layout_class_method (tree this_class, tree super_class,
 	    error ("%Jnon-static method '%D' overrides static method",
                    method_decl, method_decl);
 	}
-      else if (! METHOD_FINAL (method_decl)
-	       && ! METHOD_PRIVATE (method_decl)
-	       && ! CLASS_FINAL (TYPE_NAME (this_class))
+      else if (this_class == object_type_node
+	       && (METHOD_FINAL (method_decl)
+		   || METHOD_PRIVATE (method_decl)))
+	{
+	  /* We don't generate vtable entries for final Object
+	     methods.  This is simply to save space, since every
+	     object would otherwise have to define them.  */
+	}
+      else if (! METHOD_PRIVATE (method_decl)
 	       && dtable_count)
 	{
-	  set_method_index (method_decl, dtable_count);
+	  /* We generate vtable entries for final methods because they
+	     may one day be changed to non-final.  */
+ 	  set_method_index (method_decl, dtable_count);
 	  dtable_count = fold (build (PLUS_EXPR, integer_type_node,
 				      dtable_count, integer_one_node));
 	}

@@ -587,6 +587,14 @@ load_class (tree class_or_name, int verbose)
     {
       char *separator;
 
+      /* We've already loaded it.  */
+      if (IDENTIFIER_CLASS_VALUE (name) != NULL_TREE)
+	{
+	  tree type_decl = IDENTIFIER_CLASS_VALUE (name);
+	  if (CLASS_PARSED_P (TREE_TYPE (type_decl)))
+	    break;
+	}
+
       if ((class_loaded = read_class (name)))
 	break;
 
