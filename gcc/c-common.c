@@ -5419,7 +5419,10 @@ handle_used_attribute (pnode, name, args, flags, no_add_attrs)
 
   if (TREE_CODE (node) == FUNCTION_DECL
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
-    mark_referenced (DECL_ASSEMBLER_NAME (node));
+    {
+      mark_referenced (DECL_ASSEMBLER_NAME (node));
+      TREE_USED (node) = 1;
+    }
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
