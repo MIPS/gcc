@@ -848,7 +848,6 @@ rs6000_override_options (const char *default_cpu)
 		     | MASK_MFCRF)
   };
 
-  rs6000_init_hard_regno_mode_ok ();
 
  set_masks = POWER_MASKS | POWERPC_MASKS | MASK_SOFT_FLOAT;
 #ifdef OS_MISSING_POWERPC64
@@ -949,6 +948,8 @@ rs6000_override_options (const char *default_cpu)
     }
   /* APPLE LOCAL end -fast */
 
+  /* APPLE LOCAL rs6000_init_hard_regno_mode_ok must come AFTER setting of -fast flags */
+  rs6000_init_hard_regno_mode_ok ();
 
   if (TARGET_E500)
     rs6000_isel = 1;
@@ -3602,7 +3603,6 @@ rs6000_hard_regno_nregs (int regno, enum machine_mode mode)
   if (ALTIVEC_REGNO_P (regno))
     return
       (GET_MODE_SIZE (mode) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD;
-
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 

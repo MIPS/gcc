@@ -1620,17 +1620,12 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Switch to the appropriate section.  */
   variable_section (decl, reloc);
 
-#if 0
-/* MERGE FAILURE! No longer can check for symbol being coalesced. Fix It! */
   /* APPLE LOCAL begin zerofill turly 20020218  */
 #ifdef ASM_OUTPUT_ZEROFILL
   /* We need a ZEROFILL COALESCED option!  */
   if (flag_no_common
       && ! dont_output_data
-#if 0
-      /* APPLE LOCAL coalescing */
-      && ! DECL_COALESCED (decl)
-#endif
+      && ! DECL_ONE_ONLY (decl)
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
     {
       ASM_OUTPUT_ZEROFILL (asm_out_file, name,
@@ -1642,7 +1637,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       /********************************/
       return;
     }
-#endif
 #endif
 
   /* APPLE LOCAL end zerofill turly 20020218  */
