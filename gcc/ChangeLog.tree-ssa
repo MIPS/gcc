@@ -1,5 +1,28 @@
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-cfg.c (make_blocks): Don't always start a new block with
+	COND_EXPR and SWITCH_EXPR statements.
+	Call stmt_ends_bb_p to determine if the current statement should be
+	the last in the block.
+	(make_cond_expr_blocks): Second argument is now the entry block
+	to the conditional.
+	(make_switch_expr_blocks): Second argument is now the entry block
+	to the switch.
+	(make_edges, make_ctrl_stmt_edges, make_loop_expr_edges,
+	cleanup_control_flow, cleanup_cond_expr_graph,
+	cleanup_switch_expr_graph, disconnect_unreachable_case_labels,
+	find_taken_edge, successor_block, latch_block, is_latch_block,
+	switch_parent): Work with the last statement of the block, not the
+	first.
+	(is_ctrl_altering_stmt): Pre-compute the code of the statement.
+	(stmt_starts_bb_p): Declare file local.
+	Don't call is_ctrl_stmt.  Check if T is a LOOP_EXPR instead.
+	(stmt_ends_bb_p): New function.
+
+	* tree-flow.h (stmt_starts_bb_p): Remove declaration.
+
+2003-02-03  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dfa.c (find_vars_r): Share INDIRECT_REF nodes whose operand
 	is a VAR_DECL.  
 	(add_referenced_var): Add additional argument 'sym'.  Update all users.

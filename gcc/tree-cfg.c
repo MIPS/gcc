@@ -90,6 +90,8 @@ static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static basic_block switch_parent	PARAMS ((basic_block));
 static void create_block_annotations	PARAMS ((void));
+static inline bool stmt_starts_bb_p	PARAMS ((tree));
+static inline bool stmt_ends_bb_p	PARAMS ((tree));
 
 /* Flowgraph optimization and cleanup.  */
 static void remove_unreachable_blocks	PARAMS ((void));
@@ -267,15 +269,11 @@ make_blocks (first_p, parent_block)
 
       if (code == BIND_EXPR)
 	make_bind_expr_blocks (container, parent_block);
-      else if (code == COND_EXPR)
-	make_cond_expr_blocks (container, parent_block);
       else if (code == LOOP_EXPR)
 	make_loop_expr_blocks (container, parent_block);
-      else if (code == SWITCH_EXPR)
-	make_switch_expr_blocks (container, parent_block);
       else if (code == TRY_FINALLY_EXPR || code == TRY_CATCH_EXPR)
-	/* FIXME: Some of these nodes could be lowered by gimplify.c  */
-	; /* abort (); */
+	/* FIXME: Need to handle try/catch and try/finally.  */
+	abort ();
       else
 	{
 	  /* For regular statements, add them the current block and move on
@@ -293,9 +291,15 @@ make_blocks (first_p, parent_block)
 	      bb->end_tree_p = container;
 	    }
 
-	  /* If STMT alters the flow of control, we need to start a new
+	  /* Create the subgraph for COND_EXPR and SWITCH_EXPR nodes.  */
+	  if (code == COND_EXPR)
+	    make_cond_expr_blocks (container, bb);
+	  else if (code == SWITCH_EXPR)
+	    make_switch_expr_blocks (container, bb);
+
+	  /* If STMT must be the last in its block, we need to start a new
 	     block on the next iteration.  */
-	  if (is_ctrl_altering_stmt (stmt))
+	  if (stmt_ends_bb_p (stmt))
 	    start_new_block = true;
 	}
     }
@@ -350,15 +354,14 @@ make_loop_expr_blocks (loop_p, parent_block)
 
 
 /* Create the blocks for the COND_EXPR node pointed by COND_P.
-   PARENT_BLOCK is as in make_blocks.  */  
+   ENTRY is the block whose last statement is *COND_P.  */
 
 static void
-make_cond_expr_blocks (cond_p, parent_block)
+make_cond_expr_blocks (cond_p, entry)
      tree *cond_p;
-     basic_block parent_block;
+     basic_block entry;
 {
   tree cond = *cond_p;
-  basic_block entry = create_bb (cond_p, parent_block);
   entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (cond);
@@ -368,15 +371,14 @@ make_cond_expr_blocks (cond_p, parent_block)
 
 
 /* Create the blocks for the SWITCH_EXPR node pointed by SWITCH_E_P.
-   PARENT_BLOCK is as in make_blocks.  */
+   ENTRY is the block whose last statement is *SWITCH_E_P.  */
 
 static void
-make_switch_expr_blocks (switch_e_p, parent_block)
+make_switch_expr_blocks (switch_e_p, entry)
      tree *switch_e_p;
-     basic_block parent_block;
+     basic_block entry;
 {
   tree switch_e = *switch_e_p;
-  basic_block entry = create_bb (switch_e_p, parent_block);
   entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (switch_e);
@@ -475,7 +477,7 @@ make_edges ()
       if (first)
         {
 	  /* Edges for control statements.  */
-	  if (is_ctrl_stmt (first))
+	  if (is_ctrl_stmt (last))
 	    make_ctrl_stmt_edges (bb);
 
 	  /* Edges for control flow altering statements (GOTO_EXPR and
@@ -516,14 +518,14 @@ static void
 make_ctrl_stmt_edges (bb)
      basic_block bb;
 {
-  tree first = first_stmt (bb);
+  tree last = last_stmt (bb);
 
 #if defined ENABLE_CHECKING
-  if (first == NULL_TREE)
+  if (last == NULL_TREE)
     abort();
 #endif
 
-  switch (TREE_CODE (first))
+  switch (TREE_CODE (last))
     {
     case LOOP_EXPR:
       make_loop_expr_edges (bb);
@@ -541,7 +543,7 @@ make_ctrl_stmt_edges (bb)
 		first case statement, the RTL expander gets all confused
 		and enters an infinite loop.  */
       {
-	tree body = SWITCH_BODY (first);
+	tree body = SWITCH_BODY (last);
 	STRIP_NOPS (body);
 	if (TREE_CODE (body) == BIND_EXPR)
 	  {
@@ -653,7 +655,7 @@ static void
 make_loop_expr_edges (bb)
      basic_block bb;
 {
-  tree entry = first_stmt (bb);
+  tree entry = last_stmt (bb);
   basic_block end_bb, body_bb;
 
 #if defined ENABLE_CHECKING
@@ -689,7 +691,7 @@ static void
 make_cond_expr_edges (bb)
      basic_block bb;
 {
-  tree entry = first_stmt (bb);
+  tree entry = last_stmt (bb);
   basic_block successor_bb, then_bb, else_bb;
 
 #if defined ENABLE_CHECKING
@@ -1118,7 +1120,7 @@ cleanup_control_flow ()
       enum tree_code code;
       tree t;
 
-      t = first_stmt (bb);
+      t = last_stmt (bb);
       if (t == NULL_TREE)
         continue;
 
@@ -1146,7 +1148,7 @@ static void
 cleanup_cond_expr_graph (bb)
      basic_block bb;
 {
-  tree cond_expr = first_stmt (bb);
+  tree cond_expr = last_stmt (bb);
   tree val;
   edge taken_edge;
 
@@ -1184,7 +1186,7 @@ cleanup_switch_expr_graph (switch_bb)
      basic_block switch_bb;
 {
 #if defined ENABLE_CHECKING
-  tree switch_expr = first_stmt (switch_bb);
+  tree switch_expr = last_stmt (switch_bb);
 #endif
   edge e;
 
@@ -1223,7 +1225,7 @@ disconnect_unreachable_case_labels (bb)
 {
   edge taken_edge;
   tree switch_val;
-  tree t = first_stmt (bb);
+  tree t = last_stmt (bb);
 
   if (t == NULL_TREE)
     return;
@@ -1233,7 +1235,7 @@ disconnect_unreachable_case_labels (bb)
   if (taken_edge)
     {
       edge e, next;
-      tree switch_body = SWITCH_BODY (first_stmt (bb));
+      tree switch_body = SWITCH_BODY (t);
 
       /* Remove all the edges that go to case labels that will never
 	 be taken.  */
@@ -1267,7 +1269,7 @@ find_taken_edge (bb, val)
 {
   tree stmt;
 
-  stmt = first_stmt (bb);
+  stmt = last_stmt (bb);
 
 #if defined ENABLE_CHECKING
   if (stmt == NULL_TREE || !is_ctrl_stmt (stmt))
@@ -1749,10 +1751,11 @@ successor_block (bb)
   parent_bb = parent_block (bb);
   while (parent_bb)
     {
-      tree first = first_stmt (parent_bb);
+      tree last = last_stmt (parent_bb);
+
       /* If BB is the last block inside a loop body, return the condition
          block for the loop structure.  */
-      if (first && is_loop_stmt (first))
+      if (last && is_loop_stmt (last))
 	return latch_block (parent_bb);
 
       /* Otherwise, If BB's control parent has a successor, return its
@@ -1801,10 +1804,14 @@ bool
 is_ctrl_altering_stmt (t)
      tree t;
 {
+  enum tree_code code;
+
 #if defined ENABLE_CHECKING
   if (t == NULL)
     abort ();
 #endif
+
+  code = TREE_CODE (t);
 
   /* GOTO_EXPRs and RETURN_EXPRs always alter flow control.  */
   if (TREE_CODE (t) == GOTO_EXPR || TREE_CODE (t) == RETURN_EXPR)
@@ -1812,21 +1819,21 @@ is_ctrl_altering_stmt (t)
 
   /* A CALL_EXPR alters flow control if the current function has
      nonlocal labels.  */
-  if (TREE_CODE (t) == CALL_EXPR
+  if (code == CALL_EXPR
       && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
     return true;
 
   /* A CALL_EXPR also alters flow control if it does not return.  */
-  if (TREE_CODE (t) == CALL_EXPR)
+  if (code == CALL_EXPR)
     return call_expr_flags (t) & (ECF_NORETURN | ECF_LONGJMP);
 
   /* A MODIFY_EXPR may contain a CALL_EXPR, which in turn may have
      an abnormal edge if the current function has nonlocal labels.  */
-  if (TREE_CODE (t) == MODIFY_EXPR
+  if (code == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (t, 1)) == CALL_EXPR
       && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
     return true;
-  
+
   return false;
 }
 
@@ -1876,14 +1883,26 @@ is_computed_goto (t)
 
 /* Return true if T should start a new basic block.  */
 
-bool
+static inline bool
 stmt_starts_bb_p (t)
      tree t;
 {
   return (TREE_CODE (t) == CASE_LABEL_EXPR
 	  || TREE_CODE (t) == LABEL_EXPR
 	  || TREE_CODE (t) == BIND_EXPR
-	  || is_ctrl_stmt (t));
+	  || TREE_CODE (t) == LOOP_EXPR);
+}
+
+
+/* Return true if T should end a basic block.  */
+
+static inline bool
+stmt_ends_bb_p (t)
+     tree t;
+{
+  return (TREE_CODE (t) == COND_EXPR
+	  || TREE_CODE (t) == SWITCH_EXPR
+	  || is_ctrl_altering_stmt (t));
 }
 
 
@@ -1911,7 +1930,7 @@ latch_block (loop_bb)
 {
   int entry_ix, latch_ix;
   basic_block latch_bb;
-  tree loop = first_stmt (loop_bb);
+  tree loop = last_stmt (loop_bb);
 
   if (loop == NULL_TREE || TREE_CODE (loop) != LOOP_EXPR)
     return NULL;
@@ -1935,11 +1954,10 @@ bool
 is_latch_block (bb)
      basic_block bb;
 {
-  if (bb->index > 0
-      && first_stmt (bb) == NULL_TREE)
+  if (bb->index > 0 && last_stmt (bb) == NULL_TREE)
     {
       basic_block loop_bb = BASIC_BLOCK (bb->index - 1);
-      tree loop_t = first_stmt (loop_bb);
+      tree loop_t = last_stmt (loop_bb);
       return (loop_t && TREE_CODE (loop_t) == LOOP_EXPR);
     }
 
@@ -1999,13 +2017,14 @@ static basic_block
 switch_parent (bb)
      basic_block bb;
 {
-  tree first;
+  tree last;
+
   do
     {
       bb = parent_block (bb);
-      first = first_stmt (bb);
+      last = last_stmt (bb);
     }
-  while (bb && first && TREE_CODE (first) != SWITCH_EXPR);
+  while (bb && last && TREE_CODE (last) != SWITCH_EXPR);
 
   return bb;
 }

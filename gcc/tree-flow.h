@@ -292,7 +292,6 @@ extern bool is_loop_stmt		PARAMS ((tree));
 extern bool is_computed_goto		PARAMS ((tree));
 extern tree loop_body			PARAMS ((tree));
 extern void set_loop_body		PARAMS ((tree, tree));
-extern bool stmt_starts_bb_p		PARAMS ((tree));
 extern void dump_tree_bb		PARAMS ((FILE *, const char *,
 	                			 basic_block, int));
 extern void debug_tree_bb		PARAMS ((basic_block));
