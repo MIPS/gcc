@@ -2618,8 +2618,9 @@ ia64_expand_prologue (void)
   if (optimize)
     {
       edge e;
+      unsigned ix;
 
-      for (e = EXIT_BLOCK_PTR->pred; e ; e = e->pred_next)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
 	if ((e->flags & EDGE_FAKE) == 0
 	    && (e->flags & EDGE_FALLTHRU) != 0)
 	  break;
