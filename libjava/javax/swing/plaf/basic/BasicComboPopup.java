@@ -140,10 +140,10 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   protected PropertyChangeListener propertyChangeListener;
 
   /** direction for scrolling down list of combo box's items */
-  protected static int SCROLL_DOWN = 1;
+  protected static final int SCROLL_DOWN = 1;
 
   /** direction for scrolling up list of combo box's items */
-  protected static int SCROLL_UP = 0;
+  protected static final int SCROLL_UP = 0;
 
   /** Indicates auto scrolling direction */
   protected int scrollDirection;

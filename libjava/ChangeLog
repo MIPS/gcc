@@ -1,5 +1,11 @@
 2004-09-28   Olga Rodimina  <rodimina@redhat.com>
 
+	* javax/swing/plaf/basic/BasicComboPopup.java
+	(SCROLL_DOWN): made final.
+	(SCROLL_UP): made final.
+
+2004-09-28   Olga Rodimina  <rodimina@redhat.com>
+
 	* javax/swing/plaf/basic/BasicComboPopup.java:
 	Added javadocs for undocumented fields.
 	(show): scroll down to the selected item and 
