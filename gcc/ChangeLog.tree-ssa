@@ -1,5 +1,34 @@
 2002-11-28  Diego Novillo  <dnovillo@redhat.com>
 
+	* Makefile.in (tree-ssa-pre.o, tree-cfg.o, gimplify.o, tree-ssa-dce.o,
+	tree-ssa-ccp.o): Add dependency on $(TIMEVAR_H).
+	* timevar.def (TV_TREE_GIMPLIFY, TV_TREE_MAY_ALIAS,
+	TV_TREE_INSERT_PHI_NODES, TV_TREE_BUILD_FUD_CHAINS, TV_TREE_RDEFS):
+	New timers.
+	(TV_TREE_SSA): Remove.
+	(TV_INTEGRATION, TV_EXPAND): Switch order.
+	* c-decl.c (c_expand_body): Pop TV_EXPAND before running the tree
+	optimizers.
+	* gimplify.c (simplify_function_tree): Push/pop TV_TREE_GIMPLIFY.
+	* tree-cfg.c (build_tree_cfg): Push/pop TV_TREE_CFG.
+	* tree-dfa.c (compute_may_aliases): Push/pop TV_TREE_MAY_ALIAS.
+	* tree-ssa-ccp.c (tree_ssa_ccp): Push/pop TV_TREE_CCP.
+	* tree-ssa-dce.c (tree_ssa_eliminate_dead_code): Push/pop
+	TV_TREE_DCE.
+	Call compute_reaching_defs.
+	Remove debugging dumps before DCE.
+	* tree-ssa-pre.c (tree_perform_ssapre): Push/pop TV_TREE_PRE.
+	* tree-ssa.c (build_tree_ssa): Don't call compute_reaching_defs.
+	Don't call dump_reaching_defs.
+	(insert_phi_nodes): Push/pop TV_TREE_INSERT_PHI_NODES.
+	(build_fud_chains): Push/pop TV_TREE_BUILD_FUD_CHAINS.
+	(compute_reaching_defs): Push/pop TV_TREE_RDEFS.
+	Call dump_reaching_defs.
+	* tree-optimize.c (optimize_function_tree): Remove calls to
+	timevar_push and timevar_pop.
+
+2002-11-28  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (tree-ssa.o): Add dependency on $(TIMEVAR_H) and
 	tree-alias-common.h.
 	(tree-dfa.o): Likewise.

@@ -1399,13 +1399,13 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    ssa.h errors.h toplev.h function.h $(TIMEVAR_H) tree-alias-common.h
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
-   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
+   $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h $(TIMEVAR_H)
 tree-ssa-cp.o : tree-ssa-cp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h ssa.h errors.h toplev.h
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) flags.h output.h \
-   diagnostic.h errors.h function.h
+   diagnostic.h errors.h function.h $(TIMEVAR_H)
 tree-dfa.o : tree-dfa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h diagnostic.h \
    errors.h tree-inline.h $(HASHTAB_H) flags.h function.h $(TIMEVAR_H) \
@@ -1419,7 +1419,7 @@ c-simplify.o : c-simplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    langhooks.h toplev.h rtl.h $(TREE_FLOW_H) langhooks-def.h
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h tree-simple.h tree-inline.h varray.h langhooks.h \
-   langhooks-def.h $(TREE_FLOW_H)
+   langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H)
 tree-browser.o : tree-browser.c tree-browser.def $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) errors.h tree-inline.h diagnostic.h $(HASHTAB_H)
 simple-break-elim.o : simple-break-elim.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
@@ -1573,12 +1573,13 @@ ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) varray.h $(EXPR_H) \
 ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h
 tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
-    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h
+    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h $(TIMEVAR_H)
 ssa-ccp.o : ssa-ccp.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
     $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h \
     errors.h $(GGC_H) df.h function.h
 tree-ssa-ccp.o : tree-ssa-ccp.c $(CONFIG_H) system.h errors.h $(TREE_H) \
-    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h tree-inline.h
+    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h tree-inline.h \
+    $(TIMEVAR_H)
 df.o : df.c $(CONFIG_H) system.h $(RTL_H) insn-config.h $(RECOG_H) \
    function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h $(BASIC_BLOCK_H) df.h \
    $(FIBHEAP_H)

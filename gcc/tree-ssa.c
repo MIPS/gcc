@@ -185,10 +185,8 @@ build_tree_ssa (fndecl)
   /* Find variable references.  */
   find_tree_refs ();
 
-  /* Compute immediate dominators.  */
+  /* Compute immediate dominators and dominance frontiers.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Compute dominance frontiers.  */
   dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
@@ -196,11 +194,9 @@ build_tree_ssa (fndecl)
   insert_phi_nodes (dfs);
   build_fud_chains (idom);
 
+  /* Free allocated memory.  */
   sbitmap_vector_free (dfs);
   free_dominance_info (idom);
-
-  /* Compute reaching definitions.  */
-  compute_reaching_defs ();    
 
   if (tree_ssa_dump_file)
     {
@@ -209,7 +205,6 @@ build_tree_ssa (fndecl)
       if (tree_ssa_dump_flags & (TDF_DETAILS))
 	{
 	  dump_referenced_vars (tree_ssa_dump_file);
-	  dump_reaching_defs (tree_ssa_dump_file);
 	  dump_tree_ssa (tree_ssa_dump_file);
 	}
 
@@ -230,6 +225,8 @@ insert_phi_nodes (dfs)
      sbitmap *dfs;
 {
   size_t i;
+
+  timevar_push (TV_TREE_INSERT_PHI_NODES);
 
   /* Array ADDED (indexed by basic block number) is used to determine
      whether a PHI node for the current variable has already been
@@ -255,6 +252,8 @@ insert_phi_nodes (dfs)
   added = NULL;
   in_work = NULL;
   work_stack = NULL;
+
+  timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
 
 
@@ -301,6 +300,8 @@ build_fud_chains (idom)
 {
   size_t i;
 
+  timevar_push (TV_TREE_BUILD_FUD_CHAINS);
+
   /* Initialize the current definition for all the variables.  */
   for (i = 0; i < num_referenced_vars; i++)
     set_currdef_for (referenced_var (i), NULL);
@@ -317,6 +318,8 @@ build_fud_chains (idom)
   search_fud_chains (ENTRY_BLOCK_PTR, idom);
 
   free (save_chain);
+
+  timevar_pop (TV_TREE_BUILD_FUD_CHAINS);
 }
 
 
@@ -410,6 +413,8 @@ compute_reaching_defs ()
 {
   size_t i;
 
+  timevar_push (TV_TREE_RDEFS);
+
   /* Initialize reaching definition and reached uses information for every
      reference in the function.  */
   for (i = 0; i < num_referenced_vars; i++)
@@ -450,6 +455,17 @@ compute_reaching_defs ()
     }
 
   free (marked);
+
+  timevar_pop (TV_TREE_RDEFS);
+
+  /* Debugging dumps.  */
+  tree_ssa_dump_file = dump_begin (TDI_ssa, &tree_ssa_dump_flags);
+  if (tree_ssa_dump_flags & (TDF_DETAILS))
+    {
+      fprintf (tree_ssa_dump_file, "\nFunction %s\n\n",
+	       get_name (current_function_decl));
+      dump_reaching_defs (tree_ssa_dump_file);
+    }
 }
 
 

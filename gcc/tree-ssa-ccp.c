@@ -48,7 +48,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
-
+#include "timevar.h"
 
 /* Possible lattice values.  */
 typedef enum
@@ -130,6 +130,8 @@ tree_ssa_ccp (fndecl)
 {
   tree fnbody = DECL_SAVED_TREE (fndecl);
 
+  timevar_push (TV_TREE_CCP);
+
   initialize ();
 
   /* Iterate until the worklists are empty.  */
@@ -160,6 +162,11 @@ tree_ssa_ccp (fndecl)
   /* Now cleanup any unreachable code.  */
   cleanup_tree_cfg ();
 
+  /* Free allocated memory.  */
+  finalize ();
+
+  timevar_pop (TV_TREE_CCP);
+
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -174,8 +181,6 @@ tree_ssa_ccp (fndecl)
       dump_end (TDI_ccp, dump_file);
       dump_file = NULL;
     }
-
-  finalize ();
 }
 
 

@@ -58,6 +58,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-simple.h"
+#include "timevar.h"
 
 
 /* Debugging dumps.  */
@@ -446,6 +447,8 @@ tree_ssa_eliminate_dead_code (fndecl)
 {
   tree fnbody;
 
+  timevar_push (TV_TREE_DCE);
+
   stats.total = stats.removed = 0;
 
   fnbody = DECL_SAVED_TREE (fndecl);
@@ -454,21 +457,11 @@ tree_ssa_eliminate_dead_code (fndecl)
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
 
+  /* Compute reaching definitions.  */
+  compute_reaching_defs ();    
+
   /* Initialize dump_file for debugging dumps.  */
   dump_file = dump_begin (TDI_dce, &dump_flags);
-
-  /* Dump function tree before DCE.  */ 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "%s() before SSA-DCE\n", get_name (fndecl));
-      
-      if (dump_flags & TDF_RAW)
-	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
-      else
-	print_generic_stmt (dump_file, fnbody, dump_flags);
-
-      fprintf (dump_file, "\n\nFinding obviously useful instructions:\n");
-    }
 
   find_useful_stmts ();
 
@@ -482,10 +475,12 @@ tree_ssa_eliminate_dead_code (fndecl)
 
   remove_dead_stmts ();
 
+  timevar_pop (TV_TREE_DCE);
+
   if (dump_file)
     {
       /* Dump the function tree after DCE.  */
-      fprintf (dump_file, "\n%s() after SSA-DCE\n", get_name (fndecl));
+      fprintf (dump_file, "\n%s()\n", get_name (fndecl));
 
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
@@ -497,4 +492,3 @@ tree_ssa_eliminate_dead_code (fndecl)
       fclose (dump_file);
     }
 }
-

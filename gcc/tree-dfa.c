@@ -1761,6 +1761,8 @@ compute_may_aliases ()
 {
   unsigned long i;
 
+  timevar_push (TV_TREE_MAY_ALIAS);
+
   if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
     {
       timevar_push (TV_TREE_PTA);
@@ -1776,6 +1778,8 @@ compute_may_aliases ()
       if (TREE_CODE (var) == INDIRECT_REF)
 	find_may_aliases_for (var);
     }
+
+  timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 

@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
+#include "timevar.h"
 
 /* Local declarations.  */
 
@@ -113,6 +114,8 @@ build_tree_cfg (fnbody)
 {
   tree *first_p;
 
+  timevar_push (TV_TREE_CFG);
+
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   last_basic_block = 0;
@@ -145,24 +148,30 @@ build_tree_cfg (fnbody)
 
 	  /* Create the edges of the flowgraph.  */
 	  make_edges ();
+	}
+    }
 
-	  /* Write the flowgraph to a dot file.  */
-	  dump_file = dump_begin (TDI_dot, &dump_flags);
-	  if (dump_file)
-	    {
-	      tree_cfg2dot (dump_file);
-	      dump_end (TDI_dot, dump_file);
-	      dump_file = NULL;
-	    }
+  timevar_pop (TV_TREE_CFG);
 
-	  /* Dump a textual representation of the flowgraph.  */
-	  dump_file = dump_begin (TDI_cfg, &dump_flags);
-	  if (dump_file)
-	    {
-	      dump_tree_cfg (dump_file, dump_flags);
-	      dump_end (TDI_cfg, dump_file);
-	      dump_file = NULL;
-	    }
+  /* Debugging dumps.  */
+  if (n_basic_blocks > 0)
+    {
+      /* Write the flowgraph to a dot file.  */
+      dump_file = dump_begin (TDI_dot, &dump_flags);
+      if (dump_file)
+	{
+	  tree_cfg2dot (dump_file);
+	  dump_end (TDI_dot, dump_file);
+	  dump_file = NULL;
+	}
+
+      /* Dump a textual representation of the flowgraph.  */
+      dump_file = dump_begin (TDI_cfg, &dump_flags);
+      if (dump_file)
+	{
+	  dump_tree_cfg (dump_file, dump_flags);
+	  dump_end (TDI_cfg, dump_file);
+	  dump_file = NULL;
 	}
     }
 }

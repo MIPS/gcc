@@ -6524,6 +6524,8 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
+  timevar_pop (TV_EXPAND);
+
   /* Simplify the function.  Don't try to optimize the function if
      simplification failed.  */
   if (!flag_disable_simple
@@ -6559,6 +6561,8 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       if (optimize >= 1)
 	optimize_function_tree (fndecl);
     }
+
+  timevar_push (TV_EXPAND);
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);

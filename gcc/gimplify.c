@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "tree-flow.h"
+#include "timevar.h"
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
@@ -176,6 +177,8 @@ simplify_function_tree (fndecl)
   if (fnbody == NULL_TREE)
     return 0;
 
+  timevar_push (TV_TREE_GIMPLIFY);
+
   oldfn = current_function_decl;
   current_function_decl = fndecl;
 
@@ -198,6 +201,8 @@ simplify_function_tree (fndecl)
   pop_gimplify_context ();
 
   current_function_decl = oldfn;
+
+  timevar_pop (TV_TREE_GIMPLIFY);
 
   return done;
 }

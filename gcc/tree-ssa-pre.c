@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-simple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
+#include "timevar.h"
 
 #define EXTRANEOUS_EPHI_REMOVAL 0
 #define DEBUGGING_STRRED 1
@@ -3161,6 +3162,8 @@ tree_perform_ssapre ()
   basic_block bb;
   size_t j, k;
 
+  timevar_push (TV_TREE_PRE);
+
   new_stmt_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   old_new_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
@@ -3260,6 +3263,21 @@ tree_perform_ssapre ()
     }
   for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
      pre_part_1_trav (VARRAY_GENERIC_PTR (bexprs, j), pre_dfs);
+  for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
+    free_expr_info (VARRAY_GENERIC_PTR (bexprs, j));
+
+  VARRAY_CLEAR (bexprs);
+  htab_delete (seen);
+  free_dominance_info (pre_idom);
+  free (pre_preorder);
+  sbitmap_vector_free (pre_dfs);
+  sbitmap_vector_free (domchildren);
+
+  splay_tree_delete (new_stmt_map);
+  splay_tree_delete (old_new_map);  
+  
+  timevar_pop (TV_TREE_PRE);
+
   /* Debugging dump after SSA PRE */
   if (dump_file)
     {
@@ -3272,16 +3290,4 @@ tree_perform_ssapre ()
 
       dump_end (TDI_pre, dump_file);
     }
-  
-  for (j = 0; j < VARRAY_ACTIVE_SIZE (bexprs); j++)
-    free_expr_info (VARRAY_GENERIC_PTR (bexprs, j));
-  VARRAY_CLEAR (bexprs);
-  htab_delete (seen);
-  free_dominance_info (pre_idom);
-  free (pre_preorder);
-  sbitmap_vector_free (pre_dfs);
-  sbitmap_vector_free (domchildren);
-
-  splay_tree_delete (new_stmt_map);
-  splay_tree_delete (old_new_map);  
 }
