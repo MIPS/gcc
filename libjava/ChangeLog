@@ -1,3 +1,20 @@
+2004-08-08  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/AbstractButton.java
+	(model): Made protected.
+	(actionListener): Likewise.
+	(changeListener): Likewise.
+	(itemListener): Likewise.
+	(multiClickThreshhold): New field.
+	(getActionListeners): New method.
+	(getChangeListeners): Likewise.
+	(getItemListeners): Likewise.
+	(fireItemStateChanged): Simplified implementation.
+	(fireActionPerformed): Likewise.
+	(fireStateChanged): Likewise.
+	(getMultiClickThreshhold): New method.
+	(setMultiClickThreshhold): Likewise.
+
 2004-08-08  Tom Tromey  <tromey@redhat.com>
 
 	* java/awt/image/Kernel.java (clone): Use super.clone().
