@@ -1,5 +1,9 @@
 2003-02-20  Jeff Law  <law@redhat.com>
 
+	* c-simplify.c (simplify_decl_stmt): Call set_vla_decl on the
+	temporary holding the size and unit size for a VLA.  Minor
+	formatting fixes.
+
 	* ssa.c: Revert caching of immediate dominators change made on
 	Jan 28, 2003.
 

@@ -768,17 +768,26 @@ simplify_decl_stmt (stmt_p, next_p)
 	  size = get_initialized_tmp_var (size, &pre);
 	  usize = get_initialized_tmp_var (usize, &pre);
 
+	  /* Mark the size and unit size as being used in the 
+	     VLA's declaration so they will not be deleted by
+	     DCE.  */
+	  set_vla_decl (size);
+	  set_vla_decl (usize);
+
 	  /* FIXME also simplify field sizes.  */
 	  DECL_SIZE (decl) = TYPE_SIZE (TREE_TYPE (decl)) = size;
 	  DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl)) = usize;
 
-	  /* Prune this decl and any others after it out of the enclosing block.  */
+	  /* Prune this decl and any others after it out of the enclosing
+	     block.  */
 	  for (p = &BIND_EXPR_VARS (gimple_current_bind_expr ());
 	       *p != decl; p = &TREE_CHAIN (*p))
 	    /* search */;
 	  *p = NULL_TREE;
-	  if (BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ())) == decl)
-	    BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ())) = NULL_TREE;
+	  if (BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
+	      == decl)
+	    BLOCK_VARS (BIND_EXPR_BLOCK (gimple_current_bind_expr ()))
+	      = NULL_TREE;
 
 	  bind = c_build_bind_expr (decl, TREE_CHAIN (stmt));
 
