@@ -2057,8 +2057,10 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
+  unsigned int offset;
+  unsigned int size;
 
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, offset, size, stmt, iter)
     {
       pp_string (buffer, "#   ");
       dump_generic_node (buffer, DEF_FROM_PTR (def_p),
@@ -2066,6 +2068,10 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
       pp_string (buffer, " = V_MAY_DEF <");
       dump_generic_node (buffer, USE_FROM_PTR (use_p),
                          spc + 2, flags, false);
+      pp_string (buffer, ",");
+      pp_decimal_int (buffer, offset);
+      pp_string (buffer, ",");
+      pp_decimal_int (buffer, size);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }

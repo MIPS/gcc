@@ -347,6 +347,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
+  unsigned int offset, size;
 
   /* Mark all the blocks that have definitions for each variable in the
      VARS_TO_RENAME bitmap.  */
@@ -369,7 +370,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
 
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, offset, size, stmt, iter)
     {
       if (prepare_use_operand_for_rename (use_p, &uid))
 	{

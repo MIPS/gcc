@@ -62,6 +62,8 @@ typedef struct v_may_def_operand_type GTY(())
 {
   tree def;
   tree use;
+  unsigned int offset;
+  unsigned int size;
 } v_may_def_operand_type_t;
 
 /* This represents the MAY_DEFS for a stmt.  */
@@ -112,7 +114,6 @@ typedef stmt_operands_t *stmt_operands_p;
 #define SET_USE(OP, V)		((*((OP).use)) = (V))
 #define SET_DEF(OP, V)		((*((OP).def)) = (V))
 
-
 #define USE_OPS(ANN)		get_use_ops (ANN)
 #define STMT_USE_OPS(STMT)	get_use_ops (stmt_ann (STMT))
 #define NUM_USES(OPS)		((OPS) ? (OPS)->num_uses : 0)
@@ -144,7 +145,12 @@ typedef stmt_operands_t *stmt_operands_p;
 			    (USE_FROM_PTR (V_MAY_DEF_OP_PTR ((OPS), (I))))
 #define SET_V_MAY_DEF_OP(OPS, I, V)					\
 			    (SET_USE (V_MAY_DEF_OP_PTR ((OPS), (I)), (V)))
-
+#define V_MAY_DEF_OFFSET_PTR(OPS, I)  get_v_may_def_offset_ptr ((OPS), (I))
+#define V_MAY_DEF_OFFSET(OPS, I)  *(V_MAY_DEF_OFFSET_PTR (OPS, I))
+#define SET_V_MAY_DEF_OFFSET(OPS, I, V) V_MAY_DEF_OFFSET (OPS, I) = (V)
+#define V_MAY_DEF_SIZE_PTR(OPS, I)  get_v_may_def_size_ptr ((OPS), (I))
+#define V_MAY_DEF_SIZE(OPS, I)  *(V_MAY_DEF_SIZE_PTR (OPS, I))
+#define SET_V_MAY_DEF_SIZE(OPS, I, V) V_MAY_DEF_SIZE (OPS, I) = (V)
 
 #define VUSE_OPS(ANN)		get_vuse_ops (ANN)
 #define STMT_VUSE_OPS(STMT)	get_vuse_ops (stmt_ann(STMT))
@@ -253,9 +259,9 @@ typedef struct ssa_operand_iterator_d
 /* This macro executes a loop over the V_MAY_DEF operands of STMT.  The def
    and use for each V_MAY_DEF is returned in DEFVAR and USEVAR. 
    ITER is an ssa_op_iter structure used to control the loop.  */
-#define FOR_EACH_SSA_MAYDEF_OPERAND(DEFVAR, USEVAR, STMT, ITER)	\
-  for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR));	\
+#define FOR_EACH_SSA_MAYDEF_OPERAND(DEFVAR, USEVAR, OFFSET, SIZE, STMT, ITER)	\
+  for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR), &(OFFSET), &(SIZE));	\
        !op_iter_done (&(ITER));					\
-       op_iter_next_maydef (&(USEVAR), &(DEFVAR), &(ITER)))
+       op_iter_next_maydef (&(USEVAR), &(DEFVAR), &(OFFSET), &(SIZE), &(ITER)))
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

@@ -270,6 +270,30 @@ get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
   return op;
 }
 
+/* Return a pointer to an unsigned int that is the V_MAY_DEF_OFFSET for the
+   V_MAY_DEF at INDEX in the V_MAY_DEFS array.  */
+static inline unsigned int *
+get_v_may_def_offset_ptr(v_may_def_optype v_may_defs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= v_may_defs->num_v_may_defs)
+    abort();
+#endif
+  return &(v_may_defs->v_may_defs[index].offset);
+}
+
+/* Return a pointer to an unsigned int that is the V_MAY_DEF_SIZE for the
+   V_MAY_DEF at INDEX in the V_MAY_DEFS array.  */
+static inline unsigned int *
+get_v_may_def_size_ptr(v_may_def_optype v_may_defs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= v_may_defs->num_v_may_defs)
+    abort();
+#endif
+  return &(v_may_defs->v_may_defs[index].size);
+}
+
 /* Return a use_operand_p that is at INDEX in the VUSES array.  */
 static inline use_operand_p
 get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
@@ -819,18 +843,25 @@ op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
 /* Get the next iterator maydef value for PTR, returning the maydef values in
    USE and DEF.  */
 static inline void
-op_iter_next_maydef (use_operand_p *use, def_operand_p *def, ssa_op_iter *ptr)
+op_iter_next_maydef (use_operand_p *use, def_operand_p *def, 
+		     unsigned int *offset, unsigned int *size,
+		     ssa_op_iter *ptr)
 {
   if (ptr->v_mayu_i < ptr->num_v_mayu)
     {
       *def = V_MAY_DEF_RESULT_PTR (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      *use = V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops, (ptr->v_mayu_i)++);
+      *use = V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
+      *offset = V_MAY_DEF_OFFSET (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
+      *size = V_MAY_DEF_SIZE (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
+      ptr->v_mayu_i++;
       return;
     }
   else
     {
       *def = NULL_DEF_OPERAND_P;
       *use = NULL_USE_OPERAND_P;
+      *offset = 0;
+      *size = 0;
     }
   ptr->done = true;
   return;
@@ -840,9 +871,10 @@ op_iter_next_maydef (use_operand_p *use, def_operand_p *def, ssa_op_iter *ptr)
    in USE and DEF.  */
 static inline void
 op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
-		     def_operand_p *def)
+		     def_operand_p *def, unsigned int *offset, 
+		     unsigned int *size)
 {
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
-  op_iter_next_maydef (use, def, ptr);
+  op_iter_next_maydef (use, def, offset, size, ptr);
 }
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -1,0 +1,24 @@
+2004-09-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline.h (get_v_may_def_offset_ptr): New function.
+	(get_v_may_def_size_ptr): Ditto.
+	(op_iter_next_maydef): Add size and offset.
+	(op_iter_init_maydef): Ditto.
+	* tree-into-ssa.c (mark_def_sites): Ditto.
+	* tree-pretty-print.c (dump_vops): Ditto.
+	* tree-ssa-operands.c (build_v_may_defs_offset): New.
+	(build_v_may_defs_size): Ditto.
+	(init_ssa_operands): Init new varrays.
+	(finalize_ssa_v_may_defs): Compare/set offset and size too.
+	(finalize_ssa_vuses): Pop new arrays.
+	(start_ssa_stmt_operands): Check new arrays.
+	(append_v_may_def): Handle offset and size.
+	(add_stmt_operand): Pass offset and size to append_v_may_def.
+	(copy_virtual_operands): Copy offset and size.
+	* tree-ssa-operands.h (v_may_def_operand_type): Add offset and
+	size.
+	(V_MAY_DEF_OFFSET_PTR): New macro.
+	(V_MAY_DEF_OFFSET): Ditto.
+	(V_MAY_DEF_SIZE_PTR): Ditto.
+	(V_MAY_DEF_SIZE): Ditto.
+	(FOR_EACH_SSA_MAYDEF): Modify to give caller offset and size.

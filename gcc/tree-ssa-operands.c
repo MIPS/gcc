@@ -108,6 +108,12 @@ static GTY (()) varray_type build_uses;
 /* Array for building all the v_may_def operands.  */
 static GTY (()) varray_type build_v_may_defs;
 
+/* Array for building all offsets of v_may_def operands.  */
+static GTY (()) varray_type build_v_may_defs_offset;
+
+/* Array for building all sizes of v_may_def operands.  */
+static GTY (()) varray_type build_v_may_defs_size;
+
 /* Array for building all the vuse operands.  */
 static GTY (()) varray_type build_vuses;
 
@@ -130,7 +136,7 @@ static void get_indirect_ref_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
-static void append_v_may_def (tree);
+static void append_v_may_def (tree, unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
 static void append_v_must_def (tree);
 static void add_call_clobber_ops (tree);
 static void add_call_read_ops (tree);
@@ -280,6 +286,8 @@ init_ssa_operands (void)
   VARRAY_TREE_PTR_INIT (build_defs, 5, "build defs");
   VARRAY_TREE_PTR_INIT (build_uses, 10, "build uses");
   VARRAY_TREE_INIT (build_v_may_defs, 10, "build v_may_defs");
+  VARRAY_UINT_INIT (build_v_may_defs_offset, 10, "build_v_may_defs_offset");
+  VARRAY_UINT_INIT (build_v_may_defs_size, 10, "build_v_may_defs_size");
   VARRAY_TREE_INIT (build_vuses, 10, "build vuses");
   VARRAY_TREE_INIT (build_v_must_defs, 10, "build v_must_defs");
 }
@@ -432,10 +440,16 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
       build_diff = false;
       for (x = 0; x < num; x++)
         {
+	  unsigned int offset;
+	  unsigned int size;
 	  var = old_ops->v_may_defs[x].def;
+	  offset = old_ops->v_may_defs[x].offset;
+	  size = old_ops->v_may_defs[x].size;
 	  if (TREE_CODE (var) == SSA_NAME)
 	    var = SSA_NAME_VAR (var);
-	  if (var != VARRAY_TREE (build_v_may_defs, x))
+	  if (var != VARRAY_TREE (build_v_may_defs, x)
+	      || offset != VARRAY_UINT (build_v_may_defs_offset, x)
+	      || size != VARRAY_UINT (build_v_may_defs_size, x))
 	    {
 	      build_diff = true;
 	      break;
@@ -455,14 +469,21 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
       v_may_def_ops = allocate_v_may_def_optype (num);
       for (x = 0; x < num; x++)
         {
+	  unsigned int size;
+	  unsigned int offset;
 	  var = VARRAY_TREE (build_v_may_defs, x);
+	  size = VARRAY_UINT (build_v_may_defs_size, x);
+	  offset = VARRAY_UINT (build_v_may_defs_offset, x);
 	  /* Look for VAR in the old operands vector.  */
 	  for (i = 0; i < old_num; i++)
-	    {
+	    {	      
+	      unsigned int ressize, resoffset;
 	      result = old_ops->v_may_defs[i].def;
+	      ressize = old_ops->v_may_defs[i].size;
+	      resoffset = old_ops->v_may_defs[i].offset;
 	      if (TREE_CODE (result) == SSA_NAME)
 		result = SSA_NAME_VAR (result);
-	      if (result == var)
+	      if (result == var && ressize == size && resoffset == offset)
 	        {
 		  v_may_def_ops->v_may_defs[x] = old_ops->v_may_defs[i];
 		  break;
@@ -472,6 +493,8 @@ finalize_ssa_v_may_defs (v_may_def_optype *old_ops_p)
 	    {
 	      v_may_def_ops->v_may_defs[x].def = var;
 	      v_may_def_ops->v_may_defs[x].use = var;
+	      v_may_def_ops->v_may_defs[x].size = size;
+	      v_may_def_ops->v_may_defs[x].offset = offset;
 	    }
 	}
     }
@@ -495,6 +518,8 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
   if (num == 0)
     {
       VARRAY_POP_ALL (build_v_may_defs);
+      VARRAY_POP_ALL (build_v_may_defs_offset);
+      VARRAY_POP_ALL (build_v_may_defs_size);
       return NULL;
     }
 
@@ -552,6 +577,8 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
   if (num == 0)
     {
       VARRAY_POP_ALL (build_v_may_defs);
+      VARRAY_POP_ALL (build_v_may_defs_size);
+      VARRAY_POP_ALL (build_v_may_defs_offset);
       return NULL;
     }
 
@@ -611,6 +638,8 @@ finalize_ssa_vuses (vuse_optype *old_ops_p)
      Free it now with the vuses build vector.  */
   VARRAY_POP_ALL (build_vuses);
   VARRAY_POP_ALL (build_v_may_defs);
+  VARRAY_POP_ALL (build_v_may_defs_offset);
+  VARRAY_POP_ALL (build_v_may_defs_size);
 
   return vuse_ops;
 }
@@ -717,6 +746,8 @@ start_ssa_stmt_operands (void)
       || VARRAY_ACTIVE_SIZE (build_uses) > 0
       || VARRAY_ACTIVE_SIZE (build_vuses) > 0
       || VARRAY_ACTIVE_SIZE (build_v_may_defs) > 0
+      || VARRAY_ACTIVE_SIZE (build_v_may_defs_size) > 0
+      || VARRAY_ACTIVE_SIZE (build_v_may_defs_offset) > 0
       || VARRAY_ACTIVE_SIZE (build_v_must_defs) > 0)
     abort ();
 #endif
@@ -744,16 +775,21 @@ append_use (tree *use_p)
 /* Add a new virtual may def for variable VAR to the build array.  */
 
 static inline void
-append_v_may_def (tree var)
+append_v_may_def (tree var, unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size)
 {
   unsigned i;
-
+  if (size == 0)
+    size = (unsigned int)~0;
   /* Don't allow duplicate entries.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (build_v_may_defs); i++)
-    if (var == VARRAY_TREE (build_v_may_defs, i))
+    if (var == VARRAY_TREE (build_v_may_defs, i)
+	&& offset == VARRAY_UINT (build_v_may_defs_offset, i)
+	&& size == VARRAY_UINT (build_v_may_defs_size, i))
       return;
 
   VARRAY_PUSH_TREE (build_v_may_defs, var);
+  VARRAY_PUSH_UINT (build_v_may_defs_offset, offset);
+  VARRAY_PUSH_UINT (build_v_may_defs_size, size);
 }
 
 
@@ -1467,7 +1503,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		     alias sets.  */
 		  if (s_ann)
 		    s_ann->makes_aliased_stores = 1;
-		  append_v_may_def (var);
+		  append_v_may_def (var, 0, ~0);
 		}
 	      else if (flags & opf_kill_def)
 		{
@@ -1485,7 +1521,7 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		{
 		  /* Add a V_MAY_DEF for call-clobbered variables and
 		     memory tags.  */
-		  append_v_may_def (var);
+		  append_v_may_def (var, 0, ~0);
 		}
 	    }
 	  else
@@ -1513,11 +1549,16 @@ add_stmt_operand (tree *var_p, tree stmt, int flags)
 		 references to the members of the variable's alias set.
 		 This fixes the bug in gcc.c-torture/execute/20020503-1.c.  */
 	      if (v_ann->is_alias_tag)
-		append_v_may_def (var);
+		append_v_may_def (var, 0, ~0);
 
 	      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-		append_v_may_def (VARRAY_TREE (aliases, i));
-
+		{
+		  tree alias = VARRAY_TREE (aliases, i);
+		  if (var_ann (alias)->is_alias_tag)
+		    append_v_may_def (alias, 0, ~0);
+		  else
+		    append_v_may_def (alias, 0,  tree_low_cst (DECL_SIZE_UNIT (alias), 1));		 
+		}
 	      if (s_ann)
 		s_ann->makes_aliased_stores = 1;
 	    }
@@ -1646,6 +1687,10 @@ copy_virtual_operands (tree dst, tree src)
 	  SET_V_MAY_DEF_OP (*v_may_defs_new, i, V_MAY_DEF_OP (v_may_defs, i));
 	  SET_V_MAY_DEF_RESULT (*v_may_defs_new, i, 
 				V_MAY_DEF_RESULT (v_may_defs, i));
+	  SET_V_MAY_DEF_OFFSET (*v_may_defs_new, i,
+				V_MAY_DEF_OFFSET (v_may_defs, i));
+	  SET_V_MAY_DEF_SIZE (*v_may_defs_new, i,
+			      V_MAY_DEF_SIZE (v_may_defs, i));
 	}
     }
 
