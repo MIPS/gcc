@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Eval; use Sem_Eval;
@@ -604,7 +605,7 @@ package body Exp_Util is
       --  If Discard_Names or No_Implicit_Heap_Allocations are in effect,
       --  generate a dummy declaration only.
 
-      if Restrictions (No_Implicit_Heap_Allocations)
+      if Restriction_Active (No_Implicit_Heap_Allocations)
         or else Global_Discard_Names
       then
          T_Id := Make_Defining_Identifier (Loc, New_Internal_Name ('J'));
@@ -897,6 +898,52 @@ package body Exp_Util is
 
       return Build_Task_Image_Function (Loc, Decls, Stats, Res);
    end Build_Task_Record_Image;
+
+   ----------------------------------
+   -- Component_May_Be_Bit_Aligned --
+   ----------------------------------
+
+   function Component_May_Be_Bit_Aligned (Comp : Entity_Id) return Boolean is
+   begin
+      --  If no component clause, then everything is fine, since the
+      --  back end never bit-misaligns by default, even if there is
+      --  a pragma Packed for the record.
+
+      if No (Component_Clause (Comp)) then
+         return False;
+      end if;
+
+      --  It is only array and record types that cause trouble
+
+      if not Is_Record_Type (Etype (Comp))
+        and then not Is_Array_Type (Etype (Comp))
+      then
+         return False;
+
+      --  If we know that we have a small (64 bits or less) record
+      --  or bit-packed array, then everything is fine, since the
+      --  back end can handle these cases correctly.
+
+      elsif Esize (Comp) <= 64
+        and then (Is_Record_Type (Etype (Comp))
+                   or else Is_Bit_Packed_Array (Etype (Comp)))
+      then
+         return False;
+
+      --  Otherwise if the component is not byte aligned, we
+      --  know we have the nasty unaligned case.
+
+      elsif Normalized_First_Bit (Comp) /= Uint_0
+        or else Esize (Comp) mod System_Storage_Unit /= Uint_0
+      then
+         return True;
+
+      --  If we are large and byte aligned, then OK at this level
+
+      else
+         return False;
+      end if;
+   end Component_May_Be_Bit_Aligned;
 
    -------------------------------
    -- Convert_To_Actual_Subtype --
@@ -1273,8 +1320,41 @@ package body Exp_Util is
    ----------------------
 
    procedure Force_Evaluation (Exp : Node_Id; Name_Req : Boolean := False) is
+      Component_In_Lhs : Boolean := False;
+      Par              : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req, Variable_Ref => True);
+      --  Loop to determine whether there is a component reference in
+      --  the left hand side if this appears on the left side of an
+      --  assignment statement. Needed to determine if form of result
+      --  must be a variable.
+
+      Par := Exp;
+      while Present (Par)
+        and then Nkind (Par) = N_Selected_Component
+      loop
+         if Nkind (Parent (Par)) = N_Assignment_Statement
+           and then Par = Name (Parent (Par))
+         then
+            Component_In_Lhs := True;
+            exit;
+         else
+            Par := Parent (Par);
+         end if;
+      end loop;
+
+      --  If the expression is a selected component, it is being evaluated
+      --  as part of a discriminant check. If it is part of a left-hand
+      --  side, this is the last use of its value and it is safe to create
+      --  a renaming for it, rather than a temporary. In addition, if it
+      --  is not an addressable field, creating a temporary may be a problem
+      --  for gigi, or might drop the value of the assignment. Therefore,
+      --  if the expression is on the lhs of an assignment, remove side
+      --  effects without requiring a temporary, and create a renaming.
+      --  (See remove_side_effects for details).
+
+      Remove_Side_Effects
+        (Exp, Name_Req, Variable_Ref => not Component_In_Lhs);
    end Force_Evaluation;
 
    ------------------------
@@ -1963,6 +2043,7 @@ package body Exp_Util is
                N_Compilation_Unit_Aux                   |
                N_Component_Clause                       |
                N_Component_Declaration                  |
+               N_Component_Definition                   |
                N_Component_List                         |
                N_Constrained_Array_Definition           |
                N_Decimal_Fixed_Point_Definition         |
@@ -2304,6 +2385,13 @@ package body Exp_Util is
 
    function Is_Possibly_Unaligned_Slice (P : Node_Id) return Boolean is
    begin
+      --  ??? GCC3 will eventually handle strings with arbitrary alignments,
+      --  but for now the following check must be disabled.
+
+      --  if get_gcc_version >= 3 then
+      --     return False;
+      --  end if;
+
       if Is_Entity_Name (P)
         and then Is_Object (Entity (P))
         and then Present (Renamed_Object (Entity (P)))
@@ -2767,13 +2855,22 @@ package body Exp_Util is
                   Make_Component_Declaration (Loc,
                     Defining_Identifier =>
                       Make_Defining_Identifier (Loc, Name_uParent),
-                    Subtype_Indication => New_Reference_To (Constr_Root, Loc)),
+                    Component_Definition =>
+                      Make_Component_Definition (Loc,
+                        Aliased_Present    => False,
+                        Subtype_Indication =>
+                          New_Reference_To (Constr_Root, Loc))),
 
                   Make_Component_Declaration (Loc,
                     Defining_Identifier =>
                       Make_Defining_Identifier (Loc,
                         Chars => New_Internal_Name ('C')),
-                    Subtype_Indication => New_Reference_To (Str_Type, Loc))),
+                    Component_Definition =>
+                      Make_Component_Definition (Loc,
+                        Aliased_Present    => False,
+                        Subtype_Indication =>
+                          New_Reference_To (Str_Type, Loc)))),
+
                 Variant_Part => Empty))));
 
       Insert_Actions (E, List_Def);
@@ -3200,8 +3297,7 @@ package body Exp_Util is
                  N_In        |
                  N_Not_In    |
                  N_And_Then  |
-                 N_Or_Else
-            =>
+                 N_Or_Else   =>
                return Side_Effect_Free (Left_Opnd  (N))
                  and then Side_Effect_Free (Right_Opnd (N));
 
@@ -3283,6 +3379,14 @@ package body Exp_Util is
 
             when N_Unchecked_Expression =>
                return Side_Effect_Free (Expression (N));
+
+            --  A literal is side effect free
+
+            when N_Character_Literal    |
+                 N_Integer_Literal      |
+                 N_Real_Literal         |
+                 N_String_Literal       =>
+               return True;
 
             --  We consider that anything else has side effects. This is a bit
             --  crude, but we are pretty close for most common cases, and we
@@ -3510,7 +3614,7 @@ package body Exp_Util is
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Def_Id,
                 Object_Definition   => New_Reference_To (Exp_Type, Loc),
-                Constant_Present    => True,
+                Constant_Present    => not Is_Variable (Exp),
                 Expression          => Relocate_Node (Exp));
 
             Set_Assignment_OK (E);
@@ -3876,6 +3980,53 @@ package body Exp_Util is
         and then Esize (Left_Typ) = Esize (Right_Typ)
         and then Esize (Left_Typ) = Esize (Result_Typ);
    end Target_Has_Fixed_Ops;
+
+   ------------------------------------------
+   -- Type_May_Have_Bit_Aligned_Components --
+   ------------------------------------------
+
+   function Type_May_Have_Bit_Aligned_Components
+     (Typ : Entity_Id) return Boolean
+   is
+   begin
+      --  Array type, check component type
+
+      if Is_Array_Type (Typ) then
+         return
+           Type_May_Have_Bit_Aligned_Components (Component_Type (Typ));
+
+      --  Record type, check components
+
+      elsif Is_Record_Type (Typ) then
+         declare
+            E : Entity_Id;
+
+         begin
+            E := First_Entity (Typ);
+            while Present (E) loop
+               if Ekind (E) = E_Component
+                 or else Ekind (E) = E_Discriminant
+               then
+                  if Component_May_Be_Bit_Aligned (E)
+                    or else
+                      Type_May_Have_Bit_Aligned_Components (Etype (E))
+                  then
+                     return True;
+                  end if;
+               end if;
+
+               Next_Entity (E);
+            end loop;
+
+            return False;
+         end;
+
+      --  Type other than array or record is always OK
+
+      else
+         return False;
+      end if;
+   end Type_May_Have_Bit_Aligned_Components;
 
    ----------------------------
    -- Wrap_Cleanup_Procedure --

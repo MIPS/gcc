@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -42,6 +42,7 @@ typedef struct cpp_callbacks cpp_callbacks;
 typedef struct cpp_dir cpp_dir;
 
 struct answer;
+struct _cpp_file;
 
 /* The first three groups, apart from '=', can appear in preprocessor
    expressions (+= and -= are used to indicate unary + and - resp.).
@@ -174,8 +175,7 @@ struct cpp_string
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
 struct cpp_token
 {
-  fileline line;		/* Logical line of first char of token.  */
-  unsigned short col;		/* Column of first char of token.  */
+  source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
 
@@ -219,7 +219,7 @@ struct cpp_options
   /* Nonzero means use extra default include directories for C++.  */
   unsigned char cplusplus;
 
-  /* Nonzero means handle cplusplus style comments */
+  /* Nonzero means handle cplusplus style comments.  */
   unsigned char cplusplus_comments;
 
   /* Nonzero means define __OBJC__, treat @ as a special token, and
@@ -284,6 +284,10 @@ struct cpp_options
      promotions.  */
   unsigned char warn_num_sign_change;
 
+  /* Zero means don't warn about __VA_ARGS__ usage in c89 pedantic mode.
+     Presumably the usage is protected by the appropriate #ifdef.  */
+  unsigned char warn_variadic_macros;
+
   /* Nonzero means turn warnings into errors.  */
   unsigned char warnings_are_errors;
 
@@ -332,6 +336,9 @@ struct cpp_options
   /* Holds the name of the target wide character set.  */
   const char *wide_charset;
 
+  /* Holds the name of the input character set.  */
+  const char *input_charset;
+
   /* True to warn about precompiled header files we couldn't use.  */
   bool warn_invalid_pch;
 
@@ -370,12 +377,15 @@ struct cpp_options
 
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
-
-  /* Nonzero means output a directory line marker right after the
-     initial file name line marker, and before a duplicate initial
-     line marker.  */
-  bool working_directory;
 };
+
+/* Callback for header lookup for HEADER, which is the name of a
+   source file.  It is used as a method of last resort to find headers
+   that are not otherwise found during the normal include processing.
+   The return value is the malloced name of a header to try and open,
+   if any, or NULL otherwise.  This callback is called only if the
+   header is otherwise unfound.  */
+typedef const char *(*missing_header_cb)(cpp_reader *, const char *header);
 
 /* Call backs to cpplib client.  */
 struct cpp_callbacks
@@ -398,6 +408,7 @@ struct cpp_callbacks
   void (*def_pragma) (cpp_reader *, unsigned int);
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
+  missing_header_cb missing_header;
 };
 
 /* Chain of directories to look for include files in.  */
@@ -417,7 +428,13 @@ struct cpp_dir
   /* Mapping of file names for this directory for MS-DOS and related
      platforms.  A NULL-terminated array of (from, to) pairs.  */
   const char **name_map;
-    
+
+  /* Routine to construct pathname, given the search path name and the
+     HEADER we are trying to find, return a constructed pathname to
+     try and open.  If this is NULL, the constructed pathname is as
+     constructed by append_file_to_dir.  */
+  char *(*construct) (const char *header, cpp_dir *dir);
+
   /* The C front end uses these to recognize duplicated
      directories in the search path.  */
   ino_t ino;
@@ -481,7 +498,7 @@ struct cpp_hashnode GTY(())
 {
   struct ht_identifier ident;
   unsigned int is_directive : 1;
-  unsigned int directive_index : 7;	/* If is_directive, 
+  unsigned int directive_index : 7;	/* If is_directive,
 					   then index into directive table.
 					   Otherwise, a NODE_OPERATOR.  */
   unsigned char rid_code;		/* Rid code - for front ends.  */
@@ -491,9 +508,9 @@ struct cpp_hashnode GTY(())
   union _cpp_hashnode_value
   {
     /* If a macro.  */
-    cpp_macro * GTY((skip (""))) macro;
+    cpp_macro * GTY((skip)) macro;
     /* Answers to an assertion.  */
-    struct answer * GTY ((skip (""))) answers;
+    struct answer * GTY ((skip)) answers;
     /* Code for a builtin macro.  */
     enum builtin_type GTY ((tag ("1"))) builtin;
     /* Macro argument index.  */
@@ -507,7 +524,8 @@ struct cpp_hashnode GTY(())
    pointer.  Otherwise you should pass in an initialized hash table
    that cpplib will share; this technique is used by the C front
    ends.  */
-extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *);
+extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
+				      struct line_maps *);
 
 /* Call this to change the selected language standard (e.g. because of
    command line options).  */
@@ -528,18 +546,15 @@ extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options (cpp_reader *);
-extern const struct line_maps *cpp_get_line_maps (cpp_reader *);
 extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
 
-/* This function finds the main file, but does not start reading it.
-   Returns true iff the file was found.  */
-extern bool cpp_find_main_file (cpp_reader *, const char *);
-
-/* This function reads the file, but does not start preprocessing.
-   This will generate at least one file change callback, and possibly
-   a line change callback.  */
-extern void cpp_push_main_file (cpp_reader *);
+/* This function reads the file, but does not start preprocessing.  It
+   returns the name of the original file; this is the same as the
+   input file, except for preprocessed input.  This will generate at
+   least one file change callback, and possibly a line change callback
+   too.  If there was an error opening the file, it returns NULL.  */
+extern const char *cpp_read_main_file (cpp_reader *, const char *);
 
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);
@@ -586,6 +601,9 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
 				  cpp_string *, bool);
+extern bool cpp_interpret_string_notranslate (cpp_reader *,
+					      const cpp_string *, size_t,
+					      cpp_string *, bool);
 
 /* Used to register macros and assertions, perhaps from the command line.
    The text is the same as the command line argument.  */
@@ -655,21 +673,21 @@ cpp_num cpp_num_sign_extend (cpp_num, size_t);
    with a line number of zero.  */
 
 /* Warning, an error with -Werror.  */
-#define DL_WARNING		0x00
-/* Same as DL_WARNING, except it is not suppressed in system headers.  */
-#define DL_WARNING_SYSHDR	0x01
+#define CPP_DL_WARNING		0x00
+/* Same as CPP_DL_WARNING, except it is not suppressed in system headers.  */
+#define CPP_DL_WARNING_SYSHDR	0x01
 /* Warning, an error with -pedantic-errors or -Werror.  */
-#define DL_PEDWARN		0x02
+#define CPP_DL_PEDWARN		0x02
 /* An error.  */
-#define DL_ERROR		0x03
+#define CPP_DL_ERROR		0x03
 /* An internal consistency check failed.  Prints "internal error: ",
-   otherwise the same as DL_ERROR.  */
-#define DL_ICE			0x04
+   otherwise the same as CPP_DL_ERROR.  */
+#define CPP_DL_ICE		0x04
 /* Extracts a diagnostic level from an int.  */
-#define DL_EXTRACT(l)		(l & 0xf)
+#define CPP_DL_EXTRACT(l)	(l & 0xf)
 /* Nonzero if a diagnostic level is one of the warnings.  */
-#define DL_WARNING_P(l)		(DL_EXTRACT (l) >= DL_WARNING \
-				 && DL_EXTRACT (l) <= DL_PEDWARN)
+#define CPP_DL_WARNING_P(l)	(CPP_DL_EXTRACT (l) >= CPP_DL_WARNING \
+				 && CPP_DL_EXTRACT (l) <= CPP_DL_PEDWARN)
 
 /* N.B. The error-message-printer prototypes have not been nicely
    formatted because exgettext needs to see 'msgid' on the same line
@@ -688,7 +706,7 @@ extern void cpp_errno (cpp_reader *, int, const char *msgid);
 /* Same as cpp_error, except additionally specifies a position as a
    (translation unit) physical line and physical column.  If the line is
    zero, then no location is printed.  */
-extern void cpp_error_with_line (cpp_reader *, int, fileline, unsigned,
+extern void cpp_error_with_line (cpp_reader *, int, source_location, unsigned,
 				 const char *msgid, ...) ATTRIBUTE_PRINTF_5;
 
 /* In cpplex.c */
@@ -725,6 +743,10 @@ extern bool cpp_included (cpp_reader *, const char *);
 extern void cpp_make_system_header (cpp_reader *, int, int);
 extern bool cpp_push_include (cpp_reader *, const char *);
 extern void cpp_change_file (cpp_reader *, enum lc_reason, const char *);
+extern const char *cpp_get_path (struct _cpp_file *);
+extern cpp_buffer *cpp_get_buffer (cpp_reader *);
+extern struct _cpp_file *cpp_get_file (cpp_buffer *);
+extern cpp_buffer *cpp_get_prev (cpp_buffer *);
 
 /* In cpppch.c */
 struct save_macro_data;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -132,6 +132,11 @@ package body Lib is
    begin
       return Units.Table (U).Main_Priority;
    end Main_Priority;
+
+   function Munit_Index (U : Unit_Number_Type) return Nat is
+   begin
+      return Units.Table (U).Munit_Index;
+   end Munit_Index;
 
    function Source_Index (U : Unit_Number_Type) return Source_File_Index is
    begin
@@ -460,8 +465,7 @@ package body Lib is
    end Generic_Separately_Compiled;
 
    function Generic_Separately_Compiled
-     (Sfile : File_Name_Type)
-      return  Boolean
+     (Sfile : File_Name_Type) return Boolean
    is
    begin
       --  Exactly the same as previous function, but works directly on a file
@@ -534,8 +538,7 @@ package body Lib is
    ----------------------------------
 
    function Get_Cunit_Entity_Unit_Number
-     (E    : Entity_Id)
-      return Unit_Number_Type
+     (E : Entity_Id) return Unit_Number_Type
    is
    begin
       for U in Units.First .. Units.Last loop
@@ -598,7 +601,7 @@ package body Lib is
       end if;
 
       --  If S was No_Location, or was not in the table, we must be in the
-      --  main source unit (and the value is not got put into the table yet)
+      --  main source unit (and the value has not got put into the table yet)
 
       return Main_Unit;
    end Get_Source_Unit;
@@ -613,8 +616,7 @@ package body Lib is
    --------------------------------
 
    function In_Extended_Main_Code_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean
+     (N : Node_Or_Entity_Id) return Boolean
    is
    begin
       if Sloc (N) = Standard_Location then
@@ -647,10 +649,7 @@ package body Lib is
       end if;
    end In_Extended_Main_Code_Unit;
 
-   function In_Extended_Main_Code_Unit
-     (Loc :  Source_Ptr)
-      return Boolean
-   is
+   function In_Extended_Main_Code_Unit (Loc : Source_Ptr) return Boolean is
    begin
       if Loc = Standard_Location then
          return True;
@@ -676,8 +675,7 @@ package body Lib is
    ----------------------------------
 
    function In_Extended_Main_Source_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean
+     (N : Node_Or_Entity_Id) return Boolean
    is
       Nloc : constant Source_Ptr := Sloc (N);
       Mloc : constant Source_Ptr := Sloc (Cunit (Main_Unit));
@@ -718,8 +716,7 @@ package body Lib is
    end In_Extended_Main_Source_Unit;
 
    function In_Extended_Main_Source_Unit
-     (Loc  : Source_Ptr)
-      return Boolean
+     (Loc : Source_Ptr) return Boolean
    is
       Mloc : constant Source_Ptr := Sloc (Cunit (Main_Unit));
 
@@ -806,7 +803,6 @@ package body Lib is
 
    function Increment_Serial_Number return Nat is
       TSN : Int renames Units.Table (Current_Sem_Unit).Serial_Number;
-
    begin
       TSN := TSN + 1;
       return TSN;
@@ -877,6 +873,17 @@ package body Lib is
    begin
       return Int (Units.Last) - Int (Main_Unit) + 1;
    end Num_Units;
+
+   -----------------
+   -- Remove_Unit --
+   -----------------
+
+   procedure Remove_Unit (U : Unit_Number_Type) is
+   begin
+      if U = Units.Last then
+         Units.Decrement_Last;
+      end if;
+   end Remove_Unit;
 
    ----------------------------------
    -- Replace_Linker_Option_String --

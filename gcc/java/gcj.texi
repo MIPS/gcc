@@ -431,6 +431,27 @@ to initialize static classes upon their first use (this optimization
 isn't carried out if @code{-C} was specified.) When compiling to native
 code, @code{-fno-optimize-static-class-initialization} will turn this
 optimization off, regardless of the optimization level in use.
+
+@item --disable-assertions[=@var{class-or-package}]
+Don't include code for checking assertions in the compiled code.
+If @code{=@var{class-or-package}} is missing disables assertion code
+generation for all classes, unless overridden by a more
+specific @code{--enable-assertions} flag.
+If @var{class-or-package} is a class name, only disables generating
+assertion checks within the named class or its inner classes.
+If @var{class-or-package} is a package name, disables generating
+assertion checks within the named package or a subpackage.
+
+By default, assertions are enabled when generating class files
+or when not optimizing, and disabled when generating optimized binaries.
+
+@item --enable-assertions[=@var{class-or-package}]
+Generates code to check assertions.  The option is perhaps misnamed,
+as you still need to turn on assertion checking at run-time,
+and we don't support any easy way to do that.
+So this flag isn't very useful yet, except to partially override
+@code{--disable-assertions}.
+
 @end table
 
 
@@ -548,7 +569,6 @@ classpath.  This process can be controlled to some degree via the
 @xref{libgcj Runtime Properties}.
 
 @item
-
 @code{libgcj} includes a special @samp{gcjlib} URL type.  A URL of
 this form is like a @code{jar} URL, and looks like
 @samp{gcjlib:/path/to/shared/library.so!/path/to/resource}.  An access
@@ -561,7 +581,20 @@ unloaded.  This means some care must be exercised to make sure that
 a @code{gcjlib} URL is not accessed by more than one class loader at once.
 In a future release this limitation will be lifted, and such
 libraries will be mapped privately.
+
+@item
+A program compiled by @command{gcj} will examine the
+@env{GCJ_PROPERTIES} environment variable and change its behavior in
+some ways.  In particular @env{GCJ_PROPERTIES} holds a list of
+assignments to global properties, such as would be set with the
+@option{-D} option to @command{java}.  For instance,
+@samp{java.compiler=gcj} is a valid (but currently meaningless)
+setting.
+@cindex GCJ_PROPERTIES
+@vindex GCJ_PROPERTIES
+
 @end itemize
+
 
 @node Invoking gcjh
 @chapter Invoking gcjh
@@ -760,6 +793,10 @@ or file name.
 @item -c
 Disassemble method bodies.  By default method bodies are not printed.
 
+@item --print-constants
+Print the constant pool.  When printing a reference to a constant
+also print its index in the constant pool.
+
 @item --javap
 Generate output in @code{javap} format.  The implementation of this
 feature is very incomplete.
@@ -778,6 +815,7 @@ Print version number, then exit.
 
 @item -v, --verbose
 Print extra information while running.
+Implies @code{--print-constants}.
 @end table
 
 @c man end

@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -230,7 +230,7 @@ do {							\
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    returns float values in the 387 and needs stack probes.
-   We also align doubles to 64-bits for MSVC default compatibility. */
+   We also align doubles to 64-bits for MSVC default compatibility.  */
 
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
@@ -315,7 +315,7 @@ extern void i386_pe_unique_section (TREE, int);
 #define PROFILE_HOOK(LABEL)						\
   if (MAIN_NAME_P (DECL_NAME (current_function_decl)))			\
     {									\
-      emit_call_insn (gen_rtx (CALL, VOIDmode,				\
+      emit_call_insn (gen_rtx_CALL (VOIDmode,				\
 	gen_rtx_MEM (FUNCTION_MODE,					\
 		     gen_rtx_SYMBOL_REF (Pmode, "_monstartup")),	\
 	const0_rtx));							\
@@ -376,6 +376,9 @@ extern int i386_pe_dllimport_name_p (const char *);
 	alias = XSTR (rtlname, 0);					\
       else								\
 	abort ();							\
+      if (TREE_CODE (DECL) == FUNCTION_DECL)				\
+	i386_pe_declare_function_type (STREAM, alias,			\
+				       TREE_PUBLIC (DECL));		\
       ASM_OUTPUT_DEF (STREAM, alias, IDENTIFIER_POINTER (TARGET));	\
     } while (0)
 
@@ -384,4 +387,3 @@ extern int i386_pe_dllimport_name_p (const char *);
 #ifndef BUFSIZ
 # undef FILE
 #endif
-

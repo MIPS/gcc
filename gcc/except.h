@@ -1,5 +1,5 @@
 /* Exception Handling interface routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
@@ -117,6 +117,7 @@ extern rtx expand_builtin_frob_return_addr (tree);
 extern rtx expand_builtin_dwarf_sp_column (void);
 extern void expand_builtin_eh_return (tree, tree);
 extern void expand_eh_return (void);
+extern rtx expand_builtin_extend_pointer (tree);
 extern rtx get_exception_pointer (struct function *);
 extern int duplicate_eh_regions (struct function *, struct inline_remap *);
 

@@ -1,5 +1,4 @@
-/* This file contains the definitions and documentation for the
-   builtins used in the GNU compiler.
+/* Definitions for branch prediction routines in the GNU compiler.
    Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -40,7 +39,7 @@ enum prediction
 extern void predict_insn_def (rtx, enum br_predictor, enum prediction);
 extern void predict_insn (rtx, enum br_predictor, int);
 
-/* Avoid unneeded dependency on basic_block.h  */
+/* Avoid unneeded dependency on basic_block.h.  */
 #ifdef BASIC_BLOCK
 extern void predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -58,19 +58,20 @@
 #define LINK_LIBGCC_SPECIAL_1
 
 /* Names to predefine in the preprocessor for this target machine.  */
-#define TARGET_OS_CPP_BUILTINS()         \
-  do                                     \
-    {                                    \
-      builtin_define ("_IBMR2");         \
-      builtin_define ("_POWER");         \
-      builtin_define ("_AIX");           \
-      builtin_define ("_AIX32");         \
-      builtin_define ("_LONG_LONG");     \
-      builtin_assert ("system=unix");    \
-      builtin_assert ("system=aix");     \
-      builtin_assert ("cpu=rs6000");     \
-      builtin_assert ("machine=rs6000"); \
-    }                                    \
+#define TARGET_OS_AIX_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("_IBMR2");		\
+      builtin_define ("_POWER");		\
+      builtin_define ("_AIX");			\
+      builtin_define ("_AIX32");		\
+      builtin_define ("_AIX41");		\
+      builtin_define ("_LONG_LONG");		\
+      if (TARGET_LONG_DOUBLE_128)		\
+        builtin_define ("__LONGDOUBLE128");	\
+      builtin_assert ("system=unix");		\
+      builtin_assert ("system=aix");		\
+    }						\
   while (0)
 
 /* Define appropriate architecture macros for preprocessor depending on
@@ -128,7 +129,7 @@
 #define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\
 %{p:-L/lib/profiled -L/usr/lib/profiled} %{!shared:%{g*:-lg}} -lc"
 
-/* This now supports a natural alignment mode. */
+/* This now supports a natural alignment mode.  */
 /* AIX word-aligns FP doubles but doubleword-aligns 64-bit ints.  */
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (TARGET_ALIGN_NATURAL ? (COMPUTED) : \
@@ -139,14 +140,12 @@
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)	\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE			\
-    || TREE_CODE (STRUCT) == UNION_TYPE			\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)		\
-   && TYPE_FIELDS (STRUCT) != 0				\
-   && TARGET_ALIGN_NATURAL == 0                         \
-   && DECL_MODE (TYPE_FIELDS (STRUCT)) == DFmode	\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)				\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE						\
+    || TREE_CODE (STRUCT) == UNION_TYPE						\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)					\
+   && TARGET_ALIGN_NATURAL == 0							\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* The AIX ABI isn't explicit on whether aggregates smaller than a
@@ -241,3 +240,8 @@
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
+
+/* No version of AIX fully supports AltiVec or 64-bit instructions in
+   32-bit mode.  */
+#define OS_MISSING_POWERPC64 1
+#define OS_MISSING_ALTIVEC 1

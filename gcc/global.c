@@ -1,6 +1,6 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
    Copyright (C) 1987, 1988, 1991, 1994, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -323,9 +323,7 @@ global_alloc (FILE *file)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-#endif
        || FRAME_POINTER_REQUIRED);
 
   size_t i;
@@ -343,22 +341,48 @@ global_alloc (FILE *file)
 #ifdef ELIMINABLE_REGS
   for (i = 0; i < ARRAY_SIZE (eliminables); i++)
     {
-      SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+      bool cannot_elim
+	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
+	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
 
-      if (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
-	  || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp))
-	SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+      if (!regs_asm_clobbered[eliminables[i].from])
+	{
+	  SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
+
+	  if (cannot_elim)
+	    SET_HARD_REG_BIT (no_global_alloc_regs, eliminables[i].from);
+	}
+      else if (cannot_elim)
+	error ("%s cannot be used in asm here",
+	       reg_names[eliminables[i].from]);
+      else
+	regs_ever_live[eliminables[i].from] = 1;
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-  SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
-  if (need_fp)
-    SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+  if (!regs_asm_clobbered[HARD_FRAME_POINTER_REGNUM])
+    {
+      SET_HARD_REG_BIT (eliminable_regset, HARD_FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+    }
+  else if (need_fp)
+    error ("%s cannot be used in asm here",
+	   reg_names[HARD_FRAME_POINTER_REGNUM]);
+  else
+    regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
 #endif
 
 #else
-  SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
-  if (need_fp)
-    SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+  if (!regs_asm_clobbered[FRAME_POINTER_REGNUM])
+    {
+      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
+      if (need_fp)
+	SET_HARD_REG_BIT (no_global_alloc_regs, FRAME_POINTER_REGNUM);
+    }
+  else if (need_fp)
+    error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
+  else
+    regs_ever_live[FRAME_POINTER_REGNUM] = 1;
 #endif
 
   /* Track which registers have already been used.  Start with registers
@@ -461,7 +485,7 @@ global_alloc (FILE *file)
     if (reg_renumber[i] >= 0)
       {
 	int regno = reg_renumber[i];
-	int endregno = regno + HARD_REGNO_NREGS (regno, PSEUDO_REGNO_MODE (i));
+	int endregno = regno + hard_regno_nregs[regno][PSEUDO_REGNO_MODE (i)];
 	int j;
 
 	for (j = regno; j < endregno; j++)
@@ -732,7 +756,7 @@ global_conflicts (void)
 	}
       }
 
-      insn = b->head;
+      insn = BB_HEAD (b);
 
       /* Scan the code of this basic block, noting which allocnos
 	 and hard regs are born or die.  When one is born,
@@ -832,7 +856,7 @@ global_conflicts (void)
 		}
 	    }
 
-	  if (insn == b->end)
+	  if (insn == BB_END (b))
 	    break;
 	  insn = NEXT_INSN (insn);
 	}
@@ -1048,7 +1072,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	    {
 	      int j;
-	      int lim = regno + HARD_REGNO_NREGS (regno, mode);
+	      int lim = regno + hard_regno_nregs[regno][mode];
 	      for (j = regno + 1;
 		   (j < lim
 		    && ! TEST_HARD_REG_BIT (used, j));
@@ -1095,7 +1119,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 				       REGNO_REG_CLASS (i))))
 	    {
 	      int j;
-	      int lim = i + HARD_REGNO_NREGS (i, mode);
+	      int lim = i + hard_regno_nregs[i][mode];
 	      for (j = i + 1;
 		   (j < lim
 		    && ! TEST_HARD_REG_BIT (used, j)
@@ -1134,7 +1158,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 				       REGNO_REG_CLASS (i))))
 	    {
 	      int j;
-	      int lim = i + HARD_REGNO_NREGS (i, mode);
+	      int lim = i + hard_regno_nregs[i][mode];
 	      for (j = i + 1;
 		   (j < lim
 		    && ! TEST_HARD_REG_BIT (used, j)
@@ -1211,7 +1235,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		 register, but the check of allocno[num].size above
 		 was not enough.  Sometimes we need more than one
 		 register for a single-word value.  */
-	      && HARD_REGNO_NREGS (regno, mode) == 1
+	      && hard_regno_nregs[regno][mode] == 1
 	      && (allocno[num].calls_crossed == 0
 		  || accept_call_clobbered
 		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
@@ -1244,7 +1268,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		      {
 			int r = reg_renumber[k];
 			int endregno
-			  = r + HARD_REGNO_NREGS (r, PSEUDO_REGNO_MODE (k));
+			  = r + hard_regno_nregs[r][PSEUDO_REGNO_MODE (k)];
 
 			if (regno >= r && regno < endregno)
 			  reg_renumber[k] = -1;
@@ -1274,7 +1298,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 
       /* Make a set of the hard regs being allocated.  */
       CLEAR_HARD_REG_SET (this_reg);
-      lim = best_reg + HARD_REGNO_NREGS (best_reg, mode);
+      lim = best_reg + hard_regno_nregs[best_reg][mode];
       for (j = best_reg; j < lim; j++)
 	{
 	  SET_HARD_REG_BIT (this_reg, j);
@@ -1466,7 +1490,7 @@ mark_reg_store (rtx reg, rtx setter, void *data ATTRIBUTE_UNUSED)
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
   if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
     {
-      int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       while (regno < last)
 	{
 	  record_one_conflict (regno);
@@ -1515,7 +1539,7 @@ mark_reg_conflicts (rtx reg)
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
   if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
     {
-      int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       while (regno < last)
 	{
 	  record_one_conflict (regno);
@@ -1549,7 +1573,7 @@ mark_reg_death (rtx reg)
     {
       /* Pseudo regs already assigned hardware regs are treated
 	 almost the same as explicit hardware regs.  */
-      int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       while (regno < last)
 	{
 	  CLEAR_HARD_REG_BIT (hard_regs_live, regno);
@@ -1566,7 +1590,7 @@ mark_reg_death (rtx reg)
 static void
 mark_reg_live_nc (int regno, enum machine_mode mode)
 {
-  int last = regno + HARD_REGNO_NREGS (regno, mode);
+  int last = regno + hard_regno_nregs[regno][mode];
   while (regno < last)
     {
       SET_HARD_REG_BIT (hard_regs_live, regno);
@@ -1659,7 +1683,7 @@ set_preference (rtx dest, rtx src)
 	  SET_REGBIT (hard_reg_preferences,
 		      reg_allocno[src_regno], dest_regno);
 	  for (i = dest_regno;
-	       i < dest_regno + HARD_REGNO_NREGS (dest_regno, GET_MODE (dest));
+	       i < dest_regno + hard_regno_nregs[dest_regno][GET_MODE (dest)];
 	       i++)
 	    SET_REGBIT (hard_reg_full_preferences, reg_allocno[src_regno], i);
 	}
@@ -1678,7 +1702,7 @@ set_preference (rtx dest, rtx src)
 	  SET_REGBIT (hard_reg_preferences,
 		      reg_allocno[dest_regno], src_regno);
 	  for (i = src_regno;
-	       i < src_regno + HARD_REGNO_NREGS (src_regno, GET_MODE (src));
+	       i < src_regno + hard_regno_nregs[src_regno][GET_MODE (src)];
 	       i++)
 	    SET_REGBIT (hard_reg_full_preferences, reg_allocno[dest_regno], i);
 	}
@@ -1726,7 +1750,7 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *regs_set)
   regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {
-      int nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
       while (nregs-- > 0)
 	{
 	  SET_REGNO_REG_SET (live_relevant_regs, regno);
@@ -1748,7 +1772,7 @@ reg_dies (int regno, enum machine_mode mode, struct insn_chain *chain)
 {
   if (regno < FIRST_PSEUDO_REGISTER)
     {
-      int nregs = HARD_REGNO_NREGS (regno, mode);
+      int nregs = hard_regno_nregs[regno][mode];
       while (nregs-- > 0)
 	{
 	  CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
@@ -1781,7 +1805,7 @@ build_insn_chain (rtx first)
     {
       struct insn_chain *c;
 
-      if (first == b->head)
+      if (first == BB_HEAD (b))
 	{
 	  int i;
 
@@ -1843,7 +1867,7 @@ build_insn_chain (rtx first)
 	    }
 	}
 
-      if (first == b->end)
+      if (first == BB_END (b))
 	b = b->next_bb;
 
       /* Stop after we pass the end of the last basic block.  Verify that

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +42,7 @@ with Nmake;    use Nmake;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch7;  use Sem_Ch7;
@@ -907,8 +908,9 @@ package body Exp_Attr is
          if Pent = Standard_Standard
            or else Pent = Standard_ASCII
          then
-            Name_Buffer (1 .. Library_Version'Length) := Library_Version;
-            Name_Len := Library_Version'Length;
+            Name_Buffer (1 .. Verbose_Library_Version'Length) :=
+              Verbose_Library_Version;
+            Name_Len := Verbose_Library_Version'Length;
             Rewrite (N,
               Make_String_Literal (Loc,
                 Strval => String_From_Name_Buffer));
@@ -1022,7 +1024,7 @@ package body Exp_Attr is
 
          if Is_Protected_Type (Conctype) then
             if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
+              or else Restriction_Active (No_Entry_Queue) = False
               or else Number_Entries (Conctype) > 1
             then
                Name :=
@@ -1258,7 +1260,7 @@ package body Exp_Attr is
          if Is_Protected_Type (Conctyp) then
 
             if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
+              or else Restriction_Active (No_Entry_Queue) = False
               or else Number_Entries (Conctyp) > 1
             then
                Name := New_Reference_To (RTE (RE_Protected_Count), Loc);

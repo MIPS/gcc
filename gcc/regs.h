@@ -1,6 +1,6 @@
 /* Define per-register tables for data flow info and register allocation.
    Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -153,10 +153,13 @@ extern bitmap_head subregs_of_mode;
 
 extern short *reg_renumber;
 
-/* Vector indexed by hardware reg
-   saying whether that reg is ever used.  */
+/* Vector indexed by hardware reg saying whether that reg is ever used.  */
 
 extern char regs_ever_live[FIRST_PSEUDO_REGISTER];
+
+/* Like regs_ever_live, but saying whether reg is set by asm statements.  */
+
+extern char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise
@@ -221,3 +224,6 @@ extern int caller_save_needed;
 
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info (size_t, int, int);
+
+/* Specify number of hard registers given machine mode occupy.  */
+extern unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];

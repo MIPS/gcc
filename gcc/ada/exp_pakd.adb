@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -700,7 +700,7 @@ package body Exp_Pakd is
 
       Ancest   : Entity_Id;
       PB_Type  : Entity_Id;
-      Esiz     : Uint;
+      PASize   : Uint;
       Decl     : Node_Id;
       PAT      : Entity_Id;
       Len_Dim  : Node_Id;
@@ -770,10 +770,10 @@ package body Exp_Pakd is
          --  Do not reset RM_Size if already set, as happens in the case
          --  of a modular type.
 
-         Set_Esize (PAT, Esiz);
+         Set_Esize (PAT, PASize);
 
          if Unknown_RM_Size (PAT) then
-            Set_RM_Size (PAT, Esiz);
+            Set_RM_Size (PAT, PASize);
          end if;
 
          --  Set remaining fields of packed array type
@@ -791,6 +791,12 @@ package body Exp_Pakd is
 
          Set_Has_Delayed_Freeze (PAT, False);
          Set_Has_Delayed_Freeze (Etype (PAT), False);
+
+         --  If we did allocate a freeze node, then clear out the reference
+         --  since it is obsolete (should we delete the freeze node???)
+
+         Set_Freeze_Node (PAT, Empty);
+         Set_Freeze_Node (Etype (PAT), Empty);
       end Install_PAT;
 
       -----------------
@@ -847,7 +853,7 @@ package body Exp_Pakd is
       --  type, since this size clearly belongs to the packed array type. The
       --  size of the conceptual unpacked type is always set to unknown.
 
-      Esiz := Esize (Typ);
+      PASize := Esize (Typ);
 
       --  Case of an array where at least one index is of an enumeration
       --  type with a non-standard representation, but the component size
@@ -958,15 +964,21 @@ package body Exp_Pakd is
                Typedef :=
                  Make_Unconstrained_Array_Definition (Loc,
                    Subtype_Marks => Indexes,
-                   Subtype_Indication =>
-                      New_Occurrence_Of (Ctyp, Loc));
+                   Component_Definition =>
+                     Make_Component_Definition (Loc,
+                       Aliased_Present    => False,
+                       Subtype_Indication =>
+                          New_Occurrence_Of (Ctyp, Loc)));
 
             else
                Typedef :=
                   Make_Constrained_Array_Definition (Loc,
                     Discrete_Subtype_Definitions => Indexes,
-                    Subtype_Indication =>
-                      New_Occurrence_Of (Ctyp, Loc));
+                    Component_Definition =>
+                      Make_Component_Definition (Loc,
+                        Aliased_Present    => False,
+                        Subtype_Indication =>
+                          New_Occurrence_Of (Ctyp, Loc)));
             end if;
 
             Decl :=
@@ -1055,11 +1067,11 @@ package body Exp_Pakd is
          Set_Parent (Len_Expr, Typ);
          Analyze_Per_Use_Expression (Len_Expr, Standard_Integer);
 
-         --  Use a modular type if possible. We can do this if we are we
-         --  have static bounds, and the length is small enough, and the
-         --  length is not zero. We exclude the zero length case because the
-         --  size of things is always at least one, and the zero length object
-         --  would have an anomous size.
+         --  Use a modular type if possible. We can do this if we have
+         --  static bounds, and the length is small enough, and the length
+         --  is not zero. We exclude the zero length case because the size
+         --  of things is always at least one, and the zero length object
+         --  would have an anomalous size.
 
          if Compile_Time_Known_Value (Len_Expr) then
             Len_Bits := Expr_Value (Len_Expr) * Csize;
@@ -1087,7 +1099,8 @@ package body Exp_Pakd is
                --  We can use the modular type, it has the form:
 
                --    subtype tttPn is btyp
-               --      range 0 .. 2 ** (Esize (Typ) * Csize) - 1;
+               --      range 0 .. 2 ** ((Typ'Length (1)
+               --                * ... * Typ'Length (n)) * Csize) - 1;
 
                --  The bounds are statically known, and btyp is one
                --  of the unsigned types, depending on the length. If the
@@ -1128,8 +1141,8 @@ package body Exp_Pakd is
                                    Make_Integer_Literal (Loc, 0),
                                  High_Bound => Lit))));
 
-               if Esiz = Uint_0 then
-                  Esiz := Len_Bits;
+               if PASize = Uint_0 then
+                  PASize := Len_Bits;
                end if;
 
                Install_PAT;

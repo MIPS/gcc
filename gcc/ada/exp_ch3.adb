@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,6 +46,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch3;  use Sem_Ch3;
@@ -56,6 +57,7 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Snames;   use Snames;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
@@ -88,8 +90,7 @@ package body Exp_Ch3 is
 
    function Build_Discriminant_Formals
      (Rec_Id : Entity_Id;
-      Use_Dl : Boolean)
-      return   List_Id;
+      Use_Dl : Boolean) return List_Id;
    --  This function uses the discriminants of a type to build a list of
    --  formal parameters, used in the following function. If the flag Use_Dl
    --  is set, the list is built using the already defined discriminals
@@ -112,6 +113,12 @@ package body Exp_Ch3 is
    procedure Build_Record_Init_Proc (N : Node_Id; Pe : Entity_Id);
    --  Build record initialization procedure. N is the type declaration
    --  node, and Pe is the corresponding entity for the record type.
+
+   procedure Build_Slice_Assignment (Typ : Entity_Id);
+   --  Build assignment procedure for one-dimensional arrays of controlled
+   --  types. Other array and slice assignments are expanded in-line, but
+   --  the code expansion for controlled components (when control actions
+   --  are active) can lead to very large blocks that GCC3 handles poorly.
 
    procedure Build_Variant_Record_Equality (Typ  : Entity_Id);
    --  Create An Equality function for the non-tagged variant record 'Typ'
@@ -238,8 +245,7 @@ package body Exp_Ch3 is
       Name     : Name_Id;
       Profile  : List_Id;
       Ret_Type : Entity_Id := Empty;
-      For_Body : Boolean   := False)
-      return     Node_Id;
+      For_Body : Boolean   := False) return Node_Id;
    --  This function generates the appropriate expansion for a predefined
    --  primitive operation specified by its name, parameter profile and
    --  return type (Empty means this is a procedure). If For_Body is false,
@@ -251,8 +257,7 @@ package body Exp_Ch3 is
      (Loc      : Source_Ptr;
       Tag_Typ  : Entity_Id;
       Name     : TSS_Name_Type;
-      For_Body : Boolean := False)
-      return     Node_Id;
+      For_Body : Boolean := False) return Node_Id;
    --  Specialized version of Predef_Spec_Or_Body that apply to read, write,
    --  input and output attribute whose specs are constructed in Exp_Strm.
 
@@ -260,15 +265,13 @@ package body Exp_Ch3 is
      (Loc      : Source_Ptr;
       Tag_Typ  : Entity_Id;
       Name     : TSS_Name_Type;
-      For_Body : Boolean := False)
-      return     Node_Id;
+      For_Body : Boolean := False) return Node_Id;
    --  Specialized version of Predef_Spec_Or_Body that apply to _deep_adjust
    --  and _deep_finalize
 
    function Predefined_Primitive_Bodies
      (Tag_Typ    : Entity_Id;
-      Renamed_Eq : Node_Id)
-      return       List_Id;
+      Renamed_Eq : Node_Id) return List_Id;
    --  Create the bodies of the predefined primitives that are described in
    --  Predefined_Primitive_Specs. When not empty, Renamed_Eq must denote
    --  the defining unit name of the type's predefined equality as returned
@@ -563,7 +566,7 @@ package body Exp_Ch3 is
       if Has_Non_Null_Base_Init_Proc (Comp_Type)
         or else Needs_Simple_Initialization (Comp_Type)
         or else Has_Task (Comp_Type)
-        or else (not Restrictions (No_Initialize_Scalars)
+        or else (not Restriction_Active (No_Initialize_Scalars)
                    and then Is_Public (A_Type)
                    and then Root_Type (A_Type) /= Standard_String
                    and then Root_Type (A_Type) /= Standard_Wide_String)
@@ -634,7 +637,7 @@ package body Exp_Ch3 is
    begin
       --  Nothing to do if there is no task hierarchy.
 
-      if Restrictions (No_Task_Hierarchy) then
+      if Restriction_Active (No_Task_Hierarchy) then
          return;
       end if;
 
@@ -713,8 +716,7 @@ package body Exp_Ch3 is
 
       function Build_Case_Statement
         (Case_Id : Entity_Id;
-         Variant : Node_Id)
-         return    Node_Id;
+         Variant : Node_Id) return Node_Id;
       --  Build a case statement containing only two alternatives. The
       --  first alternative corresponds exactly to the discrete choices
       --  given on the variant with contains the components that we are
@@ -724,8 +726,7 @@ package body Exp_Ch3 is
 
       function Build_Dcheck_Function
         (Case_Id : Entity_Id;
-         Variant : Node_Id)
-         return    Entity_Id;
+         Variant : Node_Id) return Entity_Id;
       --  Build the discriminant checking function for a given variant
 
       procedure Build_Dcheck_Functions (Variant_Part_Node : Node_Id);
@@ -738,8 +739,7 @@ package body Exp_Ch3 is
 
       function Build_Case_Statement
         (Case_Id : Entity_Id;
-         Variant : Node_Id)
-         return    Node_Id
+         Variant : Node_Id) return Node_Id
       is
          Alt_List       : constant List_Id := New_List;
          Actuals_List   : List_Id;
@@ -826,8 +826,7 @@ package body Exp_Ch3 is
 
       function Build_Dcheck_Function
         (Case_Id : Entity_Id;
-         Variant : Node_Id)
-         return    Entity_Id
+         Variant : Node_Id) return Entity_Id
       is
          Body_Node           : Node_Id;
          Func_Id             : Entity_Id;
@@ -964,8 +963,7 @@ package body Exp_Ch3 is
 
    function Build_Discriminant_Formals
      (Rec_Id : Entity_Id;
-      Use_Dl : Boolean)
-      return   List_Id
+      Use_Dl : Boolean) return List_Id
    is
       Loc             : Source_Ptr       := Sloc (Rec_Id);
       Parameter_List  : constant List_Id := New_List;
@@ -1032,13 +1030,13 @@ package body Exp_Ch3 is
    --  end;
 
    function Build_Initialization_Call
-     (Loc          : Source_Ptr;
-      Id_Ref       : Node_Id;
-      Typ          : Entity_Id;
-      In_Init_Proc : Boolean := False;
-      Enclos_Type  : Entity_Id := Empty;
-      Discr_Map    : Elist_Id := New_Elmt_List)
-      return         List_Id
+     (Loc               : Source_Ptr;
+      Id_Ref            : Node_Id;
+      Typ               : Entity_Id;
+      In_Init_Proc      : Boolean := False;
+      Enclos_Type       : Entity_Id := Empty;
+      Discr_Map         : Elist_Id := New_Elmt_List;
+      With_Default_Init : Boolean := False) return List_Id
    is
       First_Arg      : Node_Id;
       Args           : List_Id;
@@ -1054,7 +1052,7 @@ package body Exp_Ch3 is
       Controller_Typ : Entity_Id;
 
    begin
-      --  Nothing to do if the Init_Proc is null, unless Initialize_Sclalars
+      --  Nothing to do if the Init_Proc is null, unless Initialize_Scalars
       --  is active (in which case we make the call anyway, since in the
       --  actual compiled client it may be non null).
 
@@ -1076,7 +1074,6 @@ package body Exp_Ch3 is
       --  honest. Actually it isn't quite type honest, because there can be
       --  conflicts of views in the private type case. That is why we set
       --  Conversion_OK in the conversion node.
-
       if (Is_Record_Type (Typ)
            or else Is_Array_Type (Typ)
            or else Is_Private_Type (Typ))
@@ -1098,7 +1095,7 @@ package body Exp_Ch3 is
       --  through the outer routines.
 
       if Has_Task (Full_Type) then
-         if Restrictions (No_Task_Hierarchy) then
+         if Restriction_Active (No_Task_Hierarchy) then
 
             --  See comments in System.Tasking.Initialization.Init_RTS
             --  for the value 3 (should be rtsfindable constant ???)
@@ -1110,12 +1107,28 @@ package body Exp_Ch3 is
 
          Append_To (Args, Make_Identifier (Loc, Name_uChain));
 
-         Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
-         Decl  := Last (Decls);
+         --  Ada 0Y (AI-287): In case of default initialized components
+         --  with tasks, we generate a null string actual parameter.
+         --  This is just a workaround that must be improved later???
 
-         Append_To (Args,
-           New_Occurrence_Of (Defining_Identifier (Decl), Loc));
-         Append_List (Decls, Res);
+         if With_Default_Init then
+            declare
+               S           : String_Id;
+               Null_String : Node_Id;
+            begin
+               Start_String;
+               S := End_String;
+               Null_String := Make_String_Literal (Loc, Strval => S);
+               Append_To (Args, Null_String);
+            end;
+         else
+            Decls := Build_Task_Image_Decls (Loc, Id_Ref, Enclos_Type);
+            Decl  := Last (Decls);
+
+            Append_To (Args,
+              New_Occurrence_Of (Defining_Identifier (Decl), Loc));
+            Append_List (Decls, Res);
+         end if;
 
       else
          Decls := No_List;
@@ -1202,7 +1215,22 @@ package body Exp_Ch3 is
                end if;
             end if;
 
-            Append_To (Args, Arg);
+            --  Ada 0Y (AI-287) In case of default initialized components, we
+            --  need to generate the corresponding selected component node
+            --  to access the discriminant value. In other cases this is not
+            --  required because we are inside the init proc and we use the
+            --  corresponding formal.
+
+            if With_Default_Init
+              and then Nkind (Id_Ref) = N_Selected_Component
+            then
+               Append_To (Args,
+                 Make_Selected_Component (Loc,
+                   Prefix => New_Copy_Tree (Prefix (Id_Ref)),
+                   Selector_Name => Arg));
+            else
+               Append_To (Args, Arg);
+            end if;
 
             Next_Discriminant (Discr);
          end loop;
@@ -1284,7 +1312,7 @@ package body Exp_Ch3 is
    begin
       --  Nothing to do if there is no task hierarchy.
 
-      if Restrictions (No_Task_Hierarchy) then
+      if Restriction_Active (No_Task_Hierarchy) then
          return;
       end if;
 
@@ -1335,9 +1363,7 @@ package body Exp_Ch3 is
       --  components of the given component list. This may involve building
       --  case statements for the variant parts.
 
-      function Build_Init_Call_Thru
-        (Parameters : List_Id)
-         return       List_Id;
+      function Build_Init_Call_Thru (Parameters : List_Id) return List_Id;
       --  Given a non-tagged type-derivation that declares discriminants,
       --  such as
       --
@@ -1365,8 +1391,7 @@ package body Exp_Ch3 is
       --  to which the check actions are appended.
 
       function Component_Needs_Simple_Initialization
-        (T    : Entity_Id)
-         return Boolean;
+        (T : Entity_Id) return Boolean;
       --  Determines if a component needs simple initialization, given its
       --  type T. This is the same as Needs_Simple_Initialization except
       --  for the following differences. The types Tag and Vtable_Ptr,
@@ -1466,6 +1491,19 @@ package body Exp_Ch3 is
             Exp := New_Copy_Tree (Original_Node (Exp));
          end if;
 
+         --  Ada 0Y (AI-231): Generate conversion to the null-excluding
+         --  type to force the corresponding run-time check
+
+         if Extensions_Allowed
+           and then Can_Never_Be_Null (Etype (Id))  -- Lhs
+           and then (Present (Etype (Exp))
+                       and then not Can_Never_Be_Null (Etype (Exp)))
+         then
+            Rewrite (Exp, Convert_To (Etype (Id),
+                                      Relocate_Node (Exp)));
+            Analyze_And_Resolve (Exp, Etype (Id));
+         end if;
+
          Res := New_List (
            Make_Assignment_Statement (Loc,
              Name       => Lhs,
@@ -1495,7 +1533,7 @@ package body Exp_Ch3 is
          --  aggregate that will be expanded inline
 
          if Kind = N_Qualified_Expression then
-            Kind := Nkind (Parent (N));
+            Kind := Nkind (Expression (N));
          end if;
 
          if Controlled_Type (Typ)
@@ -1558,18 +1596,15 @@ package body Exp_Ch3 is
       -- Build_Init_Call_Thru --
       --------------------------
 
-      function Build_Init_Call_Thru
-        (Parameters     : List_Id)
-         return           List_Id
-      is
-         Parent_Proc    : constant Entity_Id :=
-                            Base_Init_Proc (Etype (Rec_Type));
+      function Build_Init_Call_Thru (Parameters : List_Id) return List_Id is
+         Parent_Proc : constant Entity_Id :=
+                         Base_Init_Proc (Etype (Rec_Type));
 
-         Parent_Type    : constant Entity_Id :=
-                            Etype (First_Formal (Parent_Proc));
+         Parent_Type : constant Entity_Id :=
+                         Etype (First_Formal (Parent_Proc));
 
-         Uparent_Type   : constant Entity_Id :=
-                            Underlying_Type (Parent_Type);
+         Uparent_Type : constant Entity_Id :=
+                          Underlying_Type (Parent_Type);
 
          First_Discr_Param : Node_Id;
 
@@ -1604,7 +1639,7 @@ package body Exp_Ch3 is
          First_Discr_Param := Next (First (Parameters));
 
          if Has_Task (Rec_Type) then
-            if Restrictions (No_Task_Hierarchy) then
+            if Restriction_Active (No_Task_Hierarchy) then
 
                --  See comments in System.Tasking.Initialization.Init_RTS
                --  for the value 3.
@@ -1905,7 +1940,8 @@ package body Exp_Ch3 is
          Decl := First_Non_Pragma (Component_Items (Comp_List));
          while Present (Decl) loop
             Loc := Sloc (Decl);
-            Build_Record_Checks (Subtype_Indication (Decl), Check_List);
+            Build_Record_Checks
+              (Subtype_Indication (Component_Definition (Decl)), Check_List);
 
             Id := Defining_Identifier (Decl);
             Typ := Etype (Id);
@@ -2144,8 +2180,7 @@ package body Exp_Ch3 is
       -------------------------------------------
 
       function Component_Needs_Simple_Initialization
-        (T    : Entity_Id)
-         return Boolean
+        (T : Entity_Id) return Boolean
       is
       begin
          return
@@ -2327,7 +2362,7 @@ package body Exp_Ch3 is
          if Is_CPP_Class (Rec_Id) then
             return False;
 
-         elsif not Restrictions (No_Initialize_Scalars)
+         elsif not Restriction_Active (No_Initialize_Scalars)
            and then Is_Public (Rec_Id)
          then
             return True;
@@ -2441,12 +2476,313 @@ package body Exp_Ch3 is
       end if;
    end Build_Record_Init_Proc;
 
+   ----------------------------
+   -- Build_Slice_Assignment --
+   ----------------------------
+
+   --  Generates the following subprogram:
+
+   --    procedure Assign
+   --     (Source,   Target   : Array_Type,
+   --      Left_Lo,  Left_Hi, Right_Lo, Right_Hi : Index;
+   --      Rev :     Boolean)
+   --    is
+   --       Li1 : Index;
+   --       Ri1 : Index;
+
+   --    begin
+   --       if Rev  then
+   --          Li1 := Left_Hi;
+   --          Ri1 := Right_Hi;
+   --       else
+   --          Li1 := Left_Lo;
+   --          Ri1 := Right_Lo;
+   --       end if;
+
+   --       loop
+   --             if Rev then
+   --                exit when Li1 < Left_Lo;
+   --             else
+   --                exit when Li1 > Left_Hi;
+   --             end if;
+
+   --             Target (Li1) := Source (Ri1);
+
+   --             if Rev then
+   --                Li1 := Index'pred (Li1);
+   --                Ri1 := Index'pred (Ri1);
+   --             else
+   --                Li1 := Index'succ (Li1);
+   --                Ri1 := Index'succ (Ri1);
+   --             end if;
+   --       end loop;
+   --    end Assign;
+
+   procedure Build_Slice_Assignment (Typ : Entity_Id) is
+      Loc   : constant Source_Ptr := Sloc (Typ);
+      Index : constant Entity_Id  := Base_Type (Etype (First_Index (Typ)));
+
+      --  Build formal parameters of procedure
+
+      Larray   : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('A'));
+      Rarray   : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Left_Lo  : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('L'));
+      Left_Hi  : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('L'));
+      Right_Lo : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Right_Hi : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('R'));
+      Rev      : constant Entity_Id :=
+                   Make_Defining_Identifier
+                     (Loc, Chars => New_Internal_Name ('D'));
+      Proc_Name : constant Entity_Id :=
+                    Make_Defining_Identifier (Loc,
+                      Chars => Make_TSS_Name (Typ, TSS_Slice_Assign));
+
+      Lnn : constant Entity_Id :=
+              Make_Defining_Identifier (Loc, New_Internal_Name ('L'));
+      Rnn : constant Entity_Id :=
+              Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
+      --  Subscripts for left and right sides
+
+      Decls : List_Id;
+      Loops : Node_Id;
+      Stats : List_Id;
+
+   begin
+      --  Build declarations for indices
+
+      Decls := New_List;
+
+      Append_To (Decls,
+         Make_Object_Declaration (Loc,
+           Defining_Identifier => Lnn,
+           Object_Definition  =>
+             New_Occurrence_Of (Index, Loc)));
+
+      Append_To (Decls,
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Rnn,
+          Object_Definition  =>
+            New_Occurrence_Of (Index, Loc)));
+
+      Stats := New_List;
+
+      --  Build initializations for indices
+
+      declare
+         F_Init : constant List_Id := New_List;
+         B_Init : constant List_Id := New_List;
+
+      begin
+         Append_To (F_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression => New_Occurrence_Of (Left_Lo, Loc)));
+
+         Append_To (F_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression => New_Occurrence_Of (Right_Lo, Loc)));
+
+         Append_To (B_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression => New_Occurrence_Of (Left_Hi, Loc)));
+
+         Append_To (B_Init,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression => New_Occurrence_Of (Right_Hi, Loc)));
+
+         Append_To (Stats,
+           Make_If_Statement (Loc,
+             Condition => New_Occurrence_Of (Rev, Loc),
+             Then_Statements => B_Init,
+             Else_Statements => F_Init));
+      end;
+
+      --  Now construct the assignment statement
+
+      Loops :=
+        Make_Loop_Statement (Loc,
+          Statements => New_List (
+            Make_Assignment_Statement (Loc,
+              Name =>
+                Make_Indexed_Component (Loc,
+                  Prefix => New_Occurrence_Of (Larray, Loc),
+                  Expressions => New_List (New_Occurrence_Of (Lnn, Loc))),
+              Expression =>
+                Make_Indexed_Component (Loc,
+                  Prefix => New_Occurrence_Of (Rarray, Loc),
+                  Expressions => New_List (New_Occurrence_Of (Rnn, Loc))))),
+          End_Label  => Empty);
+
+      --  Build exit condition.
+
+      declare
+         F_Ass : constant List_Id := New_List;
+         B_Ass : constant List_Id := New_List;
+
+      begin
+         Append_To (F_Ass,
+           Make_Exit_Statement (Loc,
+             Condition =>
+               Make_Op_Gt (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Lnn, Loc),
+                 Right_Opnd => New_Occurrence_Of (Left_Hi, Loc))));
+
+         Append_To (B_Ass,
+           Make_Exit_Statement (Loc,
+             Condition =>
+               Make_Op_Lt (Loc,
+                 Left_Opnd  => New_Occurrence_Of (Lnn, Loc),
+                 Right_Opnd => New_Occurrence_Of (Left_Lo, Loc))));
+
+         Prepend_To (Statements (Loops),
+           Make_If_Statement (Loc,
+             Condition       => New_Occurrence_Of (Rev, Loc),
+             Then_Statements => B_Ass,
+             Else_Statements => F_Ass));
+      end;
+
+      --  Build the increment/decrement statements
+
+      declare
+         F_Ass : constant List_Id := New_List;
+         B_Ass : constant List_Id := New_List;
+
+      begin
+         Append_To (F_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Succ,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Lnn, Loc)))));
+
+         Append_To (F_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Succ,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Rnn, Loc)))));
+
+         Append_To (B_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Lnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Pred,
+                   Expressions => New_List (
+                     New_Occurrence_Of (Lnn, Loc)))));
+
+         Append_To (B_Ass,
+           Make_Assignment_Statement (Loc,
+             Name => New_Occurrence_Of (Rnn, Loc),
+             Expression =>
+               Make_Attribute_Reference (Loc,
+                 Prefix =>
+                   New_Occurrence_Of (Index, Loc),
+                 Attribute_Name => Name_Pred,
+                 Expressions => New_List (
+                   New_Occurrence_Of (Rnn, Loc)))));
+
+         Append_To (Statements (Loops),
+           Make_If_Statement (Loc,
+             Condition => New_Occurrence_Of (Rev, Loc),
+             Then_Statements => B_Ass,
+             Else_Statements => F_Ass));
+      end;
+
+      Append_To (Stats, Loops);
+
+      declare
+         Spec    : Node_Id;
+         Formals : List_Id := New_List;
+
+      begin
+         Formals := New_List (
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Larray,
+             Out_Present => True,
+             Parameter_Type =>
+               New_Reference_To (Base_Type (Typ), Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Rarray,
+             Parameter_Type =>
+               New_Reference_To (Base_Type (Typ), Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Left_Lo,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Left_Hi,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Right_Lo,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)),
+
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Right_Hi,
+             Parameter_Type =>
+               New_Reference_To (Index, Loc)));
+
+         Append_To (Formals,
+           Make_Parameter_Specification (Loc,
+             Defining_Identifier => Rev,
+             Parameter_Type =>
+               New_Reference_To (Standard_Boolean, Loc)));
+
+         Spec :=
+           Make_Procedure_Specification (Loc,
+             Defining_Unit_Name       => Proc_Name,
+             Parameter_Specifications => Formals);
+
+         Discard_Node (
+           Make_Subprogram_Body (Loc,
+             Specification              => Spec,
+             Declarations               => Decls,
+             Handled_Statement_Sequence =>
+               Make_Handled_Sequence_Of_Statements (Loc,
+                 Statements => Stats)));
+      end;
+
+      Set_TSS (Typ, Proc_Name);
+      Set_Is_Pure (Proc_Name);
+   end Build_Slice_Assignment;
+
    ------------------------------------
    -- Build_Variant_Record_Equality --
    ------------------------------------
 
    --  Generates:
-   --
+
    --    function _Equality (X, Y : T) return Boolean is
    --    begin
    --       --  Compare discriminants
@@ -2693,7 +3029,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier => Parent_N,
-          Subtype_Indication  => New_Reference_To (Par_Subtype, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Par_Subtype, Loc)));
 
       if Null_Present (Rec_Ext_Part) then
          Set_Component_List (Rec_Ext_Part,
@@ -2813,9 +3152,8 @@ package body Exp_Ch3 is
                Next_Elmt (Elmt);
             end loop;
 
-            --  If the derived type itself is private with a full view,
-            --  then associate the full view with the inherited TSS_Elist
-            --  as well.
+            --  If the derived type itself is private with a full view, then
+            --  associate the full view with the inherited TSS_Elist as well.
 
             if Ekind (B_Id) in Private_Kind
               and then Present (Full_View (B_Id))
@@ -2850,7 +3188,7 @@ package body Exp_Ch3 is
 
    begin
       --  Don't do anything for deferred constants. All proper actions will
-      --  be expanded during the redeclaration.
+      --  be expanded during the full declaration.
 
       if No (Expr) and Constant_Present (N) then
          return;
@@ -2986,7 +3324,7 @@ package body Exp_Ch3 is
          --  When we have the appropriate type of aggregate in the
          --  expression (it has been determined during analysis of the
          --  aggregate by setting the delay flag), let's perform in
-         --  place assignment and thus avoid creating a temporay.
+         --  place assignment and thus avoid creating a temporary.
 
          if Is_Delayed_Aggregate (Expr_Q) then
             Convert_Aggr_In_Object_Decl (N);
@@ -3096,17 +3434,30 @@ package body Exp_Ch3 is
             then
                Set_Is_Known_Valid (Def_Id);
 
-            --  For access types set the Is_Known_Non_Null flag if the
-            --  initializing value is known to be non-null. We can also
-            --  set Can_Never_Be_Null if this is a constant.
+            elsif Is_Access_Type (Typ) then
 
-            elsif Is_Access_Type (Typ)
-              and then Known_Non_Null (Expr)
-            then
-               Set_Is_Known_Non_Null (Def_Id);
+               --  Ada 0Y (AI-231): Generate conversion to the null-excluding
+               --  type to force the corresponding run-time check
 
-               if Constant_Present (N) then
-                  Set_Can_Never_Be_Null (Def_Id);
+               if Extensions_Allowed
+                 and then (Can_Never_Be_Null (Def_Id)
+                           or else Can_Never_Be_Null (Typ))
+               then
+                  Rewrite (Expr_Q, Convert_To (Etype (Def_Id),
+                                               Relocate_Node (Expr_Q)));
+                  Analyze_And_Resolve (Expr_Q, Etype (Def_Id));
+               end if;
+
+               --  For access types set the Is_Known_Non_Null flag if the
+               --  initializing value is known to be non-null. We can also
+               --  set Can_Never_Be_Null if this is a constant.
+
+               if Known_Non_Null (Expr) then
+                  Set_Is_Known_Non_Null (Def_Id);
+
+                  if Constant_Present (N) then
+                     Set_Can_Never_Be_Null (Def_Id);
+                  end if;
                end if;
             end if;
 
@@ -3270,7 +3621,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Loc,
           Defining_Identifier =>  Ent,
-          Subtype_Indication  => New_Reference_To (Controller_Type, Loc));
+          Component_Definition =>
+            Make_Component_Definition (Loc,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (Controller_Type, Loc)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3361,8 +3715,10 @@ package body Exp_Ch3 is
       Comp_Decl :=
         Make_Component_Declaration (Sloc_N,
           Defining_Identifier => Tag_Component (T),
-          Subtype_Indication  =>
-            New_Reference_To (RTE (RE_Tag), Sloc_N));
+          Component_Definition =>
+            Make_Component_Definition (Sloc_N,
+              Aliased_Present => False,
+              Subtype_Indication => New_Reference_To (RTE (RE_Tag), Sloc_N)));
 
       if Null_Present (Comp_List)
         or else Is_Empty_List (Component_Items (Comp_List))
@@ -3378,7 +3734,7 @@ package body Exp_Ch3 is
       --  already been analyzed previously. Here we just insure that the
       --  tree is coherent with the semantic decoration
 
-      Find_Type (Subtype_Indication (Comp_Decl));
+      Find_Type (Subtype_Indication (Component_Definition (Comp_Decl)));
 
    exception
       when RE_Not_Available =>
@@ -3428,8 +3784,8 @@ package body Exp_Ch3 is
             --  initialize scalars mode, and these types are treated specially
             --  and do not need initialization procedures.
 
-            elsif Base = Standard_String
-              or else Base = Standard_Wide_String
+            elsif Root_Type (Base) = Standard_String
+              or else Root_Type (Base) = Standard_Wide_String
             then
                null;
 
@@ -3442,6 +3798,12 @@ package body Exp_Ch3 is
 
          if Typ = Base and then Has_Controlled_Component (Base) then
             Build_Controlling_Procs (Base);
+
+            if not Is_Limited_Type (Component_Type (Typ))
+              and then Number_Dimensions (Typ) = 1
+            then
+               Build_Slice_Assignment (Typ);
+            end if;
          end if;
 
       --  For packed case, there is a default initialization, except
@@ -3547,7 +3909,10 @@ package body Exp_Ch3 is
                           High_Bound =>
                             Make_Integer_Literal (Loc, Num - 1))))),
 
-              Subtype_Indication => New_Reference_To (Typ, Loc)),
+              Component_Definition =>
+                Make_Component_Definition (Loc,
+                  Aliased_Present => False,
+                  Subtype_Indication => New_Reference_To (Typ, Loc))),
 
           Expression =>
             Make_Aggregate (Loc,
@@ -3676,7 +4041,7 @@ package body Exp_Ch3 is
 
       --  In normal mode, add the others clause with the test
 
-      if not Restrictions (No_Exception_Handlers) then
+      if not Restriction_Active (No_Exception_Handlers) then
          Append_To (Lst,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_List (Make_Others_Choice (Loc)),
@@ -3845,23 +4210,35 @@ package body Exp_Ch3 is
             --  (usually the inherited primitive address is inserted in the
             --  DT by Inherit_DT)
 
-            if Is_CPP_Class (Etype (Def_Id)) then
-               declare
-                  Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
-                  Subp : Entity_Id;
+            --  Similarly, if this is an inherited operation whose parent
+            --  is not frozen yet, it is not in the DT of the parent, and
+            --  we generate an explicit freeze node for the inherited
+            --  operation, so that it is properly inserted in the DT of the
+            --  current type.
 
-               begin
-                  while Present (Elmt) loop
-                     Subp := Node (Elmt);
+            declare
+               Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
+               Subp : Entity_Id;
 
-                     if Present (Alias (Subp)) then
+            begin
+               while Present (Elmt) loop
+                  Subp := Node (Elmt);
+
+                  if Present (Alias (Subp)) then
+                     if Is_CPP_Class (Etype (Def_Id)) then
+                        Set_Has_Delayed_Freeze (Subp);
+
+                     elsif Has_Delayed_Freeze (Alias (Subp))
+                       and then not Is_Frozen (Alias (Subp))
+                     then
+                        Set_Is_Frozen (Subp, False);
                         Set_Has_Delayed_Freeze (Subp);
                      end if;
+                  end if;
 
-                     Next_Elmt (Elmt);
-                  end loop;
-               end;
-            end if;
+                  Next_Elmt (Elmt);
+               end loop;
+            end;
 
             if Underlying_Type (Etype (Def_Id)) = Def_Id then
                Expand_Tagged_Root (Def_Id);
@@ -4320,17 +4697,17 @@ package body Exp_Ch3 is
                 (Is_Incomplete_Or_Private_Type (Desig_Type)
                    and then No (Full_View (Desig_Type))
 
-               --  An exception is made for types defined in the run-time
-               --  because Ada.Tags.Tag itself is such a type and cannot
-               --  afford this unnecessary overhead that would generates a
-               --  loop in the expansion scheme...
+                  --  An exception is made for types defined in the run-time
+                  --  because Ada.Tags.Tag itself is such a type and cannot
+                  --  afford this unnecessary overhead that would generates a
+                  --  loop in the expansion scheme...
 
-                   and then not In_Runtime (Def_Id)
+                  and then not In_Runtime (Def_Id)
 
-               --  Another exception is if Restrictions (No_Finalization)
-               --  is active, since then we know nothing is controlled.
+                  --  Another exception is if Restrictions (No_Finalization)
+                  --  is active, since then we know nothing is controlled.
 
-                   and then not Restrictions (No_Finalization))
+                  and then not Restriction_Active (No_Finalization))
 
                --  If the designated type is not frozen yet, its controlled
                --  status must be retrieved explicitly.
@@ -4398,9 +4775,8 @@ package body Exp_Ch3 is
    -------------------------
 
    function Get_Simple_Init_Val
-     (T    : Entity_Id;
-      Loc  : Source_Ptr)
-      return Node_Id
+     (T   : Entity_Id;
+      Loc : Source_Ptr) return Node_Id
    is
       Val    : Node_Id;
       Typ    : Node_Id;
@@ -4937,6 +5313,7 @@ package body Exp_Ch3 is
                                             N_Subprogram_Renaming_Declaration)
               and then Etype (First_Formal (Node (Prim))) =
                          Etype (Next_Formal (First_Formal (Node (Prim))))
+              and then Base_Type (Etype (Node (Prim))) = Standard_Boolean
 
             then
                Eq_Needed := False;
@@ -5045,7 +5422,7 @@ package body Exp_Ch3 is
 
       --  We also skip these if finalization is not available
 
-      elsif Restrictions (No_Finalization) then
+      elsif Restriction_Active (No_Finalization) then
          null;
 
       elsif Etype (Tag_Typ) = Tag_Typ or else Controlled_Type (Tag_Typ) then
@@ -5121,8 +5498,7 @@ package body Exp_Ch3 is
      (Loc      : Source_Ptr;
       Tag_Typ  : Entity_Id;
       Name     : TSS_Name_Type;
-      For_Body : Boolean := False)
-      return     Node_Id
+      For_Body : Boolean := False) return Node_Id
    is
       Prof   : List_Id;
       Type_B : Entity_Id;
@@ -5176,8 +5552,7 @@ package body Exp_Ch3 is
       Name     : Name_Id;
       Profile  : List_Id;
       Ret_Type : Entity_Id := Empty;
-      For_Body : Boolean := False)
-      return     Node_Id
+      For_Body : Boolean := False) return Node_Id
    is
       Id   : constant Entity_Id := Make_Defining_Identifier (Loc, Name);
       Spec : Node_Id;
@@ -5247,8 +5622,7 @@ package body Exp_Ch3 is
      (Loc      : Source_Ptr;
       Tag_Typ  : Entity_Id;
       Name     : TSS_Name_Type;
-      For_Body : Boolean := False)
-      return     Node_Id
+      For_Body : Boolean := False) return Node_Id
    is
       Ret_Type : Entity_Id;
 
@@ -5273,8 +5647,7 @@ package body Exp_Ch3 is
 
    function Predefined_Primitive_Bodies
      (Tag_Typ    : Entity_Id;
-      Renamed_Eq : Node_Id)
-      return       List_Id
+      Renamed_Eq : Node_Id) return List_Id
    is
       Loc       : constant Source_Ptr := Sloc (Tag_Typ);
       Res       : constant List_Id    := New_List;
@@ -5359,7 +5732,7 @@ package body Exp_Ch3 is
       --  We also skip them if dispatching is not available.
 
       if not Is_Limited_Type (Tag_Typ)
-        and then not Restrictions (No_Finalization)
+        and then not Restriction_Active (No_Finalization)
       then
          if No (TSS (Tag_Typ, TSS_Stream_Read)) then
             Build_Record_Read_Procedure (Loc, Tag_Typ, Decl, Ent);
@@ -5494,7 +5867,7 @@ package body Exp_Ch3 is
 
       --  Skip this if finalization is not available
 
-      elsif Restrictions (No_Finalization) then
+      elsif Restriction_Active (No_Finalization) then
          null;
 
       elsif (Etype (Tag_Typ) = Tag_Typ or else Is_Controlled (Tag_Typ))

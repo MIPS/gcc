@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -98,10 +98,10 @@ with System.Finalization_Implementation;
 --  Used for System.Finalization_Implementation.Finalize_Global_List
 
 with System.Secondary_Stack;
---  used for SS_Init;
+--  used for SS_Init
 
 with System.Storage_Elements;
---  used for Storage_Array;
+--  used for Storage_Array
 
 with System.Standard_Library;
 --  used for Exception_Trace
@@ -1089,7 +1089,8 @@ package body System.Tasking.Stages is
         (Ada, Tailored_Exception_Information,
          "__gnat_tailored_exception_information");
 
-      Excep : Exception_Occurrence_Access := SSL.Get_Current_Excep.all;
+      Excep : constant Exception_Occurrence_Access :=
+                SSL.Get_Current_Excep.all;
 
    begin
       --  This procedure is called by the task outermost handler in

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -516,7 +516,11 @@ do {									\
       /* Never run scheduling before reload, since that can		\
 	 break global alloc, and generates slower code anyway due	\
 	 to the pressure on R0.  */					\
-      flag_schedule_insns = 0;						\
+      /* Enable sched1 for SH4; ready queue will be reordered by	\
+	 the target hooks when pressure is high. We can not do this for \
+	 SH3 and lower as they give spill failures for R0.  */		\
+      if (!TARGET_HARD_SH4) 						\
+        flag_schedule_insns = 0;		 			\
     }									\
 									\
   if (align_loops == 0)							\
@@ -573,10 +577,8 @@ do {									\
 
 #define MAX_BITS_PER_WORD 64
 
-#define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
-
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
-   longer. */
+   longer.  */
 #define INT_TYPE_SIZE 32
 
 /* Width in bits of a `long'.  */
@@ -1126,7 +1128,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define STATIC_CHAIN_REGNUM	(TARGET_SH5 ? 1 : 3)
 
 /* Don't default to pcc-struct-return, because we have already specified
-   exactly how to return structures in the RETURN_IN_MEMORY macro.  */
+   exactly how to return structures in the TARGET_RETURN_IN_MEMORY
+   target hook.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -1632,7 +1635,7 @@ extern enum reg_class reg_class_from_letter[];
    tested here has to be kept in sync with the one in explow.c:promote_mode.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  gen_rtx (REG,								\
+  gen_rtx_REG (								\
 	   ((GET_MODE_CLASS (TYPE_MODE (VALTYPE)) == MODE_INT		\
 	     && GET_MODE_SIZE (TYPE_MODE (VALTYPE)) < UNITS_PER_WORD	\
 	     && (TREE_CODE (VALTYPE) == INTEGER_TYPE			\
@@ -1819,7 +1822,7 @@ struct sh_args {
 
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   do {								\
     (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
     (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
@@ -1850,7 +1853,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0, 0);	\
     (CUM).call_cookie						\
       = (CALL_COOKIE_RET_TRAMP					\
 	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
@@ -1859,7 +1862,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0, 0);	\
     (CUM).outgoing = 0;						\
   } while (0)
 
@@ -2033,10 +2036,6 @@ struct sh_args {
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = sh_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sh_va_start (valist, nextarg)
@@ -2100,7 +2099,7 @@ struct sh_args {
 #define TRAMPOLINE_ADJUST_ADDRESS(TRAMP) do				\
 {									\
   if (TARGET_SHMEDIA)							\
-    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), GEN_INT (1),	\
+    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), const1_rtx,	\
 				   gen_reg_rtx (Pmode), 0,		\
 				   OPTAB_LIB_WIDEN);			\
 } while (0)
@@ -2564,9 +2563,9 @@ struct sh_args {
 	 prevalent.  */							\
       if (GET_MODE_SIZE (MODE) + offset - offset_base <= 64)		\
 	{								\
-	  sum = gen_rtx (PLUS, Pmode, XEXP (X, 0),			\
+	  sum = gen_rtx_PLUS (Pmode, XEXP (X, 0),			\
 			 GEN_INT (offset_base));			\
-	  X = gen_rtx (PLUS, Pmode, sum, GEN_INT (offset - offset_base));\
+	  X = gen_rtx_PLUS (Pmode, sum, GEN_INT (offset - offset_base));\
 	  push_reload (sum, NULL_RTX, &XEXP (X, 0), NULL,		\
 		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
 		       (TYPE));						\
@@ -2879,7 +2878,7 @@ struct sh_args {
    used to use the encodings 245..260, but that doesn't make sense:
    PR_REG and PR_MEDIA_REG are actually the same register, and likewise
    the FP registers stay the same when switching between compact and media
-   mode.  Hence, we also need to use the same dwarf frame coloumns.
+   mode.  Hence, we also need to use the same dwarf frame columns.
    Likewise, we need to support unwind information for SHmedia registers
    even in compact code.  */
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
@@ -3149,6 +3148,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
   {"binary_logical_operator", {AND, IOR, XOR}},				\
+  {"cmpsi_operand", {SUBREG, REG, CONST_INT}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3201,13 +3201,6 @@ extern int rtx_equal_function_value_matters;
     (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	\
     (MODE) = (TARGET_SH1 ? SImode : DImode);
 
-/* Defining PROMOTE_FUNCTION_ARGS eliminates some unnecessary zero/sign
-   extensions applied to char/short functions arguments.  Defining
-   PROMOTE_FUNCTION_RETURN does the same for function returns.  */
-
-#define PROMOTE_FUNCTION_ARGS
-#define PROMOTE_FUNCTION_RETURN
-
 #define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 
 /* ??? Define ACCUMULATE_OUTGOING_ARGS?  This is more efficient than pushing
@@ -3246,7 +3239,8 @@ extern int rtx_equal_function_value_matters;
    : FP_MODE_NONE)
 
 #define MODE_AFTER(MODE, INSN)                  \
-     (recog_memoized (INSN) >= 0                \
+     (TARGET_HITACHI				\
+      && recog_memoized (INSN) >= 0		\
       && get_attr_fp_set (INSN) != FP_SET_NONE  \
       ? get_attr_fp_set (INSN)                  \
       : (MODE))

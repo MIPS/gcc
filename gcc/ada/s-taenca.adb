@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -262,7 +262,7 @@ package body System.Tasking.Entry_Calls is
 
                if Ceiling_Violation then
                   declare
-                     Current_Task      : Task_ID := STPO.Self;
+                     Current_Task      : constant Task_ID := STPO.Self;
                      Old_Base_Priority : System.Any_Priority;
 
                   begin
@@ -470,7 +470,7 @@ package body System.Tasking.Entry_Calls is
          STPO.Unlock (Entry_Call.Called_Task);
       else
          Called_PO := To_Protection (Entry_Call.Called_PO);
-         PO_Service_Entries (Self_ID, Called_PO);
+         PO_Service_Entries (Self_ID, Called_PO, False);
 
          if Called_PO.Pending_Action then
             Called_PO.Pending_Action := False;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -46,6 +46,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Targparm; use Targparm;
 with Sinfo;    use Sinfo;
@@ -508,7 +509,7 @@ package body Exp_Ch7 is
       return List_Id
    is
       Loc        : constant Source_Ptr := Sloc (N);
-      Index_List : List_Id := New_List;
+      Index_List : constant List_Id := New_List;
 
       function Free_Component return List_Id;
       --  Generate the code to finalize the task or protected  subcomponents
@@ -524,7 +525,7 @@ package body Exp_Ch7 is
       function Free_Component return List_Id is
          Stmts : List_Id := New_List;
          Tsk   : Node_Id;
-         C_Typ : Entity_Id := Component_Type (Typ);
+         C_Typ : constant Entity_Id := Component_Type (Typ);
 
       begin
          --  Component type is known to contain tasks or protected objects
@@ -608,8 +609,8 @@ package body Exp_Ch7 is
       Loc   : constant Source_Ptr := Sloc (N);
       Tsk   : Node_Id;
       Comp  : Entity_Id;
-      Stmts : List_Id := New_List;
-      U_Typ : constant Entity_Id := Underlying_Type (Typ);
+      Stmts : constant List_Id    := New_List;
+      U_Typ : constant Entity_Id  := Underlying_Type (Typ);
 
    begin
       if Has_Discriminants (U_Typ)
@@ -696,13 +697,12 @@ package body Exp_Ch7 is
    ------------------------------------
 
    procedure Clean_Simple_Protected_Objects (N : Node_Id) is
+      Stmts : constant List_Id := Statements (Handled_Statement_Sequence (N));
+      Stmt  : Node_Id          := Last (Stmts);
       E     : Entity_Id;
-      Stmts : List_Id := Statements (Handled_Statement_Sequence (N));
-      Stmt  : Node_Id := Last (Stmts);
 
    begin
       E := First_Entity (Current_Scope);
-
       while Present (E) loop
          if (Ekind (E) = E_Variable
               or else Ekind (E) = E_Constant)
@@ -915,7 +915,7 @@ package body Exp_Ch7 is
 
       return (Is_Class_Wide_Type (T)
                 and then not In_Finalization_Root (T)
-                and then not Restrictions (No_Finalization))
+                and then not Restriction_Active (No_Finalization))
         or else Is_Controlled (T)
         or else Has_Some_Controlled_Component (T)
         or else (Is_Concurrent_Type (T)
@@ -1073,6 +1073,76 @@ package body Exp_Ch7 is
 
       if No (Wrap_Node) then
          null;
+
+      elsif Nkind (Wrap_Node) = N_Iteration_Scheme then
+
+         --  Create a declaration followed by an assignment, so that
+         --  the assignment can have its own transient scope.
+         --  We generate the equivalent of:
+
+         --  type Ptr is access all expr_type;
+         --  Var : Ptr;
+         --  begin
+         --     Var := Expr'reference;
+         --  end;
+
+         --  This closely resembles what is done in Remove_Side_Effect,
+         --  but it has to be done here, before the analysis of the call
+         --  is completed.
+
+         declare
+            Ptr_Typ : constant Entity_Id :=
+                        Make_Defining_Identifier (Loc,
+                          Chars => New_Internal_Name ('A'));
+            Ptr     : constant Entity_Id :=
+                        Make_Defining_Identifier (Loc,
+                          Chars => New_Internal_Name ('T'));
+
+            Expr_Type    : constant Entity_Id := Etype (N);
+            New_Expr     : constant Node_Id := Relocate_Node (N);
+            Decl         : Node_Id;
+            Ptr_Typ_Decl : Node_Id;
+            Stmt         : Node_Id;
+
+         begin
+            Ptr_Typ_Decl :=
+              Make_Full_Type_Declaration (Loc,
+                Defining_Identifier => Ptr_Typ,
+                Type_Definition =>
+                  Make_Access_To_Object_Definition (Loc,
+                    All_Present => True,
+                    Subtype_Indication =>
+                      New_Reference_To (Expr_Type, Loc)));
+
+            Decl :=
+              Make_Object_Declaration (Loc,
+                 Defining_Identifier => Ptr,
+                 Object_Definition => New_Occurrence_Of (Ptr_Typ, Loc));
+
+            Set_Etype (Ptr, Ptr_Typ);
+            Stmt :=
+               Make_Assignment_Statement (Loc,
+                  Name => New_Occurrence_Of (Ptr, Loc),
+                  Expression => Make_Reference (Loc, New_Expr));
+
+            Set_Analyzed (New_Expr, False);
+
+            Insert_List_Before_And_Analyze
+              (Parent (Wrap_Node),
+                 New_List (
+                   Ptr_Typ_Decl,
+                   Decl,
+                   Make_Block_Statement (Loc,
+                     Handled_Statement_Sequence =>
+                       Make_Handled_Sequence_Of_Statements (Loc,
+                         New_List (Stmt)))));
+
+            Rewrite (N,
+              Make_Explicit_Dereference (Loc,
+                Prefix => New_Reference_To (Ptr, Loc)));
+            Analyze_And_Resolve (N, Expr_Type);
+
+         end;
 
       --  Transient scope is required
 
@@ -1815,14 +1885,12 @@ package body Exp_Ch7 is
                   return The_Parent;
                end if;
 
-            --  ??? No scheme yet for "for I in Expression'Range loop"
-            --  ??? the current scheme for Expression wrapping doesn't apply
-            --  ??? because a RANGE is NOT an expression. Tricky problem...
-            --  ??? while this problem is not solved we have a potential for
-            --  ??? leak and unfinalized intermediate objects here.
+            --  If the expression is within the iteration scheme of a loop,
+            --  we must create a declaration for it, followed by an assignment
+            --  in order to have a usable statement to wrap.
 
             when N_Loop_Parameter_Specification =>
-               return Empty;
+               return Parent (The_Parent);
 
             --  The following nodes contains "dummy calls" which don't
             --  need to be wrapped.
@@ -2125,7 +2193,6 @@ package body Exp_Ch7 is
       Spec         : Node_Id;
       Name         : Node_Id;
       Param        : Node_Id;
-      Unlock       : Node_Id;
       Param_Type   : Entity_Id;
       Pid          : Entity_Id := Empty;
       Cancel_Param : Entity_Id;
@@ -2140,7 +2207,7 @@ package body Exp_Ch7 is
          end if;
 
       elsif Is_Master then
-         if Restrictions (No_Task_Hierarchy) = False then
+         if Restriction_Active (No_Task_Hierarchy) = False then
             Append_To (Stmt, Build_Runtime_Call (Loc, RE_Complete_Master));
          end if;
 
@@ -2186,7 +2253,7 @@ package body Exp_Ch7 is
            and then Has_Entries (Pid)
          then
             if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
+              or else Restriction_Active (No_Entry_Queue) = False
               or else Number_Entries (Pid) > 1
             then
                Name := New_Reference_To (RTE (RE_Service_Entries), Loc);
@@ -2206,50 +2273,53 @@ package body Exp_Ch7 is
                         Selector_Name =>
                           Make_Identifier (Loc, Name_uObject)),
                     Attribute_Name => Name_Unchecked_Access))));
-         end if;
-
-         --  Unlock (_object._object'Access);
-
-         --  _object is the record used to implement the protected object.
-         --  It is a parameter to the protected subprogram.
-
-         --  If the protected object is controlled (i.e it has entries or
-         --  needs finalization for interrupt handling), call Unlock_Entries,
-         --  except if the protected object follows the ravenscar profile, in
-         --  which case call Unlock_Entry, otherwise call the simplified
-         --  version, Unlock.
-
-         if Has_Entries (Pid)
-           or else Has_Interrupt_Handler (Pid)
-           or else (Has_Attach_Handler (Pid) and then not Restricted_Profile)
-         then
-            if Abort_Allowed
-              or else Restrictions (No_Entry_Queue) = False
-              or else Number_Entries (Pid) > 1
-            then
-               Unlock := New_Reference_To (RTE (RE_Unlock_Entries), Loc);
-            else
-               Unlock := New_Reference_To (RTE (RE_Unlock_Entry), Loc);
-            end if;
 
          else
-            Unlock := New_Reference_To (RTE (RE_Unlock), Loc);
+            --  Unlock (_object._object'Access);
+
+            --  object is the record used to implement the protected object.
+            --  It is a parameter to the protected subprogram.
+
+            --  If the protected object is controlled (i.e it has entries or
+            --  needs finalization for interrupt handling), call
+            --  Unlock_Entries, except if the protected object follows the
+            --  ravenscar profile, in which case call Unlock_Entry, otherwise
+            --  call the simplified version, Unlock.
+
+            if Has_Entries (Pid)
+              or else Has_Interrupt_Handler (Pid)
+              or else (Has_Attach_Handler (Pid)
+                         and then not Restricted_Profile)
+            then
+               if Abort_Allowed
+                 or else Restriction_Active (No_Entry_Queue) = False
+                 or else Number_Entries (Pid) > 1
+               then
+                  Name := New_Reference_To (RTE (RE_Unlock_Entries), Loc);
+               else
+                  Name := New_Reference_To (RTE (RE_Unlock_Entry), Loc);
+               end if;
+
+            else
+               Name := New_Reference_To (RTE (RE_Unlock), Loc);
+            end if;
+
+            Append_To (Stmt,
+              Make_Procedure_Call_Statement (Loc,
+                Name => Name,
+                Parameter_Associations => New_List (
+                  Make_Attribute_Reference (Loc,
+                    Prefix =>
+                      Make_Selected_Component (Loc,
+                        Prefix =>
+                          New_Reference_To (Defining_Identifier (Param), Loc),
+                        Selector_Name =>
+                          Make_Identifier (Loc, Name_uObject)),
+                    Attribute_Name => Name_Unchecked_Access))));
          end if;
 
-         Append_To (Stmt,
-           Make_Procedure_Call_Statement (Loc,
-             Name => Unlock,
-             Parameter_Associations => New_List (
-               Make_Attribute_Reference (Loc,
-                 Prefix =>
-                   Make_Selected_Component (Loc,
-                     Prefix =>
-                       New_Reference_To (Defining_Identifier (Param), Loc),
-                     Selector_Name =>
-                       Make_Identifier (Loc, Name_uObject)),
-                 Attribute_Name => Name_Unchecked_Access))));
-
          if Abort_Allowed then
+
             --  Abort_Undefer;
 
             Append_To (Stmt,

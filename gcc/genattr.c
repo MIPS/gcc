@@ -1,5 +1,5 @@
 /* Generate attribute information (insn-attr.h) from machine description.
-   Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000, 2003
+   Copyright (C) 1991, 1994, 1996, 1998, 1999, 2000, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -300,12 +300,6 @@ main (int argc, char **argv)
 
   if (num_units > 0 || num_insn_reservations > 0)
     {
-      if (num_units > 0)
-	printf ("#define TRADITIONAL_PIPELINE_INTERFACE 1\n");
-
-      if (num_insn_reservations > 0)
-	printf ("#define DFA_PIPELINE_INTERFACE 1\n");
-
       /* Compute the range of blockage cost values.  See genattrtab.c
 	 for the derivation.  BLOCKAGE (E,C) when SIMULTANEITY is zero is
 

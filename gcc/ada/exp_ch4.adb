@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -98,8 +98,7 @@ package body Exp_Ch4 is
       A_Typ  : Entity_Id;
       Lhs    : Node_Id;
       Rhs    : Node_Id;
-      Bodies : List_Id)
-      return   Node_Id;
+      Bodies : List_Id) return Node_Id;
    --  Expand an array equality into a call to a function implementing this
    --  equality, and a call to it. Loc is the location for the generated
    --  nodes. Typ is the type of the array, and Lhs, Rhs are the array
@@ -119,8 +118,7 @@ package body Exp_Ch4 is
       Typ    : Entity_Id;
       Lhs    : Node_Id;
       Rhs    : Node_Id;
-      Bodies : List_Id)
-      return   Node_Id;
+      Bodies : List_Id) return Node_Id;
    --  Local recursive function used to expand equality for nested
    --  composite types. Used by Expand_Record/Array_Equality, Bodies
    --  is a list on which to attach bodies of local functions that are
@@ -150,20 +148,19 @@ package body Exp_Ch4 is
    function Get_Allocator_Final_List
      (N    : Node_Id;
       T    : Entity_Id;
-      PtrT : Entity_Id)
-      return Entity_Id;
+      PtrT : Entity_Id) return Entity_Id;
    --  If the designated type is controlled, build final_list expression
    --  for created object. If context is an access parameter, create a
    --  local access type to have a usable finalization list.
 
    procedure Insert_Dereference_Action (N : Node_Id);
-   --  N is an expression whose type is an access. When the type is derived
-   --  from Checked_Pool, expands a call to the primitive 'dereference'.
+   --  N is an expression whose type is an access. When the type of the
+   --  associated storage pool is derived from Checked_Pool, generate a
+   --  call to the 'Dereference' primitive operation.
 
    function Make_Array_Comparison_Op
-     (Typ   : Entity_Id;
-      Nod   : Node_Id)
-      return  Node_Id;
+     (Typ : Entity_Id;
+      Nod : Node_Id) return Node_Id;
    --  Comparisons between arrays are expanded in line. This function
    --  produces the body of the implementation of (a > b), where a and b
    --  are one-dimensional arrays of some discrete type. The original
@@ -171,9 +168,8 @@ package body Exp_Ch4 is
    --  Nod provides the Sloc value for the generated code.
 
    function Make_Boolean_Array_Op
-     (Typ  : Entity_Id;
-      N    : Node_Id)
-      return Node_Id;
+     (Typ : Entity_Id;
+      N   : Node_Id) return Node_Id;
    --  Boolean operations on boolean arrays are expanded in line. This
    --  function produce the body for the node N, which is (a and b),
    --  (a or b), or (a xor b). It is used only the normal case and not
@@ -193,10 +189,9 @@ package body Exp_Ch4 is
    --  Deals with a second operand being (or not) a class-wide type.
 
    function Safe_In_Place_Array_Op
-     (Lhs  : Node_Id;
-      Op1  : Node_Id;
-      Op2  : Node_Id)
-      return Boolean;
+     (Lhs : Node_Id;
+      Op1 : Node_Id;
+      Op2 : Node_Id) return Boolean;
    --  In the context of an assignment, where the right-hand side is a
    --  boolean operation on arrays, check whether operation can be performed
    --  in place.
@@ -654,6 +649,9 @@ package body Exp_Ch4 is
 
       Comp : RE_Id;
 
+      Byte_Addressable : constant Boolean := System_Storage_Unit = Byte'Size;
+      --  True for byte addressable target
+
       function Length_Less_Than_4 (Opnd : Node_Id) return Boolean;
       --  Returns True if the length of the given operand is known to be
       --  less than 4. Returns False if this length is known to be four
@@ -705,7 +703,7 @@ package body Exp_Ch4 is
       --  addressing of array components.
 
       if not Is_Bit_Packed_Array (Typ1)
-        and then System_Storage_Unit = Byte'Size
+        and then Byte_Addressable
         and then not Java_VM
       then
          --  The call we generate is:
@@ -910,8 +908,7 @@ package body Exp_Ch4 is
       A_Typ  : Entity_Id;
       Lhs    : Node_Id;
       Rhs    : Node_Id;
-      Bodies : List_Id)
-      return   Node_Id
+      Bodies : List_Id) return Node_Id
    is
       Loc         : constant Source_Ptr := Sloc (Nod);
       Decls       : constant List_Id    := New_List;
@@ -929,8 +926,7 @@ package body Exp_Ch4 is
       function Arr_Attr
         (Arr : Entity_Id;
          Nam : Name_Id;
-         Num : Int)
-         return Node_Id;
+         Num : Int) return Node_Id;
       --  This builds the attribute reference Arr'Nam (Expr).
 
       function Component_Equality (Typ : Entity_Id) return Node_Id;
@@ -939,8 +935,7 @@ package body Exp_Ch4 is
 
       function Handle_One_Dimension
         (N     : Int;
-         Index : Node_Id)
-         return  Node_Id;
+         Index : Node_Id) return Node_Id;
       --  This procedure returns a declare block:
       --
       --    declare
@@ -987,8 +982,7 @@ package body Exp_Ch4 is
       function Arr_Attr
         (Arr : Entity_Id;
          Nam : Name_Id;
-         Num : Int)
-         return Node_Id
+         Num : Int) return Node_Id
       is
       begin
          return
@@ -1036,8 +1030,7 @@ package body Exp_Ch4 is
 
       function Handle_One_Dimension
         (N     : Int;
-         Index : Node_Id)
-         return  Node_Id
+         Index : Node_Id) return Node_Id
       is
          An : constant Entity_Id := Make_Defining_Identifier (Loc,
                                       Chars => New_Internal_Name ('A'));
@@ -1334,8 +1327,7 @@ package body Exp_Ch4 is
       Typ    : Entity_Id;
       Lhs    : Node_Id;
       Rhs    : Node_Id;
-      Bodies : List_Id)
-      return   Node_Id
+      Bodies : List_Id) return Node_Id
    is
       Loc       : constant Source_Ptr := Sloc (Nod);
       Full_Type : Entity_Id;
@@ -1410,7 +1402,8 @@ package body Exp_Ch4 is
             Eq_Op := Node (Prim);
             exit when Chars (Eq_Op) = Name_Op_Eq
               and then Etype (First_Formal (Eq_Op)) =
-                       Etype (Next_Formal (First_Formal (Eq_Op)));
+                       Etype (Next_Formal (First_Formal (Eq_Op)))
+              and then Base_Type (Etype (Eq_Op)) = Standard_Boolean;
             Next_Elmt (Prim);
             pragma Assert (Present (Prim));
          end loop;
@@ -1472,7 +1465,7 @@ package body Exp_Ch4 is
    --  their base type, Ind_Typ their index type, and Arr_Typ the original
    --  array type to which the concatenantion operator applies, then the
    --  following subprogram is constructed:
-   --
+
    --  [function Cnn (S1 : Base_Typ; ...; Sn : Base_Typ) return Base_Typ is
    --      L : Ind_Typ;
    --   begin
@@ -1489,7 +1482,7 @@ package body Exp_Ch4 is
    --      else
    --         return Sn;
    --      end if;
-   --
+
    --      declare
    --         P : Ind_Typ;
    --         H : Ind_Typ :=
@@ -1516,9 +1509,9 @@ package body Exp_Ch4 is
    --               P := Ind_Typ'Succ (P);
    --            end loop;
    --         end if;
-   --
+
    --         ...
-   --
+
    --         if Sn'Length /= 0 then
    --            P := Sn'First;
    --            loop
@@ -1528,7 +1521,7 @@ package body Exp_Ch4 is
    --               P := Ind_Typ'Succ (P);
    --            end loop;
    --         end if;
-   --
+
    --         return R;
    --      end;
    --   end Cnn;]
@@ -1598,7 +1591,9 @@ package body Exp_Ch4 is
       --  Builds reference to identifier L.
 
       function L_Pos return Node_Id;
-      --  Builds expression Ind_Typ'Pos (L).
+      --  Builds expression Integer_Type'(Ind_Typ'Pos (L)).
+      --  We qualify the expression to avoid universal_integer computations
+      --  whenever possible, in the expression for the upper bound H.
 
       function L_Succ return Node_Id;
       --  Builds expression Ind_Typ'Succ (L).
@@ -1743,12 +1738,31 @@ package body Exp_Ch4 is
       -----------
 
       function L_Pos return Node_Id is
+         Target_Type : Entity_Id;
+
       begin
+         --  If the index type is an enumeration type, the computation
+         --  can be done in standard integer. Otherwise, choose a large
+         --  enough integer type.
+
+         if Is_Enumeration_Type (Ind_Typ)
+           or else Root_Type (Ind_Typ) = Standard_Integer
+           or else Root_Type (Ind_Typ) = Standard_Short_Integer
+           or else Root_Type (Ind_Typ) = Standard_Short_Short_Integer
+         then
+            Target_Type := Standard_Integer;
+         else
+            Target_Type := Root_Type (Ind_Typ);
+         end if;
+
          return
-           Make_Attribute_Reference (Loc,
-             Prefix         => New_Reference_To (Ind_Typ, Loc),
-             Attribute_Name => Name_Pos,
-             Expressions    => New_List (L));
+           Make_Qualified_Expression (Loc,
+              Subtype_Mark => New_Reference_To (Target_Type, Loc),
+              Expression   =>
+                Make_Attribute_Reference (Loc,
+                  Prefix         => New_Reference_To (Ind_Typ, Loc),
+                  Attribute_Name => Name_Pos,
+                  Expressions    => New_List (L)));
       end L_Pos;
 
       ------------
@@ -2817,10 +2831,9 @@ package body Exp_Ch4 is
 
                Check_Subscripts : declare
                   function Construct_Attribute_Reference
-                    (E    : Node_Id;
-                     Nam  : Name_Id;
-                     Dim  : Nat)
-                     return Node_Id;
+                    (E   : Node_Id;
+                     Nam : Name_Id;
+                     Dim : Nat) return Node_Id;
                   --  Build attribute reference E'Nam(Dim)
 
                   -----------------------------------
@@ -2828,10 +2841,9 @@ package body Exp_Ch4 is
                   -----------------------------------
 
                   function Construct_Attribute_Reference
-                    (E    : Node_Id;
-                     Nam  : Name_Id;
-                     Dim  : Nat)
-                     return Node_Id
+                    (E   : Node_Id;
+                     Nam : Name_Id;
+                     Dim : Nat) return Node_Id
                   is
                   begin
                      return
@@ -2958,12 +2970,6 @@ package body Exp_Ch4 is
       --  was necessary, but it cleans up the code to do it all the time.
 
       if Is_Access_Type (T) then
-
-         --  Check whether the prefix comes from a debug pool, and generate
-         --  the check before rewriting.
-
-         Insert_Dereference_Action (P);
-
          Rewrite (P,
            Make_Explicit_Dereference (Sloc (N),
              Prefix => Relocate_Node (P)));
@@ -3686,13 +3692,23 @@ package body Exp_Ch4 is
               and then Is_Derived_Type (A_Typ)
               and then No (Full_View (A_Typ))
             then
+               --  Search for equality operation, checking that the
+               --  operands have the same type. Note that we must find
+               --  a matching entry, or something is very wrong!
+
                Prim := First_Elmt (Collect_Primitive_Operations (A_Typ));
 
-               while Chars (Node (Prim)) /= Name_Op_Eq loop
+               while Present (Prim) loop
+                  exit when Chars (Node (Prim)) = Name_Op_Eq
+                    and then Etype (First_Formal (Node (Prim))) =
+                             Etype (Next_Formal (First_Formal (Node (Prim))))
+                    and then
+                      Base_Type (Etype (Node (Prim))) = Standard_Boolean;
+
                   Next_Elmt (Prim);
-                  pragma Assert (Present (Prim));
                end loop;
 
+               pragma Assert (Present (Prim));
                Op_Name := Node (Prim);
 
             --  Find the type's predefined equality or an overriding
@@ -3713,12 +3729,13 @@ package body Exp_Ch4 is
                   exit when Chars (Node (Prim)) = Name_Op_Eq
                     and then Etype (First_Formal (Node (Prim))) =
                              Etype (Next_Formal (First_Formal (Node (Prim))))
-                    and then Etype (Node (Prim)) = Standard_Boolean;
+                    and then
+                      Base_Type (Etype (Node (Prim))) = Standard_Boolean;
 
                   Next_Elmt (Prim);
-                  pragma Assert (Present (Prim));
                end loop;
 
+               pragma Assert (Present (Prim));
                Op_Name := Node (Prim);
             end if;
 
@@ -5103,6 +5120,7 @@ package body Exp_Ch4 is
 
       if Is_Access_Type (Ptyp) then
          Insert_Explicit_Dereference (P);
+         Analyze_And_Resolve (P, Designated_Type (Ptyp));
 
          if Ekind (Etype (P)) = E_Private_Subtype
            and then Is_For_Access_Subtype (Etype (P))
@@ -5311,10 +5329,36 @@ package body Exp_Ch4 is
       Pfx  : constant Node_Id    := Prefix (N);
       Ptp  : Entity_Id           := Etype (Pfx);
 
+      function Is_Procedure_Actual (N : Node_Id) return Boolean;
+      --  Check whether context is a procedure call, in which case
+      --  expansion of a bit-packed slice is deferred until the call
+      --  itself is expanded.
+
       procedure Make_Temporary;
       --  Create a named variable for the value of the slice, in
       --  cases where the back-end cannot handle it properly, e.g.
       --  when packed types or unaligned slices are involved.
+
+      -------------------------
+      -- Is_Procedure_Actual --
+      -------------------------
+
+      function Is_Procedure_Actual (N : Node_Id) return Boolean is
+         Par : Node_Id := Parent (N);
+
+      begin
+         while Present (Par)
+           and then Nkind (Par) not in N_Statement_Other_Than_Procedure_Call
+         loop
+            if Nkind (Par) = N_Procedure_Call_Statement then
+               return True;
+            else
+               Par := Parent (Par);
+            end if;
+         end loop;
+
+         return False;
+      end Is_Procedure_Actual;
 
       --------------------
       -- Make_Temporary --
@@ -5349,23 +5393,13 @@ package body Exp_Ch4 is
 
       if Is_Access_Type (Ptp) then
 
-         --  Check for explicit dereference required for checked pool
-
-         Insert_Dereference_Action (Pfx);
-
-         --  If we have an access to a packed array type, then put in an
-         --  explicit dereference. We do this in case the slice must be
-         --  expanded, and we want to make sure we get an access check.
-
          Ptp := Designated_Type (Ptp);
 
-         if Is_Array_Type (Ptp) and then Is_Packed (Ptp) then
-            Rewrite (Pfx,
-              Make_Explicit_Dereference (Sloc (N),
-                Prefix => Relocate_Node (Pfx)));
+         Rewrite (Pfx,
+           Make_Explicit_Dereference (Sloc (N),
+            Prefix => Relocate_Node (Pfx)));
 
-            Analyze_And_Resolve (Pfx, Ptp);
-         end if;
+         Analyze_And_Resolve (Pfx, Ptp);
       end if;
 
       --  Range checks are potentially also needed for cases involving
@@ -5400,26 +5434,35 @@ package body Exp_Ch4 is
       --       is caught elsewhere, and the expansion would intefere
       --       with generating the error message).
 
-      if Is_Packed (Typ)
-        and then Nkind (Parent (N)) /= N_Assignment_Statement
-        and then (Nkind (Parent (Parent (N))) /= N_Assignment_Statement
-                     or else
-                  Parent (N) /= Name (Parent (Parent (N))))
-        and then Nkind (Parent (N)) /= N_Indexed_Component
-        and then not Is_Renamed_Object (N)
-        and then Nkind (Parent (N)) /= N_Procedure_Call_Statement
-        and then (Nkind (Parent (N)) /= N_Attribute_Reference
-                    or else
-                  Attribute_Name (Parent (N)) /= Name_Address)
-      then
-         Make_Temporary;
+      if not Is_Packed (Typ) then
 
-      --  Same transformation for actuals in a function call, where
-      --  Expand_Actuals is not used.
+         --  Apply transformation for actuals of a function call,
+         --  where Expand_Actuals is not used.
 
-      elsif Nkind (Parent (N)) = N_Function_Call
-        and then Is_Possibly_Unaligned_Slice (N)
+         if Nkind (Parent (N)) = N_Function_Call
+           and then Is_Possibly_Unaligned_Slice (N)
+         then
+            Make_Temporary;
+         end if;
+
+      elsif Nkind (Parent (N)) = N_Assignment_Statement
+        or else (Nkind (Parent (Parent (N))) = N_Assignment_Statement
+                   and then Parent (N) = Name (Parent (Parent (N))))
       then
+         return;
+
+      elsif Nkind (Parent (N)) = N_Indexed_Component
+        or else Is_Renamed_Object (N)
+        or else Is_Procedure_Actual (N)
+      then
+         return;
+
+      elsif Nkind (Parent (N)) = N_Attribute_Reference
+        and then Attribute_Name (Parent (N)) = Name_Address
+      then
+         return;
+
+      else
          Make_Temporary;
       end if;
    end Expand_N_Slice;
@@ -6280,8 +6323,7 @@ package body Exp_Ch4 is
       Typ    : Entity_Id;
       Lhs    : Node_Id;
       Rhs    : Node_Id;
-      Bodies : List_Id)
-      return   Node_Id
+      Bodies : List_Id) return Node_Id
    is
       Loc : constant Source_Ptr := Sloc (Nod);
 
@@ -6436,8 +6478,7 @@ package body Exp_Ch4 is
    function Get_Allocator_Final_List
      (N    : Node_Id;
       T    : Entity_Id;
-      PtrT : Entity_Id)
-      return Entity_Id
+      PtrT : Entity_Id) return Entity_Id
    is
       Loc : constant Source_Ptr := Sloc (N);
       Acc : Entity_Id;
@@ -6478,9 +6519,14 @@ package body Exp_Ch4 is
       Loc  : constant Source_Ptr := Sloc (N);
       Typ  : constant Entity_Id  := Etype (N);
       Pool : constant Entity_Id  := Associated_Storage_Pool (Typ);
+      Pnod : constant Node_Id    := Parent (N);
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean;
-      --  return true if type of P is derived from Checked_Pool;
+      --  Return true if type of P is derived from Checked_Pool;
+
+      -----------------------------
+      -- Is_Checked_Storage_Pool --
+      -----------------------------
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean is
          T : Entity_Id;
@@ -6505,7 +6551,17 @@ package body Exp_Ch4 is
    --  Start of processing for Insert_Dereference_Action
 
    begin
-      if not Comes_From_Source (Parent (N)) then
+      pragma Assert (Nkind (Pnod) = N_Explicit_Dereference);
+
+      --  Do not recursively add a dereference check for the
+      --  attribute references contained within the generated check.
+
+      if not Comes_From_Source (Pnod)
+        and then Nkind (Pnod) = N_Explicit_Dereference
+        and then Nkind (Parent (Pnod)) = N_Attribute_Reference
+        and then (Attribute_Name (Parent (Pnod)) = Name_Size
+          or else Attribute_Name (Parent (Pnod)) = Name_Alignment)
+      then
          return;
 
       elsif not Is_Checked_Storage_Pool (Pool) then
@@ -6602,9 +6658,8 @@ package body Exp_Ch4 is
    --  instantiated function itself.
 
    function Make_Array_Comparison_Op
-     (Typ   : Entity_Id;
-      Nod   : Node_Id)
-      return  Node_Id
+     (Typ : Entity_Id;
+      Nod : Node_Id) return Node_Id
    is
       Loc : constant Source_Ptr := Sloc (Nod);
 
@@ -6837,9 +6892,8 @@ package body Exp_Ch4 is
    --  Here typ is the boolean array type
 
    function Make_Boolean_Array_Op
-     (Typ  : Entity_Id;
-      N    : Node_Id)
-      return Node_Id
+     (Typ : Entity_Id;
+      N   : Node_Id) return Node_Id
    is
       Loc : constant Source_Ptr := Sloc (N);
 
@@ -7009,10 +7063,9 @@ package body Exp_Ch4 is
    ----------------------------
 
    function Safe_In_Place_Array_Op
-     (Lhs  : Node_Id;
-      Op1  : Node_Id;
-      Op2  : Node_Id)
-      return Boolean
+     (Lhs : Node_Id;
+      Op1 : Node_Id;
+      Op2 : Node_Id) return Boolean
    is
       Target : Entity_Id;
 

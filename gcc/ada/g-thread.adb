@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1998-2003 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1998-2004 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,12 +47,18 @@ package body GNAT.Threads is
 
    type Thread_Id_Ptr is access all Thread_Id;
 
+   pragma Warnings (Off);
+   --  The following unchecked conversions are aliasing safe, since they
+   --  are never used to create pointers to improperly aliased data.
+
    function To_Addr is new Unchecked_Conversion (Task_Id, Address);
    function To_Id   is new Unchecked_Conversion (Address, Task_Id);
    function To_Id   is new Unchecked_Conversion (Address, Tasking.Task_ID);
    function To_Tid  is new Unchecked_Conversion
      (Address, Ada.Task_Identification.Task_Id);
    function To_Thread is new Unchecked_Conversion (Address, Thread_Id_Ptr);
+
+   pragma Warnings (On);
 
    type Code_Proc is access procedure (Id : Address; Parm : Void_Ptr);
 
@@ -81,8 +87,7 @@ package body GNAT.Threads is
      (Code : Address;
       Parm : Void_Ptr;
       Size : Natural;
-      Prio : Integer)
-      return System.Address
+      Prio : Integer) return System.Address
    is
       TP : Tptr;
 
@@ -108,7 +113,6 @@ package body GNAT.Threads is
 
    procedure Unregister_Thread is
       Self_Id : constant Tasking.Task_ID := Task_Primitives.Operations.Self;
-
    begin
       Self_Id.Common.State := Tasking.Terminated;
       Destroy_TSD (Self_Id.Common.Compiler_Data);
@@ -150,7 +154,6 @@ package body GNAT.Threads is
 
    procedure Destroy_Thread (Id : Address) is
       Tid : constant Task_Id := To_Id (Id);
-
    begin
       Abort_Task (Tid);
    end Destroy_Thread;
@@ -161,9 +164,7 @@ package body GNAT.Threads is
 
    procedure Get_Thread (Id : Address; Thread : Address) is
       use System.OS_Interface;
-
-      Thr : Thread_Id_Ptr := To_Thread (Thread);
-
+      Thr : constant Thread_Id_Ptr := To_Thread (Thread);
    begin
       Thr.all := Task_Primitives.Operations.Get_Thread_Id (To_Id (Id));
    end Get_Thread;
@@ -173,8 +174,7 @@ package body GNAT.Threads is
    ----------------
 
    function To_Task_Id
-     (Id   : System.Address)
-      return Ada.Task_Identification.Task_Id
+     (Id   : System.Address) return Ada.Task_Identification.Task_Id
    is
    begin
       return To_Tid (Id);

@@ -1,5 +1,6 @@
 /* Dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz,
                                     mhayes@redhat.com)
 
@@ -45,7 +46,7 @@ Here's an example of using the dataflow routines.
 
       df = df_init ();
 
-      df_analyse (df, 0, DF_ALL);
+      df_analyze (df, 0, DF_ALL);
 
       df_dump (df, DF_ALL, stderr);
 
@@ -57,7 +58,7 @@ passed to all the dataflow routines.  df_finish destroys this
 object and frees up any allocated memory.   DF_ALL says to analyse
 everything.
 
-df_analyse performs the following:
+df_analyze performs the following:
 
 1. Records defs and uses by scanning the insns in each basic block
    or by scanning the insns queued by df_insn_modify.
@@ -82,7 +83,7 @@ deleted or created insn.  If the dataflow information requires
 updating then all the changed, new, or deleted insns needs to be
 marked with df_insn_modify (or df_insns_modify) either directly or
 indirectly (say through calling df_insn_delete).  df_insn_modify
-marks all the modified insns to get processed the next time df_analyse
+marks all the modified insns to get processed the next time df_analyze
  is called.
 
 Beware that tinkering with insns may invalidate the dataflow information.
@@ -90,7 +91,7 @@ The philosophy behind these routines is that once the dataflow
 information has been gathered, the user should store what they require
 before they tinker with any insn.  Once a reg is replaced, for example,
 then the reg-def/reg-use chains will point to the wrong place.  Once a
-whole lot of changes have been made, df_analyse can be called again
+whole lot of changes have been made, df_analyze can be called again
 to update the dataflow information.  Currently, this is not very smart
 with regard to propagating changes to the dataflow so it should not
 be called very often.
@@ -127,7 +128,7 @@ When shadowing loop mems we create new uses and defs for new pseudos
 so we do not affect the existing dataflow information.
 
 My current strategy is to queue up all modified, created, or deleted
-insns so when df_analyse is called we can easily determine all the new
+insns so when df_analyze is called we can easily determine all the new
 or deleted refs.  Currently the global dataflow information is
 recomputed from scratch but this could be propagated more efficiently.
 
@@ -150,7 +151,7 @@ Similarly, should the first entry in the use list be the last use
 
 Often the whole CFG does not need to be analyzed, for example,
 when optimizing a loop, only certain registers are of interest.
-Perhaps there should be a bitmap argument to df_analyse to specify
+Perhaps there should be a bitmap argument to df_analyze to specify
 which registers should be analyzed?
 
 
@@ -260,7 +261,7 @@ static int df_refs_queue (struct df *);
 static int df_refs_process (struct df *);
 static int df_bb_refs_update (struct df *, basic_block);
 static int df_refs_update (struct df *);
-static void df_analyse_1 (struct df *, bitmap, int, int);
+static void df_analyze_1 (struct df *, bitmap, int, int);
 
 static void df_insns_modify (struct df *, basic_block, rtx, rtx);
 static int df_rtx_mem_replace (rtx *, void *);
@@ -818,7 +819,7 @@ df_ref_record (struct df *df, rtx reg, rtx *loc, rtx insn,
 	 are really referenced.  E.g., a (subreg:SI (reg:DI 0) 0) does _not_
 	 reference the whole reg 0 in DI mode (which would also include
 	 reg 1, at least, if 0 and 1 are SImode registers).  */
-      endregno = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      endregno = hard_regno_nregs[regno][GET_MODE (reg)];
       if (GET_CODE (reg) == SUBREG)
         regno += subreg_regno_offset (regno, GET_MODE (SUBREG_REG (reg)),
 				      SUBREG_BYTE (reg), GET_MODE (reg));
@@ -971,7 +972,7 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
       return;
 
     case MEM:
-      df_uses_record (df, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn, flags);
+      df_uses_record (df, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn, 0);
       return;
 
     case SUBREG:
@@ -987,7 +988,6 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
       /* ... Fall through ...  */
 
     case REG:
-      /* See a REG (or SUBREG) other than being set.  */
       df_ref_record (df, x, loc, insn, ref_type, flags);
       return;
 
@@ -999,17 +999,15 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 
 	switch (GET_CODE (dst))
 	  {
-	    enum df_ref_flags use_flags;
 	    case SUBREG:
 	      if ((df->flags & DF_FOR_REGALLOC) == 0
                   && read_modify_subreg_p (dst))
 		{
-		  use_flags = DF_REF_READ_WRITE;
 		  df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
-				  insn, use_flags);
+				  insn, DF_REF_READ_WRITE);
 		  break;
 		}
-	      /* ... FALLTHRU ...  */
+	      /* Fall through.  */
 	    case REG:
 	    case PARALLEL:
 	    case PC:
@@ -1025,9 +1023,8 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	      dst = XEXP (dst, 0);
 	      if (GET_CODE (dst) != SUBREG)
 		abort ();
-	      use_flags = DF_REF_READ_WRITE;
 	      df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
-			     insn, use_flags);
+			     insn, DF_REF_READ_WRITE);
 	      break;
 	    case ZERO_EXTRACT:
 	    case SIGN_EXTRACT:
@@ -1219,14 +1216,14 @@ df_bb_refs_record (struct df *df, basic_block bb)
   rtx insn;
 
   /* Scan the block an insn at a time from beginning to end.  */
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
 	  /* Record defs within INSN.  */
 	  df_insn_refs_record (df, bb, insn);
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 }
@@ -1259,7 +1256,7 @@ df_bb_reg_def_chain_create (struct df *df, basic_block bb)
      scan the basic blocks in reverse order so that the first defs
      appear at the start of the chain.  */
 
-  for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
+  for (insn = BB_END (bb); insn && insn != PREV_INSN (BB_HEAD (bb));
        insn = PREV_INSN (insn))
     {
       struct df_link *link;
@@ -1311,7 +1308,7 @@ df_bb_reg_use_chain_create (struct df *df, basic_block bb)
   /* Scan in forward order so that the last uses appear at the start
      of the chain.  */
 
-  for (insn = bb->head; insn && insn != NEXT_INSN (bb->end);
+  for (insn = BB_HEAD (bb); insn && insn != NEXT_INSN (BB_END (bb));
        insn = NEXT_INSN (insn))
     {
       struct df_link *link;
@@ -1364,7 +1361,7 @@ df_bb_du_chain_create (struct df *df, basic_block bb, bitmap ru)
 
   /* For each def in BB create a linked list (chain) of uses
      reached from the def.  */
-  for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
+  for (insn = BB_END (bb); insn && insn != PREV_INSN (BB_HEAD (bb));
        insn = PREV_INSN (insn))
     {
       struct df_link *def_link;
@@ -1441,7 +1438,7 @@ df_bb_ud_chain_create (struct df *df, basic_block bb)
 
   /* For each use in BB create a linked list (chain) of defs
      that reach the use.  */
-  for (insn = bb->head; insn && insn != NEXT_INSN (bb->end);
+  for (insn = BB_HEAD (bb); insn && insn != NEXT_INSN (BB_END (bb));
        insn = NEXT_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
@@ -1551,7 +1548,7 @@ df_bb_rd_local_compute (struct df *df, basic_block bb)
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
 
-  for (insn = bb->head; insn && insn != NEXT_INSN (bb->end);
+  for (insn = BB_HEAD (bb); insn && insn != NEXT_INSN (BB_END (bb));
        insn = NEXT_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
@@ -1615,7 +1612,7 @@ df_bb_ru_local_compute (struct df *df, basic_block bb)
   rtx insn;
 
 
-  for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
+  for (insn = BB_END (bb); insn && insn != PREV_INSN (BB_HEAD (bb));
        insn = PREV_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
@@ -1678,7 +1675,7 @@ df_bb_lr_local_compute (struct df *df, basic_block bb)
   struct bb_info *bb_info = DF_BB_INFO (df, bb);
   rtx insn;
 
-  for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
+  for (insn = BB_END (bb); insn && insn != PREV_INSN (BB_HEAD (bb));
        insn = PREV_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
@@ -1733,7 +1730,7 @@ df_bb_reg_info_compute (struct df *df, basic_block bb, bitmap live)
 
   bitmap_copy (live, bb_info->lr_out);
 
-  for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
+  for (insn = BB_END (bb); insn && insn != PREV_INSN (BB_HEAD (bb));
        insn = PREV_INSN (insn))
     {
       unsigned int uid = INSN_UID (insn);
@@ -1799,13 +1796,13 @@ df_bb_luids_set (struct df *df, basic_block bb)
 
   /* The LUIDs are monotonically increasing for each basic block.  */
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	DF_INSN_LUID (df, insn) = luid++;
       DF_INSN_LUID (df, insn) = luid;
 
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
   return luid;
@@ -1830,7 +1827,7 @@ df_luids_set (struct df *df, bitmap blocks)
 /* Perform dataflow analysis using existing DF structure for blocks
    within BLOCKS.  If BLOCKS is zero, use all basic blocks in the CFG.  */
 static void
-df_analyse_1 (struct df *df, bitmap blocks, int flags, int update)
+df_analyze_1 (struct df *df, bitmap blocks, int flags, int update)
 {
   int aflags;
   int dflags;
@@ -2100,7 +2097,7 @@ df_bb_refs_update (struct df *df, basic_block bb)
      a bitmap for insns_modified saves memory and avoids queuing
      duplicates.  */
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       unsigned int uid;
 
@@ -2116,7 +2113,7 @@ df_bb_refs_update (struct df *df, basic_block bb)
 
 	  count++;
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
   return count;
@@ -2172,7 +2169,7 @@ df_modified_p (struct df *df, bitmap blocks)
    BLOCKS, or for the whole CFG if BLOCKS is zero, or just for the
    modified blocks if BLOCKS is -1.  */
 int
-df_analyse (struct df *df, bitmap blocks, int flags)
+df_analyze (struct df *df, bitmap blocks, int flags)
 {
   int update;
 
@@ -2193,7 +2190,7 @@ df_analyse (struct df *df, bitmap blocks, int flags)
 	    }
 	  /* Allocate and initialize data structures.  */
 	  df_alloc (df, max_reg_num ());
-	  df_analyse_1 (df, 0, flags, 0);
+	  df_analyze_1 (df, 0, flags, 0);
 	  update = 1;
 	}
       else
@@ -2204,7 +2201,7 @@ df_analyse (struct df *df, bitmap blocks, int flags)
 	  if (! df->n_bbs)
 	    abort ();
 
-	  df_analyse_1 (df, blocks, flags, 1);
+	  df_analyze_1 (df, blocks, flags, 1);
 	  bitmap_zero (df->bbs_modified);
 	  bitmap_zero (df->insns_modified);
 	}
@@ -2252,14 +2249,14 @@ df_bb_refs_unlink (struct df *df, basic_block bb)
   rtx insn;
 
   /* Scan the block an insn at a time from beginning to end.  */
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
 	  /* Unlink refs for INSN.  */
 	  df_insn_refs_unlink (df, bb, insn);
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 }
@@ -2298,7 +2295,7 @@ df_insn_delete (struct df *df, basic_block bb ATTRIBUTE_UNUSED, rtx insn)
      handle the JUMP_LABEL?  */
 
   /* We should not be deleting the NOTE_INSN_BASIC_BLOCK or label.  */
-  if (insn == bb->head)
+  if (insn == BB_HEAD (bb))
     abort ();
 
   /* Delete the insn.  */
@@ -2403,7 +2400,7 @@ df_insn_mem_replace (struct df *df, basic_block bb, rtx insn, rtx mem, rtx reg)
      in INSN.  REG should be a new pseudo so it won't affect the
      dataflow information that we currently have.  We should add
      the new uses and defs to INSN and then recreate the chains
-     when df_analyse is called.  */
+     when df_analyze is called.  */
   return args.modified;
 }
 
@@ -2595,7 +2592,7 @@ df_pattern_emit_before (struct df *df, rtx pattern, basic_block bb, rtx insn)
   rtx prev_insn = PREV_INSN (insn);
 
   /* We should not be inserting before the start of the block.  */
-  if (insn == bb->head)
+  if (insn == BB_HEAD (bb))
     abort ();
   ret_insn = emit_insn_before (pattern, insn);
   if (ret_insn == insn)
@@ -2663,7 +2660,7 @@ df_insn_move_before (struct df *df, basic_block bb, rtx insn, basic_block before
      are likely to be increased.  */
 
   /* ???? Perhaps all the insns moved should be stored on a list
-     which df_analyse removes when it recalculates data flow.  */
+     which df_analyze removes when it recalculates data flow.  */
 
   return emit_insn_before (insn, before_insn);
 }

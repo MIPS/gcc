@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -455,9 +455,7 @@ init_ra (void)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-#ifdef EXIT_IGNORE_STACK
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-#endif
        || FRAME_POINTER_REQUIRED);
 
   ra_colorize_init ();
@@ -474,26 +472,26 @@ init_ra (void)
     {
       if (! CAN_ELIMINATE (eliminables[j].from, eliminables[j].to)
 	  || (eliminables[j].to == STACK_POINTER_REGNUM && need_fp))
-	for (i = HARD_REGNO_NREGS (eliminables[j].from, Pmode); i--;)
+	for (i = hard_regno_nregs[eliminables[j].from][Pmode]; i--;)
 	  SET_HARD_REG_BIT (never_use_colors, eliminables[j].from + i);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (need_fp)
-    for (i = HARD_REGNO_NREGS (HARD_FRAME_POINTER_REGNUM, Pmode); i--;)
+    for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
       SET_HARD_REG_BIT (never_use_colors, HARD_FRAME_POINTER_REGNUM + i);
 #endif
 
 #else
   if (need_fp)
-    for (i = HARD_REGNO_NREGS (FRAME_POINTER_REGNUM, Pmode); i--;)
+    for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
       SET_HARD_REG_BIT (never_use_colors, FRAME_POINTER_REGNUM + i);
 #endif
 
   /* Stack and argument pointer are also rather useless to us.  */
-  for (i = HARD_REGNO_NREGS (STACK_POINTER_REGNUM, Pmode); i--;)
+  for (i = hard_regno_nregs[STACK_POINTER_REGNUM][Pmode]; i--;)
     SET_HARD_REG_BIT (never_use_colors, STACK_POINTER_REGNUM + i);
 
-  for (i = HARD_REGNO_NREGS (ARG_POINTER_REGNUM, Pmode); i--;)
+  for (i = hard_regno_nregs[ARG_POINTER_REGNUM][Pmode]; i--;)
     SET_HARD_REG_BIT (never_use_colors, ARG_POINTER_REGNUM + i);
 
   for (i = 0; i < 256; i++)
@@ -530,7 +528,7 @@ init_ra (void)
       for (reg = 0; reg < FIRST_PSEUDO_REGISTER; reg++)
 	if (HARD_REGNO_MODE_OK (reg, i)
 	    /* Ignore VOIDmode and similar things.  */
-	    && (size = HARD_REGNO_NREGS (reg, i)) != 0
+	    && (size = hard_regno_nregs[reg][i]) != 0
 	    && (reg + size) <= FIRST_PSEUDO_REGISTER)
 	  {
 	    while (size--)
@@ -649,7 +647,7 @@ void
 reg_alloc (void)
 {
   int changed;
-  FILE *ra_dump_file = rtl_dump_file;
+  FILE *ra_dump_file = dump_file;
   rtx last = get_last_insn ();
 
   if (! INSN_P (last))
@@ -665,7 +663,7 @@ reg_alloc (void)
       for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
 	{
 	  basic_block bb = e->src;
-	  last = bb->end;
+	  last = BB_END (bb);
 	  if (!INSN_P (last) || GET_CODE (PATTERN (last)) != USE)
 	    {
 	      rtx insns;
@@ -693,16 +691,16 @@ reg_alloc (void)
 	      break;
       case 6: debug_new_regalloc = DUMP_VALIDIFY; break;
     }
-  if (!rtl_dump_file)
+  if (!dump_file)
     debug_new_regalloc = 0;
 
   /* Run regclass first, so we know the preferred and alternate classes
      for each pseudo.  Deactivate emitting of debug info, if it's not
      explicitly requested.  */
   if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
-    rtl_dump_file = NULL;
-  regclass (get_insns (), max_reg_num (), rtl_dump_file);
-  rtl_dump_file = ra_dump_file;
+    dump_file = NULL;
+  regclass (get_insns (), max_reg_num (), dump_file);
+  dump_file = ra_dump_file;
 
   /* We don't use those NOTEs, and as we anyway change all registers,
      they only make problems later.  */
@@ -754,16 +752,16 @@ reg_alloc (void)
       /* First collect all the register refs and put them into
 	 chains per insn, and per regno.  In later passes only update
          that info from the new and modified insns.  */
-      df_analyse (df, (ra_pass == 1) ? 0 : (bitmap) -1,
+      df_analyze (df, (ra_pass == 1) ? 0 : (bitmap) -1,
 		  DF_HARD_REGS | DF_RD_CHAIN | DF_RU_CHAIN | DF_FOR_REGALLOC);
 
       if ((debug_new_regalloc & DUMP_DF) != 0)
 	{
 	  rtx insn;
-	  df_dump (df, DF_HARD_REGS, rtl_dump_file);
+	  df_dump (df, DF_HARD_REGS, dump_file);
 	  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
             if (INSN_P (insn))
-	      df_insn_debug_regno (df, insn, rtl_dump_file);
+	      df_insn_debug_regno (df, insn, dump_file);
 	}
       check_df (df);
 
@@ -797,7 +795,7 @@ reg_alloc (void)
 	     therefore repeat some things, including some initialization
 	     of global data structures.  */
 	  if ((debug_new_regalloc & DUMP_REGCLASS) == 0)
-	    rtl_dump_file = NULL;
+	    dump_file = NULL;
 	  /* We have new pseudos (the stackwebs).  */
 	  allocate_reg_info (max_reg_num (), FALSE, FALSE);
 	  /* And new insns.  */
@@ -808,8 +806,8 @@ reg_alloc (void)
 	  reg_scan_update (get_insns (), NULL, max_regno);
 	  max_regno = max_reg_num ();
 	  /* And they need useful classes too.  */
-	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
-	  rtl_dump_file = ra_dump_file;
+	  regclass (get_insns (), max_reg_num (), dump_file);
+	  dump_file = ra_dump_file;
 
 	  /* Remember the number of defs and uses, so we can distinguish
 	     new from old refs in the next pass.  */
@@ -821,8 +819,8 @@ reg_alloc (void)
       dump_ra (df);
       if (changed && (debug_new_regalloc & DUMP_RTL) != 0)
 	{
-	  ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
-	  fflush (rtl_dump_file);
+	  ra_print_rtl_with_bb (dump_file, get_insns ());
+	  fflush (dump_file);
 	}
 
       /* Reset the web lists.  */
@@ -840,15 +838,15 @@ reg_alloc (void)
   ra_debug_msg (DUMP_COSTS, "ticks for build-phase: %ld\n", ticks_build);
   ra_debug_msg (DUMP_COSTS, "ticks for rebuild-phase: %ld\n", ticks_rebuild);
   if ((debug_new_regalloc & (DUMP_FINAL_RTL | DUMP_RTL)) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
+    ra_print_rtl_with_bb (dump_file, get_insns ());
 
   /* We might have new pseudos, so allocate the info arrays for them.  */
   if ((debug_new_regalloc & DUMP_SM) == 0)
-    rtl_dump_file = NULL;
+    dump_file = NULL;
   no_new_pseudos = 0;
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
   no_new_pseudos = 1;
-  rtl_dump_file = ra_dump_file;
+  dump_file = ra_dump_file;
 
   /* Some spill insns could've been inserted after trapping calls, i.e.
      at the end of a basic block, which really ends at that call.
@@ -857,14 +855,14 @@ reg_alloc (void)
 
   /* Cleanup the flow graph.  */
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
-    rtl_dump_file = NULL;
-  life_analysis (get_insns (), rtl_dump_file,
+    dump_file = NULL;
+  life_analysis (get_insns (), dump_file,
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
-  if (rtl_dump_file)
-    dump_flow_info (rtl_dump_file);
-  rtl_dump_file = ra_dump_file;
+  if (dump_file)
+    dump_flow_info (dump_file);
+  dump_file = ra_dump_file;
 
   /* update_equiv_regs() can't be called after register allocation.
      It might delete some pseudos, and insert other insns setting
@@ -884,8 +882,8 @@ reg_alloc (void)
   remove_suspicious_death_notes ();
 
   if ((debug_new_regalloc & DUMP_LAST_RTL) != 0)
-    ra_print_rtl_with_bb (rtl_dump_file, get_insns ());
-  dump_static_insn_cost (rtl_dump_file,
+    ra_print_rtl_with_bb (dump_file, get_insns ());
+  dump_static_insn_cost (dump_file,
 			 "after allocation/spilling, before reload", NULL);
 
   /* Allocate the reg_equiv_memory_loc array for reload.  */
@@ -893,7 +891,7 @@ reg_alloc (void)
   /* And possibly initialize it.  */
   allocate_initial_values (reg_equiv_memory_loc);
   /* And one last regclass pass just before reload.  */
-  regclass (get_insns (), max_reg_num (), rtl_dump_file);
+  regclass (get_insns (), max_reg_num (), dump_file);
 }
 
 /*

@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
    profiling, or libg.a.  */
 #undef LIB_SPEC
 #define LIB_SPEC "\
-%{mid-shared-library:-R libc.gdb%s} -lc \
+%{mid-shared-library:-R libc.gdb%s -elf2flt -shared-lib-id 0} -lc \
 "
 
 /* we don't want a .eh_frame section.  */
@@ -55,6 +55,8 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("linux");		\
 	builtin_define_std ("unix");		\
 	builtin_define ("__gnu_linux__");	\
+	builtin_assert ("system=linux");	\
+	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
 	if (TARGET_ID_SHARED_LIBRARY)		\
 	  builtin_define ("__ID_SHARED_LIBRARY__"); \

@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the common
    tree codes used in the GNU C and C++ compilers (see c-common.def
    for the standard codes).
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 
 This file is part of GCC.
@@ -430,7 +430,6 @@ genrtl_while_stmt (tree t)
 {
   tree cond = WHILE_COND (t);
 
-  emit_nop ();
   emit_line_note (input_location);
   expand_start_loop (1);
   genrtl_do_pushlevel ();
@@ -467,7 +466,6 @@ genrtl_do_stmt_1 (tree cond, tree body)
     }
   else if (integer_nonzerop (cond))
     {
-      emit_nop ();
       emit_line_note (input_location);
       expand_start_loop (1);
 
@@ -478,7 +476,6 @@ genrtl_do_stmt_1 (tree cond, tree body)
     }
   else
     {
-      emit_nop ();
       emit_line_note (input_location);
       expand_start_loop_continue_elsewhere (1);
 
@@ -542,7 +539,6 @@ genrtl_for_stmt (tree t)
   expand_stmt (FOR_INIT_STMT (t));
 
   /* Expand the initialization.  */
-  emit_nop ();
   emit_line_note (input_location);
   if (FOR_EXPR (t))
     expand_start_loop_continue_elsewhere (1);
@@ -592,7 +588,7 @@ genrtl_break_stmt (void)
 {
   emit_line_note (input_location);
   if ( ! expand_exit_something ())
-    error ("break statement not within loop or switch");
+    abort ();
 }
 
 /* Build a continue statement node and return it.  */
@@ -610,7 +606,7 @@ genrtl_continue_stmt (void)
 {
   emit_line_note (input_location);
   if (! expand_continue_loop (0))
-    error ("continue statement not within a loop");
+    abort ();
 }
 
 /* Generate the RTL for T, which is a SCOPE_STMT.  */
@@ -644,8 +640,8 @@ genrtl_scope_stmt (tree t)
 	{
 	  if (TREE_CODE (fn) == FUNCTION_DECL
 	      && DECL_CONTEXT (fn) == current_function_decl
-	      && DECL_SAVED_INSNS (fn)
-	      && DECL_SAVED_INSNS (fn)->saved_for_inline
+	      && DECL_STRUCT_FUNCTION (fn)
+	      && DECL_STRUCT_FUNCTION (fn)->saved_for_inline
 	      && !TREE_ASM_WRITTEN (fn)
 	      && TREE_ADDRESSABLE (fn))
 	    {

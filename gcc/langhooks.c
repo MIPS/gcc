@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -215,8 +215,8 @@ lhd_can_use_bit_fields_p (void)
 void
 lhd_clear_binding_stack (void)
 {
-  while (! (*lang_hooks.decls.global_bindings_p) ())
-    poplevel (0, 0, 0);
+  while (! lang_hooks.decls.global_bindings_p ())
+    lang_hooks.decls.poplevel (0, 0, 0);
 }
 
 /* Type promotion for variable arguments.  */
@@ -266,7 +266,8 @@ hook_get_alias_set_0 (tree t ATTRIBUTE_UNUSED)
 rtx
 lhd_expand_expr (tree t ATTRIBUTE_UNUSED, rtx r ATTRIBUTE_UNUSED,
 		 enum machine_mode mm ATTRIBUTE_UNUSED,
-		 int em ATTRIBUTE_UNUSED)
+		 int em ATTRIBUTE_UNUSED,
+		 rtx *a ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -420,7 +421,8 @@ lhd_tree_inlining_end_inlining (tree fn ATTRIBUTE_UNUSED)
 tree
 lhd_tree_inlining_convert_parm_for_inlining (tree parm ATTRIBUTE_UNUSED,
 					     tree value,
-					     tree fndecl ATTRIBUTE_UNUSED)
+					     tree fndecl ATTRIBUTE_UNUSED,
+					     int argnum ATTRIBUTE_UNUSED)
 {
   return value;
 }
@@ -493,7 +495,7 @@ write_global_declarations (void)
      Really output inline functions that must actually be callable
      and have not been output so far.  */
 
-  tree globals = (*lang_hooks.decls.getdecls) ();
+  tree globals = lang_hooks.decls.getdecls ();
   int len = list_length (globals);
   tree *vec = xmalloc (sizeof (tree) * len);
   int i;
@@ -538,13 +540,12 @@ lhd_print_error_function (diagnostic_context *context, const char *file)
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
 	    pp_printf
 	      (context->printer, "In member function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	  else
 	    pp_printf
 	      (context->printer, "In function `%s':",
-	       (*lang_hooks.decl_printable_name) (current_function_decl, 2));
+	       lang_hooks.decl_printable_name (current_function_decl, 2));
 	}
-      pp_newline (context->printer);
 
       diagnostic_set_last_function (context);
       pp_flush (context->printer);
@@ -559,6 +560,12 @@ lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
 			    tree decl ATTRIBUTE_UNUSED)
 {
   return NULL;
+}
+
+tree
+lhd_make_node (enum tree_code code)
+{
+  return make_node (code);
 }
 
 #include "gt-langhooks.h"

@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -104,6 +104,10 @@ typedef enum compiler_param
   ((size_t) PARAM_VALUE (PARAM_MAX_GCSE_MEMORY))
 #define MAX_GCSE_PASSES \
   PARAM_VALUE (PARAM_MAX_GCSE_PASSES)
+#define GCSE_AFTER_RELOAD_PARTIAL_FRACTION \
+  PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_PARTIAL_FRACTION)
+#define GCSE_AFTER_RELOAD_CRITICAL_FRACTION \
+  PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_CRITICAL_FRACTION)
 #define MAX_UNROLLED_INSNS \
   PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS)
 #endif /* ! GCC_PARAMS_H */

@@ -1,5 +1,6 @@
 ;; GCC machine description for CRIS cpu cores.
-;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+;; Free Software Foundation, Inc.
 ;; Contributed by Axis Communications.
 
 ;; This file is part of GCC.
@@ -31,7 +32,7 @@
 ;; There are several instructions that are orthogonal in size, and seems
 ;; they could be matched by a single pattern without a specified size
 ;; for the operand that is orthogonal.  However, this did not work on
-;; gcc-2.7.2 (and problably not on gcc-2.8.1), relating to that when a
+;; gcc-2.7.2 (and probably not on gcc-2.8.1), relating to that when a
 ;; constant is substituted into an operand, the actual mode must be
 ;; deduced from the pattern.  There is reasonable hope that that has been
 ;; fixed, so FIXME: try again.
@@ -77,7 +78,7 @@
 ;; The possible values are "yes", "no" and "has_slot".  Yes/no means if
 ;; the insn is slottable or not.  Has_slot means that the insn is a
 ;; return insn or branch insn (which are not considered slottable since
-;; that is generally true).  Having the semmingly illogical value
+;; that is generally true).  Having the seemingly illogical value
 ;; "has_slot" means we do not have to add another attribute just to say
 ;; that an insn has a delay-slot, since it also infers that it is not
 ;; slottable.  Better names for the attribute were found to be longer and
@@ -1354,7 +1355,7 @@
   "movs.b %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
-;; To do a byte->word exension, extend to dword, exept that the top half
+;; To do a byte->word extension, extend to dword, exept that the top half
 ;; of the register will be clobbered.  FIXME: Perhaps this is not needed.
 
 (define_insn "extendqihi2"
@@ -2468,8 +2469,11 @@
 	 (zero_extend:SI (match_operand:HI 1 "register_operand" "0"))
 	 (zero_extend:SI (match_operand:HI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "mulu.w %2,%0"
-  [(set_attr "slottable" "yes")
+  "%!mulu.w %2,%0"
+  [(set (attr "slottable")
+	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
+		      (const_string "no")
+		      (const_string "yes")))
    ;; Just N unusable here, but let's be safe.
    (set_attr "cc" "clobber")])
 
@@ -2479,8 +2483,11 @@
 	 (zero_extend:HI (match_operand:QI 1 "register_operand" "0"))
 	 (zero_extend:HI (match_operand:QI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "mulu.b %2,%0"
-  [(set_attr "slottable" "yes")
+  "%!mulu.b %2,%0"
+  [(set (attr "slottable")
+	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
+		      (const_string "no")
+		      (const_string "yes")))
    ;; Not exactly sure, but let's be safe.
    (set_attr "cc" "clobber")])
 
@@ -2495,8 +2502,11 @@
 	(mult:SI (match_operand:SI 1 "register_operand" "0")
 		 (match_operand:SI 2 "register_operand" "r")))]
   "TARGET_HAS_MUL_INSNS"
-  "muls.d %2,%0"
-  [(set_attr "slottable" "yes")
+  "%!muls.d %2,%0"
+  [(set (attr "slottable")
+	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
+		      (const_string "no")
+		      (const_string "yes")))
    ;; Just N unusable here, but let's be safe.
    (set_attr "cc" "clobber")])
 
@@ -2510,8 +2520,11 @@
 	 (sign_extend:HI (match_operand:QI 1 "register_operand" "0"))
 	 (sign_extend:HI (match_operand:QI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "muls.b %2,%0"
-  [(set_attr "slottable" "yes")
+  "%!muls.b %2,%0"
+  [(set (attr "slottable")
+	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
+		      (const_string "no")
+		      (const_string "yes")))
    (set_attr "cc" "clobber")])
 
 (define_insn "mulhisi3"
@@ -2520,8 +2533,11 @@
 	 (sign_extend:SI (match_operand:HI 1 "register_operand" "0"))
 	 (sign_extend:SI (match_operand:HI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "muls.w %2,%0"
-  [(set_attr "slottable" "yes")
+  "%!muls.w %2,%0"
+  [(set (attr "slottable")
+	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
+		      (const_string "no")
+		      (const_string "yes")))
    ;; Just N unusable here, but let's be safe.
    (set_attr "cc" "clobber")])
 
@@ -2537,7 +2553,7 @@
 	 (sign_extend:DI (match_operand:SI 1 "register_operand" "0"))
 	 (sign_extend:DI (match_operand:SI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "muls.d %2,%M0\;move $mof,%H0")
+  "%!muls.d %2,%M0\;move $mof,%H0")
 
 (define_insn "umulsidi3"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -2545,7 +2561,7 @@
 	 (zero_extend:DI (match_operand:SI 1 "register_operand" "0"))
 	 (zero_extend:DI (match_operand:SI 2 "register_operand" "r"))))]
   "TARGET_HAS_MUL_INSNS"
-  "mulu.d %2,%M0\;move $mof,%H0")
+  "%!mulu.d %2,%M0\;move $mof,%H0")
 
 ;; This pattern would probably not be needed if we add "mof" in its own
 ;; register class (and open a can of worms about /not/ pairing it with a
@@ -2564,7 +2580,7 @@
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=X,1,1"))]
   "TARGET_HAS_MUL_INSNS"
-  "muls.d %2,%1\;move $mof,%0"
+  "%!muls.d %2,%1\;move $mof,%0"
   [(set_attr "cc" "clobber")])
 
 (define_insn "umulsi3_highpart"
@@ -2577,7 +2593,7 @@
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=X,1,1"))]
   "TARGET_HAS_MUL_INSNS"
-  "mulu.d %2,%1\;move $mof,%0"
+  "%!mulu.d %2,%1\;move $mof,%0"
   [(set_attr "cc" "clobber")])
 
 ;; Divide and modulus instructions.  CRIS only has a step instruction.
@@ -2682,17 +2698,19 @@
 
 (define_insn "*andsi_movu"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(and:SI (match_operand:SI 1 "nonimmediate_operand" "%r,Q>,m")
+	(and:SI (match_operand:SI 1 "nonimmediate_operand" "%r,Q,To")
 		(match_operand:SI 2 "const_int_operand" "n,n,n")))]
-  "INTVAL (operands[2]) == 255 || INTVAL (operands[2]) == 65535"
+  "(INTVAL (operands[2]) == 255 || INTVAL (operands[2]) == 65535)
+   && (GET_CODE (operands[1]) != MEM || ! MEM_VOLATILE_P (operands[1]))"
   "movu.%z2 %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
 (define_insn "*andsi_clear"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,Q>,Q>,m,m")
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,Q,Q,To,To")
 	(and:SI (match_operand:SI 1 "nonimmediate_operand" "%0,0,0,0,0,0")
 		(match_operand:SI 2 "const_int_operand" "P,n,P,n,P,n")))]
-  "INTVAL (operands[2]) == -65536 || INTVAL (operands[2]) == -256"
+  "(INTVAL (operands[2]) == -65536 || INTVAL (operands[2]) == -256)
+   && (GET_CODE (operands[0]) != MEM || ! MEM_VOLATILE_P (operands[0]))"
   "@
    cLear.b %0
    cLear.w %0
@@ -2770,27 +2788,17 @@
 
 (define_insn "*andhi_movu"
   [(set (match_operand:HI 0 "register_operand" "=r,r,r")
-	(and:HI (match_operand:HI 1 "nonimmediate_operand" "r,Q>,m")
+	(and:HI (match_operand:HI 1 "nonimmediate_operand" "r,Q,To")
 		(const_int 255)))]
-  ""
+  "GET_CODE (operands[1]) != MEM || ! MEM_VOLATILE_P (operands[1])"
   "mOvu.b %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
-(define_insn "*andhi_clear_signed"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,Q>,m")
+(define_insn "*andhi_clear"
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,Q,To")
 	(and:HI (match_operand:HI 1 "nonimmediate_operand" "0,0,0")
 		(const_int -256)))]
-  ""
-  "cLear.b %0"
-  [(set_attr "slottable" "yes,yes,no")
-   (set_attr "cc" "none")])
-
-;; FIXME: Either this or the pattern above should be redundant.
-(define_insn "*andhi_clear_unsigned"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,Q>,m")
-	(and:HI (match_operand:HI 1 "nonimmediate_operand" "0,0,0")
-		(const_int 65280)))]
-  ""
+  "GET_CODE (operands[0]) != MEM || ! MEM_VOLATILE_P (operands[0])"
   "cLear.b %0"
   [(set_attr "slottable" "yes,yes,no")
    (set_attr "cc" "none")])
@@ -4544,9 +4552,9 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 1) (match_dup 8)]))]
-  "operands[8] = gen_rtx (GET_CODE (operands[7]), GET_MODE (operands[7]),
-			  replace_equiv_address (XEXP (operands[7], 0),
-						 operands[5]));")
+  "operands[8] = gen_rtx_fmt_e (GET_CODE (operands[7]), GET_MODE (operands[7]),
+				replace_equiv_address (XEXP (operands[7], 0),
+						       operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry
 
@@ -4569,9 +4577,9 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 5 [(match_dup 1) (match_dup 7)]))]
-  "operands[7] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			  replace_equiv_address (XEXP (operands[6], 0),
-						 operands[4]));")
+  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
+				replace_equiv_address (XEXP (operands[6], 0),
+						       operands[4]));")
 
 ;; op(s|u).S1 [rx=rx+rz.S2],ry (swapped, plus or bound)
 
@@ -4596,9 +4604,9 @@
   [(set (match_dup 5) (plus:SI (mult:SI (match_dup 2) (match_dup 3))
 			       (match_dup 4)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 8) (match_dup 1)]))]
-  "operands[8] = gen_rtx (GET_CODE (operands[6]), GET_MODE (operands[6]),
-			  replace_equiv_address (XEXP (operands[6], 0),
-						 operands[5]));")
+  "operands[8] = gen_rtx_fmt_e (GET_CODE (operands[6]), GET_MODE (operands[6]),
+				replace_equiv_address (XEXP (operands[6], 0),
+						       operands[5]));")
 
 ;; op(s|u).S1 [rx=rx+i],ry (swapped, plus or bound)
 
@@ -4620,9 +4628,9 @@
     || rtx_equal_p (operands[4], operands[3]))"
   [(set (match_dup 4) (plus:SI (match_dup 2) (match_dup 3)))
    (set (match_dup 0) (match_op_dup 6 [(match_dup 7) (match_dup 1)]))]
-  "operands[7] = gen_rtx (GET_CODE (operands[5]), GET_MODE (operands[5]),
-			  replace_equiv_address (XEXP (operands[5], 0),
-						 operands[4]));")
+  "operands[7] = gen_rtx_fmt_e (GET_CODE (operands[5]), GET_MODE (operands[5]),
+				replace_equiv_address (XEXP (operands[5], 0),
+						       operands[4]));")
 
 ;; Splits for addressing prefixes that have no side-effects, so we can
 ;; fill a delay slot.  Never split if we lose something, though.

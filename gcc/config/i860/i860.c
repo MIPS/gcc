@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Intel i860
-   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Derived from sparc.c.
 
@@ -159,7 +159,7 @@ reg_clobbered_p (rtx reg, rtx in)
 	  /* Anything that sets just part of the register
 	     is considered using as well as setting it.
 	     But note that a straight SUBREG of a single-word value
-	     clobbers the entire value.   */
+	     clobbers the entire value.  */
 	  if (dest != SET_DEST (in)
 	      && ! (GET_CODE (SET_DEST (in)) == SUBREG
 		    || UNITS_PER_WORD >= GET_MODE_SIZE (GET_MODE (dest))))
@@ -766,7 +766,7 @@ load_opcode (enum machine_mode mode, const char *args, rtx reg)
 /* Return a template for a store instruction with mode MODE and
    arguments from the string ARGS.
 
-   This string is in static storage.   */
+   This string is in static storage.  */
 
 static const char *
 store_opcode (enum machine_mode mode, const char *args, rtx reg)
@@ -1165,7 +1165,7 @@ output_block_move (rtx *operands)
   output_asm_insn ("bla %5,%2,.Lm%3", xoperands);
   output_asm_insn ("adds %0,%2,%6", xoperands);
   output_asm_insn ("\n.Lm%3:", xoperands);	    /* Label for bla above.  */
-  output_asm_insn ("\n.Ls%3:",  xoperands);	    /* Loop start label. */
+  output_asm_insn ("\n.Ls%3:",  xoperands);	    /* Loop start label.  */
   output_asm_insn ("adds %5,%6,%6", xoperands);
 
   /* NOTE:  The code here which is supposed to handle the cases where the
@@ -1775,7 +1775,7 @@ i860_output_function_epilogue (FILE *asm_file, HOST_WIDE_INT local_bytes)
 
 /* Expand a library call to __builtin_saveregs.  */
 
-rtx
+static rtx
 i860_saveregs (void)
 {
   rtx fn = gen_rtx_SYMBOL_REF (Pmode, "__builtin_saveregs");
@@ -1813,8 +1813,8 @@ i860_saveregs (void)
 
    The tree representing the va_list declaration is returned.  */
 
-tree
-i860_build_va_list (void)
+static tree
+i860_build_builtin_va_list (void)
 {
   tree f_gpr, f_fpr, f_mem, f_sav, record, type_decl;
 
@@ -2101,6 +2101,13 @@ i860_init_libfuncs (void)
   set_optab_libfunc (umod_optab, SImode, "*.urem");
 }
 
+static rtx
+i860_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
+		       int incoming ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (Pmode, I860_STRUCT_VALUE_REGNUM);
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS i860_rtx_costs
@@ -2117,5 +2124,13 @@ i860_init_libfuncs (void)
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS i860_init_libfuncs
 
-struct gcc_target targetm = TARGET_INITIALIZER;
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST i860_build_builtin_va_list
 
+#undef TARGET_STRUCT_VALUE_RTX
+#define TARGET_STRUCT_VALUE_RTX i860_struct_value_rtx
+
+#undef TARGET_EXPAND_BUILTIN_SAVEREGS
+#define TARGET_EXPAND_BUILTIN_SAVEREGS i860_saveregs
+
+struct gcc_target targetm = TARGET_INITIALIZER;

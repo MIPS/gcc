@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -86,7 +86,6 @@ with System.Soft_Links;
 with System.OS_Primitives;
 --  used for Delay_Modes
 
-with Unchecked_Conversion;
 with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
@@ -173,14 +172,14 @@ package body System.Task_Primitives.Operations is
    -- Local Subprograms --
    -----------------------
 
-   function sysconf (name : System.OS_Interface.int)
-     return processorid_t;
+   function sysconf (name : System.OS_Interface.int) return processorid_t;
    pragma Import (C, sysconf, "sysconf");
 
    SC_NPROCESSORS_CONF : constant System.OS_Interface.int := 14;
 
-   function Num_Procs (name : System.OS_Interface.int := SC_NPROCESSORS_CONF)
-     return processorid_t renames sysconf;
+   function Num_Procs
+     (name : System.OS_Interface.int := SC_NPROCESSORS_CONF)
+      return processorid_t renames sysconf;
 
    procedure Abort_Handler
      (Sig     : Signal;
@@ -190,22 +189,13 @@ package body System.Task_Primitives.Operations is
    --  the raising of the Abort_Signal exception.
    --  See also comments in 7staprop.adb
 
-   function To_thread_t is new Unchecked_Conversion
-     (Integer, System.OS_Interface.thread_t);
-
-   function To_Task_ID is new Unchecked_Conversion (System.Address, Task_ID);
-
-   function To_Address is new Unchecked_Conversion (Task_ID, System.Address);
-
-   function Thread_Body_Access is
-     new Unchecked_Conversion (System.Address, Thread_Body);
-
    ------------
    -- Checks --
    ------------
 
-   function Check_Initialize_Lock (L : Lock_Ptr; Level : Lock_Level)
-     return Boolean;
+   function Check_Initialize_Lock
+     (L     : Lock_Ptr;
+      Level : Lock_Level) return Boolean;
    pragma Inline (Check_Initialize_Lock);
 
    function Check_Lock (L : Lock_Ptr) return Boolean;
@@ -218,17 +208,17 @@ package body System.Task_Primitives.Operations is
    pragma Inline (Check_Sleep);
 
    function Record_Wakeup
-     (L : Lock_Ptr;
+     (L      : Lock_Ptr;
       Reason : Task_States) return Boolean;
    pragma Inline (Record_Wakeup);
 
    function Check_Wakeup
-     (T : Task_ID;
+     (T      : Task_ID;
       Reason : Task_States) return Boolean;
    pragma Inline (Check_Wakeup);
 
    function Check_Unlock (L : Lock_Ptr) return Boolean;
-   pragma Inline (Check_Lock);
+   pragma Inline (Check_Unlock);
 
    function Check_Finalize_Lock (L : Lock_Ptr) return Boolean;
    pragma Inline (Check_Finalize_Lock);
@@ -275,16 +265,8 @@ package body System.Task_Primitives.Operations is
    ------------
 
    Check_Count  : Integer := 0;
-   Old_Owner    : Task_ID;
    Lock_Count   : Integer := 0;
    Unlock_Count : Integer := 0;
-
-   function To_Lock_Ptr is
-     new Unchecked_Conversion (RTS_Lock_Ptr, Lock_Ptr);
-   function To_Task_ID is
-     new Unchecked_Conversion (Owner_ID, Task_ID);
-   function To_Owner_ID is
-     new Unchecked_Conversion (Task_ID, Owner_ID);
 
    -------------------
    -- Abort_Handler --
@@ -299,9 +281,11 @@ package body System.Task_Primitives.Operations is
       pragma Unreferenced (Code);
       pragma Unreferenced (Context);
 
-      Self_ID : Task_ID := Self;
-      Result  : Interfaces.C.int;
+      Self_ID : constant Task_ID := Self;
       Old_Set : aliased sigset_t;
+
+      Result : Interfaces.C.int;
+      pragma Unreferenced (Result);
 
    begin
       --  It is not safe to raise an exception when using ZCX and the GCC
@@ -758,7 +742,9 @@ package body System.Task_Primitives.Operations is
    is
       pragma Unreferenced (Loss_Of_Inheritance);
 
-      Result  : Interfaces.C.int;
+      Result : Interfaces.C.int;
+      pragma Unreferenced (Result);
+
       Param   : aliased struct_pcparms;
 
       use Task_Info;
@@ -896,7 +882,6 @@ package body System.Task_Primitives.Operations is
    -----------------------------
 
    function Register_Foreign_Thread return Task_ID is
-
    begin
       if Is_Valid_Task then
          return Self;
@@ -1051,7 +1036,6 @@ package body System.Task_Primitives.Operations is
       if Is_Self then
          Specific.Set (null);
       end if;
-
    end Finalize_TCB;
 
    ---------------
@@ -1364,8 +1348,7 @@ package body System.Task_Primitives.Operations is
 
    function Check_Initialize_Lock
      (L     : Lock_Ptr;
-      Level : Lock_Level)
-      return  Boolean
+      Level : Lock_Level) return Boolean
    is
       Self_ID : constant Task_ID := Self;
 
@@ -1415,7 +1398,7 @@ package body System.Task_Primitives.Operations is
 
       --  Check that caller is not holding this lock already
 
-      if L.Owner = To_Owner_ID (Self_ID) then
+      if L.Owner = To_Owner_ID (To_Address (Self_ID)) then
          return False;
       end if;
 
@@ -1442,7 +1425,7 @@ package body System.Task_Primitives.Operations is
    -----------------
 
    function Record_Lock (L : Lock_Ptr) return Boolean is
-      Self_ID : Task_ID := Self;
+      Self_ID : constant Task_ID := Self;
       P       : Lock_Ptr;
 
    begin
@@ -1456,7 +1439,7 @@ package body System.Task_Primitives.Operations is
 
       --  Record new owner
 
-      L.Owner := To_Owner_ID (Self_ID);
+      L.Owner := To_Owner_ID (To_Address (Self_ID));
 
       if Single_Lock then
          return True;
@@ -1523,18 +1506,17 @@ package body System.Task_Primitives.Operations is
 
    function Record_Wakeup
      (L      : Lock_Ptr;
-      Reason : Task_States)
-      return   Boolean
+      Reason : Task_States) return Boolean
    is
       pragma Unreferenced (Reason);
 
-      Self_ID : Task_ID := Self;
+      Self_ID : constant Task_ID := Self;
       P       : Lock_Ptr;
 
    begin
       --  Record new owner
 
-      L.Owner := To_Owner_ID (Self_ID);
+      L.Owner := To_Owner_ID (To_Address (Self_ID));
 
       if Single_Lock then
          return True;
@@ -1559,15 +1541,14 @@ package body System.Task_Primitives.Operations is
 
    function Check_Wakeup
      (T      : Task_ID;
-      Reason : Task_States)
-      return   Boolean
+      Reason : Task_States) return Boolean
    is
       Self_ID : constant Task_ID := Self;
 
    begin
       --  Is caller holding T's lock?
 
-      if T.Common.LL.L.Owner /= To_Owner_ID (Self_ID) then
+      if T.Common.LL.L.Owner /= To_Owner_ID (To_Address (Self_ID)) then
          return False;
       end if;
 
@@ -1585,7 +1566,7 @@ package body System.Task_Primitives.Operations is
    ------------------
 
    function Check_Unlock (L : Lock_Ptr) return Boolean is
-      Self_ID : Task_ID := Self;
+      Self_ID : constant Task_ID := Self;
       P       : Lock_Ptr;
 
    begin
@@ -1605,7 +1586,6 @@ package body System.Task_Primitives.Operations is
 
       if Unlock_Count - Check_Count > 1000 then
          Check_Count := Unlock_Count;
-         Old_Owner   := To_Task_ID (Single_RTS_Lock.Owner);
       end if;
 
       --  Check that caller is abort-deferred
@@ -1727,8 +1707,7 @@ package body System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
    begin
       if T.Common.LL.Thread /= Thread_Self then
@@ -1744,8 +1723,7 @@ package body System.Task_Primitives.Operations is
 
    function Resume_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
    begin
       if T.Common.LL.Thread /= Thread_Self then

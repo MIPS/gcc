@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,6 +29,7 @@ with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
+with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
@@ -76,6 +77,9 @@ package body Sem_Aggr is
    --  A simple insertion sort is used since the number of choices in a case
    --  statement of variant part will usually be small and probably in near
    --  sorted order.
+
+   procedure Check_Can_Never_Be_Null (N : Node_Id; Expr : Node_Id);
+   --  Ada 0Y (AI-231): Check bad usage of the null-exclusion issue
 
    ------------------------------------------------------
    -- Subprograms used for RECORD AGGREGATE Processing --
@@ -334,7 +338,7 @@ package body Sem_Aggr is
    --
    --    Typ is the context type in which N occurs.
    --
-   --  This routine creates an implicit array subtype whose bouds are
+   --  This routine creates an implicit array subtype whose bounds are
    --  those defined by the aggregate. When this routine is invoked
    --  Resolve_Array_Aggregate has already processed aggregate N. Thus the
    --  Aggregate_Bounds of each sub-aggregate, is an N_Range node giving the
@@ -464,6 +468,17 @@ package body Sem_Aggr is
             Analyze_And_Resolve (Exp, Check_Typ);
             Check_Unset_Reference (Exp);
          end if;
+
+      --  Ada 0Y (AI-231): Generate conversion to the null-excluding
+      --  type to force the corresponding run-time check
+
+      elsif Is_Access_Type (Check_Typ)
+        and then Can_Never_Be_Null (Check_Typ)
+        and then not Can_Never_Be_Null (Exp_Typ)
+      then
+         Rewrite (Exp, Convert_To (Check_Typ, Relocate_Node (Exp)));
+         Analyze_And_Resolve (Exp, Check_Typ);
+         Check_Unset_Reference (Exp);
       end if;
    end Aggregate_Constraint_Checks;
 
@@ -866,7 +881,11 @@ package body Sem_Aggr is
          Error_Msg_N ("aggregate type cannot have limited component", N);
          Explain_Limited_Type (Typ, N);
 
-      elsif Is_Limited_Type (Typ) then
+      --  Ada 0Y (AI-287): Limited aggregates allowed
+
+      elsif Is_Limited_Type (Typ)
+        and not Extensions_Allowed
+      then
          Error_Msg_N ("aggregate type cannot be limited", N);
          Explain_Limited_Type (Typ, N);
 
@@ -957,6 +976,15 @@ package body Sem_Aggr is
             --  N_Parameter_Association which itself appears only if there is a
             --  formal parameter. Consequently we also need to test for
             --  N_Procedure_Call_Statement or N_Function_Call.
+
+            Set_Etype (N, Aggr_Typ);  --  may be overridden later on.
+
+            --  Ada 0Y (AI-231): Propagate the null_exclusion attribute to the
+            --  components of the array aggregate
+
+            if Extensions_Allowed then
+               Set_Can_Never_Be_Null (Aggr_Typ, Can_Never_Be_Null (Typ));
+            end if;
 
             if Is_Constrained (Typ) and then
               (Pkind = N_Assignment_Statement      or else
@@ -1637,9 +1665,31 @@ package body Sem_Aggr is
                   end if;
                end loop;
 
-               if not
-                 Resolve_Aggr_Expr
-                   (Expression (Assoc), Single_Elmt => Single_Choice)
+               --  Ada 0Y (AI-231)
+
+               Check_Can_Never_Be_Null (N, Expression (Assoc));
+
+               --  Ada 0Y (AI-287): In case of default initialized component
+               --  we delay the resolution to the expansion phase
+
+               if Box_Present (Assoc) then
+
+                  --  Ada 0Y (AI-287): In case of default initialization of a
+                  --  component the expander will generate calls to the
+                  --  corresponding initialization subprogram.
+
+                  if Present (Base_Init_Proc (Etype (Component_Typ)))
+                    or else Has_Task (Base_Type (Component_Typ))
+                  then
+                     null;
+                  else
+                     Error_Msg_N
+                       ("(Ada 0Y): no value supplied for this component",
+                        Assoc);
+                  end if;
+
+               elsif not Resolve_Aggr_Expr (Expression (Assoc),
+                                            Single_Elmt => Single_Choice)
                then
                   return Failure;
                end if;
@@ -1751,6 +1801,8 @@ package body Sem_Aggr is
          while Present (Expr) loop
             Nb_Elements := Nb_Elements + 1;
 
+            Check_Can_Never_Be_Null (N, Expr); --  Ada 0Y (AI-231)
+
             if not Resolve_Aggr_Expr (Expr, Single_Elmt => True) then
                return Failure;
             end if;
@@ -1760,8 +1812,28 @@ package body Sem_Aggr is
 
          if Others_Present then
             Assoc := Last (Component_Associations (N));
-            if not Resolve_Aggr_Expr (Expression (Assoc),
-                                      Single_Elmt => False)
+
+            Check_Can_Never_Be_Null (N, Expression (Assoc)); -- Ada 0Y (AI-231)
+
+            --  Ada 0Y (AI-287): In case of default initialized component
+            --  we delay the resolution to the expansion phase.
+
+            if Box_Present (Assoc) then
+
+               --  Ada 0Y (AI-287): In case of default initialization of a
+               --  component the expander will generate calls to the
+               --  corresponding initialization subprogram.
+
+               if Present (Base_Init_Proc (Etype (Component_Typ))) then
+                  null;
+               else
+                  Error_Msg_N
+                    ("(Ada 0Y): no value supplied for these components",
+                     Assoc);
+               end if;
+
+            elsif not Resolve_Aggr_Expr (Expression (Assoc),
+                                         Single_Elmt => False)
             then
                return Failure;
             end if;
@@ -1914,9 +1986,16 @@ package body Sem_Aggr is
          return;
 
       elsif Is_Limited_Type (Typ) then
-         Error_Msg_N ("aggregate type cannot be limited", N);
-         Explain_Limited_Type (Typ, N);
-         return;
+
+         --  Ada 0Y (AI-287): Limited aggregates are allowed
+
+         if Extensions_Allowed then
+            null;
+         else
+            Error_Msg_N ("aggregate type cannot be limited", N);
+            Explain_Limited_Type (Typ, N);
+            return;
+         end if;
 
       elsif Is_Class_Wide_Type (Typ) then
          Error_Msg_N ("aggregate cannot be of a class-wide type", N);
@@ -2017,7 +2096,19 @@ package body Sem_Aggr is
       --
       --  This variable is updated as a side effect of function Get_Value
 
-      procedure Add_Association (Component : Entity_Id; Expr : Node_Id);
+      Mbox_Present : Boolean := False;
+      Others_Mbox  : Boolean := False;
+      --  Ada 0Y (AI-287): Variables used in case of default initialization to
+      --  provide a functionality similar to Others_Etype. Mbox_Present
+      --  indicates that the component takes its default initialization;
+      --  Others_Mbox indicates that at least one component takes its default
+      --  initialization. Similar to Others_Etype, they are also updated as a
+      --  side effect of function Get_Value.
+
+      procedure Add_Association
+        (Component   : Entity_Id;
+         Expr        : Node_Id;
+         Box_Present : Boolean := False);
       --  Builds a new N_Component_Association node which associates
       --  Component to expression Expr and adds it to the new association
       --  list New_Assoc_List being built.
@@ -2064,7 +2155,11 @@ package body Sem_Aggr is
       -- Add_Association --
       ---------------------
 
-      procedure Add_Association (Component : Entity_Id; Expr : Node_Id) is
+      procedure Add_Association
+        (Component   : Entity_Id;
+         Expr        : Node_Id;
+         Box_Present : Boolean := False)
+      is
          Choice_List : constant List_Id := New_List;
          New_Assoc   : Node_Id;
 
@@ -2072,8 +2167,9 @@ package body Sem_Aggr is
          Append (New_Occurrence_Of (Component, Sloc (Expr)), Choice_List);
          New_Assoc :=
            Make_Component_Association (Sloc (Expr),
-             Choices    => Choice_List,
-             Expression => Expr);
+             Choices     => Choice_List,
+             Expression  => Expr,
+             Box_Present => Box_Present);
          Append (New_Assoc, New_Assoc_List);
       end Add_Association;
 
@@ -2174,7 +2270,44 @@ package body Sem_Aggr is
          Expr          : Node_Id := Empty;
          Selector_Name : Node_Id;
 
+         procedure Check_Non_Limited_Type;
+         --  Relax check to allow the default initialization of limited types.
+         --  For example:
+         --      record
+         --         C : Lim := (..., others => <>);
+         --      end record;
+
+         ----------------------------
+         -- Check_Non_Limited_Type --
+         ----------------------------
+
+         procedure Check_Non_Limited_Type is
+         begin
+            if Is_Limited_Type (Etype (Compon))
+               and then Comes_From_Source (Compon)
+               and then not In_Instance_Body
+            then
+               --  Ada 0Y (AI-287): Limited aggregates are allowed
+
+               if Extensions_Allowed
+                 and then Present (Expression (Assoc))
+                 and then Nkind (Expression (Assoc)) = N_Aggregate
+               then
+                  null;
+               else
+                  Error_Msg_N
+                    ("initialization not allowed for limited types", N);
+                  Explain_Limited_Type (Etype (Compon), Compon);
+               end if;
+
+            end if;
+         end Check_Non_Limited_Type;
+
+      --  Start of processing for Get_Value
+
       begin
+         Mbox_Present := False;
+
          if Present (From) then
             Assoc := First (From);
          else
@@ -2186,14 +2319,6 @@ package body Sem_Aggr is
             while Present (Selector_Name) loop
                if Nkind (Selector_Name) = N_Others_Choice then
                   if Consider_Others_Choice and then No (Expr) then
-                     if Present (Others_Etype) and then
-                        Base_Type (Others_Etype) /= Base_Type (Etype (Compon))
-                     then
-                        Error_Msg_N ("components in OTHERS choice must " &
-                                     "have same type", Selector_Name);
-                     end if;
-
-                     Others_Etype := Etype (Compon);
 
                      --  We need to duplicate the expression for each
                      --  successive component covered by the others choice.
@@ -2202,24 +2327,83 @@ package body Sem_Aggr is
                      --  indispensable otherwise, because each one must be
                      --  expanded individually to preserve side-effects.
 
-                     if Expander_Active then
-                        return New_Copy_Tree (Expression (Assoc));
+                     --  Ada 0Y (AI-287): In case of default initialization of
+                     --  components, we duplicate the corresponding default
+                     --  expression (from the record type declaration).
+
+                     if Box_Present (Assoc) then
+                        Others_Mbox  := True;
+                        Mbox_Present := True;
+
+                        if Expander_Active then
+                           return New_Copy_Tree (Expression (Parent (Compon)));
+                        else
+                           return Expression (Parent (Compon));
+                        end if;
+
                      else
-                        return Expression (Assoc);
+                        Check_Non_Limited_Type;
+
+                        if Present (Others_Etype) and then
+                           Base_Type (Others_Etype) /= Base_Type (Etype
+                                                                   (Compon))
+                        then
+                           Error_Msg_N ("components in OTHERS choice must " &
+                                        "have same type", Selector_Name);
+                        end if;
+
+                        Others_Etype := Etype (Compon);
+
+                        if Expander_Active then
+                           return New_Copy_Tree (Expression (Assoc));
+                        else
+                           return Expression (Assoc);
+                        end if;
                      end if;
                   end if;
 
                elsif Chars (Compon) = Chars (Selector_Name) then
                   if No (Expr) then
 
+                     --  Ada 0Y (AI-231)
+
+                     if Extensions_Allowed
+                       and then Present (Expression (Assoc))
+                       and then Nkind (Expression (Assoc)) = N_Null
+                       and then Can_Never_Be_Null (Compon)
+                     then
+                        Error_Msg_N
+                          ("(Ada 0Y) NULL not allowed in null-excluding " &
+                           "components", Expression (Assoc));
+                     end if;
+
                      --  We need to duplicate the expression when several
                      --  components are grouped together with a "|" choice.
                      --  For instance "filed1 | filed2 => Expr"
 
-                     if Present (Next (Selector_Name)) then
-                        Expr := New_Copy_Tree (Expression (Assoc));
+                     --  Ada 0Y (AI-287)
+
+                     if Box_Present (Assoc) then
+                        Mbox_Present := True;
+
+                        --  Duplicate the default expression of the component
+                        --  from the record type declaration
+
+                        if Present (Next (Selector_Name)) then
+                           Expr := New_Copy_Tree
+                                     (Expression (Parent (Compon)));
+                        else
+                           Expr := Expression (Parent (Compon));
+                        end if;
+
                      else
-                        Expr := Expression (Assoc);
+                        Check_Non_Limited_Type;
+
+                        if Present (Next (Selector_Name)) then
+                           Expr := New_Copy_Tree (Expression (Assoc));
+                        else
+                           Expr := Expression (Assoc);
+                        end if;
                      end if;
 
                      Generate_Reference (Compon, Selector_Name);
@@ -2502,6 +2686,18 @@ package body Sem_Aggr is
          while Present (Discrim) and then Present (Positional_Expr) loop
             if Discr_Present (Discrim) then
                Resolve_Aggr_Expr (Positional_Expr, Discrim);
+
+               --  Ada 0Y (AI-231)
+
+               if Extensions_Allowed
+                 and then Nkind (Positional_Expr) = N_Null
+                 and then Can_Never_Be_Null (Discrim)
+               then
+                  Error_Msg_N
+                    ("(Ada 0Y) NULL not allowed in null-excluding components",
+                     Positional_Expr);
+               end if;
+
                Next (Positional_Expr);
             end if;
 
@@ -2733,6 +2929,16 @@ package body Sem_Aggr is
          Component := Node (Component_Elmt);
          Resolve_Aggr_Expr (Positional_Expr, Component);
 
+         --  Ada 0Y (AI-231)
+         if Extensions_Allowed
+           and then Nkind (Positional_Expr) = N_Null
+           and then Can_Never_Be_Null (Component)
+         then
+            Error_Msg_N
+              ("(Ada 0Y) NULL not allowed in null-excluding components",
+               Positional_Expr);
+         end if;
+
          if Present (Get_Value (Component, Component_Associations (N))) then
             Error_Msg_NE
               ("more than one value supplied for Component &", N, Component);
@@ -2753,7 +2959,19 @@ package body Sem_Aggr is
          Component := Node (Component_Elmt);
          Expr := Get_Value (Component, Component_Associations (N), True);
 
-         if No (Expr) then
+         if Mbox_Present and then Is_Limited_Type (Etype (Component)) then
+
+            --  Ada 0Y (AI-287): In case of default initialization of a limited
+            --  component we pass the limited component to the expander. The
+            --  expander will generate calls to the corresponding initiali-
+            --  zation subprograms.
+
+            Add_Association
+              (Component   => Component,
+               Expr        => Empty,
+               Box_Present => True);
+
+         elsif No (Expr) then
             Error_Msg_NE ("no value supplied for component &!", N, Component);
          else
             Resolve_Aggr_Expr (Expr, Component);
@@ -2783,7 +3001,12 @@ package body Sem_Aggr is
             Typech := Empty;
 
             if Nkind (Selectr) = N_Others_Choice then
-               if No (Others_Etype) then
+
+               --  Ada 0Y (AI-287):  others choice may have expression or mbox
+
+               if No (Others_Etype)
+                  and then not Others_Mbox
+               then
                   Error_Msg_N
                     ("OTHERS must represent at least one component", Selectr);
                end if;
@@ -2804,8 +3027,10 @@ package body Sem_Aggr is
                --  component supplied by a previous expansion.
 
                if No (New_Assoc) then
+                  if Box_Present (Parent (Selectr)) then
+                     null;
 
-                  if Chars (Selectr) /= Name_uTag
+                  elsif Chars (Selectr) /= Name_uTag
                     and then Chars (Selectr) /= Name_uParent
                     and then Chars (Selectr) /= Name_uController
                   then
@@ -2827,8 +3052,11 @@ package body Sem_Aggr is
                   Typech := Base_Type (Etype (Component));
 
                elsif Typech /= Base_Type (Etype (Component)) then
-                  Error_Msg_N
-                    ("components in choice list must have same type", Selectr);
+                  if not Box_Present (Parent (Selectr)) then
+                     Error_Msg_N
+                       ("components in choice list must have same type",
+                        Selectr);
+                  end if;
                end if;
 
                Next (Selectr);
@@ -2851,6 +3079,21 @@ package body Sem_Aggr is
          Rewrite (N, New_Aggregate);
       end Step_8;
    end Resolve_Record_Aggregate;
+
+   -----------------------------
+   -- Check_Can_Never_Be_Null --
+   -----------------------------
+
+   procedure Check_Can_Never_Be_Null (N : Node_Id; Expr : Node_Id) is
+   begin
+      if Extensions_Allowed
+        and then Nkind (Expr) = N_Null
+        and then Can_Never_Be_Null (Etype (N))
+      then
+         Error_Msg_N
+           ("(Ada 0Y) NULL not allowed in null-excluding components", Expr);
+      end if;
+   end Check_Can_Never_Be_Null;
 
    ---------------------
    -- Sort_Case_Table --

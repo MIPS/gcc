@@ -1,6 +1,6 @@
 /* Generate code to initialize optabs from machine description.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -125,7 +125,11 @@ static const char * const optabs[] =
   "sin_optab->handlers[$A].insn_code = CODE_FOR_$(sin$a2$)",
   "cos_optab->handlers[$A].insn_code = CODE_FOR_$(cos$a2$)",
   "exp_optab->handlers[$A].insn_code = CODE_FOR_$(exp$a2$)",
+  "exp10_optab->handlers[$A].insn_code = CODE_FOR_$(exp10$a2$)",
+  "exp2_optab->handlers[$A].insn_code = CODE_FOR_$(exp2$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
+  "log10_optab->handlers[$A].insn_code = CODE_FOR_$(log10$a2$)",  
+  "log2_optab->handlers[$A].insn_code = CODE_FOR_$(log2$a2$)",  
   "tan_optab->handlers[$A].insn_code = CODE_FOR_$(tan$a2$)",
   "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
@@ -152,7 +156,10 @@ static const char * const optabs[] =
   "movstr_optab[$A] = CODE_FOR_$(movstr$a$)",
   "clrstr_optab[$A] = CODE_FOR_$(clrstr$a$)",
   "cmpstr_optab[$A] = CODE_FOR_$(cmpstr$a$)",
-  "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)" };
+  "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
+  "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
+  "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
+  "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)" };
 
 static void gen_insn (rtx);
 
@@ -217,7 +224,9 @@ gen_insn (rtx insn)
 		    /* We have to be concerned about matching "gt" and
 		       missing "gtu", e.g., so verify we have reached the
 		       end of thing we are to match.  */
-		    if (*p == 0 && *q == 0 && GET_RTX_CLASS(op) == '<')
+		    if (*p == 0 && *q == 0
+			&& (GET_RTX_CLASS (op) == RTX_COMPARE
+			    || GET_RTX_CLASS (op) == RTX_COMM_COMPARE))
 		      break;
 		  }
 

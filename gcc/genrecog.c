@@ -1,6 +1,6 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -90,6 +90,7 @@ struct decision_test
     {
       DT_mode, DT_code, DT_veclen,
       DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
+      DT_const_int,
       DT_veclen_ge, DT_dup, DT_pred, DT_c_test,
       DT_accept_op, DT_accept_insn
     } type;
@@ -231,7 +232,7 @@ static struct decision *new_decision
 static struct decision_test *new_decision_test
   (enum decision_type, struct decision_test ***);
 static rtx find_operand
-  (rtx, int);
+  (rtx, int, rtx);
 static rtx find_matching_operand
   (rtx, int);
 static void validate_pattern
@@ -345,19 +346,21 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
   return test;
 }
 
-/* Search for and return operand N.  */
+/* Search for and return operand N, stop when reaching node STOP.  */
 
 static rtx
-find_operand (rtx pattern, int n)
+find_operand (rtx pattern, int n, rtx stop)
 {
   const char *fmt;
   RTX_CODE code;
   int i, j, len;
   rtx r;
 
+  if (pattern == stop)
+    return stop;
+
   code = GET_CODE (pattern);
   if ((code == MATCH_SCRATCH
-       || code == MATCH_INSN
        || code == MATCH_OPERAND
        || code == MATCH_OPERATOR
        || code == MATCH_PARALLEL)
@@ -371,18 +374,19 @@ find_operand (rtx pattern, int n)
       switch (fmt[i])
 	{
 	case 'e': case 'u':
-	  if ((r = find_operand (XEXP (pattern, i), n)) != NULL_RTX)
+	  if ((r = find_operand (XEXP (pattern, i), n, stop)) != NULL_RTX)
 	    return r;
 	  break;
 
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
-	    if ((r = find_operand (XVECEXP (pattern, i, j), n)) != NULL_RTX)
+	    if ((r = find_operand (XVECEXP (pattern, i, j), n, stop))
+		!= NULL_RTX)
 	      return r;
 	  break;
 
@@ -429,7 +433,7 @@ find_matching_operand (rtx pattern, int n)
 	case 'V':
 	  if (! XVEC (pattern, i))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (pattern, i); j++)
@@ -466,8 +470,17 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
     {
     case MATCH_SCRATCH:
       return;
-
-    case MATCH_INSN:
+    case MATCH_DUP:
+    case MATCH_OP_DUP:
+    case MATCH_PAR_DUP:
+      if (find_operand (insn, XINT (pattern, 0), pattern) == pattern)
+	{
+	  message_with_line (pattern_lineno,
+			     "operand %i duplicated before defined",
+			     XINT (pattern, 0));
+          error_count++;
+	}
+      break;
     case MATCH_OPERAND:
     case MATCH_OPERATOR:
       {
@@ -633,17 +646,17 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	if (GET_CODE (dest) == STRICT_LOW_PART)
 	  dest = XEXP (dest, 0);
 
-	/* Find the referant for a DUP.  */
+	/* Find the referent for a DUP.  */
 
 	if (GET_CODE (dest) == MATCH_DUP
 	    || GET_CODE (dest) == MATCH_OP_DUP
 	    || GET_CODE (dest) == MATCH_PAR_DUP)
-	  dest = find_operand (insn, XINT (dest, 0));
+	  dest = find_operand (insn, XINT (dest, 0), NULL);
 
 	if (GET_CODE (src) == MATCH_DUP
 	    || GET_CODE (src) == MATCH_OP_DUP
 	    || GET_CODE (src) == MATCH_PAR_DUP)
-	  src = find_operand (insn, XINT (src, 0));
+	  src = find_operand (insn, XINT (src, 0), NULL);
 
 	dmode = GET_MODE (dest);
 	smode = GET_MODE (src);
@@ -812,12 +825,11 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	 beyond the end of the vector.  */
       test = new_decision_test (DT_veclen_ge, &place);
       test->u.veclen = XVECLEN (pattern, 2);
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
     case MATCH_OPERATOR:
-    case MATCH_INSN:
       {
 	const char *pred_name;
 	RTX_CODE was_code = code;
@@ -1734,6 +1746,20 @@ write_afterward (struct decision *start, struct decision *afterward,
     }
 }
 
+/* Emit a HOST_WIDE_INT as an integer constant expression.  We need to take
+   special care to avoid "decimal constant is so large that it is unsigned"
+   warnings in the resulting code.  */
+
+static void
+print_host_wide_int (HOST_WIDE_INT val)
+{
+  HOST_WIDE_INT min = (unsigned HOST_WIDE_INT)1 << (HOST_BITS_PER_WIDE_INT-1);
+  if (val == min)
+    printf ("(" HOST_WIDE_INT_PRINT_DEC_C "-1)", val + 1);
+  else
+    printf (HOST_WIDE_INT_PRINT_DEC_C, val);
+}
+
 /* Emit a switch statement, if possible, for an initial sequence of
    nodes at START.  Return the first node yet untested.  */
 
@@ -1907,7 +1933,7 @@ write_switch (struct decision *start, int depth)
 	    case DT_elt_one_int:
 	    case DT_elt_zero_wide:
 	    case DT_elt_zero_wide_safe:
-	      printf (HOST_WIDE_INT_PRINT_DEC_C, p->tests->u.intval);
+	      print_host_wide_int (p->tests->u.intval);
 	      break;
 	    default:
 	      abort ();
@@ -1964,7 +1990,12 @@ write_cond (struct decision_test *p, int depth,
     case DT_elt_zero_wide:
     case DT_elt_zero_wide_safe:
       printf ("XWINT (x%d, 0) == ", depth);
-      printf (HOST_WIDE_INT_PRINT_DEC_C, p->u.intval);
+      print_host_wide_int (p->u.intval);
+      break;
+
+    case DT_const_int:
+      printf ("x%d == const_int_rtx[MAX_SAVED_CONST_INT + (%d)]",
+	      depth, (int) p->u.intval);
       break;
 
     case DT_veclen_ge:
@@ -2129,6 +2160,23 @@ write_node (struct decision *p, int depth,
   struct decision_test *test, *last_test;
   int uncond;
 
+  /* Scan the tests and simplify comparisons against small
+     constants.  */
+  for (test = p->tests; test; test = test->next)
+    {
+      if (test->type == DT_code
+	  && test->u.code == CONST_INT
+	  && test->next
+	  && test->next->type == DT_elt_zero_wide_safe
+	  && -MAX_SAVED_CONST_INT <= test->next->u.intval
+	  && test->next->u.intval <= MAX_SAVED_CONST_INT)
+	{
+	  test->type = DT_const_int;
+	  test->u.intval = test->next->u.intval;
+	  test->next = test->next->next;
+	}
+    }
+
   last_test = test = p->tests;
   uncond = is_unconditional (test, subroutine_type);
   if (uncond == 0)
@@ -2138,11 +2186,8 @@ write_node (struct decision *p, int depth,
 
       while ((test = test->next) != NULL)
 	{
-	  int uncond2;
-
 	  last_test = test;
-	  uncond2 = is_unconditional (test, subroutine_type);
-	  if (uncond2 != 0)
+	  if (is_unconditional (test, subroutine_type))
 	    break;
 
 	  printf ("\n      && ");

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +42,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch7;  use Sem_Ch7;
@@ -300,7 +301,18 @@ package body Sem_Elab is
       Decl : Node_Id;
 
       E_Scope : Entity_Id;
-      --  Top level scope of entity for called subprogram
+      --  Top level scope of entity for called subprogram. This
+      --  value includes following renamings and derivations, so
+      --  this scope can be in a non-visible unit. This is the
+      --  scope that is to be investigated to see whether an
+      --  elaboration check is required.
+
+      W_Scope : Entity_Id;
+      --  Top level scope of directly called entity for subprogram.
+      --  This differs from E_Scope in the case where renamings or
+      --  derivations are involved, since it does not follow these
+      --  links, thus W_Scope is always in a visible unit. This is
+      --  the scope for the Elaborate_All if one is needed.
 
       Body_Acts_As_Spec : Boolean;
       --  Set to true if call is to body acting as spec (no separate spec)
@@ -325,6 +337,16 @@ package body Sem_Elab is
       --  we ignore this flag.
 
    begin
+      --  If the call is known to be within a local Suppress Elaboration
+      --  pragma, nothing to check. This can happen in task bodies.
+
+      if (Nkind (N) = N_Function_Call
+           or else Nkind (N) = N_Procedure_Call_Statement)
+        and then  No_Elaboration_Check (N)
+      then
+         return;
+      end if;
+
       --  Go to parent for derived subprogram, or to original subprogram
       --  in the case of a renaming (Alias covers both these cases)
 
@@ -601,7 +623,7 @@ package body Sem_Elab is
                Ent := Alias (Ent);
                E_Scope := Ent;
 
-               --  If no alias, there is a previous error.
+               --  If no alias, there is a previous error
 
                if No (Ent) then
                   return;
@@ -613,6 +635,26 @@ package body Sem_Elab is
             return;
          end if;
 
+         --  Find top level scope for called entity (not following renamings
+         --  or derivations). This is where the Elaborate_All will go if it
+         --  is needed. We start with the called entity, except in the case
+         --  of initialization procedures, where the init proc is in the root
+         --  package, where we start fromn the entity of the name in the call.
+
+         if Is_Entity_Name (Name (N))
+           and then Is_Init_Proc (Entity (Name (N)))
+         then
+            W_Scope := Scope (Entity (Name (N)));
+         else
+            W_Scope := E;
+         end if;
+
+         while not Is_Compilation_Unit (W_Scope) loop
+            W_Scope := Scope (W_Scope);
+         end loop;
+
+         --  Now check if an elaborate_all (or dynamic check) is needed
+
          if not Suppress_Elaboration_Warnings (Ent)
            and then not Elaboration_Checks_Suppressed (Ent)
            and then not Suppress_Elaboration_Warnings (E_Scope)
@@ -623,38 +665,23 @@ package body Sem_Elab is
             if Inst_Case then
                Error_Msg_NE
                  ("instantiation of& may raise Program_Error?", N, Ent);
+
             else
                if Is_Init_Proc (Entity (Name (N)))
                  and then Comes_From_Source (Ent)
                then
                   Error_Msg_NE
-                    ("implicit call to & in initialization" &
-                      "  may raise Program_Error?", N, Ent);
-                  E_Scope := Scope (Entity (Name (N)));
+                    ("implicit call to & may raise Program_Error?", N, Ent);
 
                else
                   Error_Msg_NE
                     ("call to & may raise Program_Error?", N, Ent);
                end if;
-
-               if Unit_Callee = No_Unit
-                 and then E_Scope = Current_Scope
-               then
-                  --  The missing pragma cannot be on the current unit, so
-                  --  place it on the compilation unit that contains the
-                  --  called entity, which is more likely to be right.
-
-                  E_Scope := Ent;
-
-                  while not Is_Compilation_Unit (E_Scope) loop
-                     E_Scope := Scope (E_Scope);
-                  end loop;
-               end if;
             end if;
 
             Error_Msg_Qual_Level := Nat'Last;
             Error_Msg_NE
-              ("\missing pragma Elaborate_All for&?", N, E_Scope);
+              ("\missing pragma Elaborate_All for&?", N, W_Scope);
             Error_Msg_Qual_Level := 0;
             Output_Calls (N);
 
@@ -662,7 +689,7 @@ package body Sem_Elab is
             --  unless in All_Errors_Mode.
 
             if not All_Errors_Mode and not Dynamic_Elaboration_Checks then
-               Set_Suppress_Elaboration_Warnings (E_Scope, True);
+               Set_Suppress_Elaboration_Warnings (W_Scope, True);
             end if;
          end if;
 
@@ -670,11 +697,17 @@ package body Sem_Elab is
 
          if Dynamic_Elaboration_Checks then
             if not Elaboration_Checks_Suppressed (Ent)
+              and then not Elaboration_Checks_Suppressed (W_Scope)
               and then not Elaboration_Checks_Suppressed (E_Scope)
               and then not Cunit_SC
             then
                --  Runtime elaboration check required. Generate check of the
                --  elaboration Boolean for the unit containing the entity.
+
+               --  Note that for this case, we do check the real unit (the
+               --  one from following renamings, since that is the issue!)
+
+               --  Could this possibly miss a useless but required PE???
 
                Insert_Elab_Check (N,
                  Make_Attribute_Reference (Loc,
@@ -684,25 +717,41 @@ package body Sem_Elab is
                        (Spec_Entity (E_Scope), Loc)));
             end if;
 
-         --  If no dynamic check required, then ask binder to guarantee
-         --  that the necessary elaborations will be done properly!
+         --  Case of static elaboration model
 
          else
-            if not Suppress_Elaboration_Warnings (E)
-              and then not Elaboration_Checks_Suppressed (E)
-              and then not Suppress_Elaboration_Warnings (E_Scope)
-              and then not Elaboration_Checks_Suppressed (E_Scope)
-              and then Elab_Warnings
-              and then Generate_Warnings
-              and then not Inst_Case
-            then
-               Error_Msg_Node_2 := E_Scope;
-               Error_Msg_NE ("call to& in elaboration code " &
-                  "requires pragma Elaborate_All on&?", N, E);
-            end if;
+            --  Do not do anything if elaboration checks suppressed. Note
+            --  that we check Ent here, not E, since we want the real entity
+            --  for the body to see if checks are suppressed for it, not the
+            --  dummy entry for renamings or derivations.
 
-            Set_Elaborate_All_Desirable (E_Scope);
-            Set_Suppress_Elaboration_Warnings (E_Scope, True);
+            if Elaboration_Checks_Suppressed (Ent)
+              or else Elaboration_Checks_Suppressed (E_Scope)
+              or else Elaboration_Checks_Suppressed (W_Scope)
+            then
+               null;
+
+            --  Here we need to generate an implicit elaborate all
+
+            else
+               --  Generate elaborate_all warning unless suppressed
+
+               if (Elab_Warnings and Generate_Warnings and not Inst_Case)
+                 and then not Suppress_Elaboration_Warnings (Ent)
+                 and then not Suppress_Elaboration_Warnings (E_Scope)
+                 and then not Suppress_Elaboration_Warnings (W_Scope)
+               then
+                  Error_Msg_Node_2 := W_Scope;
+                  Error_Msg_NE
+                    ("call to& in elaboration code " &
+                     "requires pragma Elaborate_All on&?", N, E);
+               end if;
+
+               --  Set indication for binder to generate Elaborate_All
+
+               Set_Elaborate_All_Desirable (W_Scope);
+               Set_Suppress_Elaboration_Warnings (W_Scope, True);
+            end if;
          end if;
 
       --  Case of entity is in same unit as call or instantiation
@@ -826,9 +875,40 @@ package body Sem_Elab is
      (N           : Node_Id;
       Outer_Scope : Entity_Id := Empty)
    is
-      Nam : Node_Id;
       Ent : Entity_Id;
       P   : Node_Id;
+
+      function Get_Called_Ent return Entity_Id;
+      --  Retrieve called entity. If this is a call to a protected subprogram,
+      --  entity is a selected component. The callable entity may be absent,
+      --  in which case there is no check to perform.  This happens with
+      --  non-analyzed calls in nested generics.
+
+      --------------------
+      -- Get_Called_Ent --
+      --------------------
+
+      function Get_Called_Ent return Entity_Id is
+         Nam : Node_Id;
+
+      begin
+         Nam := Name (N);
+
+         if No (Nam) then
+            return Empty;
+
+         elsif Nkind (Nam) = N_Selected_Component then
+            return Entity (Selector_Name (Nam));
+
+         elsif not Is_Entity_Name (Nam) then
+            return Empty;
+
+         else
+            return Entity (Nam);
+         end if;
+      end Get_Called_Ent;
+
+   --  Start of processing for Check_Elab_Call
 
    begin
       --  For an entry call, check relevant restriction
@@ -883,7 +963,10 @@ package body Sem_Elab is
       --  will be doing the actual call later, not now, and it
       --  is at the time of the actual call (statically speaking)
       --  that we must do our static check, not at the time of
-      --  its initial analysis).
+      --  its initial analysis). However, we have to check calls
+      --  within component definitions (e.g., a function call
+      --  that determines an array component bound), so we
+      --  terminate the loop in that case.
 
       P := Parent (N);
       while Present (P) loop
@@ -892,6 +975,13 @@ package body Sem_Elab is
             Nkind (P) = N_Component_Declaration
          then
             return;
+
+         --  The call occurs within the constraint of a component,
+         --  so it must be checked.
+
+         elsif Nkind (P) = N_Component_Definition then
+            exit;
+
          else
             P := Parent (P);
          end if;
@@ -1014,6 +1104,26 @@ package body Sem_Elab is
 
                         exit;
 
+                     elsif Nkind (P) = N_Task_Body then
+
+                        --  The check is deferred until Check_Task_Activation
+                        --  but we need to capture local suppress pragmas
+                        --  that may inhibit checks on this call.
+
+                        Ent := Get_Called_Ent;
+
+                        if No (Ent) then
+                           return;
+
+                        elsif Elaboration_Checks_Suppressed (Current_Scope)
+                          or else Elaboration_Checks_Suppressed (Ent)
+                          or else Elaboration_Checks_Suppressed (Scope (Ent))
+                        then
+                           Set_No_Elaboration_Check (N);
+                        end if;
+
+                        return;
+
                      --  Static model, call is not in elaboration code, we
                      --  never need to worry, because in the static model
                      --  the top level caller always takes care of things.
@@ -1027,25 +1137,7 @@ package body Sem_Elab is
          end if;
       end if;
 
-      --  Retrieve called entity. If this is a call to a protected subprogram,
-      --  the entity is a selected component.
-      --  The callable entity may be absent, in which case there is nothing
-      --  to do. This happens with non-analyzed calls in nested generics.
-
-      Nam := Name (N);
-
-      if No (Nam) then
-         return;
-
-      elsif Nkind (Nam) = N_Selected_Component then
-         Ent := Entity (Selector_Name (Nam));
-
-      elsif not Is_Entity_Name (Nam) then
-         return;
-
-      else
-         Ent := Entity (Nam);
-      end if;
+      Ent := Get_Called_Ent;
 
       if No (Ent) then
          return;
@@ -1408,7 +1500,7 @@ package body Sem_Elab is
 
          if (Nkind (Original_Node (N)) = N_Accept_Statement
               or else Nkind (Original_Node (N)) = N_Selective_Accept)
-           and then Restrictions (No_Entry_Calls_In_Elaboration_Code)
+           and then Restriction_Active (No_Entry_Calls_In_Elaboration_Code)
          then
             return Abandon;
 
@@ -1848,7 +1940,8 @@ package body Sem_Elab is
          elsif Dynamic_Elaboration_Checks then
             if not Elaboration_Checks_Suppressed (Ent)
               and then not Cunit_SC
-              and then not Restrictions (No_Entry_Calls_In_Elaboration_Code)
+              and then
+                not Restriction_Active (No_Entry_Calls_In_Elaboration_Code)
             then
                --  Runtime elaboration check required. generate check of the
                --  elaboration Boolean for the unit containing the entity.

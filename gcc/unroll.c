@@ -1,6 +1,6 @@
 /* Try to unroll loops, and split induction variables.
    Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003
+   2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by James E. Wilson, Cygnus Support/UC Berkeley.
 
@@ -1338,7 +1338,7 @@ simplify_cmp_and_jump_insns (enum rtx_code code, enum machine_mode mode,
 {
   rtx t, insn;
 
-  t = simplify_relational_operation (code, mode, op0, op1);
+  t = simplify_const_relational_operation (code, mode, op0, op1);
   if (!t)
     {
       enum rtx_code scode = signed_condition (code);
@@ -2797,8 +2797,9 @@ find_splittable_givs (const struct loop *loop, struct iv_class *bl,
 		{
 		  rtx tem = gen_reg_rtx (v->mode);
 		  record_base_value (REGNO (tem), v->add_val, 0);
-		  loop_iv_add_mult_hoist (loop, bl->initial_value, v->mult_val,
-					  v->add_val, tem);
+		  loop_iv_add_mult_hoist (loop, 
+				extend_value_for_giv (v, bl->initial_value), 
+				v->mult_val, v->add_val, tem);
 		  value = tem;
 		}
 
@@ -2871,7 +2872,6 @@ static int
 reg_dead_after_loop (const struct loop *loop, rtx reg)
 {
   rtx insn, label;
-  enum rtx_code code;
   int jump_count = 0;
   int label_count = 0;
 
@@ -2901,8 +2901,7 @@ reg_dead_after_loop (const struct loop *loop, rtx reg)
       insn = NEXT_INSN (XEXP (label, 0));
       while (insn)
 	{
-	  code = GET_CODE (insn);
-	  if (GET_RTX_CLASS (code) == 'i')
+	  if (INSN_P (insn))
 	    {
 	      rtx set, note;
 
@@ -2916,18 +2915,18 @@ reg_dead_after_loop (const struct loop *loop, rtx reg)
 	      set = single_set (insn);
 	      if (set && rtx_equal_p (SET_DEST (set), reg))
 		break;
-	    }
 
-	  if (code == JUMP_INSN)
-	    {
-	      if (GET_CODE (PATTERN (insn)) == RETURN)
-		break;
-	      else if (!any_uncondjump_p (insn)
-		       /* Prevent infinite loop following infinite loops.  */
-		       || jump_count++ > 20)
-		return 0;
-	      else
-		insn = JUMP_LABEL (insn);
+	      if (GET_CODE (insn) == JUMP_INSN)
+		{
+		  if (GET_CODE (PATTERN (insn)) == RETURN)
+		    break;
+		  else if (!any_uncondjump_p (insn)
+		           /* Prevent infinite loop following infinite loops.  */
+		           || jump_count++ > 20)
+		    return 0;
+		  else
+		    insn = JUMP_LABEL (insn);
+		}
 	    }
 
 	  insn = NEXT_INSN (insn);
@@ -3421,7 +3420,20 @@ loop_iterations (struct loop *loop)
 		 "Loop iterations: Iteration var not an integer.\n");
       return 0;
     }
-  else if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
+
+  /* Try swapping the comparison to identify a suitable iv.  */
+  if (REG_IV_TYPE (ivs, REGNO (iteration_var)) != BASIC_INDUCT
+      && REG_IV_TYPE (ivs, REGNO (iteration_var)) != GENERAL_INDUCT
+      && GET_CODE (comparison_value) == REG
+      && REGNO (comparison_value) < ivs->n_regs)
+    {
+      rtx temp = comparison_value;
+      comparison_code = swap_condition (comparison_code);
+      comparison_value = iteration_var;
+      iteration_var = temp;
+    }
+
+  if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
     {
       if (REGNO (iteration_var) >= ivs->n_regs)
 	abort ();

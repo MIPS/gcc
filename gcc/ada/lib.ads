@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -262,6 +262,10 @@ package Lib is
    --      Set when the entry is created by a call to Lib.Load and then cannot
    --      be changed.
 
+   --    Munit_Index
+   --      The index of the unit within the file for multiple unit per file
+   --      mode. Set to zero in normal single unit per file mode.
+
    --    Error_Location
    --      This is copied from the Sloc field of the Enode argument passed
    --      to Load_Unit. It refers to the enclosing construct which caused
@@ -388,6 +392,7 @@ package Lib is
    function Has_RACW         (U : Unit_Number_Type) return Boolean;
    function Loading          (U : Unit_Number_Type) return Boolean;
    function Main_Priority    (U : Unit_Number_Type) return Int;
+   function Munit_Index      (U : Unit_Number_Type) return Nat;
    function Source_Index     (U : Unit_Number_Type) return Source_File_Index;
    function Unit_File_Name   (U : Unit_Number_Type) return File_Name_Type;
    function Unit_Name        (U : Unit_Number_Type) return Unit_Name_Type;
@@ -416,6 +421,10 @@ package Lib is
 
    function Num_Units return Nat;
    --  Number of units currently in unit table
+
+   procedure Remove_Unit (U : Unit_Number_Type);
+   --  Remove unit U from unit table. Currently this is effective only
+   --  if U is the last unit currently stored in the unit table.
 
    function Entity_Is_In_Main_Unit (E : Entity_Id) return Boolean;
    --  Returns True if the entity E is declared in the main unit, or, in
@@ -449,7 +458,7 @@ package Lib is
    --  same value for each argument.
 
    function In_Same_Code_Unit (N1, N2 : Node_Or_Entity_Id) return Boolean;
-   pragma Inline (In_Same_Source_Unit);
+   pragma Inline (In_Same_Code_Unit);
    --  Determines if the two nodes or entities N1 and N2 are in the same
    --  code unit, the criterion being that Get_Code_Unit yields the same
    --  value for each argument.
@@ -462,8 +471,7 @@ package Lib is
    --  and False otherwise.
 
    function In_Extended_Main_Code_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean;
+     (N : Node_Or_Entity_Id) return Boolean;
    --  Return True if the node is in the generated code of the extended main
    --  unit, defined as the main unit, its specification (if any), and all
    --  its subunits (considered recursively). Units for which this enquiry
@@ -472,15 +480,12 @@ package Lib is
    --  If the main unit is itself a subunit, then the extended main unit
    --  includes its parent unit, and the parent unit spec if it is separate.
 
-   function In_Extended_Main_Code_Unit
-     (Loc :  Source_Ptr)
-      return Boolean;
+   function In_Extended_Main_Code_Unit (Loc : Source_Ptr) return Boolean;
    --  Same function as above, but argument is a source pointer rather
    --  than a node.
 
    function In_Extended_Main_Source_Unit
-     (N    : Node_Or_Entity_Id)
-      return Boolean;
+     (N : Node_Or_Entity_Id) return Boolean;
    --  Return True if the node is in the source text of the extended main
    --  unit, defined as the main unit, its specification (if any), and all
    --  its subunits (considered recursively). Units for which this enquiry
@@ -490,9 +495,7 @@ package Lib is
    --  a subunit, then the extended main unit includes its parent unit,
    --  and the parent unit spec if it is separate.
 
-   function In_Extended_Main_Source_Unit
-     (Loc :  Source_Ptr)
-      return Boolean;
+   function In_Extended_Main_Source_Unit (Loc : Source_Ptr) return Boolean;
    --  Same function as above, but argument is a source pointer rather
    --  than a node.
 
@@ -515,8 +518,7 @@ package Lib is
    --  could not have been built without making a unit table entry.
 
    function Get_Cunit_Entity_Unit_Number
-     (E    : Entity_Id)
-      return Unit_Number_Type;
+     (E : Entity_Id) return Unit_Number_Type;
    --  Return unit number of the unit whose compilation unit spec entity is
    --  the one passed as an argument. This must always succeed since the
    --  entity could not have been built without making a unit table entry.
@@ -590,7 +592,7 @@ package Lib is
    --  function returns True if the given generic unit entity E is for a
    --  generic unit that should be separately compiled, and false otherwise.
    --
-   --  Now GNAT can compile any generic unit including predefifined ones, but
+   --  Now GNAT can compile any generic unit including predefined ones, but
    --  because of the backward compatibility (to keep the ability to use old
    --  compiler versions to build GNAT) compiling library generics is an
    --  option. That is, now GNAT compiles a library generic as an ordinary
@@ -603,8 +605,7 @@ package Lib is
    --  compiled with the current approach.
 
    function Generic_Separately_Compiled
-     (Sfile : File_Name_Type)
-      return  Boolean;
+     (Sfile : File_Name_Type) return  Boolean;
    --  Same as the previous function, but works directly on a unit file name.
 
 private
@@ -618,6 +619,7 @@ private
    pragma Inline (Increment_Serial_Number);
    pragma Inline (Loading);
    pragma Inline (Main_Priority);
+   pragma Inline (Munit_Index);
    pragma Inline (Set_Cunit);
    pragma Inline (Set_Cunit_Entity);
    pragma Inline (Set_Fatal_Error);
@@ -633,6 +635,7 @@ private
    type Unit_Record is record
       Unit_File_Name   : File_Name_Type;
       Unit_Name        : Unit_Name_Type;
+      Munit_Index      : Nat;
       Expected_Unit    : Unit_Name_Type;
       Source_Index     : Source_File_Index;
       Cunit            : Node_Id;

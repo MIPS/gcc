@@ -1,6 +1,7 @@
 /* More subroutines needed by GCC output code on some machines.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989, 1992, 2001, 2002, 2003  Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1992, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
    the H8/300, that's in lib1funcs.asm, for H8/300H and H8S, it's here.  */
 
 #ifndef __H8300__
+long __fixunssfsi (float a);
+
 long
 __fixunssfsi (float a)
 {

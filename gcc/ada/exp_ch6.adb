@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,6 +51,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch6;  use Sem_Ch6;
@@ -65,6 +66,7 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Tbuild;   use Tbuild;
+with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
 with Validsw;  use Validsw;
 
@@ -357,7 +359,7 @@ package body Exp_Ch6 is
       --  since we won't be able to generate the code to handle the
       --  recursion in any case.
 
-      if Restrictions (No_Implicit_Conditionals) then
+      if Restriction_Active (No_Implicit_Conditionals) then
          return;
       end if;
 
@@ -539,9 +541,15 @@ package body Exp_Ch6 is
 
          if Nkind (Actual) = N_Type_Conversion then
             V_Typ := Etype (Expression (Actual));
-            Var   := Make_Var (Expression (Actual));
-            Crep  := not Same_Representation
-                       (Etype (Formal), Etype (Expression (Actual)));
+
+            --  If the formal is an (in-)out parameter, capture the name
+            --  of the variable in order to build the post-call assignment.
+
+            Var := Make_Var (Expression (Actual));
+
+            Crep := not Same_Representation
+                          (Etype (Formal), Etype (Expression (Actual)));
+
          else
             V_Typ := Etype (Actual);
             Var   := Make_Var (Actual);
@@ -588,6 +596,10 @@ package body Exp_Ch6 is
                Init :=
                  Convert_To (Etype (Formal), New_Occurrence_Of (Var, Loc));
             end if;
+
+         elsif Ekind (Formal) = E_In_Parameter then
+            Init := New_Occurrence_Of (Var, Loc);
+
          else
             Init := Empty;
          end if;
@@ -1258,7 +1270,7 @@ package body Exp_Ch6 is
          --  if we can tell that the first parameter cannot possibly be null.
          --  This helps optimization and also generation of warnings.
 
-         if not Restrictions (No_Exception_Handlers)
+         if not Restriction_Active (No_Exception_Handlers)
            and then Is_RTE (Subp, RE_Raise_Exception)
          then
             declare
@@ -1370,7 +1382,7 @@ package body Exp_Ch6 is
 
                --  When passing an access parameter as the actual to another
                --  access parameter we need to pass along the actual's own
-               --  associated access level parameter. This is done is we are
+               --  associated access level parameter. This is done if we are
                --  in the scope of the formal access parameter (if this is an
                --  inlined body the extra formal is irrelevant).
 
@@ -1504,7 +1516,12 @@ package body Exp_Ch6 is
          elsif Convention (Subp) = Convention_Java then
             null;
 
-         else
+         --  Ada 0Y (AI-231): do not force the check in case of Ada 0Y unless
+         --  it is a null-excluding type
+
+         elsif not Extensions_Allowed
+           or else Can_Never_Be_Null (Etype (Prev))
+         then
             Cond :=
               Make_Op_Eq (Loc,
                 Left_Opnd => Duplicate_Subexpr_No_Checks (Prev),
@@ -1521,8 +1538,16 @@ package body Exp_Ch6 is
          if Validity_Checks_On then
             if Ekind (Formal) = E_In_Parameter
               and then Validity_Check_In_Params
-              and then Is_Entity_Name (Actual)
             then
+               --  If the actual is an indexed component of a packed
+               --  type, it has not been expanded yet. It will be
+               --  copied in the validity code that follows, and has
+               --  to be expanded appropriately, so reanalyze it.
+
+               if Nkind (Actual) = N_Indexed_Component then
+                  Set_Analyzed (Actual, False);
+               end if;
+
                Ensure_Valid (Actual);
 
             elsif Ekind (Formal) = E_In_Out_Parameter
@@ -1813,32 +1838,10 @@ package body Exp_Ch6 is
          Check_Restriction (No_Abort_Statements, N);
       end if;
 
-      --  Some more special cases for cases other than explicit dereference
-
-      if Nkind (Name (N)) /= N_Explicit_Dereference then
-
-         --  Calls to an enumeration literal are replaced by the literal
-         --  This case occurs only when we have a call to a function that
-         --  is a renaming of an enumeration literal. The normal case of
-         --  a direct reference to an enumeration literal has already been
-         --  been dealt with by Resolve_Call. If the function is itself
-         --  inherited (see 7423-001) the literal of the parent type must
-         --  be explicitly converted to the return type of the function.
-
-         if Ekind (Subp) = E_Enumeration_Literal then
-            if Base_Type (Etype (Subp)) /= Base_Type (Etype (N)) then
-               Rewrite
-                 (N, Convert_To (Etype (N), New_Occurrence_Of (Subp, Loc)));
-            else
-               Rewrite (N, New_Occurrence_Of (Subp, Loc));
-            end if;
-
-            Resolve (N);
-         end if;
+      if Nkind (Name (N)) = N_Explicit_Dereference then
 
       --  Handle case of access to protected subprogram type
 
-      else
          if Ekind (Base_Type (Etype (Prefix (Name (N))))) =
                                E_Access_Protected_Subprogram_Type
          then
@@ -1921,10 +1924,42 @@ package body Exp_Ch6 is
       then
          if Is_Inlined (Subp) then
 
-            declare
+            Inlined_Subprogram : declare
                Bod         : Node_Id;
                Must_Inline : Boolean := False;
                Spec        : constant Node_Id := Unit_Declaration_Node (Subp);
+               Scop        : constant Entity_Id := Scope (Subp);
+
+               function In_Unfrozen_Instance return Boolean;
+               --  If the subprogram comes from an instance in the same
+               --  unit, and the instance is not yet frozen, inlining might
+               --  trigger order-of-elaboration problems in gigi.
+
+               --------------------------
+               -- In_Unfrozen_Instance --
+               --------------------------
+
+               function In_Unfrozen_Instance return Boolean is
+                  S : Entity_Id := Scop;
+
+               begin
+                  while Present (S)
+                    and then S /= Standard_Standard
+                  loop
+                     if Is_Generic_Instance (S)
+                       and then Present (Freeze_Node (S))
+                       and then not Analyzed (Freeze_Node (S))
+                     then
+                        return True;
+                     end if;
+
+                     S := Scope (S);
+                  end loop;
+
+                  return False;
+               end In_Unfrozen_Instance;
+
+            --  Start of processing for Inlined_Subprogram
 
             begin
                --  Verify that the body to inline has already been seen,
@@ -1936,6 +1971,19 @@ package body Exp_Ch6 is
                  or else Nkind (Spec) /= N_Subprogram_Declaration
                  or else No (Body_To_Inline (Spec))
                then
+                  Must_Inline := False;
+
+               --  If this an inherited function that returns a private
+               --  type, do not inline if the full view is an unconstrained
+               --  array, because such calls cannot be inlined.
+
+               elsif Present (Orig_Subp)
+                 and then Is_Array_Type (Etype (Orig_Subp))
+                 and then not Is_Constrained (Etype (Orig_Subp))
+               then
+                  Must_Inline := False;
+
+               elsif In_Unfrozen_Instance then
                   Must_Inline := False;
 
                else
@@ -1956,10 +2004,16 @@ package body Exp_Ch6 is
                   --  temporaries are generated when compiling the body by
                   --  itself. Otherwise link errors can occur.
 
+                  --  If the function being called is itself in the main unit,
+                  --  we cannot inline, because there is a risk of double
+                  --  elaboration and/or circularity: the inlining can make
+                  --  visible a private entity in the body of the main unit,
+                  --  that gigi will see before its sees its proper definition.
+
                   elsif not (In_Extended_Main_Code_Unit (N))
                     and then In_Package_Body
                   then
-                     Must_Inline := True;
+                     Must_Inline := not In_Extended_Main_Source_Unit (Subp);
                   end if;
                end if;
 
@@ -1983,7 +2037,7 @@ package body Exp_Ch6 is
                        N, Subp);
                   end if;
                end if;
-            end;
+            end Inlined_Subprogram;
          end if;
       end if;
 
@@ -2515,7 +2569,8 @@ package body Exp_Ch6 is
             Temp_Typ := Etype (A);
          end if;
 
-         --  Comments needed here ???
+         --  If the actual is a simple name or a literal, no need to
+         --  create a temporary, object can be used directly.
 
          if (Is_Entity_Name (A)
               and then
@@ -2849,6 +2904,8 @@ package body Exp_Ch6 is
 
    --  Reset Pure indication if any parameter has root type System.Address
 
+   --  Wrap thread body
+
    procedure Expand_N_Subprogram_Body (N : Node_Id) is
       Loc      : constant Source_Ptr := Sloc (N);
       H        : constant Node_Id    := Handled_Statement_Sequence (N);
@@ -2866,6 +2923,9 @@ package body Exp_Ch6 is
       --  the latter test is not critical, it does not matter if we add a
       --  few extra returns, since they get eliminated anyway later on.
 
+      procedure Expand_Thread_Body;
+      --  Perform required expansion of a thread body
+
       ----------------
       -- Add_Return --
       ----------------
@@ -2881,6 +2941,165 @@ package body Exp_Ch6 is
             Append_To (S, Make_Return_Statement (Sloc (End_Label (H))));
          end if;
       end Add_Return;
+
+      ------------------------
+      -- Expand_Thread_Body --
+      ------------------------
+
+      --  The required expansion of a thread body is as follows
+
+      --  procedure <thread body procedure name> is
+
+      --    _Secondary_Stack : aliased
+      --       Storage_Elements.Storage_Array
+      --         (1 .. Storage_Offset (Sec_Stack_Size));
+      --    for _Secondary_Stack'Alignment use Standard'Maximum_Alignment;
+
+      --    _Process_ATSD : aliased System.Threads.ATSD;
+
+      --  begin
+      --     System.Threads.Thread_Body_Enter;
+      --       (_Secondary_Stack'Address,
+      --        _Secondary_Stack'Length,
+      --        _Process_ATSD'Address);
+
+      --     declare
+      --        <user declarations>
+      --     begin
+      --        <user statements>
+      --     <user exception handlers>
+      --     end;
+
+      --    System.Threads.Thread_Body_Leave;
+
+      --  exception
+      --     when E : others =>
+      --       System.Threads.Thread_Body_Exceptional_Exit (E);
+      --  end;
+
+      --  Note the exception handler is omitted if pragma Restriction
+      --  No_Exception_Handlers is currently active.
+
+      procedure Expand_Thread_Body is
+         User_Decls    : constant List_Id := Declarations (N);
+         Sec_Stack_Len : Node_Id;
+
+         TB_Pragma  : constant Node_Id :=
+                        Get_Rep_Pragma (Spec_Id, Name_Thread_Body);
+
+         Ent_SS   : Entity_Id;
+         Ent_ATSD : Entity_Id;
+         Ent_EO   : Entity_Id;
+
+         Decl_SS   : Node_Id;
+         Decl_ATSD : Node_Id;
+
+         Excep_Handlers : List_Id;
+
+      begin
+         New_Scope (Spec_Id);
+
+         --  Get proper setting for secondary stack size
+
+         if List_Length (Pragma_Argument_Associations (TB_Pragma)) = 2 then
+            Sec_Stack_Len :=
+              Expression (Last (Pragma_Argument_Associations (TB_Pragma)));
+         else
+            Sec_Stack_Len :=
+              New_Occurrence_Of (RTE (RE_Default_Secondary_Stack_Size), Loc);
+         end if;
+
+         Sec_Stack_Len := Convert_To (RTE (RE_Storage_Offset), Sec_Stack_Len);
+
+         --  Build and set declarations for the wrapped thread body
+
+         Ent_SS   := Make_Defining_Identifier (Loc, Name_uSecondary_Stack);
+         Ent_ATSD := Make_Defining_Identifier (Loc, Name_uProcess_ATSD);
+
+         Decl_SS :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Ent_SS,
+             Aliased_Present     => True,
+             Object_Definition   =>
+               Make_Subtype_Indication (Loc,
+                 Subtype_Mark =>
+                   New_Occurrence_Of (RTE (RE_Storage_Array), Loc),
+                 Constraint   =>
+                   Make_Index_Or_Discriminant_Constraint (Loc,
+                     Constraints => New_List (
+                       Make_Range (Loc,
+                         Low_Bound  => Make_Integer_Literal (Loc, 1),
+                         High_Bound => Sec_Stack_Len)))));
+
+         Decl_ATSD :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Ent_ATSD,
+             Aliased_Present     => True,
+             Object_Definition   => New_Occurrence_Of (RTE (RE_ATSD), Loc));
+
+         Set_Declarations (N, New_List (Decl_SS, Decl_ATSD));
+         Analyze (Decl_SS);
+         Analyze (Decl_ATSD);
+         Set_Alignment (Ent_SS, UI_From_Int (Maximum_Alignment));
+
+         --  Create new exception handler
+
+         if Restriction_Active (No_Exception_Handlers) then
+            Excep_Handlers := No_List;
+
+         else
+            Check_Restriction (No_Exception_Handlers, N);
+
+            Ent_EO := Make_Defining_Identifier (Loc, Name_uE);
+
+            Excep_Handlers := New_List (
+              Make_Exception_Handler (Loc,
+                Choice_Parameter => Ent_EO,
+                Exception_Choices => New_List (
+                  Make_Others_Choice (Loc)),
+                Statements => New_List (
+                  Make_Procedure_Call_Statement (Loc,
+                    Name =>
+                      New_Occurrence_Of
+                        (RTE (RE_Thread_Body_Exceptional_Exit), Loc),
+                    Parameter_Associations => New_List (
+                      New_Occurrence_Of (Ent_EO, Loc))))));
+         end if;
+
+         --  Now build new handled statement sequence and analyze it
+
+         Set_Handled_Statement_Sequence (N,
+           Make_Handled_Sequence_Of_Statements (Loc,
+             Statements => New_List (
+
+               Make_Procedure_Call_Statement (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_Thread_Body_Enter), Loc),
+                 Parameter_Associations => New_List (
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_SS, Loc),
+                     Attribute_Name => Name_Address),
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_SS, Loc),
+                     Attribute_Name => Name_Length),
+
+                   Make_Attribute_Reference (Loc,
+                     Prefix => New_Occurrence_Of (Ent_ATSD, Loc),
+                     Attribute_Name => Name_Address))),
+
+               Make_Block_Statement (Loc,
+                 Declarations => User_Decls,
+                 Handled_Statement_Sequence => H),
+
+               Make_Procedure_Call_Statement (Loc,
+                 Name => New_Occurrence_Of (RTE (RE_Thread_Body_Leave), Loc))),
+
+             Exception_Handlers => Excep_Handlers));
+
+         Analyze (Handled_Statement_Sequence (N));
+         End_Scope;
+      end Expand_Thread_Body;
 
    --  Start of processing for Expand_N_Subprogram_Body
 
@@ -2915,7 +3134,16 @@ package body Exp_Ch6 is
 
       --  If this is a Pure function which has any parameters whose root
       --  type is System.Address, reset the Pure indication, since it will
-      --  likely cause incorrect code to be generated.
+      --  likely cause incorrect code to be generated as the parameter is
+      --  probably a pointer, and the fact that the same pointer is passed
+      --  does not mean that the same value is being referenced.
+
+      --  Note that if the programmer gave an explicit Pure_Function pragma,
+      --  then we believe the programmer, and leave the subprogram Pure.
+
+      --  This code should probably be at the freeze point, so that it
+      --  happens even on a -gnatc (or more importantly -gnatt) compile
+      --  so that the semantic tree has Is_Pure set properly ???
 
       if Is_Pure (Spec_Id)
         and then Is_Subprogram (Spec_Id)
@@ -2974,6 +3202,34 @@ package body Exp_Ch6 is
          end;
       end if;
 
+      Scop := Scope (Spec_Id);
+
+      --  Add discriminal renamings to protected subprograms.
+      --  Install new discriminals for expansion of the next
+      --  subprogram of this protected type, if any.
+
+      if Is_List_Member (N)
+        and then Present (Parent (List_Containing (N)))
+        and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
+      then
+         Add_Discriminal_Declarations
+           (Declarations (N), Scop, Name_uObject, Loc);
+         Add_Private_Declarations (Declarations (N), Scop, Name_uObject, Loc);
+
+         --  Associate privals and discriminals with the next protected
+         --  operation body to be expanded. These are used to expand
+         --  references to private data objects and discriminants,
+         --  respectively.
+
+         Next_Op := Next_Protected_Operation (N);
+
+         if Present (Next_Op) then
+            Dec := Parent (Base_Type (Scop));
+            Set_Privals (Dec, Next_Op, Loc);
+            Set_Discriminals (Dec);
+         end if;
+      end if;
+
       --  Clear out statement list for stubbed procedure
 
       if Present (Corresponding_Spec (N)) then
@@ -2990,8 +3246,6 @@ package body Exp_Ch6 is
             return;
          end if;
       end if;
-
-      Scop := Scope (Spec_Id);
 
       --  Returns_By_Ref flag is normally set when the subprogram is frozen
       --  but subprograms with no specs are not frozen
@@ -3081,32 +3335,6 @@ package body Exp_Ch6 is
          end;
       end if;
 
-      --  Add discriminal renamings to protected subprograms.
-      --  Install new discriminals for expansion of the next
-      --  subprogram of this protected type, if any.
-
-      if Is_List_Member (N)
-        and then Present (Parent (List_Containing (N)))
-        and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
-      then
-         Add_Discriminal_Declarations
-           (Declarations (N), Scop, Name_uObject, Loc);
-         Add_Private_Declarations (Declarations (N), Scop, Name_uObject, Loc);
-
-         --  Associate privals and discriminals with the next protected
-         --  operation body to be expanded. These are used to expand
-         --  references to private data objects and discriminants,
-         --  respectively.
-
-         Next_Op := Next_Protected_Operation (N);
-
-         if Present (Next_Op) then
-            Dec := Parent (Base_Type (Scop));
-            Set_Privals (Dec, Next_Op, Loc);
-            Set_Discriminals (Dec);
-         end if;
-      end if;
-
       --  If subprogram contains a parameterless recursive call, then we may
       --  have an infinite recursion, so see if we can generate code to check
       --  for this possibility if storage checks are not suppressed.
@@ -3148,6 +3376,12 @@ package body Exp_Ch6 is
                Next_Formal (Formal);
             end loop;
          end;
+      end if;
+
+      --  Deal with thread body
+
+      if Is_Thread_Body (Spec_Id) then
+         Expand_Thread_Body;
       end if;
 
       --  If the subprogram does not have pending instantiations, then we
@@ -3197,14 +3431,17 @@ package body Exp_Ch6 is
       Prot_Id   : Entity_Id;
 
    begin
-      --  Deal with case of protected subprogram
+      --  Deal with case of protected subprogram. Do not generate
+      --  protected operation if operation is flagged as eliminated.
 
       if Is_List_Member (N)
         and then Present (Parent (List_Containing (N)))
         and then Nkind (Parent (List_Containing (N))) = N_Protected_Body
         and then Is_Protected_Type (Scop)
       then
-         if No (Protected_Body_Subprogram (Subp)) then
+         if No (Protected_Body_Subprogram (Subp))
+           and then not Is_Eliminated (Subp)
+         then
             Prot_Decl :=
               Make_Subprogram_Declaration (Loc,
                 Specification =>

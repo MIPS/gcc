@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -308,6 +308,16 @@ create_array (type_p t, const char *len)
   return v;
 }
 
+/* Return an options structure with name NAME and info INFO.  */
+options_p
+create_option (const char *name, void *info)
+{
+  options_p o = xmalloc (sizeof (*o));
+  o->name = name;
+  o->info = info;
+  return o;
+}
+
 /* Add a variable named S of type T with options O defined at POS,
    to `variables'.  */
 
@@ -450,6 +460,7 @@ adjust_field_rtx_def (type_p t, options_p opt ATTRIBUTE_UNUSED)
 	    break;
 
 	  case NOTE_INSN_EXPECTED_VALUE:
+	  case NOTE_INSN_VAR_LOCATION:
 	    note_flds->name = "rtx";
 	    note_flds->type = rtx_tp;
 	    break;
@@ -980,7 +991,7 @@ static outf_p output_files;
 
 /* The output header file that is included into pretty much every
    source file.  */
-outf_p header_file;
+static outf_p header_file;
 
 /* Number of files specified in gtfiles.  */
 #define NUM_GT_FILES (ARRAY_SIZE (all_files) - 1)
@@ -1087,7 +1098,7 @@ open_base_files (void)
       "config.h", "system.h", "coretypes.h", "tm.h", "varray.h",
       "hashtab.h", "splay-tree.h", "bitmap.h", "tree.h", "rtl.h",
       "function.h", "insn-config.h", "expr.h", "hard-reg-set.h",
-      "basic-block.h", "cselib.h", "insn-addr.h", "ssa.h", "optabs.h",
+      "basic-block.h", "cselib.h", "insn-addr.h", "optabs.h",
       "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       NULL
     };
@@ -1911,8 +1922,8 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
 */
 
 static void
-write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
-			   const struct write_types_data *wtd)
+write_func_for_structure (type_p orig_s, type_p s, type_p *param,
+			  const struct write_types_data *wtd)
 {
   const char *fn = s->u.s.line.file;
   int i;
@@ -1947,7 +1958,7 @@ write_func_for_structure  (type_p orig_s, type_p s, type_p *param,
   d.bitmap = s->u.s.bitmap;
   d.param = param;
   d.prev_val[0] = "*x";
-  d.prev_val[1] = "not valid postage";  /* guarantee an error */
+  d.prev_val[1] = "not valid postage";  /* Guarantee an error.  */
   d.prev_val[3] = "x";
   d.val = "(*x)";
 
@@ -2200,7 +2211,7 @@ write_local_func_for_structure (type_p orig_s, type_p s, type_p *param)
   d.bitmap = s->u.s.bitmap;
   d.param = param;
   d.prev_val[0] = d.prev_val[2] = "*x";
-  d.prev_val[1] = "not valid postage";  /* guarantee an error */
+  d.prev_val[1] = "not valid postage";  /* Guarantee an error.  */
   d.prev_val[3] = "x";
   d.val = "(*x)";
 
@@ -2306,7 +2317,7 @@ write_local (type_p structures, type_p param_structs)
 /* Write out the 'enum' definition for gt_types_enum.  */
 
 static void
-write_enum_defn  (type_p structures, type_p param_structs)
+write_enum_defn (type_p structures, type_p param_structs)
 {
   type_p s;
 
@@ -2914,10 +2925,10 @@ main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED)
   do_scalar_typedef ("uint8", &pos);
   do_scalar_typedef ("jword", &pos);
   do_scalar_typedef ("JCF_u2", &pos);
+  do_scalar_typedef ("void", &pos);
 
-  do_typedef ("PTR", create_pointer (create_scalar_type ("void",
-							 strlen ("void"))),
-	      &pos);
+  do_typedef ("PTR", create_pointer (resolve_typedef ("void", &pos)), &pos);
+
   do_typedef ("HARD_REG_SET", create_array (
 	      create_scalar_type ("unsigned long", strlen ("unsigned long")),
 	      "2"), &pos);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,11 +25,11 @@
 ------------------------------------------------------------------------------
 
 with Atree;    use Atree;
+with Checks;   use Checks;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Util; use Exp_Util;
-with Hostparm; use Hostparm;
 with Itypes;   use Itypes;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
@@ -38,6 +38,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
@@ -209,10 +210,9 @@ package body Sem_Ch4 is
    --  a more informative message.
 
    function Try_Indexed_Call
-     (N      : Node_Id;
-      Nam    : Entity_Id;
-      Typ    : Entity_Id)
-      return   Boolean;
+     (N   : Node_Id;
+      Nam : Entity_Id;
+      Typ : Entity_Id) return Boolean;
    --  If a function has defaults for all its actuals, a call to it may
    --  in fact be an indexing on the result of the call. Try_Indexed_Call
    --  attempts the interpretation as an indexing, prior to analysis as
@@ -220,10 +220,9 @@ package body Sem_Ch4 is
    --  interpretations (same symbol but two different types).
 
    function Try_Indirect_Call
-     (N      : Node_Id;
-      Nam    : Entity_Id;
-      Typ    : Entity_Id)
-      return   Boolean;
+     (N   : Node_Id;
+      Nam : Entity_Id;
+      Typ : Entity_Id) return Boolean;
    --  Similarly, a function F that needs no actuals can return an access
    --  to a subprogram, and the call F (X)  interpreted as F.all (X). In
    --  this case the call may be overloaded with both interpretations.
@@ -286,14 +285,7 @@ package body Sem_Ch4 is
          List_Operand_Interps (Left_Opnd  (N));
          List_Operand_Interps (Right_Opnd (N));
       else
-
-         if OpenVMS then
-            Error_Msg_N (
-               "\use '/'R'E'P'O'R'T'_'E'R'R'O'R'S'='F'U'L'L for details",
-                N);
-         else
-            Error_Msg_N ("\use -gnatf for details", N);
-         end if;
+         Error_Msg_N ("\use -gnatf switch for details", N);
       end if;
    end Ambiguous_Operands;
 
@@ -334,16 +326,23 @@ package body Sem_Ch4 is
          Check_Fully_Declared (Type_Id, N);
          Set_Directly_Designated_Type (Acc_Type, Type_Id);
 
-         if Is_Protected_Type (Type_Id) then
-            Check_Restriction (No_Protected_Type_Allocators, N);
-         end if;
-
          if Is_Limited_Type (Type_Id)
            and then Comes_From_Source (N)
            and then not In_Instance_Body
          then
-            Error_Msg_N ("initialization not allowed for limited types", N);
-            Explain_Limited_Type (Type_Id, N);
+            --  Ada 0Y (AI-287): Do not post an error if the expression
+            --  corresponds to a limited aggregate. Limited aggregates
+            --  are checked in sem_aggr in a per-component manner
+            --  (compare with handling of Get_Value subprogram).
+
+            if Extensions_Allowed
+              and then Nkind (Expression (E)) = N_Aggregate
+            then
+               null;
+            else
+               Error_Msg_N ("initialization not allowed for limited types", N);
+               Explain_Limited_Type (Type_Id, N);
+            end if;
          end if;
 
          Analyze_And_Resolve (Expression (E), Type_Id);
@@ -439,6 +438,22 @@ package body Sem_Ch4 is
             Set_Directly_Designated_Type (Acc_Type, Type_Id);
             Check_Fully_Declared (Type_Id, N);
 
+            --  Ada 0Y (AI-231)
+
+            if Can_Never_Be_Null (Type_Id) then
+               Error_Msg_N ("(Ada 0Y) qualified expression required",
+                            Expression (N));
+            end if;
+
+            --  Check restriction against dynamically allocated protected
+            --  objects. Note that when limited aggregates are supported,
+            --  a similar test should be applied to an allocator with a
+            --  qualified expression ???
+
+            if Is_Protected_Type (Type_Id) then
+               Check_Restriction (No_Protected_Type_Allocators, N);
+            end if;
+
             --  Check for missing initialization. Skip this check if we already
             --  had errors on analyzing the allocator, since in that case these
             --  are probably cascaded errors
@@ -462,6 +477,7 @@ package body Sem_Ch4 is
       end if;
 
       if Has_Task (Designated_Type (Acc_Type)) then
+         Check_Restriction (No_Tasking, N);
          Check_Restriction (Max_Tasks, N);
          Check_Restriction (No_Task_Allocators, N);
       end if;
@@ -470,6 +486,15 @@ package body Sem_Ch4 is
 
       if not Is_Library_Level_Entity (Acc_Type) then
          Check_Restriction (No_Local_Allocators, N);
+      end if;
+
+      --  Ada 0Y (AI-231): Static checks
+
+      if Extensions_Allowed
+        and then (Null_Exclusion_Present (N)
+                    or else Can_Never_Be_Null (Etype (N)))
+      then
+         Null_Exclusion_Static_Checks (N);
       end if;
 
       if Serious_Errors_Detected > Sav_Errs then
@@ -3436,6 +3461,9 @@ package body Sem_Ch4 is
          Actual := First_Actual (N);
 
          while Present (Actual) loop
+            --  Ada 0Y (AI-50217): Post an error in case of premature usage of
+            --  an entity from the limited view.
+
             if not Analyzed (Etype (Actual))
              and then From_With_Type (Etype (Actual))
             then
@@ -3853,10 +3881,18 @@ package body Sem_Ch4 is
             return;
          end if;
 
+         --  Ada 0Y (AI-230): Keep restriction imposed by Ada 83 and 95: Do not
+         --  allow anonymous access types in equality operators.
+
+         if not Extensions_Allowed
+           and then Ekind (T1) = E_Anonymous_Access_Type
+         then
+            return;
+         end if;
+
          if T1 /= Standard_Void_Type
            and then not Is_Limited_Type (T1)
            and then not Is_Limited_Composite (T1)
-           and then Ekind (T1) /= E_Anonymous_Access_Type
            and then Has_Compatible_Type (R, T1)
          then
             if Found
@@ -4286,18 +4322,19 @@ package body Sem_Ch4 is
    -----------------------
 
    function Try_Indirect_Call
-     (N      : Node_Id;
-      Nam    : Entity_Id;
-      Typ    : Entity_Id)
-      return   Boolean
+     (N   : Node_Id;
+      Nam : Entity_Id;
+      Typ : Entity_Id) return Boolean
    is
-      Actuals : constant List_Id := Parameter_Associations (N);
       Actual  : Node_Id;
       Formal  : Entity_Id;
+      Call_OK : Boolean;
 
    begin
-      Actual := First (Actuals);
+      Normalize_Actuals (N, Designated_Type (Typ), False, Call_OK);
+      Actual := First_Actual (N);
       Formal := First_Formal (Designated_Type (Typ));
+
       while Present (Actual)
         and then Present (Formal)
       loop
@@ -4332,10 +4369,9 @@ package body Sem_Ch4 is
    ----------------------
 
    function Try_Indexed_Call
-     (N      : Node_Id;
-      Nam    : Entity_Id;
-      Typ    : Entity_Id)
-      return   Boolean
+     (N   : Node_Id;
+      Nam : Entity_Id;
+      Typ : Entity_Id) return Boolean
    is
       Actuals : constant List_Id   := Parameter_Associations (N);
       Actual : Node_Id;

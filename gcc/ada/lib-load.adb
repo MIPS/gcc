@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -55,8 +55,7 @@ package body Lib.Load is
 
    function Spec_Is_Irrelevant
      (Spec_Unit : Unit_Number_Type;
-      Body_Unit : Unit_Number_Type)
-      return      Boolean;
+      Body_Unit : Unit_Number_Type) return Boolean;
    --  The Spec_Unit and Body_Unit parameters are the unit numbers of the
    --  spec file that corresponds to the main unit which is a body. This
    --  function determines if the spec file is irrelevant and will be
@@ -73,12 +72,10 @@ package body Lib.Load is
 
    function Create_Dummy_Package_Unit
      (With_Node : Node_Id;
-      Spec_Name : Unit_Name_Type)
-      return      Unit_Number_Type
+      Spec_Name : Unit_Name_Type) return Unit_Number_Type
    is
       Unum         : Unit_Number_Type;
       Cunit_Entity : Entity_Id;
-      Scope_Entity : Entity_Id;
       Cunit        : Node_Id;
       Du_Name      : Node_Or_Entity_Id;
       End_Lab      : Node_Id;
@@ -98,11 +95,9 @@ package body Lib.Load is
          Du_Name := Cunit_Entity;
          End_Lab := New_Occurrence_Of (Cunit_Entity, No_Location);
 
-         Scope_Entity := Standard_Standard;
-
       --  Child package
 
-      else -- Nkind (Name (With_Node)) = N_Expanded_Name
+      else
          Cunit_Entity :=
            Make_Defining_Identifier (No_Location,
              Chars => Chars (Selector_Name (Name (With_Node))));
@@ -113,19 +108,13 @@ package body Lib.Load is
 
          Set_Is_Child_Unit (Cunit_Entity);
 
-         if Nkind (Du_Name) = N_Defining_Program_Unit_Name then
-            Scope_Entity := Defining_Identifier (Du_Name);
-         else
-            Scope_Entity := Du_Name;
-         end if;
-
          End_Lab :=
            Make_Designator (No_Location,
              Name => New_Copy_Tree (Prefix (Name (With_Node))),
              Identifier => New_Occurrence_Of (Cunit_Entity, No_Location));
       end if;
 
-      Set_Scope (Cunit_Entity, Scope_Entity);
+      Set_Scope (Cunit_Entity, Standard_Standard);
 
       Cunit :=
         Make_Compilation_Unit (No_Location,
@@ -164,6 +153,7 @@ package body Lib.Load is
         Ident_String    => Empty,
         Loading         => False,
         Main_Priority   => Default_Main_Priority,
+        Munit_Index     => 0,
         Serial_Number   => 0,
         Source_Index    => No_Source_File,
         Unit_File_Name  => Get_File_Name (Spec_Name, Subunit => False),
@@ -218,7 +208,6 @@ package body Lib.Load is
       Units.Table (Main_Unit).Unit_File_Name := Fname;
 
       if Fname /= No_File then
-
          Main_Source_File := Load_Source_File (Fname);
          Current_Error_Source_File := Main_Source_File;
 
@@ -233,9 +222,10 @@ package body Lib.Load is
            Fatal_Error     => False,
            Generate_Code   => False,
            Has_RACW        => False,
-           Loading         => True,
            Ident_String    => Empty,
+           Loading         => True,
            Main_Priority   => Default_Main_Priority,
+           Munit_Index     => 0,
            Serial_Number   => 0,
            Source_Index    => Main_Source_File,
            Unit_File_Name  => Fname,
@@ -254,8 +244,7 @@ package body Lib.Load is
       Error_Node : Node_Id;
       Subunit    : Boolean;
       Corr_Body  : Unit_Number_Type := No_Unit;
-      Renamings  : Boolean          := False)
-      return       Unit_Number_Type
+      Renamings  : Boolean          := False) return Unit_Number_Type
    is
       Calling_Unit : Unit_Number_Type;
       Uname_Actual : Unit_Name_Type;
@@ -345,14 +334,14 @@ package body Lib.Load is
                      Par := Prefix (Par);
                   end loop;
 
-                  if Nkind (Par) = N_Selected_Component then
-                     --  some intermediate parent is a renaming.
+                  --  Case of some intermediate parent is a renaming
 
+                  if Nkind (Par) = N_Selected_Component then
                      Set_Entity (Selector_Name (Par), Cunit_Entity (Unump));
 
-                  else
-                     --  the ultimate parent is a renaming.
+                  --  Case where the ultimate parent is a renaming
 
+                  else
                      Set_Entity (Par, Cunit_Entity (Unump));
                   end if;
                end;
@@ -475,7 +464,10 @@ package body Lib.Load is
       --  then we have the problem that the file does not contain the unit that
       --  is needed. We simply treat this as a file not found condition.
 
-      if Unum > Units.Last then
+      --  We skip this test in multiple unit per file mode since in this
+      --  case we can have multiple units from the same source file.
+
+      if Unum > Units.Last and then Multiple_Unit_Index = 0 then
          for J in Units.First .. Units.Last loop
             if Fname = Units.Table (J).Unit_File_Name then
                if Debug_Flag_L then
@@ -486,7 +478,6 @@ package body Lib.Load is
                end if;
 
                if Present (Error_Node) then
-
                   if Is_Predefined_File_Name (Fname) then
                      Error_Msg_Name_1 := Uname_Actual;
                      Error_Msg
@@ -524,8 +515,8 @@ package body Lib.Load is
          --  legitimately occurs (e.g. two package bodies that contain
          --  inlined subprogram referenced by the other).
 
-         --  We also ignore limited_with clauses, because their purpose is
-         --  precisely to create legal circular structures.
+         --  Ada0Y (AI-50217): We also ignore limited_with clauses, because
+         --  their purpose is precisely to create legal circular structures.
 
          if Loading (Unum)
            and then (Is_Spec_Name (Units.Table (Unum).Unit_Name)
@@ -559,7 +550,7 @@ package body Lib.Load is
          Set_Load_Unit_Dependency (Unum);
          return Unum;
 
-      --  File is not already in table, so try to open it
+      --  Unit is not already in table, so try to open the file
 
       else
          if Debug_Flag_L then
@@ -593,6 +584,7 @@ package body Lib.Load is
               Ident_String    => Empty,
               Loading         => True,
               Main_Priority   => Default_Main_Priority,
+              Munit_Index     => 0,
               Serial_Number   => 0,
               Source_Index    => Src_Ind,
               Unit_File_Name  => Fname,
@@ -601,9 +593,16 @@ package body Lib.Load is
 
             --  Parse the new unit
 
-            Initialize_Scanner (Unum, Source_Index (Unum));
-            Discard_List (Par (Configuration_Pragmas => False));
-            Set_Loading (Unum, False);
+            declare
+               Save_Index : constant Nat := Multiple_Unit_Index;
+            begin
+               Multiple_Unit_Index := Get_Unit_Index (Uname_Actual);
+               Units.Table (Unum).Munit_Index := Multiple_Unit_Index;
+               Initialize_Scanner (Unum, Source_Index (Unum));
+               Discard_List (Par (Configuration_Pragmas => False));
+               Multiple_Unit_Index := Save_Index;
+               Set_Loading (Unum, False);
+            end;
 
             --  If spec is irrelevant, then post errors and quit
 
@@ -693,14 +692,11 @@ package body Lib.Load is
 
    procedure Make_Instance_Unit (N : Node_Id) is
       Sind : constant Source_File_Index := Source_Index (Main_Unit);
-
    begin
       Units.Increment_Last;
-
       Units.Table (Units.Last)               := Units.Table (Main_Unit);
       Units.Table (Units.Last).Cunit         := Library_Unit (N);
       Units.Table (Units.Last).Generate_Code := True;
-
       Units.Table (Main_Unit).Cunit          := N;
       Units.Table (Main_Unit).Unit_Name      :=
         Get_Body_Name (Unit_Name (Get_Cunit_Unit_Number (Library_Unit (N))));
@@ -713,8 +709,7 @@ package body Lib.Load is
 
    function Spec_Is_Irrelevant
      (Spec_Unit : Unit_Number_Type;
-      Body_Unit : Unit_Number_Type)
-      return      Boolean
+      Body_Unit : Unit_Number_Type) return Boolean
    is
       Sunit : constant Node_Id := Cunit (Spec_Unit);
       Bunit : constant Node_Id := Cunit (Body_Unit);
@@ -730,7 +725,6 @@ package body Lib.Load is
          Nkind (Unit (Bunit)) = N_Subprogram_Body
            and then Nkind (Unit (Sunit)) /= N_Subprogram_Declaration
            and then Nkind (Unit (Sunit)) /= N_Generic_Subprogram_Declaration;
-
    end Spec_Is_Irrelevant;
 
    --------------------
@@ -740,9 +734,7 @@ package body Lib.Load is
    procedure Version_Update (U : Node_Id; From : Node_Id) is
       Unum  : constant Unit_Number_Type := Get_Cunit_Unit_Number (U);
       Fnum  : constant Unit_Number_Type := Get_Cunit_Unit_Number (From);
-
    begin
-
       if Source_Index (Fnum) /= No_Source_File then
          Units.Table (Unum).Version :=
            Units.Table (Unum).Version

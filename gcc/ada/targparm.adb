@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1999-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -192,7 +192,7 @@ package body Targparm is
       Source_Last  : Source_Ptr)
    is
       P : Source_Ptr;
-      V : Uint;
+      --  Scans source buffer containing source of system.ads
 
       Fatal : Boolean := False;
       --  Set True if a fatal error is detected
@@ -220,7 +220,7 @@ package body Targparm is
          elsif System_Text (P .. P + 20) = "pragma Restrictions (" then
             P := P + 21;
 
-            Rloop : for K in Partition_Restrictions loop
+            Rloop : for K in All_Boolean_Restrictions loop
                declare
                   Rname : constant String := Restriction_Id'Image (K);
 
@@ -234,7 +234,7 @@ package body Targparm is
                   end loop;
 
                   if System_Text (P + Rname'Length) = ')' then
-                     Restrictions_On_Target (K) := True;
+                     Restrictions_On_Target.Set (K) := True;
                      goto Line_Loop_Continue;
                   end if;
                end;
@@ -243,10 +243,13 @@ package body Targparm is
                null;
             end loop Rloop;
 
-            Ploop : for K in Restriction_Parameter_Id loop
+            Ploop : for K in All_Parameter_Restrictions loop
                declare
                   Rname : constant String :=
-                            Restriction_Parameter_Id'Image (K);
+                            All_Parameter_Restrictions'Image (K);
+
+                  V : Natural;
+                  --  Accumulates value
 
                begin
                   for J in Rname'Range loop
@@ -261,22 +264,45 @@ package body Targparm is
                                                       " => "
                   then
                      P := P + Rname'Length + 4;
-                     V := Uint_0;
 
+                     V := 0;
                      loop
                         if System_Text (P) in '0' .. '9' then
-                           V := 10 * V + Character'Pos (System_Text (P)) - 48;
+                           declare
+                              pragma Unsuppress (Overflow_Check);
+
+                           begin
+                              --  Accumulate next digit
+
+                              V := 10 * V +
+                                   Character'Pos (System_Text (P)) -
+                                   Character'Pos ('0');
+
+                           exception
+                              --  On overflow, we just ignore the pragma since
+                              --  that is the standard handling in this case.
+
+                              when Constraint_Error =>
+                                 goto Line_Loop_Continue;
+                           end;
+
                         elsif System_Text (P) = '_' then
                            null;
+
                         elsif System_Text (P) = ')' then
-                           Restriction_Parameters_On_Target (K) := V;
-                           goto  Line_Loop_Continue;
+                           Restrictions_On_Target.Value (K) := V;
+                           Restrictions_On_Target.Set (K) := True;
+                           goto Line_Loop_Continue;
+
                         else
-                           goto Ploop_Continue;
+                           exit Ploop;
                         end if;
 
                         P := P + 1;
                      end loop;
+
+                  else
+                     exit Ploop;
                   end if;
                end;
 
@@ -287,7 +313,7 @@ package body Targparm is
             Set_Standard_Error;
             Write_Line
                ("fatal error: system.ads is incorrectly formatted");
-            Write_Str ("unrecognized restrictions pragma: ");
+            Write_Str ("unrecognized or incorrect restrictions pragma: ");
 
             while System_Text (P) /= ')'
                     and then
@@ -520,7 +546,9 @@ package body Targparm is
          if P >= Source_Last then
             Set_Standard_Error;
             Write_Line ("fatal error, system.ads not formatted correctly");
+            Write_Line ("unexpected end of file");
             Set_Standard_Output;
+            raise Unrecoverable_Error;
          end if;
       end loop Line_Loop;
 

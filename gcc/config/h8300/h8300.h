@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 (generic)
+   Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -86,7 +86,7 @@ extern const char * const *h8_reg_names;
 
 /* Print subsidiary information on the compiler version in use.  */
 
-#define TARGET_VERSION fprintf (stderr, " (Hitachi H8/300)");
+#define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -224,9 +224,7 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 
 /* Define this if most significant word of a multiword number is lowest
-   numbered.
-   This is true on an H8/300 (actually we can make it up, but we choose to
-   be consistent).  */
+   numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
 #define MAX_BITS_PER_WORD	32
@@ -285,13 +283,14 @@ extern int target_flags;
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 11
+#define FIRST_PSEUDO_REGISTER 12
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
-#define FIXED_REGISTERS \
-  { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1}
+#define FIXED_REGISTERS				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 0, 0, 0, 0, 0, 0, 0, 1,  0, 1,  1, 1 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -303,11 +302,13 @@ extern int target_flags;
 
    H8 destroys r0,r1,r2,r3.  */
 
-#define CALL_USED_REGISTERS \
-  { 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1 }
+#define CALL_USED_REGISTERS			\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 1, 1, 1, 1, 0, 0, 0, 1,  1, 1,  1, 1 }
 
-#define REG_ALLOC_ORDER \
-  { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9, 10}
+#define REG_ALLOC_ORDER				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap  fp */	\
+  { 2, 3, 0, 1, 4, 5, 6, 8,  7, 9, 10, 11 }
 
 #define CONDITIONAL_REGISTER_USAGE			\
 {							\
@@ -315,29 +316,11 @@ extern int target_flags;
     fixed_regs[MAC_REG] = call_used_regs[MAC_REG] = 1;	\
 }
 
-/* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
+#define HARD_REGNO_NREGS(REGNO, MODE)		\
+  h8300_hard_regno_nregs ((REGNO), (MODE))
 
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
-
-   We pretend the MAC register is 32bits -- we don't have any data
-   types on the H8 series to handle more than 32bits.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
-   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
-/* Value is 1 if hard register REGNO can hold a value of machine-mode
-   MODE.
-
-   H8/300: If an even reg, then anything goes. Otherwise the mode must be QI
-           or HI.
-   H8/300H: Anything goes.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (TARGET_H8300								\
-   ? ((((REGNO) & 1) == 0) || ((MODE) == HImode) || ((MODE) == QImode))	\
-   : (REGNO) == MAC_REG ? (MODE) == SImode : 1)
+#define HARD_REGNO_MODE_OK(REGNO, MODE)		\
+  h8300_hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -365,6 +348,9 @@ extern int target_flags;
 
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM SP_REG
+
+/* Base register for access to local variables of the function.  */
+#define HARD_FRAME_POINTER_REGNUM HFP_REG
 
 /* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM FP_REG
@@ -428,9 +414,9 @@ enum reg_class {
 
 #define REG_CLASS_CONTENTS			\
 {      {0},		/* No regs      */	\
-   {0x6ff},		/* GENERAL_REGS */	\
+   {0xeff},		/* GENERAL_REGS */	\
    {0x100},		/* MAC_REGS */	\
-   {0x7ff},		/* ALL_REGS	*/	\
+   {0xfff},		/* ALL_REGS	*/	\
 }
 
 /* The same information, inverted:
@@ -570,17 +556,20 @@ enum reg_class {
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.
 
-   We have two registers that can be eliminated on the h8300.  First, the
-   frame pointer register can often be eliminated in favor of the stack
-   pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer.  */
+   We have three registers that can be eliminated on the h8300.
+   First, the frame pointer register can often be eliminated in favor
+   of the stack pointer register.  Secondly, the argument pointer
+   register and the return address pointer register are always
+   eliminated; they are replaced with either the stack or frame
+   pointer.  */
 
-#define ELIMINABLE_REGS					\
-{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},		\
- { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},\
- { RETURN_ADDRESS_POINTER_REGNUM, FRAME_POINTER_REGNUM},\
- { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
+#define ELIMINABLE_REGS						\
+{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},		\
+ { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
+ { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
@@ -607,7 +596,7 @@ enum reg_class {
    On the H8 the return value is in R0/R1.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), R0_REG)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -615,12 +604,12 @@ enum reg_class {
 /* On the H8 the return value is in R0/R1.  */
 
 #define LIBCALL_VALUE(MODE) \
-  gen_rtx_REG (MODE, 0)
+  gen_rtx_REG (MODE, R0_REG)
 
 /* 1 if N is a possible register number for a function value.
    On the H8, R0 is the only register thus used.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == R0_REG)
 
 /* Define this if PCC uses the nonreentrant convention for returning
    structure and union values.  */
@@ -631,16 +620,6 @@ enum reg_class {
    On the H8, no registers are used in this way.  */
 
 #define FUNCTION_ARG_REGNO_P(N) (TARGET_QUICKCALL ? N < 3 : 0)
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-
-#define STRUCT_VALUE 0
-
-/* Return true if X should be returned in memory.  */
-#define RETURN_IN_MEMORY(X)					\
-  (TYPE_MODE (X) == BLKmode					\
-   || GET_MODE_SIZE (TYPE_MODE (X)) > (TARGET_H8300 ? 4 : 8))
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
@@ -671,7 +650,7 @@ struct cum_arg
 
    On the H8/300, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0, (CUM).libcall = LIBNAME)
 
 /* Update the data in CUM to advance over an argument
@@ -735,7 +714,7 @@ struct cum_arg
 
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE ((TARGET_H8300 || TARGET_NORMAL_MODE) ? 8 : 12)
+#define TRAMPOLINE_SIZE ((Pmode == HImode) ? 8 : 12)
 
 /* Emit RTL insns to build a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
@@ -806,7 +785,7 @@ struct cum_arg
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (1)
+#define LEGITIMATE_CONSTANT_P(X) (h8300_legitimate_constant_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -821,27 +800,25 @@ struct cum_arg
    After reload, it makes no difference, since pseudo regs have
    been eliminated by then.  */
 
+/* Non-strict versions.  */
+#define REG_OK_FOR_INDEX_NONSTRICT_P(X) 0
+/* Don't use REGNO_OK_FOR_BASE_P here because it uses reg_renumber.  */
+#define REG_OK_FOR_BASE_NONSTRICT_P(X)				\
+  (REGNO (X) >= FIRST_PSEUDO_REGISTER || REGNO (X) != MAC_REG)
+
+/* Strict versions.  */
+#define REG_OK_FOR_INDEX_STRICT_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
+#define REG_OK_FOR_BASE_STRICT_P(X)  REGNO_OK_FOR_BASE_P (REGNO (X))
+
 #ifndef REG_OK_STRICT
 
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X) 0
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
-/* Don't use REGNO_OK_FOR_BASE_P here because it uses reg_renumber.  */
-#define REG_OK_FOR_BASE_P(X) \
-	(REGNO (X) >= FIRST_PSEUDO_REGISTER || REGNO (X) != 8)
-#define REG_OK_FOR_INDEX_P_STRICT(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-#define REG_OK_FOR_BASE_P_STRICT(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-#define STRICT 0
+#define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_INDEX_NONSTRICT_P (X)
+#define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_BASE_NONSTRICT_P (X)
 
 #else
 
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-#define STRICT 1
+#define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_INDEX_STRICT_P (X)
+#define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_BASE_STRICT_P (X)
 
 #endif
 
@@ -891,49 +868,24 @@ struct cum_arg
    (C) == 'U' ? OK_FOR_U (OP) :			\
    0)
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS,
-   except for CONSTANT_ADDRESS_P which is actually
-   machine-independent.
-
-   On the H8/300, a legitimate address has the form
-   REG, REG+CONSTANT_ADDRESS or CONSTANT_ADDRESS.  */
-
-/* Accept either REG or SUBREG where a register is valid.  */
-
-#define RTX_OK_FOR_BASE_P(X)				\
-  ((REG_P (X) && REG_OK_FOR_BASE_P (X))			\
-   || (GET_CODE (X) == SUBREG && REG_P (SUBREG_REG (X))	\
-       && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-  if (RTX_OK_FOR_BASE_P (X)) goto ADDR;			\
-  if (CONSTANT_ADDRESS_P (X)) goto ADDR;		\
-  if (GET_CODE (X) == PLUS				\
-      && CONSTANT_ADDRESS_P (XEXP (X, 1))		\
-      && RTX_OK_FOR_BASE_P (XEXP (X, 0))) goto ADDR;
+#ifndef REG_OK_STRICT
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
+  do						\
+    {						\
+      if (h8300_legitimate_address_p ((X), 0))	\
+	goto ADDR;				\
+    }						\
+  while (0)
+#else
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
+  do						\
+    {						\
+      if (h8300_legitimate_address_p ((X), 1))	\
+	goto ADDR;				\
+    }						\
+  while (0)
+#endif
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the H8/300, don't do anything.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)  {}
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
 
@@ -946,12 +898,6 @@ struct cum_arg
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.
 
@@ -999,7 +945,6 @@ struct cum_arg
 
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define MAX_WCHAR_TYPE_SIZE 16
 
 /* A function address in a call instruction
    is a byte address (for indexing purposes)
@@ -1054,10 +999,9 @@ struct cum_arg
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __ctors[];			\
-  extern pfunc __ctors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __ctors[];			\
+  extern func_ptr __ctors_end[];		\
+  func_ptr *p;					\
   for (p = __ctors_end; p > __ctors; )		\
     {						\
       (*--p)();					\
@@ -1067,10 +1011,9 @@ struct cum_arg
 #undef DO_GLOBAL_DTORS_BODY
 #define DO_GLOBAL_DTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __dtors[];			\
-  extern pfunc __dtors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __dtors[];			\
+  extern func_ptr __dtors_end[];		\
+  func_ptr *p;					\
   for (p = __dtors; p < __dtors_end; p++)	\
     {						\
       (*p)();					\
@@ -1081,7 +1024,7 @@ struct cum_arg
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
 #define REGISTER_NAMES \
-{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap", "rap" }
+{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap", "rap", "fp" }
 
 #define ADDITIONAL_REGISTER_NAMES \
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \

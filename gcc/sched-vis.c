@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -80,7 +80,7 @@ insn_print_units (rtx insn)
 }
 
 /* MAX_VISUAL_LINES is the maximum number of lines in visualization table
-   of a basic block.  If more lines are needed, table is splitted to two.
+   of a basic block.  If more lines are needed, table is split to two.
    n_visual_lines is the number of lines printed so far for a block.
    visual_tbl contains the block visualization info.
    vis_no_unit holds insns in a cycle that are not mapped to any unit.  */
@@ -126,7 +126,7 @@ get_visual_tbl_length (void)
   char *s;
 
   if (targetm.sched.use_dfa_pipeline_interface
-      && (*targetm.sched.use_dfa_pipeline_interface) ())
+      && targetm.sched.use_dfa_pipeline_interface ())
     {
       visual_tbl_line_length = 1;
       return 1; /* Can't return 0 because that will cause problems

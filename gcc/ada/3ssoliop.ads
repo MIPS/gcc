@@ -34,7 +34,7 @@
 --  This package is used to provide target specific linker_options for the
 --  support of scokets as required by the package GNAT.Sockets.
 
---  This is the UnixWare version of this package
+--  This is the Solaris version of this package
 
 package GNAT.Sockets.Linker_Options is
 private

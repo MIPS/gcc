@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -193,7 +193,7 @@ struct loops;
 /* Basic block information indexed by block number.  */
 typedef struct basic_block_def {
   /* The first and last insns of the block.  */
-  rtx head, end;
+  rtx head_, end_;
 
   /* The first and last trees of the block.  */
   tree head_tree;
@@ -233,6 +233,9 @@ typedef struct basic_block_def {
 
   /* Outermost loop containing the block.  */
   struct loop *loop_father;
+
+  /* The dominance and postdominance information node.  */
+  struct et_node *dom[2];
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -285,6 +288,17 @@ extern varray_type basic_block_info;
 #define FOR_EACH_BB_REVERSE(BB) \
   FOR_BB_BETWEEN (BB, EXIT_BLOCK_PTR->prev_bb, ENTRY_BLOCK_PTR, prev_bb)
 
+/* For iterating over insns in basic block.  */
+#define FOR_BB_INSNS(BB, INSN)			\
+  for ((INSN) = BB_HEAD (BB);			\
+       (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) = NEXT_INSN (INSN))
+
+#define FOR_BB_INSNS_REVERSE(BB, INSN)		\
+  for ((INSN) = BB_END (BB);			\
+       (INSN) != PREV_INSN (BB_HEAD (BB));	\
+       (INSN) = PREV_INSN (INSN))
+
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
    exit block).  */
 
@@ -316,11 +330,8 @@ extern struct obstack flow_obstack;
 
 /* Stuff for recording basic block info.  */
 
-#define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
-#define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
-
-#define BLOCK_HEAD_TREE(B) (BASIC_BLOCK (B)->head_tree)
-#define BLOCK_END_TREE(B) (BASIC_BLOCK (B)->end_tree)
+#define BB_HEAD(B)      (B)->head_
+#define BB_END(B)       (B)->end_
 
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
@@ -363,8 +374,6 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void tidy_fallthru_edge (edge, basic_block, basic_block);
-extern void tidy_fallthru_edges (void);
 extern void flow_reverse_top_sort_order_compute (int *);
 extern int flow_depth_first_order_compute (int *, int *);
 extern void flow_preorder_transversal_compute (int *);
@@ -375,10 +384,6 @@ extern void dump_edge_info (FILE *, edge, int);
 extern void clear_edges (void);
 extern void mark_critical_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
-
-/* Dominator information for basic blocks.  */
-
-typedef struct dominance_info *dominance_info;
 
 /* Structure to group all of the information to process IF-THEN and
    IF-THEN-ELSE blocks for the conditional execution support.  This
@@ -477,10 +482,16 @@ enum update_life_extent
 #define PROP_AUTOINC		64	/* Create autoinc mem references.  */
 #define PROP_EQUAL_NOTES	128	/* Take into account REG_EQUAL notes.  */
 #define PROP_SCAN_DEAD_STORES	256	/* Scan for dead code.  */
+#define PROP_ASM_SCAN		512	/* Internal flag used within flow.c
+					   to flag analysis of asms.  */
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
+				 | PROP_SCAN_DEAD_STORES)
+#define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
+				 | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_SCAN_DEAD_STORES)
 
 #define CLEANUP_EXPENSIVE	1	/* Do relatively expensive optimizations
@@ -497,6 +508,7 @@ enum update_life_extent
 #define CLEANUP_NO_INSN_DEL	128	/* Do not try to delete trivially dead
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	256	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	512	/* Update log links.  */
 extern void life_analysis (rtx, FILE *, int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
@@ -534,7 +546,6 @@ extern bool probably_never_executed_bb_p (basic_block);
 
 /* In flow.c */
 extern void init_flow (void);
-extern void dump_bb (basic_block, FILE *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);
@@ -555,6 +566,7 @@ extern bool purge_all_dead_edges (int);
 extern bool purge_dead_edges (basic_block);
 extern void find_sub_basic_blocks (basic_block);
 extern void find_many_sub_basic_blocks (sbitmap);
+extern void make_eh_edge (sbitmap *, basic_block, rtx);
 extern bool can_fallthru (basic_block, basic_block);
 extern void flow_nodes_print (const char *, const sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
@@ -566,11 +578,6 @@ extern void alloc_aux_for_edge (edge, int);
 extern void alloc_aux_for_edges (int);
 extern void clear_aux_for_edges (void);
 extern void free_aux_for_edges (void);
-
-/* This function is always defined so it can be called from the
-   debugger, and it is declared extern so we don't get warnings about
-   it being unused.  */
-extern void verify_flow_info (void);
 
 typedef struct conflict_graph_def *conflict_graph;
 
@@ -613,22 +620,37 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-extern dominance_info calculate_dominance_info (enum cdi_direction);
-extern void free_dominance_info (dominance_info);
-extern basic_block nearest_common_dominator (dominance_info,
+enum dom_state
+{
+  DOM_NONE,		/* Not computed at all.  */
+  DOM_CONS_OK,		/* The data is conservatively OK, i.e. if it says you that A dominates B,
+			   it indeed does.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
+  DOM_OK		/* Everything is ok.  */
+};
+
+extern enum dom_state dom_computed[2];
+
+extern void calculate_dominance_info (enum cdi_direction);
+extern void free_dominance_info (enum cdi_direction);
+extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
-extern void set_immediate_dominator (dominance_info, basic_block,
+extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
-extern basic_block get_immediate_dominator (dominance_info, basic_block);
-extern bool dominated_by_p (dominance_info, basic_block, basic_block);
-extern int get_dominated_by (dominance_info, basic_block, basic_block **);
-extern void add_to_dominance_info (dominance_info, basic_block);
-extern void delete_from_dominance_info (dominance_info, basic_block);
-basic_block recount_dominator (dominance_info, basic_block);
-extern void redirect_immediate_dominators (dominance_info, basic_block,
+extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
+extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
+extern int get_dominated_by (enum cdi_direction, basic_block, basic_block **);
+extern void add_to_dominance_info (enum cdi_direction, basic_block);
+extern void delete_from_dominance_info (enum cdi_direction, basic_block);
+basic_block recount_dominator (enum cdi_direction, basic_block);
+extern void redirect_immediate_dominators (enum cdi_direction, basic_block,
 					   basic_block);
-void iterate_fix_dominators (dominance_info, basic_block *, int);
-extern void verify_dominators (dominance_info);
+extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
+extern void verify_dominators (enum cdi_direction);
+extern basic_block first_dom_son (enum cdi_direction, basic_block);
+extern basic_block next_dom_son (enum cdi_direction, basic_block);
+extern bool try_redirect_by_replacing_jump (edge, basic_block, bool);
+extern void break_superblocks (void);
 
 #include "cfghooks.h"
 

@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -156,36 +156,6 @@ grok_method_quals (tree ctype, tree function, tree quals)
   return this_quals;
 }
 
-/* Warn when -fexternal-templates is used and #pragma
-   interface/implementation is not used all the times it should be,
-   inform the user.  */
-
-void
-warn_if_unknown_interface (tree decl)
-{
-  static int already_warned = 0;
-  if (already_warned++)
-    return;
-
-  if (flag_alt_external_templates)
-    {
-      tree til = tinst_for_decl ();
-      location_t saved_loc = input_location;
-
-      if (til)
-	{
-	  input_line = TINST_LINE (til);
-	  input_filename = TINST_FILE (til);
-	}
-      warning ("template `%#D' instantiated in file without #pragma interface",
-		  decl);
-      input_location = saved_loc;
-    }
-  else
-    cp_warning_at ("template `%#D' defined in file without #pragma interface",
-		   decl);
-}
-
 /* A subroutine of the parser, to handle a component list.  */
 
 void
@@ -259,7 +229,7 @@ maybe_retrofit_in_chrg (tree fn)
 
   /* When processing templates we can't know, in general, whether or
      not we're going to have virtual baseclasses.  */
-  if (uses_template_parms (fn))
+  if (processing_template_decl)
     return;
 
   /* We don't need an in-charge parameter for constructors that don't
@@ -366,11 +336,10 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
       qual_type = cp_build_qualified_type (type, this_quals);
       parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = last_function_parms;
-      last_function_parms = parm;
+      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
+      DECL_ARGUMENTS (function) = parm;
     }
 
-  DECL_ARGUMENTS (function) = last_function_parms;
   DECL_CONTEXT (function) = ctype;
 
   if (flags == DTOR_FLAG)
@@ -410,7 +379,8 @@ grok_array_decl (tree array_expr, tree index_exp)
   /* If they have an `operator[]', use that.  */
   if (IS_AGGR_TYPE (type) || IS_AGGR_TYPE (TREE_TYPE (index_exp)))
     expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL,
-			 array_expr, index_exp, NULL_TREE);
+			 array_expr, index_exp, NULL_TREE,
+			 /*overloaded_p=*/NULL);
   else
     {
       tree p1, p2, i1, i2;
@@ -462,18 +432,14 @@ grok_array_decl (tree array_expr, tree index_exp)
 /* Given the cast expression EXP, checking out its validity.   Either return
    an error_mark_node if there was an unavoidable error, return a cast to
    void for trying to delete a pointer w/ the value 0, or return the
-   call to delete.  If DOING_VEC is 1, we handle things differently
-   for doing an array delete.  If DOING_VEC is 2, they gave us the
-   array size as an argument to delete.
+   call to delete.  If DOING_VEC is true, we handle things differently
+   for doing an array delete.
    Implements ARM $5.3.4.  This is called from the parser.  */
 
 tree
-delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
+delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete)
 {
   tree t, type;
-  /* For a regular vector delete (aka, no size argument) we will pass
-     this down as a NULL_TREE into build_vec_delete.  */
-  tree maxindex = NULL_TREE;
 
   if (exp == error_mark_node)
     return exp;
@@ -487,6 +453,12 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
     }
 
   exp = convert_from_reference (exp);
+
+  /* An array can't have been allocated by new, so complain.  */
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+    warning ("deleting array `%#D'", exp);
+
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
   if (t == NULL_TREE || t == error_mark_node)
@@ -494,12 +466,6 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       error ("type `%#T' argument given to `delete', expected pointer",
 		TREE_TYPE (exp));
       return error_mark_node;
-    }
-
-  if (doing_vec == 2)
-    {
-      maxindex = cp_build_binary_op (MINUS_EXPR, size, integer_one_node);
-      pedwarn ("anachronistic use of array size in vector delete");
     }
 
   type = TREE_TYPE (t);
@@ -520,18 +486,13 @@ delete_sanity (tree exp, tree size, int doing_vec, int use_global_delete)
       doing_vec = 0;
     }
 
-  /* An array can't have been allocated by new, so complain.  */
-  if (TREE_CODE (t) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (t, 0)) == VAR_DECL
-      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == ARRAY_TYPE)
-    warning ("deleting array `%#D'", TREE_OPERAND (t, 0));
-
   /* Deleting a pointer with the value zero is valid and has no effect.  */
   if (integer_zerop (t))
     return build1 (NOP_EXPR, void_type_node, t);
 
   if (doing_vec)
-    return build_vec_delete (t, maxindex, sfk_deleting_destructor,
+    return build_vec_delete (t, /*maxindex=*/NULL_TREE, 
+			     sfk_deleting_destructor,
 			     use_global_delete);
   else
     return build_delete (type, t, sfk_deleting_destructor,
@@ -622,12 +583,20 @@ check_java_method (tree method)
   bool jerr = false;
   tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (method));
   tree ret_type = TREE_TYPE (TREE_TYPE (method));
+
   if (!acceptable_java_type (ret_type))
     {
       error ("Java method '%D' has non-Java return type `%T'",
 		method, ret_type);
       jerr = true;
     }
+
+  arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_IN_CHARGE_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  if (DECL_HAS_VTT_PARM_P (method))
+    arg_types = TREE_CHAIN (arg_types);
+  
   for (; arg_types != NULL_TREE; arg_types = TREE_CHAIN (arg_types))
     {
       tree type = TREE_VALUE (arg_types);
@@ -643,10 +612,12 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   CNAME is the same here as it is for grokclassfn above.  */
+   CNAME is the same here as it is for grokclassfn above.
+   TEMPLATE_HEADER_P is true when this declaration comes with a
+   template header.  */
 
 tree
-check_classfn (tree ctype, tree function)
+check_classfn (tree ctype, tree function, bool template_header_p)
 {
   int ix;
   int is_template;
@@ -669,7 +640,7 @@ check_classfn (tree ctype, tree function)
 
   /* OK, is this a definition of a member template?  */
   is_template = (TREE_CODE (function) == TEMPLATE_DECL
-		 || (processing_template_decl - template_class_depth (ctype)));
+		 || template_header_p);
 
   ix = lookup_fnfields_1 (complete_type (ctype),
 			  DECL_CONSTRUCTOR_P (function) ? ctor_identifier :
@@ -681,9 +652,10 @@ check_classfn (tree ctype, tree function)
       tree methods = CLASSTYPE_METHOD_VEC (ctype);
       tree fndecls, fndecl = 0;
       bool is_conv_op;
+      bool pop_p;
       const char *format = NULL;
       
-      push_scope (ctype);
+      pop_p = push_scope (ctype);
       for (fndecls = TREE_VEC_ELT (methods, ix);
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
@@ -719,7 +691,8 @@ check_classfn (tree ctype, tree function)
 		      == DECL_TI_TEMPLATE (fndecl))))
 	    break;
 	}
-      pop_scope (ctype);
+      if (pop_p)
+	pop_scope (ctype);
       if (fndecls)
 	return OVL_CURRENT (fndecls);
       error ("prototype for `%#D' does not match any in class `%T'",
@@ -872,10 +845,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
     init = NULL_TREE;
 
   value = grokdeclarator (declarator, declspecs, FIELD, init != 0, &attrlist);
-  if (! value || value == error_mark_node)
+  if (! value || error_operand_p (value))
     /* friend or constructor went bad.  */
-    return value;
-  if (TREE_TYPE (value) == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (value) == TYPE_DECL && init)
@@ -971,7 +942,11 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 
   if (processing_template_decl
       && (TREE_CODE (value) == VAR_DECL || TREE_CODE (value) == FUNCTION_DECL))
-    value = push_template_decl (value);
+    {
+      value = push_template_decl (value);
+      if (error_operand_p (value))
+	return error_mark_node;
+    }
 
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
@@ -1000,7 +975,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 	  /* This must override the asm specifier which was placed
 	     by grokclassfn.  Lay this out fresh.  */
 	  SET_DECL_RTL (value, NULL_RTX);
-	  SET_DECL_ASSEMBLER_NAME (value, get_identifier (asmspec));
+	  change_decl_assembler_name (value, get_identifier (asmspec));
 	}
       if (!DECL_FRIEND_P (value))
 	grok_special_member_properties (value);
@@ -1025,8 +1000,7 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
 tree
 grokbitfield (tree declarator, tree declspecs, tree width)
 {
-  register tree value = grokdeclarator (declarator, declspecs, BITFIELD,
-					0, NULL);
+  tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
 
   if (! value) return NULL_TREE; /* friends went bad.  */
 
@@ -1295,12 +1269,12 @@ coerce_new_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, size_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (ptr_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
   return type;
@@ -1329,12 +1303,12 @@ coerce_delete_type (tree type)
   {
     case 2:
       args = tree_cons (NULL_TREE, ptr_type_node, args);
-      /* FALLTHROUGH */
+      /* Fall through.  */
     case 1:
       type = build_exception_variant
               (build_function_type (void_type_node, args),
                TYPE_RAISES_EXCEPTIONS (type));
-      /* FALLTHROUGH */
+      /* Fall through.  */
     default:;
   }
 
@@ -1425,7 +1399,9 @@ comdat_linkage (tree decl)
 
 /* For win32 we also want to put explicit instantiations in
    linkonce sections, so that they will be merged with implicit
-   instantiations; otherwise we get duplicate symbol errors.  */
+   instantiations; otherwise we get duplicate symbol errors.  
+   For Darwin we do not want explicit instantiations to be 
+   linkonce. */
 
 void
 maybe_make_one_only (tree decl)
@@ -1444,13 +1420,18 @@ maybe_make_one_only (tree decl)
      to for variables so that cp_finish_decl will update their linkage,
      because their DECL_INITIAL may not have been set properly yet.  */
 
-  make_decl_one_only (decl);
-
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
+      || (! DECL_EXPLICIT_INSTANTIATION (decl)
+	  && ! DECL_TEMPLATE_SPECIALIZATION (decl)))
     {
-      DECL_COMDAT (decl) = 1;
-      /* Mark it needed so we don't forget to emit it.  */
-      mark_referenced (DECL_ASSEMBLER_NAME (decl));
+      make_decl_one_only (decl);
+
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  DECL_COMDAT (decl) = 1;
+	  /* Mark it needed so we don't forget to emit it.  */
+	  mark_referenced (DECL_ASSEMBLER_NAME (decl));
+	}
     }
 }
 
@@ -1624,7 +1605,11 @@ maybe_emit_vtables (tree ctype)
 	cgraph_varpool_mark_needed_node (cgraph_varpool_node (vtbl));
 
       if (TREE_TYPE (DECL_INITIAL (vtbl)) == 0)
-	store_init_value (vtbl, DECL_INITIAL (vtbl));
+	{
+	  /* It had better be all done at compile-time.  */
+	  if (store_init_value (vtbl, DECL_INITIAL (vtbl)))
+	    abort ();
+	}
 
       if (write_symbols == DWARF_DEBUG || write_symbols == DWARF2_DEBUG)
 	{
@@ -2595,6 +2580,7 @@ finish_file (void)
       /* If there are templates that we've put off instantiating, do
 	 them now.  */
       instantiate_pending_templates ();
+      ggc_collect ();
 
       /* Write out virtual tables as required.  Note that writing out
   	 the virtual table for a template class may cause the
@@ -2898,6 +2884,10 @@ finish_file (void)
       dump_time_statistics ();
     }
   input_location = locus;
+
+#ifdef ENABLE_CHECKING
+  validate_conversion_obstack ();
+#endif /* ENABLE_CHECKING */
 }
 
 /* FN is an OFFSET_REF, DOTSTAR_EXPR or MEMBER_REF indicating the
@@ -3027,8 +3017,14 @@ mark_used (tree decl)
 
 	 However, if instantiating this function might help us mark
 	 the current function TREE_NOTHROW, we go ahead and
-	 instantiate it now.  */
+	 instantiate it now.  
+	 
+	 This is not needed for unit-at-a-time since we reorder the functions
+	 in topological order anyway.
+	 */
       defer = (!flag_exceptions
+	       || flag_unit_at_a_time
+	       || !optimize
 	       || TREE_CODE (decl) != FUNCTION_DECL
 	       /* If the called function can't throw, we don't need to
 		  generate its body to find that out.  */

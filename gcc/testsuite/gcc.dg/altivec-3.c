@@ -1,8 +1,10 @@
-/* { dg-do run { target powerpc-*-*altivec powerpc-*-*-*altivec } } */
+/* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
 
-typedef int int4 __attribute__ ((mode(V4SI)));
-typedef float float4 __attribute__ ((mode(V4SF)));
+#include "altivec_check.h"
+
+typedef int int4 __attribute__ ((vector_size (16)));
+typedef float float4 __attribute__ ((vector_size (16)));
 
 int4 a1 = (int4) { 100, 200, 300, 400 };
 int4 a2 = (int4) { 500, 600, 700, 800 };
@@ -54,6 +56,8 @@ main ()
   double locf = 12.0;
   float4 f3 = (float4) { 6.0, 8.0, 10.0, 12.0 };
   float4 ftmp;
+
+  altivec_check ();
 
   vec_store (i3, a3);
   itmp = vec_add_int4 (a1, a2);

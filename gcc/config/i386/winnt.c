@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -124,7 +124,7 @@ ix86_handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
     }
 
-  /*  Report error if symbol is not accessible at global scope. */
+  /*  Report error if symbol is not accessible at global scope.  */
   if (!TREE_PUBLIC (node)
       && (TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL))
@@ -251,7 +251,7 @@ i386_pe_dllimport_p (tree decl)
 
       /* We ignore the dllimport attribute for inline member functions.
 	 This differs from MSVC behavior which treats it like GNUC
-	 'extern inline' extension.   */
+	 'extern inline' extension.  */
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
@@ -345,7 +345,7 @@ i386_pe_mark_dllexport (tree decl)
   idp = get_identifier (newname);
 
   XEXP (DECL_RTL (decl), 0) =
-    gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
+    gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
 }
 
 /* Mark a DECL as being dllimport'd.  */
@@ -374,7 +374,7 @@ i386_pe_mark_dllimport (tree decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but do a sanity check to prevent assembler errors. */
+      /* Already done, but do a sanity check to prevent assembler errors.  */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
 	{
 	  error ("%Jfailure in redeclaration of '%D': dllimport'd "
@@ -393,9 +393,9 @@ i386_pe_mark_dllimport (tree decl)
      identical.  */
   idp = get_identifier (newname);
 
-  newrtl = gen_rtx (MEM, Pmode,
-		    gen_rtx (SYMBOL_REF, Pmode,
-			     IDENTIFIER_POINTER (idp)));
+  newrtl = gen_rtx_MEM (Pmode,
+			gen_rtx_SYMBOL_REF (Pmode,
+					    IDENTIFIER_POINTER (idp)));
   XEXP (DECL_RTL (decl), 0) = newrtl;
 
   /* Can't treat a pointer to this as a constant address */
@@ -492,11 +492,11 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
       if (lookup_attribute ("stdcall",
 			    TYPE_ATTRIBUTES (TREE_TYPE (decl))))
         XEXP (DECL_RTL (decl), 0) =
-	  gen_rtx (SYMBOL_REF, Pmode, gen_stdcall_suffix (decl));
+	  gen_rtx_SYMBOL_REF (Pmode, gen_stdcall_suffix (decl));
       else if (lookup_attribute ("fastcall",
 				 TYPE_ATTRIBUTES (TREE_TYPE (decl))))
         XEXP (DECL_RTL (decl), 0) =
-	  gen_rtx (SYMBOL_REF, Pmode, gen_fastcall_suffix (decl));
+	  gen_rtx_SYMBOL_REF (Pmode, gen_fastcall_suffix (decl));
     }
 
   /* Mark the decl so we can tell from the rtl whether the object is
@@ -523,7 +523,7 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 
       /* Remove DLL_IMPORT_PREFIX.  */
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
-      rtx newrtl = gen_rtx (SYMBOL_REF, Pmode, IDENTIFIER_POINTER (idp));
+      rtx newrtl = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
 
       if (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
 	warning ("%J'%D' defined locally after being "
@@ -558,7 +558,7 @@ i386_pe_strip_name_encoding (const char *str)
   return str;
 }
 
-/* Also strip the stdcall suffix.  */
+/* Also strip the fastcall prefix and stdcall suffix.  */
 
 const char *
 i386_pe_strip_name_encoding_full (const char *str)
@@ -566,6 +566,11 @@ i386_pe_strip_name_encoding_full (const char *str)
   const char *p;
   const char *name = i386_pe_strip_name_encoding (str);
 
+  /* Strip leading '@' on fastcall symbols.  */
+  if (*name == '@')
+    name++;
+
+  /* Strip trailing "@n".  */
   p = strchr (name, '@');
   if (p)
     return ggc_alloc_string (name, p - name);

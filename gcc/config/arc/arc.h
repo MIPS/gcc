@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -205,13 +205,6 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 {						\
   (MODE) = SImode;				\
 }
-
-/* Define this macro if the promotion described by `PROMOTE_MODE'
-   should also be done for outgoing function arguments.  */
-#define PROMOTE_FUNCTION_ARGS
-
-/* Likewise, if the function return value is promoted.  */
-#define PROMOTE_FUNCTION_RETURN
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -605,9 +598,6 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 /* Function argument passing.  */
 
-/* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* If defined, the maximum amount of space required for outgoing
    arguments will be computed and placed into the variable
    `current_function_outgoing_args_size'.  No space will be pushed
@@ -633,7 +623,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
@@ -741,36 +731,6 @@ FUNCTION_ARG_PASS_BY_REFERENCE ((CUM), (MODE), (TYPE), (NAMED))
 (((TYPE) ? TYPE_ALIGN (TYPE) : GET_MODE_BITSIZE (MODE)) <= PARM_BOUNDARY \
  ? PARM_BOUNDARY \
  : 2 * PARM_BOUNDARY)
-
-/* This macro offers an alternative
-   to using `__builtin_saveregs' and defining the macro
-   `EXPAND_BUILTIN_SAVEREGS'.  Use it to store the anonymous register
-   arguments into the stack so that all the arguments appear to have
-   been passed consecutively on the stack.  Once this is done, you
-   can use the standard implementation of varargs that works for
-   machines that pass all their arguments on the stack.
-
-   The argument ARGS_SO_FAR is the `CUMULATIVE_ARGS' data structure,
-   containing the values that obtain after processing of the named
-   arguments.  The arguments MODE and TYPE describe the last named
-   argument--its machine mode and its data type as a tree node.
-
-   The macro implementation should do two things: first, push onto the
-   stack all the argument registers *not* used for the named
-   arguments, and second, store the size of the data thus pushed into
-   the `int'-valued variable whose name is supplied as the argument
-   PRETEND_SIZE.  The value that you store here will serve as
-   additional offset for setting up the stack frame.
-
-   If the argument NO_RTL is nonzero, it means that the
-   arguments of the function are being analyzed for the second time.
-   This happens for an inline function, which is not actually
-   compiled until the end of the source file.  The macro
-   `SETUP_INCOMING_VARARGS' should not generate any instructions in
-   this case.  */
-
-#define SETUP_INCOMING_VARARGS(ARGS_SO_FAR, MODE, TYPE, PRETEND_SIZE, NO_RTL) \
-arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 
 /* Function results.  */
 
@@ -789,22 +749,8 @@ arc_setup_incoming_varargs(&ARGS_SO_FAR, MODE, TYPE, &PRETEND_SIZE, NO_RTL)
 /* ??? What about r1 in DI/DF values.  */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
 
-/* A C expression which can inhibit the returning of certain function
-   values in registers, based on the type of value.  A nonzero value says
-   to return the function value in memory, just as large structures are
-   always returned.  Here TYPE will be a C expression of type `tree',
-   representing the data type of the value.  */
-#define RETURN_IN_MEMORY(TYPE) \
-(AGGREGATE_TYPE_P (TYPE) \
- || int_size_in_bytes (TYPE) > 8 \
- || TREE_ADDRESSABLE (TYPE))
-
-/* Tell GCC to use RETURN_IN_MEMORY.  */
+/* Tell GCC to use TARGET_RETURN_IN_MEMORY.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-/* Register in which address to store a structure value
-   is passed to a function, or 0 to use `invisible' first argument.  */
-#define STRUCT_VALUE 0
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -960,21 +906,6 @@ do { \
     goto ADDR;						\
 }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
@@ -1126,25 +1057,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 /* Globalizing directive for a label.  */
 #define GLOBAL_ASM_OP "\t.global\t"
 
-/* A C statement (sans semicolon) to output on FILE an assembler pseudo-op to
-   declare a library function name external.  The name of the library function
-   is given by SYMREF, which has type RTX and is a SYMBOL_REF.  */
-#if 0
-/* On the ARC we want to have libgcc's for multiple cpus in one binary.
-   We can't use `assemble_name' here as that will call ASM_OUTPUT_LABELREF
-   and we'll get another suffix added on if -mmangle-cpu.  */
-extern const char *arc_mangle_cpu;
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, SYMREF) \
-do {							\
-  if (TARGET_MANGLE_CPU_LIBGCC)				\
-    {							\
-      fprintf (FILE, "\t.rename\t_%s, _%s%s\n",		\
-	       XSTR (SYMREF, 0), XSTR (SYMREF, 0),	\
-	       arc_mangle_suffix);			\
-    }							\
-} while (0)
-#endif
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 /* We mangle all user labels to provide protection from linking code
@@ -1245,7 +1157,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 
 /* Generate DBX and DWARF debugging information.  */
 #define DBX_DEBUGGING_INFO 1
-#define DWARF_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef PREFERRED_DEBUGGING_TYPE
@@ -1259,15 +1170,6 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* It's not clear what PIC will look like or whether we want to use -fpic
-   for the embedded form currently being talked about.  For now require -fpic
-   to get pc relative switch tables.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */

@@ -1,5 +1,5 @@
 /* com.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
@@ -558,7 +558,7 @@ static GTY(()) struct f_binding_level *current_binding_level;
 
 /* A chain of binding_level structures awaiting reuse.  */
 
-static GTY((deletable (""))) struct f_binding_level *free_binding_level;
+static GTY((deletable)) struct f_binding_level *free_binding_level;
 
 /* The outermost binding level, for names of file scope.
    This is created when the compiler is started and exists
@@ -638,15 +638,16 @@ static GTY(()) tree shadowed_labels;
 
 /* Return the subscript expression, modified to do range-checking.
 
-   `array' is the array to be checked against.
+   `array' is the array type to be checked against.
    `element' is the subscript expression to check.
    `dim' is the dimension number (starting at 0).
    `total_dims' is the total number of dimensions (0 for CHARACTER substring).
+   `item' is the array decl or NULL_TREE.
 */
 
 static tree
 ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
-			 const char *array_name)
+			 const char *array_name, tree item)
 {
   tree low = TYPE_MIN_VALUE (TYPE_DOMAIN (array));
   tree high = TYPE_MAX_VALUE (TYPE_DOMAIN (array));
@@ -712,6 +713,10 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
                                    high));
         }
     }
+
+  /* If the array index is safe at compile-time, return element.  */
+  if (integer_nonzerop (cond))
+    return element;
 
   {
     int len;
@@ -807,13 +812,10 @@ ffecom_subscript_check_ (tree array, tree element, int dim, int total_dims,
   TREE_SIDE_EFFECTS (die) = 1;
   die = convert (void_type_node, die);
 
-  element = ffecom_3 (COND_EXPR,
-		      TREE_TYPE (element),
-		      cond,
-		      element,
-		      die);
+  if (integer_zerop (cond) && item)
+    ffe_mark_addressable (item);
 
-  return element;
+  return ffecom_3 (COND_EXPR, TREE_TYPE (element), cond, element, die);
 }
 
 /* Return the computed element of an array reference.
@@ -899,7 +901,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 	  element = ffecom_expr_ (dims[i], NULL, NULL, NULL, FALSE, TRUE);
 	  if (flag_bounds_check)
 	    element = ffecom_subscript_check_ (array, element, i, total_dims,
-					       array_name);
+					       array_name, item);
 	  if (element == error_mark_node)
 	    return element;
 
@@ -945,7 +947,7 @@ ffecom_arrayref_ (tree item, ffebld expr, int want_ptr)
 	  element = ffecom_expr_ (dims[i], NULL, NULL, NULL, FALSE, TRUE);
 	  if (flag_bounds_check)
 	    element = ffecom_subscript_check_ (array, element, i, total_dims,
-					       array_name);
+					       array_name, item);
 	  if (element == error_mark_node)
 	    return element;
 
@@ -2037,7 +2039,7 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 		end_tree = ffecom_expr (end);
 		if (flag_bounds_check)
 		  end_tree = ffecom_subscript_check_ (array, end_tree, 1, 0,
-						      char_name);
+						      char_name, NULL_TREE);
 		end_tree = convert (ffecom_f2c_ftnlen_type_node,
 				    end_tree);
 
@@ -2055,7 +2057,7 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 	    start_tree = ffecom_expr (start);
 	    if (flag_bounds_check)
 	      start_tree = ffecom_subscript_check_ (array, start_tree, 0, 0,
-						    char_name);
+						    char_name, NULL_TREE);
 	    start_tree = convert (ffecom_f2c_ftnlen_type_node,
 				  start_tree);
 
@@ -2088,7 +2090,7 @@ ffecom_char_args_x_ (tree *xitem, tree *length, ffebld expr, bool with_null)
 		end_tree = ffecom_expr (end);
 		if (flag_bounds_check)
 		  end_tree = ffecom_subscript_check_ (array, end_tree, 1, 0,
-						      char_name);
+						      char_name, NULL_TREE);
 		end_tree = convert (ffecom_f2c_ftnlen_type_node,
 				    end_tree);
 
@@ -6904,11 +6906,11 @@ ffecom_member_phase2_ (ffestorag mst, ffestorag st)
   TREE_USED (t) = 1;
 
   SET_DECL_RTL (t,
-		gen_rtx (MEM, TYPE_MODE (type),
-			 plus_constant (XEXP (DECL_RTL (mt), 0),
-					ffestorag_modulo (mst)
-					+ ffestorag_offset (st)
-					- ffestorag_offset (mst))));
+		gen_rtx_MEM (TYPE_MODE (type),
+			     plus_constant (XEXP (DECL_RTL (mt), 0),
+					    ffestorag_modulo (mst)
+					    + ffestorag_offset (st)
+					    - ffestorag_offset (mst))));
 
   t = start_decl (t, FALSE);
 
@@ -7919,6 +7921,7 @@ ffecom_sym_transform_ (ffesymbol s)
 	      {
 		ffetargetOffset offset;
 		ffestorag cst;
+		tree toffset;
 
 		cst = ffestorag_parent (st);
 		assert (cst == ffesymbol_storage (cs));
@@ -7935,9 +7938,10 @@ ffecom_sym_transform_ (ffesymbol s)
 			     ffecom_1 (ADDR_EXPR,
 				       build_pointer_type (TREE_TYPE (ct)),
 				       ct));
+		toffset = build_int_2 (offset, 0);
+		TREE_TYPE (toffset) = ssizetype;
 		t = ffecom_2 (PLUS_EXPR, TREE_TYPE (t),
-			      t,
-			      build_int_2 (offset, 0));
+			      t, toffset);
 		t = convert (build_pointer_type (type),
 			     t);
 		TREE_CONSTANT (t) = 1;
@@ -13398,7 +13402,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 
       DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
       DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
-      DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
+      DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
       DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
     }
 
@@ -13595,7 +13599,7 @@ finish_function (int nested)
 
   if (TREE_CODE (fndecl) != ERROR_MARK
       && !nested
-      && DECL_SAVED_INSNS (fndecl) == 0)
+      && DECL_STRUCT_FUNCTION (fndecl) == 0)
     {
       /* Stop pointing to the local nodes about to be freed.  */
       /* But DECL_INITIAL must remain nonzero so we know this was an actual
@@ -13751,7 +13755,7 @@ pop_f_function_context (void)
 	= TREE_VALUE (link);
 
   if (current_function_decl != error_mark_node
-      && DECL_SAVED_INSNS (current_function_decl) == 0)
+      && DECL_STRUCT_FUNCTION (current_function_decl) == 0)
     {
       /* Stop pointing to the local nodes about to be freed.  */
       /* But DECL_INITIAL must remain nonzero so we know this was an actual
@@ -14346,7 +14350,7 @@ poplevel (int keep, int reverse, int functionbody)
 	if (DECL_ABSTRACT_ORIGIN (decl) != 0
 	    && DECL_ABSTRACT_ORIGIN (decl) != decl)
 	  TREE_ADDRESSABLE (DECL_ABSTRACT_ORIGIN (decl)) = 1;
-	else if (DECL_SAVED_INSNS (decl) != 0)
+	else if (DECL_STRUCT_FUNCTION (decl) != 0)
 	  {
 	    push_function_context ();
 	    output_inline_function (decl);

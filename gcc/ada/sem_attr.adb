@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +42,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sdefault; use Sdefault;
 with Sem;      use Sem;
@@ -372,8 +373,8 @@ package body Sem_Attr is
          ----------------------------------
 
          procedure Build_Access_Subprogram_Type (P : Node_Id) is
-            Index    : Interp_Index;
-            It       : Interp;
+            Index : Interp_Index;
+            It    : Interp;
 
             function Get_Kind (E : Entity_Id) return Entity_Kind;
             --  Distinguish between access to regular and protected
@@ -395,6 +396,10 @@ package body Sem_Attr is
          --  Start of processing for Build_Access_Subprogram_Type
 
          begin
+            --  In the case of an access to subprogram, use the name of the
+            --  subprogram itself as the designated type. Type-checking in
+            --  this case compares the signatures of the designated types.
+
             if not Is_Overloaded (P) then
                Acc_Type :=
                  New_Internal_Entity
@@ -408,7 +413,6 @@ package body Sem_Attr is
                Set_Etype (N, Any_Type);
 
                while Present (It.Nam) loop
-
                   if not Is_Intrinsic_Subprogram (It.Nam) then
                      Acc_Type :=
                        New_Internal_Entity
@@ -437,16 +441,19 @@ package body Sem_Attr is
               ("prefix of % attribute cannot be enumeration literal", P);
          end if;
 
-         --  In the case of an access to subprogram, use the name of the
-         --  subprogram itself as the designated type. Type-checking in
-         --  this case compares the signatures of the designated types.
+         --  Case of access to subprogram
 
          if Is_Entity_Name (P)
            and then Is_Overloadable (Entity (P))
          then
+            --  Not allowed for nested subprograms if No_Implicit_Dynamic_Code
+            --  restriction set (since in general a trampoline is required).
+
             if not Is_Library_Level_Entity (Entity (P)) then
                Check_Restriction (No_Implicit_Dynamic_Code, P);
             end if;
+
+            --  Build the appropriate subprogram type
 
             Build_Access_Subprogram_Type (P);
 
@@ -460,7 +467,7 @@ package body Sem_Attr is
 
             return;
 
-         --  Component is an operation of a protected type.
+         --  Component is an operation of a protected type
 
          elsif Nkind (P) = N_Selected_Component
            and then Is_Overloadable (Entity (Selector_Name (P)))
@@ -598,10 +605,14 @@ package body Sem_Attr is
          --  prefix may have been a tagged formal object, which is
          --  defined to be aliased even when the actual might not be
          --  (other instance cases will have been caught in the generic).
+         --  Similarly, within an inlined body we know that the attribute
+         --  is legal in the original subprogram, and therefore legal in
+         --  the expansion.
 
          if Aname /= Name_Unrestricted_Access
            and then not Is_Aliased_View (P)
            and then not In_Instance
+           and then not In_Inlined_Body
          then
             Error_Attr ("prefix of % attribute must be aliased", P);
          end if;
@@ -850,9 +861,19 @@ package body Sem_Attr is
 
       procedure Check_Dereference is
       begin
-         if Is_Object_Reference (P)
-           and then Is_Access_Type (P_Type)
+
+         --  Case of a subtype mark
+
+         if Is_Entity_Name (P)
+           and then Is_Type (Entity (P))
          then
+            return;
+         end if;
+
+         --  Case of an expression
+
+         Resolve (P);
+         if Is_Access_Type (P_Type) then
             Rewrite (P,
               Make_Explicit_Dereference (Sloc (P),
                 Prefix => Relocate_Node (P)));
@@ -1358,7 +1379,8 @@ package body Sem_Attr is
             Error_Attr ("prefix of % attribute must be generic type", N);
 
          elsif Is_Generic_Actual_Type (Entity (P))
-           or In_Instance
+           or else In_Instance
+           or else In_Inlined_Body
          then
             null;
 
@@ -1417,7 +1439,7 @@ package body Sem_Attr is
             ------------
 
             function On_X86 return Boolean is
-               T : String := Sdefault.Target_Name.all;
+               T : constant String := Sdefault.Target_Name.all;
 
             begin
                --  There is no clean way to check this. That's not surprising,
@@ -2178,9 +2200,12 @@ package body Sem_Attr is
          if Is_Entity_Name (P) and then Is_Type (Entity (P)) then
 
             --  If we are within an instance, the attribute must be legal
-            --  because it was valid in the generic unit.
+            --  because it was valid in the generic unit. Ditto if this is
+            --  an inlining of a function declared in an instance.
 
-            if In_Instance then
+            if In_Instance
+              or else In_Inlined_Body
+            then
                return;
 
             --  For sure OK if we have a real private type itself, but must
@@ -4447,6 +4472,18 @@ package body Sem_Attr is
          Compile_Time_Known_Attribute (N, Alignment (P_Entity));
          return;
 
+      --  If this is an access attribute that is known to fail accessibility
+      --  check, rewrite accordingly.
+
+      elsif Attribute_Name (N) = Name_Access
+        and then Raises_Constraint_Error (N)
+      then
+         Rewrite (N,
+           Make_Raise_Program_Error (Loc,
+             Reason => PE_Accessibility_Check_Failed));
+         Set_Etype (N, C_Type);
+         return;
+
       --  No other cases are foldable (they certainly aren't static, and at
       --  the moment we don't try to fold any cases other than these three).
 
@@ -6406,7 +6443,6 @@ package body Sem_Attr is
             end if;
 
             if Is_Entity_Name (P) then
-
                if Is_Overloaded (P) then
                   Get_First_Interp (P, Index, It);
 
@@ -6437,19 +6473,18 @@ package body Sem_Attr is
                   Resolve (P);
                end if;
 
+               Error_Msg_Name_1 := Aname;
+
                if not Is_Entity_Name (P) then
                   null;
 
                elsif Is_Abstract (Entity (P))
                  and then Is_Overloadable (Entity (P))
                then
-                  Error_Msg_Name_1 := Aname;
                   Error_Msg_N ("prefix of % attribute cannot be abstract", P);
                   Set_Etype (N, Any_Type);
 
                elsif Convention (Entity (P)) = Convention_Intrinsic then
-                  Error_Msg_Name_1 := Aname;
-
                   if Ekind (Entity (P)) = E_Enumeration_Literal then
                      Error_Msg_N
                        ("prefix of % attribute cannot be enumeration literal",
@@ -6460,6 +6495,10 @@ package body Sem_Attr is
                   end if;
 
                   Set_Etype (N, Any_Type);
+
+               elsif Is_Thread_Body (Entity (P)) then
+                  Error_Msg_N
+                    ("prefix of % attribute cannot be a thread body", P);
                end if;
 
                --  Assignments, return statements, components of aggregates,
@@ -6489,6 +6528,9 @@ package body Sem_Attr is
                      null;  --  Nothing to check
 
                   --  Check the static accessibility rule of 3.10.2(32)
+                  --  In an instance body, if subprogram and type are both
+                  --  local, other rules prevent dangling references, and no
+                  --  warning  is needed.
 
                   elsif Attr_Id = Attribute_Access
                     and then Subprogram_Access_Level (Entity (P))
@@ -6498,7 +6540,8 @@ package body Sem_Attr is
                         Error_Msg_N
                           ("subprogram must not be deeper than access type",
                             P);
-                     else
+
+                     elsif Scope (Entity (P)) /= Scope (Btyp) then
                         Error_Msg_N
                           ("subprogram must not be deeper than access type?",
                              P);
@@ -6509,7 +6552,7 @@ package body Sem_Attr is
 
                   --  Check the restriction of 3.10.2(32) that disallows
                   --  the type of the access attribute to be declared
-                  --  outside a generic body when the attribute occurs
+                  --  outside a generic body when the subprogram is declared
                   --  within that generic body.
 
                   elsif Enclosing_Generic_Body (Entity (P))

@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -270,19 +270,19 @@ _cpp_process_line_notes (cpp_reader *pfile, int in_comment)
       if (note->type == '\\' || note->type == ' ')
 	{
 	  if (note->type == ' ' && !in_comment)
-	    cpp_error_with_line (pfile, DL_WARNING, pfile->line, col,
+	    cpp_error_with_line (pfile, CPP_DL_WARNING, pfile->line, col,
 				 "backslash and newline separated by space");
 
 	  if (buffer->next_line > buffer->rlimit)
 	    {
-	      cpp_error_with_line (pfile, DL_PEDWARN, pfile->line, col,
+	      cpp_error_with_line (pfile, CPP_DL_PEDWARN, pfile->line, col,
 				   "backslash-newline at end of file");
 	      /* Prevent "no newline at end of file" warning.  */
 	      buffer->next_line = buffer->rlimit;
 	    }
 
 	  buffer->line_base = note->pos;
-	  pfile->line++;
+	  CPP_INCREMENT_LINE (pfile, 0);
 	}
       else if (_cpp_trigraph_map[note->type])
 	{
@@ -290,14 +290,14 @@ _cpp_process_line_notes (cpp_reader *pfile, int in_comment)
 	      && (!in_comment || warn_in_comment (pfile, note)))
 	    {
 	      if (CPP_OPTION (pfile, trigraphs))
-		cpp_error_with_line (pfile, DL_WARNING, pfile->line, col,
+		cpp_error_with_line (pfile, CPP_DL_WARNING, pfile->line, col,
 				     "trigraph ??%c converted to %c",
 				     note->type,
 				     (int) _cpp_trigraph_map[note->type]);
 	      else
 		{
 		  cpp_error_with_line 
-		    (pfile, DL_WARNING, pfile->line, col,
+		    (pfile, CPP_DL_WARNING, pfile->line, col,
 		     "trigraph ??%c ignored, use -trigraphs to enable",
 		     note->type);
 		}
@@ -342,19 +342,23 @@ _cpp_skip_block_comment (cpp_reader *pfile)
 	      && cur[0] == '*' && cur[1] != '/')
 	    {
 	      buffer->cur = cur;
-	      cpp_error_with_line (pfile, DL_WARNING,
+	      cpp_error_with_line (pfile, CPP_DL_WARNING,
 				   pfile->line, CPP_BUF_COL (buffer),
 				   "\"/*\" within comment");
 	    }
 	}
       else if (c == '\n')
 	{
+	  unsigned int cols;
 	  buffer->cur = cur - 1;
 	  _cpp_process_line_notes (pfile, true);
 	  if (buffer->next_line >= buffer->rlimit)
 	    return true;
 	  _cpp_clean_line (pfile);
-	  pfile->line++;
+
+	  cols = buffer->next_line - buffer->line_base;
+	  CPP_INCREMENT_LINE (pfile, cols);
+
 	  cur = buffer->cur;
 	}
     }
@@ -396,7 +400,7 @@ skip_whitespace (cpp_reader *pfile, cppchar_t c)
       else if (c == '\0')
 	saw_NUL = true;
       else if (pfile->state.in_directive && CPP_PEDANTIC (pfile))
-	cpp_error_with_line (pfile, DL_PEDWARN, pfile->line,
+	cpp_error_with_line (pfile, CPP_DL_PEDWARN, pfile->line,
 			     CPP_BUF_COL (buffer),
 			     "%s in preprocessing directive",
 			     c == '\f' ? "form feed" : "vertical tab");
@@ -407,7 +411,7 @@ skip_whitespace (cpp_reader *pfile, cppchar_t c)
   while (is_nvspace (c));
 
   if (saw_NUL)
-    cpp_error (pfile, DL_WARNING, "null character(s) ignored");
+    cpp_error (pfile, CPP_DL_WARNING, "null character(s) ignored");
 
   buffer->cur--;
 }
@@ -442,7 +446,7 @@ forms_identifier_p (cpp_reader *pfile, int first)
       if (CPP_OPTION (pfile, warn_dollars) && !pfile->state.skipping)
 	{
 	  CPP_OPTION (pfile, warn_dollars) = 0;
-	  cpp_error (pfile, DL_PEDWARN, "'$' in identifier or number");
+	  cpp_error (pfile, CPP_DL_PEDWARN, "'$' in identifier or number");
 	}
 
       return true;
@@ -489,14 +493,14 @@ lex_identifier (cpp_reader *pfile, const uchar *base)
     {
       /* It is allowed to poison the same identifier twice.  */
       if ((result->flags & NODE_POISONED) && !pfile->state.poisoned_ok)
-	cpp_error (pfile, DL_ERROR, "attempt to use poisoned \"%s\"",
+	cpp_error (pfile, CPP_DL_ERROR, "attempt to use poisoned \"%s\"",
 		   NODE_NAME (result));
 
       /* Constraint 6.10.3.5: __VA_ARGS__ should only appear in the
 	 replacement list of a variadic macro.  */
       if (result == pfile->spec_nodes.n__VA_ARGS__
 	  && !pfile->state.va_args_ok)
-	cpp_error (pfile, DL_PEDWARN,
+	cpp_error (pfile, CPP_DL_PEDWARN,
 		   "__VA_ARGS__ can only appear in the expansion"
 		   " of a C99 variadic macro");
     }
@@ -592,7 +596,8 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
     }
 
   if (saw_NUL && !pfile->state.skipping)
-    cpp_error (pfile, DL_WARNING, "null character(s) preserved in literal");
+    cpp_error (pfile, CPP_DL_WARNING,
+	       "null character(s) preserved in literal");
 
   pfile->buffer->cur = cur;
   create_literal (pfile, token, base, cur - base, type);
@@ -679,8 +684,7 @@ _cpp_temp_token (cpp_reader *pfile)
     }
 
   result = pfile->cur_token++;
-  result->line = old->line;
-  result->col = old->col;
+  result->src_loc = old->src_loc;
   return result;
 }
 
@@ -743,6 +747,8 @@ _cpp_lex_token (cpp_reader *pfile)
 bool
 _cpp_get_fresh_line (cpp_reader *pfile)
 {
+  int return_at_eof;
+
   /* We can't get a new line until we leave the current directive.  */
   if (pfile->state.in_directive)
     return false;
@@ -771,13 +777,14 @@ _cpp_get_fresh_line (cpp_reader *pfile)
 	{
 	  /* Only warn once.  */
 	  buffer->next_line = buffer->rlimit;
-	  cpp_error_with_line (pfile, DL_PEDWARN, pfile->line - 1,
+	  cpp_error_with_line (pfile, CPP_DL_PEDWARN, pfile->line,
 			       CPP_BUF_COLUMN (buffer, buffer->cur),
 			       "no newline at end of file");
 	}
- 
+
+      return_at_eof = buffer->return_at_eof;
       _cpp_pop_buffer (pfile);
-      if (pfile->buffer == NULL)
+      if (pfile->buffer == NULL || return_at_eof)
 	return false;
     }
 }
@@ -821,7 +828,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	  if (!pfile->state.in_directive)
 	    {
 	      /* Tell the compiler the line number of the EOF token.  */
-	      result->line = pfile->line;
+	      result->src_loc = pfile->line;
 	      result->flags = BOL;
 	    }
 	  return result;
@@ -838,17 +845,19 @@ _cpp_lex_direct (cpp_reader *pfile)
     }
   buffer = pfile->buffer;
  update_tokens_line:
-  result->line = pfile->line;
+  result->src_loc = pfile->line;
 
  skipped_white:
   if (buffer->cur >= buffer->notes[buffer->cur_note].pos
       && !pfile->overlaid_buffer)
     {
       _cpp_process_line_notes (pfile, false);
-      result->line = pfile->line;
+      result->src_loc = pfile->line;
     }
   c = *buffer->cur++;
-  result->col = CPP_BUF_COLUMN (buffer, buffer->cur);
+
+  result->src_loc = linemap_position_for_column (pfile->line_table,
+						 CPP_BUF_COLUMN (buffer, buffer->cur));
 
   switch (c)
     {
@@ -858,7 +867,8 @@ _cpp_lex_direct (cpp_reader *pfile)
       goto skipped_white;
 
     case '\n':
-      pfile->line++;
+      if (buffer->cur < buffer->rlimit)
+	CPP_INCREMENT_LINE (pfile, 0);
       buffer->need_line = true;
       goto fresh_line;
 
@@ -912,25 +922,25 @@ _cpp_lex_direct (cpp_reader *pfile)
       if (c == '*')
 	{
 	  if (_cpp_skip_block_comment (pfile))
-	    cpp_error (pfile, DL_ERROR, "unterminated comment");
+	    cpp_error (pfile, CPP_DL_ERROR, "unterminated comment");
 	}
       else if (c == '/' && (CPP_OPTION (pfile, cplusplus_comments)
-			    || CPP_IN_SYSTEM_HEADER (pfile)))
+			    || cpp_in_system_header (pfile)))
 	{
 	  /* Warn about comments only if pedantically GNUC89, and not
 	     in system headers.  */
 	  if (CPP_OPTION (pfile, lang) == CLK_GNUC89 && CPP_PEDANTIC (pfile)
 	      && ! buffer->warned_cplusplus_comments)
 	    {
-	      cpp_error (pfile, DL_PEDWARN,
+	      cpp_error (pfile, CPP_DL_PEDWARN,
 			 "C++ style comments are not allowed in ISO C90");
-	      cpp_error (pfile, DL_PEDWARN,
+	      cpp_error (pfile, CPP_DL_PEDWARN,
 			 "(this will be reported only once per input file)");
 	      buffer->warned_cplusplus_comments = 1;
 	    }
 
 	  if (skip_line_comment (pfile) && CPP_OPTION (pfile, warn_comments))
-	    cpp_error (pfile, DL_WARNING, "multi-line comment");
+	    cpp_error (pfile, CPP_DL_WARNING, "multi-line comment");
 	}
       else if (c == '=')
 	{
@@ -1193,7 +1203,8 @@ cpp_spell_token (cpp_reader *pfile, const cpp_token *token,
       break;
 
     case SPELL_NONE:
-      cpp_error (pfile, DL_ICE, "unspellable token %s", TOKEN_NAME (token));
+      cpp_error (pfile, CPP_DL_ICE,
+		 "unspellable token %s", TOKEN_NAME (token));
       break;
     }
 

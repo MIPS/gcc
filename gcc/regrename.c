@@ -1,5 +1,5 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -104,7 +104,7 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   if (GET_CODE (x) != REG)
     return;
   regno = REGNO (x);
-  nregs = HARD_REGNO_NREGS (regno, GET_MODE (x));
+  nregs = hard_regno_nregs[regno][GET_MODE (x)];
 
   /* There must not be pseudos at this point.  */
   if (regno + nregs > FIRST_PSEUDO_REGISTER)
@@ -126,7 +126,7 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
       {
 	rtx reg = XEXP (note, 0);
 	unsigned int regno = REGNO (reg);
-	int nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
 
 	/* There must not be pseudos at this point.  */
 	if (regno + nregs > FIRST_PSEUDO_REGISTER)
@@ -149,7 +149,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   HARD_REG_SET live;
 
   REG_SET_TO_HARD_REG_SET (live, b->global_live_at_start);
-  insn = b->head;
+  insn = BB_HEAD (b);
   while (t)
     {
       /* Search forward until the next reference to the register to be
@@ -204,12 +204,12 @@ regrename_optimize (void)
 
       CLEAR_HARD_REG_SET (unavailable);
 
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
+      if (dump_file)
+	fprintf (dump_file, "\nBasic block %d:\n", bb->index);
 
       all_chains = build_def_use (bb);
 
-      if (rtl_dump_file)
+      if (dump_file)
 	dump_def_use_chain (all_chains);
 
       CLEAR_HARD_REG_SET (unavailable);
@@ -218,11 +218,11 @@ regrename_optimize (void)
 	{
 	  int i;
 
-	  for (i = HARD_REGNO_NREGS (FRAME_POINTER_REGNUM, Pmode); i--;)
+	  for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
 	    SET_HARD_REG_BIT (unavailable, FRAME_POINTER_REGNUM + i);
 
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	  for (i = HARD_REGNO_NREGS (HARD_FRAME_POINTER_REGNUM, Pmode); i--;)
+	  for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
 	    SET_HARD_REG_BIT (unavailable, HARD_FRAME_POINTER_REGNUM + i);
 #endif
 	}
@@ -287,7 +287,7 @@ regrename_optimize (void)
 	     have a closer look at each register still in there.  */
 	  for (new_reg = 0; new_reg < FIRST_PSEUDO_REGISTER; new_reg++)
 	    {
-	      int nregs = HARD_REGNO_NREGS (new_reg, GET_MODE (*this->loc));
+	      int nregs = hard_regno_nregs[new_reg][GET_MODE (*this->loc)];
 
 	      for (i = nregs - 1; i >= 0; --i)
 	        if (TEST_HARD_REG_BIT (this_unavailable, new_reg + i)
@@ -327,27 +327,28 @@ regrename_optimize (void)
 		}
 	    }
 
-	  if (rtl_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (rtl_dump_file, "Register %s in insn %d",
+	      fprintf (dump_file, "Register %s in insn %d",
 		       reg_names[reg], INSN_UID (last->insn));
 	      if (last->need_caller_save_reg)
-		fprintf (rtl_dump_file, " crosses a call");
+		fprintf (dump_file, " crosses a call");
 	    }
 
 	  if (best_new_reg == reg)
 	    {
 	      tick[reg] = ++this_tick;
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "; no available better choice\n");
+	      if (dump_file)
+		fprintf (dump_file, "; no available better choice\n");
 	      continue;
 	    }
 
 	  do_replace (this, best_new_reg);
 	  tick[best_new_reg] = ++this_tick;
+	  regs_ever_live[best_new_reg] = 1;
 
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
+	  if (dump_file)
+	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
 	}
 
       obstack_free (&rename_obstack, first_obj);
@@ -355,12 +356,12 @@ regrename_optimize (void)
 
   obstack_free (&rename_obstack, NULL);
 
-  if (rtl_dump_file)
-    fputc ('\n', rtl_dump_file);
+  if (dump_file)
+    fputc ('\n', dump_file);
 
   count_or_remove_death_notes (NULL, 1);
   update_life_info (NULL, UPDATE_LIFE_LOCAL,
-		    PROP_REG_INFO | PROP_DEATH_NOTES);
+		    PROP_DEATH_NOTES);
 }
 
 static void
@@ -391,7 +392,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
   rtx x = *loc;
   enum machine_mode mode = GET_MODE (x);
   int this_regno = REGNO (x);
-  int this_nregs = HARD_REGNO_NREGS (this_regno, mode);
+  int this_nregs = hard_regno_nregs[this_regno][mode];
 
   if (action == mark_write)
     {
@@ -431,7 +432,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
       else
 	{
 	  int regno = REGNO (*this->loc);
-	  int nregs = HARD_REGNO_NREGS (regno, GET_MODE (*this->loc));
+	  int nregs = hard_regno_nregs[regno][GET_MODE (*this->loc)];
 	  int exact_match = (regno == this_regno && nregs == this_nregs);
 
 	  if (regno + nregs <= this_regno
@@ -479,16 +480,16 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
 		{
 		  this->next_chain = closed_chains;
 		  closed_chains = this;
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Closing chain %s at insn %d (%s)\n",
 			     reg_names[REGNO (*this->loc)], INSN_UID (insn),
 			     scan_actions_name[(int) action]);
 		}
 	      else
 		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Discarding chain %s at insn %d (%s)\n",
 			     reg_names[REGNO (*this->loc)], INSN_UID (insn),
 			     scan_actions_name[(int) action]);
@@ -729,7 +730,7 @@ build_def_use (basic_block bb)
 
   open_chains = closed_chains = NULL;
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
@@ -954,7 +955,7 @@ build_def_use (basic_block bb)
 	      scan_rtx (insn, &XEXP (note, 0), NO_REGS, terminate_dead,
 			OP_IN, 0);
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -963,7 +964,7 @@ build_def_use (basic_block bb)
   return closed_chains;
 }
 
-/* Dump all def/use chains in CHAINS to RTL_DUMP_FILE.  They are
+/* Dump all def/use chains in CHAINS to DUMP_FILE.  They are
    printed in reverse order as that's how we build them.  */
 
 static void
@@ -973,15 +974,15 @@ dump_def_use_chain (struct du_chain *chains)
     {
       struct du_chain *this = chains;
       int r = REGNO (*this->loc);
-      int nregs = HARD_REGNO_NREGS (r, GET_MODE (*this->loc));
-      fprintf (rtl_dump_file, "Register %s (%d):", reg_names[r], nregs);
+      int nregs = hard_regno_nregs[r][GET_MODE (*this->loc)];
+      fprintf (dump_file, "Register %s (%d):", reg_names[r], nregs);
       while (this)
 	{
-	  fprintf (rtl_dump_file, " %d [%s]", INSN_UID (this->insn),
+	  fprintf (dump_file, " %d [%s]", INSN_UID (this->insn),
 		   reg_class_names[this->class]);
 	  this = this->next_use;
 	}
-      fprintf (rtl_dump_file, "\n");
+      fprintf (dump_file, "\n");
       chains = chains->next_chain;
     }
 }
@@ -1084,7 +1085,7 @@ kill_value (rtx x, struct value_data *vd)
   if (REG_P (x))
     {
       unsigned int regno = REGNO (x);
-      unsigned int n = HARD_REGNO_NREGS (regno, GET_MODE (x));
+      unsigned int n = hard_regno_nregs[regno][GET_MODE (x)];
       unsigned int i, j;
 
       /* Kill the value we're told to kill.  */
@@ -1100,7 +1101,7 @@ kill_value (rtx x, struct value_data *vd)
 	{
 	  if (vd->e[j].mode == VOIDmode)
 	    continue;
-	  n = HARD_REGNO_NREGS (j, vd->e[j].mode);
+	  n = hard_regno_nregs[j][vd->e[j].mode];
 	  if (j + n > regno)
 	    for (i = 0; i < n; ++i)
 	      kill_value_regno (j + i, vd);
@@ -1118,7 +1119,7 @@ set_value_regno (unsigned int regno, enum machine_mode mode,
 
   vd->e[regno].mode = mode;
 
-  nregs = HARD_REGNO_NREGS (regno, mode);
+  nregs = hard_regno_nregs[regno][mode];
   if (nregs > vd->max_value_regs)
     vd->max_value_regs = nregs;
 }
@@ -1173,7 +1174,7 @@ kill_autoinc_value (rtx *px, void *data)
   rtx x = *px;
   struct value_data *vd = data;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'a')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
     {
       x = XEXP (x, 0);
       kill_value (x, vd);
@@ -1210,8 +1211,8 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
     return;
 
   /* If SRC and DEST overlap, don't record anything.  */
-  dn = HARD_REGNO_NREGS (dr, GET_MODE (dest));
-  sn = HARD_REGNO_NREGS (sr, GET_MODE (dest));
+  dn = hard_regno_nregs[dr][GET_MODE (dest)];
+  sn = hard_regno_nregs[sr][GET_MODE (dest)];
   if ((dr > sr && dr < sr + sn)
       || (sr > dr && sr < dr + dn))
     return;
@@ -1237,7 +1238,7 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
 
      We can't properly represent the latter case in our tables, so don't
      record anything then.  */
-  else if (sn < (unsigned int) HARD_REGNO_NREGS (sr, vd->e[sr].mode)
+  else if (sn < (unsigned int) hard_regno_nregs[sr][vd->e[sr].mode]
 	   && (GET_MODE_SIZE (vd->e[sr].mode) > UNITS_PER_WORD
 	       ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
     return;
@@ -1245,7 +1246,7 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
   /* If SRC had been assigned a mode narrower than the copy, we can't
      link DEST into the chain, because not all of the pieces of the
      copy came from oldest_regno.  */
-  else if (sn > (unsigned int) HARD_REGNO_NREGS (sr, vd->e[sr].mode))
+  else if (sn > (unsigned int) hard_regno_nregs[sr][vd->e[sr].mode])
     return;
 
   /* Link DR at the end of the value chain used by SR.  */
@@ -1291,8 +1292,8 @@ maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
     return gen_rtx_raw_REG (new_mode, regno);
   else if (mode_change_ok (orig_mode, new_mode, regno))
     {
-      int copy_nregs = HARD_REGNO_NREGS (copy_regno, copy_mode);
-      int use_nregs = HARD_REGNO_NREGS (copy_regno, new_mode);
+      int copy_nregs = hard_regno_nregs[copy_regno][copy_mode];
+      int use_nregs = hard_regno_nregs[copy_regno][new_mode];
       int copy_offset
 	= GET_MODE_SIZE (copy_mode) / copy_nregs * (copy_nregs - use_nregs);
       int offset
@@ -1330,8 +1331,8 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
      Replacing r9 with r11 is invalid.  */
   if (mode != vd->e[regno].mode)
     {
-      if (HARD_REGNO_NREGS (regno, mode)
-	  > HARD_REGNO_NREGS (regno, vd->e[regno].mode))
+      if (hard_regno_nregs[regno][mode]
+	  > hard_regno_nregs[regno][vd->e[regno].mode])
 	return NULL_RTX;
     }
 
@@ -1339,15 +1340,19 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
     {
       enum machine_mode oldmode = vd->e[i].mode;
       rtx new;
+      unsigned int last;
 
-    if (TEST_HARD_REG_BIT (reg_class_contents[class], i)
-	&& (new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i,
-				     regno)))
-      {
-	ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
-        REG_ATTRS (new) = REG_ATTRS (reg);
-	return new;
-      }
+      for (last = i; last < i + hard_regno_nregs[i][mode]; last++)
+	if (!TEST_HARD_REG_BIT (reg_class_contents[class], last))
+	  return NULL_RTX;
+
+      new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i, regno);
+      if (new)
+	{
+	  ORIGINAL_REGNO (new) = ORIGINAL_REGNO (reg);
+	  REG_ATTRS (new) = REG_ATTRS (reg);
+	  return new;
+	}
     }
 
   return NULL_RTX;
@@ -1363,8 +1368,8 @@ replace_oldest_value_reg (rtx *loc, enum reg_class class, rtx insn,
   rtx new = find_oldest_value_reg (class, *loc, vd);
   if (new)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "insn %u: replaced reg %u with %u\n",
+      if (dump_file)
+	fprintf (dump_file, "insn %u: replaced reg %u with %u\n",
 		 INSN_UID (insn), REGNO (*loc), REGNO (new));
 
       *loc = new;
@@ -1525,7 +1530,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
   bool changed = false;
   rtx insn;
 
-  for (insn = bb->head; ; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       int n_ops, i, alt, predicated;
       bool is_asm;
@@ -1533,7 +1538,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 
       if (! INSN_P (insn))
 	{
-	  if (insn == bb->end)
+	  if (insn == BB_END (bb))
 	    break;
 	  else
 	    continue;
@@ -1596,8 +1601,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	     set it in, make sure that the replacement is valid.  */
 	  if (mode != vd->e[regno].mode)
 	    {
-	      if (HARD_REGNO_NREGS (regno, mode)
-		  > HARD_REGNO_NREGS (regno, vd->e[regno].mode))
+	      if (hard_regno_nregs[regno][mode]
+		  > hard_regno_nregs[regno][vd->e[regno].mode])
 		goto no_move_special_case;
 	    }
 
@@ -1608,8 +1613,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	      new = find_oldest_value_reg (REGNO_REG_CLASS (regno), src, vd);
 	      if (new && validate_change (insn, &SET_SRC (set), new, 0))
 		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "insn %u: replaced reg %u with %u\n",
 			     INSN_UID (insn), regno, REGNO (new));
 		  changed = true;
@@ -1629,8 +1634,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		    {
 		      ORIGINAL_REGNO (new) = ORIGINAL_REGNO (src);
 		      REG_ATTRS (new) = REG_ATTRS (src);
-		      if (rtl_dump_file)
-			fprintf (rtl_dump_file,
+		      if (dump_file)
+			fprintf (dump_file,
 				 "insn %u: replaced reg %u with %u\n",
 				 INSN_UID (insn), regno, REGNO (new));
 		      changed = true;
@@ -1709,7 +1714,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       if (set && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set)))
 	copy_value (SET_DEST (set), SET_SRC (set), vd);
 
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -1734,7 +1739,7 @@ copyprop_hardreg_forward (void)
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
-      /* ??? Ought to use more intelligent queueing of blocks.  */
+      /* ??? Ought to use more intelligent queuing of blocks.  */
       if (bb->pred)
 	for (bbp = bb; bbp && bbp != bb->pred->src; bbp = bbp->prev_bb);
       if (bb->pred
@@ -1752,8 +1757,8 @@ copyprop_hardreg_forward (void)
 
   if (need_refresh)
     {
-      if (rtl_dump_file)
-	fputs ("\n\n", rtl_dump_file);
+      if (dump_file)
+	fputs ("\n\n", dump_file);
 
       /* ??? Irritatingly, delete_noop_moves does not take a set of blocks
 	 to scan, so we have to do a life update with no initial set of

@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
+#include "target.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -99,7 +100,7 @@ bool warn_shadow;
 
 /* Nonzero means warn about constructs which might not be
    strict-aliasing safe.  */
-bool warn_strict_aliasing;
+int warn_strict_aliasing;
 
 /* True to warn if a switch on an enum, that does not have a default
    case, fails to have a case for every enum value.  */
@@ -147,6 +148,13 @@ static unsigned int columns = 80;
 
 /* What to print when a switch has no documentation.  */
 static const char undocumented_msg[] = N_("This switch lacks documentation");
+
+/* Used for bookkeeping on whether user set these flags so
+   -fprofile-use/-fprofile-generate does not use them.  */
+static bool profile_arc_flag_set, flag_profile_values_set;
+static bool flag_unroll_loops_set, flag_tracer_set;
+static bool flag_value_profile_transformations_set;
+static bool flag_peel_loops_set, flag_branch_probabilities_set;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -395,7 +403,7 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   if (arg == NULL && (option->flags & (CL_JOINED | CL_SEPARATE)))
     {
-      if (!(*lang_hooks.missing_argument) (opt, opt_index))
+      if (!lang_hooks.missing_argument (opt, opt_index))
 	error ("missing argument to \"%s\"", opt);
       goto done;
     }
@@ -413,7 +421,7 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (option->flags & lang_mask)
-    if ((*lang_hooks.handle_option) (opt_index, arg, value) == 0)
+    if (lang_hooks.handle_option (opt_index, arg, value) == 0)
       result = 0;
 
   if (result && (option->flags & CL_COMMON))
@@ -441,7 +449,8 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
       /* Interpret "-" or a non-switch as a file name.  */
       if (opt[0] != '-' || opt[1] == '\0')
 	{
-	  main_input_filename = opt;
+	  if (main_input_filename == NULL)
+	    main_input_filename = opt;
 	  add_input_filename (opt);
 	  n = 1;
 	  continue;
@@ -474,7 +483,7 @@ decode_options (unsigned int argc, const char **argv)
   unsigned int i, lang_mask;
 
   /* Perform language-specific options initialization.  */
-  lang_mask = (*lang_hooks.init_options) (argc, argv);
+  lang_mask = lang_hooks.init_options (argc, argv);
 
   lang_hooks.initialize_diagnostics (global_dc);
 
@@ -529,13 +538,13 @@ decode_options (unsigned int argc, const char **argv)
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
       flag_loop_optimize = 1;
-      flag_crossjumping = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
     }
 
   if (optimize >= 2)
     {
+      flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
@@ -565,6 +574,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_rename_registers = 1;
       flag_unswitch_loops = 1;
       flag_web = 1;
+      flag_gcse_after_reload = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -586,10 +596,8 @@ decode_options (unsigned int argc, const char **argv)
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
-#ifdef DEFAULT_SHORT_ENUMS
   /* Initialize how much space enums occupy, by default.  */
-  flag_short_enums = DEFAULT_SHORT_ENUMS;
-#endif
+  flag_short_enums = targetm.default_short_enums ();
 
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
@@ -739,6 +747,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_Wstrict_aliasing:
+    case OPT_Wstrict_aliasing_:
       warn_strict_aliasing = value;
       break;
 
@@ -825,6 +834,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_pie = value + value;
       break;
 
+    case OPT_fabi_version_:
+      flag_abi_version = value;
+      break;
+
     case OPT_falign_functions:
       align_functions = !value;
       break;
@@ -882,6 +895,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fbranch_probabilities:
+      flag_branch_probabilities_set = true;
       flag_branch_probabilities = value;
       break;
 
@@ -891,6 +905,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fbranch_target_load_optimize2:
       flag_branch_target_load_optimize2 = value;
+      break;
+
+    case OPT_fbtr_bb_exclusive:
+      flag_btr_bb_exclusive = value;
       break;
 
     case OPT_fcall_used_:
@@ -1019,12 +1037,12 @@ common_handle_option (size_t scode, const char *arg,
       flag_gcse_sm = value;
       break;
 
-    case OPT_fgcse_las:
-      flag_gcse_las = value;
+    case OPT_fgcse_after_reload:
+      flag_gcse_after_reload = value;
       break;
 
-    case OPT_fgnu_linker:
-      flag_gnu_linker = value;
+    case OPT_fgcse_las:
+      flag_gcse_las = value;
       break;
 
     case OPT_fguess_branch_probability:
@@ -1057,7 +1075,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_finline_limit_:
     case OPT_finline_limit_eq:
-      set_param_value ("max-inline-insns", value);
       set_param_value ("max-inline-insns-single", value / 2);
       set_param_value ("max-inline-insns-auto", value / 2);
       set_param_value ("max-inline-insns-rtl", value);
@@ -1140,6 +1157,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fpeel_loops:
+      flag_peel_loops_set = true;
       flag_peel_loops = value;
       break;
 
@@ -1172,14 +1190,41 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_fprofile_arcs:
+      profile_arc_flag_set = true;
       profile_arc_flag = value;
       break;
 
+    case OPT_fprofile_use:
+      if (!flag_branch_probabilities_set)
+        flag_branch_probabilities = value;
+      if (!flag_profile_values_set)
+        flag_profile_values = value;
+      if (!flag_unroll_loops_set)
+        flag_unroll_loops = value;
+      if (!flag_peel_loops_set)
+        flag_peel_loops = value;
+      if (!flag_tracer_set)
+        flag_tracer = value;
+      if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;
+      break;
+
+    case OPT_fprofile_generate:
+      if (!profile_arc_flag_set)
+        profile_arc_flag = value;
+      if (!flag_profile_values_set)
+        flag_profile_values = value;
+      if (!flag_value_profile_transformations_set)
+        flag_value_profile_transformations = value;
+      break;
+
     case OPT_fprofile_values:
+      flag_profile_values_set = true;
       flag_profile_values = value;
       break;
 
     case OPT_fvpt:
+      flag_value_profile_transformations_set = value;
       flag_value_profile_transformations = value;
       break;
 
@@ -1300,18 +1345,6 @@ common_handle_option (size_t scode, const char *arg,
       flag_single_precision_constant = value;
       break;
 
-    case OPT_fssa:
-      flag_ssa = value;
-      break;
-
-    case OPT_fssa_ccp:
-      flag_ssa_ccp = value;
-      break;
-
-    case OPT_fssa_dce:
-      flag_ssa_dce = value;
-      break;
-
     case OPT_fstack_check:
       flag_stack_check = value;
       break;
@@ -1375,6 +1408,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_ftracer:
+      flag_tracer_set = true;
       flag_tracer = value;
       break;
 
@@ -1395,6 +1429,7 @@ common_handle_option (size_t scode, const char *arg,
       break;
 
     case OPT_funroll_loops:
+      flag_unroll_loops_set = true;
       flag_unroll_loops = value;
       break;
 
@@ -1410,6 +1445,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_unwind_tables = value;
       break;
 
+    case OPT_fvar_tracking:
+      flag_var_tracking = value;
+      break;
+
     case OPT_fverbose_asm:
       flag_verbose_asm = value;
       break;
@@ -1422,10 +1461,6 @@ common_handle_option (size_t scode, const char *arg,
       flag_wrapv = value;
       break;
 
-    case OPT_fwritable_strings:
-      flag_writable_strings = value;
-      break;
-
     case OPT_fzero_initialized_in_bss:
       flag_zero_initialized_in_bss = value;
       break;
@@ -1436,19 +1471,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_gcoff:
       set_debug_level (SDB_DEBUG, false, arg);
-      break;
-
-    case OPT_gdwarf:
-      if (*arg)
-	{
-	  error ("use -gdwarf -gN for DWARF v1 level N, "
-		 "and -gdwarf-2 for DWARF v2" );
-	  break;
-	}
-
-      /* Fall through.  */
-    case OPT_gdwarf_:
-      set_debug_level (DWARF_DEBUG, code == OPT_gdwarf_, arg);
       break;
 
     case OPT_gdwarf_2:
@@ -1846,7 +1868,7 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
 		len = i;
 	      else if ((help[i] == '-' || help[i] == '/')
 		       && help[i + 1] != ' '
-		       && ISALPHA (help[i - 1]))
+		       && i > 0 && ISALPHA (help[i - 1]))
 		len = i + 1;
 	    }
 	}

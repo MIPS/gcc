@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -42,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "target.h"
 #include "cgraph.h"
+#include "varray.h"
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
@@ -73,7 +74,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    However, this is no actual entry for alias set zero.  It is an
    error to attempt to explicitly construct a subset of zero.  */
 
-typedef struct alias_set_entry
+struct alias_set_entry GTY(())
 {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   HOST_WIDE_INT alias_set;
@@ -85,12 +86,13 @@ typedef struct alias_set_entry
 
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
-  splay_tree children;
+  splay_tree GTY((param1_is (int), param2_is (int))) children;
 
   /* Nonzero if would have a child of zero: this effectively makes this
      alias set the same as alias set zero.  */
   int has_zero_child;
-} *alias_set_entry;
+};
+typedef struct alias_set_entry *alias_set_entry;
 
 static int rtx_equal_for_memref_p (rtx, rtx);
 static rtx find_symbolic_term (rtx);
@@ -155,17 +157,21 @@ static void memory_modified_1 (rtx, rtx, void *);
    current function performs nonlocal memory memory references for the
    purposes of marking the function as a constant function.  */
 
-static GTY((length ("reg_base_value_size"))) rtx *reg_base_value;
+static GTY(()) varray_type reg_base_value;
 static rtx *new_reg_base_value;
-static unsigned int reg_base_value_size; /* size of reg_base_value array */
+
+/* We preserve the copy of old array around to avoid amount of garbage
+   produced.  About 8% of garbage produced were attributed to this
+   array.  */
+static GTY((deletable)) varray_type old_reg_base_value;
 
 /* Static hunks of RTL used by the aliasing code; these are initialized
    once per function to avoid unnecessary RTL allocations.  */
 static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
 
 #define REG_BASE_VALUE(X) \
-  (REGNO (X) < reg_base_value_size \
-   ? reg_base_value[REGNO (X)] : 0)
+  (reg_base_value && REGNO (X) < VARRAY_SIZE (reg_base_value) \
+   ? VARRAY_RTX (reg_base_value, REGNO (X)) : 0)
 
 /* Vector of known invariant relationships between registers.  Set in
    loop unrolling.  Indexed by register number, if nonzero the value
@@ -175,16 +181,16 @@ static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
 
    Because this array contains only pseudo registers it has no effect
    after reload.  */
-static rtx *alias_invariant;
+static GTY((length("alias_invariant_size"))) rtx *alias_invariant;
+unsigned GTY(()) int alias_invariant_size;
 
 /* Vector indexed by N giving the initial (unchanging) value known for
-   pseudo-register N.  This array is initialized in
-   init_alias_analysis, and does not change until end_alias_analysis
-   is called.  */
-rtx *reg_known_value;
+   pseudo-register N.  This array is initialized in init_alias_analysis,
+   and does not change until end_alias_analysis is called.  */
+static GTY((length("reg_known_value_size"))) rtx *reg_known_value;
 
 /* Indicates number of valid entries in reg_known_value.  */
-static unsigned int reg_known_value_size;
+static GTY(()) unsigned int reg_known_value_size;
 
 /* Vector recording for each reg_known_value whether it is due to a
    REG_EQUIV note.  Future passes (viz., reload) may replace the
@@ -198,31 +204,28 @@ static unsigned int reg_known_value_size;
    REG_EQUIV notes.  One could argue that the REG_EQUIV notes are
    wrong, but solving the problem in the scheduler will likely give
    better code, so we do it here.  */
-char *reg_known_equiv_p;
+static bool *reg_known_equiv_p;
 
 /* True when scanning insns from the start of the rtl to the
    NOTE_INSN_FUNCTION_BEG note.  */
 static bool copying_arguments;
 
 /* The splay-tree used to store the various alias set entries.  */
-static splay_tree alias_sets;
+static GTY ((param_is (struct alias_set_entry))) varray_type alias_sets;
 
 /* Returns a pointer to the alias set entry for ALIAS_SET, if there is
    such an entry, or NULL otherwise.  */
 
-static alias_set_entry
+static inline alias_set_entry
 get_alias_set_entry (HOST_WIDE_INT alias_set)
 {
-  splay_tree_node sn
-    = splay_tree_lookup (alias_sets, (splay_tree_key) alias_set);
-
-  return sn != 0 ? ((alias_set_entry) sn->value) : 0;
+  return (alias_set_entry)VARRAY_GENERIC_PTR (alias_sets, alias_set);
 }
 
 /* Returns nonzero if the alias sets for MEM1 and MEM2 are such that
    the two MEMs cannot alias each other.  */
 
-static int
+static inline int
 mems_in_disjoint_alias_sets_p (rtx mem1, rtx mem2)
 {
 #ifdef ENABLE_CHECKING
@@ -286,6 +289,19 @@ alias_sets_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
      child of the other.  Therefore, they cannot alias.  */
   return 0;
 }
+
+/* Return 1 if the two specified alias sets might conflict, or if any subtype
+   of these alias sets might conflict.  */
+
+int
+alias_sets_might_conflict_p (HOST_WIDE_INT set1, HOST_WIDE_INT set2)
+{
+  if (set1 == 0 || set2 == 0 || set1 == set2)
+    return 1;
+
+  return 0;
+}
+
 
 /* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
    has any readonly fields.  If any of the fields have types that
@@ -464,26 +480,19 @@ get_alias_set (tree t)
   if (! TYPE_P (t))
     {
       tree inner = t;
-      tree placeholder_ptr = 0;
 
       /* Remove any nops, then give the language a chance to do
 	 something with this tree before we look at it.  */
       STRIP_NOPS (t);
-      set = (*lang_hooks.get_alias_set) (t);
+      set = lang_hooks.get_alias_set (t);
       if (set != -1)
 	return set;
 
       /* First see if the actual object referenced is an INDIRECT_REF from a
-	 restrict-qualified pointer or a "void *".  Replace
-	 PLACEHOLDER_EXPRs.  */
-      while (TREE_CODE (inner) == PLACEHOLDER_EXPR
-	     || handled_component_p (inner))
+	 restrict-qualified pointer or a "void *".  */
+      while (handled_component_p (inner))
 	{
-	  if (TREE_CODE (inner) == PLACEHOLDER_EXPR)
-	    inner = find_placeholder (inner, &placeholder_ptr);
-	  else
-	    inner = TREE_OPERAND (inner, 0);
-
+	  inner = TREE_OPERAND (inner, 0);
 	  STRIP_NOPS (inner);
 	}
 
@@ -509,7 +518,7 @@ get_alias_set (tree t)
 
 		  if (pointed_to_alias_set == 0)
 		    /* It's not legal to make a subset of alias set zero.  */
-		    ;
+		    DECL_POINTER_ALIAS_SET (decl) = 0;
 		  else
 		    {
 		      DECL_POINTER_ALIAS_SET (decl) = new_alias_set ();
@@ -523,22 +532,19 @@ get_alias_set (tree t)
 	    }
 
 	  /* If we have an INDIRECT_REF via a void pointer, we don't
-	     know anything about what that might alias.  */
-	  else if (TREE_CODE (TREE_TYPE (inner)) == VOID_TYPE)
+	     know anything about what that might alias.  Likewise if the
+	     pointer is marked that way.  */
+	  else if (TREE_CODE (TREE_TYPE (inner)) == VOID_TYPE
+		   || (TYPE_REF_CAN_ALIAS_ALL
+		       (TREE_TYPE (TREE_OPERAND (inner, 0)))))
 	    return 0;
 	}
 
       /* Otherwise, pick up the outermost object that we could have a pointer
-	 to, processing conversion and PLACEHOLDER_EXPR as above.  */
-      placeholder_ptr = 0;
-      while (TREE_CODE (t) == PLACEHOLDER_EXPR
-	     || (handled_component_p (t) && ! can_address_p (t)))
+	 to, processing conversions as above.  */
+      while (handled_component_p (t) && ! can_address_p (t))
 	{
-	  if (TREE_CODE (t) == PLACEHOLDER_EXPR)
-	    t = find_placeholder (t, &placeholder_ptr);
-	  else
-	    t = TREE_OPERAND (t, 0);
-
+	  t = TREE_OPERAND (t, 0);
 	  STRIP_NOPS (t);
 	}
 
@@ -560,7 +566,7 @@ get_alias_set (tree t)
     return TYPE_ALIAS_SET (t);
 
   /* See if the language has special handling for this type.  */
-  set = (*lang_hooks.get_alias_set) (t);
+  set = lang_hooks.get_alias_set (t);
   if (set != -1)
     return set;
 
@@ -593,13 +599,19 @@ get_alias_set (tree t)
 
 /* Return a brand-new alias set.  */
 
+static GTY(()) HOST_WIDE_INT last_alias_set;
+
 HOST_WIDE_INT
 new_alias_set (void)
 {
-  static HOST_WIDE_INT last_alias_set;
-
   if (flag_strict_aliasing)
-    return ++last_alias_set;
+    {
+      if (!alias_sets)
+	VARRAY_GENERIC_PTR_INIT (alias_sets, 10, "alias sets");
+      else
+	VARRAY_GROW (alias_sets, last_alias_set + 2);
+      return ++last_alias_set;
+    }
   else
     return 0;
 }
@@ -636,13 +648,12 @@ record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
-      superset_entry = xmalloc (sizeof (struct alias_set_entry));
+      superset_entry = ggc_alloc (sizeof (struct alias_set_entry));
       superset_entry->alias_set = superset;
       superset_entry->children
-	= splay_tree_new (splay_tree_compare_ints, 0, 0);
+	= splay_tree_new_ggc (splay_tree_compare_ints);
       superset_entry->has_zero_child = 0;
-      splay_tree_insert (alias_sets, (splay_tree_key) superset,
-			 (splay_tree_value) superset_entry);
+      VARRAY_GENERIC_PTR (alias_sets, superset) = superset_entry;
     }
 
   if (subset == 0)
@@ -692,7 +703,7 @@ record_component_aliases (tree type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* Recursively record aliases for the base classes, if there are any */
+      /* Recursively record aliases for the base classes, if there are any.  */
       if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
 	{
 	  int i;
@@ -720,29 +731,29 @@ record_component_aliases (tree type)
 /* Allocate an alias set for use in storing and reading from the varargs
    spill area.  */
 
+static GTY(()) HOST_WIDE_INT varargs_set = -1;
+
 HOST_WIDE_INT
 get_varargs_alias_set (void)
 {
-  static HOST_WIDE_INT set = -1;
+  if (varargs_set == -1)
+    varargs_set = new_alias_set ();
 
-  if (set == -1)
-    set = new_alias_set ();
-
-  return set;
+  return varargs_set;
 }
 
 /* Likewise, but used for the fixed portions of the frame, e.g., register
    save areas.  */
 
+static GTY(()) HOST_WIDE_INT frame_set = -1;
+
 HOST_WIDE_INT
 get_frame_alias_set (void)
 {
-  static HOST_WIDE_INT set = -1;
+  if (frame_set == -1)
+    frame_set = new_alias_set ();
 
-  if (set == -1)
-    set = new_alias_set ();
-
-  return set;
+  return frame_set;
 }
 
 /* Inside SRC, the source of a SET, find a base address.  */
@@ -774,7 +785,7 @@ find_base_value (rtx src)
 	 The test above is not sufficient because the scheduler may move
 	 a copy out of an arg reg past the NOTE_INSN_FUNCTION_BEGIN.  */
       if ((regno >= FIRST_PSEUDO_REGISTER || fixed_regs[regno])
-	  && regno < reg_base_value_size)
+	  && regno < VARRAY_SIZE (reg_base_value))
 	{
 	  /* If we're inside init_alias_analysis, use new_reg_base_value
 	     to reduce the number of relaxation iterations.  */
@@ -782,8 +793,8 @@ find_base_value (rtx src)
 	      && REG_N_SETS (regno) == 1)
 	    return new_reg_base_value[regno];
 
-	  if (reg_base_value[regno])
-	    return reg_base_value[regno];
+	  if (VARRAY_RTX (reg_base_value, regno))
+	    return VARRAY_RTX (reg_base_value, regno);
 	}
 
       return 0;
@@ -927,13 +938,13 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
 
   regno = REGNO (dest);
 
-  if (regno >= reg_base_value_size)
+  if (regno >= VARRAY_SIZE (reg_base_value))
     abort ();
 
   /* If this spans multiple hard registers, then we must indicate that every
      register has an unusable value.  */
   if (regno < FIRST_PSEUDO_REGISTER)
-    n = HARD_REGNO_NREGS (regno, GET_MODE (dest));
+    n = hard_regno_nregs[regno][GET_MODE (dest)];
   else
     n = 1;
   if (n != 1)
@@ -971,13 +982,24 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
       return;
     }
 
-  /* This is not the first set.  If the new value is not related to the
-     old value, forget the base value. Note that the following code is
-     not detected:
-     extern int x, y;  int *p = &x; p += (&y-&x);
+  /* If this is not the first set of REGNO, see whether the new value
+     is related to the old one.  There are two cases of interest:
+
+	(1) The register might be assigned an entirely new value
+	    that has the same base term as the original set.
+
+	(2) The set might be a simple self-modification that
+	    cannot change REGNO's base value.
+
+     If neither case holds, reject the original base value as invalid.
+     Note that the following situation is not detected:
+
+         extern int x, y;  int *p = &x; p += (&y-&x);
+
      ANSI C does not allow computing the difference of addresses
      of distinct top level objects.  */
-  if (new_reg_base_value[regno])
+  if (new_reg_base_value[regno] != 0
+      && find_base_value (src) != new_reg_base_value[regno])
     switch (GET_CODE (src))
       {
       case LO_SUM:
@@ -1026,21 +1048,20 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
 void
 record_base_value (unsigned int regno, rtx val, int invariant)
 {
-  if (regno >= reg_base_value_size)
-    return;
-
-  if (invariant && alias_invariant)
+  if (invariant && alias_invariant && regno < alias_invariant_size)
     alias_invariant[regno] = val;
+
+  if (regno >= VARRAY_SIZE (reg_base_value))
+    VARRAY_GROW (reg_base_value, max_reg_num ());
 
   if (GET_CODE (val) == REG)
     {
-      if (REGNO (val) < reg_base_value_size)
-	reg_base_value[regno] = reg_base_value[REGNO (val)];
-
+      VARRAY_RTX (reg_base_value, regno)
+	 = REG_BASE_VALUE (val);
       return;
     }
-
-  reg_base_value[regno] = find_base_value (val);
+  VARRAY_RTX (reg_base_value, regno)
+     = find_base_value (val);
 }
 
 /* Clear alias info for a register.  This is used if an RTL transformation
@@ -1053,9 +1074,69 @@ clear_reg_alias_info (rtx reg)
 {
   unsigned int regno = REGNO (reg);
 
-  if (regno < reg_known_value_size && regno >= FIRST_PSEUDO_REGISTER)
-    reg_known_value[regno] = reg;
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      regno -= FIRST_PSEUDO_REGISTER;
+      if (regno < reg_known_value_size)
+	{
+	  reg_known_value[regno] = reg;
+	  reg_known_equiv_p[regno] = false;
+	}
+    }
 }
+
+/* If a value is known for REGNO, return it.  */
+
+rtx 
+get_reg_known_value (unsigned int regno)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      regno -= FIRST_PSEUDO_REGISTER;
+      if (regno < reg_known_value_size)
+	return reg_known_value[regno];
+    }
+  return NULL;
+}
+
+/* Set it.  */
+
+static void
+set_reg_known_value (unsigned int regno, rtx val)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      regno -= FIRST_PSEUDO_REGISTER;
+      if (regno < reg_known_value_size)
+	reg_known_value[regno] = val;
+    }
+}
+
+/* Similarly for reg_known_equiv_p.  */
+
+bool
+get_reg_known_equiv_p (unsigned int regno)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      regno -= FIRST_PSEUDO_REGISTER;
+      if (regno < reg_known_value_size)
+	return reg_known_equiv_p[regno];
+    }
+  return false;
+}
+
+static void
+set_reg_known_equiv_p (unsigned int regno, bool val)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      regno -= FIRST_PSEUDO_REGISTER;
+      if (regno < reg_known_value_size)
+	reg_known_equiv_p[regno] = val;
+    }
+}
+
 
 /* Returns a canonical version of X, from the point of view alias
    analysis.  (For example, if X is a MEM whose address is a register,
@@ -1066,11 +1147,16 @@ rtx
 canon_rtx (rtx x)
 {
   /* Recursively look for equivalences.  */
-  if (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER
-      && REGNO (x) < reg_known_value_size)
-    return reg_known_value[REGNO (x)] == x
-      ? x : canon_rtx (reg_known_value[REGNO (x)]);
-  else if (GET_CODE (x) == PLUS)
+  if (GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
+    {
+      rtx t = get_reg_known_value (REGNO (x));
+      if (t == x)
+	return x;
+      if (t)
+	return canon_rtx (t);
+    }
+
+  if (GET_CODE (x) == PLUS)
     {
       rtx x0 = canon_rtx (XEXP (x, 0));
       rtx x1 = canon_rtx (XEXP (x, 1));
@@ -1131,9 +1217,6 @@ rtx_equal_for_memref_p (rtx x, rtx y)
   /* Some RTL can be compared without a recursive examination.  */
   switch (code)
     {
-    case VALUE:
-      return CSELIB_VAL_PTR (x) == CSELIB_VAL_PTR (y);
-
     case REG:
       return REGNO (x) == REGNO (y);
 
@@ -1143,6 +1226,7 @@ rtx_equal_for_memref_p (rtx x, rtx y)
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
+    case VALUE:
     case CONST_INT:
     case CONST_DOUBLE:
       /* There's no need to compare the contents of CONST_DOUBLEs or
@@ -1167,7 +1251,7 @@ rtx_equal_for_memref_p (rtx x, rtx y)
 		&& rtx_equal_for_memref_p (XEXP (x, 1), XEXP (y, 0))));
   /* For commutative operations, the RTX match if the operand match in any
      order.  Also handle the simple binary and unary cases without a loop.  */
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+  if (COMMUTATIVE_P (x))
     {
       rtx xop0 = canon_rtx (XEXP (x, 0));
       rtx yop0 = canon_rtx (XEXP (y, 0));
@@ -1178,14 +1262,14 @@ rtx_equal_for_memref_p (rtx x, rtx y)
 	      || (rtx_equal_for_memref_p (xop0, yop1)
 		  && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)), yop0)));
     }
-  else if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == '2')
+  else if (NON_COMMUTATIVE_P (x))
     {
       return (rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
 				      canon_rtx (XEXP (y, 0)))
 	      && rtx_equal_for_memref_p (canon_rtx (XEXP (x, 1)),
 					 canon_rtx (XEXP (y, 1))));
     }
-  else if (GET_RTX_CLASS (code) == '1')
+  else if (UNARY_P (x))
     return rtx_equal_for_memref_p (canon_rtx (XEXP (x, 0)),
 				   canon_rtx (XEXP (y, 0)));
 
@@ -1255,7 +1339,7 @@ find_symbolic_term (rtx x)
   code = GET_CODE (x);
   if (code == SYMBOL_REF || code == LABEL_REF)
     return x;
-  if (GET_RTX_CLASS (code) == 'o')
+  if (OBJECT_P (x))
     return 0;
 
   fmt = GET_RTX_FORMAT (code);
@@ -1317,6 +1401,8 @@ find_base_term (rtx x)
 
     case VALUE:
       val = CSELIB_VAL_PTR (x);
+      if (!val)
+	return 0;
       for (l = val->locs; l; l = l->next)
 	if ((x = find_base_term (l->loc)) != 0)
 	  return x;
@@ -1494,14 +1580,17 @@ get_addr (rtx x)
   if (GET_CODE (x) != VALUE)
     return x;
   v = CSELIB_VAL_PTR (x);
-  for (l = v->locs; l; l = l->next)
-    if (CONSTANT_P (l->loc))
-      return l->loc;
-  for (l = v->locs; l; l = l->next)
-    if (GET_CODE (l->loc) != REG && GET_CODE (l->loc) != MEM)
-      return l->loc;
-  if (v->locs)
-    return v->locs->loc;
+  if (v)
+    {
+      for (l = v->locs; l; l = l->next)
+	if (CONSTANT_P (l->loc))
+	  return l->loc;
+      for (l = v->locs; l; l = l->next)
+	if (GET_CODE (l->loc) != REG && GET_CODE (l->loc) != MEM)
+	  return l->loc;
+      if (v->locs)
+	return v->locs->loc;
+    }
   return x;
 }
 
@@ -1678,8 +1767,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	    unsigned int r_x = REGNO (x), r_y = REGNO (y);
 	    rtx i_x, i_y;	/* invariant relationships of X and Y */
 
-	    i_x = r_x >= reg_base_value_size ? 0 : alias_invariant[r_x];
-	    i_y = r_y >= reg_base_value_size ? 0 : alias_invariant[r_y];
+	    i_x = r_x >= alias_invariant_size ? 0 : alias_invariant[r_x];
+	    i_y = r_y >= alias_invariant_size ? 0 : alias_invariant[r_y];
 
 	    if (i_x == 0 && i_y == 0)
 	      break;
@@ -2386,7 +2475,7 @@ nonlocal_mentioned_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2480,7 +2569,7 @@ nonlocal_referenced_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2556,7 +2645,7 @@ nonlocal_set_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-    /* FALLTHROUGH */
+    /* Fall through.  */
 
     default:
       break;
@@ -2600,7 +2689,7 @@ mark_constant_function (void)
       || DECL_IS_PURE (current_function_decl)
       || TREE_THIS_VOLATILE (current_function_decl)
       || current_function_has_nonlocal_goto
-      || !(*targetm.binds_local_p) (current_function_decl))
+      || !targetm.binds_local_p (current_function_decl))
     return;
 
   /* A loop might not return which counts as a side effect.  */
@@ -2650,9 +2739,6 @@ init_alias_once (void)
 {
   int i;
 
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(N) N
-#endif
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     /* Check whether this register can hold an incoming pointer
        argument.  FUNCTION_ARG_REGNO_P tests outgoing register
@@ -2672,8 +2758,6 @@ init_alias_once (void)
   static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
     = gen_rtx_ADDRESS (Pmode, hard_frame_pointer_rtx);
 #endif
-
-  alias_sets = splay_tree_new (splay_tree_compare_ints, 0, 0);
 }
 
 /* Set MEMORY_MODIFIED when X modifies DATA (that is assumed
@@ -2708,7 +2792,7 @@ memory_modified_in_insn_p (rtx mem, rtx insn)
 void
 init_alias_analysis (void)
 {
-  int maxreg = max_reg_num ();
+  unsigned int maxreg = max_reg_num ();
   int changed, pass;
   int i;
   unsigned int ui;
@@ -2716,29 +2800,38 @@ init_alias_analysis (void)
 
   timevar_push (TV_ALIAS_ANALYSIS);
 
-  reg_known_value_size = maxreg;
-
-  reg_known_value
-    = (rtx *) xcalloc ((maxreg - FIRST_PSEUDO_REGISTER), sizeof (rtx))
-    - FIRST_PSEUDO_REGISTER;
-  reg_known_equiv_p
-    = (char*) xcalloc ((maxreg - FIRST_PSEUDO_REGISTER), sizeof (char))
-    - FIRST_PSEUDO_REGISTER;
+  reg_known_value_size = maxreg - FIRST_PSEUDO_REGISTER;
+  reg_known_value = ggc_calloc (reg_known_value_size, sizeof (rtx));
+  reg_known_equiv_p = xcalloc (reg_known_value_size, sizeof (bool));
 
   /* Overallocate reg_base_value to allow some growth during loop
      optimization.  Loop unrolling can create a large number of
      registers.  */
-  reg_base_value_size = maxreg * 2;
-  reg_base_value = ggc_alloc_cleared (reg_base_value_size * sizeof (rtx));
+  if (old_reg_base_value)
+    {
+      reg_base_value = old_reg_base_value;
+      /* If varray gets large zeroing cost may get important.  */
+      if (VARRAY_SIZE (reg_base_value) > 256
+          && VARRAY_SIZE (reg_base_value) > 4 * maxreg)
+	VARRAY_GROW (reg_base_value, maxreg);
+      VARRAY_CLEAR (reg_base_value);
+      if (VARRAY_SIZE (reg_base_value) < maxreg)
+	VARRAY_GROW (reg_base_value, maxreg);
+    }
+  else
+    {
+      VARRAY_RTX_INIT (reg_base_value, maxreg, "reg_base_value");
+    }
 
-  new_reg_base_value = xmalloc (reg_base_value_size * sizeof (rtx));
-  reg_seen = xmalloc (reg_base_value_size);
+  new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
+  reg_seen = xmalloc (maxreg);
   if (! reload_completed && flag_old_unroll_loops)
     {
       /* ??? Why are we realloc'ing if we're just going to zero it?  */
       alias_invariant = xrealloc (alias_invariant,
-				  reg_base_value_size * sizeof (rtx));
-      memset (alias_invariant, 0, reg_base_value_size * sizeof (rtx));
+				  maxreg * sizeof (rtx));
+      memset (alias_invariant, 0, maxreg * sizeof (rtx));
+      alias_invariant_size = maxreg;
     }
 
   /* The basic idea is that each pass through this loop will use the
@@ -2775,10 +2868,10 @@ init_alias_analysis (void)
       copying_arguments = true;
 
       /* Wipe the potential alias information clean for this pass.  */
-      memset (new_reg_base_value, 0, reg_base_value_size * sizeof (rtx));
+      memset (new_reg_base_value, 0, maxreg * sizeof (rtx));
 
       /* Wipe the reg_seen array clean.  */
-      memset (reg_seen, 0, reg_base_value_size);
+      memset (reg_seen, 0, maxreg);
 
       /* Mark all hard registers which may contain an address.
 	 The stack, frame and argument pointers may contain an address.
@@ -2827,6 +2920,7 @@ init_alias_analysis (void)
 		{
 		  unsigned int regno = REGNO (SET_DEST (set));
 		  rtx src = SET_SRC (set);
+		  rtx t;
 
 		  if (REG_NOTES (insn) != 0
 		      && (((note = find_reg_note (insn, REG_EQUAL, 0)) != 0
@@ -2834,29 +2928,28 @@ init_alias_analysis (void)
 			  || (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != 0)
 		      && GET_CODE (XEXP (note, 0)) != EXPR_LIST
 		      && ! rtx_varies_p (XEXP (note, 0), 1)
-		      && ! reg_overlap_mentioned_p (SET_DEST (set), XEXP (note, 0)))
+		      && ! reg_overlap_mentioned_p (SET_DEST (set),
+						    XEXP (note, 0)))
 		    {
-		      reg_known_value[regno] = XEXP (note, 0);
-		      reg_known_equiv_p[regno] = REG_NOTE_KIND (note) == REG_EQUIV;
+		      set_reg_known_value (regno, XEXP (note, 0));
+		      set_reg_known_equiv_p (regno,
+			REG_NOTE_KIND (note) == REG_EQUIV);
 		    }
 		  else if (REG_N_SETS (regno) == 1
 			   && GET_CODE (src) == PLUS
 			   && GET_CODE (XEXP (src, 0)) == REG
-			   && REGNO (XEXP (src, 0)) >= FIRST_PSEUDO_REGISTER
-			   && (reg_known_value[REGNO (XEXP (src, 0))])
+			   && (t = get_reg_known_value (REGNO (XEXP (src, 0))))
 			   && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		    {
-		      rtx op0 = XEXP (src, 0);
-		      op0 = reg_known_value[REGNO (op0)];
-		      reg_known_value[regno]
-			= plus_constant (op0, INTVAL (XEXP (src, 1)));
-		      reg_known_equiv_p[regno] = 0;
+		      t = plus_constant (t, INTVAL (XEXP (src, 1)));
+		      set_reg_known_value (regno, t);
+		      set_reg_known_equiv_p (regno, 0);
 		    }
 		  else if (REG_N_SETS (regno) == 1
 			   && ! rtx_varies_p (src, 1))
 		    {
-		      reg_known_value[regno] = src;
-		      reg_known_equiv_p[regno] = 0;
+		      set_reg_known_value (regno, src);
+		      set_reg_known_equiv_p (regno, 0);
 		    }
 		}
 	    }
@@ -2866,13 +2959,16 @@ init_alias_analysis (void)
 	}
 
       /* Now propagate values from new_reg_base_value to reg_base_value.  */
-      for (ui = 0; ui < reg_base_value_size; ui++)
+      if (maxreg != (unsigned int) max_reg_num())
+	abort ();
+      for (ui = 0; ui < maxreg; ui++)
 	{
 	  if (new_reg_base_value[ui]
-	      && new_reg_base_value[ui] != reg_base_value[ui]
-	      && ! rtx_equal_p (new_reg_base_value[ui], reg_base_value[ui]))
+	      && new_reg_base_value[ui] != VARRAY_RTX (reg_base_value, ui)
+	      && ! rtx_equal_p (new_reg_base_value[ui],
+				VARRAY_RTX (reg_base_value, ui)))
 	    {
-	      reg_base_value[ui] = new_reg_base_value[ui];
+	      VARRAY_RTX (reg_base_value, ui) = new_reg_base_value[ui];
 	      changed = 1;
 	    }
 	}
@@ -2880,9 +2976,9 @@ init_alias_analysis (void)
   while (changed && ++pass < MAX_ALIAS_LOOP_PASSES);
 
   /* Fill in the remaining entries.  */
-  for (i = FIRST_PSEUDO_REGISTER; i < maxreg; i++)
+  for (i = 0; i < (int)reg_known_value_size; i++)
     if (reg_known_value[i] == 0)
-      reg_known_value[i] = regno_reg_rtx[i];
+      reg_known_value[i] = regno_reg_rtx[i + FIRST_PSEUDO_REGISTER];
 
   /* Simplify the reg_base_value array so that no register refers to
      another register, except to special registers indirectly through
@@ -2899,16 +2995,17 @@ init_alias_analysis (void)
     {
       changed = 0;
       pass++;
-      for (ui = 0; ui < reg_base_value_size; ui++)
+      for (ui = 0; ui < maxreg; ui++)
 	{
-	  rtx base = reg_base_value[ui];
+	  rtx base = VARRAY_RTX (reg_base_value, ui);
 	  if (base && GET_CODE (base) == REG)
 	    {
 	      unsigned int base_regno = REGNO (base);
 	      if (base_regno == ui)		/* register set from itself */
-		reg_base_value[ui] = 0;
+		VARRAY_RTX (reg_base_value, ui) = 0;
 	      else
-		reg_base_value[ui] = reg_base_value[base_regno];
+		VARRAY_RTX (reg_base_value, ui)
+		  = VARRAY_RTX (reg_base_value, base_regno);
 	      changed = 1;
 	    }
 	}
@@ -2926,17 +3023,17 @@ init_alias_analysis (void)
 void
 end_alias_analysis (void)
 {
-  free (reg_known_value + FIRST_PSEUDO_REGISTER);
+  old_reg_base_value = reg_base_value;
+  ggc_free (reg_known_value);
   reg_known_value = 0;
   reg_known_value_size = 0;
-  free (reg_known_equiv_p + FIRST_PSEUDO_REGISTER);
+  free (reg_known_equiv_p);
   reg_known_equiv_p = 0;
-  reg_base_value = 0;
-  reg_base_value_size = 0;
   if (alias_invariant)
     {
       free (alias_invariant);
       alias_invariant = 0;
+      alias_invariant_size = 0;
     }
 }
 

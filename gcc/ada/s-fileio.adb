@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,6 +34,7 @@
 with Ada.Finalization;            use Ada.Finalization;
 with Ada.IO_Exceptions;           use Ada.IO_Exceptions;
 with Interfaces.C_Streams;        use Interfaces.C_Streams;
+with System.CRTL;
 with System.Soft_Links;
 with Unchecked_Deallocation;
 
@@ -42,6 +43,8 @@ package body System.File_IO is
    use System.File_Control_Block;
 
    package SSL renames System.Soft_Links;
+
+   use type System.CRTL.size_t;
 
    ----------------------
    -- Global Variables --
@@ -771,12 +774,12 @@ package body System.File_IO is
       end;
 
       --  If we were given a stream (call from xxx.C_Streams.Open), then set
-      --  full name to null and that is all we have to do in this case so
-      --  skip to end of processing.
+      --  the full name to the given one, and skip to end of processing.
 
       if Stream /= NULL_Stream then
-         Fullname (1) := ASCII.Nul;
-         Full_Name_Len := 1;
+         Full_Name_Len := Name'Length + 1;
+         Fullname (1 .. Full_Name_Len - 1) := Name;
+         Fullname (Full_Name_Len) := ASCII.Nul;
 
       --  Normal case of Open or Create
 
@@ -812,6 +815,10 @@ package body System.File_IO is
          --  Normal case of non-null name given
 
          else
+            if Name'Length > Namelen then
+               raise Name_Error;
+            end if;
+
             Namestr (1 .. Name'Length) := Name;
             Namestr (Name'Length + 1)  := ASCII.NUL;
          end if;

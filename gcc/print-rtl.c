@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -291,6 +291,14 @@ print_rtx (rtx in_rtx)
 		  fprintf (outfile, " [ ERROR ]");
 		break;
 
+	      case NOTE_INSN_VAR_LOCATION:
+		fprintf (outfile, " (");
+		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));
+		fprintf (outfile, " ");
+		print_rtx (NOTE_VAR_LOCATION_LOC (in_rtx));
+		fprintf (outfile, ")");
+		break;
+
 	      default:
 		{
 		  const char * const str = X0STR (in_rtx, i);
@@ -384,10 +392,8 @@ print_rtx (rtx in_rtx)
 
 #ifndef GENERATOR_FILE
 	    if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
-	      {
-		fputc (' ', outfile);
-		PRINT_REG (in_rtx, 0, outfile);
-	      }
+	      fprintf (outfile, " %d %s", REGNO (in_rtx),
+		       reg_names[REGNO (in_rtx)]);
 	    else if (GET_CODE (in_rtx) == REG
 		     && value <= LAST_VIRTUAL_REGISTER)
 	      {

@@ -1,5 +1,5 @@
 /* Control and data flow functions for trees.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,13 +65,13 @@ clear_decl_rtl (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
     {
     case VAR_DECL:
       nonstatic_p = !TREE_STATIC (t) && !DECL_EXTERNAL (t);
-      local_p = DECL_CONTEXT (t) == data;
+      local_p = decl_function_context (t) == data;
       break;
 
     case PARM_DECL:
     case LABEL_DECL:
       nonstatic_p = true;
-      local_p = DECL_CONTEXT (t) == data;
+      local_p = decl_function_context (t) == data;
       break;
 
     case RESULT_DECL:
@@ -131,7 +131,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   expand_function_start (fndecl, 0);
 
   /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.start) ();
+  lang_hooks.rtl_expand.start ();
 
   /* If this function is `main', emit a call to `__main'
      to run global initializers, etc.  */
@@ -141,7 +141,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  (*lang_hooks.rtl_expand.stmt) (DECL_SAVED_TREE (fndecl));
+  lang_hooks.rtl_expand.stmt (DECL_SAVED_TREE (fndecl));
 
   /* We hard-wired immediate_size_expand to zero above.
      expand_function_end will decrement this variable.  So, we set the
@@ -150,7 +150,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   immediate_size_expand = 1;
 
   /* Allow language dialects to perform special processing.  */
-  (*lang_hooks.rtl_expand.end) ();
+  lang_hooks.rtl_expand.end ();
 
   /* Generate rtl for function exit.  */
   expand_function_end ();
@@ -195,21 +195,6 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	}
     }
 
-  /* ??? Looks like some of this could be combined.  */
-
-  /* If possible, obliterate the body of the function so that it can
-     be garbage collected.  */
-  if (dump_enabled_p (TDI_all))
-    /* Keep the body; we're going to dump it.  */
-    ;
-  else if (DECL_INLINE (fndecl) && flag_inline_trees)
-    /* We might need the body of this function so that we can expand
-       it inline somewhere else.  */
-    ;
-  else
-    /* We don't need the body; blow it away.  */
-    DECL_SAVED_TREE (fndecl) = NULL;
-
   /* Since we don't need the RTL for this function anymore, stop pointing to
      it.  That's especially important for LABEL_DECLs, since you can reach all
      the instructions in the function from the CODE_LABEL stored in the
@@ -220,18 +205,20 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
 				clear_decl_rtl,
 				fndecl);
-
-  if (DECL_SAVED_INSNS (fndecl) == 0 && !nested_p && !flag_inline_trees)
+  if (!cgraph_function_possibly_inlined_p (fndecl))
     {
-      /* Stop pointing to the local nodes about to be freed.
-	 But DECL_INITIAL must remain nonzero so we know this
-	 was an actual function definition.
-	 For a nested function, this is done in c_pop_function_context.
-	 If rest_of_compilation set this to 0, leave it 0.  */
-      if (DECL_INITIAL (fndecl) != 0)
-	DECL_INITIAL (fndecl) = error_mark_node;
-
-      DECL_ARGUMENTS (fndecl) = 0;
+      DECL_SAVED_TREE (fndecl) = NULL;
+      if (DECL_STRUCT_FUNCTION (fndecl) == 0
+	  && !cgraph_node (fndecl)->origin)
+	{
+	  /* Stop pointing to the local nodes about to be freed.
+	     But DECL_INITIAL must remain nonzero so we know this
+	     was an actual function definition.
+	     For a nested function, this is done in c_pop_function_context.
+	     If rest_of_compilation set this to 0, leave it 0.  */
+	  if (DECL_INITIAL (fndecl) != 0)
+	    DECL_INITIAL (fndecl) = error_mark_node;
+	}
     }
 
   input_location = saved_loc;

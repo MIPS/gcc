@@ -1,5 +1,5 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
@@ -34,6 +34,8 @@
 #undef  TARGET_DEFAULT
 #define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_MMU_TRAPS)
 
+#define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
+
 #define SUBTARGET_EXTRA_LINK_SPEC " -m armelf_linux -p"
 
 #undef  MULTILIB_DEFAULTS
@@ -47,17 +49,18 @@
 #define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 /* Now we define the strings used to build the spec file.  */
+#undef  LIB_SPEC
 #define LIB_SPEC \
   "%{pthread:-lpthread} \
    %{shared:-lc} \
    %{!shared:%{profile:-lc_p}%{!profile:-lc}}"
 
-#define LIBGCC_SPEC "%{msoft-float:-lfloat} -lgcc"
+#define LIBGCC_SPEC "%{msoft-float:-lfloat} %{mfloat-abi=soft*:-lfloat} -lgcc"
 
 /* Provide a STARTFILE_SPEC appropriate for GNU/Linux.  Here we add
    the GNU/Linux magical crtbegin.o file (see crtstuff.c) which
    provides part of the support for getting C++ file-scope static
-   object constructed before entering `main'. */
+   object constructed before entering `main'.  */
    
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC \
@@ -89,14 +92,7 @@
    %{mbig-endian:-EB}" \
    SUBTARGET_EXTRA_LINK_SPEC
 
-#define TARGET_OS_CPP_BUILTINS()		\
-    do {					\
-	builtin_define_std ("unix");		\
-	builtin_define_std ("linux");		\
-	builtin_define ("__gnu_linux__");	\
-	builtin_assert ("system=unix");		\
-	builtin_assert ("system=posix");	\
-    } while (0)
+#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
 
 /* This is how we tell the assembler that two symbols have the same value.  */
 #define ASM_OUTPUT_DEF(FILE, NAME1, NAME2) \

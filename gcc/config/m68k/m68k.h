@@ -1,7 +1,6 @@
-/* Definitions of target machine for GNU compiler.
-   Sun 68000/68020 version.
+/* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,6 +19,18 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+/* We need to have MOTOROLA always defined (either 0 or 1) because we use
+   if-statements and ?: on it.  This way we have compile-time error checking
+   for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
+   to optimize away all constant tests.  */
+#ifdef MOTOROLA
+# undef MOTOROLA
+# define MOTOROLA 1  /* Use the Motorola assembly syntax.  */
+# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
+#else
+# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
+# define MOTOROLA 0  /* Use the MIT assembly syntax.  */
+#endif
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  */
@@ -102,13 +113,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Set the default */
 #define INT_OP_GROUP INT_OP_DOT_WORD
-
-/* Print subsidiary information on the compiler version in use.  */
-#ifdef MOTOROLA
-#define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)");
-#else
-#define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)");
-#endif
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -208,7 +212,7 @@ extern int target_flags;
 #define MASK_RTD	(1<<16)
 #define TARGET_RTD	(target_flags & MASK_RTD)
 
-/* Support A5 relative data seperate from text.
+/* Support A5 relative data separate from text.
  * This option implies -fPIC, however it inhibits the generation of the
  * A5 save/restore in functions and the loading of a5 with a got pointer.
  */
@@ -482,7 +486,10 @@ extern int target_flags;
                                \
   /* Floating point registers  \
      (if available).  */       \
-  0, 0, 0, 0, 0, 0, 0, 0 }
+  0, 0, 0, 0, 0, 0, 0, 0,      \
+                               \
+  /* Arg pointer.  */          \
+  1 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -493,7 +500,18 @@ extern int target_flags;
 #define CALL_USED_REGISTERS \
  {1, 1, 0, 0, 0, 0, 0, 0,   \
   1, 1, 0, 0, 0, 0, 0, 1,   \
-  1, 1, 0, 0, 0, 0, 0, 0 }
+  1, 1, 0, 0, 0, 0, 0, 0, 1 }
+
+#define REG_ALLOC_ORDER		\
+{ /* d0/d1/a0/a1 */		\
+  0, 1, 8, 9,			\
+  /* d2-d7 */			\
+  2, 3, 4, 5, 6, 7,		\
+  /* a2-a7/arg */		\
+  10, 11, 12, 13, 14, 15, 24,	\
+  /* fp0-fp7 */			\
+  16, 17, 18, 19, 20, 21, 22, 23\
+}
 
 
 /* Make sure everything's fine if we *don't* have a given processor.
@@ -582,7 +600,7 @@ extern int target_flags;
 
 /* Register in which address to store a structure value
    is passed to a function.  */
-#define STRUCT_VALUE_REGNUM 9
+#define M68K_STRUCT_VALUE_REGNUM 9
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -632,12 +650,12 @@ enum reg_class {
 {					\
   {0x00000000},  /* NO_REGS */		\
   {0x000000ff},  /* DATA_REGS */	\
-  {0x0000ff00},  /* ADDR_REGS */	\
+  {0x0100ff00},  /* ADDR_REGS */	\
   {0x00ff0000},  /* FP_REGS */		\
-  {0x0000ffff},  /* GENERAL_REGS */	\
+  {0x0100ffff},  /* GENERAL_REGS */	\
   {0x00ff00ff},  /* DATA_OR_FP_REGS */	\
-  {0x00ffff00},  /* ADDR_OR_FP_REGS */	\
-  {0x00ffffff},  /* ALL_REGS */		\
+  {0x01ffff00},  /* ADDR_OR_FP_REGS */	\
+  {0x01ffffff},  /* ALL_REGS */		\
 }
 
 /* The same information, inverted:
@@ -645,7 +663,8 @@ enum reg_class {
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO) (((REGNO)>>3)+1)
+extern enum reg_class regno_reg_class[];
+#define REGNO_REG_CLASS(REGNO) (regno_reg_class[(REGNO)])
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -896,7 +915,7 @@ enum reg_class {
 
    On the m68k, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM) = 0)
 
 /* Update the data in CUM to advance over an argument
@@ -1364,9 +1383,6 @@ __transfer_from_trampoline ()					\
 
 #define STORE_FLAG_VALUE (-1)
 
-/* When a prototype says `char' or `short', really pass an `int'.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -1399,11 +1415,11 @@ __transfer_from_trampoline ()					\
 #define NOTICE_UPDATE_CC(EXP,INSN) notice_update_cc (EXP, INSN)
 
 #define OUTPUT_JUMP(NORMAL, FLOAT, NO_OV)  \
-{ if (cc_prev_status.flags & CC_IN_68881)			\
+do { if (cc_prev_status.flags & CC_IN_68881)			\
     return FLOAT;						\
   if (cc_prev_status.flags & CC_NO_OVERFLOW)			\
     return NO_OV;						\
-  return NORMAL; }
+  return NORMAL; } while (0)
 
 /* Control the assembler format that we output.  */
 
@@ -1457,9 +1473,26 @@ __transfer_from_trampoline ()					\
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
 #define REGISTER_NAMES \
-{"d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",	\
- "a0", "a1", "a2", "a3", "a4", "a5", "a6", "sp",	\
- "fp0", "fp1", "fp2", "fp3", "fp4", "fp5", "fp6", "fp7", "argptr" }
+{REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
+ REGISTER_PREFIX"d3", REGISTER_PREFIX"d4", REGISTER_PREFIX"d5",	\
+ REGISTER_PREFIX"d6", REGISTER_PREFIX"d7",			\
+ REGISTER_PREFIX"a0", REGISTER_PREFIX"a1", REGISTER_PREFIX"a2", \
+ REGISTER_PREFIX"a3", REGISTER_PREFIX"a4", REGISTER_PREFIX"a5", \
+ REGISTER_PREFIX"a6", REGISTER_PREFIX"sp",			\
+ REGISTER_PREFIX"fp0", REGISTER_PREFIX"fp1", REGISTER_PREFIX"fp2", \
+ REGISTER_PREFIX"fp3", REGISTER_PREFIX"fp4", REGISTER_PREFIX"fp5", \
+ REGISTER_PREFIX"fp6", REGISTER_PREFIX"fp7", REGISTER_PREFIX"argptr" }
+
+#define M68K_FP_REG_NAME REGISTER_PREFIX"fp"
+
+/* Return a register name by index, handling %fp nicely.
+   We don't replace %fp for targets that don't map it to %a6
+   since it may confuse GAS.  */
+#define M68K_REGNAME(r) ( \
+  ((FRAME_POINTER_REGNUM == 14) \
+    && ((r) == FRAME_POINTER_REGNUM) \
+    && frame_pointer_needed) ? \
+    M68K_FP_REG_NAME : reg_names[(r)])
 
 /* How to renumber registers for dbx and gdb.
    On the Sun-3, the floating point registers have numbers

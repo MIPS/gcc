@@ -1,5 +1,5 @@
 /* Generic sibling call optimization support
-   Copyright (C) 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -173,10 +173,6 @@ skip_copy_to_return_value (rtx orig_insn)
      Further, the source must be the same as the pseudo into which the
      called function's return value was copied.  Otherwise we're returning
      some other value.  */
-
-#ifndef OUTGOING_REGNO
-#define OUTGOING_REGNO(N) (N)
-#endif
 
   if (SET_DEST (set) == current_function_return_rtx
       && REG_P (SET_DEST (set))
@@ -597,7 +593,7 @@ optimize_sibling_and_tail_recursive_calls (void)
 
       /* Walk forwards through the last normal block and see if it
 	 does nothing except fall into the exit block.  */
-      for (insn = EXIT_BLOCK_PTR->prev_bb->head;
+      for (insn = BB_HEAD (EXIT_BLOCK_PTR->prev_bb);
 	   insn;
 	   insn = NEXT_INSN (insn))
 	{
@@ -685,7 +681,7 @@ optimize_sibling_and_tail_recursive_calls (void)
 		  && call_block->succ->dest != alternate_exit)
 	      /* If this call doesn't end the block, there are operations at
 		 the end of the block which we must execute after returning.  */
-	      || ! call_ends_block_p (insn, call_block->end))
+	      || ! call_ends_block_p (insn, BB_END (call_block)))
 	    sibcall = 0, tailrecursion = 0;
 
 	  /* Select a set of insns to implement the call and emit them.

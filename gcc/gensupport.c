@@ -1,5 +1,5 @@
 /* Support routines for the various generation passes.
-   Copyright (C) 2000, 2001, 2002, 2003
+   Copyright (C) 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -259,7 +259,7 @@ process_include (rtx desc, int lineno)
   fclose (input_file);
 }
 
-/* Process a top level rtx in some way, queueing as appropriate.  */
+/* Process a top level rtx in some way, queuing as appropriate.  */
 
 static void
 process_rtx (rtx desc, int lineno)
@@ -512,12 +512,11 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
     case MATCH_OPERAND:
       i = n_alternatives (XSTR (pattern, 2));
       *palt = (i > *palt ? i : *palt);
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERATOR:
     case MATCH_SCRATCH:
     case MATCH_PARALLEL:
-    case MATCH_INSN:
       i = XINT (pattern, 0);
       if (i > *pmax)
 	*pmax = i;
@@ -540,7 +539,7 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
 	case 'V':
 	  if (XVEC (pattern, i) == NULL)
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 	case 'E':
 	  for (j = XVECLEN (pattern, i) - 1; j >= 0; --j)
 	    collect_insn_data (XVECEXP (pattern, i, j), palt, pmax);
@@ -595,12 +594,11 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
 	    XSTR (pattern, 2) = new_c;
 	  }
       }
-      /* FALLTHRU */
+      /* Fall through.  */
 
     case MATCH_OPERATOR:
     case MATCH_SCRATCH:
     case MATCH_PARALLEL:
-    case MATCH_INSN:
       XINT (pattern, 0) += max_op;
       break;
 
@@ -842,7 +840,7 @@ process_define_cond_exec (void)
 static char *
 save_string (const char *s, int len)
 {
-  register char *result = xmalloc (len + 1);
+  char *result = xmalloc (len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -82,11 +82,7 @@ package body Sem_Ch6 is
    --  Analyze a generic subprogram body. N is the body to be analyzed,
    --  and Gen_Id is the defining entity Id for the corresponding spec.
 
-   function Build_Body_To_Inline
-     (N         : Node_Id;
-      Subp      : Entity_Id;
-      Orig_Body : Node_Id)
-      return      Boolean;
+   procedure Build_Body_To_Inline (N : Node_Id; Subp : Entity_Id);
    --  If a subprogram has pragma Inline and inlining is active, use generic
    --  machinery to build an unexpanded body for the subprogram. This body is
    --  subsequenty used for inline expansions at call sites. If subprogram can
@@ -132,8 +128,7 @@ package body Sem_Ch6 is
 
    function Is_Non_Overriding_Operation
      (Prev_E : Entity_Id;
-      New_E  : Entity_Id)
-      return   Boolean;
+      New_E  : Entity_Id) return Boolean;
    --  Enforce the rule given in 12.3(18): a private operation in an instance
    --  overrides an inherited operation only if the corresponding operation
    --  was overriding in the generic. This can happen for primitive operations
@@ -156,8 +151,7 @@ package body Sem_Ch6 is
      (T1       : Entity_Id;
       T2       : Entity_Id;
       Ctype    : Conformance_Type;
-      Get_Inst : Boolean := False)
-      return     Boolean;
+      Get_Inst : Boolean := False) return Boolean;
    --  Check that two formal parameter types conform, checking both
    --  for equality of base types, and where required statically
    --  matching subtypes, depending on the setting of Ctype.
@@ -407,6 +401,7 @@ package body Sem_Ch6 is
          Check_References (Gen_Id);
       end;
 
+      Process_End_Label (Handled_Statement_Sequence (N), 't', Current_Scope);
       End_Scope;
       Check_Subprogram_Order (N);
 
@@ -975,8 +970,15 @@ package body Sem_Ch6 is
               Make_Subprogram_Declaration (Loc,
                 Specification => New_Spec);
             Insert_Before (N, Decl);
-            Analyze (Decl);
             Spec_Id := Defining_Unit_Name (New_Spec);
+
+            --  Indicate that the entity comes from source, to ensure that
+            --  cross-reference information is properly generated.
+            --  The body itself is rewritten during expansion, and the
+            --  body entity will not appear in calls to the operation.
+
+            Set_Comes_From_Source (Spec_Id, True);
+            Analyze (Decl);
             Set_Has_Completion (Spec_Id);
             Set_Convention (Spec_Id, Convention_Protected);
          end;
@@ -1142,9 +1144,7 @@ package body Sem_Ch6 is
                                 (Front_End_Inlining
                                   or else Configurable_Run_Time_Mode)))
       then
-         if Build_Body_To_Inline (N, Spec_Id, Copy_Separate_Tree (N)) then
-            null;
-         end if;
+         Build_Body_To_Inline (N, Spec_Id);
       end if;
 
       --  Now we can go on to analyze the body
@@ -1492,12 +1492,7 @@ package body Sem_Ch6 is
    -- Build_Body_To_Inline --
    --------------------------
 
-   function Build_Body_To_Inline
-     (N         : Node_Id;
-      Subp      : Entity_Id;
-      Orig_Body : Node_Id)
-      return      Boolean
-   is
+   procedure Build_Body_To_Inline (N : Node_Id; Subp : Entity_Id) is
       Decl : constant Node_Id := Unit_Declaration_Node (Subp);
       Original_Body   : Node_Id;
       Body_To_Analyze : Node_Id;
@@ -1732,10 +1727,12 @@ package body Sem_Ch6 is
       if Nkind (Decl) = N_Subprogram_Declaration
         and then Present (Body_To_Inline (Decl))
       then
-         return True;    --  Done already.
+         return;    --  Done already.
 
       --  Functions that return unconstrained composite types will require
       --  secondary stack handling, and cannot currently be inlined.
+      --  Ditto for functions that return controlled types, where controlled
+      --  actions interfere in complex ways with inlining.
 
       elsif Ekind (Subp) = E_Function
         and then not Is_Scalar_Type (Etype (Subp))
@@ -1744,64 +1741,20 @@ package body Sem_Ch6 is
       then
          Cannot_Inline
            ("cannot inline & (unconstrained return type)?", N, Subp);
-         return False;
-      end if;
+         return;
 
-      --  We need to capture references to the formals in order to substitute
-      --  the actuals at the point of inlining, i.e. instantiation. To treat
-      --  the formals as globals to the body to inline, we nest it within
-      --  a dummy parameterless subprogram, declared within the real one.
-
-      Original_Body := Orig_Body;
-
-      --  Within an instance, the current tree is already the result of
-      --  a generic copy, and not what we need for subsequent inlining.
-      --  We create the required body by doing an instantiating copy, to
-      --  obtain the proper partially analyzed tree.
-
-      if In_Instance then
-         if No (Generic_Parent (Specification (N))) then
-            return False;
-
-         elsif Is_Child_Unit (Scope (Current_Scope)) then
-            return False;
-
-         elsif Scope (Current_Scope) = Cunit_Entity (Main_Unit) then
-
-            --  compiling an instantiation. There is no point in generating
-            --  bodies to inline, because they will not be used.
-
-            return False;
-
-         else
-            Body_To_Analyze :=
-              Copy_Generic_Node
-                (Generic_Parent (Specification (N)), Empty,
-                   Instantiating => True);
-         end if;
-
-      --  Case of not in an instance
-
-      else
-         Body_To_Analyze :=
-           Copy_Generic_Node (Original_Body, Empty,
-             Instantiating => False);
-      end if;
-
-      Set_Parameter_Specifications (Specification (Original_Body), No_List);
-      Set_Defining_Unit_Name (Specification (Original_Body),
-        Make_Defining_Identifier (Sloc (N), New_Internal_Name ('S')));
-      Set_Corresponding_Spec (Original_Body, Empty);
-
-      if Ekind (Subp) = E_Function then
-         Set_Subtype_Mark (Specification (Original_Body),
-           New_Occurrence_Of (Etype (Subp), Sloc (N)));
-      end if;
-
-      if Present (Declarations (Orig_Body))
-        and then Has_Excluded_Declaration (Declarations (Orig_Body))
+      elsif Ekind (Subp) = E_Function
+        and then Controlled_Type (Etype (Subp))
       then
-         return False;
+         Cannot_Inline
+           ("cannot inline & (controlled return type)?", N, Subp);
+         return;
+      end if;
+
+      if Present (Declarations (N))
+        and then Has_Excluded_Declaration (Declarations (N))
+      then
+         return;
       end if;
 
       if Present (Handled_Statement_Sequence (N)) then
@@ -1810,12 +1763,12 @@ package body Sem_Ch6 is
               ("cannot inline& (exception handler)?",
                First (Exception_Handlers (Handled_Statement_Sequence (N))),
                Subp);
-            return False;
+            return;
          elsif
            Has_Excluded_Statement
              (Statements (Handled_Statement_Sequence (N)))
          then
-            return False;
+            return;
          end if;
       end if;
 
@@ -1827,15 +1780,39 @@ package body Sem_Ch6 is
         and then not Is_Always_Inlined (Subp)
       then
          Cannot_Inline ("cannot inline& (body too large)?", N, Subp);
-         return False;
+         return;
       end if;
 
       if Has_Pending_Instantiation then
          Cannot_Inline
            ("cannot inline& (forward instance within enclosing body)?",
              N, Subp);
-         return False;
+         return;
       end if;
+
+      --  Within an instance, the body to inline must be treated as a nested
+      --  generic, so that the proper global references are preserved.
+
+      if In_Instance then
+         Save_Env (Scope (Current_Scope), Scope (Current_Scope));
+         Original_Body := Copy_Generic_Node (N, Empty, True);
+      else
+         Original_Body := Copy_Separate_Tree (N);
+      end if;
+
+      --  We need to capture references to the formals in order to substitute
+      --  the actuals at the point of inlining, i.e. instantiation. To treat
+      --  the formals as globals to the body to inline, we nest it within
+      --  a dummy parameterless subprogram, declared within the real one.
+      --  To avoid generating an internal name (which is never public, and
+      --  which affects serial numbers of other generated names), we use
+      --  an internal symbol that cannot conflict with user declarations.
+
+      Set_Parameter_Specifications (Specification (Original_Body), No_List);
+      Set_Defining_Unit_Name
+        (Specification (Original_Body),
+          Make_Defining_Identifier (Sloc (N), Name_uParent));
+      Set_Corresponding_Spec (Original_Body, Empty);
 
       Body_To_Analyze := Copy_Generic_Node (Original_Body, Empty, False);
 
@@ -1866,7 +1843,10 @@ package body Sem_Ch6 is
       Set_Body_To_Inline (Decl, Original_Body);
       Set_Ekind (Defining_Entity (Original_Body), Ekind (Subp));
       Set_Is_Inlined (Subp);
-      return True;
+
+      if In_Instance then
+         Restore_Env;
+      end if;
    end Build_Body_To_Inline;
 
    -------------------
@@ -2972,8 +2952,7 @@ package body Sem_Ch6 is
      (T1       : Entity_Id;
       T2       : Entity_Id;
       Ctype    : Conformance_Type;
-      Get_Inst : Boolean := False)
-      return     Boolean
+      Get_Inst : Boolean := False) return Boolean
    is
       Type_1 : Entity_Id := T1;
       Type_2 : Entity_Id := T2;
@@ -3475,8 +3454,7 @@ package body Sem_Ch6 is
 
    function Fully_Conformant_Expressions
      (Given_E1 : Node_Id;
-      Given_E2 : Node_Id)
-      return     Boolean
+      Given_E2 : Node_Id) return Boolean
    is
       E1 : constant Node_Id := Original_Node (Given_E1);
       E2 : constant Node_Id := Original_Node (Given_E2);
@@ -3849,8 +3827,7 @@ package body Sem_Ch6 is
 
    function Fully_Conformant_Discrete_Subtypes
      (Given_S1 : Node_Id;
-      Given_S2 : Node_Id)
-      return     Boolean
+      Given_S2 : Node_Id) return Boolean
    is
       S1 : constant Node_Id := Original_Node (Given_S1);
       S2 : constant Node_Id := Original_Node (Given_S2);
@@ -3942,8 +3919,7 @@ package body Sem_Ch6 is
 
    function Is_Non_Overriding_Operation
      (Prev_E : Entity_Id;
-      New_E  : Entity_Id)
-      return Boolean
+      New_E  : Entity_Id) return Boolean
    is
       Formal : Entity_Id;
       F_Typ  : Entity_Id;
@@ -3956,8 +3932,7 @@ package body Sem_Ch6 is
 
       function Types_Correspond
         (P_Type : Entity_Id;
-         N_Type : Entity_Id)
-         return   Boolean;
+         N_Type : Entity_Id) return Boolean;
       --  Returns true if and only if the types (or designated types
       --  in the case of anonymous access types) are the same or N_Type
       --  is derived directly or indirectly from P_Type.
@@ -4005,8 +3980,7 @@ package body Sem_Ch6 is
 
       function Types_Correspond
         (P_Type : Entity_Id;
-         N_Type : Entity_Id)
-         return   Boolean
+         N_Type : Entity_Id) return Boolean
       is
          Prev_Type : Entity_Id := Base_Type (P_Type);
          New_Type  : Entity_Id := Base_Type (N_Type);
@@ -4887,9 +4861,9 @@ package body Sem_Ch6 is
                         and then Ekind (Root_Type (Formal_Type)) =
                                                          E_Incomplete_Type)
             then
-
-               --  Incomplete tagged types that are made visible through
-               --  a limited with_clause are valid formal types.
+               --  Ada 0Y (AI-50217): Incomplete tagged types that are made
+               --  visible through a limited with_clause are valid formal
+               --  types.
 
                if From_With_Type (Formal_Type)
                  and then Is_Tagged_Type (Formal_Type)
@@ -4976,6 +4950,18 @@ package body Sem_Ch6 is
                end if;
 
             end if;
+
+            --  Ada 0Y (AI-231): Static checks
+
+            Ptype := Parameter_Type (Param_Spec);
+
+            if Extensions_Allowed
+              and then Nkind (Ptype) /= N_Access_Definition
+              and then (Null_Exclusion_Present (Parent (Formal))
+                        or else Can_Never_Be_Null (Entity (Ptype)))
+            then
+               Null_Exclusion_Static_Checks (Param_Spec);
+            end if;
          end if;
 
          Next (Param_Spec);
@@ -5018,12 +5004,13 @@ package body Sem_Ch6 is
    -------------------------
 
    procedure Set_Actual_Subtypes (N : Node_Id; Subp : Entity_Id) is
-      Loc        : constant Source_Ptr := Sloc (N);
-      Decl       : Node_Id;
-      Formal     : Entity_Id;
-      T          : Entity_Id;
-      First_Stmt : Node_Id := Empty;
-      AS_Needed  : Boolean;
+      Loc            : constant Source_Ptr := Sloc (N);
+      Decl           : Node_Id;
+      Formal         : Entity_Id;
+      T              : Entity_Id;
+      First_Stmt     : Node_Id := Empty;
+      AS_Needed      : Boolean;
+      Null_Exclusion : Boolean := False;
 
    begin
       --  If this is an emtpy initialization procedure, no need to create
@@ -5078,6 +5065,17 @@ package body Sem_Ch6 is
          then
             AS_Needed := True;
 
+         --  Ada 0Y (AI-231)
+
+         elsif Extensions_Allowed
+           and then Is_Access_Type (T)
+           and then Null_Exclusion_Present (Parent (Formal))
+           and then Nkind (Parameter_Type (Parent (Formal)))
+                    /= N_Access_Definition
+         then
+            AS_Needed      := True;
+            Null_Exclusion := True;
+
          --  All other cases do not need an actual subtype
 
          else
@@ -5089,7 +5087,39 @@ package body Sem_Ch6 is
 
          if AS_Needed then
 
-            if Nkind (N) = N_Accept_Statement then
+            --  Ada 0Y (AI-231): Generate actual null-excluding subtype
+
+            if Extensions_Allowed
+              and then Null_Exclusion
+            then
+               declare
+                  Loc      : constant Source_Ptr := Sloc (Formal);
+                  Anon     : constant Entity_Id :=
+                               Make_Defining_Identifier (Loc,
+                                 New_Internal_Name ('S'));
+                  Ptype    : constant Node_Id
+                               := Parameter_Type (Parent (Formal));
+               begin
+                  --  T == Etype (Formal)
+                  Set_Is_Internal (Anon);
+                  Decl :=
+                    Make_Subtype_Declaration (Loc,
+                      Defining_Identifier      => Anon,
+                        Null_Exclusion_Present => True,
+                        Subtype_Indication     =>
+                          New_Occurrence_Of (Etype (Ptype), Loc));
+                  Mark_Rewrite_Insertion (Decl);
+                  Prepend (Decl, Declarations (Parent (N)));
+
+                  Rewrite (Ptype, New_Occurrence_Of (Anon, Loc));
+                  Mark_Rewrite_Insertion (Ptype);
+                  --   Set_Scope (Anon, Scope (Scope (Formal)));
+
+                  Set_Etype (Formal, Anon);
+                  Set_Null_Exclusion_Present (Parent (Formal), False);
+               end;
+
+            elsif Nkind (N) = N_Accept_Statement then
 
                --  If expansion is active, The formal is replaced by a local
                --  variable that renames the corresponding entry of the
@@ -5122,6 +5152,16 @@ package body Sem_Ch6 is
             end if;
 
             Analyze (Decl);
+
+            --  Ada 0Y (AI-231): Previous analysis leaves the entity of the
+            --  null-excluding subtype declaration associated with the internal
+            --  scope; because this declaration has been inserted before the
+            --  subprogram we associate it now with the enclosing scope.
+
+            if Null_Exclusion then
+               Set_Scope (Defining_Identifier (Decl),
+                          Scope (Scope (Formal)));
+            end if;
 
             --  We need to freeze manually the generated type when it is
             --  inserted anywhere else than in a declarative part.
@@ -5183,8 +5223,16 @@ package body Sem_Ch6 is
       --  set Can_Never_Be_Null, since there is no way to change the value.
 
       if Nkind (Parameter_Type (Spec)) = N_Access_Definition then
-         Set_Is_Known_Non_Null (Formal_Id);
-         Set_Can_Never_Be_Null (Formal_Id);
+
+         --  Ada 0Y (AI-231): This behaviour has been modified in Ada 0Y.
+         --  It is only forced if the null_exclusion appears.
+
+         if not Extensions_Allowed
+           or else Null_Exclusion_Present (Spec)
+         then
+            Set_Is_Known_Non_Null (Formal_Id);
+            Set_Can_Never_Be_Null (Formal_Id);
+         end if;
       end if;
 
       Set_Mechanism (Formal_Id, Default_Mechanism);
@@ -5245,7 +5293,6 @@ package body Sem_Ch6 is
 
    function Type_Conformant (New_Id, Old_Id : Entity_Id) return Boolean is
       Result : Boolean;
-
    begin
       Check_Conformance (New_Id, Old_Id, Type_Conformant, False, Result);
       return Result;

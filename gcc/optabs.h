@@ -1,5 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -154,8 +154,16 @@ enum optab_index
   OTI_cos,
   /* Exponential */
   OTI_exp,
+  /* Base-10 Exponential */
+  OTI_exp10,
+  /* Base-2 Exponential */
+  OTI_exp2,
   /* Natural Logarithm */
   OTI_log,
+  /* Base-10 Logarithm */
+  OTI_log10,
+  /* Base-2 Logarithm */
+  OTI_log2,
   /* Rounding functions */
   OTI_floor,
   OTI_ceil,
@@ -196,6 +204,13 @@ enum optab_index
 
   /* Conditional add instruction.  */
   OTI_addcc,
+
+  /* Set specified field of vector operand.  */
+  OTI_vec_set,
+  /* Extract specified field of vector operand.  */
+  OTI_vec_extract,
+  /* Initialize vector operand.  */
+  OTI_vec_init,
 
   OTI_MAX
 };
@@ -252,7 +267,11 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define sin_optab (optab_table[OTI_sin])
 #define cos_optab (optab_table[OTI_cos])
 #define exp_optab (optab_table[OTI_exp])
+#define exp10_optab (optab_table[OTI_exp10])
+#define exp2_optab (optab_table[OTI_exp2])
 #define log_optab (optab_table[OTI_log])
+#define log10_optab (optab_table[OTI_log10])
+#define log2_optab (optab_table[OTI_log2])
 #define floor_optab (optab_table[OTI_floor])
 #define ceil_optab (optab_table[OTI_ceil])
 #define btrunc_optab (optab_table[OTI_trunc])
@@ -280,6 +299,10 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define cstore_optab (optab_table[OTI_cstore])
 #define push_optab (optab_table[OTI_push])
 #define addcc_optab (optab_table[OTI_addcc])
+
+#define vec_set_optab (optab_table[OTI_vec_set])
+#define vec_extract_optab (optab_table[OTI_vec_extract])
+#define vec_init_optab (optab_table[OTI_vec_init])
 
 /* Conversion optabs have their own table and indexes.  */
 enum convert_optab_index

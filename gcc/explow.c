@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -240,10 +240,7 @@ eliminate_constant_term (rtx x, rtx *constptr)
 rtx
 expr_size (tree exp)
 {
-  tree size = (*lang_hooks.expr_size) (exp);
-
-  if (CONTAINS_PLACEHOLDER_P (size))
-    size = build (WITH_RECORD_EXPR, sizetype, size, exp);
+  tree size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (lang_hooks.expr_size (exp), exp);
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
 }
@@ -254,7 +251,7 @@ expr_size (tree exp)
 HOST_WIDE_INT
 int_expr_size (tree exp)
 {
-  tree t = (*lang_hooks.expr_size) (exp);
+  tree t = lang_hooks.expr_size (exp);
 
   if (t == 0
       || TREE_CODE (t) != INTEGER_CST
@@ -444,7 +441,7 @@ memory_address (enum machine_mode mode, rtx x)
 
   x = convert_memory_address (Pmode, x);
 
-  /* By passing constant addresses thru registers
+  /* By passing constant addresses through registers
      we get a chance to cse them.  */
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
     x = force_reg (Pmode, x);
@@ -721,6 +718,40 @@ force_reg (enum machine_mode mode, rtx x)
       && ! rtx_equal_p (x, SET_SRC (set)))
     set_unique_reg_note (insn, REG_EQUAL, x);
 
+  /* Let optimizers know that TEMP is a pointer, and if so, the
+     known alignment of that pointer.  */
+  {
+    unsigned align = 0;
+    if (GET_CODE (x) == SYMBOL_REF)
+      {
+        align = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (x) && DECL_P (SYMBOL_REF_DECL (x)))
+	  align = DECL_ALIGN (SYMBOL_REF_DECL (x));
+      }
+    else if (GET_CODE (x) == LABEL_REF)
+      align = BITS_PER_UNIT;
+    else if (GET_CODE (x) == CONST
+	     && GET_CODE (XEXP (x, 0)) == PLUS
+	     && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
+	     && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      {
+	rtx s = XEXP (XEXP (x, 0), 0);
+	rtx c = XEXP (XEXP (x, 0), 1);
+	unsigned sa, ca;
+
+	sa = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (s) && DECL_P (SYMBOL_REF_DECL (s)))
+	  sa = DECL_ALIGN (SYMBOL_REF_DECL (s));
+
+	ca = exact_log2 (INTVAL (c) & -INTVAL (c)) * BITS_PER_UNIT;
+
+	align = MIN (sa, ca);
+      }
+
+    if (align)
+      mark_reg_pointer (temp, align);
+  }
+
   return temp;
 }
 
@@ -736,6 +767,10 @@ force_not_mem (rtx x)
     return x;
 
   temp = gen_reg_rtx (GET_MODE (x));
+
+  if (MEM_POINTER (x))
+    REG_POINTER (temp) = 1;
+
   emit_move_insn (temp, x);
   return temp;
 }

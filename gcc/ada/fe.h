@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2004 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -57,17 +57,19 @@ extern Boolean Debug_Flag_NN;
    Present_Expr for N_Variant nodes.  */
 
 #define Set_Alignment			einfo__set_alignment
-#define Set_Esize			einfo__set_esize
-#define Set_RM_Size			einfo__set_rm_size
 #define Set_Component_Bit_Offset	einfo__set_component_bit_offset
 #define Set_Component_Size		einfo__set_component_size
+#define Set_Esize			einfo__set_esize
+#define Set_Mechanism			einfo__set_mechanism
+#define Set_RM_Size			einfo__set_rm_size
 #define Set_Present_Expr		sinfo__set_present_expr
 
 extern void Set_Alignment		(Entity_Id, Uint);
+extern void Set_Component_Bit_Offset	(Entity_Id, Uint);
 extern void Set_Component_Size		(Entity_Id, Uint);
 extern void Set_Esize			(Entity_Id, Uint);
+extern void Set_Mechanism		(Entity_Id, Mechanism_Type);
 extern void Set_RM_Size			(Entity_Id, Uint);
-extern void Set_Component_Bit_Offset	(Entity_Id, Uint);
 extern void Set_Present_Expr		(Node_Id, Uint);
 
 /* Test if the node N is the name of an entity (i.e. is an identifier,
@@ -86,7 +88,7 @@ extern Node_Id Get_Attribute_Definition_Clause (Entity_Id, char);
 
 extern void Error_Msg_N	          (Fat_Pointer, Node_Id);
 extern void Error_Msg_NE          (Fat_Pointer, Node_Id, Entity_Id);
-extern void Set_Identifier_Casing (Char, Char);
+extern void Set_Identifier_Casing (Char *, Char *);
 
 /* err_vars: */
 
@@ -97,7 +99,6 @@ extern void Set_Identifier_Casing (Char, Char);
 extern Entity_Id             Error_Msg_Node_2;
 extern Uint                  Error_Msg_Uint_1;
 extern Uint                  Error_Msg_Uint_2;
-
 
 /* exp_code:  */
 
@@ -140,10 +141,12 @@ extern void Get_External_Name_With_Suffix (Entity_Id, Fat_Pointer);
 #define Cunit 				lib__cunit
 #define Ident_String			lib__ident_string
 #define In_Extended_Main_Code_Unit	lib__in_extended_main_code_unit
+#define In_Same_Source_Unit             lib__in_same_source_unit
 
 extern Node_Id Cunit				(Unit_Number_Type);
 extern Node_Id Ident_String			(Unit_Number_Type);
 extern Boolean In_Extended_Main_Code_Unit	(Entity_Id);
+extern Boolean In_Same_Source_Unit              (Node_Id, Node_Id);
 
 /* opt: */
 
@@ -168,6 +171,12 @@ extern Boolean No_Exception_Handlers_Set   (void);
 extern void Check_No_Implicit_Heap_Alloc   (Node_Id);
 extern void Check_Elaboration_Code_Allowed (Node_Id);
 extern void Check_No_Implicit_Heap_Alloc   (Node_Id);
+
+/* sem_elim: */
+
+#define Eliminate_Error_Msg    sem_elim__eliminate_error_msg
+
+extern void Eliminate_Error_Msg (Node_Id, Entity_Id);
 
 /* sem_eval: */
 

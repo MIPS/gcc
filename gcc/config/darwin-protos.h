@@ -1,5 +1,5 @@
 /* Prototypes.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,19 +65,26 @@ extern const char *darwin_strip_name_encoding (const char *);
 
 extern void machopic_finish (FILE *);
 
-extern void machopic_output_possible_stub_label (FILE *, const char*);
-
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);
 extern void machopic_select_section (tree, int, unsigned HOST_WIDE_INT);
 extern void machopic_select_rtx_section (enum machine_mode, rtx,
 					 unsigned HOST_WIDE_INT);
 
+extern void darwin_unique_section (tree decl, int reloc);
+extern void darwin_asm_named_section (const char *, unsigned int);
+extern unsigned int darwin_section_type_flags (tree, const char *, int);
+extern void darwin_non_lazy_pcrel (FILE *, rtx);
+
+extern void darwin_emit_unwind_label(FILE *, tree, int);
+
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
 
 extern void darwin_file_end (void);
+
+extern void darwin_make_decl_one_only (tree decl);
 
 /* Expanded by EXTRA_SECTION_FUNCTIONS into varasm.o.  */
 extern void const_section (void);
@@ -118,5 +125,6 @@ extern void machopic_output_stub (FILE *, const char *, const char *);
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);
 extern void darwin_globalize_label (FILE *, const char *);
+extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);

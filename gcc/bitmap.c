@@ -44,7 +44,7 @@ static int bitmap_obstack_init = FALSE;
 /* Global data */
 bitmap_element bitmap_zero_bits;	/* An element of all zero bits.  */
 static bitmap_element *bitmap_free;	/* Freelist of bitmap elements.  */
-static GTY((deletable (""))) bitmap_element *bitmap_ggc_free;
+static GTY((deletable)) bitmap_element *bitmap_ggc_free;
 
 static void bitmap_elem_to_freelist (bitmap, bitmap_element *);
 static void bitmap_element_free (bitmap, bitmap_element *);
@@ -348,7 +348,7 @@ bitmap_clear_bit (bitmap head, int bit)
       unsigned word_num = bit / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;
       ptr->bits[word_num] &= ~ (((BITMAP_WORD) 1) << bit_num);
 
-      /* If we cleared the entire word, free up the element */
+      /* If we cleared the entire word, free up the element.  */
       if (bitmap_element_zerop (ptr))
 	bitmap_element_free (head, ptr);
     }

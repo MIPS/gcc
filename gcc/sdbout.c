@@ -1,6 +1,6 @@
 /* Output sdb-format symbol table information from GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,6 +48,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "debug.h"
 #include "tree.h"
 #include "ggc.h"
+#include "varray.h"
 
 static GTY(()) tree anonymous_types;
 
@@ -58,6 +59,17 @@ static GTY(()) int sdbout_source_line_counter;
 /* Counter to generate unique "names" for nameless struct members.  */
 
 static GTY(()) int unnamed_struct_number;
+
+/* Declarations whose debug info was deferred till end of compilation.  */
+
+static GTY(()) varray_type deferred_global_decls;
+
+/* The C front end may call sdbout_symbol before sdbout_init runs.
+   We save all such decls in this list and output them when we get
+   to sdbout_init.  */
+
+static GTY(()) tree preinit_symbols;
+static GTY(()) bool sdbout_initialized;
 
 #ifdef SDB_DEBUGGING_INFO
 
@@ -307,34 +319,37 @@ static struct sdb_file *current_file;
 /* The debug hooks structure.  */
 const struct gcc_debug_hooks sdb_debug_hooks =
 {
-  sdbout_init,			/* init */
-  sdbout_finish,		/* finish */
-  debug_nothing_int_charstar,	/* define */
-  debug_nothing_int_charstar,	/* undef */
-  sdbout_start_source_file,	/* start_source_file */
-  sdbout_end_source_file,	/* end_source_file */
-  sdbout_begin_block,		/* begin_block */
-  sdbout_end_block,		/* end_block */
-  debug_true_tree,		/* ignore_block */
-  sdbout_source_line,		/* source_line */
+  sdbout_init,			         /* init */
+  sdbout_finish,		         /* finish */
+  debug_nothing_int_charstar,	         /* define */
+  debug_nothing_int_charstar,	         /* undef */
+  sdbout_start_source_file,	         /* start_source_file */
+  sdbout_end_source_file,	         /* end_source_file */
+  sdbout_begin_block,		         /* begin_block */
+  sdbout_end_block,		         /* end_block */
+  debug_true_tree,		         /* ignore_block */
+  sdbout_source_line,		         /* source_line */
 #ifdef MIPS_DEBUGGING_INFO
   /* Defer on MIPS systems so that parameter descriptions follow
      function entry.  */
-  debug_nothing_int_charstar,	/* begin_prologue */
-  sdbout_end_prologue,		/* end_prologue */
+  debug_nothing_int_charstar,	         /* begin_prologue */
+  sdbout_end_prologue,		         /* end_prologue */
 #else
-  sdbout_begin_prologue,	/* begin_prologue */
-  debug_nothing_int_charstar,	/* end_prologue */
+  sdbout_begin_prologue,	         /* begin_prologue */
+  debug_nothing_int_charstar,	         /* end_prologue */
 #endif
-  sdbout_end_epilogue,		/* end_epilogue */
-  sdbout_begin_function,	/* begin_function */
-  sdbout_end_function,		/* end_function */
-  debug_nothing_tree,		/* function_decl */
-  sdbout_global_decl,		/* global_decl */
-  debug_nothing_tree,		/* deferred_inline_function */
-  debug_nothing_tree,		/* outlining_inline_function */
-  sdbout_label,			/* label */
-  debug_nothing_int		/* handle_pch */
+  sdbout_end_epilogue,		         /* end_epilogue */
+  sdbout_begin_function,	         /* begin_function */
+  sdbout_end_function,		         /* end_function */
+  debug_nothing_tree,		         /* function_decl */
+  sdbout_global_decl,		         /* global_decl */
+  sdbout_symbol,			 /* type_decl */
+  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  sdbout_label,			         /* label */
+  debug_nothing_int,		         /* handle_pch */
+  debug_nothing_rtx		         /* var_location */
 };
 
 /* Return a unique string to name an anonymous type.  */
@@ -690,6 +705,14 @@ sdbout_symbol (tree decl, int local)
   rtx value;
   int regno = -1;
   const char *name;
+
+  /* If we are called before sdbout_init is run, just save the symbol
+     for later.  */
+  if (!sdbout_initialized)
+    {
+      preinit_symbols = tree_cons (0, decl, preinit_symbols);
+      return;
+    }
 
   sdbout_one_type (type);
 
@@ -1159,7 +1182,7 @@ sdbout_one_type (tree type)
 	      }
 	  }
 
-	/* output the individual fields */
+	/* Output the individual fields.  */
 
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
@@ -1206,7 +1229,7 @@ sdbout_one_type (tree type)
 		  }
 		PUT_SDB_ENDEF;
 	      }
-	/* output end of a structure,union, or enumeral definition */
+	/* Output end of a structure,union, or enumeral definition.  */
 
 	PUT_SDB_PLAIN_DEF ("eos");
 	PUT_SDB_INT_VAL (size);
@@ -1436,6 +1459,8 @@ sdbout_global_decl (tree decl)
 	 sdbout_finish ().  */
       if (!DECL_INITIAL (decl) || !TREE_PUBLIC (decl))
 	sdbout_symbol (decl, 0);
+      else
+	VARRAY_PUSH_TREE (deferred_global_decls, decl);
 
       /* Output COFF information for non-global file-scope initialized
 	 variables.  */
@@ -1450,29 +1475,12 @@ sdbout_global_decl (tree decl)
 static void
 sdbout_finish (const char *main_filename ATTRIBUTE_UNUSED)
 {
-  tree decl = (*lang_hooks.decls.getdecls) ();
-  unsigned int len = list_length (decl);
-  tree *vec = xmalloc (sizeof (tree) * len);
-  unsigned int i;
+  size_t i;
 
-  /* Process the decls in reverse order--earliest first.  Put them
-     into VEC from back to front, then take out from front.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_global_decls); i++)
+    sdbout_symbol (VARRAY_TREE (deferred_global_decls, i), 0);
 
-  for (i = 0; i < len; i++, decl = TREE_CHAIN (decl))
-    vec[len - i - 1] = decl;
-
-  for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
-      if (TREE_CODE (decl) == VAR_DECL
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl)
-	  && TREE_PUBLIC (decl)
-	  && DECL_RTL_SET_P (decl))
-	sdbout_symbol (decl, 0);
-    }
-
-  free (vec);
+  VARRAY_FREE (deferred_global_decls);
 }
 
 /* Describe the beginning of an internal block within a function.
@@ -1670,11 +1678,23 @@ sdbout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
 static void
 sdbout_init (const char *input_file_name ATTRIBUTE_UNUSED)
 {
+  tree t;
+
 #ifdef MIPS_DEBUGGING_INFO
   current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->name = input_file_name;
 #endif
+
+  VARRAY_TREE_INIT (deferred_global_decls, 12, "deferred_global_decls");
+
+  /* Emit debug information which was queued by sdbout_symbol before
+     we got here.  */
+  sdbout_initialized = true;
+
+  for (t = nreverse (preinit_symbols); t; t = TREE_CHAIN (t))
+    sdbout_symbol (TREE_VALUE (t), 0);
+  preinit_symbols = 0;
 }
 
 #else  /* SDB_DEBUGGING_INFO */

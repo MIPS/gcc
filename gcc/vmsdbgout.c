@@ -1,6 +1,6 @@
 /* Output VMS debug format symbol table information from GCC.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
 
 This file is part of GCC.
@@ -186,10 +186,13 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    vmsdbgout_end_function,
    vmsdbgout_decl,
    vmsdbgout_global_decl,
-   debug_nothing_tree,		/* deferred_inline_function */
+   debug_nothing_tree_int,	  /* type_decl */
+   debug_nothing_tree_tree,       /* imported_module_or_decl */
+   debug_nothing_tree,		  /* deferred_inline_function */
    vmsdbgout_abstract_function,
-   debug_nothing_rtx,		/* label */
-   debug_nothing_int		/* handle_pch */
+   debug_nothing_rtx,		  /* label */
+   debug_nothing_int,		  /* handle_pch */
+   debug_nothing_rtx		  /* var_location */
 };
 
 /* Definitions of defaults for assembler-dependent names of various
@@ -1320,7 +1323,7 @@ vmsdbgout_begin_block (register unsigned line, register unsigned blocknum)
     (*dwarf2_debug_hooks.begin_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
+    targetm.asm_out.internal_label (asm_out_file, BLOCK_BEGIN_LABEL, blocknum);
 }
 
 /* Output a marker (i.e. a label) for the end of the generated code for a
@@ -1333,7 +1336,7 @@ vmsdbgout_end_block (register unsigned line, register unsigned blocknum)
     (*dwarf2_debug_hooks.end_block) (line, blocknum);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
-    (*targetm.asm_out.internal_label) (asm_out_file, BLOCK_END_LABEL, blocknum);
+    targetm.asm_out.internal_label (asm_out_file, BLOCK_END_LABEL, blocknum);
 }
 
 /* Not implemented in VMS Debug.  */
@@ -1513,8 +1516,8 @@ vmsdbgout_source_line (register unsigned line, register const char *filename)
     {
       dst_line_info_ref line_info;
 
-      (*targetm.asm_out.internal_label) (asm_out_file, LINE_CODE_LABEL,
-				 line_info_table_in_use);
+      targetm.asm_out.internal_label (asm_out_file, LINE_CODE_LABEL,
+				      line_info_table_in_use);
 
       /* Expand the line info table if necessary.  */
       if (line_info_table_in_use == line_info_table_allocated)
@@ -1670,7 +1673,7 @@ vmsdbgout_finish (const char *main_input_filename ATTRIBUTE_UNUSED)
 
   /* Output a terminator label for the .text section.  */
   text_section ();
-  (*targetm.asm_out.internal_label) (asm_out_file, TEXT_END_LABEL, 0);
+  targetm.asm_out.internal_label (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output debugging information.
      Warning! Do not change the name of the .vmsdebug section without

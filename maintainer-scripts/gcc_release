@@ -236,12 +236,9 @@ EOF
     # on at least one platform.
     inform "Building compiler"
     OBJECT_DIRECTORY=../objdir
-    contrib/gcc_build -d ${SOURCE_DIRECTORY} -o ${OBJECT_DIRECTORY} build || \
+    contrib/gcc_build -d ${SOURCE_DIRECTORY} -o ${OBJECT_DIRECTORY} \
+      -c "--enable-generated-files-in-srcdir" build || \
       error "Could not rebuild GCC"
-
-    # Regenerate the Fotran NEWS and BUGS files.
-    (cd ${OBJECT_DIRECTORY}/gcc && make f77.rebuilt) || \
-      error "Could not regenerate Fortran NEWS and BUGS files"
   fi
 
   # Move message catalogs to source directory.
@@ -395,7 +392,7 @@ announce_snapshot() {
   inform "Updating links and READMEs on the FTP server"
   
   TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
-  cd ~ftp/pub/gcc/snapshots
+  changedir "${SNAPSHOTS_DIR}"
   sed -e "s%@DATE@%$DATE%g" \
     -e "s%@TEXT_DATE@%$TEXT_DATE%g" \
     -e "s%@LAST_DATE@%$LAST_DATE%g" \
@@ -419,7 +416,7 @@ announce_snapshot() {
   inform "Sending mail"
 
   export QMAILHOST=gcc.gnu.org
-  mail -s "gcc-ss-${RELEASE} is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/${RELEASE}/README
+  mail -s "gcc-ss-${RELEASE} is now available" gcc@gcc.gnu.org < ${SNAPSHOTS_DIR}/${RELEASE}/README
 }
 
 ########################################################################
@@ -443,8 +440,10 @@ CVS_USERNAME="${USER}"
 GCC_HOSTNAME="gcc.gnu.org"
 # The name of the account on the machine to which files are uploaded.
 GCC_USERNAME="gccadmin"
-# The directory in which the files will be placed.
-FTP_PATH="~ftp/pub/gcc"
+# The directory in which the files will be placed (do not use ~user syntax).
+FTP_PATH=/var/ftp/pub/gcc
+# The directory in which snapshots will be placed.
+SNAPSHOTS_DIR=${FTP_PATH}/snapshots
 
 # The major number for the release.  For release `3.0.2' this would be 
 # `3'
@@ -482,7 +481,7 @@ SOURCE_DIRECTORY=""
 
 # The directories that should be part of the various language-specific
 # tar files.  These are all relative to the top of the source tree.
-ADA_DIRS="gcc/ada"
+ADA_DIRS="gcc/ada libada"
 CPLUSPLUS_DIRS="gcc/cp libstdc++-v3"
 FORTRAN_DIRS="gcc/f libf2c"
 JAVA_DIRS="gcc/java libjava libffi fastjar zlib boehm-gc"
@@ -539,10 +538,9 @@ while getopts "d:fr:u:t:p:s:l" ARG; do
           ;;
     l)    LOCAL=1
 	  SCP=cp
-	  FTP_PATH=~ftp/pub/gcc
 	  PATH=~:/usr/local/bin:$PATH;;
     p)    OLD_TARS="${OLD_TARS} ${OPTARG}"
-          if [ -d ${OPTARG} ]; then
+          if [ ! -f ${OPTARG} ]; then
 	    error "-p argument must name a tarball"
 	  fi;;
     \?)   usage;;
@@ -617,12 +615,12 @@ else
     TAG=gcc-ss-`echo ${RELEASE} | tr '.' '_'`
   fi
 
-  # Building locally on gcc.gnu.org, we know what the last snapshot date
-  # was.
-  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ]; then
+  # If diffs are requested when building locally on gcc.gnu.org, we (usually)
+  # know what the last snapshot date was and take the corresponding tarballs,
+  # unless the user specified tarballs explictly.
+  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ] && [ -z "${OLD_TARS}" ]; then
     LAST_DATE=`cat ~/.snapshot_date-${BRANCH}`
-    LAST_DIR=~ftp/pub/gcc/snapshots/${BRANCH}-${LAST_DATE}
-    OLD_TARS=${LAST_DIR}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
+    OLD_TARS=${SNAPSHOTS_DIR}/${BRANCH}-${LAST_DATE}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
   fi
 fi
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
 This file is part of GCC.
@@ -879,7 +879,9 @@ extern enum reg_class m68hc11_tmp_regs_class;
 		 && VALUE == CONST0_RTX (GET_MODE (VALUE))) : 0) 
 
 /* 'U' represents certain kind of memory indexed operand for 68HC12.
-   and any memory operand for 68HC11.  */
+   and any memory operand for 68HC11.
+   'R' represents indexed addressing mode or access to page0 for 68HC11.
+   For 68HC12, it represents any memory operand.  */
 #define EXTRA_CONSTRAINT(OP, C)                         \
 ((C) == 'U' ? m68hc11_small_indexed_indirect_p (OP, GET_MODE (OP)) \
  : (C) == 'Q' ? m68hc11_symbolic_p (OP, GET_MODE (OP)) \
@@ -1004,9 +1006,6 @@ extern enum reg_class m68hc11_tmp_regs_class;
 
 /* Passing Function Arguments on the Stack.  */
 
-/* When a prototype says `char' or `short', really pass an `int'.  */
-/* #define PROMOTE_PROTOTYPES */
-
 /* If we generate an insn to push BYTES bytes, this says how many the
    stack pointer really advances by. No rounding or alignment needed
    for MC6811.  */
@@ -1020,15 +1019,6 @@ extern enum reg_class m68hc11_tmp_regs_class;
    The standard MC6811 call, with arg count word, includes popping the
    args as part of the call template.  */
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE)	0
-
-/* Nonzero if type TYPE should be returned in memory.
-   Blocks and data types largers than 4 bytes cannot be returned
-   in the register (D + X = 4).  */
-#define RETURN_IN_MEMORY(TYPE)				\
-    ((TYPE_MODE (TYPE) == BLKmode)			\
-     ? (int_size_in_bytes (TYPE) > 4)			\
-     : (GET_MODE_SIZE (TYPE_MODE (TYPE)) > 4))
-
 
 /* Passing Arguments in Registers.  */
 
@@ -1082,7 +1072,7 @@ typedef struct m68hc11_args
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS for a call to a
    function whose data type is FNTYPE. For a library call, FNTYPE is 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
     (m68hc11_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
 /* Update the data in CUM to advance over an argument of mode MODE and data
@@ -1134,23 +1124,19 @@ typedef struct m68hc11_args
       The high part is passed in X and the low part in D.
       For GCC, the register number must be HARD_X_REGNUM.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-     gen_rtx (REG, TYPE_MODE (VALTYPE),					\
+     gen_rtx_REG (TYPE_MODE (VALTYPE),					\
               ((TYPE_MODE (VALTYPE) == BLKmode				\
 	        || GET_MODE_SIZE (TYPE_MODE (VALTYPE)) <= 2)		\
 		   ? HARD_D_REGNUM : HARD_X_REGNUM))
 
 #define LIBCALL_VALUE(MODE)						\
-     gen_rtx (REG, MODE,						\
+     gen_rtx_REG (MODE,						\
               (((MODE) == BLKmode || GET_MODE_SIZE (MODE) <= 2)		\
                    ? HARD_D_REGNUM : HARD_X_REGNUM))
 
 /* 1 if N is a possible register number for a function value.  */
 #define FUNCTION_VALUE_REGNO_P(N) \
      ((N) == HARD_D_REGNUM || (N) == HARD_X_REGNUM)
-
-/* Register in which address to store a structure value is passed to a
-   function.  */
-#define STRUCT_VALUE_REGNUM	HARD_D_REGNUM
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in functions
@@ -1420,7 +1406,7 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
    macro is used in only one place: `find_reloads_address' in reload.c.
 
    For M68HC11, we handle large displacements of a base register
-   by splitting the addend accors an addhi3 insn.
+   by splitting the addend across an addhi3 insn.
 
    For M68HC12, the 64K offset range is available.
    */
@@ -1615,7 +1601,7 @@ do {                                                                    \
    sections when it shrinks the code.  This results in invalid addresses
    when debugging.  This does not bless too much the HC11/HC12 as most
    applications are embedded and small, hence a reasonable debug info.
-   This problem is known for binutils 2.13, 2.14 and mainline.   */
+   This problem is known for binutils 2.13, 2.14 and mainline.  */
 #undef HAVE_AS_DWARF2_DEBUG_LINE
 
 /* The prefix for local labels.  You should be able to define this as

@@ -1,6 +1,6 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -179,25 +179,40 @@ static GTY(()) int typevec_len;
 
 static GTY(()) int next_type_number;
 
+/* The C front end may call dbxout_symbol before dbxout_init runs.
+   We save all such decls in this list and output them when we get
+   to dbxout_init.  */
+
+static GTY(()) tree preinit_symbols;
+
 enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
 
 /* When using N_BINCL in dbx output, each type number is actually a
    pair of the file number and the type number within the file.
    This is a stack of input files.  */
 
-struct dbx_file GTY(())
+struct dbx_file
 {
   struct dbx_file *next;
   int file_number;
   int next_type_number;
-  enum binclstatus bincl_status;      /* Keep track of lazy bincl.  */
-  const char *pending_bincl_name;     /* Name of bincl.  */
-  struct dbx_file *prev;              /* Chain to traverse all pending bincls.  */
+  enum binclstatus bincl_status;  /* Keep track of lazy bincl.  */
+  const char *pending_bincl_name; /* Name of bincl.  */
+  struct dbx_file *prev;          /* Chain to traverse all pending bincls.  */
 };
 
-/* This is the top of the stack.  */
+/* This is the top of the stack.  
+   
+   This is not saved for PCH, because restoring a PCH should not change it.
+   next_file_number does have to be saved, because the PCH may use some
+   file numbers; however, just before restoring a PCH, next_file_number
+   should always be 0 because we should not have needed any file numbers
+   yet.  */
 
-static GTY(()) struct dbx_file *current_file;
+#if (defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)) \
+    && defined (DBX_USE_BINCL)
+static struct dbx_file *current_file;
+#endif
 
 /* This is the next file number to use.  */
 
@@ -350,6 +365,7 @@ static void dbxout_prepare_symbol (tree);
 static void dbxout_finish_symbol (tree);
 static void dbxout_block (tree, int, tree);
 static void dbxout_global_decl (tree);
+static void dbxout_type_decl (tree, int);
 static void dbxout_handle_pch (unsigned);
 
 /* The debug hooks structure.  */
@@ -373,23 +389,27 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_source_file,
   dbxout_begin_block,
   dbxout_end_block,
-  debug_true_tree,		/* ignore_block */
-  dbxout_source_line,		/* source_line */
-  dbxout_source_line,		/* begin_prologue: just output line info */
-  debug_nothing_int_charstar,	/* end_prologue */
-  debug_nothing_int_charstar,	/* end_epilogue */
+  debug_true_tree,		         /* ignore_block */
+  dbxout_source_line,		         /* source_line */
+  dbxout_source_line,		         /* begin_prologue: just output 
+					    line info */
+  debug_nothing_int_charstar,	         /* end_prologue */
+  debug_nothing_int_charstar,	         /* end_epilogue */
 #ifdef DBX_FUNCTION_FIRST
   dbxout_begin_function,
 #else
-  debug_nothing_tree,		/* begin_function */
+  debug_nothing_tree,		         /* begin_function */
 #endif
-  debug_nothing_int,		/* end_function */
+  debug_nothing_int,		         /* end_function */
   dbxout_function_decl,
-  dbxout_global_decl,		/* global_decl */
-  debug_nothing_tree,		/* deferred_inline_function */
-  debug_nothing_tree,		/* outlining_inline_function */
-  debug_nothing_rtx,		/* label */
-  dbxout_handle_pch		/* handle_pch */
+  dbxout_global_decl,		         /* global_decl */
+  dbxout_type_decl,			 /* type_decl */
+  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  debug_nothing_rtx,		         /* label */
+  dbxout_handle_pch,		         /* handle_pch */
+  debug_nothing_rtx		         /* var_location */
 };
 #endif /* DBX_DEBUGGING_INFO  */
 
@@ -404,19 +424,22 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   dbxout_end_source_file,
   xcoffout_begin_block,
   xcoffout_end_block,
-  debug_true_tree,		/* ignore_block */
+  debug_true_tree,		         /* ignore_block */
   xcoffout_source_line,
-  xcoffout_begin_prologue,	/* begin_prologue */
-  debug_nothing_int_charstar,	/* end_prologue */
+  xcoffout_begin_prologue,	         /* begin_prologue */
+  debug_nothing_int_charstar,	         /* end_prologue */
   xcoffout_end_epilogue,
-  debug_nothing_tree,		/* begin_function */
+  debug_nothing_tree,		         /* begin_function */
   xcoffout_end_function,
-  debug_nothing_tree,		/* function_decl */
-  dbxout_global_decl,		/* global_decl */
-  debug_nothing_tree,		/* deferred_inline_function */
-  debug_nothing_tree,		/* outlining_inline_function */
-  debug_nothing_rtx,		/* label */
-  dbxout_handle_pch		/* handle_pch */
+  debug_nothing_tree,		         /* function_decl */
+  dbxout_global_decl,		         /* global_decl */
+  dbxout_type_decl,			 /* type_decl */
+  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  debug_nothing_rtx,		         /* label */
+  dbxout_handle_pch,		         /* handle_pch */
+  debug_nothing_rtx		         /* var_location */
 };
 #endif /* XCOFF_DEBUGGING_INFO  */
 
@@ -429,7 +452,7 @@ dbxout_function_end (void)
      the system doesn't insert underscores in front of user generated
      labels.  */
   ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
-  (*targetm.asm_out.internal_label) (asmfile, "Lscope", scope_labelno);
+  targetm.asm_out.internal_label (asmfile, "Lscope", scope_labelno);
   scope_labelno++;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -453,7 +476,7 @@ static void
 dbxout_init (const char *input_file_name)
 {
   char ltext_label_name[100];
-  tree syms = (*lang_hooks.decls.getdecls) ();
+  tree syms = lang_hooks.decls.getdecls ();
 
   asmfile = asm_out_file;
 
@@ -497,7 +520,7 @@ dbxout_init (const char *input_file_name)
   assemble_name (asmfile, ltext_label_name);
   fputc ('\n', asmfile);
   text_section ();
-  (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
+  targetm.asm_out.internal_label (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
 
 #ifdef DBX_OUTPUT_GCC_MARKER
@@ -513,7 +536,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = ggc_alloc (sizeof *current_file);
+  current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -523,22 +546,20 @@ dbxout_init (const char *input_file_name)
   current_file->pending_bincl_name = NULL;
 #endif
 
-  /* Make sure that types `int' and `char' have numbers 1 and 2.
-     Definitions of other integer types will refer to those numbers.
-     (Actually it should no longer matter what their numbers are.
-     Also, if any types with tags have been defined, dbxout_symbol
-     will output them first, so the numbers won't be 1 and 2.  That
-     happens in C++.  So it's a good thing it should no longer matter).  */
-
-#ifdef DBX_OUTPUT_STANDARD_TYPES
-  DBX_OUTPUT_STANDARD_TYPES (syms);
-#endif
-
   /* Get all permanent types that have typedef names, and output them
      all, except for those already output.  Some language front ends
-     put these declarations in the top-level scope; some do not.  */
-  dbxout_typedefs ((*lang_hooks.decls.builtin_type_decls) ());
+     put these declarations in the top-level scope; some do not;
+     the latter are responsible for calling debug_hooks->type_decl from
+     their record_builtin_type function.  */
   dbxout_typedefs (syms);
+
+  if (preinit_symbols)
+    {
+      tree t;
+      for (t = nreverse (preinit_symbols); t; t = TREE_CHAIN (t))
+	dbxout_symbol (TREE_VALUE (t), 0);
+      preinit_symbols = 0;
+    }
 }
 
 /* Output any typedef names for types described by TYPE_DECLs in SYMS.  */
@@ -625,7 +646,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = ggc_alloc (sizeof *n);
+  struct dbx_file *n = xmalloc (sizeof *n);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -708,7 +729,7 @@ dbxout_source_file (FILE *file, const char *filename)
 	; /* Don't change section amid function.  */
       else
 	text_section ();
-      (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
+      targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;
     }
@@ -736,7 +757,7 @@ static void
 dbxout_begin_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBB", n);
+  targetm.asm_out.internal_label (asmfile, "LBB", n);
 }
 
 /* Describe the end line-number of an internal block within a function.  */
@@ -745,7 +766,7 @@ static void
 dbxout_end_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBE", n);
+  targetm.asm_out.internal_label (asmfile, "LBE", n);
 }
 
 /* Output dbx data for a function definition.
@@ -789,6 +810,14 @@ dbxout_global_decl (tree decl)
       dbxout_symbol (decl, 0);
       TREE_USED (decl) = saved_tree_used;
     }
+}
+
+/* This is just a function-type adapter; dbxout_symbol does exactly
+   what we want but returns an int.  */
+static void
+dbxout_type_decl (tree decl, int local)
+{
+  dbxout_symbol (decl, local);
 }
 
 /* At the end of compilation, finish writing the symbol table.
@@ -855,6 +884,11 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
+      /* If one of the nodes is an error_mark or its type is then
+	 return early.  */
+      if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
+	return;
+
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
 	  /* Omit fields whose position or size are variable or too large to
@@ -1664,8 +1698,10 @@ dbxout_type (tree type, int full)
 	    if (use_gnu_debug_info_extensions)
 	      {
 		have_used_extensions = 1;
-		putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-		putc (access == access_public_node ? '2' : '0', asmfile);
+                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
+                putc (access == access_public_node ? '2' :
+                      (access == access_protected_node ? '1' :'0'),
+                      asmfile);
 		CHARS (2);
 		if (TREE_VIA_VIRTUAL (child)
 		    && strcmp (lang_hooks.name, "GNU C++") == 0)
@@ -2033,11 +2069,6 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
   /* "Intercept" dbxout_symbol() calls like we do all debug_hooks.  */
   ++debug_nesting;
 
-  /* Cast avoids warning in old compilers.  */
-  current_sym_code = (STAB_CODE_TYPE) 0;
-  current_sym_value = 0;
-  current_sym_addr = 0;
-
   /* Ignore nameless syms, but don't ignore type tags.  */
 
   if ((DECL_NAME (decl) == 0 && TREE_CODE (decl) != TYPE_DECL)
@@ -2048,13 +2079,21 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
      symbol nodees are flagged with TREE_USED.  Ignore any that
      aren't flaged as TREE_USED.  */
 
+  if (flag_debug_only_used_symbols
+      && (!TREE_USED (decl)
+          && (TREE_CODE (decl) != VAR_DECL || !DECL_INITIAL (decl))))
+    DBXOUT_DECR_NESTING_AND_RETURN (0);
+
+  /* If dbxout_init has not yet run, queue this symbol for later.  */
+  if (!typevec)
+    {
+      preinit_symbols = tree_cons (0, decl, preinit_symbols);
+      DBXOUT_DECR_NESTING_AND_RETURN (0);
+    }
+
   if (flag_debug_only_used_symbols)
     {
       tree t;
-
-      if (!TREE_USED (decl)
-          && (TREE_CODE (decl) != VAR_DECL || !DECL_INITIAL (decl)))
-        DBXOUT_DECR_NESTING_AND_RETURN (0);
 
       /* We now have a used symbol.  We need to generate the info for
          the symbol's type in addition to the symbol itself.  These
@@ -2159,6 +2198,20 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       if (TREE_ASM_WRITTEN (decl) || TYPE_DECL_SUPPRESS_DEBUG (decl))
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
 
+      /* Don't output typedefs for types with magic type numbers (XCOFF).  */
+#ifdef DBX_ASSIGN_FUNDAMENTAL_TYPE_NUMBER
+      {
+	int fundamental_type_number =
+	  DBX_ASSIGN_FUNDAMENTAL_TYPE_NUMBER (decl);
+
+	if (fundamental_type_number != 0)
+	  {
+	    TREE_ASM_WRITTEN (decl) = 1;
+	    TYPE_SYMTAB_ADDRESS (TREE_TYPE (decl)) = fundamental_type_number;
+	    DBXOUT_DECR_NESTING_AND_RETURN (0);
+	  }
+      }
+#endif
       FORCE_TEXT;
       result = 1;
       {
@@ -2338,7 +2391,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 		}
 	      else if (TREE_CODE (TREE_TYPE (decl)) == REAL_TYPE)
 		{
-		  /* don't know how to do this yet.  */
+		  /* Don't know how to do this yet.  */
 		}
 	      break;
 	    }
@@ -2450,11 +2503,27 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	      if (GET_CODE (current_sym_addr) == SYMBOL_REF
 		  && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
 		{
-		  rtx tmp = get_pool_constant (current_sym_addr);
+		  bool marked;
+		  rtx tmp = get_pool_constant_mark (current_sym_addr, &marked);
 
-		  if (GET_CODE (tmp) == SYMBOL_REF
-		      || GET_CODE (tmp) == LABEL_REF)
-		    current_sym_addr = tmp;
+		  if (GET_CODE (tmp) == SYMBOL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      if (CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+		        get_pool_constant_mark (current_sym_addr, &marked);
+		      else
+			marked = true;
+		    }
+		  else if (GET_CODE (tmp) == LABEL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      marked = true;
+		    }
+
+		   /* If all references to the constant pool were optimized
+		      out, we just ignore the symbol.  */
+		  if (!marked)
+		    return 0;
 		}
 
 	      /* Ultrix `as' seems to need this.  */
@@ -2564,10 +2633,6 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       else
 	dbxout_symbol_location (decl, subtype, "$real", XEXP (home, 0));
 
-      /* Cast avoids warning in old compilers.  */
-      current_sym_code = (STAB_CODE_TYPE) 0;
-      current_sym_value = 0;
-      current_sym_addr = 0;
       dbxout_prepare_symbol (decl);
 
       if (WORDS_BIG_ENDIAN)
@@ -2607,9 +2672,11 @@ dbxout_symbol_name (tree decl, const char *suffix, int letter)
 {
   const char *name;
 
-  if (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
-    /* One slight hitch: if this is a VAR_DECL which is a static
-       class member, we must put out the mangled name instead of the
+  if (DECL_CONTEXT (decl) 
+      && (TYPE_P (DECL_CONTEXT (decl))
+	  || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL))
+    /* One slight hitch: if this is a VAR_DECL which is a class member
+       or a namespace member, we must put out the mangled name instead of the
        DECL_NAME.  Note also that static member (variable) names DO NOT begin
        with underscores in .stabs directives.  */
     name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -2635,6 +2702,14 @@ dbxout_prepare_symbol (tree decl ATTRIBUTE_UNUSED)
 
   dbxout_source_file (asmfile, filename);
 #endif
+
+  /* Initialize variables used to communicate each symbol's debug
+     information to dbxout_finish_symbol with zeroes.  */
+
+  /* Cast avoids warning in old compilers.  */
+  current_sym_code = (STAB_CODE_TYPE) 0;
+  current_sym_value = 0;
+  current_sym_addr = 0;
 }
 
 static void
@@ -2691,7 +2766,10 @@ dbxout_parms (tree parms)
   emit_pending_bincls_if_required ();
 
   for (; parms; parms = TREE_CHAIN (parms))
-    if (DECL_NAME (parms) && TREE_TYPE (parms) != error_mark_node)
+    if (DECL_NAME (parms)
+	&& TREE_TYPE (parms) != error_mark_node
+	&& DECL_RTL_SET_P (parms)
+	&& DECL_INCOMING_RTL (parms))
       {
 	dbxout_prepare_symbol (parms);
 

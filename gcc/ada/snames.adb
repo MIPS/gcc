@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -62,8 +62,8 @@ package body Snames is
      "off#" &
      "space#" &
      "time#" &
-     "_alignment#" &
      "_abort_signal#" &
+     "_alignment#" &
      "_assign#" &
      "_chain#" &
      "_clean#" &
@@ -77,6 +77,8 @@ package body Snames is
      "_master#" &
      "_object#" &
      "_priority#" &
+     "_process_atsd#" &
+     "_secondary_stack#" &
      "_service#" &
      "_size#" &
      "_tags#" &
@@ -167,10 +169,12 @@ package body Snames is
      "locking_policy#" &
      "long_float#" &
      "no_run_time#" &
+     "no_strict_aliasing#" &
      "normalize_scalars#" &
      "polling#" &
      "persistent_data#" &
      "persistent_object#" &
+     "profile#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -274,6 +278,7 @@ package body Snames is
      "task_info#" &
      "task_name#" &
      "task_storage#" &
+     "thread_body#" &
      "time_slice#" &
      "title#" &
      "unchecked_union#" &
@@ -331,11 +336,14 @@ package body Snames is
      "on#" &
      "parameter_types#" &
      "reference#" &
+     "no_requeue#" &
+     "no_task_attributes#" &
      "restricted#" &
      "result_mechanism#" &
      "result_type#" &
      "runtime#" &
      "sb#" &
+     "secondary_stack_size#" &
      "section#" &
      "semaphore#" &
      "spec_file_name#" &
@@ -614,8 +622,10 @@ package body Snames is
      "library_kind#" &
      "library_name#" &
      "library_options#" &
+     "library_reference_symbol_file#" &
      "library_src_dir#" &
      "library_symbol_file#" &
+     "library_symbol_policy#" &
      "library_version#" &
      "linker#" &
      "local_configuration_pragmas#" &
@@ -684,6 +694,7 @@ package body Snames is
    --    xxxRA   RAs type access routine for type xxx               (Exp_TSS)
    --    xxxRD   RAs type dereference routine for type xxx          (Exp_TSS)
    --    xxxRP   Rep to Pos conversion for enumeration type xxx     (Exp_TSS)
+   --    xxxSA   array/slice assignment for controlled comp. arrays (Exp_TSS)
    --    xxxSI   stream input attribute subprogram for type xxx     (Exp_TSS)
    --    xxxSO   stream output attribute subprogram for type xxx    (Exp_TSS)
    --    xxxSR   stream read attribute subprogram for type xxx      (Exp_TSS)

@@ -1,6 +1,6 @@
 /* Generate from machine description:
    - some #define configuration flags.
-   Copyright (C) 1987, 1991, 1997, 1998, 1999, 2000, 2003
+   Copyright (C) 1987, 1991, 1997, 1998, 1999, 2000, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -336,7 +336,9 @@ main (int argc, char **argv)
     }
   else
     {
-      printf ("#define CC0_P(X) 0\n");
+      /* We output CC0_P this way to make sure that X is declared
+	 somewhere.  */
+      printf ("#define CC0_P(X) ((X) ? 0 : 0)\n");
     }
 
   if (have_cmove_flag)

@@ -1,6 +1,7 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -252,6 +253,8 @@ static struct reg_info_data *reg_info_head;
 
 static int no_global_reg_vars = 0;
 
+/* Specify number of hard registers given machine mode occupy.  */
+unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
 
 /* Function called only once to initialize the above data on reg usage.
    Once this is done, various switches may override.  */
@@ -321,10 +324,7 @@ init_reg_sets_1 (void)
     {
       for (j = 0; j < N_REG_CLASSES; j++)
 	{
-#ifdef HARD_REG_SET
-	  register		/* Declare it register if it's a scalar.  */
-#endif
-	    HARD_REG_SET c;
+	  HARD_REG_SET c;
 	  int k;
 
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
@@ -355,10 +355,7 @@ init_reg_sets_1 (void)
     {
       for (j = 0; j < N_REG_CLASSES; j++)
 	{
-#ifdef HARD_REG_SET
-	  register		/* Declare it register if it's a scalar.  */
-#endif
-	    HARD_REG_SET c;
+	  HARD_REG_SET c;
 	  int k;
 
 	  COPY_HARD_REG_SET (c, reg_class_contents[i]);
@@ -545,7 +542,11 @@ init_reg_sets_1 (void)
 void
 init_reg_modes_once (void)
 {
-  int i;
+  int i, j;
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    for (j = 0; j < MAX_MACHINE_MODE; j++)
+      hard_regno_nregs[i][j] = HARD_REGNO_NREGS(i, (enum machine_mode)j);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -664,7 +665,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
@@ -675,7 +676,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
@@ -686,7 +687,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
@@ -697,7 +698,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode)
 	&& (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
       found_mode = mode;
@@ -709,7 +710,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
   for (m = (unsigned int) CCmode; m < (unsigned int) NUM_MACHINE_MODES; ++m)
     {
       mode = (enum machine_mode) m;
-      if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
+      if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	  && HARD_REGNO_MODE_OK (regno, mode)
 	  && (! call_saved || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	return mode;
@@ -1007,13 +1008,12 @@ record_operand_costs (rtx insn, struct costs *op_costs,
 static rtx
 scan_one_insn (rtx insn, int pass)
 {
-  enum rtx_code code = GET_CODE (insn);
   enum rtx_code pat_code;
   rtx set, note;
   int i, j;
   struct costs op_costs[MAX_RECOG_OPERANDS];
 
-  if (GET_RTX_CLASS (code) != 'i')
+  if (!INSN_P (insn))
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
@@ -1085,8 +1085,8 @@ scan_one_insn (rtx insn, int pass)
 	{
 	  basic_block b;
 	  FOR_EACH_BB (b)
-	    if (insn == b->head)
-	      b->head = newinsn;
+	    if (insn == BB_HEAD (b))
+	      BB_HEAD (b) = newinsn;
 	}
 
       /* This makes one more setting of new insns's dest.  */
@@ -1240,10 +1240,10 @@ regclass (rtx f, int nregs, FILE *dump)
 	       aggressive than the assumptions made elsewhere and is being
 	       tried as an experiment.  */
 	    frequency = REG_FREQ_FROM_BB (bb);
-	    for (insn = bb->head; ; insn = NEXT_INSN (insn))
+	    for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
 	      {
 		insn = scan_one_insn (insn, pass);
-		if (insn == bb->end)
+		if (insn == BB_END (bb))
 		  break;
 	      }
 	  }
@@ -1842,14 +1842,14 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    op_costs[i].cost[class] = -1;
 		  else
 		    {
-		      for (nr = 0; nr < (unsigned) HARD_REGNO_NREGS (regno, mode); nr++)
+		      for (nr = 0; nr < (unsigned) hard_regno_nregs[regno][mode]; nr++)
 			{
 			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
 						   regno + nr))
 			    break;
 			}
 
-		      if (nr == (unsigned) HARD_REGNO_NREGS (regno,mode))
+		      if (nr == (unsigned) hard_regno_nregs[regno][mode])
 			op_costs[i].cost[class] = -1;
 		    }
 		}
@@ -2293,21 +2293,20 @@ reg_scan (rtx f, unsigned int nregs, int repeat ATTRIBUTE_UNUSED)
 {
   rtx insn;
 
+  timevar_push (TV_REG_SCAN);
+
   allocate_reg_info (nregs, TRUE, FALSE);
   max_parallel = 3;
   max_set_parallel = 0;
 
-  timevar_push (TV_REG_SCAN);
-
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN
-	|| GET_CODE (insn) == CALL_INSN
-	|| GET_CODE (insn) == JUMP_INSN)
+    if (INSN_P (insn))
       {
-	if (GET_CODE (PATTERN (insn)) == PARALLEL
-	    && XVECLEN (PATTERN (insn), 0) > max_parallel)
-	  max_parallel = XVECLEN (PATTERN (insn), 0);
-	reg_scan_mark_refs (PATTERN (insn), insn, 0, 0);
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, 0);
 
 	if (REG_NOTES (insn))
 	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, 0);
@@ -2331,14 +2330,13 @@ reg_scan_update (rtx first, rtx last, unsigned int old_max_regno)
   allocate_reg_info (max_reg_num (), FALSE, FALSE);
 
   for (insn = first; insn != last; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN
-	|| GET_CODE (insn) == CALL_INSN
-	|| GET_CODE (insn) == JUMP_INSN)
+    if (INSN_P (insn))
       {
-	if (GET_CODE (PATTERN (insn)) == PARALLEL
-	    && XVECLEN (PATTERN (insn), 0) > max_parallel)
-	  max_parallel = XVECLEN (PATTERN (insn), 0);
-	reg_scan_mark_refs (PATTERN (insn), insn, 0, old_max_regno);
+	rtx pat = PATTERN (insn);
+	if (GET_CODE (pat) == PARALLEL
+	    && XVECLEN (pat, 0) > max_parallel)
+	  max_parallel = XVECLEN (pat, 0);
+	reg_scan_mark_refs (pat, insn, 0, old_max_regno);
 
 	if (REG_NOTES (insn))
 	  reg_scan_mark_refs (REG_NOTES (insn), insn, 1, old_max_regno);
@@ -2414,6 +2412,8 @@ reg_scan_mark_refs (rtx x, rtx insn, int note_flag, unsigned int min_regno)
 	    REG_N_SETS (REGNO (reg))++;
 	    REG_N_REFS (REGNO (reg))++;
 	  }
+	else if (GET_CODE (reg) == MEM)
+	  reg_scan_mark_refs (XEXP (reg, 0), insn, note_flag, min_regno);
       }
       break;
 
@@ -2546,10 +2546,7 @@ reg_class_subset_p (enum reg_class c1, enum reg_class c2)
 int
 reg_classes_intersect_p (enum reg_class c1, enum reg_class c2)
 {
-#ifdef HARD_REG_SET
-  register
-#endif
-    HARD_REG_SET c;
+  HARD_REG_SET c;
 
   if (c1 == c2) return 1;
 

@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "machmode.h"
 #include "version.h"
 #include "input.h"
+#include "statistics.h"
 
 /* Codes of tree nodes */
 
@@ -99,6 +100,24 @@ enum built_in_function
 
 /* Names for the above.  */
 extern const char *const built_in_names[(int) END_BUILTINS];
+
+/* Helper macros for math builtins.  */
+
+#define BUILTIN_EXP10_P(FN) \
+ ((FN) == BUILT_IN_EXP10 || (FN) == BUILT_IN_EXP10F || (FN) == BUILT_IN_EXP10L \
+  || (FN) == BUILT_IN_POW10 || (FN) == BUILT_IN_POW10F || (FN) == BUILT_IN_POW10L)
+
+#define BUILTIN_EXPONENT_P(FN) (BUILTIN_EXP10_P (FN) \
+  || (FN) == BUILT_IN_EXP || (FN) == BUILT_IN_EXPF || (FN) == BUILT_IN_EXPL \
+  || (FN) == BUILT_IN_EXP2 || (FN) == BUILT_IN_EXP2F || (FN) == BUILT_IN_EXP2L)
+
+#define BUILTIN_SQRT_P(FN) \
+ ((FN) == BUILT_IN_SQRT || (FN) == BUILT_IN_SQRTF || (FN) == BUILT_IN_SQRTL)
+
+#define BUILTIN_CBRT_P(FN) \
+ ((FN) == BUILT_IN_CBRT || (FN) == BUILT_IN_CBRTF || (FN) == BUILT_IN_CBRTL)
+
+#define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
 
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
@@ -178,7 +197,8 @@ struct tree_common GTY(())
        TREE_STATIC in
            VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, ADDR_EXPR
        TREE_NO_UNUSED_WARNING in
-           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR
+           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR, NON_LVALUE_EXPR
+	   ??? plus other expressions, apparently (e.g. MODIFY_EXPR).
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
@@ -188,11 +208,14 @@ struct tree_common GTY(())
        CLEANUP_EH_ONLY in
            TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
 	   TREE_LIST elements of a block's cleanup list.
+       TYPE_REF_CAN_ALIAS_ALL in
+           POINTER_TYPE, REFERENCE_TYPE
 
    public_flag:
 
        TREE_OVERFLOW in
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
+	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        EXPR_WFL_EMIT_LINE_NOTE in
@@ -210,6 +233,8 @@ struct tree_common GTY(())
        TREE_PROTECTED in
            BLOCK
 	   ..._DECL
+       CALL_FROM_THUNK_P in
+           CALL_EXPR 
 
    side_effects_flag:
 
@@ -258,10 +283,14 @@ struct tree_common GTY(())
        TREE_NOTHROW in
            CALL_EXPR, FUNCTION_DECL
 
+       TYPE_ALIGN_OK in
+	   ..._TYPE
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -270,8 +299,7 @@ struct tree_common GTY(())
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) \
-((NODE)->common.code = (ENUM_BITFIELD (tree_code)) (VALUE))
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros abort with a fatal error.  */
@@ -281,6 +309,44 @@ struct tree_common GTY(())
 ({  const tree __t = (T);						\
     if (TREE_CODE (__t) != (CODE))					\
       tree_check_failed (__t, (CODE), __FILE__, __LINE__, __FUNCTION__); \
+    __t; })
+
+#define TREE_CHECK2(T, CODE1, CODE2) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2))					\
+      tree_check2_failed (__t, (CODE1), (CODE2), __FILE__, __LINE__,	\
+			  __FUNCTION__);				\
+    __t; })
+
+#define TREE_CHECK3(T, CODE1, CODE2, CODE3) __extension__		\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3))					\
+      tree_check3_failed (__t, (CODE1), (CODE2), (CODE3), __FILE__,	\
+			  __LINE__, __FUNCTION__);			\
+    __t; })
+
+#define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) __extension__	\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3)					\
+	&& TREE_CODE (__t) != (CODE4))					\
+      tree_check4_failed (__t, (CODE1), (CODE2), (CODE3), (CODE4),	\
+			   __FILE__, __LINE__, __FUNCTION__);		\
+    __t; })
+
+#define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) __extension__	\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3)					\
+	&& TREE_CODE (__t) != (CODE4)					\
+	&& TREE_CODE (__t) != (CODE5))					\
+      tree_check5_failed (__t, (CODE1), (CODE2), (CODE3), (CODE4),	\
+			  (CODE5), __FILE__, __LINE__, __FUNCTION__);	\
     __t; })
 
 #define TREE_CLASS_CHECK(T, CLASS) __extension__			\
@@ -343,6 +409,21 @@ struct tree_common GTY(())
 extern void tree_check_failed (const tree, enum tree_code,
 			       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void tree_check2_failed (const tree, enum tree_code, enum tree_code,
+			       const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check3_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, const char *, int,
+				const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check4_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, enum tree_code,
+				const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check5_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, enum tree_code, enum tree_code,
+				const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void tree_class_check_failed (const tree, int,
 				     const char *, int, const char *)
     ATTRIBUTE_NORETURN;
@@ -356,12 +437,16 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
-#define TREE_CHECK(T, CODE)		(T)
-#define TREE_CLASS_CHECK(T, CODE)	(T)
-#define EXPR_CHECK(T)			(T)
-#define TREE_VEC_ELT_CHECK(T, I)	((T)->vec.a[I])
-#define TREE_OPERAND_CHECK(T, I)	((T)->exp.operands[I])
-#define TREE_OPERAND_CHECK_CODE(T, CODE, I) ((T)->exp.operands[I])
+#define TREE_CHECK(T, CODE)			(T)
+#define TREE_CHECK2(T, CODE1, CODE2)		(T)
+#define TREE_CHECK3(T, CODE1, CODE2, CODE3)	(T)
+#define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) (T)
+#define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
+#define TREE_CLASS_CHECK(T, CODE)		(T)
+#define EXPR_CHECK(T)				(T)
+#define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
+#define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
+#define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 
 #endif
@@ -372,6 +457,18 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define DECL_CHECK(T)		TREE_CLASS_CHECK (T, 'd')
 #define CST_CHECK(T)		TREE_CLASS_CHECK (T, 'c')
 #define STMT_CHECK(T)		TREE_CLASS_CHECK (T, 's')
+#define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
+#define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
+
+#define SET_ARRAY_OR_VECTOR_CHECK(T) \
+  TREE_CHECK3 (T, ARRAY_TYPE, SET_TYPE, VECTOR_TYPE)
+
+#define REC_OR_UNION_CHECK(T)	\
+  TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
+
+#define NUMERICAL_TYPE_CHECK(T)					\
+  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,	\
+	       CHAR_TYPE, REAL_TYPE)
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -381,7 +478,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
-#define TYPE_HASH(TYPE) ((size_t) (TYPE) & 0777777)
+#define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
+
+/* A simple hash function for an arbitrary tree node.  This must not be
+   used in hash tables which are saved to a PCH.  */
+#define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
 
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
@@ -516,7 +617,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
-   In a CONSTRUCTOR, nonzero means allocate static storage.  */
+   In a CONSTRUCTOR, nonzero means allocate static storage.
+
+   ??? This is also used in lots of other nodes in unclear ways which
+   should be cleaned up some day.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
 
 /* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
@@ -524,29 +628,42 @@ extern void tree_operand_check_failed (int, enum tree_code,
    executed if an exception is thrown, not on normal exit of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
-/* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
-   made implicitly and should not lead to an "unused value" warning.  */
-#define TREE_NO_UNUSED_WARNING(NODE) ((NODE)->common.static_flag)
+/* In a CONVERT_EXPR, NOP_EXPR, NON_LVALUE_EXPR or COMPOUND_EXPR, this means
+   the node was made implicitly and should not lead to an "unused value"
+   warning. 
+
+   ??? Apparently this is also used on other expression types (such as
+   MODIFY_EXPR.  This needs to be cleaned up sometime.  */
+#define TREE_NO_UNUSED_WARNING(NODE) (EXPR_CHECK (NODE)->common.static_flag)
 
 /* Nonzero for a TREE_LIST or TREE_VEC node means that the derivation
    chain is via a `virtual' declaration.  */
-#define TREE_VIA_VIRTUAL(NODE) ((NODE)->common.static_flag)
+#define TREE_VIA_VIRTUAL(NODE) \
+  (TREE_CHECK2 (NODE, TREE_LIST, TREE_VEC)->common.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
    there was an overflow in folding.  This is distinct from
    TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
    occur in constant expressions.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) ((NODE)->common.static_flag)
+#define TREE_CONSTANT_OVERFLOW(NODE) (CST_CHECK (NODE)->common.static_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
    this string as an argument.  */
 #define TREE_SYMBOL_REFERENCED(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->common.static_flag)
 
+/* Nonzero in a pointer or reference type means the data pointed to
+   by this type can alias anything.  */
+#define TYPE_REF_CAN_ALIAS_ALL(NODE) \
+  (PTR_OR_REF_CHECK (NODE)->common.static_flag)
+
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
-   for this subexpression.  TREE_OVERFLOW implies
-   TREE_CONSTANT_OVERFLOW, but not vice versa.  */
+   for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
+   but not vice versa. 
+
+   ??? Apparently, lots of code assumes this is defined in all
+   expressions.  */
 #define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
@@ -620,6 +737,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In a CALL_EXPR, means that the address of the return slot is part of the
    argument list.  */
 #define CALL_EXPR_HAS_RETURN_SLOT_ADDR(NODE) ((NODE)->common.private_flag)
+
+/* In a CALL_EXPR, means that the call is the jump from a thunk to the
+   thunked-to function.  */
+#define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -792,6 +913,7 @@ struct tree_vec GTY(())
 /* In a RTL_EXPR node.  */
 #define RTL_EXPR_SEQUENCE(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 0)
 #define RTL_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 1)
+#define RTL_EXPR_ALT_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, RTL_EXPR, 2)
 
 /* In a WITH_CLEANUP_EXPR node.  */
 #define WITH_CLEANUP_EXPR_RTL(NODE) \
@@ -912,24 +1034,33 @@ struct tree_block GTY(())
 /* Define fields and accessors for nodes representing data types.  */
 
 /* See tree.def for documentation of the use of these fields.
-   Look at the documentation of the various ..._TYPE tree codes.  */
+   Look at the documentation of the various ..._TYPE tree codes.
+
+   Note that the type.values, type.minval, and type.maxval fields are
+   overloaded and used for different macros in different kinds of types.
+   Each macro must check to ensure the tree node is of the proper kind of
+   type.  Note also that some of the front-ends also overload these fields,
+   so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->type.uid)
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type.size)
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
-#define TYPE_VALUES(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_FIELDS(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_METHODS(NODE) (TYPE_CHECK (NODE)->type.maxval)
-#define TYPE_VFIELD(NODE) (TYPE_CHECK (NODE)->type.minval)
-#define TYPE_ARG_TYPES(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_METHOD_BASETYPE(NODE) (TYPE_CHECK (NODE)->type.maxval)
-#define TYPE_OFFSET_BASETYPE(NODE) (TYPE_CHECK (NODE)->type.maxval)
+#define TYPE_ORIG_SIZE_TYPE(NODE) (INTEGER_TYPE_CHECK (NODE)->type.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
+#define TYPE_DOMAIN(NODE) (SET_ARRAY_OR_VECTOR_CHECK (NODE)->type.values)
+#define TYPE_FIELDS(NODE) (REC_OR_UNION_CHECK (NODE)->type.values)
+#define TYPE_METHODS(NODE) (REC_OR_UNION_CHECK (NODE)->type.maxval)
+#define TYPE_VFIELD(NODE) (REC_OR_UNION_CHECK (NODE)->type.minval)
+#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.values)
+#define TYPE_METHOD_BASETYPE(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.maxval)
+#define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->type.maxval)
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->type.pointer_to)
 #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->type.reference_to)
-#define TYPE_MIN_VALUE(NODE) (TYPE_CHECK (NODE)->type.minval)
-#define TYPE_MAX_VALUE(NODE) (TYPE_CHECK (NODE)->type.maxval)
+#define TYPE_NEXT_PTR_TO(NODE) (POINTER_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_NEXT_REF_TO(NODE) (REFERENCE_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_MIN_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_MAX_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type.maxval)
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->type.precision)
 #define TYPE_SYMTAB_ADDRESS(NODE) (TYPE_CHECK (NODE)->type.symtab.address)
 #define TYPE_SYMTAB_POINTER(NODE) (TYPE_CHECK (NODE)->type.symtab.pointer)
@@ -1049,7 +1180,7 @@ struct tree_block GTY(())
    object of the given ARRAY_TYPE.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  TYPE_MAX_VALUE (ARRAY_TYPE_CHECK (ARRAY_TYPE))
+  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type.maxval)
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
@@ -1343,12 +1474,7 @@ struct tree_type GTY(())
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_CHECK (NODE)->decl.mode)
-/* Holds the RTL expression for the value of a variable or function.  If
-   PROMOTED_MODE is defined, the mode of this expression may not be same
-   as DECL_MODE.  In that case, DECL_MODE contains the mode corresponding
-   to the variable's data type, while the mode
-   of DECL_RTL is the mode actually used to contain the data.
-
+/* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
 #define DECL_RTL(NODE)					\
@@ -1370,8 +1496,9 @@ struct tree_type GTY(())
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) (PARM_DECL_CHECK (NODE)->decl.u2.r)
 
-/* For FUNCTION_DECL, if it is inline, holds the saved insn chain.  */
-#define DECL_SAVED_INSNS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
+/* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
+   that describes the status of this function.  */
+#define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.u2.f)
 
 /* For FUNCTION_DECL, if it is built-in,
    this identifies which built-in operation it is.  */
@@ -1490,6 +1617,9 @@ struct tree_type GTY(())
    controlled by DECL_INLINE.  */
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.declared_inline_flag)
+
+/* Value of the decls's visibility attribute */
+#define DECL_VISIBILITY(NODE) (DECL_CHECK (NODE)->decl.visibility)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.uninlinable)
@@ -1619,17 +1749,20 @@ struct tree_type GTY(())
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
 
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
   (! DECL_CONTEXT (EXP)						\
    || TREE_CODE (DECL_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
+
+/* Enumerate visibility settings.  */
+
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_INTERNAL,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_PROTECTED
+};
 
 struct function;
 
@@ -1672,8 +1805,9 @@ struct tree_decl GTY(())
   unsigned uninlinable : 1;
   unsigned thread_local_flag : 1;
   unsigned declared_inline_flag : 1;
-  unsigned unused : 3;
-  /* three unused bits.  */
+  ENUM_BITFIELD(symbol_visibility) visibility : 2;
+  unsigned unused : 1;
+  /* one unused bit.  */
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -1697,7 +1831,7 @@ struct tree_decl GTY(())
       unsigned int align : 24;
       unsigned int off_align : 8;
     } a;
-  } GTY ((skip (""))) u1;
+  } GTY ((skip)) u1;
 
   tree size_unit;
   tree name;
@@ -1804,6 +1938,10 @@ enum tree_index
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
 
+  TI_PUBLIC,
+  TI_PROTECTED,
+  TI_PRIVATE,
+
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
@@ -1830,33 +1968,6 @@ enum tree_index
   TI_BOOLEAN_TYPE,
 
   TI_VOID_LIST_NODE,
-
-  TI_UV4SF_TYPE,
-  TI_UV4SI_TYPE,
-  TI_UV8HI_TYPE,
-  TI_UV8QI_TYPE,
-  TI_UV4HI_TYPE,
-  TI_UV2HI_TYPE,
-  TI_UV2SI_TYPE,
-  TI_UV2SF_TYPE,
-  TI_UV2DI_TYPE,
-  TI_UV1DI_TYPE,
-  TI_UV16QI_TYPE,
-
-  TI_V4SF_TYPE,
-  TI_V16SF_TYPE,
-  TI_V4SI_TYPE,
-  TI_V8HI_TYPE,
-  TI_V8QI_TYPE,
-  TI_V4HI_TYPE,
-  TI_V2HI_TYPE,
-  TI_V2SI_TYPE,
-  TI_V2SF_TYPE,
-  TI_V2DF_TYPE,
-  TI_V2DI_TYPE,
-  TI_V1DI_TYPE,
-  TI_V16QI_TYPE,
-  TI_V4DF_TYPE,
 
   TI_MAIN_IDENTIFIER,
 
@@ -1889,9 +2000,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
 
 /* Base access nodes.  */
-#define access_public_node		NULL_TREE
-#define access_protected_node		size_zero_node
-#define access_private_node		size_one_node
+#define access_public_node		global_trees[TI_PUBLIC]
+#define access_protected_node	        global_trees[TI_PROTECTED]
+#define access_private_node		global_trees[TI_PRIVATE]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -1932,31 +2043,6 @@ extern GTY(()) tree global_trees[TI_MAX];
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
-
-#define unsigned_V16QI_type_node	global_trees[TI_UV16QI_TYPE]
-#define unsigned_V4SI_type_node		global_trees[TI_UV4SI_TYPE]
-#define unsigned_V8QI_type_node		global_trees[TI_UV8QI_TYPE]
-#define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
-#define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
-#define unsigned_V2HI_type_node		global_trees[TI_UV2HI_TYPE]
-#define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
-#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
-#define unsigned_V1DI_type_node		global_trees[TI_UV1DI_TYPE]
-
-#define V16QI_type_node			global_trees[TI_V16QI_TYPE]
-#define V4SF_type_node			global_trees[TI_V4SF_TYPE]
-#define V4SI_type_node			global_trees[TI_V4SI_TYPE]
-#define V8QI_type_node			global_trees[TI_V8QI_TYPE]
-#define V8HI_type_node			global_trees[TI_V8HI_TYPE]
-#define V4HI_type_node			global_trees[TI_V4HI_TYPE]
-#define V2HI_type_node			global_trees[TI_V2HI_TYPE]
-#define V2SI_type_node			global_trees[TI_V2SI_TYPE]
-#define V2SF_type_node			global_trees[TI_V2SF_TYPE]
-#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
-#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
-#define V16SF_type_node			global_trees[TI_V16SF_TYPE]
-#define V1DI_type_node			global_trees[TI_V1DI_TYPE]
-#define V4DF_type_node			global_trees[TI_V4DF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
@@ -2007,15 +2093,6 @@ enum tls_model {
 
 extern enum tls_model flag_tls_default;
 
-/* Enumerate visibility settings.  */
-
-enum symbol_visibility
-{
-  VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
-};
 
 /* A pointer-to-function member type looks like:
 
@@ -2046,6 +2123,7 @@ enum ptrmemfunc_vbit_where_t
 
 #define NULL_TREE (tree) NULL
 
+extern GTY(()) tree frame_base_decl;
 extern tree decl_assembler_name (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
@@ -2057,11 +2135,13 @@ extern size_t tree_size (tree);
    The TREE_CODE is the only argument.  Contents are initialized
    to zero except for a few of the common fields.  */
 
-extern tree make_node (enum tree_code);
+extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
+#define make_node(t) make_node_stat (t MEM_STAT_INFO)
 
 /* Make a copy of a node, with all the same contents.  */
 
-extern tree copy_node (tree);
+extern tree copy_node_stat (tree MEM_STAT_DECL);
+#define copy_node(t) copy_node_stat (t MEM_STAT_INFO)
 
 /* Make a copy of a chain of TREE_LIST nodes.  */
 
@@ -2069,7 +2149,8 @@ extern tree copy_list (tree);
 
 /* Make a TREE_VEC.  */
 
-extern tree make_tree_vec (int);
+extern tree make_tree_vec_stat (int MEM_STAT_DECL);
+#define make_tree_vec(t) make_tree_vec_stat (t MEM_STAT_INFO)
 
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
@@ -2103,15 +2184,40 @@ extern tree maybe_get_identifier (const char *);
 extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
 
+#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
+/* Use preprocessor trickery to map "build" to "buildN" where N is the
+   expected number of arguments.  This is used for both efficiency (no
+   varargs), and checking (verifying number of passed arguments).  */
+#define build(code, ...) \
+  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
+#define _buildN1(BASE, X)	_buildN2(BASE, X)
+#define _buildN2(BASE, X)	BASE##X
+#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
+#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
+#endif
+
+extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
+#define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
+extern tree build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define build1(c,t1,t2) build1_stat (c,t1,t2 MEM_STAT_INFO)
+extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+#define build2(c,t1,t2,t3) build2_stat (c,t1,t2,t3 MEM_STAT_INFO)
+extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+#define build3(c,t1,t2,t3,t4) build3_stat (c,t1,t2,t3,t4 MEM_STAT_INFO)
+extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
+			 tree MEM_STAT_DECL);
+#define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
+
 extern tree build_int_2_wide (unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree build_vector (tree, tree);
 extern tree build_constructor (tree, tree);
 extern tree build_real_from_int_cst (tree, tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_string (int, const char *);
-extern tree build1 (enum tree_code, tree, tree);
-extern tree build_tree_list (tree, tree);
-extern tree build_decl (enum tree_code, tree, tree);
+extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
+#define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
+extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree, tree);
 extern tree build_expr_wfl (tree, const char *, int, int);
 
@@ -2122,10 +2228,12 @@ extern tree make_unsigned_type (int);
 extern void initialize_sizetypes (void);
 extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
-extern tree build_pointer_type_for_mode (tree, enum machine_mode);
+extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_pointer_type (tree);
-extern tree build_reference_type_for_mode (tree, enum machine_mode);
+extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_reference_type (tree);
+extern tree build_vector_type_for_mode (tree, enum machine_mode);
+extern tree build_vector_type (tree innertype, int nunits);
 extern tree build_type_no_quals (tree);
 extern tree build_index_type (tree);
 extern tree build_index_2_type (tree, tree);
@@ -2141,7 +2249,7 @@ extern tree array_type_nelts (tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
 extern tree binfo_member (tree, tree);
-extern unsigned int attribute_hash_list (tree);
+
 extern int attribute_list_equal (tree, tree);
 extern int attribute_list_contained (tree, tree);
 extern int tree_int_cst_equal (tree, tree);
@@ -2277,6 +2385,11 @@ extern tree merge_attributes (tree, tree);
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes (tree, tree);
 #endif
+
+/* Check whether CAND is suitable to be returned from get_qualified_type
+   (BASE, TYPE_QUALS).  */
+
+extern bool check_qualified_type (tree, tree, int);
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
@@ -2440,7 +2553,6 @@ extern tree size_int_type_wide (HOST_WIDE_INT, tree);
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
 extern tree get_pending_sizes (void);
-extern int is_pending_size (tree);
 extern void put_pending_size (tree);
 extern void put_pending_sizes (tree);
 
@@ -2465,7 +2577,8 @@ extern tree chainon (tree, tree);
 
 /* Make a new TREE_LIST node from specified PURPOSE, VALUE and CHAIN.  */
 
-extern tree tree_cons (tree, tree, tree);
+extern tree tree_cons_stat (tree, tree, tree MEM_STAT_DECL);
+#define tree_cons(t,q,w) tree_cons_stat (t,q,w MEM_STAT_INFO)
 
 /* Return the last tree node in a chain.  */
 
@@ -2600,6 +2713,24 @@ extern int has_cleanups (tree);
 
 extern tree substitute_in_expr (tree, tree, tree);
 
+/* This macro calls the above function but short-circuits the common
+   case of a constant to save time and also checks for NULL.  */
+
+#define SUBSTITUTE_IN_EXPR(EXP, F, R) \
+  ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP) : substitute_in_expr (EXP, F, R))
+
+/* Similar, but look for a PLACEHOLDER_EXPR in EXP and find a replacement
+   for it within OBJ, a tree that is an object or a chain of references.  */
+
+extern tree substitute_placeholder_in_expr (tree, tree);
+
+/* This macro calls the above function but short-circuits the common
+   case of a constant to save time and also checks for NULL.  */
+
+#define SUBSTITUTE_PLACEHOLDER_IN_EXPR(EXP, OBJ) \
+  ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP)	\
+   : substitute_placeholder_in_expr (EXP, OBJ))
+
 /* variable_size (EXP) is like save_expr (EXP) except that it
    is for the special case of something that is part of a
    variable size for a data type.  It makes special arrangements
@@ -2707,9 +2838,11 @@ extern tree get_file_function_name_long (const char *);
 extern tree get_set_constructor_bits (tree, char *, int);
 extern tree get_set_constructor_bytes (tree, unsigned char *, int);
 extern tree get_callee_fndecl (tree);
-extern void set_decl_assembler_name (tree);
+extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments (tree);
 extern tree lhd_unsave_expr_now (tree);
+extern bool associative_tree_code (enum tree_code);
+extern bool commutative_tree_code (enum tree_code);
 
 
 /* In stmt.c */
@@ -2820,6 +2953,7 @@ extern tree strip_float_extensions (tree);
 extern void record_component_aliases (tree);
 extern HOST_WIDE_INT get_alias_set (tree);
 extern int alias_sets_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
+extern int alias_sets_might_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int readonly_fields_p (tree);
 extern int objects_must_conflict_p (tree, tree);
 
@@ -2836,12 +2970,12 @@ extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);
 extern tree type_hash_lookup (unsigned int, tree);
 extern void type_hash_add (unsigned int, tree);
-extern unsigned int type_hash_list (tree);
 extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
+extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (tree);
 extern int real_twop (tree);
@@ -2896,7 +3030,6 @@ extern void indent_to (FILE *, int);
 #endif
 
 /* In expr.c */
-extern int apply_args_register_offset (int);
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);
 extern void check_max_integer_computation_mode (tree);
 
@@ -2936,6 +3069,7 @@ extern rtx emit_line_note (location_t);
 #define ECF_LIBCALL_BLOCK	4096
 
 extern int flags_from_decl_or_type (tree);
+extern int call_expr_flags (tree);
 
 extern int setjmp_call_p (tree);
 extern bool alloca_call_p (tree);
@@ -2969,7 +3103,6 @@ extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
 extern void variable_section (tree, int);
 enum tls_model decl_tls_model (tree);
-enum symbol_visibility decl_visibility (tree);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void notice_global_symbol (tree);
@@ -2993,7 +3126,6 @@ extern void expand_decl (tree);
 extern int expand_decl_cleanup (tree, tree);
 extern int expand_decl_cleanup_eh (tree, tree, int);
 extern void expand_anon_union_decl (tree, tree, tree);
-extern void expand_start_case_dummy (void);
 extern HOST_WIDE_INT all_cases_count (tree, int *);
 extern void check_for_full_enumeration_handling (tree);
 extern void declare_nonlocal_label (tree);
@@ -3010,7 +3142,7 @@ extern char *dwarf2out_cfi_label (void);
 
 /* Entry point to update the canonical frame address (CFA).  */
 
-extern void dwarf2out_def_cfa (const char *, unsigned, long);
+extern void dwarf2out_def_cfa (const char *, unsigned, HOST_WIDE_INT);
 
 /* Add the CFI for saving a register window.  */
 
@@ -3019,15 +3151,15 @@ extern void dwarf2out_window_save (const char *);
 /* Add a CFI to update the running total of the size of arguments pushed
    onto the stack.  */
 
-extern void dwarf2out_args_size (const char *, long);
+extern void dwarf2out_args_size (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving a register to the stack.  */
 
-extern void dwarf2out_reg_save (const char *, unsigned, long);
+extern void dwarf2out_reg_save (const char *, unsigned, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in the stack.  */
 
-extern void dwarf2out_return_save (const char *, long);
+extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 
 /* Entry point for saving the return address in a register.  */
 
@@ -3070,6 +3202,7 @@ extern const char *dump_flag_name (enum tree_dump_index);
 /* Assign the RTX to declaration.  */
 
 extern void set_decl_rtl (tree, rtx);
+extern void set_decl_incoming_rtl (tree, rtx);
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -218,7 +218,7 @@ package body System.Task_Primitives.Operations is
    procedure Abort_Handler (Sig : Signal) is
       pragma Warnings (Off, Sig);
 
-      T       : Task_ID := Self;
+      T       : constant Task_ID := Self;
       Result  : Interfaces.C.int;
       Old_Set : aliased sigset_t;
 
@@ -725,7 +725,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Yield (Do_Yield : Boolean := True) is
       Result : Interfaces.C.int;
-
+      pragma Unreferenced (Result);
    begin
       if Do_Yield then
          Result := sched_yield;
@@ -995,8 +995,8 @@ package body System.Task_Primitives.Operations is
    ------------------
 
    procedure Finalize_TCB (T : Task_ID) is
-      Result : Interfaces.C.int;
-      Tmp    : Task_ID := T;
+      Result  : Interfaces.C.int;
+      Tmp     : Task_ID := T;
       Is_Self : constant Boolean := T = Self;
 
       procedure Free is new
@@ -1018,10 +1018,8 @@ package body System.Task_Primitives.Operations is
       Free (Tmp);
 
       if Is_Self then
-         Result := pthread_setspecific (ATCB_Key, System.Null_Address);
-         pragma Assert (Result = 0);
+         Specific.Set (null);
       end if;
-
    end Finalize_TCB;
 
    ---------------

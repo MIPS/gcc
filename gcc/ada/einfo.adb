@@ -6,14 +6,14 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
 -- ware  Foundation;  either version 2,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A CPARTICULAR PURPOSE.  See the GNU General Public License --
+-- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
 -- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
@@ -80,7 +80,6 @@ package body Einfo is
    --    Hiding_Loop_Variable            Node8
    --    Mechanism                       Uint8 (but returns Mechanism_Type)
    --    Normalized_First_Bit            Uint8
-   --    Non_Limited_Views               Elist8
 
    --    Class_Wide_Type                 Node9
    --    Current_Value                   Node9
@@ -303,6 +302,7 @@ package body Einfo is
    --    Is_CPP_Class                   Flag74
    --    Has_Non_Standard_Rep           Flag75
    --    Is_Constructor                 Flag76
+   --    Is_Thread_Body                 Flag77
    --    Is_Tag                         Flag78
    --    Has_All_Calls_Remote           Flag79
    --    Is_Constr_Subt_For_U_Nominal   Flag80
@@ -367,6 +367,7 @@ package body Einfo is
    --    Is_VMS_Exception               Flag133
    --    Is_Optional_Parameter          Flag134
    --    Has_Aliased_Components         Flag135
+   --    No_Strict_Aliasing             Flag136
    --    Is_Machine_Code_Subprogram     Flag137
    --    Is_Packed_Array_Type           Flag138
    --    Has_Biased_Representation      Flag139
@@ -421,8 +422,6 @@ package body Einfo is
 
    --  Remaining flags are currently unused and available
 
-   --    (unused)                       Flag77
-   --    (unused)                       Flag136
    --    (unused)                       Flag183
 
    --------------------------------
@@ -1641,6 +1640,11 @@ package body Einfo is
       return Flag55 (Id);
    end Is_Tagged_Type;
 
+   function Is_Thread_Body (Id : E) return B is
+   begin
+      return Flag77 (Id);
+   end Is_Thread_Body;
+
    function Is_True_Constant (Id : E) return B is
    begin
       return Flag163 (Id);
@@ -1789,6 +1793,12 @@ package body Einfo is
       return Flag113 (Id);
    end No_Return;
 
+   function No_Strict_Aliasing (Id : E) return B is
+   begin
+      pragma Assert (Is_Access_Type (Id));
+      return Flag136 (Base_Type (Id));
+   end No_Strict_Aliasing;
+
    function Non_Binary_Modulus (Id : E) return B is
    begin
       pragma Assert (Is_Modular_Integer_Type (Id));
@@ -1798,16 +1808,9 @@ package body Einfo is
    function Non_Limited_View (Id : E) return E is
    begin
       pragma Assert (False
-        or else Ekind (Id) = E_Incomplete_Type
-        or else Ekind (Id) = E_Package);
+        or else Ekind (Id) = E_Incomplete_Type);
       return Node17 (Id);
    end Non_Limited_View;
-
-   function Non_Limited_Views (Id : E) return L is
-   begin
-      pragma Assert (Ekind (Id) = E_Package);
-      return Elist8 (Id);
-   end Non_Limited_Views;
 
    function Nonzero_Is_True (Id : E) return B is
    begin
@@ -2845,7 +2848,7 @@ package body Einfo is
    begin
       pragma Assert
         (Is_Type (Id)
-          or else Ekind (Id) = E_Package);
+         or else Ekind (Id) = E_Package);
       Set_Flag159 (Id, V);
    end Set_From_With_Type;
 
@@ -3589,6 +3592,11 @@ package body Einfo is
       Set_Flag55 (Id, V);
    end Set_Is_Tagged_Type;
 
+   procedure Set_Is_Thread_Body (Id : E; V : B := True) is
+   begin
+      Set_Flag77 (Id, V);
+   end Set_Is_Thread_Body;
+
    procedure Set_Is_True_Constant (Id : E; V : B := True) is
    begin
       Set_Flag163 (Id, V);
@@ -3733,6 +3741,13 @@ package body Einfo is
       Set_Flag113 (Id, V);
    end Set_No_Return;
 
+   procedure Set_No_Strict_Aliasing (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Access_Type (Id) and then Base_Type (Id) = Id);
+      Set_Flag136 (Id, V);
+   end Set_No_Strict_Aliasing;
+
+
    procedure Set_Non_Binary_Modulus (Id : E; V : B := True) is
    begin
       pragma Assert (Ekind (Id) = E_Modular_Integer_Type);
@@ -3741,17 +3756,10 @@ package body Einfo is
 
    procedure Set_Non_Limited_View (Id : E; V : E) is
       pragma Assert (False
-        or else Ekind (Id) = E_Incomplete_Type
-        or else Ekind (Id) = E_Package);
+        or else Ekind (Id) = E_Incomplete_Type);
    begin
       Set_Node17 (Id, V);
    end Set_Non_Limited_View;
-
-   procedure Set_Non_Limited_Views (Id : E; V : L) is
-   begin
-      pragma Assert (Ekind (Id) = E_Package);
-      Set_Elist8 (Id, V);
-   end Set_Non_Limited_Views;
 
    procedure Set_Nonzero_Is_True (Id : E; V : B := True) is
    begin
@@ -4665,7 +4673,7 @@ package body Einfo is
    end Entry_Index_Type;
 
    ---------------------
-   -- First_Component --
+   -- 1 --
    ---------------------
 
    function First_Component (Id : E) return E is
@@ -4676,7 +4684,6 @@ package body Einfo is
         (Is_Record_Type (Id) or else Is_Incomplete_Or_Private_Type (Id));
 
       Comp_Id := First_Entity (Id);
-
       while Present (Comp_Id) loop
          exit when Ekind (Comp_Id) = E_Component;
          Comp_Id := Next_Entity (Comp_Id);
@@ -6214,6 +6221,7 @@ package body Einfo is
       W ("Is_Statically_Allocated",       Flag28  (Id));
       W ("Is_Tag",                        Flag78  (Id));
       W ("Is_Tagged_Type",                Flag55  (Id));
+      W ("Is_Thread_Body",                Flag77  (Id));
       W ("Is_True_Constant",              Flag163 (Id));
       W ("Is_Unchecked_Union",            Flag117 (Id));
       W ("Is_Unsigned_Type",              Flag144 (Id));
@@ -6231,6 +6239,7 @@ package body Einfo is
       W ("Never_Set_In_Source",           Flag115 (Id));
       W ("No_Pool_Assigned",              Flag131 (Id));
       W ("No_Return",                     Flag113 (Id));
+      W ("No_Strict_Aliasing",            Flag136 (Id));
       W ("Non_Binary_Modulus",            Flag58  (Id));
       W ("Nonzero_Is_True",               Flag162 (Id));
       W ("Reachable",                     Flag49  (Id));

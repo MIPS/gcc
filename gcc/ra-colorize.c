@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -562,7 +562,7 @@ ok (struct web *target, struct web *source)
     return 0;
 
   /* Sanity for funny modes.  */
-  size = HARD_REGNO_NREGS (color, GET_MODE (target->orig_x));
+  size = hard_regno_nregs[color][GET_MODE (target->orig_x)];
   if (!size)
     return 0;
 
@@ -618,7 +618,7 @@ ok (struct web *target, struct web *source)
 	{
 	  /* The main webs do _not_ conflict, only some parts of both.  This
 	     means, that 4 is possibly true, so we need to check this too.
-	     For this we go thru all sub conflicts between T and C, and see if
+	     For this we go through all sub conflicts between T and C, and see if
 	     the target part of C already conflicts with S.  When this is not
 	     the case we disallow coalescing.  */
 	  struct sub_conflict *sl;
@@ -726,7 +726,7 @@ combine (struct web *u, struct web *v)
 	  struct web *web = u;
 	  int nregs = 1 + v->add_hardregs;
 	  if (u->type == PRECOLORED)
-	    nregs = HARD_REGNO_NREGS (u->color, GET_MODE (v->orig_x));
+	    nregs = hard_regno_nregs[u->color][GET_MODE (v->orig_x)];
 
 	  /* For precolored U's we need to make conflicts between V's
 	     neighbors and as many hardregs from U as V needed if it gets
@@ -992,7 +992,7 @@ color_usable_p (int c, HARD_REG_SET dont_begin_colors,
       && HARD_REGNO_MODE_OK (c, mode))
     {
       int i, size;
-      size = HARD_REGNO_NREGS (c, mode);
+      size = hard_regno_nregs[c][mode];
       for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
       if (i == size)
 	return 1;
@@ -1029,7 +1029,7 @@ get_free_reg (HARD_REG_SET dont_begin_colors, HARD_REG_SET free_colors,
 	&& HARD_REGNO_MODE_OK (c, mode))
       {
 	int i, size;
-	size = HARD_REGNO_NREGS (c, mode);
+	size = hard_regno_nregs[c][mode];
 	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
 	if (i != size)
 	  {
@@ -1172,11 +1172,11 @@ calculate_dont_begin (struct web *web, HARD_REG_SET *result)
 	  if (ptarget->type == COLORED || ptarget->type == PRECOLORED)
 	    {
 	      struct web *source = (sl) ? sl->s : web;
-	      unsigned int tsize = HARD_REGNO_NREGS (ptarget->color,
-						     GET_MODE (w->orig_x));
+	      unsigned int tsize = hard_regno_nregs[ptarget->color]
+						   [GET_MODE (w->orig_x)];
 	      /* ssize is only a first guess for the size.  */
-	      unsigned int ssize = HARD_REGNO_NREGS (ptarget->color, GET_MODE
-					             (source->orig_x));
+	      unsigned int ssize = hard_regno_nregs[ptarget->color][GET_MODE
+					            (source->orig_x)];
 	      unsigned int tofs = 0;
 	      unsigned int sofs = 0;
 	      /* C1 and C2 can become negative, so unsigned
@@ -1202,11 +1202,11 @@ calculate_dont_begin (struct web *web, HARD_REG_SET *result)
 		     c1 to a place, where the last of sources hardregs does not
 		     overlap the first of targets colors.  */
 		  while (c1 + sofs
-			 + HARD_REGNO_NREGS (c1, GET_MODE (source->orig_x)) - 1
+			 + hard_regno_nregs[c1][GET_MODE (source->orig_x)] - 1
 			 < ptarget->color + tofs)
 		    c1++;
 		  while (c1 > 0 && c1 + sofs
-			 + HARD_REGNO_NREGS (c1, GET_MODE (source->orig_x)) - 1
+			 + hard_regno_nregs[c1][GET_MODE (source->orig_x)] - 1
 			 > ptarget->color + tofs)
 		    c1--;
 		  for (; c1 <= c2; c1++)
@@ -1214,7 +1214,7 @@ calculate_dont_begin (struct web *web, HARD_REG_SET *result)
 		}
 	    }
 	  /* The next if() only gets true, if there was no wl->sub at all, in
-	     which case we are only making one go thru this loop with W being
+	     which case we are only making one go through this loop with W being
 	     a whole web.  */
 	  if (!sl)
 	    break;
@@ -1433,7 +1433,7 @@ colorize_one_web (struct web *web, int hard)
 	 even if we spill this one here, the situation won't become better
 	 in the next iteration.  It probably will have the same conflicts,
 	 those will have the same colors, and we would come here again, for
-	 all parts, in which this one gets splitted by the spill.  This
+	 all parts, in which this one gets split by the spill.  This
 	 can result in endless iteration spilling the same register again and
 	 again.  That's why we try to find a neighbor, which spans more
 	 instructions that ourself, and got a color, and try to spill _that_.
@@ -1588,7 +1588,7 @@ colorize_one_web (struct web *web, int hard)
       web->color = c;
       if (flag_ra_biased)
 	{
-	  int nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+	  int nregs = hard_regno_nregs[c][GET_MODE (web->orig_x)];
 	  for (wl = web->conflict_list; wl; wl = wl->next)
 	    {
 	      struct web *ptarget = alias (wl->t);
@@ -1669,7 +1669,7 @@ try_recolor_web (struct web *web)
       int i, nregs;
       if (!HARD_REGNO_MODE_OK (c, GET_MODE (web->orig_x)))
 	continue;
-      nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+      nregs = hard_regno_nregs[c][GET_MODE (web->orig_x)];
       for (i = 0; i < nregs; i++)
 	if (!TEST_HARD_REG_BIT (web->usable_regs, c + i))
 	  break;
@@ -1719,14 +1719,14 @@ try_recolor_web (struct web *web)
       /* Note that min_color[] contains 1-based values (zero means
 	 undef).  */
       c1 = c1 == 0 ? web2->color : (c1 - 1);
-      c2 = web2->color + HARD_REGNO_NREGS (web2->color, GET_MODE
-					   (web2->orig_x)) - 1;
+      c2 = web2->color + hard_regno_nregs[web2->color][GET_MODE
+					  (web2->orig_x)] - 1;
       for (; c1 <= c2; c1++)
 	if (TEST_HARD_REG_BIT (possible_begin, c1))
 	  {
 	    int nregs;
 	    HARD_REG_SET colors;
-	    nregs = HARD_REGNO_NREGS (c1, GET_MODE (web->orig_x));
+	    nregs = hard_regno_nregs[c1][GET_MODE (web->orig_x)];
 	    COPY_HARD_REG_SET (colors, web2->usable_regs);
 	    for (; nregs--;)
 	      CLEAR_HARD_REG_BIT (colors, c1 + nregs);
@@ -1752,7 +1752,7 @@ try_recolor_web (struct web *web)
       newcol = c;
   if (newcol >= 0 && cost_neighbors[newcol] < web->spill_cost)
     {
-      int nregs = HARD_REGNO_NREGS (newcol, GET_MODE (web->orig_x));
+      int nregs = hard_regno_nregs[newcol][GET_MODE (web->orig_x)];
       unsigned HOST_WIDE_INT cost = 0;
       int *old_colors;
       struct conflict_link *wl_next;
@@ -1775,8 +1775,8 @@ try_recolor_web (struct web *web)
 	  wl_next = wl->next;
 	  if (web2->type == COLORED)
 	    {
-	      int nregs2 = HARD_REGNO_NREGS (web2->color, GET_MODE
-					     (web2->orig_x));
+	      int nregs2 = hard_regno_nregs[web2->color][GET_MODE
+					    (web2->orig_x)];
 	      if (web->color >= web2->color + nregs2
 		  || web2->color >= web->color + nregs)
 		continue;
@@ -1826,7 +1826,7 @@ try_recolor_web (struct web *web)
 		  else if (web2->type == SELECT)
 		    /* This means, that WEB2 once was a part of a coalesced
 		       web, which got spilled in the above colorize_one_web()
-		       call, and whose parts then got splitted and put back
+		       call, and whose parts then got split and put back
 		       onto the SELECT stack.  As the cause for that splitting
 		       (the coloring of WEB) was worthless, we should again
 		       coalesce the parts, as they were before.  For now we
@@ -1866,7 +1866,7 @@ insert_coalesced_conflicts (void)
 	  int i;
 	  int nregs = 1 + web->add_hardregs;
 	  if (aweb->type == PRECOLORED)
-	    nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web->orig_x));
+	    nregs = hard_regno_nregs[aweb->color][GET_MODE (web->orig_x)];
 	  for (i = 0; i < nregs; i++)
 	    {
 	      if (aweb->type == PRECOLORED)
@@ -1971,7 +1971,7 @@ check_colors (void)
       if (aweb->type == SPILLED || web->regno >= max_normal_pseudo)
 	continue;
       else if (aweb->type == COLORED)
-	nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web->orig_x));
+	nregs = hard_regno_nregs[aweb->color][GET_MODE (web->orig_x)];
       else if (aweb->type == PRECOLORED)
 	nregs = 1;
       else
@@ -1995,7 +1995,7 @@ check_colors (void)
 	    struct web *web2 = alias (wl->t);
 	    int nregs2;
 	    if (web2->type == COLORED)
-	      nregs2 = HARD_REGNO_NREGS (web2->color, GET_MODE (web2->orig_x));
+	      nregs2 = hard_regno_nregs[web2->color][GET_MODE (web2->orig_x)];
 	    else if (web2->type == PRECOLORED)
 	      nregs2 = 1;
 	    else
@@ -2014,8 +2014,8 @@ check_colors (void)
 	      continue;
 	    for (sl = wl->sub; sl; sl = sl->next)
 	      {
-		int ssize = HARD_REGNO_NREGS (scol, GET_MODE (sl->s->orig_x));
-		int tsize = HARD_REGNO_NREGS (tcol, GET_MODE (sl->t->orig_x));
+		int ssize = hard_regno_nregs[scol][GET_MODE (sl->s->orig_x)];
+		int tsize = hard_regno_nregs[tcol][GET_MODE (sl->t->orig_x)];
 		int sofs = 0, tofs = 0;
 	        if (SUBWEB_P (sl->t)
 		    && GET_MODE_SIZE (GET_MODE (sl->t->orig_x)) >= UNITS_PER_WORD)
@@ -2112,7 +2112,7 @@ break_precolored_alias (struct web *web)
   struct web *pre = web->alias;
   struct conflict_link *wl;
   unsigned int c = pre->color;
-  unsigned int nregs = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+  unsigned int nregs = hard_regno_nregs[c][GET_MODE (web->orig_x)];
   if (pre->type != PRECOLORED)
     abort ();
   unalias_web (web);
@@ -2608,7 +2608,7 @@ check_uncoalesced_moves (void)
 void
 ra_colorize_graph (struct df *df)
 {
-  if (rtl_dump_file)
+  if (dump_file)
     dump_igraph (df);
   build_worklists (df);
 

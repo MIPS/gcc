@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>
 
@@ -884,7 +884,7 @@ live_in_edge (struct df *df, struct curr_use *use, edge e)
     use->live_over_abnormal = 1;
   bitmap_set_bit (live_at_end[e->src->index], DF_REF_ID (use->wp->ref));
   info_pred = (struct ra_bb_info *) e->src->aux;
-  next_insn = e->src->end;
+  next_insn = BB_END (e->src);
 
   /* If the last insn of the pred. block doesn't completely define the
      current use, we need to check the block.  */
@@ -899,7 +899,7 @@ live_in_edge (struct df *df, struct curr_use *use, edge e)
 	     creation to later.  */
 	  bitmap_set_bit (info_pred->live_throughout,
 			  DF_REF_ID (use->wp->ref));
-	  next_insn = e->src->head;
+	  next_insn = BB_HEAD (e->src);
 	}
       return next_insn;
     }
@@ -1033,7 +1033,7 @@ livethrough_conflicts_bb (basic_block bb)
   /* First collect the IDs of all defs, count the number of death
      containing insns, and if there's some call_insn here.  */
   all_defs = BITMAP_XMALLOC ();
-  for (insn = bb->head; insn; insn = NEXT_INSN (insn))
+  for (insn = BB_HEAD (bb); insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	{
@@ -1048,7 +1048,7 @@ livethrough_conflicts_bb (basic_block bb)
 	  if (GET_CODE (insn) == CALL_INSN)
 	    contains_call = 1;
 	}
-      if (insn == bb->end)
+      if (insn == BB_END (bb))
 	break;
     }
 
@@ -1402,7 +1402,7 @@ init_web_parts (struct df *df)
 	    num_webs++;
 	}
       else
-	/* The last iteration might have left .ref set, while df_analyse()
+	/* The last iteration might have left .ref set, while df_analyze()
 	   removed that ref (due to a removed copy insn) from the df->defs[]
 	   array.  As we don't check for that in realloc_web_parts()
 	   we do that here.  */
@@ -2674,10 +2674,10 @@ detect_webs_set_in_cond_jump (void)
 {
   basic_block bb;
   FOR_EACH_BB (bb)
-    if (GET_CODE (bb->end) == JUMP_INSN)
+    if (GET_CODE (BB_END (bb)) == JUMP_INSN)
       {
 	struct df_link *link;
-	for (link = DF_INSN_DEFS (df, bb->end); link; link = link->next)
+	for (link = DF_INSN_DEFS (df, BB_END (bb)); link; link = link->next)
 	  if (link->ref && DF_REF_REGNO (link->ref) >= FIRST_PSEUDO_REGISTER)
 	    {
 	      struct web *web = def2web[DF_REF_ID (link->ref)];
@@ -2944,7 +2944,7 @@ handle_asm_insn (struct df *df, rtx insn)
 	      record_conflict (web, hardreg2web[c]);
 #endif
 	}
-      if (rtl_dump_file)
+      if (dump_file)
 	{
 	  int c;
 	  ra_debug_msg (DUMP_ASM, " ASM constrain Web %d conflicts with:", web->id);

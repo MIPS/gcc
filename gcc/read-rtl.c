@@ -1,6 +1,6 @@
 /* RTL reader for GCC.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003
+   2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -630,7 +630,7 @@ again:
 	  if (c != '[')
 	    fatal_expected_char (infile, '[', c);
 
-	  /* add expressions to a list, while keeping a count */
+	  /* Add expressions to a list, while keeping a count.  */
 	  obstack_init (&vector_stack);
 	  while ((c = read_skip_spaces (infile)) && c != ']')
 	    {

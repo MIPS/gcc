@@ -1,6 +1,6 @@
 /* Procedure integration for GCC.
    Copyright (C) 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -130,7 +130,7 @@ function_attribute_inlinable_p (tree fndecl)
 
 	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)
 	    if (is_attribute_p (targetm.attribute_table[i].name, name))
-	      return (*targetm.function_attribute_inlinable_p) (fndecl);
+	      return targetm.function_attribute_inlinable_p (fndecl);
 	}
     }
 
@@ -172,6 +172,9 @@ function_cannot_inline_p (tree fndecl)
   if (current_function_calls_alloca)
     return N_("function using alloca cannot be inline");
 
+  if (current_function_calls_longjmp)
+    return N_("function using longjmp cannot be inline");
+  
   if (current_function_calls_setjmp)
     return N_("function using setjmp cannot be inline");
 
@@ -188,7 +191,7 @@ function_cannot_inline_p (tree fndecl)
   if (current_function_cannot_inline)
     return current_function_cannot_inline;
 
-  /* If its not even close, don't even look.  */
+  /* If it's not even close, don't even look.  */
   if (get_max_uid () > 3 * max_insns)
     return N_("function too large to be inline");
 
@@ -370,7 +373,7 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
       copy = copy_node (decl);
       /* The COPY is not abstract; it will be generated in TO_FN.  */
       DECL_ABSTRACT (copy) = 0;
-      (*lang_hooks.dup_lang_specific_decl) (copy);
+      lang_hooks.dup_lang_specific_decl (copy);
 
       /* TREE_ADDRESSABLE isn't used to indicate that a label's
 	 address has been taken; it's for internal bookkeeping in
@@ -411,8 +414,8 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
 }
 
 /* Make the insns and PARM_DECLs of the current function permanent
-   and record other information in DECL_SAVED_INSNS to allow inlining
-   of this function in subsequent calls.
+   and record other information in DECL_STRUCT_FUNCTION to allow
+   inlining of this function in subsequent calls.
 
    This routine need not copy any insns because we are not going
    to immediately compile the insns in the insn chain.  There
@@ -639,7 +642,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 			tree type, rtx structure_value_addr)
 {
   struct function *inlining_previous;
-  struct function *inl_f = DECL_SAVED_INSNS (fndecl);
+  struct function *inl_f = DECL_STRUCT_FUNCTION (fndecl);
   tree formal, actual, block;
   rtx parm_insns = inl_f->emit->x_first_insn;
   rtx insns = (inl_f->inl_last_parm_insn
@@ -768,7 +771,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 		abort ();
 
 	      /* The mode if LOC and ARG can differ if LOC was a variable
-		 that had its mode promoted via PROMOTED_MODE.  */
+		 that had its mode promoted.  */
 	      arg_vals[i] = convert_modes (pmode,
 					   TYPE_MODE (TREE_TYPE (arg)),
 					   expand_expr (arg, NULL_RTX, mode,
@@ -950,7 +953,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
 	     incoming arg rtx values are expanded now so that we can be
 	     sure we have enough slots in the const equiv map since the
 	     store_expr call can easily blow the size estimate.  */
-	  if (DECL_SAVED_INSNS (fndecl)->args_size != 0)
+	  if (DECL_STRUCT_FUNCTION (fndecl)->args_size != 0)
 	    copy_rtx_and_substitute (virtual_incoming_args_rtx, map, 0);
 	}
       else if (GET_CODE (loc) == REG)
@@ -1253,7 +1256,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
        this block to the list of blocks at this binding level.  We
        can't do it the way it's done for function-at-a-time mode the
        superblocks have not been created yet.  */
-    (*lang_hooks.decls.insert_block) (block);
+    lang_hooks.decls.insert_block (block);
   else
     {
       BLOCK_CHAIN (block)
@@ -1418,7 +1421,7 @@ copy_insn_list (rtx insns, struct inline_remap *map, rtx static_chain_value)
 		  gen_rtx_MEM (GET_MODE (static_chain_incoming_rtx),
 			       SET_DEST (set));
 
-	      /* emit the instruction in case it is used for something
+	      /* Emit the instruction in case it is used for something
 		 other than setting the static chain; if it's not used,
 		 it can always be removed as dead code */
 	      copy = emit_insn (copy_rtx_and_substitute (pattern, map, 0));
@@ -1664,11 +1667,11 @@ copy_insn_list (rtx insns, struct inline_remap *map, rtx static_chain_value)
 		  tree *mapped_block_p;
 
 		  mapped_block_p
-		    = (tree *) bsearch (NOTE_BLOCK (insn),
-					&VARRAY_TREE (map->block_map, 0),
-					map->block_map->elements_used,
-					sizeof (tree),
-					find_block);
+		    = bsearch (NOTE_BLOCK (insn),
+			       &VARRAY_TREE (map->block_map, 0),
+			       map->block_map->elements_used,
+			       sizeof (tree),
+			       find_block);
 
 		  if (!mapped_block_p)
 		    abort ();
@@ -1883,7 +1886,8 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
       regno = REGNO (orig);
       if (regno <= LAST_VIRTUAL_REGISTER
 	  || (map->integrating
-	      && DECL_SAVED_INSNS (map->fndecl)->internal_arg_pointer == orig))
+	      && DECL_STRUCT_FUNCTION (map->fndecl)->internal_arg_pointer
+		 == orig))
 	{
 	  /* Some hard registers are also mapped,
 	     but others are not translated.  */
@@ -1901,10 +1905,11 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	  else if (regno == VIRTUAL_STACK_VARS_REGNUM)
 	    {
 	      rtx loc, seq;
-	      int size = get_func_frame_size (DECL_SAVED_INSNS (map->fndecl));
+	      int size
+		= get_func_frame_size (DECL_STRUCT_FUNCTION (map->fndecl));
 #ifdef FRAME_GROWS_DOWNWARD
 	      int alignment
-		= (DECL_SAVED_INSNS (map->fndecl)->stack_alignment_needed
+		= (DECL_STRUCT_FUNCTION (map->fndecl)->stack_alignment_needed
 		   / BITS_PER_UNIT);
 
 	      /* In this case, virtual_stack_vars_rtx points to one byte
@@ -1939,13 +1944,13 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	    }
 	  else if (regno == VIRTUAL_INCOMING_ARGS_REGNUM
 		   || (map->integrating
-		       && (DECL_SAVED_INSNS (map->fndecl)->internal_arg_pointer
+		       && (DECL_STRUCT_FUNCTION (map->fndecl)->internal_arg_pointer
 			   == orig)))
 	    {
 	      /* Do the same for a block to contain any arguments referenced
 		 in memory.  */
 	      rtx loc, seq;
-	      int size = DECL_SAVED_INSNS (map->fndecl)->args_size;
+	      int size = DECL_STRUCT_FUNCTION (map->fndecl)->args_size;
 
 	      start_sequence ();
 	      loc = assign_stack_temp (BLKmode, size, 1);
@@ -2087,7 +2092,7 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
       if (NOTE_LINE_NUMBER (orig) != NOTE_INSN_DELETED_LABEL)
 	break;
 
-      /* ... FALLTHRU ...  */
+      /* Fall through.  */
     case CODE_LABEL:
       LABEL_PRESERVE_P (get_label_from_map (map, CODE_LABEL_NUMBER (orig)))
 	= LABEL_PRESERVE_P (orig);
@@ -2706,7 +2711,8 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
   /* If this is a commutative operation, move a constant to the second
      operand unless the second operand is already a CONST_INT.  */
   if (! memonly
-      && (GET_RTX_CLASS (code) == 'c' || code == NE || code == EQ)
+      && (GET_RTX_CLASS (code) == RTX_COMM_ARITH
+	  || GET_RTX_CLASS (code) == RTX_COMM_COMPARE)
       && CONSTANT_P (XEXP (x, 0)) && GET_CODE (XEXP (x, 1)) != CONST_INT)
     {
       rtx tem = XEXP (x, 0);
@@ -2718,48 +2724,33 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
   if (! memonly)
     switch (GET_RTX_CLASS (code))
       {
-      case '1':
+      case RTX_UNARY:
 	if (op0_mode == MAX_MACHINE_MODE)
 	  abort ();
 	new = simplify_unary_operation (code, GET_MODE (x),
 					XEXP (x, 0), op0_mode);
 	break;
 
-      case '<':
+      case RTX_COMPARE:
+      case RTX_COMM_COMPARE:
 	{
 	  enum machine_mode op_mode = GET_MODE (XEXP (x, 0));
 
 	  if (op_mode == VOIDmode)
 	    op_mode = GET_MODE (XEXP (x, 1));
-	  new = simplify_relational_operation (code, op_mode,
+	  new = simplify_relational_operation (code, GET_MODE (x), op_mode,
 					       XEXP (x, 0), XEXP (x, 1));
-#ifdef FLOAT_STORE_FLAG_VALUE
-	  if (new != 0 && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-	    {
-	      enum machine_mode mode = GET_MODE (x);
-	      if (new == const0_rtx)
-		new = CONST0_RTX (mode);
-	      else
-		{
-		  REAL_VALUE_TYPE val;
-
-		  /* Avoid automatic aggregate initialization.  */
-		  val = FLOAT_STORE_FLAG_VALUE (mode);
-		  new = CONST_DOUBLE_FROM_REAL_VALUE (val, mode);
-		}
-	    }
-#endif
 	  break;
 	}
 
-      case '2':
-      case 'c':
+      case RTX_BIN_ARITH:
+      case RTX_COMM_ARITH:
 	new = simplify_binary_operation (code, GET_MODE (x),
 					 XEXP (x, 0), XEXP (x, 1));
 	break;
 
-      case 'b':
-      case '3':
+      case RTX_BITFIELD_OPS:
+      case RTX_TERNARY:
 	if (op0_mode == MAX_MACHINE_MODE)
 	  abort ();
 
@@ -2767,7 +2758,7 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 	  {
 	    rtx op0 = XEXP (x, 0);
 
-	    if (GET_RTX_CLASS (GET_CODE (op0)) == '<'
+	    if (COMPARISON_P (op0)
 		&& GET_MODE (op0) == VOIDmode
 		&& ! side_effects_p (op0)
 		&& XEXP (op0, 0) == map->compare_src
@@ -2776,10 +2767,10 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 		/* We have compare of two VOIDmode constants for which
 		   we recorded the comparison mode.  */
 		rtx temp =
-		  simplify_relational_operation (GET_CODE (op0),
-						 map->compare_mode,
-						 XEXP (op0, 0),
-						 XEXP (op0, 1));
+		  simplify_const_relational_operation (GET_CODE (op0),
+						       map->compare_mode,
+						       XEXP (op0, 0),
+						       XEXP (op0, 1));
 
 		if (temp == const0_rtx)
 		  new = XEXP (x, 2);
@@ -2791,6 +2782,9 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 	  new = simplify_ternary_operation (code, GET_MODE (x), op0_mode,
 					    XEXP (x, 0), XEXP (x, 1),
 					    XEXP (x, 2));
+	break;
+
+      default:
 	break;
       }
 
@@ -2827,7 +2821,7 @@ mark_stores (rtx dest, rtx x ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
     {
       unsigned int uregno = regno;
       unsigned int last_reg = (uregno >= FIRST_PSEUDO_REGISTER ? uregno
-			       : uregno + HARD_REGNO_NREGS (uregno, mode) - 1);
+			       : uregno + hard_regno_nregs[uregno][mode] - 1);
       unsigned int i;
 
       /* Ignore virtual stack var or virtual arg register since those
@@ -2953,8 +2947,8 @@ set_decl_abstract_flags (tree decl, int setting)
     }
 }
 
-/* Output the assembly language code for the function FNDECL
-   from its DECL_SAVED_INSNS.  Used for inline functions that are output
+/* Output the assembly language code for the function FNDECL from
+   its DECL_STRUCT_FUNCTION.  Used for inline functions that are output
    at end of compilation instead of where they came in the source.  */
 
 static GTY(()) struct function *old_cfun;
@@ -2964,7 +2958,7 @@ output_inline_function (tree fndecl)
 {
   enum debug_info_type old_write_symbols = write_symbols;
   const struct gcc_debug_hooks *const old_debug_hooks = debug_hooks;
-  struct function *f = DECL_SAVED_INSNS (fndecl);
+  struct function *f = DECL_STRUCT_FUNCTION (fndecl);
 
   old_cfun = cfun;
   cfun = f;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Output;   use Output;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
@@ -648,7 +649,6 @@ package body Sem_Ch8 is
       Id  : constant Entity_Id := Defining_Identifier (N);
       Dec : Node_Id;
       Nam : constant Node_Id   := Name (N);
-      S   : constant Entity_Id := Subtype_Mark (N);
       T   : Entity_Id;
       T2  : Entity_Id;
 
@@ -678,10 +678,23 @@ package body Sem_Ch8 is
             Set_Etype (Nam, T);
          end if;
 
-      else
-         Find_Type (S);
-         T := Entity (S);
+      elsif Present (Subtype_Mark (N)) then
+         Find_Type (Subtype_Mark (N));
+         T := Entity (Subtype_Mark (N));
          Analyze_And_Resolve (Nam, T);
+
+      --  Ada 0Y (AI-230): Access renaming
+
+      elsif Present (Access_Definition (N)) then
+         Find_Type (Subtype_Mark (Access_Definition (N)));
+         T := Access_Definition
+                (Related_Nod => N,
+                 N           => Access_Definition (N));
+         Analyze_And_Resolve (Nam, T);
+
+      else
+         pragma Assert (False);
+         null;
       end if;
 
       --  An object renaming requires an exact match of the type;
@@ -743,7 +756,6 @@ package body Sem_Ch8 is
          else
             Error_Msg_N ("expect object name in renaming", Nam);
          end if;
-
       end if;
 
       Set_Etype (Id, T2);
@@ -789,8 +801,16 @@ package body Sem_Ch8 is
       end if;
 
       if Etype (Old_P) = Any_Type then
-            Error_Msg_N
-             ("expect package name in renaming", Name (N));
+         Error_Msg_N
+           ("expect package name in renaming", Name (N));
+
+      --  Ada 0Y (AI-50217): Limited withed packages can not be renamed
+
+      elsif Ekind (Old_P) = E_Package
+        and then From_With_Type (Old_P)
+      then
+         Error_Msg_N
+           ("limited withed package cannot be renamed", Name (N));
 
       elsif Ekind (Old_P) /= E_Package
         and then not (Ekind (Old_P) = E_Generic_Package
@@ -810,11 +830,6 @@ package body Sem_Ch8 is
 
          Set_Ekind (New_P, E_Package);
          Set_Etype (New_P, Standard_Void_Type);
-
-      elsif Ekind (Old_P) = E_Package
-        and then From_With_Type (Old_P)
-      then
-         Error_Msg_N ("imported package cannot be renamed", Name (N));
 
       else
          --  Entities in the old package are accessible through the
@@ -1163,10 +1178,49 @@ package body Sem_Ch8 is
             Old_S := Entity (Nam);
             New_S := Analyze_Subprogram_Specification (Spec);
 
-            if Ekind (Entity (Nam)) = E_Operator
-              and then Box_Present (Inst_Node)
-            then
-               Old_S := Find_Renamed_Entity (N, Name (N), New_S, Is_Actual);
+            --  Operator case
+
+            if Ekind (Entity (Nam)) = E_Operator then
+
+               --  Box present
+
+               if Box_Present (Inst_Node) then
+                  Old_S := Find_Renamed_Entity (N, Name (N), New_S, Is_Actual);
+
+               --  If there is an immediately visible homonym of the operator
+               --  and the declaration has a default, this is worth a warning
+               --  because the user probably did not intend to get the pre-
+               --  defined operator, visible in the generic declaration.
+               --  To find if there is an intended candidate, analyze the
+               --  renaming again in the current context.
+
+               elsif Scope (Old_S) = Standard_Standard
+                 and then Present (Default_Name (Inst_Node))
+               then
+                  declare
+                     Decl   : constant Node_Id := New_Copy_Tree (N);
+                     Hidden : Entity_Id;
+
+                  begin
+                     Set_Entity (Name (Decl), Empty);
+                     Analyze (Name (Decl));
+                     Hidden :=
+                       Find_Renamed_Entity (Decl, Name (Decl), New_S, True);
+
+                     if Present (Hidden)
+                       and then In_Open_Scopes (Scope (Hidden))
+                       and then Is_Immediately_Visible (Hidden)
+                       and then Comes_From_Source (Hidden)
+                       and then  Hidden /= Old_S
+                     then
+                        Error_Msg_Sloc := Sloc (Hidden);
+                        Error_Msg_N ("?default subprogram is resolved " &
+                                     "in the generic declaration " &
+                                     "('R'M 12.6(17))", N);
+                        Error_Msg_NE ("\?and will not use & #", N, Hidden);
+                     end if;
+                  end;
+               end if;
             end if;
 
          else
@@ -1237,7 +1291,8 @@ package body Sem_Ch8 is
 
       --  There is no need for elaboration checks on the new entity, which
       --  may be called before the next freezing point where the body will
-      --  appear.
+      --  appear. Elaboration checks refer to the real entity, not the one
+      --  created by the renaming declaration.
 
       Set_Kill_Elaboration_Checks (New_S, True);
 
@@ -1301,7 +1356,7 @@ package body Sem_Ch8 is
       if Old_S /= Any_Id then
 
          if Is_Actual
-           and then Box_Present (Inst_Node)
+           and then From_Default (N)
          then
             --  This is an implicit reference to the default actual
 
@@ -2146,9 +2201,8 @@ package body Sem_Ch8 is
       Elmt      : Elmt_Id;
 
       function Is_Primitive_Operator
-        (Op   : Entity_Id;
-         F    : Entity_Id)
-         return Boolean;
+        (Op : Entity_Id;
+         F  : Entity_Id) return Boolean;
       --  Check whether Op is a primitive operator of a use-visible type
 
       ---------------------------
@@ -2156,9 +2210,8 @@ package body Sem_Ch8 is
       ---------------------------
 
       function Is_Primitive_Operator
-        (Op   : Entity_Id;
-         F    : Entity_Id)
-         return Boolean
+        (Op : Entity_Id;
+         F  : Entity_Id) return Boolean
       is
          T : constant Entity_Id := Etype (F);
 
@@ -3388,6 +3441,8 @@ package body Sem_Ch8 is
          Set_Chars (Selector, Chars (Id));
       end if;
 
+      --  Ada 0Y (AI-50217): Check usage of entities in limited withed units
+
       if Ekind (P_Name) = E_Package
         and then From_With_Type (P_Name)
       then
@@ -3397,7 +3452,8 @@ package body Sem_Ch8 is
             null;
          else
             Error_Msg_N
-              ("imported package can only be used to access imported type",
+              ("limited withed package can only be used to access "
+               & " incomplete types",
                 N);
          end if;
       end if;
@@ -4058,6 +4114,14 @@ package body Sem_Ch8 is
                Error_Msg_N (
                 "invalid prefix in selected component&", P);
 
+               if Is_Access_Type (P_Type)
+                 and then Ekind (Designated_Type (P_Type)) = E_Incomplete_Type
+               then
+                  Error_Msg_N
+                    ("\dereference must not be of an incomplete type " &
+                       "('R'M 3.10.1)", P);
+               end if;
+
             else
                Error_Msg_N (
                 "invalid prefix in selected component", P);
@@ -4702,10 +4766,8 @@ package body Sem_Ch8 is
    -- Is_Appropriate_For_Record --
    -------------------------------
 
-   function Is_Appropriate_For_Record
-     (T    : Entity_Id)
-      return Boolean
-   is
+   function Is_Appropriate_For_Record (T : Entity_Id) return Boolean is
+
       function Has_Components (T1 : Entity_Id) return Boolean;
       --  Determine if given type has components (i.e. is either a record
       --  type or a type that has discriminants).
@@ -4940,6 +5002,10 @@ package body Sem_Ch8 is
       --  Scan context clause of compilation unit to find a with_clause
       --  for System.
 
+      -----------------
+      -- Find_System --
+      -----------------
+
       function Find_System (C_Unit : Node_Id) return Entity_Id is
          With_Clause : Node_Id;
 
@@ -5072,7 +5138,7 @@ package body Sem_Ch8 is
    -- Restore_Scope_Stack --
    -------------------------
 
-   procedure Restore_Scope_Stack is
+   procedure Restore_Scope_Stack (Handle_Use : Boolean := True) is
       E         : Entity_Id;
       S         : Entity_Id;
       Comp_Unit : Node_Id;
@@ -5174,6 +5240,7 @@ package body Sem_Ch8 is
 
       if SS_Last >= Scope_Stack.First
         and then Scope_Stack.Table (SS_Last).Entity /= Standard_Standard
+        and then Handle_Use
       then
          Install_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
       end if;
@@ -5183,7 +5250,7 @@ package body Sem_Ch8 is
    -- Save_Scope_Stack --
    ----------------------
 
-   procedure Save_Scope_Stack is
+   procedure Save_Scope_Stack (Handle_Use : Boolean := True) is
       E       : Entity_Id;
       S       : Entity_Id;
       SS_Last : constant Int := Scope_Stack.Last;
@@ -5192,8 +5259,9 @@ package body Sem_Ch8 is
       if SS_Last >= Scope_Stack.First
         and then Scope_Stack.Table (SS_Last).Entity /= Standard_Standard
       then
-
-         End_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
+         if Handle_Use then
+            End_Use_Clauses (Scope_Stack.Table (SS_Last).First_Use_Clause);
+         end if;
 
          --  If the call is from within a compilation unit, as when
          --  called from Rtsfind, make current entries in scope stack
@@ -5282,8 +5350,10 @@ package body Sem_Ch8 is
 
       Set_In_Use (P);
 
+      --  Ada 0Y (AI-50217): Check restriction.
+
       if From_With_Type (P) then
-         Error_Msg_N ("imported package cannot appear in use clause", N);
+         Error_Msg_N ("limited withed package cannot appear in use clause", N);
       end if;
 
       --  Find enclosing instance, if any.

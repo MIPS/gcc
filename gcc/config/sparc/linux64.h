@@ -1,5 +1,6 @@
 /* Definitions for 64-bit SPARC running Linux-based GNU systems with ELF.
-   Copyright 1996, 1997, 1998, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by David S. Miller (davem@caip.rutgers.edu)
 
 This file is part of GCC.
@@ -26,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define_std ("linux");		\
 	builtin_define ("_LONGLONG");		\
 	builtin_define ("__gnu_linux__");	\
+	builtin_assert ("system=linux");	\
 	builtin_assert ("system=unix");		\
 	builtin_assert ("system=posix");	\
     }						\
@@ -112,10 +114,6 @@ Boston, MA 02111-1307, USA.  */
    SPARC ABI says that long double is 4 words.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
-
-/* Constant which presents upper bound of the above value.  */
-#undef MAX_LONG_DOUBLE_TYPE_SIZE
-#define MAX_LONG_DOUBLE_TYPE_SIZE 128
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -264,10 +262,6 @@ Boston, MA 02111-1307, USA.  */
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
-/* System V Release 4 uses DWARF debugging info.  Buf DWARF1 doesn't do
-   64-bit anything, so we use DWARF2.  */
-
-#undef DWARF_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO 1
 #define DBX_DEBUGGING_INFO 1
 
@@ -330,6 +324,8 @@ do {									\
 #undef DTORS_SECTION_ASM_OP
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define TARGET_HAS_F_SETLKW
 
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \

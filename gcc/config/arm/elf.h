@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
@@ -46,7 +46,7 @@
 
 #ifndef SUBTARGET_ASM_FLOAT_SPEC
 #define SUBTARGET_ASM_FLOAT_SPEC "\
-%{mapcs-float:-mfloat} %{msoft-float:-mfpu=softfpa}"
+%{mapcs-float:-mfloat}"
 #endif
 
 #ifndef ASM_SPEC
@@ -58,6 +58,8 @@
 %{mapcs-*:-mapcs-%*} \
 %(subtarget_asm_float_spec) \
 %{mthumb-interwork:-mthumb-interwork} \
+%{msoft-float:-mfloat-abi=soft} %{mhard-float:-mfloat-abi=hard} \
+%{mfloat-abi=*} %{mfpu=*} \
 %(subtarget_extra_asm_spec)"
 #endif
 

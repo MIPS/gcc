@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -108,7 +108,7 @@ struct qty
 
   /* Number of words needed to hold the data in given quantity.
      This depends on its machine mode.  It is used for these purposes:
-     1. It is used in computing the relative importances of qtys,
+     1. It is used in computing the relative importance of qtys,
 	which determines the order in which we look for regs for them.
      2. It is used in rules that prevent tying several registers of
 	different sizes in a way that is geometrically impossible
@@ -538,7 +538,7 @@ equiv_init_varies_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -603,7 +603,7 @@ equiv_init_movable_p (rtx x, int regno)
       if (MEM_VOLATILE_P (x))
 	return 0;
 
-      /* FALLTHROUGH */
+      /* Fall through.  */
 
     default:
       break;
@@ -759,27 +759,6 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
   return 0;
 }
 
-/* Return nonzero if the rtx X is invariant over the current function.  */
-/* ??? Actually, the places this is used in reload expect exactly what
-   is tested here, and not everything that is function invariant.  In
-   particular, the frame pointer and arg pointer are special cased;
-   pic_offset_table_rtx is not, and this will cause aborts when we
-   go to spill these things to memory.  */
-
-int
-function_invariant_p (rtx x)
-{
-  if (CONSTANT_P (x))
-    return 1;
-  if (x == frame_pointer_rtx || x == arg_pointer_rtx)
-    return 1;
-  if (GET_CODE (x) == PLUS
-      && (XEXP (x, 0) == frame_pointer_rtx || XEXP (x, 0) == arg_pointer_rtx)
-      && CONSTANT_P (XEXP (x, 1)))
-    return 1;
-  return 0;
-}
-
 /* Find registers that are equivalent to a single value throughout the
    compilation (either because they can be referenced in memory or are set once
    from a single constant).  Lower their priority for a register.
@@ -809,7 +788,9 @@ update_equiv_regs (void)
     {
       loop_depth = bb->loop_depth;
 
-      for (insn = bb->head; insn != NEXT_INSN (bb->end); insn = NEXT_INSN (insn))
+      for (insn = BB_HEAD (bb);
+	   insn != NEXT_INSN (BB_END (bb));
+	   insn = NEXT_INSN (insn))
 	{
 	  rtx note;
 	  rtx set;
@@ -1023,7 +1004,9 @@ update_equiv_regs (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       loop_depth = bb->loop_depth;
-      for (insn = bb->end; insn != PREV_INSN (bb->head); insn = PREV_INSN (insn))
+      for (insn = BB_END (bb);
+	   insn != PREV_INSN (BB_HEAD (bb));
+	   insn = PREV_INSN (insn))
 	{
 	  rtx link;
 
@@ -1117,8 +1100,8 @@ update_equiv_regs (void)
 		      REG_N_CALLS_CROSSED (regno) = 0;
 		      REG_LIVE_LENGTH (regno) = 2;
 
-		      if (insn == bb->head)
-			bb->head = PREV_INSN (insn);
+		      if (insn == BB_HEAD (bb))
+			BB_HEAD (bb) = PREV_INSN (insn);
 
 		      /* Remember to clear REGNO from all basic block's live
 			 info.  */
@@ -1204,13 +1187,13 @@ block_alloc (int b)
 
   /* Count the instructions in the basic block.  */
 
-  insn = BLOCK_END (b);
+  insn = BB_END (BASIC_BLOCK (b));
   while (1)
     {
       if (GET_CODE (insn) != NOTE)
 	if (++insn_count > max_uid)
 	  abort ();
-      if (insn == BLOCK_HEAD (b))
+      if (insn == BB_HEAD (BASIC_BLOCK (b)))
 	break;
       insn = PREV_INSN (insn);
     }
@@ -1227,7 +1210,7 @@ block_alloc (int b)
      and assigns quantities to registers.
      It computes which registers to tie.  */
 
-  insn = BLOCK_HEAD (b);
+  insn = BB_HEAD (BASIC_BLOCK (b));
   while (1)
     {
       if (GET_CODE (insn) != NOTE)
@@ -1388,9 +1371,7 @@ block_alloc (int b)
 
 	      /* Here we care if the operation to be computed is
 		 commutative.  */
-	      else if ((GET_CODE (XEXP (note, 0)) == EQ
-			|| GET_CODE (XEXP (note, 0)) == NE
-			|| GET_RTX_CLASS (GET_CODE (XEXP (note, 0))) == 'c')
+	      else if (COMMUTATIVE_P (XEXP (note, 0))
 		       && (r1 = XEXP (XEXP (note, 0), 1),
 			   (GET_CODE (r1) == REG || GET_CODE (r1) == SUBREG))
 		       && no_conflict_p (insn, r0, r1))
@@ -1459,7 +1440,7 @@ block_alloc (int b)
       IOR_HARD_REG_SET (regs_live_at[2 * insn_number], regs_live);
       IOR_HARD_REG_SET (regs_live_at[2 * insn_number + 1], regs_live);
 
-      if (insn == BLOCK_END (b))
+      if (insn == BB_END (BASIC_BLOCK (b)))
 	break;
 
       insn = NEXT_INSN (insn);
@@ -1795,7 +1776,7 @@ combine_regs (rtx usedreg, rtx setreg, int may_save_copy, int insn_number,
 
   ureg = REGNO (usedreg);
   if (ureg < FIRST_PSEUDO_REGISTER)
-    usize = HARD_REGNO_NREGS (ureg, GET_MODE (usedreg));
+    usize = hard_regno_nregs[ureg][GET_MODE (usedreg)];
   else
     usize = ((GET_MODE_SIZE (GET_MODE (usedreg))
 	      + (REGMODE_NATURAL_SIZE (GET_MODE (usedreg)) - 1))
@@ -1828,7 +1809,7 @@ combine_regs (rtx usedreg, rtx setreg, int may_save_copy, int insn_number,
 
   sreg = REGNO (setreg);
   if (sreg < FIRST_PSEUDO_REGISTER)
-    ssize = HARD_REGNO_NREGS (sreg, GET_MODE (setreg));
+    ssize = hard_regno_nregs[sreg][GET_MODE (setreg)];
   else
     ssize = ((GET_MODE_SIZE (GET_MODE (setreg))
 	      + (REGMODE_NATURAL_SIZE (GET_MODE (setreg)) - 1))
@@ -2213,7 +2194,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
 	      || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	{
 	  int j;
-	  int size1 = HARD_REGNO_NREGS (regno, mode);
+	  int size1 = hard_regno_nregs[regno][mode];
 	  for (j = 1; j < size1 && ! TEST_HARD_REG_BIT (used, regno + j); j++);
 	  if (j == size1)
 	    {
@@ -2271,7 +2252,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
 static void
 mark_life (int regno, enum machine_mode mode, int life)
 {
-  int j = HARD_REGNO_NREGS (regno, mode);
+  int j = hard_regno_nregs[regno][mode];
   if (life)
     while (--j >= 0)
       SET_HARD_REG_BIT (regs_live, regno + j);
@@ -2288,12 +2269,8 @@ static void
 post_mark_life (int regno, enum machine_mode mode, int life, int birth,
 		int death)
 {
-  int j = HARD_REGNO_NREGS (regno, mode);
-#ifdef HARD_REG_SET
-  /* Declare it register if it's a scalar.  */
-  register
-#endif
-    HARD_REG_SET this_reg;
+  int j = hard_regno_nregs[regno][mode];
+  HARD_REG_SET this_reg;
 
   CLEAR_HARD_REG_SET (this_reg);
   while (--j >= 0)
@@ -2412,7 +2389,7 @@ requires_inout (const char *p)
 	  if (REG_CLASS_FROM_CONSTRAINT (c, p) == NO_REGS
 	      && !EXTRA_ADDRESS_CONSTRAINT (c, p))
 	    break;
-	  /* FALLTHRU */
+	  /* Fall through.  */
 	case 'p':
 	case 'g': case 'r':
 	  reg_allowed = 1;

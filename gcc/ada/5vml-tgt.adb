@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---              Copyright (C) 2003, Ada Core Technologies, Inc.             --
+--          Copyright (C) 2003-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,10 +25,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package provides a set of target dependent routines to build
---  static, dynamic and shared libraries.
-
---  This is the VMS version of the body.
+--  This is the VMS version of the body
 
 with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Ada.Text_IO;             use Ada.Text_IO;
@@ -59,13 +56,9 @@ package body MLib.Tgt is
    --  Options to use when invoking gcc to build the dynamic library
 
    No_Start_Files : aliased String := "-nostartfiles";
-   For_Linker_Opt : aliased String := "--for-linker=symvec.opt";
-   Gsmatch        : aliased String := "--for-linker=gsmatch=equal,1,0";
 
-   VMS_Options : constant Argument_List :=
-     (No_Start_Files'Access, For_Linker_Opt'Access, Gsmatch'Access);
-
---   Command : String_Access;
+   VMS_Options : Argument_List :=
+     (No_Start_Files'Access, null);
 
    Gnatsym_Name : constant String := "gnatsym";
 
@@ -75,6 +68,14 @@ package body MLib.Tgt is
    Last_Argument : Natural := 0;
 
    Success : Boolean := False;
+
+   Shared_Libgcc : aliased String := "-shared-libgcc";
+
+   No_Shared_Libgcc_Switch : aliased Argument_List := (1 .. 0 => null);
+   Shared_Libgcc_Switch    : aliased Argument_List :=
+                               (1 => Shared_Libgcc'Access);
+   Link_With_Shared_Libgcc : Argument_List_Access :=
+                               No_Shared_Libgcc_Switch'Access;
 
    ------------------------------
    -- Target dependent section --
@@ -134,6 +135,7 @@ package body MLib.Tgt is
       Interfaces   : Argument_List;
       Lib_Filename : String;
       Lib_Dir      : String;
+      Symbol_Data  : Symbol_Record;
       Driver_Name  : Name_Id := No_Name;
       Lib_Address  : String  := "";
       Lib_Version  : String  := "";
@@ -143,10 +145,7 @@ package body MLib.Tgt is
       pragma Unreferenced (Foreign);
       pragma Unreferenced (Afiles);
       pragma Unreferenced (Lib_Address);
-      pragma Unreferenced (Lib_Version);
       pragma Unreferenced (Relocatable);
-
-      Opt_File_Name : constant String := "symvec.opt";
 
       Lib_File : constant String :=
                    Lib_Dir & Directory_Separator & "lib" &
@@ -156,12 +155,20 @@ package body MLib.Tgt is
       Last_Opt  : Natural       := Opts'Last;
       Opts2     : Argument_List (Options'Range);
       Last_Opt2 : Natural       := Opts2'First - 1;
-      Inter     : Argument_List := Interfaces;
+
+      Inter : constant Argument_List := Interfaces;
 
       function Is_Interface (Obj_File : String) return Boolean;
       --  For a Stand-Alone Library, returns True if Obj_File is the object
       --  file name of an interface of the SAL.
       --  For other libraries, always return True.
+
+      function Option_File_Name return String;
+      --  Returns Symbol_File, if not empty. Otherwise, returns "symvec.opt"
+
+      function Version_String return String;
+      --  Returns Lib_Version if not empty, otherwise returns "1".
+      --  Fails gnatmake if Lib_Version is not the image of a positive number.
 
       ------------------
       -- Is_Interface --
@@ -169,9 +176,10 @@ package body MLib.Tgt is
 
       function Is_Interface (Obj_File : String) return Boolean is
          ALI : constant String :=
-           Fil.Ext_To
-             (Filename => To_Lower (Base_Name (Obj_File)),
-              New_Ext  => "ali");
+                 Fil.Ext_To
+                  (Filename => To_Lower (Base_Name (Obj_File)),
+                   New_Ext  => "ali");
+
       begin
          if Inter'Length = 0 then
             return True;
@@ -192,7 +200,80 @@ package body MLib.Tgt is
          end if;
       end Is_Interface;
 
+      ----------------------
+      -- Option_File_Name --
+      ----------------------
+
+      function Option_File_Name return String is
+      begin
+         if Symbol_Data.Symbol_File = No_Name then
+            return "symvec.opt";
+         else
+            Get_Name_String (Symbol_Data.Symbol_File);
+            To_Lower (Name_Buffer (1 .. Name_Len));
+            return Name_Buffer (1 .. Name_Len);
+         end if;
+      end Option_File_Name;
+
+      --------------------
+      -- Version_String --
+      --------------------
+
+      function Version_String return String is
+         Version : Integer := 0;
+      begin
+         if Lib_Version = "" then
+            return "1";
+
+         else
+            begin
+               Version := Integer'Value (Lib_Version);
+
+               if Version <= 0 then
+                  raise Constraint_Error;
+               end if;
+
+               return Lib_Version;
+
+            exception
+               when Constraint_Error =>
+                  Fail ("illegal version """, Lib_Version,
+                        """ (on VMS version must be a positive number)");
+                  return "";
+            end;
+         end if;
+      end Version_String;
+
+      Opt_File_Name  : constant String := Option_File_Name;
+      Version        : constant String := Version_String;
+      For_Linker_Opt : String_Access;
+
+   --  Start of processing for Build_Dynamic_Library
+
    begin
+      --  Invoke gcc with -shared-libgcc, but only for GCC 3 or higher
+
+      if GCC_Version >= 3 then
+         Link_With_Shared_Libgcc := Shared_Libgcc_Switch'Access;
+      else
+         Link_With_Shared_Libgcc := No_Shared_Libgcc_Switch'Access;
+      end if;
+
+      --  If option file name does not ends with ".opt", append "/OPTIONS"
+      --  to its specification for the VMS linker.
+
+      if Opt_File_Name'Length > 4
+        and then
+          Opt_File_Name (Opt_File_Name'Last - 3 .. Opt_File_Name'Last) = ".opt"
+      then
+         For_Linker_Opt := new String'("--for-linker=" & Opt_File_Name);
+      else
+         For_Linker_Opt :=
+           new String'("--for-linker=" & Opt_File_Name & "/OPTIONS");
+      end if;
+
+      VMS_Options (VMS_Options'First + 1) := For_Linker_Opt;
+
       for J in Inter'Range loop
          To_Lower (Inter (J).all);
       end loop;
@@ -288,18 +369,60 @@ package body MLib.Tgt is
          end;
       end if;
 
-      --  Allocate the argument list and put the symbol file name
+      --  Allocate the argument list and put the symbol file name, the
+      --  reference (if any) and the policy (if not autonomous).
 
-      Arguments := new Argument_List (1 .. Ofiles'Length + 2);
+      Arguments := new Argument_List (1 .. Ofiles'Length + 8);
 
-      Last_Argument := 1;
+      Last_Argument := 0;
+
+      --  Verbosity
 
       if Verbose_Mode then
-         Arguments (Last_Argument) := new String'("-v");
          Last_Argument := Last_Argument + 1;
+         Arguments (Last_Argument) := new String'("-v");
       end if;
 
+      --  Version number (major ID)
+
+      if Lib_Version /= "" then
+         Last_Argument := Last_Argument + 1;
+         Arguments (Last_Argument) := new String'("-V");
+         Last_Argument := Last_Argument + 1;
+         Arguments (Last_Argument) := new String'(Version);
+      end if;
+
+      --  Symbol file
+
+      Last_Argument := Last_Argument + 1;
+      Arguments (Last_Argument) := new String'("-s");
+      Last_Argument := Last_Argument + 1;
       Arguments (Last_Argument) := new String'(Opt_File_Name);
+
+      --  Reference Symbol File
+
+      if Symbol_Data.Reference /= No_Name then
+         Last_Argument := Last_Argument + 1;
+         Arguments (Last_Argument) := new String'("-r");
+         Last_Argument := Last_Argument + 1;
+         Arguments (Last_Argument) :=
+           new String'(Get_Name_String (Symbol_Data.Reference));
+      end if;
+
+      --  Policy
+
+      case Symbol_Data.Symbol_Policy is
+         when Autonomous =>
+            null;
+
+         when Compliant =>
+            Last_Argument := Last_Argument + 1;
+            Arguments (Last_Argument) := new String'("-c");
+
+         when Controlled =>
+            Last_Argument := Last_Argument + 1;
+            Arguments (Last_Argument) := new String'("-C");
+      end case;
 
       --  Add each relevant object file
 
@@ -328,6 +451,7 @@ package body MLib.Tgt is
       declare
          Index : Natural := Opts'First;
          Opt   : String_Access;
+
       begin
          while Index <= Last_Opt loop
             Opt := Opts (Index);
@@ -357,7 +481,8 @@ package body MLib.Tgt is
         (Output_File => Lib_File,
          Objects     => Ofiles & Additional_Objects.all,
          Options     => VMS_Options,
-         Options_2   => Opts (Opts'First .. Last_Opt) &
+         Options_2   => Link_With_Shared_Libgcc.all &
+                        Opts (Opts'First .. Last_Opt) &
                         Opts2 (Opts2'First .. Last_Opt2),
          Driver_Name => Driver_Name);
 

@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -105,7 +105,6 @@ static void prepare_cmp_insn (rtx *, rtx *, enum rtx_code *, rtx,
 static enum insn_code can_fix_p (enum machine_mode, enum machine_mode, int,
 				 int *);
 static enum insn_code can_float_p (enum machine_mode, enum machine_mode, int);
-static rtx ftruncify (rtx);
 static optab new_optab (void);
 static convert_optab new_convert_optab (void);
 static inline optab init_optab (enum rtx_code);
@@ -154,8 +153,11 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
       || NEXT_INSN (insns) == NULL_RTX)
     abort ();
 
-  if (GET_RTX_CLASS (code) != '1' && GET_RTX_CLASS (code) != '2'
-      && GET_RTX_CLASS (code) != 'c' && GET_RTX_CLASS (code) != '<')
+  if (GET_RTX_CLASS (code) != RTX_COMM_ARITH
+      && GET_RTX_CLASS (code) != RTX_BIN_ARITH
+      && GET_RTX_CLASS (code) != RTX_COMM_COMPARE
+      && GET_RTX_CLASS (code) != RTX_COMPARE
+      && GET_RTX_CLASS (code) != RTX_UNARY)
     return 1;
 
   if (GET_CODE (target) == ZERO_EXTRACT)
@@ -191,7 +193,7 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
 	}
     }
 
-  if (GET_RTX_CLASS (code) == '1')
+  if (GET_RTX_CLASS (code) == RTX_UNARY)
     note = gen_rtx_fmt_e (code, GET_MODE (target), copy_rtx (op0));
   else
     note = gen_rtx_fmt_ee (code, GET_MODE (target), copy_rtx (op0), copy_rtx (op1));
@@ -719,7 +721,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
      try to make the first operand a register.
      Even better, try to make it the same as the target.
      Also try to make the last operand a constant.  */
-  if (GET_RTX_CLASS (binoptab->code) == 'c'
+  if (GET_RTX_CLASS (binoptab->code) == RTX_COMM_ARITH
       || binoptab == smul_widen_optab
       || binoptab == umul_widen_optab
       || binoptab == smul_highpart_optab
@@ -1085,8 +1087,12 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       int shift_count, left_shift, outof_word;
 
       /* If TARGET is the same as one of the operands, the REG_EQUAL note
-	 won't be accurate, so use a new target.  */
-      if (target == 0 || target == op0 || target == op1)
+	 won't be accurate, so use a new target. Do this also if target is not
+	 a REG, first because having a register instead may open optimization
+	 oportunities, and second because if target and op0 happen to be MEMs
+	 designating the same location, we would risk clobbering it too early
+	 in the code sequence we generate below.  */
+      if (target == 0 || target == op0 || target == op1 || ! REG_P (target))
 	target = gen_reg_rtx (mode);
 
       start_sequence ();
@@ -1521,23 +1527,16 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       rtx real0 = 0, imag0 = 0;
       rtx real1 = 0, imag1 = 0;
       rtx realr, imagr, res;
-      rtx seq;
-      rtx equiv_value;
+      rtx seq, result;
       int ok = 0;
 
       /* Find the correct mode for the real and imaginary parts.  */
-      enum machine_mode submode = GET_MODE_INNER(mode);
+      enum machine_mode submode = GET_MODE_INNER (mode);
 
       if (submode == BLKmode)
 	abort ();
 
-      if (! target)
-	target = gen_reg_rtx (mode);
-
       start_sequence ();
-
-      realr = gen_realpart (submode, target);
-      imagr = gen_imagpart (submode, target);
 
       if (GET_MODE (op0) == mode)
 	{
@@ -1557,6 +1556,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (real0 == 0 || real1 == 0 || ! (imag0 != 0 || imag1 != 0))
 	abort ();
+
+      result = gen_reg_rtx (mode);
+      realr = gen_realpart (submode, result);
+      imagr = gen_imagpart (submode, result);
 
       switch (binoptab->code)
 	{
@@ -1749,16 +1752,10 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (ok)
 	{
-	  if (binoptab->code != UNKNOWN)
-	    equiv_value
-	      = gen_rtx_fmt_ee (binoptab->code, mode,
-				copy_rtx (op0), copy_rtx (op1));
-	  else
-	    equiv_value = 0;
-
-	  emit_no_conflict_block (seq, target, op0, op1, equiv_value);
-
-	  return target;
+	  rtx equiv = gen_rtx_fmt_ee (binoptab->code, mode,
+				      copy_rtx (op0), copy_rtx (op1));
+	  emit_no_conflict_block (seq, result, op0, op1, equiv);
+	  return result;
 	}
     }
 
@@ -2367,7 +2364,7 @@ expand_parity (enum machine_mode mode, rtx op0, rtx target)
 	      temp = expand_unop (wider_mode, popcount_optab, xop0, NULL_RTX,
 				  true);
 	      if (temp != 0)
-		temp = expand_binop (wider_mode, and_optab, temp, GEN_INT (1),
+		temp = expand_binop (wider_mode, and_optab, temp, const1_rtx,
 				     target, true, OPTAB_DIRECT);
 	      if (temp == 0)
 		delete_insns_since (last);
@@ -3346,9 +3343,9 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 	  rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
 
 	  if (note != 0)
-	    XEXP (note, 0) = GEN_INT (-1);
+	    XEXP (note, 0) = constm1_rtx;
 	  else
-	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, constm1_rtx,
 						  REG_NOTES (insn));
 	}
 
@@ -3658,6 +3655,16 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       *py = const0_rtx;
       *pmode = result_mode;
       return;
+    }
+
+  /* Don't allow operands to the compare to trap, as that can put the
+     compare and branch in different basic blocks.  */
+  if (flag_non_call_exceptions)
+    {
+      if (may_trap_p (x))
+	x = force_reg (mode, x);
+      if (may_trap_p (y))
+	y = force_reg (mode, y);
     }
 
   *px = x;
@@ -4443,6 +4450,9 @@ can_fix_p (enum machine_mode fixmode, enum machine_mode fltmode,
       return icode;
     }
 
+  /* FIXME: This requires a port to define both FIX and FTRUNC pattern
+     for this to work. We need to rework the fix* and ftrunc* patterns
+     and documentation.  */
   tab = unsignedp ? ufix_optab : sfix_optab;
   icode = tab->handlers[fixmode][fltmode].insn_code;
   if (icode != CODE_FOR_nothing
@@ -4682,15 +4692,8 @@ expand_float (rtx to, rtx from, int unsignedp)
     }
 }
 
-/* expand_fix: generate code to convert FROM to fixed point
-   and store in TO.  FROM must be floating point.  */
-
-static rtx
-ftruncify (rtx x)
-{
-  rtx temp = gen_reg_rtx (GET_MODE (x));
-  return expand_unop (GET_MODE (x), ftrunc_optab, x, temp, 0);
-}
+/* Generate code to convert FROM to fixed point and store in TO.  FROM
+   must be floating point.  */
 
 void
 expand_fix (rtx to, rtx from, int unsignedp)
@@ -4725,7 +4728,11 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	      from = convert_to_mode (fmode, from, 0);
 
 	    if (must_trunc)
-	      from = ftruncify (from);
+	      {
+		rtx temp = gen_reg_rtx (GET_MODE (from));
+		from = expand_unop (GET_MODE (from), ftrunc_optab, from,
+				    temp, 0);
+	      }
 
 	    if (imode != GET_MODE (to))
 	      target = gen_reg_rtx (imode);
@@ -5271,7 +5278,11 @@ init_optabs (void)
   sin_optab = init_optab (UNKNOWN);
   cos_optab = init_optab (UNKNOWN);
   exp_optab = init_optab (UNKNOWN);
+  exp10_optab = init_optab (UNKNOWN);
+  exp2_optab = init_optab (UNKNOWN);
   log_optab = init_optab (UNKNOWN);
+  log10_optab = init_optab (UNKNOWN);
+  log2_optab = init_optab (UNKNOWN);
   tan_optab = init_optab (UNKNOWN);
   atan_optab = init_optab (UNKNOWN);
   strlen_optab = init_optab (UNKNOWN);
@@ -5280,6 +5291,9 @@ init_optabs (void)
   cstore_optab = init_optab (UNKNOWN);
   push_optab = init_optab (UNKNOWN);
 
+  vec_extract_optab = init_optab (UNKNOWN);
+  vec_set_optab = init_optab (UNKNOWN);
+  vec_init_optab = init_optab (UNKNOWN);
   /* Conversions.  */
   sext_optab = init_convert_optab (SIGN_EXTEND);
   zext_optab = init_convert_optab (ZERO_EXTEND);
@@ -5380,7 +5394,7 @@ init_optabs (void)
     abs_optab->handlers[TYPE_MODE (complex_double_type_node)].libfunc
       = init_one_libfunc ("cabs");
 
-  /* The ffs function op[1erates on `int'.  */
+  /* The ffs function operates on `int'.  */
   ffs_optab->handlers[(int) mode_for_size (INT_TYPE_SIZE, MODE_INT, 0)].libfunc
     = init_one_libfunc ("ffs");
 

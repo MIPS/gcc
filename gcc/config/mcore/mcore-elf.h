@@ -1,5 +1,6 @@
 /* Definitions of MCore target. 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of GCC.
@@ -30,9 +31,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-
-/* But allow DWARF 1 if the user wants it.  */
-#define DWARF_DEBUGGING_INFO 1
 
 #define EXPORTS_SECTION_ASM_OP	"\t.section .exports"
 
@@ -142,7 +140,7 @@ exports_section ()						\
 #define ENDFILE_SPEC  "%{!mno-lsim:-lsim} crtend.o%s crtn.o%s"
 
 /* The subroutine calls in the .init and .fini sections create literal
-   pools which must be jumped around...  */
+   pools which must be jumped around....  */
 #define FORCE_CODE_SECTION_ALIGN	asm ("br 1f ; .literals ; 1:");
 
 #undef  CTORS_SECTION_ASM_OP

@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -46,6 +46,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 # define TARGET_SYSTEM_ROOT NULL
 #endif
 
+#ifndef TARGET_OPTF
+#define TARGET_OPTF(ARG)
+#endif
+
 static int saved_lineno;
 
 /* CPP's options.  */
@@ -88,6 +92,9 @@ static bool quote_chain_split;
 /* If -Wunused-macros.  */
 static bool warn_unused_macros;
 
+/* If -Wvariadic-macros.  */
+static bool warn_variadic_macros = true;
+
 /* Number of deferred options.  */
 static size_t deferred_count;
 
@@ -108,7 +115,8 @@ static void sanitize_cpp_opts (void);
 static void add_prefixed_path (const char *, size_t);
 static void push_command_line_include (void);
 static void cb_file_change (cpp_reader *, const struct line_map *);
-static void finish_options (const char *);
+static void cb_dir_change (cpp_reader *, const char *);
+static void finish_options (void);
 
 #ifndef STDC_0_IN_SYSTEM_HEADERS
 #define STDC_0_IN_SYSTEM_HEADERS 0
@@ -149,6 +157,7 @@ c_common_missing_argument (const char *opt, size_t code)
       error ("macro name missing after \"%s\"", opt);
       break;
 
+    case OPT_F:
     case OPT_I:
     case OPT_idirafter:
     case OPT_isysroot:
@@ -203,7 +212,7 @@ c_common_init_options (unsigned int argc, const char **argv ATTRIBUTE_UNUSED)
     }
 
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
-				ident_hash);
+				ident_hash, &line_table);
 
   cpp_opts = cpp_get_options (parse_in);
   cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
@@ -279,6 +288,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_H:
       cpp_opts->print_include_names = 1;
+      break;
+
+    case OPT_F:
+      TARGET_OPTF (xstrdup (arg));
       break;
 
     case OPT_I:
@@ -645,6 +658,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warn_unused_macros = value;
       break;
 
+    case OPT_Wvariadic_macros:
+      warn_variadic_macros = value;
+      break;
+
     case OPT_Wwrite_strings:
       if (!c_dialect_cxx ())
 	flag_const_strings = value;
@@ -672,7 +689,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       /* Fall through.  */
 
     case OPT_fall_virtual:
+    case OPT_falt_external_templates:
     case OPT_fenum_int_equiv:
+    case OPT_fexternal_templates:
     case OPT_fguiding_decls:
     case OPT_fhonor_std:
     case OPT_fhuge_objects:
@@ -689,21 +708,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       warning ("switch \"%s\" is no longer supported", option->opt_text);
       break;
 
-    case OPT_fabi_version_:
-      flag_abi_version = value;
-      break;
-
     case OPT_faccess_control:
       flag_access_control = value;
-      break;
-
-    case OPT_falt_external_templates:
-      flag_alt_external_templates = value;
-      if (value)
-	flag_external_templates = true;
-    cp_deprecated:
-      warning ("switch \"%s\" is deprecated, please see documentation "
-	       "for details", option->opt_text);
       break;
 
     case OPT_fasm:
@@ -798,10 +804,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_fenforce_eh_specs:
       flag_enforce_eh_specs = value;
       break;
-
-    case OPT_fexternal_templates:
-      flag_external_templates = value;
-      goto cp_deprecated;
 
     case OPT_ffixed_form:
     case OPT_ffixed_line_length_:
@@ -913,6 +915,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fwide_exec_charset_:
       cpp_opts->wide_charset = arg;
+      break;
+
+    case OPT_finput_charset_:
+      cpp_opts->input_charset = arg;
       break;
 
     case OPT_ftemplate_depth_:
@@ -1060,8 +1066,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
 /* Post-switch processing.  */
 bool
-c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
+c_common_post_options (const char **pfilename)
 {
+  struct cpp_callbacks *cb;
+
   /* Canonicalize the input and output filenames.  */
   if (in_fnames == NULL)
     {
@@ -1149,7 +1157,9 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       input_line = 0;
     }
 
-  cpp_get_callbacks (parse_in)->file_change = cb_file_change;
+  cb = cpp_get_callbacks (parse_in);
+  cb->file_change = cb_file_change;
+  cb->dir_change = cb_dir_change;
   cpp_post_options (parse_in);
 
   saved_lineno = input_line;
@@ -1158,6 +1168,15 @@ c_common_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   /* If an error has occurred in cpplib, note it so we fail
      immediately.  */
   errorcount += cpp_errors (parse_in);
+
+  *pfilename = this_input_filename
+    = cpp_read_main_file (parse_in, in_fnames[0]);
+  if (this_input_filename == NULL)
+    return true;
+
+  if (flag_working_directory
+      && flag_preprocess_only && ! flag_no_line_commands)
+    pp_dir_change (parse_in, get_src_pwd ());
 
   return flag_preprocess_only;
 }
@@ -1183,7 +1202,7 @@ c_common_init (void)
 
   if (flag_preprocess_only)
     {
-      finish_options (in_fnames[0]);
+      finish_options ();
       preprocess_file (parse_in);
       return false;
     }
@@ -1197,39 +1216,24 @@ c_common_init (void)
 /* Initialize the integrated preprocessor after debug output has been
    initialized; loop over each input file.  */
 void
-c_common_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
+c_common_parse_file (int set_yydebug)
 {
-  unsigned file_index;
-  
 #if YYDEBUG != 0
   yydebug = set_yydebug;
 #else
-  warning ("YYDEBUG not defined");
+  if (set_yydebug)
+    warning ("YYDEBUG not defined");
 #endif
 
-  file_index = 0;
-  
-  do
-    {
-      if (file_index > 0)
-	{
-	  /* Reset the state of the parser.  */
-	  c_reset_state();
+  if (num_in_fnames > 1)
+    fatal_error ("sorry, inter-module analysis temporarily out of commission");
 
-	  /* Reset cpplib's macros and start a new file.  */
-	  cpp_undef_all (parse_in);
-	}
-
-      finish_options(in_fnames[file_index]);
-      if (file_index == 0)
-	pch_init();
-      c_parse_file ();
-
-      file_index++;
-    } while (file_index < num_in_fnames);
-  
-  free_parser_stacks ();
+  finish_options ();
+  pch_init ();
+  push_file_scope ();
+  c_parse_file ();
   finish_file ();
+  pop_file_scope ();
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
@@ -1355,14 +1359,17 @@ sanitize_cpp_opts (void)
   cpp_opts->warn_long_long
     = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
 
+  /* Similarly with -Wno-variadic-macros.  No check for c99 here, since
+     this also turns off warnings about GCCs extension.  */
+  cpp_opts->warn_variadic_macros
+    = warn_variadic_macros && (pedantic || warn_traditional);
+
   /* If we're generating preprocessor output, emit current directory
      if explicitly requested or if debugging information is enabled.
      ??? Maybe we should only do it for debugging formats that
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
-  cpp_opts->working_directory
-    = flag_preprocess_only && flag_working_directory;
 }
 
 /* Add include path with a prefix at the front of its name.  */
@@ -1385,17 +1392,15 @@ add_prefixed_path (const char *suffix, size_t chain)
   add_path (path, chain, 0);
 }
 
-/* Handle -D, -U, -A, -imacros, and the first -include.  
-   TIF is the input file to which we will return after processing all
-   the includes.  */
+/* Handle -D, -U, -A, -imacros, and the first -include.  */
 static void
-finish_options (const char *tif)
+finish_options (void)
 {
   if (!cpp_opts->preprocessed)
     {
       size_t i;
 
-      cpp_change_file (parse_in, LC_ENTER, _("<built-in>"));
+      cpp_change_file (parse_in, LC_RENAME, _("<built-in>"));
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);
 
@@ -1435,13 +1440,15 @@ finish_options (const char *tif)
 
 	  if (opt->code == OPT_imacros
 	      && cpp_push_include (parse_in, opt->arg))
-	    cpp_scan_nooutput (parse_in);
+	    {
+	      /* Disable push_command_line_include callback for now.  */
+	      include_cursor = deferred_count + 1;
+	      cpp_scan_nooutput (parse_in);
+	    }
 	}
     }
 
   include_cursor = 0;
-  this_input_filename = tif;
-  cpp_find_main_file (parse_in, this_input_filename);
   push_command_line_include ();
 }
 
@@ -1461,12 +1468,15 @@ push_command_line_include (void)
   if (include_cursor == deferred_count)
     {
       include_cursor++;
-      /* Restore the line map from <command line>.  */
-      if (! cpp_opts->preprocessed)
-	cpp_change_file (parse_in, LC_LEAVE, NULL);
       /* -Wunused-macros should only warn about macros defined hereafter.  */
       cpp_opts->warn_unused_macros = warn_unused_macros;
-      cpp_push_main_file (parse_in);
+      /* Restore the line map from <command line>.  */
+      if (! cpp_opts->preprocessed)
+	cpp_change_file (parse_in, LC_RENAME, main_input_filename);
+
+      /* Set this here so the client can change the option if it wishes,
+	 and after stacking the main file so we don't trace the main file.  */
+      line_table.trace_includes = cpp_opts->print_include_names;
     }
 }
 
@@ -1484,6 +1494,13 @@ cb_file_change (cpp_reader *pfile ATTRIBUTE_UNUSED,
     push_command_line_include ();
 }
 
+void
+cb_dir_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const char *dir)
+{
+  if (! set_src_pwd (dir))
+    warning ("too late for # directive to set debug directory");
+}
+
 /* Set the C 89 standard (with 1994 amendments if C94, without GNU
    extensions if ISO).  There is no concept of gnu94.  */
 static void
@@ -1496,7 +1513,6 @@ set_std_c89 (int c94, int iso)
   flag_no_nonansi_builtin = iso;
   flag_isoc94 = c94;
   flag_isoc99 = 0;
-  flag_writable_strings = 0;
 }
 
 /* Set the C 99 standard (without GNU extensions if ISO).  */
@@ -1509,7 +1525,6 @@ set_std_c99 (int iso)
   flag_iso = iso;
   flag_isoc99 = 1;
   flag_isoc94 = 1;
-  flag_writable_strings = 0;
 }
 
 /* Set the C++ 98 standard (without GNU extensions if ISO).  */

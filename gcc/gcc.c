@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -73,6 +73,7 @@ compilation is specified by a string called a "spec".  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "multilib.h" /* before tm.h */
 #include "tm.h"
 #include <signal.h>
 #if ! defined( SIGCHLD ) && defined( SIGCLD )
@@ -339,12 +340,12 @@ static void display_help (void);
 static void add_preprocessor_option (const char *, int);
 static void add_assembler_option (const char *, int);
 static void add_linker_option (const char *, int);
-static void process_command (int, const char *const *);
+static void process_command (int, const char **);
 static int execute (void);
 static void alloc_args (void);
 static void clear_args (void);
 static void fatal_error (int);
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
 static void init_gcc_specs (struct obstack *, const char *, const char *,
 			    const char *);
 #endif
@@ -597,7 +598,9 @@ proper position among the other output files.  */
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
-#if defined(LINK_LIBGCC_SPECIAL) || defined(LINK_LIBGCC_SPECIAL_1)
+#if defined(REAL_LIBGCC_SPEC)
+#define LIBGCC_SPEC REAL_LIBGCC_SPEC
+#elif defined(LINK_LIBGCC_SPECIAL) || defined(LINK_LIBGCC_SPECIAL_1)
 /* Have gcc do the search for libgcc.a.  */
 #define LIBGCC_SPEC "libgcc.a%s"
 #else
@@ -676,7 +679,7 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs:-lgcov}\
+    %{static:} %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
@@ -740,7 +743,7 @@ static const char *trad_capable_cpp =
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
- %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %I\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
  %{MD:-MD %{!o:%b.d}%{o*:%.d%*}}\
  %{MMD:-MMD %{!o:%b.d}%{o*:%.d%*}}\
  %{M} %{MM} %{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
@@ -765,7 +768,7 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- -auxbase%{c|S:%{o*:-strip %*}%{!o*: %b}}%{!c:%{!S: %b}}\
+ %{c|S:%{o*:-auxbase-strip %*}%{!o*:-auxbase %b}}%{!c:%{!S:-auxbase %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
@@ -791,7 +794,6 @@ static const char *multilib_select;
 static const char *multilib_matches;
 static const char *multilib_defaults;
 static const char *multilib_exclusions;
-#include "multilib.h"
 
 /* Check whether a particular argument is a default argument.  */
 
@@ -1068,14 +1070,12 @@ static const struct option_map option_map[] =
    {"--static", "-static", 0},
    {"--std", "-std=", "aj"},
    {"--symbolic", "-symbolic", 0},
-   {"--target", "-b", "a"},
    {"--time", "-time", 0},
    {"--trace-includes", "-H", 0},
    {"--traditional", "-traditional", 0},
    {"--traditional-cpp", "-traditional-cpp", 0},
    {"--trigraphs", "-trigraphs", 0},
    {"--undefine-macro", "-U", "aj"},
-   {"--use-version", "-V", "a"},
    {"--user-dependencies", "-MM", 0},
    {"--verbose", "-v", 0},
    {"--warn-", "-W", "*j"},
@@ -1524,7 +1524,7 @@ static int processing_spec_function;
 /* Add appropriate libgcc specs to OBSTACK, taking into account
    various permutations of -shared-libgcc, -shared, and such.  */
 
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
 static void
 init_gcc_specs (struct obstack *obstack, const char *shared_name,
 		const char *static_name, const char *eh_name)
@@ -1591,7 +1591,7 @@ init_spec (void)
       next = sl;
     }
 
-#ifdef ENABLE_SHARED_LIBGCC
+#if defined(ENABLE_SHARED_LIBGCC) && !defined(REAL_LIBGCC_SPEC)
   /* ??? If neither -shared-libgcc nor --static-libgcc was
      seen, then we should be making an educated guess.  Some proposed
      heuristics for ELF include:
@@ -1635,12 +1635,14 @@ init_spec (void)
 #else
 			    "-lgcc_s%M"
 #endif
+			    ,
+			    "-lgcc",
+			    "-lgcc_eh"
 #ifdef USE_LIBUNWIND_EXCEPTIONS
 			    " -lunwind"
 #endif
-			    ,
-			    "-lgcc",
-			    "-lgcc_eh");
+			    );
+
 	    p += 5;
 	    in_sep = 0;
 	  }
@@ -1656,7 +1658,11 @@ init_spec (void)
 #endif
 			    ,
 			    "libgcc.a%s",
-			    "libgcc_eh.a%s");
+			    "libgcc_eh.a%s"
+#ifdef USE_LIBUNWIND_EXCEPTIONS
+			    " -lunwind"
+#endif
+			    );
 	    p += 10;
 	    in_sep = 0;
 	  }
@@ -2680,7 +2686,14 @@ execute (void)
 	}
       fflush (stderr);
       if (verbose_only_flag != 0)
-	return 0;
+        {
+	  /* verbose_only_flag should act as if the spec was
+	     executed, so increment execution_count before
+	     returning.  This prevents spurious warnings about
+	     unused linker input files, etc.  */
+	  execution_count++;
+	  return 0;
+        }
 #ifdef DEBUG
       notice ("\nGo ahead? (y or n) ");
       fflush (stderr);
@@ -3063,7 +3076,7 @@ add_linker_option (const char *option, int len)
    Store its length in `n_switches'.  */
 
 static void
-process_command (int argc, const char *const *argv)
+process_command (int argc, const char **argv)
 {
   int i;
   const char *temp;
@@ -3301,10 +3314,10 @@ process_command (int argc, const char *const *argv)
     }
 
   /* Convert new-style -- options to old-style.  */
-  translate_options (&argc, &argv);
+  translate_options (&argc, (const char *const **) &argv);
 
   /* Do language-specific adjustment/addition of flags.  */
-  lang_specific_driver (&argc, &argv, &added_libraries);
+  lang_specific_driver (&argc, (const char *const **) &argv, &added_libraries);
 
   /* Scan argv twice.  Here, the first time, just count how many switches
      there will be in their vector, and how many input files in theirs.
@@ -3336,8 +3349,8 @@ process_command (int argc, const char *const *argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  fputs (_("Copyright (C) 2003 Free Software Foundation, Inc.\n"),
-		 stdout);
+	  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n",
+		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
 		 stdout);
@@ -5891,10 +5904,10 @@ fatal_error (int signum)
   kill (getpid (), signum);
 }
 
-extern int main (int, const char *const *);
+extern int main (int, const char **);
 
 int
-main (int argc, const char *const *argv)
+main (int argc, const char **argv)
 {
   size_t i;
   int value;
@@ -6480,7 +6493,7 @@ lookup_compiler (const char *name, size_t length, const char *language)
     }
 
 #if defined (OS2) ||defined (HAVE_DOS_BASED_FILE_SYSTEM)
-  /* look again, but case-insensitively this time.  */
+  /* Look again, but case-insensitively this time.  */
   if (cp < compilers)
     for (cp = compilers + n_compilers - 1; cp >= compilers; cp--)
       {

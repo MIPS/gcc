@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -80,6 +80,88 @@ package body Bindgen is
      Table_Increment      => 200,
      Table_Name           => "IS_Pragma_Settings");
 
+   ----------------------
+   -- Run-Time Globals --
+   ----------------------
+
+   --  This section documents the global variables that are passed to the
+   --  run time from the generated binder file. The call that is made is
+   --  to the routine Set_Globals, which has the following spec:
+
+   --   procedure Set_Globals
+   --     (Main_Priority            : Integer;
+   --      Time_Slice_Value         : Integer;
+   --      WC_Encoding              : Character;
+   --      Locking_Policy           : Character;
+   --      Queuing_Policy           : Character;
+   --      Task_Dispatching_Policy  : Character;
+   --      Restrictions             : System.Address;
+   --      Interrupt_States         : System.Address;
+   --      Num_Interrupt_States     : Integer;
+   --      Unreserve_All_Interrupts : Integer;
+   --      Exception_Tracebacks     : Integer;
+   --      Zero_Cost_Exceptions     : Integer);
+
+   --  Main_Priority is the priority value set by pragma Priority in the
+   --  main program. If no such pragma is present, the value is -1.
+
+   --  Time_Slice_Value is the time slice value set by pragma Time_Slice
+   --  in the main program, or by the use of a -Tnnn parameter for the
+   --  binder (if both are present, the binder value overrides). The
+   --  value is in milliseconds. A value of zero indicates that time
+   --  slicing should be suppressed. If no pragma is present, and no
+   --  -T switch was used, the value is -1.
+
+   --  WC_Encoding shows the wide character encoding method used for
+   --  the main program. This is one of the encoding letters defined
+   --  in System.WCh_Con.WC_Encoding_Letters.
+
+   --  Locking_Policy is a space if no locking policy was specified
+   --  for the partition. If a locking policy was specified, the value
+   --  is the upper case first character of the locking policy name,
+   --  for example, 'C' for Ceiling_Locking.
+
+   --  Queuing_Policy is a space if no queuing policy was specified
+   --  for the partition. If a queuing policy was specified, the value
+   --  is the upper case first character of the queuing policy name
+   --  for example, 'F' for FIFO_Queuing.
+
+   --  Task_Dispatching_Policy is a space if no task dispatching policy
+   --  was specified for the partition. If a task dispatching policy
+   --  was specified, the value is the upper case first character of
+   --  the policy name, e.g. 'F' for FIFO_Within_Priorities.
+
+   --  Restrictions is the address of a null-terminated string specifying the
+   --  restrictions information for the partition. The format is identical to
+   --  that of the parameter string found on R lines in ali files (see Lib.Writ
+   --  spec in lib-writ.ads for full details). The difference is that in this
+   --  context the values are the cumulative ones for the entire partition.
+
+   --  Interrupt_States is the address of a string used to specify the
+   --  cumulative results of Interrupt_State pragmas used in the partition.
+   --  The length of this string is determined by the last interrupt for which
+   --  such a pragma is given (the string will be a null string if no pragmas
+   --  were used). If pragma were present the entries apply to the interrupts
+   --  in sequence from the first interrupt, and are set to one of four
+   --  possible settings: 'n' for not specified, 'u' for user, 'r' for
+   --  run time, 's' for system, see description of Interrupt_State pragma
+   --  for further details.
+
+   --  Num_Interrupt_States is the length of the Interrupt_States string.
+   --  It will be set to zero if no Interrupt_State pragmas are present.
+
+   --  Unreserve_All_Interrupts is set to one if at least one unit in the
+   --  partition had a pragma Unreserve_All_Interrupts, and zero otherwise.
+
+   --  Exception_Tracebacks is set to one if the -E parameter was present
+   --  in the bind and to zero otherwise. Note that on some targets exception
+   --  tracebacks are provided by default, so a value of zero for this
+   --  parameter does not necessarily mean no trace backs are available.
+
+   --  Zero_Cost_Exceptions is set to one if zero cost exceptions are used for
+   --  this partition, and to zero if longjmp/setjmp exceptions are used.
+   --  the use of zero
+
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -140,6 +222,16 @@ package body Bindgen is
 
    procedure Gen_Output_File_C (Filename : String);
    --  Generate output file (C code case)
+
+   procedure Gen_Restrictions_String_1;
+   --  Generate first restrictions string, which consists of the parameters
+   --  the first R line, as described in lib-writ.ads, with the restrictions
+   --  being those for the entire partition (from Cumulative_Restrictions).
+
+   procedure Gen_Restrictions_String_2;
+   --  Generate first restrictions string, which consists of the parameters
+   --  the second R line, as described in lib-writ.ads, with the restrictions
+   --  being those for the entire partition (from Cumulative_Restrictions).
 
    procedure Gen_Versions_Ada;
    --  Output series of definitions for unit versions (Ada code case)
@@ -358,13 +450,15 @@ package body Bindgen is
 
          Set_String ("      Restrictions : constant String :=");
          Write_Statement_Buffer;
+
          Set_String ("        """);
+         Gen_Restrictions_String_1;
+         Set_String (""" &");
+         Write_Statement_Buffer;
 
-         for J in Restrictions'Range loop
-            Set_Char (Restrictions (J));
-         end loop;
-
-         Set_String (""";");
+         Set_String ("        """);
+         Gen_Restrictions_String_2;
+         Set_String (""" & ASCII.Nul;");
          Write_Statement_Buffer;
          WBI ("");
 
@@ -518,9 +612,10 @@ package body Bindgen is
          Write_Statement_Buffer;
 
          --  Generate call to Install_Handler
+
          WBI ("");
          WBI ("      if Handler_Installed = 0 then");
-         WBI ("        Install_Handler;");
+         WBI ("         Install_Handler;");
          WBI ("      end if;");
       end if;
 
@@ -533,6 +628,17 @@ package body Bindgen is
          Set_String ("', '");
          Set_Char (Initialize_Scalars_Mode2);
          Set_String ("');");
+         Write_Statement_Buffer;
+      end if;
+
+      --  Generate assignment of default secondary stack size if set
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("");
+         Set_String ("      System.Secondary_Stack.");
+         Set_String ("Default_Secondary_Stack_Size := ");
+         Set_Int (Opt.Default_Sec_Stack_Size);
+         Set_Char (';');
          Write_Statement_Buffer;
       end if;
 
@@ -594,11 +700,8 @@ package body Bindgen is
          --  Generate definition for restrictions string
 
          Set_String ("   const char *restrictions = """);
-
-         for J in Restrictions'Range loop
-            Set_Char (Restrictions (J));
-         end loop;
-
+         Gen_Restrictions_String_1;
+         Gen_Restrictions_String_2;
          Set_String (""";");
          Write_Statement_Buffer;
 
@@ -612,6 +715,13 @@ package body Bindgen is
 
          Set_String (""";");
          Write_Statement_Buffer;
+
+         --  Generate declaration for secondary stack default if needed
+
+         if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+            WBI ("   extern int system__secondary_stack__" &
+                 "default_secondary_stack_size;");
+         end if;
 
          WBI ("");
 
@@ -739,6 +849,17 @@ package body Bindgen is
          Set_String ("', '");
          Set_Char (Initialize_Scalars_Mode2);
          Set_String ("');");
+         Write_Statement_Buffer;
+      end if;
+
+      --  Generate assignment of default secondary stack size if set
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("");
+         Set_String ("   system__secondary_stack__");
+         Set_String ("default_secondary_stack_size = ");
+         Set_Int (Opt.Default_Sec_Stack_Size);
+         Set_Char (';');
          Write_Statement_Buffer;
       end if;
 
@@ -1141,7 +1262,7 @@ package body Bindgen is
       --  If compiling for the JVM, we directly reference Adafinal because
       --  we don't import it via Do_Finalize (see Gen_Output_File_Ada).
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          if Hostparm.Java_VM then
             Set_String
               ("        System.Standard_Library.Adafinal'Code_Address");
@@ -1307,7 +1428,7 @@ package body Bindgen is
 
       WBI ("     " & Ada_Init_Name.all & ",");
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          Set_String ("     system__standard_library__adafinal");
       end if;
 
@@ -1380,7 +1501,7 @@ package body Bindgen is
 
       --  Initialize and Finalize
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          WBI ("      procedure initialize;");
          WBI ("      pragma Import (C, initialize, ""__gnat_initialize"");");
          WBI ("");
@@ -1464,7 +1585,7 @@ package body Bindgen is
          WBI ("      gnat_envp := System.Null_Address;");
       end if;
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          WBI ("      Initialize;");
       end if;
 
@@ -1482,7 +1603,7 @@ package body Bindgen is
 
       --  Adafinal call is skipped if no finalization
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
 
          --  If compiling for the JVM, we directly call Adafinal because
          --  we don't import it via Do_Finalize (see Gen_Output_File_Ada).
@@ -1496,7 +1617,7 @@ package body Bindgen is
 
       --  Finalize is only called if we have a run time
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          WBI ("      Finalize;");
       end if;
 
@@ -1622,7 +1743,7 @@ package body Bindgen is
 
       --  Call adafinal if finalization active
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          WBI (" ");
          WBI ("   system__standard_library__adafinal ();");
       end if;
@@ -1774,22 +1895,18 @@ package body Bindgen is
          end if;
       end loop;
 
-      --  Add a "-Ldir" for each directory in the object path. We skip this
-      --  in Configurable_Run_Time mode, where we want more precise control
-      --  of exactly what goes into the resulting object file
+      --  Add a "-Ldir" for each directory in the object path
 
-      if not Configurable_Run_Time_Mode then
-         for J in 1 .. Nb_Dir_In_Obj_Search_Path loop
-            declare
-               Dir : constant String_Ptr := Dir_In_Obj_Search_Path (J);
-            begin
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer ("-L");
-               Add_Str_To_Name_Buffer (Dir.all);
-               Write_Linker_Option;
-            end;
-         end loop;
-      end if;
+      for J in 1 .. Nb_Dir_In_Obj_Search_Path loop
+         declare
+            Dir : constant String_Ptr := Dir_In_Obj_Search_Path (J);
+         begin
+            Name_Len := 0;
+            Add_Str_To_Name_Buffer ("-L");
+            Add_Str_To_Name_Buffer (Dir.all);
+            Write_Linker_Option;
+         end;
+      end loop;
 
       --  Sort linker options
 
@@ -1845,7 +1962,7 @@ package body Bindgen is
       --  files. The reason for this decision is that libraries referenced
       --  by internal routines may reference these standard library entries.
 
-      if not (Configurable_Run_Time_Mode or else Opt.No_Stdlib) then
+      if not Opt.No_Stdlib then
          Name_Len := 0;
 
          if Opt.Shared_Libgnat then
@@ -1866,12 +1983,24 @@ package body Bindgen is
 
          if With_GNARL then
             Name_Len := 0;
-            Add_Str_To_Name_Buffer ("-lgnarl");
+
+            if Opt.Shared_Libgnat then
+               Add_Str_To_Name_Buffer (Shared_Lib ("gnarl"));
+            else
+               Add_Str_To_Name_Buffer ("-lgnarl");
+            end if;
+
             Write_Linker_Option;
          end if;
 
          Name_Len := 0;
-         Add_Str_To_Name_Buffer ("-lgnat");
+
+         if Opt.Shared_Libgnat then
+            Add_Str_To_Name_Buffer (Shared_Lib ("gnat"));
+         else
+            Add_Str_To_Name_Buffer ("-lgnat");
+         end if;
+
          Write_Linker_Option;
       end if;
 
@@ -1894,8 +2023,7 @@ package body Bindgen is
    ---------------------
 
    procedure Gen_Output_File (Filename : String) is
-      Public_Version : constant Boolean := Gnat_Version_Type = "PUBLIC ";
-      --  Set true if this is the public version of GNAT
+      Is_Public_Version : constant Boolean := Get_Gnat_Build_Type = Public;
 
    begin
       --  Acquire settings for Interrupt_State pragmas
@@ -1929,7 +2057,7 @@ package body Bindgen is
 
       --  Get the time stamp of the former bind for public version warning
 
-      if Public_Version then
+      if Is_Public_Version then
          Record_Time_From_Last_Bind;
       end if;
 
@@ -1944,7 +2072,7 @@ package body Bindgen is
       --  Periodically issue a warning when the public version is used on
       --  big projects
 
-      if Public_Version then
+      if Is_Public_Version then
          Public_Version_Warning;
       end if;
    end Gen_Output_File;
@@ -1974,7 +2102,7 @@ package body Bindgen is
       --  then we need to make sure that the binder program is compiled with
       --  the same restriction, so that no exception tables are generated.
 
-      if Restrictions_On_Target (No_Exception_Handlers) then
+      if Cumulative_Restrictions.Set (No_Exception_Handlers) then
          WBI ("pragma Restrictions (No_Exception_Handlers);");
       end if;
 
@@ -1986,6 +2114,12 @@ package body Bindgen is
 
       if Initialize_Scalars_Used then
          WBI ("with System.Scalar_Values;");
+      end if;
+
+      --  Generate with of System.Secondary_Stack if active
+
+      if Sec_Stack_Used and then Default_Sec_Stack_Size /= -1 then
+         WBI ("with System.Secondary_Stack;");
       end if;
 
       Resolve_Binder_Options;
@@ -2073,7 +2207,7 @@ package body Bindgen is
       --  No need to generate a finalization routine if finalization
       --  is restricted, since there is nothing to do in this case.
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          WBI ("");
          WBI ("   procedure " & Ada_Final_Name.all & ";");
          WBI ("   pragma Export (C, " & Ada_Final_Name.all & ", """ &
@@ -2180,7 +2314,7 @@ package body Bindgen is
 
       --  Import the finalization procedure only if finalization active
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
 
          --  In the Java case, pragma Import C cannot be used, so the
          --  standard Ada constructs will be used instead.
@@ -2199,7 +2333,7 @@ package body Bindgen is
 
       --  No need to generate a finalization routine if no finalization
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          Gen_Adafinal_Ada;
       end if;
 
@@ -2387,7 +2521,7 @@ package body Bindgen is
       --  Generate the adafinal routine. In no runtime mode, this is
       --  not needed, since there is no finalization to do.
 
-      if not Restrictions_On_Target (No_Finalization) then
+      if not Cumulative_Restrictions.Set (No_Finalization) then
          Gen_Adafinal_C;
       end if;
 
@@ -2409,6 +2543,52 @@ package body Bindgen is
 
       Close_Binder_Output;
    end Gen_Output_File_C;
+
+   -------------------------------
+   -- Gen_Restrictions_String_1 --
+   -------------------------------
+
+   procedure Gen_Restrictions_String_1 is
+   begin
+      for R in All_Boolean_Restrictions loop
+         if Cumulative_Restrictions.Set (R) then
+            Set_Char ('r');
+         elsif Cumulative_Restrictions.Violated (R) then
+            Set_Char ('v');
+         else
+            Set_Char ('n');
+         end if;
+      end loop;
+   end Gen_Restrictions_String_1;
+
+   -------------------------------
+   -- Gen_Restrictions_String_2 --
+   -------------------------------
+
+   procedure Gen_Restrictions_String_2 is
+   begin
+      for RP in All_Parameter_Restrictions loop
+         if Cumulative_Restrictions.Set (RP) then
+            Set_Char ('r');
+            Set_Int (Int (Cumulative_Restrictions.Value (RP)));
+         else
+            Set_Char ('n');
+         end if;
+
+         if not Cumulative_Restrictions.Violated (RP)
+           or else RP not in Checked_Parameter_Restrictions
+         then
+            Set_Char ('n');
+         else
+            Set_Char ('v');
+            Set_Int (Int (Cumulative_Restrictions.Count (RP)));
+
+            if Cumulative_Restrictions.Unknown (RP) then
+               Set_Char ('+');
+            end if;
+         end if;
+      end loop;
+   end Gen_Restrictions_String_2;
 
    ----------------------
    -- Gen_Versions_Ada --
@@ -2703,7 +2883,6 @@ package body Bindgen is
    ----------------------------
 
    procedure Public_Version_Warning is
-
       Time : constant Int := Time_From_Last_Bind;
 
       --  Constants to help defining periods
@@ -2743,12 +2922,17 @@ package body Bindgen is
       --  Do not emit the message if the last message was emitted in the
       --  specified period taking into account the number of units.
 
+      pragma Warnings (Off);
+      --  Turn off warning of constant condition, which may happen here
+      --  depending on the choice of constants in the above declarations.
+
       if Nb_Unit < Large and then Time <= Period_Small then
          return;
-
       elsif Time <= Period_Large then
          return;
       end if;
+
+      pragma Warnings (On);
 
       Write_Eol;
       Write_Str ("IMPORTANT NOTICE:");

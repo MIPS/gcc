@@ -1,6 +1,6 @@
 /* YACC parser for C syntax and for Objective C.  -*-c-*-
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996,
-   1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "langhooks.h"
 #include "input.h"
 #include "cpplib.h"
 #include "intl.h"
@@ -199,15 +200,15 @@ do {									\
 %type <ttype> typespec_reserved_nonattr typespec_reserved_attr
 %type <ttype> typespec_nonreserved_nonattr
 
-%type <ttype> scspec SCSPEC STATIC TYPESPEC TYPE_QUAL maybe_type_qual
-%type <ttype> initdecls notype_initdecls initdcl notype_initdcl
-%type <ttype> init maybeasm
+%type <ttype> scspec SCSPEC STATIC TYPESPEC TYPE_QUAL maybe_volatile
+%type <ttype> initdecls notype_initdecls initdcl notype_initdcl init
+%type <ttype> simple_asm_expr maybeasm asm_stmt asm_argument
 %type <ttype> asm_operands nonnull_asm_operands asm_operand asm_clobbers
 %type <ttype> maybe_attribute attributes attribute attribute_list attrib
-%type <ttype> any_word extension
+%type <ttype> any_word
 
 %type <ttype> compstmt compstmt_start compstmt_nostart compstmt_primary_start
-%type <ttype> do_stmt_start poplevel stmt label
+%type <ttype> do_stmt_start pop_scope stmt label
 
 %type <ttype> c99_block_start c99_block_end
 %type <ttype> declarator
@@ -230,7 +231,7 @@ do {									\
 %type <ttype> parmlist_or_identifiers parmlist_or_identifiers_1
 %type <ttype> identifiers_or_typenames
 
-%type <itype> setspecs setspecs_fp
+%type <itype> setspecs setspecs_fp extension
 
 %type <location> save_location
 
@@ -295,15 +296,14 @@ static GTY(()) tree declspec_stack;
 
 /* For __extension__, save/restore the warning flags which are
    controlled by __extension__.  */
-#define SAVE_EXT_FLAGS()			\
-	size_int (pedantic			\
-		  | (warn_pointer_arith << 1)	\
-		  | (warn_traditional << 2)	\
-		  | (flag_iso << 3))
+#define SAVE_EXT_FLAGS()		\
+	(pedantic			\
+	 | (warn_pointer_arith << 1)	\
+	 | (warn_traditional << 2)	\
+	 | (flag_iso << 3))
 
-#define RESTORE_EXT_FLAGS(tval)			\
+#define RESTORE_EXT_FLAGS(val)			\
   do {						\
-    int val = tree_low_cst (tval, 0);		\
     pedantic = val & 1;				\
     warn_pointer_arith = (val >> 1) & 1;	\
     warn_traditional = (val >> 2) & 1;		\
@@ -327,8 +327,6 @@ static int objc_need_raw_identifier;
 @@ifc
 #define OBJC_NEED_RAW_IDENTIFIER(VAL)	/* nothing */
 @@end_ifc
-
-static bool parsing_iso_function_signature;
 
 /* Tell yyparse how to print a token's value, if yydebug is set.  */
 
@@ -368,26 +366,14 @@ extdefs:
 	;
 
 extdef:
-	extdef_1
-	{ parsing_iso_function_signature = false; } /* Reset after any external definition.  */
-	;
-
-extdef_1:
 	fndef
 	| datadef
+	| asmdef
+	| extension extdef
+		{ RESTORE_EXT_FLAGS ($1); }
 @@ifobjc
 	| objcdef
 @@end_ifobjc
-	| ASM_KEYWORD '(' expr ')' ';'
-		{ STRIP_NOPS ($3);
-		  if ((TREE_CODE ($3) == ADDR_EXPR
-		       && TREE_CODE (TREE_OPERAND ($3, 0)) == STRING_CST)
-		      || TREE_CODE ($3) == STRING_CST)
-		    assemble_asm ($3);
-		  else
-		    error ("argument of `asm' is not a constant string"); }
-	| extension extdef
-		{ RESTORE_EXT_FLAGS ($1); }
 	;
 
 datadef:
@@ -580,21 +566,21 @@ expr_no_commas:
 	| expr_no_commas '^' expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
 	| expr_no_commas ANDAND
-		{ $1 = c_common_truthvalue_conversion
+		{ $1 = (*lang_hooks.truthvalue_conversion)
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_false_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_false_node;
 		  $$ = parser_build_binary_op (TRUTH_ANDIF_EXPR, $1, $4); }
 	| expr_no_commas OROR
-		{ $1 = c_common_truthvalue_conversion
+		{ $1 = (*lang_hooks.truthvalue_conversion)
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_true_node; }
 	  expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_true_node;
 		  $$ = parser_build_binary_op (TRUTH_ORIF_EXPR, $1, $4); }
 	| expr_no_commas '?'
-		{ $1 = c_common_truthvalue_conversion
+		{ $1 = (*lang_hooks.truthvalue_conversion)
 		    (default_conversion ($1));
 		  skip_evaluation += $1 == truthvalue_false_node; }
           expr ':'
@@ -607,9 +593,8 @@ expr_no_commas:
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids omitting the middle term of a ?: expression");
 		  /* Make sure first operand is calculated only once.  */
-		  $<ttype>2 = save_expr ($1);
-		  $1 = c_common_truthvalue_conversion
-		    (default_conversion ($<ttype>2));
+		  $<ttype>2 = save_expr (default_conversion ($1));
+		  $1 = (*lang_hooks.truthvalue_conversion) ($<ttype>2);
 		  skip_evaluation += $1 == truthvalue_true_node; }
 	  ':' expr_no_commas
 		{ skip_evaluation -= $1 == truthvalue_true_node;
@@ -653,7 +638,7 @@ primary:
 		  finish_init ();
 
 		  if (pedantic && ! flag_isoc99)
-		    pedwarn ("ISO C89 forbids compound literals");
+		    pedwarn ("ISO C90 forbids compound literals");
 		  $$ = build_compound_literal (type, constructor);
 		}
 	| '(' expr ')'
@@ -749,28 +734,8 @@ primary:
 	;
 
 old_style_parm_decls:
-	old_style_parm_decls_1
-	{
-	  parsing_iso_function_signature = false; /* Reset after decls.  */
-	}
-	;
-
-old_style_parm_decls_1:
 	/* empty */
-	{
-	  if (warn_traditional && !in_system_header
-	      && parsing_iso_function_signature)
-	    warning ("traditional C rejects ISO C style function definitions");
-	  if (warn_old_style_definition && !in_system_header
-	      && !parsing_iso_function_signature)
-	    warning ("old-style parameter declaration");
-	  parsing_iso_function_signature = false; /* Reset after warning.  */
-	}
 	| datadecls
-	{
-	  if (warn_old_style_definition && !in_system_header)
-	    warning ("old-style parameter declaration");
-	}
 	;
 
 /* The following are analogous to lineno_decl, decls and decl
@@ -1372,7 +1337,11 @@ typespec_nonreserved_nonattr:
                 { $$ = get_object_reference ($1); }
 @@end_ifobjc
 	| typeof '(' expr ')'
-		{ skip_evaluation--; $$ = TREE_TYPE ($3); }
+		{ skip_evaluation--;
+		  if (TREE_CODE ($3) == COMPONENT_REF
+		      && DECL_C_BIT_FIELD (TREE_OPERAND ($3, 1)))
+		    error ("`typeof' applied to a bit-field");
+		  $$ = TREE_TYPE ($3); }
 	| typeof '(' typename ')'
 		{ skip_evaluation--; $$ = groktypename ($3); }
 	;
@@ -1387,13 +1356,6 @@ initdecls:
 notype_initdecls:
 	notype_initdcl
 	| notype_initdecls ',' maybe_resetattrs notype_initdcl
-	;
-
-maybeasm:
-	  /* empty */
-		{ $$ = NULL_TREE; }
-	| ASM_KEYWORD '(' STRING ')'
-		{ $$ = $3; }
 	;
 
 initdcl:
@@ -1443,8 +1405,11 @@ attributes:
 	;
 
 attribute:
-      ATTRIBUTE '(' '(' attribute_list ')' ')'
-		{ $$ = $4; }
+      ATTRIBUTE stop_string_translation
+                '(' '(' attribute_list ')' ')' start_string_translation
+		{ $$ = $5; }
+      | ATTRIBUTE error start_string_translation
+                {}
 	;
 
 attribute_list:
@@ -1512,7 +1477,7 @@ initlist1:
 initelt:
 	  designator_list '=' initval
 		{ if (pedantic && ! flag_isoc99)
-		    pedwarn ("ISO C89 forbids specifying subobject to initialize"); }
+		    pedwarn ("ISO C90 forbids specifying subobject to initialize"); }
 	| designator initval
 		{ if (pedantic)
 		    pedwarn ("obsolete use of designated initializer without `='"); }
@@ -1563,7 +1528,6 @@ nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
-		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	   old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
@@ -1594,7 +1558,6 @@ notype_nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
-		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	  old_style_parm_decls save_location
 		{ tree decl = current_function_decl;
@@ -1628,9 +1591,6 @@ after_type_declarator:
 		{ $$ = $2 ? tree_cons ($2, $3, NULL_TREE) : $3; }
 	| after_type_declarator '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| after_type_declarator '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| after_type_declarator array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| '*' maybe_type_quals_attrs after_type_declarator  %prec UNARY
@@ -1653,9 +1613,6 @@ parm_declarator:
 parm_declarator_starttypename:
 	  parm_declarator_starttypename '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| parm_declarator_starttypename '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| parm_declarator_starttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| TYPENAME
@@ -1667,9 +1624,6 @@ parm_declarator_starttypename:
 parm_declarator_nostarttypename:
 	  parm_declarator_nostarttypename '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| parm_declarator_nostarttypename '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| parm_declarator_nostarttypename array_declarator  %prec '.'
 		{ $$ = set_array_declarator_type ($2, $1, 0); }
 	| '*' maybe_type_quals_attrs parm_declarator_starttypename  %prec UNARY
@@ -1686,9 +1640,6 @@ parm_declarator_nostarttypename:
 notype_declarator:
 	  notype_declarator '(' parmlist_or_identifiers  %prec '.'
 		{ $$ = build_nt (CALL_EXPR, $1, $3, NULL_TREE); }
-/*	| notype_declarator '(' error ')'  %prec '.'
-		{ $$ = build_nt (CALL_EXPR, $1, NULL_TREE, NULL_TREE);
-		  poplevel (0, 0, 0); }  */
 	| '(' maybe_attribute notype_declarator ')'
 		{ $$ = $2 ? tree_cons ($2, $3, NULL_TREE) : $3; }
 	| '*' maybe_type_quals_attrs notype_declarator  %prec UNARY
@@ -1973,16 +1924,16 @@ direct_absdcl1:
 /* The [...] part of a declarator for an array type.  */
 
 array_declarator:
-	'[' maybe_type_quals_attrs expr ']'
+	'[' maybe_type_quals_attrs expr_no_commas ']'
 		{ $$ = build_array_declarator ($3, $2, 0, 0); }
 	| '[' maybe_type_quals_attrs ']'
 		{ $$ = build_array_declarator (NULL_TREE, $2, 0, 0); }
 	| '[' maybe_type_quals_attrs '*' ']'
 		{ $$ = build_array_declarator (NULL_TREE, $2, 0, 1); }
-	| '[' STATIC maybe_type_quals_attrs expr ']'
+	| '[' STATIC maybe_type_quals_attrs expr_no_commas ']'
 		{ $$ = build_array_declarator ($4, $3, 1, 0); }
 	/* declspecs_nosc_nots is a synonym for type_quals_attrs.  */
-	| '[' declspecs_nosc_nots STATIC expr ']'
+	| '[' declspecs_nosc_nots STATIC expr_no_commas ']'
 		{ $$ = build_array_declarator ($4, $2, 1, 0); }
 	;
 
@@ -1997,7 +1948,7 @@ stmts_and_decls:
 	| lineno_stmt_decl_or_labels_ending_decl
 	| lineno_stmt_decl_or_labels_ending_label
 		{
-		  pedwarn ("deprecated use of label at end of compound statement");
+		  error ("label at end of compound statement");
 		}
 	| lineno_stmt_decl_or_labels_ending_error
 	;
@@ -2045,20 +1996,20 @@ lineno_stmt_decl_or_labels:
 errstmt:  error ';'
 	;
 
-pushlevel:  /* empty */
-		{ pushlevel (0);
+push_scope:  /* empty */
+		{ push_scope ();
 		  clear_last_expr ();
 		  add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 		}
 	;
 
-poplevel:  /* empty */
-                { 
+pop_scope:  /* empty */
+                {
 @@ifobjc
 		  if (c_dialect_objc ())
 		    objc_clear_super_receiver ();
 @@end_ifobjc
-		  $$ = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0); 
+		  $$ = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
 		}
         ;
 
@@ -2067,7 +2018,7 @@ c99_block_start: /* empty */
 		{ if (flag_isoc99)
 		    {
 		      $$ = c_begin_compound_stmt ();
-		      pushlevel (0);
+		      push_scope ();
 		      clear_last_expr ();
 		      add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 		    }
@@ -2083,7 +2034,7 @@ c99_block_end: /* empty */
                 { if (flag_isoc99)
 		    {
 		      tree scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-		      $$ = poplevel (KEEP_MAYBE, 0, 0);
+		      $$ = pop_scope ();
 		      SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
 			= SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
 			= $$;
@@ -2132,8 +2083,8 @@ compstmt_start: '{' { compstmt_count++;
 
 compstmt_nostart: '}'
 		{ $$ = convert (void_type_node, integer_zero_node); }
-	| pushlevel maybe_label_decls compstmt_contents_nonempty '}' poplevel
-		{ $$ = poplevel (KEEP_MAYBE, 0, 0);
+	| push_scope maybe_label_decls compstmt_contents_nonempty '}' pop_scope
+		{ $$ = pop_scope ();
 		  SCOPE_STMT_BLOCK (TREE_PURPOSE ($5))
 		    = SCOPE_STMT_BLOCK (TREE_VALUE ($5))
 		    = $$; }
@@ -2189,7 +2140,7 @@ if_prefix:
           IF
                 { $<ttype>$ = c_begin_if_stmt (); }
             '(' expr ')'
-		{ c_expand_start_cond (c_common_truthvalue_conversion ($4),
+		{ c_expand_start_cond ((*lang_hooks.truthvalue_conversion) ($4),
 				       compstmt_count,$<ttype>2);
 		  $<itype>$ = stmt_count;
 		  if_stmt_locus = $<location>-1; }
@@ -2202,6 +2153,7 @@ do_stmt_start:
 	  DO
 		{ stmt_count++;
 		  compstmt_count++;
+		  c_in_iteration_stmt++;
 		  $<ttype>$
 		    = add_stmt (build_stmt (DO_STMT, NULL_TREE,
 					    NULL_TREE));
@@ -2212,7 +2164,8 @@ do_stmt_start:
 		  DO_COND ($<ttype>$) = error_mark_node; }
 	  c99_block_lineno_labeled_stmt WHILE
 		{ $$ = $<ttype>2;
-		  RECHAIN_STMTS ($$, DO_BODY ($$)); }
+		  RECHAIN_STMTS ($$, DO_BODY ($$));
+		  c_in_iteration_stmt--; }
 	;
 
 /* The forced readahead in here is because we might be at the end of a
@@ -2295,15 +2248,17 @@ select_or_iter_stmt:
                 { stmt_count++;
 		  $<ttype>$ = c_begin_while_stmt (); }
 	  '(' expr ')'
-                { $4 = c_common_truthvalue_conversion ($4);
+                { c_in_iteration_stmt++;
+		  $4 = (*lang_hooks.truthvalue_conversion) ($4);
 		  c_finish_while_stmt_cond
-		    (c_common_truthvalue_conversion ($4), $<ttype>2);
+		    ((*lang_hooks.truthvalue_conversion) ($4), $<ttype>2);
 		  $<ttype>$ = add_stmt ($<ttype>2); }
 	  c99_block_lineno_labeled_stmt
-		{ RECHAIN_STMTS ($<ttype>6, WHILE_BODY ($<ttype>6)); }
+                { c_in_iteration_stmt--;
+		  RECHAIN_STMTS ($<ttype>6, WHILE_BODY ($<ttype>6)); }
 	| do_stmt_start
 	  '(' expr ')' ';'
-                { DO_COND ($1) = c_common_truthvalue_conversion ($3); }
+                { DO_COND ($1) = (*lang_hooks.truthvalue_conversion) ($3); }
 	| do_stmt_start error
 		{ }
 	| FOR
@@ -2316,16 +2271,20 @@ select_or_iter_stmt:
 	  xexpr ';'
                 { if ($6)
 		    FOR_COND ($<ttype>2)
-		      = c_common_truthvalue_conversion ($6); }
+		      = (*lang_hooks.truthvalue_conversion) ($6); }
 	  xexpr ')'
-		{ FOR_EXPR ($<ttype>2) = $9; }
+                { c_in_iteration_stmt++;
+		  FOR_EXPR ($<ttype>2) = $9; }
 	  c99_block_lineno_labeled_stmt
-                { RECHAIN_STMTS ($<ttype>2, FOR_BODY ($<ttype>2)); }
+                { RECHAIN_STMTS ($<ttype>2, FOR_BODY ($<ttype>2));
+		  c_in_iteration_stmt--;}
 	| SWITCH '(' expr ')'
 		{ stmt_count++;
-		  $<ttype>$ = c_start_case ($3); }
+		  $<ttype>$ = c_start_case ($3);
+		  c_in_case_stmt++; }
 	  c99_block_lineno_labeled_stmt
-                { c_finish_case (); }
+                { c_finish_case ();
+		  c_in_case_stmt--; }
 	;
 
 for_init_stmt:
@@ -2333,6 +2292,12 @@ for_init_stmt:
 		{ add_stmt (build_stmt (EXPR_STMT, $1)); }
 	| decl
 		{ check_for_loop_decls (); }
+	;
+
+xexpr:
+	/* empty */
+		{ $$ = NULL_TREE; }
+	| expr
 	;
 
 /* Parse a single real statement, not including any labels.  */
@@ -2348,9 +2313,21 @@ stmt:
 		  $$ = NULL_TREE; }
 	| BREAK ';'
 	        { stmt_count++;
+		if (!(c_in_iteration_stmt || c_in_case_stmt))
+		  {
+		    error ("break statement not within loop or switch");
+		    $$ = NULL_TREE;
+		  }
+		else
 		  $$ = add_stmt (build_break_stmt ()); }
 	| CONTINUE ';'
                 { stmt_count++;
+		if (!c_in_iteration_stmt)
+		  {
+		    error ("continue statement not within a loop");
+		    $$ = NULL_TREE;
+		  }
+		else
 		  $$ = add_stmt (build_continue_stmt ()); }
 	| RETURN ';'
                 { stmt_count++;
@@ -2358,23 +2335,7 @@ stmt:
 	| RETURN expr ';'
                 { stmt_count++;
 		  $$ = c_expand_return ($2); }
-	| ASM_KEYWORD maybe_type_qual '(' expr ')' ';'
-		{ stmt_count++;
-		  $$ = simple_asm_stmt ($4); }
-	/* This is the case with just output operands.  */
-	| ASM_KEYWORD maybe_type_qual '(' expr ':' asm_operands ')' ';'
-		{ stmt_count++;
-		  $$ = build_asm_stmt ($2, $4, $6, NULL_TREE, NULL_TREE); }
-	/* This is the case with input operands as well.  */
-	| ASM_KEYWORD maybe_type_qual '(' expr ':' asm_operands ':'
-	  asm_operands ')' ';'
-		{ stmt_count++;
-		  $$ = build_asm_stmt ($2, $4, $6, $8, NULL_TREE); }
-	/* This is the case with clobbered registers as well.  */
-	| ASM_KEYWORD maybe_type_qual '(' expr ':' asm_operands ':'
-	  asm_operands ':' asm_clobbers ')' ';'
-		{ stmt_count++;
-		  $$ = build_asm_stmt ($2, $4, $6, $8, $10); }
+	| asm_stmt
 	| GOTO identifier ';'
 		{ tree decl;
 		  stmt_count++;
@@ -2397,18 +2358,18 @@ stmt:
 		{ $$ = NULL_TREE; }
 @@ifobjc
 	| AT_THROW expr ';'
-		{ stmt_count++; 
-		  $$ = objc_build_throw_stmt ($2); 
+		{ stmt_count++;
+		  $$ = objc_build_throw_stmt ($2);
 		}
 	| AT_THROW ';'
-		{ stmt_count++; 
-		  $$ = objc_build_throw_stmt (NULL_TREE); 
+		{ stmt_count++;
+		  $$ = objc_build_throw_stmt (NULL_TREE);
 		}
-	| objc_try_catch_stmt 
+	| objc_try_catch_stmt
 		{ objc_build_finally_prologue (); }
 	  objc_finally_block
 		{ $$ = objc_build_try_catch_finally_stmt ($1, $3); }
-	| AT_SYNCHRONIZED '(' expr ')' 
+	| AT_SYNCHRONIZED '(' expr ')'
 		{ objc_build_synchronized_prologue ($3); }
 	  compstmt
 		{ $$ = objc_build_synchronized_epilogue (); }
@@ -2425,18 +2386,18 @@ objc_try_catch_stmt:
 
 
 objc_try_stmt:
-	  AT_TRY 
+	  AT_TRY
 		{ objc_build_try_prologue (); }
-	  compstmt 
+	  compstmt
 	;
-	
+
 objc_catch_list:
 	  objc_catch_list objc_catch_block
 	| objc_catch_block
 	;
 
 objc_catch_block:
-	  AT_CATCH '(' parm ')' 
+	  AT_CATCH '(' parm ')'
 		{ objc_build_catch_stmt ($3); }
 	  compstmt
 		{ stmt_count++; }
@@ -2476,20 +2437,69 @@ label:	  CASE expr_no_commas ':'
 		}
 	;
 
-/* Either a type-qualifier or nothing.  First thing in an `asm' statement.  */
+/* Asm expressions and statements */
 
-maybe_type_qual:
-	/* empty */
-		{ emit_line_note (input_location);
-		  $$ = NULL_TREE; }
-	| TYPE_QUAL
-		{ emit_line_note (input_location); }
+/* simple_asm_expr is used in restricted contexts, where a full
+   expression with inputs and outputs does not make sense.  */
+simple_asm_expr:
+	ASM_KEYWORD stop_string_translation
+	      '(' STRING ')' start_string_translation
+		{ $$ = $4; }
 	;
 
-xexpr:
-	/* empty */
+/* maybeasm: used for assembly names for declarations */
+maybeasm:
+	  /* empty */
 		{ $$ = NULL_TREE; }
-	| expr
+	| simple_asm_expr
+	;
+
+/* asmdef: asm() outside a function body.  */
+asmdef:
+	simple_asm_expr ';'
+		{ assemble_asm ($1); }
+        | ASM_KEYWORD error start_string_translation ';'
+                {}
+	;
+
+/* Full-blown asm statement with inputs, outputs, clobbers, and
+   volatile tag allowed.  */
+asm_stmt:
+	ASM_KEYWORD maybe_volatile stop_string_translation
+	        '(' asm_argument ')' start_string_translation ';'
+		{ stmt_count++;
+		  $$ = build_asm_stmt ($2, $5); }
+	;
+
+asm_argument:
+	/* no operands */
+	STRING
+		{ $$ = build_asm_expr ($1, 0, 0, 0, true); }
+	/* output operands */
+	| STRING ':' asm_operands
+		{ $$ = build_asm_expr ($1, $3, 0, 0, false); }
+	/* output and input operands */
+	| STRING ':' asm_operands ':' asm_operands
+		{ $$ = build_asm_expr ($1, $3, $5, 0, false); }
+	/* output and input operands and clobbers */
+	| STRING ':' asm_operands ':' asm_operands ':' asm_clobbers
+		{ $$ = build_asm_expr ($1, $3, $5, $7, false); }
+	;
+
+/* Either 'volatile' or nothing.  First thing in an `asm' statement.  */
+
+maybe_volatile:
+	/* empty */
+		{ $$ = 0; }
+	| TYPE_QUAL
+		{ if ($1 != ridpointers[RID_VOLATILE])
+		    {
+		      warning ("%E qualifier ignored on asm", $1);
+		      $$ = 0;
+		    }
+		  else
+		    $$ = $1;
+		}
 	;
 
 /* These are the operands other than the first string and colon
@@ -2506,12 +2516,13 @@ nonnull_asm_operands:
 	;
 
 asm_operand:
-	  STRING '(' expr ')'
-		{ $$ = build_tree_list (build_tree_list (NULL_TREE, $1), $3); }
-	| '[' identifier ']' STRING '(' expr ')'
+	  STRING start_string_translation '(' expr ')' stop_string_translation
+		{ $$ = build_tree_list (build_tree_list (NULL_TREE, $1), $4); }
+	| '[' identifier ']' STRING start_string_translation
+	  '(' expr ')' stop_string_translation
 		{ $2 = build_string (IDENTIFIER_LENGTH ($2),
 				     IDENTIFIER_POINTER ($2));
-		  $$ = build_tree_list (build_tree_list ($2, $4), $6); }
+		  $$ = build_tree_list (build_tree_list ($2, $4), $7); }
 	;
 
 asm_clobbers:
@@ -2520,6 +2531,15 @@ asm_clobbers:
 	| asm_clobbers ',' STRING
 		{ $$ = tree_cons (NULL_TREE, $3, $1); }
 	;
+
+stop_string_translation:
+        { c_lex_string_translate = false; }
+        ;
+
+start_string_translation:
+        { c_lex_string_translate = true; }
+        ;
+
 
 /* This is what appears inside the parens in a function declarator.
    Its value is a list of ..._TYPE nodes.  Attributes must appear here
@@ -2528,11 +2548,11 @@ asm_clobbers:
    "void bar (int (__attribute__((__mode__(SI))) int foo));".  */
 parmlist:
 	  maybe_attribute
-		{ pushlevel (0);
+		{ push_scope ();
 		  declare_parm_level (); }
 	  parmlist_1
 		{ $$ = $3;
-		  poplevel (0, 0, 0); }
+		  pop_scope (); }
 	;
 
 parmlist_1:
@@ -2545,32 +2565,23 @@ parmlist_1:
 	  parmlist_1
 		{ $$ = $6; }
 	| error ')'
-		{ $$ = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE); }
+		{ $$ = make_node (TREE_LIST); }
 	;
 
 /* This is what appears inside the parens in a function declarator.
    Is value is represented in the format that grokdeclarator expects.  */
 parmlist_2:  /* empty */
-		{ $$ = get_parm_info (0); }
+		{ $$ = make_node (TREE_LIST); }
 	| ELLIPSIS
-		{ $$ = get_parm_info (0);
-		  /* Gcc used to allow this as an extension.  However, it does
-		     not work for all targets, and thus has been disabled.
-		     Also, since func (...) and func () are indistinguishable,
-		     it caused problems with the code in expand_builtin which
-		     tries to verify that BUILT_IN_NEXT_ARG is being used
-		     correctly.  */
+		{ $$ = make_node (TREE_LIST); 
+		  /* Suppress -Wold-style-definition for this case.  */
+		  TREE_CHAIN ($$) = error_mark_node;
 		  error ("ISO C requires a named argument before `...'");
-		  parsing_iso_function_signature = true;
 		}
 	| parms
-		{ $$ = get_parm_info (1);
-		  parsing_iso_function_signature = true;
-		}
+		{ $$ = get_parm_info (/*ellipsis=*/false); }
 	| parms ',' ELLIPSIS
-		{ $$ = get_parm_info (0);
-		  parsing_iso_function_signature = true;
-		}
+		{ $$ = get_parm_info (/*ellipsis=*/true); }
 	;
 
 parms:
@@ -2645,11 +2656,11 @@ setspecs_fp:
    Its value is a list of ..._TYPE nodes or a list of identifiers.  */
 parmlist_or_identifiers:
 	  maybe_attribute
-		{ pushlevel (0);
+		{ push_scope ();
 		  declare_parm_level (); }
 	  parmlist_or_identifiers_1
 		{ $$ = $3;
-		  poplevel (0, 0, 0); }
+		  pop_scope (); }
 	;
 
 parmlist_or_identifiers_1:
@@ -3067,13 +3078,13 @@ optparmlist:
 		}
 	| ','
 		{
-		  pushlevel (0);
+		  push_scope ();
 		}
 	  parmlist_2
 		{
 		  /* returns a tree list node generated by get_parm_info */
 		  $$ = $3;
-		  poplevel (0, 0, 0);
+		  pop_scope ();
 		}
 	;
 
@@ -3460,6 +3471,7 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_FALSE */	0,
   /* RID_NAMESPACE */	0,
   /* RID_NEW */		0,
+  /* RID_OFFSETOF */    0,
   /* RID_OPERATOR */	0,
   /* RID_THIS */	0,
   /* RID_THROW */	0,
@@ -3527,28 +3539,7 @@ init_reswords (void)
 static void
 yyerror (const char *msgid)
 {
-  const char *string = _(msgid);
-
-  if (last_token == CPP_EOF)
-    error ("%s at end of input", string);
-  else if (last_token == CPP_CHAR || last_token == CPP_WCHAR)
-    {
-      unsigned int val = TREE_INT_CST_LOW (yylval.ttype);
-      const char *const ell = (last_token == CPP_CHAR) ? "" : "L";
-      if (val <= UCHAR_MAX && ISGRAPH (val))
-	error ("%s before %s'%c'", string, ell, val);
-      else
-	error ("%s before %s'\\x%x'", string, ell, val);
-    }
-  else if (last_token == CPP_STRING
-	   || last_token == CPP_WSTRING)
-    error ("%s before string constant", string);
-  else if (last_token == CPP_NUMBER)
-    error ("%s before numeric constant", string);
-  else if (last_token == CPP_NAME)
-    error ("%s before \"%s\"", string, IDENTIFIER_POINTER (yylval.ttype));
-  else
-    error ("%s before '%s' token", string, NAME(last_token));
+  c_parse_error (msgid, last_token, yylval.ttype);
 }
 
 static int
@@ -3689,7 +3680,7 @@ _yylex (void)
     case CPP_STRING:
     case CPP_WSTRING:
       return STRING;
-      
+
     case CPP_OBJC_STRING:
       return OBJC_STRING;
 
@@ -3758,29 +3749,14 @@ yyprint (FILE *file, int yychar, YYSTYPE yyl)
     }
 }
 
-/* This is not the ideal place to put these, but we have to get them out
-   of c-lex.c because cp/lex.c has its own versions.  */
-
-/* Free malloced parser stacks if necessary.  */
-
-void
-free_parser_stacks (void)
-{
-}
+/* This is not the ideal place to put this, but we have to get it out
+   of c-lex.c because cp/lex.c has its own version.  */
 
 /* Parse the file.  */
 void
 c_parse_file (void)
 {
   yyparse ();
-  /* In case there were missing closebraces, get us back to the global
-     binding level.  */
-  while (! global_bindings_p ())
-    poplevel (0, 0, 0);
-  /* __FUNCTION__ is defined at file scope ("").  This
-     call may not be necessary as my tests indicate it
-     still works without it.  */
-  finish_fname_decls ();
 
   if (malloced_yyss)
     {

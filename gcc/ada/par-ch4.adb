@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1116,6 +1116,7 @@ package body Ch4 is
    --  POSITIONAL_ARRAY_AGGREGATE ::=
    --    (EXPRESSION, EXPRESSION {, EXPRESSION})
    --  | (EXPRESSION {, EXPRESSION}, others => EXPRESSION)
+   --  | (EXPRESSION {, EXPRESSION}, others => <>)
 
    --  NAMED_ARRAY_AGGREGATE ::=
    --    (ARRAY_COMPONENT_ASSOCIATION {, ARRAY_COMPONENT_ASSOCIATION})
@@ -1123,6 +1124,9 @@ package body Ch4 is
    --  PRIMARY ::= (EXPRESSION);
 
    --  Error recovery: can raise Error_Resync
+
+   --  Note: POSITIONAL_ARRAY_AGGREGATE rule has been extended to give support
+   --        to Ada0Y limited aggregates (AI-287)
 
    function P_Aggregate_Or_Paren_Expr return Node_Id is
       Aggregate_Node : Node_Id;
@@ -1159,6 +1163,20 @@ package body Ch4 is
             else
                Restore_Scan_State (Scan_State); -- to NULL that must be expr
             end if;
+         end if;
+
+         --  Ada0Y (AI-287): The box notation is allowed only with named
+         --  notation because positional notation might be error prone. For
+         --  example, in "(X, <>, Y, <>)", there is no type associated with
+         --  the boxes, so you might not be leaving out the components you
+         --  thought you were leaving out.
+
+         if Extensions_Allowed and then Token = Tok_Box then
+            Error_Msg_SC ("(Ada 0Y) box notation only allowed with "
+                          & "named notation");
+            Scan; --  past BOX
+            Aggregate_Node := New_Node (N_Aggregate, Lparen_Sloc);
+            return Aggregate_Node;
          end if;
 
          Expr_Node := P_Expression_Or_Range_Attribute;
@@ -1354,6 +1372,7 @@ package body Ch4 is
 
    --  RECORD_COMPONENT_ASSOCIATION ::=
    --    [COMPONENT_CHOICE_LIST =>] EXPRESSION
+   --  | COMPONENT_CHOICE_LIST => <>
 
    --  COMPONENT_CHOICE_LIST =>
    --    component_SELECTOR_NAME {| component_SELECTOR_NAME}
@@ -1361,12 +1380,17 @@ package body Ch4 is
 
    --  ARRAY_COMPONENT_ASSOCIATION ::=
    --    DISCRETE_CHOICE_LIST => EXPRESSION
+   --  | DISCRETE_CHOICE_LIST => <>
 
    --  Note: this routine only handles the named cases, including others.
    --  Cases where the component choice list is not present have already
    --  been handled directly.
 
    --  Error recovery: can raise Error_Resync
+
+   --  Note: RECORD_COMPONENT_ASSOCIATION and ARRAY_COMPONENT_ASSOCIATION
+   --        rules have been extended to give support to Ada0Y limited
+   --        aggregates (AI-287)
 
    function P_Record_Or_Array_Component_Association return Node_Id is
       Assoc_Node : Node_Id;
@@ -1376,7 +1400,24 @@ package body Ch4 is
       Set_Choices (Assoc_Node, P_Discrete_Choice_List);
       Set_Sloc (Assoc_Node, Token_Ptr);
       TF_Arrow;
-      Set_Expression (Assoc_Node, P_Expression);
+
+      if Token = Tok_Box then
+
+         --  Ada0Y (AI-287): The box notation is used to indicate the default
+         --  initialization of limited aggregate components
+
+         if not Extensions_Allowed then
+            Error_Msg_SP
+              ("(Ada 0Y) limited aggregates are an Ada0X extension");
+            Error_Msg_SP ("\unit must be compiled with -gnatX switch");
+         end if;
+
+         Set_Box_Present (Assoc_Node);
+         Scan; -- Past box
+      else
+         Set_Expression (Assoc_Node, P_Expression);
+      end if;
+
       return Assoc_Node;
    end P_Record_Or_Array_Component_Association;
 
@@ -2287,19 +2328,35 @@ package body Ch4 is
    --  Error recovery: can raise Error_Resync
 
    function P_Allocator return Node_Id is
-      Alloc_Node  : Node_Id;
-      Type_Node   : Node_Id;
+      Alloc_Node             : Node_Id;
+      Type_Node              : Node_Id;
+      Null_Exclusion_Present : Boolean;
 
    begin
       Alloc_Node := New_Node (N_Allocator, Token_Ptr);
       T_New;
+
+      --  Scan Null_Exclusion if present (Ada 0Y (AI-231))
+
+      if Extensions_Allowed then
+         Null_Exclusion_Present := P_Null_Exclusion;
+         Set_Null_Exclusion_Present (Alloc_Node, Null_Exclusion_Present);
+
+      --  If Ada 95, null exclusion never present
+
+      else
+         Null_Exclusion_Present := False;
+      end if;
+
       Type_Node := P_Subtype_Mark_Resync;
 
       if Token = Tok_Apostrophe then
          Scan; -- past apostrophe
          Set_Expression (Alloc_Node, P_Qualified_Expression (Type_Node));
       else
-         Set_Expression (Alloc_Node, P_Subtype_Indication (Type_Node));
+         Set_Expression
+           (Alloc_Node,
+            P_Subtype_Indication (Type_Node, Null_Exclusion_Present));
       end if;
 
       return Alloc_Node;

@@ -1,5 +1,5 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
-   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1987, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -88,7 +88,6 @@ extern int strict_memory_address_p (enum machine_mode, rtx);
 extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
-extern int validate_replace_src (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
 extern int num_changes_pending (void);
 #ifdef HAVE_cc0
@@ -221,7 +220,7 @@ struct insn_operand_data
 
   const char *const constraint;
 
-  const ENUM_BITFIELD(machine_mode) mode : 16;
+  ENUM_BITFIELD(machine_mode) const mode : 16;
 
   const char strict_low;
 
@@ -238,7 +237,19 @@ struct insn_operand_data
 struct insn_data
 {
   const char *const name;
-  const void *output;
+#if HAVE_DESIGNATED_INITIALIZERS
+  union {
+    const char *single;
+    const char *const *multi;
+    insn_output_fn function;
+  } output;
+#else
+  struct {
+    const char *single;
+    const char *const *multi;
+    insn_output_fn function;
+  } output;
+#endif
   const insn_gen_fn genfun;
   const struct insn_operand_data *const operand;
 

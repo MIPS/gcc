@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,6 +40,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
@@ -124,7 +125,12 @@ package body Freeze is
    --  a subprogram type (i.e. an access to a subprogram).
 
    function Is_Fully_Defined (T : Entity_Id) return Boolean;
-   --  true if T is not private, or has a full view.
+   --  True if T is not private and has no private components, or has a full
+   --  view. Used to determine whether the designated type of an access type
+   --  should be frozen when the access type is frozen. This is done when an
+   --  allocator is frozen, or an expression that may involve attributes of
+   --  the designated type. Otherwise freezing the access type does not freeze
+   --  the designated type.
 
    procedure Process_Default_Expressions
      (E     : Entity_Id;
@@ -1467,6 +1473,45 @@ package body Freeze is
          --  Set True if we find at least one component with a component
          --  clause (used to warn about useless Bit_Order pragmas).
 
+         procedure Check_Itype (Desig : Entity_Id);
+         --  If the component subtype is an access to a constrained subtype
+         --  of an already frozen type, make the subtype frozen as well. It
+         --  might otherwise be frozen in the wrong scope, and a freeze node
+         --  on subtype has no effect.
+
+         -----------------
+         -- Check_Itype --
+         -----------------
+
+         procedure Check_Itype (Desig : Entity_Id) is
+         begin
+            if not Is_Frozen (Desig)
+              and then Is_Frozen (Base_Type (Desig))
+            then
+               Set_Is_Frozen (Desig);
+
+               --  In addition, add an Itype_Reference to ensure that the
+               --  access subtype is elaborated early enough. This cannot
+               --  be done if the subtype may depend on discriminants.
+
+               if Ekind (Comp) = E_Component
+                 and then Is_Itype (Etype (Comp))
+                 and then not Has_Discriminants (Rec)
+               then
+                  IR := Make_Itype_Reference (Sloc (Comp));
+                  Set_Itype (IR, Desig);
+
+                  if No (Result) then
+                     Result := New_List (IR);
+                  else
+                     Append (IR, Result);
+                  end if;
+               end if;
+            end if;
+         end Check_Itype;
+
+      --  Start of processing for Freeze_Record_Type
+
       begin
          --  If this is a subtype of a controlled type, declared without
          --  a constraint, the _controller may not appear in the component
@@ -1481,11 +1526,10 @@ package body Freeze is
             then
                Set_First_Entity (Rec, First_Entity (Base_Type (Rec)));
 
-            --  If this is an internal type without a declaration, as for
-            --  a record component, the base type may not yet be frozen,
-            --  and its controller has not been created. Add an explicit
-            --  freeze node for the itype, so it will be frozen after the
-            --  base type.
+            --  If this is an internal type without a declaration, as for a
+            --  record component, the base type may not yet be frozen, and its
+            --  controller has not been created. Add an explicit freeze node
+            --  for the itype, so it will be frozen after the base type.
 
             elsif Is_Itype (Rec)
               and then Has_Delayed_Freeze (Base_Type (Rec))
@@ -1542,40 +1586,19 @@ package body Freeze is
                            Loc, Result);
                      end if;
 
+                  elsif Is_Itype (Designated_Type (Etype (Comp))) then
+                     Check_Itype (Designated_Type (Etype (Comp)));
+
                   else
                      Freeze_And_Append
                        (Designated_Type (Etype (Comp)), Loc, Result);
                   end if;
                end;
 
-            --  If this is a constrained subtype of an already frozen type,
-            --  make the subtype frozen as well. It might otherwise be frozen
-            --  in the wrong scope, and a freeze node on subtype has no effect.
-
             elsif Is_Access_Type (Etype (Comp))
-              and then not Is_Frozen (Designated_Type (Etype (Comp)))
               and then Is_Itype (Designated_Type (Etype (Comp)))
-              and then Is_Frozen (Base_Type (Designated_Type (Etype (Comp))))
             then
-               Set_Is_Frozen (Designated_Type (Etype (Comp)));
-
-               --  In addition, add an Itype_Reference to ensure that the
-               --  access subtype is elaborated early enough. This cannot
-               --  be done if the subtype may depend on discriminants.
-
-               if Ekind (Comp) = E_Component
-                 and then Is_Itype (Etype (Comp))
-                 and then not Has_Discriminants (Rec)
-               then
-                  IR := Make_Itype_Reference (Sloc (Comp));
-                  Set_Itype (IR, Designated_Type (Etype (Comp)));
-
-                  if No (Result) then
-                     Result := New_List (IR);
-                  else
-                     Append (IR, Result);
-                  end if;
-               end if;
+               Check_Itype (Designated_Type (Etype (Comp)));
 
             elsif Is_Array_Type (Etype (Comp))
               and then Is_Access_Type (Component_Type (Etype (Comp)))
@@ -1812,16 +1835,19 @@ package body Freeze is
          --  fields with component clauses, where we must check the size.
          --  This is not done till the freeze point, since for fixed-point
          --  types, we do not know the size until the type is frozen.
+         --  Similar processing applies to bit packed arrays.
 
          if Is_First_Subtype (Rec) then
             Comp := First_Component (Rec);
 
             while Present (Comp) loop
                if Present (Component_Clause (Comp))
-                 and then Is_Fixed_Point_Type (Etype (Comp))
+                 and then (Is_Fixed_Point_Type (Etype (Comp))
+                             or else
+                           Is_Bit_Packed_Array (Etype (Comp)))
                then
                   Check_Size
-                    (Component_Clause (Comp),
+                    (Component_Name (Component_Clause (Comp)),
                      Etype (Comp),
                      Esize (Comp),
                      Junk);
@@ -1842,10 +1868,8 @@ package body Freeze is
 
       --  It is improper to freeze an external entity within a generic
       --  because its freeze node will appear in a non-valid context.
-      --  ??? We should probably freeze the entity at that point and insert
-      --  the freeze node in a proper place but this proper place is not
-      --  easy to find, and the proper scope is not easy to restore. For
-      --  now, just wait to get out of the generic to freeze ???
+      --  The entity will be frozen in the proper scope after the current
+      --  generic is analyzed.
 
       elsif Inside_A_Generic and then External_Ref_In_Generic (E) then
          return No_List;
@@ -1882,6 +1906,35 @@ package body Freeze is
 
                S := Scope (S);
             end loop;
+         end;
+
+      --  Similarly, an inlined instance body may make reference to global
+      --  entities, but these references cannot be the proper freezing point
+      --  for them, and the the absence of inlining freezing will take place
+      --  in their own scope. Normally instance bodies are analyzed after
+      --  the enclosing compilation, and everything has been frozen at the
+      --  proper place, but with front-end inlining an instance body is
+      --  compiled before the end of the enclosing scope, and as a result
+      --  out-of-order freezing must be prevented.
+
+      elsif Front_End_Inlining
+        and then  In_Instance_Body
+        and then Present (Scope (E))
+      then
+         declare
+            S : Entity_Id := Scope (E);
+         begin
+            while Present (S) loop
+               if Is_Generic_Instance (S) then
+                  exit;
+               else
+                  S := Scope (S);
+               end if;
+            end loop;
+
+            if No (S) then
+               return No_List;
+            end if;
          end;
       end if;
 
@@ -1950,7 +2003,8 @@ package body Freeze is
          if Is_Subprogram (E) then
             if not Is_Internal (E) then
                declare
-                  F_Type : Entity_Id;
+                  F_Type    : Entity_Id;
+                  Warn_Node : Node_Id;
 
                   function Is_Fat_C_Ptr_Type (T : Entity_Id) return Boolean;
                   --  Determines if given type entity is a fat pointer type
@@ -1974,7 +2028,6 @@ package body Freeze is
                   --  Loop through formals
 
                   Formal := First_Formal (E);
-
                   while Present (Formal) loop
                      F_Type := Etype (Formal);
                      Freeze_And_Append (F_Type, Loc, Result);
@@ -2028,12 +2081,30 @@ package body Freeze is
                        and then Warn_On_Export_Import
                      then
                         Error_Msg_Qual_Level := 1;
-                        Error_Msg_N
+
+                        --  If this is an inherited operation, place the
+                        --  warning on the derived type declaration, rather
+                        --  than on the original subprogram.
+
+                        if Nkind (Original_Node (Parent (E))) =
+                          N_Full_Type_Declaration
+                        then
+                           Warn_Node := Parent (E);
+
+                           if Formal = First_Formal (E) then
+                              Error_Msg_NE
+                                ("?in inherited operation&!", Warn_Node, E);
+                           end if;
+                        else
+                           Warn_Node := Formal;
+                        end if;
+
+                        Error_Msg_NE
                           ("?type of argument& is unconstrained array",
-                           Formal);
-                        Error_Msg_N
+                           Warn_Node, Formal);
+                        Error_Msg_NE
                           ("?foreign caller must pass bounds explicitly",
-                           Formal);
+                           Warn_Node, Formal);
                         Error_Msg_Qual_Level := 0;
                      end if;
 
@@ -2122,14 +2193,21 @@ package body Freeze is
                --  inherited the indication from elsewhere (e.g. an address
                --  clause, which is not good enough in RM terms!)
 
-               if Present (Get_Rep_Pragma (E, Name_Atomic))            or else
-                  Present (Get_Rep_Pragma (E, Name_Atomic_Components)) or else
-                  Present (Get_Rep_Pragma (E, Name_Volatile))          or else
-                  Present (Get_Rep_Pragma (E, Name_Volatile_Components))
+               if Present (Get_Rep_Pragma (E, Name_Atomic))
+                    or else
+                  Present (Get_Rep_Pragma (E, Name_Atomic_Components))
                then
                   Error_Msg_N
-                    ("stand alone atomic/volatile constant must be imported",
-                     E);
+                    ("stand alone atomic constant must be " &
+                     "imported ('R'M 'C.6(13))", E);
+
+               elsif Present (Get_Rep_Pragma (E, Name_Volatile))
+                       or else
+                     Present (Get_Rep_Pragma (E, Name_Volatile_Components))
+               then
+                  Error_Msg_N
+                    ("stand alone volatile constant must be " &
+                     "imported ('R'M 'C.6(13))", E);
                end if;
             end if;
 
@@ -2375,6 +2453,29 @@ package body Freeze is
                   if Unknown_Alignment (E) then
                      Set_Alignment (E, Alignment (Base_Type (E)));
                   end if;
+               end if;
+
+               --  For bit-packed arrays, check the size
+
+               if Is_Bit_Packed_Array (E)
+                 and then Known_Esize (E)
+               then
+                  declare
+                     Discard : Boolean;
+                     SizC    : constant Node_Id := Size_Clause (E);
+
+                  begin
+                     --  It is not clear if it is possible to have no size
+                     --  clause at this stage, but this is not worth worrying
+                     --  about. Post the error on the entity name in the size
+                     --  clause if present, else on the type entity itself.
+
+                     if Present (SizC) then
+                        Check_Size (Name (SizC), E, Esize (E), Discard);
+                     else
+                        Check_Size (E, E, Esize (E), Discard);
+                     end if;
+                  end;
                end if;
 
                --  Check one common case of a size given where the array
@@ -4142,6 +4243,20 @@ package body Freeze is
          end if;
       end if;
 
+      --  Reset the Pure indication on an imported subprogram unless an
+      --  explicit Pure_Function pragma was present. We do this because
+      --  otherwise it is an insidious error to call a non-pure function
+      --  from a pure unit and have calls mysteriously optimized away.
+      --  What happens here is that the Import can bypass the normal
+      --  check to ensure that pure units call only pure subprograms.
+
+      if Is_Imported (E)
+        and then Is_Pure (E)
+        and then not Has_Pragma_Pure_Function (E)
+      then
+         Set_Is_Pure (E, False);
+      end if;
+
       --  For non-foreign convention subprograms, this is where we create
       --  the extra formals (for accessibility level and constrained bit
       --  information). We delay this till the freeze point precisely so
@@ -4246,15 +4361,38 @@ package body Freeze is
    --  Is_Fully_Defined --
    -----------------------
 
-   --  Should this be in Sem_Util ???
-
    function Is_Fully_Defined (T : Entity_Id) return Boolean is
    begin
       if Ekind (T) = E_Class_Wide_Type then
          return Is_Fully_Defined (Etype (T));
-      else
-         return not Is_Private_Type (T)
-           or else Present (Full_View (Base_Type (T)));
+
+      elsif Is_Array_Type (T) then
+         return Is_Fully_Defined (Component_Type (T));
+
+      elsif Is_Record_Type (T)
+        and not Is_Private_Type (T)
+      then
+         --  Verify that the record type has no components with
+         --  private types without completion.
+
+         declare
+            Comp : Entity_Id;
+
+         begin
+            Comp := First_Component (T);
+
+            while Present (Comp) loop
+               if not Is_Fully_Defined (Etype (Comp)) then
+                  return False;
+               end if;
+
+               Next_Component (Comp);
+            end loop;
+            return True;
+         end;
+
+      else return not Is_Private_Type (T)
+        or else Present (Full_View (Base_Type (T)));
       end if;
    end Is_Fully_Defined;
 

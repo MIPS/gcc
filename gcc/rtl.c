@@ -1,6 +1,6 @@
 /* RTL utility routines.
    Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,7 +90,7 @@ const char * const rtx_format[NUM_RTX_CODE] = {
 /* Indexed by rtx code, gives a character representing the "class" of
    that rtx code.  See rtl.def for documentation on the defined classes.  */
 
-const char rtx_class[NUM_RTX_CODE] = {
+const enum rtx_class rtx_class[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   CLASS,
 #include "rtl.def"		/* rtl expressions are defined here */
 #undef DEF_RTL_EXPR
@@ -122,7 +122,7 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
   "NOTE_INSN_REPEATED_LINE_NUMBER",
   "NOTE_INSN_BASIC_BLOCK", "NOTE_INSN_EXPECTED_VALUE",
-  "NOTE_INSN_PREDICTION"
+  "NOTE_INSN_PREDICTION", "NOTE_INSN_VAR_LOCATION"
 };
 
 const char * const reg_note_name[] =
@@ -138,6 +138,14 @@ const char * const reg_note_name[] =
   "REG_VTABLE_REF"
 };
 
+
+#ifdef GATHER_STATISTICS
+static int rtx_alloc_counts[(int) LAST_AND_UNUSED_RTX_CODE];
+static int rtx_alloc_sizes[(int) LAST_AND_UNUSED_RTX_CODE];
+static int rtvec_alloc_counts;
+static int rtvec_alloc_sizes;
+#endif
+
 
 /* Allocate an rtx vector of N elements.
    Store the length, and initialize all elements to zero.  */
@@ -148,10 +156,16 @@ rtvec_alloc (int n)
   rtvec rt;
 
   rt = ggc_alloc_rtvec (n);
-  /* clear out the vector */
+  /* Clear out the vector.  */
   memset (&rt->elem[0], 0, n * sizeof (rtx));
 
   PUT_NUM_ELEM (rt, n);
+
+#ifdef GATHER_STATISTICS
+  rtvec_alloc_counts++;
+  rtvec_alloc_sizes += n * sizeof (rtx);
+#endif
+
   return rt;
 }
 
@@ -159,11 +173,11 @@ rtvec_alloc (int n)
    all the rest is initialized to zero.  */
 
 rtx
-rtx_alloc (RTX_CODE code)
+rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = ggc_alloc_rtx (code);
+  rt = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (code) PASS_MEM_STAT);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -171,6 +185,12 @@ rtx_alloc (RTX_CODE code)
 
   memset (rt, 0, RTX_HDR_SIZE);
   PUT_CODE (rt, code);
+
+#ifdef GATHER_STATISTICS
+  rtx_alloc_counts[code]++;
+  rtx_alloc_sizes[code] += RTX_SIZE (code);
+#endif
+
   return rt;
 }
 
@@ -204,6 +224,10 @@ copy_rtx (rtx orig)
       /* SCRATCH must be shared because they represent distinct values.  */
     case ADDRESSOF:
       return orig;
+    case CLOBBER:
+      if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
+	return orig;
+      break;
 
     case CONST:
       /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
@@ -236,7 +260,7 @@ copy_rtx (rtx orig)
   RTX_FLAG (copy, used) = 0;
 
   /* We do not copy FRAME_RELATED for INSNs.  */
-  if (GET_RTX_CLASS (code) == 'i')
+  if (INSN_P (orig))
     RTX_FLAG (copy, frame_related) = 0;
   RTX_FLAG (copy, jump) = RTX_FLAG (orig, jump);
   RTX_FLAG (copy, call) = RTX_FLAG (orig, call);
@@ -285,11 +309,12 @@ copy_rtx (rtx orig)
 /* Create a new copy of an rtx.  Only copy just one level.  */
 
 rtx
-shallow_copy_rtx (rtx orig)
+shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = ggc_alloc_rtx (GET_CODE (orig));
+  copy = ggc_alloc_typed_stat (gt_ggc_e_7rtx_def, RTX_SIZE (GET_CODE (orig))
+			       PASS_MEM_STAT);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }
@@ -357,7 +382,7 @@ rtx_equal_p (rtx x, rtx y)
     }
 
   /* Compare the elements.  If any pair of corresponding elements
-     fail to match, return 0 for the whole things.  */
+     fail to match, return 0 for the whole thing.  */
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -416,6 +441,36 @@ rtx_equal_p (rtx x, rtx y)
 	}
     }
   return 1;
+}
+
+void dump_rtx_statistics (void)
+{
+#ifdef GATHER_STATISTICS
+  int i;
+  int total_counts = 0;
+  int total_sizes = 0;
+  fprintf (stderr, "\nRTX Kind               Count      Bytes\n");
+  fprintf (stderr, "---------------------------------------\n");
+  for (i = 0; i < LAST_AND_UNUSED_RTX_CODE; i++)
+    if (rtx_alloc_counts[i])
+      {
+        fprintf (stderr, "%-20s %7d %10d\n", GET_RTX_NAME (i),
+                 rtx_alloc_counts[i], rtx_alloc_sizes[i]);
+        total_counts += rtx_alloc_counts[i];
+        total_sizes += rtx_alloc_sizes[i];
+      }
+  if (rtvec_alloc_counts)
+    {
+      fprintf (stderr, "%-20s %7d %10d\n", "rtvec",
+               rtvec_alloc_counts, rtvec_alloc_sizes);
+      total_counts += rtvec_alloc_counts;
+      total_sizes += rtvec_alloc_sizes;
+    }
+  fprintf (stderr, "---------------------------------------\n");
+  fprintf (stderr, "%-20s %7d %10d\n",
+           "Total", total_counts, total_sizes);
+  fprintf (stderr, "---------------------------------------\n");
+#endif  
 }
 
 #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)

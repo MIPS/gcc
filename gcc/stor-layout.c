@@ -1,6 +1,6 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -104,19 +104,6 @@ get_pending_sizes (void)
   return chain;
 }
 
-/* Return nonzero if EXPR is present on the pending sizes list.  */
-
-int
-is_pending_size (tree expr)
-{
-  tree t;
-
-  for (t = pending_sizes; t; t = TREE_CHAIN (t))
-    if (TREE_VALUE (t) == expr)
-      return 1;
-  return 0;
-}
-
 /* Add EXPR to the pending sizes list.  */
 
 void
@@ -155,7 +142,7 @@ variable_size (tree size)
      just return SIZE unchanged.  Likewise for self-referential sizes and
      constant sizes.  */
   if (TREE_CONSTANT (size)
-      || (*lang_hooks.decls.global_bindings_p) () < 0
+      || lang_hooks.decls.global_bindings_p () < 0
       || CONTAINS_PLACEHOLDER_P (size))
     return size;
 
@@ -177,7 +164,7 @@ variable_size (tree size)
   if (TREE_CODE (save) == SAVE_EXPR)
     SAVE_EXPR_PERSISTENT_P (save) = 1;
 
-  if ((*lang_hooks.decls.global_bindings_p) ())
+  if (lang_hooks.decls.global_bindings_p ())
     {
       if (TREE_CONSTANT (size))
 	error ("type size can't be explicitly evaluated");
@@ -203,10 +190,10 @@ variable_size (tree size)
 #define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (DImode)
 #endif
 
-/* Return the machine mode to use for a nonscalar of SIZE bits.
-   The mode must be in class CLASS, and have exactly that many bits.
-   If LIMIT is nonzero, modes of wider than MAX_FIXED_MODE_SIZE will not
-   be used.  */
+/* Return the machine mode to use for a nonscalar of SIZE bits.  The
+   mode must be in class CLASS, and have exactly that many value bits;
+   it may have padding as well.  If LIMIT is nonzero, modes of wider
+   than MAX_FIXED_MODE_SIZE will not be used.  */
 
 enum machine_mode
 mode_for_size (unsigned int size, enum mode_class class, int limit)
@@ -219,7 +206,7 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
   /* Get the first mode which has this size, in the specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) == size)
+    if (GET_MODE_PRECISION (mode) == size)
       return mode;
 
   return BLKmode;
@@ -242,7 +229,7 @@ mode_for_size_tree (tree size, enum mode_class class, int limit)
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
-   contains at least the requested number of bits.  */
+   contains at least the requested number of value bits.  */
 
 enum machine_mode
 smallest_mode_for_size (unsigned int size, enum mode_class class)
@@ -253,7 +240,7 @@ smallest_mode_for_size (unsigned int size, enum mode_class class)
      specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (GET_MODE_BITSIZE (mode) >= size)
+    if (GET_MODE_PRECISION (mode) >= size)
       return mode;
 
   abort ();
@@ -407,7 +394,7 @@ layout_decl (tree decl, unsigned int known_align)
 	     field.  */
 	  if (integer_zerop (DECL_SIZE (decl))
 	      && ! DECL_PACKED (decl)
-	      && ! (*targetm.ms_bitfield_layout_p) (DECL_FIELD_CONTEXT (decl)))
+	      && ! targetm.ms_bitfield_layout_p (DECL_FIELD_CONTEXT (decl)))
 	    {
 #ifdef PCC_BITFIELD_TYPE_MATTERS
 	      if (PCC_BITFIELD_TYPE_MATTERS)
@@ -435,7 +422,9 @@ layout_decl (tree decl, unsigned int known_align)
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
 
-	      if (xmode != BLKmode && known_align >= GET_MODE_ALIGNMENT (xmode))
+	      if (xmode != BLKmode 
+		  && (known_align == 0
+		      || known_align >= GET_MODE_ALIGNMENT (xmode)))
 		{
 		  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
 					   DECL_ALIGN (decl));
@@ -453,7 +442,7 @@ layout_decl (tree decl, unsigned int known_align)
       else if (DECL_PACKED (decl) && DECL_USER_ALIGN (decl))
 	/* Don't touch DECL_ALIGN.  For other packed fields, go ahead and
 	   round up; we'll reduce it again below.  We want packing to
-	   supercede USER_ALIGN inherited from the type, but defer to
+	   supersede USER_ALIGN inherited from the type, but defer to
 	   alignment explicitly specified on the field decl.  */;
       else
 	do_type_align (type, decl);
@@ -705,7 +694,7 @@ update_alignment_for_field (record_layout_info rli, tree field,
   /* Record must have at least as much alignment as any field.
      Otherwise, the alignment of the field within the record is
      meaningless.  */
-  if (is_bitfield && (* targetm.ms_bitfield_layout_p) (rli->t))
+  if (is_bitfield && targetm.ms_bitfield_layout_p (rli->t))
     {
       /* Here, the alignment of the underlying type of a bitfield can
 	 affect the alignment of a record; even a zero-sized field
@@ -925,7 +914,7 @@ place_field (record_layout_info rli, tree field)
      variable-sized fields, we need not worry about compatibility.  */
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   if (PCC_BITFIELD_TYPE_MATTERS
-      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
+      && ! targetm.ms_bitfield_layout_p (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD (field)
@@ -958,7 +947,7 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef BITFIELD_NBYTES_LIMITED
   if (BITFIELD_NBYTES_LIMITED
-      && ! (* targetm.ms_bitfield_layout_p) (rli->t)
+      && ! targetm.ms_bitfield_layout_p (rli->t)
       && TREE_CODE (field) == FIELD_DECL
       && type != error_mark_node
       && DECL_BIT_FIELD_TYPE (field)
@@ -1009,7 +998,7 @@ place_field (record_layout_info rli, tree field)
      Note: for compatibility, we use the type size, not the type alignment
      to determine alignment, since that matches the documentation */
 
-  if ((* targetm.ms_bitfield_layout_p) (rli->t)
+  if (targetm.ms_bitfield_layout_p (rli->t)
        && ((DECL_BIT_FIELD_TYPE (field) && ! DECL_PACKED (field))
 	  || (rli->prev_field && ! DECL_PACKED (rli->prev_field))))
     {
@@ -1593,9 +1582,12 @@ layout_type (tree type)
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
-      TYPE_MODE (type) = mode_for_size (2 * POINTER_SIZE, MODE_INT, 0);
-      TYPE_SIZE (type) = bitsize_int (2 * POINTER_SIZE);
-      TYPE_SIZE_UNIT (type) = size_int ((2 * POINTER_SIZE) / BITS_PER_UNIT);
+      /* It's hard to see what the mode and size of a function ought to
+	 be, but we do know the alignment is FUNCTION_BOUNDARY, so
+	 make it consistent with that.  */
+      TYPE_MODE (type) = mode_for_size (FUNCTION_BOUNDARY, MODE_INT, 0);
+      TYPE_SIZE (type) = bitsize_int (FUNCTION_BOUNDARY);
+      TYPE_SIZE_UNIT (type) = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
       break;
 
     case POINTER_TYPE:
@@ -1896,7 +1888,7 @@ set_sizetype (tree type)
 
   /* Make copies of nodes since we'll be setting TYPE_IS_SIZETYPE.  */
   sizetype = copy_node (type);
-  TYPE_DOMAIN (sizetype) = type;
+  TYPE_ORIG_SIZE_TYPE (sizetype) = type;
   TYPE_IS_SIZETYPE (sizetype) = 1;
   bitsizetype = make_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = TYPE_NAME (type);
@@ -2114,6 +2106,29 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
     }
 
   return mode;
+}
+
+/* Gets minimal and maximal values for MODE (signed or unsigned depending on
+   SIGN).  */
+
+void
+get_mode_bounds (enum machine_mode mode, int sign, rtx *mmin, rtx *mmax)
+{
+  int size = GET_MODE_BITSIZE (mode);
+
+  if (size > HOST_BITS_PER_WIDE_INT)
+    abort ();
+
+  if (sign)
+    {
+      *mmin = GEN_INT (-((unsigned HOST_WIDE_INT) 1 << (size - 1)));
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1);
+    }
+  else
+    {
+      *mmin = const0_rtx;
+      *mmax = GEN_INT (((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1);
+    }
 }
 
 #include "gt-stor-layout.h"

@@ -1,6 +1,6 @@
 /* Handle initialization things in C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -228,14 +228,17 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       max_index = nelts ? nelts : array_type_nelts (type);
       my_friendly_assert (TREE_CODE (max_index) == INTEGER_CST, 20030618);
 
-      for (index = size_zero_node;
-	   !tree_int_cst_lt (max_index, index);
-	   index = size_binop (PLUS_EXPR, index, size_one_node))
-	inits = tree_cons (index,
-			   build_zero_init (TREE_TYPE (type),
-					    /*nelts=*/NULL_TREE,
-					    static_storage_p),
-			   inits);
+      /* A zero-sized array, which is accepted as an extension, will
+	 have an upper bound of -1.  */
+      if (!tree_int_cst_equal (max_index, integer_minus_one_node))
+	for (index = size_zero_node;
+	     !tree_int_cst_lt (max_index, index);
+	     index = size_binop (PLUS_EXPR, index, size_one_node))
+	  inits = tree_cons (index,
+			     build_zero_init (TREE_TYPE (type),
+					      /*nelts=*/NULL_TREE,
+					      static_storage_p),
+			     inits);
       CONSTRUCTOR_ELTS (init) = nreverse (inits);
     }
   else if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -368,6 +371,9 @@ perform_member_init (tree member, tree init)
 	  /* member traversal: note it leaves init NULL */
 	  else if (TREE_CODE (type) == REFERENCE_TYPE)
 	    pedwarn ("uninitialized reference member `%D'", member);
+	  else if (CP_TYPE_CONST_P (type))
+	    pedwarn ("uninitialized member `%D' with `const' type `%T'",
+		     member, type);
 	}
       else if (TREE_CODE (init) == TREE_LIST)
 	/* There was an explicit member initialization.  Do some work
@@ -514,6 +520,7 @@ sort_mem_initializers (tree t, tree mem_inits)
 	    cp_warning_at ("  `%#D'", subobject);
 	  else
 	    warning ("  base `%T'", subobject);
+	  warning ("  when initialized here");
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -1121,7 +1128,7 @@ build_aggr_init (tree exp, tree init, int flags)
     }
 
   if (TREE_CODE (exp) == VAR_DECL || TREE_CODE (exp) == PARM_DECL)
-    /* just know that we've seen something for this node */
+    /* Just know that we've seen something for this node.  */
     TREE_USED (exp) = 1;
 
   TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
@@ -1247,8 +1254,8 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
    from TRUE_EXP.  In constructors, we don't know anything about
    the value being initialized.
 
-   FLAGS is just passes to `build_method_call'.  See that function for
-   its description.  */
+   FLAGS is just passed to `build_new_method_call'.  See that function
+   for its description.  */
 
 static void
 expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
@@ -1271,8 +1278,9 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
       /* If store_init_value returns NULL_TREE, the INIT has been
 	 record in the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
-      if (store_init_value (exp, init))
-	finish_expr_stmt (build (INIT_EXPR, type, exp, init));
+      init = store_init_value (exp, init);
+      if (init)
+	finish_expr_stmt (init);
       return;
     }
 
@@ -1499,7 +1507,7 @@ build_offset_ref (tree type, tree name, bool address_p)
 
       if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
-	  /* Get rid of a potential OVERLOAD around it */
+	  /* Get rid of a potential OVERLOAD around it.  */
 	  t = OVL_CURRENT (t);
 
 	  /* Unique functions are handled easily.  */
@@ -1554,16 +1562,20 @@ build_offset_ref (tree type, tree name, bool address_p)
 	   a class derived from that class (_class.base.init_).  */
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (member))
 	{
+	  /* Build a representation of a the qualified name suitable
+	     for use as the operand to "&" -- even though the "&" is
+	     not actually present.  */
+	  member = build (OFFSET_REF, TREE_TYPE (member), decl, member);
 	  /* In Microsoft mode, treat a non-static member function as if
 	     it were a pointer-to-member.  */
 	  if (flag_ms_extensions)
 	    {
-	      member = build (OFFSET_REF, TREE_TYPE (member), decl, member);
 	      PTRMEM_OK_P (member) = 1;
 	      return build_unary_op (ADDR_EXPR, member, 0);
 	    }
-	  error ("invalid use of non-static member function `%D'", member);
-	  return error_mark_node;
+	  error ("invalid use of non-static member function `%D'", 
+		 TREE_OPERAND (member, 1));
+	  return member;
 	}
       else if (TREE_CODE (member) == FIELD_DECL)
 	{
@@ -1605,8 +1617,12 @@ decl_constant_value (tree decl)
 		      TREE_OPERAND (decl, 0), d1, d2);
     }
 
-  if (TREE_READONLY_DECL_P (decl)
-      && ! TREE_THIS_VOLATILE (decl)
+  if (DECL_P (decl)
+      && (/* Enumeration constants are constant.  */
+	  TREE_CODE (decl) == CONST_DECL
+	  /* And so are variables with a 'const' type -- unless they
+	     are also 'volatile'.  */
+	  || CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))
       && DECL_INITIAL (decl)
       && DECL_INITIAL (decl) != error_mark_node
       /* This is invalid if initial value is not constant.
@@ -1687,7 +1703,7 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
 
       if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
 	{
-	  /* probably meant to be a vec new */
+	  /* Probably meant to be a vec new.  */
 	  tree this_nelts;
 
 	  while (TREE_OPERAND (absdcl, 0)
@@ -1842,7 +1858,7 @@ build_java_class_ref (tree type)
       jclass_node = TREE_TYPE (jclass_node);
     }
 
-  /* Mangle the class$ field */
+  /* Mangle the class$ field.  */
   {
     tree field;
     for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -2005,11 +2021,18 @@ build_new_1 (tree exp)
       tree class_size = size_in_bytes (true_type);
       static const char alloc_name[] = "_Jv_AllocObject";
       use_java_new = 1;
-      alloc_decl = IDENTIFIER_GLOBAL_VALUE (get_identifier (alloc_name));
-      if (alloc_decl == NULL_TREE)
-	fatal_error ("call to Java constructor with `%s' undefined",
-		     alloc_name);
-
+      if (!get_global_value_if_present (get_identifier (alloc_name), 
+					&alloc_decl))
+	{
+	  error ("call to Java constructor with `%s' undefined", alloc_name);
+	  return error_mark_node;
+	}
+      else if (really_overloaded_fn (alloc_decl))
+	{
+	  error ("`%D' should never be overloaded", alloc_decl);
+	  return error_mark_node;
+	}
+      alloc_decl = OVL_CURRENT (alloc_decl);
       class_addr = build1 (ADDR_EXPR, jclass_node, class_decl);
       alloc_call = (build_function_call
 		    (alloc_decl,
@@ -2019,6 +2042,7 @@ build_new_1 (tree exp)
   else
     {
       tree fnname;
+      tree fns;
 
       fnname = ansi_opname (code);
 
@@ -2037,11 +2061,18 @@ build_new_1 (tree exp)
 	    }
 	  /* Create the argument list.  */
 	  args = tree_cons (NULL_TREE, size, placement);
-	  /* Call the function.  */
-	  alloc_call = build_method_call (build_dummy_object (true_type),
-					  fnname, args, 
-					  TYPE_BINFO (true_type),
-					  LOOKUP_NORMAL);
+	  /* Do name-lookup to find the appropriate operator.  */
+	  fns = lookup_fnfields (true_type, fnname, /*protect=*/2);
+	  if (TREE_CODE (fns) == TREE_LIST)
+	    {
+	      error ("request for member `%D' is ambiguous", fnname);
+	      print_candidates (fns);
+	      return error_mark_node;
+	    }
+	  alloc_call = build_new_method_call (build_dummy_object (true_type),
+					      fns, args,
+					      /*conversion_path=*/NULL_TREE,
+					      LOOKUP_NORMAL);
 	}
       else
 	{
@@ -2060,13 +2091,22 @@ build_new_1 (tree exp)
   if (alloc_call == error_mark_node)
     return error_mark_node;
 
-  /* The ALLOC_CALL should be a CALL_EXPR -- or a COMPOUND_EXPR whose
-     right-hand-side is ultimately a CALL_EXPR -- and the first
-     operand should be the address of a known FUNCTION_DECL.  */
-  t = alloc_call;
-  while (TREE_CODE (t) == COMPOUND_EXPR) 
-    t = TREE_OPERAND (t, 1);
-  alloc_fn = get_callee_fndecl (t);
+  /* In the simple case, we can stop now.  */
+  pointer_type = build_pointer_type (type);
+  if (!cookie_size && !is_initialized)
+    return build_nop (pointer_type, alloc_call);
+
+  /* While we're working, use a pointer to the type we've actually
+     allocated. Store the result of the call in a variable so that we
+     can use it more than once.  */
+  full_pointer_type = build_pointer_type (full_type);
+  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
+  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
+
+  /* Strip any COMPOUND_EXPRs from ALLOC_CALL.  */
+  while (TREE_CODE (alloc_call) == COMPOUND_EXPR) 
+    alloc_call = TREE_OPERAND (alloc_call, 1);
+  alloc_fn = get_callee_fndecl (alloc_call);
   my_friendly_assert (alloc_fn != NULL_TREE, 20020325);
 
   /* Now, check to see if this function is actually a placement
@@ -2083,6 +2123,27 @@ build_new_1 (tree exp)
     = (type_num_arguments (TREE_TYPE (alloc_fn)) > 1 
        || varargs_function_p (alloc_fn));
 
+  /* Preevaluate the placement args so that we don't reevaluate them for a
+     placement delete.  */
+  if (placement_allocation_fn_p)
+    {
+      tree inits = NULL_TREE;
+      t = TREE_CHAIN (TREE_OPERAND (alloc_call, 1));
+      for (; t; t = TREE_CHAIN (t))
+	if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
+	  {
+	    tree init;
+	    TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
+	    if (inits)
+	      inits = build (COMPOUND_EXPR, void_type_node, inits, init);
+	    else
+	      inits = init;
+	  }
+      if (inits)
+	alloc_expr = build (COMPOUND_EXPR, TREE_TYPE (alloc_expr), inits,
+			    alloc_expr);
+    }
+
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
      allocate storage by throwing a bad_alloc exception  (clause  _except_,
@@ -2095,18 +2156,6 @@ build_new_1 (tree exp)
 
   nothrow = TYPE_NOTHROW_P (TREE_TYPE (alloc_fn));
   check_new = (flag_check_new || nothrow) && ! use_java_new;
-
-  /* In the simple case, we can stop now.  */
-  pointer_type = build_pointer_type (type);
-  if (!cookie_size && !is_initialized)
-    return build_nop (pointer_type, alloc_call);
-
-  /* While we're working, use a pointer to the type we've actually
-     allocated. Store the result of the call in a variable so that we
-     can use it more than once.  */
-  full_pointer_type = build_pointer_type (full_type);
-  alloc_expr = get_target_expr (build_nop (full_pointer_type, alloc_call));
-  alloc_node = TARGET_EXPR_SLOT (alloc_expr);
 
   if (cookie_size)
     {
@@ -2186,15 +2235,12 @@ build_new_1 (tree exp)
 	{
 	  enum tree_code dcode = has_array ? VEC_DELETE_EXPR : DELETE_EXPR;
 	  tree cleanup;
-	  int flags = (LOOKUP_NORMAL 
-		       | (globally_qualified_p * LOOKUP_GLOBAL));
 
 	  /* The Standard is unclear here, but the right thing to do
 	     is to use the same method for finding deallocation
 	     functions that we use for finding allocation functions.  */
-	  flags |= LOOKUP_SPECULATIVELY;
-
-	  cleanup = build_op_delete_call (dcode, alloc_node, size, flags,
+	  cleanup = build_op_delete_call (dcode, alloc_node, size, 
+					  globally_qualified_p,
 					  (placement_allocation_fn_p 
 					   ? alloc_call : NULL_TREE));
 
@@ -2393,7 +2439,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   /* Outermost wrapper: If pointer is null, punt.  */
   body = fold (build (COND_EXPR, void_type_node,
 		      fold (build (NE_EXPR, boolean_type_node, base,
-				   integer_zero_node)),
+				   convert (TREE_TYPE (base),
+					    integer_zero_node))),
 		      body, integer_zero_node));
   body = build1 (NOP_EXPR, void_type_node, body);
 
@@ -2578,11 +2625,13 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
 
 	  num_initialized_elts++;
 
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
 	  if (IS_AGGR_TYPE (type) || TREE_CODE (type) == ARRAY_TYPE)
 	    finish_expr_stmt (build_aggr_init (baseref, elt, 0));
 	  else
 	    finish_expr_stmt (build_modify_expr (baseref, NOP_EXPR,
 						 elt));
+	  current_stmt_tree ()->stmts_are_full_exprs_p = 0;
 
 	  finish_expr_stmt (build_unary_op (PREINCREMENT_EXPR, base, 0));
 	  finish_expr_stmt (build_unary_op (PREDECREMENT_EXPR, iterator, 0));
@@ -2742,9 +2791,9 @@ build_x_delete (tree addr, int which_delete, tree virtual_size)
   int use_global_delete = which_delete & 1;
   int use_vec_delete = !!(which_delete & 2);
   enum tree_code code = use_vec_delete ? VEC_DELETE_EXPR : DELETE_EXPR;
-  int flags = LOOKUP_NORMAL | (use_global_delete * LOOKUP_GLOBAL);
 
-  return build_op_delete_call (code, addr, virtual_size, flags, NULL_TREE);
+  return build_op_delete_call (code, addr, virtual_size, use_global_delete, 
+			       NULL_TREE);
 }
 
 /* Call the DTOR_KIND destructor for EXP.  FLAGS are as for
@@ -2808,27 +2857,39 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
+      bool complete_p = true;
+
       type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       if (TREE_CODE (type) == ARRAY_TYPE)
 	goto handle_array;
 
-      if (VOID_TYPE_P (type)
-	  /* We don't want to warn about delete of void*, only other
-	     incomplete types.  Deleting other incomplete types
-	     invokes undefined behavior, but it is not ill-formed, so
-	     compile to something that would even do The Right Thing
-	     (TM) should the type have a trivial dtor and no delete
-	     operator.  */
-	  || !complete_type_or_diagnostic (type, addr, 1)
-	  || !IS_AGGR_TYPE (type))
+      /* We don't want to warn about delete of void*, only other
+	  incomplete types.  Deleting other incomplete types
+	  invokes undefined behavior, but it is not ill-formed, so
+	  compile to something that would even do The Right Thing
+	  (TM) should the type have a trivial dtor and no delete
+	  operator.  */
+      if (!VOID_TYPE_P (type))
 	{
-	  /* Call the builtin operator delete.  */
-	  return build_builtin_delete_call (addr);
+	  complete_type (type);
+	  if (!COMPLETE_TYPE_P (type))
+	    {
+	      warning ("possible problem detected in invocation of "
+		       "delete operator:");
+	      cxx_incomplete_type_diagnostic (addr, type, 1);
+	      inform ("neither the destructor nor the class-specific "
+		      "operator delete will be called, even if they are "
+		      "declared when the class is defined.");
+	      complete_p = false;
+	    }
 	}
+      if (VOID_TYPE_P (type) || !complete_p || !IS_AGGR_TYPE (type))
+	/* Call the builtin operator delete.  */
+	return build_builtin_delete_call (addr);
       if (TREE_SIDE_EFFECTS (addr))
 	addr = save_expr (addr);
 
-      /* throw away const and volatile on target type of addr */
+      /* Throw away const and volatile on target type of addr.  */
       addr = convert_force (build_pointer_type (type), addr, 0);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -2863,8 +2924,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	return void_zero_node;
 
       return build_op_delete_call
-	(DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
-	 LOOKUP_NORMAL | (use_global_delete * LOOKUP_GLOBAL),
+	(DELETE_EXPR, addr, cxx_sizeof_nowarn (type), use_global_delete,
 	 NULL_TREE);
     }
   else
@@ -2899,7 +2959,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  do_delete = build_op_delete_call (DELETE_EXPR,
 					    addr,
 					    cxx_sizeof_nowarn (type),
-					    LOOKUP_NORMAL,
+					    /*global_p=*/false,
 					    NULL_TREE);
 	  /* Call the complete object destructor.  */
 	  auto_delete = sfk_complete_destructor;
@@ -2910,7 +2970,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  /* Make sure we have access to the member op delete, even though
 	     we'll actually be calling it from the destructor.  */
 	  build_op_delete_call (DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
-				LOOKUP_NORMAL, NULL_TREE);
+				/*global_p=*/false, NULL_TREE);
 	}
 
       expr = build_dtor_call (build_indirect_ref (addr, NULL),
@@ -3088,7 +3148,8 @@ build_vec_delete (tree base, tree maxindex,
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      /* get the total number of things in the array, maxindex is a bad name */
+      /* Get the total number of things in the array, maxindex is a
+	 bad name.  */
       maxindex = array_type_nelts_total (type);
       type = strip_array_types (type);
       base = build_unary_op (ADDR_EXPR, base, 1);

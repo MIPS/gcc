@@ -4,7 +4,7 @@
    and during the instantiation of template functions. 
 
    Copyright (C) 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -136,7 +136,8 @@ static GTY(()) deferred_access *deferred_access_free_list;
 /* Save the current deferred access states and start deferred
    access checking iff DEFER_P is true.  */
 
-void push_deferring_access_checks (deferring_kind deferring)
+void
+push_deferring_access_checks (deferring_kind deferring)
 {
   deferred_access *d;
 
@@ -164,7 +165,8 @@ void push_deferring_access_checks (deferring_kind deferring)
 /* Resume deferring access checks again after we stopped doing
    this previously.  */
 
-void resume_deferring_access_checks (void)
+void
+resume_deferring_access_checks (void)
 {
   if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
     deferred_access_stack->deferring_access_checks_kind = dk_deferred;
@@ -172,7 +174,8 @@ void resume_deferring_access_checks (void)
 
 /* Stop deferring access checks.  */
 
-void stop_deferring_access_checks (void)
+void
+stop_deferring_access_checks (void)
 {
   if (deferred_access_stack->deferring_access_checks_kind == dk_deferred)
     deferred_access_stack->deferring_access_checks_kind = dk_no_deferred;
@@ -181,7 +184,8 @@ void stop_deferring_access_checks (void)
 /* Discard the current deferred access checks and restore the
    previous states.  */
 
-void pop_deferring_access_checks (void)
+void
+pop_deferring_access_checks (void)
 {
   deferred_access *d = deferred_access_stack;
   deferred_access_stack = d->next;
@@ -199,7 +203,8 @@ void pop_deferring_access_checks (void)
    access occurred; the TREE_VALUE is the declaration named.
    */
 
-tree get_deferred_access_checks (void)
+tree
+get_deferred_access_checks (void)
 {
   return deferred_access_stack->deferred_access_checks;
 }
@@ -208,7 +213,8 @@ tree get_deferred_access_checks (void)
    previous states if we also defer checks previously.
    Otherwise perform checks now.  */
 
-void pop_to_parent_deferring_access_checks (void)
+void
+pop_to_parent_deferring_access_checks (void)
 {
   tree deferred_check = get_deferred_access_checks ();
   deferred_access *d1 = deferred_access_stack;
@@ -249,7 +255,8 @@ void pop_to_parent_deferring_access_checks (void)
    We have to perform deferred access of `A::X', first with `A::a',
    next with `x'.  */
 
-void perform_deferred_access_checks (void)
+void
+perform_deferred_access_checks (void)
 {
   tree deferred_check;
   for (deferred_check = deferred_access_stack->deferred_access_checks;
@@ -263,7 +270,8 @@ void perform_deferred_access_checks (void)
 /* Defer checking the accessibility of DECL, when looked up in
    BINFO.  */
 
-void perform_or_defer_access_check (tree binfo, tree decl)
+void
+perform_or_defer_access_check (tree binfo, tree decl)
 {
   tree check;
 
@@ -670,6 +678,13 @@ finish_for_cond (tree cond, tree for_stmt)
 void
 finish_for_expr (tree expr, tree for_stmt)
 {
+  /* If EXPR is an overloaded function, issue an error; there is no
+     context available to use to perform overload resolution.  */
+  if (expr && type_unknown_p (expr))
+    {
+      cxx_incomplete_type_error (expr, TREE_TYPE (expr));
+      expr = error_mark_node;
+    }
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -960,7 +975,7 @@ finish_handler_parms (tree decl, tree handler)
     type = expand_start_catch_block (decl);
 
   HANDLER_TYPE (handler) = type;
-  if (type)
+  if (!processing_template_decl && type)
     mark_used (eh_type_info (type));
 }
 
@@ -1224,7 +1239,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       return error_mark_node;
     }
   TREE_USED (current_class_ptr) = 1;
-  if (processing_template_decl)
+  if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
 
@@ -1232,7 +1247,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	type = TREE_TYPE (type);
       else
 	{
-	  /* Set the cv qualifiers */
+	  /* Set the cv qualifiers.  */
 	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
 	  
 	  if (DECL_MUTABLE_P (decl))
@@ -1262,6 +1277,13 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	      return error_mark_node;
 	    }
 	}
+
+      /* If PROCESSING_TEMPLATE_DECL is nonzero here, then
+	 QUALIFYING_SCOPE is also non-null.  Wrap this in a SCOPE_REF
+	 for now.  */
+      if (processing_template_decl)
+	return build_min (SCOPE_REF, TREE_TYPE (decl),
+			  qualifying_scope, DECL_NAME (decl));
 
       perform_or_defer_access_check (TYPE_BINFO (access_type), decl);
 
@@ -1631,6 +1653,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       if (DECL_FUNCTION_MEMBER_P (f))
 	{
 	  tree type = currently_open_derived_class (DECL_CONTEXT (f));
+	  if (!type)
+	    type = DECL_CONTEXT (f);
 	  fn = build_baselink (TYPE_BINFO (type),
 			       TYPE_BINFO (type),
 			       fn, /*optype=*/NULL_TREE);
@@ -1705,7 +1729,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
   else if (CLASS_TYPE_P (TREE_TYPE (fn)))
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
-    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE);
+    result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
+			   /*overloaded_p=*/NULL);
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1757,42 +1782,6 @@ finish_this_expr (void)
   return result;
 }
 
-/* Finish a member function call using OBJECT and ARGS as arguments to
-   FN.  Returns an expression for the call.  */
-
-tree 
-finish_object_call_expr (tree fn, tree object, tree args)
-{
-  if (DECL_DECLARES_TYPE_P (fn))
-    {
-      if (processing_template_decl)
-	/* This can happen on code like:
-
-	   class X;
-	   template <class T> void f(T t) {
-	     t.X();
-	   }  
-
-	   We just grab the underlying IDENTIFIER.  */
-	fn = DECL_NAME (fn);
-      else
-	{
-	  error ("calling type `%T' like a method", fn);
-	  return error_mark_node;
-	}
-    }
-  
-  if (processing_template_decl)
-    return build_nt (CALL_EXPR,
-		     build_nt (COMPONENT_REF, object, fn),
-		     args);
-
-  if (name_p (fn))
-    return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-  else
-    return build_new_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
-}
-
 /* Finish a pseudo-destructor expression.  If SCOPE is NULL, the
    expression was of the form `OBJECT.~DESTRUCTOR' where DESTRUCTOR is
    the TYPE for the type given.  If SCOPE is non-NULL, the expression
@@ -1814,7 +1803,21 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  return error_mark_node;
 	}
       
-      if (!same_type_p (TREE_TYPE (object), destructor))
+      /* [expr.pseudo] says both:
+
+           The type designated by the pseudo-destructor-name shall be
+	   the same as the object type.
+
+         and:
+
+           The cv-unqualified versions of the object type and of the
+	   type designated by the pseudo-destructor-name shall be the
+	   same type.
+
+         We implement the more generous second sentence, since that is
+         what most other compilers do.  */
+      if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object), 
+						      destructor))
 	{
 	  error ("`%E' is not of type `%T'", object, destructor);
 	  return error_mark_node;
@@ -1961,10 +1964,24 @@ check_template_template_default_arg (tree argument)
 {
   if (TREE_CODE (argument) != TEMPLATE_DECL
       && TREE_CODE (argument) != TEMPLATE_TEMPLATE_PARM
-      && TREE_CODE (argument) != TYPE_DECL
       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
     {
-      error ("invalid default template argument");
+      if (TREE_CODE (argument) == TYPE_DECL)
+	{
+	  tree t = TREE_TYPE (argument);
+
+	  /* Try to emit a slightly smarter error message if we detect
+	     that the user is using a template instantiation.  */
+	  if (CLASSTYPE_TEMPLATE_INFO (t) 
+	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
+	    error ("invalid use of type `%T' as a default value for a "
+	           "template template-parameter", t);
+	  else
+	    error ("invalid use of `%D' as a default value for a template "
+	           "template-parameter", argument);
+	}
+      else
+	error ("invalid default argument for a template template parameter");
       return error_mark_node;
     }
 
@@ -2040,7 +2057,16 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
-  TYPE_PACKED (t) = flag_pack_struct;
+  if (flag_pack_struct)
+    {
+      tree v;
+      TYPE_PACKED (t) = 1;
+      /* Even though the type is being defined for the first time
+	 here, there might have been a forward declaration, so there
+	 might be cv-qualified variants of T.  */
+      for (v = TYPE_NEXT_VARIANT (t); v; v = TYPE_NEXT_VARIANT (v))
+	TYPE_PACKED (v) = 1;
+    }
   /* Reset the interface data, at the earliest possible
      moment, as it might have been set via a class foo;
      before.  */
@@ -2315,9 +2341,9 @@ finish_id_expression (tree id_expression,
 		      tree scope,
 		      cp_id_kind *idk,
 		      tree *qualifying_class,
-		      bool constant_expression_p,
-		      bool allow_non_constant_expression_p,
-		      bool *non_constant_expression_p,
+		      bool integral_constant_expression_p,
+		      bool allow_non_integral_constant_expression_p,
+		      bool *non_integral_constant_expression_p,
 		      const char **error_msg)
 {
   /* Initialize the output parameters.  */
@@ -2338,11 +2364,16 @@ finish_id_expression (tree id_expression,
       if (decl == error_mark_node)
 	{
 	  /* Name lookup failed.  */
-	  if (scope && (!TYPE_P (scope) || !dependent_type_p (scope)))
+	  if (scope 
+	      && (!TYPE_P (scope) 
+		  || (!dependent_type_p (scope)
+		      && !(TREE_CODE (id_expression) == IDENTIFIER_NODE
+			   && IDENTIFIER_TYPENAME_P (id_expression)
+			   && dependent_type_p (TREE_TYPE (id_expression))))))
 	    {
-	      /* Qualified name lookup failed, and the qualifying name
-      		 was not a dependent type.  That is always an
-      		 error.  */
+	      /* If the qualifying type is non-dependent (and the name
+		 does not name a conversion operator to a dependent
+		 type), issue an error.  */
 	      qualified_name_lookup_error (scope, id_expression);
 	      return error_mark_node;
 	    }
@@ -2352,6 +2383,8 @@ finish_id_expression (tree id_expression,
 	      *idk = CP_ID_KIND_UNQUALIFIED;
 	      return id_expression;
 	    }
+	  else
+	    decl = id_expression;
 	}
       /* If DECL is a variable that would be out of scope under
 	 ANSI/ISO rules, but in scope in the ARM, name lookup
@@ -2383,12 +2416,31 @@ finish_id_expression (tree id_expression,
     }
 
   /* If the name resolved to a template parameter, there is no
-     need to look it up again later.  Similarly, we resolve
-     enumeration constants to their underlying values.  */
-  if (TREE_CODE (decl) == CONST_DECL)
+     need to look it up again later.  */
+  if ((TREE_CODE (decl) == CONST_DECL && DECL_TEMPLATE_PARM_P (decl))
+      || TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
     {
       *idk = CP_ID_KIND_NONE;
-      if (DECL_TEMPLATE_PARM_P (decl) || !processing_template_decl)
+      if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX)
+	decl = TEMPLATE_PARM_DECL (decl);
+      if (integral_constant_expression_p 
+	  && !dependent_type_p (TREE_TYPE (decl))
+	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))) 
+	{
+	  if (!allow_non_integral_constant_expression_p)
+	    error ("template parameter `%D' of type `%T' is not allowed in "
+		   "an integral constant expression because it is not of "
+		   "integral or enumeration type", decl, TREE_TYPE (decl));
+	  *non_integral_constant_expression_p = true;
+	}
+      return DECL_INITIAL (decl);
+    }
+  /* Similarly, we resolve enumeration constants to their 
+     underlying values.  */
+  else if (TREE_CODE (decl) == CONST_DECL)
+    {
+      *idk = CP_ID_KIND_NONE;
+      if (!processing_template_decl)
 	return DECL_INITIAL (decl);
       return decl;
     }
@@ -2483,8 +2535,8 @@ finish_id_expression (tree id_expression,
 	      /* Since this name was dependent, the expression isn't
 		 constant -- yet.  No error is issued because it might
 		 be constant when things are instantiated.  */
-	      if (constant_expression_p)
-		*non_constant_expression_p = true;
+	      if (integral_constant_expression_p)
+		*non_integral_constant_expression_p = true;
 	      if (TYPE_P (scope) && dependent_type_p (scope))
 		return build_nt (SCOPE_REF, scope, id_expression);
 	      else if (TYPE_P (scope) && DECL_P (decl))
@@ -2500,37 +2552,39 @@ finish_id_expression (tree id_expression,
 	  /* Since this name was dependent, the expression isn't
 	     constant -- yet.  No error is issued because it might be
 	     constant when things are instantiated.  */
-	  if (constant_expression_p)
-	    *non_constant_expression_p = true;
+	  if (integral_constant_expression_p)
+	    *non_integral_constant_expression_p = true;
 	  *idk = CP_ID_KIND_UNQUALIFIED_DEPENDENT;
+	  /* If we found a variable, then name lookup during the
+	     instantiation will always resolve to the same VAR_DECL
+	     (or an instantiation thereof).  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL)
+	    return decl;
 	  return id_expression;
 	}
 
       /* Only certain kinds of names are allowed in constant
-	 expression.  Enumerators have already been handled above.  */
-      if (constant_expression_p)
+       expression.  Enumerators and template parameters 
+       have already been handled above.  */
+      if (integral_constant_expression_p)
 	{
-	  /* Non-type template parameters of integral or enumeration
-	     type are OK.  */
-	  if (TREE_CODE (decl) == TEMPLATE_PARM_INDEX
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl)))
-	  ;
-	  /* Const variables or static data members of integral or
-	     enumeration types initialized with constant expressions
-	     are OK.  */
-	  else if (TREE_CODE (decl) == VAR_DECL
-		   && CP_TYPE_CONST_P (TREE_TYPE (decl))
-		   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
+	    /* Const variables or static data members of integral or
+	      enumeration types initialized with constant expressions
+	      are OK.  */
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
+	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
+	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
 	    ;
 	  else
 	    {
-	      if (!allow_non_constant_expression_p)
+	      if (!allow_non_integral_constant_expression_p)
 		{
 		  error ("`%D' cannot appear in a constant-expression", decl);
 		  return error_mark_node;
 		}
-	      *non_constant_expression_p = true;
+	      *non_integral_constant_expression_p = true;
 	    }
 	}
       
@@ -2652,7 +2706,7 @@ finish_typeof (tree expr)
   if (type_dependent_expression_p (expr))
     {
       type = make_aggr_type (TYPEOF_TYPE);
-      TYPE_FIELDS (type) = expr;
+      TYPEOF_TYPE_EXPR (type) = expr;
 
       return type;
     }
@@ -2827,15 +2881,20 @@ emit_associated_thunks (tree fn)
       
       for (thunk = DECL_THUNKS (fn); thunk; thunk = TREE_CHAIN (thunk))
 	{
-	  use_thunk (thunk, /*emit_p=*/1);
-	  if (DECL_RESULT_THUNK_P (thunk))
+	  if (!THUNK_ALIAS (thunk))
 	    {
-	      tree probe;
-
-	      for (probe = DECL_THUNKS (thunk);
-		   probe; probe = TREE_CHAIN (probe))
-		use_thunk (probe, /*emit_p=*/1);
+	      use_thunk (thunk, /*emit_p=*/1);
+	      if (DECL_RESULT_THUNK_P (thunk))
+		{
+		  tree probe;
+		  
+		  for (probe = DECL_THUNKS (thunk);
+		       probe; probe = TREE_CHAIN (probe))
+		    use_thunk (probe, /*emit_p=*/1);
+		}
 	    }
+	  else
+	    my_friendly_assert (!DECL_THUNKS (thunk), 20031023);
 	}
     }
 }
@@ -2863,18 +2922,14 @@ expand_body (tree fn)
   /* ??? When is this needed?  */
   saved_function = current_function_decl;
 
-  timevar_push (TV_INTEGRATION);
-  optimize_function (fn);
-  timevar_pop (TV_INTEGRATION);
+  /* Emit any thunks that should be emitted at the same time as FN.  */
+  emit_associated_thunks (fn);
 
   tree_rest_of_compilation (fn, function_depth > 1);
 
   current_function_decl = saved_function;
 
   extract_interface_info ();
-
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
 
   /* If this function is marked with the constructor attribute, add it
      to the list of functions to be called along with constructors
@@ -2915,14 +2970,8 @@ void
 expand_or_defer_fn (tree fn)
 {
   /* When the parser calls us after finishing the body of a template
-     function, we don't really want to expand the body.  When we're
-     processing an in-class definition of an inline function,
-     PROCESSING_TEMPLATE_DECL will no longer be set here, so we have
-     to look at the function itself.  */
-  if (processing_template_decl
-      || (DECL_LANG_SPECIFIC (fn) 
-	  && DECL_TEMPLATE_INFO (fn)
-	  && uses_template_parms (DECL_TI_ARGS (fn))))
+     function, we don't really want to expand the body.  */
+  if (processing_template_decl)
     {
       /* Normally, collection only occurs in rest_of_compilation.  So,
 	 if we don't collect here, we never collect junk generated

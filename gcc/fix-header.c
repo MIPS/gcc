@@ -1,6 +1,6 @@
 /* fix-header.c - Make C header file suitable for C++.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -83,6 +83,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 static void v_fatal (const char *, va_list)
      ATTRIBUTE_PRINTF (1,0) ATTRIBUTE_NORETURN;
 static void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
+
+#ifdef TARGET_EXTRA_INCLUDES
+static void hook_void_int(int u ATTRIBUTE_UNUSED) { }
+
+struct target_c_incpath_s target_c_incpath = { hook_void_int };
+#endif
+
+struct line_maps line_table;
 
 sstring buf;
 
@@ -593,7 +601,8 @@ read_scan_file (char *in_fname, int argc, char **argv)
 
   obstack_init (&scan_file_obstack);
 
-  scan_in = cpp_create_reader (CLK_GNUC89, NULL);
+  linemap_init (&line_table);
+  scan_in = cpp_create_reader (CLK_GNUC89, NULL, &line_table);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 
@@ -604,9 +613,8 @@ read_scan_file (char *in_fname, int argc, char **argv)
   options->inhibit_errors = 1;
   cpp_post_options (scan_in);
 
-  if (!cpp_find_main_file (scan_in, in_fname))
+  if (!cpp_read_main_file (scan_in, in_fname))
     exit (FATAL_EXIT_CODE);
-  cpp_push_main_file (scan_in);
 
   cpp_change_file (scan_in, LC_RENAME, "<built-in>");
   cpp_init_builtins (scan_in, true);
@@ -645,7 +653,7 @@ read_scan_file (char *in_fname, int argc, char **argv)
     }
 
   if (i < argc)
-    cpp_error (scan_in, DL_ERROR, "invalid option `%s'", argv[i]);
+    cpp_error (scan_in, CPP_DL_ERROR, "invalid option `%s'", argv[i]);
   if (cpp_errors (scan_in))
     exit (FATAL_EXIT_CODE);
 

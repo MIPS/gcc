@@ -1,5 +1,5 @@
 /* Timing variables for measuring compiler performance.
-   Copyright (C) 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
 This file is part of GCC.
@@ -496,6 +496,11 @@ timevar_print (FILE *fp)
 #endif
 #ifdef HAVE_WALL_TIME
   fprintf (fp, "%7.2f\n", total->wall);
+#endif
+
+#ifdef ENABLE_CHECKING
+  fprintf (fp, "Extra diagnostic checks enabled; compiler may run slowly.\n");
+  fprintf (fp, "Configure with --disable-checking to disable checks.\n");
 #endif
 
 #endif /* defined (HAVE_USER_TIME) || defined (HAVE_SYS_TIME)

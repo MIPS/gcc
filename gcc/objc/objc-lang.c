@@ -35,6 +35,8 @@ enum c_language_kind c_language = clk_objc;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Objective-C"
+#undef LANG_HOOKS_IDENTIFIER_SIZE
+#define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_FINISH
@@ -55,12 +57,14 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
+#undef LANG_HOOKS_CLEAR_BINDING_STACK
+#define LANG_HOOKS_CLEAR_BINDING_STACK lhd_do_nothing
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_objc_common_truthvalue_conversion
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
@@ -130,6 +134,19 @@ enum c_language_kind c_language = clk_objc;
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
+/* The C front end's scoping structure is very different from
+   that expected by the language-independent code; it is best
+   to disable all of pushlevel, poplevel, set_block, and getdecls.
+   This means it must also provide its own write_globals.  */
+
+#undef LANG_HOOKS_PUSHLEVEL
+#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
+#undef LANG_HOOKS_POPLEVEL
+#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
+#undef LANG_HOOKS_SET_BLOCK
+#define LANG_HOOKS_SET_BLOCK lhd_do_nothing_t
+#undef LANG_HOOKS_GETDECLS
+#define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
 

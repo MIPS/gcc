@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -31,8 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "langhooks-def.h"
 #include "cxx-pretty-print.h"
-
-enum pad { none, before, after };
 
 #define pp_template_argument_list_start(PP) \
    pp_non_consecutive_character (PP, '<')
@@ -72,12 +70,11 @@ static void dump_expr (tree, int);
 static void dump_unary_op (const char *, tree, int);
 static void dump_binary_op (const char *, tree, int);
 static void dump_aggr_type (tree, int);
-static enum pad dump_type_prefix (tree, int);
+static void dump_type_prefix (tree, int);
 static void dump_type_suffix (tree, int);
 static void dump_function_name (tree, int);
 static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
-static enum pad dump_qualifiers (tree, enum pad);
 static void dump_parameters (tree, int);
 static void dump_exception_spec (tree, int);
 static const char *class_key_or_enum (tree);
@@ -141,38 +138,6 @@ dump_scope (tree scope, int flags)
       dump_function_decl (scope, f);
       pp_colon_colon (cxx_pp);
     }
-}
-
-/* Dump type qualifiers, providing padding as requested. Return an
-   indication of whether we dumped something.  */
-
-static enum pad
-dump_qualifiers (tree t, enum pad p)
-{
-  static const int masks[] =
-    {TYPE_QUAL_CONST, TYPE_QUAL_VOLATILE, TYPE_QUAL_RESTRICT};
-  static const char *const names[] =
-    {"const", "volatile", "__restrict"};
-  int ix;
-  int quals = TYPE_QUALS (t);
-  int do_after = p == after;
-
-  if (quals)
-    {
-      for (ix = 0; ix != 3; ix++)
-        if (masks[ix] & quals)
-          {
-            if (p == before)
-              pp_space (cxx_pp);
-            p = before;
-            pp_identifier (cxx_pp, names[ix]);
-          }
-      if (do_after)
-        pp_space (cxx_pp);
-    }
-  else
-    p = none;
-  return p;
 }
 
 /* Dump the template ARGument under control of FLAGS.  */
@@ -331,7 +296,7 @@ dump_type (tree t, int flags)
                      ? DECL_ORIGINAL_TYPE (t) : TREE_TYPE (t), flags);
           break;
         }
-      /* else fallthrough */
+      /* Else fall through.  */
 
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
@@ -367,7 +332,7 @@ dump_type (tree t, int flags)
       break;
 
     case TEMPLATE_TYPE_PARM:
-      dump_qualifiers (t, after);
+      pp_cxx_cv_qualifier_seq (cxx_pp, t);
       if (TYPE_IDENTIFIER (t))
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
       else
@@ -390,7 +355,7 @@ dump_type (tree t, int flags)
       break;
     }
     case TYPENAME_TYPE:
-      dump_qualifiers (t, after);
+      pp_cxx_cv_qualifier_seq (cxx_pp, t);
       pp_string (cxx_pp, "typename ");
       dump_typename (t, flags);
       break;
@@ -404,7 +369,7 @@ dump_type (tree t, int flags)
 
     case TYPEOF_TYPE:
       pp_string (cxx_pp, "__typeof (");
-      dump_expr (TYPE_FIELDS (t), flags & ~TFF_EXPR_IN_PARENS);
+      dump_expr (TYPEOF_TYPE_EXPR (t), flags & ~TFF_EXPR_IN_PARENS);
       pp_right_paren (cxx_pp);
       break;
 
@@ -460,7 +425,7 @@ dump_aggr_type (tree t, int flags)
   int typdef = 0;
   int tmplate = 0;
 
-  dump_qualifiers (t, after);
+  pp_cxx_cv_qualifier_seq (cxx_pp, t);
 
   if (flags & TFF_CLASS_KEY_OR_ENUM)
     {
@@ -520,15 +485,12 @@ dump_aggr_type (tree t, int flags)
    deal with prefix and suffix.
 
    Arrays must also do this for DECL nodes, like int a[], and for things like
-   int *[]&.
+   int *[]&.  */
 
-   Return indicates how you should pad an object name after this. I.e. you
-   want to pad non-*, non-& cores, but not pad * or & types.  */
-
-static enum pad
+static void 
 dump_type_prefix (tree t, int flags)
 {
-  enum pad padding = before;
+  pp_base (cxx_pp)->padding = pp_none;
 
   if (TYPE_PTRMEMFUNC_P (t))
     {
@@ -543,53 +505,49 @@ dump_type_prefix (tree t, int flags)
       {
 	tree sub = TREE_TYPE (t);
 
-	padding = dump_type_prefix (sub, flags);
+	dump_type_prefix (sub, flags);
 	if (TREE_CODE (sub) == ARRAY_TYPE)
 	  {
 	    pp_space (cxx_pp);
 	    pp_left_paren (cxx_pp);
 	  }
 	pp_character (cxx_pp, "&*"[TREE_CODE (t) == POINTER_TYPE]);
-	padding = dump_qualifiers (t, before);
+        pp_base (cxx_pp)->padding = pp_before;
+        pp_cxx_cv_qualifier_seq (cxx_pp, t);
       }
       break;
 
     case OFFSET_TYPE:
     offset_type:
-      padding = dump_type_prefix (TREE_TYPE (t), flags);
+      dump_type_prefix (TREE_TYPE (t), flags);
       if (TREE_CODE (t) == OFFSET_TYPE)	/* pmfs deal with this in d_t_p */
 	{
-	  if (padding != none)
-	    pp_space (cxx_pp);
+          pp_maybe_space (cxx_pp);
 	  dump_type (TYPE_OFFSET_BASETYPE (t), flags);
 	  pp_colon_colon (cxx_pp);
 	}
       pp_star (cxx_pp);
-      padding = dump_qualifiers (t, none);
+      pp_cxx_cv_qualifier_seq (cxx_pp, t);
       break;
 
       /* Can only be reached through function pointer -- this would not be
          correct if FUNCTION_DECLs used it.  */
     case FUNCTION_TYPE:
-      padding = dump_type_prefix (TREE_TYPE (t), flags);
-      if (padding != none)
-        pp_space (cxx_pp);
+      dump_type_prefix (TREE_TYPE (t), flags);
+      pp_maybe_space (cxx_pp);
       pp_left_paren (cxx_pp);
-      padding = none;
       break;
 
     case METHOD_TYPE:
-      padding = dump_type_prefix (TREE_TYPE (t), flags);
-      if (padding != none)
-        pp_space (cxx_pp);
+      dump_type_prefix (TREE_TYPE (t), flags);
+      pp_maybe_space (cxx_pp);
       pp_left_paren (cxx_pp);
-      padding = none;
       dump_aggr_type (TYPE_METHOD_BASETYPE (t), flags);
       pp_colon_colon (cxx_pp);
       break;
 
     case ARRAY_TYPE:
-      padding = dump_type_prefix (TREE_TYPE (t), flags);
+      dump_type_prefix (TREE_TYPE (t), flags);
       break;
 
     case ENUMERAL_TYPE:
@@ -612,7 +570,7 @@ dump_type_prefix (tree t, int flags)
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
       dump_type (t, flags);
-      padding = before;
+      pp_base (cxx_pp)->padding = pp_before;
       break;
 
     default:
@@ -622,7 +580,6 @@ dump_type_prefix (tree t, int flags)
       pp_identifier (cxx_pp, "<typeprefixerror>");
       break;
     }
-  return padding;
 }
 
 /* Dump the suffix of type T, under control of FLAGS.  This is the part
@@ -644,7 +601,7 @@ dump_type_suffix (tree t, int flags)
       dump_type_suffix (TREE_TYPE (t), flags);
       break;
 
-      /* Can only be reached through function pointer */
+      /* Can only be reached through function pointer.  */
     case FUNCTION_TYPE:
     case METHOD_TYPE:
       {
@@ -659,8 +616,8 @@ dump_type_suffix (tree t, int flags)
 	dump_parameters (arg, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	if (TREE_CODE (t) == METHOD_TYPE)
-	  dump_qualifiers
-	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))), before);
+          pp_cxx_cv_qualifier_seq
+            (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
 	dump_type_suffix (TREE_TYPE (t), flags);
 	break;
@@ -736,8 +693,8 @@ dump_simple_decl (tree t, tree type, int flags)
 {
   if (flags & TFF_DECL_SPECIFIERS)
     {
-      if (dump_type_prefix (type, flags) != none)
-        pp_space (cxx_pp);
+      dump_type_prefix (type, flags);
+      pp_maybe_space (cxx_pp);
     }
   if (!DECL_INITIAL (t) || TREE_CODE (DECL_INITIAL (t)) != TEMPLATE_PARM_INDEX)
     dump_scope (CP_DECL_CONTEXT (t), flags);
@@ -788,9 +745,10 @@ dump_decl (tree t, int flags)
 	  dump_type (DECL_CONTEXT (t), flags);
 	  break;
 	}
-      /* else fall through */
+      /* Else fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
+    case ALIAS_DECL:
       dump_simple_decl (t, TREE_TYPE (t), flags);
       break;
 
@@ -805,7 +763,7 @@ dump_decl (tree t, int flags)
       else
         {
           dump_scope (CP_DECL_CONTEXT (t), flags);
-          if (DECL_NAME (t) == anonymous_namespace_name)
+          if (DECL_NAME (t) == NULL_TREE)
             pp_identifier (cxx_pp, "<unnamed>");
           else
             pp_tree_identifier (cxx_pp, DECL_NAME (t));
@@ -939,9 +897,16 @@ dump_decl (tree t, int flags)
       dump_expr (t, flags);
       break;
 
+    case TEMPLATE_TYPE_PARM:
+      if (flags & TFF_DECL_SPECIFIERS)
+        pp_cxx_declaration (cxx_pp, t);
+      else
+        pp_type_id (cxx_pp, t);
+      break;
+
     default:
       pp_unsupported_tree (cxx_pp, t);
-      /* Fallthrough to error.  */
+      /* Fall through to error.  */
 
     case ERROR_MARK:
       pp_identifier (cxx_pp, "<declaration error>");
@@ -1050,7 +1015,7 @@ dump_function_decl (tree t, int flags)
 
   if (DECL_CLASS_SCOPE_P (t))
     cname = DECL_CONTEXT (t);
-  /* this is for partially instantiated template methods */
+  /* This is for partially instantiated template methods.  */
   else if (TREE_CODE (fntype) == METHOD_TYPE)
     cname = TREE_TYPE (TREE_VALUE (parmtypes));
 
@@ -1087,8 +1052,8 @@ dump_function_decl (tree t, int flags)
       dump_parameters (parmtypes, flags);
 
       if (TREE_CODE (fntype) == METHOD_TYPE)
-	dump_qualifiers (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))),
-			 before);
+        pp_cxx_cv_qualifier_seq
+          (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))));
 
       if (flags & TFF_EXCEPTION_SPECIFICATION)
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (fntype), flags);
@@ -1169,6 +1134,17 @@ dump_function_name (tree t, int flags)
 {
   tree name = DECL_NAME (t);
 
+  /* We can get here with a decl that was synthesized by language-
+     independent machinery (e.g. coverage.c) in which case it won't
+     have a lang_specific structure attached and DECL_CONSTRUCTOR_P
+     will crash.  In this case it is safe just to print out the
+     literal name.  */
+  if (!DECL_LANG_SPECIFIC (t))
+    {
+      pp_tree_identifier (cxx_pp, name);
+      return;
+    }
+
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
 
@@ -1198,7 +1174,7 @@ dump_function_name (tree t, int flags)
   else
     dump_decl (name, flags);
 
-  if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t)
+  if (DECL_TEMPLATE_INFO (t)
       && !DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (t)
       && (DECL_TEMPLATE_SPECIALIZATION (t)
 	  || TREE_CODE (DECL_TI_TEMPLATE (t)) != TEMPLATE_DECL
@@ -1269,7 +1245,7 @@ dump_template_parms (tree info, int primary, int flags)
   pp_template_argument_list_end (cxx_pp);
 }
 
-/* Print out a list of initializers (subr of dump_expr) */
+/* Print out a list of initializers (subr of dump_expr).  */
 
 static void
 dump_expr_list (tree l, int flags)
@@ -1309,6 +1285,11 @@ dump_expr (tree t, int flags)
     case STRING_CST:
     case REAL_CST:
        pp_c_constant (pp_c_base (cxx_pp), t);
+      break;
+
+    case THROW_EXPR:
+      pp_identifier (cxx_pp, "throw");
+      dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
     case PTRMEM_CST:
@@ -1596,7 +1577,7 @@ dump_expr (tree t, int flags)
 	        pp_right_paren (cxx_pp);
 	      break;
 	    }
-	  /* else FALLTHRU */
+	  /* Else fall through.  */
 	}
       dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       break;
@@ -2103,7 +2084,8 @@ static const char *
 cv_to_string (tree p, int v)
 {
   pp_clear_output_area (cxx_pp);
-  dump_qualifiers (p, v ? before : none);
+  pp_base (cxx_pp)->padding = v ? pp_before : pp_none;
+  pp_cxx_cv_qualifier_seq (cxx_pp, p);
   return pp_formatted_text (cxx_pp);
 }
 

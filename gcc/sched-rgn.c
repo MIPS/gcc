@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -63,6 +63,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "recog.h"
 #include "cfglayout.h"
+#include "params.h"
 #include "sched-int.h"
 #include "target.h"
 
@@ -82,9 +83,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define INSN_REF_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].ref_count)
 #define FED_BY_SPEC_LOAD(insn)	(h_i_d[INSN_UID (insn)].fed_by_spec_load)
 #define IS_LOAD_INSN(insn)	(h_i_d[INSN_UID (insn)].is_load_insn)
-
-#define MAX_RGN_BLOCKS 10
-#define MAX_RGN_INSNS 100
 
 /* nr_inter/spec counts interblock/speculative motion for the function.  */
 static int nr_inter, nr_spec;
@@ -155,8 +153,8 @@ static int *containing_rgn;
 
 void debug_regions (void);
 static void find_single_block_region (void);
-static void find_rgns (struct edge_list *, dominance_info);
-static int too_large (int, int *, int *);
+static void find_rgns (struct edge_list *);
+static bool too_large (int, int *, int *);
 
 extern void debug_live (int, int);
 
@@ -343,10 +341,10 @@ is_cfg_nonregular (void)
      the cfg not well structured.  */
   /* Check for labels referred to other thn by jumps.  */
   FOR_EACH_BB (b)
-    for (insn = b->head;; insn = NEXT_INSN (insn))
+    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
       {
 	code = GET_CODE (insn);
-	if (GET_RTX_CLASS (code) == 'i' && code != JUMP_INSN)
+	if (INSN_P (insn) && code != JUMP_INSN)
 	  {
 	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
 
@@ -357,7 +355,7 @@ is_cfg_nonregular (void)
 	      return 1;
 	  }
 
-	if (insn == b->end)
+	if (insn == BB_END (b))
 	  break;
       }
 
@@ -551,19 +549,18 @@ find_single_block_region (void)
 }
 
 /* Update number of blocks and the estimate for number of insns
-   in the region.  Return 1 if the region is "too large" for interblock
-   scheduling (compile time considerations), otherwise return 0.  */
+   in the region.  Return true if the region is "too large" for interblock
+   scheduling (compile time considerations).  */
 
-static int
+static bool
 too_large (int block, int *num_bbs, int *num_insns)
 {
   (*num_bbs)++;
-  (*num_insns) += (INSN_LUID (BLOCK_END (block)) -
-		   INSN_LUID (BLOCK_HEAD (block)));
-  if ((*num_bbs > MAX_RGN_BLOCKS) || (*num_insns > MAX_RGN_INSNS))
-    return 1;
-  else
-    return 0;
+  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block)))
+		   - INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
+
+  return ((*num_bbs > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
+	  || (*num_insns > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)));
 }
 
 /* Update_loop_relations(blk, hdr): Check if the loop headed by max_hdr[blk]
@@ -613,7 +610,7 @@ too_large (int block, int *num_bbs, int *num_insns)
    of edge tables.  That would simplify it somewhat.  */
 
 static void
-find_rgns (struct edge_list *edge_list, dominance_info dom)
+find_rgns (struct edge_list *edge_list)
 {
   int *max_hdr, *dfs_nr, *stack, *degree;
   char no_loops = 1;
@@ -827,7 +824,7 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
 		    {
 		      /* Now verify that the block is dominated by the loop
 			 header.  */
-		      if (!dominated_by_p (dom, jbb, bb))
+		      if (!dominated_by_p (CDI_DOMINATORS, jbb, bb))
 			break;
 		    }
 		}
@@ -852,8 +849,8 @@ find_rgns (struct edge_list *edge_list, dominance_info dom)
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
-	      num_insns = (INSN_LUID (bb->end)
-			   - INSN_LUID (bb->head));
+	      num_insns = (INSN_LUID (BB_END (bb))
+			   - INSN_LUID (BB_HEAD (bb)));
 
 	      /* Find all loop latches (blocks with back edges to the loop
 		 header) or all the leaf blocks in the cfg has no loops.
@@ -1323,7 +1320,7 @@ check_live_1 (int src, rtx x)
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
 	  /* Check for hard registers.  */
-	  int j = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
@@ -1397,7 +1394,7 @@ update_live_1 (int src, rtx x)
     {
       if (regno < FIRST_PSEUDO_REGISTER)
 	{
-	  int j = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+	  int j = hard_regno_nregs[regno][GET_MODE (reg)];
 	  while (--j >= 0)
 	    {
 	      for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
@@ -1761,7 +1758,7 @@ init_ready_list (struct ready_list *ready)
 
 	  if (targetm.sched.adjust_priority)
 	    INSN_PRIORITY (insn) =
-	      (*targetm.sched.adjust_priority) (insn, INSN_PRIORITY (insn));
+	      targetm.sched.adjust_priority (insn, INSN_PRIORITY (insn));
 	}
       target_n_insns++;
     }
@@ -1788,10 +1785,10 @@ init_ready_list (struct ready_list *ready)
 	    if (!CANT_MOVE (insn)
 		&& (!IS_SPECULATIVE_INSN (insn)
 		    || ((((!targetm.sched.use_dfa_pipeline_interface
-			   || !(*targetm.sched.use_dfa_pipeline_interface) ())
+			   || !targetm.sched.use_dfa_pipeline_interface ())
 			  && insn_issue_delay (insn) <= 3)
 			 || (targetm.sched.use_dfa_pipeline_interface
-			     && (*targetm.sched.use_dfa_pipeline_interface) ()
+			     && targetm.sched.use_dfa_pipeline_interface ()
 			     && (recog_memoized (insn) < 0
 			         || min_insn_conflict_delay (curr_state,
 							     insn, insn) <= 3)))
@@ -1803,7 +1800,7 @@ init_ready_list (struct ready_list *ready)
 
 		  if (targetm.sched.adjust_priority)
 		    INSN_PRIORITY (insn) =
-		      (*targetm.sched.adjust_priority) (insn, INSN_PRIORITY (insn));
+		      targetm.sched.adjust_priority (insn, INSN_PRIORITY (insn));
 		}
 	  }
       }
@@ -1839,28 +1836,28 @@ can_schedule_ready_p (rtx insn)
 
       /* Update source block boundaries.  */
       b1 = BLOCK_FOR_INSN (insn);
-      if (insn == b1->head && insn == b1->end)
+      if (insn == BB_HEAD (b1) && insn == BB_END (b1))
 	{
 	  /* We moved all the insns in the basic block.
 	     Emit a note after the last insn and update the
 	     begin/end boundaries to point to the note.  */
 	  rtx note = emit_note_after (NOTE_INSN_DELETED, insn);
-	  b1->head = note;
-	  b1->end = note;
+	  BB_HEAD (b1) = note;
+	  BB_END (b1) = note;
 	}
-      else if (insn == b1->end)
+      else if (insn == BB_END (b1))
 	{
 	  /* We took insns from the end of the basic block,
 	     so update the end of block boundary so that it
 	     points to the first insn we did not move.  */
-	  b1->end = PREV_INSN (insn);
+	  BB_END (b1) = PREV_INSN (insn);
 	}
-      else if (insn == b1->head)
+      else if (insn == BB_HEAD (b1))
 	{
 	  /* We took insns from the start of the basic block,
 	     so update the start of block boundary so that
 	     it points to the first insn we did not move.  */
-	  b1->head = NEXT_INSN (insn);
+	  BB_HEAD (b1) = NEXT_INSN (insn);
 	}
     }
   else
@@ -1887,12 +1884,12 @@ new_ready (rtx next)
 	  || (IS_SPECULATIVE_INSN (next)
 	      && (0
 		  || (targetm.sched.use_dfa_pipeline_interface
-		      && (*targetm.sched.use_dfa_pipeline_interface) ()
+		      && targetm.sched.use_dfa_pipeline_interface ()
 		      && recog_memoized (next) >= 0
 		      && min_insn_conflict_delay (curr_state, next,
 						  next) > 3)
 		  || ((!targetm.sched.use_dfa_pipeline_interface
-		       || !(*targetm.sched.use_dfa_pipeline_interface) ())
+		       || !targetm.sched.use_dfa_pipeline_interface ())
 		      && insn_issue_delay (next) > 3)
 		  || !check_live (next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
@@ -2036,7 +2033,7 @@ add_branch_dependences (rtx head, rtx tail)
      end since moving them results in worse register allocation.  Uses remain
      at the end to ensure proper register allocation.
 
-     cc0 setters remaim at the end because they can't be moved away from
+     cc0 setters remain at the end because they can't be moved away from
      their cc0 user.
 
      Insns setting CLASS_LIKELY_SPILLED_P registers (usually return values)
@@ -2293,7 +2290,7 @@ debug_dependencies (void)
 		   BB_TO_BLOCK (bb), bb);
 
 	  if (targetm.sched.use_dfa_pipeline_interface
-	      && (*targetm.sched.use_dfa_pipeline_interface) ())
+	      && targetm.sched.use_dfa_pipeline_interface ())
 	    {
 	      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
 		       "insn", "code", "bb", "dep", "prio", "cost",
@@ -2333,7 +2330,7 @@ debug_dependencies (void)
 		}
 
 	      if (targetm.sched.use_dfa_pipeline_interface
-		  && (*targetm.sched.use_dfa_pipeline_interface) ())
+		  && targetm.sched.use_dfa_pipeline_interface ())
 		{
 		  fprintf (sched_dump,
 			   ";;   %s%5d%6d%6d%6d%6d%6d   ",
@@ -2516,10 +2513,10 @@ schedule_region (int rgn)
       sched_rgn_n_insns += sched_n_insns;
 
       /* Update target block boundaries.  */
-      if (head == BLOCK_HEAD (b))
-	BLOCK_HEAD (b) = current_sched_info->head;
-      if (tail == BLOCK_END (b))
-	BLOCK_END (b) = current_sched_info->tail;
+      if (head == BB_HEAD (BASIC_BLOCK (b)))
+	BB_HEAD (BASIC_BLOCK (b)) = current_sched_info->head;
+      if (tail == BB_END (BASIC_BLOCK (b)))
+	BB_END (BASIC_BLOCK (b)) = current_sched_info->tail;
 
       /* Clean up.  */
       if (current_nr_blocks > 1)
@@ -2597,7 +2594,6 @@ init_regions (void)
 	}
       else
 	{
-	  dominance_info dom;
 	  struct edge_list *edge_list;
 
 	  /* The scheduler runs after estimate_probabilities; therefore, we
@@ -2607,7 +2603,7 @@ init_regions (void)
 	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  */
-	  dom = calculate_dominance_info (CDI_DOMINATORS);
+	  calculate_dominance_info (CDI_DOMINATORS);
 
 	  /* build_control_flow will return nonzero if it detects unreachable
 	     blocks or any other irregularity with the cfg which prevents
@@ -2615,7 +2611,7 @@ init_regions (void)
 	  if (build_control_flow (edge_list) != 0)
 	    find_single_block_region ();
 	  else
-	    find_rgns (edge_list, dom);
+	    find_rgns (edge_list);
 
 	  if (sched_verbose >= 3)
 	    debug_regions ();
@@ -2625,7 +2621,7 @@ init_regions (void)
 
 	  /* For now.  This will move as more and more of haifa is converted
 	     to using the cfg code in flow.c.  */
-	  free_dominance_info (dom);
+	  free_dominance_info (CDI_DOMINATORS);
 	}
     }
 

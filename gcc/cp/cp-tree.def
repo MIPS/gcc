@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
-   Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998, 2003, 
+   Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998, 2003, 2004, 
    1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -159,7 +159,7 @@ DEFTREECODE (TEMPLATE_DECL, "template_decl", 'd', 0)
 DEFTREECODE (TEMPLATE_PARM_INDEX, "template_parm_index", 'x', 0)
 
 /* Index into a template parameter list.  This parameter must be a type.
-   The TYPE_FIELDS value will be a TEMPLATE_PARM_INDEX.  */
+   The type.value field will be a TEMPLATE_PARM_INDEX.  */
 DEFTREECODE (TEMPLATE_TYPE_PARM, "template_type_parm", 't', 0)
 
 /* Index into a template parameter list for template template parameters.
@@ -190,7 +190,7 @@ DEFTREECODE (TYPENAME_TYPE, "typename_type", 't', 0)
    TYPE_NAME is an IDENTIFIER_NODE for `C', the member class template.  */
 DEFTREECODE (UNBOUND_CLASS_TEMPLATE, "unbound_class_template", 't', 0)
 
-/* A type designated by `__typeof (expr)'.  TYPE_FIELDS is the
+/* A type designated by `__typeof (expr)'.  TYPEOF_TYPE_EXPR is the
    expression in question.  */
 DEFTREECODE (TYPEOF_TYPE, "typeof_type", 't', 0)
 
@@ -216,10 +216,6 @@ DEFTREECODE (TEMPLATE_ID_EXPR, "template_id_expr", 'e', 2)
 /* A list-like node for chaining overloading candidates. TREE_TYPE is 
    the original name, and the parameter is the FUNCTION_DECL.  */
 DEFTREECODE (OVERLOAD, "overload", 'x', 0)
-
-/* A generic wrapper for something not tree that we want to include in
-   tree structure.  */
-DEFTREECODE (WRAPPER, "wrapper", 'x', 0)
 
 /* A whole bunch of tree codes for the initial, superficial parsing of
    templates.  */
@@ -260,26 +256,6 @@ DEFTREECODE (HANDLER, "handler", 'e', 2)
 DEFTREECODE (MUST_NOT_THROW_EXPR, "must_not_throw_expr", 'e', 1)
 
 DEFTREECODE (TAG_DEFN, "tag_defn", 'e', 0)
-
-/* The following codes are used to represent implicit conversion
-   sequences, in the sense of [over.best.ics].  The conversion
-   sequences are connected through their first operands, with the
-   first conversion to be performed at the end of the chain.
-
-   The innermost conversion (i.e, the one at the end of the chain) is
-   always an IDENTITY_CONV, corresponding to the identity conversion.  */
-
-DEFTREECODE (IDENTITY_CONV, "identity_conv", 'e', 1)
-DEFTREECODE (LVALUE_CONV, "lvalue_conv", 'e', 1)
-DEFTREECODE (QUAL_CONV, "qual_conv", 'e', 1)
-DEFTREECODE (STD_CONV, "std_conv", 'e', 1)
-DEFTREECODE (PTR_CONV, "ptr_conv", 'e', 1)
-DEFTREECODE (PMEM_CONV, "pmem_conv", 'e', 1)
-DEFTREECODE (BASE_CONV, "base_conv", 'e', 1)
-DEFTREECODE (REF_BIND, "ref_bind", 'e', 1)
-DEFTREECODE (USER_CONV, "user_conv", 'e', 2)
-DEFTREECODE (AMBIG_CONV, "ambig_conv", 'e', 1)
-DEFTREECODE (RVALUE_CONV, "rvalue_conv", 'e', 1)
 
 /*
 Local variables:

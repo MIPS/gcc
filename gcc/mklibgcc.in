@@ -123,7 +123,7 @@ for name in $lib2funcs; do
     out="libgcc/${dir}/${name}${objext}"
 
     echo $out: $libgcc2_c_dep
-    echo "	$gcc_compile" '$(MAYBE_USE_COLLECT2)' $flags -DL$name \
+    echo "	$gcc_compile" $flags -DL$name \
       -c '$(srcdir)/libgcc2.c' -o $out
   done
   libgcc2_objs="$libgcc2_objs ${name}${objext}"
@@ -136,7 +136,7 @@ for name in $LIB2FUNCS_ST; do
     out="libgcc/${dir}/${name}${objext}"
 
     echo $out: $libgcc2_c_dep
-    echo "	$gcc_compile" '$(MAYBE_USE_COLLECT2)' $flags -DL$name \
+    echo "	$gcc_compile" $flags -DL$name \
       -c '$(srcdir)/libgcc2.c' -o $out
   done
   libgcc2_st_objs="$libgcc2_st_objs ${name}${objext}"
@@ -149,7 +149,7 @@ for name in $LIB2_DIVMOD_FUNCS; do
     out="libgcc/${dir}/${name}${objext}"
 
     echo $out: $libgcc2_c_dep
-    echo "	$gcc_compile" '$(MAYBE_USE_COLLECT2)' $flags -DL$name \
+    echo "	$gcc_compile" $flags -DL$name \
       -c '$(srcdir)/libgcc2.c' -fexceptions -fnon-call-exceptions -o $out
   done
   libgcc2_objs="$libgcc2_objs ${name}${objext}"
@@ -271,7 +271,7 @@ for name in $LIBGCOV; do
     out="libgcc/${dir}/${name}${objext}"
 
     echo $out: $libgcov_c_dep
-    echo "	$gcc_compile" '$(MAYBE_USE_COLLECT2)' $flags -DL$name \
+    echo "	$gcc_compile" $flags -DL$name \
       -c '$(srcdir)/libgcov.c' -o $out
   done
   libgcov_objs="$libgcov_objs ${name}${objext}"
@@ -388,6 +388,7 @@ EOF
       fi
       shlib_so_name="$shlib_base_name"
       shlib_dir=
+      shlib_slibdir_qual=
       if [ -n "$MULTILIB_OSDIRNAMES" ]; then
 	if [ "$dir" != . ]; then
 	  gcc_multilib_dir=`./xgcc -B./ $flags --print-multi-directory`
@@ -397,8 +398,12 @@ EOF
 	  os_multilib_base=`echo $os_multilib_dir | sed -n "s~/${gcc_multilib_sup}\$~~p"`
 	  if [ -z "$os_multilib_base" ]; then
 	    shlib_so_name=libgcc_s
+	    if [ "$os_multilib_dir" != "." ]; then
+		shlib_slibdir_qual="/$os_multilib_dir"
+	    fi
 	  else
 	    shlib_so_name=libgcc_s_`echo $gcc_multilib_sup | sed s,/,_,g`
+	    shlib_slibdir_qual="/$os_multilib_base"
 	  fi
 	fi
       fi
@@ -411,7 +416,8 @@ EOF
 	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
 	       -e "s%@shlib_map_file@%$mapfile%g" \
 	       -e "s%@shlib_so_name@%$shlib_so_name%g" \
-	       -e "s%@shlib_dir@%$shlib_dir%g"
+	       -e "s%@shlib_dir@%$shlib_dir%g" \
+	       -e "s%@shlib_slibdir_qual@%%g"
     elif [ "$SHLIB_MULTILIB" = "$dir" ]; then
       shlib_base_name="libgcc_s";
       echo ""
@@ -423,7 +429,8 @@ EOF
 	       -e "s%@shlib_base_name@%$shlib_base_name%g" \
 	       -e "s%@shlib_map_file@%$mapfile%g" \
 	       -e "s%@shlib_so_name@%$shlib_base_name%g" \
-	       -e "s%@shlib_dir@%%g"
+	       -e "s%@shlib_dir@%%g" \
+	       -e "s%@shlib_slibdir_qual@%%g"
     fi
   fi
 done

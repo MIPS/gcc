@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001
+   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -509,7 +509,8 @@ DEFTREECODE (CLEANUP_POINT_EXPR, "cleanup_point_expr", 'e', 1)
    some field in an object of the type contains a value that is used in
    the computation of another field's offset or size and/or the size of
    the type.  The positions and/or sizes of fields can vary from object
-   to object of the same type.
+   to object of the same type or even for one and the same object within
+   its scope.
 
    Record types with discriminants in Ada or schema types in Pascal are
    examples of such types.  This mechanism is also used to create "fat
@@ -533,32 +534,28 @@ DEFTREECODE (CLEANUP_POINT_EXPR, "cleanup_point_expr", 'e', 1)
    For example, if your type FOO is a RECORD_TYPE with a field BAR,
    and you need the value of <variable>.BAR to calculate TYPE_SIZE
    (FOO), just substitute <variable> above with a PLACEHOLDER_EXPR
-   what contains both the expression we wish to
-   evaluate and an expression within which the object may be found.
-   The latter expression is the object itself in the simple case of an
-   Ada record with discriminant, but it can be the array in the case of
-   an unconstrained array.
+   whose TREE_TYPE is FOO.  Then construct your COMPONENT_REF with
+   the PLACEHOLDER_EXPR as the first operand (which has the correct
+   type).  Later, when the size is needed in the program, the back-end
+   will find this PLACEHOLDER_EXPR and generate code to calculate the
+   actual size at run-time.  In the following, we describe how this
+   calculation is done.
+
+   When we wish to evaluate a size or offset, we check whether it contains a
+   PLACEHOLDER_EXPR.  If it does, we call substitute_placeholder_in_expr
+   passing both that tree and an expression within which the object may be
+   found.  The latter expression is the object itself in the simple case of
+   an Ada record with discriminant, but it can be the array in the case of an
+   unconstrained array.
 
    In the latter case, we need the fat pointer, because the bounds of
    the array can only be accessed from it.  However, we rely here on the
    fact that the expression for the array contains the dereference of
-   the fat pointer that obtained the array pointer.
+   the fat pointer that obtained the array pointer.  */
 
-   Accordingly, when looking for the object to substitute in place of
-   a PLACEHOLDER_EXPR, we look down the first operand of the expression
-   passed as the second operand to WITH_RECORD_EXPR until we find
-   something of the desired type or reach a constant.  */
-
-/* Denotes a record to later be supplied with a WITH_RECORD_EXPR when
-   evaluating this expression.  The type of this expression is used to
-   find the record to replace it.  */
+/* Denotes a record to later be substituted before evaluating this expression.
+   The type of this expression is used to find the record to replace it.  */
 DEFTREECODE (PLACEHOLDER_EXPR, "placeholder_expr", 'x', 0)
-
-/* Provide an expression that references a record to be used in place
-   of a PLACEHOLDER_EXPR.  The record to be used is the record within
-   operand 1 that has the same type as the PLACEHOLDER_EXPR in
-   operand 0.  */
-DEFTREECODE (WITH_RECORD_EXPR, "with_record_expr", 'e', 2)
 
 /* Simple arithmetic.  */
 DEFTREECODE (PLUS_EXPR, "plus_expr", '2', 2)
@@ -720,11 +717,15 @@ DEFTREECODE (UNSAVE_EXPR, "unsave_expr", 'e', 1)
 /* Represents something whose RTL has already been expanded as a
    sequence which should be emitted when this expression is expanded.
    The first operand is the RTL to emit.  It is the first of a chain
-   of insns.  The second is the RTL expression for the result.  Any
-   temporaries created during the building of the RTL_EXPR can be
-   reused once the RTL_EXPR has been expanded, with the exception of
-   the RTL_EXPR_RTL.  */
-DEFTREECODE (RTL_EXPR, "rtl_expr", 'e', 2)
+   of insns.  The second is the RTL expression for the result.  The
+   third operand is the "alternate RTL expression" for the result, if
+   any; if the second argument is the DECL_RTL for a VAR_DECL, but
+   with an invalid memory address replaced by a valid one, then the
+   third operand will be the original DECL_RTL.  Any temporaries
+   created during the building of the RTL_EXPR can be reused once the
+   RTL_EXPR has been expanded, with the exception of the
+   RTL_EXPR_RTL.  */
+DEFTREECODE (RTL_EXPR, "rtl_expr", 'e', 3)
 
 /* & in C.  Value is the address at which the operand's value resides.
    Operand may have any mode.  Result mode is Pmode.  */

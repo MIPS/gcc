@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -244,7 +244,7 @@ package Sinfo is
    --      Variant := First (Variants (N));
    --      while Present (Variant) loop
    --         ...
-   --         Alt := Next (Alt);
+   --         Variant := Next (Variant);
    --      end loop;
 
    --  or
@@ -252,7 +252,7 @@ package Sinfo is
    --      Variant := First_Non_Pragma (Variants (N));
    --      while Present (Variant) loop
    --         ...
-   --         Alt := Next_Non_Pragma (Alt);
+   --         Variant := Next_Non_Pragma (Variant);
    --      end loop;
 
    --  In the first form of the loop, Variant can either be an N_Pragma or
@@ -393,7 +393,7 @@ package Sinfo is
    --  abbreviations are used:
 
    --  Note: the utility program that creates the Treeprs spec (in the file
-   --  treeprs.ads) knows about the special fields here, so it must be
+   --  xtreeprs.adb) knows about the special fields here, so it must be
    --  modified if any change is made to these fields.
 
    --    "plus fields for binary operator"
@@ -567,14 +567,18 @@ package Sinfo is
 
    --  Associated_Node (Node4-Sem)
    --    Present in nodes that can denote an entity: identifiers, character
-   --    literals, operator symbols, expanded names, operator nodes and
+   --    literals, operator symbols, expanded names, operator nodes, and
    --    attribute reference nodes (all these nodes have an Entity field).
    --    This field is also present in N_Aggregate, N_Selected_Component,
-   --    and N_Extension_Aggregate nodes. This field is used during generic
-   --    processing to relate nodes in the original template to nodes in the
-   --    generic copy. It overlaps the Entity field, and is used to capture
-   --    global references in the analyzed copy and place them in the template.
-   --    See description in Sem_Ch12 for further details on this usage.
+   --    and N_Extension_Aggregate nodes. This field is used in generic
+   --    processing to create links between the generic template and the
+   --    generic copy. See Sem_Ch12.Get_Associated_Node for full details.
+   --    Note that this field overlaps Entity, which is fine, since, as
+   --    explained in Sem_Ch12, the normal function of Entity is not
+   --    required at the point where the Associated_Node is set. Note
+   --    also, that in generic templates, this means that the Entity field
+   --    does not necessarily point to an Entity. Since the back end is
+   --    expected to ignore generic templates, this is harmless.
 
    --  At_End_Proc (Node1)
    --    This field is present in an N_Handled_Sequence_Of_Statements node.
@@ -821,7 +825,7 @@ package Sinfo is
    --    This flag is set in the N_With_Clause node to indicate that a
    --    pragma Elaborate pragma appears for the with'ed units.
 
-   --  Elaborate_All_Present (Flag15-Sem)
+   --  Elaborate_All_Present (Flag14-Sem)
    --    This flag is set in the N_With_Clause node to indicate that a
    --    pragma Elaborate_All pragma appears for the with'ed units.
 
@@ -861,8 +865,16 @@ package Sinfo is
    --    incorrect (e.g. during overload resolution, Entity is initially
    --    set to the first possible correct interpretation, and then later
    --    modified if necessary to contain the correct value after resolution).
-   --    Note that Associated_Node overlays this field during the processing
-   --    of generics. See Sem_Ch12 for further details.
+   --    Note that this field overlaps Associated_Node, which is used during
+   --    generic processing (see Sem_Ch12 for details). Note also that in
+   --    generic templates, this means that the Entity field does not always
+   --    point to an Entity. Since the back end is expected to ignore
+   --    generic templates, this is harmless.
+
+   --  Entity_Or_Associated_Node (Node4-Sem)
+   --    A synonym for both Entity and Associated_Node. Used by convention
+   --    in the code when referencing this field in cases where it is not
+   --    known whether the field contains an Entity or an Associated_Node.
 
    --  Etype (Node5-Sem)
    --    Appears in all expression nodes, all direct names, and all
@@ -955,6 +967,13 @@ package Sinfo is
    --    base type and all subtypes must be a multiple of the given value,
    --    and the representation clause is considered to be type specific
    --    instead of subtype specific.
+
+   --  From_Default (Flag6-Sem)
+   --    This flag is set on the subprogram renaming declaration created in
+   --    an instance for a formal subprogram, when the formal is declared
+   --    with a box, and there is no explicit actual. If the flag is present,
+   --    the declaration is treated as an implicit reference to the formal in
+   --    the ali file.
 
    --  Generic_Parent (Node5-Sem)
    --    Generic_parent is defined on declaration nodes that are instances.
@@ -1253,6 +1272,13 @@ package Sinfo is
    --    is controlled. This is used in init procs and aggregate expansions
    --    where the generated assignments are more initialisations than real
    --    assignments.
+
+   --  No_Elaboration_Check (Flag14-Sem)
+   --    Present in N_Function_Call and N_Procedure_Call_Statement. Indicates
+   --    that no elaboration check is needed on the call, because it appears
+   --    in the context of a local Suppress pragma. This is used on calls
+   --    within task bodies, where the actual elaboration checks are applied
+   --    after analysis, when the local scope stack is not present.
 
    --  No_Entities_Ref_In_Spec (Flag8-Sem)
    --    Present in N_With_Clause nodes. Set if the with clause is on the
@@ -1857,6 +1883,7 @@ package Sinfo is
       --  N_Subtype_Declaration
       --  Sloc points to SUBTYPE
       --  Defining_Identifier (Node1)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Subtype_Indication (Node5)
       --  Generic_Parent_Type (Node4-Sem) (set for an actual derived type).
       --  Exception_Junk (Flag11-Sem)
@@ -1963,6 +1990,7 @@ package Sinfo is
       --  Defining_Identifier (Node1)
       --  Aliased_Present (Flag4) set if ALIASED appears
       --  Constant_Present (Flag17) set if CONSTANT appears
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Object_Definition (Node4) subtype indication/array type definition
       --  Expression (Node3) (set to Empty if not present)
       --  Handler_List_Entry (Node2-Sem)
@@ -2018,6 +2046,7 @@ package Sinfo is
       --  N_Derived_Type_Definition
       --  Sloc points to NEW
       --  Abstract_Present (Flag4)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Subtype_Indication (Node5)
       --  Record_Extension_Part (Node3) (set to Empty if not present)
 
@@ -2256,8 +2285,7 @@ package Sinfo is
       --  N_Unconstrained_Array_Definition
       --  Sloc points to ARRAY
       --  Subtype_Marks (List2)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
 
       -----------------------------------
       -- 3.6  Index Subtype Definition --
@@ -2285,8 +2313,7 @@ package Sinfo is
       --  N_Constrained_Array_Definition
       --  Sloc points to ARRAY
       --  Discrete_Subtype_Definitions (List2)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
 
       --------------------------------------
       -- 3.6  Discrete Subtype Definition --
@@ -2299,17 +2326,24 @@ package Sinfo is
       -- 3.6  Component Definition --
       -------------------------------
 
-      --  COMPONENT_DEFINITION ::= [aliased] SUBTYPE_INDICATION
-
-      --  There is no explicit node in the tree for a component definition.
-      --  Instead the subtype indication appears directly, and the ALIASED
-      --  indication (Aliased_Present flag) is in the parent node.
+      --  COMPONENT_DEFINITION ::=
+      --    [aliased] SUBTYPE_INDICATION | ACCESS_DEFINITION
 
       --  Note: although the syntax does not permit a component definition to
       --  be an anonymous array (and the parser will diagnose such an attempt
       --  with an appropriate message), it is possible for anonymous arrays
       --  to appear as component definitions. The semantics and back end handle
       --  this case properly, and the expander in fact generates such cases.
+      --  Access_Definition is an optional field that gives support to Ada 0Y
+      --  (AI-230). The parser generates nodes that have either the
+      --  Subtype_Indication field or else the Access_Definition field.
+
+      --  N_Component_Definition
+      --  Sloc points to ALIASED, ACCESS or to first token of subtype mark
+      --  Aliased_Present (Flag4)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  Subtype_Indication (Node5) (set to Empty if not present)
+      --  Access_Definition (Node3) (set to Empty if not present)
 
       -----------------------------
       -- 3.6.1  Index Constraint --
@@ -2380,6 +2414,7 @@ package Sinfo is
       --  N_Discriminant_Specification
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Discriminant_Type (Node5) subtype mark or
       --    access parameter definition
       --  Expression (Node3) (set to Empty if no default expression)
@@ -2518,8 +2553,7 @@ package Sinfo is
       --  N_Component_Declaration
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
-      --  Aliased_Present (Flag4) from component definition
-      --  Subtype_Indication (Node5) from component definition
+      --  Component_Definition (Node4)
       --  Expression (Node3) (set to Empty if no default expression)
       --  More_Ids (Flag5) (set to False if no more identifiers in list)
       --  Prev_Ids (Flag6) (set to False if no previous identifiers in list)
@@ -2612,6 +2646,7 @@ package Sinfo is
       --  N_Access_To_Object_Definition
       --  Sloc points to ACCESS
       --  All_Present (Flag15)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Subtype_Indication (Node5)
       --  Constant_Present (Flag17)
 
@@ -2639,12 +2674,14 @@ package Sinfo is
 
       --  N_Access_Function_Definition
       --  Sloc points to ACCESS
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Protected_Present (Flag15)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
       --  Subtype_Mark (Node4) result subtype
 
       --  N_Access_Procedure_Definition
       --  Sloc points to ACCESS
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Protected_Present (Flag15)
       --  Parameter_Specifications (List3) (set to No_List if no formal part)
 
@@ -2656,6 +2693,9 @@ package Sinfo is
 
       --  N_Access_Definition
       --  Sloc points to ACCESS
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
+      --  All_Present (Flag15)
+      --  Constant_Present (Flag17)
       --  Subtype_Mark (Node4)
 
       -----------------------------------------
@@ -2996,13 +3036,15 @@ package Sinfo is
       --  Choices (List1)
       --  Loop_Actions (List2-Sem)
       --  Expression (Node3)
+      --  Box_Present (Flag15)
 
       --  Note: this structure is used for both record component associations
       --  and array component associations, since the two cases aren't always
       --  separable by the parser. The choices list may represent either a
       --  list of selector names in the record aggregate case, or a list of
       --  discrete choices in the array aggregate case or an N_Others_Choice
-      --  node (which appears as a singleton list).
+      --  node (which appears as a singleton list). Box_Present gives support
+      --  to Ada 0Y (AI-287).
 
       ------------------------------------
       --  4.3.1  Commponent Choice List --
@@ -3451,6 +3493,7 @@ package Sinfo is
       --  N_Allocator
       --  Sloc points to NEW
       --  Expression (Node3) subtype indication or qualified expression
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Storage_Pool (Node1-Sem)
       --  Procedure_To_Call (Node4-Sem)
       --  No_Initialization (Flag13-Sem)
@@ -3965,6 +4008,7 @@ package Sinfo is
       --  Defining_Identifier (Node1)
       --  In_Present (Flag15)
       --  Out_Present (Flag17)
+      --  Null_Exclusion_Present (Flag9) (set to False if not present)
       --  Parameter_Type (Node2) subtype mark or access definition
       --  Expression (Node3) (set to Empty if no default expression present)
       --  Do_Accessibility_Check (Flag13-Sem)
@@ -4029,6 +4073,7 @@ package Sinfo is
       --  First_Named_Actual (Node4-Sem)
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
       --  Do_Tag_Check (Flag13-Sem)
+      --  No_Elaboration_Check (Flag14-Sem)
       --  Parameter_List_Truncated (Flag17-Sem)
       --  ABE_Is_Certain (Flag18-Sem)
       --  plus fields for expression
@@ -4059,6 +4104,7 @@ package Sinfo is
       --  First_Named_Actual (Node4-Sem)
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
       --  Do_Tag_Check (Flag13-Sem)
+      --  No_Elaboration_Check (Flag14-Sem)
       --  Parameter_List_Truncated (Flag17-Sem)
       --  ABE_Is_Certain (Flag18-Sem)
       --  plus fields for expression
@@ -4263,11 +4309,17 @@ package Sinfo is
 
       --  OBJECT_RENAMING_DECLARATION ::=
       --    DEFINING_IDENTIFIER : SUBTYPE_MARK renames object_NAME;
+      --  | DEFINING_IDENTIFIER : ACCESS_DEFINITION renames object_NAME;
+
+      --  Note: Access_Definition is an optional field that gives support to
+      --  Ada 0Y (AI-230). The parser generates nodes that have either the
+      --  Subtype_Indication field or else the Access_Definition field.
 
       --  N_Object_Renaming_Declaration
       --  Sloc points to first identifier
       --  Defining_Identifier (Node1)
-      --  Subtype_Mark (Node4)
+      --  Subtype_Mark (Node4) (set to Empty if not present)
+      --  Access_Definition (Node3) (set to Empty if not present)
       --  Name (Node2)
       --  Corresponding_Generic_Association (Node5-Sem)
 
@@ -4309,6 +4361,7 @@ package Sinfo is
       --  Name (Node2)
       --  Parent_Spec (Node4-Sem)
       --  Corresponding_Spec (Node5-Sem)
+      --  From_Default (Flag6-Sem)
 
       -----------------------------------------
       -- 8.5.5  Generic Renaming Declaration --
@@ -5070,12 +5123,17 @@ package Sinfo is
       --  Last_Name (Flag6) (set to True if last name or only one name)
       --  Context_Installed (Flag13-Sem)
       --  Elaborate_Present (Flag4-Sem)
-      --  Elaborate_All_Present (Flag15-Sem)
+      --  Elaborate_All_Present (Flag14-Sem)
+      --  Private_Present (Flag15) set if with_clause has private keyword
       --  Implicit_With (Flag16-Sem)
       --  Limited_Present (Flag17)  set if LIMITED is present
       --  Limited_View_Installed (Flag18-Sem)
       --  Unreferenced_In_Spec (Flag7-Sem)
       --  No_Entities_Ref_In_Spec (Flag8-Sem)
+
+      --  Note: Limited_Present and Limited_View_Installed give support to
+      --        Ada 0Y (AI-50217).
+      --  Similarly, Private_Present gives support to AI-50262.
 
       ----------------------
       -- With_Type clause --
@@ -6625,6 +6683,7 @@ package Sinfo is
       N_Compilation_Unit,
       N_Compilation_Unit_Aux,
       N_Component_Association,
+      N_Component_Definition,
       N_Component_List,
       N_Derived_Type_Definition,
       N_Decimal_Fixed_Point_Definition,
@@ -6852,6 +6911,9 @@ package Sinfo is
    function Accept_Statement
      (N : Node_Id) return Node_Id;    -- Node2
 
+   function Access_Definition
+     (N : Node_Id) return Node_Id;    -- Node3
+
    function Access_Types_To_Process
      (N : Node_Id) return Elist_Id;   -- Elist2
 
@@ -6941,6 +7003,9 @@ package Sinfo is
 
    function Component_Clauses
      (N : Node_Id) return List_Id;    -- List3
+
+   function Component_Definition
+     (N : Node_Id) return Node_Id;    -- Node4
 
    function Component_Items
      (N : Node_Id) return List_Id;    -- List3
@@ -7078,7 +7143,7 @@ package Sinfo is
      (N : Node_Id) return Boolean;    -- Flag13
 
    function Elaborate_All_Present
-     (N : Node_Id) return Boolean;    -- Flag15
+     (N : Node_Id) return Boolean;    -- Flag14
 
    function Elaborate_Present
      (N : Node_Id) return Boolean;    -- Flag4
@@ -7105,6 +7170,9 @@ package Sinfo is
      (N : Node_Id) return Uint;       -- Uint5
 
    function Entity
+     (N : Node_Id) return Node_Id;    -- Node4
+
+   function Entity_Or_Associated_Node
      (N : Node_Id) return Node_Id;    -- Node4
 
    function Entry_Body_Formal_Part
@@ -7181,6 +7249,9 @@ package Sinfo is
 
    function From_At_Mod
      (N : Node_Id) return Boolean;    -- Flag4
+
+   function From_Default
+     (N : Node_Id) return Boolean;    -- Flag6
 
    function Generic_Associations
      (N : Node_Id) return List_Id;    -- List3
@@ -7371,6 +7442,9 @@ package Sinfo is
    function No_Ctrl_Actions
      (N : Node_Id) return Boolean;    -- Flag7
 
+   function No_Elaboration_Check
+     (N : Node_Id) return Boolean;    -- Flag14
+
    function No_Entities_Ref_In_Spec
      (N : Node_Id) return Boolean;    -- Flag8
 
@@ -7382,6 +7456,9 @@ package Sinfo is
 
    function Null_Present
      (N : Node_Id) return Boolean;    -- Flag13
+
+   function Null_Exclusion_Present
+     (N : Node_Id) return Boolean;    -- Flag9
 
    function Null_Record_Present
      (N : Node_Id) return Boolean;    -- Flag17
@@ -7626,6 +7703,9 @@ package Sinfo is
    procedure Set_Accept_Statement
      (N : Node_Id; Val : Node_Id);            -- Node2
 
+   procedure Set_Access_Definition
+     (N : Node_Id; Val : Node_Id);            -- Node3
+
    procedure Set_Access_Types_To_Process
      (N : Node_Id; Val : Elist_Id);           -- Elist2
 
@@ -7715,6 +7795,9 @@ package Sinfo is
 
    procedure Set_Component_Clauses
      (N : Node_Id; Val : List_Id);            -- List3
+
+   procedure Set_Component_Definition
+     (N : Node_Id; Val : Node_Id);            -- Node4
 
    procedure Set_Component_Items
      (N : Node_Id; Val : List_Id);            -- List3
@@ -7852,7 +7935,7 @@ package Sinfo is
      (N : Node_Id; Val : Boolean := True);    -- Flag13
 
    procedure Set_Elaborate_All_Present
-     (N : Node_Id; Val : Boolean := True);    -- Flag15
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
 
    procedure Set_Elaborate_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag4
@@ -7955,6 +8038,9 @@ package Sinfo is
 
    procedure Set_From_At_Mod
      (N : Node_Id; Val : Boolean := True);    -- Flag4
+
+   procedure Set_From_Default
+     (N : Node_Id; Val : Boolean := True);    -- Flag6
 
    procedure Set_Generic_Associations
      (N : Node_Id; Val : List_Id);            -- List3
@@ -8145,6 +8231,9 @@ package Sinfo is
    procedure Set_No_Ctrl_Actions
      (N : Node_Id; Val : Boolean := True);    -- Flag7
 
+   procedure Set_No_Elaboration_Check
+     (N : Node_Id; Val : Boolean := True);    -- Flag14
+
    procedure Set_No_Entities_Ref_In_Spec
      (N : Node_Id; Val : Boolean := True);    -- Flag8
 
@@ -8156,6 +8245,9 @@ package Sinfo is
 
    procedure Set_Null_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag13
+
+   procedure Set_Null_Exclusion_Present
+     (N : Node_Id; Val : Boolean := True);    -- Flag9
 
    procedure Set_Null_Record_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag17
@@ -8406,6 +8498,7 @@ package Sinfo is
    pragma Inline (Abstract_Present);
    pragma Inline (Accept_Handler_Records);
    pragma Inline (Accept_Statement);
+   pragma Inline (Access_Definition);
    pragma Inline (Access_Types_To_Process);
    pragma Inline (Actions);
    pragma Inline (Activation_Chain_Entity);
@@ -8436,6 +8529,7 @@ package Sinfo is
    pragma Inline (Compile_Time_Known_Aggregate);
    pragma Inline (Component_Associations);
    pragma Inline (Component_Clauses);
+   pragma Inline (Component_Definition);
    pragma Inline (Component_Items);
    pragma Inline (Component_List);
    pragma Inline (Component_Name);
@@ -8491,6 +8585,7 @@ package Sinfo is
    pragma Inline (End_Label);
    pragma Inline (End_Span);
    pragma Inline (Entity);
+   pragma Inline (Entity_Or_Associated_Node);
    pragma Inline (Entry_Body_Formal_Part);
    pragma Inline (Entry_Call_Alternative);
    pragma Inline (Entry_Call_Statement);
@@ -8516,6 +8611,7 @@ package Sinfo is
    pragma Inline (Formal_Type_Definition);
    pragma Inline (Forwards_OK);
    pragma Inline (From_At_Mod);
+   pragma Inline (From_Default);
    pragma Inline (Generic_Associations);
    pragma Inline (Generic_Formal_Declarations);
    pragma Inline (Generic_Parent);
@@ -8579,10 +8675,12 @@ package Sinfo is
    pragma Inline (Next_Rep_Item);
    pragma Inline (Next_Use_Clause);
    pragma Inline (No_Ctrl_Actions);
+   pragma Inline (No_Elaboration_Check);
    pragma Inline (No_Entities_Ref_In_Spec);
    pragma Inline (No_Initialization);
    pragma Inline (No_Truncation);
    pragma Inline (Null_Present);
+   pragma Inline (Null_Exclusion_Present);
    pragma Inline (Null_Record_Present);
    pragma Inline (Object_Definition);
    pragma Inline (OK_For_Stream);
@@ -8661,6 +8759,7 @@ package Sinfo is
    pragma Inline (Set_Abstract_Present);
    pragma Inline (Set_Accept_Handler_Records);
    pragma Inline (Set_Accept_Statement);
+   pragma Inline (Set_Access_Definition);
    pragma Inline (Set_Access_Types_To_Process);
    pragma Inline (Set_Actions);
    pragma Inline (Set_Activation_Chain_Entity);
@@ -8691,6 +8790,7 @@ package Sinfo is
    pragma Inline (Set_Compile_Time_Known_Aggregate);
    pragma Inline (Set_Component_Associations);
    pragma Inline (Set_Component_Clauses);
+   pragma Inline (Set_Component_Definition);
    pragma Inline (Set_Component_Items);
    pragma Inline (Set_Component_List);
    pragma Inline (Set_Component_Name);
@@ -8771,6 +8871,7 @@ package Sinfo is
    pragma Inline (Set_Formal_Type_Definition);
    pragma Inline (Set_Forwards_OK);
    pragma Inline (Set_From_At_Mod);
+   pragma Inline (Set_From_Default);
    pragma Inline (Set_Generic_Associations);
    pragma Inline (Set_Generic_Formal_Declarations);
    pragma Inline (Set_Generic_Parent);
@@ -8833,10 +8934,12 @@ package Sinfo is
    pragma Inline (Set_Next_Named_Actual);
    pragma Inline (Set_Next_Use_Clause);
    pragma Inline (Set_No_Ctrl_Actions);
+   pragma Inline (Set_No_Elaboration_Check);
    pragma Inline (Set_No_Entities_Ref_In_Spec);
    pragma Inline (Set_No_Initialization);
    pragma Inline (Set_No_Truncation);
    pragma Inline (Set_Null_Present);
+   pragma Inline (Set_Null_Exclusion_Present);
    pragma Inline (Set_Null_Record_Present);
    pragma Inline (Set_Object_Definition);
    pragma Inline (Set_OK_For_Stream);

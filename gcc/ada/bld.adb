@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2002-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -66,12 +66,12 @@ package body Bld is
    Copyright_Displayed : Boolean := False;
    --  To avoid displaying the Copyright line several times
 
-   Usage_Displayed     : Boolean := False;
+   Usage_Displayed : Boolean := False;
    --  To avoid displaying the usage several times
 
    type Expression_Kind_Type is (Undecided, Static_String, Other);
 
-   Expression_Kind   : Expression_Kind_Type := Undecided;
+   Expression_Kind : Expression_Kind_Type := Undecided;
    --  After procedure Expression has been called, this global variable
    --  indicates if the expression is a static string or not.
    --  If it is a static string, then Expression_Value (1 .. Expression_Last)
@@ -110,16 +110,14 @@ package body Bld is
    --  The following variables are used to controlled what attributes
    --  Default_Switches and Switches are allowed in expressions.
 
-   Default_Switches_Project  : Project_Node_Id  := Empty_Node;
-   Default_Switches_Package  : Name_Id          := No_Name;
-   Default_Switches_Language : Name_Id        := No_Name;
-
-   Switches_Project          : Project_Node_Id  := Empty_Node;
+   Default_Switches_Package  : Name_Id := No_Name;
+   Default_Switches_Language : Name_Id := No_Name;
    Switches_Package          : Name_Id          := No_Name;
    Switches_Language         : Source_Kind_Type := Unknown;
 
    --  Other attribute references are only allowed in attribute declarations
    --  of the same package and of the same name.
+
    --  Other_Attribute is True only during attribute declarations other than
    --  Switches or Default_Switches.
 
@@ -224,6 +222,7 @@ package body Bld is
    Deps_Projects_String : aliased String := "DEPS_PROJECT";
    Exec_String          : aliased String := "EXEC";
    Exec_Dir_String      : aliased String := "EXEC_DIR";
+   Fldflags_String      : aliased String := "FLDFLAGS";
    Gnatmake_String      : aliased String := "GNATMAKE";
    Languages_String     : aliased String := "LANGUAGES";
    Ld_Flags_String      : aliased String := "LD_FLAGS";
@@ -253,6 +252,7 @@ package body Bld is
       Deps_Projects_String'Access,
       Exec_String         'Access,
       Exec_Dir_String     'Access,
+      Fldflags_String     'Access,
       Gnatmake_String     'Access,
       Languages_String    'Access,
       Ld_Flags_String     'Access,
@@ -383,8 +383,7 @@ package body Bld is
      (Static  : Boolean;
       Value   : String_Access;
       Last    : Natural;
-      Default : String)
-      return    String;
+      Default : String) return String;
    --  Returns the current suffix, if it is statically known, or ""
    --  if it is not statically known. Used on C_Suffix, Cxx_Suffix,
    --  Ada_Body_Suffix and Ada_Spec_Suffix.
@@ -435,7 +434,7 @@ package body Bld is
          Copyright_Displayed := True;
          Write_Str ("GPR2MAKE ");
          Write_Str (Gnatvsn.Gnat_Version_String);
-         Write_Str (" Copyright 2002-2003 Free Software Foundation, Inc.");
+         Write_Str (" Copyright 2002-2004 Free Software Foundation, Inc.");
          Write_Eol;
          Write_Eol;
       end if;
@@ -528,11 +527,16 @@ package body Bld is
                                   First_Expression_In_List (Current_Term);
 
                begin
-                  if String_Node /= Empty_Node then
+                  if String_Node = Empty_Node then
 
                      --  If String_Node is nil, it is an empty list,
-                     --  there is nothing to do
+                     --  set Expression_Kind if it is still Undecided
 
+                     if Expression_Kind = Undecided then
+                        Expression_Kind := Static_String;
+                     end if;
+
+                  else
                      Expression
                        (Project    => Project,
                         First_Term => Tree.First_Term (String_Node),
@@ -1175,12 +1179,10 @@ package body Bld is
          Current_Declarative_Item := Next_Declarative_Item
                                             (Current_Declarative_Item);
 
-         --  By default, indicate that Default_Switches and Switches
-         --  attribute references are not allowed in expressions.
+         --  By default, indicate that we are not declaring attribute
+         --  Default_Switches or Switches.
 
-         Default_Switches_Project := Empty_Node;
-         Switches_Project         := Empty_Node;
-         Other_Attribute          := False;
+         Other_Attribute := False;
 
          --  Write_Line (Project_Node_Kind'Image (Kind_Of (Current_Item)));
 
@@ -1345,7 +1347,6 @@ package body Bld is
                   --  in expressions.
 
                   if Item_Name = Snames.Name_Default_Switches then
-                     Default_Switches_Project  := Project;
                      Default_Switches_Package  := Pkg;
                      Default_Switches_Language := Index;
 
@@ -1354,7 +1355,6 @@ package body Bld is
                   --  Switches attribute references are allowed in expressions.
 
                   elsif Item_Name = Snames.Name_Switches then
-                     Switches_Project  := Project;
                      Switches_Package  := Pkg;
                      Switches_Language := Source_Kind_Of (Index);
 
@@ -1428,7 +1428,8 @@ package body Bld is
                     (Pkg = No_Name
                        or else Pkg = Snames.Name_Naming
                        or else Pkg = Snames.Name_Compiler
-                       or else Pkg = Name_Ide);
+                       or else Pkg = Name_Ide
+                       or else Pkg = Snames.Name_Linker);
 
                   if Put_Declaration then
                      --  Some attributes are converted into reserved variables
@@ -1506,11 +1507,11 @@ package body Bld is
                            --  being an absolute directory name.
 
                            Put (Project_Name &
-                                ".src_dirs:=$(shell gprcmd extend $(");
-                           Put (Project_Name);
-                           Put (".base_dir) '$(");
+                                ".src_dirs:=$(foreach name,$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")')");
+                           Put ("),$(shell gprcmd extend $(");
+                           Put (Project_Name);
+                           Put_Line (".base_dir) '""$(name)""'))");
 
                         elsif Item_Name = Snames.Name_Source_Files then
 
@@ -1559,9 +1560,9 @@ package body Bld is
                            Put ("src.list_file:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                            if In_Case then
                               if Source_List_File_Declaration = False then
@@ -1595,9 +1596,9 @@ package body Bld is
                            Put (".obj_dir:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                         elsif Item_Name = Snames.Name_Exec_Dir then
 
@@ -1611,9 +1612,9 @@ package body Bld is
                            Put ("EXEC_DIR:=" &
                                 "$(strip $(shell gprcmd to_absolute $(");
                            Put (Project_Name);
-                           Put (".base_dir) $(");
+                           Put (".base_dir) '$(");
                            Put_Attribute (Project, Pkg, Item_Name, No_Name);
-                           Put_Line (")))");
+                           Put_Line (")'))");
 
                         elsif Item_Name = Snames.Name_Main then
 
@@ -1862,7 +1863,7 @@ package body Bld is
                                     end if;
                                  end if;
 
-                              elsif Item_Name = Snames.Name_Ada then
+                              elsif Index_Name = Snames.Name_Ada then
 
                                  --  For "Ada", we set the variable ADA_BODY
 
@@ -1897,9 +1898,9 @@ package body Bld is
                                     else
                                        Ada_Body_Suffix_Static :=
                                          Expression_Value
-                                         (1 .. Expression_Last) =
-                                         Ada_Body_Suffix
-                                         (1 .. Ada_Body_Suffix_Last);
+                                           (1 .. Expression_Last) =
+                                           Ada_Body_Suffix
+                                             (1 .. Ada_Body_Suffix_Last);
                                     end if;
                                  end if;
                               end if;
@@ -1961,10 +1962,42 @@ package body Bld is
                                  end if;
                               end if;
                            end;
+
                         else
                            --  Other attribute are of no interest; suppress
                            --  their declarations.
 
+                           Put_Declaration := False;
+                        end if;
+
+                     elsif Pkg = Snames.Name_Linker then
+                        if Item_Name = Snames.Name_Linker_Options then
+
+                           --  Only add linker options if this is not the
+                           --  root project.
+
+                           Put ("ifeq ($(");
+                           Put (Project_Name);
+                           Put (".root),False)");
+                           New_Line;
+
+                           --  Add linker options to FLDFLAGS in reverse order
+
+                           Put ("   FLDFLAGS:=$(shell gprcmd linkopts $(");
+                           Put (Project_Name);
+                           Put (".base_dir) $(");
+                           Put_Attribute
+                             (Project, Pkg, Item_Name, No_Name);
+                           Put (")) $(FLDFLAGS)");
+                           New_Line;
+
+                           Put ("endif");
+                           New_Line;
+
+                        --  Other attributes are of no interest. Suppress
+                        --  their declarations.
+
+                        else
                            Put_Declaration := False;
                         end if;
                      end if;
@@ -2595,6 +2628,25 @@ package body Bld is
                --  Include some utility functions and saved all reserved
                --  env. vars. by including Makefile.prolog.
 
+               New_Line;
+
+               --  First, if MAKE_ROOT is not defined, try to get GNAT prefix
+
+               Put ("   ifeq ($(");
+               Put (MAKE_ROOT);
+               Put ("),)");
+               New_Line;
+
+               Put ("      MAKE_ROOT=$(shell gprcmd prefix)");
+               New_Line;
+
+               Put ("   endif");
+               New_Line;
+
+               New_Line;
+
+               --  If MAKE_ROOT is still not defined, then fail
+
                Put ("   ifeq ($(");
                Put (MAKE_ROOT);
                Put ("),)");
@@ -2614,7 +2666,7 @@ package body Bld is
                Put_Directory_Separator;
                Put ("share");
                Put_Directory_Separator;
-               Put ("make");
+               Put ("gnat");
                Put_Directory_Separator;
                Put ("Makefile.prolog");
                New_Line;
@@ -2669,11 +2721,27 @@ package body Bld is
 
                --  Set defaults to some variables
 
+               --  CFLAGS and CXXFLAGS are set by default to nothing.
+               --  Their initial values have been saved, If they are not set
+               --  by this project file, then they will be reset to their
+               --  initial values. This is to avoid "inheritance" of these
+               --  flags from an imported project file.
+
+               Put_Line ("CFLAGS:=");
+               Put_Line ("CXXFLAGS:=");
+
                IO.Mark (Src_Files_Init);
                Put_Line ("src_files.specified:=FALSE");
 
                IO.Mark (Src_List_File_Init);
                Put_Line ("src_list_file.specified:=FALSE");
+
+               --  Default language is Ada, but variable LANGUAGES may have
+               --  been changed by an imported Makefile. So, we set it
+               --  to "ada"; if attribute Languages is defined in the project
+               --  file, it will be redefined.
+
+               Put_Line ("LANGUAGES:=ada");
 
                --  <PROJECT>.src_dirs is set by default to the project
                --  directory.
@@ -3052,11 +3120,14 @@ package body Bld is
                   end if;
                end if;
 
-               --  Add source dirs of this project file to variable SRC_DIRS
+               --  Add source dirs of this project file to variable SRC_DIRS.
+               --  Put them in front, and remove duplicates.
 
-               Put ("SRC_DIRS:=$(SRC_DIRS) $(");
+               Put ("SRC_DIRS:=$(");
                Put (Uname);
-               Put (".src_dirs)");
+               Put (".src_dirs) $(filter-out $(");
+               Put (Uname);
+               Put (".src_dirs),$(SRC_DIRS))");
                New_Line;
 
                --  Set OBJ_DIR to the object directory
@@ -3321,6 +3392,19 @@ package body Bld is
                   end if;
                end;
 
+               --  If CFLAGS/CXXFLAGS have not been set, set them back to
+               --  their initial values.
+
+               Put_Line ("ifeq ($(CFLAGS),)");
+               Put_Line ("   CFLAGS:=$(CFLAGS.saved)");
+               Put_Line ("endif");
+               New_Line;
+
+               Put_Line ("ifeq ($(CXXFLAGS),)");
+               Put_Line ("   CXXFLAGS:=$(CXXFLAGS.saved)");
+               Put_Line ("endif");
+               New_Line;
+
                --  If this is the main Makefile, include Makefile.Generic
 
                Put ("ifeq ($(");
@@ -3335,7 +3419,7 @@ package body Bld is
                Put_Directory_Separator;
                Put ("share");
                Put_Directory_Separator;
-               Put ("make");
+               Put ("gnat");
                Put_Directory_Separator;
                Put ("Makefile.generic");
                New_Line;
@@ -3492,8 +3576,7 @@ package body Bld is
      (Static  : Boolean;
       Value   : String_Access;
       Last    : Natural;
-      Default : String)
-      return    String
+      Default : String) return String
    is
    begin
       if Static then

@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,7 +71,7 @@ extern void final (rtx, FILE *, int, int);
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx final_scan_insn (rtx, FILE *, int, int, int);
+extern rtx final_scan_insn (rtx, FILE *, int, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -418,7 +418,7 @@ extern int current_function_uses_only_leaf_regs;
 /* Default file in which to dump debug output.  */
 
 #ifdef BUFSIZ
-extern FILE *rtl_dump_file;
+extern FILE *dump_file;
 #endif
 
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
@@ -431,6 +431,11 @@ extern rtx current_output_insn;
    This means that inconsistencies are the user's fault, so don't abort.
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
+
+/* Carry information from ASM_DECLARE_OBJECT_NAME
+   to ASM_FINISH_DECLARE_OBJECT.  */
+extern int size_directive_output;
+extern tree last_assemble_variable_decl;
 
 /* Decide whether DECL needs to be in a writable section.
    RELOC is the same as for SELECT_SECTION.  */
@@ -509,6 +514,7 @@ extern const char *default_strip_name_encoding (const char *);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
+extern void default_emit_unwind_label (FILE *, tree, int);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);

@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,7 +61,8 @@ c_disregard_inline_limits (tree fn)
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
     return 1;
 
-  return DECL_DECLARED_INLINE_P (fn) && DECL_EXTERNAL (fn);
+  return (!flag_really_no_inline && DECL_DECLARED_INLINE_P (fn)
+	  && DECL_EXTERNAL (fn));
 }
 
 int
@@ -79,13 +80,13 @@ c_cannot_inline_tree_fn (tree *fnp)
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it "
-		 "is supressed using -fno-inline", fn, fn);
+		 "is suppressed using -fno-inline", fn, fn);
       goto cannot_inline;
     }
 
   /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it might not "
@@ -205,7 +206,7 @@ start_cdtor (int method_type)
 
   body = c_begin_compound_stmt ();
 
-  pushlevel (0);
+  push_scope ();
   clear_last_expr ();
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 
@@ -219,7 +220,7 @@ finish_cdtor (tree body)
   tree block;
 
   scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  block = poplevel (0, 0, 0);
+  block = pop_scope ();
   SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
   SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
 
@@ -235,10 +236,6 @@ c_objc_common_finish_file (void)
 {
   if (pch_file)
     c_common_write_pch ();
-
-  /* If multiple translation units were built, copy information between
-     them based on linkage rules.  */
-  merge_translation_unit_decls ();
 
   cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
@@ -264,17 +261,6 @@ c_objc_common_finish_file (void)
 
       finish_cdtor (body);
     }
-
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_all, &flags);
-
-    if (stream)
-      {
-	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
-	dump_end (TDI_all, stream);
-      }
-  }
 }
 
 /* Called during diagnostic message formatting process to print a
@@ -293,29 +279,70 @@ static bool
 c_tree_printer (pretty_printer *pp, text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree);
+  const char *n = "({anonymous})";
 
   switch (*text->format_spec)
     {
     case 'D':
     case 'F':
+      if (DECL_NAME (t))
+	n = lang_hooks.decl_printable_name (t, 2);
+      break;
+
     case 'T':
-      {
-        const char *n = DECL_NAME (t)
-          ? (*lang_hooks.decl_printable_name) (t, 2)
-          : "({anonymous})";
-        pp_string (pp, n);
-      }
-      return true;
+      if (TREE_CODE (t) == TYPE_DECL)
+	{
+	  if (DECL_NAME (t))
+	    n = lang_hooks.decl_printable_name (t, 2);
+	}
+      else
+	{
+	  t = TYPE_NAME (t);
+	  if (t)
+	    n = IDENTIFIER_POINTER (t);
+	}
+      break;
 
     case 'E':
-       if (TREE_CODE (t) == IDENTIFIER_NODE)
-         {
-           pp_string (pp, IDENTIFIER_POINTER (t));
-           return true;
-         }
-       return false;
+      if (TREE_CODE (t) == IDENTIFIER_NODE)
+	n = IDENTIFIER_POINTER (t);
+      else
+        return false;
+      break;
 
     default:
       return false;
     }
+
+  pp_string (pp, n);
+  return true;
 }
+
+tree
+c_objc_common_truthvalue_conversion (tree expr)
+{
+ retry:
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case ARRAY_TYPE:
+      expr = default_conversion (expr);
+      if (TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
+	goto retry;
+
+      error ("used array that cannot be converted to pointer where scalar is required");
+      return error_mark_node;
+
+    case RECORD_TYPE:
+      error ("used struct type value where scalar is required");
+      return error_mark_node;
+
+    case UNION_TYPE:
+      error ("used union type value where scalar is required");
+      return error_mark_node;
+    default:
+      break;
+    }
+
+  return c_common_truthvalue_conversion (expr);
+}
+

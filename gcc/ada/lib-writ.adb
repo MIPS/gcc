@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Osint;    use Osint;
 with Osint.C;  use Osint.C;
 with Par;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Scn;      use Scn;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -75,6 +76,7 @@ package body Lib.Writ is
          Ident_String    => Empty,
          Loading         => False,
          Main_Priority   => -1,
+         Munit_Index     => 0,
          Serial_Number   => 0,
          Version         => 0,
          Error_Location  => No_Location);
@@ -128,14 +130,25 @@ package body Lib.Writ is
         Ident_String    => Empty,
         Loading         => False,
         Main_Priority   => -1,
+        Munit_Index     => 0,
         Serial_Number   => 0,
         Version         => 0,
         Error_Location  => No_Location);
 
       --  Parse system.ads so that the checksum is set right
+      --  Style checks are not applied.
 
-      Initialize_Scanner (Units.Last, System_Source_File_Index);
-      Discard_List (Par (Configuration_Pragmas => False));
+      declare
+         Save_Mindex : constant Nat := Multiple_Unit_Index;
+         Save_Style  : constant Boolean := Style_Check;
+      begin
+         Multiple_Unit_Index := 0;
+         Style_Check := False;
+         Initialize_Scanner (Units.Last, System_Source_File_Index);
+         Discard_List (Par (Configuration_Pragmas => False));
+         Style_Check := Save_Style;
+         Multiple_Unit_Index := Save_Mindex;
+      end;
    end Ensure_System_Dependency;
 
    ---------------
@@ -209,7 +222,8 @@ package body Lib.Writ is
          Item := First (Context_Items (Cunit));
          while Present (Item) loop
 
-            --  limited_with_clauses do not create dependencies.
+            --  Ada0Y (AI-50217): limited with_clauses do not create
+            --  dependencies
 
             if Nkind (Item) = N_With_Clause
                and then not (Limited_Present (Item))
@@ -639,7 +653,14 @@ package body Lib.Writ is
 
                if Is_Spec_Name (Uname) then
                   Body_Fname :=
-                    Get_File_Name (Get_Body_Name (Uname), Subunit => False);
+                    Get_File_Name
+                      (Get_Body_Name (Uname),
+                       Subunit => False, May_Fail => True);
+
+                  if Body_Fname = No_File then
+                     Body_Fname := Get_File_Name (Uname, Subunit => False);
+                  end if;
+
                else
                   Body_Fname := Get_File_Name (Uname, Subunit => False);
                end if;
@@ -653,11 +674,13 @@ package body Lib.Writ is
                then
                   Write_Info_Name (Body_Fname);
                   Write_Info_Tab (49);
-                  Write_Info_Name (Lib_File_Name (Body_Fname));
+                  Write_Info_Name
+                    (Lib_File_Name (Body_Fname, Munit_Index (Unum)));
                else
                   Write_Info_Name (Fname);
                   Write_Info_Tab (49);
-                  Write_Info_Name (Lib_File_Name (Fname));
+                  Write_Info_Name
+                    (Lib_File_Name (Fname, Munit_Index (Unum)));
                end if;
 
                if Elab_Flags (Unum) then
@@ -677,9 +700,16 @@ package body Lib.Writ is
          end loop;
       end Write_With_Lines;
 
-   --  Start of processing for Writ_ALI
+   --  Start of processing for Write_ALI
 
    begin
+      --  We never write an ALI file if the original operating mode was
+      --  syntax-only (-gnats switch used in compiler invocation line)
+
+      if Original_Operating_Mode = Check_Syntax then
+         return;
+      end if;
+
       --  Build sorted source dependency table. We do this right away,
       --  because it is referenced by Up_To_Date_ALI_File_Exists.
 
@@ -716,7 +746,7 @@ package body Lib.Writ is
 
       Write_Info_Initiate ('V');
       Write_Info_Str (" """);
-      Write_Info_Str (Library_Version);
+      Write_Info_Str (Verbose_Library_Version);
       Write_Info_Char ('"');
 
       Write_Info_EOL;
@@ -868,6 +898,10 @@ package body Lib.Writ is
          Write_Info_Str (" NS");
       end if;
 
+      if Sec_Stack_Used then
+         Write_Info_Str (" SS");
+      end if;
+
       if Unreserve_All_Interrupts then
          Write_Info_Str (" UA");
       end if;
@@ -893,7 +927,7 @@ package body Lib.Writ is
            or else Unit = Main_Unit
          then
             if not Has_No_Elaboration_Code (Cunit (Unit)) then
-               Violations (No_ELaboration_Code) := True;
+               Main_Restrictions.Violated (No_Elaboration_Code) := True;
             end if;
          end if;
       end loop;
@@ -903,13 +937,39 @@ package body Lib.Writ is
       Write_Info_Initiate ('R');
       Write_Info_Char (' ');
 
-      for J in All_Restrictions loop
-         if Main_Restrictions (J) then
+      --  First the information for the boolean restrictions
+
+      for R in All_Boolean_Restrictions loop
+         if Main_Restrictions.Set (R) then
             Write_Info_Char ('r');
-         elsif Violations (J) then
+         elsif Main_Restrictions.Violated (R) then
             Write_Info_Char ('v');
          else
             Write_Info_Char ('n');
+         end if;
+      end loop;
+
+      --  And now the information for the parameter restrictions
+
+      for RP in All_Parameter_Restrictions loop
+         if Main_Restrictions.Set (RP) then
+            Write_Info_Char ('r');
+            Write_Info_Nat (Nat (Main_Restrictions.Value (RP)));
+         else
+            Write_Info_Char ('n');
+         end if;
+
+         if not Main_Restrictions.Violated (RP)
+           or else RP not in Checked_Parameter_Restrictions
+         then
+            Write_Info_Char ('n');
+         else
+            Write_Info_Char ('v');
+            Write_Info_Nat (Nat (Main_Restrictions.Count (RP)));
+
+            if Main_Restrictions.Unknown (RP) then
+               Write_Info_Char ('+');
+            end if;
          end if;
       end loop;
 

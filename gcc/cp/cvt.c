@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -76,8 +76,8 @@ static void warn_ref_binding (tree, tree, tree);
 static tree
 cp_convert_to_pointer (tree type, tree expr, bool force)
 {
-  register tree intype = TREE_TYPE (expr);
-  register enum tree_code form;
+  tree intype = TREE_TYPE (expr);
+  enum tree_code form;
   tree rval;
 
   if (IS_AGGR_TYPE (intype))
@@ -306,8 +306,8 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 static tree
 convert_to_pointer_force (tree type, tree expr)
 {
-  register tree intype = TREE_TYPE (expr);
-  register enum tree_code form = TREE_CODE (intype);
+  tree intype = TREE_TYPE (expr);
+  enum tree_code form = TREE_CODE (intype);
   
   if (form == POINTER_TYPE)
     {
@@ -449,8 +449,8 @@ tree
 convert_to_reference (tree reftype, tree expr, int convtype,
                       int flags, tree decl)
 {
-  register tree type = TYPE_MAIN_VARIANT (TREE_TYPE (reftype));
-  register tree intype;
+  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (reftype));
+  tree intype;
   tree rval = NULL_TREE;
   tree rval_as_conversion = NULL_TREE;
   bool can_convert_intype_to_type;
@@ -552,9 +552,6 @@ convert_to_reference (tree reftype, tree expr, int convtype,
   if (flags & LOOKUP_COMPLAIN)
     error ("cannot convert type `%T' to type `%T'", intype, reftype);
 
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
-
   return error_mark_node;
 }
 
@@ -612,8 +609,8 @@ cp_convert (tree type, tree expr)
 tree
 ocp_convert (tree type, tree expr, int convtype, int flags)
 {
-  register tree e = expr;
-  register enum tree_code code = TREE_CODE (type);
+  tree e = expr;
+  enum tree_code code = TREE_CODE (type);
 
   if (error_operand_p (e) || type == error_mark_node)
     return error_mark_node;
@@ -689,8 +686,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	    return rval;
 	  if (flags & LOOKUP_COMPLAIN)
 	    error ("`%#T' used where a `%T' was expected", intype, type);
-	  if (flags & LOOKUP_SPECULATIVELY)
-	    return NULL_TREE;
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
@@ -761,8 +756,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (flags & LOOKUP_COMPLAIN)
     error ("conversion from `%T' to non-scalar type `%T' requested",
 	      TREE_TYPE (expr), type);
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
   return error_mark_node;
 }
 
@@ -817,7 +810,8 @@ convert_to_void (tree expr, const char *implicit)
         /* The second part of a compound expr contains the value.  */
         tree op1 = TREE_OPERAND (expr,1);
         tree new_op1 = convert_to_void
-	  (op1, implicit ? "right-hand operand of comma" : NULL);
+	  (op1, (implicit && !TREE_NO_UNUSED_WARNING (expr)
+		 ? "right-hand operand of comma" : NULL));
         
         if (new_op1 != op1)
 	  {
@@ -834,7 +828,7 @@ convert_to_void (tree expr, const char *implicit)
       /* These have already decayed to rvalue.  */
       break;
     
-    case CALL_EXPR:   /* we have a special meaning for volatile void fn() */
+    case CALL_EXPR:   /* We have a special meaning for volatile void fn().  */
       break;
     
     case INDIRECT_REF:
@@ -883,6 +877,7 @@ convert_to_void (tree expr, const char *implicit)
 	   of an overloaded function, and this is not one of them.  */
 	pedwarn ("%s cannot resolve address of overloaded function",
 		    implicit ? implicit : "void cast");
+	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       /* Only warn when there is no &.  */
@@ -943,8 +938,8 @@ convert (tree type, tree expr)
 tree
 convert_force (tree type, tree expr, int convtype)
 {
-  register tree e = expr;
-  register enum tree_code code = TREE_CODE (type);
+  tree e = expr;
+  enum tree_code code = TREE_CODE (type);
 
   if (code == REFERENCE_TYPE)
     return fold (convert_to_reference (type, e, CONV_C_CAST, LOOKUP_COMPLAIN,
@@ -1039,8 +1034,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 
   /* The code for conversions from class type is currently only used for
      delete expressions.  Other expressions are handled by build_new_op.  */
-
-  if (! TYPE_HAS_CONVERSION (basetype))
+  if (!complete_type_or_else (basetype, expr))
+    return error_mark_node;
+  if (!TYPE_HAS_CONVERSION (basetype))
     return NULL_TREE;
 
   for (conv = lookup_conversions (basetype); conv; conv = TREE_CHAIN (conv))

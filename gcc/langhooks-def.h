@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -55,7 +55,7 @@ extern int lhd_unsafe_for_reeval (tree);
 extern void lhd_clear_binding_stack (void);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
-extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int);
+extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 extern void lhd_print_error_function (struct diagnostic_context *,
 				      const char *);
 extern void lhd_set_decl_assembler_name (tree);
@@ -83,7 +83,7 @@ extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
 extern int lhd_tree_inlining_start_inlining (tree);
 extern void lhd_tree_inlining_end_inlining (tree);
-extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree);
+extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
@@ -206,6 +206,7 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
 extern int lhd_tree_dump_type_quals (tree);
+extern tree lhd_make_node (enum tree_code);
 
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN lhd_tree_dump_dump_tree
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN lhd_tree_dump_type_quals
@@ -217,10 +218,11 @@ extern int lhd_tree_dump_type_quals (tree);
 
 /* Types hooks.  There are no reasonable defaults for most of them,
    so we create a compile-time error instead.  */
-#define LANG_HOOKS_MAKE_TYPE make_node
+#define LANG_HOOKS_MAKE_TYPE lhd_make_node
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
+#define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
@@ -231,7 +233,8 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE, \
   LANG_HOOKS_TYPE_PROMOTES_TO, \
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
-  LANG_HOOKS_INCOMPLETE_TYPE_ERROR \
+  LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
+  LANG_HOOKS_HASH_TYPES \
 }
 
 /* Declaration hooks.  */
@@ -242,7 +245,6 @@ extern int lhd_tree_dump_type_quals (tree);
 #define LANG_HOOKS_SET_BLOCK	set_block
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
-#define LANG_HOOKS_BUILTIN_TYPE_DECLS lhd_return_null_tree_v
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
 #define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
@@ -256,7 +258,6 @@ extern int lhd_tree_dump_type_quals (tree);
   LANG_HOOKS_SET_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
   LANG_HOOKS_GETDECLS, \
-  LANG_HOOKS_BUILTIN_TYPE_DECLS, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \

@@ -1,6 +1,6 @@
 /* Move registers around to reduce number of move instructions needed.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -167,7 +167,7 @@ discover_flags_reg (void)
 {
   rtx tmp;
   tmp = gen_rtx_REG (word_mode, 10000);
-  tmp = gen_add3_insn (tmp, tmp, GEN_INT (2));
+  tmp = gen_add3_insn (tmp, tmp, const2_rtx);
 
   /* If we get something that isn't a simple set, or a
      [(set ..) (clobber ..)], this whole function will go wrong.  */
@@ -246,7 +246,7 @@ mark_flags_life_zones (rtx flags)
   flags_nregs = 1;
 #else
   flags_regno = REGNO (flags);
-  flags_nregs = HARD_REGNO_NREGS (flags_regno, GET_MODE (flags));
+  flags_nregs = hard_regno_nregs[flags_regno][GET_MODE (flags)];
 #endif
   flags_set_1_rtx = flags;
 
@@ -256,8 +256,8 @@ mark_flags_life_zones (rtx flags)
       rtx insn, end;
       int live;
 
-      insn = block->head;
-      end = block->end;
+      insn = BB_HEAD (block);
+      end = BB_END (block);
 
       /* Look out for the (unlikely) case of flags being live across
 	 basic block boundaries.  */
@@ -291,7 +291,7 @@ mark_flags_life_zones (rtx flags)
 #endif
 	      PUT_MODE (insn, (live ? HImode : VOIDmode));
 
-	      /* In either case, birth is denoted simply by it's presence
+	      /* In either case, birth is denoted simply by its presence
 		 as the destination of a set.  */
 	      flags_set_1_set = 0;
 	      note_stores (PATTERN (insn), flags_set_1, NULL);
@@ -375,7 +375,7 @@ static int perhaps_ends_bb_p (rtx insn)
 	 very conservative.  */
       if (nonlocal_goto_handler_labels)
 	return 1;
-      /* FALLTHRU */
+      /* Fall through.  */
     default:
       return can_throw_internal (insn);
     }
@@ -810,7 +810,7 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest, int old_max_uid)
 	  bb = regmove_bb_head[insn_uid];
 	  if (bb >= 0)
 	    {
-	      BLOCK_HEAD (bb) = move_insn;
+	      BB_HEAD (BASIC_BLOCK (bb)) = move_insn;
 	      regmove_bb_head[insn_uid] = -1;
 	    }
 	}
@@ -1061,7 +1061,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
   regmove_bb_head = xmalloc (sizeof (int) * (old_max_uid + 1));
   for (i = old_max_uid; i >= 0; i--) regmove_bb_head[i] = -1;
   FOR_EACH_BB (bb)
-    regmove_bb_head[INSN_UID (bb->head)] = bb->index;
+    regmove_bb_head[INSN_UID (BB_HEAD (bb))] = bb->index;
 
   /* A forward/backward pass.  Replace output operands with input operands.  */
 
@@ -1491,13 +1491,13 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
      ends.  Fix that here.  */
   FOR_EACH_BB (bb)
     {
-      rtx end = bb->end;
+      rtx end = BB_END (bb);
       rtx new = end;
       rtx next = NEXT_INSN (new);
       while (next != 0 && INSN_UID (next) >= old_max_uid
-	     && (bb->next_bb == EXIT_BLOCK_PTR || bb->next_bb->head != next))
+	     && (bb->next_bb == EXIT_BLOCK_PTR || BB_HEAD (bb->next_bb) != next))
 	new = next, next = NEXT_INSN (new);
-      bb->end = new;
+      BB_END (bb) = new;
     }
 
  done:
@@ -2046,7 +2046,13 @@ stable_and_no_regs_but_for_p (rtx x, rtx src, rtx dst)
   RTX_CODE code = GET_CODE (x);
   switch (GET_RTX_CLASS (code))
     {
-    case '<': case '1': case 'c': case '2': case 'b': case '3':
+    case RTX_UNARY:
+    case RTX_BIN_ARITH:
+    case RTX_COMM_ARITH:
+    case RTX_COMPARE:
+    case RTX_COMM_COMPARE:
+    case RTX_TERNARY:
+    case RTX_BITFIELD_OPS:
       {
 	int i;
 	const char *fmt = GET_RTX_FORMAT (code);
@@ -2056,7 +2062,7 @@ stable_and_no_regs_but_for_p (rtx x, rtx src, rtx dst)
 	      return 0;
 	return 1;
       }
-    case 'o':
+    case RTX_OBJ:
       if (code == REG)
 	return x == src || x == dst;
       /* If this is a MEM, look inside - there might be a register hidden in
@@ -2304,9 +2310,9 @@ combine_stack_adjustments_for_block (basic_block bb)
   struct record_stack_memrefs_data data;
   bool end_of_block = false;
 
-  for (insn = bb->head; !end_of_block ; insn = next)
+  for (insn = BB_HEAD (bb); !end_of_block ; insn = next)
     {
-      end_of_block = insn == bb->end;
+      end_of_block = insn == BB_END (bb);
       next = NEXT_INSN (insn);
 
       if (! INSN_P (insn))

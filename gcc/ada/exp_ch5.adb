@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,12 +32,14 @@ with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Pakd; use Exp_Pakd;
+with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Hostparm; use Hostparm;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sinfo;    use Sinfo;
 with Sem;      use Sem;
@@ -48,8 +50,8 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
 with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Tbuild;   use Tbuild;
-with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
 with Validsw;  use Validsw;
 
@@ -75,8 +77,7 @@ package body Exp_Ch5 is
       L_Type : Entity_Id;
       R_Type : Entity_Id;
       Ndim   : Pos;
-      Rev    : Boolean)
-      return   Node_Id;
+      Rev    : Boolean) return Node_Id;
    --  N is an assignment statement which assigns an array value. This routine
    --  expands the assignment into a loop (or nested loops for the case of a
    --  multi-dimensional array) to do the assignment component by component.
@@ -91,8 +92,9 @@ package body Exp_Ch5 is
 
    procedure Expand_Assign_Record (N : Node_Id);
    --  N is an assignment of a non-tagged record value. This routine handles
-   --  the special cases and checks required for such assignments, including
-   --  change of representation.
+   --  the case where the assignment must be made component by component,
+   --  either because the target is not byte aligned, or there is a change
+   --  of representation.
 
    function Make_Tag_Ctrl_Assignment (N : Node_Id) return List_Id;
    --  Generate the necessary code for controlled and Tagged assignment,
@@ -101,13 +103,20 @@ package body Exp_Ch5 is
    --  pointers which are not 'part of the value' and must not be changed
    --  upon assignment. N is the original Assignment node.
 
+   function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean;
+   --  This function is used in processing the assignment of a record or
+   --  indexed component. The argument N is either the left hand or right
+   --  hand side of an assignment, and this function determines if there
+   --  is a record component reference where the record may be bit aligned
+   --  in a manner that causes trouble for the back end (see description
+   --  of Sem_Util.Component_May_Be_Bit_Aligned for further details).
+
    ------------------------------
    -- Change_Of_Representation --
    ------------------------------
 
    function Change_Of_Representation (N : Node_Id) return Boolean is
       Rhs : constant Node_Id := Expression (N);
-
    begin
       return
         Nkind (Rhs) = N_Type_Conversion
@@ -152,6 +161,10 @@ package body Exp_Ch5 is
       --  This switch is set to True if the array move must be done using
       --  an explicit front end generated loop.
 
+      procedure Apply_Dereference (Arg : in out Node_Id);
+      --  If the argument is an access to an array, and the assignment is
+      --  converted into a procedure call, apply explicit dereference.
+
       function Has_Address_Clause (Exp : Node_Id) return Boolean;
       --  Test if Exp is a reference to an array whose declaration has
       --  an address clause, or it is a slice of such an array.
@@ -167,15 +180,19 @@ package body Exp_Ch5 is
       --  an object. Such objects can be aliased to parameters (unlike local
       --  array references).
 
-      function Possible_Unaligned_Slice (Arg : Node_Id) return Boolean;
-      --  Returns True if Arg (either the left or right hand side of the
-      --  assignment) is a slice that could be unaligned wrt the array type.
-      --  This is true if Arg is a component of a packed record, or is
-      --  a record component to which a component clause applies. This
-      --  is a little pessimistic, but the result of an unnecessary
-      --  decision that something is possibly unaligned is only to
-      --  generate a front end loop, which is not so terrible.
-      --  It would really be better if backend handled this ???
+      -----------------------
+      -- Apply_Dereference --
+      -----------------------
+
+      procedure Apply_Dereference (Arg : in out Node_Id) is
+         Typ : constant Entity_Id := Etype (Arg);
+      begin
+         if Is_Access_Type (Typ) then
+            Rewrite (Arg, Make_Explicit_Dereference (Loc,
+              Prefix => Relocate_Node (Arg)));
+            Analyze_And_Resolve (Arg, Designated_Type (Typ));
+         end if;
+      end Apply_Dereference;
 
       ------------------------
       -- Has_Address_Clause --
@@ -213,60 +230,6 @@ package body Exp_Ch5 is
             or else (Nkind (Exp) = N_Slice
                        and then Is_Non_Local_Array (Prefix (Exp)));
       end Is_Non_Local_Array;
-
-      ------------------------------
-      -- Possible_Unaligned_Slice --
-      ------------------------------
-
-      function Possible_Unaligned_Slice (Arg : Node_Id) return Boolean is
-      begin
-         --  No issue if this is not a slice, or else strict alignment
-         --  is not required in any case.
-
-         if Nkind (Arg) /= N_Slice
-           or else not Target_Strict_Alignment
-         then
-            return False;
-         end if;
-
-         --  No issue if the component type is a byte or byte aligned
-
-         declare
-            Array_Typ : constant Entity_Id := Etype (Arg);
-            Comp_Typ  : constant Entity_Id := Component_Type (Array_Typ);
-            Pref      : constant Node_Id   := Prefix (Arg);
-
-         begin
-            if Known_Alignment (Array_Typ) then
-               if Alignment (Array_Typ) = 1 then
-                  return False;
-               end if;
-
-            elsif Known_Component_Size (Array_Typ) then
-               if Component_Size (Array_Typ) = 1 then
-                  return False;
-               end if;
-
-            elsif Known_Esize (Comp_Typ) then
-               if Esize (Comp_Typ) <= System_Storage_Unit then
-                  return False;
-               end if;
-            end if;
-
-            --  No issue if this is not a selected component
-
-            if Nkind (Pref) /= N_Selected_Component then
-               return False;
-            end if;
-
-            --  Else we test for a possibly unaligned component
-
-            return
-              Is_Packed (Etype (Pref))
-                or else
-              Present (Component_Clause (Entity (Selector_Name (Pref))));
-         end;
-      end Possible_Unaligned_Slice;
 
       --  Determine if Lhs, Rhs are formal arrays or nonlocal arrays
 
@@ -349,6 +312,14 @@ package body Exp_Ch5 is
       if Crep then
          Act_Rhs := Get_Referenced_Object (Rhs);
          R_Type  := Get_Actual_Subtype (Act_Rhs);
+         Loop_Required := True;
+
+      --  We require a loop if the left side is possibly bit unaligned
+
+      elsif Possible_Bit_Aligned_Component (Lhs)
+              or else
+            Possible_Bit_Aligned_Component (Rhs)
+      then
          Loop_Required := True;
 
       --  Arrays with controlled components are expanded into a loop
@@ -471,9 +442,12 @@ package body Exp_Ch5 is
       --  statement, a length check has already been emitted to verify that
       --  the range of the left-hand side is empty.
 
+      --  Note that this code is not executed if we had an assignment of
+      --  a string literal to a non-bit aligned component of a record, a
+      --  case which cannot be handled by the backend
+
       elsif Nkind (Rhs) = N_String_Literal then
-         if Ekind (R_Type) = E_String_Literal_Subtype
-           and then String_Literal_Length (R_Type) = 0
+         if String_Length (Strval (Rhs)) = 0
            and then Is_Bit_Packed_Array (L_Type)
          then
             Rewrite (N, Make_Null_Statement (Loc));
@@ -489,8 +463,8 @@ package body Exp_Ch5 is
 
       elsif Is_Bit_Packed_Array (L_Type)
         or else Is_Bit_Packed_Array (R_Type)
-        or else Possible_Unaligned_Slice (Lhs)
-        or else Possible_Unaligned_Slice (Rhs)
+        or else Is_Possibly_Unaligned_Slice (Lhs)
+        or else Is_Possibly_Unaligned_Slice (Rhs)
       then
          Loop_Required := True;
 
@@ -504,7 +478,29 @@ package body Exp_Ch5 is
          end if;
       end if;
 
-      --  Come here to compelete the analysis
+      --  If the right-hand side is a string literal, introduce a temporary
+      --  for it, for use in the generated loop that will follow.
+
+      if Nkind (Rhs) = N_String_Literal then
+         declare
+            Temp : constant Entity_Id :=
+                     Make_Defining_Identifier (Loc, Name_T);
+            Decl : Node_Id;
+
+         begin
+            Decl :=
+              Make_Object_Declaration (Loc,
+                 Defining_Identifier => Temp,
+                 Object_Definition => New_Occurrence_Of (L_Type, Loc),
+                 Expression => Relocate_Node (Rhs));
+
+            Insert_Action (N, Decl);
+            Rewrite (Rhs, New_Occurrence_Of (Temp, Loc));
+            R_Type := Etype (Temp);
+         end;
+      end if;
+
+      --  Come here to complete the analysis
 
       --    Loop_Required: Set to True if we know that a loop is required
       --                   regardless of overlap considerations.
@@ -685,17 +681,54 @@ package body Exp_Ch5 is
          --  Cases where either Forwards_OK or Backwards_OK is true
 
          if Forwards_OK (N) or else Backwards_OK (N) then
-            Rewrite (N,
-              Expand_Assign_Array_Loop
-                (N, Larray, Rarray, L_Type, R_Type, Ndim,
-                 Rev => not Forwards_OK (N)));
+            if Controlled_Type (Component_Type (L_Type))
+              and then Base_Type (L_Type) = Base_Type (R_Type)
+              and then Ndim = 1
+              and then not No_Ctrl_Actions (N)
+            then
+               declare
+                  Proc : constant Entity_Id :=
+                           TSS (Base_Type (L_Type), TSS_Slice_Assign);
+                  Actuals : List_Id;
+
+               begin
+                  Apply_Dereference (Larray);
+                  Apply_Dereference (Rarray);
+                  Actuals := New_List (
+                    Duplicate_Subexpr (Larray,   Name_Req => True),
+                    Duplicate_Subexpr (Rarray,   Name_Req => True),
+                    Duplicate_Subexpr (Left_Lo,  Name_Req => True),
+                    Duplicate_Subexpr (Left_Hi,  Name_Req => True),
+                    Duplicate_Subexpr (Right_Lo, Name_Req => True),
+                    Duplicate_Subexpr (Right_Hi, Name_Req => True));
+
+                  if Forwards_OK (N) then
+                     Append_To (Actuals,
+                       New_Occurrence_Of (Standard_False, Loc));
+                  else
+                     Append_To (Actuals,
+                       New_Occurrence_Of (Standard_True, Loc));
+                  end if;
+
+                  Rewrite (N,
+                    Make_Procedure_Call_Statement (Loc,
+                      Name => New_Reference_To (Proc, Loc),
+                      Parameter_Associations => Actuals));
+               end;
+
+            else
+               Rewrite (N,
+                 Expand_Assign_Array_Loop
+                   (N, Larray, Rarray, L_Type, R_Type, Ndim,
+                    Rev => not Forwards_OK (N)));
+            end if;
 
          --  Case of both are false with No_Implicit_Conditionals
 
-         elsif Restrictions (No_Implicit_Conditionals) then
+         elsif Restriction_Active (No_Implicit_Conditionals) then
             declare
-               T : constant Entity_Id := Make_Defining_Identifier (Loc,
-                                           Chars => Name_T);
+                  T : constant Entity_Id :=
+                        Make_Defining_Identifier (Loc, Chars => Name_T);
 
             begin
                Rewrite (N,
@@ -787,19 +820,53 @@ package body Exp_Ch5 is
                    Right_Opnd => Cright_Lo);
             end if;
 
-            Rewrite (N,
-              Make_Implicit_If_Statement (N,
-                Condition => Condition,
+            if Controlled_Type (Component_Type (L_Type))
+              and then Base_Type (L_Type) = Base_Type (R_Type)
+              and then Ndim = 1
+              and then not No_Ctrl_Actions (N)
+            then
 
-                Then_Statements => New_List (
-                  Expand_Assign_Array_Loop
-                   (N, Larray, Rarray, L_Type, R_Type, Ndim,
-                    Rev => False)),
+               --  Call TSS procedure for array assignment, passing the
+               --  the explicit bounds of right- and left-hand side.
 
-                Else_Statements => New_List (
-                  Expand_Assign_Array_Loop
-                   (N, Larray, Rarray, L_Type, R_Type, Ndim,
-                    Rev => True))));
+               declare
+                  Proc     : constant Node_Id :=
+                               TSS (Base_Type (L_Type), TSS_Slice_Assign);
+                  Actuals : List_Id;
+
+               begin
+                  Apply_Dereference (Larray);
+                  Apply_Dereference (Rarray);
+                  Actuals := New_List (
+                    Duplicate_Subexpr (Larray,   Name_Req => True),
+                    Duplicate_Subexpr (Rarray,   Name_Req => True),
+                    Duplicate_Subexpr (Left_Lo,  Name_Req => True),
+                    Duplicate_Subexpr (Left_Hi,  Name_Req => True),
+                    Duplicate_Subexpr (Right_Lo, Name_Req => True),
+                    Duplicate_Subexpr (Right_Hi, Name_Req => True));
+                  Append_To (Actuals, Condition);
+
+                  Rewrite (N,
+                    Make_Procedure_Call_Statement (Loc,
+                      Name => New_Reference_To (Proc, Loc),
+                      Parameter_Associations => Actuals));
+               end;
+
+            else
+               Rewrite (N,
+                 Make_Implicit_If_Statement (N,
+                   Condition => Condition,
+
+                   Then_Statements => New_List (
+                     Expand_Assign_Array_Loop
+                      (N, Larray, Rarray, L_Type, R_Type, Ndim,
+                       Rev => False)),
+
+                   Else_Statements => New_List (
+                     Expand_Assign_Array_Loop
+                      (N, Larray, Rarray, L_Type, R_Type, Ndim,
+                       Rev => True))));
+            end if;
          end if;
 
          Analyze (N, Suppress => All_Checks);
@@ -844,8 +911,7 @@ package body Exp_Ch5 is
       L_Type : Entity_Id;
       R_Type : Entity_Id;
       Ndim   : Pos;
-      Rev    : Boolean)
-      return   Node_Id
+      Rev    : Boolean) return Node_Id
    is
       Loc  : constant Source_Ptr := Sloc (N);
 
@@ -982,19 +1048,41 @@ package body Exp_Ch5 is
    --  by field assignments.
 
    procedure Expand_Assign_Record (N : Node_Id) is
+      Lhs : constant Node_Id := Name (N);
+      Rhs : Node_Id          := Expression (N);
+
    begin
-      if not Change_Of_Representation (N) then
+      --  If change of representation, then extract the real right hand
+      --  side from the type conversion, and proceed with component-wise
+      --  assignment, since the two types are not the same as far as the
+      --  back end is concerned.
+
+      if Change_Of_Representation (N) then
+         Rhs := Expression (Rhs);
+
+      --  If this may be a case of a large bit aligned component, then
+      --  proceed with component-wise assignment, to avoid possible
+      --  clobbering of other components sharing bits in the first or
+      --  last byte of the component to be assigned.
+
+      elsif Possible_Bit_Aligned_Component (Lhs)
+              or
+            Possible_Bit_Aligned_Component (Rhs)
+      then
+         null;
+
+      --  If neither condition met, then nothing special to do, the back end
+      --  can handle assignment of the entire component as a single entity.
+
+      else
          return;
       end if;
 
-      --  At this stage we know that the right hand side is a conversion
+      --  At this stage we know that we must do a component wise assignment
 
       declare
          Loc   : constant Source_Ptr := Sloc (N);
-         Lhs   : constant Node_Id    := Name (N);
-         Rhs   : constant Node_Id    := Expression (Expression (N));
-         R_Rec : constant Node_Id    := Expression (Expression (N));
-         R_Typ : constant Entity_Id  := Base_Type (Etype (R_Rec));
+         R_Typ : constant Entity_Id  := Base_Type (Etype (Rhs));
          L_Typ : constant Entity_Id  := Base_Type (Etype (Lhs));
          Decl  : constant Node_Id    := Declaration_Node (R_Typ);
          RDef  : Node_Id;
@@ -1002,8 +1090,7 @@ package body Exp_Ch5 is
 
          function Find_Component
            (Typ  : Entity_Id;
-            Comp : Entity_Id)
-            return Entity_Id;
+            Comp : Entity_Id) return Entity_Id;
          --  Find the component with the given name in the underlying record
          --  declaration for Typ. We need to use the actual entity because
          --  the type may be private and resolution by identifier alone would
@@ -1027,9 +1114,7 @@ package body Exp_Ch5 is
 
          function Find_Component
            (Typ  : Entity_Id;
-            Comp : Entity_Id)
-            return Entity_Id
-
+            Comp : Entity_Id) return Entity_Id
          is
             Utyp : constant Entity_Id := Underlying_Type (Typ);
             C    : Entity_Id;
@@ -1456,6 +1541,19 @@ package body Exp_Ch5 is
            (Expression (Rhs), Designated_Type (Etype (Lhs)));
       end if;
 
+      --  Ada 0Y (AI-231): Generate conversion to the null-excluding
+      --  type to force the corresponding run-time check
+
+      if Is_Access_Type (Typ)
+        and then ((Is_Entity_Name (Lhs)
+                   and then Can_Never_Be_Null (Entity (Lhs)))
+                   or else Can_Never_Be_Null (Etype (Lhs)))
+      then
+         Rewrite (Rhs, Convert_To (Etype (Lhs),
+                                   Relocate_Node (Rhs)));
+         Analyze_And_Resolve (Rhs, Etype (Lhs));
+      end if;
+
       --  If we are assigning an access type and the left side is an
       --  entity, then make sure that Is_Known_Non_Null properly
       --  reflects the state of the entity after the assignment
@@ -1583,7 +1681,7 @@ package body Exp_Ch5 is
                --  This is skipped if we have no finalization
 
                if Expand_Ctrl_Actions
-                 and then not Restrictions (No_Finalization)
+                 and then not Restriction_Active (No_Finalization)
                then
                   L := New_List (
                     Make_Block_Statement (Loc,
@@ -2188,8 +2286,8 @@ package body Exp_Ch5 is
          and then List_Length (Else_Statements (N)) = 1
       then
          declare
-            Then_Stm : Node_Id := First (Then_Statements (N));
-            Else_Stm : Node_Id := First (Else_Statements (N));
+            Then_Stm : constant Node_Id := First (Then_Statements (N));
+            Else_Stm : constant Node_Id := First (Else_Statements (N));
 
          begin
             if Nkind (Then_Stm) = N_Return_Statement
@@ -3174,5 +3272,68 @@ package body Exp_Ch5 is
       when RE_Not_Available =>
          return Empty_List;
    end Make_Tag_Ctrl_Assignment;
+
+   ------------------------------------
+   -- Possible_Bit_Aligned_Component --
+   ------------------------------------
+
+   function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean is
+   begin
+      case Nkind (N) is
+
+         --  Case of indexed component
+
+         when N_Indexed_Component =>
+            declare
+               P    : constant Node_Id   := Prefix (N);
+               Ptyp : constant Entity_Id := Etype (P);
+
+            begin
+               --  If we know the component size and it is less than 64, then
+               --  we are definitely OK. The back end always does assignment
+               --  of misaligned small objects correctly.
+
+               if Known_Static_Component_Size (Ptyp)
+                 and then Component_Size (Ptyp) <= 64
+               then
+                  return False;
+
+               --  Otherwise, we need to test the prefix, to see if we are
+               --  indexing from a possibly unaligned component.
+
+               else
+                  return Possible_Bit_Aligned_Component (P);
+               end if;
+            end;
+
+         --  Case of selected component
+
+         when N_Selected_Component =>
+            declare
+               P    : constant Node_Id   := Prefix (N);
+               Comp : constant Entity_Id := Entity (Selector_Name (N));
+
+            begin
+               --  If there is no component clause, then we are in the clear
+               --  since the back end will never misalign a large component
+               --  unless it is forced to do so. In the clear means we need
+               --  only the recursive test on the prefix.
+
+               if Component_May_Be_Bit_Aligned (Comp) then
+                  return True;
+               else
+                  return Possible_Bit_Aligned_Component (P);
+               end if;
+            end;
+
+         --  If we have neither a record nor array component, it means that
+         --  we have fallen off the top testing prefixes recursively, and
+         --  we now have a stand alone object, where we don't have a problem
+
+         when others =>
+            return False;
+
+      end case;
+   end Possible_Bit_Aligned_Component;
 
 end Exp_Ch5;

@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "stdio.h"
 #include "target.h"
+#include "except.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -69,30 +70,32 @@ struct obstack temporary_obstack;
    it can assume certain classes have been compiled down to native
    code or not.  The compiler options -fassume-compiled= and
    -fno-assume-compiled= are used to create a tree of
-   assume_compiled_node objects.  This tree is queried to determine if
+   class_flag_node objects.  This tree is queried to determine if
    a class is assume to be compiled or not.  Each node in the tree
    represents either a package or a specific class.  */
 
-typedef struct assume_compiled_node_struct
+typedef struct class_flag_node_struct
 {
   /* The class or package name.  */
   const char *ident;
 
   /* Nonzero if this represents an exclusion.  */
-  int excludep;
+  int value;
 
   /* Pointers to other nodes in the tree.  */
-  struct assume_compiled_node_struct *parent;
-  struct assume_compiled_node_struct *sibling;
-  struct assume_compiled_node_struct *child;
-} assume_compiled_node;
+  struct class_flag_node_struct *parent;
+  struct class_flag_node_struct *sibling;
+  struct class_flag_node_struct *child;
+} class_flag_node;
 
-static assume_compiled_node *find_assume_compiled_node (assume_compiled_node *,
-							const char *);
+static class_flag_node *find_class_flag_node (class_flag_node *, const char *);
+static void add_class_flag (class_flag_node **, const char *, int);
 
 /* This is the root of the include/exclude tree.  */
 
-static assume_compiled_node *assume_compiled_tree;
+static class_flag_node *assume_compiled_tree;
+
+static class_flag_node *enable_assert_tree;
 
 static GTY(()) tree class_roots[5];
 #define registered_class class_roots[0]
@@ -102,11 +105,11 @@ static GTY(()) tree class_roots[5];
 #define class_dtable_decl class_roots[4]
 
 /* Return the node that most closely represents the class whose name
-   is IDENT.  Start the search from NODE.  Return NULL if an
-   appropriate node does not exist.  */
+   is IDENT.  Start the search from NODE (followed by its siblings).
+   Return NULL if an appropriate node does not exist.  */
 
-static assume_compiled_node *
-find_assume_compiled_node (assume_compiled_node *node, const char *ident)
+static class_flag_node *
+find_class_flag_node (class_flag_node *node, const char *ident)
 {
   while (node)
     {
@@ -119,14 +122,13 @@ find_assume_compiled_node (assume_compiled_node *node, const char *ident)
 
       if (node_ident_length == 0
 	  || (strncmp (ident, node->ident, node_ident_length) == 0
-	      && (strlen (ident) == node_ident_length
+	      && (ident[node_ident_length] == '\0'
 		  || ident[node_ident_length] == '.')))
 	{
 	  /* We've found a match, however, there might be a more
              specific match.  */
 
-	  assume_compiled_node *found = find_assume_compiled_node (node->child,
-								   ident);
+	  class_flag_node *found = find_class_flag_node (node->child, ident);
 	  if (found)
 	    return found;
 	  else
@@ -141,54 +143,77 @@ find_assume_compiled_node (assume_compiled_node *node, const char *ident)
   return NULL;
 }
 
-/* Add a new IDENT to the include/exclude tree.  It's an exclusion
-   if EXCLUDEP is nonzero.  */
-
 void
-add_assume_compiled (const char *ident, int excludep)
+add_class_flag (class_flag_node **rootp, const char *ident, int value)
 {
-  int len;
-  assume_compiled_node *parent;
-  assume_compiled_node *node = xmalloc (sizeof (assume_compiled_node));
-
-  node->ident = xstrdup (ident);
-  node->excludep = excludep;
-  node->child = NULL;
+  class_flag_node *root = *rootp;
+  class_flag_node *parent, *node;
 
   /* Create the root of the tree if it doesn't exist yet.  */
 
-  if (NULL == assume_compiled_tree)
+  if (NULL == root)
     {
-      assume_compiled_tree = xmalloc (sizeof (assume_compiled_node));
-      assume_compiled_tree->ident = "";
-      assume_compiled_tree->excludep = 0;
-      assume_compiled_tree->sibling = NULL;
-      assume_compiled_tree->child = NULL;
-      assume_compiled_tree->parent = NULL;
+      root = xmalloc (sizeof (class_flag_node));
+      root->ident = "";
+      root->value = 0;
+      root->sibling = NULL;
+      root->child = NULL;
+      root->parent = NULL;
+      *rootp = root;
     }
 
   /* Calling the function with the empty string means we're setting
-     excludep for the root of the hierarchy.  */
+     value for the root of the hierarchy.  */
 
   if (0 == ident[0])
     {
-      assume_compiled_tree->excludep = excludep;
+      root->value = value;
       return;
     }
 
   /* Find the parent node for this new node.  PARENT will either be a
      class or a package name.  Adjust PARENT accordingly.  */
 
-  parent = find_assume_compiled_node (assume_compiled_tree, ident);
-  len = strlen (parent->ident);
-  if (parent->ident[len] && parent->ident[len] != '.')
-    parent = parent->parent;
+  parent = find_class_flag_node (root, ident);
+  if (strcmp (ident, parent->ident) == 0)
+    parent->value = value;
+  else
+    {
+      /* Insert new node into the tree.  */
+      node = xmalloc (sizeof (class_flag_node));
 
-  /* Insert NODE into the tree.  */
+      node->ident = xstrdup (ident);
+      node->value = value;
+      node->child = NULL;
 
-  node->parent = parent;
-  node->sibling = parent->child;
-  parent->child = node;
+      node->parent = parent;
+      node->sibling = parent->child;
+      parent->child = node;
+    }
+}
+
+/* Add a new IDENT to the include/exclude tree.  It's an exclusion
+   if EXCLUDEP is nonzero.  */
+
+void
+add_assume_compiled (const char *ident, int excludep)
+{
+  add_class_flag (&assume_compiled_tree, ident, excludep);
+}
+
+/* The default value returned by enable_assertions. */
+
+#define DEFAULT_ENABLE_ASSERT (flag_emit_class_files || optimize == 0)
+
+/* Enter IDENT (a class or package name) into the enable-assertions table.
+   VALUE is true to enable and false to disable. */
+
+void
+add_enable_assert (const char *ident, int value)
+{
+  if (enable_assert_tree == NULL)
+    add_class_flag (&enable_assert_tree, "", DEFAULT_ENABLE_ASSERT);
+  add_class_flag (&enable_assert_tree, ident, value);
 }
 
 /* Returns nonzero if IDENT is the name of a class that the compiler
@@ -197,18 +222,37 @@ add_assume_compiled (const char *ident, int excludep)
 static int
 assume_compiled (const char *ident)
 {
-  assume_compiled_node *i;
+  class_flag_node *i;
   int result;
   
   if (NULL == assume_compiled_tree)
     return 1;
 
-  i = find_assume_compiled_node (assume_compiled_tree,
-				 ident);
+  i = find_class_flag_node (assume_compiled_tree, ident);
 
-  result = ! i->excludep;
+  result = ! i->value;
   
   return (result);
+}
+
+/* Return true if we should generate code to check assertions within KLASS. */
+
+bool
+enable_assertions (tree klass)
+{
+  /* Check if command-line specifies whether we should check assertions. */
+
+  if (klass != NULL_TREE && DECL_NAME (klass) && enable_assert_tree != NULL)
+    {
+      const char *ident = IDENTIFIER_POINTER (DECL_NAME (klass));
+      class_flag_node *node
+	= find_class_flag_node (enable_assert_tree, ident);
+      return node->value;
+    }
+
+  /* The default is to enable assertions if generating class files,
+     or not optimizing. */
+  return DEFAULT_ENABLE_ASSERT;
 }
 
 /* Return an IDENTIFIER_NODE the same as (OLD_NAME, OLD_LENGTH).
@@ -302,6 +346,83 @@ unmangle_classname (const char *name, int name_length)
       }
   
   return to_return;
+}
+
+
+/* Given a class, create the DECLs for all its associated indirect dispatch tables.  */
+void
+gen_indirect_dispatch_tables (tree type)
+{
+  const char *typename = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+  {  
+    tree field = NULL;
+    char *buf = alloca (strlen (typename) + strlen ("_catch_classes_") + 1);
+    tree catch_class_type = make_node (RECORD_TYPE);
+
+    sprintf (buf, "_catch_classes_%s", typename);
+    PUSH_FIELD (catch_class_type, field, "address", utf8const_ptr_type);
+    PUSH_FIELD (catch_class_type, field, "classname", ptr_type_node);
+    FINISH_RECORD (catch_class_type);
+    
+    TYPE_CTABLE_DECL (type) 
+      = build_decl (VAR_DECL, get_identifier (buf),
+		    build_array_type (catch_class_type, 0));
+    DECL_EXTERNAL (TYPE_CTABLE_DECL (type)) = 1;
+    TREE_STATIC (TYPE_CTABLE_DECL (type)) = 1;
+    TREE_READONLY (TYPE_CTABLE_DECL (type)) = 1;
+    TREE_CONSTANT (TYPE_CTABLE_DECL (type)) = 1;
+    DECL_IGNORED_P (TYPE_CTABLE_DECL (type)) = 1;
+    pushdecl (TYPE_CTABLE_DECL (type));  
+  }
+
+  if (flag_indirect_dispatch)
+    {
+      {
+	char *buf = alloca (strlen (typename) + strlen ("_otable_syms_") + 1);
+
+	sprintf (buf, "_otable_%s", typename);
+	TYPE_OTABLE_DECL (type) = 
+	  build_decl (VAR_DECL, get_identifier (buf), otable_type);
+	DECL_EXTERNAL (TYPE_OTABLE_DECL (type)) = 1;
+	TREE_STATIC (TYPE_OTABLE_DECL (type)) = 1;
+	TREE_READONLY (TYPE_OTABLE_DECL (type)) = 1;
+	TREE_CONSTANT (TYPE_OTABLE_DECL (type)) = 1;
+	DECL_IGNORED_P (TYPE_OTABLE_DECL (type)) = 1;
+	pushdecl (TYPE_OTABLE_DECL (type));  
+	sprintf (buf, "_otable_syms_%s", typename);
+	TYPE_OTABLE_SYMS_DECL (type) = 
+	  build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);
+	TREE_STATIC (TYPE_OTABLE_SYMS_DECL (type)) = 1;
+	TREE_CONSTANT (TYPE_OTABLE_SYMS_DECL (type)) = 1;
+	DECL_IGNORED_P(TYPE_OTABLE_SYMS_DECL (type)) = 1;
+	pushdecl (TYPE_OTABLE_SYMS_DECL (type));
+      }
+
+      {
+	char *buf = alloca (strlen (typename) + strlen ("_atable_syms_") + 1);
+	tree decl;
+
+	sprintf (buf, "_atable_%s", typename);
+	TYPE_ATABLE_DECL (type) = decl =
+	  build_decl (VAR_DECL, get_identifier (buf), atable_type);
+	DECL_EXTERNAL (decl) = 1;
+	TREE_STATIC (decl) = 1;
+	TREE_READONLY (decl) = 1;
+	TREE_CONSTANT (decl) = 1;
+	DECL_IGNORED_P (decl) = 1;
+	/* Mark the atable as belonging to this class.  */
+	pushdecl (decl);  
+	MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
+	DECL_OWNER (decl) = type;
+	sprintf (buf, "_atable_syms_%s", typename);
+	TYPE_ATABLE_SYMS_DECL (type) = 
+	  build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);
+	TREE_STATIC (TYPE_ATABLE_SYMS_DECL (type)) = 1;
+	TREE_CONSTANT (TYPE_ATABLE_SYMS_DECL (type)) = 1;
+	DECL_IGNORED_P (TYPE_ATABLE_SYMS_DECL (type)) = 1;
+	pushdecl (TYPE_ATABLE_SYMS_DECL (type));
+      }
+    }
 }
 
 tree
@@ -723,8 +844,8 @@ strLengthUtf8 (char *str, int len)
 static int32
 hashUtf8String (const char *str, int len)
 {
-  register const unsigned char* ptr = (const unsigned char*) str;
-  register const unsigned char *limit = ptr + len;
+  const unsigned char* ptr = (const unsigned char*) str;
+  const unsigned char *limit = ptr + len;
   int32 hash = 0;
   for (; ptr < limit;)
     {
@@ -808,6 +929,20 @@ build_utf8_ref (tree name)
   return ref;
 }
 
+/* Like build_class_ref, but instead of a direct reference generate a
+   pointer into the constant pool.  */
+
+static tree
+build_indirect_class_ref (tree type)
+{
+  int index;
+  tree cl;
+  index = alloc_class_constant (type);
+  cl = build_ref_from_constant_pool (index); 
+  TREE_TYPE (cl) = promote_type (class_ptr_type);
+  return cl;
+}
+
 /* Build a reference to the class TYPE.
    Also handles primitive types and array types. */
 
@@ -820,6 +955,17 @@ build_class_ref (tree type)
       tree ref, decl_name, decl;
       if (TREE_CODE (type) == POINTER_TYPE)
 	type = TREE_TYPE (type);
+
+      /* FIXME: we really want an indirect reference to our
+	 superclass.  However, libgcj assumes that a superclass
+	 pointer always points directly to a class.  As a workaround
+	 we always emit this hard superclass reference.  */
+      if  (flag_indirect_dispatch
+	   && type != output_class
+	   && type != CLASSTYPE_SUPER (output_class)
+	   && TREE_CODE (type) == RECORD_TYPE)
+	return build_indirect_class_ref (type);
+
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
 	  if (TYPE_SIZE (type) == error_mark_node)
@@ -902,14 +1048,7 @@ build_class_ref (tree type)
       return ref;
     }
   else
-    {
-      int index;
-      tree cl;
-      index = alloc_class_constant (type);
-      cl = build_ref_from_constant_pool (index); 
-      TREE_TYPE (cl) = promote_type (class_ptr_type);
-      return cl;
-    }
+    return build_indirect_class_ref (type);
 }
 
 tree
@@ -944,10 +1083,11 @@ build_static_field_ref (tree fdecl)
   if (flag_indirect_dispatch)
     {
       tree table_index 
-	= build_int_2 (get_symbol_table_index (fdecl, &atable_methods), 0);
+	= build_int_2 (get_symbol_table_index 
+		       (fdecl, &TYPE_ATABLE_METHODS (output_class)), 0);
       tree field_address
 	= build (ARRAY_REF, build_pointer_type (TREE_TYPE (fdecl)), 
-		 atable_decl, table_index);
+		 TYPE_ATABLE_DECL (output_class), table_index);
       return fold (build1 (INDIRECT_REF, TREE_TYPE (fdecl), 
 			   field_address));
     }
@@ -1061,7 +1201,7 @@ make_field_value (tree fdecl)
   tree finit;
   int flags;
   tree type = TREE_TYPE (fdecl);
-  int resolved = is_compiled_class (type);
+  int resolved = is_compiled_class (type) && ! flag_indirect_dispatch;
 
   START_RECORD_CONSTRUCTOR (finit, field_type_node);
   PUSH_FIELD_VALUE (finit, "name", build_utf8_ref (DECL_NAME (fdecl)));
@@ -1422,7 +1562,10 @@ make_class_data (tree type)
   super = CLASSTYPE_SUPER (type);
   if (super == NULL_TREE)
     super = null_pointer_node;
-  else if (assume_compiled (IDENTIFIER_POINTER (DECL_NAME (type_decl)))
+  else if (/* FIXME: we should also test for (!
+	      flag_indirect_dispatch) here, but libgcj can't cope with
+	      a symbolic reference a superclass in the class data.  */
+	   assume_compiled (IDENTIFIER_POINTER (DECL_NAME (type_decl)))
 	   && assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (super)))))
     super = build_class_ref (super);
   else
@@ -1449,13 +1592,15 @@ make_class_data (tree type)
 	  tree child = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), i);
 	  tree iclass = BINFO_TYPE (child);
 	  tree index;
-	  if (assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (iclass)))))
+	  if (! flag_indirect_dispatch
+	      && (assume_compiled 
+		  (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (iclass))))))
 	    index = build_class_ref (iclass);
 	  else
 	    {
-		int int_index = alloc_class_constant (iclass);
-		index = build_int_2 (int_index, 0);
-		TREE_TYPE (index) = ptr_type_node;
+	      int int_index = alloc_class_constant (iclass);
+	      index = build_int_2 (int_index, 0);
+	      TREE_TYPE (index) = ptr_type_node;
 	    }
 	  init = tree_cons (NULL_TREE, index, init); 
 	}
@@ -1468,6 +1613,23 @@ make_class_data (tree type)
     }
 
   constant_pool_constructor = build_constants_constructor ();
+
+  if (flag_indirect_dispatch)
+    {
+      TYPE_OTABLE_DECL (type) 
+	= emit_symbol_table 
+	(DECL_NAME (TYPE_OTABLE_DECL (type)), 
+	 TYPE_OTABLE_DECL (type), TYPE_OTABLE_METHODS (type), 
+	 TYPE_OTABLE_SYMS_DECL (type), integer_type_node);
+       
+      TYPE_ATABLE_DECL (type) 
+	= emit_symbol_table 
+	(DECL_NAME (TYPE_ATABLE_DECL (type)), 
+	 TYPE_ATABLE_DECL (type), TYPE_ATABLE_METHODS (type), 
+	 TYPE_ATABLE_SYMS_DECL (type), ptr_type_node);
+    }
+  
+  TYPE_CTABLE_DECL (type) = emit_catch_table (type);
 
   START_RECORD_CONSTRUCTOR (temp, object_type_node);
   PUSH_FIELD_VALUE (temp, "vtable",
@@ -1492,7 +1654,7 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "method_count",  build_int_2 (method_count, 0));
 
   if (flag_indirect_dispatch)
-    PUSH_FIELD_VALUE (cons, "vtable_method_count", integer_minus_one_node)
+    PUSH_FIELD_VALUE (cons, "vtable_method_count", integer_minus_one_node);
   else
     PUSH_FIELD_VALUE (cons, "vtable_method_count", TYPE_NVIRTUALS (type));
     
@@ -1505,14 +1667,14 @@ make_class_data (tree type)
 		    build_int_2 (static_field_count, 0));
 
   if (flag_indirect_dispatch)
-    PUSH_FIELD_VALUE (cons, "vtable", null_pointer_node)
+    PUSH_FIELD_VALUE (cons, "vtable", null_pointer_node);
   else
     PUSH_FIELD_VALUE (cons, "vtable",
 		      dtable_decl == NULL_TREE ? null_pointer_node
 		      : build (PLUS_EXPR, dtable_ptr_type,
 			       build1 (ADDR_EXPR, dtable_ptr_type, dtable_decl),
 			       dtable_start_offset));
-  if (otable_methods == NULL_TREE)
+  if (TYPE_OTABLE_METHODS (type) == NULL_TREE)
     {
       PUSH_FIELD_VALUE (cons, "otable", null_pointer_node);
       PUSH_FIELD_VALUE (cons, "otable_syms", null_pointer_node);
@@ -1520,13 +1682,13 @@ make_class_data (tree type)
   else
     {
       PUSH_FIELD_VALUE (cons, "otable",
-			build1 (ADDR_EXPR, otable_ptr_type, otable_decl));
+			build1 (ADDR_EXPR, otable_ptr_type, TYPE_OTABLE_DECL (type)));
       PUSH_FIELD_VALUE (cons, "otable_syms",
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
-				otable_syms_decl));
-      TREE_CONSTANT (otable_decl) = 1;
-    }
-  if (atable_methods == NULL_TREE)
+				TYPE_OTABLE_SYMS_DECL (type)));
+      TREE_CONSTANT (TYPE_OTABLE_DECL (type)) = 1;
+    } 
+  if (TYPE_ATABLE_METHODS(type) == NULL_TREE)
     {
       PUSH_FIELD_VALUE (cons, "atable", null_pointer_node);
       PUSH_FIELD_VALUE (cons, "atable_syms", null_pointer_node);
@@ -1534,13 +1696,15 @@ make_class_data (tree type)
   else
     {
       PUSH_FIELD_VALUE (cons, "atable",
-			build1 (ADDR_EXPR, atable_ptr_type, atable_decl));
+			build1 (ADDR_EXPR, atable_ptr_type, TYPE_ATABLE_DECL (type)));
       PUSH_FIELD_VALUE (cons, "atable_syms",
 			build1 (ADDR_EXPR, symbols_array_ptr_type,
-				atable_syms_decl));
-      TREE_CONSTANT (atable_decl) = 1;
+				TYPE_ATABLE_SYMS_DECL (type)));
+      TREE_CONSTANT (TYPE_ATABLE_DECL (type)) = 1;
     }
-
+ 
+  PUSH_FIELD_VALUE (cons, "catch_classes",
+		    build1 (ADDR_EXPR, ptr_type_node, TYPE_CTABLE_DECL (type))); 
   PUSH_FIELD_VALUE (cons, "interfaces", interfaces);
   PUSH_FIELD_VALUE (cons, "loader", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "interface_count", build_int_2 (interface_len, 0));
@@ -1552,7 +1716,7 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
-  PUSH_FIELD_VALUE (cons, "signers", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "hack_signers", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
@@ -1589,7 +1753,7 @@ finish_class (void)
   /* Emit deferred inline methods. */  
   for (method = type_methods; method != NULL_TREE; )
     {
-      if (! TREE_ASM_WRITTEN (method) && DECL_SAVED_INSNS (method) != 0)
+      if (! TREE_ASM_WRITTEN (method) && DECL_STRUCT_FUNCTION (method) != 0)
 	{
 	  output_inline_function (method);
 	  /* Scan the list again to see if there are any earlier
@@ -1599,6 +1763,8 @@ finish_class (void)
 	}
       method = TREE_CHAIN (method);
     }
+
+  java_expand_catch_classes (current_class);
 
   current_function_decl = NULL_TREE;
   make_class_data (current_class);
@@ -1930,7 +2096,7 @@ void
 layout_class_methods (tree this_class)
 {
   tree method_decl, dtable_count;
-  tree super_class;
+  tree super_class, type_name;
 
   if (TYPE_NVIRTUALS (this_class))
     return;
@@ -1947,7 +2113,8 @@ layout_class_methods (tree this_class)
   else
     dtable_count = integer_zero_node;
 
-  if (CLASS_ABSTRACT (TYPE_NAME (this_class)))
+  type_name = TYPE_NAME (this_class);
+  if (CLASS_ABSTRACT (type_name) || CLASS_INTERFACE (type_name))
     {
       /* An abstract class can have methods which are declared only in
 	 an implemented interface.  These are called "Miranda
@@ -2209,6 +2376,53 @@ emit_symbol_table (tree name, tree the_table, tree decl_list, tree the_syms_decl
 
   return the_table;
 }
+
+/* make an entry for the catch_classes list.  */
+tree
+make_catch_class_record (tree catch_class, tree classname)
+{
+  tree entry;
+  tree type = TREE_TYPE (TREE_TYPE (TYPE_CTABLE_DECL (output_class)));
+  START_RECORD_CONSTRUCTOR (entry, type);
+  PUSH_FIELD_VALUE (entry, "address", catch_class);
+  PUSH_FIELD_VALUE (entry, "classname", classname);
+  FINISH_RECORD_CONSTRUCTOR (entry);
+  return entry;
+}
+
+
+/* Generate the list of Throwable classes that are caught by exception
+   handlers in this class.  */
+tree 
+emit_catch_table (tree this_class)
+{
+  tree table, table_size, array_type;
+  TYPE_CATCH_CLASSES (this_class) =
+    tree_cons (NULL,
+	       make_catch_class_record (null_pointer_node, null_pointer_node),
+	       TYPE_CATCH_CLASSES (this_class));
+  TYPE_CATCH_CLASSES (this_class) = nreverse (TYPE_CATCH_CLASSES (this_class));
+  TYPE_CATCH_CLASSES (this_class) = 
+    tree_cons (NULL,
+	       make_catch_class_record (null_pointer_node, null_pointer_node),
+	       TYPE_CATCH_CLASSES (this_class));
+  table_size = 
+    build_index_type (build_int_2 
+		      (list_length (TYPE_CATCH_CLASSES (this_class)), 0));
+  array_type 
+    = build_array_type (TREE_TYPE (TREE_TYPE (TYPE_CTABLE_DECL (this_class))),
+			table_size);
+  table = 
+    build_decl (VAR_DECL, DECL_NAME (TYPE_CTABLE_DECL (this_class)), array_type);
+  DECL_INITIAL (table) = 
+    build_constructor (array_type, TYPE_CATCH_CLASSES (this_class));
+  TREE_STATIC (table) = 1;
+  TREE_READONLY (table) = 1;  
+  DECL_IGNORED_P (table) = 1;
+  rest_of_decl_compilation (table, NULL, 1, 0);
+  return table;
+}
+ 
 
 void
 init_class_processing (void)

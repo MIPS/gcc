@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright 2001,2002,2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -91,7 +91,9 @@ const char *xtensa_st_opcodes[(int) MAX_MACHINE_MODE];
 struct machine_function GTY(())
 {
   int accesses_prev_frame;
-  bool incoming_a7_copied;
+  bool need_a7_copy;
+  bool vararg_a7;
+  rtx set_frame_ptr_insn;
 };
 
 /* Vector, indexed by hard register number, which contains 1 for a
@@ -198,15 +200,18 @@ static rtx gen_conditional_move (rtx);
 static rtx fixup_subreg_mem (rtx);
 static enum machine_mode xtensa_find_mode_for_size (unsigned);
 static struct machine_function * xtensa_init_machine_status (void);
+static bool xtensa_return_in_msb (tree);
 static void printx (FILE *, signed int);
 static void xtensa_function_epilogue (FILE *, HOST_WIDE_INT);
+static rtx xtensa_builtin_saveregs (void);
 static unsigned int xtensa_multibss_section_type_flags (tree, const char *,
 							int) ATTRIBUTE_UNUSED;
 static void xtensa_select_rtx_section (enum machine_mode, rtx,
 				       unsigned HOST_WIDE_INT);
 static bool xtensa_rtx_costs (rtx, int, int, int *);
+static tree xtensa_build_builtin_va_list (void);
+static bool xtensa_return_in_memory (tree, tree);
 
-static int current_function_arg_words;
 static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
   REG_ALLOC_ORDER;
 
@@ -232,6 +237,27 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #define TARGET_RTX_COSTS xtensa_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_BUILD_BUILTIN_VA_LIST
+#define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
+
+#undef TARGET_PROMOTE_FUNCTION_ARGS
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#undef TARGET_PROMOTE_FUNCTION_RETURN
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#undef TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
+#undef TARGET_SPLIT_COMPLEX_ARG
+#define TARGET_SPLIT_COMPLEX_ARG hook_bool_tree_true
+
+#undef TARGET_EXPAND_BUILTIN_SAVEREGS
+#define TARGET_EXPAND_BUILTIN_SAVEREGS xtensa_builtin_saveregs
+
+#undef TARGET_RETURN_IN_MSB
+#define TARGET_RETURN_IN_MSB xtensa_return_in_msb
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -596,7 +622,7 @@ move_operand (rtx op, enum machine_mode mode)
     case SImode:
       if (TARGET_CONST16)
 	return CONSTANT_P (op);
-      /* fall through */
+      /* Fall through.  */
 
     case HImode:
     case QImode:
@@ -648,12 +674,12 @@ constantpool_address_p (rtx addr)
     {
       rtx offset;
 
-      /* only handle (PLUS (SYM, OFFSET)) form */
+      /* Only handle (PLUS (SYM, OFFSET)) form.  */
       addr = XEXP (addr, 0);
       if (GET_CODE (addr) != PLUS)
 	return FALSE;
 
-      /* make sure the address is word aligned */
+      /* Make sure the address is word aligned.  */
       offset = XEXP (addr, 1);
       if ((GET_CODE (offset) != CONST_INT)
 	  || ((INTVAL (offset) & 3) != 0))
@@ -724,7 +750,7 @@ xtensa_extend_reg (rtx dst, rtx src)
   rtx temp = gen_reg_rtx (SImode);
   rtx shift = GEN_INT (BITS_PER_WORD - GET_MODE_BITSIZE (GET_MODE (src)));
 
-  /* generate paradoxical subregs as needed so that the modes match */
+  /* Generate paradoxical subregs as needed so that the modes match.  */
   src = simplify_gen_subreg (SImode, src, GET_MODE (src), 0);
   dst = simplify_gen_subreg (SImode, dst, GET_MODE (dst), 0);
 
@@ -960,7 +986,7 @@ gen_int_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
       cmp1 = temp;
     }
 
-  return gen_rtx (p_info->test_code, VOIDmode, cmp0, cmp1);
+  return gen_rtx_fmt_ee (p_info->test_code, VOIDmode, cmp0, cmp1);
 }
 
 
@@ -985,7 +1011,7 @@ gen_float_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
     case LT: reverse_regs = 0; invert = 0; gen_fn = gen_slt_sf; break;
     case GE: reverse_regs = 1; invert = 0; gen_fn = gen_sle_sf; break;
     default:
-      fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
       reverse_regs = 0; invert = 0; gen_fn = 0; /* avoid compiler warnings */
     }
 
@@ -999,7 +1025,7 @@ gen_float_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
   brtmp = gen_rtx_REG (CCmode, FPCC_REGNUM);
   emit_insn (gen_fn (brtmp, cmp0, cmp1));
 
-  return gen_rtx (invert ? EQ : NE, VOIDmode, brtmp, const0_rtx);
+  return gen_rtx_fmt_ee (invert ? EQ : NE, VOIDmode, brtmp, const0_rtx);
 }
 
 
@@ -1017,7 +1043,7 @@ xtensa_expand_conditional_branch (rtx *operands, enum rtx_code test_code)
     {
     case CMP_DF:
     default:
-      fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+      fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
 
     case CMP_SI:
       invert = FALSE;
@@ -1026,7 +1052,7 @@ xtensa_expand_conditional_branch (rtx *operands, enum rtx_code test_code)
 
     case CMP_SF:
       if (!TARGET_HARD_FLOAT)
-	fatal_insn ("bad test", gen_rtx (test_code, VOIDmode, cmp0, cmp1));
+	fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
       invert = FALSE;
       cmp = gen_float_relational (test_code, cmp0, cmp1);
       break;
@@ -1072,18 +1098,18 @@ gen_conditional_move (rtx cmp)
 	  code = GE;
 	  op1 = const0_rtx;
 	}
-      cmp = gen_rtx (code, VOIDmode, cc0_rtx, const0_rtx);
+      cmp = gen_rtx_fmt_ee (code, VOIDmode, cc0_rtx, const0_rtx);
 
       if (boolean_operator (cmp, VOIDmode))
 	{
-	  /* swap the operands to make const0 second */
+	  /* Swap the operands to make const0 second.  */
 	  if (op0 == const0_rtx)
 	    {
 	      op0 = op1;
 	      op1 = const0_rtx;
 	    }
 
-	  /* if not comparing against zero, emit a comparison (subtract) */
+	  /* If not comparing against zero, emit a comparison (subtract).  */
 	  if (op1 != const0_rtx)
 	    {
 	      op0 = expand_binop (SImode, sub_optab, op0, op1,
@@ -1093,7 +1119,7 @@ gen_conditional_move (rtx cmp)
 	}
       else if (branch_operator (cmp, VOIDmode))
 	{
-	  /* swap the operands to make const0 second */
+	  /* Swap the operands to make const0 second.  */
 	  if (op0 == const0_rtx)
 	    {
 	      op0 = op1;
@@ -1113,7 +1139,7 @@ gen_conditional_move (rtx cmp)
       else
 	return 0;
 
-      return gen_rtx (code, VOIDmode, op0, op1);
+      return gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
     }
 
   if (TARGET_HARD_FLOAT && (branch_type == CMP_SF))
@@ -1252,14 +1278,11 @@ xtensa_emit_move_sequence (rtx *operands, enum machine_mode mode)
 	}
     }
 
-  if (!(reload_in_progress | reload_completed))
-    {
-      if (!xtensa_valid_move (mode, operands))
-	operands[1] = force_reg (mode, operands[1]);
+  if (!(reload_in_progress | reload_completed)
+      && !xtensa_valid_move (mode, operands))
+    operands[1] = force_reg (mode, operands[1]);
 
-      if (xtensa_copy_incoming_a7 (operands, mode))
-	return 1;
-    }
+  operands[1] = xtensa_copy_incoming_a7 (operands[1]);
 
   /* During reload we don't want to emit (subreg:X (mem:Y)) since that
      instruction won't be recognized after reload, so we remove the
@@ -1290,69 +1313,114 @@ fixup_subreg_mem (rtx x)
 }
 
 
-/* Check if this move is copying an incoming argument in a7.  If so,
-   emit the move, followed by the special "set_frame_ptr"
-   unspec_volatile insn, at the very beginning of the function.  This
-   is necessary because the register allocator will ignore conflicts
-   with a7 and may assign some other pseudo to a7.  If that pseudo was
-   assigned prior to this move, it would clobber the incoming argument
-   in a7.  By copying the argument out of a7 as the very first thing,
-   and then immediately following that with an unspec_volatile to keep
-   the scheduler away, we should avoid any problems.  */
+/* Check if an incoming argument in a7 is expected to be used soon and
+   if OPND is a register or register pair that includes a7.  If so,
+   create a new pseudo and copy a7 into that pseudo at the very
+   beginning of the function, followed by the special "set_frame_ptr"
+   unspec_volatile insn.  The return value is either the original
+   operand, if it is not a7, or the new pseudo containing a copy of
+   the incoming argument.  This is necessary because the register
+   allocator will ignore conflicts with a7 and may either assign some
+   other pseudo to a7 or use a7 as the hard_frame_pointer, clobbering
+   the incoming argument in a7.  By copying the argument out of a7 as
+   the very first thing, and then immediately following that with an
+   unspec_volatile to keep the scheduler away, we should avoid any
+   problems.  Putting the set_frame_ptr insn at the beginning, with
+   only the a7 copy before it, also makes it easier for the prologue
+   expander to initialize the frame pointer after the a7 copy and to
+   fix up the a7 copy to use the stack pointer instead of the frame
+   pointer.  */
 
-bool
-xtensa_copy_incoming_a7 (rtx *operands, enum machine_mode mode)
+rtx
+xtensa_copy_incoming_a7 (rtx opnd)
 {
-  if (a7_overlap_mentioned_p (operands[1])
-      && !cfun->machine->incoming_a7_copied)
+  rtx entry_insns = 0;
+  rtx reg, tmp;
+  enum machine_mode mode;
+
+  if (!cfun->machine->need_a7_copy)
+    return opnd;
+
+  /* This function should never be called again once a7 has been copied.  */
+  if (cfun->machine->set_frame_ptr_insn)
+    abort ();
+
+  mode = GET_MODE (opnd);
+
+  /* The operand using a7 may come in a later instruction, so just return
+     the original operand if it doesn't use a7.  */
+  reg = opnd;
+  if (GET_CODE (reg) == SUBREG)
     {
-      rtx mov;
-      switch (mode)
-	{
-	case DFmode:
-	  mov = gen_movdf_internal (operands[0], operands[1]);
-	  break;
-	case SFmode:
-	  mov = gen_movsf_internal (operands[0], operands[1]);
-	  break;
-	case DImode:
-	  mov = gen_movdi_internal (operands[0], operands[1]);
-	  break;
-	case SImode:
-	  mov = gen_movsi_internal (operands[0], operands[1]);
-	  break;
-	case HImode:
-	  mov = gen_movhi_internal (operands[0], operands[1]);
-	  break;
-	case QImode:
-	  mov = gen_movqi_internal (operands[0], operands[1]);
-	  break;
-	default:
-	  abort ();
-	}
+      if (SUBREG_BYTE (reg) != 0)
+	abort ();
+      reg = SUBREG_REG (reg);
+    }
+  if (GET_CODE (reg) != REG
+      || REGNO (reg) > A7_REG
+      || REGNO (reg) + HARD_REGNO_NREGS (A7_REG, mode) <= A7_REG)
+    return opnd;
 
-      /* Insert the instructions before any other argument copies.
-	 (The set_frame_ptr insn comes _after_ the move, so push it
-	 out first.)  */
-      push_topmost_sequence ();
-      emit_insn_after (gen_set_frame_ptr (), get_insns ());
-      emit_insn_after (mov, get_insns ());
-      pop_topmost_sequence ();
+  /* 1-word args will always be in a7; 2-word args in a6/a7.  */
+  if (REGNO (reg) + HARD_REGNO_NREGS (A7_REG, mode) - 1 != A7_REG)
+    abort ();
 
-      /* Ideally the incoming argument in a7 would only be copied
-	 once, since propagating a7 into the body of a function
-	 will almost certainly lead to errors.  However, there is
-	 at least one harmless case (in GCSE) where the original
-	 copy from a7 is changed to copy into a new pseudo.  Thus,
-	 we use a flag to only do this special treatment for the
-	 first copy of a7.  */
+  cfun->machine->need_a7_copy = false;
 
-      cfun->machine->incoming_a7_copied = true;
+  /* Copy a7 to a new pseudo at the function entry.  Use gen_raw_REG to
+     create the REG for a7 so that hard_frame_pointer_rtx is not used.  */
 
-      return 1;
+  push_to_sequence (entry_insns);
+  tmp = gen_reg_rtx (mode);
+
+  switch (mode)
+    {
+    case DFmode:
+    case DImode:
+      emit_insn (gen_movsi_internal (gen_rtx_SUBREG (SImode, tmp, 0),
+				     gen_rtx_REG (SImode, A7_REG - 1)));
+      emit_insn (gen_movsi_internal (gen_rtx_SUBREG (SImode, tmp, 4),
+				     gen_raw_REG (SImode, A7_REG)));
+      break;
+    case SFmode:
+      emit_insn (gen_movsf_internal (tmp, gen_raw_REG (mode, A7_REG)));
+      break;
+    case SImode:
+      emit_insn (gen_movsi_internal (tmp, gen_raw_REG (mode, A7_REG)));
+      break;
+    case HImode:
+      emit_insn (gen_movhi_internal (tmp, gen_raw_REG (mode, A7_REG)));
+      break;
+    case QImode:
+      emit_insn (gen_movqi_internal (tmp, gen_raw_REG (mode, A7_REG)));
+      break;
+    default:
+      abort ();
     }
 
-  return 0;
+  cfun->machine->set_frame_ptr_insn = emit_insn (gen_set_frame_ptr ());
+  entry_insns = get_insns ();
+  end_sequence ();
+
+  if (cfun->machine->vararg_a7)
+    {
+      /* This is called from within builtin_savereg, so we're already
+	 inside a start_sequence that will be placed at the start of
+	 the function.  */
+      emit_insn (entry_insns);
+    }
+  else
+    {
+      /* Put entry_insns after the NOTE that starts the function.  If
+	 this is inside a start_sequence, make the outer-level insn
+	 chain current, so the code is placed at the start of the
+	 function.  */
+      push_topmost_sequence ();
+      emit_insn_after (entry_insns, get_insns ());
+      pop_topmost_sequence ();
+    }
+
+  return tmp;
 }
 
 
@@ -1375,26 +1443,26 @@ xtensa_expand_block_move (rtx *operands)
   int align = XINT (operands[3], 0);
   int num_pieces, move_ratio;
 
-  /* If this is not a fixed size move, just call memcpy */
+  /* If this is not a fixed size move, just call memcpy.  */
   if (!optimize || (GET_CODE (operands[2]) != CONST_INT))
     return 0;
 
-  /* Anything to move? */
+  /* Anything to move?  */
   if (bytes <= 0)
     return 1;
 
   if (align > MOVE_MAX)
     align = MOVE_MAX;
 
-  /* decide whether to expand inline based on the optimization level */
+  /* Decide whether to expand inline based on the optimization level.  */
   move_ratio = 4;
   if (optimize > 2)
     move_ratio = LARGEST_MOVE_RATIO;
-  num_pieces = (bytes / align) + (bytes % align); /* close enough anyway */
+  num_pieces = (bytes / align) + (bytes % align); /* Close enough anyway.  */
   if (num_pieces >= move_ratio)
     return 0;
 
-  /* make sure the memory addresses are valid */
+  /* Make sure the memory addresses are valid.  */
   operands[0] = validize_mem (dest);
   operands[1] = validize_mem (src);
 
@@ -1404,10 +1472,10 @@ xtensa_expand_block_move (rtx *operands)
 }
 
 
-/*  Emit a sequence of instructions to implement a block move, trying
-    to hide load delay slots as much as possible.  Load N values into
-    temporary registers, store those N values, and repeat until the
-    complete block has been moved.  N=delay_slots+1 */
+/* Emit a sequence of instructions to implement a block move, trying
+   to hide load delay slots as much as possible.  Load N values into
+   temporary registers, store those N values, and repeat until the
+   complete block has been moved.  N=delay_slots+1.  */
 
 struct meminsnbuf
 {
@@ -1463,7 +1531,7 @@ xtensa_emit_block_move (rtx *operands, rtx *tmpregs, int delay_slots)
 
 	  if (bytes < item_size)
 	    {
-	      /* find a smaller item_size which we can load & store */
+	      /* Find a smaller item_size which we can load & store.  */
 	      item_size = bytes;
 	      mode = xtensa_find_mode_for_size (item_size);
 	      item_size = GET_MODE_SIZE (mode);
@@ -1471,7 +1539,7 @@ xtensa_emit_block_move (rtx *operands, rtx *tmpregs, int delay_slots)
 	      stname = xtensa_st_opcodes[(int) mode];
 	    }
 
-	  /* record the load instruction opcode and operands */
+	  /* Record the load instruction opcode and operands.  */
 	  addr = plus_constant (from_addr, offset);
 	  mem = gen_rtx_MEM (mode, addr);
 	  if (! memory_address_p (mode, addr))
@@ -1481,7 +1549,7 @@ xtensa_emit_block_move (rtx *operands, rtx *tmpregs, int delay_slots)
 	  ldinsns[n].operands[1] = mem;
 	  sprintf (ldinsns[n].template, "%s\t%%0, %%1", ldname);
 
-	  /* record the store instruction opcode and operands */
+	  /* Record the store instruction opcode and operands.  */
 	  addr = plus_constant (to_addr, offset);
 	  mem = gen_rtx_MEM (mode, addr);
 	  if (! memory_address_p (mode, addr))
@@ -1495,7 +1563,7 @@ xtensa_emit_block_move (rtx *operands, rtx *tmpregs, int delay_slots)
 	  bytes -= item_size;
 	}
 
-      /* now output the loads followed by the stores */
+      /* Now output the loads followed by the stores.  */
       for (n = 0; n < chunk_size; n++)
 	output_asm_insn (ldinsns[n].template, ldinsns[n].operands);
       for (n = 0; n < chunk_size; n++)
@@ -1513,7 +1581,7 @@ xtensa_find_mode_for_size (unsigned item_size)
     {
       mode = VOIDmode;
 
-      /* find mode closest to but not bigger than item_size */
+      /* Find mode closest to but not bigger than item_size.  */
       for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 	   tmode != VOIDmode; tmode = GET_MODE_WIDER_MODE (tmode))
 	if (GET_MODE_SIZE (tmode) <= item_size)
@@ -1527,7 +1595,7 @@ xtensa_find_mode_for_size (unsigned item_size)
 	  && xtensa_st_opcodes[(int) mode])
 	break;
 
-      /* cannot load & store this mode; try something smaller */
+      /* Cannot load & store this mode; try something smaller.  */
       item_size -= 1;
     }
 
@@ -1541,8 +1609,8 @@ xtensa_expand_nonlocal_goto (rtx *operands)
   rtx goto_handler = operands[1];
   rtx containing_fp = operands[3];
 
-  /* generate a call to "__xtensa_nonlocal_goto" (in libgcc); the code
-     is too big to generate in-line */
+  /* Generate a call to "__xtensa_nonlocal_goto" (in libgcc); the code
+     is too big to generate in-line.  */
 
   if (GET_CODE (containing_fp) != REG)
     containing_fp = force_reg (Pmode, containing_fp);
@@ -1581,10 +1649,10 @@ xtensa_setup_frame_addresses (void)
    a comment showing where the end of the loop is.  However, if there is a
    label or a branch at the end of the loop then we need to place a nop
    there.  If the loop ends with a label we need the nop so that branches
-   targetting that label will target the nop (and thus remain in the loop),
-   instead of targetting the instruction after the loop (and thus exiting
+   targeting that label will target the nop (and thus remain in the loop),
+   instead of targeting the instruction after the loop (and thus exiting
    the loop).  If the loop ends with a branch, we need the nop in case the
-   branch is targetting a location inside the loop.  When the branch
+   branch is targeting a location inside the loop.  When the branch
    executes it will cause the loop count to be decremented even if it is
    taken (because it is the last instruction in the loop), so we need to
    nop after the branch to prevent the loop count from being decremented
@@ -1688,11 +1756,10 @@ xtensa_dbx_register_number (int regno)
 /* Initialize CUMULATIVE_ARGS for a function.  */
 
 void
-init_cumulative_args (CUMULATIVE_ARGS *cum,
-		      tree fntype ATTRIBUTE_UNUSED,
-		      rtx libname ATTRIBUTE_UNUSED)
+init_cumulative_args (CUMULATIVE_ARGS *cum, int incoming)
 {
   cum->arg_words = 0;
+  cum->incoming = incoming;
 }
 
 
@@ -1729,7 +1796,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
   int regbase, words, max;
   int *arg_words;
   int regno;
-  enum machine_mode result_mode;
 
   arg_words = &cum->arg_words;
   regbase = (incoming_p ? GP_ARG_FIRST : GP_OUTGOING_ARG_FIRST);
@@ -1740,39 +1806,29 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	    : int_size_in_bytes (type)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   if (type && (TYPE_ALIGN (type) > BITS_PER_WORD))
-    *arg_words += (*arg_words & 1);
+    {
+      int align = TYPE_ALIGN (type) / BITS_PER_WORD;
+      *arg_words = (*arg_words + align - 1) & -align;
+    }
 
   if (*arg_words + words > max)
     return (rtx)0;
 
   regno = regbase + *arg_words;
-  result_mode = (mode == BLKmode ? TYPE_MODE (type) : mode);
 
-  /* We need to make sure that references to a7 are represented with
-     rtx that is not equal to hard_frame_pointer_rtx.  For BLKmode and
-     modes bigger than 2 words (because we only have patterns for
-     modes of 2 words or smaller), we can't control the expansion
-     unless we explicitly list the individual registers in a PARALLEL.  */
+  if (cum->incoming && regno <= A7_REG && regno + words > A7_REG)
+    cfun->machine->need_a7_copy = true;
 
-  if ((mode == BLKmode || words > 2)
-      && regno < A7_REG
-      && regno + words > A7_REG)
-    {
-      rtx result;
-      int n;
+  return gen_rtx_REG (mode, regno);
+}
 
-      result = gen_rtx_PARALLEL (result_mode, rtvec_alloc (words));
-      for (n = 0; n < words; n++)
-	{
-	  XVECEXP (result, 0, n) =
-	    gen_rtx_EXPR_LIST (VOIDmode,
-			       gen_raw_REG (SImode, regno + n),
-			       GEN_INT (n * UNITS_PER_WORD));
-	}
-      return result;
-    }
 
-  return gen_raw_REG (result_mode, regno);
+static bool
+xtensa_return_in_msb (tree valtype)
+{
+  return (TARGET_BIG_ENDIAN
+	  && AGGREGATE_TYPE_P (valtype)
+	  && int_size_in_bytes (valtype) >= UNITS_PER_WORD);
 }
 
 
@@ -1785,7 +1841,7 @@ override_options (void)
   if (!TARGET_BOOLEANS && TARGET_HARD_FLOAT)
     error ("boolean registers required for the floating-point option");
 
-  /* set up the tables of ld/st opcode names for block moves */
+  /* Set up the tables of ld/st opcode names for block moves.  */
   xtensa_ld_opcodes[(int) SImode] = "l32i";
   xtensa_ld_opcodes[(int) HImode] = "l16ui";
   xtensa_ld_opcodes[(int) QImode] = "l8ui";
@@ -2221,41 +2277,18 @@ xtensa_expand_prologue (void)
 
   if (frame_pointer_needed)
     {
-      rtx first, insn, set_frame_ptr_insn = 0;
-
-      push_topmost_sequence ();
-      first = get_insns ();
-      pop_topmost_sequence ();
-
-      /* Search all instructions, looking for the insn that sets up the
-	 frame pointer.  This search will fail if the function does not
-	 have an incoming argument in $a7, but in that case, we can just
-	 set up the frame pointer at the very beginning of the
-	 function.  */
-
-      for (insn = first; insn; insn = NEXT_INSN (insn))
+      if (cfun->machine->set_frame_ptr_insn)
 	{
-	  rtx pat;
+	  rtx first, insn;
 
-	  if (!INSN_P (insn))
-	    continue;
+	  push_topmost_sequence ();
+	  first = get_insns ();
+	  pop_topmost_sequence ();
 
-	  pat = PATTERN (insn);
-	  if (GET_CODE (pat) == SET
-	      && GET_CODE (SET_SRC (pat)) == UNSPEC_VOLATILE
-	      && (XINT (SET_SRC (pat), 1) == UNSPECV_SET_FP))
-	    {
-	      set_frame_ptr_insn = insn;
-	      break;
-	    }
-	}
-
-      if (set_frame_ptr_insn)
-	{
 	  /* For all instructions prior to set_frame_ptr_insn, replace
 	     hard_frame_pointer references with stack_pointer.  */
 	  for (insn = first;
-	       insn != set_frame_ptr_insn;
+	       insn != cfun->machine->set_frame_ptr_insn;
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn))
@@ -2306,20 +2339,23 @@ xtensa_return_addr (int count, rtx frame)
 
 
 /* Create the va_list data type.
-   This structure is set up by __builtin_saveregs.  The __va_reg
-   field points to a stack-allocated region holding the contents of the
-   incoming argument registers.  The __va_ndx field is an index initialized
-   to the position of the first unnamed (variable) argument.  This same index
-   is also used to address the arguments passed in memory.  Thus, the
-   __va_stk field is initialized to point to the position of the first
-   argument in memory offset to account for the arguments passed in
-   registers.  E.G., if there are 6 argument registers, and each register is
-   4 bytes, then __va_stk is set to $sp - (6 * 4); then __va_reg[N*4]
-   references argument word N for 0 <= N < 6, and __va_stk[N*4] references
-   argument word N for N >= 6.  */
 
-tree
-xtensa_build_va_list (void)
+   This structure is set up by __builtin_saveregs.  The __va_reg field
+   points to a stack-allocated region holding the contents of the
+   incoming argument registers.  The __va_ndx field is an index
+   initialized to the position of the first unnamed (variable)
+   argument.  This same index is also used to address the arguments
+   passed in memory.  Thus, the __va_stk field is initialized to point
+   to the position of the first argument in memory offset to account
+   for the arguments passed in registers and to account for the size
+   of the argument registers not being 16-byte aligned.  E.G., there
+   are 6 argument registers of 4 bytes each, but we want the __va_ndx
+   for the first stack argument to have the maximal alignment of 16
+   bytes, so we offset the __va_stk address by 32 bytes so that
+   __va_stk[32] references the first argument on the stack.  */
+
+static tree
+xtensa_build_builtin_va_list (void)
 {
   tree f_stk, f_reg, f_ndx, record, type_decl;
 
@@ -2351,18 +2387,17 @@ xtensa_build_va_list (void)
 /* Save the incoming argument registers on the stack.  Returns the
    address of the saved registers.  */
 
-rtx
+static rtx
 xtensa_builtin_saveregs (void)
 {
   rtx gp_regs, dest;
-  int arg_words = current_function_arg_words;
+  int arg_words = current_function_args_info.arg_words;
   int gp_left = MAX_ARGS_IN_REGISTERS - arg_words;
-  int i;
 
-  if (gp_left == 0)
+  if (gp_left <= 0)
     return const0_rtx;
 
-  /* allocate the general-purpose register space */
+  /* Allocate the general-purpose register space.  */
   gp_regs = assign_stack_local
     (BLKmode, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, -1);
   set_mem_alias_set (gp_regs, get_varargs_alias_set ());
@@ -2371,16 +2406,9 @@ xtensa_builtin_saveregs (void)
   dest = change_address (gp_regs, SImode,
 			 plus_constant (XEXP (gp_regs, 0),
 					arg_words * UNITS_PER_WORD));
-
-  /* Note: Don't use move_block_from_reg() here because the incoming
-     argument in a7 cannot be represented by hard_frame_pointer_rtx.
-     Instead, call gen_raw_REG() directly so that we get a distinct
-     instance of (REG:SI 7).  */
-  for (i = 0; i < gp_left; i++)
-    {
-      emit_move_insn (operand_subword (dest, i, 1, BLKmode),
-		      gen_raw_REG (SImode, GP_ARG_FIRST + arg_words + i));
-    }
+  cfun->machine->need_a7_copy = true;
+  cfun->machine->vararg_a7 = true;
+  move_block_from_reg (GP_ARG_FIRST + arg_words, dest, gp_left);
 
   return XEXP (gp_regs, 0);
 }
@@ -2409,21 +2437,23 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   ndx = build (COMPONENT_REF, TREE_TYPE (f_ndx), valist, f_ndx);
 
   /* Call __builtin_saveregs; save the result in __va_reg */
-  current_function_arg_words = arg_words;
   u = make_tree (ptr_type_node, expand_builtin_saveregs ());
   t = build (MODIFY_EXPR, ptr_type_node, reg, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  /* Set the __va_stk member to $arg_ptr - (size of __va_reg area) */
+  /* Set the __va_stk member to ($arg_ptr - 32).  */
   u = make_tree (ptr_type_node, virtual_incoming_args_rtx);
-  u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		   build_int_2 (-MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, -1)));
+  u = fold (build (PLUS_EXPR, ptr_type_node, u, build_int_2 (-32, -1)));
   t = build (MODIFY_EXPR, ptr_type_node, stk, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  /* Set the __va_ndx member.  */
+  /* Set the __va_ndx member.  If the first variable argument is on
+     the stack, adjust __va_ndx by 2 words to account for the extra
+     alignment offset for __va_stk.  */
+  if (arg_words >= MAX_ARGS_IN_REGISTERS)
+    arg_words += 2;
   u = build_int_2 (arg_words * UNITS_PER_WORD, 0);
   t = build (MODIFY_EXPR, integer_type_node, ndx, u);
   TREE_SIDE_EFFECTS (t) = 1;
@@ -2442,6 +2472,25 @@ xtensa_va_arg (tree valist, tree type)
   tree tmp, addr_tree, type_size;
   rtx array, orig_ndx, r, addr, size, va_size;
   rtx lab_false, lab_over, lab_false2;
+
+  /* Handle complex values as separate real and imaginary parts.  */
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      rtx real_part, imag_part, concat_val, local_copy;
+
+      real_part = xtensa_va_arg (valist, TREE_TYPE (type));
+      imag_part = xtensa_va_arg (valist, TREE_TYPE (type));
+
+      /* Make a copy of the value in case the parts are not contiguous.  */
+      real_part = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (type)), real_part);
+      imag_part = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (type)), imag_part);
+      concat_val = gen_rtx_CONCAT (TYPE_MODE (type), real_part, imag_part);
+
+      local_copy = assign_temp (type, 0, 1, 0);
+      emit_move_insn (local_copy, concat_val);
+
+      return XEXP (local_copy, 0);
+    }
 
   f_stk = TYPE_FIELDS (va_list_type_node);
   f_reg = TREE_CHAIN (f_stk);
@@ -2466,17 +2515,19 @@ xtensa_va_arg (tree valist, tree type)
     emit_move_insn (va_size, r);
 
 
-  /* First align __va_ndx to a double word boundary if necessary for this arg:
+  /* First align __va_ndx if necessary for this arg:
 
-     if (__alignof__ (TYPE) > 4)
-       (AP).__va_ndx = (((AP).__va_ndx + 7) & -8); */
+     if (__alignof__ (TYPE) > 4 )
+       (AP).__va_ndx = (((AP).__va_ndx + __alignof__ (TYPE) - 1)
+			& -__alignof__ (TYPE)); */
 
   if (TYPE_ALIGN (type) > BITS_PER_WORD)
     {
+      int align = TYPE_ALIGN (type) / BITS_PER_UNIT;
       tmp = build (PLUS_EXPR, integer_type_node, ndx,
-		   build_int_2 ((2 * UNITS_PER_WORD) - 1, 0));
+		   build_int_2 (align - 1, 0));
       tmp = build (BIT_AND_EXPR, integer_type_node, tmp,
-		   build_int_2 (-2 * UNITS_PER_WORD, -1));
+		   build_int_2 (-align, -1));
       tmp = build (MODIFY_EXPR, integer_type_node, ndx, tmp);
       TREE_SIDE_EFFECTS (tmp) = 1;
       expand_expr (tmp, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2534,18 +2585,18 @@ xtensa_va_arg (tree valist, tree type)
 
      else
        {
-	 if (orig_ndx < __MAX_ARGS_IN_REGISTERS * 4)
-	     (AP).__va_ndx = __MAX_ARGS_IN_REGISTERS * 4 + __va_size (TYPE);
+	 if (orig_ndx <= __MAX_ARGS_IN_REGISTERS * 4)
+	     (AP).__va_ndx = 32 + __va_size (TYPE);
 	 __array = (AP).__va_stk;
        } */
 
   lab_false2 = gen_label_rtx ();
   emit_cmp_and_jump_insns (orig_ndx,
 			   GEN_INT (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD),
-			   GE, const1_rtx, SImode, 0, lab_false2);
+			   GT, const1_rtx, SImode, 0, lab_false2);
 
   tmp = build (PLUS_EXPR, sizetype, make_tree (intSI_type_node, va_size),
-	       build_int_2 (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, 0));
+	       build_int_2 (32, 0));
   tmp = build (MODIFY_EXPR, integer_type_node, ndx, tmp);
   TREE_SIDE_EFFECTS (tmp) = 1;
   expand_expr (tmp, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -2658,8 +2709,8 @@ order_regs_for_local_alloc (void)
       int i, num_arg_regs;
       int nxt = 0;
 
-      /* use the AR registers in increasing order (skipping a0 and a1)
-	 but save the incoming argument registers for a last resort */
+      /* Use the AR registers in increasing order (skipping a0 and a1)
+	 but save the incoming argument registers for a last resort.  */
       num_arg_regs = current_function_args_info.arg_words;
       if (num_arg_regs > MAX_ARGS_IN_REGISTERS)
 	num_arg_regs = MAX_ARGS_IN_REGISTERS;
@@ -2668,11 +2719,11 @@ order_regs_for_local_alloc (void)
       for (i = 0; i < num_arg_regs; i++)
 	reg_alloc_order[nxt++] = GP_ARG_FIRST + i;
 
-      /* list the coprocessor registers in order */
+      /* List the coprocessor registers in order.  */
       for (i = 0; i < BR_REG_NUM; i++)
 	reg_alloc_order[nxt++] = BR_REG_FIRST + i;
 
-      /* list the FP registers in order for now */
+      /* List the FP registers in order for now.  */
       for (i = 0; i < 16; i++)
 	reg_alloc_order[nxt++] = FP_REG_FIRST + i;
 
@@ -2684,55 +2735,6 @@ order_regs_for_local_alloc (void)
 
       reg_alloc_order[nxt++] = ACC_REG_FIRST;	/* MAC16 accumulator */
     }
-}
-
-
-/* A customized version of reg_overlap_mentioned_p that only looks for
-   references to a7 (as opposed to hard_frame_pointer_rtx).  */
-
-int
-a7_overlap_mentioned_p (rtx x)
-{
-  int i, j;
-  unsigned int x_regno;
-  const char *fmt;
-
-  if (GET_CODE (x) == REG)
-    {
-      x_regno = REGNO (x);
-      return (x != hard_frame_pointer_rtx
-	      && x_regno < A7_REG + 1
-	      && x_regno + HARD_REGNO_NREGS (A7_REG, GET_MODE (x)) > A7_REG);
-    }
-
-  if (GET_CODE (x) == SUBREG
-      && GET_CODE (SUBREG_REG (x)) == REG
-      && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
-    {
-      x_regno = subreg_regno (x);
-      return (SUBREG_REG (x) != hard_frame_pointer_rtx
-	      && x_regno < A7_REG + 1
-	      && x_regno + HARD_REGNO_NREGS (A7_REG, GET_MODE (x)) > A7_REG);
-    }
-
-  /* X does not match, so try its subexpressions.  */
-  fmt = GET_RTX_FORMAT (GET_CODE (x));
-  for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if (a7_overlap_mentioned_p (XEXP (x, i)))
-	    return 1;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  for (j = XVECLEN (x, i) - 1; j >=0; j--)
-	    if (a7_overlap_mentioned_p (XVECEXP (x, i, j)))
-	      return 1;
-	}
-    }
-
-  return 0;
 }
 
 
@@ -2817,7 +2819,7 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
 	case LSHIFTRT:
 	case ROTATE:
 	case ROTATERT:
-	  /* no way to tell if X is the 2nd operand so be conservative */
+	  /* No way to tell if X is the 2nd operand so be conservative.  */
 	default: break;
 	}
       if (xtensa_simm12b (INTVAL (x)))
@@ -2944,7 +2946,7 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    return true;
 	  }
       }
-      /* fall through */
+      /* Fall through.  */
 
     case UDIV:
     case UMOD:
@@ -2986,6 +2988,15 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
     default:
       return false;
     }
+}
+
+/* Worker function for TARGET_RETURN_IN_MEMORY.  */
+
+static bool
+xtensa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+{
+  return ((unsigned HOST_WIDE_INT) int_size_in_bytes (type)
+	  > 4 * UNITS_PER_WORD);
 }
 
 #include "gt-xtensa.h"

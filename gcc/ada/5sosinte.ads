@@ -6,7 +6,8 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1997-2002 Free Software Foundation, Inc.          --
+--             Copyright (C) 1991-1994, Florida State University            --
+--             Copyright (C) 1995-2004, Free Software Foundation, Inc.      --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,11 +37,12 @@
 --  This package includes all direct interfaces to OS services
 --  that are needed by children of System.
 
---  PLEASE DO NOT add any with-clauses to this package
---  or remove the pragma Elaborate_Body.
---  It is designed to be a bottom-level (leaf) package.
+--  PLEASE DO NOT add any with-clauses to this package or remove the pragma
+--  Preelaborate. This package is designed to be a bottom-level (leaf) package.
 
 with Interfaces.C;
+with Unchecked_Conversion;
+
 package System.OS_Interface is
    pragma Preelaborate;
 
@@ -298,13 +300,19 @@ package System.OS_Interface is
    type Thread_Body is access
      function (arg : System.Address) return System.Address;
 
+   function Thread_Body_Access is new
+     Unchecked_Conversion (System.Address, Thread_Body);
+
    THR_DETACHED  : constant := 64;
    THR_BOUND     : constant := 1;
    THR_NEW_LWP   : constant := 2;
    USYNC_THREAD  : constant := 0;
 
-   type thread_t is private;
+   type thread_t is new unsigned;
    subtype Thread_Id is thread_t;
+   --  These types should be commented ???
+
+   function To_thread_t is new Unchecked_Conversion (Integer, thread_t);
 
    type mutex_t is limited private;
 
@@ -534,8 +542,6 @@ private
       tv_usec : long;
    end record;
    pragma Convention (C, struct_timeval);
-
-   type thread_t is new unsigned;
 
    type array_type_9 is array (0 .. 3) of unsigned_char;
    type record_type_3 is record

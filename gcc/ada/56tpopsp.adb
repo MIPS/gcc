@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -92,16 +92,19 @@ package body Specific is
    --  tasks.
 
    function Self return Task_ID is
-      Result : Interfaces.C.int;
       Value : aliased System.Address;
+
+      Result : Interfaces.C.int;
+      pragma Unreferenced (Result);
 
    begin
       Result := st_getspecific (ATCB_Key, Value'Address);
+      --  Is it OK not to check this result???
 
       --  If the key value is Null, then it is a non-Ada task.
 
       if Value /= System.Null_Address then
-         return To_Task_Id (Value);
+         return To_Task_ID (Value);
       else
          return Register_Foreign_Thread;
       end if;

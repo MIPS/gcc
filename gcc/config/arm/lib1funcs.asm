@@ -1,7 +1,8 @@
 @ libgcc routines for ARM cpu.
 @ Division routines, written by Richard Earnshaw, (rearnsha@armltd.co.uk)
 
-/* Copyright 1995, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -202,11 +203,23 @@ SYM (__\name):
 	.arm
 _L__\name:		/* A hook to tell gdb that we've switched to ARM */
 .endm
+#define EQUIV .thumb_set
 #else
 .macro	ARM_FUNC_START name
-	FUNC_START \name
+	.text
+	.globl SYM (__\name)
+	TYPE (__\name)
+	.align 0
+	.arm
+SYM (__\name):
 .endm
+#define EQUIV .set
 #endif
+
+.macro	ARM_FUNC_ALIAS new old
+	.globl	SYM (__\new)
+	EQUIV	SYM (__\new), SYM (__\old)
+.endm
 
 #ifdef __thumb__
 /* Register aliases.  */
@@ -230,6 +243,25 @@ pc		.req	r15
 /* ------------------------------------------------------------------------ */	
 .macro ARM_DIV_BODY dividend, divisor, result, curbit
 
+#if __ARM_ARCH__ >= 5 && ! defined (__OPTIMIZE_SIZE__)
+
+	clz	\curbit, \dividend
+	clz	\result, \divisor
+	sub	\curbit, \result, \curbit
+	rsbs	\curbit, \curbit, #31
+	addne	\curbit, \curbit, \curbit, lsl #1
+	mov	\result, #0
+	addne	pc, pc, \curbit, lsl #2
+	nop
+	.set	shift, 32
+	.rept	32
+	.set	shift, shift - 1
+	cmp	\dividend, \divisor, lsl #shift
+	adc	\result, \result, \result
+	subcs	\dividend, \dividend, \divisor, lsl #shift
+	.endr
+
+#else /* __ARM_ARCH__ < 5 || defined (__OPTIMIZE_SIZE__) */
 #if __ARM_ARCH__ >= 5
 
 	clz	\curbit, \divisor
@@ -240,7 +272,7 @@ pc		.req	r15
 	mov	\curbit, \curbit, lsl \result
 	mov	\result, #0
 	
-#else
+#else /* __ARM_ARCH__ < 5 */
 
 	@ Initially shift the divisor left 3 bits if possible,
 	@ set curbit accordingly.  This allows for curbit to be located
@@ -271,7 +303,7 @@ pc		.req	r15
 
 	mov	\result, #0
 
-#endif
+#endif /* __ARM_ARCH__ < 5 */
 
 	@ Division loop
 1:	cmp	\dividend, \divisor
@@ -290,6 +322,8 @@ pc		.req	r15
 	movnes	\curbit,   \curbit,  lsr #4	@ No, any more bits to do?
 	movne	\divisor,  \divisor, lsr #4
 	bne	1b
+
+#endif /* __ARM_ARCH__ < 5 || defined (__OPTIMIZE_SIZE__) */
 
 .endm
 /* ------------------------------------------------------------------------ */	
@@ -325,6 +359,22 @@ pc		.req	r15
 /* ------------------------------------------------------------------------ */
 .macro ARM_MOD_BODY dividend, divisor, order, spare
 
+#if __ARM_ARCH__ >= 5 && ! defined (__OPTIMIZE_SIZE__)
+
+	clz	\order, \divisor
+	clz	\spare, \dividend
+	sub	\order, \order, \spare
+	rsbs	\order, \order, #31
+	addne	pc, pc, \order, lsl #3
+	nop
+	.set	shift, 32
+	.rept	32
+	.set	shift, shift - 1
+	cmp	\dividend, \divisor, lsl #shift
+	subcs	\dividend, \dividend, \divisor, lsl #shift
+	.endr
+
+#else /* __ARM_ARCH__ < 5 || defined (__OPTIMIZE_SIZE__) */
 #if __ARM_ARCH__ >= 5
 
 	clz	\order, \divisor
@@ -332,7 +382,7 @@ pc		.req	r15
 	sub	\order, \order, \spare
 	mov	\divisor, \divisor, lsl \order
 	
-#else
+#else /* __ARM_ARCH__ < 5 */
 
 	mov	\order, #0
 
@@ -354,7 +404,7 @@ pc		.req	r15
 	addlo	\order, \order, #1
 	blo	1b
 
-#endif
+#endif /* __ARM_ARCH__ < 5 */
 
 	@ Perform all needed substractions to keep only the reminder.
 	@ Do comparisons in batch of 4 first.
@@ -391,6 +441,9 @@ pc		.req	r15
 4:	cmp	\dividend, \divisor
 	subhs	\dividend, \dividend, \divisor
 5:
+
+#endif /* __ARM_ARCH__ < 5 || defined (__OPTIMIZE_SIZE__) */
+
 .endm
 /* ------------------------------------------------------------------------ */
 .macro THUMB_DIV_MOD_BODY modulo

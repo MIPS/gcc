@@ -1,6 +1,6 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -296,7 +296,7 @@ choose_personality_routine (enum languages lang)
       return;
 
     case chose_none:
-      ; /* proceed to language selection */
+      ; /* Proceed to language selection.  */
     }
 
   switch (lang)
@@ -621,7 +621,10 @@ build_throw (tree exp)
     return exp;
 
   if (processing_template_decl)
-    return build_min (THROW_EXPR, void_type_node, exp);
+    {
+      current_function_returns_abnormally = 1;
+      return build_min (THROW_EXPR, void_type_node, exp);
+    }
 
   if (exp == null_node)
     warning ("throwing NULL, which has integral, not pointer type");
@@ -645,7 +648,12 @@ build_throw (tree exp)
 	  tmp = build_function_type (ptr_type_node, tmp);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
-
+      else if (really_overloaded_fn (fn))
+	{
+	  error ("`%D' should never be overloaded", fn);
+	  return error_mark_node;
+	}
+      fn = OVL_CURRENT (fn);
       exp = build_function_call (fn, tree_cons (NULL_TREE, exp, NULL_TREE));
     }
   else if (exp)
@@ -887,7 +895,7 @@ can_convert_eh (tree to, tree from)
       if (TREE_CODE (to) == VOID_TYPE)
 	return 1;
 
-      /* else fall through */
+      /* Else fall through.  */
     }
 
   if (CLASS_TYPE_P (to) && CLASS_TYPE_P (from)

@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -352,7 +352,7 @@ choose_spill_colors (void)
 	    && HARD_REGNO_MODE_OK (c, PSEUDO_REGNO_MODE (web->regno)))
 	  {
 	    int i, size;
-	    size = HARD_REGNO_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
+	    size = hard_regno_nregs[c][PSEUDO_REGNO_MODE (web->regno)];
 	    for (i = 1; i < size
 		 && TEST_HARD_REG_BIT (avail, c + i); i++);
 	    if (i == size)
@@ -444,8 +444,8 @@ rewrite_program (bitmap new_deaths)
 		end_sequence ();
 		emit_insn_before (insns, insn);
 
-	        if (bb->head == insn)
-		  bb->head = NEXT_INSN (prev);
+	        if (BB_HEAD (bb) == insn)
+		  BB_HEAD (bb) = NEXT_INSN (prev);
 		for (insn = PREV_INSN (insn); insn != prev;
 		     insn = PREV_INSN (insn))
 		  {
@@ -492,8 +492,8 @@ rewrite_program (bitmap new_deaths)
 	      if (insns)
 		{
 		  emit_insn_after (insns, insn);
-		  if (bb->end == insn)
-		    bb->end = PREV_INSN (following);
+		  if (BB_END (bb) == insn)
+		    BB_END (bb) = PREV_INSN (following);
 		  for (insn = insns; insn != following; insn = NEXT_INSN (insn))
 		    {
 		      set_block_for_insn (insn, bb);
@@ -685,8 +685,8 @@ insert_stores (bitmap new_deaths)
 		  if (insns)
 		    {
 		      emit_insn_after (insns, insn);
-		      if (bb->end == insn)
-			bb->end = PREV_INSN (following);
+		      if (BB_END (bb) == insn)
+			BB_END (bb) = PREV_INSN (following);
 		      for (ni = insns; ni != following; ni = NEXT_INSN (ni))
 			{
 			  set_block_for_insn (ni, bb);
@@ -742,9 +742,9 @@ spill_same_color_p (struct web *web1, struct web *web2)
     return 0;
 
   size1 = web1->type == PRECOLORED
-          ? 1 : HARD_REGNO_NREGS (c1, PSEUDO_REGNO_MODE (web1->regno));
+          ? 1 : hard_regno_nregs[c1][PSEUDO_REGNO_MODE (web1->regno)];
   size2 = web2->type == PRECOLORED
-          ? 1 : HARD_REGNO_NREGS (c2, PSEUDO_REGNO_MODE (web2->regno));
+          ? 1 : hard_regno_nregs[c2][PSEUDO_REGNO_MODE (web2->regno)];
   if (c1 >= c2 + size2 || c2 >= c1 + size1)
     return 0;
   return 1;
@@ -779,7 +779,7 @@ update_spill_colors (HARD_REG_SET *in_use, struct web *web, int add)
   if ((c = alias (find_web_for_subweb (web))->color) < 0
       || c == an_unusable_color)
     return;
-  size = HARD_REGNO_NREGS (c, GET_MODE (web->orig_x));
+  size = hard_regno_nregs[c][GET_MODE (web->orig_x)];
   if (SUBWEB_P (web))
     {
       c += subreg_regno_offset (c, GET_MODE (SUBREG_REG (web->orig_x)),
@@ -810,7 +810,7 @@ spill_is_free (HARD_REG_SET *in_use, struct web *web)
   if (c == an_unusable_color)
     return 1;
   size = web->type == PRECOLORED
-         ? 1 : HARD_REGNO_NREGS (c, PSEUDO_REGNO_MODE (web->regno));
+         ? 1 : hard_regno_nregs[c][PSEUDO_REGNO_MODE (web->regno)];
   for (; size--;)
     if (TEST_HARD_REG_BIT (*in_use, c + size))
       return 0;
@@ -941,8 +941,8 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	  rtx foll = NEXT_INSN (after);
 	  bb = BLOCK_FOR_INSN (after);
 	  emit_insn_after (ni, after);
-	  if (bb->end == after)
-	    bb->end = PREV_INSN (foll);
+	  if (BB_END (bb) == after)
+	    BB_END (bb) = PREV_INSN (foll);
 	  for (ni = NEXT_INSN (after); ni != foll; ni = NEXT_INSN (ni))
 	    {
 	      set_block_for_insn (ni, bb);
@@ -954,8 +954,8 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	  rtx prev = PREV_INSN (before);
 	  bb = BLOCK_FOR_INSN (before);
 	  emit_insn_before (ni, before);
-	  if (bb->head == before)
-	    bb->head = NEXT_INSN (prev);
+	  if (BB_HEAD (bb) == before)
+	    BB_HEAD (bb) = NEXT_INSN (prev);
 	  for (; ni != before; ni = NEXT_INSN (ni))
 	    {
 	      set_block_for_insn (ni, bb);
@@ -1513,7 +1513,7 @@ detect_web_parts_to_rebuild (void)
      And because we sometimes delete insn referring to hardregs (when
      they became useless because they setup a rematerializable pseudo, which
      then was rematerialized), some of those uses will go away with the next
-     df_analyse().  This means we even _must_ delete those uses from
+     df_analyze().  This means we even _must_ delete those uses from
      the live_at_end[] bitmaps.  For simplicity we simply delete
      all of them.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1534,10 +1534,10 @@ detect_web_parts_to_rebuild (void)
 		      BITMAP_AND_COMPL);
   live_at_end += 2;
 
-  if (rtl_dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
+  if (dump_file && (debug_new_regalloc & DUMP_REBUILD) != 0)
     {
       ra_debug_msg (DUMP_REBUILD, "need to check these uses:\n");
-      dump_sbitmap_file (rtl_dump_file, last_check_uses);
+      dump_sbitmap_file (dump_file, last_check_uses);
     }
   sbitmap_free (already_webs);
   BITMAP_XFREE (uses_as_bitmap);

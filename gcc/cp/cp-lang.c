@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -102,8 +102,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_BUILTIN_TYPE_DECLS
-#define LANG_HOOKS_BUILTIN_TYPE_DECLS cxx_builtin_type_decls
 #undef LANG_HOOKS_PUSHLEVEL
 #define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
 #undef LANG_HOOKS_POPLEVEL
@@ -156,10 +154,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P cp_var_mod_type_p
-#undef LANG_HOOKS_TREE_INLINING_START_INLINING
-#define LANG_HOOKS_TREE_INLINING_START_INLINING cp_start_inlining
-#undef LANG_HOOKS_TREE_INLINING_END_INLINING
-#define LANG_HOOKS_TREE_INLINING_END_INLINING cp_end_inlining
 #undef LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS
 #define LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS c_estimate_num_insns
 #undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
@@ -296,6 +290,12 @@ ok_to_generate_alias_set_for_type (tree t)
 static HOST_WIDE_INT
 cxx_get_alias_set (tree t)
 {
+  if (TREE_CODE (t) == RECORD_TYPE
+      && TYPE_CONTEXT (t) && CLASS_TYPE_P (TYPE_CONTEXT (t))
+      && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+    /* The base variant of a type must be in the same alias set as the
+       complete type.  */
+    return get_alias_set (TYPE_CONTEXT (t));
   
   if (/* It's not yet safe to use alias sets for some classes in C++.  */
       !ok_to_generate_alias_set_for_type (t)
@@ -345,7 +345,9 @@ cp_expr_size (tree exp)
 	abort ();
       /* This would be wrong for a type with virtual bases, but they are
 	 caught by the abort above.  */
-      return CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp));
+      return (is_empty_class (TREE_TYPE (exp))
+	      ? size_zero_node 
+	      : CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp)));
     }
   else
     /* Use the default code.  */
@@ -363,7 +365,6 @@ cp_tree_size (enum tree_code code)
     case TEMPLATE_PARM_INDEX: 	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
-    case WRAPPER:		return sizeof (struct tree_wrapper);
     default:
       abort ();
     }
@@ -387,13 +388,6 @@ cp_var_mod_type_p (tree type)
   return false;
 }
 
-/* Stub routine to tell people that this doesn't work yet.  */
-void
-c_reset_state (void)
-{
-  sorry ("inter-module optimisations not implemented yet");
-}
-
 /* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
    that CONTEXT->printer is an already constructed basic pretty_printer.  */
 static void
@@ -407,4 +401,15 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
+}
+
+/* Stubs to keep c-opts.c happy.  */
+void
+push_file_scope (void)
+{
+}
+
+void
+pop_file_scope (void)
+{
 }

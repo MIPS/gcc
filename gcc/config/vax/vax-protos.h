@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ extern const char *rev_cond_name (rtx);
 extern void split_quadword_operands (rtx *, rtx *, int);
 extern void print_operand_address (FILE *, rtx);
 extern int vax_float_literal (rtx);
+extern void vax_notice_update_cc (rtx, rtx);
 #endif /* RTX_CODE */
 
 #ifdef REAL_VALUE_TYPE

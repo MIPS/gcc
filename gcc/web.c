@@ -1,6 +1,6 @@
 /* Web construction code for GNU compiler.
    Contributed by Jan Hubicka.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,7 +20,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* Simple optimization pass that splits independent uses of each pseudo,
-   increasing effectivity of other optimizations.  The optimization can
+   increasing effectiveness of other optimizations.  The optimization can
    serve as an example of use for the dataflow module.
 
    We don't split registers with REG_USERVAR set unless -fmessy-debugging
@@ -66,22 +66,18 @@ struct web_entry
   rtx reg;
 };
 
-static struct web_entry *unionfind_root PARAMS ((struct web_entry *));
-static void unionfind_union		PARAMS ((struct web_entry *,
-						 struct web_entry *));
-static void union_defs			PARAMS ((struct df *, struct ref *,
-						 struct web_entry *,
-						 struct web_entry *));
-static rtx entry_register		PARAMS ((struct web_entry *,
-						 struct ref *, char *, char *));
-static void replace_ref			PARAMS ((struct ref *, rtx));
-static int mark_addressof		PARAMS ((rtx *, void *));
+static struct web_entry *unionfind_root (struct web_entry *);
+static void unionfind_union (struct web_entry *, struct web_entry *);
+static void union_defs (struct df *, struct ref *, struct web_entry *, 
+                        struct web_entry *);
+static rtx entry_register (struct web_entry *, struct ref *, char *, char *);
+static void replace_ref (struct ref *, rtx);
+static int mark_addressof (rtx *, void *);
 
 /* Find the root of unionfind tree (the representative of set).  */
 
 static struct web_entry *
-unionfind_root (element)
-     struct web_entry *element;
+unionfind_root (struct web_entry *element)
 {
   struct web_entry *element1 = element, *element2;
 
@@ -99,8 +95,7 @@ unionfind_root (element)
 /* Union sets.  */
 
 static void
-unionfind_union (first, second)
-     struct web_entry *first, *second;
+unionfind_union (struct web_entry *first, struct web_entry *second)
 {
   first = unionfind_root (first);
   second = unionfind_root (second);
@@ -113,11 +108,8 @@ unionfind_union (first, second)
    register, union them.  */
 
 static void
-union_defs (df, use, def_entry, use_entry)
-     struct df *df;
-     struct ref *use;
-     struct web_entry *def_entry;
-     struct web_entry *use_entry;
+union_defs (struct df *df, struct ref *use, struct web_entry *def_entry,
+            struct web_entry *use_entry)
 {
   rtx insn = DF_REF_INSN (use);
   struct df_link *link = DF_REF_CHAIN (use);
@@ -179,11 +171,8 @@ union_defs (df, use, def_entry, use_entry)
 /* Find the corresponding register for the given entry.  */
 
 static rtx
-entry_register (entry, ref, used, use_addressof)
-     struct web_entry *entry;
-     struct ref *ref;
-     char *used;
-     char *use_addressof;
+entry_register (struct web_entry *entry, struct ref *ref, char *used, 
+                char *use_addressof)
 {
   struct web_entry *root;
   rtx reg, newreg;
@@ -202,16 +191,16 @@ entry_register (entry, ref, used, use_addressof)
   else if (REG_USERVAR_P (reg) && 0/*&& !flag_messy_debugging*/)
     {
       newreg = reg;
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "New web forced to keep reg=%i (user variable)\n",
 		 REGNO (reg));
     }
   else if (use_addressof [REGNO (reg)])
     {
       newreg = reg;
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file,
+      if (dump_file)
+	fprintf (dump_file,
 		 "New web forced to keep reg=%i (address taken)\n",
 		 REGNO (reg));
     }
@@ -223,8 +212,8 @@ entry_register (entry, ref, used, use_addressof)
       REG_LOOP_TEST_P (newreg) = REG_LOOP_TEST_P (reg);
       RTX_UNCHANGING_P (newreg) = RTX_UNCHANGING_P (reg);
       REG_ATTRS (newreg) = REG_ATTRS (reg);
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
+      if (dump_file)
+	fprintf (dump_file, "Web oldreg=%i newreg=%i\n", REGNO (reg),
 		 REGNO (newreg));
     }
 
@@ -235,17 +224,15 @@ entry_register (entry, ref, used, use_addressof)
 /* Replace the reference by REG.  */
 
 static void
-replace_ref (ref, reg)
-   struct ref *ref;
-   rtx reg;
+replace_ref (struct ref *ref, rtx reg)
 {
   rtx oldreg = DF_REF_REAL_REG (ref);
   rtx *loc = DF_REF_REAL_LOC (ref);
 
   if (oldreg == reg)
     return;
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Updating insn %i (%i->%i)\n",
+  if (dump_file)
+    fprintf (dump_file, "Updating insn %i (%i->%i)\n",
 	     INSN_UID (DF_REF_INSN (ref)), REGNO (oldreg), REGNO (reg)); 
   *loc = reg;
 }
@@ -253,9 +240,7 @@ replace_ref (ref, reg)
 /* Mark each pseudo whose address is taken.  */
 
 static int
-mark_addressof (rtl, data)
-     rtx *rtl;
-     void *data;
+mark_addressof (rtx *rtl, void *data)
 {
   if (!*rtl)
     return 0;
@@ -268,7 +253,7 @@ mark_addressof (rtl, data)
 /* Main entry point.  */
 
 void
-web_main ()
+web_main (void)
 {
   struct df *df;
   struct web_entry *def_entry;
@@ -280,17 +265,15 @@ web_main ()
   rtx insn;
 
   df = df_init ();
-  df_analyse (df, 0, DF_UD_CHAIN | DF_EQUIV_NOTES);
+  df_analyze (df, 0, DF_UD_CHAIN | DF_EQUIV_NOTES);
 
-  def_entry =
-    (struct web_entry *) xcalloc (df->n_defs, sizeof (struct web_entry));
-  use_entry =
-    (struct web_entry *) xcalloc (df->n_uses, sizeof (struct web_entry));
-  used = (char *) xcalloc (max, sizeof (char));
-  use_addressof = (char *) xcalloc (max, sizeof (char));
+  def_entry = xcalloc (df->n_defs, sizeof (struct web_entry));
+  use_entry = xcalloc (df->n_uses, sizeof (struct web_entry));
+  used = xcalloc (max, sizeof (char));
+  use_addressof = xcalloc (max, sizeof (char));
 
-  if (rtl_dump_file)
-    df_dump (df, DF_UD_CHAIN | DF_DU_CHAIN, rtl_dump_file);
+  if (dump_file)
+    df_dump (df, DF_UD_CHAIN | DF_DU_CHAIN, dump_file);
 
   /* Produce the web.  */
   for (i = 0; i < df->n_uses; i++)

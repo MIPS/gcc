@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1996-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -517,8 +517,8 @@ package VMS_Data is
    --   for a directory.
 
    S_Bind_Shared  : aliased constant S := "/SHARED "                       &
-                                            "-shared";
-   --        /SHARED (D)
+                                            "-shared,!-static";
+   --        /SHARED
    --        /NOSHARED
    --
    --    Link against a shared GNAT run time when available.
@@ -536,6 +536,13 @@ package VMS_Data is
    --        /SOURCE_SEARCH=(directory[,...])
    --
    --    When looking for source files also look in directories specified.
+
+   S_Bind_Static  : aliased constant S := "/STATIC "                       &
+                                            "-static,!-shared";
+   --        /STATIC
+   --        /NOSTATIC
+   --
+   --    Link against a static GNAT run time.
 
    S_Bind_Store   : aliased constant S := "/STORE_TRACEBACKS "             &
                                             "-E";
@@ -636,6 +643,7 @@ package VMS_Data is
       S_Bind_Shared  'Access,
       S_Bind_Slice   'Access,
       S_Bind_Source  'Access,
+      S_Bind_Static  'Access,
       S_Bind_Store   'Access,
       S_Bind_Time    'Access,
       S_Bind_Verbose 'Access,
@@ -1526,6 +1534,12 @@ package VMS_Data is
    --
    --   Do not look in the default directory for source files of the runtime.
 
+   S_GCC_Nostlib : aliased constant S := "/NOSTD_LIBRARIES "              &
+                                            "-nostdlib";
+   --        /NOSTD_LIBRARIES
+   --
+   --    Do not look for library files in the system default directory.
+
    S_GCC_Opt     : aliased constant S := "/OPTIMIZE="                      &
                                             "ALL "                         &
                                                "-O2,!-O0,!-O1,!-O3 "       &
@@ -1537,6 +1551,8 @@ package VMS_Data is
                                                "-O1,!-O0,!-O2,!-O3 "       &
                                             "UNROLL_LOOPS "                &
                                                "-funroll-loops "           &
+                                            "NO_STRICT_ALIASING "          &
+                                               "-fno-strict-aliasing "     &
                                             "INLINING "                    &
                                                "-O3,!-O0,!-O1,!-O2";
    --        /NOOPTIMIZE (D)
@@ -1548,20 +1564,31 @@ package VMS_Data is
    --      ALL (D)       Perform most optimizations, including those that
    --                    may be expensive.
    --
-   --      NONE          Do not do any optimizations.  Same as /NOOPTIMIZE.
+   --      NONE          Do not do any optimizations. Same as /NOOPTIMIZE.
    --
    --      SOME          Perform some optimizations, but omit ones that
-   --                    are costly.
+   --                    are costly in compilation time.
    --
    --      DEVELOPMENT   Same as SOME.
    --
    --      INLINING      Full optimization, and also attempt automatic inlining
    --                    of small subprograms within a unit
    --
-   --      UNROLL_LOOPS  Try to unroll loops.  This keyword may be specified
-   --                    with any keyword above other than NONE.  Loop
+   --      UNROLL_LOOPS  Try to unroll loops. This keyword may be specified
+   --                    with any keyword above other than NONE. Loop
    --                    unrolling usually, but not always, improves the
    --                    performance of programs.
+   --
+   --      NO_STRICT_ALIASING
+   --                    Suppress aliasing analysis. When optimization is
+   --                    enabled (ALL or SOME above), the compiler assumes
+   --                    that pointers do in fact point to legitimate values
+   --                    of the pointer type (allocated from the proper pool).
+   --                    If this assumption is violated, e.g. by the use of
+   --                    unchecked conversion, then it may be necessary to
+   --                    suppress this assumption using this keyword (which
+   --                    may be specified only in conjunction with any
+   --                    keyword above, other than NONE).
 
    S_GCC_OptX    : aliased constant S := "/NOOPTIMIZE "                    &
                                             "-O0,!-O1,!-O2,!-O3";
@@ -1584,6 +1611,17 @@ package VMS_Data is
    --   compiler. The source and object directories to be searched will be
    --   communicated to the compiler through logical names
    --   ADA_PRJ_INCLUDE_FILE and ADA_PRJ_OBJECTS_FILE.
+
+   S_GCC_Psta    : aliased constant S := "/PRINT_STANDARD "                &
+                                            "-gnatS";
+   --        /PRINT_STANDARD
+   --
+   --   cause the compiler to output a representation of package Standard
+   --   in a form very close to standard Ada. It is not quite possible to
+   --   do this and remain entirely Standard (since new numeric base types
+   --   cannot be created in standard Ada), but the output is easily
+   --   readable to any Ada programmer, and is useful to determine the
+   --   characteristics of target dependent types in package Standard.
 
    S_GCC_Report  : aliased constant S := "/REPORT_ERRORS="                 &
                                             "VERBOSE "                     &
@@ -1744,6 +1782,8 @@ package VMS_Data is
                                                "-gnatyl "                  &
                                             "LINE_LENGTH "                 &
                                                "-gnatym "                  &
+                                            "NONE "                        &
+                                               "-gnatyN "                  &
                                             "STANDARD_CASING "             &
                                                "-gnatyn "                  &
                                             "ORDERED_SUBPROGRAMS "         &
@@ -1957,6 +1997,8 @@ package VMS_Data is
    --                           an 80 character wide device or window, allowing
    --                           for possible special treatment of 80 character
    --                           lines.
+   --
+   --      NONE                 Clear any previously set style checks.
    --
    --      ORDERED_SUBPROGRAMS  Check order of subprogram bodies.
    --                           All subprogram bodies in a given scope (e.g.
@@ -2272,10 +2314,6 @@ package VMS_Data is
                                                "-gnatwA "                  &
                                             "ALL_GCC "                     &
                                                "-Wall "                    &
-                                            "BIASED_ROUNDING "             &
-                                               "-gnatwb "                  &
-                                            "NOBIASED_ROUNDING "           &
-                                               "-gnatwB "                  &
                                             "CONDITIONALS "                &
                                                "-gnatwc "                  &
                                             "NOCONDITIONALS "              &
@@ -2392,30 +2430,6 @@ package VMS_Data is
    --   ALL_GCC                 Request additional messages from the GCC
    --                           backend.  Most of these are not relevant
    --                           to Ada.
-   --
-   --   BIASED_ROUNDING         Activate warnings on biased rounding.
-   --                           If a static floating-point expression has
-   --                           a value that is exactly half way between
-   --                           two adjacent machine numbers, then the
-   --                           rules of Ada (Ada Reference Manual,
-   --                           para 4.9(38)) require that this rounding
-   --                           be done away from zero, even if the normal
-   --                           unbiased rounding rules at run time would
-   --                           require rounding towards zero.
-   --
-   --                           This warning message alerts you to such
-   --                           instances where compile-time rounding and
-   --                           run-time rounding are not equivalent.
-   --                           If it is important to get proper run-time
-   --                           rounding, then you can force this by
-   --                           making one of the operands into a
-   --                           variable. The default is that such
-   --                           warnings are not generated. Note that
-   --                           /WARNINGS=ALL does not affect the setting
-   --                           of this warning option.
-   --
-   --   NOBIASED_ROUNDING       Suppress warnings on biased rounding.
-   --                           Disable warnings on biased rounding.
    --
    --   CONDITIONALS            Activate warnings for conditional
    --                           Expressions used in tests that are known
@@ -2809,10 +2823,12 @@ package VMS_Data is
       S_GCC_Noadc   'Access,
       S_GCC_Noload  'Access,
       S_GCC_Nostinc 'Access,
+      S_GCC_Nostlib 'Access,
       S_GCC_Opt     'Access,
       S_GCC_OptX    'Access,
       S_GCC_Polling 'Access,
       S_GCC_Project 'Access,
+      S_GCC_Psta    'Access,
       S_GCC_Report  'Access,
       S_GCC_ReportX 'Access,
       S_GCC_Repinfo 'Access,
@@ -3586,6 +3602,20 @@ package VMS_Data is
    --   /COMPILER_QUALIFIERS, /LINKER_QUALIFIERS and /MAKE_QUALIFIERS will be
    --   passed to any GNAT BIND commands generated by GNAT MAKE.
 
+   S_Make_Bindprj : aliased constant S := "/BND_LNK_FULL_PROJECT "         &
+                                            "-B";
+   --        /BND_LNK_FULL_PROJECT
+   --
+   --   Bind and link all sources of a project, without any consideration
+   --   to attribute Main, if there is one. This qualifier need to be
+   --   used in conjunction with the /PROJECT_FILE= qualifier and cannot
+   --   be used with a main subprogram on the command line or for
+   --   a library project file. As the binder is invoked with the option
+   --   meaning "No Ada main subprogram", the user must ensure that the
+   --   proper options are specified to the linker. This qualifier is
+   --   normally used when the main subprogram is in a foreign language
+   --   such as C.
+
    S_Make_Comp    : aliased constant S := "/COMPILER_QUALIFIERS=?"         &
                                             "-cargs COMPILE";
    --        /COMPILER_QUALIFIERS
@@ -4352,6 +4382,14 @@ package VMS_Data is
    --   Write the output into the specified file, overriding any possibly
    --   existing file.
 
+   S_Pretty_Formfeed  : aliased constant S := "/FORM_FEED_AFTER_PRAGMA_PAGE " &
+                                              "-ff";
+   --        /FORM_FEED_AFTER_PRAGMA_PAGE
+   --
+   --   When there is a pragma Page in the source, insert a Form Feed
+   --   character immediately after the semicolon that follows the pragma
+   --   Page.
+
    S_Pretty_Indent    : aliased constant S := "/INDENTATION_LEVEL=#"       &
                                                 "-i#";
    --        /INDENTATION_LEVEL=nnn
@@ -4443,6 +4481,12 @@ package VMS_Data is
    --   source. This qualifier /NO_MISSED_LABELS suppresses this insertion,
    --   so that the formatted source reflects the original.
 
+   S_Pretty_Notabs    : aliased constant S := "/NOTABS "                   &
+                                                 "-notabs";
+   --        /NOTABS
+   --
+   --   Replace all tabulations in comments with spaces.
+
    S_Pretty_Output    : aliased constant S := "/OUTPUT=@"                  &
                                               "-o@";
    --        /OUTPUT=file
@@ -4490,6 +4534,12 @@ package VMS_Data is
    --   Replace the argument source with the pretty-printed source and copy the
    --   argument source into filename.NPP. If filename.NPP already exists,
    --   report an error and exit.
+
+   S_Pretty_RTS       : aliased constant S := "/RUNTIME_SYSTEM=|"          &
+                                               "--RTS=|";
+   --        /RUNTIME_SYSTEM=xxx
+   --
+   --    Compile against an alternate runtime system named xxx or RTS-xxx.
 
    S_Pretty_Search    : aliased constant S := "/SEARCH=*"                  &
                                               "-I*";
@@ -4540,6 +4590,7 @@ package VMS_Data is
       S_Pretty_Current   'Access,
       S_Pretty_Dico      'Access,
       S_Pretty_Forced    'Access,
+      S_Pretty_Formfeed  'Access,
       S_Pretty_Indent    'Access,
       S_Pretty_Keyword   'Access,
       S_Pretty_Maxlen    'Access,
@@ -4547,11 +4598,13 @@ package VMS_Data is
       S_Pretty_Mess      'Access,
       S_Pretty_Names     'Access,
       S_Pretty_No_Labels 'Access,
+      S_Pretty_Notabs    'Access,
       S_Pretty_Output    'Access,
       S_Pretty_Override  'Access,
       S_Pretty_Pragma    'Access,
       S_Pretty_Replace   'Access,
       S_Pretty_Project   'Access,
+      S_Pretty_RTS       'Access,
       S_Pretty_Search    'Access,
       S_Pretty_Specific  'Access,
       S_Pretty_Standard  'Access,
@@ -4635,12 +4688,6 @@ package VMS_Data is
       S_Shared_Noinhib 'Access,
       S_Shared_Verb    'Access,
       S_Shared_ZZZZZ   'Access);
-
-   --------------------------------
-   -- Switches for GNAT STANDARD --
-   --------------------------------
-
-   Standard_Switches : aliased constant Switches := (1 .. 0 => null);
 
    ----------------------------
    -- Switches for GNAT STUB --

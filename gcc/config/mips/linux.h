@@ -1,5 +1,5 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -55,12 +55,10 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_OS_CPP_BUILTINS()				\
     do {							\
-	builtin_define ("__gnu_linux__");			\
+	LINUX_TARGET_OS_CPP_BUILTINS();				\
 	builtin_define ("__PIC__");				\
 	builtin_define ("__pic__");				\
-	builtin_define_std ("unix");				\
-	builtin_define_std ("linux");				\
-	builtin_assert ("system=linux");			\
+        builtin_assert ("machine=mips");			\
 	/* The GNU C++ standard library requires this.  */	\
 	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
@@ -127,9 +125,6 @@ Boston, MA 02111-1307, USA.  */
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
-#undef  SUBTARGET_ASM_DEBUGGING_SPEC
-#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
-
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
 #undef SET_ASM_OP
@@ -193,6 +188,7 @@ Boston, MA 02111-1307, USA.  */
 %{!shared: %{pthread:-lpthread} \
   %{profile:-lc_p} %{!profile: -lc}}"
 
+#ifndef inhibit_libc
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 #ifdef IN_LIBGCC2
@@ -200,7 +196,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The third parameter to the signal handler points to something with
  * this structure defined in asm/ucontext.h, but the name clashes with
- * struct ucontext from sys/ucontext.h so this private copy is used. */
+ * struct ucontext from sys/ucontext.h so this private copy is used.  */
 typedef struct _sig_ucontext {
     unsigned long         uc_flags;
     struct _sig_ucontext  *uc_link;
@@ -262,3 +258,4 @@ typedef struct _sig_ucontext {
                                                                      \
     goto SUCCESS;                                                    \
   } while (0)
+#endif

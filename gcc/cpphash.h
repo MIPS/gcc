@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "hashtable.h"
 
-#ifdef HAVE_ICONV
+#if defined HAVE_ICONV_H && defined HAVE_ICONV
 #include <iconv.h>
 #else
 #define HAVE_ICONV 0
@@ -63,6 +63,13 @@ typedef unsigned char uchar;
 #define CPP_BUFFER(PFILE) ((PFILE)->buffer)
 #define CPP_BUF_COLUMN(BUF, CUR) ((CUR) - (BUF)->line_base)
 #define CPP_BUF_COL(BUF) CPP_BUF_COLUMN(BUF, (BUF)->cur)
+
+#define CPP_INCREMENT_LINE(PFILE, COLS_HINT) do { \
+    const struct line_map *map \
+      = linemap_lookup (PFILE->line_table, PFILE->line); \
+    unsigned int line = SOURCE_LINE (map, PFILE->line) + 1; \
+    PFILE->line = linemap_line_start (PFILE->line_table, line, COLS_HINT); \
+  } while (0)
 
 /* Maximum nesting of cpp_buffers.  We use a static limit, partly for
    efficiency, and partly to limit runaway recursion.  */
@@ -270,7 +277,7 @@ struct cpp_buffer
   const uchar *cur;		/* Current location.  */
   const uchar *line_base;	/* Start of current physical line.  */
   const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
-  
+
   const uchar *buf;		/* Entire character buffer.  */
   const uchar *rlimit;		/* Writable byte at end of file.  */
 
@@ -296,23 +303,29 @@ struct cpp_buffer
      The warning happens only for C89 extended mode with -pedantic on,
      or for -Wtraditional, and only once per file (otherwise it would
      be far too noisy).  */
-  unsigned char warned_cplusplus_comments;
+  unsigned int warned_cplusplus_comments : 1;
 
   /* True if we don't process trigraphs and escaped newlines.  True
      for preprocessed input, command line directives, and _Pragma
      buffers.  */
-  unsigned char from_stage3;
+  unsigned int from_stage3 : 1;
 
-  /* Nonzero means that the directory to start searching for ""
-     include files has been calculated and stored in "dir" below.  */
-  unsigned char search_cached;
+  /* At EOF, a buffer is automatically popped.  If RETURN_AT_EOF is
+     true, a CPP_EOF token is then returned.  Otherwise, the next
+     token from the enclosing buffer is returned.  */
+  unsigned int return_at_eof : 1;
+
+  /* One for a system header, two for a C system header file that therefore
+     needs to be extern "C" protected in C++, and zero otherwise.  */
+  unsigned char sysp;
 
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
   struct cpp_dir dir;
 
-  /* Used for buffer overlays by cpptrad.c.  */
-  const uchar *saved_cur, *saved_rlimit;
+  /* Descriptor for converting from the input character set to the
+     source character set.  */
+  struct cset_converter input_cset_desc;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -330,8 +343,7 @@ struct cpp_reader
   struct lexer_state state;
 
   /* Source line tracking.  */
-  struct line_maps line_maps;
-  const struct line_map *map;
+  struct line_maps *line_table;
   fileline line;
 
   /* The line of the '#' of the current directive.  */
@@ -451,6 +463,9 @@ struct cpp_reader
     fileline first_line;
   } out;
 
+  /* Used for buffer overlays by cpptrad.c.  */
+  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
+
   /* Used to save the original line number during traditional
      preprocessing.  */
   unsigned int saved_line;
@@ -489,12 +504,18 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
-#define CPP_IN_SYSTEM_HEADER(PFILE) ((PFILE)->map && (PFILE)->map->sysp)
+static inline int cpp_in_system_header (cpp_reader *);
+static inline int
+cpp_in_system_header (cpp_reader *pfile)
+{
+  return pfile->buffer ? pfile->buffer->sysp : 0;
+}
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
 
 /* In cpperror.c  */
-extern int _cpp_begin_message (cpp_reader *, int, fileline, unsigned int);
+extern int _cpp_begin_message (cpp_reader *, int,
+			       source_location, unsigned int);
 
 /* In cppmacro.c */
 extern void _cpp_free_definition (cpp_hashnode *);
@@ -526,6 +547,8 @@ extern void _cpp_report_missing_guards (cpp_reader *);
 extern void _cpp_init_files (cpp_reader *);
 extern void _cpp_cleanup_files (cpp_reader *);
 extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
+extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
+extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
 
 /* In cppexp.c */
 extern bool _cpp_parse_expr (cpp_reader *);
@@ -573,8 +596,9 @@ extern size_t _cpp_replacement_text_len (const cpp_macro *);
 extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
 				 const uchar *, int);
 extern void _cpp_destroy_iconv (cpp_reader *);
-extern bool _cpp_interpret_string_notranslate (cpp_reader *, const cpp_string *,
-					       cpp_string *);
+extern uchar *_cpp_convert_input (cpp_reader *, const char *, uchar *,
+				  size_t, size_t, off_t *);
+extern const char *_cpp_default_encoding (void);
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

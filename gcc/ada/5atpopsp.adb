@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,8 +34,8 @@
 --  This is a POSIX version of this package where foreign threads are
 --  recognized.
 
---  Currently, DEC Unix, SCO UnixWare, Solaris pthread, HPUX pthread,
---  GNU/Linux threads, and RTEMS use this version.
+--  Currently, DEC Unix, SCO UnixWare, Solaris pthread, HPUX pthread and
+--  GNU/Linux threads use this version.
 
 separate (System.Task_Primitives.Operations)
 package body Specific is
@@ -68,7 +68,6 @@ package body Specific is
 
    procedure Set (Self_Id : Task_ID) is
       Result : Interfaces.C.int;
-
    begin
       Result := pthread_setspecific (ATCB_Key, To_Address (Self_Id));
       pragma Assert (Result = 0);
@@ -100,7 +99,7 @@ package body Specific is
       --  If the key value is Null, then it is a non-Ada task.
 
       if Result /= System.Null_Address then
-         return To_Task_Id (Result);
+         return To_Task_ID (Result);
       else
          return Register_Foreign_Thread;
       end if;

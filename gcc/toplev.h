@@ -1,5 +1,6 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -60,13 +61,16 @@ extern void error (const char *, ...);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
 extern void pedwarn (const char *, ...);
-extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void sorry (const char *, ...);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
 extern void rest_of_decl_compilation (tree, const char *, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void rest_of_compilation (tree);
 extern void tree_rest_of_compilation (tree, bool);
+extern void init_optimization_passes (void);
+extern void finish_optimization_passes (void);
+extern bool enable_rtl_dump_file (int);
 
 extern void announce_function (tree);
 
@@ -118,15 +122,15 @@ extern int flag_unroll_loops;
 extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
-extern int flag_ssa;
-extern int flag_ssa_ccp;
-extern int flag_ssa_dce;
 extern int time_report;
 extern int flag_new_regalloc;
 
+/* Things to do with target switches.  */
 extern void display_target_options (void);
 extern void print_version (FILE *, const char *);
 extern void set_target_switch (const char *);
+extern void * default_get_pch_validity (size_t *);
+extern const char * default_pch_valid_p (const void *, size_t);
 
 /* The hashtable, so that the C front ends can pass it to cpplib.  */
 extern struct ht *ident_hash;

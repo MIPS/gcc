@@ -1,7 +1,7 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -125,7 +125,7 @@ push_search_level (struct stack_level *stack, struct obstack *obstack)
 static struct search_level *
 pop_search_level (struct stack_level *obstack)
 {
-  register struct search_level *stack = pop_stack_level (obstack);
+  struct search_level *stack = pop_stack_level (obstack);
 
   return stack;
 }
@@ -210,7 +210,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 	  
 	case bk_same_type:
 	  bk = bk_proper_base;
-	  /* FALLTHROUGH */
+	  /* Fall through.  */
 	case bk_proper_base:
 	  my_friendly_assert (found == bk_not_base, 20010723);
 	  found = bk;
@@ -232,7 +232,7 @@ lookup_base_r (tree binfo, tree base, base_access access,
 }
 
 /* Returns true if type BASE is accessible in T.  (BASE is known to be
-   a base class of T.)  */
+   a (possibly non-proper) base class of T.)  */
 
 bool
 accessible_base_p (tree t, tree base)
@@ -242,7 +242,12 @@ accessible_base_p (tree t, tree base)
   /* [class.access.base]
 
      A base class is said to be accessible if an invented public
-     member of the base class is accessible.  */
+     member of the base class is accessible.  
+
+     If BASE is a non-proper base, this condition is trivially
+     true.  */
+  if (same_type_p (t, base))
+    return true;
   /* Rather than inventing a public member, we use the implicit
      public typedef created in the scope of every class.  */
   decl = TYPE_FIELDS (base);
@@ -422,7 +427,7 @@ get_dynamic_cast_base_type (tree subtype, tree target)
 tree
 lookup_field_1 (tree type, tree name, bool want_type)
 {
-  register tree field;
+  tree field;
 
   if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
       || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
@@ -578,6 +583,16 @@ at_class_scope_p (void)
 {
   tree cs = current_scope ();
   return cs && TYPE_P (cs);
+}
+
+/* Returns true if the innermost active scope is a namespace scope.  */
+
+bool
+at_namespace_scope_p (void)
+{
+  /* We are in a namespace scope if we are not it a class scope or a
+     function scope.  */
+  return !current_scope();
 }
 
 /* Return the scope of DECL, as appropriate when doing name-lookup.  */
@@ -895,6 +910,7 @@ accessible_p (tree type, tree decl)
 {
   tree binfo;
   tree t;
+  tree scope;
   access_kind access;
 
   /* Nonzero if it's OK to access DECL if it has protected
@@ -904,6 +920,11 @@ accessible_p (tree type, tree decl)
   /* If this declaration is in a block or namespace scope, there's no
      access control.  */
   if (!TYPE_P (context_for_name_lookup (decl)))
+    return 1;
+
+  /* There is no need to perform access checks inside a thunk.  */
+  scope = current_scope ();
+  if (scope && DECL_THUNK_P (scope))
     return 1;
 
   /* In a template declaration, we cannot be sure whether the
@@ -948,7 +969,7 @@ accessible_p (tree type, tree decl)
 
   /* Now, loop through the classes of which we are a friend.  */
   if (!protected_ok)
-    protected_ok = friend_accessible_p (current_scope (), decl, binfo);
+    protected_ok = friend_accessible_p (scope, decl, binfo);
 
   /* Standardize the binfo that access_in_type will use.  We don't
      need to know what path was chosen from this point onwards.  */
@@ -1687,7 +1708,10 @@ check_final_overrider (tree overrider, tree basefn)
   tree over_throw = TYPE_RAISES_EXCEPTIONS (over_type);
   tree base_throw = TYPE_RAISES_EXCEPTIONS (base_type);
   int fail = 0;
-  
+
+  if (DECL_INVALID_OVERRIDER_P (overrider))
+    return 0;
+
   if (same_type_p (base_return, over_return))
     /* OK */;
   else if ((CLASS_TYPE_P (over_return) && CLASS_TYPE_P (base_return))
@@ -1737,8 +1761,6 @@ check_final_overrider (tree overrider, tree basefn)
     fail = 2;
   if (!fail)
     /* OK */;
-  else if (IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider)))
-    return 0;
   else
     {
       if (fail == 1)
@@ -1752,21 +1774,16 @@ check_final_overrider (tree overrider, tree basefn)
 		       overrider);
 	  cp_error_at ("  overriding `%#D'", basefn);
 	}
-      SET_IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider),
-                                  DECL_CONTEXT (overrider));
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
     }
   
   /* Check throw specifier is at least as strict.  */
   if (!comp_except_specs (base_throw, over_throw, 0))
     {
-      if (!IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider)))
-	{
-	  cp_error_at ("looser throw specifier for `%#F'", overrider);
-	  cp_error_at ("  overriding `%#F'", basefn);
-	  SET_IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (overrider),
-				      DECL_CONTEXT (overrider));
-	}
+      cp_error_at ("looser throw specifier for `%#F'", overrider);
+      cp_error_at ("  overriding `%#F'", basefn);
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
     }
   
@@ -2237,7 +2254,18 @@ dfs_unuse_fields (tree binfo, void *data ATTRIBUTE_UNUSED)
   tree type = TREE_TYPE (binfo);
   tree fields;
 
-  for (fields = TYPE_FIELDS (type); fields; fields = TREE_CHAIN (fields))
+  if (TREE_CODE (type) == TYPENAME_TYPE)
+    fields = TYPENAME_TYPE_FULLNAME (type);
+  else if (TREE_CODE (type) == TYPEOF_TYPE)
+    fields = TYPEOF_TYPE_EXPR (type);
+  else if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
+	   || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM
+	   || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+    fields = TEMPLATE_TYPE_PARM_INDEX (type);
+  else
+    fields = TYPE_FIELDS (type);
+
+  for (; fields; fields = TREE_CHAIN (fields))
     {
       if (TREE_CODE (fields) != FIELD_DECL || DECL_ARTIFICIAL (fields))
 	continue;

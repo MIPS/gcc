@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2003, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -82,7 +82,6 @@ with System.Soft_Links;
 with System.OS_Primitives;
 --  used for Delay_Modes
 
-with Unchecked_Conversion;
 with Unchecked_Deallocation;
 
 package body System.Task_Primitives.Operations is
@@ -177,8 +176,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Handler (Sig : Signal);
    --  Signal handler used to implement asynchronous abortion.
-
-   function To_Address is new Unchecked_Conversion (Task_ID, System.Address);
 
    -------------------
    -- Abort_Handler --
@@ -626,9 +623,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Wakeup (T : Task_ID; Reason : System.Tasking.Task_States) is
       pragma Unreferenced (Reason);
-
       Result : Interfaces.C.int;
-
    begin
       Result := pthread_cond_signal (T.Common.LL.CV'Access);
       pragma Assert (Result = 0);
@@ -640,6 +635,7 @@ package body System.Task_Primitives.Operations is
 
    procedure Yield (Do_Yield : Boolean := True) is
       Result : Interfaces.C.int;
+      pragma Unreferenced (Result);
    begin
       if Do_Yield then
          Result := sched_yield;
@@ -808,9 +804,6 @@ package body System.Task_Primitives.Operations is
       Result              : Interfaces.C.int;
       Param               : aliased System.OS_Interface.struct_sched_param;
 
-      function Thread_Body_Access is new
-        Unchecked_Conversion (System.Address, Thread_Body);
-
       use System.Task_Info;
 
    begin
@@ -928,8 +921,8 @@ package body System.Task_Primitives.Operations is
    ------------------
 
    procedure Finalize_TCB (T : Task_ID) is
-      Result : Interfaces.C.int;
-      Tmp    : Task_ID := T;
+      Result  : Interfaces.C.int;
+      Tmp     : Task_ID := T;
       Is_Self : constant Boolean := T = Self;
 
       procedure Free is new
@@ -951,10 +944,8 @@ package body System.Task_Primitives.Operations is
       Free (Tmp);
 
       if Is_Self then
-         Result := pthread_setspecific (ATCB_Key, System.Null_Address);
-         pragma Assert (Result = 0);
+         Specific.Set (null);
       end if;
-
    end Finalize_TCB;
 
    ---------------
@@ -972,7 +963,6 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_ID) is
       Result : Interfaces.C.int;
-
    begin
       Result :=
         pthread_kill
@@ -1038,8 +1028,7 @@ package body System.Task_Primitives.Operations is
 
    function Suspend_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Thread_Self);
@@ -1054,8 +1043,7 @@ package body System.Task_Primitives.Operations is
 
    function Resume_Task
      (T           : ST.Task_ID;
-      Thread_Self : Thread_Id)
-      return        Boolean
+      Thread_Self : Thread_Id) return Boolean
    is
       pragma Warnings (Off, T);
       pragma Warnings (Off, Thread_Self);
@@ -1074,12 +1062,11 @@ package body System.Task_Primitives.Operations is
       Tmp_Set : aliased sigset_t;
       Result  : Interfaces.C.int;
 
-      function State (Int : System.Interrupt_Management.Interrupt_ID)
-                     return Character;
+      function State
+        (Int : System.Interrupt_Management.Interrupt_ID) return Character;
       pragma Import (C, State, "__gnat_get_interrupt_state");
-      --  Get interrupt state.  Defined in a-init.c
-      --  The input argument is the interrupt number,
-      --  and the result is one of the following:
+      --  Get interrupt state. Defined in a-init.c. The input argument is
+      --  the interrupt number, and the result is one of the following:
 
       Default : constant Character := 's';
       --    'n'   this interrupt not set by any Interrupt_State pragma

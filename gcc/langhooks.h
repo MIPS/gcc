@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,7 +47,7 @@ struct lang_hooks_for_tree_inlining
   bool (*var_mod_type_p) (tree);
   int (*start_inlining) (tree);
   void (*end_inlining) (tree);
-  tree (*convert_parm_for_inlining) (tree, tree, tree);
+  tree (*convert_parm_for_inlining) (tree, tree, tree, int);
   int (*estimate_num_insns) (tree);
 };
 
@@ -151,6 +151,11 @@ struct lang_hooks_for_types
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
   void (*incomplete_type_error) (tree value, tree type);
+
+  /* Nonzero if types that are identical are to be hashed so that only
+     one copy is kept.  If a language requires unique types for each
+     user-specified type, such as Ada, this should be set to TRUE.  */
+  bool hash_types;
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -188,9 +193,6 @@ struct lang_hooks_for_decls
 
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
-
-  /* Returns a chain of TYPE_DECLs for built-in types.  */
-  tree (*builtin_type_decls) (void);
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
@@ -283,7 +285,7 @@ struct lang_hooks
 
   /* Called by expand_expr for language-specific tree codes.
      Fourth argument is actually an enum expand_modifier.  */
-  rtx (*expand_expr) (tree, rtx, enum machine_mode, int);
+  rtx (*expand_expr) (tree, rtx, enum machine_mode, int, rtx *);
 
   /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
      operation.
