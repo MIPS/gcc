@@ -106,6 +106,17 @@ varray_grow (va, n)
   return va;
 }
 
+/* Reset a varray to its original state.  */
+void
+varray_clear (va)
+     varray_type va;
+{
+  size_t data_size = element_size[va->type] * va->num_elements;
+
+  memset (va->data.c, 0, data_size);
+  va->elements_used = 0;
+}
+
 /* Check the bounds of a varray access.  */
 
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)

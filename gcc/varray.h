@@ -217,6 +217,10 @@ extern varray_type varray_grow	PARAMS ((varray_type, size_t));
 #define VARRAY_ACTIVE_SIZE(VA)	((VA)->elements_used)
 #define VARRAY_POP_ALL(VA)	((VA)->elements_used = 0)
 
+#define VARRAY_CLEAR(VA) varray_clear(VA)
+
+extern void varray_clear	PARAMS ((varray_type));
+
 /* Check for VARRAY_xxx macros being in bound.  */
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
 extern void varray_check_failed PARAMS ((varray_type, size_t,

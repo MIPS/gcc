@@ -101,11 +101,13 @@ static int n_useless_values;
    pointers to cselib_val structures, but rather elt_lists.  The purpose is
    to be able to refer to the same register in different modes.  */
 static GTY(()) varray_type reg_values;
+static GTY((deletable (""))) varray_type reg_values_old;
 #define REG_VALUES(I) VARRAY_ELT_LIST (reg_values, (I))
 
 /* Here the set of indices I with REG_VALUES(I) != 0 is saved.  This is used
    in clear_table() for fast emptying.  */
 static GTY(()) varray_type used_regs;
+static GTY((deletable (""))) varray_type used_regs_old;
 
 /* We pass this to cselib_invalidate_mem to invalidate all of
    memory for a non-const call instruction.  */
@@ -1358,8 +1360,18 @@ cselib_init ()
     callmem = gen_rtx_MEM (BLKmode, const0_rtx);
 
   cselib_nregs = max_reg_num ();
-  VARRAY_ELT_LIST_INIT (reg_values, cselib_nregs, "reg_values");
-  VARRAY_UINT_INIT (used_regs, cselib_nregs, "used_regs");
+  if (reg_values_old != NULL && VARRAY_SIZE (reg_values_old) >= cselib_nregs)
+    {
+      reg_values = reg_values_old;
+      used_regs = used_regs_old;
+      VARRAY_CLEAR (reg_values);
+      VARRAY_CLEAR (used_regs);
+    }
+  else
+    {
+      VARRAY_ELT_LIST_INIT (reg_values, cselib_nregs, "reg_values");
+      VARRAY_UINT_INIT (used_regs, cselib_nregs, "used_regs");
+    }
   hash_table = htab_create_ggc (31, get_value_hash, entry_and_rtx_equal_p, 
 				NULL);
   clear_table (1);
@@ -1370,7 +1382,9 @@ cselib_init ()
 void
 cselib_finish ()
 {
+  reg_values_old = reg_values;
   reg_values = 0;
+  used_regs_old = used_regs;
   used_regs = 0;
   hash_table = 0;
   n_useless_values = 0;

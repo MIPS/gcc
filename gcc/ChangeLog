@@ -1,5 +1,14 @@
 2002-05-30  Geoffrey Keating  <geoffk@redhat.com>
 
+	* varray.h (VARRAY_CLEAR): New.
+	(varray_clear): Prototype.
+	* varray.c (varray_clear): New.
+	* cselib.c (reg_values_old): New.
+	(used_regs_old): New.
+	(cselib_init): Use cached varrays if available to avoid
+	generating large amounts of garbage.
+	(cselib_finish): Don't throw away old varrays.
+
 	* final.c (insn_addresses_): Move out of ifdef.
 
 2002-05-23  Geoffrey Keating  <geoffk@redhat.com>
