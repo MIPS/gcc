@@ -103,7 +103,7 @@ Boston, MA 02111-1307, USA.  */
       %{static:-static} \
       %{!static: \
 	%{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /lib/ld64.so.1}}}"
+	%{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
 
 #ifdef DEFAULT_TARGET_64BIT
 #undef  LINK_SPEC
