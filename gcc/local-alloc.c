@@ -450,7 +450,7 @@ validate_equiv_mem_from_store (rtx dest, rtx set ATTRIBUTE_UNUSED,
 {
   if ((REG_P (dest)
        && reg_overlap_mentioned_p (dest, equiv_mem))
-      || (GET_CODE (dest) == MEM
+      || (MEM_P (dest)
 	  && true_dependence (dest, VOIDmode, equiv_mem, rtx_varies_p)))
     equiv_mem_modified = 1;
 }
@@ -484,7 +484,7 @@ validate_equiv_mem (rtx start, rtx reg, rtx memref)
       if (find_reg_note (insn, REG_DEAD, reg))
 	return 1;
 
-      if (GET_CODE (insn) == CALL_INSN && ! RTX_UNCHANGING_P (memref)
+      if (CALL_P (insn) && ! RTX_UNCHANGING_P (memref)
 	  && ! CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
@@ -519,9 +519,6 @@ equiv_init_varies_p (rtx x)
     {
     case MEM:
       return ! RTX_UNCHANGING_P (x) || equiv_init_varies_p (XEXP (x, 0));
-
-    case QUEUED:
-      return 1;
 
     case CONST:
     case CONST_INT:
@@ -711,7 +708,7 @@ memref_referenced_p (rtx memref, rtx x)
     case SET:
       /* If we are setting a MEM, it doesn't count (its address does), but any
 	 other SET_DEST that has a MEM in it is referencing the MEM.  */
-      if (GET_CODE (SET_DEST (x)) == MEM)
+      if (MEM_P (SET_DEST (x)))
 	{
 	  if (memref_referenced_p (memref, XEXP (SET_DEST (x), 0)))
 	    return 1;
@@ -882,7 +879,7 @@ update_equiv_regs (void)
 	      || (regno = REGNO (dest)) < FIRST_PSEUDO_REGISTER
 	      || reg_equiv[regno].init_insns == const0_rtx
 	      || (CLASS_LIKELY_SPILLED_P (reg_preferred_class (regno))
-		  && GET_CODE (src) == MEM))
+		  && MEM_P (src)))
 	    {
 	      /* This might be setting a SUBREG of a pseudo, a pseudo that is
 		 also set somewhere else to a constant.  */
@@ -940,7 +937,7 @@ update_equiv_regs (void)
 	  note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
 
 	  if (note == 0 && REG_BASIC_BLOCK (regno) >= 0
-	      && GET_CODE (SET_SRC (set)) == MEM
+	      && MEM_P (SET_SRC (set))
 	      && validate_equiv_mem (insn, dest, SET_SRC (set)))
 	    REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV, SET_SRC (set),
 							 REG_NOTES (insn));
@@ -985,7 +982,7 @@ update_equiv_regs (void)
 		    if (REG_N_REFS (regno) == 2
 			&& (rtx_equal_p (XEXP (note, 0), src)
 			    || ! equiv_init_varies_p (src))
-			&& GET_CODE (insn) == INSN
+			&& NONJUMP_INSN_P (insn)
 			&& equiv_init_movable_p (PATTERN (insn), regno))
 		      reg_equiv[regno].replace = 1;
 		}
@@ -1190,7 +1187,7 @@ block_alloc (int b)
   insn = BB_END (BASIC_BLOCK (b));
   while (1)
     {
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	if (++insn_count > max_uid)
 	  abort ();
       if (insn == BB_HEAD (BASIC_BLOCK (b)))
@@ -1213,7 +1210,7 @@ block_alloc (int b)
   insn = BB_HEAD (BASIC_BLOCK (b));
   while (1)
     {
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	insn_number++;
 
       if (INSN_P (insn))
@@ -1353,7 +1350,7 @@ block_alloc (int b)
 		  REG_P (r0))
 	      && (link = find_reg_note (insn, REG_LIBCALL, NULL_RTX)) != 0
 	      && XEXP (link, 0) != 0
-	      && GET_CODE (XEXP (link, 0)) == INSN
+	      && NONJUMP_INSN_P (XEXP (link, 0))
 	      && (set = single_set (XEXP (link, 0))) != 0
 	      && SET_DEST (set) == r0 && SET_SRC (set) == r0
 	      && (note = find_reg_note (XEXP (link, 0), REG_EQUAL,
@@ -1428,7 +1425,7 @@ block_alloc (int b)
 	     CLOBBER insn, we have reached the end of a REG_NO_CONFLICT
 	     block, so clear any register number that combined within it.  */
 	  if ((note = find_reg_note (insn, REG_RETVAL, NULL_RTX)) != 0
-	      && GET_CODE (XEXP (note, 0)) == INSN
+	      && NONJUMP_INSN_P (XEXP (note, 0))
 	      && GET_CODE (PATTERN (XEXP (note, 0))) == CLOBBER)
 	    no_conflict_combined_regno = -1;
 	}
@@ -1724,7 +1721,7 @@ qty_sugg_compare_1 (const void *q1p, const void *q2p)
    We don't actually combine a hard reg with a pseudo; instead
    we just record the hard reg as the suggestion for the pseudo's quantity.
    If we really combined them, we could lose if the pseudo lives
-   across an insn that clobbers the hard reg (eg, movstr).
+   across an insn that clobbers the hard reg (eg, movmem).
 
    ALREADY_DEAD is nonzero if USEDREG is known to be dead even though
    there is no REG_DEAD note on INSN.  This occurs during the processing

@@ -77,7 +77,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	 here the insns are not scheduled monotonically top-down (nor bottom-
 	 up).
       3. If failed in scheduling all insns - bump II++ and try again, unless
-	 II reaches an upper bound MaxII, inwhich case report failure.
+	 II reaches an upper bound MaxII, in which case report failure.
    5. If we succeeded in scheduling the loop within II cycles, we now
       generate prolog and epilog, decrease the counter of the loop, and
       perform modulo variable expansion for live ranges that span more than
@@ -265,7 +265,7 @@ doloop_register_get (rtx insn, rtx *comp)
 {
   rtx pattern, cmp, inc, reg, condition;
 
-  if (GET_CODE (insn) != JUMP_INSN)
+  if (!JUMP_P (insn))
     return NULL_RTX;
   pattern = PATTERN (insn);
 
@@ -443,7 +443,7 @@ calculate_maxii (ddg_ptr g)
 }
 
 
-/* Given the partial schdule, generate register moves when the length
+/* Given the partial schedule, generate register moves when the length
    of the register live range is more than ii; the number of moves is
    determined according to the following equation:
 		SCHED_TIME (use) - SCHED_TIME (def)   { 1 broken loop-carried
@@ -789,7 +789,7 @@ static rtx
 find_line_note (rtx insn)
 {
   for (; insn; insn = PREV_INSN (insn))
-    if (GET_CODE (insn) == NOTE
+    if (NOTE_P (insn)
 	&& NOTE_LINE_NUMBER (insn) >= 0)
       break;
 
@@ -812,13 +812,7 @@ sms_schedule (FILE *dump_file)
   int max_bb_index = last_basic_block;
   struct df *df;
 
-  /* SMS uses the DFA interface.  */
-  if (! targetm.sched.use_dfa_pipeline_interface
-      || ! (*targetm.sched.use_dfa_pipeline_interface) ())
-    return;
-
   stats_file = dump_file;
-
 
   /* Initialize issue_rate.  */
   if (targetm.sched.issue_rate)
@@ -900,8 +894,12 @@ sms_schedule (FILE *dump_file)
 	      rtx line_note = find_line_note (tail);
 
 	      if (line_note)
-	    	fprintf (stats_file, "SMS bb %s %d (file, line)\n",
-		     	 NOTE_SOURCE_FILE (line_note), NOTE_LINE_NUMBER (line_note));
+		{
+		  expanded_location xloc;
+		  NOTE_EXPANDED_LOCATION (xloc, line_note);
+		  fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+			   xloc.file, xloc.line);
+		}
 	      fprintf (stats_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
@@ -934,9 +932,9 @@ sms_schedule (FILE *dump_file)
 
       /* Don't handle BBs with calls or barriers, or !single_set insns.  */
       for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
-	if (GET_CODE (insn) == CALL_INSN
-	    || GET_CODE (insn) == BARRIER
-	    || (INSN_P (insn) && GET_CODE (insn) != JUMP_INSN
+	if (CALL_P (insn)
+	    || BARRIER_P (insn)
+	    || (INSN_P (insn) && !JUMP_P (insn)
 		&& !single_set (insn) && GET_CODE (PATTERN (insn)) != USE))
 	  break;
 
@@ -944,9 +942,9 @@ sms_schedule (FILE *dump_file)
 	{
 	  if (stats_file)
 	    {
-	      if (GET_CODE (insn) == CALL_INSN)
+	      if (CALL_P (insn))
 		fprintf (stats_file, "SMS loop-with-call\n");
-	      else if (GET_CODE (insn) == BARRIER)
+	      else if (BARRIER_P (insn))
 		fprintf (stats_file, "SMS loop-with-barrier\n");
 	      else
 		fprintf (stats_file, "SMS loop-with-not-single-set\n");
@@ -996,8 +994,12 @@ sms_schedule (FILE *dump_file)
 	  rtx line_note = find_line_note (tail);
 
 	  if (line_note)
-	    fprintf (stats_file, "SMS bb %s %d (file, line)\n",
-		     NOTE_SOURCE_FILE (line_note), NOTE_LINE_NUMBER (line_note));
+	    {
+	      expanded_location xloc;
+	      NOTE_EXPANDED_LOCATION (xloc, line_note);
+	      fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+		       xloc.file, xloc.line);
+	    }
 	  fprintf (stats_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
@@ -1237,7 +1239,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
 	  if (!INSN_P (insn))
 	    continue;
 
-	  if (GET_CODE (insn) == JUMP_INSN) /* Closing branch handled later.  */
+	  if (JUMP_P (insn)) /* Closing branch handled later.  */
 	    continue;
 
 	  /* 1. compute sched window for u (start, end, step).  */
@@ -1982,19 +1984,15 @@ add_node_to_ps (partial_schedule_ptr ps, ddg_node_ptr node, int cycle)
 static void
 advance_one_cycle (void)
 {
-  if (targetm.sched.use_dfa_pipeline_interface
-      && (*targetm.sched.use_dfa_pipeline_interface) ())
-    {
-      if (targetm.sched.dfa_pre_cycle_insn)
-	state_transition (curr_state,
-			  (*targetm.sched.dfa_pre_cycle_insn) ());
+  if (targetm.sched.dfa_pre_cycle_insn)
+    state_transition (curr_state,
+		      (*targetm.sched.dfa_pre_cycle_insn) ());
 
-      state_transition (curr_state, NULL);
+  state_transition (curr_state, NULL);
 
-      if (targetm.sched.dfa_post_cycle_insn)
-	state_transition (curr_state,
-			  (*targetm.sched.dfa_post_cycle_insn) ());
-    }
+  if (targetm.sched.dfa_post_cycle_insn)
+    state_transition (curr_state,
+		      (*targetm.sched.dfa_post_cycle_insn) ());
 }
 
 /* Checks if PS has resource conflicts according to DFA, starting from
@@ -2004,10 +2002,6 @@ static int
 ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 {
   int cycle;
-
-  if (! targetm.sched.use_dfa_pipeline_interface
-      || ! (*targetm.sched.use_dfa_pipeline_interface) ())
-    return true;
 
   state_reset (curr_state);
 

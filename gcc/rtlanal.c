@@ -83,10 +83,6 @@ rtx_unstable_p (rtx x)
     case MEM:
       return ! RTX_UNCHANGING_P (x) || rtx_unstable_p (XEXP (x, 0));
 
-    case QUEUED:
-      return 1;
-
-    case ADDRESSOF:
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
@@ -162,19 +158,12 @@ rtx_varies_p (rtx x, int for_alias)
     case MEM:
       return ! RTX_UNCHANGING_P (x) || rtx_varies_p (XEXP (x, 0), for_alias);
 
-    case QUEUED:
-      return 1;
-
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
-      return 0;
-
-    case ADDRESSOF:
-      /* This will resolve to some offset from the frame pointer.  */
       return 0;
 
     case REG:
@@ -248,10 +237,6 @@ rtx_addr_can_trap_p (rtx x)
     case LABEL_REF:
       return 0;
 
-    case ADDRESSOF:
-      /* This will resolve to some offset from the frame pointer.  */
-      return 0;
-
     case REG:
       /* As in rtx_varies_p, we have to use the actual rtx, not reg number.  */
       if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
@@ -309,10 +294,6 @@ nonzero_address_p (rtx x)
       return !SYMBOL_REF_WEAK (x);
 
     case LABEL_REF:
-      return true;
-
-    case ADDRESSOF:
-      /* This will resolve to some offset from the frame pointer.  */
       return true;
 
     case REG:
@@ -534,7 +515,7 @@ get_jump_table_offset (rtx insn, rtx *earliest)
     }
 
   /* If X isn't a MEM then this isn't a tablejump we understand.  */
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     return NULL_RTX;
 
   /* Strip off the MEM.  */
@@ -644,7 +625,7 @@ global_reg_mentioned_p (rtx x)
 {
   if (INSN_P (x))
     {
-      if (GET_CODE (x) == CALL_INSN)
+      if (CALL_P (x))
 	{
 	  if (! CONST_OR_PURE_CALL_P (x))
 	    return 1;
@@ -688,7 +669,7 @@ count_occurrences (rtx x, rtx find, int count_dest)
       return 0;
 
     case MEM:
-      if (GET_CODE (find) == MEM && rtx_equal_p (x, find))
+      if (MEM_P (find) && rtx_equal_p (x, find))
 	return 1;
       break;
 
@@ -797,7 +778,7 @@ no_labels_between_p (rtx beg, rtx end)
   if (beg == end)
     return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
-    if (GET_CODE (p) == CODE_LABEL)
+    if (LABEL_P (p))
       return 0;
   return 1;
 }
@@ -810,7 +791,7 @@ no_jumps_between_p (rtx beg, rtx end)
 {
   rtx p;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
-    if (GET_CODE (p) == JUMP_INSN)
+    if (JUMP_P (p))
       return 0;
   return 1;
 }
@@ -829,7 +810,7 @@ reg_used_between_p (rtx reg, rtx from_insn, rtx to_insn)
   for (insn = NEXT_INSN (from_insn); insn != to_insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& (reg_overlap_mentioned_p (reg, PATTERN (insn))
-	   || (GET_CODE (insn) == CALL_INSN
+	   || (CALL_P (insn)
 	      && (find_reg_fusage (insn, USE, reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
       return 1;
@@ -898,7 +879,7 @@ reg_referenced_p (rtx x, rtx body)
       return 0;
 
     case CLOBBER:
-      if (GET_CODE (XEXP (body, 0)) == MEM)
+      if (MEM_P (XEXP (body, 0)))
 	if (reg_overlap_mentioned_p (x, XEXP (XEXP (body, 0), 0)))
 	  return 1;
       return 0;
@@ -928,7 +909,7 @@ reg_referenced_between_p (rtx reg, rtx from_insn, rtx to_insn)
   for (insn = NEXT_INSN (from_insn); insn != to_insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
 	&& (reg_referenced_p (reg, PATTERN (insn))
-	   || (GET_CODE (insn) == CALL_INSN
+	   || (CALL_P (insn)
 	      && find_reg_fusage (insn, USE, reg))))
       return 1;
   return 0;
@@ -959,16 +940,12 @@ reg_set_p (rtx reg, rtx insn)
      check if a side-effect of the insn clobbers REG.  */
   if (INSN_P (insn)
       && (FIND_REG_INC_NOTE (insn, reg)
-	  || (GET_CODE (insn) == CALL_INSN
-	      /* We'd like to test call_used_regs here, but rtlanal.c can't
-		 reference that variable due to its use in genattrtab.  So
-		 we'll just be more conservative.
-
-		 ??? Unless we could ensure that the CALL_INSN_FUNCTION_USAGE
-		 information holds all clobbered registers.  */
+	  || (CALL_P (insn)
 	      && ((REG_P (reg)
-		   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
-		  || GET_CODE (reg) == MEM
+		   && REGNO (reg) < FIRST_PSEUDO_REGISTER
+		   && TEST_HARD_REG_BIT (regs_invalidated_by_call,
+					 REGNO (reg)))
+		  || MEM_P (reg)
 		  || find_reg_fusage (insn, CLOBBER, reg)))))
     return 1;
 
@@ -1186,7 +1163,7 @@ set_of_1 (rtx x, rtx pat, void *data1)
 {
    struct set_of_data *data = (struct set_of_data *) (data1);
    if (rtx_equal_p (x, data->pat)
-       || (GET_CODE (x) != MEM && reg_overlap_mentioned_p (data->pat, x)))
+       || (!MEM_P (x) && reg_overlap_mentioned_p (data->pat, x)))
      data->found = pat;
 }
 
@@ -1299,7 +1276,7 @@ set_noop_p (rtx set)
   if (dst == pc_rtx && src == pc_rtx)
     return 1;
 
-  if (GET_CODE (dst) == MEM && GET_CODE (src) == MEM)
+  if (MEM_P (dst) && MEM_P (src))
     return rtx_equal_p (dst, src) && !side_effects_p (dst);
 
   if (GET_CODE (dst) == SIGN_EXTRACT
@@ -1381,7 +1358,7 @@ find_last_value (rtx x, rtx *pinsn, rtx valid_to, int allow_hwreg)
 {
   rtx p;
 
-  for (p = PREV_INSN (*pinsn); p && GET_CODE (p) != CODE_LABEL;
+  for (p = PREV_INSN (*pinsn); p && !LABEL_P (p);
        p = PREV_INSN (p))
     if (INSN_P (p))
       {
@@ -1573,7 +1550,7 @@ reg_overlap_mentioned_p (rtx x, rtx in)
 	const char *fmt;
 	int i;
 
-	if (GET_CODE (in) == MEM)
+	if (MEM_P (in))
 	  return 1;
 
 	fmt = GET_RTX_FORMAT (GET_CODE (in));
@@ -1708,7 +1685,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
       return;
 
     case CLOBBER:
-      if (GET_CODE (XEXP (body, 0)) == MEM)
+      if (MEM_P (XEXP (body, 0)))
 	(*fun) (&XEXP (XEXP (body, 0), 0), data);
       return;
 
@@ -1729,7 +1706,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
 	while (GET_CODE (dest) == SUBREG || GET_CODE (dest) == STRICT_LOW_PART)
 	  dest = XEXP (dest, 0);
 
-	if (GET_CODE (dest) == MEM)
+	if (MEM_P (dest))
 	  (*fun) (&XEXP (dest, 0), data);
       }
       return;
@@ -1795,7 +1772,7 @@ dead_or_set_regno_p (rtx insn, unsigned int test_regno)
   if (find_regno_note (insn, REG_DEAD, test_regno))
     return 1;
 
-  if (GET_CODE (insn) == CALL_INSN
+  if (CALL_P (insn)
       && find_regno_fusage (insn, CLOBBER, test_regno))
     return 1;
 
@@ -1948,7 +1925,7 @@ find_reg_fusage (rtx insn, enum rtx_code code, rtx datum)
 {
   /* If it's not a CALL_INSN, it can't possibly have a
      CALL_INSN_FUNCTION_USAGE field, so don't bother checking.  */
-  if (GET_CODE (insn) != CALL_INSN)
+  if (!CALL_P (insn))
     return 0;
 
   if (! datum)
@@ -1999,7 +1976,7 @@ find_regno_fusage (rtx insn, enum rtx_code code, unsigned int regno)
      to pseudo registers, so don't bother checking.  */
 
   if (regno >= FIRST_PSEUDO_REGISTER
-      || GET_CODE (insn) != CALL_INSN )
+      || !CALL_P (insn) )
     return 0;
 
   for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
@@ -2024,7 +2001,7 @@ pure_call_p (rtx insn)
 {
   rtx link;
 
-  if (GET_CODE (insn) != CALL_INSN || ! CONST_OR_PURE_CALL_P (insn))
+  if (!CALL_P (insn) || ! CONST_OR_PURE_CALL_P (insn))
     return 0;
 
   /* Look for the note that differentiates const and pure functions.  */
@@ -2033,7 +2010,7 @@ pure_call_p (rtx insn)
       rtx u, m;
 
       if (GET_CODE (u = XEXP (link, 0)) == USE
-	  && GET_CODE (m = XEXP (u, 0)) == MEM && GET_MODE (m) == BLKmode
+	  && MEM_P (m = XEXP (u, 0)) && GET_MODE (m) == BLKmode
 	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
 	return 1;
     }
@@ -2648,7 +2625,7 @@ replace_regs (rtx x, rtx *reg_map, unsigned int nregs, int replace_dest)
       if (replace_dest)
 	SET_DEST (x) = replace_regs (SET_DEST (x), reg_map, nregs, 0);
 
-      else if (GET_CODE (SET_DEST (x)) == MEM
+      else if (MEM_P (SET_DEST (x))
 	       || GET_CODE (SET_DEST (x)) == STRICT_LOW_PART)
 	/* Even if we are not to replace destinations, replace register if it
 	   is CONTAINED in destination (destination is memory or
@@ -2724,7 +2701,7 @@ replace_label (rtx *x, void *data)
   /* If this is a JUMP_INSN, then we also need to fix the JUMP_LABEL
      field.  This is not handled by for_each_rtx because it doesn't
      handle unprinted ('0') fields.  */
-  if (GET_CODE (l) == JUMP_INSN && JUMP_LABEL (l) == old_label)
+  if (JUMP_P (l) && JUMP_LABEL (l) == old_label)
     JUMP_LABEL (l) = new_label;
 
   if ((GET_CODE (l) == LABEL_REF
@@ -2756,7 +2733,7 @@ rtx_referenced_p_1 (rtx *body, void *x)
     return y == NULL_RTX;
 
   /* Return true if a label_ref *BODY refers to label Y.  */
-  if (GET_CODE (*body) == LABEL_REF && GET_CODE (y) == CODE_LABEL)
+  if (GET_CODE (*body) == LABEL_REF && LABEL_P (y))
     return XEXP (*body, 0) == y;
 
   /* If *BODY is a reference to pool constant traverse the constant.  */
@@ -2784,10 +2761,10 @@ tablejump_p (rtx insn, rtx *labelp, rtx *tablep)
 {
   rtx label, table;
 
-  if (GET_CODE (insn) == JUMP_INSN
+  if (JUMP_P (insn)
       && (label = JUMP_LABEL (insn)) != NULL_RTX
       && (table = next_active_insn (label)) != NULL_RTX
-      && GET_CODE (table) == JUMP_INSN
+      && JUMP_P (table)
       && (GET_CODE (PATTERN (table)) == ADDR_VEC
 	  || GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC))
     {
@@ -2862,7 +2839,7 @@ int
 computed_jump_p (rtx insn)
 {
   int i;
-  if (GET_CODE (insn) == JUMP_INSN)
+  if (JUMP_P (insn))
     {
       rtx pat = PATTERN (insn);
 
@@ -3116,7 +3093,7 @@ insns_safe_to_move_p (rtx from, rtx to, rtx *new_to)
 
   while (r)
     {
-      if (GET_CODE (r) == NOTE)
+      if (NOTE_P (r))
 	{
 	  switch (NOTE_LINE_NUMBER (r))
 	    {
@@ -3424,14 +3401,14 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 
       /* It is possible that some loads got CSEed from one call to
          another.  Stop in that case.  */
-      if (GET_CODE (before) == CALL_INSN)
+      if (CALL_P (before))
 	break;
 
       /* Our caller needs either ensure that we will find all sets
          (in case code has not been optimized yet), or take care
          for possible labels in a way by setting boundary to preceding
          CODE_LABEL.  */
-      if (GET_CODE (before) == CODE_LABEL)
+      if (LABEL_P (before))
 	{
 	  if (before != boundary)
 	    abort ();
@@ -3549,7 +3526,7 @@ can_hoist_insn_p (rtx insn, rtx val, regset live)
     return false;
   /* We can move CALL_INSN, but we need to check that all caller clobbered
      regs are dead.  */
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     return false;
   /* In future we will handle hoisting of libcall sequences, but
      give up for now.  */
@@ -3838,14 +3815,6 @@ rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
 int
 address_cost (rtx x, enum machine_mode mode)
 {
-  /* The address_cost target hook does not deal with ADDRESSOF nodes.  But,
-     during CSE, such nodes are present.  Using an ADDRESSOF node which
-     refers to the address of a REG is a good thing because we can then
-     turn (MEM (ADDRESSOF (REG))) into just plain REG.  */
-
-  if (GET_CODE (x) == ADDRESSOF && REG_P (XEXP ((x), 0)))
-    return -1;
-
   /* We may be asked for cost of various unusual addresses, such as operands
      of push instruction.  It is not worthwhile to complicate writing
      of the target hook by such cases.  */
@@ -4266,7 +4235,7 @@ nonzero_bits1 (rtx x, enum machine_mode mode, rtx known_x,
 			<< (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1))))
 		   != 0))
 	       : LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) != ZERO_EXTEND)
-	      || GET_CODE (SUBREG_REG (x)) != MEM)
+	      || !MEM_P (SUBREG_REG (x)))
 #endif
 	    {
 	      /* On many CISC machines, accessing an object in a wider mode
@@ -4575,7 +4544,7 @@ num_sign_bit_copies1 (rtx x, enum machine_mode mode, rtx known_x,
       if ((GET_MODE_SIZE (GET_MODE (x))
 	   > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
 	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
-	  && GET_CODE (SUBREG_REG (x)) == MEM)
+	  && MEM_P (SUBREG_REG (x)))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
 #endif
@@ -4805,4 +4774,40 @@ num_sign_bit_copies1 (rtx x, enum machine_mode mode, rtx known_x,
   nonzero = nonzero_bits (x, mode);
   return nonzero & ((HOST_WIDE_INT) 1 << (bitwidth - 1))
 	 ? 1 : bitwidth - floor_log2 (nonzero) - 1;
+}
+
+/* Calculate the rtx_cost of a single instruction.  A return value of
+   zero indicates an instruction pattern without a known cost.  */
+
+int
+insn_rtx_cost (rtx pat)
+{
+  int i, cost;
+  rtx set;
+
+  /* Extract the single set rtx from the instruction pattern.
+     We can't use single_set since we only have the pattern.  */
+  if (GET_CODE (pat) == SET)
+    set = pat;
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      set = NULL_RTX;
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+	{
+	  rtx x = XVECEXP (pat, 0, i);
+	  if (GET_CODE (x) == SET)
+	    {
+	      if (set)
+		return 0;
+	      set = x;
+	    }
+	}
+      if (!set)
+	return 0;
+    }
+  else
+    return 0;
+
+  cost = rtx_cost (SET_SRC (set), SET);
+  return cost > 0 ? cost : COSTS_N_INSNS (1);
 }

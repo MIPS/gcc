@@ -1306,8 +1306,8 @@ mark_bb_for_unlikely_executed_section (basic_block bb)
   
   for (cur_insn = BB_HEAD (bb); cur_insn != NEXT_INSN (BB_END (bb)); 
        cur_insn = NEXT_INSN (cur_insn))
-    if (GET_CODE (cur_insn) != NOTE
-	&& GET_CODE (cur_insn) != CODE_LABEL)
+    if (!NOTE_P (cur_insn)
+	&& !LABEL_P (cur_insn))
       {
 	insert_insn = cur_insn;
 	break;
@@ -1360,7 +1360,7 @@ add_labels_and_missing_jumps (edge *crossing_edges, int n_crossing_edges)
 	      
  	      if (src && (src != ENTRY_BLOCK_PTR)) 
  		{
-		  if (GET_CODE (BB_END (src)) != JUMP_INSN)
+		  if (!JUMP_P (BB_END (src)))
  		    /* bb just falls through.  */
  		    {
  		      /* make sure there's only one successor */
@@ -1556,14 +1556,14 @@ find_jump_block (basic_block jump_dest)
 	   only one executable instruction, which is an unconditional jump.
 	   If so, we can use it.  */
 	
-	if (GET_CODE (BB_HEAD (src)) == CODE_LABEL)
+	if (LABEL_P (BB_HEAD (src)))
 	  for (insn = BB_HEAD (src); 
 	       !INSN_P (insn) && insn != NEXT_INSN (BB_END (src));
 	       insn = NEXT_INSN (insn))
 	    {
 	      if (INSN_P (insn)
 		  && insn == BB_END (src)
-		  && GET_CODE (insn) == JUMP_INSN
+		  && JUMP_P (insn)
 		  && !any_condjump_p (insn))
 		{
 		  source_bb = src;
@@ -1763,7 +1763,7 @@ fix_crossing_unconditional_branches (void)
       /* Check to see if bb ends in a crossing (unconditional) jump.  At
          this point, no crossing jumps should be conditional.  */
 
-      if (GET_CODE (last_insn) == JUMP_INSN
+      if (JUMP_P (last_insn)
 	  && succ->crossing_edge)
 	{
 	  rtx label2, table;
@@ -1803,7 +1803,7 @@ fix_crossing_unconditional_branches (void)
 		   cur_insn = NEXT_INSN (cur_insn))
 		{
 		  BLOCK_FOR_INSN (cur_insn) = cur_bb;
-		  if (GET_CODE (cur_insn) == JUMP_INSN)
+		  if (JUMP_P (cur_insn))
 		    jump_insn = cur_insn;
 		}
 	      
@@ -1833,7 +1833,7 @@ add_reg_crossing_jump_notes (void)
   FOR_EACH_BB (bb)
     for (e = bb->succ; e; e = e->succ_next)
       if (e->crossing_edge
-	  && GET_CODE (BB_END (e->src)) == JUMP_INSN)
+	  && JUMP_P (BB_END (e->src)))
 	REG_NOTES (BB_END (e->src)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP, 
 							 NULL_RTX, 
 						         REG_NOTES (BB_END 
@@ -1908,10 +1908,11 @@ fix_edges_for_rarely_executed_code (edge *crossing_edges,
   add_reg_crossing_jump_notes ();
 }
 
-/* Reorder basic blocks.  The main entry point to this file.  */
+/* Reorder basic blocks.  The main entry point to this file.  FLAGS is
+   the set of flags to pass to cfg_layout_initialize().  */
 
 void
-reorder_basic_blocks (void)
+reorder_basic_blocks (unsigned int flags)
 {
   int n_traces;
   int i;
@@ -1925,7 +1926,7 @@ reorder_basic_blocks (void)
 
   timevar_push (TV_REORDER_BLOCKS);
 
-  cfg_layout_initialize ();
+  cfg_layout_initialize (flags);
 
   set_edge_can_fallthru_flag ();
   mark_dfs_back_edges ();
@@ -1999,7 +2000,7 @@ partition_hot_cold_basic_blocks (void)
   
   crossing_edges = xcalloc (max_edges, sizeof (edge));
 
-  cfg_layout_initialize ();
+  cfg_layout_initialize (0);
   
   FOR_EACH_BB (cur_bb)
     if (cur_bb->index >= 0

@@ -276,7 +276,7 @@ static const char *cwd;
 /* 1 if PARM is passed to this function in memory.  */
 
 #define PARM_PASSED_IN_MEMORY(PARM) \
- (GET_CODE (DECL_INCOMING_RTL (PARM)) == MEM)
+ (MEM_P (DECL_INCOMING_RTL (PARM)))
 
 /* A C expression for the integer offset value of an automatic variable
    (N_LSYM) having address X (an RTX).  */
@@ -1633,12 +1633,7 @@ dbxout_type (tree type, int full)
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       {
-	int i, n_baseclasses = 0;
-
-	if (TYPE_BINFO (type) != 0
-	    && TREE_CODE (TYPE_BINFO (type)) == TREE_VEC
-	    && TYPE_BINFO_BASETYPES (type) != 0)
-	  n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
+	tree binfo = TYPE_BINFO (type);
 
 	/* Output a structure type.  We must use the same test here as we
 	   use in the DBX_NO_XREFS case above.  */
@@ -1685,65 +1680,72 @@ dbxout_type (tree type, int full)
 	CHARS (1);
 	print_wide_int (int_size_in_bytes (type));
 
-	if (use_gnu_debug_info_extensions)
+	if (binfo)
 	  {
-	    if (n_baseclasses)
-	      {
-		have_used_extensions = 1;
-		fprintf (asmfile, "!%d,", n_baseclasses);
-		CHARS (8);
-	      }
-	  }
-	for (i = 0; i < n_baseclasses; i++)
-	  {
-	    tree binfo = TYPE_BINFO (type);
-	    tree child = BINFO_BASETYPE (binfo, i);
-	    tree access = (BINFO_BASEACCESSES (binfo)
-			   ? BINFO_BASEACCESS (binfo, i) : access_public_node);
-
+	    int i;
+	    tree child;
+	    VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
+	    
 	    if (use_gnu_debug_info_extensions)
 	      {
-		have_used_extensions = 1;
-                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-                putc (access == access_public_node ? '2' :
-                      (access == access_protected_node ? '1' :'0'),
-                      asmfile);
-		CHARS (2);
-		if (TREE_VIA_VIRTUAL (child)
-		    && strcmp (lang_hooks.name, "GNU C++") == 0)
-		  /* For a virtual base, print the (negative) offset within
-		     the vtable where we must look to find the necessary
-		     adjustment.  */
-		  print_wide_int (tree_low_cst (BINFO_VPTR_FIELD (child), 0)
-				  * BITS_PER_UNIT);
-		else
-		  print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
-				  * BITS_PER_UNIT);
-		putc (',', asmfile);
-		CHARS (1);
-		dbxout_type (BINFO_TYPE (child), 0);
-		putc (';', asmfile);
-		CHARS (1);
+		if (BINFO_N_BASE_BINFOS (binfo))
+		  {
+		    have_used_extensions = 1;
+		    fprintf (asmfile, "!%u,", BINFO_N_BASE_BINFOS (binfo));
+		    CHARS (8);
+		  }
 	      }
-	    else
+	    for (i = 0; BINFO_BASE_ITERATE (binfo, i, child); i++)
 	      {
-		/* Print out the base class information with fields
-		   which have the same names at the types they hold.  */
-		dbxout_type_name (BINFO_TYPE (child));
-		putc (':', asmfile);
-		CHARS (1);
-		dbxout_type (BINFO_TYPE (child), full);
-		putc (',', asmfile);
-		CHARS (1);
-		print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
-				* BITS_PER_UNIT);
-		putc (',', asmfile);
-		CHARS (1);
-		print_wide_int (tree_low_cst (TYPE_SIZE (BINFO_TYPE (child)),
-					      0)
-				* BITS_PER_UNIT);
-		putc (';', asmfile);
-		CHARS (1);
+		tree access = (accesses ? VEC_index (tree, accesses, i)
+			       : access_public_node);
+
+		if (use_gnu_debug_info_extensions)
+		  {
+		    have_used_extensions = 1;
+		    putc (BINFO_VIRTUAL_P (child) ? '1' : '0', asmfile);
+		    putc (access == access_public_node ? '2' :
+			  (access == access_protected_node ? '1' :'0'),
+			  asmfile);
+		    CHARS (2);
+		    if (BINFO_VIRTUAL_P (child)
+			&& strcmp (lang_hooks.name, "GNU C++") == 0)
+		      /* For a virtual base, print the (negative)
+		     	 offset within the vtable where we must look
+		     	 to find the necessary adjustment.  */
+		      print_wide_int
+			(tree_low_cst (BINFO_VPTR_FIELD (child), 0)
+			 * BITS_PER_UNIT);
+		    else
+		      print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
+				      * BITS_PER_UNIT);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    dbxout_type (BINFO_TYPE (child), 0);
+		    putc (';', asmfile);
+		    CHARS (1);
+		  }
+		else
+		  {
+		    /* Print out the base class information with
+		       fields which have the same names at the types
+		       they hold.  */
+		    dbxout_type_name (BINFO_TYPE (child));
+		    putc (':', asmfile);
+		    CHARS (1);
+		    dbxout_type (BINFO_TYPE (child), full);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
+				    * BITS_PER_UNIT);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    print_wide_int
+		      (tree_low_cst (TYPE_SIZE (BINFO_TYPE (child)), 0)
+		       * BITS_PER_UNIT);
+		    putc (';', asmfile);
+		    CHARS (1);
+		  }
 	      }
 	  }
       }
@@ -2169,7 +2171,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       context = decl_function_context (decl);
       if (context == current_function_decl)
 	break;
-      if (GET_CODE (DECL_RTL (decl)) != MEM
+      if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	break;
       FORCE_TEXT;
@@ -2473,7 +2475,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
      no letter at all, and N_LSYM, for auto variable,
      r and N_RSYM for register variable.  */
 
-  if (GET_CODE (home) == MEM
+  if (MEM_P (home)
       && GET_CODE (XEXP (home, 0)) == SYMBOL_REF)
     {
       if (TREE_PUBLIC (decl))
@@ -2546,8 +2548,8 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       current_sym_code = N_RSYM;
       current_sym_value = DBX_REGISTER_NUMBER (regno);
     }
-  else if (GET_CODE (home) == MEM
-	   && (GET_CODE (XEXP (home, 0)) == MEM
+  else if (MEM_P (home)
+	   && (MEM_P (XEXP (home, 0))
 	       || (REG_P (XEXP (home, 0))
 		   && REGNO (XEXP (home, 0)) != HARD_FRAME_POINTER_REGNUM
 		   && REGNO (XEXP (home, 0)) != STACK_POINTER_REGNUM
@@ -2586,13 +2588,13 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       type = make_node (POINTER_TYPE);
       TREE_TYPE (type) = TREE_TYPE (decl);
     }
-  else if (GET_CODE (home) == MEM
+  else if (MEM_P (home)
 	   && REG_P (XEXP (home, 0)))
     {
       current_sym_code = N_LSYM;
       current_sym_value = DEBUGGER_AUTO_OFFSET (XEXP (home, 0));
     }
-  else if (GET_CODE (home) == MEM
+  else if (MEM_P (home)
 	   && GET_CODE (XEXP (home, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (home, 0), 1)) == CONST_INT)
     {
@@ -2601,7 +2603,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	 We want the value of that CONST_INT.  */
       current_sym_value = DEBUGGER_AUTO_OFFSET (XEXP (home, 0));
     }
-  else if (GET_CODE (home) == MEM
+  else if (MEM_P (home)
 	   && GET_CODE (XEXP (home, 0)) == CONST)
     {
       /* Handle an obscure case which can arise when optimizing and
@@ -2892,7 +2894,7 @@ dbxout_parms (tree parms)
 	    dbxout_type (parm_type, 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && REG_P (XEXP (DECL_RTL (parms), 0))
 		 && REGNO (XEXP (DECL_RTL (parms), 0)) != HARD_FRAME_POINTER_REGNUM
 		 && REGNO (XEXP (DECL_RTL (parms), 0)) != STACK_POINTER_REGNUM
@@ -2946,8 +2948,8 @@ dbxout_parms (tree parms)
 	    dbxout_type (TREE_TYPE (parms), 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
-		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	else if (MEM_P (DECL_RTL (parms))
+		 && MEM_P (XEXP (DECL_RTL (parms), 0)))
 	  {
 	    /* Parm was passed via invisible reference, with the reference
 	       living on the stack.  DECL_RTL looks like
@@ -2973,7 +2975,7 @@ dbxout_parms (tree parms)
 	    dbxout_type (TREE_TYPE (parms), 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && XEXP (DECL_RTL (parms), 0) != const0_rtx
 		 /* ??? A constant address for a parm can happen
 		    when the reg it lives in is equiv to a constant in memory.
@@ -3064,7 +3066,7 @@ dbxout_reg_parms (tree parms)
 	  dbxout_symbol_location (parms, TREE_TYPE (parms),
 				  0, DECL_RTL (parms));
 	/* Report parms that live in memory but not where they were passed.  */
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && ! rtx_equal_p (DECL_RTL (parms), DECL_INCOMING_RTL (parms)))
 	  dbxout_symbol_location (parms, TREE_TYPE (parms),
 				  0, DECL_RTL (parms));

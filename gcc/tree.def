@@ -20,7 +20,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
- 
+
 /* The third argument can be:
    'x' for an exceptional code (fits no category).
    't' for a type object code.
@@ -82,7 +82,7 @@ DEFTREECODE (TREE_VEC, "tree_vec", 'x', 0)
    outermost scope of a particular inlining of a function).
    BLOCK_ABSTRACT is nonzero if the block represents an abstract
    instance of a block (i.e. one which is nested within an abstract
-   instance of an inline function). 
+   instance of an inline function).
    TREE_ASM_WRITTEN is nonzero if the block was actually referenced
    in the generated assembly.  */
 DEFTREECODE (BLOCK, "block", 'x', 0)
@@ -151,7 +151,8 @@ DEFTREECODE (REAL_TYPE, "real_type", 't', 0)
 DEFTREECODE (COMPLEX_TYPE, "complex_type", 't', 0)
 
 /* Vector types.  The TREE_TYPE field is the data type of the vector
-   elements.  */
+   elements.  The TYPE_PRECISION field is the number of subparts of
+   the vector.  */
 DEFTREECODE (VECTOR_TYPE, "vector_type", 't', 0)
 
 /* C enums.  The type node looks just like an INTEGER_TYPE node.
@@ -271,7 +272,7 @@ DEFTREECODE (REAL_CST, "real_cst", 'c', 0)
 DEFTREECODE (COMPLEX_CST, "complex_cst", 'c', 0)
 
 /* Contents are in TREE_VECTOR_CST_ELTS field.  */
-DEFTREECODE (VECTOR_CST, "vector_cst", 'c', 0)     
+DEFTREECODE (VECTOR_CST, "vector_cst", 'c', 0)
 
 /* Contents are TREE_STRING_LENGTH and TREE_STRING_POINTER fields.  */
 DEFTREECODE (STRING_CST, "string_cst", 'c', 0)
@@ -368,12 +369,9 @@ DEFTREECODE (COMPONENT_REF, "component_ref", 'r', 3)
    The field can be either a signed or unsigned field;
    BIT_FIELD_REF_UNSIGNED says which.  */
 DEFTREECODE (BIT_FIELD_REF, "bit_field_ref", 'r', 3)
-   
+
 /* C unary `*' or Pascal `^'.  One operand, an expression for a pointer.  */
 DEFTREECODE (INDIRECT_REF, "indirect_ref", 'r', 1)
-
-/* Pascal `^` on a file.  One operand, an expression for the file.  */
-DEFTREECODE (BUFFER_REF, "buffer_ref", 'r', 1)
 
 /* Array indexing.
    Operand 0 is the array; operand 1 is a (single) array index.
@@ -464,7 +462,7 @@ DEFTREECODE (COND_EXPR, "cond_expr", 'e', 3)
 
 /* Declare local variables, including making RTL and allocating space.
    BIND_EXPR_VARS is a chain of VAR_DECL nodes for the variables.
-   BIND_EXPR_BODY is the body, the expression to be computed using 
+   BIND_EXPR_BODY is the body, the expression to be computed using
    the variables.  The value of operand 1 becomes that of the BIND_EXPR.
    BIND_EXPR_BLOCK is the BLOCK that corresponds to these bindings
    for debugging purposes.  If this BIND_EXPR is actually expanded,
@@ -472,12 +470,12 @@ DEFTREECODE (COND_EXPR, "cond_expr", 'e', 3)
 
    The BIND_EXPR is not responsible for informing parsers
    about these variables.  If the body is coming from the input file,
-   then the code that creates the BIND_EXPR is also responsible for 
+   then the code that creates the BIND_EXPR is also responsible for
    informing the parser of the variables.
 
    If the BIND_EXPR is ever expanded, its TREE_USED flag is set.
    This tells the code for debugging symbol tables not to ignore the BIND_EXPR.
-   If the BIND_EXPR should be output for debugging but will not be expanded, 
+   If the BIND_EXPR should be output for debugging but will not be expanded,
    set the TREE_USED flag by hand.
 
    In order for the BIND_EXPR to be known at all, the code that creates it
@@ -497,18 +495,11 @@ DEFTREECODE (LABELED_BLOCK_EXPR, "labeled_block_expr", 'e', 2)
 DEFTREECODE (CALL_EXPR, "call_expr", 'e', 3)
 
 /* Specify a value to compute along with its corresponding cleanup.
-   Operand 0 argument is an expression whose value needs a cleanup.
-   Operand 1 is the cleanup expression for the object.
-   Operand 2 is an RTL_EXPR which will eventually represent that value.
-     The RTL_EXPR is used in this expression, which is how the expression
-     manages to act on the proper value.
-   The cleanup is executed by the first enclosing CLEANUP_POINT_EXPR, if
-   it exists, otherwise it is the responsibility of the caller to manually
-   call expand_start_target_temps/expand_end_target_temps, as needed.
-
-   This differs from TRY_CATCH_EXPR in that operand 2 is always
-   evaluated when an exception isn't thrown when cleanups are run.  */
-DEFTREECODE (WITH_CLEANUP_EXPR, "with_cleanup_expr", 'e', 3)
+   Operand 0 is the cleanup expression.
+   The cleanup is executed by the first enclosing CLEANUP_POINT_EXPR,
+   which must exist.  This differs from TRY_CATCH_EXPR in that operand 1
+   is always evaluated when cleanups are run.  */
+DEFTREECODE (WITH_CLEANUP_EXPR, "with_cleanup_expr", 'e', 1)
 
 /* Specify a cleanup point.
    Operand 0 is an expression that may have cleanups.  If it does, those
@@ -695,10 +686,6 @@ DEFTREECODE (UNEQ_EXPR, "uneq_expr", '<', 2)
 /* This is the reverse of uneq_expr.  */
 DEFTREECODE (LTGT_EXPR, "ltgt_expr", '<', 2)
 
-/* Operations for Pascal sets.  Not used now.  */
-DEFTREECODE (IN_EXPR, "in_expr", '2', 2)
-DEFTREECODE (SET_LE_EXPR, "set_le_expr", '<', 2)
-DEFTREECODE (CARD_EXPR, "card_expr", '1', 1)
 DEFTREECODE (RANGE_EXPR, "range_expr", '2', 2)
 
 /* Represents a conversion of type of a value.
@@ -722,48 +709,22 @@ DEFTREECODE (NON_LVALUE_EXPR, "non_lvalue_expr", '1', 1)
    case no actual data motion may occur.  TREE_ADDRESSABLE will be set in
    this case and GCC must abort if it could not do the operation without
    generating insns.  */
-DEFTREECODE (VIEW_CONVERT_EXPR, "view_convert_expr", '1', 1)
+DEFTREECODE (VIEW_CONVERT_EXPR, "view_convert_expr", 'r', 1)
 
 /* Represents something we computed once and will use multiple times.
-   First operand is that expression.  Second is the function decl
-   in which the SAVE_EXPR was created.  The third operand is the RTL,
-   nonzero only after the expression has been computed.  */
-DEFTREECODE (SAVE_EXPR, "save_expr", 'e', 3)
-
-/* For a UNSAVE_EXPR, operand 0 is the value to unsave.  By unsave, we
-   mean that all _EXPRs such as TARGET_EXPRs, SAVE_EXPRs,
-   CALL_EXPRs and RTL_EXPRs, that are protected
-   from being evaluated more than once should be reset so that a new
-   expand_expr call of this expr will cause those to be re-evaluated.
-   This is useful when we want to reuse a tree in different places,
-   but where we must re-expand.  */
-DEFTREECODE (UNSAVE_EXPR, "unsave_expr", 'e', 1)
-
-/* Represents something whose RTL has already been expanded as a
-   sequence which should be emitted when this expression is expanded.
-   The first operand is the RTL to emit.  It is the first of a chain
-   of insns.  The second is the RTL expression for the result.  The
-   third operand is the "alternate RTL expression" for the result, if
-   any; if the second argument is the DECL_RTL for a VAR_DECL, but
-   with an invalid memory address replaced by a valid one, then the
-   third operand will be the original DECL_RTL.  Any temporaries
-   created during the building of the RTL_EXPR can be reused once the
-   RTL_EXPR has been expanded, with the exception of the
-   RTL_EXPR_RTL.  */
-DEFTREECODE (RTL_EXPR, "rtl_expr", 'e', 3)
+   First operand is that expression.  After it is evaluated once, it
+   will be replaced by the temporary variable that holds the value.  */
+DEFTREECODE (SAVE_EXPR, "save_expr", 'e', 1)
 
 /* & in C.  Value is the address at which the operand's value resides.
    Operand may have any mode.  Result mode is Pmode.  */
 DEFTREECODE (ADDR_EXPR, "addr_expr", 'e', 1)
 
-/* Non-lvalue reference or pointer to an object.  */
-DEFTREECODE (REFERENCE_EXPR, "reference_expr", 'e', 1)
-
 /* Operand is a function constant; result is a function variable value
    of type EPmode.  Used only for languages that need static chains.  */
 DEFTREECODE (ENTRY_VALUE_EXPR, "entry_value_expr", 'e', 1)
 
-/* Operand0 is a function constant; result is part N of a function 
+/* Operand0 is a function constant; result is part N of a function
    descriptor of type ptr_mode.  */
 DEFTREECODE (FDESC_EXPR, "fdesc_expr", 'e', 2)
 
@@ -776,8 +737,8 @@ DEFTREECODE (CONJ_EXPR, "conj_expr", '1', 1)
 
 /* Used only on an operand of complex type, these return
    a value of the corresponding component type.  */
-DEFTREECODE (REALPART_EXPR, "realpart_expr", '1', 1)
-DEFTREECODE (IMAGPART_EXPR, "imagpart_expr", '1', 1)
+DEFTREECODE (REALPART_EXPR, "realpart_expr", 'r', 1)
+DEFTREECODE (IMAGPART_EXPR, "imagpart_expr", 'r', 1)
 
 /* Nodes for ++ and -- in C.
    The second arg is how much to increment or decrement by.
@@ -816,13 +777,6 @@ DEFTREECODE (LABEL_EXPR, "label_expr", 's', 1)
 /* GOTO.  Operand 0 is a LABEL_DECL node or an expression.
    The type should be void and the value should be ignored.  */
 DEFTREECODE (GOTO_EXPR, "goto_expr", 's', 1)
-
-/* Used internally for cleanups in the implementation of TRY_FINALLY_EXPR.
-   (Specifically, it is created by expand_expr, not front-ends.)
-   Operand 0 is the rtx for the start of the subroutine we need to call.
-   Operand 1 is the rtx for a variable in which to store the address
-   of where the subroutine should return to.  */
-DEFTREECODE (GOTO_SUBROUTINE_EXPR, "goto_subroutine", 's', 2)
 
 /* RETURN.  Evaluates operand 0, then returns from the current function.
    Presumably that operand is an assignment that stores into the
@@ -865,7 +819,7 @@ DEFTREECODE (SWITCH_EXPR, "switch_expr", 's', 3)
    label.  CASE_LABEL is the corresponding LABEL_DECL.  */
 DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 3)
 
-/* RESX.  Resume execution after an exception.  Operand 0 is a 
+/* RESX.  Resume execution after an exception.  Operand 0 is a
    number indicating the exception region that is being left.  */
 DEFTREECODE (RESX_EXPR, "resx_expr", 's', 1)
 
@@ -898,6 +852,18 @@ DEFTREECODE (CATCH_EXPR, "catch_expr", 's', 2)
    expanding.  */
 DEFTREECODE (EH_FILTER_EXPR, "eh_filter_expr", 's', 2)
 
+/* Node used for describing a property that is known at compile
+   time.  */
+DEFTREECODE (SCEV_KNOWN, "scev_known", 'e', 0)
+
+/* Node used for describing a property that is not known at compile
+   time.  */
+DEFTREECODE (SCEV_NOT_KNOWN, "scev_not_known", 'e', 0)
+
+/* Polynomial chains of recurrences.
+   Under the form: cr = {CHREC_LEFT (cr), +, CHREC_RIGHT (cr)}.  */
+DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", 'e', 3)
+
 /* Used to chain children of container statements together.
    Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", 'x', 0)
@@ -907,6 +873,17 @@ DEFTREECODE (STATEMENT_LIST, "statement_list", 'x', 0)
    used for expression canonicalization.  If two expressions compute
    the same value, they will be assigned the same value handle.  */
 DEFTREECODE (VALUE_HANDLE, "value_handle", 'x', 0)
+
+/* Base class information. Holds information about a class as a
+   baseclass of itself or another class.  */
+DEFTREECODE (TREE_BINFO, "tree_binfo", 'x', 0)
+
+/* Records the size for an expression of variable size type.  This is
+   for use in contexts in which we are accessing the entire object,
+   such as for a function call, or block copy.
+   Operand 0 is the real expression.
+   Operand 1 is the size of the type in the expression.  */
+DEFTREECODE (WITH_SIZE_EXPR, "with_size_expr", 'e', 2)
 
 /*
 Local variables:

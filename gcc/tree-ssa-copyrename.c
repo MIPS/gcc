@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 extern void rename_ssa_copies (void);
 
@@ -247,16 +248,24 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 	gimp2 = false;
       }
 
+  /* Don't coalesce if the two variables aren't type compatible.  */
+  if (!lang_hooks.types_compatible_p (TREE_TYPE (root1), TREE_TYPE (root2)))
+    {
+      if (debug)
+	fprintf (debug, " : Incompatible types.  No coalesce.\n");
+      return;
+    }
+
   /* Merge the two partitions.  */
   p3 = partition_union (map->var_partition, p1, p2);
 
   /* Set the root variable of the partition to the better choice, if there is 
      one.  */
   if (!gimp2)
-    SSA_NAME_VAR (partition_to_var (map, p3)) = root2;
+    replace_ssa_name_symbol (partition_to_var (map, p3), root2);
   else
     if (!gimp1)
-      SSA_NAME_VAR (partition_to_var (map, p3)) = root1;
+      replace_ssa_name_symbol (partition_to_var (map, p3), root1);
 
   /* Update the various flag widgitry of the current base representative.  */
   ann3 = var_ann (SSA_NAME_VAR (partition_to_var (map, p3)));
@@ -309,9 +318,7 @@ rename_ssa_copies (void)
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
 
-              if (TREE_CODE (lhs) == SSA_NAME
-		  && !has_hidden_use (SSA_NAME_VAR (lhs))
-		  && TREE_CODE (rhs) == SSA_NAME)
+              if (TREE_CODE (lhs) == SSA_NAME && TREE_CODE (rhs) == SSA_NAME)
 		copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }
 	}
@@ -325,10 +332,8 @@ rename_ssa_copies (void)
           int i;
 	  tree res = PHI_RESULT (phi);
 
-	  /* Do not process virtual SSA_NAMES or variables which have
-	     hidden uses.  */
-	  if (!is_gimple_reg (SSA_NAME_VAR (res))
-	      || has_hidden_use (SSA_NAME_VAR (res)))
+	  /* Do not process virtual SSA_NAMES.  */
+	  if (!is_gimple_reg (SSA_NAME_VAR (res)))
 	    continue;
 
           for (i = 0; i < PHI_NUM_ARGS (phi); i++)
@@ -363,7 +368,7 @@ rename_ssa_copies (void)
 	      fprintf (debug, "\n");
 	    }
 	}
-      SSA_NAME_VAR (var) = SSA_NAME_VAR (part_var);
+      replace_ssa_name_symbol (var, SSA_NAME_VAR (part_var));
     }
 
   delete_var_map (map);
@@ -386,7 +391,7 @@ struct tree_opt_pass pass_rename_ssa_copies =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_COPY_RENAME,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */ 

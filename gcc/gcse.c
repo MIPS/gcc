@@ -3293,7 +3293,7 @@ constprop_register (rtx insn, rtx from, rtx to, int alter_jumps)
     }
 
   /* Handle normal insns next.  */
-  if (GET_CODE (insn) == INSN
+  if (NONJUMP_INSN_P (insn)
       && try_replace_reg (from, to, insn))
     return 1;
 
@@ -3687,52 +3687,7 @@ cprop (int alter_jumps)
 rtx
 fis_get_condition (rtx jump)
 {
-  rtx cond, set, tmp, insn, earliest;
-  bool reverse;
-
-  if (! any_condjump_p (jump))
-    return NULL_RTX;
-
-  set = pc_set (jump);
-  cond = XEXP (SET_SRC (set), 0);
-
-  /* If this branches to JUMP_LABEL when the condition is false,
-     reverse the condition.  */
-  reverse = (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-	     && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump));
-
-  /* Use canonicalize_condition to do the dirty work of manipulating
-     MODE_CC values and COMPARE rtx codes.  */
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, NULL_RTX,
-				false);
-  if (!tmp)
-    return NULL_RTX;
-
-  /* Verify that the given condition is valid at JUMP by virtue of not
-     having been modified since EARLIEST.  */
-  for (insn = earliest; insn != jump; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && modified_in_p (tmp, insn))
-      break;
-  if (insn == jump)
-    return tmp;
-
-  /* The condition was modified.  See if we can get a partial result
-     that doesn't follow all the reversals.  Perhaps combine can fold
-     them together later.  */
-  tmp = XEXP (tmp, 0);
-  if (!REG_P (tmp) || GET_MODE_CLASS (GET_MODE (tmp)) != MODE_INT)
-    return NULL_RTX;
-  tmp = canonicalize_condition (jump, cond, reverse, &earliest, tmp,
-				false);
-  if (!tmp)
-    return NULL_RTX;
-
-  /* For sanity's sake, re-validate the new result.  */
-  for (insn = earliest; insn != jump; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && modified_in_p (tmp, insn))
-      return NULL_RTX;
-
-  return tmp;
+  return get_condition (jump, NULL, false, true);
 }
 
 /* Check the comparison COND to see if we can safely form an implicit set from
@@ -4127,7 +4082,7 @@ bypass_conditional_jumps (void)
 	  for (insn = BB_HEAD (bb);
 	       insn != NULL && insn != NEXT_INSN (BB_END (bb));
 	       insn = NEXT_INSN (insn))
-	    if (GET_CODE (insn) == INSN)
+	    if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
 		  break;
@@ -4427,7 +4382,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
      instructions in presence of non-call exceptions.  */
 
   if (JUMP_P (insn)
-      || (GET_CODE (insn) == INSN
+      || (NONJUMP_INSN_P (insn)
 	  && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL))))
     {
 #ifdef HAVE_cc0
@@ -4436,7 +4391,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
       /* It should always be the case that we can put these instructions
 	 anywhere in the basic block with performing PRE optimizations.
 	 Check this.  */
-      if (GET_CODE (insn) == INSN && pre
+      if (NONJUMP_INSN_P (insn) && pre
 	  && !TEST_BIT (antloc[bb->index], expr->bitmap_index)
 	  && !TEST_BIT (transp[bb->index], expr->bitmap_index))
 	abort ();
@@ -4964,7 +4919,7 @@ one_pre_gcse_pass (int pass)
     }
 
   free_ldst_mems ();
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
   free_hash_table (&expr_hash_table);
 
   if (gcse_file)
@@ -6858,7 +6813,7 @@ store_motion (void)
 
   free_store_memory ();
   free_edge_list (edge_list);
-  remove_fake_edges ();
+  remove_fake_exit_edges ();
   end_alias_analysis ();
 }
 
@@ -7375,7 +7330,7 @@ gcse_after_reload (void)
 	   insn = NEXT_INSN (insn))
 	{
 	  /* Is it a load - of the form (set (reg) (mem))?  */
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
               && GET_CODE (PATTERN (insn)) == SET
 	      && REG_P (SET_DEST (PATTERN (insn)))
 	      && MEM_P (SET_SRC (PATTERN (insn))))

@@ -55,41 +55,142 @@ Boston, MA 02111-1307, USA.  */
    APIs defined in this file.  */
 
 
-/* Given two SSA_NAMEs, replace the annotations for the one referred to by OP 
-   with VAR's annmoptations.
+/* Return true if we may propagate ORIG into DEST, false otherwise.  */
 
-   If OP is a pointer, copy the memory tag used originally by OP into
-   VAR.  This is needed in cases where VAR had never been dereferenced in the
-   program.
+bool
+may_propagate_copy (tree dest, tree orig)
+{
+  tree type_d = TREE_TYPE (dest);
+  tree type_o = TREE_TYPE (orig);
 
-   If FOR_PROPAGATION is true, then perform additional checks to ensure
-   that const/copy propagation of var for OP is valid.  */
+  /* Do not copy between types for which we *do* need a conversion.  */
+  if (!tree_ssa_useless_type_conversion_1 (type_d, type_o))
+    return false;
+
+  /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
+     pointers that have different alias sets.  This means that these
+     pointers will have different memory tags associated to them.
+     
+     If we allow copy propagation in these cases, statements de-referencing
+     the new pointer will now have a reference to a different memory tag
+     with potentially incorrect SSA information.
+
+     This was showing up in libjava/java/util/zip/ZipFile.java with code
+     like:
+
+     	struct java.io.BufferedInputStream *T.660;
+	struct java.io.BufferedInputStream *T.647;
+	struct java.io.InputStream *is;
+	struct java.io.InputStream *is.662;
+	[ ... ]
+	T.660 = T.647;
+	is = T.660;	<-- This ought to be type-casted
+	is.662 = is;
+
+     Also, f/name.c exposed a similar problem with a COND_EXPR predicate
+     that was causing DOM to generate and equivalence with two pointers of
+     alias-incompatible types:
+
+     	struct _ffename_space *n;
+	struct _ffename *ns;
+	[ ... ]
+	if (n == ns)
+	  goto lab;
+	...
+	lab:
+	return n;
+
+     I think that GIMPLE should emit the appropriate type-casts.  For the
+     time being, blocking copy-propagation in these cases is the safe thing
+     to do.  */
+  if (TREE_CODE (dest) == SSA_NAME && TREE_CODE (orig) == SSA_NAME
+      && POINTER_TYPE_P (type_d) && POINTER_TYPE_P (type_o))
+    {
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->type_mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->type_mem_tag;
+      if (mt_dest && mt_orig && mt_dest != mt_orig)
+	return false;
+      else if (!lang_hooks.types_compatible_p (type_d, type_o))
+	return false;
+      else if (!alias_sets_conflict_p (get_alias_set (type_d),
+				       get_alias_set (type_o)))
+	return false;
+    }
+
+  /* If the destination is a SSA_NAME for a virtual operand, then we have
+     some special cases to handle.  */
+  if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
+    {
+      /* If both operands are SSA_NAMEs referring to virtual operands, then
+	 we can always propagate.  */
+      if (TREE_CODE (orig) == SSA_NAME)
+	{
+	  if (!is_gimple_reg (orig))
+	    return true;
+
+#ifdef ENABLE_CHECKING
+	  /* If we have one real and one virtual operand, then something has
+	     gone terribly wrong.  */
+	  if (is_gimple_reg (orig))
+	    abort ();
+#endif
+	}
+
+      /* We have a "copy" from something like a constant into a virtual
+	 operand.  Reject these.  */
+      return false;
+    }
+
+  /* If ORIG flows in from an abnormal edge, it cannot be propagated.  */
+  if (TREE_CODE (orig) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
+    return false;
+
+  /* If DEST is an SSA_NAME that flows from an abnormal edge or if it
+     represents a hard register, then it cannot be replaced.  */
+  if (TREE_CODE (dest) == SSA_NAME
+      && (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
+	  || DECL_HARD_REGISTER (SSA_NAME_VAR (dest))))
+    return false;
+
+  /* Anything else is OK.  */
+  return true;
+}
+
+
+/* Given two SSA_NAMEs pointers ORIG and NEW such that we are copy
+   propagating NEW into ORIG, consolidate aliasing information so that
+   they both share the same memory tags.  */
    
 static void
-replace_ssa_names_ann (tree op,
-		   tree var,
-		   bool for_propagation ATTRIBUTE_UNUSED)
+merge_alias_info (tree orig, tree new)
 {
+  tree new_sym = SSA_NAME_VAR (new);
+  tree orig_sym = SSA_NAME_VAR (orig);
+  var_ann_t new_ann = var_ann (new_sym);
+  var_ann_t orig_ann = var_ann (orig_sym);
+
 #if defined ENABLE_CHECKING
-  if (for_propagation && !may_propagate_copy (op, var))
+  if (!POINTER_TYPE_P (TREE_TYPE (orig))
+      || !POINTER_TYPE_P (TREE_TYPE (new))
+      || !lang_hooks.types_compatible_p (TREE_TYPE (orig), TREE_TYPE (new)))
+    abort ();
+
+  /* If the pointed-to alias sets are different, these two pointers
+     would never have the same memory tag.  In this case, NEW should
+     not have been propagated into ORIG.  */
+  if (get_alias_set (TREE_TYPE (TREE_TYPE (new_sym)))
+      != get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))))
     abort ();
 #endif
 
-  /* If VAR doesn't have a memory tag, copy the one from the original
-     operand.  Also copy the dereferenced flags.  */
-  if (POINTER_TYPE_P (TREE_TYPE (op)))
-    {
-      var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
-      var_ann_t orig_ann = var_ann (SSA_NAME_VAR (op));
-
-      if (new_ann->type_mem_tag == NULL_TREE)
-	new_ann->type_mem_tag = orig_ann->type_mem_tag;
-      else if (orig_ann->type_mem_tag == NULL_TREE)
-	orig_ann->type_mem_tag = new_ann->type_mem_tag;
-      else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
-	abort ();
-    }
-
+  /* Merge type-based alias info.  */
+  if (new_ann->type_mem_tag == NULL_TREE)
+    new_ann->type_mem_tag = orig_ann->type_mem_tag;
+  else if (orig_ann->type_mem_tag == NULL_TREE)
+    orig_ann->type_mem_tag = new_ann->type_mem_tag;
+  else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
+    abort ();
 }   
 
 
@@ -99,17 +200,29 @@ replace_ssa_names_ann (tree op,
    replacement is done to propagate a value or not.  */
 
 static void
-replace_exp_1 (use_operand_p op_p, tree val, bool for_propagation)
+replace_exp_1 (use_operand_p op_p, tree val,
+	       bool for_propagation ATTRIBUTE_UNUSED)
 {
+  tree op = USE_FROM_PTR (op_p);
+
+#if defined ENABLE_CHECKING
+  if (for_propagation
+      && TREE_CODE (op) == SSA_NAME
+      && TREE_CODE (val) == SSA_NAME
+      && !may_propagate_copy (op, val))
+    abort ();
+#endif
+
   if (TREE_CODE (val) == SSA_NAME)
     {
-      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
-	replace_ssa_names_ann (USE_FROM_PTR (op_p), val, for_propagation);
+      if (TREE_CODE (op) == SSA_NAME && POINTER_TYPE_P (TREE_TYPE (op)))
+	merge_alias_info (op, val);
       SET_USE (op_p, val);
     }
   else
     SET_USE (op_p, lhd_unsave_expr_now (val));
 }
+
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the operand pointed by OP_P.
@@ -123,6 +236,7 @@ propagate_value (use_operand_p op_p, tree val)
   replace_exp_1 (op_p, val, true);
 }
 
+
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
    into the tree pointed by OP_P.
 
@@ -134,15 +248,23 @@ propagate_value (use_operand_p op_p, tree val)
 void
 propagate_tree_value (tree *op_p, tree val)
 {
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (val) == SSA_NAME
+      && TREE_CODE (*op_p) == SSA_NAME
+      && !may_propagate_copy (*op_p, val))
+    abort ();
+#endif
+
   if (TREE_CODE (val) == SSA_NAME)
     {
-      if (TREE_CODE (*op_p) == SSA_NAME)
-	replace_ssa_names_ann (*op_p, val, true);
+      if (TREE_CODE (*op_p) == SSA_NAME && POINTER_TYPE_P (TREE_TYPE (*op_p)))
+	merge_alias_info (*op_p, val);
       *op_p = val;
     }
   else
     *op_p = lhd_unsave_expr_now (val);
 }
+
 
 /* Replace *OP_P with value VAL (assumed to be a constant or another SSA_NAME).
 
@@ -154,237 +276,4 @@ void
 replace_exp (use_operand_p op_p, tree val)
 {
   replace_exp_1 (op_p, val, false);
-}
-
-/* Replace *OP_P in STMT with any known equivalent value for *OP_P from
-   CONST_AND_COPIES.  */
-
-static bool
-cprop_operand (stmt_ann_t ann, use_operand_p op_p, varray_type const_and_copies)
-{
-  bool may_have_exposed_new_symbols = false;
-  tree val;
-  tree op = USE_FROM_PTR (op_p);
-
-  /* If the operand has a known constant value or it is known to be a
-     copy of some other variable, use the value or copy stored in
-     CONST_AND_COPIES.  */
-  val = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (op));
-  if (val)
-    {
-      tree op_type, val_type;
-
-      /* Do not change the base variable in the virtual operand
-	 tables.  That would make it impossible to reconstruct
-	 the renamed virtual operand if we later modify this
-	 statement.  Also only allow the new value to be an SSA_NAME
-	 for propagation into virtual operands.  */
-      if (!is_gimple_reg (op)
-	  && (get_virtual_var (val) != get_virtual_var (op)
-	      || TREE_CODE (val) != SSA_NAME))
-	return false;
-
-      /* Get the toplevel type of each operand.  */
-      op_type = TREE_TYPE (op);
-      val_type = TREE_TYPE (val);
-
-      /* While both types are pointers, get the type of the object
-	 pointed to.  */
-      while (POINTER_TYPE_P (op_type) && POINTER_TYPE_P (val_type))
-	{
-	  op_type = TREE_TYPE (op_type);
-	  val_type = TREE_TYPE (val_type);
-	}
-
-      /* Make sure underlying types match before propagating a
-	 constant by converting the constant to the proper type.  Note
-	 that convert may return a non-gimple expression, in which case
-	 we ignore this propagation opportunity.  */
-     if (!lang_hooks.types_compatible_p (op_type, val_type)
-           && TREE_CODE (val) != SSA_NAME)
-	{
-	  val = fold_convert (TREE_TYPE (op), val);
-	  if (!is_gimple_min_invariant (val)
-	      && TREE_CODE (val) != SSA_NAME)
-	    return false;
-	}
-
-      /* Certain operands are not allowed to be copy propagated due
-	 to their interaction with exception handling and some GCC
-	 extensions.  */
-      if (TREE_CODE (val) == SSA_NAME
-	  && !may_propagate_copy (op, val))
-	return false;
-
-      /* Dump details.  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  Replaced '");
-	  print_generic_expr (dump_file, op, dump_flags);
-	  fprintf (dump_file, "' with %s '",
-		   (TREE_CODE (val) != SSA_NAME ? "constant" : "variable"));
-	  print_generic_expr (dump_file, val, dump_flags);
-	  fprintf (dump_file, "'\n");
-	}
-
-      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
-	 that we may have exposed a new symbol for SSA renaming.  */
-      if (TREE_CODE (val) == ADDR_EXPR
-	  || (POINTER_TYPE_P (TREE_TYPE (op))
-	      && is_gimple_min_invariant (val)))
-	may_have_exposed_new_symbols = true;
-
-      propagate_value (op_p, val);
-
-      /* And note that we modified this statement.  This is now
-	 safe, even if we changed virtual operands since we will
-	 rescan the statement and rewrite its operands again.  */
-      ann->modified = 1;
-    }
-  return may_have_exposed_new_symbols;
-}
-
-/* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
-   known value for that SSA_NAME (or NULL if no value is known).  
-
-   Propagate values from CONST_AND_COPIES into the uses, vuses and
-   v_may_def_ops of STMT.  */
-
-bool
-cprop_into_stmt (tree stmt, varray_type const_and_copies)
-{
-  bool may_have_exposed_new_symbols = false;
-  stmt_ann_t ann = stmt_ann (stmt);
-  size_t i, num_uses, num_vuses, num_v_may_defs;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  use_optype uses;
-
-  uses = USE_OPS (ann);
-  num_uses = NUM_USES (uses);
-  for (i = 0; i < num_uses; i++)
-    {
-      use_operand_p op_p = USE_OP_PTR (uses, i);
-      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
-	may_have_exposed_new_symbols
-	  |= cprop_operand (ann, op_p, const_and_copies);
-    }
-
-  vuses = VUSE_OPS (ann);
-  num_vuses = NUM_VUSES (vuses);
-  for (i = 0; i < num_vuses; i++)
-    {
-      use_operand_p op_p = VUSE_OP_PTR (vuses, i);
-      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
-	may_have_exposed_new_symbols
-	  |= cprop_operand (ann, op_p, const_and_copies);
-    }
-
-  v_may_defs = V_MAY_DEF_OPS (ann);
-  num_v_may_defs = NUM_V_MAY_DEFS (v_may_defs);
-  for (i = 0; i < num_v_may_defs; i++)
-    {
-      use_operand_p op_p = V_MAY_DEF_OP_PTR (v_may_defs, i);
-      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
-	may_have_exposed_new_symbols
-	  |= cprop_operand (ann, op_p, const_and_copies);
-    }
-  return may_have_exposed_new_symbols;
-}
-
-/* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
-   known value for that SSA_NAME (or NULL if no value is known).  
-
-   NONZERO_VARS is the set SSA_NAMES known to have a nonzero value,
-   even if we don't know their precise value.
-
-   Propagate values from CONST_AND_COPIES and NONZERO_VARS into the PHI
-   nodes of the successors of BB.  */
-
-void
-cprop_into_successor_phis (basic_block bb,
-			   varray_type const_and_copies,
-			   bitmap nonzero_vars)
-{
-  edge e;
-
-  /* This can get rather expensive if the implementation is naive in
-     how it finds the phi alternative associated with a particular edge.  */
-  for (e = bb->succ; e; e = e->succ_next)
-    {
-      tree phi;
-      int phi_num_args;
-      int hint;
-
-      /* If this is an abnormal edge, then we do not want to copy propagate
-	 into the PHI alternative associated with this edge.  */
-      if (e->flags & EDGE_ABNORMAL)
-	continue;
-
-      phi = phi_nodes (e->dest);
-      if (! phi)
-	continue;
-
-      /* There is no guarantee that for any two PHI nodes in a block that
-	 the phi alternative associated with a particular edge will be
-	 at the same index in the phi alternative array.
-
-	 However, it is very likely they will be the same.  So we keep
-	 track of the index of the alternative where we found the edge in
-	 the previous phi node and check that index first in the next
-	 phi node.  If that hint fails, then we actually search all
-	 the entries.  */
-      phi_num_args = PHI_NUM_ARGS (phi);
-      hint = phi_num_args;
-      for ( ; phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-	  tree new;
-	  use_operand_p orig_p;
-	  tree orig;
-
-	  /* If the hint is valid (!= phi_num_args), see if it points
-	     us to the desired phi alternative.  */
-	  if (hint != phi_num_args && PHI_ARG_EDGE (phi, hint) == e)
-	    ;
-	  else
-	    {
-	      /* The hint was either invalid or did not point to the
-		 correct phi alternative.  Search all the alternatives
-		 for the correct one.  Update the hint.  */
-	      for (i = 0; i < phi_num_args; i++)
-		if (PHI_ARG_EDGE (phi, i) == e)
-		  break;
-	      hint = i;
-	    }
-
-#ifdef ENABLE_CHECKING
-	  /* If we did not find the proper alternative, then something is
-	     horribly wrong.  */
-	  if (hint == phi_num_args)
-	    abort ();
-#endif
-
-	  /* The alternative may be associated with a constant, so verify
-	     it is an SSA_NAME before doing anything with it.  */
-	  orig_p = PHI_ARG_DEF_PTR (phi, hint);
-	  orig = USE_FROM_PTR (orig_p);
-	  if (TREE_CODE (orig) != SSA_NAME)
-	    continue;
-
-	  /* If the alternative is known to have a nonzero value, record
-	     that fact in the PHI node itself for future use.  */
-	  if (bitmap_bit_p (nonzero_vars, SSA_NAME_VERSION (orig)))
-	    PHI_ARG_NONZERO (phi, hint) = true;
-
-	  /* If we have *ORIG_P in our constant/copy table, then replace
-	     ORIG_P with its value in our constant/copy table.  */
-	  new = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (orig));
-	  if (new
-	      && (TREE_CODE (new) == SSA_NAME
-		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (orig, new))
-	    propagate_value (orig_p, new);
-	}
-    }
 }

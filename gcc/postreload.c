@@ -232,7 +232,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
      that combine made wrt the contents of sign bits.  We'll do this by
      generating an extend instruction instead of a reg->reg copy.  Thus
      the destination must be a register that we can widen.  */
-  if (GET_CODE (src) == MEM
+  if (MEM_P (src)
       && GET_MODE_BITSIZE (GET_MODE (src)) < BITS_PER_WORD
       && (extend_op = LOAD_EXTEND_OP (GET_MODE (src))) != NIL
       && !REG_P (SET_DEST (set)))
@@ -244,7 +244,7 @@ reload_cse_simplify_set (rtx set, rtx insn)
     return 0;
 
   /* If memory loads are cheaper than register copies, don't change them.  */
-  if (GET_CODE (src) == MEM)
+  if (MEM_P (src))
     old_cost = MEMORY_MOVE_COST (GET_MODE (src), dclass, 1);
   else if (REG_P (src))
     old_cost = REGISTER_MOVE_COST (GET_MODE (src),
@@ -396,7 +396,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
       /* cselib blows up on CODE_LABELs.  Trying to fix that doesn't seem
 	 right, so avoid the problem here.  Likewise if we have a constant
          and the insn pattern doesn't tell us the mode we need.  */
-      if (GET_CODE (recog_data.operand[i]) == CODE_LABEL
+      if (LABEL_P (recog_data.operand[i])
 	  || (CONSTANT_P (recog_data.operand[i])
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;
@@ -404,7 +404,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
       op = recog_data.operand[i];
       mode = GET_MODE (op);
 #ifdef LOAD_EXTEND_OP
-      if (GET_CODE (op) == MEM
+      if (MEM_P (op)
 	  && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
 	  && LOAD_EXTEND_OP (mode) != NIL)
 	{
@@ -418,7 +418,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	     extension applies.
 	     Also, if there is an explicit extension, we don't have to
 	     worry about an implicit one.  */
-	  else if (GET_CODE (SET_DEST (set)) == MEM
+	  else if (MEM_P (SET_DEST (set))
 		   || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART
 		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
 		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
@@ -721,7 +721,7 @@ reload_combine (void)
   FOR_EACH_BB_REVERSE (bb)
     {
       insn = BB_HEAD (bb);
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	{
 	  HARD_REG_SET live;
 
@@ -752,9 +752,9 @@ reload_combine (void)
       /* We cannot do our optimization across labels.  Invalidating all the use
 	 information we have would be costly, so we just note where the label
 	 is and then later disable any optimization that would cross it.  */
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	last_label_ruid = reload_combine_ruid;
-      else if (GET_CODE (insn) == BARRIER)
+      else if (BARRIER_P (insn))
 	for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
 	  if (! fixed_regs[r])
 	      reg_state[r].use_index = RELOAD_COMBINE_MAX_USES;
@@ -898,7 +898,7 @@ reload_combine (void)
 
       note_stores (PATTERN (insn), reload_combine_note_store, NULL);
 
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  rtx link;
 
@@ -932,7 +932,7 @@ reload_combine (void)
 	     }
 
 	}
-      else if (GET_CODE (insn) == JUMP_INSN
+      else if (JUMP_P (insn)
 	       && GET_CODE (PATTERN (insn)) != RETURN)
 	{
 	  /* Non-spill registers might be used at the call destination in
@@ -1192,7 +1192,7 @@ reload_cse_move2add (rtx first)
     {
       rtx pat, note;
 
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	{
 	  move2add_last_label_luid = move2add_luid;
 	  /* We're going to increment move2add_luid twice after a
@@ -1398,7 +1398,7 @@ reload_cse_move2add (rtx first)
 
       /* If this is a CALL_INSN, all call used registers are stored with
 	 unknown values.  */
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	{
 	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {
@@ -1432,7 +1432,7 @@ move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
 
   /* Some targets do argument pushes without adding REG_INC notes.  */
 
-  if (GET_CODE (dst) == MEM)
+  if (MEM_P (dst))
     {
       dst = XEXP (dst, 0);
       if (GET_CODE (dst) == PRE_INC || GET_CODE (dst) == POST_INC

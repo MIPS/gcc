@@ -62,6 +62,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
 #endif
 
+#ifndef TARGET_UNWIND_EMIT
+#define TARGET_UNWIND_EMIT default_unwind_emit
+#endif
+
 #ifndef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL default_internal_label
 #endif
@@ -195,6 +199,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
+			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
 			TARGET_ASM_FUNCTION_PROLOGUE,		\
@@ -228,7 +233,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SCHED_REORDER 0
 #define TARGET_SCHED_REORDER2 0
 #define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK 0
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 0
 #define TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN 0
 #define TARGET_SCHED_DFA_PRE_CYCLE_INSN 0
 #define TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN 0
@@ -236,8 +240,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD 0
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD 0
 #define TARGET_SCHED_DFA_NEW_CYCLE 0
-#define TARGET_SCHED_INIT_DFA_BUBBLES 0
-#define TARGET_SCHED_DFA_BUBBLE 0
 #define TARGET_SCHED_IS_COSTLY_DEPENDENCE 0
 
 #define TARGET_SCHED						\
@@ -252,7 +254,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_REORDER,					\
    TARGET_SCHED_REORDER2,					\
    TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK,			\
-   TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE,			\
    TARGET_SCHED_INIT_DFA_PRE_CYCLE_INSN,			\
    TARGET_SCHED_DFA_PRE_CYCLE_INSN,				\
    TARGET_SCHED_INIT_DFA_POST_CYCLE_INSN,			\
@@ -260,8 +261,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD,		\
    TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD,	\
    TARGET_SCHED_DFA_NEW_CYCLE,					\
-   TARGET_SCHED_INIT_DFA_BUBBLES,				\
-   TARGET_SCHED_DFA_BUBBLE,                                     \
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
 /* In tree.c.  */
@@ -358,13 +357,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   default_pretend_outgoing_varargs_named
 #define TARGET_SPLIT_COMPLEX_ARG NULL
 
-#ifdef EXPAND_BUILTIN_VA_ARG
-/* If there's a target-specific va_arg expander, there needs to be a
-   target-specific gimplifier.  */
-#define TARGET_GIMPLIFY_VA_ARG_EXPR NULL
-#else
 #define TARGET_GIMPLIFY_VA_ARG_EXPR std_gimplify_va_arg_expr
-#endif
+
+#define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_false
+
+#define TARGET_LATE_RTL_PROLOGUE_EPILOGUE false
+
+#define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size_or_pad
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -373,12 +372,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_STRUCT_VALUE_RTX,					\
    TARGET_RETURN_IN_MEMORY,					\
    TARGET_RETURN_IN_MSB,					\
+   TARGET_PASS_BY_REFERENCE,					\
    TARGET_EXPAND_BUILTIN_SAVEREGS,				\
    TARGET_SETUP_INCOMING_VARARGS,				\
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
    TARGET_SPLIT_COMPLEX_ARG,					\
-   TARGET_GIMPLIFY_VA_ARG_EXPR,					\
+   TARGET_MUST_PASS_IN_STACK					\
    }
 
 
@@ -400,10 +400,25 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_GUARD_MASK_BIT hook_bool_void_false
 #endif
 
+#ifndef TARGET_CXX_GET_COOKIE_SIZE
+#define TARGET_CXX_GET_COOKIE_SIZE default_cxx_get_cookie_size
+#endif
+
+#ifndef TARGET_CXX_COOKIE_HAS_SIZE
+#define TARGET_CXX_COOKIE_HAS_SIZE hook_bool_void_false
+#endif
+
+#ifndef TARGET_CXX_IMPORT_EXPORT_CLASS
+#define TARGET_CXX_IMPORT_EXPORT_CLASS NULL
+#endif
+
 #define TARGET_CXX		\
   {				\
     TARGET_CXX_GUARD_TYPE,	\
-    TARGET_CXX_GUARD_MASK_BIT	\
+    TARGET_CXX_GUARD_MASK_BIT,	\
+    TARGET_CXX_GET_COOKIE_SIZE,	\
+    TARGET_CXX_COOKIE_HAS_SIZE,	\
+    TARGET_CXX_IMPORT_EXPORT_CLASS	\
   }
 
 /* The whole shebang.  */
@@ -445,6 +460,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
+  TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
   TARGET_DEFAULT_SHORT_ENUMS,			\
@@ -461,6 +477,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
   TARGET_HANDLE_PRAGMA_REDEFINE_EXTNAME,	\
   TARGET_HANDLE_PRAGMA_EXTERN_PREFIX,		\
+  TARGET_LATE_RTL_PROLOGUE_EPILOGUE,		\
 }
 
 #include "hooks.h"

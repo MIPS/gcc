@@ -88,7 +88,7 @@ static GTY(()) bool sdbout_initialized;
 /* 1 if PARM is passed to this function in memory.  */
 
 #define PARM_PASSED_IN_MEMORY(PARM) \
- (GET_CODE (DECL_INCOMING_RTL (PARM)) == MEM)
+ (MEM_P (DECL_INCOMING_RTL (PARM)))
 
 /* A C expression for the integer offset value of an automatic variable
    (C_AUTO) having address X (an RTX).  */
@@ -732,7 +732,7 @@ sdbout_symbol (tree decl, int local)
 	 a DECL_INITIAL value of 0.  */
       if (! DECL_INITIAL (decl))
 	return;
-      if (GET_CODE (DECL_RTL (decl)) != MEM
+      if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	return;
       PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
@@ -811,7 +811,7 @@ sdbout_symbol (tree decl, int local)
       /* Don't output anything if an auto variable
 	 gets RTL that is static.
 	 GAS version 2.2 can't handle such output.  */
-      else if (GET_CODE (value) == MEM && CONSTANT_P (XEXP (value, 0))
+      else if (MEM_P (value) && CONSTANT_P (XEXP (value, 0))
 	       && ! TREE_STATIC (decl))
 	return;
 
@@ -830,7 +830,7 @@ sdbout_symbol (tree decl, int local)
 
       /* Defer SDB information for top-level initialized variables! */
       if (! local
-	  && GET_CODE (value) == MEM
+	  && MEM_P (value)
 	  && DECL_INITIAL (decl))
 	return;
 
@@ -845,7 +845,7 @@ sdbout_symbol (tree decl, int local)
       else
 	name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-      if (GET_CODE (value) == MEM
+      if (MEM_P (value)
 	  && GET_CODE (XEXP (value, 0)) == SYMBOL_REF)
 	{
 	  PUT_SDB_DEF (name);
@@ -866,8 +866,8 @@ sdbout_symbol (tree decl, int local)
 	  PUT_SDB_INT_VAL (DBX_REGISTER_NUMBER (regno));
 	  PUT_SDB_SCL (C_REG);
 	}
-      else if (GET_CODE (value) == MEM
-	       && (GET_CODE (XEXP (value, 0)) == MEM
+      else if (MEM_P (value)
+	       && (MEM_P (XEXP (value, 0))
 		   || (REG_P (XEXP (value, 0))
 		       && REGNO (XEXP (value, 0)) != HARD_FRAME_POINTER_REGNUM
 		       && REGNO (XEXP (value, 0)) != STACK_POINTER_REGNUM)))
@@ -901,7 +901,7 @@ sdbout_symbol (tree decl, int local)
 	  type = make_node (POINTER_TYPE);
 	  TREE_TYPE (type) = TREE_TYPE (decl);
 	}
-      else if (GET_CODE (value) == MEM
+      else if (MEM_P (value)
 	       && ((GET_CODE (XEXP (value, 0)) == PLUS
 		    && REG_P (XEXP (XEXP (value, 0), 0))
 		    && GET_CODE (XEXP (XEXP (value, 0), 1)) == CONST_INT)
@@ -943,7 +943,7 @@ sdbout_toplevel_data (tree decl)
     return;
 
   if (! (TREE_CODE (decl) == VAR_DECL
-	 && GET_CODE (DECL_RTL (decl)) == MEM
+	 && MEM_P (DECL_RTL (decl))
 	 && DECL_INITIAL (decl)))
     abort ();
 
@@ -1109,7 +1109,6 @@ sdbout_one_type (tree type)
 	int size = int_size_in_bytes (type);
 	int member_scl = 0;
 	tree tem;
-	int i, n_baseclasses = 0;
 
 	/* Record the type tag, but not in its permanent place just yet.  */
 	sdbout_record_type_name (type);
@@ -1149,17 +1148,17 @@ sdbout_one_type (tree type)
 	/* This is only relevant to aggregate types.  TYPE_BINFO is used
 	   for other purposes in an ENUMERAL_TYPE, so we must exclude that
 	   case.  */
-	if (TREE_CODE (type) != ENUMERAL_TYPE)
+	if (TREE_CODE (type) != ENUMERAL_TYPE && TYPE_BINFO (type))
 	  {
-	    if (TYPE_BINFO (type)
-		&& TYPE_BINFO_BASETYPES (type))
-	      n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
-	    for (i = 0; i < n_baseclasses; i++)
+	    int i;
+	    tree binfo, child;
+
+	    for (binfo = TYPE_BINFO (type), i = 0;
+		 BINFO_BASE_ITERATE (binfo, i, child); i++)
 	      {
-		tree child = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (type)),
-					   i);
 		tree child_type = BINFO_TYPE (child);
 		tree child_type_name;
+		
 		if (TYPE_NAME (child_type) == 0)
 		  continue;
 		if (TREE_CODE (TYPE_NAME (child_type)) == IDENTIFIER_NODE)
@@ -1310,7 +1309,7 @@ sdbout_parms (tree parms)
 		    (GET_MODE_SIZE (TYPE_MODE (DECL_ARG_TYPE (parms)))
 		     - GET_MODE_SIZE (GET_MODE (DECL_RTL (parms))));
 
-		if (GET_CODE (DECL_RTL (parms)) == MEM
+		if (MEM_P (DECL_RTL (parms))
 		    && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		    && (GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1))
 			== CONST_INT)
@@ -1352,7 +1351,7 @@ sdbout_parms (tree parms)
 	    PUT_SDB_TYPE (plain_type (TREE_TYPE (parms)));
 	    PUT_SDB_ENDEF;
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && XEXP (DECL_RTL (parms), 0) != const0_rtx)
 	  {
 	    /* Parm was passed in registers but lives on the stack.  */
@@ -1362,7 +1361,7 @@ sdbout_parms (tree parms)
 	       or (MEM (REG ...)) or (MEM (MEM ...)),
 	       in which case we use a value of zero.  */
 	    if (REG_P (XEXP (DECL_RTL (parms), 0))
-		|| GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+		|| MEM_P (XEXP (DECL_RTL (parms), 0)))
 	      current_sym_value = 0;
 	    else
 	      current_sym_value = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
@@ -1412,7 +1411,7 @@ sdbout_reg_parms (tree parms)
 	    PUT_SDB_ENDEF;
 	  }
 	/* Report parms that live in memory but not where they were passed.  */
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		 && GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1)) == CONST_INT
 		 && PARM_PASSED_IN_MEMORY (parms)
@@ -1464,7 +1463,7 @@ sdbout_global_decl (tree decl)
 
       /* Output COFF information for non-global file-scope initialized
 	 variables.  */
-      if (DECL_INITIAL (decl) && GET_CODE (DECL_RTL (decl)) == MEM)
+      if (DECL_INITIAL (decl) && MEM_P (DECL_RTL (decl)))
 	sdbout_toplevel_data (decl);
     }
 }

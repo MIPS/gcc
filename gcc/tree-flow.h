@@ -38,6 +38,42 @@ typedef struct basic_block_def *basic_block;
 #endif
 
 /*---------------------------------------------------------------------------
+		      Attributes for SSA_NAMEs.
+  
+  NOTE: These structures are stored in struct tree_ssa_name
+  but are only used by the tree optimizers, so it makes better sense
+  to declare them here to avoid recompiling unrelated files when
+  making changes.
+---------------------------------------------------------------------------*/
+
+/* Aliasing information for SSA_NAMEs representing pointer variables.  */
+struct ptr_info_def GTY(())
+{
+  /* Nonzero if points-to analysis couldn't determine where this pointer
+     is pointing to.  */
+  unsigned int pt_anything : 1;
+
+  /* Nonzero if this pointer is the result of a call to malloc.  */
+  unsigned int pt_malloc : 1;
+
+  /* Nonzero if the value of this pointer escapes the current function.  */
+  unsigned int value_escapes_p : 1;
+
+  /* Nonzero if this pointer is dereferenced.  */
+  unsigned int is_dereferenced : 1;
+
+  /* Set of variables that this pointer may point to.  */
+  bitmap pt_vars;
+
+  /* If this pointer has been dereferenced, and points-to information is
+     more precise than type-based aliasing, indirect references to this
+     pointer will be represented by this memory tag, instead of the type
+     tag computed by TBAA.  */
+  tree name_mem_tag;
+};
+
+
+/*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
 enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, STMT_ANN };
@@ -46,6 +82,10 @@ struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+
+ /* Auxiliary info specific to a pass.  At all times, this
+    should either point to valid data or be NULL.  */
+  PTR GTY ((skip (""))) aux;
 
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
@@ -97,17 +137,6 @@ enum mem_tag_kind {
 struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
-
-  /* Nonzero if this variable has uses which may not appear
-     in the IL.  This can happen in the following cases:
-
-       1. If the variable is used in a variable length
-          array declaration.
-
-	2. If the variable is the return value in a C++
-	   function where the named return value optimization
-	   has been performed.  */
-  unsigned has_hidden_use : 1;
 
   /* Used by the out of SSA pass to determine whether this variable has
      been seen yet or not.  */
@@ -294,11 +323,8 @@ static inline bitmap addresses_taken (tree);
 static inline int num_immediate_uses (dataflow_t);
 static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
-static inline bool has_hidden_use (tree);
-static inline void set_has_hidden_use (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
-static inline bool may_be_aliased (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -319,9 +345,6 @@ struct bb_ann_d GTY(())
   /* Chain of PHI nodes for this block.  */
   tree phi_nodes;
 
-  /* Chain of EPHI nodes created in this block.  */
-  tree ephi_nodes;
-  
   /* Number of predecessors for this block.  This is only valid during
      SSA rewriting.  It is not maintained after conversion into SSA form.  */
   int num_preds;
@@ -364,6 +387,10 @@ extern GTY(()) tree global_var;
 /* Call clobbered variables in the function.  If bit I is set, then
    REFERENCED_VARS (I) is call-clobbered.  */
 extern bitmap call_clobbered_vars;
+
+/* Addressable variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) has had its address taken.  */
+extern bitmap addressable_vars;
 
 /* 'true' after aliases have been computed (see compute_may_aliases).  */
 extern bool aliases_computed_p;
@@ -445,6 +472,8 @@ extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
 extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
+extern void cleanup_dead_labels (void);
+extern void group_case_labels (void);
 extern void cleanup_tree_cfg (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
@@ -464,6 +493,15 @@ extern void compute_dominance_frontiers (bitmap *);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
+extern bool tree_purge_dead_eh_edges (basic_block);
+extern bool tree_purge_all_dead_eh_edges (bitmap);
+extern tree gimplify_val (block_stmt_iterator *, tree, tree);
+extern tree gimplify_build1 (block_stmt_iterator *, enum tree_code,
+			     tree, tree);
+extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree);
+extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -503,7 +541,6 @@ extern tree make_rename_temp (tree, const char *);
 /* In gimple-low.c  */
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
-extern void expand_used_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
@@ -514,6 +551,9 @@ extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern void dump_points_to_info (FILE *);
 extern void debug_points_to_info (void);
+extern void dump_points_to_info_for (FILE *, tree);
+extern void debug_points_to_info_for (tree);
+extern bool may_be_aliased (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -531,16 +571,20 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
-extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, varray_type *);
-extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
+extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
-extern void rewrite_into_ssa (void);
+extern void rewrite_into_ssa (bool);
+extern void rewrite_ssa_into_ssa (bitmap);
+
+void compute_global_livein (bitmap, bitmap);
+tree duplicate_ssa_name (tree, tree);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
@@ -554,14 +598,61 @@ extern void debug_dominator_optimization_stats (void);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
-extern bool cprop_into_stmt (tree, varray_type);
-extern void cprop_into_successor_phis (basic_block, varray_type, bitmap);
+extern bool may_propagate_copy (tree, tree);
+
+/* Description of number of iterations of a loop.  All the expressions inside
+   the structure can be evaluated at the end of the loop's preheader
+   (and due to ssa form, also anywhere inside the body of the loop).  */
+
+struct tree_niter_desc
+{
+  tree assumptions;	/* The boolean expression.  If this expression evalutes
+			   to false, then the other fields in this structure
+			   should not be used; there is no guarantee that they
+			   will be correct.  */
+  tree may_be_zero;	/* The booleand expression.  If it evaluates to true,
+			   the loop will exit in the first iteration (i.e.
+			   its latch will not be executed), even if the niter
+			   field says otherwise.  */
+  tree niter;		/* The expression giving the number of iterations of
+			   a loop (provided that assumptions == true and
+			   may_be_zero == false), more precisely the number
+			   of executions of the latch of the loop.  */
+  tree additional_info;	/* The boolean expression.  Sometimes we use additional
+			   knowledge to simplify the other expressions
+			   contained in this structure (for example the
+			   knowledge about value ranges of operands on entry to
+			   the loop).  If this is a case, conjunction of such
+			   condition is stored in this field, so that we do not
+			   lose the information: for example if may_be_zero
+			   is (n <= 0) and niter is (unsigned) n, we know
+			   that the number of iterations is at most
+			   MAX_SIGNED_INT.  However if the (n <= 0) assumption
+			   is eliminated (by looking at the guard on entry of
+			   the loop), then the information would be lost.  */
+};
+
+/* In tree-ssa-loop*.c  */
+
+void tree_ssa_lim (struct loops *);
+
+void number_of_iterations_cond (tree, tree, tree, enum tree_code, tree, tree,
+				struct tree_niter_desc *);
+bool number_of_iterations_exit (struct loop *, edge,
+				struct tree_niter_desc *niter);
+tree loop_niter_by_eval (struct loop *, edge);
+tree find_loop_niter_by_eval (struct loop *, edge *);
+void estimate_numbers_of_iterations (struct loops *);
+tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
+void free_numbers_of_iterations_estimates (struct loops *);
+void loop_commit_inserts (void);
+bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 
 /* In tree-flow-inline.h  */
 static inline int phi_arg_from_edge (tree, edge);
-static inline bool may_propagate_copy (tree, tree);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
+static inline void set_is_used (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);
@@ -569,7 +660,10 @@ extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
 extern bool tree_can_throw_internal (tree);
 extern bool tree_can_throw_external (tree);
+extern int lookup_stmt_eh_region (tree);
 extern void add_stmt_to_eh_region (tree, int);
+extern bool remove_stmt_from_eh_region (tree);
+extern bool maybe_clean_eh_stmt (tree);
 
 /* In tree-ssa-pre.c  */
 void add_to_value (tree, tree);
@@ -578,12 +672,12 @@ void print_value_expressions (FILE *, tree);
 
 
 /* In tree-vn.c  */
-bool expressions_equal_p (tree e1, tree e2);
+bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t);
-tree vn_lookup_or_add (tree);
-void vn_add (tree, tree);
-tree vn_lookup (tree);
+hashval_t vn_compute (tree, hashval_t, vuse_optype);
+tree vn_lookup_or_add (tree, vuse_optype);
+void vn_add (tree, tree, vuse_optype);
+tree vn_lookup (tree, vuse_optype);
 void vn_init (void);
 void vn_delete (void);
 

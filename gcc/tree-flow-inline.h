@@ -97,24 +97,6 @@ may_aliases (tree var)
   return ann ? ann->may_aliases : NULL;
 }
 
-/* Return true if VAR has a hidden use, false if it does not.  */
-static inline bool
-has_hidden_use (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->has_hidden_use : false;
-}
-
-/* Set the hidden use flag on VAR.  */ 
-static inline void
-set_has_hidden_use (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->has_hidden_use = 1;
-}
-
 /* Return the line number for EXPR, or return -1 if we have no line
    number information for it.  */
 static inline int
@@ -126,7 +108,7 @@ get_lineno (tree expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (! EXPR_LOCUS (expr))
+  if (! EXPR_HAS_LOCATION (expr))
     return -1;
 
   return EXPR_LINENO (expr);
@@ -137,14 +119,15 @@ get_lineno (tree expr)
 static inline const char *
 get_filename (tree expr)
 {
+  const char *filename;
   if (expr == NULL_TREE)
     return "???";
 
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (EXPR_LOCUS (expr) && EXPR_FILENAME (expr))
-    return EXPR_FILENAME (expr);
+  if (EXPR_HAS_LOCATION (expr) && (filename = EXPR_FILENAME (expr)))
+    return filename;
   else
     return "???";
 }
@@ -438,6 +421,16 @@ phi_arg_from_edge (tree phi, edge e)
   return -1;
 }
 
+/* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
+
+static inline void
+set_is_used (tree var)
+{
+  var_ann_t ann = get_var_ann (var);
+  ann->used = 1;
+}
+
+
 /*  -----------------------------------------------------------------------  */
 
 /* Return true if T is an executable statement.  */
@@ -466,94 +459,11 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Return true if we may propagate ORIG into DEST, false otherwise.  */
-static inline bool
-may_propagate_copy (tree dest, tree orig)
-{
-  /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
-     pointers that have different alias sets.  This means that these
-     pointers will have different memory tags associated to them.
-     
-     If we allow copy propagation in these cases, statements de-referencing
-     the new pointer will now have a reference to a different memory tag
-     with potentially incorrect SSA information.
-
-     This was showing up in libjava/java/util/zip/ZipFile.java with code
-     like:
-
-     	struct java.io.BufferedInputStream *T.660;
-	struct java.io.BufferedInputStream *T.647;
-	struct java.io.InputStream *is;
-	struct java.io.InputStream *is.662;
-	[ ... ]
-	T.660 = T.647;
-	is = T.660;	<-- This ought to be type-casted
-	is.662 = is;
-
-     Also, f/name.c exposed a similar problem with a COND_EXPR predicate
-     that was causing DOM to generate and equivalence with two pointers of
-     alias-incompatible types:
-
-     	struct _ffename_space *n;
-	struct _ffename *ns;
-	[ ... ]
-	if (n == ns)
-	  goto lab;
-	...
-	lab:
-	return n;
-
-     I think that GIMPLE should emit the appropriate type-casts.  For the
-     time being, blocking copy-propagation in these cases is the safe thing
-     to do.  */
-  if (TREE_CODE (dest) == SSA_NAME
-      && TREE_CODE (orig) == SSA_NAME
-      && POINTER_TYPE_P (TREE_TYPE (dest))
-      && POINTER_TYPE_P (TREE_TYPE (orig)))
-    {
-      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->type_mem_tag;
-      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->type_mem_tag;
-      if (mt_dest && mt_orig && mt_dest != mt_orig)
-	return false;
-    }
-
-  /* If the destination is a SSA_NAME for a virtual operand, then we have
-     some special cases to handle.  */
-  if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
-    {
-      /* If both operands are SSA_NAMEs referring to virtual operands, then
-	 we can always propagate.  */
-      if (TREE_CODE (orig) == SSA_NAME)
-	{
-	  if (!is_gimple_reg (orig))
-	    return true;
-
-#ifdef ENABLE_CHECKING
-	  /* If we have one real and one virtual operand, then something has
-	     gone terribly wrong.  */
-	  if (is_gimple_reg (orig))
-	    abort ();
-#endif
-	}
-
-      /* We have a "copy" from something like a constant into a virtual
-	 operand.  Reject these.  */
-      return false;
-    }
-
-  return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
-	  && (TREE_CODE (orig) != SSA_NAME
-	      || !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
-	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
-}
-
 /* Set the default definition for VAR to DEF.  */
 static inline void
 set_default_def (tree var, tree def)
 {
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
+  var_ann_t ann = get_var_ann (var);
   ann->default_def = def;
 }
 
@@ -713,12 +623,16 @@ bsi_stmt_ptr (block_stmt_iterator i)
   return tsi_stmt_ptr (i.tsi);
 }
 
-/* Return true if VAR may be aliased.  */
-static inline bool
-may_be_aliased (tree var)
+/* Returns the loop of the statement STMT.  */
+
+static inline struct loop *
+loop_containing_stmt (tree stmt)
 {
-  return (TREE_ADDRESSABLE (var)
-          || decl_function_context (var) != current_function_decl);
+  basic_block bb = bb_for_stmt (stmt);
+  if (!bb)
+    return NULL;
+
+  return bb->loop_father;
 }
 
 /* Return true if VAR is a clobbered by function calls.  */

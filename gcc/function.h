@@ -40,7 +40,6 @@ struct sequence_stack GTY(())
   /* First and last insns in the chain of the saved sequence.  */
   rtx first;
   rtx last;
-  tree sequence_rtl_expr;
   struct sequence_stack *next;
 };
 
@@ -66,15 +65,10 @@ struct emit_status GTY(())
   /* The ends of the doubly-linked chain of rtl for the current function.
      Both are reset to null at the start of rtl generation for the function.
 
-     start_sequence saves both of these on `sequence_stack' along with
-     `sequence_rtl_expr' and then starts a new, nested sequence of insns.  */
+     start_sequence saves both of these on `sequence_stack' and then starts
+     a new, nested sequence of insns.  */
   rtx x_first_insn;
   rtx x_last_insn;
-
-  /* RTL_EXPR within which the current sequence will be placed.  Use to
-     prevent reuse of any temporaries within the sequence until after the
-     RTL_EXPR is emitted.  */
-  tree sequence_rtl_expr;
 
   /* Stack of pending (incomplete) sequences saved by `start_sequence'.
      Each element describes one pending sequence.
@@ -103,16 +97,12 @@ struct emit_status GTY(())
     regno_pointer_align;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
-     Allocated in parallel with regno_pointer_align.
-
-     Note MEM expressions can appear in this array due to the actions
-     of put_var_into_stack.  */
+     Allocated in parallel with regno_pointer_align.  */
   rtx * GTY ((length ("%h.x_reg_rtx_no"))) x_regno_reg_rtx;
 };
 
 /* For backward compatibility... eventually these should all go away.  */
 #define reg_rtx_no (cfun->emit->x_reg_rtx_no)
-#define seq_rtl_expr (cfun->emit->sequence_rtl_expr)
 #define regno_reg_rtx (cfun->emit->x_regno_reg_rtx)
 #define seq_stack (cfun->emit->sequence_stack)
 
@@ -157,9 +147,6 @@ struct expr_status GTY(())
 
   /* List of labels that must never be deleted.  */
   rtx x_forced_labels;
-
-  /* Postincrements that still need to be expanded.  */
-  rtx x_pending_chain;
 };
 
 #define pending_stack_adjust (cfun->expr->x_pending_stack_adjust)
@@ -167,7 +154,6 @@ struct expr_status GTY(())
 #define saveregs_value (cfun->expr->x_saveregs_value)
 #define apply_args_value (cfun->expr->x_apply_args_value)
 #define forced_labels (cfun->expr->x_forced_labels)
-#define pending_chain (cfun->expr->x_pending_chain)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
 
 /* This structure can save all the important global and static variables
@@ -187,6 +173,7 @@ struct function GTY(())
      inlining */
   tree saved_tree;
   tree saved_args;
+  tree saved_static_chain_decl;
 
   /* For function.c.  */
 
@@ -236,18 +223,9 @@ struct function GTY(())
      has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
 
-  /* Number of function calls seen so far in current function.  */
-  int x_function_call_count;
-
   /* List (chain of EXPR_LIST) of labels heading the current handlers for
      nonlocal gotos.  */
   rtx x_nonlocal_goto_handler_labels;
-
-  /* Label that will go on parm cleanup code, if any.
-     Jumping to this label runs cleanup code for parameters, if
-     such code must be run.  Following this code is the logical return
-     label.  */
-  rtx x_cleanup_label;
 
   /* Label that will go on function epilogue.
      Jumping to this label serves as a "return" instruction
@@ -259,16 +237,9 @@ struct function GTY(())
      on machines which require execution of the epilogue on all returns.  */
   rtx x_naked_return_label;
 
-  /* List (chain of EXPR_LISTs) of pseudo-regs of SAVE_EXPRs.
-     So we can mark them all live at the end of the function, if nonopt.  */
-  rtx x_save_expr_regs;
-
   /* List (chain of EXPR_LISTs) of all stack slots in this function.
      Made for the sake of unshare_all_rtl.  */
   rtx x_stack_slot_list;
-
-  /* Chain of all RTL_EXPRs that have insns in them.  */
-  tree x_rtl_expr_chain;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
   rtx x_tail_recursion_reentry;
@@ -284,7 +255,7 @@ struct function GTY(())
      If stack grows up, this is the address for the next slot.  */
   HOST_WIDE_INT x_frame_offset;
 
-  /* A VAR_DECL that should contain the static chain for this function.
+  /* A PARM_DECL that should contain the static chain for this function.
      It will be initialized at the beginning of the function.  */
   tree static_chain_decl;
 
@@ -295,20 +266,6 @@ struct function GTY(())
 
   /* Insn after which register parms and SAVE_EXPRs are born, if nonopt.  */
   rtx x_parm_birth_insn;
-
-  /* Last insn of those whose job was to put parms into their nominal
-     homes.  */
-  rtx x_last_parm_insn;
-
-  /* 1 + last pseudo register number possibly used for loading a copy
-     of a parameter of this function.  */
-  unsigned int x_max_parm_reg;
-
-  /* Vector indexed by REGNO, containing location on stack in which
-     to put the parm which is nominally in pseudo register REGNO,
-     if we discover that that parm must go in the stack.  The highest
-     element in this vector is one less than MAX_PARM_REG, above.  */
-  rtx * GTY ((length ("%h.x_max_parm_reg"))) x_parm_reg_stack_loc;
 
   /* List of all used temporaries allocated, by level.  */
   struct varray_head_tag * GTY((param_is (struct temp_slot))) x_used_temp_slots;
@@ -337,9 +294,6 @@ struct function GTY(())
   int no_debugging_symbols;
   rtvec original_arg_vector;
   tree original_decl_initial;
-  /* Last insn of those whose job was to put parms into their nominal
-     homes.  */
-  rtx inl_last_parm_insn;
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
@@ -351,9 +305,9 @@ struct function GTY(())
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
   /* The largest alignment of slot allocated on the stack.  */
-  int stack_alignment_needed;
+  unsigned int stack_alignment_needed;
   /* Preferred alignment of the end of stack frame.  */
-  int preferred_stack_boundary;
+  unsigned int preferred_stack_boundary;
   /* Set when the call to function itself has been emit.  */
   bool recursive_call_emit;
   /* Set when the tail call has been produced.  */
@@ -367,10 +321,6 @@ struct function GTY(())
   /* If some insns can be deferred to the delay slots of the epilogue, the
      delay list for them is recorded here.  */
   rtx epilogue_delay_list;
-
-  /* Nonzero if NOTE_INSN_BLOCK_BEG / NOTE_INSN_BLOCK_END notes should not
-     be emitted.  */
-  unsigned int dont_emit_block_notes : 1;
 
   /* How commonly executed the function is.  Initialized during branch
      probabilities pass.  */
@@ -468,12 +418,6 @@ struct function GTY(())
   /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
 
-  /* Nonzero if this function is being processed in function-at-a-time
-     mode.  In other words, if all tree structure for this function,
-     including the BLOCK tree, is created before RTL generation
-     commences.  */
-  unsigned int x_whole_function_mode_p : 1;
-
   /* Nonzero if the back-end should not keep track of expressions that
      determine the size of variable-sized objects.  Normally, such
      expressions are saved away, and then expanded when the next
@@ -538,20 +482,13 @@ extern int trampolines_created;
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
 
-#define max_parm_reg (cfun->x_max_parm_reg)
-#define parm_reg_stack_loc (cfun->x_parm_reg_stack_loc)
-#define cleanup_label (cfun->x_cleanup_label)
 #define return_label (cfun->x_return_label)
 #define naked_return_label (cfun->x_naked_return_label)
-#define save_expr_regs (cfun->x_save_expr_regs)
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
 #define frame_offset (cfun->x_frame_offset)
 #define tail_recursion_reentry (cfun->x_tail_recursion_reentry)
 #define arg_pointer_save_area (cfun->x_arg_pointer_save_area)
-#define rtl_expr_chain (cfun->x_rtl_expr_chain)
-#define last_parm_insn (cfun->x_last_parm_insn)
-#define function_call_count (cfun->x_function_call_count)
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
@@ -563,9 +500,6 @@ extern int trampolines_created;
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
 struct function *find_function_data (tree);
-
-/* Set NOTE_BLOCK for each block note in the current function.  */
-extern void identify_blocks (void);
 
 /* Identify BLOCKs referenced by more than one NOTE_INSN_BLOCK_{BEG,END},
    and create duplicate blocks.  */
@@ -618,5 +552,8 @@ extern const char *current_function_name (void);
 extern void init_function_once (void);
 
 extern void do_warn_unused_parameter (tree);
+
+extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+			       tree, bool);
 
 #endif  /* GCC_FUNCTION_H */

@@ -303,6 +303,10 @@ extern char *getenv (const char *);
 extern int getopt (int, char * const *, const char *);
 #endif
 
+#if defined(HAVE_DECL_GETPAGESIZE) && !HAVE_DECL_GETPAGESIZE
+extern long getpagesize (void);
+#endif
+
 #if defined (HAVE_DECL_GETWD) && !HAVE_DECL_GETWD
 extern char *getwd (char *);
 #endif
@@ -501,18 +505,28 @@ extern int snprintf (char *, size_t, const char *, ...);
    and even if it is, it is liable to be buggy.  
    This must be after all inclusion of system headers, as some of
    them will mess us up.  */
-#undef bool
-#undef true
-#undef false
+
 #undef TRUE
 #undef FALSE
 
-#define bool unsigned char
-#define true 1
-#define false 0
+#ifdef __cplusplus
+  /* Obsolete.  */
+# define TRUE true
+# define FALSE false
+#else /* !__cplusplus */
+# undef bool
+# undef true
+# undef false
 
-#define TRUE true
-#define FALSE false
+# define bool unsigned char
+# define true 1
+# define false 0
+
+  /* Obsolete.  */
+# define TRUE true
+# define FALSE false
+#endif /* !__cplusplus */
+
 
 /* Some compilers do not allow the use of unsigned char in bitfields.  */
 #define BOOL_BITFIELD unsigned int
@@ -580,7 +594,8 @@ extern int snprintf (char *, size_t, const char *, ...);
 	PROMOTE_FUNCTION_RETURN PROMOTE_PROTOTYPES STRUCT_VALUE_REGNUM	\
 	SETUP_INCOMING_VARARGS EXPAND_BUILTIN_SAVEREGS			\
 	DEFAULT_SHORT_ENUMS SPLIT_COMPLEX_ARGS MD_ASM_CLOBBERS		\
-	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX
+	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
+	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -618,11 +633,15 @@ extern int snprintf (char *, size_t, const char *, ...);
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
 	SUNOS4_SHARED_LIBRARIES PROMOTE_FOR_CALL_ONLY			   \
 	SPACE_AFTER_L_OPTION NO_RECURSIVE_FUNCTION_CSE			   \
-	DEFAULT_MAIN_RETURN
+	DEFAULT_MAIN_RETURN TARGET_MEM_FUNCTIONS EXPAND_BUILTIN_VA_ARG
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
-	LANG_HOOKS_MARK_TREE LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+	LANG_HOOKS_MARK_TREE LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES \
+	LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
+	LANG_HOOKS_PUSHLEVEL LANG_HOOKS_SET_BLOCK \
+	LANG_HOOKS_MAYBE_BUILD_CLEANUP LANG_HOOKS_UPDATE_DECL_AFTER_SAVING \
+	LANG_HOOKS_POPLEVEL
 
 /* Libiberty macros that are no longer used in GCC.  */
 #undef ANSI_PROTOTYPES

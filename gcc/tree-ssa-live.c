@@ -285,6 +285,34 @@ change_partition_var (var_map map, tree var, int part)
 }
 
 
+/* Helper function for mark_all_vars_used, called via walk_tree.  */
+
+static tree
+mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
+		      void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  /* Only need to mark VAR_DECLS; parameters and return results are not
+     eliminated as unused.  */
+  if (TREE_CODE (t) == VAR_DECL)
+    set_is_used (t);
+
+  if (DECL_P (t) || TYPE_P (t))
+    *walk_subtrees = 0;
+
+  return NULL;
+}
+
+/* Mark all VAR_DECLS under *EXPR_P as used, so that they won't be 
+   eliminated during the tree->rtl conversion process.  */
+
+static inline void
+mark_all_vars_used (tree *expr_p)
+{
+  walk_tree (expr_p, mark_all_vars_used_1, NULL, NULL);
+}
+
 /* This function looks through the program and uses FLAGS to determine what 
    SSA versioned variables are given entries in a new partition table.  This
    new partition map is returned.  */
@@ -297,21 +325,21 @@ create_ssa_var_map (int flags)
   tree dest, use;
   tree stmt;
   stmt_ann_t ann;
-  vuse_optype vuses;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
   use_optype uses;
   def_optype defs;
   unsigned x;
   var_map map;
-#if defined ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   sbitmap used_in_real_ops;
   sbitmap used_in_virtual_ops;
+  vuse_optype vuses;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
 #endif
 
   map = init_var_map (num_ssa_names + 1);
 
-#if defined ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
   used_in_real_ops = sbitmap_alloc (num_referenced_vars);
   sbitmap_zero (used_in_real_ops);
 
@@ -338,6 +366,8 @@ create_ssa_var_map (int flags)
 	      arg = PHI_ARG_DEF (phi, i);
 	      if (TREE_CODE (arg) == SSA_NAME)
 		register_ssa_partition (map, arg, true);
+
+	      mark_all_vars_used (&PHI_ARG_DEF_TREE (phi, i));
 	    }
 	}
 
@@ -354,7 +384,7 @@ create_ssa_var_map (int flags)
 	      use = USE_OP (uses, x);
 	      register_ssa_partition (map, use, true);
 
-#if defined ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (use))->uid);
 #endif
 	    }
@@ -365,45 +395,36 @@ create_ssa_var_map (int flags)
 	      dest = DEF_OP (defs, x);
 	      register_ssa_partition (map, dest, false);
 
-#if defined ENABLE_CHECKING
+#ifdef ENABLE_CHECKING
 	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (dest))->uid);
 #endif
 	    }
 
-	  /* While we do not care about virtual operands for
-	     out of SSA, we do need to look at them to make sure
-	     we mark all the variables which are used.  */
+#ifdef ENABLE_CHECKING
+	  /* Validate that virtual ops don't get used in funny ways.  */
 	  vuses = VUSE_OPS (ann);
 	  for (x = 0; x < NUM_VUSES (vuses); x++)
 	    {
 	      tree var = VUSE_OP (vuses, x);
-	      set_is_used (var);
-
-#if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
-#endif
 	    }
 
 	  v_may_defs = V_MAY_DEF_OPS (ann);
 	  for (x = 0; x < NUM_V_MAY_DEFS (v_may_defs); x++)
 	    {
 	      tree var = V_MAY_DEF_OP (v_may_defs, x);
-	      set_is_used (var);
-
-#if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
-#endif
 	    }
 	    
 	  v_must_defs = V_MUST_DEF_OPS (ann);
 	  for (x = 0; x < NUM_V_MUST_DEFS (v_must_defs); x++)
 	    {
 	      tree var = V_MUST_DEF_OP (v_must_defs, x);
-	      set_is_used (var);
-#if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
-#endif
 	    }	    
+#endif /* ENABLE_CHECKING */
+
+	  mark_all_vars_used (bsi_stmt_ptr (bsi));
 	}
     }
 

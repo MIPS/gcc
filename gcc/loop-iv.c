@@ -1371,7 +1371,7 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
     ret = true;
 
   note_stores (PATTERN (insn), mark_altered, altered);
-  if (GET_CODE (insn) == CALL_INSN)
+  if (CALL_P (insn))
     {
       int i;
 
@@ -1737,9 +1737,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
       insn = BB_END (e->src);
       if (any_condjump_p (insn))
 	{
-	  /* FIXME -- slightly wrong -- what if compared register
-	     gets altered between start of the condition and insn?  */
-	  rtx cond = get_condition (BB_END (e->src), NULL, false);
+	  rtx cond = get_condition (BB_END (e->src), NULL, false, true);
       
 	  if (cond && (e->flags & EDGE_FALLTHRU))
 	    cond = reversed_condition (cond);
@@ -1967,6 +1965,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
   unsigned HOST_WIDEST_INT s, size, d, inv;
   HOST_WIDEST_INT up, down, inc;
   int was_sharp = false;
+  rtx old_niter;
 
   /* The meaning of these assumptions is this:
      if !assumptions
@@ -2366,6 +2365,8 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       desc->niter_expr = delta;
     }
 
+  old_niter = desc->niter_expr;
+
   simplify_using_initial_values (loop, AND, &desc->assumptions);
   if (desc->assumptions
       && XEXP (desc->assumptions, 0) == const0_rtx)
@@ -2408,8 +2409,19 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       desc->const_iter = true;
       desc->niter_max = desc->niter = val & GET_MODE_MASK (desc->mode);
     }
-  else if (!desc->niter_max)
-    desc->niter_max = determine_max_iter (desc);
+  else
+    {
+      if (!desc->niter_max)
+	desc->niter_max = determine_max_iter (desc);
+
+      /* simplify_using_initial_values does a copy propagation on the registers
+	 in the expression for the number of iterations.  This prolongs life
+	 ranges of registers and increases register pressure, and usually
+	 brings no gain (and if it happens to do, the cse pass will take care
+	 of it anyway).  So prevent this behavior, unless it enabled us to
+	 derive that the number of iterations is a constant.  */
+      desc->niter_expr = old_niter;
+    }
 
   return;
 
@@ -2458,7 +2470,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   desc->in_edge = ei;
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (BB_END (ei->src), &at, false)))
+  if (!(condition = get_condition (BB_END (ei->src), &at, false, false)))
     return;
 
   if (ei->flags & EDGE_FALLTHRU)

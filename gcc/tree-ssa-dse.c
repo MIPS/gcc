@@ -244,10 +244,11 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
   if (NUM_V_MAY_DEFS (v_may_defs) == 0)
     return;
 
-  /* We know we have virtual definitions.  If this is a MODIFY_EXPR, then
-     record it into our table.  */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && TREE_CODE (TREE_OPERAND (stmt, 1)) != CALL_EXPR)
+  /* We know we have virtual definitions.  If this is a MODIFY_EXPR that's
+     not also a function call, then record it into our table.  */
+  if (get_call_expr_in (stmt))
+    return;
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       dataflow_t df = get_immediate_uses (stmt);
       unsigned int num_uses = num_immediate_uses (df);
@@ -436,7 +437,8 @@ struct tree_opt_pass pass_dse = {
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_DSE,			/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
+  PROP_cfg | PROP_ssa
+    | PROP_alias,		/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */

@@ -141,6 +141,7 @@ static tree create_memory_tag (tree type, bool is_type_tag);
 static tree get_tmt_for (tree, struct alias_info *);
 static tree get_nmt_for (tree);
 static void add_may_alias (tree, tree);
+static void replace_may_alias (tree, size_t, tree);
 static struct alias_info *init_alias_info (void);
 static void delete_alias_info (struct alias_info *);
 static void compute_points_to_and_addr_escape (struct alias_info *);
@@ -156,6 +157,8 @@ static bool ptr_is_dereferenced_by (tree, tree, bool *);
 static void maybe_create_global_var (struct alias_info *ai);
 static void group_aliases (struct alias_info *);
 static struct ptr_info_def *get_ptr_info (tree t);
+static void set_pt_anything (tree ptr);
+static void set_pt_malloc (tree ptr);
 
 /* Global declarations.  */
 
@@ -163,12 +166,14 @@ static struct ptr_info_def *get_ptr_info (tree t);
    REFERENCED_VARS (I) is call-clobbered.  */
 bitmap call_clobbered_vars;
 
-/* 'true' after aliases have been computed (see compute_may_aliases).  This
-   is used by get_stmt_operands and its helpers to determine what to do
-   when scanning an operand for a variable that may be aliased.  If
-   may-alias information is still not available, the statement is marked as
-   having volatile operands.  */
-bool aliases_computed_p;
+/* Addressable variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) has had its address taken.  Note that
+   CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
+   addressable variable is not necessarily call-clobbered (e.g., a
+   local addressable whose address does not escape) and not all
+   call-clobbered variables are addressable (e.g., a local static
+   variable).  */
+bitmap addressable_vars;
 
 /* When the program has too many call-clobbered variables and call-sites,
    this variable is used to represent the clobbering effects of function
@@ -338,9 +343,6 @@ compute_may_aliases (void)
 
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
-
-  /* Indicate that may-alias information is now available.  */
-  aliases_computed_p = true;
 }
 
 struct tree_opt_pass pass_may_alias = 
@@ -353,7 +355,7 @@ struct tree_opt_pass pass_may_alias =
   0,					/* static_pass_number */
   TV_TREE_MAY_ALIAS,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_pta,	/* properties_required */
-  0,					/* properties_provided */
+  PROP_alias,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_rename_vars
@@ -367,6 +369,7 @@ static struct alias_info *
 init_alias_info (void)
 {
   struct alias_info *ai;
+  static bool aliases_computed_p = false;
 
   ai = xcalloc (1, sizeof (struct alias_info));
   ai->ssa_names_visited = BITMAP_XMALLOC ();
@@ -376,6 +379,68 @@ init_alias_info (void)
   ai->written_vars = BITMAP_XMALLOC ();
   ai->dereferenced_ptrs_store = BITMAP_XMALLOC ();
   ai->dereferenced_ptrs_load = BITMAP_XMALLOC ();
+
+  /* If aliases have been computed before, clear existing information.  */
+  if (aliases_computed_p)
+    {
+      size_t i;
+
+      /* Clear the call-clobbered set.  We are going to re-discover
+	  call-clobbered variables.  */
+      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i,
+	{
+	  tree var = referenced_var (i);
+	  DECL_NEEDS_TO_LIVE_IN_MEMORY_INTERNAL (var) = 0;
+
+	  /* Variables that are intrinsically call-clobbered (globals,
+	     local statics, etc) will not be marked by the aliasing
+	     code, so we can't remove them from CALL_CLOBBERED_VARS.  */
+	  if (!is_call_clobbered (var))
+	    bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
+	});
+
+      /* Similarly, clear the set of addressable variables.  In this
+	 case, we can just clear the set because addressability is
+	 only computed here.  */
+      bitmap_clear (addressable_vars);
+
+      /* Clear flow-insensitive alias information from each symbol.  */
+      for (i = 0; i < num_referenced_vars; i++)
+	{
+	  var_ann_t ann = var_ann (referenced_var (i));
+	  ann->is_alias_tag = 0;
+	  ann->may_aliases = NULL;
+	}
+
+      /* Clear flow-sensitive points-to information from each SSA name.  */
+      for (i = 1; i < num_ssa_names; i++)
+	{
+	  tree name = ssa_name (i);
+
+	  if (!POINTER_TYPE_P (TREE_TYPE (name)))
+	    continue;
+
+	  if (SSA_NAME_PTR_INFO (name))
+	    {
+	      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (name);
+
+	      /* Clear all the flags but keep the name tag to
+		 avoid creating new temporaries unnecessarily.  If
+		 this pointer is found to point to a subset or
+		 superset of its former points-to set, then a new
+		 tag will need to be created in create_name_tags.  */
+	      pi->pt_anything = 0;
+	      pi->pt_malloc = 0;
+	      pi->value_escapes_p = 0;
+	      pi->is_dereferenced = 0;
+	      if (pi->pt_vars)
+		bitmap_clear (pi->pt_vars);
+	    }
+	}
+    }
+
+  /* Next time, we will need to reset alias information.  */
+  aliases_computed_p = true;
 
   return ai;
 }
@@ -428,21 +493,9 @@ collect_points_to_info_for (struct alias_info *ai, tree ptr)
 
   if (!bitmap_bit_p (ai->ssa_names_visited, SSA_NAME_VERSION (ptr)))
     {
-      struct ptr_info_def *pi;
-
       bitmap_set_bit (ai->ssa_names_visited, SSA_NAME_VERSION (ptr));
-      walk_use_def_chains (ptr, collect_points_to_info_r, ai);
-
+      walk_use_def_chains (ptr, collect_points_to_info_r, ai, true);
       VARRAY_PUSH_TREE (ai->processed_ptrs, ptr);
-
-      /* If we could not determine where PTR was pointing to, clear all the
-	 other points-to information.  */
-      pi = SSA_NAME_PTR_INFO (ptr);
-      if (pi->pt_anything)
-	{
-	  pi->pt_malloc = 0;
-	  pi->pt_vars = NULL;
-	}
     }
 }
 
@@ -605,15 +658,12 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	      if (ptr_is_dereferenced_by (op, stmt, &is_store))
 		{
 		  /* If we found OP to point to a set of variables or
-		     malloc, then create a name memory tag for it.  This
-		     gives more precise aliasing information, which helps
-		     the optimizers.
-
-		     FIXME: Cycles in the SSA web and the lack of SSA 
-		     information for structures will prevent the creation
-		     of name tags.  Find ways around this limitation.  */
+		     malloc, then mark it as being dereferenced.  In a
+		     subsequent pass, dereferenced pointers that point
+		     to a set of variables will be assigned a name tag
+		     to alias all the variables OP points to.  */
 		  if (pi->pt_malloc || pi->pt_vars)
-		    pi->name_mem_tag = get_nmt_for (op);
+		    pi->is_dereferenced = 1;
 
 		  /* Keep track of how many time we've dereferenced each
 		     pointer.  Again, we don't need to grow
@@ -641,7 +691,10 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		     that pointer OP will be dereferenced in a store
 		     operation inside the called function.  */
 		  if (get_call_expr_in (stmt))
-		    bitmap_set_bit (ai->dereferenced_ptrs_store, v_ann->uid);
+		    {
+		      bitmap_set_bit (ai->dereferenced_ptrs_store, v_ann->uid);
+		      pi->is_dereferenced = 1;
+		    }
 		}
 	    }
 
@@ -691,6 +744,97 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 }
 
 
+/* Create name tags for all the pointers that have been dereferenced.
+   We only create a name tag for a pointer P if P is found to point to
+   a set of variables (so that we can alias them to *P) or if it is
+   the result of a call to malloc (which means that P cannot point to
+   anything else nor alias any other variable).
+
+   If two pointers P and Q point to the same set of variables, they
+   are assigned the same name tag.  */
+
+static void
+create_name_tags (struct alias_info *ai)
+{
+  size_t i;
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+    {
+      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+
+      if (!pi->is_dereferenced)
+	{
+	  /* No name tags for pointers that have not been
+	     dereferenced.  */
+	  pi->name_mem_tag = NULL_TREE;
+	  continue;
+	}
+
+      if (pi->pt_vars)
+	{
+	  size_t j;
+	  tree old_name_tag = pi->name_mem_tag;
+
+	  /* If PTR points to a set of variables, check if we don't
+	     have another pointer Q with the same points-to set before
+	     creating a tag.  If so, use Q's tag instead of creating a
+	     new one.
+
+	     This is important for not creating unnecessary symbols
+	     and also for copy propagation.  If we ever need to
+	     propagate PTR into Q or vice-versa, we would run into
+	     problems if they both had different name tags because
+	     they would have different SSA version numbers (which
+	     would force us to take the name tags in and out of SSA).  */
+	  for (j = 0; j < i; j++)
+	    {
+	      tree q = VARRAY_TREE (ai->processed_ptrs, j);
+	      struct ptr_info_def *qi = SSA_NAME_PTR_INFO (q);
+
+	      if (qi
+		  && qi->pt_vars
+		  && qi->name_mem_tag
+		  && bitmap_equal_p (pi->pt_vars, qi->pt_vars))
+		{
+		  pi->name_mem_tag = qi->name_mem_tag;
+		  break;
+		}
+	    }
+
+	  /* If we didn't find a pointer with the same points-to set
+	     as PTR, create a new name tag if needed.  */
+	  if (pi->name_mem_tag == NULL_TREE)
+	    pi->name_mem_tag = get_nmt_for (ptr);
+
+	  /* If the new name tag computed for PTR is different than
+	     the old name tag that it used to have, then the old tag
+	     needs to be removed from the IL, so we mark it for
+	     renaming.  */
+	  if (old_name_tag && old_name_tag != pi->name_mem_tag)
+	    bitmap_set_bit (vars_to_rename, var_ann (old_name_tag)->uid);
+	}
+      else if (pi->pt_malloc)
+	{
+	  /* Otherwise, create a unique name tag for this pointer.  */
+	  pi->name_mem_tag = get_nmt_for (ptr);
+	}
+      else
+	{
+	  /* Only pointers that may point to malloc or other variables
+	     may receive a name tag.  If the pointer does not point to
+	     a known spot, we should use type tags.  */
+	  set_pt_anything (ptr);
+	  continue;
+	}
+
+      /* Mark the new name tag for renaming.  */
+      bitmap_set_bit (vars_to_rename, var_ann (pi->name_mem_tag)->uid);
+    }
+}
+
+
+
 /* For every pointer P_i in AI->PROCESSED_PTRS, create may-alias sets for
    the name memory tag (NMT) associated with P_i.  If P_i escapes, then its
    name tag and the variables it points-to are call-clobbered.  Finally, if
@@ -703,6 +847,8 @@ static void
 compute_flow_sensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
+
+  create_name_tags (ai);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
     {
@@ -1076,13 +1222,17 @@ group_aliases (struct alias_info *ai)
 	{
 	  tree alias = VARRAY_TREE (aliases, j);
 	  var_ann_t ann = var_ann (alias);
-	  if (ann->may_aliases)
+
+	  if (ann->mem_tag_kind == NOT_A_TAG && ann->may_aliases)
 	    {
+	      tree new_alias;
+
 #if defined ENABLE_CHECKING
 	      if (VARRAY_ACTIVE_SIZE (ann->may_aliases) != 1)
 		abort ();
 #endif
-	      VARRAY_TREE (aliases, j) = VARRAY_TREE (ann->may_aliases, 0);
+	      new_alias = VARRAY_TREE (ann->may_aliases, 0);
+	      replace_may_alias (name_tag, j, new_alias);
 	    }
 	}
     }
@@ -1106,11 +1256,7 @@ create_alias_map_for (tree var, struct alias_info *ai)
   struct alias_map_d *alias_map;
   alias_map = xcalloc (1, sizeof (*alias_map));
   alias_map->var = var;
-
-  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
-    alias_map->set = get_alias_set (TREE_TYPE (TREE_TYPE (var)));
-  else
-    alias_map->set = get_alias_set (var);
+  alias_map->set = get_alias_set (var);
   ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
 }
 
@@ -1137,12 +1283,10 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
       if (POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  /* Since we don't keep track of volatile variables nor
-	     variables with hidden uses, assume that these pointers
-	     are used in indirect store operations.  */
-	  var_ann_t ann = var_ann (var);
-	  if (TREE_THIS_VOLATILE (var) || ann->has_hidden_use)
-	    bitmap_set_bit (ai->dereferenced_ptrs_store, ann->uid);
+	  /* Since we don't keep track of volatile variables, assume that
+	     these pointers are used in indirect store operations.  */
+	  if (TREE_THIS_VOLATILE (var))
+	    bitmap_set_bit (ai->dereferenced_ptrs_store, var_ann (var)->uid);
 
 	  num_pointers++;
 	}
@@ -1169,10 +1313,10 @@ setup_pointers_and_addressables (struct alias_info *ai)
       tree var = referenced_var (i);
       var_ann_t v_ann = var_ann (var);
 
-      /* Name memory tags already have flow-sensitive aliasing information, so
-	 they need not be processed by compute_may_aliases.  Similarly,
-	 type memory tags are already accounted for when we process their
-	 associated pointer.  */
+      /* Name memory tags already have flow-sensitive aliasing
+	 information, so they need not be processed by
+	 compute_may_aliases.  Similarly, type memory tags are already
+	 accounted for when we process their associated pointer.  */
       if (v_ann->mem_tag_kind != NOT_A_TAG)
 	continue;
 
@@ -1184,17 +1328,25 @@ setup_pointers_and_addressables (struct alias_info *ai)
       if (TREE_ADDRESSABLE (var))
 	{
 	  if (!bitmap_bit_p (ai->addresses_needed, v_ann->uid)
-	      && !v_ann->has_hidden_use
 	      && v_ann->mem_tag_kind == NOT_A_TAG
 	      && !needs_to_live_in_memory (var))
 	    {
-	      /* The address of VAR is not needed, remove the addressable bit,
-	         so that it can be optimized as a regular variable.  */
+	      /* The address of VAR is not needed, remove the
+		 addressable bit, so that it can be optimized as a
+		 regular variable.  */
 	      mark_non_addressable (var);
 
 	      /* Since VAR is now a regular GIMPLE register, we will need
 		 to rename VAR into SSA afterwards.  */
 	      bitmap_set_bit (vars_to_rename, v_ann->uid);
+	    }
+	  else
+	    {
+	      /* Add the variable to the set of addressables.  Mostly
+		 used when scanning operands for ASM_EXPRs that
+		 clobber memory.  In those cases, we need to clobber
+		 all call-clobbered variables and all addressables.  */
+	      bitmap_set_bit (addressable_vars, v_ann->uid);
 	    }
 	}
 
@@ -1208,42 +1360,64 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
       /* Add pointer variables that have been dereferenced to the POINTERS
          array and create a type memory tag for them.  */
-      if (POINTER_TYPE_P (TREE_TYPE (var))
-	  && (bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid)
-	      || bitmap_bit_p (ai->dereferenced_ptrs_load, v_ann->uid)))
+      if (POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  tree tag = v_ann->type_mem_tag;
-	  var_ann_t t_ann;
+	  if ((bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid)
+		|| bitmap_bit_p (ai->dereferenced_ptrs_load, v_ann->uid)))
+	    {
+	      tree tag;
+	      var_ann_t t_ann;
 
-	  /* If pointer VAR still doesn't have a memory tag associated with it,
-	     create it now or re-use an existing one.  */
-	  if (tag == NULL_TREE)
-	    tag = get_tmt_for (var, ai);
-	  t_ann = var_ann (tag);
+	      /* If pointer VAR still doesn't have a memory tag
+		 associated with it, create it now or re-use an
+		 existing one.  */
+	      tag = get_tmt_for (var, ai);
+	      t_ann = var_ann (tag);
 
-	  /* Associate the tag with pointer VAR.  */
-	  v_ann->type_mem_tag = tag;
+	      /* The type tag will need to be renamed into SSA
+		 afterwards. Note that we cannot do this inside
+		 get_tmt_for because aliasing may run multiple times
+		 and we only create type tags the first time.  */
+	      bitmap_set_bit (vars_to_rename, t_ann->uid);
 
-	  /* If pointer VAR has been used in a store operation, then its
-	     memory tag must be marked as written-to.  */
-	  if (bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid))
-	    bitmap_set_bit (ai->written_vars, t_ann->uid);
+	      /* Associate the tag with pointer VAR.  */
+	      v_ann->type_mem_tag = tag;
 
-	  /* If pointer VAR is a global variable or a PARM_DECL, then its
-	     memory tag should be considered a global variable.  */
-	  if (TREE_CODE (var) == PARM_DECL || needs_to_live_in_memory (var))
-	    mark_call_clobbered (tag);
+	      /* If pointer VAR has been used in a store operation,
+		 then its memory tag must be marked as written-to.  */
+	      if (bitmap_bit_p (ai->dereferenced_ptrs_store, v_ann->uid))
+		bitmap_set_bit (ai->written_vars, t_ann->uid);
 
-	  /* All the dereferences of pointer VAR count as references of
-	     TAG.  Since TAG can be associated with several pointers, add
-	     the dereferences of VAR to the TAG.  We may need to grow
-	     AI->NUM_REFERENCES because we have been adding name and
-	     type tags.  */
-	  if (t_ann->uid >= VARRAY_SIZE (ai->num_references))
-	    VARRAY_GROW (ai->num_references, t_ann->uid + 10);
+	      /* If pointer VAR is a global variable or a PARM_DECL,
+		 then its memory tag should be considered a global
+		 variable.  */
+	      if (TREE_CODE (var) == PARM_DECL || needs_to_live_in_memory (var))
+		mark_call_clobbered (tag);
 
-	  VARRAY_UINT (ai->num_references, t_ann->uid)
-	      += VARRAY_UINT (ai->num_references, v_ann->uid);
+	      /* All the dereferences of pointer VAR count as
+		 references of TAG.  Since TAG can be associated with
+		 several pointers, add the dereferences of VAR to the
+		 TAG.  We may need to grow AI->NUM_REFERENCES because
+		 we have been adding name and type tags.  */
+	      if (t_ann->uid >= VARRAY_SIZE (ai->num_references))
+		VARRAY_GROW (ai->num_references, t_ann->uid + 10);
+
+	      VARRAY_UINT (ai->num_references, t_ann->uid)
+		+= VARRAY_UINT (ai->num_references, v_ann->uid);
+	    }
+	  else
+	    {
+	      /* The pointer has not been dereferenced.  If it had a
+		 type memory tag, remove it and mark the old tag for
+		 renaming to remove it out of the IL.  */
+	      var_ann_t ann = var_ann (var);
+	      tree tag = ann->type_mem_tag;
+	      if (tag)
+		{
+		  bitmap_set_bit (vars_to_rename, var_ann (tag)->uid);
+		  ann->type_mem_tag = NULL_TREE;
+		}
+	    }
 	}
     }
 
@@ -1316,30 +1490,35 @@ maybe_create_global_var (struct alias_info *ai)
 {
   size_t i, n_clobbered;
   
-  /* Count all the call-clobbered variables.  */
-  n_clobbered = 0;
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, n_clobbered++);
+  /* No need to create it, if we have one already.  */
+  if (global_var == NULL_TREE)
+    {
+      /* Count all the call-clobbered variables.  */
+      n_clobbered = 0;
+      EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, n_clobbered++);
 
-  /* Create .GLOBAL_VAR if we have too many call-clobbered variables.
-     We also create .GLOBAL_VAR when there no call-clobbered variables
-     to prevent code motion transformations from re-arranging function
-     calls that may have side effects.  For instance,
+      /* Create .GLOBAL_VAR if we have too many call-clobbered
+	 variables.  We also create .GLOBAL_VAR when there no
+	 call-clobbered variables to prevent code motion
+	 transformations from re-arranging function calls that may
+	 have side effects.  For instance,
 
-     		foo ()
+		foo ()
 		{
 		  int a = f ();
 		  g ();
 		  h (a);
 		}
 
-     There are no call-clobbered variables in foo(), so it would be
-     entirely possible for a pass to want to move the call to f()
-     after the call to g().  If f() has side effects, that would be
-     wrong.  Creating .GLOBAL_VAR in this case will insert VDEFs for
-     it and prevent such transformations.  */
-  if (n_clobbered == 0
-      || ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
-    create_global_var ();
+	 There are no call-clobbered variables in foo(), so it would
+	 be entirely possible for a pass to want to move the call to
+	 f() after the call to g().  If f() has side effects, that
+	 would be wrong.  Creating .GLOBAL_VAR in this case will
+	 insert VDEFs for it and prevent such transformations.  */
+      if (n_clobbered == 0
+	  || ai->num_calls_found * n_clobbered >= (size_t) GLOBAL_VAR_THRESHOLD)
+	create_global_var ();
+    }
 
   /* If the function has calls to clobbering functions and .GLOBAL_VAR has
      been created, make it an alias for all call-clobbered variables.  */
@@ -1519,6 +1698,63 @@ add_may_alias (tree var, tree alias)
 }
 
 
+/* Replace alias I in the alias sets of VAR with NEW_ALIAS.  */
+
+static void
+replace_may_alias (tree var, size_t i, tree new_alias)
+{
+  var_ann_t v_ann = var_ann (var);
+  VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
+
+  /* If VAR is a call-clobbered variable, so is NEW_ALIAS.  */
+  if (is_call_clobbered (var))
+    mark_call_clobbered (new_alias);
+
+  /* Likewise.  If NEW_ALIAS is call-clobbered, so is VAR.  */
+  else if (is_call_clobbered (new_alias))
+    mark_call_clobbered (var);
+}
+
+
+/* Mark pointer PTR as pointing to an arbitrary memory location.  */
+
+static void
+set_pt_anything (tree ptr)
+{
+  struct ptr_info_def *pi = get_ptr_info (ptr);
+
+  pi->pt_anything = 1;
+  pi->pt_malloc = 0;
+  pi->pt_vars = NULL;
+  pi->is_dereferenced = 0;
+
+  /* The pointer used to have a name tag, but we now found it pointing
+     to an arbitrary location.  The name tag needs to be renamed and
+     disassociated from PTR.  */
+  if (pi->name_mem_tag)
+    {
+      bitmap_set_bit (vars_to_rename, var_ann (pi->name_mem_tag)->uid);
+      pi->name_mem_tag = NULL_TREE;
+    }
+}
+
+
+/* Mark pointer PTR as pointing to a malloc'd memory area.  */
+
+static void
+set_pt_malloc (tree ptr)
+{
+  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+
+  /* If the pointer has already been found to point to arbitrary
+     memory locations, it is unsafe to mark it as pointing to malloc. */
+  if (pi->pt_anything)
+    return;
+
+  pi->pt_malloc = 1;
+}
+
+
 /* Given two pointers DEST and ORIG.  Merge the points-to information in
    ORIG into DEST.  AI is as in collect_points_to_info.  */
 
@@ -1535,10 +1771,36 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 
   if (orig_pi)
     {
-      dest_pi->pt_anything |= orig_pi->pt_anything;
-      dest_pi->pt_malloc |= orig_pi->pt_malloc;
+      /* Notice that we never merge PT_MALLOC.  This attribute is only
+	 true if the pointer is the result of a malloc() call.
+	 Otherwise, we can end up in this situation:
 
-      if (orig_pi->pt_vars)
+	 P_i = malloc ();
+	 ...
+	 P_j = P_i + X;
+
+	 P_j would be marked as PT_MALLOC, which is wrong because
+	 PT_MALLOC implies that the pointer may not point to another
+	 variable.
+
+	 FIXME 1: Subsequent analysis may determine that P_j
+	 cannot alias anything else, but we are being conservative
+	 here.
+
+	 FIXME 2: If the merging comes from a copy assignment, we
+	 ought to merge PT_MALLOC, but then both pointers would end up
+	 getting different name tags because create_name_tags is not
+	 smart enough to determine that the two come from the same
+	 malloc call.  Copy propagation before aliasing should cure
+	 this.  */
+      dest_pi->pt_malloc = 0;
+
+      if (orig_pi->pt_malloc || orig_pi->pt_anything)
+	set_pt_anything (dest);
+
+      if (!dest_pi->pt_anything
+	  && orig_pi->pt_vars
+	  && bitmap_first_set_bit (orig_pi->pt_vars) >= 0)
 	{
 	  if (dest_pi->pt_vars == NULL)
 	    {
@@ -1547,9 +1809,9 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 	    }
 	  else
 	    bitmap_a_or_b (dest_pi->pt_vars,
-			   dest_pi->pt_vars,
-			   orig_pi->pt_vars);
-      }
+		           dest_pi->pt_vars,
+		           orig_pi->pt_vars);
+	}
     }
 }
 
@@ -1559,7 +1821,8 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 static void
 add_pointed_to_expr (tree ptr, tree value)
 {
-  struct ptr_info_def *pi;
+  if (TREE_CODE (value) == WITH_SIZE_EXPR)
+    value = TREE_OPERAND (value, 0);
 
 #if defined ENABLE_CHECKING
   /* Pointer variables should have been handled by merge_pointed_to_info.  */
@@ -1568,18 +1831,20 @@ add_pointed_to_expr (tree ptr, tree value)
     abort ();
 #endif
 
-  pi = get_ptr_info (ptr);
+  get_ptr_info (ptr);
 
   /* If VALUE is the result of a malloc-like call, then the area pointed to
      PTR is guaranteed to not alias with anything else.  */
   if (TREE_CODE (value) == CALL_EXPR
       && (call_expr_flags (value) & (ECF_MALLOC | ECF_MAY_BE_ALLOCA)))
-    pi->pt_malloc = 1;
+    set_pt_malloc (ptr);
   else
-    pi->pt_anything = 1;
+    set_pt_anything (ptr);
 
   if (dump_file)
     {
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+
       fprintf (dump_file, "Pointer ");
       print_generic_expr (dump_file, ptr, dump_flags);
       fprintf (dump_file, " points to ");
@@ -1600,30 +1865,33 @@ add_pointed_to_expr (tree ptr, tree value)
 static void
 add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
 {
-  if (TREE_CODE (value) == ADDR_EXPR)
+  struct ptr_info_def *pi = get_ptr_info (ptr);
+  tree pt_var;
+  size_t uid;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (value) != ADDR_EXPR)
+    abort ();
+#endif
+
+  pt_var = TREE_OPERAND (value, 0);
+  if (TREE_CODE_CLASS (TREE_CODE (pt_var)) == 'r')
+    pt_var = get_base_address (pt_var);
+
+  if (pt_var && SSA_VAR_P (pt_var))
     {
-      tree pt_var;
-      struct ptr_info_def *pi;
-      size_t uid;
+      uid = var_ann (pt_var)->uid;
+      bitmap_set_bit (ai->addresses_needed, uid);
 
-      pt_var = TREE_OPERAND (value, 0);
-      if (TREE_CODE_CLASS (TREE_CODE (pt_var)) == 'r')
-	pt_var = get_base_address (pt_var);
-
-      if (pt_var && SSA_VAR_P (pt_var))
+      /* If PTR has already been found to point anywhere, don't
+	 add the variable to PTR's points-to set.  */
+      if (!pi->pt_anything)
 	{
-	  pi = get_ptr_info (ptr);
-	  uid = var_ann (pt_var)->uid;
 	  if (pi->pt_vars == NULL)
 	    pi->pt_vars = BITMAP_GGC_ALLOC ();
 	  bitmap_set_bit (pi->pt_vars, uid);
-	  bitmap_set_bit (ai->addresses_needed, uid);
 	}
-      else
-	add_pointed_to_expr (ptr, value);
     }
-  else
-    add_pointed_to_expr (ptr, value);
 }
 
 
@@ -1654,8 +1922,8 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
       tree rhs = TREE_OPERAND (stmt, 1);
       STRIP_NOPS (rhs);
 
-      /* Found P_i = CONST.  */
-      if (is_gimple_min_invariant (rhs))
+      /* Found P_i = ADDR_EXPR  */
+      if (TREE_CODE (rhs) == ADDR_EXPR)
 	add_pointed_to_var (ai, var, rhs);
 
       /* Found P_i = Q_j.  */
@@ -1676,9 +1944,9 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 	  else if (TREE_CODE (op1) == SSA_NAME
 		   && POINTER_TYPE_P (TREE_TYPE (op1)))
 	    merge_pointed_to_info (ai, var, op1);
-	  else if (is_gimple_min_invariant (op0))
+	  else if (TREE_CODE (op0) == ADDR_EXPR)
 	    add_pointed_to_var (ai, var, op0);
-	  else if (is_gimple_min_invariant (op1))
+	  else if (TREE_CODE (op1) == ADDR_EXPR)
 	    add_pointed_to_var (ai, var, op1);
 	  else
 	    add_pointed_to_expr (var, rhs);
@@ -1691,7 +1959,7 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
   else if (TREE_CODE (stmt) == ASM_EXPR)
     {
       /* Pointers defined by __asm__ statements can point anywhere.  */
-      get_ptr_info (var)->pt_anything = 1;
+      set_pt_anything (var);
     }
   else if (IS_EMPTY_STMT (stmt))
     {
@@ -1706,12 +1974,21 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
     }
   else if (TREE_CODE (stmt) == PHI_NODE)
     {
+      /* It STMT is a PHI node, then VAR is one of its arguments.  The
+	 variable that we are analyzing is the LHS of the PHI node.  */
       tree lhs = PHI_RESULT (stmt);
 
-      if (is_gimple_min_invariant (var))
+      if (TREE_CODE (var) == ADDR_EXPR)
 	add_pointed_to_var (ai, lhs, var);
       else if (TREE_CODE (var) == SSA_NAME)
-	merge_pointed_to_info (ai, lhs, var);
+	{
+	  if (bitmap_bit_p (ai->ssa_names_visited, SSA_NAME_VERSION (var)))
+	    merge_pointed_to_info (ai, lhs, var);
+	  else
+	    set_pt_anything (lhs);
+	}
+      else if (is_gimple_min_invariant (var))
+	add_pointed_to_expr (lhs, var);
       else
 	abort ();
     }
@@ -1809,9 +2086,8 @@ create_memory_tag (tree type, bool is_type_tag)
   ann->mem_tag_kind = (is_type_tag) ? TYPE_TAG : NAME_TAG;
   ann->type_mem_tag = NULL_TREE;
 
-  /* Add the tag to the symbol table and mark it for renaming.  */
+  /* Add the tag to the symbol table.  */
   add_referenced_tmp_var (tag);
-  bitmap_set_bit (vars_to_rename, ann->uid);
 
   return tag;
 }
@@ -1888,9 +2164,13 @@ get_tmt_for (tree ptr, struct alias_info *ai)
     {
       struct alias_map_d *alias_map;
 
-      /* Create a new MT.* artificial variable representing the memory
-	 location pointed-to by PTR.  */
-      tag = create_memory_tag (tag_type, true);
+      /* If PTR did not have a type tag already, create a new TMT.*
+	 artificial variable representing the memory location
+	 pointed-to by PTR.  */
+      if (var_ann (ptr)->type_mem_tag == NULL_TREE)
+	tag = create_memory_tag (tag_type, true);
+      else
+	tag = var_ann (ptr)->type_mem_tag;
 
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
@@ -1900,6 +2180,14 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       alias_map->set = tag_set;
       ai->pointers[ai->num_pointers++] = alias_map;
     }
+
+#if defined ENABLE_CHECKING
+  /* Make sure that the type tag has the same alias set as the
+     pointed-to type.  */
+  if (tag_set != get_alias_set (tag))
+    abort ();
+#endif
+
 
   return tag;
 }
@@ -1916,7 +2204,7 @@ create_global_var (void)
                            size_type_node);
   DECL_ARTIFICIAL (global_var) = 1;
   TREE_READONLY (global_var) = 0;
-  DECL_EXTERNAL (global_var) = 0;
+  DECL_EXTERNAL (global_var) = 1;
   TREE_STATIC (global_var) = 1;
   TREE_USED (global_var) = 1;
   DECL_CONTEXT (global_var) = NULL_TREE;
@@ -1965,16 +2253,53 @@ dump_alias_info (FILE *file)
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
 
-  fprintf (file, "\nAlias information for %s\n\n", funcname);
+  fprintf (file, "\nFlow-insensitive alias information for %s\n\n", funcname);
 
+  fprintf (file, "Aliased symbols\n\n");
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      tree var = referenced_var (i);
+      if (may_be_aliased (var))
+	dump_variable (file, var);
+    }
+
+  fprintf (file, "\nDereferenced pointers\n\n");
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
       var_ann_t ann = var_ann (var);
-      if (ann->may_aliases
-	  || ann->type_mem_tag
-	  || ann->is_alias_tag
-	  || ann->mem_tag_kind != NOT_A_TAG)
+      if (ann->type_mem_tag)
+	dump_variable (file, var);
+    }
+
+  fprintf (file, "\nType memory tags\n\n");
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      tree var = referenced_var (i);
+      var_ann_t ann = var_ann (var);
+      if (ann->mem_tag_kind == TYPE_TAG)
+	dump_variable (file, var);
+    }
+
+  fprintf (file, "\n\nFlow-sensitive alias information for %s\n\n", funcname);
+
+  fprintf (file, "SSA_NAME pointers\n\n");
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree ptr = ssa_name (i);
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      if (!SSA_NAME_IN_FREE_LIST (ptr)
+	  && pi
+	  && pi->name_mem_tag)
+	dump_points_to_info_for (file, ptr);
+    }
+
+  fprintf (file, "\nName memory tags\n\n");
+  for (i = 0; i < num_referenced_vars; i++)
+    {
+      tree var = referenced_var (i);
+      var_ann_t ann = var_ann (var);
+      if (ann->mem_tag_kind == NAME_TAG)
 	dump_variable (file, var);
     }
 
@@ -2018,46 +2343,57 @@ get_ptr_info (tree t)
 
 /* Dump points-to information for SSA_NAME PTR into FILE.  */
 
-static void
+void
 dump_points_to_info_for (FILE *file, tree ptr)
 {
   struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 
-  fprintf (file, "Pointer ");
   print_generic_expr (file, ptr, dump_flags);
 
-  if (pi == NULL)
-    return;
-
-  if (pi->name_mem_tag)
+  if (pi)
     {
-      fprintf (file, ", name memory tag: ");
-      print_generic_expr (file, pi->name_mem_tag, dump_flags);
-    }
+      if (pi->name_mem_tag)
+	{
+	  fprintf (file, ", name memory tag: ");
+	  print_generic_expr (file, pi->name_mem_tag, dump_flags);
+	}
 
-  if (pi->value_escapes_p)
-    fprintf (file, ", its value escapes");
+      if (pi->is_dereferenced)
+	fprintf (file, ", is dereferenced");
 
-  if (pi->pt_anything)
-    fprintf (file, ", points-to anything");
+      if (pi->value_escapes_p)
+	fprintf (file, ", its value escapes");
 
-  if (pi->pt_malloc)
-    fprintf (file, ", points-to malloc");
+      if (pi->pt_anything)
+	fprintf (file, ", points-to anything");
 
-  if (pi->pt_vars)
-    {
-      unsigned ix;
+      if (pi->pt_malloc)
+	fprintf (file, ", points-to malloc");
 
-      fprintf (file, ", points-to vars: { ");
-      EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix,
-	  {
-	    print_generic_expr (file, referenced_var (ix), dump_flags);
-	    fprintf (file, " ");
-	  });
-      fprintf (file, "}");
+      if (pi->pt_vars)
+	{
+	  unsigned ix;
+
+	  fprintf (file, ", points-to vars: { ");
+	  EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix,
+	      {
+		print_generic_expr (file, referenced_var (ix), dump_flags);
+		fprintf (file, " ");
+	      });
+	  fprintf (file, "}");
+	}
     }
 
   fprintf (file, "\n");
+}
+
+
+/* Dump points-to information for VAR into stderr.  */
+
+void
+debug_points_to_info_for (tree var)
+{
+  dump_points_to_info_for (stderr, var);
 }
 
 
@@ -2156,3 +2492,34 @@ debug_may_aliases_for (tree var)
 {
   dump_may_aliases_for (stderr, var);
 }
+
+/* Return true if VAR may be aliased.  */
+
+bool
+may_be_aliased (tree var)
+{
+  /* Obviously.  */
+  if (TREE_ADDRESSABLE (var))
+    return true;
+
+  /* Automatic variables can't have their addresses escape any other way.  */
+  if (!TREE_STATIC (var))
+    return false;
+
+  /* Globally visible variables can have their addresses taken by other
+     translation units.  */
+  if (DECL_EXTERNAL (var) || TREE_PUBLIC (var))
+    return true;
+
+  /* If we're in unit-at-a-time mode, then we must have seen all occurrences
+     of address-of operators, and so we can trust TREE_ADDRESSABLE.  Otherwise
+     we can only be sure the variable isn't addressable if it's local to the
+     current function.  */
+  if (flag_unit_at_a_time)
+    return false;
+  if (decl_function_context (var) == current_function_decl)
+    return false;
+
+  return true;
+}
+

@@ -133,19 +133,19 @@ create_tmp_var_for (struct nesting_info *info, tree type, const char *prefix)
   tree tmp_var;
 
 #if defined ENABLE_CHECKING
-  /* If the type is an array or a type which must be created by the
+  /* If the type is of variable size or a type which must be created by the
      frontend, something is wrong.  Note that we explicitly allow
      incomplete types here, since we create them ourselves here.  */
-  if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
-    abort ();
-  if (TYPE_SIZE_UNIT (type)
-      && TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST)
+  if (TREE_ADDRESSABLE (type)
+      || (TYPE_SIZE_UNIT (type)
+	  && TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST))
     abort ();
 #endif
 
   tmp_var = create_tmp_var_raw (type, prefix);
   DECL_CONTEXT (tmp_var) = info->context;
   TREE_CHAIN (tmp_var) = info->new_local_var_chain;
+  DECL_SEEN_IN_BIND_EXPR_P (tmp_var) = 1;
   info->new_local_var_chain = tmp_var;
 
   return tmp_var;
@@ -373,7 +373,7 @@ init_tmp_var (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
 /* Similarly, but only do so to force EXP to satisfy is_gimple_val.  */
 
 static tree
-gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
+tsi_gimplify_val (struct nesting_info *info, tree exp, tree_stmt_iterator *tsi)
 {
   if (is_gimple_val (exp))
     return exp;
@@ -790,41 +790,48 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	       where we only accept variables (and min_invariant, presumably),
 	       then compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = gimplify_val (wi->info, t, &wi->tsi);
+	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
 	  }
       }
       break;
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
-      wi->val_only = true;
-      break;
-
     case COMPONENT_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
-      wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi, NULL);
-      break;
-
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
-      wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 3), convert_nonlocal_reference, wi, NULL);
-      break;
-
     case BIT_FIELD_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_nonlocal_reference, wi, NULL);
+      /* Go down this entire nest and just look at the final prefix and
+	 anything that describes the references.  Otherwise, we lose track
+	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi, NULL);
+      for (; handled_component_p (t)
+	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
+	   tp = &TREE_OPERAND (t, 0), t = *tp)
+	{
+	  if (TREE_CODE (t) == COMPONENT_REF)
+	    walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi,
+		       NULL);
+	  else if (TREE_CODE (t) == ARRAY_REF
+		   || TREE_CODE (t) == ARRAY_RANGE_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 3), convert_nonlocal_reference, wi,
+			 NULL);
+	    }
+	  else if (TREE_CODE (t) == BIT_FIELD_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), convert_nonlocal_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), convert_nonlocal_reference, wi,
+			 NULL);
+	    }
+	}
+      wi->val_only = false;
+      walk_tree (tp, convert_nonlocal_reference, wi, NULL);
       break;
 
     default:
@@ -897,7 +904,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	    /* If we are in a context where we only accept values, then
 	       compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = gimplify_val (wi->info, t, &wi->tsi);
+	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
 	  }
       }
       break;
@@ -938,34 +945,41 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
-      wi->val_only = true;
-      break;
-
     case COMPONENT_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
-      wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi, NULL);
-      break;
-
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
-      wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 3), convert_local_reference, wi, NULL);
-      break;
-
     case BIT_FIELD_REF:
-      wi->val_only = false;
-      walk_tree (&TREE_OPERAND (t, 0), convert_local_reference, wi, NULL);
+      /* Go down this entire nest and just look at the final prefix and
+	 anything that describes the references.  Otherwise, we lose track
+	 of whether a NOP_EXPR or VIEW_CONVERT_EXPR needs a simple value.  */
       wi->val_only = true;
-      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi, NULL);
-      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi, NULL);
+      for (; handled_component_p (t)
+	   || TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR;
+	   tp = &TREE_OPERAND (t, 0), t = *tp)
+	{
+	  if (TREE_CODE (t) == COMPONENT_REF)
+	    walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi,
+		       NULL);
+	  else if (TREE_CODE (t) == ARRAY_REF
+		   || TREE_CODE (t) == ARRAY_RANGE_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 3), convert_local_reference, wi,
+			 NULL);
+	    }
+	  else if (TREE_CODE (t) == BIT_FIELD_REF)
+	    {
+	      walk_tree (&TREE_OPERAND (t, 1), convert_local_reference, wi,
+			 NULL);
+	      walk_tree (&TREE_OPERAND (t, 2), convert_local_reference, wi,
+			 NULL);
+	    }
+	}
+      wi->val_only = false;
+      walk_tree (tp, convert_local_reference, wi, NULL);
       break;
 
     default:
@@ -1027,7 +1041,7 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
   field = get_nl_goto_field (i);
   x = get_frame_field (info, target_context, field, &wi->tsi);
   x = build_addr (x);
-  x = gimplify_val (info, x, &wi->tsi);
+  x = tsi_gimplify_val (info, x, &wi->tsi);
   arg = tree_cons (NULL, x, NULL);
   x = build_addr (new_label);
   arg = tree_cons (NULL, x, arg);
@@ -1125,7 +1139,7 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
       /* Compute the address of the field holding the trampoline.  */
       x = get_frame_field (info, target_context, x, &wi->tsi);
       x = build_addr (x);
-      x = gimplify_val (info, x, &wi->tsi);
+      x = tsi_gimplify_val (info, x, &wi->tsi);
       arg = tree_cons (NULL, x, NULL);
 
       /* Do machine-specific ugliness.  Normally this will involve
@@ -1182,7 +1196,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 
     case RETURN_EXPR:
     case MODIFY_EXPR:
-      /* Only return and modify may contain calls.  */
+    case WITH_SIZE_EXPR:
+      /* Only return modify and with_size_expr may contain calls.  */
       *walk_subtrees = 1;
       break;
 
