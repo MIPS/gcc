@@ -2,9 +2,6 @@ in some places we check both inner_p() and static_context_p()
 on a class.  this is lame, we should mark the class static
 in a static context
 
-see verifier fix of 2005-02-18 on trunk
-should go in our verifier too
-
 the bug in PR 19810 makes for weird bytecode output from gcjx
 it is incorrect due to stack size differences
 - in bytecode_generator::visit_return, make a new temporary local when

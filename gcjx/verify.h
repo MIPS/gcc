@@ -1,5 +1,5 @@
 /* Declarations to interface gcj with bytecode verifier.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -200,6 +200,16 @@ inline vfy_string vfy_get_pool_class (vfy_method *method, vfy_constants *pool,
   return const_cast<char *> (pool->get_class (index).c_str ());
 }
 
+// Return true if the class declares a field with the given name.  The
+// type of the field doesn't matter.
+inline bool vfy_class_has_field_p (vfy_jclass type, vfy_string name)
+{
+  std::set<model_field *> result;
+  model_class *klass = assert_cast<model_class *> (type);
+  klass->find_members (name, result, klass, klass);
+  return ! result.empty ();
+}
+
 inline vfy_string vfy_make_string (const char *s, int len)
 {
   char *r = new char[len + 1];
@@ -305,7 +315,8 @@ inline int vfy_fail (const char *message, int pc, vfy_jclass,
   if (pc == -1)
     throw method->block->error ("verification failed in method %1: %u2")
       % method->method % message;
-  throw method->block->error ("verification failed at PC %u1 in method %2: %u3")
+  throw method->block->error ("verification failed at PC %u1 "
+			      "in method %2: %u3")
     % pc % method->method % message;
 }
 

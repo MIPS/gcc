@@ -1,3 +1,13 @@
+2005-03-24  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/verify.cc (EITHER): New constant.
+	(type::compatible): Handle EITHER.
+	(type::equals): New method.
+	(check_field_constant): Added 'putfield' argument.
+	(verify_instructions_0): Update 'putfield' handling.
+	* verify.h (vfy_fail): Fixed indentation.
+	(vfy_class_has_field_p): New function.
+
 2005-03-21  Tom Tromey  <tromey@redhat.com>
 
 	* model/method.cc (create_abstract_instance): Create a
