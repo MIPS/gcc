@@ -1,3 +1,9 @@
+2004-09-23  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c 
+	(init_dpi_conversion_factor): Apply the patch from main correctly.
+	2004-06-26  Andreas Tobler  <a.tobler@schweiz.ch>
+
 2004-09-23  Tom Tromey  <tromey@redhat.com>
 
 	Bug 9948.
