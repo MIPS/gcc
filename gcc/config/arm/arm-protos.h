@@ -193,6 +193,7 @@ extern int thumb_shiftable_const (unsigned HOST_WIDE_INT);
 extern void thumb_final_prescan_insn (rtx);
 extern const char *thumb_load_double_from_address (rtx *);
 extern const char *thumb_output_move_mem_multiple (int, rtx *);
+extern const char *thumb_call_via_reg (rtx);
 extern void thumb_expand_movstrqi (rtx *);
 extern int thumb_cmp_operand (rtx, enum machine_mode);
 extern int thumb_cbrch_target_operand (rtx, enum machine_mode);

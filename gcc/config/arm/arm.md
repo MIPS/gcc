@@ -7340,7 +7340,7 @@
     if (TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__interwork_call_via_%0\";
     else
-      return \"bl\\t%__call_via_%0\";
+      return thumb_call_via_reg (operands[0]);
   }"
   [(set_attr "type" "call")]
 )
@@ -7430,7 +7430,7 @@
     if (TARGET_CALLER_INTERWORKING)
       return \"bl\\t%__interwork_call_via_%1\";
     else
-      return \"bl\\t%__call_via_%1\";
+      return thumb_call_via_reg (operands[1]);
   }"
   [(set_attr "type" "call")]
 )
