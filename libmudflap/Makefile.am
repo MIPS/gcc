@@ -16,7 +16,8 @@ TESTS = test/fail1.x test/fail2.x test/fail3.x test/fail4.x test/fail5.x \
  test/pass1.x test/pass2.x test/pass3.x test/pass4.x test/pass5.x \
  test/pass6.x test/pass7.x test/pass8.x test/pass9.x test/pass10.x \
  test/pass11.x test/pass12.x test/pass13.x test/pass14.x test/pass15.x \
- test/pass16.x test/pass17.x test/pass18.x test/pass19.x test/pass20.x
+ test/pass16.x test/pass17.x test/pass18.x test/pass19.x test/pass20.x \
+ test/pass21.x test/pass22.x
 
 test/%.c: test/%-frag.c test/mf-driver.c
 	@mkdir -p test

@@ -309,9 +309,9 @@ WRAPPER(void *, alloca, size_t c)
 
   /* Free any previously alloca'd blocks that belong to deeper-nested functions,
      which must therefore have exited by now.  */
-#define INNER_THAN < /* for x86 */
+#define DEEPER_THAN < /* for x86 */
   while (alloca_history &&
-	 ((uintptr_t) stack INNER_THAN (uintptr_t) alloca_history->stack))
+	 ((uintptr_t) alloca_history->stack DEEPER_THAN (uintptr_t) stack))
     {
       struct alloca_tracking *next = alloca_history->next;
       CALL_WRAP (free, alloca_history->ptr);
