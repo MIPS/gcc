@@ -1,0 +1,130 @@
+/* lex.def
+   Copyright (C) 1999 Free Software Foundation, Inc.
+   Contributed by James Craig Burley.
+
+This file is part of GNU Fortran.
+
+GNU Fortran is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Fortran is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Fortran; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
+/* No lexeme.  */
+DEFLEX ('0', FFELEX_NONE)
+
+/* Beginning of Fortran statement.  Always ended by EOS, with no
+   intervening BOS.  Outside of BOS/EOS pairs, lexemes should be
+   ignored.  */
+DEFLEX ('1', FFELEX_BOS)
+
+/* End of Fortran statement.  */
+DEFLEX ('2', FFELEX_EOS)
+
+/* Double-quote.  Usually in pairs with intervening character
+   constant, but not always -- VXT syntax for octal integer constant
+   is, e.g., `"2000'.  */
+DEFLEX ('\"', FFELEX_QUOTE)
+
+/* Dollar sign.  Optionally permissible within NAME.  */
+DEFLEX ('$', FFELEX_DOLLAR)
+
+/* Hash (pound) sign.  */
+DEFLEX ('#', FFELEX_HASH)
+
+/* Percent sign.  */
+DEFLEX ('%', FFELEX_PERCENT)
+
+/* Ampersand.  Not made into a lexeme when it is a (free-form)
+   trailing or leading continuation indicator.  */
+DEFLEX ('&', FFELEX_AMPERSAND)
+
+/* Apostrophe.  Usually in pairs with intervening character
+   constant, but not always -- VXT supports "READ(1'10) ...".  */
+DEFLEX ('\'', FFELEX_APOSTROPHE)
+
+/* Left (open) parenthese.  */
+DEFLEX ('(', FFELEX_LPAREN)
+
+/* Right (close) parenthese.  */
+DEFLEX (')', FFELEX_RPAREN)
+
+/* Star (asterisk).  */
+DEFLEX ('*', FFELEX_STAR)
+
+/* Plus sign.  */
+DEFLEX ('+', FFELEX_PLUS)
+
+/* Minus sign (dash, hyphen).  */
+DEFLEX ('-', FFELEX_MINUS)
+
+/* Dot (period).  */
+DEFLEX ('.', FFELEX_DOT)
+
+/* Slash (forward slash).  */
+DEFLEX ('/', FFELEX_SLASH)
+
+/* Less-than (open angle).  */
+DEFLEX ('<', FFELEX_LESS)
+
+/* Greater-than (close angle), called "more" for brevity.  */
+DEFLEX ('>', FFELEX_MORE)
+
+/* Equal sign.  */
+DEFLEX ('=', FFELEX_EQUAL)
+
+/* Comma.  */
+DEFLEX (',', FFELEX_COMMA)
+
+/* Colon.  */
+DEFLEX (':', FFELEX_COLON)
+
+/* Semicolon.  */
+DEFLEX (';', FFELEX_SEMI)
+
+/* Underscore (called "line" for brevity).  */
+DEFLEX ('_', FFELEX_LINE)
+
+/* Question mark.  */
+DEFLEX ('?', FFELEX_QUESTION)
+
+/* Left (open) bracket.  */
+DEFLEX ('[', FFELEX_LBRACKET)
+
+/* Right (close) bracket.  */
+DEFLEX (']', FFELEX_RBRACKET)
+
+
+/* Multi-character lexemes:  */
+
+/* Decimal digits (regexp: `[0-9]+').  */
+DEFLEX_MULTI ('0', FFELEX_NUMBER)
+
+/* Name (regexp: `[A-Za-z][A-Za-z0-9_]*' or `[A-Za-z][A-Za-z0-9_$]*',
+   depending on `-fdollar-ok' option).  */
+DEFLEX_MULTI ('A', FFELEX_NAME)
+
+/* Character constant (excluding quotes, which are separate lexemes).  */
+DEFLEX_MULTI ('a', FFELEX_CONST)
+
+/* Hollerith constant (excluding `H').  */
+DEFLEX_MULTI ('H', FFELEX_HOLLERITH)
+
+/* Commentary between distinct lexemes.  (Commentary within a lexeme
+   is handled separately.)  Not currently implemented.  */
+DEFLEX_MULTI ('!', FFELEX_COMMENT)
+
+
+/* Diagnostic lexemes:  */
+
+/* Something was wrong here.  */
+DEFLEX_DIAG ('b', FFELEX_something?)

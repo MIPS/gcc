@@ -1,5 +1,5 @@
-/* where.h -- Public #include File (module.h template V1.0)
-   Copyright (C) 1995 Free Software Foundation, Inc.
+/* where.h
+   Copyright (C) 1995, 1999 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -17,122 +17,76 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GNU Fortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
-
-   Owning Modules:
-      where.c
-
-   Modifications:
-*/
-
-/* Allow multiple inclusion to work. */
+02111-1307, USA.  */
 
 #ifndef _H_f_where
 #define _H_f_where
 
-/* Simple definitions and enumerations. */
-
-#define FFEWHERE_columnMAX UCHAR_MAX
-#define FFEWHERE_columnUNKNOWN 0
-#define FFEWHERE_indexMAX 36
-#define FFEWHERE_indexUNKNOWN UCHAR_MAX
-#define FFEWHERE_lineMAX ULONG_MAX
-#define FFEWHERE_lineUNKNOWN (&ffewhere_unknown_line_)
-#define FFEWHERE_filenameUNKNOWN ("(input file)")
-
-/* Typedefs. */
-
-typedef unsigned char ffewhereColumnNumber;	/* Change FFEWHERE_columnMAX
-						   too. */
-#define ffewhereColumnNumber_f ""
-typedef unsigned char ffewhereColumn;
-typedef struct _ffewhere_file_ *ffewhereFile;
-typedef unsigned short ffewhereLength_;
-#define ffewhereLength_f_ ""
-typedef unsigned long ffewhereLineNumber;	/* Change FFEWHERE_lineMAX
-						   too. */
-#define ffewhereLineNumber_f "l"
-typedef struct _ffewhere_line_ *ffewhereLine;
-typedef unsigned char ffewhereIndex;
-#define ffewhereIndex_f ""
-typedef ffewhereIndex ffewhereTrack[FFEWHERE_indexMAX * 2 - 2];
-typedef unsigned int ffewhereUses_;
-#define ffewhereUses_f_ ""
-
-/* Include files needed by this one. */
-
 #include "glimits.j"
 #include "top.h"
 
-/* Structure definitions. */
+#define FFEWHERE_nameUNKNOWN ("(input file)")
 
-struct _ffewhere_file_
-  {
-    size_t length;
-    char text[1];
-  };
+/* Line number within all the source code read (in order)
+   during lexing.  Starts with 1 for first line.  */
+typedef unsigned long ffewhereLine;
+#define ffewhereLine_f "l"
+#define FFEWHERE_lineNONE 0
+#define FFEWHERE_lineMAX (ULONG_MAX >> CHAR_BIT)
 
-struct _ffewhere_line_
-  {
-    ffewhereLine next;
-    ffewhereLine previous;
-    ffewhereLineNumber line_num;
-    ffewhereUses_ uses;
-    ffewhereLength_ length;
-    char content[1];
-  };
+/* Column number within line.  Starts with 1 for first column.  */
+typedef unsigned char ffewhereCol;
+#define ffewhereCol_f ""
+#define FFEWHERE_colNONE 0
+#define FFEWHERE_colMAX UCHAR_MAX
 
-/* Global objects accessed by users of this module. */
+typedef unsigned long int ffewhere;
 
-extern struct _ffewhere_line_ ffewhere_unknown_line_;
+typdef struct _ffewhere_file_
+{
+  size_t ffewhere_file_length_;
+  char ffewhere_file_text_[1];
+} *ffewhereFile;
 
-/* Declare functions with prototypes. */
+typedef struct _ffewhere_incl_
+{
+  /* The file that was included.  (Might be included more than once,
+     so track its name info separately.)  */
+  ffewhereFile ffewhere_incl_file_;
 
-void ffewhere_file_kill (ffewhereFile wf);
+  /* ffelex_line_number() at time of creation.  */
+  ffewhereLine ffewhere_incl_line_;
+
+  /* User-desired offset (usually 1). */
+  ffewhereLine ffewhere_incl_offset_;
+} *ffewhereIncl;
+
+extern inline ffewhere
+ffewhere_new (ffewhereLine l, ffewhereCol c)
+{
+  if (l > FFEWHERE_lineMAX)
+    l = FFEWHERE_lineMAX;
+  if (c > FFEWHERE_colMAX)
+    c = FFEWHERE_colMAX;
+  return (l << CHAR_BIT) | c;
+}
+
+#define ffewhere_line(w) ((w) >> CHAR_BIT)
+#define ffewhere_col(w) ((w) & UCHAR_MAX)
+
+#define ffewhere_file_name(f) ((f)->ffewhere_file_text_)
+#define ffewhere_file_namelen(f) ((f)->ffewhere_file_length_)
 ffewhereFile ffewhere_file_new (char *name, size_t length);
 void ffewhere_file_set (ffewhereFile wf, bool have_num, ffewhereLineNumber ln);
-void ffewhere_init_1 (void);
-char *ffewhere_line_content (ffewhereLine l);
-ffewhereFile ffewhere_line_file (ffewhereLine l);
-ffewhereLineNumber ffewhere_line_filelinenum (ffewhereLine l);
-void ffewhere_line_kill (ffewhereLine l);
-ffewhereLine ffewhere_line_new (ffewhereLineNumber ln);
-ffewhereLine ffewhere_line_use (ffewhereLine wl);
-void ffewhere_set_from_track (ffewhereLine *wol, ffewhereColumn *woc,
-		     ffewhereLine wrl, ffewhereColumn wrc, ffewhereTrack wt,
-			      ffewhereIndex i);
-void ffewhere_track (ffewhereLine *wl, ffewhereColumn *wc, ffewhereTrack wt,
-	   ffewhereIndex i, ffewhereLineNumber ln, ffewhereColumnNumber cn);
-void ffewhere_track_clear (ffewhereTrack wt, ffewhereIndex length);
-void ffewhere_track_copy (ffewhereTrack dwt, ffewhereTrack swt,
-			  ffewhereIndex start, ffewhereIndex length);
-void ffewhere_track_kill (ffewhereLine wrl, ffewhereColumn wrc, ffewhereTrack wt,
-			  ffewhereIndex length);
 
-/* Define macros. */
+ffewhereIncl ffewhere_incl_line (ffewhereLine l);
 
-#define ffewhere_column_is_unknown(c) (c == FFEWHERE_columnUNKNOWN)
-#define ffewhere_column_kill(c) ((void) 0)
-#define ffewhere_column_new(cn) (cn)
-#define ffewhere_column_number(c) (c)
-#define ffewhere_column_unknown() (FFEWHERE_columnUNKNOWN)
-#define ffewhere_column_use(c) (c)
-#define ffewhere_file_name(f) ((f)->text)
-#define ffewhere_file_namelen(f) ((f)->length)
-#define ffewhere_init_0()
-#define ffewhere_init_2()
-#define ffewhere_init_3()
-#define ffewhere_init_4()
-#define ffewhere_line_filename(l) (ffewhere_line_file(l)->text)
-#define ffewhere_line_is_unknown(l) (l == FFEWHERE_lineUNKNOWN)
-#define ffewhere_line_number(l) ((l)->line_num)
-#define ffewhere_line_unknown() (FFEWHERE_lineUNKNOWN)
-#define ffewhere_terminate_0()
-#define ffewhere_terminate_1()
-#define ffewhere_terminate_2()
-#define ffewhere_terminate_3()
-#define ffewhere_terminate_4()
+void ffewhere_initialize (void);
 
-/* End of #include file. */
+#define ffewhere_line_file(l) ffewhere_file_incl (ffewhere_incl_line ((l)))
+#define ffewhere_line_filelinenum(l) \
+  ffewhere_line_incl (ffewhere_incl_line ((l)))
+
+#define ffewhere_terminate()
 
 #endif
