@@ -1931,15 +1931,19 @@ test_imm_print (FILE *file, use_operand_p var, tree stmt)
     {
       if (stmt_modified_p (stmt) && TREE_CODE (stmt) != PHI_NODE)
         {
-	  fprintf (file, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  fprintf (file, " STMT MODIFIED. - <0x%x> ",
+		   (unsigned int)(size_t) stmt);
 	  print_generic_stmt (file, stmt, TDF_SLIM);
 	}
       if (var->prev == NULL)
 	{
-	  fprintf (file, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
+	  fprintf (file, " IMM ERROR : (use_p : tree: 0x%X:0x%x)",
+		   (unsigned int) (size_t) var,
+		   (unsigned int) (size_t) var->use);
 	  print_generic_expr (file, USE_FROM_PTR (var), TDF_SLIM);
 	  fprintf (file, " is not in a list\n");
-	  fprintf (file, "<0x%x> ", (unsigned int)stmt);
+	  fprintf (file, "<0x%x> ",
+		   (unsigned int) (size_t) stmt);
 	  print_generic_stmt (file, stmt, TDF_VOPS);
 	}
     }
@@ -1994,18 +1998,23 @@ test_imm_links(FILE *file ATTRIBUTE_UNUSED)
 
 #ifdef ENABLE_CHECKING
 static void 
-verify_abort(ssa_imm_use_t *var)
+verify_abort (ssa_imm_use_t *var)
 {
-  tree stmt;
-  if ((stmt = var->stmt))
+  tree stmt = var->stmt;
+
+  if (stmt)
     {
       if (stmt_modified_p(stmt))
 	{
-	  fprintf (stderr, " STMT MODIFIED. - <0x%x> ", (unsigned int)stmt);
+	  fprintf (stderr, " STMT MODIFIED. - <0x%x> ",
+		   (unsigned int) (size_t) stmt);
 	  print_generic_stmt (stderr, stmt, TDF_SLIM);
 	}
     }
-  fprintf (stderr, " IMM ERROR : (use_p : tree: 0x%X:0x%x)", (unsigned int)var, (unsigned int)var->use);
+
+  fprintf (stderr, " IMM ERROR : (use_p : tree: 0x%X:0x%x)",
+	   (unsigned int) (size_t) var,
+	   (unsigned int) (size_t) var->use);
   print_generic_expr (stderr, USE_FROM_PTR (var), TDF_SLIM);
   abort ();
 }

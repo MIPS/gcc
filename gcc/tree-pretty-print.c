@@ -243,7 +243,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMT_ADDR))
-    pp_printf (buffer, "<&0x%x> ", (unsigned int)node);
+    pp_printf (buffer, "<&0x%x> ", (unsigned int)(size_t) node);
 
   if (dumping_stmts
       && (flags & TDF_LINENO)

@@ -1,3 +1,14 @@
+2004-10-24  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	* tree-cfg.c (stmt_dominated_by_p): Handle statements defining initial
+	value of a variable.
+	* tree-ssa-loop-niter.c (stmt_dominates_stmt_p): Removed.
+	(can_count_iv_in_wider_type_bound): Use stmt_dominated_by_p.
+
+	* tree-pretty-print.c (dump_generic_node): Cast pointer to size_t
+	first.
+	* tree-ssa-operands.c (test_imm_print, verify_abort): Ditto.
+
 2004-10-20  Zdenek Dvorak  <dvorakz@suse.cz>
 	    Andrew MacLeod  <amacleod@redhat.com>
 

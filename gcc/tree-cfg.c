@@ -5597,6 +5597,12 @@ stmt_dominated_by_p (tree stmt1, tree stmt2)
   basic_block bb1 = bb_for_stmt (stmt1);
   basic_block bb2 = bb_for_stmt (stmt2);
 
+  if (!bb2)
+    return true;
+
+  if (!bb1)
+    return false;
+
   if (!dominated_by_p (CDI_DOMINATORS, bb1, bb2))
     return false;
 

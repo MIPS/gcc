@@ -1129,31 +1129,6 @@ lower_bound_in_type (tree outer, tree inner)
 		       build_int_cst_wide (inner, lo, hi));
 }
 
-/* Returns true if statement S1 dominates statement S2.  */
-
-static bool
-stmt_dominates_stmt_p (tree s1, tree s2)
-{
-  basic_block bb1 = bb_for_stmt (s1), bb2 = bb_for_stmt (s2);
-
-  if (!bb1
-      || s1 == s2)
-    return true;
-
-  if (bb1 == bb2)
-    {
-      block_stmt_iterator bsi;
-
-      for (bsi = bsi_start (bb1); bsi_stmt (bsi) != s2; bsi_next (&bsi))
-	if (bsi_stmt (bsi) == s1)
-	  return true;
-
-      return false;
-    }
-
-  return dominated_by_p (CDI_DOMINATORS, bb2, bb1);
-}
-
 /* Checks whether it is correct to count the induction variable BASE + STEP * I
    at AT_STMT in wider TYPE, using the fact that statement OF is executed at
    most BOUND times in the loop.  If it is possible, return the value of step
@@ -1225,7 +1200,7 @@ can_count_iv_in_wider_type_bound (tree type, tree base, tree step,
   else
     valid_niter = fold_convert (bound_type, valid_niter);
     
-  if (at_stmt && stmt_dominates_stmt_p (of, at_stmt))
+  if (at_stmt && stmt_dominated_by_p (at_stmt, of))
     {
       /* After the statement OF we know that anything is executed at most
 	 BOUND times.  */
