@@ -7076,6 +7076,29 @@ tsubst_copy (t, args, complain, in_decl)
       mark_used (t);
       return t;
 
+    case BASELINK:
+      {
+	tree name;
+	tree qualifying_scope;
+
+	/* A baselink indicates a function from a base class.  The
+	   BASELINK_ACCESS_BINFO and BASELINK_BINFO are going to have
+	   non-dependent types; otherwise, the lookup could not have
+	   succeeded.  However, they may indicate bases of the template
+	   class, rather than the instantiated class.  
+	   
+	   In addition, lookups that were not ambiguous before may be
+	   ambiguous now.  Therefore, we perform the lookup again. */
+	qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (t));
+	name = DECL_NAME (get_first_fn (BASELINK_FUNCTIONS (t)));
+	t = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
+	if (current_class_type)
+	  t = adjust_result_of_qualified_name_lookup (t, 
+						      qualifying_scope,
+						      current_class_type);
+	return t;
+      }
+
     case TEMPLATE_DECL:
       if (is_member_template (t))
 	return tsubst (t, args, complain, in_decl);
@@ -7173,18 +7196,12 @@ tsubst_copy (t, args, complain, in_decl)
 	 tsubst_copy (TREE_OPERAND (t, 1), args, complain, in_decl));
 
     case CALL_EXPR:
-      {
-	tree fn = TREE_OPERAND (t, 0);
-	if (is_overloaded_fn (fn))
-	  fn = tsubst_copy (get_first_fn (fn), args, complain, in_decl);
-	else
-	  /* Sometimes FN is a LOOKUP_EXPR.  */
-	  fn = tsubst_copy (fn, args, complain, in_decl);
-	return build_nt
-	  (code, fn, tsubst_copy (TREE_OPERAND (t, 1), args, complain,
-				  in_decl),
-	   NULL_TREE);
-      }
+      return build_nt (code, 
+		       tsubst_copy (TREE_OPERAND (t, 0), args,
+				    complain, in_decl),
+		       tsubst_copy (TREE_OPERAND (t, 1), args, complain,
+				    in_decl),
+		       NULL_TREE);
 
     case METHOD_CALL_EXPR:
       {
@@ -9874,7 +9891,7 @@ regenerate_decl_from_template (decl, tmpl)
     /* Make sure that we can see identifiers, and compute access
        correctly, for the class members used in the declaration of
        this static variable or function.  */
-    pushclass (DECL_CONTEXT (decl), 2);
+    push_nested_class (DECL_CONTEXT (decl), 2);
 
   /* Do the substitution to get the new declaration.  */
   new_decl = tsubst (code_pattern, args, tf_error, NULL_TREE);
@@ -9897,7 +9914,7 @@ regenerate_decl_from_template (decl, tmpl)
 
   /* Pop the class context we pushed above.  */
   if (DECL_CLASS_SCOPE_P (decl))
-    popclass ();
+    pop_nested_class ();
 
   /* The immediate parent of the new template is still whatever it was
      before, even though tsubst sets DECL_TI_TEMPLATE up as the most
