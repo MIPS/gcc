@@ -75,8 +75,8 @@ static void simplify_do_stmt         PARAMS ((tree *));
 static void simplify_if_stmt         PARAMS ((tree *));
 static void simplify_switch_stmt     PARAMS ((tree *));
 static void simplify_return_stmt     PARAMS ((tree *));
-static void simplify_stmt_expr       PARAMS ((tree *, tree *));
-static void simplify_compound_literal_expr PARAMS ((tree *, tree *));
+static void simplify_stmt_expr       PARAMS ((tree *));
+static void simplify_compound_literal_expr PARAMS ((tree *));
 static void make_type_writable       PARAMS ((tree));
 static int is_last_stmt_of_scope     PARAMS ((tree));
 static void simplify_block	     PARAMS ((tree *, tree *));
@@ -85,7 +85,6 @@ static void push_context             PARAMS ((void));
 static void pop_context              PARAMS ((void));
 static tree c_build_bind_expr	     PARAMS ((tree, tree));
 static void add_block_to_enclosing   PARAMS ((tree));
-static int  expr_has_effect          PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
@@ -120,6 +119,19 @@ pop_context ()
 }
 
 /* Simplification of statement trees.  */
+
+/* Convert the tree representation of FNDECL from C frontend trees to
+   GENERIC.  */
+
+void
+c_genericize (fndecl)
+     tree fndecl;
+{
+  /* Go ahead and simplify for now.  */
+  push_context ();
+  simplify_function_tree (fndecl);
+  pop_context ();
+}
 
 /*  Entry point for the tree lowering pass.  Recursively scan
     *STMT_P and convert it to a SIMPLE tree.  */
@@ -302,9 +314,14 @@ c_build_bind_expr (block, body)
   else
     {
       decls = block;
-      block = make_node (BLOCK);
-      BLOCK_VARS (block) = decls;
-      add_block_to_enclosing (block);
+      if (DECL_ARTIFICIAL (decls))
+	block = NULL_TREE;
+      else
+	{
+	  block = make_node (BLOCK);
+	  BLOCK_VARS (block) = decls;
+	  add_block_to_enclosing (block);
+	}
     }
 
   bind = build (BIND_EXPR, void_type_node, decls, body, block);
@@ -385,8 +402,13 @@ simplify_expr_stmt (stmt_p)
      simplification.  */
   if (stmt && (extra_warnings || warn_unused_value))
     {
-      if (!expr_has_effect (stmt))
-	warning ("statement with no effect");
+      if (!TREE_SIDE_EFFECTS (stmt))
+	{
+	  if (stmt != empty_stmt_node
+	      && !(TREE_CODE (stmt) == CONVERT_EXPR
+		   && VOID_TYPE_P (TREE_TYPE (stmt))))
+	    warning ("statement with no effect");
+	}
       else if (warn_unused_value)
 	{
 	  /* Kludge for 20020220-2.c.  warn_if_unused_value shouldn't use
@@ -687,13 +709,13 @@ simplify_decl_stmt (stmt_p, next_p)
       if (init && init != error_mark_node && !TREE_STATIC (decl))
 	{
 	  DECL_INITIAL (decl) = NULL_TREE;
-	  add_tree (build (INIT_EXPR, void_type_node, decl, init), &pre);
+	  add_tree (build (MODIFY_EXPR, void_type_node, decl, init), &pre);
 	}
     }
 
   /* This decl isn't mentioned in the enclosing block, so add it to
      the list of temps.  */
-  if (ctxp && gimple_current_bind_expr () == NULL_TREE)
+  if (DECL_ARTIFICIAL (decl))
     gimple_add_tmp_var (decl);
 
   *stmt_p = pre;
@@ -706,19 +728,14 @@ simplify_decl_stmt (stmt_p, next_p)
    instead.  */
 
 static void
-simplify_compound_literal_expr (expr_p, pre_p)
+simplify_compound_literal_expr (expr_p)
      tree *expr_p;
-     tree *pre_p;
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_STMT_DECL (decl_s);
 
-  /* This decl isn't mentioned in the enclosing block, so add it to
-     the list of temps.  */
-  gimple_add_tmp_var (decl);
   simplify_decl_stmt (&decl_s, NULL);
-  add_tree (decl_s, pre_p);
-  *expr_p = decl;
+  *expr_p = decl_s ? decl_s : decl;
 }
 
 /* Do C-specific simplification.  Args are as for simplify_expr.  */
@@ -726,26 +743,24 @@ simplify_compound_literal_expr (expr_p, pre_p)
 int
 c_simplify_expr (expr_p, pre_p, post_p)
      tree *expr_p;
-     tree *pre_p;
+     tree *pre_p ATTRIBUTE_UNUSED;
      tree *post_p ATTRIBUTE_UNUSED;
 {
   enum tree_code code = TREE_CODE (*expr_p);
   
   if (statement_code_p (code))
     {
-      push_context ();
       c_simplify_stmt (expr_p);
-      pop_context ();
       return 1;
     }
   else switch (code)
     {
     case COMPOUND_LITERAL_EXPR:
-      simplify_compound_literal_expr (expr_p, pre_p);
+      simplify_compound_literal_expr (expr_p);
       return 1;
 
     case STMT_EXPR:
-      simplify_stmt_expr (expr_p, pre_p);
+      simplify_stmt_expr (expr_p);
       return 1;
 
     default:
@@ -762,18 +777,17 @@ c_simplify_expr (expr_p, pre_p, post_p)
       *EXPR_P should be stored.  */
 
 static void
-simplify_stmt_expr (expr_p, pre_p)
+simplify_stmt_expr (expr_p)
      tree *expr_p;
-     tree *pre_p;
 {
   tree body = STMT_EXPR_STMT (*expr_p);
-
   if (VOID_TYPE_P (TREE_TYPE (*expr_p)))
-    *expr_p = empty_stmt_node;
+    c_simplify_stmt (&body);
   else
     {
-      tree substmt, last_expr_stmt, last_expr, temp, mod;
+      tree substmt, last_expr_stmt, last_expr, bind;
 
+      /* Splice the last expression out of the STMT chain.  */
       last_expr_stmt = NULL_TREE;
       for (substmt = COMPOUND_BODY (body); substmt;
 	   substmt = TREE_CHAIN (substmt))
@@ -783,77 +797,32 @@ simplify_stmt_expr (expr_p, pre_p)
 	}
 
       last_expr = EXPR_STMT_EXPR (last_expr_stmt);
-
-      if (TREE_CHAIN (last_expr_stmt) == NULL_TREE
-	  && TREE_CODE (last_expr) == INIT_EXPR)
-	{
-	  /* The C++ frontend already did this for us.  */;
-	  temp = TREE_OPERAND (last_expr, 0);
-	}
-      else
-	{
+      EXPR_STMT_EXPR (last_expr_stmt) = empty_stmt_node;
 #if defined ENABLE_CHECKING
-	  if (!is_last_stmt_of_scope (last_expr_stmt))
-	    abort ();
+      if (!is_last_stmt_of_scope (last_expr_stmt))
+	abort ();
 #endif
 
-	  temp = create_tmp_var_noc (TREE_TYPE (last_expr), "retval");
-	  mod = build (INIT_EXPR, TREE_TYPE (temp), temp, last_expr);
-	  EXPR_STMT_EXPR (last_expr_stmt) = mod;
-	}
+      /* Genericize the block.  */
+      c_simplify_stmt (&body);
 
-      *expr_p = temp;
+      /* Now retrofit that last expression into the BIND_EXPR.  */
+      bind = body;
+      STRIP_WFL (bind);
+      substmt = BIND_EXPR_BODY (bind);
+      if (substmt == empty_stmt_node)
+	substmt = last_expr;
+      else
+	substmt = build (COMPOUND_EXPR, TREE_TYPE (last_expr),
+			 substmt, last_expr);
+      BIND_EXPR_BODY (bind) = substmt;
+      TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
     }
 
-  simplify_stmt (&body);
-  add_tree (body, pre_p);
+  *expr_p = body;
 }
 
 /* Code generation.  */
-
-/*  Replaces T; by a COMPOUND_STMT containing {T;}.  */
-
-void
-tree_build_scope (t)
-     tree *t;
-{
-  tree comp_stmt, start_scope, end_scope;
-
-  /* If T already has a proper scope, do nothing.  */
-  if (*t
-      && TREE_CODE (*t) == COMPOUND_STMT
-      && COMPOUND_BODY (*t))
-    return;
-
-  /* Create a new empty scope.  */
-  comp_stmt = make_node (COMPOUND_STMT);
-
-  start_scope = make_node (SCOPE_STMT);
-  SCOPE_BEGIN_P (start_scope) = 1;
-
-  end_scope = make_node (SCOPE_STMT);
-  SCOPE_BEGIN_P (end_scope) = 0;
-
-  COMPOUND_BODY (comp_stmt) = start_scope;
-
-  if (*t)
-    {
-      /* If T is not empty, insert it inside the newly created scope.  Note
-	 that we can't just join TREE_CHAIN(*T) to the closing scope
-	 because even if T wasn't inside a scope, it might be a list of
-	 statements.  */
-      TREE_CHAIN (start_scope) = *t;
-      chainon (*t, end_scope);
-    }
-  else
-    {
-      /* T is empty.  Simply join the start/end nodes.  */
-      TREE_CHAIN (start_scope) = end_scope;
-    }
-
-  /* Set T to the newly constructed scope.  */
-  *t = comp_stmt;
-}
 
 /* Miscellaneous helpers.  */
 
@@ -1024,17 +993,6 @@ deep_copy_node (node)
     STMT_LINENO (res) = STMT_LINENO (node);
   
   return res;
-}
-
-/*  Return nonzero if EXPR has some effect (e.g., it's not a single
-    non-volatile VAR_DECL).  */
-
-static int
-expr_has_effect (expr)
-     tree expr;
-{
-  return (TREE_SIDE_EFFECTS (expr)
-	  || expr == empty_stmt_node);
 }
 
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes

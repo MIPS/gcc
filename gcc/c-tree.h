@@ -323,6 +323,9 @@ extern void c_finish_incomplete_decl PARAMS ((tree));
 extern GTY(()) tree static_ctors;
 extern GTY(()) tree static_dtors;
 
+/* In c-simplify.c */
+extern void c_genericize PARAMS ((tree));
+
 /* In c-call-graph.c  */
 extern void print_call_graph		PARAMS ((FILE*, tree));
 extern void debug_call_graph		PARAMS ((tree));

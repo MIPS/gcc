@@ -55,7 +55,6 @@ static tree add_stmt_to_compound	PARAMS ((tree, tree));
 static void simplify_asm_expr		PARAMS ((tree, tree *));
 static void simplify_bind_expr		PARAMS ((tree *, tree *));
 static inline void remove_suffix     PARAMS ((char *, int));
-static tree create_tmp_var_1             PARAMS ((tree, const char *));
 static void push_gimplify_context	PARAMS ((void));
 static void pop_gimplify_context	PARAMS ((void));
 static void wrap_with_wfl PARAMS ((tree *));
@@ -530,7 +529,12 @@ simplify_bind_expr (expr_p, pre_p)
       for (p = &BIND_EXPR_BODY (bind_expr);
 	   TREE_CODE (*p) == COMPOUND_EXPR;
 	   p = &TREE_OPERAND (*p, 1))
-	/* advance.  */;
+	{
+	  /* Advance.  Set up the COMPOUND_EXPRs appropriately for what we
+	     will have when we're done.  */
+	  TREE_SIDE_EFFECTS (*p) = 1;
+	  TREE_TYPE (*p) = void_type_node;
+	}
 
       if (TREE_CODE (*p) == INIT_EXPR)
 	{
@@ -539,9 +543,9 @@ simplify_bind_expr (expr_p, pre_p)
 	}
       else
 	{
-	  temp = create_tmp_var_1 (TREE_TYPE (bind_expr), "retval");
+	  temp = create_tmp_var (TREE_TYPE (bind_expr), "retval");
 	  if (*p != empty_stmt_node)
-	    *p = build (INIT_EXPR, TREE_TYPE (temp), temp, *p);
+	    *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
 	}
 
       *expr_p = temp;
@@ -943,7 +947,7 @@ simplify_cond_expr (expr_p, pre_p)
      the arms.  */
   if (! VOID_TYPE_P (TREE_TYPE (expr)))
       {
-	tmp = create_tmp_var_1 (TREE_TYPE (expr), "iftmp");
+	tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
 
 	/* Build the then clause, 't1 = a;'.  */
 	TREE_OPERAND (expr, 1)
@@ -1005,6 +1009,11 @@ simplify_modify_expr (expr_p, pre_p, post_p)
       && TREE_CODE (*expr_p) != INIT_EXPR)
     abort ();
 #endif
+
+  /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer
+     useful.  */
+  if (TREE_CODE (*expr_p) == INIT_EXPR)
+    TREE_SET_CODE (*expr_p, MODIFY_EXPR);
 
   simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 		 is_simple_modify_expr_lhs, fb_lvalue);
@@ -1362,33 +1371,14 @@ create_tmp_var_noc (type, prefix)
     tree type;
     const char *prefix;
 {
-  return create_tmp_var_1 (type, prefix);
-} 
-
-/*  Create a new temporary variable declaration of type TYPE.  Returns the
-    newly created decl and pushes it into the top-level binding. */
-tree 
-create_tmp_var (type, prefix)
-    tree type;
-    const char *prefix;
-{
-  tree temp;
-  tree fnbody;
-
-  push_gimplify_context ();
-  temp = create_tmp_var_1 (type, prefix);
-  fnbody = DECL_SAVED_TREE (current_function_decl);
-  STRIP_WFL (fnbody);
-  declare_tmp_vars (gimplify_ctxp->temps, fnbody);
-  pop_gimplify_context ();
-  return temp;
+  return create_tmp_var (type, prefix);
 } 
 
 /*  Create a new temporary variable declaration of type TYPE.  Returns the
     newly created decl and pushes it into the current binding.  */
 
-static tree
-create_tmp_var_1 (type, prefix)
+tree
+create_tmp_var (type, prefix)
      tree type;
      const char *prefix;
 {
@@ -1520,8 +1510,8 @@ get_initialized_tmp_var (val, pre_p)
   
   prefix = get_name (val);
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
-  t = create_tmp_var_1 (TREE_TYPE (val), prefix);
-  mod = build (INIT_EXPR, TREE_TYPE (t), t, val);
+  t = create_tmp_var (TREE_TYPE (val), prefix);
+  mod = build (MODIFY_EXPR, TREE_TYPE (t), t, val);
   add_tree (mod, pre_p);
 
   return t;
@@ -1575,9 +1565,17 @@ void
 gimple_add_tmp_var (tmp)
      tree tmp;
 {
+  if (TREE_CHAIN (tmp))
+    abort ();
+
   DECL_CONTEXT (tmp) = current_function_decl;
-  TREE_CHAIN (tmp) = gimplify_ctxp->temps;
-  gimplify_ctxp->temps = tmp;
+  if (gimplify_ctxp)
+    {
+      TREE_CHAIN (tmp) = gimplify_ctxp->temps;
+      gimplify_ctxp->temps = tmp;
+    }
+  else
+    declare_tmp_vars (tmp, DECL_SAVED_TREE (current_function_decl));
 }
 
 

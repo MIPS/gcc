@@ -1,3 +1,49 @@
+2002-11-16  Jason Merrill  <jason@redhat.com>
+
+	Improve tree dumps.
+	* c-pretty-print.c, tree-pretty-print.c (dump_c_node): Handle
+	integers larger than a host word.
+	(op_prio): Handle INIT_EXPR.
+	* gimplify.c (simplify_bind_expr): Set TREE_SIDE_EFFECTS and type
+	of void_type_node on the COMPOUND_EXPRs as we walk.
+	* tree-simple.c (right_assocify_expr): Propagate the type from cur 
+	rather than rhs.
+
+	* c-decl.c (finish_function): Call c_genericize instead of
+	simplify_function_tree.
+	* c-simplify.c (c_genericize): New function.
+	(simplify_stmt_expr): Just genericize.
+	(simplify_compound_literal_expr): Likewise.
+	(c_build_bind_expr): Don't build a block for an artificial decl.
+	(simplify_decl_stmt): Add the variable to the temps list iff it's 
+	artificial.
+	(c_simplify_expr): Don't call push/pop_context.
+	* c-decl.c (build_compound_literal): Set DECL_ARTIFICIAL.
+	* c-tree.h: Declare c_genericize.
+
+	* c-simplify.c (tree_build_scope): Remove.
+
+	Remove INIT_EXPR from GIMPLE.
+	* c-simplify.c (simplify_decl_stmt): Use MODIFY_EXPR.
+	* gimplify.c (simplify_bind_expr): Likewise.
+	(simplify_modify_expr): Convert INIT_EXPR to MODIFY_EXPR.
+
+	* c-simplify.c (create_tmp_var_1): Drop; change all users to call
+	create_tmp_var.
+	(gimple_add_tmp_var): Now adds to the external temps list if 
+	available, or directly to the function otherwise.
+
+	Avoid gratuitous unused warnings.
+	* c-simplify.c (simplify_expr_stmt): Check TREE_SIDE_EFFECTS
+	directly.  Also check for explicit conversions to void.
+	(expr_has_effect): Remove.
+
+	* Makefile.in (OBJS): Remove tree-dchain.o.
+
+	* stor-layout.c (variable_size): We don't care about
+	global_bindings_p if the frontend doesn't want a list of the
+	expressions.
+	
 Tue Nov  5 14:34:36 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (float_truncate SSE splitter): Ensure that operand is not

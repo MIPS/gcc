@@ -3239,6 +3239,7 @@ build_compound_literal (type, init)
   TREE_STATIC (decl) = (current_binding_level == global_binding_level);
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
   TREE_TYPE (decl) = type;
   TREE_READONLY (decl) = TREE_READONLY (type);
   store_init_value (decl, init);
@@ -6382,10 +6383,9 @@ finish_function (nested, can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
-  /* Simplify before inlining.  Really this only needs to genericize,
-     but that currently happens via the simplifier.  */
+  /* Genericize before inlining.  */
   if (!flag_disable_simple)
-    simplify_function_tree (fndecl);
+    c_genericize (fndecl);
 
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);

@@ -439,6 +439,28 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  output_decimal (buffer, TREE_INT_CST_LOW (node));
 	  output_add_string (buffer, "B"); /* pseudo-unit */
 	}
+      else if (! host_integerp (node, 0))
+	{
+	  tree val = node;
+
+	  if (tree_int_cst_sgn (val) < 0)
+	    {
+	      output_add_character (buffer, '-');
+	      val = build_int_2 (-TREE_INT_CST_LOW (val),
+				 ~TREE_INT_CST_HIGH (val)
+				 + !TREE_INT_CST_LOW (val));
+	    }
+	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
+	     systems?  */
+	  {
+	    static char format[10]; /* "%x%09999x\0" */
+	    if (!format[0])
+	      sprintf (format, "%%x%%0%dx", HOST_BITS_PER_INT / 4);
+	    sprintf (buffer->digit_buffer, format, TREE_INT_CST_HIGH (val),
+		     TREE_INT_CST_LOW (val));
+	    output_add_string (buffer, buffer->digit_buffer);
+	  }
+	}
       else
 	output_decimal (buffer, TREE_INT_CST_LOW (node));
       break;
@@ -1649,6 +1671,7 @@ op_prio (op)
       return 1;
 
     case MODIFY_EXPR:
+    case INIT_EXPR:
       return 2;
 
     case COND_EXPR:

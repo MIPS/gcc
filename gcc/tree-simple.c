@@ -890,13 +890,13 @@ right_assocify_expr (top)
 	  /* If this is a COMPOUND_EXPR, we need to give (b, c) the type of
 	     c; previously lhs had the type of b.  For other associative
 	     tree codes, this should be a NOP.  */
-	  TREE_TYPE (lhs) = TREE_TYPE (rhs);
+	  TREE_TYPE (lhs) = TREE_TYPE (cur);
 
 	  /* Walk through the rhs chain from there until we find something
 	     with a different code.  In this case, c.  */
 	  for (q = &TREE_OPERAND (lhs, 1); TREE_CODE (*q) == code;
 	       q = &TREE_OPERAND (*q, 1))
-	    TREE_TYPE (*q) = TREE_TYPE (rhs);
+	    TREE_TYPE (*q) = TREE_TYPE (cur);
 
 	  /* Change (*, d) into (c, d).  */
 	  TREE_OPERAND (cur, 0) = *q;

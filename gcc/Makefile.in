@@ -755,7 +755,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	   \
  tree-inline.o unroll.o varasm.o varray.o version.o vmsdbgout.o xcoffout.o \
  tree-nomudflap.o tree-pretty-print.o tree-cfg.o tree-dfa.o tree-ssa.o     \
  tree-optimize.o tree-simple.o simple-break-elim.o simple-goto-elim.o      \
- tree-dchain.o tree-ssa-pre.o tree-alias-type.o gimplify.o  \
+ tree-ssa-pre.o tree-alias-type.o gimplify.o  \
  tree-alias-ecr.o tree-alias-common.o tree-alias-steen.o disjoint-set.o    \
  tree-ssa-ccp.o tree-ssa-dce.o                                             \
  et-forest.o $(GGC) $(out_object_file) $(EXTRA_OBJS)
