@@ -2,8 +2,8 @@
 
 	* java/lang/natRuntime.cc (_Jv_SetDLLSearchPath): New function.
 	(_Jv_FindSymbolInExecutable): Removed argument name.
-	(init_properties): Call _Jv_SetDLLSearchPath if
-	java.library.path is set.
+	* java/lang/natSystem.cc (init_properties): Call _Jv_SetDLLSearchPath
+	if java.library.path is set.
 
 	* gij.cc (help): Document --showversion.
 	(version): Don't exit.
