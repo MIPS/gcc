@@ -1180,7 +1180,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #endif 
 /* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
 
-/* APPLE LOCAL begin double destructor 20020214 --turly  */
+/* APPLE LOCAL begin KEXT double destructor */
 /* Handle __attribute__((apple_kext_compatibility)).  This shrinks the
    vtable for all classes with this attribute (and their descendants)
    back to 2.95 dimensions.  It causes only the deleting destructor to
@@ -1191,19 +1191,13 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */  \
   { "apple_kext_compatibility", 0, 0, 0, 1, 0, darwin_handle_odd_attribute },
 
-/* APPLE KEXT stuff -- only applies with pure static C++ code.  */
-/* NB: Can't use flag_apple_kext as it's in the C++ FE, and this macro
-   is used in the back end for the above __attribute__ handler.  */
-#define POSSIBLY_COMPILING_APPLE_KEXT_P()		\
-	(! MACHOPIC_INDIRECT && c_dialect_cxx())
-
 /* Need a mechanism to tell whether a C++ operator delete is empty so
    we overload TREE_SIDE_EFFECTS here (it is unused for FUNCTION_DECLS.)
    Fromage, c'est moi!  */
 #define CHECK_TRIVIAL_FUNCTION(DECL)					\
     do {								\
       const char *_name = IDENTIFIER_POINTER (DECL_NAME (DECL));	\
-      if (POSSIBLY_COMPILING_APPLE_KEXT_P () && DECL_SAVED_TREE (DECL)	\
+      if (flag_apple_kext && DECL_SAVED_TREE (DECL)			\
 	  && strstr (_name, "operator delete")				\
 	  && TREE_CODE (DECL_SAVED_TREE (DECL)) == COMPOUND_STMT	\
 	  && compound_body_is_empty_p (					\
@@ -1225,10 +1219,10 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 #define VPTR_INITIALIZER_ADJUSTMENT	8
 #define ADJUST_VTABLE_INDEX(IDX, VTBL)					\
     do {								\
-      if (POSSIBLY_COMPILING_APPLE_KEXT_P () && flag_apple_kext)	\
+      if (flag_apple_kext)						\
 	(IDX) = fold (build2 (PLUS_EXPR, TREE_TYPE (IDX), IDX, size_int (2))); \
     } while (0)
-/* APPLE LOCAL end double destructor 20020214 --turly  */
+/* APPLE LOCAL end KEXT double destructor */
 
 /* APPLE LOCAL begin zerofill 20020218 --turly  */
 /* This keeps uninitialized data from bloating the data when -fno-common.

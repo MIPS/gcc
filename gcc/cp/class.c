@@ -518,7 +518,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
   
   assemble_external (vtbl);
 
-  /* APPLE LOCAL double destructor  20020301 --turly  */
+  /* APPLE LOCAL KEXT double destructor */
 #ifdef ADJUST_VTABLE_INDEX
   ADJUST_VTABLE_INDEX (idx, vtbl);
 #endif
@@ -572,7 +572,7 @@ build_vfn_ref_using_vtable (tree vtbl, tree idx)
 
   assemble_external (vtbl);
 
-  /* APPLE LOCAL double destructor  20020301 --turly  */
+  /* APPLE LOCAL KEXT double destructor */
 #ifdef ADJUST_VTABLE_INDEX
   ADJUST_VTABLE_INDEX (idx, vtbl);
 #endif
@@ -3890,119 +3890,6 @@ build_clone (tree fn, tree name)
   return clone;
 }
 
-/* APPLE LOCAL begin double destructor 20020212 --turly  Modified 2004-07-26 --bowdidge  Modified 2004-08-17 --msachs */
-
-/* Return whether CLASS or any of its ancestors have the
-   "apple_kext_compatibility" attribute, in which case the non-deleting
-   destructor is not emitted.
-
-   Note that this only works for single inheritance.  */
-int
-has_apple_kext_compatibility_attr_p (tree class)
-{
-  while (class != NULL)
-    {
-      int n_baseclasses;
-      tree binfos;
-      if (TYPE_USES_MULTIPLE_INHERITANCE (class))
-	return 0;
-
-      if (lookup_attribute ("apple_kext_compatibility",
-				TYPE_ATTRIBUTES (class)))
-	return 1;
-      binfos = NULL_TREE; /*BINFO_BASE_BINFOS ( TYPE_BINFO (class));*/
-	n_baseclasses = BINFO_N_BASE_BINFOS( TYPE_BINFO (class));
-      /* Multiple inheritance here?  Just say no.  */
-      if (n_baseclasses == 1) 
-	class = TREE_TYPE (TREE_VEC_ELT (binfos, 0));
-      else
-	break;
-    }
-
-  return 0;
-}
-/* APPLE LOCAL end double destructor 20020212 --turly  Modified 2004-07-26 --bowdidge  Modified 2004-08-17 --msachs */
-
-/* TRUE if we have an operator delete which is empty (i.e., NO CODE!)  */
-int
-/* APPLE LOCAL MERGE FIXME mark unused */
-has_empty_operator_delete_p (tree class __attribute((__unused__)))
-{
-  /* APPLE LOCAL begin MERGE FIXME need to rewrite has_empty_operator_delete_p */
-  error("Calling has_empty_operator_delete_p!\n");
-#if (0) 
-  if (class != NULL)
-    {
-      if (TYPE_USES_MULTIPLE_INHERITANCE (class))
-	return 0;
-
-      if (TYPE_GETS_DELETE (class))
-	{
-	  tree f = lookup_fnfields (TYPE_BINFO (class),
-				ansi_opname (DELETE_EXPR), 0);
-
-	  if (f == error_mark_node)
-	    return 0;
-
-	  if (BASELINK_P (f))
-	    f = TREE_VALUE (f);
-
-	  if (OVL_CURRENT (f))
-	    {
-	      f = OVL_CURRENT (f);
-
-	      /* We've overridden TREE_SIDE_EFFECTS for C++ operator deletes
-		 to mean that the function is empty.  */
-	      if (TREE_SIDE_EFFECTS (f))
-		return 1;
-
-	      /* Otherwise, it could be an inline but empty function.  */
-	      if (DECL_SAVED_TREE (f)
-		  && TREE_CODE (DECL_SAVED_TREE (f)) == BIND_EXPR
-		  && BIND_EXPR (DECL_SAVED_TREE (f)))
-		return compound_body_is_empty_p (BIND_EXPR
-							(DECL_SAVED_TREE (f)));
-	    }
-	}
-    }
-#endif
-  /* APPLE LOCAL end MERGE FIXME need to rewrite has_empty_operator_delete_p */
-  return 0;
-}
-
-/* APPLE LOCAL MERGE FIXME Make sure this is all sane after merge */
-/* Note that as of 6/2004 there is no compound statement any more */
-
-/* Walk through a COMPOUND_STMT and return true if nothing in there would
-   cause us to generate code.  */
-int
-compound_body_is_empty_p (tree t __attribute__((__unused__)))
-{
-  /* APPLE LOCAL begin MERGE FIXME */
-#if (0)
-  while (t && t != error_mark_node)
-    {
-      enum tree_code tc = TREE_CODE (t);
-      if (tc == BIND_EXPR)
-	{
-	  if (compound_body_is_empty_p (BIND_EXPR (t)))
-	    t = TREE_CHAIN (t);
-	  else
-	    return 0;
-	}
-      else
-      if (tc == SCOPE_STMT)
-	t = TREE_CHAIN (t);
-      else
-	return 0;
-    }
-  /* We hit the end of the body function without seeing anything.  */
-#endif
-  /* APPLE LOCAL end MERGE FIXME */
-  return 1;
-}
-
-
 /* Produce declarations for all appropriate clones of FN.  If
    UPDATE_METHOD_VEC_P is nonzero, the clones are added to the
    CLASTYPE_METHOD_VEC as well.  */
@@ -4048,7 +3935,7 @@ clone_function_decl (tree fn, int update_method_vec_p)
 	    add_method (DECL_CONTEXT (clone), clone);
 	}
 
-      /* APPLE LOCAL double destructor 20020212 --turly  */
+      /* APPLE LOCAL KEXT double destructor */
       /* Don't use the complete dtor.  */
       if (! flag_apple_kext
 	  || ! has_apple_kext_compatibility_attr_p (DECL_CONTEXT (fn)))
@@ -7363,7 +7250,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
       index = size_binop (MULT_EXPR,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
-      /* APPLE LOCAL begin double destructor  20020301 --turly  */
+      /* APPLE LOCAL begin KEXT double destructor */
 #ifdef VPTR_INITIALIZER_ADJUSTMENT
       /* Subtract VPTR_INITIALIZER_ADJUSTMENT from INDEX.  */
       if (flag_apple_kext && !ctor_vtbl_p && ! BINFO_PRIMARY_P (binfo)
@@ -7374,7 +7261,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
 			     TREE_TYPE (index), index,
 			     size_int (VPTR_INITIALIZER_ADJUSTMENT)));
 #endif
-      /* APPLE LOCAL end double destructor  20020301 --turly  */
+      /* APPLE LOCAL end KEXT double destructor */
 
       vtbl = build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
     }
@@ -8012,3 +7899,102 @@ cp_fold_obj_type_ref (tree ref, tree known_type)
   return build_address (fndecl);
 }
 
+/* APPLE LOCAL begin KEXT double destructor */
+/* Return whether CLASS or any of its primary ancestors have the
+   "apple_kext_compatibility" attribute, in which case the
+   non-deleting destructor is not emitted.  Only single
+   inheritance heirarchies can have this tag.  */
+int
+has_apple_kext_compatibility_attr_p (tree class)
+{
+  while (class != NULL)
+    {
+      tree base_binfo;
+      if (TYPE_USES_MULTIPLE_INHERITANCE (class))
+	return 0;
+
+      if (lookup_attribute ("apple_kext_compatibility",
+			    TYPE_ATTRIBUTES (class)))
+	return 1;
+      base_binfo = CLASSTYPE_PRIMARY_BINFO (class);
+      if (base_binfo
+	  && ! BINFO_VIRTUAL_P (base_binfo))
+	class = BINFO_TYPE (base_binfo);
+      else
+	break;
+    }
+
+  return 0;
+}
+
+/* Walk through a function body and return true if nothing in there
+   would cause us to generate code.  */
+int
+compound_body_is_empty_p (tree t)
+{
+  while (t && t != error_mark_node)
+    {
+      enum tree_code tc = TREE_CODE (t);
+      if (tc == BIND_EXPR)
+	{
+	  if (BIND_EXPR_VARS (t) == 0
+	      && compound_body_is_empty_p (BIND_EXPR_BODY (t)))
+	    t = TREE_CHAIN (t);
+	  else
+	    return 0;
+	}
+      else if (tc == STATEMENT_LIST)
+	{
+	  tree_stmt_iterator iter;
+
+	  for (iter = tsi_start (t); !tsi_end_p (iter); tsi_next (&iter))
+	    if (! compound_body_is_empty_p (tsi_stmt (iter)))
+	      return 0;
+	  return 1;
+	}
+      else
+	return 0;
+    }
+  /* We hit the end of the body function without seeing anything.  */
+  return 1;
+}
+
+/* TRUE if we have an operator delete which is empty (i.e., NO CODE!)  */
+int
+has_empty_operator_delete_p (tree class)
+{
+  if (! class)
+    return 0;
+
+  if (TYPE_USES_MULTIPLE_INHERITANCE (class))
+    return 0;
+
+  if (TYPE_GETS_DELETE (class))
+    {
+      tree f = lookup_fnfields (TYPE_BINFO (class),
+				ansi_opname (DELETE_EXPR), 0);
+
+      if (f == error_mark_node)
+	return 0;
+
+      if (BASELINK_P (f))
+	f = BASELINK_FUNCTIONS (f);
+
+      if (OVL_CURRENT (f))
+	{
+	  f = OVL_CURRENT (f);
+
+	  /* We've overridden TREE_SIDE_EFFECTS for C++ operator deletes
+	     to mean that the function is empty.  */
+	  if (TREE_SIDE_EFFECTS (f))
+	    return 1;
+
+	  /* Otherwise, it could be an inline but empty function.  */
+	  if (DECL_SAVED_TREE (f))
+	    return compound_body_is_empty_p (DECL_SAVED_TREE (f));
+	}
+    }
+
+  return 0;
+}
+/* APPLE LOCAL end KEXT double destructor */

@@ -1448,11 +1448,11 @@ abort_assembly_and_exit (int status)
 }
 /* APPLE LOCAL end assembly "abort" directive  */
 
-/* APPLE LOCAL begin double destructor 20020214 --turly  */
+/* APPLE LOCAL begin KEXT double destructor */
 #include "c-common.h"
 
 /* Handle __attribute__ ((apple_kext_compatibility)).
-   This only applies to darwin kexts for 295 compatibility -- it shrinks the
+   This only applies to darwin kexts for 2.95 compatibility -- it shrinks the
    vtable for classes with this attribute (and their descendants) by not
    outputting the new 3.0 nondeleting destructor.  This means that such
    objects CANNOT be allocated on the stack or as globals UNLESS they have
@@ -1466,7 +1466,8 @@ tree
 darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
-  if (! POSSIBLY_COMPILING_APPLE_KEXT_P ())
+  /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
+  if (! flag_apple_kext || ! c_dialect_cxx ())
     {
       warning ("`%s' 2.95 vtable-compatability attribute applies "
 	       "only when compiling a kext", IDENTIFIER_POINTER (name));
@@ -1483,7 +1484,7 @@ darwin_handle_odd_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 
   return NULL_TREE;
 }
-/* APPLE LOCAL end  double destructor 20020214 --turly  */
+/* APPLE LOCAL end KEXT double destructor  */
 
 /* APPLE LOCAL begin darwin_set_section_for_var_p  20020226 --turly  */
 

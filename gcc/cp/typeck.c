@@ -2415,7 +2415,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 		     instance_ptr);
       vtbl = build_indirect_ref (vtbl, NULL);
 
-      /* APPLE LOCAL double destructor  20020301 --turly  */
+      /* APPLE LOCAL double destructor */
 #ifdef ADJUST_VTABLE_INDEX
       /* vptr hack already compensated for!  */
       if (0) ADJUST_VTABLE_INDEX (idx, vtbl);

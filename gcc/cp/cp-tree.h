@@ -4407,11 +4407,10 @@ extern tree mangle_ref_init_variable            (tree);
 /* in dump.c */
 extern bool cp_dump_tree                         (void *, tree);
 
-/* APPLE LOCAL begin ddtor double destructor 20020215 --turly  */
+/* APPLE LOCAL begin KEXT double destructor 20020215 --turly  */
 extern int has_apple_kext_compatibility_attr_p	PARAMS ((tree));
 extern int has_empty_operator_delete_p		PARAMS ((tree));
-extern int compound_body_is_empty_p		PARAMS ((tree));
-/* APPLE LOCAL end ddtor double destructor 20020215 --turly  */
+/* APPLE LOCAL end KEXT double destructor 20020215 --turly  */
 
 /* APPLE LOCAL begin new tree dump */
 /* in cp-dmp-tree.c */

@@ -10911,7 +10911,7 @@ cxx_maybe_build_cleanup (tree decl)
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
       tree rval;
-      /* APPLE LOCAL  begin double destructor  20020214 --turly  */
+      /* APPLE LOCAL begin KEXT double destructor */
       special_function_kind dtor = sfk_complete_destructor;
       if (flag_apple_kext
 	  && has_apple_kext_compatibility_attr_p (type))
@@ -10925,11 +10925,11 @@ cxx_maybe_build_cleanup (tree decl)
 			 "not allow global or stack-based objects; it "
 			 "does not have an empty `operator delete', and "
 			 "so it will ** NOT ** be destructed.", decl);
-	      return 0;
+	      return NULL_TREE;
 	    }
 	  dtor = sfk_deleting_destructor;
 	}
-      /* APPLE LOCAL  end double destructor  20020214 --turly  */
+      /* APPLE LOCAL end KEXT double destructor */
  
 
       if (TREE_CODE (type) == ARRAY_TYPE)
@@ -10946,7 +10946,7 @@ cxx_maybe_build_cleanup (tree decl)
 	flags |= LOOKUP_NONVIRTUAL;
 
       rval = build_delete (TREE_TYPE (rval), rval,
-			   /* APPLE LOCAL  double destructor  */
+			   /* APPLE LOCAL KEXT double destructor  */
 			   dtor, flags, 0);
 
       if (TYPE_USES_VIRTUAL_BASECLASSES (type)

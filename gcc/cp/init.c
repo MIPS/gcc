@@ -2819,7 +2819,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  build_op_delete_call (DELETE_EXPR, addr, cxx_sizeof_nowarn (type),
 				/*global_p=*/false, NULL_TREE);
 	}
-      /* APPLE LOCAL  begin double destructor  --matt 20020501  */
+      /* APPLE LOCAL begin KEXT double destructor  --matt 20020501  */
       /* If we're compiling a class in kext compatibility mode we
 	 don't have a non-deleting destructor, so we unconditionally
 	 generate a reference to the deleting variety.  */
