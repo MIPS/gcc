@@ -1,3 +1,7 @@
+Thu Oct  3 15:15:00 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (lea to mul peep2): Fix condition.
+
 2002-10-06  Richard Henderson  <rth@redhat.com>
 
 	* config/rs6000/rs6000.md (load_toc_v4_PIC_2): Fix base constraint.
