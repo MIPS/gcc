@@ -1,3 +1,9 @@
+2003-09-07  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Fix PR optimization/12198
+	* tree-cfg.c (value_matches_some_label): Handle integer
+	case ranges.
+
 2003-09-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-iterator.h (tsi_iterator_update): Added TSI_CHAIN_START,

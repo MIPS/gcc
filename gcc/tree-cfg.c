@@ -2436,14 +2436,22 @@ value_matches_some_label (edge dest_edge, tree val, edge *default_edge_p)
 	return false;
 
       /* Remember that we found a default label, just in case no other
-	  label matches the switch() value.  */
+	 label matches the switch() value.  If we do find a match, we
+	 are done.  */
       if (CASE_LOW (stmt) == NULL_TREE)
 	*default_edge_p = dest_edge;
-      else
+      else if (CASE_HIGH (stmt) == NULL_TREE)
 	{
-	  /* If we found a match, we are done.  */
+	  /* A `normal' case label.  */
 	  tree label_val = CASE_LOW (stmt);
 	  if (simple_cst_equal (label_val, val) == 1)
+	    return true;
+	}
+      else
+	{
+	  /* A case range.  We can only handle integer ranges.  */
+	  if (tree_int_cst_compare (CASE_LOW (stmt), val) <= 0
+	      && tree_int_cst_compare (CASE_HIGH (stmt), val) >= 0)
 	    return true;
 	}
     }
