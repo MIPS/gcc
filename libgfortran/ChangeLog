@@ -1,3 +1,7 @@
+2003-09-18  XiaoQiang Zhang  <zhangapache@yahoo.com>
+
+	* io/write.c (output_float): Fix bug of FMT_E, Add comments.
+
 2003-09-09  XiaoQiang Zhang  <zhangapache@yahoo.com>
 
 	* io/write.c (write_float): Dectection of positive infinite number,
@@ -5,7 +9,7 @@
 	(ioutput_float): Bug fix for FMT_E and FMT_D processing to
 	output a very_very small number ( < 0.1e-100 ).
 
-2003-09-07  XiaoQiang Zhang (zhangapache@yahoo.com>
+2003-09-07  XiaoQiang Zhang  <zhangapache@yahoo.com>
 
 	* libgfortran.h (xtoa, itoa): Parameter modified.
 	* io/io.h (namelist_info): Declaration to support namelist I/O

@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include <float.h>
 #include "libgfortran.h"
 #include "io.h"
+#include <stdio.h>
 
 
 #define star_fill(p, n) memset(p, '*', n)
@@ -285,15 +286,20 @@ output_float (fnode *f, double value, int len)
 
   int intval = 0, intlen = 0;
   int j;
-
+  
+  /* EXP value for this number */
   neval = 0;
+
+  /* Width of EXP and it's sign*/
   nesign = 0;
 
   ft = f->format;
   w = f->u.real.w;
   d = f->u.real.d + 1;
 
+  /* Width of the EXP */
   e = 0;
+
   sca = g.scale_factor;
   n = value;
 
@@ -301,6 +307,7 @@ output_float (fnode *f, double value, int len)
   if (n < 0)
     n = -n;
 
+  /* Width of the sign for the whole number */
   nsign = (sign == SIGN_NONE ? 0 : 1);
 
   digits = 0;
@@ -317,6 +324,8 @@ output_float (fnode *f, double value, int len)
       minv = 0.1;
       maxv = 1.0;
 
+      /* Here calculate the new val of the number with consideration
+         of Globle Scale value */
       while (sca >  0)
         {
           minv *= 10.0;
@@ -326,6 +335,7 @@ output_float (fnode *f, double value, int len)
           neval --;
         }
 
+      /* Now calculate the new Exp value for this number */
       sca = g.scale_factor;
       while(sca >= 1)
         {
@@ -345,6 +355,7 @@ output_float (fnode *f, double value, int len)
        maxv = 10.0;
      }
 
+   /* OK, let's scale the number to appropriate range */
    while (scale_flag && n > 0.0 && n < minv)
      {
        if (n < minv)
@@ -361,8 +372,13 @@ output_float (fnode *f, double value, int len)
            neval ++;
          }
      }
+
+  /* It is time to process the EXP part of the number. 
+     Value of 'nesign' is 0 unless following codes is executed.
+  */
   if (ft != FMT_F)
     {
+     /* Sign of the EXP value */
      if (neval >= 0)
        esign = SIGN_PLUS;
      else
@@ -371,6 +387,7 @@ output_float (fnode *f, double value, int len)
          neval = - neval ;
        }
 
+      /* Width of the EXP*/
       e_new = 0;
       j = neval;
       while (j > 0)
@@ -381,13 +398,19 @@ output_float (fnode *f, double value, int len)
       if (e <= e_new)
          e = e_new;
 
+     /* Got the width of EXP */
      if (e < digits)
        e = digits ;
 
-     nesign =  1 ;  /* position for exp_char */
+     /* Minimum value of the width would be 2 */
+     if (e < 2)
+       e = 2;
+
+     nesign =  1 ;  /* We must give a position for the 'exp_char' */
      if (e > 0)
        nesign = e + nesign + (esign != SIGN_NONE ? 1 : 0);
    }
+
 
   intval = n;
   intstr = itoa (intval);
@@ -437,7 +460,7 @@ output_float (fnode *f, double value, int len)
   memcpy (p, q, intlen + d + 1);
   p += intlen + d;
 
-  if (e > 0 && nesign > 0)
+  if (nesign > 0)
     {
       if (with_exp)
          *p++ = exp_char;
