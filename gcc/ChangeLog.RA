@@ -1,3 +1,37 @@
+2001-04-29  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	Infrastructure for subreg handling.
+
+	* df.h (DF_REF_REAL_REG): New.
+	(DF_REF_REGNO, DF_REF_REG, DF_REF_LOC): Change to support subregs.
+
+	* df.c (HANDLE_SUBREG): #define, all other code is #ifdef'd on this.
+	(df_ref_record): handle subregs (don't abort, canonicalize).
+	(df_def_record_1, df_uses_record): don't overread all subregs.
+
+	* ra.c (*): commentary adjusted, use DF_REF_* whereever possible.
+	(struct web): new fields .orig_x and .subreg_next.
+	(struct curr_use): New.
+	(live_out_1, live_out, live_in): takes now a (struct curr_use *),
+	callers changed.
+	(regs_overlap_p): New.
+	(live_out_1): Use it.
+	(init_one_web): takes a rtx, instead a regno.
+	(find_subweb, add_subweb): New.
+	(parts_to_webs): Use them.
+	(set_undefined): New.
+	(build_webs_and_conflicts): Use it.
+	(union_web_part_roots): Don't merge conflicts here for every case.
+	(live_out_1): handle partly overlaps for conflicts.
+	(parts_to_webs): deal with and remember subwebs (webs corresponding
+	to subregs).
+	(conflicts_between_webs): handle conflicts in non-roots.
+
+2001-04-29  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (moves_to_webs): don't try to handle 'complicated' copy
+	insns.
+
 2001-02-25  Michael Matz  <matzmich@cs.tu-berlin.de>
 
 	* ra.c (colorize_one_web): comment about our strategy.
@@ -11,7 +45,7 @@ Sun Feb 25 22:14:13 2001  Denis Chertykov  <denisc@overta.ru>
 
 2001-02-24  Michael Matz  <matzmich@cs.tu-berlin.de>
 
-	* ra.c (conflicts_between_web): new function, split out from ...
+	* ra.c (conflicts_between_webs): new function, split out from ...
 	(parts_to_webs): ... here, new argument part2web.  Change callers.
 	(make_webs): new function, calling the above in the right order;
 	partly split out from ...

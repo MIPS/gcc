@@ -154,18 +154,24 @@ struct df_map
 
 
 /* Macros to access the elements within the ref structure.  */
- 
+#define DF_REF_REAL_REG(REF) (GET_CODE ((REF)->reg) == SUBREG \
+				? SUBREG_REG ((REF)->reg) : ((REF)->reg))
+#define DF_REF_REGNO(REF) REGNO (DF_REF_REAL_REG (REF))
+#ifdef OLD_DF_INTERFACE
+#define DF_REF_REG(REF) DF_REF_REAL_REG(REF)
+#define DF_REF_LOC(REF) (GET_CODE ((REF)->reg) == SUBREG \
+			   ? &SUBREG_REG((REF)->reg) : ((REF)->loc))
+#else
 #define DF_REF_REG(REF) ((REF)->reg)
-#define DF_REF_REGNO(REF) REGNO((REF)->reg)
+#define DF_REF_LOC(REF) ((REF)->loc)
+#endif
 #define DF_REF_BB(REF) ((REF)->bb)
 #define DF_REF_BBNO(REF) ((REF)->bb->index)
 #define DF_REF_INSN(REF) ((REF)->insn)
 #define DF_REF_INSN_UID(REF) (INSN_UID ((REF)->insn))
-#define DF_REF_LOC(REF) ((REF)->loc)
 #define DF_REF_TYPE(REF) ((REF)->type)
 #define DF_REF_CHAIN(REF) ((REF)->chain)
 #define DF_REF_ID(REF) ((REF)->id)
-
 
 /* Macros to determine the reference type.  */
 

@@ -153,6 +153,7 @@ when optimising a loop, only certain registers are of interest.
 Perhaps there should be a bitmap argument to df_analyse to specify
  which registers should be analysed?   */
 
+#define HANDLE_SUBREG
 
 #include "config.h"
 #include "system.h"
@@ -844,10 +845,24 @@ df_ref_record (df, reg, loc, bb, insn, ref_type)
 {
   unsigned int regno;
 
-  if (GET_CODE (reg) != REG)
+  if (GET_CODE (reg) != REG && GET_CODE (reg) != SUBREG)
     abort ();
 
-  regno = REGNO (reg);
+  /* For the reg allocator we are interested in some SUBREG rtx's, but not
+     all.  Notably only those representing a word extraction from a multi-word
+     reg.  As written in the docu those should have the form
+     (subreg:SI (reg:M A) N), with size(SImode) > size(Mmode).
+     XXX Is that true?  We could also use the global word_mode variable.  */
+  if (GET_CODE (reg) == SUBREG
+      && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
+          || GET_MODE_SIZE (GET_MODE (reg))
+	       >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))))
+    {
+      loc = &SUBREG_REG (reg);
+      reg = *loc;
+    }
+
+  regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       int i;
@@ -856,6 +871,11 @@ df_ref_record (df, reg, loc, bb, insn, ref_type)
       if (! (df->flags & DF_HARD_REGS))
 	return;
 
+      /* GET_MODE (reg) is correct here.  We don't want to go into a SUBREG
+         for the mode, because we only want to add references to regs, which
+	 are really referenced.  E.g. a (subreg:SI (reg:DI 0) 0) does _not_
+	 reference the whole reg 0 in DI mode (which would also include
+	 reg 1, at least, if 0 and 1 are SImode registers).  */
       endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
 
       for (i = regno; i < endregno; i++)
@@ -891,6 +911,27 @@ df_def_record_1 (df, x, bb, insn)
       return;
     }
 
+  /* May be, we should flag the use of strict_low_part somehow.  Might be
+     handy for the reg allocator.  */
+#ifdef HANDLE_SUBREG
+  while (GET_CODE (dst) == STRICT_LOW_PART
+         || GET_CODE (dst) == ZERO_EXTRACT
+	 || GET_CODE (dst) == SIGN_EXTRACT)
+    {
+      loc = &XEXP (dst, 0);
+      dst = *loc;
+    }
+  /* For the reg allocator we are interested in exact register references.
+     This means, we want to know, if only a part of a register is
+     used/defd.  */
+/*
+  if (GET_CODE (dst) == SUBREG)
+    {
+      loc = &XEXP (dst, 0);
+      dst = *loc;
+    } */
+#else
+
   while (GET_CODE (dst) == SUBREG
 	 || GET_CODE (dst) == ZERO_EXTRACT
 	 || GET_CODE (dst) == SIGN_EXTRACT
@@ -899,8 +940,10 @@ df_def_record_1 (df, x, bb, insn)
       loc = &XEXP (dst, 0);
       dst = *loc;
     }
+#endif
 
-  if (GET_CODE (dst) == REG)
+  if (GET_CODE (dst) == REG
+      || (GET_CODE (dst) == SUBREG && GET_CODE (SUBREG_REG (dst)) == REG))
       df_ref_record (df, dst, loc, bb, insn, DF_REF_REG_DEF);
 }
 
@@ -978,20 +1021,29 @@ df_uses_record (df, loc, ref_type, bb, insn)
 
     case SUBREG:
       /* While we're here, optimize this case.  */
-      loc = &SUBREG_REG (x);
-      x = *loc;
+#if defined(HANDLE_SUBREG)
 
       /* In case the SUBREG is not of a register, don't optimize.  */
+      if (GET_CODE (SUBREG_REG (x)) != REG)
+	{
+	  loc = &SUBREG_REG (x);
+	  df_uses_record (df, loc, ref_type, bb, insn);
+	  return;
+	}
+#else
+      loc = &SUBREG_REG (x);
+      x = *loc;
       if (GET_CODE (x) != REG)
 	{
 	  df_uses_record (df, loc, ref_type, bb, insn);
 	  return;
 	}
+#endif
 
       /* ... Fall through ...  */
 
     case REG:
-      /* See a register other than being set.  */
+      /* See a register (or subreg) other than being set.  */
       df_ref_record (df, x, loc, bb, insn, ref_type);
       return;
 
@@ -1011,7 +1063,38 @@ df_uses_record (df, loc, ref_type, bb, insn)
 	    return;
 	  }
 	    
+#if 1 && defined(HANDLE_SUBREG)
 	/* Look for sets that perform a read-modify-write.  */
+	while (GET_CODE (dst) == STRICT_LOW_PART
+	       || GET_CODE (dst) == ZERO_EXTRACT
+	       || GET_CODE (dst) == SIGN_EXTRACT)
+	  {
+	    if (GET_CODE (dst) == STRICT_LOW_PART)
+	      {
+		dst = XEXP (dst, 0);
+		if (GET_CODE (dst) != SUBREG)
+		  abort ();
+		/* A strict_low_part uses the whole reg not only the subreg.  */
+		df_uses_record (df, &SUBREG_REG (dst), DF_REF_REG_USE, bb, insn);
+	      }
+	    else
+	      {
+	        df_uses_record (df, &XEXP (dst, 0), DF_REF_REG_USE, bb, insn);
+		dst = XEXP (dst, 0);
+	      }
+	  }
+	if (GET_CODE (dst) == SUBREG)
+	  {
+	    use_dst = 1;
+	  }
+	/* In the original code also some SUBREG rtx's were considered
+	   read-modify-write (those with
+	     REG_SIZE(SUBREG_REG(dst)) > REG_SIZE(dst) )
+	   e.g. a (subreg:QI (reg:SI A) 0).  I can't see this.  The only
+	   reason for a read cycle for reg A would be to somehow preserve
+	   the bits outside of the subreg:QI.  But for this a strict_low_part
+	   was necessary anyway, and this we handled already.  */
+#else
 	while (GET_CODE (dst) == STRICT_LOW_PART
 	       || GET_CODE (dst) == ZERO_EXTRACT
 	       || GET_CODE (dst) == SIGN_EXTRACT
@@ -1023,14 +1106,15 @@ df_uses_record (df, loc, ref_type, bb, insn)
 	      use_dst = 1;
 	    dst = XEXP (dst, 0);
 	  }
+#endif
 
 	if ((GET_CODE (dst) == PARALLEL && GET_MODE (dst) == BLKmode)
-	    || (GET_CODE (dst) == REG))
+	    || GET_CODE (dst) == REG || GET_CODE (dst) == SUBREG)
 	  {
-	    if (use_dst)
-	      df_uses_record (df, &SET_DEST (x), DF_REF_REG_USE, 
-			      bb, insn);
-
+#if 1 || !defined(HANDLE_SUBREG)
+            if (use_dst)
+	      df_uses_record (df, &SET_DEST (x), DF_REF_REG_USE, bb, insn);
+#endif
 	    df_uses_record (df, &SET_SRC (x), DF_REF_REG_USE, bb, insn);
 	    return;
 	  }

@@ -18,6 +18,7 @@
    with GNU CC; see the file COPYING.  If not, write to the Free Software
    Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#define OLD_DF_INTERFACE
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
@@ -56,7 +57,8 @@
    * use the frame-pointer, when we can
    * delete coalesced insns
    * don't insert hard-regs, but a limited set of pseudo-reg
-     in emit_colors, and setup reg_renumber accordingly
+     in emit_colors, and setup reg_renumber accordingly (done, but this
+     needs reload, which I want to go away)
    * when spilling, update interference graph incrementally, which
      is possible, as we don't use global liveness
    * don't destroy coalescing information completely when spilling
@@ -100,15 +102,16 @@ enum node_type
    connected together, if they have common instructions and reference the
    same register.  That way live ranges are build (by connecting defs and
    uses) and implicitely complete webs (by connecting web parts in common
-   uses.  */
+   uses).  */
 struct web_part
 {
   /* The def or use for this web part.  */
   struct ref *ref;
   /* The uplink implementing the disjoint set.  */
   struct web_part *uplink;
+
   /* Here dynamic information associated with each def/use is saved.
-     This all is only valid for root web parts.
+     This all is only valid for root web parts (uplink==NULL).
      That's the information we need to merge, if web parts are unioned.  */
   /* Number of spanned insns.  It's 0 for defs.  */
   unsigned int spanned_insns;
@@ -145,6 +148,19 @@ struct web
   int move_related; /* Whether the web is move related (IE involved
                        in a move) */
   enum node_type type; /* Current state of the node */
+  rtx orig_x; /* The (reg:M a) or (subreg:M1 (reg:M2 a) x) rtx which this
+		 web is based on.  This is used to distinguish subreg webs
+		 from it's reg parents, and to get hold of the mode.  */
+  struct web *subreg_next; /* If this web is a subreg, but not the last one of
+			      another reg, then this points to the next
+			      subreg.  If this is a reg, whose subreg's were
+			      accessed, this points to the first subreg web.
+			      If this is the last subreg web, this points up
+			      to the containing reg web.  Ergo, this all forms
+			      a circular list, so beware when traversing.  The
+			      "first" list-elem is the one with
+			      GET_CODE(orig_x) == REG.  For webs without
+			      subregs subreg_next of course is 0.  */
 
   enum reg_class regclass; /* just used for debugging */
   /* might be too much to store a HARD_REG_SET here for machines with _many_
@@ -189,12 +205,15 @@ struct move_list
   struct move *move;
 };
 
+struct curr_use;
+
 static struct web_part * find_web_part_1 PARAMS ((struct web_part *));
 static struct web_part * union_web_part_roots
 				PARAMS ((struct web_part *, struct web_part *));
-static int live_out_1 PARAMS ((struct df*, unsigned int, rtx, struct web_part*));
-static int live_out PARAMS ((struct df*, unsigned int, rtx, struct web_part*));
-static void live_in PARAMS ((struct df*, unsigned int, rtx, struct web_part*));
+static int regs_overlap_p PARAMS ((rtx, struct curr_use *));
+static int live_out_1 PARAMS ((struct df *, struct curr_use *, rtx));
+static int live_out PARAMS ((struct df *, struct curr_use *, rtx));
+static void live_in PARAMS ((struct df *, struct curr_use *, rtx));
 static void build_i_graph PARAMS ((struct df*));
 static void debug_msg PARAMS ((int, const char *, ...)) ATTRIBUTE_PRINTF_2;
 static int copy_insn_p PARAMS ((rtx, rtx *, rtx *));
@@ -202,7 +221,9 @@ static int hard_regs_intersect_p PARAMS ((HARD_REG_SET *, HARD_REG_SET *));
 static void remember_move PARAMS ((rtx));
 static void handle_asm_insn PARAMS ((struct df *, rtx));
 static void prune_hardregs_for_mode PARAMS ((HARD_REG_SET *, enum machine_mode));
-static void init_one_web PARAMS ((struct web *, int));
+static void init_one_web PARAMS ((struct web *, rtx));
+static struct web * find_subweb PARAMS ((struct web *, rtx));
+static struct web * add_subweb PARAMS ((struct web *, rtx));
 static void init_web_parts PARAMS ((struct df *));
 static void record_conflict PARAMS ((struct web *, struct web *));
 static void parts_to_webs PARAMS ((struct df *, struct web **));
@@ -212,6 +233,7 @@ static void detect_spill_temps PARAMS ((void));
 static void make_webs PARAMS ((struct df *));
 static void moves_to_webs PARAMS ((struct df *));
 static void connect_rmw_web_parts PARAMS ((struct df *));
+static void set_undefined PARAMS ((struct curr_use *));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
 static void dump_igraph PARAMS ((struct df *));
 static void alloc_mem PARAMS ((struct df *));
@@ -286,7 +308,7 @@ static const char *const reg_class_names[] = REG_CLASS_NAMES;
 
 static int debug_new_regalloc = 2;
 
-/* Print a message to the dump file, if debug_new_regalloc the
+/* Print a message to the dump file, if debug_new_regalloc is the
    same or greater than the specified level. */
 
 static void debug_msg VPARAMS ((int level, const char *format, ...))
@@ -406,7 +428,7 @@ copy_insn_p (insn, source, target)
 
 /* We build webs, as we process the conflicts.  For each use we go upward
    the insn stream, noting any defs as potentially conflicting with the
-   current use.  We stop at defs of the current regno. The conflicts are only
+   current use.  We stop at defs of the current regno.  The conflicts are only
    potentially, because we may never reach a def, so this is an undefined use,
    which conflicts with nothing. We do this by queuing all conflicts, and
    applying them, if we are done with this use.  As soon as we reach a def of
@@ -449,6 +471,7 @@ union_web_part_roots (r1, r2)
 {
   if (r1 != r2)
     {
+      rtx x1, x2;
       /* The new root is the smaller (pointerwise) of both.  This is crucial
          to make the construction of webs from web parts work (so, when
 	 scanning all parts, we see the roots before all it's childs).  
@@ -456,7 +479,7 @@ union_web_part_roots (r1, r2)
          the root is a def (because all def parts are before use parts in the
 	 web_parts[] array), or put another way, as soon, as the root of a
          web part is not a def, this is an uninitialized web part.  The
-         way we construct the I-graph unsures, that if a web is initialized,
+         way we construct the I-graph ensures, that if a web is initialized,
          then the first part we find (besides trivial 1 item parts) has a
          def.  */
       if (r1 > r2)
@@ -470,9 +493,30 @@ union_web_part_roots (r1, r2)
 
       /* Now we merge the dynamic information of R1 and R2.  */
       r1->spanned_insns += r2->spanned_insns;
-      bitmap_operation (r1->conflicts, r1->conflicts, r2->conflicts,
-			BITMAP_IOR);
-      BITMAP_XFREE (r2->conflicts);
+
+      /* The conflicts can only be merged, if the mode and subreg_word
+	 of both web parts are exactly the same.  Otherwise we loose
+	 information.  E.g. Think about a DEF originally only conflicting with
+	 a (subreg:SI (reg:DI a) 0) which is now going to be merged with it's
+	 setter (a (set (reg:DI a))).  If we now simply OR together the
+	 conflicts it would look like that DEF would conflict with the whole
+	 DImode pseudo.  For the case, that both are REGs, we don't need to
+         test the mode, as a pseudo has only one, and we are given also
+	 hardregs wordwise.  */
+      x1 = DF_REF_REG (r1->ref);
+      x2 = DF_REF_REG (r2->ref);
+      if (GET_CODE (x1) == GET_CODE (x2)
+	  && (GET_CODE (x1) == REG
+	      || (GET_CODE (x1) == SUBREG && GET_MODE (x1) == GET_MODE (x2)
+		  && SUBREG_WORD (x1) == SUBREG_WORD (x2))))
+	{
+	  bitmap_operation (r1->conflicts, r1->conflicts, r2->conflicts,
+			    BITMAP_IOR);
+	  BITMAP_XFREE (r2->conflicts);
+	}
+      else if (r2->conflicts->first == 0)
+	/* No need to hold memory.  */
+	BITMAP_XFREE (r2->conflicts);
     }
   return r1;
 }
@@ -501,20 +545,116 @@ remember_move (insn)
     }
 }
 
+/* This describes the USE currently looked at in the main-loop in
+   build_web_parts_and_conflicts().  */
+struct curr_use {
+  struct web_part *wp;
+  /* This has a 1-bit for each byte in the USE, which is still undefined.  */
+  unsigned HOST_WIDE_INT undefined;
+  /* For easy access.  */
+  unsigned int regno;
+  rtx x;
+};
+
+/* Returns nonzero iff rtx DEF and USE have bits in common (but see below).
+   It is only called with DEF and USE being (reg:M a) or (subreg:M1 (reg:M2 a)
+   x) rtx's.  Furthermore if it's a subreg rtx M1 is at least one word wide,
+   and a is a multi-word pseudo.  If DEF or USE are hardregs, they are in
+   wordmode, so we don't need to check for further hardregs which would result
+   from wider references.  We are never called with paradoxical subregs.
+ 
+   This returns:
+   0 for no common bits,
+   1 if DEF and USE exactly cover the same bytes,
+   2 if the DEF only covers a part of the bits of USE
+   3 if the DEF covers more than the bits of the USE, and
+   4 if both are SUBREG's of different size, but have bytes in common.
+   -1 is a special case, for when DEF and USE refer to the same regno, but
+      have for other reasons no bits in common (can only happen with
+      subregs refering to different words, or to words which already were
+      defined for this USE).
+   Furthermore it modifies use->undefined to clear the bits which get defined
+   by DEF (only for cases with partial overlap).
+   I.e. if bit 1 is set for the result != -1, the USE was completely covered,
+   otherwise a test is needed to track the already defined bytes.  */
+static int
+regs_overlap_p (def, use)
+     rtx def;
+     struct curr_use *use;
+{
+  int mode = 0;
+  if (def == use->x)
+    return 1;
+  if (!def)
+    return 0;
+  if (GET_CODE (def) == SUBREG)
+    mode |= 1;
+  if (GET_CODE (use->x) == SUBREG)
+    mode |= 2;
+  switch (mode)
+    {
+      case 0: /* REG, REG */
+	return (REGNO (def) == use->regno) ? 1 : 0;
+      case 1: /* SUBREG, REG */
+	if (REGNO (SUBREG_REG (def)) == use->regno)
+	  {
+	    int b, e;
+	    unsigned HOST_WIDE_INT old_u = use->undefined;
+	    b = GET_MODE_SIZE (GET_MODE (def)) * SUBREG_WORD (def);
+	    e = b + GET_MODE_SIZE (GET_MODE (def));
+	    for (; b != e; b++)
+	      use->undefined &= ~((unsigned HOST_WIDE_INT)1 << b);
+	    return (old_u != use->undefined) ? 2 : -1;
+	  }
+	else
+	  return 0;
+      case 2: /* REG, SUBREG */
+	return (REGNO (def) == use->regno) ? 3 : 0;
+      case 3: /* SUBREG, SUBREG */
+	if (REGNO (SUBREG_REG (def)) != use->regno)
+	  return 0;
+	if (GET_MODE_SIZE (GET_MODE (def)) == GET_MODE_SIZE (GET_MODE (use->x)))
+	  /* If the size of both things is the same, the subreg's only overlap
+	     if they refer to the same word.  */
+	  return (SUBREG_WORD (def) == SUBREG_WORD (use->x)) ? 1 : -1;
+	/* Now the more difficult part: the same regno is refered, but the
+	   sizes of the references differ.  E.g.
+           (subreg:SI (reg:CDI a) 0) and (subreg:DI (reg:CDI a) 1) do not
+	   overlap, wereas the latter overlaps with (subreg:SI (reg:CDI a) 2).
+	   */
+	{
+	  unsigned HOST_WIDE_INT old_u;
+	  int b1, e1, b2, e2;
+	  b1 = GET_MODE_SIZE (GET_MODE (def)) * SUBREG_WORD (def);
+	  b2 = GET_MODE_SIZE (GET_MODE (use->x)) * SUBREG_WORD (use->x);
+	  e1 = b1 + GET_MODE_SIZE (GET_MODE (def)) - 1;
+	  e2 = b2 + GET_MODE_SIZE (GET_MODE (use->x)) - 1;
+	  if (b1 > e2 || b2 > e1)
+	    return -1;
+	  old_u = use->undefined;
+	  for (; b1 <= e1; b1++)
+	    use->undefined &= ~((unsigned HOST_WIDE_INT)1 << b1);
+	  return (old_u != use->undefined) ? 4 : -1;
+	}
+      default:
+        abort ();
+    }
+}
+
 /* XXX gross hack to detect REG_NO_CONFLICT blocks, so we
    can ignore the conflict which would result from the initial clobber
    starting such a block.  */
 static int in_no_conflict_block;
 
 static int
-live_out_1 (df, regno, insn, wp)
+live_out_1 (df, use, insn)
      struct df *df;
-     unsigned int regno;
+     struct curr_use *use;
      rtx insn;
-     struct web_part *wp;
 {
   int defined = 0;
   unsigned int uid = INSN_UID (insn);
+  struct web_part *wp = use->wp;
 
   /* Mark, that this insn needs this webpart live.  */
   visit_trace[uid] = wp;
@@ -522,8 +662,8 @@ live_out_1 (df, regno, insn, wp)
   if (INSN_P (insn))
     {
       struct df_link *link;
-      int is_copy = 0;
-      unsigned int source_regno;
+      unsigned int source_regno = ~0;
+      unsigned int regno = use->regno;
       rtx s,t;
       wp = find_web_part (wp);
       wp->spanned_insns++;
@@ -547,19 +687,39 @@ live_out_1 (df, regno, insn, wp)
 	  if (slink->next
 	      && DF_REF_REGNO (slink->next->ref) >= FIRST_PSEUDO_REGISTER)
 	    abort (); */
-	  is_copy = 1;
 	  source_regno = REGNO (s);
 	  remember_move (insn);
 	}
       for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
         if (link->ref)
 	  {
-	    if (DF_REF_REGNO (link->ref) == regno)
+	    int lap;
+	    if ((lap = regs_overlap_p (DF_REF_REG (link->ref), use)) != 0)
 	      {
-	        defined = 1;
+		if (lap == -1)
+		  /* Same regnos but non-overlapping or already defined bits,
+		     so ignore this DEF.  */
+		  continue;
+		if ((lap & 1) != 0)
+		  /* The current DEF completely covers the USE, so we can
+		     stop traversing the code looking for further DEFs.  */
+	          defined = 1;
+		else
+		  /* We have a partial overlap.  */
+		  {
+		    if (use->undefined == 0)
+		      /* Now the USE is completely defined, which means, that
+			 we can stop looking for former DEFs.  */
+		      defined = 1;
+		  }
+		/* This is at least a partial overlap, so we need to union
+		   the web parts.  */
 		wp = union_web_parts (wp, &web_parts[DF_REF_ID (link->ref)]);
 	      }
-	    else if (!is_copy || regno != source_regno)
+	    else if (regno != source_regno)
+	      /* This triggers, when either this was no copy insn
+		 (source_regno being ~0 then, which is != regno), or if it
+		 was, but the source wasn't the current reg.  */
 	      {
 		struct web_part *cwp;
 
@@ -576,9 +736,15 @@ live_out_1 (df, regno, insn, wp)
 		    && GET_CODE (PATTERN (insn)) == CLOBBER
 		    && find_reg_note (insn, REG_LIBCALL, NULL_RTX) != 0)
 		  continue;
-				     
+
+		/* XXX Beware, for SUBREG tracking we can't use the IDs of the
+		   webroots unconditionally to identify conflicts.  We need a
+		   webroot for each mode/subregword pair (at least
+		   conceptionally) in addition to the real root for the reg
+		   itself.  */
 		cwp = find_web_part (&web_parts[DF_REF_ID (link->ref)]);
-		bitmap_set_bit (wp->conflicts, DF_REF_ID (cwp->ref));
+		/* Use the un-unioned web_part for remembering conflicts.  */
+		bitmap_set_bit (/*use->*/wp->conflicts, DF_REF_ID (cwp->ref));
 	      }
 	  }
     }
@@ -587,36 +753,34 @@ live_out_1 (df, regno, insn, wp)
 }
 
 static inline int
-live_out (df, regno, insn, wp)
+live_out (df, use, insn)
      struct df *df;
-     unsigned int regno;
+     struct curr_use *use;
      rtx insn;
-     struct web_part *wp;
 {
   unsigned int uid = INSN_UID (insn);
-  if (visit_trace[uid] && DF_REF_REGNO (visit_trace[uid]->ref) == regno)
+  if (visit_trace[uid] && DF_REF_REGNO (visit_trace[uid]->ref) == use->regno)
     {
-      (void) union_web_parts (visit_trace[uid], wp);
+      (void) union_web_parts (visit_trace[uid], use->wp);
       /* Don't search any further, as we already were here with this regno. */
       return 0;
     }
   else
-    return live_out_1 (df, regno, insn, wp);
+    return live_out_1 (df, use, insn);
 }
 
 static void
-live_in (df, regno, insn, wp)
+live_in (df, use, insn)
      struct df *df;
-     unsigned int regno;
+     struct curr_use *use;
      rtx insn;
-     struct web_part *wp;
 {
   unsigned int loc_vpass = visited_pass;
   unsigned int *loc_v = visited;
 
-  /* Note, that, even _if_ we are called with WP a root-part, this might
+  /* Note, that, even _if_ we are called with use->wp a root-part, this might
      become non-root in the for() loop below (due to live_out() unioning
-     it).  So beware, not to change WP in a way, for which only root-webs
+     it).  So beware, not to change use->wp in a way, for which only root-webs
      are allowed.  */
   while (1)
     {
@@ -636,13 +800,13 @@ live_in (df, regno, insn, wp)
 	  /* All but the last predecessor are handled recursively.  */
 	  for (e = BLOCK_FOR_INSN (insn)->pred; e && e->pred_next;
 	       e = e->pred_next)
-	    if (live_out (df, regno, e->src->end, wp))
-	      live_in (df, regno, e->src->end, wp);
+	    if (live_out (df, use, e->src->end))
+	      live_in (df, use, e->src->end);
 	  if (!e)
 	    return;
 	  p = e->src->end;
 	}
-      if (live_out (df, regno, p, wp))
+      if (live_out (df, use, p))
 	insn = p;
       else
 	return;
@@ -670,6 +834,19 @@ dump_number_seen (void)
   debug_msg (0, "from overall %d insns\n", get_max_uid ());
 }
 
+static void
+set_undefined (use)
+     struct curr_use *use;
+{
+  int b = 0, e;
+  use->undefined = (unsigned HOST_WIDE_INT) 0;
+  if (GET_CODE (use->x) == SUBREG)
+    b = GET_MODE_SIZE (GET_MODE (use->x)) * SUBREG_WORD (use->x);
+  e = b + GET_MODE_SIZE (GET_MODE (use->x));
+  for (; b < e; b++)
+    use->undefined |= ((unsigned HOST_WIDE_INT)1 << b);
+}
+
 /* Connect web parts, thereby implicitely building webs, and
    their conflicts.  */
 static void
@@ -677,7 +854,7 @@ build_web_parts_and_conflicts (df)
      struct df *df;
 {
   struct df_link *link;
-  int regno;
+  struct curr_use use;
 
   /* Setup copy cache, for copy_insn_p ().  */
   copy_cache = (struct copy_p_cache *)
@@ -691,16 +868,18 @@ build_web_parts_and_conflicts (df)
      It goes through all insn's, connects web parts along the way, notes
      conflicts between webparts, and remembers move instructions.  */
   visited_pass = 0;
-  for (regno = 0; regno < max_regno; regno++)
-    for (link = df->regs[regno].uses; link; link = link->next)
+  for (use.regno = 0; use.regno < (unsigned int)max_regno; use.regno++)
+    for (link = df->regs[use.regno].uses; link; link = link->next)
       if (link->ref)
 	{
 	  struct ref *ref = link->ref;
 	  rtx insn = DF_REF_INSN (ref);
-	  struct web_part *wp = &web_parts[df->def_id + DF_REF_ID (ref)];
+	  use.wp = &web_parts[df->def_id + DF_REF_ID (ref)];
+	  use.x = DF_REF_REG (ref);
+	  set_undefined (&use);
 	  visited_pass++;
 	  in_no_conflict_block = 0;
-	  live_in (df, regno, insn, wp);
+	  live_in (df, &use, insn);
 	  if (copy_insn_p (insn, NULL, NULL))
 	    remember_move (insn);
 	}
@@ -773,7 +952,7 @@ handle_asm_insn (df, insn)
 	    link = df->insns[INSN_UID (insn)].defs;
 	  else
 	    link = df->insns[INSN_UID (insn)].uses;
-	  while (link && link->ref && link->ref->reg != reg)
+	  while (link && link->ref && DF_REF_REG (link->ref) != reg)
 	    link = link->next;
 	  if (!link || !link->ref)
 	    {
@@ -871,7 +1050,7 @@ handle_asm_insn (df, insn)
     }
 }
 
-/* Deletes all hardregs from *S which are not allowed for mode.  */
+/* Deletes all hardregs from *S which are not allowed for MODE.  */
 static void
 prune_hardregs_for_mode (s, mode)
      HARD_REG_SET *s;
@@ -903,28 +1082,32 @@ prune_hardregs_for_mode (s, mode)
 
 /* Initialize a single web.  */
 static void
-init_one_web (web, regno)
+init_one_web (web, reg)
      struct web *web;
-     int regno;
+     rtx reg;
 {
+  if (GET_CODE (reg) != REG)
+    abort ();
   /* web->id isn't initialized here.  */
-  web->regno = regno;
+  web->regno = REGNO (reg);
   web->weight = 0;
   web->span_insns = 0;
   web->spill_temp = 0;
   web->use_my_regs = 0;
-  web->spill_cost = reg_spill_cost (regno);
+  web->spill_cost = reg_spill_cost (web->regno);
   web->was_spilled = -1;
   web->is_coalesced = 0;
   web->num_defs = 0;
   web->num_uses = 0;
+  web->orig_x = reg;
+  web->subreg_next = web;
   /* XXX
      the former (superunion) doesn't constrain the graph enough. E.g.
-     on x86 QImode requires QI_REGS, but as alternate class usually
+     on x86 QImode _requires_ QI_REGS, but as alternate class usually
      GENERAL_REGS is given.  So the graph is not constrained enough,
      thinking it has more freedom then it really has, which leads
      to repeated spill tryings.  OTOH the latter (only using preferred
-     class) is too constrained, as normally (e.g. with all :SI mode
+     class) is too constrained, as normally (e.g. with all SImode
      pseudos), they can be allocated also in the alternate class.
      What we really want, are the _exact_ hard regs allowed, not
      just a class.  Later.  */
@@ -950,7 +1133,7 @@ init_one_web (web, regno)
       web->color = -1;
       web->type = INITIAL;
       /* add_hardregs is wrong in multi-length classes, e.g.
-	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REG,
+	 using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
 	 where, if it finally is allocated to GENERAL_REGS it needs two,
 	 if allocated to FLOAT_REGS only one hardreg.  XXX */
       web->add_hardregs =
@@ -976,6 +1159,42 @@ init_one_web (web, regno)
   web->alias = NULL;
   web->moves = NULL;
   web->dlink = NULL;
+}
+
+static struct web *
+find_subweb (web, reg)
+     struct web *web;
+     rtx reg;
+{
+  struct web *w;
+  if (GET_CODE (reg) != SUBREG)
+    abort ();
+  for (w = web->subreg_next; GET_CODE (w->orig_x) != REG; w = w->subreg_next)
+    if (GET_MODE (w->orig_x) == GET_MODE (reg)
+	&& SUBREG_WORD (w->orig_x) == SUBREG_WORD (reg))
+      return w;
+  return NULL;
+}
+
+static struct web *
+add_subweb (web, reg)
+     struct web *web;
+     rtx reg;
+{
+  struct web *w;
+  if (GET_CODE (reg) != SUBREG)
+    abort ();
+  w = (struct web *) xmalloc (sizeof (struct web));
+  /* Copy most content from parent-web.  */
+  *w = *web;
+  w->orig_x = reg;
+  w->add_hardregs = CLASS_MAX_NREGS (web->regclass, GET_MODE (reg)) - 1;
+  w->num_conflicts = w->add_hardregs;
+  w->num_defs = 0;
+  w->num_uses = 0;
+  w->subreg_next = web->subreg_next;
+  web->subreg_next = w;
+  return w;
 }
 
 /* Initialize all the web parts we are going to need.  */
@@ -1026,7 +1245,7 @@ init_web_parts (df)
 }
 
 /* Determine if two hard register sets intersect.
-   Return one if they do.  */
+   Return 1 if they do.  */
 static int
 hard_regs_intersect_p (a, b)
      HARD_REG_SET *a, *b;
@@ -1095,14 +1314,14 @@ parts_to_webs (df, part2web)
   unsigned int webnum;
   struct ref **ref_use, **ref_def;
   struct web_part *wp_first_use = &web_parts[df->def_id];
+  struct web_link *all_subwebs = NULL;
+  struct web_link *wl;
+  unsigned int num_subwebs = 0;
 
   /* For each root web part: create and initialize a new web,
      setup def2web[] and use2web[] for all defs and uses, and
      id2web for all new webs.  */
   id2web = (struct web **) xcalloc (num_webs, sizeof (struct web *));
-  conflicts = (struct web_link **) xcalloc (num_webs, sizeof (conflicts[0]));
-  igraph = sbitmap_alloc (num_webs * num_webs / 2);
-  sbitmap_zero (igraph);
 
   webnum = 0;
   for (i = 0; i < df->def_id + df->use_id; i++)
@@ -1111,11 +1330,11 @@ parts_to_webs (df, part2web)
       struct web_part *wp = &web_parts[i];
       struct ref *ref = wp->ref;
       struct web_part *rwp = find_web_part (wp);
-      int regno = DF_REF_REGNO (ref);
+      rtx reg = DF_REF_REG (ref);
       if (! wp->uplink)
 	{
 	  web = (struct web *) xcalloc (1, sizeof (struct web));
-	  init_one_web (web, regno);
+	  init_one_web (web, GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
 	  web->id = webnum;
 	  web->span_insns = wp->spanned_insns;
 	  part2web[i] = web;
@@ -1129,6 +1348,16 @@ parts_to_webs (df, part2web)
 	    web = part2web[j];
 	  else
 	    web = part2web[j + df->def_id];
+	}
+      if (GET_CODE (reg) == SUBREG && !find_subweb (web, reg))
+	{
+	  struct web *subweb = add_subweb (web, reg);
+	  struct web_link *wl;
+	  subweb->id = num_webs + num_subwebs;
+	  wl = (struct web_link *) xmalloc (sizeof (struct web_link));
+	  wl->web = subweb;
+	  wl->next = all_subwebs;
+	  num_subwebs++;
 	}
       /* XXX make sure, web->weight doesn't wrap.  */
       if (DF_REF_BB (ref)->loop_depth <= 8)
@@ -1148,6 +1377,20 @@ parts_to_webs (df, part2web)
     }
   if (webnum != num_webs)
     abort ();
+
+  id2web = (struct web **) xrealloc (id2web, (num_webs + num_subwebs) *
+				     sizeof (struct web *));
+  for (wl = all_subwebs; wl;)
+    {
+      id2web[wl->web->id] = wl->web;
+      wl = wl->next;
+      free (all_subwebs);
+      all_subwebs = wl;
+    }
+  num_webs += num_subwebs;
+  conflicts = (struct web_link **) xcalloc (num_webs, sizeof (conflicts[0]));
+  igraph = sbitmap_alloc (num_webs * num_webs / 2);
+  sbitmap_zero (igraph);
 
   /* Setup and fill uses[] and defs[] arrays of the webs.  */
   ref_def = all_defs_for_web;
@@ -1198,30 +1441,39 @@ conflicts_between_webs (df, part2web)
      struct web **part2web;
 {
   unsigned int i;
+  struct web_part *wp_first_use = &web_parts[df->def_id];
 
   /* Now record all conflicts between webs.  */
-  for (i = 0; i < df->def_id; i++)
-    if (! web_parts[i].uplink)
+  for (i = 0; i < df->def_id + df->use_id; i++)
+    if (web_parts[i].conflicts)
       {
-	struct web *web1 = part2web[i];
+	/* Without SUBREGs only web roots have .conflicts != 0, because we
+	   were able to merge all conflicts when unioning the parts.  So in
+	   that case the find_web_part() wouldn't be necessary, but
+	   unfortunately with SUBREGs also non-roots can still have conflicts
+	   so we need to test them all.  OTOH we need the root to check, if we
+	   aren't dealing with an uninitialized web (which is the case, if the
+	   root is itself a USE instead of a DEF), and because part2web[] only
+	   is defined for roots (this anyway needs to change XXX).  */
+	struct web_part *rwp = find_web_part (&web_parts[i]);
 	int j;
 
-	/* Note, that there are only defs in the conflicts bitset.  */
-	EXECUTE_IF_SET_IN_BITMAP (
-	  web_parts[i].conflicts, 0, j,
+	if (rwp < wp_first_use)
 	  {
-	    struct web_part *wp;
-	    struct web *web2;
-	    wp = find_web_part (&web_parts[j]);
-	    web2 = part2web[DF_REF_ID (wp->ref)];
-	    record_conflict (web1, web2);
-	  });
+	    struct web *web1 = part2web[DF_REF_ID(rwp->ref)];
+	    /* Note, that there are only defs in the conflicts bitset.  */
+	    EXECUTE_IF_SET_IN_BITMAP (
+	      web_parts[i].conflicts, 0, j,
+	      {
+		struct web_part *wp;
+		struct web *web2;
+		wp = find_web_part (&web_parts[j]);
+		web2 = part2web[DF_REF_ID (wp->ref)];
+		record_conflict (web1, web2);
+	      });
+	  }
 	BITMAP_XFREE (web_parts[i].conflicts);
       }
-  /* Cleanup conflicts bitmap for uninitialized webs.  */
-  for (i = 0; i < df->use_id; i++)
-    if (! web_parts[i + df->def_id].uplink)
-      BITMAP_XFREE (web_parts[i + df->def_id].conflicts);
 }
 
 /* Remember that a web was spilled.  */
@@ -1241,11 +1493,16 @@ remember_web_was_spilled (web)
   web->use_my_regs = 1;
 
   /* We don't constrain spill temporaries in any way for now.
-     It's wrong sometimes to have the same constrains or
-     preferences, as the original pseudo, esp. if they were very narrow.
+     It's wrong sometimes to have the same constraints or
+     preferences as the original pseudo, esp. if they were very narrow.
      (E.g. there once was a reg wanting class AREG (only one register)
      without alternative class.  As long, as also the spill-temps for
-     this pseudo had the same constraints it was spilled over and over.  */
+     this pseudo had the same constraints it was spilled over and over.
+     Ideally we want some constraints also on spill-temps: Because they are
+     not only loaded/stored, but also worked with, any constraints from insn
+     alternatives needs applying.  Currently this is dealt with by reload, as
+     many other things, but sometimes we want to integrate that functionality
+     into the allocator.  */
   COPY_HARD_REG_SET (web->usable_regs, reg_class_contents[(int) ALL_REGS]);
   AND_COMPL_HARD_REG_SET (web->usable_regs, never_use_colors);
   prune_hardregs_for_mode (&web->usable_regs, PSEUDO_REGNO_MODE (web->regno));
@@ -1254,7 +1511,7 @@ remember_web_was_spilled (web)
     if (TEST_HARD_REG_BIT (web->usable_regs, i))
       web->num_freedom++;
 
-  /* Now look for a class, which is subset of our constrains, to
+  /* Now look for a class, which is subset of our constraints, to
      setup add_hardregs, and regclass for debug output.  */
   web->regclass = NO_REGS;
   for (i = (int) ALL_REGS - 1; i > 0; i--)
@@ -1423,7 +1680,12 @@ moves_to_webs (df)
 	    if (!m->source_web || web->regno < m->source_web->regno)
 	      m->source_web = web;
 	  }
-      if (m->source_web && m->target_web)
+      if (m->source_web && m->target_web
+	  /* If the usable_regs don't intersect we can't coalesce the two
+	     webs anyway, as this is no simple copy insn (it might even
+	     need an intermediate stack temp to execute this "copy" insn). */
+	  && hard_regs_intersect_p (&m->source_web->usable_regs,
+				    &m->target_web->usable_regs))
 	{
 	  struct move_list *test = m->source_web->moves;
 	  for (; test && test->move != m; test = test->next);
@@ -1504,7 +1766,7 @@ build_i_graph (df)
 
   build_web_parts_and_conflicts (df);
 
-  /* For read-modify-write instructrions we may have created two webs.
+  /* For read-modify-write instructions we may have created two webs.
      Reconnect them here.  (s.a.)  */
   connect_rmw_web_parts (df);
 
@@ -1514,7 +1776,7 @@ build_i_graph (df)
   make_webs (df);
   moves_to_webs (df);
 
-  /* Look for additional constrains given by asms.  */
+  /* Look for additional constraints given by asms.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     handle_asm_insn (df, insn);
 }
@@ -1969,7 +2231,7 @@ ok (target, source)
 
   /* Source is PRECOLORED.  We test here, if it isn't one of the fixed
      registers.  In this case we disallow the coalescing.
-     XXX maybe not all fixe_regs[] have to be excluded.  The actual
+     XXX maybe not all fixed_regs[] have to be excluded.  The actual
      example I was looking at, was a copy (set (reg a) (reg 7 sp)) (the
      stackpointer).  It all worked till the assembler. The coalescing
      resulted in a (%eax, %esp) indexed address, which is invalid.
@@ -2626,7 +2888,7 @@ emit_colors (df)
       web = use2web[i];
       if (web->type != COLORED && web->type != COALESCED)
 	continue;
-      *df->uses[i]->loc = web->reg_rtx;
+      *DF_REF_LOC (df->uses[i]) = web->reg_rtx;
       if (REGNO_REG_SET_P (rs, web->regno))
 	{
           //CLEAR_REGNO_REG_SET (rs, web->regno);
@@ -2641,7 +2903,7 @@ emit_colors (df)
       web = def2web[i];
       if (web->type != COLORED && web->type != COALESCED)
 	continue;
-      *df->defs[i]->loc = web->reg_rtx;
+      *DF_REF_LOC (df->defs[i]) = web->reg_rtx;
       if (REGNO_REG_SET_P (rs, web->regno))
 	{
 	  /* Don't simply clear the current regno, as it might be
