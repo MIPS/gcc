@@ -1,3 +1,8 @@
+2004-02-04  Richard Henderson  <rth@redhat.com>
+
+        * tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr): New.
+        (eliminate_redundant_computations): Call it.
+
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
 	PR opt/13869

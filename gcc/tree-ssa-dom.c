@@ -228,6 +228,8 @@ static tree simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *,
 						tree, stmt_ann_t, int);
 static tree simplify_cond_and_lookup_avail_expr (tree, varray_type *,
 						 stmt_ann_t, int);
+static tree simplify_switch_and_lookup_avail_expr (tree, varray_type *,
+						   stmt_ann_t, int);
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type *);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
@@ -2102,6 +2104,52 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
+/* STMT is a SWITCH_EXPR for which we could not trivially determine its
+   result.  This routine attempts to find equivalent forms of the
+   condition which we may be able to optimize better.  */
+
+static tree
+simplify_switch_and_lookup_avail_expr (tree stmt,
+				       varray_type *block_avail_exprs_p,
+				       stmt_ann_t ann,
+				       int insert)
+{
+  tree cond = SWITCH_COND (stmt);
+  tree def, to, ti;
+
+  /* The optimization that we really care about is removing unnecessary
+     casts.  That will let us do much better in propagating the inferred
+     constant at the switch target.  */
+  if (TREE_CODE (cond) == SSA_NAME)
+    {
+      def = SSA_NAME_DEF_STMT (cond);
+      if (TREE_CODE (def) == MODIFY_EXPR)
+	{
+	  def = TREE_OPERAND (def, 1);
+	  if (TREE_CODE (def) == NOP_EXPR)
+	    {
+	      def = TREE_OPERAND (def, 0);
+	      to = TREE_TYPE (cond);
+	      ti = TREE_TYPE (def);
+
+	      /* If we have an extension that preserves sign, then we
+		 can copy the source value into the switch.  */
+	      if (TREE_UNSIGNED (to) == TREE_UNSIGNED (ti)
+		  && TYPE_PRECISION (to) >= TYPE_PRECISION (ti)
+	          && is_gimple_val (def))
+		{
+		  SWITCH_COND (stmt) = def;
+		  ann->modified = 1;
+
+		  return lookup_avail_expr (stmt, block_avail_exprs_p, insert);
+		}
+	    }
+	}
+    }
+
+  return 0;
+}
+
 /* Const/copy propagate into STMT's USES, VUSES, and the RHS of VDEFs. 
 
    Return nonzero if new symbols may have been exposed.  */
@@ -2360,7 +2408,12 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 						      &bd->avail_exprs,
 						      ann,
 						      insert);
-  /* We could do the same with SWITCH_EXPRs in the future.  */
+  /* Similarly for a SWITCH_EXPR.  */
+  else if (!cached_lhs && TREE_CODE (stmt) == SWITCH_EXPR)
+    cached_lhs = simplify_switch_and_lookup_avail_expr (stmt,
+						        &bd->avail_exprs,
+						        ann,
+						        insert);
 
   opt_stats.num_exprs_considered++;
 
