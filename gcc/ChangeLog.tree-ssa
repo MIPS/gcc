@@ -1,3 +1,21 @@
+2003-06-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* toplev.c (flag_tree_dom): New variable.
+	(f_options): Add new entry for -ftree-dominator-opts.
+	(parse_options_and_default_flags): Enable flag_tree_dom for
+	-O1 and higher.  At -O2 and higher, disable flag_tree_dom is
+	SSA-PRE is also specified.
+	* flags.h (flag_tree_dom): Declare.
+	* doc/invoke.texi: Document -ftree-dominator-opts.
+	* tree-ssa.c (rewrite_block): Disable tracking of available
+	expressions when not doing dominator optimizations.
+	Call rewrite_stmt when not doing dominator optimizations.
+	Otherwise, call rewrite_and_optimize_stmt.
+	(rewrite_stmt): Don't optimize the statement.  Just rename.
+	(rewrite_and_optimize_stmt): Optimize the statement while rewriting
+	its operands.
+	(lookup_avail_expr): Update comments.
+
 2003-06-10  Andrew Haley  <aph@redhat.com>
 
         * c-simplify.c (c_simplify_stmt): case ASM_STMT: Ensure qualifiers

@@ -680,6 +680,9 @@ extern int flag_tree_copyprop;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
+/* Enable dominator optimizations while re-writing into SSA form.  */
+extern int flag_tree_dom;
+
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
 

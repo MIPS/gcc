@@ -164,7 +164,9 @@ static void set_livein_block (tree, basic_block);
 static void insert_phi_nodes (bitmap *, sbitmap);
 static void insert_phis_for_deferred_variables (varray_type);
 static void rewrite_block (basic_block, tree);
-static int rewrite_stmt (block_stmt_iterator, varray_type *, varray_type *);
+static int rewrite_and_optimize_stmt (block_stmt_iterator, varray_type *,
+				      varray_type *);
+static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *);
 static void register_new_def (tree, tree, varray_type *);
 static void insert_phi_nodes_for (tree, bitmap *, varray_type);
@@ -710,19 +712,25 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 	new definition for a variable, the existing reaching definition is
 	pushed into this stack so that we can restore it in Step 5.
 
-     BLOCK_AVAIL_EXPRS is used to store all the expressions made available
-	in this block.  Since expressions made available in this block are
-	only valid in blocks dominated by BB, when we finish rewriting BB
-	and its dominator children, we have to remove these expressions
-	from the AVAIL_EXPRS table.  This stack is used to know which
-	expressions to remove from the table.  */
+     BLOCK_AVAIL_EXPRS is used when -ftree-dominator-opts is given.  It
+	stores all the expressions made available in this block.  Since
+	expressions made available in this block are only valid in blocks
+	dominated by BB, when we finish rewriting BB and its dominator
+	children, we have to remove these expressions from the AVAIL_EXPRS
+	table.  This stack is used to know which expressions to remove from
+	the table.  */
   VARRAY_TREE_INIT (block_defs, 20, "block_defs");
-  VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
+  if (flag_tree_dom)
+    VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
 
   if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
     fprintf (tree_ssa_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
-  if (eq_expr_value)
+  /* If EQ_EXPR_VALUE (VAR == VALUE) is given and we are doing dominator
+     optimizations, register the VALUE as a new value for VAR, so that
+     occurrences of VAR can be replaced with VALUE while re-writing the
+     THEN arm of a COND_EXPR.  */
+  if (flag_tree_dom && eq_expr_value)
     {
       prev_value = get_value_for (TREE_OPERAND (eq_expr_value, 0),
 				  const_and_copies);
@@ -740,12 +748,23 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 
   /* Step 2.  Rewrite every variable used in each statement the block with
      its immediate reaching definitions.  Update the current definition of
-     a variable when a new real or virtual definition is found.  */
-  for (si = bsi_start (bb); !bsi_end_p (si); )
-    if (!rewrite_stmt (si, &block_defs, &block_avail_exprs))
-      bsi_next (&si);
-    else
-      bsi_remove (&si);
+     a variable when a new real or virtual definition is found.  If
+     -ftree-dominator-opts is given, call rewrite_and_optimize_stmt,
+     otherwise simply rename every operand with rewrite_stmt.  */
+  if (flag_tree_dom)
+    {
+      for (si = bsi_start (bb); !bsi_end_p (si); )
+	if (!rewrite_and_optimize_stmt (si, &block_defs, &block_avail_exprs))
+	  bsi_next (&si);
+	else
+	  bsi_remove (&si);
+    }
+  else
+    {
+      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	rewrite_stmt (si, &block_defs);
+    }
+
 
   /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
      For every PHI node found, add a new argument containing the current
@@ -807,22 +826,26 @@ rewrite_block (basic_block bb, tree eq_expr_value)
       set_value_for (var, saved_def, currdefs);
     }
 
-  /* Remove all the expressions made available in this block.  */
-  while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
+  /* If we are doing dominator optimizations, remove all the expressions
+     made available in this block.  */
+  if (flag_tree_dom)
     {
-      tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
-      VARRAY_POP (block_avail_exprs);
-      htab_remove_elt (avail_exprs, stmt);
-    }
+      while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
+	{
+	  tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
+	  VARRAY_POP (block_avail_exprs);
+	  htab_remove_elt (avail_exprs, stmt);
+	}
 
-  if (eq_expr_value)
-    {
-      struct var_value_d vm;
-      vm.var = TREE_OPERAND (eq_expr_value, 0);
-      if (prev_value)
-	set_value_for (vm.var, prev_value, const_and_copies);
-      else
-	htab_remove_elt (const_and_copies, &vm);
+      if (eq_expr_value)
+	{
+	  struct var_value_d vm;
+	  vm.var = TREE_OPERAND (eq_expr_value, 0);
+	  if (prev_value)
+	    set_value_for (vm.var, prev_value, const_and_copies);
+	  else
+	    htab_remove_elt (const_and_copies, &vm);
+	}
     }
 }
 
@@ -1951,8 +1974,8 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
       simplistic propagation while renaming.  */
 
 static int
-rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p,
-	      varray_type *block_avail_exprs_p)
+rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
+			   varray_type *block_avail_exprs_p)
 {
   size_t i;
   stmt_ann_t ann;
@@ -2113,6 +2136,88 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p,
     }
 
   return 0;
+}
+
+
+/* Rewrite statement pointed by iterator SI into SSA form.  This is only
+   used when not doing dominator optimizations (-ftree-dominator-opts), in
+   which case rewrite_and_optimize_stmt is used.
+
+   BLOCK_DEFS_P points to a stack with all the definitions found in the
+      block.  This is used by rewrite_block to restore the current reaching
+      definition for every variable defined in BB after visiting the
+      immediate dominators of BB.  */
+
+static void
+rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
+{
+  size_t i;
+  stmt_ann_t ann;
+  tree stmt, *def_p;
+  varray_type uses, vuses, vdefs;
+
+  stmt = bsi_stmt (si);
+  if (IS_EMPTY_STMT (stmt))
+    return;
+
+  ann = stmt_ann (stmt);
+  ssa_stats.num_stmts++;
+
+  if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_ssa_dump_file, "Renaming statement ");
+      print_generic_stmt (tree_ssa_dump_file, stmt, TDF_SLIM);
+      fprintf (tree_ssa_dump_file, "\n");
+    }
+
+#if defined ENABLE_CHECKING
+  /* We have just scanned the code for operands.  No statement should
+     be modified.  */
+  if (ann->modified)
+    abort ();
+#endif
+
+  /* FIXME: Must change the interface to statement annotations.  Helpers
+	    should receive the annotation, not the statement.  Otherwise,
+	    we call stmt_ann() more than necessary.  */
+  def_p = def_op (stmt);
+  uses = use_ops (stmt);
+  vuses = vuse_ops (stmt);
+  vdefs = vdef_ops (stmt);
+
+#if defined ENABLE_CHECKING
+  /* Only assignments may make a new definition.  */
+  if (def_p && TREE_CODE (stmt) != MODIFY_EXPR)
+    abort ();
+#endif
+
+  /* Step 1.  Rewrite USES and VUSES in the statement.  */
+  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
+    {
+      tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+      rewrite_operand (op_p);
+    }
+
+  /* Rewrite virtual uses in the statement.  */
+  for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
+    rewrite_operand (&(VARRAY_TREE (vuses, i)));
+
+  /* Step 2.  Register the statement's DEF and VDEF operands.  */
+  if (def_p)
+    {
+      *def_p = make_ssa_name (*def_p, stmt);
+      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p);
+    }
+
+  /* Register new virtual definitions made by the statement.  */
+  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
+    {
+      tree vdef = VARRAY_TREE (vdefs, i);
+      rewrite_operand (&(VDEF_OP (vdef)));
+      VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
+      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
+			VDEF_RESULT (vdef), block_defs_p);
+    }
 }
 
 
@@ -2417,7 +2522,7 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p)
 
   /* Don't bother remembering constant assignments, type cast expressions
      and copy operations.  Constants and copy operations are handled by the
-     constant/copy propagator in rewrite_stmt.  */
+     constant/copy propagator in rewrite_and_optimize_stmt.  */
   rhs = TREE_OPERAND (stmt, 1);
   if (TREE_CONSTANT (rhs)
       || TREE_CODE (rhs) == SSA_NAME

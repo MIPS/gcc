@@ -927,6 +927,9 @@ int flag_tree_copyprop;
 /* Enable SSA-DCE on trees.  */
 int flag_tree_dce = 0;
 
+/* Enable dominator optimizations while re-writing into SSA form.  */
+int flag_tree_dom = 0;
+
 /* Nonzero if we perform superblock formation.  */
 int flag_tracer = 0;
 
@@ -1264,7 +1267,9 @@ static const lang_independent_options f_options[] =
   { "tree-copyprop", &flag_tree_copyprop, 1,
    N_("Enable SSA copy propagation optimization on trees") },
   { "tree-dce", &flag_tree_dce, 1,
-   N_("Enable SSA dead code elimination optimization on trees") }
+   N_("Enable SSA dead code elimination optimization on trees") },
+  { "tree-dominator-opts", &flag_tree_dom, 1,
+   N_("Enable dominator optimizations while re-writing into SSA form") }
 };
 
 /* Table of language-specific options.  */
@@ -5108,6 +5113,7 @@ parse_options_and_default_flags (argc, argv)
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_copyprop = 1;
+      flag_tree_dom = 0;
     }
 
   if (optimize >= 2)
@@ -5132,6 +5138,11 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      /* FIXME: Apparently, dominator optimizations get in the way of
+	 SSA-PRE.  For now, if -ftree-pre is given, disable dominator
+	 optimizations at -O2 and higher.  */
+      if (flag_tree_pre)
+	flag_tree_dom = 0;
     }
 
   if (optimize >= 3)
