@@ -1,3 +1,39 @@
+2004-12-07  Volker Reichelt  <reichelt@gcc.gnu.org>
+
+	* g++.dg/other/unreachable-1.C: New test.
+
+2004-12-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17011, c++/17971
+	* g++.dg/template/error15.C: Adjust expected error.
+	* g++.dg/template/instantiate3.C: Likewise.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18123
+	* g++.dg/parse/enum2.C: New test.
+
+2004-12-02  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/16952
+	* gcc.dg/ppc-eabi.c: New.
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17431
+	* g++.dg/overload/arg1.C: New.
+	* g++.dg/overload/arg2.C: New.
+	* g++.dg/overload/arg3.C: New.
+	* g++.dg/overload/arg4.C: New.
+
+2004-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041126-1.c: New test.
+
+2004-11-27  Falk Hueffner  <falk@debian.org>
+
+	* gcc.dg/loop-6.c: New test.
+
 2004-11-24  Uros Bizjak <uros@kss-loka.si>
 
 	* gcc.dg/pr18614-1.c: New test.

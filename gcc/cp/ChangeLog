@@ -1,3 +1,29 @@
+2004-12-04  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/17011, c++/17971
+	* pt.c (tsubst_copy) <FIELD_DECL case>: Check and diagnose
+	invalid field.
+	(tsubst_copy_and_build) <COMPONENT_REF case>: Check
+	error_mark_node after member substitution.
+	* semantics.c (finish_id_expression): Call
+	finish_non_static_data_member for dependent FIELD_DECL.
+
+2004-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/18123
+	* parser.c (cp_parser_type_specifier): Don't create new enum
+	type if it is not in the form 'enum [identifier] { [...] };'.
+	Catch template declaration of enum. 
+
+2004-12-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17431
+	* call.c (standard_conversion): Add FLAGS parameter. Do not allow
+	derived to base conversion when checking constructor
+	accessibility.
+	(implicit_conversion): Pass FLAGS to standard_conversion.
+	(check_constructir_callable): Disallow conversion functions.
+
 2004-11-12  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/18389
