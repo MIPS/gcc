@@ -1,5 +1,5 @@
 /* KeyStroke.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,7 +37,6 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.AWTKeyStroke;
 import java.awt.event.KeyEvent;
 import java.io.Serializable;
 
@@ -150,6 +149,7 @@ public class KeyStroke implements Serializable
 	 * @param keyChar TODO
 	 * @param onKeyRelease TODO
 	 * @returns KeyStroke
+	 * @deprecated Use getKeyStroke(char)
 	 */
 	public static KeyStroke getKeyStroke(char keyChar, boolean onKeyRelease) {
 		KeyStroke key = getKeyStroke(keyChar);

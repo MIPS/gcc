@@ -2,22 +2,22 @@
    Copyright (C) 2003 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #ifndef GFC_MATCH_H
@@ -75,8 +75,6 @@ match gfc_match_deallocate (void);
 match gfc_match_return (void);
 match gfc_match_call (void);
 match gfc_match_common (void);
-match gfc_match_implicit_none (void);
-match gfc_match_implicit (void);
 match gfc_match_block_data (void);
 match gfc_match_namelist (void);
 match gfc_match_module (void);
@@ -89,12 +87,15 @@ match gfc_match_where (gfc_statement *);
 match gfc_match_elsewhere (void);
 match gfc_match_forall (gfc_statement *);
 
+/* Other functions.  */
+
+gfc_common_head *gfc_get_common (const char *, int);
+
 /* decl.c */
 
 match gfc_match_null (gfc_expr **);
 match gfc_match_kind_spec (gfc_typespec *);
 match gfc_match_old_kind_spec (gfc_typespec *);
-match gfc_match_type_spec (gfc_typespec *, int);
 
 match gfc_match_end (gfc_statement *);
 match gfc_match_data_decl (void);
@@ -103,6 +104,9 @@ match gfc_match_function_decl (void);
 match gfc_match_entry (void);
 match gfc_match_subroutine (void);
 match gfc_match_derived_decl (void);
+
+match gfc_match_implicit_none (void);
+match gfc_match_implicit (void);
 
 /* Matchers for attribute declarations */
 match gfc_match_allocatable (void);
@@ -120,6 +124,7 @@ match gfc_match_modproc (void);
 match gfc_match_target (void);
 
 /* primary.c */
+match gfc_match_structure_constructor (gfc_symbol *, gfc_expr **);
 match gfc_match_rvalue (gfc_expr **);
 match gfc_match_variable (gfc_expr **, int);
 match gfc_match_actual_arglist (int, gfc_actual_arglist **);

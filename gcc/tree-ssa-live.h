@@ -20,8 +20,10 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef _TREE_SSA_LIVE_H__
+#ifndef _TREE_SSA_LIVE_H
 #define _TREE_SSA_LIVE_H 1
+
+#include "partition.h"
 
 /* Used to create the variable mapping when we go out of SSA form.  */
 typedef struct _var_map
@@ -72,6 +74,7 @@ extern void change_partition_var (var_map, tree, int);
 extern void compact_var_map (var_map, int);
 extern void remove_ssa_form (FILE *, var_map, int);
 extern void register_ssa_partitions_for_vars (bitmap vars, var_map map);
+extern tree make_ssa_temp (tree);
 
 static inline int num_var_partitions (var_map);
 static inline tree var_to_partition_to_var (var_map, tree);
@@ -79,16 +82,22 @@ static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
 static inline tree version_to_var (var_map, int);
 static inline int version_ref_count (var_map, tree);
+static inline void register_ssa_partition (var_map, tree, bool);
 
 #define SSA_VAR_MAP_REF_COUNT	 0x01
 extern var_map create_ssa_var_map (int);
-/* Number of partitions.  */
+
+
+/* Number of partitions in MAP.  */
 
 static inline int 
 num_var_partitions (var_map map)
 {
   return map->num_partitions;
 }
+
+
+/* Return the reference count for SSA_VAR's partition in MAP.  */
 
 static inline int
 version_ref_count (var_map map, tree ssa_var)
@@ -101,7 +110,8 @@ version_ref_count (var_map map, tree ssa_var)
   return map->ref_count[version];
 }
  
-/* Given a partition number, return the variable which represents that 
+
+/* Given partition index I from MAP, return the variable which represents that 
    partition.  */
  
 static inline tree
@@ -113,7 +123,9 @@ partition_to_var (var_map map, int i)
   return map->partition_to_var[i];
 }
 
-/* Given an SSA version number, return the var it is associated with.  */
+
+/* Given ssa_name VERSION, if it has a partition in MAP,  return the var it 
+   is associated with.  Otherwise return NULL.  */
 
 static inline tree version_to_var (var_map map, int version)
 {
@@ -127,7 +139,8 @@ static inline tree version_to_var (var_map map, int version)
   return partition_to_var (map, part);
 }
  
-/* Given a variable, return the partition number which contains it.  
+
+/* Given VAR, return the partition number in MAP which contains it.  
    NO_PARTITION is returned if its not in any partition.  */
 
 static inline int
@@ -153,8 +166,9 @@ var_to_partition (var_map map, tree var)
   return part;
 }
 
-/* Given a variable, return the variable which represents the entire partition
-   the specified one is a member of.  */
+
+/* Given VAR, return the variable which represents the entire partition
+   it is a member of in MAP.  NULL is returned if it is not in a partition.  */
 
 static inline tree
 var_to_partition_to_var (var_map map, tree var)
@@ -166,6 +180,38 @@ var_to_partition_to_var (var_map map, tree var)
     return NULL_TREE;
   return partition_to_var (map, part);
 }
+
+
+/* This routine registers a partition for SSA_VAR with MAP.  IS_USE is used 
+   to count references.  Any unregistered partitions may be compacted out 
+   later.  */ 
+
+static inline void
+register_ssa_partition (var_map map, tree ssa_var, bool is_use)
+{
+  int version;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (ssa_var) != SSA_NAME)
+    abort ();
+
+  if (!is_gimple_reg (SSA_NAME_VAR (ssa_var)))
+    {
+      fprintf (stderr, "Illegally registering a virtual SSA name :");
+      print_generic_expr (stderr, ssa_var, TDF_SLIM);
+      fprintf (stderr, " in the SSA->Normal phase.\n");
+      abort();
+    }
+#endif
+
+  version = SSA_NAME_VERSION (ssa_var);
+  if (is_use && map->ref_count)
+    map->ref_count[version]++;
+
+  if (map->partition_to_var[version] == NULL_TREE)
+    map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
+}
+
 
 /*  ---------------- live on entry/exit info ------------------------------  
 
@@ -232,6 +278,9 @@ static inline var_map live_var_map (tree_live_info_p);
 static inline void live_merge_and_clear (tree_live_info_p, int, int);
 static inline void make_live_on_entry (tree_live_info_p, basic_block, int);
 
+
+/*  Return TRUE if P is marked as a global in LIVE.  */
+
 static inline int
 partition_is_global (tree_live_info_p live, int p)
 {
@@ -241,6 +290,10 @@ partition_is_global (tree_live_info_p live, int p)
   return bitmap_bit_p (live->global, p);
 }
 
+
+/* Return the bitmap from LIVE representing the live on entry blocks for 
+   partition P.  */
+
 static inline bitmap
 live_entry_blocks (tree_live_info_p live, int p)
 {
@@ -249,6 +302,10 @@ live_entry_blocks (tree_live_info_p live, int p)
 
   return live->livein[p];
 }
+
+
+/* Return the bitmap from LIVE representing the live on exit partitions from
+   block BB.  */
 
 static inline bitmap
 live_on_exit (tree_live_info_p live, basic_block bb)
@@ -262,20 +319,28 @@ live_on_exit (tree_live_info_p live, basic_block bb)
   return live->liveout[bb->index];
 }
 
+
+/* Return the partition map which the information in LIVE utilizes.  */
+
 static inline var_map 
 live_var_map (tree_live_info_p live)
 {
   return live->map;
 }
 
-/* Merge the live on entry information for partitions p1 and p2, and put the
-   result into p1.  Clear p2. */
+
+/* Merge the live on entry information in LIVE for partitions P1 and P2. Place
+   the result into P1.  Clear P2.  */
+
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
   bitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
   bitmap_zero (live->livein[p2]);
 }
+
+
+/* Mark partition P as live on entry to basic block BB in LIVE.  */
 
 static inline void 
 make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
@@ -284,7 +349,8 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
   bitmap_set_bit (live->global, p);
 }
 
-/* A tree_partition_associator object is a base structure which allows
+
+/* A tree_partition_associator (TPA)object is a base structure which allows
    partitions to be associated with a tree object.
 
    A varray of tree elements represent each distinct tree item.
@@ -310,7 +376,6 @@ typedef struct tree_partition_associator_d
 /* Value returned when there are no more partitions associated with a tree.  */
 #define TPA_NONE		-1
 
-
 static inline tree tpa_tree (tpa_p, int);
 static inline int tpa_first_partition (tpa_p, int);
 static inline int tpa_next_partition (tpa_p, int);
@@ -324,36 +389,45 @@ extern void tpa_remove_partition (tpa_p, int, int);
 extern int tpa_compact (tpa_p);
 
 
-/* Number of distinct tree nodes.  */
+/* Return the number of distinct tree nodes in TPA.  */
+
 static inline int
 tpa_num_trees (tpa_p tpa)
 {
   return tpa->num_trees;
 }
 
-/* Retrieve the tree node for a specified index.  */
+
+/* Return the tree node for index I in TPA.  */
+
 static inline tree
 tpa_tree (tpa_p tpa, int i)
 {
   return VARRAY_TREE (tpa->trees, i);
 }
 
-/* Get the first partition associated with a tree.  */
+
+/* Return the first partition associated with tree list I in TPA.  */
+
 static inline int
 tpa_first_partition (tpa_p tpa, int i)
 {
   return VARRAY_INT (tpa->first_partition, i);
 }
 
-/* Get the next partition in a list.  */
+
+/* Return the next partition after partition I in TPA's list.  */
+
 static inline int
 tpa_next_partition (tpa_p tpa, int i)
 {
   return tpa->next_partition[i];
 }
 
-/* Get the tree whose list a partition is a member of.  TPA_NONE is returned
-   if the partition is not associated with any list.  */
+
+/* Return the tree index from TPA whose list contains partition I.  
+   TPA_NONE is returned if I is not associated with any list.  */
+
 static inline int 
 tpa_find_tree (tpa_p tpa, int i)
 {
@@ -374,8 +448,9 @@ tpa_find_tree (tpa_p tpa, int i)
   return index;
 }
 
-/* Compacting removes lists with single elements. This routine puts them
-   back in again.  */
+
+/* This function removes any compaction which was performed on TPA.  */
+
 static inline void 
 tpa_decompact(tpa_p tpa)
 {
@@ -385,6 +460,7 @@ tpa_decompact(tpa_p tpa)
 #endif
   tpa->num_trees = tpa->uncompressed_num;
 }
+
 
 /* Once a var_map has been created and compressed, a complimentary root_var
    object can be built.  This creates a list of all the root variables from
@@ -415,35 +491,45 @@ extern root_var_p root_var_init (var_map);
    variable.  */
 #define ROOT_VAR_NONE		TPA_NONE
 
-/* Number of distinct root variables.  */
+
+/* Return the number of distinct root variables in RV.  */
+
 static inline int 
 root_var_num (root_var_p rv)
 {
   return tpa_num_trees (rv);
 }
 
-/* A specific root variable.  */
+
+/* Return root variable I from RV.  */
+
 static inline tree
 root_var (root_var_p rv, int i)
 {
   return tpa_tree (rv, i);
 }
 
-/* First partition belonging to a root variable list.  */
+
+/* Return the first partition in RV belonging to root variable list I.  */
+
 static inline int
 root_var_first_partition (root_var_p rv, int i)
 {
   return tpa_first_partition (rv, i);
 }
 
-/* Next partition belonging to a root variable partition list.  */
+
+/* Return the next partition after partition I in a root list from RV.  */
+
 static inline int
 root_var_next_partition (root_var_p rv, int i)
 {
   return tpa_next_partition (rv, i);
 }
 
-/* Show debug info for a root_var list.  */
+
+/* Send debug info for root_var list RV to file F.  */
+
 static inline void
 root_var_dump (FILE *f, root_var_p rv)
 {
@@ -452,44 +538,55 @@ root_var_dump (FILE *f, root_var_p rv)
   fprintf (f, "\n");
 }
 
-/* destroy a root_var object.  */
+
+/* Destroy root_var object RV.  */
+
 static inline void
 root_var_delete (root_var_p rv)
 {
   tpa_delete (rv);
 }
 
-/* Remove a partition from a root_var list.  */
+
+/* Remove partition PARTITION_INDEX from root_var list ROOT_INDEX in RV.  */
+
 static inline void
 root_var_remove_partition (root_var_p rv, int root_index, int partition_index)
 {
   tpa_remove_partition (rv, root_index, partition_index);
 }
 
-/* Find the root_var list index for a specific partition.  */
+
+/* Return the root_var list index for partition I in RV.  */
+
 static inline int
 root_var_find (root_var_p rv, int i)
 {
   return tpa_find_tree (rv, i);
 }
 
-/* Hide single element lists in the object.  */
+
+/* Hide single element lists in RV.  */
+
 static inline int 
 root_var_compact (root_var_p rv)
 {
   return tpa_compact (rv);
 }
 
-/* Expose the single element lists in the object.  */
+
+/* Expose the single element lists in RV.  */
+
 static inline void
 root_var_decompact (root_var_p rv)
 {
   tpa_decompact (rv);
 }
 
-/* This is similar to a root_var structure, except this associates partitions
-   with their type rather than their root variable. This is used to 
-   coalesce memory locations based on type.   */
+
+/* A TYPE_VAR object is similar to a root_var object, except this associates 
+   partitions with their type rather than their root variable.  This is used to 
+   coalesce memory locations based on type.  */
 
 typedef tpa_p type_var_p;
 
@@ -506,39 +603,48 @@ static inline void type_var_decompact (type_var_p);
 
 extern type_var_p type_var_init (var_map);
 
-
 /* Value returned when there is no partitions associated with a list.  */
 #define TYPE_VAR_NONE		TPA_NONE
 
-/* Number of distinct type lists.  */
+
+/* Return the number of distinct type lists in TV.  */
+
 static inline int 
 type_var_num (type_var_p tv)
 {
   return tpa_num_trees (tv);
 }
 
-/* The type of a specific list.  */
+
+/* Return the type of list I in TV.  */
+
 static inline tree
 type_var (type_var_p tv, int i)
 {
   return tpa_tree (tv, i);
 }
 
-/* First partition belonging to a type list.  */
+
+/* Return the first partition belonging to type list I in TV.  */
+
 static inline int
 type_var_first_partition (type_var_p tv, int i)
 {
   return tpa_first_partition (tv, i);
 }
 
-/* Next partition belonging to a type list.  */
+
+/* Return the next partition after partition I in a type list within TV.  */
+
 static inline int
 type_var_next_partition (type_var_p tv, int i)
 {
   return tpa_next_partition (tv, i);
 }
 
-/* Show debug info for a type_var object.  */
+
+/* Send debug info for type_var object TV to file F.  */
+
 static inline void
 type_var_dump (FILE *f, type_var_p tv)
 {
@@ -547,35 +653,45 @@ type_var_dump (FILE *f, type_var_p tv)
   fprintf (f, "\n");
 }
 
-/* Delete a type_var object.  */
+
+/* Delete type_var object TV.  */
+
 static inline void
 type_var_delete (type_var_p tv)
 {
   tpa_delete (tv);
 }
 
-/* Remove a partition from a specific list.  */
+
+/* Remove partition PARTITION_INDEX from type list TYPE_INDEX in TV.  */
+
 static inline void
 type_var_remove_partition (type_var_p tv, int type_index, int partition_index)
 {
   tpa_remove_partition (tv, type_index, partition_index);
 }
 
-/* Find the type index for the list a partition is in.  */
+
+/* Return the type index in TV for the list partition I is in.  */
+
 static inline int
 type_var_find (type_var_p tv, int i)
 {
   return tpa_find_tree (tv, i);
 }
 
-/* Hide single element lists.  */
+
+/* Hide single element lists in TV.  */
+
 static inline int 
 type_var_compact (type_var_p tv)
 {
   return tpa_compact (tv);
 }
 
-/* Expose single element lists.  */
+
+/* Expose single element lists in TV.  */
+
 static inline void
 type_var_decompact (type_var_p tv)
 {

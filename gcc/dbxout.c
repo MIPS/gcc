@@ -179,6 +179,12 @@ static GTY(()) int typevec_len;
 
 static GTY(()) int next_type_number;
 
+/* The C front end may call dbxout_symbol before dbxout_init runs.
+   We save all such decls in this list and output them when we get
+   to dbxout_init.  */
+
+static GTY(()) tree preinit_symbols;
+
 enum binclstatus {BINCL_NOT_REQUIRED, BINCL_PENDING, BINCL_PROCESSED};
 
 /* When using N_BINCL in dbx output, each type number is actually a
@@ -270,7 +276,7 @@ static const char *cwd;
 /* 1 if PARM is passed to this function in memory.  */
 
 #define PARM_PASSED_IN_MEMORY(PARM) \
- (GET_CODE (DECL_INCOMING_RTL (PARM)) == MEM)
+ (MEM_P (DECL_INCOMING_RTL (PARM)))
 
 /* A C expression for the integer offset value of an automatic variable
    (N_LSYM) having address X (an RTX).  */
@@ -359,6 +365,7 @@ static void dbxout_prepare_symbol (tree);
 static void dbxout_finish_symbol (tree);
 static void dbxout_block (tree, int, tree);
 static void dbxout_global_decl (tree);
+static void dbxout_type_decl (tree, int);
 static void dbxout_handle_pch (unsigned);
 
 /* The debug hooks structure.  */
@@ -396,6 +403,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_int,		         /* end_function */
   dbxout_function_decl,
   dbxout_global_decl,		         /* global_decl */
+  dbxout_type_decl,			 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
@@ -425,6 +433,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   xcoffout_end_function,
   debug_nothing_tree,		         /* function_decl */
   dbxout_global_decl,		         /* global_decl */
+  dbxout_type_decl,			 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
@@ -439,11 +448,14 @@ static void
 dbxout_function_end (void)
 {
   char lscope_label_name[100];
+
+  function_section (current_function_decl);
+  
   /* Convert Ltext into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
      labels.  */
   ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
-  (*targetm.asm_out.internal_label) (asmfile, "Lscope", scope_labelno);
+  targetm.asm_out.internal_label (asmfile, "Lscope", scope_labelno);
   scope_labelno++;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -467,7 +479,7 @@ static void
 dbxout_init (const char *input_file_name)
 {
   char ltext_label_name[100];
-  tree syms = (*lang_hooks.decls.getdecls) ();
+  tree syms = lang_hooks.decls.getdecls ();
 
   asmfile = asm_out_file;
 
@@ -511,7 +523,7 @@ dbxout_init (const char *input_file_name)
   assemble_name (asmfile, ltext_label_name);
   fputc ('\n', asmfile);
   text_section ();
-  (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
+  targetm.asm_out.internal_label (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
 
 #ifdef DBX_OUTPUT_GCC_MARKER
@@ -537,22 +549,20 @@ dbxout_init (const char *input_file_name)
   current_file->pending_bincl_name = NULL;
 #endif
 
-  /* Make sure that types `int' and `char' have numbers 1 and 2.
-     Definitions of other integer types will refer to those numbers.
-     (Actually it should no longer matter what their numbers are.
-     Also, if any types with tags have been defined, dbxout_symbol
-     will output them first, so the numbers won't be 1 and 2.  That
-     happens in C++.  So it's a good thing it should no longer matter).  */
-
-#ifdef DBX_OUTPUT_STANDARD_TYPES
-  DBX_OUTPUT_STANDARD_TYPES (syms);
-#endif
-
   /* Get all permanent types that have typedef names, and output them
      all, except for those already output.  Some language front ends
-     put these declarations in the top-level scope; some do not.  */
-  dbxout_typedefs ((*lang_hooks.decls.builtin_type_decls) ());
+     put these declarations in the top-level scope; some do not;
+     the latter are responsible for calling debug_hooks->type_decl from
+     their record_builtin_type function.  */
   dbxout_typedefs (syms);
+
+  if (preinit_symbols)
+    {
+      tree t;
+      for (t = nreverse (preinit_symbols); t; t = TREE_CHAIN (t))
+	dbxout_symbol (TREE_VALUE (t), 0);
+      preinit_symbols = 0;
+    }
 }
 
 /* Output any typedef names for types described by TYPE_DECLs in SYMS.  */
@@ -721,8 +731,11 @@ dbxout_source_file (FILE *file, const char *filename)
 	  && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
 	; /* Don't change section amid function.  */
       else
-	text_section ();
-      (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
+	{
+	  if (!in_text_section () && !in_unlikely_text_section ())
+	    text_section ();
+	}
+      targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;
     }
@@ -750,7 +763,7 @@ static void
 dbxout_begin_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBB", n);
+  targetm.asm_out.internal_label (asmfile, "LBB", n);
 }
 
 /* Describe the end line-number of an internal block within a function.  */
@@ -759,7 +772,7 @@ static void
 dbxout_end_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBE", n);
+  targetm.asm_out.internal_label (asmfile, "LBE", n);
 }
 
 /* Output dbx data for a function definition.
@@ -803,6 +816,14 @@ dbxout_global_decl (tree decl)
       dbxout_symbol (decl, 0);
       TREE_USED (decl) = saved_tree_used;
     }
+}
+
+/* This is just a function-type adapter; dbxout_symbol does exactly
+   what we want but returns an int.  */
+static void
+dbxout_type_decl (tree decl, int local)
+{
+  dbxout_symbol (decl, local);
 }
 
 /* At the end of compilation, finish writing the symbol table.
@@ -869,8 +890,8 @@ dbxout_type_fields (tree type)
      field that we can support.  */
   for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
     {
-
-      /* If on of the nodes is an error_mark or its type is then return early. */
+      /* If one of the nodes is an error_mark or its type is then
+	 return early.  */
       if (tem == error_mark_node || TREE_TYPE (tem) == error_mark_node)
 	return;
 
@@ -1369,7 +1390,7 @@ dbxout_type (tree type, int full)
       break;
 
     case INTEGER_TYPE:
-      if (type == char_type_node && ! TREE_UNSIGNED (type))
+      if (type == char_type_node && ! TYPE_UNSIGNED (type))
 	{
 	  /* Output the type `char' as a subrange of itself!
 	     I don't understand this definition, just copied it
@@ -1477,7 +1498,7 @@ dbxout_type (tree type, int full)
 	  fprintf (asmfile, "r");
 	  CHARS (1);
 	  dbxout_type_index (char_type_node);
-	  fprintf (asmfile, ";0;%d;", TREE_UNSIGNED (type) ? 255 : 127);
+	  fprintf (asmfile, ";0;%d;", TYPE_UNSIGNED (type) ? 255 : 127);
 	  CHARS (7);
 	}
       break;
@@ -1612,12 +1633,7 @@ dbxout_type (tree type, int full)
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       {
-	int i, n_baseclasses = 0;
-
-	if (TYPE_BINFO (type) != 0
-	    && TREE_CODE (TYPE_BINFO (type)) == TREE_VEC
-	    && TYPE_BINFO_BASETYPES (type) != 0)
-	  n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
+	tree binfo = TYPE_BINFO (type);
 
 	/* Output a structure type.  We must use the same test here as we
 	   use in the DBX_NO_XREFS case above.  */
@@ -1664,65 +1680,72 @@ dbxout_type (tree type, int full)
 	CHARS (1);
 	print_wide_int (int_size_in_bytes (type));
 
-	if (use_gnu_debug_info_extensions)
+	if (binfo)
 	  {
-	    if (n_baseclasses)
-	      {
-		have_used_extensions = 1;
-		fprintf (asmfile, "!%d,", n_baseclasses);
-		CHARS (8);
-	      }
-	  }
-	for (i = 0; i < n_baseclasses; i++)
-	  {
-	    tree binfo = TYPE_BINFO (type);
-	    tree child = BINFO_BASETYPE (binfo, i);
-	    tree access = (BINFO_BASEACCESSES (binfo)
-			   ? BINFO_BASEACCESS (binfo, i) : access_public_node);
-
+	    int i;
+	    tree child;
+	    VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
+	    
 	    if (use_gnu_debug_info_extensions)
 	      {
-		have_used_extensions = 1;
-                putc (TREE_VIA_VIRTUAL (child) ? '1' : '0', asmfile);
-                putc (access == access_public_node ? '2' :
-                      (access == access_protected_node ? '1' :'0'),
-                      asmfile);
-		CHARS (2);
-		if (TREE_VIA_VIRTUAL (child)
-		    && strcmp (lang_hooks.name, "GNU C++") == 0)
-		  /* For a virtual base, print the (negative) offset within
-		     the vtable where we must look to find the necessary
-		     adjustment.  */
-		  print_wide_int (tree_low_cst (BINFO_VPTR_FIELD (child), 0)
-				  * BITS_PER_UNIT);
-		else
-		  print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
-				  * BITS_PER_UNIT);
-		putc (',', asmfile);
-		CHARS (1);
-		dbxout_type (BINFO_TYPE (child), 0);
-		putc (';', asmfile);
-		CHARS (1);
+		if (BINFO_N_BASE_BINFOS (binfo))
+		  {
+		    have_used_extensions = 1;
+		    fprintf (asmfile, "!%u,", BINFO_N_BASE_BINFOS (binfo));
+		    CHARS (8);
+		  }
 	      }
-	    else
+	    for (i = 0; BINFO_BASE_ITERATE (binfo, i, child); i++)
 	      {
-		/* Print out the base class information with fields
-		   which have the same names at the types they hold.  */
-		dbxout_type_name (BINFO_TYPE (child));
-		putc (':', asmfile);
-		CHARS (1);
-		dbxout_type (BINFO_TYPE (child), full);
-		putc (',', asmfile);
-		CHARS (1);
-		print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
-				* BITS_PER_UNIT);
-		putc (',', asmfile);
-		CHARS (1);
-		print_wide_int (tree_low_cst (TYPE_SIZE (BINFO_TYPE (child)),
-					      0)
-				* BITS_PER_UNIT);
-		putc (';', asmfile);
-		CHARS (1);
+		tree access = (accesses ? VEC_index (tree, accesses, i)
+			       : access_public_node);
+
+		if (use_gnu_debug_info_extensions)
+		  {
+		    have_used_extensions = 1;
+		    putc (BINFO_VIRTUAL_P (child) ? '1' : '0', asmfile);
+		    putc (access == access_public_node ? '2' :
+			  (access == access_protected_node ? '1' :'0'),
+			  asmfile);
+		    CHARS (2);
+		    if (BINFO_VIRTUAL_P (child)
+			&& strcmp (lang_hooks.name, "GNU C++") == 0)
+		      /* For a virtual base, print the (negative)
+		     	 offset within the vtable where we must look
+		     	 to find the necessary adjustment.  */
+		      print_wide_int
+			(tree_low_cst (BINFO_VPTR_FIELD (child), 0)
+			 * BITS_PER_UNIT);
+		    else
+		      print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
+				      * BITS_PER_UNIT);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    dbxout_type (BINFO_TYPE (child), 0);
+		    putc (';', asmfile);
+		    CHARS (1);
+		  }
+		else
+		  {
+		    /* Print out the base class information with
+		       fields which have the same names at the types
+		       they hold.  */
+		    dbxout_type_name (BINFO_TYPE (child));
+		    putc (':', asmfile);
+		    CHARS (1);
+		    dbxout_type (BINFO_TYPE (child), full);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    print_wide_int (tree_low_cst (BINFO_OFFSET (child), 0)
+				    * BITS_PER_UNIT);
+		    putc (',', asmfile);
+		    CHARS (1);
+		    print_wide_int
+		      (tree_low_cst (TYPE_SIZE (BINFO_TYPE (child)), 0)
+		       * BITS_PER_UNIT);
+		    putc (';', asmfile);
+		    CHARS (1);
+		  }
 	      }
 	  }
       }
@@ -1899,10 +1922,10 @@ print_int_cst_bounds_in_octal_p (tree type)
       && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST
       && (TYPE_PRECISION (type) > TYPE_PRECISION (integer_type_node)
 	  || ((TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
-	      && TREE_UNSIGNED (type))
+	      && TYPE_UNSIGNED (type))
 	  || TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT
 	  || (TYPE_PRECISION (type) == HOST_BITS_PER_WIDE_INT
-	      && TREE_UNSIGNED (type))))
+	      && TYPE_UNSIGNED (type))))
     return TRUE;
   else
     return FALSE;
@@ -2064,13 +2087,21 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
      symbol nodees are flagged with TREE_USED.  Ignore any that
      aren't flaged as TREE_USED.  */
 
+  if (flag_debug_only_used_symbols
+      && (!TREE_USED (decl)
+          && (TREE_CODE (decl) != VAR_DECL || !DECL_INITIAL (decl))))
+    DBXOUT_DECR_NESTING_AND_RETURN (0);
+
+  /* If dbxout_init has not yet run, queue this symbol for later.  */
+  if (!typevec)
+    {
+      preinit_symbols = tree_cons (0, decl, preinit_symbols);
+      DBXOUT_DECR_NESTING_AND_RETURN (0);
+    }
+
   if (flag_debug_only_used_symbols)
     {
       tree t;
-
-      if (!TREE_USED (decl)
-          && (TREE_CODE (decl) != VAR_DECL || !DECL_INITIAL (decl)))
-        DBXOUT_DECR_NESTING_AND_RETURN (0);
 
       /* We now have a used symbol.  We need to generate the info for
          the symbol's type in addition to the symbol itself.  These
@@ -2140,7 +2171,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       context = decl_function_context (decl);
       if (context == current_function_decl)
 	break;
-      if (GET_CODE (DECL_RTL (decl)) != MEM
+      if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	break;
       FORCE_TEXT;
@@ -2175,6 +2206,20 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       if (TREE_ASM_WRITTEN (decl) || TYPE_DECL_SUPPRESS_DEBUG (decl))
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
 
+      /* Don't output typedefs for types with magic type numbers (XCOFF).  */
+#ifdef DBX_ASSIGN_FUNDAMENTAL_TYPE_NUMBER
+      {
+	int fundamental_type_number =
+	  DBX_ASSIGN_FUNDAMENTAL_TYPE_NUMBER (decl);
+
+	if (fundamental_type_number != 0)
+	  {
+	    TREE_ASM_WRITTEN (decl) = 1;
+	    TYPE_SYMTAB_ADDRESS (TREE_TYPE (decl)) = fundamental_type_number;
+	    DBXOUT_DECR_NESTING_AND_RETURN (0);
+	  }
+      }
+#endif
       FORCE_TEXT;
       result = 1;
       {
@@ -2403,14 +2448,14 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 
       while (GET_CODE (value) == SUBREG)
 	value = SUBREG_REG (value);
-      if (GET_CODE (value) == REG)
+      if (REG_P (value))
 	{
 	  if (REGNO (value) >= FIRST_PSEUDO_REGISTER)
 	    return 0;
 	}
       home = alter_subreg (&home);
     }
-  if (GET_CODE (home) == REG)
+  if (REG_P (home))
     {
       regno = REGNO (home);
       if (regno >= FIRST_PSEUDO_REGISTER)
@@ -2430,7 +2475,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
      no letter at all, and N_LSYM, for auto variable,
      r and N_RSYM for register variable.  */
 
-  if (GET_CODE (home) == MEM
+  if (MEM_P (home)
       && GET_CODE (XEXP (home, 0)) == SYMBOL_REF)
     {
       if (TREE_PUBLIC (decl))
@@ -2466,11 +2511,27 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	      if (GET_CODE (current_sym_addr) == SYMBOL_REF
 		  && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
 		{
-		  rtx tmp = get_pool_constant (current_sym_addr);
+		  bool marked;
+		  rtx tmp = get_pool_constant_mark (current_sym_addr, &marked);
 
-		  if (GET_CODE (tmp) == SYMBOL_REF
-		      || GET_CODE (tmp) == LABEL_REF)
-		    current_sym_addr = tmp;
+		  if (GET_CODE (tmp) == SYMBOL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      if (CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+		        get_pool_constant_mark (current_sym_addr, &marked);
+		      else
+			marked = true;
+		    }
+		  else if (GET_CODE (tmp) == LABEL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      marked = true;
+		    }
+
+		   /* If all references to the constant pool were optimized
+		      out, we just ignore the symbol.  */
+		  if (!marked)
+		    return 0;
 		}
 
 	      /* Ultrix `as' seems to need this.  */
@@ -2487,9 +2548,9 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       current_sym_code = N_RSYM;
       current_sym_value = DBX_REGISTER_NUMBER (regno);
     }
-  else if (GET_CODE (home) == MEM
-	   && (GET_CODE (XEXP (home, 0)) == MEM
-	       || (GET_CODE (XEXP (home, 0)) == REG
+  else if (MEM_P (home)
+	   && (MEM_P (XEXP (home, 0))
+	       || (REG_P (XEXP (home, 0))
 		   && REGNO (XEXP (home, 0)) != HARD_FRAME_POINTER_REGNUM
 		   && REGNO (XEXP (home, 0)) != STACK_POINTER_REGNUM
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
@@ -2501,10 +2562,9 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
        then it means the object is variable-sized and address through
        that register or stack slot.  DBX has no way to represent this
        so all we can do is output the variable as a pointer.
-       If it's not a parameter, ignore it.
-       (VAR_DECLs like this can be made by integrate.c.)  */
+       If it's not a parameter, ignore it.  */
     {
-      if (GET_CODE (XEXP (home, 0)) == REG)
+      if (REG_P (XEXP (home, 0)))
 	{
 	  letter = 'r';
 	  current_sym_code = N_RSYM;
@@ -2528,13 +2588,13 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
       type = make_node (POINTER_TYPE);
       TREE_TYPE (type) = TREE_TYPE (decl);
     }
-  else if (GET_CODE (home) == MEM
-	   && GET_CODE (XEXP (home, 0)) == REG)
+  else if (MEM_P (home)
+	   && REG_P (XEXP (home, 0)))
     {
       current_sym_code = N_LSYM;
       current_sym_value = DEBUGGER_AUTO_OFFSET (XEXP (home, 0));
     }
-  else if (GET_CODE (home) == MEM
+  else if (MEM_P (home)
 	   && GET_CODE (XEXP (home, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (home, 0), 1)) == CONST_INT)
     {
@@ -2543,7 +2603,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	 We want the value of that CONST_INT.  */
       current_sym_value = DEBUGGER_AUTO_OFFSET (XEXP (home, 0));
     }
-  else if (GET_CODE (home) == MEM
+  else if (MEM_P (home)
 	   && GET_CODE (XEXP (home, 0)) == CONST)
     {
       /* Handle an obscure case which can arise when optimizing and
@@ -2713,7 +2773,10 @@ dbxout_parms (tree parms)
   emit_pending_bincls_if_required ();
 
   for (; parms; parms = TREE_CHAIN (parms))
-    if (DECL_NAME (parms) && TREE_TYPE (parms) != error_mark_node)
+    if (DECL_NAME (parms)
+	&& TREE_TYPE (parms) != error_mark_node
+	&& DECL_RTL_SET_P (parms)
+	&& DECL_INCOMING_RTL (parms))
       {
 	dbxout_prepare_symbol (parms);
 
@@ -2781,7 +2844,7 @@ dbxout_parms (tree parms)
 	    current_sym_value = DEBUGGER_ARG_OFFSET (current_sym_value, addr);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == REG)
+	else if (REG_P (DECL_RTL (parms)))
 	  {
 	    rtx best_rtl;
 	    char regparm_letter;
@@ -2831,8 +2894,8 @@ dbxout_parms (tree parms)
 	    dbxout_type (parm_type, 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
-		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG
+	else if (MEM_P (DECL_RTL (parms))
+		 && REG_P (XEXP (DECL_RTL (parms), 0))
 		 && REGNO (XEXP (DECL_RTL (parms), 0)) != HARD_FRAME_POINTER_REGNUM
 		 && REGNO (XEXP (DECL_RTL (parms), 0)) != STACK_POINTER_REGNUM
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
@@ -2885,8 +2948,8 @@ dbxout_parms (tree parms)
 	    dbxout_type (TREE_TYPE (parms), 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
-		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	else if (MEM_P (DECL_RTL (parms))
+		 && MEM_P (XEXP (DECL_RTL (parms), 0)))
 	  {
 	    /* Parm was passed via invisible reference, with the reference
 	       living on the stack.  DECL_RTL looks like
@@ -2895,7 +2958,7 @@ dbxout_parms (tree parms)
 	    const char *const decl_name = (DECL_NAME (parms)
 				     ? IDENTIFIER_POINTER (DECL_NAME (parms))
 				     : "(anon)");
-	    if (GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 0)) == REG)
+	    if (REG_P (XEXP (XEXP (DECL_RTL (parms), 0), 0)))
 	      current_sym_value = 0;
 	    else
 	      current_sym_value
@@ -2912,7 +2975,7 @@ dbxout_parms (tree parms)
 	    dbxout_type (TREE_TYPE (parms), 0);
 	    dbxout_finish_symbol (parms);
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && XEXP (DECL_RTL (parms), 0) != const0_rtx
 		 /* ??? A constant address for a parm can happen
 		    when the reg it lives in is equiv to a constant in memory.
@@ -2926,7 +2989,7 @@ dbxout_parms (tree parms)
 	       in which case we want the value of that CONST_INT,
 	       or (MEM (REG ...)),
 	       in which case we use a value of zero.  */
-	    if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG)
+	    if (REG_P (XEXP (DECL_RTL (parms), 0)))
 	      current_sym_value = 0;
 	    else
 		current_sym_value
@@ -2995,7 +3058,7 @@ dbxout_reg_parms (tree parms)
 
 	/* Report parms that live in registers during the function
 	   but were passed in memory.  */
-	if (GET_CODE (DECL_RTL (parms)) == REG
+	if (REG_P (DECL_RTL (parms))
 	    && REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER)
 	  dbxout_symbol_location (parms, TREE_TYPE (parms),
 				  0, DECL_RTL (parms));
@@ -3003,7 +3066,7 @@ dbxout_reg_parms (tree parms)
 	  dbxout_symbol_location (parms, TREE_TYPE (parms),
 				  0, DECL_RTL (parms));
 	/* Report parms that live in memory but not where they were passed.  */
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && ! rtx_equal_p (DECL_RTL (parms), DECL_INCOMING_RTL (parms)))
 	  dbxout_symbol_location (parms, TREE_TYPE (parms),
 				  0, DECL_RTL (parms));

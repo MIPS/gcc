@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -34,8 +34,7 @@ namespace std
 {
   using namespace __gnu_cxx;
 
-  
-  locale::locale(const char* __s)
+  locale::locale(const char* __s) : _M_impl(0)
   {
     if (__s)
       {
@@ -95,6 +94,7 @@ namespace std
 		if (__i < _S_categories_size)
 		  {
 		    string __str;
+		    __str.reserve(128);
 		    for (size_t __j = 0; __j < __i; ++__j)
 		      {
 			__str += _S_categories[__j];
@@ -148,6 +148,7 @@ namespace std
   }
 
   locale::locale(const locale& __base, const char* __s, category __cat)
+  : _M_impl(0)
   { 
     // NB: There are complicated, yet more efficient ways to do
     // this. Building up locales on a per-category way is tedious, so
@@ -157,6 +158,7 @@ namespace std
   }
 
   locale::locale(const locale& __base, const locale& __add, category __cat)
+  : _M_impl(0)
   { _M_coalesce(__base, __add, __cat); }
 
   void
@@ -178,50 +180,45 @@ namespace std
   // Construct named _Impl.
   locale::_Impl::
   _Impl(const char* __s, size_t __refs) 
-  : _M_refcount(__refs), _M_facets_size(_GLIBCXX_NUM_FACETS)
+  : _M_refcount(__refs), _M_facets(0), _M_facets_size(_GLIBCXX_NUM_FACETS),
+  _M_caches(0), _M_names(0)
   {
     // Initialize the underlying locale model, which also checks to
     // see if the given name is valid.
     __c_locale __cloc;
     locale::facet::_S_create_c_locale(__cloc, __s);
 
-    _M_facets = _M_caches = 0;
-    _M_names = 0;
     try
       {
 	_M_facets = new const facet*[_M_facets_size];
 	for (size_t __i = 0; __i < _M_facets_size; ++__i)
 	  _M_facets[__i] = 0;
 	_M_caches = new const facet*[_M_facets_size];
-	for (size_t __i = 0; __i < _M_facets_size; ++__i)
-	  _M_caches[__i] = 0;
+	for (size_t __j = 0; __j < _M_facets_size; ++__j)
+	  _M_caches[__j] = 0;
 	_M_names = new char*[_S_categories_size];
-	for (size_t __i = 0; __i < _S_categories_size; ++__i)
-	  _M_names[__i] = 0;
+	for (size_t __k = 0; __k < _S_categories_size; ++__k)
+	  _M_names[__k] = 0;
 
-	// Name all the categories.
+	// Name the categories.
 	const size_t __len = std::strlen(__s);
 	if (!std::strchr(__s, ';'))
 	  {
-	    for (size_t __i = 0; __i < _S_categories_size; ++__i)
-	      {
-		_M_names[__i] = new char[__len + 1];
-		std::strcpy(_M_names[__i], __s);
-	      }
+	    _M_names[0] = new char[__len + 1];
+	    std::memcpy(_M_names[0], __s, __len + 1);	    
 	  }
 	else
 	  {
-	    const char* __beg = __s;
+	    const char* __end = __s;
 	    for (size_t __i = 0; __i < _S_categories_size; ++__i)
 	      {
-		__beg = std::strchr(__beg, '=') + 1;
-		const char* __end = std::strchr(__beg, ';');
+		const char* __beg = std::strchr(__end + 1, '=') + 1;
+		__end = std::strchr(__beg, ';');
 		if (!__end)
 		  __end = __s + __len;
-		char* __new = new char[__end - __beg + 1];
-		std::memcpy(__new, __beg, __end - __beg);
-		__new[__end - __beg] = '\0';
-		_M_names[__i] = __new;
+		_M_names[__i] = new char[__end - __beg + 1];
+		std::memcpy(_M_names[__i], __beg, __end - __beg);
+		_M_names[__i][__end - __beg] = '\0';
 	      }
 	  }
  
@@ -271,19 +268,35 @@ namespace std
   locale::_Impl::
   _M_replace_categories(const _Impl* __imp, category __cat)
   {
-    for (size_t __ix = 0; __ix < _S_categories_size; ++__ix)
+    category __mask = 1;
+    const bool __have_names = _M_names[0] && __imp->_M_names[0];
+    for (size_t __ix = 0; __ix < _S_categories_size; ++__ix, __mask <<= 1)
       {
-	const category __mask = 1 << __ix;
 	if (__mask & __cat)
 	  {
 	    // Need to replace entry in _M_facets with other locale's info.
 	    _M_replace_category(__imp, _S_facet_categories[__ix]);
 	    // If both have names, go ahead and mangle.
-	    if (std::strcmp(_M_names[__ix], "*") != 0 
-		&& std::strcmp(__imp->_M_names[__ix], "*") != 0)
+	    if (__have_names)
 	      {
-		char* __new = new char[std::strlen(__imp->_M_names[__ix]) + 1];
-		std::strcpy(__new, __imp->_M_names[__ix]);
+		if (!_M_names[1])
+		  {
+		    // A full set of _M_names must be prepared, all identical
+		    // to _M_names[0] to begin with. Then, below, a few will
+		    // be replaced by the corresponding __imp->_M_names. I.e.,
+		    // not a "simple" locale anymore (see locale::operator==).
+		    const size_t __len = std::strlen(_M_names[0]) + 1;
+		    for (size_t __i = 1; __i < _S_categories_size; ++__i)
+		      {
+			_M_names[__i] = new char[__len];
+			std::memcpy(_M_names[__i], _M_names[0], __len);
+		      }
+		  }
+		char* __src = __imp->_M_names[__ix] ? __imp->_M_names[__ix]
+		                                    : __imp->_M_names[0];
+		const size_t __len = std::strlen(__src) + 1;
+		char* __new = new char[__len];
+		std::memcpy(__new, __src, __len);
 		delete [] _M_names[__ix];
 		_M_names[__ix] = __new;
 	      }

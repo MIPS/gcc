@@ -44,7 +44,7 @@ package java.nio;
 public abstract class ByteBuffer extends Buffer
   implements Comparable
 {
-  private ByteOrder endian = ByteOrder.BIG_ENDIAN;
+  ByteOrder endian = ByteOrder.BIG_ENDIAN;
 
   int array_offset;
   byte[] backing_buffer;
@@ -52,16 +52,8 @@ public abstract class ByteBuffer extends Buffer
   ByteBuffer (int capacity, int limit, int position, int mark)
   {
     super (capacity, limit, position, mark);
-    array_offset = 0;
   }
 
-  ByteBuffer (byte[] buffer, int offset, int capacity, int limit, int position, int mark)
-  {
-    super (capacity, limit, position, mark);
-    this.backing_buffer = buffer;
-    this.array_offset = offset;
-  }
-  
   /**
    * Allocates a new direct byte buffer.
    */ 
@@ -75,7 +67,7 @@ public abstract class ByteBuffer extends Buffer
    */
   public static ByteBuffer allocate (int capacity)
   {
-    return new ByteBufferImpl (capacity);
+    return wrap(new byte[capacity], 0, capacity);
   }
 
   /**
@@ -87,6 +79,14 @@ public abstract class ByteBuffer extends Buffer
    */
   final public static ByteBuffer wrap (byte[] array, int offset, int length)
   {
+    // FIXME: In GCJ and other implementations where arrays may not
+    // move we might consider, at least when offset==0:
+    // return new DirectByteBufferImpl(array,
+    //                                 address_of_data(array) + offset,
+    //                                 length, length, 0, false);
+    // This may be more efficient, mainly because we can then use the
+    // same logic for all ByteBuffers.
+
     return new ByteBufferImpl (array, 0, array.length, offset + length, offset, -1, false);
   }
 
@@ -100,8 +100,9 @@ public abstract class ByteBuffer extends Buffer
   }
   
   /**
-   * This method transfers <code>bytes<code> from this buffer into the given
-   * destination array.
+   * This method transfers <code>byte</code>s from this buffer into the given
+   * destination array. Before the transfer, it checks if there are fewer than
+   * length <code>byte</code>s remaining in this buffer.
    *
    * @param dst The destination array
    * @param offset The offset within the array of the first <code>byte</code>
@@ -110,17 +111,14 @@ public abstract class ByteBuffer extends Buffer
    * must be non-negative and no larger than dst.length - offset.
    *
    * @exception BufferUnderflowException If there are fewer than length
-   * <code>bytes</code> remaining in this buffer.
+   * <code>byte</code>s remaining in this buffer.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold.
    */
   public ByteBuffer get (byte[] dst, int offset, int length)
   {
-    if ((offset < 0)
-        || (offset > dst.length)
-        || (length < 0)
-        || (length > (dst.length - offset)))
-      throw new IndexOutOfBoundsException ();
+    checkArraySize(dst.length, offset, length);
+    checkForUnderflow(length);
 
     for (int i = offset; i < offset + length; i++)
       {
@@ -131,13 +129,13 @@ public abstract class ByteBuffer extends Buffer
   }
 
   /**
-   * This method transfers <code>bytes<code> from this buffer into the given
+   * This method transfers <code>byte</code>s from this buffer into the given
    * destination array.
    *
    * @param dst The byte array to write into.
    *
    * @exception BufferUnderflowException If there are fewer than dst.length
-   * <code>bytes</code> remaining in this buffer.
+   * <code>byte</code>s remaining in this buffer.
    */
   public ByteBuffer get (byte[] dst)
   {
@@ -146,12 +144,13 @@ public abstract class ByteBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>ByteBUFFER</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * <code>src.remaining()</code> space remaining in this buffer.
    *
    * @param src The source data.
    *
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>bytes<code> in the source buffer.
+   * buffer for the remaining <code>byte</code>s in the source buffer.
    * @exception IllegalArgumentException If the source buffer is this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
@@ -160,8 +159,7 @@ public abstract class ByteBuffer extends Buffer
     if (src == this)
       throw new IllegalArgumentException ();
 
-    if (src.remaining () > remaining ())
-      throw new BufferOverflowException ();
+    checkForOverflow(src.remaining());
 
     if (src.remaining () > 0)
       {
@@ -175,7 +173,8 @@ public abstract class ByteBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>byte array</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * length space remaining in this buffer.
    *
    * @param src The array to copy into the buffer.
    * @param offset The offset within the array of the first byte to be read;
@@ -184,18 +183,15 @@ public abstract class ByteBuffer extends Buffer
    * must be non-negative and no larger than src.length - offset.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>bytes<code> in the source array.
+   * buffer for the remaining <code>byte</code>s in the source array.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public ByteBuffer put (byte[] src, int offset, int length)
   {
-    if ((offset < 0) ||
-        (offset > src.length) ||
-        (length < 0) ||
-        (length > src.length - offset))
-      throw new IndexOutOfBoundsException ();
+    checkArraySize(src.length, offset, length);
+    checkForOverflow(length);
 
     for (int i = offset; i < offset + length; i++)
       put (src [i]);
@@ -210,7 +206,7 @@ public abstract class ByteBuffer extends Buffer
    * @param src The array to copy into the buffer.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>bytes<code> in the source array.
+   * buffer for the remaining <code>byte</code>s in the source array.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public final ByteBuffer put (byte[] src)
@@ -240,8 +236,7 @@ public abstract class ByteBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return backing_buffer;
   }
@@ -258,8 +253,7 @@ public abstract class ByteBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return array_offset;
   }
@@ -294,32 +288,27 @@ public abstract class ByteBuffer extends Buffer
    */
   public int compareTo (Object obj)
   {
-    ByteBuffer a = (ByteBuffer) obj;
+    ByteBuffer other = (ByteBuffer) obj;
 
-    if (a.remaining () != remaining ())
-      return 1;
-
-    if (! hasArray () ||
-        ! a.hasArray ())
+    int num = Math.min(remaining(), other.remaining());
+    int pos_this = position();
+    int pos_other = other.position();
+    
+    for (int count = 0; count < num; count++)
       {
-        return 1;
+        byte a = get(pos_this++);
+	byte b = other.get(pos_other++);
+      	 
+	if (a == b)
+	  continue;
+      	   
+	if (a < b)
+	  return -1;
+      	   
+	return 1;
       }
-
-    int r = remaining ();
-    int i1 = position ();
-    int i2 = a.position ();
-
-    for (int i = 0; i < r; i++)
-      {
-        int t = (int) (get (i1) - a.get (i2));
-
-        if (t != 0)
-          {
-            return (int) t;
-          }
-      }
-
-    return 0;
+      
+    return remaining() - other.remaining();
   }
 
   /**
@@ -344,7 +333,7 @@ public abstract class ByteBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferUnderflowException If there are no remaining
-   * <code>bytes</code> in this buffer.
+   * <code>byte</code>s in this buffer.
    */
   public abstract byte get ();
 
@@ -353,7 +342,7 @@ public abstract class ByteBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferOverflowException If there no remaining 
-   * <code>bytes</code> in this buffer.
+   * <code>byte</code>s in this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public abstract ByteBuffer put (byte b);

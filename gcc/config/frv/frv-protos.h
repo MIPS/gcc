@@ -53,7 +53,7 @@ extern frv_cpu_t frv_cpu_type;			/* value of -mcpu= */
 
 /* Define functions defined in frv.c */
 extern void frv_expand_prologue			(void);
-extern void frv_expand_epilogue			(int);
+extern void frv_expand_epilogue			(bool);
 extern void frv_override_options		(void);
 extern void frv_optimization_options		(int, int);
 extern void frv_conditional_register_usage	(void);
@@ -63,9 +63,9 @@ extern int frv_frame_pointer_required		(void);
 extern int frv_initial_elimination_offset	(int, int);
 
 #ifdef RTX_CODE
-extern int frv_legitimate_address_p 		(enum machine_mode, rtx,
-						 int, int);
-extern rtx frv_legitimize_address		(rtx, rtx, enum machine_mode);
+extern int frv_legitimate_address_p		(enum machine_mode, rtx,
+						 int, int, int);
+extern rtx frv_find_base_term			(rtx);
 
 #ifdef TREE_CODE
 extern void frv_init_cumulative_args		(CUMULATIVE_ARGS *, tree,
@@ -84,16 +84,11 @@ extern int frv_function_arg_partial_nregs	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
 
-extern int frv_function_arg_pass_by_reference	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
 extern int frv_function_arg_callee_copies	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
 
 extern void frv_expand_builtin_va_start		(tree, rtx);
-extern rtx frv_expand_builtin_va_arg		(tree, tree);
 #endif /* TREE_CODE */
 
 extern int frv_expand_block_move		(rtx *);
@@ -225,5 +220,7 @@ extern int even_acc_operand		(rtx, enum machine_mode);
 extern int quad_acc_operand		(rtx, enum machine_mode);
 extern int accg_operand			(rtx, enum machine_mode);
 extern rtx frv_matching_accg_for_acc	(rtx);
+extern void frv_expand_fdpic_call	(rtx *, bool, bool);
+extern rtx frv_gen_GPsym2reg		(rtx, rtx);
 #endif
 

@@ -77,19 +77,16 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   public GdkPixbufDecoder (String filename)
   {
     super (filename);
-    initState ();
   }
   
   public GdkPixbufDecoder (URL url)
   {
     super (url);
-    initState ();
   }
 
   public GdkPixbufDecoder (byte[] imagedata, int imageoffset, int imagelength)
   {
     super (imagedata, imageoffset, imagelength);
-    initState ();
   }
 
   // called back by native side
@@ -135,6 +132,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
 
     byte bytes[] = new byte[4096];
     int len = 0;
+    initState();
     while ((len = is.read (bytes)) != -1)
       pumpBytes (bytes, len);
     
@@ -220,4 +218,31 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
     dec.startProduction (bb);
     return bb.getBufferedImage ();
   }
+
+  public static BufferedImage createBufferedImage (URL u)
+  {
+    BufferedImageBuilder bb = new BufferedImageBuilder ();
+    GdkPixbufDecoder dec = new GdkPixbufDecoder (u);
+    dec.startProduction (bb);
+    return bb.getBufferedImage ();
+  }
+
+  public static BufferedImage createBufferedImage (byte[] imagedata, int imageoffset,
+                                                   int imagelength)
+  {
+    BufferedImageBuilder bb = new BufferedImageBuilder ();
+    GdkPixbufDecoder dec = new GdkPixbufDecoder (imagedata, imageoffset, imagelength);
+    dec.startProduction (bb);
+    return bb.getBufferedImage ();
+  }
+  
+  public static BufferedImage createBufferedImage (ImageProducer producer)
+  {
+    BufferedImageBuilder bb = new BufferedImageBuilder ();
+    producer.startProduction(bb);
+    return bb.getBufferedImage ();
+  }
+  
+
+
 }

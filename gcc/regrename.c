@@ -51,7 +51,7 @@ struct du_chain
 
   rtx insn;
   rtx *loc;
-  ENUM_BITFIELD(reg_class) class : 16;
+  ENUM_BITFIELD(reg_class) cl : 16;
   unsigned int need_caller_save_reg:1;
   unsigned int earlyclobber:1;
 };
@@ -101,7 +101,7 @@ note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
   unsigned int regno;
   int nregs;
-  if (GET_CODE (x) != REG)
+  if (!REG_P (x))
     return;
   regno = REGNO (x);
   nregs = hard_regno_nregs[regno][GET_MODE (x)];
@@ -204,12 +204,12 @@ regrename_optimize (void)
 
       CLEAR_HARD_REG_SET (unavailable);
 
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "\nBasic block %d:\n", bb->index);
+      if (dump_file)
+	fprintf (dump_file, "\nBasic block %d:\n", bb->index);
 
       all_chains = build_def_use (bb);
 
-      if (rtl_dump_file)
+      if (dump_file)
 	dump_def_use_chain (all_chains);
 
       CLEAR_HARD_REG_SET (unavailable);
@@ -270,13 +270,13 @@ regrename_optimize (void)
 	    {
 	      n_uses++;
 	      IOR_COMPL_HARD_REG_SET (this_unavailable,
-				      reg_class_contents[last->class]);
+				      reg_class_contents[last->cl]);
 	    }
 	  if (n_uses < 1)
 	    continue;
 
 	  IOR_COMPL_HARD_REG_SET (this_unavailable,
-				  reg_class_contents[last->class]);
+				  reg_class_contents[last->cl]);
 
 	  if (this->need_caller_save_reg)
 	    IOR_HARD_REG_SET (this_unavailable, call_used_reg_set);
@@ -327,27 +327,28 @@ regrename_optimize (void)
 		}
 	    }
 
-	  if (rtl_dump_file)
+	  if (dump_file)
 	    {
-	      fprintf (rtl_dump_file, "Register %s in insn %d",
+	      fprintf (dump_file, "Register %s in insn %d",
 		       reg_names[reg], INSN_UID (last->insn));
 	      if (last->need_caller_save_reg)
-		fprintf (rtl_dump_file, " crosses a call");
+		fprintf (dump_file, " crosses a call");
 	    }
 
 	  if (best_new_reg == reg)
 	    {
 	      tick[reg] = ++this_tick;
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, "; no available better choice\n");
+	      if (dump_file)
+		fprintf (dump_file, "; no available better choice\n");
 	      continue;
 	    }
 
 	  do_replace (this, best_new_reg);
 	  tick[best_new_reg] = ++this_tick;
+	  regs_ever_live[best_new_reg] = 1;
 
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
+	  if (dump_file)
+	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
 	}
 
       obstack_free (&rename_obstack, first_obj);
@@ -355,8 +356,8 @@ regrename_optimize (void)
 
   obstack_free (&rename_obstack, NULL);
 
-  if (rtl_dump_file)
-    fputc ('\n', rtl_dump_file);
+  if (dump_file)
+    fputc ('\n', dump_file);
 
   count_or_remove_death_notes (NULL, 1);
   update_life_info (NULL, UPDATE_LIFE_LOCAL,
@@ -384,7 +385,7 @@ static struct du_chain *open_chains;
 static struct du_chain *closed_chains;
 
 static void
-scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
+scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl,
 	      enum scan_actions action, enum op_type type, int earlyclobber)
 {
   struct du_chain **p;
@@ -403,7 +404,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
 	  this->next_chain = open_chains;
 	  this->loc = loc;
 	  this->insn = insn;
-	  this->class = class;
+	  this->cl = cl;
 	  this->need_caller_save_reg = 0;
 	  this->earlyclobber = earlyclobber;
 	  open_chains = this;
@@ -450,14 +451,14 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
 		 EXTRA_CONSTRAINTS to match registers.  Which is arguably
 		 wrong, but there we are.  Since we know not what this may
 		 be replaced with, terminate the chain.  */
-	      if (class != NO_REGS)
+	      if (cl != NO_REGS)
 		{
 		  this = obstack_alloc (&rename_obstack, sizeof (struct du_chain));
 		  this->next_use = 0;
 		  this->next_chain = (*p)->next_chain;
 		  this->loc = loc;
 		  this->insn = insn;
-		  this->class = class;
+		  this->cl = cl;
 		  this->need_caller_save_reg = 0;
 		  while (*p)
 		    p = &(*p)->next_use;
@@ -479,16 +480,16 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
 		{
 		  this->next_chain = closed_chains;
 		  closed_chains = this;
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Closing chain %s at insn %d (%s)\n",
 			     reg_names[REGNO (*this->loc)], INSN_UID (insn),
 			     scan_actions_name[(int) action]);
 		}
 	      else
 		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Discarding chain %s at insn %d (%s)\n",
 			     reg_names[REGNO (*this->loc)], INSN_UID (insn),
 			     scan_actions_name[(int) action]);
@@ -501,11 +502,11 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class class,
     }
 }
 
-/* Adapted from find_reloads_address_1.  CLASS is INDEX_REG_CLASS or
+/* Adapted from find_reloads_address_1.  CL is INDEX_REG_CLASS or
    BASE_REG_CLASS depending on how the register is being considered.  */
 
 static void
-scan_rtx_address (rtx insn, rtx *loc, enum reg_class class,
+scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 		  enum scan_actions action, enum machine_mode mode)
 {
   rtx x = *loc;
@@ -619,7 +620,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class class,
       return;
 
     case REG:
-      scan_rtx_reg (insn, loc, class, action, OP_IN, 0);
+      scan_rtx_reg (insn, loc, cl, action, OP_IN, 0);
       return;
 
     default:
@@ -630,15 +631,15 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class class,
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	scan_rtx_address (insn, &XEXP (x, i), class, action, mode);
+	scan_rtx_address (insn, &XEXP (x, i), cl, action, mode);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  scan_rtx_address (insn, &XVECEXP (x, i, j), class, action, mode);
+	  scan_rtx_address (insn, &XVECEXP (x, i, j), cl, action, mode);
     }
 }
 
 static void
-scan_rtx (rtx insn, rtx *loc, enum reg_class class,
+scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
 	  enum scan_actions action, enum op_type type, int earlyclobber)
 {
   const char *fmt;
@@ -660,7 +661,7 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class class,
       return;
 
     case REG:
-      scan_rtx_reg (insn, loc, class, action, type, earlyclobber);
+      scan_rtx_reg (insn, loc, cl, action, type, earlyclobber);
       return;
 
     case MEM:
@@ -670,20 +671,20 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class class,
       return;
 
     case SET:
-      scan_rtx (insn, &SET_SRC (x), class, action, OP_IN, 0);
-      scan_rtx (insn, &SET_DEST (x), class, action, OP_OUT, 0);
+      scan_rtx (insn, &SET_SRC (x), cl, action, OP_IN, 0);
+      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 0);
       return;
 
     case STRICT_LOW_PART:
-      scan_rtx (insn, &XEXP (x, 0), class, action, OP_INOUT, earlyclobber);
+      scan_rtx (insn, &XEXP (x, 0), cl, action, OP_INOUT, earlyclobber);
       return;
 
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
-      scan_rtx (insn, &XEXP (x, 0), class, action,
+      scan_rtx (insn, &XEXP (x, 0), cl, action,
 		type == OP_IN ? OP_IN : OP_INOUT, earlyclobber);
-      scan_rtx (insn, &XEXP (x, 1), class, action, OP_IN, 0);
-      scan_rtx (insn, &XEXP (x, 2), class, action, OP_IN, 0);
+      scan_rtx (insn, &XEXP (x, 1), cl, action, OP_IN, 0);
+      scan_rtx (insn, &XEXP (x, 2), cl, action, OP_IN, 0);
       return;
 
     case POST_INC:
@@ -696,13 +697,13 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class class,
       abort ();
 
     case CLOBBER:
-      scan_rtx (insn, &SET_DEST (x), class, action, OP_OUT, 1);
+      scan_rtx (insn, &SET_DEST (x), cl, action, OP_OUT, 1);
       return;
 
     case EXPR_LIST:
-      scan_rtx (insn, &XEXP (x, 0), class, action, type, 0);
+      scan_rtx (insn, &XEXP (x, 0), cl, action, type, 0);
       if (XEXP (x, 1))
-	scan_rtx (insn, &XEXP (x, 1), class, action, type, 0);
+	scan_rtx (insn, &XEXP (x, 1), cl, action, type, 0);
       return;
 
     default:
@@ -713,10 +714,10 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class class,
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	scan_rtx (insn, &XEXP (x, i), class, action, type, 0);
+	scan_rtx (insn, &XEXP (x, i), cl, action, type, 0);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  scan_rtx (insn, &XVECEXP (x, i, j), class, action, type, 0);
+	  scan_rtx (insn, &XVECEXP (x, i, j), cl, action, type, 0);
     }
 }
 
@@ -774,7 +775,7 @@ build_def_use (basic_block bb)
 	    {
 	      int matches = recog_op_alt[i][alt].matches;
 	      if (matches >= 0)
-		recog_op_alt[i][alt].class = recog_op_alt[matches][alt].class;
+		recog_op_alt[i][alt].cl = recog_op_alt[matches][alt].cl;
 	      if (matches >= 0 || recog_op_alt[i][alt].matched >= 0
 	          || (predicated && recog_data.operand_type[i] == OP_OUT))
 		recog_data.operand_type[i] = OP_INOUT;
@@ -823,7 +824,7 @@ build_def_use (basic_block bb)
 	    *recog_data.operand_loc[i] = old_operands[i];
 
 	  /* Step 2B: Can't rename function call argument registers.  */
-	  if (GET_CODE (insn) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (insn))
+	  if (CALL_P (insn) && CALL_INSN_FUNCTION_USAGE (insn))
 	    scan_rtx (insn, &CALL_INSN_FUNCTION_USAGE (insn),
 		      NO_REGS, terminate_all_read, OP_IN, 0);
 
@@ -835,7 +836,7 @@ build_def_use (basic_block bb)
 		rtx *loc = recog_data.operand_loc[i];
 		rtx op = *loc;
 
-		if (GET_CODE (op) == REG
+		if (REG_P (op)
 		    && REGNO (op) == ORIGINAL_REGNO (op)
 		    && (recog_data.operand_type[i] == OP_IN
 			|| recog_data.operand_type[i] == OP_INOUT))
@@ -849,7 +850,7 @@ build_def_use (basic_block bb)
 	      rtx *loc = (i < n_ops
 			  ? recog_data.operand_loc[opn]
 			  : recog_data.dup_loc[i - n_ops]);
-	      enum reg_class class = recog_op_alt[opn][alt].class;
+	      enum reg_class cl = recog_op_alt[opn][alt].cl;
 	      enum op_type type = recog_data.operand_type[opn];
 
 	      /* Don't scan match_operand here, since we've no reg class
@@ -859,9 +860,9 @@ build_def_use (basic_block bb)
 		continue;
 
 	      if (recog_op_alt[opn][alt].is_address)
-		scan_rtx_address (insn, loc, class, mark_read, VOIDmode);
+		scan_rtx_address (insn, loc, cl, mark_read, VOIDmode);
 	      else
-		scan_rtx (insn, loc, class, mark_read, type, 0);
+		scan_rtx (insn, loc, cl, mark_read, type, 0);
 	    }
 
 	  /* Step 4: Close chains for registers that die here.
@@ -878,7 +879,7 @@ build_def_use (basic_block bb)
 
 	  /* Step 4B: If this is a call, any chain live at this point
 	     requires a caller-saved reg.  */
-	  if (GET_CODE (insn) == CALL_INSN)
+	  if (CALL_P (insn))
 	    {
 	      struct du_chain *p;
 	      for (p = open_chains; p; p = p->next_chain)
@@ -923,27 +924,27 @@ build_def_use (basic_block bb)
 		  {
 		    rtx *loc = recog_data.operand_loc[i];
 		    rtx op = *loc;
-		    enum reg_class class = recog_op_alt[i][alt].class;
+		    enum reg_class cl = recog_op_alt[i][alt].cl;
 
-		    if (GET_CODE (op) == REG
+		    if (REG_P (op)
 			&& REGNO (op) == ORIGINAL_REGNO (op))
 		      continue;
 
-		    scan_rtx (insn, loc, class, mark_write, OP_OUT,
+		    scan_rtx (insn, loc, cl, mark_write, OP_OUT,
 			      recog_op_alt[i][alt].earlyclobber);
 		  }
 	    }
-	  else if (GET_CODE (insn) != CALL_INSN)
+	  else if (!CALL_P (insn))
 	    for (i = 0; i < n_ops + recog_data.n_dups; i++)
 	      {
 		int opn = i < n_ops ? i : recog_data.dup_num[i - n_ops];
 		rtx *loc = (i < n_ops
 			    ? recog_data.operand_loc[opn]
 			    : recog_data.dup_loc[i - n_ops]);
-		enum reg_class class = recog_op_alt[opn][alt].class;
+		enum reg_class cl = recog_op_alt[opn][alt].cl;
 
 		if (recog_data.operand_type[opn] == OP_OUT)
-		  scan_rtx (insn, loc, class, mark_write, OP_OUT,
+		  scan_rtx (insn, loc, cl, mark_write, OP_OUT,
 			    recog_op_alt[opn][alt].earlyclobber);
 	      }
 
@@ -963,7 +964,7 @@ build_def_use (basic_block bb)
   return closed_chains;
 }
 
-/* Dump all def/use chains in CHAINS to RTL_DUMP_FILE.  They are
+/* Dump all def/use chains in CHAINS to DUMP_FILE.  They are
    printed in reverse order as that's how we build them.  */
 
 static void
@@ -974,14 +975,14 @@ dump_def_use_chain (struct du_chain *chains)
       struct du_chain *this = chains;
       int r = REGNO (*this->loc);
       int nregs = hard_regno_nregs[r][GET_MODE (*this->loc)];
-      fprintf (rtl_dump_file, "Register %s (%d):", reg_names[r], nregs);
+      fprintf (dump_file, "Register %s (%d):", reg_names[r], nregs);
       while (this)
 	{
-	  fprintf (rtl_dump_file, " %d [%s]", INSN_UID (this->insn),
-		   reg_class_names[this->class]);
+	  fprintf (dump_file, " %d [%s]", INSN_UID (this->insn),
+		   reg_class_names[this->cl]);
 	  this = this->next_use;
 	}
-      fprintf (rtl_dump_file, "\n");
+      fprintf (dump_file, "\n");
       chains = chains->next_chain;
     }
 }
@@ -1173,7 +1174,7 @@ kill_autoinc_value (rtx *px, void *data)
   rtx x = *px;
   struct value_data *vd = data;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'a')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
     {
       x = XEXP (x, 0);
       kill_value (x, vd);
@@ -1311,11 +1312,11 @@ maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
 }
 
 /* Find the oldest copy of the value contained in REGNO that is in
-   register class CLASS and has mode MODE.  If found, return an rtx
+   register class CL and has mode MODE.  If found, return an rtx
    of that oldest register, otherwise return NULL.  */
 
 static rtx
-find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
+find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
 {
   unsigned int regno = REGNO (reg);
   enum machine_mode mode = GET_MODE (reg);
@@ -1342,7 +1343,7 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
       unsigned int last;
 
       for (last = i; last < i + hard_regno_nregs[i][mode]; last++)
-	if (!TEST_HARD_REG_BIT (reg_class_contents[class], last))
+	if (!TEST_HARD_REG_BIT (reg_class_contents[cl], last))
 	  return NULL_RTX;
 
       new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i, regno);
@@ -1358,17 +1359,17 @@ find_oldest_value_reg (enum reg_class class, rtx reg, struct value_data *vd)
 }
 
 /* If possible, replace the register at *LOC with the oldest register
-   in register class CLASS.  Return true if successfully replaced.  */
+   in register class CL.  Return true if successfully replaced.  */
 
 static bool
-replace_oldest_value_reg (rtx *loc, enum reg_class class, rtx insn,
+replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 			  struct value_data *vd)
 {
-  rtx new = find_oldest_value_reg (class, *loc, vd);
+  rtx new = find_oldest_value_reg (cl, *loc, vd);
   if (new)
     {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, "insn %u: replaced reg %u with %u\n",
+      if (dump_file)
+	fprintf (dump_file, "insn %u: replaced reg %u with %u\n",
 		 INSN_UID (insn), REGNO (*loc), REGNO (new));
 
       *loc = new;
@@ -1378,11 +1379,11 @@ replace_oldest_value_reg (rtx *loc, enum reg_class class, rtx insn,
 }
 
 /* Similar to replace_oldest_value_reg, but *LOC contains an address.
-   Adapted from find_reloads_address_1.  CLASS is INDEX_REG_CLASS or
+   Adapted from find_reloads_address_1.  CL is INDEX_REG_CLASS or
    BASE_REG_CLASS depending on how the register is being considered.  */
 
 static bool
-replace_oldest_value_addr (rtx *loc, enum reg_class class,
+replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 			   enum machine_mode mode, rtx insn,
 			   struct value_data *vd)
 {
@@ -1490,7 +1491,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class class,
       return replace_oldest_value_mem (x, insn, vd);
 
     case REG:
-      return replace_oldest_value_reg (loc, class, insn, vd);
+      return replace_oldest_value_reg (loc, cl, insn, vd);
 
     default:
       break;
@@ -1500,11 +1501,11 @@ replace_oldest_value_addr (rtx *loc, enum reg_class class,
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	changed |= replace_oldest_value_addr (&XEXP (x, i), class, mode,
+	changed |= replace_oldest_value_addr (&XEXP (x, i), cl, mode,
 					      insn, vd);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  changed |= replace_oldest_value_addr (&XVECEXP (x, i, j), class,
+	  changed |= replace_oldest_value_addr (&XVECEXP (x, i, j), cl,
 						mode, insn, vd);
     }
 
@@ -1561,7 +1562,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	{
 	  int matches = recog_op_alt[i][alt].matches;
 	  if (matches >= 0)
-	    recog_op_alt[i][alt].class = recog_op_alt[matches][alt].class;
+	    recog_op_alt[i][alt].cl = recog_op_alt[matches][alt].cl;
 	  if (matches >= 0 || recog_op_alt[i][alt].matched >= 0
 	      || (predicated && recog_data.operand_type[i] == OP_OUT))
 	    recog_data.operand_type[i] = OP_INOUT;
@@ -1612,8 +1613,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	      new = find_oldest_value_reg (REGNO_REG_CLASS (regno), src, vd);
 	      if (new && validate_change (insn, &SET_SRC (set), new, 0))
 		{
-		  if (rtl_dump_file)
-		    fprintf (rtl_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "insn %u: replaced reg %u with %u\n",
 			     INSN_UID (insn), regno, REGNO (new));
 		  changed = true;
@@ -1633,8 +1634,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		    {
 		      ORIGINAL_REGNO (new) = ORIGINAL_REGNO (src);
 		      REG_ATTRS (new) = REG_ATTRS (src);
-		      if (rtl_dump_file)
-			fprintf (rtl_dump_file,
+		      if (dump_file)
+			fprintf (dump_file,
 				 "insn %u: replaced reg %u with %u\n",
 				 INSN_UID (insn), regno, REGNO (new));
 		      changed = true;
@@ -1658,7 +1659,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	    continue;
 
 	  /* Don't replace in asms intentionally referencing hard regs.  */
-	  if (is_asm && GET_CODE (recog_data.operand[i]) == REG
+	  if (is_asm && REG_P (recog_data.operand[i])
 	      && (REGNO (recog_data.operand[i])
 		  == ORIGINAL_REGNO (recog_data.operand[i])))
 	    continue;
@@ -1668,18 +1669,18 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	      if (recog_op_alt[i][alt].is_address)
 		replaced
 		  = replace_oldest_value_addr (recog_data.operand_loc[i],
-					       recog_op_alt[i][alt].class,
+					       recog_op_alt[i][alt].cl,
 					       VOIDmode, insn, vd);
 	      else if (REG_P (recog_data.operand[i]))
 		replaced
 		  = replace_oldest_value_reg (recog_data.operand_loc[i],
-					      recog_op_alt[i][alt].class,
+					      recog_op_alt[i][alt].cl,
 					      insn, vd);
-	      else if (GET_CODE (recog_data.operand[i]) == MEM)
+	      else if (MEM_P (recog_data.operand[i]))
 		replaced = replace_oldest_value_mem (recog_data.operand[i],
 						     insn, vd);
 	    }
-	  else if (GET_CODE (recog_data.operand[i]) == MEM)
+	  else if (MEM_P (recog_data.operand[i]))
 	    replaced = replace_oldest_value_mem (recog_data.operand[i],
 						 insn, vd);
 
@@ -1701,7 +1702,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 
     did_replacement:
       /* Clobber call-clobbered registers.  */
-      if (GET_CODE (insn) == CALL_INSN)
+      if (CALL_P (insn))
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	  if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 	    kill_value_regno (i, vd);
@@ -1756,13 +1757,13 @@ copyprop_hardreg_forward (void)
 
   if (need_refresh)
     {
-      if (rtl_dump_file)
-	fputs ("\n\n", rtl_dump_file);
+      if (dump_file)
+	fputs ("\n\n", dump_file);
 
       /* ??? Irritatingly, delete_noop_moves does not take a set of blocks
 	 to scan, so we have to do a life update with no initial set of
 	 blocks Just In Case.  */
-      delete_noop_moves (get_insns ());
+      delete_noop_moves ();
       update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
 			PROP_DEATH_NOTES
 			| PROP_SCAN_DEAD_CODE

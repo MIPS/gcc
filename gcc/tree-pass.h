@@ -24,8 +24,8 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_TREE_PASS_H 1
 
 /* Global variables used to communicate with passes.  */
-extern FILE *tree_dump_file;
-extern int tree_dump_flags;
+extern FILE *dump_file;
+extern int dump_flags;
 
 extern struct bitmap_head_def *vars_to_rename;
 
@@ -50,7 +50,7 @@ struct tree_opt_pass
   struct tree_opt_pass *next;
 
   /* Static pass number, used as a fragment of the dump file name.  */
-  unsigned int static_pass_number;
+  int static_pass_number;
 
   /* The timevar id associated with this pass.  */
   /* ??? Ideally would be dynamically assigned.  */
@@ -75,6 +75,11 @@ struct tree_opt_pass
 #define PROP_pta		(1 << 5)
 #define PROP_ssa		(1 << 6)
 #define PROP_no_crit_edges      (1 << 7)
+#define PROP_rtl		(1 << 8)
+#define PROP_alias		(1 << 9)
+
+#define PROP_trees \
+  (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
 
 /* To-do flags.  */
 #define TODO_dump_func		(1 << 0)	/* pass doesn't dump itself */
@@ -102,6 +107,10 @@ extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
 extern struct tree_opt_pass pass_loop;
+extern struct tree_opt_pass pass_loop_init;
+extern struct tree_opt_pass pass_lim;
+extern struct tree_opt_pass pass_loop_done;
+extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_build_ssa;
 extern struct tree_opt_pass pass_del_ssa;
@@ -112,7 +121,8 @@ extern struct tree_opt_pass pass_may_alias;
 extern struct tree_opt_pass pass_split_crit_edges;
 extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
-extern struct tree_opt_pass pass_lower_complex;
+extern struct tree_opt_pass pass_pre_expand;
+extern struct tree_opt_pass pass_lower_vector_ssa;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;
@@ -120,6 +130,13 @@ extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;
+extern struct tree_opt_pass pass_dse;
+extern struct tree_opt_pass pass_nrv;
+extern struct tree_opt_pass pass_remove_useless_vars;
+extern struct tree_opt_pass pass_rename_ssa_copies;
+extern struct tree_opt_pass pass_expand;
+extern struct tree_opt_pass pass_rest_of_compilation;
+extern struct tree_opt_pass pass_fre;
 
 
 #endif /* GCC_TREE_PASS_H */

@@ -1,5 +1,5 @@
 /* Language parser definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -479,7 +479,7 @@ enum jdep_code {
 typedef struct _jdep {
   ENUM_BITFIELD(jdep_code) kind : 8; /* Type of patch */
 
-  int  flag0 : 1;		/* Some flags */
+  unsigned int  flag0 : 1;	/* Some flags */
   tree decl;			/* Tied decl/or WFL */
   tree solv;			/* What to solve */
   tree wfl;			/* Where thing to resolve where found */
@@ -664,9 +664,9 @@ typedef struct jdeplist_s jdeplist;
 #define BUILD_THROW(WHERE, WHAT)				\
   {								\
     (WHERE) = 							\
-      build (CALL_EXPR, void_type_node,				\
-	     build_address_of (throw_node),			\
-	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
+      build3 (CALL_EXPR, void_type_node,			\
+	      build_address_of (throw_node),			\
+	      build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
     TREE_SIDE_EFFECTS ((WHERE)) = 1;				\
   }
 
@@ -728,10 +728,10 @@ struct parser_ctxt GTY(()) {
   const char *filename;		    /* Current filename */
   struct parser_ctxt *next;
 
-  java_lexer * GTY((skip (""))) lexer; /* Current lexer state */
+  java_lexer * GTY((skip)) lexer; /* Current lexer state */
   char marker_begining;		     /* Marker. Should be a sub-struct */
-  struct java_line * GTY ((skip (""))) p_line; /* Previous line */
-  struct java_line * GTY ((skip (""))) c_line; /* Current line */
+  struct java_line * GTY ((skip)) p_line; /* Previous line */
+  struct java_line * GTY ((skip)) c_line; /* Current line */
   java_lc elc;			     /* Error's line column info */
   int ccb_indent;		     /* Keep track of {} indent, lexer */
   int first_ccb_indent1;	     /* First { at ident level 1 */
@@ -739,7 +739,7 @@ struct parser_ctxt GTY(()) {
   int parser_ccb_indent;	     /* Keep track of {} indent, parser */
   int osb_depth;		     /* Current depth of [ in an expression */
   int osb_limit;		     /* Limit of this depth */
-  int * GTY ((skip (""))) osb_number; /* Keep track of ['s */
+  int * GTY ((skip)) osb_number; /* Keep track of ['s */
   int lineno;			     /* Current lineno */
   char marker_end;		     /* End marker. Should be a sub-struct */
 
@@ -774,7 +774,7 @@ struct parser_ctxt GTY(()) {
 
   /* These two lists won't survive file traversal */
   tree  class_list;		    /* List of classes in a CU */
-  jdeplist * GTY((skip (""))) classd_list; /* Classe dependencies in a CU */
+  jdeplist * GTY((skip)) classd_list; /* Classe dependencies in a CU */
   
   tree  current_parsed_class;	    /* Class currently parsed */
   tree  current_parsed_class_un;    /* Curr. parsed class unqualified name */
@@ -807,7 +807,7 @@ struct parser_ctxt GTY(()) {
    an inner class is pushed. After, use FIXME. */
 #define CPC_INNER_P() GET_CPC_LIST ()
 
-/* Get the currently parsed class DECL_TYPE node.  */
+/* The TYPE_DECL node of the class currently being parsed.  */
 #define GET_CPC() TREE_VALUE (GET_CPC_LIST ())
 
 /* Get the currently parsed class unqualified IDENTIFIER_NODE.  */
@@ -842,7 +842,7 @@ struct parser_ctxt GTY(()) {
 	    != TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this))))	      \
 	&& !inherits_from_p (TREE_TYPE (TREE_TYPE (current_this)),	      \
 			     TREE_TYPE (DECL_CONTEXT (TYPE_NAME (T))))	      \
-        && !common_enclosing_context_p (TREE_TYPE (TREE_TYPE (current_this)), \
+        && !common_enclosing_instance_p (TREE_TYPE (TREE_TYPE (current_this)),\
 					(T))                                  \
 	&& INNER_CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_this)))          \
 	&& !inherits_from_p                                                   \

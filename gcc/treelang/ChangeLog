@@ -1,3 +1,30 @@
+2004-07-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treetree.c (set_block): Remove.
+	(struct binding_level): Remove block_created_by_back_end.
+	(clear_binding_level): Likewise.
+	(tree_code_create_function_initial,
+	tree_code_create_function_wrapup): Call pushlevel and poplevel
+	directly rather than through hooks.
+	(poplevel): Don't handle block_created_by_back_end.
+
+2004-04-07  Richard Henderson  <rth@redhat.com>
+
+	* treetree.c (tree_mark_addressable):  Don't put_var_into_stack.
+
+2004-03-31  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* treetree.c (tree_lang_signed_or_unsigned_type): Use TYPE_UNSIGNED,
+	not TREE_UNSIGNED.
+
+2004-03-21  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* treelang.texi: Update link to "G++ and GCC".
+
+2004-02-20  Richard Henderson  <rth@redhat.com>
+
+	* Make-lang.in (treelang-warn): Add -Wno-variadic-macros.
+
 2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Make-lang.in (doc/treelang.dvi): Use $(abs_docdir). 

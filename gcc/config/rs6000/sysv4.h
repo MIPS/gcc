@@ -385,12 +385,6 @@ do {									\
 #undef	STRICT_ALIGNMENT
 #define	STRICT_ALIGNMENT (TARGET_STRICT_ALIGN)
 
-/* Alignment in bits of the stack boundary.  Note, in order to allow building
-   one set of libraries with -mno-eabi instead of eabi libraries and non-eabi
-   versions, just use 64 as the stack boundary.  */
-#undef	STACK_BOUNDARY
-#define	STACK_BOUNDARY	(TARGET_ALTIVEC_ABI ? 128 : 64)
-
 /* Define this macro if you wish to preserve a certain alignment for
    the stack pointer, greater than what the hardware enforces.  The
    definition is a C expression for the desired alignment (measured
@@ -407,7 +401,8 @@ do {									\
 #define PREFERRED_STACK_BOUNDARY 128
 
 /* Real stack boundary as mandated by the appropriate ABI.  */
-#define ABI_STACK_BOUNDARY ((TARGET_EABI && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define ABI_STACK_BOUNDARY \
+  ((TARGET_EABI && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
 /* An expression for the alignment of a structure field FIELD if the
    alignment computed in the usual way is COMPUTED.  */
@@ -1092,16 +1087,16 @@ extern int fixuplabelno;
 
 #define LINK_OS_FREEBSD_SPEC "\
   %{p:%e`-p' not supported; use `-pg' and gprof(1)} \
-    %{Wl,*:%*} \
-    %{v:-V} \
-    %{assert*} %{R*} %{rpath*} %{defsym*} \
-    %{shared:-Bshareable %{h*} %{soname*}} \
-    %{!shared: \
-      %{!static: \
-	%{rdynamic: -export-dynamic} \
-	%{!dynamic-linker: -dynamic-linker /usr/libexec/ld-elf.so.1}} \
-      %{static:-Bstatic}} \
-    %{symbolic:-Bsymbolic}"
+  %{Wl,*:%*} \
+  %{v:-V} \
+  %{assert*} %{R*} %{rpath*} %{defsym*} \
+  %{shared:-Bshareable %{h*} %{soname*}} \
+  %{!shared: \
+    %{!static: \
+      %{rdynamic: -export-dynamic} \
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
+    %{static:-Bstatic}} \
+  %{symbolic:-Bsymbolic}"
 
 /* GNU/Linux support.  */
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
@@ -1314,6 +1309,7 @@ ncrtn.o%s"
   { "cpp_os_openbsd",		CPP_OS_OPENBSD_SPEC },			\
   { "cpp_os_windiss",           CPP_OS_WINDISS_SPEC },                  \
   { "cpp_os_default",		CPP_OS_DEFAULT_SPEC },			\
+  { "fbsd_dynamic_linker",	FBSD_DYNAMIC_LINKER },			\
   SUBSUBTARGET_EXTRA_SPECS
 
 #define	SUBSUBTARGET_EXTRA_SPECS

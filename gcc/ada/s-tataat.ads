@@ -7,7 +7,7 @@
 --                                  S p e c                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2003, Ada Core Technologies               --
+--             Copyright (C) 1995-2004, Ada Core Technologies               --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -50,11 +50,20 @@ package System.Tasking.Task_Attributes is
    type Access_Node is access all Node;
    --  This needs comments ???
 
+   function To_Access_Node is new Unchecked_Conversion
+     (Access_Address, Access_Node);
+   --  Used to fetch pointer to indirect attribute list. Declaration is
+   --  in spec to avoid any problems with aliasing assumptions.
+
    type Dummy_Wrapper;
    type Access_Dummy_Wrapper is access all Dummy_Wrapper;
+   pragma No_Strict_Aliasing (Access_Dummy_Wrapper);
+   --  Needed to avoid possible incorrect aliasing situations from
+   --  instantiation of Unchecked_Conversion in body of Ada.Task_Attributes.
+
    for Access_Dummy_Wrapper'Storage_Size use 0;
-   --  This is a stand-in for the generic type Wrapper defined in
-   --  Ada.Task_Attributes. The real objects allocated are always
+   --  Access_Dummy_Wrapper is a stand-in for the generic type Wrapper defined
+   --  in Ada.Task_Attributes. The real objects allocated are always
    --  of type Wrapper, no Dummy_Wrapper objects are ever created.
 
    type Deallocator is access procedure (P : in out Access_Node);
@@ -107,13 +116,13 @@ package System.Tasking.Task_Attributes is
    --  A linked list of all indirectly access attributes,
    --  which includes all those that require finalization.
 
-   procedure Initialize_Attributes (T : Task_ID);
+   procedure Initialize_Attributes (T : Task_Id);
    --  Initialize all attributes created via Ada.Task_Attributes for T.
    --  This must be called by the creator of the task, inside Create_Task,
    --  via soft-link Initialize_Attributes_Link. On entry, abortion must
    --  be deferred and the caller must hold no locks
 
-   procedure Finalize_Attributes (T : Task_ID);
+   procedure Finalize_Attributes (T : Task_Id);
    --  Finalize all attributes created via Ada.Task_Attributes for T.
    --  This is to be called by the task after it is marked as terminated
    --  (and before it actually dies), inside Vulnerable_Free_Task, via the

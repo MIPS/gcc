@@ -71,7 +71,7 @@ extern int target_flags;
     { "no-45", -8, "" },						\
 /* is 11/10 */								\
     { "10", -12, N_("Generate code for an 11/10") },			\
-/* use movstrhi for bcopy */						\
+/* use movmemhi for bcopy */						\
     { "bcopy", 16, NULL },						\
     { "bcopy-builtin", -16, NULL },					\
 /* use 32 bit for int */						\
@@ -390,7 +390,7 @@ enum reg_class { NO_REGS, MUL_REGS, GENERAL_REGS, LOAD_FPU_REGS, NO_LOAD_FPU_REG
 
 /* #define GENERAL_REGS ALL_REGS */
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES {"NO_REGS", "MUL_REGS", "GENERAL_REGS", "LOAD_FPU_REGS", "NO_LOAD_FPU_REGS", "FPU_REGS", "ALL_REGS" }
 
@@ -846,22 +846,6 @@ extern int may_call_alloca;
 }
 
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.  */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)	{}
-
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
    On the pdp this is for predec/postinc */
@@ -879,12 +863,6 @@ extern int may_call_alloca;
 /* Define this if a raw index is all that is needed for a
    `tablejump' insn.  */
 #define CASE_TAKES_INDEX_RAW
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1

@@ -357,7 +357,7 @@ do								\
 while (0)
 
 /* ??? SGI assembler gives warning whenever .lcomm is used.  */
-#undef ASM_OUTPUT_LOCAL
+#undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(STREAM, NAME, SIZE, ALIGN)		   \
 do									   \
   {									   \
@@ -369,7 +369,8 @@ do									   \
 	ASM_OUTPUT_SKIP (STREAM, SIZE);					   \
       }									   \
     else								   \
-      mips_declare_object (STREAM, NAME, "\n\t.lcomm\t", ",%u\n", (int)(SIZE)); \
+      mips_declare_common_object (STREAM, NAME, "\n\t.lcomm\t",		   \
+				  SIZE, ALIGN, false);			   \
   }									   \
 while (0)
 
@@ -394,7 +395,8 @@ while (0)
 /* Profiling is supported via libprof1.a not -lc_p as in IRIX 3.  */
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#define IRIX6_STARTFILE_SPEC \
+#undef IRIX_STARTFILE_SPEC
+#define IRIX_STARTFILE_SPEC \
   "%{!shared: \
      %{mabi=32:%{pg:gcrt1.o%s} \
        %{!pg:%{p:mcrt1.o%s libprof1.a%s}%{!p:crt1.o%s}}} \
@@ -421,7 +423,7 @@ while (0)
            %{!p:/usr/lib32/mips3/crt1.o%s}}}}}"
 
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "%(irix6_startfile_spec) crtbegin.o%s"
+#define STARTFILE_SPEC "%(irix_startfile_spec) crtbegin.o%s"
 
 #undef LIB_SPEC
 #define LIB_SPEC \
@@ -440,7 +442,8 @@ while (0)
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
-#define IRIX6_ENDFILE_SPEC \
+#undef IRIX_ENDFILE_SPEC
+#define IRIX_ENDFILE_SPEC \
   "%{!shared: \
      %{mabi=32:crtn.o%s}\
      %{mabi=n32:%{mips4:/usr/lib32/mips4/crtn.o%s}\
@@ -451,7 +454,7 @@ while (0)
        %{!mips4:/usr/lib32/mips3/crtn.o%s}}}"
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtend.o%s %(irix6_endfile_spec)"
+#define ENDFILE_SPEC "crtend.o%s %(irix_endfile_spec)"
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
@@ -476,8 +479,3 @@ do {								\
 } while (0)
 
 #define MIPS_TFMODE_FORMAT mips_extended_format
-
-#undef SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS \
-  { "irix6_startfile_spec", IRIX6_STARTFILE_SPEC }, \
-  { "irix6_endfile_spec", IRIX6_ENDFILE_SPEC },

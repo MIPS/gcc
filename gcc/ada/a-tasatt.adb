@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2003, Ada Core Technologies               --
+--             Copyright (C) 1995-2004, Ada Core Technologies               --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,7 +41,7 @@
 --  we settled on the present compromise. Things we do not like about
 --  this implementation include:
 
---  -  It is vulnerable to bad Task_ID values, to the extent of
+--  -  It is vulnerable to bad Task_Id values, to the extent of
 --     possibly trashing memory and crashing the runtime system.
 
 --  -  It requires dynamic storage allocation for each new attribute value,
@@ -228,7 +228,7 @@
 
 with Ada.Task_Identification;
 --  used for Task_Id
---           Null_Task_ID
+--           Null_Task_Id
 --           Current_Task
 
 with System.Error_Reporting;
@@ -244,7 +244,7 @@ with System.Task_Primitives.Operations;
 
 with System.Tasking;
 --  used for Access_Address
---           Task_ID
+--           Task_Id
 --           Direct_Index_Vector
 --           Direct_Index
 
@@ -322,10 +322,6 @@ package body Ada.Task_Attributes is
      (Access_Node, Access_Address);
    --  To store pointer to list of indirect attributes
 
-   function To_Access_Node is new Unchecked_Conversion
-     (Access_Address, Access_Node);
-   --  To fetch pointer to list of indirect attributes
-
    pragma Warnings (Off);
    function To_Access_Wrapper is new Unchecked_Conversion
      (Access_Dummy_Wrapper, Access_Wrapper);
@@ -340,8 +336,8 @@ package body Ada.Task_Attributes is
      (Access_Wrapper, Access_Dummy_Wrapper);
    --  To store pointer to actual wrapper of attribute node
 
-   function To_Task_ID is new Unchecked_Conversion
-     (Task_Identification.Task_Id, Task_ID);
+   function To_Task_Id is new Unchecked_Conversion
+     (Task_Identification.Task_Id, Task_Id);
    --  To access TCB of identified task
 
    type Local_Deallocator is access procedure (P : in out Access_Node);
@@ -398,8 +394,8 @@ package body Ada.Task_Attributes is
      (T    : Task_Identification.Task_Id := Task_Identification.Current_Task)
       return Attribute_Handle
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to get the reference of a ";
+      TT            : constant Task_Id := To_Task_Id (T);
+      Error_Message : constant String  := "Trying to get the reference of a ";
 
    begin
       if TT = null then
@@ -488,8 +484,8 @@ package body Ada.Task_Attributes is
    procedure Reinitialize
      (T : Task_Identification.Task_Id := Task_Identification.Current_Task)
    is
-      TT : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to Reinitialize a ";
+      TT            : constant Task_Id := To_Task_Id (T);
+      Error_Message : constant String  := "Trying to Reinitialize a ";
 
    begin
       if TT = null then
@@ -558,8 +554,8 @@ package body Ada.Task_Attributes is
      (Val : Attribute;
       T   : Task_Identification.Task_Id := Task_Identification.Current_Task)
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to Set the Value of a ";
+      TT            : constant Task_Id := To_Task_Id (T);
+      Error_Message : constant String  := "Trying to Set the Value of a ";
 
    begin
       if TT = null then
@@ -644,11 +640,11 @@ package body Ada.Task_Attributes is
    -----------
 
    function Value
-     (T    : Task_Identification.Task_Id := Task_Identification.Current_Task)
+     (T : Task_Identification.Task_Id := Task_Identification.Current_Task)
       return Attribute
    is
-      TT            : Task_ID := To_Task_ID (T);
-      Error_Message : constant String := "Trying to get the Value of a ";
+      TT            : constant Task_Id := To_Task_Id (T);
+      Error_Message : constant String  := "Trying to get the Value of a ";
 
    begin
       if TT = null then
@@ -786,7 +782,7 @@ begin
          --  Initialize the attribute, for all tasks.
 
          declare
-            C : System.Tasking.Task_ID := System.Tasking.All_Tasks_List;
+            C : System.Tasking.Task_Id := System.Tasking.All_Tasks_List;
          begin
             while C /= null loop
                C.Direct_Attributes (Local.Index) :=

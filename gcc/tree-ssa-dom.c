@@ -40,8 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "domwalk.h"
 #include "real.h"
 #include "tree-pass.h"
-#include "flags.h"
-
+#include "langhooks.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -49,14 +48,35 @@ Boston, MA 02111-1307, USA.  */
    When an assignment of the form X_i = EXPR is found, the statement is
    stored in this table.  If the same expression EXPR is later found on the
    RHS of another statement, it is replaced with X_i (thus performing
-   global redundancy elimination). */
+   global redundancy elimination).  Similarly as we pass through conditionals
+   we record the conditional itself as having either a true or false value
+   in this table.  */
 static htab_t avail_exprs;
 
-/* Hash table of expressions known to be either true or false.  This
-   is primarily used to track the results of conditionals as we walk
-   down the dominator tree.  */
-static htab_t true_exprs;
-static htab_t false_exprs;
+/* Structure for entries in the expression hash table.
+
+   This requires more memory for the hash table entries, but allows us
+   to avoid creating silly tree nodes and annotations for conditionals,
+   eliminates 2 global hash tables and two block local varrays.
+   
+   It also allows us to reduce the number of hash table lookups we
+   have to perform in lookup_avail_expr and finally it allows us to
+   significantly reduce the number of calls into the hashing routine
+   itself.  */
+struct expr_hash_elt
+{
+  /* The value (lhs) of this expression.  */
+  tree lhs;
+
+  /* The expression (rhs) we want to record.  */
+  tree rhs;
+
+  /* The annotation if this element corresponds to a statement.  */
+  stmt_ann_t ann;
+
+  /* The hash value for RHS/ann.  */
+  hashval_t hash;
+};
 
 /* Table of constant values and copies indexed by SSA name.  When the
    renaming pass finds an assignment of a constant (X_i = C) or a copy
@@ -68,28 +88,22 @@ static htab_t false_exprs;
    propagation).  */
 static varray_type const_and_copies;
 
-/* Table to store the current reaching definition for every variable in
-   the function.  Given a variable V, its entry will be its immediately
-   reaching SSA_NAME node.  */
-static varray_type currdefs;
-
-/* Table of constant values indexed by SSA_NAME.  If the stored value for a
-   particular SSA_NAME is integer_one_node, then that particular SSA_NAME
-   is known to have a nonzero value (even if we do not know its precise
-   value).  Any other value indicates nothing is known about the zero/nonzero
-   status of the given SSA_NAME.  */
-static varray_type nonzero_vars;
+/* Bitmap of SSA_NAMEs known to have a nonzero value, even if we do not
+   know their exact value.  */
+static bitmap nonzero_vars;
 
 /* Track whether or not we have changed the control flow graph.  */
 static bool cfg_altered;
+
+/* Bitmap of blocks that have had EH statements cleaned.  We should
+   remove their dead edges eventually.  */
+static bitmap need_eh_cleanup;
 
 /* Statistics for dominator optimizations.  */
 struct opt_stats_d
 {
   long num_stmts;
   long num_exprs_considered;
-  long num_const_prop;
-  long num_copy_prop;
   long num_re;
 };
 
@@ -174,10 +188,6 @@ struct dom_walk_block_data
      table.  */
   varray_type avail_exprs;
 
-  /* Similarly for expressions known to have a true or false value.  */
-  varray_type true_exprs;
-  varray_type false_exprs;
-
   /* Array of dest, src pairs that need to be restored during finalization
      into the global const/copies table during finalization.  */
   varray_type const_and_copies;
@@ -195,7 +205,7 @@ struct dom_walk_block_data
      which variables need their VRP data updated.  */
   varray_type vrp_variables;
 
-  /* Array of tree pairs used to restore the globcal currdefs to its
+  /* Array of tree pairs used to restore the global currdefs to its
      original state after completing optimization of a block and its
      dominator children.  */
   varray_type block_defs;
@@ -215,15 +225,13 @@ static inline tree get_value_for (tree, varray_type table);
 static inline void set_value_for (tree, tree, varray_type table);
 static tree lookup_avail_expr (tree, varray_type *, bool);
 static struct eq_expr_value get_eq_expr_value (tree, int, varray_type *,
-					       varray_type *, basic_block,
-					       varray_type *);
+					       basic_block, varray_type *);
 static hashval_t avail_expr_hash (const void *);
+static hashval_t real_avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
-static hashval_t true_false_expr_hash (const void *);
-static int true_false_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
-static void record_cond_is_false (tree, varray_type *);
-static void record_cond_is_true (tree, varray_type *);
+static void record_cond (tree, tree, varray_type *);
+static void record_dominating_conditions (tree, varray_type *);
 static void record_const_or_copy (tree, tree, varray_type *);
 static void record_equality (tree, tree, varray_type *);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
@@ -237,7 +245,6 @@ static tree simplify_switch_and_lookup_avail_expr (tree, varray_type *,
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type *);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
-static bool cprop_into_stmt (tree);
 static void record_equivalences_from_phis (struct dom_walk_data *, basic_block);
 static void record_equivalences_from_incoming_edge (struct dom_walk_data *,
 						    basic_block);
@@ -257,8 +264,11 @@ static void remove_local_expressions_from_table (varray_type locals,
 static void restore_vars_to_original_value (varray_type locals,
 					    unsigned limit, 
 					    varray_type table);
-static void register_definitions_for_stmt (tree, varray_type *);
+static void restore_currdefs_to_original_value (varray_type locals,
+						unsigned limit);
+static void register_definitions_for_stmt (stmt_ann_t, varray_type *);
 static void redirect_edges_and_update_ssa_graph (varray_type);
+static edge single_incoming_edge_ignoring_loop_edges (basic_block);
 
 /* Local version of fold that doesn't introduce cruft.  */
 
@@ -270,23 +280,9 @@ local_fold (tree t)
   /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR that
      may have been added by fold, and "useless" type conversions that might
      now be apparent due to propagation.  */
-  STRIP_MAIN_TYPE_NOPS (t);
   STRIP_USELESS_TYPE_CONVERSION (t);
 
   return t;
-}
-
-/* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the operand pointed by OP_P.  */
-
-static inline void
-propagate_value (tree *op_p, tree val)
-{
-  if (TREE_CODE (*op_p) == SSA_NAME
-      && TREE_CODE (val) == SSA_NAME)
-    propagate_copy (op_p, val);
-  else
-    *op_p = val;
 }
 
 /* Return the value associated with variable VAR in TABLE.  */
@@ -294,16 +290,7 @@ propagate_value (tree *op_p, tree val)
 static inline tree
 get_value_for (tree var, varray_type table)
 {
-  unsigned int indx;
-
-  if (TREE_CODE (var) == SSA_NAME)
-    indx = SSA_NAME_VERSION (var);
-  else if (DECL_P (var))
-    indx = var_ann (var)->uid;
-  else
-    abort ();
-
-  return VARRAY_TREE (table, indx);
+  return VARRAY_TREE (table, SSA_NAME_VERSION (var));
 }
 
 /* Associate VALUE to variable VAR in TABLE.  */
@@ -311,16 +298,7 @@ get_value_for (tree var, varray_type table)
 static inline void
 set_value_for (tree var, tree value, varray_type table)
 {
-  unsigned int indx;
-
-  if (TREE_CODE (var) == SSA_NAME)
-    indx = SSA_NAME_VERSION (var);
-  else if (DECL_P (var))
-    indx = var_ann (var)->uid;
-  else
-    abort ();
-
-  VARRAY_TREE (table, indx) = value;
+  VARRAY_TREE (table, SSA_NAME_VERSION (var)) = value;
 }
 
 /* REDIRECTION_EDGES contains edge pairs where we want to revector the
@@ -339,12 +317,14 @@ set_value_for (tree var, tree value, varray_type table)
 static void
 redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 {
-  basic_block tgt;
+  basic_block tgt, bb;
+  tree phi;
   unsigned int i;
   size_t old_num_referenced_vars = num_referenced_vars;
+  bitmap virtuals_to_rename = BITMAP_XMALLOC ();
 
   /* First note any variables which we are going to have to take
-     out of SSA form.  */
+     out of SSA form as well as any virtuals which need updating.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (redirection_edges); i += 2)
     {
       block_stmt_iterator bsi;
@@ -357,23 +337,14 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 
       /* All variables referenced in PHI nodes we bypass must be
 	 renamed.  */
-      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+      for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	  int j;
 
-	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, j);
-
-	      if (TREE_CODE (arg) != SSA_NAME)
-		continue;
-
-	      arg = SSA_NAME_VAR (arg);
-	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-	    }
+	  if (is_gimple_reg (PHI_RESULT (phi)))
+	    bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+	  else
+	    bitmap_set_bit (virtuals_to_rename, var_ann (result)->uid);
         }
 
       /* Any variables set by statements at the start of the block we
@@ -382,48 +353,51 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	{
 	  unsigned int j;
 	  def_optype defs;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  tree stmt = bsi_stmt (bsi);
+	  stmt_ann_t ann = stmt_ann (stmt);
 
 	  if (TREE_CODE (stmt) == COND_EXPR)
 	    break;
 
 	  get_stmt_operands (stmt);
 
-	  defs = STMT_DEF_OPS (stmt);
+	  defs = DEF_OPS (ann);
 	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    {
-	      tree op = SSA_NAME_VAR (DEF_OP (defs, j));
-	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	      tree op = DEF_OP (defs, j);
+	      tree var = SSA_NAME_VAR (op);
+	      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	    }
 
-	  vdefs = STMT_VDEF_OPS (stmt);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
-	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
+	      tree var = SSA_NAME_VAR (op);
+	      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	    }
+	    
+	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
+	      tree var = SSA_NAME_VAR (op);
+	      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	    }
 	}
 
       /* Finally, any variables in PHI nodes at our final destination
-         must also be taken our of SSA form.  */
-      for (phi = phi_nodes (tgt); phi; phi = TREE_CHAIN (phi))
+         must also be taken out of SSA form.  */
+      for (phi = phi_nodes (tgt); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree result = SSA_NAME_VAR (PHI_RESULT (phi));
-	  int j;
 
-	  bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
-
-	  for (j = 0; j < PHI_NUM_ARGS (phi); j++)
-	    {
-	      tree arg = PHI_ARG_DEF (phi, j);
-
-	      if (TREE_CODE (arg) != SSA_NAME)
-		continue;
-
-	      arg = SSA_NAME_VAR (arg);
-	      bitmap_set_bit (vars_to_rename, var_ann (arg)->uid);
-	    }
+	  if (is_gimple_reg (PHI_RESULT (phi)))
+	    bitmap_set_bit (vars_to_rename, var_ann (result)->uid);
+	  else
+	    bitmap_set_bit (virtuals_to_rename, var_ann (result)->uid);
         }
     }
 
@@ -509,8 +483,8 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       tgt = VARRAY_EDGE (redirection_edges, i + 1)->dest;
 
 
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	fprintf (tree_dump_file, "  Threaded jump %d --> %d to %d\n",
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		 e->src->index, e->dest->index, tgt->index);
 
       src = e->src;
@@ -521,9 +495,9 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       /* Updating the dominance information would be nontrivial.  */
       free_dominance_info (CDI_DOMINATORS);
       
-      if ((tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if ((dump_file && (dump_flags & TDF_DETAILS))
 	  && e->src != src)
-	fprintf (tree_dump_file, "    basic block %d created\n",
+	fprintf (dump_file, "    basic block %d created\n",
 		 e->src->index);
 
       cfg_altered = true;
@@ -537,24 +511,45 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
       var_ann (referenced_var (i))->out_of_ssa_tag = 0;
     }
 
+  bitmap_a_or_b (vars_to_rename, vars_to_rename, virtuals_to_rename);
+
+  /* We must remove any PHIs for virtual variables that we are going to
+     re-rename.  Hopefully we'll be able to simply update these incrementally
+     soon.  */
+  FOR_EACH_BB (bb)
+    {
+      tree next;
+
+      for (phi = phi_nodes (bb); phi; phi = next)
+	{
+	  tree result = PHI_RESULT (phi);
+
+	  next = PHI_CHAIN (phi);
+
+	  if (bitmap_bit_p (virtuals_to_rename,
+			    var_ann (SSA_NAME_VAR (result))->uid))
+	    remove_phi_node (phi, NULL, bb);
+	}
+    }
+
+  BITMAP_XFREE (virtuals_to_rename);
 }
 
 /* Jump threading, redundancy elimination and const/copy propagation. 
 
-   Optimize function FNDECL based on a walk through the dominator tree.
-
    This pass may expose new symbols that need to be renamed into SSA.  For
    every new symbol exposed, its corresponding bit will be set in
-   VARS_TO_RENAME.
-
-   PHASE indicates which dump file from the DUMP_FILES array to use when
-   dumping debugging information.  */
+   VARS_TO_RENAME.  */
 
 static void
 tree_ssa_dominator_optimize (void)
 {
   basic_block bb;
   struct dom_walk_data walk_data;
+  unsigned int i;
+
+  for (i = 0; i < num_referenced_vars; i++)
+    var_ann (referenced_var (i))->current_def = NULL;
 
   /* Mark loop edges so we avoid threading across loop boundaries.
      This may result in transforming natural loop into irreducible
@@ -562,17 +557,12 @@ tree_ssa_dominator_optimize (void)
   mark_dfs_back_edges ();
 
   /* Create our hash tables.  */
-  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-  true_exprs = htab_create (1024, true_false_expr_hash,
-			    true_false_expr_eq, NULL);
-  false_exprs = htab_create (1024, true_false_expr_hash,
-			     true_false_expr_eq, NULL);
-  VARRAY_TREE_INIT (const_and_copies, highest_ssa_version, "const_and_copies");
-  VARRAY_TREE_INIT (nonzero_vars, highest_ssa_version, "nonzero_vars");
+  avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
+  VARRAY_TREE_INIT (const_and_copies, num_ssa_names, "const_and_copies");
+  nonzero_vars = BITMAP_XMALLOC ();
   VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
-  VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
-  VARRAY_TREE_INIT (currdefs, num_referenced_vars, "currdefs");
-
+  VARRAY_GENERIC_PTR_INIT (vrp_data, num_ssa_names, "vrp_data");
+  need_eh_cleanup = BITMAP_XMALLOC ();
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.walk_stmts_backward = false;
@@ -614,15 +604,15 @@ tree_ssa_dominator_optimize (void)
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
       /* Wipe the hash tables.  */
-      htab_empty (avail_exprs);
-      htab_empty (true_exprs);
-      htab_empty (false_exprs);
-
-      VARRAY_CLEAR (const_and_copies);
-      VARRAY_CLEAR (nonzero_vars);
 
       if (VARRAY_ACTIVE_SIZE (redirection_edges) > 0)
 	redirect_edges_and_update_ssa_graph (redirection_edges);
+
+      if (bitmap_first_set_bit (need_eh_cleanup) >= 0)
+	{
+	  cfg_altered = tree_purge_all_dead_eh_edges (need_eh_cleanup);
+	  bitmap_zero (need_eh_cleanup);
+	}
 
       /* We may have made some basic blocks unreachable, remove them.  */
       cfg_altered |= delete_unreachable_blocks ();
@@ -630,9 +620,12 @@ tree_ssa_dominator_optimize (void)
       /* If the CFG was altered, then recompute the dominator tree.  This
 	 is not strictly needed if we only removed unreachable blocks, but
 	 may produce better results.  If we threaded jumps, then rebuilding
-	 the dominator tree is strictly necessary.  */
+	 the dominator tree is strictly necessary.  Likewise with EH cleanup.
+	 Free the dominance info first so that cleanup_tree_cfg doesn't try
+	 to verify it.  */
       if (cfg_altered)
 	{
+          free_dominance_info (CDI_DOMINATORS);
 	  cleanup_tree_cfg ();
 	  calculate_dominance_info (CDI_DOMINATORS);
 	}
@@ -642,17 +635,23 @@ tree_ssa_dominator_optimize (void)
       if (cfg_altered
 	  && bitmap_first_set_bit (vars_to_rename) >= 0)
 	{
-	  rewrite_into_ssa ();
+	  rewrite_into_ssa (false);
 	  bitmap_clear (vars_to_rename);
-	  VARRAY_GROW (const_and_copies, highest_ssa_version);
-	  VARRAY_GROW (vrp_data, highest_ssa_version);
-	  VARRAY_GROW (nonzero_vars, highest_ssa_version);
-	  VARRAY_GROW (currdefs, num_referenced_vars);
-	  VARRAY_CLEAR (const_and_copies);
-	  VARRAY_CLEAR (vrp_data);
-	  VARRAY_CLEAR (nonzero_vars);
-	  VARRAY_CLEAR (currdefs);
+
+	  /* The into SSA translation may have created new SSA_NAMES whic
+	     affect the size of CONST_AND_COPIES and VRP_DATA.  */
+	  VARRAY_GROW (const_and_copies, num_ssa_names);
+	  VARRAY_GROW (vrp_data, num_ssa_names);
 	}
+
+      /* Reinitialize the various tables.  */
+      bitmap_clear (nonzero_vars);
+      htab_empty (avail_exprs);
+      VARRAY_CLEAR (const_and_copies);
+      VARRAY_CLEAR (vrp_data);
+
+      for (i = 0; i < num_referenced_vars; i++)
+	var_ann (referenced_var (i))->current_def = NULL;
     }
   while (cfg_altered);
 
@@ -660,18 +659,22 @@ tree_ssa_dominator_optimize (void)
   cleanup_tree_cfg ();
 
   /* Debugging dumps.  */
-  if (tree_dump_file && (tree_dump_flags & TDF_STATS))
-    dump_dominator_optimization_stats (tree_dump_file);
+  if (dump_file && (dump_flags & TDF_STATS))
+    dump_dominator_optimization_stats (dump_file);
 
+  /* We emptied the hash table earlier, now delete it completely.  */
   htab_delete (avail_exprs);
-  htab_delete (true_exprs);
-  htab_delete (false_exprs);
 
-  VARRAY_CLEAR (redirection_edges);
-  VARRAY_CLEAR (currdefs);
+  /* It is not necessary to clear CURRDEFS, REDIRECTION_EDGES, VRP_DATA,
+     CONST_AND_COPIES, and NONZERO_VARS as they all get cleared at the bottom
+     of the do-while loop above.  */
 
   /* And finalize the dominator walker.  */
   fini_walk_dominator_tree (&walk_data);
+
+  /* Free nonzero_vars.   */
+  BITMAP_XFREE (nonzero_vars);
+  BITMAP_XFREE (need_eh_cleanup);
 }
 
 static bool
@@ -689,7 +692,7 @@ struct tree_opt_pass pass_dominator =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_SSA_DOMINATOR_OPTS,		/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -711,11 +714,12 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   tree phi;
 
   /* Each PHI creates a temporary equivalence, record them.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      tree src = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
+      tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
       record_const_or_copy (dst, src, &bd->const_and_copies);
+      register_new_def (dst, &bd->block_defs);
     }
 
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
@@ -773,7 +777,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      if (TREE_CODE (USE_OP (uses, i)) == SSA_NAME)
 		tmp = get_value_for (USE_OP (uses, i), const_and_copies);
 	      if (tmp)
-		*USE_OP_PTR (uses, i) = tmp;
+		SET_USE_OP (uses, i, tmp);
 	    }
 
 	  /* Similarly for virtual uses.  */
@@ -785,7 +789,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      if (TREE_CODE (VUSE_OP (vuses, i)) == SSA_NAME)
 		tmp = get_value_for (VUSE_OP (vuses, i), const_and_copies);
 	      if (tmp)
-		VUSE_OP (vuses, i) = tmp;
+		SET_VUSE_OP (vuses, i, tmp);
 	    }
 
 	  /* Try to lookup the new expression.  */
@@ -793,10 +797,10 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Restore the statement's original uses/defs.  */
 	  for (i = 0; i < NUM_USES (uses); i++)
-	    *USE_OP_PTR (uses, i) = uses_copy[i];
+	    SET_USE_OP (uses, i, uses_copy[i]);
 
 	  for (i = 0; i < NUM_VUSES (vuses); i++)
-	    VUSE_OP (vuses, i) = vuses_copy[i];
+	    SET_VUSE_OP (vuses, i, vuses_copy[i]);
 
 	  free (uses_copy);
 	  free (vuses_copy);
@@ -819,7 +823,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
       /* If CACHED_LHS does not represent the current value of the undering
 	 variable in CACHED_LHS/LHS, then we can not ignore this statement.  */
-      if (get_value_for (SSA_NAME_VAR (lhs), currdefs) != cached_lhs)
+      if (var_ann (SSA_NAME_VAR (lhs))->current_def != cached_lhs)
 	break;
 
       /* If we got here, then we can ignore this statement and continue
@@ -830,6 +834,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 the result of this statement is used later we can copy propagate
 	 suitably.  */
       record_const_or_copy (lhs, cached_lhs, &bd->const_and_copies);
+      register_new_def (lhs, &bd->block_defs);
     }
 
   /* If we stopped at a COND_EXPR or SWITCH_EXPR, then see if we know which
@@ -935,7 +940,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  edge taken_edge = find_taken_edge (e->dest, cached_lhs);
 	  basic_block dest = (taken_edge ? taken_edge->dest : NULL);
 
-	  if (dest == e->src)
+	  if (dest == e->dest)
 	    return;
 
 	  /* If we have a known destination for the conditional, then
@@ -951,9 +956,61 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	    {
 	      int saved_forwardable = bb_ann (e->src)->forwardable;
 	      edge tmp_edge;
+	      int edge_frequency = EDGE_FREQUENCY (e);
+	      edge c;
+	      int prob;
+
+	      e->dest->count -= e->count;
+	      if (e->dest->count < 0)
+		e->dest->count = 0;
+
+	      /* Compute the probability of TAKEN_EDGE being reached via E.
+		 Watch for overflows.  */
+	      if (e->dest->frequency)
+		prob = edge_frequency * REG_BR_PROB_BASE / e->dest->frequency;
+	      else
+		prob = 0;
+	      if (prob > taken_edge->probability)
+		prob = taken_edge->probability;
+
+	      /* Now rescale the probabilities.  */
+	      taken_edge->probability -= prob;
+	      prob = REG_BR_PROB_BASE - prob;
+	      if (prob <= 0)
+		{
+		  e->dest->succ->probability = REG_BR_PROB_BASE;
+		  for (c = e->dest->succ->succ_next; c; c = c->succ_next)
+		    c->probability = 0;
+		}
+	      else
+		for (c = e->dest->succ; c; c = c->succ_next)
+		  c->probability = ((c->probability * REG_BR_PROB_BASE)
+				    / (double) prob);
+	      e->dest->frequency -= edge_frequency;
+	      if (e->dest->frequency < 0)
+		e->dest->frequency = 0;
 
 	      bb_ann (e->src)->forwardable = 0;
 	      tmp_edge = tree_block_forwards_to (dest);
+	      if (tmp_edge)
+		for (;taken_edge != tmp_edge; taken_edge = taken_edge->dest->succ)
+		  {
+		    taken_edge->count -= e->count;
+		    if (taken_edge->count < 0)
+		      taken_edge->count = 0;
+		    taken_edge->dest->count -= e->count;
+		    if (taken_edge->dest->count < 0)
+		      taken_edge->dest->count = 0;
+		    taken_edge->dest->frequency -= edge_frequency;
+		    if (taken_edge->dest->frequency < 0)
+		      taken_edge->dest->frequency = 0;
+		  }
+	      else
+		{
+		  taken_edge->count -= e->count;
+		  if (taken_edge->count < 0)
+		    taken_edge->count = 0;
+		}
 	      taken_edge = (tmp_edge ? tmp_edge : taken_edge);
 	      bb_ann (e->src)->forwardable = saved_forwardable;
 	      VARRAY_PUSH_EDGE (redirection_edges, e);
@@ -967,10 +1024,6 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 /* Initialize the local stacks.
      
    AVAIL_EXPRS stores all the expressions made available in this block.
-
-   TRUE_EXPRS stores all expressions with a true value made in this block.
-
-   FALSE_EXPRS stores all expressions with a false value made in this block.
 
    CONST_AND_COPIES stores var/value pairs to restore at the end of this
    block.
@@ -987,10 +1040,11 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
    block.  */
 
 static void
-dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
+dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 				     basic_block bb ATTRIBUTE_UNUSED,
-				     bool recycled)
+				     bool recycled ATTRIBUTE_UNUSED)
 {
+#ifdef ENABLE_CHECKING
   struct dom_walk_block_data *bd
     = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
 
@@ -1000,23 +1054,20 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
      make sure we clear them before using them!  */
   if (recycled)
     {
-      if (bd->avail_exprs)
-	VARRAY_CLEAR (bd->avail_exprs);
-      if (bd->true_exprs)
-	VARRAY_CLEAR (bd->true_exprs);
-      if (bd->false_exprs)
-	VARRAY_CLEAR (bd->false_exprs);
-      if (bd->const_and_copies)
-	VARRAY_CLEAR (bd->const_and_copies);
-      if (bd->nonzero_vars)
-	VARRAY_CLEAR (bd->nonzero_vars);
-      if (bd->stmts_to_rescan)
-	VARRAY_CLEAR (bd->stmts_to_rescan);
-      if (bd->vrp_variables)
-	VARRAY_CLEAR (bd->vrp_variables);
-      if (bd->block_defs)
-	VARRAY_CLEAR (bd->block_defs);
+      if (bd->avail_exprs && VARRAY_ACTIVE_SIZE (bd->avail_exprs) > 0)
+	abort ();
+      if (bd->const_and_copies && VARRAY_ACTIVE_SIZE (bd->const_and_copies) > 0)
+	abort ();
+      if (bd->nonzero_vars && VARRAY_ACTIVE_SIZE (bd->nonzero_vars) > 0)
+	abort ();
+      if (bd->stmts_to_rescan && VARRAY_ACTIVE_SIZE (bd->stmts_to_rescan) > 0)
+	abort ();
+      if (bd->vrp_variables && VARRAY_ACTIVE_SIZE (bd->vrp_variables) > 0)
+	abort ();
+      if (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
+	abort ();
     }
+#endif
 }
 
 /* Initialize local stacks for this optimizer and record equivalences
@@ -1026,13 +1077,55 @@ dom_opt_initialize_block_local_data (struct dom_walk_data *walk_data,
 static void
 dom_opt_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "\n\nOptimizing block #%d\n\n", bb->index);
 
   record_equivalences_from_incoming_edge (walk_data, bb);
 
   /* PHI nodes can create equivalences too.  */
   record_equivalences_from_phis (walk_data, bb);
+}
+
+/* Given an expression EXPR (a relational expression or a statement), 
+   initialize the hash table element pointed by by ELEMENT.  */
+
+static void
+initialize_hash_element (tree expr, tree lhs, struct expr_hash_elt *element)
+{
+  /* Hash table elements may be based on conditional expressions or statements.
+
+     For the former case, we have no annotation and we want to hash the
+     conditional expression.  In the latter case we have an annotation and
+     we want to record the expression the statement evaluates.  */
+  if (TREE_CODE_CLASS (TREE_CODE (expr)) == '<'
+      || TREE_CODE (expr) == TRUTH_NOT_EXPR)
+    {
+      element->ann = NULL;
+      element->rhs = expr;
+    }
+  else if (TREE_CODE (expr) == COND_EXPR)
+    {
+      element->ann = stmt_ann (expr);
+      element->rhs = COND_EXPR_COND (expr);
+    }
+  else if (TREE_CODE (expr) == SWITCH_EXPR)
+    {
+      element->ann = stmt_ann (expr);
+      element->rhs = SWITCH_COND (expr);
+    }
+  else if (TREE_CODE (expr) == RETURN_EXPR && TREE_OPERAND (expr, 0))
+    {
+      element->ann = stmt_ann (expr);
+      element->rhs = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
+    }
+  else
+    {
+      element->ann = stmt_ann (expr);
+      element->rhs = TREE_OPERAND (expr, 1);
+    }
+
+  element->lhs = lhs;
+  element->hash = avail_expr_hash (element);
 }
 
 /* Remove all the expressions in LOCALS from TABLE, stopping when there are
@@ -1049,14 +1142,36 @@ remove_local_expressions_from_table (varray_type locals,
   /* Remove all the expressions made available in this block.  */
   while (VARRAY_ACTIVE_SIZE (locals) > limit)
     {
+      struct expr_hash_elt element;
       tree expr = VARRAY_TOP_TREE (locals);
       VARRAY_POP (locals);
-      htab_remove_elt (table, expr);
+
+      initialize_hash_element (expr, NULL, &element);
+      htab_remove_elt_with_hash (table, &element, element.hash);
+    }
+}
+
+/* Use the SSA_NAMES in LOCALS to restore TABLE to its original
+   state, stopping when there are LIMIT entries left in LOCALs.  */
+
+static void
+restore_nonzero_vars_to_original_value (varray_type locals,
+					unsigned limit,
+					bitmap table)
+{
+  if (!locals)
+    return;
+
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree name = VARRAY_TOP_TREE (locals);
+      VARRAY_POP (locals);
+      bitmap_clear_bit (table, SSA_NAME_VERSION (name));
     }
 }
 
 /* Use the source/dest pairs in LOCALS to restore TABLE to its original
-   state, stopping when there are LIMIT entires left in LOCALs.  */
+   state, stopping when there are LIMIT entries left in LOCALs.  */
 
 static void
 restore_vars_to_original_value (varray_type locals,
@@ -1076,6 +1191,41 @@ restore_vars_to_original_value (varray_type locals,
       VARRAY_POP (locals);
 
       set_value_for (dest, prev_value, table);
+    }
+}
+
+/* Similar to restore_vars_to_original_value, except that it restores 
+   CURRDEFS to its original value.  */
+static void
+restore_currdefs_to_original_value (varray_type locals, unsigned limit)
+{
+  if (!locals)
+    return;
+
+  /* Restore CURRDEFS to its original state.  */
+  while (VARRAY_ACTIVE_SIZE (locals) > limit)
+    {
+      tree tmp = VARRAY_TOP_TREE (locals);
+      tree saved_def, var;
+
+      VARRAY_POP (locals);
+
+      /* If we recorded an SSA_NAME, then make the SSA_NAME the current
+	 definition of its underlying variable.  If we recorded anything
+	 else, it must have been an _DECL node and its current reaching
+	 definition must have been NULL.  */
+      if (TREE_CODE (tmp) == SSA_NAME)
+	{
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
+	}
+      else
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
+                                                                                
+      var_ann (var)->current_def = saved_def;
     }
 }
 
@@ -1130,23 +1280,24 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
       if (get_immediate_dominator (CDI_DOMINATORS, true_edge->dest) != bb
 	  || phi_nodes (true_edge->dest))
 	{
-	  unsigned true_limit;
-	  unsigned false_limit;
+	  unsigned avail_expr_limit;
 	  unsigned const_and_copies_limit;
+	  unsigned currdefs_limit;
 
-	  true_limit
-	    = bd->true_exprs ? VARRAY_ACTIVE_SIZE (bd->true_exprs) : 0;
-	  false_limit
-	    = bd->false_exprs ? VARRAY_ACTIVE_SIZE (bd->false_exprs) : 0;
+	  avail_expr_limit
+	    = bd->avail_exprs ? VARRAY_ACTIVE_SIZE (bd->avail_exprs) : 0;
 	  const_and_copies_limit
 	    = bd->const_and_copies ? VARRAY_ACTIVE_SIZE (bd->const_and_copies)
 				   : 0;
+	  currdefs_limit
+	    = bd->block_defs ? VARRAY_ACTIVE_SIZE (bd->block_defs) : 0;
 
 	  /* Record any equivalences created by following this edge.  */
 	  if (TREE_CODE_CLASS (cond_code) == '<')
 	    {
-	      record_cond_is_true (cond, &bd->true_exprs);
-	      record_cond_is_false (inverted, &bd->false_exprs);
+	      record_cond (cond, boolean_true_node, &bd->avail_exprs);
+	      record_dominating_conditions (cond, &bd->avail_exprs);
+	      record_cond (inverted, boolean_false_node, &bd->avail_exprs);
 	    }
 	  else if (cond_code == SSA_NAME)
 	    record_const_or_copy (cond, boolean_true_node,
@@ -1157,15 +1308,13 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
 	  /* And restore the various tables to their state before
 	     we threaded this edge.  */
-	  remove_local_expressions_from_table (bd->true_exprs,
-					       true_limit,
-					       true_exprs);
-	  remove_local_expressions_from_table (bd->false_exprs,
-					       false_limit,
-					       false_exprs);
+	  remove_local_expressions_from_table (bd->avail_exprs,
+					       avail_expr_limit,
+					       avail_exprs);
 	  restore_vars_to_original_value (bd->const_and_copies,
 					  const_and_copies_limit,
 					  const_and_copies);
+	  restore_currdefs_to_original_value (bd->block_defs, currdefs_limit);
 	}
 
       /* Similarly for the ELSE arm.  */
@@ -1175,8 +1324,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  /* Record any equivalences created by following this edge.  */
 	  if (TREE_CODE_CLASS (cond_code) == '<')
 	    {
-	      record_cond_is_false (cond, &bd->false_exprs);
-	      record_cond_is_true (inverted, &bd->true_exprs);
+	      record_cond (cond, boolean_false_node, &bd->avail_exprs);
+	      record_cond (inverted, boolean_true_node, &bd->avail_exprs);
+	      record_dominating_conditions (inverted, &bd->avail_exprs);
 	    }
 	  else if (cond_code == SSA_NAME)
 	    record_const_or_copy (cond, boolean_false_node,
@@ -1190,31 +1340,10 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	}
     }
 
-  remove_local_expressions_from_table (bd->true_exprs, 0, true_exprs);
-  remove_local_expressions_from_table (bd->false_exprs, 0, false_exprs);
   remove_local_expressions_from_table (bd->avail_exprs, 0, avail_exprs);
-  restore_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
+  restore_nonzero_vars_to_original_value (bd->nonzero_vars, 0, nonzero_vars);
   restore_vars_to_original_value (bd->const_and_copies, 0, const_and_copies);
-
-  /* Restore CURRDEFS to its original state.  */
-  while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
-    {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
-      VARRAY_POP (bd->block_defs);
- 
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains
-	 the variable associated with SAVED_DEF.  */
-     if (saved_def == NULL_TREE)
-	{
-	  var = VARRAY_TOP_TREE (bd->block_defs);
-	  VARRAY_POP (bd->block_defs);
-	}
-      else
-	var = SSA_NAME_VAR (saved_def);
-
-      set_value_for (var, saved_def, currdefs);
-    }
+  restore_currdefs_to_original_value (bd->block_defs, 0);
 
   /* Remove VRP records associated with this basic block.  They are no
      longer valid.
@@ -1262,7 +1391,12 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
    Ignoring any alternatives which are the same as the result, if
    all the alternatives are equal, then the PHI node creates an
-   equivalence.  */
+   equivalence.
+
+   Additionally, if all the PHI alternatives are known to have a nonzero
+   value, then the result of this PHI is known to have a nonzero value,
+   even if we do not know its exact value.  */
+
 static void
 record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 {
@@ -1270,7 +1404,7 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
     = VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   tree phi;
 
-  for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree lhs = PHI_RESULT (phi);
       tree rhs = NULL;
@@ -1309,15 +1443,53 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 	 breaking out of the loop, then we have a PHI which may create
 	 a useful equivalence.  We do not need to record unwind data for
 	 this, since this is a true assignment and not an equivalence
-	 infered from a comparison.  All uses of this ssa name are dominated
+	 inferred from a comparison.  All uses of this ssa name are dominated
 	 by this assignment, so unwinding just costs time and space.  */
       if (i == PHI_NUM_ARGS (phi)
 	  && may_propagate_copy (lhs, rhs))
 	set_value_for (lhs, rhs, const_and_copies);
 
-      register_new_def (SSA_NAME_VAR (PHI_RESULT (phi)), PHI_RESULT (phi),
-			&bd->block_defs, currdefs);
+      /* Now see if we know anything about the nonzero property for the
+	 result of this PHI.  */
+      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	{
+	  if (!PHI_ARG_NONZERO (phi, i))
+	    break;
+	}
+
+      if (i == PHI_NUM_ARGS (phi))
+	bitmap_set_bit (nonzero_vars, SSA_NAME_VERSION (PHI_RESULT (phi)));
+
+      register_new_def (lhs, &bd->block_defs);
     }
+}
+
+/* Ignoring loop backedges, if BB has precisely one incoming edge then
+   return that edge.  Otherwise return NULL.  */
+static edge
+single_incoming_edge_ignoring_loop_edges (basic_block bb)
+{
+  edge retval = NULL;
+  edge e;
+
+  for (e = bb->pred; e; e = e->pred_next)
+    {
+      /* A loop back edge can be identified by the destination of
+	 the edge dominating the source of the edge.  */
+      if (dominated_by_p (CDI_DOMINATORS, e->src, e->dest))
+	continue;
+
+      /* If we have already seen a non-loop edge, then we must have
+	 multiple incoming non-loop edges and thus we return NULL.  */
+      if (retval)
+	return NULL;
+
+      /* This is the first non-loop incoming edge we have found.  Record
+	 it.  */
+      retval = e;
+    }
+
+  return retval;
 }
 
 /* Record any equivalences created by the incoming edge to BB.  If BB
@@ -1348,21 +1520,20 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   eq_expr_value.src = NULL;
   eq_expr_value.dst = NULL;
 
-  /* If we have a single predecessor, then extract EDGE_FLAGS from
-     our single incoming edge.  Otherwise clear EDGE_FLAGS and
-     PARENT_BLOCK_LAST_STMT since they're not needed.  */
+  /* If we have a single predecessor (ignoring loop backedges), then extract
+     EDGE_FLAGS from the single incoming edge.  Otherwise just return as
+     there is nothing to do.  */
   if (bb->pred
-      && ! bb->pred->pred_next
-      && parent_block_last_stmt
-      && bb_for_stmt (parent_block_last_stmt) == bb->pred->src)
+      && parent_block_last_stmt)
     {
-      edge_flags = bb->pred->flags;
+      edge e = single_incoming_edge_ignoring_loop_edges (bb);
+      if (e && bb_for_stmt (parent_block_last_stmt) == e->src)
+	edge_flags = e->flags;
+      else
+	return;
     }
   else
-    {
-      edge_flags = 0;
-      parent_block_last_stmt = NULL;
-    }
+    return;
 
   /* If our parent block ended in a COND_EXPR, add any equivalences
      created by the COND_EXPR to the hash table and initialize
@@ -1375,19 +1546,17 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
      conditional. This assignment is inserted in CONST_AND_COPIES so that
      the copy and constant propagator can find more propagation
      opportunities.  */
-  if (parent_block_last_stmt
-      && bb->pred->pred_next == NULL
-      && TREE_CODE (parent_block_last_stmt) == COND_EXPR
+  if (TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
 				       (edge_flags & EDGE_TRUE_VALUE) != 0,
-				       &bd->true_exprs,
-				       &bd->false_exprs,
+				       &bd->avail_exprs,
 				       bb,
 				       &bd->vrp_variables);
-  /* Similarly when the parent block ended in a SWITCH_EXPR.  */
-  else if (parent_block_last_stmt
-	   && bb->pred->pred_next == NULL
+  /* Similarly when the parent block ended in a SWITCH_EXPR.
+     We can only know the value of the switch's condition if the dominator
+     parent is also the only predecessor of this block.  */
+  else if (bb->pred->src == parent
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
@@ -1408,7 +1577,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	      tree elt = TREE_VEC_ELT (switch_vec, i);
 	      if (label_to_block (CASE_LABEL (elt)) == bb)
 		{
-		  if (++case_count > 1)
+		  if (++case_count > 1 || CASE_HIGH (elt))
 		    break;
 		  match_case = elt;
 		}
@@ -1419,11 +1588,13 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	     the exact value of SWITCH_COND which caused us to get to
 	     this block.  Record that equivalence in EQ_EXPR_VALUE.  */
 	  if (case_count == 1
+	      && match_case
 	      && CASE_LOW (match_case)
 	      && !CASE_HIGH (match_case))
 	    {
 	      eq_expr_value.dst = switch_cond;
-	      eq_expr_value.src = CASE_LOW (match_case);
+	      eq_expr_value.src = fold_convert (TREE_TYPE (switch_cond),
+						CASE_LOW (match_case));
 	    }
 	}
     }
@@ -1452,12 +1623,6 @@ dump_dominator_optimization_stats (FILE *file)
   if (n_exprs == 0)
     n_exprs = 1;
 
-  fprintf (file, "    Constants propagated:                     %6ld (%.0f%%)\n",
-           opt_stats.num_const_prop, PERCENT (opt_stats.num_const_prop,
-	                                      n_exprs));
-  fprintf (file, "    Copies propagated:                        %6ld (%.0f%%)\n",
-	   opt_stats.num_copy_prop, PERCENT (opt_stats.num_copy_prop,
-					     n_exprs));
   fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
 	   opt_stats.num_re, PERCENT (opt_stats.num_re,
 				      n_exprs));
@@ -1466,13 +1631,6 @@ dump_dominator_optimization_stats (FILE *file)
 
   fprintf (file, "    avail_exprs: ");
   htab_statistics (file, avail_exprs);
-
-  fprintf (file, "    true_exprs: ");
-  htab_statistics (file, true_exprs);
-
-  fprintf (file, "    false_exprs: ");
-  htab_statistics (file, false_exprs);
-  fprintf (file, "\n");
 }
 
 
@@ -1497,56 +1655,220 @@ htab_statistics (FILE *file, htab_t htab)
 }
 
 /* Record the fact that VAR has a nonzero value, though we may not know
-   its exact value.  */
+   its exact value.  Note that if VAR is already known to have a nonzero
+   value, then we do nothing.  */
+
 static void
 record_var_is_nonzero (tree var, varray_type *block_nonzero_vars_p)
 {
-  tree prev_value = get_value_for (var, nonzero_vars);
+  int indx = SSA_NAME_VERSION (var);
 
-  set_value_for (var, integer_one_node, nonzero_vars);
+  if (bitmap_bit_p (nonzero_vars, indx))
+    return;
 
-  /* Record the destination and its previous value so that we can
-     reset them as we leave this block.  */
+  /* Mark it in the global table.  */
+  bitmap_set_bit (nonzero_vars, indx);
+
+  /* Record this SSA_NAME so that we can reset the global table
+     when we leave this block.  */
   if (! *block_nonzero_vars_p)
     VARRAY_TREE_INIT (*block_nonzero_vars_p, 2, "block_nonzero_vars");
   VARRAY_PUSH_TREE (*block_nonzero_vars_p, var);
-  VARRAY_PUSH_TREE (*block_nonzero_vars_p, prev_value);
 }
 
-/* Enter a statement into the available expression hash table indicating
-   that the condition COND is true.  */
+/* Enter a statement into the true/false expression hash table indicating
+   that the condition COND has the value VALUE.  */
 
 static void
-record_cond_is_true (tree cond, varray_type *block_true_exprs_p)
+record_cond (tree cond, tree value, varray_type *block_avail_exprs_p)
 {
+  struct expr_hash_elt *element = xmalloc (sizeof (struct expr_hash_elt));
   void **slot;
 
-  slot = htab_find_slot (true_exprs, cond, true);
+  initialize_hash_element (cond, value, element);
 
+  slot = htab_find_slot_with_hash (avail_exprs, (void *)element,
+				   element->hash, true);
   if (*slot == NULL)
     {
-      *slot = (void *) cond;
-      if (! *block_true_exprs_p)
-	VARRAY_TREE_INIT (*block_true_exprs_p, 2, "block_true_exprs");
-      VARRAY_PUSH_TREE (*block_true_exprs_p, cond);
+      *slot = (void *) element;
+      if (! *block_avail_exprs_p)
+	VARRAY_TREE_INIT (*block_avail_exprs_p, 20, "block_avail_exprs");
+      VARRAY_PUSH_TREE (*block_avail_exprs_p, cond);
     }
+  else
+    free (element);
 }
 
-/* Enter a statement into the available expression hash table indicating
-   that the condition COND is false.  */
+/* COND is a condition which is known to be true.   Record variants of
+   COND which must also be true.
+
+   For example, if a < b is true, then a <= b must also be true.  */
 
 static void
-record_cond_is_false (tree cond, varray_type *block_false_exprs_p)
+record_dominating_conditions (tree cond, varray_type *block_avail_exprs_p)
 {
-  void **slot;
-  slot = htab_find_slot (false_exprs, cond, true);
-
-  if (*slot == NULL)
+  switch (TREE_CODE (cond))
     {
-      *slot = (void *) cond;
-      if (! *block_false_exprs_p)
-	VARRAY_TREE_INIT (*block_false_exprs_p, 2, "block_false_exprs");
-      VARRAY_PUSH_TREE (*block_false_exprs_p, cond);
+    case LT_EXPR:
+      record_cond (build2 (LE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LTGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case GT_EXPR:
+      record_cond (build2 (GE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LTGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case GE_EXPR:
+    case LE_EXPR:
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case EQ_EXPR:
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (GE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNORDERED_EXPR:
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNEQ_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNLT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNLT_EXPR:
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNGT_EXPR:
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNEQ_EXPR:
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case LTGT_EXPR:
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+
+    default:
+      break;
     }
 }
 
@@ -1615,7 +1937,7 @@ record_equality (tree x, tree y, varray_type *block_const_and_copies_p)
   /* For IEEE, -0.0 == 0.0, so we don't necessarily know the sign of a
      variable compared against zero.  If we're honoring signed zeros,
      then we cannot record this value unless we know that the value is
-     non-zero.  */
+     nonzero.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (x)))
       && (TREE_CODE (y) != REAL_CST
 	  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (y))))
@@ -1676,10 +1998,10 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
   /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
      If OP is associative, create and fold (y OP C2) OP C1 which
      should result in (y OP C3), use that as the RHS for the
-     assignment.  */
-  if (associative_tree_code (rhs_code)
+     assignment.  Add minus to this, as we handle it specially below.  */
+  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && TREE_CONSTANT (TREE_OPERAND (rhs, 1)))
+      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
     {
       tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
@@ -1698,14 +2020,49 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 
 	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
 		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && TREE_CONSTANT (def_stmt_op1))
+		  && is_gimple_min_invariant (def_stmt_op1))
 		{
 		  tree outer_const = TREE_OPERAND (rhs, 1);
 		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
 		  tree t;
 
-		  /* Build and fold (Y OP C2) OP C1.  */
-		  t = build (rhs_code, type, rhs_def_rhs, outer_const);
+		  /* If we care about correct floating point results, then
+		     don't fold x + c1 - c2.  Note that we need to take both
+		     the codes and the signs to figure this out.  */
+		  if (FLOAT_TYPE_P (type)
+		      && !flag_unsafe_math_optimizations
+		      && (rhs_def_code == PLUS_EXPR
+			  || rhs_def_code == MINUS_EXPR))
+		    {
+		      bool neg = false;
+
+		      neg ^= (rhs_code == MINUS_EXPR);
+		      neg ^= (rhs_def_code == MINUS_EXPR);
+		      neg ^= real_isneg (TREE_REAL_CST_PTR (outer_const));
+		      neg ^= real_isneg (TREE_REAL_CST_PTR (def_stmt_op1));
+
+		      if (neg)
+			goto dont_fold_assoc;
+		    }
+
+		  /* Ho hum.  So fold will only operate on the outermost
+		     thingy that we give it, so we have to build the new
+		     expression in two pieces.  This requires that we handle
+		     combinations of plus and minus.  */
+		  if (rhs_def_code != rhs_code)
+		    {
+		      if (rhs_def_code == MINUS_EXPR)
+		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
+		      else
+		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
+		      rhs_code = PLUS_EXPR;
+		    }
+		  else if (rhs_def_code == MINUS_EXPR)
+		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
+		  else
+		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
+		  t = local_fold (t);
+		  t = build (rhs_code, type, def_stmt_op0, t);
 		  t = local_fold (t);
 
 		  /* If the result is a suitable looking gimple expression,
@@ -1716,12 +2073,13 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		      || ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 			   || TREE_CODE_CLASS (TREE_CODE (t)) == '<')
 			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && TREE_CONSTANT (TREE_OPERAND (t, 1))))
+			  && is_gimple_val (TREE_OPERAND (t, 1))))
 		    result = update_rhs_and_lookup_avail_expr
 		      (stmt, t, &bd->avail_exprs, ann, insert);
 		}
 	    }
 	}
+ dont_fold_assoc:;
     }
 
   /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
@@ -1733,25 +2091,34 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
     {
       tree val;
       tree op = TREE_OPERAND (rhs, 0);
-      tree dummy_cond = walk_data->global_data;
 
-      if (! dummy_cond)
+      if (TYPE_UNSIGNED (TREE_TYPE (op)))
 	{
-	  dummy_cond = build (GT_EXPR, boolean_type_node,
-			      op, integer_zero_node);
-	  dummy_cond = build (COND_EXPR, void_type_node,
-			      dummy_cond, NULL, NULL);
-	  walk_data->global_data = dummy_cond;
+	  val = integer_one_node;
 	}
       else
 	{
-	  TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GT_EXPR);
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1) = integer_zero_node;
+	  tree dummy_cond = walk_data->global_data;
+
+	  if (! dummy_cond)
+	    {
+	      dummy_cond = build (GT_EXPR, boolean_type_node,
+				  op, integer_zero_node);
+	      dummy_cond = build (COND_EXPR, void_type_node,
+				  dummy_cond, NULL, NULL);
+	      walk_data->global_data = dummy_cond;
+	    }
+          else
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GT_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= integer_zero_node;
+	    }
+	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+						     &bd->avail_exprs,
+						     NULL, false);
 	}
-      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
-						 &bd->avail_exprs,
-						 NULL, false);
 
       if (val && integer_onep (val))
 	{
@@ -1780,28 +2147,57 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
       tree val;
       tree op = TREE_OPERAND (rhs, 0);
       tree type = TREE_TYPE (op);
-      tree dummy_cond = walk_data->global_data;
 
-      if (! dummy_cond)
+      if (TYPE_UNSIGNED (type))
 	{
-	  dummy_cond = build (GT_EXPR, boolean_type_node,
-			      op, integer_zero_node);
-	  dummy_cond = build (COND_EXPR, void_type_node,
-			      dummy_cond, NULL, NULL);
-	  walk_data->global_data = dummy_cond;
+	  val = integer_zero_node;
 	}
       else
 	{
-	  TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LT_EXPR);
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
-	  TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-	    = convert (type, integer_zero_node);
-	}
-      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
-						 &bd->avail_exprs,
-						 NULL, false);
+	  tree dummy_cond = walk_data->global_data;
 
-      if (val && (integer_onep (val) || integer_zerop (val)))
+	  if (! dummy_cond)
+	    {
+	      dummy_cond = build (LE_EXPR, boolean_type_node,
+				  op, integer_zero_node);
+	      dummy_cond = build (COND_EXPR, void_type_node,
+				  dummy_cond, NULL, NULL);
+	      walk_data->global_data = dummy_cond;
+	    }
+	  else
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LE_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= fold_convert (type, integer_zero_node);
+	    }
+	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+						     &bd->avail_exprs,
+						     NULL, false);
+
+	  if (!val)
+	    {
+	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GE_EXPR);
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
+	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
+		= fold_convert (type, integer_zero_node);
+
+	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
+							 &bd->avail_exprs,
+							 NULL, false);
+
+	      if (val)
+		{
+		  if (integer_zerop (val))
+		    val = integer_one_node;
+		  else if (integer_onep (val))
+		    val = integer_zero_node;
+		}
+	    }
+	}
+
+      if (val
+	  && (integer_onep (val) || integer_zerop (val)))
 	{
 	  tree t;
 
@@ -2145,15 +2541,33 @@ simplify_switch_and_lookup_avail_expr (tree stmt,
 	  def = TREE_OPERAND (def, 1);
 	  if (TREE_CODE (def) == NOP_EXPR)
 	    {
+	      int need_precision;
+	      bool fail;
+
 	      def = TREE_OPERAND (def, 0);
+
+#ifdef ENABLE_CHECKING
+	      /* ??? Why was Jeff testing this?  We are gimple...  */
+	      if (!is_gimple_val (def))
+		abort ();
+#endif
+
 	      to = TREE_TYPE (cond);
 	      ti = TREE_TYPE (def);
 
-	      /* If we have an extension that preserves sign, then we
+	      /* If we have an extension that preserves value, then we
 		 can copy the source value into the switch.  */
-	      if (TREE_UNSIGNED (to) == TREE_UNSIGNED (ti)
-		  && TYPE_PRECISION (to) >= TYPE_PRECISION (ti)
-	          && is_gimple_val (def))
+
+	      need_precision = TYPE_PRECISION (ti);
+	      fail = false;
+	      if (TYPE_UNSIGNED (to) && !TYPE_UNSIGNED (ti))
+		fail = true;
+	      else if (!TYPE_UNSIGNED (to) && TYPE_UNSIGNED (ti))
+		need_precision += 1;
+	      if (TYPE_PRECISION (to) < need_precision)
+		fail = true;
+
+	      if (!fail)
 		{
 		  SWITCH_COND (stmt) = def;
 		  ann->modified = 1;
@@ -2167,137 +2581,20 @@ simplify_switch_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
-/* Const/copy propagate into STMT's USES, VUSES, and the RHS of VDEFs. 
 
-   Return nonzero if new symbols may have been exposed.  */
+/* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
+   known value for that SSA_NAME (or NULL if no value is known).  
 
-static bool
-cprop_into_stmt (tree stmt)
-{
-  size_t i, table_size[3];
-  vuse_optype vuses;
-  vdef_optype vdefs;
-  use_optype uses;
-  bool may_have_exposed_new_symbols = false;
-  stmt_ann_t ann = stmt_ann (stmt);
-  int table_index;
+   NONZERO_VARS is the set SSA_NAMES known to have a nonzero value,
+   even if we don't know their precise value.
 
-  uses = USE_OPS (ann);
-  vuses = VUSE_OPS (ann);
-  vdefs = VDEF_OPS (ann);
-
-  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  table_size[0] = NUM_USES (uses);
-  table_size[1] = NUM_VUSES (vuses);
-  table_size[2] = NUM_VDEFS (vdefs);
-  for (table_index = 0; table_index < 3; table_index++)
-    {
-      for (i = 0; i < table_size[table_index]; i++)
-	{
-	  tree val;
-	  tree *op_p;
-
-	  switch (table_index)
-	  {
-	    case 0:
-	      op_p = USE_OP_PTR (uses, i);
-	      break;
-	    case 1:
-	      op_p = VUSE_OP_PTR (vuses, i);
-	      break;
-	    case 2:
-	      op_p = VDEF_OP_PTR (vdefs, i);
-	      break;
-	    default:
-	      abort();
-	  }
-
-	  /* If the operand is not an ssa variable, then there is nothing
-	     to do.  */
-	  if (TREE_CODE (*op_p) != SSA_NAME)
-	    continue;
-
-	  /* If the operand has a known constant value or it is known to be a
-	     copy of some other variable, use the value or copy stored in
-	     CONST_AND_COPIES.  */
-	  opt_stats.num_exprs_considered++;
-	  val = get_value_for (*op_p, const_and_copies);
-	  if (val)
-	    {
-	      /* Do not change the base variable in the virtual operand
-		 tables.  That would make it impossible to reconstruct
-		 the renamed virtual operand if we later modify this
-		 statement.  Also only allow the new value to be an SSA_NAME
-		 for propagation into virtual operands.  */
-	      if (table_index > 0
-		  && (get_virtual_var (val) != get_virtual_var (*op_p)
-		      || TREE_CODE (val) != SSA_NAME))
-		continue;
-
-	      /* Make sure basic types match before propagating a constant by
-		 converting the constant to the proper type.  Note that
-		 convert may return a non-gimple expression, in which case
-		 we ignore this propagation opportunity.  */
-	      if (TREE_TYPE (*op_p) != TREE_TYPE (val)
-		  && TREE_CODE (val) != SSA_NAME)
-		{
-		  val = convert (TREE_TYPE (*op_p), val);
-		  if (!is_gimple_min_invariant (val)
-		      && TREE_CODE (val) != SSA_NAME)
-		    continue;
-		}
-
-	      /* Certain operands are not allowed to be copy propagated due
-		 to their interaction with exception handling and some
-		 GCC extensions.  */
-	      if (TREE_CODE (val) == SSA_NAME
-		  && !may_propagate_copy (*op_p, val))
-		continue;
-
-	      /* Gather statistics.  */
-	      if (is_gimple_min_invariant (val))
-		opt_stats.num_const_prop++;
-	      else
-		opt_stats.num_copy_prop++;
-
-	      /* Dump details.  */
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-		{
-		  fprintf (tree_dump_file, "  Replaced '");
-		  print_generic_expr (tree_dump_file, *op_p, 0);
-		  fprintf (tree_dump_file, "' with %s '",
-			   (TREE_CODE (val) != SSA_NAME
-			      ? "constant" : "variable"));
-		  print_generic_expr (tree_dump_file, val, 0);
-		  fprintf (tree_dump_file, "'\n");
-		}
-
-	      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
-		 that we may need to have a second SSA pass to rename
-		 variables exposed by the folding of *&VAR expressions.  */
-	      if (TREE_CODE (val) == ADDR_EXPR
-		  || (POINTER_TYPE_P (TREE_TYPE (*op_p))
-		      && is_gimple_min_invariant (val)))
-		may_have_exposed_new_symbols = true;
-
-	      propagate_value (op_p, val);
-
-	      /* And note that we modified this statement.  This is now
-		 safe, even if we changed virtual operands since we will
-		 rescan the statement and rewrite its operands again.  */
-	      ann->modified = 1;
-	  }
-	}
-    }
-
-  return may_have_exposed_new_symbols;
-}
-
-/* Propagate known constants/copies into PHI nodes.  */
+   Propagate values from CONST_AND_COPIES and NONZERO_VARS into the PHI
+   nodes of the successors of BB.  */
 
 static void
-cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		 basic_block bb)
+cprop_into_successor_phis (basic_block bb,
+			   varray_type const_and_copies,
+			   bitmap nonzero_vars)
 {
   edge e;
 
@@ -2329,11 +2626,12 @@ cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	 the entries.  */
       phi_num_args = PHI_NUM_ARGS (phi);
       hint = phi_num_args;
-      for ( ; phi; phi = TREE_CHAIN (phi))
+      for ( ; phi; phi = PHI_CHAIN (phi))
 	{
 	  int i;
 	  tree new;
-	  tree *orig_p;
+	  use_operand_p orig_p;
+	  tree orig;
 
 	  /* If the hint is valid (!= phi_num_args), see if it points
 	     us to the desired phi alternative.  */
@@ -2359,20 +2657,39 @@ cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
 	  /* The alternative may be associated with a constant, so verify
 	     it is an SSA_NAME before doing anything with it.  */
-	  orig_p = &PHI_ARG_DEF (phi, hint);
-	  if (TREE_CODE (*orig_p) != SSA_NAME)
+	  orig_p = PHI_ARG_DEF_PTR (phi, hint);
+	  orig = USE_FROM_PTR (orig_p);
+	  if (TREE_CODE (orig) != SSA_NAME)
 	    continue;
+
+	  /* If the alternative is known to have a nonzero value, record
+	     that fact in the PHI node itself for future use.  */
+	  if (bitmap_bit_p (nonzero_vars, SSA_NAME_VERSION (orig)))
+	    PHI_ARG_NONZERO (phi, hint) = true;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */
-	  new = get_value_for (*orig_p, const_and_copies);
+	  new = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (orig));
 	  if (new
 	      && (TREE_CODE (new) == SSA_NAME
 		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (*orig_p, new))
-	    propagate_value (orig_p, new);
+	      && may_propagate_copy (orig, new))
+	    {
+	      propagate_value (orig_p, new);
+	    }
 	}
     }
+}
+
+
+/* Propagate known constants/copies into PHI nodes of BB's successor
+   blocks.  */
+
+static void
+cprop_into_phis (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+		 basic_block bb)
+{
+  cprop_into_successor_phis (bb, const_and_copies, nonzero_vars);
 }
 
 /* Search for redundant computations in STMT.  If any are found, then
@@ -2385,7 +2702,7 @@ static bool
 eliminate_redundant_computations (struct dom_walk_data *walk_data,
 				  tree stmt, stmt_ann_t ann)
 {
-  vdef_optype vdefs = VDEF_OPS (ann);
+  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
   tree *expr_p, def = NULL_TREE;
   bool insert = true;
   tree cached_lhs;
@@ -2402,7 +2719,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || NUM_VDEFS (vdefs) != 0)
+      || NUM_V_MAY_DEFS (v_may_defs) != 0)
     insert = false;
 
   /* Check if the expression has been computed before.  */
@@ -2450,15 +2767,15 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
      CACHED_LHS into *EXPR_P.  */
   if (cached_lhs
       && (TREE_CODE (cached_lhs) != SSA_NAME
-	  || may_propagate_copy (cached_lhs, *expr_p)))
+	  || may_propagate_copy (*expr_p, cached_lhs)))
     {
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+      if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (tree_dump_file, "  Replaced redundant expr '");
-	  print_generic_expr (tree_dump_file, *expr_p, 0);
-	  fprintf (tree_dump_file, "' with '");
-	  print_generic_expr (tree_dump_file, cached_lhs, 0);
-	   fprintf (tree_dump_file, "'\n");
+	  fprintf (dump_file, "  Replaced redundant expr '");
+	  print_generic_expr (dump_file, *expr_p, dump_flags);
+	  fprintf (dump_file, "' with '");
+	  print_generic_expr (dump_file, cached_lhs, dump_flags);
+	   fprintf (dump_file, "'\n");
 	}
 
       opt_stats.num_re++;
@@ -2474,7 +2791,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
 	      && is_gimple_min_invariant (cached_lhs)))
 	retval = true;
 
-      propagate_value (expr_p, cached_lhs);
+      propagate_tree_value (expr_p, cached_lhs);
       ann->modified = 1;
     }
   return retval;
@@ -2505,7 +2822,7 @@ record_equivalences_from_stmt (tree stmt,
       /* If the RHS of the assignment is a constant or another variable that
 	 may be propagated, register it in the CONST_AND_COPIES table.  We
 	 do not need to record unwind data for this, since this is a true
-	 assignment and not an equivalence infered from a comparison.  All
+	 assignment and not an equivalence inferred from a comparison.  All
 	 uses of this ssa name are dominated by this assignment, so unwinding
 	 just costs time and space.  */
       if (may_optimize_p
@@ -2537,25 +2854,39 @@ record_equivalences_from_stmt (tree stmt,
   /* Look at both sides for pointer dereferences.  If we find one, then
      the pointer must be nonnull and we can enter that equivalence into
      the hash tables.  */
-  for (i = 0; i < 2; i++)
-    {
-      tree t = TREE_OPERAND (stmt, i);
+  if (flag_delete_null_pointer_checks)
+    for (i = 0; i < 2; i++)
+      {
+	tree t = TREE_OPERAND (stmt, i);
 
-      /* Strip away any COMPONENT_REFs.  */
-      while (TREE_CODE (t) == COMPONENT_REF)
-        t = TREE_OPERAND (t, 0);
+	/* Strip away any COMPONENT_REFs.  */
+	while (TREE_CODE (t) == COMPONENT_REF)
+	  t = TREE_OPERAND (t, 0);
 
-      /* Now see if this is a pointer dereference.  */
-      if (TREE_CODE (t) == INDIRECT_REF)
-        {
-	  tree op = TREE_OPERAND (t, 0);
+	/* Now see if this is a pointer dereference.  */
+	if (TREE_CODE (t) == INDIRECT_REF)
+          {
+	    tree op = TREE_OPERAND (t, 0);
 
-	  /* If the pointer is a SSA variable, then enter new
-	     equivalences into the hash table.  */
-	  if (TREE_CODE (op) == SSA_NAME)
-	    record_var_is_nonzero (op, block_nonzero_vars_p);
-	}
-    }
+	    /* If the pointer is a SSA variable, then enter new
+	       equivalences into the hash table.  */
+	    while (TREE_CODE (op) == SSA_NAME)
+	      {
+		tree def = SSA_NAME_DEF_STMT (op);
+
+		record_var_is_nonzero (op, block_nonzero_vars_p);
+
+		/* And walk up the USE-DEF chains noting other SSA_NAMEs
+		   which are known to have a nonzero value.  */
+		if (def
+		    && TREE_CODE (def) == MODIFY_EXPR
+		    && TREE_CODE (TREE_OPERAND (def, 1)) == NOP_EXPR)
+		  op = TREE_OPERAND (TREE_OPERAND (def, 1), 0);
+		else
+		  break;
+	      }
+	  }
+      }
 
   /* A memory store, even an aliased store, creates a useful
      equivalence.  By exchanging the LHS and RHS, creating suitable
@@ -2593,7 +2924,8 @@ record_equivalences_from_stmt (tree stmt,
 
       if (rhs)
 	{
-	  vdef_optype vdefs = VDEF_OPS (ann);
+	  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
+	  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
 
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
@@ -2605,14 +2937,22 @@ record_equivalences_from_stmt (tree stmt,
 	  /* Clear out the virtual operands on the new statement, we are
 	     going to set them explicitly below.  */
 	  remove_vuses (new);
-	  remove_vdefs (new);
+	  remove_v_may_defs (new);
+	  remove_v_must_defs (new);
 
 	  start_ssa_stmt_operands (new);
 	  /* For each VDEF on the original statement, we want to create a
-	     VUSE of the VDEF result on the new statement.  */
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	     VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
+	     statement.  */
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
+	      add_vuse (op, new);
+	    }
+	    
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
 	      add_vuse (op, new);
 	    }
 
@@ -2624,6 +2964,143 @@ record_equivalences_from_stmt (tree stmt,
 	}
     }
 }
+
+/* Replace *OP_P in STMT with any known equivalent value for *OP_P from
+   CONST_AND_COPIES.  */
+
+static bool
+cprop_operand (stmt_ann_t ann, use_operand_p op_p, varray_type const_and_copies)
+{
+  bool may_have_exposed_new_symbols = false;
+  tree val;
+  tree op = USE_FROM_PTR (op_p);
+
+  /* If the operand has a known constant value or it is known to be a
+     copy of some other variable, use the value or copy stored in
+     CONST_AND_COPIES.  */
+  val = VARRAY_TREE (const_and_copies, SSA_NAME_VERSION (op));
+  if (val)
+    {
+      tree op_type, val_type;
+
+      /* Do not change the base variable in the virtual operand
+	 tables.  That would make it impossible to reconstruct
+	 the renamed virtual operand if we later modify this
+	 statement.  Also only allow the new value to be an SSA_NAME
+	 for propagation into virtual operands.  */
+      if (!is_gimple_reg (op)
+	  && (get_virtual_var (val) != get_virtual_var (op)
+	      || TREE_CODE (val) != SSA_NAME))
+	return false;
+
+      /* Get the toplevel type of each operand.  */
+      op_type = TREE_TYPE (op);
+      val_type = TREE_TYPE (val);
+
+      /* While both types are pointers, get the type of the object
+	 pointed to.  */
+      while (POINTER_TYPE_P (op_type) && POINTER_TYPE_P (val_type))
+	{
+	  op_type = TREE_TYPE (op_type);
+	  val_type = TREE_TYPE (val_type);
+	}
+
+      /* Make sure underlying types match before propagating a constant by
+	 converting the constant to the proper type.  Note that convert may
+	 return a non-gimple expression, in which case we ignore this
+	 propagation opportunity.  */
+      if (TREE_CODE (val) != SSA_NAME)
+	{
+	  if (!lang_hooks.types_compatible_p (op_type, val_type))
+	    {
+	      val = fold_convert (TREE_TYPE (op), val);
+	      if (!is_gimple_min_invariant (val))
+		return false;
+	    }
+	}
+
+      /* Certain operands are not allowed to be copy propagated due
+	 to their interaction with exception handling and some GCC
+	 extensions.  */
+      else if (!may_propagate_copy (op, val))
+	return false;
+
+      /* Dump details.  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "  Replaced '");
+	  print_generic_expr (dump_file, op, dump_flags);
+	  fprintf (dump_file, "' with %s '",
+		   (TREE_CODE (val) != SSA_NAME ? "constant" : "variable"));
+	  print_generic_expr (dump_file, val, dump_flags);
+	  fprintf (dump_file, "'\n");
+	}
+
+      /* If VAL is an ADDR_EXPR or a constant of pointer type, note
+	 that we may have exposed a new symbol for SSA renaming.  */
+      if (TREE_CODE (val) == ADDR_EXPR
+	  || (POINTER_TYPE_P (TREE_TYPE (op))
+	      && is_gimple_min_invariant (val)))
+	may_have_exposed_new_symbols = true;
+
+      propagate_value (op_p, val);
+
+      /* And note that we modified this statement.  This is now
+	 safe, even if we changed virtual operands since we will
+	 rescan the statement and rewrite its operands again.  */
+      ann->modified = 1;
+    }
+  return may_have_exposed_new_symbols;
+}
+
+/* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
+   known value for that SSA_NAME (or NULL if no value is known).  
+
+   Propagate values from CONST_AND_COPIES into the uses, vuses and
+   v_may_def_ops of STMT.  */
+
+static bool
+cprop_into_stmt (tree stmt, varray_type const_and_copies)
+{
+  bool may_have_exposed_new_symbols = false;
+  stmt_ann_t ann = stmt_ann (stmt);
+  size_t i, num_uses, num_vuses, num_v_may_defs;
+  vuse_optype vuses;
+  v_may_def_optype v_may_defs;
+  use_optype uses;
+
+  uses = USE_OPS (ann);
+  num_uses = NUM_USES (uses);
+  for (i = 0; i < num_uses; i++)
+    {
+      use_operand_p op_p = USE_OP_PTR (uses, i);
+      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
+    }
+
+  vuses = VUSE_OPS (ann);
+  num_vuses = NUM_VUSES (vuses);
+  for (i = 0; i < num_vuses; i++)
+    {
+      use_operand_p op_p = VUSE_OP_PTR (vuses, i);
+      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
+    }
+
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  num_v_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+  for (i = 0; i < num_v_may_defs; i++)
+    {
+      use_operand_p op_p = V_MAY_DEF_OP_PTR (v_may_defs, i);
+      if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
+	may_have_exposed_new_symbols
+	  |= cprop_operand (ann, op_p, const_and_copies);
+    }
+  return may_have_exposed_new_symbols;
+}
+
 
 /* Optimize the statement pointed by iterator SI.
    
@@ -2641,13 +3118,11 @@ record_equivalences_from_stmt (tree stmt,
       the variable in the LHS in the CONST_AND_COPIES table.  */
 
 static void
-optimize_stmt (struct dom_walk_data *walk_data,
-	       basic_block bb ATTRIBUTE_UNUSED,
+optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 	       block_stmt_iterator si)
 {
   stmt_ann_t ann;
   tree stmt;
-  vdef_optype vdefs;
   bool may_optimize_p;
   bool may_have_exposed_new_symbols = false;
   struct dom_walk_block_data *bd
@@ -2657,18 +3132,17 @@ optimize_stmt (struct dom_walk_data *walk_data,
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
-  vdefs = VDEF_OPS (ann);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
-  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (tree_dump_file, "Optimizing statement ");
-      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "Optimizing statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
-  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
-  may_have_exposed_new_symbols = cprop_into_stmt (stmt);
+  /* Const/copy propagate into USES, VUSES and the RHS of V_MAY_DEFs.  */
+  may_have_exposed_new_symbols = cprop_into_stmt (stmt, const_and_copies);
 
   /* If the statement has been modified with constant replacements,
      fold its RHS before checking for redundant computations.  */
@@ -2681,10 +3155,10 @@ optimize_stmt (struct dom_walk_data *walk_data,
 	  stmt = bsi_stmt (si);
 	  ann = stmt_ann (stmt);
 
-	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (tree_dump_file, "  Folded to: ");
-	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "  Folded to: ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 	}
 
@@ -2721,7 +3195,7 @@ optimize_stmt (struct dom_walk_data *walk_data,
 				   may_optimize_p,
 				   ann);
 
-  register_definitions_for_stmt (stmt, &bd->block_defs);
+  register_definitions_for_stmt (ann, &bd->block_defs);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  If that is the case, then mark the CFG as altered.
@@ -2758,11 +3232,19 @@ optimize_stmt (struct dom_walk_data *walk_data,
       else if (TREE_CODE (stmt) == SWITCH_EXPR)
 	val = SWITCH_COND (stmt);
 
-      if (val && TREE_CODE (val) == INTEGER_CST
-	  && find_taken_edge (bb_for_stmt (stmt), val))
+      if (val && TREE_CODE (val) == INTEGER_CST && find_taken_edge (bb, val))
 	cfg_altered = true;
+
+      /* If we simplified a statement in such a way as to be shown that it
+	 cannot trap, update the eh information and the cfg to match.  */
+      if (maybe_clean_eh_stmt (stmt))
+	{
+	  bitmap_set_bit (need_eh_cleanup, bb->index);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "  Flagged to clear EH edges.\n");
+	}
     }
-                                                                                
+
   if (may_have_exposed_new_symbols)
     {
       if (! bd->stmts_to_rescan)
@@ -2788,7 +3270,12 @@ update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs,
 
   /* Remove the old entry from the hash table.  */
   if (insert)
-    htab_remove_elt (avail_exprs, stmt);
+    {
+      struct expr_hash_elt element;
+
+      initialize_hash_element (stmt, NULL, &element);
+      htab_remove_elt_with_hash (avail_exprs, &element, element.hash);
+    }
 
   /* Now update the RHS of the assignment.  */
   TREE_OPERAND (stmt, 1) = new_rhs;
@@ -2843,74 +3330,66 @@ static tree
 lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
 {
   void **slot;
-  tree rhs;
   tree lhs;
   tree temp;
+  struct expr_hash_elt *element = xcalloc (sizeof (struct expr_hash_elt), 1);
 
-  /* Find the location of the expression we care about.  Unfortunately,
-     its location differs depending on the type of statement we are
-     examining.  */
-  if (TREE_CODE (stmt) == COND_EXPR)
-    rhs = COND_EXPR_COND (stmt);
-  else if (TREE_CODE (stmt) == SWITCH_EXPR)
-    rhs = SWITCH_COND (stmt);
-  else if (TREE_CODE (stmt) == RETURN_EXPR
-	   && TREE_OPERAND (stmt, 0))
-    rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
-  else
-    rhs = TREE_OPERAND (stmt, 1);
+  lhs = TREE_CODE (stmt) == MODIFY_EXPR ? TREE_OPERAND (stmt, 0) : NULL;
+
+  initialize_hash_element (stmt, lhs, element);
 
   /* Don't bother remembering constant assignments and copy operations.
      Constants and copy operations are handled by the constant/copy propagator
      in optimize_stmt.  */
-  if (TREE_CODE (rhs) == SSA_NAME
-      || is_gimple_min_invariant (rhs))
-    return NULL_TREE;
+  if (TREE_CODE (element->rhs) == SSA_NAME
+      || is_gimple_min_invariant (element->rhs))
+    {
+      free (element);
+      return NULL_TREE;
+    }
 
   /* If this is an equality test against zero, see if we have recorded a
      nonzero value for the variable in question.  */
-  if ((TREE_CODE (rhs) == EQ_EXPR
-       || TREE_CODE  (rhs) == NE_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && integer_zerop (TREE_OPERAND (rhs, 1)))
+  if ((TREE_CODE (element->rhs) == EQ_EXPR
+       || TREE_CODE  (element->rhs) == NE_EXPR)
+      && TREE_CODE (TREE_OPERAND (element->rhs, 0)) == SSA_NAME
+      && integer_zerop (TREE_OPERAND (element->rhs, 1)))
     {
-      tree nonzero = get_value_for (TREE_OPERAND (rhs, 0), nonzero_vars);
+      int indx = SSA_NAME_VERSION (TREE_OPERAND (element->rhs, 0));
 
-      if (nonzero && integer_onep (nonzero))
+      if (bitmap_bit_p (nonzero_vars, indx))
 	{
-	  if (TREE_CODE (rhs) == EQ_EXPR)
+	  tree t = element->rhs;
+	  free (element);
+
+	  if (TREE_CODE (t) == EQ_EXPR)
 	    return boolean_false_node;
 	  else
 	    return boolean_true_node;
 	}
     }
 
-  /* See if we have this expression as a true/false value.  */
-  slot = htab_find_slot (true_exprs, rhs, NO_INSERT);
-  if (slot)
-    return boolean_true_node;
-
-  slot = htab_find_slot (false_exprs, rhs, NO_INSERT);
-  if (slot)
-    return boolean_false_node;
-
   /* Finally try to find the expression in the main expression hash table.  */
-  slot = htab_find_slot (avail_exprs, stmt, (insert ? INSERT : NO_INSERT));
+  slot = htab_find_slot_with_hash (avail_exprs, element, element->hash,
+				   (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
-    return NULL_TREE;
+    {
+      free (element);
+      return NULL_TREE;
+    }
 
   if (*slot == NULL)
     {
-      *slot = (void *) stmt;
+      *slot = (void *) element;
       if (! *block_avail_exprs_p)
         VARRAY_TREE_INIT (*block_avail_exprs_p, 20, "block_avail_exprs");
-      VARRAY_PUSH_TREE (*block_avail_exprs_p, stmt);
+      VARRAY_PUSH_TREE (*block_avail_exprs_p, stmt ? stmt : element->rhs);
       return NULL_TREE;
     }
 
   /* Extract the LHS of the assignment so that it can be used as the current
      definition of another variable.  */
-  lhs = TREE_OPERAND ((tree) *slot, 0);
+  lhs = ((struct expr_hash_elt *)*slot)->lhs;
 
   /* See if the LHS appears in the CONST_AND_COPIES table.  If it does, then
      use the value from the const_and_copies table.  */
@@ -2921,6 +3400,7 @@ lookup_avail_expr (tree stmt, varray_type *block_avail_exprs_p, bool insert)
 	lhs = temp;
     }
 
+  free (element);
   return lhs;
 }
 
@@ -3046,8 +3526,7 @@ record_range (tree cond, basic_block bb, varray_type *vrp_variables_p)
 static struct eq_expr_value
 get_eq_expr_value (tree if_stmt,
 		   int true_arm,
-		   varray_type *block_true_exprs_p,
-		   varray_type *block_false_exprs_p,
+		   varray_type *block_avail_exprs_p,
 		   basic_block bb,
 		   varray_type *vrp_variables_p)
 {
@@ -3063,7 +3542,7 @@ get_eq_expr_value (tree if_stmt,
   if (TREE_CODE (cond) == SSA_NAME)
     {
       retval.dst = cond;
-      retval.src = (true_arm ? integer_one_node : integer_zero_node);
+      retval.src = constant_boolean_node (true_arm, TREE_TYPE (cond));
       return retval;
     }
 
@@ -3075,7 +3554,8 @@ get_eq_expr_value (tree if_stmt,
       tree op1 = TREE_OPERAND (cond, 1);
 
       /* Special case comparing booleans against a constant as we know
-	 the value of op0 on both arms of the branch.  */
+	 the value of OP0 on both arms of the branch.  ie, we can record
+	 an equivalence for OP0 rather than COND.  */
       if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
 	  && TREE_CODE (op0) == SSA_NAME
 	  && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
@@ -3093,7 +3573,7 @@ get_eq_expr_value (tree if_stmt,
 	      else
 		retval.src = boolean_false_node;
 	    }
-	  retval.dst = cond;
+	  retval.dst = op0;
 	  return retval;
 	}
 
@@ -3112,8 +3592,9 @@ get_eq_expr_value (tree if_stmt,
 	     condition into the hash table.  */
 	  if (true_arm)
 	    {
-	      record_cond_is_true (cond, block_true_exprs_p);
-	      record_cond_is_false (inverted, block_false_exprs_p);
+	      record_cond (cond, boolean_true_node, block_avail_exprs_p);
+	      record_dominating_conditions (cond, block_avail_exprs_p);
+	      record_cond (inverted, boolean_false_node, block_avail_exprs_p);
 
 	      if (TREE_CONSTANT (op1))
 		record_range (cond, bb, vrp_variables_p);
@@ -3130,8 +3611,9 @@ get_eq_expr_value (tree if_stmt,
 	  else
 	    {
 
-	      record_cond_is_true (inverted, block_true_exprs_p);
-	      record_cond_is_false (cond, block_false_exprs_p);
+	      record_cond (inverted, boolean_true_node, block_avail_exprs_p);
+	      record_dominating_conditions (inverted, block_avail_exprs_p);
+	      record_cond (cond, boolean_false_node, block_avail_exprs_p);
 
 	      if (TREE_CONSTANT (op1))
 		record_range (inverted, bb, vrp_variables_p);
@@ -3151,44 +3633,6 @@ get_eq_expr_value (tree if_stmt,
   return retval;
 }
 
-/* Hashing for expressions which are going to be entered into the true/false
-   hash tables.  */
-
-static hashval_t
-true_false_expr_hash (const void *p)
-{
-  tree rhs = (tree) p;
-  return iterative_hash_expr (rhs, 0);
-}
-
-/* Given two expressions from the true/false hash tables, return nonzero
-   if they are equivalent.  */
-
-static int
-true_false_expr_eq (const void *p1, const void *p2)
-{
-  tree rhs1 = (tree)p1;
-  tree rhs2 = (tree)p2;
-
-  /* If they are the same physical statement, return true.  */
-  if (rhs1 == rhs2)
-    return true;
-
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
-      && operand_equal_p (rhs1, rhs2, 0))
-    {
-#ifdef ENABLE_CHECKING
-	  if (true_false_expr_hash (rhs1) != true_false_expr_hash (rhs2))
-	    abort ();
-#endif
-	  return true;
-    }
-  return false;
-}
-
 /* Hashing and equality functions for AVAIL_EXPRS.  The table stores
    MODIFY_EXPR statements.  We compute a value number for expressions using
    the code of the expression and the SSA numbers of its operands.  */
@@ -3196,182 +3640,138 @@ true_false_expr_eq (const void *p1, const void *p2)
 static hashval_t
 avail_expr_hash (const void *p)
 {
+  stmt_ann_t ann = ((struct expr_hash_elt *)p)->ann;
+  tree rhs = ((struct expr_hash_elt *)p)->rhs;
   hashval_t val = 0;
-  tree rhs;
   size_t i;
   vuse_optype vuses;
-  tree stmt = (tree) p;
 
-  /* Find the location of the expression we care about.  Unfortunately,
-     its location differs depending on the type of statement we are
-     examining.  */
-  if (TREE_CODE (stmt) == COND_EXPR)
-    rhs = COND_EXPR_COND (stmt);
-  else if (TREE_CODE (stmt) == SWITCH_EXPR)
-    rhs = SWITCH_COND (stmt);
-  else if (TREE_CODE (stmt) == RETURN_EXPR && TREE_OPERAND (stmt, 0))
-    rhs = TREE_OPERAND (TREE_OPERAND (stmt, 0), 1);
-  else
-    rhs = TREE_OPERAND (stmt, 1);
- 
   /* iterative_hash_expr knows how to deal with any expression and
      deals with commutative operators as well, so just use it instead
      of duplicating such complexities here.  */
   val = iterative_hash_expr (rhs, val);
 
+  /* If the hash table entry is not associated with a statement, then we
+     can just hash the expression and not worry about virtual operands
+     and such.  */
+  if (!ann)
+    return val;
+
   /* Add the SSA version numbers of every vuse operand.  This is important
      because compound variables like arrays are not renamed in the
      operands.  Rather, the rename is done on the virtual variable
      representing all the elements of the array.  */
-  vuses = STMT_VUSE_OPS (stmt);
+  vuses = VUSE_OPS (ann);
   for (i = 0; i < NUM_VUSES (vuses); i++)
     val = iterative_hash_expr (VUSE_OP (vuses, i), val);
 
   return val;
 }
 
+static hashval_t
+real_avail_expr_hash (const void *p)
+{
+  return ((const struct expr_hash_elt *)p)->hash;
+}
 
 static int
 avail_expr_eq (const void *p1, const void *p2)
 {
-  tree s1, s2, rhs1, rhs2;
+  stmt_ann_t ann1 = ((struct expr_hash_elt *)p1)->ann;
+  tree rhs1 = ((struct expr_hash_elt *)p1)->rhs;
+  stmt_ann_t ann2 = ((struct expr_hash_elt *)p2)->ann;
+  tree rhs2 = ((struct expr_hash_elt *)p2)->rhs;
 
-  s1 = (tree) p1;
-  if (TREE_CODE (s1) == COND_EXPR)
-    rhs1 = COND_EXPR_COND (s1);
-  else if (TREE_CODE (s1) == SWITCH_EXPR)
-    rhs1 = SWITCH_COND (s1);
-  else if (TREE_CODE (s1) == RETURN_EXPR && TREE_OPERAND (s1, 0))
-    rhs1 = TREE_OPERAND (TREE_OPERAND (s1, 0), 1);
-  else
-    rhs1 = TREE_OPERAND (s1, 1);
-
-  s2 = (tree) p2;
-  if (TREE_CODE (s2) == COND_EXPR)
-    rhs2 = COND_EXPR_COND (s2);
-  else if (TREE_CODE (s2) == SWITCH_EXPR)
-    rhs2 = SWITCH_COND (s2);
-  else if (TREE_CODE (s2) == RETURN_EXPR && TREE_OPERAND (s2, 0))
-    rhs2 = TREE_OPERAND (TREE_OPERAND (s2, 0), 1);
-  else
-    rhs2 = TREE_OPERAND (s2, 1);
-
-  /* If they are the same physical statement, return true.  */
-  if (s1 == s2)
+  /* If they are the same physical expression, return true.  */
+  if (rhs1 == rhs2 && ann1 == ann2)
     return true;
+
+  /* If their codes are not equal, then quit now.  */
+  if (TREE_CODE (rhs1) != TREE_CODE (rhs2))
+    return false;
 
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && (TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-	  || (TYPE_MAIN_VARIANT (TREE_TYPE (rhs1))
-	      == TYPE_MAIN_VARIANT (TREE_TYPE (rhs2))))
-      && operand_equal_p (rhs1, rhs2, 0))
+  if ((TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
+       || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
+      && operand_equal_p (rhs1, rhs2, OEP_PURE_SAME))
     {
-      vuse_optype ops1 = STMT_VUSE_OPS (s1);
-      vuse_optype ops2 = STMT_VUSE_OPS (s2);
-      size_t num_ops1 = NUM_VUSES (ops1);
-      size_t num_ops2 = NUM_VUSES (ops2);
+      vuse_optype ops1 = NULL;
+      vuse_optype ops2 = NULL;
+      size_t num_ops1 = 0;
+      size_t num_ops2 = 0;
+      size_t i;
 
-      if (num_ops1 == 0 && num_ops2 == 0)
+      if (ann1)
 	{
-#ifdef ENABLE_CHECKING
-	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
-	    abort ();
-#endif
-	  return true;
+	  ops1 = VUSE_OPS (ann1);
+	  num_ops1 = NUM_VUSES (ops1);
 	}
 
-      /* If one has virtual operands and the other does not, then we
-	 consider them not equal.  */
-      if ((num_ops1 == 0 && num_ops2 != 0)
-	  || (num_ops1 != 0 && num_ops2 == 0))
+      if (ann2)
+	{
+	  ops2 = VUSE_OPS (ann2);
+	  num_ops2 = NUM_VUSES (ops2);
+	}
+
+      /* If the number of virtual uses is different, then we consider
+	 them not equal.  */
+      if (num_ops1 != num_ops2)
 	return false;
 
-      if (num_ops1 == num_ops2)
-	{
-	  size_t i;
-	  for (i = 0; i < num_ops1; i++)
-	    if (VUSE_OP (ops1, i) != VUSE_OP (ops2, i))
-	      return false;
+      for (i = 0; i < num_ops1; i++)
+	if (VUSE_OP (ops1, i) != VUSE_OP (ops2, i))
+	  return false;
 
 #ifdef ENABLE_CHECKING
-	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
-	    abort ();
+      if (((struct expr_hash_elt *)p1)->hash
+	  != ((struct expr_hash_elt *)p2)->hash)
+	abort ();
 #endif
-	  return true;
-	}
+      return true;
     }
 
   return false;
 }
 
-/* Replace the operand pointed to by OP_P with variable VAR.  If *OP_P is a
-   pointer, copy the memory tag used originally by *OP_P into VAR.  This is
-   needed in cases where VAR had never been dereferenced in the program.  */
-   
-void
-propagate_copy (tree *op_p, tree var)
-{
-#if defined ENABLE_CHECKING
-  if (!may_propagate_copy (*op_p, var))
-    abort ();
-#endif
-
-  /* If VAR doesn't have a memory tag, copy the one from the original
-     operand.  Also copy the dereferenced flags.  */
-  if (POINTER_TYPE_P (TREE_TYPE (*op_p)))
-    {
-      var_ann_t new_ann = var_ann (SSA_NAME_VAR (var));
-      var_ann_t orig_ann = var_ann (SSA_NAME_VAR (*op_p));
-
-      /* Merge the dereferenced attributes for the replacement variable.
-	 Note that we cannot just copy them.  Otherwise, we would mess
-	 things up if the original variable wasn't dereferenced but the
-	 replacement was.  */
-      new_ann->is_dereferenced_store |= orig_ann->is_dereferenced_store;
-      new_ann->is_dereferenced_load |= orig_ann->is_dereferenced_load;
-
-      if (new_ann->type_mem_tag == NULL_TREE)
-	new_ann->type_mem_tag = orig_ann->type_mem_tag;
-      else if (orig_ann->type_mem_tag == NULL_TREE)
-	orig_ann->type_mem_tag = new_ann->type_mem_tag;
-      else if (new_ann->type_mem_tag != orig_ann->type_mem_tag)
-	abort ();
-    }
-
-  *op_p = var;
-}
-
-/* Given STMT and a pointer to the block local defintions BLOCK_DEFS_P,
+/* Given STMT and a pointer to the block local definitions BLOCK_DEFS_P,
    register register all objects set by this statement into BLOCK_DEFS_P
    and CURRDEFS.  */
 
 static void
-register_definitions_for_stmt (tree stmt, varray_type *block_defs_p)
+register_definitions_for_stmt (stmt_ann_t ann, varray_type *block_defs_p)
 {
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   unsigned int i;
 
-  defs = STMT_DEF_OPS (stmt);
+  defs = DEF_OPS (ann);
   for (i = 0; i < NUM_DEFS (defs); i++)
     {
       tree def = DEF_OP (defs, i);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (def), def, block_defs_p, currdefs);
+      register_new_def (def, block_defs_p);
     }
 
   /* Register new virtual definitions made by the statement.  */
-  vdefs = STMT_VDEF_OPS (stmt);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)),
-			VDEF_RESULT (vdefs, i), block_defs_p, currdefs);
+      register_new_def (V_MAY_DEF_RESULT (v_may_defs, i), block_defs_p);
+    }
+    
+  /* Register new virtual mustdefs made by the statement.  */
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
+      register_new_def (V_MUST_DEF_OP (v_must_defs, i), block_defs_p);
     }
 }
 

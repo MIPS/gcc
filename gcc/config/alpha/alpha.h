@@ -67,6 +67,8 @@ Boston, MA 02111-1307, USA.  */
 	  builtin_define ("_IEEE_FP");			\
 	if (TARGET_IEEE_WITH_INEXACT)			\
 	  builtin_define ("_IEEE_FP_INEXACT");		\
+	if (TARGET_LONG_DOUBLE_128)			\
+	  builtin_define ("__LONG_DOUBLE_128__");	\
 							\
 	/* Macros dependent on the C dialect.  */	\
 	SUBTARGET_LANGUAGE_CPP_BUILTINS();		\
@@ -229,6 +231,11 @@ extern int alpha_tls_size;
 #define MASK_SMALL_TEXT (1 << 15)
 #define TARGET_SMALL_TEXT (target_flags & MASK_SMALL_TEXT)
 
+/* This means use IEEE quad-format for long double.  Assumes the 
+   presence of the GEM support library routines.  */
+#define MASK_LONG_DOUBLE_128 (1 << 16)
+#define TARGET_LONG_DOUBLE_128 (target_flags & MASK_LONG_DOUBLE_128)
+
 /* This means that the processor is an EV5, EV56, or PCA56.
    Unlike alpha_cpu this is not affected by -mtune= setting.  */
 #define MASK_CPU_EV5	(1 << 28)
@@ -261,7 +268,7 @@ extern int alpha_tls_size;
 #define TARGET_CAN_FAULT_IN_PROLOGUE 0
 #endif
 #ifndef TARGET_HAS_XFLOATING_LIBS
-#define TARGET_HAS_XFLOATING_LIBS 0
+#define TARGET_HAS_XFLOATING_LIBS TARGET_LONG_DOUBLE_128
 #endif
 #ifndef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 0
@@ -322,6 +329,10 @@ extern int alpha_tls_size;
     {"large-text", -MASK_SMALL_TEXT, ""},				\
     {"tls-kernel", MASK_TLS_KERNEL,					\
      N_("Emit rdval instead of rduniq for thread pointer")},		\
+    {"long-double-128", MASK_LONG_DOUBLE_128,				\
+     N_("Use 128-bit long double")},					\
+    {"long-double-64", -MASK_LONG_DOUBLE_128,				\
+     N_("Use 64-bit long double")},					\
     {"", TARGET_DEFAULT | TARGET_CPU_DEFAULT				\
 	 | TARGET_DEFAULT_EXPLICIT_RELOCS, ""} }
 
@@ -438,7 +449,18 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE 64
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_128 ? 128 : 64)
+
+/* Define this to set long double type size to use in libgcc2.c, which can
+   not depend on target_flags.  */
+#ifdef __LONG_DOUBLE_128__
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
+#else
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#endif
+
+/* Work around target_flags dependency in ada/targtyps.c.  */
+#define WIDEST_HARDWARE_FP_SIZE 64
 
 #define	WCHAR_TYPE "unsigned int"
 #define	WCHAR_TYPE_SIZE 32
@@ -490,7 +512,7 @@ extern const char *alpha_tls_size_string; /* For -mtls-size= */
 #define PARM_BOUNDARY 64
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY 64
+#define STACK_BOUNDARY 128
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -1018,10 +1040,9 @@ extern int alpha_memory_latency;
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)			\
-  if (MUST_PASS_IN_STACK (MODE, TYPE))					\
-    (CUM) = 6;								\
-  else									\
-    (CUM) += ALPHA_ARG_SIZE (MODE, TYPE, NAMED)
+  ((CUM) += 								\
+   (targetm.calls.must_pass_in_stack (MODE, TYPE))			\
+    ? 6 : ALPHA_ARG_SIZE (MODE, TYPE, NAMED))
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -1041,15 +1062,6 @@ extern int alpha_memory_latency;
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
   function_arg((CUM), (MODE), (TYPE), (NAMED))
-
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ((MODE) == TFmode || (MODE) == TCmode)
 
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
@@ -1325,7 +1337,7 @@ do {									     \
 #define MOVE_MAX 8
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movstr or libcall instead.
+   move-instruction pairs, we will do a movmem or libcall instead.
 
    Without byte/word accesses, we want no more than four instructions;
    with, several single byte accesses are better.  */
@@ -1663,10 +1675,6 @@ do {						\
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   alpha_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  alpha_va_arg (valist, type)
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF
@@ -1814,9 +1822,3 @@ do {							\
 
 /* The system headers under Alpha systems are generally C++-aware.  */
 #define NO_IMPLICIT_EXTERN_C
-
-/* Generate calls to memcpy, etc., not bcopy, etc.  */
-#define TARGET_MEM_FUNCTIONS 1
-
-/* Pass complex arguments independently.  */
-#define SPLIT_COMPLEX_ARGS 1

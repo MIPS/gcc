@@ -1,23 +1,24 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Handle the inevitable errors.  A major catch here is that things
    flagged as errors in one match subroutine can conceivably be legal
@@ -117,8 +118,9 @@ error_string (const char *p)
 static void error_printf (const char *, ...) ATTRIBUTE_PRINTF_1;
 
 static void
-show_locus (int offset, locus * l)
+show_locus (int offset, locus * loc)
 {
+  gfc_linebuf *lb;
   gfc_file *f;
   char c, *p;
   int i, m;
@@ -126,20 +128,25 @@ show_locus (int offset, locus * l)
   /* TODO: Either limit the total length and number of included files
      displayed or add buffering of arbitrary number of characters in
      error messages.  */
-  f = l->file;
-  error_printf ("In file %s:%d\n", f->filename, l->lp->start_line + l->line);
 
-  f = f->included_by;
-  while (f != NULL)
+  lb = loc->lb;
+  f = lb->file;
+  error_printf ("In file %s:%d\n", f->filename, lb->linenum);
+
+  for (;;)
     {
-      error_printf ("    Included at %s:%d\n", f->filename,
-		    f->loc.lp->start_line + f->loc.line);
+      i = f->inclusion_line;
+
       f = f->included_by;
+      if (f == NULL) break;
+
+      error_printf ("    Included at %s:%d\n", f->filename, i);
     }
 
   /* Show the line itself, taking care not to print more than what can
      show up on the terminal.  Tabs are converted to spaces.  */
-  p = l->lp->line[l->line] + offset;
+
+  p = lb->line + offset;
   i = strlen (p);
   if (i > terminal_width)
     i = terminal_width - 1;
@@ -189,12 +196,12 @@ show_loci (locus * l1, locus * l2)
       return;
     }
 
-  c1 = l1->nextc - l1->lp->line[l1->line];
+  c1 = l1->nextc - l1->lb->line;
   c2 = 0;
   if (l2 == NULL)
     goto separate;
 
-  c2 = l2->nextc - l2->lp->line[l2->line];
+  c2 = l2->nextc - l2->lb->line;
 
   if (c1 < c2)
     m = c2 - c1;
@@ -202,7 +209,7 @@ show_loci (locus * l1, locus * l2)
     m = c1 - c2;
 
 
-  if (l1->lp != l2->lp || l1->line != l2->line || m > terminal_width - 10)
+  if (l1->lb != l2->lb || m > terminal_width - 10)
     goto separate;
 
   offset = 0;
@@ -331,7 +338,7 @@ error_print (const char *type, const char *format0, va_list argp)
 
 	    case 'C':
 	      if (c == 'C')
-		loc = gfc_current_locus ();
+		loc = &gfc_current_locus;
 
 	      if (have_l1)
 		{
@@ -645,7 +652,7 @@ gfc_internal_error (const char *format, ...)
 
   va_start (argp, format);
 
-  show_loci (gfc_current_locus (), NULL);
+  show_loci (&gfc_current_locus, NULL);
   error_printf ("Internal Error at (1):");
 
   error_print ("", format, argp);

@@ -2,22 +2,22 @@
    Copyright (C) 2003 Free Software Foundaton, Inc.
    Contributed by Steven Bosscher
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #ifndef GFC_PARSE_H
@@ -40,6 +40,8 @@ typedef struct gfc_state_data
 {
   gfc_compile_state state;
   gfc_symbol *sym;              /* Block name associated with this level */
+  gfc_symtree *do_variable;     /* For DO blocks the iterator variable.  */
+
   struct gfc_code *head, *tail;
   struct gfc_state_data *previous;
 
@@ -57,6 +59,7 @@ extern gfc_state_data *gfc_state_stack;
 #define gfc_current_block() (gfc_state_stack->sym)
 #define gfc_current_state() (gfc_state_stack->state)
 
+int gfc_check_do_variable (gfc_symtree *);
 try gfc_find_state (gfc_compile_state);
 gfc_state_data *gfc_enclosing_unit (gfc_compile_state *);
 const char *gfc_ascii_statement (gfc_statement);

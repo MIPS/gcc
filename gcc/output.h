@@ -157,6 +157,9 @@ extern int regno_clobbered_at_setjmp (int);
 /* Tell assembler to switch to text section.  */
 extern void text_section (void);
 
+/* Tell assembler to switch to unlikely-to-be-executed text section.  */
+extern void unlikely_text_section (void);
+
 /* Tell assembler to switch to data section.  */
 extern void data_section (void);
 
@@ -166,6 +169,9 @@ extern void readonly_data_section (void);
 
 /* Determine if we're in the text section.  */
 extern int in_text_section (void);
+
+/* Determine if we're in the unlikely-to-be-executed text section.  */
+extern int in_unlikely_text_section (void);
 
 #ifdef CTORS_SECTION_ASM_OP
 extern void ctors_section (void);
@@ -393,11 +399,6 @@ extern const char *weak_global_object_name;
 
 extern int current_function_is_leaf;
 
-/* Nonzero if function being compiled doesn't contain any instructions
-   that can throw an exception.  This is set prior to final.  */
-
-extern int current_function_nothrow;
-
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
    life_analysis has run.  */
@@ -413,7 +414,7 @@ extern int current_function_uses_only_leaf_regs;
 /* Default file in which to dump debug output.  */
 
 #ifdef BUFSIZ
-extern FILE *rtl_dump_file;
+extern FILE *dump_file;
 #endif
 
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
@@ -426,6 +427,11 @@ extern rtx current_output_insn;
    This means that inconsistencies are the user's fault, so don't abort.
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
+
+/* Carry information from ASM_DECLARE_OBJECT_NAME
+   to ASM_FINISH_DECLARE_OBJECT.  */
+extern int size_directive_output;
+extern tree last_assemble_variable_decl;
 
 /* Decide whether DECL needs to be in a writable section.
    RELOC is the same as for SELECT_SECTION.  */
@@ -504,6 +510,7 @@ extern const char *default_strip_name_encoding (const char *);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
+extern void default_emit_unwind_label (FILE *, tree, int, int);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);

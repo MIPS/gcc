@@ -441,11 +441,7 @@ enum reg_class
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (& CUM, MODE, TYPE, NAMED)
 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
-  function_arg_pass_by_reference (& CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
-  ((NAMED) && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) (NAMED)
 
 #define MAX_ARGS_IN_REGISTERS 8
 
@@ -543,10 +539,6 @@ typedef struct iq2000_args
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   iq2000_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  iq2000_va_arg (valist, type)
 
 
 /* Trampolines for Nested Functions.  */
@@ -698,8 +690,6 @@ typedef struct iq2000_args
 #define SLOW_BYTE_ACCESS 1
 
 #define NO_FUNCTION_CSE 1
-
-#define NO_RECURSIVE_FUNCTION_CSE 1
 
 #define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
   if (REG_NOTE_KIND (LINK) != 0)					\
@@ -865,8 +855,6 @@ while (0)
   {"power_of_2_operand",	{ CONST_INT }},
 
 #define CASE_VECTOR_MODE SImode
-
-#define CASE_VECTOR_PC_RELATIVE 0
 
 #define WORD_REGISTER_OPERATIONS
 

@@ -90,7 +90,7 @@ case "${host}" in
 	;;
   i686-*|i586-*|i486-*|i386-*)
 	sysdeps_dir=i386
-	libgcj_flags="${libgcj_flags} -ffloat-store"
+	libgcj_flags="${libgcj_flags} -ffloat-store -fno-omit-frame-pointer"
 	libgcj_interpreter=yes
 	libgcj_cxxflags=
 	libgcj_cflags=
@@ -115,6 +115,11 @@ case "${host}" in
 	enable_hash_synchronization_default=yes
 	IEEESPEC=-mieee
 	;;
+  hppa-*)
+	sysdeps_dir=pa
+	libgcj_interpreter=yes
+	enable_hash_synchronization_default=yes
+	;;
   powerpc64*-*)
 	sysdeps_dir=powerpc
 	libgcj_interpreter=yes
@@ -133,6 +138,7 @@ case "${host}" in
   s390*-*)
 	sysdeps_dir=s390
 	libgcj_interpreter=yes
+	DIVIDESPEC=-fno-use-divide-subroutine
 	enable_hash_synchronization_default=yes
 	;;
   sparc*-*)
@@ -164,6 +170,7 @@ case "${host}" in
   sparc*-linux* | \
   ia64-* | \
   x86_64*-linux* | \
+  hppa*-linux* | \
   sh-linux* | sh[34]*-linux*)
   	can_unwind_signal=yes
 	if test x$slow_pthread_self = xyes \
@@ -227,10 +234,10 @@ EOF
 	    ;;
 	esac
 	;;
-  *-*-darwin*)
-	enable_hash_synchronization_default=no
+  powerpc*-*-darwin*)
+	enable_hash_synchronization_default=yes
 	slow_pthread_self=
-	can_unwind_signal=no
+	can_unwind_signal=yes
 	;;
   *-*-freebsd*)
 	slow_pthread_self=

@@ -1,5 +1,5 @@
 /* Precompiled header implementation for the C languages.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,6 +35,23 @@ Boston, MA 02111-1307, USA.  */
 #include "hosthooks.h"
 #include "target.h"
 
+/* This is a list of flag variables that must match exactly, and their
+   names for the error message.  The possible values for *flag_var must
+   fit in a 'signed char'.  */
+
+static const struct c_pch_matching 
+{
+  int *flag_var;
+  const char *flag_name;
+} pch_matching[] = {
+  { &flag_exceptions, "-fexceptions" },
+  { &flag_unit_at_a_time, "-funit-at-a-time" }
+};
+
+enum {
+  MATCH_SIZE = ARRAY_SIZE (pch_matching)
+};
+
 /* This structure is read very early when validating the PCH, and
    might be read for a PCH which is for a completely different compiler
    for a different operating system.  Thus, it should really only contain
@@ -52,6 +69,7 @@ struct c_pch_validity
   unsigned char target_machine_length;
   unsigned char version_length;
   unsigned char debug_info_type;
+  signed char match[MATCH_SIZE];
   void (*pch_init) (void);
   size_t target_data_length;
 };
@@ -120,6 +138,15 @@ pch_init (void)
   v.target_machine_length = strlen (target_machine);
   v.version_length = strlen (version_string);
   v.debug_info_type = write_symbols;
+  {
+    size_t i;
+    for (i = 0; i < MATCH_SIZE; i++)
+      {
+	v.match[i] = *pch_matching[i].flag_var;
+	if (v.match[i] != *pch_matching[i].flag_var)
+	  abort ();
+      }
+  }
   v.pch_init = &pch_init;
   target_validity = targetm.get_pch_validity (&v.target_data_length);
   
@@ -167,7 +194,6 @@ c_common_write_pch (void)
     fatal_error ("can't write %s: %m", pch_file);
   
   buf = xmalloc (16384);
-  fflush (asm_out_file);
 
   if (fseek (asm_out_file, asm_file_startpos, SEEK_SET) != 0)
     fatal_error ("can't seek in %s: %m", asm_file_name);
@@ -184,8 +210,10 @@ c_common_write_pch (void)
       written += size;
     }
   free (buf);
-  /* asm_out_file can be written afterwards, so must be flushed first.  */
-  fflush (asm_out_file);
+  /* asm_out_file can be written afterwards, so fseek to clear
+     _IOREAD flag.  */
+  if (fseek (asm_out_file, 0, SEEK_END) != 0)
+    fatal_error ("can't seek in %s: %m", asm_file_name);
 
   gt_pch_save (pch_outfile);
   cpp_write_pch_state (parse_in, pch_outfile);
@@ -302,6 +330,20 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
       return 2;
     }
 
+  /* Check flags that must match exactly.  */
+  {
+    size_t i;
+    for (i = 0; i < MATCH_SIZE; i++)
+      if (*pch_matching[i].flag_var != v.match[i])
+	{
+	  if (cpp_get_options (pfile)->warn_invalid_pch)
+	    cpp_error (pfile, CPP_DL_WARNING, 
+		       "%s: settings for %s do not match", name,
+		       pch_matching[i].flag_name);
+	  return 2;
+	}
+  }
+
   /* If the text segment was not loaded at the same address as it was
      when the PCH file was created, function pointers loaded from the
      PCH will not be valid.  We could in theory remap all the function
@@ -342,6 +384,10 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     return result == 0;
 }
 
+/* If non-NULL, this function is called after a precompile header file
+   is loaded.  */
+void (*lang_post_pch_load) (void);
+
 /* Load in the PCH file NAME, open on FD.  It was originally searched for
    by ORIG_NAME.  */
 
@@ -351,8 +397,6 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
 {
   FILE *f;
   struct c_pch_header h;
-  char *buf;
-  unsigned long written;
   struct save_macro_data *smd;
   
   f = fdopen (fd, "rb");
@@ -370,18 +414,30 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
       return;
     }
 
-  buf = xmalloc (16384);
-  for (written = 0; written < h.asm_size; )
+  if (!flag_preprocess_only)
     {
-      long size = h.asm_size - written;
-      if (size > 16384)
-	size = 16384;
-      if (fread (buf, size, 1, f) != 1
-	  || fwrite (buf, size, 1, asm_out_file) != 1)
-	cpp_errno (pfile, CPP_DL_ERROR, "reading");
-      written += size;
+      unsigned long written;
+      char * buf = xmalloc (16384);
+
+      for (written = 0; written < h.asm_size; )
+	{
+	  long size = h.asm_size - written;
+	  if (size > 16384)
+	    size = 16384;
+	  if (fread (buf, size, 1, f) != 1
+	      || fwrite (buf, size, 1, asm_out_file) != 1)
+	    cpp_errno (pfile, CPP_DL_ERROR, "reading");
+	  written += size;
+	}
+      free (buf);
     }
-  free (buf);
+  else
+    {
+      /* If we're preprocessing, don't write to a NULL
+	 asm_out_file.  */
+      if (fseek (f, h.asm_size, SEEK_CUR) != 0)
+	cpp_errno (pfile, CPP_DL_ERROR, "seeking");
+    }
 
   cpp_prepare_state (pfile, &smd);
 
@@ -391,6 +447,11 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
     return;
 
   fclose (f);
+  
+  /* Give the front end a chance to take action after a PCH file has
+     been loadeded.  */
+  if (lang_post_pch_load)
+    (*lang_post_pch_load) ();
 }
 
 /* Indicate that no more PCH files should be read.  */
@@ -401,6 +462,50 @@ c_common_no_more_pch (void)
   if (cpp_get_callbacks (parse_in)->valid_pch)
     {
       cpp_get_callbacks (parse_in)->valid_pch = NULL;
-      host_hooks.gt_pch_use_address (NULL, 0);
+      host_hooks.gt_pch_use_address (NULL, 0, -1, 0);
     }
+}
+
+/* Handle #pragma GCC pch_preprocess, to load in the PCH file.  */
+
+#ifndef O_BINARY
+# define O_BINARY 0
+#endif
+
+void
+c_common_pch_pragma (cpp_reader *pfile)
+{
+  tree name_t;
+  const char *name;
+  int fd;
+
+  if (c_lex (&name_t) != CPP_STRING)
+    {
+      error ("malformed #pragma GCC pch_preprocess, ignored");
+      return;
+    }
+
+  if (! cpp_get_options (pfile)->preprocessed)
+    {
+      error ("pch_preprocess pragma should only be used with -fpreprocessed");
+      inform ("use #include instead");
+      return;
+    }
+
+  name = TREE_STRING_POINTER (name_t);
+  
+  fd = open (name, O_RDONLY | O_BINARY, 0666);
+  if (fd == -1)
+    fatal_error ("%s: couldn't open PCH file: %m\n", name);
+  
+  if (c_common_valid_pch (pfile, name, fd) != 1)
+    {
+      if (!cpp_get_options (pfile)->warn_invalid_pch)
+	inform ("use -Winvalid-pch for more information");
+      fatal_error ("%s: PCH file was invalid", name);
+    }
+  
+  c_common_read_pch (pfile, name, fd, name);
+  
+  close (fd);
 }

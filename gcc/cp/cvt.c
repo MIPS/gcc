@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -552,9 +552,6 @@ convert_to_reference (tree reftype, tree expr, int convtype,
   if (flags & LOOKUP_COMPLAIN)
     error ("cannot convert type `%T' to type `%T'", intype, reftype);
 
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
-
   return error_mark_node;
 }
 
@@ -689,8 +686,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	    return rval;
 	  if (flags & LOOKUP_COMPLAIN)
 	    error ("`%#T' used where a `%T' was expected", intype, type);
-	  if (flags & LOOKUP_SPECULATIVELY)
-	    return NULL_TREE;
 	  return error_mark_node;
 	}
       if (code == BOOLEAN_TYPE)
@@ -753,7 +748,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	ctor = build_special_member_call (NULL_TREE, 
 					  complete_ctor_identifier,
 					  build_tree_list (NULL_TREE, ctor),
-					  TYPE_BINFO (type), flags);
+					  type, flags);
       if (ctor)
 	return build_cplus_new (type, ctor);
     }
@@ -761,8 +756,6 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (flags & LOOKUP_COMPLAIN)
     error ("conversion from `%T' to non-scalar type `%T' requested",
 	      TREE_TYPE (expr), type);
-  if (flags & LOOKUP_SPECULATIVELY)
-    return NULL_TREE;
   return error_mark_node;
 }
 
@@ -791,6 +784,8 @@ convert_to_void (tree expr, const char *implicit)
     return error_mark_node;
   if (!TREE_TYPE (expr))
     return expr;
+  if (invalid_nonstatic_memfn_p (expr))
+    return error_mark_node;
   if (VOID_TYPE_P (TREE_TYPE (expr)))
     return expr;
   switch (TREE_CODE (expr))
@@ -1042,8 +1037,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 
   /* The code for conversions from class type is currently only used for
      delete expressions.  Other expressions are handled by build_new_op.  */
-
-  if (! TYPE_HAS_CONVERSION (basetype))
+  if (!complete_type_or_else (basetype, expr))
+    return error_mark_node;
+  if (!TYPE_HAS_CONVERSION (basetype))
     return NULL_TREE;
 
   for (conv = lookup_conversions (basetype); conv; conv = TREE_CHAIN (conv))
@@ -1123,7 +1119,7 @@ type_promotes_to (tree type)
       int precision = MAX (TYPE_PRECISION (type),
 			   TYPE_PRECISION (integer_type_node));
       tree totype = c_common_type_for_size (precision, 0);
-      if (TREE_UNSIGNED (type)
+      if (TYPE_UNSIGNED (type)
 	  && ! int_fits_type_p (TYPE_MAX_VALUE (type), totype))
 	type = c_common_type_for_size (precision, 1);
       else
@@ -1132,7 +1128,7 @@ type_promotes_to (tree type)
   else if (c_promoting_integer_type_p (type))
     {
       /* Retain unsignedness if really not getting bigger.  */
-      if (TREE_UNSIGNED (type)
+      if (TYPE_UNSIGNED (type)
 	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
 	type = unsigned_type_node;
       else

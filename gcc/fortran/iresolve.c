@@ -1,23 +1,24 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Assign name and types to intrinsic procedures.  For functions, the
@@ -910,6 +911,16 @@ gfc_resolve_modulo (gfc_expr * f, gfc_expr * a,
 		    a->ts.kind);
 }
 
+void
+gfc_resolve_nearest (gfc_expr * f, gfc_expr * a,
+             gfc_expr *p ATTRIBUTE_UNUSED)
+{
+
+  f->ts = a->ts;
+  f->value.function.name =
+    gfc_get_string ("__nearest_%c%d", gfc_type_letter (a->ts.type),
+            a->ts.kind);
+}
 
 void
 gfc_resolve_nint (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
@@ -1352,12 +1363,113 @@ gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
   int kind;
 
   kind = c->ext.actual->expr->ts.kind;
-  name = gfc_get_string ((c->ext.actual->expr->rank == 0) ?
-			   PREFIX("random_r%d") : PREFIX("arandom_r%d"),
-			 kind);
+  if (c->ext.actual->expr->rank == 0)
+    name = gfc_get_string (PREFIX("random_r%d"), kind);
+  else
+    name = gfc_get_string (PREFIX("arandom_r%d"), kind);
+  
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+
+}
+
+
+/* G77 compatibility subroutines etime() and dtime().  */
+
+void
+gfc_resolve_etime_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("etime_sub"));
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 
+
+/* G77 compatibility subroutine second().  */
+
+void
+gfc_resolve_second_sub (gfc_code * c)
+{
+  const char *name;
+
+  name = gfc_get_string (PREFIX("second_sub"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* G77 compatibility function srand().  */
+
+void
+gfc_resolve_srand (gfc_code * c)
+{
+  const char *name;
+  name = gfc_get_string (PREFIX("srand"));
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* Resolve the getarg intrinsic subroutine.  */
+
+void
+gfc_resolve_getarg (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  kind = gfc_default_integer_kind ();
+  name = gfc_get_string (PREFIX("getarg_i%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* Resolve the get_command intrinsic subroutine.  */
+
+void
+gfc_resolve_get_command (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  kind = gfc_default_integer_kind ();
+  name = gfc_get_string (PREFIX("get_command_i%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* Resolve the get_command_argument intrinsic subroutine.  */
+
+void
+gfc_resolve_get_command_argument (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  kind = gfc_default_integer_kind ();
+  name = gfc_get_string (PREFIX("get_command_argument_i%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* Determine if the arguments to SYSTEM_CLOCK are INTEGER(4) or INTEGER(8) */
+
+void
+gfc_resolve_system_clock (gfc_code * c)
+{
+  const char *name;
+  int kind;
+
+  if (c->ext.actual->expr != NULL)
+    kind = c->ext.actual->expr->ts.kind;
+  else if (c->ext.actual->next->expr != NULL)
+      kind = c->ext.actual->next->expr->ts.kind;
+  else if (c->ext.actual->next->next->expr != NULL)
+      kind = c->ext.actual->next->next->expr->ts.kind;
+  else
+    kind = gfc_default_integer_kind ();
+
+  name = gfc_get_string (PREFIX("system_clock_%d"), kind);
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
 
 void
 gfc_iresolve_init_1 (void)

@@ -44,13 +44,8 @@ static void vfail(const char *fmt, va_list args) __attribute__((__noreturn__));
 static void vfail(const char *fmt, va_list args)
 {
   vfprintf(stderr, fmt, args);
-  fflush(stdin);
   fflush(stderr);
   fflush(stdout);
-  sync();
-  fsync(STDIN_FILENO);
-  fsync(STDERR_FILENO);
-  fsync(STDOUT_FILENO);
   abort();
   while (1); /* Work around stupid gcc-2.96-85 bug */
 }
@@ -172,9 +167,9 @@ char *ptr_to_ascii(void *ptr) {
 }
 
 /* Convert a pointer to an integer */
-int ptr_hash(void *ptr)
+long ptr_hash(void *ptr)
 {
-  return (int) ptr;
+  return (long) ptr;
 }
 
 /* Return TRUE iff ptr1 == ptr2 */
@@ -196,6 +191,4 @@ int ptr_cmp(const void *ptr1, const void *ptr2)
   return (char *) ptr1 - (char *) ptr2;
 }
 
-int min(int a, int b) { if (a < b) return a; else return b; }
-int max(int a, int b) { if (a < b) return b; else return a; }
 /* int abs(int a) { if (a < 0) return -a; else return a; } */

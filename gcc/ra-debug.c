@@ -1,5 +1,5 @@
 /* Graph coloring register allocator
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Michael Matz <matz@suse.de>
    and Daniel Berlin <dan@cgsoftware.com>.
 
@@ -54,8 +54,8 @@ ra_debug_msg (unsigned int level, const char *format, ...)
   va_list ap;
   
   va_start (ap, format);
-  if ((debug_new_regalloc & level) != 0 && rtl_dump_file != NULL)
-    vfprintf (rtl_dump_file, format, ap);
+  if ((debug_new_regalloc & level) != 0 && dump_file != NULL)
+    vfprintf (dump_file, format, ap);
   va_end (ap);
 }
 
@@ -130,9 +130,11 @@ ra_print_rtx_2op (FILE *file, rtx x)
       case AND: opname = "&"; break;
       case IOR: opname = "|"; break;
       case XOR: opname = "^"; break;
-      /* class '<' */
+      /* class '=' */
       case NE: opname = "!="; break;
       case EQ: opname = "=="; break;
+      case LTGT: opname = "<>"; break;
+      /* class '<' */
       case GE: opname = "s>="; break;
       case GT: opname = "s>"; break;
       case LE: opname = "s<="; break;
@@ -196,7 +198,7 @@ ra_print_rtx_3op (FILE *file, rtx x)
     }
 }
 
-/* Print rtx X, which represents an object (class 'o' or some constructs
+/* Print rtx X, which represents an object (class 'o', 'C', or some constructs
    of class 'x' (e.g. subreg)), to FILE.
    (reg XX) rtl is represented as "pXX", of XX was a pseudo,
    as "name" it name is the nonnull hardreg name, or as "hXX", if XX
@@ -269,7 +271,7 @@ ra_print_rtx_object (FILE *file, rtx x)
 	       {
 		 rtx sub = SUBREG_REG (x);
 		 int ofs = SUBREG_BYTE (x);
-		 if (GET_CODE (sub) == REG
+		 if (REG_P (sub)
 		     && REGNO (sub) < FIRST_PSEUDO_REGISTER)
 		   {
 		     int regno = REGNO (sub);
@@ -315,10 +317,10 @@ ra_print_rtx_object (FILE *file, rtx x)
       case LABEL_REF:
 		  {
 		    rtx sub = XEXP (x, 0);
-		    if (GET_CODE (sub) == NOTE
+		    if (NOTE_P (sub)
 			&& NOTE_LINE_NUMBER (sub) == NOTE_INSN_DELETED_LABEL)
 		      fprintf (file, "(deleted uid=%d)", INSN_UID (sub));
-		    else if (GET_CODE (sub) == CODE_LABEL)
+		    else if (LABEL_P (sub))
 		      fprintf (file, "L%d", CODE_LABEL_NUMBER (sub));
 		    else
 		      fprintf (file, "(nonlabel uid=%d)", INSN_UID (sub));
@@ -340,12 +342,10 @@ void
 ra_print_rtx (FILE *file, rtx x, int with_pn)
 {
   enum rtx_code code;
-  char class;
   int unhandled = 0;
   if (!x)
     return;
   code = GET_CODE (x);
-  class = GET_RTX_CLASS (code);
 
   /* First handle the insn like constructs.  */
   if (INSN_P (x) || code == NOTE || code == CODE_LABEL || code == BARRIER)
@@ -389,9 +389,11 @@ ra_print_rtx (FILE *file, rtx x, int with_pn)
 	    fprintf (file, " %s", GET_NOTE_INSN_NAME (ln));
 	  else
 	    {
-	      fprintf (file, " line %d", ln);
-	      if (NOTE_SOURCE_FILE (x))
-		fprintf (file, ":%s", NOTE_SOURCE_FILE (x));
+	      expanded_location s;
+	      NOTE_EXPANDED_LOCATION (s, x);
+	      fprintf (file, " line %d", s.line);
+	      if (s.file != NULL)
+		fprintf (file, ":%s", s.file);
 	    }
 	}
       else
@@ -492,16 +494,29 @@ ra_print_rtx (FILE *file, rtx x, int with_pn)
     }
   if (!unhandled)
     return;
-  if (class == '1')
-    ra_print_rtx_1op (file, x);
-  else if (class == '2' || class == 'c' || class == '<')
-    ra_print_rtx_2op (file, x);
-  else if (class == '3' || class == 'b')
-    ra_print_rtx_3op (file, x);
-  else if (class == 'o')
-    ra_print_rtx_object (file, x);
-  else
-    print_inline_rtx (file, x, 0);
+  switch (GET_RTX_CLASS (code))
+    {
+      case RTX_UNARY:
+	ra_print_rtx_1op (file, x);
+	break;
+      case RTX_BIN_ARITH:
+      case RTX_COMM_ARITH:
+      case RTX_COMPARE:
+      case RTX_COMM_COMPARE:
+	ra_print_rtx_2op (file, x);
+	break;
+      case RTX_TERNARY:
+      case RTX_BITFIELD_OPS:
+	ra_print_rtx_3op (file, x);
+	break;
+      case RTX_OBJ:
+      case RTX_CONST_OBJ:
+	ra_print_rtx_object (file, x);
+	break;
+      default:
+	print_inline_rtx (file, x, 0);
+	break;
+    }
 }
 
 /* This only calls ra_print_rtx(), but emits a final newline.  */
@@ -551,7 +566,7 @@ ra_debug_insns (rtx insn, int num)
       insn = PREV_INSN (insn);
   for (i = count; i > 0 && insn; insn = NEXT_INSN (insn), i--)
     {
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	fprintf (stderr, "\n");
       ra_print_rtx_top (stderr, insn, (i == count || i == 1));
     }
@@ -571,7 +586,7 @@ ra_print_rtl_with_bb (FILE *file, rtx insn)
   last_bb = NULL;
   for (; insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == BARRIER)
+      if (BARRIER_P (insn))
 	bb = NULL;
       else
 	bb = BLOCK_FOR_INSN (insn);
@@ -583,9 +598,9 @@ ra_print_rtl_with_bb (FILE *file, rtx insn)
 	    fprintf (file, ";; Begin of basic block %d\n", bb->index);
 	  last_bb = bb;
 	}
-      if (GET_CODE (insn) == CODE_LABEL)
+      if (LABEL_P (insn))
 	fputc ('\n', file);
-      if (GET_CODE (insn) == NOTE)
+      if (NOTE_P (insn))
 	{
 	  /* Ignore basic block and maybe other notes not referencing
 	     deleted things.  */
@@ -643,7 +658,7 @@ dump_igraph (struct df *df ATTRIBUTE_UNUSED)
   int num = 0;
   int num2;
   unsigned int i;
-  if (!rtl_dump_file || (debug_new_regalloc & (DUMP_IGRAPH | DUMP_WEBS)) == 0)
+  if (!dump_file || (debug_new_regalloc & (DUMP_IGRAPH | DUMP_WEBS)) == 0)
     return;
   ra_debug_msg (DUMP_IGRAPH, "conflicts:\n  ");
   for (def1 = 0; def1 < num_webs; def1++)
@@ -726,7 +741,7 @@ dump_igraph_machine (void)
 {
   unsigned int i;
 
-  if (!rtl_dump_file || (debug_new_regalloc & DUMP_IGRAPH_M) == 0)
+  if (!dump_file || (debug_new_regalloc & DUMP_IGRAPH_M) == 0)
     return;
   ra_debug_msg (DUMP_IGRAPH_M, "g %d %d\n", num_webs - num_subwebs,
 	     FIRST_PSEUDO_REGISTER);
@@ -786,10 +801,10 @@ dump_constraints (void)
 {
   rtx insn;
   int i;
-  if (!rtl_dump_file || (debug_new_regalloc & DUMP_CONSTRAINTS) == 0)
+  if (!dump_file || (debug_new_regalloc & DUMP_CONSTRAINTS) == 0)
     return;
   for (i = FIRST_PSEUDO_REGISTER; i < ra_max_regno; i++)
-    if (regno_reg_rtx[i] && GET_CODE (regno_reg_rtx[i]) == REG)
+    if (regno_reg_rtx[i] && REG_P (regno_reg_rtx[i]))
       REGNO (regno_reg_rtx[i])
 	  = ra_reg_renumber[i] >= 0 ? ra_reg_renumber[i] : i;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -827,7 +842,7 @@ dump_constraints (void)
 	ra_debug_msg (DUMP_CONSTRAINTS, "\n");
       }
   for (i = FIRST_PSEUDO_REGISTER; i < ra_max_regno; i++)
-    if (regno_reg_rtx[i] && GET_CODE (regno_reg_rtx[i]) == REG)
+    if (regno_reg_rtx[i] && REG_P (regno_reg_rtx[i]))
       REGNO (regno_reg_rtx[i]) = i;
 }
 
@@ -839,7 +854,7 @@ dump_graph_cost (unsigned int level, const char *msg)
 {
   unsigned int i;
   unsigned HOST_WIDE_INT cost;
-  if (!rtl_dump_file || (debug_new_regalloc & level) == 0)
+  if (!dump_file || (debug_new_regalloc & level) == 0)
     return;
 
   cost = 0;
@@ -861,7 +876,7 @@ dump_ra (struct df *df ATTRIBUTE_UNUSED)
 {
   struct web *web;
   struct dlist *d;
-  if (!rtl_dump_file || (debug_new_regalloc & DUMP_RESULTS) == 0)
+  if (!dump_file || (debug_new_regalloc & DUMP_RESULTS) == 0)
     return;
 
   ra_debug_msg (DUMP_RESULTS, "\nColored:\n");
@@ -928,10 +943,11 @@ dump_static_insn_cost (FILE *file, const char *message, const char *prefix)
 	      if (rtx_equal_p (src, dest))
 		pcost = &selfcopy;
 	      else if (GET_CODE (src) == GET_CODE (dest)
-		       && ((GET_CODE (src) == REG)
+		       && ((REG_P (src))
 			   || (GET_CODE (src) == SUBREG
-			       && GET_CODE (SUBREG_REG (src)) == REG
-			       && GET_CODE (SUBREG_REG (dest)) == REG)))
+			       && REG_P (SUBREG_REG (src))
+			       && REG_P (SUBREG_REG (dest)))))
+		/* XXX is dest guaranteed to be a subreg? */
 		pcost = &regcopy;
 	      else
 		{
@@ -939,10 +955,10 @@ dump_static_insn_cost (FILE *file, const char *message, const char *prefix)
 		    src = SUBREG_REG (src);
 		  if (GET_CODE (dest) == SUBREG)
 		    dest = SUBREG_REG (dest);
-		  if (GET_CODE (src) == MEM && GET_CODE (dest) != MEM
+		  if (MEM_P (src) && !MEM_P (dest)
 		      && memref_is_stack_slot (src))
 		    pcost = &load;
-		  else if (GET_CODE (src) != MEM && GET_CODE (dest) == MEM
+		  else if (!MEM_P (src) && MEM_P (dest)
 			   && memref_is_stack_slot (dest))
 		    pcost = &store;
 		}

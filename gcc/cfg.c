@@ -61,7 +61,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "tm_p.h"
 #include "obstack.h"
-#include "alloc-pool.h"
 #include "timevar.h"
 #include "ggc.h"
 
@@ -69,25 +68,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct obstack flow_obstack;
 static char *flow_firstobj;
-
-/* Number of basic blocks in the current function.  */
-
-int n_basic_blocks;
-
-/* First free basic block number.  */
-
-int last_basic_block;
-
-/* Number of edges in the current function.  */
-
-int n_edges;
-
-/* The basic block array.  */
-
-varray_type basic_block_info;
-
-/* The special entry and exit blocks.  */
-basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
 
 void debug_flow_info (void);
 static void free_edge (edge);
@@ -113,9 +93,9 @@ init_flow (void)
       flow_firstobj = obstack_alloc (&flow_obstack, 0);
     }
 
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -179,6 +159,17 @@ alloc_block (void)
   basic_block bb;
   bb = ggc_alloc_cleared (sizeof (*bb));
   return bb;
+}
+
+/* Initialize rbi (the structure containing data used by basic block
+   duplication and reordering) for the given basic block.  */
+
+void
+initialize_bb_rbi (basic_block bb)
+{
+  if (bb->rbi)
+    abort ();
+  bb->rbi = ggc_alloc_cleared (sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */
@@ -435,68 +426,113 @@ clear_bb_flags (void)
     bb->flags = 0;
 }
 
+/* Check the consistency of profile information.  We can't do that
+   in verify_flow_info, as the counts may get invalid for incompletely
+   solved graphs, later eliminating of conditionals or roundoff errors.
+   It is still practical to have them reported for debugging of simple
+   testcases.  */
+void
+check_bb_profile (basic_block bb, FILE * file)
+{
+  edge e;
+  int sum = 0;
+  gcov_type lsum;
+
+  if (profile_status == PROFILE_ABSENT)
+    return;
+
+  if (bb != EXIT_BLOCK_PTR)
+    {
+      for (e = bb->succ; e; e = e->succ_next)
+	sum += e->probability;
+      if (bb->succ && abs (sum - REG_BR_PROB_BASE) > 100)
+	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
+		 sum * 100.0 / REG_BR_PROB_BASE);
+      lsum = 0;
+      for (e = bb->succ; e; e = e->succ_next)
+	lsum += e->count;
+      if (bb->succ && (lsum - bb->count > 100 || lsum - bb->count < -100))
+	fprintf (file, "Invalid sum of outgoing counts %i, should be %i\n",
+		 (int) lsum, (int) bb->count);
+    }
+  if (bb != ENTRY_BLOCK_PTR)
+    {
+      sum = 0;
+      for (e = bb->pred; e; e = e->pred_next)
+	sum += EDGE_FREQUENCY (e);
+      if (abs (sum - bb->frequency) > 100)
+	fprintf (file,
+		 "Invalid sum of incomming frequencies %i, should be %i\n",
+		 sum, bb->frequency);
+      lsum = 0;
+      for (e = bb->pred; e; e = e->pred_next)
+	lsum += e->count;
+      if (lsum - bb->count > 100 || lsum - bb->count < -100)
+	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
+		 (int) lsum, (int) bb->count);
+    }
+}
+
 void
 dump_flow_info (FILE *file)
 {
   int i;
-  int max_regno = max_reg_num ();
   basic_block bb;
   static const char * const reg_class_names[] = REG_CLASS_NAMES;
 
-  fprintf (file, "%d registers.\n", max_regno);
   if (reg_n_info)
-    for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-      if (REG_N_REFS (i))
-	{
-	  enum reg_class class, altclass;
+    {
+      fprintf (file, "%d registers.\n", max_regno);
+      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+	if (REG_N_REFS (i))
+	  {
+	    enum reg_class class, altclass;
 
-	  fprintf (file, "\nRegister %d used %d times across %d insns",
-		   i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
-	  if (REG_BASIC_BLOCK (i) >= 0)
-	    fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
-	  if (REG_N_SETS (i))
-	    fprintf (file, "; set %d time%s", REG_N_SETS (i),
-		     (REG_N_SETS (i) == 1) ? "" : "s");
-	  if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
-	    fprintf (file, "; user var");
-	  if (REG_N_DEATHS (i) != 1)
-	    fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
-	  if (REG_N_CALLS_CROSSED (i) == 1)
-	    fprintf (file, "; crosses 1 call");
-	  else if (REG_N_CALLS_CROSSED (i))
-	    fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	  if (regno_reg_rtx[i] != NULL
-	      && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
-	    fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
+	    fprintf (file, "\nRegister %d used %d times across %d insns",
+		     i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
+	    if (REG_BASIC_BLOCK (i) >= 0)
+	      fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
+	    if (REG_N_SETS (i))
+	      fprintf (file, "; set %d time%s", REG_N_SETS (i),
+		       (REG_N_SETS (i) == 1) ? "" : "s");
+	    if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
+	      fprintf (file, "; user var");
+	    if (REG_N_DEATHS (i) != 1)
+	      fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
+	    if (REG_N_CALLS_CROSSED (i) == 1)
+	      fprintf (file, "; crosses 1 call");
+	    else if (REG_N_CALLS_CROSSED (i))
+	      fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+	    if (regno_reg_rtx[i] != NULL
+		&& PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	      fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
-	  class = reg_preferred_class (i);
-	  altclass = reg_alternate_class (i);
-	  if (class != GENERAL_REGS || altclass != ALL_REGS)
-	    {
-	      if (altclass == ALL_REGS || class == ALL_REGS)
-		fprintf (file, "; pref %s", reg_class_names[(int) class]);
-	      else if (altclass == NO_REGS)
-		fprintf (file, "; %s or none", reg_class_names[(int) class]);
-	      else
-		fprintf (file, "; pref %s, else %s",
-			 reg_class_names[(int) class],
-			 reg_class_names[(int) altclass]);
-	    }
+	    class = reg_preferred_class (i);
+	    altclass = reg_alternate_class (i);
+	    if (class != GENERAL_REGS || altclass != ALL_REGS)
+	      {
+		if (altclass == ALL_REGS || class == ALL_REGS)
+		  fprintf (file, "; pref %s", reg_class_names[(int) class]);
+		else if (altclass == NO_REGS)
+		  fprintf (file, "; %s or none", reg_class_names[(int) class]);
+		else
+		  fprintf (file, "; pref %s, else %s",
+			   reg_class_names[(int) class],
+			   reg_class_names[(int) altclass]);
+	      }
 
-	  if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
-	    fprintf (file, "; pointer");
-	  fprintf (file, ".\n");
-	}
+	    if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
+	      fprintf (file, "; pointer");
+	    fprintf (file, ".\n");
+	  }
+    }
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
     {
       edge e;
-      int sum;
-      gcov_type lsum;
 
-      fprintf (file, "\nBasic block %d: first insn %d, last %d, ",
-	       bb->index, INSN_UID (BB_HEAD (bb)), INSN_UID (BB_END (bb)));
+      fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
 	       bb->prev_bb->index, bb->next_bb->index);
       fprintf (file, "loop_depth %d, count ", bb->loop_depth);
@@ -516,44 +552,20 @@ dump_flow_info (FILE *file)
       for (e = bb->succ; e; e = e->succ_next)
 	dump_edge_info (file, e, 1);
 
-      fprintf (file, "\nRegisters live at start:");
-      dump_regset (bb->global_live_at_start, file);
+      if (bb->global_live_at_start)
+	{
+	  fprintf (file, "\nRegisters live at start:");
+	  dump_regset (bb->global_live_at_start, file);
+	}
 
-      fprintf (file, "\nRegisters live at end:");
-      dump_regset (bb->global_live_at_end, file);
+      if (bb->global_live_at_end)
+	{
+	  fprintf (file, "\nRegisters live at end:");
+	  dump_regset (bb->global_live_at_end, file);
+	}
 
       putc ('\n', file);
-
-      /* Check the consistency of profile information.  We can't do that
-	 in verify_flow_info, as the counts may get invalid for incompletely
-	 solved graphs, later eliminating of conditionals or roundoff errors.
-	 It is still practical to have them reported for debugging of simple
-	 testcases.  */
-      sum = 0;
-      for (e = bb->succ; e; e = e->succ_next)
-	sum += e->probability;
-      if (bb->succ && abs (sum - REG_BR_PROB_BASE) > 100)
-	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
-		 sum * 100.0 / REG_BR_PROB_BASE);
-      sum = 0;
-      for (e = bb->pred; e; e = e->pred_next)
-	sum += EDGE_FREQUENCY (e);
-      if (abs (sum - bb->frequency) > 100)
-	fprintf (file,
-		 "Invalid sum of incomming frequencies %i, should be %i\n",
-		 sum, bb->frequency);
-      lsum = 0;
-      for (e = bb->pred; e; e = e->pred_next)
-	lsum += e->count;
-      if (lsum - bb->count > 100 || lsum - bb->count < -100)
-	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
-		 (int)lsum, (int)bb->count);
-      lsum = 0;
-      for (e = bb->succ; e; e = e->succ_next)
-	lsum += e->count;
-      if (bb->succ && (lsum - bb->count > 100 || lsum - bb->count < -100))
-	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
-		 (int)lsum, (int)bb->count);
+      check_bb_profile (bb, file);
     }
 
   putc ('\n', file);

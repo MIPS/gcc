@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -96,20 +96,13 @@ do {									\
 #define ASM_DEFAULT_SPEC "-mcom"
 
 #undef TARGET_OS_CPP_BUILTINS
-#define TARGET_OS_CPP_BUILTINS()      \
-  do                                  \
-    {                                 \
-      builtin_define ("_IBMR2");      \
-      builtin_define ("_POWER");      \
-      builtin_define ("_LONG_LONG");  \
-      builtin_define ("_AIX");        \
-      builtin_define ("_AIX32");      \
-      builtin_define ("_AIX41");      \
-      builtin_define ("_AIX43");      \
-      builtin_define ("_AIX51");      \
-      builtin_assert ("system=unix"); \
-      builtin_assert ("system=aix");  \
-    }                                 \
+#define TARGET_OS_CPP_BUILTINS()     \
+  do                                 \
+    {                                \
+      builtin_define ("_AIX43");     \
+      builtin_define ("_AIX51");     \
+      TARGET_OS_AIX_CPP_BUILTINS (); \
+    }                                \
   while (0)
 
 #undef CPP_SPEC

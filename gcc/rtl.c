@@ -90,7 +90,7 @@ const char * const rtx_format[NUM_RTX_CODE] = {
 /* Indexed by rtx code, gives a character representing the "class" of
    that rtx code.  See rtl.def for documentation on the defined classes.  */
 
-const char rtx_class[NUM_RTX_CODE] = {
+const enum rtx_class rtx_class[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   CLASS,
 #include "rtl.def"		/* rtl expressions are defined here */
 #undef DEF_RTL_EXPR
@@ -116,13 +116,14 @@ const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS] =
   "NOTE_INSN_BLOCK_BEG", "NOTE_INSN_BLOCK_END",
   "NOTE_INSN_LOOP_BEG", "NOTE_INSN_LOOP_END",
   "NOTE_INSN_LOOP_CONT", "NOTE_INSN_LOOP_VTOP",
-  "NOTE_INSN_LOOP_END_TOP_COND", "NOTE_INSN_FUNCTION_END",
+  "NOTE_INSN_FUNCTION_END",
   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
   "NOTE_INSN_REPEATED_LINE_NUMBER",
   "NOTE_INSN_BASIC_BLOCK", "NOTE_INSN_EXPECTED_VALUE",
-  "NOTE_INSN_PREDICTION", "NOTE_INSN_VAR_LOCATION"
+  "NOTE_INSN_UNLIKELY_EXECUTED_CODE",
+  "NOTE_INSN_VAR_LOCATION"
 };
 
 const char * const reg_note_name[] =
@@ -134,8 +135,7 @@ const char * const reg_note_name[] =
   "REG_VALUE_PROFILE", "REG_NOALIAS", "REG_SAVE_AREA", "REG_BR_PRED",
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
-  "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
-  "REG_VTABLE_REF"
+  "REG_NON_LOCAL_GOTO", "REG_CROSSING_JUMP", "REG_SETJMP", "REG_ALWAYS_RETURN"
 };
 
 
@@ -156,7 +156,7 @@ rtvec_alloc (int n)
   rtvec rt;
 
   rt = ggc_alloc_rtvec (n);
-  /* clear out the vector */
+  /* Clear out the vector.  */
   memset (&rt->elem[0], 0, n * sizeof (rtx));
 
   PUT_NUM_ELEM (rt, n);
@@ -173,11 +173,12 @@ rtvec_alloc (int n)
    all the rest is initialized to zero.  */
 
 rtx
-rtx_alloc (RTX_CODE code)
+rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = ggc_alloc_rtx (code);
+  rt = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				   RTX_SIZE (code) PASS_MEM_STAT);
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -212,7 +213,6 @@ copy_rtx (rtx orig)
   switch (code)
     {
     case REG:
-    case QUEUED:
     case CONST_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
@@ -222,7 +222,6 @@ copy_rtx (rtx orig)
     case CC0:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
-    case ADDRESSOF:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
@@ -260,7 +259,7 @@ copy_rtx (rtx orig)
   RTX_FLAG (copy, used) = 0;
 
   /* We do not copy FRAME_RELATED for INSNs.  */
-  if (GET_RTX_CLASS (code) == 'i')
+  if (INSN_P (orig))
     RTX_FLAG (copy, frame_related) = 0;
   RTX_FLAG (copy, jump) = RTX_FLAG (orig, jump);
   RTX_FLAG (copy, call) = RTX_FLAG (orig, call);
@@ -309,20 +308,22 @@ copy_rtx (rtx orig)
 /* Create a new copy of an rtx.  Only copy just one level.  */
 
 rtx
-shallow_copy_rtx (rtx orig)
+shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
 {
   rtx copy;
 
-  copy = ggc_alloc_rtx (GET_CODE (orig));
+  copy = (rtx) ggc_alloc_typed_stat (gt_ggc_e_7rtx_def,
+				     RTX_SIZE (GET_CODE (orig)) PASS_MEM_STAT);
   memcpy (copy, orig, RTX_SIZE (GET_CODE (orig)));
   return copy;
 }
 
-/* This is 1 until after the rtl generation pass.  */
-int rtx_equal_function_value_matters;
-
 /* Nonzero when we are generating CONCATs.  */
 int generating_concat_p;
+
+/* Nonzero when we are expanding trees to RTL.  */
+int currently_expanding_to_rtl;
+
 
 /* Return 1 if X and Y are identical-looking rtx's.
    This is the Lisp function EQUAL for rtx arguments.  */
@@ -355,14 +356,7 @@ rtx_equal_p (rtx x, rtx y)
   switch (code)
     {
     case REG:
-      /* Until rtl generation is complete, don't consider a reference
-	 to the return register of the current function the same as
-	 the return from a called function.  This eases the job of
-	 function integration.  Once the distinction is no longer
-	 needed, they can be considered equivalent.  */
-      return (REGNO (x) == REGNO (y)
-	      && (! rtx_equal_function_value_matters
-		  || REG_FUNCTION_VALUE_P (x) == REG_FUNCTION_VALUE_P (y)));
+      return (REGNO (x) == REGNO (y));
 
     case LABEL_REF:
       return XEXP (x, 0) == XEXP (y, 0);

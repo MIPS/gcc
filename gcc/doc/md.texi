@@ -367,14 +367,14 @@ commutative arithmetic operators of RTL and whose mode is @var{mode}:
 
 @smallexample
 int
-commutative_operator (x, mode)
+commutative_integer_operator (x, mode)
      rtx x;
      enum machine_mode mode;
 @{
   enum rtx_code code = GET_CODE (x);
   if (GET_MODE (x) != mode)
     return 0;
-  return (GET_RTX_CLASS (code) == 'c'
+  return (GET_RTX_CLASS (code) == RTX_COMM_ARITH
           || code == EQ || code == NE);
 @}
 @end smallexample
@@ -488,25 +488,6 @@ An insn that matches this pattern might look like:
 @item (match_par_dup @var{n} [@var{subpat}@dots{}])
 Like @code{match_op_dup}, but for @code{match_parallel} instead of
 @code{match_operator}.
-
-@findex match_insn
-@item (match_insn @var{predicate})
-Match a complete insn.  Unlike the other @code{match_*} recognizers,
-@code{match_insn} does not take an operand number.
-
-The machine mode @var{m} of @code{match_insn} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
-
-@findex match_insn2
-@item (match_insn2 @var{n} @var{predicate})
-Match a complete insn.
-
-The machine mode @var{m} of @code{match_insn2} works like that of
-@code{match_operand}: it is passed as the second argument to the
-predicate function, and that function is solely responsible for
-deciding whether the expression to be matched ``has'' that mode.
 
 @end table
 
@@ -819,7 +800,7 @@ register.
 @item @samp{i}
 An immediate integer operand (one with constant value) is allowed.
 This includes symbolic constants whose values will be known only at
-assembly time.
+assembly time or later.
 
 @cindex @samp{n} in constraint
 @item @samp{n}
@@ -1379,8 +1360,14 @@ An item in the constant pool
 A symbol in the text segment of the current file
 @end table
 
-@item U
+@item Uv
 A memory reference suitable for VFP load/store insns (reg+constant offset)
+
+@item Uy
+A memory reference suitable for iWMMXt load/store instructions.
+
+@item Uq
+A memory reference suitable for for the ARMv4 ldrsb instruction.
 
 @item AVR family---@file{avr.h}
 @table @code
@@ -2481,6 +2468,21 @@ into consecutive memory locations.  Operand 0 is the first of the
 consecutive memory locations, operand 1 is the first register, and
 operand 2 is a constant: the number of consecutive registers.
 
+@cindex @code{vec_set@var{m}} instruction pattern
+@item @samp{vec_set@var{m}}
+Set given field in the vector value.  Operand 0 is the vector to modify,
+operand 1 is new value of field and operand 2 specify the field index.
+
+@cindex @code{vec_extract@var{m}} instruction pattern
+@item @samp{vec_extract@var{m}}
+Extract given field from the vector value.  Operand 1 is the vector, operand 2
+specify field index and operand 0 place to store value into.
+
+@cindex @code{vec_init@var{m}} instruction pattern
+@item @samp{vec_init@var{m}}
+Initialize the vector to given values.  Operand 0 is the vector to initialize
+and operand 1 is parallel containing values for individual fields.
+
 @cindex @code{push@var{m}} instruction pattern
 @item @samp{push@var{m}}
 Output a push instruction.  Operand 0 is value to push.  Used only when
@@ -2774,10 +2776,11 @@ not use @code{(cc0)}.  Doing so would confuse the optimizer since it
 would no longer be clear which @code{set} operations were comparisons.
 The @samp{cmp@var{m}} patterns should be used instead.
 
-@cindex @code{movstr@var{m}} instruction pattern
-@item @samp{movstr@var{m}}
-Block move instruction.  The addresses of the destination and source
-strings are the first two operands, and both are in mode @code{Pmode}.
+@cindex @code{movmem@var{m}} instruction pattern
+@item @samp{movmem@var{m}}
+Block move instruction.  The destination and source blocks of memory
+are the first two operands, and both are @code{mem:BLK}s with an
+address in mode @code{Pmode}.
 
 The number of bytes to move is the third operand, in mode @var{m}.
 Usually, you specify @code{word_mode} for @var{m}.  However, if you can
@@ -2792,34 +2795,43 @@ destination, in the form of a @code{const_int} rtx.  Thus, if the
 compiler knows that both source and destination are word-aligned,
 it may provide the value 4 for this operand.
 
-Descriptions of multiple @code{movstr@var{m}} patterns can only be
+Descriptions of multiple @code{movmem@var{m}} patterns can only be
 beneficial if the patterns for smaller modes have fewer restrictions
 on their first, second and fourth operands.  Note that the mode @var{m}
-in @code{movstr@var{m}} does not impose any restriction on the mode of
+in @code{movmem@var{m}} does not impose any restriction on the mode of
 individually moved data units in the block.
 
 These patterns need not give special consideration to the possibility
 that the source and destination strings might overlap.
 
-@cindex @code{clrstr@var{m}} instruction pattern
-@item @samp{clrstr@var{m}}
-Block clear instruction.  The addresses of the destination string is the
-first operand, in mode @code{Pmode}.  The number of bytes to clear is
-the second operand, in mode @var{m}.  See @samp{movstr@var{m}} for
-a discussion of the choice of mode.
+@cindex @code{movstr} instruction pattern
+@item @samp{movstr}
+String copy instruction, with @code{stpcpy} semantics.  Operand 0 is
+an output operand in mode @code{Pmode}.  The addresses of the
+destination and source strings are operands 1 and 2, and both are
+@code{mem:BLK}s with addresses in mode @code{Pmode}.  The execution of
+the expansion of this pattern should store in operand 0 the address in
+which the @code{NUL} terminator was stored in the destination string.
+
+@cindex @code{clrmem@var{m}} instruction pattern
+@item @samp{clrmem@var{m}}
+Block clear instruction.  The destination string is the first operand,
+given as a @code{mem:BLK} whose address is in mode @code{Pmode}.  The
+number of bytes to clear is the second operand, in mode @var{m}.  See
+@samp{movmem@var{m}} for a discussion of the choice of mode.
 
 The third operand is the known alignment of the destination, in the form
 of a @code{const_int} rtx.  Thus, if the compiler knows that the
 destination is word-aligned, it may provide the value 4 for this
 operand.
 
-The use for multiple @code{clrstr@var{m}} is as for @code{movstr@var{m}}.
+The use for multiple @code{clrmem@var{m}} is as for @code{movmem@var{m}}.
 
 @cindex @code{cmpstr@var{m}} instruction pattern
 @item @samp{cmpstr@var{m}}
 String compare instruction, with five operands.  Operand 0 is the output;
 it has mode @var{m}.  The remaining four operands are like the operands
-of @samp{movstr@var{m}}.  The two memory blocks specified are compared
+of @samp{movmem@var{m}}.  The two memory blocks specified are compared
 byte by byte in lexicographic order starting at the beginning of each
 string.  The instruction is not allowed to prefetch more than one byte
 at a time since either string may end in the first byte and reading past
@@ -2864,6 +2876,9 @@ Convert operand 1 (valid for floating point mode @var{m}) to fixed
 point mode @var{n} as a signed number and store in operand 0 (which
 has mode @var{n}).  This instruction's result is defined only when
 the value of operand 1 is an integer.
+
+If the machine description defines this pattern, it also needs to
+define the @code{ftrunc} pattern.
 
 @cindex @code{fixuns@var{mn}2} instruction pattern
 @item @samp{fixuns@var{m}@var{n}2}
@@ -3009,6 +3024,13 @@ tested, should also use the above mechanism.  @xref{Jump Patterns}.
 
 The above discussion also applies to the @samp{mov@var{mode}cc} and
 @samp{s@var{cond}} patterns.
+
+@cindex @code{cbranch@var{mode}4} instruction pattern
+@item @samp{cbranch@var{mode}4}
+Conditional branch instruction combined with a compare instruction.
+Operand 0 is a comparison operator.  Operand 1 and operand 2 are the
+first and second operands of the comparison, respectively.  Operand 3
+is a @code{label_ref} that refers to the label to jump to.
 
 @cindex @code{jump} instruction pattern
 @item @samp{jump}
@@ -3492,6 +3514,12 @@ the values of operands 1 and 2.
 
 @end table
 
+@end ifset
+@c Each of the following nodes are wrapped in separate
+@c "@ifset INTERNALS" to work around memory limits for the default
+@c configuration in older tetex distributions.  Known to not work:
+@c tetex-1.0.7, known to work: tetex-2.0.2.
+@ifset INTERNALS
 @node Pattern Ordering
 @section When the Order of Patterns Matters
 @cindex Pattern Ordering
@@ -3515,6 +3543,8 @@ Instead of using this pattern ordering it would be possible to make the
 pattern for convert-a-byte smart enough to deal properly with any
 constant value.
 
+@end ifset
+@ifset INTERNALS
 @node Dependent Patterns
 @section Interdependence of Patterns
 @cindex Dependent Patterns
@@ -3595,6 +3625,8 @@ instructions.  Instead, they should be generated from the same pattern
 that supports register-register add insns by examining the operands and
 generating the appropriate machine instruction.
 
+@end ifset
+@ifset INTERNALS
 @node Jump Patterns
 @section Defining Jump Instruction Patterns
 @cindex jump instruction patterns
@@ -3708,6 +3740,8 @@ discussed above, we have the pattern
 The @code{SELECT_CC_MODE} macro on the SPARC returns @code{CC_NOOVmode}
 for comparisons whose argument is a @code{plus}.
 
+@end ifset
+@ifset INTERNALS
 @node Looping Patterns
 @section Defining Looping Instruction Patterns
 @cindex looping instruction patterns
@@ -3813,6 +3847,8 @@ be derived from it), however, in many cases the loop induction variable
 may become redundant and removed by the flow pass.
 
 
+@end ifset
+@ifset INTERNALS
 @node Insn Canonicalizations
 @section Canonicalization of Instructions
 @cindex canonicalization of instructions
@@ -3835,6 +3871,15 @@ second operand.  If a machine only supports a constant as the second
 operand, only patterns that match a constant in the second operand need
 be supplied.
 
+@item
+For associative operators, a sequence of operators will always chain
+to the left; for instance, only the left operand of an integer @code{plus}
+can itself be a @code{plus}.  @code{and}, @code{ior}, @code{xor},
+@code{plus}, @code{mult}, @code{smin}, @code{smax}, @code{umin}, and
+@code{umax} are associative when applied to integers, and sometimes to
+floating-point.
+
+@item
 @cindex @code{neg}, canonicalization of
 @cindex @code{not}, canonicalization of
 @cindex @code{mult}, canonicalization of
@@ -3938,6 +3983,8 @@ will be written using @code{zero_extract} rather than the equivalent
 
 @end itemize
 
+@end ifset
+@ifset INTERNALS
 @node Expander Definitions
 @section Defining RTL Sequences for Code Generation
 @cindex expander definitions
@@ -4155,6 +4202,8 @@ at the end, emit an insn to copy the result of the operation into
 itself.  Such an insn will generate no code, but it can avoid problems
 in the compiler.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Splitting
 @section Defining How to Split Instructions
 @cindex insn splitting
@@ -4388,6 +4437,8 @@ functionality as two separate @code{define_insn} and @code{define_split}
 patterns.  It exists for compactness, and as a maintenance tool to prevent
 having to ensure the two patterns' templates match.
 
+@end ifset
+@ifset INTERNALS
 @node Including Patterns
 @section Including Patterns in Machine Descriptions.
 @cindex insn includes
@@ -4462,6 +4513,8 @@ one @option{-I} option, the directories are scanned in left-to-right
 order; the standard default directory come after.
 
 
+@end ifset
+@ifset INTERNALS
 @node Peephole Definitions
 @section Machine-Specific Peephole Optimizers
 @cindex peephole optimizer definitions
@@ -4492,6 +4545,8 @@ targets that do scheduling.
 * define_peephole2::    RTL to RTL Peephole Optimizers
 @end menu
 
+@end ifset
+@ifset INTERNALS
 @node define_peephole
 @subsection RTL to Text Peephole Optimizers
 @findex define_peephole
@@ -4683,6 +4738,8 @@ then the way to mention this insn in a peephole is as follows:
   @dots{})
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node define_peephole2
 @subsection RTL to RTL Peephole Optimizers
 @findex define_peephole2
@@ -4768,6 +4825,8 @@ If we had not added the @code{(match_dup 4)} in the middle of the input
 sequence, it might have been the case that the register we chose at the
 beginning of the sequence is killed by the first or second @code{set}.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Attributes
 @section Instruction Attributes
 @cindex insn attributes
@@ -4791,6 +4850,8 @@ to track the condition codes.
 * Processor pipeline description:: Specifying information for insn scheduling.
 @end menu
 
+@end ifset
+@ifset INTERNALS
 @node Defining Attributes
 @subsection Defining Attributes and their Values
 @cindex defining attributes and their values
@@ -4826,7 +4887,7 @@ specified for an attribute, the following are defined:
 A @samp{#define} is written for the symbol @samp{HAVE_ATTR_@var{name}}.
 
 @item
-An enumeral class is defined for @samp{attr_@var{name}} with
+An enumerated class is defined for @samp{attr_@var{name}} with
 elements of the form @samp{@var{upper-name}_@var{upper-value}} where
 the attribute name and value are first converted to uppercase.
 
@@ -4855,6 +4916,8 @@ If the attribute takes numeric values, no @code{enum} type will be
 defined and the function to obtain the attribute's value will return
 @code{int}.
 
+@end ifset
+@ifset INTERNALS
 @node Expressions
 @subsection Attribute Expressions
 @cindex attribute expressions
@@ -5064,6 +5127,8 @@ for numeric attributes, as @code{eq_attr} and @code{attr_flag}
 produce more efficient code for non-numeric attributes.
 @end table
 
+@end ifset
+@ifset INTERNALS
 @node Tagging Insns
 @subsection Assigning Attribute Values to Insns
 @cindex tagging insns
@@ -5169,6 +5234,8 @@ string.  Therefore, the value of the @code{length} attribute specified
 in a @code{define_asm_attributes} should be the maximum possible length
 of a single machine instruction.
 
+@end ifset
+@ifset INTERNALS
 @node Attr Example
 @subsection Example of Attribute Specifications
 @cindex attribute specifications example
@@ -5224,6 +5291,8 @@ performed on quantities smaller than a machine word clobber the condition
 code since they will set the condition code to a value corresponding to the
 full-word result.
 
+@end ifset
+@ifset INTERNALS
 @node Insn Lengths
 @subsection Computing the Length of an Insn
 @cindex insn lengths, computing
@@ -5308,6 +5377,8 @@ as follows:
                       (const_int 6)))])
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node Constant Attributes
 @subsection Constant Attributes
 @cindex constant attributes
@@ -5337,6 +5408,8 @@ the value of a constant attribute may use the @code{symbol_ref} form,
 but may not use either the @code{match_operand} form or @code{eq_attr}
 forms involving insn attributes.
 
+@end ifset
+@ifset INTERNALS
 @node Delay Slots
 @subsection Delay Slot Scheduling
 @cindex delay slots, defining
@@ -5412,6 +5485,8 @@ branch is true, we might represent this as follows:
 @end smallexample
 @c the above is *still* too long.  --mew 4feb93
 
+@end ifset
+@ifset INTERNALS
 @node Processor pipeline description
 @subsection Specifying processor pipeline description
 @cindex processor pipeline description
@@ -5458,174 +5533,31 @@ processors.
 The task of exploiting more processor parallelism is solved by an
 instruction scheduler.  For a better solution to this problem, the
 instruction scheduler has to have an adequate description of the
-processor parallelism (or @dfn{pipeline description}).  Currently GCC
-provides two alternative ways to describe processor parallelism,
-both described below.  The first method is outlined in the next section;
-it was once the only method provided by GCC, and thus is used in a number
-of exiting ports.  The second, and preferred method, specifies functional
-unit reservations for groups of instructions with the aid of @dfn{regular
-expressions}.  This is called the @dfn{automaton based description}.
+processor parallelism (or @dfn{pipeline description}).  GCC
+machine descriptions describe processor parallelism and functional
+unit reservations for groups of instructions with the aid of
+@dfn{regular expressions}.
 
 The GCC instruction scheduler uses a @dfn{pipeline hazard recognizer} to
 figure out the possibility of the instruction issue by the processor
 on a given simulated processor cycle.  The pipeline hazard recognizer is
 automatically generated from the processor pipeline description.  The
-pipeline hazard recognizer generated from the automaton based
-description is more sophisticated and based on a deterministic finite
-state automaton (@acronym{DFA}) and therefore faster than one
-generated from the old description.  Furthermore, its speed is not dependent
-on processor complexity.  The instruction issue is possible if there is
-a transition from one automaton state to another one.
+pipeline hazard recognizer generated from the machine description
+is based on a deterministic finite state automaton (@acronym{DFA}):
+the instruction issue is possible if there is a transition from one
+automaton state to another one.  This algorithm is very fast, and
+furthermore, its speed is not dependent on processor
+complexity@footnote{However, the size of the automaton depends on
+  processor complexity.  To limit this effect, machine descriptions
+  can split orthogonal parts of the machine description among several
+  automata: but then, since each of these must be stepped independently,
+  this does cause a small decrease in the algorithm's performance.}.
 
-You can use either model to describe processor pipeline
-characteristics or even mix them.  You could use the old description
-for some processor submodels and the @acronym{DFA}-based one for other
-processor submodels.
-
-In general, using the automaton based description is preferred.  Its
-model is richer and makes it possible to more accurately describe
-pipeline characteristics of processors, which results in improved
-code quality (although sometimes only marginally).  It will also be
-used as an infrastructure to implement sophisticated and practical
-instruction scheduling which will try many instruction sequences to
-choose the best one.
-
-
-@menu
-* Old pipeline description:: Specifying information for insn scheduling.
-* Automaton pipeline description:: Describing insn pipeline characteristics.
-* Comparison of the two descriptions:: Drawbacks of the old pipeline description
-@end menu
-
-@node Old pipeline description
-@subsubsection Specifying Function Units
-@cindex old pipeline description
-@cindex function units, for scheduling
-
-On most @acronym{RISC} machines, there are instructions whose results
-are not available for a specific number of cycles.  Common cases are
-instructions that load data from memory.  On many machines, a pipeline
-stall will result if the data is referenced too soon after the load
-instruction.
-
-In addition, many newer microprocessors have multiple function units, usually
-one for integer and one for floating point, and often will incur pipeline
-stalls when a result that is needed is not yet ready.
-
-The descriptions in this section allow the specification of how much
-time must elapse between the execution of an instruction and the time
-when its result is used.  It also allows specification of when the
-execution of an instruction will delay execution of similar instructions
-due to function unit conflicts.
-
-For the purposes of the specifications in this section, a machine is
-divided into @dfn{function units}, each of which execute a specific
-class of instructions in first-in-first-out order.  Function units
-that accept one instruction each cycle and allow a result to be used
-in the succeeding instruction (usually via forwarding) need not be
-specified.  Classic @acronym{RISC} microprocessors will normally have
-a single function unit, which we can call @samp{memory}.  The newer
-``superscalar'' processors will often have function units for floating
-point operations, usually at least a floating point adder and
-multiplier.
-
-@findex define_function_unit
-Each usage of a function units by a class of insns is specified with a
-@code{define_function_unit} expression, which looks like this:
-
-@smallexample
-(define_function_unit @var{name} @var{multiplicity} @var{simultaneity}
-                      @var{test} @var{ready-delay} @var{issue-delay}
-                     [@var{conflict-list}])
-@end smallexample
-
-@var{name} is a string giving the name of the function unit.
-
-@var{multiplicity} is an integer specifying the number of identical
-units in the processor.  If more than one unit is specified, they will
-be scheduled independently.  Only truly independent units should be
-counted; a pipelined unit should be specified as a single unit.  (The
-only common example of a machine that has multiple function units for a
-single instruction class that are truly independent and not pipelined
-are the two multiply and two increment units of the CDC 6600.)
-
-@var{simultaneity} specifies the maximum number of insns that can be
-executing in each instance of the function unit simultaneously or zero
-if the unit is pipelined and has no limit.
-
-All @code{define_function_unit} definitions referring to function unit
-@var{name} must have the same name and values for @var{multiplicity} and
-@var{simultaneity}.
-
-@var{test} is an attribute test that selects the insns we are describing
-in this definition.  Note that an insn may use more than one function
-unit and a function unit may be specified in more than one
-@code{define_function_unit}.
-
-@var{ready-delay} is an integer that specifies the number of cycles
-after which the result of the instruction can be used without
-introducing any stalls.
-
-@var{issue-delay} is an integer that specifies the number of cycles
-after the instruction matching the @var{test} expression begins using
-this unit until a subsequent instruction can begin.  A cost of @var{N}
-indicates an @var{N-1} cycle delay.  A subsequent instruction may also
-be delayed if an earlier instruction has a longer @var{ready-delay}
-value.  This blocking effect is computed using the @var{simultaneity},
-@var{ready-delay}, @var{issue-delay}, and @var{conflict-list} terms.
-For a normal non-pipelined function unit, @var{simultaneity} is one, the
-unit is taken to block for the @var{ready-delay} cycles of the executing
-insn, and smaller values of @var{issue-delay} are ignored.
-
-@var{conflict-list} is an optional list giving detailed conflict costs
-for this unit.  If specified, it is a list of condition test expressions
-to be applied to insns chosen to execute in @var{name} following the
-particular insn matching @var{test} that is already executing in
-@var{name}.  For each insn in the list, @var{issue-delay} specifies the
-conflict cost; for insns not in the list, the cost is zero.  If not
-specified, @var{conflict-list} defaults to all instructions that use the
-function unit.
-
-Typical uses of this vector are where a floating point function unit can
-pipeline either single- or double-precision operations, but not both, or
-where a memory unit can pipeline loads, but not stores, etc.
-
-As an example, consider a classic @acronym{RISC} machine where the
-result of a load instruction is not available for two cycles (a single
-``delay'' instruction is required) and where only one load instruction
-can be executed simultaneously.  This would be specified as:
-
-@smallexample
-(define_function_unit "memory" 1 1 (eq_attr "type" "load") 2 0)
-@end smallexample
-
-For the case of a floating point function unit that can pipeline either
-single or double precision, but not both, the following could be specified:
-
-@smallexample
-(define_function_unit
-   "fp" 1 0 (eq_attr "type" "sp_fp") 4 4 [(eq_attr "type" "dp_fp")])
-(define_function_unit
-   "fp" 1 0 (eq_attr "type" "dp_fp") 4 4 [(eq_attr "type" "sp_fp")])
-@end smallexample
-
-@strong{Note:} The scheduler attempts to avoid function unit conflicts
-and uses all the specifications in the @code{define_function_unit}
-expression.  It has recently come to our attention that these
-specifications may not allow modeling of some of the newer
-``superscalar'' processors that have insns using multiple pipelined
-units.  These insns will cause a potential conflict for the second unit
-used during their execution and there is no way of representing that
-conflict.  We welcome any examples of how function unit conflicts work
-in such processors and suggestions for their representation.
-
-@node Automaton pipeline description
-@subsubsection Describing instruction pipeline characteristics
 @cindex automaton based pipeline description
-
-This section describes constructions of the automaton based processor
-pipeline description.  The order of constructions within the machine
-description file is not important.
+The rest of this section describes the directives that constitute
+an automaton-based processor pipeline description.  The order of
+these constructions within the machine description file is not
+important.
 
 @findex define_automaton
 @cindex pipeline hazard recognizer
@@ -6041,59 +5973,8 @@ construction
 @end smallexample
 
 
-@node Comparison of the two descriptions
-@subsubsection Drawbacks of the old pipeline description
-@cindex old pipeline description
-@cindex automaton based pipeline description
-@cindex processor functional units
-@cindex interlock delays
-@cindex instruction latency time
-@cindex pipeline hazard recognizer
-@cindex data bypass
-
-The old instruction level parallelism description and the pipeline
-hazards recognizer based on it have the following drawbacks in
-comparison with the @acronym{DFA}-based ones:
-
-@itemize @bullet
-@item
-Each functional unit is believed to be reserved at the instruction
-execution start.  This is a very inaccurate model for modern
-processors.
-
-@item
-An inadequate description of instruction latency times.  The latency
-time is bound with a functional unit reserved by an instruction not
-with the instruction itself.  In other words, the description is
-oriented to describe at most one unit reservation by each instruction.
-It also does not permit to describe special bypasses between
-instruction pairs.
-
-@item
-The implementation of the pipeline hazard recognizer interface has
-constraints on number of functional units.  This is a number of bits
-in integer on the host machine.
-
-@item
-The interface to the pipeline hazard recognizer is more complex than
-one to the automaton based pipeline recognizer.
-
-@item
-An unnatural description when you write a unit and a condition which
-selects instructions using the unit.  Writing all unit reservations
-for an instruction (an instruction class) is more natural.
-
-@item
-The recognition of the interlock delays has a slow implementation.  The GCC
-scheduler supports structures which describe the unit reservations.
-The more functional units a processor has, the slower its pipeline hazard
-recognizer will be.  Such an implementation would become even slower when we
-allowed to
-reserve functional units not only at the instruction execution start.
-In an automaton based pipeline hazard recognizer, speed is not dependent
-on processor complexity.
-@end itemize
-
+@end ifset
+@ifset INTERNALS
 @node Conditional Execution
 @section Conditional Execution
 @cindex conditional execution
@@ -6174,6 +6055,8 @@ generates a new pattern
   "(%3) add %2,%1,%0")
 @end smallexample
 
+@end ifset
+@ifset INTERNALS
 @node Constant Definitions
 @section Constant Definitions
 @cindex constant definitions

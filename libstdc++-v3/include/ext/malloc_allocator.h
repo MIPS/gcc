@@ -78,7 +78,12 @@ namespace __gnu_cxx
       // about what the return value is when __n == 0.
       pointer
       allocate(size_type __n, const void* = 0)
-      { return static_cast<_Tp*>(malloc(__n * sizeof(_Tp))); }
+      {
+	pointer __ret = static_cast<_Tp*>(malloc(__n * sizeof(_Tp)));
+	if (!__ret)
+	  throw std::bad_alloc();
+	return __ret;
+      }
 
       // __p is not permitted to be a null pointer.
       void
@@ -93,11 +98,21 @@ namespace __gnu_cxx
       // 402. wrong new expression in [some_] allocator::construct
       void 
       construct(pointer __p, const _Tp& __val) 
-      { *__p = __val; }
+      { ::new(__p) value_type(__val); }
 
       void 
       destroy(pointer __p) { __p->~_Tp(); }
     };
+
+  template<typename _Tp>
+    inline bool
+    operator==(const malloc_allocator<_Tp>&, const malloc_allocator<_Tp>&)
+    { return true; }
+  
+  template<typename _Tp>
+    inline bool
+    operator!=(const malloc_allocator<_Tp>&, const malloc_allocator<_Tp>&)
+    { return false; }
 } // namespace __gnu_cxx
 
 #endif

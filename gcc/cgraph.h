@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -91,7 +91,7 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_needed;
   /* Pointer to the next clone.  */
   struct cgraph_node *next_clone;
-  PTR GTY ((skip (""))) aux;
+  PTR GTY ((skip)) aux;
 
   struct cgraph_local_info local;
   struct cgraph_global_info global;
@@ -151,8 +151,6 @@ extern FILE *cgraph_dump_file;
 
 extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
-extern GTY((param_is (union tree_node))) htab_t cgraph_inline_hash;
-
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
@@ -164,7 +162,6 @@ struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 				        tree);
 struct cgraph_node *cgraph_node (tree decl);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
-struct cgraph_node *cgraph_node_for_identifier (tree id);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -174,7 +171,6 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
-struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
@@ -196,5 +192,6 @@ void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
 void cgraph_mark_inline_edge (struct cgraph_edge *e);
 void cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate);
+void cgraph_build_static_cdtor (char which, tree body, int priority);
 
 #endif  /* GCC_CGRAPH_H  */

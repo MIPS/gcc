@@ -1,5 +1,5 @@
 /* Code to test for "definitive [un]assignment".
-   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,7 +36,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 /* The basic idea is that we assign each local variable declaration
    and each blank final field an index, and then we pass around
    bitstrings, where the (2*i)'th bit is set if decl whose DECL_BIT_INDEX
-   is i is definitely assigned, and the the (2*i=1)'th bit is set if 
+   is i is definitely assigned, and the (2*i+1)'th bit is set if 
    decl whose DECL_BIT_INDEX is i is definitely unassigned */
 
 /* One segment of a bitstring. */
@@ -45,7 +45,7 @@ typedef unsigned int word;
 /* Pointer to a bitstring. */
 typedef word *words;
 
-/* Number of locals variables currently active. */
+/* Number of local variables currently active. */
 static int num_current_locals = 0;
 
 /* The value of num_current_locals when we entered the closest
@@ -198,7 +198,7 @@ static void
 final_assign_error (tree name)
 {
   static const char format[]
-    = "can't reassign a value to the final variable '%s'";
+    = "Can't reassign a value to the final variable `%s'";
   parse_error_context (wfl, format, IDENTIFIER_POINTER (name));
 }
 
@@ -210,7 +210,8 @@ check_final_reassigned (tree decl, words before)
      assigned must be reported as errors */
   if (DECL_FINAL (decl) && index != -2
       && (index < loop_current_locals /* I.e. -1, or outside current loop. */
-	  || ! UNASSIGNED_P (before, index)))
+          || (DECL_LOCAL_FINAL_IUD (decl) ? ASSIGNED_P (before, index)
+              : ! UNASSIGNED_P (before, index))))
     {
       final_assign_error (DECL_NAME (decl));
     }
@@ -305,7 +306,7 @@ check_bool2_init (enum tree_code code, tree exp0, tree exp1,
 /* Check a boolean expression EXP for definite [un]assignment.
    BEFORE is the set of variables definitely [un]assigned before the
    conditional.  (This bitstring may be modified arbitrarily in this function.)
-   On output, WHEN_FALSE is the set of variables [un]definitely assigned after
+   On output, WHEN_FALSE is the set of variables definitely [un]assigned after
    the conditional when the conditional is false.
    On output, WHEN_TRUE is the set of variables definitely [un]assigned after
    the conditional when the conditional is true.
@@ -337,27 +338,6 @@ check_bool_init (tree exp, words before, words when_false, words when_true)
     case TRUTH_NOT_EXPR:
       check_bool_init (TREE_OPERAND (exp, 0), before, when_true, when_false);
       return;
-    case MODIFY_EXPR:
-      {
-	tree tmp = TREE_OPERAND (exp, 0);
-	if ((tmp = get_variable_decl (tmp)) != NULL_TREE)
-	  {
-	    int index;
-	    check_bool_init (TREE_OPERAND (exp, 1), before,
-			     when_false, when_true);
-	    check_final_reassigned (tmp, before);
-	    index = DECL_BIT_INDEX (tmp);
-	    if (index >= 0)
-	      {
-		SET_ASSIGNED (when_false, index);
-		SET_ASSIGNED (when_true, index);
-		CLEAR_UNASSIGNED (when_false, index);
-		CLEAR_UNASSIGNED (when_true, index);
-	      }
-	    break;
-	  }
-      }
-      goto do_default;
 
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
@@ -390,8 +370,8 @@ check_bool_init (tree exp, words before, words when_false, words when_true)
 	  COPY (when_true, before);
 	}
       break;
+
     default:
-    do_default:
       check_init (exp, before);
       COPY (when_false, before);
       COPY (when_true, before);
@@ -452,8 +432,8 @@ done_alternative (words after, struct alternatives *current)
 	      WORDS_NEEDED (2 * current->num_locals));
 }
 
-/* Used when we done with a control flow branch and are all merged again.
- * AFTER is the merged state of [un]assigned variables,
+/* Used when we are done with a control flow branch and are all merged again.
+   AFTER is the merged state of [un]assigned variables,
    CURRENT is a struct alt that was passed to BEGIN_ALTERNATIVES. */
 
 #define END_ALTERNATIVES(after, current) \
@@ -465,7 +445,7 @@ done_alternative (words after, struct alternatives *current)
   start_current_locals = current.save_start_current_locals; \
 }
 
-/* Check for (un)initialized local variables in EXP.  */
+/* Check for [un]initialized local variables in EXP.  */
 
 static void
 check_init (tree exp, words before)
@@ -480,7 +460,7 @@ check_init (tree exp, words before)
 	  && DECL_NAME (exp) != this_identifier_node)
 	{
 	  int index = DECL_BIT_INDEX (exp);
-	  /* We don't want to report and mark as non initialized class
+	  /* We don't want to report and mark as non-initialized class
 	     initialization flags. */
 	  if (! LOCAL_CLASS_INITIALIZATION_FLAG_P (exp)
 	      && index >= 0 && ! ASSIGNED_P (before, index))
@@ -502,7 +482,7 @@ check_init (tree exp, words before)
 	  if (index >= 0 && ! ASSIGNED_P (before, index))
 	    {
 	      parse_error_context 
-		(wfl, "variable '%s' may not have been initialized",
+		(wfl, "variable `%s' may not have been initialized",
 		 IDENTIFIER_POINTER (DECL_NAME (tmp)));
 	      /* Suppress further errors. */
 	      DECL_BIT_INDEX (tmp) = -2;
@@ -531,6 +511,7 @@ check_init (tree exp, words before)
 	     definitely assigned when once we checked the whole
 	     function. */
 	  if (! STATIC_CLASS_INIT_OPT_P () /* FIXME */
+	      && ! DECL_FINAL (tmp)
 	      && index >= start_current_locals
 	      && index == num_current_locals - 1)
 	    {
@@ -623,7 +604,7 @@ check_init (tree exp, words before)
 	   "hypothetical" analysis model.  We do something much
 	   simpler: We just disallow assignments inside loops to final
 	   variables declared outside the loop.  This means we may
-	   disallow some contrived assignments that the JLS, but I
+	   disallow some contrived assignments that the JLS allows, but I
 	   can't see how anything except a very contrived testcase (a
 	   do-while whose condition is false?) would care. */
 
@@ -846,6 +827,12 @@ check_init (tree exp, words before)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case EXACT_DIV_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
     binop:
       check_init (TREE_OPERAND (exp, 0), before);
       /* Avoid needless recursion, especially for COMPOUND_EXPR. */
@@ -974,7 +961,7 @@ check_for_initialization (tree body, tree mdecl)
 	      if (index >= 0 && ! ASSIGNED_P (before, index))
 		{
 		  if (! is_finit_method)
-		    error ("%Jfinal field '%D' may not have been initialized",
+		    error ("%Jfinal field `%D' may not have been initialized",
                            decl, decl);
 		}
 	      else if (is_finit_method)

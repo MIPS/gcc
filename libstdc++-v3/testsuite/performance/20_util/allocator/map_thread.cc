@@ -40,6 +40,8 @@
 #include <ext/mt_allocator.h>
 #include <ext/new_allocator.h>
 #include <ext/malloc_allocator.h>
+#include <ext/bitmap_allocator.h>
+#include <ext/pool_allocator.h>
 #include <cxxabi.h>
 #include <testsuite_performance.h>
 
@@ -47,6 +49,8 @@ using namespace std;
 using __gnu_cxx::__mt_alloc;
 using __gnu_cxx::new_allocator;
 using __gnu_cxx::malloc_allocator;
+using __gnu_cxx::bitmap_allocator;
+using __gnu_cxx::__pool_alloc;
 
 // The number of iterations to be performed.
 int iterations = 10000;
@@ -107,19 +111,24 @@ template<typename Container>
 
 int main(void)
 {
-#ifdef TEST_T1
+#ifdef TEST_T0
   test_container(map<int, int>());
 #endif
-#ifdef TEST_T2
+#ifdef TEST_T1
   test_container(map<int, int, less<const int>, new_allocator<int> >());
 #endif
-#ifdef TEST_T3
+#ifdef TEST_T2
   test_container(map<int, int, less<const int>, malloc_allocator<int> >());
 #endif
-#ifdef TEST_T4
+#ifdef TEST_T3
   test_container(map<int, int, less<const int>,
                      __mt_alloc< pair<const int, int> > >());
 #endif
-
+#ifdef TEST_T4
+  test_container(map<int, int, less<const int>, bitmap_allocator<int> >());
+#endif
+#ifdef TEST_T5
+  test_container(map<int, int, less<const int>, __pool_alloc<int> >());
+#endif
   return 0;
 }

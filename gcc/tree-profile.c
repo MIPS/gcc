@@ -146,19 +146,22 @@ tree_gen_const_delta_profiler (struct histogram_value *value ATTRIBUTE_UNUSED,
    If it is, set up hooks for tree-based profiling.
    Gate for pass_tree_profile.  */
 
-static bool do_tree_profiling (void) {
-  if (flag_tree_based_profiling)
+static bool do_tree_profiling (void)
+{
+  if (flag_tree_based_profiling
+      && (profile_arc_flag || flag_test_coverage || flag_branch_probabilities))
     {
       tree_register_profile_hooks ();
       tree_register_value_prof_hooks ();
+      return true;
     }
-  return flag_tree_based_profiling;
+  return false;
 }
 
 /* Return the file on which profile dump output goes, if any.  */
 
 static FILE *tree_profile_dump_file (void) {
-  return tree_dump_file;
+  return dump_file;
 }
 
 struct tree_opt_pass pass_tree_profile = 

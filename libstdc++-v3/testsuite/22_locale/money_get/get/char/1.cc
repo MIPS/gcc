@@ -28,8 +28,6 @@
 void test01()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef istreambuf_iterator<char> iterator_type;
 
   bool test __attribute__((unused)) = true;
@@ -39,37 +37,23 @@ void test01()
   locale loc_de = __gnu_test::try_named_locale("de_DE@euro");
   VERIFY( loc_c != loc_de );
 
-  // cache the moneypunct facets
-  typedef moneypunct<char, true> __money_true;
-  typedef moneypunct<char, false> __money_false;
-
   // sanity check the data is correct.
   const string empty;
 
   // total EPA budget FY 2002
   const string digits1("720000000000");
 
-  // est. cost, national missile "defense", expressed as a loss in USD 2001
-  const string digits2("-10000000000000");  
-
-  // not valid input
-  const string digits3("-A"); 
-
-  // input less than frac_digits
-  const string digits4("-1");
-  
   iterator_type end;
   istringstream iss;
   iss.imbue(loc_de);
   // cache the money_get facet
   const money_get<char>& mon_get = use_facet<money_get<char> >(iss.getloc()); 
 
-
   iss.str("7.200.000.000,00 ");
   iterator_type is_it01(iss);
   string result1;
   ios_base::iostate err01 = ios_base::goodbit;
-  mon_get.get(is_it01, end, true, iss, err01, result1);
+  mon_get.get(is_it01, end, true, iss, err01, result1); // xxx
   VERIFY( result1 == digits1 );
   VERIFY( err01 == ios_base::eofbit );
 

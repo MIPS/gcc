@@ -26,6 +26,7 @@
 
 with Gnatvsn;
 with Hostparm;
+with Opt;
 with Osint; use Osint;
 
 with Ada.Characters.Handling; use Ada.Characters.Handling;
@@ -33,6 +34,15 @@ with Ada.Command_Line;        use Ada.Command_Line;
 with Ada.Text_IO;             use Ada.Text_IO;
 
 package body VMS_Conv is
+
+   Keep_Temps_Option : constant Item_Ptr :=
+                         new Item'
+                           (Id          => Id_Option,
+                            Name        =>
+                              new String'("/KEEP_TEMPORARY_FILES"),
+                            Next        => null,
+                            Command     => Undefined,
+                            Unix_String => null);
 
    Param_Count : Natural := 0;
    --  Number of parameter arguments so far
@@ -57,6 +67,10 @@ package body VMS_Conv is
    --  Set to point to Command entry for COMPILE, BIND, or LINK as appropriate
    --  if a COMMANDS_TRANSLATION switch has been encountered while processing
    --  a MAKE Command.
+
+   Output_File_Expected : Boolean := False;
+   --  True for GNAT LINK after -o switch, so that the ".ali" extension is
+   --  not added to the executable file name.
 
    package Buffer is new Table.Table
      (Table_Component_Type => Character,
@@ -304,6 +318,16 @@ package body VMS_Conv is
             Params   => new Parameter_Array'(1 => Unlimited_Files),
             Defext   => "   "),
 
+         Metric =>
+           (Cname    => new S'("METRIC"),
+            Usage    => new S'("GNAT METRIC /qualifiers source_file"),
+            VMS_Only => False,
+            Unixcmd  => new S'("gnatmetric"),
+            Unixsws  => null,
+            Switches => Metric_Switches'Access,
+            Params   => new Parameter_Array'(1 => Unlimited_Files),
+            Defext   => "   "),
+
          Name =>
            (Cname    => new S'("NAME"),
             Usage    => new S'("GNAT NAME /qualifiers naming-pattern "
@@ -333,7 +357,17 @@ package body VMS_Conv is
             Unixcmd  => new S'("gnatpp"),
             Unixsws  => null,
             Switches => Pretty_Switches'Access,
-            Params   => new Parameter_Array'(1 => File),
+            Params   => new Parameter_Array'(1 => Unlimited_Files),
+            Defext   => "   "),
+
+         Setup =>
+           (Cname    => new S'("SETUP"),
+            Usage    => new S'("GNAT SETUP /qualifiers"),
+            VMS_Only => False,
+            Unixcmd  => new S'(""),
+            Unixsws  => null,
+            Switches => Setup_Switches'Access,
+            Params   => new Parameter_Array'(1 => Unlimited_Files),
             Defext   => "   "),
 
          Shared =>
@@ -1111,6 +1145,7 @@ package body VMS_Conv is
                end if;
 
                The_Command := Command.Command;
+               Output_File_Expected := False;
 
                --  Give usage information if only command given
 
@@ -1273,16 +1308,30 @@ package body VMS_Conv is
                   raise Normal_Exit;
                end if;
 
-               --  Special handling for internal debugging switch /?
+            --  Special handling for internal debugging switch /?
 
             elsif Arg.all = "/?" then
                Display_Command := True;
+               Output_File_Expected := False;
 
-               --  Copy -switch unchanged
+            --  Special handling of internal option /KEEP_TEMPORARY_FILES
+
+            elsif Arg'Length >= 7
+              and then Matching_Name
+                         (Arg.all, Keep_Temps_Option, True) /= null
+            then
+               Opt.Keep_Temporary_Files := True;
+
+            --  Copy -switch unchanged
 
             elsif Arg (Arg'First) = '-' then
                Place (' ');
                Place (Arg.all);
+
+               --  Set Output_File_Expected for the next argument
+
+               Output_File_Expected :=
+                 Arg.all = "-o" and then The_Command = Link;
 
                --  Copy quoted switch with quotes stripped
 
@@ -1296,6 +1345,8 @@ package body VMS_Conv is
                   Place (' ');
                   Place (Arg (Arg'First + 1 .. Arg'Last - 1));
                end if;
+
+               Output_File_Expected := False;
 
                --  Parameter Argument
 
@@ -1357,8 +1408,12 @@ package body VMS_Conv is
                               Place (' ');
                               Place_Lower (Normal_File.all);
 
+                              --  Add extension if not present, except after
+                              --  switch -o.
+
                               if Is_Extensionless (Normal_File.all)
                                 and then Command.Defext /= "   "
+                                and then not Output_File_Expected
                               then
                                  Place ('.');
                                  Place (Command.Defext);
@@ -1488,9 +1543,15 @@ package body VMS_Conv is
                   end case;
                end if;
 
+               --  Reset Output_File_Expected, in case it was True
+
+               Output_File_Expected := False;
+
                --  Qualifier argument
 
             else
+               Output_File_Expected := False;
+
                --  This code is too heavily nested, should be
                --  separated out as separate subprogram ???
 

@@ -700,7 +700,7 @@ package body Exp_Pakd is
 
       Ancest   : Entity_Id;
       PB_Type  : Entity_Id;
-      Esiz     : Uint;
+      PASize   : Uint;
       Decl     : Node_Id;
       PAT      : Entity_Id;
       Len_Dim  : Node_Id;
@@ -770,10 +770,10 @@ package body Exp_Pakd is
          --  Do not reset RM_Size if already set, as happens in the case
          --  of a modular type.
 
-         Set_Esize (PAT, Esiz);
+         Set_Esize (PAT, PASize);
 
          if Unknown_RM_Size (PAT) then
-            Set_RM_Size (PAT, Esiz);
+            Set_RM_Size (PAT, PASize);
          end if;
 
          --  Set remaining fields of packed array type
@@ -853,7 +853,7 @@ package body Exp_Pakd is
       --  type, since this size clearly belongs to the packed array type. The
       --  size of the conceptual unpacked type is always set to unknown.
 
-      Esiz := Esize (Typ);
+      PASize := Esize (Typ);
 
       --  Case of an array where at least one index is of an enumeration
       --  type with a non-standard representation, but the component size
@@ -1099,7 +1099,8 @@ package body Exp_Pakd is
                --  We can use the modular type, it has the form:
 
                --    subtype tttPn is btyp
-               --      range 0 .. 2 ** (Esize (Typ) * Csize) - 1;
+               --      range 0 .. 2 ** ((Typ'Length (1)
+               --                * ... * Typ'Length (n)) * Csize) - 1;
 
                --  The bounds are statically known, and btyp is one
                --  of the unsigned types, depending on the length. If the
@@ -1140,8 +1141,8 @@ package body Exp_Pakd is
                                    Make_Integer_Literal (Loc, 0),
                                  High_Bound => Lit))));
 
-               if Esiz = Uint_0 then
-                  Esiz := Len_Bits;
+               if PASize = Uint_0 then
+                  PASize := Len_Bits;
                end if;
 
                Install_PAT;
@@ -1155,7 +1156,7 @@ package body Exp_Pakd is
          --    subtype tttPn is
          --      System.Packed_Bytes{1,2,4} (0 .. (Bits + 7) / 8 - 1);
 
-         --  Bits is the length of the array in bits.
+         --  Bits is the length of the array in bits
 
          Set_PB_Type;
 
@@ -1196,6 +1197,12 @@ package body Exp_Pakd is
                            High_Bound => PAT_High)))));
 
          Install_PAT;
+
+         --  Currently the code in this unit requires that packed arrays
+         --  represented by non-modular arrays of bytes be on a byte
+         --  boundary.
+
+         Set_Must_Be_On_Byte_Boundary (Typ);
       end if;
    end Create_Packed_Array_Type;
 
@@ -1280,6 +1287,26 @@ package body Exp_Pakd is
       --  check from assignment will be lost in the transformations). This
       --  conversion is analyzed immediately so that subsequent processing
       --  can work with an analyzed Rhs (and e.g. look at its Etype)
+
+      --  If the right-hand side is a string literal, create a temporary for
+      --  it, constant-folding is not ready to wrap the bit representation
+      --  of a string literal.
+
+      if Nkind (Rhs) = N_String_Literal then
+         declare
+            Decl : Node_Id;
+         begin
+            Decl :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier =>
+                  Make_Defining_Identifier (Loc,  New_Internal_Name ('T')),
+                Object_Definition => New_Occurrence_Of (Ctyp, Loc),
+                Expression => New_Copy_Tree (Rhs));
+
+            Insert_Actions (N, New_List (Decl));
+            Rhs := New_Occurrence_Of (Defining_Identifier (Decl), Loc);
+         end;
+      end if;
 
       Rhs := Convert_To (Ctyp, Rhs);
       Set_Parent (Rhs, N);

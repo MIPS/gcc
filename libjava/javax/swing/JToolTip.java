@@ -1,5 +1,5 @@
 /* JToolTip.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,16 +39,21 @@ exception statement from your version. */
 package javax.swing;
 
 import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleContext;
 
 public class JToolTip extends JComponent implements Accessible
 {
-    String text;
+  private static final long serialVersionUID = -1138929898906751643L;
+  
+  String text;
 
-    JToolTip(String text)
-    {
-	this.text = text;
-    }
+  public JToolTip()
+  {
+  }
+
+  public void setTipText(String newText)
+  {
+    this.text = newText;
+  }
 }
 
 

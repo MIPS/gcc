@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -112,7 +112,9 @@ namespace std
   bool ios_base::Init::_S_synced_with_stdio = true;
 
   ios_base::ios_base() 
-  : _M_callbacks(0), _M_word_size(_S_local_word_size), _M_word(_M_local_word)
+  : _M_precision(), _M_width(), _M_flags(), _M_exception(), 
+  _M_streambuf_state(), _M_callbacks(0), _M_word_zero(), 
+  _M_word_size(_S_local_word_size), _M_word(_M_local_word), _M_ios_locale()
   {
     // Do nothing: basic_ios::init() does it.  
     // NB: _M_callbacks and _M_word must be zero for non-initialized
@@ -138,7 +140,7 @@ namespace std
     // Implementation note: Initialize top to zero to ensure that
     // initialization occurs before main() is started.
     static _Atomic_word _S_top = 0; 
-    return __exchange_and_add(&_S_top, 1) + 4;
+    return __gnu_cxx::__exchange_and_add(&_S_top, 1) + 4;
   }
 
   void 

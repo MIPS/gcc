@@ -190,23 +190,23 @@ static const struct pred_table
   const RTX_CODE codes[NUM_RTX_CODE];
 } preds[] = {
   {"general_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM, ADDRESSOF}},
+		       LABEL_REF, SUBREG, REG, MEM }},
 #ifdef PREDICATE_CODES
   PREDICATE_CODES
 #endif
   {"address_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-		       LABEL_REF, SUBREG, REG, MEM, ADDRESSOF,
+		       LABEL_REF, SUBREG, REG, MEM,
 		       PLUS, MINUS, MULT}},
-  {"register_operand", {SUBREG, REG, ADDRESSOF}},
-  {"pmode_register_operand", {SUBREG, REG, ADDRESSOF}},
+  {"register_operand", {SUBREG, REG}},
+  {"pmode_register_operand", {SUBREG, REG}},
   {"scratch_operand", {SCRATCH, REG}},
   {"immediate_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
 			 LABEL_REF}},
   {"const_int_operand", {CONST_INT}},
   {"const_double_operand", {CONST_INT, CONST_DOUBLE}},
-  {"nonimmediate_operand", {SUBREG, REG, MEM, ADDRESSOF}},
+  {"nonimmediate_operand", {SUBREG, REG, MEM}},
   {"nonmemory_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			 LABEL_REF, SUBREG, REG, ADDRESSOF}},
+			 LABEL_REF, SUBREG, REG}},
   {"push_operand", {MEM}},
   {"pop_operand", {MEM}},
   {"memory_operand", {SUBREG, MEM}},
@@ -361,7 +361,6 @@ find_operand (rtx pattern, int n, rtx stop)
 
   code = GET_CODE (pattern);
   if ((code == MATCH_SCRATCH
-       || code == MATCH_INSN
        || code == MATCH_OPERAND
        || code == MATCH_OPERATOR
        || code == MATCH_PARALLEL)
@@ -482,7 +481,6 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
           error_count++;
 	}
       break;
-    case MATCH_INSN:
     case MATCH_OPERAND:
     case MATCH_OPERATOR:
       {
@@ -515,14 +513,12 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 			&& c != CONST_INT
 			&& c != CONST_DOUBLE
 			&& c != CONST
-			&& c != HIGH
-			&& c != CONSTANT_P_RTX)
+			&& c != HIGH)
 		      allows_non_const = 1;
 
 		    if (c != REG
 			&& c != SUBREG
 			&& c != MEM
-			&& c != ADDRESSOF
 			&& c != CONCAT
 			&& c != PARALLEL
 			&& c != STRICT_LOW_PART)
@@ -832,7 +828,6 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
     case MATCH_OPERATOR:
-    case MATCH_INSN:
       {
 	const char *pred_name;
 	RTX_CODE was_code = code;
@@ -2089,7 +2084,7 @@ write_action (struct decision *p, struct decision_test *test,
 	  break;
 
 	case SPLIT:
-	  printf ("%sreturn gen_split_%d (operands);\n",
+	  printf ("%sreturn gen_split_%d (insn, operands);\n",
 		  indent, test->u.insn.code_number);
 	  break;
 
@@ -2526,7 +2521,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
 	    {
 	      rtx y = XVECEXP (x, 0, i - 1);
 	      if (GET_CODE (y) != CLOBBER
-		  || (GET_CODE (XEXP (y, 0)) != REG
+		  || (!REG_P (XEXP (y, 0))
 		      && GET_CODE (XEXP (y, 0)) != MATCH_SCRATCH))
 		break;
 	    }
@@ -2586,7 +2581,7 @@ make_insn_sequence (rtx insn, enum routine_type type)
 
     case SPLIT:
       /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_split_%d (rtx *);\n", next_insn_code);
+      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
       break;
 
     case PEEPHOLE2:

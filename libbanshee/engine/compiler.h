@@ -35,7 +35,8 @@
 #  define HAVE_C99
 # endif
 
-# if (defined(__GNUC__) || defined(HAVE_C99)) && !defined (IN_GCC)
+# if 0
+/*(defined(__GNUC__) || defined(HAVE_C99)) && !defined (IN_GCC) */
 #  define HAVE_VARIADIC_MACROS
 # endif
 

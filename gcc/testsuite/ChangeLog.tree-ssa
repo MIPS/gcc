@@ -1,3 +1,335 @@
+2004-05-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.old-deja/g++.ext/arrnew2.C: Restore XFAIL.  It's broken
+	on mainline too.
+
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20031015-1.c: Rewrite for all targets.  Look at
+	alias dump for two VDEFs.
+
+	* gcc.dg/tree-ssa/20040210-1.c: Tweak scan pattern to look for ifs.
+
+2004-05-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/parse/stack1.C: Remove XFAIL.
+	* g++.old-deja/g++.bugs/900205_03.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew2.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* gcc.c-torture/execute/string-opt-19.x: Remove.
+
+2004-05-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/15062
+	* gcc.c-torture/compile/pr15062.c: New test.
+
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR optimization/15245
+	* gcc.c-torture/compile/pr15245.c: New test.
+
+2004-05-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040430-1.c: New test.
+
+2004-04-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14056
+	* gfortran.fortran-torture/execute/spec_abs.f90: Add new test.
+
+2004-04-25  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14942
+	* gfortran.fortran-torture/execute/list_read_1.f90: Add new test.
+
+2004-04-24  Victor Leikehman  <lei@il.ibm.com>
+
+	* gfortran.fortran-torture/execute/der_io.f90: New test.
+
+2004-04-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/15113
+	* gfortran.fortran-torture/execute/a_edit_1.f90: Add new test.
+
+2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/execute/20040423-1.c: New test.
+
+2004-04-22  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14906
+	* gfortran.fortran-torture/execute/empty_format.f90: Add new test.
+
+2004-04-21  Ben Elliston  <bje@au.ibm.com>
+
+	PR middle-end/14730
+	* gcc.c-torture/compile/pr14730.c: New test.
+
+2004-04-24  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* execute/intrinsic_count.f90: Fix typo.
+	* execute/intrinsic_mmloc.f90: Fix typo.
+
+2004-04-18  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14921
+	PR fortran/14540
+	* gfortran.fortran-torture/execute/math.f90: Add atan2 and clog
+	simplify test.
+
+2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/20040415-1.c: New test.
+	* gcc.c-torture/compile/20040415-2.c: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14904
+	* gfortran.fortran-torture/execute/inquire_4.f90: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/14901
+	* gfortran.fortran-torture/execute/internal_write.f90: New test.
+
+2004-04-11  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14872
+	* gfortran.fortran-torture/execute/direct_io.f90: Add new test.
+
+2004-04-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/14377
+	* gfortran.fortran-torture/execute/intrinsic_minmax.f90: Add new test.
+
+2004-04-08  Brian Booth  <bbooth@redhat.com>
+
+	* gcc.dg/tree-ssa/20040408-1.c: New test.
+
+2004-04-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c (boz): Add call to abort.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c: Update to test for correct
+	gimplification of function call expressions.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c: New test.
+
+2003-04-04  Paul Brook  <paul@codesourcery.com>
+
+	PR 13252
+	PR 14081
+	* gfortran.fortran-torture/execute/strarray_1.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_2.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_3.f90: New test.
+	* gfortran.fortran-torture/execute/strarray_4.f90: New test.
+	* gfortran.fortran-torture/execute/strcommon_1.f90: New test.
+
+2004-04-04  Paul Brook  <paul@codesourcery.com>
+
+	* lib/fortran-torture.exp (TORTURE_OPTIONS): Remove -fg77-calls.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14762
+	* gfortran.fortran-torture/execute/slash_edit.f90: New test.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14386
+	* gfortran.fortran-torture/execute/inquire_3.f90: New test.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+                                                                                
+	PR gfortran/14837
+	* gfortran.fortran-torture/execute/inquire_2.f90: New test.
+
+2004-04-03  Andrew Pinski <pinskia@physics.uc.edu>
+
+	* lib/gfortran.exp: Sync LD_LIBRARY_PATH part from
+	lib/g++.exp.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14831
+	* gfortran.fortran-torture/execute/inquire_1.f90: New test.
+
+2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/tree-ssa/20040324-1.c: New test.
+
+2004-04-01  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040401-1.c: New test.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14746
+	* gfortran.fortran-torture/execute/f2_edit_1.f90: New test.
+
+2004-04-01  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/14565
+	* gfortran.fortran-torture/execute/unopened_unit_1.f90: New test.
+
+2004-03-30  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/uninit-1.c, gcc.dg/uninit-3.c, gcc.dg/uninit-8.c, 
+	gcc.dg/uninit-9.c: Remove XFAIL.
+
+2004-03-26  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-1.c: New test.
+
+2004-03-24  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/csqrt_1.f90: Use f95 style
+	comments.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14334
+	* gfortran.fortran-torture/execute/write_logical_1.f90: New test.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 13919
+	* gfortran.fortran-torture/execute/read_eof.f90: New test.
+
+2004-03-24  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14396
+	* gfortran.fortran-torture/execute/csqrt_1.f90: New test.
+
+2004-02-24  Paul Brook  <paul@codesourcery.com>
+
+	PR 14055
+	* gfortran.fortran-torture/execute/plusconst_1.f90: New test.
+
+2004-03-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/20040420-1.c: Move and rename ...
+	* gcc.c-torture/compile/20040220-1.c ... here.
+
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/20040211-1.c: Update outcome.
+	* gcc.dg/tree-ssa/ssa-dce-3.c: New test.
+
+2004-03-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14643
+	* gcc.dg/tree-ssa/20040319-1.c: New test.
+
+2004-03-19  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/20040319-1.c: New test.
+
+2004-03-17  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040317-1.c: New test.
+	* gcc.c-torture/compile/20040317-2.c: New test.
+	* gcc.c-torture/compile/20040317-3.c: New test.
+
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* g++.dg/tree-ssa/20040317-1.C: New test.
+
+2004-03-13  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14553
+	* gcc.dg/tree-ssa/20040313-1.c: New test.
+
+2004-03-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/tree-ssa/20040305-1.c: Change a constant to fit in a
+	16-bit int.
+
+2004-03-10  Andrew Pinski  <apinski@apple.com>
+
+	PR c/14475
+	* gcc.dg/pr14475.c: New test.
+
+2004-03-09  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040309-1.c: New test.
+
+2004-03-05  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040305-1.c: New test.
+
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/20040304-1.c: New test.
+
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/20040303-1.c: New test.
+	* gcc.c-torture/20040303-2.c: New test.
+
+2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/tailrecursion-5.c: New test.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/gcc.dg/tree-ssa/20030815-1.c: Expect 1 type cast.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-1.c: Check after aliasing.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-2.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-dom-cse-1.c: Likewise.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040302-1.c: New test.
+
+2004-02-10  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040211-1.c: Update slightly.
+
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/warn-1.c: Update warning line.
+	* gcc.dg/tree-ssa/20030730-1.c: Declare ggc_alloc.
+	* gcc.dg/tree-ssa/20030730-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030917-2.c: Fix int->pointer cast.
+	* gcc.dg/tree-ssa/20030922-2.c: XFAIL.
+
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/tailcall-2.c: New test.
+
+2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/copy-headers.c: New test.
+	* gcc.dg/tree-ssa/20030711-1.c: Update outcome.
+	* gcc.dg/tree-ssa/20030714-2.c: Ditto.
+	* gcc.dg/tree-ssa/20030807-3.c: Ditto.
+
+2004-02-10  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040219-1.c: New test.
+
+2004-02-16  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030807-4.c: Remove bogus test.
+
+	* gcc.dg/tree-ssa/20040216-1.c: New test.
+	* gcc.dg/tree-ssa/20040211-1.c: New test.
+
+2004-02-15  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/13433
+	* gfortran.fortran-torture/execute/straret.f90: New test.
+
+2004-02-14  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/20030120-3.c: Remove duplicate of 920415-1.c.
+
 2004-02-11  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040210-1.c: New test.

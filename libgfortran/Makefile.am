@@ -4,13 +4,15 @@
 ## __STDC_VERSION__ is set such that libc includes make them available.
 AM_CFLAGS = -std=gnu99
 
-lib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
+toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
+
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 ## This should really go in the compiler lib dir, not the system lib dir.
 libgfortranbegin_la_SOURCES = fmain.c
 libgfortranbegin_la_LDFLAGS = -static
 
-INCLUDES = -I$(srcdir)/io
+AM_CPPFLAGS = -I$(srcdir)/io
 
 libgfortranincludedir = $(includedir)/gforio
 
@@ -36,23 +38,30 @@ io/io.h
 gfor_helper_src= \
 intrinsics/associated.c \
 intrinsics/abort.c \
+intrinsics/args.c \
+intrinsics/c99_functions.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/date_and_time.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
+intrinsics/etime.c \
 intrinsics/ishftc.c \
 intrinsics/pack_generic.c \
 intrinsics/size.c \
 intrinsics/spread_generic.c \
 intrinsics/string_intrinsics.c \
+intrinsics/rand.c \
 intrinsics/random.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
 intrinsics/selected_kind.f90 \
+intrinsics/system_clock.c \
 intrinsics/transpose_generic.c \
 intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \
-runtime/in_unpack_generic.c
+runtime/in_unpack_generic.c \
+runtime/normalize.c
 
 gfor_src= \
 runtime/environ.c \
@@ -222,21 +231,36 @@ i_set_exponent_c = \
 generated/set_exponent_r4.c \
 generated/set_exponent_r8.c
 
-m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/types.m4 m4/all.m4 \
+i_pow_c = \
+generated/pow_i4_i4.c \
+generated/pow_i8_i4.c \
+generated/pow_r4_i4.c \
+generated/pow_r8_i4.c \
+generated/pow_c4_i4.c \
+generated/pow_c8_i4.c \
+generated/pow_i4_i8.c \
+generated/pow_i8_i8.c \
+generated/pow_r4_i8.c \
+generated/pow_r8_i8.c \
+generated/pow_c4_i8.c \
+generated/pow_c8_i8.c
+
+m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/any.m4 m4/count.m4 m4/maxloc0.m4 m4/maxloc1.m4 m4/maxval.m4 \
     m4/minloc0.m4 m4/minloc1.m4 m4/minval.m4 m4/product.m4 m4/sum.m4 \
     m4/dotprod.m4 m4/dotprodl.m4 m4/dotprodc.m4 m4/matmul.m4 m4/matmull.m4 \
     m4/ctrig.m4 m4/cexp.m4 m4/chyp.m4 m4/mtype.m4 \
     m4/specific.m4 m4/specific2.m4 m4/head.m4 m4/shape.m4 m4/reshape.m4 \
     m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4 m4/exponent.m4 \
-    m4/fraction.m4 m4/nearest.m4 m4/set_exponent.m4
+    m4/fraction.m4 m4/nearest.m4 m4/set_exponent.m4 m4/pow.m4
 
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
     $(i_product_c) $(i_sum_c) $(i_dotprod_c) $(i_dotprodl_c) $(i_dotprodc_c) \
     $(i_matmul_c) $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
-    $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c)
+    $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
+    $(i_pow_c)
 
 # We only use these if libm doesn't contain complex math functions.
 
@@ -262,6 +286,10 @@ hyp_c8.lo
 
 # Machine generated specifics
 gfor_built_specific_src= \
+generated/_abs_c4.f90 \
+generated/_abs_c8.f90 \
+generated/_abs_i4.f90 \
+generated/_abs_i8.f90 \
 generated/_abs_r4.f90 \
 generated/_abs_r8.f90 \
 generated/_exp_r4.f90 \
@@ -347,7 +375,7 @@ EXTRA_libgfortran_la_SOURCES = $(gfor_cmath_src)
 libgfortran_la_LIBADD = @MATH_OBJ@
 libgfortran_la_DEPENDENCIES = @MATH_OBJ@
 
-I_M4_DEPS=m4/iparm.m4 m4/types.m4
+I_M4_DEPS=m4/iparm.m4
 I_M4_DEPS0=$(I_M4_DEPS) m4/iforeach.m4
 I_M4_DEPS1=$(I_M4_DEPS) m4/ifunction.m4
 
@@ -438,6 +466,9 @@ $(i_nearest_c): m4/nearest.m4 m4/mtype.m4
 
 $(i_set_exponent_c): m4/set_exponent.m4 m4/mtype.m4
 	m4 -Dfile=$@ -I$(srcdir)/m4 set_exponent.m4 > $@
+
+$(i_pow_c): m4/pow.m4 $(I_M4_DEPS)
+	m4 -Dfile=$@ -I$(srcdir)/m4 pow.m4 > $@
 
 $(gfor_math_trig_c): m4/ctrig.m4 m4/mtype.m4
 	m4 -Dfile=$@ -I$(srcdir)/m4 ctrig.m4 > $@

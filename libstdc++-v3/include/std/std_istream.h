@@ -1,6 +1,6 @@
 // Input streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -128,13 +128,13 @@ namespace std
        *  functions in constructs like "std::cin >> std::ws".  For more
        *  information, see the iomanip header.
       */
-      __istream_type&
+      inline __istream_type&
       operator>>(__istream_type& (*__pf)(__istream_type&));
 
-      __istream_type&
+      inline __istream_type&
       operator>>(__ios_type& (*__pf)(__ios_type&));
 
-      __istream_type&
+      inline __istream_type&
       operator>>(ios_base& (*__pf)(ios_base&));
       //@}
       
@@ -412,9 +412,20 @@ namespace std
        *  - the next character equals @a delim (in this case, the character
        *    is extracted); note that this condition will never occur if
        *    @a delim equals @c traits::eof().
+       *
+       *  NB: Provide three overloads, instead of the single function
+       *  (with defaults) mandated by the Standard: this leads to a
+       *  better performing implementation, while still conforming to
+       *  the Standard.
       */
       __istream_type& 
-      ignore(streamsize __n = 1, int_type __delim = traits_type::eof());
+      ignore();
+
+      __istream_type& 
+      ignore(streamsize __n);
+
+      __istream_type& 
+      ignore(streamsize __n, int_type __delim);
       
       /**
        *  @brief  Looking ahead in the stream

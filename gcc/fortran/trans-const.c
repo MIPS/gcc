@@ -1,25 +1,25 @@
 /* Translation of constants
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
-/* trans_code.c -- convert constant values */
+/* trans-const.c -- convert constant values */
 
 #include "config.h"
 #include "system.h"
@@ -90,7 +90,9 @@ gfc_build_string_const (int length, const char *s)
 }
 
 /* Return a string constant with the given length.  Used for static
-   initializers.  The constant will be padded to the full length.  */
+   initializers.  The constant will be padded or truncated to match 
+   length.  */
+
 tree
 gfc_conv_string_init (tree length, gfc_expr * expr)
 {
@@ -106,8 +108,8 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
 
   len = TREE_INT_CST_LOW (length);
   slen = expr->value.character.length;
-  assert (len >= slen);
-  if (len != slen)
+
+  if (len > slen)
     {
       s = gfc_getmem (len);
       memcpy (s, expr->value.character.string, slen);
@@ -119,6 +121,22 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
     str = gfc_build_string_const (len, expr->value.character.string);
 
   return str;
+}
+
+
+/* Create a tree node for the string length if it is constant.  */
+
+void
+gfc_conv_const_charlen (gfc_charlen * cl)
+{
+  if (cl->backend_decl)
+    return;
+
+  if (cl->length && cl->length->expr_type == EXPR_CONSTANT)
+    {
+      cl->backend_decl = gfc_conv_mpz_to_tree (cl->length->value.integer,
+					       cl->length->ts.kind);
+    }
 }
 
 void
@@ -221,10 +239,9 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
   tree res;
   tree type;
   mp_exp_t exp;
-  char buff[128];
   char *p;
+  char *q;
   int n;
-  int digits;
   int edigits;
 
   for (n = 0; gfc_real_kinds[n].kind != 0; n++)
@@ -234,11 +251,10 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
     }
   assert (gfc_real_kinds[n].kind);
 
-  digits = gfc_real_kinds[n].precision + 1;
   assert (gfc_real_kinds[n].radix == 2);
 
   n = MAX (abs (gfc_real_kinds[n].min_exponent),
-	   abs (gfc_real_kinds[n].min_exponent));
+	   abs (gfc_real_kinds[n].max_exponent));
 #if 0
   edigits = 2 + (int) (log (n) / log (gfc_real_kinds[n].radix));
 #endif
@@ -249,38 +265,39 @@ gfc_conv_mpf_to_tree (mpf_t f, int kind)
       edigits += 3;
     }
 
-  /* We also have two minus signs, "e", "." and a null terminator.  */
-  if (digits + edigits + 5 > 128)
-    p = (char *) gfc_getmem (digits + edigits + 5);
-  else
-    p = buff;
 
-  mpf_get_str (&p[1], &exp, 10, digits, f);
-  if (p[1])
+  p = mpf_get_str (NULL, &exp, 10, 0, f);
+
+  /* We also have one minus sign, "e", "." and a null terminator.  */
+  q = (char *) gfc_getmem (strlen (p) + edigits + 4);
+
+  if (p[0])
     {
-      if (p[1] == '-')
+      if (p[0] == '-')
 	{
-	  p[0] = '-';
-	  p[1] = '.';
+	  strcpy (&q[2], &p[1]);
+	  q[0] = '-';
+	  q[1] = '.';
 	}
       else
 	{
-	  p[0] = '.';
+	  strcpy (&q[1], p);
+	  q[0] = '.';
 	}
-      strcat (p, "e");
-      sprintf (&p[strlen (p)], "%d", (int) exp);
+      strcat (q, "e");
+      sprintf (&q[strlen (q)], "%d", (int) exp);
     }
   else
     {
-      strcpy (p, "0");
+      strcpy (q, "0");
     }
 
   type = gfc_get_real_type (kind);
-  res = build_real (type, REAL_VALUE_ATOF (p, TYPE_MODE (type)));
-  if (p != buff)
-    gfc_free (p);
+  res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
+  gfc_free (q);
+  gfc_free (p);
 
-  return (res);
+  return res;
 }
 
 

@@ -3,30 +3,6 @@ sinclude(../config/accross.m4)
 sinclude(../config/gettext.m4)
 sinclude(../config/progtest.m4)
 
-dnl See if stdbool.h properly defines bool and true/false.
-AC_DEFUN([gcc_AC_HEADER_STDBOOL],
-[AC_CACHE_CHECK([for working stdbool.h],
-  ac_cv_header_stdbool_h,
-[AC_TRY_COMPILE([#include <stdbool.h>],
-[bool foo = false;],
-ac_cv_header_stdbool_h=yes, ac_cv_header_stdbool_h=no)])
-if test $ac_cv_header_stdbool_h = yes; then
-  AC_DEFINE(HAVE_STDBOOL_H, 1,
-  [Define if you have a working <stdbool.h> header file.])
-fi
-])
-
-dnl See whether we can include both string.h and strings.h.
-AC_DEFUN([gcc_AC_HEADER_STRING],
-[AC_CACHE_CHECK([whether string.h and strings.h may both be included],
-  gcc_cv_header_string,
-[AC_TRY_COMPILE([#include <string.h>
-#include <strings.h>], , gcc_cv_header_string=yes, gcc_cv_header_string=no)])
-if test $gcc_cv_header_string = yes; then
-  AC_DEFINE(STRING_WITH_STRINGS, 1, [Define if you can safely include both <string.h> and <strings.h>.])
-fi
-])
-
 dnl See whether we need a declaration for a function.
 dnl The result is highly dependent on the INCLUDES passed in, so make sure
 dnl to use a different cache variable name in this macro if it is invoked
@@ -52,11 +28,13 @@ dnl Arrange to define HAVE_DECL_<FUNCTION> to 0 or 1 as appropriate.
 dnl gcc_AC_CHECK_DECLS(SYMBOLS,
 dnl 	[ACTION-IF-NEEDED [, ACTION-IF-NOT-NEEDED [, INCLUDES]]])
 AC_DEFUN([gcc_AC_CHECK_DECLS],
-[for ac_func in $1
+[AC_FOREACH([gcc_AC_Func], [$1],
+  [AH_TEMPLATE(AS_TR_CPP(HAVE_DECL_[]gcc_AC_Func),
+  [Define to 1 if we found a declaration for ']gcc_AC_Func[', otherwise
+   define to 0.])])dnl
+for ac_func in $1
 do
-changequote(, )dnl
-  ac_tr_decl=HAVE_DECL_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-changequote([, ])dnl
+  ac_tr_decl=AS_TR_CPP([HAVE_DECL_$ac_func])
 gcc_AC_CHECK_DECL($ac_func,
   [AC_DEFINE_UNQUOTED($ac_tr_decl, 1) $2],
   [AC_DEFINE_UNQUOTED($ac_tr_decl, 0) $3],
@@ -72,12 +50,6 @@ dnl during this test.
   $4
 )
 done
-dnl Automatically generate config.h entries via autoheader.
-if test x = y ; then
-  patsubst(translit([$1], [a-z], [A-Z]), [\w+],
-    [AC_DEFINE([HAVE_DECL_\&], 1,
-      [Define to 1 if we found this declaration otherwise define to 0.])])dnl
-fi
 ])
 
 dnl 'make compare' can be significantly faster, if cmp itself can
@@ -166,50 +138,6 @@ fi
 AC_SUBST(LN_S)dnl
 ])
 
-dnl See if hard links work and if not, try to substitute either symbolic links or simple copy.
-AC_DEFUN([gcc_AC_PROG_LN],
-[AC_MSG_CHECKING(whether ln works)
-AC_CACHE_VAL(gcc_cv_prog_LN,
-[rm -f conftestdata_t
-echo >conftestdata_f
-if ln conftestdata_f conftestdata_t 2>/dev/null
-then
-  gcc_cv_prog_LN="ln"
-else
-  if ln -s conftestdata_f conftestdata_t 2>/dev/null
-  then
-    gcc_cv_prog_LN="ln -s"
-  else
-    gcc_cv_prog_LN=cp
-  fi
-fi
-rm -f conftestdata_f conftestdata_t
-])dnl
-LN="$gcc_cv_prog_LN"
-if test "$gcc_cv_prog_LN" = "ln"; then
-  AC_MSG_RESULT(yes)
-else
-  if test "$gcc_cv_prog_LN" = "ln -s"; then
-    AC_MSG_RESULT([no, using ln -s])
-  else
-    AC_MSG_RESULT([no, and neither does ln -s, so using cp])
-  fi
-fi
-AC_SUBST(LN)dnl
-])
-
-dnl Check whether _Bool is built-in.
-AC_DEFUN([gcc_AC_C__BOOL],
-[AC_CACHE_CHECK(for built-in _Bool, gcc_cv_c__bool,
-[AC_TRY_COMPILE(,
-[_Bool foo;],
-gcc_cv_c__bool=yes, gcc_cv_c__bool=no)
-])
-if test $gcc_cv_c__bool = yes; then
-  AC_DEFINE(HAVE__BOOL, 1, [Define if the \`_Bool' type is built-in.])
-fi
-])
-
 dnl Define MKDIR_TAKES_ONE_ARG if mkdir accepts only one argument instead
 dnl of the usual 2.
 AC_DEFUN([gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG],
@@ -293,41 +221,6 @@ AC_SUBST(INSTALL_PROGRAM)dnl
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 AC_SUBST(INSTALL_DATA)dnl
-])
-
-dnl Test for GNAT.
-dnl We require the gnatbind program, and a compiler driver that
-dnl understands Ada.  We use the user's CC setting, already found.
-dnl
-dnl Sets the shell variable have_gnat to yes or no as appropriate, and
-dnl substitutes GNATBIND.
-AC_DEFUN([gcc_AC_PROG_GNAT],
-[AC_REQUIRE([AC_CHECK_TOOL_PREFIX])
-AC_REQUIRE([AC_PROG_CC])
-AC_CHECK_TOOL(GNATBIND, gnatbind, no)
-AC_CACHE_CHECK([whether compiler driver understands Ada],
-		 gcc_cv_cc_supports_ada,
-[cat >conftest.adb <<EOF
-procedure conftest is begin null; end conftest;
-EOF
-gcc_cv_cc_supports_ada=no
-# There is a bug in old released versions of GCC which causes the
-# driver to exit successfully when the appropriate language module
-# has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
-# Therefore we must check for the error message as well as an
-# unsuccessful exit.
-errors=`(${CC} -c conftest.adb) 2>&1 || echo failure`
-if test x"$errors" = x; then
-  gcc_cv_cc_supports_ada=yes
-  break
-fi
-rm -f conftest.*])
-
-if test x$GNATBIND != xno && test x$gcc_cv_supports_ada != xno; then
-  have_gnat=yes
-else
-  have_gnat=no
-fi
 ])
 
 dnl GCC_PATH_PROG(VARIABLE, PROG-TO-CHECK-FOR [, VALUE-IF-NOT-FOUND [, PATH]])

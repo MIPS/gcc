@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
 #include "output.h"
@@ -41,7 +42,7 @@ static bool rpe_enum_p (basic_block, void *);
 static int find_path (edge, basic_block **);
 static bool alp_enum_p (basic_block, void *);
 static void add_loop (struct loops *, struct loop *);
-static void fix_loop_placements (struct loop *);
+static void fix_loop_placements (struct loops *, struct loop *);
 static bool fix_bb_placement (struct loops *, basic_block);
 static void fix_bb_placements (struct loops *, basic_block);
 static void place_new_loop (struct loops *, struct loop *);
@@ -49,6 +50,8 @@ static void scale_loop_frequencies (struct loop *, int, int);
 static void scale_bbs_frequencies (basic_block *, int, int, int);
 static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
+
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Splits basic block BB after INSN, returns created edge.  Updates loops
    and dominators.  */
@@ -249,7 +252,7 @@ fix_irreducible_loops (basic_block from)
   int stack_top;
   sbitmap on_stack;
   edge *edges, e;
-  unsigned n_edges, i;
+  unsigned num_edges, i;
 
   if (!(from->flags & BB_IRREDUCIBLE_LOOP))
     return;
@@ -274,19 +277,19 @@ fix_irreducible_loops (basic_block from)
 
       bb->flags &= ~BB_IRREDUCIBLE_LOOP;
       if (bb->loop_father->header == bb)
-	edges = get_loop_exit_edges (bb->loop_father, &n_edges);
+	edges = get_loop_exit_edges (bb->loop_father, &num_edges);
       else
 	{
-	  n_edges = 0;
+	  num_edges = 0;
 	  for (e = bb->succ; e; e = e->succ_next)
-	    n_edges++;
-	  edges = xmalloc (n_edges * sizeof (edge));
-	  n_edges = 0;
+	    num_edges++;
+	  edges = xmalloc (num_edges * sizeof (edge));
+	  num_edges = 0;
 	  for (e = bb->succ; e; e = e->succ_next)
-	    edges[n_edges++] = e;
+	    edges[num_edges++] = e;
 	}
 
-      for (i = 0; i < n_edges; i++)
+      for (i = 0; i < num_edges; i++)
 	{
 	  e = edges[i];
 
@@ -411,7 +414,7 @@ remove_path (struct loops *loops, edge e)
   /* Fix placements of basic blocks inside loops and the placement of
      loops in the loop tree.  */
   fix_bb_placements (loops, from);
-  fix_loop_placements (from->loop_father);
+  fix_loop_placements (loops, from->loop_father);
 
   return true;
 }
@@ -458,7 +461,7 @@ scale_bbs_frequencies (basic_block *bbs, int nbbs, int num, int den)
   for (i = 0; i < nbbs; i++)
     {
       bbs[i]->frequency = (bbs[i]->frequency * num) / den;
-      bbs[i]->count = (bbs[i]->count * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
       for (e = bbs[i]->succ; e; e = e->succ_next)
 	e->count = (e->count * num) /den;
     }
@@ -480,11 +483,13 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    accordingly. Everything between them plus LATCH_EDGE destination must
    be dominated by HEADER_EDGE destination, and back-reachable from
    LATCH_EDGE source.  HEADER_EDGE is redirected to basic block SWITCH_BB,
-   SWITCH_BB->succ to original destination of LATCH_EDGE and
-   SWITCH_BB->succ->succ_next to original destination of HEADER_EDGE.
+   FALLTHRU_EDGE (SWITCH_BB) to original destination of HEADER_EDGE and
+   BRANCH_EDGE (SWITCH_BB) to original destination of LATCH_EDGE.
    Returns newly created loop.  */
+
 struct loop *
-loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block switch_bb)
+loopify (struct loops *loops, edge latch_edge, edge header_edge, 
+	 basic_block switch_bb)
 {
   basic_block succ_bb = latch_edge->dest;
   basic_block pred_bb = header_edge->src;
@@ -509,13 +514,15 @@ loopify (struct loops *loops, edge latch_edge, edge header_edge, basic_block swi
 
   /* Redirect edges.  */
   loop_redirect_edge (latch_edge, loop->header);
+  loop_redirect_edge (BRANCH_EDGE (switch_bb), succ_bb);
+
   loop_redirect_edge (header_edge, switch_bb);
-  loop_redirect_edge (switch_bb->succ->succ_next, loop->header);
-  loop_redirect_edge (switch_bb->succ, succ_bb);
+  loop_redirect_edge (FALLTHRU_EDGE (switch_bb), loop->header); 
 
   /* Update dominators.  */
   set_immediate_dominator (CDI_DOMINATORS, switch_bb, pred_bb);
   set_immediate_dominator (CDI_DOMINATORS, loop->header, switch_bb);
+
   set_immediate_dominator (CDI_DOMINATORS, succ_bb, switch_bb);
 
   /* Compute new loop.  */
@@ -577,7 +584,7 @@ unloop (struct loops *loops, struct loop *loop)
   unsigned i, n;
   basic_block latch = loop->latch;
   edge *edges;
-  unsigned n_edges;
+  unsigned num_edges;
 
   /* This is relatively straightforward.  The dominators are unchanged, as
      loop header dominates loop latch, so the only thing we have to care of
@@ -586,7 +593,7 @@ unloop (struct loops *loops, struct loop *loop)
      its work.  */
 
   body = get_loop_body (loop);
-  edges = get_loop_exit_edges (loop, &n_edges);
+  edges = get_loop_exit_edges (loop, &num_edges);
   n = loop->num_nodes;
   for (i = 0; i < n; i++)
     if (body[i]->loop_father == loop)
@@ -615,10 +622,10 @@ unloop (struct loops *loops, struct loop *loop)
      update the irreducible marks inside its body.  While it is certainly
      possible to do, it is a bit complicated and this situation should be
      very rare, so we just remark all loops in this case.  */
-  for (i = 0; i < n_edges; i++)
+  for (i = 0; i < num_edges; i++)
     if (edges[i]->flags & EDGE_IRREDUCIBLE_LOOP)
       break;
-  if (i != n_edges)
+  if (i != num_edges)
     mark_irreducible_loops (loops);
   free (edges);
 }
@@ -662,7 +669,7 @@ fix_loop_placement (struct loop *loop)
    It is used in case when we removed some edges coming out of LOOP, which
    may cause the right placement of LOOP inside loop tree to change.  */
 static void
-fix_loop_placements (struct loop *loop)
+fix_loop_placements (struct loops *loops, struct loop *loop)
 {
   struct loop *outer;
 
@@ -671,6 +678,13 @@ fix_loop_placements (struct loop *loop)
       outer = loop->outer;
       if (!fix_loop_placement (loop))
         break;
+
+      /* Changing the placement of a loop in the loop tree may alter the
+	 validity of condition 2) of the description of fix_bb_placement
+	 for its preheader, because the successor is the header and belongs
+	 to the loop.  So call fix_bb_placements to fix up the placement
+	 of the preheader and (possibly) of its predecessors.  */
+      fix_bb_placements (loops, loop_preheader_edge (loop)->src);
       loop = outer;
     }
 }
@@ -808,7 +822,6 @@ can_duplicate_loop_p (struct loop *loop)
   return ret;
 }
 
-#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
    LOOPS structure and dominators.  E's destination must be LOOP header for
@@ -1151,8 +1164,8 @@ create_preheader (struct loop *loop, int flags)
       dummy->succ->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Created preheader block for loop %i\n",
+  if (dump_file)
+    fprintf (dump_file, "Created preheader block for loop %i\n",
 	     loop->num);
 
   return dummy;
@@ -1244,7 +1257,7 @@ create_loop_notes (void)
 #ifdef ENABLE_CHECKING
   /* Verify that there really are no loop notes.  */
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == NOTE
+    if (NOTE_P (insn)
 	&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
       abort ();
 #endif
@@ -1285,11 +1298,11 @@ create_loop_notes (void)
 		     front of the jump.  */
 		  insn = PREV_INSN (BB_HEAD (first[loop->num]));
 		  if (insn
-		      && GET_CODE (insn) == BARRIER)
+		      && BARRIER_P (insn))
 		    insn = PREV_INSN (insn);
 		  
 		  if (insn
-		      && GET_CODE (insn) == JUMP_INSN
+		      && JUMP_P (insn)
 		      && any_uncondjump_p (insn)
 		      && onlyjump_p (insn))
 		    {
@@ -1310,7 +1323,7 @@ create_loop_notes (void)
 		  /* Position the note correctly wrto barrier.  */
 		  insn = BB_END (last[loop->num]);
 		  if (NEXT_INSN (insn)
-		      && GET_CODE (NEXT_INSN (insn)) == BARRIER)
+		      && BARRIER_P (NEXT_INSN (insn)))
 		    insn = NEXT_INSN (insn);
 		  
 		  end = BB_END (last[loop->num]);

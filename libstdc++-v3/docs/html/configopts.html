@@ -33,7 +33,7 @@ options</a></h1>
 <p>Here are some of the non-obvious options to libstdc++'s configure.
    Keep in mind that
    <!-- This SECnn should be the "Choosing Package Options" section. -->
-   <a href="http://www.gnu.org/manual/autoconf/html_node/Package-Options.html#Package%20Options">they
+   <a href="http://www.gnu.org/software/autoconf/manual/autoconf-2.57/html_node/autoconf_131.html#SEC131">they
    all have opposite forms as well</a>
    (enable/disable and with/without).  The defaults are for current
    development sources.
@@ -121,6 +121,23 @@ options</a></h1>
       locale model default to 'generic.' On glibc-based systems of
       version 2.2.5 and above with installed locale files, 'gnu' is
       automatically selected.
+     </p>
+ </dd>
+
+ <dt><code>--enable-libstdcxx-allocator  </code></dt>
+ <dd><p>This is an abbreviated form of
+        <code>'--enable-libstdcxx-allocator=auto'</code> (described
+        next). This option can change the library ABI.
+     </p>
+ </dd>
+
+ <dt><code>--enable-libstdcxx-allocator=OPTION  </code></dt>
+ <dd><p>Select a target-specific underlying std::allocator.  The
+        choices are 'new' to specify a wrapper for new, 'malloc' to
+        specify a wrapper for malloc, 'mt' for a fixed power of two allocator
+        (<a href="ext/mt_allocator.html">documented</a> under extensions) or
+        'bitmap' for a bitmap allocator. This option can change the
+        library ABI.
      </p>
  </dd>
 

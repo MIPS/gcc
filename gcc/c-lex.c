@@ -27,7 +27,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
-#include "expr.h"
 #include "input.h"
 #include "output.h"
 #include "c-tree.h"
@@ -42,9 +41,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "debug.h"
 
-/* The current line map.  */
-static const struct line_map *map;
-
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
 static splay_tree file_info_tree;
@@ -57,6 +53,12 @@ static splay_tree file_info_tree;
 
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
+
+/* If we need to translate characters received.  This is tri-state:
+   0 means use only the untranslated string; 1 means use only
+   the translated string; -1 means chain the translated string
+   to the untranslated one.  */
+int c_lex_string_translate = 1;
 
 static tree interpret_integer (const cpp_token *, unsigned int);
 static tree interpret_float (const cpp_token *, unsigned int);
@@ -120,7 +122,7 @@ get_fileinfo (const char *name)
   if (n)
     return (struct c_fileinfo *) n->value;
 
-  fi = xmalloc (sizeof (struct c_fileinfo));
+  fi = XNEW (struct c_fileinfo);
   fi->time = 0;
   fi->interface_only = 0;
   fi->interface_unknown = 1;
@@ -145,7 +147,7 @@ update_header_times (const char *name)
 }
 
 static int
-dump_one_header (splay_tree_node n, void *dummy ATTRIBUTE_UNUSED)
+dump_one_header (splay_tree_node n, void * ARG_UNUSED (dummy))
 {
   print_time ((const char *) n->key,
 	      ((struct c_fileinfo *) n->value)->time);
@@ -170,9 +172,9 @@ dump_time_statistics (void)
 }
 
 static void
-cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
-	  unsigned int line ATTRIBUTE_UNUSED,
-	  const cpp_string *str ATTRIBUTE_UNUSED)
+cb_ident (cpp_reader * ARG_UNUSED (pfile),
+	  unsigned int ARG_UNUSED (line),
+	  const cpp_string * ARG_UNUSED (str))
 {
 #ifdef ASM_OUTPUT_IDENT
   if (! flag_no_ident)
@@ -191,34 +193,44 @@ cb_ident (cpp_reader *pfile ATTRIBUTE_UNUSED,
 /* Called at the start of every non-empty line.  TOKEN is the first
    lexed token on the line.  Used for diagnostic line numbers.  */
 static void
-cb_line_change (cpp_reader *pfile ATTRIBUTE_UNUSED, const cpp_token *token,
+cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 		int parsing_args)
 {
-  if (token->type == CPP_EOF || parsing_args)
-    return;
-
-  input_line = SOURCE_LINE (map, token->line);
+  if (token->type != CPP_EOF && !parsing_args)
+#ifdef USE_MAPPED_LOCATION
+    input_location = token->src_loc;
+#else
+    {
+      source_location loc = token->src_loc;
+      const struct line_map *map = linemap_lookup (&line_table, loc);
+      input_line = SOURCE_LINE (map, loc);
+    }
+#endif
 }
 
 void
 fe_file_change (const struct line_map *new_map)
 {
   if (new_map == NULL)
-    {
-      map = NULL;
-      return;
-    }
+    return;
 
   if (new_map->reason == LC_ENTER)
     {
       /* Don't stack the main buffer on the input stack;
 	 we already did in compile_file.  */
-      if (map != NULL)
+      if (! MAIN_FILE_P (new_map))
 	{
-          int included_at = SOURCE_LINE (new_map - 1, new_map->from_line - 1);
+#ifdef USE_MAPPED_LOCATION
+          int included_at = LAST_SOURCE_LINE_LOCATION (new_map - 1);
+
+	  input_location = included_at;
+	  push_srcloc (new_map->start_location);
+#else
+          int included_at = LAST_SOURCE_LINE (new_map - 1);
 
 	  input_line = included_at;
 	  push_srcloc (new_map->to_file, 1);
+#endif
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
@@ -248,22 +260,28 @@ fe_file_change (const struct line_map *new_map)
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
+#ifdef USE_MAPPED_LOCATION
+  input_location = new_map->start_location;
+#else
   input_filename = new_map->to_file;
   input_line = new_map->to_line;
-  map = new_map;
+#endif
 
   /* Hook for C++.  */
   extract_interface_info ();
 }
 
 static void
-cb_def_pragma (cpp_reader *pfile, unsigned int line)
+cb_def_pragma (cpp_reader *pfile, source_location loc)
 {
   /* Issue a warning message if we have been asked to do so.  Ignore
      unknown pragmas in system headers unless an explicit
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
+#ifndef USE_MAPPED_LOCATION
+      const struct line_map *map = linemap_lookup (&line_table, loc);
+#endif
       const unsigned char *space, *name;
       const cpp_token *s;
 
@@ -277,25 +295,31 @@ cb_def_pragma (cpp_reader *pfile, unsigned int line)
 	    name = cpp_token_as_text (pfile, s);
 	}
 
-      input_line = SOURCE_LINE (map, line);
+#ifdef USE_MAPPED_LOCATION
+      input_location = loc;
+#else
+      input_line = SOURCE_LINE (map, loc);
+#endif
       warning ("ignoring #pragma %s %s", space, name);
     }
 }
 
 /* #define callback for DWARF and DWARF2 debug info.  */
 static void
-cb_define (cpp_reader *pfile, unsigned int line, cpp_hashnode *node)
+cb_define (cpp_reader *pfile, source_location loc, cpp_hashnode *node)
 {
-  (*debug_hooks->define) (SOURCE_LINE (map, line),
+  const struct line_map *map = linemap_lookup (&line_table, loc);
+  (*debug_hooks->define) (SOURCE_LINE (map, loc),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
-cb_undef (cpp_reader *pfile ATTRIBUTE_UNUSED, unsigned int line,
+cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
 	  cpp_hashnode *node)
 {
-  (*debug_hooks->undef) (SOURCE_LINE (map, line),
+  const struct line_map *map = linemap_lookup (&line_table, loc);
+  (*debug_hooks->undef) (SOURCE_LINE (map, loc),
 			 (const char *) NODE_NAME (node));
 }
 
@@ -310,9 +334,9 @@ get_nonpadding_token (void)
   timevar_pop (TV_CPP);
 
   return tok;
-}  
+}
 
-int
+enum cpp_ttype
 c_lex_with_flags (tree *value, unsigned char *cpp_flags)
 {
   const cpp_token *tok;
@@ -430,7 +454,7 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
   return tok->type;
 }
 
-int
+enum cpp_ttype
 c_lex (tree *value)
 {
   return c_lex_with_flags (value, NULL);
@@ -497,7 +521,7 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 
   integer = cpp_interpret_integer (parse_in, token, flags);
   integer = cpp_num_sign_extend (integer, options->precision);
-  value = build_int_2_wide (integer.low, integer.high);
+  value = build_int_2 (integer.low, integer.high);
 
   /* The type of a constant with a U suffix is straightforward.  */
   if (flags & CPP_N_UNSIGNED)
@@ -573,24 +597,24 @@ interpret_float (const cpp_token *token, unsigned int flags)
   REAL_VALUE_TYPE real;
   char *copy;
   size_t copylen;
-  const char *typename;
+  const char *type_name;
 
-  /* FIXME: make %T work in error/warning, then we don't need typename.  */
+  /* FIXME: make %T work in error/warning, then we don't need type_name.  */
   if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
     {
       type = long_double_type_node;
-      typename = "long double";
+      type_name = "long double";
     }
   else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
 	   || flag_single_precision_constant)
     {
       type = float_type_node;
-      typename = "float";
+      type_name = "float";
     }
   else
     {
       type = double_type_node;
-      typename = "double";
+      type_name = "double";
     }
 
   /* Copy the constant to a nul-terminated buffer.  If the constant
@@ -604,7 +628,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
     /* I or J suffix.  */
     copylen--;
 
-  copy = alloca (copylen + 1);
+  copy = (char *) alloca (copylen + 1);
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
@@ -617,7 +641,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
      ??? That's a dubious reason... is this a mandatory diagnostic or
      isn't it?   -- zw, 2001-08-21.  */
   if (REAL_VALUE_ISINF (real) && pedantic)
-    warning ("floating constant exceeds range of \"%s\"", typename);
+    warning ("floating constant exceeds range of \"%s\"", type_name);
 
   /* Create a node with determined type and value.  */
   value = build_real (type, real);
@@ -677,7 +701,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	  if (tok->type == CPP_WSTRING)
 	    wide = true;
 	  obstack_grow (&str_ob, &tok->val.str, sizeof (cpp_string));
-	  
+
 	  tok = get_nonpadding_token ();
 	  if (c_dialect_objc () && tok->type == CPP_ATSIGN)
 	    {
@@ -686,7 +710,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
 	    }
 	}
       while (tok->type == CPP_STRING || tok->type == CPP_WSTRING);
-      strs = obstack_finish (&str_ob);
+      strs = (cpp_string *) obstack_finish (&str_ob);
     }
 
   /* We have read one more token than we want.  */
@@ -695,10 +719,34 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   if (count > 1 && !objc_string && warn_traditional && !in_system_header)
     warning ("traditional C rejects string constant concatenation");
 
-  if (cpp_interpret_string (parse_in, strs, count, &istr, wide))
+  if ((c_lex_string_translate
+       ? cpp_interpret_string : cpp_interpret_string_notranslate)
+      (parse_in, strs, count, &istr, wide))
     {
       value = build_string (istr.len, (char *)istr.text);
       free ((void *)istr.text);
+
+      if (c_lex_string_translate == -1)
+	{
+	  if (!cpp_interpret_string_notranslate (parse_in, strs, count,
+						 &istr, wide))
+	    /* Assume that, if we managed to translate the string
+	       above, then the untranslated parsing will always
+	       succeed.  */
+	    abort ();
+	  
+	  if (TREE_STRING_LENGTH (value) != (int)istr.len
+	      || 0 != strncmp (TREE_STRING_POINTER (value), (char *)istr.text,
+			       istr.len))
+	    {
+	      /* Arrange for us to return the untranslated string in
+		 *valp, but to set up the C type of the translated
+		 one.  */
+	      *valp = build_string (istr.len, (char *)istr.text);
+	      valp = &TREE_CHAIN (*valp);
+	    }
+	  free ((void *)istr.text);
+	}
     }
   else
     {

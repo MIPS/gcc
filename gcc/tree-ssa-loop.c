@@ -36,37 +36,46 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "cfgloop.h"
 #include "flags.h"
+#include "tree-inline.h"
 
+/* The loop tree currently optimized.  */
 
-/* The main entry into loop optimization pass.  PHASE indicates which dump file
-   from the DUMP_FILES array to use when dumping debugging information.
-   FNDECL is the current function decl.  */
+struct loops *current_loops;
 
-static void
-tree_ssa_loop_opt (void)
+/* Initializes the loop structures.  DUMP is the file to that the details
+   about the analysis should be dumped.  */
+
+static struct loops *
+tree_loop_optimizer_init (FILE *dump)
 {
-  struct loops *loops;
+  struct loops *loops = loop_optimizer_init (dump);
 
-  /* Does nothing for now except for checking that we are able to build the
-     loops.  */
+  if (!loops)
+    return NULL;
 
-  loops = loop_optimizer_init (tree_dump_file);
-  loop_optimizer_finalize (loops,
-			   (tree_dump_flags & TDF_DETAILS
-			    ? tree_dump_file : NULL));
+  /* Creation of preheaders may create redundant phi nodes if the loop is
+     entered by more than one edge, but the initial value of the induction
+     variable is the same on all of them.  */
+  kill_redundant_phi_nodes ();
+  rewrite_into_ssa (false);
+  bitmap_clear (vars_to_rename);
+
+  return loops;
 }
+
+/* The loop superpass.  */
 
 static bool
 gate_loop (void)
 {
-  return flag_tree_loop != 0;
+  return flag_tree_loop_optimize != 0;
 }
 
 struct tree_opt_pass pass_loop = 
 {
   "loop",				/* name */
   gate_loop,				/* gate */
-  tree_ssa_loop_opt,			/* execute */
+  NULL,					/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -74,6 +83,94 @@ struct tree_opt_pass pass_loop =
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_ggc_collect,			/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
 };
+
+/* Loop optimizer initialization.  */
+
+static void
+tree_ssa_loop_init (void)
+{
+  current_loops = tree_loop_optimizer_init (dump_file);
+}
+  
+struct tree_opt_pass pass_loop_init = 
+{
+  "loopinit",				/* name */
+  NULL,					/* gate */
+  tree_ssa_loop_init,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+
+/* Loop invariant motion pass.  */
+
+static void
+tree_ssa_loop_im (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_lim (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_im (void)
+{
+  return flag_tree_lim != 0;
+}
+
+struct tree_opt_pass pass_lim = 
+{
+  "lim",				/* name */
+  gate_tree_ssa_loop_im,		/* gate */
+  tree_ssa_loop_im,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_LIM,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                	/* todo_flags_finish */
+};
+
+/* Loop optimizer finalization.  */
+
+static void
+tree_ssa_loop_done (void)
+{
+  if (!current_loops)
+    return;
+
+  loop_optimizer_finalize (current_loops,
+			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
+  current_loops = NULL;
+  cleanup_tree_cfg ();
+}
+  
+struct tree_opt_pass pass_loop_done = 
+{
+  "loopdone",				/* name */
+  NULL,					/* gate */
+  tree_ssa_loop_done,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+};
+

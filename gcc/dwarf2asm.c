@@ -1,5 +1,5 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -707,7 +707,7 @@ dw2_force_const_mem (rtx x)
   if (GET_CODE (x) != SYMBOL_REF)
     abort ();
 
-  str = (* targetm.strip_name_encoding) (XSTR (x, 0));
+  str = targetm.strip_name_encoding (XSTR (x, 0));
   node = splay_tree_lookup (indirect_pool, (splay_tree_key) str);
   if (node)
     decl = (tree) node->value;

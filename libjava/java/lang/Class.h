@@ -39,10 +39,9 @@ enum
 
   JV_STATE_PRELOADING = 1,	// Can do _Jv_FindClass.
   JV_STATE_LOADING = 3,		// Has super installed.
-  JV_STATE_LOADED = 5,		// Is complete.
-    
-  JV_STATE_COMPILED = 6,	// This was a compiled class.
+  JV_STATE_COMPILED = 5,	// This was a compiled class.
 
+  JV_STATE_LOADED = 6,		// Is complete.
   JV_STATE_PREPARED = 7,	// Layout & static init done.
   JV_STATE_LINKED = 9,		// Strings interned.
 
@@ -286,7 +285,7 @@ private:
   friend jfieldID JvGetFirstStaticField (jclass);
   friend jint JvNumStaticFields (jclass);
 
-  friend jobject _Jv_AllocObject (jclass, jint);
+  friend jobject _Jv_AllocObject (jclass);
   friend void *_Jv_AllocObj (jint, jclass);
   friend void *_Jv_AllocPtrFreeObj (jint, jclass);
   friend void *_Jv_AllocArray (jint, jclass);
@@ -329,7 +328,7 @@ private:
   friend void _Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
-  friend void _Jv_InitPrimClass (jclass, char *, char, int, _Jv_ArrayVTable *);
+  friend void _Jv_InitPrimClass (jclass, char *, char, int);
 
   friend void _Jv_PrepareCompiledClass (jclass);
   friend void _Jv_PrepareConstantTimeTables (jclass);
@@ -339,6 +338,7 @@ private:
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
   friend void _Jv_LinkSymbolTable (jclass);
+  friend void _Jv_LayoutInterfaceMethods (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
   friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
@@ -384,6 +384,7 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
+  friend class _Jv_StackTrace;
   friend class gnu::gcj::runtime::StackTrace;
   friend class java::io::VMObjectStreamClass;
 
@@ -449,6 +450,9 @@ private:
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
   jclass chain;
+  // Additional data, specific to the generator (JIT, native, interpreter) of this 
+  // class.
+  void *aux_info;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,6 +48,7 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch5;  use Sem_Ch5;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch12; use Sem_Ch12;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
@@ -88,6 +89,8 @@ package body Sem_Ch6 is
    --  subsequenty used for inline expansions at call sites. If subprogram can
    --  be inlined (depending on size and nature of local declarations) this
    --  function returns true. Otherwise subprogram body is treated normally.
+   --  If proper warnings are enabled and the subprogram contains a construct
+   --  that cannot be inlined, the offending construct is flagged accordingly.
 
    type Conformance_Type is
      (Type_Conformant, Mode_Conformant, Subtype_Conformant, Fully_Conformant);
@@ -401,6 +404,7 @@ package body Sem_Ch6 is
          Check_References (Gen_Id);
       end;
 
+      Process_End_Label (Handled_Statement_Sequence (N), 't', Current_Scope);
       End_Scope;
       Check_Subprogram_Order (N);
 
@@ -786,6 +790,36 @@ package body Sem_Ch6 is
       Missing_Ret  : Boolean;
       P_Ent        : Entity_Id;
 
+      procedure Check_Following_Pragma;
+      --  If front-end inlining is enabled, look ahead to recognize a pragma
+      --  that may appear after the body.
+
+      procedure Check_Following_Pragma is
+         Prag : Node_Id;
+
+      begin
+         if Front_End_Inlining
+           and then Is_List_Member (N)
+           and then Present (Spec_Decl)
+           and then List_Containing (N) = List_Containing (Spec_Decl)
+         then
+            Prag := Next (N);
+
+            if Present (Prag)
+              and then Nkind (Prag) = N_Pragma
+              and then Get_Pragma_Id (Chars (Prag)) = Pragma_Inline
+              and then
+              Chars
+                (Expression (First (Pragma_Argument_Associations (Prag))))
+                   = Chars (Body_Id)
+            then
+               Analyze (Prag);
+            end if;
+         end if;
+      end Check_Following_Pragma;
+
+   --  Start of processing for Analyze_Subprogram_Body
+
    begin
       if Debug_Flag_C then
          Write_Str ("====  Compiling subprogram body ");
@@ -969,8 +1003,15 @@ package body Sem_Ch6 is
               Make_Subprogram_Declaration (Loc,
                 Specification => New_Spec);
             Insert_Before (N, Decl);
-            Analyze (Decl);
             Spec_Id := Defining_Unit_Name (New_Spec);
+
+            --  Indicate that the entity comes from source, to ensure that
+            --  cross-reference information is properly generated.
+            --  The body itself is rewritten during expansion, and the
+            --  body entity will not appear in calls to the operation.
+
+            Set_Comes_From_Source (Spec_Id, True);
+            Analyze (Decl);
             Set_Has_Completion (Spec_Id);
             Set_Convention (Spec_Id, Convention_Protected);
          end;
@@ -1130,13 +1171,24 @@ package body Sem_Ch6 is
 
       elsif  Present (Spec_Id)
         and then Expander_Active
-        and then (Is_Always_Inlined (Spec_Id)
-                    or else (Has_Pragma_Inline (Spec_Id)
-                              and then
-                                (Front_End_Inlining
-                                  or else Configurable_Run_Time_Mode)))
       then
-         Build_Body_To_Inline (N, Spec_Id);
+         Check_Following_Pragma;
+
+         if Is_Always_Inlined (Spec_Id)
+           or else (Has_Pragma_Inline (Spec_Id)
+             and then (Front_End_Inlining or else Configurable_Run_Time_Mode))
+         then
+            Build_Body_To_Inline (N, Spec_Id);
+         end if;
+      end if;
+
+      --  Ada 2005 (AI-262): In library subprogram bodies, after the analysis
+      --  if its specification we have to install the private withed units.
+
+      if Is_Compilation_Unit (Body_Id)
+        and then Scope (Body_Id) = Standard_Standard
+      then
+         Install_Private_With_Clauses (Body_Id);
       end if;
 
       --  Now we can go on to analyze the body
@@ -1149,6 +1201,7 @@ package body Sem_Ch6 is
       Process_End_Label (HSS, 't', Current_Scope);
       End_Scope;
       Check_Subprogram_Order (N);
+      Set_Analyzed (Body_Id);
 
       --  If we have a separate spec, then the analysis of the declarations
       --  caused the entities in the body to be chained to the spec id, but
@@ -1723,6 +1776,8 @@ package body Sem_Ch6 is
 
       --  Functions that return unconstrained composite types will require
       --  secondary stack handling, and cannot currently be inlined.
+      --  Ditto for functions that return controlled types, where controlled
+      --  actions interfere in complex ways with inlining.
 
       elsif Ekind (Subp) = E_Function
         and then not Is_Scalar_Type (Etype (Subp))
@@ -1731,6 +1786,13 @@ package body Sem_Ch6 is
       then
          Cannot_Inline
            ("cannot inline & (unconstrained return type)?", N, Subp);
+         return;
+
+      elsif Ekind (Subp) = E_Function
+        and then Controlled_Type (Etype (Subp))
+      then
+         Cannot_Inline
+           ("cannot inline & (controlled return type)?", N, Subp);
          return;
       end if;
 
@@ -1787,10 +1849,14 @@ package body Sem_Ch6 is
       --  the actuals at the point of inlining, i.e. instantiation. To treat
       --  the formals as globals to the body to inline, we nest it within
       --  a dummy parameterless subprogram, declared within the real one.
+      --  To avoid generating an internal name (which is never public, and
+      --  which affects serial numbers of other generated names), we use
+      --  an internal symbol that cannot conflict with user declarations.
 
       Set_Parameter_Specifications (Specification (Original_Body), No_List);
-      Set_Defining_Unit_Name (Specification (Original_Body),
-        Make_Defining_Identifier (Sloc (N), New_Internal_Name ('S')));
+      Set_Defining_Unit_Name
+        (Specification (Original_Body),
+          Make_Defining_Identifier (Sloc (N), Name_uParent));
       Set_Corresponding_Spec (Original_Body, Empty);
 
       Body_To_Analyze := Copy_Generic_Node (Original_Body, Empty, False);
@@ -2097,7 +2163,7 @@ package body Sem_Ch6 is
          --  skipped if either entity is an operator in package Standard.
          --  or if either old or new instance is not from the source program.
 
-         if Ada_83
+         if Ada_Version = Ada_83
            and then Sloc (Old_Id) > Standard_Location
            and then Sloc (New_Id) > Standard_Location
            and then Comes_From_Source (Old_Id)
@@ -2340,7 +2406,7 @@ package body Sem_Ch6 is
 
          --  In Ada 83 case, grouping must match: (A,B : X) /= (A : X; B : X)
 
-         if Ada_83 then
+         if Ada_Version = Ada_83 then
             declare
                Old_Disc : constant Node_Id := Declaration_Node (Old_Discr);
 
@@ -2935,6 +3001,7 @@ package body Sem_Ch6 is
    is
       Type_1 : Entity_Id := T1;
       Type_2 : Entity_Id := T2;
+      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
 
       function Base_Types_Match (T1, T2 : Entity_Id) return Boolean;
       --  If neither T1 nor T2 are generic actual types, or if they are
@@ -2963,6 +3030,17 @@ package body Sem_Ch6 is
             return not Is_Generic_Actual_Type (T1)
               or else not Is_Generic_Actual_Type (T2)
               or else Scope (T1) /= Scope (T2);
+
+         --  In some cases a type imported through a limited_with clause,
+         --  and its non-limited view are both visible, for example in an
+         --  anonymous access_to_classwide type in a formal. Both entities
+         --  designate the same type.
+
+         elsif From_With_Type (T1)
+           and then Ekind (T1) = E_Incomplete_Type
+           and then T2 = Non_Limited_View (T1)
+         then
+            return True;
 
          else
             return False;
@@ -3009,11 +3087,38 @@ package body Sem_Ch6 is
            or else Subtypes_Statically_Match (Type_1, Full_View (Type_2));
       end if;
 
+      --  Ada 2005 (AI-254): Detect anonymous access to subprogram types
+
+      Are_Anonymous_Access_To_Subprogram_Types :=
+
+         --  Case 1: Anonymous access to subprogram types
+
+        (Ekind (Type_1) = E_Anonymous_Access_Subprogram_Type
+           and then Ekind (Type_2) = E_Anonymous_Access_Subprogram_Type)
+
+         --  Case 2: Anonymous access to PROTECTED subprogram types. In this
+         --  case the anonymous type_declaration has been replaced by an
+         --  occurrence of an internal access to subprogram type declaration
+         --  available through the Original_Access_Type attribute
+
+        or else
+          (Ekind (Type_1) = E_Access_Protected_Subprogram_Type
+            and then Ekind (Type_2) = E_Access_Protected_Subprogram_Type
+            and then not Comes_From_Source (Type_1)
+            and then not Comes_From_Source (Type_2)
+            and then Present (Original_Access_Type (Type_1))
+            and then Present (Original_Access_Type (Type_2))
+            and then Ekind (Original_Access_Type (Type_1)) =
+                       E_Anonymous_Access_Protected_Subprogram_Type
+            and then Ekind (Original_Access_Type (Type_2)) =
+                       E_Anonymous_Access_Protected_Subprogram_Type);
+
       --  Test anonymous access type case. For this case, static subtype
       --  matching is required for mode conformance (RM 6.3.1(15))
 
-      if Ekind (Type_1) = E_Anonymous_Access_Type
-        and then Ekind (Type_2) = E_Anonymous_Access_Type
+      if (Ekind (Type_1) = E_Anonymous_Access_Type
+            and then Ekind (Type_2) = E_Anonymous_Access_Type)
+        or else Are_Anonymous_Access_To_Subprogram_Types -- Ada 2005 (AI-254)
       then
          declare
             Desig_1 : Entity_Id;
@@ -3022,7 +3127,7 @@ package body Sem_Ch6 is
          begin
             Desig_1 := Directly_Designated_Type (Type_1);
 
-            --  An access parameter can designate an incomplete type.
+            --  An access parameter can designate an incomplete type
 
             if Ekind (Desig_1) = E_Incomplete_Type
               and then Present (Full_View (Desig_1))
@@ -3062,11 +3167,17 @@ package body Sem_Ch6 is
                  Conforming_Types
                    (Etype (Base_Type (Desig_1)),
                     Etype (Base_Type (Desig_2)), Ctype);
+
+            elsif Are_Anonymous_Access_To_Subprogram_Types then
+               return Ctype = Type_Conformant
+                        or else
+                      Subtypes_Statically_Match (Desig_1, Desig_2);
+
             else
                return Base_Type (Desig_1) = Base_Type (Desig_2)
                 and then (Ctype = Type_Conformant
-                          or else
-                        Subtypes_Statically_Match (Desig_1, Desig_2));
+                            or else
+                          Subtypes_Statically_Match (Desig_1, Desig_2));
             end if;
          end;
 
@@ -4369,6 +4480,12 @@ package body Sem_Ch6 is
          if not Comes_From_Source (S) then
             null;
 
+         --  If the subprogram is at library level, it is not a
+         --  primitive operation.
+
+         elsif Current_Scope = Standard_Standard then
+            null;
+
          elsif (Ekind (Current_Scope) = E_Package
                  and then not In_Package_Body (Current_Scope))
            or else Overriding
@@ -4531,8 +4648,9 @@ package body Sem_Ch6 is
                   end if;
 
                   --  In any case the implicit operation remains hidden by
-                  --  the existing declaration.
+                  --  the existing declaration, which is overriding.
 
+                  Set_Is_Overriding_Operation (E);
                   return;
 
                   --  Within an instance, the renaming declarations for
@@ -4840,9 +4958,8 @@ package body Sem_Ch6 is
                         and then Ekind (Root_Type (Formal_Type)) =
                                                          E_Incomplete_Type)
             then
-               --  Ada0Y (AI-50217): Incomplete tagged types that are made
-               --  visible through a limited with_clause are valid formal
-               --  types.
+               --  Ada 2005 (AI-50217): Incomplete tagged types that are made
+               --  visible by a limited with_clause are valid formal types.
 
                if From_With_Type (Formal_Type)
                  and then Is_Tagged_Type (Formal_Type)
@@ -4860,15 +4977,97 @@ package body Sem_Ch6 is
                  Parameter_Type (Param_Spec), Formal_Type);
             end if;
 
+            --  Ada 2005 (AI-231): Create and decorate an internal subtype
+            --  declaration corresponding to the null-excluding type of the
+            --  formal in the enclosing scope. In addition, replace the
+            --  parameter type of the formal to this internal subtype.
+
+            if Null_Exclusion_Present (Param_Spec) then
+               declare
+                  Loc   : constant Source_Ptr := Sloc (Param_Spec);
+
+                  Anon  : constant Entity_Id :=
+                            Make_Defining_Identifier (Loc,
+                              Chars => New_Internal_Name ('S'));
+
+                  Curr_Scope : constant Scope_Stack_Entry :=
+                                 Scope_Stack.Table (Scope_Stack.Last);
+
+                  Ptype : constant Node_Id := Parameter_Type (Param_Spec);
+                  Decl  : Node_Id;
+                  P     : Node_Id := Parent (Parent (Related_Nod));
+
+               begin
+                  Set_Is_Internal (Anon);
+
+                  Decl :=
+                    Make_Subtype_Declaration (Loc,
+                      Defining_Identifier      => Anon,
+                        Null_Exclusion_Present => True,
+                        Subtype_Indication     =>
+                          New_Occurrence_Of (Etype (Ptype), Loc));
+
+                  --  Propagate the null-excluding attribute to the new entity
+
+                  if Null_Exclusion_Present (Param_Spec) then
+                     Set_Null_Exclusion_Present (Param_Spec, False);
+                     Set_Can_Never_Be_Null (Anon);
+                  end if;
+
+                  Mark_Rewrite_Insertion (Decl);
+
+                  --  Insert the new declaration in the nearest enclosing scope
+
+                  while not Has_Declarations (P) loop
+                     P := Parent (P);
+                  end loop;
+
+                  Prepend (Decl, Declarations (P));
+
+                  Rewrite (Ptype, New_Occurrence_Of (Anon, Loc));
+                  Mark_Rewrite_Insertion (Ptype);
+
+                  --  Analyze the new declaration in the context of the
+                  --  enclosing scope
+
+                  Scope_Stack.Decrement_Last;
+                  Analyze (Decl);
+                  Scope_Stack.Append (Curr_Scope);
+
+                  Formal_Type := Anon;
+               end;
+            end if;
+
+            --  Ada 2005 (AI-231): Static checks
+
+            if Null_Exclusion_Present (Param_Spec)
+              or else Can_Never_Be_Null (Entity (Ptype))
+            then
+               Null_Exclusion_Static_Checks (Param_Spec);
+            end if;
+
          --  An access formal type
 
          else
             Formal_Type :=
               Access_Definition (Related_Nod, Parameter_Type (Param_Spec));
+
+            --  Ada 2005 (AI-254)
+
+            declare
+               AD : constant Node_Id :=
+                      Access_To_Subprogram_Definition
+                        (Parameter_Type (Param_Spec));
+            begin
+               if Present (AD) and then Protected_Present (AD) then
+                  Formal_Type :=
+                    Replace_Anonymous_Access_To_Protected_Subprogram
+                      (Param_Spec, Formal_Type);
+               end if;
+            end;
          end if;
 
          Set_Etype (Formal, Formal_Type);
-
          Default := Expression (Param_Spec);
 
          if Present (Default) then
@@ -4927,7 +5126,6 @@ package body Sem_Ch6 is
 
                   Apply_Scalar_Range_Check (Default, Formal_Type);
                end if;
-
             end if;
          end if;
 
@@ -4971,12 +5169,12 @@ package body Sem_Ch6 is
    -------------------------
 
    procedure Set_Actual_Subtypes (N : Node_Id; Subp : Entity_Id) is
-      Loc        : constant Source_Ptr := Sloc (N);
-      Decl       : Node_Id;
-      Formal     : Entity_Id;
-      T          : Entity_Id;
-      First_Stmt : Node_Id := Empty;
-      AS_Needed  : Boolean;
+      Loc            : constant Source_Ptr := Sloc (N);
+      Decl           : Node_Id;
+      Formal         : Entity_Id;
+      T              : Entity_Id;
+      First_Stmt     : Node_Id := Empty;
+      AS_Needed      : Boolean;
 
    begin
       --  If this is an emtpy initialization procedure, no need to create
@@ -5041,7 +5239,6 @@ package body Sem_Ch6 is
          --  unconstrained discriminated records.
 
          if AS_Needed then
-
             if Nkind (N) = N_Accept_Statement then
 
                --  If expansion is active, The formal is replaced by a local
@@ -5074,7 +5271,10 @@ package body Sem_Ch6 is
                Mark_Rewrite_Insertion (Decl);
             end if;
 
-            Analyze (Decl);
+            --  The declaration uses the bounds of an existing object,
+            --  and therefore needs no constraint checks.
+
+            Analyze (Decl, Suppress => All_Checks);
 
             --  We need to freeze manually the generated type when it is
             --  inserted anywhere else than in a declarative part.
@@ -5136,8 +5336,16 @@ package body Sem_Ch6 is
       --  set Can_Never_Be_Null, since there is no way to change the value.
 
       if Nkind (Parameter_Type (Spec)) = N_Access_Definition then
-         Set_Is_Known_Non_Null (Formal_Id);
-         Set_Can_Never_Be_Null (Formal_Id);
+
+         --  Ada 2005 (AI-231): This behaviour has been modified in Ada 2005.
+         --  It is only forced if the null_exclusion appears.
+
+         if Ada_Version < Ada_05
+           or else Null_Exclusion_Present (Spec)
+         then
+            Set_Is_Known_Non_Null (Formal_Id);
+            Set_Can_Never_Be_Null (Formal_Id);
+         end if;
       end if;
 
       Set_Mechanism (Formal_Id, Default_Mechanism);

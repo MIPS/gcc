@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,6 +33,7 @@ with Scans;     use Scans;
 with Snames;
 with Table;
 with Types;     use Types;
+with Uintp;     use Uintp;
 
 package body Prj.Strt is
 
@@ -115,7 +116,8 @@ package body Prj.Strt is
      (Term            : out Project_Node_Id;
       Expr_Kind       : in out Variable_Kind;
       Current_Project : Project_Node_Id;
-      Current_Package : Project_Node_Id);
+      Current_Package : Project_Node_Id;
+      Optional_Index  : Boolean);
    --  Recursive procedure to parse one term or several terms concatenated
    --  using "&".
 
@@ -175,12 +177,8 @@ package body Prj.Strt is
          --  Check if the identifier is one of the attribute identifiers in the
          --  context (package or project level attributes).
 
-         while Current_Attribute /= Empty_Attribute
-           and then
-             Attributes.Table (Current_Attribute).Name /= Token_Name
-         loop
-            Current_Attribute := Attributes.Table (Current_Attribute).Next;
-         end loop;
+         Current_Attribute :=
+           Attribute_Node_Id_Of (Token_Name, Starting_At => First_Attribute);
 
          --  If the identifier is not allowed, report an error
 
@@ -199,9 +197,9 @@ package body Prj.Strt is
             Set_Project_Node_Of (Reference, To => Current_Project);
             Set_Package_Node_Of (Reference, To => Current_Package);
             Set_Expression_Kind_Of
-              (Reference, To => Attributes.Table (Current_Attribute).Kind_1);
+              (Reference, To => Variable_Kind_Of (Current_Attribute));
             Set_Case_Insensitive
-              (Reference, To => Attributes.Table (Current_Attribute).Kind_2 =
+              (Reference, To => Attribute_Kind_Of (Current_Attribute) =
                                           Case_Insensitive_Associative_Array);
 
             --  Scan past the attribute name
@@ -210,7 +208,7 @@ package body Prj.Strt is
 
             --  If the attribute is an associative array, get the index
 
-            if Attributes.Table (Current_Attribute).Kind_2 /= Single then
+            if Attribute_Kind_Of (Current_Attribute) /= Single then
                Expect (Tok_Left_Paren, "`(`");
 
                if Token = Tok_Left_Paren then
@@ -258,8 +256,49 @@ package body Prj.Strt is
    -- End_Case_Construction --
    ---------------------------
 
-   procedure End_Case_Construction is
+   procedure End_Case_Construction
+     (Check_All_Labels   : Boolean;
+      Case_Location      : Source_Ptr)
+   is
+      Non_Used : Natural := 0;
+      First_Non_Used : Choice_Node_Id := First_Choice_Node_Id;
    begin
+      --  First, if Check_All_Labels is True, check if all values
+      --  of the string type have been used.
+
+      if Check_All_Labels then
+         for Choice in Choice_First .. Choices.Last loop
+               if not Choices.Table (Choice).Already_Used then
+                  Non_Used := Non_Used + 1;
+
+                  if Non_Used = 1 then
+                     First_Non_Used := Choice;
+                  end if;
+               end if;
+         end loop;
+
+         --  If only one is not used, report a single warning for this value
+
+         if Non_Used = 1 then
+            Error_Msg_Name_1 := Choices.Table (First_Non_Used).The_String;
+            Error_Msg ("?value { is not used as label", Case_Location);
+
+         --  If several are not used, report a warning for each one of them
+
+         elsif Non_Used > 1 then
+            Error_Msg
+              ("?the following values are not used as labels:",
+               Case_Location);
+
+            for Choice in First_Non_Used .. Choices.Last loop
+               if not Choices.Table (Choice).Already_Used then
+                  Error_Msg_Name_1 := Choices.Table (Choice).The_String;
+                  Error_Msg ("\?{", Case_Location);
+               end if;
+            end loop;
+         end if;
+      end if;
+
       --  If this is the only case construction, empty the tables
 
       if Choice_Lasts.Last = 1 then
@@ -454,7 +493,8 @@ package body Prj.Strt is
    procedure Parse_Expression
      (Expression      : out Project_Node_Id;
       Current_Project : Project_Node_Id;
-      Current_Package : Project_Node_Id)
+      Current_Package : Project_Node_Id;
+      Optional_Index  : Boolean)
    is
       First_Term      : Project_Node_Id := Empty_Node;
       Expression_Kind : Variable_Kind := Undefined;
@@ -470,7 +510,8 @@ package body Prj.Strt is
       Terms (Term            => First_Term,
              Expr_Kind       => Expression_Kind,
              Current_Project => Current_Project,
-             Current_Package => Current_Package);
+             Current_Package => Current_Package,
+             Optional_Index  => Optional_Index);
 
       --  Set the first term and the expression kind
 
@@ -606,15 +647,9 @@ package body Prj.Strt is
 
                   --  First, look if it can be a package name
 
-                  for Index in Package_First .. Package_Attributes.Last loop
-                     if Package_Attributes.Table (Index).Name =
-                                                      Names.Table (1).Name
-                     then
-                        First_Attribute :=
-                          Package_Attributes.Table (Index).First_Attribute;
-                        exit;
-                     end if;
-                  end loop;
+                  First_Attribute :=
+                    First_Attribute_Of
+                      (Package_Node_Id_Of (Names.Table (1).Name));
 
                   --  Now, look if it can be a project name
 
@@ -763,8 +798,8 @@ package body Prj.Strt is
                               --  package.
 
                               First_Attribute :=
-                                Package_Attributes.Table
-                                (Package_Id_Of (The_Package)).First_Attribute;
+                                First_Attribute_Of
+                                  (Package_Id_Of (The_Package));
                            end if;
                         end if;
                      end if;
@@ -1077,7 +1112,8 @@ package body Prj.Strt is
      (Term            : out Project_Node_Id;
       Expr_Kind       : in out Variable_Kind;
       Current_Project : Project_Node_Id;
-      Current_Package : Project_Node_Id)
+      Current_Package : Project_Node_Id;
+      Optional_Index  : Boolean)
    is
       Next_Term          : Project_Node_Id := Empty_Node;
       Term_Id            : Project_Node_Id := Empty_Node;
@@ -1143,7 +1179,8 @@ package body Prj.Strt is
                   Current_Location := Token_Ptr;
                   Parse_Expression (Expression      => Next_Expression,
                                     Current_Project => Current_Project,
-                                    Current_Package => Current_Package);
+                                    Current_Package => Current_Package,
+                                    Optional_Index  => Optional_Index);
 
                   --  The expression kind is String list, report an error
 
@@ -1198,6 +1235,39 @@ package body Prj.Strt is
             --  Scan past the string literal
 
             Scan;
+
+            --  Check for possible index expression
+
+            if Token = Tok_At then
+               if not Optional_Index then
+                  Error_Msg ("index not allowed here", Token_Ptr);
+                  Scan;
+
+                  if Token = Tok_Integer_Literal then
+                     Scan;
+                  end if;
+
+               --  Set the index value
+
+               else
+                  Scan;
+                  Expect (Tok_Integer_Literal, "integer literal");
+
+                  if Token = Tok_Integer_Literal then
+                     declare
+                        Index : constant Int := UI_To_Int (Int_Literal_Value);
+                     begin
+                        if Index = 0 then
+                           Error_Msg ("index cannot be zero", Token_Ptr);
+                        else
+                           Set_Source_Index_Of (Term_Id, To => Index);
+                        end if;
+                     end;
+
+                     Scan;
+                  end if;
+               end if;
+            end if;
 
          when Tok_Identifier =>
             Current_Location := Token_Ptr;
@@ -1292,7 +1362,8 @@ package body Prj.Strt is
          Terms (Term            => Next_Term,
                 Expr_Kind       => Expr_Kind,
                 Current_Project => Current_Project,
-                Current_Package => Current_Package);
+                Current_Package => Current_Package,
+                Optional_Index  => Optional_Index);
 
          --  And link the next term to this term
 

@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "function.h"
 
 /* A register conflict graph is an undirected graph containing nodes
    for some or all of the regs used in a function.  Arcs represent
@@ -376,7 +377,7 @@ mark_reg (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
     reg = SUBREG_REG (reg);
 
   /* We're only interested in regs.  */
-  if (GET_CODE (reg) != REG)
+  if (!REG_P (reg))
     return;
 
   SET_REGNO_REG_SET (set, REGNO (reg));

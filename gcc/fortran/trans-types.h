@@ -1,24 +1,24 @@
 /* Header for Fortran 95 types backend support.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #ifndef GFC_BACKEND_H
@@ -91,6 +91,7 @@ extern GTY(()) tree pchar_type_node;
 
 #define gfc_character1_type_node gfc_type_nodes[F95_CHARACTER1_TYPE]
 
+#define gfc_strlen_kind 4
 #define gfc_strlen_type_node gfc_int4_type_node
 
 /* These C-specific types are used while building builtin function decls.
@@ -135,5 +136,8 @@ void gfc_finish_type (tree);
 
 /* Some functions have an extra parameter for the return value.  */
 int gfc_return_by_reference (gfc_symbol *);
+
+/* Returns true if the array sym does not require a descriptor.  */
+int gfc_is_nodesc_array (gfc_symbol *);
 
 #endif

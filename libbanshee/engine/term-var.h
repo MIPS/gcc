@@ -44,7 +44,7 @@ term_var tv_fresh(region r, const char *name);
 term_var tv_fresh_small(region r, const char *name);
 term_var tv_fresh_large(region r, const char *name);
 
-char *tv_get_name(term_var v);
+const char *tv_get_name(term_var v);
 
 gen_e_list tv_get_pending(term_var v);
 void tv_add_pending(term_var v,gen_e e);

@@ -887,7 +887,7 @@ expand_block_move (rtx operands[])
 	      dest = copy_addr_to_reg (XEXP (operands[0], 0));
 	      src = copy_addr_to_reg (XEXP (operands[1], 0));
 	    
-	      emit_insn (gen_movstrsi2(dest, src, GEN_INT (words)));
+	      emit_insn (gen_movmemsi2(dest, src, GEN_INT (words)));
 	    }
 	}
       move_tail (operands, bytes & 3, bytes & ~3);
@@ -914,7 +914,7 @@ expand_block_move (rtx operands[])
       if (bytes >> 2)
 	{
 	  emit_move_insn (count_reg, GEN_INT (bytes >> 2));
-	  emit_insn (gen_movstrsi1 (GEN_INT (4)));
+	  emit_insn (gen_movmemsi1 (GEN_INT (4)));
 	}
       /* insns to copy rest */
       move_tail (operands, bytes & 3, 0);
@@ -923,7 +923,7 @@ expand_block_move (rtx operands[])
     {
       /* insns to copy by words */
       emit_insn (gen_lshrsi3 (count_reg, bytes_rtx, const2_rtx));
-      emit_insn (gen_movstrsi1 (GEN_INT (4)));
+      emit_insn (gen_movmemsi1 (GEN_INT (4)));
       if (constp)
 	{
 	  move_tail (operands, bytes & 3, 0);
@@ -932,7 +932,7 @@ expand_block_move (rtx operands[])
 	{
 	  /* insns to copy rest */
 	  emit_insn (gen_andsi3 (count_reg, bytes_rtx, GEN_INT (3)));
-	  emit_insn (gen_movstrsi1 (const1_rtx));
+	  emit_insn (gen_movmemsi1 (const1_rtx));
 	}
     }
   else
@@ -958,17 +958,17 @@ expand_block_move (rtx operands[])
       emit_insn (gen_negsi2 (count_reg, src_reg));
       emit_insn (gen_andsi3 (count_reg, count_reg, GEN_INT (3)));
       emit_insn (gen_subsi3 (bytes_reg, bytes_reg, count_reg));
-      emit_insn (gen_movstrsi1 (const1_rtx));
+      emit_insn (gen_movmemsi1 (const1_rtx));
       if (!constp)
 	emit_label (aligned_label);
 
       /* insns to copy by words */
       emit_insn (gen_lshrsi3 (count_reg, bytes_reg, const2_rtx));
-      emit_insn (gen_movstrsi1 (GEN_INT (4)));
+      emit_insn (gen_movmemsi1 (GEN_INT (4)));
 
       /* insns to copy rest */
       emit_insn (gen_andsi3 (count_reg, bytes_reg, GEN_INT (3)));
-      emit_insn (gen_movstrsi1 (const1_rtx));
+      emit_insn (gen_movmemsi1 (const1_rtx));
     }
 }
 
@@ -1567,4 +1567,75 @@ ns32k_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 			int incoming ATTRIBUTE_UNUSED)
 {
   return gen_rtx_REG (Pmode, NS32K_STRUCT_VALUE_REGNUM);
+}
+
+/* Worker function for NOTICE_UPDATE_CC.  */
+
+void
+ns32k_notice_update_cc (rtx exp, rtx insn ATTRIBUTE_UNUSED)
+{
+  if (GET_CODE (exp) == SET)
+    {
+      if (GET_CODE (SET_DEST (exp)) == CC0)
+	{
+	  cc_status.flags = 0;
+	  cc_status.value1 = SET_DEST (exp);
+	  cc_status.value2 = SET_SRC (exp);
+	}
+      else if (GET_CODE (SET_SRC (exp)) == CALL)
+	{
+	  CC_STATUS_INIT;
+	}
+      else if (GET_CODE (SET_DEST (exp)) == REG)
+	{
+	  if (cc_status.value1
+	      && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value1))
+	    cc_status.value1 = 0;
+	  if (cc_status.value2
+	      && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value2))
+	    cc_status.value2 = 0;
+	}
+      else if (GET_CODE (SET_DEST (exp)) == MEM)
+	{
+	  CC_STATUS_INIT;
+	}
+    }
+  else if (GET_CODE (exp) == PARALLEL
+	   && GET_CODE (XVECEXP (exp, 0, 0)) == SET)
+    {
+      if (GET_CODE (SET_DEST (XVECEXP (exp, 0, 0))) == CC0)
+	{
+	  cc_status.flags = 0;
+	  cc_status.value1 = SET_DEST (XVECEXP (exp, 0, 0));
+	  cc_status.value2 = SET_SRC (XVECEXP (exp, 0, 0));
+	}
+      else if (GET_CODE (SET_DEST (XVECEXP (exp, 0, 0))) == REG)
+	{
+	  if (cc_status.value1
+	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (exp, 0, 0)),
+					  cc_status.value1))
+	    cc_status.value1 = 0;
+	  if (cc_status.value2
+	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (exp, 0, 0)),
+					  cc_status.value2))
+	    cc_status.value2 = 0;
+	}
+      else if (GET_CODE (SET_DEST (XVECEXP (exp, 0, 0))) == MEM)
+	{
+	  CC_STATUS_INIT;
+	}
+    }
+  else if (GET_CODE (exp) == CALL)
+    {
+      /* all bets are off */
+      CC_STATUS_INIT;
+    }
+  else
+    {
+      /* nothing happens? CC_STATUS_INIT; */
+    }
+  if (cc_status.value1 && GET_CODE (cc_status.value1) == REG
+      && cc_status.value2
+      && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
+    abort ();
 }

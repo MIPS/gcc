@@ -1,0 +1,4 @@
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/gcov/gcov-1.C: Fix switch statement probabilities.
+	* gcc.misc-tests/gcov/gcov-4b.c: Fix switch statement probabilities.

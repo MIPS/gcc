@@ -1,6 +1,6 @@
 /* File format for coverage information
-   Copyright (C) 1996, 1997, 1998, 2000, 2002,
-   2003  Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -65,6 +65,7 @@ gcov_open (const char *name, int mode)
 #endif
 #if GCOV_LOCKED
   struct flock s_flock;
+  int fd;
 
   s_flock.l_type = F_WRLCK;
   s_flock.l_whence = SEEK_SET;
@@ -82,6 +83,44 @@ gcov_open (const char *name, int mode)
 #if !IN_LIBGCOV
   gcov_var.endian = 0;
 #endif
+#if GCOV_LOCKED
+  if (mode > 0)
+    fd = open (name, O_RDWR);
+  else
+    fd = open (name, O_RDWR | O_CREAT, 0666);
+  if (fd < 0)
+    return 0;
+
+  while (fcntl (fd, F_SETLKW, &s_flock) && errno == EINTR)
+    continue;
+
+  gcov_var.file = fdopen (fd, "r+b");
+  if (!gcov_var.file)
+    {
+      close (fd);
+      return 0;
+    }
+
+  if (mode > 0)
+    gcov_var.mode = 1;
+  else if (mode == 0)
+    {
+      struct stat st;
+
+      if (fstat (fd, &st) < 0)
+	{
+	  fclose (gcov_var.file);
+	  gcov_var.file = 0;
+	  return 0;
+	}
+      if (st.st_size != 0)
+	gcov_var.mode = 1;
+      else
+	gcov_var.mode = mode * 2 + 1;
+    }
+  else
+    gcov_var.mode = mode * 2 + 1;
+#else
   if (mode >= 0)
     gcov_var.file = fopen (name, "r+b");
   if (gcov_var.file)
@@ -94,15 +133,10 @@ gcov_open (const char *name, int mode)
     }
   if (!gcov_var.file)
     return 0;
-  
-  setbuf (gcov_var.file, (char *)0);
-  
-#if GCOV_LOCKED
-  while (fcntl (fileno (gcov_var.file), F_SETLKW, &s_flock)
-	 && errno == EINTR)
-    continue;
 #endif
 
+  setbuf (gcov_var.file, (char *)0);
+  
   return 1;
 }
 
@@ -480,8 +514,7 @@ gcov_sync (gcov_position_t base, gcov_unsigned_t length)
 #endif
 
 #if IN_LIBGCOV
-/* Move to the a set position in a gcov file.  BASE is zero to move to
-   the end, and nonzero to move to that position.  */
+/* Move to the a set position in a gcov file.  */
 
 GCOV_LINKAGE void
 gcov_seek (gcov_position_t base)
@@ -489,7 +522,7 @@ gcov_seek (gcov_position_t base)
   GCOV_CHECK_WRITING ();
   if (gcov_var.offset)
     gcov_write_block (gcov_var.offset);
-  fseek (gcov_var.file, base << 2, base ? SEEK_SET : SEEK_END);
+  fseek (gcov_var.file, base << 2, SEEK_SET);
   gcov_var.start = ftell (gcov_var.file) >> 2;
 }
 #endif

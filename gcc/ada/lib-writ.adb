@@ -68,7 +68,6 @@ package body Lib.Writ is
          Cunit           => Empty,
          Cunit_Entity    => Empty,
          Dependency_Num  => 0,
-         Dependent_Unit  => True,
          Dynamic_Elab    => False,
          Fatal_Error     => False,
          Generate_Code   => False,
@@ -76,6 +75,7 @@ package body Lib.Writ is
          Ident_String    => Empty,
          Loading         => False,
          Main_Priority   => -1,
+         Munit_Index     => 0,
          Serial_Number   => 0,
          Version         => 0,
          Error_Location  => No_Location);
@@ -91,8 +91,6 @@ package body Lib.Writ is
 
       System_Fname : File_Name_Type;
       --  File name for system spec if needed for dummy entry
-
-      Save_Style : constant Boolean := Style_Check;
 
    begin
       --  Nothing to do if we already compiled System
@@ -123,7 +121,6 @@ package body Lib.Writ is
         Cunit           => Empty,
         Cunit_Entity    => Empty,
         Dependency_Num  => 0,
-        Dependent_Unit  => True,
         Dynamic_Elab    => False,
         Fatal_Error     => False,
         Generate_Code   => False,
@@ -131,6 +128,7 @@ package body Lib.Writ is
         Ident_String    => Empty,
         Loading         => False,
         Main_Priority   => -1,
+        Munit_Index     => 0,
         Serial_Number   => 0,
         Version         => 0,
         Error_Location  => No_Location);
@@ -138,10 +136,17 @@ package body Lib.Writ is
       --  Parse system.ads so that the checksum is set right
       --  Style checks are not applied.
 
-      Style_Check := False;
-      Initialize_Scanner (Units.Last, System_Source_File_Index);
-      Discard_List (Par (Configuration_Pragmas => False));
-      Style_Check := Save_Style;
+      declare
+         Save_Mindex : constant Nat := Multiple_Unit_Index;
+         Save_Style  : constant Boolean := Style_Check;
+      begin
+         Multiple_Unit_Index := 0;
+         Style_Check := False;
+         Initialize_Scanner (Units.Last, System_Source_File_Index);
+         Discard_List (Par (Configuration_Pragmas => False));
+         Style_Check := Save_Style;
+         Multiple_Unit_Index := Save_Mindex;
+      end;
    end Ensure_System_Dependency;
 
    ---------------
@@ -215,7 +220,7 @@ package body Lib.Writ is
          Item := First (Context_Items (Cunit));
          while Present (Item) loop
 
-            --  Ada0Y (AI-50217): limited with_clauses do not create
+            --  Ada 2005 (AI-50217): limited with_clauses do not create
             --  dependencies
 
             if Nkind (Item) = N_With_Clause
@@ -593,6 +598,7 @@ package body Lib.Writ is
          Pname      : constant Unit_Name_Type :=
                         Get_Parent_Spec_Name (Unit_Name (Main_Unit));
          Body_Fname : File_Name_Type;
+         Body_Index : Nat;
 
       begin
          --  Loop to build the with table. A with on the main unit itself
@@ -611,7 +617,6 @@ package body Lib.Writ is
 
             if Unit_Name (J) /= No_Name
               and then (With_Flags (J) or else Unit_Name (J) = Pname)
-              and then Units.Table (J).Dependent_Unit
             then
                Num_Withs := Num_Withs + 1;
                With_Table (Num_Withs) := J;
@@ -650,28 +655,36 @@ package body Lib.Writ is
                       (Get_Body_Name (Uname),
                        Subunit => False, May_Fail => True);
 
+                  Body_Index :=
+                    Get_Unit_Index
+                      (Get_Body_Name (Uname));
+
                   if Body_Fname = No_File then
                      Body_Fname := Get_File_Name (Uname, Subunit => False);
+                     Body_Index := Get_Unit_Index (Uname);
                   end if;
 
                else
                   Body_Fname := Get_File_Name (Uname, Subunit => False);
+                  Body_Index := Get_Unit_Index (Uname);
                end if;
 
                --  A package is considered to have a body if it requires
                --  a body or if a body is present in Ada 83 mode.
 
                if Body_Required (Cunit)
-                 or else (Ada_83
+                 or else (Ada_Version = Ada_83
                            and then Full_Source_Name (Body_Fname) /= No_File)
                then
                   Write_Info_Name (Body_Fname);
                   Write_Info_Tab (49);
-                  Write_Info_Name (Lib_File_Name (Body_Fname));
+                  Write_Info_Name
+                    (Lib_File_Name (Body_Fname, Body_Index));
                else
                   Write_Info_Name (Fname);
                   Write_Info_Tab (49);
-                  Write_Info_Name (Lib_File_Name (Fname));
+                  Write_Info_Name
+                    (Lib_File_Name (Fname, Munit_Index (Unum)));
                end if;
 
                if Elab_Flags (Unum) then
@@ -931,7 +944,9 @@ package body Lib.Writ is
       --  First the information for the boolean restrictions
 
       for R in All_Boolean_Restrictions loop
-         if Main_Restrictions.Set (R) then
+         if Main_Restrictions.Set (R)
+           and then not Restriction_Warnings (R)
+         then
             Write_Info_Char ('r');
          elsif Main_Restrictions.Violated (R) then
             Write_Info_Char ('v');
@@ -939,10 +954,6 @@ package body Lib.Writ is
             Write_Info_Char ('n');
          end if;
       end loop;
-
-      --  A separating space
-
-      Write_Info_Char (' ');
 
       --  And now the information for the parameter restrictions
 
@@ -1030,11 +1041,9 @@ package body Lib.Writ is
             Write_Info_Initiate ('D');
             Write_Info_Char (' ');
 
-            --  Normal case of a dependent unit entry with a source index
+            --  Normal case of a unit entry with a source index
 
-            if Sind /= No_Source_File
-              and then Units.Table (Unum).Dependent_Unit
-            then
+            if Sind /= No_Source_File then
                Write_Info_Name (File_Name (Sind));
                Write_Info_Tab (25);
                Write_Info_Str (String (Time_Stamp (Sind)));
@@ -1066,8 +1075,8 @@ package body Lib.Writ is
                   Write_Info_Name (Reference_Name (Sind));
                end if;
 
-            --  Case where there is no source index (happens for missing files)
-            --  Also come here for non-dependent units.
+               --  Case where there is no source index (happens for missing
+               --  files). In this case we write a dummy time stamp.
 
             else
                Write_Info_Name (Unit_File_Name (Unum));

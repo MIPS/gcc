@@ -1,5 +1,5 @@
 /* gthread-jni.c -- JNI threading routines for GLIB
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -91,28 +91,40 @@ JavaVM *gdk_vm;
 static void maybe_rethrow(JNIEnv *gdk_env, char *message, char *file, int line) {
   jthrowable cause;
 
-  /* rethrow if an exception happened */
-  if ((cause = (*gdk_env)->ExceptionOccurred(gdk_env)) != NULL) {
     jstring jmessage;
-  jclass obj_class;
+    jclass obj_class;
     jobject obj;
     jmethodID ctor;
+    int len;
+    char *buf;
 
-    /* allocate local message in Java */
-    int len = strlen(message) + strlen(file) + 25;
-    char buf[ len ];
-    bzero(buf, len);
-    sprintf(buf, "%s (at %s:%d)", message, file, line);
-    jmessage = (*gdk_env)->NewStringUTF(gdk_env, buf);
+    /* rethrow if an exception happened */
+    if ((cause = (*gdk_env)->ExceptionOccurred(gdk_env)) != NULL)
+      {
+
+	/* allocate local message in Java */
+	len = strlen(message) + strlen(file) + 25;
+	buf = (char *) malloc(len);
+	if (buf != NULL)
+	  {
+	    bzero(buf, len);
+	    sprintf(buf, "%s (at %s:%d)", message, file, line);
+	    jmessage = (*gdk_env)->NewStringUTF(gdk_env, buf);
+	    free(buf);
+	  }
+	else
+	  jmessage = NULL;
     
-    /* create RuntimeException wrapper object */
-    obj_class = (*gdk_env)->FindClass (gdk_env, "java/lang/RuntimeException");
-    ctor = (*gdk_env)->GetMethodID(gdk_env, obj_class, "<init>", "(Ljava/langString;Ljava/lang/Throwable)V");
-    obj = (*gdk_env)->NewObject (gdk_env, obj_class, ctor, jmessage, cause);
+	/* create RuntimeException wrapper object */
+	obj_class = (*gdk_env)->FindClass (gdk_env,
+			"java/lang/RuntimeException");
+	ctor = (*gdk_env)->GetMethodID(gdk_env, obj_class, "<init>",
+	"(Ljava/langString;Ljava/lang/Throwable)V");
+	obj = (*gdk_env)->NewObject (gdk_env, obj_class, ctor, jmessage, cause);
 
-    /* throw it */
-    (*gdk_env)->Throw(gdk_env, (jthrowable)obj);
-    }
+	/* throw it */
+	(*gdk_env)->Throw(gdk_env, (jthrowable)obj);
+      }
 }
 
 /* This macro is used to include a source location in the exception message */
@@ -204,7 +216,7 @@ static void g_mutex_lock_jni_impl (GMutex *mutex __attribute__((unused))) {
 static gboolean g_mutex_trylock_jni_impl
   (GMutex *mutex __attribute__((unused)))
 {
-  // Shall we implement this in a JikesRVM-specific way under a flag?
+  /* XXX Shall we implement this in a VM-specific way under a flag? */
   return FALSE;
 }
 
@@ -493,7 +505,3 @@ GThreadFunctions g_thread_jni_functions =
   NULL
 };
 
-/* ??? */
-void gdk_threads_wake () {
-
-}

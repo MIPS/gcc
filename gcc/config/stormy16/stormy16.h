@@ -418,8 +418,6 @@ enum reg_class
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) 0
-
 /* For this platform, the value of CUMULATIVE_ARGS is the number of words
    of arguments that have been passed in registers so far.  */
 #define CUMULATIVE_ARGS int
@@ -481,11 +479,6 @@ enum reg_class
    implementation will be defined that works for arguments passed on the stack.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
   xstormy16_expand_builtin_va_start (VALIST, NEXTARG)
-
-/* Implement the stdarg/varargs va_arg macro.  VALIST is the variable of type
-   va_list as a tree, TYPE is the type passed to va_arg.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
-  xstormy16_expand_builtin_va_arg (VALIST, TYPE)
 
 /* Trampolines for Nested Functions.  */
 
@@ -497,10 +490,6 @@ enum reg_class
   xstormy16_initialize_trampoline (ADDR, FNADDR, STATIC_CHAIN)
 
 
-/* Implicit Calls to Library Routines */
-
-#define TARGET_MEM_FUNCTIONS
-
 /* Define this macro to override the type used by the library routines to pick
    up arguments of type `float'.  (By default, they use a union of `float' and
    `int'.)
@@ -594,8 +583,6 @@ do {							\
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
 
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-
 /* On this chip, this is true if the address is valid with an offset
    of 0 but not of 6, because in that case it cannot be used as an
    address for DImode or DFmode, or if the address is a post-increment
@@ -619,8 +606,6 @@ do {							\
 #define SLOW_BYTE_ACCESS 0
 
 #define NO_FUNCTION_CSE
-
-#define NO_RECURSIVE_FUNCTION_CSE
 
 
 /* Dividing the output into sections.  */

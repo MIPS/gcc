@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,9 +38,6 @@ pragma Polling (Off);
 with System.Task_Primitives.Operations;
 --  used for Self
 
-with Unchecked_Deallocation;
---  To recover from failure of ATCB initialization.
-
 with System.Storage_Elements;
 --  Needed for initializing Stack_Info.Size
 
@@ -51,29 +48,26 @@ package body System.Tasking is
 
    package STPO renames System.Task_Primitives.Operations;
 
-   procedure Free is new
-     Unchecked_Deallocation (Ada_Task_Control_Block, Task_ID);
-
    ----------
    -- Self --
    ----------
 
-   function Self return Task_ID renames STPO.Self;
+   function Self return Task_Id renames STPO.Self;
 
    ---------------------
    -- Initialize_ATCB --
    ---------------------
 
    procedure Initialize_ATCB
-     (Self_ID          : Task_ID;
+     (Self_ID          : Task_Id;
       Task_Entry_Point : Task_Procedure_Access;
       Task_Arg         : System.Address;
-      Parent           : Task_ID;
+      Parent           : Task_Id;
       Elaborated       : Access_Boolean;
       Base_Priority    : System.Any_Priority;
       Task_Info        : System.Task_Info.Task_Info_Type;
       Stack_Size       : System.Parameters.Size_Type;
-      T                : in out Task_ID;
+      T                : Task_Id;
       Success          : out Boolean) is
    begin
       T.Common.State := Unactivated;
@@ -83,7 +77,6 @@ package body System.Tasking is
       STPO.Initialize_TCB (T, Success);
 
       if not Success then
-         Free (T);
          return;
       end if;
 
@@ -146,7 +139,7 @@ package body System.Tasking is
 
 begin
    declare
-      T             : Task_ID;
+      T             : Task_Id;
       Success       : Boolean;
       Base_Priority : Any_Priority;
 

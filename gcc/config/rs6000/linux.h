@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for PowerPC machines running Linux.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
@@ -66,6 +66,11 @@
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
 
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
+#endif
+
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (PowerPC GNU/Linux)");
 
@@ -90,6 +95,8 @@
 #undef RELOCATABLE_NEEDS_FIXUP
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+#define TARGET_HAS_F_SETLKW
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -174,3 +181,5 @@ enum { SIGNAL_FRAMESIZE = 64 };
     goto SUCCESS;							\
   } while (0)
 
+
+#define OS_MISSING_POWERPC64 1

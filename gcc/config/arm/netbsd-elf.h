@@ -35,13 +35,12 @@
 /* Default it to use ATPCS with soft-VFP.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT			\
-  (ARM_FLAG_APCS_32			\
-   | ARM_FLAG_SOFT_FLOAT		\
+  (ARM_FLAG_SOFT_FLOAT			\
    | ARM_FLAG_APCS_FRAME		\
-   | ARM_FLAG_ATPCS			\
-   | ARM_FLAG_VFP			\
-   | ARM_FLAG_MMU_TRAPS			\
    | TARGET_ENDIAN_DEFAULT)
+
+#undef ARM_DEFAULT_ABI
+#define ARM_DEFAULT_ABI ARM_ABI_ATPCS
 
 #define TARGET_OS_CPP_BUILTINS()	\
   do					\

@@ -1241,7 +1241,7 @@ package body Sem_Eval is
       --  Concatenation is never static in Ada 83, so if Ada 83
       --  check operand non-static context
 
-      if Ada_83
+      if Ada_Version = Ada_83
         and then Comes_From_Source (N)
       then
          Check_Non_Static_Context (Left);
@@ -1947,6 +1947,14 @@ package body Sem_Eval is
         or else Nkind (Parent (N)) = N_Allocator
       then
          Check_Non_Static_Context (Operand);
+
+         --  If operand is known to raise constraint_error, set the
+         --  flag on the expression so it does not get optimized away.
+
+         if Nkind (Operand) = N_Raise_Constraint_Error then
+            Set_Raises_Constraint_Error (N);
+         end if;
+
          return;
       end if;
 
@@ -2218,7 +2226,7 @@ package body Sem_Eval is
    begin
       --  Short circuit operations are never static in Ada 83
 
-      if Ada_83
+      if Ada_Version = Ada_83
         and then Comes_From_Source (N)
       then
          Check_Non_Static_Context (Left);
@@ -2371,7 +2379,7 @@ package body Sem_Eval is
       --  bound is type'First. In either case it is the upper bound that
       --  is out of range of the index type.
 
-      if Ada_95 then
+      if Ada_Version >= Ada_95 then
          if Root_Type (Bas) = Standard_String
               or else
             Root_Type (Bas) = Standard_Wide_String
@@ -3548,7 +3556,7 @@ package body Sem_Eval is
       if Is_Static_Expression (N)
         and then not In_Instance
         and then not In_Inlined_Body
-        and then Ada_95
+        and then Ada_Version >= Ada_95
       then
          if Nkind (Parent (N)) = N_Defining_Identifier
            and then Is_Array_Type (Parent (N))

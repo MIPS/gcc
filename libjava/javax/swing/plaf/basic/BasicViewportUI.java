@@ -38,36 +38,154 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.image.ImageObserver;
 import javax.swing.JComponent;
+import javax.swing.JViewport;
+import javax.swing.ViewportLayout;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ViewportUI;
 
 public class BasicViewportUI extends ViewportUI 
 {
 
-    public static ComponentUI createUI(final JComponent c)
+  ChangeListener changeListener;
+  Image backingStoreImage;
+  int backingStoreWidth = -1;
+  int backingStoreHeight = -1;
+  
+  class ChangeHandler implements ChangeListener
+  {
+    public void stateChanged(ChangeEvent event)
     {
-	return new BasicViewportUI();
+      JViewport v = (JViewport) event.getSource();
+      v.repaint();
     }
+  }
 
+  void installDefaults(JComponent c)
+  {    
+    c.setOpaque(true);
+  }
+
+  void uninstallDefaults(JComponent c)
+  {
+  }
+
+  void installListeners(JComponent c)
+  {
+    ((JViewport)c).addChangeListener(changeListener);
+  }
+
+  void uninstallListeners(JComponent c)
+  {
+    ((JViewport)c).removeChangeListener(changeListener);
+  }
+
+  public BasicViewportUI()
+  {
+    changeListener = new ChangeHandler();
+  }
+
+  public static ComponentUI createUI(JComponent c)
+  {
+    return new BasicViewportUI();
+  }
+
+  public void installUI(JComponent c) 
+  {
+    super.installUI(c);
+    c.setLayout(new ViewportLayout());
+    installListeners(c);
+  }
+
+  public void uninstallUI(JComponent c) 
+  {
+    uninstallListeners(c);
+  }
     
-    public void installUI(final JComponent c) 
-    {
-	super.installUI(c);
-    }
-    
 
-    public Dimension getPreferredSize(JComponent c) 
-    {
-	Dimension d = new Dimension(100,100);
-	System.out.println("BasicViewportUI->preff->"+d);
-	return d;
-    }
+  public Dimension getPreferredSize(JComponent c) 
+  {
+    // let the ViewportLayout decide
+    return null;
+  }
 
-    public void paint(Graphics g, JComponent c)
-    {      
-	System.out.println("BasicViewportUI->paint->"+c);
-    }
+  public void paint(Graphics g, JComponent c)
+  {      
+
+    JViewport v = (JViewport)c;
+    Component view = v.getView();
+
+    if (view == null)
+      return;
+
+    Point pos = v.getViewPosition();
+    Rectangle viewBounds = view.getBounds();
+    Rectangle portBounds = v.getBounds();
+
+    if (viewBounds.width == 0 
+        || viewBounds.height == 0
+        || portBounds.width == 0
+        || portBounds.height == 0)
+      return;
+
+    if (backingStoreImage == null 
+        || backingStoreWidth != viewBounds.width
+        || backingStoreHeight != viewBounds.height)
+      {
+        backingStoreImage = v.createImage(viewBounds.width, viewBounds.height);
+        backingStoreWidth = viewBounds.width;
+        backingStoreHeight = viewBounds.height;
+      }
+
+    Graphics g2 = backingStoreImage.getGraphics();
+
+
+    if (c.getBackground() != null)
+      {
+        // fill the backing store background
+        java.awt.Color save = g2.getColor();
+        g2.setColor(c.getBackground());
+        g2.fillRect (0, 0, backingStoreWidth, backingStoreHeight);
+        g2.setColor(save);
+
+        // fill the viewport background
+        save = g.getColor();
+        g.setColor(c.getBackground());
+        g.fillRect (0, 0, portBounds.width, portBounds.height);
+        g.setColor(save);
+
+      }
+    else
+      {
+        // clear the backing store background
+        g2.clearRect(0, 0, backingStoreWidth, backingStoreHeight);
+
+        // clear the viewport background
+        g.clearRect(0, 0, portBounds.width, portBounds.height);
+      }
+
+    g2.setClip(g.getClipBounds());
+    g2.translate(-pos.x, -pos.y);
+    try 
+      {
+        view.paint(g2);
+      }
+    finally
+      {
+        g2.translate(pos.x, pos.y);
+      }
+    g2 = null;
+    g.drawImage(backingStoreImage, 
+                0, 0, 
+                (ImageObserver)null);
+  }
 }

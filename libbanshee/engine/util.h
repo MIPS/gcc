@@ -35,6 +35,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <regions.h>
+#include <ansidecl.h>
 #include "compiler.h"
 #include "linkage.h"
 #include "bool.h"
@@ -87,7 +88,7 @@ char *rvsprintf(region r, const char *fmt, va_list args);
 char *ptr_to_ascii(void *ptr);
 
 /* Convert a pointer to an integer */
-int ptr_hash(void *ptr);
+long ptr_hash(void *ptr);
 
 /* Return TRUE iff ptr1 == ptr2 */
 bool ptr_eq(void *ptr1, void *ptr2);
@@ -99,10 +100,8 @@ bool str_eq(const char *s1, const char *s2);
    if ptr1 < ptr2, or a value >0 if ptr1 > ptr2. */
 int ptr_cmp(const void *ptr1, const void *ptr2);
 
-extern inline int min(int, int);
-extern inline int max(int, int);
-extern inline int min(int a, int b) { if (a < b) return a; else return b; }
-extern inline int max(int a, int b) { if (a < b) return b; else return a; }
+static inline int min(int a, int b) { if (a < b) return a; else return b; }
+static inline int max(int a, int b) { if (a < b) return b; else return a; }
 EXTERN_C_END
 
 #endif

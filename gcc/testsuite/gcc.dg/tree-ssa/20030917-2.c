@@ -6,12 +6,12 @@
 /* { dg-do compile } */
 /* { dg-options "-O -ftree-dominator-opts" } */
 
+typedef __SIZE_TYPE__ size_t;
+typedef union tree_node *tree;
 struct operands_d
 {
-  int *def_op;
+  tree *def_op;
 };
-
-typedef unsigned int size_t;
 
 void
 gt_ggc_mx_operands_d (void *x_p)

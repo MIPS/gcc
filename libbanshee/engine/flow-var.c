@@ -48,7 +48,7 @@ struct flow_var /* extends gen_e */
   bounds sameregion ubs;
   bounds sameregion lbs;
   contour_elt elt; 
-  char *name;
+  const char *name;
 };
 
 DEFINE_UFIND(contour_elt,contour)
@@ -66,6 +66,7 @@ static flow_var make_var(region r, const char *name, stamp st)
   result->ubs = bounds_create(r);
   result->lbs = bounds_create(r);
   result->elt = new_contour_elt(r,NULL);
+  result->name = name;
 
 #ifdef NONSPEC
   result->sort = flow_sort;
@@ -89,7 +90,7 @@ flow_var fv_fresh_small(region r, const char *name)
   return make_var(r,name,stamp_fresh_small());
 }
 
-char * fv_get_name(flow_var v)
+const char * fv_get_name(flow_var v)
 {
   return v->name;
 }

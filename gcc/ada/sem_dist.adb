@@ -151,47 +151,6 @@ package body Sem_Dist is
       return End_String;
    end Full_Qualified_Name;
 
-   -----------------------
-   -- Get_Subprogram_Id --
-   -----------------------
-
-   function Get_Subprogram_Id (E : Entity_Id) return Int is
-      Current_Declaration : Node_Id;
-      Result              : Int := 0;
-
-   begin
-      pragma Assert
-        (Is_Remote_Call_Interface (Scope (E))
-           and then
-             (Nkind (Parent (E)) = N_Procedure_Specification
-                or else
-              Nkind (Parent (E)) = N_Function_Specification));
-
-      Current_Declaration :=
-        First (Visible_Declarations
-          (Package_Specification_Of_Scope (Scope (E))));
-
-      while Current_Declaration /= Empty loop
-         if Nkind (Current_Declaration) = N_Subprogram_Declaration
-           and then Comes_From_Source (Current_Declaration)
-         then
-            if Defining_Unit_Name
-                 (Specification (Current_Declaration)) = E
-            then
-               return Result;
-            end if;
-
-            Result := Result + 1;
-         end if;
-
-         Next (Current_Declaration);
-      end loop;
-
-      --  Error if we do not find it
-
-      raise Program_Error;
-   end Get_Subprogram_Id;
-
    ------------------------
    -- Is_All_Remote_Call --
    ------------------------
@@ -332,11 +291,11 @@ package body Sem_Dist is
       Remote_Subp_Decl      : Node_Id;
       RS_Pkg_Specif         : Node_Id;
       RS_Pkg_E              : Entity_Id;
-      RAS_Type              : Entity_Id;
+      RAS_Type              : Entity_Id := New_Type;
       Async_E               : Entity_Id;
-      Subp_Id               : Int;
+      All_Calls_Remote_E    : Entity_Id;
       Attribute_Subp        : Entity_Id;
-      Parameter             : Node_Id;
+      Local_Addr            : Node_Id;
 
    begin
       --  Check if we have to expand the access attribute
@@ -345,24 +304,14 @@ package body Sem_Dist is
 
       if not Expander_Active then
          return;
+      end if;
 
-      elsif Ekind (New_Type) = E_Record_Type then
-         RAS_Type := New_Type;
-
-      else
-         --  If the remote type has not been constructed yet, create
-         --  it and its attributes now.
-
-         Attribute_Subp := TSS (New_Type, TSS_RAS_Access);
-
-         if No (Attribute_Subp) then
-            Add_RAST_Features (Parent (New_Type));
-         end if;
-
-         RAS_Type := Equivalent_Type (New_Type);
+      if Ekind (RAS_Type) /= E_Record_Type then
+         RAS_Type := Equivalent_Type (RAS_Type);
       end if;
 
       Attribute_Subp := TSS (RAS_Type, TSS_RAS_Access);
+      pragma Assert (Present (Attribute_Subp));
       Remote_Subp_Decl := Unit_Declaration_Node (Remote_Subp);
 
       if Nkind (Remote_Subp_Decl) = N_Subprogram_Body then
@@ -373,27 +322,28 @@ package body Sem_Dist is
       RS_Pkg_Specif := Parent (Remote_Subp_Decl);
       RS_Pkg_E := Defining_Entity (RS_Pkg_Specif);
 
-      Subp_Id := Get_Subprogram_Id (Remote_Subp);
+      Async_E :=
+        Boolean_Literals (Ekind (Remote_Subp) = E_Procedure
+                            and then Is_Asynchronous (Remote_Subp));
 
-      if Ekind (Remote_Subp) = E_Procedure
-        and then Is_Asynchronous (Remote_Subp)
-      then
-         Async_E := Standard_True;
-      else
-         Async_E := Standard_False;
-      end if;
+      All_Calls_Remote_E :=
+        Boolean_Literals (Has_All_Calls_Remote (RS_Pkg_E));
 
-      Parameter := New_Occurrence_Of (RTE (RE_Null_Address), Loc);
+      Local_Addr :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => New_Occurrence_Of (Remote_Subp, Loc),
+          Attribute_Name => Name_Address);
 
       Tick_Access_Conv_Call :=
         Make_Function_Call (Loc,
           Name => New_Occurrence_Of (Attribute_Subp, Loc),
           Parameter_Associations =>
             New_List (
-              Parameter,
+              Local_Addr,
               Make_String_Literal (Loc, Full_Qualified_Name (RS_Pkg_E)),
-              Make_Integer_Literal (Loc, Subp_Id),
-              New_Occurrence_Of (Async_E, Loc)));
+              Build_Subprogram_Id (Loc, Remote_Subp),
+              New_Occurrence_Of (Async_E, Loc),
+              New_Occurrence_Of (All_Calls_Remote_E, Loc)));
 
       Rewrite (N, Tick_Access_Conv_Call);
       Analyze_And_Resolve (N, RAS_Type);
@@ -497,9 +447,6 @@ package body Sem_Dist is
       Loc             : constant Source_Ptr := Sloc (Pref);
       Call_Node       : Node_Id;
       New_Type        : constant Entity_Id := Etype (Pref);
-      RAS             : constant Entity_Id :=
-                          Corresponding_Remote_Type (New_Type);
-      RAS_Decl        : constant Node_Id   := Parent (RAS);
       Explicit_Deref  : constant Node_Id   := Parent (Pref);
       Deref_Subp_Call : constant Node_Id   := Parent (Explicit_Deref);
       Deref_Proc      : Entity_Id;
@@ -531,15 +478,12 @@ package body Sem_Dist is
          return;
       end if;
 
-      Deref_Proc := TSS (New_Type, TSS_RAS_Dereference);
-
       if not Expander_Active then
          return;
-
-      elsif No (Deref_Proc) then
-         Add_RAST_Features (RAS_Decl);
-         Deref_Proc := TSS (New_Type, TSS_RAS_Dereference);
       end if;
+
+      Deref_Proc := TSS (New_Type, TSS_RAS_Dereference);
+      pragma Assert (Present (Deref_Proc));
 
       if Ekind (Deref_Proc) = E_Function then
          Call_Node :=

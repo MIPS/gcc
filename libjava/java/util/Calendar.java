@@ -1,5 +1,5 @@
 /* java.util.Calendar
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,12 @@ exception statement from your version. */
 
 package java.util;
 
-import java.lang.reflect.InvocationTargetException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * This class is an abstract base class for Calendars, which can be
@@ -376,7 +377,8 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   private static ResourceBundle getBundle(Locale locale) 
   {
-    return ResourceBundle.getBundle(bundleName, locale);
+    return ResourceBundle.getBundle(bundleName, locale,
+      ClassLoader.getSystemClassLoader());
   }
 
   /**
@@ -435,6 +437,16 @@ public abstract class Calendar implements Serializable, Cloneable
     return getInstance(TimeZone.getDefault(), locale);
   }
 
+  /** 
+   * Cache of locale->calendar-class mappings. This avoids having to do a ResourceBundle
+   * lookup for every getInstance call.  
+   */
+  private static HashMap cache = new HashMap();
+
+  /** Preset argument types for calendar-class constructor lookup.  */
+  private static Class[] ctorArgTypes
+    = new Class[] {TimeZone.class, Locale.class};
+
   /**
    * Creates a calendar representing the actual time, using the given
    * time zone and locale.
@@ -443,29 +455,58 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   public static synchronized Calendar getInstance(TimeZone zone, Locale locale)
   {
-    String calendarClassName = null;
-    ResourceBundle rb = getBundle(locale);
-    calendarClassName = rb.getString("calendarClass");
-    if (calendarClassName != null)
+    Class calendarClass = (Class) cache.get(locale);
+    Throwable exception = null;
+
+    try
       {
-	try
+	if (calendarClass == null)
 	  {
-	    Class calendarClass = Class.forName(calendarClassName);
-	    if (Calendar.class.isAssignableFrom(calendarClass))
+	    ResourceBundle rb = getBundle(locale);
+	    String calendarClassName = rb.getString("calendarClass");
+
+	    if (calendarClassName != null)
 	      {
-		return (Calendar) calendarClass.getConstructor(
-		  new Class[] { TimeZone.class, Locale.class}
-		).newInstance(new Object[] {zone, locale} );
+		calendarClass = Class.forName(calendarClassName);
+		if (Calendar.class.isAssignableFrom(calendarClass))
+		  cache.put(locale, calendarClass);
 	      }
 	  }
-	catch (ClassNotFoundException ex) {}
-	catch (IllegalAccessException ex) {}
-	catch (NoSuchMethodException ex) {}
-	catch (InstantiationException ex) {}
-	catch (InvocationTargetException ex) {}
-	// XXX should we ignore these errors or throw an exception ?
+
+        // GregorianCalendar is by far the most common case. Optimize by 
+	// avoiding reflection.
+	if (calendarClass == GregorianCalendar.class)
+	  return new GregorianCalendar(zone, locale);
+
+	if (Calendar.class.isAssignableFrom(calendarClass))
+	  {
+	    Constructor ctor = calendarClass.getConstructor(ctorArgTypes);
+	    return (Calendar) ctor.newInstance(new Object[] {zone, locale});
+	  }
       }
-    return new GregorianCalendar(zone, locale);
+    catch (ClassNotFoundException ex)
+      {
+	exception = ex;
+      }
+    catch (IllegalAccessException ex)
+      {
+	exception = ex;
+      }
+    catch (NoSuchMethodException ex)
+      {
+	exception = ex;
+      }
+    catch (InstantiationException ex)
+      {
+	exception = ex;
+      }
+    catch (InvocationTargetException ex)
+      {
+	exception = ex;
+      }
+    
+    throw new RuntimeException("Error instantiating calendar for locale " +
+			       locale, exception);
   }
 
   /**
@@ -926,8 +967,21 @@ public abstract class Calendar implements Serializable, Cloneable
    * @return the actual minimum value.
    * @since jdk1.2
    */
-  // FIXME: XXX: Not abstract in JDK 1.2.
-  public abstract int getActualMinimum(int field);
+  public int getActualMinimum(int field)
+  {
+    Calendar tmp = (Calendar)clone();	// To avoid restoring state
+    int min = tmp.getGreatestMinimum(field);
+    int end = tmp.getMinimum(field);
+    tmp.set(field, min);
+    for (; min > end; min--)
+      {
+	tmp.add(field, -1);	// Try to get smaller
+	if (tmp.get(field) != min - 1)
+	  break;		// Done if not successful
+
+      }
+    return min;
+  }
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
@@ -936,8 +990,20 @@ public abstract class Calendar implements Serializable, Cloneable
    * @return the actual maximum value.  
    * @since jdk1.2
    */
-  // FIXME: XXX: Not abstract in JDK 1.2.
-  public abstract int getActualMaximum(int field);
+  public int getActualMaximum(int field)
+  {
+    Calendar tmp = (Calendar)clone();	// To avoid restoring state
+    int max = tmp.getLeastMaximum(field);
+    int end = tmp.getMaximum(field);
+    tmp.set(field, max);
+    for (; max < end; max++)
+      {
+	tmp.add(field, 1);
+	if (tmp.get(field) != max + 1)
+	  break;
+      }
+    return max;
+  }
 
   /**
    * Return a clone of this object.

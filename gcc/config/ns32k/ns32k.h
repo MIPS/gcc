@@ -433,7 +433,7 @@ enum reg_class
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES							    \
  {"NO_REGS", "GENERAL_REGS", "FLOAT_REG0", "LONG_FLOAT_REG0", "FLOAT_REGS", \
@@ -1057,23 +1057,6 @@ __transfer_from_trampoline ()		\
     }									\
 }
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the ns32k, we do nothing */
-
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)   {}
-
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
    that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
@@ -1121,7 +1104,7 @@ __transfer_from_trampoline ()		\
 /* The number of scalar move insns which should be generated instead
    of a string move insn or a library call.
    
-   We have a smart movstrsi insn */
+   We have a smart movmemsi insn */
 #define MOVE_RATIO 0
 
 #define STORE_RATIO (optimize_size ? 3 : 15)
@@ -1174,51 +1157,7 @@ __transfer_from_trampoline ()		\
    Do not alter them if the instruction would not alter the cc's.  */
 
 #define NOTICE_UPDATE_CC(EXP, INSN) \
-{ if (GET_CODE (EXP) == SET)					\
-    { if (GET_CODE (SET_DEST (EXP)) == CC0)			\
-	{ cc_status.flags = 0;					\
-	  cc_status.value1 = SET_DEST (EXP);			\
-	  cc_status.value2 = SET_SRC (EXP);			\
-	}							\
-      else if (GET_CODE (SET_SRC (EXP)) == CALL)		\
-	{ CC_STATUS_INIT; }					\
-      else if (GET_CODE (SET_DEST (EXP)) == REG)		\
-	{ if (cc_status.value1					\
-	      && reg_overlap_mentioned_p (SET_DEST (EXP), cc_status.value1)) \
-	    cc_status.value1 = 0;				\
-	  if (cc_status.value2					\
-	      && reg_overlap_mentioned_p (SET_DEST (EXP), cc_status.value2)) \
-	    cc_status.value2 = 0;				\
-	}							\
-      else if (GET_CODE (SET_DEST (EXP)) == MEM)		\
-	{ CC_STATUS_INIT; }					\
-    }								\
-  else if (GET_CODE (EXP) == PARALLEL				\
-	   && GET_CODE (XVECEXP (EXP, 0, 0)) == SET)		\
-    { if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == CC0)	\
-	{ cc_status.flags = 0;					\
-	  cc_status.value1 = SET_DEST (XVECEXP (EXP, 0, 0));	\
-	  cc_status.value2 = SET_SRC (XVECEXP (EXP, 0, 0));	\
-	}							\
-      else if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == REG) \
-	{ if (cc_status.value1					\
-	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (EXP, 0, 0)), cc_status.value1)) \
-	    cc_status.value1 = 0;				\
-	  if (cc_status.value2					\
-	      && reg_overlap_mentioned_p (SET_DEST (XVECEXP (EXP, 0, 0)), cc_status.value2)) \
-	    cc_status.value2 = 0;				\
-	}							\
-      else if (GET_CODE (SET_DEST (XVECEXP (EXP, 0, 0))) == MEM) \
-	{ CC_STATUS_INIT; }					\
-    }								\
-  else if (GET_CODE (EXP) == CALL)				\
-    { /* all bets are off */ CC_STATUS_INIT; }			\
-  else { /* nothing happens? CC_STATUS_INIT; */}		\
-  if (cc_status.value1 && GET_CODE (cc_status.value1) == REG	\
-      && cc_status.value2					\
-      && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))	\
-    abort ();			\
-}
+  ns32k_notice_update_cc ((EXP), (INSN))
 
 /* Describe the costs of the following register moves which are discouraged:
    1.) Moves between the Floating point registers and the frame pointer and stack pointer

@@ -32,6 +32,11 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include <objc/objc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+
 /*
  * This data structure is used to hold items
  *  stored in a hash table.  Each node holds 
@@ -172,7 +177,7 @@ hash_string (cache_ptr cache, const void *key)
 {
   unsigned int ret = 0;
   unsigned int ctr = 0;
-  const char *ckey = key;
+  const char *ckey = (const char *) key;
         
   while (*ckey) {
     ret ^= *ckey++ << ctr;
@@ -200,8 +205,12 @@ compare_strings (const void *k1, const void *k2)
   else if (k1 == 0 || k2 == 0)
     return 0;
   else
-    return ! strcmp (k1, k2);
+    return ! strcmp ((const char *) k1, (const char *) k2);
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 
 #endif /* not __hash_INCLUDE_GNU */

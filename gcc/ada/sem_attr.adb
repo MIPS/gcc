@@ -250,7 +250,8 @@ package body Sem_Attr is
       --  two attribute expressions are present
 
       procedure Legal_Formal_Attribute;
-      --  Common processing for attributes Definite, and Has_Discriminants
+      --  Common processing for attributes Definite, Has_Access_Values,
+      --  and Has_Discriminants
 
       procedure Check_Integer_Type;
       --  Verify that prefix of attribute N is an integer type
@@ -671,12 +672,8 @@ package body Sem_Attr is
             --  object, and that the expression, if present, is static
             --  and within the range of the dimensions of the type.
 
-            if Is_Array_Type (P_Type) then
-               Index := First_Index (P_Base_Type);
-
-            else pragma Assert (Is_Access_Type (P_Type));
-               Index := First_Index (Base_Type (Designated_Type (P_Type)));
-            end if;
+            pragma Assert (Is_Array_Type (P_Type));
+            Index := First_Index (P_Base_Type);
 
             if No (E1) then
 
@@ -722,6 +719,7 @@ package body Sem_Attr is
          --  Normal case of array type or subtype
 
          Check_Either_E0_Or_E1;
+         Check_Dereference;
 
          if Is_Array_Type (P_Type) then
             if not Is_Constrained (P_Type)
@@ -740,25 +738,17 @@ package body Sem_Attr is
 
             D := Number_Dimensions (P_Type);
 
-         elsif Is_Access_Type (P_Type)
-           and then Is_Array_Type (Designated_Type (P_Type))
-         then
-            if Is_Entity_Name (P) and then Is_Type (Entity (P)) then
-               Error_Attr ("prefix of % attribute cannot be access type", P);
-            end if;
-
-            D := Number_Dimensions (Designated_Type (P_Type));
-
-            --  If there is an implicit dereference, then we must freeze
-            --  the designated type of the access type, since the type of
-            --  the referenced array is this type (see AI95-00106).
-
-            Freeze_Before (N, Designated_Type (P_Type));
-
          else
             if Is_Private_Type (P_Type) then
                Error_Attr
                  ("prefix for % attribute may not be private type", P);
+
+            elsif Is_Access_Type (P_Type)
+              and then Is_Array_Type (Designated_Type (P_Type))
+              and then Is_Entity_Name (P)
+              and then Is_Type (Entity (P))
+            then
+               Error_Attr ("prefix of % attribute cannot be access type", P);
 
             elsif Attr_Id = Attribute_First
                     or else
@@ -861,9 +851,27 @@ package body Sem_Attr is
 
       procedure Check_Dereference is
       begin
-         if Is_Object_Reference (P)
-           and then Is_Access_Type (P_Type)
+
+         --  Case of a subtype mark
+
+         if Is_Entity_Name (P)
+           and then Is_Type (Entity (P))
          then
+            return;
+         end if;
+
+         --  Case of an expression
+
+         Resolve (P);
+
+         if Is_Access_Type (P_Type) then
+
+            --  If there is an implicit dereference, then we must freeze
+            --  the designated type of the access type, since the type of
+            --  the referenced array is this type (see AI95-00106).
+
+            Freeze_Before (N, Designated_Type (P_Type));
+
             Rewrite (P,
               Make_Explicit_Dereference (Sloc (P),
                 Prefix => Relocate_Node (P)));
@@ -1514,7 +1522,7 @@ package body Sem_Attr is
 
       if Comes_From_Source (N) then
          if not Attribute_83 (Attr_Id) then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_Name_1 := Aname;
                Error_Msg_N ("(Ada 83) attribute% is not standard?", N);
             end if;
@@ -1851,6 +1859,7 @@ package body Sem_Attr is
 
          --  If the prefix is a selected component whose prefix is of an
          --  access type, then introduce an explicit dereference.
+         --  ??? Could we reuse Check_Dereference here?
 
          if Nkind (Pref) = N_Selected_Component
            and then Is_Access_Type (Ptyp)
@@ -1910,7 +1919,7 @@ package body Sem_Attr is
          Find_Type (P);
          Typ := Entity (P);
 
-         if Ada_95
+         if Ada_Version >= Ada_95
            and then not Is_Scalar_Type (Typ)
            and then not Is_Generic_Type (Typ)
          then
@@ -2080,7 +2089,7 @@ package body Sem_Attr is
             end if;
          end loop;
 
-         Set_Etype (N, RTE (RO_AT_Task_ID));
+         Set_Etype (N, RTE (RO_AT_Task_Id));
       end Caller;
 
       -------------
@@ -2595,6 +2604,15 @@ package body Sem_Attr is
          Resolve (E1, P_Base_Type);
 
       -----------------------
+      -- Has_Access_Values --
+      -----------------------
+
+      when Attribute_Has_Access_Values =>
+         Check_Type;
+         Check_E0;
+         Set_Etype (N, Standard_Boolean);
+
+      -----------------------
       -- Has_Discriminants --
       -----------------------
 
@@ -2617,7 +2635,7 @@ package body Sem_Attr is
               and then Is_Task_Type (Designated_Type (Etype (P))))
          then
             Resolve (P);
-            Set_Etype (N, RTE (RO_AT_Task_ID));
+            Set_Etype (N, RTE (RO_AT_Task_Id));
 
          else
             Error_Attr ("prefix of % attribute must be a task or an "
@@ -2634,7 +2652,7 @@ package body Sem_Attr is
          Check_Scalar_Type;
 
          if Is_Real_Type (P_Type) then
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Error_Msg_Name_1 := Aname;
                Error_Msg_N
                  ("(Ada 83) % attribute not allowed for real types", N);
@@ -3140,7 +3158,7 @@ package body Sem_Attr is
       when Attribute_Range =>
          Check_Array_Or_Scalar_Type;
 
-         if Ada_83
+         if Ada_Version = Ada_83
            and then Is_Scalar_Type (P_Type)
            and then Comes_From_Source (N)
          then
@@ -3795,11 +3813,14 @@ package body Sem_Attr is
    --  one attribute expression, and the check succeeds, we want to be able
    --  to proceed securely assuming that an expression is in fact present.
 
+   --  Note: we set the attribute analyzed in this case to prevent any
+   --  attempt at reanalysis which could generate spurious error msgs.
+
    exception
       when Bad_Attribute =>
+         Set_Analyzed (N);
          Set_Etype (N, Any_Type);
          return;
-
    end Analyze_Attribute;
 
    --------------------
@@ -4423,6 +4444,8 @@ package body Sem_Attr is
 
       elsif (Id = Attribute_Definite
                or else
+             Id = Attribute_Has_Access_Values
+               or else
              Id = Attribute_Has_Discriminants
                or else
              Id = Attribute_Type_Class
@@ -4530,10 +4553,13 @@ package body Sem_Attr is
       --  In addition Component_Size is possibly foldable, even though it
       --  can never be static.
 
-      --  Definite, Has_Discriminants, Type_Class and Unconstrained_Array are
-      --  again exceptions, because they apply as well to unconstrained types.
+      --  Definite, Has_Access_Values, Has_Discriminants, Type_Class, and
+      --  Unconstrained_Array are again exceptions, because they apply as
+      --  well to unconstrained types.
 
       elsif Id = Attribute_Definite
+              or else
+            Id = Attribute_Has_Access_Values
               or else
             Id = Attribute_Has_Discriminants
               or else
@@ -4563,7 +4589,7 @@ package body Sem_Attr is
          --  Again we compute the variable Static for easy reference later
          --  (note that no array attributes are static in Ada 83).
 
-         Static := Ada_95;
+         Static := Ada_Version >= Ada_95;
 
          declare
             N : Node_Id;
@@ -4810,19 +4836,9 @@ package body Sem_Attr is
       --------------
 
       when Attribute_Definite =>
-         declare
-            Result : Node_Id;
-
-         begin
-            if Is_Indefinite_Subtype (P_Entity) then
-               Result := New_Occurrence_Of (Standard_False, Loc);
-            else
-               Result := New_Occurrence_Of (Standard_True, Loc);
-            end if;
-
-            Rewrite (N, Result);
-            Analyze_And_Resolve (N, Standard_Boolean);
-         end;
+         Rewrite (N, New_Occurrence_Of (
+           Boolean_Literals (not Is_Indefinite_Subtype (P_Entity)), Loc));
+         Analyze_And_Resolve (N, Standard_Boolean);
 
       ------------
       -- Denorm --
@@ -4947,23 +4963,22 @@ package body Sem_Attr is
            Eval_Fat.Fraction (P_Root_Type, Expr_Value_R (E1)), Static);
 
       -----------------------
+      -- Has_Access_Values --
+      -----------------------
+
+      when Attribute_Has_Access_Values =>
+         Rewrite (N, New_Occurrence_Of
+           (Boolean_Literals (Has_Access_Values (P_Root_Type)), Loc));
+         Analyze_And_Resolve (N, Standard_Boolean);
+
+      -----------------------
       -- Has_Discriminants --
       -----------------------
 
       when Attribute_Has_Discriminants =>
-         declare
-            Result : Node_Id;
-
-         begin
-            if Has_Discriminants (P_Entity) then
-               Result := New_Occurrence_Of (Standard_True, Loc);
-            else
-               Result := New_Occurrence_Of (Standard_False, Loc);
-            end if;
-
-            Rewrite (N, Result);
-            Analyze_And_Resolve (N, Standard_Boolean);
-         end;
+         Rewrite (N, New_Occurrence_Of (
+           Boolean_Literals (Has_Discriminants (P_Entity)), Loc));
+         Analyze_And_Resolve (N, Standard_Boolean);
 
       --------------
       -- Identity --
@@ -5886,7 +5901,7 @@ package body Sem_Attr is
          Id  : RE_Id;
 
       begin
-         if Is_RTE (P_Root_Type, RE_Address) then
+         if Is_Descendent_Of_Address (Typ) then
             Id := RE_Type_Class_Address;
 
          elsif Is_Enumeration_Type (Typ) then
@@ -5952,13 +5967,10 @@ package body Sem_Attr is
          Typ : constant Entity_Id := Underlying_Type (P_Type);
 
       begin
-         if Is_Array_Type (P_Type)
-           and then not Is_Constrained (Typ)
-         then
-            Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
-         else
-            Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
-         end if;
+         Rewrite (N, New_Occurrence_Of (
+           Boolean_Literals (
+             Is_Array_Type (P_Type)
+              and then not Is_Constrained (Typ)), Loc));
 
          --  Analyze and resolve as boolean, note that this attribute is
          --  a static attribute in GNAT.
@@ -6497,7 +6509,12 @@ package body Sem_Attr is
                --  also be accessibility checks on those, this is where the
                --  checks can eventually be centralized ???
 
-               if Ekind (Btyp) = E_Access_Subprogram_Type then
+               if Ekind (Btyp) = E_Access_Subprogram_Type
+                    or else
+                  Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type
+                    or else
+                  Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type
+               then
                   if Convention (Btyp) /= Convention (Entity (P)) then
                      Error_Msg_N
                       ("subprogram has invalid convention for context", P);
@@ -6523,8 +6540,12 @@ package body Sem_Attr is
                   --  warning  is needed.
 
                   elsif Attr_Id = Attribute_Access
-                    and then Subprogram_Access_Level (Entity (P))
-                      > Type_Access_Level (Btyp)
+                    and then Subprogram_Access_Level (Entity (P)) >
+                               Type_Access_Level (Btyp)
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Subprogram_Type
+                    and then Ekind (Btyp) /=
+                               E_Anonymous_Access_Protected_Subprogram_Type
                   then
                      if not In_Instance_Body then
                         Error_Msg_N
@@ -6607,9 +6628,12 @@ package body Sem_Attr is
             --  The rule does not apply to 'Unrestricted_Access.
 
             if not (Ekind (Btyp) = E_Access_Subprogram_Type
+                     or else Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type
                      or else (Is_Record_Type (Btyp) and then
                               Present (Corresponding_Remote_Type (Btyp)))
                      or else Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                     or else Ekind (Btyp)
+                               = E_Anonymous_Access_Protected_Subprogram_Type
                      or else Is_Access_Constant (Btyp)
                      or else Is_Variable (P)
                      or else Attr_Id = Attribute_Unrestricted_Access)
@@ -6623,8 +6647,37 @@ package body Sem_Attr is
                   or else
                 Attr_Id = Attribute_Unchecked_Access)
               and then (Ekind (Btyp) = E_General_Access_Type
-                         or else Ekind (Btyp) = E_Anonymous_Access_Type)
+                          or else Ekind (Btyp) = E_Anonymous_Access_Type)
             then
+               --  Ada 2005 (AI-230): Check the accessibility of anonymous
+               --  access types in record and array components. For a
+               --  component definition the level is the same of the
+               --  enclosing composite type.
+
+               if Ada_Version >= Ada_05
+                 and then Ekind (Btyp) = E_Anonymous_Access_Type
+                 and then (Is_Array_Type (Scope (Btyp))
+                             or else Ekind (Scope (Btyp)) = E_Record_Type)
+                 and then Object_Access_Level (P) > Type_Access_Level (Btyp)
+               then
+                  --  In an instance, this is a runtime check, but one we
+                  --  know will fail, so generate an appropriate warning.
+
+                  if In_Instance_Body then
+                     Error_Msg_N
+                       ("?non-local pointer cannot point to local object", P);
+                     Error_Msg_N
+                       ("?Program_Error will be raised at run time", P);
+                     Rewrite (N,
+                       Make_Raise_Program_Error (Loc,
+                         Reason => PE_Accessibility_Check_Failed));
+                     Set_Etype (N, Typ);
+                  else
+                     Error_Msg_N
+                       ("non-local pointer cannot point to local object", P);
+                  end if;
+               end if;
+
                if Is_Dependent_Component_Of_Mutable_Object (P) then
                   Error_Msg_N
                     ("illegal attribute for discriminant-dependent component",
@@ -6781,13 +6834,17 @@ package body Sem_Attr is
                end if;
             end if;
 
-            if Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+            if (Ekind (Btyp) = E_Access_Protected_Subprogram_Type
+                  or else
+                Ekind (Btyp) = E_Anonymous_Access_Protected_Subprogram_Type)
               and then Is_Entity_Name (P)
               and then not Is_Protected_Type (Scope (Entity (P)))
             then
                Error_Msg_N ("context requires a protected subprogram", P);
 
-            elsif Ekind (Btyp) = E_Access_Subprogram_Type
+            elsif (Ekind (Btyp) = E_Access_Subprogram_Type
+                     or else
+                   Ekind (Btyp) = E_Anonymous_Access_Subprogram_Type)
               and then Ekind (Etype (N)) = E_Access_Protected_Subprogram_Type
             then
                Error_Msg_N ("context requires a non-protected subprogram", P);

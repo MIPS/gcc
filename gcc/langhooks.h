@@ -39,16 +39,12 @@ struct lang_hooks_for_tree_inlining
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
   tree (*add_pending_fn_decls) (void *, tree);
-  int (*tree_chain_matters_p) (tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  tree (*copy_res_decl_for_inlining) (tree, tree, tree,
-				      void *, int *, tree);
   int (*anon_aggr_type_p) (tree);
-  bool (*var_mod_type_p) (tree);
+  bool (*var_mod_type_p) (tree, tree);
   int (*start_inlining) (tree);
   void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
-  int (*estimate_num_insns) (tree);
 };
 
 struct lang_hooks_for_callgraph
@@ -79,19 +75,6 @@ struct lang_hooks_for_functions
 
   /* Determines if it's ok for a function to have no noreturn attribute.  */
   bool (*missing_noreturn_ok_p) (tree);
-};
-
-/* Lang hooks for rtl code generation.  */
-struct lang_hooks_for_rtl_expansion
-{
-  /* Called after expand_function_start, but before expanding the body.  */
-  void (*start) (void);
-
-  /* Called to expand each statement.  */
-  void (*stmt) (tree);
-
-  /* Called after expanding the body but before expand_function_end.  */
-  void (*end) (void);
 };
 
 /* The following hooks are used by tree-dump.c.  */
@@ -154,23 +137,21 @@ struct lang_hooks_for_types
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
   void (*incomplete_type_error) (tree value, tree type);
+
+  /* Called from assign_temp to return the maximum size, if there is one,
+     for a type.  */
+  tree (*max_size) (tree);
+
+  /* Nonzero if types that are identical are to be hashed so that only
+     one copy is kept.  If a language requires unique types for each
+     user-specified type, such as Ada, this should be set to TRUE.  */
+  bool hash_types;
 };
 
 /* Language hooks related to decls and the symbol table.  */
 
 struct lang_hooks_for_decls
 {
-  /* Enter a new lexical scope.  Argument is always zero when called
-     from outside the front end.  */
-  void (*pushlevel) (int);
-
-  /* Exit a lexical scope and return a BINDING for that scope.
-     Takes three arguments:
-     KEEP -- nonzero if there were declarations in this scope.
-     REVERSE -- reverse the order of decls before returning them.
-     FUNCTIONBODY -- nonzero if this level is the body of a function.  */
-  tree (*poplevel) (int, int, int);
-
   /* Returns nonzero if we are in the global binding level.  Ada
      returns -1 for an undocumented reason used in stor-layout.c.  */
   int (*global_bindings_p) (void);
@@ -180,9 +161,6 @@ struct lang_hooks_for_decls
      to handle the BLOCK node inside the BIND_EXPR.  */
   void (*insert_block) (tree);
 
-  /* Set the BLOCK node for the current scope level.  */
-  void (*set_block) (tree);
-
   /* Function to add a decl to the current scope level.  Takes one
      argument, a decl to add.  Returns that decl, or, if the same
      symbol is already declared, may return a different decl for that
@@ -191,9 +169,6 @@ struct lang_hooks_for_decls
 
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
-
-  /* Returns a chain of TYPE_DECLs for built-in types.  */
-  tree (*builtin_type_decls) (void);
 
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
@@ -318,31 +293,22 @@ struct lang_hooks
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
 
-  /* Function used by unsafe_for_reeval.  A non-negative number is
-     returned directly from unsafe_for_reeval, a negative number falls
-     through.  The default hook returns a negative number.  */
-  int (*unsafe_for_reeval) (tree);
-
   /* Mark EXP saying that we need to be able to take the address of
      it; it should not be allocated in a register.  Return true if
      successful.  */
   bool (*mark_addressable) (tree);
 
   /* Hook called by staticp for language-specific tree codes.  */
-  int (*staticp) (tree);
+  bool (*staticp) (tree);
 
   /* Replace the DECL_LANG_SPECIFIC data, which may be NULL, of the
      DECL_NODE with a newly GC-allocated copy.  */
   void (*dup_lang_specific_decl) (tree);
 
-  /* Called before its argument, an UNSAVE_EXPR, is to be
-     unsaved.  Modify it in-place so that all the evaluate only once
+  /* Reset argument so that it can be expanded again.
+     Modify it in-place so that all the evaluate only once
      things are cleared out.  */
   tree (*unsave_expr_now) (tree);
-
-  /* Called by expand_expr to build and return the cleanup-expression
-     for the passed TARGET_EXPR.  Return NULL if there is none.  */
-  tree (*maybe_build_cleanup) (tree);
 
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
@@ -354,6 +320,10 @@ struct lang_hooks
   /* Return nonzero if fold-const is free to use bit-field
      optimizations, for instance in fold_truthop().  */
   bool (*can_use_bit_fields_p) (void);
+
+  /* Nonzero if operations on types narrower than their mode should
+     have their results reduced to the precision of the type.  */
+  bool reduce_bit_field_operations;
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
@@ -384,6 +354,11 @@ struct lang_hooks
      information that might be interesting, such as function parameter
      types in C++.  */
   const char *(*decl_printable_name) (tree decl, int verbosity);
+
+  /* This compares two types for equivalence ("compatible" in C-based languages).
+     This routine should only return 1 if it is sure.  It should not be used
+     in contexts where erroneously returning 0 causes problems.  */
+  int (*types_compatible_p) (tree x, tree y);
 
   /* Given a CALL_EXPR, return a function decl that is its target.  */
   tree (*lang_get_callee_fndecl) (tree);
@@ -419,15 +394,25 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
-  struct lang_hooks_for_rtl_expansion rtl_expand;
-
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
 
-  /* True if the front end has gimplified the function before running the
-     inliner, false if the front end generates GENERIC directly.  */
-  bool gimple_before_inlining;
+  /* Fold an OBJ_TYPE_REF expression to the address of a function.
+     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
+  tree (*fold_obj_type_ref) (tree, tree);
+
+  /* Return a definition for a builtin function named NAME and whose data type
+     is TYPE.  TYPE should be a function type with argument types.
+     FUNCTION_CODE tells later passes how to compile calls to this function.
+     See tree.h for its possible values.
+
+     If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
+     the name to be called if we can't opencode the function.  If
+     ATTRS is nonzero, use that for the function's attribute list.  */
+  tree (*builtin_function) (const char *name, tree type, int function_code,
+			    enum built_in_class class,
+			    const char *library_name, tree attrs);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

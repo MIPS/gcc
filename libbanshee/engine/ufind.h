@@ -84,7 +84,7 @@ bool name ## _eq(name e1, name e2) \
 } \
 void name ##_update(name e1, type info) \
 { \
- return uf_update((struct uf_element *)e1,(uf_info)info); \
+ uf_update((struct uf_element *)e1,(uf_info)info); \
 } \
 
 EXTERN_C_END

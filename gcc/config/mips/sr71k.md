@@ -17,7 +17,7 @@
 ;;  contrived to support published timings.
 ;;
 ;; Reference:
-;;   "SR3 Microporocessor Specification, System development information,"
+;;   "SR3 Microprocessor Specification, System development information,"
 ;;   Revision 1.0, 13 December 2000.
 ;;
 ;;
@@ -141,15 +141,13 @@
 (define_insn_reservation "ir_sr70_load"
                                2
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "load")
-                                    (eq_attr "mode" "!SF,DF,FPSW")))
+                               (eq_attr "type" "load"))
                          "ri_mem")
 
 (define_insn_reservation "ir_sr70_store"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "store")
-                                    (eq_attr "mode" "!SF,DF,FPSW")))
+                               (eq_attr "type" "store"))
                          "ri_mem")
 
 
@@ -159,15 +157,13 @@
 (define_insn_reservation "ir_sr70_fload"
                                9
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "load")
-                                    (eq_attr "mode" "SF,DF")))
+                               (eq_attr "type" "fpload,fpidxload"))
                          "(cpu_iss+cp1_iss),(ri_mem+rf_ldmem)")
 
 (define_insn_reservation "ir_sr70_fstore"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "store")
-                                    (eq_attr "mode" "SF,DF")))
+                               (eq_attr "type" "fpstore,fpidxstore"))
                          "(cpu_iss+cp1_iss),(fpu_mov+ri_mem)")
 
 
@@ -199,13 +195,13 @@
 (define_insn_reservation "ir_sr70_hilo"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "hilo"))
+                               (eq_attr "type" "mthilo,mfhilo"))
                          "ri_insns")
 
 (define_insn_reservation "ir_sr70_arith"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "move,arith,darith,const"))
+                               (eq_attr "type" "arith,shift,slt,clz,const,trap"))
                          "ri_insns")
 
 ;; emulate repeat (dispatch stall) by spending extra cycle(s) in
@@ -239,12 +235,6 @@
                                (and (eq_attr "type" "idiv")
                                     (eq_attr "mode" "DI")))
                          "ri_alux,ipu_alux,(ipu_macc_iter*70)")
-
-(define_insn_reservation "ir_sr70_icmp"
-                               1
-                          (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "icmp"))
-                         "ri_insns")
 
 ;; extra reservations of fpu_fpu are for repeat latency
 (define_insn_reservation "ir_sr70_fadd_sf"
@@ -302,7 +292,7 @@
 (define_insn_reservation "ir_sr70_fabs"
                                4
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "fabs,fneg"))
+                               (eq_attr "type" "fabs,fneg,fmove"))
                          "rf_insn,fpu_fpu")
 
 (define_insn_reservation "ir_sr70_fcmp"

@@ -43,10 +43,14 @@ Boston, MA 02111-1307, USA.  */
 #include <stdint.h>
 #endif
 
+#if HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-typedef off_t offset_t;
+typedef off_t gfc_offset;
 
 #ifndef NULL
 #define NULL (void *) 0
@@ -84,6 +88,7 @@ typedef complex float GFC_COMPLEX_4;
 typedef complex double GFC_COMPLEX_8;
 
 typedef size_t index_type;
+typedef GFC_INTEGER_4 gfc_strlen_type;
 
 /* This will be 0 on little-endian machines and one on big-endian machines.  */
 #define l8_to_l4_offset prefix(l8_to_l4_offset)
@@ -386,11 +391,31 @@ void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 #define internal_unpack_8 prefix(internal_unpack_8)
 void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 
+/* date_and_time.c */
+
+#define date_and_time prefix(date_and_time)
+void date_and_time (char *, char *, char *, gfc_array_i4 *,
+                   GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
+
 /* string_intrinsics.c */
 
 #define compare_string prefix(compare_string)
 GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
 			      GFC_INTEGER_4, const char *);
+
+/* random.c */
+
+#define random_seed prefix(random_seed)
+void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+		  gfc_array_i4 * get);
+
+/* normalize.c */
+
+#define normalize_r4_i4 prefix(normalize_r4_i4)
+GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
+
+#define normalize_r8_i8 prefix(normalize_r8_i8)
+GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
 
 #endif
 

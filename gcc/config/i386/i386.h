@@ -121,7 +121,7 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_SSE3		0x00010000	/* Support SSE3 regs/builtins */
 #define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
 #define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
@@ -207,6 +207,9 @@ extern int target_flags;
 #endif
 #endif
 
+#define HAS_LONG_COND_BRANCH 1
+#define HAS_LONG_UNCOND_BRANCH 1
+
 /* Avoid adding %gs:0 in TLS references; use %gs:address directly.  */
 #define TARGET_TLS_DIRECT_SEG_REFS (target_flags & MASK_TLS_DIRECT_SEG_REFS)
 
@@ -219,6 +222,7 @@ extern int target_flags;
 #define TARGET_PENTIUM4 (ix86_tune == PROCESSOR_PENTIUM4)
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
+#define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -293,6 +297,7 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
 #define TARGET_REP_MOVL_OPTIMAL (x86_rep_movl_optimal & TUNEMASK)
 #define TARGET_INTER_UNIT_MOVES (x86_inter_unit_moves & TUNEMASK)
+#define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -303,7 +308,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
-#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
+#define TARGET_SSE3 ((target_flags & MASK_SSE3) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -399,10 +404,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
-  { "pni",			 MASK_PNI,				      \
-    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
-  { "no-pni",			 -MASK_PNI,				      \
-    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "sse3",			 MASK_SSE3,				      \
+    N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
+  { "no-sse3",			 -MASK_SSE3,				      \
+    N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -605,6 +610,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__tune_k8__");				\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
+      else if (TARGET_NOCONA)					\
+	builtin_define ("__tune_nocona__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -616,8 +623,8 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
-      if (TARGET_PNI)						\
-	builtin_define ("__PNI__");				\
+      if (TARGET_SSE3)						\
+	builtin_define ("__SSE3__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -673,6 +680,11 @@ extern int x86_prefetch_sse;
 	  builtin_define ("__pentium4");			\
 	  builtin_define ("__pentium4__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_NOCONA)			\
+	{							\
+	  builtin_define ("__nocona");				\
+	  builtin_define ("__nocona__");			\
+	}							\
     }								\
   while (0)
 
@@ -690,11 +702,15 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
 #define TARGET_CPU_DEFAULT_k8 13
+#define TARGET_CPU_DEFAULT_pentium_m 14
+#define TARGET_CPU_DEFAULT_prescott 15
+#define TARGET_CPU_DEFAULT_nocona 16
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4", "k8"}
+				  "athlon", "athlon-4", "k8", \
+				  "pentium-m", "prescott", "nocona"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -720,7 +736,7 @@ extern int x86_prefetch_sse;
 
 /* target machine storage layout */
 
-#define LONG_DOUBLE_TYPE_SIZE 96
+#define LONG_DOUBLE_TYPE_SIZE 80
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -1146,10 +1162,6 @@ do {									\
 /* First & last stack-like regs */
 #define FIRST_STACK_REG FIRST_FLOAT_REG
 #define LAST_STACK_REG (FIRST_FLOAT_REG + 7)
-
-#define FLAGS_REG 17
-#define FPSR_REG 18
-#define DIRFLAG_REG 19
 
 #define FIRST_SSE_REG (FRAME_POINTER_REGNUM + 1)
 #define LAST_SSE_REG  (FIRST_SSE_REG + 7)
@@ -1586,22 +1598,6 @@ enum reg_class
      || MAYBE_MMX_CLASS_P (CLASS) 			\
    : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
    ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
-
-/* A C statement that adds to CLOBBERS any hard regs the port wishes
-   to automatically clobber for all asms.
-
-   We do this in the new i386 backend to maintain source compatibility
-   with the old cc0-based compiler.  */
-
-#define MD_ASM_CLOBBERS(CLOBBERS)					\
-  do {									\
-    (CLOBBERS) = tree_cons (NULL_TREE, build_string (5, "flags"),	\
-			    (CLOBBERS));				\
-    (CLOBBERS) = tree_cons (NULL_TREE, build_string (4, "fpsr"),	\
-			    (CLOBBERS));				\
-    (CLOBBERS) = tree_cons (NULL_TREE, build_string (7, "dirflag"),	\
-			    (CLOBBERS));				\
-  } while (0)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1665,13 +1661,6 @@ enum reg_class
    machine-dependent stack frame: `OUTGOING_REG_PARM_STACK_SPACE' says
    which.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 0
-
-/* Define as a C expression that evaluates to nonzero if we do not know how
-   to pass TYPE solely in registers.  The file expr.h defines a
-   definition that is usually appropriate, refer to expr.h for additional
-   documentation. If `REG_PARM_STACK_SPACE' is defined, the argument will be
-   computed in the stack and then loaded into a register.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)  ix86_must_pass_in_stack ((MODE), (TYPE))
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -1776,22 +1765,9 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
- 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
- 
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
   ix86_va_start (VALIST, NEXTARG)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
-  ix86_va_arg ((VALIST), (TYPE))
 
 #define TARGET_ASM_FILE_END ix86_file_end
 #define NEED_INDICATE_EXEC_STACK 0
@@ -2515,12 +2491,6 @@ enum ix86_builtins
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE (!TARGET_64BIT || flag_pic ? SImode : DImode)
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -2540,7 +2510,7 @@ enum ix86_builtins
 #define MOVE_MAX_PIECES (TARGET_64BIT ? 8 : 4)
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
-   move-instruction pairs, we will do a movstr or libcall instead.
+   move-instruction pairs, we will do a movmem or libcall instead.
    Increasing the value will always make code faster, but eventually
    incurs high cost in increased code size.
 
@@ -2652,12 +2622,6 @@ do {							\
    faster than one with a register address.  */
 
 #define NO_FUNCTION_CSE
-
-/* Define this macro if it is as good or better for a function to call
-   itself with an explicit address than to call an address kept in a
-   register.  */
-
-#define NO_RECURSIVE_FUNCTION_CSE
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.
@@ -2677,9 +2641,7 @@ do {							\
 
 /* A C expression whose value is reversed condition code of the CODE for
    comparison done in CC_MODE mode.  */
-#define REVERSE_CONDITION(CODE, MODE) \
-  ((MODE) != CCFPmode && (MODE) != CCFPUmode ? reverse_condition (CODE) \
-   : reverse_condition_maybe_unordered (CODE))
+#define REVERSE_CONDITION(CODE, MODE) ix86_reverse_condition ((CODE), (MODE))
 
 
 /* Control the assembler format that we output, to the extent
@@ -2963,6 +2925,7 @@ enum processor_type
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
+  PROCESSOR_NOCONA,
   PROCESSOR_max
 };
 
@@ -3018,7 +2981,7 @@ extern enum asm_dialect ix86_asm_dialect;
 extern int ix86_regparm;
 extern const char *ix86_regparm_string;
 
-extern int ix86_preferred_stack_boundary;
+extern unsigned int ix86_preferred_stack_boundary;
 extern const char *ix86_preferred_stack_boundary_string;
 
 extern int ix86_branch_cost;

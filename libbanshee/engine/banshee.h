@@ -65,13 +65,12 @@ typedef struct gen_e
   sort_kind sort;
 } *gen_e;
 #else
-struct gen_e
-{
-};
-typedef struct gen_e *gen_e;
+typedef void *gen_e;
 #endif
 
 DECLARE_LIST(gen_e_list,gen_e)
+
+ typedef void (*gen_e_pr_fn_ptr) (FILE *, gen_e);
 
 /* 
   Function pointers that are common to all sorts

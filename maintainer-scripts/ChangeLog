@@ -1,3 +1,91 @@
+2004-06-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc_release (build_sources): Move the libcpp gmo files
+	to the source directory.
+
+2004-06-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc_release (maybe_build_tarfile): New function.
+	(build_tarfiles): Use maybe_build_tarfile.
+
+2004-05-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* gcc_release (build_sources): Generate the NEWS file in toplevel.
+
+2004-05-17  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* gcc_release (build_sources): Change CRCs from brik to md5sum.
+
+2004-05-16  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Add GCC 3.5 snapshots, currenty run on Sundays.
+
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs: Also remove old .gz files from subdirectories
+	on the 15th of the month.
+
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_web_docs (MANUALS): Add gfortran.
+
+2004-05-13  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* update_web_docs: Fix generation of Ada docs.
+
+2004-05-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* update_version (ADD_BRANCHES): Remove tree-ssa-20020619-branch.
+
+	* gcc_release (DIFF): Remove -3 option.
+
+2003-07-26  Paul Brook  <paul@nowt.org>
+
+	* gcc_release: Add gcc-fortran.
+	* snapshot-README: Ditto.
+	* snapshot-index.html: Ditto.
+
+2004-05-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Move GCC 3.4 snapshots from Wednesday afternoon to
+	Friday night, where gcc.gnu.org has less load.
+	
+2004-05-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* crontab: Adjust temporary directory used for snapshot generation.
+	Move GCC 3.3 snapshots to Wednesday 22:32, where gcc.gnu.org has 
+	less load.
+
+2004-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_sources): Do not use "-F" to tag sources.
+
+2004-04-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc_release (build_sources): Do not use "-r" and "-D" at the
+	same time with "cvs export".
+
+2004-03-27  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release: Fix sanity check for argument of -p command-line
+	options.  In snapshot mode, only generate diffs against the previous
+	snapshot if the user did not specify any old tarball explictly.
+
+2004-03-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (FTP_PATH): Use /var/ftp instead of ~ftp, and
+	only set at a single place.
+
+2004-03-14  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (SNAPSHOTS_DIR): New variable.  Use it.
+	(announce_snapshot): Use it.
+
+2004-03-14  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gcc_release (announce_snapshot): Use changedir instead of
+	plain cd.
+	
 2004-02-10  Arnaud Charlet  <charlet@act-europe.fr>
 
 	* gcc_release: Add libada as part of ADA_DIRS.

@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running FreeBSD with ELF format
-   Copyright (C) 1996, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
    Adapted from GNU/Linux version by John Polstra.
@@ -57,6 +57,10 @@ Boston, MA 02111-1307, USA.  */
   
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE	(TARGET_64BIT ? 32 : BITS_PER_WORD)
+
+#undef  SUBTARGET_EXTRA_SPECS	/* i386.h bogusly defines it.  */
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
     
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
    the magical crtbegin.o file (see crtstuff.c) which provides part 
@@ -105,7 +109,7 @@ Boston, MA 02111-1307, USA.  */
     %{!shared: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}} \
+        %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
     %{static:-Bstatic}} \
   %{symbolic:-Bsymbolic}"
 

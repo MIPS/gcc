@@ -2730,7 +2730,7 @@ ip2k_gen_unsigned_comp_branch (rtx insn, enum rtx_code code, rtx label)
 	case GTU:
 	  if (imm_sub)
 	    {
-	      /* > 0xffffffffffffffff never suceeds!  */
+	      /* > 0xffffffffffffffff never succeeds!  */
 	      if (((const_high & 0xffffffff) != 0xffffffff)
 		  || ((const_low & 0xffffffff) != 0xffffffff))
 		{
@@ -2948,7 +2948,7 @@ ip2k_gen_unsigned_comp_branch (rtx insn, enum rtx_code code, rtx label)
 	      if (((const_high & 0xffffffff) == 0xffffffff)
 		  && ((const_low & 0xffffffff) == 0xffffffff))
 	        {
-		  /* <= 0xffffffffffffffff always suceeds.  */
+		  /* <= 0xffffffffffffffff always succeeds.  */
 		  OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
@@ -3428,7 +3428,7 @@ mdr_resequence_xy_yx (first_insn)
 	     appropriate, try to do the same thing with the second operand.
 	     Of course there are fewer operations that can match here
 	     because they must be commutative.  */
-          if (GET_RTX_CLASS (GET_CODE (XEXP (set, 1))) == 'c'
+          if (GET_RTX_CLASS (GET_CODE (XEXP (set, 1))) == RTX_COMM_ARITH
 	      && (GET_CODE (XEXP (XEXP (set, 1), 1)) == REG
 	          || GET_CODE (XEXP (XEXP (set, 1), 1)) == MEM)
 	      && rtx_equal_p (XEXP (set2, 0), XEXP (XEXP (set, 1), 1))
@@ -4104,12 +4104,11 @@ mdr_try_move_dp_reload (first_insn)
 static int
 ip2k_check_can_adjust_stack_ref (rtx x, int offset)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c')
+  if (ARITHMETIC_P (x))
     return (ip2k_check_can_adjust_stack_ref (XEXP (x, 0), offset)
 	    && ip2k_check_can_adjust_stack_ref (XEXP (x, 1), offset));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1')
+  if (UNARY_P (x))
     return ip2k_check_can_adjust_stack_ref (XEXP (x, 0), offset);
 
   switch (GET_CODE (x))
@@ -4150,15 +4149,14 @@ ip2k_check_can_adjust_stack_ref (rtx x, int offset)
 static void
 ip2k_adjust_stack_ref (rtx *x, int offset)
 {
-  if (GET_RTX_CLASS (GET_CODE (*x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (*x)) == 'c')
+  if (ARITHMETIC_P (*x))
     {
       ip2k_adjust_stack_ref (&XEXP (*x, 0), offset);
       ip2k_adjust_stack_ref (&XEXP (*x, 1), offset);
       return;
     }
 
-  if (GET_RTX_CLASS (GET_CODE (*x)) == '1')
+  if (UNARY_P (*x))
     {
       ip2k_adjust_stack_ref (&XEXP (*x, 0), offset);
       return;
@@ -4642,21 +4640,6 @@ ip2k_xexp_not_uses_reg_for_mem (rtx x, unsigned int regno)
   if (regno & 1)
     regno &= 0xfffffffe;
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
-    return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 2), regno));
-
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
-    return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
-	    && ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno));
-
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
-    return ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno);
-
   switch (GET_CODE (x))
     {
     case REG:
@@ -4682,6 +4665,19 @@ ip2k_xexp_not_uses_reg_for_mem (rtx x, unsigned int regno)
       return 1;
 
     default:
+      if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
+	return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 2), regno));
+
+      if (BINARY_P (x))
+	return (ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno)
+		&& ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 1), regno));
+
+      if (UNARY_P (x)
+	  || GET_RTX_CLASS (GET_CODE (x)) == '3')
+	return ip2k_xexp_not_uses_reg_for_mem (XEXP (x, 0), regno);
+
       return 0;
     }
 }
@@ -5319,7 +5315,7 @@ ip2k_reorg (void)
      things in such a way that another go will win.  Do so now!  */
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
+  life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   
   /* Look for where absurd things are happening with DP.  */
   mdr_try_dp_reload_elim (first_insn);
@@ -5331,7 +5327,7 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_REG_INFO | PROP_DEATH_NOTES);
+  life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
@@ -5358,7 +5354,7 @@ ip2k_reorg (void)
   mdr_try_move_pushes (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   mdr_try_propagate_move (first_insn);
   mdr_resequence_xy_yx (first_insn);
@@ -5372,14 +5368,14 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_simode = 1;
   split_all_insns (0);
@@ -5390,14 +5386,14 @@ ip2k_reorg (void)
 
   reload_cse_regs (first_insn);
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_himode = 1;
   ip2k_reorg_merge_qimode = 1;
@@ -5415,21 +5411,21 @@ ip2k_reorg (void)
   /* Call to  jump_optimize (...) was here, but now I removed it.  */
   
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   if (flag_peephole2)
     peephole2_optimize (NULL);
 
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
   mdr_try_remove_redundant_insns (first_insn);
 
   mdr_try_propagate_clr (first_insn);
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 
   ip2k_reorg_split_qimode = 1;
   split_all_insns (0);
@@ -5438,7 +5434,7 @@ ip2k_reorg (void)
   mdr_try_propagate_move (first_insn);
 
   find_basic_blocks (first_insn, max_reg_num (), 0);
-  life_analysis (first_insn, 0, PROP_FINAL);
+  life_analysis (0, PROP_FINAL);
 #endif
 }
 
@@ -5972,19 +5968,17 @@ ip2k_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 int
 ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 2), r, rsz));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
+  if (BINARY_P (x))
     return (ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz)
 	    && ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 1), r, rsz));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
+  if (UNARY_P (x)
+      || GET_RTX_CLASS (GET_CODE (x)) == RTX_TERNARY)
     return ip2k_composite_xexp_not_uses_reg_p (XEXP (x, 0), r, rsz);
 
   return ip2k_xexp_not_uses_reg_p (x, r, rsz);
@@ -5996,19 +5990,17 @@ ip2k_composite_xexp_not_uses_reg_p (rtx x, unsigned int r, int rsz)
 int
 ip2k_composite_xexp_not_uses_cc0_p (rtx x)
 {
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'b')
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_BITFIELD_OPS)
     return (ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 1))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 2)));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '2'
-      || GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '<')
+  if (BINARY_P (x))
     return (ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0))
 	    && ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 1)));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1'
-      || GET_RTX_CLASS (GET_CODE (x)) == '3')
+  if (UNARY_P (x)
+      || GET_RTX_CLASS (GET_CODE (x)) == RTX_TERNARY)
     return ip2k_composite_xexp_not_uses_cc0_p (XEXP (x, 0));
 
   return GET_CODE (x) != CC0;
@@ -6158,15 +6150,14 @@ int
 ip2k_unary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && GET_RTX_CLASS (GET_CODE (op)) == '1');
+	  && UNARY_P (op));
 }
 
 int
 ip2k_binary_operator (rtx op, enum machine_mode mode)
 {
   return ((mode == VOIDmode || GET_MODE (op) == mode)
-	  && (GET_RTX_CLASS (GET_CODE (op)) == 'c'
-	      || GET_RTX_CLASS (GET_CODE (op)) == '2'));
+	  && ARITHMETIC_P (op));
 }
 
 int

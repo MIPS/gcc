@@ -228,6 +228,7 @@ java_new_lexer (FILE *finput, const char *encoding)
   lex->bs_count = 0;
   lex->unget_value = 0;
   lex->hit_eof = 0;
+  lex->encoding = encoding;
 
 #ifdef HAVE_ICONV
   lex->handle = iconv_open ("UCS-2", encoding);
@@ -263,7 +264,7 @@ java_new_lexer (FILE *finput, const char *encoding)
 	      in[1] = 0xbb;
 	      in[2] = 0xbf;
 
-	      inp = in;
+	      inp = (char *) in;
 	      inc = 3;
 	      outp = (char *) &result;
 	      outc = 2;
@@ -295,7 +296,10 @@ java_new_lexer (FILE *finput, const char *encoding)
 	enc_error = 1;
 #ifdef HAVE_ICONV
       else
-	lex->use_fallback = 1;
+        {
+	  lex->use_fallback = 1;
+	  lex->encoding = "UTF-8";
+	}
 #endif /* HAVE_ICONV */
     }
 
@@ -373,7 +377,7 @@ java_read_char (java_lexer *lex)
 	      in_save = inbytesleft;
 	      out_save = out_count;
 	      inp = &lex->buffer[lex->first];
-	      outp = &lex->out_buffer[lex->out_last];
+	      outp = (char *) &lex->out_buffer[lex->out_last];
 	      ir = iconv (lex->handle, (ICONV_CONST char **) &inp,
 			  &inbytesleft, &outp, &out_count);
 
@@ -430,8 +434,11 @@ java_read_char (java_lexer *lex)
 		  else
 		    {
 		      /* A more serious error.  */
-		      java_lex_error ("unrecognized character in input stream",
-				      0);
+		      char buffer[128];
+		      sprintf (buffer,
+			       "Unrecognized character for encoding '%s'", 
+		               lex->encoding);
+		      java_lex_error (buffer, 0);
 		      return UEOF;
 		    }
 		}
@@ -2024,7 +2031,7 @@ cxx_keyword_p (const char *name, int length)
     {
       int kwl = strlen (cxx_keywords[mid]);
       int min_length = kwl > length ? length : kwl;
-      int r = utf8_cmp (name, min_length, cxx_keywords[mid]);
+      int r = utf8_cmp ((const unsigned char *) name, min_length, cxx_keywords[mid]);
 
       if (r == 0)
 	{

@@ -151,9 +151,32 @@ DEFPARAM(PARAM_MAX_GCSE_PASSES,
 	"max-gcse-passes",
 	"The maximum number of passes to make when doing GCSE",
 	1)
-
+/* This is the threshold ratio when to perform partial redundancy
+   elimination after reload. We perform partial redundancy elimination
+   when the following holds:
+   (Redundant load execution count)
+   ------------------------------- >= GCSE_AFTER_RELOAD_PARTIAL_FRACTION
+   (Added loads execution count)					  */
+DEFPARAM(PARAM_GCSE_AFTER_RELOAD_PARTIAL_FRACTION,
+	"gcse-after-reload-partial-fraction",
+	"The threshold ratio for performing partial redundancy elimination \
+         after reload.",
+        3)
+/* This is the threshold ratio of the critical edges execution count compared to
+   the redundant loads execution count that permits performing the load
+   redundancy elimination in gcse after reload.  */
+DEFPARAM(PARAM_GCSE_AFTER_RELOAD_CRITICAL_FRACTION,
+	"gcse-after-reload-critical-fraction",
+	"The threshold ratio of critical edges execution count that permit \
+         performing redundancy elimination after reload.",
+        10)
 /* This parameter limits the number of insns in a loop that will be unrolled,
-   and by how much the loop is unrolled.  */
+   and by how much the loop is unrolled.
+   
+   This limit should be at most half of the peeling limits:  loop unroller
+   decides to not unroll loops that iterate fewer than 2*number of allowed
+   unrollings and thus we would have loops that are neither peeled or unrolled
+   otherwise.  */
 DEFPARAM(PARAM_MAX_UNROLLED_INSNS,
 	 "max-unrolled-insns",
 	 "The maximum number of instructions to consider to unroll in a loop",
@@ -173,7 +196,7 @@ DEFPARAM(PARAM_MAX_UNROLL_TIMES,
 DEFPARAM(PARAM_MAX_PEELED_INSNS,
 	"max-peeled-insns",
 	"The maximum number of insns of a peeled loop",
-	120)
+	400)
 /* The maximum number of peelings of a single loop.  */
 DEFPARAM(PARAM_MAX_PEEL_TIMES,
 	"max-peel-times",
@@ -183,7 +206,7 @@ DEFPARAM(PARAM_MAX_PEEL_TIMES,
 DEFPARAM(PARAM_MAX_COMPLETELY_PEELED_INSNS,
 	"max-completely-peeled-insns",
 	"The maximum number of insns of a completely peeled loop",
-	120)
+	400)
 /* The maximum number of peelings of a single loop that is peeled completely.  */
 DEFPARAM(PARAM_MAX_COMPLETELY_PEEL_TIMES,
 	"max-completely-peel-times",
@@ -193,7 +216,7 @@ DEFPARAM(PARAM_MAX_COMPLETELY_PEEL_TIMES,
 DEFPARAM(PARAM_MAX_ONCE_PEELED_INSNS,
 	"max-once-peeled-insns",
 	"The maximum number of insns of a peeled loop that rolls only once",
-	200)
+	400)
 
 /* The maximum number of insns of an unswitched loop.  */
 DEFPARAM(PARAM_MAX_UNSWITCH_INSNS,
@@ -205,6 +228,37 @@ DEFPARAM(PARAM_MAX_UNSWITCH_LEVEL,
 	"max-unswitch-level",
 	"The maximum number of unswitchings in a single loop",
 	3)
+
+/* The maximum number of iterations of a loop the brute force algorithm
+   for analysis of # of iterations of the loop tries to evaluate.  */
+DEFPARAM(PARAM_MAX_ITERATIONS_TO_TRACK,
+	"max-iterations-to-track",
+	"Bound on the number of iterations the brute force # of iterations \
+	 analysis algorithm evaluates",
+	1000)
+
+DEFPARAM(PARAM_MAX_SMS_LOOP_NUMBER,
+	 "max-sms-loop-number",
+	 "Maximum number of loops to perform swing modulo scheduling on \
+	  (mainly for debugging)",
+	 -1)
+
+/* This parameter is used to tune SMS MAX II calculations.  */
+DEFPARAM(PARAM_SMS_MAX_II_FACTOR,
+	 "sms-max-ii-factor",
+	 "A factor for tuning the upper bound that swing modulo scheduler uses \
+	  for scheduling a loop",
+	 100)
+DEFPARAM(PARAM_SMS_DFA_HISTORY,
+	 "sms-dfa-history",
+	 "The number of cycles the swing modulo scheduler considers when \
+	  checking conflicts using DFA",
+	 0)
+DEFPARAM(PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD,
+	 "sms-loop-average-count-threshold",
+	 "A threshold on the average loop count considered by the swing modulo \
+	  scheduler",
+	 0)
 
 DEFPARAM(HOT_BB_COUNT_FRACTION,
 	 "hot-bb-count-fraction",
@@ -258,11 +312,18 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "The maximum length of path considered in cse",
 	 10)
 
+/* The cost of expression in loop invariant motion that is considered
+   expensive.  */
+DEFPARAM(PARAM_LIM_EXPENSIVE,
+	 "lim-expensive",
+	 "The minimum cost of an expensive expression in the loop invariant motion",
+	 20)
+
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */
 DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
 	"global-var-threshold",
-	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger  than this limit",
+	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger than this limit",
 	500000)
 
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
@@ -297,10 +358,20 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 	 "The maximum number of instructions to search backward when looking for equivalent reload",
 	 100)
 
-DEFPARAM(PARAM_MAX_ALIAS_SET_SIZE,
-         "max-alias-set-size",
-	 "The maximum number of elements in a variable's alias set before triggering alias grouping",
-	 5)
+DEFPARAM(PARAM_MAX_ALIASED_VOPS,
+         "max-aliased-vops",
+	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping.",
+	 500)
+
+DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
+	 "max-sched-region-blocks",
+	 "The maximum number of blocks in a region to be considered for interblock scheduling",
+	 10)
+
+DEFPARAM(PARAM_MAX_SCHED_REGION_INSNS,
+	 "max-sched-region-insns",
+	 "The maximum number of insns in a region to be considered for interblock scheduling",
+	 100)
 
 /*
 Local variables:

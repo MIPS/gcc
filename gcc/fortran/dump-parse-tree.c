@@ -1,23 +1,23 @@
 /* Parse tree dumper
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 /* Actually this is just a collection of routines that used to be
@@ -183,18 +183,28 @@ gfc_show_array_ref (gfc_array_ref * ar)
     case AR_SECTION:
       for (i = 0; i < ar->dimen; i++)
 	{
+	  /* There are two types of array sections: either the
+	     elements are identified by an integer array ('vector'),
+	     or by an index range. In the former case we only have to
+	     print the start expression which contains the vector, in
+	     the latter case we have to print any of lower and upper
+	     bound and the stride, if they're present.  */
+  
 	  if (ar->start[i] != NULL)
 	    gfc_show_expr (ar->start[i]);
 
-	  gfc_status_char (':');
-
-	  if (ar->end[i] != NULL)
-	    gfc_show_expr (ar->end[i]);
-
-	  if (ar->stride[i] != NULL)
+	  if (ar->dimen_type[i] == DIMEN_RANGE)
 	    {
 	      gfc_status_char (':');
-	      gfc_show_expr (ar->stride[i]);
+
+	      if (ar->end[i] != NULL)
+		gfc_show_expr (ar->end[i]);
+
+	      if (ar->stride[i] != NULL)
+		{
+		  gfc_status_char (':');
+		  gfc_show_expr (ar->stride[i]);
+		}
 	    }
 
 	  if (i != ar->dimen - 1)
@@ -287,7 +297,7 @@ gfc_show_constructor (gfc_constructor * c)
 }
 
 
-/* Show an expression.  Non-static because we use it in match.c.  */
+/* Show an expression.  */
 
 static void
 gfc_show_expr (gfc_expr * p)
@@ -534,8 +544,6 @@ gfc_show_attr (symbol_attribute * attr)
     gfc_status (" TARGET");
   if (attr->dummy)
     gfc_status (" DUMMY");
-  if (attr->common)
-    gfc_status (" COMMON");
   if (attr->result)
     gfc_status (" RESULT");
   if (attr->entry)
@@ -549,8 +557,6 @@ gfc_show_attr (symbol_attribute * attr)
     gfc_status (" IN-NAMELIST");
   if (attr->in_common)
     gfc_status (" IN-COMMON");
-  if (attr->saved_common)
-    gfc_status (" SAVED-COMMON");
 
   if (attr->function)
     gfc_status (" FUNCTION");
@@ -606,7 +612,6 @@ gfc_show_symbol (gfc_symbol * sym)
 {
   gfc_formal_arglist *formal;
   gfc_interface *intr;
-  gfc_symbol *s;
 
   if (sym == NULL)
     return;
@@ -637,14 +642,6 @@ gfc_show_symbol (gfc_symbol * sym)
       gfc_status ("Generic interfaces:");
       for (intr = sym->generic; intr; intr = intr->next)
 	gfc_status (" %s", intr->sym->name);
-    }
-
-  if (sym->common_head)
-    {
-      show_indent ();
-      gfc_status ("Common members:");
-      for (s = sym->common_head; s; s = s->common_next)
-	gfc_status (" %s", s->name);
     }
 
   if (sym->result)
@@ -720,6 +717,27 @@ gfc_traverse_user_op (gfc_namespace * ns, void (*func) (gfc_user_op *))
   traverse_uop (ns->uop_root, func);
 }
 
+
+/* Function to display a common block.  */
+
+static void
+show_common (gfc_symtree * st)
+{
+  gfc_symbol *s;
+
+  show_indent ();
+  gfc_status ("common: /%s/ ", st->name);
+
+  s = st->n.common->head;
+  while (s)
+    {
+      gfc_status ("%s", s->name);
+      s = s->common_next;
+      if (s)
+	gfc_status (", ");
+    }
+  gfc_status_char ('\n');
+}    
 
 /* Worker function to display the symbol tree.  */
 
@@ -1374,6 +1392,23 @@ gfc_show_code_node (int level, gfc_code * c)
 }
 
 
+/* Show and equivalence chain.  */
+
+static void
+gfc_show_equiv (gfc_equiv *eq)
+{
+  show_indent ();
+  gfc_status ("Equivalence: ");
+  while (eq)
+    {
+      gfc_show_expr (eq->expr);
+      eq = eq->eq;
+      if (eq)
+	gfc_status (", ");
+    }
+}
+
+    
 /* Show a freakin' whole namespace.  */
 
 void
@@ -1382,6 +1417,7 @@ gfc_show_namespace (gfc_namespace * ns)
   gfc_interface *intr;
   gfc_namespace *save;
   gfc_intrinsic_op op;
+  gfc_equiv *eq;
   int i;
 
   save = gfc_current_ns;
@@ -1417,7 +1453,9 @@ gfc_show_namespace (gfc_namespace * ns)
 	}
 
       gfc_current_ns = ns;
-      gfc_traverse_symtree (ns, show_symtree);
+      gfc_traverse_symtree (ns->common_root, show_common);
+
+      gfc_traverse_symtree (ns->sym_root, show_symtree);
 
       for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; op++)
 	{
@@ -1440,6 +1478,9 @@ gfc_show_namespace (gfc_namespace * ns)
 	  gfc_traverse_user_op (ns, show_uop);
 	}
     }
+  
+  for (eq = ns->equiv; eq; eq = eq->next)
+    gfc_show_equiv (eq);
 
   gfc_status_char ('\n');
   gfc_status_char ('\n');

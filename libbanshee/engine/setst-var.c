@@ -43,7 +43,7 @@ struct st_info
   bounds sources;
   bounds sinks;
   jcoll tlb_cache;
-  char *name;
+  const char *name;
   bool seen;
   int path_pos;
   int src_sz;
@@ -121,7 +121,7 @@ stamp st_get_stamp(setst_var v)
   return get_info(v)->st;
 }
 
-char *st_get_name(setst_var v)
+const char *st_get_name(setst_var v)
 {
   return get_info(v)->name;
 }

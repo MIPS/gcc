@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -164,7 +164,8 @@ format_lex (void)
 {
   format_token token;
   int negative_flag;
-  char c, delim;
+  int c;
+  char delim;
 
   if (saved_token != FMT_NONE)
     {
@@ -510,7 +511,7 @@ format_item:
 	}
 
       saved_token = t;
-      goto between_desc;
+      goto optional_comma;
 
     case FMT_P:		/* P and X require a prior number */
       error = "P descriptor requires leading scale factor";
@@ -542,7 +543,7 @@ format_item:
       tail->u.string.p = string;
       tail->u.string.length = value;
       tail->repeat = 1;
-      goto between_desc;
+      goto optional_comma;
 
     case FMT_S:
     case FMT_SS:
@@ -618,6 +619,9 @@ format_item:
       goto finished;
 
     case FMT_BADSTRING:
+      goto finished;
+
+    case FMT_RPAREN:
       goto finished;
 
     default:

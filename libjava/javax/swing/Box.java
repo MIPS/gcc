@@ -1,5 +1,5 @@
 /* Box.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,6 +39,12 @@ exception statement from your version. */
 package javax.swing;
 
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import java.awt.LayoutManager;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.AWTError;
 
 /**
  * Needs some work I guess....
@@ -49,8 +55,136 @@ public class Box extends JComponent implements Accessible
 {
   private static final long serialVersionUID = 1525417495883046342L;
   
-  public Box(int a)
+  // FIXME: disable to make libjava compile; visibility rules are broken
+  protected class AccessibleBox // extends Container.AccessibleAWTContainer
   {
-    setLayout(new BoxLayout(this, a));	
+    private static final long serialVersionUID = -7775079816389931944L;
+  
+    protected AccessibleBox()
+    {
+    }
+    
+    public AccessibleRole getAccessibleRole()
+    {
+      return null;
+    }
   }
+  
+  public static class Filler extends JComponent implements Accessible
+  {
+    private static final long serialVersionUID = -1204263191910183998L;
+  
+    // FIXME: disable to make libjava compile; visibility rules are broken
+    protected class AccessibleBoxFiller // extends Component.AccessibleAWTComponent
+    {
+      private static final long serialVersionUID = 164963348357479321L;
+      
+      protected AccessibleBoxFiller()
+      {
+      }
+      
+      public AccessibleRole getAccessibleRole()
+      {
+        return null;
+      }
+    }
+    
+    protected AccessibleContext accessibleContext;
+    
+    private transient Dimension min, pref, max;
+    
+    public Filler(Dimension min, Dimension pref, Dimension max)
+    {
+      changeShape(min, pref, max);
+    }
+    
+    public void changeShape(Dimension min, Dimension pref, Dimension max)
+    {
+      this.min = min;
+      this.pref = pref;
+      this.max = max;    
+    }
+    
+    public AccessibleContext getAccessibleContext()
+    {
+      // FIXME: disable to make libjava compile; visibility rules are broken      
+      //      if (accessibleContext == null)
+      //        accessibleContext = new AccessibleBoxFiller();
+      return accessibleContext;
+    }
+    
+    public Dimension getMaximumSize()
+    {
+      return max;
+    }
+    
+    public Dimension getMinimumSize()
+    {
+      return min;
+    }
+    
+    public Dimension getPreferredSize()
+    {
+      return pref;
+    }
+  }
+  
+  public Box(int axis)
+  {
+    setLayout(new BoxLayout(this, axis));	
+  }
+  
+  public static Component createGlue()
+  {
+    return null;
+  }
+  
+  public static Box createHorizontalBox()
+  {
+    return null;
+  }
+  
+  public static Component createHorizontalGlue()
+  {
+    return null;
+  }
+  
+  public static Component createHorizontalStrut(int width)
+  {
+    return null;
+  }
+  
+  public static Component createRigidArea(Dimension d)
+  {
+    return null;
+  }
+  
+  public static Box createVerticalBox()
+  {
+    return null;
+  }
+  
+  public static Component createVerticalGlue()
+  {
+    return null;
+  }
+  
+  public static Component createVerticalStrut(int height)
+  {
+    return null;
+  }
+  
+  public void setLayout(LayoutManager l)
+  {
+    throw new AWTError("Not allowed to set layout managers for boxes.");
+  }
+  
+  public AccessibleContext getAccessibleContext()
+  {
+    //     if (accessibleContext == null)
+    //       accessibleContext = new AccessibleBox();
+    return accessibleContext;
+  }
+  
+  
 }

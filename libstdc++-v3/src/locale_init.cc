@@ -45,58 +45,62 @@ namespace __gnu_internal
   extern char* name_vec[6 + _GLIBCXX_NUM_CATEGORIES];
   extern char name_c[6 + _GLIBCXX_NUM_CATEGORIES][2];
 
-  extern std::ctype<char>			ctype_c;
-  extern std::collate<char> 			collate_c;
-  extern std::numpunct<char> 			numpunct_c;
-  extern std::num_get<char> 			num_get_c;
-  extern std::num_put<char> 			num_put_c;  
-  extern std::codecvt<char, char, mbstate_t>	codecvt_c;
-  extern std::moneypunct<char, false> 		moneypunct_cf;
-  extern std::moneypunct<char, true> 		moneypunct_ct;
-  extern std::money_get<char> 			money_get_c;
-  extern std::money_put<char> 			money_put_c;
-  extern std::__timepunct<char> 		timepunct_c;
-  extern std::time_get<char> 			time_get_c;
-  extern std::time_put<char> 			time_put_c;
-  extern std::messages<char> 			messages_c;
+  extern std::ctype<char>			 ctype_c;
+  extern std::collate<char> 			 collate_c;
+  extern std::numpunct<char> 			 numpunct_c;
+  extern std::num_get<char> 			 num_get_c;
+  extern std::num_put<char> 			 num_put_c;  
+  extern std::codecvt<char, char, mbstate_t>	 codecvt_c;
+  extern std::moneypunct<char, false> 		 moneypunct_cf;
+  extern std::moneypunct<char, true> 		 moneypunct_ct;
+  extern std::money_get<char> 			 money_get_c;
+  extern std::money_put<char> 			 money_put_c;
+  extern std::__timepunct<char> 		 timepunct_c;
+  extern std::time_get<char> 			 time_get_c;
+  extern std::time_put<char> 			 time_put_c;
+  extern std::messages<char> 			 messages_c;
 #ifdef  _GLIBCXX_USE_WCHAR_T
-  extern std::ctype<wchar_t>			ctype_w;
-  extern std::collate<wchar_t> 			collate_w;
-  extern std::numpunct<wchar_t> 		numpunct_w;
-  extern std::num_get<wchar_t> 			num_get_w;
-  extern std::num_put<wchar_t> 			num_put_w;
-  extern std::codecvt<wchar_t, char, mbstate_t>	codecvt_w;
-  extern std::moneypunct<wchar_t, false> 	moneypunct_wf;
-  extern std::moneypunct<wchar_t, true> 	moneypunct_wt;
-  extern std::money_get<wchar_t> 		money_get_w;
-  extern std::money_put<wchar_t> 		money_put_w;
-  extern std::__timepunct<wchar_t> 		timepunct_w;
-  extern std::time_get<wchar_t> 		time_get_w;
-  extern std::time_put<wchar_t> 		time_put_w;
-  extern std::messages<wchar_t> 		messages_w;
+  extern std::ctype<wchar_t>			 ctype_w;
+  extern std::collate<wchar_t> 			 collate_w;
+  extern std::numpunct<wchar_t> 		 numpunct_w;
+  extern std::num_get<wchar_t> 			 num_get_w;
+  extern std::num_put<wchar_t> 			 num_put_w;
+  extern std::codecvt<wchar_t, char, mbstate_t>	 codecvt_w;
+  extern std::moneypunct<wchar_t, false> 	 moneypunct_wf;
+  extern std::moneypunct<wchar_t, true> 	 moneypunct_wt;
+  extern std::money_get<wchar_t> 		 money_get_w;
+  extern std::money_put<wchar_t> 	 	 money_put_w;
+  extern std::__timepunct<wchar_t> 		 timepunct_w;
+  extern std::time_get<wchar_t> 		 time_get_w;
+  extern std::time_put<wchar_t> 		 time_put_w;
+  extern std::messages<wchar_t> 		 messages_w;
 #endif
 
   // And the caches....
   extern std::locale::facet* cache_vec[_GLIBCXX_NUM_FACETS];
-  extern std::__numpunct_cache<char>		numpunct_cache_c;
-  extern std::__moneypunct_cache<char>		moneypunct_cache_cf;
-  extern std::__moneypunct_cache<char>		moneypunct_cache_ct;
-  extern std::__timepunct_cache<char>		timepunct_cache_c;
+  extern std::__numpunct_cache<char>		 numpunct_cache_c;
+  extern std::__moneypunct_cache<char, false>	 moneypunct_cache_cf;
+  extern std::__moneypunct_cache<char, true>	 moneypunct_cache_ct;
+  extern std::__timepunct_cache<char>		 timepunct_cache_c;
 #ifdef  _GLIBCXX_USE_WCHAR_T
-  extern std::__numpunct_cache<wchar_t>		numpunct_cache_w;
-  extern std::__moneypunct_cache<wchar_t>	moneypunct_cache_wf;
-  extern std::__moneypunct_cache<wchar_t>	moneypunct_cache_wt;
-  extern std::__timepunct_cache<wchar_t>	timepunct_cache_w;
+  extern std::__numpunct_cache<wchar_t>		 numpunct_cache_w;
+  extern std::__moneypunct_cache<wchar_t, false> moneypunct_cache_wf;
+  extern std::__moneypunct_cache<wchar_t, true>	 moneypunct_cache_wt;
+  extern std::__timepunct_cache<wchar_t>	 timepunct_cache_w;
 #endif
+
+  // Mutex object for locale initialization.
+  __glibcxx_mutex_define_initialized(locale_mutex);
 } // namespace __gnu_internal
 
 namespace std 
 {
   using namespace __gnu_internal;
 
-  locale::locale() throw()
+  locale::locale() throw() : _M_impl(0)
   { 
-    _S_initialize(); 
+    _S_initialize();
+    __gnu_cxx::lock sentry(__gnu_internal::locale_mutex);
     _S_global->_M_add_reference();
     _M_impl = _S_global;
   }
@@ -105,11 +109,16 @@ namespace std
   locale::global(const locale& __other)
   {
     _S_initialize();
-    _Impl* __old = _S_global;
-    __other._M_impl->_M_add_reference();
-    _S_global = __other._M_impl; 
-    if (__other.name() != "*")
-      setlocale(LC_ALL, __other.name().c_str());
+    _Impl* __old;
+    {
+      __gnu_cxx::lock sentry(__gnu_internal::locale_mutex);
+      __old = _S_global;
+      __other._M_impl->_M_add_reference();
+      _S_global = __other._M_impl;
+      const string __other_name = __other.name();
+      if (__other_name != "*")
+	setlocale(LC_ALL, __other_name.c_str());
+    }
 
     // Reference count sanity check: one reference removed for the
     // subsition of __other locale, one added by return-by-value. Net
@@ -240,20 +249,20 @@ namespace std
   // Construct "C" _Impl.
   locale::_Impl::
   _Impl(size_t __refs) throw() 
-  : _M_refcount(__refs), _M_facets_size(_GLIBCXX_NUM_FACETS)
+  : _M_refcount(__refs), _M_facets(0), _M_facets_size(_GLIBCXX_NUM_FACETS),
+  _M_caches(0), _M_names(0)    
   {
     _M_facets = new (&facet_vec) const facet*[_M_facets_size];
     _M_caches = new (&cache_vec) const facet*[_M_facets_size];
     for (size_t __i = 0; __i < _M_facets_size; ++__i)
       _M_facets[__i] = _M_caches[__i] = 0;
 
-    // Name all the categories.
+    // Name the categories.
     _M_names = new (&name_vec) char*[_S_categories_size];
-    for (size_t __i = 0; __i < _S_categories_size; ++__i)
-      {
-	_M_names[__i] = new (&name_c[__i]) char[2];
-	std::strcpy(_M_names[__i], locale::facet::_S_get_c_name());
-      }
+    _M_names[0] = new (&name_c[0]) char[2];
+    std::memcpy(_M_names[0], locale::facet::_S_get_c_name(), 2);
+    for (size_t __j = 1; __j < _S_categories_size; ++__j)
+      _M_names[__j] = 0;
 
     // This is needed as presently the C++ version of "C" locales
     // != data in the underlying locale model for __timepunct,
@@ -273,10 +282,11 @@ namespace std
     _M_init_facet(new (&num_put_c) num_put<char>(1));
     _M_init_facet(new (&collate_c) std::collate<char>(1));
 
-    typedef __moneypunct_cache<char> money_cache_c;
-    money_cache_c* __mpcf = new (&moneypunct_cache_cf) money_cache_c(2);
+    typedef __moneypunct_cache<char, false> money_cache_cf;
+    typedef __moneypunct_cache<char, true> money_cache_ct;
+    money_cache_cf* __mpcf = new (&moneypunct_cache_cf) money_cache_cf(2);
     _M_init_facet(new (&moneypunct_cf) moneypunct<char, false>(__mpcf, 1));
-    money_cache_c* __mpct = new (&moneypunct_cache_ct) money_cache_c(2);
+    money_cache_ct* __mpct = new (&moneypunct_cache_ct) money_cache_ct(2);
     _M_init_facet(new (&moneypunct_ct) moneypunct<char, true>(__mpct, 1));
 
     _M_init_facet(new (&money_get_c) money_get<char>(1));
@@ -302,10 +312,11 @@ namespace std
     _M_init_facet(new (&num_put_w) num_put<wchar_t>(1));
     _M_init_facet(new (&collate_w) std::collate<wchar_t>(1));
 
-    typedef __moneypunct_cache<wchar_t> money_cache_w;
-    money_cache_w* __mpwf = new (&moneypunct_cache_wf) money_cache_w(2);
+    typedef __moneypunct_cache<wchar_t, false> money_cache_wf;
+    typedef __moneypunct_cache<wchar_t, true> money_cache_wt;
+    money_cache_wf* __mpwf = new (&moneypunct_cache_wf) money_cache_wf(2);
     _M_init_facet(new (&moneypunct_wf) moneypunct<wchar_t, false>(__mpwf, 1));
-    money_cache_w* __mpwt = new (&moneypunct_cache_wt) money_cache_w(2);
+    money_cache_wt* __mpwt = new (&moneypunct_cache_wt) money_cache_wt(2);
     _M_init_facet(new (&moneypunct_wt) moneypunct<wchar_t, true>(__mpwt, 1));
 
     _M_init_facet(new (&money_get_w) money_get<wchar_t>(1));

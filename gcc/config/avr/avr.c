@@ -4251,6 +4251,7 @@ _reg_unused_after (rtx insn, rtx reg)
 
   while ((insn = NEXT_INSN (insn)))
     {
+      rtx set;
       code = GET_CODE (insn);
 
 #if 0
@@ -4262,6 +4263,9 @@ _reg_unused_after (rtx insn, rtx reg)
 	return 1;
       /* else */
 #endif
+
+      if (!INSN_P (insn))
+	continue;
 
       if (code == JUMP_INSN)
 	return 0;
@@ -4320,17 +4324,14 @@ _reg_unused_after (rtx insn, rtx reg)
 	    return 1;
 	}
 
-      if (GET_RTX_CLASS (code) == 'i')
-	{
-	  rtx set = single_set (insn);
+      set = single_set (insn);
 
-	  if (set && reg_overlap_mentioned_p (reg, SET_SRC (set)))
-	    return 0;
-	  if (set && reg_overlap_mentioned_p (reg, SET_DEST (set)))
-	    return GET_CODE (SET_DEST (set)) != MEM;
-	  if (set == 0 && reg_overlap_mentioned_p (reg, PATTERN (insn)))
-	    return 0;
-	}
+      if (set && reg_overlap_mentioned_p (reg, SET_SRC (set)))
+	return 0;
+      if (set && reg_overlap_mentioned_p (reg, SET_DEST (set)))
+	return GET_CODE (SET_DEST (set)) != MEM;
+      if (set == 0 && reg_overlap_mentioned_p (reg, PATTERN (insn)))
+	return 0;
     }
   return 1;
 }
@@ -4574,7 +4575,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
    if found return 1, otherwise 0.  */
 
 int
-avr_progmem_p (tree decl)
+avr_progmem_p (tree decl, tree attributes)
 {
   tree a;
 
@@ -4582,7 +4583,7 @@ avr_progmem_p (tree decl)
     return 0;
 
   if (NULL_TREE
-      != lookup_attribute ("progmem", DECL_ATTRIBUTES (decl)))
+      != lookup_attribute ("progmem", attributes))
     return 1;
 
   a=decl;
@@ -4606,7 +4607,7 @@ avr_insert_attributes (tree node, tree *attributes)
 {
   if (TREE_CODE (node) == VAR_DECL
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
-      && avr_progmem_p (node))
+      && avr_progmem_p (node, *attributes))
     {
       static const char dsec[] = ".progmem.data";
       *attributes = tree_cons (get_identifier ("section"),

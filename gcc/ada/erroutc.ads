@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,7 +27,6 @@
 --  This packages contains global variables and routines common to error
 --  reporting packages, including Errout and Prj.Err.
 
-with Hostparm;
 with Table;
 with Types;  use Types;
 
@@ -77,9 +76,12 @@ package Erroutc is
    Manual_Quote_Mode : Boolean := False;
    --  Set True in manual quotation mode
 
-   Max_Msg_Length : constant := 80 + 2 * Hostparm.Max_Line_Length;
-   --  Maximum length of error message. The addition of Max_Line_Length
+   Max_Msg_Length : constant := 1024 + 2 * Int (Column_Number'Last);
+   --  Maximum length of error message. The addition of 2 * Column_Number'Last
    --  ensures that two insertion tokens of maximum length can be accomodated.
+   --  The value of 1024 is an arbitrary value that should be more than long
+   --  enough to accomodate any reasonable message (and for that matter, some
+   --  pretty unreasonable messages!)
 
    Msg_Buffer : String (1 .. Max_Msg_Length);
    --  Buffer used to prepare error messages

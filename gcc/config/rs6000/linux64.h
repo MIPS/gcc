@@ -259,16 +259,6 @@
 #define AGGREGATE_PADDING_FIXED TARGET_64BIT
 #define AGGREGATES_PAD_UPWARD_ALWAYS 0
 
-/* We don't want anything in the reg parm area being passed on the
-   stack.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)				\
-  ((TARGET_64BIT						\
-    && (TYPE) != 0						\
-    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-	|| TREE_ADDRESSABLE (TYPE)))				\
-   || (!TARGET_64BIT						\
-       && default_must_pass_in_stack ((MODE), (TYPE))))
-
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only
    element.  */
@@ -543,8 +533,15 @@ while (0)
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#define TARGET_HAS_F_SETLKW
+
 #define LINK_GCC_C_SEQUENCE_SPEC \
   "%{static:--start-group} %G %L %{static:--end-group}%{!static:%G}"
+
+/* Use --as-needed -lgcc_s for eh support.  */
+#ifdef HAVE_LD_AS_NEEDED
+#define USE_LD_AS_NEEDED 1
+#endif
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -715,3 +712,6 @@ enum { SIGNAL_FRAMESIZE = 64 };
   } while (0)
 
 #endif
+
+
+#define OS_MISSING_POWERPC64 !TARGET_64BIT

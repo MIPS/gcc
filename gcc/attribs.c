@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "rtl.h"
 #include "ggc.h"
-#include "expr.h"
 #include "tm_p.h"
 #include "cpplib.h"
 #include "target.h"
@@ -145,7 +144,7 @@ decl_attributes (tree *node, tree attributes, int flags)
   if (!attributes_initialized)
     init_attributes ();
 
-  (*targetm.insert_attributes) (*node, &attributes);
+  targetm.insert_attributes (*node, &attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
     {
@@ -294,7 +293,26 @@ decl_attributes (tree *node, tree attributes, int flags)
 	      if (DECL_P (*anode))
 		DECL_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
 	      else if (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
-		TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+		{
+		  TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+		  /* If this is the main variant, also push the attributes
+		     out to the other variants.  */
+		  if (*anode == TYPE_MAIN_VARIANT (*anode))
+		    {
+		      tree variant;
+		      for (variant = *anode; variant;
+			   variant = TYPE_NEXT_VARIANT (variant))
+			{
+			  if (TYPE_ATTRIBUTES (variant) == old_attrs)
+			    TYPE_ATTRIBUTES (variant)
+			      = TYPE_ATTRIBUTES (*anode);
+			  else if (!lookup_attribute
+				   (spec->name, TYPE_ATTRIBUTES (variant)))
+			    TYPE_ATTRIBUTES (variant) = tree_cons
+			      (name, args, TYPE_ATTRIBUTES (variant));
+			}
+		    }
+		}
 	      else
 		*anode = build_type_attribute_variant (*anode,
 						       tree_cons (name, args,

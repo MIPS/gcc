@@ -494,6 +494,20 @@ fix = {
 
 
 /*
+ *  sys/wait.h on AIX 5.2 defines macros that have both signed and
+ *  unsigned types in conditional expressions.
+ */
+fix = {
+    hackname  = aix_syswait_2;
+    files     = sys/wait.h;
+    select    = '\? (\(\(\(\(unsigned[^)]*\)[^)]*\) >> [^)]*\) \& 0xff\) : -1)';
+    c_fix     = format;
+    c_fix_arg = "? (int)%1";
+    test_text = "#define WSTOPSIG(__x)    (int)(WIFSTOPPED(__x) ? ((((unsigned int)__x) >> 8) & 0xff) : -1)";
+};
+
+
+/*
  *  sys/signal.h on some versions of AIX uses volatile in the typedef of
  *  sig_atomic_t, which causes gcc to generate a warning about duplicate
  *  volatile when a sig_atomic_t variable is declared volatile, as
@@ -2230,6 +2244,31 @@ fix = {
 
 
 /*
+ *  Fix casts as lvalues in glibc's <rpc/xdr.h>.
+ */
+fix = {
+    hackname  = rpc_xdr_lvalue_cast_a;
+    files     = rpc/xdr.h;
+    select    = "#define[ \t]*IXDR_GET_LONG.*\\\\\n.*__extension__.*";
+    c_fix     = format;
+    c_fix_arg = "#define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))";
+    test_text = "#define IXDR_GET_LONG(buf) \\\\\n"
+                "\t((long)ntohl((u_long)*__extension__((u_int32_t*)(buf))++))";
+};
+
+
+fix = {
+    hackname  = rpc_xdr_lvalue_cast_b;
+    files     = rpc/xdr.h;
+    select    = "#define[ \t]*IXDR_PUT_LONG.*\\\\\n.*__extension__.*";
+    c_fix     = format;
+    c_fix_arg = "#define IXDR_PUT_LONG(buf, v) ((long)IXDR_PUT_INT32(buf, (long)(v)))";
+    test_text = "#define IXDR_PUT_LONG(buf, v) \\\\\n"
+                "\t(*__extension__((u_int32_t*)(buf))++ = (long)htonl((u_long)(v)))";
+};
+
+
+/*
  *  function class(double x) conflicts with C++ keyword on rs/6000
  */
 fix = {
@@ -3122,6 +3161,9 @@ fix = {
 
     select    =
     'profil\(unsigned short \*, unsigned int, unsigned int, unsigned int\)';
+    /* The fix is wrong on IRIX 5/6 and creates a conflict with another
+       prototype in <sys/profil.h>.  */
+    bypass    = 'Silicon Graphics';
     c_fix     = format;
     c_fix_arg = 'profil(unsigned short *, size_t, int, unsigned int)';
 

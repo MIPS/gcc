@@ -1,5 +1,5 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -56,10 +56,10 @@ static void insn_divmod_values_to_profile (rtx, unsigned *,
 					   struct histogram_value **);
 static void insn_values_to_profile (rtx, unsigned *, struct histogram_value **);
 static rtx gen_divmod_fixed_value (enum machine_mode, enum rtx_code, rtx, rtx,
-				   rtx, gcov_type);
-static rtx gen_mod_pow2 (enum machine_mode, enum rtx_code, rtx, rtx, rtx);
+				   rtx, gcov_type, int);
+static rtx gen_mod_pow2 (enum machine_mode, enum rtx_code, rtx, rtx, rtx, int);
 static rtx gen_mod_subtract (enum machine_mode, enum rtx_code, rtx, rtx, rtx,
-			     int);
+			     int, int, int);
 static bool divmod_fixed_value_transform (rtx insn);
 static bool mod_pow2_value_transform (rtx);
 static bool mod_subtract_transform (rtx);
@@ -182,7 +182,7 @@ rtl_find_values_to_profile (unsigned *n_values, struct histogram_value **values)
   rtx insn;
   unsigned i;
 
-  life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
+  life_analysis (NULL, PROP_DEATH_NOTES);
 
   *n_values = 0;
   *values = NULL;
@@ -194,8 +194,8 @@ rtl_find_values_to_profile (unsigned *n_values, struct histogram_value **values)
       switch ((*values)[i].type)
 	{
 	case HIST_TYPE_INTERVAL:
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
+	  if (dump_file)
+	    fprintf (dump_file,
 		     "Interval counter for insn %d, range %d -- %d.\n",
 		     INSN_UID ((rtx)(*values)[i].insn),
 		     (*values)[i].hdata.intvl.int_start,
@@ -207,8 +207,8 @@ rtl_find_values_to_profile (unsigned *n_values, struct histogram_value **values)
 	  break;
 
 	case HIST_TYPE_POW2:
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
+	  if (dump_file)
+	    fprintf (dump_file,
 		     "Pow2 counter for insn %d.\n",
 		     INSN_UID ((rtx)(*values)[i].insn));
 	  (*values)[i].n_counters 
@@ -217,16 +217,16 @@ rtl_find_values_to_profile (unsigned *n_values, struct histogram_value **values)
 	  break;
 
 	case HIST_TYPE_SINGLE_VALUE:
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
+	  if (dump_file)
+	    fprintf (dump_file,
 		     "Single value counter for insn %d.\n",
 		     INSN_UID ((rtx)(*values)[i].insn));
 	  (*values)[i].n_counters = 3;
 	  break;
 
 	case HIST_TYPE_CONST_DELTA:
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
+	  if (dump_file)
+	    fprintf (dump_file,
 		     "Constant delta counter for insn %d.\n",
 		     INSN_UID ((rtx)(*values)[i].insn));
 	  (*values)[i].n_counters = 4;
@@ -340,11 +340,11 @@ rtl_value_profile_transformations (void)
       if (!maybe_hot_bb_p (BLOCK_FOR_INSN (insn)))
 	continue;
 
-      if (rtl_dump_file)
+      if (dump_file)
 	{
-	  fprintf (rtl_dump_file, "Trying transformations on insn %d\n",
+	  fprintf (dump_file, "Trying transformations on insn %d\n",
 		   INSN_UID (insn));
-	  print_rtl_single (rtl_dump_file, insn);
+	  print_rtl_single (dump_file, insn);
 	}
 
       /* Transformations:  */
@@ -365,12 +365,14 @@ rtl_value_profile_transformations (void)
 }
 
 /* Generate code for transformation 1 (with MODE and OPERATION, operands OP1
-   and OP2 whose value is expected to be VALUE and result TARGET).  */
+   and OP2, whose value is expected to be VALUE, result TARGET and
+   probability of taking the optimal path PROB).  */
 static rtx
 gen_divmod_fixed_value (enum machine_mode mode, enum rtx_code operation,
-			rtx target, rtx op1, rtx op2, gcov_type value)
+			rtx target, rtx op1, rtx op2, gcov_type value,
+			int prob)
 {
-  rtx tmp, tmp1;
+  rtx tmp, tmp1, jump;
   rtx neq_label = gen_label_rtx ();
   rtx end_label = gen_label_rtx ();
   rtx sequence;
@@ -387,7 +389,15 @@ gen_divmod_fixed_value (enum machine_mode mode, enum rtx_code operation,
 
   do_compare_rtx_and_jump (tmp, GEN_INT (value), NE, 0, mode, NULL_RTX,
 			   NULL_RTX, neq_label);
-  tmp1 = simplify_gen_binary (operation, mode, copy_rtx (op1), GEN_INT (value));
+
+  /* Add branch probability to jump we just created.  */
+  jump = get_last_insn ();
+  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					GEN_INT (REG_BR_PROB_BASE - prob),
+					REG_NOTES (jump));
+
+  tmp1 = simplify_gen_binary (operation, mode,
+			      copy_rtx (op1), GEN_INT (value));
   tmp1 = force_operand (tmp1, target);
   if (tmp1 != target)
     emit_move_insn (copy_rtx (target), copy_rtx (tmp1));
@@ -396,7 +406,8 @@ gen_divmod_fixed_value (enum machine_mode mode, enum rtx_code operation,
   emit_barrier ();
 
   emit_label (neq_label);
-  tmp1 = simplify_gen_binary (operation, mode, copy_rtx (op1), copy_rtx (tmp));
+  tmp1 = simplify_gen_binary (operation, mode,
+			      copy_rtx (op1), copy_rtx (tmp));
   tmp1 = force_operand (tmp1, target);
   if (tmp1 != target)
     emit_move_insn (copy_rtx (target), copy_rtx (tmp1));
@@ -418,6 +429,7 @@ divmod_fixed_value_transform (rtx insn)
   enum machine_mode mode;
   gcov_type val, count, all;
   edge e;
+  int prob;
 
   set = single_set (insn);
   if (!set)
@@ -458,26 +470,30 @@ divmod_fixed_value_transform (rtx insn)
   if (!rtx_equal_p (op2, value) || 2 * count < all)
     return false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Div/mod by constant transformation on insn %d\n",
+  if (dump_file)
+    fprintf (dump_file, "Div/mod by constant transformation on insn %d\n",
 	     INSN_UID (insn));
+
+  /* Compute probability of taking the optimal path.  */
+  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
 
   e = split_block (BLOCK_FOR_INSN (insn), PREV_INSN (insn));
   delete_insn (insn);
   
   insert_insn_on_edge (
-	gen_divmod_fixed_value (mode, code, set_dest, op1, op2, val), e);
+	gen_divmod_fixed_value (mode, code, set_dest,
+				op1, op2, val, prob), e);
 
   return true;
 }
 
 /* Generate code for transformation 2 (with MODE and OPERATION, operands OP1
-   and OP2 and result TARGET).  */
+   and OP2, result TARGET and probability of taking the optimal path PROB).  */
 static rtx
 gen_mod_pow2 (enum machine_mode mode, enum rtx_code operation, rtx target,
-	      rtx op1, rtx op2)
+	      rtx op1, rtx op2, int prob)
 {
-  rtx tmp, tmp1, tmp2, tmp3;
+  rtx tmp, tmp1, tmp2, tmp3, jump;
   rtx neq_label = gen_label_rtx ();
   rtx end_label = gen_label_rtx ();
   rtx sequence;
@@ -498,6 +514,13 @@ gen_mod_pow2 (enum machine_mode mode, enum rtx_code operation, rtx target,
 			      0, OPTAB_WIDEN);
   do_compare_rtx_and_jump (tmp2, const0_rtx, NE, 0, mode, NULL_RTX,
 			   NULL_RTX, neq_label);
+
+  /* Add branch probability to jump we just created.  */
+  jump = get_last_insn ();
+  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					GEN_INT (REG_BR_PROB_BASE - prob),
+					REG_NOTES (jump));
+
   tmp3 = expand_simple_binop (mode, AND, op1, tmp1, target,
 			      0, OPTAB_WIDEN);
   if (tmp3 != target)
@@ -528,7 +551,7 @@ mod_pow2_value_transform (rtx insn)
   enum machine_mode mode;
   gcov_type wrong_values, count;
   edge e;
-  int i;
+  int i, all, prob;
 
   set = single_set (insn);
   if (!set)
@@ -574,26 +597,31 @@ mod_pow2_value_transform (rtx insn)
   if (count < wrong_values)
     return false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Mod power of 2 transformation on insn %d\n",
+  if (dump_file)
+    fprintf (dump_file, "Mod power of 2 transformation on insn %d\n",
 	     INSN_UID (insn));
+
+  /* Compute probability of taking the optimal path.  */
+  all = count + wrong_values;
+  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
 
   e = split_block (BLOCK_FOR_INSN (insn), PREV_INSN (insn));
   delete_insn (insn);
   
   insert_insn_on_edge (
-	gen_mod_pow2 (mode, code, set_dest, op1, op2), e);
+	gen_mod_pow2 (mode, code, set_dest, op1, op2, prob), e);
 
   return true;
 }
 
 /* Generate code for transformations 3 and 4 (with MODE and OPERATION,
-   operands OP1 and OP2, result TARGET and at most SUB subtractions).  */
+   operands OP1 and OP2, result TARGET, at most SUB subtractions, and
+   probability of taking the optimal path(s) PROB1 and PROB2).  */
 static rtx
 gen_mod_subtract (enum machine_mode mode, enum rtx_code operation,
-		  rtx target, rtx op1, rtx op2, int sub)
+		  rtx target, rtx op1, rtx op2, int sub, int prob1, int prob2)
 {
-  rtx tmp, tmp1;
+  rtx tmp, tmp1, jump;
   rtx end_label = gen_label_rtx ();
   rtx sequence;
   int i;
@@ -611,7 +639,11 @@ gen_mod_subtract (enum machine_mode mode, enum rtx_code operation,
   emit_move_insn (target, copy_rtx (op1));
   do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
 			   NULL_RTX, end_label);
-  
+
+  /* Add branch probability to jump we just created.  */
+  jump = get_last_insn ();
+  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					GEN_INT (prob1), REG_NOTES (jump));
 
   for (i = 0; i < sub; i++)
     {
@@ -621,6 +653,11 @@ gen_mod_subtract (enum machine_mode mode, enum rtx_code operation,
 	emit_move_insn (target, tmp1);
       do_compare_rtx_and_jump (target, tmp, LTU, 0, mode, NULL_RTX,
     			       NULL_RTX, end_label);
+
+      /* Add branch probability to jump we just created.  */
+      jump = get_last_insn ();
+      REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_BR_PROB,
+					    GEN_INT (prob2), REG_NOTES (jump));
     }
 
   tmp1 = simplify_gen_binary (operation, mode, copy_rtx (target), copy_rtx (tmp));
@@ -645,7 +682,7 @@ mod_subtract_transform (rtx insn)
   enum machine_mode mode;
   gcov_type wrong_values, counts[2], count, all;
   edge e;
-  int i;
+  int i, prob1, prob2;
 
   set = single_set (insn);
   if (!set)
@@ -700,15 +737,20 @@ mod_subtract_transform (rtx insn)
   if (i == 2)
     return false;
 
-  if (rtl_dump_file)
-    fprintf (rtl_dump_file, "Mod subtract transformation on insn %d\n",
+  if (dump_file)
+    fprintf (dump_file, "Mod subtract transformation on insn %d\n",
 	     INSN_UID (insn));
+
+  /* Compute probability of taking the optimal path(s).  */
+  prob1 = (counts[0] * REG_BR_PROB_BASE + all / 2) / all;
+  prob2 = (counts[1] * REG_BR_PROB_BASE + all / 2) / all;
 
   e = split_block (BLOCK_FOR_INSN (insn), PREV_INSN (insn));
   delete_insn (insn);
   
   insert_insn_on_edge (
-	gen_mod_subtract (mode, code, set_dest, op1, op2, i), e);
+	gen_mod_subtract (mode, code, set_dest,
+			  op1, op2, i, prob1, prob2), e);
 
   return true;
 }

@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
-   Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998, 2003, 
+   Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998, 2003, 2004, 
    1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -51,8 +51,9 @@ DEFTREECODE (PTRMEM_CST, "ptrmem_cst", 'c', 0)
 
 /* For NEW_EXPR, operand 0 is the placement list.
    Operand 1 is the new-declarator.
-   Operand 2 is the initializer.  */
-DEFTREECODE (NEW_EXPR, "nw_expr", 'e', 3)
+   Operand 2 is the number of elements in the array.
+   Operand 3 is the initializer.  */
+DEFTREECODE (NEW_EXPR, "nw_expr", 'e', 4)
 DEFTREECODE (VEC_NEW_EXPR, "vec_nw_expr", 'e', 3)
 
 /* For DELETE_EXPR, operand 0 is the store to be destroyed.
@@ -103,7 +104,7 @@ DEFTREECODE (ALIAS_DECL, "alias_decl", 'd', 0)
    A BASELINK is an expression; the TREE_TYPE of the BASELINK gives
    the type of the expression.  This type is either a FUNCTION_TYPE,
    METHOD_TYPE, or `unknown_type_node' indicating that the function is
-   overloaded. */
+   overloaded.  */
 DEFTREECODE (BASELINK, "baselink", 'x', 0)
 
 /* Template definition.  The following fields have the specified uses,
@@ -159,7 +160,7 @@ DEFTREECODE (TEMPLATE_DECL, "template_decl", 'd', 0)
 DEFTREECODE (TEMPLATE_PARM_INDEX, "template_parm_index", 'x', 0)
 
 /* Index into a template parameter list.  This parameter must be a type.
-   The TYPE_FIELDS value will be a TEMPLATE_PARM_INDEX.  */
+   The type.value field will be a TEMPLATE_PARM_INDEX.  */
 DEFTREECODE (TEMPLATE_TYPE_PARM, "template_type_parm", 't', 0)
 
 /* Index into a template parameter list for template template parameters.
@@ -190,17 +191,17 @@ DEFTREECODE (TYPENAME_TYPE, "typename_type", 't', 0)
    TYPE_NAME is an IDENTIFIER_NODE for `C', the member class template.  */
 DEFTREECODE (UNBOUND_CLASS_TEMPLATE, "unbound_class_template", 't', 0)
 
-/* A type designated by `__typeof (expr)'.  TYPE_FIELDS is the
+/* A type designated by `__typeof (expr)'.  TYPEOF_TYPE_EXPR is the
    expression in question.  */
 DEFTREECODE (TYPEOF_TYPE, "typeof_type", 't', 0)
 
 /* A using declaration.  DECL_INITIAL contains the specified scope.  
    This is not an alias, but is later expanded into multiple aliases.
    The decl will have a NULL_TYPE iff the scope is a dependent scope,
-   otherwise it will have a void type. */
+   otherwise it will have a void type.  */
 DEFTREECODE (USING_DECL, "using_decl", 'd', 0)
 
-/* A using directive. The operand is USING_STMT_NAMESPACE. */     
+/* A using directive. The operand is USING_STMT_NAMESPACE.  */     
 DEFTREECODE (USING_STMT, "using_directive", 'e', 1)
 
 /* An un-parsed default argument.  Looks like an IDENTIFIER_NODE.  */
@@ -216,10 +217,6 @@ DEFTREECODE (TEMPLATE_ID_EXPR, "template_id_expr", 'e', 2)
 /* A list-like node for chaining overloading candidates. TREE_TYPE is 
    the original name, and the parameter is the FUNCTION_DECL.  */
 DEFTREECODE (OVERLOAD, "overload", 'x', 0)
-
-/* A generic wrapper for something not tree that we want to include in
-   tree structure.  */
-DEFTREECODE (WRAPPER, "wrapper", 'x', 0)
 
 /* A whole bunch of tree codes for the initial, superficial parsing of
    templates.  */
@@ -241,14 +238,17 @@ DEFTREECODE (PSEUDO_DTOR_EXPR, "pseudo_dtor_expr", 'e', 3)
    that expression if it appeared in a template argument list.  In
    that situation, we create a NON_DEPENDENT_EXPR to take the place of
    the original expression.  The expression is the only operand -- it
-   is only needed for diagnostics.   */
+   is only needed for diagnostics.  */
 DEFTREECODE (NON_DEPENDENT_EXPR, "non_dependent_expr", 'e', 1)
 
 /* CTOR_INITIALIZER is a placeholder in template code for a call to
    setup_vtbl_pointer (and appears in all functions, not just ctors).  */
 DEFTREECODE (CTOR_INITIALIZER, "ctor_initializer", 'e', 1)
+
 DEFTREECODE (TRY_BLOCK, "try_block", 'e', 2)
+
 DEFTREECODE (EH_SPEC_BLOCK, "eh_spec_block", 'e', 2)
+
 /* A HANDLER wraps a catch handler for the HANDLER_TYPE.  If this is
    CATCH_ALL_TYPE, then the handler catches all types.  The declaration of
    the catch variable is in HANDLER_PARMS, and the body block in
@@ -259,36 +259,28 @@ DEFTREECODE (HANDLER, "handler", 'e', 2)
    throw, and must call terminate if it does.  */
 DEFTREECODE (MUST_NOT_THROW_EXPR, "must_not_throw_expr", 'e', 1)
 
+/* A CLEANUP_STMT marks the point at which a declaration is fully
+   constructed.  The CLEANUP_EXPR is run on behalf of CLEANUP_DECL
+   when CLEANUP_BODY completes.  */
+DEFTREECODE (CLEANUP_STMT, "cleanup_stmt", 'e', 3)
+
+/* Represents an 'if' statement. The operands are IF_COND,
+   THEN_CLAUSE, and ELSE_CLAUSE, respectively.  */
+/* ??? It is currently still necessary to distinguish between IF_STMT 
+   and COND_EXPR for the benefit of templates.  */
+DEFTREECODE (IF_STMT, "if_stmt", 'e', 3)
+
 DEFTREECODE (TAG_DEFN, "tag_defn", 'e', 0)
-
-/* The following codes are used to represent implicit conversion
-   sequences, in the sense of [over.best.ics].  The conversion
-   sequences are connected through their first operands, with the
-   first conversion to be performed at the end of the chain.
-
-   The innermost conversion (i.e, the one at the end of the chain) is
-   always an IDENTITY_CONV, corresponding to the identity conversion.  */
-
-DEFTREECODE (IDENTITY_CONV, "identity_conv", 'e', 1)
-DEFTREECODE (LVALUE_CONV, "lvalue_conv", 'e', 1)
-DEFTREECODE (QUAL_CONV, "qual_conv", 'e', 1)
-DEFTREECODE (STD_CONV, "std_conv", 'e', 1)
-DEFTREECODE (PTR_CONV, "ptr_conv", 'e', 1)
-DEFTREECODE (PMEM_CONV, "pmem_conv", 'e', 1)
-DEFTREECODE (BASE_CONV, "base_conv", 'e', 1)
-DEFTREECODE (REF_BIND, "ref_bind", 'e', 1)
-DEFTREECODE (USER_CONV, "user_conv", 'e', 2)
-DEFTREECODE (AMBIG_CONV, "ambig_conv", 'e', 1)
-DEFTREECODE (RVALUE_CONV, "rvalue_conv", 'e', 1)
 
 /* Template instantiation level node.
 
-   Operand 1 contains the original DECL node and can be accessed via TINST_DECL.
+   TINST_DECL contains the original DECL node.
+   TINST_LOCATION contains the location where the template is instantiated.
 
    A stack of template instantiation nodes is kept through the TREE_CHAIN
    fields of these nodes.  */
 
-DEFTREECODE (TINST_LEVEL, "TINST_LEVEL", 'e', 1)
+DEFTREECODE (TINST_LEVEL, "TINST_LEVEL", 'x', 0)
 
 /*
 Local variables:

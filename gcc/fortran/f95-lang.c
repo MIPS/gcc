@@ -1,23 +1,24 @@
 /* G95 Backend interface
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook.
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* f95-lang.c-- GCC backend interface stuff */
 
@@ -28,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "tree-simple.h"
+#include "tree-gimple.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -41,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "cgraph.h"
 
 #include "gfortran.h"
 #include "trans.h"
@@ -101,10 +103,9 @@ static bool gfc_mark_addressable (tree);
 void do_function_end (void);
 int global_bindings_p (void);
 void insert_block (tree);
-void set_block (tree);
+static void gfc_clear_binding_stack (void);
 static void gfc_be_parse_file (int);
-static int gfc_expand_decl (tree t);
-static void gfc_expand_stmt (tree t);
+static void gfc_expand_function (tree);
 
 #undef LANG_HOOKS_NAME
 #undef LANG_HOOKS_INIT
@@ -112,7 +113,6 @@ static void gfc_expand_stmt (tree t);
 #undef LANG_HOOKS_INIT_OPTIONS
 #undef LANG_HOOKS_HANDLE_OPTION
 #undef LANG_HOOKS_POST_OPTIONS
-#undef LANG_HOOKS_EXPAND_DECL
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #undef LANG_HOOKS_PARSE_FILE
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
@@ -122,8 +122,8 @@ static void gfc_expand_stmt (tree t);
 #undef LANG_HOOKS_UNSIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_TYPE
 #undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
-#undef LANG_HOOKS_GIMPLE_BEFORE_INLINING
-#undef LANG_HOOKS_RTL_EXPAND_STMT
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
+#undef LANG_HOOKS_CLEAR_BINDING_STACK
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -132,7 +132,6 @@ static void gfc_expand_stmt (tree t);
 #define LANG_HOOKS_INIT_OPTIONS         gfc_init_options
 #define LANG_HOOKS_HANDLE_OPTION        gfc_handle_option
 #define LANG_HOOKS_POST_OPTIONS		gfc_post_options
-#define LANG_HOOKS_EXPAND_DECL          gfc_expand_decl
 #define LANG_HOOKS_PRINT_IDENTIFIER     gfc_print_identifier
 #define LANG_HOOKS_PARSE_FILE           gfc_be_parse_file
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION   gfc_truthvalue_conversion
@@ -142,8 +141,8 @@ static void gfc_expand_stmt (tree t);
 #define LANG_HOOKS_UNSIGNED_TYPE           gfc_unsigned_type
 #define LANG_HOOKS_SIGNED_TYPE             gfc_signed_type
 #define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gfc_signed_or_unsigned_type
-#define LANG_HOOKS_GIMPLE_BEFORE_INLINING false
-#define LANG_HOOKS_RTL_EXPAND_STMT	gfc_expand_stmt
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
+#define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -194,28 +193,11 @@ static GTY(()) struct binding_level *free_binding_level;
 tree *ridpointers = NULL;
 
 /* language-specific flags.  */
-void
-expand_function_body (tree fndecl, int nested)
-{
-  if (nested)
-    push_function_context ();
-
-  gimplify_function_tree (fndecl);
-
-  tree_rest_of_compilation (fndecl, nested);
-
-  if (nested)
-    pop_function_context ();
-}
-
-
-/* We generate GENERIC trees, so just pass everything on to the backend
-   expanders.  */
 
 static void
-gfc_expand_stmt (tree t)
+gfc_expand_function (tree fndecl)
 {
-  expand_expr_stmt_value (t, 0, 0);
+  tree_rest_of_compilation (fndecl, 0);
 }
 
 
@@ -284,29 +266,15 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   gfc_parse_file ();
   gfc_generate_constructors ();
 
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
+
   /* Tell the frontent about any errors.  */
   gfc_get_errors (&warnings, &errors);
   errorcount += errors;
   warningcount += warnings;
 }
 
-/* Routines Expected by GCC:  */
-
-/* Expand a decl.  */
-static int
-gfc_expand_decl (tree t)
-{
-  /* Expand nested functions.  */
-  if (TREE_CODE (t) == FUNCTION_DECL
-      && DECL_CONTEXT (t) == current_function_decl && DECL_SAVED_TREE (t))
-    expand_function_body (t, 1);
-  else
-    return 0;
-
-  return 1;
-}
-
-
 /* Initialize everything.  */
 
 static bool
@@ -368,14 +336,6 @@ GTY(())
   /* For each level (except the global one), a chain of BLOCK nodes for all
      the levels that were entered and exited one level down from this one.  */
   tree blocks;
-  /* The back end may need, for its own internal processing, to create a BLOCK
-     node. This field is set aside for this purpose. If this field is non-null
-     when the level is popped, i.e. when poplevel is invoked, we will use such
-     block instead of creating a new one from the 'names' field, that is the
-     ..._DECL nodes accumulated so far.  Typically the routine 'pushlevel'
-     will be called before setting this field, so that if the front-end had
-     inserted ..._DECL nodes in the current block they will not be lost.   */
-  tree block_created_by_back_end;
   /* The binding level containing this one (the enclosing binding level). */
   struct binding_level *level_chain;
 };
@@ -388,7 +348,7 @@ static GTY(()) struct binding_level *current_binding_level = NULL;
 static GTY(()) struct binding_level *global_binding_level;
 
 /* Binding level structures are initialized by copying this one.  */
-static struct binding_level clear_binding_level = { NULL, NULL, NULL, NULL };
+static struct binding_level clear_binding_level = { NULL, NULL, NULL };
 
 /* Return non-zero if we are currently in the global binding level.  */
 
@@ -446,7 +406,6 @@ poplevel (int keep, int reverse, int functionbody)
   tree decl_chain;
   tree subblock_chain = current_binding_level->blocks;
   tree subblock_node;
-  tree block_created_by_back_end;
 
   /* Reverse the list of XXXX_DECL nodes if desired.  Note that the ..._DECL
      nodes chained through the `names' field of current_binding_level are in
@@ -455,24 +414,10 @@ poplevel (int keep, int reverse, int functionbody)
   decl_chain = (reverse) ? nreverse (current_binding_level->names)
     : current_binding_level->names;
 
-  block_created_by_back_end =
-    current_binding_level->block_created_by_back_end;
-  if (block_created_by_back_end != 0)
-    {
-      block_node = block_created_by_back_end;
-
-      /* Check if we are about to discard some information that was gathered
-         by the front-end. Nameley check if the back-end created a new block
-         without calling pushlevel first. To understand why things are lost
-         just look at the next case (i.e. no block created by back-end.  */
-      if ((keep || functionbody) && (decl_chain || subblock_chain))
-	abort ();
-    }
-
   /* If there were any declarations in the current binding level, or if this
      binding level is a function body, or if there are any nested blocks then
      create a BLOCK node to record them for the life of this function.  */
-  else if (keep || functionbody)
+  if (keep || functionbody)
     block_node = build_block (keep ? decl_chain : 0, 0, subblock_chain, 0, 0);
 
   /* Record the BLOCK node just built as the subblock its enclosing scope.  */
@@ -509,9 +454,8 @@ poplevel (int keep, int reverse, int functionbody)
     }
   else if (block_node)
     {
-      if (block_created_by_back_end == NULL)
-	current_binding_level->blocks
-	  = chainon (current_binding_level->blocks, block_node);
+      current_binding_level->blocks
+	= chainon (current_binding_level->blocks, block_node);
     }
 
   /* If we did not make a block for the level just exited, any blocks made for
@@ -537,15 +481,6 @@ insert_block (tree block)
   TREE_USED (block) = 1;
   current_binding_level->blocks
     = chainon (current_binding_level->blocks, block);
-}
-
-/* Set the BLOCK node for the innermost scope
-   (the one we are currently in).  */
-
-void
-set_block (tree block)
-{
-  current_binding_level->block_created_by_back_end = block;
 }
 
 /* Records a ..._DECL node DECL as belonging to the current lexical scope.
@@ -593,6 +528,15 @@ pushdecl_top_level (tree x)
   t = pushdecl (x);
   current_binding_level = b;
   return t;
+}
+
+
+/* Clear the binding stack.  */
+static void
+gfc_clear_binding_stack (void)
+{
+  while (!global_bindings_p ())
+    poplevel (0, 0, 0);
 }
 
 
@@ -702,7 +646,6 @@ gfc_mark_addressable (tree exp)
 	    pedwarn ("address of register variable `%s' requested",
 		     IDENTIFIER_POINTER (DECL_NAME (x)));
 	  }
-	put_var_into_stack (x, /*rescan=*/true);
 
 	/* drops in */
       case FUNCTION_DECL:
@@ -782,23 +725,20 @@ gfc_init_builtin_functions (void)
   tree mfunc_double[2];
   tree ftype;
   tree tmp;
-  tree voidchain;
 
-  voidchain = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
-
-  tmp = tree_cons (NULL_TREE, float_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, float_type_node, void_list_node);
   mfunc_float[0] = build_function_type (float_type_node, tmp);
   tmp = tree_cons (NULL_TREE, float_type_node, tmp);
   mfunc_float[1] = build_function_type (float_type_node, tmp);
 
-  tmp = tree_cons (NULL_TREE, double_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, double_type_node, void_list_node);
   mfunc_double[0] = build_function_type (double_type_node, tmp);
   tmp = tree_cons (NULL_TREE, double_type_node, tmp);
   mfunc_double[1] = build_function_type (double_type_node, tmp);
 
 #include "mathbuiltins.def"
 
-  /* We define there seperately as the fortran versions have different
+  /* We define these seperately as the fortran versions have different
      semantics (they return an integer type) */
   gfc_define_builtin ("__builtin_floor", mfunc_double[0], 
 		      BUILT_IN_FLOOR, "floor", true);
@@ -809,32 +749,66 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_roundf", mfunc_float[0], 
 		      BUILT_IN_ROUNDF, "roundf", true);
 
+  /* These are used to implement the ** operator.  */
+  gfc_define_builtin ("__builtin_pow", mfunc_double[0], 
+		      BUILT_IN_POW, "pow", true);
+  gfc_define_builtin ("__builtin_powf", mfunc_float[0], 
+		      BUILT_IN_POWF, "powf", true);
+
   /* Other builtin functions we use.  */
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
   ftype = build_function_type (long_integer_type_node, tmp);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
 
-  tmp = tree_cons (NULL_TREE, size_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
-  tmp = tree_cons (NULL_TREE, pvoid_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
   ftype = build_function_type (pvoid_type_node, tmp);
   gfc_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
 		      "memcpy", false);
 
-  tmp = tree_cons (NULL_TREE, integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ, "clz", true);
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL, "clzl", true);
 
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, voidchain);
+  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);
   gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll", true);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_init_trampoline", ftype,
+		      BUILT_IN_INIT_TRAMPOLINE, "init_trampoline", false);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_adjust_trampoline", ftype,
+		      BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
+		      "stack_alloc", false);
+
+  /* The stack_save and stack_restore builtins aren't used directly.  They
+     are inserted during gimplification to implement stack_alloc calls.  */
+  ftype = build_function_type (pvoid_type_node, void_list_node);
+  gfc_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
+		      "stack_save", false);
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  gfc_define_builtin ("__builtin_stack_restore", ftype, BUILT_IN_STACK_RESTORE,
+		      "stack_restore", false);
 }
 
 #undef DEFINE_MATH_BUILTIN

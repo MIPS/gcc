@@ -27,8 +27,17 @@ extern bool default_return_in_memory (tree, tree);
 
 extern rtx default_expand_builtin_saveregs (void);
 extern void default_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
+extern rtx default_builtin_setjmp_frame_value (void);
 extern bool hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *);
 extern bool default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 
 extern bool hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS *);
-extern bool hook_bool_machine_mode_true (enum machine_mode);
+extern tree default_cxx_guard_type (void);
+extern tree default_cxx_get_cookie_size (tree);
+
+extern bool hook_pass_by_reference_false
+  (CUMULATIVE_ARGS *, enum machine_mode mode, tree, bool);
+extern bool hook_pass_by_reference_must_pass_in_stack
+  (CUMULATIVE_ARGS *, enum machine_mode mode, tree, bool);
+
+extern void default_unwind_emit (FILE *, rtx);

@@ -29,7 +29,6 @@ extern int lhs_lshift_cint_operand (rtx, enum machine_mode);
 
 #ifdef TREE_CODE
 extern void hppa_va_start (tree, rtx);
-extern rtx hppa_va_arg (tree, tree);
 #endif /* TREE_CODE */
 extern rtx hppa_legitimize_address (rtx, rtx, enum machine_mode);
 
@@ -80,6 +79,7 @@ extern int arith_operand (rtx, enum machine_mode);
 extern int read_only_operand (rtx, enum machine_mode);
 extern int move_dest_operand (rtx, enum machine_mode);
 extern int move_src_operand (rtx, enum machine_mode);
+extern int prefetch_operand (rtx, enum machine_mode);
 extern int and_operand (rtx, enum machine_mode);
 extern int ior_operand (rtx, enum machine_mode);
 extern int arith32_operand (rtx, enum machine_mode);
@@ -135,6 +135,7 @@ extern int zdepi_cint_p (unsigned HOST_WIDE_INT);
 
 extern void override_options (void);
 extern void output_ascii (FILE *, const char *, int);
+extern const char * som_text_section_asm_op (void);
 extern HOST_WIDE_INT compute_frame_size (HOST_WIDE_INT, int *);
 extern int and_mask_p (unsigned HOST_WIDE_INT);
 extern int cint_ok_for_move (HOST_WIDE_INT);
@@ -151,7 +152,6 @@ extern int cmpib_comparison_operator (rtx, enum machine_mode);
 #endif
 
 
-
 #ifdef TREE_CODE
 extern int reloc_needed (tree);
 #ifdef RTX_CODE
@@ -164,3 +164,9 @@ extern int function_arg_partial_nregs (CUMULATIVE_ARGS *,
 				       tree, int);
 extern bool pa_return_in_memory (tree, tree);
 #endif /* TREE_CODE */
+
+/* Functions in varasm.c used by pa.c.  */
+extern void readonly_data (void);
+extern void one_only_readonly_data_section (void);
+extern void one_only_data_section (void);
+extern void forget_section (void);

@@ -1,5 +1,5 @@
 /* LongBufferImpl.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -52,7 +52,9 @@ final class LongBufferImpl extends LongBuffer
   
   LongBufferImpl (long[] buffer, int offset, int capacity, int limit, int position, int mark, boolean readOnly)
   {
-    super (buffer, offset, capacity, limit, position, mark);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
     this.readOnly = readOnly;
   }
   
@@ -96,10 +98,16 @@ final class LongBufferImpl extends LongBuffer
   }
 
   /**
-   * Relative get method. Reads the next <code>long</code> from the buffer.
+   * Reads the <code>long</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>longs</code> in this buffer.
    */
-  final public long get ()
+  public long get ()
   {
+    checkForUnderflow();
+
     long result = backing_buffer [position ()];
     position (position () + 1);
     return result;
@@ -108,14 +116,16 @@ final class LongBufferImpl extends LongBuffer
   /**
    * Relative put method. Writes <code>value</code> to the next position
    * in the buffer.
-   * 
+   *
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public LongBuffer put (long value)
+  public LongBuffer put (long value)
   {
-    if (readOnly)
-      throw new ReadOnlyBufferException ();
-	  	    
+    checkIfReadOnly();
+    checkForOverflow();
+
     backing_buffer [position ()] = value;
     position (position () + 1);
     return this;
@@ -128,8 +138,10 @@ final class LongBufferImpl extends LongBuffer
    * @exception IndexOutOfBoundsException If index is negative or not smaller
    * than the buffer's limit.
    */
-  final public long get (int index)
+  public long get (int index)
   {
+    checkIndex(index);
+
     return backing_buffer [index];
   }
   
@@ -141,16 +153,16 @@ final class LongBufferImpl extends LongBuffer
    * than the buffer's limit.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
-  final public LongBuffer put (int index, long value)
+  public LongBuffer put (int index, long value)
   {
-    if (readOnly)
-      throw new ReadOnlyBufferException ();
-    	    
+    checkIfReadOnly();
+    checkIndex(index);
+
     backing_buffer [index] = value;
     return this;
   }
   
-  final public ByteOrder order ()
+  public ByteOrder order ()
   {
     return ByteOrder.nativeOrder ();
   }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -993,6 +993,12 @@ package body Layout is
                Decl := Parent (Parent (Entity (N)));
                Size := (Discrim, Size.Nod);
                Vtyp := Defining_Identifier (Decl);
+
+               --  Ensure that we get a private type's full type
+
+               if Present (Underlying_Type (Vtyp)) then
+                  Vtyp := Underlying_Type (Vtyp);
+               end if;
             end if;
 
             Typ := Etype (N);
@@ -1980,11 +1986,13 @@ package body Layout is
 
             else
                declare
-                  EsizV   : SO_Ref;
-                  RM_SizV : Node_Id;
-                  Dchoice : Node_Id;
-                  Discrim : Node_Id;
-                  Dtest   : Node_Id;
+                  EsizV    : SO_Ref;
+                  RM_SizV  : Node_Id;
+                  Dchoice  : Node_Id;
+                  Discrim  : Node_Id;
+                  Dtest    : Node_Id;
+                  D_List   : List_Id;
+                  D_Entity : Entity_Id;
 
                begin
                   RM_Siz_Expr := Empty;
@@ -2052,16 +2060,6 @@ package body Layout is
                      --  Otherwise construct the appropriate test
 
                      else
-                        --  Discriminant to be tested
-
-                        Discrim :=
-                          Make_Selected_Component (Loc,
-                            Prefix        =>
-                              Make_Identifier (Loc, Chars => Vname),
-                            Selector_Name =>
-                              New_Occurrence_Of
-                                (Entity (Name (Vpart)), Loc));
-
                         --  The test to be used in general is a call to the
                         --  discriminant checking function. However, it is
                         --  definitely worth special casing the very common
@@ -2072,6 +2070,16 @@ package body Layout is
                         if No (Next (Dchoice))
                           and then Nkind (Dchoice) /= N_Range
                         then
+                           --  Discriminant to be tested
+
+                           Discrim :=
+                             Make_Selected_Component (Loc,
+                               Prefix        =>
+                                 Make_Identifier (Loc, Chars => Vname),
+                               Selector_Name =>
+                                 New_Occurrence_Of
+                                   (Entity (Name (Vpart)), Loc));
+
                            Dtest :=
                              Make_Op_Eq (Loc,
                                Left_Opnd  => Discrim,
@@ -2083,6 +2091,25 @@ package body Layout is
                         --  False when the passed discriminant value matches.
 
                         else
+                           --  The checking function takes all of the type's
+                           --  discriminants as parameters, so a list of all
+                           --  the selected discriminants must be constructed.
+
+                           D_List := New_List;
+                           D_Entity := First_Discriminant (E);
+                           while Present (D_Entity) loop
+                              Append (
+                                Make_Selected_Component (Loc,
+                                  Prefix        =>
+                                    Make_Identifier (Loc, Chars => Vname),
+                                  Selector_Name =>
+                                    New_Occurrence_Of
+                                      (D_Entity, Loc)),
+                                D_List);
+
+                              D_Entity := Next_Discriminant (D_Entity);
+                           end loop;
+
                            Dtest :=
                              Make_Op_Not (Loc,
                                Right_Opnd =>
@@ -2091,7 +2118,7 @@ package body Layout is
                                      New_Occurrence_Of
                                        (Dcheck_Function (Var), Loc),
                                    Parameter_Associations =>
-                                     New_List (Discrim)));
+                                     D_List));
                         end if;
 
                         RM_Siz_Expr :=
@@ -2320,7 +2347,7 @@ package body Layout is
             end;
          end if;
 
-         Set_Prim_Alignment (E);
+         Set_Elem_Alignment (E);
 
       --  Scalar types: set size and alignment
 
@@ -2385,9 +2412,9 @@ package body Layout is
             end if;
          end if;
 
-         Set_Prim_Alignment (E);
+         Set_Elem_Alignment (E);
 
-      --  Non-primitive types
+      --  Non-elementary (composite) types
 
       else
          --  If RM_Size is known, set Esize if not known
@@ -2837,10 +2864,10 @@ package body Layout is
    end Set_Discrete_RM_Size;
 
    ------------------------
-   -- Set_Prim_Alignment --
+   -- Set_Elem_Alignment --
    ------------------------
 
-   procedure Set_Prim_Alignment (E : Entity_Id) is
+   procedure Set_Elem_Alignment (E : Entity_Id) is
    begin
       --  Do not set alignment for packed array types, unless we are doing
       --  front end layout, because otherwise this is always handled in the
@@ -2903,7 +2930,7 @@ package body Layout is
             Init_Alignment (E, A);
          end if;
       end;
-   end Set_Prim_Alignment;
+   end Set_Elem_Alignment;
 
    ----------------------
    -- SO_Ref_From_Expr --

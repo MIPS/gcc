@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
 void
 st_rewind (void)
 {
-  unit_t *u;
+  gfc_unit *u;
 
   library_start ();
 
@@ -40,6 +40,8 @@ st_rewind (void)
 			"Cannot REWIND a file opened for DIRECT access");
       else
 	{
+          if (g.mode==WRITING)
+            struncate(u->s);
 	  u->last_record = 0;
 	  if (sseek (u->s, 0) == FAILURE)
 	    generate_error (ERROR_OS, NULL);

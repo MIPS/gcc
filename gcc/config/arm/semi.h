@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  ARM on semi-hosted platform
-   Copyright (C) 1994, 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 2001, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (richard.earnshaw@arm.com)
 
    This file is part of GCC.
@@ -38,7 +39,7 @@
 #endif
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
 #endif
 
 #ifndef SUBTARGET_EXTRA_SPECS
@@ -69,6 +70,3 @@
 %{mthumb-interwork:-mthumb-interwork} \
 %(subtarget_extra_asm_spec)"
 #endif
-
-#undef  CPP_APCS_PC_DEFAULT_SPEC
-#define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"

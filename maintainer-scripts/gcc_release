@@ -157,20 +157,25 @@ EOF
   fi
 
   # Tag the sources.
+  EXPORTDATE=""
   if [ -n "${TAG}" ]; then
     inform "Tagging sources as ${TAG}"
-    ${CVS} rtag -r ${CVSBRANCH} -F ${TAG} gcc || \
+    # The -F option to CVS is intentionally not used below.  If you
+    # need to retry a release, you will have to manually remove any
+    # existing tag.
+    ${CVS} rtag -r ${CVSBRANCH} ${TAG} gcc || \
       error "Could not tag sources"
     EXPORTTAG="-r${TAG}"
-    EXPORTDATE=""
   else
     if [ ${CVSBRANCH} != "HEAD" ]; then
       EXPORTTAG="-r${CVSBRANCH}"
+      # It does not work to use both "-r" and "-D" with
+      # "cvs export" so EXPORTDATE is not set here.
     else
       # HEAD is the default branch, no need to specify it.
       EXPORTTAG=""
+      EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
     fi
-    EXPORTDATE="-D`date -u +"%Y-%m-%d %H:%M"` UTC"
   fi
 
   # Export the current sources.
@@ -227,7 +232,7 @@ EOF
     ${SOURCE_DIRECTORY}/gcc/doc/install.texi2html
 
     # Regenerate the NEWS file.
-    contrib/gennews > gcc/NEWS || \
+    contrib/gennews > NEWS || \
       error "Could not regenerate NEWS files"
 
     # Now, we must build the compiler in order to create any generated
@@ -243,21 +248,16 @@ EOF
 
   # Move message catalogs to source directory.
   mv ../objdir/gcc/po/*.gmo gcc/po/
+  [ -f libcpp/po/cpplib.pot ] && mv ../objdir/libcpp/po/*.gmo libcpp/po/
 
-  # Create a `.brik' file to use for checking the validity of the
-  # release.
-  changedir "${SOURCE_DIRECTORY}"
-  BRIK_FILE=`mktemp /tmp/gcc_release.XXXXXXX`
-  ((find . -type f | sort > $BRIK_FILE) && \
-       brik -Gb -f ${BRIK_FILE} > .brik && \
-       rm ${BRIK_FILE}) || \
-     error "Could not compute brik checksum"
+  # Create a "MD5SUMS" file to use for checking the validity of the release.
+  find . -type f |sed -e 's:^\./::' -e '/MD5SUMS/d' |sort |xargs md5sum >MD5SUMS
 }
 
 # Buid a single tarfile.  The first argument is the name of the name
 # of the tarfile to build, without any suffixes.  They will be added
 # automatically.  The rest of the arguments are the files or
-# directories to include.
+# directories to include, and possibly other arguments to tar.
 
 build_tarfile() {
   # Get the name of the destination tar file.
@@ -268,6 +268,25 @@ build_tarfile() {
   (${TAR} cf - "$@" | ${BZIP2} > ${TARFILE}) || \
     error "Could not build tarfile"
   FILE_LIST="${FILE_LIST} ${TARFILE}"
+}
+
+# Build a single tarfile if any of the directories listed exist,
+# but not if none of them do (because that component doesn't exist
+# on this branch).
+maybe_build_tarfile() {
+  dest=$1
+  shift
+  dir_exists=0
+  for maybe_dir in "$@"; do
+    if [ -d "$maybe_dir" ]; then
+      dir_exists=1
+    fi
+  done
+  if [ $dir_exists = 1 ]; then
+    build_tarfile "$dest" "$@"
+  else
+    echo "Not building $dest tarfile"
+  fi
 }
 
 # Build the various tar files for the release.
@@ -287,13 +306,13 @@ build_tarfiles() {
   build_tarfile gcc-${RELEASE} `basename ${SOURCE_DIRECTORY}`
 
   # Now, build one for each of the languages.
-  build_tarfile gcc-ada-${RELEASE} ${ADA_DIRS}
-  build_tarfile gcc-g++-${RELEASE} ${CPLUSPLUS_DIRS}
-  build_tarfile gcc-g77-${RELEASE} ${FORTRAN_DIRS}
-  build_tarfile gcc-fortran-${RELEASE} ${FORTRAN95_DIRS}
-  build_tarfile gcc-java-${RELEASE} ${JAVA_DIRS}
-  build_tarfile gcc-objc-${RELEASE} ${OBJECTIVEC_DIRS}
-  build_tarfile gcc-testsuite-${RELEASE} ${TESTSUITE_DIRS}
+  maybe_build_tarfile gcc-ada-${RELEASE} ${ADA_DIRS}
+  maybe_build_tarfile gcc-g++-${RELEASE} ${CPLUSPLUS_DIRS}
+  maybe_build_tarfile gcc-g77-${RELEASE} ${FORTRAN_DIRS}
+  maybe_build_tarfile gcc-fortran-${RELEASE} ${FORTRAN95_DIRS}
+  maybe_build_tarfile gcc-java-${RELEASE} ${JAVA_DIRS}
+  maybe_build_tarfile gcc-objc-${RELEASE} ${OBJECTIVEC_DIRS}
+  maybe_build_tarfile gcc-testsuite-${RELEASE} ${TESTSUITE_DIRS}
    
   # The core is everything else.
   EXCLUDES=""
@@ -393,7 +412,7 @@ announce_snapshot() {
   inform "Updating links and READMEs on the FTP server"
   
   TEXT_DATE=`date --date=$DATE +%B\ %d,\ %Y`
-  cd ~ftp/pub/gcc/snapshots
+  changedir "${SNAPSHOTS_DIR}"
   sed -e "s%@DATE@%$DATE%g" \
     -e "s%@TEXT_DATE@%$TEXT_DATE%g" \
     -e "s%@LAST_DATE@%$LAST_DATE%g" \
@@ -417,7 +436,7 @@ announce_snapshot() {
   inform "Sending mail"
 
   export QMAILHOST=gcc.gnu.org
-  mail -s "gcc-ss-${RELEASE} is now available" gcc@gcc.gnu.org < ~ftp/pub/gcc/snapshots/${RELEASE}/README
+  mail -s "gcc-ss-${RELEASE} is now available" gcc@gcc.gnu.org < ${SNAPSHOTS_DIR}/${RELEASE}/README
 }
 
 ########################################################################
@@ -441,8 +460,10 @@ CVS_USERNAME="${USER}"
 GCC_HOSTNAME="gcc.gnu.org"
 # The name of the account on the machine to which files are uploaded.
 GCC_USERNAME="gccadmin"
-# The directory in which the files will be placed.
-FTP_PATH="~ftp/pub/gcc"
+# The directory in which the files will be placed (do not use ~user syntax).
+FTP_PATH=/var/ftp/pub/gcc
+# The directory in which snapshots will be placed.
+SNAPSHOTS_DIR=${FTP_PATH}/snapshots
 
 # The major number for the release.  For release `3.0.2' this would be 
 # `3'
@@ -513,7 +534,7 @@ FILE_LIST=""
 
 BZIP2="${BZIP2:-bzip2}"
 CVS="${CVS:-cvs -f -Q -z9}"
-DIFF="${DIFF:-diff -Nrc3pad}"
+DIFF="${DIFF:-diff -Nrcpad}"
 ENV="${ENV:-env}"
 GZIP="${GZIP:-gzip --best}"
 SCP="${SCP:-scp -p}"
@@ -538,10 +559,9 @@ while getopts "d:fr:u:t:p:s:l" ARG; do
           ;;
     l)    LOCAL=1
 	  SCP=cp
-	  FTP_PATH=~ftp/pub/gcc
 	  PATH=~:/usr/local/bin:$PATH;;
     p)    OLD_TARS="${OLD_TARS} ${OPTARG}"
-          if [ -d ${OPTARG} ]; then
+          if [ ! -f ${OPTARG} ]; then
 	    error "-p argument must name a tarball"
 	  fi;;
     \?)   usage;;
@@ -616,12 +636,12 @@ else
     TAG=gcc-ss-`echo ${RELEASE} | tr '.' '_'`
   fi
 
-  # Building locally on gcc.gnu.org, we know what the last snapshot date
-  # was.
-  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ]; then
+  # If diffs are requested when building locally on gcc.gnu.org, we (usually)
+  # know what the last snapshot date was and take the corresponding tarballs,
+  # unless the user specified tarballs explictly.
+  if [ $MODE_DIFFS -ne 0 ] && [ $LOCAL -ne 0 ] && [ -z "${OLD_TARS}" ]; then
     LAST_DATE=`cat ~/.snapshot_date-${BRANCH}`
-    LAST_DIR=~ftp/pub/gcc/snapshots/${BRANCH}-${LAST_DATE}
-    OLD_TARS=${LAST_DIR}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
+    OLD_TARS=${SNAPSHOTS_DIR}/${BRANCH}-${LAST_DATE}/gcc-${BRANCH}-${LAST_DATE}.tar.bz2
   fi
 fi
 

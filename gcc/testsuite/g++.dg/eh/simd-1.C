@@ -3,9 +3,8 @@
 // { dg-options "-O" }
 // { dg-options "-O -w" { target i?86-*-* } }
 // { dg-do run }
-// { dg-error "" "PR target/12916" { target sparc*-*-* } 11 }
 
-typedef int __attribute__((mode(V2SI))) vecint;
+typedef int __attribute__((vector_size (8))) vecint;
 
 vecint vecfunc (vecint beachbum)
 {

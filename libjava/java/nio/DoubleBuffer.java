@@ -1,5 +1,5 @@
 /* DoubleBuffer.java -- 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -53,13 +53,6 @@ public abstract class DoubleBuffer extends Buffer
     array_offset = 0;
   }
 
-  DoubleBuffer (double[] buffer, int offset, int capacity, int limit, int position, int mark)
-  {
-    super (capacity, limit, position, mark);
-    this.backing_buffer = buffer;
-    this.array_offset = offset;
-  }
-
   /**
    * Allocates a new <code>DoubleBuffer</code> object with a given capacity.
    */
@@ -90,8 +83,9 @@ public abstract class DoubleBuffer extends Buffer
   }
   
   /**
-   * This method transfers <code>doubles<code> from this buffer into the given
-   * destination array.
+   * This method transfers <code>double</code>s from this buffer into the given
+   * destination array. Before the transfer, it checks if there are fewer than
+   * length <code>double</code>s remaining in this buffer. 
    *
    * @param dst The destination array
    * @param offset The offset within the array of the first <code>double</code>
@@ -100,12 +94,15 @@ public abstract class DoubleBuffer extends Buffer
    * must be non-negative and no larger than dst.length - offset.
    *
    * @exception BufferUnderflowException If there are fewer than length
-   * <code>doubles</code> remaining in this buffer.
+   * <code>double</code>s remaining in this buffer.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold.
    */
   public DoubleBuffer get (double[] dst, int offset, int length)
   {
+    checkArraySize(dst.length, offset, length);
+    checkForUnderflow(length);
+
     for (int i = offset; i < offset + length; i++)
       {
         dst [i] = get ();
@@ -115,13 +112,13 @@ public abstract class DoubleBuffer extends Buffer
   }
 
   /**
-   * This method transfers <code>doubles<code> from this buffer into the given
+   * This method transfers <code>double</code>s from this buffer into the given
    * destination array.
    *
    * @param dst The byte array to write into.
    *
    * @exception BufferUnderflowException If there are fewer than dst.length
-   * <code>doubles</code> remaining in this buffer.
+   * <code>double</code>s remaining in this buffer.
    */
   public DoubleBuffer get (double[] dst)
   {
@@ -130,12 +127,13 @@ public abstract class DoubleBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>DoubleBUFFER</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * <code>src.remaining()</code> space remaining in this buffer.
    *
    * @param src The source data.
    *
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>doubles<code> in the source buffer.
+   * buffer for the remaining <code>double</code>s in the source buffer.
    * @exception IllegalArgumentException If the source buffer is this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
@@ -144,8 +142,7 @@ public abstract class DoubleBuffer extends Buffer
     if (src == this)
       throw new IllegalArgumentException ();
 
-    if (src.remaining () > remaining ())
-      throw new BufferOverflowException ();
+    checkForOverflow(src.remaining ());
 
     if (src.remaining () > 0)
       {
@@ -159,7 +156,8 @@ public abstract class DoubleBuffer extends Buffer
 
   /**
    * Writes the content of the the <code>double array</code> src
-   * into the buffer.
+   * into the buffer. Before the transfer, it checks if there is fewer than
+   * length space remaining in this buffer.
    *
    * @param src The array to copy into the buffer.
    * @param offset The offset within the array of the first byte to be read;
@@ -168,13 +166,16 @@ public abstract class DoubleBuffer extends Buffer
    * must be non-negative and no larger than src.length - offset.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>doubles<code> in the source array.
+   * buffer for the remaining <code>double</code>s in the source array.
    * @exception IndexOutOfBoundsException If the preconditions on the offset
    * and length parameters do not hold
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public DoubleBuffer put (double[] src, int offset, int length)
   {
+    checkArraySize(src.length, offset, length);
+    checkForOverflow(length);
+
     for (int i = offset; i < offset + length; i++)
       put (src [i]);
 
@@ -188,7 +189,7 @@ public abstract class DoubleBuffer extends Buffer
    * @param src The array to copy into the buffer.
    * 
    * @exception BufferOverflowException If there is insufficient space in this
-   * buffer for the remaining <code>doubles<code> in the source array.
+   * buffer for the remaining <code>double</code>s in the source array.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public final DoubleBuffer put (double[] src)
@@ -218,8 +219,7 @@ public abstract class DoubleBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return backing_buffer;
   }
@@ -236,8 +236,7 @@ public abstract class DoubleBuffer extends Buffer
     if (backing_buffer == null)
       throw new UnsupportedOperationException ();
 
-    if (isReadOnly ())
-      throw new ReadOnlyBufferException ();
+    checkIfReadOnly();
     
     return array_offset;
   }
@@ -272,32 +271,27 @@ public abstract class DoubleBuffer extends Buffer
    */
   public int compareTo (Object obj)
   {
-    DoubleBuffer a = (DoubleBuffer) obj;
+    DoubleBuffer other = (DoubleBuffer) obj;
 
-    if (a.remaining () != remaining ())
-      return 1;
-
-    if (! hasArray () ||
-        ! a.hasArray ())
+    int num = Math.min(remaining(), other.remaining());
+    int pos_this = position();
+    int pos_other = other.position();
+    
+    for (int count = 0; count < num; count++)
       {
-        return 1;
+	double a = get(pos_this++);
+	double b = other.get(pos_other++);
+      	 
+	if (a == b)
+	  continue;
+      	   
+	if (a < b)
+	  return -1;
+      	   
+	return 1;
       }
-
-    int r = remaining ();
-    int i1 = position ();
-    int i2 = a.position ();
-
-    for (int i = 0; i < r; i++)
-      {
-        int t = (int) (get (i1) - a.get (i2));
-
-        if (t != 0)
-          {
-            return (int) t;
-          }
-      }
-
-    return 0;
+      
+    return remaining() - other.remaining();
   }
 
   /**
@@ -310,7 +304,7 @@ public abstract class DoubleBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferUnderflowException If there are no remaining
-   * <code>doubles</code> in this buffer.
+   * <code>double</code>s in this buffer.
    */
   public abstract double get ();
 
@@ -319,7 +313,7 @@ public abstract class DoubleBuffer extends Buffer
    * and then increments the position.
    *
    * @exception BufferOverflowException If there no remaining 
-   * <code>doubles</code> in this buffer.
+   * <code>double</code>s in this buffer.
    * @exception ReadOnlyBufferException If this buffer is read-only.
    */
   public abstract DoubleBuffer put (double b);

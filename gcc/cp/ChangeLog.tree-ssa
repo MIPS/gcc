@@ -1,3 +1,76 @@
+2004-04-19  Richard Henderson  <rth@redhat.com>
+
+	* except.c (check_handlers_1): Use locus stored in master for warning.
+	* tree.c (cp_walk_subtrees): Save and restore input_location.
+
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_RTL_EXPAND_START): Remove.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	* semantics.c (cxx_expand_function_start): Remove.
+
+2004-04-12  Richard Henderson  <rth@redhat.com>
+
+	* except.c (check_handlers_1): Use EXPR_LOCUS instead of STMT_LINENO.
+	* semantics.c (finalize_nrv_r): Likewise.
+	* tree.c (cp_walk_subtrees): Likewise.
+	* parser.c (cp_parser_statement): Save and restore entire locus;
+	set EXPR_LOCUS.
+	* pt.c (tsubst_expr): Don't special-case LABEL_STMT.
+
+2004-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* name-lookup.c (innermost_nonclass_level): Check for
+	error_mark_node.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_class_specifier): Initialize
+	variable 'attributes'.
+
+2004-03-17  Richard Henderson  <rth@redhat.com>
+
+	* cp-lang.c (cxx_types_compatible_p): Use
+	same_type_ignoring_top_level_qualifiers_p.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	* cp-lang.c (cxx_types_compatible_p): New.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+
+2004-03-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/14452
+	* tree.c (stabilize_init): Return whether or not it worked.
+	* init.c (build_new_1): If not, use a sentry.
+	* cp-tree.h: Adjust prototype.
+
+2004-03-01  Jeff Law  <law@redhat.com>
+
+	* init.c (build_vec_delete_1): Convert 2nd argument to NE_EXPR to
+	the proper type.
+ 
+2004-02-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13944
+	* except.c (do_free_exception): Remove #if 0 wrapper.
+	(build_throw): Use it if we elide a copy into the exception object.
+
+	* tree.c (stabilize_call): Fix thinko.
+
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	* decl.c (poplevel): Don't output nested inline functions.
+
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* call.c (build_call, build_over_call, build_new_method_call): Add
+	static chain operand to call_expr.
+	* decl.c (build_offset_ref_call_from_tree): Likewise.
+	* parser.c (cp_parser_postfix_expression): Likewise.
+	* semantics.c (finish_call_expr): Likewise.
+	* cp-lang.c (cp_expand_decl): Don't declare_nonlocal_label.
+
 2004-02-09  Richard Henderson  <rth@redhat.com>
 
 	* cp-lang.c (LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P): New.

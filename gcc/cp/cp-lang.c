@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -38,8 +38,8 @@ static HOST_WIDE_INT cxx_get_alias_set (tree);
 static bool cxx_warn_unused_global_decl (tree);
 static tree cp_expr_size (tree);
 static size_t cp_tree_size (enum tree_code);
-static bool cp_var_mod_type_p (tree);
-static int cp_expand_decl (tree);
+static bool cp_var_mod_type_p (tree, tree);
+static int cxx_types_compatible_p (tree, tree);
 static void cxx_initialize_diagnostics (diagnostic_context *);
 
 #undef LANG_HOOKS_NAME
@@ -71,19 +71,13 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR cxx_expand_expr
 #undef LANG_HOOKS_EXPAND_DECL
-#define LANG_HOOKS_EXPAND_DECL cp_expand_decl
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#define LANG_HOOKS_EXPAND_DECL c_expand_decl
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_MAYBE_BUILD_CLEANUP
-#define LANG_HOOKS_MAYBE_BUILD_CLEANUP cxx_maybe_build_cleanup
 #undef LANG_HOOKS_TRUTHVALUE_CONVERSION
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
-#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME mangle_decl
 #undef LANG_HOOKS_MARK_ADDRESSABLE
@@ -102,16 +96,11 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_PRINT_ERROR_FUNCTION
 #define LANG_HOOKS_PRINT_ERROR_FUNCTION	cxx_print_error_function
-#undef LANG_HOOKS_BUILTIN_TYPE_DECLS
-#define LANG_HOOKS_BUILTIN_TYPE_DECLS cxx_builtin_type_decls
-#undef LANG_HOOKS_PUSHLEVEL
-#define LANG_HOOKS_PUSHLEVEL lhd_do_nothing_i
-#undef LANG_HOOKS_POPLEVEL
-#define LANG_HOOKS_POPLEVEL lhd_do_nothing_iii_return_null_tree
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL cxx_warn_unused_global_decl
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
+
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
@@ -119,11 +108,6 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
 #undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
-
-#undef LANG_HOOKS_RTL_EXPAND_START
-#define LANG_HOOKS_RTL_EXPAND_START cxx_expand_function_start
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -142,15 +126,9 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   cp_add_pending_fn_decls
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  cp_tree_chain_matters_p
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
-#undef LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING
-#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
-  cp_copy_res_decl_for_inlining
 #undef LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P anon_aggr_type_p
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
@@ -183,10 +161,14 @@ static void cxx_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR cxx_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO cxx_type_promotes_to
+#undef LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P cxx_types_compatible_p
 #undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE c_register_builtin_type
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
+#undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
+#define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 
 /* Each front end provides its own hooks, for toplev.c.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -237,13 +219,11 @@ const char *const tree_code_name[] = {
 static HOST_WIDE_INT
 cxx_get_alias_set (tree t)
 {
-  if (TREE_CODE (t) == RECORD_TYPE
-      && TYPE_CONTEXT (t) && CLASS_TYPE_P (TYPE_CONTEXT (t))
-      && CLASSTYPE_AS_BASE (TYPE_CONTEXT (t)) == t)
+  if (IS_FAKE_BASE_TYPE (t))
     /* The base variant of a type must be in the same alias set as the
        complete type.  */
     return get_alias_set (TYPE_CONTEXT (t));
-  
+
   /* Punt on PMFs until we canonicalize functions properly.  */
   if (TYPE_PTRMEMFUNC_P (t))
     return 0;
@@ -288,44 +268,12 @@ cp_expr_size (tree exp)
       /* This would be wrong for a type with virtual bases, but they are
 	 caught by the abort above.  */
       return (is_empty_class (TREE_TYPE (exp))
-	      ? size_zero_node 
+	      ? size_zero_node
 	      : CLASSTYPE_SIZE_UNIT (TREE_TYPE (exp)));
     }
   else
     /* Use the default code.  */
     return lhd_expr_size (exp);
-}
-
-/* Expand DECL if it declares an entity not handled by the
-   common code.  */
-
-static int
-cp_expand_decl (tree decl)
-{
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
-    {
-      /* Let the back-end know about this variable.  */
-      if (!anon_aggr_type_p (TREE_TYPE (decl)))
-	emit_local_var (decl);
-      else
-	expand_anon_union_decl (decl, NULL_TREE, 
-				DECL_ANON_UNION_ELEMS (decl));
-    }
-  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-    make_rtl_for_local_static (decl);
-  else if (TREE_CODE (decl) == LABEL_DECL 
-	   && C_DECLARED_LABEL_FLAG (decl))
-    declare_nonlocal_label (decl);
-  else
-    return 0;
-
-  return 1;
-}
-
-int
-cp_tree_chain_matters_p (tree t)
-{
-  return cp_is_overload_p (t) || c_tree_chain_matters_p (t);
 }
 
 /* Langhook for tree_size: determine size of our 'x' and 'c' nodes.  */
@@ -334,12 +282,12 @@ cp_tree_size (enum tree_code code)
 {
   switch (code)
     {
+    case TINST_LEVEL:		return sizeof (struct tinst_level_s);
     case PTRMEM_CST: 		return sizeof (struct ptrmem_cst);
     case BASELINK:		return sizeof (struct tree_baselink);
     case TEMPLATE_PARM_INDEX: 	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
-    case WRAPPER:		return sizeof (struct tree_wrapper);
     default:
       abort ();
     }
@@ -347,27 +295,41 @@ cp_tree_size (enum tree_code code)
 }
 
 /* Returns true if T is a variably modified type, in the sense of C99.
+   FN is as passed to variably_modified_p.
    This routine needs only check cases that cannot be handled by the
-   language-independent logic in tree-inline.c.  */
+   language-independent logic in tree.c.  */
 
 static bool
-cp_var_mod_type_p (tree type)
+cp_var_mod_type_p (tree type, tree fn)
 {
   /* If TYPE is a pointer-to-member, it is variably modified if either
      the class or the member are variably modified.  */
   if (TYPE_PTR_TO_MEMBER_P (type))
-    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type))
-	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type)));
+    return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type), fn)
+	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type),
+					 fn));
 
   /* All other types are not variably modified.  */
   return false;
 }
 
-/* Stub routine to tell people that this doesn't work yet.  */
-void
-c_reset_state (void)
+/* This compares two types for equivalence ("compatible" in C-based languages).
+   This routine should only return 1 if it is sure.  It should not be used
+   in contexts where erroneously returning 0 causes problems.  */
+
+static int cxx_types_compatible_p (tree x, tree y)
 {
-  sorry ("inter-module optimisations not implemented yet");
+  if (same_type_ignoring_top_level_qualifiers_p (x, y))
+    return 1;
+
+  /* Once we get to the middle-end, references and pointers are
+     interchangeable.  FIXME should we try to replace all references with
+     pointers?  */
+  if (POINTER_TYPE_P (x) && POINTER_TYPE_P (y)
+      && same_type_p (TREE_TYPE (x), TREE_TYPE (y)))
+    return 1;
+
+  return 0;
 }
 
 /* Construct a C++-aware pretty-printer for CONTEXT.  It is assumed
@@ -383,4 +345,22 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 
   /* It is safe to free this object because it was previously malloc()'d.  */
   free (base);
+}
+
+/* Stubs to keep c-opts.c happy.  */
+void
+push_file_scope (void)
+{
+}
+
+void
+pop_file_scope (void)
+{
+}
+
+/* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
+bool
+has_c_linkage (tree decl)
+{
+  return DECL_EXTERN_C_P (decl);
 }

@@ -25,6 +25,84 @@ Boston, MA 02111-1307, USA.  */
 /* Note that some other tm.h files include this one and then override
    whatever definitions are necessary.  */
 
+/* Define the specific costs for a given cpu */
+
+struct processor_costs {
+  /* Integer load */
+  const int int_load;
+
+  /* Integer signed load */
+  const int int_sload;
+
+  /* Integer zeroed load */
+  const int int_zload;
+
+  /* Float load */
+  const int float_load;
+
+  /* fmov, fneg, fabs */
+  const int float_move;
+
+  /* fadd, fsub */
+  const int float_plusminus;
+
+  /* fcmp */
+  const int float_cmp;
+
+  /* fmov, fmovr */
+  const int float_cmove;
+
+  /* fmul */
+  const int float_mul;
+
+  /* fdivs */
+  const int float_div_sf;
+
+  /* fdivd */
+  const int float_div_df;
+
+  /* fsqrts */
+  const int float_sqrt_sf;
+
+  /* fsqrtd */
+  const int float_sqrt_df;
+
+  /* umul/smul */
+  const int int_mul;
+
+  /* mulX */
+  const int int_mulX;
+
+  /* integer multiply cost for each bit set past the most
+     significant 3, so the formula for multiply cost becomes:
+
+	if (rs1 < 0)
+	  highest_bit = highest_clear_bit(rs1);
+	else
+	  highest_bit = highest_set_bit(rs1);
+	if (highest_bit < 3)
+	  highest_bit = 3;
+	cost = int_mul{,X} + ((highest_bit - 3) / int_mul_bit_factor);
+
+     A value of zero indicates that the multiply costs is fixed,
+     and not variable.  */
+  const int int_mul_bit_factor;
+
+  /* udiv/sdiv */
+  const int int_div;
+
+  /* divX */
+  const int int_divX;
+
+  /* movcc, movr */
+  const int int_cmove;
+
+  /* penalty for shifts, due to scheduling rules etc. */
+  const int shift_penalty;
+};
+
+extern const struct processor_costs *sparc_costs;
+
 /* Target CPU builtins.  FIXME: Defining sparc is for the benefit of
    Solaris only; otherwise just define __sparc__.  Sadly the headers
    are such a mess there is no Solaris-specific header.  */
@@ -69,35 +147,41 @@ Boston, MA 02111-1307, USA.  */
 #endif /* IN_LIBGCC2 */
 #define TARGET_ARCH64 (! TARGET_ARCH32)
 
-/* Code model selection.
-   -mcmodel is used to select the v9 code model.
-   Different code models aren't supported for v7/8 code.
+/* Code model selection in 64-bit environment.
 
-   TARGET_CM_32:     32 bit address space, top 32 bits = 0,
-		     pointers are 32 bits.  Note that this isn't intended
-                     to imply a v7/8 abi.
+   The machine mode used for addresses is 32-bit wide:
 
-   TARGET_CM_MEDLOW: 32 bit address space, top 32 bits = 0,
-                     avoid generating %uhi and %ulo terms,
-		     pointers are 64 bits.
+   TARGET_CM_32:     32-bit address space.
+                     It is the code model used when generating 32-bit code.
 
-   TARGET_CM_MEDMID: 64 bit address space.
-                     The executable must be in the low 16 TB of memory.
-                     This corresponds to the low 44 bits, and the %[hml]44
-                     relocs are used.  The text segment has a maximum size
-                     of 31 bits.
+   The machine mode used for addresses is 64-bit wide:
 
-   TARGET_CM_MEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31
-                     bits and may be located anywhere.  The maximum offset
-                     from any instruction to the label _GLOBAL_OFFSET_TABLE_
-                     is 31 bits.
+   TARGET_CM_MEDLOW: 32-bit address space.
+                     The executable must be in the low 32 bits of memory.
+                     This avoids generating %uhi and %ulo terms.  Programs
+                     can be statically or dynamically linked.
 
-   TARGET_CM_EMBMEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31 bits
-                     and may be located anywhere.  Register %g4 contains
-                     the start address of the data segment.
-*/
+   TARGET_CM_MEDMID: 44-bit address space.
+                     The executable must be in the low 44 bits of memory,
+                     and the %[hml]44 terms are used.  The text and data
+                     segments have a maximum size of 2GB (31-bit span).
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_MEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_EMBMEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The global register %g4 contains the start address of
+                     the data segment.  Programs are statically linked and
+                     PIC is not supported.
+
+   Different code models are not supported in 32-bit environment.  */
 
 enum cmodel {
   CM_32,
@@ -457,7 +541,7 @@ extern int target_flags;
 #define TARGET_HARD_QUAD (target_flags & MASK_HARD_QUAD)
 
 /* Nonzero on little-endian machines.  */
-/* ??? Little endian support currently only exists for sparclet-aout and
+/* ??? Little endian support currently only exists for sparc86x-elf and
    sparc64-elf configurations.  May eventually want to expand the support
    to all targets, but for now it's kept local to only those two.  */
 #define MASK_LITTLE_ENDIAN 0x1000
@@ -693,14 +777,9 @@ extern struct sparc_cpu_select sparc_select[];
 #define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	64
-
-#if 0
-/* ??? This does not work in SunOS 4.x, so it is not enabled here.
-   Instead, it is enabled in sol2.h, because it does work under Solaris.  */
-/* Define for support of TFmode long double.
-   SPARC ABI says that long double is 4 words.  */
-#define LONG_DOUBLE_TYPE_SIZE 128
-#endif
+/* LONG_DOUBLE_TYPE_SIZE is defined per OS even though the
+   SPARC ABI says that it is 128-bit wide.  */
+/* #define LONG_DOUBLE_TYPE_SIZE	128 */
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
@@ -711,23 +790,15 @@ extern struct sparc_cpu_select sparc_select[];
    if ptr_mode and Pmode are the same.  */
 #define POINTERS_EXTEND_UNSIGNED 1
 
-/* A macro to update MODE and UNSIGNEDP when an object whose type
-   is TYPE and which has the specified mode and signedness is to be
-   stored in a register.  This macro is only called when TYPE is a
-   scalar type.  */
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE) \
+/* For TARGET_ARCH64 we need this, as we don't have instructions
+   for arithmetic operations which do zero/sign extension at the same time,
+   so without this we end up with a srl/sra after every assignment to an
+   user variable,  which means very very bad code.  */
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE) \
 if (TARGET_ARCH64				\
     && GET_MODE_CLASS (MODE) == MODE_INT	\
     && GET_MODE_SIZE (MODE) < UNITS_PER_WORD)	\
   (MODE) = word_mode;
-
-/* This is only needed for TARGET_ARCH64, but since PROMOTE_MODE is a no-op
-   for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime test
-   for this value.  For TARGET_ARCH64 we need it, as we don't have instructions
-   for arithmetic operations which do zero/sign extension at the same time,
-   so without this we end up with a srl/sra after every assignment to an
-   user variable,  which means very very bad code.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_ARCH64 ? 64 : 32)
@@ -801,15 +872,6 @@ if (TARGET_ARCH64				\
    because the linker fails to align the text section enough!
    Put them in the data section.  This macro is only used in this file.  */
 #define MAX_TEXT_ALIGN 32
-
-/* This forces all variables and constants to the data section when PIC.
-   This is because the SunOS 4 shared library scheme thinks everything in
-   text is a function, and patches the address to point to a loader stub.  */
-/* This is defined to zero for every system which doesn't use the a.out object
-   file format.  */
-#ifndef SUNOS4_SHARED_LIBRARIES
-#define SUNOS4_SHARED_LIBRARIES 0
-#endif
 
 /* Standard register usage.  */
 
@@ -1467,17 +1529,6 @@ extern char leaf_reg_remap[];
 
 /* Stack layout; function entry, exit and calling.  */
 
-/* Define the number of register that can hold parameters.
-   This macro is only used in other macro definitions below and in sparc.c.
-   MODE is the mode of the argument.
-   !v9: All args are passed in %o0-%o5.
-   v9: %o0-%o5 and %f0-%f31 are cumulatively used to pass values.
-   See the description in sparc.c.  */
-#define NPARM_REGS(MODE) \
-(TARGET_ARCH64 \
- ? (GET_MODE_CLASS (MODE) == MODE_FLOAT ? 32 : 6) \
- : 6)
-
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
@@ -1538,16 +1589,15 @@ extern char leaf_reg_remap[];
 #define CAN_ELIMINATE(FROM, TO) \
   ((TO) == HARD_FRAME_POINTER_REGNUM || !FRAME_POINTER_REQUIRED)
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) \
-  do {								\
-    (OFFSET) = 0;						\
-    if ((TO) == STACK_POINTER_REGNUM)				\
-      /* Note, we always pretend that this is a leaf function	\
-	 because if it's not, there's no point in trying to	\
-	 eliminate the frame pointer.  If it is a leaf		\
-	 function, we guessed right!  */			\
-      (OFFSET) = compute_frame_size (get_frame_size (), 1);	\
-    (OFFSET) += SPARC_STACK_BIAS;				\
+/* We always pretend that this is a leaf function because if it's not,
+   there's no point in trying to eliminate the frame pointer.  If it
+   is a leaf function, we guessed right!  */
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			\
+  do {									\
+    (OFFSET) = 0;							\
+    if ((TO) == STACK_POINTER_REGNUM)					\
+      (OFFSET) = sparc_compute_frame_size (get_frame_size (), 1);	\
+    (OFFSET) += SPARC_STACK_BIAS;					\
   } while (0)
 
 /* Keep the stack pointer constant throughout the function.
@@ -1564,22 +1614,6 @@ extern char leaf_reg_remap[];
    SIZE is the number of bytes of arguments passed on the stack.  */
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) 0
-
-/* Some subroutine macros specific to this machine.
-   When !TARGET_FPU, put float return values in the general registers,
-   since we don't have any fp registers.  */
-#define BASE_RETURN_VALUE_REG(MODE)	\
-  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
-
-#define BASE_OUTGOING_VALUE_REG(MODE)	\
-  (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
-
-#define BASE_PASSING_ARG_REG(MODE)				\
-  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)
-
-/* ??? FIXME -- seems wrong for v9 structure passing...  */
-#define BASE_INCOMING_ARG_REG(MODE)				\
-  (TARGET_ARCH64 && TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 24)
 
 /* Define this macro if the target machine has "register windows".  This
    C expression returns the register number as seen by the called function
@@ -1679,13 +1713,6 @@ init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED) \
 function_arg_advance (& (CUM), (MODE), (TYPE), (NAMED))
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-
-#define MUST_PASS_IN_STACK(MODE,TYPE)			\
-  ((TYPE) != 0						\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
    or a hard register in which to store the argument.
@@ -1714,15 +1741,6 @@ function_arg (& (CUM), (MODE), (TYPE), (NAMED), 1)
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
 function_arg_partial_nregs (& (CUM), (MODE), (TYPE), (NAMED))
-
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.
-   The pointer is passed in whatever way is appropriate for passing a pointer
-   to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-function_arg_pass_by_reference (& (CUM), (MODE), (TYPE), (NAMED))
 
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
@@ -1818,13 +1836,9 @@ do {									\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
 
-#define DELAY_SLOTS_FOR_EPILOGUE 1
-
-#define ELIGIBLE_FOR_EPILOGUE_DELAY(trial, slots_filled) \
-  eligible_for_epilogue_delay (trial, slots_filled)
-
 /* Define registers used by the epilogue and return instruction.  */
-#define EPILOGUE_USES(REGNO) (REGNO == 31)
+#define EPILOGUE_USES(REGNO) ((REGNO) == 31 \
+  || (current_function_calls_eh_return && (REGNO) == 1))
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -1845,10 +1859,6 @@ do {									\
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sparc_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  sparc_va_arg (valist, type)
 
 /* Generate RTL to flush the register windows so as to make arbitrary frames
    available.  */
@@ -2217,12 +2227,6 @@ do {                                                                    \
 (! TARGET_PTR64 ? SImode : flag_pic ? DImode : TARGET_CM_MEDLOW ? SImode : DImode)
 #endif
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -2230,15 +2234,10 @@ do {                                                                    \
    in one reasonably fast instruction.  */
 #define MOVE_MAX 8
 
-#if 0 /* Sun 4 has matherr, so this is no good.  */
-/* This is the value of the error code EDOM for this machine,
-   used by the sqrt instruction.  */
-#define TARGET_EDOM 33
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movmem or libcall instead.  */
 
-/* This is how to refer to the variable errno.  */
-#define GEN_ERRNO_RTX \
-  gen_rtx_MEM (SImode, gen_rtx_SYMBOL_REF (Pmode, "errno"))
-#endif /* 0 */
+#define MOVE_RATIO (optimize_size ? 3 : 8)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2264,13 +2263,8 @@ do {                                                                    \
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* Specify the machine mode that pointers have.
-   After generation of rtl, the compiler makes no further distinction
-   between pointers and any other objects of this machine mode.  */
+/* Specify the machine mode used for addresses.  */
 #define Pmode (TARGET_ARCH64 ? DImode : SImode)
-
-/* Generate calls to memcpy, memcmp and memset.  */
-#define TARGET_MEM_FUNCTIONS
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
@@ -2308,8 +2302,9 @@ do {                                                                    \
 /* Assume by default that we do not have the Solaris-specific conversion
    routines nor 64-bit integer multiply and divide routines.  */
 
-#define SUN_CONVERSION_LIBFUNCS 0
-#define SUN_INTEGER_MULTIPLY_64 0
+#define SUN_CONVERSION_LIBFUNCS 	0
+#define DITF_CONVERSION_LIBFUNCS	0
+#define SUN_INTEGER_MULTIPLY_64 	0
 
 /* Compute extra cost of moving data between one register class
    and another.  */
@@ -2366,12 +2361,6 @@ do {                                                                    \
    no longer contain unusual constructs.  */
 
 #define ASM_APP_OFF ""
-
-/* ??? Try to make the style consistent here (_OP?).  */
-
-#define ASM_FLOAT	".single"
-#define ASM_DOUBLE	".double"
-#define ASM_LONGDOUBLE	".xxx"		/* ??? Not known (or used yet).  */
 
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
@@ -2643,10 +2632,9 @@ do {									\
 {"fcc_reg_operand", {REG}},						\
 {"fcc0_reg_operand", {REG}},						\
 {"icc_or_fcc_reg_operand", {REG}},					\
-{"restore_operand", {REG}},						\
 {"call_operand", {MEM}},						\
 {"call_operand_address", {SYMBOL_REF, LABEL_REF, CONST, CONST_DOUBLE,	\
-	ADDRESSOF, SUBREG, REG, PLUS, LO_SUM, CONST_INT}},		\
+	SUBREG, REG, PLUS, LO_SUM, CONST_INT}},				\
 {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
 {"symbolic_memory_operand", {SUBREG, MEM}},				\
 {"label_ref_operand", {LABEL_REF}},					\
@@ -2678,6 +2666,7 @@ do {									\
 {"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
 {"clobbered_register", {REG}},						\
 {"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
+{"compare_operand", {SUBREG, REG, ZERO_EXTRACT}},			\
 {"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
 {"const64_high_operand", {CONST_INT, CONST_DOUBLE}},			\
 {"tgd_symbolic_operand", {SYMBOL_REF}},					\

@@ -1,5 +1,5 @@
 /* Language-dependent hooks for Objective-C.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -35,12 +35,16 @@ enum c_language_kind c_language = clk_objc;
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Objective-C"
+#undef LANG_HOOKS_IDENTIFIER_SIZE
+#define LANG_HOOKS_IDENTIFIER_SIZE C_SIZEOF_STRUCT_LANG_IDENTIFIER
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_common_init_options
+#undef LANG_HOOKS_INITIALIZE_DIAGNOSTICS
+#define LANG_HOOKS_INITIALIZE_DIAGNOSTICS c_initialize_diagnostics
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION c_common_handle_option
 #undef LANG_HOOKS_HANDLE_FILENAME
@@ -51,8 +55,6 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
-#undef LANG_HOOKS_SAFE_FROM_P
-#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_EXPAND_EXPR
@@ -65,12 +67,10 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_objc_common_truthvalue_conversion
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
-#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
-#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
+#undef LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
+#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
-#undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
-#define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME c_static_assembler_name
 #undef LANG_HOOKS_NO_BODY_BLOCKS
 #define LANG_HOOKS_NO_BODY_BLOCKS true
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
@@ -88,9 +88,6 @@ enum c_language_kind c_language = clk_objc;
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
 #undef LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_FUNCTION_MISSING_NORETURN_OK_P c_missing_noreturn_ok_p
-
-#undef LANG_HOOKS_RTL_EXPAND_STMT
-#define LANG_HOOKS_RTL_EXPAND_STMT expand_stmt_toplev
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -111,9 +108,6 @@ enum c_language_kind c_language = clk_objc;
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
-#undef LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P
-#define LANG_HOOKS_TREE_INLINING_TREE_CHAIN_MATTERS_P \
-  c_tree_chain_matters_p
 
 #undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION c_expand_body
@@ -135,6 +129,13 @@ enum c_language_kind c_language = clk_objc;
 #undef  LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
 
+/* The C front end's scoping structure is very different from
+   that expected by the language-independent code; it is best
+   to disable getdecls.
+   This means it must also provide its own write_globals.  */
+
+#undef LANG_HOOKS_GETDECLS
+#define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS c_write_global_declarations
 

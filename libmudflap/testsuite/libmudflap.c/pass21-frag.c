@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef __FreeBSD__
 #include <alloca.h>
+#endif
 int main ()
 {
 char *boo, *foo;

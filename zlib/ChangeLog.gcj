@@ -1,3 +1,33 @@
+2005-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am: Remove useless multilib rules.
+	* configure.ac: Rewrite multilib support to use
+	features of recent automakes.
+	* aclocal.m4: Regenerate with Automake 1.8.5.
+	* Makefile.in: Regenerate with Automake 1.8.5.
+	* configure: Regenerate.
+
+2004-04-12  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am: Add in libz_a_CFLAGS as recommended by automake doc.
+	* Makefile.in: Regenerate with automake 1.7.9.
+	* aclocal.m4: Likewise.
+	* configure: Regenerate.
+
+2004-04-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in: Rename file to ...
+	* configure.ac: ...this.
+	* Makefile.in: Regenerate.
+
+2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Update to autoconf 2.59; clean up slightly.
+	* acinclude.m4: Update to autoconf 2.59.
+	* aclocal.m4: Regenerate. 
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
 2004-01-14  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* configure.in: Add in AC_PREREQ(2.13)

@@ -1,3 +1,1733 @@
+2004-05-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (delete_tree_cfg): Update call to
+	free_basic_block_vars.
+
+2004-05-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-live.h: Fix typo in #include guard.
+
+2004-05-08  Jeff Sturm  <jsturm@one-point.com>
+
+	* tree-eh.c (lower_catch): Lower catch body in context of
+	catch_region.
+
+2004-05-07  Richard Henderson  <rth@redhat.com>
+
+	* tree-eh.c (tree_could_trap_p): Use get_base_address on references.
+	
+2004-05-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Remove documentation for -ftree-copyprop.
+	Update documentation for -ftree-pre.
+
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+	* stmt.c (parse_output_constraint): Don't warn for read-write
+        memory operand.
+	* gimplify.c (gimplify_asm_expr): Force in-out memory operands
+	to minimal lvalues, then expand to non-matching constraints.
+
+2004-05-06  Zack Weinberg  <zack@codesourcery.com>
+
+	* c-decl.c (finish_function): When !targetm.have_ctors_dtors,
+	record static constructors and destructors here...
+	(c_expand_body_1): ... not here.
+	* c-objc-common.c (start_cdtor, finish_cdtor): Collapse
+	together into
+	(build_cdtor): ...here.  Update to construct a complete tree
+	for the function.  No need to call push_scope, pop_scope, or
+	clear_last_expr, or set current_function_cannot_inline.
+	(c_objc_common_finish_file): Just call build_cdtor for static
+	ctors/dtors, then clear the variables.  Do this before calling
+	cgraph_finalize_compilation_unit and cgraph_optimize.
+
+2004-05-06  Richard Henderson  <rth@redhat.com>
+
+	* fold-const.c (fold): Don't build COND_EXPR from comparisons for
+	boolean and integer result types.  Handle X ^ X for TRUTH_XOR_EXPR.
+
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-nested.c (create_tmp_var_for): Disallow variable sized types.
+	(convert_nonlocal_reference): Set val_only false for the base of a
+	component or array reference.
+	(convert_local_reference): Likewise.
+
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (create_tmp_var): Disallow variable sized objects.
+	(gimplify_modify_expr): Don't memcpy for VA_ARG_EXPR.
+
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
+	* fold-const.c (operand_equal_p): Replace only_const argument with
+	flags.  Allow pure functions if OEP_PURE_SAME.
+	(fold, nondestructive_fold_binary_to_constant): Use OEP_ONLY_CONST.
+	* tree-cfg.c (phi_alternatives_equal): Fix operand_equal_p flag type.
+	* tree-ssa-dom.c (avail_expr_eq): Use OEP_PURE_SAME.
+	* tree.h (enum operand_equal_flag): New.
+	(operand_equal_p): Update argument list.
+
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-operands.c (get_call_flags): Remove.
+	(get_expr_operands): Use call_expr_flags.
+	* tree-alias-common.c (call_may_clobber): Likewise.
+	(call_may_return): Likewise.
+
+2004-04-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/15062
+	* c-typeck.c (build_asm_expr): Mark the output operands
+	to an asm addressable, if necessary.
+
+2004-05-05  Steven Bosscher  <stevenb@suse.de>
+
+	* Makefile.in (GTFILES): Remove duplicate basic-block.h.
+
+2004-05-04  Richard Henderson  <rth@redhat.com>
+
+	* gimplify.c (build_addr_expr_with_type): Set TREE_ADDRESSABLE.
+	(gimplify_modify_expr): Turn variable-width assignment into memcpy.
+	* tree-nested.c (convert_local_reference): Set val_only after default.
+
+2004-05-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (tree_cfg2vcg): Rename from tree_cfg2dot.  Update all
+	users.
+	Emit flowgraph using VCG syntax.
+	* tree-dump.c (dump_files): Rename -fdump-tree-dot to
+	-fdump-tree-vcg.
+	* tree.h (enum tree_dump_index): Rename TDI_dot to TDI_vcg.
+	* doc/invoke.texi: Update documentation to describe
+	-fdump-tree-vcg.
+
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc/objc-act.c (build_objc_string_object):
+	Add the fields to the purpose of the list for
+	the constructor.
+
+2004-05-03  Richard Henderson  <rth@redhat.com>
+
+	* c-simplify.c (gimplify_if_stmt): Loop for else-if.
+
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR optimization/15245
+	* tree-ssa-phiopt.c (conditional_replacement): Use fold_convert
+	instead of convert.
+
+2004-05-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_compound_lval): Gimplify non-constant
+	array indices into a temporary variable.
+
+2004-04-30  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (validate_arglist): Don't reject side effects.
+	(simplify_builtin_strcpy): Do reject side effects in length.
+
+2004-04-30  Jeff Law  <law@redhat.com>
+
+	* tree-outof-ssa.c (eliminate_build): Move code which verifies
+	that all of a PHI's arguments do not have a partition if the
+	result does not have a partition from here to...
+	(rewrite_trees): Here.
+
+2004-04-24  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (factored_computed_goto_label,
+	factored_computed_goto): Removed.
+	(disband_implicit_edges): Unfactor computed gotos without
+	using them.
+
+2004-04-23  Per Bothner  <per@bothner.com>
+
+	* expr.c (expr_wfl_stack):  Remove unused global.
+
+	Pre-patches for future source_location / location_t merge.
+	* tree.h (EXPR_LOCATION, EXPR_HAS_LOCATION):  New macros.
+	* expr.c (expand_expr_real, expand_expr_real_1):  Use new macros.
+	* gimple-low.c (lower_stmt):  Likewise.
+	* gimplify.c (annotate_all_with_locus):  Likewise.
+	* print-tree.c (print_node):  Likewise.
+	* tree-inline.c (expand_call_inline):  Likewise.
+	* tree-pretty-print.c (tree-pretty-print.c):  Likewise.
+	* tree-sra.c (scalarize_structure_assignment, emit_scalar_copies,
+	scalarize_call_expr):  Likewise.
+	* tree-ssa-pre.c (code_motion):  Likewise.
+	
+2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-simplify.c (gimplify_decl_stmt) [TYPE_DECL]:
+	Do not check the type.
+
+2004-04-22  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (rewrite_initialize_block_local_data): Mark all
+	arguments as potentially unused.  Do not bother to VARRAY_CLEAR
+	the block_defs.  Instead abort if we are presented with a block
+	which has a nonempty block_defs.  Wrap entire thing inside
+	#ifdef ENABLE_CHECKING.
+	* tree-ssa-dom.c (dom_opt_initialize_block_local_data): Similarly
+
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Do not mark
+	arguments to bypassed PHIs as needing to be rewritten.
+
+2004-04-21  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14978
+	* tree-nested.c (convert_nonlocal_reference): Set val_only when
+	processing any otherwise unhandled expression.
+
+2004-04-21  Jeff Law  <law@redhat.com>
+
+ 	* tree-ssa-copy.c (cprop_operand): Break out of cprop_into_stmt.
+	(cprop_into_stmt): Use cprop_operand.  Rearrange slightly to avoid
+	switch statement inside a loop.
+
+	* tree-flow.h (var_ann_d): Add "current_def" field.
+	(register_new_def): Lose last argument (currdefs table).
+	* tree-into-ssa.c (currdefs): Remove.
+	(rewrite_into_ssa): Initialize current_def field on each variable's
+	annotation.  Remove initialization/clearing of currdefs.
+	(set_value_for, get_value_for): Kill.
+	(rewrite_initialize_block): Update call to register_new_def.
+	(rewrite_stmt): Similarly.
+	(rewrite_finalize_block): Get/set a _DECL node's current
+	definition from its annotation.
+	(get_reaching_def): Similarly.
+	(register_new_def): Similarly.  Lose last argument.
+	* tree-ssa-dom.c (currdefs): Remove.
+	(get_value_for, set_value_for): Simplify.
+	(tree_ssa_dominator_optimize): Initialize current_def on each
+	variable's annotation.  Remove initialization/clearing of currdefs.
+	(thread_across_edge): Lose unnecessary argument to register_new_def.
+	(record_equivalences_from_phis): Likewise.
+	(register_definitions_for_stmt): Likewise.
+	(restore_currdefs_to_original_value): Get/set a _DECL node's current
+	definition from its annotation.  Lose unnecessary "table" argument.
+	(dom_opt_finalize_block): Corresponding changes.
+
+	* tree-dfa.c (free_df_for_stmt): Release memory back to the GC
+	system immediately.
+
+2004-04-21  Ben Elliston  <bje@au.ibm.com>
+
+	PR middle-end/14730
+	* expr.c (expand_expr_real_1) <SWITCH_EXPR>: Discard out of bounds
+	case label values and ranges.  Saturate case range values that
+	exceed the minimum or maximum permitted value for the controlling
+	expression type to TYPE_MIN_VALUE or TYPE_MAX_VALUE.
+
+2004-04-20  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (register_new_def): Avoid pushing useless
+	information onto the block local definition stack.
+
+	* tree-into-ssa.c (register_new_def): If there is no current
+	reaching definition for SSA_NAME_VAR (DEF), then just push
+	SSA_NAME_VAR (DEF) onto the stack.
+	(rewrite_finalize_block): If we pop a _DECL node from the stack,
+	then the _DECL node has no current reaching definition.
+	* tree-ssa-dom.c (restore_currdefs_to_original_value): Similarly.
+
+2004-04-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: Reinstate all changes from 2004-04-12.
+	(lookup_avail_expr): Do not access a hash table object after
+	it has been freed.
+
+2004-04-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* doc/passes.texi: Add blurb about PRE.
+
+2004-04-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (conditional_replacement):
+	Catch some more non-gimple.
+
+2004-04-19  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (combine_predictions_for_bb): Fix pasto.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (estimate_num_insn_1): Deal properly with
+	builtin_constant_p and builtin_expect.
+
+2004-04-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* doc/invoke.texi (tree-ter, tree-lrs): Document options.
+
+2004-04-17  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in: Set GMPLIBS and GMPINC.
+	* configure.ac: Add GMPLIBS and GMPINC.
+	* configure: Regenerate.
+
+2004-04-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* common.opt (ftree-lrs): New common option.
+	* flags.h (flag_tree_live_range_split): New flag.
+	* opts.c (decode_options): Turn on LRS by default.
+	(common_handle_option): Set LRS flag to specified value.
+	* toplev.c (flag_tree_live_range_split): Initialize.
+	(lang_independent_options f_): Add tree-lrs.
+	* tree-outof-ssa.c (rewrite_out_of_ssa): Use LRS flag.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Don't coalesce
+	variables if one is a hardware register.  Coalesce inlined user vars.
+	(rename_ssa_copies): Scan blocks first, then PHI nodes.
+
+2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* builtins.c (fold_builtin_isascii): Do not return non-gimple
+	code when we are in gimple form.
+	(fold_builtin_isdigit): Do not return non-gimple
+	code when we are in gimple form.
+
+	* c-simplify.c (gimplify_decl_stmt): Handle TYPE_DECL.
+
+2004-04-14  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (GMPLIBS, GMPINC): Don't set.
+	* configure.ac: Remove checks for GMP.
+	* configure: Regenerate.
+
+2004-04-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* fold-const.c, tree-ssa-ccp.c, tree-ssa-dom.c,
+	tree-ssa.c, tree.c: Replace all uses of TREE_UNSIGNED with
+	TYPE_UNSIGNED or DECL_UNSIGNED.
+
+	* c-semantics.c (build_stmt): Don't check type nodes for
+	side effects.
+
+2004-04-13  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: Revert all changes from 2004-04-12.
+
+2004-04-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (struct expr_hash_elt): Add new field for hash value.
+	(initialize_hash_element): New LHS argument.  Callers changed.
+	Initialize the hash value field.
+	(remove_local_expressions_from_table): Use htab_remove_elt_with_hash.
+	(update_rhs_and_lookup_avail_expr): Similary.
+	(lookup_avail_expr): Use htab_find_slot_with_hash.  Simplify slightly
+	and pass LHS to initialize_hash_element.
+	(record_cond): Also use htab_find_slot_with_hash.  Initialize the
+	hash table entry with initialize_hash_element.
+	(avail_expr_eq): Use the saved hash value rather than calling into
+	the hash functions again.
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Slightly rearrange
+	code to clear tables before each iteration to be clearer.
+
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Use
+	DEF_OPS and VDEF_OPS instead of STMT_DEF_OPS and STMT_VDEF_OPS.
+
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* flags.h (flag_tree_loop): Remove.  Update all users.
+	* opts.c (common_handle_option) <OPT_ftree_loop_optimize>: Remove.
+	* toplev.c (f_options): Remove -ftree-loop-optimize.
+	* tree-optimize.c (init_tree_optimization_passes): Don't
+	schedule pass_loop.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Remove.
+	(gate_loop): Remove.
+	* doc/invoke.texi: Remove documentation for -ftree-loop-optimize.
+
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	* c-semantics.c (expand_stmt_toplev): Remove.
+	* langhooks-def.h (LANG_HOOKS_RTL_EXPAND_INITIALIZER): Remove.
+	(LANG_HOOKS_RTL_EXPAND_START): Remove.
+	(LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+	(LANG_HOOKS_RTL_EXPAND_END): Remove.
+	* langhooks.h (struct lang_hooks_for_rtl_expansion): Remove.
+	(struct lang_hooks): Update.
+	* tree-optimize.c (tree_rest_of_compilation): Don't call
+	lang_hooks.rtl_expand.start nor lang_hooks.rtl_expand.end.
+	Call expand_expr_stmt_value instead of
+	lang_hooks.rtl_expand.stmt.
+	* objc/objc-lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+
+
+2004-04-12  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_do_switch_warnings): Use EXPR_LOCUS instead
+	of STMT_LINENO.
+	(c_walk_subtrees): Likewise.
+	(c_estimate_num_insns_1): Remove FILE_STMT.
+	* c-common.def (FILE_STMT): Remove.
+	* c-common.h (FILE_STMT_FILENAME_NODE): Remove.
+	(FILE_STMT_FILENAME, STMT_LINENO, STMT_LINENO_FOR_FN_P): Remove.
+	(c_common_stmt_codes): Remove FILE_STMT.
+	* c-dump.c (dump_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* c-parse.in (lineno_stmt, lineno_label): Likewise.
+	* c-pretty-print.c (pp_c_statement): Remove FILE_STMT.
+	* c-semantics.c (add_stmt): Don't emit FILE_STMT.  Do set
+	EXPR_LOCUS if not yet set.
+	(finish_stmt_tree): Don't set line for end of function.
+	(build_stmt): Set EXPR_LOCUS instead of STMT_LINENO.
+	(prep_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* c-simplify.c (c_gimplify_stmt): Remove FILE_STMT.
+	(gimplify_block): Save and restore entire locus.
+	(stmt_expr_last_stmt): Use EXPR_LOCUS instead of STMT_LINENO.
+	* doc/c-tree.texi (FILE_STMT, FILE_STMT_FILENAME, STMT_LINENO): Remove.
+
+2004-04-12  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (true_exprs, false_exprs): Kill.
+	(struct expr_hash_elt): New structure for the expression hash table.
+	(struct dom_walk_block_data): Kill block local true_exprs and
+	false_exprs.
+	(get_eq_expr_value): One less local varray argument.  Fix prototype.
+	Use record_cond rather than record_cond_is_{true,false}.
+	(true_false_expr_hash, true_false_expr_eq): Kill.
+	(record_cond_is_true, record_cond_is_false): Collapse into ...
+	(record_cond): New function.
+	(tree_ssa_dominator_optimize): Kill references to true_exprs and
+	false_exprs.  Use "free" as the free function for the avail_exprs
+	hash table.
+	(dom_opt_initialize_block_local_data): No longer initialize
+	block local true/false expressions.
+	(initialize_hash_element): New function.
+	(remove_local_expressions_from_table): Use initialize_hash_element.
+	(update_rhs_and_lookup_avail_expr): Similarly.
+	(dom_opt_finalize_block): Record true/false expressions into the
+	main avail_expr hash table.  Unwind main hash table appropriately.
+	Use record_cond rather than record_cond_is_{true,false}.
+	(record_equivalences_from_incoming_edge): Pass block local avail_exprs
+	varray instead of block local true/false varrays to get_eq_expr_value.
+	(dump_dominator_optimization_stats): Update to reflect that the
+	true/false expression hash tables are gone.
+	(lookup_avail_expr): Simplify slightly now that we only have one
+	expression hash table.
+	(avail_expr_hash, avail_expr_eq): Generalize slightly to handle new
+	hash table entry structure and having true/false expression information
+	in the available expression hash table.
+
+2004-04-09  Jeff Law  <law@redhat.com>
+
+	* tree-ssa_dom.c (register_definitions_for_stmt): Accept a statement
+	annotation rather than the statement itself.  Callers changed.
+	Use [V]DEF_OPS rather than STMT_[V]DEF_OPS.
+	* tree-ssa-operands.c (get_stmt_operands): Slightly reorganize to
+	avoid unnecessary calls to stmt_ann.
+	* tree-ssa-pre.c (expr_phi_insertion): Get the statement's annotation
+	and use [V]USE_OPS rather than STMT_[V]USE_OPS.
+	(same_e_version_phi_result): Similarly
+	(process_left_occs_and_kills): Similarly for [V]DEF_OPS and
+	STMT_[V]DEF_OPS.
+	* tree-ssa.c (replace_immediate_uses): Similarly.
+	(verify_ssa): Similarly.  Also verify that VDEF_OPs uses are dominated
+	by their sets.
+
+	* tree-into-ssa.c (insert_phi_nodes_for): Use passed in worklist
+	varray instead of allocated one for every variable we rewrite into
+	SSA form.
+	(insert_phi_nodes_1): Pass worklist varray from caller to
+	insert_phi_nodes_for.
+	(insert_phi_nodes): Allocate a worklist for insert_phi_nodes_for
+	and pass it to insert_phi_nodes_1.
+
+2004-04-08  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (nonzero_vars): Turn it into a bitmap.
+	(tree_ssa_dominator_optimize): Update initialization, clearing and
+	freeing of nonzero_vars.
+	(restore_nonzero_vars_to_original_value): New function.
+	(dom_opt_finalize_block): Use it.
+	(record_var_is_nonzero): Only record the variable into the block
+	local nonzero vars array if it did not already have a nonzero property.
+	(lookup_avail_expr): Lookup the nonzero property of an SSA_NAME with
+	a bitmap test.
+
+	* fold-const.c (fold): Remove attempt to share code which
+	simplifies tests against the highest/lowest value of a
+	range between the main folder and the nondestructive folder.
+
+2004-04-08  Brian Booth  <bbooth@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (invalidate_name_tags): New function.
+	Mark aliases of invalidated name tags for renaming.
+	(rewrite_into_ssa): Call invalidate_name_tags.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Remove argument POST_P.
+	Update all callers.
+	Don't use POST_P when gimplifying the call expression.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/tree-ssa.texi: Add documentation for the dominator
+	walker.
+
+2004-04-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-outof-ssa.c: Update comments and reformat for legibility.
+	* tree-ssa-copyrename.c: Update comments and reformat for legibility.
+	* tree-ssa-live.c: Update comments and reformat for legibility.
+	* tree-ssa-live.h: Update comments and reformat for legibility.
+
+2004-04-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Don't use POST_P when
+	gimplifying CALL_EXPR arguments.
+
+2004-04-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c: Update comments and reformat for legibility.
+	(find_vars_r): Remove special casing of MODIFY_EXPR and
+	simplify logic.
+	(compute_reached_uses, compute_reaching_defs, remove_decl,
+	find_decl_location): Remove.
+	(discover_nonconstat_array_refs_r,
+	discover_nonconstant_array_refs): Move ...
+	* tree-outof-ssa.c: ... here.
+
+2004-04-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-simple.c (is_gimple_min_invariant): Disallow &a+i.
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Rename from
+	maybe_fold_stmt_plus.  Handle MINUS_EXPR.
+	(fold_stmt_r): Pass MINUS_EXPR to it.
+
+2004-04-05  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (OBJS-common): Remove tree-browser.o.
+	(cc1): Depend on @TREEBROWSER@ and include in list of objects.
+	* configure.ac: Add --enable-tree-browser option.
+	* configure: Rebuild.
+
+2004-04-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-ccp.c (fold_stmt_r): Fix whitespace formatting.
+	(set_rhs): Likewise.
+
+2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (find_func_aliases): Support
+	assigning to BIT_FIELD_REFs.
+	* tree-cfg.c (verify_expr): Don't allow assign to
+	a register with BIT_FIELD_REF.
+	* tree-dfa.c (get_virtual_var): Add consistency check on
+	the shape of expected VARs.
+	(discover_nonconstant_array_refs_r): Go through BIT_FIELD_REFs.
+	* tree-simple.c: Document that BIT_FIELD_REFs are valid lvalues.
+	* tree-ssa.c (set_is_used): Go through BIT_FIELD_REFs.
+	* tree-ssa-operands.c (get_expr_operands): Mark VA_ARG_EXPR
+	nodes as making volatile references.
+
+2004-04-02  Fariborz Jahanian <fjahanian@apple.com>
+
+	* c-convert.c (convert): Make convert work when converting
+	to compatible types across translation unit.
+
+2004-04-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in (stage2_build): Remove support for
+	rebuilding libbanshee.
+	* configure.ac: Remove support for rebuilding
+	libbanshee.
+	* config.gcc (powerpc-*-darwin*): Do not rebuild
+	libbanshee.
+
+2004-04-01  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* tree-ssa-forwprop.c: Add a comment about forward propagation
+	of TRUTH_NOT_EXPR.
+
+2004-04-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-optimize.c (tree_rest_of_compilation): Fix typo in
+	setting of in_gimple_form.
+
+2004-04-01  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold_relational_hi_lo): Do not return non-gimple
+	code when we are in gimple form.
+	* tree-optimize.c (tree_rest_of_compilation): Note when we are in
+	gimple form.
+	* tree-ssa-ccp.c (ccp_fold): Tighten tests on return value from
+	nondestructive_fold_{unary,binary}_to_constant.
+	* tree.h (in_gimple_form): Declare.
+
+	* tree-ssa.c (ssa_remove_edge): Correct looping structure.
+	(ssa_redirect_edge): Similarly
+
+2004-03-30  Brian Booth  <bbooth@redhat.com>
+
+	* tree-pretty-print.c (dump_vops): Add flags argument and
+	propagate it to dump_generic_node calls.
+	(dump_generic_node): Update dump_vops call.
+
+2004-03-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure.ac: Emit confirmation messages for libbanshee.
+	* configure: Regenerate.
+
+2004-03-29  Jan Hubicka  <jh@suse.cz>
+
+	PR 14756
+	* cgraphunit.c (cgraph_decide_inlining): Rewrite handling of
+	always_inline functions.
+
+2004-03-28  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (expand_call_inline):  Remove fixme introduced by
+	nested function patch.
+
+2004-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.c (get_stmt_operands): Remove always-true
+	predicate.
+
+	* tree-ssa-alias.c (maybe_create_global_var): Create
+	.GLOBAL_VAR if there are no call-clobbered variables.
+	* tree-ssa-operands.c (get_stmt_operands): Add call-clobbering
+	VDEFs for asm ("":::"memory") if there are call-clobbered
+	variables or if .GLOBAL_VAR has been created.
+
+
+2004-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* passes.c (rest_of_compilation): Re-enable .01.rtl
+	dumps.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node) <WITH_RECORD_EXPR>: Remove.
+	* tree-inline.c (estimate_num_insns_1) <WITH_RECORD_EXPR>: Remove.
+	* fold-const.c (fold_relational_hi_lo): Change type of argument
+	'type_p' to const tree and rename it to 'type'.  Update
+	all callers.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Remove c-call-graph.o
+	(c-call-graph.o): Remove.
+	* c-call-graph.c: Remove.
+	* c-tree.h (print_call_graph): Remove.
+	(debug_call_graph): Remove.
+	* tree-cfg.c: Update/add comments everywhere.
+	(pre_insert_on_edge): Rename from bsi_insert_on_edge_immediate.
+	* tree-flow.h (build_tree_cfg): Make static.
+	(tree_cfg2dot): Likewise.
+	(verify_stmt): Likewise.
+	* tree-ssa-pre.c (insert_one_operand): Call pre_insert_on_edge.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (struct alias_info): Change type of field
+	'num_references' to varray_type.  Update all users.
+
+2004-03-24  Jeff Law  <law@redhat.com>
+
+	* c-mudflap (mflang_flush_calls): Use push_scope/pop_scope instead
+	of pushlevel and poplevel.
+
+2004-03-23  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14694
+	* c-common.c (handle_alias_attribute): Mark aliased variables
+	to be TREE_STATIC.
+
+2004-03-23  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (register_new_def): Lose unnecessary VAR argument,
+	instead derive VAR from DEF argument.
+	(rewrite_initialize_block, rewrite_stmt, rewrite_operand): Corresponding
+	changes.
+	* tree-ssa-dom.c (register_definitions_for_stmt): Corresponding changes.
+	(record_equivalences_from_phis): Likewise.
+	(restore_currdefs_to_original_value): New, extracted from ...
+	(dom_opt_finalize_block): Use restore_currdefs_to_original_value.
+	Restore currdefs after threading across a true edge.
+	(thread_across_edge): Register new defintions when we walk through
+	a PHI node or real statement.
+	* tree-flow.h (register_new_def): Updated.
+
+2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-dce.c (find_obviously_necessary_stmts,
+	perform_tree_ssa_dce): Do not remove loops.
+
+2004-03-19  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14643
+	* tree-ssa-alias.c (group_aliases_into): Don't add a variable
+	to its own may-alias set.
+	(create_alias_map_for): New.
+	(setup_pointers_and_addressables): Call it.
+	Fix allocation of AI->ADDRESSABLE_VARS and AI->POINTERS.
+	If there are no addressable variables and more than one
+	dereferenced pointers, add type tags to the ADDRESSABLE_VARS
+	array.
+	(get_tmt_for): Add comment about using alias set equality when
+	checking for existing tags.
+
+2004-03-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* fold-const.c (fold_relational_const): Remove dead code.
+
+2004-03-19  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-dse.c (dse_optimize_stmt):  Redirect uses feeding into
+	a deleted store correctly.
+
+2004-03-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Fix typo.
+	Eliminate unnecessary test of VAL.
+
+	* tree-dfa.c (find_hidden_use_vars): Also look inside the
+	PENDING_SIZES list for hidden uses.
+	* tree-optimize.c (tree_rest_of_compilation): Expand used variables
+	before setting up parameters.
+	* tree-ssa-copyrename.c (rename_ssa_copies): Do nothing for copies
+	where the LHS has a hidden use.
+
+2004-03-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Reformat.
+	(OBJS-common): Add tree-into-ssa.o and tree-outof-ssa.o.
+	(tree-ssa.o): Remove dependency on domwalk.h and tree-ssa-live.h
+	(tree-into-ssa.o): New.
+	(tree-outof-ssa.o): New.
+	(GTFILES): Remove tree-ssa.c.
+	(gt-tree-ssa.h): Remove.
+	* tree-into-ssa.c: New file.
+	Move all the functions used to rename into SSA from tree-ssa.c.
+	Update/add comments.
+	Remove unused variables and structures.
+	Don't use GGC for memory allocation.
+	* tree-outof-ssa.c: New file.
+	Move all the functions used to rename out of SSA from
+	tree-ssa.c.
+	Update/add comments.
+	* tree-ssa-alias.c (compute_points_to_and_addr_escape): Add
+	bibliographic reference.
+
+2004-03-18  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (tree-tailcall.o): Depend on langhooks.h.
+	* tree-tailcall.c: Include langhooks.h.
+	(find_tail_calls): Use types_compatible_p langhook instead of
+	equality test of TYPE_MAIN_VARIANT.
+
+	* tree-nested.c (get_chain_decl): Mark the chain decl with
+	TREE_NO_WARNING.
+
+2004-03-18  Devang Patel  <dpatel@apple.com>
+
+	* tree-ssa-live.c (new_tree_live_info): Set num_blocks to
+	last_basic_block instead of n_basic_blocks.
+	(calculate_live_on_entry): Use last_basic_block instead of
+	n_basic_blocks.
+	(calculate_live_on_exit): Same.
+
+2004-03-17  Jeff Law  <law@redhat.com>
+
+	* tree-tailcall.c (find_tail_calls): Tighten test for tail recursion.
+
+2004-03-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14511
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Do not
+	ignore read-only variables.
+	(may_alias_p): Fix pointer-to-var calculation when 'var' is an
+	array.
+
+2004-03-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa.c (rewrite_into_ssa, compute_global_livein): Fix.
+
+2004-03-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	* builtins.c (expand_builtin_constant_p,
+	purge_builtin_constant_p): Remove.
+	(expand_builtin): Expand __builtin_constant_p to zero.
+	* function.c (struct function): Remove calls_constant_p.
+	(current_function_calls_constant_p): Remove.
+	* passes.c (rest_of_handle_gcse): Do not run
+	purge_builtin_constant_p.
+	* rtl.def (CONSTANT_P_RTX): Die die die.
+
+	* cse.c (fold_rtx): Do not handle CONSTANT_P_RTX.
+	* expr.c (emit_move_insn): Likewise.
+	* gcse.c (want_to_gcse_p, gcse_constant_p): Likewise.
+	* genrecog.c (validate_pattern): Likewise.
+	* recog.c (immediate_operand): Likewise.
+	* rtl.h (CONSTANT_P): Likewise.
+	* simplify-rtx.c (simplify_rtx): Likewise.
+	* config/alpha/alpha.c (input_operand): Likewise.
+	* config/arm/arm.c (THUMB_LEGITIMATE_CONSTANT_P): Likewise.
+	* config/c4x/c4x.c (const_operand): Likewise.
+	* config/cris/cris.c (cris_gotless_symbol,
+	cris_got_symbol): Likewise.
+	* config/frv/frv.h (LEGITIMATE_PIC_OPERAND_P): Likewise.
+	* config/ia64/ia64.c (gr_reg_or_5bit_operand,
+	gr_reg_or_6bit_operand, gr_reg_or_8bit_operand,
+	gr_reg_or_8bit_adjusted_operand,
+	gr_reg_or_8bit_and_adjusted_operand,
+	gr_reg_or_14bit_operand, gr_reg_or_22bit_operand,
+	shift_count_operand, shift_32bit_count_operand): Likewise.
+	* config/m32r/m32r.c (move_src_operand): Likewise.
+	* config/mips/mips.c (mips_const_insns): Likewise.
+	* config/mmix/mmix.c (mmix_constant_address_p): Likewise.
+	* config/pa/pa.c (move_src_operand): Likewise.
+	* config/rs6000/rs6000.c (input_operand): Likewise.
+	* config/sparc/sparc.c (input_operand): Likewise.
+	* config/v850/v850.c (movsi_source_operand): Likewise.
+	* config/xtensa/xtensa.c (move_operand,
+	xtensa_emit_move_sequence): Likewise.
+	* config/ia64/ia64.h (PREDICATE_CODES): Do not mention CONSTANT_P_RTX.
+	* config/pa/pa.h (PREDICATE_CODES): Likewise.
+
+2004-03-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dump.c (struct dump_option_value_info): Add TDF_UID.
+	* tree.h (TDF_UID): Define.
+	* doc/invoke.texi: Document -ftree-dump-...-uid.
+	* tree-pretty-print.c (debug_generic_expr): Add TDF_UID.
+	(debug_generic_stmt): Likewise.
+	(dump_decl_name): New function.
+	(dump_generic_node): Call it.
+	(print_declaration): Add new argument 'flags'.  Update all users.
+	(print_struct_decl): Likewise.
+	* tree-alias-ander.c, tree-cfg.c, tree-dfa.c, tree-mudflap.c,
+	tree-nrv.c, tree-sra.c, tree-ssa-alias.c, tree-ssa-ccp.c,
+	tree-ssa-copy.c, tree-ssa-dom.c, tree-ssa-dse.c,
+	tree-ssa-forwprop.c, tree-ssa-operands.c, tree-ssa-pre.c,
+	tree-ssa.c, tree-tail-call.c: Call print_generic_* with
+	'dump_flags'.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (tree-ssa-phiopt.o): add langhooks.h dependency.
+	(tree-nrv.o): Ditto.
+	(tree-ssa-copy.o): Ditto.
+	(tree-ssa-dom.o): Ditto.
+	(tree-ssa-ccp.o): Ditto.
+	* c-common.c: Add #include hashtab.h.
+	(c_type_hash): New.
+	(c_common_get_alias_set): Handle multiple type nodes referring
+	to "the same" type, currently for C90 only.
+	* c-decl.c (current_file_decl): Move to toplev.c.
+	* c-lang.c (LANG_HOOKS_TYPES_COMPATIBLE_P): Define to
+	c_types_compatible_p.
+	(c_types_compatible_p): New.
+	* c-tree.h (c_types_compatible_p): New declaration.
+	* c-typeck.c (tagged_types_tu_compatible_p): Allow for
+	compiler-generated TYPE_DECLs without a DECL_ORIGINAL_TYPE.
+	* gimplify.c (canonicalize_addr_expr): Use types_compatible_p langhook.
+	(cpt_same_type): Ditto.
+	* langhooks-def.h (lhd_types_compatible_p): New declaration.
+	LANG_HOOKS_TYPES_COMPATIBLE_P: New.
+	* langhooks.c (lhd_types_compatible_p): New.
+	* langhooks.h (struct lang_hooks): Add types_compatible_p.
+	* stmt.c (tail_recursion_args): Use types_compatible_p langhook.
+	* toplev.c (current_file_decl): New, moved from c-decl.c.
+	* tree-nrv.c: Include langhooks.h.
+	(tree_nrv): Use types_compatible_p langhook.
+	* tree-ssa-ccp.c: Include langhooks.h.
+	(maybe_fold_offset_to_array_ref): Use types_compatible_p langhook.
+	(maybe_fold_offset_to_component_ref): Ditto (2 places).
+	(fold_stmt_r): Make sure rhs of COMPONENT_REF is in lhs type.
+	* tree-ssa-copy.c: Include langhooks.h.
+	(cprop_into_stmt): Use types_compatible_p langhook.
+	* tree-ssa-dom.c: Include langhooks.h.
+	(avail_expr_p): Use types_compatible_p langhook.
+	* tree-ssa-phiopt.c: Include langhooks.h.
+	(conditional_replacement): Use types_compatible_p langhook.
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Use
+	types_compatible_p langhook.
+	* tree.h (current_file_decl): New declaration.
+
+2004-03-16  Dale Johannesen  <dalej@apple.com>
+
+	PR optimization/14498
+	* gimplify.c (copy_if_shared_r): Mark VA_ARGS_EXPRs as volatile.
+	(mark_decls_volatile_r): Moved higher in file (unchanged).
+
+2004-03-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	PR optimization/14562
+	* tree-ssa-pre.c (generate_expr_as_of_bb): Don't use names_match_p.
+	(generate_vops_as_of_bb): Ditto.
+
+2004-03-12  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14553
+	* tree-ssa.c (replace_immediate_uses): Call propagate_value to
+	update operands.
+
+2004-03-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-alias-common.c (create_alias_vars): Add #if
+	HAVE_BANSHEE around test for PTA_ANDERSEN.
+
+2004-03-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (struct walk_state): Remove fields 'is_store' and
+	'is_indirect_ref'.  Update all users.
+	* tree-flow.h (struct var_ann_d): Remove fields 'is_stored',
+	'is_dereferenced_store' and 'is_dereferenced_load'.  Update
+	all users.
+	* tree-simple.c (get_base_address): Handle BIT_FIELD_REF.
+	* tree-ssa-alias.c (struct alias_info): Add fields
+	'written_vars', 'dereferenced_ptrs_store' and
+	'dereferenced_ptrs_load'.
+	(init_alias_info): Initialize them.
+	(delete_alias_info): Free them.
+	(find_ptr_dereference): New.
+	(ptr_is_dereferenced_by): Call it.
+	Add new argument 'is_store'.  Set to true if the
+	expression is an indirect store operation.
+	(compute_points_to_and_addr_escape): If the statement
+	makes a store, load or write operation, update the
+	corresponding bitmap.
+	(compute_flow_insensitive_aliasing): Test the
+	'written_vars' bitmap to determine if alias sets should
+	be computed.
+	(setup_pointers_and_addressables): Always assume that
+	volatile pointers and hidden pointers have been used in a
+	memory store operation.
+	* tree-ssa-operands.c (add_stmt_operand): Do add an
+	operand for may-aliased variables before computing
+	aliases.
+
+2004-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-optimize.c (init_tree_optimization_passes): Move
+	pass_tail_recursion and pass_ch after pass_may_alias.
+	* tree-ssa-loop.c (mark_defs_for_rewrite): Mark type tags
+	for rewriting.
+	* tree-ssa.c (mark_def_sites): Process the operand of a
+	VDEF before the result.
+
+2004-03-11  Richard Henderson  <rth@redhat.com>
+
+	PR 14204
+	* tree-ssa.c (warn_uninit): Don't warn for hard register variables.
+
+2004-03-10  Richard Henderson  <rth@redhat.com>
+
+	* tree-simple.c (get_base_var, get_base_decl): Remove.
+	* tree-simple.h: Likewise.
+	* tree-dfa.c (discover_nonconstant_array_refs_r): Use get_base_address.
+	* tree-ssa-alias.c (ptr_is_dereferenced_by): Likewise.
+	(add_pointed_to_var, is_escape_site): Likewise.
+	* tree-ssa-ccp.c (get_default_value): Expect only SSA_NAME and DECLs.
+	* tree-ssa-operands.c (add_stmt_operand): Likewise.
+	(note_addressable): Use get_base_address.
+	* tree-ssa-dce.c (need_to_preserve_store): Expect only SSA_NAME.
+	* tree-ssa.c (set_is_used): Inline get_base_decl.
+
+2004-03-10  Richard Henderson  <rth@redhat.com>
+
+	* tree-nested.c (convert_nonlocal_reference): Clear TREE_INVARIANT
+	on modified ADDR_EXPRs.
+
+2004-03-10  Andrew Pinski  <apinski@apple.com
+
+	PR c/14475
+	* c-decl.c (check_bitfield_type_and_width): Check for null
+	lang_type_specific when check the precision of an enum.
+
+2004-03-09  Andrew Pinski  <apinski@apple.com>
+
+	* Makefile.in (tree-ssa-forwprop.o): Fix the dependences.
+
+2004-03-09  Jeff Law  <law@redhat.com>
+
+	* tree-flow-inline.h (may_propagate_copy): Do not allow propagation of
+	a constant for a virtual operand.
+
+2004-03-08  Richard Henderson <rth@redhat.com>
+
+	* calls.c (initialize_argument_information): Add
+	parameter may_tail_call.  Set to false for invisible
+	pass-by-reference arguments that require stack
+	allocation.
+	Update all users.
+
+2004-03-07  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c: (get_eq_expr_value): Fix typo when comparing a
+	boolean against a constant.
+	* tree-ssa-forwprop.c (record_single_argument_cond_exprs): Do not
+	record the same SSA_NAME more than once.  Only record the SSA_NAME
+	tested, not the COND_EXPR.
+	(substitute_single_use_vars): Substitute booleans which are
+	set from a TRUTH_NOT_EXPR even if they have more than one use site.
+
+2004-03-05  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dce.c (remove_dead_stmt): Clear PENDING_STMT after
+	redirect_edge_and_branch call.
+
+	* tree-ssa-forwprop.c (record_single_argument_cond_exprs): Also
+	record COND_EXPRs with single use vars defined by SSA_NAME + CONST
+	expressions.
+	(substitute_single_use_vars): Corresponding changes to rewrite
+	COND_EXPRs using single use vars defined by SSA_NAME + CONST
+	expressions.
+
+2004-03-05  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_movstr): Do not use
+	expand_exit_loop_top_cond, manually copy loop header.
+	(s390_expand_clrstr): Likewise.
+	(s390_expand_cmpmem): Likewise.
+
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): If
+	a name tag has been marked call-clobbered, also mark the
+	corresponding type tag.
+
+2004-03-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-live.c (coalesce_tpa_members): Update the root
+	variable of the partition.
+
+2004-03-04  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dce.c (remove_dead_stmt): Redirect an existing edge
+	rather than deleting the old ones and creating a new one when
+	removing a dead conditional.
+
+	* fold-const.c (fold): When rebuilding the expression after a
+	call to fold_relational_hi_lo, make sure to convert the type of
+	the second argument to the type of the first.
+
+2004-03-04  Diego Novillo  <dnovillo@redhat.com>
+
+	* cgraphunit.c (cgraph_optimize): Do not do memory release
+	check if there have been errors.
+
+2004-03-03  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (conditional_replacement): Clear EDGE_TRUE_VALUE
+	and EDGE_FALSE_VALUE on the remaining edge after eliminating a PHI.
+
+2004-03-03  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-copyrename.c (gate_copyrename): Really check it in.
+	* tree-ssa.c (create_temp): Use DECL_ARTIFICIAL from original decl.
+
+2004-03-02  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-tailcall.c (struct tailcall): Remove return_block and return_bsi
+	fields, add m and a fields.
+	(m_acc, a_acc): New.
+	(find_tail_calls): Find tail calls on whose results simple operations
+	are performed.
+	(independent_on_stmt_p, process_assignment,
+	propagate_through_phis, adjust_accumulator_values,
+	adjust_return_value): New.
+	(eliminate_tail_call): Update the accumulators if needed.
+	(optimize_tail_call): Do not create phis.
+	(tree_optimize_tail_calls): Create phis and accumulators as needed.
+	Adjust return values.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.c (get_expr_operands): Mark CALL_EXPRs
+	with has_volatile_ops if aliases haven't been computed yet.
+	(add_stmt_operand): Use 'true' instead of '1'.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14266
+	* tree-ssa-alias.c (create_global_var): Mark GLOBAL_VAR for
+	renaming.
+
+2004-03-01  Richard Henderson  <rth@redhat.com>
+
+	* tree.c (associative_tree_code): Remove MINUS_EXPR, LSHIFT_EXPR,
+	RSHIFT_EXPR.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Use
+	is_gimple_min_invariant and is_gimple_var.  Handle minus_expr
+	specially.
+
+2004-03-01  Richard Henderson  <rth@redhat.com>
+
+	* cfgbuild.c (rtl_make_eh_edge): Rename from make_eh_edge.
+	* basic-block.h, except.c: Update decl and uses.
+
+2004-03-01  Frank Ch. Eigler  <fche@redhat.com>
+
+	* doc/passes.texi: Add information about mudflap.
+
+2004-03-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/13066
+	* fold-const (fold): Call fold_convert when building
+	a TRUTH_*_EXPR tree.
+
+2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* common.opt : Add tree-copyrename option. Remove duplicate tree-sra.
+	* flags.h (flag_tree_copyrename): Declare.
+	* opts.c (decode_options): Turn copyrename on by default at -O.
+	(common_handle_option): Handle -ftree-copyrename.
+	* toplev.c (flag_tree_copyrename): Declare.
+	* tree-ssa-copyrename.c (gate_copyrename): New.  Check flag.
+	(pass_rename_ssa_copies): Initialize with gated routine.
+	(lang_independent_options f_): Add tree-copyrename.
+	* doc/invoke.texi: Add -fdump-tree-copyrename and  -ftree-copyrename.
+	* doc/passes.texi: Add blurb for copy renaming.
+
+2004-03-01  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (true_false_expr_hash): Update comments slightly.
+	(true_false_expr_eq): Update comments slightly.  Avoid using
+	operand_equal_p, instead check the code and operands directly.
+
+2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in (tree-ssa-copyrename.o): New object.
+	* timevar.def (TV_TREE_COPY_RENAME): New time variable.
+	* tree-optimize.c (init_tree_optimization_passes): Add copy rename
+	pass.
+	* tree-pass.h (pass_rename_ssa_copies): New pass structure.
+	* tree-sra.c (lookup_scalar): Copy DECL_ARITIFICIAL flag from base.
+	* tree-ssa-copyrename.c : New file.
+	(copy_rename_partition_coalesce): Coalesce partitions for renaming.
+	(rename_ssa_copies): Find renamable copies.
+	(pass_rename_ssa_copies): Initialize.
+	* tree-ssa-live.c (register_ssa_partition): Move to tree-ssa-live.h.
+	* tree-ssa-live.h (register_ssa_partition): Moved from tree-ssa-live.c.
+
+2004-02-29  David Edelsohn  <edelsohn@gnu.org>
+
+	* doloop.c (doloop_optimize): Increment n_iterations if loop->top
+	present.
+
+2004-02-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* gimple-low.c (pass_remove_useless_vars): Add TODO_dump_func.
+
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14310
+	* explow.c (emit_stack_save): Remove savearea mode check.
+
+2004-02-27  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (simplify_builtin_strcmp): Don't export.  Remove
+	length parameters.  Remove conversion to memcmp.
+	(simplify_builtin_strncmp): Likewise.
+	* expr.h: Don't declare them.
+	* tree-ssa-ccp.c (ccp_fold_builtin): Don't call them.
+
+2004-02-27  Dale Johannesen  <dalej@apple.com>
+
+	* tree-cfg.c (cleanup_control_expr_graph): Prevent edge
+	probability from overflowing due to roundoff errors.
+
+2004-02-27  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (verify_expr): Do not walk down into types.
+	Expand checking to verify that unary/binary operators have
+	gimple operands.
+	* tree-ssa-ccp.c (ccp_fold_builtin, case BUILT_IN_STRLEN): Do not
+	create non-gimple code.  Similarly for BUILTIN_IN_STRCPY and
+	BUILT_IN_STRNCPY.
+	* tree-ssa-phiopt.c (conditional_replacement): Do not create
+	non-gimple code.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Likewise.
+
+	* tree-simple.c (is_gimple_min_invariant): Subtraction of a
+	constant from a constant pointer is a gimple invariant as well.
+	* tree-ssa-operands.c (get_expr_operands): Handle subtraction
+	of a constant from a constant pointer too.
+
+	* fold-const.c (fold): Tighten test for optimizing an equality
+	comparison of the address of two variables.
+
+	* tree-inline.c (setup_one_parameter): Improve test for when we
+	need to gimplify the initialization statements.
+
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/14312
+	* tree-pretty-print.c (dump_generic_node): Mark tail calls.
+	* tree-ssa-alias.c (compute_may_aliases): Restore call to
+	dump_referenced_vars.
+	(compute_points_to_and_addr_escape): If the address of a
+	variable V is stored into a non-pointer variable, mark V as
+	call-clobbered.
+	* tree-tailcall.c (suitable_for_tail_opt_p): Check for
+	call-clobbered instead of TREE_ADDRESSABLE.
+	Ignore memory tags.
+	(optimize_tail_call): Add newline to dump output.
+
+2004-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	PR optimization/13347
+	* tree-sra.c (scalarize_structure_assignment): Use STRIP_NOPS
+	instead of STRIP_USELESS_TYPE_CONVERSION to remove type casts
+	from RHS of the assignment.
+
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): Reformat
+	and rephrase comments.
+	* tree.h (STRIP_USELESS_TYPE_CONVERSION): Reformat comment.
+
+2004-02-26  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (tree_redirect_edge_and_branch_1): Allow to redirect
+	RETURN_EXPR branches.
+
+2004-02-26  Jeff Law  <law@redhat.com>
+
+	* tree-nrv.c (tree_nrv): Only perform NRV optimization when the
+	return value lives in memory.
+
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): If an
+	operand is unsigned, then we can eliminate more ABS expressions
+	and turned div/mod expression into shift/and expressions.
+
+	* fold-const.c (fold): An equality comparison of the address of
+	two non-weak variables has known compile-time result.
+
+2004-02-26  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-ssa-phiopt.c (conditional_replacement):
+	s/tree_dump_flags/dump_flags/.
+
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): Split into ...
+	(conditional_replacement): Here.
+
+2004-02-26  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa.c (find_replaceable_in_bb): Don't repalce expressions in
+	volatile statements.
+
+2004-02-25  Richard Henderson  <rth@redhat.com>
+
+	PR opt/14288
+	* gimplify.c (gimple_push_cleanup): Add VAR argument.  Set
+	TREE_NO_WARNING if in a conditional context.
+	(gimplify_target_expr): Pass new argument.
+	* tree-sra.c (lookup_scalar): Copy TREE_NO_WARNING to replacement.
+
+2004-02-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* doc/invoke.texi: Replace -fdump-tree-all-ssa with
+	-fdump-tree-all.
+
+2004-02-24  Kazu Hirata  <kazu@cs.umass.edu>
+
+	PR target/14285
+	* config/arm/arm.c (arm_compute_func_type): Replace
+	"current_function_needs_context" with "cfun->static_chain_decl
+	!= NULL".
+	(arm_compute_initial_elimination_offset): Likewise.
+	* config/h8300/h8300.c (h8300_emit_stack_adjustment):
+	Likewise.
+	* config/sh/sh.c (output_stack_adjust): Likewise.
+	(sh5_schedule_saves): Likewise.
+	* config/xtensa/xtensa.c (compute_frame_size): Likewise.
+
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* c-simplify.c (c_genericize): s/dump_flags/local_dump_flags/.
+	* predict.c, tree-alias-ander.c, tree-cfg.c, tree-nrv.c,
+	tree-optimize.c, tree-pass.h, tree-sra.c, tree-ssa-alias.c,
+	tree-ssa-ccp.c, tree-ssa-copy.c, tree-ssa-dce.c, tree-ssa-dom.c,
+	tree-ssa-dse.c, tree-ssa-forwprop.c, tree-ssa-loop.c,
+	tree-ssa-phiopt.c, tree-ssa-pre.c, tree-ssa.c, tree-tailcall.c:
+	s/tree_dump_flags/dump_flags/.
+
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* predict.c, tree-alias-ander.c, tree-cfg.c, tree-mudflap.c,
+	tree-nrv.c, tree-optimize.c, tree-pass.h, tree-profile.c, tree-sra.c,
+	tree-ssa-alias.c, tree-ssa-ccp.c, tree-ssa-copy.c, tree-ssa-dce.c,
+	tree-ssa-dom.c, tree-ssa-dse.c, tree-ssa-forwprop.c, tree-ssa-loop.c,
+	tree-ssa-operands.c, tree-ssa-phiopt.c, tree-ssa-pre.c, tree-ssa.c,
+	tree-tailcall.c: s/tree_dump_file/dump_file/g.
+
+2004-02-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/tree-ssa.texi: Fix formatting mark ups.
+
+2004-02-24  Jeff Law  <law@redhat.com>
+
+	* gimple-low.c (remove_useless_vars): Now static.
+	(pass_remove_useless_vars): New.
+	* tree-flow.h (remove_useless_vars): Remove prototype.
+	* tree-nrv.c (struct nrv_data): Remove visited hashtable.
+	(finalize_nrv_r): Do not descend into types. No need to update
+	the visited hashtable.
+	(tree_nrv): No need to allocate/free the visited hashtable.
+	Clear the used flag on the variable's annotation.
+	* tree-optimize.c (init_tree_optimizatio_passes): Link in
+	pass_remove_useless_vars.
+	* tree-pass.h (pass_remove_useless_vars): Declare.
+	* tree-ssa.c (rewrite_out_of_ssa): Do not remove useless vars here.
+
+	* Makefile.in (OBJS-common): Add tree-nrv.o.
+	(tree-nrv.o): Add dependencies.
+	* timevar.def (TV_TREE_NRV): New timevar.
+	* tree-nrv.c: New file implementing NRV on generic trees.
+	* tree-optimize.c (init_tree_optimization_passes): Link in
+	tree_nrv optimization pass.
+	* tree-pass.h (tree_nrv): Declare.
+	* doc/invoke.texi: Add -fdump-tree-nrv documentation.
+
+2004-02-24  Sebastian Pop  <sebastian.pop@cri.ensmp.fr>
+
+	* tree-flow.h (walk_use_def_chains_fn): Return a boolean.
+	True for stopping the use-def walk, false otherwise.
+	* tree-ssa-alias.c (collect_points_to_info_r): Same.
+	Always return false, and never stopping the def-use walk as before.
+	* tree-ssa.c (walk_use_def_chains_1): Stop when the result of the
+	callback function is true.
+	* doc/tree-ssa.texi: Document the behavior of the callback
+	function for walk_use_def_chains.
+
+2004-02-24  Richard Henderson  <rth@redhat.com>
+
+	* doc/passes.texi: Rewrite.
+
+2004-02-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TEXI_GCCINT_FILES): Add cfg.texi and tree-ssa.texi
+	* tree-ssa-alias.c (compute_may_aliases): Update documentation.
+	* doc/gccint.texi: Add node for Tree SSA documentation.
+	Include tree-ssa.texi.
+	* doc/tree-ssa.texi: New file.
+
+2004-02-23  Dale Johannesen <dalej@apple.com>
+
+	* config/rs6000/rs6000.md:  Roll in changes from mainline:
+	(movdf_softfloat64):  Add POWER form of nop.
+	(movsf_hardfloat): Ditto, and accept CTR-to-CTR copy.
+	(movdf_hardfloat64):  Ditto.
+
+2004-02-23  Jeff Law  <law@redhat.com>
+
+	* ggc-page.c (struct page_entry): New field PREV.
+	(ggc_alloc): Update PREV field appropriately.
+	(sweep_pages): Likewise.
+	(ggc_free): Likewise.  Use PREV field rather than loop to
+	improve ggc_free performance.
+
+	* Makefile.in (OBJC-common): Add tree-ssa-copy.o.
+	(tree-ssa-copy.o): Add dependencies.
+	* tree-flow.h (propagate_value, replace_exp): Prototype.
+	(cprop_into_stmt, cprop_into_successor_phis): Likewise.
+	* tree-ssa-copy.c: New file, most functions copied from tree-ssa-dom.c
+	(cprop_into_stmt): Handle pointer & reference types better.
+	* tree-ssa-dom.c (opt_stats_d): Kill uninteresting stats.
+	(dump_dominator_optimization_stats): Corresponding changes.
+	(cprop_into_stmt): Moved into tree-ssa-copy.c.
+	(propagate_value): Likewise.
+	(cprop_into_phis): Simplify using code fromi tree-ssa-copy.c.
+	(optimize_stmt): Pass additional argument to cprop_into_stmt.
+	* tree-ssa-pre.c (generate_expr_as_of_bb): Use replace_exp.
+	(generate_vops_as_of_bb): Similarly.
+
+2004-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (decide_is_function_needed): Nested functions of extern
+	inline functions don't need to be output.
+	(expand_function): Re-enable sanity check.
+
+2004-02-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop.c (do_while_loop_p): New function.
+	(copy_loop_headers): Do not peel do-while loops.
+
+2004-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (cleanup_control_expr_graph): Update profile.
+
+	* tree-cfg.c (disband_implicit_edges): Set fallthru edges correctly.
+
+	* cfg.c (dump_flow_info): Work on trees too.
+
+	* tree-pretty-print.c (dump_generic_bb_stuff):  Do not touch bb
+	annotations when not allocated.
+
+2004-02-21  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (cprop_into_stmt): Look at the type's main variant
+	to determine if the two operands of a copy have equivalent types.
+
+2004-02-20  Jeff Law  <law@redhat.com>
+
+	* tree-flow-inline.h (may_propagate_copy): Do not perform ABNORMAL_PHI
+	and DECL_HARD_REGISTER tests on virtual operands.
+	* tree-flow.h (propagate_copy): Kill prototype.
+	(propagate_value): New prototype.
+	* tree-ssa-dom.c (propagate_copy): Now static.
+	(propagate_value): No longer static.
+
+2004-02-20  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/14218
+	* c-simplify.c (mark_labels_r): Move to ...
+	* gimplify.c (force_labels_r): ... here, and rename.
+	(gimplify_init_constructor): Invoke it.
+	* tree-simple.h (force_labels_r): Declare.
+
+2004-02-20  Richard Henderson  <rth@redhat.com>
+
+	PR opt/14194
+	* tree-ssa-ccp.c (substitute_and_fold): Also mark new vars
+	if fold_stmt was successful.
+
+2004-02-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Add documentation for parameters
+	global-var-threshold and max-aliased-vops.
+	* params.def (PARAM_GLOBAL_VAR_THRESHOLD): Reformat help message.
+	(PARAM_MAX_ALIASED_VOPS): Rename from PARAM_MAX_ALIAS_SET_SIZE.
+	* params.h (MAX_ALIASED_VOPS): Rename from MAX_ALIAS_SET_SIZE.
+	Update all users.
+	* tree-ssa-alias.c (struct alias_map_d): Document fields.
+	Add fields total_alias_vops, grouped_p and may_aliases.
+	(struct alias_info): Change fields addressable_vars and
+	pointers to malloc'd arrays.  Update all users.
+	Add fields num_references and total_alias_vops.
+	(compute_may_aliases): Add more comments.
+	(init_alias_info): Initialize new fields in struct alias_info.
+	(delete_alias_info): Corresponding changes.
+	(compute_points_to_and_addr_escape): Count references to
+	potentially aliased variables and pointer dereferences.
+	(compute_flow_insensitive_aliasing): Remove old grouping
+	heuristic.
+	Count the number of virtual operands induced by all the alias
+	sets created and call group_aliases if the number exceeds the
+	threshold set by --param max-aliased-vops.
+	(total_alias_vops_cmp): New.
+	(group_aliases_into): New.
+	(group_aliases): New.
+	* tree-ssa-operands.c (get_expr_operands): Change dump file
+	message when no flow-sensitive alias information is available.
+	(add_stmt_operand): Reformat comment.
+	* tree-ssa.c (init_tree_ssa): Don't call bitmap_clear.
+
+	* tree-simple.c (get_base_decl): Fix typo in comment.
+
+	* tree-pretty-print.c (print_call_name): Handle matrices of
+	function pointers.
+
+2004-02-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop.o): Add tree-inline.h dependency.
+	* basic-block.h (struct reorder_block_def): Moved from cfglayout.h.
+	(alloc_rbi_pool, initialize_bb_rbi, free_rbi_pool): New.
+	* bb-reorder.c (copy_bb): Use cfghooks for bb duplication.
+	* cfg.c (rbi_pool): New variable.
+	(alloc_rbi_pool, free_rbi_pool, initialize_bb_rbi): New functions.
+	* cfghooks.c (can_duplicate_block_p, duplicate_block): New functions.
+	* cfghooks.h (struct cfg_hooks): Add can_duplicate_block_p and
+	duplicate_block hooks.
+	(can_duplicate_block_p, duplicate_block): Declare.
+	* cfglayout.c (cfg_layout_pool, cfg_layout_initialize_rbi): Removed.
+	(fixup_reorder_chain): Use initialize_bb_rbi.
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb): Hookized.
+	(cfg_layout_initialize): Use cfg.c rbi pool manipulation functions.
+	(can_copy_bbs_p, copy_bbs): Use cfghooks for bb duplication.
+	* cfglayout.h (typedef struct reorder_block_def): Moved to
+	basic_block.h.
+	(cfg_layout_can_duplicate_bb_p, cfg_layout_duplicate_bb): Declaration
+	removed.
+	* cfgrtl.c (cfg_layout_create_basic_block): Use initialize_bb_rbi.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hook): Fill in can_duplicate_block_p
+	and duplicate_block fields.
+	* common.opt (ftree-ch): Add.
+	* flags.h (flag_tree_ch): Declare.
+	* jump.c (next_nonnote_insn_in_loop, duplicate_loop_exit_test,
+	copy_loop_headers): Removed.
+	* loop-unswitch.c (unswitch_loop): Use cfghooks for bb duplication.
+	* opts.c (decode_options): Enable flag_tree_ch at -O1.
+	(common_handle_option): Handle -ftree_ch.
+	* rtl.h (copy_loop_headers): Declaration removed.
+	* timevar.def (TV_TREE_CH): New.
+	* toplev.c (flag_tree_ch): New.
+	(rest_of_compilation): Do not call copy_loop_headers.
+	* tracer.c (tail_duplicate): Use cfghooks for bb duplication.
+	* tree-cfg.c (build_tree_cfg): Call alloc_rbi_pool.
+	(create_bb): Call initialize_bb_rbi.
+	(delete_tree_cfg): Call free_rbi_pool.
+	(tree_duplicate_bb): Hookize.
+	(tree_can_duplicate_bb_p): New.
+	(tree_cfg_hooks): Fill in can_duplicate_block_p and duplicate_block
+	fields.
+	* tree-flow.h (tree_duplicate_bb): Declaration removed.
+	* tree-optimize.c (init_tree_optimization_passes): Add pass_ch.
+	* tree-pass.h (pass_ch): Declare.
+	* tree-ssa-loop.c: Include tree-inline.h.
+	(call_expr_p, should_duplicate_loop_header_p, mark_defs_for_rewrite,
+	duplicate_blocks, copy_loop_headers, gate_ch): New functions.
+	(pass_ch): New.
+	* doc/invoke.texi (-fdump-tree-ch, -ftree-ch): Document.
+
+2004-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix.h (MFWRAP_SPEC): Define.
+	(MFLIB_SPEC): Define.
+
+2004-02-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): TRUTH_NOT_EXPR is valid
+	gimple code.
+
+2004-02-19  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-cfg.c (cleanup_dead_labels): New function to remove
+	redundant labels.
+
+	Remove the RTL inliner.
+	* calls.c (try_to_integrate): Remove.
+	(expand_call): Do not try to expand calls inline.
+	* dbxout.c (dbxout_symbol_location): Don't mention integrate.c
+	in comments.
+	* expmed.c (extract_fixed_bit_field): Always propagate the
+	target for the shift if it is a REG.
+	* expr.c (emit_move_insn_1): Don't generate inline warnings.
+	(expand_expr_real_1): Don't look at inline_function_decl.
+	Don't output inlined functions here.
+	* expr.h (expand_inline_function): Remove prototype.
+	* emit-rtl.c (copy_most_rtx): Don't copy the integrated flag.
+	Copy the new return_val flag.
+	* final.c (final): Don't look at RTX_INTEGRATED_P.
+	* cfgrtl.c (create_basic_block_structure): Likewise.
+	* haifa-sched.c (priority): Likewise.
+	(restore_line_notes): Likewise.
+	* function.c (inline_function_decl): Remove.
+	(put_var_into_stack): Don't use it.
+	(fix_lexical_addr): Likewise.
+	* function.c (inline_function_decl): Remove extern declaration.
+	* genattrtab.c (ATTR_PERMANENT_P): Use the return_val flag
+	instead of the integrated flag.
+	* integrate.c (INTEGRATE_THRESHOLD): Remove.
+	(setup_initial_hard_reg_value_integration): Likewise.
+	(initialize_for_inline): Likewise.
+	(note_modified_parmregs): Likewise.
+	(integrate_parm_decls): Likewise.
+	(process_reg_param): Likewise.
+	(save_parm_insns): Likewise.
+	(copy_insn_list): Likewise.
+	(copy_insn_notes): Likewise.
+	(compare_blocks): Likewise.
+	(find_block): Likewise.
+	(inlining): Likewise.
+	(function_cannot_inline_p): Likewise.
+	(parmdecl_map): Likewise.
+	(in_nonparam_insns): Likewise.
+	(save_for_inline): Likewise.
+	(FIXED_BASE_PLUS): Likewise.
+	(expand_inline_function): Likewise.
+	(copy_rtx_and_substitute): Don't look at map->integrating,
+	map->inline_target, and inlining, since we are never copying
+	for integrating.
+	Don't abort on RTX_INTEGRATED_P.
+	(old_fun): Remove.
+	(output_inline_function): Remove.
+	* integrate.h (struct inline_map): Remove fields integrating,
+	block_map, leaf_reg_map, inline_target, and local_return_label.
+	* print-rtl.c (print_rtx): Don't print the integrated flag.
+	Print the return_val flag.
+	* rtl.h (struct rtx_def): Replace the integrated flag with the
+	return_val flag.
+	(RTX_INTEGRATED_P): Remove.
+	(notice_rtl_inlining_of_deferred_constant): Remove prototype.
+	* stmt.c (force_label_rtx): Don't look at inline_function_decl.
+	* toplev.c (rest_of_handle_inlining): Remove.
+	(rest_of_compilation): Don't call it, and never jump to exit.
+	Call convert_from_eh_region_ranges.
+	(wrapup_global_declarations): Don't output nested inlined functions.
+	* tree.h (function_cannot_inline_p): Remove prototype.
+	(save_for_inline): Ditto.
+	(output_inline_function): Ditto.
+	* unroll.c (unroll_loop): Don't clear map->inline_target.
+	* varasm.c (notice_rtl_inlining_of_deferred_constant): Remove.
+
+	* system.h: Poison INTEGRATE_THRESHOLD.
+	* config/avr/avr.h: Remove define.
+	* config/ip2k/ip2k.h: Likewise.
+
+	* unwind-sjlj.c (uw_install_context): Make a proper static inline
+	function.
+
+	* doc/rtl.texi: Remove references to the integrated flag.
+	* doc/tm.texi: Remove documentation of INTEGRATE_THRESHOLD.
+
+2004-02-17  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (coalesce_tpa_members): Don't coalesce partitions
+	which are not in the same TPA group.
+	* tree-ssa.c (rewrite_out_of_ssa): Coalesce via list first.
+
+2004-02-17  Brian Booth  <bbooth@redhat.com>
+
+	* tree-ssa-ccp.c (substitute_and_fold): Update stmt after
+	calling fold_stmt.
+
+2004-02-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/rs6000.c (output_function_profiler): Check
+	cfun->static_chain_decl instead of current_function_needs_context.
+
+2004-02-16  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.dse.c (dse_optimize_stmt): Dump info when we delete
+	stores.
+
+	* tree-ssa-dse.c: Update comments.
+
+	* Makefile.in (OBJS-common): Add tree-ssa-dse.o
+	(tree-ssa-dse.o): Add dependencies.
+	* common.opt (ftree-dse): New option.
+	* flags.h (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	* opts.c (decode_options): Turn on flag_tree_dse.
+	(common_handle_option): Handle  OPT_ftree_dse.
+	* timevar.def (TV_TREE_PHIOPT): Update text.
+	(TV_TREE_DSE): New timevar.
+	* toplev.c (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	(lang_independent_options): Add -ftree-dse.
+	* tree-dfa.c (redirect_immediate_use): New function.
+	(redirect_immediate_uses): New function.
+	* tree-flow.h (stmt_ann_d): Add UID field.
+	(redirect_immediate_uses): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Link in DSE pass.
+	* tree-pass.h (pass_dse): Declare.
+	* tree-ssa-dse.c: New file implementing DSE.
+	* doc/invoke.texi: Document new option.
+
+2004-02-16  Richard Henderson  <rth@redhat.com>
+
+	* tree-nested.c: New file.
+	* Makefile.in (OBJS-common, GTFILES, tree-nested.o): Add it.
+	* builtin-types.def (BT_FN_VOID_PTR_PTR, BT_FN_VOID_PTR_PTR_PTR): New.
+	* builtins.c (expand_builtin_nonlocal_goto): New.
+	(expand_builtin_apply): Fix prepare_call_address args.
+	(round_trampoline_addr): Move from function.c.
+	(expand_builtin_init_trampoline): New.
+	(expand_builtin_adjust_trampoline): New.
+	(expand_builtin): Invoke them.
+	(build_function_call_expr): Add CALL_EXPR chain operand.
+	* builtins.def (BUILT_IN_INIT_TRAMPOLINE,
+	BUILT_IN_ADJUST_TRAMPOLINE, BUILT_IN_NONLOCAL_GOTO): New.
+	* c-decl.c (finish_function): Call lower_nested_functions.
+	(c_expand_decl): Don't declare_nonlocal_label.
+	* calls.c (prepare_call_address): Replace fndecl arg with a
+	precomputed static chain value.
+	(expand_call): Precompute the static chain value.  Use
+	update_nonlocal_goto_save_area.
+	* cgraph.c (cgraph_mark_reachable_node): Don't force nested
+	functions to be reachable.
+	(cgraph_clone_node): Don't abort cloning functions containing
+	nested functions.
+	* cgraphunit.c (cgraph_assemble_pending_functions): Don't do
+	anything special for nested functions.
+	(cgraph_mark_functions_to_output): Likewise.
+	(cgraph_estimate_growth, cgraph_clone_inlined_nodes): Likewise.
+	(cgraph_optimize): Likewise.
+	(cgraph_finalize_function): Don't zap DECL_SAVED_INSNS.
+	(cgraph_expand_function): Allow functions to not be emitted.
+	* defaults.h (TRAMPOLINE_ALIGNMENT): Move from function.c.
+	* dwarf2out.c (gen_subprogram_die): Generate DW_AT_static_link.
+	* emit-rtl.c (maybe_set_first_label_num): New.
+	* explow.c (update_nonlocal_goto_save_area): New.
+	(allocate_dynamic_stack_space): Use it.
+	* expr.c (expand_expr_real_1) <LABEL_DECL>: Don't force_label_rtx.
+	<COND_EXPR>: Ignore the possibility of non-local labels.
+	<ADDR_EXPR>: Don't do trampoline_address.
+	* expr.h (lookup_static_chain): Remove.
+	(prepare_call_address): Update 2nd arg.
+	(update_nonlocal_goto_save_area): Declare.
+	* final.c (profile_function): Update static chain test.
+	* function.c (TRAMPOLINE_ALIGNMENT): Move to defaults.h.
+	(trampolines_created): Move to varasm.c.
+	(free_after_compilation): Update for removed fields.
+	(allocate_struct_function): Likewise.
+	(delete_handlers, lookup_static_chain): Remove.
+	(fix_lexical_addr): Don't consider non-local variable refs.
+	(trampoline_address): Remove.
+	(round_trampoline_addr): Move to builtins.c.
+	(adjust_trampoline_addr): Remove.
+	(expand_function_start): Update for changes to static chain
+	and nonlocal goto handling.
+	(initial_trampoline): Move to varasm.c.
+	(expand_function_end): Don't build trampolines or kill
+	unreferenced nonlocal goto labels.
+	* function.h (struct function): Remove x_nonlocal_labels,
+	x_nonlocal_goto_handler_slots, x_nonlocal_goto_stack_level,
+	x_context_display, x_trampoline_list, needs_context.
+	Add static_chain_decl, nonlocal_goto_save_area.
+	* gimple-low.c (record_vars): Don't record functions.
+	* gimplify.c (declare_tmp_vars): Export.
+	(create_artificial_label): Set type.
+	(gimplify_expr): Don't consider nonlocal gotos.
+	* integrate.c (expand_inline_function): Kill lookup_static_chain ref.
+	* jump.c (any_uncondjump_p): Reject nonlocal goto.
+	* rtl.h (maybe_set_first_label_num): Declare.
+	* stmt.c (label_rtx): Set LABEL_PRESERVE_P appropriately.
+	(expand_label): Handle DECL_NONLOCAL and FORCED_LABEL.
+	(declare_nonlocal_label): Remove.
+	(expand_goto): Don't handle nonlocal gotos.
+	(expand_nl_handler_label): Remove.
+	(expand_nl_goto_receivers): Remove.
+	(expand_end_bindings): Don't expand_nl_goto_receivers.  Use
+	update_nonlocal_goto_save_area.
+	* tree-cfg.c (make_edges): Handle abnormal edges out of block
+	falling through to EXIT.
+	(make_ctrl_stmt_edges): Don't check GOTO_EXPR for nonlocal goto.
+	Handle computed goto with no destinations.
+	(tree_can_merge_blocks_p): Don't merge blocks with nonlocal labels.
+	(remove_useless_stmts_label, stmt_starts_bb_p): Likewise.
+	(tree_forwarder_block_p): Likewise.
+	(nonlocal_goto_p): Remove.
+	(tree_verify_flow_info): Update to match.
+	* tree-dump.c (dump_files): Add tree-nested.
+	* tree-flow.h (nonlocal_goto_p): Remove.
+	* tree-inline.c (setup_one_parameter): Split out from ...
+	(initialize_inlined_parameters): ... here.  Handle static chain.
+	(inline_forbidden_p_1): Update nonlocal goto check.
+	(expand_call_inline): Disable mysterious cgraph abort.
+	* tree-optimize.c (tree_rest_of_compilation): Save DECL_SAVED_INSNS.
+	* tree-pretty-print.c (dump_generic_node): Print static chain
+	and nonlocal label.
+	* tree-simple.h (declare_tmp_vars): Declare.
+	(lower_nested_functions): Declare.
+	* tree-ssa-dom.c (propagate_value): Avoid sharing problems.
+	* tree-ssa-operands.c (get_expr_operands): Walk static chain
+	field of call_expr.
+	* tree.def (CALL_EXPR): Add static chain operand.
+	* tree.h (NONLOCAL_LABEL): Remove.
+	(TDI_nested): New.
+	* varasm.c (TRAMPOLINE_ALIGNMENT): Remove.
+	(initial_trampoline): Move from function.c.
+	(assemble_trampoline_template): Set and return it.
+	(trampolines_created): Move from function.c.
+
+2004-02-16  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-flow.h (cleanup_control_expr_graph): Don't declare here.
+	* tree-cfg.c (cleanup_control_expr_graph): Make static.
+	(find_edge_taken_cond_expr): Return an edge if the true and false
+	edges of a branch lead to the same basic block.
+
 2004-02-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-phinodes.c (resize_phi_node): Do not use ggc_realloc to
@@ -40,7 +1770,7 @@
 	(rtl_block_ends_with_condjump_p): New.
 	(need_fake_edge_p): Moved from cfganal.c.
 	(rtl_flow_call_edges_add): Moved from cfganal.c (flow_call_edges_add).
-	(rtl_cfg_hooks): Add rtl_block_ends_with_call_p, 
+	(rtl_cfg_hooks): Add rtl_block_ends_with_call_p,
 	rtl_block_ends_with_condjump_p, rtl_flow_call_edges_add.
 	(cfg_layout_rtl_cfg_hooks): Ditto.
 	* common.opt (ftree-based-profiling): New.
@@ -96,7 +1826,7 @@
 	* value-prof.c (value_prof_hooks): New.
 	(find_values_to_profile): Rename to rtl_find_values_to_profile.
 	Move rtl-specific bits in from branch_prob.
-	(value_profile_transformations): Rename to 
+	(value_profile_transformations): Rename to
 	rtl_value_profile_transformations.
 	(struct value_prof_hooks): New.
 	(rtl_value_prof_hooks): New.
@@ -123,7 +1853,7 @@
 	(tree_profile_hooks): New declaration.
 	(rtl_profile_hooks): New declaration.
 	* doc/invoke.texi: Document -ftree-based-profiling.
-	
+
 2004-02-12  Jeff Law  <law@redhat.com>
 
 	* domwalk.c (walk_dominator_tree): Move statement walking from
@@ -181,11 +1911,11 @@
 	* tree-ssa-live.h (SSANORM_COALESCE_PARTITIONS): New flag.
 	(SSANORM_USE_COALESCE_LIST): New flag.
 	* tree-ssa.c (create_temp): Don't mark as used when created.
-	(coalesce_ssa_name): Create coalesce list if requested.  Add more 
+	(coalesce_ssa_name): Create coalesce list if requested.  Add more
 	debug output.
 	(assign_vars): Add additional debug info.
 	(remove_ssa_form): Perform TER after assign_vars().
-	(rewrite_vars_out_of_ssa): Pass coalesce partitions flag to 
+	(rewrite_vars_out_of_ssa): Pass coalesce partitions flag to
 	remove_ssa_form.
 	(rewrite_out_of_ssa): Add coalesce list flag to remove_ssa_form call.
 
@@ -346,16 +2076,16 @@
 
 	Revert:
 	2004-02-06  Richard Henderson  <rth@redhat.com>
-        * tree-ssa-dom.c (record_equivalences_from_phis): Use
-        record_const_or_copy.
-        (record_equivalences_from_stmt): Likewise.  Replace 
-        block_avail_exprs_p and block_nonzero_vars_p args with bd.
+	* tree-ssa-dom.c (record_equivalences_from_phis): Use
+	record_const_or_copy.
+	(record_equivalences_from_stmt): Likewise.  Replace
+	block_avail_exprs_p and block_nonzero_vars_p args with bd.
 
 2004-02-09  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (get_eq_expr_value): Improve handling of boolean
 	conditions.
- 
+
 	* domwalk.c (walk_dominator_tree): Completely lose PARENT argument.
 	Callers updated.  No longer pass PARENT to callbacks.
 	* domwalk.h (struct dom_walk_data): Corresponding changes.
@@ -373,7 +2103,7 @@
 	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Break out
 	of tree_ssa_dominator_optimize.  If the out-of-ssa pass creates
 	new variables, then invalidate some requested jump threads.
-                                                                                
+
 2004-02-08  Richard Henderson  <rth@redhat.com>
 
 	* flow.c (regno_uninitialized): Remove.
@@ -395,7 +2125,7 @@
 	* tree-pass.h (pass_early_warn_uninitialized): New.
 	(pass_late_warn_uninitialized): New.
 	* tree-optimize.c (init_tree_optimization_passes): Add them.
-	
+
 2004-02-08  Richard Henderson  <rth@redhat.com>
 
 	* cppexp.c (append_digit): Rearrange unsignedp/overflow setting.
@@ -426,10 +2156,10 @@
 
 2004-02-06  Richard Henderson  <rth@redhat.com>
 
-        * tree-ssa-dom.c (record_equivalences_from_phis): Use
-        record_const_or_copy.
-        (record_equivalences_from_stmt): Likewise.  Replace 
-        block_avail_exprs_p and block_nonzero_vars_p args with bd.
+	* tree-ssa-dom.c (record_equivalences_from_phis): Use
+	record_const_or_copy.
+	(record_equivalences_from_stmt): Likewise.  Replace
+	block_avail_exprs_p and block_nonzero_vars_p args with bd.
 
 2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -441,9 +2171,9 @@
 
 	* tree-pretty-print.c (dump_generic_node): Render NON_LVALUE_EXPR.
 
-        * tree-ssa-dom.c (local_fold): New.
-        (thread_across_edge, simplify_rhs_and_lookup_avail_expr,
-        find_equivalent_equality_comparison): Use it.
+	* tree-ssa-dom.c (local_fold): New.
+	(thread_across_edge, simplify_rhs_and_lookup_avail_expr,
+	find_equivalent_equality_comparison): Use it.
 
 2004-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -490,8 +2220,8 @@
 	(rtx_equal_for_memref_p): Simplify checking of VALUEs.
 
 2004-02-04  Daniel Berlin  <dberlin@dberlin.org>
-	
-	* tree-alias-ander.c (andersen_init): Reorder/Redo code so that we 
+
+	* tree-alias-ander.c (andersen_init): Reorder/Redo code so that we
 	actually free the memory in intraprocedural mode.
 	(andersen_cleanup): Ditto.
 
@@ -527,8 +2257,8 @@
 
 2004-02-04  Richard Henderson  <rth@redhat.com>
 
-        * tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr): New.
-        (eliminate_redundant_computations): Call it.
+	* tree-ssa-dom.c (simplify_switch_and_lookup_avail_expr): New.
+	(eliminate_redundant_computations): Call it.
 
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
@@ -538,7 +2268,7 @@
 
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
-        PR middle-end/13325
+	PR middle-end/13325
 	* builtins.c (fold_builtin_1): Rename from fold_builtin.
 	(fold_builtin): New.
 	* c-simplify.c (gimplify_expr_stmt): Check TREE_NO_WARNING.
@@ -639,7 +2369,7 @@
 	in SSANORM_COMBINE_TEMPS in flags argument to remove_sas_form..
 
 2004-01-29  Dale Johannesen  <dalej@apple.com>
-	 
+
 	* Makefile.in (OBJS-common):  Move tree-nomudflap.o...
 	(OBJS-archive): ...to here, and remove duplicate tree-optimize.o.
 
@@ -669,14 +2399,14 @@
 	(GTFILES): Add gimplify.c.
 
 2004-01-27  Frank Ch. Eigler  <fche@redhat.com>
- 
+
 	* tree-mudflap.c (mx_register_decls): Support VLAs.
 	(mf_xform_derefs_1): Disable checking shortcut for VLAs.
 	* c-simplify.c (gimplify_decl_stmt): Add mudflap xref comment.
 	* gimplify.c (gimplify_bind_expr): Ditto.
 
 2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-ssa-pre.c:  Add more comments describing SSAPRE and
 	the various functions.
 	(generate_expr_as_of_bb): Use PRED, a basic block argument, instead of
@@ -686,7 +2416,7 @@
 	create_and_insert_occ_in_preorder_dt_order.
 
 2004-01-27  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-ssa-pre.c (rename_1): Add some more comments.
 
 2004-01-25  Andrew Pinski  <pinskia@physics.uc.edu>
@@ -720,8 +2450,8 @@
 	* tree-cfg.c (simple_goto_p): Remove NONLOCAL_LABEL check.
 
 2004-01-21  Dale Johannesen  <dalej@apple.com>
-	 
-	* tree-ssa-dfa.c:  Fix comment.
+
+	* tree-dfa.c: Fix comment.
 
 2004-01-21  Richard Henderson  <rth@redhat.com>
 
@@ -737,7 +2467,7 @@
 	to prevent type mismatches.
 
 2004-01-21  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-ssa-pre.c (load_modified_phi_result): PARM_DECL is okay
 	to not have a defbb.
 	(rename_1): Add a comment.
@@ -748,13 +2478,13 @@
 	CONVERT_EXPRs just like NOP_EXPRs.
 	(record_equivalences_from_stmt): Similarly.
 	(thread_across_edge): Fix formatting goof.
- 
+
 	* tree-ssa-dom.c (thread_across_edge): Remove bogus restriction
 	which prevents threading around to the top of a loop.
 
 	* tree-ssa-dom.c (thread_across_edge): Handle SWITCH_EXPRs in the
 	target block in addition to COND_EXPRs.
- 
+
 	* tree-ssa-dom.c (thread_across_edge): Create equivalences for
 	PHIs before looking at the statements in the destination
 	block.
@@ -773,7 +2503,7 @@
 	call to fold_convert to match new fold_convert_const.
 
 2004-01-20  Daniel Berlin  <dberlin@dberlin.org>
-	
+
 	* tree-alias-ander.c (andersen_op_assign): Update
 	prototype. Make this handle &x in the operands using
 	the addrargs parameter.
@@ -814,8 +2544,8 @@
 
 2004-01-20  Richard Henderson  <rth@redhat.com>
 
-        * tree-sra.c (get_scalar_for_field): Validate field.
-        (create_scalar_copies): Iterate over rhs fields too.
+	* tree-sra.c (get_scalar_for_field): Validate field.
+	(create_scalar_copies): Iterate over rhs fields too.
 
 2004-01-19  Dale Johannesen  <dalej@apple.com>
 
@@ -824,12 +2554,12 @@
 	params.h:  Ditto.
 	tree-dfa.c:  Use them.
 	doc/invoke.texi:  Document them.
-	
+
 2004-01-19  Jeff Law  <law@redhat.com>
 
 	* tree-ssa.c (insert_phi_nodes_for): Always use fully pruned
 	SSA form.
- 
+
 	* tree-flow.h: Update copyright dates.
 	(register_new_def): Declare.
 	* tree-ssa-dom.c: Update copyright dates.
@@ -913,7 +2643,7 @@
 	(csc_build_complex_part): Take tree_code, not index.
 	(create_scalar_copies): Don't collect indicies.
 	(emit_scalar_copies): New.
-	(scalarize_modify_expr, scalarize_tree_list): Use it. 
+	(scalarize_modify_expr, scalarize_tree_list): Use it.
 	(scalarize_return_expr): Likewise.
 	(scalarize_structures): Simplify needs_copy_in iteration.
 	(scalarize_call_expr): Use annotate_all_with_locus.
@@ -980,7 +2710,7 @@
 
 2004-01-17  Richard Henderson  <rth@redhat.com>
 
-	* tree-sra.c (scalarize_tree_list): Take bitmap argument to 
+	* tree-sra.c (scalarize_tree_list): Take bitmap argument to
 	avoid emitting duplicates.  Update all callers.
 
 2004-01-17  Richard Henderson  <rth@redhat.com>
@@ -993,7 +2723,7 @@
 
 	* tree-alias-common.c (get_alias_var): Handle BIT_FIELD_REF.
 	(find_func_aliases): Ditto.
-  	Update for fact that basic component_refs are no longer 
+  	Update for fact that basic component_refs are no longer
 	is_gimple_variable.
 	(create_fun_alias_var): Set DECL_CONTEXT on our faked declarations.
 	(pass_del_pta): PTA dumps info on delete, so it needs a name.
@@ -1041,7 +2771,7 @@
 	(extract_true_false_edges_from_block): Likewise.
 	(thread_across_edge): Handle if (cond) too.
 	(dom_opt_finalize_block): Use new functions.  Handle if (cond).
- 
+
 	* tree-ssa-dom.c (thread_across_edge): Accept dom_walk argument.
 	Record temporary equivalences created by PHIs and temporarily
 	const/copy propagate into conditionals.
@@ -1056,10 +2786,10 @@
 	* tree-ssa.c (create_temp): Use add_referenced_var rather than
 	an incomplete inline of its behavior.  Also make sure to
 	set is_dereferenced_{load,store}, is_call_clobbered and is_stored.
- 
+
 	* tree-ssa-live.c (build_tree_conflict_graph): Correctly handle
 	case where the result of a PHI is unused.
- 
+
 2004-01-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* cfghooks.c (predicted_by_p): Add missing return.
@@ -1375,7 +3105,7 @@
 
 2004-01-12  Frank Ch. Eigler  <fche@redhat.com>
 
-	* tree-mudflap.c (mf_xform_derefs): Restore instrumentation of 
+	* tree-mudflap.c (mf_xform_derefs): Restore instrumentation of
 	RETURN_EXPRs.
 
 2004-01-11  Jan Hubicka  <jh@suse.cz>
@@ -1552,7 +3282,7 @@
 	* tree-ssa-dom.c (cprop_into_stmt): Remove hack which prevented
 	copy propagation into statements with virtual operands, but no
 	real operands.
-	                                                                        
+
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Correctly handle
 	the case where an edge we wish to redirect is split by the out of SSA
 	code.
@@ -1560,7 +3290,7 @@
 2004-01-05  Richard Henderson  <rth@redhat.com>
 
 	* c-tree.h (struct lang_type): Add enum_min, enum_max.
-	* c-decl.c (finish_enum): Set them.  Set TYPE_MIN/MAX_VALUE to 
+	* c-decl.c (finish_enum): Set them.  Set TYPE_MIN/MAX_VALUE to
 	the limits of the compatible type, not to the enumerators.
 	(check_bitfield_type_and_width): Use them.
 	(finish_struct): Clear allocated struct lang_type.
@@ -1573,7 +3303,7 @@
 	* tree-ssa-pre.c (added_phis): Removed.
 	Remove gt-tree-ssa-pre.h.
 	(process_left_occs_and_kills): ASM_EXPR's block load pre.
-	
+
 	* Makefile.in (GTFILES): Don't process tree-ssa-pre.c.
 	gt-tree-ssa-pre.h isn't a gtfile anymore.
 

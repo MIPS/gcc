@@ -1,5 +1,5 @@
-! Program to test the ANY and ALL intrinsics
-program intrinsic_anyall
+! Program to test the COUNT intrinsic
+program intrinsic_count
    implicit none
    logical(kind=4), dimension (3, 5) :: a
    integer(kind=4), dimension (5) :: b

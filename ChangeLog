@@ -1,8 +1,626 @@
+2004-07-16  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* maintainer-scripts/gcc_release: Revert yesterday's change.
+
+2004-07-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-07-15  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* libf2c: Removed.
+	* gcc/gccbug.in: Updated because of libf2c removal.
+	* maintainer-scripts/gcc_release: Ditto.
+
+2004-07-09  Loren J. Rittle <ljrittle@acm.org>
+
+	* configure.in: Build libmudflap by default on FreeBSD.
+	* configure: Regenerated.
+
+2004-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Do not build libmudflap by default on non-GNU/Linux
+	systems.
+	* configure: Regenerated.
+
+2004-07-08 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/16344
+	* Makefile.tpl (profiledbootstrap): Build runtime libraries with
+	feedback based compiler.
+	* Makefile.in: Rebuilt.
+
+2004-07-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.def (host_modules): Set bootstrap=true for flex.
+	* Makefile.tpl (all-gcc): Depend on texinfo and flex.
+	* Makefile.in: Rebuilt.
+
+2004-07-07  Jan Hubicka  <jh@suse.cz>
+
+	* MAINTAINERS: Add self as a profile feedback maintainer.
+
+2004-07-05  Phil Edwards  <phil@codesourcery.com>
+
+	* configure.in:  Do not prepend $srcdir to /dev/null in
+	makefile fragments.
+	* configure:  Regenerate.
+
+2004-07-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (build_modules): Add bison, byacc, flex,
+	m4, texinfo.
+	(flags_to_pass): Add FLEX.
+	* Makefile.tpl (BUILD_DIR_PREFIX, BASE_EXPORTS): New.
+	(BUILD_EXPORTS, HOST_EXPORTS, BASE_TARGET_EXPORTS): Include it.
+	(DEFAULT_YACC, USUAL_YACC, DEFAULT_LEX, USUAL_LEX, DEFAULT_M4,
+	DEFAULT_MAKEINFO): Remove.
+	(CONFIGURED_YACC, CONFIGURED_FLEX, CONFIGURED_BISON,
+	CONFIGURED_LEX, CONFIGURED_M4, CONFIGURED_MAKEINFO): Substitute.
+	(YACC, FLEX, BISON, LEX, M4, MAKEINFO): Define to look into
+	objdir or else use configured tool.
+	(all-build): New.
+	(all): Depend on it.
+	(Build module dependencies): Add.
+	* Makefile.in: Regenerate.
+	* configure.in: Better support for multiple build modules,
+	matching what is done for host/target modules.  Do not look
+	for "plausible" locations of build tools if Canadian cross.
+	Use autoconf's AC_PROG_CC to find a C compiler.  Define
+	BUILD_DIR_PREFIX.  Look for flex, makeinfo and m4.
+	* configure: Regenerate.
+	
+2004-06-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (HOST_EXPORTS): Fix pasto.
+	* Makefile.in: Regenerate.
+
+2004-06-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (configure-build-[+module+],
+	configure-[+module+], configure-target-[+module+]): Pass
+	[+extra_configure_args+].
+	(all-build-[+module+], all-[+module+], check-[+module+],
+	install-[+module+], [+make_target+]-[+module+],
+	all-target-[+module+], check-target-[+module+],
+	install-target-[+module+], [+make_target+]-target-[+module+]):
+	Pass [+extra_make_args+].
+	(HOST_EXPORTS): Include the former GCC_HOST_EXPORTS.
+	(GCC_HOST_EXPORTS): Remove.
+	(configure-gcc, all-gcc, GCC_STRAP_TARGETS, profiledbootstrap,
+	cross, check-gcc, check-gcc-c++, install-gcc,
+	gcc-no-fixedincludes, [+make_target+]-gcc, stage[+id+]-bubble):
+	Replace GCC_HOST_EXPORTS with HOST_EXPORTS.
+	* Makefile.in: Regenerate.
+
+2004-06-21  Matthew Sachs  <msachs@apple.com>
+
+	* MAINTAINERS: Added self to write-after-approval.
+
+2004-06-21  Christopher Faylor  <cgf@alum.bu.edu>
+
+	* configure.in: Check for srcdir/winsup rather than build directory
+	winsup.
+	* configure: Regenerate.
+
+2004-06-17  Corinna Vinschen  <vinschen@redhat.com>
+
+	* configure.in: Don't build Cygwin native newlib if winsup
+	directory is missing.  Emit warning instead.
+	* configure: Regenerate.
+
+2004-06-09  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (touch-stage[+id+]): New.
+	(restage[+prev+]): Depend on touch-stage[+id+].
+
+	* Makefile.tpl (RECURSE_FLAGS_TO_PASS): New.
+	Use it throughout.
+
+	* Makefile.def: Add profile and feedback bootstrap stages.
+	Remove next field from bootstrap stages.
+	* Makefile.tpl (LN, LN_S): Substitute.
+	(stageN-start, stageN-end): Use double-colon rules, to
+	provide a hook for additional setup commands.
+	(distclean-stageN-gcc, restageN): Create dependencies from
+	[+prev+], not from [+next+].
+	(stageN-bubble): Add commands for successive stages from
+	[+prev+], using double-colon rules.
+	(all-stageN-gcc): Fix typo.
+	(stagefeedback-start, profiledbootstrap): New.
+	* Makefile.in: Regenerate.
+	* configure.in: Call ACX_PROG_LN.
+	* configure: Regenerate.
+
+2004-06-08  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-06-03  Mark G. Adams  <mark.g.adams@sympatico.ca>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-06-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Fix --enable-bootstrap breakage introduced in trees
+	without gcc.
+	* configure: Regenerate.
+
+2004-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl: Fix typo.
+	* Makefile.in: Regenerate.
+
+2004-06-01  Paolo Bonzini <bonzini@gnu.org>
+
+	* configure.in: Remove new- prefix from toplevel
+	bootstrap targets.
+	* configure: Regenerate.
+
+2004-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all.normal): Rename to all.
+	(all): Replace with a rule to pick the default
+	target from configure.
+	(all-gcc, configure-gcc): Use conditionals to
+	do nothing when toplevel bootstrap is going on.
+	(GCC directory bootstrap) [gcc-bootstrap]: Disable.
+	(Toplevel bootstrap) [gcc-no-bootstrap]: Disable.
+	* configure.in: Support --enable-bootstrap.
+
+	* Makefile.def: Remove new- prefix from toplevel
+	bootstrap targets.
+	* Makefile.tpl: Likewise.
+
+	* Makefile.def: Add bootstrap_stage 4.  Add bootstrap2
+	target.
+
+	* Makefile.tpl (Toplevel bootstrap): Pass $(BASE_FLAGS_TO_PASS)
+	$(RECURSE_FLAGS) to recursive invocation of make.
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-05-30  Andreas Jaeger  <aj@suse.de>
+	    Jim Wilson <wilson@specifixinc.com>
+
+	* config-ml.in: Pass FFLAGS and ADAFLAGS for multilibs, handle F77
+	like CC.
+
+2004-05-27  Daniel Jacobowitz  <dan@debian.org>
+
+	* configure.in: Fix sed invocation for GFORTRAN_FOR_TARGET.
+	* configure: Regenerate.
+
+2004-05-25  Daniel Jacobowitz  <drow@false.org>
+
+	* Makefile.tpl (BUILD_EXPORTS, HOST_EXPORTS, GCC_HOST_EXPORTS)
+	(STAGE_HOST_EXPORTS, BASE_TARGET_EXPORTS, RAW_CXX_TARGET_EXPORTS)
+	(NORMAL_TARGET_EXPORTS): New macros.  Use them in all the recursive
+	targets.
+	* Makefile.in: Regenerate.
+
+2004-05-24  Paolo Bonzini <bonzini@gnu.org>
+
+	* configure.in: Test the ability to symlink directories.
+	* configure: Regenerate.
+
+	* Makefile.def (bootstrap-stage): New definitions.
+	* Makefile.tpl (configure-stage1-gcc,
+	configure-stage2-gcc, configure-stage3-gcc,
+	all-stage1-gcc, all-stage2-gcc, all-stage3-gcc,
+	new-bootstrap, new-cleanstrap, new-restage1, new-restage2,
+	new-restage3, compare): Autogenerate, see Makefile.in
+	entry for behavioral changes.
+	(distclean-stage1, new-stage1-start, new-stage1-end,
+	new-stage1-bubble, distclean-stage2, new-stage2-start,
+	new-stage2-end, new-stage2-bubble, distclean-stage3,
+	new-stage3-start, new-stage3-end): New autogenerated targets.
+	(objext, prebootstrap, BOOT_CFLAGS,
+	POSTSTAGE1_FLAGS_TO_PASS): Move above the autogenerated
+	targets.
+
+	* Makefile.in: Regenerate.
+	(distclean-stage1, new-stage1-start, new-stage1-end,
+	new-stage1-bubble, distclean-stage2, new-stage2-start,
+	new-stage2-end, new-stage2-bubble, distclean-stage3,
+	new-stage3-start, new-stage3-end): New targets.
+	(all-stage1-gcc): Move prebootstrap dependency from here...
+	(configure-stage1-gcc): ...to here.
+	(new-bootstrap): Use bubble targets.
+	(new-cleanstrap, new-restage1, new-restage2, new-restage3):
+	Use per-stage distclean targets.
+	(configure-stage1-gcc, configure-stage2-gcc,
+	configure-stage3-gcc, all-stage1-gcc,
+	all-stage2-gcc, all-stage3-gcc, new-bootstrap):
+	Use new-stageN-start to prepare the tree.
+
+2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (host_modules): add libcpp.
+	* Makefile.tpl: Add dependencies on and for libcpp.
+	* Makefile.in: Regenerate.
+	* configure.in: Add libcpp host module.
+	* configure: Regenerate.
+
+2004-05-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl: Whenever a recursive target is defined, wrap
+	it in a special @if/@endif block, and prepare its maybe
+	dependency in the @if/@endif block
+	* configure.in: Instead of writing maybe dependencies, remove
+	the @if/@endif statements, and remove the @if/@endif blocks
+	that remain.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2004-05-20  Janis Johnson  <janis187@us.ibm.com>
+
+	* MAINTAINERS (Various Maintainers): Add myself for compat testsuite.
+
+2004-05-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR bootstrap/15120
+	* libtool.m4 (lt_cv_deplibs_check_method): Use pass_all on sh*.
+	* */configure: Rebuilt.
+
+2004-05-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.def, Makefile.tpl, configure.in: Remove all mention
+	of libf2c.
+	* configure, Makefile.in: Regenerate.
+
+2004-05-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-05-13  Diego Novillo  <dnovillo@redhat.com>
+
+	Merge from tree-ssa-20020619-branch.
+
+	* Makefile.def: Add libbanshee, libmudflap and libgfortran.
+	* Makefile.tpl (BUILD_CONFIGDIRS): Add libbanshee.
+	(HOST_GMPLIBS): Define.
+	(HOST_GMPINC): Define.
+	(TARGET_LIB_PATH): Add libmudflap.
+	(GFORTRAN_FOR_TARGET): Define.
+	(configure-build*): Export GFORTRAN.
+	(configure-gcc): Export GMPLIBS and GMPINC.
+	(all-gcc): Add maybe-all-libbanshee.
+	(configure-target-libgfortran): Define.
+	* Makefile.in: Regenerate.
+	* configure.in (host_libs): Add libbanshee.
+	(target_libraries): Add target-libmudflap and target-libgfortran.
+	Add --with-libbanshee.
+	Handle --disable-libmudflap.
+	(*-*-freebsd*): Use with_gmp.
+	Add $(libgcj) to noconfigdirs.
+	* configure: Regenerate.
+	* depcomp: New file.
+	* MAINTAINERS: Add tree-ssa maintainers.
+
+2004-05-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* MAINTAINERS (Various Maintainers): Add myself.
+
+2004-04-30  Brian Ford  <ford@vss.fsi.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-04-29  Uros Bizjak  <uros@kss-loka.si>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2004-04-28  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/acx.m4: Fix fastcompare support for new-bootstrap.
+	* configure: Regenerate.
+
+2004-04-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert:
+	2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (flags_to_pass): Remove *dir variables that
+	are passed to the modules via TOPLEVEL_CONFIGURE_ARGUMENTS,
+	as well as prefix and exec_prefix.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Robert Millan  <robertmh@gnu.org>
+
+	Add patches from libtool CVS.
+	* libtool.m4: Add kfreebsd*-gnu and knetbsd*-gnu.
+	* ltconfig: Likewise.
+	* ltcf-c.sh: Likewise.
+	* ltcf-cxx.sh: Likewise.
+	* ltcf-gcj.sh: Likewise.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (host_modules): Mark with the bootstrap
+	flag packages on which gcc depends.
+	* Makefile.tpl (all-bootstrap): Use it.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (flags_to_pass): Remove *dir variables that
+	are passed to the modules via TOPLEVEL_CONFIGURE_ARGUMENTS,
+	as well as prefix and exec_prefix.
+	* Makefile.in: Regenerate.
+
+2004-04-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Invoke ACX_PROG_CMP_IGNORE_INITIAL.
+	* configure: Regenerate.
+	* config/acx.m4: Mutuate ACX_PROG_CMP_IGNORE_INITIAL from gcc.
+	* gcc/Makefile.tpl (compare): Use the result of the test.
+	* gcc/Makefile.in: Regenerate.
+
+2004-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all-stage1-gcc, all-stage2-gcc, all-stage3-gcc):
+	Always relocate gcc and prev-gcc to the original names, even
+	if the build fails.
+	(new-cleanstrap, new-restage1, new-restage2, new-restage3):
+	New targets.
+
+2004-04-23  Laurent GUERBY <laurent@guerby.net>
+
+	* MAINTAINERS: Update my email address.
+
+2004-04-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (mips*-*-irix5*): Enable ld.
+	* configure: Regenerate.
+
+2004-04-16  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure: Regenerate.
+
+2004-04-15  James E Wilson  <wilson@specifixinc.com>
+
+	* Makefile.tpl (configure-[+module+], configure-gcc,
+	configure-stage1-gcc, configure-stage2-gcc, configure-stage3-gcc):
+	Set and export LDFLAGS.
+	* Makefile.in: Regenerate.
+
+2004-04-12  Michael Chastain  <mec.gnu@mindspring.com>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-04-09  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14871
+	* Makefile.tpl: If we don't have built-in-tree target tools,
+	use the ones found by configure rather than hacking around with
+	program_transform_name.
+	* configure.in: Give Makefile.tpl the information necessary
+	to do that.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-04-06  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14760
+	* configure.in: When computing baseargs, strip *all* copies of
+	offending options.  Also, don't match/substitute the trailing space,
+	so that this actually works when two similar options are separated by
+	only one space.
+	* configure: Regenerate.
+
+2004-04-06  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.in (powerpc-*-aix*): Remove target-libada from noconfigdirs.
+	(rs6000-*-aix*): Same.
+	* configure: Regenerate.
+
+2004-04-05  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-03-24  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl (top level bootstrap support): Remove now-unneeded
+	STRICT_WARN, WARN_CFLAGS flags passed down to make.
+	* Makefile.in: Regenerate.
+
+	* configure.in (top level bootstrap support): Rework --enable-werror
+	to set @stage2_werror_flag@.
+	* configure: Regenerate.
+	* Makefile.tpl (top level bootstrap support): Pass
+	@stage2_werror_flag@ down to configure in stages 2 and 3.
+	* Makefile.in: Regenerate.
+
+2004-03-23  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl (new-bootstrap): Set CC and CC_FOR_BUILD in configure
+	for stages 2 and 3 as well as in make.  As a consequence, remove
+	OUTPUT_OPTION (now detected by configure) from the flags passed down
+	to make.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl (new-bootstrap): Fix typo.
+	* Makefile.in: Regenerate.
+
+2004-03-22  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Rearrange by moving recursive_targets rules
+	into their proper sections.
+	* Makefile.tpl (top level bootstrap support): Move disabling
+	of coverage flags from 'make' to 'configure'; improve comments.
+	* Makefile.in: Regenerate.
+
+	* Makefile.tpl (experimental top level bootstrap) Move stage1
+	language setting from all- target to configure- target; disable
+	intermodule optimization in stage 1; prevent gratuitous rebuilds
+	of stage 1.
+	* Makefile.in: Regenerate.
+	* configure.in: Comma-separate stage 1 language list for top
+	level bootstrap.
+	* configure: Regenerate.
+
+	* Makefile.tpl: Clean up experimental top level bootstrap support:
+	note known problems; set CONFIG_SHELL; don't set BUILD_CC; relocate
+	prev-gcc in configure- targets as well as all- targets.
+	* Makefile.in: Regenerate.
+
+2004-03-21  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* compile: New file imported from automake.
+
+2004-03-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Remove symbolic link section.
+	* configure: Regenerate.
+	* Makefile.tpl (links): Remove.
+	* Makefile.in: Regenerate.
+
+2004-03-15  Paolo Bonzini  <bonzini@gnu.org>
+	    Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in (DEFAULT_YACC, DEFAULT_M4, DEFAULT_LEX):
+	Set with AC_CHECK_PROGS.
+	* configure.in: Fix comment typo from last patch.
+	* configure: Regenerate.
+
+2004-03-15  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Introduce experimental top level bootstrap support.
+	* Makefile.in: Regenerate.
+	* configure.in: Introduce support for top level bootstrap.
+	* configure: Regenerate.
+
+2004-03-12  Eric Botcazou  <ebotcazou@gcc.gnu.org>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/14522
+	* configure.in: Cope with shells that do not support unquoted ^
+	* configure: Regenerate.
+
+2004-03-11  Eric Botcazou  <ebotcazou@gcc.gnu.org>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/14522
+	* configure.in: Cope with shells that do not support nesting
+	quotes inside quoted backquote substitutions.
+	* configure: Regenerate.
+
+2004-03-10  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR bootstrap/14522
+	* configure.in: Fix escaping of $.
+	* configure: Regenerate.
+
+2004-03-11  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure: Regenerate, since I forgot to while committing Paolo's
+	changes.
+
+2004-03-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR ada/14131
+	Move language detection to the top level.
+	* configure.in: Find default values for the tools as
+	soon as possible.  Disable ada if GNAT is not found.
+	Emit error message about missing languages.  Expand
+	--enable-languages=all for the gcc subdirectory.
+
+2004-03-10  Ben Elliston  <bje@gnu.org>
+
+	* MAINTAINERS: Update my email address.
+
+2004-03-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* ltconfig: Disable building static libraries if building shared
+	libraries on AIX 5L.
+
+2004-03-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in (mips64*-*-linux*): Override mips*-*-linux* case
+	and disable libgcj.
+	* configure: Regenerated.
+
+2004-03-01  Brian Booth  <bbooth@redhat.com>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-03-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-02-28  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/7087
+	* Makefile.tpl: Guard XFOO sed statements better.
+	* Makefile.tpl: Add dependency for configure-target-libada.
+	* Makefile.in: Regenerate (incidentally fixes broken
+	commit when libada-branch was merged).
+
+2004-02-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* MAINTAINERS: Add Nicola Pero and myself as libobjc
+	maintainers.
+
+2004-02-20  Andrew Cagney  <cagney@redhat.com>
+
+	* config.guess: Update from version 2003-10-16 to 2004-02-16.
+	* config.sub: Update from version 2003-11-03 to 2004-02-16.
+
+2004-02-19  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/11932
+	* mkinstalldirs, install-sh: Import from automake CVS HEAD.
+
+2004-02-14  Jerry Quinn  <jlquinn@optonline.net>
+
+	* MAINTAINERS: Added myself to write-after-approval.
+
+2004-02-14  Michael Koch  <konqueror@gmx.de>
+
+	* MAINTAINERS: Added myself to write-after-approval.
+
+2004-02-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* MAINTAINERS: Move Steve Chamberlain to write-after-approval.  Move
+	some OS port maintainers to OS port maintainers section.
+
+2004-02-13  Frank Ch. Eigler  <fche@redhat.com>
+
+	* MAINTAINERS: Add self.
+
+2004-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2004-02-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	* MAINTAINERS: Remove myself.
+
+2004-02-11  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.in (powerpc-*-aix*): Add target-libada to noconfigdirs.
+	(rs6000-*-aix*): Same.
+	* configure: Regenerate.
+
+2004-02-11  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.in (host): Add in missing $noconfigdirs to defines.
+	* configure: Regenerate.
+
 2004-02-10  Arnaud Charlet  <charlet@act-europe.fr>,
 	    Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	PR ada/6637, PR ada/5911
-        Merge with libada-branch:
+	Merge with libada-branch:
 	* configure.in, Makefile.tpl, Makefile.def: Add target-libada,
 	with appropriate dependencies. Add --enable-libada configure switch.
 	* configure, Makefile.in: Regenerate.
@@ -10,7 +628,7 @@
 2004-02-09  Paolo Bonzini  <bonzini@gnu.org>
 
 	* MAINTAINERS: Add myself to write-after-approval.
-	
+
 2004-02-05  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
 
 	* configure.in: Don't pass --with-stabs on IRIX 5 either.
@@ -41,7 +659,7 @@
 2004-01-20  Caroline Tice  <ctice@apple.com>
 
 	* MAINTAINERS: Add myself to write-after-approval.
-	
+
 2004-01-19  Paolo Carlini  <pcarlini@suse.de>
 
 	* MAINTAINERS: Update my email address.
@@ -49,7 +667,7 @@
 2004-01-18  James A. Morrison  <ja2morri@uwaterloo.ca>
 
 	* MAINTAINERS: Add myself to write-after-approval.
-	
+
 2004-01-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* MAINTAINERS: Remove entries without email address.
@@ -119,7 +737,7 @@
 	* MAINTAINERS: Remove the mn10200 maintainer.
 
 2003-12-21  Bernardo Innocenti  <bernie@develer.com>
- 
+
  	* configure.in (*-*-uclinux): Exclude newlib, libgloss and rda.
  	* configure: Regenerated.
 
@@ -168,16 +786,12 @@
 
 2003-11-14  Arnaud Charlet  <charlet@act-europe.fr>
 
-        * Makefile.tpl (EXTRA_GCC_FLAGS): Pass BOOT_ADAFLAGS.
-        * Makefile.in: Regenerate.
+	* Makefile.tpl (EXTRA_GCC_FLAGS): Pass BOOT_ADAFLAGS.
+	* Makefile.in: Regenerate.
 
 2003-11-03  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* config.sub: Update to 2003-11-03 version.
-
-2003-10-31  Canqun Yang  <canqun@nudt.edu.cn>
-
-	* MAINTAINERS: Add myself to 'Write After Approval' section.
 
 2003-10-20  Phil Edwards  <phil@codesourcery.com>
 
@@ -321,7 +935,7 @@
 2003-09-04  Robert Millan  <robertmh@gnu.org>
 
 	* configure.in: Match GNU/KFreeBSD with new kfreebsd*-gnu triplet.
-	
+
 2003-09-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* configure.in: Ensure arguments to sed are properly spaced.
@@ -360,7 +974,7 @@
 	* configure.in: When testing with_libs and with_headers, treat
 	'no' as unset.  Based on a patch by Dan Kegel <dank@kegel.com>.
 	* configure: Regenerate.
-	
+
 	* configure.in (TOPLEVEL_CONFIGURE_ARGUMENTS): Quote properly for
 	make, shell, etc.
 	(baseargs): Likewise.
@@ -379,8 +993,8 @@
 
 	* config-ml.in, symlink-tree: Add license.
 
-2003-08-03  Richard Stallman  <rms@gnu.org> 
-            Eben Moglen  <moglen@columbia.edu>
+2003-08-03  Richard Stallman  <rms@gnu.org>
+	    Eben Moglen  <moglen@columbia.edu>
 
 	* README.SCO: New file.
 

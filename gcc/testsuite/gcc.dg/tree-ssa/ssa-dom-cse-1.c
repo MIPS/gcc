@@ -11,5 +11,5 @@ threading(int a,int b)
 	    q();
 	}
 }
-/* We should thread the jump twice and elliminate it.  */
+/* We should thread the jump twice and eliminate it.  */
 /* { dg-final { scan-tree-dump-times "Replaced.* t " 1 "dom1"} } */

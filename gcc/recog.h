@@ -38,7 +38,7 @@ struct operand_alternative
   const char *constraint;
 
   /* The register class valid for this alternative (possibly NO_REGS).  */
-  enum reg_class class;
+  enum reg_class cl;
 
   /* "Badness" of this alternative, computed from number of '?' and '!'
      characters in the constraint string.  */
@@ -88,7 +88,6 @@ extern int strict_memory_address_p (enum machine_mode, rtx);
 extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
-extern int validate_replace_src (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
 extern int num_changes_pending (void);
 #ifdef HAVE_cc0

@@ -55,7 +55,7 @@ typedef struct
     n_shapefile,
     n_style
   } name;
-  char *value;
+  const char *value;
 } node_attr;
 
 typedef struct
@@ -75,7 +75,7 @@ typedef struct
     e_style,
     e_weight
   } name;
-  char *value;
+  const char *value;
 } edge_attr;
 
 typedef struct
@@ -104,10 +104,10 @@ typedef struct
     g_ratio,
     g_size
   } name;
-  char *value;
+  const char *value;
 } graph_attr;
 
-void dot_start(FILE *to,char *name,bool directed,bool strict);
+void dot_start(FILE *to,const char *name,bool directed,bool strict);
 
 void dot_global_graph_style(graph_attr *attrs,int n);
 void dot_global_edge_style(edge_attr *attrs,int n);

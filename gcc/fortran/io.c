@@ -1,23 +1,24 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 gfc_st_label format_asterisk =
   { -1, ST_LABEL_FORMAT, ST_LABEL_FORMAT, NULL, 0,
-    {NULL, 0, NULL, NULL}, NULL, NULL};
+    {NULL, NULL}, NULL, NULL};
 
 typedef struct
 {
@@ -467,18 +468,24 @@ format_item:
       goto data_desc;
 
     case FMT_P:
-      /* P and X require a prior number.  */
+      /* P requires a prior number.  */
       error = "P descriptor requires leading scale factor";
       goto syntax;
 
     case FMT_X:
-      error = "X descriptor requires leading space count";
-      goto syntax;
+      /* X requires a prior number if we're being pedantic.  */
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: X descriptor "
+			  "requires leading space count at %C")
+	  == FAILURE)
+	return FAILURE;
+      goto between_desc;
 
     case FMT_SIGN:
     case FMT_BLANK:
-    case FMT_CHAR:
       goto between_desc;
+
+    case FMT_CHAR:
+      goto extension_optional_comma;
 
     case FMT_COLON:
     case FMT_SLASH:
@@ -724,6 +731,38 @@ optional_comma:
 
   goto format_item;
 
+extension_optional_comma:
+  /* As a GNU extension, permit a missing comma after a string literal.  */
+  t = format_lex ();
+  switch (t)
+    {
+    case FMT_COMMA:
+      break;
+
+    case FMT_RPAREN:
+      level--;
+      if (level < 0)
+	goto finished;
+      goto between_desc;
+
+    case FMT_COLON:
+    case FMT_SLASH:
+      goto optional_comma;
+
+    case FMT_END:
+      error = unexpected_end;
+      goto syntax;
+
+    default:
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Missing comma at %C")
+	  == FAILURE)
+	return FAILURE;
+      saved_token = t;
+      break;
+    }
+
+  goto format_item;
+
 syntax:
   /* Something went wrong.  If the format we're checking is a string,
      generate a warning, since the program is correct.  If the format
@@ -781,7 +820,7 @@ gfc_match_format (void)
   mode = MODE_FORMAT;
   format_length = 0;
 
-  start = *gfc_current_locus ();
+  start = gfc_current_locus;
 
   if (check_format () == FAILURE)
     return MATCH_ERROR;
@@ -795,7 +834,7 @@ gfc_match_format (void)
   /* The label doesn't get created until after the statement is done
      being matched, so we have to leave the string for later.  */
 
-  gfc_set_locus (&start);	/* Back to the beginning */
+  gfc_current_locus = start;	/* Back to the beginning */
 
   new_st.loc = start;
   new_st.op = EXEC_NOP;
@@ -879,6 +918,21 @@ match_vtag (const io_tag * tag, gfc_expr ** v)
 }
 
 
+/* Match I/O tags that cause variables to become redefined.  */
+
+static match
+match_out_tag(const io_tag *tag, gfc_expr **result)
+{
+  match m;
+
+  m = match_vtag(tag, result);
+  if (m == MATCH_YES)
+    gfc_check_do_variable((*result)->symtree);
+
+  return m;
+}
+
+
 /* Match a label I/O tag.  */
 
 static match
@@ -954,7 +1008,7 @@ match_open_element (gfc_open * open)
   m = match_etag (&tag_unit, &open->unit);
   if (m != MATCH_NO)
     return m;
-  m = match_vtag (&tag_iostat, &open->iostat);
+  m = match_out_tag (&tag_iostat, &open->iostat);
   if (m != MATCH_NO)
     return m;
   m = match_etag (&tag_file, &open->file);
@@ -1140,7 +1194,7 @@ match_close_element (gfc_close * close)
   m = match_etag (&tag_status, &close->status);
   if (m != MATCH_NO)
     return m;
-  m = match_vtag (&tag_iostat, &close->iostat);
+  m = match_out_tag (&tag_iostat, &close->iostat);
   if (m != MATCH_NO)
     return m;
   m = match_ltag (&tag_err, &close->err);
@@ -1253,7 +1307,7 @@ match_file_element (gfc_filepos * fp)
   m = match_etag (&tag_unit, &fp->unit);
   if (m != MATCH_NO)
     return m;
-  m = match_vtag (&tag_iostat, &fp->iostat);
+  m = match_out_tag (&tag_iostat, &fp->iostat);
   if (m != MATCH_NO)
     return m;
   m = match_ltag (&tag_err, &fp->err);
@@ -1442,7 +1496,7 @@ match_dt_format (gfc_dt * dt)
   gfc_expr *e;
   gfc_st_label *label;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   if (gfc_match_char ('*') == MATCH_YES)
     {
@@ -1482,7 +1536,7 @@ match_dt_format (gfc_dt * dt)
       return MATCH_YES;
     }
 
-  gfc_set_locus (&where);	/* The only case where we have to restore */
+  gfc_current_locus = where;	/* The only case where we have to restore */
 
   return MATCH_NO;
 
@@ -1564,7 +1618,7 @@ match_dt_element (io_kind k, gfc_dt * dt)
   m = match_etag (&tag_rec, &dt->rec);
   if (m != MATCH_NO)
     return m;
-  m = match_vtag (&tag_iostat, &dt->iostat);
+  m = match_out_tag (&tag_iostat, &dt->iostat);
   if (m != MATCH_NO)
     return m;
   m = match_ltag (&tag_err, &dt->err);
@@ -1573,19 +1627,19 @@ match_dt_element (io_kind k, gfc_dt * dt)
   m = match_etag (&tag_advance, &dt->advance);
   if (m != MATCH_NO)
     return m;
-  m = match_vtag (&tag_size, &dt->size);
+  m = match_out_tag (&tag_size, &dt->size);
   if (m != MATCH_NO)
     return m;
 
   m = match_ltag (&tag_end, &dt->end);
   if (m == MATCH_YES)
-    dt->end_where = *gfc_current_locus ();
+    dt->end_where = gfc_current_locus;
   if (m != MATCH_NO)
     return m;
 
   m = match_ltag (&tag_eor, &dt->eor);
   if (m == MATCH_YES)
-    dt->eor_where = *gfc_current_locus ();
+    dt->eor_where = gfc_current_locus;
   if (m != MATCH_NO)
     return m;
 
@@ -1780,7 +1834,7 @@ match_io_iterator (io_kind k, gfc_code ** result)
 
   iter = NULL;
   head = NULL;
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   if (gfc_match_char ('(') != MATCH_YES)
     return MATCH_NO;
@@ -1803,7 +1857,10 @@ match_io_iterator (io_kind k, gfc_code ** result)
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_YES)
-	break;
+	{
+	  gfc_check_do_variable (iter->var->symtree);
+	  break;
+	}
 
       m = match_io_element (k, &new);
       if (m == MATCH_ERROR)
@@ -1847,7 +1904,7 @@ syntax:
 cleanup:
   gfc_free_iterator (iter, 1);
   gfc_free_statements (head);
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return m;
 }
 
@@ -1902,6 +1959,9 @@ match_io_element (io_kind k, gfc_code ** cpp)
 		       expr->symtree->n.sym->name);
 	    m = MATCH_ERROR;
 	  }
+
+	if (gfc_check_do_variable (expr->symtree))
+	  m = MATCH_ERROR;
 
 	break;
 
@@ -2008,7 +2068,7 @@ match_io (io_kind k)
   gfc_code *io_code;
   gfc_symbol *sym;
   gfc_expr *expr;
-  int comma_flag;
+  int comma_flag, c;
   locus where;
   gfc_dt *dt;
   match m;
@@ -2020,6 +2080,16 @@ match_io (io_kind k)
     {
       if (k == M_WRITE)
 	goto syntax;
+
+      if (gfc_current_form == FORM_FREE)
+       {
+         c = gfc_peek_char();
+         if (c != ' ' && c != '*' && c != '\'' && c != '"')
+           {
+             m = MATCH_NO;
+             goto cleanup;
+           }
+       }
 
       m = match_dt_format (dt);
       if (m == MATCH_ERROR)
@@ -2055,7 +2125,7 @@ match_io (io_kind k)
   if (m == MATCH_ERROR)
     goto cleanup;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   if (gfc_match_name (name) == MATCH_YES
       && !gfc_find_symbol (name, NULL, 1, &sym)
@@ -2070,7 +2140,7 @@ match_io (io_kind k)
       goto next;
     }
 
-  gfc_set_locus (&where);
+  gfc_current_locus = where;
 
   goto loop;			/* No matches, try regular elements */
 
@@ -2097,8 +2167,12 @@ loop:
 
 get_io_list:
   /* Optional leading comma (non-standard).  */
-  if (!comma_flag)
-    gfc_match_char (',');
+  if (!comma_flag
+      && gfc_match_char (',') == MATCH_YES
+      && k == M_WRITE
+      && gfc_notify_std (GFC_STD_GNU, "Extension: Comma before output "
+			 "item list at %C is an extension") == FAILURE)
+    return MATCH_ERROR;
 
   io_code = NULL;
   if (gfc_match_eos () != MATCH_YES)
@@ -2245,20 +2319,20 @@ match_inquire_element (gfc_inquire * inquire)
   m = match_etag (&tag_unit, &inquire->unit);
   RETM m = match_etag (&tag_file, &inquire->file);
   RETM m = match_ltag (&tag_err, &inquire->err);
-  RETM m = match_vtag (&tag_iostat, &inquire->iostat);
+  RETM m = match_out_tag (&tag_iostat, &inquire->iostat);
   RETM m = match_vtag (&tag_exist, &inquire->exist);
   RETM m = match_vtag (&tag_opened, &inquire->opened);
   RETM m = match_vtag (&tag_named, &inquire->named);
   RETM m = match_vtag (&tag_name, &inquire->name);
-  RETM m = match_vtag (&tag_number, &inquire->number);
+  RETM m = match_out_tag (&tag_number, &inquire->number);
   RETM m = match_vtag (&tag_s_access, &inquire->access);
   RETM m = match_vtag (&tag_sequential, &inquire->sequential);
   RETM m = match_vtag (&tag_direct, &inquire->direct);
   RETM m = match_vtag (&tag_s_form, &inquire->form);
   RETM m = match_vtag (&tag_formatted, &inquire->formatted);
   RETM m = match_vtag (&tag_unformatted, &inquire->unformatted);
-  RETM m = match_vtag (&tag_s_recl, &inquire->recl);
-  RETM m = match_vtag (&tag_nextrec, &inquire->nextrec);
+  RETM m = match_out_tag (&tag_s_recl, &inquire->recl);
+  RETM m = match_out_tag (&tag_nextrec, &inquire->nextrec);
   RETM m = match_vtag (&tag_s_blank, &inquire->blank);
   RETM m = match_vtag (&tag_s_position, &inquire->position);
   RETM m = match_vtag (&tag_s_action, &inquire->action);
@@ -2315,7 +2389,7 @@ gfc_match_inquire (void)
 
       new_st.op = EXEC_IOLENGTH;
       new_st.expr = inquire->iolength;
-      gfc_free (inquire);
+      new_st.ext.inquire = inquire;
 
       if (gfc_pure (NULL))
 	{
@@ -2401,9 +2475,10 @@ gfc_resolve_inquire (gfc_inquire * inquire)
   RESOLVE_TAG (&tag_readwrite, inquire->readwrite);
   RESOLVE_TAG (&tag_s_delim, inquire->delim);
   RESOLVE_TAG (&tag_s_pad, inquire->pad);
+  RESOLVE_TAG (&tag_iolength, inquire->iolength);
 
   if (gfc_reference_st_label (inquire->err, ST_LABEL_TARGET) == FAILURE)
     return FAILURE;
 
-  return FAILURE;
+  return SUCCESS;
 }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -259,28 +259,28 @@ package Sem_Util is
       Governed_By   : List_Id;
       Into          : Elist_Id;
       Report_Errors : out Boolean);
-   --  The purpose of this procedure is to gather the valid components
-   --  in a record type according to the values of its discriminants, in order
-   --  to validate the components of a record aggregate.
+   --  The purpose of this procedure is to gather the valid components in a
+   --  record type according to the values of its discriminants, in order to
+   --  validate the components of a record aggregate.
    --
    --    Typ is the type of the aggregate when its constrained discriminants
    --      need to be collected, otherwise it is Empty.
    --
    --    Comp_List is an N_Component_List node.
    --
-   --    Governed_By is a list of N_Component_Association nodes,
-   --     where each choice list contains the name of a discriminant and
-   --     the expression field gives its value. The values of the
-   --     discriminants governing the (possibly nested) variant parts in
-   --     Comp_List are found in this Component_Association List.
+   --    Governed_By is a list of N_Component_Association nodes, where each
+   --     choice list contains the name of a discriminant and the expression
+   --     field gives its value. The values of the discriminants governing
+   --     the (possibly nested) variant parts in Comp_List are found in this
+   --     Component_Association List.
    --
-   --    Into is the list where the valid components are appended.
-   --     Note that Into need not be an Empty list. If it's not, components
-   --     are attached to its tail.
+   --    Into is the list where the valid components are appended. Note that
+   --     Into need not be an Empty list. If it's not, components are attached
+   --     to its tail.
    --
-   --    Report_Errors is set to True if the values of the discriminants
-   --     are non-static.
-
+   --    Report_Errors is set to True if the values of the discriminants are
+   --     non-static.
+   --
    --  This procedure is also used when building a record subtype. If the
    --  discriminant constraint of the subtype is static, the components of the
    --  subtype are only those of the variants selected by the values of the
@@ -357,6 +357,16 @@ package Sem_Util is
    --  Task_Body_Procedure field from the corresponding task type
    --  declaration.
 
+   function Has_Access_Values (T : Entity_Id) return Boolean;
+   --  Returns true if type or subtype T is an access type, or has a
+   --  component (at any recursive level) that is an access type. This
+   --  is a conservative predicate, if it is not known whether or not
+   --  T contains access values (happens for generic formals in some
+   --  cases), then False is returned.
+
+   function Has_Declarations (N : Node_Id) return Boolean;
+   --  Determines if the node can have declarations
+
    function Has_Infinities (E : Entity_Id) return Boolean;
    --  Determines if the range of the floating-point type E includes
    --  infinities. Returns False if E is not a floating-point type.
@@ -421,6 +431,11 @@ package Sem_Util is
    --  Determine if Obj is an aliased view, i.e. the name of an
    --  object to which 'Access or 'Unchecked_Access can apply.
 
+   function Is_Ancestor_Package
+     (E1 : Entity_Id;
+      E2 : Entity_Id) return Boolean;
+   --  Determine whether package E1 is an ancestor of E2
+
    function Is_Atomic_Object (N : Node_Id) return Boolean;
    --  Determines if the given node denotes an atomic object in the sense
    --  of the legality checks described in RM C.6(12).
@@ -438,6 +453,16 @@ package Sem_Util is
    --  true if N appears as the prefix of a node that does a dereference
    --  of the access value (selected/indexed component, explicit dereference
    --  or a slice), and false otherwise.
+
+   function Is_Descendent_Of (T1 : Entity_Id; T2 : Entity_Id) return Boolean;
+   --  Returns True if type T1 is a descendent of type T2, and false otherwise.
+   --  This is the RM definition, a type is a descendent of another type if it
+   --  is the same type or is derived from a descendent of the other type.
+
+   function Is_Descendent_Of_Address (T1 : Entity_Id) return Boolean;
+   --  Returns True if type T1 is a descendent of Address or its base type.
+   --  Similar to calling Is_Descendent_Of with Base_Type (RTE (RE_Address))
+   --  except that it avoids creating an unconditional dependency on System.
 
    function Is_False (U : Uint) return Boolean;
    --  The argument is a Uint value which is the Boolean'Pos value of a
@@ -468,8 +493,8 @@ package Sem_Util is
    --  an lvalue, but it can answer True when N is not an lvalue. An lvalue is
    --  defined as any expression which appears in a context where a name is
    --  required by the syntax, and the identity, rather than merely the value
-   --  of the node is needed (for example, the prefix of an attribute is in
-   --  this category).
+   --  of the node is needed (for example, the prefix of an Access attribute
+   --  is in this category).
 
    function Is_Library_Level_Entity (E : Entity_Id) return Boolean;
    --  A library-level declaration is one that is accessible from Standard,

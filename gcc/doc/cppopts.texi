@@ -16,11 +16,14 @@
 Predefine @var{name} as a macro, with definition @code{1}.
 
 @item -D @var{name}=@var{definition}
-Predefine @var{name} as a macro, with definition @var{definition}.
-There are no restrictions on the contents of @var{definition}, but if
-you are invoking the preprocessor from a shell or shell-like program you
-may need to use the shell's quoting syntax to protect characters such as
-spaces that have a meaning in the shell syntax.
+The contents of @var{definition} are tokenized and processed as if
+they appeared during translation phase three in a @samp{#define}
+directive.  In particular, the definition will be truncated by
+embedded newline characters.
+
+If you are invoking the preprocessor from a shell or shell-like
+program you may need to use the shell's quoting syntax to protect
+characters such as spaces that have a meaning in the shell syntax.
 
 If you wish to define a function-like macro on the command line, write
 its argument list with surrounding parentheses before the equals sign
@@ -323,6 +326,24 @@ precompiled header would be listed and not the files that were used to
 create it because those files are not consulted when a precompiled
 header is used.
 
+@item -fpch-preprocess
+@opindex fpch-preprocess
+This option allows use of a precompiled header (@pxref{Precompiled
+Headers}) together with @option{-E}.  It inserts a special @code{#pragma},
+@code{#pragma GCC pch_preprocess "<filename>"} in the output to mark
+the place where the precompiled header was found, and its filename.  When
+@code{-fpreprocessed} is in use, GCC recognizes this @code{#pragma} and
+loads the PCH.
+
+This option is off by default, because the resulting preprocessed output
+is only really suitable as input to GCC.  It is switched on by
+@option{-save-temps}.
+
+You should not write this @code{#pragma} in your own code, but it is
+safe to edit the filename if the PCH file is available in a different
+location.  The filename may be absolute or it may be relative to GCC's
+current directory.
+
 @end ifclear
 @item -x c
 @itemx -x c++
@@ -400,6 +421,7 @@ file directory as the first search directory for @code{@w{#include
 @ifset cppmanual
 @xref{Search Path}.
 @end ifset
+This option has been deprecated.
 
 @item -nostdinc
 @opindex nostdinc
@@ -466,6 +488,16 @@ is applied to the standard system directories.
 @xref{System Headers}.
 @end ifset
 
+@item -iquote @var{dir}
+@opindex iquote
+Search @var{dir} only for header files requested with
+@code{@w{#include "@var{file}"}}; they are not searched for
+@code{@w{#include <@var{file}>}}, before all directories specified by
+@option{-I} and before the standard system directories.
+@ifset cppmanual
+@xref{Search Path}.
+@end ifset
+
 @item -fdollars-in-identifiers
 @opindex fdollars-in-identifiers
 @anchor{fdollars-in-identifiers}
@@ -507,7 +539,7 @@ supported by the system's @code{iconv} library routine.
 Set the wide execution character set, used for wide string and
 character constants.  The default is UTF-32 or UTF-16, whichever
 corresponds to the width of @code{wchar_t}.  As with
-@option{-ftarget-charset}, @var{charset} can be any encoding supported
+@option{-fexec-charset}, @var{charset} can be any encoding supported
 by the system's @code{iconv} library routine; however, you will have
 problems with encodings that do not fit exactly in @code{wchar_t}.
 
@@ -516,7 +548,7 @@ problems with encodings that do not fit exactly in @code{wchar_t}.
 Set the input character set, used for translation from the character
 set of the input file to the source character set used by GCC. If the
 locale does not specify, or GCC cannot get this information from the
-locale, the default is UTF-8. This can be overriden by either the locale
+locale, the default is UTF-8. This can be overridden by either the locale
 or this command line option. Currently the command line option takes
 precedence if there's a conflict. @var{charset} can be any encoding
 supported by the system's @code{iconv} library routine.

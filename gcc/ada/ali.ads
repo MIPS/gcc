@@ -253,7 +253,7 @@ package ALI is
 
       Dynamic_Elab : Boolean;
       --  Set to True if the unit was compiled with dynamic elaboration
-      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (Static)
+      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (RM)
       --  was used to compile the unit).
 
       Elaborate_Body : Boolean;
@@ -476,7 +476,7 @@ package ALI is
       --  Indicates presence of ED parameter
 
       Interface : Boolean := False;
-      --  True if the Unit is an Interface of a Stand-Alole Library
+      --  True if the Unit is an Interface of a Stand-Alone Library
 
    end record;
 
@@ -593,8 +593,10 @@ package ALI is
    No_Sdep_Id : constant Sdep_Id := Sdep_Id'First;
    --  Special value indicating no Sdep table entry
 
-   First_Sdep_Entry : constant Sdep_Id := No_Sdep_Id + 1;
-   --  Id of first actual entry in table
+   First_Sdep_Entry : Sdep_Id := No_Sdep_Id + 1;
+   --  Id of first Sdep entry for current ali file. This is initialized to
+   --  the first Sdep entry in the table, and then incremented appropriately
+   --  as successive ALI files are scanned.
 
    type Sdep_Record is record
 

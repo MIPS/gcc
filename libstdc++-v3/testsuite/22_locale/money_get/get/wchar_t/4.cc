@@ -28,8 +28,6 @@
 void test04()
 {
   using namespace std;
-  typedef money_base::part part;
-  typedef money_base::pattern pattern;
   typedef istreambuf_iterator<wchar_t> iterator_type;
 
   bool test __attribute__((unused)) = true;
@@ -38,13 +36,6 @@ void test04()
   locale loc_c = locale::classic();
   locale loc_hk = __gnu_test::try_named_locale("en_HK");
   VERIFY( loc_c != loc_hk );
-
-  // cache the moneypunct facets
-  typedef moneypunct<wchar_t, true> __money_true;
-  typedef moneypunct<wchar_t, false> __money_false;
-
-  // sanity check the data is correct.
-  const wstring empty;
 
   // input less than frac_digits
   const long double digits4 = -1.0;
@@ -64,7 +55,7 @@ void test04()
   ios_base::iostate err03 = ios_base::goodbit;
   mon_get.get(is_it03, end, true, iss, err03, result3);
   VERIFY( result3 == digits4 );
-  VERIFY( err03 == ios_base::goodbit );
+  VERIFY( err03 == ios_base::eofbit );
 }
 
 int main()

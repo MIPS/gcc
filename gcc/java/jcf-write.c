@@ -1,5 +1,5 @@
 /* Write out a Java(TM) class file.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -304,6 +304,7 @@ static void perform_relocations (struct jcf_partial *);
 static void init_jcf_state (struct jcf_partial *, struct obstack *);
 static void init_jcf_method (struct jcf_partial *, tree);
 static void release_jcf_state (struct jcf_partial *);
+static int get_classfile_modifiers (tree class);
 static struct chunk * generate_classfile (tree, struct jcf_partial *);
 static struct jcf_handler *alloc_handler (struct jcf_block *,
 					  struct jcf_block *,
@@ -633,10 +634,7 @@ get_access_flags (tree decl)
 {
   int flags = 0;
   int isfield = TREE_CODE (decl) == FIELD_DECL || TREE_CODE (decl) == VAR_DECL;
-  if (CLASS_PUBLIC (decl))  /* same as FIELD_PUBLIC and METHOD_PUBLIC */
-    flags |= ACC_PUBLIC;
-  if (CLASS_FINAL (decl))  /* same as FIELD_FINAL and METHOD_FINAL */
-    flags |= ACC_FINAL;
+
   if (isfield || TREE_CODE (decl) == FUNCTION_DECL)
     {
       if (TREE_PROTECTED (decl))
@@ -646,6 +644,10 @@ get_access_flags (tree decl)
     }
   else if (TREE_CODE (decl) == TYPE_DECL)
     {
+      if (CLASS_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (CLASS_FINAL (decl))
+	flags |= ACC_FINAL;
       if (CLASS_SUPER (decl))
 	flags |= ACC_SUPER;
       if (CLASS_ABSTRACT (decl))
@@ -669,6 +671,10 @@ get_access_flags (tree decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      if (METHOD_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (METHOD_FINAL (decl))
+	flags |= ACC_FINAL;
       if (METHOD_NATIVE (decl))
 	flags |= ACC_NATIVE;
       if (METHOD_STATIC (decl))
@@ -682,6 +688,10 @@ get_access_flags (tree decl)
     }
   if (isfield)
     {
+      if (FIELD_PUBLIC (decl))
+	flags |= ACC_PUBLIC;
+      if (FIELD_FINAL (decl))
+	flags |= ACC_FINAL;
       if (FIELD_STATIC (decl))
 	flags |= ACC_STATIC;
       if (FIELD_VOLATILE (decl))
@@ -762,7 +772,8 @@ static int
 find_constant_wide (HOST_WIDE_INT lo, HOST_WIDE_INT hi,
 		    struct jcf_partial *state)
 {
-  HOST_WIDE_INT w1, w2;
+  unsigned HOST_WIDE_INT w1;
+  HOST_WIDE_INT w2;
   lshift_double (lo, hi, -32, 64, &w1, &w2, 1);
   return find_constant2 (&state->cpool, CONSTANT_Long,
 			 (jword)(w1 & 0xFFFFFFFF), (jword)(lo & 0xFFFFFFFF));
@@ -812,7 +823,8 @@ find_constant_index (tree value, struct jcf_partial *state)
 static void
 push_long_const (HOST_WIDE_INT lo, HOST_WIDE_INT hi, struct jcf_partial *state)
 {
-  HOST_WIDE_INT highpart, dummy;
+  unsigned HOST_WIDE_INT highpart;
+  HOST_WIDE_INT dummy;
   jint lowpart = WORD_TO_INT (lo);
 
   rshift_double (lo, hi, 32, 64, &highpart, &dummy, 1);
@@ -823,7 +835,8 @@ push_long_const (HOST_WIDE_INT lo, HOST_WIDE_INT hi, struct jcf_partial *state)
       OP1(OPCODE_lconst_0 + lowpart);
     }
   else if ((highpart == 0 && lowpart > 0 && lowpart < 32768) 
-	   || (highpart == -1 && lowpart < 0 && lowpart >= -32768))
+	   || (highpart == (unsigned HOST_WIDE_INT)-1
+	       && lowpart < 0 && lowpart >= -32768))
       {
         push_int_const (lowpart, state);
         RESERVE (1);
@@ -1084,6 +1097,8 @@ generate_bytecode_conditional (tree exp,
   tree exp0, exp1, type;
   int save_SP = state->code_SP;
   enum java_opcode op, negop;
+  bool unordered = 0;
+  
   switch (TREE_CODE (exp))
     {
     case INTEGER_CST:
@@ -1155,25 +1170,55 @@ generate_bytecode_conditional (tree exp,
 	  emit_goto (false_label, state);
 	}
       break;
+
+    case UNEQ_EXPR:
+      unordered = 1;
     case EQ_EXPR:
       op = OPCODE_if_icmpeq;
       goto compare;
+
+    case LTGT_EXPR:
+      unordered = 1;
     case NE_EXPR:
       op = OPCODE_if_icmpne;
       goto compare;
+
+    case UNLE_EXPR:
+      unordered = 1;
     case GT_EXPR:
       op = OPCODE_if_icmpgt;
       goto compare;
+
+    case UNGE_EXPR:
+      unordered = 1;
     case LT_EXPR:
       op = OPCODE_if_icmplt;
       goto compare;
+
+    case UNLT_EXPR:
+      unordered = 1;
     case GE_EXPR:
       op = OPCODE_if_icmpge;
       goto compare;
+
+    case UNGT_EXPR:
+      unordered = 1;
     case LE_EXPR:
       op = OPCODE_if_icmple;
       goto compare;
+
     compare:
+      if (unordered)
+        {
+	  /* UNLT_EXPR(a, b) means 'a < b || unordered(a, b)'.  This is 
+	  the same as the Java source expression '!(a >= b)', so handle 
+	  it that way.  */
+	  struct jcf_block *tmp = true_label;
+	  true_label = false_label;
+	  false_label = tmp;
+          true_branch_first = !true_branch_first;
+	}
+	
       exp0 = TREE_OPERAND (exp, 0);
       exp1 = TREE_OPERAND (exp, 1);
       type = TREE_TYPE (exp0);
@@ -1540,6 +1585,12 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
     case LT_EXPR:
     case GE_EXPR:
     case LE_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
       {
 	struct jcf_block *then_label = gen_jcf_label (state);
 	struct jcf_block *else_label = gen_jcf_label (state);
@@ -2019,8 +2070,8 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 
 	    /* This function correctly handles the case where the LHS
 	       of a binary expression is NULL_TREE.  */
-	    rhs = build (TREE_CODE (rhs), TREE_TYPE (rhs),
-			 NULL_TREE, TREE_OPERAND (rhs, 1));
+	    rhs = build2 (TREE_CODE (rhs), TREE_TYPE (rhs),
+			  NULL_TREE, TREE_OPERAND (rhs, 1));
 	  }
 
 	generate_bytecode_insns (rhs, STACK_TARGET, state);
@@ -2149,35 +2200,24 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       }
       break;
     case SAVE_EXPR:
-      /* Because the state associated with a SAVE_EXPR tree node must
-	 be a RTL expression, we use it to store the DECL_LOCAL_INDEX
-	 of a temporary variable in a CONST_INT.  */
-      if (! SAVE_EXPR_RTL (exp))
+      /* The first time through, the argument of the SAVE_EXPR will be
+	 something complex.  Evaluate it, and replace the argument with
+	 a VAR_DECL that holds the result.  */
+      arg = TREE_OPERAND (exp, 0);
+      if (TREE_CODE (arg) != VAR_DECL || DECL_NAME (arg))
 	{
 	  tree type = TREE_TYPE (exp);
 	  tree decl = build_decl (VAR_DECL, NULL_TREE, type);
-	  generate_bytecode_insns (TREE_OPERAND (exp, 0),
-				   STACK_TARGET, state);
+	  generate_bytecode_insns (arg, STACK_TARGET, state);
 	  localvar_alloc (decl, state);
-	  SAVE_EXPR_RTL (exp) = GEN_INT (DECL_LOCAL_INDEX (decl));
+	  TREE_OPERAND (exp, 0) = decl;
 	  emit_dup (TYPE_IS_WIDE (type) ? 2 : 1, 0, state);
 	  emit_store (decl, state);
 	}
       else
 	{
-	  /* The following code avoids creating a temporary DECL just
-	     to pass to emit_load.  This code could be factored with
-	     the similar implementation in emit_load_or_store.  */
 	  tree type = TREE_TYPE (exp);
-	  int kind = adjust_typed_op (type, 4);
-	  int index = (int) INTVAL (SAVE_EXPR_RTL (exp));
-	  if (index <= 3)
-	    {
-	      RESERVE (1);  /* [ilfda]load_[0123]  */
-	      OP1 (OPCODE_iload + 5 + 4*kind + index);
-	    }
-	  else  /* [ilfda]load  */
-	    maybe_wide (OPCODE_iload + kind, index, state);
+	  emit_load (arg, state);
 	  NOTE_PUSH (TYPE_IS_WIDE (type) ? 2 : 1);
 	}
       break;
@@ -2232,7 +2272,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 		    /* Already converted to int, if needed. */
 		    if (TYPE_PRECISION (dst_type) <= 8)
 		      OP1 (OPCODE_i2b);
-		    else if (TREE_UNSIGNED (dst_type))
+		    else if (TYPE_UNSIGNED (dst_type))
 		      OP1 (OPCODE_i2c);
 		    else
 		      OP1 (OPCODE_i2s);
@@ -2453,9 +2493,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	tree x;
 	if (TREE_SIDE_EFFECTS (op0) || TREE_SIDE_EFFECTS (op1))
 	  abort ();
-	x = build (COND_EXPR, TREE_TYPE (exp), 
-		   build (code, boolean_type_node, op0, op1), 
-		   op0, op1);	  
+	x = build3 (COND_EXPR, TREE_TYPE (exp), 
+		    build2 (code, boolean_type_node, op0, op1), 
+		    op0, op1);	  
 	generate_bytecode_insns (x, target, state);
 	break;
       }					     
@@ -2839,6 +2879,49 @@ release_jcf_state (struct jcf_partial *state)
   obstack_free (state->chunk_obstack, state->first);
 }
 
+/* Get the access flags (modifiers) of a class (TYPE_DECL) to be used in the
+   access_flags field of the class file header.  */
+
+static int
+get_classfile_modifiers (tree class)
+{
+  /* These are the flags which are valid class file modifiers. 
+     See JVMS2 S4.1.  */
+  int valid_toplevel_class_flags = (ACC_PUBLIC | ACC_FINAL | ACC_SUPER | 
+				    ACC_INTERFACE | ACC_ABSTRACT);
+  int flags = get_access_flags (class);
+
+  /* ACC_SUPER should always be set, except for interfaces.  */
+  if (! (flags & ACC_INTERFACE))
+    flags |= ACC_SUPER;
+   
+  /* A protected member class becomes public at the top level. */
+  if (flags & ACC_PROTECTED)
+    flags |= ACC_PUBLIC;
+ 
+  /* Filter out flags that are not valid for a class or interface in the 
+     top-level access_flags field.  */
+  flags &= valid_toplevel_class_flags;
+
+  return flags;
+}
+
+/* Get the access flags (modifiers) for a method to be used in the class 
+   file.  */
+
+static int
+get_method_access_flags (tree decl)
+{
+  int flags = get_access_flags (decl);
+
+  /* Promote "private" inner-class constructors to package-private.  */
+  if (DECL_CONSTRUCTOR_P (decl)
+      && INNER_CLASS_DECL_P (TYPE_NAME (DECL_CONTEXT (decl))))
+    flags &= ~(ACC_PRIVATE);
+
+  return flags;
+}
+
 /* Generate and return a list of chunks containing the class CLAS
    in the .class file representation.  The list can be written to a
    .class file using write_chunks.  Allocate chunks from obstack WORK. */
@@ -2849,16 +2932,15 @@ generate_classfile (tree clas, struct jcf_partial *state)
 {
   struct chunk *cpool_chunk;
   const char *source_file, *s;
-  char *ptr;
+  unsigned char *ptr;
   int i;
-  char *fields_count_ptr;
+  unsigned char *fields_count_ptr;
   int fields_count = 0;
-  char *methods_count_ptr;
+  unsigned char *methods_count_ptr;
   int methods_count = 0;
   tree part;
   int total_supers
-    = clas == object_type_node ? 0
-    : TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (clas));
+    = clas == object_type_node ? 0 : BINFO_N_BASE_BINFOS (TYPE_BINFO (clas));
   
   ptr = append_chunk (NULL, 8, state);
   PUT4 (0xCafeBabe);  /* Magic number */
@@ -2874,9 +2956,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
   else
     i = 8 + 2 * total_supers;
   ptr = append_chunk (NULL, i, state);
-  i = get_access_flags (TYPE_NAME (clas));
-  if (! (i & ACC_INTERFACE))
-    i |= ACC_SUPER;
+  i = get_classfile_modifiers (TYPE_NAME (clas));  
   PUT2 (i); /* access_flags */
   i = find_class_constant (&state->cpool, clas);  PUT2 (i);  /* this_class */
   if (clas == object_type_node)
@@ -2886,15 +2966,15 @@ generate_classfile (tree clas, struct jcf_partial *state)
     }
   else
     {
-      tree basetypes = TYPE_BINFO_BASETYPES (clas);
-      tree base = BINFO_TYPE (TREE_VEC_ELT (basetypes, 0));
-      int j = find_class_constant (&state->cpool, base);
+      tree binfo = TYPE_BINFO (clas);
+      tree base_binfo = BINFO_BASE_BINFO (binfo, 0);
+      int j = find_class_constant (&state->cpool, BINFO_TYPE (base_binfo));
+      
       PUT2 (j);  /* super_class */
       PUT2 (total_supers - 1);  /* interfaces_count */
-      for (i = 1;  i < total_supers;  i++)
+      for (i = 1; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  base = BINFO_TYPE (TREE_VEC_ELT (basetypes, i));
-	  j = find_class_constant (&state->cpool, base);
+	  j = find_class_constant (&state->cpool, BINFO_TYPE (base_binfo));
 	  PUT2 (j);
 	}
     }
@@ -2973,7 +3053,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
 
       current_function_decl = part;
       ptr = append_chunk (NULL, 8, state);
-      i = get_access_flags (part);  PUT2 (i);
+      i = get_method_access_flags (part);  PUT2 (i);
       i = find_utf8_constant (&state->cpool, name);  PUT2 (i);
       i = find_utf8_constant (&state->cpool, build_java_signature (type));
       PUT2 (i);
@@ -3002,7 +3082,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
 	  int code_attributes_count = 0;
 	  static tree Code_node = NULL_TREE;
 	  tree t;
-	  char *attr_len_ptr;
+	  unsigned char *attr_len_ptr;
 	  struct jcf_handler *handler;
 	  if (Code_node == NULL_TREE)
 	    Code_node = get_identifier ("Code");
@@ -3383,9 +3463,11 @@ make_class_file_name (tree clas)
       if (s == NULL)
 	break;
       *s = '\0';
+      /* Try to make directory if it doesn't already exist.  */
       if (stat (r, &sb) == -1
-	  /* Try to make it.  */
-	  && mkdir (r, 0755) == -1)
+	  && mkdir (r, 0755) == -1
+	  /* The directory might have been made by another process.  */
+	  && errno != EEXIST)
 	fatal_error ("can't create directory %s: %m", r);
 
       *s = sep;

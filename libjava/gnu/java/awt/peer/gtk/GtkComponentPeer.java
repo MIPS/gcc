@@ -54,12 +54,14 @@ import java.awt.GraphicsConfiguration;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.ItemSelectable;
+import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.FocusEvent;
 import java.awt.event.ItemEvent;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.PaintEvent;
@@ -91,6 +93,10 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetSetCursor (int type);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
+  native void gtkWidgetRequestFocus ();
+  native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
+                                         int keyCode, int keyLocation);
+  native void gtkSetFont (String name, int style, int size);
   native void gtkWidgetQueueDrawArea(int x, int y, int width, int height);
   native void addExposeFilter();
   native void removeExposeFilter();
@@ -109,8 +115,6 @@ public class GtkComponentPeer extends GtkGenericPeer
     this.awtComponent = awtComponent;
     insets = new Insets (0, 0, 0, 0);
 
-    /* temporary try/catch block until all peers use this creation method */
-    try {
       create ();
       
       GtkArgList args = new GtkArgList ();
@@ -137,11 +141,11 @@ public class GtkComponentPeer extends GtkGenericPeer
                                                      awtComponent.getX(), 
                                                      awtComponent.getY(),
                                                      dims[0], dims[1]);
-      }      
+      }
+
       Rectangle bounds = awtComponent.getBounds ();
       setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
-
-    } catch (RuntimeException ex) { ; }
+    setVisible (awtComponent.isVisible ());
   }
 
   public int checkImage (Image image, int width, int height, 
@@ -193,7 +197,10 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Graphics getGraphics ()
   {
-    return null;
+    if (GtkToolkit.useGraphics2D ())
+        return new GdkGraphics2D (this);
+    else
+        return new GdkGraphics (this);
   }
 
   public Point getLocationOnScreen () 
@@ -221,6 +228,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   public void handleEvent (AWTEvent event)
   {
     int id = event.getID();
+    KeyEvent ke = null;
 
     switch (id)
       {
@@ -234,7 +242,7 @@ public class GtkComponentPeer extends GtkGenericPeer
               // Some peers like GtkFileDialogPeer are repainted by Gtk itself
               if (g == null)
                 break;
-
+		
               g.setClip (((PaintEvent)event).getUpdateRect());
 
               if (id == PaintEvent.PAINT)
@@ -249,6 +257,16 @@ public class GtkComponentPeer extends GtkGenericPeer
               System.err.println (e);
             }
         }
+        break;
+      case KeyEvent.KEY_PRESSED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
+                                   ke.getKeyCode (), ke.getKeyLocation ());
+        break;
+      case KeyEvent.KEY_RELEASED:
+        ke = (KeyEvent) event;
+        gtkWidgetDispatchKeyEvent (ke.getID (), ke.getWhen (), ke.getModifiers (),
+                                   ke.getKeyCode (), ke.getKeyLocation ());
         break;
       }
   }
@@ -334,7 +352,11 @@ public class GtkComponentPeer extends GtkGenericPeer
 				 new Rectangle (x, y, width, height)));
   }
 
-  native public void requestFocus ();
+  public void requestFocus ()
+  {
+    gtkWidgetRequestFocus();
+    postFocusEvent(FocusEvent.FOCUS_GAINED, false);
+  }
 
   public void reshape (int x, int y, int width, int height) 
   {
@@ -403,6 +425,7 @@ public class GtkComponentPeer extends GtkGenericPeer
     // FIXME: This should really affect the widget tree below me.
     // Currently this is only handled if the call is made directly on
     // a text widget, which implements setFont() itself.
+    gtkSetFont(f.getName(), f.getStyle(), f.getSize());
   }
 
   public void setForeground (Color c) 
@@ -424,18 +447,14 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void setVisible (boolean b)
   {
-    set ("visible", b);
-  }
-  
-  public void hide () 
-  {
-    setVisible (false);
+    if (b)
+      show ();
+    else
+      hide ();
   }
 
-  public void show () 
-  {
-    setVisible (true);
-  }
+  public native void hide ();
+  public native void show ();
 
   protected void postMouseEvent(int id, long when, int mods, int x, int y, 
 				int clickCount, boolean popupTrigger) 
@@ -451,10 +470,28 @@ public class GtkComponentPeer extends GtkGenericPeer
   }
 
   protected void postKeyEvent (int id, long when, int mods,
-			       int keyCode, char keyChar, int keyLocation)
+                               int keyCode, char keyChar, int keyLocation)
   {
-    q.postEvent (new KeyEvent (awtComponent, id, when, mods,
-			       keyCode, keyChar, keyLocation));
+    KeyEvent keyEvent = new KeyEvent (awtComponent, id, when, mods,
+                                      keyCode, keyChar, keyLocation);
+
+    // Also post a KEY_TYPED event if keyEvent is a key press that
+    // doesn't represent an action or modifier key.
+    if (keyEvent.getID () == KeyEvent.KEY_PRESSED
+        && (!keyEvent.isActionKey ()
+            && keyCode != KeyEvent.VK_SHIFT
+            && keyCode != KeyEvent.VK_CONTROL
+            && keyCode != KeyEvent.VK_ALT))
+      {
+        synchronized (q)
+          {
+            q.postEvent (keyEvent);
+            q.postEvent (new KeyEvent (awtComponent, KeyEvent.KEY_TYPED, when, mods,
+                                        KeyEvent.VK_UNDEFINED, keyChar, keyLocation));
+          }
+      }
+    else
+      q.postEvent (keyEvent);
   }
 
   protected void postFocusEvent (int id, boolean temporary)
@@ -471,7 +508,6 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void getArgs (Component component, GtkArgList args)
   {
-    args.add ("visible", component.isVisible ());
     args.add ("sensitive", component.isEnabled ());
 
     ComponentPeer p;

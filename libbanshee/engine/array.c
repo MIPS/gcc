@@ -61,7 +61,7 @@ void *array_extend(struct array *a, int by)
   size_t oldelems = a->nelems;
 
   if (by < 0)
-    assert(-by <= a->nelems && by != INT_MIN);
+    assert(((unsigned int)-by) <= a->nelems && by != INT_MIN);
   else if (a->nelems + by > a->nalloc)
     {
       size_t newsize = a->nalloc * 2 + by;

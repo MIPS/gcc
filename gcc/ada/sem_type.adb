@@ -59,14 +59,14 @@ package body Sem_Type is
    --  of clash lists are stored in array Headers.
 
    --              Headers        Interp_Map          All_Interp
-   --
-   --                 _            -------             ----------
+
+   --                 _            +-----+             +--------+
    --                |_|           |_____|         --->|interp1 |
    --                |_|---------->|node |         |   |interp2 |
    --                |_|           |index|---------|   |nointerp|
    --                |_|           |next |             |        |
    --                              |-----|             |        |
-   --                              -------             ----------
+   --                              +-----+             +--------+
 
    --  This scheme does not currently reclaim interpretations. In principle,
    --  after a unit is compiled, all overloadings have been resolved, and the
@@ -731,6 +731,27 @@ package body Sem_Type is
       then
          return True;
 
+      --  Ada 2005 (AI-254): An Anonymous_Access_To_Subprogram is compatible
+      --  with itself, or with an anonymous type created for an attribute
+      --  reference Access.
+
+      elsif (Ekind (Base_Type (T1)) = E_Anonymous_Access_Subprogram_Type
+               or else
+             Ekind (Base_Type (T1))
+                      = E_Anonymous_Access_Protected_Subprogram_Type)
+        and then Is_Access_Type (T2)
+        and then (not Comes_From_Source (T1)
+                   or else not Comes_From_Source (T2))
+        and then (Is_Overloadable (Designated_Type (T2))
+                    or else
+                  Ekind (Designated_Type (T2)) = E_Subprogram_Type)
+        and then
+           Type_Conformant (Designated_Type (T1), Designated_Type (T2))
+        and then
+           Mode_Conformant (Designated_Type (T1), Designated_Type (T2))
+      then
+         return True;
+
       --  The context can be a remote access type, and the expression the
       --  corresponding source type declared in a categorized package, or
       --  viceversa.
@@ -824,7 +845,7 @@ package body Sem_Type is
       then
          return True;
 
-      --  Ada 0Y (AI-50217): Additional branches to make the shadow entity
+      --  Ada 2005 (AI-50217): Additional branches to make the shadow entity
       --  compatible with its real entity.
 
       elsif From_With_Type (T1) then
@@ -1354,11 +1375,10 @@ package body Sem_Type is
             if Is_Fixed_Point_Type (Typ)
               and then (Chars (Nam1) = Name_Op_Multiply
                          or else Chars (Nam1) = Name_Op_Divide)
-              and then Ada_83
+              and then Ada_Version = Ada_83
             then
                if It2.Nam = Predef_Subp then
                   return It1;
-
                else
                   return It2;
                end if;
@@ -1470,18 +1490,18 @@ package body Sem_Type is
       elsif T = Universal_Fixed then
          return Etype (R);
 
-      --  Ada 0Y (AI-230): Support the following operators:
+      --  Ada 2005 (AI-230): Support the following operators:
 
       --    function "="  (L, R : universal_access) return Boolean;
       --    function "/=" (L, R : universal_access) return Boolean;
 
-      elsif Extensions_Allowed
+      elsif Ada_Version >= Ada_05
         and then Ekind (Etype (L)) = E_Anonymous_Access_Type
         and then Is_Access_Type (Etype (R))
       then
          return Etype (L);
 
-      elsif Extensions_Allowed
+      elsif Ada_Version >= Ada_05
         and then Ekind (Etype (R)) = E_Anonymous_Access_Type
         and then Is_Access_Type (Etype (L))
       then
@@ -1539,9 +1559,9 @@ package body Sem_Type is
       raise Program_Error;
    end Get_First_Interp;
 
-   ----------------------
-   --  Get_Next_Interp --
-   ----------------------
+   ---------------------
+   -- Get_Next_Interp --
+   ---------------------
 
    procedure Get_Next_Interp (I : in out Interp_Index; It : out Interp) is
    begin
@@ -1998,9 +2018,9 @@ package body Sem_Type is
               and then Base_Type (T1) = Base_Type (T)
               and then Is_Numeric_Type (T)
               and then (not Is_Fixed_Point_Type (T)
-                         or else Ada_83))
+                         or else Ada_Version = Ada_83))
 
-            --  Mixed_Mode operations on fixed-point types.
+            --  Mixed_Mode operations on fixed-point types
 
               or else (Base_Type (T1) = Base_Type (T)
                         and then Base_Type (T2) = Base_Type (Standard_Integer)
@@ -2018,9 +2038,9 @@ package body Sem_Type is
               and then Base_Type (T1) = Base_Type (T)
               and then Is_Numeric_Type (T)
               and then (not Is_Fixed_Point_Type (T)
-                         or else Ada_83))
+                         or else Ada_Version = Ada_83))
 
-            --  Mixed_Mode operations on fixed-point types.
+            --  Mixed_Mode operations on fixed-point types
 
               or else (Base_Type (T1) = Base_Type (T)
                         and then Base_Type (T2) = Base_Type (Standard_Integer)
@@ -2345,9 +2365,9 @@ package body Sem_Type is
       end if;
    end Write_Overloads;
 
-   -----------------------
-   --  Write_Interp_Ref --
-   -----------------------
+   ----------------------
+   -- Write_Interp_Ref --
+   ----------------------
 
    procedure Write_Interp_Ref (Map_Ptr : Int) is
    begin

@@ -66,7 +66,7 @@ package body Exp_Dist is
    --       converted to and from this type to make it suitable for
    --       System.Partition_Interface.Get_Unique_Remote_Pointer in order
    --       to avoid memory leaks when the same remote object arrive on the
-   --       same partition by following different pathes
+   --       same partition through several paths;
 
    --    2) It also has the same dispatching table as the designated type D,
    --       and thus can be used as an object designated by a value of type
@@ -79,6 +79,10 @@ package body Exp_Dist is
    -----------------------
    -- Local subprograms --
    -----------------------
+
+   function Get_Subprogram_Id (E : Entity_Id) return Int;
+   --  Given a subprogram defined in a RCI package, get its subprogram id
+   --  which will be used for remote calls.
 
    procedure Build_General_Calling_Stubs
      (Decls                     : in List_Id;
@@ -534,14 +538,14 @@ package body Exp_Dist is
       end if;
    end Add_RACW_Features;
 
-   -------------------------------------------------
-   --  Add_RACW_Primitive_Declarations_And_Bodies --
-   -------------------------------------------------
+   ------------------------------------------------
+   -- Add_RACW_Primitive_Declarations_And_Bodies --
+   ------------------------------------------------
 
    procedure Add_RACW_Primitive_Declarations_And_Bodies
-     (Designated_Type : in Entity_Id;
-      Insertion_Node  : in Node_Id;
-      Decls           : in List_Id)
+     (Designated_Type : Entity_Id;
+      Insertion_Node  : Node_Id;
+      Decls           : List_Id)
    is
       --  Set sloc of generated declaration to be that of the
       --  insertion node, so the declarations are recognized as
@@ -1189,75 +1193,122 @@ package body Exp_Dist is
       Proc_Decls        : constant List_Id := New_List;
       Proc_Statements   : constant List_Id := New_List;
 
-      Proc_Spec : Node_Id;
+      Proc_Spec    : Node_Id;
+      Proc         : Node_Id;
+      Local_Addr   : Entity_Id;
+      Package_Name : Entity_Id;
+      Subp_Id      : Entity_Id;
+      Asynch_P     : Entity_Id;
+      Origin       : Entity_Id;
+      Return_Value : Entity_Id;
 
-      Proc : Node_Id;
-
-      Param        : Node_Id;
-      Package_Name : Node_Id;
-      Subp_Id      : Node_Id;
-      Asynchronous : Node_Id;
-      Return_Value : Node_Id;
+      All_Calls_Remote : Entity_Id;
+      --  True if an All_Calls_Remote pragma applies to the RCI unit
+      --  that contains the subprogram (currently unused, all RAS
+      --  dereferences are handled through the PCS).
 
       Loc : constant Source_Ptr := Sloc (N);
 
-      procedure Set_Field (Field_Name : in Name_Id; Value : in Node_Id);
-      --  Set a field name for the return value
+      function Set_Field
+        (Field_Name : Name_Id;
+         Value      : Node_Id) return Node_Id;
+      --  Construct an assignment that sets the named component in the
+      --  returned record
 
-      procedure Set_Field (Field_Name : in Name_Id; Value : in Node_Id)
+      ---------------
+      -- Set_Field --
+      ---------------
+
+      function Set_Field
+        (Field_Name : Name_Id;
+         Value      : Node_Id) return Node_Id
       is
       begin
-         Append_To (Proc_Statements,
+         return
            Make_Assignment_Statement (Loc,
              Name       =>
                Make_Selected_Component (Loc,
                  Prefix        => New_Occurrence_Of (Return_Value, Loc),
                  Selector_Name => Make_Identifier (Loc, Field_Name)),
-             Expression => Value));
+             Expression => Value);
       end Set_Field;
 
    --  Start of processing for Add_RAS_Access_Attribute
 
    begin
-      Param := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
-      Package_Name := Make_Defining_Identifier (Loc, New_Internal_Name ('S'));
-      Subp_Id := Make_Defining_Identifier (Loc, New_Internal_Name ('N'));
-      Asynchronous := Make_Defining_Identifier (Loc, New_Internal_Name ('B'));
-      Return_Value := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+      Local_Addr   := Make_Defining_Identifier (Loc, New_Internal_Name ('L'));
+      Package_Name := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+      Subp_Id      := Make_Defining_Identifier (Loc, New_Internal_Name ('N'));
+      Asynch_P     := Make_Defining_Identifier (Loc, New_Internal_Name ('B'));
+      Origin       := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
+      Return_Value := Make_Defining_Identifier (Loc, New_Internal_Name ('R'));
+      All_Calls_Remote :=
+        Make_Defining_Identifier (Loc, New_Internal_Name ('A'));
 
       --  Create the object which will be returned of type Fat_Type
 
-      Append_To (Proc_Decls,
+      Append_List_To (Proc_Decls, New_List (
+
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Origin,
+          Constant_Present    => True,
+          Object_Definition   =>
+            New_Occurrence_Of (RTE (RE_Partition_ID), Loc),
+          Expression          =>
+            Make_Function_Call (Loc,
+              Name                   =>
+                New_Occurrence_Of (RTE (RE_Get_Active_Partition_Id), Loc),
+              Parameter_Associations => New_List (
+                New_Occurrence_Of (Package_Name, Loc)))),
+
         Make_Object_Declaration (Loc,
           Defining_Identifier => Return_Value,
           Object_Definition   =>
-            New_Occurrence_Of (Fat_Type, Loc)));
+            New_Occurrence_Of (Fat_Type, Loc))));
 
       --  Initialize the fields of the record type with the appropriate data
 
-      Set_Field (Name_Ras,
-        OK_Convert_To (RTE (RE_Unsigned_64), New_Occurrence_Of (Param, Loc)));
+      Append_List_To (Proc_Statements, New_List (
+        Make_Implicit_If_Statement (N,
+          Condition =>
+            Make_And_Then (Loc,
+              Left_Opnd =>
+                Make_Op_Not (Loc,
+                  New_Occurrence_Of (All_Calls_Remote, Loc)),
+              Right_Opnd =>
+                Make_Op_Eq (Loc,
+                  Left_Opnd =>
+                    New_Occurrence_Of (Origin, Loc),
+                  Right_Opnd =>
+                    Make_Function_Call (Loc,
+                      New_Occurrence_Of (
+                        RTE (RE_Get_Local_Partition_Id), Loc)))),
 
-      Set_Field (Name_Origin,
-        Unchecked_Convert_To (Standard_Integer,
+          Then_Statements => New_List (
+            Set_Field (Name_Ras,
+              OK_Convert_To (RTE (RE_Unsigned_64),
+                             New_Occurrence_Of (Local_Addr, Loc)))),
+
+          Else_Statements => New_List (
+            Set_Field (Name_Ras,
+              Make_Integer_Literal (Loc, Uint_0)))),
+
+        Set_Field (Name_Origin,
+          Unchecked_Convert_To (Standard_Integer,
+            New_Occurrence_Of (Origin, Loc))),
+
+        Set_Field (Name_Receiver,
           Make_Function_Call (Loc,
             Name                   =>
-              New_Occurrence_Of (RTE (RE_Get_Active_Partition_Id), Loc),
+              New_Occurrence_Of (RTE (RE_Get_RCI_Package_Receiver), Loc),
             Parameter_Associations => New_List (
-              New_Occurrence_Of (Package_Name, Loc)))));
+              New_Occurrence_Of (Package_Name, Loc)))),
 
-      Set_Field (Name_Receiver,
-        Make_Function_Call (Loc,
-          Name                   =>
-            New_Occurrence_Of (RTE (RE_Get_RCI_Package_Receiver), Loc),
-          Parameter_Associations => New_List (
-            New_Occurrence_Of (Package_Name, Loc))));
+        Set_Field (Name_Subp_Id,
+          New_Occurrence_Of (Subp_Id, Loc)),
 
-      Set_Field (Name_Subp_Id,
-        New_Occurrence_Of (Subp_Id, Loc));
-
-      Set_Field (Name_Async,
-        New_Occurrence_Of (Asynchronous, Loc));
+        Set_Field (Name_Async,
+          New_Occurrence_Of (Asynch_P, Loc))));
 
       --  Return the newly created value
 
@@ -1275,7 +1326,7 @@ package body Exp_Dist is
           Defining_Unit_Name       => Proc,
           Parameter_Specifications => New_List (
             Make_Parameter_Specification (Loc,
-              Defining_Identifier => Param,
+              Defining_Identifier => Local_Addr,
               Parameter_Type      =>
                 New_Occurrence_Of (RTE (RE_Address), Loc)),
 
@@ -1290,7 +1341,12 @@ package body Exp_Dist is
                 New_Occurrence_Of (Standard_Natural, Loc)),
 
             Make_Parameter_Specification (Loc,
-              Defining_Identifier => Asynchronous,
+              Defining_Identifier => Asynch_P,
+              Parameter_Type      =>
+                New_Occurrence_Of (Standard_Boolean, Loc)),
+
+            Make_Parameter_Specification (Loc,
+              Defining_Identifier => All_Calls_Remote,
               Parameter_Type      =>
                 New_Occurrence_Of (Standard_Boolean, Loc))),
 
@@ -2749,6 +2805,18 @@ package body Exp_Dist is
             Make_Handled_Sequence_Of_Statements (Loc, Statements));
    end Build_Subprogram_Calling_Stubs;
 
+   -------------------------
+   -- Build_Subprogram_Id --
+   -------------------------
+
+   function Build_Subprogram_Id
+     (Loc : Source_Ptr;
+      E   : Entity_Id) return Node_Id
+   is
+   begin
+      return Make_Integer_Literal (Loc, Get_Subprogram_Id (E));
+   end Build_Subprogram_Id;
+
    --------------------------------------
    -- Build_Subprogram_Receiving_Stubs --
    --------------------------------------
@@ -2789,7 +2857,7 @@ package body Exp_Dist is
       Excep_Code    : List_Id;
 
       Parameter_List : constant List_Id := New_List;
-      --  List of parameters to be passed to the subprogram.
+      --  List of parameters to be passed to the subprogram
 
       Current_Parameter : Node_Id;
 
@@ -3468,6 +3536,47 @@ package body Exp_Dist is
       Store_String_Chars (Val);
       return End_String;
    end Get_String_Id;
+
+   -----------------------
+   -- Get_Subprogram_Id --
+   -----------------------
+
+   function Get_Subprogram_Id (E : Entity_Id) return Int is
+      Current_Declaration : Node_Id;
+      Result              : Int := 0;
+
+   begin
+      pragma Assert
+        (Is_Remote_Call_Interface (Scope (E))
+           and then
+             (Nkind (Parent (E)) = N_Procedure_Specification
+                or else
+              Nkind (Parent (E)) = N_Function_Specification));
+
+      Current_Declaration :=
+        First (Visible_Declarations
+          (Package_Specification_Of_Scope (Scope (E))));
+
+      while Current_Declaration /= Empty loop
+         if Nkind (Current_Declaration) = N_Subprogram_Declaration
+           and then Comes_From_Source (Current_Declaration)
+         then
+            if Defining_Unit_Name
+                 (Specification (Current_Declaration)) = E
+            then
+               return Result;
+            end if;
+
+            Result := Result + 1;
+         end if;
+
+         Next (Current_Declaration);
+      end loop;
+
+      --  Error if we do not find it
+
+      raise Program_Error;
+   end Get_Subprogram_Id;
 
    ----------
    -- Hash --

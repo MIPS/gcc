@@ -44,8 +44,13 @@ do {						\
 	  builtin_define("__BIG_ENDIAN__");	\
 } while (0)
 
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
 #define EXTRA_SPECS \
-  { "asm_extra", ASM_EXTRA_SPEC },
+  { "asm_extra", ASM_EXTRA_SPEC }, \
+  SUBTARGET_EXTRA_SPECS
 
 #define CC1_SPEC "%(cc1_cpu) "
 
@@ -203,14 +208,21 @@ extern int ia64_tls_size;
       N_("Generate inline floating point division, optimize for latency") },\
   { "inline-float-divide-max-throughput", MASK_INLINE_FLOAT_DIV_THR,	\
       N_("Generate inline floating point division, optimize for throughput") },\
+  { "no-inline-float-divide", 						\
+      -(MASK_INLINE_FLOAT_DIV_LAT|MASK_INLINE_FLOAT_DIV_THR),		\
+      N_("Do not inline floating point division") },			\
   { "inline-int-divide-min-latency", MASK_INLINE_INT_DIV_LAT,		\
       N_("Generate inline integer division, optimize for latency") },	\
   { "inline-int-divide-max-throughput", MASK_INLINE_INT_DIV_THR,	\
       N_("Generate inline integer division, optimize for throughput") },\
+  { "no-inline-int-divide", -(MASK_INLINE_INT_DIV_LAT|MASK_INLINE_INT_DIV_THR),	\
+      N_("Do not inline integer division") },				\
   { "inline-sqrt-min-latency", MASK_INLINE_SQRT_LAT,			\
       N_("Generate inline square root, optimize for latency") },	\
   { "inline-sqrt-max-throughput", MASK_INLINE_SQRT_THR,			\
       N_("Generate inline square root, optimize for throughput") },     \
+  { "no-inline-sqrt", -(MASK_INLINE_SQRT_LAT|MASK_INLINE_SQRT_THR),	\
+      N_("Do not inline square root") },				\
   { "dwarf2-asm", 	MASK_DWARF2_ASM,				\
       N_("Enable Dwarf 2 line debug info via GNU as")},			\
   { "no-dwarf2-asm", 	-MASK_DWARF2_ASM,				\
@@ -227,7 +239,7 @@ extern int ia64_tls_size;
 /* Default target_flags if no switches are specified  */
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT MASK_DWARF2_ASM
+#define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_INLINE_FLOAT_DIV_THR)
 #endif
 
 #ifndef TARGET_CPU_DEFAULT
@@ -436,10 +448,10 @@ while (0)
 #define DOUBLE_TYPE_SIZE 64
 
 /* long double is XFmode normally, TFmode for HPUX.  */
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_HPUX ? 128 : 96)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_HPUX ? 128 : 80)
 
 /* We always want the XFmode operations from libgcc2.c.  */
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -831,6 +843,13 @@ while (0)
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
    && (((MODE1) == XFmode) == ((MODE2) == XFmode))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
+
+/* Specify the modes required to caller save a given hard regno.
+   We need to ensure floating pt regs are not saved as DImode.  */
+
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+   : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
 
@@ -1007,7 +1026,7 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
   (CLASS == FR_REGS && GET_CODE (X) == MEM && MEM_VOLATILE_P (X) ? NO_REGS   \
    : CLASS == FR_REGS && GET_CODE (X) == CONST_DOUBLE ? NO_REGS		     \
-   : GET_RTX_CLASS (GET_CODE (X)) != 'o'				     \
+   : !OBJECT_P (X)							     \
      && (CLASS == AR_M_REGS || CLASS == AR_I_REGS) ? NO_REGS		     \
    : CLASS)
 
@@ -1110,9 +1129,9 @@ enum reg_class
 #define CONSTRAINT_OK_FOR_R(VALUE) \
   (GET_CODE (VALUE) == CONST_INT && INTVAL (VALUE) >= 1 && INTVAL (VALUE) <= 4)
 /* Non-post-inc memory for asms and other unsavory creatures.  */
-#define CONSTRAINT_OK_FOR_S(VALUE)				\
-  (GET_CODE (VALUE) == MEM					\
-   && GET_RTX_CLASS (GET_CODE (XEXP ((VALUE), 0))) != 'a'	\
+#define CONSTRAINT_OK_FOR_S(VALUE)					\
+  (GET_CODE (VALUE) == MEM						\
+   && GET_RTX_CLASS (GET_CODE (XEXP ((VALUE), 0))) != RTX_AUTOINC	\
    && (reload_in_progress || memory_operand ((VALUE), VOIDmode)))
 /* Symbol ref to small-address-area: */
 #define CONSTRAINT_OK_FOR_T(VALUE)						\
@@ -1305,22 +1324,6 @@ enum reg_class
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
  ia64_function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.  The
-   pointer is passed in whatever way is appropriate for passing a pointer to
-   that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  ia64_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
-
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-
-#define MUST_PASS_IN_STACK(MODE, TYPE) \
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)))
-
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the type
    `int' suffices and can hold the number of bytes of argument so far.  */
@@ -1387,10 +1390,6 @@ do {									\
 #define FUNCTION_ARG_REGNO_P(REGNO) \
 (((REGNO) >= AR_ARG_FIRST && (REGNO) < (AR_ARG_FIRST + MAX_ARGUMENT_SLOTS)) \
  || ((REGNO) >= FR_ARG_FIRST && (REGNO) < (FR_ARG_FIRST + MAX_ARGUMENT_SLOTS)))
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  ia64_va_arg (valist, type)
 
 /* How Scalar Function Values are Returned */
 
@@ -1464,6 +1463,7 @@ do {									\
         fputs ("\tdata8.ua @iplt(", FILE);				\
       else								\
         fputs ("\tdata16.ua @iplt(", FILE);				\
+      mark_decl_referenced (DECL);					\
       assemble_name (FILE, XSTR (XEXP (DECL_RTL (DECL), 0), 0));	\
       fputs (")\n", FILE);						\
       if (TARGET_ILP32)							\
@@ -1542,15 +1542,6 @@ do {									\
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, STATIC_CHAIN) \
   ia64_initialize_trampoline((ADDR), (FNADDR), (STATIC_CHAIN))
 
-/* Implicit Calls to Library Routines */
-
-/* Define this macro if GCC should generate calls to the System V (and ANSI
-   C) library functions `memcpy' and `memset' rather than the BSD functions
-   `bcopy' and `bzero'.  */
-
-#define TARGET_MEM_FUNCTIONS
-
-
 /* Addressing Modes */
 
 /* Define this macro if the machine supports post-increment addressing.  */
@@ -1615,13 +1606,6 @@ do {									\
    use as an index register.  This is needed for POST_MODIFY.  */
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
-
-/* A C compound statement that attempts to replace X with a valid memory
-   address for an operand of mode MODE.
-
-   This must be present, but there is nothing useful to be done here.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
 
 /* A C statement or compound statement with a conditional `goto LABEL;'
    executed if memory address X (an RTX) can have different meanings depending
@@ -2166,12 +2150,12 @@ do {									\
 { "sdata_symbolic_operand", {SYMBOL_REF, CONST}},			\
 { "small_addr_symbolic_operand", {SYMBOL_REF}},				\
 { "symbolic_operand", {SYMBOL_REF, CONST, LABEL_REF}},			\
+{ "tls_symbolic_operand", {SYMBOL_REF}},				\
 { "function_operand", {SYMBOL_REF}},					\
-{ "setjmp_operand", {SYMBOL_REF}},					\
 { "destination_operand", {SUBREG, REG, MEM}},				\
 { "not_postinc_memory_operand", {MEM}},					\
 { "move_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
-		     CONSTANT_P_RTX, SYMBOL_REF, CONST, LABEL_REF}},	\
+		     SYMBOL_REF, CONST, LABEL_REF}},			\
 { "gr_register_operand", {SUBREG, REG}},				\
 { "fr_register_operand", {SUBREG, REG}},				\
 { "grfr_register_operand", {SUBREG, REG}},				\
@@ -2179,19 +2163,16 @@ do {									\
 { "fr_nonimmediate_operand", {SUBREG, REG, MEM}},			\
 { "grfr_nonimmediate_operand", {SUBREG, REG, MEM}},			\
 { "gr_reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
-{ "gr_reg_or_5bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "gr_reg_or_6bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "gr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "grfr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "gr_reg_or_8bit_adjusted_operand", {SUBREG, REG, CONST_INT,		\
-				     CONSTANT_P_RTX}},			\
-{ "gr_reg_or_8bit_and_adjusted_operand", {SUBREG, REG, CONST_INT,	\
-					 CONSTANT_P_RTX}},		\
-{ "gr_reg_or_14bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "gr_reg_or_22bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}}, \
-{ "shift_count_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
-{ "shift_32bit_count_operand", {SUBREG, REG, CONST_INT,			\
-				  CONSTANT_P_RTX}},			\
+{ "gr_reg_or_5bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "gr_reg_or_6bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "gr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT}},			\
+{ "grfr_reg_or_8bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "gr_reg_or_8bit_adjusted_operand", {SUBREG, REG, CONST_INT}},		\
+{ "gr_reg_or_8bit_and_adjusted_operand", {SUBREG, REG, CONST_INT}},	\
+{ "gr_reg_or_14bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "gr_reg_or_22bit_operand", {SUBREG, REG, CONST_INT}}, 		\
+{ "shift_count_operand", {SUBREG, REG, CONST_INT}},			\
+{ "shift_32bit_count_operand", {SUBREG, REG, CONST_INT}},		\
 { "shladd_operand", {CONST_INT}},					\
 { "fetchadd_operand", {CONST_INT}},					\
 { "fr_reg_or_fp01_operand", {SUBREG, REG, CONST_DOUBLE}},		\
@@ -2203,8 +2184,6 @@ do {									\
 { "ar_lc_reg_operand", {REG}},						\
 { "ar_ccv_reg_operand", {REG}},						\
 { "ar_pfs_reg_operand", {REG}},						\
-{ "general_xfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
-{ "destination_xfmode_operand", {SUBREG, REG, MEM}},			\
 { "xfreg_or_fp01_operand", {REG, CONST_DOUBLE}},			\
 { "basereg_operand", {SUBREG, REG}},
 
@@ -2286,8 +2265,7 @@ do {									\
 
 extern int ia64_final_schedule;
 
-#define IA64_UNWIND_INFO	1
-#define IA64_UNWIND_EMIT(f,i)	process_for_unwind_directive (f,i)
+#define TARGET_UNWIND_INFO	1
 
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 
@@ -2373,6 +2351,10 @@ enum fetchop_code {
 
 #undef  PROFILE_BEFORE_PROLOGUE
 #define PROFILE_BEFORE_PROLOGUE 1
+
+/* Initialize library function table. */
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS ia64_init_libfuncs
 
 
 

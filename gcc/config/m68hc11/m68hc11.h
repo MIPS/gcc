@@ -92,7 +92,9 @@ Note:
   while (0)
 
 /* As an embedded target, we have no libc.  */
-#define inhibit_libc
+#ifndef inhibit_libc
+#  define inhibit_libc
+#endif
 
 /* Forward type declaration for prototypes definitions.
    rtx_ptr is equivalent to rtx. Can't use the same name.  */
@@ -879,7 +881,9 @@ extern enum reg_class m68hc11_tmp_regs_class;
 		 && VALUE == CONST0_RTX (GET_MODE (VALUE))) : 0) 
 
 /* 'U' represents certain kind of memory indexed operand for 68HC12.
-   and any memory operand for 68HC11.  */
+   and any memory operand for 68HC11.
+   'R' represents indexed addressing mode or access to page0 for 68HC11.
+   For 68HC12, it represents any memory operand.  */
 #define EXTRA_CONSTRAINT(OP, C)                         \
 ((C) == 'U' ? m68hc11_small_indexed_indirect_p (OP, GET_MODE (OP)) \
  : (C) == 'Q' ? m68hc11_symbolic_p (OP, GET_MODE (OP)) \
@@ -1032,17 +1036,6 @@ typedef struct m68hc11_args
   int nregs;
 } CUMULATIVE_ARGS;
 
-/* A C expression that indicates when an argument must be passed by reference.
-   If nonzero for an argument, a copy of that argument is made in memory and a
-   pointer to the argument is passed instead of the argument itself.
-   The pointer is passed in whatever way is appropriate for passing a pointer
-   to that type.
- 
-   64-bit numbers are passed by reference.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-    m68hc11_function_arg_pass_by_reference (& (CUM), (MODE), (TYPE), (NAMED))
-
-
 /* If defined, a C expression which determines whether, and in which direction,
    to pad out an argument with extra space.  The value should be of type
    `enum direction': either `upward' to pad above the argument,
@@ -1065,8 +1058,7 @@ typedef struct m68hc11_args
    value.  The called function must not modify this value.  If it can
    be determined that the value won't be modified, it need not make a
    copy; otherwise a copy must be made.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
-    ((NAMED) && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) (NAMED)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS for a call to a
    function whose data type is FNTYPE. For a library call, FNTYPE is 0.  */
@@ -1599,7 +1591,7 @@ do {                                                                    \
    sections when it shrinks the code.  This results in invalid addresses
    when debugging.  This does not bless too much the HC11/HC12 as most
    applications are embedded and small, hence a reasonable debug info.
-   This problem is known for binutils 2.13, 2.14 and mainline.   */
+   This problem is known for binutils 2.13, 2.14 and mainline.  */
 #undef HAVE_AS_DWARF2_DEBUG_LINE
 
 /* The prefix for local labels.  You should be able to define this as
@@ -1631,6 +1623,7 @@ do {                                                                    \
 {"m68hc11_shift_operator",   {ASHIFT, ASHIFTRT, LSHIFTRT, ROTATE, ROTATERT}},\
 {"m68hc11_eq_compare_operator", {EQ, NE}},                              \
 {"non_push_operand",         {SUBREG, REG, MEM}},			\
+{"splitable_operand",        {SUBREG, REG, MEM}},			\
 {"reg_or_some_mem_operand",  {SUBREG, REG, MEM}},			\
 {"tst_operand",              {SUBREG, REG, MEM}},			\
 {"cmp_operand",              {SUBREG, REG, MEM, SYMBOL_REF, LABEL_REF,	\

@@ -1,5 +1,5 @@
 /* gtkpopupmenupeer.c -- Native implementation of GtkPopupMenuPeer
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -45,7 +45,7 @@ struct pos
   gint y;
 };
 
-void 
+static void 
 menu_pos (GtkMenu *menu __attribute__((unused)),
 	  gint *x, gint *y,
 	  gboolean *push_in,
@@ -72,7 +72,7 @@ JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_show
   
   gdk_threads_enter ();
   gtk_menu_popup (GTK_MENU (GTK_MENU_ITEM (ptr)->submenu), 
-		  NULL, NULL, menu_pos, p, 3, time);
+		  NULL, NULL, menu_pos, p, 0, time);
   gdk_threads_leave ();
 
   g_free (p);
@@ -91,7 +91,10 @@ Java_gnu_java_awt_peer_gtk_GtkPopupMenuPeer_setupAccelGroup
   gdk_threads_enter ();
   menu = GTK_MENU (GTK_MENU_ITEM (ptr1)->submenu);
   gtk_menu_set_accel_group (menu, gtk_accel_group_new ());
+  /* FIXME: update this to use GTK-2.4 GtkActions. */
+#if 0
   _gtk_accel_group_attach (gtk_menu_get_accel_group (menu),
 			   G_OBJECT (gtk_widget_get_toplevel (ptr2)));
+#endif
   gdk_threads_leave ();
 }

@@ -1,5 +1,5 @@
 ;
-; Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+; Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 ; Contributed by Red Hat, Inc and Ubicom, Inc.
 ;
 ; This file is part of GCC.
@@ -1374,12 +1374,12 @@ __leaf_fp_pop_args_ret:
 	.endfunc
 #endif /* L_leaf_fp_pop_args_ret */
 
-#if defined(L_movstrhi_countqi)
+#if defined(L_movmemhi_countqi)
 	.sect	.pram.libgcc,"ax"
-	.global	__movstrhi_countqi
-	.func	_movstrhi_countqi, __movstrhi_countqi
+	.global	__movmemhi_countqi
+	.func	_movmemhi_countqi, __movmemhi_countqi
 
-__movstrhi_countqi:
+__movmemhi_countqi:
 	push	dph			; Save our pointer regs
 	push	dpl
 	push	iph
@@ -1414,12 +1414,12 @@ __movstrhi_countqi:
 	.endfunc
 #endif
 
-#if defined(L_movstrhi_counthi)
+#if defined(L_movmemhi_counthi)
 	.sect	.text.libgcc,"ax"
-	.global	__movstrhi_counthi
-	.func	_movstrhi_counthi, __movstrhi_counthi
+	.global	__movmemhi_counthi
+	.func	_movmemhi_counthi, __movmemhi_counthi
 
-__movstrhi_counthi:
+__movmemhi_counthi:
 	push	dph			; Save our pointer regs
 	push	dpl
 	push	iph

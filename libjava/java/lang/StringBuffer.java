@@ -1,5 +1,6 @@
 /* StringBuffer.java -- Growable strings
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -205,10 +206,26 @@ public final class StringBuffer implements Serializable, CharSequence
     if (newLength < 0)
       throw new StringIndexOutOfBoundsException(newLength);
 
+    int valueLength = value.length;
+
+    /* Always call ensureCapacity_unsynchronized in order to preserve
+       copy-on-write semantics.  */
     ensureCapacity_unsynchronized(newLength);
-    while (count < newLength)
-      value[count++] = '\0';
-    count = newLength;
+
+    if (newLength < valueLength)
+      {
+        /* If the StringBuffer's value just grew, then we know that
+           value is newly allocated and the region between count and
+           newLength is filled with '\0'.  */
+	count = newLength;
+      }
+    else
+      {
+	/* The StringBuffer's value doesn't need to grow.  However,
+	   we should clear out any cruft that may exist.  */
+	while (count < newLength)
+          value[count++] = '\0';
+      }
   }
 
   /**
@@ -379,7 +396,7 @@ public final class StringBuffer implements Serializable, CharSequence
   /**
    * Append the <code>char</code> to this <code>StringBuffer</code>.
    *
-   * @param c the <code>char</code> to append
+   * @param ch the <code>char</code> to append
    * @return this <code>StringBuffer</code>
    */
   public synchronized StringBuffer append(char ch)

@@ -21,6 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
+#include "statistics.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -210,21 +211,39 @@ extern struct alloc_zone *rtl_zone;
 extern struct alloc_zone *tree_zone;
 
 /* The internal primitive.  */
-extern void *ggc_alloc (size_t);
+extern void *ggc_alloc_stat (size_t MEM_STAT_DECL);
+#define ggc_alloc(s) ggc_alloc_stat (s MEM_STAT_INFO)
 /* Allocate an object into the specified allocation zone.  */
-extern void *ggc_alloc_zone (size_t, struct alloc_zone *);
+extern void *ggc_alloc_zone_stat (size_t, struct alloc_zone * MEM_STAT_DECL);
+#define ggc_alloc_zone(s,z) ggc_alloc_zone_stat (s,z MEM_STAT_INFO)
 /* Allocate an object of the specified type and size.  */
-extern void *ggc_alloc_typed (enum gt_types_enum, size_t);
+extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
+#define ggc_alloc_typed(s,z) ggc_alloc_typed_stat (s,z MEM_STAT_INFO)
 /* Like ggc_alloc, but allocates cleared memory.  */
-extern void *ggc_alloc_cleared (size_t);
+extern void *ggc_alloc_cleared_stat (size_t MEM_STAT_DECL);
+#define ggc_alloc_cleared(s) ggc_alloc_cleared_stat (s MEM_STAT_INFO)
 /* Like ggc_alloc_zone, but allocates cleared memory.  */
-extern void *ggc_alloc_cleared_zone (size_t, struct alloc_zone *);
+extern void *ggc_alloc_cleared_zone (size_t, struct alloc_zone * MEM_STAT_DECL);
+#define ggc_alloc_cleared_zone(s,z) ggc_alloc_cleared_stat (s,z MEM_STAT_INFO)
 /* Resize a block.  */
-extern void *ggc_realloc (void *, size_t);
+extern void *ggc_realloc_stat (void *, size_t MEM_STAT_DECL);
+#define ggc_realloc(s,z) ggc_realloc_stat (s,z MEM_STAT_INFO)
 /* Like ggc_alloc_cleared, but performs a multiplication.  */
 extern void *ggc_calloc (size_t, size_t);
 /* Free a block.  To be used when known for certain it's not reachable.  */
 extern void ggc_free (void *);
+ 
+extern void ggc_record_overhead (size_t, size_t MEM_STAT_DECL);
+
+extern void dump_ggc_loc_statistics (void);
+
+/* Type-safe, C++-friendly versions of ggc_alloc() and gcc_calloc().  */
+#define GGC_NEW(T)		((T *) ggc_alloc (sizeof (T)))
+#define GGC_CNEW(T)		((T *) ggc_alloc_cleared (sizeof (T)))
+#define GGC_NEWVEC(T, N)	((T *) ggc_alloc ((N) * sizeof(T)))
+#define GGC_CNEWVEC(T, N)	((T *) ggc_alloc_cleared ((N) * sizeof(T)))
+#define GGC_NEWVAR(T, S)	((T *) ggc_alloc ((S)))
+#define GGC_CNEWVAR(T, S)	((T *) ggc_alloc_cleared ((S)))
 
 #define ggc_alloc_rtx(CODE)                    \
   ((rtx) ggc_alloc_typed (gt_ggc_e_7rtx_def, RTX_SIZE (CODE)))

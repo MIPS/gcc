@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *           Copyright (C) 2000-2003 Ada Core Technologies, Inc.            *
+ *           Copyright (C) 2000-2004 Ada Core Technologies, Inc.            *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -60,17 +60,19 @@
 
 extern int __gnat_backtrace (void **, int, void *, void *, int);
 
-/* The point is to provide an implementation of the __gnat_bactrace function
-   above, called by the default implementation of the System.Traceback
-   package.
+/* The point is to provide an implementation of the __gnat_backtrace function
+   above, called by the default implementation of the System.Traceback package.
 
    We first have a series of target specific implementations, each included
    from a separate C file for readability purposes.
 
-   Then comes a somewhat generic implementation based on a set of macro and
-   structure definitions which may be tailored on a per target basis. The
-   presence of a definition for one of these macros (PC_ADJUST) controls
-   wether or not the generic implementation is included.
+   Then come two flavors of a generic implementation: one relying on static
+   assumptions about the frame layout, and the other one using the GCC EH
+   infrastructure.  The former uses a whole set of macros and structures which
+   may be tailored on a per target basis, and is activated as soon as
+   USE_GENERIC_UNWINDER is defined.  The latter uses a small subset of the
+   macro definitions and is activated when USE_GCC_UNWINDER is defined. It is
+   only available post GCC 3.3.
 
    Finally, there is a default dummy implementation, necessary to make the
    linker happy on platforms where the feature is not supported, but where the
@@ -192,6 +194,9 @@ extern void (*Unlock_Task) (void);
 /*------------------------------ PPC AIX -------------------------------*/
 
 #if defined (_AIX)
+
+#define USE_GENERIC_UNWINDER
+
 struct layout
 {
   struct layout *next;
@@ -218,6 +223,9 @@ struct layout
 /*---------------------------- PPC VxWorks------------------------------*/
 
 #elif defined (_ARCH_PPC) && defined (__vxworks)
+
+#define USE_GENERIC_UNWINDER
+
 struct layout
 {
   struct layout *next;
@@ -230,13 +238,15 @@ struct layout
 
 #define FRAME_OFFSET 0
 #define PC_ADJUST -4
-#define STOP_FRAME(CURRENT, TOP_STACK) ((CURRENT)->return_address == 0)
+#define STOP_FRAME(CURRENT, TOP_STACK) ((CURRENT)->next == 0)
 
 #define BASE_SKIP 1
 
 /*-------------------------- Sparc Solaris -----------------------------*/
 
 #elif defined (sun) && defined (sparc)
+
+#define USE_GENERIC_UNWINDER
 
 /* These definitions are inspired from the Appendix D (Software
    Considerations) of the SPARC V8 architecture manual.  */
@@ -267,6 +277,9 @@ struct layout
 /*------------------------------- x86 ----------------------------------*/
 
 #elif defined (i386)
+
+#define USE_GENERIC_UNWINDER
+
 struct layout
 {
   struct layout *next;
@@ -310,18 +323,43 @@ extern unsigned int _image_base__;
     || ((*((ptr) - 1) & 0xff) == 0xff) \
     || (((*(ptr) & 0xd0ff) == 0xd0ff)))
 
+/*------------------------------- mips-irix -------------------------------*/
+
+#elif defined (__mips) && defined (__sgi)
+
+#define USE_GCC_UNWINDER
+#define PC_ADJUST -8
+
 #endif
 
-/*---------------------------------------*
- *-- The generic implementation per se --*
- *---------------------------------------*/
 
-#if defined (PC_ADJUST)
+/*---------------------------------------------------------------------*
+ *--      The post GCC 3.3 infrastructure based implementation       --*
+ *---------------------------------------------------------------------*/
+
+#if defined (USE_GCC_UNWINDER) && (__GNUC__ * 10 + __GNUC_MINOR__ > 33)
+
+/* Conditioning the inclusion on the GCC version is useful to avoid bootstrap
+   path problems, since the included file refers to post 3.3 functions in
+   libgcc, and the stage1 compiler is unlikely to be linked against a post 3.3
+   library.  It actually disables the support for backtraces in this compiler
+   for targets defining USE_GCC_UNWINDER, which is OK since we don't use the
+   traceback capablity in the compiler anyway.
+
+   The condition is expressed the way above because we cannot reliably rely on
+   any other macro from the base compiler when compiling stage1.  */
+
+#include "tb-gcc.c"
+
+/*------------------------------------------------------------------*
+ *-- The generic implementation based on frame layout assumptions --*
+ *------------------------------------------------------------------*/
+
+#elif defined (USE_GENERIC_UNWINDER)
 
 #ifndef CURRENT_STACK_FRAME
 # define CURRENT_STACK_FRAME  ({ char __csf; &__csf; })
 #endif
-
 
 #ifndef VALID_STACK_FRAME
 #define VALID_STACK_FRAME(ptr) 1
@@ -399,7 +437,9 @@ __gnat_backtrace (void **array,
 }
 
 #else
-/* No target specific implementation and PC_ADJUST not defined.  */
+
+/* No target specific implementation and neither USE_GCC_UNWINDER not
+   USE_GCC_UNWINDER defined.  */
 
 /*------------------------------*
  *-- The dummy implementation --*

@@ -50,14 +50,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tree-mudflap.h"
 #include "cgraph.h"
+#include "cfglayout.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef TRAMPOLINE_ALIGNMENT
-#define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
 #endif
 
 #ifndef ASM_STABS_OP
@@ -101,6 +98,14 @@ int size_directive_output;
 
 tree last_assemble_variable_decl;
 
+/* The following global variable indicates if the section label for the
+   "cold" section of code has been output yet to the assembler.  The
+   label is useful when running gdb.  This is part of the optimization that
+   partitions hot and cold basic blocks into separate sections of the .o
+   file.  */
+
+bool unlikely_section_label_printed = false;
+
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
    So giving constant the alias set for the type will allow such
    initializations to appear to conflict with the load of the constant.  We
@@ -130,11 +135,11 @@ static void globalize_decl (tree);
 static void maybe_assemble_visibility (tree);
 static int in_named_entry_eq (const void *, const void *);
 static hashval_t in_named_entry_hash (const void *);
+#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss (FILE *, tree, const char *,
 			    unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
 #endif
-#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
 static void asm_output_aligned_bss (FILE *, tree, const char *,
 				    unsigned HOST_WIDE_INT, int)
@@ -146,7 +151,8 @@ static bool asm_emit_uninitialised (tree, const char*,
 				    unsigned HOST_WIDE_INT);
 static void mark_weak (tree);
 
-enum in_section { no_section, in_text, in_data, in_named
+enum in_section { no_section, in_text, in_unlikely_executed_text, in_data, 
+		  in_named
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
 #endif
@@ -200,6 +206,37 @@ text_section (void)
     {
       in_section = in_text;
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      ASM_OUTPUT_ALIGN (asm_out_file, 2);
+    }
+}
+
+/* Tell assembler to switch to unlikely-to-be-executed text section.  */
+
+void
+unlikely_text_section (void)
+{
+  if ((in_section != in_unlikely_executed_text)
+      &&  (in_section != in_named 
+	   || strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
+    {
+      if (targetm.have_named_sections)
+        named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
+      else
+	{
+	  in_section = in_unlikely_executed_text;
+	  fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+	}
+      
+      if (!unlikely_section_label_printed)
+	{
+	  fprintf (asm_out_file, "__%s_unlikely_section:\n", 
+		   current_function_name ());
+	  unlikely_section_label_printed = true;
+
+	  /* Make sure that we have appropriate alignment for instructions
+	     in this section.  */
+	  assemble_align (FUNCTION_BOUNDARY);
+	}
     }
 }
 
@@ -243,6 +280,14 @@ int
 in_text_section (void)
 {
   return in_section == in_text;
+}
+
+/* Determine if we're in the unlikely-to-be-executed text section.  */
+
+int
+in_unlikely_text_section (void)
+{
+  return in_section == in_unlikely_executed_text;
 }
 
 /* Determine if we're in the data section.  */
@@ -349,7 +394,7 @@ named_section_flags (const char *name, unsigned int flags)
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (*targetm.asm_out.named_section) (name, flags);
+      targetm.asm_out.named_section (name, flags);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -376,7 +421,7 @@ named_section (tree decl, const char *name, int reloc)
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-  flags = (* targetm.section_type_flags) (decl, name, reloc);
+  flags = targetm.section_type_flags (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
      section flag changes will abort in named_section_flags.
@@ -403,7 +448,7 @@ resolve_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED,
       && targetm.have_named_sections
       && (flag_function_or_data_sections
 	  || DECL_ONE_ONLY (decl)))
-    (*targetm.asm_out.unique_section) (decl, reloc);
+    targetm.asm_out.unique_section (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -433,7 +478,7 @@ asm_output_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 		unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 		unsigned HOST_WIDE_INT rounded)
 {
-  (*targetm.asm_out.globalize_label) (file, name);
+  targetm.asm_out.globalize_label (file, name);
   bss_section ();
 #ifdef ASM_DECLARE_OBJECT_NAME
   last_assemble_variable_decl = decl;
@@ -484,11 +529,16 @@ asm_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
 void
 function_section (tree decl)
 {
-  if (decl != NULL_TREE
-      && DECL_SECTION_NAME (decl) != NULL_TREE)
-    named_section (decl, (char *) 0, 0);
+  if (scan_ahead_for_unlikely_executed_note (get_insns()))
+    unlikely_text_section ();
   else
-    text_section ();
+    {
+      if (decl != NULL_TREE
+	  && DECL_SECTION_NAME (decl) != NULL_TREE)
+	named_section (decl, (char *) 0, 0);
+      else
+	text_section (); 
+    }
 }
 
 /* Switch to section for variable DECL.  RELOC is the same as the
@@ -500,7 +550,7 @@ variable_section (tree decl, int reloc)
   if (IN_NAMED_SECTION (decl))
     named_section (decl, NULL, reloc);
   else
-    (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
+    targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
 }
 
 /* Tell assembler to switch to the section for string merging.  */
@@ -728,7 +778,7 @@ make_decl_rtl (tree decl, const char *asmspec)
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-      (* targetm.encode_section_info) (decl, DECL_RTL (decl), false);
+      targetm.encode_section_info (decl, DECL_RTL (decl), false);
 
       /* Make this function static known to the mudflap runtime.  */
       if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -833,7 +883,7 @@ make_decl_rtl (tree decl, const char *asmspec)
      such as that it is a function name.
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
-  (* targetm.encode_section_info) (decl, DECL_RTL (decl), true);
+  targetm.encode_section_info (decl, DECL_RTL (decl), true);
 
   /* Make this function static known to the mudflap runtime.  */
   if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -846,7 +896,7 @@ make_decl_rtl (tree decl, const char *asmspec)
 void
 make_var_volatile (tree var)
 {
-  if (GET_CODE (DECL_RTL (var)) != MEM)
+  if (!MEM_P (DECL_RTL (var)))
     abort ();
 
   MEM_VOLATILE_P (DECL_RTL (var)) = 1;
@@ -1009,10 +1059,10 @@ notice_global_symbol (tree decl)
 	      || (DECL_COMMON (decl)
 		  && (DECL_INITIAL (decl) == 0
 		      || DECL_INITIAL (decl) == error_mark_node))))
-      || GET_CODE (DECL_RTL (decl)) != MEM)
+      || !MEM_P (DECL_RTL (decl)))
     return;
 
-  /* We win when global object is found, but it is usefull to know about weak
+  /* We win when global object is found, but it is useful to know about weak
      symbol as well so we can produce nicer unique names.  */
   if (DECL_WEAK (decl) || DECL_ONE_ONLY (decl))
     type = &weak_global_object_name;
@@ -1023,7 +1073,7 @@ notice_global_symbol (tree decl)
       char *name;
       rtx decl_rtl = DECL_RTL (decl);
 
-      p = (* targetm.strip_name_encoding) (XSTR (XEXP (decl_rtl, 0), 0));
+      p = targetm.strip_name_encoding (XSTR (XEXP (decl_rtl, 0), 0));
       name = xstrdup (p);
 
       *type = name;
@@ -1039,6 +1089,8 @@ void
 assemble_start_function (tree decl, const char *fnname)
 {
   int align;
+
+  unlikely_section_label_printed = false;
 
   /* The following code does not need preprocessing in the assembler.  */
 
@@ -1127,7 +1179,8 @@ assemble_zeros (unsigned HOST_WIDE_INT size)
 #ifdef ASM_NO_SKIP_IN_TEXT
   /* The `space' pseudo in the text section outputs nop insns rather than 0s,
      so we must output 0s explicitly in the text section.  */
-  if (ASM_NO_SKIP_IN_TEXT && in_text_section ())
+  if ((ASM_NO_SKIP_IN_TEXT && in_text_section ())
+      || (ASM_NO_SKIP_IN_TEXT && in_unlikely_text_section ()))
     {
       unsigned HOST_WIDE_INT i;
       for (i = 0; i < size; i++)
@@ -1307,7 +1360,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   rtx decl_rtl;
 
   if (lang_hooks.decls.prepare_assemble_variable)
-    (*lang_hooks.decls.prepare_assemble_variable) (decl);
+    lang_hooks.decls.prepare_assemble_variable (decl);
 
   last_assemble_variable_decl = 0;
 
@@ -1325,7 +1378,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     return;
 
   /* Do nothing for global register variables.  */
-  if (DECL_RTL_SET_P (decl) && GET_CODE (DECL_RTL (decl)) == REG)
+  if (DECL_RTL_SET_P (decl) && REG_P (DECL_RTL (decl)))
     {
       TREE_ASM_WRITTEN (decl) = 1;
       return;
@@ -1489,7 +1542,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   variable_section (decl, reloc);
 
   /* dbxout.c needs to know this.  */
-  if (in_text_section ())
+  if (in_text_section () || in_unlikely_text_section ())
     DECL_IN_TEXT_SECTION (decl) = 1;
 
   /* Output the alignment of this data.  */
@@ -1510,7 +1563,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   if (!dont_output_data)
     {
-      if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+      if (DECL_INITIAL (decl)
+	  && DECL_INITIAL (decl) != error_mark_node
+	  && !initializer_zerop (DECL_INITIAL (decl)))
 	/* Output the actual data.  */
 	output_constant (DECL_INITIAL (decl),
 			 tree_low_cst (DECL_SIZE_UNIT (decl), 1),
@@ -1599,7 +1654,7 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
     {
       rtx rtl = DECL_RTL (decl);
 
-      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
+      if (MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
 	  && !SYMBOL_REF_USED (XEXP (rtl, 0))
 	  && !incorporeal_function_p (decl))
 	{
@@ -1620,7 +1675,7 @@ assemble_external_libcall (rtx fun)
   if (! SYMBOL_REF_USED (fun))
     {
       SYMBOL_REF_USED (fun) = 1;
-      (*targetm.asm_out.external_libcall) (fun);
+      targetm.asm_out.external_libcall (fun);
     }
 }
 
@@ -1632,27 +1687,23 @@ assemble_label (const char *name)
   ASM_OUTPUT_LABEL (asm_out_file, name);
 }
 
-/* Set the symbol_referenced flag for ID and notify callgraph code.  */
+/* Set the symbol_referenced flag for ID.  */
 void
 mark_referenced (tree id)
 {
-  if (!TREE_SYMBOL_REFERENCED (id))
-    {
-      struct cgraph_node *node;
-      struct cgraph_varpool_node *vnode;
-
-      if (!cgraph_global_info_ready)
-	{
-	  node = cgraph_node_for_identifier (id);
-	  if (node)
-	    cgraph_mark_needed_node (node);
-	}
-
-      vnode = cgraph_varpool_node_for_identifier (id);
-      if (vnode)
-	cgraph_varpool_mark_needed_node (vnode);
-    }
   TREE_SYMBOL_REFERENCED (id) = 1;
+}
+
+/* Set the symbol_referenced flag for DECL and notify callgraph.  */
+void
+mark_decl_referenced (tree decl)
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    cgraph_mark_needed_node (cgraph_node (decl));
+  else if (TREE_CODE (decl) == VAR_DECL)
+    cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
+  /* else do nothing - we can get various sorts of CST nodes here,
+     which do not need to be marked.  */
 }
 
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
@@ -1667,7 +1718,7 @@ assemble_name (FILE *file, const char *name)
   const char *real_name;
   tree id;
 
-  real_name = (* targetm.strip_name_encoding) (name);
+  real_name = targetm.strip_name_encoding (name);
 
   id = maybe_get_identifier (real_name);
   if (id)
@@ -1727,6 +1778,8 @@ assemble_static_space (unsigned HOST_WIDE_INT size)
    This is done at most once per compilation.
    Returns an RTX for the address of the template.  */
 
+static GTY(()) rtx initial_trampoline;
+
 #ifdef TRAMPOLINE_TEMPLATE
 rtx
 assemble_trampoline_template (void)
@@ -1735,6 +1788,9 @@ assemble_trampoline_template (void)
   const char *name;
   int align;
   rtx symbol;
+
+  if (initial_trampoline)
+    return initial_trampoline;
 
   /* By default, put trampoline templates in read-only data section.  */
 
@@ -1751,7 +1807,7 @@ assemble_trampoline_template (void)
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
+  targetm.asm_out.internal_label (asm_out_file, "LTRAMP", 0);
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -1760,7 +1816,10 @@ assemble_trampoline_template (void)
   symbol = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_LOCAL;
 
-  return symbol;
+  initial_trampoline = gen_rtx_MEM (BLKmode, symbol);
+  set_mem_align (initial_trampoline, TRAMPOLINE_ALIGNMENT);
+
+  return initial_trampoline;
 }
 #endif
 
@@ -1843,7 +1902,7 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
   aligned_p = (align >= MIN (size * BITS_PER_UNIT, BIGGEST_ALIGNMENT));
 
   /* See if the target hook can handle this kind of object.  */
-  if ((*targetm.asm_out.integer) (x, size, aligned_p))
+  if (targetm.asm_out.integer (x, size, aligned_p))
     return true;
 
   /* If the object is a multi-byte one, try splitting it up.  Split
@@ -1982,7 +2041,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       abort ();
     }
 
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     abort ();
   x = XEXP (x, 0);
 
@@ -2039,16 +2098,8 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      if (flag_writable_strings)
-	{
-	  p = (char *) &exp;
-	  len = sizeof exp;
-	}
-      else
-	{
-	  p = TREE_STRING_POINTER (exp);
-	  len = TREE_STRING_LENGTH (exp);
-	}
+      p = TREE_STRING_POINTER (exp);
+      len = TREE_STRING_LENGTH (exp);
       break;
 
     case COMPLEX_CST:
@@ -2164,9 +2215,6 @@ compare_constant (const tree t1, const tree t2)
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
-      if (flag_writable_strings)
-	return t1 == t2;
-
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
@@ -2266,13 +2314,14 @@ compare_constant (const tree t1, const tree t2)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
+    case VIEW_CONVERT_EXPR:
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:
       {
 	tree nt1, nt2;
-	nt1 = (*lang_hooks.expand_constant) (t1);
-	nt2 = (*lang_hooks.expand_constant) (t2);
+	nt1 = lang_hooks.expand_constant (t1);
+	nt2 = lang_hooks.expand_constant (t2);
 	if (nt1 != t1 || nt2 != t2)
 	  return compare_constant (nt1, nt2);
 	else
@@ -2313,9 +2362,9 @@ copy_constant (tree exp)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      return build (TREE_CODE (exp), TREE_TYPE (exp),
-		    copy_constant (TREE_OPERAND (exp, 0)),
-		    copy_constant (TREE_OPERAND (exp, 1)));
+      return build2 (TREE_CODE (exp), TREE_TYPE (exp),
+		     copy_constant (TREE_OPERAND (exp, 0)),
+		     copy_constant (TREE_OPERAND (exp, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -2343,7 +2392,7 @@ copy_constant (tree exp)
     default:
       {
 	tree t;
-	t = (*lang_hooks.expand_constant) (exp);
+	t = lang_hooks.expand_constant (exp);
 	if (t != exp)
 	  return copy_constant (t);
 	else
@@ -2369,12 +2418,9 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
-    desc->value = exp;
-  else
-    desc->value = copy_constant (exp);
+  desc->value = copy_constant (exp);
 
-  /* Propagate marked-ness to copied constant. */
+  /* Propagate marked-ness to copied constant.  */
   if (flag_mudflap && mf_marked_p (exp))
     mf_mark (desc->value);
 
@@ -2399,7 +2445,7 @@ build_constant_desc (tree exp)
      information.  This call might invalidate our local variable
      SYMBOL; we can't use it afterward.  */
 
-  (*targetm.encode_section_info) (exp, rtl, true);
+  targetm.encode_section_info (exp, rtl, true);
 
   desc->rtl = rtl;
 
@@ -2458,9 +2504,9 @@ maybe_output_constant_def_contents (struct constant_descriptor_tree *desc,
     /* Already output; don't do it again.  */
     return;
 
-  /* The only constants that cannot safely be deferred, assuming the
-     context allows it, are strings under flag_writable_strings.  */
-  if (defer && (TREE_CODE (exp) != STRING_CST || !flag_writable_strings))
+  /* We can always defer constants as long as the context allows
+     doing so.  */
+  if (defer)
     {
       /* Increment n_deferred_constants if it exists.  It needs to be at
 	 least as large as the number of constants actually referred to
@@ -2502,7 +2548,7 @@ output_constant_def_contents (rtx symbol)
   if (IN_NAMED_SECTION (exp))
     named_section (exp, NULL, reloc);
   else
-    (*targetm.asm_out.select_section) (exp, reloc, align);
+    targetm.asm_out.select_section (exp, reloc, align);
 
   if (align > BITS_PER_UNIT)
     {
@@ -2525,15 +2571,6 @@ output_constant_def_contents (rtx symbol)
   output_constant (exp, size, align);
   if (flag_mudflap)
     mudflap_enqueue_constant (exp);
-}
-
-/* A constant which was deferred in its original location has been
-   inserted by the RTL inliner into a different function.  The
-   current function's deferred constant count must be incremented.  */
-void
-notice_rtl_inlining_of_deferred_constant (void)
-{
-  n_deferred_constants++;
 }
 
 /* Look up EXP in the table of constant descriptors.  Return the rtl
@@ -2753,7 +2790,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   void **slot;
 
   /* If we're not allowed to drop X into the constant pool, don't.  */
-  if ((*targetm.cannot_force_const_mem) (x))
+  if (targetm.cannot_force_const_mem (x))
     return NULL_RTX;
 
   /* Lookup the value in the hashtable.  */
@@ -2775,7 +2812,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
   {
-    tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
+    tree type = lang_hooks.types.type_for_mode (mode, 0);
     if (type != NULL_TREE)
       align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
   }
@@ -2819,7 +2856,7 @@ force_const_mem (enum machine_mode mode, rtx x)
 
   /* Construct the MEM.  */
   desc->mem = def = gen_rtx_MEM (mode, symbol);
-  set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
+  set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
 
   /* If we're dropping a label to the constant pool, make sure we
@@ -2981,7 +3018,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
     case LABEL_REF:
       tmp = XEXP (x, 0);
       if (INSN_DELETED_P (tmp)
-	  || (GET_CODE (tmp) == NOTE
+	  || (NOTE_P (tmp)
 	      && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_DELETED))
 	{
 	  abort ();
@@ -2994,7 +3031,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
     }
 
   /* First switch to correct section.  */
-  (*targetm.asm_out.select_rtx_section) (desc->mode, x, desc->align);
+  targetm.asm_out.select_rtx_section (desc->mode, x, desc->align);
 
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
   ASM_OUTPUT_SPECIAL_POOL_ENTRY (asm_out_file, x, desc->mode,
@@ -3004,7 +3041,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc)
   assemble_align (desc->align);
 
   /* Output the label.  */
-  (*targetm.asm_out.internal_label) (asm_out_file, "LC", desc->labelno);
+  targetm.asm_out.internal_label (asm_out_file, "LC", desc->labelno);
 
   /* Output the data.  */
   output_constant_pool_2 (desc->mode, x, desc->align);
@@ -3143,7 +3180,7 @@ compute_reloc_for_constant (tree exp)
 
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -3207,7 +3244,7 @@ output_addressed_constants (tree exp)
 
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   switch (TREE_CODE (exp))
     {
@@ -3263,7 +3300,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 {
   /* Give the front-end a chance to convert VALUE to something that
      looks more like a constant to the back-end.  */
-  value = (*lang_hooks.expand_constant) (value);
+  value = lang_hooks.expand_constant (value);
 
   switch (TREE_CODE (value))
     {
@@ -3362,8 +3399,10 @@ initializer_constant_valid_p (tree value, tree endtype)
 						 endtype);
 	}
 
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
+      /* Allow conversions to struct or union types if the value
+	 inside is okay.  */
+      if (TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE
+	  || TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
 					     endtype);
       break;
@@ -3491,7 +3530,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
   /* Some front-ends use constants other than the standard language-independent
      varieties, but which may still be output directly.  Give the front-end a
      chance to convert EXP to a language-independent representation.  */
-  exp = (*lang_hooks.expand_constant) (exp);
+  exp = lang_hooks.expand_constant (exp);
 
   if (size == 0 || flag_syntax_only)
     return;
@@ -3527,7 +3566,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     }
 
   /* Now output the underlying data.  If we've handling the padding, return.
-     Otherwise, break and ensure THISSIZE is the size written.  */
+     Otherwise, break and ensure SIZE is the size written.  */
   switch (code)
     {
     case CHAR_TYPE:
@@ -3539,7 +3578,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case OFFSET_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
-			      size, align, 0))
+			      MIN (size, thissize), align, 0))
 	error ("initializer for integer value is too complicated");
       break;
 
@@ -3576,10 +3615,10 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	  unsigned int nalign;
 	  enum machine_mode inner;
 
-	  inner = GET_MODE_INNER (TYPE_MODE (TREE_TYPE (exp)));
+	  inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	  nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 
-	  elt_size = GET_MODE_UNIT_SIZE (TYPE_MODE (TREE_TYPE (exp)));
+	  elt_size = GET_MODE_SIZE (inner);
 
 	  link = TREE_VECTOR_CST_ELTS (exp);
 	  output_constant (TREE_VALUE (link), elt_size, align);
@@ -3992,7 +4031,7 @@ mark_weak (tree decl)
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)
-      && GET_CODE (DECL_RTL (decl)) == MEM
+      && MEM_P (DECL_RTL (decl))
       && XEXP (DECL_RTL (decl), 0)
       && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
     SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
@@ -4134,9 +4173,12 @@ globalize_decl (tree decl)
 	}
       return;
     }
+#elif defined(ASM_MAKE_LABEL_LINKONCE)
+  if (DECL_ONE_ONLY (decl))
+    ASM_MAKE_LABEL_LINKONCE (asm_out_file, name);
 #endif
 
-  (*targetm.asm_out.globalize_label) (asm_out_file, name);
+  targetm.asm_out.globalize_label (asm_out_file, name);
 }
 
 /* Emit an assembler directive to make the symbol for DECL an alias to
@@ -4231,7 +4273,7 @@ maybe_assemble_visibility (tree decl)
   enum symbol_visibility vis = DECL_VISIBILITY (decl);
 
   if (vis != VISIBILITY_DEFAULT)
-    (* targetm.asm_out.visibility) (decl, vis);
+    targetm.asm_out.visibility (decl, vis);
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -4258,16 +4300,16 @@ make_decl_one_only (tree decl)
 
   TREE_PUBLIC (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
-    DECL_COMMON (decl) = 1;
-  else if (SUPPORTS_ONE_ONLY)
+  if (SUPPORTS_ONE_ONLY)
     {
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
       DECL_ONE_ONLY (decl) = 1;
     }
+  else if (TREE_CODE (decl) == VAR_DECL
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    DECL_COMMON (decl) = 1;
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
   else
@@ -4310,7 +4352,7 @@ decl_tls_model (tree decl)
       return kind;
     }
 
-  is_local = (*targetm.binds_local_p) (decl);
+  is_local = targetm.binds_local_p (decl);
   if (!flag_pic)
     {
       if (is_local)
@@ -4353,6 +4395,8 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
     flags = SECTION_CODE;
   else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
+  else if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)
+    flags = SECTION_CODE;
   else
     flags = SECTION_WRITE;
 
@@ -4502,7 +4546,7 @@ default_select_section (tree decl, int reloc,
 	readonly = true;
     }
   else if (TREE_CODE (decl) == STRING_CST)
-    readonly = !flag_writable_strings;
+    readonly = true;
   else if (! (flag_pic && reloc))
     readonly = true;
 
@@ -4561,9 +4605,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
     {
-      if (flag_writable_strings)
-	return SECCAT_DATA;
-      else if (flag_mudflap) /* or !flag_merge_constants */
+      if (flag_mudflap) /* or !flag_merge_constants */
         return SECCAT_RODATA;
       else
 	return SECCAT_RODATA_MERGE_STR;
@@ -4571,7 +4613,11 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       if (DECL_INITIAL (decl) == NULL
-	  || DECL_INITIAL (decl) == error_mark_node)
+	  || DECL_INITIAL (decl) == error_mark_node
+	  || (flag_zero_initialized_in_bss
+	      /* Leave constant zeroes in .rodata so they can be shared.  */
+	      && !TREE_READONLY (decl)
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
 	       || TREE_SIDE_EFFECTS (decl)
@@ -4613,14 +4659,18 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
   /* There are no read-only thread-local sections.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     {
-      if (ret == SECCAT_BSS)
+      /* Note that this would be *just* SECCAT_BSS, except that there's
+	 no concept of a read-only thread-local-data section.  */
+      if (ret == SECCAT_BSS
+	  || (flag_zero_initialized_in_bss
+	      && initializer_zerop (DECL_INITIAL (decl))))
 	ret = SECCAT_TBSS;
       else
 	ret = SECCAT_TDATA;
     }
 
   /* If the target uses small data sections, select it.  */
-  else if ((*targetm.in_small_data_p) (decl))
+  else if (targetm.in_small_data_p (decl))
     {
       if (ret == SECCAT_BSS)
 	ret = SECCAT_SBSS;
@@ -4788,7 +4838,7 @@ default_unique_section_1 (tree decl, int reloc, int shlib)
   plen = strlen (prefix);
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  name = (* targetm.strip_name_encoding) (name);
+  name = targetm.strip_name_encoding (name);
   nlen = strlen (name);
 
   string = alloca (nlen + plen + 1);
@@ -4853,7 +4903,7 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   int flags;
 
   /* Careful not to prod global register variables.  */
-  if (GET_CODE (rtl) != MEM)
+  if (!MEM_P (rtl))
     return;
   symbol = XEXP (rtl, 0);
   if (GET_CODE (symbol) != SYMBOL_REF)
@@ -4862,9 +4912,9 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   flags = 0;
   if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= SYMBOL_FLAG_FUNCTION;
-  if ((*targetm.binds_local_p) (decl))
+  if (targetm.binds_local_p (decl))
     flags |= SYMBOL_FLAG_LOCAL;
-  if ((*targetm.in_small_data_p) (decl))
+  if (targetm.in_small_data_p (decl))
     flags |= SYMBOL_FLAG_SMALL;
   if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
     flags |= decl_tls_model (decl) << SYMBOL_FLAG_TLS_SHIFT;
@@ -4906,8 +4956,8 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))
     local_p = true;
-  /* A variable is local if the user tells us so.  */
-  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+  /* A variable is local if the user explicitly tells us so.  */
+  else if (DECL_VISIBILITY_SPECIFIED (exp) && DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -4915,6 +4965,9 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Linkonce and weak data are never local.  */
   else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
     local_p = false;
+  /* If none of the above and visibility is not default, make local.  */
+  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
   else if (shlib)
@@ -4954,6 +5007,17 @@ default_globalize_label (FILE * stream, const char *name)
 }
 #endif /* GLOBAL_ASM_OP */
 
+/* Default function to output a label for unwind information.  The
+   default is to do nothing.  A target that needs nonlocal labels for
+   unwind information must provide its own function to do this.  */
+void
+default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
+			   tree decl ATTRIBUTE_UNUSED,
+			   int for_eh ATTRIBUTE_UNUSED,
+			   int empty ATTRIBUTE_UNUSED)
+{ 
+}
+
 /* This is how to output an internal numbered label where PREFIX is
    the class of label and LABELNO is the number within the class.  */
 
@@ -4982,6 +5046,9 @@ default_file_start (void)
    which emits a special section directive used to indicate whether or
    not this object file needs an executable stack.  This is primarily
    a GNU extension to ELF but could be used on other targets.  */
+
+int trampolines_created;
+
 void
 file_end_indicate_exec_stack (void)
 {

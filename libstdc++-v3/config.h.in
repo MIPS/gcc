@@ -11,14 +11,8 @@
 #undef HAVE_GETTEXT
 #undef HAVE_STPCPY
 
-// Define if GCC supports weak symbols.
-#undef _GLIBCXX_SUPPORTS_WEAK
-
 // Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCXX_USE_LONG_LONG
-
-// Include support for 'long double'.
-#undef _GLIBCXX_USE_LONG_DOUBLE
 
 // Define if C99 math functions (like fpclassify) should be exposed.
 #undef _GLIBCXX_USE_C99_MATH
@@ -29,8 +23,8 @@
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCXX_USE_WCHAR_T
 
-// Define if using setrlimit to limit memory usage during 'make check'.
-#undef _GLIBCXX_MEM_LIMITS
+// Define if using setrlimit to set resource limits during 'make check'.
+#undef _GLIBCXX_RES_LIMITS
 
 // Define to use concept checking code from the boost libraries.
 #undef _GLIBCXX_CONCEPT_CHECKS
@@ -365,6 +359,21 @@
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
 
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_LIMIT_AS
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_LIMIT_DATA
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_LIMIT_FSIZE
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_LIMIT_RSS
+
+/* Only used in build directory testsuite_hooks.h. */
+#undef HAVE_LIMIT_VMEM
+
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
 
@@ -397,18 +406,6 @@
 
 /* Define to 1 if you have the `mbsrtowcs' function. */
 #undef HAVE_MBSRTOWCS
-
-/* Only used in build directory testsuite_hooks.h. */
-#undef HAVE_MEMLIMIT_AS
-
-/* Only used in build directory testsuite_hooks.h. */
-#undef HAVE_MEMLIMIT_DATA
-
-/* Only used in build directory testsuite_hooks.h. */
-#undef HAVE_MEMLIMIT_RSS
-
-/* Only used in build directory testsuite_hooks.h. */
-#undef HAVE_MEMLIMIT_VMEM
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -511,6 +508,9 @@
 
 /* Define to 1 if you have the <sys/machine.h> header file. */
 #undef HAVE_SYS_MACHINE_H
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H

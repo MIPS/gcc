@@ -1,5 +1,5 @@
 /* Encoding of types for Objective C.
-   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2002
+   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2002, 2004
    Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
    Bitfield support by Ovidiu Predescu
@@ -79,14 +79,18 @@ Boston, MA 02111-1307, USA.  */
 /* Some ports (eg ARM) allow the structure size boundary to be
    selected at compile-time.  We override the normal definition with
    one that has a constant value for this compilation.  */
-#undef STRUCTURE_SIZE_BOUNDARY
+#ifndef BITS_PER_UNIT
+#define BITS_PER_UNIT 8
+#endif
+#undef  STRUCTURE_SIZE_BOUNDARY
 #define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (struct{char a;}))
 
 /* Some ROUND_TYPE_ALIGN macros use TARGET_foo, and consequently
-   target_flags.  Define a dummy entry here to so we don't die.  */
-/* ??? FIXME: As of 2002-06-21, the attribute `unused' doesn't seem to
-   eliminate the warning.  */
-static int __attribute__ ((__unused__)) target_flags = 0;
+   target_flags.  Define a dummy entry here to so we don't die.
+   We have to rename it because target_flags may already have been
+   declared extern.  */
+#define target_flags not_target_flags
+static int __attribute__ ((__unused__)) not_target_flags = 0;
 
 
 /*  FIXME: while this file has no business including tm.h, this

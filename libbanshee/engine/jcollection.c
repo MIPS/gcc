@@ -160,7 +160,7 @@ jcoll jcoll_create_chain(jcoll_dict d, gen_e_list elems)
     {
       sts[i++] = d->get_stamp(temp);
     }
-  qsort(&sts[1],length-1,sizeof(int),ptr_cmp); // FIX, first pos should always be chain
+  qsort(&sts[1],length-1,sizeof(int),ptr_cmp); /* FIX, first pos should always be chain */
 
   if ( NULL == (result = (jcoll_chain)term_hash_find(d->hash,sts,length)) )
     {
@@ -258,7 +258,7 @@ static void jcoll_app(jcoll_dict d, japp_fn_ptr app, jcoll j, void *data) delete
   hs_delete(hash);
   deleteregion(scratch_rgn);
 }
-  void jcoll_accum(void *e, void *accum)
+  static void jcoll_accum(void *e, void *accum)
     {
       gen_e_list_cons((gen_e) e, (gen_e_list) accum);
     }

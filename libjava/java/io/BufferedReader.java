@@ -112,7 +112,7 @@ public class BufferedReader extends Reader
    * @param in The subordinate stream to read from
    * @param size The buffer size to use
    *
-   * @exception IllegalArgumentException if size &lt;&eq; 0
+   * @exception IllegalArgumentException if size &lt;= 0
    */
   public BufferedReader(Reader in, int size)
   {
@@ -533,12 +533,13 @@ public class BufferedReader extends Reader
 	// skip the '\n' for us).  By doing this, we'll have to back up pos.
 	// That's easier than trying to keep track of whether we've skipped
 	// one element or not.
-	int ch;
 	if (pos > limit)
-	  if ((ch = read()) < 0)
-	    return 0;
-	  else
-	    --pos; 
+	  {
+	    if (read() < 0)
+	      return 0;
+	    else
+	      --pos; 
+	  }
 
 	int avail = limit - pos;
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,19 +24,21 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Atree;   use Atree;
-with Einfo;   use Einfo;
-with Errout;  use Errout;
-with Namet;   use Namet;
-with Nlists;  use Nlists;
-with Sinfo;   use Sinfo;
-with Snames;  use Snames;
-with Stand;   use Stand;
-with Stringt; use Stringt;
+with Atree;    use Atree;
+with Einfo;    use Einfo;
+with Errout;   use Errout;
+with Namet;    use Namet;
+with Nlists;   use Nlists;
+with Sem_Prag; use Sem_Prag;
+with Sinput;   use Sinput;
+with Sinfo;    use Sinfo;
+with Snames;   use Snames;
+with Stand;    use Stand;
+with Stringt;  use Stringt;
 with Table;
-with Uintp;   use Uintp;
 
 with GNAT.HTable; use GNAT.HTable;
+
 package body Sem_Elim is
 
    No_Elimination : Boolean;
@@ -83,8 +85,9 @@ package body Sem_Elim is
       Result_Type : Name_Id;
       --  Result type name if Result_Types parameter present, No_Name if not
 
-      Homonym_Number : Uint;
-      --  Homonyn number if Homonym_Number parameter present, No_Uint if not.
+      Source_Location : Name_Id;
+      --  String describing the source location of subprogram defining name if
+      --  Source_Location parameter present, No_Name if not
 
       Hash_Link : Access_Elim_Data;
       --  Link for hash table use
@@ -229,8 +232,29 @@ package body Sem_Elim is
       Elmt : Access_Elim_Data;
       Scop : Entity_Id;
       Form : Entity_Id;
-      Ctr  : Nat;
-      Ent  : Entity_Id;
+
+      function Original_Chars (S : Entity_Id) return Name_Id;
+      --  If the candidate subprogram is a protected operation of a single
+      --  protected object, the scope of the operation is the created
+      --  protected type, and we have to retrieve the original name of
+      --  the object.
+
+      --------------------
+      -- Original_Chars --
+      --------------------
+
+      function Original_Chars (S : Entity_Id) return Name_Id is
+      begin
+         if Ekind (S) /= E_Protected_Type
+           or else Comes_From_Source (S)
+         then
+            return Chars (S);
+         else
+            return Chars (Defining_Identifier (Original_Node (Parent (S))));
+         end if;
+      end Original_Chars;
+
+   --  Start of processing for Check_Eliminated
 
    begin
       if No_Elimination then
@@ -242,10 +266,9 @@ package body Sem_Elim is
          return;
       end if;
 
-      Elmt := Elim_Hash_Table.Get (Chars (E));
-
       --  Loop through homonyms for this key
 
+      Elmt := Elim_Hash_Table.Get (Chars (E));
       while Elmt /= null loop
          declare
             procedure Set_Eliminated;
@@ -267,14 +290,24 @@ package body Sem_Elim is
             --  Then we need to see if the static scope matches within the
             --  compilation unit.
 
+            --  At the moment, gnatelim does not consider block statements as
+            --  scopes (even if a block is named)
+
             Scop := Scope (E);
+            while Ekind (Scop) = E_Block loop
+               Scop := Scope (Scop);
+            end loop;
+
             if Elmt.Entity_Scope /= null then
                for J in reverse Elmt.Entity_Scope'Range loop
-                  if Elmt.Entity_Scope (J) /= Chars (Scop) then
+                  if Elmt.Entity_Scope (J) /= Original_Chars (Scop) then
                      goto Continue;
                   end if;
 
                   Scop := Scope (Scop);
+                  while Ekind (Scop) = E_Block loop
+                     Scop := Scope (Scop);
+                  end loop;
 
                   if not Is_Compilation_Unit (Scop) and then J = 1 then
                      goto Continue;
@@ -290,6 +323,9 @@ package body Sem_Elim is
                end if;
 
                Scop := Scope (Scop);
+               while Ekind (Scop) = E_Block loop
+                  Scop := Scope (Scop);
+               end loop;
 
                if Scop /= Standard_Standard and then J = 1 then
                   goto Continue;
@@ -319,27 +355,231 @@ package body Sem_Elim is
                Set_Eliminated;
                return;
 
-               --  Check for case of subprogram
+            --  Check for case of subprogram
 
             elsif Ekind (E) = E_Function
               or else Ekind (E) = E_Procedure
             then
-               --  If Homonym_Number present, then see if it matches
+               --  If Source_Location present, then see if it matches
 
-               if Elmt.Homonym_Number /= No_Uint then
-                  Ctr := 1;
+               if Elmt.Source_Location /= No_Name then
+                  Get_Name_String (Elmt.Source_Location);
 
-                  Ent := E;
-                  while Present (Homonym (Ent))
-                    and then Scope (Ent) = Scope (Homonym (Ent))
-                  loop
-                     Ctr := Ctr + 1;
-                     Ent := Homonym (Ent);
-                  end loop;
+                  declare
+                     Sloc_Trace : constant String :=
+                                    Name_Buffer (1 .. Name_Len);
 
-                  if Ctr /= Elmt.Homonym_Number then
-                     goto Continue;
-                  end if;
+                     Idx : Natural := Sloc_Trace'First;
+                     --  Index in Sloc_Trace, if equals to 0, then we have
+                     --  completely traversed Sloc_Trace
+
+                     Last : constant Natural := Sloc_Trace'Last;
+
+                     P      : Source_Ptr;
+                     Sindex : Source_File_Index;
+
+                     function File_Name_Match return Boolean;
+                     --  This function is supposed to be called when Idx points
+                     --  to the beginning of the new file name, and Name_Buffer
+                     --  is set to contain the name of the proper source file
+                     --  from the chain corresponding to the Sloc of E. First
+                     --  it checks that these two files have the same name. If
+                     --  this check is successful, moves Idx to point to the
+                     --  beginning of the column number.
+
+                     function Line_Num_Match return Boolean;
+                     --  This function is supposed to be called when Idx points
+                     --  to the beginning of the column number, and P is
+                     --  set to point to the proper Sloc the chain
+                     --  corresponding to the Sloc of E. First it checks that
+                     --  the line number Idx points on and the line number
+                     --  corresponding to P are the same. If this check is
+                     --  successful, moves Idx to point to the beginning of
+                     --  the next file name in Sloc_Trace. If there is no file
+                     --  name any more, Idx is set to 0.
+
+                     function Different_Trace_Lengths return Boolean;
+                     --  From Idx and P, defines if there are in both traces
+                     --  more element(s) in the instantiation chains. Returns
+                     --  False if one trace contains more element(s), but
+                     --  another does not. If both traces contains more
+                     --  elements (that is, the function returns False), moves
+                     --  P ahead in the chain corresponding to E, recomputes
+                     --  Sindex and sets the name of the corresponding file in
+                     --  Name_Buffer
+
+                     function Skip_Spaces return Natural;
+                     --  If Sloc_Trace (Idx) is not space character, returns
+                     --  Idx. Otherwise returns the index of the nearest
+                     --  non-space character in Sloc_Trace to the right of
+                     --  Idx. Returns 0 if there is no such character.
+
+                     -----------------------------
+                     -- Different_Trace_Lengths --
+                     -----------------------------
+
+                     function Different_Trace_Lengths return Boolean is
+                     begin
+                        P := Instantiation (Sindex);
+
+                        if (P = No_Location and then Idx /= 0)
+                          or else
+                           (P /= No_Location and then Idx = 0)
+                        then
+                           return True;
+
+                        else
+                           if P /= No_Location then
+                              Sindex := Get_Source_File_Index (P);
+                              Get_Name_String (File_Name (Sindex));
+                           end if;
+
+                           return False;
+                        end if;
+                     end Different_Trace_Lengths;
+
+                     ---------------------
+                     -- File_Name_Match --
+                     ---------------------
+
+                     function File_Name_Match return Boolean is
+                        Tmp_Idx : Natural;
+                        End_Idx : Natural;
+
+                     begin
+                        if Idx = 0 then
+                           return False;
+                        end if;
+
+                        --  Find first colon. If no colon, then return False.
+                        --  If there is a colon, Tmp_Idx is set to point just
+                        --  before the colon.
+
+                        Tmp_Idx := Idx - 1;
+                        loop
+                           if Tmp_Idx >= Last then
+                              return False;
+                           elsif Sloc_Trace (Tmp_Idx + 1) = ':' then
+                              exit;
+                           else
+                              Tmp_Idx := Tmp_Idx + 1;
+                           end if;
+                        end loop;
+
+                        --  Find last non-space before this colon. If there
+                        --  is no no space character before this colon, then
+                        --  return False. Otherwise, End_Idx set to point to
+                        --  this non-space character.
+
+                        End_Idx := Tmp_Idx;
+                        loop
+                           if End_Idx < Idx then
+                              return False;
+                           elsif Sloc_Trace (End_Idx) /= ' ' then
+                              exit;
+                           else
+                              End_Idx := End_Idx - 1;
+                           end if;
+                        end loop;
+
+                        --  Now see if file name matches what is in Name_Buffer
+                        --  and if so, step Idx past it and return True. If the
+                        --  name does not match, return False.
+
+                        if Sloc_Trace (Idx .. End_Idx) =
+                           Name_Buffer (1 .. Name_Len)
+                        then
+                           Idx := Tmp_Idx + 2;
+                           Idx := Skip_Spaces;
+                           return True;
+                        else
+                           return False;
+                        end if;
+                     end File_Name_Match;
+
+                     --------------------
+                     -- Line_Num_Match --
+                     --------------------
+
+                     function Line_Num_Match return Boolean is
+                        N : Int := 0;
+
+                     begin
+                        if Idx = 0 then
+                           return False;
+                        end if;
+
+                        while Idx <= Last
+                           and then Sloc_Trace (Idx) in '0' .. '9'
+                        loop
+                           N := N * 10 +
+                            (Character'Pos (Sloc_Trace (Idx)) -
+                             Character'Pos ('0'));
+                           Idx := Idx + 1;
+                        end loop;
+
+                        if Get_Physical_Line_Number (P) =
+                           Physical_Line_Number (N)
+                        then
+                           while Sloc_Trace (Idx) /= '['
+                               and then Idx <= Last
+                           loop
+                              Idx := Idx + 1;
+                           end loop;
+
+                           if Sloc_Trace (Idx) = '['
+                             and then Idx < Last
+                           then
+                              Idx := Idx + 1;
+                              Idx := Skip_Spaces;
+                           else
+                              Idx := 0;
+                           end if;
+
+                           return True;
+                        else
+                           return False;
+                        end if;
+                     end Line_Num_Match;
+
+                     -----------------
+                     -- Skip_Spaces --
+                     -----------------
+
+                     function Skip_Spaces return Natural is
+                        Res : Natural := Idx;
+
+                     begin
+                        while Sloc_Trace (Res) = ' ' loop
+                           Res := Res + 1;
+
+                           if Res > Last then
+                              Res := 0;
+                              exit;
+                           end if;
+                        end loop;
+
+                        return Res;
+                     end Skip_Spaces;
+
+                  begin
+                     P := Sloc (E);
+                     Sindex := Get_Source_File_Index (P);
+                     Get_Name_String (File_Name (Sindex));
+
+                     Idx := Skip_Spaces;
+                     while Idx > 0 loop
+                        if not File_Name_Match then
+                           goto Continue;
+                        elsif not Line_Num_Match then
+                           goto Continue;
+                        end if;
+
+                        if Different_Trace_Lengths then
+                           goto Continue;
+                        end if;
+                     end loop;
+                  end;
                end if;
 
                --  If we have a Result_Type, then we must have a function
@@ -358,7 +598,12 @@ package body Sem_Elim is
                if Elmt.Parameter_Types /= null then
                   Form := First_Formal (E);
 
-                  if No (Form) and then Elmt.Parameter_Types = null then
+                  if No (Form)
+                    and then Elmt.Parameter_Types'Length = 1
+                    and then Elmt.Parameter_Types (1) = No_Name
+                  then
+                     --  Parameterless procedure matches
+
                      null;
 
                   elsif Elmt.Parameter_Types = null then
@@ -387,9 +632,10 @@ package body Sem_Elim is
                Set_Eliminated;
                return;
             end if;
-
-            <<Continue>> Elmt := Elmt.Homonym;
          end;
+
+      <<Continue>>
+         Elmt := Elmt.Homonym;
       end loop;
 
       return;
@@ -411,7 +657,7 @@ package body Sem_Elim is
 
       --  Should never fall through, since entry should be in table
 
-      pragma Assert (False);
+      raise Program_Error;
    end Eliminate_Error_Msg;
 
    ----------------
@@ -435,7 +681,7 @@ package body Sem_Elim is
       Arg_Entity          : Node_Id;
       Arg_Parameter_Types : Node_Id;
       Arg_Result_Type     : Node_Id;
-      Arg_Homonym_Number  : Node_Id)
+      Arg_Source_Location : Node_Id)
    is
       Data : constant Access_Elim_Data := new Elim_Data;
       --  Build result data here
@@ -530,15 +776,11 @@ package body Sem_Elim is
 
             Data.Entity_Scope (1) := Chars (Arg_Ent);
 
-         elsif Nkind (Arg_Entity) = N_String_Literal then
-            String_To_Name_Buffer (Strval (Arg_Entity));
+         elsif Is_Config_Static_String (Arg_Entity) then
             Data.Entity_Name := Name_Find;
             Data.Entity_Node := Arg_Entity;
 
          else
-            Error_Msg_N
-              ("wrong form for Entity_Argument parameter of pragma%",
-               Arg_Unit_Name);
             return;
          end if;
       else
@@ -550,85 +792,76 @@ package body Sem_Elim is
 
       if Present (Arg_Parameter_Types) then
 
-         --  Case of one name, which looks like a parenthesized literal
-         --  rather than an aggregate.
-
-         if Nkind (Arg_Parameter_Types) = N_String_Literal
-           and then Paren_Count (Arg_Parameter_Types) = 1
-         then
-            String_To_Name_Buffer (Strval (Arg_Parameter_Types));
-            Data.Parameter_Types := new Names'(1 => Name_Find);
-
-         --  Otherwise must be an aggregate
-
-         elsif Nkind (Arg_Parameter_Types) /= N_Aggregate
-           or else Present (Component_Associations (Arg_Parameter_Types))
-           or else No (Expressions (Arg_Parameter_Types))
-         then
-            Error_Msg_N
-              ("Parameter_Types for pragma% must be list of string literals",
-               Arg_Parameter_Types);
-            return;
-
          --  Here for aggregate case
 
-         else
+         if Nkind (Arg_Parameter_Types) = N_Aggregate then
             Data.Parameter_Types :=
               new Names
                 (1 .. List_Length (Expressions (Arg_Parameter_Types)));
 
             Lit := First (Expressions (Arg_Parameter_Types));
             for J in Data.Parameter_Types'Range loop
-               if Nkind (Lit) /= N_String_Literal then
-                  Error_Msg_N
-                    ("parameter types for pragma% must be string literals",
-                     Lit);
+               if Is_Config_Static_String (Lit) then
+                  Data.Parameter_Types (J) := Name_Find;
+                  Next (Lit);
+               else
                   return;
                end if;
-
-               String_To_Name_Buffer (Strval (Lit));
-               Data.Parameter_Types (J) := Name_Find;
-               Next (Lit);
             end loop;
+
+         --  Otherwise we must have case of one name, which looks like a
+         --  parenthesized literal rather than an aggregate.
+
+         elsif Paren_Count (Arg_Parameter_Types) /= 1 then
+            Error_Msg_N
+              ("wrong form for argument of pragma Eliminate",
+               Arg_Parameter_Types);
+            return;
+
+         elsif Is_Config_Static_String (Arg_Parameter_Types) then
+            String_To_Name_Buffer (Strval (Arg_Parameter_Types));
+
+            if Name_Len = 0 then
+
+               --  Parameterless procedure
+
+               Data.Parameter_Types := new Names'(1 => No_Name);
+
+            else
+               Data.Parameter_Types := new Names'(1 => Name_Find);
+            end if;
+
+         else
+            return;
          end if;
       end if;
 
       --  Process Result_Types argument
 
       if Present (Arg_Result_Type) then
-
-         if Nkind (Arg_Result_Type) /= N_String_Literal then
-            Error_Msg_N
-              ("Result_Type argument for pragma% must be string literal",
-               Arg_Result_Type);
+         if Is_Config_Static_String (Arg_Result_Type) then
+            Data.Result_Type := Name_Find;
+         else
             return;
          end if;
 
-         String_To_Name_Buffer (Strval (Arg_Result_Type));
-         Data.Result_Type := Name_Find;
+      --  Here if no Result_Types argument
 
       else
          Data.Result_Type := No_Name;
       end if;
 
-      --  Process Homonym_Number argument
+      --  Process Source_Location argument
 
-      if Present (Arg_Homonym_Number) then
-
-         if Nkind (Arg_Homonym_Number) /= N_Integer_Literal then
-            Error_Msg_N
-              ("Homonym_Number argument for pragma% must be integer literal",
-               Arg_Homonym_Number);
+      if Present (Arg_Source_Location) then
+         if Is_Config_Static_String (Arg_Source_Location) then
+            Data.Source_Location := Name_Find;
+         else
             return;
          end if;
-
-         Data.Homonym_Number := Intval (Arg_Homonym_Number);
-
       else
-         Data.Homonym_Number := No_Uint;
+         Data.Source_Location := No_Name;
       end if;
-
-      --  Now link this new entry into the hash table
 
       Elmt := Elim_Hash_Table.Get (Hash_Subprograms.Get_Key (Data));
 

@@ -1052,7 +1052,7 @@ package body Exp_Ch3 is
       Controller_Typ : Entity_Id;
 
    begin
-      --  Nothing to do if the Init_Proc is null, unless Initialize_Sclalars
+      --  Nothing to do if the Init_Proc is null, unless Initialize_Scalars
       --  is active (in which case we make the call anyway, since in the
       --  actual compiled client it may be non null).
 
@@ -1107,7 +1107,7 @@ package body Exp_Ch3 is
 
          Append_To (Args, Make_Identifier (Loc, Name_uChain));
 
-         --  Ada 0Y (AI-287): In case of default initialized components
+         --  Ada 2005 (AI-287): In case of default initialized components
          --  with tasks, we generate a null string actual parameter.
          --  This is just a workaround that must be improved later???
 
@@ -1215,8 +1215,8 @@ package body Exp_Ch3 is
                end if;
             end if;
 
-            --  Ada 0Y (AI-287) In case of default initialized components, we
-            --  need to generate the corresponding selected component node
+            --  Ada 2005 (AI-287) In case of default initialized components,
+            --  we need to generate the corresponding selected component node
             --  to access the discriminant value. In other cases this is not
             --  required because we are inside the init proc and we use the
             --  corresponding formal.
@@ -1489,6 +1489,18 @@ package body Exp_Ch3 is
            and then Nkind (Original_Node (Exp)) = N_Aggregate
          then
             Exp := New_Copy_Tree (Original_Node (Exp));
+         end if;
+
+         --  Ada 2005 (AI-231): Generate conversion to the null-excluding
+         --  type to force the corresponding run-time check
+
+         if Ada_Version >= Ada_05
+           and then Can_Never_Be_Null (Etype (Id))  -- Lhs
+           and then Present (Etype (Exp))
+           and then not Can_Never_Be_Null (Etype (Exp))
+         then
+            Rewrite (Exp, Convert_To (Etype (Id), Relocate_Node (Exp)));
+            Analyze_And_Resolve (Exp, Etype (Id));
          end if;
 
          Res := New_List (
@@ -2068,6 +2080,25 @@ package body Exp_Ch3 is
          --  to bind any interrupt (signal) entries.
 
          if Is_Task_Record_Type (Rec_Type) then
+
+            --  In the case of the restricted run time the ATCB has already
+            --  been preallocated.
+
+            if Restricted_Profile then
+               Append_To (Statement_List,
+                 Make_Assignment_Statement (Loc,
+                   Name => Make_Selected_Component (Loc,
+                     Prefix => Make_Identifier (Loc, Name_uInit),
+                     Selector_Name => Make_Identifier (Loc, Name_uTask_Id)),
+                   Expression => Make_Attribute_Reference (Loc,
+                     Prefix =>
+                       Make_Selected_Component (Loc,
+                         Prefix => Make_Identifier (Loc, Name_uInit),
+                         Selector_Name =>
+                           Make_Identifier (Loc, Name_uATCB)),
+                     Attribute_Name => Name_Unchecked_Access)));
+            end if;
+
             Append_To (Statement_List, Make_Task_Create_Call (Rec_Type));
 
             declare
@@ -3421,17 +3452,31 @@ package body Exp_Ch3 is
             then
                Set_Is_Known_Valid (Def_Id);
 
-            --  For access types set the Is_Known_Non_Null flag if the
-            --  initializing value is known to be non-null. We can also
-            --  set Can_Never_Be_Null if this is a constant.
+            elsif Is_Access_Type (Typ) then
 
-            elsif Is_Access_Type (Typ)
-              and then Known_Non_Null (Expr)
-            then
-               Set_Is_Known_Non_Null (Def_Id);
+               --  Ada 2005 (AI-231): Generate conversion to the null-excluding
+               --  type to force the corresponding run-time check
 
-               if Constant_Present (N) then
-                  Set_Can_Never_Be_Null (Def_Id);
+               if Ada_Version >= Ada_05
+                 and then (Can_Never_Be_Null (Def_Id)
+                             or else Can_Never_Be_Null (Typ))
+               then
+                  Rewrite
+                    (Expr_Q,
+                     Convert_To (Etype (Def_Id), Relocate_Node (Expr_Q)));
+                  Analyze_And_Resolve (Expr_Q, Etype (Def_Id));
+               end if;
+
+               --  For access types set the Is_Known_Non_Null flag if the
+               --  initializing value is known to be non-null. We can also
+               --  set Can_Never_Be_Null if this is a constant.
+
+               if Known_Non_Null (Expr) then
+                  Set_Is_Known_Non_Null (Def_Id);
+
+                  if Constant_Present (N) then
+                     Set_Can_Never_Be_Null (Def_Id);
+                  end if;
                end if;
             end if;
 
@@ -4184,23 +4229,35 @@ package body Exp_Ch3 is
             --  (usually the inherited primitive address is inserted in the
             --  DT by Inherit_DT)
 
-            if Is_CPP_Class (Etype (Def_Id)) then
-               declare
-                  Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
-                  Subp : Entity_Id;
+            --  Similarly, if this is an inherited operation whose parent
+            --  is not frozen yet, it is not in the DT of the parent, and
+            --  we generate an explicit freeze node for the inherited
+            --  operation, so that it is properly inserted in the DT of the
+            --  current type.
 
-               begin
-                  while Present (Elmt) loop
-                     Subp := Node (Elmt);
+            declare
+               Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
+               Subp : Entity_Id;
 
-                     if Present (Alias (Subp)) then
+            begin
+               while Present (Elmt) loop
+                  Subp := Node (Elmt);
+
+                  if Present (Alias (Subp)) then
+                     if Is_CPP_Class (Etype (Def_Id)) then
+                        Set_Has_Delayed_Freeze (Subp);
+
+                     elsif Has_Delayed_Freeze (Alias (Subp))
+                       and then not Is_Frozen (Alias (Subp))
+                     then
+                        Set_Is_Frozen (Subp, False);
                         Set_Has_Delayed_Freeze (Subp);
                      end if;
+                  end if;
 
-                     Next_Elmt (Elmt);
-                  end loop;
-               end;
-            end if;
+                  Next_Elmt (Elmt);
+               end loop;
+            end;
 
             if Underlying_Type (Etype (Def_Id)) = Def_Id then
                Expand_Tagged_Root (Def_Id);
@@ -5275,6 +5332,7 @@ package body Exp_Ch3 is
                                             N_Subprogram_Renaming_Declaration)
               and then Etype (First_Formal (Node (Prim))) =
                          Etype (Next_Formal (First_Formal (Node (Prim))))
+              and then Base_Type (Etype (Node (Prim))) = Standard_Boolean
 
             then
                Eq_Needed := False;

@@ -46,6 +46,7 @@ GNATRTL_TASKING_OBJS= \
   s-intman$(objext) \
   s-osinte$(objext) \
   s-proinf$(objext) \
+  s-solita$(objext) \
   s-taenca$(objext) \
   s-taprob$(objext) \
   s-taprop$(objext) \
@@ -85,7 +86,9 @@ GNATRTL_NONTASKING_OBJS= \
   a-cwila9$(objext) \
   a-decima$(objext) \
   a-diocst$(objext) \
+  a-direct$(objext) \
   a-direio$(objext) \
+  a-dirval$(objext) \
   a-einuoc$(objext) \
   a-elchha$(objext) \
   a-except$(objext) \
@@ -268,6 +271,7 @@ GNATRTL_NONTASKING_OBJS= \
   ioexcept$(objext) \
   machcode$(objext) \
   s-addima$(objext) \
+  s-addope$(objext) \
   s-arit64$(objext) \
   s-assert$(objext) \
   s-atacco$(objext) \
@@ -406,6 +410,7 @@ GNATRTL_NONTASKING_OBJS= \
   s-sopco4$(objext) \
   s-sopco5$(objext) \
   s-stache$(objext) \
+  s-stchop$(objext) \
   s-stalib$(objext) \
   s-stoele$(objext) \
   s-stopoo$(objext) \

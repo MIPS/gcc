@@ -1,7 +1,5 @@
 /* PR c/2161: parser stack overflow.  */
-/* XFAIL on branch only -- PR 12454 */
-/* { dg-do compile { xfail *-*-* } } */
-/* { dg-excess-errors "" } */
+/* { dg-do compile } */
 
 #define ONE	else if (0) { }
 #define TEN	ONE ONE ONE ONE ONE ONE ONE ONE ONE ONE

@@ -58,6 +58,8 @@
 #include "obstack.h"
 #include "toplev.h"
 #include "varray.h"
+#include "flags.h"
+#include "target.h"
 
 /* Debugging support.  */
 
@@ -1500,12 +1502,24 @@ write_type (tree type)
 	case BOOLEAN_TYPE:
 	case INTEGER_TYPE:  /* Includes wchar_t.  */
 	case REAL_TYPE:
+	{
+	  /* Handle any target-specific fundamental types.  */
+	  const char *target_mangling
+	    = targetm.mangle_fundamental_type (type);
+
+	  if (target_mangling)
+	    {
+	      write_string (target_mangling);
+	      return;
+	    }
+
 	  /* If this is a typedef, TYPE may not be one of
 	     the standard builtin type nodes, but an alias of one.  Use
 	     TYPE_MAIN_VARIANT to get to the underlying builtin type.  */
 	  write_builtin_type (TYPE_MAIN_VARIANT (type));
 	  ++is_builtin_type;
 	  break;
+	}
 
 	case COMPLEX_TYPE:
 	  write_char ('C');
@@ -1679,11 +1693,11 @@ write_builtin_type (tree type)
 	  if (itk == itk_none)
 	    {
 	      tree t = c_common_type_for_mode (TYPE_MODE (type),
-					       TREE_UNSIGNED (type));
+					       TYPE_UNSIGNED (type));
 	      if (type == t)
 		{
 		  if (TYPE_PRECISION (type) == 128)
-		    write_char (TREE_UNSIGNED (type) ? 'o' : 'n');
+		    write_char (TYPE_UNSIGNED (type) ? 'o' : 'n');
 		  else
 		    /* Couldn't find this type.  */
 		    abort ();
@@ -2042,7 +2056,13 @@ write_expression (tree expr)
 
 	case CAST_EXPR:
 	  write_type (TREE_TYPE (expr));
-	  write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
+	  /* There is no way to mangle a zero-operand cast like
+	     "T()".  */
+	  if (!TREE_OPERAND (expr, 0))
+	    sorry ("zero-operand casts cannot be mangled due to a defect "
+		   "in the C++ ABI");
+	  else
+	    write_expression (TREE_VALUE (TREE_OPERAND (expr, 0)));
 	  break;
 
 	case STATIC_CAST_EXPR:
@@ -2120,9 +2140,9 @@ write_template_arg_literal (const tree value)
     {
       if (same_type_p (type, boolean_type_node))
 	{
-	  if (value == boolean_false_node || integer_zerop (value))
+	  if (integer_zerop (value))
 	    write_unsigned_number (0);
-	  else if (value == boolean_true_node)
+	  else if (integer_onep (value))
 	    write_unsigned_number (1);
 	  else 
 	    abort ();
@@ -2189,12 +2209,20 @@ write_template_arg (tree node)
     write_template_arg_literal (node);
   else if (DECL_P (node))
     {
-      /* G++ 3.2 incorrectly mangled non-type template arguments of
-	 enumeration type using their names.  */
-      if (code == CONST_DECL)
+      /* Until ABI version 2, non-type template arguments of
+	 enumeration type were mangled using their names.  */ 
+      if (code == CONST_DECL && !abi_version_at_least (2))
 	G.need_abi_warning = 1;
       write_char ('L');
-      write_char ('Z');
+      /* Until ABI version 3, the underscore before the mangled name
+	 was incorrectly omitted.  */
+      if (!abi_version_at_least (3))
+	{
+	  G.need_abi_warning = 1;
+	  write_char ('Z');
+	}
+      else
+	write_string ("_Z");
       write_encoding (node);
       write_char ('E');
     }

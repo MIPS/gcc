@@ -1,3 +1,51 @@
+2004-05-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* configure.in (GMP checking): s/save_CFLAGS/saved_CFLAGS.
+	* configure: Regenerate.
+
+2004-04-22  Loren J. Rittle <ljrittle@acm.org>
+
+	* configure.in (*-*-freebsd*): Use with_gmp to "Avoid crusty gmp.h."
+	* configure: Rebuilt (with autoconf version 2.13).
+
+2004-04-17  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.tmp (EXTRA_HOST_FLAGS): Remove GMPLIBS and GMPINC.
+	(configure-gcc): Set GMPLIBS and GMPINC.
+	* Makefile.in: Regenerate.
+
+2004-04-14  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.tmp (HOST_GMPLIBS, HOST_GMPINC): New variables.
+	(EXTRA_HOST_FLAGS): Pass them.
+	* configure.in: Add check for GMP.  Disable languages if not found.
+	* Makefile.in, configure: Regenrate.
+
+2004-03-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure.in: Set with_libbansshee to yes by default.
+	* configure: Regenerate.
+
+2004-03-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure.in: Fix handling of --without-libbanshee.
+	* configure: Regenerate.
+
+2004-03-26  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Add support for --without-libbanshee.
+	* configure: Regenerated.
+
+2004-02-17  Brian Booth  <bbooth@redhat.com>
+
+	* MAINTAINERS.tree-ssa: Add self to write after approval.
+
+2004-02-13  Loren J. Rittle <ljrittle@acm.org>
+
+	* configure.in (*-*-freebsd*): Avoid crusty gmp.h.
+	(alpha*-*-*freebsd*, i[[3456789]]86-*-*freebsd*): Merge into above.
+	* configure: Rebuilt (with autoconf version 2.13).
+
 2003-10-22  Frank Ch. Eigler  <fche@redhat.com>
 
 	* configure.in: Add support for "--disable-libmudflap" option.

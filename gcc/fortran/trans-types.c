@@ -1,24 +1,24 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* trans-types.c -- gfortran backend types */
 
@@ -63,6 +63,7 @@ static GTY(()) tree gfc_max_array_element_size;
    equivalent C type, at least for now.  We also give
    names to the types here, and we push them in the
    global binding level context.*/
+
 void
 gfc_init_types (void)
 {
@@ -180,6 +181,7 @@ gfc_init_types (void)
 }
 
 /* Get a type node for an integer kind */
+
 tree
 gfc_get_int_type (int kind)
 {
@@ -203,6 +205,7 @@ gfc_get_int_type (int kind)
 }
 
 /* Get a type node for a real kind */
+
 tree
 gfc_get_real_type (int kind)
 {
@@ -222,6 +225,7 @@ gfc_get_real_type (int kind)
 }
 
 /* Get a type node for a complex kind */
+
 tree
 gfc_get_complex_type (int kind)
 {
@@ -241,6 +245,7 @@ gfc_get_complex_type (int kind)
 }
 
 /* Get a type node for a logical kind */
+
 tree
 gfc_get_logical_type (int kind)
 {
@@ -264,6 +269,7 @@ gfc_get_logical_type (int kind)
 }
 
 /* Get a type node for a character kind.  */
+
 tree
 gfc_get_character_type (int kind, gfc_charlen * cl)
 {
@@ -282,24 +288,17 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
       fatal_error ("character kind=%d not available", kind);
     }
 
-  if (cl && cl->length && cl->length->expr_type == EXPR_CONSTANT)
-    {
-      len = gfc_conv_mpz_to_tree (cl->length->value.integer,
-				  cl->length->ts.kind);
-    }
-  else
-    len = NULL_TREE;
+  len = (cl == 0) ? NULL_TREE : cl->backend_decl;
 
-  bounds = build_range_type (gfc_array_index_type, integer_one_node, len);
+  bounds = build_range_type (gfc_array_index_type, gfc_index_one_node, len);
   type = build_array_type (base, bounds);
   TYPE_STRING_FLAG (type) = 1;
-  if (len != NULL_TREE)
-    GFC_KNOWN_SIZE_STRING_TYPE (type) = 1;
 
   return type;
 }
 
 /* Covert a basic type.  This will be an array for character types.  */
+
 tree
 gfc_typenode_for_spec (gfc_typespec * spec)
 {
@@ -343,6 +342,7 @@ gfc_typenode_for_spec (gfc_typespec * spec)
 }
 
 /* Build an INT_CST for constant expressions, otherwise return NULL_TREE.  */
+
 static tree
 gfc_conv_array_bound (gfc_expr * expr)
 {
@@ -382,14 +382,14 @@ gfc_get_element_type (tree type)
 }
 
 /* Build an array. This function is called from gfc_sym_type().
-   Actualy returns array descriptor type.
+   Actually returns array descriptor type.
 
    Format of array descriptors is as follows:
 
     struct gfc_array_descriptor
     {
       array *data
-      array *base;
+      index offset;
       index dtype;
       struct descriptor_dimension dimension[N_DIM];
     }
@@ -405,7 +405,7 @@ gfc_get_element_type (tree type)
    the descriptor directly. Any changes to the array descriptor type will
    require changes in gfc_conv_descriptor_* and gfc_build_array_initializer.
 
-   This is represented internaly as a RECORD_TYPE. The index nodes are
+   This is represented internally as a RECORD_TYPE. The index nodes are
    gfc_array_index_type and the data node is a pointer to the data. See below
    for the handling of character types.
 
@@ -414,20 +414,20 @@ gfc_get_element_type (tree type)
     type = (dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT // 3 bits
     size = dtype >> GFC_DTYPE_SIZE_SHIFT
 
-   I originaly used nested ARRAY_TYPE nodes to represent arrays, but this
+   I originally used nested ARRAY_TYPE nodes to represent arrays, but this
    generated poor code for assumed/deferred size arrays.  These require
-   use of PLACEHOLDER_EXPR/WITH_RECORD_EXPR, which isn't part of GIMPLE
+   use of PLACEHOLDER_EXPR/WITH_RECORD_EXPR, which isn't part of the GENERIC
    grammar.  Also, there is no way to explicitly set the array stride, so
    all data must be packed(1).  I've tried to mark all the functions which
    would require modification with a GCC ARRAYS comment.
 
    The data component points to the first element in the array.
-   The base component points to the origin (ie. array(0, 0...)).  If the array
-   does not contain the origin, base points to where it would be in memory.
+   The offset field is the position of the origin of the array
+   (ie element (0, 0 ...)).  This may be outsite the bounds of the array.
 
    An element is accessed by
-   base[index0*stride0 + index1*stride1 + index2*stride2]
-   This gives good performance as this computation does not involve the
+   data[offset + index0*stride0 + index1*stride1 + index2*stride2]
+   This gives good performance as the computation does not involve the
    bounds of the array.  For packed arrays, this is optimized further by
    substituting the known strides.
 
@@ -436,10 +436,10 @@ gfc_get_element_type (tree type)
    integer, dimension (80000:90000, 80000:90000, 2) :: array
    may not work properly on 32-bit machines because 80000*80000 > 2^31, so
    the calculation for stride02 would overflow.  This may still work, but
-   I haven't checked and it relies on the overflow doing the right thing.
+   I haven't checked, and it relies on the overflow doing the right thing.
 
    The way to fix this problem is to access alements as follows:
-   base[(index0-lbound0)*stride0 + (index1-lobound1)*stride1]
+   data[(index0-lbound0)*stride0 + (index1-lbound1)*stride1]
    Obviously this is much slower.  I will make this a compile time option,
    something like -fsmall-array-offsets.  Mixing code compiled with and without
    this switch will work.
@@ -454,7 +454,7 @@ gfc_get_element_type (tree type)
 
 /* Returns true if the array sym does not require a descriptor.  */
 
-static int
+int
 gfc_is_nodesc_array (gfc_symbol * sym)
 {
   assert (sym->attr.dimension);
@@ -465,7 +465,7 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 
   if (sym->attr.dummy)
     {
-      if (gfc_option.flag_g77_calls && sym->as->type != AS_ASSUMED_SHAPE)
+      if (sym->as->type != AS_ASSUMED_SHAPE)
         return 1;
       else
         return 0;
@@ -493,7 +493,7 @@ gfc_build_array_type (tree type, gfc_array_spec * as)
     {
       /* Create expressions for the known bounds of the array.  */
       if (as->type == AS_ASSUMED_SHAPE && as->lower[n] == NULL)
-        lbound[n] = integer_one_node;
+        lbound[n] = gfc_index_one_node;
       else
         lbound[n] = gfc_conv_array_bound (as->lower[n]);
       ubound[n] = gfc_conv_array_bound (as->upper[n]);
@@ -503,6 +503,7 @@ gfc_build_array_type (tree type, gfc_array_spec * as)
 }
 
 /* Returns the struct descriptor_dimension type.  */
+
 static tree
 gfc_get_desc_dim_type (void)
 {
@@ -545,12 +546,13 @@ gfc_get_desc_dim_type (void)
 }
 
 static tree
-gfc_get_dtype_cst (tree type, int rank)
+gfc_get_dtype (tree type, int rank)
 {
   tree size;
   int n;
-  unsigned HOST_WIDE_INT lo;
-  unsigned HOST_WIDE_INT hi;
+  HOST_WIDE_INT i;
+  tree tmp;
+  tree dtype;
 
   if (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type))
     return (GFC_TYPE_ARRAY_DTYPE (type));
@@ -574,32 +576,46 @@ gfc_get_dtype_cst (tree type, int rank)
       n = GFC_DTYPE_COMPLEX;
       break;
 
-      /* Arrays have already been dealt with.  */
+    /* Arrays have already been dealt with.  */
     case RECORD_TYPE:
       n = GFC_DTYPE_DERIVED;
       break;
-/* Arrays of strings are currently broken.  */
-#if 0
+
     case ARRAY_TYPE:
       n = GFC_DTYPE_CHARACTER;
       break;
-#endif
+
     default:
       abort ();
     }
 
   assert (rank <= GFC_DTYPE_RANK_MASK);
   size = TYPE_SIZE_UNIT (type);
-  assert (INTEGER_CST_P (size));
-  if (tree_int_cst_lt (gfc_max_array_element_size, size))
-    internal_error ("Array element size too big");
+    
+  i = rank | (n << GFC_DTYPE_TYPE_SHIFT);
+  if (size && INTEGER_CST_P (size))
+    {
+      if (tree_int_cst_lt (gfc_max_array_element_size, size))
+	internal_error ("Array element size too big");
 
-  lo = TREE_INT_CST_LOW (size) << GFC_DTYPE_SIZE_SHIFT;
-  hi = TREE_INT_CST_HIGH (size) << GFC_DTYPE_SIZE_SHIFT
-       | (lo >> (sizeof (HOST_WIDE_INT) * 8 - GFC_DTYPE_SIZE_SHIFT));
-  lo |= rank | (n << GFC_DTYPE_TYPE_SHIFT);
+      i += TREE_INT_CST_LOW (size) << GFC_DTYPE_SIZE_SHIFT;
+    }
+  dtype = build_int_2 (i, 0);
+  TREE_TYPE (dtype) = gfc_array_index_type;
 
-  return build_int_2 (lo, hi);
+  if (size && !INTEGER_CST_P (size))
+    {
+      tmp = build_int_2 (GFC_DTYPE_SIZE_SHIFT, 0);
+      TREE_TYPE (tmp) = gfc_array_index_type;
+      tmp  = fold (build (LSHIFT_EXPR, gfc_array_index_type, size, tmp));
+      dtype = fold (build (PLUS_EXPR, gfc_array_index_type, tmp, dtype));
+    }
+  /* If we don't know the size we leave it as zero.  This should never happen
+     for anything that is actually used.  */
+  /* TODO: Check this is actually true, particularly when repacking
+     assumed size parameters.  */
+
+  return dtype;
 }
 
 
@@ -657,6 +673,15 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
         }
       GFC_TYPE_ARRAY_LBOUND (type, n) = tmp;
 
+      if (known_stride)
+	{
+          /* Calculate the offset.  */
+          mpz_mul (delta, stride, as->lower[n]->value.integer);
+          mpz_sub (offset, offset, delta);
+	}
+      else
+	known_offset = 0;
+
       expr = as->upper[n];
       if (expr && expr->expr_type == EXPR_CONSTANT)
         {
@@ -672,23 +697,19 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
 
       if (known_stride)
         {
-          /* Calculate the stride and offset.  */
-          mpz_mul (delta, stride, as->lower[n]->value.integer);
-          mpz_sub (offset, offset, delta);
-
+          /* Calculate the stride.  */
           mpz_sub (delta, as->upper[n]->value.integer,
 	           as->lower[n]->value.integer);
           mpz_add_ui (delta, delta, 1);
           mpz_mul (stride, stride, delta);
         }
-      else
-        known_offset = 0;
+
       /* Only the first stride is known for partial packed arrays.  */
       if (packed < 2)
         known_stride = 0;
     }
 
-  if (packed == 3 && known_offset)
+  if (known_offset)
     {
       GFC_TYPE_ARRAY_OFFSET (type) =
         gfc_conv_mpz_to_tree (offset, gfc_index_integer_kind);
@@ -704,15 +725,15 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   else
     GFC_TYPE_ARRAY_SIZE (type) = NULL_TREE;
 
-  GFC_TYPE_ARRAY_DTYPE (type) = gfc_get_dtype_cst (etype, as->rank);
+  GFC_TYPE_ARRAY_DTYPE (type) = gfc_get_dtype (etype, as->rank);
   GFC_TYPE_ARRAY_RANK (type) = as->rank;
-  range = build_range_type (gfc_array_index_type, integer_zero_node,
+  range = build_range_type (gfc_array_index_type, gfc_index_zero_node,
 			    NULL_TREE);
   /* TODO: use main type if it is unbounded.  */
   GFC_TYPE_ARRAY_DATAPTR_TYPE (type) =
     build_pointer_type (build_array_type (etype, range));
 
-  if (packed == 3 && known_stride)
+  if (known_stride)
     {
       mpz_sub_ui (stride, stride, 1);
       range = gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
@@ -720,7 +741,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, int packed)
   else
     range = NULL_TREE;
 
-  range = build_range_type (gfc_array_index_type, integer_zero_node, range);
+  range = build_range_type (gfc_array_index_type, gfc_index_zero_node, range);
   TYPE_DOMAIN (type) = range;
 
   build_pointer_type (etype);
@@ -766,7 +787,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   TYPE_LANG_SPECIFIC (fat_type) = (struct lang_type *)
     ggc_alloc_cleared (sizeof (struct lang_type));
   GFC_TYPE_ARRAY_RANK (fat_type) = dimen;
-  GFC_TYPE_ARRAY_DTYPE (fat_type) = gfc_get_dtype_cst (etype, dimen);
+  GFC_TYPE_ARRAY_DTYPE (fat_type) = gfc_get_dtype (etype, dimen);
 
   tmp = TYPE_NAME (etype);
   if (tmp && TREE_CODE (tmp) == TYPE_DECL)
@@ -785,7 +806,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 
   /* Build an array descriptor record type.  */
   if (packed != 0)
-    stride = integer_one_node;
+    stride = gfc_index_one_node;
   else
     stride = NULL_TREE;
 
@@ -819,7 +840,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 	{
 	  tmp = fold (build (MINUS_EXPR, gfc_array_index_type, upper, lower));
 	  tmp = fold (build (PLUS_EXPR, gfc_array_index_type, tmp,
-			     integer_one_node));
+			     gfc_index_one_node));
 	  stride =
 	    fold (build (MULT_EXPR, gfc_array_index_type, tmp, stride));
 	  /* Check the folding worked.  */
@@ -837,7 +858,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   arraytype =
     build_array_type (etype,
 		      build_range_type (gfc_array_index_type,
-					integer_zero_node, NULL_TREE));
+					gfc_index_zero_node, NULL_TREE));
   arraytype = build_pointer_type (arraytype);
   GFC_TYPE_ARRAY_DATAPTR_TYPE (fat_type) = arraytype;
 
@@ -849,7 +870,8 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   fieldlist = decl;
 
   /* Add the base component.  */
-  decl = build_decl (FIELD_DECL, get_identifier ("base"), arraytype);
+  decl = build_decl (FIELD_DECL, get_identifier ("offset"),
+		     gfc_array_index_type);
   DECL_CONTEXT (decl) = fat_type;
   fieldlist = chainon (fieldlist, decl);
 
@@ -863,7 +885,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
   arraytype =
     build_array_type (gfc_get_desc_dim_type (),
 		      build_range_type (gfc_array_index_type,
-					integer_zero_node,
+					gfc_index_zero_node,
 					gfc_rank_cst[dimen - 1]));
 
   decl = build_decl (FIELD_DECL, get_identifier ("dim"), arraytype);
@@ -880,6 +902,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, tree * lbound,
 }
 
 /* Build a pointer type. This function is called from gfc_sym_type().  */
+
 static tree
 gfc_build_pointer_type (gfc_symbol * sym, tree type)
 {
@@ -894,12 +917,13 @@ gfc_build_pointer_type (gfc_symbol * sym, tree type)
    types to get the correct level of indirection.
    For functions return the return type.
    For subroutines return void_type_node.
- */
+   Calling this multiple times for the same symbol should be avoided,
+   especially for character and array types.  */
+
 tree
 gfc_sym_type (gfc_symbol * sym)
 {
   tree type;
-  tree base_type;
   int byref;
 
   if (sym->attr.flavor == FL_PROCEDURE && !sym->attr.function)
@@ -918,45 +942,35 @@ gfc_sym_type (gfc_symbol * sym)
   if (sym->attr.function && sym->result)
     sym = sym->result;
 
-  base_type = type = gfc_typenode_for_spec (&sym->ts);
+  type = gfc_typenode_for_spec (&sym->ts);
 
   if (sym->attr.dummy && !sym->attr.function)
     byref = 1;
   else
     byref = 0;
 
-  if (sym->ts.type == BT_CHARACTER)
-    {
-      if (sym->attr.dimension
-	  || sym->attr.pointer || sym->attr.allocatable
-	  || sym->attr.function || sym->attr.result)
-	type = build_pointer_type (type);
-    }
-
   if (sym->attr.dimension)
     {
-      /* The string code is currently very broken.  I need to figure out a way
-         of doing it that works with descriptorless arrays.  */
-      if (sym->ts.type == BT_CHARACTER)
-	gfc_todo_error ("arrays of strings");
-
       if (gfc_is_nodesc_array (sym))
         {
-          type = gfc_get_nodesc_array_type (type, sym->as,
-                                            byref ? 2 : 3);
-          byref = 0;
+	  /* If this is a character argument of unknown length, just use the
+	     base type.  */
+	  if (sym->ts.type != BT_CHARACTER
+	      || !(sym->attr.dummy || sym->attr.function || sym->attr.result)
+	      || sym->ts.cl->backend_decl)
+	    {
+	      type = gfc_get_nodesc_array_type (type, sym->as,
+						byref ? 2 : 3);
+	      byref = 0;
+	    }
         }
       else
 	type = gfc_build_array_type (type, sym->as);
     }
-  else if (sym->ts.type != BT_CHARACTER)
+  else
     {
       if (sym->attr.allocatable || sym->attr.pointer)
 	type = gfc_build_pointer_type (sym, type);
-    }
-  else if (!(GFC_KNOWN_SIZE_STRING_TYPE (base_type) || sym->attr.dummy))
-    {
-      type = build_pointer_type (type);
     }
 
   /* We currently pass all parameters by reference.
@@ -969,6 +983,7 @@ gfc_sym_type (gfc_symbol * sym)
 }
 
 /* Layout and output debug info for a record type.  */
+
 void
 gfc_finish_type (tree type)
 {
@@ -986,6 +1001,7 @@ gfc_finish_type (tree type)
    to the fieldlist pointed to by FIELDLIST.
 
    Returns a pointer to the new field.  */
+
 tree
 gfc_add_field_to_struct (tree *fieldlist, tree context,
 			 tree name, tree type)
@@ -1006,11 +1022,11 @@ gfc_add_field_to_struct (tree *fieldlist, tree context,
 
 
 /* Build a tree node for a derived type.  */
+
 static tree
 gfc_get_derived_type (gfc_symbol * derived)
 {
   tree typenode, field, field_type, fieldlist;
-  tree tmp;
   gfc_component *c;
 
   assert (derived && derived->attr.flavor == FL_DERIVED);
@@ -1053,7 +1069,16 @@ gfc_get_derived_type (gfc_symbol * derived)
             }
         }
       else
-        field_type = gfc_typenode_for_spec (&c->ts);
+	{
+	  if (c->ts.type == BT_CHARACTER)
+	    {
+	      /* Evaluate the string length.  */
+	      gfc_conv_const_charlen (c->ts.cl);
+	      assert (c->ts.cl->backend_decl);
+	    }
+
+	  field_type = gfc_typenode_for_spec (&c->ts);
+	}
 
       /* This returns an array descriptor type.  Initialisation may be
          required.  */
@@ -1076,16 +1101,6 @@ gfc_get_derived_type (gfc_symbol * derived)
 				       field_type);
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
-
-      if (c->ts.type == BT_CHARACTER)
-	{
-	  gfc_allocate_lang_decl (field);
-	  tmp = TREE_TYPE (field);
-	  assert (TREE_CODE (tmp) == ARRAY_TYPE);
-	  tmp = TYPE_MAX_VALUE (TYPE_DOMAIN (tmp));
-	  assert (INTEGER_CST_P (tmp));
-	  GFC_DECL_STRING_LENGTH (field) = tmp;
-	}
 
       assert (!c->backend_decl);
       c->backend_decl = field;
@@ -1125,6 +1140,7 @@ gfc_return_by_reference (gfc_symbol * sym)
   return 0;
 }
 
+
 tree
 gfc_get_function_type (gfc_symbol * sym)
 {
@@ -1151,10 +1167,19 @@ gfc_get_function_type (gfc_symbol * sym)
 	arg = sym->result;
       else
 	arg = sym;
+
+      if (arg->ts.type == BT_CHARACTER)
+	gfc_conv_const_charlen (arg->ts.cl);
+
       type = gfc_sym_type (arg);
-      if (arg->ts.type == BT_DERIVED || arg->attr.dimension)
+      if (arg->ts.type == BT_DERIVED
+	  || arg->attr.dimension
+	  || arg->ts.type == BT_CHARACTER)
 	type = build_reference_type (type);
+
       typelist = gfc_chainon_list (typelist, type);
+      if (arg->ts.type == BT_CHARACTER)
+	typelist = gfc_chainon_list (typelist, gfc_strlen_type_node);
     }
 
   /* Build the argument types for the function */
@@ -1163,6 +1188,11 @@ gfc_get_function_type (gfc_symbol * sym)
       arg = f->sym;
       if (arg)
 	{
+	  /* Evaluate constant character lengths here so that they can be
+	     included in the type.  */
+	  if (arg->ts.type == BT_CHARACTER)
+	    gfc_conv_const_charlen (arg->ts.cl);
+
 	  if (arg->attr.flavor == FL_PROCEDURE)
 	    {
 	      type = gfc_get_function_type (arg);
@@ -1180,12 +1210,11 @@ gfc_get_function_type (gfc_symbol * sym)
 	     For this reason all parameters to global functions must be
 	     passed by reference.  Passing by value would potentialy
 	     generate bad code.  Worse there would be no way of telling that
-	     this code wad bad, except that it would give incorrect results.
+	     this code was bad, except that it would give incorrect results.
 
 	     Contained procedures could pass by value as these are never
 	     used without an explicit interface, and connot be passed as
-	     actual parameters for a dummy procedure.
-	   */
+	     actual parameters for a dummy procedure.  */
 	  if (arg->ts.type == BT_CHARACTER)
             nstr++;
 	  typelist = gfc_chainon_list (typelist, type);
@@ -1357,6 +1386,7 @@ gfc_type_for_mode (enum machine_mode mode, int unsignedp)
 }
 
 /* Return an unsigned type the same as TYPE in other respects.  */
+
 tree
 gfc_unsigned_type (tree type)
 {
@@ -1433,7 +1463,7 @@ gfc_signed_type (tree type)
 tree
 gfc_signed_or_unsigned_type (int unsignedp, tree type)
 {
-  if (!INTEGRAL_TYPE_P (type) || TREE_UNSIGNED (type) == unsignedp)
+  if (!INTEGRAL_TYPE_P (type) || TYPE_UNSIGNED (type) == unsignedp)
     return type;
 
   if (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node))

@@ -1,5 +1,5 @@
 /* SwingUtilities.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,20 +41,19 @@ import java.applet.Applet;
 import java.awt.Component;
 import java.awt.ComponentOrientation;
 import java.awt.Container;
-import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.Window;
-import java.awt.event.KeyEvent;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
-import javax.accessibility.Accessible;
-import javax.accessibility.AccessibleStateSet;
 
 
 /**
@@ -62,10 +61,15 @@ import javax.accessibility.AccessibleStateSet;
  * useful when drawing swing components, dispatching events, or calculating
  * regions which need painting.
  *
- * @author Graydon Hoare (graydon&064;redhat.com)
+ * @author Graydon Hoare (graydon@redhat.com)
  */
 public class SwingUtilities implements SwingConstants
 {
+  /** 
+   * This frame should be used as parent for JWindow or JDialog 
+   * that doesn't an owner
+   */
+  private static OwnerFrame ownerFrame;
 
   /**
    * Calculates the portion of the base rectangle which is inside the
@@ -95,7 +99,9 @@ public class SwingUtilities implements SwingConstants
   /**
    * Calculates the portion of the component's bounds which is inside the
    * component's border insets. This area is usually the area a component
-   * should confine its painting to.
+   * should confine its painting to. The coordinates are returned in terms
+   * of the <em>component's</em> coordinate system, where (0,0) is the
+   * upper left corner of the component's bounds.
    *
    * @param c The component to measure the bounds of
    * @param r A Rectangle to store the return value in, or
@@ -108,7 +114,8 @@ public class SwingUtilities implements SwingConstants
    */
   public static Rectangle calculateInnerArea(JComponent c, Rectangle r)
   {
-    return calculateInsetArea(c.getBounds(), c.getInsets(), r);
+    Rectangle b = getLocalBounds(c);
+    return calculateInsetArea(b, c.getInsets(), r);
   }
 
   /**
@@ -123,7 +130,7 @@ public class SwingUtilities implements SwingConstants
   public static Rectangle getLocalBounds(Component aComponent)
   {
     Rectangle bounds = aComponent.getBounds();
-    return new Rectangle(0, 0, bounds.x, bounds.y);
+    return new Rectangle(0, 0, bounds.width, bounds.height);
   }
 
   /**
@@ -193,8 +200,6 @@ public class SwingUtilities implements SwingConstants
    *
    * @see #getAncestorOfClass
    * @see #windowForComponent
-   * @see 
-   * 
    */
   public static Container getAncestorOfClass(Class c, Component comp)
   {
@@ -372,8 +377,12 @@ public class SwingUtilities implements SwingConstants
 
     return pt;
   }
-
   
+  public static Point convertPoint(Component source, Point aPoint, Component destination)
+  {
+    return convertPoint(source, aPoint.x, aPoint.y, destination);
+  }
+
   /**
    * Converts a rectangle from the coordinate space of one component to
    * another. This is equivalent to converting the rectangle from
@@ -460,6 +469,7 @@ public class SwingUtilities implements SwingConstants
       ((JComponent)comp).updateUI();
   }
 
+
   /**
    * <p>Layout a "compound label" consisting of a text string and an icon
    * which is to be placed near the rendered text. Once the text and icon
@@ -472,9 +482,10 @@ public class SwingUtilities implements SwingConstants
    *
    * <p>The position values control where the text is placed relative to
    * the icon. The horizontal position value should be one of the constants
-   * <code>LEFT</code>, <code>RIGHT</code> or <code>CENTER</code>. The
-   * vertical position value should be one fo the constants
-   * <code>TOP</code>, <code>BOTTOM</code>, <code>CENTER</code>.</p>
+   * <code>LEADING</code>, <code>TRAILING</code>, <code>LEFT</code>,
+   * <code>RIGHT</code> or <code>CENTER</code>. The vertical position value
+   * should be one fo the constants <code>TOP</code>, <code>BOTTOM</code>
+   * or <code>CENTER</code>.</p>
    *
    * <p>The text-icon gap value controls the number of pixels between the
    * icon and the text.</p>
@@ -488,12 +499,12 @@ public class SwingUtilities implements SwingConstants
    * <code>CENTER</code>.</p>
    *
    * <p>If the <code>LEADING</code> or <code>TRAILING</code> constants are
-   * given for horizontal alignment, they are interpreted relative to the
-   * provided component's orientation property, a constant in the {@link
-   * java.awt.ComponentOrientation} class. For example, if the component's
-   * orientation is <code>LEFT_TO_RIGHT</code>, then the
-   * <code>LEADING</code> alignment is a synonym for <code>LEFT</code> and
-   * the <code>TRAILING</code> alignment is a synonym for
+   * given for horizontal alignment or horizontal text position, they are
+   * interpreted relative to the provided component's orientation property,
+   * a constant in the {@link java.awt.ComponentOrientation} class. For
+   * example, if the component's orientation is <code>LEFT_TO_RIGHT</code>,
+   * then the <code>LEADING</code> value is a synonym for <code>LEFT</code>
+   * and the <code>TRAILING</code> value is a synonym for
    * <code>RIGHT</code></p>
    *
    * <p>If the text and icon are equal to or larger than the view
@@ -523,6 +534,7 @@ public class SwingUtilities implements SwingConstants
    * @return The string of characters, possibly truncated with an elipsis,
    * which is laid out in this label
    */
+
   public static String layoutCompoundLabel(JComponent c, 
                                            FontMetrics fm,
                                            String text, 
@@ -537,6 +549,119 @@ public class SwingUtilities implements SwingConstants
                                            int textIconGap)
   {
 
+    // Fix up the orientation-based horizontal positions.
+
+    if (horizontalTextPosition == LEADING)
+      {
+        if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
+          horizontalTextPosition = RIGHT;
+        else
+          horizontalTextPosition = LEFT;
+      }
+    else if (horizontalTextPosition == TRAILING)
+      {
+        if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
+          horizontalTextPosition = LEFT;
+        else
+          horizontalTextPosition = RIGHT;
+      }
+
+    // Fix up the orientation-based alignments.
+
+    if (horizontalAlignment == LEADING)
+      {
+        if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
+          horizontalAlignment = RIGHT;
+        else
+          horizontalAlignment = LEFT;
+      }
+    else if (horizontalAlignment == TRAILING)
+      {
+        if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
+          horizontalAlignment = LEFT;
+        else
+          horizontalAlignment = RIGHT;
+      }
+    
+    return layoutCompoundLabel(fm, text, icon,
+                               verticalAlignment,
+                               horizontalAlignment,
+                               verticalTextPosition,
+                               horizontalTextPosition,
+                               viewR, iconR, textR, textIconGap);
+  }
+
+  /**
+   * <p>Layout a "compound label" consisting of a text string and an icon
+   * which is to be placed near the rendered text. Once the text and icon
+   * are laid out, the text rectangle and icon rectangle parameters are
+   * altered to store the calculated positions.</p>
+   *
+   * <p>The size of the text is calculated from the provided font metrics
+   * object.  This object should be the metrics of the font you intend to
+   * paint the label with.</p>
+   *
+   * <p>The position values control where the text is placed relative to
+   * the icon. The horizontal position value should be one of the constants
+   * <code>LEFT</code>, <code>RIGHT</code> or <code>CENTER</code>. The
+   * vertical position value should be one fo the constants
+   * <code>TOP</code>, <code>BOTTOM</code> or <code>CENTER</code>.</p>
+   *
+   * <p>The text-icon gap value controls the number of pixels between the
+   * icon and the text.</p>
+   *
+   * <p>The alignment values control where the text and icon are placed, as
+   * a combined unit, within the view rectangle. The horizontal alignment
+   * value should be one of the constants <code>LEFT</code>, <code>RIGHT</code> or
+   * <code>CENTER</code>. The vertical alignment valus should be one of the
+   * constants <code>TOP</code>, <code>BOTTOM</code> or
+   * <code>CENTER</code>.</p>
+   *
+   * <p>If the text and icon are equal to or larger than the view
+   * rectangle, the horizontal and vertical alignment values have no
+   * affect.</p>
+   *
+   * <p>Note that this method does <em>not</em> know how to deal with
+   * horizontal alignments or positions given as <code>LEADING</code> or
+   * <code>TRAILING</code> values. Use the other overloaded variant of this
+   * method if you wish to use such values.
+   *
+   * @param fm The font metrics used to measure the text
+   * @param text The text to place in the compound label
+   * @param icon The icon to place next to the text
+   * @param verticalAlignment The vertical alignment of the label relative
+   * to its component
+   * @param horizontalAlignment The horizontal alignment of the label
+   * relative to its component
+   * @param verticalTextPosition The vertical position of the label's text
+   * relative to its icon
+   * @param horizontalTextPosition The horizontal position of the label's
+   * text relative to its icon
+   * @param viewR The view rectangle, specifying the area which layout is
+   * constrained to
+   * @param iconR A rectangle which is modified to hold the laid-out
+   * position of the icon
+   * @param textR A rectangle which is modified to hold the laid-out
+   * position of the text
+   * @param textIconGap The distance between text and icon
+   *
+   * @return The string of characters, possibly truncated with an elipsis,
+   * which is laid out in this label
+   */
+
+  public static String layoutCompoundLabel(FontMetrics fm,
+                                           String text,
+                                           Icon icon,
+                                           int verticalAlignment,
+                                           int horizontalAlignment,
+                                           int verticalTextPosition,
+                                           int horizontalTextPosition,
+                                           Rectangle viewR,
+                                           Rectangle iconR,
+                                           Rectangle textR,
+                                           int textIconGap)
+  {
+
     // Work out basic height and width.
 
     if (icon == null)
@@ -545,13 +670,22 @@ public class SwingUtilities implements SwingConstants
         iconR.width = 0;
         iconR.height = 0;
       }
-      else
+    else
       {
         iconR.width = icon.getIconWidth();
-        iconR.height = icon.getIconWidth();
+        iconR.height = icon.getIconHeight();
       }
-    textR.width = fm.stringWidth(text);
-    textR.height = fm.getHeight(); 
+    if (text == null)
+      {
+        textIconGap = 0;
+	textR.width = 0;
+	textR.height = 0;
+      }
+    else
+      {
+        textR.width = fm.stringWidth(text);
+        textR.height = fm.getHeight(); 
+      }
 
     // Work out the position of text and icon, assuming the top-left coord
     // starts at (0,0). We will fix that up momentarily, after these
@@ -578,11 +712,14 @@ public class SwingUtilities implements SwingConstants
       {
       case TOP:
         textR.y = 0;
-        iconR.y = textR.height + textIconGap;
+        iconR.y = (horizontalTextPosition == CENTER 
+                   ? textR.height + textIconGap : 0);
         break;
       case BOTTOM:
         iconR.y = 0;
-        textR.y = iconR.height + textIconGap;
+        textR.y = (horizontalTextPosition == CENTER
+                   ? iconR.height + textIconGap 
+                   : iconR.height - textR.height);
         break;
       case CENTER:
         int centerLine = Math.max(textR.height, iconR.height) / 2;
@@ -590,24 +727,6 @@ public class SwingUtilities implements SwingConstants
         iconR.y = centerLine - iconR.height/2;
         break;
       }
-
-    // Fix up the orientation-based alignments.
-
-    if (horizontalAlignment == LEADING)
-      {
-        if (c.getComponentOrientation() == ComponentOrientation.LEFT_TO_RIGHT)
-          horizontalAlignment = LEFT;
-        else if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
-          horizontalAlignment = RIGHT;
-      }
-    else if (horizontalAlignment == TRAILING)
-      {
-        if (c.getComponentOrientation() == ComponentOrientation.LEFT_TO_RIGHT)
-          horizontalAlignment = RIGHT;
-        else if (c.getComponentOrientation() == ComponentOrientation.RIGHT_TO_LEFT)
-          horizontalAlignment = LEFT;
-      }
-
     // The two rectangles are laid out correctly now, but only assuming
     // that their upper left corner is at (0,0). If we have any alignment other
     // than TOP and LEFT, we need to adjust them.
@@ -674,5 +793,122 @@ public class SwingUtilities implements SwingConstants
   {
     return java.awt.EventQueue.isDispatchThread();
   }
+  
+  /**
+   * This method paints the given component at the given position and size.
+   * The component will be reparented to the container given.
+   * 
+   * @param g The Graphics object to draw with.
+   * @param c The Component to draw
+   * @param p The Container to reparent to.
+   * @param x The x coordinate to draw at.
+   * @param y The y coordinate to draw at.
+   * @param w The width of the drawing area.
+   * @param h The height of the drawing area.
+   */
+  public static void paintComponent(Graphics g, Component c, Container p, 
+                                    int x, int y, int w, int h)
+  {       
+    Container parent = c.getParent();
+    if (parent != null)
+      parent.remove(c);
+    if (p != null)
+      p.add(c);
+    
+    Shape savedClip = g.getClip();
+    
+    g.setClip(x, y, w, h);
+    g.translate(x, y);
 
+    c.paint(g);
+    
+    g.translate(-x, -y);
+    g.setClip(savedClip);
+  }
+
+  /**
+   * This method paints the given component in the given rectangle.
+   * The component will be reparented to the container given.
+   * 
+   * @param g The Graphics object to draw with.
+   * @param c The Component to draw
+   * @param p The Container to reparent to.
+   * @param r The rectangle that describes the drawing area.
+   */  
+  public static void paintComponent(Graphics g, Component c, 
+                                    Container p, Rectangle r)
+  {
+    paintComponent(g, c, p, r.x, r.y, r.width, r.height);
+  }
+  
+  /**
+   * This method returns the common Frame owner used in JDialogs or
+   * JWindow when no owner is provided.
+   *
+   * @return The common Frame 
+   */
+  static Frame getOwnerFrame()
+  {
+    if (ownerFrame == null)
+      ownerFrame = new OwnerFrame();
+    return ownerFrame;
+  }
+
+  /**
+   * Checks if left mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if left mouse was clicked, false otherwise.
+   */
+  public static boolean isLeftMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON1_DOWN_MASK)
+	     == InputEvent.BUTTON1_DOWN_MASK);
+  }
+
+  /**
+   * Checks if middle mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if middle mouse was clicked, false otherwise.
+   */
+  public static boolean isMiddleMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON2_DOWN_MASK)
+	     == InputEvent.BUTTON2_DOWN_MASK);
+  }
+
+  /**
+   * Checks if right mouse button was clicked.
+   *
+   * @param event the event to check
+   *
+   * @return true if right mouse was clicked, false otherwise.
+   */
+  public static boolean isRightMouseButton(MouseEvent event)
+  {
+    return ((event.getModifiers() & InputEvent.BUTTON3_DOWN_MASK)
+	     == InputEvent.BUTTON3_DOWN_MASK);
+  }
+  
+  /**
+   * This frame should be used when constructing a Window/JDialog without
+   * a parent. In this case, we are forced to use this frame as a window's
+   * parent, because we simply cannot pass null instead of parent to Window
+   * constructor, since doing it will result in NullPointerException.
+   */
+  private static class OwnerFrame extends Frame
+  {
+    public void setVisible(boolean b)
+    {
+      // Do nothing here. 
+    }
+    
+    public boolean isShowing()
+    {
+      return true;
+    }
+  }
 }

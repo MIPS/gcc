@@ -1,3 +1,24 @@
+2004-04-25  Paolo Bonzini  <bonzini@gnu.org>
+
+        * configure.ac: Point config.intl to the parent directory of
+        ${top_builddir}.
+	* configure: Regenerate.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2004-02-29  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* configure.in: Convert to autoconf 2.57, gratuitous stylistic
+	cleanup, rename to configure.ac.
+	* configure.ac: Renamed from configure.in.
+	* config.h.in: Rebuilt with autoheader 2.57.
+	* configure: Rebuilt with autoconf 2.57
+	* README: Update to reflect rename of configure.in to configure.ac.
+
 2003-07-07  Zack Weinberg  <zack@codesourcery.com>
 
 	* README: Update.

@@ -1,5 +1,5 @@
 /* Definitions for AMD x86-64 running FreeBSD with ELF format
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
    Contributed by David O'Brien <obrien@FreeBSD.org>
 
 This file is part of GCC.
@@ -23,6 +23,9 @@ Boston, MA 02111-1307, USA.  */
 #undef  TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (FreeBSD/x86-64 ELF)");
 
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
+
 /* Provide a LINK_SPEC appropriate for the FreeBSD/x86-64 ELF target.
    This is a copy of LINK_SPEC from <i386/freebsd.h> tweaked for
    the x86-64 target.  */
@@ -37,6 +40,6 @@ Boston, MA 02111-1307, USA.  */
     %{!shared: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}} \
+	%{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
     %{static:-Bstatic}} \
   %{symbolic:-Bsymbolic}"

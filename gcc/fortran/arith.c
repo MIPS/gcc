@@ -1,23 +1,24 @@
 /* Compiler arithmetic
-   Copyright (C) 2000, 2001. 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Since target arithmetic must be done on the host, there has to
    be some way of evaluating arithmetic expressions as the host
@@ -86,7 +87,7 @@ int gfc_index_integer_kind;
    We first get the argument into the range 0.5 to 1.5 by successive
    multiplications or divisions by e.  Then we use the series:
 
-     ln(x) = (x-1) - (x-1)^/2 + (x-1)^3/3 - (x-1)^4/4 + ...
+     ln(x) = (x-1) - (x-1)^2/2 + (x-1)^3/3 - (x-1)^4/4 + ...
 
    Because we are expanding in powers of (x-1), and 0.5 < x < 1.5, we
    have -0.5 < (x-1) < 0.5.  Ignoring the harmonic term, this means
@@ -152,7 +153,7 @@ natural_logarithm (mpf_t * arg, mpf_t * result)
 
 
 /* Calculate the common logarithm of arg.  We use the natural
-   logaritm of arg and of 10:
+   logarithm of arg and of 10:
 
    log10(arg) = log(arg)/log(10)  */
 
@@ -178,7 +179,7 @@ common_logarithm (mpf_t * arg, mpf_t * result)
 
      x = Nln2 + r
 
-   Then we obtain exp(r) from the McLaurin series.
+   Then we obtain exp(r) from the Maclaurin series.
    exp(x) is then recovered from the identity
 
      exp(x) = 2^N*exp(r).  */
@@ -265,7 +266,7 @@ exponential (mpf_t * arg, mpf_t * result)
 
      x= N*2pi + r
 
-   Then we obtain sin(r) from the McLaurin series.  */
+   Then we obtain sin(r) from the Maclaurin series.  */
 
 void
 sine (mpf_t * arg, mpf_t * result)
@@ -388,7 +389,6 @@ cosine (mpf_t * arg, mpf_t * result)
 
   mpf_clear (x);
 }
-
 
 
 /* Calculate atan(arg).
@@ -515,6 +515,49 @@ arctangent (mpf_t * arg, mpf_t * result)
   mpf_clear (x);
 }
 
+
+/* Calculate atan2 (y, x)
+
+atan2(y, x) = atan(y/x)				if x > 0,
+	      sign(y)*(pi - atan(|y/x|))	if x < 0,
+	      0					if x = 0 && y == 0,
+	      sign(y)*pi/2			if x = 0 && y != 0.
+*/
+
+void
+arctangent2 (mpf_t * y, mpf_t * x, mpf_t * result)
+{
+  mpf_t t;
+
+  mpf_init (t);
+
+  switch (mpf_sgn (*x))
+    {
+    case 1:
+      mpf_div (t, *y, *x);
+      arctangent (&t, result);
+      break;
+    case -1:
+      mpf_div (t, *y, *x);
+      mpf_abs (t, t);
+      arctangent (&t, &t);
+      mpf_sub (*result, pi, t);
+      if (mpf_sgn (*y) == -1)
+	mpf_neg (*result, *result);
+      break;
+    case 0:
+      if (mpf_sgn (*y) == 0)
+	mpf_set_ui (*result, 0);
+      else
+	{
+	  mpf_set (*result, half_pi);
+	  if (mpf_sgn (*y) == -1)
+	    mpf_neg (*result, *result);
+	}
+       break;
+    }
+  mpf_clear (t);
+}
 
 /* Calculate cosh(arg). */
 
@@ -1130,7 +1173,9 @@ gfc_arith_neqv (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
 
 /* Make sure a constant numeric expression is within the range for
-   it's type and kind.  Note that there's also a gfc_check_range(),
+   its type and kind.  GMP is doing 130 bit arithmetic, so an UNDERFLOW
+   is numerically zero for REAL(4) and REAL(8) types.  Reset the value(s)
+   to exactly 0 for UNDERFLOW.  Note that there's also a gfc_check_range(),
    but that one deals with the intrinsic RANGE function.  */
 
 arith
@@ -1146,12 +1191,20 @@ gfc_range_check (gfc_expr * e)
 
     case BT_REAL:
       rc = gfc_check_real_range (e->value.real, e->ts.kind);
+      if (rc == ARITH_UNDERFLOW)
+        mpf_set_ui (e->value.real, 0);
       break;
 
     case BT_COMPLEX:
       rc = gfc_check_real_range (e->value.complex.r, e->ts.kind);
-      if (rc != ARITH_OK)
-	rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
+      if (rc == ARITH_UNDERFLOW)
+        mpf_set_ui (e->value.complex.r, 0);
+      if (rc == ARITH_OK || rc == ARITH_UNDERFLOW)
+        {
+          rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
+          if (rc == ARITH_UNDERFLOW)
+            mpf_set_ui (e->value.complex.i, 0);
+        }
 
       break;
 
@@ -1205,7 +1258,14 @@ gfc_arith_uminus (gfc_expr * op1, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -1246,7 +1306,14 @@ gfc_arith_plus (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -1288,7 +1355,14 @@ gfc_arith_minus (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -1339,7 +1413,14 @@ gfc_arith_times (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -1405,8 +1486,8 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
       mpf_mul (x, op1->value.complex.i, op2->value.complex.r);
       mpf_mul (y, op1->value.complex.r, op2->value.complex.i);
-      mpf_sub (result->value.complex.r, x, y);
-      mpf_div (result->value.complex.r, result->value.complex.r, div);
+      mpf_sub (result->value.complex.i, x, y);
+      mpf_div (result->value.complex.i, result->value.complex.i, div);
 
       mpf_clear (x);
       mpf_clear (y);
@@ -1421,7 +1502,14 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   if (rc == ARITH_OK)
     rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -1541,7 +1629,7 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 	  else
 	    {
 	      mpf_set_ui (result->value.complex.r, 1);
-	      mpf_set_ui (result->value.complex.r, 0);
+	      mpf_set_ui (result->value.complex.i, 0);
 	    }
 
 	  break;
@@ -1599,7 +1687,14 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   if (rc == ARITH_OK)
     rc = gfc_range_check (result);
 
-  if (rc != ARITH_OK)
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &op1->where);
+      rc = ARITH_OK;
+      *resultp = result;
+    }
+  else if (rc != ARITH_OK)
     gfc_free_expr (result);
   else
     *resultp = result;
@@ -2426,9 +2521,15 @@ gfc_expr *
 gfc_convert_integer (const char *buffer, int kind, int radix, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_INTEGER, kind, where);
-  mpz_set_str (e->value.integer, buffer, radix);
+  /* a leading plus is allowed, but not by mpz_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpz_set_str (e->value.integer, t, radix);
 
   return e;
 }
@@ -2440,9 +2541,15 @@ gfc_expr *
 gfc_convert_real (const char *buffer, int kind, locus * where)
 {
   gfc_expr *e;
+  const char *t;
 
   e = gfc_constant_result (BT_REAL, kind, where);
-  mpf_set_str (e->value.real, buffer, 10);
+  /* a leading plus is allowed, but not by mpf_set_str */
+  if (buffer[0] == '+')
+    t = buffer + 1;
+  else
+    t = buffer;
+  mpf_set_str (e->value.real, t, 10);
 
   return e;
 }
@@ -2476,8 +2583,8 @@ arith_error (arith rc, gfc_typespec * from, gfc_typespec * to, locus * where)
   gfc_error ("%s converting %s to %s at %L", gfc_arith_error (rc),
 	     gfc_typename (from), gfc_typename (to), where);
 
-  /* TODO: Do something about the error, ie underflow rounds to 0,
-     throw exception, return NaN, etc.  */
+  /* TODO: Do something about the error, ie, throw exception, return
+     NaN, etc.  */
 }
 
 /* Convert integers to integers.  */
@@ -2540,7 +2647,7 @@ gfc_int2complex (gfc_expr * src, int kind)
   mpf_set_z (result->value.complex.r, src->value.integer);
   mpf_set_ui (result->value.complex.i, 0);
 
-  if ((rc = gfc_check_real_range (result->value.complex.i, kind)) != ARITH_OK)
+  if ((rc = gfc_check_real_range (result->value.complex.r, kind)) != ARITH_OK)
     {
       arith_error (rc, &src->ts, &result->ts, &src->where);
       gfc_free_expr (result);
@@ -2587,7 +2694,15 @@ gfc_real2real (gfc_expr * src, int kind)
 
   mpf_set (result->value.real, src->value.real);
 
-  if ((rc = gfc_check_real_range (result->value.real, kind)) != ARITH_OK)
+  rc = gfc_check_real_range (result->value.real, kind);
+
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+      mpf_set_ui(result->value.real, 0);
+    }
+  else if (rc != ARITH_OK)
     {
       arith_error (rc, &src->ts, &result->ts, &src->where);
       gfc_free_expr (result);
@@ -2611,7 +2726,15 @@ gfc_real2complex (gfc_expr * src, int kind)
   mpf_set (result->value.complex.r, src->value.real);
   mpf_set_ui (result->value.complex.i, 0);
 
-  if ((rc = gfc_check_real_range (result->value.complex.i, kind)) != ARITH_OK)
+  rc = gfc_check_real_range (result->value.complex.r, kind);
+
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+      mpf_set_ui(result->value.complex.r, 0);
+    }
+  else if (rc != ARITH_OK)
     {
       arith_error (rc, &src->ts, &result->ts, &src->where);
       gfc_free_expr (result);
@@ -2658,7 +2781,15 @@ gfc_complex2real (gfc_expr * src, int kind)
 
   mpf_set (result->value.real, src->value.complex.r);
 
-  if ((rc = gfc_check_real_range (result->value.real, kind)) != ARITH_OK)
+  rc = gfc_check_real_range (result->value.real, kind);
+
+  if (rc == ARITH_UNDERFLOW) 
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+      mpf_set_ui(result->value.real, 0);
+    }
+  if (rc != ARITH_OK)
     {
       arith_error (rc, &src->ts, &result->ts, &src->where);
       gfc_free_expr (result);
@@ -2682,9 +2813,30 @@ gfc_complex2complex (gfc_expr * src, int kind)
   mpf_set (result->value.complex.r, src->value.complex.r);
   mpf_set (result->value.complex.i, src->value.complex.i);
 
-  if ((rc = gfc_check_real_range (result->value.complex.r, kind)) != ARITH_OK
-      || (rc =
-	  gfc_check_real_range (result->value.complex.i, kind)) != ARITH_OK)
+  rc = gfc_check_real_range (result->value.complex.r, kind);
+
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+      mpf_set_ui(result->value.complex.r, 0);
+    }
+  else if (rc != ARITH_OK)
+    {
+      arith_error (rc, &src->ts, &result->ts, &src->where);
+      gfc_free_expr (result);
+      return NULL;
+    }
+  
+  rc = gfc_check_real_range (result->value.complex.i, kind);
+
+  if (rc == ARITH_UNDERFLOW)
+    {
+      if (gfc_option.warn_underflow)
+        gfc_warning ("%s at %L", gfc_arith_error (rc), &src->where);
+      mpf_set_ui(result->value.complex.i, 0);
+    }
+  else if (rc != ARITH_OK)
     {
       arith_error (rc, &src->ts, &result->ts, &src->where);
       gfc_free_expr (result);

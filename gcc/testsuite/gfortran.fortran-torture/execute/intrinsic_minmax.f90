@@ -26,5 +26,12 @@ program intrinsic_minmax
    if (max (4d0, r) .ne. 4d0) call abort
    if (amax0 (i, j) .ne. 1.0) call abort
    if (min1 (r, s) .ne. -2) call abort
+
+   ! Test simplify.
+   if (min (1, -2, 3, 4) .ne. -2) call abort
+   if (max (1, -2, 3, 4) .ne. 4) call abort
+   if (amax0 (1, -2) .ne. 1.0) call abort
+   if (min1 (1., -2.) .ne. -2) call abort
+
 end program
 

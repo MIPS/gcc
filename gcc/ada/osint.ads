@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,6 +36,11 @@ pragma Elaborate (GNAT.OS_Lib);
 
 package Osint is
 
+   Multi_Unit_Index_Character : Character := '~';
+   --  The character before the index of the unit in a multi-unit source,
+   --  in ALI and object file names. This is not a constant, because it is
+   --  changed to '$' on VMS.
+
    Ada_Include_Path          : constant String := "ADA_INCLUDE_PATH";
    Ada_Objects_Path          : constant String := "ADA_OBJECTS_PATH";
    Project_Include_Path_File : constant String := "ADA_PRJ_INCLUDE_FILE";
@@ -52,9 +57,8 @@ package Osint is
    type File_Type is (Source, Library, Config, Definition, Preprocessing_Data);
 
    function Find_File
-     (N :    File_Name_Type;
-      T :    File_Type)
-      return File_Name_Type;
+     (N : File_Name_Type;
+      T : File_Type) return File_Name_Type;
    --  Finds a source, library or config file depending on the value
    --  of T following the directory search order rules unless N is the
    --  name of the file just read with Next_Main_File and already
@@ -88,9 +92,15 @@ package Osint is
    function Number_Of_Files return Int;
    --  gives the total number of filenames found on the command line.
 
-   procedure Add_File (File_Name : String);
+   No_Index : constant := -1;
+   --  Value used in Add_File to indicate that no index is specified
+   --  for a main.
+
+   procedure Add_File (File_Name : String; Index : Int := No_Index);
    --  Called by the subprogram processing the command line for each
-   --  file name found.
+   --  file name found. The index, when not defaulted to No_Index
+   --  is the index of the subprogram in its source, zero indicating
+   --  that the source is not multi-unit.
 
    procedure Find_Program_Name;
    --  Put simple name of current program being run (excluding the directory
@@ -155,8 +165,7 @@ package Osint is
 
    function To_Canonical_File_List
      (Wildcard_Host_File : String;
-      Only_Dirs          : Boolean)
-      return               String_Access_List_Access;
+      Only_Dirs          : Boolean) return String_Access_List_Access;
    --  Expand a wildcard host syntax file or directory specification (e.g. on
    --  a VMS host, any file or directory spec that contains:
    --  "*", or "%", or "...")
@@ -165,8 +174,7 @@ package Osint is
 
    function To_Canonical_Dir_Spec
      (Host_Dir     : String;
-      Prefix_Style : Boolean)
-      return         String_Access;
+      Prefix_Style : Boolean) return String_Access;
    --  Convert a host syntax directory specification (e.g. on a VMS host:
    --  "SYS$DEVICE:[DIR]") to canonical (Unix) syntax (e.g. "/sys$device/dir").
    --  If Prefix_Style then make it a valid file specification prefix.
@@ -176,30 +184,26 @@ package Osint is
    --  this simply means the spec has a trailing slash ("/").
 
    function To_Canonical_File_Spec
-     (Host_File : String)
-      return      String_Access;
+     (Host_File : String) return String_Access;
    --  Convert a host syntax file specification (e.g. on a VMS host:
    --  "SYS$DEVICE:[DIR]FILE.EXT;69 to canonical (Unix) syntax (e.g.
    --  "/sys$device/dir/file.ext.69").
 
    function To_Canonical_Path_Spec
-     (Host_Path : String)
-      return      String_Access;
+     (Host_Path : String) return String_Access;
    --  Convert a host syntax Path specification (e.g. on a VMS host:
    --  "SYS$DEVICE:[BAR],DISK$USER:[FOO] to canonical (Unix) syntax (e.g.
    --  "/sys$device/foo:disk$user/foo").
 
    function To_Host_Dir_Spec
      (Canonical_Dir : String;
-      Prefix_Style  : Boolean)
-      return          String_Access;
+      Prefix_Style  : Boolean) return String_Access;
    --  Convert a canonical syntax directory specification to host syntax.
    --  The Prefix_Style flag is currently ignored but should be set to
    --  False.
 
    function To_Host_File_Spec
-     (Canonical_File : String)
-      return           String_Access;
+     (Canonical_File : String) return String_Access;
    --  Convert a canonical syntax file specification to host syntax.
 
    function Relocate_Path
@@ -209,9 +213,8 @@ package Osint is
    --  replace the Prefix substring with the root installation directory.
    --  By default, try to compute the root installation directory by looking
    --  at the executable name as it was typed on the command line and, if
-   --  needed, use the PATH environment variable.
-   --  If the above computation fails, return Path.
-   --  This function assumes that Prefix'First = Path'First
+   --  needed, use the PATH environment variable. If the above computation
+   --  fails, return Path. This function assumes Prefix'First = Path'First.
 
    function Shared_Lib (Name : String) return String;
    --  Returns the runtime shared library in the form -l<name>-<version> where
@@ -243,9 +246,8 @@ package Osint is
 
    procedure Get_Next_Dir_In_Path_Init
      (Search_Path : String_Access);
-   function  Get_Next_Dir_In_Path
-     (Search_Path : String_Access)
-      return        String_Access;
+   function Get_Next_Dir_In_Path
+     (Search_Path : String_Access) return String_Access;
    --  These subprograms are used to parse out the directory names in a
    --  search path specified by a Search_Path argument. The procedure
    --  initializes an internal pointer to point to the initial directory
@@ -280,11 +282,14 @@ package Osint is
    --  directories. These files, located in Sdefault.Search_Dir_Prefix, do
    --  not necessarily exist.
 
+   Exec_Name : String_Ptr;
+   --  Executable name as typed by the user (used to compute the
+   --  executable prefix).
+
    function Read_Default_Search_Dirs
      (Search_Dir_Prefix       : String_Access;
       Search_File             : String_Access;
-      Search_Dir_Default_Name : String_Access)
-      return                    String_Access;
+      Search_Dir_Default_Name : String_Access) return String_Access;
    --  Read and return the default search directories from the file located
    --  in Search_Dir_Prefix (as modified by update_path) and named Search_File.
    --  If no such file exists or an error occurs then instead return the
@@ -292,8 +297,7 @@ package Osint is
 
    function Get_RTS_Search_Dir
      (Search_Dir : String;
-      File_Type  : Search_File_Type)
-      return       String_Ptr;
+      File_Type  : Search_File_Type) return String_Ptr;
    --  This function retrieves the paths to the search (resp. lib) dirs and
    --  return them. The search dir can be absolute or relative. If the search
    --  dir contains Include_Search_File (resp. Object_Search_File), then this
@@ -381,10 +385,12 @@ package Osint is
    --  every single time the routines are called unless you have previously
    --  called Source_File_Data (Cache => True). See below.
 
+   function Current_File_Index return Int;
+   --  Return the index in its source file of the current main unit
+
    function Matching_Full_Source_Name
-     (N    : File_Name_Type;
-      T    : Time_Stamp_Type)
-      return File_Name_Type;
+     (N : File_Name_Type;
+      T : Time_Stamp_Type) return File_Name_Type;
    --  Same semantics than Full_Source_Name but will search on the source
    --  path until a source file with time stamp matching T is found. If
    --  none is found returns No_File.
@@ -440,8 +446,7 @@ package Osint is
 
    function Read_Library_Info
      (Lib_File  : File_Name_Type;
-      Fatal_Err : Boolean := False)
-      return      Text_Buffer_Ptr;
+      Fatal_Err : Boolean := False) return Text_Buffer_Ptr;
    --  Allocates a Text_Buffer of appropriate length and reads in the entire
    --  source of the library information from the library information file
    --  whose name is given by the parameter Name.
@@ -492,11 +497,15 @@ package Osint is
    --  file directory lookup penalty is incurred every single time this
    --  routine is called.
 
-   function Lib_File_Name (Source_File : File_Name_Type) return File_Name_Type;
+   function Lib_File_Name
+     (Source_File : File_Name_Type;
+      Munit_Index : Nat := 0) return File_Name_Type;
    --  Given the name of a source file, returns the name of the corresponding
    --  library information file. This may be the name of the object file, or
    --  of a separate file used to store the library information. In either case
    --  the returned result is suitable for use in a call to Read_Library_Info.
+   --  The Munit_Index is the unit index in multiple unit per file mode, or
+   --  zero in normal single unit per file mode (used to add ~nnn suffix).
    --  Note: this subprogram is in this section because it is used by the
    --  compiler to determine the proper library information names to be placed
    --  in the generated library information file.
@@ -572,6 +581,11 @@ private
    --  The strings do not have terminating NUL files. The array is
    --  extensible, because when using project files, there may be
    --  more files than arguments on the command line.
+
+   type File_Index_Array is array (Int range <>) of Int;
+   type File_Index_Array_Ptr is access File_Index_Array;
+   File_Indexes : File_Index_Array_Ptr :=
+                    new File_Index_Array (1 .. Int (Argument_Count) + 2);
 
    Current_File_Name_Index : Int := 0;
    --  The index in File_Names of the last file opened by Next_Main_Source

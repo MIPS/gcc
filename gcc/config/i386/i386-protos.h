@@ -95,8 +95,8 @@ extern int long_memory_operand (rtx, enum machine_mode);
 extern int aligned_operand (rtx, enum machine_mode);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
-extern int ix86_expand_movstr (rtx, rtx, rtx, rtx);
-extern int ix86_expand_clrstr (rtx, rtx, rtx);
+extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
+extern int ix86_expand_clrmem (rtx, rtx, rtx);
 extern int ix86_expand_strlen (rtx, rtx, rtx, rtx);
 
 extern bool legitimate_constant_p (rtx);
@@ -104,7 +104,6 @@ extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
 extern int legitimate_pic_address_disp_p (rtx);
 extern int legitimate_address_p (enum machine_mode, rtx, int);
-extern rtx legitimize_pic_address (rtx, rtx);
 extern rtx legitimize_address (rtx, rtx, enum machine_mode);
 
 extern void print_reg (rtx, int, FILE*);
@@ -117,6 +116,7 @@ extern void split_ti (rtx[], int, rtx[], rtx[]);
 
 extern const char *output_set_got (rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
+extern const char *output_387_reg_move (rtx, rtx*);
 extern const char *output_fix_trunc (rtx, rtx*);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
 
@@ -181,13 +181,15 @@ extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
 extern void x86_emit_floatuns (rtx [2]);
+extern void ix86_emit_fp_unordered_jump (rtx);
 
+extern void ix86_emit_i387_log1p (rtx, rtx);
+
+extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
-extern int function_arg_pass_by_reference (CUMULATIVE_ARGS *,
-					   enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
 extern rtx ix86_function_value (tree);
@@ -212,7 +214,6 @@ extern int x86_field_alignment (tree, int);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
-extern bool ix86_must_pass_in_stack (enum machine_mode mode, tree);
 
 extern void ix86_expand_vector_init (rtx, rtx);
 /* In winnt.c  */

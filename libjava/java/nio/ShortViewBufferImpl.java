@@ -38,25 +38,41 @@ exception statement from your version. */
 
 package java.nio;
 
-class ShortViewBufferImpl extends ShortBuffer
+final class ShortViewBufferImpl extends ShortBuffer
 {
   /** Position in bb (i.e. a byte offset) where this buffer starts. */
   private int offset;
   private ByteBuffer bb;
   private boolean readOnly;
   private ByteOrder endian;
+
+  ShortViewBufferImpl (ByteBuffer bb, int capacity)
+  {
+    super (capacity, capacity, 0, -1);
+    this.bb = bb;
+    this.offset = bb.position();
+    this.readOnly = bb.isReadOnly();
+    this.endian = bb.order();
+  }
   
   public ShortViewBufferImpl (ByteBuffer bb, int offset, int capacity,
 			      int limit, int position, int mark,
 			      boolean readOnly, ByteOrder endian)
   {
-    super (limit >> 1, limit >> 1, position >> 1, mark >> 1);
+    super (capacity, limit, position, mark);
     this.bb = bb;
     this.offset = offset;
     this.readOnly = readOnly;
     this.endian = endian;
   }
 
+  /**
+   * Reads the <code>short</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>short</code>s in this buffer.
+   */
   public short get ()
   {
     int p = position();
@@ -65,6 +81,13 @@ class ShortViewBufferImpl extends ShortBuffer
     return result;
   }
 
+  /**
+   * Absolute get method. Reads the <code>short</code> at position
+   * <code>index</code>.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
   public short get (int index)
   {
     return ByteBufferHelper.getShort(bb, (index << 1) + offset, endian);

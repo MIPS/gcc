@@ -26,6 +26,9 @@
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
 
+/* The archetecture define.  */
+extern char arm_arch_name[];
+
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
   do							\
@@ -33,6 +36,7 @@
 	/* Define __arm__ even when in thumb mode, for	\
 	   consistency with armcc.  */			\
 	builtin_define ("__arm__");			\
+	builtin_define ("__APCS_32__");			\
 	if (TARGET_THUMB)				\
 	  builtin_define ("__thumb__");			\
 							\
@@ -51,11 +55,6 @@
 	      builtin_define ("__THUMBEL__");		\
 	  }						\
 							\
-	if (TARGET_APCS_32)				\
-	  builtin_define ("__APCS_32__");		\
-	else						\
-	  builtin_define ("__APCS_26__");		\
-							\
 	if (TARGET_SOFT_FLOAT)				\
 	  builtin_define ("__SOFTFP__");		\
 							\
@@ -64,55 +63,41 @@
 							\
 	/* Add a define for interworking.		\
 	   Needed when building libgcc.a.  */		\
-	if (TARGET_INTERWORK)				\
+	if (arm_cpp_interwork)				\
 	  builtin_define ("__THUMB_INTERWORK__");	\
 							\
 	builtin_assert ("cpu=arm");			\
 	builtin_assert ("machine=arm");			\
+							\
+	builtin_define (arm_arch_name);			\
+	if (arm_arch_cirrus)				\
+	  builtin_define ("__MAVERICK__");		\
+	if (arm_arch_xscale)				\
+	  builtin_define ("__XSCALE__");		\
+	if (arm_arch_iwmmxt)				\
+	  builtin_define ("__IWMMXT__");		\
+	if (TARGET_AAPCS_BASED)				\
+	  builtin_define ("__ARM_EABI__");		\
     } while (0)
-
-#define TARGET_CPU_arm2		0x0000
-#define TARGET_CPU_arm250	0x0000
-#define TARGET_CPU_arm3		0x0000
-#define TARGET_CPU_arm6		0x0001
-#define TARGET_CPU_arm600	0x0001
-#define TARGET_CPU_arm610	0x0002
-#define TARGET_CPU_arm7		0x0001
-#define TARGET_CPU_arm7m	0x0004
-#define TARGET_CPU_arm7dm	0x0004
-#define TARGET_CPU_arm7dmi	0x0004
-#define TARGET_CPU_arm700	0x0001
-#define TARGET_CPU_arm710	0x0002
-#define TARGET_CPU_arm7100	0x0002
-#define TARGET_CPU_arm7500	0x0002
-#define TARGET_CPU_arm7500fe	0x1001
-#define TARGET_CPU_arm7tdmi	0x0008
-#define TARGET_CPU_arm8		0x0010
-#define TARGET_CPU_arm810	0x0020
-#define TARGET_CPU_strongarm	0x0040
-#define TARGET_CPU_strongarm110 0x0040
-#define TARGET_CPU_strongarm1100 0x0040
-#define TARGET_CPU_arm9		0x0080
-#define TARGET_CPU_arm9tdmi	0x0080
-#define TARGET_CPU_xscale       0x0100
-#define TARGET_CPU_ep9312	0x0200
-#define TARGET_CPU_iwmmxt	0x0400
-#define TARGET_CPU_arm926ejs	0x0800
-#define TARGET_CPU_arm1026ejs	0x1000
-#define TARGET_CPU_arm1136js	0x2000
-#define TARGET_CPU_arm1136jfs	0x4000
-/* Configure didn't specify.  */
-#define TARGET_CPU_generic	0x8000
 
 /* The various ARM cores.  */
 enum processor_type
 {
-#define ARM_CORE(NAME, FLAGS, COSTS) \
+#define ARM_CORE(NAME, ARCH, FLAGS, COSTS) \
   NAME,
 #include "arm-cores.def"
 #undef ARM_CORE
   /* Used to indicate that no processor has been specified.  */
   arm_none
+};
+
+enum target_cpus
+{
+#define ARM_CORE(NAME, ARCH, FLAGS, COSTS) \
+  TARGET_CPU_##NAME,
+#include "arm-cores.def"
+#undef ARM_CORE
+  TARGET_CPU_generic
 };
 
 /* The processor for which instructions should be scheduled.  */
@@ -140,6 +125,8 @@ extern const char *target_fpu_name;
 extern const char *target_fpe_name;
 /* Whether to use floating point hardware.  */
 extern const char *target_float_abi_name;
+/* Which ABI to use.  */
+extern const char *target_abi_name;
 /* Define the information needed to generate branch insns.  This is
    stored from the compare operation.  */
 extern GTY(()) rtx arm_compare_op0;
@@ -157,165 +144,13 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_CPU_DEFAULT TARGET_CPU_generic
 #endif
 
-/* If the configuration file doesn't specify the cpu, the subtarget may
-   override it.  If it doesn't, then default to an ARM6.  */
-#if TARGET_CPU_DEFAULT == TARGET_CPU_generic
-#undef TARGET_CPU_DEFAULT
-
-#ifdef SUBTARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT SUBTARGET_CPU_DEFAULT
-#else
-#define TARGET_CPU_DEFAULT TARGET_CPU_arm6
-#endif
-#endif
-
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm2
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_2__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm6 || TARGET_CPU_DEFAULT == TARGET_CPU_arm610 || TARGET_CPU_DEFAULT == TARGET_CPU_arm7500fe
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_3__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm7m
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_3M__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm7tdmi || TARGET_CPU_DEFAULT == TARGET_CPU_arm9 || TARGET_CPU_DEFAULT == TARGET_CPU_arm9tdmi
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_4T__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_arm8 || TARGET_CPU_DEFAULT == TARGET_CPU_arm810 || TARGET_CPU_DEFAULT == TARGET_CPU_strongarm || TARGET_CPU_DEFAULT == TARGET_CPU_strongarm110 || TARGET_CPU_DEFAULT == TARGET_CPU_strongarm1100 
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_4__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_xscale
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TE__ -D__XSCALE__"
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_ep9312
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_4T__ -D__MAVERICK__"
-/* Set TARGET_DEFAULT to the default, but without soft-float.  */
-#ifdef  TARGET_DEFAULT
-#undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
-#endif
-#else
-#if TARGET_CPU_DEFAULT == TARGET_CPU_iwmmxt
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TE__ -D__XSCALE__ -D__IWMMXT__"
-#else
-#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm926ejs || \
-     TARGET_CPU_DEFAULT == TARGET_CPU_arm1026ejs)
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_5TEJ__"
-#else
-#if (TARGET_CPU_DEFAULT == TARGET_CPU_arm1136js || \
-     TARGET_CPU_DEFAULT == TARGET_CPU_arm1136jfs)
-#define CPP_ARCH_DEFAULT_SPEC "-D__ARM_ARCH_6J__"
-#else
-#error Unrecognized value in TARGET_CPU_DEFAULT.
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
 
 #undef  CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu_arch) %(subtarget_cpp_spec)			\
-%{mapcs-32:%{mapcs-26:							\
-	%e-mapcs-26 and -mapcs-32 may not be used together}}		\
+#define CPP_SPEC "%(subtarget_cpp_spec)					\
 %{msoft-float:%{mhard-float:						\
 	%e-msoft-float and -mhard_float may not be used together}}	\
 %{mbig-endian:%{mlittle-endian:						\
 	%e-mbig-endian and -mlittle-endian may not be used together}}"
-
-/* Set the architecture define -- if -march= is set, then it overrides
-   the -mcpu= setting.  */
-#define CPP_CPU_ARCH_SPEC "\
-%{march=arm2:-D__ARM_ARCH_2__} \
-%{march=arm250:-D__ARM_ARCH_2__} \
-%{march=arm3:-D__ARM_ARCH_2__} \
-%{march=arm6:-D__ARM_ARCH_3__} \
-%{march=arm600:-D__ARM_ARCH_3__} \
-%{march=arm610:-D__ARM_ARCH_3__} \
-%{march=arm7:-D__ARM_ARCH_3__} \
-%{march=arm700:-D__ARM_ARCH_3__} \
-%{march=arm710:-D__ARM_ARCH_3__} \
-%{march=arm720:-D__ARM_ARCH_3__} \
-%{march=arm7100:-D__ARM_ARCH_3__} \
-%{march=arm7500:-D__ARM_ARCH_3__} \
-%{march=arm7500fe:-D__ARM_ARCH_3__} \
-%{march=arm7m:-D__ARM_ARCH_3M__} \
-%{march=arm7dm:-D__ARM_ARCH_3M__} \
-%{march=arm7dmi:-D__ARM_ARCH_3M__} \
-%{march=arm7tdmi:-D__ARM_ARCH_4T__} \
-%{march=arm8:-D__ARM_ARCH_4__} \
-%{march=arm810:-D__ARM_ARCH_4__} \
-%{march=arm9:-D__ARM_ARCH_4T__} \
-%{march=arm920:-D__ARM_ARCH_4__} \
-%{march=arm920t:-D__ARM_ARCH_4T__} \
-%{march=arm926ejs:-D__ARM_ARCH_5TEJ__} \
-%{march=arm9tdmi:-D__ARM_ARCH_4T__} \
-%{march=arm1026ejs:-D__ARM_ARCH_5TEJ__} \
-%{march=arm1136js:-D__ARM_ARCH_6J__} \
-%{march=arm1136jfs:-D__ARM_ARCH_6J__} \
-%{march=strongarm:-D__ARM_ARCH_4__} \
-%{march=strongarm110:-D__ARM_ARCH_4__} \
-%{march=strongarm1100:-D__ARM_ARCH_4__} \
-%{march=xscale:-D__ARM_ARCH_5TE__} \
-%{march=xscale:-D__XSCALE__} \
-%{march=ep9312:-D__ARM_ARCH_4T__} \
-%{march=ep9312:-D__MAVERICK__} \
-%{march=armv2:-D__ARM_ARCH_2__} \
-%{march=armv2a:-D__ARM_ARCH_2__} \
-%{march=armv3:-D__ARM_ARCH_3__} \
-%{march=armv3m:-D__ARM_ARCH_3M__} \
-%{march=armv4:-D__ARM_ARCH_4__} \
-%{march=armv4t:-D__ARM_ARCH_4T__} \
-%{march=armv5:-D__ARM_ARCH_5__} \
-%{march=armv5t:-D__ARM_ARCH_5T__} \
-%{march=armv5e:-D__ARM_ARCH_5E__} \
-%{march=armv5te:-D__ARM_ARCH_5TE__} \
-%{march=armv6:-D__ARM_ARCH6__} \
-%{march=armv6j:-D__ARM_ARCH6J__} \
-%{!march=*: \
- %{mcpu=arm2:-D__ARM_ARCH_2__} \
- %{mcpu=arm250:-D__ARM_ARCH_2__} \
- %{mcpu=arm3:-D__ARM_ARCH_2__} \
- %{mcpu=arm6:-D__ARM_ARCH_3__} \
- %{mcpu=arm600:-D__ARM_ARCH_3__} \
- %{mcpu=arm610:-D__ARM_ARCH_3__} \
- %{mcpu=arm7:-D__ARM_ARCH_3__} \
- %{mcpu=arm700:-D__ARM_ARCH_3__} \
- %{mcpu=arm710:-D__ARM_ARCH_3__} \
- %{mcpu=arm720:-D__ARM_ARCH_3__} \
- %{mcpu=arm7100:-D__ARM_ARCH_3__} \
- %{mcpu=arm7500:-D__ARM_ARCH_3__} \
- %{mcpu=arm7500fe:-D__ARM_ARCH_3__} \
- %{mcpu=arm7m:-D__ARM_ARCH_3M__} \
- %{mcpu=arm7dm:-D__ARM_ARCH_3M__} \
- %{mcpu=arm7dmi:-D__ARM_ARCH_3M__} \
- %{mcpu=arm7tdmi:-D__ARM_ARCH_4T__} \
- %{mcpu=arm8:-D__ARM_ARCH_4__} \
- %{mcpu=arm810:-D__ARM_ARCH_4__} \
- %{mcpu=arm9:-D__ARM_ARCH_4T__} \
- %{mcpu=arm920:-D__ARM_ARCH_4__} \
- %{mcpu=arm920t:-D__ARM_ARCH_4T__} \
- %{mcpu=arm926ejs:-D__ARM_ARCH_5TEJ__} \
- %{mcpu=arm9tdmi:-D__ARM_ARCH_4T__} \
- %{mcpu=arm1026ejs:-D__ARM_ARCH_5TEJ__} \
- %{mcpu=arm1136js:-D__ARM_ARCH_6J__} \
- %{mcpu=arm1136jfs:-D__ARM_ARCH_6J__} \
- %{mcpu=strongarm:-D__ARM_ARCH_4__} \
- %{mcpu=strongarm110:-D__ARM_ARCH_4__} \
- %{mcpu=strongarm1100:-D__ARM_ARCH_4__} \
- %{mcpu=xscale:-D__ARM_ARCH_5TE__} \
- %{mcpu=xscale:-D__XSCALE__} \
- %{mcpu=ep9312:-D__ARM_ARCH_4T__} \
- %{mcpu=ep9312:-D__MAVERICK__} \
- %{mcpu=iwmmxt:-D__ARM_ARCH_5TE__} \
- %{mcpu=iwmmxt:-D__XSCALE__} \
- %{mcpu=iwmmxt:-D__IWMMXT__} \
- %{!mcpu*:%(cpp_cpu_arch_default)}} \
-"
 
 #ifndef CC1_SPEC
 #define CC1_SPEC ""
@@ -331,8 +166,6 @@ extern GTY(()) rtx aof_pic_label;
 
    Do not define this macro if it does not need to do anything.  */
 #define EXTRA_SPECS						\
-  { "cpp_cpu_arch",		CPP_CPU_ARCH_SPEC },		\
-  { "cpp_cpu_arch_default",	CPP_ARCH_DEFAULT_SPEC },	\
   { "subtarget_cpp_spec",	SUBTARGET_CPP_SPEC },           \
   SUBTARGET_EXTRA_SPECS
 
@@ -364,12 +197,7 @@ extern GTY(()) rtx aof_pic_label;
    case instruction scheduling becomes very uninteresting.  */
 #define ARM_FLAG_FPE		(1 << 2)
 
-/* Nonzero if destined for a processor in 32-bit program mode.  Takes out bit
-   that assume restoration of the condition flags when returning from a
-   branch and link (ie a function).  */
-#define ARM_FLAG_APCS_32	(1 << 3)
-
-/* FLAGS 0x0008 and 0x0010 are now spare (used to be arm3/6 selection).  */
+/* FLAG 0x0008 now spare (used to be apcs-32 selection).  */
 
 /* Nonzero if stack checking should be performed on entry to each function
    which allocates temporary variables on the stack.  */
@@ -383,10 +211,7 @@ extern GTY(()) rtx aof_pic_label;
    This is equivalent to -fpic.  */
 #define ARM_FLAG_APCS_REENT	(1 << 6)
 
-/* Nonzero if the MMU will trap unaligned word accesses, so shorts must
-   be loaded using either LDRH or LDRB instructions.  */
-#define ARM_FLAG_MMU_TRAPS	(1 << 7)
-
+  /* FLAG 0x0080 now spare (used to be alignment traps).  */
 /* Nonzero if all floating point instructions are missing (and there is no
    emulator either).  Generate function calls for all ops in this case.  */
 #define ARM_FLAG_SOFT_FLOAT	(1 << 8)
@@ -433,24 +258,15 @@ extern GTY(()) rtx aof_pic_label;
    destination is non-Thumb aware.  */
 #define THUMB_FLAG_CALLER_SUPER_INTERWORKING	(1 << 20)
 
-/* Nonzero means target uses VFP FP.  */
-#define ARM_FLAG_VFP		(1 << 21)
-
-/* Nonzero means to use ARM/Thumb Procedure Call Standard conventions.  */
-#define ARM_FLAG_ATPCS		(1 << 22)
-
 /* Fix invalid Cirrus instruction combinations by inserting NOPs.  */
-#define CIRRUS_FIX_INVALID_INSNS (1 << 23)
+#define CIRRUS_FIX_INVALID_INSNS (1 << 21)
 
 #define TARGET_APCS_FRAME		(target_flags & ARM_FLAG_APCS_FRAME)
 #define TARGET_POKE_FUNCTION_NAME	(target_flags & ARM_FLAG_POKE)
 #define TARGET_FPE			(target_flags & ARM_FLAG_FPE)
-#define TARGET_APCS_32			(target_flags & ARM_FLAG_APCS_32)
 #define TARGET_APCS_STACK		(target_flags & ARM_FLAG_APCS_STACK)
 #define TARGET_APCS_FLOAT		(target_flags & ARM_FLAG_APCS_FLOAT)
 #define TARGET_APCS_REENT		(target_flags & ARM_FLAG_APCS_REENT)
-#define TARGET_ATPCS			(target_flags & ARM_FLAG_ATPCS)
-#define TARGET_MMU_TRAPS		(target_flags & ARM_FLAG_MMU_TRAPS)
 #define TARGET_SOFT_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_SOFT)
 #define TARGET_SOFT_FLOAT_ABI		(arm_float_abi != ARM_FLOAT_ABI_HARD)
 #define TARGET_HARD_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_HARD)
@@ -459,6 +275,7 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_VFP			(arm_fp_model == ARM_FP_MODEL_VFP)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
 #define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_ARM)
+#define TARGET_IWMMXT_ABI (TARGET_ARM && arm_abi == ARM_ABI_IWMMXT)
 #define TARGET_BIG_END			(target_flags & ARM_FLAG_BIG_END)
 #define TARGET_INTERWORK		(target_flags & ARM_FLAG_INTERWORK)
 #define TARGET_LITTLE_WORDS		(target_flags & ARM_FLAG_LITTLE_WORDS)
@@ -475,6 +292,9 @@ extern GTY(()) rtx aof_pic_label;
 				         ? (target_flags & THUMB_FLAG_LEAF_BACKTRACE)	\
 				         : (target_flags & THUMB_FLAG_BACKTRACE))
 #define TARGET_CIRRUS_FIX_INVALID_INSNS	(target_flags & CIRRUS_FIX_INVALID_INSNS)
+#define TARGET_LDRD			(arm_arch5e && ARM_DOUBLEWORD_ALIGN)
+#define TARGET_AAPCS_BASED \
+    (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
 /* SUBTARGET_SWITCHES is used to add flags on a per-config basis.  */
 #ifndef SUBTARGET_SWITCHES
@@ -491,10 +311,6 @@ extern GTY(()) rtx aof_pic_label;
    N_("Store function names in object code") },				\
   {"no-poke-function-name",    -ARM_FLAG_POKE, "" },			\
   {"fpe",			ARM_FLAG_FPE,  "" },			\
-  {"apcs-32",			ARM_FLAG_APCS_32,			\
-   N_("Use the 32-bit version of the APCS") },				\
-  {"apcs-26",		       -ARM_FLAG_APCS_32,			\
-   N_("Use the 26-bit version of the APCS") },				\
   {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },		\
   {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },		\
   {"apcs-float",		ARM_FLAG_APCS_FLOAT,			\
@@ -503,13 +319,6 @@ extern GTY(()) rtx aof_pic_label;
   {"apcs-reentrant",		ARM_FLAG_APCS_REENT,			\
    N_("Generate re-entrant, PIC code") },				\
   {"no-apcs-reentrant",	       -ARM_FLAG_APCS_REENT, "" },		\
-  {"alignment-traps",           ARM_FLAG_MMU_TRAPS,			\
-   N_("The MMU will trap on unaligned accesses") },			\
-  {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },		\
-  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },		\
   {"soft-float",		ARM_FLAG_SOFT_FLOAT,			\
    N_("Use library calls to perform FP operations") },			\
   {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			\
@@ -577,7 +386,8 @@ extern GTY(()) rtx aof_pic_label;
   {"structure-size-boundary=", & structure_size_string,			\
    N_("Specify the minimum bit alignment of structures"), 0},		\
   {"pic-register=", & arm_pic_register_string,				\
-   N_("Specify the register to be used for PIC addressing"), 0}		\
+   N_("Specify the register to be used for PIC addressing"), 0},	\
+  {"abi=", &target_abi_name, N_("Specify an ABI"), 0}			\
 }
 
 /* Support for a compile-time default CPU, et cetera.  The rules are:
@@ -588,14 +398,16 @@ extern GTY(()) rtx aof_pic_label;
      by -march).
    --with-float is ignored if -mhard-float, -msoft-float or -mfloat-abi are
    specified.
-   --with-fpu is ignored if -mfpu is specified.  */
+   --with-fpu is ignored if -mfpu is specified.
+   --with-abi is ignored is -mabi is specified.  */
 #define OPTION_DEFAULT_SPECS \
   {"arch", "%{!march=*:%{!mcpu=*:-march=%(VALUE)}}" }, \
   {"cpu", "%{!march=*:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
   {"tune", "%{!mcpu=*:%{!mtune=*:-mtune=%(VALUE)}}" }, \
   {"float", \
     "%{!msoft-float:%{!mhard-float:%{!mfloat-abi=*:-mfloat-abi=%(VALUE)}}}" }, \
-  {"fpu", "%{!mfpu=*:-mfpu=%(VALUE)}"},
+  {"fpu", "%{!mfpu=*:-mfpu=%(VALUE)}"}, \
+  {"abi", "%{!mabi=*:-mabi=%(VALUE)}"},
 
 struct arm_cpu_select
 {
@@ -608,17 +420,6 @@ struct arm_cpu_select
    which matches one of the entries in TARGET_OPTIONS then the corresponding
    string pointer will be set to the value specified by the user.  */
 extern struct arm_cpu_select arm_select[];
-
-enum prog_mode_type
-{
-  prog_mode26,
-  prog_mode32
-};
-
-/* Recast the program mode class to be the prog_mode attribute.  */
-#define arm_prog_mode ((enum attr_prog_mode) arm_prgmode)
-
-extern enum prog_mode_type arm_prgmode;
 
 /* Which floating point model to use.  */
 enum arm_fp_model
@@ -670,19 +471,19 @@ enum float_abi_type
 
 extern enum float_abi_type arm_float_abi;
 
-/* Default floating point architecture.  Override in sub-target if
-   necessary.
-   FIXME: Is this still necessary/desirable?  Do we want VFP chips to
-   default to VFP unless overridden by a subtarget?  If so it would be best
-   to remove these definitions.  It also assumes there is only one cpu model
-   with a Maverick fpu.  */
-#ifndef FPUTYPE_DEFAULT
-#define FPUTYPE_DEFAULT FPUTYPE_FPA_EMU2
-#endif
+/* Which ABI to use.  */
+enum arm_abi_type
+{
+  ARM_ABI_APCS,
+  ARM_ABI_ATPCS,
+  ARM_ABI_AAPCS,
+  ARM_ABI_IWMMXT
+};
 
-#if TARGET_CPU_DEFAULT == TARGET_CPU_ep9312
-#undef  FPUTYPE_DEFAULT
-#define FPUTYPE_DEFAULT FPUTYPE_MAVERICK
+extern enum arm_abi_type arm_abi;
+
+#ifndef ARM_DEFAULT_ABI
+#define ARM_DEFAULT_ABI ARM_ABI_APCS
 #endif
 
 /* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
@@ -690,6 +491,9 @@ extern int arm_arch3m;
 
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 extern int arm_arch4;
+
+/* Nonzero if this chip supports the ARM Architecture 4T extensions.  */
+extern int arm_arch4t;
 
 /* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 extern int arm_arch5;
@@ -710,7 +514,7 @@ extern int thumb_code;
 extern int arm_is_strong;
 
 /* Nonzero if this chip is a Cirrus variant.  */
-extern int arm_is_cirrus;
+extern int arm_arch_cirrus;
 
 /* Nonzero if this chip supports Intel XScale with Wireless MMX technology.  */
 extern int arm_arch_iwmmxt;
@@ -724,6 +528,13 @@ extern int arm_tune_xscale;
 /* Nonzero if this chip is an ARM6 or an ARM7.  */
 extern int arm_is_6_or_7;
 
+/* Nonzero if we should define __THUMB_INTERWORK__ in the
+   preprocessor.  
+   XXX This is a bit of a hack, it's intended to help work around
+   problems in GLD which doesn't understand that armv5t code is
+   interworking clean.  */
+extern int arm_cpp_interwork;
+
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME)
 #endif
@@ -731,9 +542,6 @@ extern int arm_is_6_or_7;
 /* The frame pointer register used in gcc has nothing to do with debugging;
    that is controlled by the APCS-FRAME option.  */
 #define CAN_DEBUG_WITHOUT_FP
-
-#undef  TARGET_MEM_FUNCTIONS
-#define TARGET_MEM_FUNCTIONS 1
 
 #define OVERRIDE_OPTIONS  arm_override_options ()
 
@@ -780,9 +588,14 @@ extern int arm_is_6_or_7;
       if (MODE == QImode)			\
 	UNSIGNEDP = 1;				\
       else if (MODE == HImode)			\
-	UNSIGNEDP = TARGET_MMU_TRAPS != 0;	\
+	UNSIGNEDP = 1;				\
       (MODE) = SImode;				\
     }
+
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
+  if (GET_MODE_CLASS (MODE) == MODE_INT		\
+      && GET_MODE_SIZE (MODE) < 4)      	\
+    (MODE) = SImode;				\
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -814,13 +627,17 @@ extern int arm_is_6_or_7;
 
 #define UNITS_PER_WORD	4
 
+/* True if natural alignment is used for doubleword types.  */
+#define ARM_DOUBLEWORD_ALIGN	TARGET_AAPCS_BASED
+
+#define DOUBLEWORD_ALIGNMENT 64
+
 #define PARM_BOUNDARY  	32
 
-#define IWMMXT_ALIGNMENT   64
+#define STACK_BOUNDARY  (ARM_DOUBLEWORD_ALIGN ? DOUBLEWORD_ALIGNMENT : 32)
 
-#define STACK_BOUNDARY  32
-
-#define PREFERRED_STACK_BOUNDARY (TARGET_ATPCS ? 64 : 32)
+#define PREFERRED_STACK_BOUNDARY \
+    (arm_abi == ARM_ABI_ATPCS ? 64 : STACK_BOUNDARY)
 
 #define FUNCTION_BOUNDARY  32
 
@@ -831,62 +648,30 @@ extern int arm_is_6_or_7;
 
 #define EMPTY_FIELD_BOUNDARY  32
 
-#define BIGGEST_ALIGNMENT  (TARGET_REALLY_IWMMXT ? 64 : 32)
-
-#define TYPE_NEEDS_IWMMXT_ALIGNMENT(TYPE)	\
- (TARGET_REALLY_IWMMXT				\
-   && ((TREE_CODE (TYPE) == VECTOR_TYPE) || (TYPE_MODE (TYPE) == DImode) || (TYPE_MODE (TYPE) == DFmode)))
+#define BIGGEST_ALIGNMENT (ARM_DOUBLEWORD_ALIGN ? DOUBLEWORD_ALIGNMENT : 32)
 
 /* XXX Blah -- this macro is used directly by libobjc.  Since it
    supports no vector modes, cut out the complexity and fall back
    on BIGGEST_FIELD_ALIGNMENT.  */
 #ifdef IN_TARGET_LIBS
 #define BIGGEST_FIELD_ALIGNMENT 64
-#else
-/* An expression for the alignment of a structure field FIELD if the
-   alignment computed in the usual way is COMPUTED.  GCC uses this
-   value instead of the value in `BIGGEST_ALIGNMENT' or
-   `BIGGEST_FIELD_ALIGNMENT', if defined, for structure fields only.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)		\
-  (TYPE_NEEDS_IWMMXT_ALIGNMENT (TREE_TYPE (FIELD))	\
-   ? IWMMXT_ALIGNMENT					\
-   : (COMPUTED))
 #endif
-
-/* If defined, a C expression to compute the alignment for a static variable.
-   TYPE is the data type, and ALIGN is the alignment that the object
-   would ordinarily have.  The value of this macro is used instead of that
-   alignment to align the object.
-
-   If this macro is not defined, then ALIGN is used.  */
-#define DATA_ALIGNMENT(TYPE, ALIGN) \
-  (TYPE_NEEDS_IWMMXT_ALIGNMENT (TYPE) ? IWMMXT_ALIGNMENT : ALIGN)
-
-/* If defined, a C expression to compute the alignment for a
-   variables in the local store.  TYPE is the data type, and
-   BASIC-ALIGN is the alignment that the object would ordinarily
-   have.  The value of this macro is used instead of that alignment
-   to align the object.
-
-   If this macro is not defined, then BASIC-ALIGN is used.  */
-#define LOCAL_ALIGNMENT(TYPE, ALIGN) \
-  (TYPE_NEEDS_IWMMXT_ALIGNMENT (TYPE) ? IWMMXT_ALIGNMENT : ALIGN)
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT_FACTOR (TARGET_THUMB || ! arm_tune_xscale ? 1 : 2)
     
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)				\
-  ((TARGET_REALLY_IWMMXT && TREE_CODE (EXP) == VECTOR_TYPE) ? IWMMXT_ALIGNMENT : \
-   (TREE_CODE (EXP) == STRING_CST				\
-    && (ALIGN) < BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR)	\
-   ? BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR : (ALIGN))
+   ((TREE_CODE (EXP) == STRING_CST				\
+     && (ALIGN) < BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR)	\
+    ? BITS_PER_WORD * CONSTANT_ALIGNMENT_FACTOR : (ALIGN))
 
 /* Setting STRUCTURE_SIZE_BOUNDARY to 32 produces more efficient code, but the
    value set in previous versions of this toolchain was 8, which produces more
    compact structures.  The command line option -mstructure_size_boundary=<n>
    can be used to change this value.  For compatibility with the ARM SDK
    however the value should be left at 32.  ARM SDT Reference Manual (ARM DUI
-   0020D) page 2-20 says "Structures are aligned on word boundaries".  */
+   0020D) page 2-20 says "Structures are aligned on word boundaries".
+   The AAPCS specifies a value of 8.  */
 #define STRUCTURE_SIZE_BOUNDARY arm_structure_size_boundary
 extern int arm_structure_size_boundary;
 
@@ -904,6 +689,23 @@ extern const char * structure_size_string;
 /* Nonzero if move instructions will actually fail to work
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
+
+/* wchar_t is unsigned under the AAPCS.  */
+#ifndef WCHAR_TYPE
+#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "int")
+
+#define WCHAR_TYPE_SIZE BITS_PER_WORD
+#endif
+
+#ifndef SIZE_TYPE
+#define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
+#endif
+
+/* AAPCS requires that structure alignment is affected by bitfields.  */
+#ifndef PCC_BITFIELD_TYPE_MATTERS
+#define PCC_BITFIELD_TYPE_MATTERS TARGET_AAPCS_BASED
+#endif
+
 
 /* Standard register usage.  */
 
@@ -1387,6 +1189,13 @@ enum reg_class
      || reg_classes_intersect_p (VFP_REGS, (CLASS))	\
    : 0)
 
+/* We need to define this for LO_REGS on thumb.  Otherwise we can end up
+   using r0-r4 for function arguments, r7 for the stack frame and don't
+   have enough left over to do doubleword arithmetic.  */
+#define CLASS_LIKELY_SPILLED_P(CLASS)	\
+    ((TARGET_THUMB && (CLASS) == LO_REGS)	\
+     || (CLASS) == CC_REG)
+				      
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 #define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
@@ -1472,25 +1281,36 @@ enum reg_class
    `S' means any symbol that has the SYMBOL_REF_FLAG set or a CONSTANT_POOL
    address.  This means that the symbol is in the text segment and can be
    accessed without using a load.
-   'U' is an address valid for VFP load/store insns.  */
+   'U' Prefixes an extended memory constraint where:
+   'Uv' is an address valid for VFP load/store insns.  
+   'Uy' is an address valid for iwmmxt load/store insns.  
+   'Uq' is an address valid for ldrsb.  */
 
-#define EXTRA_CONSTRAINT_ARM(OP, C)					    \
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG :    \
-   (C) == 'R' ? (GET_CODE (OP) == MEM					    \
-		 && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF		    \
-		 && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :		    \
-   (C) == 'S' ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :		    \
-   (C) == 'T' ? cirrus_memory_offset (OP) : 		    		    \
-   (C) == 'U' ? vfp_mem_operand (OP) :					    \
-   0)
+#define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)			\
+  (((C) == 'Q') ? (GET_CODE (OP) == MEM				\
+		 && GET_CODE (XEXP (OP, 0)) == REG) :		\
+   ((C) == 'R') ? (GET_CODE (OP) == MEM				\
+		   && GET_CODE (XEXP (OP, 0)) == SYMBOL_REF	\
+		   && CONSTANT_POOL_ADDRESS_P (XEXP (OP, 0))) :	\
+   ((C) == 'S') ? (optimize > 0 && CONSTANT_ADDRESS_P (OP)) :	\
+   ((C) == 'T') ? cirrus_memory_offset (OP) :			\
+   ((C) == 'U' && (STR)[1] == 'v') ? arm_coproc_mem_operand (OP, FALSE) : \
+   ((C) == 'U' && (STR)[1] == 'y') ? arm_coproc_mem_operand (OP, TRUE) : \
+   ((C) == 'U' && (STR)[1] == 'q')				\
+    ? arm_extendqisi_mem_op (OP, GET_MODE (OP))			\
+      : 0)
+
+#define CONSTRAINT_LEN(C,STR)				\
+  ((C) == 'U' ? 2 : DEFAULT_CONSTRAINT_LEN (C, STR))
 
 #define EXTRA_CONSTRAINT_THUMB(X, C)					\
   ((C) == 'Q' ? (GET_CODE (X) == MEM					\
 		 && GET_CODE (XEXP (X, 0)) == LABEL_REF) : 0)
 
-#define EXTRA_CONSTRAINT(X, C)						\
-  (TARGET_ARM ?								\
-   EXTRA_CONSTRAINT_ARM (X, C) : EXTRA_CONSTRAINT_THUMB (X, C))
+#define EXTRA_CONSTRAINT_STR(X, C, STR)		\
+  (TARGET_ARM					\
+   ? EXTRA_CONSTRAINT_STR_ARM (X, C, STR)	\
+   : EXTRA_CONSTRAINT_THUMB (X, C))
 
 #define EXTRA_MEMORY_CONSTRAINT(C, STR) ((C) == 'U')
 
@@ -1511,7 +1331,7 @@ enum reg_class
    : NO_REGS)
 
 #define THUMB_SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)		\
-  ((CLASS) != LO_REGS				 			\
+  ((CLASS) != LO_REGS && (CLASS) != BASE_REGS				\
    ? ((true_regnum (X) == -1 ? LO_REGS					\
        : (true_regnum (X) + HARD_REGNO_NREGS (0, MODE) > 8) ? LO_REGS	\
        : NO_REGS)) 							\
@@ -1545,7 +1365,7 @@ enum reg_class
    (((CLASS) == IWMMXT_REGS || (CLASS) == IWMMXT_GR_REGS)	\
       && CONSTANT_P (X))					\
    ? GENERAL_REGS :						\
-   (((MODE) == HImode && ! arm_arch4 && TARGET_MMU_TRAPS	\
+   (((MODE) == HImode && ! arm_arch4				\
      && (GET_CODE (X) == MEM					\
 	 || ((GET_CODE (X) == REG || GET_CODE (X) == SUBREG)	\
 	     && true_regnum (X) == -1)))			\
@@ -1571,14 +1391,13 @@ enum reg_class
 	  HOST_WIDE_INT val = INTVAL (XEXP (X, 1));			   \
 	  HOST_WIDE_INT low, high;					   \
 									   \
-	  if (MODE == DImode || (TARGET_SOFT_FLOAT && TARGET_FPA	   \
-		                 && MODE == DFmode))			   \
+	  if (MODE == DImode || (MODE == DFmode && TARGET_SOFT_FLOAT))	   \
 	    low = ((val & 0xf) ^ 0x8) - 0x8;				   \
 	  else if (TARGET_MAVERICK && TARGET_HARD_FLOAT)		   \
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
 	  else if (MODE == SImode					   \
-		   || (MODE == SFmode && TARGET_SOFT_FLOAT && TARGET_FPA)  \
+		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
 	    /* Need to be careful, -4096 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xfff) : -((-val) & 0xfff);		   \
@@ -1722,7 +1541,7 @@ enum reg_class
    : TARGET_ARM && TARGET_HARD_FLOAT && TARGET_MAVERICK			\
      && GET_MODE_CLASS (MODE) == MODE_FLOAT				\
    ? gen_rtx_REG (MODE, FIRST_CIRRUS_FP_REGNUM) 			\
-   : TARGET_REALLY_IWMMXT && VECTOR_MODE_SUPPORTED_P (MODE)		\
+   : TARGET_IWMMXT_ABI && VECTOR_MODE_SUPPORTED_P (MODE)	\
    ? gen_rtx_REG (MODE, FIRST_IWMMXT_REGNUM) 				\
    : gen_rtx_REG (MODE, ARG_REGISTER (1)))
 
@@ -1731,7 +1550,7 @@ enum reg_class
    If the precise function being called is known, FUNC is its FUNCTION_DECL;
    otherwise, FUNC is 0.  */
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  LIBCALL_VALUE (TYPE_MODE (VALTYPE))
+  arm_function_value (VALTYPE, FUNC);
 
 /* 1 if N is a possible register number for a function value.
    On the ARM, only r0 and f0 can return results.  */
@@ -1740,7 +1559,7 @@ enum reg_class
   ((REGNO) == ARG_REGISTER (1) \
    || (TARGET_ARM && ((REGNO) == FIRST_CIRRUS_FP_REGNUM)		\
        && TARGET_HARD_FLOAT && TARGET_MAVERICK)				\
-   || (TARGET_ARM && ((REGNO) == FIRST_IWMMXT_REGNUM) && TARGET_IWMMXT) \
+   || ((REGNO) == FIRST_IWMMXT_REGNUM && TARGET_IWMMXT_ABI) \
    || (TARGET_ARM && ((REGNO) == FIRST_FPA_REGNUM)			\
        && TARGET_HARD_FLOAT && TARGET_FPA))
 
@@ -1794,6 +1613,22 @@ enum reg_class
 #define IS_NAKED(t)        	(t & ARM_FT_NAKED)
 #define IS_NESTED(t)       	(t & ARM_FT_NESTED)
 
+
+/* Structure used to hold the function stack frame layout.  Offsets are
+   relative to the stack pointer on function entry.  Positive offsets are
+   in the direction of stack growth.
+   Only soft_frame is used in thumb mode.  */
+
+typedef struct arm_stack_offsets GTY(())
+{
+  int saved_args;	/* ARG_POINTER_REGNUM.  */
+  int frame;		/* ARM_HARD_FRAME_POINTER_REGNUM.  */
+  int saved_regs;
+  int soft_frame;	/* FRAME_POINTER_REGNUM.  */
+  int outgoing_args;	/* STACK_POINTER_REGNUM.  */
+}
+arm_stack_offsets;
+
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct machine_function GTY(())
@@ -1807,7 +1642,7 @@ typedef struct machine_function GTY(())
   /* Records if the save of LR has been eliminated.  */
   int lr_save_eliminated;
   /* The size of the stack frame.  Only valid after reload.  */
-  int frame_size;
+  arm_stack_offsets stack_offsets;
   /* Records the type of the current function.  */
   unsigned long func_type;
   /* Record if the function has a variable argument list.  */
@@ -1831,6 +1666,7 @@ typedef struct
   int nargs;
   /* One of CALL_NORMAL, CALL_LONG or CALL_SHORT.  */
   int call_cookie;
+  int can_split;
 } CUMULATIVE_ARGS;
 
 /* Define where to put the arguments to a function.
@@ -1860,16 +1696,9 @@ typedef struct
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
   (VECTOR_MODE_SUPPORTED_P (MODE) ? 0 :				\
        NUM_ARG_REGS > (CUM).nregs				\
-   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE)))	\
+   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE))	\
+   && (CUM).can_split)						\
    ?   NUM_ARG_REGS - (CUM).nregs : 0)
-
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  arm_function_arg_pass_by_reference (&CUM, MODE, TYPE, NAMED)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1883,30 +1712,26 @@ typedef struct
    (TYPE is null for libcalls where that information may not be available.)  */
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (CUM).nargs += 1;					\
-  if (VECTOR_MODE_SUPPORTED_P (MODE))			\
-     if ((CUM).named_count <= (CUM).nargs)		\
-        (CUM).nregs += 2;				\
-     else						\
-        (CUM).iwmmxt_nregs += 1;			\
+  if (VECTOR_MODE_SUPPORTED_P (MODE)			\
+      && (CUM).named_count > (CUM).nargs)		\
+    (CUM).iwmmxt_nregs += 1;				\
   else							\
-  (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)
+    (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)
 
 /* If defined, a C expression that gives the alignment boundary, in bits, of an
    argument with the specified mode and type.  If it is not defined,
    `PARM_BOUNDARY' is used for all arguments.  */
 #define FUNCTION_ARG_BOUNDARY(MODE,TYPE) \
-  (TARGET_REALLY_IWMMXT && (VALID_IWMMXT_REG_MODE (MODE) || ((MODE) == DFmode)) \
-   ? IWMMXT_ALIGNMENT : PARM_BOUNDARY)
+   ((ARM_DOUBLEWORD_ALIGN && arm_needs_doubleword_align (MODE, TYPE)) \
+   ? DOUBLEWORD_ALIGNMENT \
+   : PARM_BOUNDARY )
 
 /* 1 if N is a possible register number for function argument passing.
    On the ARM, r0-r3 are used to pass args.  */
 #define FUNCTION_ARG_REGNO_P(REGNO)	\
    (IN_RANGE ((REGNO), 0, 3)		\
-    || (TARGET_REALLY_IWMMXT && IN_RANGE ((REGNO), FIRST_IWMMXT_REGNUM, FIRST_IWMMXT_REGNUM + 9)))
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  arm_va_arg (valist, type)
+    || (TARGET_IWMMXT_ABI		\
+	&& IN_RANGE ((REGNO), FIRST_IWMMXT_REGNUM, FIRST_IWMMXT_REGNUM + 9)))
 
 
 /* If your target environment doesn't prefix user functions with an
@@ -2024,53 +1849,12 @@ typedef struct
      
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
-#define ARM_INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)		\
-  do									\
-    {									\
-      (OFFSET) = arm_compute_initial_elimination_offset (FROM, TO);	\
-    }									\
-  while (0)
-
-/* Note:  This macro must match the code in thumb_function_prologue().  */
-#define THUMB_INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)		\
-{									\
-  (OFFSET) = 0;								\
-  if ((FROM) == ARG_POINTER_REGNUM)					\
-    {									\
-      int count_regs = 0;						\
-      int regno;							\
-      for (regno = 8; regno < 13; regno ++)				\
-        if (THUMB_REG_PUSHED_P (regno))					\
-          count_regs ++;						\
-      if (count_regs)							\
-	(OFFSET) += 4 * count_regs;					\
-      count_regs = 0;							\
-      for (regno = 0; regno <= LAST_LO_REGNUM; regno ++)		\
-        if (THUMB_REG_PUSHED_P (regno))					\
-	  count_regs ++;						\
-      if (count_regs || ! leaf_function_p () || thumb_far_jump_used_p (0))\
-	(OFFSET) += 4 * (count_regs + 1);				\
-      if (TARGET_BACKTRACE)						\
-        {								\
-	  if ((count_regs & 0xFF) == 0 && (regs_ever_live[3] != 0))	\
-	    (OFFSET) += 20;						\
-	  else								\
-	    (OFFSET) += 16;						\
-        }								\
-    }									\
-  if ((TO) == STACK_POINTER_REGNUM)					\
-    {									\
-      (OFFSET) += current_function_outgoing_args_size;			\
-      (OFFSET) += thumb_get_frame_size ();				\
-     }									\
-}
-
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
   if (TARGET_ARM)							\
-    ARM_INITIAL_ELIMINATION_OFFSET (FROM, TO, OFFSET);			\
+    (OFFSET) = arm_compute_initial_elimination_offset (FROM, TO);	\
   else									\
-    THUMB_INITIAL_ELIMINATION_OFFSET (FROM, TO, OFFSET)
-     
+    (OFFSET) = thumb_compute_initial_elimination_offset (FROM, TO)
+
 /* Special case handling of the location of arguments passed on the stack.  */
 #define DEBUGGER_ARG_OFFSET(value, addr) value ? value : arm_debugger_arg_offset (value, addr)
      
@@ -2226,7 +2010,6 @@ typedef struct
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
-  || GET_CODE (X) == CONSTANT_P_RTX     \
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
@@ -2339,7 +2122,7 @@ typedef struct
 
 #define ARM_GO_IF_LEGITIMATE_ADDRESS(MODE,X,WIN)		\
   {								\
-    if (arm_legitimate_address_p (MODE, X, REG_STRICT_P))	\
+    if (arm_legitimate_address_p (MODE, X, SET, REG_STRICT_P))	\
       goto WIN;							\
   }
 
@@ -2361,15 +2144,11 @@ typedef struct
 #define ARM_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
 do {							\
   X = arm_legitimize_address (X, OLDX, MODE);		\
-							\
-  if (memory_address_p (MODE, X))			\
-    goto WIN;						\
 } while (0)
 
-#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
-do {								\
-  if (flag_pic)							\
-    (X) = legitimize_pic_address (OLDX, MODE, NULL_RTX);	\
+#define THUMB_LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
+do {							\
+  X = thumb_legitimize_address (X, OLDX, MODE);		\
 } while (0)
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)		\
@@ -2378,6 +2157,9 @@ do {							\
     ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
   else							\
     THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
+							\
+  if (memory_address_p (MODE, X))			\
+    goto WIN;						\
 } while (0)
      
 /* Go to LABEL if ADDR (a legitimate address expression)
@@ -2399,20 +2181,11 @@ do {							\
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
 
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/* #define CASE_VECTOR_PC_RELATIVE 1 */
-
 /* signed 'char' is most compatible, but RISC OS wants it unsigned.
    unsigned is probably best, but may break some code.  */
 #ifndef DEFAULT_SIGNED_CHAR
 #define DEFAULT_SIGNED_CHAR  0
 #endif
-
-/* Don't cse the address of the function being compiled.  */
-#define NO_RECURSIVE_FUNCTION_CSE 1
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
@@ -2803,9 +2576,8 @@ extern int making_const_table;
      in 26 bit mode, the condition codes must be masked out of the	\
      return address.  This does not apply to ARM6 and later processors	\
      when running in 32 bit mode.  */					\
-  ((!TARGET_APCS_32) ? (gen_int_mode (RETURN_ADDR_MASK26, Pmode))	\
-   : (arm_arch4 || TARGET_THUMB) ?					\
-     (gen_int_mode ((unsigned long)0xffffffff, Pmode))			\
+  ((arm_arch4 || TARGET_THUMB)						\
+   ? (gen_int_mode ((unsigned long)0xffffffff, Pmode))			\
    : arm_gen_return_addr_mask ())
 
 
@@ -2827,7 +2599,6 @@ extern int making_const_table;
   {"thumb_cmpneg_operand", {CONST_INT}},				\
   {"thumb_cbrch_target_operand", {SUBREG, REG, MEM}},			\
   {"offsettable_memory_operand", {MEM}},				\
-  {"bad_signed_byte_operand", {MEM}},					\
   {"alignable_memory_operand", {MEM}},					\
   {"shiftable_operator", {PLUS, MINUS, AND, IOR, XOR}},			\
   {"minmax_operator", {SMIN, SMAX, UMIN, UMAX}},			\
@@ -2971,8 +2742,8 @@ enum arm_builtins
   ARM_BUILTIN_WMINUH,
   ARM_BUILTIN_WMINUB,
 
-  ARM_BUILTIN_WMULUH,
-  ARM_BUILTIN_WMULSH,
+  ARM_BUILTIN_WMULUM,
+  ARM_BUILTIN_WMULSM,
   ARM_BUILTIN_WMULUL,
 
   ARM_BUILTIN_PSADBH,

@@ -162,7 +162,7 @@ struct alloc_chunk {
     double align_d;
 #endif
   } u;
-} __attribute__ ((packed));
+};
 
 #define CHUNK_OVERHEAD	(offsetof (struct alloc_chunk, u))
 
@@ -177,7 +177,7 @@ struct alloc_chunk {
    on a PowerPC G4 7450 - 667 mhz, and a Pentium 4 - 2.8ghz,
    these were determined to be the optimal values.  */
 #define NUM_FREE_BINS		64
-#define MAX_FREE_BIN_SIZE	256
+#define MAX_FREE_BIN_SIZE	(64 * sizeof (void *))
 #define FREE_BIN_DELTA		(MAX_FREE_BIN_SIZE / NUM_FREE_BINS)
 #define SIZE_BIN_UP(SIZE)	(((SIZE) + FREE_BIN_DELTA - 1) / FREE_BIN_DELTA)
 #define SIZE_BIN_DOWN(SIZE)	((SIZE) / FREE_BIN_DELTA)
@@ -327,7 +327,7 @@ static void free_chunk (struct alloc_chunk *, size_t, struct alloc_zone *);
 static void free_page (struct page_entry *);
 static void release_pages (struct alloc_zone *);
 static void sweep_pages (struct alloc_zone *);
-static void * ggc_alloc_zone_1 (size_t, struct alloc_zone *, short);
+static void * ggc_alloc_zone_1 (size_t, struct alloc_zone *, short MEM_STAT_DECL);
 static bool ggc_collect_1 (struct alloc_zone *, bool);
 static void check_cookies (void);
 
@@ -569,7 +569,8 @@ free_chunk (struct alloc_chunk *chunk, size_t size, struct alloc_zone *zone)
 /* Allocate a chunk of memory of SIZE bytes.  */
 
 static void *
-ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
+ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type
+		  MEM_STAT_DECL)
 {
   size_t bin = 0;
   size_t lsize = 0;
@@ -659,7 +660,12 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
       lchunk->size = lsize;
       lchunk->large = 0;
       free_chunk (lchunk, lsize, zone);
+      lsize = 0;
     }
+#ifdef GATHER_STATISTICS
+  ggc_record_overhead (size, lsize PASS_MEM_STAT);
+#endif
+
   /* Calculate the object's address.  */
  found:
 #ifdef COOKIE_CHECKING
@@ -701,38 +707,39 @@ ggc_alloc_zone_1 (size_t size, struct alloc_zone *zone, short type)
    for that type.  */
 
 void *
-ggc_alloc_typed (enum gt_types_enum gte, size_t size)
+ggc_alloc_typed_stat (enum gt_types_enum gte, size_t size
+		      MEM_STAT_DECL)
 {
   switch (gte)
     {
     case gt_ggc_e_14lang_tree_node:
-      return ggc_alloc_zone_1 (size, tree_zone, gte);
+      return ggc_alloc_zone_1 (size, tree_zone, gte PASS_MEM_STAT);
 
     case gt_ggc_e_7rtx_def:
-      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+      return ggc_alloc_zone_1 (size, rtl_zone, gte PASS_MEM_STAT);
 
     case gt_ggc_e_9rtvec_def:
-      return ggc_alloc_zone_1 (size, rtl_zone, gte);
+      return ggc_alloc_zone_1 (size, rtl_zone, gte PASS_MEM_STAT);
 
     default:
-      return ggc_alloc_zone_1 (size, &main_zone, gte);
+      return ggc_alloc_zone_1 (size, &main_zone, gte PASS_MEM_STAT);
     }
 }
 
 /* Normal ggc_alloc simply allocates into the main zone.  */
 
 void *
-ggc_alloc (size_t size)
+ggc_alloc_stat (size_t size MEM_STAT_DECL)
 {
-  return ggc_alloc_zone_1 (size, &main_zone, -1);
+  return ggc_alloc_zone_1 (size, &main_zone, -1 PASS_MEM_STAT);
 }
 
 /* Zone allocation allocates into the specified zone.  */
 
 void *
-ggc_alloc_zone (size_t size, struct alloc_zone *zone)
+ggc_alloc_zone_stat (size_t size, struct alloc_zone *zone MEM_STAT_DECL)
 {
-  return ggc_alloc_zone_1 (size, zone, -1);
+  return ggc_alloc_zone_1 (size, zone, -1 PASS_MEM_STAT);
 }
 
 /* Poison the chunk.  */
@@ -754,10 +761,6 @@ ggc_free (void *p)
   
   /* Poison the chunk.  */
   poison_chunk (chunk, ggc_get_size (p));
-
-  /* XXX: We only deal with explicitly freeing large objects ATM.  */
-  if (chunk->large)
-    free (p);
 }
 
 /* If P is not marked, mark it and return false.  Otherwise return true.
@@ -983,13 +986,14 @@ sweep_pages (struct alloc_zone *zone)
 	  if (((struct alloc_chunk *)p->page)->mark == 1)
 	    {
 	      ((struct alloc_chunk *)p->page)->mark = 0;
+	      pp = &p->next;
 	    }
 	  else
 	    {
 	      *pp = next;
 #ifdef ENABLE_GC_CHECKING
-	  /* Poison the page.  */
-	  memset (p->page, 0xb5, p->bytes);
+	      /* Poison the page.  */
+	      memset (p->page, 0xb5, p->bytes);
 #endif
 	      free_page (p);
 	    }
@@ -1293,7 +1297,7 @@ struct ggc_pch_data
   size_t written;
 };
 
-/* Initialize the PCH datastructure.  */
+/* Initialize the PCH data structure.  */
 
 struct ggc_pch_data *
 init_ggc_pch (void)
@@ -1386,9 +1390,6 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 	 fatal_error ("can't write PCH file: %m");
        d->written += size;
      }
-  if (d->written == d->d.total
-      && fseek (f, ROUND_UP_VALUE (d->d.total, G.pagesize), SEEK_CUR) != 0)
-    fatal_error ("can't write PCH file: %m");
 }
 
 void

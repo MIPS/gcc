@@ -45,10 +45,11 @@ extern const char *output_logical_op (enum machine_mode, rtx *);
 extern unsigned int compute_logical_op_length (enum machine_mode,
 					       rtx *);
 extern int compute_logical_op_cc (enum machine_mode, rtx *);
-extern void expand_a_shift (enum machine_mode, int, rtx[]);
+extern void h8300_expand_branch (enum rtx_code, rtx);
+extern bool expand_a_shift (enum machine_mode, int, rtx[]);
 extern int h8300_shift_needs_scratch_p (int, enum machine_mode);
-extern int expand_a_rotate (enum rtx_code, rtx[]);
-extern int fix_bit_operand (rtx *, int, enum rtx_code);
+extern int expand_a_rotate (rtx[]);
+extern int fix_bit_operand (rtx *, enum rtx_code);
 extern int h8300_adjust_insn_length (rtx, int);
 extern void split_adds_subs (enum machine_mode, rtx[]);
 
@@ -82,7 +83,7 @@ extern int same_cmp_preceding_p (rtx);
 extern int same_cmp_following_p (rtx);
 
 extern int h8300_legitimate_constant_p (rtx);
-extern int h8300_legitimate_address_p (rtx, int);
+extern int h8300_legitimate_address_p (enum machine_mode, rtx, int);
 
 /* Used in builtins.c */
 extern rtx h8300_return_addr_rtx (int, rtx);
@@ -104,9 +105,20 @@ extern int h8300_current_function_interrupt_function_p (void);
 extern int h8300_initial_elimination_offset (int, int);
 extern int h8300_regs_ok_for_stm (int, rtx[]);
 extern int h8300_hard_regno_rename_ok (unsigned int, unsigned int);
+extern int h8300_hard_regno_nregs (int, enum machine_mode);
+extern int h8300_hard_regno_mode_ok (int, enum machine_mode);
 
 struct cpp_reader;
 extern void h8300_pr_interrupt (struct cpp_reader *);
 extern void h8300_pr_saveall (struct cpp_reader *);
+extern enum reg_class  h8300_reg_class_from_letter (int);
+extern rtx             h8300_get_index (rtx, enum machine_mode mode, int *);
+extern unsigned int    h8300_insn_length_from_table (rtx, rtx *);
+extern const char *    output_h8sx_shift (rtx *, int, int);
+extern bool            h8300_operands_match_p (rtx *);
+extern bool            h8sx_mergeable_memrefs_p (rtx, rtx);
+extern bool            h8sx_emit_movmd (rtx, rtx, rtx, HOST_WIDE_INT);
+extern void            h8300_swap_into_er6 (rtx);
+extern void            h8300_swap_out_of_er6 (rtx);
 
 #endif /* ! GCC_H8300_PROTOS_H */

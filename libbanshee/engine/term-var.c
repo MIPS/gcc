@@ -48,7 +48,7 @@ struct term_var
   int type;
   stamp st;
   gen_e_list pending;
-  char *name;
+  const char *name;
   tv_elt elt;
 };
 
@@ -89,7 +89,7 @@ static term_var tv_get_v_ecr(term_var v)
   return ecr;
 }
 
-char *tv_get_name(term_var v)
+const char *tv_get_name(term_var v)
 {
   return tv_get_v_ecr(v)->name;
 }

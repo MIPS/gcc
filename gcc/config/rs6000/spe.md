@@ -1,5 +1,5 @@
 ;; e500 SPE description
-;; Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+;; Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
 ;; This file is part of GCC.
@@ -76,25 +76,18 @@
   "efsdiv %0,%1,%2"
   [(set_attr "type" "vecfdiv")])
 
-(define_insn "spe_efsctuiz"
+(define_insn "spe_fixuns_truncsfsi2"
   [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
-        (unspec:SI [(match_operand:SF 1 "gpc_reg_operand" "r")] 700))]
+	(unsigned_fix:SI (match_operand:SF 1 "gpc_reg_operand" "r")))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS"
   "efsctuiz %0,%1"
-  [(set_attr "type" "fp")])
-
-(define_insn "spe_fixunssfsi2"
-  [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
-	(unsigned_fix:SI (fix:SF (match_operand:SF 1 "gpc_reg_operand" "r"))))]
-  "TARGET_HARD_FLOAT && !TARGET_FPRS"
-  "efsctui %0,%1"
   [(set_attr "type" "fp")])
 
 (define_insn "spe_fix_truncsfsi2"
   [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
 	(fix:SI (match_operand:SF 1 "gpc_reg_operand" "r")))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS"
-  "efsctsi %0,%1"
+  "efsctsiz %0,%1"
   [(set_attr "type" "fp")])
 
 (define_insn "spe_floatunssisf2"
@@ -450,7 +443,7 @@
   [(set_attr "type" "vecsimple")
    (set_attr  "length" "4")])
 
-(define_insn "spe_evneg"
+(define_insn "negv2si2"
   [(set (match_operand:V2SI 0 "gpc_reg_operand" "=r")
         (neg:V2SI (match_operand:V2SI 1 "gpc_reg_operand" "r")))]
   "TARGET_SPE"
@@ -2165,7 +2158,9 @@
 (define_insn "*movv2si_internal"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=m,r,r,r")
 	(match_operand:V2SI 1 "input_operand" "r,m,r,W"))]
-  "TARGET_SPE"
+  "TARGET_SPE
+   && (gpc_reg_operand (operands[0], V2SImode)
+       || gpc_reg_operand (operands[1], V2SImode))"
   "*
 {
   switch (which_alternative)
@@ -2197,7 +2192,9 @@
 (define_insn "*movv1di_internal"
   [(set (match_operand:V1DI 0 "nonimmediate_operand" "=m,r,r,r")
 	(match_operand:V1DI 1 "input_operand" "r,m,r,W"))]
-  "TARGET_SPE"
+  "TARGET_SPE
+   && (gpc_reg_operand (operands[0], V1DImode)
+       || gpc_reg_operand (operands[1], V1DImode))"
   "@
    evstdd%X0 %1,%y0
    evldd%X1 %0,%y1
@@ -2215,7 +2212,9 @@
 (define_insn "*movv4hi_internal"
   [(set (match_operand:V4HI 0 "nonimmediate_operand" "=m,r,r")
 	(match_operand:V4HI 1 "input_operand" "r,m,r"))]
-  "TARGET_SPE"
+  "TARGET_SPE
+   && (gpc_reg_operand (operands[0], V4HImode)
+       || gpc_reg_operand (operands[1], V4HImode))"
   "@
    evstdd%X0 %1,%y0
    evldd%X1 %0,%y1
@@ -2231,7 +2230,9 @@
 (define_insn "*movv2sf_internal"
   [(set (match_operand:V2SF 0 "nonimmediate_operand" "=m,r,r,r")
 	(match_operand:V2SF 1 "input_operand" "r,m,r,W"))]
-  "TARGET_SPE"
+  "TARGET_SPE
+   && (gpc_reg_operand (operands[0], V2SFmode)
+       || gpc_reg_operand (operands[1], V2SFmode))"
   "@
    evstdd%X0 %1,%y0
    evldd%X1 %0,%y1
@@ -2239,6 +2240,8 @@
    evxor %0,%0,%0"
   [(set_attr "type" "vecload,vecstore,*,*")
    (set_attr "length" "*,*,*,*")])
+
+;; End of vector move instructions.
 
 (define_insn "spe_evmwhssfaa"
   [(set (match_operand:V2SI 0 "gpc_reg_operand" "=r")
@@ -2452,55 +2455,80 @@
   "mfspefscr %0"
   [(set_attr "type" "vecsimple")])
 
+;; FP comparison stuff.
+
+;; Flip the GT bit.
+(define_insn "e500_flip_eq_bit"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(match_operand:CCFP 1 "cc_reg_operand" "y")] 999))]
+  "!TARGET_FPRS && TARGET_HARD_FLOAT"
+  "*
+{
+  return output_e500_flip_eq_bit (operands[0], operands[1]);
+}"
+  [(set_attr "type" "cr_logical")])
+
 ;; MPC8540 single-precision FP instructions on GPRs.
 ;; We have 2 variants for each.  One for IEEE compliant math and one
 ;; for non IEEE compliant math.
 
 (define_insn "cmpsfeq_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(eq:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1000))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmpeq %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsfeq_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(eq:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1001))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststeq %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
 (define_insn "cmpsfgt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(gt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1002))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmpgt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsfgt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(gt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1003))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststgt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
 (define_insn "cmpsflt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(lt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1004))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmplt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsflt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(lt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1005))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststlt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
-

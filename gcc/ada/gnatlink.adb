@@ -42,6 +42,7 @@ with Ada.Command_Line;     use Ada.Command_Line;
 with Ada.Exceptions;       use Ada.Exceptions;
 with GNAT.OS_Lib;          use GNAT.OS_Lib;
 with Interfaces.C_Streams; use Interfaces.C_Streams;
+with Interfaces.C.Strings; use Interfaces.C.Strings;
 with System.CRTL;
 
 procedure Gnatlink is
@@ -121,8 +122,6 @@ procedure Gnatlink is
    --  This table collects the arguments to be passed to compile the binder
    --  generated file.
 
-   subtype chars_ptr is System.Address;
-
    Gcc : String_Access := Program_Name ("gcc");
 
    Read_Mode  : constant String := "r" & ASCII.Nul;
@@ -159,7 +158,8 @@ procedure Gnatlink is
    --  Set to False if bind file is not to be compiled
 
    Object_List_File_Supported : Boolean;
-   pragma Import (C, Object_List_File_Supported, "objlist_file_supported");
+   pragma Import
+     (C, Object_List_File_Supported, "__gnat_objlist_file_supported");
    --  Predicate indicating whether the linker has an option whereby the
    --  names of object files can be passed to the linker in a file.
 
@@ -183,9 +183,6 @@ procedure Gnatlink is
 
    procedure Process_Binder_File (Name : in String);
    --  Reads the binder file and extracts linker arguments.
-
-   function Value (chars : chars_ptr) return String;
-   --  Return NUL-terminated string chars as an Ada string.
 
    procedure Write_Header;
    --  Show user the program name, version and copyright.
@@ -591,7 +588,7 @@ procedure Gnatlink is
       --  Projected number of bytes for the linker command line
 
       Link_Max : Integer;
-      pragma Import (C, Link_Max, "link_max");
+      pragma Import (C, Link_Max, "__gnat_link_max");
       --  Maximum number of bytes on the command line supported by the OS
       --  linker. Passed this limit the response file mechanism must be used
       --  if supported.
@@ -652,24 +649,25 @@ procedure Gnatlink is
       RB_Nlast     : Integer;             -- Slice last index
       RB_Nfirst    : Integer;             -- Slice first index
 
-      Run_Path_Option_Ptr : Address;
-      pragma Import (C, Run_Path_Option_Ptr, "run_path_option");
+      Run_Path_Option_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import (C, Run_Path_Option_Ptr, "__gnat_run_path_option");
       --  Pointer to string representing the native linker option which
       --  specifies the path where the dynamic loader should find shared
       --  libraries. Equal to null string if this system doesn't support it.
 
-      Object_Library_Ext_Ptr : Address;
-      pragma Import (C, Object_Library_Ext_Ptr, "object_library_extension");
+      Object_Library_Ext_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import
+        (C, Object_Library_Ext_Ptr, "__gnat_object_library_extension");
       --  Pointer to string specifying the default extension for
       --  object libraries, e.g. Unix uses ".a", VMS uses ".olb".
 
-      Object_File_Option_Ptr : Address;
-      pragma Import (C, Object_File_Option_Ptr, "object_file_option");
+      Object_File_Option_Ptr : Interfaces.C.Strings.chars_ptr;
+      pragma Import (C, Object_File_Option_Ptr, "__gnat_object_file_option");
       --  Pointer to a string representing the linker option which specifies
       --  the response file.
 
       Using_GNU_Linker : Boolean;
-      pragma Import (C, Using_GNU_Linker, "using_gnu_linker");
+      pragma Import (C, Using_GNU_Linker, "__gnat_using_gnu_linker");
       --  Predicate indicating whether this target uses the GNU linker. In
       --  this case we must output a GNU linker compatible response file.
 
@@ -988,7 +986,13 @@ procedure Gnatlink is
             --  Add binder options only if not already set on the command
             --  line. This rule is a way to control the linker options order.
 
-            elsif not Is_Option_Present (Next_Line (Nfirst .. Nlast)) then
+            --  The following test needs comments, why is it VMS specific.
+            --  The above comment looks out of date ???
+
+            elsif not (Hostparm.OpenVMS
+                         and then
+                       Is_Option_Present (Next_Line (Nfirst .. Nlast)))
+            then
                if Nlast > Nfirst + 2 and then
                  Next_Line (Nfirst .. Nfirst + 1) = "-L"
                then
@@ -1241,31 +1245,6 @@ procedure Gnatlink is
       Status := fclose (Fd);
    end Process_Binder_File;
 
-   -----------
-   -- Value --
-   -----------
-
-   function Value (chars : chars_ptr) return String is
-      function Strlen (chars : chars_ptr) return Natural;
-      pragma Import (C, Strlen);
-
-   begin
-      if chars = Null_Address then
-         return "";
-
-      else
-         declare
-            subtype Result_Type is String (1 .. Strlen (chars));
-
-            Result : Result_Type;
-            for Result'Address use chars;
-
-         begin
-            return Result;
-         end;
-      end if;
-   end Value;
-
    ------------------
    -- Write_Header --
    ------------------
@@ -1318,6 +1297,38 @@ procedure Gnatlink is
 --  Start of processing for Gnatlink
 
 begin
+   --  Add the directory where gnatlink is invoked in front of the
+   --  path, if gnatlink is invoked with directory information.
+   --  Only do this if the platform is not VMS, where the notion of path
+   --  does not really exist.
+
+   if not Hostparm.OpenVMS then
+      declare
+         Command : constant String := Command_Name;
+
+      begin
+         for Index in reverse Command'Range loop
+            if Command (Index) = Directory_Separator then
+               declare
+                  Absolute_Dir : constant String :=
+                                   Normalize_Pathname
+                                     (Command (Command'First .. Index));
+
+                  PATH         : constant String :=
+                                   Absolute_Dir &
+                  Path_Separator &
+                  Getenv ("PATH").all;
+
+               begin
+                  Setenv ("PATH", PATH);
+               end;
+
+               exit;
+            end if;
+         end loop;
+      end;
+   end if;
+
    Process_Args;
 
    if Argument_Count = 0
@@ -1427,12 +1438,16 @@ begin
                        Units.Table (ALIs.Table (A).First_Unit).Last_Arg
             loop
                --  Do not compile with the front end switches except for --RTS
+               --  if the binder generated file is in Ada.
 
                declare
                   Arg : String_Ptr renames Args.Table (Index);
                begin
                   if not Is_Front_End_Switch (Arg.all)
-                    or else Arg (Arg'First + 2 .. Arg'First + 5) = "RTS="
+                    or else
+                      (Ada_Bind_File
+                        and then Arg'Length > 5
+                        and then Arg (Arg'First + 2 .. Arg'First + 5) = "RTS=")
                   then
                      Binder_Options_From_ALI.Increment_Last;
                      Binder_Options_From_ALI.Table

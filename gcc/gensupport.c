@@ -58,6 +58,9 @@ struct queue_elem
   const char *filename;
   int lineno;
   struct queue_elem *next;
+  /* In a DEFINE_INSN that came from a DEFINE_INSN_AND_SPLIT, SPLIT
+     points to the generated DEFINE_SPLIT.  */
+  struct queue_elem *split;
 };
 
 static struct queue_elem *define_attr_queue;
@@ -69,8 +72,8 @@ static struct queue_elem **define_cond_exec_tail = &define_cond_exec_queue;
 static struct queue_elem *other_queue;
 static struct queue_elem **other_tail = &other_queue;
 
-static void queue_pattern (rtx, struct queue_elem ***,
-			   const char *, int);
+static struct queue_elem *queue_pattern (rtx, struct queue_elem ***,
+					 const char *, int);
 
 /* Current maximum length of directory names in the search path
    for include files.  (Altered as we get more of them.)  */
@@ -125,7 +128,7 @@ message_with_line (int lineno, const char *msg, ...)
    the gensupport programs.  */
 
 rtx
-gen_rtx_CONST_INT (enum machine_mode mode ATTRIBUTE_UNUSED,
+gen_rtx_CONST_INT (enum machine_mode ARG_UNUSED (mode),
 		   HOST_WIDE_INT arg)
 {
   rtx rt = rtx_alloc (CONST_INT);
@@ -134,19 +137,22 @@ gen_rtx_CONST_INT (enum machine_mode mode ATTRIBUTE_UNUSED,
   return rt;
 }
 
-/* Queue PATTERN on LIST_TAIL.  */
+/* Queue PATTERN on LIST_TAIL.  Return the address of the new queue
+   element.  */
 
-static void
+static struct queue_elem *
 queue_pattern (rtx pattern, struct queue_elem ***list_tail,
 	       const char *filename, int lineno)
 {
-  struct queue_elem *e = xmalloc (sizeof (*e));
+  struct queue_elem *e = XNEW(struct queue_elem);
   e->data = pattern;
   e->filename = filename;
   e->lineno = lineno;
   e->next = NULL;
+  e->split = NULL;
   **list_tail = e;
   *list_tail = &e->next;
+  return e;
 }
 
 /* Recursively remove constraints from an rtx.  */
@@ -288,6 +294,8 @@ process_rtx (rtx desc, int lineno)
 	rtx split;
 	rtvec attr;
 	int i;
+	struct queue_elem *insn_elem;
+	struct queue_elem *split_elem;
 
 	/* Create a split with values from the insn_and_split.  */
 	split = rtx_alloc (DEFINE_SPLIT);
@@ -315,8 +323,12 @@ process_rtx (rtx desc, int lineno)
 	XVEC (desc, 4) = attr;
 
 	/* Queue them.  */
-	queue_pattern (desc, &define_insn_tail, read_rtx_filename, lineno);
-	queue_pattern (split, &other_tail, read_rtx_filename, lineno);
+	insn_elem
+	  = queue_pattern (desc, &define_insn_tail, read_rtx_filename, 
+			   lineno);
+	split_elem
+	  = queue_pattern (split, &other_tail, read_rtx_filename, lineno);
+	insn_elem->split = split_elem;
 	break;
       }
 
@@ -517,7 +529,6 @@ collect_insn_data (rtx pattern, int *palt, int *pmax)
     case MATCH_OPERATOR:
     case MATCH_SCRATCH:
     case MATCH_PARALLEL:
-    case MATCH_INSN:
       i = XINT (pattern, 0);
       if (i > *pmax)
 	*pmax = i;
@@ -583,7 +594,7 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
 	  {
 	    size_t c_len = strlen (c);
 	    size_t len = alt * (c_len + 1);
-	    char *new_c = xmalloc (len);
+	    char *new_c = XNEWVEC(char, len);
 
 	    memcpy (new_c, c, c_len);
 	    for (i = 1; i < alt; ++i)
@@ -600,7 +611,6 @@ alter_predicate_for_insn (rtx pattern, int alt, int max_op, int lineno)
     case MATCH_OPERATOR:
     case MATCH_SCRATCH:
     case MATCH_PARALLEL:
-    case MATCH_INSN:
       XINT (pattern, 0) += max_op;
       break;
 
@@ -660,32 +670,32 @@ alter_test_for_insn (struct queue_elem *ce_elem,
   return concat ("(", ce_test, ") && (", insn_test, ")", NULL);
 }
 
-/* Adjust all of the operand numbers in OLD to match the shift they'll
+/* Adjust all of the operand numbers in SRC to match the shift they'll
    get from an operand displacement of DISP.  Return a pointer after the
    adjusted string.  */
 
 static char *
-shift_output_template (char *new, const char *old, int disp)
+shift_output_template (char *dest, const char *src, int disp)
 {
-  while (*old)
+  while (*src)
     {
-      char c = *old++;
-      *new++ = c;
+      char c = *src++;
+      *dest++ = c;
       if (c == '%')
 	{
-	  c = *old++;
+	  c = *src++;
 	  if (ISDIGIT ((unsigned char) c))
 	    c += disp;
 	  else if (ISALPHA (c))
 	    {
-	      *new++ = c;
-	      c = *old++ + disp;
+	      *dest++ = c;
+	      c = *src++ + disp;
 	    }
-	  *new++ = c;
+	  *dest++ = c;
 	}
     }
 
-  return new;
+  return dest;
 }
 
 static const char *
@@ -694,7 +704,7 @@ alter_output_for_insn (struct queue_elem *ce_elem,
 		       int alt, int max_op)
 {
   const char *ce_out, *insn_out;
-  char *new, *p;
+  char *result, *p;
   size_t len, ce_len, insn_len;
 
   /* ??? Could coordinate with genoutput to not duplicate code here.  */
@@ -714,7 +724,7 @@ alter_output_for_insn (struct queue_elem *ce_elem,
   if (*insn_out == '@')
     {
       len = (ce_len + 1) * alt + insn_len + 1;
-      p = new = xmalloc (len);
+      p = result = XNEWVEC(char, len);
 
       do
 	{
@@ -738,14 +748,14 @@ alter_output_for_insn (struct queue_elem *ce_elem,
   else
     {
       len = ce_len + 1 + insn_len + 1;
-      new = xmalloc (len);
+      result = XNEWVEC (char, len);
 
-      p = shift_output_template (new, ce_out, max_op);
+      p = shift_output_template (result, ce_out, max_op);
       *p++ = ' ';
       memcpy (p, insn_out, insn_len + 1);
     }
 
-  return new;
+  return result;
 }
 
 /* Replicate insns as appropriate for the given DEFINE_COND_EXEC.  */
@@ -757,7 +767,8 @@ process_one_cond_exec (struct queue_elem *ce_elem)
   for (insn_elem = define_insn_queue; insn_elem ; insn_elem = insn_elem->next)
     {
       int alternatives, max_operand;
-      rtx pred, insn, pattern;
+      rtx pred, insn, pattern, split;
+      int i;
 
       if (! is_predicable (insn_elem))
 	continue;
@@ -820,6 +831,40 @@ process_one_cond_exec (struct queue_elem *ce_elem)
 
       queue_pattern (insn, &other_tail, insn_elem->filename,
 		     insn_elem->lineno);
+
+      if (!insn_elem->split)
+	continue;
+
+      /* If the original insn came from a define_insn_and_split,
+	 generate a new split to handle the predicated insn.  */
+      split = copy_rtx (insn_elem->split->data);
+      /* Predicate the pattern matched by the split.  */
+      pattern = rtx_alloc (COND_EXEC);
+      XEXP (pattern, 0) = pred;
+      if (XVECLEN (split, 0) == 1)
+	{
+	  XEXP (pattern, 1) = XVECEXP (split, 0, 0);
+	  XVECEXP (split, 0, 0) = pattern;
+	  PUT_NUM_ELEM (XVEC (split, 0), 1);
+	}
+      else
+	{
+	  XEXP (pattern, 1) = rtx_alloc (PARALLEL);
+	  XVEC (XEXP (pattern, 1), 0) = XVEC (split, 0);
+	  XVEC (split, 0) = rtvec_alloc (1);
+	  XVECEXP (split, 0, 0) = pattern;
+	}
+      /* Predicate all of the insns generated by the split.  */
+      for (i = 0; i < XVECLEN (split, 2); i++)
+	{
+	  pattern = rtx_alloc (COND_EXEC);
+	  XEXP (pattern, 0) = pred;
+	  XEXP (pattern, 1) = XVECEXP (split, 2, i);
+	  XVECEXP (split, 2, i) = pattern;
+	}
+      /* Add the new split to the queue.  */
+      queue_pattern (split, &other_tail, read_rtx_filename, 
+		     insn_elem->split->lineno);
     }
 }
 
@@ -842,7 +887,7 @@ process_define_cond_exec (void)
 static char *
 save_string (const char *s, int len)
 {
-  char *result = xmalloc (len + 1);
+  char *result = XNEWVEC (char, len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;
@@ -876,7 +921,7 @@ init_md_reader_args (int argc, char **argv)
 	      {
 		struct file_name_list *dirtmp;
 
-		dirtmp = xmalloc (sizeof (struct file_name_list));
+		dirtmp = XNEW (struct file_name_list);
 		dirtmp->next = 0;	/* New one goes on the end */
 		if (first_dir_md_include == 0)
 		  first_dir_md_include = dirtmp;
@@ -1077,7 +1122,7 @@ maybe_eval_c_test (const char *expr)
     return -1;
 
   dummy.expr = expr;
-  test = htab_find (condition_table, &dummy);
+  test = (const struct c_test *)htab_find (condition_table, &dummy);
   if (!test)
     abort ();
 

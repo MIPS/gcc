@@ -1,5 +1,6 @@
 /* Routines for GCC for ARM/pe.
-   Copyright (C) 1995, 1996, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
 
    This file is part of GCC.
@@ -213,8 +214,7 @@ arm_pe_encode_section_info (decl, rtl, first)
      int first ATTRIBUTE_UNUSED;
 {
   /* This bit is copied from arm_encode_section_info.  */
-  if (optimize > 0 && TREE_CONSTANT (decl)
-      && (!flag_writable_strings || TREE_CODE (decl) != STRING_CST))
+  if (optimize > 0 && TREE_CONSTANT (decl))
     SYMBOL_REF_FLAG (XEXP (rtl, 0)) = 1;
 
   /* Mark the decl so we can tell from the rtl whether the object is

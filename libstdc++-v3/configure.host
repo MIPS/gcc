@@ -17,8 +17,8 @@
 # It sets the following shell variables:
 #
 #   cpu_include_dir        CPU-specific directory, defaults to cpu/generic
-#                          if cpu/host_cpu doesn't exist.  This is
-#                          used to set atomicity_include_dir.
+#                          if cpu/host_cpu doesn't exist.  This is not used
+#                          directly, but sets the default for others.
 #
 #   os_include_dir         OS-specific directory, defaults to os/generic.
 #
@@ -30,8 +30,14 @@
 #   abi_baseline_pair      directory name for ABI compat testing,
 #                          defaults to host_cpu-host_os (as per config.guess)
 #
-#   atomicity_include_dir  location of atomicity.h,
+#   abi_tweaks_dir         location of cxxabi_tweaks.h,
 #                          defaults to cpu_include_dir
+#
+#   atomicity_dir          location of atomicity.h,
+#                          defaults to cpu_include_dir
+#
+#   atomic_word_dir        location of atomic_word.h
+#                          defaults to generic.
 #
 # It possibly modifies the following variables:
 #
@@ -57,6 +63,7 @@
 # systems out there.  :-)
 c_model=c_std
 c_compatibility=no
+atomic_word_dir=cpu/generic
 
 # HOST-SPECIFIC OVERRIDES
 # Set any CPU-dependent bits.
@@ -67,6 +74,9 @@ c_compatibility=no
 case "${host_cpu}" in
   alpha*)
     try_cpu=alpha
+    ;;
+  arm* | xscale | ep9312)
+    try_cpu=arm
     ;;
   i[567]86 | x86_64)
     try_cpu=i486
@@ -94,7 +104,7 @@ case "${host_cpu}" in
     try_cpu=sparc
     ;;
   *)
-    if test -f ${glibcxx_srcdir}/config/cpu/${host_cpu}/atomicity.h; then
+    if test -d ${glibcxx_srcdir}/config/cpu/${host_cpu}; then
       try_cpu=${host_cpu}
     else
       try_cpu=generic
@@ -102,13 +112,35 @@ case "${host_cpu}" in
     ;;
 esac
 
+# Set specific CPU overrides for atomic_word_dir. Most can just use generic.
+# THIS TABLE IS SORTED.  KEEP IT THAT WAY.
+case "${host_cpu}" in
+  cris*)
+    atomic_word_dir=cpu/cris
+    ;;
+  sparc* | ultrasparc)
+    atomic_word_dir=cpu/sparc
+    ;;
+esac
+
 # Now look for the file(s) usually tied to a CPU model, and make
 # default choices for those if they haven't been explicitly set
 # already.  
-cpu_include_dir="cpu/${try_cpu}"
-atomicity_include_dir=$cpu_include_dir
+cpu_include_dir=cpu/${try_cpu}
 abi_baseline_pair=${try_cpu}-${host_os}
+unset try_cpu
 
+if test -f ${glibcxx_srcdir}/config/${cpu_include_dir}/atomicity.h ; then
+  atomicity_dir=$cpu_include_dir
+else
+  atomicity_dir="cpu/generic"
+fi
+
+if test -f ${glibcxx_srcdir}/config/${cpu_include_dir}/cxxabi_tweaks.h ; then
+  abi_tweaks_dir=$cpu_include_dir
+else
+  abi_tweaks_dir="cpu/generic"
+fi
 
 # Set any OS-dependent bits.
 # Set the os_include_dir.
@@ -122,16 +154,16 @@ case "${host_os}" in
     # os/aix/atomicity.h works on earlier versions of AIX 4.*, so we
     # explicitly duplicate the directory for 4.[<3].
     os_include_dir="os/aix"
-    atomicity_include_dir="os/aix"
+    atomicity_dir="os/aix"
     OPT_LDFLAGS="-Wl,-G"
     ;;
   aix4.*)
     os_include_dir="os/generic"
-    atomicity_include_dir="os/aix"
+    atomicity_dir="os/aix"
     ;;
   aix*)
     os_include_dir="os/generic"
-    atomicity_include_dir="cpu/generic"
+    atomicity_dir="cpu/generic"
     ;;
   bsd*)
     # Plain BSD attempts to share FreeBSD files.
@@ -155,11 +187,13 @@ case "${host_os}" in
   irix[1-6] | irix[1-5].* | irix6.[0-4]*)
     # This is known to work on at least IRIX 5.2 and 6.3.
     os_include_dir="os/irix/irix5.2"
-    atomicity_include_dir=$os_include_dir
+    atomicity_dir=os/irix
+    atomic_word_dir=os/irix
     ;;
   irix6.5*)
     os_include_dir="os/irix/irix6.5"
-    atomicity_include_dir=$os_include_dir
+    atomicity_dir=os/irix
+    atomic_word_dir=os/irix
     ;;
   mingw32*)
     os_include_dir="os/mingw32"
@@ -175,7 +209,7 @@ case "${host_os}" in
     # This too-vague configuration does not provide enough information
     # to select a ctype include, and thus os_include_dir is a crap shoot.
     echo "Please specify the full version of Solaris, ie. solaris2.9 " 1>&2
-    exit 1;
+    exit 1
     ;;
   solaris2.5 | solaris2.5.[0-9])
     os_include_dir="os/solaris/solaris2.5"
@@ -205,7 +239,7 @@ esac
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
 case "${host}" in
   mips*-*-linux*)
-    atomicity_include_dir="cpu/mips"
+    atomicity_dir="cpu/mips"
     ;;
   x86_64-*-linux*)
     abi_baseline_pair="x86_64-linux-gnu"

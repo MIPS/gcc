@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sem_Warn; use Sem_Warn;
 with Sinfo;    use Sinfo;
+with Snames;   use Snames;
 with Stand;    use Stand;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
@@ -216,6 +217,14 @@ package body Exp_Ch2 is
          --  issue that they do not get replaced when they could be).
 
          and then Nkind (Parent (N)) /= N_Pragma_Argument_Association
+
+         --  Same for Asm_Input and Asm_Output attribute references
+
+         and then not (Nkind (Parent (N)) = N_Attribute_Reference
+                         and then
+                           (Attribute_Name (Parent (N)) = Name_Asm_Input
+                              or else
+                            Attribute_Name (Parent (N)) = Name_Asm_Output))
       then
          --  Case of Current_Value is a compile time known value
 
@@ -510,8 +519,9 @@ package body Exp_Ch2 is
       P_Comp_Ref :=
         Make_Selected_Component (Loc,
           Prefix =>
-            Unchecked_Convert_To (Parm_Type,
-              New_Reference_To (Addr_Ent, Loc)),
+            Make_Explicit_Dereference (Loc,
+              Unchecked_Convert_To (Parm_Type,
+                New_Reference_To (Addr_Ent, Loc))),
           Selector_Name =>
             New_Reference_To (Entry_Component (Ent_Formal), Loc));
 
@@ -696,6 +706,9 @@ package body Exp_Ch2 is
    --  For a formal of a task entity, the formal is rewritten as a local
    --  renaming.
 
+   --  In addition, a formal that is marked volatile because it is aliased
+   --  through an address clause is rewritten as dereference as well.
+
    function Param_Entity (N : Node_Id) return Entity_Id is
    begin
       --  Simple reference case
@@ -723,6 +736,9 @@ package body Exp_Ch2 is
                   if Present (Entry_Formal (Entity (S))) then
                      return Entry_Formal (Entity (S));
                   end if;
+
+               elsif Nkind (Original_Node (N)) = N_Identifier then
+                  return Param_Entity (Original_Node (N));
                end if;
             end;
          end if;

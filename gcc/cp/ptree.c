@@ -1,6 +1,6 @@
 /* Prints out trees in human readable form.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -128,14 +128,17 @@ cxx_print_type (FILE *file, tree node, int indent)
 
   if (TREE_CODE (node) == RECORD_TYPE)
     {
-      fprintf (file, " n_parents %d", CLASSTYPE_N_BASECLASSES (node));
+      if (TYPE_BINFO (node))
+	fprintf (file, " n_parents=%d",
+		 BINFO_N_BASE_BINFOS (TYPE_BINFO (node)));
+      else
+	fprintf (file, " no-binfo");
+      
       fprintf (file, " use_template=%d", CLASSTYPE_USE_TEMPLATE (node));
       if (CLASSTYPE_INTERFACE_ONLY (node))
 	fprintf (file, " interface-only");
       if (CLASSTYPE_INTERFACE_UNKNOWN (node))
 	fprintf (file, " interface-unknown");
-      print_node (file, "member-functions", CLASSTYPE_METHOD_VEC (node),
-		  indent + 4);
     }
 }
 
@@ -152,13 +155,10 @@ cxx_print_identifier (FILE *file, tree node, int indent)
 {
   indent_to (file, indent);
   cxx_print_binding (file, IDENTIFIER_NAMESPACE_BINDINGS (node), "bindings");
-  print_node (file, "class", IDENTIFIER_CLASS_VALUE (node), indent + 4);
   indent_to (file, indent);
   cxx_print_binding (file, IDENTIFIER_BINDING (node), "local bindings");
   print_node (file, "label", IDENTIFIER_LABEL_VALUE (node), indent + 4);
   print_node (file, "template", IDENTIFIER_TEMPLATE (node), indent + 4);
-  print_node (file, "implicit", IDENTIFIER_IMPLICIT_DECL (node), indent + 4);
-  print_node (file, "error locus", IDENTIFIER_ERROR_LOCUS (node), indent + 4);
 }
 
 void

@@ -61,7 +61,7 @@
 #ifndef _LIST_TCC
 #define _LIST_TCC 1
 
-namespace __gnu_norm
+namespace _GLIBCXX_STD
 {
   template<typename _Tp, typename _Alloc>
     void
@@ -69,12 +69,12 @@ namespace __gnu_norm
     _M_clear()
     {
       typedef _List_node<_Tp>  _Node;
-      _Node* __cur = static_cast<_Node*>(this->_M_node._M_next);
-      while (__cur != &this->_M_node)
+      _Node* __cur = static_cast<_Node*>(this->_M_impl._M_node._M_next);
+      while (__cur != &this->_M_impl._M_node)
       {
         _Node* __tmp = __cur;
         __cur = static_cast<_Node*>(__cur->_M_next);
-        std::_Destroy(&__tmp->_M_data);
+        this->get_allocator().destroy(&__tmp->_M_data);
         _M_put_node(__tmp);
       }
     }
@@ -237,8 +237,8 @@ namespace __gnu_norm
     sort()
     {
       // Do nothing if the list has length 0 or 1.
-      if (this->_M_node._M_next != &this->_M_node
-	  && this->_M_node._M_next->_M_next != &this->_M_node)
+      if (this->_M_impl._M_node._M_next != &this->_M_impl._M_node
+	  && this->_M_impl._M_node._M_next->_M_next != &this->_M_impl._M_node)
       {
         list __carry;
         list __tmp[64];
@@ -341,8 +341,8 @@ namespace __gnu_norm
       sort(_StrictWeakOrdering __comp)
       {
 	// Do nothing if the list has length 0 or 1.
-	if (this->_M_node._M_next != &this->_M_node
-	    && this->_M_node._M_next->_M_next != &this->_M_node)
+	if (this->_M_impl._M_node._M_next != &this->_M_impl._M_node
+	    && this->_M_impl._M_node._M_next->_M_next != &this->_M_impl._M_node)
 	  {
 	    list __carry;
 	    list __tmp[64];
@@ -371,7 +371,7 @@ namespace __gnu_norm
 	    swap( *(__fill-1) );
 	  }
       }
-} // namespace __gnu_norm
+} // namespace std
 
 #endif /* _LIST_TCC */
 

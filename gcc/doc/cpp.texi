@@ -759,9 +759,11 @@ named @var{file} in a standard list of system directories.  You can prepend
 directories to this list with the @option{-I} option (@pxref{Invocation}).
 
 @item #include "@var{file}"
-This variant is used for header files of your own program.  It searches
-for a file named @var{file} first in the directory containing the
-current file, then in the same directories used for @code{<@var{file}>}.
+This variant is used for header files of your own program.  It
+searches for a file named @var{file} first in the directory containing
+the current file, then in the quote directories and then the same
+directories used for @code{<@var{file}>}.  You can prepend directories
+to the list of quote directories with the @option{-iquote} option.
 @end table
 
 The argument of @samp{#include}, whether delimited with quote marks or
@@ -883,9 +885,10 @@ standard C library facilities, or the standard C library itself.
 @option{-nostdinc} is in effect.
 
 GCC looks for headers requested with @code{@w{#include "@var{file}"}}
-first in the directory containing the current file, then in the same
-places it would have looked for a header requested with angle brackets.
-For example, if @file{/usr/include/sys/stat.h} contains
+first in the directory containing the current file, then in the
+directories as specified by @option{-iquote} options, then in the same
+places it would have looked for a header requested with angle
+brackets.  For example, if @file{/usr/include/sys/stat.h} contains
 @code{@w{#include "types.h"}}, GCC looks for @file{types.h} first in
 @file{/usr/include/sys}, then in its usual search path.
 
@@ -898,7 +901,8 @@ This has two effects.  First, directories appearing before the
 quote marks.  Directories after @option{-I-} are searched for all
 headers.  Second, the directory containing the current file is not
 searched for anything, unless it happens to be one of the directories
-named by an @option{-I} switch.
+named by an @option{-I} switch.  @option{-I-} is deprecated, -iquote
+should be used instead.
 
 @option{-I. -I-} is not the same as no @option{-I} options at all, and does
 not cause the same behavior for @samp{<>} includes that @samp{""}
@@ -1894,7 +1898,8 @@ or a C++ compiler.  This macro is similar to @code{__STDC_VERSION__}, in
 that it expands to a version number.  A fully conforming implementation
 of the 1998 C++ standard will define this macro to @code{199711L}.  The
 GNU C++ compiler is not yet fully conforming, so it uses @code{1}
-instead.  We hope to complete our implementation in the near future.
+instead.  It is hoped to complete the implementation of standard C++
+in the near future.
 
 @item __OBJC__
 This macro is defined, with value 1, when the Objective-C compiler is in
@@ -2538,7 +2543,7 @@ definition.  Recall that all macro definitions are rescanned for more
 macros to replace.  If the self-reference were considered a use of the
 macro, it would produce an infinitely large expansion.  To prevent this,
 the self-reference is not considered a macro call.  It is passed into
-the preprocessor output unchanged.  Let's consider an example:
+the preprocessor output unchanged.  Consider an example:
 
 @smallexample
 #define foo (4 + foo)
@@ -2959,9 +2964,6 @@ rule as the compiler uses to calculate the value of a constant
 expression, and may give different results in some cases.  If the value
 comes out to be nonzero, the @samp{#if} succeeds and the @var{controlled
 text} is included; otherwise it is skipped.
-
-If @var{expression} is not correctly formed, GCC issues an error and
-treats the conditional as having failed.
 
 @node Defined
 @subsection Defined
@@ -3832,10 +3834,10 @@ pragmas.
 
 CPP has a small number of internal limits.  This section lists the
 limits which the C standard requires to be no lower than some minimum,
-and all the others we are aware of.  We intend there to be as few limits
+and all the others known.  It is intended that there should be as few limits
 as possible.  If you encounter an undocumented or inconvenient limit,
-please report that to us as a bug.  (See the section on reporting bugs in
-the GCC manual.)
+please report that as a bug.  @xref{Bugs, , Reporting Bugs, gcc, Using
+the GNU Compiler Collection (GCC)}.
 
 Where we say something is limited @dfn{only by available memory}, that
 means that internal data structures impose no intrinsic limit, and space
@@ -4039,6 +4041,11 @@ they generally represent bugs in the snapshots.
 
 @itemize @bullet
 
+@item -I- deprecated
+
+This option has been deprecated in 3.5.  @option{-iquote} is meant to
+replace the need for this option.
+
 @item Order of evaluation of @samp{#} and @samp{##} operators
 
 The standard does not specify the order of evaluation of a chain of
@@ -4131,7 +4138,8 @@ without notice.
 @ignore
 @c man begin SYNOPSIS
 cpp [@option{-D}@var{macro}[=@var{defn}]@dots{}] [@option{-U}@var{macro}]
-    [@option{-I}@var{dir}@dots{}] [@option{-W}@var{warn}@dots{}]
+    [@option{-I}@var{dir}@dots{}] [@option{-iquote}@var{dir}@dots{}]
+    [@option{-W}@var{warn}@dots{}]
     [@option{-M}|@option{-MM}] [@option{-MG}] [@option{-MF} @var{filename}]
     [@option{-MP}] [@option{-MQ} @var{target}@dots{}]
     [@option{-MT} @var{target}@dots{}]

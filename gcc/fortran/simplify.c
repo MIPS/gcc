@@ -1,23 +1,24 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -562,61 +563,23 @@ gfc_expr *
 gfc_simplify_atan2 (gfc_expr * y, gfc_expr * x)
 {
   gfc_expr *result;
-  mpf_t term;
 
   if (x->expr_type != EXPR_CONSTANT || y->expr_type != EXPR_CONSTANT)
     return NULL;
 
   result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
 
-  mpf_init (term);
 
-  if (mpf_cmp_ui (y->value.real, 0) == 0)
+  if (mpf_sgn (y->value.real) == 0 && mpf_sgn (x->value.real) == 0)
     {
-      if (mpf_cmp_ui (x->value.real, 0) == 0)
-	{
-	  mpf_clear (term);
-	  gfc_error
-	    ("If first argument of ATAN2 %L is zero, the second argument "
-	     "must not be zero", &x->where);
-	  gfc_free_expr (result);
-	  return &gfc_bad_expr;
-	}
-      else if (mpf_cmp_si (x->value.real, 0) < 0)
-	{
-	  mpf_set (result->value.real, pi);
-	  mpf_clear (term);
-	  return result;
-	}
-      else if (mpf_cmp_si (x->value.real, -1) == 0)
-	{
-	  mpf_set_ui (result->value.real, 0);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
+      gfc_error
+	("If first argument of ATAN2 %L is zero, the second argument "
+	  "must not be zero", &x->where);
+      gfc_free_expr (result);
+      return &gfc_bad_expr;
     }
 
-  if (mpf_cmp_ui (x->value.real, 0) == 0)
-    {
-      if (mpf_cmp_si (y->value.real, 0) < 0)
-	{
-	  mpf_neg (term, half_pi);
-	  mpf_set (result->value.real, term);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
-      else if (mpf_cmp_si (y->value.real, 0) > 0)
-	{
-	  mpf_set (result->value.real, half_pi);
-	  mpf_clear (term);
-	  return range_check (result, "ATAN2");
-	}
-    }
-
-  mpf_div (term, y->value.real, x->value.real);
-  arctangent (&term, &result->value.real);
-
-  mpf_clear (term);
+  arctangent2 (&y->value.real, &x->value.real, &result->value.real);
 
   return range_check (result, "ATAN2");
 
@@ -1929,9 +1892,9 @@ gfc_simplify_bound (gfc_expr * array, gfc_expr * dim, int upper)
   
   i = mpz_get_si (dim->value.integer);
   if (upper) 
-    return as->upper[i-1];
+    return gfc_copy_expr (as->upper[i-1]);
   else
-    return as->lower[i-1];
+    return gfc_copy_expr (as->lower[i-1]);
 }
 
 
@@ -2072,8 +2035,8 @@ gfc_simplify_log (gfc_expr * x)
       mpf_init (xr);
       mpf_init (xi);
 
-      mpf_div (xr, x->value.complex.i, x->value.complex.r);
-      arctangent (&xr, &result->value.complex.i);
+      arctangent2 (&x->value.complex.i, &x->value.complex.r,
+	&result->value.complex.i);
 
       mpf_mul (xr, x->value.complex.r, x->value.complex.r);
       mpf_mul (xi, x->value.complex.i, x->value.complex.i);
@@ -2150,9 +2113,11 @@ static gfc_expr *
 simplify_min_max (gfc_expr * expr, int sign)
 {
   gfc_actual_arglist *arg, *last, *extremum;
+  gfc_intrinsic_sym * specific;
 
   last = NULL;
   extremum = NULL;
+  specific = expr->value.function.isym;
 
   arg = expr->value.function.actual;
 
@@ -2203,6 +2168,15 @@ simplify_min_max (gfc_expr * expr, int sign)
   if (expr->value.function.actual->next != NULL)
     return NULL;
 
+  /* Convert to the correct type and kind.  */
+  if (expr->ts.type != BT_UNKNOWN) 
+    return gfc_convert_constant (expr->value.function.actual->expr,
+	expr->ts.type, expr->ts.kind);
+
+  if (specific->ts.type != BT_UNKNOWN) 
+    return gfc_convert_constant (expr->value.function.actual->expr,
+	specific->ts.type, specific->ts.kind); 
+ 
   return gfc_copy_expr (expr->value.function.actual->expr);
 }
 

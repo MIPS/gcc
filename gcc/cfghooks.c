@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "basic-block.h"
+#include "function.h"
 #include "tree-flow.h"
 #include "timevar.h"
 #include "toplev.h"
@@ -223,8 +224,8 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge e;
   char *s_indent;
  
-  s_indent = (char *) alloca ((size_t) indent + 1);
-  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent = alloca ((size_t) indent + 1);
+  memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
   fprintf (outf, ";;%s basic block %d, loop depth %d, count ",
@@ -321,7 +322,7 @@ split_block (basic_block bb, void *i)
       set_immediate_dominator (CDI_DOMINATORS, new_bb, bb);
     }
 
-  return make_edge (bb, new_bb, EDGE_FALLTHRU);
+  return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
 }
 
 /* Splits block BB just after labels.  The newly created edge is returned.  */
@@ -332,7 +333,7 @@ split_block_after_labels (basic_block bb)
   return split_block (bb, NULL);
 }
 
-/* Moves block BB immediatelly after block AFTER.  Returns false if the
+/* Moves block BB immediately after block AFTER.  Returns false if the
    movement was impossible.  */
 
 bool
@@ -385,6 +386,7 @@ split_edge (edge e)
   basic_block ret;
   gcov_type count = e->count;
   int freq = EDGE_FREQUENCY (e);
+  edge f;
 
   if (!cfg_hooks->split_edge)
     internal_error ("%s does not support split_edge.", cfg_hooks->name);
@@ -399,9 +401,33 @@ split_edge (edge e)
     set_immediate_dominator (CDI_DOMINATORS, ret, ret->pred->src);
 
   if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
-    set_immediate_dominator (CDI_DOMINATORS, ret->succ->dest,
-			     recount_dominator (CDI_DOMINATORS,
-						ret->succ->dest));
+    {
+      /* There are two cases:
+
+	 If the immediate dominator of e->dest is not e->src, it
+	 remains unchanged.
+
+	 If immediate dominator of e->dest is e->src, it may become
+	 ret, provided that all other predecessors of e->dest are
+	 dominated by e->dest.  */
+
+      if (get_immediate_dominator (CDI_DOMINATORS, ret->succ->dest)
+	  == ret->pred->src)
+	{
+	  for (f = ret->succ->dest->pred; f; f = f->pred_next)
+	    {
+	      if (f == ret->succ)
+		continue;
+
+	      if (!dominated_by_p (CDI_DOMINATORS, f->src,
+				   ret->succ->dest))
+		break;
+	    }
+
+	  if (!f)
+	    set_immediate_dominator (CDI_DOMINATORS, ret->succ->dest, ret);
+	}
+    };
 
   return ret;
 }
@@ -541,6 +567,9 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	dummy->frequency = 0;
       if (dummy->count < 0)
 	dummy->count = 0;
+      fallthru->count -= e->count;
+      if (fallthru->count < 0)
+	fallthru->count = 0;
 
       jump = redirect_edge_and_branch_force (e, bb);
       if (jump)
@@ -605,9 +634,105 @@ tidy_fallthru_edges (void)
       if ((s = b->succ) != NULL
 	  && ! (s->flags & EDGE_COMPLEX)
 	  && s->succ_next == NULL
-	  && s->dest == c)
+	  && s->dest == c
+	  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
 	tidy_fallthru_edge (s);
     }
+}
+
+/* Returns true if we can duplicate basic block BB.  */
+
+bool
+can_duplicate_block_p (basic_block bb)
+{
+  edge e;
+
+  if (!cfg_hooks->can_duplicate_block_p)
+    internal_error ("%s does not support can_duplicate_block_p.",
+		    cfg_hooks->name);
+
+  if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
+    return false;
+
+  /* Duplicating fallthru block to exit would require adding a jump
+     and splitting the real last BB.  */
+  for (e = bb->succ; e; e = e->succ_next)
+    if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
+       return false;
+
+  return cfg_hooks->can_duplicate_block_p (bb);
+}
+
+/* Duplicates basic block BB and redirects edge E to it.  Returns the
+   new basic block.  */
+
+basic_block
+duplicate_block (basic_block bb, edge e)
+{
+  edge s, n;
+  basic_block new_bb;
+  gcov_type new_count = e ? e->count : 0;
+
+  if (!cfg_hooks->duplicate_block)
+    internal_error ("%s does not support duplicate_block.",
+		    cfg_hooks->name);
+
+  if (bb->count < new_count)
+    new_count = bb->count;
+  if (!bb->pred)
+    abort ();
+#ifdef ENABLE_CHECKING
+  if (!can_duplicate_block_p (bb))
+    abort ();
+#endif
+
+  new_bb = cfg_hooks->duplicate_block (bb);
+
+  new_bb->loop_depth = bb->loop_depth;
+  new_bb->flags = bb->flags;
+  for (s = bb->succ; s; s = s->succ_next)
+    {
+      /* Since we are creating edges from a new block to successors
+	 of another block (which therefore are known to be disjoint), there
+	 is no need to actually check for duplicated edges.  */
+      n = unchecked_make_edge (new_bb, s->dest, s->flags);
+      n->probability = s->probability;
+      if (e && bb->count)
+	{
+	  /* Take care for overflows!  */
+	  n->count = s->count * (new_count * 10000 / bb->count) / 10000;
+	  s->count -= n->count;
+	}
+      else
+	n->count = s->count;
+      n->aux = s->aux;
+    }
+
+  if (e)
+    {
+      new_bb->count = new_count;
+      bb->count -= new_count;
+
+      new_bb->frequency = EDGE_FREQUENCY (e);
+      bb->frequency -= EDGE_FREQUENCY (e);
+
+      redirect_edge_and_branch_force (e, new_bb);
+
+      if (bb->count < 0)
+	bb->count = 0;
+      if (bb->frequency < 0)
+	bb->frequency = 0;
+    }
+  else
+    {
+      new_bb->count = bb->count;
+      new_bb->frequency = bb->frequency;
+    }
+
+  new_bb->rbi->original = bb;
+  bb->rbi->copy = new_bb;
+
+  return new_bb;
 }
 
 /* Return 1 if BB ends with a call, possibly followed by some

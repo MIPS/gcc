@@ -46,17 +46,33 @@ class CharViewBufferImpl extends CharBuffer
   private boolean readOnly;
   private ByteOrder endian;
   
+  CharViewBufferImpl (ByteBuffer bb, int capacity)
+  {
+    super (capacity, capacity, 0, -1);
+    this.bb = bb;
+    this.offset = bb.position();
+    this.readOnly = bb.isReadOnly();
+    this.endian = bb.order();
+  }
+  
   public CharViewBufferImpl (ByteBuffer bb, int offset, int capacity,
 			     int limit, int position, int mark,
 			     boolean readOnly, ByteOrder endian)
   {
-    super (limit >> 1, limit >> 1, position >> 1, mark >> 1);
+    super (capacity, limit, position, mark);
     this.bb = bb;
     this.offset = offset;
     this.readOnly = readOnly;
     this.endian = endian;
   }
 
+  /**
+   * Reads the <code>char</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>char</code>s in this buffer.
+   */
   public char get ()
   {
     int p = position();
@@ -65,6 +81,15 @@ class CharViewBufferImpl extends CharBuffer
     return result;
   }
 
+  /**
+   * Absolute get method. Reads the <code>char</code> at position
+   * <code>index</code>.
+   *
+   * @param index Position to read the <code>char</code> from.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
   public char get (int index)
   {
     return ByteBufferHelper.getChar(bb, (index << 1) + offset, endian);

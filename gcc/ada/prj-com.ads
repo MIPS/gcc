@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 2000-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -56,6 +56,7 @@ package Prj.Com is
 
    type File_Name_Data is record
       Name         : Name_Id := No_Name;
+      Index        : Int     := 0;
       Display_Name : Name_Id := No_Name;
       Path         : Name_Id := No_Name;
       Display_Path : Name_Id := No_Name;
@@ -98,5 +99,22 @@ package Prj.Com is
       Key        => Name_Id,
       Hash       => Hash,
       Equal      => "=");
+   --  Mapping of unit names to indexes in the Units table
+
+   type Unit_Project is record
+      Unit    : Unit_Id    := No_Unit;
+      Project : Project_Id := No_Project;
+   end record;
+
+   No_Unit_Project : constant Unit_Project := (No_Unit, No_Project);
+
+   package Files_Htable is new GNAT.HTable.Simple_HTable
+     (Header_Num => Header_Num,
+      Element    => Unit_Project,
+      No_Element => No_Unit_Project,
+      Key        => Name_Id,
+      Hash       => Hash,
+      Equal      => "=");
+   --  Mapping of file names to indexes in the Units table
 
 end Prj.Com;

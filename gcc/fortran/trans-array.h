@@ -2,22 +2,22 @@
    Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* Generate code to free an array.  */
 tree gfc_array_deallocate (tree);
@@ -73,6 +73,8 @@ void gfc_trans_scalarized_loop_boundary (gfc_loopinfo *, stmtblock_t *);
 void gfc_conv_loop_setup (gfc_loopinfo *);
 /* Resolve array assignment dependencies.  */
 void gfc_conv_resolve_dependencies (gfc_loopinfo *, gfc_ss *, gfc_ss *);
+/* Build an null array descriptor constructor.  */
+tree gfc_build_null_descriptor (tree);
 
 /* Get a single array element.  */
 void gfc_conv_array_ref (gfc_se *, gfc_array_ref *);
@@ -87,8 +89,8 @@ void gfc_conv_expr_descriptor (gfc_se *, gfc_expr *, gfc_ss *);
 void gfc_conv_array_parameter (gfc_se *, gfc_expr *, gfc_ss *, int);
 
 /* These work with both descriptors and descriptorless arrays.  */
-tree gfc_conv_array_base (tree);
 tree gfc_conv_array_data (tree);
+tree gfc_conv_array_offset (tree);
 /* Return either an INT_CST or an expression for that part of the descriptor. */
 tree gfc_conv_array_stride (tree, int);
 tree gfc_conv_array_lbound (tree, int);
@@ -101,7 +103,7 @@ int gfc_can_put_var_on_stack (tree);
 
 /* Build expressions for accessing components of an array descriptor.  */
 tree gfc_conv_descriptor_data (tree);
-tree gfc_conv_descriptor_base (tree);
+tree gfc_conv_descriptor_offset (tree);
 tree gfc_conv_descriptor_dtype (tree);
 tree gfc_conv_descriptor_stride (tree, tree);
 tree gfc_conv_descriptor_lbound (tree, tree);

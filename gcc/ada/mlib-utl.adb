@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---              Copyright (C) 2002-2003, Ada Core Technologies, Inc.        --
+--              Copyright (C) 2002-2004, Ada Core Technologies, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -64,10 +64,9 @@ package body MLib.Utl is
       Success   : Boolean;
 
       Line_Length : Natural := 0;
-      Max_Line_Length : constant := 200; --  arbitrary
 
    begin
-      Initialize;
+      Utl.Initialize;
 
       Arguments :=
         new String_List (1 .. 1 + Ar_Options'Length + Objects'Length);
@@ -82,9 +81,12 @@ package body MLib.Utl is
          Line_Length := Ar_Name'Length;
 
          for J in Arguments'Range loop
+
             --  Make sure the Output buffer does not overflow
 
-            if Line_Length + 1 + Arguments (J)'Length > Max_Line_Length then
+            if Line_Length + 1 + Arguments (J)'Length >
+                 Integer (Opt.Max_Line_Length)
+            then
                Write_Eol;
                Line_Length := 0;
             end if;
@@ -175,7 +177,7 @@ package body MLib.Utl is
 
       Driver  : String_Access;
    begin
-      Initialize;
+      Utl.Initialize;
 
       if Driver_Name = No_Name then
          Driver := Gcc_Exec;

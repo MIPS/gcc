@@ -205,7 +205,7 @@ package body Einfo is
    --    Inner_Instances                 Elist23
    --    Enum_Pos_To_Rep                 Node23
    --    Packed_Array_Type               Node23
-   --    Limited_Views                   Elist23
+   --    Limited_View                    Node23
    --    Privals_Chain                   Elist23
    --    Protected_Operation             Node23
 
@@ -367,6 +367,7 @@ package body Einfo is
    --    Is_VMS_Exception               Flag133
    --    Is_Optional_Parameter          Flag134
    --    Has_Aliased_Components         Flag135
+   --    No_Strict_Aliasing             Flag136
    --    Is_Machine_Code_Subprogram     Flag137
    --    Is_Packed_Array_Type           Flag138
    --    Has_Biased_Representation      Flag139
@@ -418,11 +419,9 @@ package body Einfo is
 
    --    Has_Contiguous_Rep             Flag181
    --    Has_Xref_Entry                 Flag182
+   --    Must_Be_On_Byte_Boundary       Flag183
 
-   --  Remaining flags are currently unused and available
-
-   --    (unused)                       Flag136
-   --    (unused)                       Flag183
+   --   Note: there are no unused flags currently!
 
    --------------------------------
    -- Attribute Access Functions --
@@ -1708,11 +1707,11 @@ package body Einfo is
       return Node20 (Id);
    end Last_Entity;
 
-   function Limited_Views (Id : E) return L is
+   function Limited_View (Id : E) return E is
    begin
       pragma Assert (Ekind (Id) = E_Package);
-      return Elist23 (Id);
-   end Limited_Views;
+      return Node23 (Id);
+   end Limited_View;
 
    function Lit_Indexes (Id : E) return E is
    begin
@@ -1754,6 +1753,12 @@ package body Einfo is
       return Uint17 (Base_Type (Id));
    end Modulus;
 
+   function Must_Be_On_Byte_Boundary (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag183 (Id);
+   end Must_Be_On_Byte_Boundary;
+
    function Needs_Debug_Info (Id : E) return B is
    begin
       return Flag147 (Id);
@@ -1792,6 +1797,12 @@ package body Einfo is
           or else Ekind (Id) = E_Generic_Procedure);
       return Flag113 (Id);
    end No_Return;
+
+   function No_Strict_Aliasing (Id : E) return B is
+   begin
+      pragma Assert (Is_Access_Type (Id));
+      return Flag136 (Base_Type (Id));
+   end No_Strict_Aliasing;
 
    function Non_Binary_Modulus (Id : E) return B is
    begin
@@ -1838,6 +1849,14 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Protected_Body);
       return Node17 (Id);
    end Object_Ref;
+
+   function Original_Access_Type (Id : E) return E is
+   begin
+      pragma Assert
+        (Ekind (Id) = E_Access_Subprogram_Type
+           or else Ekind (Id) = E_Access_Protected_Subprogram_Type);
+      return Node21 (Id);
+   end Original_Access_Type;
 
    function Original_Array_Type (Id : E) return E is
    begin
@@ -3652,11 +3671,11 @@ package body Einfo is
       Set_Node20 (Id, V);
    end Set_Last_Entity;
 
-   procedure Set_Limited_Views (Id : E; V : L) is
+   procedure Set_Limited_View (Id : E; V : E) is
    begin
       pragma Assert (Ekind (Id) = E_Package);
-      Set_Elist23 (Id, V);
-   end Set_Limited_Views;
+      Set_Node23 (Id, V);
+   end Set_Limited_View;
 
    procedure Set_Lit_Indexes (Id : E; V : E) is
    begin
@@ -3698,6 +3717,12 @@ package body Einfo is
       Set_Uint17 (Id, V);
    end Set_Modulus;
 
+   procedure Set_Must_Be_On_Byte_Boundary (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag183 (Id, V);
+   end Set_Must_Be_On_Byte_Boundary;
+
    procedure Set_Needs_Debug_Info (Id : E; V : B := True) is
    begin
       Set_Flag147 (Id, V);
@@ -3734,6 +3759,12 @@ package body Einfo is
         (Ekind (Id) = E_Procedure or else Ekind (Id) = E_Generic_Procedure);
       Set_Flag113 (Id, V);
    end Set_No_Return;
+
+   procedure Set_No_Strict_Aliasing (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Access_Type (Id) and then Base_Type (Id) = Id);
+      Set_Flag136 (Id, V);
+   end Set_No_Strict_Aliasing;
 
    procedure Set_Non_Binary_Modulus (Id : E; V : B := True) is
    begin
@@ -3782,6 +3813,14 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Protected_Body);
       Set_Node17 (Id, V);
    end Set_Object_Ref;
+
+   procedure Set_Original_Access_Type (Id : E; V : E) is
+   begin
+      pragma Assert
+        (Ekind (Id) = E_Access_Subprogram_Type
+           or else Ekind (Id) = E_Access_Protected_Subprogram_Type);
+      Set_Node21 (Id, V);
+   end Set_Original_Access_Type;
 
    procedure Set_Original_Array_Type (Id : E; V : E) is
    begin
@@ -6221,11 +6260,13 @@ package body Einfo is
       W ("Kill_Tag_Checks",               Flag34  (Id));
       W ("Machine_Radix_10",              Flag84  (Id));
       W ("Materialize_Entity",            Flag168 (Id));
+      W ("Must_Be_On_Byte_Boundary",      Flag183 (Id));
       W ("Needs_Debug_Info",              Flag147 (Id));
       W ("Needs_No_Actuals",              Flag22  (Id));
       W ("Never_Set_In_Source",           Flag115 (Id));
       W ("No_Pool_Assigned",              Flag131 (Id));
       W ("No_Return",                     Flag113 (Id));
+      W ("No_Strict_Aliasing",            Flag136 (Id));
       W ("Non_Binary_Modulus",            Flag58  (Id));
       W ("Nonzero_Is_True",               Flag162 (Id));
       W ("Reachable",                     Flag49  (Id));
@@ -6981,6 +7022,10 @@ package body Einfo is
          when Array_Kind                                 |
               Modular_Integer_Kind                       =>
             Write_Str ("Original_Array_Type");
+
+         when E_Access_Subprogram_Type                   |
+              E_Access_Protected_Subprogram_Type         =>
+            Write_Str ("Original_Access_Type");
 
          when others                                     =>
             Write_Str ("Field21??");

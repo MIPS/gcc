@@ -241,24 +241,33 @@ begin
       ------------
 
       --  This pragma must be processed at parse time, since we want to set
-      --  the Ada 83 and Ada 95 switches properly at parse time to recognize
-      --  Ada 83 syntax or Ada 95 syntax as appropriate.
+      --  the Ada version properly at parse time to recognize the appropriate
+      --  Ada version syntax.
 
       when Pragma_Ada_83 =>
-         Ada_83 := True;
-         Ada_95 := False;
+         Ada_Version := Ada_83;
 
       ------------
       -- Ada_95 --
       ------------
 
       --  This pragma must be processed at parse time, since we want to set
-      --  the Ada 83 and Ada_95 switches properly at parse time to recognize
-      --  Ada 83 syntax or Ada 95 syntax as appropriate.
+      --  the Ada version properly at parse time to recognize the appropriate
+      --  Ada version syntax.
 
       when Pragma_Ada_95 =>
-         Ada_83 := False;
-         Ada_95 := True;
+         Ada_Version := Ada_95;
+
+      ------------
+      -- Ada_05 --
+      ------------
+
+      --  This pragma must be processed at parse time, since we want to set
+      --  the Ada version properly at parse time to recognize the appropriate
+      --  Ada version syntax.
+
+      when Pragma_Ada_05 =>
+         Ada_Version := Ada_05;
 
       -----------
       -- Debug --
@@ -307,7 +316,14 @@ begin
          Check_Arg_Count (1);
          Check_No_Identifier (Arg1);
          Check_Arg_Is_On_Or_Off (Arg1);
-         Opt.Extensions_Allowed := (Chars (Expression (Arg1)) = Name_On);
+
+         if Chars (Expression (Arg1)) = Name_On then
+            Extensions_Allowed := True;
+            Ada_Version := Ada_Version_Type'Last;
+         else
+            Extensions_Allowed := False;
+            Ada_Version := Ada_Version_Type'Min (Ada_Version, Ada_95);
+         end if;
 
       ----------------
       -- List (2.8) --
@@ -360,25 +376,27 @@ begin
       --  These two pragmas have the same syntax and semantics.
       --  There are five forms of these pragmas:
 
-      --  pragma Source_File_Name (
+      --  pragma Source_File_Name[_Project] (
       --    [UNIT_NAME      =>] unit_NAME,
-      --     BODY_FILE_NAME =>  STRING_LITERAL);
+      --     BODY_FILE_NAME =>  STRING_LITERAL
+      --    [, [INDEX =>] INTEGER_LITERAL]);
 
-      --  pragma Source_File_Name (
+      --  pragma Source_File_Name[_Project] (
       --    [UNIT_NAME      =>] unit_NAME,
-      --     SPEC_FILE_NAME =>  STRING_LITERAL);
+      --     SPEC_FILE_NAME =>  STRING_LITERAL
+      --    [, [INDEX =>] INTEGER_LITERAL]);
 
-      --  pragma Source_File_Name (
+      --  pragma Source_File_Name[_Project] (
       --     BODY_FILE_NAME  => STRING_LITERAL
       --  [, DOT_REPLACEMENT => STRING_LITERAL]
       --  [, CASING          => CASING_SPEC]);
 
-      --  pragma Source_File_Name (
+      --  pragma Source_File_Name[_Project] (
       --     SPEC_FILE_NAME  => STRING_LITERAL
       --  [, DOT_REPLACEMENT => STRING_LITERAL]
       --  [, CASING          => CASING_SPEC]);
 
-      --  pragma Source_File_Name (
+      --  pragma Source_File_Name[_Project] (
       --     SUBUNIT_FILE_NAME  => STRING_LITERAL
       --  [, DOT_REPLACEMENT    => STRING_LITERAL]
       --  [, CASING             => CASING_SPEC]);
@@ -410,6 +428,8 @@ begin
             Dot   : String_Ptr;
             Cas   : Casing_Type;
             Nast  : Nat;
+            Expr  : Node_Id;
+            Index : Nat;
 
             function Get_Fname (Arg : Node_Id) return Name_Id;
             --  Process file name from unit name form of pragma
@@ -520,7 +540,6 @@ begin
          --  Source_File_Name_Project pragmas.
 
          begin
-
             if Get_Pragma_Id (Pragma_Name) = Pragma_Source_File_Name then
                if Project_File_In_Use = In_Use then
                   Error_Msg
@@ -536,7 +555,6 @@ begin
                   Error_Msg
                     ("pragma Source_File_Name_Project should only be used " &
                      "with a project file", Pragma_Sloc);
-
                else
                   Project_File_In_Use := In_Use;
                end if;
@@ -569,7 +587,30 @@ begin
                   return Error;
                end if;
 
-               Check_Arg_Count (2);
+               --  Process index argument if present
+
+               if Arg_Count = 3 then
+                  Expr := Expression (Arg3);
+
+                  if Nkind (Expr) /= N_Integer_Literal
+                    or else not UI_Is_In_Int_Range (Intval (Expr))
+                    or else Intval (Expr) > 999
+                    or else Intval (Expr) <= 0
+                  then
+                     Error_Msg
+                       ("pragma% index must be integer literal" &
+                        " in range 1 .. 999", Sloc (Expr));
+                     raise Error_Resync;
+                  else
+                     Index := UI_To_Int (Intval (Expr));
+                  end if;
+
+               --  No index argument present
+
+               else
+                  Check_Arg_Count (2);
+                  Index := 0;
+               end if;
 
                Check_Optional_Identifier (Arg1, Name_Unit_Name);
                Unam := Get_Unit_Name (Expr1);
@@ -577,10 +618,12 @@ begin
                Check_Arg_Is_String_Literal (Arg2);
 
                if Chars (Arg2) = Name_Spec_File_Name then
-                  Set_File_Name (Get_Spec_Name (Unam), Get_Fname (Arg2));
+                  Set_File_Name
+                    (Get_Spec_Name (Unam), Get_Fname (Arg2), Index);
 
                elsif Chars (Arg2) = Name_Body_File_Name then
-                  Set_File_Name (Unam, Get_Fname (Arg2));
+                  Set_File_Name
+                    (Unam, Get_Fname (Arg2), Index);
 
                else
                   Error_Msg_N
@@ -628,14 +671,13 @@ begin
                if Nast /= 1 then
                   Error_Msg_N
                     ("file name pattern must have exactly one * character",
-                     Arg2);
+                     Arg1);
                   return Pragma_Node;
                end if;
 
                --  Set defaults for Casing and Dot_Separator parameters
 
                Cas := All_Lower_Case;
-
                Dot := new String'(".");
 
                --  Process second and third arguments if present
@@ -703,7 +745,6 @@ begin
                  ("file name required for first % pragma in file",
                   Pragma_Sloc);
                raise Error_Resync;
-
             else
                Fname := No_Name;
             end if;
@@ -887,6 +928,7 @@ begin
            Pragma_Component_Alignment          |
            Pragma_Controlled                   |
            Pragma_Convention                   |
+           Pragma_Detect_Blocking              |
            Pragma_Discard_Names                |
            Pragma_Eliminate                    |
            Pragma_Elaborate                    |
@@ -940,6 +982,7 @@ begin
            Pragma_No_Return                    |
            Pragma_Obsolescent                  |
            Pragma_No_Run_Time                  |
+           Pragma_No_Strict_Aliasing           |
            Pragma_Normalize_Scalars            |
            Pragma_Optimize                     |
            Pragma_Optional_Overriding          |
@@ -952,6 +995,7 @@ begin
            Pragma_Preelaborate                 |
            Pragma_Priority                     |
            Pragma_Profile                      |
+           Pragma_Profile_Warnings             |
            Pragma_Propagate_Exceptions         |
            Pragma_Psect_Object                 |
            Pragma_Pure                         |

@@ -39,25 +39,88 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "ggc.h"
 #include "rtl.h"
-#include "expr.h"
 #include "output.h"
 #include "timevar.h"
 #include "predict.h"
 #include "tree-inline.h"
+#include "tree-gimple.h"
 #include "langhooks.h"
 
 /* Create an empty statement tree rooted at T.  */
 
-void
-begin_stmt_tree (tree *t)
+tree
+push_stmt_list (void)
 {
-  /* We create a trivial EXPR_STMT so that last_tree is never NULL in
-     what follows.  We remove the extraneous statement in
-     finish_stmt_tree.  */
-  *t = build_nt (EXPR_STMT, void_zero_node);
-  last_tree = *t;
-  last_expr_type = NULL_TREE;
-  last_expr_filename = input_filename;
+  tree t;
+  t = alloc_stmt_list ();
+  TREE_CHAIN (t) = cur_stmt_list;
+  cur_stmt_list = t;
+  return t;
+}
+
+/* Similarly, except that T may have already been pushed/popped, and
+   thus may already contain statement(s).  Arrage for new statements
+   to be appended.  */
+
+tree
+re_push_stmt_list (tree t)
+{
+  if (t)
+    {
+      if (TREE_CODE (t) != STATEMENT_LIST)
+	{
+	  tree u = alloc_stmt_list ();
+	  append_to_statement_list_force (t, &u);
+	  t = u;
+	}
+    }
+  else
+    t = alloc_stmt_list ();
+  TREE_CHAIN (t) = cur_stmt_list;
+  cur_stmt_list = t;
+  return t;
+}
+
+/* Finish the statement tree rooted at T.  */
+
+tree
+pop_stmt_list (tree t)
+{
+  tree u = cur_stmt_list, chain;
+
+  /* Pop statement lists until we reach the target level.  The extra
+     nestings will be due to outstanding cleanups.  */
+  while (1)
+    {
+      chain = TREE_CHAIN (u);
+      TREE_CHAIN (u) = NULL_TREE;
+      if (t == u)
+	break;
+      u = chain;
+    }
+  cur_stmt_list = chain;
+
+  /* If the statement list is completely empty, just return it.  This is
+     just as good small as build_empty_stmt, with the advantage that 
+     statement lists are merged when they appended to one another.  So
+     using the STATEMENT_LIST avoids pathological buildup of EMPTY_STMT_P
+     statements.  */
+  if (TREE_SIDE_EFFECTS (t))
+    {
+      tree_stmt_iterator i = tsi_start (t);
+
+      /* If the statement list contained exactly one statement, then
+	 extract it immediately.  */
+      if (tsi_one_before_end_p (i))
+	{
+	  u = tsi_stmt (i);
+	  tsi_delink (&i);
+	  free_stmt_list (t);
+	  t = u;
+	}
+    }
+
+  return t;
 }
 
 /* T is a statement.  Add it to the statement-tree.  */
@@ -65,109 +128,28 @@ begin_stmt_tree (tree *t)
 tree
 add_stmt (tree t)
 {
-  if (input_filename != last_expr_filename)
+  enum tree_code code = TREE_CODE (t);
+
+  if ((EXPR_P (t) || STATEMENT_CODE_P (code)) && code != LABEL_EXPR)
     {
-      /* If the filename has changed, also add in a FILE_STMT.  Do a string
-	 compare first, though, as it might be an equivalent string.  */
-      int add = (strcmp (input_filename, last_expr_filename) != 0);
-      last_expr_filename = input_filename;
-      if (add)
-	{
-	  tree pos = build_nt (FILE_STMT, get_identifier (input_filename));
-	  add_stmt (pos);
-	}
+      if (!EXPR_HAS_LOCATION (t))
+	SET_EXPR_LOCATION (t, input_location);
+
+      /* When we expand a statement-tree, we must know whether or not the
+	 statements are full-expressions.  We record that fact here.  */
+      STMT_IS_FULL_EXPR_P (t) = stmts_are_full_exprs_p ();
     }
 
-  /* Add T to the statement-tree.  */
-  TREE_CHAIN (last_tree) = t;
-  last_tree = t;
-
-  /* When we expand a statement-tree, we must know whether or not the
-     statements are full-expressions.  We record that fact here.  */
-  STMT_IS_FULL_EXPR_P (last_tree) = stmts_are_full_exprs_p ();
+  /* Add T to the statement-tree.  Non-side-effect statements need to be
+     recorded during statement expressions.  */
+  append_to_statement_list_force (t, &cur_stmt_list);
 
   return t;
 }
 
-/* Create a declaration statement for the declaration given by the
-   DECL.  */
-
-void
-add_decl_stmt (tree decl)
-{
-  tree decl_stmt;
-
-  /* We need the type to last until instantiation time.  */
-  decl_stmt = build_stmt (DECL_STMT, decl);
-  add_stmt (decl_stmt);
-}
-
-/* Add a scope-statement to the statement-tree.  BEGIN_P indicates
-   whether this statements opens or closes a scope.  PARTIAL_P is true
-   for a partial scope, i.e, the scope that begins after a label when
-   an object that needs a cleanup is created.  If BEGIN_P is nonzero,
-   returns a new TREE_LIST representing the top of the SCOPE_STMT
-   stack.  The TREE_PURPOSE is the new SCOPE_STMT.  If BEGIN_P is
-   zero, returns a TREE_LIST whose TREE_VALUE is the new SCOPE_STMT,
-   and whose TREE_PURPOSE is the matching SCOPE_STMT with
-   SCOPE_BEGIN_P set.  */
-
-tree
-add_scope_stmt (int begin_p, int partial_p)
-{
-  tree *stack_ptr = current_scope_stmt_stack ();
-  tree ss;
-  tree top = *stack_ptr;
-
-  /* Build the statement.  */
-  ss = build_stmt (SCOPE_STMT, NULL_TREE);
-  SCOPE_BEGIN_P (ss) = begin_p;
-  SCOPE_PARTIAL_P (ss) = partial_p;
-
-  /* Keep the scope stack up to date.  */
-  if (begin_p)
-    {
-      top = tree_cons (ss, NULL_TREE, top);
-      *stack_ptr = top;
-    }
-  else
-    {
-      if (partial_p != SCOPE_PARTIAL_P (TREE_PURPOSE (top)))
-	abort ();
-      TREE_VALUE (top) = ss;
-      *stack_ptr = TREE_CHAIN (top);
-    }
-
-  /* Add the new statement to the statement-tree.  */
-  add_stmt (ss);
-
-  return top;
-}
-
-/* Finish the statement tree rooted at T.  */
-
-void
-finish_stmt_tree (tree *t)
-{
-  tree stmt;
-
-  /* Remove the fake extra statement added in begin_stmt_tree.  */
-  stmt = TREE_CHAIN (*t);
-  *t = stmt;
-  last_tree = NULL_TREE;
-
-  if (cfun && stmt)
-    {
-      /* The line-number recorded in the outermost statement in a function
-	 is the line number of the end of the function.  */
-      STMT_LINENO (stmt) = input_line;
-      STMT_LINENO_FOR_FN_P (stmt) = 1;
-    }
-}
-
 /* Build a generic statement based on the given type of node and
    arguments. Similar to `build_nt', except that we set
-   STMT_LINENO to be the current line number.  */
+   EXPR_LOCATION to be the current source location.  */
 /* ??? This should be obsolete with the lineno_stmt productions
    in the grammar.  */
 
@@ -182,8 +164,9 @@ build_stmt (enum tree_code code, ...)
   va_start (p, code);
 
   ret = make_node (code);
+  TREE_TYPE (ret) = void_type_node;
   length = TREE_CODE_LENGTH (code);
-  STMT_LINENO (ret) = input_line;
+  SET_EXPR_LOCATION (ret, input_location);
 
   /* Most statements have implicit side effects all on their own, 
      such as control transfer.  For those that do, we'll compute
@@ -201,7 +184,7 @@ build_stmt (enum tree_code code, ...)
   for (i = 0; i < length; i++)
     {
       tree t = va_arg (p, tree);
-      if (t)
+      if (t && IS_NON_TYPE_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
         side_effects |= TREE_SIDE_EFFECTS (t);
       TREE_OPERAND (ret, i) = t;
     }
@@ -264,26 +247,6 @@ emit_local_var (tree decl)
       else
 	expand_decl (decl);
     }
-
-  if (DECL_INITIAL (decl))
-    {
-      /* Actually do the initialization.  */
-      if (stmts_are_full_exprs_p ())
-	expand_start_target_temps ();
-
-      expand_decl_init (decl);
-
-      if (stmts_are_full_exprs_p ())
-	expand_end_target_temps ();
-    }
-}
-
-/* Build the node for a return statement and return it.  */
-
-tree
-build_return_stmt (tree expr)
-{
-  return (build_stmt (RETURN_STMT, expr));
 }
 
 /* Build a break statement node and return it.  */
@@ -302,32 +265,10 @@ build_continue_stmt (void)
   return (build_stmt (CONTINUE_STMT));
 }
 
-/* Create a CASE_LABEL tree node and return it.  */
+/* Create a CASE_LABEL_EXPR tree node and return it.  */
 
 tree
 build_case_label (tree low_value, tree high_value, tree label_decl)
 {
-  return build_stmt (CASE_LABEL, low_value, high_value, label_decl);
-}
-
-/* We're about to expand T, a statement.  Set up appropriate context
-   for the substitution.  */
-
-void
-prep_stmt (tree t)
-{
-  if (!STMT_LINENO_FOR_FN_P (t))
-    input_line = STMT_LINENO (t);
-  current_stmt_tree ()->stmts_are_full_exprs_p = STMT_IS_FULL_EXPR_P (t);
-}
-
-/* Expand the statement at the outermost level of a function.  */
-
-void
-expand_stmt_toplev (tree t)
-{
-  /* Gimplification didn't happen, for some reason.  */
-  if (STATEMENT_CODE_P (TREE_CODE (t)))
-    abort ();
-  expand_expr_stmt_value (t, 0, 0);
+  return build_stmt (CASE_LABEL_EXPR, low_value, high_value, label_decl);
 }

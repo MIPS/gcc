@@ -58,40 +58,40 @@ files_and_dependencies () {
     sed -e 's/ *#.*//' -e '/^$/d' -e 's/://' <<\EOF
 # intl library
 intl/plural.c: intl/plural.y
-intl/configure: intl/configure.in intl/aclocal.m4
-intl/config.h.in: intl/configure.in intl/aclocal.m4
+intl/configure: intl/configure.ac intl/aclocal.m4
+intl/config.h.in: intl/configure.ac intl/aclocal.m4
 # Now, proceed to gcc automatically generated files
 gcc/configure: gcc/configure.ac
 gcc/cstamp-h.in: gcc/configure.ac
 gcc/config.in: gcc/cstamp-h.in
 gcc/fixinc/fixincl.x: gcc/fixinc/fixincl.tpl gcc/fixinc/inclhack.def
 # And then, language-specific files
-gcc/f/intdoc.texi: gcc/f/intdoc.in gcc/f/intdoc.c gcc/f/intrin.h gcc/f/intrin.def
 gcc/cp/cfns.h: gcc/cp/cfns.gperf
 gcc/java/keyword.h: gcc/java/keyword.gperf
-gcc/ada/gnat_ug_unx.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vms.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_vxw.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
-gcc/ada/gnat_ug_wnt.texi: gcc/ada/gnat_ug.texi gcc/ada/xgnatug.adb gcc/ada/ug_words
 # testsuite
 # Without this, _Pragma3.c can have a false negative.
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
 # And libraries, at last
-libf2c/configure: libf2c/configure.in
-libf2c/libF77/configure: libf2c/libF77/configure.in
-libf2c/libI77/configure: libf2c/libI77/configure.in
-libf2c/libI77/stamp-h.in: libf2c/libI77/configure.in
-libf2c/libI77/config.h.in: libf2c/libI77/configure.in libf2c/libI77/stamp-h.in
-libf2c/libU77/configure: libf2c/libU77/configure.in
-libf2c/libU77/stamp-h.in: libf2c/libU77/configure.in libf2c/libU77/acconfig.h
-libobjc/configure: libobjc/configure.in
-# fastjar
+libbanshee/configure: libbanshee/configure.ac
+libmudflap/configure: libmudflap/configure.ac
+libobjc/configure: libobjc/configure.ac
+zlib/aclocal.m4: zlib/configure.ac zlib/acinclude.m4
+zlib/Makefile.in: zlib/Makefile.am zlib/configure.ac zlib/aclocal.m4
+zlib/configure: zlib/configure.ac zlib/aclocal.m4
 fastjar/aclocal.m4: fastjar/configure.ac
 fastjar/Makefile.in: fastjar/Makefile.am fastjar/configure.ac fastjar/aclocal.m4
 fastjar/configure: fastjar/configure.ac fastjar/aclocal.m4
-boehm-gc/aclocal.m4: boehm-gc/configure.in boehm-gc/acinclude.m4
-boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.in boehm-gc/aclocal.m4
-boehm-gc/configure: boehm-gc/configure.in boehm-gc/aclocal.m4
+boehm-gc/aclocal.m4: boehm-gc/configure.ac boehm-gc/acinclude.m4
+boehm-gc/Makefile.in: boehm-gc/Makefile.am boehm-gc/configure.ac boehm-gc/aclocal.m4
+boehm-gc/configure: boehm-gc/configure.ac boehm-gc/aclocal.m4
+libada/configure: libada/configure.ac
+libffi/aclocal.m4: libffi/configure.ac libffi/acinclude.m4
+libffi/Makefile.in: libffi/Makefile.am libffi/configure.ac libffi/aclocal.m4
+libffi/configure: libffi/configure.ac libffi/aclocal.m4
+libffi/fficonfig.h.in: libffi/configure.ac libffi/aclocal.m4
+libgfortran/aclocal.m4: libgfortran/configure.ac libgfortran/acinclude.m4
+libgfortran/Makefile.in: libgfortran/Makefile.am libgfortran/configure.ac libgfortran/aclocal.m4
+libgfortran/configure: libgfortran/configure.ac libgfortran/aclocal.m4
 libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
 libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
 libjava/configure: libjava/configure.in libjava/aclocal.m4
@@ -99,6 +99,9 @@ libjava/libltdl/aclocal.m4: libjava/libltdl/configure.ac libjava/libltdl/acinclu
 libjava/libltdl/Makefile.in: libjava/libltdl/Makefile.am libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/configure: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
 libjava/libltdl/config-h.in: libjava/libltdl/configure.ac libjava/libltdl/aclocal.m4
+libcpp/aclocal.m4: libcpp/configure.ac
+libcpp/Makefile.in: libcpp/Makefile.am libcpp/configure.ac libcpp/aclocal.m4
+libcpp/configure: libcpp/configure.ac libcpp/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.in config/acx.m4

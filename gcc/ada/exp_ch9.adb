@@ -1204,10 +1204,10 @@ package body Exp_Ch9 is
    begin
       S := Scope (E);
 
-      --  Ada 0Y (AI-287): Do not set/get the has_master_entity reminder in
-      --  internal scopes. Required for nested limited aggregates.
+      --  Ada 2005 (AI-287): Do not set/get the has_master_entity reminder
+      --  in internal scopes. Required for nested limited aggregates.
 
-      if Extensions_Allowed then
+      if Ada_Version >= Ada_05 then
          while Is_Internal (S) loop
             S := Scope (S);
          end loop;
@@ -1240,13 +1240,13 @@ package body Exp_Ch9 is
       Insert_Before (P, Decl);
       Analyze (Decl);
 
-      --  Ada 0Y (AI-287): Set the has_master_entity reminder in the
+      --  Ada 2005 (AI-287): Set the has_master_entity reminder in the
       --  non-internal scope selected above.
 
-      if not Extensions_Allowed then
-         Set_Has_Master_Entity (Scope (E));
-      else
+      if Ada_Version >= Ada_05 then
          Set_Has_Master_Entity (S);
+      else
+         Set_Has_Master_Entity (Scope (E));
       end if;
 
       --  Now mark the containing scope as a task master
@@ -1488,6 +1488,7 @@ package body Exp_Ch9 is
       Protnm      : constant Name_Id := Chars (Prottyp);
       Ident       : Entity_Id;
       Nam         : Name_Id;
+      New_Id      : Entity_Id;
       New_Plist   : List_Id;
       Append_Char : Character;
       New_Spec    : Node_Id;
@@ -1514,20 +1515,28 @@ package body Exp_Ch9 is
          Append_Char := 'P';
       end if;
 
+      New_Id :=
+        Make_Defining_Identifier (Loc,
+          Chars => Build_Selected_Name (Protnm, Nam, Append_Char));
+
+      --  The unprotected operation carries the user code, and debugging
+      --  information must be generated for it, even though this spec does
+      --  not come from source. It is also convenient to allow gdb to step
+      --  into the protected operation, even though it only contains lock/
+      --  unlock calls.
+
+      Set_Needs_Debug_Info (New_Id);
+
       if Nkind (Specification (Decl)) = N_Procedure_Specification then
          return
            Make_Procedure_Specification (Loc,
-             Defining_Unit_Name =>
-               Make_Defining_Identifier (Loc,
-                 Chars => Build_Selected_Name (Protnm, Nam, Append_Char)),
+             Defining_Unit_Name => New_Id,
              Parameter_Specifications => New_Plist);
 
       else
          New_Spec :=
            Make_Function_Specification (Loc,
-             Defining_Unit_Name =>
-               Make_Defining_Identifier (Loc,
-                 Chars => Build_Selected_Name (Protnm, Nam, Append_Char)),
+             Defining_Unit_Name => New_Id,
              Parameter_Specifications => New_Plist,
              Subtype_Mark => New_Copy (Subtype_Mark (Specification (Decl))));
          Set_Return_Present (Defining_Unit_Name (New_Spec));
@@ -1553,10 +1562,7 @@ package body Exp_Ch9 is
       Sub_Body     : Node_Id;
       Lock_Name    : Node_Id;
       Lock_Stmt    : Node_Id;
-      Unlock_Name  : Node_Id;
-      Unlock_Stmt  : Node_Id;
       Service_Name : Node_Id;
-      Service_Stmt : Node_Id;
       R            : Node_Id;
       Return_Stmt  : Node_Id := Empty;    -- init to avoid gcc 3 warning
       Pre_Stmts    : List_Id := No_List;  -- init to avoid gcc 3 warning
@@ -1740,19 +1746,16 @@ package body Exp_Ch9 is
            or else Number_Entries (Pid) > 1
          then
             Lock_Name := New_Reference_To (RTE (RE_Lock_Entries), Loc);
-            Unlock_Name := New_Reference_To (RTE (RE_Unlock_Entries), Loc);
             Service_Name := New_Reference_To (RTE (RE_Service_Entries), Loc);
 
          else
             Lock_Name := New_Reference_To (RTE (RE_Lock_Entry), Loc);
-            Unlock_Name := New_Reference_To (RTE (RE_Unlock_Entry), Loc);
             Service_Name := New_Reference_To (RTE (RE_Service_Entry), Loc);
          end if;
 
       else
          Lock_Name := New_Reference_To (RTE (RE_Lock), Loc);
-         Unlock_Name := New_Reference_To (RTE (RE_Unlock), Loc);
-         Service_Name := Empty;
+         Service_Name := New_Reference_To (RTE (RE_Unlock), Loc);
       end if;
 
       Object_Parm :=
@@ -1790,20 +1793,12 @@ package body Exp_Ch9 is
             Append (Unprot_Call, Stmts);
          end if;
 
-         if Service_Name /= Empty then
-            Service_Stmt := Make_Procedure_Call_Statement (Loc,
-              Name => Service_Name,
-              Parameter_Associations =>
-                New_List (New_Copy_Tree (Object_Parm)));
-            Append (Service_Stmt, Stmts);
-         end if;
-
-         Unlock_Stmt :=
+         Append (
            Make_Procedure_Call_Statement (Loc,
-             Name => Unlock_Name,
-             Parameter_Associations => New_List (
-               New_Copy_Tree (Object_Parm)));
-         Append (Unlock_Stmt, Stmts);
+             Name => Service_Name,
+             Parameter_Associations =>
+               New_List (New_Copy_Tree (Object_Parm))),
+           Stmts);
 
          if Abort_Allowed then
             Append (
@@ -2040,9 +2035,12 @@ package body Exp_Ch9 is
          if Is_Protected_Type (Conctyp)
            and then Is_Subprogram (Entity (Ename))
          then
-            Build_Protected_Subprogram_Call
-              (N, Ename, Convert_Concurrent (Concval, Conctyp));
-            Analyze (N);
+            if not Is_Eliminated (Entity (Ename)) then
+               Build_Protected_Subprogram_Call
+                 (N, Ename, Convert_Concurrent (Concval, Conctyp));
+               Analyze (N);
+            end if;
+
             return;
          end if;
 
@@ -2796,7 +2794,7 @@ package body Exp_Ch9 is
                   Decl := Make_Object_Declaration (Loc,
                      Defining_Identifier => T_Self,
                      Object_Definition =>
-                       New_Occurrence_Of (RTE (RO_ST_Task_ID), Loc),
+                       New_Occurrence_Of (RTE (RO_ST_Task_Id), Loc),
                      Expression =>
                        Make_Function_Call (Loc,
                          Name => New_Reference_To (RTE (RE_Self), Loc)));
@@ -3284,10 +3282,11 @@ package body Exp_Ch9 is
           Defining_Identifier => D_T2,
           Type_Definition => Def1);
 
+      Analyze (Decl1);
       Insert_After (N, Decl1);
 
       --  Create Equivalent_Type, a record with two components for an
-      --  an access to object an an access to subprogram.
+      --  access to object and an access to subprogram.
 
       Comps := New_List (
         Make_Component_Declaration (Loc,
@@ -3316,6 +3315,7 @@ package body Exp_Ch9 is
                 Make_Component_List (Loc,
                   Component_Items => Comps)));
 
+      Analyze (Decl2);
       Insert_After (Decl1, Decl2);
       Set_Equivalent_Type (T, E_T);
    end Expand_Access_Protected_Subprogram_Type;
@@ -3413,7 +3413,7 @@ package body Exp_Ch9 is
 
       --  It is not a boolean variable or literal, so check the restriction
 
-      Check_Restriction (Boolean_Entry_Barriers, Cond);
+      Check_Restriction (Simple_Barriers, Cond);
    end Expand_Entry_Barrier;
 
    ------------------------------------
@@ -4885,7 +4885,9 @@ package body Exp_Ch9 is
 
                --  Exclude functions created to analyze defaults.
 
-               if not Is_Eliminated (Defining_Entity (Op_Body)) then
+               if not Is_Eliminated (Defining_Entity (Op_Body))
+                 and then not Is_Eliminated (Corresponding_Spec (Op_Body))
+               then
                   New_Op_Body :=
                     Build_Unprotected_Subprogram_Body (Op_Body, Pid);
 
@@ -5372,14 +5374,17 @@ package body Exp_Ch9 is
       --  subprogram; one to call from outside the object and one to
       --  call from inside. Build a barrier function and an entry
       --  body action procedure specification for each protected entry.
-      --  Initialize the entry body array.
+      --  Initialize the entry body array. If subprogram is flagged as
+      --  eliminated, do not generate any internal operations.
 
       E_Count := 0;
 
       Comp := First (Visible_Declarations (Pdef));
 
       while Present (Comp) loop
-         if Nkind (Comp) = N_Subprogram_Declaration then
+         if Nkind (Comp) = N_Subprogram_Declaration
+           and then not Is_Eliminated (Defining_Entity (Comp))
+         then
             Sub :=
               Make_Subprogram_Declaration (Loc,
                 Specification =>
@@ -5730,19 +5735,16 @@ package body Exp_Ch9 is
       RTS_Call   : Entity_Id;
 
    begin
-      if Abort_Present (N) then
-         Abortable := New_Occurrence_Of (Standard_True, Loc);
-      else
-         Abortable := New_Occurrence_Of (Standard_False, Loc);
-      end if;
+      Abortable :=
+        New_Occurrence_Of (Boolean_Literals (Abort_Present (N)), Loc);
 
-      --  Set up the target object.
+      --  Set up the target object
 
       Extract_Entry (N, Concval, Ename, Index);
       Conctyp := Etype (Concval);
       New_Param := Concurrent_Ref (Concval);
 
-      --  The target entry index and abortable flag are the same for all cases.
+      --  The target entry index and abortable flag are the same for all cases
 
       Params := New_List (
         Entry_Index_Expression (Loc, Entity (Ename), Index, Conctyp),
@@ -5799,7 +5801,7 @@ package body Exp_Ch9 is
          end if;
       end loop;
 
-      --  Create the GNARLI call.
+      --  Create the GNARLI call
 
       Rcall := Make_Procedure_Call_Statement (Loc,
         Name =>
@@ -7221,8 +7223,31 @@ package body Exp_Ch9 is
           Component_Definition =>
             Make_Component_Definition (Loc,
               Aliased_Present    => False,
-              Subtype_Indication => New_Reference_To (RTE (RO_ST_Task_ID),
+              Subtype_Indication => New_Reference_To (RTE (RO_ST_Task_Id),
                                     Loc))));
+
+      --  Declare static ATCB (that is, created by the expander) if we
+      --  are using the Restricted run time.
+
+      if Restricted_Profile then
+         Append_To (Cdecls,
+           Make_Component_Declaration (Loc,
+             Defining_Identifier  =>
+               Make_Defining_Identifier (Loc, Name_uATCB),
+
+             Component_Definition =>
+               Make_Component_Definition (Loc,
+                 Aliased_Present     => True,
+                 Subtype_Indication  => Make_Subtype_Indication (Loc,
+                   Subtype_Mark => New_Occurrence_Of
+                     (RTE (RE_Ada_Task_Control_Block), Loc),
+
+                   Constraint   =>
+                     Make_Index_Or_Discriminant_Constraint (Loc,
+                       Constraints =>
+                         New_List (Make_Integer_Literal (Loc, 0)))))));
+
+      end if;
 
       --  Add components for entry families
 
@@ -7243,7 +7268,7 @@ package body Exp_Ch9 is
                Expr := Expression (Expr);
             end if;
 
-            Expr := New_Copy (Expr);
+            Expr := New_Copy_Tree (Expr);
 
             --  Add conversion to proper type to do range check if required
             --  Note that for runtime units, we allow out of range interrupt

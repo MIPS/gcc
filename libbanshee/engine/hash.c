@@ -81,7 +81,7 @@ hash_table make_hash_table(region r, int size, hash_fn hash,
 }
 
 /* Hash a string */
-int string_hash(char *str)
+static int string_hash(char *str)
 {
   char *c;
   int h;
@@ -96,7 +96,7 @@ int string_hash(char *str)
 }
 
 /* Return TRUE iff s1 == s2 */
-bool string_eq(char *s1, char *s2)
+static bool string_eq(char *s1, char *s2)
 {
   return !strcmp(s1, s2);
 }
@@ -377,7 +377,7 @@ hash_table hash_table_map(hash_table ht, hash_map_fn f, void *arg)
 
 static keycmp_fn cur_cmp = NULL;
 
-int entry_cmp(const void *a, const void *b)
+static int entry_cmp(const void *a, const void *b)
 {
   struct sorted_entry *ae = (struct sorted_entry *) a;
   struct sorted_entry *be = (struct sorted_entry *) b;

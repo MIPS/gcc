@@ -20,6 +20,9 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef CONFIG_DARWIN_H
+#define CONFIG_DARWIN_H
+
 /* The definitions in this file are common to all processor types
    running Darwin, which is the kernel for Mac OS X.  Darwin is
    basically a BSD user layer laid over a Mach kernel, then evolved
@@ -30,21 +33,13 @@ Boston, MA 02111-1307, USA.  */
 /* Although NeXT ran on many different architectures, as of Jan 2001
    the only supported Darwin targets are PowerPC and x86.  */
 
-/* Technically, STANDARD_EXEC_PREFIX should be /usr/libexec/, but in
-   practice this makes it hard to install new compilers elsewhere, so
-   leave it undefined and expect system builders to set configure args
-   correctly.  */
-
 /* One of Darwin's NeXT legacies is the Mach-O format, which is partly
    like a.out and partly like COFF, with additional features like
    multi-architecture binary support.  */
 
 #define OBJECT_FORMAT_MACHO
 
-/* Suppress g++ attempt to link in the math library automatically.
-   (Some Darwin versions have a libm, but they seem to cause problems
-   for C++ executables.)  */
-
+/* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
 
 /* We have atexit.  */
@@ -99,7 +94,13 @@ Boston, MA 02111-1307, USA.  */
    Note that an option name with a prefix that matches another option
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
-   match with the longer one.  */
+   match with the longer one.
+   
+   The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
+   in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
+   command-line option translations specific to the particular target
+   architecture.  */
+   
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -115,6 +116,7 @@ Boston, MA 02111-1307, USA.  */
   { "-exported_symbols_list", "-Zexported_symbols_list" },  \
   { "-seg_addr_table_filename", "-Zseg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
+  { "-framework", "-Xlinker -framework -Xlinker" },  \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
@@ -126,7 +128,19 @@ Boston, MA 02111-1307, USA.  */
   { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
-  { "-unexported_symbols_list", "-Zunexported_symbols_list" }
+  { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
+  SUBTARGET_OPTION_TRANSLATE_TABLE
+
+/* Nonzero if the user has chosen to force sizeof(bool) to be 1
+   by providing the -mone-byte-bool switch.  It would be better
+   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
+   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
+   that this switch has no "no-" variant. */
+extern const char *darwin_one_byte_bool;
+  
+#undef SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS \
+  {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }
 
 /* These compiler options take n arguments.  */
 
@@ -170,10 +184,13 @@ Boston, MA 02111-1307, USA.  */
    !strcmp (STR, "dylinker_install_name") ? 1 : \
    0)
 
-/* Machine dependent cpp options.  */
+/* Machine dependent cpp options.  __APPLE_CC__ is defined as the
+   Apple include files expect it to be defined and won't work if it
+   isn't.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}\
+    -D__APPLE_CC__=1"
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -194,8 +211,7 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%G %L}} \
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt3 }} }}}}}}}}"
+    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -265,10 +281,12 @@ Boston, MA 02111-1307, USA.  */
    %{dylinker} %{Mach} "
 
 
-/* Machine dependent libraries.  */
+/* Machine dependent libraries but do not redefine it if we already on 7.0 and
+   above as it needs to link with libmx also.  */
 
-#undef	LIB_SPEC
+#ifndef	LIB_SPEC
 #define LIB_SPEC "%{!static:-lSystem}"
+#endif
 
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
@@ -278,11 +296,11 @@ Boston, MA 02111-1307, USA.  */
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o -lcrt2.o}}}} \
+                                 %{!preload:-lgcrt1.o crt2.o%s}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o -lcrt2.o}}}}}}"
+                                  %{!preload:-lcrt1.o crt2.o%s}}}}}}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
@@ -292,6 +310,21 @@ Boston, MA 02111-1307, USA.  */
 /* We use Dbx symbol format.  */
 
 #define DBX_DEBUGGING_INFO 1
+
+/* Also enable Dwarf 2 as an option.  */
+#define DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+
+#define DEBUG_FRAME_SECTION   "__DWARFA,__debug_frame,coalesced,no_toc+strip_static_syms"
+#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info"
+#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev"
+#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges"
+#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo"
+#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line"
+#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc"
+#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
+#define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
+#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
 
 /* When generating stabs debugging, use N_BINCL entries.  */
 
@@ -309,6 +342,46 @@ do { text_section ();							\
      fprintf (FILE,							\
 	      "\t.stabs \"%s\",%d,0,0,Letext\nLetext:\n", "" , N_SO);	\
    } while (0)
+
+/* Making a symbols weak on Darwin requires more than just setting DECL_WEAK. */
+#define MAKE_DECL_ONE_ONLY(DECL) darwin_make_decl_one_only (DECL)
+
+/* Representation of linkonce symbols for the MACH-O assembler. Linkonce
+   symbols must be given a special section *and* must be preceded by a 
+   special assembler directive. */
+#define ASM_MAKE_LABEL_LINKONCE(FILE,  NAME)                            \
+ do { const char* _x = (NAME); if (!!strncmp (_x, "_OBJC_", 6)) {	\
+  fputs (".weak_definition ", FILE); assemble_name (FILE, _x);		\
+  fputs ("\n", FILE); }} while (0)
+
+/* We support hidden visibility */
+#undef TARGET_SUPPORTS_HIDDEN
+#define TARGET_SUPPORTS_HIDDEN 1
+
+/* The Darwin linker imposes two limitations on common symbols: they 
+   can't have hidden visibility, and they can't appear in dylibs.  As
+   a consequence, we should never use common symbols to represent 
+   vague linkage. */
+#undef USE_COMMON_FOR_ONE_ONLY
+#define USE_COMMON_FOR_ONE_ONLY 0
+
+/* The Darwin linker doesn't want coalesced symbols to appear in
+   a static archive's table of contents. */
+#undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
+
+/* We make exception information linkonce. */
+#undef TARGET_USES_WEAK_UNWIND_INFO
+#define TARGET_USES_WEAK_UNWIND_INFO 1
+
+/* We need to use a nonlocal label for the start of an EH frame: the
+   Darwin linker requires that a coalesced section start with a label. */
+#undef FRAME_BEGIN_LABEL
+#define FRAME_BEGIN_LABEL "EH_frame"
+
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+   emit a label for an empty FDE. */
+#define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
@@ -351,7 +424,7 @@ do { text_section ();							\
 
 /* The RTTI data (e.g., __ti4name) is common and public (and static),
    but it does need to be referenced via indirect PIC data pointers.
-   The machopic_define_name calls are telling the machopic subsystem
+   The machopic_define_symbol calls are telling the machopic subsystem
    that the name *is* defined in this module, so it doesn't need to
    make them indirect.  */
 
@@ -361,10 +434,11 @@ do { text_section ();							\
     const char *xname = NAME;						\
     if (GET_CODE (XEXP (DECL_RTL (DECL), 0)) != SYMBOL_REF)		\
       xname = IDENTIFIER_POINTER (DECL_NAME (DECL));			\
-    if ((TREE_STATIC (DECL)						\
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
-        || DECL_INITIAL (DECL))						\
-      machopic_define_name (xname);					\
+    if (! DECL_ONE_ONLY (DECL) && ! DECL_WEAK (DECL))                   \
+      if ((TREE_STATIC (DECL)						\
+	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
+          || DECL_INITIAL (DECL))					\
+        machopic_define_symbol (DECL_RTL (DECL));			\
     if ((TREE_STATIC (DECL)						\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL))						\
@@ -381,18 +455,16 @@ do { text_section ();							\
     const char *xname = NAME;                                           \
     if (GET_CODE (XEXP (DECL_RTL (DECL), 0)) != SYMBOL_REF)             \
       xname = IDENTIFIER_POINTER (DECL_NAME (DECL));                    \
-    if ((TREE_STATIC (DECL)                                             \
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
-        || DECL_INITIAL (DECL))                                         \
-      machopic_define_name (xname);                                     \
+    if (! DECL_ONE_ONLY (DECL) && ! DECL_WEAK (DECL))			\
+      if ((TREE_STATIC (DECL)                                           \
+	   && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))             \
+          || DECL_INITIAL (DECL))                                       \
+        machopic_define_symbol (DECL_RTL (DECL));                       \
     if ((TREE_STATIC (DECL)                                             \
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))               \
         || DECL_INITIAL (DECL))                                         \
       (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
     ASM_OUTPUT_LABEL (FILE, xname);                                     \
-    /* Avoid generating stubs for functions we've just defined by	\
-       outputting any required stub name label now.  */			\
-    machopic_output_possible_stub_label (FILE, xname);			\
   } while (0)
 
 #define ASM_DECLARE_CONSTANT_NAME(FILE, NAME, EXP, SIZE)	\
@@ -410,18 +482,18 @@ do { text_section ();							\
 #undef	ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)					     \
   do {									     \
-       const char *xname = darwin_strip_name_encoding (NAME);		     \
+       const char *xname = (NAME);					     \
        if (! strcmp (xname, "<pic base>"))				     \
          machopic_output_function_base_name(FILE);                           \
        else if (xname[0] == '&' || xname[0] == '*')			     \
          {								     \
            int len = strlen (xname);					     \
 	   if (len > 6 && !strcmp ("$stub", xname + len - 5))		     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 7 && !strcmp ("$stub\"", xname + len - 6))	     \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 1);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
-	     machopic_validate_stub_or_non_lazy_ptr (xname, 0);		     \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   fputs (&xname[1], FILE);					     \
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
@@ -431,7 +503,7 @@ do { text_section ();							\
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
        else								     \
-         fprintf (FILE, "_%s", xname);					     \
+         asm_fprintf (FILE, "%U%s", xname);				     \
   } while (0)
 
 /* Output before executable code.  */
@@ -453,7 +525,7 @@ do { text_section ();							\
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     fputs (".lcomm ", (FILE));						\
@@ -463,11 +535,10 @@ do { text_section ();							\
     if ((DECL) && ((TREE_STATIC (DECL)					\
 	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
         || DECL_INITIAL (DECL)))					\
-      (* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
-    if ((DECL) && ((TREE_STATIC (DECL)					\
-	 && (!DECL_COMMON (DECL) || !TREE_PUBLIC (DECL)))		\
-        || DECL_INITIAL (DECL)))					\
-      machopic_define_name (NAME);					\
+      {									\
+	(* targetm.encode_section_info) (DECL, DECL_RTL (DECL), false);	\
+	machopic_define_symbol (DECL_RTL (DECL));			\
+      }									\
   } while (0)
 
 /* The maximum alignment which the object file format can support.
@@ -640,7 +711,7 @@ SECTION_FUNCTION (darwin_exception_section,		\
 		".section __DATA,__gcc_except_tab", 0)	\
 SECTION_FUNCTION (darwin_eh_frame_section,		\
 		in_darwin_eh_frame,			\
-		".section __TEXT,__eh_frame", 0)	\
+		".section " EH_FRAME_SECTION_NAME ",__eh_frame" EH_FRAME_SECTION_ATTR, 0)  \
 							\
 static void					\
 objc_section_init (void)			\
@@ -681,6 +752,10 @@ objc_section_init (void)			\
 #define TARGET_ASM_SELECT_SECTION machopic_select_section
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
+#undef  TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
+
+
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
     do {								\
@@ -726,6 +801,12 @@ objc_section_init (void)			\
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 #endif
 
+/* Set on a symbol with SYMBOL_FLAG_FUNCTION or
+   MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
+   variable has been defined in this translation unit.  */
+#define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
+#define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
+
 /* Symbolic names for various things we might know about a symbol.  */
 
 enum machopic_addr_class {
@@ -746,7 +827,7 @@ enum machopic_addr_class {
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING  darwin_strip_name_encoding
+#define TARGET_STRIP_NAME_ENCODING  default_strip_name_encoding
 
 #define GEN_BINDER_NAME_FOR_STUB(BUF,STUB,STUB_LENGTH)		\
   do {								\
@@ -782,7 +863,7 @@ enum machopic_addr_class {
 
 #define GEN_LAZY_PTR_NAME_FOR_SYMBOL(BUF,SYMBOL,SYMBOL_LENGTH)	\
   do {								\
-    const char *symbol_ = darwin_strip_name_encoding (SYMBOL);	\
+    const char *symbol_ = (SYMBOL);                             \
     char *buffer_ = (BUF);					\
     if (symbol_[0] == '"')					\
       {								\
@@ -808,6 +889,9 @@ enum machopic_addr_class {
 
 #define TARGET_ASM_EH_FRAME_SECTION darwin_eh_frame_section
 
+#define EH_FRAME_SECTION_NAME   "__TEXT"
+#define EH_FRAME_SECTION_ATTR ",coalesced,no_toc+strip_static_syms"
+
 #undef ASM_PREFERRED_EH_DATA_FORMAT
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)  \
   (((CODE) == 2 && (GLOBAL) == 1) \
@@ -817,7 +901,19 @@ enum machopic_addr_class {
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
+      if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1)) {				\
+	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\
+	goto DONE;									\
+      }
+
+
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
+
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS darwin_section_type_flags
 
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
@@ -831,3 +927,20 @@ enum machopic_addr_class {
 #define ASM_APP_ON ""
 #undef ASM_APP_OFF
 #define ASM_APP_OFF ""
+
+void darwin_register_frameworks (int);
+#define TARGET_EXTRA_INCLUDES darwin_register_frameworks
+
+void add_framework_path (char *);
+#define TARGET_OPTF add_framework_path
+
+#define TARGET_HAS_F_SETLKW
+
+/* Darwin before 7.0 does not have C99 functions.   */
+#ifndef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS 0
+#endif
+
+#define WINT_TYPE "int"
+
+#endif /* CONFIG_DARWIN_H */

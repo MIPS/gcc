@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,12 +71,10 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
   return c;
 }
 
-/* Return an rtx for the sum of X and the integer C.
-
-   This function should be used via the `plus_constant' macro.  */
+/* Return an rtx for the sum of X and the integer C.  */
 
 rtx
-plus_constant_wide (rtx x, HOST_WIDE_INT c)
+plus_constant (rtx x, HOST_WIDE_INT c)
 {
   RTX_CODE code;
   rtx y;
@@ -240,10 +238,12 @@ eliminate_constant_term (rtx x, rtx *constptr)
 rtx
 expr_size (tree exp)
 {
-  tree size = (*lang_hooks.expr_size) (exp);
+  tree size;
 
-  if (CONTAINS_PLACEHOLDER_P (size))
-    size = build (WITH_RECORD_EXPR, sizetype, size, exp);
+  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
+    size = TREE_OPERAND (exp, 1);
+  else
+    size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (lang_hooks.expr_size (exp), exp);
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
 }
@@ -254,17 +254,17 @@ expr_size (tree exp)
 HOST_WIDE_INT
 int_expr_size (tree exp)
 {
-  tree t = (*lang_hooks.expr_size) (exp);
+  tree size;
 
-  if (t == 0
-      || TREE_CODE (t) != INTEGER_CST
-      || TREE_OVERFLOW (t)
-      || TREE_INT_CST_HIGH (t) != 0
-      /* If the result would appear negative, it's too big to represent.  */
-      || (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)
+  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
+    size = TREE_OPERAND (exp, 1);
+  else
+    size = lang_hooks.expr_size (exp);
+
+  if (size == 0 || !host_integerp (size, 0))
     return -1;
 
-  return TREE_INT_CST_LOW (t);
+  return tree_low_cst (size, 0);
 }
 
 /* Return a copy of X in which all memory references
@@ -286,7 +286,7 @@ int_expr_size (tree exp)
 static rtx
 break_out_memory_refs (rtx x)
 {
-  if (GET_CODE (x) == MEM
+  if (MEM_P (x)
       || (CONSTANT_P (x) && CONSTANT_ADDRESS_P (x)
 	  && GET_MODE (x) != VOIDmode))
     x = force_reg (GET_MODE (x), x);
@@ -408,7 +408,7 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 rtx
 copy_all_regs (rtx x)
 {
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     {
       if (REGNO (x) != FRAME_POINTER_REGNUM
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
@@ -417,7 +417,7 @@ copy_all_regs (rtx x)
 	  )
 	x = copy_to_reg (x);
     }
-  else if (GET_CODE (x) == MEM)
+  else if (MEM_P (x))
     x = copy_to_reg (x);
   else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
 	   || GET_CODE (x) == MULT)
@@ -439,9 +439,6 @@ memory_address (enum machine_mode mode, rtx x)
 {
   rtx oldx = x;
 
-  if (GET_CODE (x) == ADDRESSOF)
-    return x;
-
   x = convert_memory_address (Pmode, x);
 
   /* By passing constant addresses through registers
@@ -449,21 +446,13 @@ memory_address (enum machine_mode mode, rtx x)
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
     x = force_reg (Pmode, x);
 
-  /* Accept a QUEUED that refers to a REG
-     even though that isn't a valid address.
-     On attempting to put this in an insn we will call protect_from_queue
-     which will turn it into a REG, which is valid.  */
-  else if (GET_CODE (x) == QUEUED
-      && GET_CODE (QUEUED_VAR (x)) == REG)
-    ;
-
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.
      For now, generate the code so that the subexpressions useful to share
      are visible.  But not if cse won't be done!  */
   else
     {
-      if (! cse_not_expected && GET_CODE (x) != REG)
+      if (! cse_not_expected && !REG_P (x))
 	x = break_out_memory_refs (x);
 
       /* At this point, any valid address is accepted.  */
@@ -511,7 +500,7 @@ memory_address (enum machine_mode mode, rtx x)
 
       /* If we have a register that's an invalid address,
 	 it must be a hard reg of the wrong class.  Copy it to a pseudo.  */
-      else if (GET_CODE (x) == REG)
+      else if (REG_P (x))
 	x = copy_to_reg (x);
 
       /* Last resort: copy the value to a register, since
@@ -524,7 +513,7 @@ memory_address (enum machine_mode mode, rtx x)
     win2:
       x = oldx;
     win:
-      if (flag_force_addr && ! cse_not_expected && GET_CODE (x) != REG
+      if (flag_force_addr && ! cse_not_expected && !REG_P (x)
 	  /* Don't copy an addr via a reg if it is one of our stack slots.  */
 	  && ! (GET_CODE (x) == PLUS
 		&& (XEXP (x, 0) == virtual_stack_vars_rtx
@@ -543,10 +532,10 @@ memory_address (enum machine_mode mode, rtx x)
      a reg as a pointer if we have REG or REG + CONST_INT.  */
   if (oldx == x)
     return x;
-  else if (GET_CODE (x) == REG)
+  else if (REG_P (x))
     mark_reg_pointer (x, BITS_PER_UNIT);
   else if (GET_CODE (x) == PLUS
-	   && GET_CODE (XEXP (x, 0)) == REG
+	   && REG_P (XEXP (x, 0))
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     mark_reg_pointer (XEXP (x, 0), BITS_PER_UNIT);
 
@@ -577,7 +566,7 @@ memory_address_noforce (enum machine_mode mode, rtx x)
 rtx
 validize_mem (rtx ref)
 {
-  if (GET_CODE (ref) != MEM)
+  if (!MEM_P (ref))
     return ref;
   if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
       && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
@@ -623,7 +612,7 @@ maybe_set_unchanging (rtx ref, tree t)
 rtx
 stabilize (rtx x)
 {
-  if (GET_CODE (x) != MEM
+  if (!MEM_P (x)
       || ! rtx_unstable_p (XEXP (x, 0)))
     return x;
 
@@ -691,7 +680,7 @@ force_reg (enum machine_mode mode, rtx x)
 {
   rtx temp, insn, set;
 
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     return x;
 
   if (general_operand (x, mode))
@@ -702,7 +691,7 @@ force_reg (enum machine_mode mode, rtx x)
   else
     {
       temp = force_operand (x, NULL_RTX);
-      if (GET_CODE (temp) == REG)
+      if (REG_P (temp))
 	insn = get_last_insn ();
       else
 	{
@@ -721,6 +710,40 @@ force_reg (enum machine_mode mode, rtx x)
       && ! rtx_equal_p (x, SET_SRC (set)))
     set_unique_reg_note (insn, REG_EQUAL, x);
 
+  /* Let optimizers know that TEMP is a pointer, and if so, the
+     known alignment of that pointer.  */
+  {
+    unsigned align = 0;
+    if (GET_CODE (x) == SYMBOL_REF)
+      {
+        align = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (x) && DECL_P (SYMBOL_REF_DECL (x)))
+	  align = DECL_ALIGN (SYMBOL_REF_DECL (x));
+      }
+    else if (GET_CODE (x) == LABEL_REF)
+      align = BITS_PER_UNIT;
+    else if (GET_CODE (x) == CONST
+	     && GET_CODE (XEXP (x, 0)) == PLUS
+	     && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
+	     && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      {
+	rtx s = XEXP (XEXP (x, 0), 0);
+	rtx c = XEXP (XEXP (x, 0), 1);
+	unsigned sa, ca;
+
+	sa = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (s) && DECL_P (SYMBOL_REF_DECL (s)))
+	  sa = DECL_ALIGN (SYMBOL_REF_DECL (s));
+
+	ca = exact_log2 (INTVAL (c) & -INTVAL (c)) * BITS_PER_UNIT;
+
+	align = MIN (sa, ca);
+      }
+
+    if (align)
+      mark_reg_pointer (temp, align);
+  }
+
   return temp;
 }
 
@@ -732,10 +755,14 @@ force_not_mem (rtx x)
 {
   rtx temp;
 
-  if (GET_CODE (x) != MEM || GET_MODE (x) == BLKmode)
+  if (!MEM_P (x) || GET_MODE (x) == BLKmode)
     return x;
 
   temp = gen_reg_rtx (GET_MODE (x));
+
+  if (MEM_POINTER (x))
+    REG_POINTER (temp) = 1;
+
   emit_move_insn (temp, x);
   return temp;
 }
@@ -749,7 +776,7 @@ copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
 {
   rtx temp;
 
-  if (target && GET_CODE (target) == REG)
+  if (target && REG_P (target))
     temp = target;
   else
     temp = gen_reg_rtx (mode);
@@ -764,6 +791,10 @@ copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
 
    FOR_CALL is nonzero if this call is promoting args for a call.  */
 
+#if defined(PROMOTE_MODE) && !defined(PROMOTE_FUNCTION_MODE)
+#define PROMOTE_FUNCTION_MODE PROMOTE_MODE
+#endif
+
 enum machine_mode
 promote_mode (tree type, enum machine_mode mode, int *punsignedp,
 	      int for_call ATTRIBUTE_UNUSED)
@@ -771,17 +802,28 @@ promote_mode (tree type, enum machine_mode mode, int *punsignedp,
   enum tree_code code = TREE_CODE (type);
   int unsignedp = *punsignedp;
 
-#ifdef PROMOTE_FOR_CALL_ONLY
+#ifndef PROMOTE_MODE
   if (! for_call)
     return mode;
 #endif
 
   switch (code)
     {
-#ifdef PROMOTE_MODE
+#ifdef PROMOTE_FUNCTION_MODE
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
     case CHAR_TYPE:      case REAL_TYPE:       case OFFSET_TYPE:
-      PROMOTE_MODE (mode, unsignedp, type);
+#ifdef PROMOTE_MODE
+      if (for_call)
+	{
+#endif
+	  PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+#ifdef PROMOTE_MODE
+	}
+      else
+	{
+	  PROMOTE_MODE (mode, unsignedp, type);
+	}
+#endif
       break;
 #endif
 
@@ -808,7 +850,6 @@ void
 adjust_stack (rtx adjust)
 {
   rtx temp;
-  adjust = protect_from_queue (adjust, 0);
 
   if (adjust == const0_rtx)
     return;
@@ -838,7 +879,6 @@ void
 anti_adjust_stack (rtx adjust)
 {
   rtx temp;
-  adjust = protect_from_queue (adjust, 0);
 
   if (adjust == const0_rtx)
     return;
@@ -948,11 +988,6 @@ emit_stack_save (enum save_level save_level, rtx *psave, rtx after)
 	    *psave = sa = gen_reg_rtx (mode);
 	}
     }
-  else
-    {
-      if (mode == VOIDmode || GET_MODE (sa) != mode)
-	abort ();
-    }
 
   if (after)
     {
@@ -1039,6 +1074,27 @@ emit_stack_restore (enum save_level save_level, rtx sa, rtx after)
   else
     emit_insn (fcn (stack_pointer_rtx, sa));
 }
+
+/* Invoke emit_stack_save on the nonlocal_goto_save_area for the current
+   function.  This function should be called whenever we allocate or
+   deallocate dynamic stack space.  */
+
+void
+update_nonlocal_goto_save_area (void)
+{
+  tree t_save;
+  rtx r_save;
+
+  /* The nonlocal_goto_save_area object is an array of N pointers.  The
+     first one is used for the frame pointer save; the rest are sized by
+     STACK_SAVEAREA_MODE.  Create a reference to array index 1, the first
+     of the stack save area slots.  */
+  t_save = build4 (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
+		   integer_one_node, NULL_TREE, NULL_TREE);
+  r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+  emit_stack_save (SAVE_NONLOCAL, &r_save, NULL_RTX);
+}
 
 #ifdef SETJMP_VIA_SAVE_AREA
 /* Optimize RTL generated by allocate_dynamic_stack_space for targets
@@ -1047,15 +1103,15 @@ emit_stack_restore (enum save_level save_level, rtx sa, rtx after)
    frame, thus causing a crash if a longjmp unwinds to it.  */
 
 void
-optimize_save_area_alloca (rtx insns)
+optimize_save_area_alloca (void)
 {
   rtx insn;
 
-  for (insn = insns; insn; insn = NEXT_INSN(insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN(insn))
     {
       rtx note;
 
-      if (GET_CODE (insn) != INSN)
+      if (!NONJUMP_INSN_P (insn))
 	continue;
 
       for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
@@ -1267,7 +1323,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
     probe_stack_range (STACK_CHECK_MAX_FRAME_SIZE + STACK_CHECK_PROTECT, size);
 
   /* Don't use a TARGET that isn't a pseudo or is the wrong mode.  */
-  if (target == 0 || GET_CODE (target) != REG
+  if (target == 0 || !REG_P (target)
       || REGNO (target) < FIRST_PSEUDO_REGISTER
       || GET_MODE (target) != Pmode)
     target = gen_reg_rtx (Pmode);
@@ -1363,8 +1419,8 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
     }
 
   /* Record the new stack level for nonlocal gotos.  */
-  if (nonlocal_goto_handler_slots != 0)
-    emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
+  if (cfun->nonlocal_goto_save_area != 0)
+    update_nonlocal_goto_save_area ();
 
   return target;
 }
@@ -1491,7 +1547,7 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
       rtx end_lab = gen_label_rtx ();
       rtx temp;
 
-      if (GET_CODE (test_addr) != REG
+      if (!REG_P (test_addr)
 	  || REGNO (test_addr) < FIRST_PSEUDO_REGISTER)
 	test_addr = force_reg (Pmode, test_addr);
 
@@ -1545,7 +1601,7 @@ hard_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
 #endif
     val = FUNCTION_VALUE (valtype, func);
 
-  if (GET_CODE (val) == REG
+  if (REG_P (val)
       && GET_MODE (val) == BLKmode)
     {
       unsigned HOST_WIDE_INT bytes = int_size_in_bytes (valtype);

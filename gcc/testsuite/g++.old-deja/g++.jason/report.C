@@ -47,8 +47,8 @@ class X{
 
 typedef int const * bart ();
 //The following is DR295 dependant
-typedef bart const * const * bar2; // { dg-error "" } constifying qualifiers
-typedef bart volatile * const * bar2v; // { dg-error "" } qualifiers
+typedef bart const * const * bar2;
+typedef bart volatile * const * bar2v;
 
 bar2 baz (X::Y y)
 {				// { dg-error "" } in this context
@@ -56,7 +56,7 @@ bar2 baz (X::Y y)
   bar2 wa [5];
   wa[0] = baz(f);
   undef2 (1); // { dg-error "" } implicit declaration
-}
+} // { dg-warning "" } no return
 
 int ninny ()
 {
@@ -71,4 +71,4 @@ int ninny ()
 int darg (char X::*p)
 {
    undef3 (1); // { dg-error "" } implicit declaration
-}
+} // { dg-warning "" } no return

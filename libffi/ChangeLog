@@ -1,3 +1,154 @@
+2004-07-11  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* src/s390/ffi.c (ffi_prep_args): Fix C aliasing violation.
+	(ffi_check_float_struct): Remove unused prototype.
+
+2004-06-30  Geoffrey Keating  <geoffk@apple.com>
+
+	* src/powerpc/ffi_darwin.c (flush_icache): ';' is a comment
+	character on Darwin, use '\n\t' instead.
+
+2004-06-26  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: Fix typo in revision/age.
+
+2004-06-17  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: New.
+	* Makefile.am (libffi_la_LDFLAGS): Use -version-info for soname.
+	* Makefile.in: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am: Remove useless multilib rules.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate with automake 1.8.5.
+	* configure.ac: Remove useless multilib configury.
+	* configure: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* .cvsignore: New file.
+
+2004-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/ia64/unix.S (ffi_call_unix): Insert group barrier break
+	fp_done.
+	(ffi_closure_UNIX): Fix f14/f15 adjustment if FLOAT_SZ is ever
+	changed from 8.
+
+2004-06-06  Sean McNeil  <sean@mcneil.com>
+
+	* configure.ac: Add x86_64-*-freebsd* support.
+	* configure: Regenerate.
+
+2004-04-26  Joe Buck <jbuck@welsh-buck.org>
+
+	Bug 15093
+	* configure.ac: Test for existence of mmap and sys/mman.h before
+	checking blacklist.  Fix suggested by Jim Wilson.
+	* configure: Regenerate.
+
+2004-04-26  Matt Austern  <austern@apple.com>
+
+	* src/powerpc/darwin.S: Go through a non-lazy pointer for initial
+	FDE location.
+	* src/powerpc/darwin_closure.S: Likewise.
+	
+2004-04-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libffi.call/cls_multi_schar.c (main): Fix initialization
+	error. Reported by Thomas Heller <theller@python.net>.
+	* testsuite/libffi.call/cls_multi_sshort.c (main): Likewise.
+	* testsuite/libffi.call/cls_multi_ushort.c (main): Likewise.
+
+2004-03-20  Matthias Klose  <doko@debian.org>
+
+	* src/pa/linux.S: Fix typo.
+
+2004-03-19  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am: Update.
+	* Makefile.in: Regenerate.
+	* src/pa/ffi.h.in: Remove.
+	* src/pa/ffitarget.h: New file.
+
+2004-02-10  Randolph Chung  <tausq@debian.org>
+
+	* Makefile.am: Add PA support.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* configure.ac: Add PA target.
+	* configure: Regenerate.
+	* src/pa/ffi.c: New file.
+	* src/pa/ffi.h.in: Add PA support.
+	* src/pa/linux.S: New file.
+	* prep_cif.c: Add PA support.
+
+2004-03-16  Hosaka Yuji  <hos@tamanegi.org>
+
+	* src/types.c: Fix alignment size of X86_WIN32 case int64 and
+	double.
+	* src/x86/ffi.c (ffi_prep_args): Replace ecif->cif->rtype->type
+	with ecif->cif->flags.
+	(ffi_call, ffi_prep_incoming_args_SYSV): Replace cif->rtype->type
+	with cif->flags.
+	(ffi_prep_cif_machdep): Add X86_WIN32 struct case.
+	(ffi_closure_SYSV): Add 1 or 2-bytes struct case for X86_WIN32.
+	* src/x86/win32.S (retstruct1b, retstruct2b, sc_retstruct1b,
+	sc_retstruct2b): Add for 1 or 2-bytes struct case.
+
+2004-03-15 Kelley Cook <kcook@gcc.gnu.org>
+
+	* configure.in: Rename file to ...
+	* configure.ac: ... this.
+	* fficonfig.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2004-03-12  Matt Austern  <austern@apple.com>
+
+	* src/powerpc/darwin.S: Fix EH information so it corresponds to
+	changes in EH format resulting from addition of linkonce support.
+	* src/powerpc/darwin_closure.S: Likewise.
+
+2004-03-11  Andreas Tobler  <a.tobler@schweiz.ch>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am (AUTOMAKE_OPTIONS): Set them.
+	Remove VPATH. Remove rules for object files. Remove multilib support.
+	(AM_CCASFLAGS): Add.
+	* configure.in (AC_CONFIG_HEADERS): Relace AM_CONFIG_HEADER.
+	(AC_PREREQ): Bump version to 2.59.
+	(AC_INIT): Fill with version info and bug address.
+	(ORIGINAL_LD_FOR_MULTILIBS): Remove.
+	(AM_ENABLE_MULTILIB): Use this instead of AC_ARG_ENABLE.
+	De-precious CC so that the right flags are passed down to multilibs.
+	(AC_MSG_ERROR): Replace obsolete macro AC_ERROR.
+	(AC_CONFIG_FILES): Replace obsolete macro AC_LINK_FILES.
+	(AC_OUTPUT): Reorganize the output with AC_CONFIG_COMMANDS.
+	* configure: Rebuilt.
+	* aclocal.m4: Likewise.
+	* Makefile.in, include/Makefile.in, testsuite/Makefile.in: Likewise.
+	* fficonfig.h.in: Likewise.
+
+2004-03-11  Andreas Schwab  <schwab@suse.de>
+
+	* src/ia64/ffi.c (ffi_prep_incoming_args_UNIX): Get floating point
+	arguments from fp registers only for the first 8 parameter slots.
+	Don't convert a float parameter when passed in memory.
+
+2004-03-09  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure: Regenerate for config/accross.m4 correction.
+
+2004-02-25  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* src/powerpc/ffi.c (ffi_prep_args_SYSV): Change
+	ecif->cif->bytes to bytes.
+	(ffi_prep_cif_machdep): Add braces around nested if statement.
+
 2004-02-09  Alan Modra  <amodra@bigpond.net.au>
 
 	* src/types.c (pointer): POWERPC64 has 8 byte pointers.

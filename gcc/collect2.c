@@ -67,7 +67,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    cross-versions are in the proper directories.  */
 
 #ifdef CROSS_COMPILE
-#undef SUNOS4_SHARED_LIBRARIES
 #undef OBJECT_FORMAT_COFF
 #undef MD_EXEC_PREFIX
 #undef REAL_LD_FILE_NAME
@@ -140,7 +139,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   fprintf ((STREAM), "void _GLOBAL__DD() {\n\t%s();\n}\n", (FUNC))
 #endif
 
-#if defined (LDD_SUFFIX) || SUNOS4_SHARED_LIBRARIES
+#ifdef LDD_SUFFIX
 #define SCAN_LIBRARIES
 #endif
 
@@ -186,6 +185,7 @@ enum pass {
 int vflag;				/* true if -v */
 static int rflag;			/* true if -r */
 static int strip_flag;			/* true if -s */
+static const char *demangle_flag;
 #ifdef COLLECT_EXPORT_LIST
 static int export_flag;                 /* true if -bE */
 static int aix64_flag;			/* true if -b64 */
@@ -492,10 +492,14 @@ dump_file (const char *name)
 	  if (!strncmp (p, USER_LABEL_PREFIX, strlen (USER_LABEL_PREFIX)))
 	    p += strlen (USER_LABEL_PREFIX);
 
+#ifdef HAVE_LD_DEMANGLE
+	  result = 0;
+#else
 	  if (no_demangle)
 	    result = 0;
 	  else
 	    result = cplus_demangle (p, DMGL_PARAMS | DMGL_ANSI | DMGL_VERBOSE);
+#endif
 
 	  if (result)
 	    {
@@ -842,8 +846,8 @@ main (int argc, char **argv)
   /* Do not invoke xcalloc before this point, since locale needs to be
      set first, in case a diagnostic is issued.  */
 
-  ld1 = (const char **)(ld1_argv = xcalloc(sizeof (char *), argc+3));
-  ld2 = (const char **)(ld2_argv = xcalloc(sizeof (char *), argc+10));
+  ld1 = (const char **)(ld1_argv = xcalloc(sizeof (char *), argc+4));
+  ld2 = (const char **)(ld2_argv = xcalloc(sizeof (char *), argc+11));
   object = (const char **)(object_lst = xcalloc(sizeof (char *), argc));
 
 #ifdef DEBUG
@@ -874,7 +878,9 @@ main (int argc, char **argv)
   obstack_begin (&temporary_obstack, 0);
   temporary_firstobj = obstack_alloc (&temporary_obstack, 0);
 
+#ifndef HAVE_LD_DEMANGLE
   current_demangling_style = auto_demangling;
+#endif
   p = getenv ("COLLECT_GCC_OPTIONS");
   while (p && *p)
     {
@@ -1064,6 +1070,12 @@ main (int argc, char **argv)
   /* After the first file, put in the c++ rt0.  */
 
   first_file = 1;
+#ifdef HAVE_LD_DEMANGLE
+  if (!demangle_flag && !no_demangle)
+    demangle_flag = "--demangle";
+  if (demangle_flag)
+    *ld1++ = *ld2++ = demangle_flag;
+#endif
   while ((arg = *++argv) != (char *) 0)
     {
       *ld1++ = *ld2++ = arg;
@@ -1157,6 +1169,34 @@ main (int argc, char **argv)
 	    case 'v':
 	      if (arg[2] == '\0')
 		vflag = 1;
+	      break;
+
+	    case '-':
+	      if (strcmp (arg, "--no-demangle") == 0)
+		{
+		  demangle_flag = arg;
+		  no_demangle = 1;
+		  ld1--;
+		  ld2--;
+		}
+	      else if (strncmp (arg, "--demangle", 10) == 0)
+		{
+		  demangle_flag = arg;
+		  no_demangle = 0;
+#ifndef HAVE_LD_DEMANGLE
+		  if (arg[10] == '=')
+		    {
+		      enum demangling_styles style
+			= cplus_demangle_name_to_style (arg+11);
+		      if (style == unknown_demangling)
+			error ("unknown demangling style '%s'", arg+11);
+		      else
+			current_demangling_style = style;
+		    }
+#endif
+		  ld1--;
+		  ld2--;
+		}
 	      break;
 	    }
 	}
@@ -1398,10 +1438,12 @@ main (int argc, char **argv)
       if (! exports.first)
 	*ld2++ = concat ("-bE:", export_file, NULL);
 
+#ifndef LD_INIT_SWITCH
       add_to_list (&exports, initname);
       add_to_list (&exports, fininame);
       add_to_list (&exports, "_GLOBAL__DI");
       add_to_list (&exports, "_GLOBAL__DD");
+#endif
       exportf = fopen (export_file, "w");
       if (exportf == (FILE *) 0)
 	fatal_perror ("fopen %s", export_file);
@@ -2146,269 +2188,6 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 #endif
 }
 
-#if SUNOS4_SHARED_LIBRARIES
-
-/* Routines to scan the SunOS 4 _DYNAMIC structure to find shared libraries
-   that the output file depends upon and their initialization/finalization
-   routines, if any.  */
-
-#include <a.out.h>
-#include <fcntl.h>
-#include <link.h>
-#include <sys/mman.h>
-#include <sys/param.h>
-#include <unistd.h>
-#include <sys/dir.h>
-
-/* pointers to the object file */
-unsigned object;	/* address of memory mapped file */
-unsigned objsize;	/* size of memory mapped to file */
-char * code;		/* pointer to code segment */
-char * data;		/* pointer to data segment */
-struct nlist *symtab;	/* pointer to symbol table */
-struct link_dynamic *ld;
-struct link_dynamic_2 *ld_2;
-struct head libraries;
-
-/* Map the file indicated by NAME into memory and store its address.  */
-
-static void
-mapfile (const char *name)
-{
-  int fp;
-  struct stat s;
-  if ((fp = open (name, O_RDONLY)) == -1)
-    fatal ("unable to open file '%s'", name);
-  if (fstat (fp, &s) == -1)
-    fatal ("unable to stat file '%s'", name);
-
-  objsize = s.st_size;
-  object = (unsigned) mmap (0, objsize, PROT_READ|PROT_WRITE, MAP_PRIVATE,
-			    fp, 0);
-  if (object == (unsigned)-1)
-    fatal ("unable to mmap file '%s'", name);
-
-  close (fp);
-}
-
-/* Helpers for locatelib.  */
-
-static const char *libname;
-
-static int
-libselect (struct direct *d)
-{
-  return (strncmp (libname, d->d_name, strlen (libname)) == 0);
-}
-
-/* If one file has an additional numeric extension past LIBNAME, then put
-   that one first in the sort.  If both files have additional numeric
-   extensions, then put the one with the higher number first in the sort.
-
-   We must verify that the extension is numeric, because Sun saves the
-   original versions of patched libraries with a .FCS extension.  Files with
-   invalid extensions must go last in the sort, so that they will not be used.  */
-
-static int
-libcompare (struct direct **d1, struct direct **d2)
-{
-  int i1, i2 = strlen (libname);
-  char *e1 = (*d1)->d_name + i2;
-  char *e2 = (*d2)->d_name + i2;
-
-  while (*e1 && *e2 && *e1 == '.' && *e2 == '.'
-	 && e1[1] && ISDIGIT (e1[1]) && e2[1] && ISDIGIT (e2[1]))
-    {
-      ++e1;
-      ++e2;
-      i1 = strtol (e1, &e1, 10);
-      i2 = strtol (e2, &e2, 10);
-      if (i1 != i2)
-	return i1 - i2;
-    }
-
-  if (*e1)
-    {
-      /* It has a valid numeric extension, prefer this one.  */
-      if (*e1 == '.' && e1[1] && ISDIGIT (e1[1]))
-	return 1;
-      /* It has an invalid numeric extension, must prefer the other one.  */
-      else
-	return -1;
-    }
-  else if (*e2)
-    {
-      /* It has a valid numeric extension, prefer this one.  */
-      if (*e2 == '.' && e2[1] && ISDIGIT (e2[1]))
-	return -1;
-      /* It has an invalid numeric extension, must prefer the other one.  */
-      else
-	return 1;
-    }
-  else
-    return 0;
-}
-
-/* Given the name NAME of a dynamic dependency, find its pathname and add
-   it to the list of libraries.  */
-
-static void
-locatelib (const char *name)
-{
-  static const char **l;
-  static int cnt;
-  char buf[MAXPATHLEN];
-  char *p, *q;
-  const char **pp;
-
-  if (l == 0)
-    {
-      char *ld_rules;
-      char *ldr = 0;
-      /* counting elements in array, need 1 extra for null */
-      cnt = 1;
-      ld_rules = (char *) (ld_2->ld_rules + code);
-      if (ld_rules)
-	{
-	  cnt++;
-	  for (; *ld_rules != 0; ld_rules++)
-	    if (*ld_rules == ':')
-	      cnt++;
-	  ld_rules = (char *) (ld_2->ld_rules + code);
-	  ldr = xstrdup (ld_rules);
-	}
-      p = getenv ("LD_LIBRARY_PATH");
-      q = 0;
-      if (p)
-	{
-	  cnt++;
-	  for (q = p ; *q != 0; q++)
-	    if (*q == ':')
-	      cnt++;
-	  q = xstrdup (p);
-	}
-      l = xmalloc ((cnt + 3) * sizeof (char *));
-      pp = l;
-      if (ldr)
-	{
-	  *pp++ = ldr;
-	  for (; *ldr != 0; ldr++)
-	    if (*ldr == ':')
-	      {
-		*ldr++ = 0;
-		*pp++ = ldr;
-	      }
-	}
-      if (q)
-	{
-	  *pp++ = q;
-	  for (; *q != 0; q++)
-	    if (*q == ':')
-	      {
-		*q++ = 0;
-		*pp++ = q;
-	      }
-	}
-      /* built in directories are /lib, /usr/lib, and /usr/local/lib */
-      *pp++ = "/lib";
-      *pp++ = "/usr/lib";
-      *pp++ = "/usr/local/lib";
-      *pp = 0;
-    }
-  libname = name;
-  for (pp = l; *pp != 0 ; pp++)
-    {
-      struct direct **namelist;
-      int entries;
-      if ((entries = scandir (*pp, &namelist, libselect, libcompare)) > 0)
-	{
-	  sprintf (buf, "%s/%s", *pp, namelist[entries - 1]->d_name);
-	  add_to_list (&libraries, buf);
-	  if (debug)
-	    fprintf (stderr, "%s\n", buf);
-	  break;
-	}
-    }
-  if (*pp == 0)
-    {
-      if (debug)
-	notice ("not found\n");
-      else
-	fatal ("dynamic dependency %s not found", name);
-    }
-}
-
-/* Scan the _DYNAMIC structure of the output file to find shared libraries
-   that it depends upon and any constructors or destructors they contain.  */
-
-static void
-scan_libraries (const char *prog_name)
-{
-  struct exec *header;
-  char *base;
-  struct link_object *lo;
-  char buff[MAXPATHLEN];
-  struct id *list;
-
-  mapfile (prog_name);
-  header = (struct exec *)object;
-  if (N_BADMAG (*header))
-    fatal ("bad magic number in file '%s'", prog_name);
-  if (header->a_dynamic == 0)
-    return;
-
-  code = (char *) (N_TXTOFF (*header) + (long) header);
-  data = (char *) (N_DATOFF (*header) + (long) header);
-  symtab = (struct nlist *) (N_SYMOFF (*header) + (long) header);
-
-  if (header->a_magic == ZMAGIC && header->a_entry == 0x20)
-    {
-      /* shared object */
-      ld = (struct link_dynamic *) (symtab->n_value + code);
-      base = code;
-    }
-  else
-    {
-      /* executable */
-      ld = (struct link_dynamic *) data;
-      base = code-PAGSIZ;
-    }
-
-  if (debug)
-    notice ("dynamic dependencies.\n");
-
-  ld_2 = (struct link_dynamic_2 *) ((long) ld->ld_un.ld_2 + (long)base);
-  for (lo = (struct link_object *) ld_2->ld_need; lo;
-       lo = (struct link_object *) lo->lo_next)
-    {
-      char *name;
-      lo = (struct link_object *) ((long) lo + code);
-      name = (char *) (code + lo->lo_name);
-      if (lo->lo_library)
-	{
-	  if (debug)
-	    fprintf (stderr, "\t-l%s.%d => ", name, lo->lo_major);
-	  sprintf (buff, "lib%s.so.%d.%d", name, lo->lo_major, lo->lo_minor);
-	  locatelib (buff);
-	}
-      else
-	{
-	  if (debug)
-	    fprintf (stderr, "\t%s\n", name);
-	  add_to_list (&libraries, name);
-	}
-    }
-
-  if (debug)
-    fprintf (stderr, "\n");
-
-  /* Now iterate through the library list adding their symbols to
-     the list.  */
-  for (list = libraries.first; list; list = list->next)
-    scan_prog_file (list->name, PASS_LIB);
-}
-
-#else  /* SUNOS4_SHARED_LIBRARIES */
 #ifdef LDD_SUFFIX
 
 /* Use the List Dynamic Dependencies program to find shared libraries that
@@ -2545,7 +2324,6 @@ scan_libraries (const char *prog_name)
 }
 
 #endif /* LDD_SUFFIX */
-#endif /* SUNOS4_SHARED_LIBRARIES */
 
 #endif /* OBJECT_FORMAT_NONE */
 
@@ -2719,7 +2497,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 			case 1:
 			  if (! is_shared)
 			    add_to_list (&constructors, name);
-#ifdef COLLECT_EXPORT_LIST
+#if defined (COLLECT_EXPORT_LIST) && !defined (LD_INIT_SWITCH)
 			  if (which_pass == PASS_OBJ)
 			    add_to_list (&exports, name);
 #endif
@@ -2728,7 +2506,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 			case 2:
 			  if (! is_shared)
 			    add_to_list (&destructors, name);
-#ifdef COLLECT_EXPORT_LIST
+#if defined (COLLECT_EXPORT_LIST) && !defined (LD_INIT_SWITCH)
 			  if (which_pass == PASS_OBJ)
 			    add_to_list (&exports, name);
 #endif
@@ -2753,7 +2531,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 			case 5:
 			  if (! is_shared)
 			    add_to_list (&frame_tables, name);
-#ifdef COLLECT_EXPORT_LIST
+#if defined (COLLECT_EXPORT_LIST) && !defined (LD_INIT_SWITCH)
 			  if (which_pass == PASS_OBJ)
 			    add_to_list (&exports, name);
 #endif
@@ -2761,13 +2539,14 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 
 			default:	/* not a constructor or destructor */
 #ifdef COLLECT_EXPORT_LIST
-			  /* If we are building a shared object on AIX we need
-			     to explicitly export all global symbols.  */
-			  if (shared_obj)
-			    {
-			      if (which_pass == PASS_OBJ && (! export_flag))
-				add_to_list (&exports, name);
-			    }
+			  /* Explicitly export all global symbols when
+			     building a shared object on AIX, but do not
+			     re-export symbols from another shared object
+			     and do not export symbols if the user
+			     provides an explicit export list.  */
+			  if (shared_obj && !is_shared
+			      && which_pass == PASS_OBJ && !export_flag)
+			    add_to_list (&exports, name);
 #endif
 			  continue;
 			}

@@ -46,7 +46,7 @@ setst_var st_fresh(region r, const char *name);
 setst_var st_fresh_large(region r, const char *name);
 setst_var st_fresh_small(region r, const char *name);
 stamp st_get_stamp(setst_var v);
-char *st_get_name(setst_var v);
+const char *st_get_name(setst_var v);
 void st_unify(setst_var v,setst_var_list vars);
 setst_var_list st_get_lbs(setst_var v); 
 gen_e_list st_get_sources(setst_var v);

@@ -1,5 +1,5 @@
 ;;- Machine description for GNU compiler, ns32000 Version
-;;  Copyright (C) 1988, 1994, 1996, 1998, 1999, 2000, 2001, 2002
+;;  Copyright (C) 1988, 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2004
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -543,10 +543,10 @@
 ;;
 ;; Strategy: Use define_expand to
 ;; either emit insns directly if it can be done simply or
-;; emit rtl to match movstrsi1 which has extra scratch registers
+;; emit rtl to match movmemsi1 which has extra scratch registers
 ;; which can be used to generate more complex code.
 
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
 		   (match_operand:BLK 1 "memory_operand" ""))
 	      (use (match_operand:SI 2 "general_operand" ""))
@@ -568,7 +568,7 @@
 ;; r3  match
 
 
-(define_insn "movstrsi1"
+(define_insn "movmemsi1"
   [(set (mem:BLK (reg:SI 2))
 	(mem:BLK (reg:SI 1)))
    (use (reg:SI 0))
@@ -585,7 +585,7 @@
        return \"movsb\";
   }")
 
-(define_insn "movstrsi2"
+(define_insn "movmemsi2"
   [(set (mem:BLK (match_operand:SI 0 "address_operand" "p"))
 	(mem:BLK (match_operand:SI 1 "address_operand" "p")))
    (use (match_operand 2 "immediate_operand" "i"))]

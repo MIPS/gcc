@@ -1,5 +1,5 @@
 /* Definitions for Sun SPARC64 running FreeBSD using the ELF format
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
 This file is part of GCC.
@@ -18,6 +18,11 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
+
 /* FreeBSD needs the platform name (sparc64) defined.
    Emacs needs to know if the arch is 64 or 32-bits.  */
 
@@ -35,7 +40,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
   %{!shared:								\
     %{!static:								\
       %{rdynamic:-export-dynamic}					\
-      %{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}}	\
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }}	\
     %{static:-Bstatic}}"
 
 
@@ -91,7 +96,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  SPARC_DEFAULT_CMODEL
 #define SPARC_DEFAULT_CMODEL	CM_MEDLOW
 
-#define TRANSFER_FROM_TRAMPOLINE					\
+#define ENABLE_EXECUTE_STACK						\
   static int need_enable_exec_stack;					\
   static void check_enabling(void) __attribute__ ((constructor));	\
   static void check_enabling(void)					\

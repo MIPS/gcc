@@ -51,26 +51,52 @@
 #define REAL_NM_FILE_NAME "/usr/ucb/nm"
 
 #define USER_LABEL_PREFIX  ""
+
 /* Don't turn -B into -L if the argument specifies a relative file name.  */
 #define RELATIVE_PREFIX_NOT_LINKDIR
 
 /* Because of the above, we must have gcc search itself to find libgcc.a.  */
 #define LINK_LIBGCC_SPECIAL_1
 
+#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
+ -brename:malloc,__wrap_malloc -brename:__real_malloc,malloc \
+ -brename:free,__wrap_free -brename:__real_free,free \
+ -brename:calloc,__wrap_calloc -brename:__real_calloc,calloc \
+ -brename:realloc,__wrap_realloc -brename:__real_realloc,realloc \
+ -brename:mmap,__wrap_mmap -brename:__real_mmap,mmap \
+ -brename:munmap,__wrap_munmap -brename:__real_munmap,munmap \
+ -brename:alloca,__wrap_alloca -brename:__real_alloca,alloca \
+} %{fmudflapth: \
+ -brename:pthread_create,__wrap_pthread_create \
+ -brename:__real_pthread_create,pthread_create \
+ -brename:pthread_join,__wrap_pthread_join \
+ -brename:__real_pthread_join,pthread_join \
+ -brename:pthread_exit,__wrap_pthread_exit \
+ -brename:__real_pthread_exit,pthread_exit \
+}} %{fmudflap|fmudflapth: \
+ -brename:main,__wrap_main -brename:__real_main,main \
+}"
+
+#define MFLIB_SPEC " %{fmudflap: -lmudflap \
+ %{static:%(link_gcc_c_sequence) -lmudflap}} \
+ %{fmudflapth: -lmudflapth -lpthread \
+ %{static:%(link_gcc_c_sequence) -lmudflapth}} "
+
 /* Names to predefine in the preprocessor for this target machine.  */
-#define TARGET_OS_CPP_BUILTINS()         \
-  do                                     \
-    {                                    \
-      builtin_define ("_IBMR2");         \
-      builtin_define ("_POWER");         \
-      builtin_define ("_AIX");           \
-      builtin_define ("_AIX32");         \
-      builtin_define ("_LONG_LONG");     \
-      builtin_assert ("system=unix");    \
-      builtin_assert ("system=aix");     \
-      builtin_assert ("cpu=rs6000");     \
-      builtin_assert ("machine=rs6000"); \
-    }                                    \
+#define TARGET_OS_AIX_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("_IBMR2");		\
+      builtin_define ("_POWER");		\
+      builtin_define ("_AIX");			\
+      builtin_define ("_AIX32");		\
+      builtin_define ("_AIX41");		\
+      builtin_define ("_LONG_LONG");		\
+      if (TARGET_LONG_DOUBLE_128)		\
+        builtin_define ("__LONGDOUBLE128");	\
+      builtin_assert ("system=unix");		\
+      builtin_assert ("system=aix");		\
+    }						\
   while (0)
 
 /* Define appropriate architecture macros for preprocessor depending on
@@ -156,13 +182,6 @@
    Setting both of the following defines results in this behavior.  */
 #define AGGREGATE_PADDING_FIXED 1
 #define AGGREGATES_PAD_UPWARD_ALWAYS 1
-
-/* We don't want anything in the reg parm area being passed on the
-   stack.  */
-#define MUST_PASS_IN_STACK(MODE, TYPE)				\
-   ((TYPE) != 0							\
-    && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-	|| TREE_ADDRESSABLE (TYPE)))
 
 /* Specify padding for the last element of a block move between
    registers and memory.  FIRST is nonzero if this is the only

@@ -117,9 +117,6 @@ static sbitmap stored_args_map;
    argument list for the constructor call.  */
 int stack_arg_under_construction;
 
-static int calls_function (tree, int);
-static int calls_function_1 (tree, int);
-
 static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 CUMULATIVE_ARGS *);
@@ -134,7 +131,7 @@ static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
 					     rtx *, int *, int *, int *,
-					     bool);
+					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -142,135 +139,17 @@ static void load_register_parameters (struct arg_data *, int, rtx *, int,
 static rtx emit_library_call_value_1 (int, rtx, rtx, enum libcall_type,
 				      enum machine_mode, int, va_list);
 static int special_function_p (tree, int);
-static rtx try_to_integrate (tree, tree, rtx, int, tree, rtx);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
 static int combine_pending_stack_adjustment_and_call (int, struct args_size *,
-						      int);
-static tree fix_unsafe_tree (tree);
+						      unsigned int);
 static bool shift_returned_value (tree, rtx *);
 
 #ifdef REG_PARM_STACK_SPACE
 static rtx save_fixed_argument_area (int, rtx, int *, int *);
 static void restore_fixed_argument_area (rtx, rtx, int, int);
 #endif
-
-/* If WHICH is 1, return 1 if EXP contains a call to the built-in function
-   `alloca'.
-
-   If WHICH is 0, return 1 if EXP contains a call to any function.
-   Actually, we only need return 1 if evaluating EXP would require pushing
-   arguments on the stack, but that is too difficult to compute, so we just
-   assume any function call might require the stack.  */
-
-static tree calls_function_save_exprs;
-
-static int
-calls_function (tree exp, int which)
-{
-  int val;
-
-  calls_function_save_exprs = 0;
-  val = calls_function_1 (exp, which);
-  calls_function_save_exprs = 0;
-  return val;
-}
-
-/* Recursive function to do the work of above function.  */
-
-static int
-calls_function_1 (tree exp, int which)
-{
-  int i;
-  enum tree_code code = TREE_CODE (exp);
-  int class = TREE_CODE_CLASS (code);
-  int length = first_rtl_op (code);
-
-  /* If this code is language-specific, we don't know what it will do.  */
-  if ((int) code >= NUM_TREE_CODES)
-    return 1;
-
-  switch (code)
-    {
-    case CALL_EXPR:
-      if (which == 0)
-	return 1;
-      else if ((TREE_CODE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))
-		== FUNCTION_TYPE)
-	       && (TYPE_RETURNS_STACK_DEPRESSED
-		   (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))))))
-	return 1;
-      else if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
-	       && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
-		   == FUNCTION_DECL)
-	       && (special_function_p (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
-				       0)
-		   & ECF_MAY_BE_ALLOCA))
-	return 1;
-
-      break;
-
-    case CONSTRUCTOR:
-      {
-	tree tem;
-
-	for (tem = CONSTRUCTOR_ELTS (exp); tem != 0; tem = TREE_CHAIN (tem))
-	  if (calls_function_1 (TREE_VALUE (tem), which))
-	    return 1;
-      }
-
-      return 0;
-
-    case SAVE_EXPR:
-      if (SAVE_EXPR_RTL (exp) != 0)
-	return 0;
-      if (value_member (exp, calls_function_save_exprs))
-	return 0;
-      calls_function_save_exprs = tree_cons (NULL_TREE, exp,
-					     calls_function_save_exprs);
-      return (TREE_OPERAND (exp, 0) != 0
-	      && calls_function_1 (TREE_OPERAND (exp, 0), which));
-
-    case BLOCK:
-      {
-	tree local;
-	tree subblock;
-
-	for (local = BLOCK_VARS (exp); local; local = TREE_CHAIN (local))
-	  if (DECL_INITIAL (local) != 0
-	      && calls_function_1 (DECL_INITIAL (local), which))
-	    return 1;
-
-	for (subblock = BLOCK_SUBBLOCKS (exp);
-	     subblock;
-	     subblock = TREE_CHAIN (subblock))
-	  if (calls_function_1 (subblock, which))
-	    return 1;
-      }
-      return 0;
-
-    case TREE_LIST:
-      for (; exp != 0; exp = TREE_CHAIN (exp))
-	if (calls_function_1 (TREE_VALUE (exp), which))
-	  return 1;
-      return 0;
-
-    default:
-      break;
-    }
-
-  /* Only expressions and blocks can contain calls.  */
-  if (! IS_EXPR_CODE_CLASS (class) && class != 'b')
-    return 0;
-
-  for (i = 0; i < length; i++)
-    if (TREE_OPERAND (exp, i) != 0
-	&& calls_function_1 (TREE_OPERAND (exp, i), which))
-      return 1;
-
-  return 0;
-}
 
 /* Force FUNEXP into a form suitable for the address of a CALL,
    and return that as an rtx.  Also load the static chain register
@@ -280,17 +159,9 @@ calls_function_1 (tree exp, int which)
    CALL_INSN_FUNCTION_USAGE information.  */
 
 rtx
-prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
-		      int reg_parm_seen, int sibcallp)
+prepare_call_address (rtx funexp, rtx static_chain_value,
+		      rtx *call_fusage, int reg_parm_seen, int sibcallp)
 {
-  rtx static_chain_value = 0;
-
-  funexp = protect_from_queue (funexp, 0);
-
-  if (fndecl != 0)
-    /* Get possible static chain value for nested function in C.  */
-    static_chain_value = lookup_static_chain (fndecl);
-
   /* Make a valid memory address and copy constants through pseudo-regs,
      but not for a constant address if -fno-function-cse.  */
   if (GET_CODE (funexp) != SYMBOL_REF)
@@ -303,18 +174,16 @@ prepare_call_address (rtx funexp, tree fndecl, rtx *call_fusage,
     {
 #ifndef NO_FUNCTION_CSE
       if (optimize && ! flag_no_function_cse)
-#ifdef NO_RECURSIVE_FUNCTION_CSE
-	if (fndecl != current_function_decl)
-#endif
-	  funexp = force_reg (Pmode, funexp);
+	funexp = force_reg (Pmode, funexp);
 #endif
     }
 
   if (static_chain_value != 0)
     {
+      static_chain_value = convert_memory_address (Pmode, static_chain_value);
       emit_move_insn (static_chain_rtx, static_chain_value);
 
-      if (GET_CODE (static_chain_rtx) == REG)
+      if (REG_P (static_chain_rtx))
 	use_reg (call_fusage, static_chain_rtx);
     }
 
@@ -609,7 +478,7 @@ special_function_p (tree fndecl, int flags)
          hacky imitation of DECL_ASSEMBLER_NAME.  It's (also) wrong
          because you can declare fork() inside a function if you
          wish.  */
-      && (DECL_CONTEXT (fndecl) == NULL_TREE 
+      && (DECL_CONTEXT (fndecl) == NULL_TREE
 	  || TREE_CODE (DECL_CONTEXT (fndecl)) == TRANSLATION_UNIT_DECL)
       && TREE_PUBLIC (fndecl))
     {
@@ -662,21 +531,8 @@ special_function_p (tree fndecl, int flags)
       else if (tname[0] == 'l' && tname[1] == 'o'
 	       && ! strcmp (tname, "longjmp"))
 	flags |= ECF_LONGJMP;
-
-      else if ((tname[0] == 'f' && tname[1] == 'o'
-		&& ! strcmp (tname, "fork"))
-	       /* Linux specific: __clone.  check NAME to insist on the
-		  leading underscores, to avoid polluting the ISO / POSIX
-		  namespace.  */
-	       || (name[0] == '_' && name[1] == '_'
-		   && ! strcmp (tname, "clone"))
-	       || (tname[0] == 'e' && tname[1] == 'x' && tname[2] == 'e'
-		   && tname[3] == 'c' && (tname[4] == 'l' || tname[4] == 'v')
-		   && (tname[5] == '\0'
-		       || ((tname[5] == 'p' || tname[5] == 'e')
-			   && tname[6] == '\0'))))
-	flags |= ECF_FORK_OR_EXEC;
     }
+
   return flags;
 }
 
@@ -735,12 +591,11 @@ flags_from_decl_or_type (tree exp)
 	flags |= ECF_NOTHROW;
 
       if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-	flags |= ECF_LIBCALL_BLOCK;
+	flags |= ECF_LIBCALL_BLOCK | ECF_CONST;
 
       flags = special_function_p (exp, flags);
     }
-
-  if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+  else if (TYPE_P (exp) && TYPE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
     flags |= ECF_CONST;
 
   if (TREE_THIS_VOLATILE (exp))
@@ -805,10 +660,6 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 					 VOIDmode, 0);
 	    preserve_temp_slots (args[i].value);
 	    pop_temp_slots ();
-
-	    /* ANSI doesn't require a sequence point here,
-	       but PCC has one, so this will avoid some problems.  */
-	    emit_queue ();
 	  }
 
 	/* If the value is a non-legitimate constant, force it into a
@@ -834,9 +685,9 @@ precompute_register_parameters (int num_actuals, struct arg_data *args, int *reg
 	   register parameters.  This is to avoid reload conflicts while
 	   loading the parameters registers.  */
 
-	if ((! (GET_CODE (args[i].value) == REG
+	if ((! (REG_P (args[i].value)
 		|| (GET_CODE (args[i].value) == SUBREG
-		    && GET_CODE (SUBREG_REG (args[i].value)) == REG)))
+		    && REG_P (SUBREG_REG (args[i].value)))))
 	    && args[i].mode != BLKmode
 	    && rtx_cost (args[i].value, SET) > COSTS_N_INSNS (1)
 	    && ((SMALL_REGISTER_CLASSES && *reg_parm_seen)
@@ -994,7 +845,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    args[i].aligned_regs[j] = reg;
 	    word = extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
-				      word_mode, word_mode, BITS_PER_WORD);
+				      word_mode, word_mode);
 
 	    /* There is no need to restrict this code to loading items
 	       in TYPE_ALIGN sized hunks.  The bitfield instructions can
@@ -1011,7 +862,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    bytes -= bitsize / BITS_PER_UNIT;
 	    store_bit_field (reg, bitsize, endian_correction, word_mode,
-			     word, BITS_PER_WORD);
+			     word);
 	  }
       }
 }
@@ -1035,7 +886,10 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    and may be modified by this routine.
 
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
-   flags which may may be modified by this routine. 
+   flags which may may be modified by this routine.
+
+   MAY_TAILCALL is cleared if we encounter an invisible pass-by-reference
+   that requires allocation of stack space.
 
    CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
    the thunked-to function.  */
@@ -1050,7 +904,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
-				 bool call_from_thunk_p)
+				 bool *may_tailcall, bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1113,18 +967,12 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	 with those made by function.c.  */
 
       /* See if this argument should be passed by invisible reference.  */
-      if (CONTAINS_PLACEHOLDER_P (TYPE_SIZE (type))
-	  || TREE_ADDRESSABLE (type)
-#ifdef FUNCTION_ARG_PASS_BY_REFERENCE
-	  || FUNCTION_ARG_PASS_BY_REFERENCE (*args_so_far, TYPE_MODE (type),
-					     type, argpos < n_named_args)
-#endif
-	  )
+      if (pass_by_reference (args_so_far, TYPE_MODE (type),
+			     type, argpos < n_named_args))
 	{
 	  /* If we're compiling a thunk, pass through invisible
              references instead of making a copy.  */
 	  if (call_from_thunk_p
-#ifdef FUNCTION_ARG_CALLEE_COPIES
 	      || (FUNCTION_ARG_CALLEE_COPIES (*args_so_far, TYPE_MODE (type),
 					     type, argpos < n_named_args)
 		  /* If it's in a register, we must make a copy of it too.  */
@@ -1132,7 +980,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  && !(TREE_CODE (args[i].tree_value) == VAR_DECL
 		       && REG_P (DECL_RTL (args[i].tree_value)))
 		  && ! TREE_ADDRESSABLE (type))
-#endif
 	      )
 	    {
 	      /* C++ uses a TARGET_EXPR to indicate that we want to make a
@@ -1149,6 +996,13 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 		  && ! REG_P (DECL_RTL (TREE_OPERAND (args[i].tree_value, 1))))
 		args[i].tree_value = TREE_OPERAND (args[i].tree_value, 1);
 
+	      /* We can't use sibcalls if a callee-copied argument is stored
+		 in the current function's frame.  */
+	      if (!call_from_thunk_p
+		  && (!DECL_P (args[i].tree_value)
+		      || !TREE_STATIC (args[i].tree_value)))
+		*may_tailcall = false;
+
 	      args[i].tree_value = build1 (ADDR_EXPR,
 					   build_pointer_type (type),
 					   args[i].tree_value);
@@ -1163,6 +1017,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   args[i].tree_value);
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	  else
 	    {
@@ -1202,11 +1057,12 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 					   build_pointer_type (type),
 					   make_tree (type, copy));
 	      type = build_pointer_type (type);
+	      *may_tailcall = false;
 	    }
 	}
 
       mode = TYPE_MODE (type);
-      unsignedp = TREE_UNSIGNED (type);
+      unsignedp = TYPE_UNSIGNED (type);
 
       if (targetm.calls.promote_function_args (fndecl ? TREE_TYPE (fndecl) : 0))
 	mode = promote_mode (type, mode, &unsignedp, 1);
@@ -1226,14 +1082,12 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       args[i].tail_call_reg = args[i].reg;
 #endif
 
-#ifdef FUNCTION_ARG_PARTIAL_NREGS
       if (args[i].reg)
 	args[i].partial
 	  = FUNCTION_ARG_PARTIAL_NREGS (*args_so_far, mode, type,
 					argpos < n_named_args);
-#endif
 
-      args[i].pass_on_stack = MUST_PASS_IN_STACK (mode, type);
+      args[i].pass_on_stack = targetm.calls.must_pass_in_stack (mode, type);
 
       /* If FUNCTION_ARG returned a (parallel [(expr_list (nil) ...) ...]),
 	 it means that we are to pass this arg in the register(s) designated
@@ -1360,11 +1214,6 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-      if (reg_parm_stack_space == 0)
-	args_size->constant = 0;
-#endif
-
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
       args_size->constant -= reg_parm_stack_space;
 #endif
@@ -1387,63 +1236,44 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
 {
   int i;
 
-  /* If this function call is cse'able, precompute all the parameters.
-     Note that if the parameter is constructed into a temporary, this will
-     cause an additional copy because the parameter will be constructed
-     into a temporary location and then copied into the outgoing arguments.
-     If a parameter contains a call to alloca and this function uses the
-     stack, precompute the parameter.  */
-
-  /* If we preallocated the stack space, and some arguments must be passed
-     on the stack, then we must precompute any parameter which contains a
-     function call which will store arguments on the stack.
-     Otherwise, evaluating the parameter may clobber previous parameters
-     which have already been stored into the stack.  (we have code to avoid
-     such case by saving the outgoing stack arguments, but it results in
-     worse code)  */
+  /* If this is a libcall, then precompute all arguments so that we do not
+     get extraneous instructions emitted as part of the libcall sequence.  */
+  if ((flags & ECF_LIBCALL_BLOCK) == 0)
+    return;
 
   for (i = 0; i < num_actuals; i++)
-    if ((flags & ECF_LIBCALL_BLOCK)
-	|| calls_function (args[i].tree_value, !ACCUMULATE_OUTGOING_ARGS))
-      {
-	enum machine_mode mode;
+    {
+      enum machine_mode mode;
 
-	/* If this is an addressable type, we cannot pre-evaluate it.  */
-	if (TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)))
-	  abort ();
+      /* If this is an addressable type, we cannot pre-evaluate it.  */
+      if (TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)))
+	abort ();
 
-	args[i].value
-	  = expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
+      args[i].initial_value = args[i].value
+	= expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
 
-	/* ANSI doesn't require a sequence point here,
-	   but PCC has one, so this will avoid some problems.  */
-	emit_queue ();
-
-	args[i].initial_value = args[i].value
-	  = protect_from_queue (args[i].value, 0);
-
-	mode = TYPE_MODE (TREE_TYPE (args[i].tree_value));
-	if (mode != args[i].mode)
-	  {
-	    args[i].value
-	      = convert_modes (args[i].mode, mode,
-			       args[i].value, args[i].unsignedp);
-#ifdef PROMOTE_FOR_CALL_ONLY
-	    /* CSE will replace this only if it contains args[i].value
-	       pseudo, so convert it down to the declared mode using
-	       a SUBREG.  */
-	    if (GET_CODE (args[i].value) == REG
-		&& GET_MODE_CLASS (args[i].mode) == MODE_INT)
-	      {
-		args[i].initial_value
-		  = gen_lowpart_SUBREG (mode, args[i].value);
-		SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
-		SUBREG_PROMOTED_UNSIGNED_SET (args[i].initial_value,
-		  args[i].unsignedp);
-	      }
+      mode = TYPE_MODE (TREE_TYPE (args[i].tree_value));
+      if (mode != args[i].mode)
+	{
+	  args[i].value
+	    = convert_modes (args[i].mode, mode,
+			     args[i].value, args[i].unsignedp);
+#if defined(PROMOTE_FUNCTION_MODE) && !defined(PROMOTE_MODE)
+	  /* CSE will replace this only if it contains args[i].value
+	     pseudo, so convert it down to the declared mode using
+	     a SUBREG.  */
+	  if (REG_P (args[i].value)
+	      && GET_MODE_CLASS (args[i].mode) == MODE_INT)
+	    {
+	      args[i].initial_value
+		= gen_lowpart_SUBREG (mode, args[i].value);
+	      SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
+	      SUBREG_PROMOTED_UNSIGNED_SET (args[i].initial_value,
+					    args[i].unsignedp);
+	    }
 #endif
-	  }
-      }
+	}
+    }
 }
 
 /* Given the current state of MUST_PREALLOCATE and information about
@@ -1595,7 +1425,6 @@ rtx_for_function_call (tree fndecl, tree addr)
       push_temp_slots ();
       funexp = expand_expr (addr, NULL_RTX, VOIDmode, 0);
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
-      emit_queue ();
     }
   return funexp;
 }
@@ -1675,8 +1504,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		     call only uses SIZE bytes at the msb end, but it doesn't
 		     seem worth generating rtl to say that.  */
 		  reg = gen_rtx_REG (word_mode, REGNO (reg));
-		  x = expand_binop (word_mode, ashl_optab, reg,
-				    GEN_INT (shift), reg, 1, OPTAB_WIDEN);
+		  x = expand_shift (LSHIFT_EXPR, word_mode, reg,
+				    build_int_2 (shift, 0), reg, 1);
 		  if (x != reg)
 		    emit_move_insn (reg, x);
 		}
@@ -1695,25 +1524,29 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    {
 	      rtx mem = validize_mem (args[i].value);
 
-#ifdef BLOCK_REG_PADDING
 	      /* Handle a BLKmode that needs shifting.  */
 	      if (nregs == 1 && size < UNITS_PER_WORD
-		  && args[i].locate.where_pad == downward)
+#ifdef BLOCK_REG_PADDING
+		  && args[i].locate.where_pad == downward
+#else
+		  && BYTES_BIG_ENDIAN
+#endif
+		 )
 		{
 		  rtx tem = operand_subword_force (mem, 0, args[i].mode);
 		  rtx ri = gen_rtx_REG (word_mode, REGNO (reg));
 		  rtx x = gen_reg_rtx (word_mode);
 		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
-		  optab dir = BYTES_BIG_ENDIAN ? lshr_optab : ashl_optab;
+		  enum tree_code dir = BYTES_BIG_ENDIAN ? RSHIFT_EXPR
+							: LSHIFT_EXPR;
 
 		  emit_move_insn (x, tem);
-		  x = expand_binop (word_mode, dir, x, GEN_INT (shift),
-				    ri, 1, OPTAB_WIDEN);
+		  x = expand_shift (dir, word_mode, x,
+				    build_int_2 (shift, 0), ri, 1);
 		  if (x != ri)
 		    emit_move_insn (ri, x);
 		}
 	      else
-#endif
 		move_block_to_reg (REGNO (reg), mem, nregs, args[i].mode);
 	    }
 
@@ -1736,123 +1569,6 @@ load_register_parameters (struct arg_data *args, int num_actuals,
     }
 }
 
-/* Try to integrate function.  See expand_inline_function for documentation
-   about the parameters.  */
-
-static rtx
-try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
-		  tree type, rtx structure_value_addr)
-{
-  rtx temp;
-  rtx before_call;
-  int i;
-  rtx old_stack_level = 0;
-  int reg_parm_stack_space = 0;
-
-#ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
-#endif
-
-  before_call = get_last_insn ();
-
-  timevar_push (TV_INTEGRATION);
-
-  temp = expand_inline_function (fndecl, actparms, target,
-				 ignore, type,
-				 structure_value_addr);
-
-  timevar_pop (TV_INTEGRATION);
-
-  /* If inlining succeeded, return.  */
-  if (temp != (rtx) (size_t) - 1)
-    {
-      if (ACCUMULATE_OUTGOING_ARGS)
-	{
-	  /* If the outgoing argument list must be preserved, push
-	     the stack before executing the inlined function if it
-	     makes any calls.  */
-
-	  i = reg_parm_stack_space;
-	  if (i > highest_outgoing_arg_in_use)
-	    i = highest_outgoing_arg_in_use;
-	  while (--i >= 0 && stack_usage_map[i] == 0)
-	    ;
-
-	  if (stack_arg_under_construction || i >= 0)
-	    {
-	      rtx first_insn
-		= before_call ? NEXT_INSN (before_call) : get_insns ();
-	      rtx insn = NULL_RTX, seq;
-
-	      /* Look for a call in the inline function code.
-	         If DECL_SAVED_INSNS (fndecl)->outgoing_args_size is
-	         nonzero then there is a call and it is not necessary
-	         to scan the insns.  */
-
-	      if (DECL_SAVED_INSNS (fndecl)->outgoing_args_size == 0)
-		for (insn = first_insn; insn; insn = NEXT_INSN (insn))
-		  if (GET_CODE (insn) == CALL_INSN)
-		    break;
-
-	      if (insn)
-		{
-		  /* Reserve enough stack space so that the largest
-		     argument list of any function call in the inline
-		     function does not overlap the argument list being
-		     evaluated.  This is usually an overestimate because
-		     allocate_dynamic_stack_space reserves space for an
-		     outgoing argument list in addition to the requested
-		     space, but there is no way to ask for stack space such
-		     that an argument list of a certain length can be
-		     safely constructed.
-
-		     Add the stack space reserved for register arguments, if
-		     any, in the inline function.  What is really needed is the
-		     largest value of reg_parm_stack_space in the inline
-		     function, but that is not available.  Using the current
-		     value of reg_parm_stack_space is wrong, but gives
-		     correct results on all supported machines.  */
-
-		  int adjust = (DECL_SAVED_INSNS (fndecl)->outgoing_args_size
-				+ reg_parm_stack_space);
-
-		  start_sequence ();
-		  emit_stack_save (SAVE_BLOCK, &old_stack_level, NULL_RTX);
-		  allocate_dynamic_stack_space (GEN_INT (adjust),
-						NULL_RTX, BITS_PER_UNIT);
-		  seq = get_insns ();
-		  end_sequence ();
-		  emit_insn_before (seq, first_insn);
-		  emit_stack_restore (SAVE_BLOCK, old_stack_level, NULL_RTX);
-		}
-	    }
-	}
-
-      /* If the result is equivalent to TARGET, return TARGET to simplify
-         checks in store_expr.  They can be equivalent but not equal in the
-         case of a function that returns BLKmode.  */
-      if (temp != target && rtx_equal_p (temp, target))
-	return target;
-      return temp;
-    }
-
-  /* If inlining failed, mark FNDECL as needing to be compiled
-     separately after all.  If function was declared inline,
-     give a warning.  */
-  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-      && optimize > 0 && !TREE_ADDRESSABLE (fndecl))
-    {
-      warning ("%Jinlining failed in call to '%F'", fndecl, fndecl);
-      warning ("called from here");
-    }
-  (*lang_hooks.mark_addressable) (fndecl);
-  return (rtx) (size_t) - 1;
-}
-
 /* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
    wouldn't fill up an even multiple of PREFERRED_UNIT_STACK_BOUNDARY
    bytes, then we would need to push some additional bytes to pad the
@@ -1865,14 +1581,14 @@ try_to_integrate (tree fndecl, tree actparms, rtx target, int ignore,
 static int
 combine_pending_stack_adjustment_and_call (int unadjusted_args_size,
 					   struct args_size *args_size,
-					   int preferred_unit_stack_boundary)
+					   unsigned int preferred_unit_stack_boundary)
 {
   /* The number of bytes to pop so that the stack will be
      under-aligned by UNADJUSTED_ARGS_SIZE bytes.  */
   HOST_WIDE_INT adjustment;
   /* The alignment of the stack after the arguments are pushed, if we
      just pushed the arguments without adjust the stack here.  */
-  HOST_WIDE_INT unadjusted_alignment;
+  unsigned HOST_WIDE_INT unadjusted_alignment;
 
   unadjusted_alignment
     = ((stack_pointer_delta + unadjusted_args_size)
@@ -1938,7 +1654,7 @@ check_sibcall_argument_overlap_1 (rtx x)
 	       && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
 	i = INTVAL (XEXP (XEXP (x, 0), 1));
       else
-	return 0;
+	return 1;
 
 #ifdef ARGS_GROW_DOWNWARD
       i = -i - GET_MODE_SIZE (GET_MODE (x));
@@ -2007,35 +1723,6 @@ check_sibcall_argument_overlap (rtx insn, struct arg_data *arg, int mark_stored_
   return insn != NULL_RTX;
 }
 
-static tree
-fix_unsafe_tree (tree t)
-{
-  switch (unsafe_for_reeval (t))
-    {
-    case 0: /* Safe.  */
-      break;
-
-    case 1: /* Mildly unsafe.  */
-      t = unsave_expr (t);
-      break;
-
-    case 2: /* Wildly unsafe.  */
-      {
-	tree var = build_decl (VAR_DECL, NULL_TREE,
-			       TREE_TYPE (t));
-	SET_DECL_RTL (var,
-		      expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL));
-	t = var;
-      }
-      break;
-
-    default:
-      abort ();
-    }
-  return t;
-}
-
-
 /* If function value *VALUE was returned at the most significant end of a
    register, shift it towards the least significant end and convert it to
    TYPE's mode.  Return true and update *VALUE if some action was needed.
@@ -2054,9 +1741,17 @@ shift_returned_value (tree type, rtx *value)
 	       - BITS_PER_UNIT * int_size_in_bytes (type));
       if (shift > 0)
 	{
+	  /* Shift the value into the low part of the register.  */
 	  *value = expand_binop (GET_MODE (*value), lshr_optab, *value,
 				 GEN_INT (shift), 0, 1, OPTAB_WIDEN);
-	  *value = convert_to_mode (TYPE_MODE (type), *value, 0);
+
+	  /* Truncate it to the type's mode, or its integer equivalent.
+	     This is subject to TRULY_NOOP_TRUNCATION.  */
+	  *value = convert_to_mode (int_mode_for_mode (TYPE_MODE (type)),
+				    *value, 0);
+
+	  /* Now convert it to the final form.  */
+	  *value = gen_lowpart (TYPE_MODE (type), *value);
 	  return true;
 	}
     }
@@ -2152,7 +1847,9 @@ expand_call (tree exp, rtx target, int ignore)
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
   tree fndecl = 0;
-  int try_tail_call = CALL_EXPR_TAILCALL (exp);
+  /* The type of the function being called.  */
+  tree fntype;
+  bool try_tail_call = CALL_EXPR_TAILCALL (exp);
   int pass;
 
   /* Register in which non-BLKmode value will be returned,
@@ -2213,8 +1910,6 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Mask of ECF_ flags.  */
   int flags = 0;
-  /* Nonzero if this is a call to an inline function.  */
-  int is_integrable = 0;
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
      saved, if any.  */
@@ -2243,50 +1938,30 @@ expand_call (tree exp, rtx target, int ignore)
   tree addr = TREE_OPERAND (exp, 0);
   int i;
   /* The alignment of the stack, in bits.  */
-  HOST_WIDE_INT preferred_stack_boundary;
+  unsigned HOST_WIDE_INT preferred_stack_boundary;
   /* The alignment of the stack, in bytes.  */
-  HOST_WIDE_INT preferred_unit_stack_boundary;
-
+  unsigned HOST_WIDE_INT preferred_unit_stack_boundary;
+  /* The static chain value to use for this call.  */
+  rtx static_chain_value;
   /* See if this is "nothrow" function call.  */
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
 
-  /* See if we can find a DECL-node for the actual function.
-     As a result, decide whether this is a call to an integrable function.  */
-
+  /* See if we can find a DECL-node for the actual function, and get the
+     function attributes (flags) from the function decl or type node.  */
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
     {
-      if (!flag_no_inline
-	  && fndecl != current_function_decl
-	  && DECL_INLINE (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)
-	  && DECL_SAVED_INSNS (fndecl)->inlinable)
-	is_integrable = 1;
-      else if (! TREE_ADDRESSABLE (fndecl))
-	{
-	  /* In case this function later becomes inlinable,
-	     record that there was already a non-inline call to it.
-
-	     Use abstraction instead of setting TREE_ADDRESSABLE
-	     directly.  */
-	  if (DECL_INLINE (fndecl) && warn_inline && !flag_no_inline
-	      && optimize > 0)
-	    {
-	      warning ("%Jcan't inline call to '%F'", fndecl, fndecl);
-	      warning ("called from here");
-	    }
-	  (*lang_hooks.mark_addressable) (fndecl);
-	}
+      fntype = TREE_TYPE (fndecl);
       flags |= flags_from_decl_or_type (fndecl);
     }
-
-  /* If we don't have specific function to call, see if we have a
-     attributes set in the type.  */
   else
-    flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+    {
+      fntype = TREE_TYPE (TREE_TYPE (p));
+      flags |= flags_from_decl_or_type (fntype);
+    }
 
-  struct_value = targetm.calls.struct_value_rtx (fndecl ? TREE_TYPE (fndecl) : 0, 0);
+  struct_value = targetm.calls.struct_value_rtx (fntype, 0);
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -2320,11 +1995,7 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
-#endif
 #endif
 
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
@@ -2343,15 +2014,6 @@ expand_call (tree exp, rtx target, int ignore)
 #ifdef PCC_STATIC_STRUCT_RETURN
       {
 	pcc_struct_value = 1;
-	/* Easier than making that case work right.  */
-	if (is_integrable)
-	  {
-	    /* In case this is a static function, note that it has been
-	       used.  */
-	    if (! TREE_ADDRESSABLE (fndecl))
-	      (*lang_hooks.mark_addressable) (fndecl);
-	    is_integrable = 0;
-	  }
       }
 #else /* not PCC_STATIC_STRUCT_RETURN */
       {
@@ -2367,7 +2029,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    structure_value_addr = expand_expr (return_arg, NULL_RTX,
 						VOIDmode, EXPAND_NORMAL);
 	  }
-	else if (target && GET_CODE (target) == MEM)
+	else if (target && MEM_P (target))
 	  structure_value_addr = XEXP (target, 0);
 	else
 	  {
@@ -2382,17 +2044,6 @@ expand_call (tree exp, rtx target, int ignore)
 	  }
       }
 #endif /* not PCC_STATIC_STRUCT_RETURN */
-    }
-
-  /* If called function is inline, try to integrate it.  */
-
-  if (is_integrable)
-    {
-      rtx temp = try_to_integrate (fndecl, actparms, target,
-				   ignore, TREE_TYPE (exp),
-				   structure_value_addr);
-      if (temp != (rtx) (size_t) - 1)
-	return temp;
     }
 
   /* Figure out the amount to which the stack should be aligned.  */
@@ -2412,7 +2063,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Munge the tree to split complex arguments into their imaginary
      and real parts.  */
-  if (SPLIT_COMPLEX_ARGS)
+  if (targetm.calls.split_complex_arg)
     {
       type_arg_types = split_complex_types (TYPE_ARG_TYPES (funtype));
       actparms = split_complex_values (actparms);
@@ -2432,11 +2083,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 is not a REG, we must always copy it into a register.
 	 If it is virtual_outgoing_args_rtx, we must copy it to another
 	 register in some cases.  */
-      rtx temp = (GET_CODE (structure_value_addr) != REG
+      rtx temp = (!REG_P (structure_value_addr)
 		  || (ACCUMULATE_OUTGOING_ARGS
 		      && stack_arg_under_construction
 		      && structure_value_addr == virtual_outgoing_args_rtx)
-		  ? copy_addr_to_reg (structure_value_addr)
+		  ? copy_addr_to_reg (convert_memory_address
+				      (Pmode, structure_value_addr))
 		  : structure_value_addr);
 
       actparms
@@ -2452,6 +2104,26 @@ expand_call (tree exp, rtx target, int ignore)
     num_actuals++;
 
   /* Compute number of named args.
+     First, do a raw count of the args for INIT_CUMULATIVE_ARGS.  */
+
+  if (type_arg_types != 0)
+    n_named_args
+      = (list_length (type_arg_types)
+	 /* Count the struct value address, if it is passed as a parm.  */
+	 + structure_value_addr_parm);
+  else
+    /* If we know nothing, treat all args as named.  */
+    n_named_args = num_actuals;
+
+  /* Start updating where the next arg would go.
+
+     On some machines (such as the PA) indirect calls have a different
+     calling convention than normal calls.  The fourth argument in
+     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
+     or not.  */
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
+
+  /* Now possibly adjust the number of named args.
      Normally, don't include the last named arg if anonymous args follow.
      We do include the last named arg if
      targetm.calls.strict_argument_naming() returns nonzero.
@@ -2469,26 +2141,16 @@ expand_call (tree exp, rtx target, int ignore)
      we do not have any reliable way to pass unnamed args in
      registers, so we must force them into memory.  */
 
-  if ((targetm.calls.strict_argument_naming (&args_so_far)
-       || ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
-      && type_arg_types != 0)
-    n_named_args
-      = (list_length (type_arg_types)
-	 /* Don't include the last named arg.  */
-	 - (targetm.calls.strict_argument_naming (&args_so_far) ? 0 : 1)
-	 /* Count the struct value address, if it is passed as a parm.  */
-	 + structure_value_addr_parm);
+  if (type_arg_types != 0
+      && targetm.calls.strict_argument_naming (&args_so_far))
+    ;
+  else if (type_arg_types != 0
+	   && ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
+    /* Don't include the last named arg.  */
+    --n_named_args;
   else
-    /* If we know nothing, treat all args as named.  */
+    /* Treat all args as named.  */
     n_named_args = num_actuals;
-
-  /* Start updating where the next arg would go.
-
-     On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The fourth argument in
-     INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
-     or not.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
 
   /* Make a vector to hold all the information about each arg.  */
   args = alloca (num_actuals * sizeof (struct arg_data));
@@ -2501,7 +2163,7 @@ expand_call (tree exp, rtx target, int ignore)
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
 				   &must_preallocate, &flags,
-				   CALL_FROM_THUNK_P (exp));
+				   &try_tail_call, CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {
@@ -2531,25 +2193,13 @@ expand_call (tree exp, rtx target, int ignore)
 	  || (!ACCUMULATE_OUTGOING_ARGS && args_size.constant)))
     structure_value_addr = copy_to_reg (structure_value_addr);
 
-  /* Tail calls can make things harder to debug, and we're traditionally
+  /* Tail calls can make things harder to debug, and we've traditionally
      pushed these optimizations into -O2.  Don't try if we're already
      expanding a call, as that means we're an argument.  Don't try if
-     there's cleanups, as we know there's code to follow the call.
+     there's cleanups, as we know there's code to follow the call.  */
 
-     If rtx_equal_function_value_matters is false, that means we've
-     finished with regular parsing.  Which means that some of the
-     machinery we use to generate tail-calls is no longer in place.
-     This is most often true of sjlj-exceptions, which we couldn't
-     tail-call to anyway.
-
-     If current_nesting_level () == 0, we're being called after
-     the function body has been expanded.  This can happen when
-     setting up trampolines in expand_function_end.  */
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
-      || !rtx_equal_function_value_matters
-      || current_nesting_level () == 0
-      || any_pending_cleanups ()
       || args_size.var
       || lookup_stmt_eh_region (exp) >= 0)
     try_tail_call = 0;
@@ -2569,7 +2219,7 @@ expand_call (tree exp, rtx target, int ignore)
       || structure_value_addr != NULL_RTX
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
-      || !(*targetm.function_ok_for_sibcall) (fndecl, exp)
+      || !targetm.function_ok_for_sibcall (fndecl, exp)
       /* Functions that do not return exactly once may not be sibcall
          optimized.  */
       || (flags & (ECF_RETURNS_TWICE | ECF_LONGJMP | ECF_NORETURN))
@@ -2587,66 +2237,8 @@ expand_call (tree exp, rtx target, int ignore)
 	  != RETURN_POPS_ARGS (current_function_decl,
 			       TREE_TYPE (current_function_decl),
 			       current_function_args_size))
-      || !(*lang_hooks.decls.ok_for_sibcall) (fndecl))
+      || !lang_hooks.decls.ok_for_sibcall (fndecl))
     try_tail_call = 0;
-
-  if (try_tail_call)
-    {
-      int end, inc;
-      actparms = NULL_TREE;
-      /* Ok, we're going to give the tail call the old college try.
-	 This means we're going to evaluate the function arguments
-	 up to three times.  There are two degrees of badness we can
-	 encounter, those that can be unsaved and those that can't.
-	 (See unsafe_for_reeval commentary for details.)
-
-	 Generate a new argument list.  Pass safe arguments through
-	 unchanged.  For the easy badness wrap them in UNSAVE_EXPRs.
-	 For hard badness, evaluate them now and put their resulting
-	 rtx in a temporary VAR_DECL.
-
-	 initialize_argument_information has ordered the array for the
-	 order to be pushed, and we must remember this when reconstructing
-	 the original argument order.  */
-
-      if (PUSH_ARGS_REVERSED)
-	{
-	  inc = 1;
-	  i = 0;
-	  end = num_actuals;
-	}
-      else
-	{
-	  inc = -1;
-	  i = num_actuals - 1;
-	  end = -1;
-	}
-
-      for (; i != end; i += inc)
-	{
-          args[i].tree_value = fix_unsafe_tree (args[i].tree_value);
-	}
-      /* Do the same for the function address if it is an expression.  */
-      if (!fndecl)
-        addr = fix_unsafe_tree (addr);
-      /* Expanding one of those dangerous arguments could have added
-	 cleanups, but otherwise give it a whirl.  */
-      if (any_pending_cleanups ())
-	try_tail_call = 0;
-    }
-
-
-  if (profile_arc_flag && (flags & ECF_FORK_OR_EXEC))
-    {
-      /* A fork duplicates the profile information, and an exec discards
-	 it.  We can't rely on fork/exec to be paired.  So write out the
-	 profile information we have gathered so far, and clear it.  */
-      /* ??? When Linux's __clone is called with CLONE_VM set, profiling
-	 is subject to race conditions, just as with multithreaded
-	 programs.  */
-
-      emit_library_call (gcov_flush_libfunc, LCT_ALWAYS_RETURN, VOIDmode, 0);
-    }
 
   /* Ensure current function's preferred stack boundary is at least
      what we need.  We don't have to increase alignment for recursive
@@ -2659,8 +2251,6 @@ expand_call (tree exp, rtx target, int ignore)
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
-  function_call_count++;
-
   /* We want to make two insn chains; one for a sibling call, the other
      for a normal call.  We will select one of the two chains after
      initial RTL generation is complete.  */
@@ -2669,7 +2259,7 @@ expand_call (tree exp, rtx target, int ignore)
       int sibcall_failure = 0;
       /* We want to emit any pending stack adjustments before the tail
 	 recursion "call".  That way we know any adjustment after the tail
-	 recursion call can be ignored if we indeed use the tail 
+	 recursion call can be ignored if we indeed use the tail
 	 call expansion.  */
       int save_pending_stack_adjust = 0;
       int save_stack_pointer_delta = 0;
@@ -2678,10 +2268,6 @@ expand_call (tree exp, rtx target, int ignore)
 
       if (pass == 0)
 	{
-	  /* Emit any queued insns now; otherwise they would end up in
-             only one of the alternates.  */
-	  emit_queue ();
-
 	  /* State variables we need to save and restore between
 	     iterations.  */
 	  save_pending_stack_adjust = pending_stack_adjust;
@@ -2703,15 +2289,6 @@ expand_call (tree exp, rtx target, int ignore)
 	 sibcall_failure instead of continuing the loop.  */
       start_sequence ();
 
-      if (pass == 0)
-	{
-	  /* We know at this point that there are not currently any
-	     pending cleanups.  If, however, in the process of evaluating
-	     the arguments we were to create some, we'll need to be
-	     able to get rid of them.  */
-	  expand_start_target_temps ();
-	}
-
       /* Don't let pending stack adjusts add up to too much.
 	 Also, do all pending adjustments now if there is any chance
 	 this might be a call to alloca or if we are expanding a sibling
@@ -2728,10 +2305,6 @@ expand_call (tree exp, rtx target, int ignore)
       if (pass && (flags & ECF_LIBCALL_BLOCK))
 	NO_DEFER_POP;
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-      reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-							 args_size.var);
-#endif
       /* Precompute any arguments as needed.  */
       if (pass)
 	precompute_arguments (flags, num_actuals, args);
@@ -3005,6 +2578,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
 
+      if (TREE_OPERAND (exp, 2))
+	static_chain_value = expand_expr (TREE_OPERAND (exp, 2),
+					  NULL_RTX, VOIDmode, 0);
+      else
+	static_chain_value = 0;
+
 #ifdef REG_PARM_STACK_SPACE
       /* Save the fixed argument area if it's part of the caller's frame and
 	 is clobbered by argument setup for this call.  */
@@ -3084,25 +2663,22 @@ expand_call (tree exp, rtx target, int ignore)
 	 structure value.  */
       if (pass != 0 && structure_value_addr && ! structure_value_addr_parm)
 	{
-	  structure_value_addr 
+	  structure_value_addr
 	    = convert_memory_address (Pmode, structure_value_addr);
 	  emit_move_insn (struct_value,
 			  force_reg (Pmode,
 				     force_operand (structure_value_addr,
 						    NULL_RTX)));
 
-	  if (GET_CODE (struct_value) == REG)
+	  if (REG_P (struct_value))
 	    use_reg (&call_fusage, struct_value);
 	}
 
-      funexp = prepare_call_address (funexp, fndecl, &call_fusage,
-				     reg_parm_seen, pass == 0);
+      funexp = prepare_call_address (funexp, static_chain_value,
+				     &call_fusage, reg_parm_seen, pass == 0);
 
       load_register_parameters (args, num_actuals, &call_fusage, flags,
 				pass == 0, &sibcall_failure);
-
-      /* Perform postincrements before actually calling the function.  */
-      emit_queue ();
 
       /* Save a pointer to the last insn before the call, so that we can
 	 later safely search backwards to find the CALL_INSN.  */
@@ -3147,7 +2723,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  /* Expansion of block moves possibly introduced a loop that may
 	     not appear inside libcall block.  */
 	  for (insn = insns; insn; insn = NEXT_INSN (insn))
-	    if (GET_CODE (insn) == JUMP_INSN)
+	    if (JUMP_P (insn))
 	      failed = true;
 
 	  if (failed)
@@ -3172,8 +2748,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRT
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTF
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SQRTL))
-		note = gen_rtx_fmt_e (SQRT, 
-				      GET_MODE (temp), 
+		note = gen_rtx_fmt_e (SQRT,
+				      GET_MODE (temp),
 				      args[0].initial_value);
 	      else
 		{
@@ -3184,7 +2760,7 @@ expand_call (tree exp, rtx target, int ignore)
 		    note = gen_rtx_EXPR_LIST (VOIDmode,
 					      args[i].initial_value, note);
 		  note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
-		  
+
 		  if (flags & ECF_PURE)
 		    note = gen_rtx_EXPR_LIST (VOIDmode,
 			gen_rtx_USE (VOIDmode,
@@ -3232,7 +2808,7 @@ expand_call (tree exp, rtx target, int ignore)
 	     than just a CALL_INSN above, so we must search for it here.  */
 
 	  rtx last = get_last_insn ();
-	  while (GET_CODE (last) != CALL_INSN)
+	  while (!CALL_P (last))
 	    {
 	      last = PREV_INSN (last);
 	      /* There was no CALL_INSN?  */
@@ -3257,22 +2833,12 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* If value type not void, return an rtx for the value.  */
 
-      /* If there are cleanups to be called, don't use a hard reg as target.
-	 We need to double check this and see if it matters anymore.  */
-      if (any_pending_cleanups ())
-	{
-	  if (target && REG_P (target)
-	      && REGNO (target) < FIRST_PSEUDO_REGISTER)
-	    target = 0;
-	  sibcall_failure = 1;
-	}
-
       if (TYPE_MODE (TREE_TYPE (exp)) == VOIDmode
 	  || ignore)
 	target = const0_rtx;
       else if (structure_value_addr)
 	{
-	  if (target == 0 || GET_CODE (target) != MEM)
+	  if (target == 0 || !MEM_P (target))
 	    {
 	      target
 		= gen_rtx_MEM (TYPE_MODE (TREE_TYPE (exp)),
@@ -3327,7 +2893,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  /* If we are setting a MEM, this code must be executed.  Since it is
 	     emitted after the call insn, sibcall optimization cannot be
 	     performed in that case.  */
-	  if (GET_CODE (target) == MEM)
+	  if (MEM_P (target))
 	    sibcall_failure = 1;
 	}
       else if (TYPE_MODE (TREE_TYPE (exp)) == BLKmode)
@@ -3349,12 +2915,12 @@ expand_call (tree exp, rtx target, int ignore)
 	{
       /* If we promoted this return value, make the proper SUBREG.  TARGET
 	 might be const0_rtx here, so be careful.  */
-      if (GET_CODE (target) == REG
+      if (REG_P (target)
 	  && TYPE_MODE (TREE_TYPE (exp)) != BLKmode
 	  && GET_MODE (target) != TYPE_MODE (TREE_TYPE (exp)))
 	{
 	  tree type = TREE_TYPE (exp);
-	  int unsignedp = TREE_UNSIGNED (type);
+	  int unsignedp = TYPE_UNSIGNED (type);
 	  int offset = 0;
 
 	  /* If we don't promote as expected, something is wrong.  */
@@ -3387,6 +2953,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  emit_stack_restore (SAVE_BLOCK, old_stack_level, NULL_RTX);
 	  stack_pointer_delta = old_stack_pointer_delta;
 	  pending_stack_adjust = old_pending_adj;
+	  old_stack_allocated = stack_pointer_delta - pending_stack_adjust;
 	  stack_arg_under_construction = old_stack_arg_under_construction;
 	  highest_outgoing_arg_in_use = initial_highest_arg_in_use;
 	  stack_usage_map = initial_stack_usage_map;
@@ -3426,21 +2993,13 @@ expand_call (tree exp, rtx target, int ignore)
 	 Check for the handler slots since we might not have a save area
 	 for non-local gotos.  */
 
-      if ((flags & ECF_MAY_BE_ALLOCA) && nonlocal_goto_handler_slots != 0)
-	emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
+      if ((flags & ECF_MAY_BE_ALLOCA) && cfun->nonlocal_goto_save_area != 0)
+	update_nonlocal_goto_save_area ();
 
       /* Free up storage we no longer need.  */
       for (i = 0; i < num_actuals; ++i)
 	if (args[i].aligned_regs)
 	  free (args[i].aligned_regs);
-
-      if (pass == 0)
-	{
-	  /* Undo the fake expand_start_target_temps we did earlier.  If
-	     there had been any cleanups created, we've already set
-	     sibcall_failure.  */
-	  expand_end_target_temps ();
-	}
 
       /* If this function is returning into a memory location marked as
 	 readonly, it means it is initializing that location. We normally treat
@@ -3452,7 +3011,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 adding to call_fusage before the call to emit_call_1 because TARGET
 	 may be modified in the meantime.  */
       if (structure_value_addr != 0 && target != 0
-	  && GET_CODE (target) == MEM && RTX_UNCHANGING_P (target))
+	  && MEM_P (target) && RTX_UNCHANGING_P (target))
 	add_function_usage_to
 	  (last_call_insn (),
 	   gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_CLOBBER (VOIDmode, target),
@@ -3500,7 +3059,7 @@ expand_call (tree exp, rtx target, int ignore)
 	break;
     }
 
-  /* If tail call production suceeded, we need to remove REG_EQUIV notes on
+  /* If tail call production succeeded, we need to remove REG_EQUIV notes on
      arguments too, as argument area is now clobbered by the call.  */
   if (tail_call_insns)
     {
@@ -3520,7 +3079,6 @@ expand_call (tree exp, rtx target, int ignore)
       clear_pending_stack_adjust ();
       emit_insn (gen_rtx_CLOBBER (VOIDmode, stack_pointer_rtx));
       emit_move_insn (virtual_stack_dynamic_rtx, stack_pointer_rtx);
-      save_stack_pointer ();
     }
 
   return target;
@@ -3574,6 +3132,17 @@ split_complex_values (tree values)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = values; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_TYPE (TREE_VALUE (p));
+      if (type && TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return values;
+
+ found:
   values = copy_list (values);
 
   for (p = values; p; p = TREE_CHAIN (p))
@@ -3585,7 +3154,8 @@ split_complex_values (tree values)
       if (!complex_type)
 	continue;
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree subtype;
 	  tree real, imag, next;
@@ -3616,13 +3186,25 @@ split_complex_types (tree types)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = types; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_VALUE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return types;
+
+ found:
   types = copy_list (types);
 
   for (p = types; p; p = TREE_CHAIN (p))
     {
       tree complex_type = TREE_VALUE (p);
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree next, imag;
 
@@ -3698,11 +3280,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
 
 #ifdef REG_PARM_STACK_SPACE
-#ifdef MAYBE_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = MAYBE_REG_PARM_STACK_SPACE;
-#else
   reg_parm_stack_space = REG_PARM_STACK_SPACE ((tree) 0);
-#endif
 #endif
 
   /* By default, library functions can not throw.  */
@@ -3748,7 +3326,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      decide where in memory it should come back.  */
   if (outmode != VOIDmode)
     {
-      tfom = (*lang_hooks.types.type_for_mode) (outmode, 0);
+      tfom = lang_hooks.types.type_for_mode (outmode, 0);
       if (aggregate_value_p (tfom, 0))
 	{
 #ifdef PCC_STATIC_STRUCT_RETURN
@@ -3760,7 +3338,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    value = gen_reg_rtx (outmode);
 #else /* not PCC_STATIC_STRUCT_RETURN */
 	  struct_value_size = GET_MODE_SIZE (outmode);
-	  if (value != 0 && GET_CODE (value) == MEM)
+	  if (value != 0 && MEM_P (value))
 	    mem_value = value;
 	  else
 	    mem_value = assign_temp (tfom, 0, 1, 1);
@@ -3810,7 +3388,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       nargs++;
 
       /* Make sure it is a reasonable operand for a move or push insn.  */
-      if (GET_CODE (addr) != REG && GET_CODE (addr) != MEM
+      if (!REG_P (addr) && !MEM_P (addr)
 	  && ! (CONSTANT_P (addr) && LEGITIMATE_CONSTANT_P (addr)))
 	addr = force_operand (addr, NULL_RTX);
 
@@ -3819,10 +3397,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].partial = 0;
 
       argvec[count].reg = FUNCTION_ARG (args_so_far, Pmode, NULL_TREE, 1);
-#ifdef FUNCTION_ARG_PARTIAL_NREGS
       if (FUNCTION_ARG_PARTIAL_NREGS (args_so_far, Pmode, NULL_TREE, 1))
 	abort ();
-#endif
 
       locate_and_pad_parm (Pmode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3852,24 +3428,16 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  || (GET_MODE (val) != mode && GET_MODE (val) != VOIDmode))
 	abort ();
 
-      /* There's no need to call protect_from_queue, because
-	 either emit_move_insn or emit_push_insn will do that.  */
-
       /* Make sure it is a reasonable operand for a move or push insn.  */
-      if (GET_CODE (val) != REG && GET_CODE (val) != MEM
+      if (!REG_P (val) && !MEM_P (val)
 	  && ! (CONSTANT_P (val) && LEGITIMATE_CONSTANT_P (val)))
 	val = force_operand (val, NULL_RTX);
 
-#ifdef FUNCTION_ARG_PASS_BY_REFERENCE
-      if (FUNCTION_ARG_PASS_BY_REFERENCE (args_so_far, mode, NULL_TREE, 1))
+      if (pass_by_reference (&args_so_far, mode, NULL_TREE, 1))
 	{
 	  rtx slot;
-	  int must_copy = 1
-#ifdef FUNCTION_ARG_CALLEE_COPIES
-	    && ! FUNCTION_ARG_CALLEE_COPIES (args_so_far, mode,
-					     NULL_TREE, 1)
-#endif
-	    ;
+	  int must_copy = ! FUNCTION_ARG_CALLEE_COPIES (args_so_far, mode,
+							NULL_TREE, 1);
 
 	  /* loop.c won't look at CALL_INSN_FUNCTION_USAGE of const/pure
 	     functions, so we have to pretend this isn't such a function.  */
@@ -3893,13 +3461,13 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    slot = val;
 	  else if (must_copy)
 	    {
-	      slot = assign_temp ((*lang_hooks.types.type_for_mode) (mode, 0),
+	      slot = assign_temp (lang_hooks.types.type_for_mode (mode, 0),
 				  0, 1, 1);
 	      emit_move_insn (slot, val);
 	    }
 	  else
 	    {
-	      tree type = (*lang_hooks.types.type_for_mode) (mode, 0);
+	      tree type = lang_hooks.types.type_for_mode (mode, 0);
 
 	      slot
 		= gen_rtx_MEM (mode,
@@ -3921,19 +3489,14 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  mode = Pmode;
 	  val = force_operand (XEXP (slot, 0), NULL_RTX);
 	}
-#endif
 
       argvec[count].value = val;
       argvec[count].mode = mode;
 
       argvec[count].reg = FUNCTION_ARG (args_so_far, mode, NULL_TREE, 1);
 
-#ifdef FUNCTION_ARG_PARTIAL_NREGS
       argvec[count].partial
 	= FUNCTION_ARG_PARTIAL_NREGS (args_so_far, mode, NULL_TREE, 1);
-#else
-      argvec[count].partial = 0;
-#endif
 
       locate_and_pad_parm (mode, NULL_TREE,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
@@ -3954,10 +3517,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       FUNCTION_ARG_ADVANCE (args_so_far, mode, (tree) 0, 1);
     }
 
-#ifdef FINAL_REG_PARM_STACK_SPACE
-  reg_parm_stack_space = FINAL_REG_PARM_STACK_SPACE (args_size.constant,
-						     args_size.var);
-#endif
   /* If this machine requires an external definition for library
      functions, write one out.  */
   assemble_external_libcall (fun);
@@ -4162,7 +3721,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   else
     argnum = 0;
 
-  fun = prepare_call_address (fun, NULL_TREE, &call_fusage, 0, 0);
+  fun = prepare_call_address (fun, NULL, &call_fusage, 0, 0);
 
   /* Now load any reg parms into their regs.  */
 
@@ -4170,6 +3729,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      are to be pushed.  */
   for (count = 0; count < nargs; count++, argnum += inc)
     {
+      enum machine_mode mode = argvec[argnum].mode;
       rtx val = argvec[argnum].value;
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
@@ -4177,7 +3737,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       /* Handle calls that pass values in multiple non-contiguous
 	 locations.  The PA64 has examples of this for library calls.  */
       if (reg != 0 && GET_CODE (reg) == PARALLEL)
-	emit_group_load (reg, val, NULL_TREE, GET_MODE_SIZE (GET_MODE (val)));
+	emit_group_load (reg, val, NULL_TREE, GET_MODE_SIZE (mode));
       else if (reg != 0 && partial == 0)
 	emit_move_insn (reg, val);
 
@@ -4201,7 +3761,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		      force_reg (Pmode,
 				 force_operand (XEXP (mem_value, 0),
 						NULL_RTX)));
-      if (GET_CODE (struct_value) == REG)
+      if (REG_P (struct_value))
 	use_reg (&call_fusage, struct_value);
     }
 
@@ -4244,7 +3804,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	 just a CALL_INSN above, so we must search for it here.  */
 
       rtx last = get_last_insn ();
-      while (GET_CODE (last) != CALL_INSN)
+      while (!CALL_P (last))
 	{
 	  last = PREV_INSN (last);
 	  /* There was no CALL_INSN?  */
@@ -4281,7 +3841,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  if (GET_CODE (valreg) == PARALLEL)
 	    {
 	      temp = gen_reg_rtx (outmode);
-	      emit_group_store (temp, valreg, NULL_TREE, 
+	      emit_group_store (temp, valreg, NULL_TREE,
 				GET_MODE_SIZE (outmode));
 	      valreg = temp;
 	    }
@@ -4373,7 +3933,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
    for a value of mode OUTMODE,
    with NARGS different arguments, passed as alternating rtx values
    and machine_modes to convert them to.
-   The rtx values should have been passed through protect_from_queue already.
 
    FN_TYPE should be LCT_NORMAL for `normal' calls, LCT_CONST for `const'
    calls, LCT_PURE for `pure' calls, LCT_CONST_MAKE_BLOCK for `const' calls
@@ -4659,7 +4218,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    excess = (arg->locate.size.constant
 		      - int_size_in_bytes (TREE_TYPE (pval))
 		      + partial * GET_MODE_SIZE (GET_MODE (elt)));
-	  } 
+	  }
 	  else
 	    excess = (arg->locate.size.constant
 		      - int_size_in_bytes (TREE_TYPE (pval))
@@ -4685,7 +4244,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    }
 	}
 
-      if ((flags & ECF_SIBCALL) && GET_CODE (arg->value) == MEM)
+      if ((flags & ECF_SIBCALL) && MEM_P (arg->value))
 	{
 	  /* emit_push_insn might not work properly if arg->value and
 	     argblock + arg->locate.offset areas overlap.  */
@@ -4745,10 +4304,6 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
      be deferred during the rest of the arguments.  */
   NO_DEFER_POP;
 
-  /* ANSI doesn't require a sequence point here,
-     but PCC has one, so this will avoid some problems.  */
-  emit_queue ();
-
   /* Free any temporary slots made in processing this argument.  Show
      that we might have taken the address of something and pushed that
      as an operand.  */
@@ -4759,24 +4314,33 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   return sibcall_failure;
 }
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.
-   We cannot do so in the following cases:
-
-   - if the type has variable size
-   - if the type is marked as addressable (it is required to be constructed
-     into the stack)
-   - if the padding and mode of the type is such that a copy into a register
-     would put it into the wrong part of the register.
-
-   Which padding can't be supported depends on the byte endianness.
-
-   A value in a register is implicitly padded at the most significant end.
-   On a big-endian machine, that is the lower end in memory.
-   So a value padded in memory at the upper end can't go in a register.
-   For a little-endian machine, the reverse is true.  */
+/* Nonzero if we do not know how to pass TYPE solely in registers.  */
 
 bool
-default_must_pass_in_stack (enum machine_mode mode, tree type)
+must_pass_in_stack_var_size (enum machine_mode mode ATTRIBUTE_UNUSED,
+			     tree type)
+{
+  if (!type)
+    return false;
+
+  /* If the type has variable size...  */
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If the type is marked as addressable (it is required
+     to be constructed into the stack)...  */
+  if (TREE_ADDRESSABLE (type))
+    return true;
+
+  return false;
+}
+
+/* Another version of the TARGET_MUST_PASS_IN_STACK hook.  This one
+   takes trailing padding of a structure into account.  */
+/* ??? Should be able to merge these two by examining BLOCK_REG_PADDING.  */
+
+bool
+must_pass_in_stack_var_size_or_pad (enum machine_mode mode, tree type)
 {
   if (!type)
     return false;

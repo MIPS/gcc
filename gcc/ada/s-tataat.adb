@@ -7,7 +7,7 @@
 --                                  B o d y                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2003, Ada Core Technologies               --
+--             Copyright (C) 1995-2004, Ada Core Technologies               --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -50,10 +50,6 @@ package body System.Tasking.Task_Attributes is
 
    use Task_Primitives.Operations;
    use Tasking.Initialization;
-
-   function To_Access_Node is new Unchecked_Conversion
-     (Access_Address, Access_Node);
-   --  Tetch pointer to indirect attribute list
 
    function To_Access_Address is new Unchecked_Conversion
      (Access_Node, Access_Address);
@@ -104,7 +100,7 @@ package body System.Tasking.Task_Attributes is
          --  Deallocation does finalization, if necessary.
 
          declare
-            C : System.Tasking.Task_ID := All_Tasks_List;
+            C : System.Tasking.Task_Id := All_Tasks_List;
             P : Access_Node;
 
          begin
@@ -162,7 +158,7 @@ package body System.Tasking.Task_Attributes is
    --  This is to be called just before the ATCB is deallocated.
    --  It relies on the caller holding T.L write-lock on entry.
 
-   procedure Finalize_Attributes (T : Task_ID) is
+   procedure Finalize_Attributes (T : Task_Id) is
       P : Access_Node;
       Q : Access_Node := To_Access_Node (T.Indirect_Attributes);
 
@@ -189,7 +185,7 @@ package body System.Tasking.Task_Attributes is
 
    --  This is to be called by System.Tasking.Stages.Create_Task.
 
-   procedure Initialize_Attributes (T : Task_ID) is
+   procedure Initialize_Attributes (T : Task_Id) is
       P : Access_Instance;
    begin
       Defer_Abortion;

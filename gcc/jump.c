@@ -31,7 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    formerly used them.  The JUMP_LABEL info is sometimes looked
    at by later passes.
 
-   The subroutines delete_insn, redirect_jump, and invert_jump are used
+   The subroutines redirect_jump and invert_jump are used
    from other passes as well.  */
 
 #include "config.h"
@@ -63,10 +63,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    or even change what is live at any point.
    So perhaps let combiner do it.  */
 
-static rtx next_nonnote_insn_in_loop (rtx);
 static void init_label_info (rtx);
 static void mark_all_labels (rtx);
-static int duplicate_loop_exit_test (rtx);
 static void delete_computation (rtx);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
 static int redirect_exp (rtx, rtx, rtx);
@@ -92,7 +90,7 @@ rebuild_jump_labels (rtx f)
      count doesn't drop to zero.  */
 
   for (insn = forced_labels; insn; insn = XEXP (insn, 1))
-    if (GET_CODE (XEXP (insn, 0)) == CODE_LABEL)
+    if (LABEL_P (XEXP (insn, 0)))
       LABEL_NUSES (XEXP (insn, 0))++;
   timevar_pop (TV_REBUILD_JUMP);
 }
@@ -112,62 +110,13 @@ cleanup_barriers (void)
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
-      if (GET_CODE (insn) == BARRIER)
+      if (BARRIER_P (insn))
 	{
 	  prev = prev_nonnote_insn (insn);
-	  if (GET_CODE (prev) == BARRIER)
+	  if (BARRIER_P (prev))
 	    delete_barrier (insn);
 	  else if (prev != PREV_INSN (insn))
 	    reorder_insns (insn, insn, prev);
-	}
-    }
-}
-
-/* Return the next insn after INSN that is not a NOTE and is in the loop,
-   i.e. when there is no such INSN before NOTE_INSN_LOOP_END return NULL_RTX.
-   This routine does not look inside SEQUENCEs.  */
-
-static rtx
-next_nonnote_insn_in_loop (rtx insn)
-{
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || GET_CODE (insn) != NOTE)
-	break;
-      if (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	return NULL_RTX;
-    }
-
-  return insn;
-}
-
-void
-copy_loop_headers (rtx f)
-{
-  rtx insn, next;
-  /* Now iterate optimizing jumps until nothing changes over one pass.  */
-  for (insn = f; insn; insn = next)
-    {
-      rtx temp, temp1;
-
-      next = NEXT_INSN (insn);
-
-      /* See if this is a NOTE_INSN_LOOP_BEG followed by an unconditional
-	 jump.  Try to optimize by duplicating the loop exit test if so.
-	 This is only safe immediately after regscan, because it uses
-	 the values of regno_first_uid and regno_last_uid.  */
-      if (GET_CODE (insn) == NOTE
-	  && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-	  && (temp1 = next_nonnote_insn_in_loop (insn)) != 0
-	  && any_uncondjump_p (temp1) && onlyjump_p (temp1))
-	{
-	  temp = PREV_INSN (insn);
-	  if (duplicate_loop_exit_test (insn))
-	    {
-	      next = NEXT_INSN (temp);
-	    }
 	}
     }
 }
@@ -183,7 +132,7 @@ purge_line_number_notes (rtx f)
      even if it became empty.  */
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == NOTE)
+    if (NOTE_P (insn))
       {
 	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
 	  /* Any previous line note was for the prologue; gdb wants a new
@@ -193,8 +142,13 @@ purge_line_number_notes (rtx f)
 	  {
 	    /* Delete this note if it is identical to previous note.  */
 	    if (last_note
+#ifdef USE_MAPPED_LOCATION
+		&& NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last_note)
+#else
 		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last_note)
-		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note))
+		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note)
+#endif
+)
 	      {
 		delete_related_insns (insn);
 		continue;
@@ -214,11 +168,11 @@ init_label_info (rtx f)
   rtx insn;
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CODE_LABEL)
+    if (LABEL_P (insn))
       LABEL_NUSES (insn) = (LABEL_PRESERVE_P (insn) != 0);
-    else if (GET_CODE (insn) == JUMP_INSN)
+    else if (JUMP_P (insn))
       JUMP_LABEL (insn) = 0;
-    else if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+    else if (NONJUMP_INSN_P (insn) || CALL_P (insn))
       {
 	rtx note, next;
 
@@ -243,28 +197,8 @@ mark_all_labels (rtx f)
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
-	if (GET_CODE (insn) == CALL_INSN
-	    && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	  {
-	    mark_all_labels (XEXP (PATTERN (insn), 0));
-	    mark_all_labels (XEXP (PATTERN (insn), 1));
-	    mark_all_labels (XEXP (PATTERN (insn), 2));
-
-	    /* Canonicalize the tail recursion label attached to the
-	       CALL_PLACEHOLDER insn.  */
-	    if (XEXP (PATTERN (insn), 3))
-	      {
-		rtx label_ref = gen_rtx_LABEL_REF (VOIDmode,
-						   XEXP (PATTERN (insn), 3));
-		mark_jump_label (label_ref, insn, 0);
-		XEXP (PATTERN (insn), 3) = XEXP (label_ref, 0);
-	      }
-
-	    continue;
-	  }
-
 	mark_jump_label (PATTERN (insn), insn, 0);
-	if (! INSN_DELETED_P (insn) && GET_CODE (insn) == JUMP_INSN)
+	if (! INSN_DELETED_P (insn) && JUMP_P (insn))
 	  {
 	    /* When we know the LABEL_REF contained in a REG used in
 	       an indirect jump, we'll have a REG_LABEL note so that
@@ -287,268 +221,6 @@ mark_all_labels (rtx f)
 	  }
       }
 }
-
-/* LOOP_START is a NOTE_INSN_LOOP_BEG note that is followed by an unconditional
-   jump.  Assume that this unconditional jump is to the exit test code.
-
-   Search the exit code for a conditional branch back to the first code
-   label after LOOP_START. 
-
-   If such a conditional jump is found and the exit code is sufficiently
-   simple, then make a copy of it before LOOP_START followed by a jump to
-   fall-thru path of the exit code.  Then delete the unconditional jump after
-   LOOP_START.
-
-   Note that if the loop exit code has multiple paths back to the start
-   of the loop, then we only copy the first path.  I.e. the fall-thru
-   path of the exit code can still be part of the semantic loop.
-   
-   Return 1 if we made the change, else 0.
-
-   This is only safe immediately after a regscan pass because it uses the
-   values of regno_first_uid and regno_last_uid.  */
-
-static int
-duplicate_loop_exit_test (rtx loop_start)
-{
-  rtx insn, set, reg, p, link;
-  rtx copy = 0, first_copy = 0;
-  int num_insns = 0;
-  rtx exitcode
-    = NEXT_INSN (JUMP_LABEL (next_nonnote_insn_in_loop (loop_start)));
-  rtx lastexit;
-  int max_reg = max_reg_num ();
-  rtx *reg_map = 0;
-  rtx loop_pre_header_label;
-
-  /* Scan the exit code.  We do not perform this optimization if any insn:
-
-         is a CALL_INSN
-	 is a CODE_LABEL
-	 has a REG_RETVAL or REG_LIBCALL note (hard to adjust)
-	 is a NOTE_INSN_LOOP_BEG because this means we have a nested loop
-
-     We also do not do this if we find an insn with ASM_OPERANDS.  While
-     this restriction should not be necessary, copying an insn with
-     ASM_OPERANDS can confuse asm_noperands in some cases.
-
-     Also, don't do this if the exit code is more than 20 insns.  */
-
-  for (insn = exitcode;
-       insn
-       && ! (GET_CODE (insn) == NOTE
-	     && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END);
-       insn = NEXT_INSN (insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case CODE_LABEL:
-	case CALL_INSN:
-	  return 0;
-	case NOTE:
-
-	  if (optimize < 2
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
-	    /* If we were to duplicate this code, we would not move
-	       the BLOCK notes, and so debugging the moved code would
-	       be difficult.  Thus, we only move the code with -O2 or
-	       higher.  */
-	    return 0;
-
-	  break;
-	case JUMP_INSN:
-	case INSN:
-	  if (++num_insns > 20
-	      || find_reg_note (insn, REG_RETVAL, NULL_RTX)
-	      || find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	    return 0;
-	  break;
-	default:
-	  break;
-	}
-
-      /* If this is a conditional jump back to the first label after
-	 LOOP_START, then we stop our search.  */
-      if (GET_CODE (insn) == JUMP_INSN
-	  && JUMP_LABEL (insn)
-	  && JUMP_LABEL (insn) == NEXT_INSN (NEXT_INSN (NEXT_INSN (loop_start)))
-	  && any_condjump_p (insn)
-	  && onlyjump_p (insn))
-	{
-	  /* Advance INSN over the conditional jump since we want to
-	     copy the jump.  */
-	  insn = NEXT_INSN (insn);
-	  break;
-	}
-    }
-
-  /* Unless INSN is zero, we can do the optimization.  */
-  if (insn == 0)
-    return 0;
-
-  lastexit = insn;
-
-  /* See if any insn sets a register only used in the loop exit code and
-     not a user variable.  If so, replace it with a new register.  */
-  for (insn = exitcode; insn != lastexit; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == INSN
-	&& (set = single_set (insn)) != 0
-	&& ((reg = SET_DEST (set), GET_CODE (reg) == REG)
-	    || (GET_CODE (reg) == SUBREG
-		&& (reg = SUBREG_REG (reg), GET_CODE (reg) == REG)))
-	&& REGNO (reg) >= FIRST_PSEUDO_REGISTER
-	&& REGNO_FIRST_UID (REGNO (reg)) == INSN_UID (insn))
-      {
-	for (p = NEXT_INSN (insn); p != lastexit; p = NEXT_INSN (p))
-	  if (REGNO_LAST_UID (REGNO (reg)) == INSN_UID (p))
-	    break;
-
-	if (p != lastexit)
-	  {
-	    /* We can do the replacement.  Allocate reg_map if this is the
-	       first replacement we found.  */
-	    if (reg_map == 0)
-	      reg_map = xcalloc (max_reg, sizeof (rtx));
-
-	    REG_LOOP_TEST_P (reg) = 1;
-
-	    reg_map[REGNO (reg)] = gen_reg_rtx (GET_MODE (reg));
-	  }
-      }
-  loop_pre_header_label = gen_label_rtx ();
-
-  /* Now copy each insn.  */
-  for (insn = exitcode; insn != lastexit; insn = NEXT_INSN (insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case BARRIER:
-	  copy = emit_barrier_before (loop_start);
-	  break;
-	case NOTE:
-	  /* Only copy line-number notes.  */
-	  if (NOTE_LINE_NUMBER (insn) >= 0)
-	    {
-	      copy = emit_note_before (NOTE_LINE_NUMBER (insn), loop_start);
-	      NOTE_SOURCE_FILE (copy) = NOTE_SOURCE_FILE (insn);
-	    }
-	  break;
-
-	case INSN:
-	  copy = emit_insn_before (copy_insn (PATTERN (insn)), loop_start);
-	  if (reg_map)
-	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
-
-	  mark_jump_label (PATTERN (copy), copy, 0);
-	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
-
-	  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
-	     make them.  */
-	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) != REG_LABEL)
-	      {
-		if (GET_CODE (link) == EXPR_LIST)
-		  REG_NOTES (copy)
-		    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
-						      XEXP (link, 0),
-						      REG_NOTES (copy)));
-		else
-		  REG_NOTES (copy)
-		    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
-						      XEXP (link, 0),
-						      REG_NOTES (copy)));
-	      }
-
-	  if (reg_map && REG_NOTES (copy))
-	    replace_regs (REG_NOTES (copy), reg_map, max_reg, 1);
-	  break;
-
-	case JUMP_INSN:
-	  copy = emit_jump_insn_before (copy_insn (PATTERN (insn)),
-					loop_start);
-	  INSN_LOCATOR (copy) = INSN_LOCATOR (insn);
-	  if (reg_map)
-	    replace_regs (PATTERN (copy), reg_map, max_reg, 1);
-	  mark_jump_label (PATTERN (copy), copy, 0);
-	  if (REG_NOTES (insn))
-	    {
-	      REG_NOTES (copy) = copy_insn_1 (REG_NOTES (insn));
-	      if (reg_map)
-		replace_regs (REG_NOTES (copy), reg_map, max_reg, 1);
-	    }
-
-	  /* Predict conditional jump that do make loop looping as taken.
-	     Other jumps are probably exit conditions, so predict
-	     them as untaken.  */
-	  if (any_condjump_p (copy))
-	    {
-	      rtx label = JUMP_LABEL (copy);
-	      if (label)
-		{
-		  /* The jump_insn after loop_start should be followed
-		     by barrier and loopback label.  */
-		  if (prev_nonnote_insn (label)
-		      && (prev_nonnote_insn (prev_nonnote_insn (label))
-			  == next_nonnote_insn (loop_start)))
-		    {
-		      predict_insn_def (copy, PRED_LOOP_HEADER, TAKEN);
-		      /* To keep pre-header, we need to redirect all loop
-		         entrances before the LOOP_BEG note.  */
-		      redirect_jump (copy, loop_pre_header_label, 0);
-		    }
-		  else
-		    predict_insn_def (copy, PRED_LOOP_HEADER, NOT_TAKEN);
-		}
-	    }
-	  break;
-
-	default:
-	  abort ();
-	}
-
-      /* Record the first insn we copied.  We need it so that we can
-	 scan the copied insns for new pseudo registers.  */
-      if (! first_copy)
-	first_copy = copy;
-    }
-
-  /* Now clean up by emitting a jump to the end label and deleting the jump
-     at the start of the loop.  */
-  if (! copy || GET_CODE (copy) != BARRIER)
-    {
-      copy = emit_jump_insn_before (gen_jump (get_label_after (insn)),
-				    loop_start);
-
-      /* Record the first insn we copied.  We need it so that we can
-	 scan the copied insns for new pseudo registers.   This may not
-	 be strictly necessary since we should have copied at least one
-	 insn above.  But I am going to be safe.  */
-      if (! first_copy)
-	first_copy = copy;
-
-      mark_jump_label (PATTERN (copy), copy, 0);
-      emit_barrier_before (loop_start);
-    }
-
-  emit_label_before (loop_pre_header_label, loop_start);
-
-  /* Now scan from the first insn we copied to the last insn we copied
-     (copy) for new pseudo registers.  Do this after the code to jump to
-     the end label since that might create a new pseudo too.  */
-  reg_scan_update (first_copy, copy, max_reg);
-
-  /* Mark the exit code as the virtual top of the converted loop.  */
-  emit_note_before (NOTE_INSN_LOOP_VTOP, exitcode);
-
-  delete_related_insns (next_nonnote_insn (loop_start));
-
-  /* Clean up.  */
-  if (reg_map)
-    free (reg_map);
-
-  return 1;
-}
 
 /* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
    notes between START and END out before START.  START and END may be such
@@ -570,7 +242,7 @@ squeeze_notes (rtx* startp, rtx* endp)
   for (insn = start; insn != past_end; insn = next)
     {
       next = NEXT_INSN (insn);
-      if (GET_CODE (insn) == NOTE
+      if (NOTE_P (insn)
 	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
@@ -617,7 +289,7 @@ get_label_before (rtx insn)
      or make a new one if there is none.  */
   label = prev_nonnote_insn (insn);
 
-  if (label == 0 || GET_CODE (label) != CODE_LABEL)
+  if (label == 0 || !LABEL_P (label))
     {
       rtx prev = PREV_INSN (insn);
 
@@ -639,7 +311,7 @@ get_label_after (rtx insn)
      or make a new one if there is none.  */
   label = next_nonnote_insn (insn);
 
-  if (label == 0 || GET_CODE (label) != CODE_LABEL)
+  if (label == 0 || !LABEL_P (label))
     {
       label = gen_label_rtx ();
       emit_label_after (label, insn);
@@ -660,17 +332,17 @@ reversed_comparison_code_parts (enum rtx_code code, rtx arg0, rtx arg1, rtx insn
   enum machine_mode mode;
 
   /* If this is not actually a comparison, we can't reverse it.  */
-  if (GET_RTX_CLASS (code) != '<')
+  if (GET_RTX_CLASS (code) != RTX_COMPARE
+      && GET_RTX_CLASS (code) != RTX_COMM_COMPARE)
     return UNKNOWN;
 
   mode = GET_MODE (arg0);
   if (mode == VOIDmode)
     mode = GET_MODE (arg1);
 
-  /* First see if machine description supply us way to reverse the comparison.
-     Give it priority over everything else to allow machine description to do
-     tricks.  */
-#ifdef REVERSIBLE_CC_MODE
+  /* First see if machine description supplies us way to reverse the
+     comparison.  Give it priority over everything else to allow
+     machine description to do tricks.  */
   if (GET_MODE_CLASS (mode) == MODE_CC
       && REVERSIBLE_CC_MODE (mode))
     {
@@ -679,7 +351,6 @@ reversed_comparison_code_parts (enum rtx_code code, rtx arg0, rtx arg1, rtx insn
 #endif
       return reverse_condition (code);
     }
-#endif
 
   /* Try a few special cases based on the comparison code.  */
   switch (code)
@@ -722,7 +393,7 @@ reversed_comparison_code_parts (enum rtx_code code, rtx arg0, rtx arg1, rtx insn
 	return UNKNOWN;
 
       for (prev = prev_nonnote_insn (insn);
-	   prev != 0 && GET_CODE (prev) != CODE_LABEL;
+	   prev != 0 && !LABEL_P (prev);
 	   prev = prev_nonnote_insn (prev))
 	{
 	  rtx set = set_of (arg0, prev);
@@ -771,7 +442,7 @@ reversed_comparison_code_parts (enum rtx_code code, rtx arg0, rtx arg1, rtx insn
 enum rtx_code
 reversed_comparison_code (rtx comparison, rtx insn)
 {
-  if (GET_RTX_CLASS (GET_CODE (comparison)) != '<')
+  if (!COMPARISON_P (comparison))
     return UNKNOWN;
   return reversed_comparison_code_parts (GET_CODE (comparison),
 					 XEXP (comparison, 0),
@@ -1065,7 +736,7 @@ comparison_dominates_p (enum rtx_code code1, enum rtx_code code2)
 int
 simplejump_p (rtx insn)
 {
-  return (GET_CODE (insn) == JUMP_INSN
+  return (JUMP_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_DEST (PATTERN (insn))) == PC
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == LABEL_REF);
@@ -1142,7 +813,7 @@ rtx
 pc_set (rtx insn)
 {
   rtx pat;
-  if (GET_CODE (insn) != JUMP_INSN)
+  if (!JUMP_P (insn))
     return NULL_RTX;
   pat = PATTERN (insn);
 
@@ -1166,6 +837,8 @@ any_uncondjump_p (rtx insn)
   if (!x)
     return 0;
   if (GET_CODE (SET_SRC (x)) != LABEL_REF)
+    return 0;
+  if (find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
     return 0;
   return 1;
 }
@@ -1230,7 +903,7 @@ returnjump_p_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 int
 returnjump_p (rtx insn)
 {
-  if (GET_CODE (insn) != JUMP_INSN)
+  if (!JUMP_P (insn))
     return 0;
   return for_each_rtx (&PATTERN (insn), returnjump_p_1, NULL);
 }
@@ -1243,7 +916,7 @@ onlyjump_p (rtx insn)
 {
   rtx set;
 
-  if (GET_CODE (insn) != JUMP_INSN)
+  if (!JUMP_P (insn))
     return 0;
 
   set = single_set (insn);
@@ -1311,6 +984,7 @@ sets_cc0_p (rtx x)
 
 /* Follow any unconditional jump at LABEL;
    return the ultimate label reached by any such chain of jumps.
+   Return null if the chain ultimately leads to a return instruction.
    If LABEL is not followed by a jump, return LABEL.
    If the chain loops or we can't find end, return LABEL,
    since that tells caller to avoid changing the insn.
@@ -1329,12 +1003,12 @@ follow_jumps (rtx label)
   for (depth = 0;
        (depth < 10
 	&& (insn = next_active_insn (value)) != 0
-	&& GET_CODE (insn) == JUMP_INSN
+	&& JUMP_P (insn)
 	&& ((JUMP_LABEL (insn) != 0 && any_uncondjump_p (insn)
 	     && onlyjump_p (insn))
 	    || GET_CODE (PATTERN (insn)) == RETURN)
 	&& (next = NEXT_INSN (insn))
-	&& GET_CODE (next) == BARRIER);
+	&& BARRIER_P (next));
        depth++)
     {
       /* Don't chain through the insn that jumps into a loop
@@ -1344,7 +1018,7 @@ follow_jumps (rtx label)
       rtx tem;
       if (!reload_completed)
 	for (tem = value; tem != insn; tem = NEXT_INSN (tem))
-	  if (GET_CODE (tem) == NOTE
+	  if (NOTE_P (tem)
 	      && (NOTE_LINE_NUMBER (tem) == NOTE_INSN_LOOP_BEG
 		  /* ??? Optional.  Disables some optimizations, but makes
 		     gcov output more accurate with -O.  */
@@ -1418,11 +1092,11 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
 
 	/* Ignore remaining references to unreachable labels that
 	   have been deleted.  */
-	if (GET_CODE (label) == NOTE
+	if (NOTE_P (label)
 	    && NOTE_LINE_NUMBER (label) == NOTE_INSN_DELETED_LABEL)
 	  break;
 
-	if (GET_CODE (label) != CODE_LABEL)
+	if (!LABEL_P (label))
 	  abort ();
 
 	/* Ignore references to labels of containing functions.  */
@@ -1435,7 +1109,7 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
 
 	if (insn)
 	  {
-	    if (GET_CODE (insn) == JUMP_INSN)
+	    if (JUMP_P (insn))
 	      JUMP_LABEL (insn) = label;
 	    else
 	      {
@@ -1500,7 +1174,7 @@ delete_jump (rtx insn)
 void
 delete_barrier (rtx insn)
 {
-  if (GET_CODE (insn) != BARRIER)
+  if (!BARRIER_P (insn))
     abort ();
 
   delete_insn (insn);
@@ -1517,15 +1191,15 @@ delete_prior_computation (rtx note, rtx insn)
   rtx reg = XEXP (note, 0);
 
   for (our_prev = prev_nonnote_insn (insn);
-       our_prev && (GET_CODE (our_prev) == INSN
-		    || GET_CODE (our_prev) == CALL_INSN);
+       our_prev && (NONJUMP_INSN_P (our_prev)
+		    || CALL_P (our_prev));
        our_prev = prev_nonnote_insn (our_prev))
     {
       rtx pat = PATTERN (our_prev);
 
       /* If we reach a CALL which is not calling a const function
 	 or the callee pops the arguments, then give up.  */
-      if (GET_CODE (our_prev) == CALL_INSN
+      if (CALL_P (our_prev)
 	  && (! CONST_OR_PURE_CALL_P (our_prev)
 	      || GET_CODE (pat) != SET || GET_CODE (SET_SRC (pat)) != CALL))
 	break;
@@ -1538,14 +1212,14 @@ delete_prior_computation (rtx note, rtx insn)
 	break;
 
       if (GET_CODE (pat) == USE
-	  && GET_CODE (XEXP (pat, 0)) == INSN)
+	  && NONJUMP_INSN_P (XEXP (pat, 0)))
 	/* reorg creates USEs that look like this.  We leave them
 	   alone because reorg needs them for its own purposes.  */
 	break;
 
       if (reg_set_p (reg, pat))
 	{
-	  if (side_effects_p (pat) && GET_CODE (our_prev) != CALL_INSN)
+	  if (side_effects_p (pat) && !CALL_P (our_prev))
 	    break;
 
 	  if (GET_CODE (pat) == PARALLEL)
@@ -1568,7 +1242,7 @@ delete_prior_computation (rtx note, rtx insn)
 		delete_computation (our_prev);
 	    }
 	  else if (GET_CODE (pat) == SET
-		   && GET_CODE (SET_DEST (pat)) == REG)
+		   && REG_P (SET_DEST (pat)))
 	    {
 	      int dest_regno = REGNO (SET_DEST (pat));
 	      int dest_endregno
@@ -1651,7 +1325,7 @@ delete_computation (rtx insn)
 	 will use them.  So if the previous insn
 	 exists to set the CC's, delete it
 	 (unless it performs auto-increments, etc.).  */
-      if (prev && GET_CODE (prev) == INSN
+      if (prev && NONJUMP_INSN_P (prev)
 	  && sets_cc0_p (PATTERN (prev)))
 	{
 	  if (sets_cc0_p (PATTERN (prev)) > 0
@@ -1671,7 +1345,7 @@ delete_computation (rtx insn)
 
       if (REG_NOTE_KIND (note) != REG_DEAD
 	  /* Verify that the REG_NOTE is legitimate.  */
-	  || GET_CODE (XEXP (note, 0)) != REG)
+	  || !REG_P (XEXP (note, 0)))
 	continue;
 
       delete_prior_computation (note, insn);
@@ -1691,7 +1365,7 @@ delete_computation (rtx insn)
 rtx
 delete_related_insns (rtx insn)
 {
-  int was_code_label = (GET_CODE (insn) == CODE_LABEL);
+  int was_code_label = (LABEL_P (insn));
   rtx note;
   rtx next = NEXT_INSN (insn), prev = PREV_INSN (insn);
 
@@ -1707,13 +1381,13 @@ delete_related_insns (rtx insn)
   /* If instruction is followed by a barrier,
      delete the barrier too.  */
 
-  if (next != 0 && GET_CODE (next) == BARRIER)
+  if (next != 0 && BARRIER_P (next))
     delete_insn (next);
 
   /* If deleting a jump, decrement the count of the label,
      and delete the label if it is now unused.  */
 
-  if (GET_CODE (insn) == JUMP_INSN && JUMP_LABEL (insn))
+  if (JUMP_P (insn) && JUMP_LABEL (insn))
     {
       rtx lab = JUMP_LABEL (insn), lab_next;
 
@@ -1744,7 +1418,7 @@ delete_related_insns (rtx insn)
 
   /* Likewise if we're deleting a dispatch table.  */
 
-  if (GET_CODE (insn) == JUMP_INSN
+  if (JUMP_P (insn)
       && (GET_CODE (PATTERN (insn)) == ADDR_VEC
 	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
     {
@@ -1761,15 +1435,15 @@ delete_related_insns (rtx insn)
     }
 
   /* Likewise for an ordinary INSN / CALL_INSN with a REG_LABEL note.  */
-  if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+  if (NONJUMP_INSN_P (insn) || CALL_P (insn))
     for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
       if (REG_NOTE_KIND (note) == REG_LABEL
 	  /* This could also be a NOTE_INSN_DELETED_LABEL note.  */
-	  && GET_CODE (XEXP (note, 0)) == CODE_LABEL)
+	  && LABEL_P (XEXP (note, 0)))
 	if (LABEL_NUSES (XEXP (note, 0)) == 0)
 	  delete_related_insns (XEXP (note, 0));
 
-  while (prev && (INSN_DELETED_P (prev) || GET_CODE (prev) == NOTE))
+  while (prev && (INSN_DELETED_P (prev) || NOTE_P (prev)))
     prev = PREV_INSN (prev);
 
   /* If INSN was a label and a dispatch table follows it,
@@ -1778,33 +1452,33 @@ delete_related_insns (rtx insn)
 
   if (was_code_label
       && NEXT_INSN (insn) != 0
-      && GET_CODE (NEXT_INSN (insn)) == JUMP_INSN
+      && JUMP_P (NEXT_INSN (insn))
       && (GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_VEC
 	  || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
     next = delete_related_insns (NEXT_INSN (insn));
 
   /* If INSN was a label, delete insns following it if now unreachable.  */
 
-  if (was_code_label && prev && GET_CODE (prev) == BARRIER)
+  if (was_code_label && prev && BARRIER_P (prev))
     {
-      RTX_CODE code;
-      while (next != 0
-	     && (GET_RTX_CLASS (code = GET_CODE (next)) == 'i'
-		 || code == NOTE || code == BARRIER
-		 || (code == CODE_LABEL && INSN_DELETED_P (next))))
+      enum rtx_code code;
+      while (next)
 	{
+	  code = GET_CODE (next);
 	  if (code == NOTE
 	      && NOTE_LINE_NUMBER (next) != NOTE_INSN_FUNCTION_END)
 	    next = NEXT_INSN (next);
 	  /* Keep going past other deleted labels to delete what follows.  */
 	  else if (code == CODE_LABEL && INSN_DELETED_P (next))
 	    next = NEXT_INSN (next);
-	  else
+	  else if (code == BARRIER || INSN_P (next))
 	    /* Note: if this deletes a jump, it can cause more
 	       deletion of unreachable code, after a different label.
 	       As long as the value from this recursive call is correct,
 	       this invocation functions correctly.  */
 	    next = delete_related_insns (next);
+	  else
+	    break;
 	}
     }
 
@@ -1826,7 +1500,7 @@ delete_for_peephole (rtx from, rtx to)
       rtx next = NEXT_INSN (insn);
       rtx prev = PREV_INSN (insn);
 
-      if (GET_CODE (insn) != NOTE)
+      if (!NOTE_P (insn))
 	{
 	  INSN_DELETED_P (insn) = 1;
 
@@ -1998,7 +1672,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
      function, move the function end note so that -Wreturn-type works.  */
   if (olabel && nlabel
       && NEXT_INSN (olabel)
-      && GET_CODE (NEXT_INSN (olabel)) == NOTE
+      && NOTE_P (NEXT_INSN (olabel))
       && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END)
     emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
@@ -2140,15 +1814,15 @@ int
 rtx_renumbered_equal_p (rtx x, rtx y)
 {
   int i;
-  RTX_CODE code = GET_CODE (x);
+  enum rtx_code code = GET_CODE (x);
   const char *fmt;
 
   if (x == y)
     return 1;
 
-  if ((code == REG || (code == SUBREG && GET_CODE (SUBREG_REG (x)) == REG))
-      && (GET_CODE (y) == REG || (GET_CODE (y) == SUBREG
-				  && GET_CODE (SUBREG_REG (y)) == REG)))
+  if ((code == REG || (code == SUBREG && REG_P (SUBREG_REG (x))))
+      && (REG_P (y) || (GET_CODE (y) == SUBREG
+				  && REG_P (SUBREG_REG (y)))))
     {
       int reg_x = -1, reg_y = -1;
       int byte_x = 0, byte_y = 0;
@@ -2250,16 +1924,15 @@ rtx_renumbered_equal_p (rtx x, rtx y)
      order.  Also handle the simple binary and unary cases without a loop.
 
      ??? Don't consider PLUS a commutative operator; see comments above.  */
-  if ((code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
-      && code != PLUS)
+  if (COMMUTATIVE_P (x) && code != PLUS)
     return ((rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 0))
 	     && rtx_renumbered_equal_p (XEXP (x, 1), XEXP (y, 1)))
 	    || (rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 1))
 		&& rtx_renumbered_equal_p (XEXP (x, 1), XEXP (y, 0))));
-  else if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == '2')
+  else if (NON_COMMUTATIVE_P (x))
     return (rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 0))
 	    && rtx_renumbered_equal_p (XEXP (x, 1), XEXP (y, 1)));
-  else if (GET_RTX_CLASS (code) == '1')
+  else if (UNARY_P (x))
     return rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 0));
 
   /* Compare the elements.  If any pair of corresponding elements
@@ -2326,7 +1999,7 @@ rtx_renumbered_equal_p (rtx x, rtx y)
 int
 true_regnum (rtx x)
 {
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     {
       if (REGNO (x) >= FIRST_PSEUDO_REGISTER && reg_renumber[REGNO (x)] >= 0)
 	return reg_renumber[REGNO (x)];

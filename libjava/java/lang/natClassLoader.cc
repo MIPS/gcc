@@ -48,6 +48,12 @@ _Jv_WaitForState (jclass klass, int state)
   
   _Jv_MonitorEnter (klass) ;
 
+  if (klass->state == JV_STATE_COMPILED)
+    {
+      klass->state = JV_STATE_LOADED;
+      if (gcj::verbose_class_flag)
+	fprintf (stderr, "[Loaded (pre-compiled) %s]\n", (const char*)(klass->name->data));
+    }
   if (state == JV_STATE_LINKED)
     {
       // Must call _Jv_PrepareCompiledClass while holding the class
@@ -86,7 +92,8 @@ typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 void
 _Jv_PrepareCompiledClass (jclass klass)
 {
-  if (klass->state >= JV_STATE_LINKED)
+  jint state = klass->state;
+  if (state >= JV_STATE_LINKED)
     return;
 
   // Short-circuit, so that mutually dependent classes are ok.
@@ -169,6 +176,13 @@ _Jv_PrepareCompiledClass (jclass klass)
 #ifdef INTERPRETER
     }
 #endif /* INTERPRETER */
+
+  if (klass->isInterface ())
+    _Jv_LayoutInterfaceMethods (klass);
+
+  if (state == JV_STATE_COMPILED && gcj::verbose_class_flag)
+    fprintf (stderr, "[Loaded (pre-compiled) %s]\n",
+	     (const char*)(klass->name->data));
 
   klass->notifyAll ();
 
@@ -419,7 +433,7 @@ jclass
 _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 	      java::lang::ClassLoader *loader)
 {
-  jclass ret = (jclass) JvAllocObject (&java::lang::Class::class$);
+  jclass ret = (jclass) _Jv_AllocObject (&java::lang::Class::class$);
   ret->name = name;
   ret->superclass = superclass;
   ret->loader = loader;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -735,7 +735,7 @@ package body Ch6 is
             Error_Msg_SP ("child unit allowed only at library level");
             raise Error_Resync;
 
-         elsif Ada_83 then
+         elsif Ada_Version = Ada_83 then
             Error_Msg_SP ("(Ada 83) child unit not allowed!");
 
          end if;
@@ -839,7 +839,7 @@ package body Ch6 is
    --  FORMAL_PART ::= (PARAMETER_SPECIFICATION {; PARAMETER_SPECIFICATION})
 
    --  PARAMETER_SPECIFICATION ::=
-   --    DEFINING_IDENTIFIER_LIST : MODE SUBTYPE_MARK
+   --    DEFINING_IDENTIFIER_LIST : MODE [NULL_EXCLUSION] SUBTYPE_MARK
    --      [:= DEFAULT_EXPRESSION]
    --  | DEFINING_IDENTIFIER_LIST : ACCESS_DEFINITION
    --      [:= DEFAULT_EXPRESSION]
@@ -857,6 +857,7 @@ package body Ch6 is
       Num_Idents         : Nat;
       Ident              : Nat;
       Ident_Sloc         : Source_Ptr;
+      Not_Null_Present   : Boolean := False;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  This array holds the list of defining identifiers. The upper bound
@@ -865,7 +866,6 @@ package body Ch6 is
 
    begin
       Specification_List := New_List;
-
       Specification_Loop : loop
          begin
             if Token = Tok_Pragma then
@@ -953,17 +953,32 @@ package body Ch6 is
                Specification_Node :=
                  New_Node (N_Parameter_Specification, Ident_Sloc);
                Set_Defining_Identifier (Specification_Node, Idents (Ident));
+               Not_Null_Present := P_Null_Exclusion;     --  Ada 2005 (AI-231)
 
                if Token = Tok_Access then
-                  if Ada_83 then
+                  Set_Null_Exclusion_Present
+                    (Specification_Node, Not_Null_Present);
+
+                  if Ada_Version = Ada_83 then
                      Error_Msg_SC ("(Ada 83) access parameters not allowed");
                   end if;
 
-                  Set_Parameter_Type
-                    (Specification_Node, P_Access_Definition);
+                  Set_Parameter_Type (Specification_Node,
+                    P_Access_Definition (Not_Null_Present));
 
                else
-                  P_Mode (Specification_Node);
+                  if Token = Tok_In or else Token = Tok_Out then
+                     if Not_Null_Present then
+                        Error_Msg_SC
+                          ("ACCESS must be placed after the parameter mode");
+                     end if;
+
+                     P_Mode (Specification_Node);
+                     Not_Null_Present := P_Null_Exclusion; -- Ada 2005 (AI-231)
+                  end if;
+
+                  Set_Null_Exclusion_Present
+                    (Specification_Node, Not_Null_Present);
 
                   if Token = Tok_Procedure
                        or else

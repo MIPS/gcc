@@ -91,6 +91,8 @@ static const char * const optabs[] =
   "udivmod_optab->handlers[$A].insn_code = CODE_FOR_$(udivmod$a4$)",
   "smod_optab->handlers[$A].insn_code = CODE_FOR_$(mod$a3$)",
   "umod_optab->handlers[$A].insn_code = CODE_FOR_$(umod$a3$)",
+  "fmod_optab->handlers[$A].insn_code = CODE_FOR_$(fmod$a3$)",
+  "drem_optab->handlers[$A].insn_code = CODE_FOR_$(drem$a3$)",
   "ftrunc_optab->handlers[$A].insn_code = CODE_FOR_$(ftrunc$F$a2$)",
   "and_optab->handlers[$A].insn_code = CODE_FOR_$(and$a3$)",
   "ior_optab->handlers[$A].insn_code = CODE_FOR_$(ior$a3$)",
@@ -122,10 +124,21 @@ static const char * const optabs[] =
   "round_optab->handlers[$A].insn_code = CODE_FOR_$(round$a2$)",
   "trunc_optab->handlers[$A].insn_code = CODE_FOR_$(trunc$a2$)",
   "nearbyint_optab->handlers[$A].insn_code = CODE_FOR_$(nearbyint$a2$)",
+  "sincos_optab->handlers[$A].insn_code = CODE_FOR_$(sincos$a3$)",
   "sin_optab->handlers[$A].insn_code = CODE_FOR_$(sin$a2$)",
+  "asin_optab->handlers[$A].insn_code = CODE_FOR_$(asin$a2$)",
   "cos_optab->handlers[$A].insn_code = CODE_FOR_$(cos$a2$)",
+  "acos_optab->handlers[$A].insn_code = CODE_FOR_$(acos$a2$)",
   "exp_optab->handlers[$A].insn_code = CODE_FOR_$(exp$a2$)",
+  "exp10_optab->handlers[$A].insn_code = CODE_FOR_$(exp10$a2$)",
+  "exp2_optab->handlers[$A].insn_code = CODE_FOR_$(exp2$a2$)",
+  "expm1_optab->handlers[$A].insn_code = CODE_FOR_$(expm1$a2$)",
+  "logb_optab->handlers[$A].insn_code = CODE_FOR_$(logb$a2$)",
+  "ilogb_optab->handlers[$A].insn_code = CODE_FOR_$(ilogb$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
+  "log10_optab->handlers[$A].insn_code = CODE_FOR_$(log10$a2$)",  
+  "log2_optab->handlers[$A].insn_code = CODE_FOR_$(log2$a2$)",  
+  "log1p_optab->handlers[$A].insn_code = CODE_FOR_$(log1p$a2$)",  
   "tan_optab->handlers[$A].insn_code = CODE_FOR_$(tan$a2$)",
   "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
@@ -149,8 +162,8 @@ static const char * const optabs[] =
   "push_optab->handlers[$A].insn_code = CODE_FOR_$(push$a1$)",
   "reload_in_optab[$A] = CODE_FOR_$(reload_in$a$)",
   "reload_out_optab[$A] = CODE_FOR_$(reload_out$a$)",
-  "movstr_optab[$A] = CODE_FOR_$(movstr$a$)",
-  "clrstr_optab[$A] = CODE_FOR_$(clrstr$a$)",
+  "movmem_optab[$A] = CODE_FOR_$(movmem$a$)",
+  "clrmem_optab[$A] = CODE_FOR_$(clrmem$a$)",
   "cmpstr_optab[$A] = CODE_FOR_$(cmpstr$a$)",
   "cmpmem_optab[$A] = CODE_FOR_$(cmpmem$a$)",
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
@@ -220,7 +233,9 @@ gen_insn (rtx insn)
 		    /* We have to be concerned about matching "gt" and
 		       missing "gtu", e.g., so verify we have reached the
 		       end of thing we are to match.  */
-		    if (*p == 0 && *q == 0 && GET_RTX_CLASS(op) == '<')
+		    if (*p == 0 && *q == 0
+			&& (GET_RTX_CLASS (op) == RTX_COMPARE
+			    || GET_RTX_CLASS (op) == RTX_COMM_COMPARE))
 		      break;
 		  }
 
@@ -249,6 +264,7 @@ gen_insn (rtx insn)
                             || mode_class[i] == MODE_PARTIAL_INT
 			    || mode_class[i] == MODE_VECTOR_INT)
 			&& (! force_float || mode_class[i] == MODE_FLOAT 
+			    || mode_class[i] == MODE_COMPLEX_FLOAT
 			    || mode_class[i] == MODE_VECTOR_FLOAT))
 		      break;
 		  }

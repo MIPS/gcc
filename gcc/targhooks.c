@@ -105,7 +105,15 @@ default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 {
 }
 
-/* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
+/* The default implementation of TARGET_BUILTIN_SETJMP_FRAME_VALUE.  */
+
+rtx
+default_builtin_setjmp_frame_value (void)
+{
+  return virtual_stack_vars_rtx;
+}
+
+/* Generic hook that takes a CUMULATIVE_ARGS pointer and returns false.  */
 
 bool
 hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
@@ -114,9 +122,10 @@ hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 }
 
 bool
-default_pretend_outgoing_varargs_named(CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
 {
-  return (targetm.calls.setup_incoming_varargs != default_setup_incoming_varargs);
+  return (targetm.calls.setup_incoming_varargs
+	  != default_setup_incoming_varargs);
 }
 
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
@@ -127,10 +136,68 @@ hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
   return true;
 }
 
-/* Generic hook that takes a machine mode and returns true.  */
+
+/* The generic C++ ABI specifies this is a 64-bit value.  */
+tree
+default_cxx_guard_type (void)
+{
+  return long_long_integer_type_node;
+}
+
+
+/* Returns the size of the cookie to use when allocating an array
+   whose elements have the indicated TYPE.  Assumes that it is already
+   known that a cookie is needed.  */
+
+tree
+default_cxx_get_cookie_size (tree type)
+{
+  tree cookie_size;
+
+  /* We need to allocate an additional max (sizeof (size_t), alignof
+     (true_type)) bytes.  */
+  tree sizetype_size;
+  tree type_align;
+  
+  sizetype_size = size_in_bytes (sizetype);
+  type_align = size_int (TYPE_ALIGN_UNIT (type));
+  if (INT_CST_LT_UNSIGNED (type_align, sizetype_size))
+    cookie_size = sizetype_size;
+  else
+    cookie_size = type_align;
+
+  return cookie_size;
+}
+
+/* This version of the TARGET_PASS_BY_REFERENCE hook adds no conditions
+   beyond those mandated by generic code.  */
 
 bool
-hook_bool_machine_mode_true (enum machine_mode a ATTRIBUTE_UNUSED)
+hook_pass_by_reference_false (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
+	enum machine_mode mode ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED,
+	bool named_arg ATTRIBUTE_UNUSED)
 {
-  return true;
+  return false;
+}
+
+/* Return true if a parameter must be passed by reference.  This version
+   of the TARGET_PASS_BY_REFERENCE hook uses just MUST_PASS_IN_STACK.  */
+
+bool
+hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
+	enum machine_mode mode ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED,
+	bool named_arg ATTRIBUTE_UNUSED)
+{
+  return targetm.calls.must_pass_in_stack (mode, type);
+}
+
+
+/* Emit any directives required to unwind this instruction.  */
+
+void
+default_unwind_emit (FILE * stream ATTRIBUTE_UNUSED,
+		     rtx insn ATTRIBUTE_UNUSED)
+{
+  /* Should never happen.  */
+  abort ();
 }

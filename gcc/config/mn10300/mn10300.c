@@ -71,7 +71,8 @@ static bool mn10300_rtx_costs (rtx, int, int, int *);
 static void mn10300_file_start (void);
 static bool mn10300_return_in_memory (tree, tree);
 static rtx mn10300_builtin_saveregs (void);
-
+static bool mn10300_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
+				       tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -92,9 +93,10 @@ static rtx mn10300_builtin_saveregs (void);
 
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
-
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY mn10300_return_in_memory
+#undef TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE mn10300_pass_by_reference
 
 #undef TARGET_EXPAND_BUILTIN_SAVEREGS
 #define TARGET_EXPAND_BUILTIN_SAVEREGS mn10300_builtin_saveregs
@@ -1198,13 +1200,6 @@ notice_update_cc (rtx body, rtx insn)
 	cc_status.mdep.fpCC = 1;
       break;
 
-    case CC_INVERT:
-      /* The insn is a compare instruction.  */
-      CC_STATUS_INIT;
-      cc_status.value1 = SET_SRC (body);
-      cc_status.flags |= CC_INVERTED;
-      break;
-
     case CC_CLOBBER:
       /* Insn doesn't leave CC in a usable state.  */
       CC_STATUS_INIT;
@@ -1464,40 +1459,21 @@ mn10300_va_start (tree valist, rtx nextarg)
   std_expand_builtin_va_start (valist, nextarg);
 }
 
-rtx
-mn10300_va_arg (tree valist, tree type)
+/* Return true when a parameter should be passed by reference.  */
+
+static bool
+mn10300_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+			   enum machine_mode mode, tree type,
+			   bool named ATTRIBUTE_UNUSED)
 {
-  HOST_WIDE_INT align, rsize;
-  tree t, ptr, pptr;
+  unsigned HOST_WIDE_INT size;
 
-  /* Compute the rounded size of the type.  */
-  align = PARM_BOUNDARY / BITS_PER_UNIT;
-  rsize = (((int_size_in_bytes (type) + align - 1) / align) * align);
-
-  t = build (POSTINCREMENT_EXPR, TREE_TYPE (valist), valist, 
-	     build_int_2 ((rsize > 8 ? 4 : rsize), 0));
-  TREE_SIDE_EFFECTS (t) = 1;
-
-  ptr = build_pointer_type (type);
-
-  /* "Large" types are passed by reference.  */
-  if (rsize > 8)
-    {
-      pptr = build_pointer_type (ptr);
-      t = build1 (NOP_EXPR, pptr, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-
-      t = build1 (INDIRECT_REF, ptr, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-    }
+  if (type)
+    size = int_size_in_bytes (type);
   else
-    {
-      t = build1 (NOP_EXPR, ptr, t);
-      TREE_SIDE_EFFECTS (t) = 1;
-    }
+    size = GET_MODE_SIZE (mode);
 
-  /* Calculate!  */
-  return expand_expr (t, NULL_RTX, Pmode, EXPAND_NORMAL);
+  return size > 8;
 }
 
 /* Return an RTX to represent where a value with mode MODE will be returned
@@ -1850,9 +1826,6 @@ legitimate_pic_operand_p (rtx x)
 	  || XINT (x, 1) == UNSPEC_PLT))
       return 1;
 
-  if (GET_CODE (x) == QUEUED)
-    return legitimate_pic_operand_p (QUEUED_VAR (x));
-
   fmt = GET_RTX_FORMAT (GET_CODE (x));
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
     {
@@ -1869,6 +1842,56 @@ legitimate_pic_operand_p (rtx x)
     }
 
   return 1;
+}
+
+/* Return TRUE if the address X, taken from a (MEM:MODE X) rtx, is
+   legitimate, and FALSE otherwise.  */
+bool
+legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+{
+  if (CONSTANT_ADDRESS_P (x)
+      && (! flag_pic || legitimate_pic_operand_p (x)))
+    return TRUE;
+
+  if (RTX_OK_FOR_BASE_P (x, strict))
+    return TRUE;
+
+  if (TARGET_AM33
+      && GET_CODE (x) == POST_INC
+      && RTX_OK_FOR_BASE_P (XEXP (x, 0), strict)
+      && (mode == SImode || mode == SFmode || mode == HImode))
+    return TRUE;
+
+  if (GET_CODE (x) == PLUS)
+    {
+      rtx base = 0, index = 0;
+
+      if (REG_P (XEXP (x, 0))
+	  && REGNO_STRICT_OK_FOR_BASE_P (REGNO (XEXP (x, 0)), strict))
+	{
+	  base = XEXP (x, 0);
+	  index = XEXP (x, 1);
+	}
+
+      if (REG_P (XEXP (x, 1))
+	  && REGNO_STRICT_OK_FOR_BASE_P (REGNO (XEXP (x, 1)), strict))
+	{
+	  base = XEXP (x, 1);
+	  index = XEXP (x, 0);
+	}
+
+      if (base != 0 && index != 0)
+	{
+	  if (GET_CODE (index) == CONST_INT)
+	    return TRUE;
+	  if (GET_CODE (index) == CONST
+	      && (! flag_pic
+ 		  || legitimate_pic_operand_p (index)))
+	    return TRUE;
+	}
+    }
+
+  return FALSE;
 }
 
 static int
@@ -1930,19 +1953,6 @@ mn10300_address_cost_1 (rtx x, int *unsig)
     case SYMBOL_REF:
     case LABEL_REF:
       return 8;
-
-    case ADDRESSOF:
-      switch (GET_CODE (XEXP (x, 0)))
-	{
-	case MEM:
-	  return mn10300_address_cost (XEXP (x, 0));
-
-	case REG:
-	  return 1;
-
-	default:
-	  abort ();
-	}
 
     default:
       abort ();

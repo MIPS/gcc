@@ -38,7 +38,7 @@ exception statement from your version. */
 
 package java.nio;
 
-class LongViewBufferImpl extends LongBuffer
+final class LongViewBufferImpl extends LongBuffer
 {
   /** Position in bb (i.e. a byte offset) where this buffer starts. */
   private int offset;
@@ -46,17 +46,33 @@ class LongViewBufferImpl extends LongBuffer
   private boolean readOnly;
   private ByteOrder endian;
   
+  LongViewBufferImpl (ByteBuffer bb, int capacity)
+  {
+    super (capacity, capacity, 0, -1);
+    this.bb = bb;
+    this.offset = bb.position();
+    this.readOnly = bb.isReadOnly();
+    this.endian = bb.order();
+  }
+  
   public LongViewBufferImpl (ByteBuffer bb, int offset, int capacity,
 			     int limit, int position, int mark,
 			     boolean readOnly, ByteOrder endian)
   {
-    super (limit >> 3, limit >> 3, position >> 3, mark >> 3);
+    super (capacity, limit, position, mark);
     this.bb = bb;
     this.offset = offset;
     this.readOnly = readOnly;
     this.endian = endian;
   }
 
+  /**
+   * Reads the <code>long</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>longs</code> in this buffer.
+   */
   public long get ()
   {
     int p = position();
@@ -65,6 +81,13 @@ class LongViewBufferImpl extends LongBuffer
     return result;
   }
 
+  /**
+   * Absolute get method. Reads the <code>long</code> at position
+   * <code>index</code>.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
   public long get (int index)
   {
     return ByteBufferHelper.getLong(bb, (index << 3) + offset, endian);

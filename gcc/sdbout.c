@@ -48,6 +48,7 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "debug.h"
 #include "tree.h"
 #include "ggc.h"
+#include "varray.h"
 
 static GTY(()) tree anonymous_types;
 
@@ -58,6 +59,17 @@ static GTY(()) int sdbout_source_line_counter;
 /* Counter to generate unique "names" for nameless struct members.  */
 
 static GTY(()) int unnamed_struct_number;
+
+/* Declarations whose debug info was deferred till end of compilation.  */
+
+static GTY(()) varray_type deferred_global_decls;
+
+/* The C front end may call sdbout_symbol before sdbout_init runs.
+   We save all such decls in this list and output them when we get
+   to sdbout_init.  */
+
+static GTY(()) tree preinit_symbols;
+static GTY(()) bool sdbout_initialized;
 
 #ifdef SDB_DEBUGGING_INFO
 
@@ -76,7 +88,7 @@ static GTY(()) int unnamed_struct_number;
 /* 1 if PARM is passed to this function in memory.  */
 
 #define PARM_PASSED_IN_MEMORY(PARM) \
- (GET_CODE (DECL_INCOMING_RTL (PARM)) == MEM)
+ (MEM_P (DECL_INCOMING_RTL (PARM)))
 
 /* A C expression for the integer offset value of an automatic variable
    (C_AUTO) having address X (an RTX).  */
@@ -331,6 +343,7 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_end_function,		         /* end_function */
   debug_nothing_tree,		         /* function_decl */
   sdbout_global_decl,		         /* global_decl */
+  sdbout_symbol,			 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
@@ -525,15 +538,15 @@ plain_type_1 (tree type, int level)
 	  }
 
 	if (size == INT_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_UINT : T_INT);
+	  return (TYPE_UNSIGNED (type) ? T_UINT : T_INT);
 	if (size == CHAR_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_UCHAR : T_CHAR);
+	  return (TYPE_UNSIGNED (type) ? T_UCHAR : T_CHAR);
 	if (size == SHORT_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_USHORT : T_SHORT);
+	  return (TYPE_UNSIGNED (type) ? T_USHORT : T_SHORT);
 	if (size == LONG_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_ULONG : T_LONG);
+	  return (TYPE_UNSIGNED (type) ? T_ULONG : T_LONG);
 	if (size == LONG_LONG_TYPE_SIZE)	/* better than nothing */
-	  return (TREE_UNSIGNED (type) ? T_ULONG : T_LONG);
+	  return (TYPE_UNSIGNED (type) ? T_ULONG : T_LONG);
 	return 0;
       }
 
@@ -693,6 +706,14 @@ sdbout_symbol (tree decl, int local)
   int regno = -1;
   const char *name;
 
+  /* If we are called before sdbout_init is run, just save the symbol
+     for later.  */
+  if (!sdbout_initialized)
+    {
+      preinit_symbols = tree_cons (0, decl, preinit_symbols);
+      return;
+    }
+
   sdbout_one_type (type);
 
   switch (TREE_CODE (decl))
@@ -711,7 +732,7 @@ sdbout_symbol (tree decl, int local)
 	 a DECL_INITIAL value of 0.  */
       if (! DECL_INITIAL (decl))
 	return;
-      if (GET_CODE (DECL_RTL (decl)) != MEM
+      if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	return;
       PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
@@ -769,7 +790,7 @@ sdbout_symbol (tree decl, int local)
 	 If DECL was from an inline function, then its rtl
 	 is not identically the rtl that was used in this
 	 particular compilation.  */
-      if (GET_CODE (value) == REG)
+      if (REG_P (value))
 	{
 	  regno = REGNO (value);
 	  if (regno >= FIRST_PSEUDO_REGISTER)
@@ -779,7 +800,7 @@ sdbout_symbol (tree decl, int local)
 	{
 	  while (GET_CODE (value) == SUBREG)
 	    value = SUBREG_REG (value);
-	  if (GET_CODE (value) == REG)
+	  if (REG_P (value))
 	    {
 	      if (REGNO (value) >= FIRST_PSEUDO_REGISTER)
 		return;
@@ -790,7 +811,7 @@ sdbout_symbol (tree decl, int local)
       /* Don't output anything if an auto variable
 	 gets RTL that is static.
 	 GAS version 2.2 can't handle such output.  */
-      else if (GET_CODE (value) == MEM && CONSTANT_P (XEXP (value, 0))
+      else if (MEM_P (value) && CONSTANT_P (XEXP (value, 0))
 	       && ! TREE_STATIC (decl))
 	return;
 
@@ -809,7 +830,7 @@ sdbout_symbol (tree decl, int local)
 
       /* Defer SDB information for top-level initialized variables! */
       if (! local
-	  && GET_CODE (value) == MEM
+	  && MEM_P (value)
 	  && DECL_INITIAL (decl))
 	return;
 
@@ -824,7 +845,7 @@ sdbout_symbol (tree decl, int local)
       else
 	name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-      if (GET_CODE (value) == MEM
+      if (MEM_P (value)
 	  && GET_CODE (XEXP (value, 0)) == SYMBOL_REF)
 	{
 	  PUT_SDB_DEF (name);
@@ -845,9 +866,9 @@ sdbout_symbol (tree decl, int local)
 	  PUT_SDB_INT_VAL (DBX_REGISTER_NUMBER (regno));
 	  PUT_SDB_SCL (C_REG);
 	}
-      else if (GET_CODE (value) == MEM
-	       && (GET_CODE (XEXP (value, 0)) == MEM
-		   || (GET_CODE (XEXP (value, 0)) == REG
+      else if (MEM_P (value)
+	       && (MEM_P (XEXP (value, 0))
+		   || (REG_P (XEXP (value, 0))
 		       && REGNO (XEXP (value, 0)) != HARD_FRAME_POINTER_REGNUM
 		       && REGNO (XEXP (value, 0)) != STACK_POINTER_REGNUM)))
 	/* If the value is indirect by memory or by a register
@@ -857,7 +878,7 @@ sdbout_symbol (tree decl, int local)
 	   so all we can do is output the variable as a pointer.  */
 	{
 	  PUT_SDB_DEF (name);
-	  if (GET_CODE (XEXP (value, 0)) == REG)
+	  if (REG_P (XEXP (value, 0)))
 	    {
 	      PUT_SDB_INT_VAL (DBX_REGISTER_NUMBER (REGNO (XEXP (value, 0))));
 	      PUT_SDB_SCL (C_REG);
@@ -880,14 +901,14 @@ sdbout_symbol (tree decl, int local)
 	  type = make_node (POINTER_TYPE);
 	  TREE_TYPE (type) = TREE_TYPE (decl);
 	}
-      else if (GET_CODE (value) == MEM
+      else if (MEM_P (value)
 	       && ((GET_CODE (XEXP (value, 0)) == PLUS
-		    && GET_CODE (XEXP (XEXP (value, 0), 0)) == REG
+		    && REG_P (XEXP (XEXP (value, 0), 0))
 		    && GET_CODE (XEXP (XEXP (value, 0), 1)) == CONST_INT)
 		   /* This is for variables which are at offset zero from
 		      the frame pointer.  This happens on the Alpha.
 		      Non-frame pointer registers are excluded above.  */
-		   || (GET_CODE (XEXP (value, 0)) == REG)))
+		   || (REG_P (XEXP (value, 0)))))
 	{
 	  /* DECL_RTL looks like (MEM (PLUS (REG...) (CONST_INT...)))
 	     or (MEM (REG...)).  We want the value of that CONST_INT
@@ -922,7 +943,7 @@ sdbout_toplevel_data (tree decl)
     return;
 
   if (! (TREE_CODE (decl) == VAR_DECL
-	 && GET_CODE (DECL_RTL (decl)) == MEM
+	 && MEM_P (DECL_RTL (decl))
 	 && DECL_INITIAL (decl)))
     abort ();
 
@@ -1088,7 +1109,6 @@ sdbout_one_type (tree type)
 	int size = int_size_in_bytes (type);
 	int member_scl = 0;
 	tree tem;
-	int i, n_baseclasses = 0;
 
 	/* Record the type tag, but not in its permanent place just yet.  */
 	sdbout_record_type_name (type);
@@ -1128,17 +1148,17 @@ sdbout_one_type (tree type)
 	/* This is only relevant to aggregate types.  TYPE_BINFO is used
 	   for other purposes in an ENUMERAL_TYPE, so we must exclude that
 	   case.  */
-	if (TREE_CODE (type) != ENUMERAL_TYPE)
+	if (TREE_CODE (type) != ENUMERAL_TYPE && TYPE_BINFO (type))
 	  {
-	    if (TYPE_BINFO (type)
-		&& TYPE_BINFO_BASETYPES (type))
-	      n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
-	    for (i = 0; i < n_baseclasses; i++)
+	    int i;
+	    tree binfo, child;
+
+	    for (binfo = TYPE_BINFO (type), i = 0;
+		 BINFO_BASE_ITERATE (binfo, i, child); i++)
 	      {
-		tree child = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (type)),
-					   i);
 		tree child_type = BINFO_TYPE (child);
 		tree child_type_name;
+		
 		if (TYPE_NAME (child_type) == 0)
 		  continue;
 		if (TREE_CODE (TYPE_NAME (child_type)) == IDENTIFIER_NODE)
@@ -1165,7 +1185,7 @@ sdbout_one_type (tree type)
 
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
-	    for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+	    for (tem = TYPE_VALUES (type); tem; tem = TREE_CHAIN (tem))
 	      if (host_integerp (TREE_VALUE (tem), 0))
 		{
 		  PUT_SDB_DEF (IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
@@ -1270,7 +1290,7 @@ sdbout_parms (tree parms)
 	    else
 	      current_sym_value = 0;
 
-	    if (GET_CODE (DECL_RTL (parms)) == REG
+	    if (REG_P (DECL_RTL (parms))
 		&& REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER)
 	      type = DECL_ARG_TYPE (parms);
 	    else
@@ -1289,7 +1309,7 @@ sdbout_parms (tree parms)
 		    (GET_MODE_SIZE (TYPE_MODE (DECL_ARG_TYPE (parms)))
 		     - GET_MODE_SIZE (GET_MODE (DECL_RTL (parms))));
 
-		if (GET_CODE (DECL_RTL (parms)) == MEM
+		if (MEM_P (DECL_RTL (parms))
 		    && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		    && (GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1))
 			== CONST_INT)
@@ -1309,7 +1329,7 @@ sdbout_parms (tree parms)
 	    PUT_SDB_TYPE (plain_type (type));
 	    PUT_SDB_ENDEF;
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == REG)
+	else if (REG_P (DECL_RTL (parms)))
 	  {
 	    rtx best_rtl;
 	    /* Parm passed in registers and lives in registers or nowhere.  */
@@ -1331,7 +1351,7 @@ sdbout_parms (tree parms)
 	    PUT_SDB_TYPE (plain_type (TREE_TYPE (parms)));
 	    PUT_SDB_ENDEF;
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && XEXP (DECL_RTL (parms), 0) != const0_rtx)
 	  {
 	    /* Parm was passed in registers but lives on the stack.  */
@@ -1340,8 +1360,8 @@ sdbout_parms (tree parms)
 	       in which case we want the value of that CONST_INT,
 	       or (MEM (REG ...)) or (MEM (MEM ...)),
 	       in which case we use a value of zero.  */
-	    if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG
-		|| GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	    if (REG_P (XEXP (DECL_RTL (parms), 0))
+		|| MEM_P (XEXP (DECL_RTL (parms), 0)))
 	      current_sym_value = 0;
 	    else
 	      current_sym_value = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
@@ -1378,7 +1398,7 @@ sdbout_reg_parms (tree parms)
 
 	/* Report parms that live in registers during the function
 	   but were passed in memory.  */
-	if (GET_CODE (DECL_RTL (parms)) == REG
+	if (REG_P (DECL_RTL (parms))
 	    && REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER
 	    && PARM_PASSED_IN_MEMORY (parms))
 	  {
@@ -1391,7 +1411,7 @@ sdbout_reg_parms (tree parms)
 	    PUT_SDB_ENDEF;
 	  }
 	/* Report parms that live in memory but not where they were passed.  */
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		 && GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1)) == CONST_INT
 		 && PARM_PASSED_IN_MEMORY (parms)
@@ -1438,10 +1458,12 @@ sdbout_global_decl (tree decl)
 	 sdbout_finish ().  */
       if (!DECL_INITIAL (decl) || !TREE_PUBLIC (decl))
 	sdbout_symbol (decl, 0);
+      else
+	VARRAY_PUSH_TREE (deferred_global_decls, decl);
 
       /* Output COFF information for non-global file-scope initialized
 	 variables.  */
-      if (DECL_INITIAL (decl) && GET_CODE (DECL_RTL (decl)) == MEM)
+      if (DECL_INITIAL (decl) && MEM_P (DECL_RTL (decl)))
 	sdbout_toplevel_data (decl);
     }
 }
@@ -1452,29 +1474,10 @@ sdbout_global_decl (tree decl)
 static void
 sdbout_finish (const char *main_filename ATTRIBUTE_UNUSED)
 {
-  tree decl = (*lang_hooks.decls.getdecls) ();
-  unsigned int len = list_length (decl);
-  tree *vec = xmalloc (sizeof (tree) * len);
-  unsigned int i;
+  size_t i;
 
-  /* Process the decls in reverse order--earliest first.  Put them
-     into VEC from back to front, then take out from front.  */
-
-  for (i = 0; i < len; i++, decl = TREE_CHAIN (decl))
-    vec[len - i - 1] = decl;
-
-  for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
-      if (TREE_CODE (decl) == VAR_DECL
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl)
-	  && TREE_PUBLIC (decl)
-	  && DECL_RTL_SET_P (decl))
-	sdbout_symbol (decl, 0);
-    }
-
-  free (vec);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_global_decls); i++)
+    sdbout_symbol (VARRAY_TREE (deferred_global_decls, i), 0);
 }
 
 /* Describe the beginning of an internal block within a function.
@@ -1672,11 +1675,23 @@ sdbout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
 static void
 sdbout_init (const char *input_file_name ATTRIBUTE_UNUSED)
 {
+  tree t;
+
 #ifdef MIPS_DEBUGGING_INFO
   current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->name = input_file_name;
 #endif
+
+  VARRAY_TREE_INIT (deferred_global_decls, 12, "deferred_global_decls");
+
+  /* Emit debug information which was queued by sdbout_symbol before
+     we got here.  */
+  sdbout_initialized = true;
+
+  for (t = nreverse (preinit_symbols); t; t = TREE_CHAIN (t))
+    sdbout_symbol (TREE_VALUE (t), 0);
+  preinit_symbols = 0;
 }
 
 #else  /* SDB_DEBUGGING_INFO */

@@ -280,8 +280,10 @@ extern int target_flags;
 
 /* FIXME: Promotion of modes currently generates slow code, extending
    before every operation.  */
+/* I'm a little bit undecided about this one.  It might be beneficial to
+   promote all operations.  */
 
-#define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
+#define PROMOTE_FUNCTION_MODE(MODE, UNSIGNEDP, TYPE)	\
  do {						\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < 8)		\
@@ -292,10 +294,6 @@ extern int target_flags;
      if (0) (UNSIGNEDP) = 0;			\
    }						\
  } while (0)
-
-/* I'm a little bit undecided about this one.  It might be beneficial to
-   promote all operations.  */
-#define PROMOTE_FOR_CALL_ONLY
 
 /* We need to align everything to 64 bits that can affect the alignment
    of other types.  Since address N is interpreted in MMIX as (N modulo
@@ -689,7 +687,7 @@ enum reg_class
 /* Node: Elimination */
 /* FIXME: Is this requirement built-in?  Anyway, we should try to get rid
    of it; we can deduce the value.  */
-#define FRAME_POINTER_REQUIRED (nonlocal_goto_stack_level != NULL_RTX)
+#define FRAME_POINTER_REQUIRED  current_function_has_nonlocal_label
 
 /* The frame-pointer is stored in a location that either counts to the
    offset of incoming parameters, or that counts to the offset of the
@@ -722,18 +720,7 @@ enum reg_class
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED)	\
  mmix_function_arg (&(CUM), MODE, TYPE, NAMED, 1)
 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)	\
- mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
-
-/* This *sounds* good, but does not seem to be implemented correctly to
-   be a win; at least it wasn't in 2.7.2.  FIXME: Check and perhaps
-   replace with a big comment.
-   The definition needs to match or be a subset of
-   FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
-   usage.  Watch lots of C++ testcases fail if set to 1, for example
-   g++.dg/init/byval1.C.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
- mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
 
 typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
@@ -742,7 +729,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
  ((CUM).regs							\
-  = ((MUST_PASS_IN_STACK (MODE, TYPE))				\
+  = ((targetm.calls.must_pass_in_stack (MODE, TYPE))		\
      || (MMIX_FUNCTION_ARG_SIZE (MODE, TYPE) > 8		\
 	 && !TARGET_LIBFUNC && !(CUM).lib))			\
   ? (MMIX_MAX_ARGS_IN_REGS) + 1					\
@@ -791,13 +778,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
  mmix_function_profiler (FILE, LABELNO)
 
-/* Node: Varargs */
-
-/* FIXME: This and other EXPAND_BUILTIN_VA_... target macros are not
-   documented, although used by several targets.  */
-#define EXPAND_BUILTIN_VA_ARG(VALIST, TYPE) \
- mmix_expand_builtin_va_arg (VALIST, TYPE)
-
 /* Node: Trampolines */
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
@@ -806,11 +786,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define TRAMPOLINE_SIZE mmix_trampoline_size
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, STATIC_CHAIN) \
  mmix_initialize_trampoline (ADDR, FNADDR, STATIC_CHAIN)
-
-
-/* Node: Library Calls */
-
-#define TARGET_MEM_FUNCTIONS
 
 
 /* Node: Addressing Modes */
@@ -834,8 +809,6 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #endif /* REG_OK_STRICT */
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 

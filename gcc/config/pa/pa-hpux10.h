@@ -25,7 +25,8 @@ Boston, MA 02111-1307, USA.  */
    we define __STDC_EXT__.  A similar situation exists with respect to
    the definition of __cplusplus.  We define _INCLUDE_LONGLONG
    to prevent nlist.h from defining __STDC_32_MODE__ (no longlong
-   support).  */
+   support).  We define __STDCPP__ to get certain system headers
+   (notably assert.h) to assume standard preprocessor behavior in C++.  */
 #undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()				\
   do								\
@@ -43,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("_HPUX_SOURCE");			\
 	    builtin_define ("_INCLUDE_LONGLONG");		\
 	    builtin_define ("__STDC_EXT__");			\
+	    builtin_define ("__STDCPP__");			\
 	  }							\
 	else if (!flag_iso)					\
 	  {							\
@@ -134,3 +136,10 @@ Boston, MA 02111-1307, USA.  */
    better than the assembler shipped with older versions of hpux.  */
 #undef NEW_HP_ASSEMBLER
 #define NEW_HP_ASSEMBLER 1
+
+/* CVS GAS as of 4/28/04 supports a comdat parameter for the .nsubspa
+   directive.  This provides one only linkage semantics even though we
+   don't have weak support.  */
+#undef SUPPORTS_ONE_ONLY
+#define SUPPORTS_ONE_ONLY (TARGET_GAS)
+#undef MAKE_DECL_ONE_ONLY

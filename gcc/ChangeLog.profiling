@@ -1,0 +1,393 @@
+2004-08-16  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (estimate_probability): Run BB level predictors just once per block.
+	(return_prediction): Return the expected outcome.
+	(apply_return_prediction): Use the expected outcome.
+	* predict.def (PRED_CONST_RETURN, PRED_NEGATIVE_RETURN,
+	PRED_NULL_RETURN): Fill in values matching the new implementation.
+
+2004-08-14  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (return_prediction): Do not predict floats.
+
+2004-08-08  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (apply_return_prediction): New function.
+	(tree_bb_level_predictions): Use apply_return_prediction; kill old
+	return prediction code.
+	(tree_estimate_probability): Fix early return prediction.
+
+2004-08-06  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c: Include tree-scalar-evolution.h and cfgloop.h
+	(predict_loops): Use tree-ssa-loop-niter module to predict
+	number of iterations on trees.
+
+	* basic-block.h (struct control_flow_graph): add profile status
+	(profile_status): New macro.
+	* cfg.c (check_bb_profile): use profile_status
+	* cfgbuild.c (find_basic_blocks): Set profile_status.
+	* cfgexpand.c (tree_expand_cfg): Likewise.
+	* predict.c (estimate_probability): Likewise.
+	* profile.c (branch_prob): Likewise.
+	* tree-cfg.c (build_tree_cfg): Likewise.
+
+2004-08-02  Jan Hubicka  <jh@suse.cz>
+
+	* merge from mainline (tree-profiling-merge-20040602)
+
+2004-06-16  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (free_after_compilation): Do not free computed_goto_common*.
+	* function.h (struct function): Kill computed_goto_common*.
+	* stmt.c (expand_computed_goto): Do not commonize the computed gotos.
+	* tree-cfg.c (disband_implicit_edges): Do not forward across the
+	commonized computed goto.
+
+2004-06-10  Steven Bosscher  <stevenb@suse.de>
+
+	* Makefile.in: Add function.h to BASIC_BLOCK_H.  Remove all
+	references to gt-tree-cfg.h.
+	* basic-block.h (struct basic_block_def): Don't skip rbi
+	for garbage collection.
+	(struct reorder_block_def): Make GTY-able.
+	(struct control_flow_graph): New structure.
+	(n_edges, n_basic_blocks, last_basic_block, basic_block_info,
+	BASIC_BLOCK, EXIT_BLOCK_PTR, ENTRY_BLOCK_PTR): No longer vars,
+	but instead defines to the control_flow_graph for cfun.
+	(label_to_block_map): New define, points to the label map of
+	the control_flow_graph for cfun.
+	(n_edges_for_function, n_basic_blocks_for_function,
+	last_basic_block_for_function, basic_block_info_for_function,
+	EXIT_BLOCK_PTR_FOR_FUNCTION, ENTRY_BLOCK_PTR_FOR_FUNCTION,
+	basic_block_info_for_function, label_to_block_map_for_function):
+	Counterparts for the above, taking a struct function as an extra
+	argument.
+	(alloc_rbi_pool, free_rbi_pool): Remove prototypes.
+	* cfg.c: Include function.h.
+	(n_edges, n_basic_blocks, last_basic_block,
+	basic_block_info, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR): Remove.
+	(alloc_rbi_pool, free_rbi_pool): Remove.
+	(initialize_bb_rbi): Use ggc_alloc_cleared instead of pool_alloc.
+	* cfganal.c, cfgloopanal.c, cfghooks.c, conflict.c, dominance.c,
+	loop-doloop.c, loop-init.c, loop-iv.c, loop-unroll.c,
+	loop-unswitch.c, sbitmap.c, tracer.c, var-tracking.c,
+	tree-complex.c, tree-flow.h, tree-phinodes.c, tree-sra.c,
+	tree-ssa-ccp.c, tree-ssa-dce.c, tree-ssa-dse.c, tree-ssa-forwprop.c,
+	tree-ssa-phiopt.c, tree-ssa-pre.c: include function.h.
+	* cfglayout.c: Likewise.
+	(cfg_layout_initialize): Don't allocate the rbi pool here...
+	(cfg_layout_finalize) ...and don't free it here.
+	(copy_bbs): Rename n_edges to num_edges.
+	* cfgloop.c: Include function.h.
+	(get_loop_exit_edges): Rename n_edges to num_edges.
+	* cfgloopmanip: Include function.h.
+	(fix_irreducible_loops): Rename n_edges to num_edges.
+	(unloop): Likewise.
+	* cfgrtl.c (cfg_layout_delete_block): Zero out rbi so it gets
+	garbage collected.
+	* flow.c (free_basic_block_vars): Set label_to_block_map and
+	n_edges to zero too.
+	* function.h (struct function): Add cfg field.
+	* function.c (allocate_struct_function): Allocate the cfg.
+	* tree-cfg.c (label_to_block_map): Remove.
+	(build_tree_cfg): Don't allocate the rbi pool here...
+	(delete_tree_cfg_annotations): ...and don't free it here.
+	Also don't nullify label_to_block_map for cfun.
+	(dump_cfg_stats): Rename n_edges to num_edges.
+
+2004-06-04  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20040602)
+
+2004-05-27  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20040527)
+
+2004-05-26  Steven Bosscher  <stevenb@suse.de>
+
+	* profile.def (PRED_MUDFLAP): New predictor.
+	* tree-mudflap.c (mf_build_check_statement_for): Use the new
+	predictor instead of PRED_BUILTIN_EXPECT.
+
+2004-05-25  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgexpand.c (expand_block): Expect an edge that has been removed
+	to point to free()ed memory.
+
+2004-05-21  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-mudflap.c (mf_decl_cache_locals): Skip labels before
+	inserting the cache variables.
+
+	* tree-mudflap.c: Include headers to make basic_block available.
+	Move functions around such that related functions are near each
+	other.  Add prototypes for all static functions.  Add comments
+	briefly explaining what IR the mudflap1 and mudflap2 work on and
+	what they do.
+	(mudflap_function_decls): Rename to execute_mudflap_function_decls.
+	(mudflap_function_ops): Rename to execute_mudflap_function_ops.
+	(pass_mudflap_1, pass_mudflap_2): Update.
+	(mf_decl_cache_locals): Make it work on the CFG instead of the saved
+	function tree.
+	(mf_build_check_statement_for): Make it work on the CFG.
+	(mf_xform_derefs_1): Likewise.  Cleanup code style.
+	(mf_xform_derefs): Likewise.
+	* tree-optimize.c (init_tree_optimization_passes):
+	Move pass_mudflap_2 before pass_del_cfg.
+
+2004-05-18  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-merge-20040518)
+
+2004-04-29  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa.
+
+2004-04-21  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c (add_reg_br_prob_note): Deal with condjump around jump case.
+	(expand_block): Compute return block frequencies correctly.
+
+2004-04-19  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (guess_outgoing_edge_probabilities): Declare.
+	* cfgbuild.c (compute_outgoing_frequencies): Use it.
+	* predict.c (bb_estimate_probability_locally): Break out from ...
+	(estimate_probability): ... this one.
+	(guess_outgoing_edge_probabilities): New function.
+	(set_even_probabilities): Break out from ...
+	(combine_predictions_for_bb): ... here.
+
+2004-04-19  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (counts_to_freqs): Make global.
+	(tree_estimate_probability): Bail out when profile has been read.
+	* predict.h (counts_to_freqs): Declare.
+	* profile.c (compute_branch_probabilities): Use it.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_split_edge, thread_jumps): Update the profile.
+	* tree-ssa-dce.c (remove_dead_stmt): Likewise.
+	* tree-ssa-dom.c (redirect_edges_and_update_ssa_graph): Fix comment.
+	(thread_across_edge): Update the profile.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (combine_predictions_for_bb): Fix pasto.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c (add_reg_br_prob_note): New debug output.
+	(expand_block): Pass file argument.
+	(construct_exit_block): Properly compute frequencies of exit block.
+	(tree_expand_cfg): Output function name being lowered.
+
+2004-04-18  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (check_bb_profile):  Declare.
+	* cfg.c (check_bb_function):  Break out from...
+	(dump_flow_info): This one.
+	* tree-cfg.c (dump_function_to_file): Use it.
+	* tree-pretty-print.c (dump_bb_header): Likewise.
+
+2004-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (tree_estimate_probability): Fix early return predictor.
+
+2004-04-04  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c (control_flow_insn_p): Sibling call is control flow.
+	* cfgexpand.c (expand_block): Reprganize call_stmt expansion to handle
+	sqrt builtin.
+
+2004-04-03  Jan Hubicka  <jh@suse.cz>
+
+	* tree-cfg.c (tree_block_ends_with_call_p,
+	tree_block_ends_with_condjump_p):  Do not segfault on empty blocks.
+
+2004-04-02  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (expect): Make const/notrhow.
+	* predict.c (process_note_prediction): Rename to:
+	(predict_paths_leading_to): ... this one.
+	(expr_expected_value): New function.
+	(tree_predict_by_opcode): Analyze builtin_expect.
+	(return_prediction): New function.
+	(tree_bb_level_predictions): New function.
+	(strip_builtin_expect): New function.
+	(tree_esitmate_probability): Add noreturn edges; do
+	bb_level_predictions; enable return heuristics; strip
+	builtin_expect_calls.
+
+2004-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c (control_flow_insn_p):  Conditional noreturn call is not
+	control flow insn.
+
+2004-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa (tree-profiling-merge-20030330)
+
+2004-03-18  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (tree_estimate_probability): Temporarily disable return
+	predictor.
+
+2004-03-18  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (propagate_freq): Compute correctly frequency of
+	EXIT_BLOCK.
+
+2004-03-18  Jan Hubicka  <jh@suse.cz>
+
+	* merge with tree-ssa branch.
+
+2004-03-17  Jan Hubicka  <jh@suse.cz>
+
+	* tree-optimize.c (pass_cleanup_cfg): New.
+	(init_tree_optimization_passes): add cleanupcfg pass after profilng.
+
+2004-03-16  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c (expand_block): DO not expand COND_EXPR twice;
+	fix profile updating.
+	(construct_init_block, construct_exit_block): Fix profile updating.
+
+2004-03-16  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (common_handle_option): Disable value profilng until it is
+	updated for tree-ssa.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* gimple-low.c (lower_cond_expr):  Do not re-use explicit gotos.
+	* profile.c (branch_prob): Do not verify flow info; re-invent fallthru
+	flags on trees; output coverage info for trees.
+	* toplev.c (flag_tree_based_profiling): Enable it by default.
+	(process_options): Do not sorry about coverage on trees.
+	* tree-cfg.c (make_edges): Only delete unreachable block or mess the
+	coverage info.
+	(make_goto_expr_edges): Preserve locators for elliminated explicit
+	gotos.
+	(tree_find_edge_insert_loc): Deal with inserting just before return
+	statement.
+	* tree-optimize.c (init_tree_optimization_passes): Make tree-profilng
+	to be run even when not optimizing.
+	* tree-profile.c (do_tree_profiling): Don't run profilng when we are
+	not profilng.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* cfgrtl.c (rtl_create_basic_block): Pre-allocate basic_block_info
+	array.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c (tree_expand_cfg): Do not cleanup control flow.
+
+2004-03-15  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_forward_edges): Take into account PRE_LOOP flag
+	only when loop optimizer is run.
+
+2004-03-14  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa.c (rewrite_into_ssa, compute_global_livein): Fix.
+
+2004-03-14  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (decode_options): Disable flag_loop_optimize.
+
+2004-03-07  Jan Hubicka  <jh@suse.cz>
+
+	* except.c (emit_to_new_bb_before):  Break fallthru edges.
+
+	* except.c (can_throw_internal): Notice RESX instructions.
+
+	* cfgexpand.c (tree_expand_cfg): Do not destroy the CFG.
+	* passes.c (rest_of_compilation):  Do not call init_flow;
+	do not build CFG.
+	* tree-cfg.c (delete_tree_cfg_annotations): Clear RBI pointers.
+
+	* tree-cfg.c (label_to_block): Emit missing langes
+	* tree-optimize.c (tree_rest_of_compilation): Revert patch disabling
+	compilation with errorcount/sorrycount.
+
+2004-03-05  Steven Bosscher  <stevenb@suse.de>
+
+	* cfgexpand.c (expand_block, construct_init_block): Minor code
+	cleanups.  Use macros from tree.h.  Use extract_true_false_edge.
+	Comment updates.
+
+	* version.c: Rename to tree-profiling.
+
+2004-03-03  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa (tree-profilng-merge-20040303)
+
+2004-02-25  Stuart Hastings  <stuart@apple.com>
+
+	* gimple-low.c (expand_var_p) Remove redundant call.
+	
+2004-02-25  Stuart Hastings  <stuart@apple.com>
+
+	* tree-optimize.c (execute_inline) New.
+	Make inliner into a PASS, move after first gimplification step.
+	
+2004-02-22  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa (tree-profilng-merge-20040222)
+
+2004-02-22  Jan Hubicka  <jh@suse.cz>
+
+	* cfgexpand.c:  Include flags.h
+	(tree_expand_cfg): Do cleanup only when optimizing.
+	* tree-optimize.c (init_tree_optimization_passes): Always build cfg.
+	(tree_rest_of_compilation): Don't get into RTL when errorcount/sorrycount
+	is set.
+
+2004-02-21  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (builtins.o): Include basic-blocks.h.
+	(cfgexpand.o): New file.
+	* builtins.c: Inlucde basic-blocks.h
+	(entry_of_function): New static function.
+	(expand_builtin_saveregs, expand_builtin_apply_args): Use it.
+	* cfgexpand.c: New file.
+	* tree-cfg.c (cleanup_control_flow): Make global.
+	(delete_tree_annotations): Break out from...
+	(delete_tree_cfg): ... this one.
+	* tree-dump.c (dump_files): Add expanded.
+	* tree-flow.h (delete_tree_cfg_annotations): Declare.
+	(tree_expand_cfg, cleanup_control_flow): Declare.
+	* tree-optimize.c (execute_del_cfg): Do not delete the basic block
+	datastructure.
+	(tree_rest_of_compilation): Use tree_expand_cfg if needed.
+
+2004-02-20  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (try_optimize_cfg): Do not merge blocks separated by
+	tablejump.
+
+	* tree-cfg.c (cleanup_control_expr_graph): Update profile.
+
+	* tree-cfg.c (disband_implicit_edges): Set fallthru edges correctly.
+
+	* cfg.c (dump_flow_info): Work on trees too.
+
+	* tree-pretty-print.c (dump_generic_bb_stuff):  Do not touch bb
+	annotations when not allocated.
+
+2004-02-16  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from tree-ssa branch  (tree-profilng-merge-20040216)
+
+2004-02-16  Jan Hubicka  <jh@suse.cz>
+
+	* cfgbuild.c (find_bb_boundaries): Add extra argument.
+	collect list of labels whose address has been taken
+	(control_flow_insn_p): Recognize noreturn call instructions
+	and EH instructions followed by barrier as control flow insns.
+

@@ -1,5 +1,5 @@
 /* Writer.java -- Base class for character output streams
-   Copyright (C) 1998, 1999, 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -75,11 +75,14 @@ public abstract class Writer
    * This method initializes a <code>Writer</code> that will synchronize
    * on the specified <code>Object</code>.
    *
-   * @param obj The <code>Object</code> to use for synchronizing critical
-   *            sections
+   * @param lock The <code>Object</code> to use for synchronizing critical
+   *             sections. Must not be null.
    */
   protected Writer(Object lock)
   {
+    if (lock == null)
+      throw new NullPointerException();
+
     this.lock = lock;
   }
 
@@ -157,7 +160,7 @@ public abstract class Writer
    *
    * @param str The <code>String</code> whose chars are to be written.
    *
-   * @param IOException If an error occurs
+   * @exception IOException If an error occurs
    */
   public void write(String str) throws IOException
   {

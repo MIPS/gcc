@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -171,6 +172,8 @@ static bool iq2000_rtx_costs          (rtx, int, int, int *);
 static int  iq2000_address_cost       (rtx);
 static void iq2000_select_section     (tree, int, unsigned HOST_WIDE_INT);
 static bool iq2000_return_in_memory   (tree, tree);
+static bool iq2000_pass_by_reference  (CUMULATIVE_ARGS *, enum machine_mode,
+				       tree, bool);
 
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS 		iq2000_init_builtins
@@ -194,6 +197,8 @@ static bool iq2000_return_in_memory   (tree, tree);
 
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY		iq2000_return_in_memory
+#undef  TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE	iq2000_pass_by_reference
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS	iq2000_setup_incoming_varargs
@@ -357,7 +362,7 @@ cmp_op (rtx op, enum machine_mode mode)
   if (mode != GET_MODE (op))
     return 0;
 
-  return GET_RTX_CLASS (GET_CODE (op)) == '<';
+  return COMPARISON_P (op);
 }
 
 /* Return nonzero if the operand is either the PC or a label_ref.  */
@@ -1584,204 +1589,6 @@ iq2000_va_start (tree valist, rtx nextarg)
   nextarg = plus_constant (nextarg, - gpr_save_area_size);
   std_expand_builtin_va_start (valist, nextarg);
 }
-
-/* Implement va_arg.  */
-
-rtx
-iq2000_va_arg (tree valist, tree type)
-{
-  HOST_WIDE_INT size, rsize;
-  rtx addr_rtx;
-  tree t;
-  int indirect;
-  rtx r, lab_over = NULL_RTX, lab_false;
-  tree f_ovfl, f_gtop, f_ftop, f_goff, f_foff;
-  tree ovfl, gtop, ftop, goff, foff;
-
-  size = int_size_in_bytes (type);
-  rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
-  indirect
-    = function_arg_pass_by_reference (NULL, TYPE_MODE (type), type, 0);
-  if (indirect)
-    {
-      size = POINTER_SIZE / BITS_PER_UNIT;
-      rsize = UNITS_PER_WORD;
-    }
-
-  addr_rtx = gen_reg_rtx (Pmode);
-
-  {
-    /* Case of all args in a merged stack. No need to check bounds,
-       just advance valist along the stack.  */
-    tree gpr = valist;
-
-    if (! indirect
-	&& TYPE_ALIGN (type) > (unsigned) BITS_PER_WORD)
-      {
-	t = build (PLUS_EXPR, TREE_TYPE (gpr), gpr,
-		   build_int_2 (2*UNITS_PER_WORD - 1, 0));
-	t = build (BIT_AND_EXPR, TREE_TYPE (t), t,
-		   build_int_2 (-2*UNITS_PER_WORD, -1));
-	t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr, t);
-	expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      }
-
-    t = build (POSTINCREMENT_EXPR, TREE_TYPE (gpr), gpr,
-	       size_int (rsize));
-    r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-    if (r != addr_rtx)
-      emit_move_insn (addr_rtx, r);
-
-    /* Flush the POSTINCREMENT.  */
-    emit_queue();
-
-    if (indirect)
-      {
-	r = gen_rtx_MEM (Pmode, addr_rtx);
-	set_mem_alias_set (r, get_varargs_alias_set ());
-	emit_move_insn (addr_rtx, r);
-      }
-    else
-      {
-	if (BYTES_BIG_ENDIAN && rsize != size)
-	  addr_rtx = plus_constant (addr_rtx, rsize - size);
-      }
-    return addr_rtx;
-  }
-
-  /* Not a simple merged stack.  Need ptrs and indexes left by va_start.  */
-  f_ovfl  = TYPE_FIELDS (va_list_type_node);
-  f_gtop = TREE_CHAIN (f_ovfl);
-  f_ftop = TREE_CHAIN (f_gtop);
-  f_goff = TREE_CHAIN (f_ftop);
-  f_foff = TREE_CHAIN (f_goff);
-
-  ovfl = build (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl);
-  gtop = build (COMPONENT_REF, TREE_TYPE (f_gtop), valist, f_gtop);
-  ftop = build (COMPONENT_REF, TREE_TYPE (f_ftop), valist, f_ftop);
-  goff = build (COMPONENT_REF, TREE_TYPE (f_goff), valist, f_goff);
-  foff = build (COMPONENT_REF, TREE_TYPE (f_foff), valist, f_foff);
-
-  lab_false = gen_label_rtx ();
-  lab_over = gen_label_rtx ();
-
-  if (TREE_CODE (type) == REAL_TYPE)
-    {
-      /* Emit code to branch if foff == 0.  */
-      r = expand_expr (foff, NULL_RTX, TYPE_MODE (TREE_TYPE (foff)),
-		       EXPAND_NORMAL);
-      emit_cmp_and_jump_insns (r, const0_rtx, EQ,
-			       const1_rtx, GET_MODE (r), 1, lab_false);
-
-      /* Emit code for addr_rtx = ftop - foff.  */
-      t = build (MINUS_EXPR, TREE_TYPE (ftop), ftop, foff );
-      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-      if (r != addr_rtx)
-	emit_move_insn (addr_rtx, r);
-
-      /* Emit code for foff-=8.
-	 Advances the offset up FPR save area by one double.  */
-      t = build (MINUS_EXPR, TREE_TYPE (foff), foff, build_int_2 (8, 0));
-      t = build (MODIFY_EXPR, TREE_TYPE (foff), foff, t);
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      emit_queue ();
-      emit_jump (lab_over);
-      emit_barrier ();
-      emit_label (lab_false);
-
-      /* If a 4-byte int is followed by an 8-byte float, then
-	 natural alignment causes a 4 byte gap.
-	 So, dynamically adjust ovfl up to a multiple of 8.  */
-      t = build (BIT_AND_EXPR, TREE_TYPE (ovfl), ovfl,
-		 build_int_2 (7, 0));
-      t = build (PLUS_EXPR, TREE_TYPE (ovfl), ovfl, t);
-      t = build (MODIFY_EXPR, TREE_TYPE (ovfl), ovfl, t);
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-
-      /* Emit code for addr_rtx = the ovfl pointer into overflow area.
-	 Postincrement the ovfl pointer by 8.  */
-      t = build (POSTINCREMENT_EXPR, TREE_TYPE(ovfl), ovfl,
-		 size_int (8));
-      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-      if (r != addr_rtx)
-	emit_move_insn (addr_rtx, r);
-
-      emit_queue();
-      emit_label (lab_over);
-      return addr_rtx;
-    }
-  else
-    {
-      /* Not REAL_TYPE.  */
-      int step_size;
-
-      if (TREE_CODE (type) == INTEGER_TYPE
-	  && TYPE_PRECISION (type) == 64)
-	{
-	  /* int takes 32 bits of the GPR save area, but
-	     longlong takes an aligned 64 bits.  So, emit code
-	     to zero the low order bits of goff, thus aligning
-	     the later calculation of (gtop-goff) upwards.  */
-	  t = build (BIT_AND_EXPR, TREE_TYPE (goff), goff,
-		     build_int_2 (-8, -1));
-	  t = build (MODIFY_EXPR, TREE_TYPE (goff), goff, t);
-	  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-	}
-
-      /* Emit code to branch if goff == 0.  */
-      r = expand_expr (goff, NULL_RTX, TYPE_MODE (TREE_TYPE (goff)),
-		       EXPAND_NORMAL);
-      emit_cmp_and_jump_insns (r, const0_rtx, EQ,
-			       const1_rtx, GET_MODE (r), 1, lab_false);
-
-      /* Emit code for addr_rtx = gtop - goff.  */
-      t = build (MINUS_EXPR, TREE_TYPE (gtop), gtop, goff);
-      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-      if (r != addr_rtx)
-	emit_move_insn (addr_rtx, r);
-      
-      if (TYPE_PRECISION (type) == 64)
-	step_size = 8;
-      else
-	step_size = UNITS_PER_WORD;
-
-      /* Emit code for goff = goff - step_size.
-	 Advances the offset up GPR save area over the item.  */
-      t = build (MINUS_EXPR, TREE_TYPE (goff), goff,
-		 build_int_2 (step_size, 0));
-      t = build (MODIFY_EXPR, TREE_TYPE (goff), goff, t);
-      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
-      
-      emit_queue();
-      emit_jump (lab_over);
-      emit_barrier ();
-      emit_label (lab_false);
-
-      /* Emit code for addr_rtx -> overflow area, postinc by step_size.  */
-      t = build (POSTINCREMENT_EXPR, TREE_TYPE(ovfl), ovfl,
-		 size_int (step_size));
-      r = expand_expr (t, addr_rtx, Pmode, EXPAND_NORMAL);
-      if (r != addr_rtx)
-	emit_move_insn (addr_rtx, r);
-
-      emit_queue();
-      emit_label (lab_over);
-
-      if (indirect)
-	{
-	  r = gen_rtx_MEM (Pmode, addr_rtx);
-	  set_mem_alias_set (r, get_varargs_alias_set ());
-	  emit_move_insn (addr_rtx, r);
-	}
-      else
-	{
-	  if (BYTES_BIG_ENDIAN && rsize != size)
-	    addr_rtx = plus_constant (addr_rtx, rsize - size);
-	}
-      return addr_rtx;
-    }
-}
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
 
@@ -2583,11 +2390,10 @@ symbolic_expression_p (rtx x)
   if (GET_CODE (x) == CONST)
     return symbolic_expression_p (XEXP (x, 0));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == '1')
+  if (UNARY_P (x))
     return symbolic_expression_p (XEXP (x, 0));
 
-  if (GET_RTX_CLASS (GET_CODE (x)) == 'c'
-      || GET_RTX_CLASS (GET_CODE (x)) == '2')
+  if (ARITHMETIC_P (x))
     return (symbolic_expression_p (XEXP (x, 0))
 	    || symbolic_expression_p (XEXP (x, 1)));
 
@@ -2623,15 +2429,13 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
     {
       /* For embedded applications, always put an object in read-only data
 	 if possible, in order to reduce RAM usage.  */
-      if (((TREE_CODE (decl) == VAR_DECL
-	    && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
-	    && DECL_INITIAL (decl)
-	    && (DECL_INITIAL (decl) == error_mark_node
-		|| TREE_CONSTANT (DECL_INITIAL (decl))))
-	   /* Deal with calls from output_constant_def_contents.  */
-	   || (TREE_CODE (decl) != VAR_DECL
-	       && (TREE_CODE (decl) != STRING_CST
-		   || !flag_writable_strings))))
+      if ((TREE_CODE (decl) == VAR_DECL
+	   && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
+	   && DECL_INITIAL (decl)
+	   && (DECL_INITIAL (decl) == error_mark_node
+	       || TREE_CONSTANT (DECL_INITIAL (decl))))
+	  /* Deal with calls from output_constant_def_contents.  */
+	  || TREE_CODE (decl) != VAR_DECL)
 	readonly_data_section ();
       else
 	data_section ();
@@ -2640,15 +2444,13 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
     {
       /* For hosted applications, always put an object in small data if
 	 possible, as this gives the best performance.  */
-      if (((TREE_CODE (decl) == VAR_DECL
-		 && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
-		 && DECL_INITIAL (decl)
-		 && (DECL_INITIAL (decl) == error_mark_node
-		     || TREE_CONSTANT (DECL_INITIAL (decl))))
-		/* Deal with calls from output_constant_def_contents.  */
-		|| (TREE_CODE (decl) != VAR_DECL
-		    && (TREE_CODE (decl) != STRING_CST
-			|| !flag_writable_strings))))
+      if ((TREE_CODE (decl) == VAR_DECL
+	   && TREE_READONLY (decl) && !TREE_SIDE_EFFECTS (decl)
+	   && DECL_INITIAL (decl)
+	   && (DECL_INITIAL (decl) == error_mark_node
+	       || TREE_CONSTANT (DECL_INITIAL (decl))))
+	  /* Deal with calls from output_constant_def_contents.  */
+	  || TREE_CODE (decl) != VAR_DECL)
 	readonly_data_section ();
       else
 	data_section ();
@@ -2662,7 +2464,7 @@ iq2000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
   int reg = GP_RETURN;
   enum machine_mode mode = TYPE_MODE (valtype);
-  int unsignedp = TREE_UNSIGNED (valtype);
+  int unsignedp = TYPE_UNSIGNED (valtype);
 
   /* Since we define TARGET_PROMOTE_FUNCTION_RETURN that returns true,
      we must promote the mode just as PROMOTE_MODE does.  */
@@ -2671,20 +2473,18 @@ iq2000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   return gen_rtx_REG (mode, reg);
 }
 
-/* The implementation of FUNCTION_ARG_PASS_BY_REFERENCE.  Return
-   nonzero when an argument must be passed by reference.  */
+/* Return true when an argument must be passed by reference.  */
 
-int
-function_arg_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-				enum machine_mode mode, tree type,
-				int named ATTRIBUTE_UNUSED)
+static bool
+iq2000_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+			  tree type, bool named ATTRIBUTE_UNUSED)
 {
   int size;
 
   /* We must pass by reference if we would be both passing in registers
      and the stack.  This is because any subsequent partial arg would be
      handled incorrectly in this case.  */
-  if (cum && MUST_PASS_IN_STACK (mode, type))
+  if (cum && targetm.calls.must_pass_in_stack (mode, type))
      {
        /* Don't pass the actual CUM to FUNCTION_ARG, because we would
 	  get double copies of any offsets generated for small structs
@@ -2888,8 +2688,9 @@ iq2000_output_conditional_branch (rtx insn, rtx * operands, int two_operands_p,
   return 0;
 }
 
-#define def_builtin(NAME, TYPE, CODE) \
-  builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD, NULL, NULL_TREE)
+#define def_builtin(NAME, TYPE, CODE)					\
+  lang_hooks.builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+			       NULL, NULL_TREE)
 
 static void
 iq2000_init_builtins (void)

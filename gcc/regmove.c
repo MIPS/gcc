@@ -188,10 +188,10 @@ discover_flags_reg (void)
 	 scratch or something.  We only care about hard regs.
 	 Moreover we don't like the notion of subregs of hard regs.  */
       if (GET_CODE (tmp) == SUBREG
-	  && GET_CODE (SUBREG_REG (tmp)) == REG
+	  && REG_P (SUBREG_REG (tmp))
 	  && REGNO (SUBREG_REG (tmp)) < FIRST_PSEUDO_REGISTER)
 	return pc_rtx;
-      found = (GET_CODE (tmp) == REG && REGNO (tmp) < FIRST_PSEUDO_REGISTER);
+      found = (REG_P (tmp) && REGNO (tmp) < FIRST_PSEUDO_REGISTER);
 
       return (found ? tmp : NULL_RTX);
     }
@@ -291,7 +291,7 @@ mark_flags_life_zones (rtx flags)
 #endif
 	      PUT_MODE (insn, (live ? HImode : VOIDmode));
 
-	      /* In either case, birth is denoted simply by it's presence
+	      /* In either case, birth is denoted simply by its presence
 		 as the destination of a set.  */
 	      flags_set_1_set = 0;
 	      note_stores (PATTERN (insn), flags_set_1, NULL);
@@ -334,7 +334,7 @@ replacement_quality (rtx reg)
   int src_regno;
 
   /* Bad if this isn't a register at all.  */
-  if (GET_CODE (reg) != REG)
+  if (!REG_P (reg))
     return 0;
 
   /* If this register is not meant to get a hard register,
@@ -431,6 +431,9 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 	  || (sregno < FIRST_PSEUDO_REGISTER
 	      && asm_noperands (PATTERN (p)) >= 0
 	      && reg_overlap_mentioned_p (src, PATTERN (p)))
+	  /* Don't change hard registers used by a call.  */
+	  || (CALL_P (p) && sregno < FIRST_PSEUDO_REGISTER
+	      && find_reg_fusage (p, USE, src))
 	  /* Don't change a USE of a register.  */
 	  || (GET_CODE (PATTERN (p)) == USE
 	      && reg_overlap_mentioned_p (src, XEXP (PATTERN (p), 0))))
@@ -491,7 +494,7 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 
 	      /* If the insn in which SRC dies is a CALL_INSN, don't count it
 		 as a call that has been crossed.  Otherwise, count it.  */
-	      if (q != p && GET_CODE (q) == CALL_INSN)
+	      if (q != p && CALL_P (q))
 		{
 		  /* Similarly, total calls for SREGNO, total calls beyond
 		     the death note for DREGNO.  */
@@ -620,7 +623,7 @@ optimize_reg_copy_2 (rtx insn, rtx dest, rtx src)
 		  PATTERN (q) = replace_rtx (PATTERN (q), dest, src);
 
 
-	      if (GET_CODE (q) == CALL_INSN)
+	      if (CALL_P (q))
 		{
 		  REG_N_CALLS_CROSSED (dregno)--;
 		  REG_N_CALLS_CROSSED (sregno)++;
@@ -636,7 +639,7 @@ optimize_reg_copy_2 (rtx insn, rtx dest, rtx src)
 
       if (reg_set_p (src, p)
 	  || find_reg_note (p, REG_DEAD, dest)
-	  || (GET_CODE (p) == CALL_INSN && REG_N_CALLS_CROSSED (sregno) == 0))
+	  || (CALL_P (p) && REG_N_CALLS_CROSSED (sregno) == 0))
 	break;
     }
 }
@@ -671,7 +674,7 @@ optimize_reg_copy_3 (rtx insn, rtx dest, rtx src)
     return;
 
   if (! (set = single_set (p))
-      || GET_CODE (SET_SRC (set)) != MEM
+      || !MEM_P (SET_SRC (set))
       /* If there's a REG_EQUIV note, this must be an insn that loads an
 	 argument.  Prefer keeping the note over doing this optimization.  */
       || find_reg_note (p, REG_EQUIV, NULL_RTX)
@@ -752,9 +755,9 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest, int old_max_uid)
      parameter when there is no frame pointer that is not allocated a register.
      For now, we just reject them, rather than incrementing the live length.  */
 
-  if (GET_CODE (src) == REG
+  if (REG_P (src)
       && REG_LIVE_LENGTH (REGNO (src)) > 0
-      && GET_CODE (dest) == REG
+      && REG_P (dest)
       && !RTX_UNCHANGING_P (dest)
       && REG_LIVE_LENGTH (REGNO (dest)) > 0
       && (set = single_set (insn)) != NULL_RTX
@@ -865,7 +868,7 @@ reg_is_remote_constant_p (rtx reg, rtx insn, rtx first)
 	continue;
       s = single_set (XEXP (p, 0));
       if (s != 0
-	  && GET_CODE (SET_DEST (s)) == REG
+	  && REG_P (SET_DEST (s))
 	  && REGNO (SET_DEST (s)) == REGNO (reg))
 	{
 	  /* The register is set in the same basic block.  */
@@ -881,7 +884,7 @@ reg_is_remote_constant_p (rtx reg, rtx insn, rtx first)
 	continue;
       s = single_set (p);
       if (s != 0
-	  && GET_CODE (SET_DEST (s)) == REG
+	  && REG_P (SET_DEST (s))
 	  && REGNO (SET_DEST (s)) == REGNO (reg))
 	{
 	  /* This is the instruction which sets REG.  If there is a
@@ -971,8 +974,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 #ifdef AUTO_INC_DEC
 	      for (p = PREV_INSN (insn); p; p = PREV_INSN (p))
 		{
-		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN)
+		  if (LABEL_P (p)
+		      || JUMP_P (p))
 		    break;
 		  if (! INSN_P (p))
 		    continue;
@@ -985,8 +988,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 		}
 	      for (p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
 		{
-		  if (GET_CODE (p) == CODE_LABEL
-		      || GET_CODE (p) == JUMP_INSN)
+		  if (LABEL_P (p)
+		      || JUMP_P (p))
 		    break;
 		  if (! INSN_P (p))
 		    continue;
@@ -1010,7 +1013,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
       /* reg_set_p is overly conservative for CALL_INSNS, thinks that all
 	 hard regs are clobbered.  Thus, we only use it for src for
 	 non-call insns.  */
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	{
 	  if (! dst_death)
 	    num_calls++;
@@ -1087,13 +1090,13 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 	  if (flag_expensive_optimizations && ! pass
 	      && (GET_CODE (SET_SRC (set)) == SIGN_EXTEND
 		  || GET_CODE (SET_SRC (set)) == ZERO_EXTEND)
-	      && GET_CODE (XEXP (SET_SRC (set), 0)) == REG
-	      && GET_CODE (SET_DEST (set)) == REG)
+	      && REG_P (XEXP (SET_SRC (set), 0))
+	      && REG_P (SET_DEST (set)))
 	    optimize_reg_copy_3 (insn, SET_DEST (set), SET_SRC (set));
 
 	  if (flag_expensive_optimizations && ! pass
-	      && GET_CODE (SET_SRC (set)) == REG
-	      && GET_CODE (SET_DEST (set)) == REG)
+	      && REG_P (SET_SRC (set))
+	      && REG_P (SET_DEST (set)))
 	    {
 	      /* If this is a register-register copy where SRC is not dead,
 		 see if we can optimize it.  If this optimization succeeds,
@@ -1142,7 +1145,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 	      src = recog_data.operand[op_no];
 	      dst = recog_data.operand[match_no];
 
-	      if (GET_CODE (src) != REG)
+	      if (!REG_P (src))
 		continue;
 
 	      src_subreg = src;
@@ -1155,7 +1158,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 				      src, SUBREG_BYTE (dst));
 		  dst = SUBREG_REG (dst);
 		}
-	      if (GET_CODE (dst) != REG
+	      if (!REG_P (dst)
 		  || REGNO (dst) < FIRST_PSEUDO_REGISTER)
 		continue;
 
@@ -1253,10 +1256,10 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 	      dst = recog_data.operand[match_no];
 	      src = recog_data.operand[op_no];
 
-	      if (GET_CODE (src) != REG)
+	      if (!REG_P (src))
 		continue;
 
-	      if (GET_CODE (dst) != REG
+	      if (!REG_P (dst)
 		  || REGNO (dst) < FIRST_PSEUDO_REGISTER
 		  || REG_LIVE_LENGTH (REGNO (dst)) < 0
 		  || RTX_UNCHANGING_P (dst)
@@ -1423,7 +1426,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		  /* If we have passed a call instruction, and the
 		     pseudo-reg DST is not already live across a call,
 		     then don't perform the optimization.  */
-		  if (GET_CODE (p) == CALL_INSN)
+		  if (CALL_P (p))
 		    {
 		      num_calls++;
 
@@ -1702,7 +1705,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 
   for (length = s_length = 0, p = NEXT_INSN (insn); p; p = NEXT_INSN (p))
     {
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	replace_in_call_usage (& CALL_INSN_FUNCTION_USAGE (p),
 			       REGNO (dst), src, p);
 
@@ -1779,7 +1782,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 			 hard register.  */
 		      && ! (dst_note && ! REG_N_CALLS_CROSSED (REGNO (dst))
 			    && single_set (p)
-			    && GET_CODE (SET_DEST (single_set (p))) == REG
+			    && REG_P (SET_DEST (single_set (p)))
 			    && (REGNO (SET_DEST (single_set (p)))
 				< FIRST_PSEUDO_REGISTER))
 		      /* We may only emit an insn directly after P if we
@@ -1839,7 +1842,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 
       /* If we have passed a call instruction, and the pseudo-reg SRC is not
 	 already live across a call, then don't perform the optimization.  */
-      if (GET_CODE (p) == CALL_INSN)
+      if (CALL_P (p))
 	{
 	  if (REG_N_CALLS_CROSSED (REGNO (src)) == 0)
 	    break;
@@ -1930,7 +1933,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 		  q = 0;
 		  break;
 		}
-	      if (GET_CODE (p) == CALL_INSN)
+	      if (CALL_P (p))
 		num_calls2++;
 	    }
 	  if (q && set2 && SET_DEST (set2) == src && CONSTANT_P (SET_SRC (set2))
@@ -2046,7 +2049,13 @@ stable_and_no_regs_but_for_p (rtx x, rtx src, rtx dst)
   RTX_CODE code = GET_CODE (x);
   switch (GET_RTX_CLASS (code))
     {
-    case '<': case '1': case 'c': case '2': case 'b': case '3':
+    case RTX_UNARY:
+    case RTX_BIN_ARITH:
+    case RTX_COMM_ARITH:
+    case RTX_COMPARE:
+    case RTX_COMM_COMPARE:
+    case RTX_TERNARY:
+    case RTX_BITFIELD_OPS:
       {
 	int i;
 	const char *fmt = GET_RTX_FORMAT (code);
@@ -2056,7 +2065,7 @@ stable_and_no_regs_but_for_p (rtx x, rtx src, rtx dst)
 	      return 0;
 	return 1;
       }
-    case 'o':
+    case RTX_OBJ:
       if (code == REG)
 	return x == src || x == dst;
       /* If this is a MEM, look inside - there might be a register hidden in
@@ -2128,7 +2137,7 @@ combine_stack_adjustments (void)
 static int
 stack_memref_p (rtx x)
 {
-  if (GET_CODE (x) != MEM)
+  if (!MEM_P (x))
     return 0;
   x = XEXP (x, 0);
 
@@ -2153,7 +2162,7 @@ single_set_for_csa (rtx insn)
   if (tmp)
     return tmp;
 
-  if (GET_CODE (insn) != INSN
+  if (!NONJUMP_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) != PARALLEL)
     return NULL_RTX;
 
@@ -2405,7 +2414,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 	     turn it into a direct store.  Obviously we can't do this if
 	     there were any intervening uses of the stack pointer.  */
 	  if (memlist == NULL
-	      && GET_CODE (dest) == MEM
+	      && MEM_P (dest)
 	      && ((GET_CODE (XEXP (dest, 0)) == PRE_DEC
 		   && (last_sp_adjust
 		       == (HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (dest))))
@@ -2435,7 +2444,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 
       data.insn = insn;
       data.memlist = memlist;
-      if (GET_CODE (insn) != CALL_INSN && last_sp_set
+      if (!CALL_P (insn) && last_sp_set
 	  && !for_each_rtx (&PATTERN (insn), record_stack_memrefs, &data))
 	{
 	   memlist = data.memlist;
@@ -2446,7 +2455,7 @@ combine_stack_adjustments_for_block (basic_block bb)
       /* Otherwise, we were not able to process the instruction.
 	 Do not continue collecting data across such a one.  */
       if (last_sp_set
-	  && (GET_CODE (insn) == CALL_INSN
+	  && (CALL_P (insn)
 	      || reg_mentioned_p (stack_pointer_rtx, PATTERN (insn))))
 	{
 	  if (last_sp_set && last_sp_adjust == 0)

@@ -1,7 +1,7 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
 /* Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -79,6 +79,7 @@ void __gcov_merge_delta (gcov_type *counters  __attribute__ ((unused)),
 #if GCOV_LOCKED
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/stat.h>
 #endif
 
 #ifdef L_gcov
@@ -163,6 +164,7 @@ gcov_exit (void)
       int error = 0;
       gcov_unsigned_t tag, length;
       gcov_position_t summary_pos = 0;
+      gcov_position_t eof_pos = 0;
 
       memset (&this_object, 0, sizeof (this_object));
       memset (&object, 0, sizeof (object));
@@ -217,9 +219,7 @@ gcov_exit (void)
 	    {
 	      fprintf (stderr, "profiling:%s:Not a gcov data file\n",
 		       gi_ptr->filename);
-	    read_fatal:;
-	      gcov_close ();
-	      continue;
+	      goto read_fatal;
 	    }
 	  length = gcov_read_unsigned ();
 	  if (!gcov_version (gi_ptr, length))
@@ -227,12 +227,8 @@ gcov_exit (void)
 
 	  length = gcov_read_unsigned ();
 	  if (length != gi_ptr->stamp)
-	    {
-	      /* Read from a different compilation. Overwrite the
-		 file.  */
-	      gcov_truncate ();
-	      goto rewrite;
-	    }
+	    /* Read from a different compilation. Overwrite the file.  */
+	    goto rewrite;
 	  
 	  /* Merge execution counts for each function.  */
 	  for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
@@ -283,12 +279,13 @@ gcov_exit (void)
 	  /* Check program & object summary */
 	  while (1)
 	    {
-	      gcov_position_t base = gcov_position ();
 	      int is_program;
 	      
+	      eof_pos = gcov_position ();
 	      tag = gcov_read_unsigned ();
 	      if (!tag)
 		break;
+
 	      length = gcov_read_unsigned ();
 	      is_program = tag == GCOV_TAG_PROGRAM_SUMMARY;
 	      if (length != GCOV_TAG_SUMMARY_LENGTH
@@ -299,19 +296,21 @@ gcov_exit (void)
 		goto read_error;
 	      if (is_program && program.checksum == gcov_crc32)
 		{
-		  summary_pos = base;
+		  summary_pos = eof_pos;
 		  goto rewrite;
 		}
 	    }
 	}
+      goto rewrite;
       
-      if (!gcov_is_eof ())
- 	{
- 	read_error:;
- 	  fprintf (stderr, error < 0 ? "profiling:%s:Overflow merging\n"
- 		   : "profiling:%s:Error merging\n", gi_ptr->filename);
- 	  goto read_fatal;
- 	}
+    read_error:;
+      fprintf (stderr, error < 0 ? "profiling:%s:Overflow merging\n"
+	       : "profiling:%s:Error merging\n", gi_ptr->filename);
+	      
+    read_fatal:;
+      gcov_close ();
+      continue;
+
     rewrite:;
       gcov_rewrite ();
       if (!summary_pos)
@@ -413,8 +412,11 @@ gcov_exit (void)
       gcov_write_summary (GCOV_TAG_OBJECT_SUMMARY, &object);
 
       /* Generate whole program statistics.  */
-      gcov_seek (summary_pos);
+      if (eof_pos)
+	gcov_seek (eof_pos);
       gcov_write_summary (GCOV_TAG_PROGRAM_SUMMARY, &program);
+      if (!summary_pos)
+	gcov_write_unsigned (0);
       if ((error = gcov_close ()))
 	  fprintf (stderr, error  < 0 ?
 		   "profiling:%s:Overflow writing\n" :
@@ -579,4 +581,146 @@ __gcov_merge_delta (gcov_type *counters, unsigned n_counters)
 }
 #endif /* L_gcov_merge_delta */
 
+#ifdef L_gcov_fork
+/* A wrapper for the fork function.  Flushes the accumulated profiling data, so
+   that they are not counted twice.  */
+
+pid_t
+__gcov_fork (void)
+{
+  __gcov_flush ();
+  return fork ();
+}
+#endif
+
+#ifdef L_gcov_execl
+/* A wrapper for the execl function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execl (const char *path, const char *arg, ...)
+{
+  va_list ap, aq;
+  unsigned i, length;
+  char **args;
+
+  __gcov_flush ();
+
+  va_start (ap, arg);
+  va_copy (aq, ap);
+
+  length = 2;
+  while (va_arg (ap, char *))
+    length++;
+  va_end (ap);
+
+  args = alloca (length * sizeof (void *));
+  args[0] = (char *) arg;
+  for (i = 1; i < length; i++)
+    args[i] = va_arg (aq, char *);
+  va_end (aq);
+
+  return execv (path, args);
+}
+#endif
+
+#ifdef L_gcov_execlp
+/* A wrapper for the execlp function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execlp (const char *path, const char *arg, ...)
+{
+  va_list ap, aq;
+  unsigned i, length;
+  char **args;
+
+  __gcov_flush ();
+
+  va_start (ap, arg);
+  va_copy (aq, ap);
+
+  length = 2;
+  while (va_arg (ap, char *))
+    length++;
+  va_end (ap);
+
+  args = alloca (length * sizeof (void *));
+  args[0] = (char *) arg;
+  for (i = 1; i < length; i++)
+    args[i] = va_arg (aq, char *);
+  va_end (aq);
+
+  return execvp (path, args);
+}
+#endif
+
+#ifdef L_gcov_execle
+/* A wrapper for the execle function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execle (const char *path, const char *arg, ...)
+{
+  va_list ap, aq;
+  unsigned i, length;
+  char **args;
+  char **envp;
+
+  __gcov_flush ();
+
+  va_start (ap, arg);
+  va_copy (aq, ap);
+
+  length = 2;
+  while (va_arg (ap, char *))
+    length++;
+  va_end (ap);
+
+  args = alloca (length * sizeof (void *));
+  args[0] = (char *) arg;
+  for (i = 1; i < length; i++)
+    args[i] = va_arg (aq, char *);
+  envp = va_arg (aq, char **);
+  va_end (aq);
+
+  return execve (path, args, envp);
+}
+#endif
+
+#ifdef L_gcov_execv
+/* A wrapper for the execv function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execv (const char *path, char *const argv[])
+{
+  __gcov_flush ();
+  return execv (path, argv);
+}
+#endif
+
+#ifdef L_gcov_execvp
+/* A wrapper for the execvp function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execvp (const char *path, char *const argv[])
+{
+  __gcov_flush ();
+  return execvp (path, argv);
+}
+#endif
+
+#ifdef L_gcov_execve
+/* A wrapper for the execve function.  Flushes the accumulated profiling data, so
+   that they are not lost.  */
+
+int
+__gcov_execve (const char *path, char *const argv[], char *const envp[])
+{
+  __gcov_flush ();
+  return execve (path, argv, envp);
+}
+#endif
 #endif /* inhibit_libc */

@@ -111,8 +111,8 @@
 ;; ??? For now do not allow loading constants into vfp regs.  This causes
 ;; problems because small constants get converted into adds.
 (define_insn "*arm_movsi_vfp"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r ,m,!w,r,!w,!w, U")
-      (match_operand:SI 1 "general_operand"	   "rI,K,mi,r,r,!w,!w,Ui,!w"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r ,m,!w,r,!w,!w,  Uv")
+      (match_operand:SI 1 "general_operand"	   "rI,K,mi,r,r,!w,!w,Uvi,!w"))]
   "TARGET_ARM && TARGET_VFP && TARGET_HARD_FLOAT
    && (   s_register_operand (operands[0], SImode)
        || s_register_operand (operands[1], SImode))"
@@ -136,8 +136,8 @@
 ;; DImode moves
 
 (define_insn "*arm_movdi_vfp"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r,o<>,w,r,w,w ,U")
-	(match_operand:DI 1 "di_operand"              "rIK,mi,r ,r,w,w,Ui,w"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r,m,w,r,w,w, Uv")
+	(match_operand:DI 1 "di_operand"              "rIK,mi,r,r,w,w,Uvi,w"))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
   "*
   switch (which_alternative)
@@ -168,8 +168,8 @@
 ;; SFmode moves
 
 (define_insn "*movsf_vfp"
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=w,r,w ,U,r ,m,w,r")
-	(match_operand:SF 1 "general_operand"	   " r,w,UE,w,mE,r,w,r"))]
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=w,r,w  ,Uv,r ,m,w,r")
+	(match_operand:SF 1 "general_operand"	   " r,w,UvE,w, mE,r,w,r"))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP
    && (   s_register_operand (operands[0], SFmode)
        || s_register_operand (operands[1], SFmode))"
@@ -192,8 +192,8 @@
 ;; DFmode moves
 
 (define_insn "*movdf_vfp"
-  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=w,r,r, m,w ,U,w,r")
-	(match_operand:DF 1 "soft_df_operand"		   " r,w,mF,r,UF,w,w,r"))]
+  [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=w,r,r, m,w  ,Uv,w,r")
+	(match_operand:DF 1 "soft_df_operand"		   " r,w,mF,r,UvF,w, w,r"))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
   "*
   {
@@ -558,6 +558,26 @@
    (set_attr "type" "farith")]
 )
 
+
+(define_insn "fixuns_truncsfsi2"
+  [(set (match_operand:SI		  0 "s_register_operand" "=w")
+	(unsigned_fix:SI (fix:SF (match_operand:SF 1 "s_register_operand" "w"))))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "ftouizs%?\\t%0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "farith")]
+)
+
+(define_insn "fixuns_truncdfsi2"
+  [(set (match_operand:SI		  0 "s_register_operand" "=w")
+	(unsigned_fix:SI (fix:DF (match_operand:DF 1 "s_register_operand" "w"))))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "ftouizd%?\\t%0, %P1"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "farith")]
+)
+
+
 (define_insn "*floatsisf2_vfp"
   [(set (match_operand:SF	    0 "s_register_operand" "=w")
 	(float:SF (match_operand:SI 1 "s_register_operand" "w")))]
@@ -572,6 +592,25 @@
 	(float:DF (match_operand:SI 1 "s_register_operand" "w")))]
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
   "fsitod%?\\t%P0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "farith")]
+)
+
+
+(define_insn "floatunssisf2"
+  [(set (match_operand:SF	    0 "s_register_operand" "=w")
+	(unsigned_float:SF (match_operand:SI 1 "s_register_operand" "w")))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "fuitos%?\\t%0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "type" "farith")]
+)
+
+(define_insn "floatunssidf2"
+  [(set (match_operand:DF	    0 "s_register_operand" "=w")
+	(unsigned_float:DF (match_operand:SI 1 "s_register_operand" "w")))]
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "fuitod%?\\t%P0, %1"
   [(set_attr "predicable" "yes")
    (set_attr "type" "farith")]
 )
@@ -740,5 +779,3 @@
 ;; fmdhr et al (VFPv1)
 ;; Support for xD (single precision only) variants.
 ;; fmrrs, fmsrr
-;; fuito*
-;; ftoui*

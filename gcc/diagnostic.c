@@ -1,5 +1,6 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -30,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "input.h"
@@ -55,8 +57,6 @@ static bool diagnostic_count_diagnostic (diagnostic_context *,
 static void diagnostic_action_after_output (diagnostic_context *,
 					    diagnostic_info *);
 static void real_abort (void) ATTRIBUTE_NORETURN;
-
-extern int rtl_dump_and_exit;
 
 /* A diagnostic_context surrogate for stderr.  */
 static diagnostic_context global_diagnostic_context;
@@ -173,13 +173,13 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
 #undef DEFINE_DIAGNOSTIC_KIND
     "must-not-happen"
   };
-   if (diagnostic->kind >= DK_LAST_DIAGNOSTIC_KIND)
-     abort();
+  expanded_location s = expand_location (diagnostic->location);
+  if (diagnostic->kind >= DK_LAST_DIAGNOSTIC_KIND)
+    abort();
 
-  return diagnostic->location.file
+  return s.file
     ? build_message_string ("%s:%d: %s",
-                            diagnostic->location.file,
-                            diagnostic->location.line,
+                            s.file, s.line,
                             _(diagnostic_kind_text[diagnostic->kind]))
     : build_message_string ("%s: %s", progname,
                             _(diagnostic_kind_text[diagnostic->kind]));
@@ -206,8 +206,9 @@ diagnostic_count_diagnostic (diagnostic_context *context,
 	   || diagnostic_kind_count (context, DK_SORRY) > 0)
 	  && !context->abort_on_error)
 	{
+	  expanded_location s = expand_location (diagnostic->location);
 	  fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
-		   diagnostic->location.file, diagnostic->location.line);
+		   s.file, s.line);
 	  exit (FATAL_EXIT_CODE);
 	}
 #endif
@@ -265,6 +266,11 @@ diagnostic_action_after_output (diagnostic_context *context,
     case DK_SORRY:
       if (context->abort_on_error)
 	real_abort ();
+      if (flag_fatal_errors)
+	{
+	  fnotice (stderr, "compilation terminated due to -Wfatal-errors.\n");
+	  exit (FATAL_EXIT_CODE);
+	}
       break;
 
     case DK_ICE:
@@ -294,7 +300,7 @@ void
 diagnostic_report_current_function (diagnostic_context *context)
 {
   diagnostic_report_current_module (context);
-  (*lang_hooks.print_error_function) (context, input_filename);
+  lang_hooks.print_error_function (context, input_filename);
 }
 
 void
@@ -308,16 +314,20 @@ diagnostic_report_current_module (diagnostic_context *context)
       pp_needs_newline (context->printer) = false;
     }
 
-  if (input_file_stack && diagnostic_last_module_changed (context))
+  p = input_file_stack;
+  if (p && diagnostic_last_module_changed (context))
     {
-      p = input_file_stack;
+      expanded_location xloc = expand_location (p->location);
       pp_verbatim (context->printer,
                    "In file included from %s:%d",
-                   p->location.file, p->location.line);
+		   xloc.file, xloc.line);
       while ((p = p->next) != NULL)
-	pp_verbatim (context->printer,
-                     ",\n                 from %s:%d",
-                     p->location.file, p->location.line);
+	{
+	  xloc = expand_location (p->location);
+	  pp_verbatim (context->printer,
+		       ",\n                 from %s:%d",
+		       xloc.file, xloc.line);
+	}
       pp_verbatim (context->printer, ":\n");
       diagnostic_set_last_module (context);
     }

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  NS32000 version.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -34,6 +34,7 @@ extern void print_operand_address (FILE *, rtx);
 extern const char *output_move_double (rtx *);
 extern const char *output_shift_insn (rtx *);
 extern int symbolic_reference_mentioned_p (rtx);
+extern void ns32k_notice_update_cc (rtx, rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

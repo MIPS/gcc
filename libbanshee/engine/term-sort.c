@@ -30,6 +30,7 @@
 
 #include <regions.h>
 #include <assert.h>
+#include <ansidecl.h>
 #include "term-sort.h"
 
 struct term_constant_ /* extends gen_e */
@@ -265,7 +266,7 @@ void term_print_stats(FILE *f)
 }
 
 /* TODO */
-void term_print_constraint_graph(FILE *f)
+void term_print_constraint_graph(FILE *f ATTRIBUTE_UNUSED)
 {
 }
 

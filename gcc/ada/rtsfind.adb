@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -69,6 +69,11 @@ package body Rtsfind is
    --  corresponding unit has not yet been loaded. The fields are set when
    --  a unit is loaded to contain the defining entity for the unit, the
    --  unit name, and the unit number.
+
+   --  Note that a unit can be loaded either by a call to find an entity
+   --  within the unit (e.g. RTE), or by an explicit with of the unit. In
+   --  the latter case it is critical to make a call to Set_RTU_Loaded to
+   --  ensure that the entry in this table reflects the load.
 
    type RT_Unit_Table_Record is record
       Entity : Entity_Id;
@@ -139,7 +144,7 @@ package body Rtsfind is
 
    function Get_Unit_Name (U_Id : RTU_Id) return Unit_Name_Type;
    --  Retrieves the Unit Name given a unit id represented by its
-   --  enumaration value in RTU_Id.
+   --  enumeration value in RTU_Id.
 
    procedure Load_RTU
      (U_Id        : RTU_Id;
@@ -147,8 +152,8 @@ package body Rtsfind is
       Use_Setting : Boolean := False);
    --  Load the unit whose Id is given if not already loaded. The unit is
    --  loaded, analyzed, and added to the WITH list, and the entry in
-   --  RT_Unit_Table is updated to reflect the load. The second parameter
-   --  indicates the initial setting for the Is_Potentially_Use_Visible
+   --  RT_Unit_Table is updated to reflect the load. Use_Setting is used
+   --  to indicate the initial setting for the Is_Potentially_Use_Visible
    --  flag of the entity for the loaded unit (if it is indeed loaded).
    --  A value of False means nothing special need be done. A value of
    --  True indicates that this flag must be set to True. It is needed
@@ -173,6 +178,23 @@ package body Rtsfind is
    --  and instead RTE_Is_Available is set to False. Note that this can only be
    --  used if you are sure that the message comes directly or indirectly from
    --  a call to the RTE function.
+
+   ------------------------
+   -- Entity_Not_Defined --
+   ------------------------
+
+   procedure Entity_Not_Defined (Id : RE_Id) is
+   begin
+      if No_Run_Time_Mode then
+         RTE_Error_Msg ("|construct not allowed in no run time mode");
+      elsif Configurable_Run_Time_Mode then
+         RTE_Error_Msg ("|construct not allowed in this configuration>");
+      else
+         RTE_Error_Msg ("run-time configuration error");
+      end if;
+
+      Output_Entity_Name (Id, "not defined");
+   end Entity_Not_Defined;
 
    -------------------
    -- Get_Unit_Name --
@@ -402,23 +424,6 @@ package body Rtsfind is
           and then
         Chars (Sel) in Text_IO_Package_Name;
    end Is_Text_IO_Kludge_Unit;
-
-   ------------------------
-   -- Entity_Not_Defined --
-   ------------------------
-
-   procedure Entity_Not_Defined (Id : RE_Id) is
-   begin
-      if No_Run_Time_Mode then
-         RTE_Error_Msg ("|construct not allowed in no run time mode");
-      elsif Configurable_Run_Time_Mode then
-         RTE_Error_Msg ("|construct not allowed in this configuration>");
-      else
-         RTE_Error_Msg ("run-time configuration error");
-      end if;
-
-      Output_Entity_Name (Id, "not defined");
-   end Entity_Not_Defined;
 
    ---------------
    -- Load_Fail --
@@ -786,9 +791,6 @@ package body Rtsfind is
       ---------------
 
       procedure Check_RPC is
-         Body_Name    : Unit_Name_Type;
-         Unum         : Unit_Number_Type;
-
       begin
          --  Bypass this check if debug flag -gnatdR set
 
@@ -799,47 +801,33 @@ package body Rtsfind is
          --  Otherwise we need the check if we are going after one of
          --  the critical entities in System.RPC in stubs mode.
 
+         --  ??? Should we do this for other s-parint/s-polint entities
+         --  too?
+
          if (Distribution_Stub_Mode = Generate_Receiver_Stub_Body
                       or else
                         Distribution_Stub_Mode = Generate_Caller_Stub_Body)
            and then (E = RE_Do_Rpc
-                       or else E = RE_Do_Apc
-                       or else E = RE_Params_Stream_Type
-                       or else E = RE_RPC_Receiver)
+                       or else
+                     E = RE_Do_Apc
+                       or else
+                     E = RE_Params_Stream_Type
+                       or else
+                     E = RE_RPC_Receiver)
          then
-            --  Load body of System.Rpc, and abort if this is the body that is
-            --  provided by GNAT, for which these features are not supported
-            --  on current target. We identify the gnat body by the presence
-            --  of a local entity called Gnat in the first declaration.
-
-            Lib_Unit := Unit (Cunit (U.Unum));
-            Body_Name := Get_Body_Name (Get_Unit_Name (Lib_Unit));
-            Unum :=
-              Load_Unit
-                (Load_Name  => Body_Name,
-                 Required   => False,
-                 Subunit    => False,
-                 Error_Node => Empty,
-                 Renamings  => True);
-
-            if Unum /= No_Unit then
-               declare
-                  Decls : constant List_Id :=
-                            Declarations (Unit (Cunit (Unum)));
-
-               begin
-                  if Present (Decls)
-                    and then Nkind (First (Decls)) = N_Object_Declaration
-                    and then
-                      Chars (Defining_Identifier (First (Decls))) = Name_Gnat
-                  then
-                     Set_Standard_Error;
-                     Write_Str ("distribution feature not supported");
-                     Write_Eol;
-                     raise Unrecoverable_Error;
-                  end if;
-               end;
-            end if;
+            declare
+               DSA_Implementation : constant Entity_Id :=
+                                      RTE (RE_DSA_Implementation);
+            begin
+               if Chars (Entity (Expression
+                                  (Parent (DSA_Implementation)))) = Name_No_DSA
+               then
+                  Set_Standard_Error;
+                  Write_Str ("distribution feature not supported");
+                  Write_Eol;
+                  raise Unrecoverable_Error;
+               end if;
+            end;
          end if;
       end Check_RPC;
 
@@ -975,7 +963,7 @@ package body Rtsfind is
       --  a WITH if the current unit is part of the extended main code
       --  unit, and if we have not already added the with. The WITH is
       --  added to the appropriate unit (the current one). We do not need
-      --  to generate a WITH for an
+      --  to generate a WITH for an ????
 
    <<Found>>
       if (not U.Withed)
@@ -1062,6 +1050,55 @@ package body Rtsfind is
          end if;
       end if;
    end RTE_Error_Msg;
+
+   ----------------
+   -- RTU_Loaded --
+   ----------------
+
+   function RTU_Loaded (U : RTU_Id) return Boolean is
+   begin
+      return Present (RT_Unit_Table (U).Entity);
+   end RTU_Loaded;
+
+   --------------------
+   -- Set_RTU_Loaded --
+   --------------------
+
+   procedure Set_RTU_Loaded (N : Node_Id) is
+      Loc   : constant Source_Ptr       := Sloc (N);
+      Unum  : constant Unit_Number_Type := Get_Source_Unit (Loc);
+      Uname : constant Unit_Name_Type   := Unit_Name (Unum);
+      E     : constant Entity_Id        :=
+                Defining_Entity (Unit (Cunit (Unum)));
+   begin
+      pragma Assert (Is_Predefined_File_Name (Unit_File_Name (Unum)));
+
+      --  Loop through entries in RTU table looking for matching entry
+
+      for U_Id in RTU_Id'Range loop
+
+         --  Here we have a match
+
+         if Get_Unit_Name (U_Id) = Uname then
+            declare
+               U : RT_Unit_Table_Record renames RT_Unit_Table (U_Id);
+               --  The RT_Unit_Table entry that may need updating
+
+            begin
+               --  If entry is not set, set it now
+
+               if not Present (U.Entity) then
+                  U.Entity := E;
+                  U.Uname  := Get_Unit_Name (U_Id);
+                  U.Unum   := Unum;
+                  U.Withed := False;
+               end if;
+
+               return;
+            end;
+         end if;
+      end loop;
+   end Set_RTU_Loaded;
 
    --------------------
    -- Text_IO_Kludge --
