@@ -1,3 +1,8 @@
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
+	* tree.cc (visit_try): Don't create TRY_CATCH_EXPR if there are no
+	catch blocks.
+
 2005-03-25  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (lay_out_class): Resolve class members.

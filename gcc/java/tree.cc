@@ -849,21 +849,31 @@ tree_generator::visit_try (model_try *trystmt,
   body->visit (this);
   tree body_tree = current;
 
-  // Now generate trees for the catch clauses.
-  tree catch_tree = alloc_stmt_list ();
-  tree_stmt_iterator out = tsi_start (catch_tree);
-  for (std::list<ref_catch>::const_iterator i = catchers.begin ();
-       i != catchers.end ();
-       ++i)
-    {
-      (*i)->visit (this);
-      // It is fine to simply link in CURRENT here, since we know that
-      // each catcher will just generate a CATCH_EXPR.
-      tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
-    }
+  assert (finally || ! catchers.empty ());
 
-  // Generate an internal try-catch.
-  tree result = build2 (TRY_CATCH_EXPR, NULL_TREE, body_tree, catch_tree);
+  // Now generate trees for the catch clauses, but only if there are
+  // any.
+  tree result;
+
+  if (catchers.empty ())
+    result = body_tree;
+  else
+    {
+      tree catch_tree = alloc_stmt_list ();
+      tree_stmt_iterator out = tsi_start (catch_tree);
+      for (std::list<ref_catch>::const_iterator i = catchers.begin ();
+	   i != catchers.end ();
+	   ++i)
+	{
+	  (*i)->visit (this);
+	  // It is fine to simply link in CURRENT here, since we know
+	  // that each catcher will just generate a CATCH_EXPR.
+	  tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+	}
+
+      // Generate the internal try-catch.
+      result = build2 (TRY_CATCH_EXPR, NULL_TREE, body_tree, catch_tree);
+    }
 
   // Generate code for 'finally' if needed.
   if (finally)
