@@ -1055,13 +1055,18 @@ finish_fname_decls ()
   
   if (body)
     {
-      /* They were called into existence, so add to statement tree.  */
-      body = chainon (body,
-		      TREE_CHAIN (DECL_SAVED_TREE (current_function_decl)));
-      body = build_stmt (COMPOUND_STMT, body);
-      
-      COMPOUND_STMT_NO_SCOPE (body) = 1;
-      TREE_CHAIN (DECL_SAVED_TREE (current_function_decl)) = body;
+      /* They were called into existence, so add to statement tree.  Add
+	 the DECL_STMTs inside the outermost scope.  */
+      tree *p = &DECL_SAVED_TREE (current_function_decl);
+      /* Skip the dummy EXPR_STMT and any EH_SPEC_BLOCK.  */
+      while (TREE_CODE (*p) != COMPOUND_STMT)
+	p = &TREE_CHAIN (*p);
+      p = &COMPOUND_BODY (*p);
+      if (TREE_CODE (*p) == SCOPE_STMT)
+	p = &TREE_CHAIN (*p);
+
+      body = chainon (body, *p);
+      *p = body;
     }
   
   for (ix = 0; fname_vars[ix].decl; ix++)
@@ -1084,7 +1089,7 @@ finish_fname_decls ()
   saved_function_name_decls = stack;
 }
 
-/* Return the text name of the current function, suitable prettified
+/* Return the text name of the current function, suitably prettified
    by PRETTY_P.  */
 
 const char *
@@ -1168,7 +1173,7 @@ fname_decl (rid, id)
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
-  
+
   return decl;
 }
 

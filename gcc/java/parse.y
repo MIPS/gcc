@@ -1933,7 +1933,7 @@ catch_clause_parameter:
 		  declare_local_variables (0, TREE_VALUE ($3),
 					   build_tree_list (TREE_PURPOSE ($3),
 							    init));
-		  $$ = build1 (CATCH_EXPR, NULL_TREE, ccpb);
+		  $$ = build1 (JAVA_CATCH_EXPR, NULL_TREE, ccpb);
 		  EXPR_WFL_LINECOL ($$) = $1.location;
 		}
 |	CATCH_TK error
@@ -15475,8 +15475,8 @@ encapsulate_with_try_catch (location, type, try_stmts, catch_stmts)
   /* Add the catch statements */
   add_stmt_to_block (catch_block, NULL_TREE, catch_stmts);
 
-  /* Now we can build a CATCH_EXPR */
-  catch_block = build1 (CATCH_EXPR, NULL_TREE, catch_block);
+  /* Now we can build a JAVA_CATCH_EXPR */
+  catch_block = build1 (JAVA_CATCH_EXPR, NULL_TREE, catch_block);
 
   return build_try_statement (location, try_block, catch_block);
 }
@@ -15522,7 +15522,7 @@ patch_try_statement (node)
       int unreachable;
 
       /* At this point, the structure of the catch clause is
-	   CATCH_EXPR		(catch node)
+	   JAVA_CATCH_EXPR		(catch node)
 	     BLOCK	        (with the decl of the parameter)
                COMPOUND_EXPR
                  MODIFY_EXPR   (assignment of the catch parameter)

@@ -95,6 +95,9 @@ void gimple_push_bind_expr	        PARAMS ((tree));
 void gimple_pop_bind_expr	        PARAMS ((void));
 void mark_not_simple			PARAMS ((tree *));
 void unshare_all_trees			PARAMS ((tree));
+tree voidify_wrapper_expr		PARAMS ((tree));
+tree gimple_build_eh_filter		PARAMS ((tree, tree, tree));
+tree maybe_protect_cleanup		PARAMS ((tree));
 
 
 /* Iterator object for GIMPLE statements.  */
@@ -164,6 +167,8 @@ gsi_stmt (i)
      gimple_stmt_iterator i;
 {
   tree t = *(gsi_stmt_ptr (i));
+  STRIP_WFL (t);
+  STRIP_NOPS (t);
   if (t == empty_stmt_node || t == error_mark_node)
     t = NULL_TREE;
   return t;

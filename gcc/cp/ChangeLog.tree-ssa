@@ -1,3 +1,34 @@
+2003-01-02  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (CXX_C_OBJS): Replace old-tree-inline.o with
+	tree-inline.o.
+
+	* optimize.c (dump_function): Move to ../tree-dump.c.
+
+	* cp-simplify.c (cp_simplify_expr): Handle PTRMEM_CST, INIT_EXPR, 
+	MODIFY_EXPR and EMPTY_CLASS_EXPR.
+	(cp_simplify_stmt): Handle USING_STMT.
+	(cp_simplify_init_expr): New fn.
+	* cvt.c (build_up_reference): Don't push the decl.
+	* class.c (build_vtable_entry_ref, build_vtbl_ref_1): Unshare the 
+	vtable address.
+	* init.c (build_vtbl_address): Likewise.
+	* cp-lang.c (LANG_HOOKS_UNSAVE_EXPR_NOW): Remove.
+	* decl.c (lookup_name_real): Unshare the expansion of an ALIAS_DECL.
+	(finish_function): Don't genericize templates.
+	* parse.y (parse_asm_stmt): Fix prototype.
+	* semantics.c (expand_body): Don't expand if we saw errors.
+	Drop support for expanding non-GENERIC code.
+
+	* cp-simplify.c (cp_simplify_stmt): Handle HANDLER and EH_SPEC_BLOCK.
+	(genericize_try_block): Always build a TRY_CATCH_EXPR.
+	(genericize_catch_block): New fn.
+	(genericize_eh_spec_block): New fn.
+	(cp_simplify_expr): Handle THROW_EXPR and MUST_NOT_THROW_EXPR.
+	(simplify_must_not_throw_expr): New fn.
+	* except.c (wrap_cleanups_r): Make the MUST_NOT_THROW_EXPR void.
+	(build_throw): Likewise.
+
 2002-12-14  Jason Merrill  <jason@redhat.com>
 
 	* optimize.c (dump_function): Use pretty dumpers.

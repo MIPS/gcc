@@ -444,7 +444,8 @@ is_simple_unary_expr (t)
   /* Additions to the original grammar.  Allow NON_LVALUE_EXPR and
      EXPR_WITH_FILE_LOCATION wrappers.  */
   if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR)
+      || TREE_CODE (t) == NON_LVALUE_EXPR
+      || TREE_CODE (t) == VTABLE_REF)
     return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
   if (is_simple_varname (t) || is_simple_const (t))
@@ -682,8 +683,11 @@ is_simple_id (t)
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
 	  || TREE_CODE (t) == PARM_DECL
+	  || TREE_CODE (t) == RESULT_DECL
 	  || TREE_CODE (t) == FIELD_DECL
 	  || TREE_CODE (t) == LABEL_DECL
+	  /* FIXME make this a decl.  */
+	  || TREE_CODE (t) == EXC_PTR_EXPR
 	  /* Allow the address of a function decl.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
@@ -897,7 +901,7 @@ right_assocify_expr (top)
 		TREE_SIDE_EFFECTS (lhs) = 1;
 	    }
 
-	  /* Walk through the rhs chain from there until we find something
+	  /* Walk through the op1 chain from there until we find something
 	     with a different code.  In this case, c.  */
 	  for (q = &TREE_OPERAND (lhs, 1); TREE_CODE (*q) == code;
 	       q = &TREE_OPERAND (*q, 1))

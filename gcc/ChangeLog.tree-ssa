@@ -1,3 +1,81 @@
+2003-01-02  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (c_genericize): Dump more info about the function.
+	Use dump_function.
+	* tree-dump.c (dump_function): Move from cp/optimize.c.
+	* tree-dump.h: Declare it.
+
+	* gimplify.c (mostly_copy_tree_r): Remove unnecessary cases.
+	(unshare_expr): New fn.
+	* tree-inline.c (mark_local_for_remap_r, unsave_r): New fns, adapted
+	from C++ versions.
+	(lhd_unsave_expr_now): Likewise.
+	* tree.c (unsave_expr_now): Remove.
+	(unsafe_for_reeval): Labels and BIND_EXPRs are only somewhat unsafe.
+
+	* gimplify.c (simplify_function_tree): Add an outer BIND_EXPR if
+	needed.
+	(voidify_wrapper_expr): Not static.  Abort if we try to voidify an 
+	expression with TREE_ADDRESSABLE type.  Be clever with INDIRECT_REFs.
+	(foreach_stmt): Avoid redundant work.
+	(create_tmp_var): Abort if we try to create a temp of ADDRESSABLE type.
+	(simplify_expr): Simplify VTABLE_REF.
+	* c-simplify.c (simplify_decl_stmt): Ignore DECL_EXTERNAL decls.
+	(simplify_stmt_expr): Fix thinko.
+	(simplify_block): Don't ignore partial scopes.
+	(simplify_condition): New fn.
+	(simplify_c_loop, simplify_if_stmt, simplify_switch_stmt): Call it.
+	* expr.c (expand_expr) [BIND_EXPR]: Handle statics better.
+	* tree-inline.c (remap_decl): Remap all decls.
+	(declare_return_variable): Be clever with INDIRECT_REFs.
+	(expand_call_inline): If we have an explicit return slot, the inlined
+	body is void.
+	(walk_tree): Fix type handling.
+	(copy_tree_r): Don't walk into decls.
+	* tree-simple.c (is_simple_unary_expr): Handle VTABLE_REF.
+	(is_simple_id): Allow RESULT_DECL.
+	* tree-simple.h (gsi_stmt): Strip WFLs and NOPs.
+
+	* gimplify.c (simplify_cond_expr): Handle void arms.  Add target parm.
+	(simplify_modify_expr): Pass it.  Add special handling for COND_EXPR
+	and CONSTRUCTOR (from Daniel Berlin).  Add want_value parm.
+	(simplify_expr): Pass new args. Loop sooner if language-specific
+	simplification happened.
+	(simplify_return_expr): Pass the whole MODIFY_EXPR to simplify_expr.
+	(simplify_target_expr): Simplify.
+
+	* tree.def (CATCH_EXPR, EH_FILTER_EXPR): New tree codes.
+	* except.c (expand_eh_handler): New fn.
+	(expand_eh_region_end_allowed): If no types are allowed, hand off to
+	expand_eh_region_end_must_not_throw.
+	* except.h: Declare expand_eh_handler.
+	* expr.c (expand_expr) [TRY_CATCH_EXPR]: Use it.
+	[CATCH_EXPR, EH_FILTER_EXPR]: New cases.
+	* gimplify.c (simplify_expr) [EXC_PTR_EXPR, CATCH_EXPR, 
+	EH_FILTER_EXPR]: New cases.
+	(gimple_build_eh_filter): New fn.
+	(maybe_protect_cleanup): New fn.
+	(gimple_push_cleanup): Call it.
+	(simplify_cleanup_point_expr): Fix thinko.
+	* c-simplify.c (simplify_cleanup): Call it.
+	* tree-simple.h: Declare it.
+	* Makefile.in (gimplify.o): Depend on except.h.
+	* tree.h (CATCH_TYPES, CATCH_BODY): New macros.
+	(EH_FILTER_TYPES, EH_FILTER_FAILURE): New macros.
+	* tree-simple.c (is_simple_id): Allow EXC_PTR_EXPR.
+	* c-pretty-print.c (dump_c_node) [CLEANUP_POINT_EXPR]: Support.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	[CATCH_EXPR, EH_FILTER_EXPR, EXC_PTR_EXPR]: Support.
+
+	* c-pretty-print.c (NIY): Print operands.
+	(dump_c_tree): Don't look at TREE_CHAIN if it doesn't matter.
+	(dump_c_node) [ARRAY_TYPE]: Handle non-constant array bounds.
+	[CALL_EXPR]: Pass spc down.
+	[VTABLE_REF]: Support.
+	(op_prio) [TARGET_EXPR]: Support.
+	(print_call_name): Handle function pointers.
+	* tree-pretty-print.c: Likewise.
+
 2002-12-31  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
         * gimplify.c (create_tmp_var_noc): Remove unused function.

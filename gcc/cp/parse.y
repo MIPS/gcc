@@ -132,7 +132,7 @@ static tree parse_handle_class_head (tree, tree, tree, int, int *);
 static void parse_decl_instantiation (tree, tree, tree);
 static int parse_begin_function_definition (tree, tree);
 static tree parse_finish_call_expr (tree, tree, int);
-extern tree parse_asm_stmt PARAMS ((tree, tree, tree, tree, tree));
+static tree parse_asm_stmt PARAMS ((tree, tree, tree, tree, tree));
 
 /* Cons up an empty parameter list.  */
 static inline tree

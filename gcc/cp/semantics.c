@@ -41,6 +41,7 @@
 #include "output.h"
 #include "timevar.h"
 #include "debug.h"
+#include "diagnostic.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -2316,6 +2317,12 @@ expand_body (fn)
   if (DECL_EXTERNAL (fn))
     return;
 
+  if (errorcount || sorrycount)
+    {
+      TREE_ASM_WRITTEN (fn) = 1;
+      return;
+    }
+
   /* Save the current file name and line number.  When we expand the
      body of the function, we'll set LINENO and INPUT_FILENAME so that
      error-mesages come out in the right places.  */
@@ -2339,17 +2346,13 @@ expand_body (fn)
 
   /* Expand the body.  */
   if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fn))))
-    expand_stmt (DECL_SAVED_TREE (fn));
-  else
-    expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
+    abort ();
+
+  expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */
   my_friendly_assert (stmts_are_full_exprs_p (), 19990831);
-
-  /* The outermost statement for a function contains the line number
-     recorded when we finished processing the function.  */
-  lineno = STMT_LINENO (DECL_SAVED_TREE (fn));
 
   /* Generate code for the function.  */
   genrtl_finish_function (fn);

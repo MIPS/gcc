@@ -6986,25 +6986,33 @@ expand_expr (exp, target, tmode, modifier)
 	/* If VARS have not yet been expanded, expand them now.  */
 	for (vars = BIND_EXPR_VARS (exp); vars; vars = TREE_CHAIN (vars))
 	  {
-	    if (DECL_EXTERNAL (vars))
-	      /* Do nothing.  */;
-	    else if (TREE_STATIC (vars)
-		     ? !TREE_ASM_WRITTEN (vars)
-		     : !DECL_RTL_SET_P (vars))
+	    tree var = vars;
+
+	    if (DECL_EXTERNAL (var))
+	      continue;
+
+	    if (TREE_STATIC (var))
+	      /* If this is an inlined copy of a static local variable,
+		 look up the original decl.  */
+	      var = DECL_ORIGIN (var);
+
+	    if (TREE_STATIC (var)
+		? !TREE_ASM_WRITTEN (var)
+		: !DECL_RTL_SET_P (var))
 	      {
-		if ((*lang_hooks.expand_decl) (vars))
+		if ((*lang_hooks.expand_decl) (var))
 		  /* OK.  */;
-		else if (TREE_CODE (vars) == VAR_DECL && !TREE_STATIC (vars))
-		  expand_decl (vars);
-		else if (TREE_CODE (vars) == VAR_DECL && TREE_STATIC (vars))
-		  rest_of_decl_compilation (vars, NULL, 0, 0);
-		else if (TREE_CODE (vars) == TYPE_DECL
-			 || TREE_CODE (vars) == CONST_DECL)
+		else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
+		  expand_decl (var);
+		else if (TREE_CODE (var) == VAR_DECL && TREE_STATIC (var))
+		  rest_of_decl_compilation (var, NULL, 0, 0);
+		else if (TREE_CODE (var) == TYPE_DECL
+			 || TREE_CODE (var) == CONST_DECL)
 		  /* No expansion needed.  */;
 		else
 		  abort ();
 	      }
-	    expand_decl_init (vars);
+	    expand_decl_init (var);
 	  }
 
 	temp = expand_expr (BIND_EXPR_BODY (exp), target, tmode, modifier);
@@ -7017,6 +7025,7 @@ expand_expr (exp, target, tmode, modifier)
 	  {
 	    if (TREE_CODE (vars) == FUNCTION_DECL 
 		&& DECL_CONTEXT (vars) == current_function_decl
+		&& DECL_SAVED_INSNS (vars)
 		&& !TREE_ASM_WRITTEN (vars)
 		&& TREE_ADDRESSABLE (vars))
 	      {
@@ -9248,20 +9257,29 @@ expand_expr (exp, target, tmode, modifier)
 	tree handler = TREE_OPERAND (exp, 1);
 
 	expand_eh_region_start ();
-
 	op0 = expand_expr (TREE_OPERAND (exp, 0), 0, VOIDmode, 0);
-
-	expand_eh_region_end_cleanup (handler);
+	expand_eh_handler (handler);
 
 	return op0;
       }
+
+    case CATCH_EXPR:
+      expand_start_catch (CATCH_TYPES (exp));
+      expand_expr (CATCH_BODY (exp), const0_rtx, VOIDmode, 0);
+      expand_end_catch ();
+      return op0;
+
+    case EH_FILTER_EXPR:
+      /* Should have been handled in expand_eh_handler.  */
+      abort ();
 
     case TRY_FINALLY_EXPR:
       {
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally_block = TREE_OPERAND (exp, 1);
 
-        if (!optimize || unsafe_for_reeval (finally_block) > 1)
+        if ((!optimize && lang_protect_cleanup_actions == NULL)
+	    || unsafe_for_reeval (finally_block) > 1)
 	  {
 	    /* In this case, wrapping FINALLY_BLOCK in an UNSAVE_EXPR
 	       is not sufficient, so we cannot expand the block twice.

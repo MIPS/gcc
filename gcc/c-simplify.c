@@ -44,6 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "rtl.h"
 #include "toplev.h"
+#include "tree-dump.h"
 
 /*  The simplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -89,6 +90,7 @@ static void pop_context              PARAMS ((void));
 static tree c_build_bind_expr	     PARAMS ((tree, tree));
 static void add_block_to_enclosing   PARAMS ((tree));
 static tree mostly_copy_tree_r       PARAMS ((tree *, int *, void *));
+static void simplify_condition		PARAMS ((tree *));
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
 static tree begin_bc_block PARAMS ((enum bc_t));
@@ -137,7 +139,12 @@ c_genericize (fndecl)
   dump_file = dump_begin (TDI_original, &dump_flags);
   if (dump_file)
     {
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      fprintf (dump_file, "\n;; Function %s",
+	       (*lang_hooks.decl_printable_name) (fndecl, 2));
+      fprintf (dump_file, " (%s)\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl)));
+      fprintf (dump_file, ";; enabled by -%s\n", dump_flag_name (TDI_original));
+      fprintf (dump_file, "\n");
 
       if (dump_flags & TDF_RAW)
 	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
@@ -154,19 +161,7 @@ c_genericize (fndecl)
   pop_context ();
 
   /* Dump the genericized tree IR.  */
-  dump_file = dump_begin (TDI_generic, &dump_flags);
-  if (dump_file)
-    {
-      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-
-      if (dump_flags & TDF_RAW)
-	dump_node (DECL_SAVED_TREE (fndecl), TDF_SLIM | dump_flags, dump_file);
-      else
-	print_generic_stmt (dump_file, DECL_SAVED_TREE (fndecl), 0);
-      fprintf (dump_file, "\n");
-
-      dump_end (TDI_generic, dump_file);
-    }
+  dump_function (TDI_generic, fndecl);
 }
 
 /*  Entry point for the tree lowering pass.  Recursively scan
@@ -398,11 +393,7 @@ simplify_block (stmt_p, next_p)
   for (p = &TREE_CHAIN (*stmt_p);; p = &TREE_CHAIN (*p))
     if (TREE_CODE (*p) == SCOPE_STMT)
       {
-	if (SCOPE_PARTIAL_P (*p))
-	  /* Throw away partial scopes.  Hmm, that probably won't work;
-	     we need to remember them to handle goto cleanups.  */
-	  abort ();
-	else if (SCOPE_BEGIN_P (*p))
+	if (SCOPE_BEGIN_P (*p))
 	  ++depth;
 	else if (--depth == 0)
 	  break;
@@ -428,12 +419,15 @@ simplify_cleanup (stmt_p, next_p)
 {
   tree stmt = *stmt_p;
   tree body = TREE_CHAIN (stmt);
+  tree cleanup = CLEANUP_EXPR (stmt);
   enum tree_code code
     = (CLEANUP_EH_ONLY (stmt) ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR);
 
+  cleanup = maybe_protect_cleanup (cleanup);
+
   c_simplify_stmt (&body);
 
-  *stmt_p = build (code, void_type_node, body, CLEANUP_EXPR (stmt));
+  *stmt_p = build (code, void_type_node, body, cleanup);
   *next_p = NULL_TREE;
 }
 
@@ -480,6 +474,24 @@ simplify_expr_stmt (stmt_p)
   if (stmts_are_full_exprs_p ())
     stmt = build1 (CLEANUP_POINT_EXPR, void_type_node, stmt);
   *stmt_p = stmt;
+}
+
+/* If the condition for a loop (or the like) is a decl, it will be a
+   TREE_LIST where the TREE_PURPOSE is a DECL_STMT and the TREE_VALUE is
+   a use of the decl.  Turn such a thing into a COMPOUND_EXPR.  */
+
+static void
+simplify_condition (cond_p)
+     tree *cond_p;
+{
+  tree cond = *cond_p;
+  if (cond && TREE_CODE (cond) == TREE_LIST)
+    {
+      tree decl = TREE_PURPOSE (cond);
+      tree value = TREE_VALUE (cond);
+      c_simplify_stmt (&decl);
+      *cond_p = build (COMPOUND_EXPR, TREE_TYPE (value), decl, value);
+    }
 }
 
 /* Begin a scope which can be exited by a break or continue statement.  BC
@@ -575,6 +587,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
 
   if (cond)
     {
+      simplify_condition (&cond);
       exit = build_bc_goto (bc_break);
       exit = build (COND_EXPR, void_type_node, cond, empty_stmt_node, exit);
       exit = fold (exit);
@@ -662,6 +675,8 @@ simplify_if_stmt (stmt_p)
   tree else_ = ELSE_CLAUSE (stmt);
   tree cond = IF_COND (stmt);
 
+  simplify_condition (&cond);
+
   c_simplify_stmt (&then_);
   c_simplify_stmt (&else_);
 
@@ -678,6 +693,8 @@ simplify_switch_stmt (stmt_p)
   tree body = SWITCH_BODY (stmt);
   tree break_block, switch_;
   tree cond = SWITCH_COND (stmt);
+
+  simplify_condition (&cond);
 
   break_block = begin_bc_block (bc_break);
 
@@ -728,7 +745,7 @@ simplify_decl_stmt (stmt_p, next_p)
   tree decl = DECL_STMT_DECL (stmt);
   tree pre = NULL_TREE;
 
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
       tree init = DECL_INITIAL (decl);
 
@@ -738,6 +755,8 @@ simplify_decl_stmt (stmt_p, next_p)
 	     block so that we can simplify the expressions for calculating
 	     its size, and so that any other local variables used in those
 	     expressions will have been initialized.  */
+
+	  /* FIXME break the allocation out into a separate statement.  */
 
 	  tree size = DECL_SIZE (decl);
 	  tree usize = DECL_SIZE_UNIT (decl);
@@ -763,7 +782,8 @@ simplify_decl_stmt (stmt_p, next_p)
 
 	  add_tree (bind, &pre);
 
-	  *next_p = NULL_TREE;
+	  if (next_p)
+	    *next_p = NULL_TREE;
 	}
 
       if (init && init != error_mark_node && !TREE_STATIC (decl))
@@ -774,12 +794,13 @@ simplify_decl_stmt (stmt_p, next_p)
 	    init = build1 (CLEANUP_POINT_EXPR, void_type_node, init);
 	  add_tree (init, &pre);
 	}
-    }
 
-  /* This decl isn't mentioned in the enclosing block, so add it to
-     the list of temps.  */
-  if (DECL_ARTIFICIAL (decl))
-    gimple_add_tmp_var (decl);
+      /* This decl isn't mentioned in the enclosing block, so add it to the
+	 list of temps.  FIXME it seems a bit of a kludge to say that
+	 anonymous artificial vars aren't pushed, but everything else is.  */
+      if (DECL_ARTIFICIAL (decl) && DECL_NAME (decl) == NULL_TREE)
+	gimple_add_tmp_var (decl);
+    }
 
   *stmt_p = pre;
 }
@@ -860,6 +881,9 @@ simplify_stmt_expr (expr_p)
 	}
 
       last_expr = EXPR_STMT_EXPR (last_expr_stmt);
+      if (stmts_are_full_exprs_p ())
+	last_expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (last_expr),
+			    last_expr);
       EXPR_STMT_EXPR (last_expr_stmt) = empty_stmt_node;
 #if defined ENABLE_CHECKING
       if (!is_last_stmt_of_scope (last_expr_stmt))
@@ -890,6 +914,8 @@ simplify_stmt_expr (expr_p)
 	  BIND_EXPR_BODY (bind) = substmt;
 	  TREE_TYPE (bind) = TREE_TYPE (body) = TREE_TYPE (last_expr);
 	}
+      else
+	body = substmt;
     }
 
   *expr_p = body;

@@ -91,5 +91,7 @@ extern void queue_and_dump_index
   PARAMS ((dump_info_p, const char *, tree, int));
 extern void queue_and_dump_type
   PARAMS ((dump_info_p, tree));
+extern void dump_function
+  PARAMS ((enum tree_dump_index, tree));
 
 #endif /* ! GCC_TREE_DUMP_H */

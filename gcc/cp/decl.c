@@ -6235,7 +6235,7 @@ does not match lookup in the current scope (`%#D')",
     val = from_obj;
 
   if (val && TREE_CODE (val) == ALIAS_DECL)
-    val = DECL_INITIAL (val);
+    val = unshare_expr (DECL_INITIAL (val));
 
   return val;
 }
@@ -6706,9 +6706,6 @@ cxx_init_decl_processing ()
      say -fwritable-strings?  */
   if (flag_writable_strings)
     flag_const_strings = 0;
-
-  /* Disable for now.  */
-  flag_disable_simple = 1;
 }
 
 /* Generate an initializer for a function naming variable from
@@ -6760,7 +6757,7 @@ cp_make_fname_decl (id, type_dep)
   tree init = cp_fname_init (name);
   tree decl = build_decl (VAR_DECL, id, TREE_TYPE (init));
 
-  /* As we don't push the decl here, we must set the context.  */
+  /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
   DECL_PRETTY_FUNCTION_P (decl) = type_dep;
       
@@ -6770,6 +6767,14 @@ cp_make_fname_decl (id, type_dep)
   DECL_INITIAL (decl) = init;
   
   TREE_USED (decl) = 1;
+
+  if (current_function_decl)
+    {
+      struct cp_binding_level *b = current_binding_level;
+      while (b->level_chain->parm_flag == 0)
+	b = b->level_chain;
+      pushdecl_with_scope (decl, b);
+    }	
 
   cp_finish_decl (decl, init, NULL_TREE, LOOKUP_ONLYCONVERTING);
       
@@ -14563,7 +14568,7 @@ finish_function (flags)
     warning ("no return statement in function returning non-void");
     
   /* Genericize before inlining.  */
-  if (!flag_disable_simple)
+  if (!flag_disable_simple && !processing_template_decl)
     c_genericize (fndecl);
 
   /* Clear out memory we no longer need.  */

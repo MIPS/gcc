@@ -4326,6 +4326,7 @@ do_namespace_alias (alias, namespace)
   /* Build the alias.  */
   alias = build_lang_decl (NAMESPACE_DECL, alias, void_type_node);     
   DECL_NAMESPACE_ALIAS (alias) = namespace;
+  DECL_EXTERNAL (alias) = 1;
   pushdecl (alias);
 }
 

@@ -863,6 +863,16 @@ DEFTREECODE (CASE_LABEL_EXPR, "case_label_expr", 's', 2)
    for the statement.  */
 DEFTREECODE (ASM_EXPR, "asm_expr", 's', 4)
 
+/* Used to represent a typed exception handler.  CATCH_TYPES is the type (or
+   list of types) handled, and CATCH_BODY is the code for the handler.  */
+DEFTREECODE (CATCH_EXPR, "catch_expr", 's', 2)
+
+/* Used to represent an exception specification.  EH_FILTER_TYPES is a list
+   of allowed types, and EH_FILTER_FAILURE is an expression to evaluate on
+   failure.  EH_FILTER_MUST_NOT_THROW controls which range type to use when
+   expanding.  */
+DEFTREECODE (EH_FILTER_EXPR, "eh_filter_expr", 's', 2)
+
 /*
 Local variables:
 mode:c

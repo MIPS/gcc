@@ -39,12 +39,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "langhooks.h"
 #include "diagnostic.h"
+#include "tree-dump.h"
 
 /* Prototypes.  */
 
 static tree calls_setjmp_r (tree *, int *, void *);
 static void update_cloned_parm (tree, tree);
-static void dump_function (enum tree_dump_index, tree);
 
 /* Optimize the body of FN.  */
 
@@ -86,7 +86,7 @@ optimize_function (tree fn)
       dump_function (TDI_simple, fn);
 
       /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1)
+      if (optimize >= 1 && 0)
 	optimize_function_tree (fn);
     }
 
@@ -282,30 +282,4 @@ maybe_clone_body (tree fn)
 
   /* We don't need to process the original function any further.  */
   return 1;
-}
-
-/* Dump FUNCTION_DECL FN as tree dump PHASE.  */
-
-static void
-dump_function (enum tree_dump_index phase, tree fn)
-{
-  FILE *stream;
-  int flags;
-
-  stream = dump_begin (phase, &flags);
-  if (stream)
-    {
-      fprintf (stream, "\n;; Function %s",
-	       decl_as_string (fn, TFF_DECL_SPECIFIERS));
-      fprintf (stream, " (%s)\n",
-	       decl_as_string (DECL_ASSEMBLER_NAME (fn), 0));
-      fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
-      fprintf (stream, "\n");
-      
-      if (flags & TDF_RAW)
-	dump_node (fn, TDF_SLIM | flags, stream);
-      else
-	print_generic_stmt (stream, DECL_SAVED_TREE (fn), 0);
-      dump_end (phase, stream);
-    }
 }

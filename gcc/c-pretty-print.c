@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "real.h"
 #include "hashtab.h"
+#include "langhooks.h"
 
 static int op_prio				PARAMS ((tree));
 static const char *op_symbol			PARAMS ((tree));
@@ -49,24 +50,44 @@ static void dump_c_tree				PARAMS ((output_buffer *, tree,
       							 int));
 static int dump_c_node				PARAMS ((output_buffer *, tree,
       							 int, int));
-
+static void do_niy				PARAMS ((output_buffer *,
+							 tree));
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) output_add_space (buffer); } while (0)
-#define NIY do { \
-    output_add_string (buffer, "<<< Unknown tree: "); \
-    output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]); \
-    output_add_string (buffer, " >>>\n"); } while (0)
+
+#define NIY do_niy(buffer,node)
 
 #define PRINT_FUNCTION_NAME(NODE)  output_printf             \
   (buffer, "%s", TREE_CODE (NODE) == NOP_EXPR ?              \
-   IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (NODE, 0))) : \
-   IDENTIFIER_POINTER (DECL_NAME (NODE)))
-
+   (*lang_hooks.decl_printable_name) (TREE_OPERAND (NODE, 0), 1) : \
+   (*lang_hooks.decl_printable_name) (NODE, 1))
 
 static output_buffer buffer;
 static int initialized = 0;
 
+/* Try to print something for an unknown tree code.  */
+
+static void
+do_niy (buffer, node)
+     output_buffer *buffer;
+     tree node;
+{
+  int i, len;
+
+  output_add_string (buffer, "<<< Unknown tree: ");
+  output_add_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
+
+  len = first_rtl_op (TREE_CODE (node));
+  for (i = 0; i < len; ++i)
+    {
+      newline_and_indent (buffer, 2);
+      dump_c_node (buffer, TREE_OPERAND (node, i), 2, 0);
+    }
+
+  output_add_string (buffer, " >>>\n");
+}
+     
 /* Print the tree T in full, on file FILE.  */
  
 void 
@@ -185,6 +206,10 @@ dump_c_tree (buffer, t, spc)
 	default:
 	  break;
 	}
+
+      if (!(*lang_hooks.tree_inlining.tree_chain_matters_p) (node))
+	break;
+
       node = TREE_CHAIN (node);
       if (htab_find (htab, node))
 	{
@@ -379,9 +404,16 @@ dump_c_node (buffer, node, spc, brief_dump)
 	  {
 	    output_add_character (buffer, '[');
 	    if (TYPE_SIZE (tmp))
-	      output_decimal (buffer,
-			      TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
-			      TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+	      {
+		tree size = TYPE_SIZE (tmp);
+		if (TREE_CODE (size) == INTEGER_CST)
+		  output_decimal (buffer,
+				  TREE_INT_CST_LOW (TYPE_SIZE (tmp)) / 
+				  TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (tmp))));
+		else if (TREE_CODE (size) == MULT_EXPR)
+		  dump_c_node (buffer, TREE_OPERAND (size, 0), spc, brief_dump);
+		/* else punt.  */
+	      }
 	    output_add_character (buffer, ']');
 	    tmp = TREE_TYPE (tmp);
 	  }
@@ -790,7 +822,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       output_add_character (buffer, '(');
       op1 = TREE_OPERAND (node, 1);
       if (op1)
-	dump_c_node (buffer, op1, 0, brief_dump);
+	dump_c_node (buffer, op1, spc, brief_dump);
       output_add_character (buffer, ')');
       break;
 
@@ -803,7 +835,9 @@ dump_c_node (buffer, node, spc, brief_dump)
       break;
 
     case CLEANUP_POINT_EXPR:
-      NIY;
+      output_add_string (buffer, "<<cleanup_point ");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      output_add_string (buffer, ">>");
       break;
 
     case PLACEHOLDER_EXPR:
@@ -1451,6 +1485,16 @@ dump_c_node (buffer, node, spc, brief_dump)
       dump_c_node (buffer, op0, spc, brief_dump);
       break;
 
+    case VTABLE_REF:
+      output_add_string (buffer, "VTABLE_REF <(");
+      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
+      output_add_string (buffer, "),");
+      dump_c_node (buffer, TREE_OPERAND (node, 1), spc, brief_dump);
+      output_add_character (buffer, ',');
+      dump_c_node (buffer, TREE_OPERAND (node, 2), spc, brief_dump);
+      output_add_character (buffer, '>');
+      break;
+
     default:
       NIY;
     }
@@ -1749,6 +1793,7 @@ op_prio (op)
     case FIX_CEIL_EXPR:
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
+    case TARGET_EXPR:
       return 14;
 
     case CALL_EXPR:
@@ -1935,9 +1980,9 @@ print_call_name (buffer, node)
     case ADDR_EXPR:
     case INDIRECT_REF:
     case NOP_EXPR:
-      PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+      dump_c_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       break;
-    
+
     case EXPR_WITH_FILE_LOCATION:
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
         PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));

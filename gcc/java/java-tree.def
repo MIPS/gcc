@@ -55,7 +55,7 @@ DEFTREECODE (TRY_EXPR, "try-catch", 'e', 2)
 /* Catch clause.
    Operand 0 is the catch clause block, which contains the declaration of
    the catch clause parameter.  */
-DEFTREECODE (CATCH_EXPR, "catch", '1', 1)
+DEFTREECODE (JAVA_CATCH_EXPR, "catch", '1', 1)
 
 /* Synchronized statement.
    Operand 0 is the expression on which we wish to synchronize,

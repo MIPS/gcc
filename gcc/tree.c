@@ -1531,58 +1531,6 @@ unsave_expr_1 (expr)
     }
 }
 
-/* Default lang hook for "unsave_expr_now".  */
-
-tree
-lhd_unsave_expr_now (expr)
-     tree expr;
-{
-  enum tree_code code;
-
-  /* There's nothing to do for NULL_TREE.  */
-  if (expr == 0)
-    return expr;
-
-  unsave_expr_1 (expr);
-
-  code = TREE_CODE (expr);
-  switch (TREE_CODE_CLASS (code))
-    {
-    case 'c':  /* a constant */
-    case 't':  /* a type node */
-    case 'd':  /* A decl node */
-    case 'b':  /* A block node */
-      break;
-
-    case 'x':  /* miscellaneous: e.g., identifier, TREE_LIST or ERROR_MARK.  */
-      if (code == TREE_LIST)
-	{
-	  lhd_unsave_expr_now (TREE_VALUE (expr));
-	  lhd_unsave_expr_now (TREE_CHAIN (expr));
-	}
-      break;
-
-    case 'e':  /* an expression */
-    case 'r':  /* a reference */
-    case 's':  /* an expression with side effects */
-    case '<':  /* a comparison expression */
-    case '2':  /* a binary arithmetic expression */
-    case '1':  /* a unary arithmetic expression */
-      {
-	int i;
-
-	for (i = first_rtl_op (code) - 1; i >= 0; i--)
-	  lhd_unsave_expr_now (TREE_OPERAND (expr, i));
-      }
-      break;
-
-    default:
-      abort ();
-    }
-
-  return expr;
-}
-
 /* Return 0 if it is safe to evaluate EXPR multiple times,
    return 1 if it is safe if EXPR is unsaved afterward, or
    return 2 if it is completely unsafe.
@@ -1619,11 +1567,15 @@ unsafe_for_reeval (expr)
     {
     case SAVE_EXPR:
     case RTL_EXPR:
+      return 2;
 
       /* A label can only be emitted once.  */
     case LABEL_EXPR:
+      return 1;
+
     case BIND_EXPR:
-      return 2;
+      unsafeness = 1;
+      break;
 
     case TREE_LIST:
       for (exp = expr; exp != 0; exp = TREE_CHAIN (exp))

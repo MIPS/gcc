@@ -396,7 +396,7 @@ build_vtable_entry_ref (array_ref, instance, idx)
     basetype = TREE_TYPE (basetype);
 
   vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
-  first_fn = TYPE_BINFO_VTABLE (basetype);
+  first_fn = unshare_expr (TYPE_BINFO_VTABLE (basetype));
 
   i = fold (build_array_ref (first_fn, idx));
   i = fold (build_c_cast (ptrdiff_type_node,
@@ -439,7 +439,7 @@ build_vtbl_ref_1 (instance, idx)
       tree binfo = lookup_base (fixed_type, basetype,
 				ba_ignore|ba_quiet, NULL);
       if (binfo)
-	vtbl = BINFO_VTABLE (binfo);
+	vtbl = unshare_expr (BINFO_VTABLE (binfo));
     }
 
   if (!vtbl)

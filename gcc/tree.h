@@ -188,6 +188,7 @@ struct tree_common GTY(())
 	   TREE_LIST elements of a block's cleanup list.
        ASM_INPUT_P in
            ASM_EXPR
+       EH_FILTER_MUST_NOT_THROW in EH_FILTER_EXPR
 
    public_flag:
 
@@ -872,7 +873,7 @@ struct tree_vec GTY(())
 #define SAVE_EXPR_NOPLACEHOLDER(NODE) TREE_UNSIGNED (SAVE_EXPR_CHECK (NODE))
 /* Nonzero if the SAVE_EXPRs value should be kept, even if it occurs
    both in normal code and in a handler.  (Normally, in a handler, all
-   SAVE_EXPRs are unsaved, meaning that there values are
+   SAVE_EXPRs are unsaved, meaning that their values are
    recalculated.)  */
 #define SAVE_EXPR_PERSISTENT_P(NODE) TREE_ASM_WRITTEN (SAVE_EXPR_CHECK (NODE))
 
@@ -970,6 +971,15 @@ struct tree_vec GTY(())
 /* LABEL_EXPR accessor. This gives access to the label associated with
    the given label expression.  */
 #define LABEL_EXPR_LABEL(NODE)  TREE_OPERAND (LABEL_EXPR_CHECK (NODE), 0)
+
+/* CATCH_EXPR accessors.  */
+#define CATCH_TYPES(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 0)
+#define CATCH_BODY(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 1)
+
+/* EH_FILTER_EXPR accessors.  */
+#define EH_FILTER_TYPES(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 0)
+#define EH_FILTER_FAILURE(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 1)
+#define EH_FILTER_MUST_NOT_THROW(NODE) TREE_STATIC (EH_FILTER_EXPR_CHECK (NODE))
 
 struct tree_exp GTY(())
 {
@@ -3285,6 +3295,7 @@ const char *dump_flag_name		PARAMS ((enum tree_dump_index));
 
 extern int simplify_function_tree	PARAMS ((tree));
 extern const char *get_name		PARAMS ((tree));
+extern tree unshare_expr		PARAMS ((tree));
 
 /* Redefine abort to report an internal error w/o coredump, and
    reporting the location of the error in the source file.  This logic

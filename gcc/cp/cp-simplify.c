@@ -31,6 +31,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-simple.h"
 
 static void genericize_try_block	PARAMS ((tree *));
+static void genericize_catch_block	PARAMS ((tree *));
+static void genericize_eh_spec_block	PARAMS ((tree *));
+static void simplify_must_not_throw_expr PARAMS ((tree *, tree *));
+static void cp_simplify_init_expr	PARAMS ((tree *, tree *, tree *));
 
 /* Genericize a C++ _STMT.  Called from c_simplify_stmt.  */
 
@@ -46,6 +50,20 @@ cp_simplify_stmt (stmt_p, next_p)
       genericize_try_block (stmt_p);
       return 1;
 
+    case HANDLER:
+      genericize_catch_block (stmt_p);
+      return 1;
+
+    case EH_SPEC_BLOCK:
+      genericize_eh_spec_block (stmt_p);
+      return 1;
+
+    case USING_STMT:
+      /* Just ignore for now.  Eventually we will want to pass this on to
+	 the debugger.  */
+      *stmt_p = empty_stmt_node;
+      return 1;
+
     default:
       break;
     }
@@ -58,21 +76,45 @@ static void
 genericize_try_block (stmt_p)
      tree *stmt_p;
 {
-  tree stmt = *stmt_p;
+  tree body = TRY_STMTS (*stmt_p);
+  tree cleanup = TRY_HANDLERS (*stmt_p);
 
-  if (CLEANUP_P (stmt))
-    {
-      /* Just convert to a TRY_CATCH_EXPR.  */
-      tree body = TRY_STMTS (stmt);
-      tree cleanup = TRY_HANDLERS (stmt);
+  c_simplify_stmt (&body);
+  /* cleanup is an expression, so it doesn't need to be genericized.  */
 
-      c_simplify_stmt (&body);
+  *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
+}
 
-      *stmt_p = build (TRY_CATCH_EXPR, void_type_node, body, cleanup);
-    }
-  else
-    /* FIXME a real try block.  */
-    abort ();
+/* Genericize a HANDLER by converting to a CATCH_EXPR.  */
+
+static void
+genericize_catch_block (stmt_p)
+     tree *stmt_p;
+{
+  tree type = HANDLER_TYPE (*stmt_p);
+  tree body = HANDLER_BODY (*stmt_p);
+
+  c_simplify_stmt (&body);
+
+  /* FIXME should the caught type go in TREE_TYPE?  */
+  *stmt_p = build (CATCH_EXPR, void_type_node, type, body);
+}
+
+/* Genericize an EH_SPEC_BLOCK by converting it to a
+   TRY_CATCH_EXPR/EH_FILTER_EXPR pair.  */
+
+static void
+genericize_eh_spec_block (stmt_p)
+     tree *stmt_p;
+{
+  tree body = EH_SPEC_STMTS (*stmt_p);
+  tree allowed = EH_SPEC_RAISES (*stmt_p);
+  tree failure = build_call (call_unexpected_node,
+			     tree_cons (NULL_TREE, build_exc_ptr (),
+					NULL_TREE));
+  c_simplify_stmt (&body);
+
+  *stmt_p = gimple_build_eh_filter (body, allowed, failure);
 }
 
 /* Do C++-specific simplification.  Args are as for simplify_expr.  */
@@ -85,15 +127,72 @@ cp_simplify_expr (expr_p, pre_p, post_p)
 {
   switch (TREE_CODE (*expr_p))
     {
+    case PTRMEM_CST:
+      *expr_p = cplus_expand_constant (*expr_p);
+      return 1;
+
     case AGGR_INIT_EXPR:
       simplify_aggr_init_expr (expr_p);
+      return 1;
+
+    case THROW_EXPR:
+      /* FIXME communicate throw type to backend, probably by moving
+	 THROW_EXPR into ../tree.def.  */
+      *expr_p = TREE_OPERAND (*expr_p, 0);
+      return 1;
+
+    case MUST_NOT_THROW_EXPR:
+      simplify_must_not_throw_expr (expr_p, pre_p);
+      return 1;
+
+    case INIT_EXPR:
+    case MODIFY_EXPR:
+      cp_simplify_init_expr (expr_p, pre_p, post_p);
       break;
+
+    case EMPTY_CLASS_EXPR:
+      *expr_p = integer_zero_node;
+      return 1;
 
     default:
       break;
     }
 
   return c_simplify_expr (expr_p, pre_p, post_p);
+}
+
+/* Simplify initialization from an AGGR_INIT_EXPR.  */
+
+static void
+cp_simplify_init_expr (expr_p, pre_p, post_p)
+     tree *expr_p;
+     tree *pre_p;
+     tree *post_p;
+{
+  tree from = TREE_OPERAND (*expr_p, 1);
+  tree to = TREE_OPERAND (*expr_p, 0);
+
+  /* If we are initializing something from a TARGET_EXPR, strip the
+     TARGET_EXPR and initialize it directly.  */
+  /* What about code that pulls out the temp and uses it elsewhere?  I
+     think that such code never uses the TARGET_EXPR as an initializer.  If
+     I'm wrong, we'll abort because the temp won't have any RTL.  In that
+     case, I guess we'll need to replace references somehow.  */
+  if (TREE_CODE (from) == TARGET_EXPR)
+    from = TARGET_EXPR_INITIAL (from);
+
+  /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
+     replace the slot operand with our target.
+
+     Should we add a target parm to simplify_expr instead?  No, as in this
+     case we want to replace the INIT_EXPR.  */
+  if (TREE_CODE (from) == AGGR_INIT_EXPR)
+    {
+      simplify_expr (&to, pre_p, post_p, is_simple_modify_expr_lhs, fb_lvalue);
+      TREE_OPERAND (from, 2) = to;
+      *expr_p = from;
+      simplify_aggr_init_expr (expr_p);
+    }
 }
 
 /* Replace the AGGR_INIT_EXPR at *TP with an equivalent CALL_EXPR.  */
@@ -176,4 +275,29 @@ simplify_aggr_init_expr (tp)
   /* Replace the AGGR_INIT_EXPR with the CALL_EXPR.  */
   TREE_CHAIN (call_expr) = TREE_CHAIN (aggr_init_expr);
   *tp = call_expr;
+}
+
+/* Simplify a MUST_NOT_THROW_EXPR.  */
+
+static void
+simplify_must_not_throw_expr (expr_p, pre_p)
+     tree *expr_p;
+     tree *pre_p;
+{
+  tree stmt = *expr_p;
+  tree temp = voidify_wrapper_expr (stmt);
+  tree body = TREE_OPERAND (stmt, 0);
+
+  simplify_stmt (&body);
+
+  stmt = gimple_build_eh_filter (body, NULL_TREE,
+				 build_call (terminate_node, NULL_TREE));
+
+  if (temp)
+    {
+      add_tree (stmt, pre_p);
+      *expr_p = temp;
+    }
+  else
+    *expr_p = stmt;
 }

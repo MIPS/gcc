@@ -850,3 +850,29 @@ dump_switch_p (arg)
 
   return 0;
 }
+
+/* Dump FUNCTION_DECL FN as tree dump PHASE.  */
+
+void
+dump_function (enum tree_dump_index phase, tree fn)
+{
+  FILE *stream;
+  int flags;
+
+  stream = dump_begin (phase, &flags);
+  if (stream)
+    {
+      fprintf (stream, "\n;; Function %s",
+	       (*lang_hooks.decl_printable_name) (fn, 2));
+      fprintf (stream, " (%s)\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn)));
+      fprintf (stream, ";; enabled by -%s\n", dump_flag_name (phase));
+      fprintf (stream, "\n");
+      
+      if (flags & TDF_RAW)
+	dump_node (fn, TDF_SLIM | flags, stream);
+      else
+	print_generic_stmt (stream, DECL_SAVED_TREE (fn), 0);
+      dump_end (phase, stream);
+    }
+}

@@ -112,6 +112,8 @@ static void remap_block PARAMS ((tree *, inline_data *));
 static void copy_bind_expr PARAMS ((tree *, int *, inline_data *));
 static tree find_alloca_call_1 PARAMS ((tree *, int *, void *));
 static tree find_alloca_call PARAMS ((tree));
+static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
+static tree unsave_r PARAMS ((tree *, int *, void *));
 
 /* The approximate number of instructions per statement.  This number
    need not be particularly accurate; it is used only to make
@@ -130,8 +132,13 @@ remap_decl (decl, id)
 
   /* We only remap local variables in the current function.  */
   fn = VARRAY_TOP_TREE (id->fns);
+#if 0
+  /* We need to remap statics, too, so that they get expanded even if the
+     inline function is never emitted out of line.  We might as well also
+     remap extern decls so that they show up in the debug info.  */
   if (! (*lang_hooks.tree_inlining.auto_var_in_fn_p) (decl, fn))
     return NULL_TREE;
+#endif
 
   /* See if we have remapped this declaration.  */
   n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
@@ -603,7 +610,7 @@ initialize_inlined_parameters (id, args, fn, bind_expr)
 
 static tree
 declare_return_variable (id, return_slot_addr, use_p)
-     struct inline_data *id;
+     inline_data *id;
      tree return_slot_addr;
      tree *use_p;
 {
@@ -635,6 +642,11 @@ declare_return_variable (id, return_slot_addr, use_p)
      promoted, convert it back to the expected type.  */
   if (TREE_TYPE (var) == TREE_TYPE (TREE_TYPE (fn)))
     *use_p = var;
+  else if (TREE_CODE (var) == INDIRECT_REF)
+    *use_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (fn)),
+		     TREE_OPERAND (var, 0));
+  else if (TREE_ADDRESSABLE (TREE_TYPE (var)))
+    abort ();
   else
     *use_p = build1 (NOP_EXPR, TREE_TYPE (TREE_TYPE (fn)), var);
 
@@ -908,6 +920,7 @@ expand_call_inline (tp, walk_subtrees, data)
     {
       return_slot_addr = TREE_VALUE (args);
       args = TREE_CHAIN (args);
+      TREE_TYPE (expr) = void_type_node;
     }
 
   arg_inits = initialize_inlined_parameters (id, args, fn, expr);
@@ -1240,103 +1253,106 @@ walk_tree (tp, func, data, htab_)
     {
       WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
     }
-  else if (TREE_CODE_CLASS (code) == 't')
+  else
     {
-      WALK_SUBTREE (TYPE_SIZE (*tp));
-      WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
-      /* Also examine various special fields, below.  */
-    }
+      if (TREE_CODE_CLASS (code) == 't')
+	{
+	  WALK_SUBTREE (TYPE_SIZE (*tp));
+	  WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
+	  /* Also examine various special fields, below.  */
+	}
 
-  /* Not one of the easy cases.  We must explicitly go through the
-     children.  */
-  else switch (code)
-    {
-    case ERROR_MARK:
-    case IDENTIFIER_NODE:
-    case INTEGER_CST:
-    case REAL_CST:
-    case VECTOR_CST:
-    case STRING_CST:
-    case REAL_TYPE:
-    case COMPLEX_TYPE:
-    case VECTOR_TYPE:
-    case VOID_TYPE:
-    case BOOLEAN_TYPE:
-    case UNION_TYPE:
-    case ENUMERAL_TYPE:
-    case BLOCK:
-    case RECORD_TYPE:
-      /* None of thse have subtrees other than those already walked
-         above.  */
-      break;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
-      break;
-
-    case TREE_LIST:
-      WALK_SUBTREE (TREE_VALUE (*tp));
-      WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-      break;
-
-    case TREE_VEC:
-      {
-	int len = TREE_VEC_LENGTH (*tp);
-
-	if (len == 0)
+      /* Not one of the easy cases.  We must explicitly go through the
+	 children.  */
+      switch (code)
+	{
+	case ERROR_MARK:
+	case IDENTIFIER_NODE:
+	case INTEGER_CST:
+	case REAL_CST:
+	case VECTOR_CST:
+	case STRING_CST:
+	case REAL_TYPE:
+	case COMPLEX_TYPE:
+	case VECTOR_TYPE:
+	case VOID_TYPE:
+	case BOOLEAN_TYPE:
+	case UNION_TYPE:
+	case ENUMERAL_TYPE:
+	case BLOCK:
+	case RECORD_TYPE:
+	  /* None of thse have subtrees other than those already walked
+	     above.  */
 	  break;
 
-	/* Walk all elements but the first.  */
-	while (--len)
-	  WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
+	case POINTER_TYPE:
+	case REFERENCE_TYPE:
+	  WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
+	  break;
 
-	/* Now walk the first one as a tail call.  */
-	WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
-      }
+	case TREE_LIST:
+	  WALK_SUBTREE (TREE_VALUE (*tp));
+	  WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
+	  break;
 
-    case COMPLEX_CST:
-      WALK_SUBTREE (TREE_REALPART (*tp));
-      WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
+	case TREE_VEC:
+	  {
+	    int len = TREE_VEC_LENGTH (*tp);
 
-    case CONSTRUCTOR:
-      WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
+	    if (len == 0)
+	      break;
 
-    case METHOD_TYPE:
-      WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
-      /* Fall through.  */
+	    /* Walk all elements but the first.  */
+	    while (--len)
+	      WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
 
-    case FUNCTION_TYPE:
-      WALK_SUBTREE (TREE_TYPE (*tp));
-      {
-	tree arg = TYPE_ARG_TYPES (*tp);
+	    /* Now walk the first one as a tail call.  */
+	    WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
+	  }
 
-	/* We never want to walk into default arguments.  */
-	for (; arg; arg = TREE_CHAIN (arg))
-	  WALK_SUBTREE (TREE_VALUE (arg));
-      }
-      break;
+	case COMPLEX_CST:
+	  WALK_SUBTREE (TREE_REALPART (*tp));
+	  WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
 
-    case ARRAY_TYPE:
-      WALK_SUBTREE (TREE_TYPE (*tp));
-      WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
+	case CONSTRUCTOR:
+	  WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
 
-    case INTEGER_TYPE:
-      WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
-      WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
+	case METHOD_TYPE:
+	  WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
+	  /* Fall through.  */
 
-    case OFFSET_TYPE:
-      WALK_SUBTREE (TREE_TYPE (*tp));
-      WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
+	case FUNCTION_TYPE:
+	  WALK_SUBTREE (TREE_TYPE (*tp));
+	  {
+	    tree arg = TYPE_ARG_TYPES (*tp);
 
-    case EXIT_BLOCK_EXPR:
-      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 1));
+	    /* We never want to walk into default arguments.  */
+	    for (; arg; arg = TREE_CHAIN (arg))
+	      WALK_SUBTREE (TREE_VALUE (arg));
+	  }
+	  break;
 
-    case SAVE_EXPR:
-      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
+	case ARRAY_TYPE:
+	  WALK_SUBTREE (TREE_TYPE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
 
-    default:
-      abort ();
+	case INTEGER_TYPE:
+	  WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
+
+	case OFFSET_TYPE:
+	  WALK_SUBTREE (TREE_TYPE (*tp));
+	  WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
+
+	case EXIT_BLOCK_EXPR:
+	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 1));
+
+	case SAVE_EXPR:
+	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
+
+	default:
+	  abort ();
+	}
     }
 
   /* We didn't find what we were looking for.  */
@@ -1404,6 +1420,8 @@ copy_tree_r (tp, walk_subtrees, data)
   else if (TREE_CODE_CLASS (code) == 't' && !variably_modified_type_p (*tp))
     /* Types only need to be copied if they are variably modified.  */
     *walk_subtrees = 0;
+  else if (TREE_CODE_CLASS (code) == 'd')
+    *walk_subtrees = 0;
 
   return NULL_TREE;
 }
@@ -1466,4 +1484,122 @@ add_stmt_to_compound (existing, type, stmt)
     return build (COMPOUND_EXPR, type, existing, stmt);
   else
     return stmt;
+}
+
+/* Called via walk_tree.  If *TP points to a DECL_STMT for a local
+   declaration, copies the declaration and enters it in the splay_tree
+   in DATA (which is really an `inline_data *').  */
+
+static tree
+mark_local_for_remap_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees ATTRIBUTE_UNUSED;
+     void *data;
+{
+  tree t = *tp;
+  inline_data *id = (inline_data *) data;
+  splay_tree st = id->decl_map;
+  tree decl;
+
+  /* Don't walk into types.  */
+  if (TYPE_P (t))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (t) == LABEL_EXPR)
+    decl = TREE_OPERAND (t, 0);
+  else
+    /* We don't need to handle anything else ahead of time.  */
+    decl = NULL_TREE;
+
+  if (decl)
+    {
+      tree copy;
+
+      /* Make a copy.  */
+      copy = copy_decl_for_inlining (decl, 
+				     DECL_CONTEXT (decl), 
+				     DECL_CONTEXT (decl));
+
+      /* Remember the copy.  */
+      splay_tree_insert (st,
+			 (splay_tree_key) decl, 
+			 (splay_tree_value) copy);
+    }
+
+  return NULL_TREE;
+}
+
+/* Called via walk_tree when an expression is unsaved.  Using the
+   splay_tree pointed to by ST (which is really a `splay_tree'),
+   remaps all local declarations to appropriate replacements.  */
+
+static tree
+unsave_r (tp, walk_subtrees, data)
+     tree *tp;
+     int *walk_subtrees;
+     void *data;
+{
+  inline_data *id = (inline_data *) data;
+  splay_tree st = id->decl_map;
+  splay_tree_node n;
+
+  /* Only a local declaration (variable or label).  */
+  if ((TREE_CODE (*tp) == VAR_DECL && !TREE_STATIC (*tp))
+      || TREE_CODE (*tp) == LABEL_DECL)
+    {
+      /* Lookup the declaration.  */
+      n = splay_tree_lookup (st, (splay_tree_key) *tp);
+      
+      /* If it's there, remap it.  */
+      if (n)
+	*tp = (tree) n->value;
+    }
+  else if (TREE_CODE (*tp) == BIND_EXPR)
+    copy_bind_expr (tp, walk_subtrees, id);
+  else if (TREE_CODE (*tp) == SAVE_EXPR)
+    remap_save_expr (tp, st, current_function_decl, walk_subtrees);
+  else
+    {
+      copy_tree_r (tp, walk_subtrees, NULL);
+
+      /* Do whatever unsaving is required.  */
+      unsave_expr_1 (*tp);
+    }
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+/* Default lang hook for "unsave_expr_now".  Copies everything in EXPR and replaces
+   variables, labels and SAVE_EXPRs local to EXPR.  */
+
+tree
+lhd_unsave_expr_now (expr)
+     tree expr;
+{
+  inline_data id;
+
+  /* There's nothing to do for NULL_TREE.  */
+  if (expr == 0)
+    return expr;
+
+  /* Set up ID.  */
+  memset (&id, 0, sizeof (id));
+  VARRAY_TREE_INIT (id.fns, 1, "fns");
+  VARRAY_PUSH_TREE (id.fns, current_function_decl);
+  id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+
+  /* Walk the tree once to find local labels.  */
+  walk_tree_without_duplicates (&expr, mark_local_for_remap_r, &id);
+
+  /* Walk the tree again, copying, remapping, and unsaving.  */
+  walk_tree (&expr, unsave_r, &id, NULL);
+
+  /* Clean up.  */
+  splay_tree_delete (id.decl_map);
+
+  return expr;
 }

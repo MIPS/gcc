@@ -386,7 +386,8 @@ build_up_reference (type, arg, flags, decl)
 	{
 	  /* Automatic; make sure we handle the cleanup properly.  */
 	  maybe_push_cleanup_level (argtype);
-	  arg = pushdecl (arg);
+	  /* Don't push unnamed temps.  Do set DECL_CONTEXT, though.  */
+	  DECL_CONTEXT (arg) = current_function_decl;
 	}
 
       /* Process the initializer for the declaration.  */
@@ -671,6 +672,15 @@ ocp_convert (type, expr, convtype, flags)
          conversion.  */
       else if (TREE_CODE (type) == COMPLEX_TYPE)
         return fold (convert_to_complex (type, e));
+      else if (TREE_CODE (e) == TARGET_EXPR)
+	{
+	  /* Don't build a NOP_EXPR of class type.  Instead, change the
+	     type of the temporary.  */
+	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
+	  return e;
+	}
+      else if (CLASS_TYPE_P (type))
+	abort ();
       else
 	return fold (build1 (NOP_EXPR, type, e));
     }

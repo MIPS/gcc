@@ -36,6 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks-def.h"
 #include "tree-flow.h"
 #include "timevar.h"
+#include "except.h"
 
 static void simplify_constructor     PARAMS ((tree, tree *, tree *));
 static void simplify_array_ref       PARAMS ((tree *, tree *, tree *));
@@ -43,12 +44,12 @@ static void simplify_compound_lval   PARAMS ((tree *, tree *, tree *));
 static void simplify_component_ref   PARAMS ((tree *, tree *, tree *));
 static void simplify_call_expr       PARAMS ((tree *, tree *, tree *));
 static void simplify_tree_list       PARAMS ((tree *, tree *, tree *));
-static void simplify_modify_expr     PARAMS ((tree *, tree *, tree *));
+static void simplify_modify_expr     PARAMS ((tree *, tree *, tree *, int));
 static void simplify_compound_expr   PARAMS ((tree *, tree *));
 static void simplify_save_expr       PARAMS ((tree *, tree *));
 static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
 static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
-static void simplify_cond_expr       PARAMS ((tree *, tree *));
+static void simplify_cond_expr       PARAMS ((tree *, tree *, tree));
 static void simplify_boolean_expr    PARAMS ((tree *, tree *));
 static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
                                               int (*) (tree)));
@@ -69,7 +70,6 @@ static void simplify_cleanup_point_expr PARAMS ((tree *, tree *));
 static bool gimple_conditional_context	PARAMS ((void));
 static void gimple_push_condition	PARAMS ((void));
 static void gimple_pop_condition	PARAMS ((tree *));
-static tree voidify_wrapper_expr	PARAMS ((tree));
 static void gimple_push_cleanup		PARAMS ((tree, tree *));
 static void gimplify_loop_expr		PARAMS ((tree *));
 static void gimplify_exit_expr		PARAMS ((tree *, tree *));
@@ -165,6 +165,7 @@ simplify_function_tree (fndecl)
   tree fnbody;
   int done;
   tree oldfn;
+  tree tmp;
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -194,6 +195,12 @@ simplify_function_tree (fndecl)
 
   /* Unshare again, in case simplification was sloppy.  */
   unshare_all_trees (fnbody);
+
+  /* If there isn't an outer BIND_EXPR, add one.  */
+  tmp = fnbody;
+  STRIP_WFL (tmp);
+  if (TREE_CODE (tmp) != BIND_EXPR)
+    fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
 
   DECL_SAVED_TREE (fndecl) = fnbody;
 
@@ -270,20 +277,22 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (post_p == NULL)
     post_p = &internal_post;
 
-  /* First strip any uselessness.  */
+  /* Strip any uselessness.  */
   STRIP_TYPE_NOPS (*expr_p);
 
   /* Loop over the specific simplifiers until the toplevel node remains the
      same.  */
   do
     {
-      /* First do any language-specific simplification.  */
+      /* Remember the expr.  */
+      save_expr = *expr_p;
+
+      /* Do any language-specific simplification.  */
       (*lang_hooks.simplify_expr) (expr_p, pre_p, post_p);
       if (*expr_p == NULL_TREE)
 	break;
-
-      /* Then remember the expr.  */
-      save_expr = *expr_p;
+      if (*expr_p != save_expr)
+	continue;
 
       switch (TREE_CODE (*expr_p))
 	{
@@ -305,7 +314,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  break;
       
 	case COND_EXPR:
-	  simplify_cond_expr (expr_p, pre_p);
+	  simplify_cond_expr (expr_p, pre_p, NULL_TREE);
 	  break;
 
 	case CALL_EXPR:
@@ -331,7 +340,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
 	case MODIFY_EXPR:
 	case INIT_EXPR:
-	  simplify_modify_expr (expr_p, pre_p, post_p);
+	  simplify_modify_expr (expr_p, pre_p, post_p, fallback != fb_none);
 	  break;
 
 	case TRUTH_ANDIF_EXPR:
@@ -386,6 +395,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	case REAL_CST:
 	case STRING_CST:
 	case COMPLEX_CST:
+	  break;
+
+	  /* FIXME make this a decl.  */
+	case EXC_PTR_EXPR:
 	  break;
 
 	case BIND_EXPR:
@@ -473,6 +486,22 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
 	case TARGET_EXPR:
 	  simplify_target_expr (expr_p, pre_p, post_p);
+	  break;
+
+	case CATCH_EXPR:
+	  simplify_stmt (&CATCH_BODY (*expr_p));
+	  break;
+
+	case EH_FILTER_EXPR:
+	  simplify_stmt (&EH_FILTER_FAILURE (*expr_p));
+	  break;
+
+	case VTABLE_REF:
+	  /* This moves much of the actual computation out of the
+	     VTABLE_REF.  Perhaps this should be revisited once we want to
+	     do clever things with VTABLE_REFs.  */
+	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			 is_simple_min_lval, fb_lvalue);
 	  break;
 
 	  /* FIXME
@@ -589,7 +618,7 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
    and give it void_type_node.  Returns the temporary, or NULL_TREE if
    WRAPPER was already void.  */
 
-static tree
+tree
 voidify_wrapper_expr (wrapper)
      tree wrapper;
 {
@@ -624,6 +653,15 @@ voidify_wrapper_expr (wrapper)
 	{
 	  /* The C++ frontend already did this for us.  */;
 	  temp = TREE_OPERAND (*p, 0);
+	}
+      else if (TREE_CODE (*p) == INDIRECT_REF)
+	{
+	  /* If we're returning a dereference, move the dereference outside
+	     the wrapper.  */
+	  tree ptr = TREE_OPERAND (*p, 0);
+	  temp = create_tmp_var (TREE_TYPE (ptr), "retval");
+	  *p = build (MODIFY_EXPR, TREE_TYPE (ptr), temp, ptr);
+	  temp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (temp)), temp);
 	}
       else
 	{
@@ -683,26 +721,25 @@ simplify_return_expr (stmt, pre_p)
 
   if (ret_expr)
     {
-      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
+      /* We need to pass the full MODIFY_EXPR down so that special handling
+	 can replace it with something else.  FIXME this code is way too
+	 complicated.  */
+      simplify_expr (&ret_expr, pre_p, NULL, is_simple_stmt, fb_none);
+      if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl)))
+	  || TREE_CODE (ret_expr) != MODIFY_EXPR)
 	{
-	  /* We are trying to return an expression in a void function.
-	     Move the expression to before the return.  */
-	  simplify_stmt (&ret_expr);
+	  /* We are trying to return an expression in a void function, or
+	     our return expression isn't a simple bitwise copy.  Move the
+	     expression to before the return.  */
 	  add_tree (ret_expr, pre_p);
 	  TREE_OPERAND (stmt, 0) = NULL_TREE;
 	}
       else
 	{
-#if defined ENABLE_CHECKING
-	  /* A return expression is represented by a MODIFY_EXPR node that
-	     assigns the return value into a RESULT_DECL.  */
-	  if (TREE_CODE (ret_expr) != MODIFY_EXPR
-	      && TREE_CODE (ret_expr) != INIT_EXPR)
-	    abort ();
-#endif
-
+	  /* Make sure the RHS is really simple.  */
 	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
 			 is_simple_rhs, fb_rvalue);
+	  TREE_OPERAND (stmt, 0) = ret_expr;
 	}
     }
 }
@@ -1089,9 +1126,10 @@ simplify_tree_list (expr_p, pre_p, post_p)
         *EXPR_P should be stored.  */
 
 static void
-simplify_cond_expr (expr_p, pre_p)
+simplify_cond_expr (expr_p, pre_p, target)
      tree *expr_p;
      tree *pre_p;
+     tree target;
 {
   tree tmp = NULL_TREE;
   tree expr = *expr_p;
@@ -1100,15 +1138,21 @@ simplify_cond_expr (expr_p, pre_p)
      the arms.  */
   if (! VOID_TYPE_P (TREE_TYPE (expr)))
       {
-	tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	if (target)
+	  tmp = target;
+	else
+	  tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
 
-	/* Build the then clause, 't1 = a;'.  */
-	TREE_OPERAND (expr, 1)
-	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 1));
+	/* Build the then clause, 't1 = a;'.  But don't build an assignment
+	   if this branch is void; in C++ it can be, if it's a throw.  */
+	if (TREE_TYPE (TREE_OPERAND (expr, 1)) != void_type_node)
+	  TREE_OPERAND (expr, 1)
+	    = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 1));
 
 	/* Build the else clause, 't1 = b;'.  */
-	TREE_OPERAND (expr, 2)
-	  = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 2));
+	if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
+	  TREE_OPERAND (expr, 2)
+	    = build (MODIFY_EXPR, void_type_node, tmp, TREE_OPERAND (expr, 2));
 
 	TREE_TYPE (expr) = void_type_node;
 	recalculate_side_effects (expr);
@@ -1157,12 +1201,15 @@ simplify_cond_expr (expr_p, pre_p)
         *EXPR_P should be stored.  */
 
 static void
-simplify_modify_expr (expr_p, pre_p, post_p)
+simplify_modify_expr (expr_p, pre_p, post_p, want_value)
      tree *expr_p;
      tree *pre_p;
      tree *post_p;
+     int want_value;
 {
-  tree *from;
+  tree *from_p = &TREE_OPERAND (*expr_p, 1);
+  tree *to_p = &TREE_OPERAND (*expr_p, 0);
+  tree type = TREE_TYPE (*expr_p);
   
 #if defined ENABLE_CHECKING
   if (TREE_CODE (*expr_p) != MODIFY_EXPR
@@ -1170,28 +1217,73 @@ simplify_modify_expr (expr_p, pre_p, post_p)
     abort ();
 #endif
 
+  simplify_expr (to_p, pre_p, post_p, is_simple_modify_expr_lhs, fb_lvalue);
+
   /* If we are initializing something from a TARGET_EXPR, strip the
      TARGET_EXPR and initialize it directly.  */
   /* What about code that pulls out the temp and uses it elsewhere?  I
      think that such code never uses the TARGET_EXPR as an initializer.  If
      I'm wrong, we'll abort because the temp won't have any RTL.  In that
      case, I guess we'll need to replace references somehow.  */
-  from = &TREE_OPERAND (*expr_p, 1);
-  if (TREE_CODE (*from) == TARGET_EXPR)
-    *from = TARGET_EXPR_INITIAL (*from);
+  if (TREE_CODE (*from_p) == TARGET_EXPR)
+    *from_p = TARGET_EXPR_INITIAL (*from_p);
+
+  /* If we're assigning from a ?: expression with ADDRESSABLE type, push
+     the assignment down into the branches, since we can't generate a
+     temporary of such a type.  */
+  if (TREE_CODE (*from_p) == COND_EXPR
+      && TREE_ADDRESSABLE (TREE_TYPE (*from_p)))
+    {
+      simplify_cond_expr (from_p, pre_p, *to_p);
+      *expr_p = *from_p;
+      /* Try again.  */
+      return;
+    }
 
   /* The distinction between MODIFY_EXPR and INIT_EXPR is no longer
      useful.  */
   if (TREE_CODE (*expr_p) == INIT_EXPR)
     TREE_SET_CODE (*expr_p, MODIFY_EXPR);
 
-  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		 is_simple_modify_expr_lhs, fb_lvalue);
-  simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_rhs,
-                 fb_rvalue);
+  /* Break out elements of a constructor into separate MODIFY_EXPRs.  FIXME
+     should also handle arrays/vectors.
 
-  add_tree (*expr_p, pre_p);
-  *expr_p = TREE_OPERAND (*expr_p, 0);
+     Note that we still need to clear any elements that don't have explicit
+     initializers, so we keep the original MODIFY_EXPR, we just remove all
+     of the constructor elements.  FIXME should try to avoid clearing
+     initialized elts, a la store_constructor.  */
+  if (TREE_CODE (*from_p) == CONSTRUCTOR && !TREE_STATIC (*from_p)
+      && (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE
+	  || TREE_CODE (type) == QUAL_UNION_TYPE))
+    {
+      tree elt_list = CONSTRUCTOR_ELTS (*from_p);
+      CONSTRUCTOR_ELTS (*from_p) = NULL_TREE;
+      add_tree (*expr_p, pre_p);
+      for (; elt_list; elt_list = TREE_CHAIN (elt_list))
+	{
+	  tree purpose = TREE_PURPOSE (elt_list);
+	  tree value = TREE_VALUE (elt_list);
+	  tree cref = build (COMPONENT_REF, TREE_TYPE (purpose),
+			     *to_p, purpose);
+	  tree init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	  simplify_expr (&init, pre_p, NULL, is_simple_stmt, fb_none);
+	  add_tree (init, pre_p);
+	}
+      *expr_p = TREE_OPERAND (*expr_p, 0);
+      return;
+    }
+
+  /* If this is for a RETURN_EXPR, we can't have any posteffects.  */
+  if (!want_value)
+    post_p = NULL;
+
+  simplify_expr (from_p, pre_p, post_p, is_simple_rhs, fb_rvalue);
+
+  if (want_value)
+    {
+      add_tree (*expr_p, pre_p);
+      *expr_p = TREE_OPERAND (*expr_p, 0);
+    }
 }
 
 
@@ -1465,7 +1557,8 @@ foreach_stmt (stmt_p, fn)
       tree *sub_p = &TREE_OPERAND (*stmt_p, 0);
       if (TREE_CODE (*sub_p) == COMPOUND_EXPR)
 	foreach_stmt (sub_p, fn);
-      fn (sub_p);
+      else
+	fn (sub_p);
     }
   fn (stmt_p);
 }
@@ -1557,8 +1650,9 @@ create_tmp_var (type, prefix)
   ASM_FORMAT_PRIVATE_NAME (tmp_name, (prefix ? prefix : "T"), id_num++);
 
 #if defined ENABLE_CHECKING
-  /* If the type is an array, something is wrong.  */
-  if (TREE_CODE (type) == ARRAY_TYPE)
+  /* If the type is an array or a type which must be created by the
+     frontend, something is wrong.  */
+  if (TREE_CODE (type) == ARRAY_TYPE || TREE_ADDRESSABLE (type))
     abort ();
 #endif
 
@@ -1830,11 +1924,8 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
      void *data;
 {
   enum tree_code code = TREE_CODE (*tp);
-  /* Don't unshare decls, blocks, types and SAVE_EXPR nodes.  */
+  /* Don't unshare types and SAVE_EXPR nodes.  */
   if (TREE_CODE_CLASS (code) == 't'
-      || TREE_CODE_CLASS (code) == 'd'
-      || TREE_CODE_CLASS (code) == 'c'
-      || TREE_CODE_CLASS (code) == 'b'
       || code == SAVE_EXPR
       || *tp == empty_stmt_node)
     *walk_subtrees = 0;
@@ -1851,11 +1942,35 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
   return NULL_TREE;
 }
 
+/* Unconditionally make an unshared copy of EXPR.  This is used when using
+   stored expressions which span multiple functions, such as BINFO_VTABLE,
+   as the normal unsharing process can't tell that they're shared.  */
+
+tree
+unshare_expr (expr)
+     tree expr;
+{
+  walk_tree (&expr, mostly_copy_tree_r, NULL, NULL);
+  return expr;
+}
+
 void
 mark_not_simple (expr_p)
      tree *expr_p;
 {
   TREE_NOT_GIMPLE (*expr_p) = 1;
+}
+
+/* A terser interface for building a representation of a exception
+   specification.  */
+
+tree
+gimple_build_eh_filter (body, allowed, failure)
+     tree body, allowed, failure;
+{
+  /* FIXME should the allowed types go in TREE_TYPE?  */
+  tree filter = build (EH_FILTER_EXPR, void_type_node, allowed, failure);
+  return build (TRY_CATCH_EXPR, void_type_node, body, filter);
 }
 
 /* Simplify a CLEANUP_POINT_EXPR.  Currently this works by adding
@@ -1903,7 +2018,7 @@ simplify_cleanup_point_expr (expr_p, pre_p)
 	  if (TREE_CODE (*container) == COMPOUND_EXPR)
 	    next = TREE_OPERAND (*container, 1);
 	  else
-	    next = NULL_TREE;
+	    next = empty_stmt_node;
 
 	  tfe = build (TRY_FINALLY_EXPR, void_type_node,
 		       next, TREE_OPERAND (wce, 1));
@@ -1923,6 +2038,34 @@ simplify_cleanup_point_expr (expr_p, pre_p)
     *expr_p = body;
 }
 
+/* If the language requires some sort of exception protection of cleanup
+   actions (i.e. calling terminate in C++), modify the cleanup to reflect
+   that.  */
+
+tree
+maybe_protect_cleanup (cleanup)
+     tree cleanup;
+{
+#if 0
+  /* Ack!  We only want to protect the cleanup if it's run in the EH path.
+     There's currently no reasonable way to express this in GENERIC.  FIXME
+     FIXME FIXME!  Don't mess with this for now; it will still get handled
+     properly in the expander.  */
+  tree protect_cleanup_actions
+    = (lang_protect_cleanup_actions
+       ? (*lang_protect_cleanup_actions) ()
+       : NULL_TREE);
+
+  if (protect_cleanup_actions)
+    /* Wrap cleanups in MUST_NOT_THROW equivalent if appropriate.  FIXME
+       perhaps this should be done earlier in the frontend so we don't need
+       a hook.  */
+    cleanup = gimple_build_eh_filter (cleanup, NULL_TREE,
+				      protect_cleanup_actions);
+#endif
+  return cleanup;
+}
+
 /* Insert a cleanup marker for simplify_cleanup_point_expr.  CLEANUP
    is the cleanup action required.  */
 
@@ -1932,6 +2075,8 @@ gimple_push_cleanup (cleanup, pre_p)
      tree *pre_p;
 {
   tree wce;
+
+  cleanup = maybe_protect_cleanup (cleanup);
 
   if (gimple_conditional_context ())
     {
@@ -1990,16 +2135,10 @@ simplify_target_expr (expr_p, pre_p, post_p)
      temps list.  */
   gimple_add_tmp_var (temp);
 
-  /* Add the initialization to pre_p.  In some cases, such as C++
-     constructors, the initialization will happen by side-effect in init;
-     in such cases, init will simplify to temp, so we mustn't build a
-     MODIFY_EXPR.  */
-  simplify_expr (&init, pre_p, post_p, is_simple_rhs, fb_rvalue);
-  if (init != temp)
-    {
-      init = build (MODIFY_EXPR, void_type_node, temp, init);
-      add_tree (init, pre_p);
-    }
+  /* Build up the initialization and add it to pre_p.  */
+  init = build (MODIFY_EXPR, void_type_node, temp, init);
+  simplify_expr (&init, pre_p, post_p, is_simple_stmt, fb_none);
+  add_tree (init, pre_p);
 
   /* If needed, push the cleanup for the temp.  */
   if (TARGET_EXPR_CLEANUP (targ))
