@@ -1,3 +1,17 @@
+2002-10-07  Richard Henderson  <rth@redhat.com>
+
+	* cse.c (fixed_base_plus_p): Turn FIXED_BASE_PLUS_P into a
+	function; cleanup PLUS case by using recursion.  Update all users.
+	(NONZERO_BASE_PLUS_P): Remove.
+	(find_comparison_args): Use rtx_addr_can_trap_p instead.
+	(fold_rtx): Use nonzero_address_p.
+	* rtl.h (nonzero_address_p): Declare.
+	* rtlanal.c (rtx_varies_p): Handle ADDRESSOF.
+	(rtx_addr_can_trap_p): Likewise.
+	(nonzero_address_p): New.
+	* simplify-rtx.c (NONZERO_BASE_PLUS_P): Remove.
+	(simplify_relational_operation): Use nonzero_address_p.
+
 2002-10-06  Andreas Bauer  <baueran@in.tum.de>
 
 	* calls.c (expand_call): Fix function-is-volatile check.
