@@ -1,3 +1,11 @@
+2005-01-05  Mark Mitchell  <mark@codesourcery.com>
+            Matt Austern  <austern@apple.com>
+    
+	Radar 3934803
+	PR c++/18369
+	* g++.dg/init/new12.C: New test.
+
+
 2005-01-03  Alexander Malmberg  <alexander@malmberg.org>
 	    Ziemowit Laski  <zlaski@apple.com>
 
