@@ -1,5 +1,5 @@
 /* BasicTextUI.java
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.plaf.basic;
 
 import java.awt.Color;
@@ -42,10 +43,14 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
+
 import javax.swing.JComponent;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.TextUI;
+import javax.swing.plaf.UIResource;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.Caret;
+import javax.swing.text.DefaultCaret;
 import javax.swing.text.DefaultEditorKit;
 import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
@@ -55,65 +60,46 @@ import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 
 
-public class BasicTextUI extends TextUI
+public abstract class BasicTextUI extends TextUI
   implements ViewFactory
 {
+  public static class BasicCaret extends DefaultCaret
+    implements UIResource
+  {
+    public BasicCaret()
+    {
+    }
+  }
+
+  View view;
+  JTextComponent textComponent;
   int gap = 3;
-  View view = null; // was: new RootView();
-  Color textColor;
-  Color disabledTextColor;
-  Color normalBackgroundColor;
   EditorKit kit = new DefaultEditorKit();
 
-  /* *****************************************************************
-   * This View is way too incomplete to be of any use. To avoid errors
-   * when compiling with the Sun JDK, it has been commented out.
-   *                            -- Sascha Brawer (brawer@dandelis.ch)
-   *
-   * (begin of commented out section)
-  class RootView extends View
-  {
-      RootView()
-      {
-          super(null);
-      }
-      public void paint(Graphics g, Shape s)
-      {
-          if (view != null)
-              {
-                  Rectangle r = s.getBounds();
-
-                  view.setSize((int)r.getWidth(),
-                               (int)r.getHeight());
-                  view.paint(g, s);
-              }
-      }
-  }
-  * (end of commented out section)
-  *************************************************************** */
   public BasicTextUI()
   {
   }
 
-  public static ComponentUI createUI(final JComponent c)
+  protected Caret createCaret()
   {
-    return new BasicTextUI();
+    return new BasicCaret();
   }
 
+  protected final JTextComponent getComponent()
+  {
+    return textComponent;
+  }
+  
   public void installUI(final JComponent c)
   {
     super.installUI(c);
 
-    textColor = new Color(0, 0, 0);
-    disabledTextColor = new Color(130, 130, 130);
-    normalBackgroundColor = new Color(192, 192, 192);
+    textComponent = (JTextComponent) c;
   }
 
   public Dimension getPreferredSize(JComponent c)
   {
-    JTextComponent b = (JTextComponent) c;
-
-    View v = getRootView(b);
+    View v = getRootView(textComponent);
 
     float w = v.getPreferredSpan(View.X_AXIS);
     float h = v.getPreferredSpan(View.Y_AXIS);
@@ -180,5 +166,16 @@ public class BasicTextUI extends TextUI
   {
     // subclasses have to implement this to get this functionality
     return null;
+  }
+
+  public View create(Element elem, int p0, int p1)
+  {
+    // subclasses have to implement this to get this functionality
+    return null;
+  }
+
+  protected final void setView(View v)
+  {
+    view = v;
   }
 }

@@ -38,6 +38,7 @@ exception statement from your version. */
 package javax.swing.text;
 
 import java.awt.AWTEvent;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Image;
@@ -283,6 +284,11 @@ public abstract class JTextComponent extends JComponent
 
   private Document doc;
   private Caret caret;
+  private Highlighter highlighter;
+  private Color caretColor;
+  private Color disabledTextColor;
+  private Color selectedTextColor;
+  private Color selectionColor;
   private boolean editable;
 
   public JTextComponent()
@@ -394,6 +400,11 @@ public abstract class JTextComponent extends JComponent
     return (TextUI) ui;
   }
 
+  public void setUI(TextUI newUI)
+  {
+    super.setUI(newUI);
+  }
+
   public void updateUI()
   {
     setUI((TextUI) UIManager.getUI(this));
@@ -460,6 +471,50 @@ public abstract class JTextComponent extends JComponent
     caret = newCaret;
   }
 
+  public Color getCaretColor()
+  {
+    return caretColor;
+  }
+
+  public void setCaretColor(Color newColor)
+  {
+    firePropertyChange("caretColor", caretColor, newColor);
+    caretColor = newColor;
+  }
+
+  public Color getDisabledTextColor()
+  {
+    return disabledTextColor;
+  }
+
+  public void setDisabledTextColor(Color newColor)
+  {
+    firePropertyChange("disabledTextColor", caretColor, newColor);
+    disabledTextColor = newColor;
+  }
+
+  public Color getSelectedTextColor()
+  {
+    return selectedTextColor;
+  }
+
+  public void setSelectedTextColor(Color newColor)
+  {
+    firePropertyChange("selectedTextColor", caretColor, newColor);
+    selectedTextColor = newColor;
+  }
+
+  public Color getSelectionColor()
+  {
+    return selectionColor;
+  }
+
+  public void setSelectionColor(Color newColor)
+  {
+    firePropertyChange("selectionColor", caretColor, newColor);
+    selectionColor = newColor;
+  }
+
   /**
    * Retrisves the current caret position.
    *
@@ -499,6 +554,17 @@ public abstract class JTextComponent extends JComponent
       throw new IllegalArgumentException();
 
     caret.moveDot(position);
+  }
+
+  public Highlighter getHighlighter()
+  {
+    return highlighter;
+  }
+
+  public void setHighlighter(Highlighter newHighlighter)
+  {
+    firePropertyChange("highlighter", highlighter, newHighlighter);
+    highlighter = newHighlighter;
   }
 
   /**
@@ -567,6 +633,34 @@ public abstract class JTextComponent extends JComponent
   public void selectAll()
   {
     select(0, doc.getLength());
+  }
+
+  public synchronized void replaceSelection(String content)
+  {
+    int dot = caret.getDot();
+    int mark = caret.getMark();
+
+    // If content is empty delete selection.
+    if (content == null)
+      {
+	caret.setDot(dot);
+	return;
+      }
+
+    try
+      {
+	// Remove selected text.
+	if (dot != mark)
+	  doc.remove(Math.min(dot, mark), Math.max(dot, mark));
+
+	// Insert new text.
+	doc.insertString(Math.min(dot, mark), content, null);
+      }
+    catch (BadLocationException e)
+      {
+	// This should never happen.
+	System.out.println("Michael: JTextComponent.replaceSelection: Error");
+      }
   }
 
   public boolean getScrollableTracksViewportHeight()

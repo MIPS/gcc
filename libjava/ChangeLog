@@ -1,5 +1,42 @@
 2004-06-23  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(BasicTextUI): Made abstract.
+	(BasicCaret): New inner class.
+	(view): Don't explicitely initialize with "null".
+	(textComponent): New field.
+	(textColor): Removed.
+	(disabledTextColor): Removed.
+	(normalBackgroundColor): Removed.
+	(RootView): Removed commented out inner class.
+	(createUI): Removed.
+	(createCaret): New method.
+	(getComponent): Likewise.
+	(installUI): Initialize textComponent only.
+	(getPreferredSize): Use installed JTextComponent.
+	(setView): New method.
+	(create): Likewise.
+	* javax/swing/text/JTextComponent.java
+	(highlighter): New field.
+	(caretColor): Likewise.
+	(disabledTextColor): Likewise.
+	(seletedTextColor): Likewise.
+	(selectionColor): Likewise.
+	(setUI): New method.
+	(getCaretColor): Likewise.
+	(setCaretColor): Likewise.
+	(getDisabledColor): Likewise.
+	(setDisabledColor): Likewise.
+	(getSelectedTextColor): Likewise.
+	(setSelectedTextColor): Likewise.
+	(getSelectionColor): Likewise.
+	(setSelectionColor): Likewise.
+	(getHighlighter): Likewise.
+	(setHighlighter): Likewise.
+	(replaceSelection): Likewise.
+
+2004-06-23  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/JPopupMenu.java: Removed CVS tags.
 	* javax/swing/UIDefaults.java: Reformatted.
 	* javax/swing/plaf/basic/BasicRootPaneUI.java:
