@@ -1,3 +1,8 @@
+2004-08-22  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/opt/pr14029.C: New test.
+	* gcc.c-torture/execute/pr15262.c: New test.
+
 2004-08-19  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc.dg/const-cfstring-1.m: Include stdlib.h.

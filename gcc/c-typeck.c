@@ -2625,9 +2625,18 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	    addr = fold (build2 (PLUS_EXPR, argtype,
 				 convert (argtype, addr),
 				 convert (argtype, byte_position (field))));
+	    /* APPLE LOCAL begin mainline --apinski */
+
+	    /* If the folded PLUS_EXPR is not a constant address, wrap
+               it in an ADDR_EXPR.  */
+	    if (!TREE_CONSTANT (addr))
+	      addr = build1 (ADDR_EXPR, argtype, arg);
+	    /* APPLE LOCAL end mainline --apinski */
 	  }
 	else
-	  addr = build1 (code, argtype, arg);
+	  /* APPLE LOCAL begin mainline --apinski */
+	  addr = build1 (ADDR_EXPR, argtype, arg);
+	  /* APPLE LOCAL end mainline --apinski */
 
 	if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
 	  TREE_INVARIANT (addr) = TREE_CONSTANT (addr) = 1;
@@ -6523,8 +6532,12 @@ c_finish_return (tree retval)
 	    case ADDR_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 
-	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r')
+
+	      /* APPLE LOCAL begin mainline --apinski */
+	      while (TREE_CODE_CLASS (TREE_CODE (inner)) == 'r'
+	             && TREE_CODE (inner) != INDIRECT_REF)
 		inner = TREE_OPERAND (inner, 0);
+	      /* APPLE LOCAL end mainline --apinski */
 
 	      if (DECL_P (inner)
 		  && ! DECL_EXTERNAL (inner)

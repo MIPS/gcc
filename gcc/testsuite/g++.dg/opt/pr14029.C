@@ -1,3 +1,4 @@
+// APPLE LOCAL file mainline --apinski
 // { dg-do run }
 // { dg-options "-O2" }
 // We used to mis-compile this testcase as we did not know that
