@@ -1,3 +1,8 @@
+2004-07-28  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/awt/Component.java: Document AWT 1.0 event handler
+	methods.
+
 2004-07-22  Roman Kennke  <roman@ontographics.com>
 
 	* javax/swing/Box.java:
