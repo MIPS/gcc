@@ -5647,7 +5647,6 @@ fi
 
    fi
 
-set -x
    GCJ=
    # If Canadian cross, then don't pick up tools from the build
    # directory.
@@ -5663,7 +5662,6 @@ set -x
       NULL_TARGET=yes
       GCJ="gcj -B`pwd`/"
    fi
-set +x
 fi
 
 # Create it, so that compile/link tests don't fail
