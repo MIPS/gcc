@@ -122,8 +122,6 @@ build_tree_cfg (fnbody)
 {
   tree *first_p;
 
-  timevar_push (TV_TREE_CFG);
-
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   last_basic_block = 0;
@@ -140,6 +138,8 @@ build_tree_cfg (fnbody)
 
   if (fnbody == empty_stmt_node || TREE_CODE (fnbody) != BIND_EXPR)
     return;
+
+  timevar_push (TV_TREE_CFG);
 
   first_p = first_exec_stmt (&BIND_EXPR_BODY (fnbody));
   if (first_p)
