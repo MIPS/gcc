@@ -50,45 +50,59 @@ public class JCheckBox extends JToggleButton
   private static final long serialVersionUID = -5246739313864538930L;
 
   private boolean borderPaintedFlat;
+
+  private void init()
+  {
+    borderPainted = false;
+    contentAreaFilled = false;
+  }
   
   public JCheckBox()
   {
     super();
+    init();
   }
 
   public JCheckBox(Action action)
   {
     super(action);
+    init();
   }
 
   public JCheckBox(Icon icon)
   { 
     super(icon);
+    init();
   }    
   
   public JCheckBox(Icon icon, boolean selected)
   { 
     super(icon, selected);
+    init();
   }    
   
   public JCheckBox(String text)
   {
     super(text);
+    init();
   }
       
   public JCheckBox(String text, boolean selected)
   {
     super(text, selected);
+    init();
   }
       
   public JCheckBox(String text, Icon icon)
   {
     super(text, icon);
+    init();
   }
 
   public JCheckBox(String text, Icon icon, boolean selected)
   {
     super(text, icon, selected);
+    init();
   }
 
   /**

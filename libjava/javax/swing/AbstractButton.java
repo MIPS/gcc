@@ -163,19 +163,19 @@ public abstract class AbstractButton extends JComponent
   Icon pressed_icon;
 
   /** The icon displayed when the button is disabled. */
-  Icon disabled_icon;
+  Icon disabeldIcon;
 
   /** The icon displayed when the button is selected. */
-  Icon selected_icon;
+  Icon selectedIcon;
 
   /** The icon displayed when the button is selected but disabled. */
-  Icon disabled_selected_icon;
+  Icon disabledSelectedIcon;
 
   /** The icon displayed when the button is rolled over. */
-  Icon rollover_icon;
+  Icon rolloverIcon;
 
   /** The icon displayed when the button is selected and rolled over. */
-  Icon rollover_selected_icon;
+  Icon rolloverSelectedIcon;
 
   /** The icon currently displayed. */
   Icon current_icon;
@@ -183,26 +183,29 @@ public abstract class AbstractButton extends JComponent
   /** The text displayed in the button. */
   String text;
 
+  /** The gap between icon and text, if both icon and text are non-<code>null</code>. */
+  int iconTextGap;
+
   /** The vertical alignment of the button's text and icon. */
-  int vert_align;
+  int verticalAlignment;
 
   /** The horizontal alignment of the button's text and icon. */
-  int hori_align;
+  int horizontalAlignment;
 
   /** The horizontal position of the button's text relative to its icon. */
-  int hori_text_pos;
+  int horizontalTextPosition;
 
   /** The vertical position of the button's text relative to its icon. */
-  int vert_text_pos;
+  int verticalTextPosition;
 
   /** Whether or not the button paints its border. */
-  boolean paint_border;
+  boolean borderPainted;
 
   /** Whether or not the button paints its focus state. */
-  boolean paint_focus;
+  boolean focusPainted;
 
   /** Whether or not the button fills its content area. */
-  boolean content_area_filled;
+  boolean contentAreaFilled;
 
   /** The action taken when the button is clicked. */
   Action action;
@@ -536,12 +539,14 @@ public abstract class AbstractButton extends JComponent
     model.addChangeListener(changeListener);
     model.addItemListener(itemListener);
 
-    hori_align = CENTER;
-    hori_text_pos = TRAILING;
-    vert_align = CENTER;
-    vert_text_pos = CENTER;
-    paint_border = true;
-    content_area_filled = true;
+    horizontalAlignment = CENTER;
+    horizontalTextPosition = TRAILING;
+    verticalAlignment = CENTER;
+    verticalTextPosition = CENTER;
+    borderPainted = true;
+    contentAreaFilled = true;
+
+    iconTextGap = 4;
 
     setAlignmentX(LEFT_ALIGNMENT);
     setAlignmentY(CENTER_ALIGNMENT);
@@ -782,7 +787,7 @@ public abstract class AbstractButton extends JComponent
   /**
    * Set the "rolloverEnabled" property. When rollover is enabled, and the
    * look and feel supports it, the button will change its icon to
-   * rollover_icon, when the mouse passes over it.
+   * rolloverIcon, when the mouse passes over it.
    *
    * @param r Whether or not to enable rollover icon changes
    */
@@ -854,7 +859,7 @@ public abstract class AbstractButton extends JComponent
    */
   public int getHorizontalAlignment()
   {
-    return hori_align;
+    return horizontalAlignment;
   }
 
   /**
@@ -870,8 +875,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setHorizontalAlignment(int a)
   {
-    int old = hori_align;
-    hori_align = a;
+    int old = horizontalAlignment;
+    horizontalAlignment = a;
     if (old != a)
       {
         firePropertyChange(HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY, old, a);
@@ -891,7 +896,7 @@ public abstract class AbstractButton extends JComponent
    */
   public int getHorizontalTextPosition()
   {
-    return hori_text_pos;
+    return horizontalTextPosition;
   }
 
   /**
@@ -907,8 +912,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setHorizontalTextPosition(int t)
   {
-    int old = hori_text_pos;
-    hori_text_pos = t;
+    int old = horizontalTextPosition;
+    horizontalTextPosition = t;
     if (old != t)
       {
         firePropertyChange(HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY, old, t);
@@ -927,7 +932,7 @@ public abstract class AbstractButton extends JComponent
    */
   public int getVerticalAlignment()
   {
-    return vert_align;
+    return verticalAlignment;
   }
 
   /**
@@ -942,8 +947,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setVerticalAlignment(int a)
   {
-    int old = vert_align;
-    vert_align = a;
+    int old = verticalAlignment;
+    verticalAlignment = a;
     if (old != a)
       {
         firePropertyChange(VERTICAL_ALIGNMENT_CHANGED_PROPERTY, old, a);
@@ -963,7 +968,7 @@ public abstract class AbstractButton extends JComponent
    */
   public int getVerticalTextPosition()
   {
-    return vert_text_pos;
+    return verticalTextPosition;
   }
 
   /**
@@ -979,8 +984,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setVerticalTextPosition(int t)
   {
-    int old = vert_text_pos;
-    vert_text_pos = t;
+    int old = verticalTextPosition;
+    verticalTextPosition = t;
     if (old != t)
       {
         firePropertyChange(VERTICAL_TEXT_POSITION_CHANGED_PROPERTY, old, t);
@@ -998,7 +1003,7 @@ public abstract class AbstractButton extends JComponent
    */
   public boolean isBorderPainted()
   {
-    return paint_border;
+    return borderPainted;
   }
 
   /**
@@ -1010,8 +1015,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setBorderPainted(boolean b)
   {
-    boolean old = paint_border;
-        paint_border = b;
+    boolean old = borderPainted;
+        borderPainted = b;
     if (b != old)
       {
         firePropertyChange(BORDER_PAINTED_CHANGED_PROPERTY, old, b);
@@ -1152,6 +1157,33 @@ public abstract class AbstractButton extends JComponent
   }
 
   /**
+   * Set the value of the {@link #iconTextGap} property.
+   * 
+   * @param i The new value of the property
+   */
+  public void setIconTextGap(int i)
+  {
+    int old = iconTextGap;
+    iconTextGap = i;
+    if (old != i)
+      {
+        fireStateChanged(new ChangeEvent(this));
+        revalidate();
+        repaint();
+      }
+  }
+
+  /**
+   * Get the value of the {@link #iconTextGap} property.
+   *
+   * @return The current value of the property
+   */
+  public int getIconTextGap()
+  {
+    return iconTextGap;
+  }
+
+  /**
    * Return the button's "margin" property, which is an {@link Insets} object
    * describing the distance between the button's border and its text and
    * icon.
@@ -1226,11 +1258,11 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getDisabledIcon()
   {
-    if (disabled_icon == null
+    if (disabeldIcon == null
 	&& default_icon instanceof ImageIcon)
-      disabled_icon = new ImageIcon(GrayFilter.createDisabledImage(((ImageIcon) default_icon).getImage()));
+      disabeldIcon = new ImageIcon(GrayFilter.createDisabledImage(((ImageIcon) default_icon).getImage()));
       
-    return disabled_icon;
+    return disabeldIcon;
   }
 
   /**
@@ -1242,9 +1274,9 @@ public abstract class AbstractButton extends JComponent
    *
    * @param disabledIcon The new "disabledIcon" property
    */
-  public void setDisabledIcon(Icon disabledIcon)
+  public void setDisabledIcon(Icon d)
   {
-    disabled_icon = disabledIcon;
+    disabeldIcon = d;
     revalidate();
     repaint();
   }
@@ -1260,7 +1292,7 @@ public abstract class AbstractButton extends JComponent
    */
   public boolean isFocusPainted()
   {
-    return paint_focus;
+    return focusPainted;
   }
 
   /**
@@ -1272,14 +1304,14 @@ public abstract class AbstractButton extends JComponent
    *
    * @param b The new "paintFocus" property
    */
-  public void setFocusPainted(boolean b)
+  public void setFocusPainted(boolean p)
   {
-    boolean old = paint_focus;
-    paint_focus = b;
+    boolean old = focusPainted;
+    focusPainted = p;
 
-    if (old != b)
+    if (old != focusPainted)
       {
-        firePropertyChange(FOCUS_PAINTED_CHANGED_PROPERTY, old, b);
+        firePropertyChange(FOCUS_PAINTED_CHANGED_PROPERTY, old, p);
         revalidate();
         repaint();
       }
@@ -1506,7 +1538,6 @@ public abstract class AbstractButton extends JComponent
         public void stateChanged(ChangeEvent e)
         {
           AbstractButton.this.fireStateChanged(e);
-          AbstractButton.this.revalidate();
           AbstractButton.this.repaint();          
         }
       };
@@ -1586,7 +1617,7 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getDisabledSelectedIcon()
   {
-    return disabled_selected_icon;
+    return disabledSelectedIcon;
   }
 
   /**
@@ -1600,8 +1631,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setDisabledSelectedIcon(Icon disabledSelectedIcon)
   {
-    Icon old = disabled_selected_icon;
-    disabled_selected_icon = disabledSelectedIcon;
+    Icon old = disabledSelectedIcon;
+    disabledSelectedIcon = disabledSelectedIcon;
     if (old != disabledSelectedIcon)
   {
         firePropertyChange(DISABLED_SELECTED_ICON_CHANGED_PROPERTY, old, 
@@ -1621,7 +1652,7 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getRolloverIcon()
   {
-    return rollover_icon;
+    return rolloverIcon;
   }
 
   /**
@@ -1631,10 +1662,10 @@ public abstract class AbstractButton extends JComponent
    *
    * @param rolloverIcon The new rollover icon
    */
-  public void setRolloverIcon(Icon rolloverIcon)
+  public void setRolloverIcon(Icon r)
   {
-    Icon old = rollover_icon;
-    rollover_icon = rolloverIcon;
+    Icon old = rolloverIcon;
+    rolloverIcon = r;
     if (old != rolloverIcon)
   {
         firePropertyChange(ROLLOVER_ICON_CHANGED_PROPERTY, old, 
@@ -1654,7 +1685,7 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getRolloverSelectedIcon()
   {
-    return rollover_selected_icon;
+    return rolloverSelectedIcon;
   }
 
   /**
@@ -1665,10 +1696,10 @@ public abstract class AbstractButton extends JComponent
    *
    * @param rolloverSelectedIcon The new rollover selected icon
    */
-  public void setRolloverSelectedIcon(Icon rolloverSelectedIcon)
+  public void setRolloverSelectedIcon(Icon r)
   {
-    Icon old = rollover_selected_icon;
-    rollover_selected_icon = rolloverSelectedIcon;
+    Icon old = rolloverSelectedIcon;
+    rolloverSelectedIcon = r;
     if (old != rolloverSelectedIcon)
   {
         firePropertyChange(ROLLOVER_SELECTED_ICON_CHANGED_PROPERTY, old, 
@@ -1690,7 +1721,7 @@ public abstract class AbstractButton extends JComponent
    */
   public Icon getSelectedIcon()
   {
-    return selected_icon;
+    return selectedIcon;
   }
 
   /**
@@ -1702,10 +1733,10 @@ public abstract class AbstractButton extends JComponent
    *
    * @param selectedIcon The new selected icon
    */
-  public void setSelectedIcon(Icon selectedIcon)
+  public void setSelectedIcon(Icon s)
   {
-    Icon old = selected_icon;
-    selected_icon = selectedIcon;
+    Icon old = selectedIcon;
+    selectedIcon = s;
     if (old != selectedIcon)
     {
         firePropertyChange(SELECTED_ICON_CHANGED_PROPERTY, old, 
@@ -1767,7 +1798,7 @@ public abstract class AbstractButton extends JComponent
    */
   public boolean isContentAreaFilled()
             {
-    return content_area_filled;
+    return contentAreaFilled;
             }
 
   /**
@@ -1781,8 +1812,8 @@ public abstract class AbstractButton extends JComponent
    */
   public void setContentAreaFilled(boolean b)
             {
-    boolean old = content_area_filled;
-    content_area_filled = b;
+    boolean old = contentAreaFilled;
+    contentAreaFilled = b;
     if (b != old)
       {
         firePropertyChange(CONTENT_AREA_FILLED_CHANGED_PROPERTY, old, b);

@@ -105,7 +105,7 @@ public class JToggleButton extends AbstractButton implements Accessible
   {
     super(text, icon);
 
-    hori_align = LEADING;
+    horizontalAlignment = LEADING;
     setModel(new ToggleButtonModel());	
     model.setSelected(selected);
   }

@@ -61,7 +61,7 @@ public class BasicButtonUI extends ButtonUI
 {
   /** A constant used to pad out elements in the button's layout and
       preferred size calculations. */
-  int defaultTextIconGap = 3;
+  int defaultTextIconGap = 4;
 
   /** A constant added to the defaultTextIconGap to adjust the text
       within this particular button. */
@@ -92,6 +92,7 @@ public class BasicButtonUI extends ButtonUI
     b.setBackground(defaults.getColor("Button.background"));
     b.setMargin(defaults.getInsets("Button.margin"));
     b.setBorder(defaults.getBorder("Button.border"));
+    b.setIconTextGap(defaults.getInt("Button.textIconGap"));
     b.setOpaque(true);
   }
 
@@ -100,6 +101,7 @@ public class BasicButtonUI extends ButtonUI
     b.setForeground(null);
     b.setBackground(null);
     b.setBorder(null);
+    b.setIconTextGap(defaultTextIconGap);
     b.setMargin(null);
   }
 
@@ -234,7 +236,7 @@ public class BasicButtonUI extends ButtonUI
                                                      b.getVerticalTextPosition(), 
                                                      b.getHorizontalTextPosition(),
                                                      vr, ir, tr, 
-                                                     defaultTextIconGap 
+                                                     b.getIconTextGap() 
                                                      + defaultTextShiftOffset);
     
     if ((b.getModel().isArmed() && b.getModel().isPressed()) 
@@ -245,7 +247,7 @@ public class BasicButtonUI extends ButtonUI
 	
     paintIcon(g, c, ir);
     if (text != null)
-      paintText(g, b, tr, b.getText());
+      paintText(g, b, tr, text);
     paintFocus(g, b, vr, tr, ir);
   }
 

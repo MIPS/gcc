@@ -268,7 +268,6 @@ public class RepaintManager
       return;
 
     invalidComponents.add(component);
-    component.invalidate();
     
     if (! repaintWorker.isLive())
       {

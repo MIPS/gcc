@@ -1,3 +1,50 @@
+2004-07-10  Graydon Hoare  <graydon@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkToolkit.java (bufferedImageOrError): 
+	Make method non-static.
+	* javax/swing/AbstractButton.java:
+	Rename fields to match property names where possible.
+	(iconTextGap): New property.
+	* javax/swing/JCheckBox.java: Match AbstractButton changes.
+	(init) New method, call from after various constructors.
+	* javax/swing/JComponent.java (revalidate): 
+	Invalidate before queueing repair.
+	* javax/swing/JList.java (getPreferredScrollableViewportSize):
+	Reimplement in terms of visibleRowCount property.
+	* javax/swing/JMenuButton.java: Match AbstractButton changes.
+	* javax/swing/JScrollPane.java (createScrollListener): 
+	Remove tracing chatter.
+	* javax/swing/JToggleButton.java: Match AbstractButton changes.
+	* javax/swing/RepaintManager.java (addInvalidComponent): 
+	Don't invalidate.
+	* javax/swing/ScrollPaneLayout.java: Various corrections to layout
+	calculations.
+	* javax/swing/SwingUtilities.java (layoutCompoundLabel): 
+	Mimic sun behavior on top left/right positioning.
+	* javax/swing/ViewportLayout.java (preferredLayoutSize):
+	Remove mistaken use of preferredScrollableViewportSize here.
+	(layoutContainer): Use view's preferred size as basis.
+	* javax/swing/plaf/basic/BasicButtonUI.java:
+	Set, get, and use textIconGap property.
+	(paint) Paint text returned from layout (with ellipsis).
+	* javax/swing/plaf/basic/BasicListUI.java:
+	Remove tracing chatter, correct various minor calculations.
+	(getCellBounds): Update layout state before calculating.
+	* javax/swing/plaf/basic/BasicLookAndFeel.java (Button.Margin):
+	Use margin default similar to sun's.	
+	* javax/swing/plaf/basic/BasicScrollBarUI.java (ArrowIcon):
+	(createIncreaseIcon): Center icon, minimize margins.
+	(createDecreaseIcon): Likewise.
+	* javax/swing/plaf/basic/BasicScrollPaneUI.java (installDefaults):
+	Implement.
+	(installUI): Call it.
+	(uninstallDefaults): Implement.
+	(uninstallUI): Call it.
+	* javax/swing/plaf/basic/BasicToolBarUI.java (DragWindow):
+	Call existing Window constructor.
+	* javax/swing/plaf/basic/BasicViewportUI.java (paint):
+	Set clip before painting.
+
 2004-07-10  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/text/Position.java

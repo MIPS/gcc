@@ -71,6 +71,10 @@ public class BasicToolBarUI extends ToolBarUI
 {
   public class DragWindow extends Window
   {
+    public DragWindow() 
+    {
+      super(null); // this throws
+    }
   }
 
     protected String constraintBeforeFloating;

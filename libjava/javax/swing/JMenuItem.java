@@ -171,14 +171,16 @@ public class JMenuItem extends AbstractButton implements Accessible,
 
     // Initializes properties for this menu item, that are different
     // from Abstract button properties. 
-    /* NOTE: According to java specifications paint_border should be set to
-      false, since menu item should not have a border. However running few
-      java programs it seems that menu items and menues can have a border.
-      Commenting out statement below for now. */
-    //paint_border = false;
-    paint_focus = false;
-    hori_align = JButton.LEFT;
-    hori_text_pos = JButton.LEFT;
+    
+    /* NOTE: According to java specifications paint_border should be set to false,
+      since menu item should not have a border. However running few java programs
+      it seems that menu items and menues can have a border. Commenting
+      out statement below for now. */
+      
+    //borderPainted = false;
+    focusPainted = false;
+    horizontalAlignment = JButton.LEFT;
+    horizontalTextPosition = JButton.LEFT;
   }
 
   /**

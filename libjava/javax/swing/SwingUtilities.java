@@ -712,11 +712,14 @@ public class SwingUtilities implements SwingConstants
       {
       case TOP:
         textR.y = 0;
-        iconR.y = textR.height + textIconGap;
+        iconR.y = (horizontalTextPosition == CENTER 
+                   ? textR.height + textIconGap : 0);
         break;
       case BOTTOM:
         iconR.y = 0;
-        textR.y = iconR.height + textIconGap;
+        textR.y = (horizontalTextPosition == CENTER
+                   ? iconR.height + textIconGap 
+                   : iconR.height - textR.height);
         break;
       case CENTER:
         int centerLine = Math.max(textR.height, iconR.height) / 2;

@@ -214,7 +214,7 @@ public class GtkToolkit extends gnu.java.awt.ClasspathToolkit
    * GtkErrorImage if the argument is null.
    */
 
-  private static Image bufferedImageOrError(BufferedImage b)
+  private Image bufferedImageOrError(BufferedImage b)
   {
     if (b == null) 
       return new GtkErrorImage();
