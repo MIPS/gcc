@@ -1179,7 +1179,7 @@ set_if_valid (map, vec, var)
     SET_BIT (vec, p);
 }
 
-/* If a variable is in a partition, and its not already live, add a 
+/* If a variable is in a partition, and it's not already live, add a 
    conflict between it and any other live partition.  Reset the live bit.  */
 
 static inline void 
@@ -1392,7 +1392,7 @@ coalesce_ssa_name (map)
 	      {
 		if (!conflict_graph_conflict_p (graph, x, y))
 		  {
-		    /* NOw map the partitions back to their real variables.  */
+		    /* Now map the partitions back to their real variables.  */
 		    var = partition_to_var (map, x);
 		    tmp = partition_to_var (map, y);
 		    if (tree_ssa_dump_file 
@@ -1438,13 +1438,12 @@ coalesce_ssa_name (map)
 	      /* If partitions are already merged, don't check for conflict.  */
 	      if (tmp == var)
 	        remove_root_var_partition (rv, x, z);
-	      else
-		if (!conflict_graph_conflict_p (graph, y, z))
-		  {
-		    var_union (map, var, tmp);
-		    remove_root_var_partition (rv, x, z);
-		    conflict_graph_merge_regs (graph, y, z);
-		  }
+	      else if (!conflict_graph_conflict_p (graph, y, z))
+		{
+		  var_union (map, var, tmp);
+		  remove_root_var_partition (rv, x, z);
+		  conflict_graph_merge_regs (graph, y, z);
+		}
 	    }
 	}
     }
