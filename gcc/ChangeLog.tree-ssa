@@ -1,12 +1,18 @@
+2003-11-18  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa.c (tree_ssa_useless_type_conversion): Use TYPE_MAIN_VARIANT
+	when compariing pointer types too.
+
 2003-11-18  Jan Hubicka  <jh@suse.cz>
 
 	* tree-dump.c (dump_files): Reorder tail calls.
 	* tree-optimize.c (optimize_function_tree): Likewise
-	* tree-tailcall.c (optimize_tail_call, eliminate_tail_call): Remove variable tmpvars;
-	update SSA.
+	* tree-tailcall.c (optimize_tail_call, eliminate_tail_call): Remove
+	variable tmpvars; update SSA.
 	(suitable_for_tail_opt_p): Do not give up because of static variables.
 	(find_tail_calls):  Track return values in SSA graph.
-	* tree.c (make-phi_node): Do not create new SSA name when operand already is.
+	* tree.c (make-phi_node): Do not create new SSA name when operand
+	already is.
 	* tree.h (enum tree_dump_index): Reorder tail call.
 
 2003-11-17  Diego Novillo  <dnovillo@redhat.com>
