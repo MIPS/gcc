@@ -614,65 +614,69 @@ arc-*-elf*)
 	;;
 arm-*-coff* | armel-*-coff*)
 	tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h"
-	tmake_file=arm/t-arm-coff
+	tmake_file="arm/t-arm arm/t-arm-coff"
 	;;
 arm-semi-aof | armel-semi-aof)
 	tm_file="arm/semiaof.h arm/aof.h arm/arm.h"
-	tmake_file=arm/t-semi
+	tmake_file="arm/t-arm arm/t-semi"
 	;;
 arm-wrs-vxworks)
 	tm_file="dbxelf.h elfos.h svr4.h vxworks.h arm/elf.h arm/aout.h arm/arm.h arm/vxworks.h"
-	tmake_file="${tmake_file} arm/t-vxworks"
+	tmake_file="${tmake_file} arm/t-arm arm/t-vxworks"
 	;;
 arm*-*-freebsd*|strongarm*-*-freebsd*)
 	tm_file="dbxelf.h elfos.h ${fbsd_tm_file} arm/elf.h arm/aout.h arm/freebsd.h arm/arm.h"
-	tmake_file="${tmake_file} arm/t-strongarm-elf"
+	tmake_file="${tmake_file} arm/t-arm arm/t-strongarm-elf"
 	;;
 arm*-*-netbsdelf*)
 	tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h arm/arm.h arm/netbsd-elf.h"
-	tmake_file="${tmake_file} arm/t-netbsd"
+	tmake_file="${tmake_file} arm/t-arm arm/t-netbsd"
 	;;
 arm*-*-netbsd*)
 	tm_file="arm/aout.h arm/arm.h netbsd.h netbsd-aout.h arm/netbsd.h"
-	tmake_file="t-netbsd arm/t-netbsd"
+	tmake_file="t-netbsd arm/t-arm arm/t-netbsd"
 	extra_parts=""
 	use_collect2=yes
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
 	tm_file="dbxelf.h elfos.h linux.h arm/elf.h  arm/linux-gas.h arm/linux-elf.h arm/aout.h arm/arm.h"
-	tmake_file="${tmake_file} arm/t-linux"
+	tmake_file="${tmake_file} arm/t-arm arm/t-linux"
 	extra_parts="crtbegin.o crtbeginS.o crtend.o crtendS.o"
 	gnu_ld=yes
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/linux-gas.h arm/linux-elf.h arm/uclinux-elf.h"
-	tmake_file=arm/t-arm-elf
+	tmake_file="arm/t-arm arm/t-arm-elf"
 	;;
 arm*-*-ecos-elf)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/ecos-elf.h"
-	tmake_file=arm/t-arm-elf
+	tmake_file="arm/t-arm arm/t-arm-elf"
+	;;
+arm*-*-symbianelf*)
+	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/symbian.h arm/aout.h arm/arm.h"
+	tmake_file="t-slibgcc-elf-ver arm/t-arm arm/t-arm-elf"
 	;;
 arm*-*-rtems*)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/rtems-elf.h rtems.h"
-	tmake_file="arm/t-arm-elf t-rtems"
+	tmake_file="arm/t-arm arm/t-arm-elf t-rtems"
 	;;
 arm*-*-elf | ep9312-*-elf)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-	tmake_file=arm/t-arm-elf
+	tmake_file="arm/t-arm arm/t-arm-elf"
 	;;
 arm*-wince-pe*)
 	tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h arm/pe.h arm/wince-pe.h"
-	tmake_file=arm/t-wince-pe
+	tmake_file="arm/t-arm arm/t-wince-pe"
 	extra_objs="pe.o"
 	;;
 arm-*-pe*)
 	tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h arm/pe.h"
-	tmake_file=arm/t-pe
+	tmake_file="arm/t-arm arm/t-pe"
 	extra_objs="pe.o"
 	;;
 arm*-*-kaos*)
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h kaos.h arm/kaos-arm.h"
-	tmake_file=arm/t-arm-elf
+	tmake_file="arm/t-arm arm/t-arm-elf"
 	;;
 avr-*-*)
 	tm_file="avr/avr.h dbxelf.h"
@@ -1367,64 +1371,64 @@ mips*-*-openbsd*)
         esac
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf*)
-	tm_file="${tm_file} mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-isa3264
 	tm_defines="MIPS_ISA_DEFAULT=32 MIPS_ABI_DEFAULT=ABI_EABI"
 	use_fixproto=yes
 	;;
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf*)
-	tm_file="${tm_file} mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-isa3264
 	tm_defines="MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_EABI"
 	use_fixproto=yes
 	;;
 mipsisa64-*-elf* | mipsisa64el-*-elf*)
-	tm_file="${tm_file} mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-isa3264
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=64 MIPS_ABI_DEFAULT=ABI_EABI"
 	use_fixproto=yes
 	;;
 mipsisa64sr71k-*-elf*)
-        tm_file="${tm_file} mips/elf.h"
+        tm_file="elfos.h ${tm_file} mips/elf.h"
         tmake_file=mips/t-sr71k
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=64 MIPS_CPU_STRING_DEFAULT=\\\"sr71000\\\" MIPS_ABI_DEFAULT=ABI_EABI"
 	use_fixproto=yes
         ;;
 mipsisa64sb1-*-elf* | mipsisa64sb1el-*-elf*)
-	tm_file="${tm_file} mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-elf
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=64 MIPS_CPU_STRING_DEFAULT=\\\"sb1\\\" MIPS_ABI_DEFAULT=ABI_O64"
 	use_fixproto=yes
 	;;
 mips-*-elf* | mipsel-*-elf*)
-	tm_file="${tm_file} mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-elf
 	use_fixproto=yes
 	;;
 mips64-*-elf* | mips64el-*-elf*)
-	tm_file="${tm_file} mips/elf64.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h"
 	tmake_file=mips/t-elf
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_O64"
 	use_fixproto=yes
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
-        tm_file="mips/vr.h ${tm_file} mips/elf64.h"
+        tm_file="mips/vr.h elfos.h ${tm_file} mips/elf.h"
         tmake_file=mips/t-vr
 	use_fixproto=yes
         ;;
 mips64orion-*-elf* | mips64orionel-*-elf*)
-	tm_file="${tm_file} mips/elforion.h mips/elf64.h"
+	tm_file="elfos.h ${tm_file} mips/elforion.h mips/elf.h"
 	tmake_file=mips/t-elf
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_O64"
 	use_fixproto=yes
 	;;
 mips*-*-rtems*)
-	tm_file="${tm_file} mips/elf.h mips/rtems.h rtems.h"
+	tm_file="elfos.h ${tm_file} mips/elf.h mips/rtems.h rtems.h"
 	tmake_file="mips/t-elf t-rtems mips/t-rtems"
 	;;
 mips-wrs-vxworks)
@@ -1442,7 +1446,7 @@ mips-wrs-windiss)	# Instruction-level simulator for VxWorks.
 	thread_file=
 	;;
 mipstx39-*-elf* | mipstx39el-*-elf*)
-	tm_file="${tm_file} mips/r3900.h mips/elf.h"
+	tm_file="elfos.h ${tm_file} mips/r3900.h mips/elf.h"
 	tmake_file=mips/t-r3900
 	use_fixproto=yes
 	;;
@@ -1975,7 +1979,7 @@ sparc64-*-netbsd*)
 	;;
 strongarm-*-elf*)
 	tm_file="arm/strongarm-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-	tmake_file=arm/t-strongarm-elf
+	tmake_file="arm/t-arm arm/t-strongarm-elf"
 	out_file=arm/arm.c
 	md_file=arm/arm.md
 	extra_modes=arm/arm-modes.def
@@ -1983,7 +1987,7 @@ strongarm-*-elf*)
 	;;
 strongarm-*-pe)
 	tm_file="arm/semi.h arm/aout.h arm/coff.h dbxcoff.h arm/strongarm-coff.h arm/arm.h arm/pe.h arm/strongarm-pe.h"
-	tmake_file=arm/t-strongarm-pe
+	tmake_file="arm/t-arm arm/t-strongarm-pe"
 	out_file=arm/arm.c
 	md_file=arm/arm.md
 	extra_modes=arm/arm-modes.def
@@ -1992,7 +1996,7 @@ strongarm-*-pe)
 	;;
 strongarm-*-kaos*)
 	tm_file="arm/strongarm-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h kaos.h arm/kaos-strongarm.h"
-	tmake_file=arm/t-strongarm-elf
+	tmake_file="arm/t-arm arm/t-strongarm-elf"
 	out_file=arm/arm.c
 	md_file=arm/arm.md
 	extra_modes=arm/arm-modes.def
@@ -2073,7 +2077,7 @@ vax-*-ultrix*)			# VAXen running ultrix
 	;;
 xscale-*-elf)
 	tm_file="arm/xscale-elf.h dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
-	tmake_file=arm/t-xscale-elf
+	tmake_file="arm/t-arm arm/t-xscale-elf"
 	out_file=arm/arm.c
 	md_file=arm/arm.md
 	extra_modes=arm/arm-modes.def
@@ -2081,7 +2085,7 @@ xscale-*-elf)
 	;;
 xscale-*-coff)
 	tm_file="arm/semi.h arm/aout.h arm/coff.h dbxcoff.h arm/xscale-coff.h arm/arm.h"
-	tmake_file=arm/t-xscale-coff
+	tmake_file="arm/t-arm arm/t-xscale-coff"
 	out_file=arm/arm.c
 	md_file=arm/arm.md
 	extra_modes=arm/arm-modes.def
@@ -2115,6 +2119,18 @@ am33_2.0-*-linux*)
 *)
 	echo "*** Configuration ${target} not supported" 1>&2
 	exit 1
+	;;
+esac
+
+case ${target} in
+i[34567]86-*-linux*aout* | i[34567]86-*-linux*libc1)
+	tmake_file="${tmake_file} i386/t-gmm_malloc"
+	;;
+i[34567]86-*-linux* | x86_64-*-linux*)
+	tmake_file="${tmake_file} i386/t-pmm_malloc"
+	;;
+i[34567]86-*-* | x86_64-*-*)
+	tmake_file="${tmake_file} i386/t-gmm_malloc"
 	;;
 esac
 
@@ -2633,7 +2649,7 @@ fi
 				;;
 		esac
 		case $tm_file in
-			*mips/elf.h* | *mips/elf64.h*)
+			*mips/elf.h*)
 				tm_defines="OBJECT_FORMAT_ELF $tm_defines"
 				;;
 		esac

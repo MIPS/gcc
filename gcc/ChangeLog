@@ -1,3 +1,311 @@
+2004-08-03  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* doc/install.texi: Update autoconf version requirements.
+
+2004-08-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* defaults.h (LEGITIMATE_PIC_OPERAND_P): Provide default definition.
+	* recog.c (general_operand, immediate_operand, nonmemory_operand)
+	(asm_operand_ok): Remove #ifdefs on LEGITIMATE_PICOPERAND_P.
+	* regclass.c (record_reg_classes): Likewise.
+	* reload.c (find_reloads): Likewise.
+	* reload1.c (reload): Likewise.
+
+2004-08-03  Zack Weinberg  <zack@codesourcery.com>
+
+	* gensupport.c (init_md_reader_args_cb): Renamed from
+	init_md_reader_args.  Add third option, callback function for
+	parsing program-specific options.  Add diagnosis of incorrect
+	number of input files.
+	(init_md_reader): Fold into init_md_reader_args_cb.
+	(init_md_reader_args): Now a thin wrapper around
+	init_md_reader_args_cb.
+	* gensupport.h: Update prototypes.
+
+	* genattr.c, genattrtab.c, gencodes.c, genconfig.c, genemit.c
+	* genextract.c, genflags.c, genopinit.c, genoutput.c, genpeep.c
+	* genrecog.c: No need to diagnose lack of an input file;
+	init_md_reader_args will handle it.
+	* genconditions.c: Likewise, and use init_md_reader_args.
+	* genconstants.c: Likewise, and no need to call read_md_rtx.
+
+2004-08-03  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* c-decl.c (implicitly_declare): Diagnose incompatible implicit
+	declarations.
+
+2004-08-03  Mike Stump  <mrs@apple.com>
+
+	* config/darwin-c.c: Don't search in "/Local/Library/Frameworks"
+	for frameworks.
+	* doc/invoke.texi (Darwin Options): Update to reflect above.
+
+2004-08-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/16790
+	* fold-const.c (extract_muldiv_1) <NOP_EXPR>: Disallow local
+	truncations, not just global truncations.
+
+2004-08-03  Andrew Pinski  <apinski@apple.com>
+
+	PR bootstrap/16865
+	* loop-iv.c (simplify_using_assignment): Initialize lhs.
+
+2004-08-03  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/doc/install.texi: Document MPFR requirement.
+
+2004-08-03  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* aclocal.m4 (gcc_AC_FUNC_MMAP_BLACKLIST): Check for <sys/mman.h>
+	and mmap() explicitly instead of relying on preset autoconf cache
+	variables.
+	* configure: Regenerate.
+
+2004-08-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/16570
+	* config.gcc (i[34567]86-*-* | x86_64-*-*): Add i386/t-gmm_malloc
+	to tmake_file.
+	(i[34567]86-*-linux*aout* | i[34567]86-*-linux*libc1): Likewise.
+	(i[34567]86-*-linux* | x86_64-*-linux*): Add i386/t-pmm_malloc
+	to tmake_file.
+
+	* config/i386/t-gmm_malloc: New file.
+	* config/i386/t-pmm_malloc: Likewise.
+
+	* config/i386/xmmintrin.h: Include <mm_malloc.h>.
+
+2004-08-03  H.J. Lu  <hongjiu.lu@intel.com>
+	    Tanguy Fautr√  <tfautre@pandora.be>
+
+	* config/i386/pmm_malloc.h: New file.
+
+2004-08-03  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/gmm_malloc.h: New file.
+
+2004-08-03  Dale Johannesen  <dalej@apple.com>
+
+	* config/rs6000/rs6000.c (machopic_output_stub):  Align Darwin stubs.
+	* c-common.c: Include opts.h.
+	(c_common_get_alias_set): Fix check for a single input file.
+	* toplev.c: Remove current_file_decl.
+	* tree.h: Ditto.
+
+2004-08-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (arm*-*-symbianelf*): New target.
+	* config/arm/symbian.h: New file.
+
+	* gthr-gnat.c: Add visibility #pragmas.
+	* gthr-gnat.h : Likewise.
+	* gthr.h: Likewise.
+	* libgcc2.c (__ffsSI2): Move prototype to libgcc2.h.
+	(__ffsDI2): Likewise.
+	(__clzSI2): Likewise.
+	(__ctzSI2): Likewise.
+	(__ctzDI2): Likewise.
+	(__popcountSI2): Likewise.
+	(__popcountDI2): Likewise.
+	(__paritySI2): Likewise.
+	(__parityDI2): Likewise.
+	* libgcc2.h: Add visibility #pragmas.
+	(__clzDI2): Add prototype.
+	(__clzSI2): Likewise.
+	(__ctzSI2): Likewise.
+	(__ffsDI2): Likewise.
+	(__ffsSI2): Likewise.
+	(__ctzDI2): Likewise.
+	(__popcountSI2): Likewise.
+	(__popcountDI2): Likewise.
+	(__paritySI2): Likewise.
+	(__parityDI2): Likewise.
+	* unwind-dw2-fde.h: Add visibility #pragmas.
+	* unwind.h: Likewise.
+
+2004-08-03  David Edelsohn  <edelsohn@gnu.org>
+	    Dale Johannesen  <dalej@apple.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Calculate cost of
+	constants more accurately.  Adjust costs for FMA instructions.
+	Add cases for most logical and float operations.  Recurse into
+	most operands.
+
+2004-08-03  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config.gcc (strongarm-*, xscale-*): Add t-arm to tmake_files.
+
+2004-08-03  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* ra-build.c (conflicts_between_webs): For webs that cross a call add
+	conflicts to regs_invalidated_by_call.
+
+2004-08-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (emit_sfm): Only emit a single frame adjustment.
+
+2004-08-03  Jan Hubicka  <jh@suse.cz>
+
+	* coverage.c (tree_coverage_counter_ref): Fix computation of the new
+	ARRAY_REF argument.
+
+2004-08-03  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm-cores.def: Sort by architecture.  Add arm946es, arm966es,
+	arm968es, arm10e, arm1020e, arm1022e.
+	* invoke.texi: Update list of ARM cores.
+	* arm-tune.md: Regenerate.
+
+2004-08-03  Richard Earnshaw <rearnsha@arm.com>
+
+	* arm/gentune.sh: New file.
+	* arm/t-arm: New file.
+	* arm/arm-tune.md: New file (autogenerated).
+	* config.gcc (arm*-*-*): Add t-arm to tmake_file for all variants.
+	* arm.md (attribute tune): Delete.  Include arm-tune.md.
+
+2004-08-03  Paolo Bonzini <bonzini@gnu.org>
+
+	* gcc.c (add_prefix, add_sysrooted_prefix): Remove
+	penultimate parameter.  All callers adjusted.
+	(struct prefix_list): Remove used_flag_ptr.
+	(find_a_file): Do not set *pl->used_flag_ptr.
+	(warn_B, warn_std_ptr): Remove.
+
+2004-08-03  Yossi Markovich <yossim@il.ibm.com>
+	    Mostafa Hagog <mustafa@il.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vnmsubfp): Fix wrong pattern.
+
+2004-08-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* dwarf2out.c (output_call_frame_info): Don't change data format
+	due to TARGET_USES_WEAK_UNWIND_INFO.  Always refer to the local
+	label.  Use 'true' not '1'.
+	* doc/install.texi (powerpc-*-darwin*): Mention cctools version
+	required.
+
+2004-08-02  Gabriel Dos Reis  <gdr@cs.tamu.edu>
+
+	* gdbinit.in: Reflect previous changes to rtunion_def.
+
+2004-08-02  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold) <TRUNC_MOD_EXPR>: The transformation "X % -Y"
+	-> "X % Y" is only valid for TRUNC_MOD_EXPR.
+
+2004-08-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* vec.h (DEF_VEC_P): Add proper cast to uses of vec_o_reserve and
+	vec_p_reserve.
+	* langhooks.h (lang_hooks::builtin_function): Rename parameter
+	from "class" to "bt_class".
+
+2004-08-02  Paul Brook  <paul@codesourcery.com>
+
+	PR rtl-optimization/15068
+	* flow.c (init_propagate_block_info): Check condition is reversible.
+
+2004-08-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* gengtype.h (options::info): Change type to const char *.
+	(enum gc_used_enum): Move out of struct type scope.
+	* gengtype.c (create_option): Convert initializer for option::info to
+	appropiate type.
+	(adjust_field_type, walk_type, write_func_for_structure,
+	write_root, write_roots): Remove pointless cast.
+
+2004-08-02  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* genopinit.c (gen_insn): Check for MODE_COMPLEX_FLOAT patterns for $F.
+
+2004-08-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* rtl.h (union rtunion_def): Have all members  start with the
+	prefix "rt_".
+	(XINT, XSTR, XEXP, XVEC, XMODE, XBITMAP, XTREE, XBBDEF, XTMPL,
+	X0INT, X0UINT, X0STR, X0EXP, X0VEC, X0MODE, X0BITMAP, X0TREE,
+	X0MEMATTR, X0BBDEF, X0REGATTR, XCINT, XCUINT, XCSTR, XCEXP,
+	XCVEC, XCMODE, XCBITMAP, XCTREE, XCBBDEF, XC2EXP): Adjust members
+	access.
+	* gengtype.c (adjust_field_rtx_def): Likewise.
+	* rtlanal.c (loc_mentioned_in_p): Likewise.
+
+2004-08-02  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config.gcc (mips*-*-elf*, mips*-*-rtems*): Add elfos.h to tm_file.
+	Replace uses of mips/elf64.h with mips/elf.h
+	* config/mips/elf.h (MAX_OFILE_ALIGNMENT, TARGET_ASM_NAMED_SECTION)
+	(TYPE_OPERAND_FMT, TYPE_ASM_OP, SIZE_ASM_OP, BSS_SECTION_ASM_OP)
+	(ASM_OUTPUT_ALIGNED_BSS, ASM_WEAKEN_LABEL, ASM_OUTPUT_WEAK_ALIAS)
+	(MAKE_DECL_ONE_ONLY, INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP)
+	(HANDLE_SYSV_PRAGMA): Delete.
+	(ASM_OUTPUT_DEF): Fix formatting.
+	* config/mips/elf64.h: Delete.
+
+2004-08-01  Zack Weinberg  <zack@codesourcery.com>
+
+	* config/ia64/ia64.c (got_symbolic_operand): Do require a
+	symbol+offset operand to have its offset be zero mod 0x3fff
+	when GOT entries are in use.  Clarify logic in SYMBOL_REF
+	case.  Clarify comments.
+	(ia64_expand_load_address): Split a symbol+offset load when
+	the offset is nonzero mod 0x3fff, not 0x1fff.
+
+2004-08-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Just abort
+	if trying to *store* to a non-offsettable address.
+	* config/rs6000/rs6000.md (movtf_internal): Don't move GPRs to
+	a nonoffsettable address.
+	(movdi_internal32): Don't move GPRs to a nonoffsettable address.
+	Clean up.
+	(movti_string): Don't move GPRs to a nonoffsettable address.
+	(movti_ppc64): Don't move GPRs to a nonoffsettable address.  Clean up.
+
+2004-08-02  Ben Elliston  <bje@au.ibm.com>
+
+	PR target/16155
+	* config/rs6000/altivec.h: Replace typeof with __typeof__.
+
+2004-08-01  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Fix crash with
+	variable sized types.
+
+2004-08-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* doc/invoke.texi: In the MIPS options section, remove the passage
+	saying that -mexplicit-relocs is usually disabled for -mabicalls
+	-fno-unit-at-a-time.
+	* config/mips/mips.c (override_options): Remove the code that enforced
+	this rule.
+
+2004-08-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md (cprestore): Provide two alternatives, one for
+	an in-range offset and one for an out-of-range offset.  Wrap the latter
+	in .set macro/.set nomacro if it's inside a .set nomacro block.
+
+2004-08-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips-protos.h (mips_gp_save_slot): Remove.
+	(mips_restore_gp): Declare.
+	* config/mips/mips.c (mips_add_offset): Add a scratch register
+	argument.  Reimplement in rtl only, reusing MIPS16 logic from
+	mips_output_mi_thunk.
+	(mips_legitimize_address, mips_legitimize_const_move): Adjust calls
+	to mips_add_offset.
+	(mips_gp_save_slot): Delete.
+	(mips_restore_gp): New function.
+	(mips_set_return_address, mips_output_mi_thunk): Use mips_add_offset.
+	* config/mips/mips.md (exception_receiver): Turn into a
+	define_insn_and_split.  Use mips_restore_gp to do the split.
+	(call_internal, call_value_internal, call_value_multiple_internal): Use
+	mips_restore_gp to restore $gp.
+
 2004-07-31  Andrew Pinski  <apinski@apple.com>
 
 	PR other/16842

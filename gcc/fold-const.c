@@ -5102,9 +5102,9 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type)
 		     && TYPE_IS_SIZETYPE (TREE_TYPE (op0)))
 	       && (GET_MODE_SIZE (TYPE_MODE (ctype))
 	           > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))))
-	      /* ... or its type is larger than ctype,
-		 then we cannot pass through this truncation.  */
-	      || (GET_MODE_SIZE (TYPE_MODE (ctype))
+	      /* ... or this is a truncation (t is narrower than op0),
+		 then we cannot pass through this narrowing.  */
+	      || (GET_MODE_SIZE (TYPE_MODE (type))
 		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
 	      /* ... or signedness changes for division or modulus,
 		 then we cannot pass through this conversion.  */
@@ -7624,8 +7624,9 @@ fold (tree expr)
 			       fold_convert (type, arg0), mask));
 	}
 
-      /* X % -C is the same as X % C (for all rounding moduli).  */
-      if (!TYPE_UNSIGNED (type)
+      /* X % -C is the same as X % C.  */
+      if (code == TRUNC_MOD_EXPR
+	  && !TYPE_UNSIGNED (type)
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_INT_CST_HIGH (arg1) < 0
 	  && !flag_trapv
@@ -7634,8 +7635,9 @@ fold (tree expr)
 	return fold (build2 (code, type, fold_convert (type, arg0),
 			     fold_convert (type, negate_expr (arg1))));
 
-      /* X % -Y is the same as X % Y (for all rounding moduli).  */
-      if (!TYPE_UNSIGNED (type)
+      /* X % -Y is the same as X % Y.  */
+      if (code == TRUNC_MOD_EXPR
+	  && !TYPE_UNSIGNED (type)
 	  && TREE_CODE (arg1) == NEGATE_EXPR
 	  && !flag_trapv)
 	return fold (build2 (code, type, fold_convert (type, arg0),
