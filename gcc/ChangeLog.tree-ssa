@@ -1,3 +1,8 @@
+2003-02-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (ccp_fold): Fold builtins by replacing and
+	restoring their arguments.
+
 2003-02-27  Jeff Law  <law@redhat.com>
 
 	* fold-const.c (nondestructive_fold_binary_to_constant): Renamed

@@ -643,7 +643,7 @@ ccp_fold (stmt)
   tree rhs = get_rhs (stmt);
   enum tree_code code = TREE_CODE (rhs);
   int kind = TREE_CODE_CLASS (code);
-  tree retval;
+  tree retval = NULL_TREE;
 
   /* If the RHS is just a variable, then that variable must now have
      a constant value that we can return directly.  */
@@ -744,9 +744,26 @@ ccp_fold (stmt)
 	       == FUNCTION_DECL)
 	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
     {
-      tree copy = copy_stmt (stmt);
-      replace_uses_in (copy);
-      retval = fold_builtin (get_rhs (copy));
+      varray_type uses = use_ops (stmt);
+      if (uses)
+	{
+	  tree *orig;
+	  size_t i;
+
+	  /* Preserve the original values of every operand.  */
+	  orig = xmalloc (sizeof (tree) * VARRAY_ACTIVE_SIZE (uses));
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
+	    orig[i] = *((tree *) VARRAY_GENERIC_PTR (uses, i));
+
+	  /* Substitute operands with their values and try to fold.  */
+	  replace_uses_in (stmt);
+	  retval = fold_builtin (rhs);
+
+	  /* Restore operands to their original form.  */
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (uses); i++)
+	    *((tree *) VARRAY_GENERIC_PTR (uses, i)) = orig[i];
+	  free (orig);
+	}
     }
   else
     return rhs;
