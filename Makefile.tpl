@@ -1287,6 +1287,7 @@ STAMP = echo timestamp >
 # overrideable (for a bootstrap build stage1 also builds gcc.info).
 
 STAGE1_CFLAGS=@stage1_cflags@
+STAGE1_LANGUAGES=@stage1_languages@
 
 stage1_build: all-bootstrap
 	r=`${PWD}`; export r; \
@@ -1296,7 +1297,7 @@ stage1_build: all-bootstrap
 	s=`cd $(srcdir); ${PWD}`; export s; \
 	cd gcc && \
 	$(MAKE) $(GCC_FLAGS_TO_PASS) \
-                LANGUAGES="@stage1_languages@" \
+                LANGUAGES="$(STAGE1_LANGUAGES)" \
 		CFLAGS="$(STAGE1_CFLAGS)" \
 		COVERAGE_FLAGS=
 	$(STAMP) stage1_build
