@@ -1184,6 +1184,10 @@ override_options ()
   if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
+  /* Turn on SSE builtins for -msse2.  */
+  if (TARGET_SSE2)
+    target_flags |= MASK_SSE;
+
   if (TARGET_64BIT)
     {
       if (TARGET_ALIGN_DOUBLE)

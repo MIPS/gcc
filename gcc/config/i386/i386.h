@@ -276,7 +276,7 @@ extern int x86_prefetch_sse;
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
-#define TARGET_SSE ((target_flags & (MASK_SSE | MASK_SSE2)) != 0)
+#define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
