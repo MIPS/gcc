@@ -68,17 +68,21 @@ static bool ignore_bb_p			PARAMS ((basic_block));
 
 #define MIN_FREQUENCY  BB_FREQ_MAX/1000
 
-/* Stop tracing after at least 80% of instructions has been convered
+/* Stop tracing after at least 95% of instructions has been convered
    by constructed superblocks.  */
 
-#define DYNAMIC_COVERAGE 95
+#define DYNAMIC_COVERAGE 0.95
 
 /* Stop once the number of instructions has been increased to 200%.
    This is rather hokey argument, as most of the duplicates will be elliminated
    later in cross jumping, but we need to keep the code size and compiler
    resource usage under control.  */
 
-#define MAXIMAL_CODE_GROWTH 200
+#define MAXIMAL_CODE_GROWTH 2.0
+
+/* Stop growth if the best edge probability is less than
+   this threshold (ie there are many edges with small probabilities).  */
+#define MIN_BRANCH_RATIO 0.1
 
 /* Return true if BB has been seen - it is connected to some trace
    already.  */
@@ -145,6 +149,8 @@ find_best_successor (basic_block bb)
       best = e;
   if (!best || ignore_bb_p (best->dest))
     return NULL;
+  if (best->probability < (int)(REG_BR_PROB_BASE * MIN_BRANCH_RATIO))
+    return NULL;
   return best;
 }
 
@@ -160,6 +166,9 @@ find_best_predecessor (basic_block bb)
     if (!best || better_p (e, best))
       best = e;
   if (!best || ignore_bb_p (best->src))
+    return NULL;
+  if (EDGE_FREQUENCY (best) * REG_BR_PROB_BASE
+      < bb->frequency * (int)(REG_BR_PROB_BASE * MIN_BRANCH_RATIO))
     return NULL;
   return best;
 }
@@ -236,8 +245,9 @@ tail_duplicate ()
       weighted_insns += n * BASIC_BLOCK (i)->frequency;
     }
 
-  for (; traced_insns * 100 < weighted_insns * DYNAMIC_COVERAGE
-	 && (nduplicated + ninsns) * 100 < ninsns * MAXIMAL_CODE_GROWTH
+  for (; traced_insns * 100 < weighted_insns * (int) (DYNAMIC_COVERAGE * 100)
+	 && ((nduplicated + ninsns) * 100
+	     < ninsns * (int )(100 * MAXIMAL_CODE_GROWTH))
 	 && !fibheap_empty (heap);)
     {
       basic_block bb = fibheap_extract_min (heap);
