@@ -498,7 +498,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
    type and sometimes adjust other TARGET_ options.  */
 
 void
-rs6000_override_options (const char *default_cpu);
+rs6000_override_options (const char *default_cpu)
 {
   size_t i, j;
   struct rs6000_cpu_select *ptr;
