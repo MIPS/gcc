@@ -1,3 +1,23 @@
+2002-09-30  Bo Thorsen  <bo@suse.de>
+
+	* sysdep/x86-64/locks.h (compare_and_swap): Fix multilib support.
+
+2002-07-19  Bo Thorsen  <bo@berlioz.suse.de>
+
+	* java/lang/ieeefp.h: Add x86-64 support.
+	* configure.in: Likewise.
+	* configure.host: Likewise.
+	* configure: Regenerated.
+	* sysdep/x86-64/locks.h: New file with x86-64 locks.
+
+2002-05-29  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.host [s390*-linux*]: Set can_unwind_signal=yes.
+	* configure.in [s390*-*-linux*]: Do not define HAVE_BACKTRACE.
+	Set SIGNAL_HANDLER=include/s390-linux.h.
+	* configure: Regenerate.
+	* include/s390-linux.h: New file.
+
 2002-04-29  Gerhard Tonn  <GerhardTonn@swol.de>
 
 	* java/lang/ieeefp.h: Define __IEEE_BIG_ENDIAN for S/390.

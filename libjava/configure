@@ -3853,6 +3853,9 @@ if eval "test \"`echo '$ac_cv_func_'backtrace`\" = yes"; then
        ia64-*-linux*)
 	 # Has broken backtrace()
 	 ;;
+       s390*-*-linux*)
+	 # Has broken backtrace()
+	 ;;
        *)
          cat >> confdefs.h <<\EOF
 #define HAVE_BACKTRACE 1
@@ -6485,6 +6488,12 @@ case "${host}" in
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  alpha*-*-linux*)
+    SIGNAL_HANDLER=include/dwarf2-signal.h
+    ;;
+ s390*-*-linux*)
+    SIGNAL_HANDLER=include/s390-signal.h
+    ;;
+ x86_64*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
  sparc*-*-linux*)
