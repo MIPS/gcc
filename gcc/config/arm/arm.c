@@ -58,7 +58,7 @@ static void      arm_add_gc_roots 		PROTO ((void));
 static void      arm_add_minipool_constant	PROTO ((rtx, Mmode));
 static void      arm_compute_minipool_offsets	PROTO ((void));
 static Ulong     arm_dump_minipool		PROTO ((rtx));
-static rtx       arm_find_barrier		PROTO ((minifix, Ulong, Ulong *));
+static rtx       arm_find_barrier		PROTO ((rtx, Ulong, Ulong, Ulong, Ulong *, Ulong *));
 static Hint      arm_find_minipool_constant	PROTO ((rtx, Mmode));
 static int       arm_gen_constant		PROTO ((enum rtx_code, Mmode, Hint, rtx, rtx, int, int));
 static int       arm_naked_function_p		PROTO ((tree));
@@ -4633,6 +4633,7 @@ typedef struct minipool_fixup
   enum machine_mode       mode;
   rtx                     value;
   unsigned long           max_address;
+  unsigned long           min_address;
 } minipool_fixup;
 
 minipool_fixup * 	minipool_fix_head;
@@ -4647,43 +4648,40 @@ get_jump_table_size (insn)
   return GET_MODE_SIZE (SImode) * XVECLEN (PATTERN (insn), elt);
 }
 
-/* Find the first barrier located after FIX but before MAX_ADDRESS.
+/* Find a suitable barrier for inserting a minipool.
+   We start searching at SEARCH_START_INSN which has address
+   SEARCH_START_ADDRESS.  We will not return a barrier before MIN_ADDRESS
+   (which may be higher than SEARCH_START_ADDRESS) or one after MAX_ADDRESS.
+
    If there is no such barrier create one.  
-   Return the barrier, and store its address in *PADDRESS.  */
+   Return the barrier.  Store the address at which we will insert the
+   barrier in *PADDRESS.  If we needed to insert a jump before it, the
+   number of bytes added will be stored in *PINSERTED.  Thus, the final
+   address of the barrier is always (*PADDRESS + *PINSERTED).  */
 static rtx
-arm_find_barrier (fix, max_address, paddress)
-     minipool_fixup * fix;
-     unsigned long    max_address;
-     unsigned long *  paddress;
+arm_find_barrier (search_start_insn, search_start_address, min_address,
+		  max_address, paddress, pinserted)
+     rtx search_start_insn;
+     unsigned long search_start_address;
+     unsigned long min_address;
+     unsigned long max_address;
+     unsigned long *paddress, *pinserted;
 {
-  rtx barrier, other_placement;
-  rtx from, last, label;
+  rtx barrier;
+  rtx other_placement = 0;
+  rtx from, label;
   unsigned long count = 0;
-  unsigned long other_count, max_count, inserted;
+  unsigned long other_count, inserted;
 
-  from = fix->insn;
-  max_count = max_address - fix->address;
+  from = search_start_insn;
 
-  other_placement = from;
-  other_count = 0;
-  
+  *pinserted = 0;
+
   while (from)
     {
       enum rtx_code code = GET_CODE (from);
       int size;
       rtx tmp;
-
-      if (code == BARRIER)
-	{
-	  *paddress = fix->address + count;
-	  
-	  if (rtl_dump_file)
-	    fprintf (rtl_dump_file,
-		     ";; Found barrier for minipool at insn %d; address %ld\n",
-		     INSN_UID (from), fix->address + count);
-	  
-	  return from;
-	}
 
       /* Compute the length of this insn.  */
       size = get_attr_length (from);
@@ -4695,24 +4693,46 @@ arm_find_barrier (fix, max_address, paddress)
       else
 	tmp = from;
 
+      /* Ignore these insns if we haven't passed MIN_ADDRESS yet.  */
+      if (search_start_address + count >= min_address)
+	{
+	  if (code == BARRIER)
+	    {
+	      *paddress = search_start_address + count;
+
+	      if (rtl_dump_file)
+		fprintf (rtl_dump_file,
+			 ";; Found barrier for minipool at insn %d; address %ld\n",
+			 INSN_UID (from), search_start_address + count);
+
+	      return from;
+	    }
+
+	  if (other_placement == 0)
+	    other_placement = from, other_count = count + size;
+
+	  /* See whether this may be a good place to insert a BARRIER if we can't
+	     find one.  */
+	  if (code == JUMP_INSN && GET_CODE (other_placement) != JUMP_INSN
+	      && (count + size + (TARGET_THUMB ? 2 : 4) + search_start_address
+		  < max_address))
+	    other_placement = from, other_count = count + size;
+	}
+
       /* Do the exit test here and in this way so we step over zero-size
 	 instructions (i.e. CODE_LABELs or NOTEs).  We have another chance
 	 to find a barrier if we do this.  */
-      if (count + size > max_count)
+      if (count + size + search_start_address > max_address)
 	break;
+
       count += size;
-
-      /* See whether this may be a good place to insert a BARRIER if we can't
-	 find one.  */
-      if (code == JUMP_INSN && GET_CODE (other_placement) != JUMP_INSN
-	  && count + (TARGET_THUMB ? 2 : 4) < max_count)
-	other_placement = from, other_count = count;
-
-      last = from;
       from = NEXT_INSN (tmp);
     }
 
   /* We didn't find a barrier in time to dump our stuff, so make one.  */
+  if (other_placement == 0)
+    abort ();
+
   label = gen_label_rtx ();
 
   if (rtl_dump_file)
@@ -4731,7 +4751,8 @@ arm_find_barrier (fix, max_address, paddress)
   if (from)
     inserted += get_jump_table_size (from);
 
-  *paddress = fix->address + other_count + inserted;
+  *paddress = search_start_address + other_count;
+  *pinserted = inserted;
   return barrier;
 }
 
@@ -4825,6 +4846,8 @@ sort_fixups (void)
   qsort (array, minipool_num_fixes, sizeof (minipool_fixup *), fixup_compare);
   for (i = 0; i < minipool_num_fixes; i++)
     {
+      unsigned long range = get_attr_pool_range (array[i]->insn);
+      unsigned long neg_range = get_attr_neg_pool_range (array[i]->insn);
       /* If a Thumb instruction occurs on a half-word boundary, treat it as if it
 	 occurs on the word boundary before it.  This is because the constant pool
 	 is always word aligned, and Thumb PC relative offsets are also word
@@ -4832,8 +4855,10 @@ sort_fixups (void)
          This needs to be done _after_ sorting the array.  */
       if (TARGET_THUMB)
 	array[i]->address &= ~3;
-      array[i]->max_address = (array[i]->address
-			       + get_attr_pool_range (array[i]->insn));
+      array[i]->max_address = (array[i]->address + range);
+      array[i]->min_address = 0;
+      if (array[i]->address > neg_range)
+	array[i]->min_address = (array[i]->address - neg_range);
     }
   return array;
 }
@@ -4971,17 +4996,20 @@ arm_reorg (first)
   while (*fix != NULL)
     {
       minipool_fixup ** ftmp;
-      minipool_fixup *  this_fix;
-      unsigned long     max_address;
-      minipool_fixup *  highest_fix;
-      rtx               barrier;
-      unsigned int      new_minipool_size = 0;
-      unsigned long     start;
-      unsigned long     space;
+      minipool_fixup *this_fix;
+      unsigned long max_address, min_address;
+      minipool_fixup *highest_fix;
+      rtx barrier;
+      unsigned int new_minipool_size = 0;
+      unsigned long start, space, inserted;
+      unsigned long search_start_address;
+      rtx search_start_insn;
 
-      highest_fix = this_fix = * fix;
+      highest_fix = this_fix = *fix;
       max_address = this_fix->max_address;
 
+      /* Don't insert pools after the last insn we fixed up.  This would screw
+	 up the calculations for that insn.  */
       if (max_address > last_fixed_address)
 	max_address = last_fixed_address;
 
@@ -4990,48 +5018,111 @@ arm_reorg (first)
 		 ";; Start new minipool with fixup for instruction at %lu, max_address %lu\n",
 		 this_fix->address, max_address);
 
-      /* Decide where to place the minipool.  */
-      barrier = arm_find_barrier (this_fix, max_address, & start);
-      
-      /* No references constants in the minipool yet which might constrain
-	 the remaining space at the front.  */
-      space = ~0UL;
-
-      /* Find all the other fixes that can live in the same pool.
-         They must occur before the start of the pool (since we currently
-         only allow forward addressing), and they must be able to reach
-         the end of the pool which is where their value will probably be
-         placed.
-         Record the fixup with the highest address that we encounter.  We
-         must ensure that the minipool is placed after this fixup.  */
+      /* We may be able to place the pool before this insn if it allows a
+	 negative offset.  Earlier insns that do not allow negative offsets
+	 must act as barriers.  */
+      min_address = this_fix->min_address;
       for (ftmp = fix;; ftmp++)
 	{
 	  unsigned int this_size;
-	  
+
+	  this_fix = *ftmp;
+
+	  search_start_insn = first;
+	  search_start_address = 0;
+	  if (this_fix == NULL)
+	    break;
+
+	  search_start_insn = this_fix->insn;
+	  search_start_address = this_fix->address;
+
+	  this_size = GET_MODE_SIZE (this_fix->mode);
+
+	  /* Don't search past an insn with a zero neg_pool_range.  */
+	  if (this_fix->address == this_fix->min_address)
+	    break;
+	  /* If we're getting outside the range for the already processed
+	     insns, break here.  */
+	  if (min_address + new_minipool_size + this_size >= this_fix->address)
+	    break;
+	  if (this_fix->min_address > min_address)
+	    min_address = this_fix->min_address;
+	  new_minipool_size += this_size;
+	}
+
+      /* Decide where to place the minipool.  */
+      barrier = arm_find_barrier (search_start_insn, search_start_address,
+				  min_address + new_minipool_size,
+				  max_address, &start, &inserted);
+
+      /* Adjust addresses if necessary (i.e. code was inserted before one of
+	 the insns that weren't fixed up yet.  */
+      if (inserted)
+	for (ftmp = fix; (this_fix = *ftmp) != 0; ftmp++)
+	  if (this_fix->address >= start)
+	    {
+	      this_fix->address += inserted;
+	      this_fix->min_address += inserted;
+	      this_fix->max_address += inserted;
+	    }
+      start += inserted;
+
+      /* Find all the other fixes that can live in the same pool.
+
+	 Unconditionally add fixes that live after the start of the pool.  The
+	 loop above will have verified that they can use this pool.
+
+         All new constants get inserted at the start of the pool.  This will
+	 push entries added earlier (for insns with higher addresses) towards
+	 the end of the pool.  To prevent this from causing these entries to
+	 go out of range, we use the SPACE variable.  */
+      space = ~0UL;
+      new_minipool_size = 0;
+      for (ftmp = fix;; ftmp++)
+	{
+	  unsigned int this_size;
+
 	  this_fix = *ftmp;
 
 	  if (this_fix == NULL)
 	    break;
 
 	  this_size = GET_MODE_SIZE (this_fix->mode);
-	  /* Make sure we can insert this constant at the start of the
-	     minipool.  */
-	  if (this_fix->max_address < start
-	      || new_minipool_size + this_size > space)
-	    break;
+
+	  if (this_fix->address > start)
+	    {
+	      if (start < this_fix->min_address
+		  || new_minipool_size + this_size > space)
+		abort ();
+	      if (start - this_fix->min_address < space)
+		{
+		  space = start - this_fix->min_address;
+
+		  if (rtl_dump_file)
+		    fprintf (rtl_dump_file, ";; Reduce minipool space to %lu\n",
+			     space);
+		}
+	    }
+	  else
+	    {
+	      /* Make sure we can insert this constant at the start of the
+		 minipool.  */
+	      if (this_fix->max_address < start
+		  || new_minipool_size + this_size > space)
+		break;
+
+	      /* Does this fix constrain the space left in the minipool?  */
+	      if (this_fix->max_address - start < space)
+		{
+		  space = this_fix->max_address - start;
+
+		  if (rtl_dump_file)
+		    fprintf (rtl_dump_file, ";; Reduce minipool space to %lu\n",
+			     space);
+		}
+	    }
 
 	  new_minipool_size += this_size;
-
-	  /* Does this fix constrain the space left in the minipool?  */
-	  if (this_fix->max_address - start < space)
-	    {
-	      space = this_fix->max_address - start;
-	      
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file, ";; Reduce minipool space to %lu\n",
-			 space);
-	    }
-	  
 	  arm_add_minipool_constant (this_fix->value, this_fix->mode);
 	}
 

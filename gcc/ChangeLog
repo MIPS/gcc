@@ -1,3 +1,18 @@
+1999-12-15  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* config/arm/arm.md (neg_pool_offset): Provide default for new
+	attribute.
+	(arm_movsi_insn): Add neg_pool_offset attribute.
+	* config/arm/arm.c (arm_find_barrier): Replace arg FIX with an
+	rtx for the insn that starts the scan and an unsigned long for its
+	address.  Add MIN_OFFSET and PINSERTED args.  All callers changed.
+	Change scan to ignore insns before MIN_OFFSET.  Store size of inserted
+	instructions in *PINSERTED.
+	(struct minipool_fixup): Add MIN_ADDRESS elt.
+	(sort_fixups): Compute it.
+	(arm_reorg): Changes to support inserting pools before the insn to be
+	fixed up.
+
 Mon Dec 13 09:34:31 1999  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* config/arm/arm.md (mulsidi3adddi, umulsidi3adddi): New patterns

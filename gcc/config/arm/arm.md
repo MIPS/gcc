@@ -61,7 +61,10 @@
 ; POOL_RANGE is how far away from a constant pool entry that this insn
 ; can be placed.  If the distance is zero, then this insn will never
 ; reference the pool.
+; NEG_POOL_RANGE is nonzero for insns that can reference a constant pool entry
+; before its address.
 (define_attr "pool_range" "" (const_int 0))
+(define_attr "neg_pool_range" "" (const_int 0))
 
 ; An assembler sequence may clobber the condition codes without us knowing
 (define_asm_attributes
@@ -3809,7 +3812,8 @@
    ldr%?\\t%0, %1
    str%?\\t%1, %0"
   [(set_attr "type" "*,*,load,store1")
-   (set_attr "pool_range" "*,*,4096,*")]
+   (set_attr "pool_range" "*,*,4096,*")
+   (set_attr "neg_pool_range" "*,*,4088,*")]
 )
 
 (define_split
