@@ -1,5 +1,10 @@
 2004-10-12  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/libjava.loader/loader.exp (gcj_object_file_name): New
+	proc.
+	(gcj_loader_test_one): Use it.
+	(gcj_loader_run): Likewise.
+
 	* prims.cc: Don't include FirstThread.h.
 
 2004-10-06  Tom Tromey  <tromey@redhat.com>
