@@ -1068,7 +1068,9 @@ javax/swing/plaf/TabbedPaneUI.java \
 javax/swing/plaf/TextUI.java \
 javax/swing/plaf/TreeUI.java \
 javax/swing/plaf/ViewportUI.java \
+javax/swing/plaf/metal/DefaultMetalTheme.java \
 javax/swing/plaf/metal/MetalLookAndFeel.java \
+javax/swing/plaf/metal/MetalTheme.java \
 javax/swing/plaf/ColorUIResource.java \
 javax/swing/plaf/DimensionUIResource.java \
 javax/swing/plaf/FontUIResource.java \
@@ -3287,7 +3289,9 @@ javax/swing/plaf/OptionPaneUI.lo javax/swing/plaf/PanelUI.lo \
 javax/swing/plaf/ScrollPaneUI.lo javax/swing/plaf/TabbedPaneUI.lo \
 javax/swing/plaf/TextUI.lo javax/swing/plaf/TreeUI.lo \
 javax/swing/plaf/ViewportUI.lo \
+javax/swing/plaf/metal/DefaultMetalTheme.lo \
 javax/swing/plaf/metal/MetalLookAndFeel.lo \
+javax/swing/plaf/metal/MetalTheme.lo \
 javax/swing/plaf/ColorUIResource.lo \
 javax/swing/plaf/DimensionUIResource.lo \
 javax/swing/plaf/FontUIResource.lo javax/swing/plaf/IconUIResource.lo \
@@ -5548,7 +5552,9 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/plaf/basic/BasicTreeUI.P \
 .deps/javax/swing/plaf/basic/BasicViewportUI.P \
 .deps/javax/swing/plaf/basic/ComboPopup.P \
+.deps/javax/swing/plaf/metal/DefaultMetalTheme.P \
 .deps/javax/swing/plaf/metal/MetalLookAndFeel.P \
+.deps/javax/swing/plaf/metal/MetalTheme.P \
 .deps/javax/swing/table/AbstractTableModel.P \
 .deps/javax/swing/table/DefaultTableCellRenderer.P \
 .deps/javax/swing/table/DefaultTableColumnModel.P \
