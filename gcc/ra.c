@@ -3385,6 +3385,67 @@ assign_colors (void)
     }
 }
 
+static void
+spill_coalescing (coalesce, spilled)
+     sbitmap coalesce, spilled;
+{
+  struct move_list *ml;
+  struct move *m;
+  for (ml = wl_moves; ml; ml = ml->next)
+    if ((m = ml->move) != NULL)
+      {
+	struct web *s = alias (m->source_web);
+	struct web *t = alias (m->target_web);
+	if ((TEST_BIT (spilled, s->id) && TEST_BIT (coalesce, t->id))
+	    || (TEST_BIT (spilled, t->id) && TEST_BIT (coalesce, s->id)))
+	  {
+	    struct conflict_link *wl;
+	    if (TEST_BIT (sup_igraph, s->id * num_webs + t->id)
+		|| TEST_BIT (sup_igraph, t->id * num_webs + s->id))
+	      continue;
+
+	    PUT_CODE (m->insn, NOTE);
+	    NOTE_LINE_NUMBER (m->insn) = NOTE_INSN_DELETED;
+
+	    if (s == t)
+	      /* May be, already coalesced due to a former move.  */
+	      continue;
+	    /* Merge the nodes S and T in the I-graph.  Beware: the merging
+	       of conflicts relies on the fact, that in the conflict list
+	       of T all of it's conflicts are noted.  This is currently not
+	       the case if T would be the target of a coalesced web, because
+	       then (in combine () above) only those conflicts where noted in
+	       T from the web which was coalesced into T, which at the time
+	       of combine() where not already on the SELECT stack or where
+	       itself coalsced to something other.  */
+	    if (t->type != SPILLED || s->type != SPILLED)
+	      abort ();
+	    remove_list (t->dlink, &spilled_nodes);
+	    put_web (t, COALESCED);
+	    t->alias = s;
+	    s->is_coalesced = 1;
+	    t->is_coalesced = 1;
+	    merge_moves (s, t);
+	    for (wl = t->conflict_list; wl; wl = wl->next)
+	      {
+		struct web *pweb = wl->t;
+		if (wl->sub == NULL)
+		  record_conflict (s, pweb);
+		else
+		  {
+		    struct sub_conflict *sl;
+		    for (sl = wl->sub; sl; sl = sl->next)
+		      record_conflict (s, sl->t);
+		  }
+		/* No decrement_degree here, because we already have colored
+		   the graph, and don't want to insert pweb into any other
+		   list.  */
+		pweb->num_conflicts -= 1 + t->add_hardregs;
+	      }
+	  }
+      }
+}
+
 /* Allocate a spill slot for a web.  */
 static void
 allocate_spill_web (web)
@@ -3397,7 +3458,7 @@ allocate_spill_web (web)
      unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]); */
   unsigned int total_size = MAX (inherent_size, 0);
   if (web->stack_slot)
-    abort ();
+    return;
   slot = assign_stack_local (PSEUDO_REGNO_MODE (regno), total_size,
 			     inherent_size == total_size ? 0 : -1);
   RTX_UNCHANGING_P (slot) = RTX_UNCHANGING_P (regno_reg_rtx[regno]);
@@ -3417,12 +3478,13 @@ rewrite_program (void)
   for (i = 0; i < num_webs - num_subwebs; i++)
     {
       struct web *web = id2web[i];
+      struct web *aweb = alias (web);
       int j;
       rtx slot;
-      if (web->type != SPILLED)
+      if (aweb->type != SPILLED)
 	continue;
-      allocate_spill_web (web);
-      slot = web->stack_slot;
+      allocate_spill_web (aweb);
+      slot = aweb->stack_slot;
       bitmap_clear (b);
       for (j = 0; j < web->num_defs; j++)
 	{
@@ -3430,6 +3492,9 @@ rewrite_program (void)
 	  rtx insn = DF_REF_INSN (web->defs[j]);
 	  rtx following = NEXT_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
+	  /* Happens when spill_coalescing() deletes move insns.  */
+	  if (!INSN_P (insn))
+	    continue;
 	  if (bitmap_bit_p (b, INSN_UID (insn)))
 	    continue;
 	  bitmap_set_bit (b, INSN_UID (insn));
@@ -3457,6 +3522,9 @@ rewrite_program (void)
 	  rtx insn = DF_REF_INSN (web->uses[j]);
 	  rtx prev = PREV_INSN (insn);
 	  basic_block bb = BLOCK_FOR_INSN (insn);
+	  /* Happens when spill_coalescing() deletes move insns.  */
+	  if (!INSN_P (insn))
+	    continue;
 	  if (bitmap_bit_p (b, INSN_UID (insn)))
 	    continue;
 	  bitmap_set_bit (b, INSN_UID (insn));
@@ -3481,6 +3549,21 @@ rewrite_program (void)
   BITMAP_XFREE (b);
   
   /*if (! validate_change (insn, df->defs[i]->loc, web->stack_slot, 0)) */
+}
+
+static void
+actual_spill (void)
+{
+  sbitmap spilled;
+  struct web *web;
+  struct dlist *d;
+  spilled = sbitmap_alloc (num_webs);
+  sbitmap_zero (spilled);
+  for (d = spilled_nodes; d; d = d->next)
+    SET_BIT (spilled, DLIST_WEB (d)->id);
+  spill_coalescing (spilled, spilled);
+  rewrite_program ();
+  free (spilled);
 }
 
 /* Create new pseudos for each web we colored, and set up reg_renumber.  */
@@ -3683,7 +3766,7 @@ one_pass (df)
   assign_colors ();
   if (spilled_nodes)
     {
-      rewrite_program ();
+      actual_spill ();
       return 1;
     }
   return 0;

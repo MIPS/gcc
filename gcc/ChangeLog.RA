@@ -1,3 +1,13 @@
+2001-07-03  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
+        First naive version of spill coalescing.
+ 
+        * ra.c : (spill_coalescing): New.
+        (actual_spill): New.
+        (one_pass): Use it.
+        (allocate_spill_web): Don't abort if already having a stack slot.
+        (rewrite_program): Deal with webs coalesced to spilled ones.
+
 2001-06-30  Michael Matz <matzmich@cv.tu-berlin.de>
  
         * ra.c : (colorize_one_web): Two passes over conflicts trying to
