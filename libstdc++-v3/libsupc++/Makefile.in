@@ -231,8 +231,8 @@ headers = \
 	exception new typeinfo cxxabi.h exception_defines.h
 
 
-c_sources = \
-	cp-demangle.c 
+@GLIBCXX_HOSTED_TRUE@c_sources = \
+@GLIBCXX_HOSTED_TRUE@	cp-demangle.c 
 
 
 sources = \
@@ -346,17 +346,31 @@ LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 
 libsupc___la_LDFLAGS =
 libsupc___la_LIBADD =
+am__libsupc___la_SOURCES_DIST = del_op.cc del_opnt.cc del_opv.cc \
+	del_opvnt.cc eh_alloc.cc eh_aux_runtime.cc eh_catch.cc \
+	eh_exception.cc eh_globals.cc eh_personality.cc \
+	eh_term_handler.cc eh_terminate.cc eh_throw.cc eh_type.cc \
+	eh_unex_handler.cc guard.cc new_handler.cc new_op.cc \
+	new_opnt.cc new_opv.cc new_opvnt.cc pure.cc tinfo.cc tinfo2.cc \
+	vec.cc vterminate.cc cp-demangle.c
 am__objects_1 = del_op.lo del_opnt.lo del_opv.lo del_opvnt.lo \
 	eh_alloc.lo eh_aux_runtime.lo eh_catch.lo eh_exception.lo \
 	eh_globals.lo eh_personality.lo eh_term_handler.lo \
 	eh_terminate.lo eh_throw.lo eh_type.lo eh_unex_handler.lo \
 	guard.lo new_handler.lo new_op.lo new_opnt.lo new_opv.lo \
 	new_opvnt.lo pure.lo tinfo.lo tinfo2.lo vec.lo vterminate.lo
-am__objects_2 = cp-demangle.lo
+@GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
 am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
 libsupc__convenience_la_LDFLAGS =
 libsupc__convenience_la_LIBADD =
+am__libsupc__convenience_la_SOURCES_DIST = del_op.cc del_opnt.cc \
+	del_opv.cc del_opvnt.cc eh_alloc.cc eh_aux_runtime.cc \
+	eh_catch.cc eh_exception.cc eh_globals.cc eh_personality.cc \
+	eh_term_handler.cc eh_terminate.cc eh_throw.cc eh_type.cc \
+	eh_unex_handler.cc guard.cc new_handler.cc new_op.cc \
+	new_opnt.cc new_opv.cc new_opvnt.cc pure.cc tinfo.cc tinfo2.cc \
+	vec.cc vterminate.cc cp-demangle.c
 am_libsupc__convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc__convenience_la_OBJECTS = $(am_libsupc__convenience_la_OBJECTS)
 
@@ -371,8 +385,8 @@ LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-DIST_SOURCES = $(libsupc___la_SOURCES) \
-	$(libsupc__convenience_la_SOURCES)
+DIST_SOURCES = $(am__libsupc___la_SOURCES_DIST) \
+	$(am__libsupc__convenience_la_SOURCES_DIST)
 HEADERS = $(glibcxxinstall_HEADERS)
 
 DIST_COMMON = $(glibcxxinstall_HEADERS) $(srcdir)/Makefile.in \

@@ -6907,7 +6907,7 @@ grokdeclarator (tree declarator,
     }
 
   if (sfk != sfk_conversion)
-    ctor_return_type = ctype;
+    ctor_return_type = ctype ? ctype : current_class_type;
 
   if (sfk != sfk_none)
     type = check_special_function_return_type (sfk, type,

@@ -219,8 +219,9 @@ WARN_CXXFLAGS = \
 
 # -I/-D flags to pass when compiling.
 AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
-@GLIBCXX_HOSTED_TRUE@hosted_source = src po
-SUBDIRS = include libmath libsupc++ $(hosted_source) testsuite
+
+@GLIBCXX_HOSTED_TRUE@hosted_source = libmath src po testsuite
+SUBDIRS = include libsupc++ $(hosted_source)
 
 # Multilib support.
 MAKEOVERRIDES = 
@@ -300,7 +301,7 @@ DIST_COMMON = README $(srcdir)/Makefile.in $(srcdir)/configure \
 	../ltconfig ../ltmain.sh ../missing ../mkinstalldirs ../ylwrap \
 	ChangeLog Makefile.am acconfig.h acinclude.m4 aclocal.m4 \
 	config.h.in configure configure.ac
-DIST_SUBDIRS = include libmath libsupc++ src po testsuite
+DIST_SUBDIRS = include libsupc++ libmath src po testsuite
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -676,8 +677,6 @@ uninstall-info: uninstall-info-recursive
 	ps-recursive tags tags-recursive uninstall uninstall-am \
 	uninstall-info-am uninstall-info-recursive uninstall-recursive
 
-
-@GLIBCXX_HOSTED_TRUE@  # Possibly libmath as well...
 
 # These rules are messy, but are hella worth it.
 doxygen:

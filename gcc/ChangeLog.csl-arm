@@ -1,3 +1,13 @@
+2004-08-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp/decl.c (grokdeclarator): Make sure ctor_return_type is set
+	before calling check_special_function_return_type.  
+ 
+	Backport:
+	2004-08-03  Mark Mitchell  <mark@codesourcery.com>
+	* config.gcc (arm*-*-symbianelf*): New target.
+	* config/arm/symbian.h: New file.
+
 2004-08-12  Paul Brook  <paul@codesourcery.com>
 
 	* testsuite/g++.dg/abi/arm_cxa_vec_1.C: New test.

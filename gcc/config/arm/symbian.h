@@ -20,6 +20,9 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+/* Use the SYMBIAN ABI by default.  */
+#define ARM_DEFAULT_ABI ARM_ABI_AAPCS
+
 /* Do not expand builtin functions (unless explicitly prefixed with
    "__builtin").  Symbian OS code relies on properties of the standard
    library that go beyond those guaranteed by the ANSI/ISO standard.
@@ -27,28 +30,21 @@
    "memmove".  We cannot simply set flag_no_builtin in arm.c because
    (a) flag_no_builtin is not declared in language-independent code,
    and (b) that would prevent users from explicitly overriding the
-   default with -fbuiltin, which may sometimes be useful.
+   default with -fno-builtin, which may sometimes be useful.
 
    Make all symbols hidden by default.  Symbian OS expects that all
    exported symbols will be explicitly marked with
-   "__declspec(dllexport)".  
-
-   Enumeration types use 4 bytes, even if the enumerals are small,
-   unless explicitly overridden.
-
-   The wchar_t type is a 2-byte type, unless explicitly
-   overridden.  */
-#define CC1_SPEC						\
-  "%{!fbuiltin:%{!fno-builtin:-fno-builtin}} "			\
-  "%{!fvisibility=*:-fvisibility=hidden} "			\
-  "%{!fshort-enums:%{!fno-short-enums:-fno-short-enums}} "	\
-  "%{!fshort-wchar:%{!fno-short-wchar:-fshort-wchar}} "
-#define CC1PLUS_SPEC CC1_SPEC
+   "__declspec(dllexport)".  */
+#define CC1_SPEC "-fno-builtin"
+#define CC1PLUS_SPEC "-fno-builtin"
 
 /* Symbian OS does not use crt0.o, unlike the generic unknown-elf
    configuration.  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "crti%O%s crtbegin%O%s"
 
-/* Support the "dllimport" attribute.  */
-#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 1
+/* The generic link spec in elf.h does not support shared libraries.  */
+#undef LINK_SPEC
+#define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} "		\
+  "%{static:-Bstatic} %{shared:-shared} %{symbolic:-Bsymbolic} "	\
+  "-X"
