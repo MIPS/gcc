@@ -1,6 +1,23 @@
 2004-01-31  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline.
+	2003-12-19  James E Wilson  <wilson@specifixinc.com>
+	* flow.c (mark_set_regs, case PARALLEL): Scan loop forwards.
+	Add case for ASM_OPERANDS.
+	* global.c (global_alloc): Set regs_ever_live for regs_asm_clobbered
+	registers.
+
+	2003-12-06  Alan Modra  <amodra@bigpond.net.au>
+	PR 13169
+	* basic-block.h (PROP_ASM_SCAN): Define.
+	* final.c (regs_asm_clobbered): New array.
+	* regs.h (regs_asm_clobbered): Declare.
+	* flow.c (life_analysis): Init it.
+	(mark_set_regs): Set PROP_ASM_SCAN for asms.
+	(mark_set_1): Set regs_asm_clobbered.
+	* global.c (global_alloc): Don't set eliminable_regset when
+	regs_asm_clobbered.
+
 	2003-12-03  Alan Modra  <amodra@bigpond.net.au>
 	PR target/11229
 	* cse.c (cse_insn): Set classp using src_const_elt if
