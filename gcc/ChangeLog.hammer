@@ -1,3 +1,7 @@
+Wed Mar 12 09:40:47 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* Merge form mainline (hammer-3_3-merge-20030212)
+
 Mon Mar 10 15:43:30 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_machine_dependent_reorg):  Replace rep instead of padding.

@@ -796,6 +796,12 @@ extern enum reg_class m68hc11_tmp_regs_class;
 
 #define SMALL_REGISTER_CLASSES 1
 
+/* A C expression that is nonzero if hard register number REGNO2 can be
+   considered for use as a rename register for REGNO1 */
+
+#define HARD_REGNO_RENAME_OK(REGNO1,REGNO2) \
+  m68hc11_hard_regno_rename_ok ((REGNO1), (REGNO2))
+
 /* A C expression whose value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
    because registers of CLASS are needed for spill registers.
@@ -851,6 +857,7 @@ extern enum reg_class m68hc11_tmp_regs_class;
    (C) == 'L' ? ((VALUE) >= -65536 && (VALUE) <= 65535) : \
    (C) == 'M' ? ((VALUE) & 0x0ffffL) == 0 : \
    (C) == 'N' ? ((VALUE) == 1 || (VALUE) == -1) : \
+   (C) == 'I' ? ((VALUE) >= -2 && (VALUE) <= 2) : \
    (C) == 'O' ? (VALUE) == 16 : \
    (C) == 'P' ? ((VALUE) <= 2 && (VALUE) >= -8) : 0)
 

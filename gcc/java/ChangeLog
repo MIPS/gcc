@@ -1,3 +1,19 @@
+2003-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (resolve_field_access): Initialize class if field is
+	found in another static field.
+	* expr.c (build_class_init): Don't optimize out initialization of
+	implemented interface.
+
+2003-03-10  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* jcf-io.c (caching_stat): Account for both DIR_SEPARATOR
+	and DIR_SEPARATOR_2 for a target.
+	Correct minor typos.
+
+	* jcf-write.c (make_class_file_name): Take both DIR_SEPARATOR
+	and DIR_SEPARATOR_2 for a target into account.
+
 2003-03-05  Ranjit Mathew  <rmathew@hotmail.com>
 
 	* jcf.h (COMPARE_FILENAMES): New macro similar to "strcmp" to

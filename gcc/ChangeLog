@@ -1,3 +1,127 @@
+2003-03-11  Loren James Rittle  <ljrittle@acm.org>
+
+	(per-port preprocessor fix, concurrent to Neil's cppinit.c fix)
+	* config/freebsd-spec.h (FBSD_CPP_PREDEFINES): Remove.
+	(FBSD_TARGET_OS_CPP_BUILTINS): New port-specific macro.
+	(FBSD_TARGET_CPU_CPP_BUILTINS): New port-specific macro.
+	* config/freebsd.h (CPP_PREDEFINES): Remove.
+	(TARGET_OS_CPP_BUILTINS): New.
+	* config/alpha/freebsd.h: Use overridden FBSD_TARGET_CPU_CPP_BUILTINS
+	instead of TARGET_OS_CPP_BUILTINS.
+	* config/sparc/freebsd.h (CPP_PREDEFINES): Remove.
+
+2003-03-11  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	PR bootstrap/9994
+	Backport from mainline:
+
+	2003-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* sbitmap.c (sbitmap_resize): New function.
+	* sbitmap.h (sbitmap_resize): Prototype here.
+	* recog.c (split_all_insns): Use sbitmap_resize.
+
+	Mon Feb 17 16:16:54 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* recog.c (split_all_insns):  Fix memory overflow.
+
+	2003-02-15  Richard Henderson  <rth@redhat.com>
+
+	* recog.c (split_all_insns): Include new blocks in life update;
+	do a global life update.
+
+2003-03-11  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/cris/cris.md: Remove lingering EGCS reference.
+	("*extopqihi_side_biap"): For HI operation, match
+	cris_additive_operand_extend_operator, not
+	cris_operand_extend_operator.  Adjust condition.
+	("*extopqihi_side", "*extopqihi"): Ditto.
+	("*extopqisi_side_biap"): Correct operand numbers in condition.
+	("*extophisi_side_biap", "*extopqisi_swap_side_biap"): Ditto.
+	("*extophisi_swap_side_biap", "*extopqisi_swap"): Ditto.
+	("*extophisi_swap"): Ditto.
+	("*extopqihi_swap_side_biap"): For HI operation, match a simple
+	PLUS, not cris_operand_extend_operator.  Adjust condition and
+	output template.
+	("*extopqihi_swap_side", "*extopqihi_swap"): Ditto.
+	* config/cris/cris.h (PREDICATE_CODES): Add
+	cris_additive_operand_extend_operator.
+	* config/cris/cris.c (cris_additive_operand_extend_operator):
+	New predicate.
+
+	* config/cris/aout.h (ENDFILE_SPEC): Undef.
+	(CRIS_CPP_SUBTARGET_SPEC): Move -D__AOUT__ to...
+	(TARGET_OS_CPP_BUILTINS): New macro.
+	(HAVE_GAS_HIDDEN): Undef.
+	* config/cris/cris.h: Remove EGCS references.
+	(CPP_SPEC): Remove "-$".
+	(INIT_CUMULATIVE_ARGS): Correct comment.
+	* config/cris/cris.h (CRIS_CPP_SUBTARGET_SPEC): Move -D__ELF__ to...
+	(TARGET_OS_CPP_BUILTINS): New macro.
+	(CPP_PREDEFINES): Don't define.  Move old definitions and...
+	(CPP_SPEC): ...move -D__CRIS_ABI_version=2 to...
+	(TARGET_CPU_CPP_BUILTINS): New macro.
+	* config/cris/linux.h (CRIS_CPP_SUBTARGET_SPEC): Move constant
+	definitions and the optional __PIC__, __pic__ and
+	__NO_UNDERSCORES__ definitions to...
+	(TARGET_OS_CPP_BUILTINS): New macro.
+
+2003-03-10  Devang Patel  <dpatel@apple.com>
+
+	PR c++/9394
+        * gcc.c (DEFAULT_SWITCH_TAKES_ARG): Remove.
+	(DEFAULT_WORD_SWITCH_TAKES_ARG): Remove.
+	* gcc.h (DEFAULT_SWITCH_TAKES_ARG): Add.
+	(DEFAULT_WORD_SWITCH_TAKES_ARG): Add.
+	* cppspec.c (DEFAULT_SWTICH_TAKES_ARG): Remove.
+	(DEFAULT_WORD_SWITCH_TAKES_ARG): Remove.
+	
+2003-03-10  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (HARD_REGNO_RENAME_OK): Define.
+	* config/m68hc11/m68hc11-protos.h (m68hc11_hard_regno_rename_ok):
+	Declare.
+	* config/m68hc11/m68hc11.c (m68hc11_hard_regno_rename_ok): New function
+	for reg rename optimization to avoid using Z and Y registers.
+
+2003-03-10  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("*addhi3_68hc12"): Accept any constant
+	when adding to X and Y since leax/leay are fast.
+	("*addhi3"): Accept 'I' constraint when adding to address register.
+	("rotlhi3"): Operand 1 must be a register_operand.
+	(peephole2): New peephole to optimize some adds.
+	* config/m68hc11/m68hc11.h (CONST_OK_FOR_LETTER_P): Use 'I' constraint
+	to represent -2 .. 2 small integer range.
+
+2003-03-10  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (m68hc11_gen_rotate): Set carry before
+	each 16-bit rotation.
+
+2003-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/spe.h: Merge from mainline.
+
+Mon Mar 10 11:30:56 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation):  Revert the previous patch.
+
+2003-03-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/9986
+	* c-common.c (c_common_nodes_and_builtins): Initialize target builtins
+	after the common builtins.
+	* pa-hpux.h (DONT_HAVE_FPUTC_UNLOCKED): Define.
+	* pa.c (TARGET_INIT_BUILTINS): Define.
+	(pa_init_builtins): New function.
+
+	* pa.md (call, call_value, sibcall, sibcall_value): When sufficient
+	space has been allocated for the outgoing arguments, set the arg
+	pointer for a call emitted after virtuals have been instantiated
+	using the stack pointer offset, otherwise abort.
+
 Thu Mar  6 16:35:27 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* toplev.c (rest_of_compilation):  Defer RTL compilation only when

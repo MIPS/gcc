@@ -1,3 +1,12 @@
+2003-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/initfield.java: New file.
+	* libjava.lang/initfield.out: New file.
+
+2003-03-10  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated to reflect reality.
+
 2003-03-02  Mark Wielaard  <mark@klomp.org>
 
 	* libjava.mauve/xfails: Remove all AcuniaPropertiesTest failures

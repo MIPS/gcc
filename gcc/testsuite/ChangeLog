@@ -1,3 +1,36 @@
+2003-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9474
+	* g++.dg/parse/namespace8.C: New test.
+
+2003-03-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9924
+	* g++.dg/overload/builtin2.C: New test.
+
+2003-03-10  Devang Patel  <dpatel@apple.com>
+
+	PR c++/9394
+	* g++.dg/cpp/c++_cmd_1.C: New test.
+	* g++.dg/cpp/c++_cmd_1.h: New file.
+	
+2003-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9373
+	* cp-lang.c (cxx_get_alias_set): Use alias set zero for
+	pointers to member functions.
+
+2003-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8534
+	* g++.dg/opt/ptrmem1.C: New test.
+
+2003-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9912
+	* g++.dg/parse/class1.C: New test.
+	* g++.old-deja/g++.other/decl5.C: Adjust.
+	
 2003-03-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/i386-loop-1.c: New test.
