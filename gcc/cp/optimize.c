@@ -101,7 +101,8 @@ maybe_thunk_body (tree fn)
   tree call, clone, expr_stmt, fn_parm, fn_parm_typelist, last_arg, start;
   int parmno, vtt_parmno;
 
-  if (flag_apple_kext || flag_clone_structors)
+  /* APPLE LOCAL disable de-cloner */
+  if (TRUE || flag_apple_kext || flag_clone_structors)
     return 0;
 
   /* If we've already seen this structor, avoid re-processing it.  */

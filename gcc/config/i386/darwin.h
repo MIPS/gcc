@@ -48,11 +48,10 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CC1_SPEC
 /* APPLE LOCAL begin dynamic-no-pic */
-/* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
 #define CC1_SPEC "\
 %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
 "/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
-%{!static:%{!mxxdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
+%{!static:%{!mdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
 /* APPLE LOCAL end dynamic-no-pic */
 
 /* APPLE LOCAL AltiVec */
@@ -86,6 +85,12 @@ Boston, MA 02111-1307, USA.  */
 
 #define SHIFT_DOUBLE_OMITS_COUNT 0
 
+/* APPLE LOCAL begin deep branch prediction pic-base */
+extern void darwin_x86_file_end (void);
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END darwin_x86_file_end
+/* APPLE LOCAL end deep branch prediction pic-base */
+
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
 /* String containing the assembler's comment-starter.  */
@@ -100,15 +105,15 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | (0 & MASK_128BIT_LONG_DOUBLE))
 /* APPLE LOCAL end long double default size -- mrs */
 
-/* TARGET_DEEP_BRANCH_PREDICTION is incompatible with Mach-O PIC.  */
+/* APPLE LOCAL deletion dynamic-no-pic */
 
-#undef TARGET_DEEP_BRANCH_PREDICTION
-#define TARGET_DEEP_BRANCH_PREDICTION   0
+/* APPLE LOCAL begin dynamic-no-pic */
+/* Darwin switches.  */
+/* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
+#define MASK_MACHO_DYNAMIC_NO_PIC (0x00800000)
+/* APPLE LOCAL end dynamic-no-pic */
 
-/* For now, disable dynamic-no-pic.  We'll need to go through i386.c
-   with a fine-tooth comb looking for refs to flag_pic!  */
-#define MASK_MACHO_DYNAMIC_NO_PIC 0
-#define TARGET_DYNAMIC_NO_PIC	  (target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
+#define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
 
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
@@ -201,12 +206,14 @@ Boston, MA 02111-1307, USA.  */
 #define BASIC_STACK_BOUNDARY (128)
 /* APPLE LOCAL end SSE stack alignment */
 
-/* APPLE LOCAL begin default to ppro */
+/* APPLE LOCAL begin default to pentium-m */
 #undef SUBTARGET_OVERRIDE_OPTIONS
-/* Force Darwin/x86 to default as "-march=i686 -mcpu=pentium4".  */
+/* Force Darwin/x86 to default as "-march=pentium-m -mtune=pentium-m -mfpmath=sse".  */
 #define SUBTARGET_OVERRIDE_OPTIONS \
   do { \
-    if (!ix86_arch_string) ix86_arch_string = "pentiumpro"; \
-    if (!ix86_tune_string) ix86_tune_string = "pentium4"; \
+    if (!ix86_arch_string && !ix86_tune_string && !ix86_fpmath_string && TARGET_80387) \
+      { target_flags |= MASK_SSE2; ix86_fpmath_string = "sse"; } \
+    if (!ix86_arch_string) ix86_arch_string = "pentium-m"; \
+    if (!ix86_tune_string) ix86_tune_string = "pentium-m"; \
   } while (0)
-/* APPLE LOCAL end default to ppro */
+/* APPLE LOCAL end default to pentium-m */

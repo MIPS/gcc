@@ -32,6 +32,10 @@ extern void machopic_picsymbol_stub1_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
+/* APPLE LOCAL begin -mdynamic-no-pic */
+extern void machopic_lazy_symbol_ptr2_section (void);
+extern void machopic_lazy_symbol_ptr3_section (void);
+/* APPLE LOCAL end -mdynamic-no-pic */
 extern void machopic_nl_symbol_ptr_section (void);
 
 extern void constructor_section (void);
@@ -153,6 +157,8 @@ extern void machopic_nl_symbol_ptr_section (void);
 extern void machopic_symbol_stub_section (void);
 extern void machopic_picsymbol_stub_section (void);
 extern void machopic_output_stub (FILE *, const char *, const char *);
+/* APPLE LOCAL begin deep branch prediction.  */
+extern void darwin_textcoal_nt_section (void);
 extern void darwin_exception_section (void);
 extern void darwin_eh_frame_section (void);
 extern void darwin_globalize_label (FILE *, const char *);

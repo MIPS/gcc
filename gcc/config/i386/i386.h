@@ -129,7 +129,7 @@ extern int target_flags;
 #define MASK_MS_BITFIELD_LAYOUT 0x00200000	/* Use native (MS) bitfield layout */
 #define MASK_TLS_DIRECT_SEG_REFS 0x00400000	/* Avoid adding %gs:0  */
 
-/* Unused:			0x03e0000	*/
+/* Unused:			0x03000000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */

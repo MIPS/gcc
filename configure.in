@@ -944,6 +944,9 @@ case "${host}" in
   powerpc-*-darwin*)
     host_makefile_frag="config/mh-ppc-darwin"
     ;;
+  i[[3456789]]86-*-darwin*)
+    host_makefile_frag="config/mh-x86-darwin"
+    ;;
   *-*-lynxos*)
     # /bin/cc is less than useful for our purposes.  Always use GCC
     tentative_cc="/bin/gcc"

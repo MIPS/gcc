@@ -105,7 +105,7 @@ name_needs_quotes (const char *name)
 }
 
 /* Return true if SYM_REF can be used without an indirection.  */
-static int
+int
 machopic_symbol_defined_p (rtx sym_ref)
 {
   if (SYMBOL_REF_FLAGS (sym_ref) & MACHO_SYMBOL_FLAG_DEFINED)
@@ -434,9 +434,12 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
   if (! MACHOPIC_INDIRECT)
     return orig;
 
-  if (GET_CODE (orig) == SYMBOL_REF)
+  /* APPLE LOCAL begin dynamic-no-pic  */
+  switch (GET_CODE (orig))
     {
-      int defined = machopic_data_defined_p (orig);
+    case SYMBOL_REF:
+      {
+	int defined = machopic_data_defined_p (orig);
 
       if (defined && MACHO_DYNAMIC_NO_PIC_P)
 	{
@@ -444,8 +447,12 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
  	  emit_insn (gen_macho_high (reg, orig));
  	  emit_insn (gen_macho_low (reg, reg, orig));
 #else
-	   /* some other cpu -- writeme!  */
-	   abort ();
+#if defined (TARGET_386)
+	    return orig;
+#else /* defined (TARGET_386) */
+	    /* some other cpu -- writeme!  */
+	    abort ();
+#endif /* defined (TARGET_386) */
 #endif
 	   return reg;
 	}
@@ -495,63 +502,86 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       ptr_ref = gen_const_mem (Pmode, ptr_ref);
       machopic_define_symbol (ptr_ref);
 
+#ifdef TARGET_386
+	if (reg && TARGET_DYNAMIC_NO_PIC)
+	  {
+	    emit_insn (gen_rtx_SET (Pmode, reg, ptr_ref));
+	    ptr_ref = reg;
+	  }
+#endif	/* TARGET_386 */
+
       return ptr_ref;
     }
-  else if (GET_CODE (orig) == CONST)
-    {
-      rtx base, result;
+      break;
+  
+    case CONST:
+      {
+	/* If "(const (plus ...", walk the PLUS and return that result.
+	   PLUS processing (below) will restore the "(const ..." if
+	   appropriate.  */
+	if (GET_CODE (XEXP (orig, 0)) == PLUS)
+	  return machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	else 
+	  return orig;
+      }
+      break;
+  
+    case MEM:
+      {
+	XEXP (ptr_ref, 0) = machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	return ptr_ref;
+      }
+      break;
+  
+    case PLUS:
+      {
+	rtx base, result;
 
-      /* legitimize both operands of the PLUS */
-      if (GET_CODE (XEXP (orig, 0)) == PLUS)
-	{
-	  base = machopic_indirect_data_reference (XEXP (XEXP (orig, 0), 0),
-						   reg);
-	  orig = machopic_indirect_data_reference (XEXP (XEXP (orig, 0), 1),
-						   (base == reg ? 0 : reg));
-	}
-      else
-	return orig;
-
-      if (MACHOPIC_PURE && GET_CODE (orig) == CONST_INT)
-	result = plus_constant (base, INTVAL (orig));
-      else
-	result = gen_rtx_PLUS (Pmode, base, orig);
-
-      if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
-	{
-	  if (reg)
-	    {
-	      emit_move_insn (reg, result);
-	      result = reg;
-	    }
-	  else
-	    {
-	      result = force_reg (GET_MODE (result), result);
-	    }
-	}
-
-      return result;
-
-    }
-  else if (GET_CODE (orig) == MEM)
-    XEXP (ptr_ref, 0) = machopic_indirect_data_reference (XEXP (orig, 0), reg);
-  /* When the target is i386, this code prevents crashes due to the
-     compiler's ignorance on how to move the PIC base register to
-     other registers.  (The reload phase sometimes introduces such
-     insns.)  */
-  else if (GET_CODE (orig) == PLUS
-	   && GET_CODE (XEXP (orig, 0)) == REG
-	   && REGNO (XEXP (orig, 0)) == PIC_OFFSET_TABLE_REGNUM
-#ifdef I386
-	   /* Prevent the same register from being erroneously used
-	      as both the base and index registers.  */
-	   && GET_CODE (XEXP (orig, 1)) == CONST
+	/* When the target is i386, this code prevents crashes due to the
+	   compiler's ignorance on how to move the PIC base register to
+	   other registers.  (The reload phase sometimes introduces such
+	   insns.)  */
+	if (GET_CODE (XEXP (orig, 0)) == REG
+	    && REGNO (XEXP (orig, 0)) == PIC_OFFSET_TABLE_REGNUM
+#ifdef TARGET_386
+	    /* Prevent the same register from being erroneously used
+	       as both the base and index registers.  */
+	    && GET_CODE (XEXP (orig, 1)) == CONST
 #endif
-	   && reg)
-    {
-      emit_move_insn (reg, XEXP (orig, 0));
-      XEXP (ptr_ref, 0) = reg;
-    }
+	    && reg)
+	  {
+	    emit_move_insn (reg, XEXP (orig, 0));
+	    XEXP (ptr_ref, 0) = reg;
+	    return ptr_ref;
+	  }
+
+	/* Legitimize both operands of the PLUS.  */
+	base = machopic_indirect_data_reference (XEXP (orig, 0), reg);
+	orig = machopic_indirect_data_reference (XEXP (orig, 1),
+						 (base == reg ? 0 : reg));
+	if (MACHOPIC_INDIRECT && GET_CODE (orig) == CONST_INT)
+	  result = plus_constant (base, INTVAL (orig));
+	else
+	  result = gen_rtx_PLUS (Pmode, base, orig);
+
+	if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
+	  {
+	    if (reg)
+	      {
+		emit_move_insn (reg, result);
+		result = reg;
+	      }
+	    else
+	      result = force_reg (GET_MODE (result), result);
+	  }
+	return result;
+      }
+      break;
+
+    default:
+      break;
+    }	/* End switch (GET_CODE (orig)) */
+  /* APPLE LOCAL end dynamic-no-pic */
   return ptr_ref;
 }
 

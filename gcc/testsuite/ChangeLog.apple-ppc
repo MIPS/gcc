@@ -1,3 +1,9 @@
+2005-03-21  Stuart Hastings  <stuart@apple.com>
+
+	Radars 3805723 4010664 3965893 4010496 4015764
+	* objc.dg/stubify-1.m, objc.dg/stubify-2.m
+	gcc.apple/i386-deep-branch-predict-1.c, gcc.apple/dynamic-no-pic-1.c: New.
+
 2005-03-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3995882

@@ -1,3 +1,29 @@
+2005-03-21  Stuart Hastings  <stuart@apple.com>
+
+	Radars 3805723 4010664 3965893 4010496 4015764
+	* config/mh-x86-darwin: New; now bootstraps with -mdynamic-no-pic on Darwin/x86.
+	* configure.in: Now bootstraps with -mdynamic-no-pic on Darwin/x86.
+	* configure: Re-autoconfiscated with above.
+	* gcc/config/darwin-protos.h (machopic_lazy_symbol_ptr2, machopic_lazy_symbol_ptr3):
+	New lazy_symbol_ptr sections for new Darwin/x86 stubs.
+	(darwin_texcoal_nt_section): New section for set_pc_thunk pic-base settors.
+	* gcc/config/darwin.c (machopic_symbol_defined_p): No longer static.
+	(machopic_indirect_data_reference): Revise to support -mdynamic-no-pic for x86.
+	* gcc/config/darwin.h (machopic_lazy_symbol_ptr2, machopic_lazy_symbol_ptr3,
+	machopic_picsymbol_stub2, darwin_textcoal_nt): New sections.
+	* gcc/config/i386/darwin.h (CC1_SPEC): Un-disable -mdynamic-no-pic option.
+	(TARGET_ASM_FILE_END): Use darwin_x86_file_end.  (darwin_x86_file_end): New.
+	(TARGET_DEEP_BRANCH_PREDICTION, MASK_MACHO_DYNAMIC_NO_PIC, TARGET_DYNAMIC_NO_PIC):
+	Un-disable for x86. (SUBTARGET_OVERRIDE_OPTIONS): New arch/tune/fpmath defaults for Darwin/x86.
+	* gcc/config/i386/i386.c (override_options): New diagnostic for "-fPIC -mdynamic-no-pic."
+	(get_pc_thunk_name): Mach-O support.  (ix86_output_function_epilogue): Isolate labels
+	from the end of Mach-O sections with a NOP.
+	(legitimate_constant_p, legitimze_address, print_operand, ix86_expand_move,
+	machopic_output_stub):	Darwin -mdynamic-no-pic support.
+	(darwin_x86_file_end): New; appends set_pc_thunks at end of compilation.
+	* gcc/config/i386/i386.h: Update unused-bits comment.
+	* gcc/cp/optimize.c: Wire the decloner OFF.
+
 2005-03-18  Geoffrey Keating  <geoffk@apple.com>
 
 	* doc/include/sourcecode.texi: Update branch name.

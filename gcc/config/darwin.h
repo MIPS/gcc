@@ -40,6 +40,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJECT_FORMAT_MACHO
 
+/* APPLE LOCAL dynamic-no-pic */
+extern int machopic_symbol_defined_p (rtx);
+
 /* Suppress g++ attempt to link in the math library automatically. */
 #define MATH_LIBRARY ""
 
@@ -803,14 +806,22 @@ FUNCTION (void)								\
   in_objc_image_info,							\
   in_objc_class_names, in_objc_meth_var_names,				\
   in_objc_meth_var_types, in_objc_cls_refs,				\
-  /* APPLE LOCAL constant cfstrings */			\
-  in_cfstring_constant_object,				\
+  /* APPLE LOCAL constant cfstrings */					\
+  in_cfstring_constant_object,						\
   in_machopic_nl_symbol_ptr,						\
   in_machopic_lazy_symbol_ptr,						\
+  /* APPLE LOCAL begin dynamic-no-pic */				\
+  in_machopic_lazy_symbol_ptr2,						\
+  in_machopic_lazy_symbol_ptr3,						\
+  /* APPLE LOCAL end dynamic-no-pic */					\
   in_machopic_symbol_stub,						\
   in_machopic_symbol_stub1,						\
   in_machopic_picsymbol_stub,						\
   in_machopic_picsymbol_stub1,						\
+  /* APPLE LOCAL dynamic-no-pic */					\
+  in_machopic_picsymbol_stub2,						\
+  /* APPLE LOCAL deep branch prediction pic-base */			\
+  in_darwin_textcoal_nt,						\
   in_darwin_exception, in_darwin_eh_frame,				\
   num_sections
 
@@ -943,6 +954,14 @@ SECTION_FUNCTION (objc_cls_refs_section,				\
 SECTION_FUNCTION (machopic_lazy_symbol_ptr_section,			\
 		in_machopic_lazy_symbol_ptr,				\
 		".lazy_symbol_pointer", 0)				\
+/* APPLE LOCAL begin dynamic-no-pic */					\
+SECTION_FUNCTION (machopic_lazy_symbol_ptr2_section,	\
+		in_machopic_lazy_symbol_ptr2,		\
+		".section __DATA, __la_sym_ptr2,lazy_symbol_pointers", 0)      	\
+SECTION_FUNCTION (machopic_lazy_symbol_ptr3_section,	\
+		in_machopic_lazy_symbol_ptr3,		\
+		".section __DATA, __la_sym_ptr3,lazy_symbol_pointers", 0)      	\
+/* APPLE LOCAL end dynamic-no-pic */					\
 SECTION_FUNCTION (machopic_nl_symbol_ptr_section,			\
 		in_machopic_nl_symbol_ptr,				\
 		".non_lazy_symbol_pointer", 0)				\
@@ -960,6 +979,16 @@ SECTION_FUNCTION (machopic_picsymbol_stub1_section,			\
 		in_machopic_picsymbol_stub1,				\
 		".section __TEXT,__picsymbolstub1,symbol_stubs,"	\
 		  "pure_instructions,32", 0)				\
+/* APPLE LOCAL begin dynamic-no-pic */			\
+SECTION_FUNCTION (machopic_picsymbol_stub2_section,	\
+		in_machopic_picsymbol_stub2,		\
+		".section __TEXT,__picsymbolstub2,symbol_stubs,pure_instructions,25", 0)      		\
+/* APPLE LOCAL end dynamic-no-pic */			\
+/* APPLE LOCAL begin deep branch prediction pic-base */			\
+SECTION_FUNCTION (darwin_textcoal_nt_section,		\
+		in_darwin_textcoal_nt,			\
+		".section __TEXT,__textcoal_nt,coalesced,no_toc", 0)\
+/* APPLE LOCAL end deep branch prediction pic-base */				\
 SECTION_FUNCTION (darwin_exception_section,				\
 		in_darwin_exception,					\
 		".section __DATA,__gcc_except_tab", 0)			\
