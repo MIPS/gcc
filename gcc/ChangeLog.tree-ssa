@@ -1,5 +1,8 @@
 2003-12-03  Jan Hubicka  <jh@suse.cz>
 
+	* tree-ssa.dom.c (tree_ssa_domionator_thread_jumps): Mark back edges.
+	(thread_across_edge): Do not thread across loop headers.
+
 	* Makefile.in (tree-optimize.o): Depend on cgraph.h
 	* cgraph.h (cgraph_preserve_function_body_p): Declare.
 	* cgraphunit.c (cgraph_preserve_function_body_p): New function.
