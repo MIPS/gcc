@@ -1492,14 +1492,20 @@ redirect_edges ()
 	{
 	  edge then_edge = BRANCH_EDGE (bb);
 	  edge else_edge = FALLTHRU_EDGE (bb);
-	  bool then_dead = edge_is_dead (then_edge);
-	  bool else_dead = edge_is_dead (else_edge);
+	  bool then_dead;
+	  bool else_dead;
+
+	  if (then_edge->dest == EXIT_BLOCK_PTR
+	      || else_edge->dest == EXIT_BLOCK_PTR)
+	    continue;
 
 	  /* If both edges are dead BB is dead too so it will be removed
 	     and thus destinations of both edges too.
 	     So perform the redirection only when there is exactly one dead
 	     edge.  */
 
+	  then_dead = edge_is_dead (then_edge);
+	  else_dead = edge_is_dead (else_edge);
 	  if (then_dead && !else_dead)
 	    {
 	      if (rtl_dump_file)
@@ -1554,12 +1560,20 @@ dump_range (slot, data)
 
   if (r->type & RANGE_SIGNED_INT)
     {
-      fprintf (file, "  signed [%ld, %ld]\n", r->from.si, r->to.si);
+      fprintf (file, "  signed [");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, r->from.si);
+      fprintf (file, ", ");
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, r->to.si);
+      fprintf (file, "]\n");
     }
 
   if (r->type & RANGE_UNSIGNED_INT)
     {
-      fprintf (file, "  unsigned [%lu, %lu]\n", r->from.ui, r->to.ui);
+      fprintf (file, "  unsigned [");
+      fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, r->from.ui);
+      fprintf (file, ", ");
+      fprintf (file, HOST_WIDE_INT_PRINT_UNSIGNED, r->to.ui);
+      fprintf (file, "]\n");
     }
 
   return 1;

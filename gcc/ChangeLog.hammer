@@ -1,5 +1,12 @@
 2003-06-19  Josef Zlomek  <zlomekj@suse.cz>
 
+	* vrp.c (redirect_edges): Do not redirect if some edge points to
+	EXIT_BLOCK.
+	(dump_range): Use HOST_WIDE_INT_PRINT_DEC and
+	HOST_WIDE_INT_PRINT_UNSIGNED.
+
+2003-06-19  Josef Zlomek  <zlomekj@suse.cz>
+
 	* vrp.c: New file.
 	* Makefile.in (vrp.o): Added.
 	* toplev.c (enum dump_file_index): Added DFI_vrp.
