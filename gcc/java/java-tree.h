@@ -1862,7 +1862,8 @@ enum
 
   JV_STATE_PRELOADING = 1,	/* Can do _Jv_FindClass.  */
   JV_STATE_LOADING = 3,		/* Has super installed.  */
-  JV_STATE_LOADED = 5,		/* Is complete.  */
+  JV_STATE_READ = 4,		/* Has been completely defined.  */
+  JV_STATE_LOADED = 5,		/* Has Miranda methods defined.  */
 
   JV_STATE_COMPILED = 6,	/* This was a compiled class.  */
 
