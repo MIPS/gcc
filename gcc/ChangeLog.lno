@@ -1,3 +1,12 @@
+2004-10-03  Dorit Naishlos  <dorit@il.ibm.com>
+	
+	* tree-vectorizer.c (BUILT_IN_build_mask_for_load): Removed.
+
+2004-10-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-vectorizer.c (vectorizable_operation): Fail unless
+	the mode for the vector type is indeed a vector mode.
+
 2004-09-30  Andreas Schwab  <schwab@suse.de>
 
 	* tree-vectorizer.c (vectorizable_load): Always declare params.

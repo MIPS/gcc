@@ -256,16 +256,6 @@ static void vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
 static bool vect_debug_stats (struct loop *loop);
 static bool vect_debug_details (struct loop *loop);
 
-#ifdef HAVE_build_vector_mask_for_load
-#define BUILT_IN_build_mask_for_load BUILT_IN_BUILD_VECTOR_MASK_FOR_LOAD
-#else
-#ifdef HAVE_build_cc_mask_for_load
-#define BUILT_IN_build_mask_for_load BUILT_IN_BUILD_CC_MASK_FOR_LOAD
-#else
-#undef BUILT_IN_build_mask_for_load
-#endif /* HAVE_build_cc_mask_for_load */
-#endif /* HAVE_build_vector_mask_for_load */
-
 
 /* For each definition in DEFINITIONS allocates:
 
@@ -2423,6 +2413,16 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
   vec_mode = TYPE_MODE (vectype);
+  if (!VECTOR_MODE_P (vec_mode))
+    {
+      /* TODO: tree-complex.c sometimes can parallelize operations
+         on generic vectors.  We can vectorize the loop in that case,
+         but then we should re-run the lowering pass.  */
+      if (vect_debug_details (NULL))
+        fprintf (dump_file, "mode not supported by target.");
+      return false;
+    }
+
   if (optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (vect_debug_details (NULL))
