@@ -231,6 +231,7 @@ thread_block (basic_block bb)
   /* E is an incoming edge into BB that we may or may not want to
      redirect to a duplicate of BB.  */
   edge e;
+  edge_iterator ei;
 
   /* ALL indicates whether or not all incoming edges into BB should
      be threaded to a duplicate of BB.  */
@@ -243,7 +244,7 @@ thread_block (basic_block bb)
   /* Look at each incoming edge into BB.  Record each unique outgoing
      edge that we want to thread an incoming edge to.  Also note if
      all incoming edges are threaded or not.  */
-  FOR_EACH_EDGE (e, bb->preds)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (!e->aux)
 	{
@@ -279,7 +280,6 @@ thread_block (basic_block bb)
 	    }
 	}
     }
-  END_FOR_EACH_EDGE;
 
   /* Now create duplicates of BB.  Note that if all incoming edges are
      threaded, then BB is going to become unreachable.  In that case

@@ -3116,13 +3116,13 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  if (note || (was_call && nonlocal_goto_handler_labels))
 		    {
 		      edge eh_edge;
+		      edge_iterator ei;
 
-		      FOR_EACH_EDGE (eh_edge, bb->succs)
+		      FOR_EACH_EDGE (eh_edge, ei, bb->succs)
 			{
 			  if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			    break;
 			}
-		      END_FOR_EACH_EDGE;
 
 		      for (x = try ; x != before_try ; x = PREV_INSN (x))
 			if (CALL_P (x)

@@ -836,12 +836,13 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 {
   basic_block dom_bb = NULL;
   edge e;
+  edge_iterator ei;
 
   gcc_assert (dom_computed[dir]);
 
   if (dir == CDI_DOMINATORS)
     {
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  /* Ignore the predecessors that either are not reachable from
 	     the entry block, or whose dominator was not determined yet.  */
@@ -851,16 +852,14 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
 	}
-      END_FOR_EACH_EDGE;
     }
   else
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);
 	}
-      END_FOR_EACH_EDGE;
     }
 
   return dom_bb;

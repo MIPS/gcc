@@ -2030,13 +2030,12 @@ ia64_expand_prologue (void)
     {
       edge e;
 
-      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  if ((e->flags & EDGE_FAKE) == 0
 	      && (e->flags & EDGE_FALLTHRU) != 0)
 	    break;
 	}
-      END_FOR_EACH_EDGE;
       epilogue_p = (e != NULL);
     }
   else

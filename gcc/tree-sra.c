@@ -1661,10 +1661,11 @@ void
 insert_edge_copies (tree stmt, basic_block bb)
 {
   edge e;
+  edge_iterator ei;
   bool first_copy;
 
   first_copy = true;
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       /* We don't need to insert copies on abnormal edges.  The
 	 value of the scalar replacement is not guaranteed to
@@ -1680,7 +1681,6 @@ insert_edge_copies (tree stmt, basic_block bb)
 	    bsi_insert_on_edge (e, unsave_expr_now (stmt));
 	}
     }
-  END_FOR_EACH_EDGE;
 }
 
 /* Helper function to insert LIST before BSI, and set up line number info.  */

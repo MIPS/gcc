@@ -682,8 +682,9 @@ reg_alloc (void)
   if (last)
     {
       edge e;
+      edge_iterator ei;
 
-      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  basic_block bb = e->src;
 	  last = BB_END (bb);
@@ -697,7 +698,6 @@ reg_alloc (void)
 	      emit_insn_after (insns, last);
 	    }
 	}
-      END_FOR_EACH_EDGE;
     }
 
   /* Setup debugging levels.  */

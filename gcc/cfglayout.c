@@ -632,6 +632,7 @@ fixup_reorder_chain (void)
       rtx bb_end_insn;
       basic_block nb;
       basic_block old_bb;
+      edge_iterator ei;
 
       if (EDGE_COUNT (bb->succs) == 0)
 	continue;
@@ -640,14 +641,13 @@ fixup_reorder_chain (void)
 	 a taken jump.  */
       e_taken = e_fall = NULL;
 
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    e_fall = e;
 	  else if (! (e->flags & EDGE_EH))
 	    e_taken = e;
 	}
-      END_FOR_EACH_EDGE;
 
       bb_end_insn = BB_END (bb);
       if (JUMP_P (bb_end_insn))
@@ -864,13 +864,13 @@ fixup_reorder_chain (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    break;
 	}
-      END_FOR_EACH_EDGE;
 
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
@@ -926,6 +926,7 @@ static void
 fixup_fallthru_exit_predecessor (void)
 {
   edge e;
+  edge_iterator ei;
   basic_block bb = NULL;
 
   /* This transformation is not valid before reload, because we might
@@ -933,12 +934,11 @@ fixup_fallthru_exit_predecessor (void)
      value.  */
   gcc_assert (reload_completed);
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       if (e->flags & EDGE_FALLTHRU)
 	bb = e->src;
     }
-  END_FOR_EACH_EDGE;
 
   if (bb && bb->rbi->next)
     {
@@ -1238,8 +1238,8 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
   for (i = 0; i < n; i++)
     {
       /* In case we should redirect abnormal edge during duplication, fail.  */
-
-      FOR_EACH_EDGE (e, bbs[i]->succs)
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
 	{
 	  if ((e->flags & EDGE_ABNORMAL)
 	      && e->dest->rbi->duplicated)
@@ -1248,7 +1248,6 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
 	      goto end;
 	    }
 	}
-      END_FOR_EACH_EDGE;
       
       if (!can_duplicate_block_p (bbs[i]))
 	{
@@ -1324,10 +1323,11 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
     new_edges[j] = NULL;
   for (i = 0; i < n; i++)
     {
+      edge_iterator ei;
       new_bb = new_bbs[i];
       bb = bbs[i];
 
-      FOR_EACH_EDGE (e, new_bb->succs)
+      FOR_EACH_EDGE (e, ei, new_bb->succs)
 	{
 	  for (j = 0; j < n_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)
@@ -1337,7 +1337,6 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
 	    continue;
 	  redirect_edge_and_branch_force (e, e->dest->rbi->copy);
 	}
-      END_FOR_EACH_EDGE;
     }
 
   /* Clear information about duplicates.  */

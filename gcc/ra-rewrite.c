@@ -1344,11 +1344,12 @@ rewrite_program2 (bitmap new_deaths)
 	  int in_ir = 0;
 	  edge e;
 	  int num = 0;
+	  edge_iterator ei;
 
 	  HARD_REG_SET cum_colors, colors;
 	  CLEAR_HARD_REG_SET (cum_colors);
 
-	  FOR_EACH_EDGE (e, bb->preds)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      int j;
 
@@ -1365,7 +1366,6 @@ rewrite_program2 (bitmap new_deaths)
 	      IOR_HARD_REG_SET (cum_colors, colors);
 	      num++;
 	    }
-	  END_FOR_EACH_EDGE;
 
 	  if (num == 5)
 	    in_ir = 1;

@@ -426,7 +426,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
   sbitmap wont_exit;
   unsigned HOST_WIDE_INT npeel;
   unsigned n_remove_edges, i;
-  edge *remove_edges, ei;
+  edge *remove_edges, ein;
   struct niter_desc *desc = get_simple_loop_desc (loop);
 
   npeel = desc->niter;
@@ -456,12 +456,12 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
       free (remove_edges);
     }
 
-  ei = desc->in_edge;
+  ein = desc->in_edge;
   free_simple_loop_desc (loop);
 
   /* Now remove the unreachable part of the last iteration and cancel
      the loop.  */
-  remove_path (loops, ei);
+  remove_path (loops, ein);
 
   if (dump_file)
     fprintf (dump_file, ";; Peeled loop completely, %d times\n", (int) npeel);

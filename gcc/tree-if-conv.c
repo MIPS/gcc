@@ -469,6 +469,7 @@ static bool
 if_convertable_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
 {
   edge e;
+  edge_iterator ei;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "----------[%d]-------------\n", bb->index);
@@ -490,7 +491,7 @@ if_convertable_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
     }
 
   /* Be less adventurous and handle only normal edges.  */
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->flags &
 	  (EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_ABNORMAL | EDGE_IRREDUCIBLE_LOOP))
@@ -500,7 +501,6 @@ if_convertable_bb_p (struct loop *loop, basic_block bb, bool exit_bb_seen)
 	  return false;
         }
     }
-  END_FOR_EACH_EDGE;
 
   return true;
 }
@@ -524,6 +524,7 @@ if_convertable_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
   block_stmt_iterator itr;
   unsigned int i;
   edge e;
+  edge_iterator ei;
   bool exit_bb_seen = false;
 
   /* Handle only inner most loop.  */
@@ -556,12 +557,11 @@ if_convertable_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
 
   /* If one of the loop header's edge is exit edge then do not apply
      if-conversion.  */
-  FOR_EACH_EDGE (e, loop->header->succs)
+  FOR_EACH_EDGE (e, ei, loop->header->succs)
     {
       if (e->flags & EDGE_LOOP_EXIT)
          return false;
     }
-  END_FOR_EACH_EDGE;
 
   compute_immediate_uses (TDFA_USE_OPS|TDFA_USE_VOPS, NULL);
 
@@ -682,8 +682,9 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
   basic_block p2 = NULL;
   basic_block true_bb = NULL; 
   tree tmp_cond;
+  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, bb->preds)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (p1 == NULL)
 	  p1 = e->src;
@@ -693,7 +694,6 @@ find_phi_replacement_condition (basic_block bb, tree *cond,
 	  p2 = e->src;
 	}
     }
-  END_FOR_EACH_EDGE;
 
   /* Use condition that is not TRUTH_NOT_EXPR in conditional modify expr.  */
   tmp_cond = p1->aux;
@@ -873,6 +873,7 @@ combine_blocks (struct loop *loop)
       if (bb == exit_bb)
 	{
 	  edge new_e;
+	  edge_iterator ei;
 
 	  /* Connect this node with loop header.  */
 	  new_e = make_edge (ifc_bbs[0], bb, EDGE_FALLTHRU);
@@ -881,7 +882,7 @@ combine_blocks (struct loop *loop)
 	  if (exit_bb != loop->latch)
 	    {
 	      /* Redirect non-exit edge to loop->latch.  */
-	      FOR_EACH_EDGE (e, bb->succs)
+	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  if (!(e->flags & EDGE_LOOP_EXIT))
 		    {
@@ -889,7 +890,6 @@ combine_blocks (struct loop *loop)
 		      set_immediate_dominator (CDI_DOMINATORS, loop->latch, bb);
 		    }
 		}
-	      END_FOR_EACH_EDGE;
 	    }
 	  continue;
 	}
@@ -965,12 +965,12 @@ static bool
 pred_blocks_visited_p (basic_block bb, bitmap *visited)
 {
   edge e;
-  FOR_EACH_EDGE (e, bb->preds)
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (!bitmap_bit_p (*visited, e->src->index))
         return false;
     }
-  END_FOR_EACH_EDGE;
   return true;
 }
 
@@ -1038,9 +1038,10 @@ static bool
 bb_with_exit_edge_p (basic_block bb)
 {
   edge e;
+  edge_iterator ei;
   bool exit_edge_found = false;
 
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->flags & EDGE_LOOP_EXIT)
 	{
@@ -1048,7 +1049,6 @@ bb_with_exit_edge_p (basic_block bb)
 	  break;
 	}
     }
-  END_FOR_EACH_EDGE;
 
   return exit_edge_found;
 }

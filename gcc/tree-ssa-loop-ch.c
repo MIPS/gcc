@@ -101,6 +101,7 @@ static void
 duplicate_blocks (varray_type bbs_to_duplicate)
 {
   unsigned i;
+  edge_iterator ei;
   edge preheader_edge, e;
   basic_block header, new_header;
   tree phi, new_phi, var;
@@ -130,15 +131,15 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
-      FOR_EACH_EDGE (e, header->succs)
+      FOR_EACH_EDGE (e, ei, header->succs)
 	{
 	  edge e1;
-	  FOR_EACH_EDGE (e1, new_header->succs)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e1, ei, new_header->succs)
 	    {
 	      if (e1->dest == e->dest)
 		break;
 	    }
-	  END_FOR_EACH_EDGE;
 	  if (e1 == NULL)
 	    abort ();
 
@@ -148,7 +149,6 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	      add_phi_arg (&phi, def, e1);
 	    }
 	}
-      END_FOR_EACH_EDGE;
     }
 
   calculate_dominance_info (CDI_DOMINATORS);

@@ -175,8 +175,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 {
   basic_block b = BLOCK_FOR_INSN (insn);
   edge e;
+  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, b->succs)
+  FOR_EACH_EDGE (e, ei, b->succs)
     {
       if (e->flags & EDGE_FALLTHRU)
 	/* The jump may be a by-product of a branch that has been merged
@@ -190,7 +191,6 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	bitmap_operation (used, used, e->dest->global_live_at_start,
 			  BITMAP_IOR);
     }
-  END_FOR_EACH_EDGE;
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -284,6 +284,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	    {
 	      edge f;
 	      rtx h;
+	      edge_iterator ei;
 
 	      /* An obscure special case, where we do have partially dead
 	         instruction scheduled after last control flow instruction.
@@ -296,12 +297,11 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	         do the split and re-emit it back in case this will ever
 	         trigger problem.  */
 
-	      FOR_EACH_EDGE (f, bb->prev_bb->succs)
+	      FOR_EACH_EDGE (f, ei, bb->prev_bb->succs)
 		{
 		  if (f->flags & EDGE_FALLTHRU)
 		    break;
 		}
-	      END_FOR_EACH_EDGE;
 
 	      if (f)
 		{
@@ -596,16 +596,16 @@ schedule_ebbs (FILE *dump_file)
       for (;;)
 	{
 	  edge e;
+	  edge_iterator ei;
 	  tail = BB_END (bb);
 	  if (bb->next_bb == EXIT_BLOCK_PTR
 	      || LABEL_P (BB_HEAD (bb->next_bb)))
 	    break;
-	  FOR_EACH_EDGE (e, bb->succs)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
 	      if ((e->flags & EDGE_FALLTHRU) != 0)
 		break;
 	    }
-	  END_FOR_EACH_EDGE;
 	  if (! e)
 	    break;
 	  if (e->probability <= probability_cutoff)

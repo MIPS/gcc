@@ -144,19 +144,18 @@ clear_edges (void)
 {
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   FOR_EACH_BB (bb)
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	free_edge (e);
-      END_FOR_EACH_EDGE;
       VEC_truncate (edge, bb->succs, 0);
       VEC_truncate (edge, bb->preds, 0);
     }
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     free_edge (e);
-  END_FOR_EACH_EDGE;
   VEC_truncate (edge, EXIT_BLOCK_PTR->preds, 0);
   VEC_truncate (edge, ENTRY_BLOCK_PTR->succs, 0);
 
@@ -285,6 +284,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 {
   int use_edge_cache;
   edge e;
+  edge_iterator ei;
 
   /* Don't bother with edge cache for ENTRY or EXIT, if there aren't that
      many edges to them, or we didn't allocate memory for it.  */
@@ -305,7 +305,7 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 
       /* Fall through.  */
     case 0:
-      FOR_EACH_EDGE (e, src->succs)
+      FOR_EACH_EDGE (e, ei, src->succs)
 	{
 	  if (e->dest == dst)
 	    {
@@ -313,7 +313,6 @@ cached_make_edge (sbitmap *edge_cache, basic_block src, basic_block dst, int fla
 	      return NULL;
 	    }
 	}
-      END_FOR_EACH_EDGE;
       break;
     }
 
@@ -431,14 +430,14 @@ edge
 redirect_edge_succ_nodup (edge e, basic_block new_succ)
 {
   edge s;
+  edge_iterator ei;
 
   /* Check whether the edge is already present.  */
-  FOR_EACH_EDGE (s, e->src->succs)
+  FOR_EACH_EDGE (s, ei, e->src->succs)
     {
       if (s->dest == new_succ && s != e)
 	break;
     }
-  END_FOR_EACH_EDGE;
 
   if (s)
     {
@@ -507,22 +506,21 @@ check_bb_profile (basic_block bb, FILE * file)
   edge e;
   int sum = 0;
   gcov_type lsum;
+  edge_iterator ei;
 
   if (profile_status == PROFILE_ABSENT)
     return;
 
   if (bb != EXIT_BLOCK_PTR)
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	sum += e->probability;
-      END_FOR_EACH_EDGE;
       if (EDGE_COUNT (bb->succs) && abs (sum - REG_BR_PROB_BASE) > 100)
 	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
 		 sum * 100.0 / REG_BR_PROB_BASE);
       lsum = 0;
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	lsum += e->count;
-      END_FOR_EACH_EDGE;
       if (EDGE_COUNT (bb->succs)
 	  && (lsum - bb->count > 100 || lsum - bb->count < -100))
 	fprintf (file, "Invalid sum of outgoing counts %i, should be %i\n",
@@ -531,17 +529,15 @@ check_bb_profile (basic_block bb, FILE * file)
   if (bb != ENTRY_BLOCK_PTR)
     {
       sum = 0;
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	sum += EDGE_FREQUENCY (e);
-      END_FOR_EACH_EDGE;
       if (abs (sum - bb->frequency) > 100)
 	fprintf (file,
 		 "Invalid sum of incoming frequencies %i, should be %i\n",
 		 sum, bb->frequency);
       lsum = 0;
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	lsum += e->count;
-      END_FOR_EACH_EDGE;
       if (lsum - bb->count > 100 || lsum - bb->count < -100)
 	fprintf (file, "Invalid sum of incoming counts %i, should be %i\n",
 		 (int) lsum, (int) bb->count);
@@ -607,6 +603,7 @@ dump_flow_info (FILE *file)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
       fprintf (file, "\nBasic block %d ", bb->index);
       fprintf (file, "prev %d, next %d, ",
@@ -621,14 +618,12 @@ dump_flow_info (FILE *file)
       fprintf (file, ".\n");
 
       fprintf (file, "Predecessors: ");
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	dump_edge_info (file, e, 0);
-      END_FOR_EACH_EDGE;
 
       fprintf (file, "\nSuccessors: ");
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
-      END_FOR_EACH_EDGE;
 
       fprintf (file, "\nRegisters live at start:");
       dump_regset (bb->global_live_at_start, file);
@@ -820,10 +815,10 @@ alloc_aux_for_edges (int size)
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  FOR_EACH_EDGE (e, bb->succs)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    alloc_aux_for_edge (e, size);
-	  END_FOR_EACH_EDGE;
 	}
     }
 }
@@ -838,9 +833,9 @@ clear_aux_for_edges (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	e->aux = NULL;
-      END_FOR_EACH_EDGE;
     }
 }
 
@@ -877,6 +872,7 @@ static void
 dump_cfg_bb_info (FILE *file, basic_block bb)
 {
   unsigned i;
+  edge_iterator ei;
   bool first = true;
   static const char * const bb_bitnames[] =
     {
@@ -901,14 +897,12 @@ dump_cfg_bb_info (FILE *file, basic_block bb)
   fprintf (file, "\n");
 
   fprintf (file, "Predecessors: ");
-  FOR_EACH_EDGE (e, bb->preds)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     dump_edge_info (file, e, 0);
-  END_FOR_EACH_EDGE;
 
   fprintf (file, "\nSuccessors: ");
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     dump_edge_info (file, e, 1);
-  END_FOR_EACH_EDGE;
   fprintf (file, "\n\n");
 }
 

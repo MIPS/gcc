@@ -602,35 +602,16 @@ ei_edge (edge_iterator i)
   return EDGE_I (i.container, i.index);
 }
 
-#define FOR_EACH_EDGE(EDGE,EDGE_VEC)					\
-do {									\
-  VEC(edge) *__ev = (EDGE_VEC);						\
-  edge __check_edge;							\
-  unsigned int __ix;							\
-  unsigned int  __num_edges = EDGE_COUNT (__ev);			\
-  (EDGE) = NULL;							\
-  for (__ix = 0; VEC_iterate (edge, __ev, __ix, (EDGE)); __ix++)	\
-    {									\
-      if (ENABLE_VEC_CHECKING)						\
-	__check_edge = (EDGE);
+static inline edge
+ei_safe_edge (edge_iterator i)
+{
+  return !ei_end_p (i) ? ei_edge (i) : NULL;
+}
 
-#define END_FOR_EACH_EDGE						\
-      if (ENABLE_VEC_CHECKING						\
-	&& (__ix >= EDGE_COUNT (__ev)					\
-	    || EDGE_I (__ev, __ix) != __check_edge))			\
-	internal_error ("edge modified in FOR_EACH_EDGE: %s:%s",	\
-			__FILE__, __FUNCTION__);			\
-    }									\
-  if (ENABLE_VEC_CHECKING						\
-	  && __num_edges > EDGE_COUNT (__ev))				\
-	internal_error ("insufficient edges FOR_EACH_EDGE: %s:%s", 	\
-			__FILE__, __FUNCTION__);			\
-  if (ENABLE_VEC_CHECKING						\
-          && __num_edges < EDGE_COUNT (__ev))				\
-  	internal_error ("excess edges FOR_EACH_EDGE: %s:%s",		\
-			__FILE__, __FUNCTION__);			\
-}									\
-while (0)
+#define FOR_EACH_EDGE(EDGE,ITER,EDGE_VEC) \
+  for ((EDGE) = NULL, (ITER) = ei_start ((EDGE_VEC)); \
+       ((EDGE) = ei_safe_edge ((ITER))); \
+       ei_next (&(ITER)))
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);

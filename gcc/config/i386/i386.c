@@ -14828,8 +14828,9 @@ static void
 ix86_pad_returns (void)
 {
   edge e;
+  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       basic_block bb = e->src;
       rtx ret = BB_END (bb);
@@ -14845,14 +14846,14 @@ ix86_pad_returns (void)
       if (prev && GET_CODE (prev) == CODE_LABEL)
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  FOR_EACH_EDGE (e, bb->preds)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      if (EDGE_FREQUENCY (e) && e->src->index >= 0
 		  && !(e->flags & EDGE_FALLTHRU))
 		replace = true;
 	    }
-	  END_FOR_EACH_EDGE;
 	}
       if (!replace)
 	{
@@ -14872,7 +14873,6 @@ ix86_pad_returns (void)
 	  delete_insn (ret);
 	}
     }
-  END_FOR_EACH_EDGE;
 }
 
 /* Implement machine specific optimizations.  We implement padding of returns

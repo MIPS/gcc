@@ -123,25 +123,24 @@ add_exit_phis_edge (basic_block exit, tree use)
   basic_block def_bb = bb_for_stmt (def_stmt);
   struct loop *def_loop;
   edge e;
+  edge_iterator ei;
 
   /* Check that some of the edges entering the EXIT block exits a loop in
      that USE is defined.  */
-  FOR_EACH_EDGE (e, exit->preds)
+  FOR_EACH_EDGE (e, ei, exit->preds)
     {
       def_loop = find_common_loop (def_bb->loop_father, e->src->loop_father);
       if (!flow_bb_inside_loop_p (def_loop, e->dest))
 	break;
     }
-  END_FOR_EACH_EDGE;
 
   if (!e)
     return;
 
   phi = create_phi_node (use, exit);
 
-  FOR_EACH_EDGE (e, exit->preds)
+  FOR_EACH_EDGE (e, ei, exit->preds)
     add_phi_arg (&phi, use, e);
-  END_FOR_EACH_EDGE;
 
   SSA_NAME_DEF_STMT (use) = def_stmt;
 }
@@ -190,17 +189,17 @@ get_loops_exits (void)
   bitmap exits = BITMAP_XMALLOC ();
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   FOR_EACH_BB (bb)
     {
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->src != ENTRY_BLOCK_PTR
 	    && !flow_bb_inside_loop_p (e->src->loop_father, bb))
 	  {
 	    bitmap_set_bit (exits, bb->index);
 	    break;
 	  }
-      END_FOR_EACH_EDGE;
     }
 
   return exits;

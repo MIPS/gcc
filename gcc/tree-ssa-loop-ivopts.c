@@ -1395,15 +1395,15 @@ find_interesting_uses (struct ivopts_data *data)
 
   for (i = 0; i < data->current_loop->num_nodes; i++)
     {
+      edge_iterator ei;
       bb = body[i];
 
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->dest != EXIT_BLOCK_PTR
 	      && !flow_bb_inside_loop_p (data->current_loop, e->dest))
 	    find_interesting_uses_outside (data, e);
         }
-      END_FOR_EACH_EDGE;
 
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	find_interesting_uses_stmt (data, phi);

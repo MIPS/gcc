@@ -105,17 +105,17 @@ can_fallthru (basic_block src, basic_block target)
   rtx insn = BB_END (src);
   rtx insn2;
   edge e;
+  edge_iterator ei;
 
   if (target == EXIT_BLOCK_PTR)
     return true;
   if (src->next_bb != target)
     return 0;
-  FOR_EACH_EDGE (e, src->succs)
+  FOR_EACH_EDGE (e, ei, src->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	return 0;
     }
-  END_FOR_EACH_EDGE;
 
   insn2 = BB_HEAD (target);
   if (insn2 && !active_insn_p (insn2))
@@ -132,15 +132,15 @@ bool
 could_fall_through (basic_block src, basic_block target)
 {
   edge e;
+  edge_iterator ei;
 
   if (target == EXIT_BLOCK_PTR)
     return true;
-  FOR_EACH_EDGE (e, src->succs)
+  FOR_EACH_EDGE (e, ei, src->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	return 0;
     }
-  END_FOR_EACH_EDGE;
   return true;
 }
 
@@ -246,8 +246,9 @@ set_edge_can_fallthru_flag (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      edge_iterator ei;
 
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  e->flags &= ~EDGE_CAN_FALLTHRU;
 
@@ -255,7 +256,6 @@ set_edge_can_fallthru_flag (void)
 	  if (e->flags & EDGE_FALLTHRU)
 	    e->flags |= EDGE_CAN_FALLTHRU;
 	}
-      END_FOR_EACH_EDGE;
 
       /* If the BB ends with an invertible condjump all (2) edges are
 	 CAN_FALLTHRU edges.  */
@@ -279,6 +279,7 @@ void
 find_unreachable_blocks (void)
 {
   edge e;
+  edge_iterator ei;
   basic_block *tos, *worklist, bb;
 
   tos = worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
@@ -292,14 +293,13 @@ find_unreachable_blocks (void)
      be only one.  It isn't inconceivable that we might one day directly
      support Fortran alternate entry points.  */
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       *tos++ = e->dest;
 
       /* Mark the block reachable.  */
       e->dest->flags |= BB_REACHABLE;
     }
-  END_FOR_EACH_EDGE;
 
   /* Iterate: find everything reachable from what we've already seen.  */
 
@@ -307,7 +307,7 @@ find_unreachable_blocks (void)
     {
       basic_block b = *--tos;
 
-      FOR_EACH_EDGE (e, b->succs)
+      FOR_EACH_EDGE (e, ei, b->succs)
 	{
 	  if (!(e->dest->flags & BB_REACHABLE))
 	    {
@@ -315,7 +315,6 @@ find_unreachable_blocks (void)
 	      e->dest->flags |= BB_REACHABLE;
 	    }
 	}
-      END_FOR_EACH_EDGE;
     }
 
   free (worklist);
@@ -342,6 +341,7 @@ create_edge_list (void)
   int num_edges;
   int block_count;
   basic_block bb;
+  edge_iterator ei;
 
   block_count = n_basic_blocks + 2;   /* Include the entry and exit blocks.  */
 
@@ -364,11 +364,10 @@ create_edge_list (void)
   /* Follow successors of blocks, and register these edges.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  elist->index_to_edge[num_edges++] = e;
 	}
-      END_FOR_EACH_EDGE;
     }
   return elist;
 }
@@ -420,10 +419,11 @@ verify_edge_list (FILE *f, struct edge_list *elist)
   int pred, succ, index;
   edge e;
   basic_block bb, p, s;
+  edge_iterator ei;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  pred = e->src->index;
 	  succ = e->dest->index;
@@ -441,7 +441,6 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 	    fprintf (f, "*p* Succ for index %d should be %d not %d\n",
 		     index, succ, INDEX_EDGE_SUCC_BB (elist, index)->index);
 	}
-      END_FOR_EACH_EDGE;
     }
 
   /* We've verified that all the edges are in the list, now lets make sure
@@ -452,7 +451,7 @@ verify_edge_list (FILE *f, struct edge_list *elist)
       {
 	int found_edge = 0;
 
-	FOR_EACH_EDGE (e, p->succs)
+	FOR_EACH_EDGE (e, ei, p->succs)
 	  {
 	    if (e->dest == s)
 	      {
@@ -460,9 +459,8 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 		break;
 	      }
 	  }
-	END_FOR_EACH_EDGE;
 
-	FOR_EACH_EDGE (e, s->preds)
+	FOR_EACH_EDGE (e, ei, s->preds)
 	  {
 	    if (e->src == p)
 	      {
@@ -470,7 +468,6 @@ verify_edge_list (FILE *f, struct edge_list *elist)
 		break;
 	      }
 	  }
-	END_FOR_EACH_EDGE;
 
 	if (EDGE_INDEX (elist, p, s)
 	    == EDGE_INDEX_NO_EDGE && found_edge != 0)
@@ -490,13 +487,13 @@ edge
 find_edge (basic_block pred, basic_block succ)
 {
   edge e;
+  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, pred->succs)
+  FOR_EACH_EDGE (e, ei, pred->succs)
     {
       if (e->dest == succ)
 	return e;
     }
-  END_FOR_EACH_EDGE;
 
   return NULL;
 }
@@ -983,19 +980,19 @@ flow_dfs_compute_reverse_execute (depth_first_search_ds data)
 {
   basic_block bb;
   edge e;
+  edge_iterator ei;
 
   while (data->sp > 0)
     {
       bb = data->stack[--data->sp];
 
       /* Perform depth-first search on adjacent vertices.  */
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (!TEST_BIT (data->visited_blocks,
 			 e->src->index - (INVALID_BLOCK + 1)))
 	    flow_dfs_compute_reverse_add_bb (data, e->src);
 	}
-      END_FOR_EACH_EDGE;
     }
 
   /* Determine if there are unvisited basic blocks.  */
@@ -1033,10 +1030,11 @@ dfs_enumerate_from (basic_block bb, int reverse,
   while (sp)
     {
       edge e;
+      edge_iterator ei;
       lbb = st[--sp];
       if (reverse)
         {
-	  FOR_EACH_EDGE (e, lbb->preds)
+	  FOR_EACH_EDGE (e, ei, lbb->preds)
 	    {
 	      if (!(e->src->flags & BB_VISITED) && predicate (e->src, data))
 		{
@@ -1045,11 +1043,10 @@ dfs_enumerate_from (basic_block bb, int reverse,
 		  e->src->flags |= BB_VISITED;
 		}
 	    }
-	  END_FOR_EACH_EDGE;
         }
       else
         {
-	  FOR_EACH_EDGE (e, lbb->succs)
+	  FOR_EACH_EDGE (e, ei, lbb->succs)
 	    {
 	      if (!(e->dest->flags & BB_VISITED) && predicate (e->dest, data))
 		{
@@ -1058,7 +1055,6 @@ dfs_enumerate_from (basic_block bb, int reverse,
 		  e->dest->flags |= BB_VISITED;
 		}
 	    }
-	  END_FOR_EACH_EDGE;
 	}
     }
   free (st);
@@ -1088,6 +1084,7 @@ static void
 compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
 {
   edge e;
+  edge_iterator ei;
   basic_block c;
 
   SET_BIT (done, bb->index);
@@ -1104,14 +1101,13 @@ compute_dominance_frontiers_1 (bitmap *frontiers, basic_block bb, sbitmap done)
     }
       
   /* Find blocks conforming to rule (1) above.  */
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
       if (get_immediate_dominator (CDI_DOMINATORS, e->dest) != bb)
 	bitmap_set_bit (frontiers[bb->index], e->dest->index);
     }
-  END_FOR_EACH_EDGE;
 
   /* Find blocks conforming to rule (2).  */
   for (c = first_dom_son (CDI_DOMINATORS, bb);

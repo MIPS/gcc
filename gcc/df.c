@@ -3789,6 +3789,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
   int changed;
   int i = bb->index;
   edge e;
+  edge_iterator ei;
 
   SET_BIT (visited, bb->index);
   gcc_assert (TEST_BIT (pending, bb->index));
@@ -3800,7 +3801,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
     {									\
       /*  Calculate <conf_op> of predecessor_outs.  */			\
       bitmap_zero (IN_SET[i]);						\
-      FOR_EACH_EDGE (e, bb->E_ANTI)					\
+      FOR_EACH_EDGE (e, ei, bb->E_ANTI)					\
 	{								\
 	  if (e->E_ANTI_BB == E_ANTI_START_BB)				\
 	    continue;							\
@@ -3811,7 +3812,6 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 			       IN_SET[i], IN_SET[i],			\
 			       OUT_SET[e->E_ANTI_BB->index]);		\
 	}								\
-      END_FOR_EACH_EDGE;						\
       (*dataflow->transfun)(i, &changed,				\
 			    dataflow->in[i], dataflow->out[i],		\
 			    dataflow->gen[i], dataflow->kill[i],	\
@@ -3820,7 +3820,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
       if (!changed)							\
 	break;								\
 									\
-      FOR_EACH_EDGE (e, bb->E)						\
+      FOR_EACH_EDGE (e, ei, bb->E)						\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3830,9 +3830,8 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 									\
 	  SET_BIT (pending, e->E_BB->index);				\
       	}								\
-      END_FOR_EACH_EDGE;						\
 									\
-      FOR_EACH_EDGE (e, bb->E)						\
+      FOR_EACH_EDGE (e, ei, bb->E)						\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3843,7 +3842,6 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	  if (!TEST_BIT (visited, e->E_BB->index))			\
 	    hybrid_search (e->E_BB, dataflow, visited, pending, considered); \
 	}								\
-      END_FOR_EACH_EDGE;						\
     } while (0)
 
   if (dataflow->dir == DF_FORWARD)

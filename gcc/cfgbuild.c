@@ -251,13 +251,13 @@ make_edges (basic_block min, basic_block max, int update_p)
         FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
 	  {
 	    edge e;
+	    edge_iterator ei;
 
-	    FOR_EACH_EDGE (e, bb->succs)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
 		if (e->dest != EXIT_BLOCK_PTR)
 		  SET_BIT (edge_cache[bb->index], e->dest->index);
 	      }
-	    END_FOR_EACH_EDGE;
 	  }
     }
 
@@ -273,6 +273,7 @@ make_edges (basic_block min, basic_block max, int update_p)
       enum rtx_code code;
       int force_fallthru = 0;
       edge e;
+      edge_iterator ei;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -391,7 +392,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	    {
@@ -399,7 +400,6 @@ make_edges (basic_block min, basic_block max, int update_p)
 	      break;
 	    }
 	}
-      END_FOR_EACH_EDGE;
 
       while (insn
 	     && NOTE_P (insn)
@@ -647,6 +647,7 @@ static void
 compute_outgoing_frequencies (basic_block b)
 {
   edge e, f;
+  edge_iterator ei;
 
   if (EDGE_COUNT (b->succs) == 2)
     {
@@ -676,12 +677,11 @@ compute_outgoing_frequencies (basic_block b)
     }
   guess_outgoing_edge_probabilities (b);
   if (b->count)
-    FOR_EACH_EDGE (e, b->succs)
+    FOR_EACH_EDGE (e, ei, b->succs)
       {
 	e->count = ((b->count * e->probability + REG_BR_PROB_BASE / 2)
 		    / REG_BR_PROB_BASE);
       }
-    END_FOR_EACH_EDGE;
 }
 
 /* Assume that someone emitted code with control flow instructions to the
@@ -719,6 +719,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
     FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
       {
 	edge e;
+	edge_iterator ei;
 
 	if (STATE (bb) == BLOCK_ORIGINAL)
 	  continue;
@@ -726,12 +727,11 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	  {
 	    bb->count = 0;
 	    bb->frequency = 0;
-	    FOR_EACH_EDGE (e, bb->preds)
+	    FOR_EACH_EDGE (e, ei, bb->preds)
 	      {
 		bb->count += e->count;
 		bb->frequency += EDGE_FREQUENCY (e);
 	      }
-	    END_FOR_EACH_EDGE;
 	  }
 
 	compute_outgoing_frequencies (bb);
@@ -762,17 +762,17 @@ find_sub_basic_blocks (basic_block bb)
   FOR_BB_BETWEEN (b, min, max->next_bb, next_bb)
     {
       edge e;
+      edge_iterator ei;
 
       if (b != min)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  FOR_EACH_EDGE (e, b->preds)
+	  FOR_EACH_EDGE (e, ei, b->preds)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);
 	    }
-	  END_FOR_EACH_EDGE;
 	}
 
       compute_outgoing_frequencies (b);

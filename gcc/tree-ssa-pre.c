@@ -1128,7 +1128,8 @@ compute_antic_aux (basic_block block)
      setting the BB_VISITED flag.  */
   if (! (block->flags & BB_VISITED))
     {
-      FOR_EACH_EDGE (e, block->preds)
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, block->preds)
 	{
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
@@ -1136,7 +1137,6 @@ compute_antic_aux (basic_block block)
 	      break;
 	    }
 	}
-      END_FOR_EACH_EDGE;
     }
   if (block->flags & BB_VISITED)
     {
@@ -1168,13 +1168,13 @@ compute_antic_aux (basic_block block)
       edge e;
       size_t i;
       basic_block bprime, first;
+      edge_iterator ei;
 
       VARRAY_BB_INIT (worklist, 1, "succ");
-      FOR_EACH_EDGE (e, block->succs)
+      FOR_EACH_EDGE (e, ei, block->succs)
 	{
 	  VARRAY_PUSH_BB (worklist, e->dest);
 	}
-      END_FOR_EACH_EDGE;
 
       first = VARRAY_BB (worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
@@ -1438,6 +1438,7 @@ insert_aux (basic_block block)
 		      edge pred;
 		      basic_block bprime;
 		      tree eprime;
+		      edge_iterator ei;
 
 		      val = get_value_handle (node->expr);
 		      if (bitmap_set_contains_value (PHI_GEN (block), val))
@@ -1451,7 +1452,7 @@ insert_aux (basic_block block)
 		    		    
 		      avail = xcalloc (last_basic_block, sizeof (tree));
 
-		      FOR_EACH_EDGE (pred, block->preds)
+		      FOR_EACH_EDGE (pred, ei, block->preds)
 			{
 			  tree vprime;
 			  tree edoubleprime;
@@ -1506,7 +1507,6 @@ insert_aux (basic_block block)
 					      (first_s, edoubleprime, 0));
 			    }
 			}
-		      END_FOR_EACH_EDGE;
 
 		      /* If we can insert it, it's not the same value
 			 already existing along every predecessor, and
@@ -1524,7 +1524,7 @@ insert_aux (basic_block block)
 			    }
 
 			  /* Make the necessary insertions.  */
-			  FOR_EACH_EDGE (pred, block->preds)
+			  FOR_EACH_EDGE (pred, ei, block->preds)
 			    {
 			      tree stmts = alloc_stmt_list ();
 			      tree builtexpr;
@@ -1541,7 +1541,6 @@ insert_aux (basic_block block)
 				  avail[bprime->index] = builtexpr;
 				}			      
 			    }
-			  END_FOR_EACH_EDGE;
 
 			  /* Now build a phi for the new variable.  */
 			  temp = create_tmp_var (type, "prephitmp");
@@ -1558,12 +1557,11 @@ insert_aux (basic_block block)
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
 
-			  FOR_EACH_EDGE (pred, block->preds)
+			  FOR_EACH_EDGE (pred, ei, block->preds)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);
 			    }
-			  END_FOR_EACH_EDGE;
 
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {

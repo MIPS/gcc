@@ -1,4 +1,4 @@
-/* Convert RTL to assembler code and output it, for GNU compiler.
+/* Convert to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
    1998, 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
@@ -677,6 +677,7 @@ compute_alignments (void)
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
+      edge_iterator ei;
 
       if (!LABEL_P (label)
 	  || probably_never_executed_bb_p (bb))
@@ -684,14 +685,13 @@ compute_alignments (void)
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
 
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    has_fallthru = 1, fallthru_frequency += EDGE_FREQUENCY (e);
 	  else
 	    branch_frequency += EDGE_FREQUENCY (e);
 	}
-      END_FOR_EACH_EDGE;
 
       /* There are two purposes to align block with no fallthru incoming edge:
 	 1) to avoid fetch stalls when branch destination is near cache boundary

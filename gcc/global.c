@@ -748,13 +748,13 @@ global_conflicts (void)
 	   regs live across such edges.  */
 	{
 	  edge e;
+	  edge_iterator ei;
 
-	  FOR_EACH_EDGE (e, b->preds)
+	  FOR_EACH_EDGE (e, ei, b->preds)
 	    {
 	      if (e->flags & EDGE_ABNORMAL)
 		break;
 	    }
-	  END_FOR_EACH_EDGE;
 
 	  if (e != NULL)
 	    {
@@ -2342,15 +2342,15 @@ calculate_reg_pav (void)
       sbitmap_zero (wset);
       for (i = 0; i < nel; i++)
 	{
+	  edge_iterator ei;
 	  bb = bb_array [i];
 	  changed_p = 0;
-	  FOR_EACH_EDGE (e, bb->preds)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      changed_p = modify_bb_reg_pav (bb, e->src, changed_p);
 	    }
-	  END_FOR_EACH_EDGE;
 	  if (changed_p)
-	    FOR_EACH_EDGE (e, bb->succs)
+	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
 		succ = e->dest;
 		if (succ->index != EXIT_BLOCK && !TEST_BIT (wset, succ->index))
@@ -2359,7 +2359,6 @@ calculate_reg_pav (void)
 		    VARRAY_PUSH_BB (new_bbs, succ);
 		  }
 	      }
-	    END_FOR_EACH_EDGE;
 	}
       temp = bbs;
       bbs = new_bbs;

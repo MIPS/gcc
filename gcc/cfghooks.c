@@ -106,6 +106,7 @@ verify_flow_info (void)
     {
       int n_fallthru = 0;
       edge e;
+      edge_iterator ei;
 
       if (bb->count < 0)
 	{
@@ -119,7 +120,7 @@ verify_flow_info (void)
 	         bb->index, bb->frequency);
 	  err = 1;
 	}
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (last_visited [e->dest->index + 2] == bb)
 	    {
@@ -159,7 +160,6 @@ verify_flow_info (void)
 
 	  edge_checksum[e->dest->index + 2] += (size_t) e;
 	}
-      END_FOR_EACH_EDGE;
 
       if (n_fallthru > 1)
 	{
@@ -167,7 +167,7 @@ verify_flow_info (void)
 	  err = 1;
 	}
 
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->dest != bb)
 	    {
@@ -181,24 +181,22 @@ verify_flow_info (void)
 	    }
 	  edge_checksum[e->dest->index + 2] -= (size_t) e;
 	}
-      END_FOR_EACH_EDGE;
     }
 
   /* Complete edge checksumming for ENTRY and EXIT.  */
   {
     edge e;
+    edge_iterator ei;
 
-    FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+    FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
       {
 	edge_checksum[e->dest->index + 2] += (size_t) e;
       }
-    END_FOR_EACH_EDGE;
 
-    FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+    FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
       {
 	edge_checksum[e->dest->index + 2] -= (size_t) e;
       }
-    END_FOR_EACH_EDGE;
   }
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -230,6 +228,7 @@ void
 dump_bb (basic_block bb, FILE *outf, int indent)
 {
   edge e;
+  edge_iterator ei;
   char *s_indent;
  
   s_indent = alloca ((size_t) indent + 1);
@@ -254,19 +253,17 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   putc ('\n', outf);
 
   fprintf (outf, ";;%s pred:      ", s_indent);
-  FOR_EACH_EDGE (e, bb->preds)
+  FOR_EACH_EDGE (e, ei, bb->preds)
     {
       dump_edge_info (outf, e, 0);
     }
-  END_FOR_EACH_EDGE;
   putc ('\n', outf);
 
   fprintf (outf, ";;%s succ:      ", s_indent);
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       dump_edge_info (outf, e, 1);
     }
-  END_FOR_EACH_EDGE;
   putc ('\n', outf);
 
   if (cfg_hooks->dump_bb)
@@ -428,7 +425,8 @@ split_edge (edge e)
       if (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest)
 	  == EDGE_PRED (ret, 0)->src)
 	{
-	  FOR_EACH_EDGE (f, EDGE_SUCC (ret, 0)->dest->preds)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (f, ei, EDGE_SUCC (ret, 0)->dest->preds)
 	    {
 	      if (f == EDGE_SUCC (ret, 0))
 		continue;
@@ -437,7 +435,6 @@ split_edge (edge e)
 				   EDGE_SUCC (ret, 0)->dest))
 		break;
 	    }
-	  END_FOR_EACH_EDGE;
 
 	  if (!f)
 	    set_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (ret, 0)->dest, ret);
@@ -516,6 +513,7 @@ void
 merge_blocks (basic_block a, basic_block b)
 {
   edge e;
+  edge_iterator ei;
 
   if (!cfg_hooks->merge_blocks)
     internal_error ("%s does not support merge_blocks.", cfg_hooks->name);
@@ -531,11 +529,10 @@ merge_blocks (basic_block a, basic_block b)
    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
-  FOR_EACH_EDGE (e, b->succs)
+  FOR_EACH_EDGE (e, ei, b->succs)
     {
       e->src = a;
     }
-  END_FOR_EACH_EDGE;
   a->succs = b->succs;
   a->flags |= b->flags;
 
@@ -670,6 +667,7 @@ bool
 can_duplicate_block_p (basic_block bb)
 {
   edge e;
+  edge_iterator ei;
 
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p.",
@@ -680,12 +678,11 @@ can_duplicate_block_p (basic_block bb)
 
   /* Duplicating fallthru block to exit would require adding a jump
      and splitting the real last BB.  */
-  FOR_EACH_EDGE (e, bb->succs)
+  FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	return false;
     }
-  END_FOR_EACH_EDGE;
 
   return cfg_hooks->can_duplicate_block_p (bb);
 }
@@ -699,6 +696,7 @@ duplicate_block (basic_block bb, edge e)
   edge s, n;
   basic_block new_bb;
   gcov_type new_count = e ? e->count : 0;
+  edge_iterator ei;
 
   if (!cfg_hooks->duplicate_block)
     internal_error ("%s does not support duplicate_block.",
@@ -715,7 +713,7 @@ duplicate_block (basic_block bb, edge e)
 
   new_bb->loop_depth = bb->loop_depth;
   new_bb->flags = bb->flags;
-  FOR_EACH_EDGE (s, bb->succs)
+  FOR_EACH_EDGE (s, ei, bb->succs)
     {
       /* Since we are creating edges from a new block to successors
 	 of another block (which therefore are known to be disjoint), there
@@ -732,7 +730,6 @@ duplicate_block (basic_block bb, edge e)
 	n->count = s->count;
       n->aux = s->aux;
     }
-  END_FOR_EACH_EDGE;
 
   if (e)
     {

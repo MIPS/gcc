@@ -878,6 +878,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
   else
     {
       edge e;
+      edge_iterator ei;
       int new_block = new_bb->index;
 
       gcc_assert (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb));
@@ -900,11 +901,10 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  fprintf (dump_file, "\n");
 	}
 
-      FOR_EACH_EDGE (e, head_bb->preds)
+      FOR_EACH_EDGE (e, ei, head_bb->preds)
 	{
 	  *tos++ = e->src;
 	}
-      END_FOR_EACH_EDGE;
     }
 
   while (tos != worklist)
@@ -913,6 +913,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
       if (!bitmap_bit_p (live_range, bb->index))
 	{
 	  edge e;
+	  edge_iterator ei;
 
 	  bitmap_set_bit (live_range, bb->index);
 	  IOR_HARD_REG_SET (*btrs_live_in_range,
@@ -926,13 +927,12 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	      fprintf (dump_file, "\n");
 	    }
 	  
-	  FOR_EACH_EDGE (e, bb->preds)
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      basic_block pred = e->src;
 	      if (!bitmap_bit_p (live_range, pred->index))
 		*tos++ = pred;
 	    }
-	  END_FOR_EACH_EDGE;
 	}
     }
 

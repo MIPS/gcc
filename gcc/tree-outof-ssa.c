@@ -581,13 +581,14 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
   edge e;
   tree phi, var, tmp;
   int x, y;
+  edge_iterator ei;
 
   /* Code cannot be inserted on abnormal edges. Look for all abnormal 
      edges, and coalesce any PHI results with their arguments across 
      that edge.  */
 
   FOR_EACH_BB (bb)
-    FOR_EACH_EDGE (e, bb->succs)
+    FOR_EACH_EDGE (e, ei, bb->succs)
     {
       if (e->dest != EXIT_BLOCK_PTR && e->flags & EDGE_ABNORMAL)
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
@@ -670,7 +671,6 @@ coalesce_abnormal_edges (var_map map, conflict_graph graph, root_var_p rv)
 	      }
 	  }
     }
-  END_FOR_EACH_EDGE;
 }
 
 
@@ -1931,11 +1931,11 @@ rewrite_trees (var_map map, tree *values)
       phi = phi_nodes (bb);
       if (phi)
         {
-	  FOR_EACH_EDGE (e, bb->preds)
+	  edge_iterator ei;
+	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      eliminate_phi (e, phi_arg_from_edge (phi, e), g);
 	    }
-	  END_FOR_EACH_EDGE;
 	}
     }
 

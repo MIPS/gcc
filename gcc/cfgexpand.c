@@ -1084,13 +1084,13 @@ construct_init_block (void)
 {
   basic_block init_block, first_block;
   edge e;
+  edge_iterator ei;
 
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       if (e->dest == ENTRY_BLOCK_PTR->next_bb)
 	break;
     }
-  END_FOR_EACH_EDGE;
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
@@ -1123,6 +1123,7 @@ construct_exit_block (void)
   basic_block exit_block;
   edge e, e2;
   unsigned ix;
+  edge_iterator ei;
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
@@ -1163,7 +1164,7 @@ construct_exit_block (void)
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
 
-  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
     {
       if (e2 != e)
 	{
@@ -1172,7 +1173,6 @@ construct_exit_block (void)
 	  exit_block->frequency -= EDGE_FREQUENCY (e2);
 	}
     }
-  END_FOR_EACH_EDGE;
     
   if (e->count < 0)
     e->count = 0;

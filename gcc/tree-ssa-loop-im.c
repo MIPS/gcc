@@ -1292,6 +1292,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 
       for (i = 0; i < loop->num_nodes; i++)
 	{
+	  edge_iterator ei;
 	  bb = bbs[i];
 
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -1300,12 +1301,11 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  FOR_EACH_EDGE (e, bb->succs)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
 	      if (!flow_bb_inside_loop_p (loop, e->dest))
 		break;
 	    }
-	  END_FOR_EACH_EDGE;
 
 	  if (e)
 	    break;

@@ -4958,6 +4958,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 #ifdef HAVE_return
   unsigned ix;
 #endif
+  edge_iterator ei;
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -4986,12 +4987,11 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       if ((e->flags & EDGE_FAKE) == 0)
 	break;
     }
-  END_FOR_EACH_EDGE;
 
   if (e == NULL)
     goto epilogue_done;
@@ -5008,12 +5008,11 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       basic_block last;
       rtx label;
 
-      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    break;
 	}
-      END_FOR_EACH_EDGE;
 
       if (e == NULL)
 	goto epilogue_done;
@@ -5115,12 +5114,11 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       if (e->flags & EDGE_FALLTHRU)
 	break;
     }
-  END_FOR_EACH_EDGE;
 
   if (e == NULL)
     goto epilogue_done;

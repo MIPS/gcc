@@ -190,6 +190,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 {
   basic_block bb, call_bb, at_bb;
   edge e;
+  edge_iterator ei;
 
   if (is_gimple_min_invariant (expr))
     return expr;
@@ -230,12 +231,11 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	  break;
 	}
 
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->src->aux)
 	    break;
 	}
-      END_FOR_EACH_EDGE;
 
       gcc_assert (e);
 
@@ -409,12 +409,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
   if (bsi_end_p (bsi))
     {
+      edge_iterator ei;
       /* Recurse to the predecessors.  */
-      FOR_EACH_EDGE (e, bb->preds)
+      FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  find_tail_calls (e->src, ret);
 	}
-      END_FOR_EACH_EDGE;
       return;
     }
 
@@ -817,13 +817,14 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   bool changed = false;
   basic_block first = EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest;
   tree stmt, param, ret_type, tmp, phi;
+  edge_iterator ei;
 
   if (!suitable_for_tail_opt_p ())
     return;
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -833,7 +834,6 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	  && TREE_CODE (stmt) == RETURN_EXPR)
 	find_tail_calls (e->src, &tailcalls);
     }
-  END_FOR_EACH_EDGE;
 
   /* Construct the phi nodes and accumulators if necessary.  */
   a_acc = m_acc = NULL_TREE;
@@ -905,7 +905,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  stmt = last_stmt (e->src);
 
@@ -913,7 +913,6 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      && TREE_CODE (stmt) == RETURN_EXPR)
 	    adjust_return_value (e->src, m_acc, a_acc);
 	}
-      END_FOR_EACH_EDGE;
     }
 
   if (changed)

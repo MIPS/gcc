@@ -2481,7 +2481,7 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
 {
   basic_block exit_bb;
   rtx condition, at;
-  edge ei;
+  edge ein;
 
   exit_bb = e->src;
   desc->simple_p = false;
@@ -2498,18 +2498,18 @@ check_simple_exit (struct loop *loop, edge e, struct niter_desc *desc)
   if (!any_condjump_p (BB_END (exit_bb)))
     return;
 
-  ei = EDGE_SUCC (exit_bb, 0);
-  if (ei == e)
-    ei = EDGE_SUCC (exit_bb, 1);
+  ein = EDGE_SUCC (exit_bb, 0);
+  if (ein == e)
+    ein = EDGE_SUCC (exit_bb, 1);
 
   desc->out_edge = e;
-  desc->in_edge = ei;
+  desc->in_edge = ein;
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (BB_END (ei->src), &at, false, false)))
+  if (!(condition = get_condition (BB_END (ein->src), &at, false, false)))
     return;
 
-  if (ei->flags & EDGE_FALLTHRU)
+  if (ein->flags & EDGE_FALLTHRU)
     {
       condition = reversed_condition (condition);
       if (!condition)
@@ -2531,13 +2531,14 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
   edge e;
   struct niter_desc act;
   bool any = false;
+  edge_iterator ei;
 
   desc->simple_p = false;
   body = get_loop_body (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      FOR_EACH_EDGE (e, body[i]->succs)
+      FOR_EACH_EDGE (e, ei, body[i]->succs)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    continue;
@@ -2554,7 +2555,6 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
 	    continue;
 	  *desc = act;
 	}
-      END_FOR_EACH_EDGE;
     }
 
   if (dump_file)

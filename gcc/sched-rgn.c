@@ -802,6 +802,7 @@ find_rgns (struct edge_list *edge_list)
 	  if (TEST_BIT (header, bb->index) && TEST_BIT (inner, bb->index))
 	    {
 	      edge e;
+	      edge_iterator ei;
 	      basic_block jbb;
 
 	      /* Now check that the loop is reducible.  We do this separate
@@ -843,12 +844,11 @@ find_rgns (struct edge_list *edge_list)
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
 
-	      FOR_EACH_EDGE (e, bb->succs)
+	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  if (e->dest != EXIT_BLOCK_PTR)
 		    --degree[e->dest->index];
 		}
-	      END_FOR_EACH_EDGE;
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
@@ -881,7 +881,7 @@ find_rgns (struct edge_list *edge_list)
 		{
 		  edge e;
 
-		  FOR_EACH_EDGE (e, bb->preds)
+		  FOR_EACH_EDGE (e, ei, bb->preds)
 		    {
 		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
@@ -901,7 +901,6 @@ find_rgns (struct edge_list *edge_list)
 			    }
 			}
 		    }
-		  END_FOR_EACH_EDGE;
 		}
 
 	      /* Now add all the blocks in the loop to the queue.
@@ -939,7 +938,7 @@ find_rgns (struct edge_list *edge_list)
 		  edge e;
 		  child = queue[++head];
 
-		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->preds)
+		  FOR_EACH_EDGE (e, ei, BASIC_BLOCK (child)->preds)
 		    {
 		      node = e->src->index;
 
@@ -963,7 +962,6 @@ find_rgns (struct edge_list *edge_list)
 			    }
 			}
 		    }
-		  END_FOR_EACH_EDGE;
 		}
 
 	      if (tail >= 0 && !too_large_failure)
@@ -995,12 +993,11 @@ find_rgns (struct edge_list *edge_list)
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succs)
+			  FOR_EACH_EDGE (e, ei, BASIC_BLOCK (child)->succs)
 			    {
 			      if (e->dest != EXIT_BLOCK_PTR)
 				--degree[e->dest->index];
 			    }
-			  END_FOR_EACH_EDGE;
 			}
 		      else
 			--head;

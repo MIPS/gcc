@@ -219,6 +219,7 @@ find_exits (struct loop *loop, basic_block *body,
 	    bitmap may_exit, bitmap has_exit)
 {
   unsigned i;
+  edge_iterator ei;
   edge e;
   struct loop *outermost_exit = loop, *aexit;
   bool has_call = false;
@@ -239,7 +240,7 @@ find_exits (struct loop *loop, basic_block *body,
 		}
 	    }
 
-	  FOR_EACH_EDGE (e, body[i]->succs)
+	  FOR_EACH_EDGE (e, ei, body[i]->succs)
 	    {
 	      if (flow_bb_inside_loop_p (loop, e->dest))
 		continue;
@@ -249,7 +250,6 @@ find_exits (struct loop *loop, basic_block *body,
 	      outermost_exit = find_common_loop (outermost_exit,
 						 e->dest->loop_father);
 	    }
-	  END_FOR_EACH_EDGE;
 	  continue;
 	}
      

@@ -2023,6 +2023,7 @@ sjlj_emit_function_exit (void)
 {
   rtx seq;
   edge e;
+  edge_iterator ei;
 
   start_sequence ();
 
@@ -2036,12 +2037,11 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
     {
       if (e->flags & EDGE_FALLTHRU)
 	break;
     }
-  END_FOR_EACH_EDGE;
   if (e)
     {
       rtx insn;

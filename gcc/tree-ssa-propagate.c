@@ -318,10 +318,10 @@ simulate_stmt (tree stmt)
       if (stmt_ends_bb_p (stmt))
 	{
 	  edge e;
+	  edge_iterator ei;
 	  basic_block bb = bb_for_stmt (stmt);
-	  FOR_EACH_EDGE (e, bb->succs)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    add_control_edge (e);
-	  END_FOR_EACH_EDGE;
 	}
     }
   else if (val == SSA_PROP_INTERESTING)
@@ -407,6 +407,7 @@ simulate_block (basic_block block)
       block_stmt_iterator j;
       unsigned int normal_edge_count;
       edge e, normal_edge;
+      edge_iterator ei;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
@@ -435,7 +436,7 @@ simulate_block (basic_block block)
 	 worklist.  */
       normal_edge_count = 0;
       normal_edge = NULL;
-      FOR_EACH_EDGE (e, block->succs)
+      FOR_EACH_EDGE (e, ei, block->succs)
 	{
 	  if (e->flags & EDGE_ABNORMAL)
 	    add_control_edge (e);
@@ -445,7 +446,6 @@ simulate_block (basic_block block)
 	      normal_edge = e;
 	    }
 	}
-      END_FOR_EACH_EDGE;
 
       if (normal_edge_count == 1)
 	add_control_edge (normal_edge);
@@ -459,6 +459,7 @@ static void
 ssa_prop_init (void)
 {
   edge e;
+  edge_iterator ei;
   basic_block bb;
 
   /* Worklists of SSA edges.  */
@@ -484,14 +485,13 @@ ssa_prop_init (void)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	STMT_IN_SSA_EDGE_WORKLIST (bsi_stmt (si)) = 0;
 
-      FOR_EACH_EDGE (e, bb->succs)
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
-      END_FOR_EACH_EDGE;
     }
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
-  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       if (e->dest != EXIT_BLOCK_PTR)
 	{
@@ -499,7 +499,6 @@ ssa_prop_init (void)
 	  cfg_blocks_add (e->dest);
 	}
     }
-  END_FOR_EACH_EDGE;
 }
 
 
