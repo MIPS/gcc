@@ -1,5 +1,7 @@
 2005-01-12  Tom Tromey  <tromey@redhat.com>
 
+	* glue.hh (TARGET_VTABLE_USES_DESCRIPTORS): Removed.
+
 	Initial checkin of gcjx.  See gcjx/ChangeLog for earlier changes
 	to the gcjx tree back end.
 	* Make-lang.in (java): Removed gcjh, jv-scan, jcf-dump.

@@ -74,11 +74,6 @@ extern "C"
 #undef get_identifier
 
 
-
-// FIXME: temporary
-#define TARGET_VTABLE_USES_DESCRIPTORS 0
-
-
 // Now include things from gcjx.
 #include "typedefs.hh"
 #include "tree/builtins.hh"
