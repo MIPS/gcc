@@ -377,10 +377,8 @@ delete_basic_block (basic_block bb)
       ix--;
     }
 
-  if (EDGE_COUNT (bb->pred) > 0)
-    VEC_truncate (edge, bb->pred, 0);
-  if (EDGE_COUNT (bb->succ) > 0)
-    VEC_truncate (edge, bb->succ, 0);
+  VEC_truncate (edge, bb->pred, 0);
+  VEC_truncate (edge, bb->succ, 0);
 
   if (dom_computed[CDI_DOMINATORS])
     delete_from_dominance_info (CDI_DOMINATORS, bb);

@@ -1,3 +1,11 @@
+2004-07-22  Ben Elliston  <bje@au.ibm.com>
+
+	* except.c (connect_post_landing_pads): Use EDGE_COUNT.
+	* ifcvt.c (find_if_case_2): Only access edge 0 if the edge count
+	is non-zero.
+	* cfghooks.c (delete_basic_block): Truncate unconditionally as it
+	is now safe to do so.
+
 2004-07-21  Ben Elliston  <bje@au.ibm.com>
 
 	* cfganal.c (remove_fake_predecessors): Decrement the iterator if

@@ -2950,7 +2950,7 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
-  edge else_succ = EDGE_0 (else_bb->succ);
+  edge else_succ;
   int bb_cost;
   rtx note;
 
@@ -2969,9 +2969,11 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
   /* ELSE has one successor.  */
   if (EDGE_COUNT (else_bb->succ) != 1)
     return FALSE;
+  else
+    else_edge = EDGE_0 (else_bb->succ);
 
   /* ELSE outgoing edge is not complex.  */
-  if (EDGE_0 (else_bb->succ)->flags & EDGE_COMPLEX)
+  if (else_edge->flags & EDGE_COMPLEX)
     return FALSE;
 
   /* ELSE has one predecessor.  */

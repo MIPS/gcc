@@ -2373,7 +2373,6 @@ purge_dead_edges (basic_block bb)
 	  bb->flags |= BB_DIRTY;
 	  purged = true;
 	  remove_edge (e);
-	  /* Ewww! */
 	  ix--;
 	}
 
