@@ -195,3 +195,77 @@
 3665279: gcc.dg/compat/vector-1 c_compat_y_tst.o compile
 3665279: gcc.dg/compat/vector-2 c_compat_x_tst.o compile
 3665279: gcc.dg/compat/vector-2 c_compat_y_tst.o compile
+3665284: gcc.dg/compat/struct-by-value-21 c_compat_x_tst.o compile
+3665284: gcc.dg/compat/struct-by-value-21 c_compat_y_tst.o compile
+3665284: gcc.dg/compat/struct-return-21 c_compat_x_tst.o compile
+3665284: gcc.dg/compat/struct-return-21 c_compat_y_tst.o compile
+3649368: gcc.dg/20040322-1.c (test for excess errors)
+3649525: gcc.dg/Wshadow-2.c  (test for bogus messages, line 9)
+3649525: gcc.dg/Wshadow-2.c (test for excess errors)
+3649550: gcc.dg/alias-2.c (test for warnings, line 14)
+3636386: gcc.dg/altivec-varargs-1.c (test for excess errors)
+3644051: gcc.dg/array-5.c (test for excess errors)
+3665098: gcc.dg/array-quals-1.c scan-assembler-not \\.data(?!\\.rel\\.ro)
+3191432: gcc.dg/asm-fs-1.c scan-assembler-not \*_bar
+3191432: gcc.dg/asm-fs-1.c scan-assembler-not \*_baz
+3191500: gcc.dg/c99-func-3.c execution test
+3649563: gcc.dg/compare8.c  (test for bogus messages, line 7)
+3649563: gcc.dg/compare8.c  (test for bogus messages, line 13)
+3649563: gcc.dg/compare8.c  (test for bogus messages, line 19)
+3645905: gcc.dg/doloop-1.c scan-assembler bdnz
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 5)
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 6)
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 7)
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 10)
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 11)
+3649581: gcc.dg/gnu89-dupqual-1.c  (test for bogus messages, line 12)
+3649603: gcc.dg/gnu89-init-3.c (test for excess errors)
+3649639: gcc.dg/reg-vol-struct-1.c explicit address (test for warnings, line 16)
+3649639: gcc.dg/reg-vol-struct-1.c (test for excess errors)
+3665227: gcc.dg/rs6000-ldouble-1.c (test for excess errors)
+3665098: gcc.dg/struct-by-value-1.c (test for excess errors)
+3666921: gcc.dg/uninit-H.c (test for bogus messages, line 18)
+3665227: gcc.dg/format/asm_fprintf-1.c   (test for excess errors)
+3665227: gcc.dg/format/asm_fprintf-1.c  -DWIDE  (test for excess errors)
+3665227: gcc.dg/format/c99-printf-1.c   (test for excess errors)
+3665227: gcc.dg/format/c99-printf-1.c  -DWIDE  (test for excess errors)
+3665227: gcc.dg/format/c99-scanf-1.c   (test for excess errors)
+3665227: gcc.dg/format/c99-scanf-1.c  -DWIDE  (test for excess errors)
+3665227: gcc.dg/format/gcc_diag-1.c   (test for excess errors)
+3665227: gcc.dg/format/gcc_diag-1.c  -DWIDE  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -O0  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -O1  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -O2  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -O3 -g  (test for excess errors)
+3649672: gcc.dg/noncompile/undeclared-1.c  -Os  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c -O0 -g (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -O0  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -O1  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -O2  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -O3 -g  (test for excess errors)
+3640156: gcc.dg/pch/apple-altivec-1.c  -Os  (test for excess errors)
+3266222: gcc.dg/pch/apple-altivec-1.c -O0 -g assembly comparison
+3266222: gcc.dg/pch/apple-altivec-1.c  -O3 -g  assembly comparison
+3555440: gcc.dg/ss/one.c  -O0  Make repository
+3555440: gcc.dg/ss/one.c  -O1  Make repository
+3555440: gcc.dg/ss/one.c  -O2  Make repository
+3555440: gcc.dg/ss/one.c  -O3 -fomit-frame-pointer  Make repository
+3555440: gcc.dg/ss/one.c  -O3 -g  Make repository
+3555440: gcc.dg/ss/one.c  -Os  Make repository
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-04.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-06.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-07.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-08.c scan-tree-dump-times remove_me 0
+3666982: /Volumes/SandBox/TestResults/tmp/Darwin/gcc-1753/gcc3/gcc/testsuite/gcc.dg/tree-ssa-chrec/ssa-chrec-35.c diff-tree-dumps ddall
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-56.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-57.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa-chrec/ssa-chrec-58.c scan-tree-dump-times remove_me 0
+3666982: gcc.dg/tree-ssa/20030711-1.c scan-tree-dump-times vec.length 4
+3666982: gcc.dg/tree-ssa/20030807-6.c scan-tree-dump-times ABS_EXPR  0
+3666982: gcc.dg/tree-ssa/20030807-7.c scan-tree-dump-times if  1
+3666982: gcc.dg/tree-ssa/20031216-1.c scan-tree-dump-times link_error 0
+3665098: 209: expected branch percentages not found: 25
+3665098: gcc.misc-tests/gcov-4b.c gcov: 0 failures in line counts, 1 in branch percentages, 0 in return percentages
+3644687: gcc.misc-tests/mg.c
