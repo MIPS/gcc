@@ -437,7 +437,7 @@ schedule_ebbs (dump_file)
 	      break;
 	  if (! e)
 	    break;
-	  if (e->probability < REG_BR_PROB_BASE * 60 / 100)
+	  if (e->probability < REG_BR_PROB_BASE * 80 / 100)
 	    break;
 	  i++;
 	}
