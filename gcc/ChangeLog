@@ -1,3 +1,7 @@
+2000-04-03  Philip Blundell  <philb@gnu.org>
+
+	* config/arm/linux-elf.h (SUBTARGET_EXTRA_LINK_SPEC): Fix typos.
+
 2000-03-31  Richard Earnshaw (rearnsha@arm.com)
 
 	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000325 
