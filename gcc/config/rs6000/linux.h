@@ -93,7 +93,18 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef IN_LIBGCC2
 #include <signal.h>
-#include <sys/ucontext.h>
+
+/* During the 2.5 kernel series the kernel ucontext was changed, but
+   the new layout is compatible with the old one, so we just define
+   and use the old one here for simplicity and compatibility.  */
+
+struct kernel_old_ucontext {
+  unsigned long     uc_flags;
+  struct ucontext  *uc_link;
+  stack_t           uc_stack;
+  struct sigcontext_struct uc_mcontext;
+  sigset_t          uc_sigmask;
+};
 
 enum { SIGNAL_FRAMESIZE = 64 };
 #endif
@@ -129,7 +140,7 @@ enum { SIGNAL_FRAMESIZE = 64 };
 	  struct siginfo *pinfo;					\
 	  void *puc;							\
 	  struct siginfo info;						\
-	  struct ucontext uc;						\
+	  struct kernel_old_ucontext uc;				\
 	} *rt_ = (CONTEXT)->cfa;					\
 	sc_ = &rt_->uc.uc_mcontext;					\
       }									\

@@ -1,5 +1,15 @@
 2003-07-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Corrected
+	to handle kernels with changed ucontext (ifndef __powerpc64__).
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Corrected
+	to handle kernels with changed ucontext.
+
+2003-07-11  Jakub Jelinek  <jakub@redhat.com>
+
 	* optabs.c (prepare_cmp_insn): Try cmpmemM first if it exists,
 	then fall back to cmpstrM.
 	* builtins.c (expand_builtin_memcmp): Likewise.
