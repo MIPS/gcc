@@ -14,6 +14,10 @@
 
 2005-01-26  Dale Johannesen  <dalej@apple.com>
 
+	Back out preceding change, which is wrong.
+
+2005-01-26  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3974393
 	PR 19650
 	* fold-const.c (fold_binary_op_with_conditional_arg):
