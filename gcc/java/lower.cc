@@ -106,14 +106,20 @@ tree_generator::visit_bytecode_block (model_bytecode_block *block,
       sprintf (name, "stack%d", i);
       stack_slots[i] = build_decl (VAR_DECL, get_identifier (name),
 				   type_slot_union);
+      DECL_CONTEXT (stack_slots[i]) = current_block;
+      TREE_CHAIN (stack_slots[i]) = BLOCK_VARS (current_block);
+      BLOCK_VARS (current_block) = stack_slots[i];
     }
   local_slots = new tree[max_locals];
   for (int i = 0; i < max_locals; ++i)
     {
       char name[20];
       sprintf (name, "local%d", i);
-      stack_slots[i] = build_decl (VAR_DECL, get_identifier (name),
+      local_slots[i] = build_decl (VAR_DECL, get_identifier (name),
 				   type_slot_union);
+      DECL_CONTEXT (local_slots[i]) = current_block;
+      TREE_CHAIN (local_slots[i]) = BLOCK_VARS (current_block);
+      BLOCK_VARS (current_block) = local_slots[i];
     }
 
   model_unit_class *unit
