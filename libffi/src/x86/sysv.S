@@ -182,3 +182,7 @@ epilogue:
 .LEFDE1:
 
 #endif /* ifndef __x86_64__ */
+
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif

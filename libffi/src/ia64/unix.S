@@ -324,4 +324,6 @@ ffi_closure_UNIX:
 	br.ret.sptk.many b0
 	.endp ffi_closure_UNIX
 	
-
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif
