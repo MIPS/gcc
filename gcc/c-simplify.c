@@ -355,7 +355,6 @@ simplify_expr_stmt (stmt, pre_p, post_p)
       if (!stmt_has_effect (stmt))
 	warning_with_file_and_line (fname, lineno, "statement with no effect");
       else if (warn_unused_value
-	       && stmt_expr_level == 0
 	       && !is_last_stmt_of_scope (stmt))
 	{
 	  /* Only check for unused computations if the statement is not the
