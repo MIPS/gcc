@@ -1,3 +1,9 @@
+2005-01-03  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3933673
+	* config/rs6000/darwin-fallback.c: Use 'ucontext_t' rather than
+	'struct ucontext'.
+
 2004-12-16  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-cppbuiltin.c (builtin_define_float_constants): Set __*_EPSILON__
