@@ -957,9 +957,9 @@ set_decl_rtl (t, x)
       int i;
       for (i = 0; i < XVECLEN (x, 0); i++)
 	{
-	  rtx x = XVECEXP (x, 0, i);
-	  if (REG_P (XEXP (x, 0)))
-	    REG_ATTRS (XEXP (x, 0)) = get_reg_attrs (t, INTVAL (XEXP (x, 1)));
+	  rtx y = XVECEXP (x, 0, i);
+	  if (REG_P (XEXP (y, 0)))
+	    REG_ATTRS (XEXP (y, 0)) = get_reg_attrs (t, INTVAL (XEXP (y, 1)));
 	}
     }
 }
