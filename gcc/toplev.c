@@ -2779,7 +2779,7 @@ rest_of_compilation (decl)
 	{
 	  timevar_push (TV_WEB);
 	  web_main ();
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
 	  timevar_pop (TV_WEB);
@@ -3084,7 +3084,7 @@ rest_of_compilation (decl)
       if (flag_web)
 	{
 	  web_main ();
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 	}
       cleanup_cfg (CLEANUP_EXPENSIVE
 		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
