@@ -55,6 +55,7 @@ static tree add_stmt_to_compound	PARAMS ((tree, tree));
 static void simplify_asm_expr		PARAMS ((tree, tree *));
 static void simplify_bind_expr		PARAMS ((tree *, tree *));
 static inline void remove_suffix     PARAMS ((char *, int));
+static tree create_tmp_var_1             PARAMS ((tree, const char *));
 static void push_gimplify_context	PARAMS ((void));
 static void pop_gimplify_context	PARAMS ((void));
 static void wrap_with_wfl PARAMS ((tree *));
@@ -542,7 +543,7 @@ simplify_bind_expr (expr_p, pre_p)
 	}
       else
 	{
-	  temp = create_tmp_var (TREE_TYPE (bind_expr), "retval");
+	  temp = create_tmp_var_1 (TREE_TYPE (bind_expr), "retval");
 	  if (*p != empty_stmt_node)
 	    *p = build (INIT_EXPR, TREE_TYPE (temp), temp, *p);
 	}
@@ -949,7 +950,7 @@ simplify_cond_expr (expr_p, pre_p)
      the arms.  */
   if (! VOID_TYPE_P (TREE_TYPE (expr)))
       {
-	tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	tmp = create_tmp_var_1 (TREE_TYPE (expr), "iftmp");
 
 	/* Build the then clause, 't1 = a;'.  */
 	TREE_OPERAND (expr, 1)
@@ -1363,9 +1364,38 @@ add_tree (t, list_p)
 
 /*  Create a new temporary variable declaration of type TYPE.  Returns the
     newly created decl and pushes it into the current binding.  */
+tree 
+create_tmp_var_noc (type, prefix)
+    tree type;
+    const char *prefix;
+{
+  return create_tmp_var_1 (type, prefix);
+} 
 
-tree
+/*  Create a new temporary variable declaration of type TYPE.  Returns the
+    newly created decl and pushes it into the top-level binding. */
+tree 
 create_tmp_var (type, prefix)
+    tree type;
+    const char *prefix;
+{
+  tree temp;
+  tree fnbody;
+
+  push_gimplify_context ();
+  temp = create_tmp_var_1 (type, prefix);
+  fnbody = DECL_SAVED_TREE (current_function_decl);
+  STRIP_WFL (fnbody);
+  declare_tmp_vars (gimplify_ctxp->temps, fnbody);
+  pop_gimplify_context ();
+  return temp;
+} 
+
+/*  Create a new temporary variable declaration of type TYPE.  Returns the
+    newly created decl and pushes it into the current binding.  */
+
+static tree
+create_tmp_var_1 (type, prefix)
      tree type;
      const char *prefix;
 {
@@ -1497,7 +1527,7 @@ get_initialized_tmp_var (val, pre_p)
   
   prefix = get_name (val);
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
-  t = create_tmp_var (TREE_TYPE (val), prefix);
+  t = create_tmp_var_1 (TREE_TYPE (val), prefix);
   mod = build (INIT_EXPR, TREE_TYPE (t), t, val);
   add_tree (mod, pre_p);
 

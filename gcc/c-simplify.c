@@ -797,7 +797,7 @@ simplify_stmt_expr (expr_p, pre_p)
 	    abort ();
 #endif
 
-	  temp = create_tmp_var (TREE_TYPE (last_expr), "retval");
+	  temp = create_tmp_var_noc (TREE_TYPE (last_expr), "retval");
 	  mod = build (INIT_EXPR, TREE_TYPE (temp), temp, last_expr);
 	  EXPR_STMT_EXPR (last_expr_stmt) = mod;
 	}

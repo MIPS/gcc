@@ -1,3 +1,40 @@
+2002-10-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gimplify.c (create_tmp_var): New function, wraps calls to
+	create_tmp_var_1 with pushing/popping of right context.
+	All internal gimplify.c now use create_tmp_var_1.
+	(create_tmp_var_noc): New function, create the var without 
+	pushing/popping, and without exposing internals of create_tmp_var_1.
+	Only one use of this.
+	
+	* tree-simple.h (create_tmp_var_noc): New prototype.
+
+	* c-simplify.c (simplify_stmt_expr): create_tmp_var changed to
+	create_tmp_var_noc.
+
+	* tree-ssa-pre.c: Add WAITING_FOR_DFA_UPDATE around code waiting for DFA
+	functions to keep refs up to date.
+	(add_call_to_ei): occurs and occurstmts is now an
+	array of tree pointers, not trees. Update approriately.
+	(insert_occ_in_preorder_dt_order_1): Ditto.
+	(tree_perform_ssapre): Ditto.
+	(find_use_for_var): Removed function.
+	(orig_expr_map): Removed global, removed uses.
+	(struct ei): Added injfixups member.
+	(is_strred_cand): STRIP_WFL the expression.
+	(calculate_increment): Ditto.
+	(is_injuring_def): Ditto.
+	(defs_y_dom_x): Ditto. Also account for fact that y is now a full
+	expression, not just an RHS.
+	(defs_match_p): Ditto (t2 is no longer just an RHS).
+	(finalize_1): Do insertion by replacement. 
+	(repair_injury): Clean up, do insertion by replacement.
+	(find_reaching_def_of_var): Do backwards search in a cleaner way.
+	(update_ssa_for_new_use): Change how we do replacement.
+	(code_motion): Insertion by replacement. Print EXPR_WFL_LINENO, not
+	STMT_LINENO.
+	(pre_part_1_trav): Just create_tmp_var will now suffice.
+
 2002-10-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (find_refs_in_expr): Change type of second argument to
