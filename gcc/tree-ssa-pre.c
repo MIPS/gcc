@@ -3027,7 +3027,7 @@ split_critical_edges (void)
       for (e = bb->succ; e ; e = e->succ_next)
 	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
 	  {
-	    tree_split_edge (e);
+	    split_edge (e);
 	    did_something = true;
 	  }
     }
@@ -3154,7 +3154,7 @@ execute_pre (void)
 
   if (ENTRY_BLOCK_PTR->succ->dest->pred->pred_next)
     if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
-      tree_split_edge (ENTRY_BLOCK_PTR->succ);
+      split_edge (ENTRY_BLOCK_PTR->succ);
  
   euse_node_pool = create_alloc_pool ("EUSE node pool", 
 				      sizeof (struct tree_euse_node), 30);

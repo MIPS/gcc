@@ -458,6 +458,7 @@ tree_ssa_dominator_optimize (void)
 	      src = e->src;
 
 	      e = redirect_edge_and_branch (e, tgt);
+	      PENDING_STMT (e) = NULL_TREE;
 
 	      /* Updating the dominance information would be nontrivial.  */
 	      free_dominance_info (CDI_DOMINATORS);
@@ -473,7 +474,7 @@ tree_ssa_dominator_optimize (void)
 	}
 
       /* We may have made some basic blocks unreachable, remove them.  */
-      cfg_altered |= remove_unreachable_blocks ();
+      cfg_altered |= delete_unreachable_blocks ();
 
       /* If the CFG was altered, then recompute the dominator tree.  This
 	 is not strictly needed if we only removed unreachable blocks, but

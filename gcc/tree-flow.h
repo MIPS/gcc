@@ -388,6 +388,10 @@ extern void bsi_replace (const block_stmt_iterator *, tree, bool);
 			      Function prototypes
 ---------------------------------------------------------------------------*/
 /* In tree-cfg.c  */
+
+/* Location to track pending stmt for edge insertion.  */
+#define PENDING_STMT(e)	((e)->insns.t)
+
 extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg (void);
 extern void disband_implicit_edges (void);
@@ -407,30 +411,27 @@ extern void debug_cfg_stats (void);
 extern void tree_cfg2dot (FILE *);
 extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
-extern void insert_bb_before (basic_block, basic_block);
 extern void cleanup_tree_cfg (void);
-extern bool remove_unreachable_blocks (void);
-extern void remove_phi_nodes_and_edges_for_unreachable_block (basic_block);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
-extern basic_block tree_split_edge (edge);
 extern edge thread_edge (edge, basic_block);
 extern basic_block label_to_block (tree);
 extern bool cleanup_control_expr_graph (basic_block, block_stmt_iterator);
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern edge tree_block_forwards_to (basic_block bb);
 extern void bsi_insert_on_edge (edge, tree);
-extern void bsi_commit_edge_inserts (bool, int *);
+extern void bsi_commit_edge_inserts (int *);
 extern void bsi_insert_on_edge_immediate (edge, tree);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void compute_dominance_frontiers (bitmap *);
 extern bool verify_stmt (tree);
 extern void verify_stmts (void);
+extern basic_block tree_duplicate_bb (basic_block, edge);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);

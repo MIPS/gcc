@@ -287,6 +287,8 @@ eliminate_tail_call (struct tailcall *t)
   e = redirect_edge_and_branch (t->call_block->succ, first);
   if (!e)
     abort ();
+  PENDING_STMT (e) = NULL_TREE;
+
 
   /* Add phi node entries for arguments.  Not every PHI node corresponds to
      a function argument (there may be PHI nodes for virtual definitions of the

@@ -2476,8 +2476,7 @@ rewrite_trees (var_map map, tree *values)
   delete_elim_graph (g);
 
   /* If any copies were inserted on edges, actually insert them now.  */
-  bsi_commit_edge_inserts (0, NULL);
-
+  bsi_commit_edge_inserts (NULL);
 }
 
 /* Remove the variables specified in a var map from SSA form.  */
@@ -2650,7 +2649,7 @@ rewrite_vars_out_of_ssa (bitmap vars)
 	}
 
       /* If any copies were inserted on edges, actually insert them now.  */
-      bsi_commit_edge_inserts (0, NULL);
+      bsi_commit_edge_inserts (NULL);
                                                                                 
       /* Now register partitions for all instances of the variables we
 	 are taking out of SSA form.  */
@@ -2750,18 +2749,36 @@ ssa_remove_edge (edge e)
 
 /* Remove remove the corresponding arguments from the PHI nodes
    in E's destination block and redirect it to DEST.  Return redirected edge.
-   It is up to caller to update phi nodes on the destination.  */
+   The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
   tree phi;
+  tree list = NULL, *last = &list;
+  tree src, dst, node;
+  int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-    remove_phi_arg (phi, e->src);
+    {
+      i = phi_arg_from_edge (phi, e);
+      if (i < 0)
+	continue;
 
-  return redirect_edge_succ_nodup (e, dest);
+      src = PHI_ARG_DEF (phi, i);
+      dst = PHI_RESULT (phi);
+      node = build_tree_list (dst, src);
+      *last = node;
+      last = &TREE_CHAIN (node);
+
+      remove_phi_arg_num (phi, i);
+    }
+
+  e = redirect_edge_succ_nodup (e, dest);
+  PENDING_STMT (e) = list;
+
+  return e;
 }
 
 /*---------------------------------------------------------------------------

@@ -1,3 +1,96 @@
+2004-01-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop.o): Add cfgloop.h dependency.
+	(cfghooks.o): Add TIMEVAR_H and toplev.h dependency.
+	* basic-block.h (struct edge_def): Use ir_type instead testing of
+	cfg_hooks directly.
+	(tidy_fallthru_edge, tidy_fallthru_edges, dump_bb, verify_flow_info):
+	Declaration removed.
+	* cfg.c (verify_flow_info, dump_bb): Moved to cfghooks.c.
+	* cfgcleanup.c (try_simplify_condjump): Changed due to change of
+	tidy_fallthru_edge.
+	* cfghooks.c: Include timevar.h and toplev.h.
+	(cfg_hooks): Made static.
+	(tree_register_cfg_hooks, ir_type): New.
+	(verify_flow_info, dump_bb): Moved from cfg.c.
+	(redirect_edge_and_branch, redirect_edge_and_branch_force,
+	split_block, split_block_after_labels, move_block_after,
+	delete_basic_block, split_edge, create_basic_block,
+	create_empty_bb, can_merge_blocks_p, merge_blocks,
+	make_forwarder_block, tidy_fallthru_edge, tidy_fallthru_edges): New.
+	* cfghooks.h (struct cfg_hooks): Modified.
+	(redirect_edge_and_branch, redirect_edge_and_branch_force, split_block,
+	delete_basic_block, split_edge, create_basic_block, can_merge_blocks_p,
+	merge_blocks, make_forwarder_block): Changed into functions.
+	(loop_optimizer_init, loop_optimizer_finalize): Removed.
+	(HEADER_BLOCK, LATCH_EDGE): Moved into cfgloop.c.
+	(tidy_fallthru_edge, tidy_fallthru_edges, create_empty_bb,
+	verify_flow_info, dump_bb, ir_type): Declare.
+	(cfg_layout_rtl_cfg_hooks): Declare.
+	* cfglayout.c (copy_bbs): Don't call add_to_dominance_info.
+	* cfgloop.c (HEADER_BLOCK, LATCH_EDGE): Moved from cfghooks.h.
+	(update_latch_info, mfb_keep_just, mfb_keep_nonlatch): New functions.
+	(canonicalize_loop_headers): Use new semantics of make_forwarder_block.
+	* cfgloop.h (rtl_loop_optimizer_init, rtl_loop_optimizer_finalize):
+	Removed.
+	(loop_optimizer_init, loop_optimizer_finalize): Declare.
+	* cfgloopmanip.c (split_loop_bb): Don't update dominators.
+	(remove_bbs): Don't call remove_bbs.
+	(create_preheader): Use make_forwarder_block.
+	(mfb_keep_just, mfb_update_loops): New static functions.
+	* cfgrtl.c (cfg_layout_split_block, rtl_split_block,
+	rtl_make_forwarder_block, rtl_create_basic_block,
+	rtl_delete_block, rtl_split_block, rtl_merge_blocks,
+	tidy_fallthru_edge, rtl_split_edge, cfg_layout_merge_blocks,
+	cfg_layout_split_edge): Parts not specific to rtl moved to cfghooks.c
+	(tidy_fallthru_edges): Moved to cfghooks.c.
+	(rtl_move_block_after): New.
+	(redirect_edge_with_latch_update, update_cfg_after_block_merging):
+	Removed.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hooks): Modified.
+	* ifcvt.c (merge_if_block, find_cond_trap, find_if_case_1,
+	find_if_case_2): Don't update dominators.
+	* loop-init.c (rtl_loop_optimizer_init, rtl_loop_optimizer_finalize):
+	Replaced by rtl_loop_optimizer_init and rtl_loop_optimizer_finalize.
+	* loop-unswitch.c (unswitch_loop): Don't call add_to_dominance_info.
+	* toplev.c (rest_of_handle_loop2): Enter cfglayout mode here.
+	* tree-cfg.c (create_bb): Modified to suit create_basic_block hook.
+	(tree_redirect_edge_and_branch_1): Merged into
+	tree_redirect_edge_and_branch.
+	(create_blocks_annotations): Removed.
+	(tree_loop_optimizer_init, tree_loop_optimizer_finalize): Removed.
+	(tree_make_forwarder_block, remove_bb, tree_split_edge,
+	tree_redirect_edge_and_branch, tree_split_block,
+	tree_move_block_after): Partially moved to cfghooks.c.
+	(tree_duplicate_bb): New.
+	(PENDING_STMT): Moved to tree-flow.h.
+	(tree_register_cfg_hooks): Moved to cfghooks.c.
+	(build_tree_cfg): Don't call create_blocks_annotations.
+	(factor_computed_gotos, make_blocks): Use create_empty_bb.
+	(cleanup_tree_cfg): Use delete_unreachable_blocks.
+	(remove_unreachable_blocks, insert_bb_before): Removed.
+	(remove_phi_nodes_and_edges_for_unreachable_block): Modified.
+	(tree_find_edge_insert_loc, thread_jumps): Use cfg hooks.
+	(bsi_commit_edge_inserts): Update_annotations argument removed.
+	(tree_cfg_hooks): Modified.
+	* tree-flow.h (PENDING_STMT): Moved from tree-cfg.c.
+	(insert_bb_before, remove_unreachable_blocks,
+	remove_phi_nodes_and_edges_for_unreachable_block, tree_split_edge):
+	Declaration removed.
+	(bsi_commit_edge_inserts): Declaration changed.
+	(tree_duplicate_bb): Declare.
+	* tree-sra.c (scalarize_structures): Changed due to
+	bsi_commit_edge_inserts change.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Use
+	delete_unreachable_blocks.
+	* tree-ssa-loop.c: Include cfgloop.h.
+	* tree-ssa-pre.c (split_critical_edges, tree_perform_ssapre): Use cfg
+	hooks.
+	* tree-ssa.c (rewrite_trees, rewrite_vars_out_of_ssa): Changed due to
+	bsi_commit_edge_inserts change.
+	(ssa_redirect_edge): Record the phi arguments on the redirected edge.
+	* tree-tailcall.c (eliminate_tail_call): Clean stored phi arguments.
+
 2004-01-13  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (gimplify_lhs_complex_part_expr): Remove.

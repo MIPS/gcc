@@ -636,7 +636,7 @@ scalarize_structures (void)
     });
 
   /* Commit edge insertions.  */
-  bsi_commit_edge_inserts (false, NULL);
+  bsi_commit_edge_inserts (NULL);
 }
 
 

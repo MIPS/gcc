@@ -77,8 +77,7 @@ static GTY(()) tree factored_computed_goto_label;
 static GTY(()) tree factored_computed_goto;
 
 /* Basic blocks and flowgraphs.  */
-static basic_block create_bb (tree, basic_block);
-static void create_blocks_annotations (void);
+static basic_block create_bb (void *, void *, basic_block);
 static void create_block_annotation (basic_block);
 static void free_blocks_annotations (void);
 static void clear_blocks_annotations (void);
@@ -93,15 +92,12 @@ static void make_exit_edges (basic_block);
 static void make_cond_expr_edges (basic_block);
 static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
-static edge tree_redirect_edge_and_branch_1 (edge, basic_block, bool);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
 static int tree_verify_flow_info (void);
-static basic_block tree_make_forwarder_block (basic_block, int, int, edge, int);
-static struct loops *tree_loop_optimizer_init (FILE *);
-static void tree_loop_optimizer_finalize (struct loops *, FILE *);
+static void tree_make_forwarder_block (edge);
 static bool thread_jumps (void);
 static bool tree_forwarder_block_p (basic_block);
 static void bsi_commit_edge_inserts_1 (edge e);
@@ -114,9 +110,6 @@ static edge find_taken_edge_cond_expr (basic_block, tree);
 static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 static int phi_alternatives_equal (basic_block, edge, edge);
-
-/* Location to track pending stmt for edge insertion.  */
-#define PENDING_STMT(e)	((e)->insns.t)
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -158,13 +151,13 @@ build_tree_cfg (tree *tp)
 
   /* Make sure there is always at least one block, even if its empty.  */
   if (n_basic_blocks == 0)
-    create_bb (NULL, ENTRY_BLOCK_PTR);
+    create_empty_bb (ENTRY_BLOCK_PTR);
 
+  create_block_annotation (ENTRY_BLOCK_PTR);
+  create_block_annotation (EXIT_BLOCK_PTR);
+  
   /* Adjust the size of the array.  */
   VARRAY_GROW (basic_block_info, n_basic_blocks);
-
-  /* Create block annotations.  */
-  create_blocks_annotations ();
 
   /* Create the edges of the flowgraph.  */
   make_edges ();
@@ -249,7 +242,7 @@ factor_computed_gotos (void)
 	     computed goto will use for their goto destination.  */
 	  if (! factored_computed_goto)
 	    {
-	      basic_block new_bb = create_bb (NULL, bb);
+	      basic_block new_bb = create_empty_bb (bb);
 	      block_stmt_iterator new_bsi = bsi_start (new_bb);
 
 	      /* Create the destination of the factored goto.  Each original
@@ -281,16 +274,6 @@ factor_computed_gotos (void)
           GOTO_DESTINATION (last) = factored_label_decl;
 	}
     }
-}
-
-/* Create annotations for all the basic blocks.  */
-
-static void create_blocks_annotations (void)
-{
-  basic_block bb;
-  
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    create_block_annotation (bb);
 }
 
 /* Create annotations for a single basic block.  */
@@ -346,7 +329,7 @@ make_blocks (tree stmt_list)
 	{
 	  if (!first_stmt_of_list)
 	    stmt_list = tsi_split_statement_list_before (&i);
-	  bb = create_bb (stmt_list, bb);
+	  bb = create_basic_block (stmt_list, NULL, bb);
 	  start_new_block = false;
 	}
 
@@ -368,13 +351,15 @@ make_blocks (tree stmt_list)
 }
 
 
-/* Create and return a new basic block after bb AFTER.  Use STMT_LIST for
-   the body if non-null, otherwise create a new statement list.  */
+/* Create and return a new empty basic block after bb AFTER.  */
 
 static basic_block
-create_bb (tree stmt_list, basic_block after)
+create_bb (void *h, void *e, basic_block after)
 {
   basic_block bb;
+
+  if (e)
+    abort ();
 
   /* Create and initialize a new basic block.  */
   bb = alloc_block ();
@@ -382,26 +367,25 @@ create_bb (tree stmt_list, basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->stmt_list = stmt_list ? stmt_list : alloc_stmt_list ();
+  bb->stmt_list = h ? h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
+  if ((size_t) last_basic_block == VARRAY_SIZE (basic_block_info))
     {
-      size_t new_size = n_basic_blocks + (n_basic_blocks + 3) / 4;
+      size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
       VARRAY_GROW (basic_block_info, new_size);
     }
 
   /* Add the newly created block to the array.  */
-  BASIC_BLOCK (n_basic_blocks) = bb;
+  BASIC_BLOCK (last_basic_block) = bb;
+
+  create_block_annotation (bb);
 
   n_basic_blocks++;
   last_basic_block++;
-
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
-    add_to_dominance_info (CDI_DOMINATORS, bb);
 
   return bb;
 }
@@ -732,7 +716,7 @@ cleanup_tree_cfg (void)
     {
       something_changed = cleanup_control_flow ();
       something_changed |= thread_jumps ();
-      something_changed |= remove_unreachable_blocks ();
+      something_changed |= delete_unreachable_blocks ();
     }
 
   compact_blocks ();
@@ -1374,64 +1358,30 @@ cfg_remove_useless_stmts (void)
     }
 }
 
-/* Delete all unreachable basic blocks.  Return true if any unreachable
-   blocks were detected and removed.  */
+/* Remove PHI nodes associated with basic block BB and all edges out of BB.  */
 
-bool
-remove_unreachable_blocks (void)
-{
-  int i;
-  bool ret = false;
-  basic_block bb;
-
-  find_unreachable_blocks ();
-
-  for (i = last_basic_block - 1; i >= 0; i--)
-    {
-      bb = BASIC_BLOCK (i);
-
-      if (bb == NULL)
-	continue;
-
-      if (!(bb->flags & BB_REACHABLE))
-	{
-	  remove_bb (bb);
-	  ret = true;
-	}
-    }
-
-  return ret;
-}
-
-/* Remove PHI nodes associated with basic block BB and all edges into
-   and out of BB.  */
-void
+static void
 remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
 {
-  /* Remove the edges into and out of this block.  */
-  while (bb->pred != NULL)
+  tree phi;
+
+  /* Since this block is no longer reachable, we can just delete all
+     of its PHI nodes.  */
+  phi = phi_nodes (bb);
+  while (phi)
     {
-      tree phi;
-
-      /* Since this block is no longer reachable, we can just delete all
-         of its PHI nodes.  */
-      phi = phi_nodes (bb);
-      while (phi)
-        {
-	  tree next = TREE_CHAIN (phi);
-	  remove_phi_node (phi, NULL_TREE, bb);
-	  phi = next;
-        }
-
-      remove_edge (bb->pred);
+      tree next = TREE_CHAIN (phi);
+      remove_phi_node (phi, NULL_TREE, bb);
+      phi = next;
     }
 
   /* Remove edges to BB's successors.  */
+
   while (bb->succ != NULL)
     ssa_remove_edge (bb->succ);
 }
 
-/* Remove block BB and its statements from the flowgraph.  */
+/* Remove statements of the basic block BB.  */
 
 static void
 remove_bb (basic_block bb)
@@ -1472,9 +1422,6 @@ remove_bb (basic_block bb)
     warning ("%Hwill never be executed", loc);
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
-
-  /* Remove the basic block from the array.  */
-  expunge_block (bb);
 }
 
 /* Examine BB to determine if it is a forwarding block (a block which only
@@ -1846,27 +1793,6 @@ compute_dominance_frontiers (bitmap *frontiers)
 
   timevar_pop (TV_DOM_FRONTIERS);
 }
-
-/*---------------------------------------------------------------------------
-			 Code insertion and replacement
----------------------------------------------------------------------------*/
-
-/* Insert basic block NEW_BB before block BB.  */
-
-void
-insert_bb_before (basic_block new_bb, basic_block bb)
-{
-  edge e;
-
-  /* Reconnect BB's predecessors to NEW_BB.  */
-  for (e = bb->pred; e; e = e->pred_next)
-    redirect_edge_succ (e, new_bb);
-
-  /* Create the edge NEW_BB -> BB.  */
-  make_edge (new_bb, bb, 0);
-}
-
-
 
 /*---------------------------------------------------------------------------
 			      Debugging functions
@@ -2588,7 +2514,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
     }
 
   /* Otherwise, create a new basic block, and split this edge.  */
-  dest = tree_split_edge (e);
+  dest = split_edge (e);
   e = dest->pred;
   goto restart;
 }
@@ -2596,12 +2522,11 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
 /* This routine will commit all pending edge insertions, creating any new
    basic blocks which are necessary.
 
-   If UPDATE_ANNOTATIONS is true, then new bitmaps are created for the
-   dominator children, and they are updated.  If specified, NEW_BLOCKS
-   returns a count of the number of new basic blocks which were created.  */
+   If specified, NEW_BLOCKS returns a count of the number of new basic blocks
+   which were created.  */
 
 void
-bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
+bsi_commit_edge_inserts (int *new_blocks)
 {
   basic_block bb;
   edge e;
@@ -2617,13 +2542,6 @@ bsi_commit_edge_inserts (bool update_annotations, int *new_blocks)
 
   if (new_blocks)
     *new_blocks = n_basic_blocks - blocks;
-
-  /* Expand arrays if we created new blocks and need to update them.  */
-  if (update_annotations && blocks != n_basic_blocks)
-    {
-      /* TODO. Unimplemented at the moment.  */
-      abort ();
-    }
 }
 
 
@@ -2680,7 +2598,7 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 /* Split a (typically critical) edge.  Return the new block.
    Abort on abnormal edges.  */
 
-basic_block
+static basic_block
 tree_split_edge (edge edge_in)
 {
   basic_block new_bb, after_bb, dest, src;
@@ -2707,15 +2625,12 @@ tree_split_edge (edge edge_in)
   else
     after_bb = edge_in->src;
 
-  new_bb = create_bb (NULL, after_bb);
-  create_block_annotation (new_bb);
+  new_bb = create_empty_bb (after_bb);
   new_edge = make_edge (new_bb, dest, EDGE_FALLTHRU);
 
-  if (!tree_redirect_edge_and_branch_1 (edge_in, new_bb, true))
-    abort ();
-
   /* Find all the PHI arguments on the original edge, and change them to
-     the new edge.  */
+     the new edge.  Do it before redirection, so that the argument does not
+     get removed.  */
   for (phi = phi_nodes (dest); phi; phi = TREE_CHAIN (phi))
     {
       num_elem = PHI_NUM_ARGS (phi);
@@ -2727,12 +2642,11 @@ tree_split_edge (edge edge_in)
 	  }
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
-    set_immediate_dominator (CDI_DOMINATORS, new_bb, src);
+  if (!redirect_edge_and_branch (edge_in, new_bb))
+    abort ();
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
-    set_immediate_dominator (CDI_DOMINATORS, dest,
-			     recount_dominator (CDI_DOMINATORS, dest));
+  if (PENDING_STMT (edge_in))
+    abort ();
 
   return new_bb;
 }
@@ -3181,151 +3095,47 @@ tree_verify_flow_info (void)
   return err;
 }
 
-/* Split BB into entry part and rest; if REDIRECT_LATCH, redirect edges
-   marked as latch into entry part, analogically for REDIRECT_NONLATCH.
-   In both of these cases, ignore edge EXCEPT.  If CONN_LATCH, set edge
-   between created entry part and BB as latch one.  Return created entry
-   part.  */
+/* Updates phi nodes after creating forwarder block joined by edge FALLTHRU.  */
 
-static basic_block
-tree_make_forwarder_block (basic_block bb, int redirect_latch,
-                           int redirect_nonlatch, edge except, int conn_latch)
-{
-  edge e, next_e, new_e, fallthru;
-  basic_block dummy;
-  tree phi, new_phi, var;
-  bool first;
-
-  free_dominance_info (CDI_DOMINATORS);
-
-  fallthru = split_block (bb, NULL);
-  dummy = fallthru->src;
-
-  alloc_aux_for_block (dummy, sizeof (int));
-  HEADER_BLOCK (dummy) = 0;
-  HEADER_BLOCK (bb) = 1;
-
-  first = true;
-
-  /* Redirect back edges we want to keep.  */
-  for (e = dummy->pred; e; e = next_e)
-    {
-      next_e = e->pred_next;
-      if (e != except
-	  && ((redirect_latch && LATCH_EDGE (e))
-	      || (redirect_nonlatch && !LATCH_EDGE (e))))
-	continue;
-
-      dummy->frequency -= EDGE_FREQUENCY (e);
-      dummy->count -= e->count;
-      if (dummy->frequency < 0)
-	dummy->frequency = 0;
-      if (dummy->count < 0)
-	dummy->count = 0;
-
-      new_e = tree_redirect_edge_and_branch_1 (e, bb, true);
-
-      if (first)
-	{
-	  first = false;
-
-	  /* The first time we redirect a branch we must create new phi nodes
-	     on the start of bb.  */
-	  for (phi = phi_nodes (dummy); phi; phi = TREE_CHAIN (phi))
-	    {
-	      var = PHI_RESULT (phi);
-	      new_phi = create_phi_node (var, bb);
-	      SSA_NAME_DEF_STMT (var) = new_phi;
-	      PHI_RESULT (phi) = make_ssa_name (SSA_NAME_VAR (var), phi);
-	      add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
-	    }
-
-	  /* Ensure that the phi node chains are in the same order.  */
-	  set_phi_nodes (bb, nreverse (phi_nodes (bb)));
-	}
-
-      /* Move the argument of the phi node.  */
-      for (phi = phi_nodes (dummy), new_phi = phi_nodes (bb);
-	   phi;
-	   phi = TREE_CHAIN (phi), new_phi = TREE_CHAIN (new_phi))
-	{
-	  var = PHI_ARG_DEF (phi, phi_arg_from_edge (phi, e));
-	  add_phi_arg (&new_phi, var, new_e);
-	  remove_phi_arg (phi, e->src);
-	}
-    }
-
-  alloc_aux_for_edge (fallthru, sizeof (int));
-  LATCH_EDGE (fallthru) = conn_latch;
-
-  return dummy;
-}
-
-/* Initialization of functions specific to the tree IR.  */
-
-void
-tree_register_cfg_hooks (void)
-{
-  cfg_hooks = &tree_cfg_hooks;
-}
-
-/* Initialize loop optimizer.  */
-
-static struct loops *
-tree_loop_optimizer_init (FILE *dumpfile)
-{
-  struct loops *loops = xcalloc (1, sizeof (struct loops));
-
-  /* Find the loops.  */
-  if (flow_loops_find (loops, LOOP_TREE) <= 1)
-    {
-      /* No loops.  */
-      flow_loops_free (loops);
-      free (loops);
-      return NULL;
-    }
-
-  /* Not going to update these.  */
-  free (loops->cfg.rc_order);
-  loops->cfg.rc_order = NULL;
-  free (loops->cfg.dfs_order);
-  loops->cfg.dfs_order = NULL;
-
-  /* Force all latches to have only single successor.  */
-  force_single_succ_latches (loops);
-
-  /* Mark irreducible loops.  */
-  mark_irreducible_loops (loops);
-
-  /* Dump loops.  */
-  flow_loops_dump (loops, dumpfile, NULL, 1);
-
-#ifdef ENABLE_CHECKING
-  verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (loops);
-#endif
-
-  return loops;
-}
-
-/* Finalize loop optimizer.  */
 static void
-tree_loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
+tree_make_forwarder_block (edge fallthru)
 {
-  if (loops == NULL)
+  edge e;
+  basic_block dummy, bb;
+  tree phi, new_phi, var;
+
+  dummy = fallthru->src;
+  bb = fallthru->dest;
+
+  if (!bb->pred->pred_next)
     return;
 
-  /* Another dump.  */
-  flow_loops_dump (loops, dumpfile, NULL, 1);
+  /* If we redirected a branch we must create new phi nodes on the start of
+     bb.  */
+  for (phi = phi_nodes (dummy); phi; phi = TREE_CHAIN (phi))
+    {
+      var = PHI_RESULT (phi);
+      new_phi = create_phi_node (var, bb);
+      SSA_NAME_DEF_STMT (var) = new_phi;
+      PHI_RESULT (phi) = make_ssa_name (SSA_NAME_VAR (var), phi);
+      add_phi_arg (&new_phi, PHI_RESULT (phi), fallthru);
+    }
 
-  /* Clean up.  */
-  flow_loops_free (loops);
-  free (loops);
+  /* Ensure that the phi node chains are in the same order.  */
+  set_phi_nodes (bb, nreverse (phi_nodes (bb)));
 
-  /* Checking.  */
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
+  /* Add the arguments we have stored on edges.  */
+  for (e = dummy->pred; e; e = e->succ_next)
+    {
+      if (e == fallthru)
+	continue;
+
+      for (phi = phi_nodes (dummy), var = PENDING_STMT (e);
+	   phi;
+	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
+	add_phi_arg (&phi, TREE_VALUE (var), e);
+      PENDING_STMT (e) = NULL;
+    }
 }
 
 /* Return true if basic block BB does nothing except pass control
@@ -3487,7 +3297,7 @@ thread_jumps (void)
 
 	  /* Perform the redirection.  */
 	  retval = true;
-	  e = tree_redirect_edge_and_branch (e, dest);
+	  e = redirect_edge_and_branch (e, dest);
 
 	  /* TODO -- updating dominators in this case is simple.  */
 	  free_dominance_info (CDI_DOMINATORS);
@@ -3586,7 +3396,7 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
    branch otherwise.  */
 
 static edge
-tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
+tree_redirect_edge_and_branch (edge e, basic_block dest)
 {
   basic_block bb = e->src;
   block_stmt_iterator bsi;
@@ -3651,21 +3461,10 @@ tree_redirect_edge_and_branch_1 (edge e, basic_block dest, bool splitting)
 
   /* Now update the edges in the CFG.  When splitting edges, we do not 
      want to remove PHI arguments.  */
-  if (splitting)
-    redirect_edge_succ (e, dest);
-  else
-    {
-      e = ssa_redirect_edge (e, dest);
-      e->flags |= flags;
-    }
+  e = ssa_redirect_edge (e, dest);
+  e->flags |= flags;
 
   return e;
-}
-
-static edge
-tree_redirect_edge_and_branch (edge e, basic_block dest)
-{
-  return tree_redirect_edge_and_branch_1 (e, dest, false);
 }
 
 /* Simple wrapper as we always can redirect fallthru edges.  */
@@ -3683,59 +3482,98 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 /* Splits basic block BB after statement STMT (but at least after the
    labels).  If STMT is NULL, the BB is split just after the labels.  */
 
-static edge
+static basic_block
 tree_split_block (basic_block bb, void *stmt)
 {
   block_stmt_iterator bsi, bsi_tgt;
-  tree last, label;
-  basic_block dummy;
-  edge e;
+  tree act;
+  basic_block new_bb;
 
-  dummy = create_bb (NULL, bb->prev_bb);
-  create_block_annotation (dummy);
-  dummy->count = bb->count;
-  dummy->frequency = bb->frequency;
-  dummy->loop_depth = bb->loop_depth;
+  new_bb = create_empty_bb (bb);
 
-  /* Redirect the incoming edges.  */
-  dummy->pred = bb->pred;
-  bb->pred = NULL;
-  for (e = dummy->pred; e; e = e->pred_next)
-    e->dest = dummy;
+  if (stmt && TREE_CODE ((tree) stmt) == LABEL_EXPR)
+    stmt = NULL;
 
-  /* Move the phi nodes to the dummy block.  */
-  set_phi_nodes (dummy, phi_nodes (bb));
-  set_phi_nodes (bb, NULL_TREE);
-
-  /* Move everything up to BSI to the new basic block.  */
-  last = NULL_TREE;
-  for (bsi = bsi_start (bb), bsi_tgt = bsi_start (dummy); !bsi_end_p (bsi); )
+  /* Move everything from BSI to the new basic block.  */
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      label = bsi_stmt (bsi);
-      if (TREE_CODE (label) != LABEL_EXPR)
+      act = bsi_stmt (bsi);
+      if (TREE_CODE (act) == LABEL_EXPR)
+	continue;
+
+      if (!stmt)
 	break;
 
-      bsi_remove (&bsi);
-      bsi_insert_after (&bsi_tgt, label, BSI_NEW_STMT);
-      if (label == stmt)
-	last = label;
+      if (stmt == act)
+	{
+	  bsi_next (&bsi);
+	  break;
+	}
     }
 
-  while (!bsi_end_p (bsi) && last != stmt)
+  bsi_tgt = bsi_start (new_bb);
+  while (!bsi_end_p (bsi))
     {
-      last = bsi_stmt (bsi);
+      act = bsi_stmt (bsi);
       bsi_remove (&bsi);
-      bsi_insert_after (&bsi_tgt, last, BSI_NEW_STMT);
+      bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
     }
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_CONS_OK)
+  return new_bb;
+}
+
+/* Moves basic block BB after block AFTER.  */
+
+static bool
+tree_move_block_after (basic_block bb, basic_block after)
+{
+  if (bb->prev_bb == after)
+    return true;
+
+  unlink_block (bb);
+  link_block (bb, after);
+
+  return true;
+}
+
+/* Create a duplicate of the basic block BB and redirect edge E into it.  Does
+   not work over ssa.  */
+
+basic_block
+tree_duplicate_bb (basic_block bb, edge e)
+{
+  edge s, n;
+  basic_block new_bb;
+  block_stmt_iterator bsi, bsi_tgt;
+
+  if (e->dest != bb)
+    abort ();
+
+  new_bb = create_empty_bb (e->src);
+  bsi_tgt = bsi_start (new_bb);
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      set_immediate_dominator (CDI_DOMINATORS, dummy,
-	get_immediate_dominator (CDI_DOMINATORS, bb));
-      set_immediate_dominator (CDI_DOMINATORS, bb, dummy);
+      tree stmt = bsi_stmt (bsi);
+
+      if (TREE_CODE (stmt) == LABEL_EXPR)
+	continue;
+
+      bsi_insert_after (&bsi_tgt, unshare_expr (stmt), BSI_NEW_STMT);
     }
 
-  return make_edge (dummy, bb, EDGE_FALLTHRU);
+  new_bb->loop_depth = bb->loop_depth;
+  new_bb->flags = bb->flags;
+  for (s = bb->succ; s; s = s->succ_next)
+    {
+      /* Since we are creating edges from a new block to successors
+	 of another block (which therefore are known to be disjoint), there
+	 is no need to actually check for duplicated edges.  */
+      n = unchecked_make_edge (new_bb, s->dest, s->flags);
+    }
+
+  redirect_edge_and_branch_force (e, new_bb);
+
+  return new_bb;
 }
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
@@ -3953,19 +3791,20 @@ debug_loop_ir (void)
 /* FIXME These need to be filled in with appropriate pointers.  But this
    implies an ABI change in some functions.  */
 struct cfg_hooks tree_cfg_hooks = {
+  "tree",
   tree_verify_flow_info,
   tree_dump_bb,			/* dump_bb  */
-  NULL,				/* create_basic_block  */
+  create_bb,			/* create_basic_block  */
   tree_redirect_edge_and_branch,/* redirect_edge_and_branch  */
   tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
-  NULL,				/* delete_basic_block  */
+  remove_bb,			/* delete_basic_block  */
   tree_split_block,		/* split_block  */
+  tree_move_block_after,	/* move_block_after  */
   NULL,				/* can_merge_blocks_p  */
   NULL,				/* merge_blocks  */
-  tree_split_edge,		/* cfgh_split_edge  */
-  tree_make_forwarder_block,	/* cfgh_make_forward_block  */
-  tree_loop_optimizer_init,     /* cfgh_loop_optimizer_init  */
-  tree_loop_optimizer_finalize  /* cfgh_loop_optimizer_finalize  */
+  tree_split_edge,		/* split_edge  */
+  tree_make_forwarder_block,	/* make_forward_block  */
+  NULL				/* tidy_fallthru_edge  */
 };
 
 #include "gt-tree-cfg.h"
