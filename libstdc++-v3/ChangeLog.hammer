@@ -1,3 +1,9 @@
+2004-08-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12750
+	* include/bits/locale_facets.tcc
+	(time_get::_M_extract_via_format): Deal with code 'e'.
+
 2004-08-16  Richard Henderson  <rth@redhat.com>
 
 	PR libstdc++/14026

@@ -1579,6 +1579,16 @@ namespace std
 		  _M_extract_num(__beg, __end, __tm->tm_mday, 1, 31, 2, 
 				 __ctype, __err);
 		  break;
+		case 'e':
+		  // Day [1, 31], with single digits preceded by
+		  // space. [tm_mday]
+		  if (__ctype.is(ctype_base::space, *__beg))
+		    _M_extract_num(++__beg, __end, __tm->tm_mday, 1, 9,
+				   1, __ctype, __err);
+		  else
+		    _M_extract_num(__beg, __end, __tm->tm_mday, 10, 31,
+				   2, __ctype, __err);
+		  break;
 		case 'D':
 		  // Equivalent to %m/%d/%y.[tm_mon, tm_mday, tm_year]
 		  __cs = "%m/%d/%y";
