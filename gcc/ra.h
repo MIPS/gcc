@@ -668,5 +668,19 @@ extern void web_class_spill_ref (struct web *, struct ref *);
 extern int subst_to_stack_p (void);
 extern int copy_insn_p (rtx ,rtx *,rtx *);
 extern int hard_regs_combinable_p (struct web *,struct web *);
+extern void debug_colorized_spills (void);
 
 #define SPILL_SLOT_P(REGNO) bitmap_bit_p (spill_slot_regs, (REGNO))
+
+/* #define SPILLING_STATISTICS */
+#define DENIS
+/* #define MICHAEL */
+
+#ifdef SPILLING_STATISTICS
+/* Registers generated for spill slots by rewrite_program[2].  */
+extern bitmap rewrite_spill_slots;
+/* rewrite_program[2] spill registers which was placed to stack.  */
+extern bitmap rewrite_stack_slots;
+/* Number of generated stack slots for spilled webs.  */
+extern int stack_spill_slots_num;
+#endif

@@ -657,6 +657,11 @@ init_ra (void)
   compute_bb_for_insn ();
   ra_reg_renumber = NULL;
   insns_with_deaths = NULL;
+#ifdef SPILLING_STATISTICS
+  stack_spill_slots_num = 0;
+  rewrite_spill_slots = BITMAP_XMALLOC ();
+  rewrite_stack_slots = BITMAP_XMALLOC ();
+#endif
   emitted_by_spill = BITMAP_XMALLOC ();
   spill_slot_regs = BITMAP_XMALLOC ();
   gcc_obstack_init (&ra_obstack);
@@ -1124,6 +1129,9 @@ reg_alloc (void)
 	  delete_moves ();
 	  create_flow_barriers ();
 	  dump_constraints ();
+#ifdef SPILLING_STATISTICS
+ 	  debug_colorized_spills ();
+#endif
 	}
       else
 	{
@@ -1325,6 +1333,10 @@ reg_alloc (void)
   regclass (get_insns (), max_reg_num (), rtl_dump_file);
   BITMAP_XFREE (emitted_by_spill);
   BITMAP_XFREE (spill_slot_regs);
+#ifdef SPILLING_STATISTICS
+  BITMAP_XFREE (rewrite_spill_slots);
+  BITMAP_XFREE (rewrite_stack_slots);
+#endif
 }
 
 /*

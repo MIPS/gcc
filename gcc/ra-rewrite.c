@@ -461,6 +461,10 @@ rewrite_program (bitmap new_deaths)
 	    bitmap_clear (b);
 	    allocate_spill_web (aweb);
 	    slot = aweb->stack_slot;
+#ifdef SPILLING_STATISTICS
+	    if (REG_P (slot))
+	      bitmap_set_bit (rewrite_spill_slots, REGNO (slot));
+#endif
 	    for (j = 0; j < web->num_uses; j++)
 	      {
 		rtx insns, target, source;
@@ -779,21 +783,30 @@ insert_stores (bitmap new_deaths)
 		  int has_use;
 		  last_slot = slot;
 		  remember_slot (&slots, slot);
-#if DENIS
-		  if ((web->pattern || copy_insn_p (insn, NULL, NULL)) 
-		      && ra_validate_change (insn, DF_REF_LOC (info.defs[n]),
-					     slot, 0))
+#ifdef DENIS
+		  if ((web->pattern || copy_insn_p (insn, NULL, NULL))
+		      && (! (rdef && RA_REF_ADDRESS_P (rdef))
+			  && ra_validate_change (insn,
+						 DF_REF_LOC (info.defs[n]),
+						 slot, 0)))
 #else
 		  if ((DF_REF_FLAGS (info.defs[n]) & DF_REF_ALREADY_SPILLED)
 		      || (! (rdef && RA_REF_ADDRESS_P (rdef))
-			  && validate_change (insn, DF_REF_LOC (info.defs[n]),
+#ifdef MICHAEL
+			  && validate_change (insn,
+					      DF_REF_LOC (info.defs[n]),
 					      slot, 0)))
+#else
+			  && ra_validate_change (insn,
+						 DF_REF_LOC (info.defs[n]),
+						 slot, 0)))
+#endif
+#endif
 		    {
 		      df_insn_modify (df, bb, insn);
 		      bitmap_set_bit (last_changed_insns, uid);
 		      if (!flag_ra_test)
 			bitmap_set_bit (ra_modified_insns, uid);
-#endif
 		      if (!bitmap_bit_p (useless_defs,
 					 DF_REF_ID (info.defs[n])))
 			ra_emit_move_insn (source, slot);
@@ -1076,6 +1089,10 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
       start_sequence ();
       allocate_spill_web (aweb);
       slot = aweb->stack_slot;
+#ifdef SPILLING_STATISTICS
+      if (REG_P (slot))
+	bitmap_set_bit (rewrite_spill_slots, REGNO (slot));
+#endif
       innermode = GET_MODE (slot);
       /* If we don't copy the RTL there might be some SUBREG
 	 rtx shared in the next iteration although being in
@@ -1122,11 +1139,19 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 		  /* For an rmw web we want to try to change the use and the
 		     def inplace to the mem-ref.  If that doesn't work, only
 		     try to handle the use.  */
+#ifdef MICHAEL
 		  validate_change (web->last_use_insn,
 				   DF_REF_LOC (web->last_use), slot, 1);
 		  validate_change (web->last_use_insn,
 				   DF_REF_LOC (info.defs[n]), slot, 1);
 		  if (apply_change_group ())
+#else
+		  ra_validate_change (web->last_use_insn,
+				   DF_REF_LOC (web->last_use), slot, 1);
+		  ra_validate_change (web->last_use_insn,
+				   DF_REF_LOC (info.defs[n]), slot, 1);
+		  if (ra_apply_change_group ())
+#endif		    
 		    {
 		      DF_REF_FLAGS (info.defs[n]) |= DF_REF_ALREADY_SPILLED;
 		      done = 1;
@@ -1136,8 +1161,13 @@ emit_loads (struct rewrite_info *ri, int nl_first_reload, rtx last_block_insn)
 	  /* No rmw web or spilling the def too didn't work,
 	     so handle just the use here.  */
 	  if (!done && !(ruse && RA_REF_ADDRESS_P (ruse))
+#ifdef MICHAEL
 	      && validate_change (web->last_use_insn,
 				  DF_REF_LOC (web->last_use), slot, 0))
+#else
+	      && ra_validate_change (web->last_use_insn,
+				     DF_REF_LOC (web->last_use), slot, 0))
+#endif
 	    done = 1;
 	  if (done)
 	    {
@@ -2130,7 +2160,7 @@ actual_spill (int spill_p ATTRIBUTE_UNUSED)
 
   /* If we have a webs colored by an_unusable_color (ie we think that they are
      already in frame) we must put such webs to frame.  */
-  if (/* !spill_p && */ subst_to_stack_p ())
+  if (!spill_p && subst_to_stack_p ())
     /* If you uncomment the SPILL_P usage then you will have a calls to
        assign_stack_slots only at end of allocation process.
        See to the caller of actual_spill.  */
@@ -2279,7 +2309,7 @@ purge_reg_equiv_notes ()
    Replace all uses and defs to stack slots in all possible cases.  */
 
 static void
-assign_stack_slots (void)
+assign_stack_slots ()
 {
   int i;
   struct dlist *d, *d_next;
@@ -2495,12 +2525,22 @@ assign_stack_slots_1 ()
 	  place = assign_stack_local (innermode,
 				      total_size,
 				      inherent_size == total_size ? 0: -1);
+#ifdef SPILLING_STATISTICS
+	  if (bitmap_bit_p (rewrite_spill_slots, web->regno))
+	    {
+	      ++stack_spill_slots_num;
+	      bitmap_set_bit (rewrite_stack_slots, web->regno);
+	    }
+#endif
 	  RTX_UNCHANGING_P (place) =
 	    RTX_UNCHANGING_P (regno_reg_rtx[web->regno]);
 	  set_mem_alias_set (place, new_alias_set ());
 	}
-      ra_debug_msg (DUMP_COLORIZE, "\t%3d(%d) insns: ",
-		    web->id, web->regno);
+      if (web->pattern)
+	ra_debug_msg (DUMP_COLORIZE, "\tremat %3d(%d) insns: ", web->id,
+		      web->regno);
+      else
+	ra_debug_msg (DUMP_COLORIZE, "\t%3d(%d) insns: ", web->id, web->regno);
 	  
       web->stack_slot = place;
 
@@ -2562,7 +2602,7 @@ assign_stack_slots_1 ()
 	      {
 		if (i == 0) /* Insn for use.  */
 		  ra_emit_move_insn (copy_rtx (target), source);
-		else
+		else if (DF_REF_TYPE (refs[j]) != DF_REF_REG_CLOBBER)
 		  ra_emit_move_insn (source, copy_rtx (target));
 	      }
 	    insns = get_insns ();

@@ -3230,12 +3230,14 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   for (i = 0; i < noperands; i++)
     goal_alt[i].win |= goal_alt[i].match_win;
 
+#ifdef MICHAEL
   /* In the later passes we don't want to create new reload insns, but just
      record register classes.  */
   if (ra_pass > 1)
     for (i = 0; i < noperands; i++)
       goal_alt[i].win = 1;
-
+#endif
+  
   /* If the best alternative is with operands 1 and 2 swapped,
      consider them swapped before reporting the reloads.  Update the
      operand numbers of any reloads already pushed.  */
@@ -4406,7 +4408,10 @@ pre_reload_collect (ra_info, modified)
 		{
 		  rtx before = PREV_INSN (insn);
 		  rtx after = NEXT_INSN (insn);
-
+#ifdef DENIS
+		  if (ra_pass > 1)
+		    abort ();
+#endif	  
 		  if (rtl_dump_file)
 		    {
 		      fprintf (rtl_dump_file, "Reload for insn:\n");
