@@ -1,5 +1,8 @@
 2002-04-04  Geoffrey Keating  <geoffk@redhat.com>
 
+	* gengtype.c (write_gc_structure_fields): Handle variable-length
+	TYPE_ARRAYs.
+
 	* varasm.c (struct weak_syms): Use GGC, gengtype.
 	(mark_weak_decls): Delete.
 	(weak_decls): Likewise.

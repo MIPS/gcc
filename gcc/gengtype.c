@@ -661,8 +661,9 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	    type_p t;
 	    int i;
 
-	    if (strcmp (f->type->u.a.len, "0") == 0
-		|| strcmp (f->type->u.a.len, "1") == 0)
+	    if (! length &&
+		(strcmp (f->type->u.a.len, "0") == 0
+		 || strcmp (f->type->u.a.len, "1") == 0))
 	      error_at_line (&f->line, 
 			     "field `%s' is array of size %s",
 			     f->name, f->type->u.a.len);
@@ -673,10 +674,22 @@ write_gc_structure_fields (of, s, val, prev_val, opts, indent, line)
 	      fprintf (of, "%*ssize_t i%d_%d;\n", indent, "", loopcounter, i);
 	    for (t = f->type, i=0; t->kind == TYPE_ARRAY; t = t->u.a.p, i++)
 	      {
+		const char *p;
+		
 		fprintf (of, 
-			 "%*sfor (i%d_%d = 0; i%d_%d < (%s); i%d_%d++) {\n",
-			 indent, "", loopcounter, i, loopcounter, i,
-			 t->u.a.len, loopcounter, i);
+			 "%*sfor (i%d_%d = 0; i%d_%d < (",
+			 indent, "", loopcounter, i, loopcounter, i);
+		if (i == 0 && length != NULL)
+		  {
+		    for (p = length; *p; p++)
+		      if (*p != '%')
+			fputc (*p, of);
+		      else
+			fprintf (of, "(%s)", val);
+		  }
+		else
+		  fputs (t->u.a.len, of);
+		fprintf (of, "); i%d_%d++) {\n", loopcounter, i);
 		indent += 2;
 	      }
 
