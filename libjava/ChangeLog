@@ -1,5 +1,8 @@
 2004-10-09  Andreas Tobler  <a.tobler@schweiz.ch>
 
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c: Use
+	native_text_layout_state_table here.
+
 	* jni/gtk-peer/gdkfont.h: Mark native_text_layout_state_table extern.
 
 2004-10-09  Mark Wielaard  <mark@klomp.org>
