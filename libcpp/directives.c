@@ -2159,4 +2159,3 @@ _cpp_init_directives (cpp_reader *pfile)
       node->directive_index = i;
     }
 }
-

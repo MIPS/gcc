@@ -1,3 +1,7 @@
+2005-03-11  Devang Patel  <dpatel@apple.com.
+
+	* diretives.c: Fix white space.
+
 2005-03-06  Devang Patel  <dpatel@apple.com>
 
 	* init.c (cpp_read_main_file): Remove Symbol Separation support.
