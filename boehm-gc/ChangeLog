@@ -1,3 +1,39 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14326
+	Backport from mainline:
+
+	* include/private/gcconfig.h (PREFETCH): Use __builtin_prefetch
+	for gcc >= 3.0.
+	(PREFETCH_FOR_WRITE): Likewise.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	* config.guess: Update from version 2002-01-10 to 2004-02-16.
+	* config.sub: Update from version 2002-01-02 to 2004-02-16.
+
+2004-01-20  Andrew Haley  <aph@redhat.com>
+
+	* include/private/gcconfig.h (USE_MMAP): Define for all Linux.
+
+	* configure.in: Comment change.
+
 2004-01-16  Andrew Haley  <aph@redhat.com>
 
 	* configure.in (NO_EXECUTE_PERMISSION): Remove global declaration;

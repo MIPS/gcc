@@ -1,5 +1,5 @@
 /* Definitions for SPARC running Linux-based GNU systems with ELF.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Eddie C. Dost (ecd@skynet.be)
 
@@ -230,6 +230,9 @@ do {									\
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #endif
 
+#undef DITF_CONVERSION_LIBFUNCS
+#define DITF_CONVERSION_LIBFUNCS 1
+
 #if !defined(USE_GNULIBC_1) && defined(HAVE_LD_EH_FRAME_HDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
@@ -249,6 +252,12 @@ do {									\
 #undef DTORS_SECTION_ASM_OP
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+/* Determine whether the the entire c99 runtime is present in the
+   runtime library.  */
+#define TARGET_C99_FUNCTIONS 1
+
+#define TARGET_HAS_F_SETLKW
 
 #undef LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC \

@@ -1,3 +1,129 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-11-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/17783
+	* configure.in: Set up LD_LIBRARY_PATH by default for gcc.
+	* configure: Regenerated.
+
+2004-10-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* README.SCO: Update per FSF instructions.
+
+2004-10-06  Josef Zlomek  <josef.zlomek@email.cz>
+
+	* MAINTAINERS: Update my e-mail address.
+
+2004-09-24  Michael Roth  <mroth@nessie.de>
+
+	* configure.in (--without-headers): Add missing double quotes.
+	* configure: Regenerate.
+
+2004-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17369
+	* Makefile.tpl (REALLY_SET_LIB_PATH): Add @SET_GCC_LIB_PATH@.
+	(configure-target-[+module+]): Add @SET_GCC_LIB_PATH@. Set and
+	export SET_GCC_LIB_PATH_CMD.
+	(configure-gcc): Likewise.
+	* Makefile.in: Regenerated.
+
+	* configure.in (SET_GCC_LIB_PATH): Set and substitute.
+	* configure: Regenerated.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-08 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/16344
+	* Makefile.tpl (profiledbootstrap): Build runtime libraries with
+	feedback based compiler.
+	* Makefile.in: Rebuilt.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-06-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/14760
+	* configure.in: When computing baseargs, strip *all* copies of
+	offending options.  Also, don't match/substitute the trailing space,
+	so that this actually works when two similar options are separated by
+	only one space.
+	* configure: Regenerate.
+
+2004-05-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR bootstrap/15120
+	* libtool.m4 (lt_cv_deplibs_check_method): Use pass_all on sh*.
+	* */configure: Rebuilt.
+ 
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-05  David Edelsohn  <edelsohn@gnu.org>
+
+	* ltconfig: Disable building static libraries if building shared
+	libraries on AIX 5L.
+
+2004-03-01  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.in (mips64*-*-linux*): Override mips*-*-linux* case
+	and disable libgcj.
+	* configure: Regenerated.
+
+2004-02-25  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	PR bootstrap/11932
+	* mkinstalldirs: Update to version 2004-02-15.20
+
+2004-02-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* MAINTAINERS: Add myself to write-after-approval.
+
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	* config.guess: Update from version 2003-10-16 to 2004-02-16.
+	* config.sub: Update from version 2003-11-03 to 2004-02-16.
+
+2004-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* MAINTAINERS: Add Nicola Pero and myself as libobjc
+	maintainers.
+
+2004-02-14  Jerry Quinn  <jlquinn@optonline.net>
+
+	* MAINTAINERS: Added myself to write-after-approval.
+
+2004-02-12  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* MAINTAINERS: Alphabetize.
+
+2004-02-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Partial merge from upstream:
+	* ltmain.in: When setting IFS to '~', be careful about user
+	arguments that contain '~'.
+
+2004-02-05  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in: Don't pass --with-stabs on IRIX 5 either.
+	* configure: Regenerate.
+
+2004-01-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* MAINTAINERS: Update my email address.
+
+2004-01-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* MAINTAINERS: Remove entries without email address.
+
 2004-01-15  Daniel Jacobowitz  <drow@mvista.com>
 
 	* MAINTAINERS: Add myself to write-after-approval.

@@ -1,6 +1,6 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -83,11 +83,12 @@ Registers and "quantity numbers":
    `reg_qty' records what quantity a register is currently thought
    of as containing.
 
-   All real quantity numbers are greater than or equal to `max_reg'.
-   If register N has not been assigned a quantity, reg_qty[N] will equal N.
+   All real quantity numbers are greater than or equal to zero.
+   If register N has not been assigned a quantity, reg_qty[N] will
+   equal -N - 1, which is always negative.
 
-   Quantity numbers below `max_reg' do not exist and none of the `qty_table'
-   entries should be referenced with an index below `max_reg'.
+   Quantity numbers below zero do not exist and none of the `qty_table'
+   entries should be referenced with a negative index.
 
    We also maintain a bidirectional chain of registers for each
    quantity number.  The `qty_table` members `first_reg' and `last_reg',
@@ -539,7 +540,7 @@ struct table_elt
 /* Determine if the quantity number for register X represents a valid index
    into the qty_table.  */
 
-#define REGNO_QTY_VALID_P(N) (REG_QTY (N) != (int) (N))
+#define REGNO_QTY_VALID_P(N) (REG_QTY (N) >= 0)
 
 static struct table_elt *table[HASH_SIZE];
 
@@ -658,6 +659,9 @@ static void flush_hash_table (void);
 static bool insn_live_p (rtx, int *);
 static bool set_live_p (rtx, rtx, int *);
 static bool dead_libcall_p (rtx, int *);
+static int cse_change_cc_mode (rtx *, void *);
+static void cse_change_cc_mode_insns (rtx, rtx, rtx);
+static enum machine_mode cse_cc_succs (basic_block, rtx, rtx, bool);
 
 /* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
    virtual regs here because the simplify_*_operation routines are called
@@ -940,7 +944,7 @@ get_cse_reg_info (unsigned int regno)
       p->reg_tick = 1;
       p->reg_in_table = -1;
       p->subreg_ticked = -1;
-      p->reg_qty = regno;
+      p->reg_qty = -regno - 1;
       p->regno = regno;
       p->next = cse_reg_info_used_list;
       cse_reg_info_used_list = p;
@@ -964,7 +968,7 @@ new_basic_block (void)
 {
   int i;
 
-  next_qty = max_reg;
+  next_qty = 0;
 
   /* Clear out hash table state for this pass.  */
 
@@ -1110,7 +1114,7 @@ delete_reg_equiv (unsigned int reg)
   int p, n;
 
   /* If invalid, do nothing.  */
-  if (q == (int) reg)
+  if (! REGNO_QTY_VALID_P (reg))
     return;
 
   ent = &qty_table[q];
@@ -1127,7 +1131,7 @@ delete_reg_equiv (unsigned int reg)
   else
     ent->first_reg = n;
 
-  REG_QTY (reg) = reg;
+  REG_QTY (reg) = -reg - 1;
 }
 
 /* Remove any invalid expressions from the hash table
@@ -1724,15 +1728,20 @@ merge_equiv_classes (struct table_elt *class1, struct table_elt *class2)
 	 hash code (it also isn't necessary).  */
       if (GET_CODE (exp) == REG || exp_equiv_p (exp, exp, 1, 0))
 	{
+	  bool need_rehash = false;
+
 	  hash_arg_in_memory = 0;
 	  hash = HASH (exp, mode);
 
 	  if (GET_CODE (exp) == REG)
-	    delete_reg_equiv (REGNO (exp));
+	    {
+	      need_rehash = REGNO_QTY_VALID_P (REGNO (exp));
+	      delete_reg_equiv (REGNO (exp));
+	    }
 
 	  remove_from_table (elt, hash);
 
-	  if (insert_regs (exp, class1, 0))
+	  if (insert_regs (exp, class1, 0) || need_rehash)
 	    {
 	      rehash_using_reg (exp);
 	      hash = HASH (exp, mode);
@@ -2005,14 +2014,13 @@ rehash_using_reg (rtx x)
     return;
 
   /* Scan all hash chains looking for valid entries that mention X.
-     If we find one and it is in the wrong hash chain, move it.  We can skip
-     objects that are registers, since they are handled specially.  */
+     If we find one and it is in the wrong hash chain, move it.  */
 
   for (i = 0; i < HASH_SIZE; i++)
     for (p = table[i]; p; p = next)
       {
 	next = p->next_same_hash;
-	if (GET_CODE (p->exp) != REG && reg_mentioned_p (x, p->exp)
+	if (reg_mentioned_p (x, p->exp)
 	    && exp_equiv_p (p->exp, p->exp, 1, 0)
 	    && i != (hash = safe_hash (p->exp, p->mode) & HASH_MASK))
 	  {
@@ -3751,6 +3759,23 @@ fold_rtx (rtx x, rtx insn)
 		|| (new_cost == old_cost && CONSTANT_P (XEXP (x, i))))
 	      break;
 
+	    /* It's not safe to substitute the operand of a conversion
+	       operator with a constant, as the conversion's identity
+	       depends upon the mode of it's operand.  This optimization
+	       is handled by the call to simplify_unary_operation.  */
+	    if (GET_RTX_CLASS (code) == '1'
+		&& GET_MODE (replacements[j]) != mode_arg0
+		&& (code == ZERO_EXTEND
+		    || code == SIGN_EXTEND
+		    || code == TRUNCATE
+		    || code == FLOAT_TRUNCATE
+		    || code == FLOAT_EXTEND
+		    || code == FLOAT
+		    || code == FIX
+		    || code == UNSIGNED_FLOAT
+		    || code == UNSIGNED_FIX))
+	      continue;
+
 	    if (validate_change (insn, &XEXP (x, i), replacements[j], 0))
 	      break;
 
@@ -3844,6 +3869,10 @@ fold_rtx (rtx x, rtx insn)
       break;
 
     case '<':
+      /* Don't perform any simplifications of vector mode comparisons.  */
+      if (VECTOR_MODE_P (mode))
+	break;
+
       /* See what items are actually being compared and set FOLDED_ARG[01]
 	 to those values and CODE to the actual comparison code.  If any are
 	 constant, set CONST_ARG0 and CONST_ARG1 appropriately.  We needn't
@@ -7046,8 +7075,6 @@ cse_main (rtx f, int nregs, int after_loop, FILE *file)
       if (max_qty < 500)
 	max_qty = 500;
 
-      max_qty += max_reg;
-
       /* If this basic block is being extended by following certain jumps,
          (see `cse_end_of_basic_block'), we reprocess the code from the start.
          Otherwise, we start after this basic block.  */
@@ -7108,12 +7135,10 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
   int to_usage = 0;
   rtx libcall_insn = NULL_RTX;
   int num_insns = 0;
+  int no_conflict = 0;
 
-  /* This array is undefined before max_reg, so only allocate
-     the space actually needed and adjust the start.  */
-
-  qty_table = xmalloc ((max_qty - max_reg) * sizeof (struct qty_table_elem));
-  qty_table -= max_reg;
+  /* Allocate the space needed by qty_table.  */
+  qty_table = xmalloc (max_qty * sizeof (struct qty_table_elem));
 
   new_basic_block ();
 
@@ -7187,11 +7212,26 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	      if ((p = find_reg_note (insn, REG_LIBCALL, NULL_RTX)))
 		libcall_insn = XEXP (p, 0);
 	      else if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-		libcall_insn = 0;
+		{
+		  /* Keep libcall_insn for the last SET insn of a no-conflict
+		     block to prevent changing the destination.  */
+		  if (! no_conflict)
+		    libcall_insn = 0;
+		  else
+		    no_conflict = -1;
+		}
+	      else if (find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
+		no_conflict = 1;
 	    }
 
 	  cse_insn (insn, libcall_insn);
 
+	  if (no_conflict == -1)
+	    {
+	      libcall_insn = 0;
+	      no_conflict = 0;
+	    }
+	    
 	  /* If we haven't already found an insn where we added a LABEL_REF,
 	     check this one.  */
 	  if (GET_CODE (insn) == INSN && ! recorded_label_ref
@@ -7209,7 +7249,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	{
 	  if (to == 0)
 	    {
-	      free (qty_table + max_reg);
+	      free (qty_table);
 	      return 0;
 	    }
 
@@ -7244,7 +7284,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	  /* If TO was the last insn in the function, we are done.  */
 	  if (insn == 0)
 	    {
-	      free (qty_table + max_reg);
+	      free (qty_table);
 	      return 0;
 	    }
 
@@ -7253,7 +7293,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
 	  prev = prev_nonnote_insn (to);
 	  if (prev && GET_CODE (prev) == BARRIER)
 	    {
-	      free (qty_table + max_reg);
+	      free (qty_table);
 	      return insn;
 	    }
 
@@ -7304,7 +7344,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch,
       && LABEL_NUSES (JUMP_LABEL (insn)) == 1)
     cse_around_loop (JUMP_LABEL (insn));
 
-  free (qty_table + max_reg);
+  free (qty_table);
 
   return to ? NEXT_INSN (to) : 0;
 }
@@ -7637,4 +7677,351 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   free (counts);
   timevar_pop (TV_DELETE_TRIVIALLY_DEAD);
   return ndead;
+}
+
+/* This function is called via for_each_rtx.  The argument, NEWREG, is
+   a condition code register with the desired mode.  If we are looking
+   at the same register in a different mode, replace it with
+   NEWREG.  */
+
+static int
+cse_change_cc_mode (rtx *loc, void *data)
+{
+  rtx newreg = (rtx) data;
+
+  if (*loc
+      && GET_CODE (*loc) == REG
+      && REGNO (*loc) == REGNO (newreg)
+      && GET_MODE (*loc) != GET_MODE (newreg))
+    {
+      *loc = newreg;
+      return -1;
+    }
+  return 0;
+}
+
+/* Change the mode of any reference to the register REGNO (NEWREG) to
+   GET_MODE (NEWREG), starting at START.  Stop before END.  Stop at
+   any instruction which modifies NEWREG.  */
+
+static void
+cse_change_cc_mode_insns (rtx start, rtx end, rtx newreg)
+{
+  rtx insn;
+
+  for (insn = start; insn != end; insn = NEXT_INSN (insn))
+    {
+      if (! INSN_P (insn))
+	continue;
+
+      if (reg_set_p (newreg, insn))
+	return;
+
+      for_each_rtx (&PATTERN (insn), cse_change_cc_mode, newreg);
+      for_each_rtx (&REG_NOTES (insn), cse_change_cc_mode, newreg);
+    }
+}
+
+/* BB is a basic block which finishes with CC_REG as a condition code
+   register which is set to CC_SRC.  Look through the successors of BB
+   to find blocks which have a single predecessor (i.e., this one),
+   and look through those blocks for an assignment to CC_REG which is
+   equivalent to CC_SRC.  CAN_CHANGE_MODE indicates whether we are
+   permitted to change the mode of CC_SRC to a compatible mode.  This
+   returns VOIDmode if no equivalent assignments were found.
+   Otherwise it returns the mode which CC_SRC should wind up with.
+
+   The main complexity in this function is handling the mode issues.
+   We may have more than one duplicate which we can eliminate, and we
+   try to find a mode which will work for multiple duplicates.  */
+
+static enum machine_mode
+cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
+{
+  bool found_equiv;
+  enum machine_mode mode;
+  unsigned int insn_count;
+  edge e;
+  rtx insns[2];
+  enum machine_mode modes[2];
+  rtx last_insns[2];
+  unsigned int i;
+  rtx newreg;
+
+  /* We expect to have two successors.  Look at both before picking
+     the final mode for the comparison.  If we have more successors
+     (i.e., some sort of table jump, although that seems unlikely),
+     then we require all beyond the first two to use the same
+     mode.  */
+
+  found_equiv = false;
+  mode = GET_MODE (cc_src);
+  insn_count = 0;
+  for (e = bb->succ; e; e = e->succ_next)
+    {
+      rtx insn;
+      rtx end;
+
+      if (e->flags & EDGE_COMPLEX)
+	continue;
+
+      if (! e->dest->pred
+	  || e->dest->pred->pred_next
+	  || e->dest == EXIT_BLOCK_PTR)
+	continue;
+
+      end = NEXT_INSN (BB_END (e->dest));
+      for (insn = BB_HEAD (e->dest); insn != end; insn = NEXT_INSN (insn))
+	{
+	  rtx set;
+
+	  if (! INSN_P (insn))
+	    continue;
+
+	  /* If CC_SRC is modified, we have to stop looking for
+	     something which uses it.  */
+	  if (modified_in_p (cc_src, insn))
+	    break;
+
+	  /* Check whether INSN sets CC_REG to CC_SRC.  */
+	  set = single_set (insn);
+	  if (set
+	      && GET_CODE (SET_DEST (set)) == REG
+	      && REGNO (SET_DEST (set)) == REGNO (cc_reg))
+	    {
+	      bool found;
+	      enum machine_mode set_mode;
+	      enum machine_mode comp_mode;
+
+	      found = false;
+	      set_mode = GET_MODE (SET_SRC (set));
+	      comp_mode = set_mode;
+	      if (rtx_equal_p (cc_src, SET_SRC (set)))
+		found = true;
+	      else if (GET_CODE (cc_src) == COMPARE
+		       && GET_CODE (SET_SRC (set)) == COMPARE
+		       && mode != set_mode
+		       && rtx_equal_p (XEXP (cc_src, 0),
+				       XEXP (SET_SRC (set), 0))
+		       && rtx_equal_p (XEXP (cc_src, 1),
+				       XEXP (SET_SRC (set), 1)))
+			   
+		{
+		  comp_mode = (*targetm.cc_modes_compatible) (mode, set_mode);
+		  if (comp_mode != VOIDmode
+		      && (can_change_mode || comp_mode == mode))
+		    found = true;
+		}
+
+	      if (found)
+		{
+		  found_equiv = true;
+		  if (insn_count < ARRAY_SIZE (insns))
+		    {
+		      insns[insn_count] = insn;
+		      modes[insn_count] = set_mode;
+		      last_insns[insn_count] = end;
+		      ++insn_count;
+
+		      if (mode != comp_mode)
+			{
+			  if (! can_change_mode)
+			    abort ();
+			  mode = comp_mode;
+			  PUT_MODE (cc_src, mode);
+			}
+		    }
+		  else
+		    {
+		      if (set_mode != mode)
+			{
+			  /* We found a matching expression in the
+			     wrong mode, but we don't have room to
+			     store it in the array.  Punt.  This case
+			     should be rare.  */
+			  break;
+			}
+		      /* INSN sets CC_REG to a value equal to CC_SRC
+			 with the right mode.  We can simply delete
+			 it.  */
+		      delete_insn (insn);
+		    }
+
+		  /* We found an instruction to delete.  Keep looking,
+		     in the hopes of finding a three-way jump.  */
+		  continue;
+		}
+
+	      /* We found an instruction which sets the condition
+		 code, so don't look any farther.  */
+	      break;
+	    }
+
+	  /* If INSN sets CC_REG in some other way, don't look any
+	     farther.  */
+	  if (reg_set_p (cc_reg, insn))
+	    break;
+	}
+
+      /* If we fell off the bottom of the block, we can keep looking
+	 through successors.  We pass CAN_CHANGE_MODE as false because
+	 we aren't prepared to handle compatibility between the
+	 further blocks and this block.  */
+      if (insn == end)
+	{
+	  enum machine_mode submode;
+
+	  submode = cse_cc_succs (e->dest, cc_reg, cc_src, false);
+	  if (submode != VOIDmode)
+	    {
+	      if (submode != mode)
+		abort ();
+	      found_equiv = true;
+	      can_change_mode = false;
+	    }
+	}
+    }
+
+  if (! found_equiv)
+    return VOIDmode;
+
+  /* Now INSN_COUNT is the number of instructions we found which set
+     CC_REG to a value equivalent to CC_SRC.  The instructions are in
+     INSNS.  The modes used by those instructions are in MODES.  */
+
+  newreg = NULL_RTX;
+  for (i = 0; i < insn_count; ++i)
+    {
+      if (modes[i] != mode)
+	{
+	  /* We need to change the mode of CC_REG in INSNS[i] and
+	     subsequent instructions.  */
+	  if (! newreg)
+	    {
+	      if (GET_MODE (cc_reg) == mode)
+		newreg = cc_reg;
+	      else
+		newreg = gen_rtx_REG (mode, REGNO (cc_reg));
+	    }
+	  cse_change_cc_mode_insns (NEXT_INSN (insns[i]), last_insns[i],
+				    newreg);
+	}
+
+      delete_insn (insns[i]);
+    }
+
+  return mode;
+}
+
+/* If we have a fixed condition code register (or two), walk through
+   the instructions and try to eliminate duplicate assignments.  */
+
+void
+cse_condition_code_reg (void)
+{
+  unsigned int cc_regno_1;
+  unsigned int cc_regno_2;
+  rtx cc_reg_1;
+  rtx cc_reg_2;
+  basic_block bb;
+
+  if (! (*targetm.fixed_condition_code_regs) (&cc_regno_1, &cc_regno_2))
+    return;
+
+  cc_reg_1 = gen_rtx_REG (CCmode, cc_regno_1);
+  if (cc_regno_2 != INVALID_REGNUM)
+    cc_reg_2 = gen_rtx_REG (CCmode, cc_regno_2);
+  else
+    cc_reg_2 = NULL_RTX;
+
+  FOR_EACH_BB (bb)
+    {
+      rtx last_insn;
+      rtx cc_reg;
+      rtx insn;
+      rtx cc_src_insn;
+      rtx cc_src;
+      enum machine_mode mode;
+      enum machine_mode orig_mode;
+
+      /* Look for blocks which end with a conditional jump based on a
+	 condition code register.  Then look for the instruction which
+	 sets the condition code register.  Then look through the
+	 successor blocks for instructions which set the condition
+	 code register to the same value.  There are other possible
+	 uses of the condition code register, but these are by far the
+	 most common and the ones which we are most likely to be able
+	 to optimize.  */
+
+      last_insn = BB_END (bb);
+      if (GET_CODE (last_insn) != JUMP_INSN)
+	continue;
+
+      if (reg_referenced_p (cc_reg_1, PATTERN (last_insn)))
+	cc_reg = cc_reg_1;
+      else if (cc_reg_2 && reg_referenced_p (cc_reg_2, PATTERN (last_insn)))
+	cc_reg = cc_reg_2;
+      else
+	continue;
+
+      cc_src_insn = NULL_RTX;
+      cc_src = NULL_RTX;
+      for (insn = PREV_INSN (last_insn);
+	   insn && insn != PREV_INSN (BB_HEAD (bb));
+	   insn = PREV_INSN (insn))
+	{
+	  rtx set;
+
+	  if (! INSN_P (insn))
+	    continue;
+	  set = single_set (insn);
+	  if (set
+	      && GET_CODE (SET_DEST (set)) == REG
+	      && REGNO (SET_DEST (set)) == REGNO (cc_reg))
+	    {
+	      cc_src_insn = insn;
+	      cc_src = SET_SRC (set);
+	      break;
+	    }
+	  else if (reg_set_p (cc_reg, insn))
+	    break;
+	}
+
+      if (! cc_src_insn)
+	continue;
+
+      if (modified_between_p (cc_src, cc_src_insn, NEXT_INSN (last_insn)))
+	continue;
+
+      /* Now CC_REG is a condition code register used for a
+	 conditional jump at the end of the block, and CC_SRC, in
+	 CC_SRC_INSN, is the value to which that condition code
+	 register is set, and CC_SRC is still meaningful at the end of
+	 the basic block.  */
+
+      orig_mode = GET_MODE (cc_src);
+      mode = cse_cc_succs (bb, cc_reg, cc_src, true);
+      if (mode != VOIDmode)
+	{
+	  if (mode != GET_MODE (cc_src))
+	    abort ();
+	  if (mode != orig_mode)
+	    {
+	      rtx newreg = gen_rtx_REG (mode, REGNO (cc_reg));
+
+	      /* Change the mode of CC_REG in CC_SRC_INSN to
+		 GET_MODE (NEWREG).  */
+	      for_each_rtx (&PATTERN (cc_src_insn), cse_change_cc_mode,
+			    newreg);
+	      for_each_rtx (&REG_NOTES (cc_src_insn), cse_change_cc_mode,
+			    newreg);
+
+	      /* Do the same in the following insns that use the
+		 current value of CC_REG within BB.  */
+	      cse_change_cc_mode_insns (NEXT_INSN (cc_src_insn),
+					NEXT_INSN (last_insn),
+					newreg);
+	    }
+	}
+    }
 }

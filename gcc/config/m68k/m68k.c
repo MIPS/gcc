@@ -43,6 +43,18 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "flags.h"
 
+enum reg_class regno_reg_class[] =
+{
+  DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
+  DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
+  ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
+  ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
+  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
+  FP_REGS, FP_REGS, FP_REGS, FP_REGS,
+  ADDR_REGS
+};
+
+
 /* The ASM_DOT macro allows easy string pasting to handle the differences
    between MOTOROLA and MIT syntaxes in asm_fprintf(), which doesn't
    support the %. option.  */
@@ -3450,6 +3462,23 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 			 "\tsubq.l %I%d,4(%Rsp)\n" :
 			 "\tsubql %I%d,%Rsp@(4)\n",
 		 (int) -delta);
+  else if (TARGET_COLDFIRE)
+    {
+      /* ColdFire can't add/sub a constant to memory unless it is in
+	 the range of addq/subq.  So load the value into %d0 and
+	 then add it to 4(%sp). */
+      if (delta >= -128 && delta <= 127)
+	asm_fprintf (file, MOTOROLA ?
+		     "\tmoveq.l %I%wd,%Rd0\n" :
+		     "\tmoveql %I%wd,%Rd0\n", delta);
+      else
+	asm_fprintf (file, MOTOROLA ?
+		     "\tmove.l %I%wd,%Rd0\n" :
+		     "\tmovel %I%wd,%Rd0\n", delta);
+      asm_fprintf (file, MOTOROLA ?
+		   "\tadd.l %Rd0,4(%Rsp)\n" :
+		   "\taddl %Rd0,%Rsp@(4)\n");
+    }
   else
     asm_fprintf (file, MOTOROLA ?
 			 "\tadd.l %I%wd,4(%Rsp)\n" :
@@ -3495,4 +3524,20 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     }
 
   output_asm_insn (fmt, xops);
+}
+
+/* Return nonzero if register old_reg can be renamed to register new_reg.  */
+int
+m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
+			   unsigned int new_reg)
+{
+  /* Interrupt functions can only use registers that have already been
+     saved by the prologue, even if they would normally be
+     call-clobbered.  */
+
+  if (m68k_interrupt_function_p (current_function_decl)
+      && !regs_ever_live[new_reg])
+    return 0;
+
+  return 1;
 }

@@ -10,9 +10,6 @@
 #undef HAVE_GETTEXT
 #undef HAVE_STPCPY
 
-// Define if GCC supports weak symbols.
-#undef _GLIBCXX_SUPPORTS_WEAK
-
 // Include I/O support for 'long long' and 'unsigned long long'.
 #undef _GLIBCXX_USE_LONG_LONG
 
@@ -28,8 +25,8 @@
 // Define if code specialized for wchar_t should be used.
 #undef _GLIBCXX_USE_WCHAR_T
 
-// Define if using setrlimit to limit memory usage during 'make check'.
-#undef _GLIBCXX_MEM_LIMITS
+// Define if using setrlimit to set resource limits during 'make check'.
+#undef _GLIBCXX_RES_LIMITS
 
 // Define to use concept checking code from the boost libraries.
 #undef _GLIBCXX_CONCEPT_CHECKS
@@ -50,6 +47,9 @@
 
 // Define if LFS support is available.
 #undef _GLIBCXX_USE_LFS
+
+// Define if a fully dynamic basic_string is wanted.
+#undef _GLIBCXX_FULLY_DYNAMIC_STRING
 
 // Define if NLS translations are to be used.
 #undef _GLIBCXX_USE_NLS

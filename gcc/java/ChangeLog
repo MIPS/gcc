@@ -1,3 +1,108 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR java/14315
+	Backport from mainline:
+
+	2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (make_class_file_name): Don't report if mkdir
+	failed with EEXIST.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-04-12  Michael Chastain  <mec.gnu@mindspring.com>
+
+	PR bootstrap/14893:
+	* Make-lang.in (java.install-man): Install from either build
+	tree or source tree, whichever has the file first.
+
+2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Extensions): Document GCJ_PROPERTIES.
+
+2004-03-06  Roger Sayle  <roger@eyesopen.com>
+
+	* jcf-parse.c (java_parse_file): Handle the case that input_filename
+	is NULL.
+
+2004-02-26  Andrew Haley  <aph@redhat.com>
+
+	* parse.y (check_interface_throws_clauses): Check for
+	!METHOD_INVISIBLE (iface_method).
+	* class.c (layout_class_methods): Check for CLASS_INTERFACE as
+	well as CLASS_ABSTRACT.
+	
+2004-02-22  Matthias Klose  <doko@debian.org>
+
+	Taken from mainline:
+
+	2004-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in: Install man pages under the same names
+	(possibly transformed) as the program they document.
+
+	2004-02-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (java.install-man): Add extra dependencies.
+
+2004-02-07  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* typeck.c: Update copyright.
+
+2004-02-05  Kelley Cook  <kcook@gcc.gnu.org>
+
+	Make-lang.in (po-generated):  Delete.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gcj.dvi): Use $(abs_docdir).
+
+2004-01-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* expr.c (build_field_ref): Move variable
+	definition up.
+
+2004-01-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Widen field offset.
+
+2004-01-27  Andrew Haley  <aph@redhat.com>
+
+	java/13273
+	* parse.y (check_interface_throws_clauses): Make sure class_decl
+	has been loaded.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(java.info, java.srcinfo, java.man, java.srcman): New rules.
+	(java.install-man): Revamp rule.
+
+2004-01-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_TARGET_INSTALL_NAME,
+	GCJH_TARGET_INSTALL_NAME): Define via a immediate $(shell)
+	instead of deferred backquote.
+
+2004-01-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* typeck.c (find_method_in_interfaces): Move variable
+	definition up.
+
 2004-01-16  Andrew Haley  <aph@redhat.com>
 
 	PR java/13273:
@@ -46,7 +151,7 @@
 	using indirect dis[atch.
 	(java_decl_ok_for_sibcall): Use output_class, not current_class.
 	(java_get_callee_fndecl): Use class local atable.
-	* jcf-parse.c 
+	* jcf-parse.c
 	(always_initialize_class_p): Decl moved to java-tree.h.
 	(HANDLE_CLASS_INFO): Set output_class.
 	(read_class): Likewise.
@@ -94,13 +199,13 @@
 	Make otable, atable, and ctable class local rather than global.
 	(emit_catch_table): Make otable, atable, and ctable class local
 	rather than global.
-		
+
 2003-12-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* parse.y (catch_clause_parameter): Fix typo.
 
 	PR java/13404
-	* parse.y: (catch_clause_parameter): Return early if $3, aka 
+	* parse.y: (catch_clause_parameter): Return early if $3, aka
 	formal_parameter, is null.
 
 2003-12-20  Kazu Hirata  <kazu@cs.umass.edu>

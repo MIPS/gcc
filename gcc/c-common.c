@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -599,23 +599,6 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
-/*  The version of the C++ ABI in use.  The following values are
-    allowed:
-
-    0: The version of the ABI believed most conformant with the
-       C++ ABI specification.  This ABI may change as bugs are
-       discovered and fixed.  Therefore, 0 will not necessarily
-       indicate the same ABI in different versions of G++.
-
-    1: The version of the ABI first used in G++ 3.2.
-
-    2: The version of the ABI first used in G++ 3.4.
-
-    Additional positive integers will be assigned as new versions of
-    the ABI become the default version of the ABI.  */
-
-int flag_abi_version = 2;
-
 /* Nonzero means warn about things that will change when compiling
    with an ABI-compliant compiler.  */
 
@@ -784,7 +767,6 @@ static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree vector_size_helper (tree, tree);
 
 static void check_function_nonnull (tree, tree);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -2528,12 +2510,6 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 	pedwarn ("pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == OFFSET_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("pointer to a member used in arithmetic");
-      size_exp = integer_one_node;
-    }
   else
     size_exp = size_in_bytes (TREE_TYPE (result_type));
 
@@ -2971,7 +2947,8 @@ c_sizeof_or_alignof_type (tree type, enum tree_code op, int complain)
   else if (!COMPLETE_TYPE_P (type))
     {
       if (complain)
-	error ("invalid application of `%s' to an incomplete type", op_name);
+	error ("invalid application of `%s' to incomplete type `%T' ", 
+	       op_name, type);
       value = size_zero_node;
     }
   else
@@ -4128,7 +4105,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	expand_stmt (STMT_EXPR_STMT (exp));
 	expand_end_stmt_expr (rtl_expr);
 
-	result = expand_expr (rtl_expr, target, tmode, modifier);
+	result = expand_expr_real (rtl_expr, target, tmode, modifier, alt_rtl);
 	if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
@@ -4286,21 +4263,6 @@ c_init_attributes (void)
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-}
-
-/* Output a -Wshadow warning MSGCODE about NAME, and give the location
-   of the previous declaration DECL.  */
-void
-shadow_warning (enum sw_kind msgcode, const char *name, tree decl)
-{
-  static const char *const msgs[] = {
-    /* SW_PARAM  */ N_("declaration of \"%s\" shadows a parameter"),
-    /* SW_LOCAL  */ N_("declaration of \"%s\" shadows a previous local"),
-    /* SW_GLOBAL */ N_("declaration of \"%s\" shadows a global declaration")
-  };
-
-  warning (msgs[msgcode], name);
-  warning ("%Jshadowed declaration is here", decl);
 }
 
 /* Attribute handlers common to C front ends.  */
@@ -4680,7 +4642,10 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
-	    mode = (enum machine_mode) j;
+	    {
+	      mode = (enum machine_mode) j;
+	      break;
+	    }
 
       if (mode == VOIDmode)
 	error ("unknown machine mode `%s'", p);
@@ -4713,8 +4678,17 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 							mode);
 	      *node = ptr_type;
 	    }
+	  else if (VECTOR_MODE_P (mode)
+		   ? TREE_CODE (type) != TREE_CODE (TREE_TYPE (typefm))
+		   : TREE_CODE (type) != TREE_CODE (typefm))
+		   
+	    {
+	      error ("mode `%s' applied to inappropriate type", p);
+	      return NULL_TREE;
+	    }
 	  else
-	  *node = typefm;
+	    *node = typefm;
+
 	  /* No need to layout the type here.  The caller should do this.  */
 	}
     }
@@ -5283,55 +5257,9 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
     }
 
   /* Build back pointers if needed.  */
-  *node = vector_size_helper (*node, new_type);
+  *node = reconstruct_complex_type (*node, new_type);
 
   return NULL_TREE;
-}
-
-/* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a
-   better way.
-
-   If we requested a pointer to a vector, build up the pointers that
-   we stripped off while looking for the inner type.  Similarly for
-   return values from functions.
-
-   The argument "type" is the top of the chain, and "bottom" is the
-   new type which we will point to.  */
-
-static tree
-vector_size_helper (tree type, tree bottom)
-{
-  tree inner, outer;
-
-  if (POINTER_TYPE_P (type))
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
-    }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_array_type (inner, TYPE_DOMAIN (type));
-    }
-  else if (TREE_CODE (type) == FUNCTION_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
-    }
-  else if (TREE_CODE (type) == METHOD_TYPE)
-    {
-      inner = vector_size_helper (TREE_TYPE (type), bottom);
-      outer = build_method_type_directly (TYPE_METHOD_BASETYPE (type),
-					  inner, 
-					  TYPE_ARG_TYPES (type));
-    }
-  else
-    return bottom;
-
-  TREE_READONLY (outer) = TREE_READONLY (type);
-  TREE_THIS_VOLATILE (outer) = TREE_THIS_VOLATILE (type);
-
-  return outer;
 }
 
 /* Handle the "nonnull" attribute.  */
@@ -5780,6 +5708,24 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
       }
       break;
+    case CALL_EXPR:
+      {
+	tree decl = get_callee_fndecl (x);
+
+	if (decl && DECL_BUILT_IN (decl))
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_CONSTANT_P:
+	      *walk_subtrees = 0;
+	      return NULL_TREE;
+	    case BUILT_IN_EXPECT:
+	      return NULL_TREE;
+	    default:
+	      break;
+	    }
+	*count += 10;
+	break;
+      }
     /* Few special cases of expensive operations.  This is usefull
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
@@ -5791,7 +5737,6 @@ c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-    case CALL_EXPR:
       *count += 10;
       break;
     /* Various containers that will produce no code themselves.  */

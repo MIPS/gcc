@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -270,7 +270,7 @@ struct cpp_buffer
   const uchar *cur;		/* Current location.  */
   const uchar *line_base;	/* Start of current physical line.  */
   const uchar *next_line;	/* Start of to-be-cleaned logical line.  */
-  
+
   const uchar *buf;		/* Entire character buffer.  */
   const uchar *rlimit;		/* Writable byte at end of file.  */
 
@@ -303,9 +303,10 @@ struct cpp_buffer
      buffers.  */
   unsigned char from_stage3;
 
-  /* Nonzero means that the directory to start searching for ""
-     include files has been calculated and stored in "dir" below.  */
-  unsigned char search_cached;
+  /* At EOF, a buffer is automatically popped.  If RETURN_AT_EOF is
+     true, a CPP_EOF token is then returned.  Otherwise, the next
+     token from the enclosing buffer is returned.  */
+  unsigned int return_at_eof : 1;
 
   /* The directory of the this buffer's file.  Its NAME member is not
      allocated, so we don't need to worry about freeing it.  */
@@ -361,6 +362,7 @@ struct cpp_reader
 
   /* File and directory hash table.  */
   struct htab *file_hash;
+  struct htab *dir_hash;
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
 
@@ -573,8 +575,13 @@ extern size_t _cpp_replacement_text_len (const cpp_macro *);
 extern cppchar_t _cpp_valid_ucn (cpp_reader *, const uchar **,
 				 const uchar *, int);
 extern void _cpp_destroy_iconv (cpp_reader *);
-extern bool _cpp_interpret_string_notranslate (cpp_reader *, const cpp_string *,
+extern bool _cpp_interpret_string_notranslate (cpp_reader *,
+					       const cpp_string *,
 					       cpp_string *);
+extern uchar *_cpp_convert_input (cpp_reader *, const char *, uchar *,
+                                  size_t, size_t, off_t *);
+extern const char *_cpp_default_encoding (void);
+
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

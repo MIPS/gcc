@@ -1,6 +1,6 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -188,11 +188,6 @@ do {							\
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE)	PARM_BOUNDARY
 #endif
 
-/* Define to nonzero if complex arguments should be split into their
-   corresponding components.  */
-#ifndef SPLIT_COMPLEX_ARGS
-#define SPLIT_COMPLEX_ARGS 0
-#endif
 tree split_complex_types (tree);
 tree split_complex_values (tree);
 

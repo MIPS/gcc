@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GCC.
@@ -560,7 +561,7 @@ enum reg_class {
    choose a class which is "minimal", meaning that no smaller class
    also contains the register.  */
 
-#define BASE_REG_CLASS POINTER_REGS
+#define BASE_REG_CLASS (reload_completed ? BASE_POINTER_REGS : POINTER_REGS)
 /* A macro whose definition is the name of the class to which a valid
    base register must belong.  A base register is one used in an
    address which is the register value plus a displacement.  */
@@ -1129,7 +1130,8 @@ typedef struct avr_args {
    store anything in `CUMULATIVE_ARGS'; however, the data structure
    must exist and should not be empty, so use `int'.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) init_cumulative_args (&(CUM), FNTYPE, LIBNAME, FNDECL)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
+  init_cumulative_args (&(CUM), FNTYPE, LIBNAME, FNDECL)
 
 /* A C statement (sans semicolon) for initializing the variable CUM
    for the state at the beginning of the argument list.  The variable

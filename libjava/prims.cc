@@ -25,6 +25,7 @@ details.  */
 #include <jvm.h>
 #include <java-signal.h>
 #include <java-threads.h>
+#include <java-interp.h>
 
 #ifdef ENABLE_JVMPI
 #include <jvmpi.h>
@@ -905,6 +906,10 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_InitThreads ();
   _Jv_InitGC ();
   _Jv_InitializeSyncMutex ();
+  
+#ifdef INTERPRETER
+  _Jv_InitInterpreter ();
+#endif  
 
   /* Initialize Utf8 constants declared in jvm.h. */
   void_signature = _Jv_makeUtf8Const ("()V", 3);
@@ -956,8 +961,7 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
   // Start the GC finalizer thread.  A VirtualMachineError can be
-  // thrown by the runtime if, say, threads aren't available.  In this
-  // case finalizers simply won't run.
+  // thrown by the runtime if, say, threads aren't available.
   try
     {
       using namespace gnu::gcj::runtime;

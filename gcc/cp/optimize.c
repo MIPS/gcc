@@ -1,5 +1,6 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GCC.
@@ -230,10 +231,6 @@ maybe_clone_body (tree fn)
 
       /* Clone the body.  */
       clone_body (clone, fn, decl_map);
-
-      /* There are as many statements in the clone as in the
-	 original.  */
-      DECL_ESTIMATED_INSNS (clone) = DECL_ESTIMATED_INSNS (fn);
 
       /* Clean up.  */
       splay_tree_delete (decl_map);

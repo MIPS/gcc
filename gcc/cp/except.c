@@ -1,6 +1,6 @@
 /* Handle exceptional things in C++.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
    Contributed by Michael Tiemann <tiemann@cygnus.com>
    Rewritten by Mike Stump <mrs@cygnus.com>, based upon an
    initial re-implementation courtesy Tad Hunt.
@@ -47,7 +47,6 @@ static tree do_end_catch (tree);
 static bool decl_is_java_type (tree decl, int err);
 static void initialize_handler_parm (tree, tree);
 static tree do_allocate_exception (tree);
-static tree stabilize_throw_expr (tree, tree *);
 static tree wrap_cleanups_r (tree *, int *, void *);
 static int complete_ptr_ref_or_void_ptr_p (tree, tree);
 static bool is_admissible_throw_operand (tree);
@@ -507,7 +506,6 @@ do_allocate_exception (tree type)
 					     NULL_TREE));
 }
 
-#if 0
 /* Call __cxa_free_exception from a cleanup.  This is never invoked
    directly, but see the comment for stabilize_throw_expr.  */
 
@@ -526,7 +524,6 @@ do_free_exception (tree ptr)
 
   return build_function_call (fn, tree_cons (NULL_TREE, ptr, NULL_TREE));
 }
-#endif
 
 /* Wrap all cleanups for TARGET_EXPRs in MUST_NOT_THROW_EXPR.
    Called from build_throw via walk_tree_without_duplicates.  */
@@ -558,58 +555,6 @@ wrap_cleanups_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
-/* Like stabilize_expr, but specifically for a thrown expression.  When
-   throwing a temporary class object, we want to construct it directly into
-   the thrown exception, so we look past the TARGET_EXPR and stabilize the
-   arguments of the call instead.
-
-   The case where EXP is a call to a function returning a class is a bit of
-   a grey area in the standard; it's unclear whether or not it should be
-   allowed to throw.  I'm going to say no, as that allows us to optimize
-   this case without worrying about deallocating the exception object if it
-   does.  The alternatives would be either not optimizing this case, or
-   wrapping the initialization in a TRY_CATCH_EXPR to call do_free_exception
-   rather than in a MUST_NOT_THROW_EXPR, for this case only.  */
-
-static tree
-stabilize_throw_expr (tree exp, tree *initp)
-{
-  tree init_expr;
-
-  if (TREE_CODE (exp) == TARGET_EXPR
-      && TREE_CODE (TARGET_EXPR_INITIAL (exp)) == AGGR_INIT_EXPR
-      && flag_elide_constructors)
-    {
-      tree aggr_init = AGGR_INIT_EXPR_CHECK (TARGET_EXPR_INITIAL (exp));
-      tree args = TREE_OPERAND (aggr_init, 1);
-      tree newargs = NULL_TREE;
-      tree *p = &newargs;
-
-      init_expr = void_zero_node;
-      for (; args; args = TREE_CHAIN (args))
-	{
-	  tree arg = TREE_VALUE (args);
-	  tree arg_init_expr;
-
-	  arg = stabilize_expr (arg, &arg_init_expr);
-
-	  if (TREE_SIDE_EFFECTS (arg_init_expr))
-	    init_expr = build (COMPOUND_EXPR, void_type_node, init_expr,
-			       arg_init_expr);
-	  *p = tree_cons (NULL_TREE, arg, NULL_TREE);
-	  p = &TREE_CHAIN (*p);
-	}
-      TREE_OPERAND (aggr_init, 1) = newargs;
-    }
-  else
-    {
-      exp = stabilize_expr (exp, &init_expr);
-    }
-
-  *initp = init_expr;
-  return exp;
-}
-
 /* Build a throw expression.  */
 
 tree
@@ -621,7 +566,10 @@ build_throw (tree exp)
     return exp;
 
   if (processing_template_decl)
-    return build_min (THROW_EXPR, void_type_node, exp);
+    {
+      current_function_returns_abnormally = 1;
+      return build_min (THROW_EXPR, void_type_node, exp);
+    }
 
   if (exp == null_node)
     warning ("throwing NULL, which has integral, not pointer type");
@@ -660,19 +608,20 @@ build_throw (tree exp)
       tree object, ptr;
       tree tmp;
       tree temp_expr, allocate_expr;
+      bool elided;
 
+      /* The CLEANUP_TYPE is the internal type of a destructor.  */
+      if (!cleanup_type)
+	{
+	  tmp = void_list_node;
+	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+	  tmp = build_function_type (void_type_node, tmp);
+	  cleanup_type = build_pointer_type (tmp);
+	}
+      
       fn = get_identifier ("__cxa_throw");
       if (!get_global_value_if_present (fn, &fn))
 	{
-	  /* The CLEANUP_TYPE is the internal type of a destructor.  */
-	  if (cleanup_type == NULL_TREE)
-	    {
-	      tmp = void_list_node;
-	      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	      tmp = build_function_type (void_type_node, tmp);
-	      cleanup_type = build_pointer_type (tmp);
-	    }
-
 	  /* Declare void __cxa_throw (void*, void*, void (*)(void*)).  */
 	  /* ??? Second argument is supposed to be "std::type_info*".  */
 	  tmp = void_list_node;
@@ -682,7 +631,7 @@ build_throw (tree exp)
 	  tmp = build_function_type (void_type_node, tmp);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
-
+      
       /* throw expression */
       /* First, decay it.  */
       exp = decay_conversion (exp);
@@ -700,17 +649,14 @@ build_throw (tree exp)
 	 the call to __cxa_allocate_exception first (which doesn't
 	 matter, since it can't throw).  */
 
-      /* Pre-evaluate the thrown expression first, since if we allocated
-	 the space first we would have to deal with cleaning it up if
-	 evaluating this expression throws.  */
-      exp = stabilize_throw_expr (exp, &temp_expr);
-
       /* Allocate the space for the exception.  */
       allocate_expr = do_allocate_exception (TREE_TYPE (exp));
       allocate_expr = get_target_expr (allocate_expr);
       ptr = TARGET_EXPR_SLOT (allocate_expr);
       object = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (exp)), ptr);
       object = build_indirect_ref (object, NULL);
+
+      elided = (TREE_CODE (exp) == TARGET_EXPR);
 
       /* And initialize the exception object.  */
       exp = build_init (object, exp, LOOKUP_ONLYCONVERTING);
@@ -720,10 +666,36 @@ build_throw (tree exp)
 	  return error_mark_node;
 	}
 
-      exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
+      /* Pre-evaluate the thrown expression first, since if we allocated
+	 the space first we would have to deal with cleaning it up if
+	 evaluating this expression throws.
+
+	 The case where EXP the initializer is a call to a constructor or a
+	 function returning a class is a bit of a grey area in the
+	 standard; it's unclear whether or not it should be allowed to
+	 throw.  We used to say no, as that allowed us to optimize this
+	 case without worrying about deallocating the exception object if
+	 it does.  But that conflicted with expectations (PR 13944) and the
+	 EDG compiler; now we wrap the initialization in a TRY_CATCH_EXPR
+	 to call do_free_exception rather than in a MUST_NOT_THROW_EXPR,
+	 for this case only.
+
+         Note that we don't check the return value from stabilize_init
+         because it will only return false in cases where elided is true,
+         and therefore we don't need to work around the failure to
+         preevaluate.  */
+      temp_expr = NULL_TREE;
+      stabilize_init (exp, &temp_expr);
+
+      if (elided)
+	exp = build (TRY_CATCH_EXPR, void_type_node, exp,
+		     do_free_exception (ptr));
+      else
+	exp = build1 (MUST_NOT_THROW_EXPR, void_type_node, exp);
+
       /* Prepend the allocation.  */
       exp = build (COMPOUND_EXPR, TREE_TYPE (exp), allocate_expr, exp);
-      if (temp_expr != void_zero_node)
+      if (temp_expr)
 	{
 	  /* Prepend the calculation of the throw expression.  Also, force
 	     any cleanups from the expression to be evaluated here so that

@@ -57,7 +57,7 @@ namespace std
 	  setlocale(LC_ALL, "C");
 	  char* __sanity;
 	  errno = 0;
-#if defined(_GLIBCXX_USE_C99)
+#if defined(_GLIBCXX_HAVE_STRTOF)
 	  float __f = strtof(__s, &__sanity);
 #else
 	  double __d = strtod(__s, &__sanity);
@@ -117,7 +117,7 @@ namespace std
 	  // Assumes __s formatted for "C" locale.
 	  char* __old = strdup(setlocale(LC_ALL, NULL));
 	  setlocale(LC_ALL, "C");
-#if defined(_GLIBCXX_USE_C99)
+#if defined(_GLIBCXX_HAVE_STRTOLD)
 	  char* __sanity;
 	  errno = 0;
 	  long double __ld = strtold(__s, &__sanity);
@@ -152,8 +152,8 @@ namespace std
     // See http://gcc.gnu.org/ml/libstdc++/2003-02/msg00345.html
     __cloc = NULL;
     if (strcmp(__s, "C"))
-      __throw_runtime_error("locale::facet::_S_create_c_locale "
-			    "name not valid");
+      __throw_runtime_error(__N("locale::facet::_S_create_c_locale "
+			    "name not valid"));
   }
 
   void

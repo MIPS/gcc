@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -379,6 +379,7 @@ split_nonconstant_init (tree dest, tree init)
       code = build1 (STMT_EXPR, void_type_node, code);
       TREE_SIDE_EFFECTS (code) = 1;
       DECL_INITIAL (dest) = init;
+      TREE_READONLY (dest) = 0;
     }
   else
     code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
@@ -444,28 +445,18 @@ store_init_value (tree decl, tree init)
 	init = build_x_compound_expr_from_list (init, "initializer");
     }
 
-  /* End of special C++ code.  */
-
   /* Digest the specified initializer into an expression.  */
   value = digest_init (type, init, (tree *) 0);
-
-  /* Store the expression if valid; else report error.  */
-
-  if (TREE_CODE (value) == ERROR_MARK)
-    ;
-  /* Other code expects that initializers for objects of types that need
-     constructing never make it into DECL_INITIAL, and passes 'init' to
-     build_aggr_init without checking DECL_INITIAL.  So just return.  */
-  else if (TYPE_NEEDS_CONSTRUCTING (type))
-    return build (INIT_EXPR, type, decl, value);
-  else if (TREE_STATIC (decl)
-	   && (! TREE_CONSTANT (value)
-	       || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
+  /* If the initializer is not a constant, fill in DECL_INITIAL with
+     the bits that are constant, and then return an expression that
+     will perform the dynamic initialization.  */
+  if (value != error_mark_node
+      && (! TREE_CONSTANT (value)
+	  || ! initializer_constant_valid_p (value, TREE_TYPE (value))))
     return split_nonconstant_init (decl, value);
-  
-  /* Store the VALUE in DECL_INITIAL.  If we're building a
-     statement-tree we will actually expand the initialization later
-     when we output this function.  */
+  /* If the value is a constant, just put it in DECL_INITIAL.  If DECL
+     is an automatic variable, the middle end will turn this into a
+     dynamic initialization later.  */
   DECL_INITIAL (decl) = value;
   return NULL_TREE;
 }
@@ -1090,7 +1081,8 @@ build_x_arrow (tree expr)
   if (IS_AGGR_TYPE (type))
     {
       while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
-				   NULL_TREE, NULL_TREE)))
+				   NULL_TREE, NULL_TREE,
+				   /*overloaded_p=*/NULL)))
 	{
 	  if (expr == error_mark_node)
 	    return error_mark_node;

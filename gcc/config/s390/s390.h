@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -114,9 +115,9 @@ extern int target_flags;
 #define TARGET_IEEE_FLOAT          1
 
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             0x33
+#define TARGET_DEFAULT             0x31
 #else
-#define TARGET_DEFAULT             0x3
+#define TARGET_DEFAULT             0x1
 #endif
 
 #define TARGET_SWITCHES                                                  \
@@ -684,7 +685,7 @@ typedef struct s390_arg_structure
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, NN, N_NAMED_ARGS) \
   ((CUM).gprs=0, (CUM).fprs=0)
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)                    \

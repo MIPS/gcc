@@ -622,12 +622,16 @@
 ;; Say that we have annulled true branches, since this gives smaller and
 ;; faster code when branches are predicted as not taken.
 
+;; ??? The non-annulled condition should really be "in_delay_slot",
+;; but insns that can be filled in non-annulled get priority over insns
+;; that can only be filled in anulled.
+
 (define_delay
   (and (eq_attr "type" "cbranch")
        (ne (symbol_ref "TARGET_SH2") (const_int 0)))
   ;; SH2e has a hardware bug that pretty much prohibits the use of
   ;; annuled delay slots.
-  [(eq_attr "in_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
+  [(eq_attr "cond_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
 					(not (eq_attr "cpu" "sh2e"))) (nil)])
 
 ;; -------------------------------------------------------------------------
@@ -2194,7 +2198,7 @@
 	parts[0] = gen_reg_rtx (SImode);
 	parts[1] = gen_reg_rtx (SImode);
 	emit_insn (gen_rotlsi3_16 (parts[2-choice], operands[1]));
-	parts[choice-1] = operands[1];
+	emit_move_insn (parts[choice-1], operands[1]);
 	emit_insn (gen_ashlsi3 (parts[0], parts[0], GEN_INT (8)));
 	emit_insn (gen_lshrsi3 (parts[1], parts[1], GEN_INT (8)));
 	emit_insn (gen_iorsi3 (operands[0], parts[0], parts[1]));
@@ -6467,7 +6471,7 @@
   ""
   "
 {
-  sh_expand_epilogue ();
+  sh_expand_epilogue (1);
   if (TARGET_SHCOMPACT)
     {
       rtx insn, set;
@@ -6863,8 +6867,9 @@
 
 (define_insn "tls_global_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(unspec:SI [(match_operand:SI 1 "" "")]
-		    UNSPEC_TLSGD))
+	(call (unspec:SI [(match_operand:SI 1 "" "")]
+			  UNSPEC_TLSGD)
+	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
@@ -6891,8 +6896,9 @@ mov.l\\t1f,r4\\n\\
 
 (define_insn "tls_local_dynamic"
   [(set (match_operand:SI 0 "register_operand" "=&z")
-	(unspec:SI [(match_operand:SI 1 "" "")]
-		    UNSPEC_TLSLDM))
+	(call (unspec:SI [(match_operand:SI 1 "" "")]
+			  UNSPEC_TLSLDM)
+	      (const_int 0)))
    (use (reg:PSI FPSCR_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
@@ -7108,7 +7114,7 @@ mov.l\\t1f,r0\\n\\
 	      (clobber (match_dup 3))])]
   "if (GET_CODE (operands[2]) == CODE_LABEL) LABEL_NUSES (operands[2])++;")
 
-(define_insn "*casesi_worker"
+(define_insn "casesi_worker_1"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(unspec:SI [(reg:SI R0_REG)
 		    (match_operand:SI 1 "register_operand" "0,r")
@@ -7137,6 +7143,44 @@ mov.l\\t1f,r0\\n\\
     }
 }"
   [(set_attr "length" "4")])
+
+(define_insn "casesi_worker_2"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(unspec:SI [(reg:SI R0_REG)
+		    (match_operand:SI 1 "register_operand" "0,r")
+		    (label_ref (match_operand 2 "" ""))
+		    (label_ref (match_operand 3 "" ""))] UNSPEC_CASESI))
+   (clobber (match_operand:SI 4 "" "=X,1"))]
+  "TARGET_SH2 && reload_completed && flag_pic"
+  "*
+{
+  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  char *load;
+
+  if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
+    abort ();
+
+  switch (GET_MODE (diff_vec))
+    {
+    case SImode:
+      output_asm_insn (\"shll2    %1\", operands);
+      load = \"mov.l	@(r0,%1),%0\"; break;
+    case HImode:
+      output_asm_insn (\"add	%1,%1\", operands);
+      load = \"mov.w	@(r0,%1),%0\"; break;
+    case QImode:
+      if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
+	load = \"mov.b	@(r0,%1),%0\;extu.b	%0,%0\";
+      else
+	load = \"mov.b	@(r0,%1),%0\";
+      break;
+    default:
+      abort ();
+    }
+  output_asm_insn (\"add\tr0,%1\;mova\t%O3,r0\\n\", operands);
+  return load;
+}"
+  [(set_attr "length" "8")])
 
 (define_insn "casesi_shift_media"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -7346,7 +7390,7 @@ mov.l\\t1f,r0\\n\\
   ""
   "
 {
-  sh_expand_epilogue ();
+  sh_expand_epilogue (0);
   emit_jump_insn (gen_return ());
   DONE;
 }")

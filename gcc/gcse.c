@@ -1,6 +1,6 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -4303,7 +4303,8 @@ do_local_cprop (rtx x, rtx insn, int alter_jumps, rtx *libcall_sp)
 	  rtx this_rtx = l->loc;
 	  rtx note;
 
-	  if (l->in_libcall)
+	  /* Don't CSE non-constant values out of libcall blocks.  */
+	  if (l->in_libcall && ! CONSTANT_P (this_rtx))
 	    continue;
 
 	  if (gcse_constant_p (this_rtx))
@@ -4388,7 +4389,7 @@ adjust_libcall_notes (rtx oldreg, rtx newval, rtx insn, rtx *libcall_sp)
 	      return true;
 	    }
 	}
-      XEXP (note, 0) = replace_rtx (XEXP (note, 0), oldreg, newval);
+      XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), oldreg, newval);
       insn = end;
     }
   return true;
@@ -4874,6 +4875,20 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  else
 	    dest = NULL;
 
+	  /* Avoid unification of the edge with other edges from original
+	     branch.  We would end up emitting the instruction on "both"
+	     edges.  */
+	    
+	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
+	    {
+	      edge e2;
+	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+		if (e2->dest == dest)
+		  break;
+	      if (e2)
+		dest = NULL;
+	    }
+
 	  old_dest = e->dest;
 	  if (dest != NULL
 	      && dest != old_dest
@@ -5285,7 +5300,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	}
 #endif
       /* FIXME: What if something in cc0/jump uses value set in new insn?  */
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
 
   /* Likewise if the last insn is a call, as will happen in the presence
@@ -5324,10 +5339,10 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 	     || NOTE_INSN_BASIC_BLOCK_P (insn))
 	insn = NEXT_INSN (insn);
 
-      new_insn = emit_insn_before (pat, insn);
+      new_insn = emit_insn_before_noloc (pat, insn);
     }
   else
-    new_insn = emit_insn_after (pat, insn);
+    new_insn = emit_insn_after_noloc (pat, insn);
 
   while (1)
     {
@@ -5952,7 +5967,7 @@ delete_null_pointer_checks_1 (unsigned int *block_reg, sbitmap *nonnull_avin,
 
       /* Scan each insn in the basic block looking for memory references and
 	 register sets.  */
-      stop_insn = NEXT_INSN (BB_HEAD (current_block));
+      stop_insn = NEXT_INSN (BB_END (current_block));
       for (insn = BB_HEAD (current_block);
 	   insn != stop_insn;
 	   insn = NEXT_INSN (insn))
@@ -6054,8 +6069,10 @@ delete_null_pointer_checks_1 (unsigned int *block_reg, sbitmap *nonnull_avin,
 
       something_changed = 1;
       delete_insn (last_insn);
+#ifdef HAVE_cc0
       if (compare_and_branch == 2)
 	delete_insn (earliest);
+#endif
       purge_dead_edges (bb);
 
       /* Don't check this block again.  (Note that BB_END is
@@ -7649,7 +7666,7 @@ insert_insn_start_bb (rtx insn, basic_block bb)
       before = NEXT_INSN (before);
     }
 
-  insn = emit_insn_after (insn, prev);
+  insn = emit_insn_after_noloc (insn, prev);
 
   if (gcse_file)
     {
@@ -7761,9 +7778,14 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	}
       bb = act->dest;
       
+      /* We used to continue the loop without scanning this block if the
+	 store expression was killed in this block.  That is wrong as
+	 we could have had a REG_EQUAL note with the store expression
+	 appear in the block before the insn which killed the store
+	 expression and that REG_EQUAL note needs to be removed as it
+	 is invalid.  */
       if (bb == EXIT_BLOCK_PTR
-	  || TEST_BIT (visited, bb->index)
-	  || TEST_BIT (ae_kill[bb->index], smexpr->index))
+	  || TEST_BIT (visited, bb->index))
 	{
 	  act = act->succ_next;
 	  continue;
@@ -7808,7 +7830,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 static void
 replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 {
-  rtx insn, mem, note, set, ptr;
+  rtx insn, mem, note, set, ptr, pair;
 
   mem = smexpr->pattern;
   insn = gen_move_insn (reg, SET_SRC (single_set (del)));
@@ -7830,6 +7852,26 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 	XEXP (ptr, 0) = insn;
 	break;
       }
+
+  /* Move the notes from the deleted insn to its replacement, and patch
+     up the LIBCALL notes.  */
+  REG_NOTES (insn) = REG_NOTES (del);
+
+  note = find_reg_note (insn, REG_RETVAL, NULL_RTX);
+  if (note)
+    {
+      pair = XEXP (note, 0);
+      note = find_reg_note (pair, REG_LIBCALL, NULL_RTX);
+      XEXP (note, 0) = insn;
+    }
+  note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+  if (note)
+    {
+      pair = XEXP (note, 0);
+      note = find_reg_note (pair, REG_RETVAL, NULL_RTX);
+      XEXP (note, 0) = insn;
+    }
+
   delete_insn (del);
 
   /* Now we must handle REG_EQUAL notes whose contents is equal to the mem;

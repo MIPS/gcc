@@ -1,8 +1,8 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
-   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
-   64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
+   64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
 
 This file is part of GCC.
@@ -69,35 +69,41 @@ Boston, MA 02111-1307, USA.  */
 #endif /* IN_LIBGCC2 */
 #define TARGET_ARCH64 (! TARGET_ARCH32)
 
-/* Code model selection.
-   -mcmodel is used to select the v9 code model.
-   Different code models aren't supported for v7/8 code.
+/* Code model selection in 64-bit environment.
 
-   TARGET_CM_32:     32 bit address space, top 32 bits = 0,
-		     pointers are 32 bits.  Note that this isn't intended
-                     to imply a v7/8 abi.
+   The machine mode used for addresses is 32-bit wide:
 
-   TARGET_CM_MEDLOW: 32 bit address space, top 32 bits = 0,
-                     avoid generating %uhi and %ulo terms,
-		     pointers are 64 bits.
+   TARGET_CM_32:     32-bit address space.
+                     It is the code model used when generating 32-bit code.
 
-   TARGET_CM_MEDMID: 64 bit address space.
-                     The executable must be in the low 16 TB of memory.
-                     This corresponds to the low 44 bits, and the %[hml]44
-                     relocs are used.  The text segment has a maximum size
-                     of 31 bits.
+   The machine mode used for addresses is 64-bit wide:
 
-   TARGET_CM_MEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31
-                     bits and may be located anywhere.  The maximum offset
-                     from any instruction to the label _GLOBAL_OFFSET_TABLE_
-                     is 31 bits.
+   TARGET_CM_MEDLOW: 32-bit address space.
+                     The executable must be in the low 32 bits of memory.
+                     This avoids generating %uhi and %ulo terms.  Programs
+                     can be statically or dynamically linked.
 
-   TARGET_CM_EMBMEDANY: 64 bit address space.
-                     The text and data segments have a maximum size of 31 bits
-                     and may be located anywhere.  Register %g4 contains
-                     the start address of the data segment.
-*/
+   TARGET_CM_MEDMID: 44-bit address space.
+                     The executable must be in the low 44 bits of memory,
+                     and the %[hml]44 terms are used.  The text and data
+                     segments have a maximum size of 2GB (31-bit span).
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_MEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The maximum offset from any instruction to the label
+                     _GLOBAL_OFFSET_TABLE_ is 2GB (31-bit span).
+
+   TARGET_CM_EMBMEDANY: 64-bit address space.
+                     The text and data segments have a maximum size of 2GB
+                     (31-bit span) and may be located anywhere in memory.
+                     The global register %g4 contains the start address of
+                     the data segment.  Programs are statically linked and
+                     PIC is not supported.
+
+   Different code models are not supported in 32-bit environment.  */
 
 enum cmodel {
   CM_32,
@@ -1157,8 +1163,7 @@ extern int sparc_mode_class[];
 #define RETURN_IN_MEMORY(TYPE)				\
 (TARGET_ARCH32						\
  ? (TYPE_MODE (TYPE) == BLKmode				\
-    || TYPE_MODE (TYPE) == TFmode			\
-    || TYPE_MODE (TYPE) == TCmode)			\
+    || TYPE_MODE (TYPE) == TFmode)			\
  : (TYPE_MODE (TYPE) == BLKmode				\
     && (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 32))
 
@@ -1263,6 +1268,20 @@ enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
    {-1, -1, 0, 0x20},	/* GENERAL_OR_FP_REGS */	\
    {-1, -1, -1, 0x20},	/* GENERAL_OR_EXTRA_FP_REGS */	\
    {-1, -1, -1, 0x3f}}	/* ALL_REGS */
+
+/* Defines invalid mode changes.  Borrowed from pa64-regs.h.
+
+   SImode loads to floating-point registers are not zero-extended.
+   The definition for LOAD_EXTEND_OP specifies that integer loads
+   narrower than BITS_PER_WORD will be zero-extended.  As a result,
+   we inhibit changes from SImode unless they are to a mode that is
+   identical in size.  */
+
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+  (TARGET_ARCH64						\
+   && (FROM) == SImode						\
+   && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1657,13 +1676,13 @@ extern char leaf_reg_remap[];
 #define BASE_RETURN_VALUE_REG(MODE)					\
   (TARGET_ARCH64							\
    ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32 : 8)			\
-   : (((MODE) == SFmode || (MODE) == DFmode) && TARGET_FPU ? 32 : 8))
+   : (TARGET_FPU && FLOAT_MODE_P (MODE) && (MODE) != TFmode ? 32 : 8))
 
 #define BASE_OUTGOING_VALUE_REG(MODE)				\
   (TARGET_ARCH64						\
    ? (TARGET_FPU && FLOAT_MODE_P (MODE) ? 32			\
       : TARGET_FLAT ? 8 : 24)					\
-   : (((MODE) == SFmode || (MODE) == DFmode) && TARGET_FPU ? 32	\
+   : (TARGET_FPU && FLOAT_MODE_P (MODE) && (MODE) != TFmode ? 32\
       : (TARGET_FLAT ? 8 : 24)))
 
 #define BASE_PASSING_ARG_REG(MODE)				\
@@ -1766,7 +1785,7 @@ struct sparc_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
 init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL));
 
 /* Update the data in CUM to advance over an argument
@@ -2384,9 +2403,7 @@ do {                                                                    \
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* Specify the machine mode that pointers have.
-   After generation of rtl, the compiler makes no further distinction
-   between pointers and any other objects of this machine mode.  */
+/* Specify the machine mode used for addresses.  */
 #define Pmode (TARGET_ARCH64 ? DImode : SImode)
 
 /* Generate calls to memcpy, memcmp and memset.  */
@@ -2428,8 +2445,9 @@ do {                                                                    \
 /* Assume by default that we do not have the Solaris-specific conversion
    routines nor 64-bit integer multiply and divide routines.  */
 
-#define SUN_CONVERSION_LIBFUNCS 0
-#define SUN_INTEGER_MULTIPLY_64 0
+#define SUN_CONVERSION_LIBFUNCS 	0
+#define DITF_CONVERSION_LIBFUNCS	0
+#define SUN_INTEGER_MULTIPLY_64 	0
 
 /* Compute extra cost of moving data between one register class
    and another.  */
@@ -2798,6 +2816,7 @@ do {									\
 {"uns_arith_operand", {SUBREG, REG, CONST_INT}},			\
 {"clobbered_register", {REG}},						\
 {"input_operand", {SUBREG, REG, CONST_INT, MEM, CONST}},		\
+{"compare_operand", {SUBREG, REG, ZERO_EXTRACT}},			\
 {"const64_operand", {CONST_INT, CONST_DOUBLE}},				\
 {"const64_high_operand", {CONST_INT, CONST_DOUBLE}},			\
 {"tgd_symbolic_operand", {SYMBOL_REF}},					\

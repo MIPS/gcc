@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Renesas H8/300.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -337,6 +337,9 @@ byte_reg (rtx x, int b)
     "r0l", "r0h", "r1l", "r1h", "r2l", "r2h", "r3l", "r3h",
     "r4l", "r4h", "r5l", "r5h", "r6l", "r6h", "r7l", "r7h"
   };
+
+  if (!REG_P (x))
+    abort ();
 
   return names_small[REGNO (x) * 2 + b];
 }

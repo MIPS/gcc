@@ -1,5 +1,5 @@
 // -*- C++ -*- Exception handling routines for catching.
-// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -35,7 +35,7 @@ using namespace __cxxabiv1;
 
 
 extern "C" void *
-__cxa_begin_catch (void *exc_obj_in)
+__cxa_begin_catch (void *exc_obj_in) throw()
 {
   _Unwind_Exception *exceptionObject
     = reinterpret_cast <_Unwind_Exception *>(exc_obj_in);
@@ -65,10 +65,12 @@ __cxa_begin_catch (void *exc_obj_in)
     // This exception was rethrown from an immediately enclosing region.
     count = -count + 1;
   else
-    count += 1;
+    {
+      count += 1;
+      globals->uncaughtExceptions -= 1;
+    }
   header->handlerCount = count;
 
-  globals->uncaughtExceptions -= 1;
   if (header != prev)
     {
       header->nextException = prev;

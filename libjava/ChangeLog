@@ -1,3 +1,225 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libjava.exp: Accept more than one multilib libgcc.
+
+2004-09-06  Release Manager
+
+	* GCC 3.4.2 released.
+
+2004-07-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/7587
+	* interpret.cc (compile_mutex): New.
+	(_Jv_InitInterpreter): New. Initialize compile_mutex.
+	(run): Lock compile_mutex before calling compile() if compilation is
+	required.
+	* prims.cc (_Jv_CreateJavaVM): Call _Jv_InitInterpreter().
+	* include/java-interp.h (_Jv_InitInterpreter): Declare.	
+
+2004-07-11  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/net/natPlainDatagramSocketImplWin32.cc (several):
+	Removed IPv4-related conditional compilation.
+	(mcastGrp): Added missing declarations.
+
+2004-07-11  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/16478	
+	* prims.cc (_Jv_CreateJavaVM): Fix comment.
+	* gnu/gcj/runtime/FinalizerThread.java (init): New. Native.
+	(finalizerReady): Now native.
+	(run): Likewise.
+	(runFinalizers): Removed.
+	* gnu/gcj/runtime/natFinalizerThread.cc (run): Implement here. Use
+	a primitive lock, and don't hold it while running the finalizers.
+	(runFinalizers): Implement. Don't aquire any Java lock.
+	(finalizerReady): Use lock primitives to signal finalizer thread.
+
+2004-07-11  Michael Koch  <konqueror@gmx.de>
+
+	PR libgcj/16473
+	* java/net/ServerSocket.java (accept): Don't create two client 
+	sockets when accepting connections.
+	* java/net/Socket.java (impl): Made package-private.
+	(implCreated): Likewise.
+
+2004-07-01  Release Manager
+
+	* GCC 3.4.1 released.
+
+2004-05-03  Michael Koch  <konqueror@gmx.de>
+
+	Fixes PR libgcj/14695:
+	* java/net/NetworkInterface.java
+	(getByName): Return null when no interface was found.
+
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* verify.cc: Undef PC.
+
+2004-03-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/powerpc-signal.h: Revert 2004-01-21 change.
+	(INIT_SEGV, INIT_FPE): Provide powerpc64 versions.  Check return
+	from syscall for ppc32 versions.
+
+2004-02-25  Andrew Haley  <aph@redhat.com>
+
+	PR java/14296:
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Make sure
+	we have a valid method index.
+
+2004-02-14  Per Bothner  <per@bothner.com>
+
+	* java/nio/channels/spi/AbstractInterruptibleChannel.java (close):
+	Set closed before calling implCloseChannel, as in the spec.
+
+2004-02-08  Per Bothner  <per@bothner.com>
+
+	* java/nio/ByteBuffer.java (shiftDown):  New helper method.
+	* java/nio/natDirectByteBufferImpl.cc (shiftDown):  New implementation.
+	* java/nio/ByteBufferImpl.java (compact):  Use new shiftDown method.
+	* sava/nio/ByteBufferHelper.java:  Remove redundant 'final' specifiers.
+	Pass ByteOrder parameter to most methods, since the underlying
+	ByteBuffer's order isn't always what we should use.
+	* java/nio/ByteBufferImpl.java:  Pass byte-order various places.
+	* java/nio/DirectByteBufferImpl.java:  Likewise.
+	Use ByteBufferHelper methods.
+	* java/nio/MappedByteBufferImpl.java:  Likewise.
+	(compact):  Use shiftDown.
+	* java/nio/CharViewBufferImpl.java (<init>):  Pass byte-order.
+	(get, put):  Use ByteBufferHelper.
+	(compact):  Use new shiftDown method.
+	(duplicate(boolean)):  New helper method.
+	(duplicate, asReadOnlyBuffer):  Use it.
+	(order):  Return endian field.
+	* java/nio/DoubleViewBufferImpl.java:  Likewise.
+	* java/nio/FloatViewBufferImpl.java:  Likewise.
+	* java/nio/IntViewBufferImpl.java:  Likewise.
+	* java/nio/LongViewBufferImpl.java:  Likewise.
+	* java/nio/ShortViewBufferImpl.java:  Likewise.
+	* java/nio/CharViewBufferImpl.java (subsequence):  Redundant test.
+	* java/nio/DirectByteBufferImpl.java (shiftDown):  New native method.
+	(compact):  Re-implement using shiftDown.
+
+2004-02-05  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/NIOServerSocket.java
+	(impl): Unused, removed.
+	* gnu/java/nio/SocketChannelImpl.java
+	(finnishConnect): Don't throw NoConnectionPendingException if not
+	connected or no connection pending.
+
+2004-02-03  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (startProcess): Handle case where
+	PATH or LD_LIBRARY_PATH is not set in parent environment.
+
+2004-02-03  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/nio/DatagramChannelImpl.java
+	(inChannelOperation): New field.
+	(isInChannelOperation): New accessor.
+	(setInChannelOperation): New modifier.
+	(receive): Use capacity() - position() of destination
+        buffer instead of remaining(). Set and reset our "in
+        channel operation indicator" before and after delegating
+        the receive to our datagram socket. Removed testing code.
+        Update destination buffer's current position if it is
+        backed by a byte array (hasArray() is true).
+	(send): Set and reset our "in channel operation indicator"
+        before and after delegating the send to our datagram socket.
+        Removed testing code. Update source buffer's current position
+        if it is backed by a byte array (hasArray() is true).
+	* gnu/java/nio/SocketChannelImpl.java (read(ByteBuffer)):
+        Use capacity() - position() of destination buffer instead
+        of remaining().
+	* java/net/DatagramSocket.java (receive): Don't throw an
+        IllegalBlockingModeException if we have a non-blocking
+        channel which initiated this operation.
+	(send): Likewise.
+
+2004-02-03  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* gnu/java/net/PlainSocketImpl.java 
+	(inChannelOperation): New field.
+	(isInChannelOperation): New accessor.
+	(setInChannelOperation): New modifier.
+	* gnu/java/nio/ServerSocketChannelImpl.java
+	(accept): Set and reset our server socket's PlainSocketImpl's
+	"in channel operation" indicator before and after delegating
+	the accept to our server socket.
+	* gnu/java/nio/SocketChannelImpl.java
+	(connect): Set and reset our socket's PlainSocketImpl's "in channel
+	operation" indicator before and after delegating the operation to
+	our socket.
+	(read): Likewise.
+	(write): Likewise.
+	* java/net/ServerSocket.java (implAccept): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this accept operation.
+	* java/net/Socket.java (connect): Don't throw an
+	IllegalBlockingModeException if we have a non-blocking
+	channel which initiated this connect operation.
+	* java/nio/channels/spi/AbstractSelectableChannel.java
+	(configureBlocking): Only call implConfigureBlocking() if
+	the desired blocking mode is different from our current one.
+
+2004-01-24  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/http/Connection.java
+	(connect): Don't initialize bufferedOutputStream if not needed.
+	(sendRequest): Set property for content length if content is present.
+	Write content only if present.
+	(getOutputStream): Check if already connected, dont connect,
+	initalize bufferedOutputStream if needed.
+
+2004-01-24  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Added library version to gtk peer lib.
+	* Makefile.in: Regenerated.
+
+2004-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/powerpc-signal.h: Add #ifndef __powerpc64__ around the
+	header.  For __powerpc64__ provide the default-signal.h definitions
+	for now.
+	* include/x86_64-signal.h [!__x86_64__]: Include java-signal-aux.h
+	instead of the dummy definitions.
+	* configure.host (x86_64-*): Remove CHECKREFSPEC, add DIVIDESPEC.
+	(powerpc64*-*): Remove with_libffi_default.
+	Only add -mminimal-toc for 64-bit compilations.
+	* configure.in: Use powerpc-signal.h on powerpc64 as well.
+	(x86_64-*-linux*): Set SIGNAL_HANDLER_AUX.
+	Link SIGNAL_HANDLER_AUX to include/java-signal-aux.h.
+	* configure: Rebuilt.
+
+2004-01-21  Tom Tromey  <tromey@redhat.com>
+
+	PR java/13468:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (interpret.lo): New target.
+
+2004-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.am (lib_org_w3c_dom_la_LIBADD,
+	lib_org_w3c_dom_la_LDFLAGS): New.
+	(lib_org_xml_sax_la_LIBADD, lib_org_xml_sax_la_LDFLAGS): New.
+	* Makefile.in: Rebuilt.
+
+2004-01-19  Matthias Klose  <doko@debian.org>
+
+	* libtool-version: Increased `current' to 5.
+
 2004-01-16  Andrew Haley  <aph@redhat.com>
 
 	* sysdep/x86-64/locks.h: Don't use in/out memory constraints.

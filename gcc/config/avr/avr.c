@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
    This file is part of GCC.
@@ -67,7 +68,6 @@ static void avr_file_start (void);
 static void avr_file_end (void);
 static void avr_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void avr_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static void avr_unique_section (tree, int);
 static void avr_insert_attributes (tree, tree *);
 static unsigned int avr_section_type_flags (tree, const char *, int);
 
@@ -229,8 +229,6 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
-#undef TARGET_ASM_UNIQUE_SECTION
-#define TARGET_ASM_UNIQUE_SECTION avr_unique_section
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES avr_insert_attributes
 #undef TARGET_SECTION_TYPE_FLAGS
@@ -4345,38 +4343,6 @@ avr_assemble_integer (rtx x, unsigned int size, int aligned_p)
   return default_assemble_integer (x, size, aligned_p);
 }
 
-/* Sets section name for declaration DECL.  */
-  
-static void
-avr_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
-{
-  int len;
-  const char *name, *prefix;
-  char *string;
-
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  name = (* targetm.strip_name_encoding) (name);
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      if (flag_function_sections)
-	prefix = ".text.";
-      else
-	prefix = ".text";
-    }
-  else 
-    abort ();
-
-  if (flag_function_sections)
-    {
-      len = strlen (name) + strlen (prefix);
-      string = alloca (len + 1);
-      sprintf (string, "%s%s", prefix, name);
-      DECL_SECTION_NAME (decl) = build_string (len, string);
-    }
-}
-
-
 /* The routine used to output NUL terminated strings.  We use a special
    version of this for most svr4 targets because doing so makes the
    generated assembly code more compact (and thus faster to assemble)
@@ -4566,7 +4532,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
    if found return 1, otherwise 0.  */
 
 int
-avr_progmem_p (tree decl)
+avr_progmem_p (tree decl, tree attributes)
 {
   tree a;
 
@@ -4574,7 +4540,7 @@ avr_progmem_p (tree decl)
     return 0;
 
   if (NULL_TREE
-      != lookup_attribute ("progmem", DECL_ATTRIBUTES (decl)))
+      != lookup_attribute ("progmem", attributes))
     return 1;
 
   a=decl;
@@ -4598,7 +4564,7 @@ avr_insert_attributes (tree node, tree *attributes)
 {
   if (TREE_CODE (node) == VAR_DECL
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
-      && avr_progmem_p (node))
+      && avr_progmem_p (node, *attributes))
     {
       static const char dsec[] = ".progmem.data";
       *attributes = tree_cons (get_identifier ("section"),

@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -120,7 +120,7 @@ init_rtti_processing (void)
   push_namespace (std_identifier);
   type_info_type_node 
     = xref_tag (class_type, get_identifier ("type_info"),
-		/*attributes=*/NULL_TREE, true, false);
+		true, false);
   pop_namespace ();
   const_type_info_type = build_qualified_type (type_info_type_node, 
 					       TYPE_QUAL_CONST);
@@ -635,7 +635,6 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      push_nested_namespace (ns);
 	      tinfo_ptr = xref_tag (class_type,
 				    get_identifier ("__class_type_info"),
-				    /*attributes=*/NULL_TREE,
 				    true, false);
 	      
 	      tinfo_ptr = build_pointer_type
@@ -760,7 +759,7 @@ tinfo_base_init (tree desc, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     TREE_PUBLIC (name_decl) = 1;
-    comdat_linkage (name_decl);
+    import_export_tinfo (name_decl, target, typeinfo_in_lib_p (target));
     /* External name of the string containing the type's name has a
        special name.  */
     SET_DECL_ASSEMBLER_NAME (name_decl,
@@ -777,7 +776,7 @@ tinfo_base_init (tree desc, tree target)
   
       push_nested_namespace (abi_node);
       real_type = xref_tag (class_type, TINFO_REAL_NAME (desc),
-			    /*attributes=*/NULL_TREE, true, false);
+			    true, false);
       pop_nested_namespace (abi_node);
   
       if (!COMPLETE_TYPE_P (real_type))
@@ -1373,7 +1372,6 @@ emit_support_tinfos (void)
   push_nested_namespace (abi_node);
   bltn_type = xref_tag (class_type,
 			get_identifier ("__fundamental_type_info"), 
-			/*attributes=*/NULL_TREE,
 			true, false);
   pop_nested_namespace (abi_node);
   if (!COMPLETE_TYPE_P (bltn_type))

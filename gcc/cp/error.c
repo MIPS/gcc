@@ -359,6 +359,7 @@ dump_type (tree t, int flags)
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       {
 	tree args = TYPE_TI_ARGS (t);
+	dump_qualifiers (t, after);
 	pp_tree_identifier (cxx_pp, TYPE_IDENTIFIER (t));
 	pp_template_argument_list_start (cxx_pp);
         dump_template_argument_list (args, flags);
@@ -791,6 +792,7 @@ dump_decl (tree t, int flags)
       /* Else fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
+    case ALIAS_DECL:
       dump_simple_decl (t, TREE_TYPE (t), flags);
       break;
 
@@ -813,9 +815,7 @@ dump_decl (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_decl (TREE_OPERAND (t, 0), flags & ~TFF_DECL_SPECIFIERS);
-      pp_colon_colon (cxx_pp); 
-      dump_decl (TREE_OPERAND (t, 1), flags);
+      pp_expression (cxx_pp, t);
       break;
 
     case ARRAY_REF:
@@ -937,6 +937,13 @@ dump_decl (tree t, int flags)
 
     case NON_DEPENDENT_EXPR:
       dump_expr (t, flags);
+      break;
+
+    case TEMPLATE_TYPE_PARM:
+      if (flags & TFF_DECL_SPECIFIERS)
+        pp_cxx_declaration (cxx_pp, t);
+      else
+        pp_type_id (cxx_pp, t);
       break;
 
     default:
@@ -1311,6 +1318,11 @@ dump_expr (tree t, int flags)
        pp_c_constant (pp_c_base (cxx_pp), t);
       break;
 
+    case THROW_EXPR:
+      pp_identifier (cxx_pp, "throw");
+      dump_expr (TREE_OPERAND (t, 0), flags);
+      break;
+
     case PTRMEM_CST:
       pp_ampersand (cxx_pp);
       dump_type (PTRMEM_CST_CLASS (t), flags);
@@ -1475,6 +1487,7 @@ dump_expr (tree t, int flags)
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
+    case RDIV_EXPR:
       dump_binary_op ("/", t, flags);
       break;
 
@@ -1722,9 +1735,7 @@ dump_expr (tree t, int flags)
       break;
 
     case SCOPE_REF:
-      dump_type (TREE_OPERAND (t, 0), flags);
-      pp_colon_colon (cxx_pp);
-      dump_expr (TREE_OPERAND (t, 1), flags | TFF_EXPR_IN_PARENS);
+      pp_expression (cxx_pp, t);
       break;
 
     case CAST_EXPR:
@@ -2395,6 +2406,9 @@ cp_error_at (const char *msgid, ...)
   va_end (ap);
 
   va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap,
+                       input_location, DK_ERROR);
+  cp_diagnostic_starter (global_dc, &diagnostic);
   diagnostic_set_info (&diagnostic, msgid, &ap,
                        location_of (here), DK_ERROR);
   report_diagnostic (&diagnostic);

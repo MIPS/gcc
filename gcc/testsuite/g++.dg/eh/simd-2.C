@@ -2,8 +2,9 @@
 // Contributed by Aldy Hernandez (aldy@quesejoda.com).
 // { dg-options "-O" }
 // { dg-options "-O -w" { target i?86-*-* } }
-// { dg-do run }
-// { dg-error "" "PR target/12916" { target sparc*-*-* } 11 }
+// { dg-options "-O -w -maltivec" { target powerpc64-*-linux* } }
+// { dg-do run { xfail "powerpc64-*-linux*"}  }
+// { dg-error "" "PR target/12916" { target sparc*-*-* } 0 }
 
 typedef int __attribute__((mode(V4SI))) vecint;
 
@@ -43,6 +44,10 @@ void f1 (void)
 
 int main ()
 {
+#if defined(__powerpc64__) && defined(__linux__)
+  // Don't run on ppc64-linux, since not always AltiVec regs available   
+  return -1;  
+#endif
   f1 ();
   return 0;
 }

@@ -535,7 +535,7 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else if (fname == 0)
     main_filename = lbasename (input_filename);
   else
-    main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
+    main_filename = TREE_STRING_POINTER (fname);
 
   finfo = get_fileinfo (input_filename);
 
@@ -585,7 +585,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
     }
   else
     {
-      main_filename = ggc_strdup (TREE_STRING_POINTER (fname));
+      main_filename = TREE_STRING_POINTER (fname);
       if (cpp_included (parse_in, main_filename))
 	warning ("#pragma implementation for %s appears after file is included",
 		 main_filename);
@@ -726,7 +726,8 @@ retrofit_lang_decl (tree t)
     ld->u.f.u3sel = TREE_CODE (t) == FUNCTION_DECL ? 1 : 0;
 
   DECL_LANG_SPECIFIC (t) = ld;
-  if (current_lang_name == lang_name_cplusplus)
+  if (current_lang_name == lang_name_cplusplus
+      || decl_linkage (t) == lk_none)
     SET_DECL_LANGUAGE (t, lang_cplusplus);
   else if (current_lang_name == lang_name_c)
     SET_DECL_LANGUAGE (t, lang_c);

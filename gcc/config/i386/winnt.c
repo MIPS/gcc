@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -171,7 +171,8 @@ associated_type (tree decl)
 	 dtor's are not affected by class status but virtual and
 	 non-virtual thunks are.  */
       if (!DECL_ARTIFICIAL (decl) || DECL_COMDAT (decl))
-	t = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl))));
+	t = TYPE_MAIN_VARIANT
+	  (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
     }
   else if (DECL_CONTEXT (decl)
 	   && TREE_CODE_CLASS (TREE_CODE (DECL_CONTEXT (decl))) == 't')

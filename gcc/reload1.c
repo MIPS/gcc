@@ -1,6 +1,6 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -747,8 +747,18 @@ reload (rtx first, int global)
 		     that is not a legitimate memory operand.  As later
 		     stages of reload assume that all addresses found
 		     in the reg_equiv_* arrays were originally legitimate,
-		     we ignore such REG_EQUIV notes.  */
-		  if (memory_operand (x, VOIDmode))
+		     we ignore such REG_EQUIV notes.
+
+		     It also can happen that a REG_EQUIV note contains a MEM
+		     that carries the /u flag, for example when GCSE turns
+		     the load of a constant into a move from a pseudo that
+		     already contains the constant and attaches a REG_EQUAL
+		     note to the insn, which is later promoted to REQ_EQUIV
+		     by local-alloc.  If the destination pseudo happens not
+		     to be assigned to a hard reg, it will be replaced by
+		     the MEM as the destination of the move, thus generating
+		     a store to a possibly read-only memory location.  */
+		  if (memory_operand (x, VOIDmode) && ! RTX_UNCHANGING_P (x))
 		    {
 		      /* Always unshare the equivalence, so we can
 			 substitute into this insn without touching the
@@ -4316,6 +4326,7 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       /* In use for anything means we can't use it for RELOAD_OTHER.  */
       if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno))
 	return 0;
 
@@ -4494,6 +4505,7 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return (! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used, regno));
 
@@ -7263,6 +7275,10 @@ emit_reload_insns (struct insn_chain *chain)
 			CLEAR_HARD_REG_BIT (reg_reloaded_died, src_regno);
 		    }
 		  reg_last_reload_reg[nregno] = src_reg;
+		  /* We have to set reg_has_output_reload here, or else 
+		     forget_old_reloads_1 will clear reg_last_reload_reg
+		     right away.  */
+		  reg_has_output_reload[nregno] = 1;
 		}
 	    }
 	  else

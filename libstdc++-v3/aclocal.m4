@@ -21,12 +21,12 @@ dnl conditional will depend on the final state of the variable.  For a simple
 dnl example of why this is needed, see GLIBCXX_ENABLE_HOSTED.
 dnl
 m4_define([_m4_divert(glibcxx_diversion)], 8000)dnl
-AC_DEFUN(GLIBCXX_CONDITIONAL, [dnl
+AC_DEFUN([GLIBCXX_CONDITIONAL], [dnl
   m4_divert_text([glibcxx_diversion],dnl
    AM_CONDITIONAL([$1],[$2])
   )dnl
 ])dnl
-AC_DEFUN(GLIBCXX_EVALUATE_CONDITIONALS, [m4_undivert([glibcxx_diversion])])dnl
+AC_DEFUN([GLIBCXX_EVALUATE_CONDITIONALS], [m4_undivert([glibcxx_diversion])])dnl
 
 
 dnl
@@ -34,10 +34,10 @@ dnl Check to see what architecture and operating system we are compiling
 dnl for.  Also, if architecture- or OS-specific flags are required for
 dnl compilation, pick them up here.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_HOST, [
+AC_DEFUN([GLIBCXX_CHECK_HOST], [
   . $glibcxx_srcdir/configure.host
-  AC_MSG_NOTICE(CPU config directory is $cpu_include_dir)
-  AC_MSG_NOTICE(OS config directory is $os_include_dir)
+  AC_MSG_NOTICE([CPU config directory is $cpu_include_dir])
+  AC_MSG_NOTICE([OS config directory is $os_include_dir])
 ])
 
 
@@ -47,7 +47,7 @@ dnl
 dnl Substs:
 dnl  multi_basedir
 dnl
-AC_DEFUN(GLIBCXX_TOPREL_CONFIGURE, [
+AC_DEFUN([GLIBCXX_TOPREL_CONFIGURE], [
   # Sets up multi_basedir, which is srcdir/.. plus the usual
   # "multi_source_toprel_bottom_adjust" lunacy as needed.
   AM_ENABLE_MULTILIB(, ..)
@@ -91,7 +91,7 @@ dnl  - the variables in GLIBCXX_CHECK_HOST / configure.host
 dnl  - default settings for all AM_CONFITIONAL test variables
 dnl  - lots of tools, like CC and CXX
 dnl
-AC_DEFUN(GLIBCXX_CONFIGURE, [
+AC_DEFUN([GLIBCXX_CONFIGURE], [
   # Keep these sync'd with the list in Makefile.am.  The first provides an
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
@@ -206,7 +206,7 @@ dnl   Leave it out by default and use maint-mode to use it.
 dnl  SECTION_FLAGS='-ffunction-sections -fdata-sections' if
 dnl   compiler supports it and the user has not requested debug mode.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_COMPILER_FEATURES, [
+AC_DEFUN([GLIBCXX_CHECK_COMPILER_FEATURES], [
   # All these tests are for C++; save the language and the compiler flags.
   # The CXXFLAGS thing is suspicious, but based on similar bits previously
   # found in GLIBCXX_CONFIGURE.
@@ -259,7 +259,7 @@ dnl
 dnl The last will be a single integer, e.g., version 1.23.45.0.67.89 will
 dnl set glibcxx_gnu_ld_version to 12345.  Zeros cause problems.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_LINKER_FEATURES, [
+AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
   # If we're not using GNU ld, then there's no point in even trying these
   # tests.  Check for that first.  We should have already tested for gld
   # by now (in libtool), but require it now just to be safe...
@@ -350,7 +350,7 @@ dnl Defines:
 dnl  HAVE_MBSTATE_T if mbstate_t is not in wchar.h
 dnl  _GLIBCXX_USE_WCHAR_T if all the bits are found.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_WCHAR_T_SUPPORT, [
+AC_DEFUN([GLIBCXX_CHECK_WCHAR_T_SUPPORT], [
   # Test wchar.h for mbstate_t, which is needed for char_traits and
   # others even if wchar_t support is not on.
   AC_MSG_CHECKING([for mbstate_t])
@@ -464,10 +464,10 @@ dnl Check for headers for, and arguments to, the setrlimit() function.
 dnl Used only in testsuite_hooks.h.  Called from GLIBCXX_CONFIGURE_TESTSUITE.
 dnl
 dnl Defines:
-dnl  _GLIBCXX_MEM_LIMITS if we can set artificial limits on memory
-dnl  various HAVE_MEMLIMIT_* for individual limit names
+dnl  _GLIBCXX_RES_LIMITS if we can set artificial resource limits 
+dnl  various HAVE_LIMIT_* for individual limit names
 dnl
-AC_DEFUN(GLIBCXX_CHECK_SETRLIMIT_ancilliary, [
+AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT_ancilliary], [
   AC_TRY_COMPILE(
     [#include <unistd.h>
      #include <sys/time.h>
@@ -475,11 +475,11 @@ AC_DEFUN(GLIBCXX_CHECK_SETRLIMIT_ancilliary, [
     ],
     [ int f = RLIMIT_$1 ; ],
     [glibcxx_mresult=1], [glibcxx_mresult=0])
-  AC_DEFINE_UNQUOTED(HAVE_MEMLIMIT_$1, $glibcxx_mresult,
+  AC_DEFINE_UNQUOTED(HAVE_LIMIT_$1, $glibcxx_mresult,
                      [Only used in build directory testsuite_hooks.h.])
 ])
 
-AC_DEFUN(GLIBCXX_CHECK_SETRLIMIT, [
+AC_DEFUN([GLIBCXX_CHECK_SETRLIMIT], [
   setrlimit_have_headers=yes
   AC_CHECK_HEADERS(unistd.h sys/time.h sys/resource.h,
                    [],
@@ -492,6 +492,7 @@ AC_DEFUN(GLIBCXX_CHECK_SETRLIMIT, [
     GLIBCXX_CHECK_SETRLIMIT_ancilliary(RSS)
     GLIBCXX_CHECK_SETRLIMIT_ancilliary(VMEM)
     GLIBCXX_CHECK_SETRLIMIT_ancilliary(AS)
+    GLIBCXX_CHECK_SETRLIMIT_ancilliary(FSIZE)
 
     # Check for rlimit, setrlimit.
     AC_CACHE_VAL(ac_setrlimit, [
@@ -506,14 +507,14 @@ AC_DEFUN(GLIBCXX_CHECK_SETRLIMIT, [
     ])
   fi
 
-  AC_MSG_CHECKING([for testsuite memory limit support])
+  AC_MSG_CHECKING([for testsuite resource limits support])
   if test $setrlimit_have_headers = yes && test $ac_setrlimit = yes; then
-    ac_mem_limits=yes
-    AC_DEFINE(_GLIBCXX_MEM_LIMITS)
+    ac_res_limits=yes
+    AC_DEFINE(_GLIBCXX_RES_LIMITS)
   else
-    ac_mem_limits=no
+    ac_res_limits=no
   fi
-  AC_MSG_RESULT($ac_mem_limits)
+  AC_MSG_RESULT($ac_res_limits)
 ])
 
 
@@ -521,7 +522,7 @@ dnl
 dnl Check whether S_ISREG (Posix) or S_IFREG is available in <sys/stat.h>.
 dnl Define HAVE_S_ISREG / HAVE_S_IFREG appropriately.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_S_ISREG_OR_S_IFREG, [
+AC_DEFUN([GLIBCXX_CHECK_S_ISREG_OR_S_IFREG], [
   AC_CACHE_VAL(glibcxx_cv_S_ISREG, [
     AC_TRY_LINK(
       [#include <sys/stat.h>],
@@ -551,7 +552,7 @@ AC_DEFUN(GLIBCXX_CHECK_S_ISREG_OR_S_IFREG, [
 dnl
 dnl Check whether poll is available in <poll.h>, and define HAVE_POLL.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_POLL, [
+AC_DEFUN([GLIBCXX_CHECK_POLL], [
   AC_CACHE_VAL(glibcxx_cv_POLL, [
     AC_TRY_LINK(
       [#include <poll.h>],
@@ -570,7 +571,7 @@ AC_DEFUN(GLIBCXX_CHECK_POLL, [
 dnl
 dnl Check whether writev is available in <sys/uio.h>, and define HAVE_WRITEV.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
+AC_DEFUN([GLIBCXX_CHECK_WRITEV], [
   AC_CACHE_VAL(glibcxx_cv_WRITEV, [
     AC_TRY_LINK(
       [#include <sys/uio.h>],
@@ -588,7 +589,7 @@ AC_DEFUN(GLIBCXX_CHECK_WRITEV, [
 dnl
 dnl Check whether int64_t is available in <stdint.h>, and define HAVE_INT64_T.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_INT64_T, [
+AC_DEFUN([GLIBCXX_CHECK_INT64_T], [
   AC_CACHE_VAL(glibcxx_cv_INT64_T, [
     AC_TRY_COMPILE(
       [#include <stdint.h>],
@@ -605,7 +606,7 @@ AC_DEFUN(GLIBCXX_CHECK_INT64_T, [
 dnl
 dnl Check whether LFS support is available.
 dnl
-AC_DEFUN(GLIBCXX_CHECK_LFS, [
+AC_DEFUN([GLIBCXX_CHECK_LFS], [
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
   ac_save_CXXFLAGS="$CXXFLAGS"
@@ -632,6 +633,25 @@ AC_DEFUN(GLIBCXX_CHECK_LFS, [
 
 
 dnl
+dnl Check for whether a fully dynamic basic_string implementation should
+dnl be turned on, that does not put empty objects in per-process static
+dnl memory (mostly useful together with shared memory allocators, see PR
+dnl libstdc++/16612 for details).
+dnl
+dnl --enable-fully-dynamic-string defines _GLIBCXX_FULLY_DYNAMIC_STRING
+dnl --disable-fully-dynamic-string leaves _GLIBCXX_FULLY_DYNAMIC_STRING undefined
+dnl  +  Usage:  GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING[(DEFAULT)]
+dnl       Where DEFAULT is either `yes' or `no'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING], [
+  GLIBCXX_ENABLE(fully-dynamic-string,$1,,[do not put empty strings in per-process static memory])
+  if test $enable_fully_dynamic_string = yes; then
+    AC_DEFINE(_GLIBCXX_FULLY_DYNAMIC_STRING)
+  fi
+])
+
+
+dnl
 dnl Does any necessary configuration of the testsuite directory.  Generates
 dnl the testsuite_hooks.h header.
 dnl
@@ -642,9 +662,9 @@ dnl  enable_abi_check / GLIBCXX_TEST_ABI
 dnl Substs:
 dnl  baseline_dir
 dnl
-AC_DEFUN(GLIBCXX_CONFIGURE_TESTSUITE, [
+AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
-    # Do checks for memory limit functions.
+    # Do checks for resource limit functions.
     GLIBCXX_CHECK_SETRLIMIT
 
     # Look for setenv, so that extended locale tests can be performed.
@@ -682,7 +702,7 @@ dnl Substs:
 dnl  GLIBCXX_INCLUDES
 dnl  TOPLEVEL_INCLUDES
 dnl
-AC_DEFUN(GLIBCXX_EXPORT_INCLUDES, [
+AC_DEFUN([GLIBCXX_EXPORT_INCLUDES], [
   # Used for every C++ compile we perform.
   GLIBCXX_INCLUDES="\
 -I$glibcxx_builddir/include/$host_alias \
@@ -713,7 +733,7 @@ dnl Substs:
 dnl  OPTIMIZE_CXXFLAGS
 dnl  WARN_FLAGS
 dnl
-AC_DEFUN(GLIBCXX_EXPORT_FLAGS, [
+AC_DEFUN([GLIBCXX_EXPORT_FLAGS], [
   # Optimization flags that are probably a good idea for thrill-seekers. Just
   # uncomment the lines below and make, everything else is ready to go...
   # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc
@@ -737,7 +757,7 @@ dnl
 dnl Assumes cross_compiling bits already done, and with_cross_host in
 dnl particular.
 dnl
-AC_DEFUN(GLIBCXX_EXPORT_INSTALL_INFO, [
+AC_DEFUN([GLIBCXX_EXPORT_INSTALL_INFO], [
   glibcxx_toolexecdir=no
   glibcxx_toolexeclibdir=no
   glibcxx_prefixdir=$prefix
@@ -775,11 +795,12 @@ AC_DEFUN(GLIBCXX_EXPORT_INSTALL_INFO, [
   if test $version_specific_libs = yes; then
     # Need the gcc compiler version to know where to install libraries
     # and header files if --enable-version-specific-runtime-libs option
-    # is selected.
+    # is selected.  FIXME: these variables are misnamed, there are
+    # no executables installed in _toolexecdir or _toolexeclibdir.
     if test x"$gxx_include_dir" = x"no"; then
-      gxx_include_dir='${libdir}/gcc-lib/${host_alias}/'$gcc_version/include/c++
+      gxx_include_dir='${libdir}/gcc/${host_alias}/'$gcc_version/include/c++
     fi
-    glibcxx_toolexecdir='${libdir}/gcc-lib/${host_alias}'
+    glibcxx_toolexecdir='${libdir}/gcc/${host_alias}'
     glibcxx_toolexeclibdir='${toolexecdir}/'$gcc_version'$(MULTISUBDIR)'
   fi
 
@@ -791,7 +812,7 @@ AC_DEFUN(GLIBCXX_EXPORT_INSTALL_INFO, [
       glibcxx_toolexecdir='${exec_prefix}/${host_alias}'
       glibcxx_toolexeclibdir='${toolexecdir}/lib'
     else
-      glibcxx_toolexecdir='${libdir}/gcc-lib/${host_alias}'
+      glibcxx_toolexecdir='${libdir}/gcc/${host_alias}'
       glibcxx_toolexeclibdir='${libdir}'
     fi
     multi_os_directory=`$CXX -print-multi-os-directory`
@@ -856,7 +877,7 @@ dnl  +  Usage:  GLIBCXX_ENABLE_C99[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
 dnl  +  If 'C99' stuff is not available, ignores DEFAULT and sets `no'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_C99, [
+AC_DEFUN([GLIBCXX_ENABLE_C99], [
   GLIBCXX_ENABLE(c99,$1,,[turns on ISO/IEC 9899:1999 support])
 
   AC_LANG_SAVE
@@ -983,7 +1004,7 @@ dnl --disable-cheaders [does not do anything, really].
 dnl  +  Usage:  GLIBCXX_ENABLE_CHEADERS[(DEFAULT)]
 dnl       Where DEFAULT is either `c' or `c_std'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_CHEADERS, [
+AC_DEFUN([GLIBCXX_ENABLE_CHEADERS], [
   GLIBCXX_ENABLE(cheaders,$1,[=KIND],
     [construct "C" headers for g++], [permit c|c_std])
   AC_MSG_NOTICE("C" header strategy set to $enable_cheaders)
@@ -1003,7 +1024,7 @@ dnl a subdirectory of config/locale.
 dnl
 dnl Default is generic.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_CLOCALE, [
+AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
   AC_MSG_CHECKING([for C locale to use])
   GLIBCXX_ENABLE(clocale,auto,[@<:@=MODEL@:>@],
     [use MODEL for target locale package],
@@ -1183,6 +1204,68 @@ AC_DEFUN(GLIBCXX_ENABLE_CLOCALE, [
 
 
 dnl
+dnl Check for which std::allocator base class to use.  The choice is
+dnl mapped from a subdirectory of include/ext.
+dnl
+dnl Default is new.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
+  AC_MSG_CHECKING([for std::allocator base class to use])
+  GLIBCXX_ENABLE(libstdcxx-allocator,auto,[=KIND],
+    [use KIND for target std::allocator base],
+    [permit new|malloc|mt|bitmap|pool|yes|no|auto])
+  # If they didn't use this option switch, or if they specified --enable
+  # with no specific model, we'll have to look for one.  If they
+  # specified --disable (???), do likewise.
+  if test $enable_libstdcxx_allocator = no || test $enable_libstdcxx_allocator = yes; then
+     enable_libstdcxx_allocator=auto
+  fi
+
+  # Either a known package, or "auto"
+  enable_libstdcxx_allocator_flag=$enable_libstdcxx_allocator
+
+  # Probe for host-specific support if no specific model is specified.
+  # Default to "new".
+  if test $enable_libstdcxx_allocator_flag = auto; then
+    case ${target_os} in
+      *)
+        enable_libstdcxx_allocator_flag=new
+        ;;
+    esac
+  fi
+  AC_MSG_RESULT($enable_libstdcxx_allocator_flag)
+  
+
+  # Set configure bits for specified locale package
+  case ${enable_libstdcxx_allocator_flag} in
+    bitmap)
+      ALLOCATOR_H=config/allocator/bitmap_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::bitmap_allocator
+      ;;
+    malloc)
+      ALLOCATOR_H=config/allocator/malloc_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::malloc_allocator
+      ;;
+    mt)
+      ALLOCATOR_H=config/allocator/mt_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::__mt_alloc
+      ;;
+    new)
+      ALLOCATOR_H=config/allocator/new_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::new_allocator
+      ;;
+    pool)
+      ALLOCATOR_H=config/allocator/pool_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::__pool_alloc
+      ;;	
+  esac
+
+  AC_SUBST(ALLOCATOR_H)
+  AC_SUBST(ALLOCATOR_NAME)
+])
+
+
+dnl
 dnl Check for whether the Boost-derived checks should be turned on.
 dnl
 dnl --enable-concept-checks turns them on.
@@ -1190,7 +1273,7 @@ dnl --disable-concept-checks leaves them off.
 dnl  +  Usage:  GLIBCXX_ENABLE_CONCEPT_CHECKS[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_CONCEPT_CHECKS, [
+AC_DEFUN([GLIBCXX_ENABLE_CONCEPT_CHECKS], [
   GLIBCXX_ENABLE(concept-checks,$1,,[use Boost-derived template checks])
   if test $enable_concept_checks = yes; then
     AC_DEFINE(_GLIBCXX_CONCEPT_CHECKS)
@@ -1203,7 +1286,7 @@ dnl Check for which I/O library to use:  stdio, or something specific.
 dnl
 dnl Default is stdio.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_CSTDIO, [
+AC_DEFUN([GLIBCXX_ENABLE_CSTDIO], [
   AC_MSG_CHECKING([for underlying I/O to use])
   GLIBCXX_ENABLE(cstdio,stdio,[=PACKAGE],
     [use target-specific I/O package], [permit stdio])
@@ -1239,7 +1322,7 @@ dnl  +  Usage:  GLIBCXX_ENABLE_CXX_FLAGS(default flags)
 dnl       If "default flags" is an empty string, the effect is the same
 dnl       as --disable or --enable=no.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_CXX_FLAGS, [dnl
+AC_DEFUN([GLIBCXX_ENABLE_CXX_FLAGS], [dnl
   AC_MSG_CHECKING([for extra compiler flags for building])
   GLIBCXX_ENABLE(cxx-flags,$1,[=FLAGS],
     [pass compiler FLAGS when building library],
@@ -1277,7 +1360,7 @@ dnl --disable-c-mbchar doesn't.
 dnl  +  Usage:  GLIBCXX_ENABLE_C_MBCHAR[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_C_MBCHAR, [
+AC_DEFUN([GLIBCXX_ENABLE_C_MBCHAR], [
   GLIBCXX_ENABLE(c-mbchar,$1,,[enable multibyte (wide) characters])
   # Option parsed, now other scripts can test enable_c_mbchar for yes/no.
 ])
@@ -1299,7 +1382,7 @@ dnl
 dnl  +  Usage:  GLIBCXX_ENABLE_DEBUG[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_DEBUG, [
+AC_DEFUN([GLIBCXX_ENABLE_DEBUG], [
   AC_MSG_CHECKING([for additional debug build])
   GLIBCXX_ENABLE(libstdcxx-debug,$1,,[build extra debug library])
   AC_MSG_RESULT($enable_libstdcxx_debug)
@@ -1319,7 +1402,7 @@ dnl  +  Usage:  GLIBCXX_ENABLE_DEBUG_FLAGS(default flags)
 dnl       If "default flags" is an empty string, the effect is the same
 dnl       as --disable or --enable=no.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_DEBUG_FLAGS, [
+AC_DEFUN([GLIBCXX_ENABLE_DEBUG_FLAGS], [
   GLIBCXX_ENABLE(libstdcxx-debug-flags,[$1],[=FLAGS],
     [pass compiler FLAGS when building debug library],
     [case "x$enable_libstdcxx_debug_flags" in
@@ -1350,7 +1433,7 @@ dnl
 dnl Defines:
 dnl  _GLIBCXX_HOSTED   (always defined, either to 1 or 0)
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_HOSTED, [
+AC_DEFUN([GLIBCXX_ENABLE_HOSTED], [
   AC_ARG_ENABLE([hosted-libstdcxx],
     AC_HELP_STRING([--disable-hosted-libstdcxx],
                    [only build freestanding C++ runtime support]),,
@@ -1380,28 +1463,12 @@ dnl --enable-long-long defines _GLIBCXX_USE_LONG_LONG
 dnl --disable-long-long leaves _GLIBCXX_USE_LONG_LONG undefined
 dnl  +  Usage:  GLIBCXX_ENABLE_LONG_LONG[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
-dnl  +  If 'long long' stuff is not available, ignores DEFAULT and sets `no'.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_LONG_LONG, [
+AC_DEFUN([GLIBCXX_ENABLE_LONG_LONG], [
   GLIBCXX_ENABLE(long-long,$1,,[enables I/O support for 'long long'])
-
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
-
-  AC_MSG_CHECKING([for enabled long long I/O support])
-  # iostreams require strtoll, strtoull to compile
-  AC_TRY_COMPILE([#include <stdlib.h>],
-                 [char* tmp; strtoll("gnu", &tmp, 10);],,[enable_long_long=no])
-  AC_TRY_COMPILE([#include <stdlib.h>],
-                 [char* tmp; strtoull("gnu", &tmp, 10);],,[enable_long_long=no])
-
-  # Option parsed, now set things appropriately
   if test $enable_long_long = yes; then
     AC_DEFINE(_GLIBCXX_USE_LONG_LONG)
   fi
-  AC_MSG_RESULT($enable_long_long)
-
-  AC_LANG_RESTORE
 ])
 
 
@@ -1419,7 +1486,7 @@ dnl
 dnl Substs:
 dnl  glibcxx_PCHFLAGS
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_PCH, [
+AC_DEFUN([GLIBCXX_ENABLE_PCH], [
   AC_MSG_CHECKING([for enabled PCH])
   GLIBCXX_ENABLE(libstdcxx-pch,$1,,[build pre-compiled libstdc++ headers])
   AC_MSG_RESULT([$enable_libstdcxx_pch])
@@ -1471,7 +1538,7 @@ dnl
 dnl Defines:
 dnl  _GLIBCXX_SJLJ_EXCEPTIONS if the compiler is configured for it
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_SJLJ_EXCEPTIONS, [
+AC_DEFUN([GLIBCXX_ENABLE_SJLJ_EXCEPTIONS], [
   AC_MSG_CHECKING([for exception model to use])
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
@@ -1541,7 +1608,7 @@ dnl       Where DEFAULT is either 'yes' or 'no'.  Passing `yes' tries to
 dnl       choose a default style based on linker characteristics.  Passing
 dnl       'no' disables versioning.
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_SYMVERS, [
+AC_DEFUN([GLIBCXX_ENABLE_SYMVERS], [
 
 GLIBCXX_ENABLE(symvers,$1,[=STYLE],
   [enables symbol versioning of the shared library],
@@ -1564,6 +1631,23 @@ if test $enable_symvers != no; then
   CFLAGS=' -lgcc_s'
   AC_TRY_LINK(, [return 0;], glibcxx_shared_libgcc=yes, glibcxx_shared_libgcc=no)
   CFLAGS="$ac_save_CFLAGS"
+  if test $glibcxx_shared_libgcc = no; then
+    cat > conftest.c <<EOF
+int main (void) { return 0; }
+EOF
+changequote(,)dnl
+    glibcxx_libgcc_s_suffix=`${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS \
+			     -shared -shared-libgcc -o conftest.so \
+			     conftest.c -v 2>&1 >/dev/null \
+			     | sed -n 's/^.* -lgcc_s\([^ ]*\) .*$/\1/p'`
+changequote([,])dnl
+    rm -f conftest.c conftest.so
+    if test x${glibcxx_libgcc_s_suffix+set} = xset; then
+      CFLAGS=" -lgcc_s$glibcxx_libgcc_s_suffix"
+      AC_TRY_LINK(, [return 0;], glibcxx_shared_libgcc=yes)
+      CFLAGS="$ac_save_CFLAGS"
+    fi
+  fi
   AC_MSG_RESULT($glibcxx_shared_libgcc)
 fi
 
@@ -1643,16 +1727,14 @@ dnl  glibcxx_thread_h
 dnl
 dnl Defines:
 dnl  HAVE_GTHR_DEFAULT
-dnl  _GLIBCXX_SUPPORTS_WEAK
 dnl
-AC_DEFUN(GLIBCXX_ENABLE_THREADS, [
+AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
   AC_MSG_CHECKING([for thread model used by GCC])
   target_thread_file=`$CXX -v 2>&1 | sed -n 's/^Thread model: //p'`
   AC_MSG_RESULT([$target_thread_file])
 
   if test $target_thread_file != single; then
     AC_DEFINE(HAVE_GTHR_DEFAULT)
-    AC_DEFINE(_GLIBCXX_SUPPORTS_WEAK, __GXX_WEAK__)
   fi
 
   glibcxx_thread_h=gthr-$target_thread_file.h
@@ -1669,7 +1751,7 @@ AC_DEFUN(GLIBCXX_ENABLE_THREADS, [
 # Please note that the actual code is *not* freely available.
 
 # serial 1
-AC_DEFUN(AC_LC_MESSAGES, [
+AC_DEFUN([AC_LC_MESSAGES], [
   AC_CHECK_HEADER(locale.h, [
     AC_CACHE_CHECK([for LC_MESSAGES], ac_cv_val_LC_MESSAGES,
       [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1303,7 +1303,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
       /* ??? If stack intactness is important, always emit now.  */
       if (MUST_SAVE_RETURN_ADDR && epilogue_delay != NULL_RTX)
 	{
-	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1);
+	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1, NULL);
 	  epilogue_delay = NULL_RTX;
 	}
 
@@ -1335,7 +1335,8 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	{
 	  if (epilogue_delay)
 	    {
-	      final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1);
+	      final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1,
+			       NULL);
 	    }
 	}
 
@@ -1360,7 +1361,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 	    abort ();
 	  if (restored < size)
 	    abort ();
-	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1);
+	  final_scan_insn (XEXP (epilogue_delay, 0), file, 1, -2, 1, NULL);
 	}
       else if (frame_pointer_needed && !fp_restored_p)
 	{
@@ -2283,8 +2284,8 @@ arc_va_arg (tree valist, tree type)
     {
       tree type_ptr_ptr = build_pointer_type (type_ptr);
 
-      addr = build (INDIRECT_REF, type_ptr,
-		    build (NOP_EXPR, type_ptr_ptr, valist));
+      addr = build1 (INDIRECT_REF, type_ptr,
+		    build1 (NOP_EXPR, type_ptr_ptr, valist));
 
       incr = build (PLUS_EXPR, TREE_TYPE (valist),
 		    valist, build_int_2 (UNITS_PER_WORD, 0));
@@ -2304,12 +2305,12 @@ arc_va_arg (tree valist, tree type)
 	{
 	  /* AP = (TYPE *)(((int)AP + 7) & -8)  */
 
-	  addr = build (NOP_EXPR, integer_type_node, valist);
+	  addr = build1 (NOP_EXPR, integer_type_node, valist);
 	  addr = fold (build (PLUS_EXPR, integer_type_node, addr,
 			      build_int_2 (7, 0)));
 	  addr = fold (build (BIT_AND_EXPR, integer_type_node, addr,
 			      build_int_2 (-8, 0)));
-	  addr = fold (build (NOP_EXPR, TREE_TYPE (valist), addr));
+	  addr = fold (build1 (NOP_EXPR, TREE_TYPE (valist), addr));
 	}
 
       /* The increment is always rounded_size past the aligned pointer.  */

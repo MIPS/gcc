@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -302,6 +302,11 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
+  /* For a vendor-specific fundamental TYPE, return a pointer to
+     a statically-allocated string containing the C++ mangling for
+     TYPE.  In all other cases, return NULL.  */
+  const char * (* mangle_fundamental_type) (tree type);
+
   /* Make any adjustments to libfunc names needed for this target.  */
   void (* init_libfuncs) (void);
 
@@ -377,6 +382,23 @@ struct gcc_target
      hook should return NULL_RTX.  */
   rtx (* dwarf_register_span) (rtx);
 
+  /* Fetch the fixed register(s) which hold condition codes, for
+     targets where it makes sense to look for duplicate assignments to
+     the condition codes.  This should return true if there is such a
+     register, false otherwise.  The arguments should be set to the
+     fixed register numbers.  Up to two condition code registers are
+     supported.  If there is only one for this target, the int pointed
+     at by the second argument should be set to -1.  */
+  bool (* fixed_condition_code_regs) (unsigned int *, unsigned int *);
+
+  /* If two condition code modes are compatible, return a condition
+     code mode which is compatible with both, such that a comparison
+     done in the returned mode will work for both of the original
+     modes.  If the condition code modes are not compatible, return
+     VOIDmode.  */
+  enum machine_mode (* cc_modes_compatible) (enum machine_mode,
+					     enum machine_mode);
+
   /* Do machine-dependent code transformations.  Called just before
      delayed-branch scheduling.  */
   void (* machine_dependent_reorg) (void);
@@ -392,6 +414,29 @@ struct gcc_target
   */
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
+
+  /* Functions relating to calls - argument passing, returns, etc.  */
+  struct calls {
+    bool (*promote_function_args) (tree fntype);
+    bool (*promote_function_return) (tree fntype);
+    bool (*promote_prototypes) (tree fntype);
+    rtx (*struct_value_rtx) (tree fndecl, int incoming);
+    bool (*return_in_memory) (tree type, tree fndecl);
+    bool (*return_in_msb) (tree type);
+    rtx (*expand_builtin_saveregs) (void);
+    /* Returns pretend_argument_size.  */
+    void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
+				    tree type, int *pretend_arg_size,
+				    int second_time);
+    bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
+    /* Returns true if we should use SETUP_INCOMING_VARARGS and/or
+       targetm.calls.strict_argument_naming().  */
+    bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
+
+    /* Given a complex type T, return true if a parameter of type T
+       should be passed as two scalars.  */
+    bool (* split_complex_arg) (tree type);
+  } calls;
 
   /* Leave the boolean fields at the end.  */
 
@@ -419,23 +464,7 @@ struct gcc_target
      at the beginning of assembly output.  */
   bool file_start_file_directive;
 
-  /* Functions relating to calls - argument passing, returns, etc.  */
-  struct calls {
-    bool (*promote_function_args) (tree fntype);
-    bool (*promote_function_return) (tree fntype);
-    bool (*promote_prototypes) (tree fntype);
-    rtx (*struct_value_rtx) (tree fndecl, int incoming);
-    bool (*return_in_memory) (tree type, tree fndecl);
-    bool (*return_in_msb) (tree type);
-    rtx (*expand_builtin_saveregs) (void);
-    /* Returns pretend_argument_size.  */
-    void (*setup_incoming_varargs) (CUMULATIVE_ARGS *ca, enum machine_mode mode,
-				    tree type, int *pretend_arg_size, int second_time);
-    bool (*strict_argument_naming) (CUMULATIVE_ARGS *ca);
-    /* Returns true if we should use SETUP_INCOMING_VARARGS and/or
-       targetm.calls.strict_argument_naming().  */
-    bool (*pretend_outgoing_varargs_named) (CUMULATIVE_ARGS *ca);
-  } calls;
+  /* Leave the boolean fields at the end.  */
 };
 
 extern struct gcc_target targetm;

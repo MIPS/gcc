@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -38,10 +38,10 @@
 #include <mmintrin.h>
 
 /* The data type intended for user use.  */
-typedef int __m128 __attribute__ ((__mode__(__V4SF__)));
+typedef float __m128 __attribute__ ((__mode__(__V4SF__)));
 
 /* Internal data types for implementing the intrinsics.  */
-typedef int __v4sf __attribute__ ((__mode__(__V4SF__)));
+typedef float __v4sf __attribute__ ((__mode__(__V4SF__)));
 
 /* Create a selector for use with the SHUFPS instruction.  */
 #define _MM_SHUFFLE(fp3,fp2,fp1,fp0) \

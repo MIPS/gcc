@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -121,7 +121,7 @@ extern int target_flags;
 #define MASK_MMX		0x00002000	/* Support MMX regs/builtins */
 #define MASK_SSE		0x00004000	/* Support SSE regs/builtins */
 #define MASK_SSE2		0x00008000	/* Support SSE2 regs/builtins */
-#define MASK_PNI		0x00010000	/* Support PNI regs/builtins */
+#define MASK_SSE3		0x00010000	/* Support SSE3 regs/builtins */
 #define MASK_3DNOW		0x00020000	/* Support 3Dnow builtins */
 #define MASK_3DNOW_A		0x00040000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00080000	/* long double size is 128bit */
@@ -303,7 +303,7 @@ extern int x86_prefetch_sse;
 
 #define TARGET_SSE ((target_flags & MASK_SSE) != 0)
 #define TARGET_SSE2 ((target_flags & MASK_SSE2) != 0)
-#define TARGET_PNI ((target_flags & MASK_PNI) != 0)
+#define TARGET_SSE3 ((target_flags & MASK_SSE3) != 0)
 #define TARGET_SSE_MATH ((ix86_fpmath & FPMATH_SSE) != 0)
 #define TARGET_MIX_SSE_I387 ((ix86_fpmath & FPMATH_SSE) \
 			     && (ix86_fpmath & FPMATH_387))
@@ -333,6 +333,8 @@ extern int x86_prefetch_sse;
   { "486",			 0, "" /*Deprecated.*/},		      \
   { "pentium",			 0, "" /*Deprecated.*/},		      \
   { "pentiumpro",		 0, "" /*Deprecated.*/},		      \
+  { "pni",			 0, "" /*Deprecated.*/},		      \
+  { "no-pni",			 0, "" /*Deprecated.*/},		      \
   { "intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "no-intel-syntax",		 0, "" /*Deprecated.*/},	 	      \
   { "rtd",			 MASK_RTD,				      \
@@ -399,10 +401,10 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE and SSE2 built-in functions and code generation") }, \
   { "no-sse2",			 -MASK_SSE2,				      \
     N_("Do not support MMX, SSE and SSE2 built-in functions and code generation") },    \
-  { "pni",			 MASK_PNI,				      \
-    N_("Support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
-  { "no-pni",			 -MASK_PNI,				      \
-    N_("Do not support MMX, SSE, SSE2 and PNI built-in functions and code generation") },\
+  { "sse3",			 MASK_SSE3,				      \
+    N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
+  { "no-sse3",			 -MASK_SSE3,				      \
+    N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -528,6 +530,10 @@ extern int x86_prefetch_sse;
 %{mcpu=*:-mtune=%* \
 %n`-mcpu=' is deprecated. Use `-mtune=' or '-march=' instead.\n}} \
 %<mcpu=* \
+%{mpni:-msse3 \
+%n`-mpni' is deprecated. Use `-msse3' instead.\n} \
+%{mno-pni:-mno-sse3 \
+%n`-mno-pni' is deprecated. Use `-mno-sse3' instead.\n} \
 %{mintel-syntax:-masm=intel \
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
@@ -616,8 +622,11 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE__");				\
       if (TARGET_SSE2)						\
 	builtin_define ("__SSE2__");				\
-      if (TARGET_PNI)						\
-	builtin_define ("__PNI__");				\
+      if (TARGET_SSE3)						\
+	{							\
+	  builtin_define ("__SSE3__");				\
+	  builtin_define ("__PNI__");				\
+	}							\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -690,11 +699,15 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_athlon 11
 #define TARGET_CPU_DEFAULT_athlon_sse 12
 #define TARGET_CPU_DEFAULT_k8 13
+#define TARGET_CPU_DEFAULT_pentium_m 14
+#define TARGET_CPU_DEFAULT_prescott 15
+#define TARGET_CPU_DEFAULT_nocona 16
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
-				  "athlon", "athlon-4", "k8"}
+				  "athlon", "athlon-4", "k8", \
+				  "pentium-m", "prescott", "nocona"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -1756,7 +1769,7 @@ typedef struct ix86_args {
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
 /* Update the data in CUM to advance over an argument

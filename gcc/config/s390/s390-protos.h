@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
 This file is part of GCC.
@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 extern void optimization_options (int, int);
 extern void override_options (void);
-extern int s390_arg_frame_offset (void);
+extern HOST_WIDE_INT s390_arg_frame_offset (void);
 extern void s390_load_got (int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (void);

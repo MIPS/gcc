@@ -65,6 +65,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-flags.h"
 #include "optabs.h"
 #include "cfgloop.h"
+#include "ggc.h"
 
 /* Not really meaningful values, but at least something.  */
 #ifndef SIMULTANEOUS_PREFETCHES
@@ -534,7 +535,10 @@ loop_optimize (rtx f, FILE *dumpfile, int flags)
       struct loop *loop = &loops->array[i];
 
       if (! loop->invalid && loop->end)
-	scan_loop (loop, flags);
+	{
+	  scan_loop (loop, flags);
+	  ggc_collect ();
+	}
     }
 
   end_alias_analysis ();
@@ -925,6 +929,7 @@ scan_loop (struct loop *loop, int flags)
 			  || (! (GET_CODE (SET_SRC (set)) == REG
 				 && (REGNO (SET_SRC (set))
 				     < FIRST_PSEUDO_REGISTER))))
+		      && regno >= FIRST_PSEUDO_REGISTER 
 		      /* This test is not redundant; SET_SRC (set) might be
 			 a call-clobbered register and the life of REGNO
 			 might span a call.  */
@@ -1465,12 +1470,18 @@ force_movables (struct loop_movables *movables)
 	  m = 0;
 
 	/* Increase the priority of the moving the first insn
-	   since it permits the second to be moved as well.  */
+	   since it permits the second to be moved as well.
+	   Likewise for insns already forced by the first insn.  */
 	if (m != 0)
 	  {
+	    struct movable *m2;
+
 	    m->forces = m1;
-	    m1->lifetime += m->lifetime;
-	    m1->savings += m->savings;
+	    for (m2 = m1; m2; m2 = m2->forces)
+	      {
+		m2->lifetime += m->lifetime;
+		m2->savings += m->savings;
+	      }
 	  }
       }
 }
@@ -8005,6 +8016,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
   struct loop_ivs *ivs = LOOP_IVS (loop);
   struct iv_class *bl;
   rtx reg;
+  enum machine_mode mode;
   rtx jump_label;
   rtx final_value;
   rtx start_value;
@@ -8308,6 +8320,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      enum rtx_code cmp_code;
 	      int comparison_const_width;
 	      unsigned HOST_WIDE_INT comparison_sign_mask;
+	      bool keep_first_compare;
 
 	      add_val = INTVAL (bl->biv->add_val);
 	      comparison_value = XEXP (comparison, 1);
@@ -8425,6 +8438,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 
 	      /* Save some info needed to produce the new insns.  */
 	      reg = bl->biv->dest_reg;
+	      mode = GET_MODE (reg);
 	      jump_label = condjump_label (PREV_INSN (loop_end));
 	      new_add_val = GEN_INT (-INTVAL (bl->biv->add_val));
 
@@ -8436,12 +8450,12 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      if (initial_value == const0_rtx
 		  && GET_CODE (comparison_value) == CONST_INT)
 		{
-		  start_value = GEN_INT (comparison_val - add_adjust);
+		  start_value
+		    = gen_int_mode (comparison_val - add_adjust, mode);
 		  loop_insn_hoist (loop, gen_move_insn (reg, start_value));
 		}
 	      else if (GET_CODE (initial_value) == CONST_INT)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx offset = GEN_INT (-INTVAL (initial_value) - add_adjust);
 		  rtx add_insn = gen_add3_insn (reg, comparison_value, offset);
 
@@ -8457,7 +8471,6 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		}
 	      else if (! add_adjust)
 		{
-		  enum machine_mode mode = GET_MODE (reg);
 		  rtx sub_insn = gen_sub3_insn (reg, comparison_value,
 						initial_value);
 
@@ -8500,12 +8513,25 @@ check_dbra_loop (struct loop *loop, int insn_count)
 		 not delete the label.  */
 	      LABEL_NUSES (XEXP (jump_label, 0))++;
 
+	      /* If we have a separate comparison insn that does more
+		 than just set cc0, the result of the comparison might
+		 be used outside the loop.  */
+	      keep_first_compare = (compare_and_branch == 2
+#ifdef HAVE_CC0
+				    && sets_cc0_p (first_compare) <= 0
+#endif
+				    );
+
 	      /* Emit an insn after the end of the loop to set the biv's
 		 proper exit value if it is used anywhere outside the loop.  */
-	      if ((REGNO_LAST_UID (bl->regno) != INSN_UID (first_compare))
+	      if (keep_first_compare
+		  || (REGNO_LAST_UID (bl->regno) != INSN_UID (first_compare))
 		  || ! bl->init_insn
 		  || REGNO_FIRST_UID (bl->regno) != INSN_UID (bl->init_insn))
 		loop_insn_sink (loop, gen_load_of_final_value (reg, final_value));
+
+	      if (keep_first_compare)
+		loop_insn_sink (loop, PATTERN (first_compare));
 
 	      /* Delete compare/branch at end of loop.  */
 	      delete_related_insns (PREV_INSN (loop_end));
@@ -8515,7 +8541,7 @@ check_dbra_loop (struct loop *loop, int insn_count)
 	      /* Add new compare/branch insn at end of loop.  */
 	      start_sequence ();
 	      emit_cmp_and_jump_insns (reg, const0_rtx, cmp_code, NULL_RTX,
-				       GET_MODE (reg), 0,
+				       mode, 0,
 				       XEXP (jump_label, 0));
 	      tem = get_insns ();
 	      end_sequence ();

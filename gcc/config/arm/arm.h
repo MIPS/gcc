@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -175,7 +175,8 @@ extern GTY(()) rtx aof_pic_label;
 /* Set TARGET_DEFAULT to the default, but without soft-float.  */
 #ifdef  TARGET_DEFAULT
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT	(ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT	\
+  (ARM_FLAG_APCS_32 | ARM_FLAG_MMU_TRAPS | ARM_FLAG_APCS_FRAME)
 #endif
 #else
 #if TARGET_CPU_DEFAULT == TARGET_CPU_iwmmxt
@@ -455,8 +456,7 @@ extern GTY(()) rtx aof_pic_label;
   {"fpe",			ARM_FLAG_FPE,  "" },			\
   {"apcs-32",			ARM_FLAG_APCS_32,			\
    N_("Use the 32-bit version of the APCS") },				\
-  {"apcs-26",		       -ARM_FLAG_APCS_32,			\
-   N_("Use the 26-bit version of the APCS") },				\
+  {"apcs-26",		       -ARM_FLAG_APCS_32, ""},			\
   {"apcs-stack-check",		ARM_FLAG_APCS_STACK, "" },		\
   {"no-apcs-stack-check",      -ARM_FLAG_APCS_STACK, "" },		\
   {"apcs-float",		ARM_FLAG_APCS_FLOAT,			\
@@ -468,10 +468,6 @@ extern GTY(()) rtx aof_pic_label;
   {"alignment-traps",           ARM_FLAG_MMU_TRAPS,			\
    N_("The MMU will trap on unaligned accesses") },			\
   {"no-alignment-traps",       -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"short-load-bytes",		ARM_FLAG_MMU_TRAPS, "" },		\
-  {"no-short-load-bytes",      -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"short-load-words",	       -ARM_FLAG_MMU_TRAPS, "" },		\
-  {"no-short-load-words",	ARM_FLAG_MMU_TRAPS, "" },		\
   {"soft-float",		ARM_FLAG_SOFT_FLOAT,			\
    N_("Use library calls to perform FP operations") },			\
   {"hard-float",	       -ARM_FLAG_SOFT_FLOAT,			\
@@ -650,7 +646,7 @@ extern int arm_tune_xscale;
 extern int arm_is_6_or_7;
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT  (ARM_FLAG_APCS_FRAME | ARM_FLAG_MMU_TRAPS)
 #endif
 
 /* The frame pointer register used in gcc has nothing to do with debugging;
@@ -1400,7 +1396,7 @@ enum reg_class
    : NO_REGS)
 
 #define THUMB_SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)		\
-  ((CLASS) != LO_REGS				 			\
+  ((CLASS) != LO_REGS && (CLASS) != BASE_REGS				\
    ? ((true_regnum (X) == -1 ? LO_REGS					\
        : (true_regnum (X) + HARD_REGNO_NREGS (0, MODE) > 8) ? LO_REGS	\
        : NO_REGS)) 							\
@@ -1749,7 +1745,7 @@ typedef struct
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.
    On the ARM, the offset starts at 0.  */
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   arm_init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL))
 
 /* Update the data in CUM to advance over an argument
@@ -2475,10 +2471,11 @@ extern int making_const_table;
     {							\
       if (TARGET_THUMB) 				\
         {						\
-          if (is_called_in_ARM_mode (DECL))		\
+          if (is_called_in_ARM_mode (DECL)      \
+			  || current_function_is_thunk)		\
             fprintf (STREAM, "\t.code 32\n") ;		\
           else						\
-           fprintf (STREAM, "\t.thumb_func\n") ;	\
+           fprintf (STREAM, "\t.code 16\n\t.thumb_func\n") ;	\
         }						\
       if (TARGET_POKE_FUNCTION_NAME)			\
         arm_poke_function_name (STREAM, (char *) NAME);	\

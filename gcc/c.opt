@@ -411,9 +411,6 @@ d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
 
-fabi-version=
-C++ ObjC++ Joined UInteger
-
 faccess-control
 C++ ObjC++
 Enforce class member access control semantics
@@ -481,6 +478,11 @@ C++ ObjC++
 fexec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fexec-charset=<cset>	Convert all strings and character constants to character set <cset>
+
+finput-charset=
+C ObjC C++ ObjC++ Joined RejectNegative
+-finput-charset=<cset>      Specify the default character set for source files.
+
 
 fexternal-templates
 C++ ObjC++

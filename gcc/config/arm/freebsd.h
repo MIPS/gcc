@@ -1,5 +1,5 @@
 /* Definitions for StrongARM running FreeBSD using the ELF format
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
    Contributed by David E. O'Brien <obrien@FreeBSD.org> and BSDi.
 
    This file is part of GCC.
@@ -20,8 +20,26 @@
    Boston, MA 02111-1307, USA.  */
 
 
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
+
 #undef  SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC FBSD_CPP_SPEC
+
+#undef	LINK_SPEC
+#define LINK_SPEC "							\
+  %{p:%nconsider using `-pg' instead of `-p' with gprof(1) }		\
+  %{Wl,*:%*}								\
+  %{v:-V}								\
+  %{assert*} %{R*} %{rpath*} %{defsym*}					\
+  %{shared:-Bshareable %{h*} %{soname*}}				\
+  %{!shared:								\
+    %{!static:								\
+      %{rdynamic:-export-dynamic}					\
+      %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }}	\
+    %{static:-Bstatic}}							\
+  %{symbolic:-Bsymbolic}"
 
 
 /************************[  Target stuff  ]***********************************/

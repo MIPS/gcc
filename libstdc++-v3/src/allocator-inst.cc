@@ -1,6 +1,6 @@
 // Explicit instantiation file.
 
-// Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,8 +31,9 @@
 // ISO C++ 14882:
 //
 
-#include <bits/c++config.h>
 #include <memory>
+#include <ext/mt_allocator.h>
+#include <ext/pool_allocator.h>
 
 namespace std
 {
@@ -42,5 +43,9 @@ namespace std
 
 namespace __gnu_cxx
 {
-  template class __pool_alloc<true, 0>;
+  template class __mt_alloc<char>;
+  template class __mt_alloc<wchar_t>;
+
+  template class __pool_alloc<char>;
+  template class __pool_alloc<wchar_t>;
 } // namespace __gnu_cxx

@@ -1,6 +1,6 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -133,7 +133,8 @@ static int compute_argument_block_size (int, struct args_size *, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int, tree,
 					     tree, CUMULATIVE_ARGS *, int,
-					     rtx *, int *, int *, int *);
+					     rtx *, int *, int *, int *,
+					     bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -1023,7 +1024,10 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
    and may be modified by this routine.
 
    OLD_PENDING_ADJ, MUST_PREALLOCATE and FLAGS are pointers to integer
-   flags which may may be modified by this routine.  */
+   flags which may may be modified by this routine. 
+
+   CALL_FROM_THUNK_P is true if this call is the jump from a thunk to
+   the thunked-to function.  */
 
 static void
 initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
@@ -1034,7 +1038,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 CUMULATIVE_ARGS *args_so_far,
 				 int reg_parm_stack_space,
 				 rtx *old_stack_level, int *old_pending_adj,
-				 int *must_preallocate, int *ecf_flags)
+				 int *must_preallocate, int *ecf_flags,
+				 bool call_from_thunk_p)
 {
   /* 1 if scanning parms front to back, -1 if scanning back to front.  */
   int inc;
@@ -1107,7 +1112,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	{
 	  /* If we're compiling a thunk, pass through invisible
              references instead of making a copy.  */
-	  if (current_function_is_thunk
+	  if (call_from_thunk_p
 #ifdef FUNCTION_ARG_CALLEE_COPIES
 	      || (FUNCTION_ARG_CALLEE_COPIES (*args_so_far, TYPE_MODE (type),
 					     type, argpos < n_named_args)
@@ -2075,6 +2080,8 @@ expand_call (tree exp, rtx target, int ignore)
   /* Declaration of the function being called,
      or 0 if the function is computed (not known by name).  */
   tree fndecl = 0;
+  /* The type of the function being called.  */
+  tree fntype;
   rtx insn;
   int try_tail_call = 1;
   int try_tail_recursion = 1;
@@ -2183,6 +2190,7 @@ expand_call (tree exp, rtx target, int ignore)
   fndecl = get_callee_fndecl (exp);
   if (fndecl)
     {
+      fntype = TREE_TYPE (fndecl);
       if (!flag_no_inline
 	  && fndecl != current_function_decl
 	  && DECL_INLINE (fndecl)
@@ -2218,15 +2226,15 @@ expand_call (tree exp, rtx target, int ignore)
      attributes set in the type.  */
   else
     {
+      fntype = TREE_TYPE (TREE_TYPE (p));
       if (ignore
-	  && lookup_attribute ("warn_unused_result",
-			       TYPE_ATTRIBUTES (TREE_TYPE (TREE_TYPE (p)))))
+	  && lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (fntype)))
 	warning ("ignoring return value of function "
 		 "declared with attribute warn_unused_result");
-      flags |= flags_from_decl_or_type (TREE_TYPE (TREE_TYPE (p)));
+      flags |= flags_from_decl_or_type (fntype);
     }
 
-  struct_value = targetm.calls.struct_value_rtx (fndecl ? TREE_TYPE (fndecl) : 0, 0);
+  struct_value = targetm.calls.struct_value_rtx (fntype, 0);
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -2352,7 +2360,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Munge the tree to split complex arguments into their imaginary
      and real parts.  */
-  if (SPLIT_COMPLEX_ARGS)
+  if (targetm.calls.split_complex_arg)
     {
       type_arg_types = split_complex_types (TYPE_ARG_TYPES (funtype));
       actparms = split_complex_values (actparms);
@@ -2380,7 +2388,8 @@ expand_call (tree exp, rtx target, int ignore)
 		  || (ACCUMULATE_OUTGOING_ARGS
 		      && stack_arg_under_construction
 		      && structure_value_addr == virtual_outgoing_args_rtx)
-		  ? copy_addr_to_reg (structure_value_addr)
+		  ? copy_addr_to_reg (convert_memory_address 
+				      (Pmode, structure_value_addr))
 		  : structure_value_addr);
 
       actparms
@@ -2395,15 +2404,27 @@ expand_call (tree exp, rtx target, int ignore)
   for (p = actparms, num_actuals = 0; p; p = TREE_CHAIN (p))
     num_actuals++;
 
+  /* Compute number of named args.
+     First, do a raw count of the args for INIT_CUMULATIVE_ARGS.  */
+
+  if (type_arg_types != 0)
+    n_named_args
+      = (list_length (type_arg_types)
+	 /* Count the struct value address, if it is passed as a parm.  */
+	 + structure_value_addr_parm);
+  else
+    /* If we know nothing, treat all args as named.  */
+    n_named_args = num_actuals;
+
   /* Start updating where the next arg would go.
 
      On some machines (such as the PA) indirect calls have a different
-     calling convention than normal calls.  The last argument in
+     calling convention than normal calls.  The fourth argument in
      INIT_CUMULATIVE_ARGS tells the backend if this is an indirect call
      or not.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl);
+  INIT_CUMULATIVE_ARGS (args_so_far, funtype, NULL_RTX, fndecl, n_named_args);
 
-  /* Compute number of named args.
+  /* Now possibly adjust the number of named args.
      Normally, don't include the last named arg if anonymous args follow.
      We do include the last named arg if
      targetm.calls.strict_argument_naming() returns nonzero.
@@ -2421,17 +2442,15 @@ expand_call (tree exp, rtx target, int ignore)
      we do not have any reliable way to pass unnamed args in
      registers, so we must force them into memory.  */
 
-  if ((targetm.calls.strict_argument_naming (&args_so_far)
-       || ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
-      && type_arg_types != 0)
-    n_named_args
-      = (list_length (type_arg_types)
-	 /* Don't include the last named arg.  */
-	 - (targetm.calls.strict_argument_naming (&args_so_far) ? 0 : 1)
-	 /* Count the struct value address, if it is passed as a parm.  */
-	 + structure_value_addr_parm);
+  if (type_arg_types != 0
+      && targetm.calls.strict_argument_naming (&args_so_far))
+    ;
+  else if (type_arg_types != 0
+	   && ! targetm.calls.pretend_outgoing_varargs_named (&args_so_far))
+    /* Don't include the last named arg.  */
+    --n_named_args;
   else
-    /* If we know nothing, treat all args as named.  */
+    /* Treat all args as named.  */
     n_named_args = num_actuals;
 
   /* Make a vector to hold all the information about each arg.  */
@@ -2444,7 +2463,8 @@ expand_call (tree exp, rtx target, int ignore)
 				   n_named_args, actparms, fndecl,
 				   &args_so_far, reg_parm_stack_space,
 				   &old_stack_level, &old_pending_adj,
-				   &must_preallocate, &flags);
+				   &must_preallocate, &flags,
+				   CALL_FROM_THUNK_P (exp));
 
   if (args_size.var)
     {
@@ -3564,6 +3584,17 @@ split_complex_values (tree values)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = values; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_TYPE (TREE_VALUE (p));
+      if (type && TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return values;
+
+ found:
   values = copy_list (values);
 
   for (p = values; p; p = TREE_CHAIN (p))
@@ -3575,7 +3606,8 @@ split_complex_values (tree values)
       if (!complex_type)
 	continue;
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree subtype;
 	  tree real, imag, next;
@@ -3606,13 +3638,25 @@ split_complex_types (tree types)
 {
   tree p;
 
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = types; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_VALUE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
+  return types;
+
+ found:
   types = copy_list (types);
 
   for (p = types; p; p = TREE_CHAIN (p))
     {
       tree complex_type = TREE_VALUE (p);
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE)
+      if (TREE_CODE (complex_type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (complex_type))
 	{
 	  tree next, imag;
 
@@ -3777,7 +3821,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
   INIT_CUMULATIVE_LIBCALL_ARGS (args_so_far, outmode, fun);
 #else
-  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE, fun, 0, nargs);
 #endif
 
   args_size.constant = 0;

@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -157,9 +157,10 @@ cpp_create_reader (enum c_lang lang, hash_table *table)
   CPP_OPTION (pfile, unsigned_wchar) = 1;
   CPP_OPTION (pfile, bytes_big_endian) = 1;  /* does not matter */
 
-  /* Default to no charset conversion.  */
-  CPP_OPTION (pfile, narrow_charset) = 0;
+  /* Default to locale/UTF-8.  */
+  CPP_OPTION (pfile, narrow_charset) = _cpp_default_encoding ();
   CPP_OPTION (pfile, wide_charset) = 0;
+  CPP_OPTION (pfile, input_charset) = _cpp_default_encoding ();
 
   /* A fake empty "directory" used as the starting point for files
      looked up without a search path.  Name cannot be '/' because we
@@ -450,9 +451,10 @@ cpp_post_options (cpp_reader *pfile)
 }
 
 /* Setup for processing input from the file named FNAME, or stdin if
-   it is the empty string.  Returns true if the file was found.  */
-bool
-cpp_find_main_file (cpp_reader *pfile, const char *fname)
+   it is the empty string.  Return the original filename
+   on success (e.g. foo.i->foo.c), or NULL on failure.  */
+const char *
+cpp_read_main_file (cpp_reader *pfile, const char *fname)
 {
   if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
     {
@@ -466,39 +468,18 @@ cpp_find_main_file (cpp_reader *pfile, const char *fname)
   pfile->main_file
     = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
   if (_cpp_find_failed (pfile->main_file))
-    return false;
+    return NULL;
 
-  if (CPP_OPTION (pfile, working_directory))
-    {
-      const char *dir = getpwd ();
-      char *dir_with_slashes = alloca (strlen (dir) + 3);
-
-      memcpy (dir_with_slashes, dir, strlen (dir));
-      memcpy (dir_with_slashes + strlen (dir), "//", 3);
-
-      if (pfile->cb.dir_change)
-	pfile->cb.dir_change (pfile, dir);
-    }
-  return true;
-}
-
-/* This function reads the file, but does not start preprocessing.
-   This will generate at least one file change callback, and possibly
-   a line change callback.  */
-void
-cpp_push_main_file (cpp_reader *pfile)
-{
   _cpp_stack_file (pfile, pfile->main_file, false);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */
   if (CPP_OPTION (pfile, preprocessed))
-    read_original_filename (pfile);
-
-  /* Set this here so the client can change the option if it wishes,
-     and after stacking the main file so we don't trace the main
-     file.  */
-  pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
+    {
+      read_original_filename (pfile);
+      fname = pfile->map->to_file;
+    }
+  return fname;
 }
 
 /* For preprocessed files, if the first tokens are of the form # NUM.
@@ -577,18 +558,12 @@ read_original_directory (cpp_reader *pfile)
 
       pfile->cb.dir_change (pfile, debugdir);
     }      
-
-  /* We want to process the fake line changes as regular changes, to
-     get them output.  */
-  _cpp_backup_tokens (pfile, 3);
-
-  CPP_OPTION (pfile, working_directory) = false;
 }
 
 /* This is called at the end of preprocessing.  It pops the last
    buffer and writes dependency output, and returns the number of
    errors.
- 
+
    Maybe it should also reset state, such that you could call
    cpp_start_read with a new filename to restart processing.  */
 int
@@ -643,6 +618,8 @@ post_options (cpp_reader *pfile)
 
   if (CPP_OPTION (pfile, traditional))
     {
+      CPP_OPTION (pfile, cplusplus_comments) = 0;
+
       /* Traditional CPP does not accurately track column information.  */
       CPP_OPTION (pfile, show_column) = 0;
       CPP_OPTION (pfile, trigraphs) = 0;

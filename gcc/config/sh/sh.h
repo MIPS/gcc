@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -1641,6 +1641,7 @@ extern enum reg_class reg_class_from_letter[];
 		 || TREE_CODE (VALTYPE) == CHAR_TYPE			\
 		 || TREE_CODE (VALTYPE) == REAL_TYPE			\
 		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
+             && sh_promote_prototypes (VALTYPE)				\
 	    ? (TARGET_SHMEDIA ? DImode : SImode) : TYPE_MODE (VALTYPE)), \
 	   BASE_RETURN_VALUE_REG (TYPE_MODE (VALTYPE)))
 
@@ -1819,7 +1820,7 @@ struct sh_args {
 
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
   do {								\
     (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
     (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
@@ -1850,7 +1851,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0, 0);	\
     (CUM).call_cookie						\
       = (CALL_COOKIE_RET_TRAMP					\
 	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
@@ -1859,7 +1860,7 @@ struct sh_args {
 
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
   do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0);	\
+    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0, 0);	\
     (CUM).outgoing = 0;						\
   } while (0)
 
@@ -3311,10 +3312,7 @@ extern int rtx_equal_function_value_matters;
 		 & ~ CALL_COOKIE_RET_TRAMP (1)) \
 		|| current_function_has_nonlocal_label)) \
       ? (hard_reg) \
-      : gen_rtx_MEM (Pmode, TARGET_SH5 \
-			    ? (plus_constant (arg_pointer_rtx, \
-					      TARGET_SHMEDIA64 ? -8 : -4)) \
-			    : frame_pointer_rtx)) \
+      : gen_rtx_MEM (Pmode, return_address_pointer_rtx)) \
    : NULL_RTX)
 
 #endif /* ! GCC_SH_H */
