@@ -5415,12 +5415,7 @@ process_options ()
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
   if (flag_unroll_all_loops)
-    {
-      flag_unroll_loops = 1;
-
-      /* And including rerolling helps it a bit.  */
-      flag_reroll_loops = 1;
-    }
+    flag_unroll_loops = 1;
 
   if (flag_unroll_loops)
     {

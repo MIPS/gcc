@@ -1,3 +1,7 @@
+2003-05-01  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* toplev.c (process_options): Disable loop rerolling.
+
 2003-04-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	Merge from mainline:
