@@ -1,3 +1,9 @@
+2003-10-16  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c: Merge from mainline.
+	* tree.c (associate_tree_code, commutative_tree_code): Use a
+	switch statement instead of a sequence of comparisons.
+
 2003-10-16  Richard Henderson  <rth@redhat.com>
 
 	* gimplify.c (maybe_protect_cleanup): Remove.

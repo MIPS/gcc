@@ -3549,16 +3549,24 @@ compare_tree_int (tree t, unsigned HOST_WIDE_INT u)
 bool
 associative_tree_code (enum tree_code code)
 {
-  return (code == BIT_IOR_EXPR
-	  || code == BIT_AND_EXPR
-	  || code == BIT_XOR_EXPR
-	  || code == PLUS_EXPR
-	  || code == MINUS_EXPR
-	  || code == MULT_EXPR
-	  || code == LSHIFT_EXPR
-	  || code == RSHIFT_EXPR
-	  || code == MIN_EXPR
-	  || code == MAX_EXPR);
+  switch (code)
+    {
+    case BIT_IOR_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_XOR_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+      return true;
+
+    default:
+      break;
+    }
+  return false;
 }
 
 /* Return true if CODE represents an commutative tree code.  Otherwise
@@ -3566,15 +3574,23 @@ associative_tree_code (enum tree_code code)
 bool
 commutative_tree_code (enum tree_code code)
 {
-  return (code == PLUS_EXPR
-	  || code == MULT_EXPR
-	  || code == MIN_EXPR
-	  || code == MAX_EXPR
-	  || code == BIT_IOR_EXPR
-	  || code == BIT_XOR_EXPR
-	  || code == BIT_AND_EXPR
-	  || code == NE_EXPR
-	  || code == EQ_EXPR);
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MULT_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+    case NE_EXPR:
+    case EQ_EXPR:
+      return true;
+
+    default:
+      break;
+    }
+  return false;
 }
 
 /* Generate a hash value for an expression.  This can be used iteratively
