@@ -1,7 +1,6 @@
 2004-04-28  Fariborz Jahanian <fjahanian@apple.com>
 
-	* function.c (skip_vec_args): New function.
-	(assign_parms): Add 2nd iteration over vector args
+	* function.c (assign_parms): Add 2nd iteration over vector args
 	if needed.
 	* calls.c (initialize_argument_information): Add new argument,
 	add 2nd iteration over vector arguments if needed.
