@@ -1,3 +1,15 @@
+2003-10-29  Daniel Berlin <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (n_phi_preds): New variable.
+	(generate_vops_as_of_bb): New function
+	(generate_expr_as_of_bb): Remove unused first argument. Update all
+	callers.
+	(subst_phis): Add boundary check for the phi_pred_cache array.
+	(same_e_version_phi_result): Once modified, no point in continuing
+	the loop.
+	(finalize_2): ESSA Minimization can crash if we ended up with new
+	BB's
+	
 2003-10-29  Richard Henderson  <rth@redhat.com>
 
 	* tree-eh.c (do_return_redirection): Don't move copy to RESULT_DECL
