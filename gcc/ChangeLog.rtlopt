@@ -1,3 +1,11 @@
+2003-07-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgcleanup.c (merge_blocks): Work also for successors of the
+	entry.
+	* combine.c (try_combine): Mark new jump label.
+	* toplev.c (rest_of_compilation): Do expensive cleanup after
+	copying loop headers.
+
 2003-07-20  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop.h: Removed.

@@ -2798,7 +2798,7 @@ rest_of_compilation (decl)
   if (optimize)
     {
       copy_loop_headers ();
-      cleanup_cfg (0);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
     }
   purge_line_number_notes (insns);
 

@@ -868,7 +868,10 @@ merge_blocks (e, b, c, mode)
 	  basic_block bb;
 
 	  if (b_fallthru_edge->src == ENTRY_BLOCK_PTR)
-	    return NULL;
+	    {
+	      b_fallthru_edge = split_edge (b_fallthru_edge)->succ;
+	      notice_new_block (b_fallthru_edge->src);
+	    }
 	  bb = force_nonfallthru (b_fallthru_edge);
 	  if (bb)
 	    notice_new_block (bb);
