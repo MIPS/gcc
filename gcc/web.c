@@ -117,7 +117,20 @@ union_defs (df, use, def_entry, use_entry)
      struct web_entry *use_entry;
 {
   struct df_link *link = DF_REF_CHAIN (use);
+  struct df_link *use_link = DF_INSN_USES (df, DF_REF_INSN (use));
 
+  /* Some instructions may use match_dup for it's operands.  In case the
+     operands are dead, we will assign them different pseudos creating
+     invalid instruction, so union all uses of the same operands for each
+     insn.  */
+  while (use_link)
+    {
+      if (use != use_link->ref
+	  && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (use_link->ref))
+	unionfind_union (use_entry + DF_REF_ID (use),
+		         use_entry + DF_REF_ID (use_link->ref));
+      use_link = use_link->next;
+    }
   while (link)
     {
       unionfind_union (use_entry + DF_REF_ID (use),
