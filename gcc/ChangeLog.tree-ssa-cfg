@@ -1,3 +1,14 @@
+2003-08-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gimplify.c (gimplify_loop_expr): Place the exit label correctly.
+	(annotate_stmt_with_file_line): Don't assign lines to artificial
+	gotos.
+	* toplev.c (rest_of_decl_compilation): Ensure correct line number is
+	reported for invalid register name error.
+	* tree-cfg.c: Update comment on general shape of cfg.
+	(remove_bb): Ensure correct line number is reported for unreachable
+	basic block.
+
 2003-08-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* version.c (version_string): Update.

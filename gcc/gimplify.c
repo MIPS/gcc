@@ -1027,14 +1027,14 @@ gimplify_loop_expr (tree *expr_p)
   gimplify_stmt (&LOOP_EXPR_BODY (*expr_p));
   *expr_p = LOOP_EXPR_BODY (*expr_p);
 
+  add_tree (build_and_jump (&LABEL_EXPR_LABEL (start_label)), expr_p);
+  *expr_p = add_stmt_to_compound (start_label, *expr_p);
   if (gimplify_ctxp->exit_label)
     {
       tree expr = build1 (LABEL_EXPR, void_type_node,
 			  gimplify_ctxp->exit_label);
       add_tree (expr, expr_p);
     }
-  add_tree (build_and_jump (&LABEL_EXPR_LABEL (start_label)), expr_p);
-  *expr_p = add_stmt_to_compound (start_label, *expr_p);
 
   gimplify_ctxp->exit_label = saved_label;
 }
@@ -2274,6 +2274,10 @@ annotate_stmt_with_file_line (tree *stmt_p)
      emit one for the break label, since it doesn't actually correspond
      to the beginning of the loop/switch.  */;
   if (TREE_CODE (*stmt_p) != LABEL_EXPR
+      /* Neither for artificial GOTO_EXPRs, so that we do not get warnings
+	 when they are removed in jump threading.  In fact this is also
+	 wrong, as we then get the warnings for explicit gotos anyway.  */
+      && TREE_CODE (*stmt_p) != GOTO_EXPR
       && ! TREE_LOCUS (*stmt_p))
     annotate_with_file_line (*stmt_p, wfl_filename, wfl_lineno);
 }

@@ -79,27 +79,11 @@ Boston, MA 02111-1307, USA.  */
    
    To handle bind_exprs and eh handling, there is kept a tree of blocks
    (block_tree).  Some basic blocks are entry blocks of such constructs.
-   They must be kept unless the whole construct is to be removed.  There also
-   should be no jumps from inside of the construct to the entry -- this is
-   because there is a difference between
-   
-   {
-     int i;
-   bla:
-     something;
-     goto bla;
-   }
-   
-   and
-   
-   bla:
-   {
-     int i;
-     something;
-     goto bla;
-   }
-   
-   but it could not be recognized easily without this restriction.  */
+   They must be kept unless the whole construct is to be removed.  One of
+   the entry edges may be marked with EDGE_CONSTRUCT_ENTRY flag; it then
+   is assumed to be the entry and it will be turned into fallthru when
+   the constructs are recreated.  All other edges should come from
+   inside of the construct.  */
 
 /* Local declarations.  */
 
@@ -1104,7 +1088,7 @@ remove_bb (basic_block bb)
   loc.line = -1;
 
   /* Remove all the instructions in the block.  */
-  for (i = bsi_start (bb); !bsi_end_p (i); )
+  for (i = bsi_last (bb); !bsi_end_p (i); i = bsi_last (bb))
     {
       tree stmt = bsi_stmt (i);
 

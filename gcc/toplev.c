@@ -1934,7 +1934,17 @@ rest_of_decl_compilation (tree decl,
 	}
       else
 	{
+	  const char *saved_input_filename = input_filename;
+	  int saved_lineno = input_line;
+
+	  if (TREE_LOCUS (decl))
+	    {
+	      input_filename = TREE_FILENAME (decl);
+	      input_line = TREE_LINENO (decl);
+	    }
 	  error ("invalid register name `%s' for register variable", asmspec);
+	  input_filename = saved_input_filename;
+	  input_line = saved_lineno;
 	  DECL_REGISTER (decl) = 0;
 	  if (!top_level)
 	    expand_decl (decl);
