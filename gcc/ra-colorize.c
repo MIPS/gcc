@@ -349,7 +349,7 @@ build_worklists (df)
       max_num = num_webs - num_subwebs;
       order2web = (struct web **) xmalloc (max_num * sizeof (order2web[0]));
       for (i = 0, num = 0; i < max_num; i++)
-	if (id2web[i]->regno >= max_normal_pseudo)
+	if (SPILL_SLOT_P (id2web[i]->regno))
 	  order2web[num++] = id2web[i];
       if (num)
 	{
@@ -725,7 +725,7 @@ combine (u, v)
   struct conflict_link *wl;
   if (u == v || v->type == COALESCED)
     abort ();
-  if ((u->regno >= max_normal_pseudo) != (v->regno >= max_normal_pseudo))
+  if (SPILL_SLOT_P (u->regno) != SPILL_SLOT_P (v->regno))
     abort ();
   remove_web_from_list (v);
   put_web (v, COALESCED);
@@ -1287,7 +1287,7 @@ colorize_one_web (web, hard)
   HARD_REG_SET fat_colors;
   HARD_REG_SET bias;
 
-  if (web->regno >= max_normal_pseudo)
+  if (SPILL_SLOT_P (web->regno))
     hard = 0;
 
   /* First we want to know the colors at which we can't begin.  */
@@ -1352,15 +1352,20 @@ colorize_one_web (web, hard)
          alternate non-cc hardregs, and only _then_ also in preferred cc
          hardregs (and alternate ones).  Currently we don't track the number
          of calls crossed for webs.  We should.  */
-      if (web->use_my_regs)
-	{
-	  COPY_HARD_REG_SET (colors, web->usable_regs);
-	  AND_HARD_REG_SET (colors,
-			    usable_regs[reg_preferred_class (web->regno)]);
-	}
+      if (flag_ra_pre_reload)
+	COPY_HARD_REG_SET (colors, web->usable_regs);
       else
-	COPY_HARD_REG_SET (colors,
-			   usable_regs[reg_preferred_class (web->regno)]);
+	{
+	  if (web->use_my_regs)
+	    {
+	      COPY_HARD_REG_SET (colors, web->usable_regs);
+	      AND_HARD_REG_SET (colors,
+				usable_regs[reg_preferred_class (web->regno)]);
+	    }
+	  else
+	    COPY_HARD_REG_SET (colors,
+			       usable_regs[reg_preferred_class (web->regno)]);
+	}
 #ifdef CLASS_CANNOT_CHANGE_MODE
       if (web->mode_changed)
         AND_COMPL_HARD_REG_SET (colors, reg_class_contents[
@@ -1388,7 +1393,7 @@ colorize_one_web (web, hard)
 	c = get_biased_reg (dont_begin, bias, web->prefer_colors,
 			  colors, PSEUDO_REGNO_MODE (web->regno));
 
-      if (/*!web->use_my_regs &&*/ c < 0)
+      if (/*!web->use_my_regs &&*/ c < 0 && !flag_ra_pre_reload)
 	{
 	  if (web->use_my_regs)
 	    IOR_HARD_REG_SET (colors, web->usable_regs);
@@ -1633,7 +1638,7 @@ colorize_one_web (web, hard)
 	    }
 	}
     }
-  if (web->regno >= max_normal_pseudo && web->type == SPILLED)
+  if (SPILL_SLOT_P (web->regno) && web->type == SPILLED)
     {
       web->color = an_unusable_color;
       remove_list (web->dlink, &WEBS(SPILLED));
@@ -2008,7 +2013,7 @@ check_colors ()
       struct web *aweb = alias (web);
       struct conflict_link *wl;
       int nregs, c;
-      if (aweb->type == SPILLED || web->regno >= max_normal_pseudo)
+      if (aweb->type == SPILLED || SPILL_SLOT_P (web->regno))
 	continue;
       else if (aweb->type == COLORED)
 	nregs = HARD_REGNO_NREGS (aweb->color, GET_MODE (web->orig_x));
@@ -2028,7 +2033,7 @@ check_colors ()
       wl = (web->have_orig_conflicts ? web->orig_conflict_list
 	    : web->conflict_list);
       for (; wl; wl = wl->next)
-	if (wl->t->regno >= max_normal_pseudo)
+	if (SPILL_SLOT_P (wl->t->regno))
 	  continue;
 	else if (!wl->sub)
 	  {
@@ -2728,7 +2733,7 @@ extended_coalesce_2 ()
 	{
 	  struct web *dest = def2web[DF_REF_ID (info.defs[n])];
 	  dest = alias (find_web_for_subweb (dest));
-	  if (dest->type != PRECOLORED && dest->regno < max_normal_pseudo)
+	  if (dest->type != PRECOLORED && !SPILL_SLOT_P (dest->regno))
 	    {
 	      unsigned int n2;
 	      for (n2 = 0; n2 < info.num_uses; n2++)
@@ -2737,7 +2742,7 @@ extended_coalesce_2 ()
 		  source = alias (find_web_for_subweb (source));
 		  if (source->type != PRECOLORED
 		      && source != dest
-		      && source->regno < max_normal_pseudo
+		      && !SPILL_SLOT_P (source->regno)
 		      /* Coalesced webs end up using the same REG rtx in
 			 emit_colors().  So we can only coalesce something
 			 of equal modes.  */

@@ -1,3 +1,64 @@
+2002-08-02  Denis Chertykov  <denisc@overta.ru>
+
+	* pre-reload.c (scan_addr_func): Bugfix. Argument ra_info removed.
+	(collect_insn_info): this_alternative_address_operand,
+	goal_alternative_address_operand, new arrays for handling
+	constraint 'p'.
+	(pre_reload_collect): Debug a pre-reload process to rtl_dump_file.
+
+	* ra.h (max_normal_pseudo, orig_max_uid): Removed.
+	(emitted_by_spill, ra_modified_insns, spill_slot_regs): New bitmaps.
+	(is_partly_dead, set_web_live, reset_web_live, reg_class,
+	web_class): Prototypes declared as extern.
+	(SPILL_SLOT_P): New macro.
+	
+	* ra-build.c (copy_insn_p): Use SPILL_SLOT_P instead of
+	comparision with max_normal_pseudo.
+	(detect_spill_temps): Use detect_spanned_deaths if special flag.
+	Use bitmap emitted_by_spill instead of orig_max_uid.
+	(detect_remat_webs): Use bitmap emitted_by_spill instead of
+	orig_max_uid.
+	(select_regclass): Use web_class if flag_ra_pre_reload.
+	(handle_asm_insn): Use web_preferred_class if flag_ra_pre_reload.
+	(detect_spanned_deaths): New function. Calculate spanned deaths
+	and spanned defs of webs.
+
+	* ra.c (max_normal_pseudo, orig_max_uid): Removed.
+	(emitted_by_spill, ra_modified_insns, spill_slot_regs): New
+	bitmaps.
+	(init_ra): Definition of orig_max_uid removed.
+	Initialization of insns_with_deaths and death_insns_max_uid moved
+	to reg_alloc.
+	(reg_alloc): Use pre_reload if flag_ra_pre_reload.
+	(web_class): New variable "debug" for better controlling of debug
+	output.
+
+	* ra-colorize.c (build_worklists): Use SPILL_SLOT_P instead of
+	max_normal_pseudo.
+	(combine): Likewise.
+	(check_colors): Likewise.
+	(extended_coalesce_2): Likewise.
+	(colorize_one_web): Likewise. Handle flag_ra_pre_reload.
+
+	* ra-debug.c (dump_igraph): Use SPILL_SLOT_P instead of
+	max_normal_pseudo.
+	(dump_web_insns): Renamed to debug_web_insns. All debugging output
+	will be printed to stderr.
+	(dump_web_conflicts): Likewise.
+
+	* ra-rewrite.c: Set bit in ra_modified_insns for all insns handled by
+	by df_insn_modify.
+	Set bit in emitted_by_spill for all emitted insns.
+	(allocate_spill_web): Set bit in spill_slot_regs for new spill
+	slot register.
+	(is_partly_live): Test web->parent_web.
+	(emit_loads): Emit loads only for subwebs if super web isn't
+	marked for load.
+
+	* toplev.c (flag_ra_pre_reload): New flag -fnew-ra-pre-reload.
+	(flag_ra_spanned_deaths_from_scratch): New flag
+	-fnew-ra-spanned-deaths-pass.
+
 2002-07-29  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-rewrite.c (set_web_live, reset_web_live, is_partly_dead): New

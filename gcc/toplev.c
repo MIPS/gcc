@@ -869,6 +869,11 @@ int flag_renumber_insns = 1;
 
 /* If nonzero, use the graph coloring register allocator.  */
 int flag_new_regalloc = 1;
+/* If nonzero, use pre-reload and web-class in new register allocator.  */
+int flag_ra_pre_reload = 0;
+/* If nonzero, use separate passs for calculation web deaths in new
+   register allocator.  */
+int flag_ra_spanned_deaths_from_scratch = 0;
 
 /* Nonzero if we perform superblock formation.  */
 
@@ -1180,6 +1185,10 @@ static const lang_independent_options f_options[] =
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
   { "new-ra", &flag_new_regalloc, 1,
    N_("Use graph coloring register allocation.") },
+  { "new-ra-pre-reload", &flag_ra_pre_reload, 1,
+   N_("Use pre-reload in graph coloring register allocation.") },
+  { "new-ra-spanned-deaths-pass", &flag_ra_spanned_deaths_from_scratch, 1,
+   N_("Use special pass for detect web deaths in graph coloring register allocation.") },
 };
 
 /* Table of language-specific options.  */

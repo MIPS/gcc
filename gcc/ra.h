@@ -434,12 +434,6 @@ extern bitmap *live_at_end;
    And this is how often we already ran that for the current function.  */
 extern int ra_pass;
 
-/* The maximum pseudo regno, just before register allocation starts.
-   While regalloc runs all pseudos with a larger number represent
-   potentially stack slots or hardregs.  I call them stackwebs or
-   stackpseudos.  */
-extern unsigned int max_normal_pseudo;
-
 /* One of the fixed colors.  It must be < FIRST_PSEUDO_REGISTER, because
    we sometimes want to check the color against a HARD_REG_SET.  It must
    be >= 0, because negative values mean "no color".
@@ -479,9 +473,14 @@ extern sbitmap last_check_uses;
    I-graph.  I.e. new conflicts due to coalescing trigger that copying.  */
 extern unsigned int remember_conflicts;
 
-/* The maximum UID right before calling regalloc().
-   Used to detect any instructions inserted by the allocator.  */
-extern int orig_max_uid;
+/* Used to detect spill instructions inserted by me.  */
+extern bitmap emitted_by_spill;
+
+/* Insns which must be rescanned by pre_reload.  */
+extern bitmap ra_modified_insns;
+
+/* This pseudos represents stack slots allocated by ra-rewrite.  */
+extern bitmap spill_slot_regs;
 
 /* A HARD_REG_SET of those color, which can't be used for coalescing.
    Includes e.g. fixed_regs.  */
@@ -562,6 +561,13 @@ extern int flag_ra_spill_every_use;
 /* Nonzero to output all notes in the debug dumps.  */
 extern int flag_ra_dump_notes;
 
+/* If nonzero, use pre-reload and web-class in new register allocator.  */
+extern int flag_ra_pre_reload;
+
+/* If nonzero, use separate passs for calculation web deaths in new
+   register allocator.  */
+extern int flag_ra_spanned_deaths_from_scratch;
+
 extern inline void * ra_alloc PARAMS ((size_t));
 extern inline void * ra_calloc PARAMS ((size_t));
 extern int hard_regs_count PARAMS ((HARD_REG_SET));
@@ -622,3 +628,10 @@ extern void emit_colors PARAMS ((struct df *));
 extern void delete_moves PARAMS ((void));
 extern void setup_renumber PARAMS ((int));
 extern void remove_suspicious_death_notes PARAMS ((void));
+extern int is_partly_dead PARAMS ((sbitmap, struct web *));
+extern void set_web_live PARAMS ((sbitmap, struct web *));
+extern void reset_web_live PARAMS ((sbitmap, struct web *));
+extern enum reg_class web_preferred_class PARAMS ((struct web *));
+extern void web_class PARAMS ((void));
+
+#define SPILL_SLOT_P(REGNO) bitmap_bit_p (spill_slot_regs, (REGNO))

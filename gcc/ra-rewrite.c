@@ -69,9 +69,6 @@ static void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
-static void set_web_live PARAMS ((sbitmap, struct web *));
-static void reset_web_live PARAMS ((sbitmap, struct web *));
-static int is_partly_dead PARAMS ((sbitmap, struct web *));
 
 /* For tracking some statistics, we count the number (and cost)
    of deleted move insns.  */
@@ -109,6 +106,7 @@ spill_coalescing (coalesce, spilled)
 	    PUT_CODE (m->insn, NOTE);
 	    NOTE_LINE_NUMBER (m->insn) = NOTE_INSN_DELETED;
 	    df_insn_modify (df, BLOCK_FOR_INSN (m->insn), m->insn);
+	    bitmap_set_bit (ra_modified_insns, INSN_UID (m->insn));
 
 	    m->target_web->target_of_spilled_move = 1;
 	    if (s == t)
@@ -329,6 +327,7 @@ allocate_spill_web (web)
   set_mem_alias_set (slot, new_alias_set ());*/
   slot = gen_reg_rtx (PSEUDO_REGNO_MODE (regno));
   web->stack_slot = slot;
+  bitmap_set_bit (spill_slot_regs, REGNO (slot));
 }
 
 /* This chooses a color for all SPILLED webs for interference region
@@ -470,6 +469,8 @@ rewrite_program (new_deaths)
 		  {
 		    set_block_for_insn (insn, bb);
 		    df_insn_modify (df, bb, insn);
+		    bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		    bitmap_set_bit (emitted_by_spill, INSN_UID (insn));
 		  }
 
 		emitted_spill_loads++;
@@ -533,14 +534,20 @@ rewrite_program (new_deaths)
 		  emit_insn_after (insns, insn);
 		  if (bb->end == insn)
 		    bb->end = PREV_INSN (following);
-		  for (insn = insns; insn != following; insn = NEXT_INSN (insn))
+		  for (insn = insns; insn != following;
+		       insn = NEXT_INSN (insn))
 		    {
 		      set_block_for_insn (insn, bb);
 		      df_insn_modify (df, bb, insn);
+		      bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		      bitmap_set_bit (emitted_by_spill, INSN_UID (insn));
 		    }
 		}
 	      else
-		df_insn_modify (df, bb, insn);
+		{
+		  df_insn_modify (df, bb, insn);
+		  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		}
 	      emitted_spill_stores++;
 	      spill_store_cost += bb->frequency + 1;
 	      /* XXX we should set new_deaths for all inserted stores
@@ -736,13 +743,19 @@ insert_stores (new_deaths)
 			{
 			  set_block_for_insn (ni, bb);
 			  df_insn_modify (df, bb, ni);
+			  bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+			  bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
 			}
 		    }
 		  else
-		    df_insn_modify (df, bb, insn);
+		    {
+		      df_insn_modify (df, bb, insn);
+		      bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
+		    }
 		  emitted_spill_stores++;
 		  spill_store_cost += bb->frequency + 1;
-		  bitmap_set_bit (new_deaths, INSN_UID (PREV_INSN (following)));
+		  bitmap_set_bit (new_deaths,
+				  INSN_UID (PREV_INSN (following)));
 		}
 	      else
 		{
@@ -814,7 +827,7 @@ is_partly_live_1 (live, web)
 /* Fast version in case WEB has no subwebs.  */
 #define is_partly_live(live, web) ((!web->subreg_next || web->parent_web) \
 				   ? TEST_BIT (live, web->id)		  \
-				   : is_partly_live_1 (live, web))
+				   : is_partly_live_1 (live, web))	  \
 
 /* Change the set of currently IN_USE colors according to
    WEB's color.  Either add those colors to the hardreg set (if ADD
@@ -930,7 +943,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       if (!web)
 	continue;
       supweb = find_web_for_subweb (web);
-      if (supweb->regno >= max_normal_pseudo)
+      if (SPILL_SLOT_P (supweb->regno))
 	abort ();
       /* Check for web being a spilltemp, if we only want to
 	 load spilltemps.  Also remember, that we emitted that
@@ -998,6 +1011,8 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	    {
 	      set_block_for_insn (ni, bb);
 	      df_insn_modify (df, bb, ni);
+	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+	      bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
 	    }
 	}
       else
@@ -1011,6 +1026,8 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	    {
 	      set_block_for_insn (ni, bb);
 	      df_insn_modify (df, bb, ni);
+	      bitmap_set_bit (ra_modified_insns, INSN_UID (ni));
+	      bitmap_set_bit (emitted_by_spill, INSN_UID (ni));
 	    }
 	}
       if (supweb->pattern)
@@ -1052,7 +1069,7 @@ detect_bbs_for_rewrite (changed_bbs)
 }
 
 /* Test LIVE for partial WEB live.  */
-static int
+int
 is_partly_dead (live, web)
      sbitmap live;
      struct web *web;
@@ -1070,7 +1087,7 @@ is_partly_dead (live, web)
 }
 
 /* Set live bit in LIVE for WEB or all his subwebs.  */
-static void
+void
 set_web_live (live, web)
      sbitmap live;
      struct web *web;
@@ -1085,7 +1102,7 @@ set_web_live (live, web)
 }
 
 /* Reset live bit in LIVE for WEB or all his subwebs.  */
-static void
+void
 reset_web_live (live, web)
      sbitmap live;
      struct web *web;
@@ -1805,6 +1822,7 @@ delete_useless_defs ()
 	  PUT_CODE (insn, NOTE);
 	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
 	  df_insn_modify (df, BLOCK_FOR_INSN (insn), insn);
+	  bitmap_set_bit (ra_modified_insns, INSN_UID (insn));
 	}
     });
 }
@@ -1915,7 +1933,7 @@ emit_colors (df)
       if (web->reg_rtx || web->regno < FIRST_PSEUDO_REGISTER)
 	abort ();
 
-      if (web->regno >= max_normal_pseudo)
+      if (SPILL_SLOT_P (web->regno))
 	{
 	  rtx place;
 	  if (web->color == an_unusable_color)

@@ -1913,9 +1913,10 @@ struct scan_addr_state
   char *constraints;
   int modified;			/* Flag for auto modified addresses */
   enum reg_class class;		/* Register class */
+  struct ra_info *ra_info;
 };
 
-static int scan_addr_func            PARAMS ((struct ra_info *, rtx *,
+static int scan_addr_func            PARAMS ((rtx *,
 					      struct scan_addr_state *));
 static ra_ref * scan_addr_create_ref PARAMS ((struct ra_info *, rtx *,
 					      struct scan_addr_state *,
@@ -1925,8 +1926,7 @@ static ra_ref * scan_addr_create_ref PARAMS ((struct ra_info *, rtx *,
    FIXME: Must be substituted by define_address.  */
 
 static int
-scan_addr_func (ra_info, loc, scan_state)
-     struct ra_info *ra_info;
+scan_addr_func (loc, scan_state)
      rtx *loc;
      struct scan_addr_state *scan_state;
 {
@@ -1939,7 +1939,7 @@ scan_addr_func (ra_info, loc, scan_state)
 	t = RA_REF_ADDRESS | RA_REF_READ;
 	if (scan_state->regs_per_addr == 1)
 	  t |= RA_REF_WRITE;
-	ref = scan_addr_create_ref (ra_info, loc, scan_state, t);
+	ref = scan_addr_create_ref (scan_state->ra_info, loc, scan_state, t);
 	scan_state->class = INDEX_REG_CLASS;
       }
       break;
@@ -1957,7 +1957,7 @@ scan_addr_func (ra_info, loc, scan_state)
 
 	if (REG_P (x1) && ! REG_P (x0))
 	  {
-	    scan_addr_func (ra_info, &XEXP (*loc, 1), scan_state);
+	    scan_addr_func (&XEXP (*loc, 1), scan_state);
 	    for_each_rtx (&XEXP (*loc, 0), (rtx_function) scan_addr_func,
 			  scan_state);
 	    return -1;
@@ -1978,7 +1978,7 @@ scan_addr_func (ra_info, loc, scan_state)
 	if (REG_P (*loc0))
 	  {
 	    ra_ref *ref;
-	    ref = scan_addr_create_ref (ra_info, loc0, scan_state,
+	    ref = scan_addr_create_ref (scan_state->ra_info, loc0, scan_state,
 					RA_REF_ADDRESS | RA_REF_RDWR);
 	    ref->class = BASE_REG_CLASS;
 	    return -1;
@@ -1994,10 +1994,11 @@ scan_addr_func (ra_info, loc, scan_state)
 	if (GET_CODE (*loc0) == SUBREG)
 	  loc0 = &SUBREG_REG (*loc0);
 
-	if (REG_P (XEXP (*loc0, 0)))
+	if (REG_P (*loc0))
 	  {
 	    ra_ref *ref;
-	    ref = scan_addr_create_ref (ra_info, &XEXP (*loc0, 0), scan_state,
+	    ref = scan_addr_create_ref (scan_state->ra_info,
+					loc0, scan_state,
 					RA_REF_ADDRESS | RA_REF_WRITE);
 	    scan_state->class = BASE_REG_CLASS;
 	    for_each_rtx (&XEXP (*loc, 1), (rtx_function) scan_addr_func,
@@ -2095,6 +2096,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   rtx this_alternative_reg[MAX_RECOG_OPERANDS];
   rtx *this_alternative_reg_loc[MAX_RECOG_OPERANDS];
   char *this_alternative_constraints[MAX_RECOG_OPERANDS];
+  int this_alternative_address_operand[MAX_RECOG_OPERANDS];
   int this_alternative_number;
   int swapped;
   int goal_alternative[MAX_RECOG_OPERANDS];
@@ -2109,6 +2111,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
   rtx goal_alternative_reg[MAX_RECOG_OPERANDS];
   rtx *goal_alternative_reg_loc[MAX_RECOG_OPERANDS];
   char *goal_alternative_constraints[MAX_RECOG_OPERANDS];
+  int goal_alternative_address_operand[MAX_RECOG_OPERANDS];
   int goal_alternative_swapped;
   int best;
   int commutative;
@@ -2470,6 +2473,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	  this_alternative_reg[i] = NULL_RTX;
 	  this_alternative_reg_loc[i] = NULL;
 	  this_alternative_constraints[i] = p;
+	  this_alternative_address_operand[i] = 0;
 	  
 	  /* An empty constraint or empty alternative
 	     allows anything which matched the pattern.  */
@@ -2595,6 +2599,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		/* All necessary reloads for an address_operand
 		   were handled in find_reloads_address.  */
 		this_alternative[i] = (int) BASE_REG_CLASS;
+		this_alternative_address_operand[i] = 1;
 		win = 1;
 		break;
 
@@ -2970,8 +2975,10 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 		= this_alternative_earlyclobber[i];
 	      goal_alternative_reg[i] = this_alternative_reg[i];
 	      goal_alternative_reg_loc[i] = this_alternative_reg_loc[i];
-	      goal_alternative_constraints[i] =
-		this_alternative_constraints[i];
+	      goal_alternative_constraints[i]
+		= this_alternative_constraints[i];
+	      goal_alternative_address_operand[i]
+		= this_alternative_address_operand[i]; 
 	    }
 	  goal_alternative_swapped = swapped;
 	  best = losers;
@@ -3318,7 +3325,8 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
       {
 	opno2ref[i] = 0;
       
-	if (GET_CODE (recog_data.operand[i]) == MEM)
+	if (GET_CODE (recog_data.operand[i]) == MEM
+	    || goal_alternative_address_operand[i])
 	  {
 	    /* FIXME: Now we can only record registers inside address. */
 	    struct scan_addr_state scan_state;
@@ -3331,6 +3339,7 @@ collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
 	    scan_state.constraints = goal_alternative_constraints[i];
 	    scan_state.modified = 0;
 	    scan_state.class = BASE_REG_CLASS;
+	    scan_state.ra_info = ra_info;
 	    for_each_rtx (recog_data.operand_loc[i],
 			  (rtx_function) scan_addr_func, &scan_state);
 	    def_refs = scan_state.defs;
@@ -3817,8 +3826,8 @@ build_df2ra (df, ra_info)
   struct df2ra df2ra;
   rtx insn;
     
-  df2ra.def2def = xcalloc (df->def_id, sizeof (ra_ref *));
-  df2ra.use2use = xcalloc (df->use_id, sizeof (ra_ref *));
+  df2ra.def2def = xcalloc (df->def_id + 1, sizeof (ra_ref *));
+  df2ra.use2use = xcalloc (df->use_id + 1, sizeof (ra_ref *));
   
   /* Check ra_info by comparing it with the df info and build array
      for translation df ref to ra_ref.  */
@@ -3833,14 +3842,13 @@ build_df2ra (df, ra_info)
 	  bad |= df_link2ra_link (df2ra, insn, DF_INSN_USES (df, insn),
 				  RA_INSN_USES (ra_info, insn));
 	}
-      /* FIXME denisc@overta.ru
-      if (bad)
+      /* FIXME denisc@overta.ru */
+      if (bad & 0)
 	{
 	  fprintf (stderr, "NONEQUAL: ");
 	  debug_df_insn (insn);
 	  debug_ra_insn_refs (ra_info, insn);
 	}
-      */
     }
   return df2ra;
 }
@@ -3923,6 +3931,7 @@ pre_reload_collect (ra_info, modified)
 	  rtx prev;
 	  rtx next;
 	  rtx orig_insn;
+	  rtx deb_insn;
 
 	  if (modified && !bitmap_bit_p (modified, INSN_UID (insn)))
 	    continue;
@@ -3959,8 +3968,29 @@ pre_reload_collect (ra_info, modified)
 	      if (n_reloads)
 		{
 		  rtx before = PREV_INSN (insn);
+		  rtx after = NEXT_INSN (insn);
+
+		  if (rtl_dump_file)
+		    {
+		      fprintf (rtl_dump_file, "Reload for insn:\n");
+		      print_rtl_single (rtl_dump_file, insn);
+		      fprintf (rtl_dump_file, "\n");
+		    }
+		  
 		  emit_pre_reload_insns (insn);
 		  subst_pre_reloads (insn);
+		  
+		  if (rtl_dump_file)
+		    {
+		      fprintf (rtl_dump_file, "Reload results:\n");
+		      for (deb_insn = NEXT_INSN (before); deb_insn != after;
+			   deb_insn = NEXT_INSN (deb_insn))
+			{
+			  print_rtl_single (rtl_dump_file, deb_insn);
+			  fprintf (rtl_dump_file, "\n");
+			}
+		    }
+		  
 		  insn = NEXT_INSN (before);
 		  continue;
 		}

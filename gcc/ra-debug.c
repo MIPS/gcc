@@ -730,7 +730,7 @@ dump_igraph (df)
 	ra_debug_msg (DUMP_WEBS, " dead");
       if (web->crosses_call)
 	ra_debug_msg (DUMP_WEBS, " xcall");
-      if (web->regno >= max_normal_pseudo)
+      if (SPILL_SLOT_P (web->regno))
 	ra_debug_msg (DUMP_WEBS, " stack");
       ra_debug_msg (DUMP_WEBS, "\n");
     }
@@ -1020,40 +1020,40 @@ web_conflicts_p (web1, web2)
 /* Dump all uids of insns in which WEB is mentioned.  */
 
 void
-dump_web_insns (web)
+debug_web_insns (web)
      struct web *web;
 {
   unsigned int i;
 
-  ra_debug_msg (DUMP_EVER, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
-	     web->id, web->regno, web->add_hardregs,
-	     reg_class_names[web->regclass],
-	     web->num_freedom, web->num_conflicts);
-  ra_debug_msg (DUMP_EVER, "   def insns:");
+  fprintf (stderr, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
+	   web->id, web->regno, web->add_hardregs,
+	   reg_class_names[web->regclass],
+	   web->num_freedom, web->num_conflicts);
+  fprintf (stderr, "   def insns:");
 
   for (i = 0; i < web->num_defs; ++i)
     {
-      ra_debug_msg (DUMP_EVER, " %d ", INSN_UID (web->defs[i]->insn));
+      fprintf (stderr, " %d ", INSN_UID (web->defs[i]->insn));
     }
 
-  ra_debug_msg (DUMP_EVER, "\n   use insns:");
+  fprintf (stderr, "\n   use insns:");
   for (i = 0; i < web->num_uses; ++i)
     {
-      ra_debug_msg (DUMP_EVER, " %d ", INSN_UID (web->uses[i]->insn));
+      fprintf (stderr, " %d ", INSN_UID (web->uses[i]->insn));
     }
-  ra_debug_msg (DUMP_EVER, "\n");
+  fprintf (stderr, "\n");
 }
 
 /* Dump conflicts for web WEB.  */
 
 void
-dump_web_conflicts (web)
+debug_web_conflicts (web)
      struct web *web;
 {
   int num = 0;
   unsigned int def2;
 
-  ra_debug_msg (DUMP_EVER, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
+  fprintf (stderr, "Web: %i(%i)+%i class: %s freedom: %i degree %i\n",
 	     web->id, web->regno, web->add_hardregs,
 	     reg_class_names[web->regclass],
 	     web->num_freedom, web->num_conflicts);
@@ -1062,37 +1062,37 @@ dump_web_conflicts (web)
     if (TEST_BIT (igraph, igraph_index (web->id, def2)) && web->id != def2)
       {
 	if ((num % 9) == 5)
-	  ra_debug_msg (DUMP_EVER, "\n             ");
+	  fprintf (stderr, "\n             ");
 	num++;
 
-	ra_debug_msg (DUMP_EVER, " %d(%d)", def2, id2web[def2]->regno);
+	fprintf (stderr, " %d(%d)", def2, id2web[def2]->regno);
 	if (id2web[def2]->add_hardregs)
-	  ra_debug_msg (DUMP_EVER, "+%d", id2web[def2]->add_hardregs);
+	  fprintf (stderr, "+%d", id2web[def2]->add_hardregs);
 
 	if (web_conflicts_p (web, id2web[def2]))
-	  ra_debug_msg (DUMP_EVER, "/x");
+	  fprintf (stderr, "/x");
 
 	if (id2web[def2]->type == SELECT)
-	  ra_debug_msg (DUMP_EVER, "/s");
+	  fprintf (stderr, "/s");
 
 	if (id2web[def2]->type == COALESCED)
-	  ra_debug_msg (DUMP_EVER,"/c/%d", alias (id2web[def2])->id);
+	  fprintf (stderr,"/c/%d", alias (id2web[def2])->id);
       }
-  ra_debug_msg (DUMP_EVER, "\n");
+  fprintf (stderr, "\n");
   {
     struct conflict_link *wl;
     num = 0;
-    ra_debug_msg (DUMP_EVER, "By conflicts:     ");
+    fprintf (stderr, "By conflicts:     ");
     for (wl = web->conflict_list; wl; wl = wl->next)
       {
 	struct web* w = wl->t;
 	if ((num % 9) == 8)
-	  ra_debug_msg (DUMP_EVER, "\n              ");
+	  fprintf (stderr, "\n              ");
 	num++;
-	ra_debug_msg (DUMP_EVER, "%d(%d)%s ", w->id, w->regno,
+	fprintf (stderr, "%d(%d)%s ", w->id, w->regno,
 		   web_conflicts_p (web, w) ? "+" : "");
       }
-    ra_debug_msg (DUMP_EVER, "\n");
+    fprintf (stderr, "\n");
   }
 }
 

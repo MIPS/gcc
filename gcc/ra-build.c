@@ -117,6 +117,7 @@ static void init_bb_info PARAMS ((void));
 static void free_bb_info PARAMS ((void));
 static void build_web_parts_and_conflicts PARAMS ((struct df *));
 static void select_regclass PARAMS ((void));
+static void detect_spanned_deaths PARAMS ((unsigned int *spanned_deaths));
 
 
 /* A sbitmap of DF_REF_IDs of uses, which are live over an abnormal
@@ -275,8 +276,8 @@ copy_insn_p (insn, source, target)
   /* Copies between hardregs are useless for us, as not coalesable anyway. */
   if ((s_regno < FIRST_PSEUDO_REGISTER
        && d_regno < FIRST_PSEUDO_REGISTER)
-      || s_regno >= max_normal_pseudo
-      || d_regno >= max_normal_pseudo)
+      || SPILL_SLOT_P (s_regno)
+      || SPILL_SLOT_P (d_regno))
     return 0;
 
   if (source)
@@ -2275,7 +2276,14 @@ detect_spill_temps ()
 {
   struct dlist *d;
   bitmap already = BITMAP_XMALLOC ();
+  unsigned int *spanned_deaths_from_scratch;
 
+  if (flag_ra_spanned_deaths_from_scratch)
+    {
+      spanned_deaths_from_scratch
+	= (unsigned  *)xcalloc (sizeof (int), num_webs);
+      detect_spanned_deaths (spanned_deaths_from_scratch);
+    }
   /* Detect webs used for spill temporaries.  */
   for (d = WEBS(INITIAL); d; d = d->next)
     {
@@ -2312,10 +2320,12 @@ detect_spill_temps ()
 	  unsigned int i;
 	  int spill_involved = 0;
 	  for (i = 0; i < web->num_uses && !spill_involved; i++)
-	    if (DF_REF_INSN_UID (web->uses[i]) >= orig_max_uid)
+	    if (bitmap_bit_p (emitted_by_spill,
+			      DF_REF_INSN_UID (web->uses[i])))
 	      spill_involved = 1;
 	  for (i = 0; i < web->num_defs && !spill_involved; i++)
-	    if (DF_REF_INSN_UID (web->defs[i]) >= orig_max_uid)
+	    if (bitmap_bit_p (emitted_by_spill,
+			      DF_REF_INSN_UID (web->defs[i])))
 	      spill_involved = 1;
 
 	  if (spill_involved/* && ra_pass > 2*/)
@@ -2334,22 +2344,27 @@ detect_spill_temps ()
 		 dead web), so reduce the number of spanned deaths by those
 		 insns.  Note that sometimes such deaths are _not_ counted,
 	         so negative values can result.  */
-	      bitmap_zero (already);
-	      for (i = 0; i < web->num_defs; i++)
+	      if (flag_ra_spanned_deaths_from_scratch)
+		num_deaths = spanned_deaths_from_scratch[web->id];
+	      else
 		{
-		  rtx insn = web->defs[i]->insn;
-		  if (TEST_BIT (insns_with_deaths, INSN_UID (insn))
-		      && !bitmap_bit_p (already, INSN_UID (insn)))
+		  bitmap_zero (already);
+		  for (i = 0; i < web->num_defs; i++)
 		    {
-		      unsigned int j;
-		      bitmap_set_bit (already, INSN_UID (insn));
-		      /* Only decrement it once for each insn.  */
-		      for (j = 0; j < web->num_uses; j++)
-			if (web->uses[j]->insn == insn)
-			  {
-			    num_deaths--;
-			    break;
-			  }
+		      rtx insn = web->defs[i]->insn;
+		      if (TEST_BIT (insns_with_deaths, INSN_UID (insn))
+			  && !bitmap_bit_p (already, INSN_UID (insn)))
+			{
+			  unsigned int j;
+			  bitmap_set_bit (already, INSN_UID (insn));
+			  /* Only decrement it once for each insn.  */
+			  for (j = 0; j < web->num_uses; j++)
+			    if (web->uses[j]->insn == insn)
+			      {
+				num_deaths--;
+				break;
+			      }
+			}
 		    }
 		}
 	      /* But mark them specially if they could possibly be spilled,
@@ -2363,12 +2378,17 @@ detect_spill_temps ()
 	     change making the graph not easier to color.  Make this also
 	     a short web.  Don't do this if it crosses calls, as these are
 	     also points of reloads.  */
-	  else if (web->span_deaths == 0 && !web->crosses_call)
+	  else if ((flag_ra_spanned_deaths_from_scratch
+		    ? spanned_deaths_from_scratch[web->id] == 0
+		    : web->span_deaths == 0)
+		   && !web->crosses_call)
 	    web->spill_temp = 3;
 	}
       web->orig_spill_temp = web->spill_temp;
     }
   BITMAP_XFREE (already);
+  if (flag_ra_spanned_deaths_from_scratch)
+    free (spanned_deaths_from_scratch);
 }
 
 /* Returns nonzero if the rtx MEM refers somehow to a stack location.  */
@@ -2520,7 +2540,7 @@ detect_remat_webs ()
 		  unchanging flag set, but nevertheless they are stable across
 		  the livetime in question.  */
 	       || (GET_CODE (src) == MEM
-		   && INSN_UID (insn) >= orig_max_uid
+		   && bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
 		   && memref_is_stack_slot (src)))
 	      /* And we must be able to construct an insn without
 		 side-effects to actually load that value into a reg.  */
@@ -2627,11 +2647,13 @@ static void
 select_regclass ()
 {
   struct dlist *d;
+
+  if (flag_ra_pre_reload)
+    web_class ();
   
   for (d = WEBS(INITIAL); d; d = d->next)
     {
       int i;
-      struct web *w;
       struct web *web = DLIST_WEB (d);
       do
 	{
@@ -2639,36 +2661,43 @@ select_regclass ()
 
 	  if (web->regno < FIRST_PSEUDO_REGISTER)
 	    continue;
-
-	  if ((web->spill_temp == 1 || web->spill_temp == 2)
-	      && ! web->changed
-	      && web->type == INITIAL)
+	  
+	  if (flag_ra_pre_reload)
 	    {
-	      if (web->regno >= max_normal_pseudo)
+	      web->regclass = web_preferred_class (web);
+	      COPY_HARD_REG_SET (web->usable_regs,
+				 reg_class_contents [web->regclass]);
+	    }
+	  else
+	    {
+	      if ((web->spill_temp == 1 || web->spill_temp == 2)
+		  && ! web->changed)
 		{
+		  if (SPILL_SLOT_P (web->regno))
+		    {
+		      COPY_HARD_REG_SET (web->usable_regs,
+					 reg_class_contents
+					 [reg_preferred_class (web->regno)]);
+		      IOR_HARD_REG_SET (web->usable_regs,
+					reg_class_contents
+					[reg_alternate_class (web->regno)]);
+		    }
+		  else
+		    COPY_HARD_REG_SET (web->usable_regs,
+				       reg_class_contents[(int) ALL_REGS]);
+		}
+	      else
+		{
+		  web->regclass = reg_preferred_class (web->regno);
+		  if (web->regclass == NO_REGS)
+		    abort ();
 		  COPY_HARD_REG_SET (web->usable_regs,
-				     reg_class_contents
-				     [reg_preferred_class (web->regno)]);
+				     reg_class_contents[web->regclass]);
 		  IOR_HARD_REG_SET (web->usable_regs,
 				    reg_class_contents
 				    [reg_alternate_class (web->regno)]);
 		}
-	      else
-		COPY_HARD_REG_SET (web->usable_regs,
-				   reg_class_contents[(int) ALL_REGS]);
 	    }
-	  else
-	    {
-	      web->regclass = reg_preferred_class (web->regno);
-	      if (web->regclass == NO_REGS)
-		abort ();
-	      COPY_HARD_REG_SET (web->usable_regs,
-				 reg_class_contents[web->regclass]);
-	      IOR_HARD_REG_SET (web->usable_regs,
-				reg_class_contents
-				[reg_alternate_class (web->regno)]);
-	    }
-      
 	  /* add_hardregs is wrong in multi-length classes, e.g.
 	     using a DFmode pseudo on x86 can result in class FLOAT_INT_REGS,
 	     where, if it finally is allocated to GENERAL_REGS it needs two,
@@ -2684,7 +2713,7 @@ select_regclass ()
 
 	  if ((web->spill_temp == 1 || web->spill_temp == 2)
 	      && ! web->changed
-	      && web->type == INITIAL)
+	      && ! flag_ra_pre_reload)
 	    {
 	      /* Now look for a class, which is subset of our constraints, to
 		 setup add_hardregs, and regclass for debug output.  */
@@ -2976,10 +3005,16 @@ handle_asm_insn (df, insn)
 	}
       else
 	{
-	  COPY_HARD_REG_SET (conflict, usable_regs
-			     [reg_preferred_class (web->regno)]);
-	  IOR_HARD_REG_SET (conflict, usable_regs
-			    [reg_alternate_class (web->regno)]);
+	  if (flag_ra_pre_reload)
+	    COPY_HARD_REG_SET (conflict,
+			       usable_regs [web_preferred_class (web)]);
+	  else
+	    {
+	      COPY_HARD_REG_SET (conflict, usable_regs
+				 [reg_preferred_class (web->regno)]);
+	      IOR_HARD_REG_SET (conflict, usable_regs
+				[reg_alternate_class (web->regno)]);
+	    }
 	  AND_COMPL_HARD_REG_SET (conflict, allowed);
 	  /* We can't yet establish these conflicts.  Reload must go first
 	     (or better said, we must implement some functionality of reload).
@@ -3251,6 +3286,222 @@ ra_build_free_all (df)
   free (def2web);
   use2web = NULL;
   def2web = NULL;
+}
+
+static void
+detect_spanned_deaths (spanned_deaths)
+     unsigned int *spanned_deaths;
+{
+  rtx insn, head_prev;
+  unsigned int j;
+  basic_block bb;
+  unsigned int i;
+  bitmap already ATTRIBUTE_UNUSED;
+  int debug = 0;
+  sbitmap live = sbitmap_alloc (num_webs);
+  sbitmap rmw_web = sbitmap_alloc (num_webs);
+  sbitmap defs_per_insn = sbitmap_alloc (num_webs);
+
+  if (debug)
+    {
+      already = BITMAP_XMALLOC ();
+      fprintf (stderr, ":::: Detect_spanned_deaths :::\n");
+    }
+  
+  FOR_ALL_BB (bb)
+    {
+      if (!bb->end)
+	continue;
+      
+      insn = bb->end;
+      if (!INSN_P (insn))
+	insn = prev_real_insn (insn);
+      
+      /* Empty block?  */
+      if (!insn || BLOCK_FOR_INSN (insn) != bb)
+	continue;
+
+      head_prev = PREV_INSN (bb->head);
+      sbitmap_zero (live);
+      
+      if(debug)
+	{
+	  fprintf (stderr, "live_at_end[%d]", bb->index); 
+	  bitmap_clear (already);
+	}
+
+      EXECUTE_IF_SET_IN_BITMAP
+	(live_at_end[bb->index], 0, j,
+	 { 
+	   struct web *web = use2web[j];
+	   struct web *aweb = alias (find_web_for_subweb (web));
+	   set_web_live (live, aweb);
+	   if (debug)
+	     if (! bitmap_bit_p (already, aweb->id))
+	       {
+		 fprintf (stderr, " %d", aweb->id);
+		 bitmap_set_bit (already, aweb->id);
+	       }
+	 });
+      
+      if (debug)
+	fprintf (stderr, "\n");
+
+      for (; insn != head_prev; insn = PREV_INSN (insn))
+	{
+	  struct ra_insn_info info;
+	  unsigned int n;
+
+	  if (!INSN_P (insn))
+	    continue;
+
+	  sbitmap_zero (rmw_web);
+	      
+	  info = insn_df[INSN_UID (insn)];
+
+	  if (debug > 1)
+	    {
+	      fprintf (stderr, "insn %d defs %d uses %d\n", INSN_UID (insn),
+		       info.num_defs, info.num_uses);
+	    }
+	  
+	  for (n = 0; n < info.num_defs; n++)
+	    {
+	      struct web *web;
+	      struct web *sweb;
+	      unsigned int n2;
+	      struct ref *ref = info.defs[n];
+	      struct web *subweb = def2web[DF_REF_ID (ref)];
+	      int is_non_def = 0;
+
+	      web = find_web_for_subweb (subweb);
+	      /* Detect rmw webs.  */
+	      for (n2 = 0; n2 < info.num_uses; n2++)
+		{
+		  struct web *web2 = use2web[DF_REF_ID (info.uses[n2])];
+		  if (web == find_web_for_subweb (web2))
+		    {
+		      SET_BIT (rmw_web, web->id);
+		      SET_BIT (rmw_web, web2->id);
+		      is_non_def = 1;
+		    }
+		}
+	      if (is_non_def)
+		{
+		  if (debug > 1)
+		    fprintf (stderr, "    web %d RMW\n", web->id);
+		  continue;
+		}
+
+	      reset_web_live (live, web);
+	      
+	      SET_BIT (defs_per_insn, web->id);
+	      if (!web->parent_web)
+		for (sweb = web->subreg_next; sweb;
+		     sweb = sweb->subreg_next)
+		  SET_BIT (defs_per_insn, sweb->id);
+	      
+	      if (debug > 1)
+		{
+		  struct web *sweb;
+		  fprintf (stderr, "    web %d dead\n", subweb->id);
+		  if (!web->parent_web)
+		    for (sweb = web->subreg_next; sweb;
+			 sweb = sweb->subreg_next)
+		      fprintf (stderr, "    sweb %d dead\n", sweb->id);
+		} 
+	    }
+#if 1
+	  EXECUTE_IF_SET_IN_SBITMAP
+	    (defs_per_insn, 0, n,
+	     {
+	       RESET_BIT (defs_per_insn, n);
+	       EXECUTE_IF_SET_IN_SBITMAP
+		 (live, 0, i,
+		  {
+		    if (! bitmap_bit_p (emitted_by_spill, INSN_UID (insn)))
+		      {
+			struct web *supweb;
+			supweb = find_web_for_subweb (id2web[i]);
+			spanned_deaths[i]++;
+			if (supweb && i != supweb->id)
+			  spanned_deaths[supweb->id]++;
+			   
+			if (debug)
+			  {
+			    if (i != supweb->id)
+			      fprintf (stderr, " %d.%d", supweb->id, i);
+			    else
+			      fprintf (stderr, " %d", i);
+			  }
+		      }
+		  });
+	     });
+	  if (debug)
+	    fprintf (stderr, "\n");
+#endif
+	  for (n = 0; n < info.num_uses; n++)
+	    {
+	      struct web *web = use2web[DF_REF_ID (info.uses[n])];
+	      if (is_partly_dead (live, web))
+		{
+		  if (debug)
+		    fprintf (stderr, "    Death web %d in insn: %d ++",
+			     web->id, INSN_UID(insn));
+
+		  EXECUTE_IF_SET_IN_SBITMAP
+		    (live, 0, i,
+		     {
+		       if (! bitmap_bit_p (emitted_by_spill, INSN_UID (insn))
+  			   && ! TEST_BIT (rmw_web, i))
+			 {
+			   struct web *supweb;
+			   supweb = find_web_for_subweb (id2web[i]);
+			   spanned_deaths[i]++;
+			   if (supweb && i != supweb->id)
+			     spanned_deaths[supweb->id]++;
+			   
+			   if (debug)
+			     {
+			       if (i != supweb->id)
+				 fprintf (stderr, " %d.%d", supweb->id, i);
+			       else
+				 fprintf (stderr, " %d", i);
+			     }
+			 }
+		     });
+		  if (debug)
+		    fprintf (stderr, "\n");
+		}
+	    }
+	  
+	  for (n = 0; n < info.num_uses; n++)
+	    {
+	      struct web *web = use2web[DF_REF_ID (info.uses[n])];
+	      if (web->regno >= FIRST_PSEUDO_REGISTER)
+		set_web_live (live, web);
+	    }
+	}
+    }
+
+  if (debug)
+    {
+      for (j = 0; j < num_webs - num_subwebs; ++j)
+	{
+	  struct web *web = id2web[j];
+	  if (web->type != PRECOLORED)
+	    fprintf (stderr, "Web: %d (%d) spanned from web: %d %s %d\n",
+		     j, web->regno,
+		     web->span_deaths,
+		     web->span_deaths == spanned_deaths[web->id] ? "==" : "!=",
+		     spanned_deaths[web->id]);
+	}
+      BITMAP_XFREE (already);
+      ra_print_rtl_with_bb (stderr,get_insns());
+    }
+  sbitmap_free (live);
+  sbitmap_free (rmw_web);
+  sbitmap_free (defs_per_insn);
 }
 
 #include "gt-ra-build.h"
