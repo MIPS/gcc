@@ -898,12 +898,11 @@ gfc_conv_intrinsic_char (gfc_se * se, gfc_expr * expr)
 
   /* We currently don't support character types != 1.  */
   assert (expr->ts.kind == 1);
-  type = gfc_get_character_type (expr->ts.kind, expr->ts.cl);
+  type = gfc_character1_type_node;
   var = gfc_create_var (type, "char");
   TREE_ADDRESSABLE (var) = 1;
 
-  arg = convert (gfc_character1_type_node, arg);
-  var = build (ARRAY_REF, gfc_character1_type_node, var, integer_one_node);
+  arg = convert (type, arg);
   gfc_add_modify_expr (&se->pre, var, arg);
   se->expr = build1 (ADDR_EXPR, build_pointer_type (type), var);
   se->string_length = integer_one_node;
