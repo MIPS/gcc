@@ -820,6 +820,20 @@ register_new_def (tree def, varray_type *block_defs_p, varray_type table)
   tree var = SSA_NAME_VAR (def);
   tree currdef;
    
+  /* If this variable is set in a single basic block and all uses are
+     dominated by the set(s) in that single basic block, then there is
+     no reason to record anything for this variable in the block local
+     definition stacks.  Doing so just wastes time and memory.
+
+     This is the same test to prune the set of variables which may
+     need PHI nodes.  So we just use that information since it's already
+     computed and available for us to use.  */
+  if (var_ann (var)->need_phi_state == NEED_PHI_STATE_NO)
+    {
+      set_value_for (var, def, table);
+      return;
+    }
+
   currdef = get_value_for (var, table);
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");

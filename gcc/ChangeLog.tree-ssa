@@ -1,5 +1,8 @@
 2004-04-20  Jeff Law  <law@redhat.com>
 
+	* tree-into-ssa.c (register_new_def): Avoid pushing useless
+	information onto the block local definition stack.
+
 	* tree-into-ssa.c (register_new_def): If there is no current
 	reaching definition for SSA_NAME_VAR (DEF), then just push
 	SSA_NAME_VAR (DEF) onto the stack.
