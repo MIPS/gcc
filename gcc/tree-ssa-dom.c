@@ -867,11 +867,8 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
     }
 
   /* Check for redundant computations.  Do this optimization only
-     for assignments that make no calls and have no aliased stores
-     nor volatile references and no side effects (i.e., no VDEFs).  */
-  may_optimize_p = (!ann->makes_aliased_stores
-		    && !ann->has_volatile_ops
-		    && vdefs == NULL
+     for assignments that have no volatile ops and conditionals.  */
+  may_optimize_p = (!ann->has_volatile_ops
 		    && ((TREE_CODE (stmt) == RETURN_EXPR
 			 && TREE_OPERAND (stmt, 0)
 			 && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
@@ -884,18 +881,135 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
   if (may_optimize_p)
     {
       tree *expr_p, def = NULL_TREE;
+      bool insert = true;
+      tree cached_lhs;
+
+      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	def = TREE_OPERAND (stmt, 0);
+
+      /* Certain expressions on the RHS can be optimized away, but can not
+	 themselves be entered into the hash tables.   */
+      if (ann->makes_aliased_stores
+	  || ! def
+	  || TREE_CODE (def) != SSA_NAME
+	  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
+	  || vdefs)
+	insert = false;
 
       /* Check if the RHS of the assignment has been computed before.  If
 	 so, use the LHS of the previously computed statement as the
 	 reaching definition for the variable defined by this statement.  */
-      tree cached_lhs = lookup_avail_expr (stmt,
-					   block_avail_exprs_p,
-					   const_and_copies,
-					   (TREE_CODE (stmt) == MODIFY_EXPR
-					    ? true : false));
+      cached_lhs = lookup_avail_expr (stmt, block_avail_exprs_p,
+				      const_and_copies, insert);
 
       if (TREE_CODE (stmt) == MODIFY_EXPR)
-	def = TREE_OPERAND (stmt, 0);
+	{
+	  /* If we did not find this expression in the hash table, then see
+	     if we can simplify the expression in various ways and lookup
+	     the simplified version in the hash tables.
+
+	     By doing the second lookup after simplifying we may eliminate
+	     more redundancies and in some cases enable additional copy
+	     propagation.  */
+	  if (!cached_lhs)
+	    {
+	      tree rhs = TREE_OPERAND (stmt, 1);
+	      enum tree_code rhs_code = TREE_CODE (rhs);
+
+	      /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
+		 and BIT_AND_EXPR respectively if the first operand is greater
+		 than zero and the second operand is an exact power of two.  */
+	      if ((rhs_code == TRUNC_DIV_EXPR || rhs_code == TRUNC_MOD_EXPR)
+		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0)))
+		  && integer_pow2p (TREE_OPERAND (rhs, 1)))
+	        {
+		  tree cond, val;
+		  tree op = TREE_OPERAND (rhs, 0);
+
+		  cond = build (GT_EXPR, boolean_type_node,
+			        op, integer_zero_node);
+		  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+		  val = lookup_avail_expr (cond, block_avail_exprs_p,
+					   const_and_copies, false);
+
+		  /* Also try with GE_EXPR if we did not get a hit with
+		     GT_EXPR.  */
+		  if (! val || ! integer_onep (val))
+		    {
+		      cond = build (GE_EXPR, boolean_type_node,
+				    op, integer_zero_node);
+		      cond = build (COND_EXPR, void_type_node, cond,
+				    NULL, NULL);
+		      val = lookup_avail_expr (cond, block_avail_exprs_p,
+					       const_and_copies, false);
+		    }
+	    
+		  if (val && integer_onep (val))
+		    {
+		      tree t;
+		      tree op0 = TREE_OPERAND (rhs, 0);
+		      tree op1 = TREE_OPERAND (rhs, 1);
+
+		      if (rhs_code == TRUNC_DIV_EXPR)
+		        t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0,
+				   build_int_2 (tree_log2 (op1), 0));
+		      else
+		        t = build (BIT_AND_EXPR, TREE_TYPE (op0), op0,
+				   fold (build (MINUS_EXPR, TREE_TYPE (op1),
+					        op1, integer_one_node)));
+
+		      cached_lhs
+		        = update_rhs_and_lookup_avail_expr (stmt, t,
+							    block_avail_exprs_p,
+							    const_and_copies,
+							    ann, insert);
+		    }
+	        }
+
+	      /* Transform ABS (X) into X or -X as appropriate.  */
+	      if (rhs_code == ABS_EXPR
+		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
+	        {
+		  tree cond, val;
+		  tree op = TREE_OPERAND (rhs, 0);
+		  tree type = TREE_TYPE (op);
+
+		  cond = build (LT_EXPR, boolean_type_node, op,
+			        convert (type, integer_zero_node));
+		  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+		  val = lookup_avail_expr (cond, block_avail_exprs_p,
+					   const_and_copies, false);
+
+		  if (! val
+		      || (! integer_onep (val) && ! integer_zerop (val)))
+		    {
+		      cond = build (LE_EXPR, boolean_type_node, op,
+				    convert (type, integer_zero_node));
+		      cond = build (COND_EXPR, void_type_node, cond,
+				    NULL, NULL);
+		      val = lookup_avail_expr (cond, block_avail_exprs_p,
+					       const_and_copies, false);
+		    }
+	    
+		  if (val
+		      && (integer_onep (val) || integer_zerop (val)))
+		    {
+		      tree t;
+
+		      if (integer_onep (val))
+		        t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
+		      else
+		        t = op;
+
+		      cached_lhs
+		        = update_rhs_and_lookup_avail_expr (stmt, t,
+						  	    block_avail_exprs_p,
+							    const_and_copies,
+							    ann, insert);
+		    }
+	        }
+	    }
+        }
 
       opt_stats.num_exprs_considered++;
 
@@ -963,9 +1077,9 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	}
     }
 
-  /* Now a few special cases.  Odds are this code will be factored out
-     into several subroutines in the near future.  I'm waiting to see
-     what other cases arise before factoring the code out.  */
+  /* Now a few special cases which add equivalences to the hash tables.
+     Odds are this code will be further factored out into several subroutines
+     in the near future.  I'm waiting to see what other cases arise first.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       int i;
@@ -1058,111 +1172,6 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    }
 	}
 
-      /* IOR of any value with a nonzero value will result in a nonzero
-         value.  Even if we do not know the exact result recording that
-	 the result is nonzero is worth the effort.  */
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
-	  && TREE_CODE (TREE_OPERAND (stmt, 1)) == BIT_IOR_EXPR
-	  && integer_nonzerop (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
-	{
-	  tree cond;
-	  tree op = TREE_OPERAND (stmt, 0);
-
-	  cond = build (EQ_EXPR, boolean_type_node, op, null_pointer_node);
-	  record_cond_is_false (cond, block_avail_exprs_p, const_and_copies);
-
-	  cond = build (NE_EXPR, boolean_type_node, op, null_pointer_node);
-	  record_cond_is_true (cond, block_avail_exprs_p, const_and_copies);
-			  	
-	}
-
-      /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR and
-         BIT_AND_EXPR respectively if the first operand is greater than
-	 zero and the second operand is an exact power of two.  */
-      if ((TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR
-	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_MOD_EXPR)
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0)))
-	  && integer_pow2p (TREE_OPERAND (TREE_OPERAND (stmt, 1), 1)))
-        {
-	  tree cond, val;
-	  tree op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
-
-	  cond = build (GT_EXPR, boolean_type_node, op, integer_zero_node);
-	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p,
-				   const_and_copies, false);
-
-	  /* Also try with GE_EXPR if we did not get a hit with GT_EXPR.  */
-	  if (! val || ! integer_onep (val))
-	    {
-	      cond = build (GE_EXPR, boolean_type_node, op, integer_zero_node);
-	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	      val = lookup_avail_expr (cond, block_avail_exprs_p,
-				       const_and_copies, true);
-	    }
-	    
-	  if (val && integer_onep (val))
-	    {
-	      tree t;
-	      tree op0 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
-	      tree op1 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
-
-	      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == TRUNC_DIV_EXPR)
-		t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0,
-			   build_int_2 (tree_log2 (op1), 0));
-	      else
-		t = build (BIT_AND_EXPR, TREE_TYPE (op0), op0,
-			   fold (build (MINUS_EXPR, TREE_TYPE (op1),
-					op1, integer_one_node)));
-
-	      update_rhs_and_lookup_avail_expr (stmt, t,
-						block_avail_exprs_p,
-						const_and_copies,
-						ann,
-						may_optimize_p);
-	    }
-        }
-
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ABS_EXPR
-	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0))))
-        {
-	  tree cond, val;
-	  tree op = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
-	  tree type = TREE_TYPE (op);
-
-	  cond = build (LT_EXPR, boolean_type_node, op,
-			convert (type, integer_zero_node));
-	  cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	  val = lookup_avail_expr (cond, block_avail_exprs_p,
-				   const_and_copies, false);
-
-	  if (! val
-	      || (! integer_onep (val) && ! integer_zerop (val)))
-	    {
-	      cond = build (LE_EXPR, boolean_type_node, op,
-			    convert (type, integer_zero_node));
-	      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
-	      val = lookup_avail_expr (cond, block_avail_exprs_p,
-				       const_and_copies, false);
-	    }
-	    
-	  if (val
-	      && (integer_onep (val) || integer_zerop (val)))
-	    {
-	      tree t;
-
-	      if (integer_onep (val))
-		t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
-	      else
-		t = op;
-
-	      update_rhs_and_lookup_avail_expr (stmt, t,
-						block_avail_exprs_p,
-						const_and_copies,
-						ann,
-						may_optimize_p);
-	    }
-        }
     }
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
