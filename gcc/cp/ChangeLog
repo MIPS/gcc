@@ -8,12 +8,56 @@
 	just generate a new decl normally.  Take return slot parm.
 	* cp-tree.h: Adjust prototype.
 
+2002-12-13  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR C++/8031
+	* cvt.c (convert_to_pointer_force): Don't try comparing against 
+	erronous type.
+
+2002-12-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h: Have the multiple-include guards around
+	the entire file.
+
 2002-12-10  David Edelsohn  <edelsohn@gnu.org>
 
 	* cp/spew.c (feed_input): Change limit to last_pos and pos to cur_pos
 	for SPEW_DEBUG.
 	(snarf_method): Same.
 	(snarf_defarg): Same.
+
+2002-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8372
+	* pt.c (tsubst_copy): Handle destructor names more correctly.
+
+2002-12-10  Matt Austern   <austern@apple.com>
+
+	* cp-tree.h: get rid of needs_virtual_reinit bit.
+	
+2002-12-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* NEWS: Document removal of in-class initialization extension for 
+	static data members of non-arithmetic, non-enumeration type.
+	* decl.c (check_static_variable_definition): Do not allow that
+	extension.
+	* decl2.c (grokfield): Do not call digest_init when processing
+	templates.
+
+2002-12-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* error.c (dump_expr): Fix format specifier warning.
+
+2002-12-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* class.c (finish_struct_1): Correct comment.
+	* cp-tree.c (DECL_SORTED_FIELDS): Likewise.
+
+2002-12-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR C++/8799
+	* error.c (dump_expr): Don't ever try to dump a non-existent
+	expression. 
 
 2002-12-03  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -45,6 +89,38 @@
 	* search.c (covariant_return_p): Remove. Fold into ...
 	(check_final_overrider): ... here. Simplify.
 	* semantics.c (emit_associated_thunks): Walk covariant thunk lists.
+
+2002-12-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/8674
+	* call.c (build_over_call): Check specifically for TARGET_EXPR
+	when eliding.
+
+	PR c++/8461, c++/8625
+	* call.c (convert_for_arg_passing): Don't mess with error_mark_node.
+	(cp_convert_parm_for_inlining): Remove.
+	* cp-lang.c (LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING): 
+	Remove.
+	* cp-tree.h (ADDR_IS_INVISIREF): Remove.
+	* except.c (stabilize_throw_expr): Remove ADDR_IS_INVISIREF code.
+
+	* call.c (build_user_type_conversion_1): Don't set ICS_BAD_FLAG on
+	an ambiguous conversion.
+
+2002-12-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8688
+	* decl.c (reshape_init): Handle erroneous initializers.
+
+2002-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/8720
+	* spew.c (remove_last_token): Make sure that last_chunk is set
+	correctly.
+
+	PR c++/8615
+	* error.c (dump_expr): Handle character constants with
+	TREE_OVERFLOW set.
 	
 2002-12-02  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
@@ -57,7 +133,7 @@
 	PR c++/5919
 	* pt.c (unify): Use variably_modified_type_p to test validity of
 	template argument types.
-
+	
 	PR c++/8727
 	* cp-tree.h (lang_type_class): Add typeinfo_var.
 	(CLASSTYPE_TYPEINFO_VAR): New macro.
@@ -92,7 +168,7 @@
 	(check_initializer): Validate the type of the initialized
 	variable, even if the initializer is absent.
 	* typeck.c (cp_type_quals): Deal gracefully with erroneous types.
-
+	
 	PR c++/8214
 	* typeck.c (convert_for_assignment): Do not use
 	decl_constant_value on the operand.
@@ -105,7 +181,7 @@
 
 	* parse.y (class_head_defn): Set CLASSTYPE_DECLARED_CLASS for
 	anonymous structs.
-
+	
 2002-11-29  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (walk_subobject_offsets): Recur on binfos as well as on
@@ -114,7 +190,7 @@
 	base class.
 	(layout_empty_base): Likewise.
 	(build_base_field): Likewise.
-
+	
 2002-11-27  Mark Mitchell  <mark@codesourcery.com>
 
 	* class.c (build_base_field): Make sure we get the canonical base
@@ -144,7 +220,7 @@
 	(build_base_field): Record offsets of empty bases in primary
 	virtual bases.
 	(layout_class_type): Record offsets of empty bases in fields.
-
+	
 	* search.c (is_subobject_of_p_1): Fix thinko.
 	(lookup_field_queue_p): Likewise.
 

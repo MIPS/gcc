@@ -459,7 +459,7 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    is sufficient to check bounds at the time the reference is seated,
    and assume that all future uses of the reference are safe, since
    the address of references cannot change.  (2) When a reference
-   supertype is seated to an subtype object.  The bounds "remember"
+   supertype is seated to a subtype object.  The bounds "remember"
    the true size of the complete object, so that subsequent upcasts of
    the address of the reference will be checked properly (is such a
    thing valid C++?).  */
@@ -2407,11 +2407,6 @@ extern tree merge_attributes		PARAMS ((tree, tree));
    dllimport, return a list of their union .  */
 extern tree merge_dllimport_decl_attributes PARAMS ((tree, tree));
 #endif
-
-/* Return true if DECL will be always resolved to a symbol defined in the
-   same module (shared library or program).  */
-#define MODULE_LOCAL_P(DECL) \
-  (lookup_attribute ("visibility", DECL_ATTRIBUTES (DECL)) != NULL)
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,

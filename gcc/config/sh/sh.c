@@ -156,16 +156,17 @@ char sh_additional_register_names[ADDREGNAMES_SIZE] \
   = SH_ADDITIONAL_REGISTER_NAMES_INITIALIZER;
 
 /* Provide reg_class from a letter such as appears in the machine
-   description.  */
+   description.  *: target independently reserved letter.
+   reg_class_from_letter['e'] is set to NO_REGS for TARGET_FMOVD.  */
 
-const enum reg_class reg_class_from_letter[] =
+enum reg_class reg_class_from_letter[] =
 {
-  /* a */ ALL_REGS, /* b */ TARGET_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
-  /* e */ NO_REGS, /* f */ FP_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
-  /* i */ NO_REGS, /* j */ NO_REGS, /* k */ SIBCALL_REGS, /* l */ PR_REGS,
-  /* m */ NO_REGS, /* n */ NO_REGS, /* o */ NO_REGS, /* p */ NO_REGS,
-  /* q */ NO_REGS, /* r */ NO_REGS, /* s */ NO_REGS, /* t */ T_REGS,
-  /* u */ NO_REGS, /* v */ NO_REGS, /* w */ FP0_REGS, /* x */ MAC_REGS,
+  /* a */ ALL_REGS,  /* b */ TARGET_REGS, /* c */ FPSCR_REGS, /* d */ DF_REGS,
+  /* e */ FP_REGS,   /* f */ FP_REGS,  /* g **/ NO_REGS,     /* h */ NO_REGS,
+  /* i **/ NO_REGS,  /* j */ NO_REGS,  /* k */ SIBCALL_REGS, /* l */ PR_REGS,
+  /* m **/ NO_REGS,  /* n **/ NO_REGS, /* o **/ NO_REGS,     /* p **/ NO_REGS,
+  /* q */ NO_REGS,   /* r **/ NO_REGS, /* s **/ NO_REGS,     /* t */ T_REGS,
+  /* u */ NO_REGS,   /* v */ NO_REGS,  /* w */ FP0_REGS,     /* x */ MAC_REGS,
   /* y */ FPUL_REGS, /* z */ R0_REGS
 };
 
@@ -729,7 +730,7 @@ prepare_move_operands (operands, mode)
     {
       /* Copy the source to a register if both operands aren't registers.  */
       if (! register_operand (operands[0], mode)
-	  && ! register_operand (operands[1], mode))
+	  && ! sh_register_operand (operands[1], mode))
 	operands[1] = copy_to_mode_reg (mode, operands[1]);
 
       /* This case can happen while generating code to move the result
@@ -2360,7 +2361,7 @@ dump_table (scan)
   int i;
   int need_align = 1;
   rtx lab, ref;
-  int have_di = 0;
+  int have_df = 0;
 
   /* Do two passes, first time dump out the HI sized constants.  */
 
@@ -2385,13 +2386,13 @@ dump_table (scan)
 	      scan = emit_insn_after (gen_consttable_window_end (lab), scan);
 	    }
 	}
-      else if (p->mode == DImode || p->mode == DFmode)
-	have_di = 1;
+      else if (p->mode == DFmode)
+	have_df = 1;
     }
 
   need_align = 1;
 
-  if (TARGET_SHCOMPACT && have_di)
+  if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
       rtx align_insn = NULL_RTX;
 
@@ -2435,13 +2436,13 @@ dump_table (scan)
 		}
 	      break;
 	    case DFmode:
-	    case DImode:
 	      if (need_align)
 		{
 		  scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
 		  align_insn = scan;
 		  need_align = 0;
 		}
+	    case DImode:
 	      for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		scan = emit_label_after (lab, scan);
 	      scan = emit_insn_after (gen_consttable_8 (p->value, const0_rtx),
@@ -4311,6 +4312,8 @@ push (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_push_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_push_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4339,6 +4342,8 @@ pop (rn)
   rtx x;
   if (rn == FPUL_REG)
     x = gen_pop_fpul ();
+  else if (rn == FPSCR_REG)
+    x = gen_pop_fpscr ();
   else if (TARGET_SH4 && TARGET_FMOVD && ! TARGET_FPU_SINGLE
 	   && FP_OR_XD_REGISTER_P (rn))
     {
@@ -4437,7 +4442,9 @@ calc_live_regs (count_ptr, live_regs_mask)
 		  && pr_live))
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
-	     && reg != T_REG && reg != GBR_REG)
+	     && reg != T_REG && reg != GBR_REG
+	     /* Push fpscr only on targets which have FPU */
+	     && (reg != FPSCR_REG || TARGET_FPU_ANY))
 	  : (/* Only push those regs which are used and need to be saved.  */
 	     (TARGET_SHCOMPACT
 	      && flag_pic
@@ -7119,12 +7126,13 @@ sh_hard_regno_rename_ok (old_reg, new_reg)
    return 1;
 }
 
-/* A C statement (sans semicolon) to update the integer variable COST
+/* Function to update the integer COST
    based on the relationship between INSN that is dependent on
    DEP_INSN through the dependence LINK.  The default is to make no
    adjustment to COST.  This can be used for example to specify to
    the scheduler that an output- or anti-dependence does not incur
-   the same cost as a data-dependence.  */
+   the same cost as a data-dependence.  The return value should be
+   the new value for COST.  */
 static int
 sh_adjust_cost (insn, link, dep_insn, cost)
      rtx insn;
@@ -7151,7 +7159,7 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 
       if (recog_memoized (insn) < 0
 	  || recog_memoized (dep_insn) < 0)
-	return;
+	return cost;
 
       dep_type = get_attr_type (dep_insn);
       if (dep_type == TYPE_FLOAD || dep_type == TYPE_PCFLOAD)
@@ -7823,6 +7831,8 @@ sh_expand_builtin (exp, target, subtarget, mode, ignore)
     case 4:
       pat = (*insn_data[d->icode].genfun) (op[0], op[1], op[2], op[3]);
       break;
+    default:
+      abort ();
     }
   if (! pat)
     return 0;
@@ -7900,6 +7910,74 @@ sh_mark_label (address, nuses)
   if (GET_CODE (address) == LABEL_REF
       && GET_CODE (XEXP (address, 0)) == CODE_LABEL)
     LABEL_NUSES (XEXP (address, 0)) += nuses;
+}
+
+/* Compute extra cost of moving data between one register class
+   and another.  */
+
+/* If SECONDARY*_RELOAD_CLASS says something about the src/dst pair, regclass
+   uses this information.  Hence, the general register <-> floating point
+   register information here is not used for SFmode.  */
+
+int
+sh_register_move_cost (mode, srcclass, dstclass)
+     enum machine_mode mode;
+     enum reg_class srcclass, dstclass;
+{
+  if (dstclass == T_REGS || dstclass == PR_REGS)
+    return 10;
+
+  if (mode == SImode && ! TARGET_SHMEDIA && TARGET_FMOVD
+      && REGCLASS_HAS_FP_REG (srcclass)
+      && REGCLASS_HAS_FP_REG (dstclass))
+    return 4;
+
+  if ((REGCLASS_HAS_FP_REG (dstclass)
+       && REGCLASS_HAS_GENERAL_REG (srcclass))
+      || (REGCLASS_HAS_GENERAL_REG (dstclass)
+	  && REGCLASS_HAS_FP_REG (srcclass)))
+   return ((TARGET_SHMEDIA ? 4 : TARGET_FMOVD ? 8 : 12)
+	   * ((GET_MODE_SIZE (mode) + 7) / 8U));
+
+  if ((dstclass == FPUL_REGS
+       && REGCLASS_HAS_GENERAL_REG (srcclass))
+      || (srcclass == FPUL_REGS
+	  && REGCLASS_HAS_GENERAL_REG (dstclass)))
+    return 5;
+
+  if ((dstclass == FPUL_REGS
+       && (srcclass == PR_REGS || srcclass == MAC_REGS || srcclass == T_REGS))
+      || (srcclass == FPUL_REGS		
+	  && (dstclass == PR_REGS || dstclass == MAC_REGS)))
+    return 7;
+
+  if ((srcclass == TARGET_REGS && ! REGCLASS_HAS_GENERAL_REG (dstclass))
+      || ((dstclass) == TARGET_REGS && ! REGCLASS_HAS_GENERAL_REG (srcclass)))
+    return 20;
+
+  if ((srcclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (dstclass))
+      || (dstclass == FPSCR_REGS && ! REGCLASS_HAS_GENERAL_REG (srcclass)))
+  return 4;
+
+  if (TARGET_SHMEDIA
+      || (TARGET_FMOVD
+	  && ! REGCLASS_HAS_GENERAL_REG (srcclass)
+	  && ! REGCLASS_HAS_GENERAL_REG (dstclass)))
+    return 2 * ((GET_MODE_SIZE (mode) + 7) / 8U);
+
+  return 2 * ((GET_MODE_SIZE (mode) + 3) / 4U);
+}
+
+/* Like register_operand, but take into account that SHMEDIA can use
+   the constant zero like a general register.  */
+int
+sh_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (op == CONST0_RTX (mode) && TARGET_SHMEDIA)
+    return 1;
+  return register_operand (op, mode);
 }
 
 #include "gt-sh.h"

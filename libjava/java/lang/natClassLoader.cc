@@ -189,63 +189,6 @@ java::lang::VMClassLoader::getPrimitiveClass (jchar type)
   return _Jv_FindClassFromSignature (sig, NULL);
 }
 
-// This is the findClass() implementation for the System classloader. It is 
-// the only native method in VMClassLoader, so we define it here.
-jclass
-gnu::gcj::runtime::VMClassLoader::findClass (jstring name)
-{
-  _Jv_Utf8Const *name_u = _Jv_makeUtf8Const (name);
-  jclass klass = _Jv_FindClassInCache (name_u, 0);
-
-  if (! klass)
-    {
-      // Turn `gnu.pkg.quux' into `lib-gnu-pkg-quux'.  Then search for
-      // a module named (eg, on Linux) `lib-gnu-pkg-quux.so', followed
-      // by `lib-gnu-pkg.so' and `lib-gnu.so'.  If loading one of
-      // these causes the class to appear in the cache, then use it.
-      java::lang::StringBuffer *sb = new java::lang::StringBuffer (JvNewStringLatin1("lib-"));
-      // Skip inner classes
-      jstring cn;
-      jint ci = name->indexOf('$');
-      if (ci == -1)
-	cn = name;
-      else
-	cn = name->substring (0, ci);
-      jstring so_base_name = (sb->append (cn)->toString ())->replace ('.', '-');
-
-      // Compare against `3' because that is the length of "lib".
-      while (! klass && so_base_name && so_base_name->length() > 3)
-	{
-	  using namespace ::java::lang;
-	  Runtime *rt = Runtime::getRuntime();
-	  jboolean loaded = rt->loadLibraryInternal (so_base_name);
-
-	  jint nd = so_base_name->lastIndexOf ('-');
-	  if (nd == -1)
-	    so_base_name = NULL;
-	  else
-	    so_base_name = so_base_name->substring (0, nd);
-
-	  if (loaded)
-	    klass = _Jv_FindClassInCache (name_u, 0);
-	}
-    }
-
-  // Now try loading using the interpreter.
-  if (! klass)
-    {
-      klass = java::net::URLClassLoader::findClass (name);
-    }
-
-  return klass;
-}
-
-jclass
-java::lang::ClassLoader::findLoadedClass (jstring name)
-{
-  return _Jv_FindClassInCache (_Jv_makeUtf8Const (name), this);
-}
-
 /** This function does class-preparation for compiled classes.  
     NOTE: It contains replicated functionality from
     _Jv_ResolvePoolEntry, and this is intentional, since that function
@@ -326,6 +269,8 @@ _Jv_PrepareCompiledClass (jclass klass)
     _Jv_LinkOffsetTable(klass);
 
   klass->notifyAll ();
+
+  _Jv_PushClass (klass);
 }
 
 
@@ -587,6 +532,8 @@ _Jv_InitNewClassFields (jclass ret)
   ret->ancestors = NULL;
   ret->idt = NULL;
   ret->arrayclass = NULL;
+  ret->protectionDomain = NULL;
+  ret->chain = NULL;
 }
 
 jclass
@@ -731,4 +678,32 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     _Jv_RegisterInitiatingLoader (array_class, loader);
 
   element->arrayclass = array_class;
+}
+
+static jclass stack_head;
+
+// These two functions form a stack of classes.   When a class is loaded
+// it is pushed onto the stack by the class loader; this is so that
+// StackTrace can quickly determine which classes have been loaded.
+
+jclass
+_Jv_PopClass (void)
+{
+  JvSynchronize sync (&java::lang::Class::class$);
+  if (stack_head)
+    {
+      jclass tmp = stack_head;
+      stack_head = tmp->chain;
+      return tmp;
+    }
+  return NULL;
+}
+
+void
+_Jv_PushClass (jclass k)
+{
+  JvSynchronize sync (&java::lang::Class::class$);
+  jclass tmp = stack_head;
+  stack_head = k;
+  k->chain = tmp;
 }

@@ -1868,6 +1868,43 @@ static const char* apzHpux11_Cpp_Pow_InlinePatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Hpux11_Abs fix
+ */
+tSCC zHpux11_AbsName[] =
+     "hpux11_abs";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zHpux11_AbsList[] =
+  "|stdlib.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzHpux11_AbsMachs[] = {
+        "ia64-hp-hpux11*",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zHpux11_AbsSelect0[] =
+       "ifndef _MATH_INCLUDED";
+
+#define    HPUX11_ABS_TEST_CT  1
+static tTestDesc aHpux11_AbsTests[] = {
+  { TT_EGREP,    zHpux11_AbsSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Hpux11_Abs
+ */
+static const char* apzHpux11_AbsPatch[] = {
+    "format",
+    "if !defined(_MATH_INCLUDED) || defined(__GNUG__)",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Hpux11_Fabsf fix
  */
 tSCC zHpux11_FabsfName[] =
@@ -1908,43 +1945,6 @@ static const char* apzHpux11_FabsfPatch[] = {
     "#ifndef __cplusplus\n\
 %0\n\
 #endif",
-    (char*)NULL };
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * *
- *
- *  Description of Hpux11_Abs fix
- */
-tSCC zHpux11_AbsName[] =
-     "hpux11_abs";
-
-/*
- *  File name selection pattern
- */
-tSCC zHpux11_AbsList[] =
-  "|stdlib.h|";
-/*
- *  Machine/OS name selection pattern
- */
-tSCC* apzHpux11_AbsMachs[] = {
-        "ia64-hp-hpux11*",
-        (const char*)NULL };
-
-/*
- *  content selection pattern - do fix if pattern found
- */
-tSCC zHpux11_AbsSelect0[] =
-       "ifndef _MATH_INCLUDED";
-
-#define    HPUX11_ABS_TEST_CT  1
-static tTestDesc aHpux11_AbsTests[] = {
-  { TT_EGREP,    zHpux11_AbsSelect0, (regex_t*)NULL }, };
-
-/*
- *  Fix Command Arguments for Hpux11_Abs
- */
-static const char* apzHpux11_AbsPatch[] = {
-    "format",
-    "if !defined(_MATH_INCLUDED) || defined(__GNUG__)",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -2527,6 +2527,43 @@ static const char* apzKandr_ConcatPatch[] = {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
  *
+ *  Description of Libc1_G_Va_List fix
+ */
+tSCC zLibc1_G_Va_ListName[] =
+     "libc1_G_va_list";
+
+/*
+ *  File name selection pattern
+ */
+tSCC zLibc1_G_Va_ListList[] =
+  "|_G_config.h|";
+/*
+ *  Machine/OS name selection pattern
+ */
+tSCC* apzLibc1_G_Va_ListMachs[] = {
+        "*-*-linux*libc1",
+        (const char*)NULL };
+
+/*
+ *  content selection pattern - do fix if pattern found
+ */
+tSCC zLibc1_G_Va_ListSelect0[] =
+       "typedef void \\* _G_va_list;";
+
+#define    LIBC1_G_VA_LIST_TEST_CT  1
+static tTestDesc aLibc1_G_Va_ListTests[] = {
+  { TT_EGREP,    zLibc1_G_Va_ListSelect0, (regex_t*)NULL }, };
+
+/*
+ *  Fix Command Arguments for Libc1_G_Va_List
+ */
+static const char* apzLibc1_G_Va_ListPatch[] = {
+    "format",
+    "typedef __builtin_va_list _G_va_list;",
+    (char*)NULL };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
  *  Description of Libc1_Ifdefd_Memx fix
  */
 tSCC zLibc1_Ifdefd_MemxName[] =
@@ -2571,43 +2608,6 @@ static const char* apzLibc1_Ifdefd_MemxPatch[] = {
 extern [a-z_]+ mem.*(\n\
 [^#].*)*;)\n\
 #endif",
-    (char*)NULL };
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * *
- *
- *  Description of Libc1_G_Va_List fix
- */
-tSCC zLibc1_G_Va_ListName[] =
-     "libc1_G_va_list";
-
-/*
- *  File name selection pattern
- */
-tSCC zLibc1_G_Va_ListList[] =
-  "|_G_config.h|";
-/*
- *  Machine/OS name selection pattern
- */
-tSCC* apzLibc1_G_Va_ListMachs[] = {
-        "*-*-linux*libc1",
-        (const char*)NULL };
-
-/*
- *  content selection pattern - do fix if pattern found
- */
-tSCC zLibc1_G_Va_ListSelect0[] =
-       "typedef void \\* _G_va_list;";
-
-#define    LIBC1_G_VA_LIST_TEST_CT  1
-static tTestDesc aLibc1_G_Va_ListTests[] = {
-  { TT_EGREP,    zLibc1_G_Va_ListSelect0, (regex_t*)NULL }, };
-
-/*
- *  Fix Command Arguments for Libc1_G_Va_List
- */
-static const char* apzLibc1_G_Va_ListPatch[] = {
-    "format",
-    "typedef __builtin_va_list _G_va_list;",
     (char*)NULL };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -5835,8 +5835,8 @@ typedef enum {
     HP_SYSFILE_FIXIDX,
     HPUX10_CPP_POW_INLINE_FIXIDX,
     HPUX11_CPP_POW_INLINE_FIXIDX,
-    HPUX11_FABSF_FIXIDX,
     HPUX11_ABS_FIXIDX,
+    HPUX11_FABSF_FIXIDX,
     HPUX11_SIZE_T_FIXIDX,
     HPUX11_UINT32_C_FIXIDX,
     HPUX11_VSNPRINTF_FIXIDX,
@@ -5853,8 +5853,8 @@ typedef enum {
     ISC_FMOD_FIXIDX,
     ISC_OMITS_WITH_STDC_FIXIDX,
     KANDR_CONCAT_FIXIDX,
-    LIBC1_IFDEFD_MEMX_FIXIDX,
     LIBC1_G_VA_LIST_FIXIDX,
+    LIBC1_IFDEFD_MEMX_FIXIDX,
     LIMITS_IFNDEFS_FIXIDX,
     LYNX_VOID_INT_FIXIDX,
     LYNXOS_FCNTL_PROTO_FIXIDX,
@@ -6166,15 +6166,15 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      HPUX11_CPP_POW_INLINE_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aHpux11_Cpp_Pow_InlineTests,   apzHpux11_Cpp_Pow_InlinePatch, 0 },
 
-  {  zHpux11_FabsfName,    zHpux11_FabsfList,
-     apzHpux11_FabsfMachs,
-     HPUX11_FABSF_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
-     aHpux11_FabsfTests,   apzHpux11_FabsfPatch, 0 },
-
   {  zHpux11_AbsName,    zHpux11_AbsList,
      apzHpux11_AbsMachs,
      HPUX11_ABS_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aHpux11_AbsTests,   apzHpux11_AbsPatch, 0 },
+
+  {  zHpux11_FabsfName,    zHpux11_FabsfList,
+     apzHpux11_FabsfMachs,
+     HPUX11_FABSF_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aHpux11_FabsfTests,   apzHpux11_FabsfPatch, 0 },
 
   {  zHpux11_Size_TName,    zHpux11_Size_TList,
      apzHpux11_Size_TMachs,
@@ -6256,15 +6256,15 @@ tFixDesc fixDescList[ FIX_COUNT ] = {
      KANDR_CONCAT_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aKandr_ConcatTests,   apzKandr_ConcatPatch, 0 },
 
-  {  zLibc1_Ifdefd_MemxName,    zLibc1_Ifdefd_MemxList,
-     apzLibc1_Ifdefd_MemxMachs,
-     LIBC1_IFDEFD_MEMX_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
-     aLibc1_Ifdefd_MemxTests,   apzLibc1_Ifdefd_MemxPatch, 0 },
-
   {  zLibc1_G_Va_ListName,    zLibc1_G_Va_ListList,
      apzLibc1_G_Va_ListMachs,
      LIBC1_G_VA_LIST_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
      aLibc1_G_Va_ListTests,   apzLibc1_G_Va_ListPatch, 0 },
+
+  {  zLibc1_Ifdefd_MemxName,    zLibc1_Ifdefd_MemxList,
+     apzLibc1_Ifdefd_MemxMachs,
+     LIBC1_IFDEFD_MEMX_TEST_CT, FD_MACH_ONLY | FD_SUBROUTINE,
+     aLibc1_Ifdefd_MemxTests,   apzLibc1_Ifdefd_MemxPatch, 0 },
 
   {  zLimits_IfndefsName,    zLimits_IfndefsList,
      apzLimits_IfndefsMachs,

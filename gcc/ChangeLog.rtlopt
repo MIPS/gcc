@@ -1,3 +1,7 @@
+Tue Dec 17 23:37:38 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20021712)
+
 2002-12-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-unroll.c (decide_unroll_stupid): Limit unrolling to powers

@@ -20,13 +20,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_CP_TREE_H
+#define GCC_CP_TREE_H
+
 #include "function.h"
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "varray.h"
-
-#ifndef GCC_CP_TREE_H
-#define GCC_CP_TREE_H
 
 #ifndef __GNUC__
 #error "You should be using 'make bootstrap' -- see installation instructions"
@@ -65,7 +65,6 @@ struct diagnostic_context;
       BINDING_HAS_LEVEL_P (in CPLUS_BINDING)
       BINFO_LOST_PRIMARY_P (in BINFO)
       TREE_PARMLIST (in TREE_LIST)
-      ADDR_IS_INVISIREF (in ADDR_EXPR)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
       BINFO_VTABLE_PATH_MARKED.
       BINFO_PUSHDECLS_MARKED.
@@ -1115,7 +1114,6 @@ struct lang_type_class GTY(())
   unsigned has_arrow_overloaded : 1;
   unsigned interface_only : 1;
   unsigned interface_unknown : 1;
-  unsigned needs_virtual_reinit : 1;
 
   unsigned marks: 6;
   unsigned vec_new_uses_cookie : 1;
@@ -1150,7 +1148,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 4;
+  unsigned dummy : 5;
 
   tree primary_base;
   tree vfields;
@@ -1684,10 +1682,6 @@ struct lang_type GTY(())
 /* Nonzero for a parmlist means that this parmlist ended in ...  */
 #define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
 
-/* Nonzero if this ADDR_EXPR is used to implement the pass by invisible
-   reference calling convention.  */
-#define ADDR_IS_INVISIREF(NODE) TREE_LANG_FLAG_2 (NODE)
-
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
    will be NULL_TREE to indicate a throw specification of `()', or
@@ -2202,7 +2196,7 @@ struct lang_decl GTY(())
 #define DECL_PENDING_INLINE_INFO(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.u.pending_inline_info)
 
-/* For a TYPE_DECL: if this function has many fields, we'll sort them
+/* For a TYPE_DECL: if this structure has many fields, we'll sort them
    and put them into a TREE_VEC.  */
 #define DECL_SORTED_FIELDS(NODE) \
   (DECL_LANG_SPECIFIC (TYPE_DECL_CHECK (NODE))->u.f.u.sorted_fields)

@@ -36,6 +36,7 @@ details.  */
 #include <java/lang/IllegalAccessError.h>
 #include <java/lang/IllegalArgumentException.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/InstantiationException.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/NoSuchFieldException.h>
@@ -47,7 +48,10 @@ details.  */
 #include <java/lang/System.h>
 #include <java/lang/SecurityManager.h>
 #include <java/lang/StringBuffer.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 #include <gcj/method.h>
+#include <gnu/gcj/runtime/MethodRef.h>
+#include <gnu/gcj/RawData.h>
 
 #include <java-cpool.h>
 
@@ -71,7 +75,6 @@ java::lang::Class::forName (jstring className, jboolean initialize,
   if (! _Jv_VerifyClassName (name))
     throw new java::lang::ClassNotFoundException (className);
 
-  // FIXME: should use bootstrap class loader if loader is null.
   jclass klass = (buffer[0] == '[' 
 		  ? _Jv_FindClassFromSignature (name->data, loader)
 		  : _Jv_FindClass (name, loader));
@@ -88,8 +91,23 @@ java::lang::Class::forName (jstring className, jboolean initialize,
 jclass
 java::lang::Class::forName (jstring className)
 {
-  // FIXME: should use class loader from calling method.
-  return forName (className, true, NULL);
+  java::lang::ClassLoader *loader = NULL;
+  gnu::gcj::runtime::StackTrace *t 
+    = new gnu::gcj::runtime::StackTrace(4);
+  java::lang::Class *klass = NULL;
+  try
+    {
+      for (int i = 1; !klass; i++)
+	{
+	  klass = t->classAt (i);
+	}
+      loader = klass->getClassLoader();
+    }
+  catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+    {
+    }
+
+  return forName (className, true, loader);
 }
 
 java::lang::ClassLoader *
@@ -1040,6 +1058,8 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
     {
       JvAssert (arr != NULL);
       jclass elt_class = (JV_CLASS (arr))->getComponentType();
+      if (elt_class == &java::lang::Object::class$)
+	return;
       jclass obj_class = JV_CLASS (obj);
       if (__builtin_expect 
           (! _Jv_IsAssignableFrom (elt_class, obj_class), false))
@@ -1536,7 +1556,7 @@ _Jv_LinkOffsetTable(jclass klass)
 }
 
 // Returns true if METH should get an entry in a VTable.
-static bool
+static jboolean
 isVirtualMethod (_Jv_Method *meth)
 {
   using namespace java::lang::reflect;
@@ -1554,7 +1574,7 @@ _Jv_LayoutVTableMethods (jclass klass)
   if (klass->vtable != NULL || klass->isInterface() 
       || klass->vtable_method_count != -1)
     return;
-    
+
   jclass superclass = klass->superclass;
 
   if (superclass != NULL && superclass->vtable_method_count == -1)
@@ -1562,48 +1582,59 @@ _Jv_LayoutVTableMethods (jclass klass)
       JvSynchronize sync (superclass);
       _Jv_LayoutVTableMethods (superclass);
     }
-    
+
   int index = (superclass == NULL ? 0 : superclass->vtable_method_count);
 
   for (int i = 0; i < klass->method_count; ++i)
     {
       _Jv_Method *meth = &klass->methods[i];
       _Jv_Method *super_meth = NULL;
-    
-      if (!isVirtualMethod(meth))
-        continue;
-	      
+
+      if (! isVirtualMethod (meth))
+	continue;
+
       if (superclass != NULL)
         super_meth = _Jv_LookupDeclaredMethod (superclass, meth->name, 
 					       meth->signature);
-      
+
       if (super_meth)
         meth->index = super_meth->index;
-      else
+      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL))
         meth->index = index++;
     }
-  
+
   klass->vtable_method_count = index;
 }
 
-// Set entries in VTABLE for virtual methods declared in KLASS. If KLASS has
-// an immediate abstract parent, recursivly do its methods first.
+// Set entries in VTABLE for virtual methods declared in KLASS. If
+// KLASS has an immediate abstract parent, recursively do its methods
+// first.  FLAGS is used to determine which slots we've actually set.
 void
-_Jv_SetVTableEntries (jclass klass, _Jv_VTable *vtable)
+_Jv_SetVTableEntries (jclass klass, _Jv_VTable *vtable, jboolean *flags)
 {
   using namespace java::lang::reflect;
 
   jclass superclass = klass->getSuperclass();
 
   if (superclass != NULL && (superclass->getModifiers() & Modifier::ABSTRACT))
-    _Jv_SetVTableEntries (superclass, vtable);
-    
+    _Jv_SetVTableEntries (superclass, vtable, flags);
+
   for (int i = klass->method_count - 1; i >= 0; i--)
     {
       _Jv_Method *meth = &klass->methods[i];
-      if (!isVirtualMethod(meth))
+      if (meth->index == (_Jv_ushort) -1)
 	continue;
-      vtable->set_method(meth->index, meth->ncode);
+      if ((meth->accflags & Modifier::ABSTRACT))
+	{
+	  // FIXME: we should set abstract slots to a function that
+	  // throws AbstractMethodError.  How can we do that on IA-64?
+	  flags[meth->index] = false;
+	}
+      else
+	{
+	  vtable->set_method(meth->index, meth->ncode);
+	  flags[meth->index] = true;
+	}
     }
 }
 
@@ -1619,7 +1650,7 @@ _Jv_MakeVTable (jclass klass)
   if (klass->vtable != NULL || klass->isInterface() 
       || (klass->accflags & Modifier::ABSTRACT))
     return;
-  
+
   //  out before we can create a vtable. 
   if (klass->vtable_method_count == -1)
     _Jv_LayoutVTableMethods (klass);
@@ -1627,7 +1658,11 @@ _Jv_MakeVTable (jclass klass)
   // Allocate the new vtable.
   _Jv_VTable *vtable = _Jv_VTable::new_vtable (klass->vtable_method_count);
   klass->vtable = vtable;
-  
+
+  jboolean flags[klass->vtable_method_count];
+  for (int i = 0; i < klass->vtable_method_count; ++i)
+    flags[i] = false;
+
   // Copy the vtable of the closest non-abstract superclass.
   jclass superclass = klass->superclass;
   if (superclass != NULL)
@@ -1642,7 +1677,10 @@ _Jv_MakeVTable (jclass klass)
 	}
 
       for (int i = 0; i < superclass->vtable_method_count; ++i)
-	vtable->set_method (i, superclass->vtable->get_method (i));
+	{
+	  vtable->set_method (i, superclass->vtable->get_method (i));
+	  flags[i] = true;
+	}
     }
 
   // Set the class pointer and GC descriptor.
@@ -1651,5 +1689,14 @@ _Jv_MakeVTable (jclass klass)
 
   // For each virtual declared in klass and any immediate abstract 
   // superclasses, set new vtable entry or override an old one.
-  _Jv_SetVTableEntries (klass, vtable);
+  _Jv_SetVTableEntries (klass, vtable, flags);
+
+  // It is an error to have an abstract method in a concrete class.
+  if (! (klass->accflags & Modifier::ABSTRACT))
+    {
+      for (int i = 0; i < klass->vtable_method_count; ++i)
+	if (! flags[i])
+	  // FIXME: messsage.
+	  throw new java::lang::AbstractMethodError ();
+    }
 }
