@@ -2,6 +2,7 @@
 
 	* gcc.c-torture/compile/20030530-1.c: New test.
 	* gcc.c-torture/compile/20030530-2.c: New test.
+	* gcc.c-torture/compile/20030530-3.c: New test.
 
 2003-05-12  Diego Novillo  <dnovillo@redhat.com>
 
