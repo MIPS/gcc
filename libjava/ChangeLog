@@ -1,5 +1,11 @@
 2004-07-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkTextFieldPeer.java,
+	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextFieldPeer.c
+	(gtkWidgetSetBackground): New method.
+	(gtkWidgetSetForeground): Likewise.
+	(create): Set peer's editable state based on awtComponent's.
+
 	* java/awt/Button.java (Button()): Use empty string rather than
 	null in no-label constructor.
 
