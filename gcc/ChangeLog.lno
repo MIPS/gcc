@@ -1,3 +1,17 @@
+2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/15881
+	* tree-scalar-evolution.c (count_ev_in_wider_type): Use
+	fold_convert instead of convert.
+	(compute_overall_effect_of_inner_loop): Likewise.
+	(chrec_is_positive): Likewise.
+	(add_to_evolution_1): Likewise.
+	(add_to_evolution): Likewise.
+	(first_iteration_non_satisfying_1): Likewise.
+	(follow_ssa_edge_in_rhs): Likewise.
+	(interpret_rhs_modify_expr): Likewise.
+	(number_of_iterations_in_loop): Likewise.
+
 2004-06-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR tree-optimization/15779

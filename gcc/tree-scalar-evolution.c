@@ -375,7 +375,7 @@ count_ev_in_wider_type (tree type, tree chrec)
   struct loop *loop;
 
   if (!evolution_function_is_affine_p (chrec))
-    return convert (type, chrec);
+    return fold_convert (type, chrec);
 
   base = CHREC_LEFT (chrec);
   step = CHREC_RIGHT (chrec);
@@ -386,7 +386,7 @@ count_ev_in_wider_type (tree type, tree chrec)
      result.  */
   step = can_count_iv_in_wider_type (loop, type, base, step, NULL_TREE);
   if (!step)
-    return convert (type, chrec);
+    return fold_convert (type, chrec);
   base = chrec_convert (type, base);
 
   return build_polynomial_chrec (CHREC_VARIABLE (chrec),
@@ -527,8 +527,8 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 		 analyze must be defined before the exit).  */
 	      nb_iter = chrec_fold_minus (chrec_type (nb_iter),
 					  nb_iter,
-					  convert (chrec_type (nb_iter),
-						   integer_one_node));
+					  fold_convert (chrec_type (nb_iter),
+						        integer_one_node));
 	      
 	      /* evolution_fn is the evolution function in LOOP.  Get
 		 its value in the nb_iter-th iteration.  */
@@ -600,7 +600,7 @@ chrec_is_positive (tree chrec, bool *value)
 	      (loop_from_num (current_loops, CHREC_VARIABLE (chrec)));
       nb_iter = chrec_fold_minus 
 	(chrec_type (nb_iter), nb_iter,
-	 convert (chrec_type (nb_iter), integer_one_node));
+	 fold_convert (chrec_type (nb_iter), integer_one_node));
 
 #if 0
       /* TODO -- If the test is after the exit, we may decrease the number of
@@ -608,7 +608,7 @@ chrec_is_positive (tree chrec, bool *value)
       if (after_exit)
 	nb_iter = chrec_fold_minus 
 		(chrec_type (nb_iter), nb_iter,
-		 convert (chrec_type (nb_iter), integer_one_node));
+		 fold_convert (chrec_type (nb_iter), integer_one_node));
 #endif
 
       end_value = chrec_apply (CHREC_VARIABLE (chrec), chrec, nb_iter);
@@ -727,7 +727,7 @@ add_to_evolution_1 (unsigned loop_nb,
 	    {
 	      var = loop_nb;
 	      left = chrec_before;
-	      right = convert (type, integer_zero_node);
+	      right = fold_convert (type, integer_zero_node);
 	    }
 	  else
 	    {
@@ -938,7 +938,7 @@ add_to_evolution (unsigned loop_nb,
 
   if (code == MINUS_EXPR)
     to_add = chrec_fold_multiply (type, to_add, 
-				  convert (type, integer_minus_one_node));
+				  fold_convert (type, integer_minus_one_node));
 
   res = add_to_evolution_1 (loop_nb, chrec_before, to_add);
 
@@ -1280,7 +1280,7 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 	  other_evs = chrec_fold_minus (chrec_type (other_evs),
                                                          other_evs, chrec0);
 	  other_evs = chrec_replace_initial_condition 
-	    (other_evs, convert (chrec_type (other_evs), integer_zero_node));
+	    (other_evs, fold_convert (chrec_type (other_evs), integer_zero_node));
 	}
     }
   
@@ -1300,7 +1300,7 @@ first_iteration_non_satisfying_1 (enum tree_code code,
 	  other_evs = chrec_fold_minus (chrec_type (other_evs),
                                                          other_evs, chrec1);
 	  other_evs = chrec_replace_initial_condition 
-	    (other_evs, convert (chrec_type (other_evs), integer_zero_node));
+	    (other_evs, fold_convert (chrec_type (other_evs), integer_zero_node));
 	}
       else
 	return first_iteration_non_satisfying_ev_ev (code, loop_nb, 
@@ -1654,8 +1654,8 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 		      (loop->num, 
 		       chrec_fold_multiply (type_rhs, 
 					    *evolution_of_loop, 
-					    convert (type_rhs,
-						     integer_minus_one_node)),
+					    fold_convert (type_rhs,
+						          integer_minus_one_node)),
 		       PLUS_EXPR, rhs0);
 		}
 	    }
@@ -1686,7 +1686,7 @@ follow_ssa_edge_in_rhs (struct loop *loop,
 	      (loop->num, 
 	       chrec_fold_multiply (type_rhs, 
 				    *evolution_of_loop, 
-				    convert (type_rhs, integer_minus_one_node)),
+				    fold_convert (type_rhs, integer_minus_one_node)),
 	       PLUS_EXPR, rhs0);
 	}
       
@@ -2202,7 +2202,7 @@ interpret_rhs_modify_expr (struct loop *loop,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10);
-      res = chrec_fold_minus (type, convert (type, integer_zero_node), 
+      res = chrec_fold_minus (type, fold_convert (type, integer_zero_node), 
 			      chrec10);
       break;
 
@@ -2650,7 +2650,7 @@ number_of_iterations_in_loop (struct loop *loop)
 
   type = TREE_TYPE (niter_desc.niter);
   if (integer_nonzerop (niter_desc.may_be_zero))
-    res = convert (type, integer_zero_node);
+    res = fold_convert (type, integer_zero_node);
   else if (integer_zerop (niter_desc.may_be_zero))
     res = niter_desc.niter;
   else
