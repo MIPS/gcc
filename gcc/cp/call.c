@@ -4922,9 +4922,6 @@ build_over_call (struct z_candidate *cand, int flags)
         fn = (build_vfn_ref_using_vtable
               (BINFO_VTABLE (TYPE_BINFO (call_site_type)),
                DECL_VINDEX (fn)));
-	/* Type is already set to function_ptr in call to build_vfn_ref_using_vtable.
-	   Do not change it (it is changed below). */
-	t = TREE_TYPE (fn);
       }
       /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
       else

@@ -1,3 +1,12 @@
+2005-01-26  Matt Austern  <austern@apple.com>
+
+	Radar 3972840
+	* call.c (build_over_call): Set type of function node correctly.
+	Type returned by build_vfn_ref_using_vtable is *not* what we
+	want.
+	* class.c (build_vfn_ref_using_vtable): Duplicate logic in 
+	build_vfn_ref for setting attributes of vtable array ref node.
+	
 2005-01-26  Devang Patel  <dpatel@apple.com>
 
 	Radar 3971329

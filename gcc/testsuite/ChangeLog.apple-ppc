@@ -1,3 +1,8 @@
+2005-01-26  Matt Austern  <austern@apple.com>
+
+	Radar 3972840
+        * g++.dg/kext9.C: New. 
+
 2005-01-26  Devang Patel  <dpatel@apple.com>
 
 	Radar 3971329

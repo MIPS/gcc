@@ -604,6 +604,7 @@ build_vfn_ref_using_vtable (tree vtbl, tree idx)
 {
   tree aref;
 
+  vtbl = unshare_expr (vtbl);
   assemble_external (vtbl);
 
   /* APPLE LOCAL KEXT double destructor */
@@ -612,7 +613,9 @@ build_vfn_ref_using_vtable (tree vtbl, tree idx)
 #endif
 
   aref = build_array_ref (vtbl, idx);
-  TREE_CONSTANT (aref) = 1;
+  TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
+  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
+
   return aref;
 }
 /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
