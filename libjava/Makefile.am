@@ -351,7 +351,7 @@ lib_gnu_java_awt_peer_gtk_la_LIBADD = $(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = $(gtk_jni_headers) libgcj-@gcc_version@.jar libgcj.la libgcj.spec
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
 lib_org_ietf_jgss_la_SOURCES = \
@@ -372,7 +372,7 @@ lib_org_ietf_jgss_la_LIBADD = -L$(here)/.libs  $(jgss_propertyo_files) \
 
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_ietf_jgss_la_LDFLAGS = -rpath $(toolexeclibdir) \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
+	-version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_org_w3c_dom_la_SOURCES = org/w3c/dom/Attr.java \
 org/w3c/dom/CDATASection.java \
@@ -403,7 +403,7 @@ org/w3c/dom/traversal/TreeWalker.java
 lib_org_w3c_dom_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_w3c_dom_la_LDFLAGS = -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_org_xml_sax_la_SOURCES = org/xml/sax/ext/DeclHandler.java \
 org/xml/sax/ext/LexicalHandler.java \
@@ -439,7 +439,7 @@ org/xml/sax/XMLReader.java
 lib_org_xml_sax_la_LIBADD = -L$(here)/.libs libgcj.la
 ## The mysterious backslash in the grep pattern is consumed by make.
 lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 lib_gnu_awt_xlib_la_SOURCES = \
 	$(xlib_java_source_files) \
@@ -455,7 +455,7 @@ lib_gnu_awt_xlib_la_CPPFLAGS = \
 lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
 all_java_source_files = \
