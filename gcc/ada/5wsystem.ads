@@ -187,7 +187,7 @@ private
 
       Interrupt_Priority         => 15);
 
-   pragma Linker_Options ("-Wl,--stack=0x2000000");
+   pragma Link_With ("-Xlinker --stack=0x2000000");
    --  This is used to change the default stack (32 MB) size for non tasking
    --  programs. We change this value for GNAT on Windows here because the
    --  binutils on this platform have switched to a too low value for Ada

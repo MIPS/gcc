@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -167,45 +167,7 @@ MULTICLEAN = true
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
 # friends when we are called from the top level Makefile.
-AM_MAKEFLAGS = \
-	"AR_FLAGS=$(AR_FLAGS)" \
-	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
-	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
-	"CFLAGS=$(CFLAGS)" \
-	"CXXFLAGS=$(CXXFLAGS)" \
-	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
-	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
-	"INSTALL=$(INSTALL)" \
-	"INSTALL_DATA=$(INSTALL_DATA)" \
-	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
-	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
-	"LDFLAGS=$(LDFLAGS)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
-	"MAKE=$(MAKE)" \
-	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
-	"SHELL=$(SHELL)" \
-	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
-	"exec_prefix=$(exec_prefix)" \
-	"infodir=$(infodir)" \
-	"libdir=$(libdir)" \
-	"includedir=$(includedir)" \
-	"prefix=$(prefix)" \
-	"tooldir=$(tooldir)" \
-	"gxx_include_dir=$(gxx_include_dir)" \
-	"AR=$(AR)" \
-	"AS=$(AS)" \
-	"LD=$(LD)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"RANLIB=$(RANLIB)" \
-	"NM=$(NM)" \
-	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
-	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
-	"DESTDIR=$(DESTDIR)" \
-	"WERROR=$(WERROR)" 
+AM_MAKEFLAGS =  	"AR_FLAGS=$(AR_FLAGS)" 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" 	"CFLAGS=$(CFLAGS)" 	"CXXFLAGS=$(CXXFLAGS)" 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" 	"INSTALL=$(INSTALL)" 	"INSTALL_DATA=$(INSTALL_DATA)" 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" 	"LDFLAGS=$(LDFLAGS)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" 	"MAKE=$(MAKE)" 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" 	"SHELL=$(SHELL)" 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" 	"exec_prefix=$(exec_prefix)" 	"infodir=$(infodir)" 	"libdir=$(libdir)" 	"includedir=$(includedir)" 	"prefix=$(prefix)" 	"tooldir=$(tooldir)" 	"gxx_include_dir=$(gxx_include_dir)" 	"AR=$(AR)" 	"AS=$(AS)" 	"LD=$(LD)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"RANLIB=$(RANLIB)" 	"NM=$(NM)" 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" 	"DESTDIR=$(DESTDIR)" 	"WERROR=$(WERROR)" 
 
 
 # Subdir rules rely on $(FLAGS_TO_PASS)
@@ -220,7 +182,7 @@ mkcheck.in testsuite_flags.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:
@@ -283,7 +245,7 @@ testsuite_flags: $(top_builddir)/config.status testsuite_flags.in
 all-recursive install-data-recursive install-exec-recursive \
 installdirs-recursive install-recursive uninstall-recursive install-info-recursive \
 check-recursive installcheck-recursive info-recursive dvi-recursive:
-	@set fnord $$MAKEFLAGS; amf=$$2; \
+	@set fnord $(MAKEFLAGS); amf=$$2; \
 	dot_seen=no; \
 	target=`echo $@ | sed s/-recursive//`; \
 	list='$(SUBDIRS)'; for subdir in $$list; do \
@@ -303,7 +265,7 @@ check-recursive installcheck-recursive info-recursive dvi-recursive:
 
 mostlyclean-recursive clean-recursive distclean-recursive \
 maintainer-clean-recursive:
-	@set fnord $$MAKEFLAGS; amf=$$2; \
+	@set fnord $(MAKEFLAGS); amf=$$2; \
 	dot_seen=no; \
 	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
 	  rev="$$subdir $$rev"; \

@@ -1174,6 +1174,8 @@ do {									\
 #define RETURN_IN_MEMORY(TYPE) \
   ix86_return_in_memory (TYPE)
 
+/* This is overriden by <cygming.h>.  */
+#define MS_AGGREGATE_RETURN 0
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1689,6 +1691,7 @@ typedef struct ix86_args {
   int words;			/* # words passed so far */
   int nregs;			/* # registers available for passing */
   int regno;			/* next available register number */
+  int fastcall;		/* fastcall calling convention is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
   int sse_regno;		/* next available sse register number */
@@ -3489,7 +3492,7 @@ enum fp_cw_mode {FP_CW_STORED, FP_CW_UNINITIALIZED, FP_CW_ANY};
 
 #define MACHINE_DEPENDENT_REORG(X) x86_machine_dependent_reorg(X)
 
-#define DLL_IMPORT_EXPORT_PREFIX '@'
+#define DLL_IMPORT_EXPORT_PREFIX '#'
 
 /*
 Local variables:

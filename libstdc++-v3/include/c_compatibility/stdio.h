@@ -49,16 +49,11 @@ using std::fprintf;
 using std::fscanf;
 using std::printf;
 using std::scanf;
-using std::snprintf;
 using std::sprintf;
 using std::sscanf;
 using std::vfprintf;
-using std::vfscanf;
 using std::vprintf;
-using std::vscanf;
-using std::vsnprintf;
 using std::vsprintf;
-using std::vsscanf;
 using std::fgetc;
 using std::fgets;
 using std::fputc;
@@ -81,5 +76,14 @@ using std::clearerr;
 using std::feof;
 using std::ferror;
 using std::perror;
+
+#if _GLIBCPP_USE_C99
+using std::snprintf;
+using std::vfscanf;
+using std::vsnprintf;
+using std::vscanf;
+using std::vsscanf;
+#endif
+
 
 #endif

@@ -1,6 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
    hosting on Windows32, using a Unix style C library and tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -22,18 +22,48 @@ Boston, MA 02111-1307, USA.  */
 
 #define DBX_DEBUGGING_INFO 1
 #define SDB_DEBUGGING_INFO 1
-#undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 #include <stdio.h>
+#include "i386/i386.h"
+#include "i386/unix.h"
+#include "i386/bsd.h"
+#include "i386/gas.h"
+#include "dbxcoff.h"
+
+#define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
+#define TARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+	builtin_define ("_X86_=1");					\
+	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
+	builtin_define ("__fastcall=__attribute__((__fastcall__))");	\
+	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
+	builtin_define ("__declspec(x)=__attribute__((x))");		\
+	if (!flag_iso)							\
+	  {								\
+	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
+	    builtin_define ("_fastcall=__attribute__((__fastcall__))");	\
+	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
+	  }								\
+	MAYBE_UWIN_CPP_BUILTINS();					\
+	EXTRA_OS_CPP_BUILTINS ();					\
+	builtin_assert ("system=winnt");				\
+    }									\
+  while (0)
 
 /* Masks for subtarget switches used by other files.  */
 #define MASK_NOP_FUN_DLLIMPORT 0x08000000 /* Ignore dllimport for functions */
+#define MASK_MS_BITFIELD_LAYOUT 0x10000000 /* Use MS bitfield layout */
 
 /* Used in winnt.c.  */
 #define TARGET_NOP_FUN_DLLIMPORT (target_flags & MASK_NOP_FUN_DLLIMPORT)
+/* Tell i386.c to put a target-specific specialization of
+   ms_bitfield_layout_p in struct gcc_target targetm.  */
+#define TARGET_USE_MS_BITFIELD_LAYOUT  \
+  (target_flags & MASK_MS_BITFIELD_LAYOUT)	
 
 #undef  SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES \
@@ -45,39 +75,13 @@ Boston, MA 02111-1307, USA.  */
 { "console",		  0, N_("Create console application") },\
 { "dll",		  0, N_("Generate code for a DLL") },	\
 { "nop-fun-dllimport",	  MASK_NOP_FUN_DLLIMPORT,		\
-  N_("Ignore dllimport for functions") },			\
+  N_("Ignore dllimport for functions") }, 			\
 { "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" },	\
-{ "threads",		  0, N_("Use Mingw-specific thread support") },
-
-#define MAYBE_UWIN_CPP_BUILTINS() /* Nothing.  */
-
-/* Support the __declspec keyword by turning them into attributes.
-   We currently only support: dllimport and dllexport.
-   Note that the current way we do this may result in a collision with
-   predefined attributes later on.  This can be solved by using one attribute,
-   say __declspec__, and passing args to it.  The problem with that approach
-   is that args are not accumulated: each new appearance would clobber any
-   existing args.  */
-
-#define TARGET_OS_CPP_BUILTINS()					\
-  do									\
-    {									\
-	builtin_define ("_X86_=1");					\
-	builtin_assert ("system=winnt");				\
-	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
-	builtin_define ("__fastcall=__attribute__((__fastcall__))");	\
-	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
-	builtin_define ("__declspec(x)=__attribute__((x))");		\
-	if (!flag_iso)							\
-	  {								\
-	    builtin_define ("_stdcall=__attribute__((__stdcall__))");	\
-	    builtin_define ("_fastcall=__attribute__((__fastcall__))");	\
-	    builtin_define ("_cdecl=__attribute__((__cdecl__))");	\
-	  }								\
-	MAYBE_UWIN_CPP_BUILTINS ();					\
-	EXTRA_OS_CPP_BUILTINS ();					\
-  }									\
-  while (0)
+{ "threads",		  0, N_("Use Mingw-specific thread support") },	\
+{ "ms-bitfields",	  MASK_MS_BITFIELD_LAYOUT, 		\
+  N_("Use MS bitfield layout") },				\
+{ "no-ms-bitfields",	  -MASK_MS_BITFIELD_LAYOUT,		\
+  N_("Don't use MS bitfield layout") },
 
 /* Get tree.c to declare a target-specific specialization of
    merge_decl_attributes.  */
@@ -94,9 +98,14 @@ Boston, MA 02111-1307, USA.  */
    Do not define this macro if it does not need to do anything.  */
 
 #undef  SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS						\
+#define SUBTARGET_EXTRA_SPECS 						\
   { "mingw_include_path", DEFAULT_TARGET_MACHINE }
 
+/* We have to dynamic link to get to the system DLLs.  All of libc, libm and
+   the Unix stuff is in cygwin.dll.  The import library is called
+   'libcygwin.a'.  For Windows applications, include more libraries, but
+   always include kernel32.  We'd like to specific subsystem windows to
+   ld, but that doesn't work just yet.  */
 #undef MATH_LIBRARY
 #define MATH_LIBRARY ""
 
@@ -130,7 +139,7 @@ drectve_section ()							\
       in_section = in_drectve;						\
     }									\
 }
-void drectve_section (void);
+void drectve_section PARAMS ((void));
 
 /* Switch to SECTION (an `enum in_section').
 
@@ -138,19 +147,21 @@ void drectve_section (void);
    The problem is that we want to temporarily switch sections in
    ASM_DECLARE_OBJECT_NAME and then switch back to the original section
    afterwards.  */
-#define SWITCH_TO_SECTION_FUNCTION				\
-void switch_to_section (enum in_section, tree);			\
-void								\
-switch_to_section (enum in_section section, tree decl)		\
-{								\
-  switch (section)						\
-    {								\
-      case in_text: text_section (); break;			\
-      case in_data: data_section (); break;			\
-      case in_named: named_section (decl, NULL, 0); break;	\
-      case in_drectve: drectve_section (); break;		\
-      default: abort (); break;				\
-    }								\
+#define SWITCH_TO_SECTION_FUNCTION 				\
+void switch_to_section PARAMS ((enum in_section, tree));        \
+void 								\
+switch_to_section (section, decl) 				\
+     enum in_section section; 					\
+     tree decl; 						\
+{ 								\
+  switch (section) 						\
+    { 								\
+      case in_text: text_section (); break; 			\
+      case in_data: data_section (); break; 			\
+      case in_named: named_section (decl, NULL, 0); break; 	\
+      case in_drectve: drectve_section (); break; 		\
+      default: abort (); break; 				\
+    } 								\
 }
 
 /* Don't allow flag_pic to propagate since gas may produce invalid code
@@ -171,15 +182,15 @@ do {									\
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
 
-   On i386 running Windows NT, modify the assembler name with a suffix
+   On i386 running Windows NT, modify the assembler name with a suffix 
    consisting of an atsign (@) followed by string of digits that represents
-   the number of bytes of arguments passed to the function, if it has the
+   the number of bytes of arguments passed to the function, if it has the 
    attribute STDCALL.
 
-   In addition, we must mark dll symbols specially. Definitions of
-   dllexport'd objects install some info in the .drectve section.
+   In addition, we must mark dll symbols specially. Definitions of 
+   dllexport'd objects install some info in the .drectve section.  
    References to dllimport'd objects are fetched indirectly via
-   _imp__.  If both are declared, dllexport overrides.  This is also
+   _imp__.  If both are declared, dllexport overrides.  This is also 
    needed to implement one-only vtables: they go into their own
    section and we need to set DECL_SECTION_NAME so we do that here.
    Note that we can be called twice on the same decl.  */
@@ -201,16 +212,16 @@ do {							\
     i386_pe_record_exported_symbol (NAME, 1);		\
   if (! i386_pe_dllimport_name_p (NAME))		\
     {							\
-      fprintf ((STREAM), "\t.comm\t");			\
+      fprintf ((STREAM), "\t.comm\t"); 			\
       assemble_name ((STREAM), (NAME));			\
       fprintf ((STREAM), ", %d\t%s %d\n",		\
-	       (int)(ROUNDED), ASM_COMMENT_START, (int)(SIZE));	\
+	       (ROUNDED), ASM_COMMENT_START, (SIZE));	\
     }							\
 } while (0)
 
 /* Output the label for an initialized variable.  */
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)	\
+#define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL) 	\
 do {							\
   if (i386_pe_dllexport_name_p (NAME))			\
     i386_pe_record_exported_symbol (NAME, 1);		\
@@ -224,13 +235,12 @@ do {							\
 #define CHECK_STACK_LIMIT 4000
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
-   returns float values in the 387 and needs stack probes.
+   and returns float values in the 387 and needs stack probes
    We also align doubles to 64-bits for MSVC default compatibility. */
-
 #undef TARGET_SUBTARGET_DEFAULT
 #define TARGET_SUBTARGET_DEFAULT \
-   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE \
-    | MASK_ALIGN_DOUBLE)
+   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | \
+    MASK_STACK_PROBE | MASK_ALIGN_DOUBLE)
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -246,7 +256,7 @@ do {							\
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
 
-extern void i386_pe_unique_section (TREE, int);
+extern void i386_pe_unique_section PARAMS ((TREE, int));
 #define TARGET_ASM_UNIQUE_SECTION i386_pe_unique_section
 
 #define SUPPORTS_ONE_ONLY 1
@@ -292,16 +302,16 @@ extern void i386_pe_unique_section (TREE, int);
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
 /* Output function declarations at the end of the file.  */
-#undef TARGET_ASM_FILE_END
-#define TARGET_ASM_FILE_END i386_pe_file_end
+#undef ASM_FILE_END
+#define ASM_FILE_END(FILE) \
+  i386_pe_asm_file_end (FILE)
 
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* DWARF2 Unwinding doesn't work with exception handling yet.  To make
-   it work, we need to build a libgcc_s.dll, and dcrt0.o should be
-   changed to call __register_frame_info/__deregister_frame_info.  */
-#define DWARF2_UNWIND_INFO 0
+/* Maybe use Dwarf2 EH handling.  */ 
+#undef DWARF2_UNWIND_INFO
+#define DWARF2_UNWIND_INFO 1
 
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -326,12 +336,12 @@ extern void i386_pe_unique_section (TREE, int);
 
 /* External function declarations.  */
 
-extern void i386_pe_record_external_function (const char *);
-extern void i386_pe_declare_function_type (FILE *, const char *, int);
-extern void i386_pe_record_exported_symbol (const char *, int);
-extern void i386_pe_file_end (void);
-extern int i386_pe_dllexport_name_p (const char *);
-extern int i386_pe_dllimport_name_p (const char *);
+extern void i386_pe_record_external_function PARAMS ((const char *));
+extern void i386_pe_declare_function_type PARAMS ((FILE *, const char *, int));
+extern void i386_pe_record_exported_symbol PARAMS ((const char *, int));
+extern void i386_pe_asm_file_end PARAMS ((FILE *));
+extern int i386_pe_dllexport_name_p PARAMS ((const char *));
+extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 
 /* For Win32 ABI compatibility */
 #undef DEFAULT_PCC_STRUCT_RETURN
@@ -353,7 +363,6 @@ extern int i386_pe_dllimport_name_p (const char *);
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #undef PCC_BITFIELD_TYPE_MATTERS
 #define PCC_BITFIELD_TYPE_MATTERS 1
-#define GROUP_BITFIELDS_BY_ALIGN TYPE_NATIVE(rec)
 
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP

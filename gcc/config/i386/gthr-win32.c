@@ -36,7 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #endif
 #include <gthr-win32.h>
 #include <windows.h>
-
+#include <errno.h>
 /* Windows32 threads specific definitions. The windows32 threading model
    does not map well into pthread-inspired gcc's threading model, and so 
    there are caveats one needs to be aware of.

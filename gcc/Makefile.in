@@ -65,9 +65,9 @@ BOOT_LANGUAGES = c @all_boot_languages@
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
-CFLAGS = -g
-STAGE1_CFLAGS = -g @stage1_cflags@
-BOOT_CFLAGS = -g -O2
+CFLAGS =
+STAGE1_CFLAGS = @stage1_cflags@
+BOOT_CFLAGS = -O2
 
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage

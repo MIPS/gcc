@@ -48,7 +48,7 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # These bits are all figured out from configure. Look in acinclude.m4
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 CONFIG_CXXFLAGS = \
-	@SECTION_FLAGS@ @EXTRA_CXX_FLAGS@ 
+	@EXTRA_CXX_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \

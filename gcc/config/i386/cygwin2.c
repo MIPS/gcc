@@ -1,6 +1,6 @@
 /* Helper routines for cygwin-specific command-line parsing.
    Contributed by Christopher Faylor (cgf@redhat.com)
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -21,20 +21,20 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
+#include "cppdefault.h"
+#include "cygwin.h"
 
 #include "safe-ctype.h"
 #include <string.h>
 
 /*
-static void remove_w32api (void);
+static void remove_w32api PARAMS ((void));
 */
-static void add_mingw (void);
-static void set_mingw (void) __attribute__ ((constructor));
+static void add_mingw PARAMS ((void));
+static void set_mingw PARAMS((void)) __attribute__ ((constructor));
 
 static void
-add_mingw (void)
+add_mingw ()
 {
   char **av;
   char *p;
@@ -57,9 +57,8 @@ add_mingw (void)
     }
 }
 
-
 static void
-set_mingw (void)
+set_mingw ()
 {
   char *env = getenv ("GCC_CYGWIN_MINGW");
   if (env && *env == '1')

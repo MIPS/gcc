@@ -2542,9 +2542,9 @@ fi
 
 # avoid confusion in case the `makefile's from the f2c distribution have
 # got put here
-test -f libF77/makefile && mv libF77/makefile  libF77/makefile.ori
-test -f libI77/makefile && mv libI77/makefile  libI77/makefile.ori
-test -f libU77/makefile && mv libU77/makefile  libU77/makefile.ori
+# test -f libF77/makefile && mv libF77/makefile  libF77/makefile.ori
+# test -f libI77/makefile && mv libI77/makefile  libI77/makefile.ori
+# test -f libU77/makefile && mv libU77/makefile  libU77/makefile.ori
 
 subdirs="libU77 libI77 libF77"
 

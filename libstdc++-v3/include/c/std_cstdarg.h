@@ -36,6 +36,8 @@
 
 #pragma GCC system_header
 
+#include <bits/c++config.h>
+
 #undef __need___va_list
 #include_next <stdarg.h>
 

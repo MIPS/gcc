@@ -44,6 +44,62 @@
 #include_next <wchar.h>
 #endif
 
+// Get rid of those macros defined in <wchar.h> in lieu of real functions.
+#undef btowc
+#undef fgetwc
+#undef fgetws
+#undef fputwc
+#undef fputws
+#undef fwide
+#undef fwprintf
+#undef fwscanf
+#undef getwc
+#undef getwchar
+#undef mbrlen
+#undef mbrtowc
+#undef mbsinit
+#undef mbsrtowcs
+#undef putwc
+#undef putwchar
+#undef swprintf
+#undef swscanf
+#undef ungetwc
+#undef vfwprintf
+#undef vswprintf
+#undef vwprintf
+#undef wcrtomb
+#undef wcscat
+#undef wcschr
+#undef wcscmp
+#undef wcscoll
+#undef wcscpy
+#undef wcscspn
+#undef wcsftime
+#undef wcslen
+#undef wcsncat
+#undef wcsncmp
+#undef wcsncpy
+#undef wcspbrk
+#undef wcsrchr
+#undef wcsrtombs
+#undef wcsspn
+#undef wcsstr
+#undef wcstod
+#undef wcstok
+#undef wcstol
+#undef wcstoul
+#undef wcsxfrm
+#undef wctob
+#undef wmemchr
+#undef wmemcmp
+#undef wmemcpy
+#undef wmemmove
+#undef wmemset
+#undef wprintf
+#undef wscanf
+
+
+
 // Need to do a bit of trickery here with mbstate_t as char_traits
 // assumes it is in wchar.h, regardless of wchar_t specializations.
 #ifndef _GLIBCPP_HAVE_MBSTATE_T
@@ -56,7 +112,7 @@ namespace std
       int __fill[6];
     } mbstate_t;
   }
-}
+}  
 #endif
 
 #endif 

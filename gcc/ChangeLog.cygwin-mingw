@@ -1,0 +1,260 @@
+2003-07-31  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from trunk
+	2003-07-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/xm-mingw32.h (HOST_BIT_BUCKET): Define
+	as "nul".
+
+	2003-07-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/winnt.c (associated_type): Artificial methods are not
+	affected by the import/export status of their class unless they are
+	COMDAT.
+	(i386_pe_dllimport_p): Do not mark artificial methods as dllimport.
+
+2003-02-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Backport from trunk
+	* config/i386/i386.h (MS_AGGREGATE_RETURN): New define.
+	* config/i386/cygming.h (MS_AGGREGATE_RETURN): Override default
+	definition.
+	* config/i386/i386.h (ix86_return_in_memory): Return aggregate
+	types of up to 8 bytes via registers if MS_AGGREGATE_RETURN.
+
+2002-12-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32.h (LINK_SPEC): Set
+	--enable-auto-image-base with -shared switch.
+
+2002-12-04  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/w32-shared-ptr.c: #include <windows.h>.
+	
+2002-12-03  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32.h (w32_file_id_cmp): Move declaration
+	to...
+	* config/i386/xm-mingw32.h: Here.
+	* config/i386/mingw32.h (TARGET_FILE_ID_CMP): Rename to
+	HOST_FILE_ID_CMP and move to...
+	* config/i386/xm-mingw32.h: Here.
+	* config/i386/t-mingw32 (EXTRA_GCC_OBJS): Move target and rule
+	to ...  
+	* config/i386/x-mingw32: Here. New file.
+	* config.gcc (i[34567]86-*-mingw32*): Set xmake_file to
+	i386/x-mingw32.
+	* gcc.c (TARGET_FILE_ID_CMP): Rename to HOST_FILE_ID_CMP
+	throughout.
+
+2002-11-23  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/mingw32-1.c: New file, defining
+	function w32_file_id_cmp.
+	* config/i386/mingw32.h (TARGET_FILE_ID_CMP): New macro,
+	defined as w32_file_id_cmp.
+	* config/i386/t-mingw32 (EXTRA_GCC_OBJS): Define
+	as mingw32-1.o.  Add rule for compiling.
+	* gcc.c (do_spec_1): Use TARGET_FILE_ID_CMP if defined.
+
+2002-11-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/w32-shared-ptr.c
+	(__w32_sharedptr_default_unexpected): New function, calling
+	current __w32_sharedptr_terminate reference.
+	(__w32_sharedptr_initialize): Adjust initialization of
+	w32_sharedptr->unexpected
+
+2002-11-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* crtstuff.c: Split out sjlj initialization from Dwarf2
+	code, conditional on __USING_SJLJ_EXCEPTIONS__.
+
+2002-11-22  Thomas Pfaff  <tpfaff@gmx.net>
+
+	* config/i386/w32-shared-ptr.h: New file. Define W32_EH_SHARED
+	structure, global pointer and function prototypes.
+	* config/i386/w32-shared-ptr.c (__w32_sharedptr): Change to public
+	global var.
+	(__w32_sharedptr_unseen_objects): Remove global var.
+	(__w32_sharedptr_seen_objects): Ditto.
+	(__ultobstr): Remove.
+	(__w32_eh_shared_initialize): New static function.
+	(__w32_sharedptr_initialize): Complete rewrite.
+	(__w32_sharedptr_set): New function.
+	(__w32_sharedptr_get): Ditto.
+	(__w32_sharedptr_fixup_after_fork): Ditto.
+	* unwind-dw2-fde.c: Include "i386/w32-shared-ptr.h".
+	(object_mutex): Define as dereference of
+	__w32_sharedptr->dw2_object_mutex.
+	(init_object_mutex_once): Define static variable once as
+	dereference of __w32_sharedptr->dw2_once.
+	(fde_split): Define static fde * marker as dereference of
+	 __w32_sharedptr->dw2_marker.
+	* unwind-sjlj.c: Include "i386/w32-shared-ptr.h".
+	(fc_key, use_fc_key): Adjust shared_ptr	definitions.
+	(fc_key_init_once): Likewise.
+	(fc_static): Likewise.
+
+2002-11-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* unwind-sjlj.c (fc_key, use_fc_key): Define as 
+	dereferences of __w32_shared_ptr* variables.
+	(fc_key_init_once):Define static variable once as
+	dereference of __w32_sharedptr_once.
+
+2002-10-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* unwind-sjlj.c (fc_static): Define as a dereference of
+	__w32_sharedptr_fc_static.
+	* config/i386/w32-shared-ptr.c (__w32_sharedptr_fc_static):
+	New variable.
+	(__w32_sharedptr_initialize): Assign __w32_sharedptr_fc_static.
+
+2002-10-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS):
+	Merge 3.3 changes into branch.
+	* config/i386/cygwin.h: Ditto
+	* config/i386/mingw32.h: Ditto.
+
+2002-08-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* crtstuff.c (__do_frame_init): Call __w32_sharedptr_initialize.
+	* config/i386/t-cygming (LIB2FUNCS_EXTRA): Add
+	__w32_sharedptr_initialize.c
+	* config/i386/t-mingw32 (LIB2FUNCS_EXTRA): Adjust for common
+	component in t-cygming.
+	* config/i386/w32-shared-ptr.c (__w32_sharedptr_initialize):
+	Initialize default terminate and uncaught_exception handlers
+	to abort.
+	* Remove dependency on windows.h.
+
+2002-08-16  Adriano dos Santos Fernandes  <adrianosf@uol.com.br>
+
+	* unwind-dw2-fde.c (unseen_objects, seen_objects): Support for
+	w32 catch exceptions across EXE/DLLs boundaries.
+	* config/i386/w32-shared-ptr.c: New file. Initialize shared
+	pointers.
+
+2002-07-12  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/cygwin.h (CPP_SPEC): Fix include/w32api search behavior
+	in absence of -mwin32.  Always define STANDARD_INCLUDE_DIR when
+	required.
+	* config/i386/cygwin2.c (add_mingw): Tack /mingw on the end of
+	directories that have not been otherwise converted.
+	* config/t-cygming (STMP_FIXINC): Define.
+
+2002-07-05  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/mingw32.h: Remove cygming.h include.  Assume that it is
+	already included in config.h.
+	* config/i386/cygwin.h: Ditto.
+	(LINK_SPEC): Don't use cyg search prefix when -mno-cygwin.
+	(GCC_DRIVER_HOST_INITIALIZATION): Avoid a compiler warning.
+	* config.gcc: Add cygming.h to mingw32 and cygwin targets.
+
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
+	* config.gcc: Use new common makefile stub for cygwin and mingw32.
+
+2002-06-28  Christopher Faylor  <cgf@redhat.com>
+
+	* config/i386/t-cygming: New makefile stub.
+	* config/i386/t-cygwin: Assume existence of new makefile stub.
+	* config/i386/t-mingw32: Ditto.
+	* config/i386/cygming.h: New file.
+	* config/i386/cygwin.h: Use new common header file.
+	* config/i386/mingw32.h: Ditto.
+
+2002-06-27  Christopher Faylor  <cgf@redhat.com>
+
+	* gcc/config.gcc: Add extra files to cygwin targets.  Default cygwin to
+	posix threading.
+	* i386/cygwin.h: Simplify special spec logic.  Define "wrappers" around
+	certain path defines to accommodate -mno-cygwin.  Remove some #if 0'ed
+	code.
+	(GCC_DRIVER_HOST_INITIALIZATION): Define.
+	* gcc/config/i386/i386.h: Add appropriate whitespace to some _SPEC
+	defines.
+	* gcc/config/i386/t-cygwin: Add compilation rules for new cygwin
+	targets.
+	* cygwin1.c: New file.
+	* cygwin2.c: New file.
+
+2002-06-22  Casper S. Hornstrup  <chorns@users.sourceforge.net>
+
+	* gcc/config/i386/i386.c (ix86_comp_type_attributes): Fix
+	thinko in comparison of fastcall types.
+
+2002-05-15  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	Add Dwarf2 EH support for mingw.
+	* config/i386/mingw32.h (ENDFILE_SPEC): Define.
+	(STARTFILE_SPEC): Add crtbegin.o.
+	(DWARF2_UNWIND_INFO): Define.
+	* config.gcc(i[34567]86-*-mingw32*): Add crtbegin.o and
+	crtend.o as extra parts
+	* crtstuff.c : Add support for __MINGW32__ and __CYGWIN__.
+	* libgcc2.c (L__main): Don't compile for mingw32.
+
+2002-04-16  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/xm-mingw32.h (HOST_WIDEST_INT): Define.
+	(HOST_BITS_PER_WIDEST_INT): Define.
+	(HOST_WIDEST_INT_PRINT_DEC): Define.
+	(HOST_WIDEST_INT_PRINT_UNSIGNED): Define.
+	(HOST_WIDEST_INT_PRINT_HEX): Define.
+
+2001-11-05  Eric Kohl  <ekohl@rz-online.de>
+
+	*config/i386/cygwin.h (CPP_SPEC): Add fastcall attributes.
+	(I386_PE_STRIP_ENCODING): Return length of internal fastcall
+	prefix (+).
+	(ASM_OUTPUT_LABELREF): Add _imp_ prefix now rather than in
+	winnt.c (i386_pe_mark_dllimport). Convert internal
+	fastcall decoration to MS-compatable decoration.
+	* config/i386/i386.h (CUMULATIVE_ARGS): Add fastcall attribute
+	 flag.
+	* config/i386/mingw32.h(CPP_SPEC): Add fastcall attributes.
+	* config/i386/i386.c (i386_valid_type_attribute_p): Accept
+	'fastcall' as a valid type attribute.
+	(i386_return_pops_args): Fastcall functions pop the stack.
+	(init_cumulative_args): Reserve registers ECX and EDX if
+	function has fastcall attribute.
+	(function_arg_advance): Take care of argument type restrictions
+	of fastcall functions.
+	(function_arg): Use registers ECX and EDX if function has
+	fastcall attribute.
+	* config/i386/winnt.c (i386_pe_mark_dllimport): Don't add _imp_
+	prefix now. It is done in ASM_OUTPUT_LABELREF in cygwin.h.
+	(gen_fastcall_suffix): New function. Decorates
+	a label name with a preliminary fastcall prefix (+) and the
+	stdcall suffix.
+	(i386_pe_encode_section_info): Calls gen_fastcall_suffix() if
+	a symbol has a fastcall attribute.
+
+	* doc/extend.texi: Added documentation of fastcall attribute.
+
+2001-11-05  Danny Smith  <danny_r_smith_2001@yahoo.com.nz>
+
+	* config/i386/i386.c (i386_comp_type_attributes): Check for
+	mismatched fastcall types.
+	config/winnt.c (i386_pe_unmark_dllimport): Adjust for changes
+	in i386_pe_mark_dllimport.
+	(i386_pe_mark_dllexport): Likewise.
+
+2001-06-30  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* gcc.c (canon_filename): New function for converting '/' to
+	'\\' if __MINGW32__.
+	(execute): Use it when passing filenames to pexecute.
+	* config/i386/xm-mingw32.h (DIR_SEPARATOR): Make '/' the
+	default.
+
+2001-06-20  Mumit Khan  <khan@nanotech.wisc.edu>
+
+	* ginclude/stdarg.h: Use RC_INVOKED guard for x86-win32 targets.
+	* ginclude/stddef.h: Likewise.
+	* ginclude/varargs.h: Likewise. Replace WINNT macro with __WIN32__.

@@ -1,0 +1,42 @@
+2002-12-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* ada/adaint.c (w32_epoch_offset): Define static const at file
+	level.
+	(win32_filetime): Replace offset with w32_epoch_offset. Use NULL
+	rather than t_create, t_access in call to GetFileTime.
+	(__gnat_file_time_name): Test for invalid file handle.
+	(__gnat_set_filetime_name): Support win32 targets using
+	w32api SetFileTime.
+
+
+2002-03-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* adaint.h (__gnat_plist_init): Add prototype for _WIN32.
+	* adaint.c: Don't include sys/wait.h if __MINGW32__.
+	(HAVE_DOS_BASED_FILE_SYSTEM): Define if necessary for
+	__EMX__, MSDOS, and _WIN32.  Use throughout to check for
+	DOS-based filesystems.
+	(IS_DIR_SEPARATOR): Define if necessary. Use throughout for
+	testing for dir separators.
+	Include ctype.h for DOS-based filesystems.
+	(__gnat_readlink): Let __CYGWIN__ use symlinks.
+	(__gnat_symlink): Likewise.
+	(__gnat_try_lock): Remove duplicate code for systems without link.
+	(win32_filetime, win32_no_block_spawn, win32_wait, remove_handle,
+	add_handle, plist_enter, plist_leave: Add prototypes.
+	(plist_leave, remove_handle): Make static.
+	Don't use POSIX permission masks if __MINGW32__.
+	Remove duplicate include of windows.h.
+	* cal.c: Include <winsock.h> if __MINGW32__.
+	* cstreams.c (max_path_len): Use _MAX_PATH if _WIN32.
+	Don't include sys/param.h for __MINGW32__.
+	(__gnat_full_name): Move return statement outside of
+	preprocessor switch.
+	* init.c (__gnat_error_handler): Make __stdcall.
+	Const-ify char* msg.
+	*ada/sysdep.c: Include conio.h if __MINGW32__.
+	(rts_get_hInstance): Cast return value of GetModuleHandleA
+	to char *.
+	* Make-lang.in (gnatdll$(exeext)): Add rule.  
+	* Makefile.in: Use krunched filenames when building objects
+	for gnatdll.exe.

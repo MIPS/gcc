@@ -36,10 +36,16 @@
 
 #pragma GCC system_header
 
+#include <bits/c++config.h>
+
+// Get everything.
 #define __need_size_t
 #define __need_ptrdiff_t
 #define __need_NULL
 #define __need_offsetof
+#define __need_wint_t
+#define __need_wchar_t
+
 #include_next <stddef.h>
 
 #endif

@@ -45,16 +45,6 @@ struct tms
 };
 #endif
 
-#if defined HAVE_DECL_GETRUSAGE && !HAVE_DECL_GETRUSAGE
-extern int getrusage PARAMS ((int, struct rusage *));
-#endif
-#if defined HAVE_DECL_TIMES && !HAVE_DECL_TIMES
-extern clock_t times PARAMS ((struct tms *));
-#endif
-#if defined HAVE_DECL_CLOCK && !HAVE_DECL_CLOCK
-extern clock_t clock PARAMS ((void));
-#endif
-
 #ifndef RUSAGE_SELF
 # define RUSAGE_SELF 0
 #endif
@@ -78,17 +68,26 @@ extern clock_t clock PARAMS ((void));
 /* Prefer times to getrusage to clock (each gives successively less
    information).  */
 #ifdef HAVE_TIMES
+# if defined HAVE_DECL_TIMES && !HAVE_DECL_TIMES
+  extern clock_t times PARAMS ((struct tms *));
+# endif
 # define USE_TIMES
 # define HAVE_USER_TIME
 # define HAVE_SYS_TIME
 # define HAVE_WALL_TIME
 #else
 #ifdef HAVE_GETRUSAGE
+# if defined HAVE_DECL_GETRUSAGE && !HAVE_DECL_GETRUSAGE
+  extern int getrusage PARAMS ((int, struct rusage *));
+# endif
 # define USE_GETRUSAGE
 # define HAVE_USER_TIME
 # define HAVE_SYS_TIME
 #else
 #ifdef HAVE_CLOCK
+# if defined HAVE_DECL_CLOCK && !HAVE_DECL_CLOCK
+  extern clock_t clock PARAMS ((void));
+# endif
 # define USE_CLOCK
 # define HAVE_USER_TIME
 #endif

@@ -88,8 +88,8 @@ __gnat_pipe (fd)
   HANDLE read, write;
 
   CreatePipe (&read, &write, NULL, 0);
-  fd[0]=_open_osfhandle (read, 0);
-  fd[1]=_open_osfhandle (write, 0);
+  fd[0]=_open_osfhandle ((long)read, 0);
+  fd[1]=_open_osfhandle ((long)write, 0);
   return 0;  /* always success */
 }
 

@@ -118,6 +118,13 @@ _TYPE_wchar_t;
 #undef _TYPE_wchar_t
 #endif
 
+#if __cplusplus &&  _GLIBCPP_USE_NAMESPACES
+namespace std
+{
+  extern "C"
+    {
+#endif
+
 /* In case nobody has defined these types, but we aren't running under
    GCC 2.00, make sure that __PTRDIFF_TYPE__, __SIZE_TYPE__, and
    __WCHAR_TYPE__ have reasonable values.  This can happen if the
@@ -356,6 +363,11 @@ typedef __WINT_TYPE__ wint_t;
 #undef __need_wint_t
 #endif
 
+#if __cplusplus &&  _GLIBCPP_USE_NAMESPACES
+    } /* extern "C" */ 
+}  /* namespace std */ 
+#endif
+
 /*  In 4.3bsd-net2, leave these undefined to indicate that size_t, etc.
     are already defined.  */
 /*  BSD/OS 3.1 and FreeBSD [23].x require the MACHINE_ANSI_H check here.  */
@@ -407,13 +419,17 @@ typedef __WINT_TYPE__ wint_t;
 #endif	/* NULL not defined and <stddef.h> or need NULL.  */
 #undef	__need_NULL
 
-#ifdef _STDDEF_H
+#if defined (_STDDEF_H) || defined (__need_offsetof)
 
 /* Offset of member MEMBER in a struct of type TYPE.  */
 
+#if __cplusplus && _GLIBCPP_USE_NAMESPACES
+#define offsetof(TYPE, MEMBER) ((std::size_t) &((TYPE *)0)->MEMBER)
+#else
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-
-#endif /* _STDDEF_H was defined this time */
+#endif
+  
+#endif /* _STDDEF_H or need offsetof was defined this time */
 
 #endif /* !_STDDEF_H && !_STDDEF_H_ && !_ANSI_STDDEF_H && !__STDDEF_H__
 	  || __need_XXX was not defined before */

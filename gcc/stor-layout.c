@@ -1075,8 +1075,8 @@ place_field (rli, field)
 		  /* out of bits; bump up to next 'word'.  */
 		  rli->offset = DECL_FIELD_OFFSET (rli->prev_field);
 		  rli->bitpos = size_binop (PLUS_EXPR,
-				      type_size,
-				      DECL_FIELD_BIT_OFFSET(rli->prev_field));
+				  type_size,
+				  DECL_FIELD_BIT_OFFSET(rli->prev_field));
 		  rli->prev_field = field;
 		  rli->remaining_in_alignment = TREE_INT_CST_LOW (type_size);
 		}

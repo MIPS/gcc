@@ -20,9 +20,17 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#undef EXTRA_OS_CPP_BUILTINS
-#define EXTRA_OS_CPP_BUILTINS() \
-  do { builtin_define ("__MINGW32__=0.2"); } while (0)
+
+#define EXTRA_OS_CPP_BUILTINS()					\
+  do								\
+    {								\
+      builtin_define ("__CRTDLL__");				\
+      builtin_define ("__MINGW32__");			   	\
+      builtin_define ("_WIN32");				\
+      builtin_define_std ("WIN32");				\
+      builtin_define_std ("WINNT");				\
+    }								\
+  while (0)
 
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \

@@ -111,7 +111,12 @@ namespace std
 	__p_mode |=  O_RDWR | O_CREAT | O_TRUNC;
       }
     if (__testb)
-      strcat(__c_mode, "b");
+      {
+	strcat(__c_mode, "b");
+#ifdef O_BINARY
+	__p_mode |=  O_BINARY;
+#endif
+      }
   }
   
   __basic_file<char>*

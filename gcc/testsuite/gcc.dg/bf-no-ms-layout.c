@@ -1,6 +1,6 @@
 /* bf-no-ms-layout.c */
 
-/* Test for gcc bitfield layout, with -mno-ms-bitfields */
+/*  Test for gcc bitfield layout, with -mno-ms-bitfields */
 /* Adapted from Donn Terry <donnte@microsoft.com> testcase
    posted to GCC-patches
    http://gcc.gnu.org/ml/gcc-patches/2000-08/msg00577.html */ 
@@ -100,7 +100,7 @@ struct ten {   /* ms size 16 */
     abort();					\
   memcpy(&test_##_X, filler, sizeof(test_##_X));\
   if (val(test_##_X,c) != exp_##_X##_c) 	\
-     abort();					\
+    abort();					\
 }
 
 #define check_union(_X) \

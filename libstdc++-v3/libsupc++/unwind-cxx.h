@@ -125,9 +125,16 @@ extern "C" void __cxa_call_unexpected (void *) __attribute__((noreturn));
 extern void __terminate(std::terminate_handler) __attribute__((noreturn));
 extern void __unexpected(std::unexpected_handler) __attribute__((noreturn));
 
-// The current installed user handlers.
+ // The current installed user handlers.
+#if defined  (__MINGW32__) || defined (__CYGWIN__)
+extern "C" void** __w32_sharedptr_terminate;
+extern "C" void** __w32_sharedptr_unexpected;
+#define __terminate_handler (*(std::terminate_handler*)(__w32_sharedptr_terminate))
+#define __unexpected_handler (*(std::unexpected_handler*)(__w32_sharedptr_unexpected))
+#else
 extern std::terminate_handler __terminate_handler;
 extern std::unexpected_handler __unexpected_handler;
+#endif
 
 // These are explicitly GNU C++ specific.
 

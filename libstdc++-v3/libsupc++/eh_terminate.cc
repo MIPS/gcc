@@ -36,9 +36,11 @@
 
 using namespace __cxxabiv1;
 
+#if !(defined (__MINGW32__) || defined (__CYGWIN__))
 /* The current installed user handlers.  */
 std::terminate_handler __cxxabiv1::__terminate_handler = std::abort;
 std::unexpected_handler __cxxabiv1::__unexpected_handler = std::terminate;
+#endif
 
 void
 __cxxabiv1::__terminate (std::terminate_handler handler)
@@ -54,7 +56,12 @@ __cxxabiv1::__terminate (std::terminate_handler handler)
 void
 std::terminate ()
 {
-  __terminate (__terminate_handler);
+#if 0 // (defined (__MINGW32__) || defined (__CYGWIN__))
+  if (__terminate_handler == NULL )
+    std::abort;
+  else
+#endif
+    __terminate (__terminate_handler);
 }
 
 void
@@ -67,7 +74,12 @@ __cxxabiv1::__unexpected (std::unexpected_handler handler)
 void
 std::unexpected ()
 {
-  __unexpected (__unexpected_handler);
+#if 0 // (defined (__MINGW32__) || defined (__CYGWIN__))
+  if (unexpected_handler == NULL)
+    std::terminate();
+  else
+#endif
+    __unexpected (__unexpected_handler);
 }
 
 std::terminate_handler

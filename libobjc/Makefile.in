@@ -99,7 +99,8 @@ INCLUDES = -I$(srcdir)/objc  -I$(srcdir)/$(MULTISRCTOP)../gcc \
   -I$(srcdir)/$(MULTISRCTOP)../gcc/config -I$(MULTIBUILDTOP)../../gcc \
   -I$(srcdir)/$(MULTISRCTOP)../include
 
-OBJC_GCFLAGS=-DOBJC_WITH_GC=1
+OBJC_GCFLAGS=-DOBJC_WITH_GC=1 \
+  -I$(srcdir)/$(MULTISRCTOP)../boehm-gc/include
 OBJC_THREAD_FILE=thr-objc
 OBJC_BOEHM_GC=@OBJC_BOEHM_GC@
 
@@ -199,6 +200,10 @@ linking.lo: linking.m
 linking_gc.lo: linking.m
 	$(LIBTOOL_COMPILE) $(CC) -fgnu-runtime -c -o $@ $(ALL_CFLAGS) \
 		$(OBJC_GCFLAGS) $(INCLUDES) $<
+
+misc.lo: misc.c
+	$(LIBTOOL_COMPILE) $(CC) -c $(ALL_CFLAGS) -o $@ -mnop-fun-dllimport \
+		$(INCLUDES) $<
 
 misc_gc.lo: misc.c
 	$(LIBTOOL_COMPILE) $(CC) -c $(ALL_CFLAGS) -o $@ $(OBJC_GCFLAGS) \

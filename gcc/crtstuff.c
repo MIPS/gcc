@@ -131,6 +131,8 @@ extern void *__deregister_frame_info_bases (void *)
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
 
+#if !(defined (__MINGW32__) || defined (__CYGWIN__))
+
 #ifdef OBJECT_FORMAT_ELF
 
 /*  Declare a pointer to void function type.  */
@@ -545,3 +547,108 @@ __do_global_ctors (void)
 #else /* ! CRT_BEGIN && ! CRT_END */
 #error "One of CRT_BEGIN or CRT_END must be defined."
 #endif
+
+#else /*__MINGW32__ || __CYGWIN__ */
+
+/* Use  __main to run ctors and dtors. This code generates a
+label for beginning of .eh_frame section in crtbegin.o and terminates
+the section in crtend.o. Registration and deregistration is done by
+installing ctor and dtor functions to do the job.  */
+
+  
+#ifdef CRT_BEGIN
+
+extern  void __w32_sharedptr_initialize(void);
+
+/* Stick a label at the beginning of the frame unwind info so we can
+   register/deregister it with the exception handling library code.  */
+#if defined (USE_EH_FRAME_REGISTRY) \
+	     && !__USING_SJLJ_EXCEPTIONS__
+char __EH_FRAME_BEGIN__[]
+     __attribute__((section(EH_FRAME_SECTION_NAME), aligned(4)))
+     = { };
+
+static struct object obj;
+
+/* These will pull in references from libgcc.a(unwind-dw2-fde.o) */
+
+void __do_frame_init (void);
+void __do_frame_fini (void);
+
+void
+__do_frame_init (void)
+{
+  __w32_sharedptr_initialize();
+  __register_frame_info (__EH_FRAME_BEGIN__, &obj);
+}
+
+void
+__do_frame_fini (void)
+{
+  __deregister_frame_info (__EH_FRAME_BEGIN__);
+}
+#else /* USE_EH_FRAME_REGISTRY && !__USING_SJLJ__EXCEPTIONS__ */
+void __do_sjlj_init (void);
+
+void
+__do_sjlj_init (void)
+{
+  __w32_sharedptr_initialize();
+}
+#endif
+
+
+#elif defined CRT_END
+
+/* Terminate the frame unwind info section with a 0 as a sentinel;
+   this would be the 'length' field in a real FDE.  */
+#if defined (USE_EH_FRAME_REGISTRY) \
+	     && !__USING_SJLJ_EXCEPTIONS__
+static int __EH_FRAME_END__[]
+     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
+		     aligned(4)))
+     = { 0 };
+static void __reg_frame_ctor (void) __attribute__ ((constructor));
+static void __dereg_frame_dtor (void) __attribute__ ((destructor));
+extern void __do_frame_init (void);
+extern void __do_frame_fini (void);
+
+
+/* Register the eh_frame. This has to be the first ctor to
+   be invoked so we put it in last. Since we're last, we can't
+   reference __register_frame_info in libgcc.a directly (if eh_frame
+   code has been referenced than it will have been pulled in but
+   we can't count on it) so we  call a thunk in crtbegin.o.  */
+
+static void
+__reg_frame_ctor (void)
+{
+  __do_frame_init ();
+}
+
+/* Deregister the eh_frame. This has to be the last dtor. The
+   call to __register_frame_info in crtbegin.o will have pulled in
+   libgcc.a(unwind-dw2-fde.o) if libgcc.a is static lib but not if
+   dll, so we use a thunk again to be sure.  */
+
+static void
+__dereg_frame_dtor (void)
+{
+  __do_frame_fini ();
+}
+#else
+static void __sjlj_init_ctor (void) __attribute__ ((constructor));
+void __do_sjlj_init (void);
+static void
+__sjlj_init_ctor (void)
+{
+  __do_sjlj_init ();
+}
+
+#endif /* USE_EH_FRAME_REGISTRY && !__USING_SJLJ__EXCEPTIONS__ */
+
+#else /* ! CRT_BEGIN && ! CRT_END */
+#error "One of CRT_BEGIN or CRT_END must be defined."
+#endif
+
+#endif /* __MINGW32__ || __CYGWIN__ */

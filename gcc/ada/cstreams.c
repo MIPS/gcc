@@ -67,7 +67,8 @@
 #endif
 #endif
 
-/* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong.  */
+/* The _IONBF value in CYGNUS or MINGW32 stdio.h is wrong in
+   in old releases.  */
 #if defined (WINNT) || defined (_WINNT)
 #undef _IONBF
 #define _IONBF 0004
@@ -204,8 +205,6 @@ __gnat_full_name (nam, buffer)
       strcpy (buffer, __gnat_to_host_file_spec (buffer));
     }
 
-  return buffer;
-
 #else
   if (nam[0] != '/')
     {
@@ -226,6 +225,8 @@ __gnat_full_name (nam, buffer)
   else
     strcpy (buffer, nam);
 
-  return buffer;
 #endif
+
+  return buffer;
+
 }

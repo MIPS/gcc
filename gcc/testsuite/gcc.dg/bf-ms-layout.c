@@ -100,7 +100,7 @@ struct ten {   /* ms size 16 */
     abort();					\
   memcpy(&test_##_X, filler, sizeof(test_##_X));\
   if (val(test_##_X,c) != exp_##_X##_c) 	\
-     abort();					\
+    abort();					\
 }
 
 #define check_union(_X) \

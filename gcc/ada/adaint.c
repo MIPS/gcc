@@ -65,9 +65,17 @@
 #include "config.h"
 #include "system.h"
 #endif
+
+#if !defined __MINGW32__
 #include <sys/wait.h>
+#endif
 
 #if defined (__EMX__) || defined (MSDOS) || defined (_WIN32)
+#include <process.h>
+#include <ctype.h> /* for isalpha() */ 
+#ifndef HAVE_DOS_BASED_FILE_SYSTEM
+#define HAVE_DOS_BASED_FILE_SYSTEM 1
+#endif
 #elif defined (VMS)
 
 /* Header files and definitions for __gnat_set_file_time_name.  */
@@ -116,13 +124,17 @@ struct vstring
 #include <utime.h>
 #endif
 
-#if defined (__EMX__) || defined (MSDOS) || defined (_WIN32)
-#include <process.h>
-#endif
-
 #if defined (_WIN32)
 #include <dir.h>
 #include <windows.h>
+static time_t win32_filetime		PARAMS ((HANDLE));
+static int win32_no_block_spawn 	PARAMS ((char *, char **));
+static int win32_wait			PARAMS ((int *));
+static void remove_handle 		PARAMS ((HANDLE));
+static void add_handle 			PARAMS ((HANDLE));
+static void plist_enter 		PARAMS ((void));
+static void plist_leave			PARAMS ((void));
+
 #endif
 
 #include "adaint.h"
@@ -164,6 +176,16 @@ struct vstring
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
 #endif
+
+/* Define IS_DIR_SEPARATOR.  */
+#ifndef IS_DIR_SEPARATOR
+# ifndef DIR_SEPARATOR_2
+#  define IS_DIR_SEPARATOR(CH) ((CH) == DIR_SEPARATOR)
+# else /* DIR_SEPARATOR_2 */
+#  define IS_DIR_SEPARATOR(CH) \
+	(((CH) == DIR_SEPARATOR) || ((CH) == DIR_SEPARATOR_2))
+# endif /* DIR_SEPARATOR_2 */
+#endif /* IS_DIR_SEPARATOR */
 
 char __gnat_dir_separator = DIR_SEPARATOR;
 
@@ -216,7 +238,7 @@ const int __gnat_vmsp = 0;
 /* This variable is used to export the maximum length of a path name to
    Ada code.  */
 
-#ifdef __EMX__
+#if defined (__EMX__) || defined (__MINGW32__)
 int __gnat_max_path_len = _MAX_PATH;
 
 #elif defined (VMS)
@@ -267,7 +289,7 @@ __gnat_to_gm_time (p_time, p_year, p_month, p_day, p_hours, p_mins, p_secs)
 /* Place the contents of the symbolic link named PATH in the buffer BUF,
    which has size BUFSIZ.  If PATH is a symbolic link, then return the number
    of characters of its content in BUF.  Otherwise, return -1.  For Windows,
-   OS/2 and vxworks, always return -1.  */
+   OS/2 and vxworks, always return -1.  CYGWIN supports symlinks.  */
 
 int    
 __gnat_readlink (path, buf, bufsiz)
@@ -275,7 +297,7 @@ __gnat_readlink (path, buf, bufsiz)
      char *buf;
      size_t bufsiz;
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) && !defined (__CYGWIN__)
   return -1;
 #elif defined (__INTERIX) || defined (VMS)
   return -1;
@@ -295,7 +317,7 @@ __gnat_symlink (oldpath, newpath)
      char *oldpath;
      char *newpath;
 {
-#if defined (MSDOS) || defined (_WIN32) || defined (__EMX__)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) && !defined (__CYGWIN__)
   return -1;
 #elif defined (__INTERIX) || defined (VMS)
   return -1;
@@ -308,31 +330,10 @@ __gnat_symlink (oldpath, newpath)
 
 /* Try to lock a file, return 1 if success.  */
 
-#if defined (__vxworks) || defined (MSDOS) || defined (_WIN32)
-
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) \
+  || defined (__vxworks) || defined (VMS)
+             
 /* Version that does not use link. */
-
-int
-__gnat_try_lock (dir, file)
-     char *dir;
-     char *file;
-{
-  char full_path[256];
-  int fd;
-
-  sprintf (full_path, "%s%c%s", dir, DIR_SEPARATOR, file);
-  fd = open (full_path, O_CREAT | O_EXCL, 0600);
-  if (fd < 0)
-    return 0;
-
-  close (fd);
-  return 1;
-}
-
-#elif defined (__EMX__) || defined (VMS)
-
-/* More cases that do not use link; identical code, to solve too long
-   line problem ??? */
 
 int
 __gnat_try_lock (dir, file)
@@ -408,7 +409,7 @@ __gnat_get_maximum_file_name_length ()
 int
 __gnat_get_file_names_case_sensitive ()
 {
-#if defined (__EMX__) || defined (MSDOS) || defined (VMS) || defined (WINNT)
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM) || defined (VMS)
   return 0;
 #else
   return 1;
@@ -418,7 +419,7 @@ __gnat_get_file_names_case_sensitive ()
 char
 __gnat_get_default_identifier_character_set ()
 {
-#if defined (__EMX__) || defined (MSDOS)
+#if defined (__EMX__) || defined (MSDOS) || defined (_WIN32)
   return 'p';
 #else
   return '1';
@@ -526,7 +527,7 @@ __gnat_open_read (path, fmode)
   return fd < 0 ? -1 : fd;
 }
 
-#if defined (__EMX__)
+#if defined (__EMX__) || defined (__MINGW32__)
 #define PERM (S_IREAD | S_IWRITE)
 #else
 #define PERM (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -765,29 +766,26 @@ __gnat_readdir_is_thread_safe ()
    use fstat for this purpose as the DST modify the st_mtime field of the
    stat structure.  */
 
+ /* Number of seconds between <Jan 1st 1601> and <Jan 1st 1970>.  */
+static const unsigned long long w32_epoch_offset = 11644473600ULL;
+
 static time_t
 win32_filetime (h)
      HANDLE h;
 {
-  BOOL res;
-  FILETIME t_create;
-  FILETIME t_access;
   FILETIME t_write;
   unsigned long long timestamp;
-
-  /* Number of seconds between <Jan 1st 1601> and <Jan 1st 1970>.  */
-  unsigned long long offset = 11644473600;
 
   /* GetFileTime returns FILETIME data which are the number of 100 nanosecs
      since <Jan 1st 1601>. This function must return the number of seconds
      since <Jan 1st 1970>.  */
 
-  res = GetFileTime (h, &t_create, &t_access, &t_write);
+  GetFileTime (h, NULL, NULL, &t_write);
 
   timestamp = (((long long) t_write.dwHighDateTime << 32) 
 	       + t_write.dwLowDateTime);
 
-  timestamp = timestamp / 10000000 - offset;
+  timestamp = timestamp / 10000000 - w32_epoch_offset;
 
   return (time_t) timestamp;
 }
@@ -808,10 +806,14 @@ __gnat_file_time_name (name)
   return ret;
 
 #elif defined (_WIN32)
+  time_t ret = 0;
   HANDLE h = CreateFile (name, GENERIC_READ, FILE_SHARE_READ, 0,
 			 OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
-  time_t ret = win32_filetime (h);
-  CloseHandle (h);
+  if (h != INVALID_HANDLE_VALUE)
+    {
+      ret = win32_filetime (h);
+      CloseHandle (h);
+    }
   return ret;
 #else
 
@@ -924,10 +926,30 @@ __gnat_set_file_time_name (name, time_stamp)
      char *name;
      time_t time_stamp;
 {
-#if defined (__EMX__) || defined (MSDOS) || defined (_WIN32) \
-    || defined (__vxworks)
+#if defined (__EMX__) || defined (MSDOS)  || defined (__vxworks)
 
 /* Code to implement __gnat_set_file_time_name for these systems.  */
+
+#elif defined (_WIN32)
+  union
+  {
+    FILETIME ft_time;
+    unsigned long long ull_time;
+  } time_u;
+  
+  HANDLE h  = CreateFile (name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
+			  OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS,
+			  NULL);
+  if (h == INVALID_HANDLE_VALUE)
+    return;	
+  /* Add number of seconds between <Jan 1st 1601> and <Jan 1st 1970> */
+  time_u.ull_time = ((unsigned long long)time_stamp + w32_epoch_offset);
+  /*  Convert to 100 nanosecond units  */
+  time_u.ull_time *= 10000000ULL;
+
+  SetFileTime(h, NULL, NULL, &time_u.ft_time);
+  CloseHandle (h);
+  return;
 
 #elif defined (VMS)
   struct FAB fab;
@@ -1216,10 +1238,6 @@ __gnat_set_env_value (name, value)
 #endif
 }
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 /* Get the list of installed standard libraries from the
    HKEY_LOCAL_MACHINE\SOFTWARE\Ada Core Technologies\GNAT\Standard Libraries
    key.  */
@@ -1323,9 +1341,9 @@ int
 __gnat_is_absolute_path (name)
      char *name;
 {
-  return (*name == '/' || *name == DIR_SEPARATOR
-#if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
-      || strlen (name) > 1 && isalpha (name[0]) && name[1] == ':'
+   return ((*name == '/') || IS_DIR_SEPARATOR (*name)
+#if defined(HAVE_DOS_BASED_FILE_SYSTEM)
+       || (strlen (name) > 1 && isalpha (name [0]) && name [1] == ':')
 #endif
 	  );
 }
@@ -1387,7 +1405,7 @@ __gnat_portable_spawn (args)
   int pid;
 
 #if defined (MSDOS) || defined (_WIN32)
-  status = spawnvp (P_WAIT, args[0], args);
+  status = spawnvp (P_WAIT, args[0], (const char* const*)args);
   if (status < 0)
     return -1;
   else
@@ -1487,7 +1505,8 @@ add_handle (h)
   plist_leave();
 }
 
-void remove_handle (h)
+static void
+remove_handle (h)
      HANDLE h;
 {
   Process_List *pl, *prev;
@@ -1746,12 +1765,13 @@ __gnat_locate_regular_file (file_name, path_val)
   char *ptr;
 
   /* Handle absolute pathnames.  */
-  for (ptr = file_name; *ptr && *ptr != '/' && *ptr != DIR_SEPARATOR; ptr++)
+  for (ptr = file_name;
+       *ptr && *ptr != '/' && !IS_DIR_SEPARATOR (*ptr); ptr++)
     ;
 
   if (*ptr != 0
-#if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
-      || isalpha (file_name[0]) && file_name[1] == ':'
+#if defined (HAVE_DOS_BASED_FILE_SYSTEM)
+      || (isalpha (file_name [0]) && file_name [1] == ':')
 #endif
      )
     {
@@ -1780,7 +1800,7 @@ __gnat_locate_regular_file (file_name, path_val)
         *ptr++ = *path_val++;
 
       ptr--;
-      if (*ptr != '/' && *ptr != DIR_SEPARATOR)
+      if (*ptr != '/'  &&  !IS_DIR_SEPARATOR (*ptr))
         *++ptr = DIR_SEPARATOR;
 
       strcpy (++ptr, file_name);

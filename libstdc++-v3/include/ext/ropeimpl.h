@@ -46,7 +46,6 @@
  */
 
 #include <cstdio>     
-#include <iostream>
 #include <bits/functexcept.h>
 
 #include <ext/algorithm> // For copy_n and lexicographical_compare_3way
@@ -1447,30 +1446,22 @@ template<class _CharT, class _Alloc>
 const _CharT* rope<_CharT,_Alloc>::c_str() const {
     if (0 == _M_tree_ptr) {
         _S_empty_c_str[0] = _S_eos((_CharT*)0);  // Possibly redundant,
-					     // but probably fast.
-        return _S_empty_c_str;
-    }
-    __GC_CONST _CharT* __old_c_string = _M_tree_ptr->_M_c_string;
-    if (0 != __old_c_string) return(__old_c_string);
-    size_t __s = size();
-    _CharT* __result = _Data_allocate(__s + 1);
-    _S_flatten(_M_tree_ptr, __result);
-    __result[__s] = _S_eos((_CharT*)0);
-#   ifdef __GC
-	_M_tree_ptr->_M_c_string = __result;
-#   else
-      if ((__old_c_string = (__GC_CONST _CharT*)
-             std::_Atomic_swap((unsigned long *)(&(_M_tree_ptr->_M_c_string)),
-			  (unsigned long)__result)) != 0) {
-	// It must have been added in the interim.  Hence it had to have been
-	// separately allocated.  Deallocate the old copy, since we just
-	// replaced it.
-	_Destroy(__old_c_string, __old_c_string + __s + 1);
-	_Data_deallocate(__old_c_string, __s + 1);
+					         // but probably fast.
+          return _S_empty_c_str;
       }
-#   endif
-    return(__result);
-}
+    __gthread_mutex_lock (&this->_M_tree_ptr->_M_c_string_lock);
+    __GC_CONST _CharT* __result = this->_M_tree_ptr->_M_c_string;
+    if (0 == __result)
+      {
+	size_t __s = size();
+	__result = _Data_allocate(__s + 1);
+	_S_flatten(this->_M_tree_ptr, __result);
+	__result[__s] = _S_eos((_CharT*)0);
+	this->_M_tree_ptr->_M_c_string = __result;
+      }
+     __gthread_mutex_unlock (&this->_M_tree_ptr->_M_c_string_lock);
+      return(__result);
+  }
 
 template<class _CharT, class _Alloc>
 const _CharT* rope<_CharT,_Alloc>::replace_with_c_str() {

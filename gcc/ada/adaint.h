@@ -142,3 +142,7 @@ extern char   *__gnat_ttyname			   PARAMS ((int));
 /* Portable definition of strdup, which is not available on all systems.  */
 #define xstrdup(S)  strcpy ((char *) malloc (strlen (S) + 1), S)
 #endif
+
+#ifdef _WIN32
+extern void 	__gnat_plist_init		  PARAMS ((void));
+#endif

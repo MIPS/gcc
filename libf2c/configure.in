@@ -111,9 +111,9 @@ fi
 
 # avoid confusion in case the `makefile's from the f2c distribution have
 # got put here
-test -f libF77/makefile && mv libF77/makefile  libF77/makefile.ori
-test -f libI77/makefile && mv libI77/makefile  libI77/makefile.ori
-test -f libU77/makefile && mv libU77/makefile  libU77/makefile.ori
+# test -f libF77/makefile && mv libF77/makefile  libF77/makefile.ori
+# test -f libI77/makefile && mv libI77/makefile  libI77/makefile.ori
+# test -f libU77/makefile && mv libU77/makefile  libU77/makefile.ori
 
 AC_CONFIG_SUBDIRS(libU77 libI77 libF77)
 # Do Makefile first since g2c.h depends on it and shouldn't get an

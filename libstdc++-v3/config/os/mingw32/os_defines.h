@@ -34,4 +34,21 @@
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
 
+//  Define as 0 to enable inlining of gthread interface to win32api.
+//  By default, don't pollute libstdc++ with win32api names.
+#if !defined (__GTHREAD_HIDE_WIN32API)
+# define __GTHREAD_HIDE_WIN32API 1
+#endif
+
+// Prevent win32api windef.h from defining min and max as macros.
+#undef NOMINMAX
+#define NOMINMAX 1
+
+// mingw32 local hack: Override  _GLIBCPP_USE_WCHAR_T for wstring
+#define _GLIBCPP_USE_WSTRING 1
+
+// mingw32 local hack: Cast long double to doubles to workaround
+// printf bug.	
+#define _GLIBCPP_NO_LONG_DOUBLE_IO 1
+
 #endif

@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4-p6 from Makefile.am
+# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -122,7 +122,7 @@ USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
 WERROR = @WERROR@
-baseline_file = @baseline_file@
+baseline_dir = @baseline_dir@
 check_msgfmt = @check_msgfmt@
 enable_shared = @enable_shared@
 enable_static = @enable_static@
@@ -159,9 +159,7 @@ LOCALE_OUT = @glibcpp_MOFILES@
 MSGFMT = msgfmt
 
 # Necessary files.
-DISTFILES = \
-	Makefile.am Makefile.in string_literals.cc POTFILES.in $(PACKAGE).pot \
-	$(LOCALE_IN) 
+DISTFILES =  	Makefile.am Makefile.in string_literals.cc POTFILES.in $(PACKAGE).pot 	$(LOCALE_IN) 
 
 
 # Specify what gets cleaned up on a 'make clean'
@@ -176,7 +174,7 @@ LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  Makefile.am Makefile.in
 
 
-TAR = gtar
+TAR = tar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:

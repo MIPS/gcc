@@ -150,6 +150,9 @@ case "${target_os}" in
     ;;
   mingw32*)
     os_include_dir="os/mingw32"
+    ATOMICITYH="cpu/i486"
+#   cmodel=c
+#   c_compatibility=yes
     ;;
   netbsd*)
     os_include_dir="os/bsd/netbsd"

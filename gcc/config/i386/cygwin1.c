@@ -1,6 +1,6 @@
 /* Helper routines for cygwin-specific command-line parsing.
    Contributed by Christopher Faylor (cgf@redhat.com)
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -21,18 +21,16 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-#include <string.h>
+#include "cppdefault.h"
 
 void
 mingw_scan (argc, argv, spec_machine)
-    int argc ATTRIBUTE_UNUSED;
+    int argc;
     const char *const *argv;
     char **spec_machine;
 {
   putenv ("GCC_CYGWIN_MINGW=0");
- 
+
   while (*++argv)
     if (strcmp (*argv, "-mno-win32") == 0)
       putenv ("GCC_CYGWIN_WIN32=0");
@@ -51,5 +49,6 @@ mingw_scan (argc, argv, spec_machine)
 	  }
 	putenv ("GCC_CYGWIN_MINGW=1");
       }
+
   return;
 }

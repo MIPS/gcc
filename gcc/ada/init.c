@@ -685,17 +685,17 @@ __gnat_initialize ()
 #elif defined (__MINGW32__)
 #include <windows.h>
 
-static LONG __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
+static LONG  CALLBACK __gnat_error_handler PARAMS ((PEXCEPTION_POINTERS));
 
 /* __gnat_initialize (mingw32).  */
 
-static LONG
+static LONG  CALLBACK
 __gnat_error_handler (info)
      PEXCEPTION_POINTERS info;
 {
   static int recurse;
   struct Exception_Data *exception;
-  char *msg;
+  const char *msg;
 
   switch (info->ExceptionRecord->ExceptionCode)
     {

@@ -94,6 +94,22 @@
 #define _GLIBCPP_FAST_MATH 0
 #endif
 
+
+//  Namespace usage in OS C runtime headers
+
+#ifndef _GLIBCPP_USE_NAMESPACES
+#define _GLIBCPP_USE_NAMESPACES 0
+#endif
+
+#ifndef _GLIBCPP_C99_QUALIFIER
+#if _GLIBCPP_USE_NAMESPACES
+// Assume global namespace for C99 functions by default
+#define _GLIBCPP_C99_QUALIFIER ::
+#else
+#define _GLIBCPP_C99_QUALIFIER
+#endif
+#endif
+
 // The remainder of the prewritten config is mostly automatic; all the
 // user hooks are listed above.
 

@@ -173,6 +173,7 @@ __gnat_set_text_mode (handle)
 
 #ifdef __MINGW32__
 #include <windows.h>
+#include <conio.h>  /* for getch(), kbhit() */
 
 /* Return the name of the tty.   Under windows there is no name for
    the tty, so this function, if connected to a tty, returns the generic name
@@ -292,7 +293,7 @@ __gnat_ttyname (filedes)
 #endif
 
 #if defined (linux) || defined (sun) || defined (sgi) || defined (__EMX__) \
-  || (defined (__osf__) && ! defined (__alpha_vxworks)) || defined (WINNT) \
+  || (defined (__osf__) && ! defined (__alpha_vxworks)) \
   || defined (__MACHTEN__) || defined (hpux) || defined (_AIX) \
   || (defined (__svr4__) && defined (i386)) || defined (__Lynx__) \
   || defined (__CYGWIN__)
@@ -615,7 +616,7 @@ int   rts_get_nShowCmd      PARAMS ((void));
 char *
 rts_get_hInstance () 
 { 
-  return GetModuleHandleA (0); 
+  return (char *) GetModuleHandleA (0); 
 }
 
 char *

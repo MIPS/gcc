@@ -36,6 +36,8 @@
 
 #pragma GCC system_header
 
+#include <bits/c++config.h>
+
 #include_next <stdio.h>
 
 // Get rid of those macros defined in <stdio.h> in lieu of real functions.

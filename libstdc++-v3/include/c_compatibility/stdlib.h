@@ -64,4 +64,18 @@ using std::system;
 using std::wcstombs;
 using std::wctomb;
 
+#if _GLIBCPP_USE_C99
+using std::lldiv_t;
+using std::_Exit;
+using std::abs;
+using std::llabs; 
+using std::div;
+using std::lldiv;
+using std::atoll;
+using std::strtof;
+using std::strtoll;
+using std::strtoull;
+using std::strtold;
+#endif
+
 #endif

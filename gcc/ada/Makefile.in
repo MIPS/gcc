@@ -1610,7 +1610,8 @@ gnattools2: ../stamp-tools
 	  ../../gnatchop$(exeext) ../../gnat$(exeext) ../../gnatkr$(exeext) \
 	  ../../gnatls$(exeext) ../../gnatprep$(exeext) \
 	  ../../gnatpsta$(exeext) ../../gnatxref$(exeext) \
-          ../../gnatfind$(exeext) ../../gnatname$(exeext)
+          ../../gnatfind$(exeext) ../../gnatname$(exeext) \
+	  ../../gnatdll$(exeext)
 
 # These tools are only built for the native version.
 gnattools3: ../stamp-tools
@@ -2069,15 +2070,18 @@ a-except.o  : a-except.adb a-except.ads
 s-assert.o  : s-assert.adb s-assert.ads a-except.ads
 	$(ADAC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -O2 \
 	 $(ADA_INCLUDES) $<
+# -O2 triggers an error in verify_flow_info (when checks enabled)
+g-spipat.o : g-spipat.adb g-spipat.ads
+	$(CC) -c $(ALL_ADAFLAGS) -O1 $(ADA_INCLUDES) $<
 
 mdll.o : mdll.adb mdll.ads mdll-file.ads mdll-utl.ads
-	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $< 
+	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $<
 
 mdll-fil.o : mdll-fil.adb mdll.ads mdll-fil.ads
-	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $< 
+	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $<
 
 mdll-utl.o : mdll-utl.adb mdll.ads mdll-utl.ads sdefault.ads types.ads
-	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $< 
+	$(CC) -c $(ALL_ADAFLAGS) -O2 $(ADA_INCLUDES) $<
   
 # force debugging information and no optimization on s-memory.o so that it 
 # is always possible to set breakpoint on __gnat_malloc and __gnat_free

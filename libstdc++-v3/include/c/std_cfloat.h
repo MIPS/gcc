@@ -36,6 +36,8 @@
 
 #pragma GCC system_header
 
+#include <bits/c++config.h>
+
 #include_next <float.h>
 
 #endif

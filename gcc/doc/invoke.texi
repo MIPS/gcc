@@ -477,7 +477,7 @@ in the following sections.
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -momit-leaf-frame-pointer @gol
--mno-red-zone@gol
+-mms-bitfields -mno-red-zone @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64}
 
@@ -8147,6 +8147,19 @@ avoids the instructions to save, set up and restore frame pointers and
 makes an extra register available in leaf functions.  The option
 @option{-fomit-frame-pointer} removes the frame pointer for all functions
 which might make debugging harder.
+
+@item -mms-bitfields
+@opindex mms-bitfields
+If set, @var{record_type} bit-fields are laid out following the rules of
+Microsoft Visual C/C++, namely: (i) a bit-field won't share the same
+storage unit with the previous bit-field if their underlying types have
+different sizes, and the bit-field will be aligned to the highest
+alignment of the underlying types of itself and of the previous
+bit-field; (ii) a zero-sized bit-field will affect the alignment of the
+whole enclosing structure, even if it is unnamed; except that (iii) a
+zero-sized bit-field will be disregarded unless it follows another
+bit-field of non-zero size. Currently, this option is supported on
+@samp{cygwin} and @samp{mingw32}.
 @end table
 
 These @samp{-m} switches are supported in addition to the above

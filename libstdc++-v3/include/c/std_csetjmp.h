@@ -36,6 +36,8 @@
 
 #pragma GCC system_header
 
+#include <bits/c++config.h>
+
 #include_next <setjmp.h>
 
 // Get rid of those macros defined in <setjmp.h> in lieu of real functions.

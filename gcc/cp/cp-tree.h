@@ -1887,7 +1887,7 @@ struct lang_decl GTY(())
    || (DECL_ASSEMBLER_NAME_SET_P (DECL)				\
        && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)))	\
    || (flag_syntax_only && TREE_USED (DECL)))
-
+ 
 /* Nonzero iff DECL is memory-based.  The DECL_RTL of
    certain const variables might be a CONST_INT, or a REG
    in some cases.  We cannot use `memory_operand' as a test

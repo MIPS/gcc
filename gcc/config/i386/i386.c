@@ -798,6 +798,7 @@ static int ix86_fntype_regparm PARAMS ((tree));
 const struct attribute_spec ix86_attribute_table[];
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
+static bool ix86_ms_bitfield_layout_p PARAMS ((tree));
 static int ix86_value_regno PARAMS ((enum machine_mode));
 static bool contains_128bit_aligned_vector_p PARAMS ((tree));
 
@@ -904,6 +905,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+
+#undef TARGET_MS_BITFIELD_LAYOUT_P
+#define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
@@ -1365,6 +1369,9 @@ const struct attribute_spec ix86_attribute_table[] =
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
   { "stdcall",   0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
+  /* Fastcall attribute says callee is responsible for popping arguments
+     if they are not variable.  */
+  { "fastcall",  0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
   /* Cdecl attribute says the callee is a normal C declaration */
   { "cdecl",     0, 0, false, true,  true,  ix86_handle_cdecl_attribute },
   /* Regparm attribute specifies how many integer arguments are to be
@@ -1463,6 +1470,11 @@ ix86_comp_type_attributes (type1, type2)
   if (TREE_CODE (type1) != FUNCTION_TYPE)
     return 1;
 
+  /*  Check for mismatched fastcall types */ 
+  if (!lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type1))
+      != !lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type2)))
+    return 0; 
+
   /* Check for mismatched return types (cdecl vs stdcall).  */
   if (!lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type1))
       != !lookup_attribute (rtdstr, TYPE_ATTRIBUTES (type2)))
@@ -1500,6 +1512,9 @@ ix86_fntype_regparm (type)
    standard Unix calling sequences.  If the option is not selected,
    the caller must always pop the args.
 
+   Ignore the -mrtd switch for system headers, otherwise all runtime
+   library prototypes need to be explicitly marked as "cdecl".
+
    The attribute stdcall is equivalent to RTD on a per module basis.  */
 
 int
@@ -1510,11 +1525,12 @@ ix86_return_pops_args (fundecl, funtype, size)
 {
   int rtd = TARGET_RTD && (!fundecl || TREE_CODE (fundecl) != IDENTIFIER_NODE);
 
-    /* Cdecl functions override -mrtd, and never pop the stack.  */
+  /* Cdecl functions override -mrtd, and never pop the stack.  */
   if (! lookup_attribute ("cdecl", TYPE_ATTRIBUTES (funtype))) {
 
-    /* Stdcall functions will pop the stack if not variable args.  */
-    if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (funtype)))
+    /* Stdcall and fastcall functions will pop the stack if not variable args. */
+    if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (funtype))
+        || lookup_attribute ("fastcall", TYPE_ATTRIBUTES (funtype)))
       rtd = 1;
 
     if (rtd
@@ -1600,6 +1616,16 @@ init_cumulative_args (cum, fntype, libname)
     }
   cum->maybe_vaarg = false;
 
+  /* Use ecx and edx registers if function has fastcall attribute */
+  if (fntype && !TARGET_64BIT)
+    {
+      if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)))
+	{
+	  cum->nregs = 2;
+	  cum->fastcall = 1;
+	}
+    }
+
   /* Determine if this function has variable arguments.  This is
      indicated by the last argument being 'void_type_mode' if there
      are no variable arguments.  If there are variable arguments, then
@@ -1614,7 +1640,10 @@ init_cumulative_args (cum, fntype, libname)
 	  if (next_param == 0 && TREE_VALUE (param) != void_type_node)
 	    {
 	      if (!TARGET_64BIT)
-		cum->nregs = 0;
+		{
+		  cum->nregs = 0;
+		  cum->fastcall = 0;
+		}
 	      cum->maybe_vaarg = true;
 	    }
 	}
@@ -2267,7 +2296,22 @@ function_arg (cum, mode, type, named)
       case HImode:
       case QImode:
 	if (words <= cum->nregs)
-	  ret = gen_rtx_REG (mode, cum->regno);
+ 	{
+ 	  int regno = cum->regno;
+
+ 	  /* Fastcall allocates the first two DWORD (SImode) or
+ 	     smaller arguments to ECX and EDX.  */
+ 	  if (cum->fastcall)
+ 	    {
+ 	      if (mode == BLKmode || mode == DImode)
+ 		break;
+ 
+ 	      /* ECX not EAX is the first allocated register.  */
+ 	      if (regno == 0)
+ 		regno = 2;
+ 	    }
+ 	  ret = gen_rtx_REG (mode, regno);
+ 	}
 	break;
       case TImode:
 	if (cum->sse_nregs)
@@ -2471,12 +2515,18 @@ ix86_return_in_memory (type)
     }
   else
     {
-      if (TYPE_MODE (type) == BLKmode
-	  || (VECTOR_MODE_P (TYPE_MODE (type))
-	      && int_size_in_bytes (type) == 8)
-	  || (int_size_in_bytes (type) > 12 && TYPE_MODE (type) != TImode
-	      && TYPE_MODE (type) != TFmode
-	      && !VECTOR_MODE_P (TYPE_MODE (type))))
+      if (TYPE_MODE (type) == BLKmode)
+	return 1;
+      else if (MS_AGGREGATE_RETURN
+	       && AGGREGATE_TYPE_P (type)
+	       && int_size_in_bytes(type) <= 8)
+	return 0;
+      else if ((VECTOR_MODE_P (TYPE_MODE (type))
+	        && int_size_in_bytes (type) == 8)
+	       || (int_size_in_bytes (type) > 12
+		   && TYPE_MODE (type) != TImode
+		   && TYPE_MODE (type) != TFmode
+		   && !VECTOR_MODE_P (TYPE_MODE (type))))
 	return 1;
       return 0;
     }
@@ -14506,6 +14556,17 @@ x86_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	  output_asm_insn ("jmp\t{*}%1", xops);
 	}
     }
+}
+
+#ifndef TARGET_USE_MS_BITFIELD_LAYOUT
+#define TARGET_USE_MS_BITFIELD_LAYOUT 0
+#endif
+
+static bool
+ix86_ms_bitfield_layout_p (record_type)
+     tree record_type ATTRIBUTE_UNUSED;
+{
+  return TARGET_USE_MS_BITFIELD_LAYOUT;
 }
 
 int
