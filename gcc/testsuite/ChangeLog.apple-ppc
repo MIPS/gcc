@@ -1,3 +1,8 @@
+2004-10-27  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3854155
+	* obj-c++.dg/cxx-ivars-3.mm: New test.
+
 2004-10-26  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3840704

@@ -1,3 +1,19 @@
+2004-10-27  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3854155
+	* objc-act.c (generate_shared_structures): Add a CLS_FLAGS
+	parameter whose value gets ORed into the INFO field of
+	the class descriptor.
+	(CLS_HAS_CXX_STRUCTORS): New metadata bit.
+	(objc_generate_cxx_cdtors): Set flag in current imp_entry
+	if either '-.cxx_construct' or '-.cxx_destruct' were
+	synthesized...
+	(continue_class): ...after initially clearing it herre.
+	(finish_objc): Adjust call to generate_shared_structures(),
+	passing in CLS_HAS_CXX_STRUCTORS for classes with non-POD
+	ivars.
+	* objc-act.h (struct imp_entry): New has_cxx_cdtors field.
+
 2004-10-26  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3833116 (fix from mainline)

@@ -197,7 +197,8 @@ static int ivar_list_length (tree);
 static tree get_class_ivars (tree);
 static void generate_ivar_lists (void);
 static void generate_dispatch_tables (void);
-static void generate_shared_structures (void);
+/* APPLE LOCAL ObjC C++ ivars */
+static void generate_shared_structures (int);
 static tree generate_protocol_list (tree);
 static void build_protocol_reference (tree);
 
@@ -393,6 +394,8 @@ static const char *default_constant_string_class_name;
 /* Runtime metadata flags.  */
 #define CLS_FACTORY			0x0001L
 #define CLS_META			0x0002L
+/* APPLE LOCAL ObjC C++ ivars */
+#define CLS_HAS_CXX_STRUCTORS		0x2000L
 
 #define OBJC_MODIFIER_STATIC		0x00000001
 #define OBJC_MODIFIER_FINAL		0x00000002
@@ -3996,7 +3999,7 @@ objc_generate_cxx_cdtors (void)
 	}
     }
 
-    /* Generate '- .cxx_construct' if needed.  */
+  /* Generate '- .cxx_construct' if needed.  */
 
   if (need_ctor)
     objc_generate_cxx_ctor_or_dtor (false);
@@ -4005,6 +4008,13 @@ objc_generate_cxx_cdtors (void)
 
   if (need_dtor)
     objc_generate_cxx_ctor_or_dtor (true);
+
+  /* The 'imp_list' variable points at an imp_entry record for the current
+     @implementation.  Record the existence of '- .cxx_construct' and/or
+     '- .cxx_destruct' methods therein; it will be included in the
+     metadata for the class.  */
+  if (flag_next_runtime)
+    imp_list->has_cxx_cdtors = (need_ctor || need_dtor);
 }
 #endif
 /* APPLE LOCAL end ObjC C++ ivars */
@@ -5154,7 +5164,8 @@ generate_category (tree cat)
    static struct objc_class _OBJC_CLASS_Foo={ ... };  */
 
 static void
-generate_shared_structures (void)
+/* APPLE LOCAL ObjC C++ ivars */
+generate_shared_structures (int cls_flags)
 {
   tree sc_spec, decl_specs, decl;
   tree name_expr, super_expr, root_expr;
@@ -5245,7 +5256,8 @@ generate_shared_structures (void)
        convert (integer_type_node,
 		TYPE_SIZE_UNIT (CLASS_STATIC_TEMPLATE
 				(implementation_template))),
-       1 /*CLS_FACTORY*/,
+       /* APPLE LOCAL ObjC C++ ivars */
+       1 /*CLS_FACTORY*/ | cls_flags,
        UOBJC_INSTANCE_METHODS_decl,
        UOBJC_INSTANCE_VARIABLES_decl,
        protocol_decl);
@@ -6989,6 +7001,9 @@ continue_class (tree class)
       imp_entry->class_decl = UOBJC_CLASS_decl;
       imp_entry->meta_decl = UOBJC_METACLASS_decl;
 
+      /* APPLE LOCAL ObjC C++ ivars */
+      imp_entry->has_cxx_cdtors = 0;
+
       /* Append to front and increment count.  */
       imp_list = imp_entry;
       if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
@@ -8408,7 +8423,11 @@ finish_objc (void)
 	  /* all of the following reference the string pool...  */
 	  generate_ivar_lists ();
 	  generate_dispatch_tables ();
-	  generate_shared_structures ();
+	  /* APPLE LOCAL begin ObjC C++ ivars */
+	  generate_shared_structures (impent->has_cxx_cdtors
+				      ? CLS_HAS_CXX_STRUCTORS
+				      : 0);
+	  /* APPLE LOCAL end ObjC C++ ivars */
 	}
       else
 	{
