@@ -1,5 +1,13 @@
 2003-09-26  Benjamin Kosnik  <bkoz@redhat.com>
 
+	2003-03-09  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9988
+	* include/bits/fstream.tcc (overflow): don't write EOF to file.
+	* testsuite/27_io/filebuf_virtuals.cc (test14): Add.
+
+2003-09-26  Benjamin Kosnik  <bkoz@redhat.com>
+
         2003-02-05  Paolo Carlini  <pcarlini@unitus.it>
 
 	PR libstdc++/9439, PR libstdc++/9425
