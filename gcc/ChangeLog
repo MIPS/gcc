@@ -1,7 +1,37 @@
+2002-12-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* config.gcc (need_64bit_hwint): New variable.
+	(alpha*-*-*, x86_64-*-*, ia64-*-*, mips*-*-*, powerpc*-*-*,
+	mmix-knuth-mmixware, rs6000*-*-*, sparc64*-*-*, s390*-*-*,
+	sh*-*-*, hppa*64*-*-linux, parisc*64*-*-linux, hppa*64*-*-hpux11*,
+	sparcv9-*-solaris2*, sparc*-*-solaris2.[789], ultrasparc-*-freebsd*):
+	Set it.
+	(powerpc*-*-darwin*): Unset it.
+	(alpha-*-interix, alpha64-dec-*vms*, i?86-*-interix3*,
+	i?86-*-interix*, sparc64-*-openbsd*): Remove references to
+	deleted/nonexistent xm-*.h headers.
+	* configure.in: AC_DEFINE NEED_64BIT_HOST_WIDE_INT if the
+	target set need_64bit_hwint in config.gcc.
+	* configure, config.in: Regenerate.
+
+	* hwint.h: Overhaul.  Don't bother trying int for
+	HOST_WIDE_INT.  Do try __int64 if long is not enough.  Base
+	decision to force 64-bit HOST_WIDE_INT on
+	NEED_64BIT_HOST_WIDE_INT, not (MAX_)LONG_TYPE_SIZE which is
+	not visible at this point.  Don't allow prior definition of
+	any macro defined by this file.
+
+	* config/alpha/xm-vms.h: Don't define HOST_WIDE_INT or
+	HOST_BITS_PER_WIDE_INT.
+	* config/c4x/c4x.h: Adjust redefinition of
+	HOST_WIDE_INT_PRINT_HEX to match changes to hwint.h.
+	* config/alpha/xm-alpha-interix.h, config/alpha/xm-vms64.h,
+	config/i386/xm-i386-interix.h: Delete file.
+
 2002-12-14  Rodney Brown  <rbrown64@csc.com.au>
 	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
-        * pa.c (output_millicode_call): Convert ASM_OUTPUT_INTERNAL_LABEL.
+	* pa.c (output_millicode_call): Convert ASM_OUTPUT_INTERNAL_LABEL.
 	* pa64-hpux.h (ASM_OUTPUT_INTERNAL_LABEL): Delete define.
 
 2002-12-14  Zack Weinberg  <zack@codesourcery.com>

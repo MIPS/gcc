@@ -907,6 +907,11 @@ else
 	done
 fi
 
+if test x$need_64bit_hwint = xyes; then
+	AC_DEFINE(NEED_64BIT_HOST_WIDE_INT, 1,
+[Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h).])
+fi
+
 count=a
 for f in $host_xm_file; do
 	count=${count}x

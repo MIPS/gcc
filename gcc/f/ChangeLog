@@ -1,3 +1,7 @@
+2002-12-15  Zack Weinberg  <zack@codesourcery.com>
+
+	* target.h: Don't define HOST_WIDE_INT.
+
 2002-12-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Make-lang.in, ansify.c, intdoc.c, proj.h: Replace hconfig.h with
