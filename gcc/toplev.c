@@ -2752,7 +2752,7 @@ rest_of_compilation (decl)
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   timevar_pop (TV_JUMP);
-  close_dump_file (DFI_jump, print_rtl, insns);
+  close_dump_file (DFI_jump, print_rtl_with_bb, insns);
 
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
@@ -3052,7 +3052,7 @@ rest_of_compilation (decl)
 	    {
 	      /* Mark unused registers.  This is needed to turn divmods back into
 		 corresponding divs/mods.  */
-	      life_analysis (get_insns (), NULL, PROP_DEATH_NOTES);
+	      life_analysis (get_insns (), NULL, PROP_FINAL);
 	    }
 	  branch_prob ();
 	}
@@ -3335,7 +3335,20 @@ rest_of_compilation (decl)
       /* Do control and data sched analysis,
 	 and write some of the results to dump file.  */
 
-      schedule_insns (rtl_dump_file);
+      if (flag_superblock_scheduling)
+	{
+	  if (!flag_trace_scheduling)
+	    reorder_basic_blocks ();
+	  else
+	    tracer ();
+	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+	  schedule_ebbs (rtl_dump_file);
+	  /* No liveness updating code yet, but it should be easy to do  */
+	  count_or_remove_death_notes (NULL, 1);
+	  life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
+	}
+      else
+	schedule_insns (rtl_dump_file);
 
       close_dump_file (DFI_sched, print_rtl_with_bb, insns);
 
