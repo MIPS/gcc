@@ -633,6 +633,9 @@ extern int flag_gcse_sm;
 
 extern int flag_eliminate_dwarf2_dups;
 
+/* Nonzero means we should track variable locations.  */
+extern int flag_var_tracking;
+
 /* Non-zero means to collect statistics which might be expensive
    and to print them when we are done.  */
 extern int flag_detailed_statistics;

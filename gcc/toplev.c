@@ -379,6 +379,10 @@ void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
 int flag_eliminate_dwarf2_dups = 0;
 
+/* Nonzero if we should track variables.  */
+
+int flag_var_tracking = 0;
+
 /* Nonzero if generating code to do profiling.  */
 
 int profile_flag = 0;
@@ -979,6 +983,8 @@ static const param_info lang_independent_params[] = {
 
 static const lang_independent_options f_options[] =
 {
+  {"var-tracking", &flag_var_tracking, 1,
+   N_("Perform variable tracking") },
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1,
    N_("Perform DWARF2 duplicate elimination") },
   {"float-store", &flag_float_store, 1,
@@ -3583,7 +3589,7 @@ rest_of_compilation (decl)
   /* Because of debugging and bootstrapping the variable tracking is being
      run everytime now. The final version should be run only if compiling
      with debug info.  Is the condition correct?  */
-  if (debug_info_level >= DINFO_LEVEL_NORMAL && optimize > 0)
+  if (debug_info_level >= DINFO_LEVEL_NORMAL && flag_var_tracking)
     {
       /* Track the variables, ie. compute where the variable is stored
        in each position in function.  */
@@ -3770,10 +3776,7 @@ rest_of_compilation (decl)
     }
   cfun = 0;
 
-  /* Keep the rtl in memory until debug info is output.  */
-#if 0
   ggc_collect ();
-#endif
 
   timevar_pop (TV_REST_OF_COMPILATION);
 }
@@ -4872,6 +4875,7 @@ parse_options_and_default_flags (argc, argv)
 
   if (optimize >= 1)
     {
+      flag_var_tracking = 1;
       flag_defer_pop = 1;
       flag_thread_jumps = 1;
 #ifdef DELAY_SLOTS

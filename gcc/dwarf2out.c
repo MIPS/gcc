@@ -5157,6 +5157,25 @@ lookup_decl_die (decl)
 }
 static struct var_loc_node * lookup_decl_loc PARAMS ((tree));
 static void add_var_loc_to_decl PARAMS ((tree, struct var_loc_node *));
+static void mark_decl_loc_table PARAMS ((void *));
+
+/* Mark the notes in the decl location table.  */
+static void
+mark_decl_loc_table (table)
+     void *table ATTRIBUTE_UNUSED;
+{
+  unsigned int i;
+  for (i = 0; i < decl_loc_table_allocated; i++)
+    {
+      struct var_loc_node *node;
+      node = decl_loc_table[i];
+      while (node)
+	{
+	  ggc_mark_rtx (node->var_loc_note);
+	  node = node->next;
+	}
+    }
+}
 
 /* Return the var_loc list associated with a given declaration.  */
 static inline struct var_loc_node *
@@ -12198,7 +12217,8 @@ dwarf2out_init (main_input_filename)
     = (struct var_loc_node **) xcalloc (DECL_LOC_TABLE_INCREMENT, sizeof (struct var_loc_node *));
   decl_loc_table_allocated = DECL_LOC_TABLE_INCREMENT;
   decl_loc_table_in_use = 0;
-
+  ggc_add_root (decl_loc_table, 1, sizeof (struct var_loc_node **), mark_decl_loc_table);
+  
   /* Allocate the initial hunk of the decl_scope_table.  */
   VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
   ggc_add_tree_varray_root (&decl_scope_table, 1);
