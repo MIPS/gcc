@@ -1,3 +1,12 @@
+2003-09-07  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_aint): Fix two bugs. One is 
+	about case_switch's break. The other is about building the condition 
+	statement tree, which judges the argument in the range of the 
+	corresponding integer type.
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): MOD and MODULO can work
+	for the large values.
+ 
 2003-09-05  Paul Brook  <paul@nowt.org>
 
 	* f95-lang.c (expand_function_body): Gimplify the function.

@@ -273,6 +273,7 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
 	  n = BUILT_IN_ROUND;
 	  break;
 	}
+      break;
 
     case FIX_FLOOR_EXPR:
       switch (kind)
@@ -318,9 +319,9 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, int op)
   cond = build (TRUTH_AND_EXPR, boolean_type_node, cond, tmp);
   itype = gfc_get_int_type (kind);
 
-  se->expr = build_fix_expr (&se->pre, arg, itype, op);
+  tmp = build_fix_expr (&se->pre, arg, itype, op);
   tmp = convert (type, tmp);
-  se->expr = build (COND_EXPR, type, cond, arg, tmp);
+  se->expr = build (COND_EXPR, type, cond, tmp, arg);
 }
 
 
@@ -682,8 +683,10 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
   tree itype;
   tree tmp;
   tree zero;
-  tree test1;
+  tree test;
   tree test2;
+  mpf_t huge;
+  int n;
 
   arg = gfc_conv_intrinsic_function_args (se, expr);
   arg2 = TREE_VALUE (TREE_CHAIN (arg));
@@ -702,12 +705,25 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       arg = gfc_evaluate_now (arg, &se->pre);
       arg2 = gfc_evaluate_now (arg2, &se->pre);
 
+      tmp = build (RDIV_EXPR, type, arg, arg2);
+      /* Test if the value is too large to handle sensibly.  */
+      mpf_init (huge);
+      n = gfc_validate_kind (BT_INTEGER, expr->ts.kind);
+      mpf_set_z (huge, gfc_integer_kinds[n].huge);
+      test = gfc_conv_mpf_to_tree (huge, expr->ts.kind);
+      test2 = build (LT_EXPR, boolean_type_node, tmp, test);
+
+      mpf_neg (huge, huge);
+      test = gfc_conv_mpf_to_tree (huge, expr->ts.kind);
+      test = build (GT_EXPR, boolean_type_node, tmp, test);
+      test2 = build (TRUTH_AND_EXPR, boolean_type_node, test, test2);
+
       itype = gfc_get_int_type (expr->ts.kind);
-      tmp = fold (build (RDIV_EXPR, type, arg, arg2));
-      tmp = fold (build1 (FIX_TRUNC_EXPR, itype, tmp));
+      tmp = build_fix_expr (&se->pre, tmp, itype, FIX_TRUNC_EXPR);
       tmp = convert (type, tmp);
-      tmp = fold (build (MULT_EXPR, type, tmp, arg2));
-      se->expr = fold (build (MINUS_EXPR, type, arg, tmp));
+      tmp = build (COND_EXPR, type, test2, tmp, arg);
+      tmp = build (MULT_EXPR, type, tmp, arg2);
+      se->expr = build (MINUS_EXPR, type, arg, tmp);
       break;
 
     default:
@@ -718,15 +734,15 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
     {
      zero = gfc_build_const (type, integer_zero_node);
      /* Build !(A > 0 .xor. P > 0).  */
-     test1 = build (GT_EXPR, boolean_type_node, arg, zero);
+     test = build (GT_EXPR, boolean_type_node, arg, zero);
      test2 = build (GT_EXPR, boolean_type_node, arg2, zero);
-     test1 = build (TRUTH_XOR_EXPR, boolean_type_node, test1, test2);
-     test1 = build1 (TRUTH_NOT_EXPR, boolean_type_node, test1);
+     test = build (TRUTH_XOR_EXPR, boolean_type_node, test, test2);
+     test = build1 (TRUTH_NOT_EXPR, boolean_type_node, test);
      /* Build (A == 0) .or. !(A > 0 .xor. P > 0).  */
      test2 = build (EQ_EXPR, boolean_type_node, arg, zero);
-     test1 = build (TRUTH_OR_EXPR, boolean_type_node, test1, test2);
+     test = build (TRUTH_OR_EXPR, boolean_type_node, test, test2);
 
-     se->expr = build (COND_EXPR, type, test1, se->expr, 
+     se->expr = build (COND_EXPR, type, test, se->expr, 
                build (PLUS_EXPR, type, se->expr, arg2));
     }
 }
