@@ -1,3 +1,19 @@
+2004-10-16  Michael Koch  <konqueror@gmx.de>
+
+	* java/awt/image/ByteLookupTable.java
+	(ByteLookupTable) :Fixed HTML entities in javadocs.
+	(lookupPixel): Fix case when dst is null.
+	* java/awt/image/ShortLookupTable.java
+	(ShortLookupTable) :Fixed HTML entities in javadocs.
+	(lookupPixel): Fix case when dst is null.
+	* java/awt/image/DataBufferByte.java,
+	java/awt/image/DataBufferDouble.java,
+	java/awt/image/DataBufferFloat.java,
+	java/awt/image/DataBufferInt.java,
+	java/awt/image/DataBufferShort.java,
+	java/awt/image/DataBufferUShort.java:
+	Fix initialization of bankData in constructors.
+
 2004-10-13  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GtkButtonPeer.java,
