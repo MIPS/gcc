@@ -268,37 +268,6 @@ extern char *mode_name[];
 
 void gcc_obstack_init ();
 
-/* Init the principal obstacks.  */
-
-void
-init_obstacks ()
-{
-  gcc_obstack_init (&obstack_stack_obstack);
-  gcc_obstack_init (&permanent_obstack);
-
-  gcc_obstack_init (&temporary_obstack);
-  temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
-  gcc_obstack_init (&momentary_obstack);
-  momentary_firstobj = (char *) obstack_alloc (&momentary_obstack, 0);
-  momentary_function_firstobj = momentary_firstobj;
-  gcc_obstack_init (&maybepermanent_obstack);
-  maybepermanent_firstobj
-    = (char *) obstack_alloc (&maybepermanent_obstack, 0);
-  gcc_obstack_init (&temp_decl_obstack);
-  temp_decl_firstobj = (char *) obstack_alloc (&temp_decl_obstack, 0);
-
-  function_obstack = &temporary_obstack;
-  function_maybepermanent_obstack = &maybepermanent_obstack;
-  current_obstack = &permanent_obstack;
-  expression_obstack = &permanent_obstack;
-  rtl_obstack = saveable_obstack = &permanent_obstack;
-
-  /* Init the hash table of identifiers.  */
-  bzero ((char *) hash_table, sizeof hash_table);
-
-  ggc_add_tree_root (hash_table, MAX_HASH_TABLE);
-}
-
 void
 gcc_obstack_init (obstack)
      struct obstack *obstack;
@@ -4925,3 +4894,50 @@ get_set_constructor_bytes (init, buffer, wd_size)
     }
   return non_const_bits;
 }
+
+static void
+mark_type_hash (arg)
+     void *arg;
+{
+  struct type_hash *t = *(struct type_hash **) arg;
+
+  while (t)
+    {
+      ggc_mark_tree (t->type);
+      t = t->next;
+    }
+}
+
+/* Init the principal obstacks.  */
+
+void
+init_obstacks ()
+{
+  gcc_obstack_init (&obstack_stack_obstack);
+  gcc_obstack_init (&permanent_obstack);
+
+  gcc_obstack_init (&temporary_obstack);
+  temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
+  gcc_obstack_init (&momentary_obstack);
+  momentary_firstobj = (char *) obstack_alloc (&momentary_obstack, 0);
+  momentary_function_firstobj = momentary_firstobj;
+  gcc_obstack_init (&maybepermanent_obstack);
+  maybepermanent_firstobj
+    = (char *) obstack_alloc (&maybepermanent_obstack, 0);
+  gcc_obstack_init (&temp_decl_obstack);
+  temp_decl_firstobj = (char *) obstack_alloc (&temp_decl_obstack, 0);
+
+  function_obstack = &temporary_obstack;
+  function_maybepermanent_obstack = &maybepermanent_obstack;
+  current_obstack = &permanent_obstack;
+  expression_obstack = &permanent_obstack;
+  rtl_obstack = saveable_obstack = &permanent_obstack;
+
+  /* Init the hash table of identifiers.  */
+  bzero ((char *) hash_table, sizeof hash_table);
+
+  ggc_add_tree_root (hash_table, MAX_HASH_TABLE);
+  ggc_add_root (type_hash_table, TYPE_HASH_SIZE, sizeof(*type_hash_table),
+		mark_type_hash);
+}
+

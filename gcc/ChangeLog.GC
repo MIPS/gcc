@@ -1,3 +1,19 @@
+Sat May  9 16:08:38 1998  Richard Henderson  <rth@cygnus.com>
+
+	* c-lang.c (lang_mark_tree): Care for identifiers.
+	* ggc-simple.c (ggc_mark_tree): Likewise.
+	* expr.h (all_optabs): New.  Collapse from individual optab vars.
+	(all_libfuncs): Likewise.
+	* optabs.c (mark_optab): New function.
+	(init_optabs): Add gc roots.
+	* tree.c (mark_type_hash):
+	(init_obstacks): Move to end of file.  Add root for type hash.
+
+	* print-tree.c (print_node): Disable permanent obstack warning.
+
+	* toplev.c (all_time): New variable.
+	(print_time): Calculate percentage of the whole.
+	
 Sat May  9 00:26:27 1998  Richard Henderson  <rth@cygnus.com>
 
 	First version of GCC with garbage collection to compile enquire.c:

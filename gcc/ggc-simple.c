@@ -382,6 +382,10 @@ ggc_mark_tree (t)
     case FUNCTION_DECL:
       ggc_mark_rtx (DECL_SAVED_INSNS (t));
       break;
+
+    case IDENTIFIER_NODE:
+      lang_mark_tree (t);
+      return;
     }
   
   /* But in general we can handle them by class.  */

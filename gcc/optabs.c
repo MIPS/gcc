@@ -40,50 +40,7 @@ Boston, MA 02111-1307, USA.  */
 
    See expr.h for documentation of these optabs.  */
 
-optab add_optab;
-optab sub_optab;
-optab smul_optab;
-optab smul_highpart_optab;
-optab umul_highpart_optab;
-optab smul_widen_optab;
-optab umul_widen_optab;
-optab sdiv_optab;
-optab sdivmod_optab;
-optab udiv_optab;
-optab udivmod_optab;
-optab smod_optab;
-optab umod_optab;
-optab flodiv_optab;
-optab ftrunc_optab;
-optab and_optab;
-optab ior_optab;
-optab xor_optab;
-optab ashl_optab;
-optab lshr_optab;
-optab ashr_optab;
-optab rotl_optab;
-optab rotr_optab;
-optab smin_optab;
-optab smax_optab;
-optab umin_optab;
-optab umax_optab;
-
-optab mov_optab;
-optab movstrict_optab;
-
-optab neg_optab;
-optab abs_optab;
-optab one_cmpl_optab;
-optab ffs_optab;
-optab sqrt_optab;
-optab sin_optab;
-optab cos_optab;
-
-optab cmp_optab;
-optab ucmp_optab;  /* Used only for libcalls for unsigned comparisons.  */
-optab tst_optab;
-
-optab strlen_optab;
+optab all_optabs[40];
 
 /* Tables of patterns for extending one integer mode to another.  */
 enum insn_code extendtab[MAX_MACHINE_MODE][MAX_MACHINE_MODE][2];
@@ -99,120 +56,7 @@ optab code_to_optab[NUM_RTX_CODE + 1];
 /* SYMBOL_REF rtx's for the library functions that are called
    implicitly and not via optabs.  */
 
-rtx extendsfdf2_libfunc;
-rtx extendsfxf2_libfunc;
-rtx extendsftf2_libfunc;
-rtx extenddfxf2_libfunc;
-rtx extenddftf2_libfunc;
-
-rtx truncdfsf2_libfunc;
-rtx truncxfsf2_libfunc;
-rtx trunctfsf2_libfunc;
-rtx truncxfdf2_libfunc;
-rtx trunctfdf2_libfunc;
-
-rtx memcpy_libfunc;
-rtx bcopy_libfunc;
-rtx memcmp_libfunc;
-rtx bcmp_libfunc;
-rtx memset_libfunc;
-rtx bzero_libfunc;
-
-rtx throw_libfunc;
-rtx sjthrow_libfunc;
-rtx sjpopnthrow_libfunc;
-rtx terminate_libfunc;
-rtx setjmp_libfunc;
-rtx longjmp_libfunc;
-
-rtx eqhf2_libfunc;
-rtx nehf2_libfunc;
-rtx gthf2_libfunc;
-rtx gehf2_libfunc;
-rtx lthf2_libfunc;
-rtx lehf2_libfunc;
-
-rtx eqsf2_libfunc;
-rtx nesf2_libfunc;
-rtx gtsf2_libfunc;
-rtx gesf2_libfunc;
-rtx ltsf2_libfunc;
-rtx lesf2_libfunc;
-
-rtx eqdf2_libfunc;
-rtx nedf2_libfunc;
-rtx gtdf2_libfunc;
-rtx gedf2_libfunc;
-rtx ltdf2_libfunc;
-rtx ledf2_libfunc;
-
-rtx eqxf2_libfunc;
-rtx nexf2_libfunc;
-rtx gtxf2_libfunc;
-rtx gexf2_libfunc;
-rtx ltxf2_libfunc;
-rtx lexf2_libfunc;
-
-rtx eqtf2_libfunc;
-rtx netf2_libfunc;
-rtx gttf2_libfunc;
-rtx getf2_libfunc;
-rtx lttf2_libfunc;
-rtx letf2_libfunc;
-
-rtx floatsisf_libfunc;
-rtx floatdisf_libfunc;
-rtx floattisf_libfunc;
-
-rtx floatsidf_libfunc;
-rtx floatdidf_libfunc;
-rtx floattidf_libfunc;
-
-rtx floatsixf_libfunc;
-rtx floatdixf_libfunc;
-rtx floattixf_libfunc;
-
-rtx floatsitf_libfunc;
-rtx floatditf_libfunc;
-rtx floattitf_libfunc;
-
-rtx fixsfsi_libfunc;
-rtx fixsfdi_libfunc;
-rtx fixsfti_libfunc;
-
-rtx fixdfsi_libfunc;
-rtx fixdfdi_libfunc;
-rtx fixdfti_libfunc;
-
-rtx fixxfsi_libfunc;
-rtx fixxfdi_libfunc;
-rtx fixxfti_libfunc;
-
-rtx fixtfsi_libfunc;
-rtx fixtfdi_libfunc;
-rtx fixtfti_libfunc;
-
-rtx fixunssfsi_libfunc;
-rtx fixunssfdi_libfunc;
-rtx fixunssfti_libfunc;
-
-rtx fixunsdfsi_libfunc;
-rtx fixunsdfdi_libfunc;
-rtx fixunsdfti_libfunc;
-
-rtx fixunsxfsi_libfunc;
-rtx fixunsxfdi_libfunc;
-rtx fixunsxfti_libfunc;
-
-rtx fixunstfsi_libfunc;
-rtx fixunstfdi_libfunc;
-rtx fixunstfti_libfunc;
-
-rtx chkr_check_addr_libfunc;
-rtx chkr_set_right_libfunc;
-rtx chkr_copy_bitmap_libfunc;
-rtx chkr_check_exec_libfunc;
-rtx chkr_check_str_libfunc;
+rtx all_libfuncs[93];
 
 /* Indexed by the rtx-code for a conditional (eg. EQ, LT,...)
    gives the gen_function to make a branch to test that condition.  */
@@ -4055,6 +3899,16 @@ init_floating_libfuncs (optable, opname, suffix)
   init_libfuncs (optable, SFmode, TFmode, opname, suffix);
 }
 
+void
+mark_optab (arg)
+     void *arg;
+{
+  optab o = *(optab *) arg;
+  int i;
+
+  for (i = 0; i < NUM_MACHINE_MODES; ++i)
+    ggc_mark_rtx (o->handlers[i].libfunc);
+}
 
 /* Call this once to initialize the contents of the optabs
    appropriately for the current target machine.  */
@@ -4384,6 +4238,11 @@ init_optabs ()
   /* Allow the target to add more libcalls or rename some, etc.  */
   INIT_TARGET_OPTABS;
 #endif
+
+  /* Add these GC roots.  */
+  ggc_add_root (all_optabs, sizeof(all_optabs)/sizeof(optab), sizeof(optab),
+		mark_optab);
+  ggc_add_rtx_root (all_libfuncs, sizeof(all_libfuncs)/sizeof(rtx));
 }
 
 #ifdef BROKEN_LDEXP

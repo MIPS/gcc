@@ -328,50 +328,61 @@ typedef struct optab
 
 extern rtx (*const insn_gen_function[]) PROTO ((rtx, ...));
 
-extern optab add_optab;
-extern optab sub_optab;
-extern optab smul_optab;	/* Signed and floating-point multiply */
-extern optab smul_highpart_optab; /* Signed multiply, return high word */
-extern optab umul_highpart_optab;
-extern optab smul_widen_optab;	/* Signed multiply with result 
-				   one machine mode wider than args */
-extern optab umul_widen_optab;
-extern optab sdiv_optab;	/* Signed divide */
-extern optab sdivmod_optab;	/* Signed divide-and-remainder in one */
-extern optab udiv_optab;
-extern optab udivmod_optab;
-extern optab smod_optab;	/* Signed remainder */
-extern optab umod_optab;
-extern optab flodiv_optab;	/* Optab for floating divide. */
-extern optab ftrunc_optab;	/* Convert float to integer in float fmt */
-extern optab and_optab;		/* Logical and */
-extern optab ior_optab;		/* Logical or */
-extern optab xor_optab;		/* Logical xor */
-extern optab ashl_optab;	/* Arithmetic shift left */
-extern optab ashr_optab;	/* Arithmetic shift right */
-extern optab lshr_optab;	/* Logical shift right */
-extern optab rotl_optab;	/* Rotate left */
-extern optab rotr_optab;	/* Rotate right */
-extern optab smin_optab;	/* Signed and floating-point minimum value */
-extern optab smax_optab;	/* Signed and floating-point maximum value */
-extern optab umin_optab;	/* Unsigned minimum value */
-extern optab umax_optab;	/* Unsigned maximum value */
+#define add_optab		all_optabs[0]
+#define sub_optab		all_optabs[1]
+#define smul_optab		all_optabs[2]	/* Signed and fp multiply */
+/* Signed multiply, return high word */
+#define smul_highpart_optab	all_optabs[3]
+#define umul_highpart_optab	all_optabs[4]
+/* Signed multiply with result one machine mode wider than args */
+#define smul_widen_optab	all_optabs[5]
+#define umul_widen_optab	all_optabs[6]
+#define sdiv_optab		all_optabs[7]	/* Signed divide */
+/* Signed divide-and-remainder in one */
+#define sdivmod_optab		all_optabs[8]
+#define udiv_optab		all_optabs[9]
+#define udivmod_optab		all_optabs[10]
+#define smod_optab		all_optabs[11]	/* Signed remainder */
+#define umod_optab		all_optabs[12]
+#define flodiv_optab		all_optabs[13]	/* Optab for floating divide. */
+/* Convert float to integer in float fmt */
+#define ftrunc_optab		all_optabs[14]
+#define and_optab		all_optabs[15]	/* Logical and */
+#define ior_optab		all_optabs[16]	/* Logical or */
+#define xor_optab		all_optabs[17]	/* Logical xor */
+#define ashl_optab		all_optabs[18]	/* Arithmetic shift left */
+#define ashr_optab		all_optabs[19]	/* Arithmetic shift right */
+#define lshr_optab		all_optabs[20]	/* Logical shift right */
+#define rotl_optab		all_optabs[21]	/* Rotate left */
+#define rotr_optab		all_optabs[22]	/* Rotate right */
+/* Signed and floating-point minimum value */
+#define smin_optab		all_optabs[23]
+/* Signed and floating-point maximum value */
+#define smax_optab		all_optabs[24]
+#define umin_optab		all_optabs[25]	/* Unsigned minimum value */
+#define umax_optab		all_optabs[26]	/* Unsigned maximum value */
 
-extern optab mov_optab;		/* Move instruction.  */
-extern optab movstrict_optab;	/* Move, preserving high part of register.  */
+#define mov_optab		all_optabs[27]	/* Move instruction.  */
+/* Move, preserving high part of register.  */
+#define movstrict_optab		all_optabs[28]
 
-extern optab cmp_optab;		/* Compare insn; two operands.  */
-extern optab tst_optab;		/* tst insn; compare one operand against 0 */
+/* Compare insn; two operands.  */
+#define cmp_optab		all_optabs[29]
+#define ucmp_optab		all_optabs[30]
+/* tst insn; compare one operand against 0 */
+#define tst_optab		all_optabs[31]
 
 /* Unary operations */
-extern optab neg_optab;		/* Negation */
-extern optab abs_optab;		/* Abs value */
-extern optab one_cmpl_optab;	/* Bitwise not */
-extern optab ffs_optab;		/* Find first bit set */
-extern optab sqrt_optab;	/* Square root */
-extern optab sin_optab;		/* Sine */
-extern optab cos_optab;		/* Cosine */
-extern optab strlen_optab;	/* String length */
+#define neg_optab		all_optabs[32]	/* Negation */
+#define abs_optab		all_optabs[33]	/* Abs value */
+#define one_cmpl_optab		all_optabs[34]	/* Bitwise not */
+#define ffs_optab		all_optabs[35]	/* Find first bit set */
+#define sqrt_optab		all_optabs[36]	/* Square root */
+#define sin_optab		all_optabs[37]	/* Sine */
+#define cos_optab		all_optabs[38]	/* Cosine */
+#define strlen_optab		all_optabs[39]	/* String length */
+
+extern optab all_optabs[40];
 
 /* Tables of patterns for extending one integer mode to another.  */
 extern enum insn_code extendtab[MAX_MACHINE_MODE][MAX_MACHINE_MODE][2];
@@ -402,121 +413,123 @@ enum optab_methods
 /* SYMBOL_REF rtx's for the library functions that are called
    implicitly and not via optabs.  */
 
-extern rtx extendsfdf2_libfunc;
-extern rtx extendsfxf2_libfunc;
-extern rtx extendsftf2_libfunc;
-extern rtx extenddfxf2_libfunc;
-extern rtx extenddftf2_libfunc;
+#define extendsfdf2_libfunc	all_libfuncs[0]
+#define extendsfxf2_libfunc	all_libfuncs[1]
+#define extendsftf2_libfunc	all_libfuncs[2]
+#define extenddfxf2_libfunc	all_libfuncs[3]
+#define extenddftf2_libfunc	all_libfuncs[4]
 
-extern rtx truncdfsf2_libfunc;
-extern rtx truncxfsf2_libfunc;
-extern rtx trunctfsf2_libfunc;
-extern rtx truncxfdf2_libfunc;
-extern rtx trunctfdf2_libfunc;
+#define truncdfsf2_libfunc	all_libfuncs[5]
+#define truncxfsf2_libfunc	all_libfuncs[6]
+#define trunctfsf2_libfunc	all_libfuncs[7]
+#define truncxfdf2_libfunc	all_libfuncs[8]
+#define trunctfdf2_libfunc	all_libfuncs[9]
 
-extern rtx memcpy_libfunc;
-extern rtx bcopy_libfunc;
-extern rtx memcmp_libfunc;
-extern rtx bcmp_libfunc;
-extern rtx memset_libfunc;
-extern rtx bzero_libfunc;
+#define memcpy_libfunc		all_libfuncs[10]
+#define bcopy_libfunc		all_libfuncs[11]
+#define memcmp_libfunc		all_libfuncs[12]
+#define bcmp_libfunc		all_libfuncs[13]
+#define memset_libfunc		all_libfuncs[14]
+#define bzero_libfunc		all_libfuncs[15]
 
-extern rtx throw_libfunc;
-extern rtx sjthrow_libfunc;
-extern rtx sjpopnthrow_libfunc;
-extern rtx terminate_libfunc;
-extern rtx setjmp_libfunc;
-extern rtx longjmp_libfunc;
+#define throw_libfunc		all_libfuncs[16]
+#define sjthrow_libfunc		all_libfuncs[17]
+#define sjpopnthrow_libfunc	all_libfuncs[18]
+#define terminate_libfunc	all_libfuncs[19]
+#define setjmp_libfunc		all_libfuncs[20]
+#define longjmp_libfunc		all_libfuncs[21]
 
-extern rtx eqhf2_libfunc;
-extern rtx nehf2_libfunc;
-extern rtx gthf2_libfunc;
-extern rtx gehf2_libfunc;
-extern rtx lthf2_libfunc;
-extern rtx lehf2_libfunc;
+#define eqhf2_libfunc		all_libfuncs[22]
+#define nehf2_libfunc		all_libfuncs[23]
+#define gthf2_libfunc		all_libfuncs[24]
+#define gehf2_libfunc		all_libfuncs[25]
+#define lthf2_libfunc		all_libfuncs[26]
+#define lehf2_libfunc		all_libfuncs[27]
 
-extern rtx eqsf2_libfunc;
-extern rtx nesf2_libfunc;
-extern rtx gtsf2_libfunc;
-extern rtx gesf2_libfunc;
-extern rtx ltsf2_libfunc;
-extern rtx lesf2_libfunc;
+#define eqsf2_libfunc		all_libfuncs[28]
+#define nesf2_libfunc		all_libfuncs[29]
+#define gtsf2_libfunc		all_libfuncs[30]
+#define gesf2_libfunc		all_libfuncs[31]
+#define ltsf2_libfunc		all_libfuncs[32]
+#define lesf2_libfunc		all_libfuncs[33]
 
-extern rtx eqdf2_libfunc;
-extern rtx nedf2_libfunc;
-extern rtx gtdf2_libfunc;
-extern rtx gedf2_libfunc;
-extern rtx ltdf2_libfunc;
-extern rtx ledf2_libfunc;
+#define eqdf2_libfunc		all_libfuncs[34]
+#define nedf2_libfunc		all_libfuncs[35]
+#define gtdf2_libfunc		all_libfuncs[36]
+#define gedf2_libfunc		all_libfuncs[37]
+#define ltdf2_libfunc		all_libfuncs[38]
+#define ledf2_libfunc		all_libfuncs[39]
 
-extern rtx eqxf2_libfunc;
-extern rtx nexf2_libfunc;
-extern rtx gtxf2_libfunc;
-extern rtx gexf2_libfunc;
-extern rtx ltxf2_libfunc;
-extern rtx lexf2_libfunc;
+#define eqxf2_libfunc		all_libfuncs[40]
+#define nexf2_libfunc		all_libfuncs[41]
+#define gtxf2_libfunc		all_libfuncs[42]
+#define gexf2_libfunc		all_libfuncs[43]
+#define ltxf2_libfunc		all_libfuncs[44]
+#define lexf2_libfunc		all_libfuncs[45]
 
-extern rtx eqtf2_libfunc;
-extern rtx netf2_libfunc;
-extern rtx gttf2_libfunc;
-extern rtx getf2_libfunc;
-extern rtx lttf2_libfunc;
-extern rtx letf2_libfunc;
+#define eqtf2_libfunc		all_libfuncs[46]
+#define netf2_libfunc		all_libfuncs[47]
+#define gttf2_libfunc		all_libfuncs[48]
+#define getf2_libfunc		all_libfuncs[49]
+#define lttf2_libfunc		all_libfuncs[50]
+#define letf2_libfunc		all_libfuncs[51]
 
-extern rtx floatsisf_libfunc;
-extern rtx floatdisf_libfunc;
-extern rtx floattisf_libfunc;
+#define floatsisf_libfunc	all_libfuncs[52]
+#define floatdisf_libfunc	all_libfuncs[53]
+#define floattisf_libfunc	all_libfuncs[54]
 
-extern rtx floatsidf_libfunc;
-extern rtx floatdidf_libfunc;
-extern rtx floattidf_libfunc;
+#define floatsidf_libfunc	all_libfuncs[55]
+#define floatdidf_libfunc	all_libfuncs[56]
+#define floattidf_libfunc	all_libfuncs[57]
 
-extern rtx floatsixf_libfunc;
-extern rtx floatdixf_libfunc;
-extern rtx floattixf_libfunc;
+#define floatsixf_libfunc	all_libfuncs[58]
+#define floatdixf_libfunc	all_libfuncs[59]
+#define floattixf_libfunc	all_libfuncs[60]
 
-extern rtx floatsitf_libfunc;
-extern rtx floatditf_libfunc;
-extern rtx floattitf_libfunc;
+#define floatsitf_libfunc	all_libfuncs[61]
+#define floatditf_libfunc	all_libfuncs[62]
+#define floattitf_libfunc	all_libfuncs[63]
 
-extern rtx fixsfsi_libfunc;
-extern rtx fixsfdi_libfunc;
-extern rtx fixsfti_libfunc;
+#define fixsfsi_libfunc		all_libfuncs[64]
+#define fixsfdi_libfunc		all_libfuncs[65]
+#define fixsfti_libfunc		all_libfuncs[66]
 
-extern rtx fixdfsi_libfunc;
-extern rtx fixdfdi_libfunc;
-extern rtx fixdfti_libfunc;
+#define fixdfsi_libfunc		all_libfuncs[67]
+#define fixdfdi_libfunc		all_libfuncs[68]
+#define fixdfti_libfunc		all_libfuncs[69]
 
-extern rtx fixxfsi_libfunc;
-extern rtx fixxfdi_libfunc;
-extern rtx fixxfti_libfunc;
+#define fixxfsi_libfunc		all_libfuncs[70]
+#define fixxfdi_libfunc		all_libfuncs[71]
+#define fixxfti_libfunc		all_libfuncs[72]
 
-extern rtx fixtfsi_libfunc;
-extern rtx fixtfdi_libfunc;
-extern rtx fixtfti_libfunc;
+#define fixtfsi_libfunc		all_libfuncs[73]
+#define fixtfdi_libfunc		all_libfuncs[74]
+#define fixtfti_libfunc		all_libfuncs[75]
 
-extern rtx fixunssfsi_libfunc;
-extern rtx fixunssfdi_libfunc;
-extern rtx fixunssfti_libfunc;
+#define fixunssfsi_libfunc	all_libfuncs[76]
+#define fixunssfdi_libfunc	all_libfuncs[77]
+#define fixunssfti_libfunc	all_libfuncs[78]
 
-extern rtx fixunsdfsi_libfunc;
-extern rtx fixunsdfdi_libfunc;
-extern rtx fixunsdfti_libfunc;
+#define fixunsdfsi_libfunc	all_libfuncs[79]
+#define fixunsdfdi_libfunc	all_libfuncs[80]
+#define fixunsdfti_libfunc	all_libfuncs[81]
 
-extern rtx fixunsxfsi_libfunc;
-extern rtx fixunsxfdi_libfunc;
-extern rtx fixunsxfti_libfunc;
+#define fixunsxfsi_libfunc	all_libfuncs[82]
+#define fixunsxfdi_libfunc	all_libfuncs[83]
+#define fixunsxfti_libfunc	all_libfuncs[84]
 
-extern rtx fixunstfsi_libfunc;
-extern rtx fixunstfdi_libfunc;
-extern rtx fixunstfti_libfunc;
+#define fixunstfsi_libfunc	all_libfuncs[85]
+#define fixunstfdi_libfunc	all_libfuncs[86]
+#define fixunstfti_libfunc	all_libfuncs[87]
 
 /* For check-memory-usage.  */
-extern rtx chkr_check_addr_libfunc;
-extern rtx chkr_set_right_libfunc;
-extern rtx chkr_copy_bitmap_libfunc;
-extern rtx chkr_check_exec_libfunc;
-extern rtx chkr_check_str_libfunc;
+#define chkr_check_addr_libfunc 	all_libfuncs[88]
+#define chkr_set_right_libfunc		all_libfuncs[89]
+#define chkr_copy_bitmap_libfunc	all_libfuncs[90]
+#define chkr_check_exec_libfunc		all_libfuncs[91]
+#define chkr_check_str_libfunc		all_libfuncs[92]
+
+extern rtx all_libfuncs[93];
 
 typedef rtx (*rtxfun) PROTO ((rtx));
 

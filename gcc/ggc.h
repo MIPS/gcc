@@ -71,3 +71,4 @@ void mark_rtx_label_node PROTO ((void *));
 void mark_eh_stack PROTO ((void *));
 void mark_eh_queue PROTO ((void *));
 void mark_pool_constant PROTO ((void *));
+void mark_optab PROTO ((void *));

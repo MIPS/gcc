@@ -23,6 +23,8 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "input.h"
+#include "c-tree.h"
+#include "ggc.h"
 
 /* Each of the functions defined here
    is an alternative to a function in objc-actions.c.  */
@@ -210,8 +212,16 @@ lang_mark_false_label_stack (arg)
 void lang_mark_tree (t)
      tree t;
 {
-  /* C doesn't use the lang_specific tree bits for other than a cache 
-     of data already accessible in the tree node.  */
+  if (TREE_CODE (t) == IDENTIFIER_NODE)
+    {
+      struct lang_identifier *i = (struct lang_identifier *) t;
+      ggc_mark_tree (i->global_value);
+      ggc_mark_tree (i->local_value);
+      ggc_mark_tree (i->label_value);
+      ggc_mark_tree (i->implicit_decl);
+      ggc_mark_tree (i->error_locus);
+      ggc_mark_tree (i->limbo_value);
+    }
 }
 
 void lang_cleanup_tree (t)
