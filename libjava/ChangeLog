@@ -1,3 +1,14 @@
+2004-07-02  Olga Rodimina  <rodimina@redhat.com>
+
+	* java/awt/Window.java: Reverted changes from my 
+	previous patch for creating window without an owner.
+	* javax/swing/SwingUtilities.java: 
+	(SwingUtilities.OwnerFrame): made static.
+	(OwnerFrame.setVisible): New method. Overridden with
+	empty implementation.
+	(OwnerFrame.isShowing): New method. Ovverridden
+	to return always true.
+
 2004-07-02  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/awt/Panel.java (dispatchEventImpl): Override to prevent

@@ -891,14 +891,21 @@ public class SwingUtilities implements SwingConstants
   }
   
   /**
-   * This frame should be used when constructing a Window/JDialog without 
+   * This frame should be used when constructing a Window/JDialog without
    * a parent. In this case, we are forced to use this frame as a window's
    * parent, because we simply cannot pass null instead of parent to Window
    * constructor, since doing it will result in NullPointerException.
    */
-  private class OwnerFrame extends Frame{
-    public OwnerFrame(){
-      super();
+  private static class OwnerFrame extends Frame
+  {
+    public void setVisible(boolean b)
+    {
+      // Do nothing here. 
+    }
+    
+    public boolean isShowing()
+    {
+      return true;
+    }
   }
-} 
 }

@@ -53,7 +53,6 @@ import java.util.ResourceBundle;
 import java.util.Vector;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-import javax.swing.SwingUtilities;
 
 /**
  * This class represents a top-level window with no decorations.
@@ -119,11 +118,7 @@ public class Window extends Container implements Accessible
    */
   public Window(Frame owner)
   {
-    this();
-    
-    // Construct a Window with no parent if owner is of type OwnerFrame.
-    if (!(owner instanceof SwingUtilities.OwnerFrame))
-      setWindowOwner (owner, owner.getGraphicsConfiguration ());
+    this (owner, owner.getGraphicsConfiguration ());
   }
 
   /**
@@ -138,7 +133,7 @@ public class Window extends Container implements Accessible
    */
   public Window(Window owner)
   {
-    setWindowOwner(owner, owner.getGraphicsConfiguration ());	
+    this (owner, owner.getGraphicsConfiguration ());
   }
   
   /**
@@ -154,20 +149,14 @@ public class Window extends Container implements Accessible
   public Window(Window owner, GraphicsConfiguration gc)
   {
     this ();
-    setWindowOwner(owner, owner.getGraphicsConfiguration ());	
-  }
-  
-  
-  private void setWindowOwner (Window owner, GraphicsConfiguration gc) 
-  {
+
     synchronized (getTreeLock())
       {
 	if (owner == null)
 	  throw new IllegalArgumentException ("owner must not be null");
-	  
-	  parent = owner;
-         owner.ownedWindows.add(new WeakReference(this)); 
-	
+
+	parent = owner;
+        owner.ownedWindows.add(new WeakReference(this));
       }
 
     // FIXME: make this text visible in the window.
@@ -185,10 +174,9 @@ public class Window extends Container implements Accessible
 //         .getDefaultScreenDevice()
 //         .getDefaultConfiguration();
 //     else
-      graphicsConfiguration = gc;  	
-  
+      graphicsConfiguration = gc;
   }
-  
+
   GraphicsConfiguration getGraphicsConfigurationImpl()
   {
     if (graphicsConfiguration != null)
