@@ -1,3 +1,20 @@
+2002-05-22  Geoffrey Keating  <geoffk@redhat.com>
+
+	* doc/gty.texi (GTY Options): Correct spelling.
+	(GGC Roots): Likewise.
+	* Makefile.in (TEXI_CPP_FILES): New.
+	(TEXI_GCC_FILES): New.
+	(TEXI_GCCINT_FILES): New.
+	(TEXI_CPPINT_FILES): New.
+	($(docdir)/cpp.info): Use new macros.
+	($(docdir)/gcc.info): Likewise.
+	($(docdir)/gccint.info): Likewise.
+	($(docdir)/cppinternals.info): Likewise.
+	(cpp.dvi): Likewise.
+	(gcc.dvi): Likewise.
+	(gccint.dvi): Likewise.
+	(cppinternals.dvi): Likewise.
+
 2002-05-21  Geoffrey Keating  <geoffk@redhat.com>
 
 	* Makefile.in ($(docdir)/gccint.info): Depend on gty.texi.

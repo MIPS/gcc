@@ -197,7 +197,7 @@ language frontends.
 @findex special
 @item special
 
-The @code{special} option is used for those bizzare cases that are just
+The @code{special} option is used for those bizarre cases that are just
 too hard to deal with otherwise.  Don't use it for new code.
 
 @end table
@@ -208,7 +208,7 @@ too hard to deal with otherwise.  Don't use it for new code.
 @cindex marking roots
 
 In addition to keeping track of types, the type machinery also locates
-the global variables that the garbage collecter starts at.  There are
+the global variables that the garbage collector starts at.  There are
 two syntaxes it accepts to indicate a root:
 
 @enumerate
