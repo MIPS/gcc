@@ -1,3 +1,10 @@
+2004-10-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3813796
+	* config/rs6000/rs6000.c (rs6000_generate_compare): When
+	flag_trapping_math is in effect, don't generate subtract
+	instructions.
+
 2004-09-10  Geoffrey Keating  <geoffk@apple.com>
 
 	* gimplify.c (create_tmp_var_raw): Don't name otherwise-nameless
@@ -14,6 +21,17 @@
 	* final.c (output_asm_insn): Use strtoul instead of atoi, save a
 	loop.
 
+	* config/darwin.c: Include target.h.
+	(struct machopic_indirection): Make ptr_name a string.
+	(machopic_indirection_hash): Update for ptr_name a string.
+	(machopic_indirection_eq): Likewise.
+	(machopic_indirection_name): Likewise.
+	(machopic_output_indirection): Likewise.
+	(machopic_validate_stub_or_non_lazy_ptr): Update for ptr_name a
+	string.  Don't expect stub names to be in the identifier hash table.
+	Do call strip_name_encoding before looking up entry in ID hash table.
+	* config/t-darwin (darwin.o): Add target.h to dependencies.
+	
 	* gcc/config/rs6000/rs6000.c (print_operand): Use fputs instead
 	of fprintf for register names.
 	
