@@ -1056,7 +1056,7 @@ enum reg_class
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)					\
    ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff0000)) == 0	\
+   : (C) == 'J' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff0000u)) == 0	\
    : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
    : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
 		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
@@ -1807,7 +1807,7 @@ typedef struct rs6000_args
   (TARGET_TOC								\
   && GET_CODE (X) == PLUS						\
   && GET_CODE (XEXP (X, 0)) == REG					\
-  && REGNO (XEXP (X, 0)) == TOC_REGISTER 				\
+  && (TARGET_MINIMAL_TOC || REGNO (XEXP (X, 0)) == TOC_REGISTER)	\
   && CONSTANT_POOL_EXPR_P (XEXP (X, 1)))
 
 #define LEGITIMATE_SMALL_DATA_P(MODE, X)				\
@@ -1903,48 +1903,13 @@ typedef struct rs6000_args
    Then check for the sum of a register and something not constant, try to
    load the other things into a register and return the sum.  */
 
-#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)				\
-{ if (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 0)) == REG		\
-    && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-    && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (X, 1)) + 0x8000) >= 0x10000) \
-    { HOST_WIDE_INT high_int, low_int;					\
-      rtx sum;								\
-      high_int = INTVAL (XEXP (X, 1)) & (~ (HOST_WIDE_INT) 0xffff);	\
-      low_int = INTVAL (XEXP (X, 1)) & 0xffff;				\
-      if (low_int & 0x8000)						\
-	high_int += 0x10000, low_int |= ((HOST_WIDE_INT) -1) << 16;	\
-      sum = force_operand (gen_rtx_PLUS (Pmode, XEXP (X, 0),		\
-					 GEN_INT (high_int)), 0);	\
-      (X) = gen_rtx_PLUS (Pmode, sum, GEN_INT (low_int));		\
-      goto WIN;								\
-    }									\
-  else if (GET_CODE (X) == PLUS && GET_CODE (XEXP (X, 0)) == REG	\
-	   && GET_CODE (XEXP (X, 1)) != CONST_INT			\
-	   && (TARGET_HARD_FLOAT || TARGET_POWERPC64 || (MODE) != DFmode) \
-	   && (TARGET_POWERPC64 || (MODE) != DImode)			\
-	   && (MODE) != TImode)						\
-    {									\
-      (X) = gen_rtx_PLUS (Pmode, XEXP (X, 0),				\
-			  force_reg (Pmode, force_operand (XEXP (X, 1), 0))); \
-      goto WIN;								\
-    }									\
-  else if (TARGET_ELF && TARGET_32BIT && TARGET_NO_TOC			\
-	   && !flag_pic							\
-	   && GET_CODE (X) != CONST_INT					\
-	   && GET_CODE (X) != CONST_DOUBLE && CONSTANT_P (X)		\
-	   && (TARGET_HARD_FLOAT || (MODE) != DFmode)			\
-	   && (MODE) != DImode && (MODE) != TImode)			\
-    {									\
-      rtx reg = gen_reg_rtx (Pmode);					\
-      emit_insn (gen_elf_high (reg, (X)));				\
-      (X) = gen_rtx_LO_SUM (Pmode, reg, (X));				\
-      goto WIN;								\
-    }									\
-  else if (TARGET_TOC && CONSTANT_POOL_EXPR_P (X))			\
-    {									\
-      (X) = create_TOC_reference(X);					\
-      goto WIN;								\
-    }									\
+#define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)			\
+{  rtx result = rs6000_legitimize_address (X, OLDX, MODE);	\
+   if (result != NULL_RTX)					\
+     {								\
+       (X) = result;						\
+       goto WIN;						\
+     }								\
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1978,7 +1943,7 @@ do {                                                                    \
       HOST_WIDE_INT val = INTVAL (XEXP (X, 1));                         \
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;           \
       HOST_WIDE_INT high                                                \
-        = (((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000;       \
+        = (((val - low) & 0xffffffffu) ^ 0x80000000u) - 0x80000000u;       \
                                                                         \
       /* Check for 32-bit overflow.  */                                 \
       if (high + low != val)                                            \
@@ -1997,9 +1962,11 @@ do {                                                                    \
                    OPNUM, TYPE);                                        \
       goto WIN;                                                         \
     }                                                                   \
-  else if (TARGET_TOC && CONSTANT_POOL_EXPR_P (X))			\
+  else if (TARGET_TOC 							\
+	   && CONSTANT_POOL_EXPR_P (X)					\
+	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (X)))	\
     {									\
-      (X) = create_TOC_reference(X);					\
+      (X) = create_TOC_reference (X);					\
       goto WIN;								\
     }									\
 } while (0)
@@ -2075,12 +2042,9 @@ do {                                                                    \
 /* In rare cases, correct code generation requires extra machine
    dependent processing between the second jump optimization pass and
    delayed branch scheduling.  On those machines, define this macro
-   as a C statement to act on the code starting at INSN.
+   as a C statement to act on the code starting at INSN.  */
 
-   On the RS/6000, we use it to make sure the GOT_TOC register marker
-   that FINALIZE_PIC is supposed to remove actually got removed.  */
-
-#define MACHINE_DEPENDENT_REORG(INSN) rs6000_reorg (INSN)
+/* #define MACHINE_DEPENDENT_REORG(INSN) */
 
 
 /* Define this if some processing needs to be done immediately before

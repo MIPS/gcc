@@ -79,7 +79,6 @@ extern int addrs_ok_for_quad_peep PARAMS ((rtx, rtx));
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
 						      enum machine_mode, rtx));
 extern int ccr_bit PARAMS ((rtx, int));
-extern void rs6000_reorg PARAMS ((rtx));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void print_operand_address PARAMS ((FILE *, rtx));
 extern void output_toc PARAMS ((FILE *, rtx, int));
@@ -92,7 +91,9 @@ extern void rs6000_fatal_bad_address PARAMS ((rtx));
 extern int stmw_operation PARAMS ((rtx, enum machine_mode));
 extern int mtcrf_operation PARAMS ((rtx, enum machine_mode));
 extern int lmw_operation PARAMS ((rtx, enum machine_mode));
+extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
 extern void rs6000_emit_eh_toc_restore PARAMS ((rtx));
+extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -146,7 +147,6 @@ extern void toc_section PARAMS ((void));
 extern void private_data_section PARAMS ((void));
 extern int get_TOC_alias_set PARAMS ((void));
 extern int uses_TOC PARAMS ((void));
-extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
 extern void rs6000_emit_prologue PARAMS ((void));
 extern void rs6000_emit_load_toc_table PARAMS ((int));
 extern void rs6000_aix_emit_builtin_unwind_init PARAMS ((void));

@@ -1,3 +1,38 @@
+2000-02-11  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c (output_function_profiler): Use .long for a 32-bit
+	quantity, fix profile1.C test failure under -fPIC.
+
+	* rs6000.c: Add 'u' to many constants to suppress warnings.
+	(constant_pool_expr_1): Make static.
+	(rs6000_emit_eh_toc_restore): Remove unused 'r2'.
+	* rs6000.h: Add 'u' to many constants to suppress warnings.
+
+	* rs6000.c (rs6000_emit_load_toc_table): Use LCTOC..1 under AIX
+	for the start of the TOC, instead of LCTOC..0.
+	* aix.h (toc_section): Use LCTOC..1 under AIX for the start
+	of the TOC.
+	* rs6000.md (load_toc_aix_si): Use LCTOC..1.
+	(load_toc_aix_di): Use LCTOC..1.
+
+	* rs6000.h (LEGITIMIZE_ADDRESS): Turn into a function.
+	* rs6000.c (rs6000_legitimize_address): New function from
+	LEGITIMIZE_ADDRESS.  Only use create_TOC_reference on
+	symbols in the constant pool that really are TOC references.
+	(print_operand_address): For ELF, write TOC offsets under
+	-fPIC as subtractions in the insn.
+	(output_toc): For ELF, define symbols in TOC as normal labels,
+	to match RTL.
+	(create_TOC_reference): Use gen_rtx_PLUS rather than gen_rtx.
+	* rs6000-protos.h (rs6000_legitimize_address): Prototype.
+	(create_TOC_reference): Prototype only when RTX_CODE is defined.
+	* rs6000.md (movsi): Only use create_TOC_reference on
+	symbols in the constant pool that really are TOC references.
+
+	* rs6000.h (MACHINE_DEPENDENT_REORG): Don't define.
+	* rs6000.c (rs6000_reorg): Delete.
+	* rs6000-protos.h (rs6000_reorg): Delete.
+
 2000-02-09  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.h (INCOMING_RETURN_ADDR_RTX): New macro.

@@ -708,10 +708,10 @@ num_insns_constant_wide (value)
       HOST_WIDE_INT low  = value & 0xffffffff;
       HOST_WIDE_INT high = value >> 32;
 
-      if (high == 0 && (low & 0x80000000) == 0)
+      if (high == 0 && (low & 0x80000000u) == 0)
 	return 2;
 
-      else if (high == -1 && (low & 0x80000000) != 0)
+      else if (high == -1 && (low & 0x80000000u) != 0)
 	return 2;
 
       else if (! low)
@@ -772,10 +772,10 @@ num_insns_constant (op, mode)
 
       else
 	{
-	  if (high == 0 && (low & 0x80000000) == 0)
+	  if (high == 0 && (low & 0x80000000u) == 0)
 	    return num_insns_constant_wide (low);
 
-	  else if (high == -1 && (low & 0x80000000) != 0)
+	  else if (high == -1 && (low & 0x80000000u) != 0)
 	    return num_insns_constant_wide (low);
 
 	  else if (mask64_operand (op, mode))
@@ -943,7 +943,7 @@ logical_operand (op, mode)
 	      && ((INTVAL (op) & GET_MODE_MASK (mode)
 		   & (~ (HOST_WIDE_INT) 0xffff)) == 0
 		  || (INTVAL (op) & GET_MODE_MASK (mode)
-		      & (~ (HOST_WIDE_INT) 0xffff0000)) == 0)));
+		      & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0)));
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -958,7 +958,7 @@ non_logical_cint_operand (op, mode)
 	  && (INTVAL (op) & GET_MODE_MASK (mode) &
 	      (~ (HOST_WIDE_INT) 0xffff)) != 0
 	  && (INTVAL (op) & GET_MODE_MASK (mode) &
-	      (~ (HOST_WIDE_INT) 0xffff0000)) != 0);
+	      (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) != 0);
 }
 
 /* Return 1 if C is a constant that can be encoded in a 32-bit mask on the
@@ -1267,8 +1267,8 @@ small_data_operand (op, mode)
   return 0;
 #endif
 }
-
-int 
+
+static int 
 constant_pool_expr_1 (op, have_sym, have_toc) 
     rtx op;
     int *have_sym;
@@ -1324,6 +1324,82 @@ toc_relative_expr_p (op)
     int have_toc = 0;
     return constant_pool_expr_1 (op, &have_sym, &have_toc) && have_toc;
 }
+
+/* Try machine-dependent ways of modifying an illegitimate address
+   to be legitimate.  If we find one, return the new, valid address.
+   This is used from only one place: `memory_address' in explow.c.
+
+   OLDX is the address as it was before break_out_memory_refs was called.
+   In some cases it is useful to look at this to decide what needs to be done.
+
+   MODE is passed so that this macro can use GO_IF_LEGITIMATE_ADDRESS.
+
+   It is always safe for this macro to do nothing.  It exists to recognize
+   opportunities to optimize the output.
+
+   On RS/6000, first check for the sum of a register with a constant
+   integer that is out of range.  If so, generate code to add the
+   constant with the low-order 16 bits masked to the register and force
+   this result into another register (this can be done with `cau').
+   Then generate an address of REG+(CONST&0xffff), allowing for the
+   possibility of bit 16 being a one.
+
+   Then check for the sum of a register and something not constant, try to
+   load the other things into a register and return the sum.  */
+rtx
+rs6000_legitimize_address (x, oldx, mode)
+     rtx x;
+     rtx oldx ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
+{ 
+  if (GET_CODE (x) == PLUS 
+      && GET_CODE (XEXP (x, 0)) == REG
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000) >= 0x10000)
+    { 
+      HOST_WIDE_INT high_int, low_int;
+      rtx sum;
+      high_int = INTVAL (XEXP (x, 1)) & (~ (HOST_WIDE_INT) 0xffff);
+      low_int = INTVAL (XEXP (x, 1)) & 0xffff;
+      if (low_int & 0x8000)
+	high_int += 0x10000, low_int |= ((HOST_WIDE_INT) -1) << 16;
+      sum = force_operand (gen_rtx_PLUS (Pmode, XEXP (x, 0),
+					 GEN_INT (high_int)), 0);
+      return gen_rtx_PLUS (Pmode, sum, GEN_INT (low_int));
+    }
+  else if (GET_CODE (x) == PLUS 
+	   && GET_CODE (XEXP (x, 0)) == REG
+	   && GET_CODE (XEXP (x, 1)) != CONST_INT
+	   && (TARGET_HARD_FLOAT || TARGET_POWERPC64 || mode != DFmode)
+	   && (TARGET_POWERPC64 || mode != DImode)
+	   && mode != TImode)
+    {
+      return gen_rtx_PLUS (Pmode, XEXP (x, 0),
+			   force_reg (Pmode, force_operand (XEXP (x, 1), 0)));
+    }
+  else if (TARGET_ELF && TARGET_32BIT && TARGET_NO_TOC && ! flag_pic
+	   && GET_CODE (x) != CONST_INT
+	   && GET_CODE (x) != CONST_DOUBLE 
+	   && CONSTANT_P (x)
+	   && (TARGET_HARD_FLOAT || mode != DFmode)
+	   && mode != DImode 
+	   && mode != TImode)
+    {
+      rtx reg = gen_reg_rtx (Pmode);
+      emit_insn (gen_elf_high (reg, (x)));
+      return gen_rtx_LO_SUM (Pmode, reg, (x));
+    }
+  else if (TARGET_TOC 
+	   && CONSTANT_POOL_EXPR_P (x)
+	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x)))
+    {
+      return create_TOC_reference (x);
+    }
+  else
+    return NULL_RTX;
+}
+
+
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -3060,28 +3136,6 @@ rs6000_got_register (value)
 
   return pic_offset_table_rtx;
 }
-
-/* Search for any occurrence of the GOT_TOC register marker that should
-   have been eliminated, but may have crept back in.
-
-   This function could completely go away now (June 1999), but we leave it 
-   in for a while until all the possible issues with the new -fpic handling 
-   are resolved. */
-
-void
-rs6000_reorg (insn)
-     rtx insn;
-{
-  if (flag_pic && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS))
-    {
-      rtx got_reg = gen_rtx_REG (Pmode, 2);
-      for ( ; insn != NULL_RTX; insn = NEXT_INSN (insn))
-	if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
-	    && reg_mentioned_p (got_reg, PATTERN (insn)))
-	  fatal_insn ("GOT/TOC register marker not removed:", PATTERN (insn));
-    }
-}
-
 
 /* Define the structure for the machine field in struct function.  */
 struct machine_function
@@ -3384,15 +3438,15 @@ print_operand (file, x, code)
       /* If the high bit is set and the low bit is not, the value is zero.
 	 If the high bit is zero, the value is the first 1 bit we find from
 	 the left.  */
-      if ((val & 0x80000000) && ((val & 1) == 0))
+      if ((val & 0x80000000u) && ((val & 1) == 0))
 	{
 	  putc ('0', file);
 	  return;
 	}
-      else if ((val & 0x80000000) == 0)
+      else if ((val & 0x80000000u) == 0)
 	{
 	  for (i = 1; i < 32; i++)
-	    if ((val <<= 1) & 0x80000000)
+	    if ((val <<= 1) & 0x80000000u)
 	      break;
 	  fprintf (file, "%d", i);
 	  return;
@@ -3419,7 +3473,7 @@ print_operand (file, x, code)
       /* If the low bit is set and the high bit is not, the value is 31.
 	 If the low bit is zero, the value is the first 1 bit we find from
 	 the right.  */
-      if ((val & 1) && ((val & 0x80000000) == 0))
+      if ((val & 1) && ((val & 0x80000000u) == 0))
 	{
 	  fputs ("31", file);
 	  return;
@@ -3439,7 +3493,7 @@ print_operand (file, x, code)
       /* Otherwise, look for the first 0 bit from the left.  The result is its
 	 number minus 1. We know the high-order bit is one.  */
       for (i = 0; i < 32; i++)
-	if (((val <<= 1) & 0x80000000) == 0)
+	if (((val <<= 1) & 0x80000000u) == 0)
 	  break;
 
       fprintf (file, "%d", i);
@@ -3817,23 +3871,27 @@ print_operand_address (file, x)
       fprintf (file, "@l(%s)", reg_names[ REGNO (XEXP (x, 0)) ]);
     }
 #endif
-  else if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P(x))
+  else if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P (x))
     {
-      /* Find the (minus (sym) (toc)) buried in X, and temporarily
-	 turn it into (sym) for output_addr_const. */
-      rtx contains_minus = XEXP (x, 1); 
-      rtx minus;
+      if (TARGET_AIX)
+	{
+	  rtx contains_minus = XEXP (x, 1); 
+	  rtx minus;
+	  
+	  /* Find the (minus (sym) (toc)) buried in X, and temporarily
+	     turn it into (sym) for output_addr_const. */
+	  while (GET_CODE (XEXP (contains_minus, 0)) != MINUS)
+	    contains_minus = XEXP (contains_minus, 0);
 
-      while (GET_CODE (XEXP (contains_minus, 0)) != MINUS)
-	contains_minus = XEXP (contains_minus, 0);
+	  minus = XEXP (contains_minus, 0); 
+	  XEXP (contains_minus, 0) = XEXP (minus, 0);
+	  output_addr_const (file, XEXP (x, 1)); 	  
+	  XEXP (contains_minus, 0) = minus;
+	}
+      else
+	output_addr_const (file, XEXP (x, 1));
 
-      minus = XEXP (contains_minus, 0); 
-      XEXP (contains_minus, 0) = XEXP (minus, 0);
-      
-      output_addr_const (file, XEXP (x, 1)); 	  
-      XEXP (contains_minus, 0) = minus;
-
-      fprintf (file, "(%s)", reg_names[TOC_REGISTER]);
+      fprintf (file, "(%s)", reg_names[REGNO (XEXP (x, 0))]);
     }
   else
     abort ();
@@ -4362,7 +4420,7 @@ rs6000_emit_load_toc_table (fromprolog)
 	  /* This is for AIX code running in non-PIC ELF.  */
 	  char buf[30];
 	  rtx realsym;
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 0);
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
 	  realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
 	  
 	  emit_insn (gen_elf_high (dest, realsym));
@@ -4416,12 +4474,12 @@ rtx
 create_TOC_reference(symbol) 
     rtx symbol;
 {
-    return gen_rtx (PLUS, Pmode, 
-	    gen_rtx_REG (Pmode, TOC_REGISTER),
-	    gen_rtx_CONST (Pmode, 
-		gen_rtx_MINUS (Pmode, symbol, 
-		    gen_rtx_SYMBOL_REF (Pmode,
-			ggc_alloc_string (toc_label_name, -1)))));
+    return gen_rtx_PLUS (Pmode, 
+	     gen_rtx_REG (Pmode, TOC_REGISTER),
+	       gen_rtx_CONST (Pmode, 
+		 gen_rtx_MINUS (Pmode, symbol, 
+		   gen_rtx_SYMBOL_REF (Pmode,
+		     ggc_alloc_string (toc_label_name, -1)))));
 }
 
 #if TARGET_AIX
@@ -4499,7 +4557,7 @@ rs6000_emit_eh_toc_restore (stacksize)
   rtx tocompare = gen_reg_rtx (SImode);
   rtx opcode = gen_reg_rtx (SImode);
   rtx opcode_addr = gen_reg_rtx (Pmode);
-  rtx mem, r2;
+  rtx mem;
   rtx loop_start = gen_label_rtx ();
   rtx no_toc_restore_needed = gen_label_rtx ();
   rtx loop_exit = gen_label_rtx ();
@@ -5939,15 +5997,7 @@ output_toc (file, x, labelno)
     ASM_OUTPUT_ALIGN (file, 3);
   }
 
-  if (TARGET_ELF && TARGET_MINIMAL_TOC)
-    {
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
-      fprintf (file, "%d = .-", labelno);
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LCTOC");
-      fputs ("1\n", file);
-    }
-  else
-    ASM_OUTPUT_INTERNAL_LABEL (file, "LC", labelno);
+  ASM_OUTPUT_INTERNAL_LABEL (file, "LC", labelno);
 
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
@@ -5967,7 +6017,7 @@ output_toc (file, x, labelno)
 	    fprintf (file, "\t.llong 0x%lx%08lx\n", k[0], k[1]);
 	  else
 	    fprintf (file, "\t.tc FD_%lx_%lx[TC],0x%lx%08lx\n",
-		     k[0], k[1], k[0] & 0xffffffff, k[1] & 0xffffffff);
+		     k[0], k[1], k[0] & 0xffffffffu, k[1] & 0xffffffffu);
 	  return;
 	}
       else
@@ -6263,7 +6313,7 @@ output_function_profiler (file, labelno)
 	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
 	  /* Now, we need to get the address of the label.  */
-	  fputs ("\tbl 1f\n\t.word ", file);
+	  fputs ("\tbl 1f\n\t.long ", file);
 	  assemble_name (file, buf);
 	  fputs ("-.\n1:", file);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[11]);

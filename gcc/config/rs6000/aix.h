@@ -169,7 +169,7 @@ toc_section ()						\
 	 in each file.  */						 \
       if (! toc_initialized)				\
 	{						\
-	  fputs ("\t.toc\nLCTOC..0:\n", asm_out_file);	\
+	  fputs ("\t.toc\nLCTOC..1:\n", asm_out_file);	\
 	  fputs ("\t.tc toc_table[TC],toc_table[RW]\n", asm_out_file); \
 	  toc_initialized = 1;				\
 	}						\
