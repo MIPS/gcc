@@ -1,5 +1,5 @@
 /* SSA for trees.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -99,23 +99,6 @@ struct var_value_d
   tree value;
 };
 
-/* Hash table with expressions made available during the renaming process.
-   When an assignment of the form X_i = EXPR is found, the statement is
-   stored in this table.  If the same expression EXPR is later found on the
-   RHS of another statement, it is replaced with X_i (thus performing
-   global redundancy elimination). */
-static htab_t avail_exprs;
-
-/* Hash table of constant values and copies indexed by SSA name.  When the
-   renaming pass finds an assignment of a constant (X_i = C) or a copy
-   assignment from another SSA variable (X_i = Y_j), it creates a mapping
-   between X_i and the RHS in this table.  This mapping is used later on,
-   when renaming uses of X_i.  If an assignment to X_i is found in this
-   table, instead of using X_i, we use the RHS of the statement stored in
-   this table (thus performing very simplistic copy and constant
-   propagation).  */
-static htab_t const_and_copies;
-
 /* Used to hold all the components requires to do SSA PHI elimination.  */
 
 typedef struct _elim_graph
@@ -146,10 +129,6 @@ typedef struct _elim_graph
 struct ssa_stats_d
 {
   long num_stmts;
-  long num_exprs_considered;
-  long num_const_prop;
-  long num_copy_prop;
-  long num_re;
 };
 
 static struct ssa_stats_d ssa_stats;
@@ -157,10 +136,6 @@ static struct ssa_stats_d ssa_stats;
 /* Bitmap representing variables that need to be renamed into SSA form.  */
 static sbitmap vars_to_rename;
 
-/* Flag to indicate whether the dominator optimizations propagated an
-   ADDR_EXPR.  If that happens, we may need to run another SSA pass because
-   new symbols may have been exposed.  */
-static bool addr_expr_propagated_p;
 
 /* Local functions.  */
 static void delete_tree_ssa (tree);
@@ -170,9 +145,7 @@ static void set_def_block (tree, basic_block);
 static void set_livein_block (tree, basic_block);
 static void insert_phi_nodes (bitmap *, sbitmap);
 static void insert_phis_for_deferred_variables (varray_type);
-static void rewrite_block (basic_block, tree);
-static int rewrite_and_optimize_stmt (block_stmt_iterator, varray_type *,
-				      varray_type *);
+static void rewrite_block (basic_block);
 static void check_for_new_variables (void);
 static void rewrite_stmt (block_stmt_iterator, varray_type *);
 static inline void rewrite_operand (tree *, bool);
@@ -188,10 +161,6 @@ static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
 static void def_blocks_free (void *);
 static int debug_def_blocks_r (void **, void *);
-static tree lookup_avail_expr (tree, varray_type *, htab_t);
-static tree get_eq_expr_value (tree);
-static hashval_t avail_expr_hash (const void *);
-static int avail_expr_eq (const void *, const void *);
 static struct def_blocks_d *get_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
 
@@ -307,6 +276,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   dominance_info idom;
   int i, rename_count;
   bool compute_df;
+  bool addr_expr_propagated_p;
   
   timevar_push (TV_TREE_SSA_OTHER);
 
@@ -329,12 +299,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   /* Allocate memory for the CURRDEFS hash table.  */
   currdefs = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
 			  var_value_hash, var_value_eq, free);
-
-  /* Allocate memory for the AVAIL_EXPRS hash table.  */
-  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, NULL);
-
-  /* Allocate memory for the CONST_AND_COPIES hash table.  */
-  const_and_copies = htab_create (1024, var_value_hash, var_value_eq, free);
 
   /* Allocate memory for the GLOBALS bitmap which will indicate which
      variables are live across basic block boundaries.  Note that this
@@ -379,8 +343,17 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
       /* Rewrite all the basic blocks in the program.  */
       timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
       sbitmap_zero (vars_to_rename);
-      rewrite_block (ENTRY_BLOCK_PTR, NULL_TREE);
+      rewrite_block (ENTRY_BLOCK_PTR);
       timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
+
+      if (flag_tree_dom)
+	{
+	  /* Now optimize all the basic blocks in the program.  */
+	  timevar_push (TV_TREE_SSA_DOMINATOR_OPTS);
+	  addr_expr_propagated_p = tree_ssa_dominator_optimize (dump_file,
+								dump_flags);
+	  timevar_pop (TV_TREE_SSA_DOMINATOR_OPTS);
+	}
 
       /* If the dominator optimizations propagated ADDR_EXPRs, we may need
 	 to repeat the SSA renaming process for the new symbols that may
@@ -398,15 +371,9 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 	      remove_all_phi_nodes_for (vars_to_rename);
 	      htab_empty (def_blocks);
 	      htab_empty (currdefs);
-	      htab_empty (avail_exprs);
-	      htab_empty (const_and_copies);
 	      sbitmap_zero (globals);
 	    }
 	}
-
-      /* Sanity check, we shouldn't need to iterate more than twice.  */
-      if (rename_count++ > 1)
-	abort ();
     }
   while (sbitmap_first_set_bit (vars_to_rename) >= 0);
 
@@ -418,8 +385,6 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   free_dominance_info (idom);
   htab_delete (def_blocks);
   htab_delete (currdefs);
-  htab_delete (avail_exprs);
-  htab_delete (const_and_copies);
   if (vars == NULL)
     sbitmap_free (vars_to_rename);
 
@@ -528,8 +493,6 @@ compute_global_livein (varray_type def_maps)
   free (worklist);
   BITMAP_XFREE (in_worklist);
 }
-
-
 
 /* Look for variable references in every block of the flowgraph, compute
    aliasing information and collect definition sites for every variable.
@@ -658,7 +621,6 @@ mark_def_sites (dominance_info idom, sbitmap globals)
   free (kills);
 }
 
-
 /* Mark block BB as the definition site for variable VAR.  */
 
 static void
@@ -771,14 +733,6 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
       rewritten with their corresponding reaching definition.  DEF and
       VDEF targets are registered as new definitions.
       
-      This step performs some quick and simple value number optimizations.
-      Expressions computed by each statement are looked up in the
-      AVAIL_EXPRS table.  If a statement is found to make a redundant
-      computation, it is marked for removal.  Otherwise, the expression
-      computed by the statement is assigned a value number and entered into
-      the AVAIL_EXPRS table.  See try_optimize_stmt for details on the
-      types of redundancies handled during renaming.
-
    3- All the PHI nodes in successor blocks of BB are visited.  The
       argument corresponding to BB is replaced with its current reaching
       definition.
@@ -789,64 +743,29 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
       new definition introduced in this block.  This is done so that when
       we return from the recursive call, all the current reaching
       definitions are restored to the names that were valid in the
-      dominator parent of BB.
-
-      This step also removes all the expressions added to the AVAIL_EXPRS
-      table during renaming.  This is because the expressions made
-      available to block BB and its dominator children are not valid for
-      blocks above BB in the dominator tree.
-
-   EQ_EXPR_VALUE is an assignment expression created when BB's immediate
-   dominator ends in a COND_EXPR statement whose predicate is of the form
-   'VAR == VALUE', where VALUE may be another variable or a constant. 
-   This is used to propagate VALUE on the THEN_CLAUSE of that conditional.
-   This assignment is inserted in CONST_AND_COPIES so that the copy and
-   constant propagator can find more propagation opportunities.  */
+      dominator parent of BB.  */
 
 static void
-rewrite_block (basic_block bb, tree eq_expr_value)
+rewrite_block (basic_block bb)
 {
   edge e;
-  varray_type block_defs, block_avail_exprs;
+  varray_type block_defs;
   bitmap children;
   unsigned long i;
   block_stmt_iterator si;
   tree phi;
-  tree prev_value = NULL_TREE;
 
   /* Initialize the local stacks.
      
      BLOCK_DEFS is used to save all the existing reaching definitions for
 	the new SSA names introduced in this block.  Before registering a
 	new definition for a variable, the existing reaching definition is
-	pushed into this stack so that we can restore it in Step 5.
+	pushed into this stack so that we can restore it in Step 5.  */
 
-     BLOCK_AVAIL_EXPRS is used when -ftree-dominator-opts is given.  It
-	stores all the expressions made available in this block.  Since
-	expressions made available in this block are only valid in blocks
-	dominated by BB, when we finish rewriting BB and its dominator
-	children, we have to remove these expressions from the AVAIL_EXPRS
-	table.  This stack is used to know which expressions to remove from
-	the table.  */
   VARRAY_TREE_INIT (block_defs, 20, "block_defs");
-  if (flag_tree_dom)
-    VARRAY_TREE_INIT (block_avail_exprs, 20, "block_avail_exprs");
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
-
-  /* If EQ_EXPR_VALUE (VAR == VALUE) is given and we are doing dominator
-     optimizations, register the VALUE as a new value for VAR, so that
-     occurrences of VAR can be replaced with VALUE while re-writing the
-     THEN arm of a COND_EXPR.  */
-  if (flag_tree_dom && eq_expr_value)
-    {
-      prev_value = get_value_for (TREE_OPERAND (eq_expr_value, 0),
-				  const_and_copies);
-      set_value_for (TREE_OPERAND (eq_expr_value, 0),
-		     TREE_OPERAND (eq_expr_value, 1),
-		     const_and_copies);
-    }
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -857,22 +776,9 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 
   /* Step 2.  Rewrite every variable used in each statement the block with
      its immediate reaching definitions.  Update the current definition of
-     a variable when a new real or virtual definition is found.  If
-     -ftree-dominator-opts is given, call rewrite_and_optimize_stmt,
-     otherwise simply rename every operand with rewrite_stmt.  */
-  if (flag_tree_dom)
-    {
-      for (si = bsi_start (bb); !bsi_end_p (si); )
-	if (!rewrite_and_optimize_stmt (si, &block_defs, &block_avail_exprs))
-	  bsi_next (&si);
-	else
-	  bsi_remove (&si);
-    }
-  else
-    {
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	rewrite_stmt (si, &block_defs);
-    }
+     a variable when a new real or virtual definition is found.  */
+  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    rewrite_stmt (si, &block_defs);
 
 
   /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
@@ -891,8 +797,6 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 	  if (PHI_NUM_ARGS (phi) == PHI_ARG_CAPACITY (phi))
 	    continue;
 
-	  /* FIXME.  [UNSSA] If -ftree-dominator-opts, allow constants and
-	     copies to be propagated into PHI arguments.  */
 	  currdef = get_reaching_def (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  add_phi_arg (phi, currdef, e);
 	}
@@ -901,24 +805,7 @@ rewrite_block (basic_block bb, tree eq_expr_value)
   /* Step 4.  Recursively search the dominator children of BB.  */
   children = dom_children (bb);
   if (children)
-    {
-      if (bb->flags & BB_CONTROL_EXPR)
-	{
-	  tree last = last_stmt (bb);
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    {
-	      if (BASIC_BLOCK (i)->pred->flags & EDGE_TRUE_VALUE)
-		rewrite_block (BASIC_BLOCK (i), get_eq_expr_value (last));
-	      else
-		rewrite_block (BASIC_BLOCK (i), NULL_TREE);
-	    });
-	}
-      else
-	{
-	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
-	    rewrite_block (BASIC_BLOCK (i), NULL_TREE));
-	}
-    }
+   EXECUTE_IF_SET_IN_BITMAP (children, 0, i, rewrite_block (BASIC_BLOCK (i)));
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
@@ -940,30 +827,7 @@ rewrite_block (basic_block bb, tree eq_expr_value)
 
       set_value_for (var, saved_def, currdefs);
     }
-
-  /* If we are doing dominator optimizations, remove all the expressions
-     made available in this block.  */
-  if (flag_tree_dom)
-    {
-      while (VARRAY_ACTIVE_SIZE (block_avail_exprs) > 0)
-	{
-	  tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
-	  VARRAY_POP (block_avail_exprs);
-	  htab_remove_elt (avail_exprs, stmt);
-	}
-
-      if (eq_expr_value)
-	{
-	  struct var_value_d vm;
-	  vm.var = TREE_OPERAND (eq_expr_value, 0);
-	  if (prev_value)
-	    set_value_for (vm.var, prev_value, const_and_copies);
-	  else
-	    htab_remove_elt (const_and_copies, &vm);
-	}
-    }
 }
-
 
 /* This function will create a temporary for a partition based on the
    type of the variable which already represents a partition.  */
@@ -1881,27 +1745,6 @@ debug_tree_ssa (void)
 void
 dump_tree_ssa_stats (FILE *file)
 {
-  long n_exprs;
-
-  fprintf (file, "Total number of statements:                   %6ld\n\n",
-	   ssa_stats.num_stmts);
-  fprintf (file, "Exprs considered for dominator optimizations: %6ld\n",
-           ssa_stats.num_exprs_considered);
-
-  n_exprs = ssa_stats.num_exprs_considered;
-  if (n_exprs == 0)
-    n_exprs = 1;
-
-  fprintf (file, "    Constants propagated:                     %6ld (%.0f%%)\n",
-           ssa_stats.num_const_prop, PERCENT (ssa_stats.num_const_prop,
-	                                      n_exprs));
-  fprintf (file, "    Copies propagated:                        %6ld (%.0f%%)\n",
-	   ssa_stats.num_copy_prop, PERCENT (ssa_stats.num_copy_prop,
-					     n_exprs));
-  fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
-	   ssa_stats.num_re, PERCENT (ssa_stats.num_re,
-				      n_exprs));
-
   fprintf (file, "\nHash table statistics:\n");
 
   fprintf (file, "    def_blocks: ");
@@ -1909,12 +1752,6 @@ dump_tree_ssa_stats (FILE *file)
 
   fprintf (file, "    currdefs: ");
   htab_statistics (file, currdefs);
-
-  fprintf (file, "    avail_exprs: ");
-  htab_statistics (file, avail_exprs);
-
-  fprintf (file, "    const_and_copies: ");
-  htab_statistics (file, const_and_copies);
 
   fprintf (file, "\n");
 }
@@ -2080,245 +1917,6 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
   BITMAP_XFREE (phi_insertion_points);
 }
 
-
-/* Rewrite the statement pointed by iterator SI into SSA form.  Return 1 if
-   the stmt is to be deleted.  
-   
-   BLOCK_DEFS_P points to a stack with all the definitions found in the
-      block.  This is used by rewrite_block to restore the current reaching
-      definition for every variable defined in BB after visiting the
-      immediate dominators of BB.
-
-   BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
-      been computed in this block and are available in children blocks to
-      be reused.
-
-   While renaming a statement, we try to perform some simplistic global
-   redundancy elimination and constant propagation:
-
-   1- To detect global redundancy, we keep track of expressions that have
-      been computed in this block and its dominators.  If we find that the
-      same expression is computed more than once, we eliminate repeated
-      computations by using the target of the first one.  For instance,
-      consider this partially renamed fragment of code:
-
-	    a_1 = b_2 + c_3;
-	    x = b_2 + c_3;
-	    if (x > 0)
-	      ...
-
-      After renaming the first instance of 'b_2 + c_3', it will be added to
-      the AVAIL_EXPRS table with value 'a_1'.  The next time the renaming
-      process finds 'b_2 + c_3', instead of creating a new definition for
-      'x', it will set the current reaching definition of 'x' to be 'a_1'.
-      This way, the renaming process will proceed to generate:
-
-	    a_1 = b_2 + c_3;
-	    <deleted>
-	    if (a_1 > 0)
-	      ...
-
-
-   2- Constant values and copy assignments.  This is used to do very
-      simplistic constant and copy propagation.  When a constant or copy
-      assignment is found, we map the value on the RHS of the assignment to
-      the variable in the LHS in the CONST_AND_COPIES table.  The next time
-      we need to rewrite an operand, we check whether the variable has a
-      known value.  If so, we use that value.  Notice that this does not
-      replace the constant and copy propagation passes.  It only does very
-      simplistic propagation while renaming.  */
-
-static int
-rewrite_and_optimize_stmt (block_stmt_iterator si, varray_type *block_defs_p,
-			   varray_type *block_avail_exprs_p)
-{
-  size_t i;
-  stmt_ann_t ann;
-  tree stmt, *def_p;
-  varray_type uses, vuses, vdefs;
-  bool may_optimize_p;
-
-  stmt = bsi_stmt (si);
-  if (IS_EMPTY_STMT (stmt))
-    return 0;
-
-  ann = stmt_ann (stmt);
-  ssa_stats.num_stmts++;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Renaming statement ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-
-#if defined ENABLE_CHECKING
-  /* We have just scanned the code for operands.  No statement should
-     be modified.  */
-  if (ann->modified)
-    abort ();
-#endif
-
-  /* FIXME: Must change the interface to statement annotations.  Helpers
-	    should receive the annotation, not the statement.  Otherwise,
-	    we call stmt_ann() more than necessary.  */
-  def_p = def_op (stmt);
-  uses = use_ops (stmt);
-  vuses = vuse_ops (stmt);
-  vdefs = vdef_ops (stmt);
-
-#if defined ENABLE_CHECKING
-  /* Only assignments may make a new definition.  */
-  if (def_p && TREE_CODE (stmt) != MODIFY_EXPR)
-    abort ();
-#endif
-
-  /* Step 1.  Rewrite USES and VUSES in the statement.  */
-  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
-    {
-      tree val;
-      tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
-
-      /* If the operand is already in SSA form, do nothing.  */
-      if (TREE_CODE (*op_p) == SSA_NAME)
-	continue;
-
-      rewrite_operand (op_p, true);
-
-      /* If the operand has a known constant value or it is known to be a
-	 copy of some other variable, use the value or copy stored in
-	 CONST_AND_COPIES.  */
-      ssa_stats.num_exprs_considered++;
-      val = get_value_for (*op_p, const_and_copies);
-      if (val)
-	{
-	  /* Gather statistics.  */
-	  if (is_unchanging_value (val)
-	      || is_optimizable_addr_expr (val))
-	    ssa_stats.num_const_prop++;
-	  else
-	    ssa_stats.num_copy_prop++;
-
-	  /* Replace the operand with its known constant value or copy.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "  Replaced '");
-	      print_generic_expr (dump_file, *op_p, 0);
-	      fprintf (dump_file, "' with %s '",
-		       TREE_CODE (val) == SSA_NAME ? "variable" : "constant");
-	      print_generic_expr (dump_file, val, 0);
-	      fprintf (dump_file, "'\n");
-	    }
-
-	  /* If VAL is an ADDR_EXPR, notify that we may need to have a
-	     second SSA pass to rename variables exposed by the folding of
-	     *&VAR expressions.  */
-	  if (TREE_CODE (val) == ADDR_EXPR)
-	    addr_expr_propagated_p = true;
-
-	  if (TREE_CODE (val) == SSA_NAME)
-	    propagate_copy (op_p, val);
-	  else
-	    *op_p = val;
-
-	  ann->modified = 1;
-	}
-    }
-
-  /* Rewrite virtual uses in the statement.  */
-  for (i = 0; vuses && i < VARRAY_ACTIVE_SIZE (vuses); i++)
-    if (TREE_CODE (VARRAY_TREE (vuses, i)) != SSA_NAME)
-      rewrite_operand (&(VARRAY_TREE (vuses, i)), false);
-
-  /* If the statement has been modified with constant replacements,
-      fold its RHS before checking for redundant computations.  */
-  if (ann->modified)
-    fold_stmt (stmt);
-
-  /* Step 2.  Check for redundant computations.  Do this optimization only
-     for assignments that make no calls and have no aliased stores
-     nor volatile references and no side effects (i.e., no VDEFs).  */
-  may_optimize_p = !ann->makes_aliased_stores
-		   && !ann->has_volatile_ops
-		   && vdefs == NULL
-		   && def_p
-		   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (stmt, 1));
-
-  if (may_optimize_p)
-    {
-      /* Check if the RHS of the assignment has been computed before.  If
-	 so, use the LHS of the previously computed statement as the
-	 reaching definition for the variable defined by this statement.  */
-      tree cached_lhs = lookup_avail_expr (stmt,
-					   block_avail_exprs_p,
-					   const_and_copies);
-      ssa_stats.num_exprs_considered++;
-      if (cached_lhs && TREE_TYPE (cached_lhs) == TREE_TYPE (*def_p))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "  Replaced redundant expr '");
-	      print_generic_expr (dump_file, TREE_OPERAND (stmt, 1), 0);
-	      fprintf (dump_file, "' with '");
-	      print_generic_expr (dump_file, cached_lhs, 0);
-	      fprintf (dump_file, "'\n");
-	    }
-
-	  if (cached_lhs && get_value_for (*def_p, currdefs) == cached_lhs)
-	    {
-	      /* A redundant assignment to the same lhs, perhaps a new
-                 evaluation of an expression temporary that is still live.
-                 Just discard it.  */
-	      ssa_stats.num_re++;
-	      return 1;
-	    }
-
-	  ssa_stats.num_re++;
-	  TREE_OPERAND (stmt, 1) = cached_lhs;
-	  ann->modified = 1;
-	}
-    }
-
-  /* Step 3.  If the computation wasn't redundant, register its DEF and
-     VDEF operands.  Do nothing if the definition is already in SSA form.  */
-  if (def_p && TREE_CODE (*def_p) != SSA_NAME)
-    {
-      tree rhs;
-
-      *def_p = make_ssa_name (*def_p, stmt);
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p, block_defs_p, true);
-
-      /* If the RHS of the assignment is a constant or another variable
-	 that may be propagated, register it in the CONST_AND_COPIES table.  */
-      rhs = TREE_OPERAND (stmt, 1);
-      if (may_optimize_p)
-	{
-	  if (TREE_CODE (rhs) == SSA_NAME
-	      || is_unchanging_value (rhs)
-	      || is_optimizable_addr_expr (rhs))
-	    set_value_for (*def_p, rhs, const_and_copies);
-	}
-    }
-
-  /* Register new virtual definitions made by the statement.  */
-  for (i = 0; vdefs && i < VARRAY_ACTIVE_SIZE (vdefs); i++)
-    {
-      tree vdef = VARRAY_TREE (vdefs, i);
-
-      if (TREE_CODE (VDEF_RESULT (vdef)) == SSA_NAME)
-	continue;
-
-      rewrite_operand (&(VDEF_OP (vdef)), false);
-
-      VDEF_RESULT (vdef) = make_ssa_name (VDEF_RESULT (vdef), stmt);
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdef)), 
-			VDEF_RESULT (vdef), block_defs_p, false);
-    }
-
-  return 0;
-}
-
-
 /* Scan all the statements looking for symbols not in SSA form.  If any are
    found, add them to VARS_TO_RENAME to trigger a second SSA pass.  */
 
@@ -2373,14 +1971,12 @@ check_for_new_variables (void)
 }
 
 
-/* Rewrite statement pointed by iterator SI into SSA form.  This is only
-   used when not doing dominator optimizations (-ftree-dominator-opts), in
-   which case rewrite_and_optimize_stmt is used.
+/* Rewrite statement pointed by iterator SI into SSA form. 
 
    BLOCK_DEFS_P points to a stack with all the definitions found in the
-      block.  This is used by rewrite_block to restore the current reaching
-      definition for every variable defined in BB after visiting the
-      immediate dominators of BB.  */
+   block.  This is used by rewrite_block to restore the current reaching
+   definition for every variable defined in BB after visiting the
+   immediate dominators of BB.  */
 
 static void
 rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
@@ -2736,176 +2332,6 @@ set_value_for (tree var, tree value, htab_t table)
 
   vm_p->value = value;
 }
-
-
-/* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
-   found, return its LHS. Otherwise insert STMT in the table and return
-   NULL_TREE.
-
-   Also, when an expression is first inserted in the AVAIL_EXPRS table, it
-   is also added to the stack pointed by BLOCK_AVAIL_EXPRS_P, so that they
-   can be removed when we finish processing this block and its children.
-
-   NOTE: This function assumes that STMT is a MODIFY_EXPR node that
-	 contains no CALL_EXPR on its RHS and makes no volatile nor
-	 aliased references.  */
-
-static tree
-lookup_avail_expr (tree stmt,
-		   varray_type *block_avail_exprs_p,
-		   htab_t const_and_copies)
-{
-  void **slot;
-  tree rhs;
-  tree lhs;
-  tree temp;
-
-  /* Don't bother remembering constant assignments and copy operations.
-     Constants and copy operations are handled by the constant/copy propagator
-     in rewrite_and_optimize_stmt.  */
-  rhs = TREE_OPERAND (stmt, 1);
-  if (TREE_CODE (rhs) == SSA_NAME
-      || is_unchanging_value (rhs)
-      || is_optimizable_addr_expr (rhs))
-    return NULL_TREE;
-
-  slot = htab_find_slot (avail_exprs, stmt, INSERT);
-  if (*slot == NULL)
-    {
-      *slot = (void *) stmt;
-      VARRAY_PUSH_TREE (*block_avail_exprs_p, stmt);
-      return NULL_TREE;
-    }
-
-  /* Extract the LHS of the assignment so that it can be used as the current
-     definition of another variable.  */
-  lhs = TREE_OPERAND ((tree) *slot, 0);
-
-  /* See if the LHS appears in the const_and_copies table.  If it does, then
-     use the value from the const_and_copies table.  */
-  temp = get_value_for (lhs, const_and_copies);
-  if (temp)
-    lhs = temp;
-
-  return lhs;
-}
-
-
-/* Given a conditional statement IF_STMT, return the assignment 'X = Y', if
-   the conditional is of the form 'X == Y'.  If the conditional is of the
-   form 'X'.  The assignment 'X = 1' is returned.  */
-
-static tree
-get_eq_expr_value (tree if_stmt)
-{
-  tree cond, value;
-
-  cond = COND_EXPR_COND (if_stmt);
-
-  /* If the conditional is a single variable 'X', return 'X = 1'.  */
-  if (SSA_VAR_P (cond))
-    return build (MODIFY_EXPR, TREE_TYPE (cond), cond, integer_one_node);
-
-  /* If the conditional is of the form 'X == Y', return 'X = Y'.  */
-  else if (TREE_CODE (cond) == EQ_EXPR
-	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-	   && (is_unchanging_value (TREE_OPERAND (cond, 1))
-	       || is_optimizable_addr_expr (TREE_OPERAND (cond, 1))
-	       || TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME))
-    value = build (MODIFY_EXPR, TREE_TYPE (cond),
-		   TREE_OPERAND (cond, 0),
-		   TREE_OPERAND (cond, 1));
-
-  /* Return nothing for any other conditional.  */
-  else
-    value = NULL_TREE;
-
-  return value;
-}
-
-
-/* Hashing and equality functions for AVAIL_EXPRS.  The table stores
-   MODIFY_EXPR statements.  We compute a value number for expressions using
-   the code of the expression and the SSA numbers of its operands.  */
-
-static hashval_t
-avail_expr_hash (const void *p)
-{
-  hashval_t val = 0;
-  tree rhs;
-  size_t i;
-  varray_type ops;
-  tree stmt = (tree) p;
-
-  /* iterative_hash_expr knows how to deal with any expression and
-     deals with commutative operators as well, so just use it instead
-     of duplicating such complexities here.  */
-  rhs = TREE_OPERAND (stmt, 1);
-  val = iterative_hash_expr (rhs, val);
-
-  /* Add the SSA version numbers of every vuse operand.  This is important
-     because compound variables like arrays are not renamed in the
-     operands.  Rather, the rename is done on the virtual variable
-     representing all the elements of the array.  */
-  ops = vuse_ops (stmt);
-  for (i = 0; ops && i < VARRAY_ACTIVE_SIZE (ops); i++)
-    val = iterative_hash_expr (VARRAY_TREE (ops, i), val);
-
-  return val;
-}
-
-
-static int
-avail_expr_eq (const void *p1, const void *p2)
-{
-  tree s1, s2, rhs1, rhs2;
-
-  s1 = (tree) p1;
-  rhs1 = TREE_OPERAND (s1, 1);
-
-  s2 = (tree) p2;
-  rhs2 = TREE_OPERAND (s2, 1);
-
-  /* If they are the same physical statement, return true.  */
-  if (s1 == s2)
-    return true;
-
-  /* In case of a collision, both RHS have to be identical and have the
-     same VUSE operands.  */
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
-      && TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
-      && operand_equal_p (rhs1, rhs2, 0))
-    {
-      varray_type ops1 = vuse_ops (s1);
-      varray_type ops2 = vuse_ops (s2);
-
-      if (ops1 == NULL && ops2 == NULL)
-	{
-#ifdef ENABLE_CHECKING
-	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
-	    abort ();
-#endif
-	  return true;
-	}
-
-      if (VARRAY_ACTIVE_SIZE (ops1) == VARRAY_ACTIVE_SIZE (ops2))
-	{
-	  size_t i;
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (ops1); i++)
-	    if (VARRAY_GENERIC_PTR (ops1, i) != VARRAY_GENERIC_PTR (ops2, i))
-	      return false;
-
-#ifdef ENABLE_CHECKING
-	  if (avail_expr_hash (s1) != avail_expr_hash (s2))
-	    abort ();
-#endif
-	  return true;
-	}
-    }
-
-  return false;
-}
-
 
 /* Return the set of blocks where variable VAR is defined and the blocks
    where VAR is live on entry (livein).  */

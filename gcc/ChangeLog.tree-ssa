@@ -1,3 +1,21 @@
+2003-07-15  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJS): Add tree-ssa-dom.o
+	(tree-ssa-dom.o): Add dependencies.
+	(ssa.o, cfghooks.o): Use $(TREE_FLOW_H), not tree-flow.h.
+	* timevar.def: Add new timevar for dominator optimizer.  Reorder
+	slightly.
+	* tree-dfa.c (add_stmt_operand): Do not consider references to
+	static storage as volatile operands.
+	(add_referenced_var): Static storage items reference global memory.
+	* tree-ssa.c: Simplify by moving everything specific to the
+	dominator optimizer into tree-ssa-dom.c.  Call into the dominator
+	optimizer after rewriting all the basic blocks.
+	* tree-ssa-dom.c: New file.  Mostly extracted from tree-ssa.c
+	* tree-flow.h (tree_ssa_dominator_optimize): Prototype.
+	(dump_dominator_optimization_stats): Likewise.
+	(debug_dominator_optimization_stats): Likewise.
+
 2003-07-15  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_stmt_operand): Move volatile handling...

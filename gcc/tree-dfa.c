@@ -593,17 +593,11 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
   v_ann = var_ann (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
 
-  /* FIXME: Currently, global and local static variables are always treated as
-     virtual operands.  Otherwise, we would have to insert copy-in/copy-out
-     operations at escape points in the function (e.g., at call sites and
-     return points). The additional overhead of inserting these copies may
-     negate the optimizations enabled by renaming globals.  */
+  /* FIXME: Currently, objects in static storage are always treated as
+     virtual operands.  */
   if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0
       || TREE_STATIC ((!DECL_P (var) ? get_base_symbol (var) : var)))
-    {
-      flags |= opf_force_vop;
-      s_ann->has_volatile_ops = 1;
-    }
+    flags |= opf_force_vop;
 
   /* If the variable is an alias tag, it means that its address has been
      taken and it's being accessed directly and via pointers.  To avoid
@@ -2269,6 +2263,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  && (TREE_CODE (var) == PARM_DECL
 	      || decl_function_context (var) == NULL_TREE))
 	v_ann->may_point_to_global_mem = 1;
+
+      /* Mark local statics and global variables as global memory aliases
+	 to avoid DCE killing seemingly dead stores to them.  */
+      if (decl_function_context (var) == 0 || TREE_STATIC (var))
+	v_ann->may_alias_global_mem = 1;
 
       is_addressable = TREE_ADDRESSABLE (var)
 		       || decl_function_context (var) == NULL;

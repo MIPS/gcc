@@ -465,11 +465,14 @@ extern void set_is_used (tree);
 /* In tree-ssa-pre.c  */
 extern void tree_perform_ssapre (tree);
 
-
 /* In tree-ssa-ccp.c  */
 void tree_ssa_ccp (tree);
 void fold_stmt (tree);
 
+/* In tree-ssa-dom.c  */
+extern bool tree_ssa_dominator_optimize (FILE *, int);
+extern void dump_dominator_optimization_stats (FILE *);
+extern void debug_dominator_optimization_stats (void);
 
 /* In tree-ssa-dce.c  */
 void tree_ssa_dce (tree);
