@@ -1,5 +1,9 @@
 2003-06-19  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (make_ctrl_stmt_edges): Do not create bogus edges
+	to the successor block of TRY_CATCH_EXPR, TRY_FINALLY_EXPR,
+	CATCH_EXPR or EH_FILTER_EXPR nodes.
+
 	* gimplify.c (gimplify_modify_expr): If the RHS of an MODIFY_EXPR
 	might throw, then make sure its result goes into a temporary.
  

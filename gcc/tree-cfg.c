@@ -1115,7 +1115,6 @@ make_ctrl_stmt_edges (basic_block bb)
       /* FALLTHRU */
     case TRY_CATCH_EXPR:
       make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), EDGE_FALLTHRU);
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
 
       /* Make an edge to the next cleanup if applicable.  */
       if (stmt_ann (last)->reachable_exception_handlers)
@@ -1129,12 +1128,10 @@ make_ctrl_stmt_edges (basic_block bb)
 
     case CATCH_EXPR:
       make_edge (bb, bb_for_stmt (CATCH_BODY (last)), EDGE_FALLTHRU);
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
       break;
 
     case EH_FILTER_EXPR:
       make_edge (bb, bb_for_stmt (EH_FILTER_FAILURE (last)), EDGE_FALLTHRU);
-      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
       break;
 
     default:
