@@ -1,3 +1,8 @@
+2004-10-21 Fariborz Jahanian <fjahanian@apple.com>
+
+	* function.c (assign_parms): Iterate over all non-vector args first,
+	then over vector args.
+
 2004-10-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3540965
