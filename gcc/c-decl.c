@@ -6222,17 +6222,21 @@ finish_function (void)
   /* Genericize before inlining.  Delay genericizing nested functions
      until their parent function is genericized.  Since finalizing
      requires GENERIC, delay that as well.  */
-  if (!decl_function_context (fndecl))
+     
+  if (DECL_INITIAL (fndecl) && DECL_INITIAL (fndecl) != error_mark_node)
     {
-      c_genericize (fndecl);
-      c_finalize (fndecl);
-    }
-  else
-    {
-      /* Register this function with cgraph just far enough to get it
-	 added to our parent's nested function list.  Handy, since the
-	 C front end doesn't have such a list.  */
-      (void) cgraph_node (fndecl);
+      if (!decl_function_context (fndecl))
+        {
+          c_genericize (fndecl);
+          c_finalize (fndecl);
+        }
+      else
+        {
+          /* Register this function with cgraph just far enough to get it
+            added to our parent's nested function list.  Handy, since the
+            C front end doesn't have such a list.  */
+          (void) cgraph_node (fndecl);
+        }
     }
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
