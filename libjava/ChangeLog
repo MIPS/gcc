@@ -1,5 +1,7 @@
 2004-10-18  Tom Tromey  <tromey@redhat.com>
 
+	* boehm.cc (_Jv_MarkObj): Mark `throws'.
+
 	* boehm.cc: Re-merged with trunk.
 
 2004-10-18  Andrew Haley  <aph@redhat.com>

@@ -158,6 +158,11 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	      p = (GC_PTR) c->methods[i].signature;
 	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+	      // Note that we don't have to mark each individual throw
+	      // separately, as these are stored in the constant pool.
+	      p = (GC_PTR) c->methods[i].throws;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 	    }
 	}
 
