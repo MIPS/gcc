@@ -3,6 +3,11 @@ Tue Jan 5  8:52:18 PST 1999 Bruce Korb (korb@datadesign.com)
 	* fixinc/fixincl.c (various): added debug code so
 	Manfred can trace the processing.
 
+	* fixinc/inclhack.def (sys/utsname.h): Provide forward declaration of
+	struct utsname on Ultrix V4.[35].
+
+	* fixinc/{fixincl.x|fixincl.sh|inclhack.sh} : regenerated
+
 Sun Jan 3 23:32:18 PST 1999 Jeff Law  (law@cygnus.com)
 
 	* version.c: Bump for snapshot.

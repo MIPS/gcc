@@ -2007,6 +2007,19 @@ fix = {
 
 
 /*
+ * Ultrix V4.[35] puts the declaration of uname before the definition
+ * of struct utsname, so the prototype (added by fixproto) causes havoc.
+ */
+fix = {
+    hackname = ultrix_fix_fixproto;
+    files    = sys/utsname.h;
+    select   = ULTRIX;
+    sed      = "/^[ \t]*extern[ \t]*int[ \t]*uname();$/i\\\n"
+               "struct utsname;\n";
+};
+
+
+/*
  *  parameter to atof not const on DECstation Ultrix V4.0 and NEWS-OS 4.2R.
  *  also get rid of bogus inline definitions in HP-UX 8.0
  */
