@@ -2016,6 +2016,31 @@ operand_equal_p (arg0, arg1, only_const)
 	case RTL_EXPR:
 	  return rtx_equal_p (RTL_EXPR_RTL (arg0), RTL_EXPR_RTL (arg1));
 
+	case CALL_EXPR:
+	  /* If the CALL_EXPRs call different functions, then they
+	     clearly can not be equal.  */
+	  if (! operand_equal_p (TREE_OPERAND (arg0, 0),
+				 TREE_OPERAND (arg1, 0), 0))
+	    return 0;
+
+	  /* Now see if all the arguments are the same.  operand_equal_p
+	     does not handle TREE_LIST, so we walk the operands here
+	     feeding them to operand_equal_p.  */
+	  arg0 = TREE_OPERAND (arg0, 1);
+	  arg1 = TREE_OPERAND (arg1, 1);
+	  while (arg0 && arg1)
+	    {
+	      if (! operand_equal_p (TREE_VALUE (arg0), TREE_VALUE (arg1), 0))
+		return 0;
+
+	      arg0 = TREE_CHAIN (arg0);
+	      arg1 = TREE_CHAIN (arg1);
+	    }
+
+	  /* If we get here and both argument lists are exhausted 
+	     then the CALL_EXPRs are equal.  */
+	  return ! (arg0 || arg1);
+
 	default:
 	  return 0;
 	}

@@ -46,6 +46,8 @@
 	
 2003-06-11  Jeff Law  <law@redhat.com>
 
+	* fold-const.c (operand_equal_p): Handle CALL_EXPRs.
+
 	* tree-cfg.c (first_exec_block): Kill.
 	(make_edges): Use bb_for_stmt rather than first_exec_block.
 	(make_ctrl_stmt_edges, make_exit_edges): Likewise.
