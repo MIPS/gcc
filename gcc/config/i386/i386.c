@@ -132,6 +132,7 @@ const int x86_use_sahf = m_PPRO;
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = 0 /* m_386 | m_PPRO | m_K6 */;
 const int x86_use_fiop = ~m_PPRO;
+const int x86_use_mov0 = m_K6;
 
 #define AT_BP(mode) (gen_rtx_MEM ((mode), frame_pointer_rtx))
 
@@ -1201,6 +1202,20 @@ cmpsi_operand (op, mode)
     return 1;
 
   return 0;
+}
+
+/* Returns 1 if OP is memory operand that can not be represented by the
+   modRM array.  */
+
+int
+long_memory_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (! memory_operand (op, mode))
+    return 0;
+
+  return memory_address_length (op) != 0;
 }
 
 /* Return true if the constant is something that can be loaded with
@@ -5030,6 +5045,7 @@ ix86_attr_length_default (insn)
       break;
 
     case TYPE_ALU1:
+    case TYPE_NEGNOT:
     case TYPE_ALU:
     case TYPE_ICMP:
     case TYPE_IMOVX:
@@ -5191,7 +5207,7 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
 
   /* We describe no anti or output depenancies.  */
   if (REG_NOTE_KIND (link) != 0)
-    return 0;
+    return cost;
 
   /* If we can't recognize the insns, we can't really do anything.  */
   if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
@@ -5237,6 +5253,23 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
 	  && rtx_equal_p (SET_DEST (set), SET_SRC (set2))
 	  && GET_CODE (SET_DEST (set2)) == MEM)
 	cost += 1;
+      break;
+
+    case PROCESSOR_K6:
+      /* The esp dependency is resolved before the instruction is really
+         finished.  */
+      if ((insn_type == TYPE_PUSH || insn_type == TYPE_POP)
+	  && (dep_insn_type == TYPE_PUSH || dep_insn_type == TYPE_POP))
+	return 1;
+
+      /* Since we can't represent delayed latencies of load+operation, 
+	 increase the cost here for non-imov insns.  */
+      if (get_attr_memory (dep_insn) == MEMORY_LOAD)
+	cost += (dep_insn_type != TYPE_IMOV) ? 2 : 1;
+
+      /* INT->FP conversion is expensive.  */
+      if (get_attr_fp_int_src (dep_insn))
+	cost += 5;
       break;
 
     default:

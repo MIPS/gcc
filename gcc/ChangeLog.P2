@@ -1,5 +1,32 @@
 1999-07-19  Richard Henderson  <rth@cygnus.com>
 
+	* i386.h (TARGET_USE_MOV0, x86_use_mov0): Declare.
+	* i386.c (x86_use_mov0): True for K6.
+	* i386.md (mov patterns): Use TARGET_USE_MOV0 instead of !k6
+	for selecting mov $0,reg.
+
+1999-07-19  Jan Hubicka  <hubicka@freesoft.cz>
+
+        * i386.c (long_memory_operand): New predicate.
+        (ix86_attr_default): Handle NEGNOT type.
+        (ix86_adjust_cost): Handle PROCESSOR_K6
+        * i386.h (PREDICATE_CODES): Add long_memory_operand.
+        * i386.md (type attribute): New type NEGNOT.
+        (scheduling definitions): Handle NEGNOT attribute.
+        (K6 scheduling parameters): New.
+        (mov?i patterns): Use mov $0, reg instead of xor reg,reg.
+        (extend?i?i patterns): Do not use vector decoded c?t? instructions
+        for K6.
+        (mulsi3): Fix length_opcode attribute.
+        (xorsi3): Do not use prefixed xorw instruction.
+        (neg and not patterns): Use NEGNOT attribute, do not set pent_pair
+        explicitly.
+        (sh?d patterns): Fix length_opcode attribute.
+        (bsf pattern): Fix length_opcode attribute.
+        (not to xor peep2): Do conversion for K6 as well.
+
+1999-07-19  Richard Henderson  <rth@cygnus.com>
+
 	* i386.c (cmpsi_operand): New predicate.
 	* i386.h (PREDICATE_CODES): Add it.
 	* i386.md (cmpsi): Use it.
