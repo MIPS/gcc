@@ -7921,7 +7921,7 @@ ggc_mark_struct_function (f)
 
   mark_function_status (f);
   mark_eh_status (f->eh);
-  mark_stmt_status (f->stmt);
+  gt_ggc_m_stmt_status (f->stmt);
   gt_ggc_m_expr_status (f->expr);
   gt_ggc_m_emit_status (f->emit);
   gt_ggc_m_varasm_status (f->varasm);

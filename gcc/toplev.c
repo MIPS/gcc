@@ -5034,7 +5034,6 @@ lang_independent_init ()
 		    || warn_notreached);
   init_regs ();
   init_alias_once ();
-  init_stmt ();
   init_loop ();
   init_reload ();
   init_function_once ();

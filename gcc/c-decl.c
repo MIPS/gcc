@@ -164,7 +164,7 @@ static int current_extern_inline;
 /* Note that the information in the `names' component of the global contour
    is duplicated in the IDENTIFIER_GLOBAL_VALUEs of all identifiers.  */
 
-struct binding_level
+struct binding_level GTY(())
   {
     /* A chain of _DECL nodes for all variables, constants, functions,
        and typedef types.  These are in the reverse of the order supplied.
@@ -271,7 +271,8 @@ tree static_ctors, static_dtors;
 /* Forward declarations.  */
 
 static struct binding_level * make_binding_level	PARAMS ((void));
-static void mark_binding_level		PARAMS ((void *));
+static void pop_binding_level		PARAMS ((struct binding_level **));
+static void gt_ggc_mp_binding_level	PARAMS ((void *));
 static void clear_limbo_values		PARAMS ((tree));
 static int duplicate_decls		PARAMS ((tree, tree, int));
 static int redeclaration_error_message	PARAMS ((tree, tree));
@@ -853,13 +854,33 @@ finish_incomplete_decl (decl)
     }
 }
 
-/* Create a new `struct binding_level'.  */
+/* Reuse or create a struct for this binding level.  */
 
 static struct binding_level *
 make_binding_level ()
 {
-  /* NOSTRICT */
-  return (struct binding_level *) xmalloc (sizeof (struct binding_level));
+  if (free_binding_level)
+    {
+      struct binding_level *result = free_binding_level;
+      free_binding_level = result->level_chain;
+      return result;
+    }
+  else
+    return (struct binding_level *) ggc_alloc (sizeof (struct binding_level));
+}
+
+/* Remove a binding level from a list and add it to the level chain.  */
+
+static void
+pop_binding_level (lp)
+     struct binding_level **lp;
+{
+  struct binding_level *l = *lp;
+  *lp = l->level_chain;
+  
+  memset (l, 0, sizeof (struct binding_level));
+  l->level_chain = free_binding_level;
+  free_binding_level = l;
 }
 
 /* Nonzero if we are currently in the global binding level.  */
@@ -927,17 +948,7 @@ pushlevel (tag_transparent)
       named_labels = 0;
     }
 
-  /* Reuse or create a struct for this binding level.  */
-
-  if (free_binding_level)
-    {
-      newlevel = free_binding_level;
-      free_binding_level = free_binding_level->level_chain;
-    }
-  else
-    {
-      newlevel = make_binding_level ();
-    }
+  newlevel = make_binding_level ();
 
   /* Add this level to the front of the chain (stack) of levels that
      are active.  */
@@ -1158,13 +1169,7 @@ poplevel (keep, reverse, functionbody)
 
   /* Pop the current level, and free the structure for reuse.  */
 
-  {
-    struct binding_level *level = current_binding_level;
-    current_binding_level = current_binding_level->level_chain;
-
-    level->level_chain = free_binding_level;
-    free_binding_level = level;
-  }
+  pop_binding_level (&current_binding_level);
 
   /* Dispose of the block that we just made inside some higher level.  */
   if (functionbody)
@@ -1243,17 +1248,7 @@ push_label_level ()
 {
   struct binding_level *newlevel;
 
-  /* Reuse or create a struct for this binding level.  */
-
-  if (free_binding_level)
-    {
-      newlevel = free_binding_level;
-      free_binding_level = free_binding_level->level_chain;
-    }
-  else
-    {
-      newlevel = make_binding_level ();
-    }
+  newlevel = make_binding_level ();
 
   /* Add this level to the front of the chain (stack) of label levels.  */
 
@@ -1315,9 +1310,7 @@ pop_label_level ()
   shadowed_labels = level->shadowed;
 
   /* Pop the current level, and free the structure for reuse.  */
-  label_level_chain = label_level_chain->level_chain;
-  level->level_chain = free_binding_level;
-  free_binding_level = level;
+  pop_binding_level (&label_level_chain);
 }
 
 /* Push a definition or a declaration of struct, union or enum tag "name".
@@ -3011,20 +3004,10 @@ lookup_name_current_level (name)
 /* Mark ARG for GC.  */
 
 static void
-mark_binding_level (arg)
+gt_ggc_mp_binding_level (arg)
      void *arg;
 {
-  struct binding_level *level = *(struct binding_level **) arg;
-
-  for (; level != 0; level = level->level_chain)
-    {
-      ggc_mark_tree (level->names);
-      ggc_mark_tree (level->tags);
-      ggc_mark_tree (level->shadowed);
-      ggc_mark_tree (level->blocks);
-      ggc_mark_tree (level->this_block);
-      ggc_mark_tree (level->parm_order);
-    }
+  gt_ggc_m_binding_level (*(struct binding_level **) arg);
 }
 
 /* Create the predefined scalar types of C,
@@ -3141,9 +3124,10 @@ c_init_decl_processing ()
   ggc_add_tree_root (&named_labels, 1);
   ggc_add_tree_root (&shadowed_labels, 1);
   ggc_add_root (&current_binding_level, 1, sizeof current_binding_level,
-		mark_binding_level);
+		gt_ggc_mp_binding_level);
   ggc_add_root (&label_level_chain, 1, sizeof label_level_chain,
-		mark_binding_level);
+		gt_ggc_mp_binding_level);
+  ggc_add_deletable_root (&free_binding_level, sizeof (free_binding_level));
   ggc_add_tree_root (&static_ctors, 1);
   ggc_add_tree_root (&static_dtors, 1);
 }
@@ -7306,7 +7290,7 @@ mark_c_function_context (f)
   mark_c_language_function (&p->base);
   ggc_mark_tree (p->shadowed_labels);
   ggc_mark_tree (p->named_labels);
-  mark_binding_level (&p->binding_level);
+  gt_ggc_m_binding_level (p->binding_level);
 }
 
 /* Copy the DECL_LANG_SPECIFIC data associated with NODE.  */
@@ -7466,3 +7450,5 @@ build_void_list_node ()
   tree t = build_tree_list (NULL_TREE, void_type_node);
   return t;
 }
+
+#include "gt-c-decl.h"

@@ -3066,7 +3066,6 @@ extern bool parse_output_constraint     PARAMS ((const char **,
 extern void expand_asm_operands		PARAMS ((tree, tree, tree, tree, int,
 						 const char *, int));
 extern int any_pending_cleanups		PARAMS ((int));
-extern void init_stmt			PARAMS ((void));
 extern void init_stmt_for_function	PARAMS ((void));
 extern int drop_through_at_end_p	PARAMS ((void));
 extern void expand_start_target_temps	PARAMS ((void));

@@ -72,6 +72,10 @@ typedef void (*ggc_htab_mark) PARAMS ((const void *));
 extern void ggc_add_deletable_htab	PARAMS ((PTR, ggc_htab_marked_p,
 						 ggc_htab_mark));
 
+/* Add a variable to be cleared when collection starts.  The variable
+   would usually be a pointer to a `free list' of reusable objects.  */
+extern void ggc_add_deletable_root	PARAMS ((PTR, size_t));
+
 /* Mark nodes from the gc_add_root callback.  These functions follow
    pointers to mark other objects too.  */
 extern void ggc_mark_rtx_varray		PARAMS ((struct varray_head_tag *));
@@ -201,7 +205,6 @@ extern void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 /* Mark functions for various structs scattered about.  */
 
 void mark_eh_status			PARAMS ((struct eh_status *));
-void mark_stmt_status			PARAMS ((struct stmt_status *));
 
 /* Statistics.  */
 

@@ -4244,6 +4244,9 @@ emit (x)
     abort ();
 }
 
+/* Space for free sequence stack entries.  */
+struct sequence_stack *free_sequence_stack;
+
 /* Begin emitting insns to a sequence which can be packaged in an
    RTL_EXPR.  If this sequence will contain something that might cause
    the compiler to pop arguments to function calls (because those
@@ -4257,7 +4260,13 @@ start_sequence ()
 {
   struct sequence_stack *tem;
 
-  tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
+  if (free_sequence_stack != NULL)
+    {
+      tem = free_sequence_stack;
+      free_sequence_stack = tem->next;
+    }
+  else
+    tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4373,6 +4382,10 @@ end_sequence ()
   last_insn = tem->last;
   seq_rtl_expr = tem->sequence_rtl_expr;
   seq_stack = tem->next;
+
+  memset (tem, 0, sizeof (*tem));
+  tem->next = free_sequence_stack;
+  free_sequence_stack = tem;
 }
 
 /* This works like end_sequence, but records the old sequence in FIRST
@@ -4911,6 +4924,8 @@ init_emit_once (line_numbers)
   ggc_add_rtx_root (&static_chain_rtx, 1);
   ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
   ggc_add_rtx_root (&return_address_pointer_rtx, 1);
+
+  ggc_add_deletable_root (&free_sequence_stack, sizeof (free_sequence_stack));
 }
 
 /* Query and clear/ restore no_line_numbers.  This is used by the

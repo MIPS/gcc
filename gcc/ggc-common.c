@@ -234,15 +234,40 @@ ggc_htab_delete (slot, info)
   return 1;
 }
 
+struct ggc_deletable_root {
+  struct ggc_deletable_root *next;
+  void *base;
+  size_t size;
+};
+
+static struct ggc_deletable_root *deletables;
+
+void 
+ggc_add_deletable_root (x, size)
+     PTR x;
+     size_t size;
+{
+  struct ggc_deletable_root *d = xmalloc (sizeof (d));
+  d->base = x;
+  d->size = size;
+  d->next = deletables;
+  deletables = d;
+}
+  
+
 /* Iterate through all registered roots and mark each element.  */
 
 void
 ggc_mark_roots ()
 {
+  struct ggc_deletable_root *d;
   struct ggc_root *x;
   struct d_htab_root *y;
   
   VARRAY_TREE_INIT (ggc_pending_trees, 4096, "ggc_pending_trees");
+
+  for (d = deletables; d != NULL; d = d->next)
+    memset (d->base, 0, d->size);
 
   for (x = roots; x != NULL; x = x->next)
     {

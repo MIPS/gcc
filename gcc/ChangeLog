@@ -1,3 +1,54 @@
+2002-03-11  Geoffrey Keating  <geoffk@redhat.com>
+
+	* tree.h (init_stmt): Delete prototype.
+	* toplev.c (lang_independent_init): Don't call init_stmt.
+	* stmt.c (ALLOC_NESTING): Use GGC for 'struct nesting'.
+	(stmt_obstack): Delete.
+	(POPSTACK): No need to free 'struct nesting'.
+	(gt_ggc_mr_nesting_cond): Use canonical names.
+	(gt_ggc_mr_nesting_loop): Use canonical names.
+	(gt_ggc_mr_nesting_block): Use canonical names.
+	(gt_ggc_mr_nesting_case_stmt): Use canonical names.
+	(mark_stmt_status): Delete.
+	(init_stmt): Delete.
+	(clear_last_expr): Clear both last_expr_type and last_expr_value.
+	Use it everywhere that last_expr_type was cleared.
+	* lists.c (init_EXPR_INSN_LIST_cache): Use ggc_add_deletable_root.
+	(zap_lists): Delete.
+	* ggc.h (ggc_add_deletable_root): Prototype.
+	(mark_stmt_status): Remove prototype.
+	* ggc-common.c (ggc_add_deletable_root): New.
+	(ggc_mark_roots): Handle deletable roots.
+	* function.c (ggc_mark_struct_function): Use canonical name
+	for mark_stmt_status.
+	* emit-rtl.c (free_sequence_stack): New.
+	(start_sequence): Use a freelist for sequences.
+	(end_sequence): Likewise.
+	(init_emit_once): Add free_sequence_stack as a deleteable root.
+	* c-pragma.c Include gt-c-pragma.h.
+	(struct align_stack): Use gengtype.
+	(push_alignment): Use GGC for struct align_stack.
+	(mark_align_stack): Delete.
+	(gt_ggc_mp_align_stack): New.
+	(init_pragma): Use canonical name for mark_align_stack.
+	* c-decl.c: Include gt-c-decl.h.
+	(struct binding_level): Use gengtype.
+	(make_binding_level): Use GGC; handle the freelist here.
+	(pop_binding_level): New.
+	(pushlevel): Move code into make_binding_level.
+	(push_label_level): Likewise.
+	(poplevel): Move code into pop_binding_level.
+	(pop_label_level): Likewise.
+	(mark_binding_level): Delete.
+	(gt_ggc_mp_binding_level): New.
+	(c_init_decl_processing): Use canonical name for mark_binding_level.
+	Add free_binding_level as deletable root.
+	(mark_c_function_context): Use canonical name for mark_binding_level.
+	* Makefile.in (c-decl.o): Add gt-c-decl.h.
+	(c-pragma.o): Add gt-c-pragma.h.
+	(GTFILES): Add c-decl.c and c-pragma.c.
+	(gt-c-decl.h, gt-c-pragma.h): Create using gengtype.
+
 2002-03-09  Geoffrey Keating  <geoffk@redhat.com>
 
 	* tree.c (struct type_hash): Use gengtype.

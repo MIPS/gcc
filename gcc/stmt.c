@@ -54,10 +54,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "ggc.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-struct obstack stmt_obstack;
-
 /* Assume that case vectors are not pc-relative.  */
 #ifndef CASE_VECTOR_PC_RELATIVE
 #define CASE_VECTOR_PC_RELATIVE 0
@@ -256,7 +252,7 @@ struct nesting
 /* Allocate and return a new `struct nesting'.  */
 
 #define ALLOC_NESTING() \
- (struct nesting *) obstack_alloc (&stmt_obstack, sizeof (struct nesting))
+ (struct nesting *) ggc_alloc (sizeof (struct nesting))
 
 /* Pop the nesting stack element by element until we pop off
    the element which is at the top of STACK.
@@ -278,8 +274,7 @@ do { struct nesting *target = STACK;			\
 	  if (case_stack == this)			\
 	    case_stack = case_stack->next;		\
 	  nesting_depth = nesting_stack->depth - 1;	\
-	  nesting_stack = this->all;			\
-	  obstack_free (&stmt_obstack, this); }		\
+	  nesting_stack = this->all; }			\
      while (this != target); } while (0)
 
 /* In some cases it is impossible to generate code for a forward goto
@@ -448,9 +443,10 @@ gt_ggc_mr_nesting_cond (n)
 {
   while (n)
     {
-      ggc_mark_rtx (n->exit_label);
-      ggc_mark_rtx (n->data.cond.endif_label);
-      ggc_mark_rtx (n->data.cond.next_label);
+      ggc_set_mark (n);
+      gt_ggc_m_rtx_def (n->exit_label);
+      gt_ggc_m_rtx_def (n->data.cond.endif_label);
+      gt_ggc_m_rtx_def (n->data.cond.next_label);
 
       n = n->next;
     }
@@ -465,11 +461,12 @@ gt_ggc_mr_nesting_loop (n)
 
   while (n)
     {
-      ggc_mark_rtx (n->exit_label);
-      ggc_mark_rtx (n->data.loop.start_label);
-      ggc_mark_rtx (n->data.loop.end_label);
-      ggc_mark_rtx (n->data.loop.alt_end_label);
-      ggc_mark_rtx (n->data.loop.continue_label);
+      ggc_set_mark (n);
+      gt_ggc_m_rtx_def (n->exit_label);
+      gt_ggc_m_rtx_def (n->data.loop.start_label);
+      gt_ggc_m_rtx_def (n->data.loop.end_label);
+      gt_ggc_m_rtx_def (n->data.loop.alt_end_label);
+      gt_ggc_m_rtx_def (n->data.loop.continue_label);
 
       n = n->next;
     }
@@ -483,17 +480,16 @@ gt_ggc_mr_nesting_block (n)
 {
   while (n)
     {
-      struct label_chain *l;
-
-      ggc_mark_rtx (n->exit_label);
-      ggc_mark_rtx (n->data.block.stack_level);
-      ggc_mark_rtx (n->data.block.first_insn);
-      ggc_mark_tree (n->data.block.cleanups);
-      ggc_mark_tree (n->data.block.outer_cleanups);
+      ggc_set_mark (n);
+      gt_ggc_m_rtx_def (n->exit_label);
+      gt_ggc_m_rtx_def (n->data.block.stack_level);
+      gt_ggc_m_rtx_def (n->data.block.first_insn);
+      gt_ggc_m_tree_node (n->data.block.cleanups);
+      gt_ggc_m_tree_node (n->data.block.outer_cleanups);
 
       gt_ggc_m_label_chain (n->data.block.label_chain);
 
-      ggc_mark_rtx (n->data.block.last_unconditional_cleanup);
+      gt_ggc_m_rtx_def (n->data.block.last_unconditional_cleanup);
 
       /* ??? cleanup_ptr never points outside the stack, does it?  */
 
@@ -509,45 +505,17 @@ gt_ggc_mr_nesting_case_stmt (n)
 {
   while (n)
     {
-      ggc_mark_rtx (n->exit_label);
-      ggc_mark_rtx (n->data.case_stmt.start);
+      ggc_set_mark (n);
+      gt_ggc_m_rtx_def (n->exit_label);
+      gt_ggc_m_rtx_def (n->data.case_stmt.start);
 
-      ggc_mark_tree (n->data.case_stmt.default_label);
-      ggc_mark_tree (n->data.case_stmt.index_expr);
-      ggc_mark_tree (n->data.case_stmt.nominal_type);
+      gt_ggc_m_tree_node (n->data.case_stmt.default_label);
+      gt_ggc_m_tree_node (n->data.case_stmt.index_expr);
+      gt_ggc_m_tree_node (n->data.case_stmt.nominal_type);
 
       gt_ggc_m_case_node (n->data.case_stmt.case_list);
       n = n->next;
     }
-}
-
-/* Mark P for GC.  */
-
-void
-mark_stmt_status (p)
-     struct stmt_status *p;
-{
-  if (p == 0)
-    return;
-
-  ggc_mark (p);
-  gt_ggc_mr_nesting_block (p->x_block_stack);
-  gt_ggc_mr_nesting_cond (p->x_cond_stack);
-  gt_ggc_mr_nesting_loop (p->x_loop_stack);
-  gt_ggc_mr_nesting_case_stmt (p->x_case_stack);
-
-  ggc_mark_tree (p->x_last_expr_type);
-  /* last_epxr_value is only valid if last_expr_type is nonzero.  */
-  if (p->x_last_expr_type)
-    ggc_mark_rtx (p->x_last_expr_value);
-
-  gt_ggc_m_goto_fixup (p->x_goto_fixup_chain);
-}
-
-void
-init_stmt ()
-{
-  gcc_obstack_init (&stmt_obstack);
 }
 
 void
@@ -571,8 +539,7 @@ init_stmt_for_function ()
 
   /* We are not processing a ({...}) grouping.  */
   expr_stmts_for_value = 0;
-  last_expr_type = 0;
-  last_expr_value = NULL_RTX;
+  clear_last_expr ();
 }
 
 /* Return nonzero if anything is pushed on the loop, condition, or case
@@ -1235,7 +1202,7 @@ expand_asm (body)
 
   emit_insn (gen_rtx_ASM_INPUT (VOIDmode,
 				TREE_STRING_POINTER (body)));
-  last_expr_type = 0;
+  clear_last_expr ();
 }
 
 /* Parse the output constraint pointed to by *CONSTRAINT_P.  It is the
@@ -1587,7 +1554,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	error ("unknown register name `%s' in `asm'", regname);
     }
 
-  last_expr_type = 0;
+  clear_last_expr ();
 
   /* First pass over inputs and outputs checks validity and sets
      mark_addressable if needed.  */
@@ -2343,7 +2310,8 @@ warn_if_unused_value (exp)
 void
 clear_last_expr ()
 {
-  last_expr_type = 0;
+  last_expr_type = NULL_TREE;
+  last_expr_value = NULL_RTX;
 }
 
 /* Begin a statement which will return a value.
@@ -2362,7 +2330,6 @@ expand_start_stmt_expr ()
   start_sequence_for_rtl_expr (t);
   NO_DEFER_POP;
   expr_stmts_for_value++;
-  last_expr_value = NULL_RTX;
   return t;
 }
 
@@ -2408,7 +2375,7 @@ expand_end_stmt_expr (t)
   /* Propagate volatility of the actual RTL expr.  */
   TREE_THIS_VOLATILE (t) = volatile_refs_p (last_expr_value);
 
-  last_expr_type = 0;
+  clear_last_expr ();
   expr_stmts_for_value--;
 
   return t;
@@ -2499,7 +2466,7 @@ expand_end_cond ()
     emit_label (thiscond->data.cond.endif_label);
 
   POPSTACK (cond_stack);
-  last_expr_type = 0;
+  clear_last_expr ();
 }
 
 /* Generate RTL for the start of a loop.  EXIT_FLAG is nonzero if this
@@ -2733,7 +2700,7 @@ expand_end_loop ()
 
   POPSTACK (loop_stack);
 
-  last_expr_type = 0;
+  clear_last_expr ();
 }
 
 /* Finish a null loop, aka do { } while (0).  */
@@ -2746,7 +2713,7 @@ expand_end_null_loop ()
 
   POPSTACK (loop_stack);
 
-  last_expr_type = 0;
+  clear_last_expr ();
 }
 
 /* Generate a jump to the current loop's continue-point.
@@ -2758,7 +2725,7 @@ int
 expand_continue_loop (whichloop)
      struct nesting *whichloop;
 {
-  last_expr_type = 0;
+  clear_last_expr ();
   if (whichloop == 0)
     whichloop = loop_stack;
   if (whichloop == 0)
@@ -2775,7 +2742,7 @@ int
 expand_exit_loop (whichloop)
      struct nesting *whichloop;
 {
-  last_expr_type = 0;
+  clear_last_expr ();
   if (whichloop == 0)
     whichloop = loop_stack;
   if (whichloop == 0)
@@ -2795,7 +2762,7 @@ expand_exit_loop_if_false (whichloop, cond)
 {
   rtx label = gen_label_rtx ();
   rtx last_insn;
-  last_expr_type = 0;
+  clear_last_expr ();
 
   if (whichloop == 0)
     whichloop = loop_stack;
@@ -2882,7 +2849,7 @@ int
 expand_exit_something ()
 {
   struct nesting *n;
-  last_expr_type = 0;
+  clear_last_expr ();
   for (n = nesting_stack; n; n = n->all)
     if (n->exit_label != 0)
       {
@@ -2954,7 +2921,7 @@ expand_null_return_1 (last_insn)
 
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
-  last_expr_type = 0;
+  clear_last_expr ();
 
   if (end_label == 0)
      end_label = return_label = gen_label_rtx ();

@@ -39,8 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef HANDLE_PRAGMA_PACK
 static void handle_pragma_pack PARAMS ((cpp_reader *));
 
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-typedef struct align_stack
+typedef struct align_stack GTY(())
 {
   int                  alignment;
   unsigned int         num_pushes;
@@ -48,6 +47,7 @@ typedef struct align_stack
   struct align_stack * prev;
 } align_stack;
 
+#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 static struct align_stack * alignment_stack = NULL;
 
 /* If we have a "global" #pragma pack(<n>) in effect when the first
@@ -61,7 +61,6 @@ static int  default_alignment;
 
 static void push_alignment PARAMS ((int, tree));
 static void pop_alignment  PARAMS ((tree));
-static void mark_align_stack PARAMS ((void *));
 
 /* Push an alignment value onto the stack.  */
 static void
@@ -76,7 +75,7 @@ push_alignment (alignment, id)
     {
       align_stack * entry;
 
-      entry = (align_stack *) xmalloc (sizeof (* entry));
+      entry = (align_stack *) ggc_alloc (sizeof (* entry));
 
       entry->alignment  = alignment;
       entry->num_pushes = 1;
@@ -138,23 +137,15 @@ pop_alignment (id)
       else
 	maximum_field_alignment = entry->alignment;
 
-      free (alignment_stack);
-
       alignment_stack = entry;
     }
 }
 
 static void
-mark_align_stack (p)
+gt_ggc_mp_align_stack (p)
     void *p;
 {
-  align_stack *a = *(align_stack **) p;
-
-  while (a)
-    {
-      ggc_mark_tree (a->id);
-      a = a->prev;
-    }
+  gt_ggc_m_align_stack (*(align_stack **) p);
 }
 #else  /* not HANDLE_PRAGMA_PACK_PUSH_POP */
 #define SET_GLOBAL_ALIGNMENT(ALIGN) (maximum_field_alignment = (ALIGN))
@@ -317,6 +308,8 @@ init_pragma ()
 
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
   ggc_add_root (&alignment_stack, 1, sizeof(alignment_stack),
-		mark_align_stack);
+		gt_ggc_mp_align_stack);
 #endif
 }
+
+#include "gt-c-pragma.h"
