@@ -1,3 +1,7 @@
+2003-10-12  XiaoQiang Zhang  <zhangapache@yahoo.com>
+
+	* io/list_read.c (read_character): Remove unwanted call to free_saved.
+
 2003-10-11  Huang Chun  <jiwang@mail.edu.cn>
 
 	* intrinsics/string_intrinsics.c (string_trim): New function.

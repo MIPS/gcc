@@ -782,7 +782,6 @@ done:
     {
       unget_char (c);
       eat_separator ();
-      free_saved ();
       saved_type = BT_CHARACTER;
     }
   else
