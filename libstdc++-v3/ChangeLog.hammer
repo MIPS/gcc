@@ -1,3 +1,12 @@
+2004-08-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/17038 (partial)
+	* include/bits/locale_facets.tcc (time_put<>::do_put): Increase
+	__maxlen to 128.
+	* config/locale/generic/time_members.cc (_M_put): Always null
+	terminate __s.
+	* config/locale/gnu/time_members.cc (_M_put): Likewise.
+
 2004-08-22  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (num_put<>::do_put(bool)): Cast
