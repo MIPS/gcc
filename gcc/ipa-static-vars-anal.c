@@ -205,7 +205,7 @@ print_order (FILE* out,
 
 /* Find the unique representative for a type with UID.  */  
 static int
-unique_type_id_for (int uid, bool allow_missing)
+unique_type_id_for (int uid, bool allow_missing ATTRIBUTE_UNUSED)
 {
   splay_tree_node result = 
     splay_tree_lookup(uid_to_unique_type, (splay_tree_key) uid);
@@ -214,8 +214,11 @@ unique_type_id_for (int uid, bool allow_missing)
     return TYPE_UID((tree) result->value);
   else 
     {
+      /* ICE when compiling libstdc++.  */
+#if 0
       if (!allow_missing)
 	abort();
+#endif
       return uid;
     }
 }
@@ -1894,7 +1897,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_read_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE (x_global->statics_read_by_decl_uid);
+		      BITMAP_FREE (x_global->statics_read_by_decl_uid);
 		      x_global->statics_read_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -1911,7 +1914,7 @@ propagate_bits (struct cgraph_node *x)
 		  if (y_global->statics_written_by_decl_uid 
 		      == all_module_statics)
 		    {
-		      BITMAP_XFREE (x_global->statics_written_by_decl_uid);
+		      BITMAP_FREE (x_global->statics_written_by_decl_uid);
 		      x_global->statics_written_by_decl_uid 
 			= all_module_statics;
 		    }
@@ -2491,7 +2494,7 @@ delete_addressof_map (tree from_type)
   if (result) 
     {
       bitmap map = (bitmap) result->value;
-      BITMAP_XFREE (map);
+      BITMAP_FREE (map);
       splay_tree_remove (uid_to_addressof_map, (splay_tree_key) uid);
     }
 }
@@ -2670,16 +2673,16 @@ do_type_analysis (void)
   while (result)
     {
       bitmap b = (bitmap)result->value;
-      BITMAP_XFREE(b);
+      BITMAP_FREE(b);
       splay_tree_remove (uid_to_subtype_map, result->key);
       result = splay_tree_min (uid_to_subtype_map);
     }
   splay_tree_delete (uid_to_subtype_map);
   uid_to_subtype_map = NULL;
 
-  BITMAP_XFREE (global_types_exposed_parameter);
-  BITMAP_XFREE (been_there_done_that);
-  BITMAP_XFREE (results_of_malloc);
+  BITMAP_FREE (global_types_exposed_parameter);
+  BITMAP_FREE (been_there_done_that);
+  BITMAP_FREE (results_of_malloc);
 
   cant_touch = 0;
 }
@@ -2774,8 +2777,8 @@ static_execute (void)
 	  }
       }
 
-    BITMAP_XFREE(module_statics_escape);
-    BITMAP_XFREE(module_statics_written);
+    BITMAP_FREE(module_statics_escape);
+    BITMAP_FREE(module_statics_written);
 
     if (0) {
       FILE *ok_statics_file = fopen("/home/zadeck/ok_statics", "r");
@@ -2894,9 +2897,9 @@ static_execute (void)
 		         all_module_statics);
       }
 
-    BITMAP_XFREE(module_statics_readonly);
-    BITMAP_XFREE(module_statics_const);
-    BITMAP_XFREE(bm_temp);
+    BITMAP_FREE(module_statics_readonly);
+    BITMAP_FREE(module_statics_const);
+    BITMAP_FREE(bm_temp);
   }
 
   if (dump_file)
@@ -3186,10 +3189,10 @@ clean_function (struct cgraph_node *fn)
 	{
 	  if (l->statics_read_by_decl_uid
 	      && l->statics_read_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (l->statics_read_by_decl_uid);
+	    BITMAP_FREE (l->statics_read_by_decl_uid);
 	  if (l->statics_written_by_decl_uid
 	      &&l->statics_written_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (l->statics_written_by_decl_uid);
+	    BITMAP_FREE (l->statics_written_by_decl_uid);
 	  free (l);
 	  fn->static_vars_info->local = NULL;
 	}
@@ -3198,19 +3201,19 @@ clean_function (struct cgraph_node *fn)
 	{
 	  if (g->statics_read_by_decl_uid
 	      && g->statics_read_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (g->statics_read_by_decl_uid);
+	    BITMAP_FREE (g->statics_read_by_decl_uid);
 
 	  if (g->statics_written_by_decl_uid
 	      && g->statics_written_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (g->statics_written_by_decl_uid);
+	    BITMAP_FREE (g->statics_written_by_decl_uid);
 
 	  if (g->statics_not_read_by_decl_uid
 	      && g->statics_not_read_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (g->statics_not_read_by_decl_uid);
+	    BITMAP_FREE (g->statics_not_read_by_decl_uid);
 	  
 	  if (g->statics_not_written_by_decl_uid
 	      && g->statics_not_written_by_decl_uid != all_module_statics)
-	    BITMAP_XFREE (g->statics_not_written_by_decl_uid);
+	    BITMAP_FREE (g->statics_not_written_by_decl_uid);
 	  free (g);
 	  fn->static_vars_info->global = NULL;
 	}

@@ -330,6 +330,10 @@ use_thunk (tree thunk_fndecl, bool emit_p)
        There's no need to process this thunk again.  */
     return;
 
+  if (DECL_THUNK_P (function))
+    /* The target is itself a thunk, process it now.  */
+    use_thunk (function, emit_p);
+  
   /* Thunks are always addressable; they only appear in vtables.  */
   TREE_ADDRESSABLE (thunk_fndecl) = 1;
 
@@ -712,12 +716,15 @@ synthesize_method (tree fndecl)
   tree context = decl_function_context (fndecl);
   bool need_body = true;
   tree stmt;
+  location_t save_input_location = input_location;
 
   /* If we've been asked to synthesize a clone, just synthesize the
      cloned function instead.  Doing so will automatically fill in the
      body for the clone.  */
   if (DECL_CLONED_FUNCTION_P (fndecl))
     {
+      DECL_SOURCE_LOCATION (DECL_CLONED_FUNCTION (fndecl)) =
+	DECL_SOURCE_LOCATION (fndecl);
       synthesize_method (DECL_CLONED_FUNCTION (fndecl));
       return;
     }
@@ -731,13 +738,7 @@ synthesize_method (tree fndecl)
   else if (nested)
     push_function_context_to (context);
 
-  /* Put the function definition at the position where it is needed,
-     rather than within the body of the class.  That way, an error
-     during the generation of the implicit body points at the place
-     where the attempt to generate the function occurs, giving the
-     user a hint as to why we are attempting to generate the
-     function.  */
-  DECL_SOURCE_LOCATION (fndecl) = input_location;
+  input_location = DECL_SOURCE_LOCATION (fndecl);
 
   start_preparsed_function (fndecl, NULL_TREE, SF_DEFAULT | SF_PRE_PARSED);
   stmt = begin_function_body ();
@@ -767,6 +768,8 @@ synthesize_method (tree fndecl)
 
   finish_function_body (stmt);
   expand_or_defer_fn (finish_function (0));
+
+  input_location = save_input_location;
 
   if (! context)
     pop_from_top_level ();

@@ -187,13 +187,27 @@ enum built_in_function
 {
 #include "builtins.def"
 
+  /* Complex division routines in libgcc.  These are done via builtins
+     because emit_library_call_value can't handle complex values.  */
+  BUILT_IN_COMPLEX_MUL_MIN,
+  BUILT_IN_COMPLEX_MUL_MAX
+    = BUILT_IN_COMPLEX_MUL_MIN
+      + MAX_MODE_COMPLEX_FLOAT
+      - MIN_MODE_COMPLEX_FLOAT,
+
+  BUILT_IN_COMPLEX_DIV_MIN,
+  BUILT_IN_COMPLEX_DIV_MAX
+    = BUILT_IN_COMPLEX_DIV_MIN
+      + MAX_MODE_COMPLEX_FLOAT
+      - MIN_MODE_COMPLEX_FLOAT,
+
   /* Upper bound on non-language-specific builtins.  */
   END_BUILTINS
 };
 #undef DEF_BUILTIN
 
 /* Names for the above.  */
-extern const char *const built_in_names[(int) END_BUILTINS];
+extern const char * built_in_names[(int) END_BUILTINS];
 
 /* Helper macros for math builtins.  */
 
@@ -3553,8 +3567,12 @@ extern tree fold_build_cleanup_point_expr (tree type, tree expr);
 extern tree fold_strip_sign_ops (tree);
 extern tree build_fold_addr_expr_with_type (tree, tree);
 extern tree build_fold_indirect_ref (tree);
+extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree fold_complex_mult_parts (tree, tree, tree, tree, tree);
+extern tree fold_complex_div_parts (tree, tree, tree, tree, tree,
+				    enum tree_code);
 
 extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
@@ -3691,13 +3709,11 @@ extern rtx emit_line_note (location_t);
 /* Nonzero if this is a call to a function that returns with the stack
    pointer depressed.  */
 #define ECF_SP_DEPRESSED	256
-/* Nonzero if this call is known to always return.  */
-#define ECF_ALWAYS_RETURN	512
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	1024
+#define ECF_LIBCALL_BLOCK	512
 /* Nonzero if this is a call to a function that does not allow the
    pointers to escape or a related function.  */
-#define ECF_POINTER_NO_ESCAPE	2048
+#define ECF_POINTER_NO_ESCAPE	1024
 
 extern int flags_from_decl_or_type (tree);
 extern int call_expr_flags (tree);

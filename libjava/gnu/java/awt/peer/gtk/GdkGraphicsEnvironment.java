@@ -1,5 +1,5 @@
 /* GdkGraphicsEnvironment.java -- information about the graphics environment
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,34 +42,46 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.Rectangle;
-import java.awt.Shape;
+import java.awt.HeadlessException;
 import java.awt.image.BufferedImage;
 import java.util.Locale;
 
 public class GdkGraphicsEnvironment extends GraphicsEnvironment
 {
-  public GdkGraphicsEnvironment ()
+  GtkToolkit gtkToolkit;
+
+  public GtkToolkit getToolkit()
+  {
+    return gtkToolkit;
+  }
+
+  public GdkGraphicsEnvironment (GtkToolkit tk)
   {
     super();
+    gtkToolkit = tk;
   }
 
   public GraphicsDevice[] getScreenDevices ()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    // FIXME: Support multiple screens, since GDK can.
+    return new GraphicsDevice[] { new GdkScreenGraphicsDevice (this) };
   }
 
   public GraphicsDevice getDefaultScreenDevice ()
   {
-    throw new java.lang.UnsupportedOperationException ();
+    if (GraphicsEnvironment.isHeadless ())
+      throw new HeadlessException ();
+
+    return new GdkScreenGraphicsDevice (this);
   }
 
   public Graphics2D createGraphics (BufferedImage image)
   {
     return new GdkGraphics2D (image);
   }
-    native private int nativeGetNumFontFamilies ();
-    native private void nativeGetFontFamilies (String[] family_names);
+  
+  private native int nativeGetNumFontFamilies();
+  private native void nativeGetFontFamilies(String[] family_names);
 
   public Font[] getAllFonts ()
   {

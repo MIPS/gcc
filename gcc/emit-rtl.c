@@ -1534,7 +1534,12 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       if (base && DECL_P (base)
 	  && TREE_READONLY (base)
 	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
-	MEM_READONLY_P (ref) = 1;
+	{
+	  tree base_type = TREE_TYPE (base);
+	  gcc_assert (!(base_type && TYPE_NEEDS_CONSTRUCTING (base_type))
+		      || DECL_ARTIFICIAL (base));
+	  MEM_READONLY_P (ref) = 1;
+	}
 
       if (TREE_THIS_VOLATILE (t))
 	MEM_VOLATILE_P (ref) = 1;
@@ -3202,7 +3207,6 @@ try_split (rtx pat, rtx trial, int last)
 
 	case REG_NORETURN:
 	case REG_SETJMP:
-	case REG_ALWAYS_RETURN:
 	  insn = insn_last;
 	  while (insn != NULL_RTX)
 	    {

@@ -1,5 +1,5 @@
-/* Compilation driver using callgraph datastructure
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+/* Callgraph based intraprocedural optimizations.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -316,6 +316,15 @@ cgraph_reset_node (struct cgraph_node *node)
   memset (&node->local, 0, sizeof (node->local));
   memset (&node->global, 0, sizeof (node->global));
   memset (&node->rtl, 0, sizeof (node->rtl));
+
+  if (!flag_unit_at_a_time)
+    {
+      struct cgraph_node *n;
+
+      for (n = cgraph_nodes; n; n = n->next)
+	if (n->global.inlined_to == node)
+	  cgraph_remove_node (n);
+    }
   /* Requeue the node to be re-analyzed if it has been seen in the other unit
      already.
      FIXME: Currently intermodule optimization never inline extern inline

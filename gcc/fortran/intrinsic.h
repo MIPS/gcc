@@ -1,6 +1,7 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -31,6 +32,7 @@ try gfc_check_a_xkind (gfc_expr *, gfc_expr *);
 try gfc_check_a_p (gfc_expr *, gfc_expr *);
 
 try gfc_check_abs (gfc_expr *);
+try gfc_check_achar (gfc_expr *);
 try gfc_check_all_any (gfc_expr *, gfc_expr *);
 try gfc_check_allocated (gfc_expr *);
 try gfc_check_associated (gfc_expr *, gfc_expr *);
@@ -93,6 +95,7 @@ try gfc_check_reshape (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_scale (gfc_expr *, gfc_expr *);
 try gfc_check_scan (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_second_sub (gfc_expr *);
+try gfc_check_selected_int_kind (gfc_expr *);
 try gfc_check_selected_real_kind (gfc_expr *, gfc_expr *);
 try gfc_check_set_exponent (gfc_expr *, gfc_expr *);
 try gfc_check_shape (gfc_expr *);
@@ -365,6 +368,6 @@ void gfc_resolve_unlink_sub (gfc_code *);
 
 #define MAX_INTRINSIC_ARGS 5
 
-extern char *gfc_current_intrinsic,
-  *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
+extern const char *gfc_current_intrinsic;
+extern const char *gfc_current_intrinsic_arg[MAX_INTRINSIC_ARGS];
 extern locus *gfc_current_intrinsic_where;

@@ -1,3 +1,216 @@
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* class.c (update_vtable_entry_for_fn): Don't crash on invalid
+	covariancy. 
+
+	* cp-tree.g (THUNK_TARGET): Expand comment.
+	* method.c (use_thunk): Make sure we also use the target, if that
+	is a thunk.
+
+2005-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20206
+	* decl.c (cxx_comdat_group): Put thunks for
+	TARGET_USE_LOCAL_THUNK_ALIAS_P (function) functions into the same
+	comdat group as the thunk target.
+
+2005-02-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* call.c, class.c, cp-tree.h, decl2.c, error.c, init.c, mangle.c,
+	parser.c: Fix comment typo(s).
+
+2005-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20175
+	* decl.c (reshape_init): Don't warn about missing braces if STRING_CST
+	initializes a char/wchar_t array.
+
+2005-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19878
+	* decl.c (grokvardecl): Set DECL_INTERFACE_KNOWN for declarations
+	with internal linkage.
+
+2005-02-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl.c (grokvardecl): Don't exempt anonymous types from having
+	linkage for variables that have linkage other than "C".
+
+2005-02-23  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-objcp-common.h, error.c: Update copyright.
+
+2005-02-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20073
+	* decl.c (start_decl_1): Don't clear TREE_READONLY.
+	(cp_finish_decl): Likewise.
+	(complete_vars): Call cp_apply_type_quals_to_decl.
+	* typeck.c (cp_apply_type_quals): Avoid setting TREE_READONLY in
+	cases where that's not valid.
+
+	PR c++/19991
+	* init.c (integral_constant_value): Iterate if the value of a decl
+	is itself a constant.
+
+	PR c++/20152
+	* parser.c (cp_parser_class_head): Check for redefintions here.
+	* semantics.c (begin_class_definition): Not here.
+	
+	PR c++/20153
+	* decl2.c (build_anon_union_vars): Add type parameter.
+	(finish_anon_union): Pass it.
+
+	PR c++/20148
+	* error.c (dump_expr): Do not print the body of a BIND_EXPR.
+	Handle STATEMENT_LIST.
+
+	PR c++/19883
+	* parser.c (cp_parser_direct_declarator): Always complain about
+	non-constant array bounds when in a function scope.
+	* semantics.c (finish_id_expression): Do not mark dependent names
+	as non-constant. 
+
+2005-02-21  Douglas Gregor  <dgregor@cs.indiana.edu>
+	
+	PR c++/19076
+	PR c++/6628
+	* cp-tree.h (cp_apply_type_quals_to_decl): Declared.
+	* decl.c (grokdeclarator): Pedwarn about qualifying a function
+	type. 
+	Add qualifiers when declaring a typedef of a function type.
+	Member function pointers pick up the qualifiers of the typedef
+	used to declare them.
+        Don't complain about creating cv-qualified function types.
+	Complain about qualified function typedefs that are used to
+	declare non-static member functions or free functions.
+	Use cp_apply_type_quals_to_decl.
+	(start_preparsed_function): Use cp_apply_type_quals_to_decl.
+	(grokclassfn): Use cp_apply_type_quals_to_decl.
+	* error.c (dump_type_suffix): Print qualifiers for function
+	types. 
+	* pt.c (tsubst_decl): Use cp_apply_type_quals_to_decl.
+	(tsubst): When substituting a function type into a member
+	pointer type, pass along the qualifiers.
+	(unify): Unify member pointers to member function pointers.
+	* tree.c (cp_build_qualified_type_real): Function types may be
+	qualified. This includes restrict qualifiers.
+	* typeck.c (cp_apply_type_quals_to_decl): New function to replace
+	use of c_apply_type_quals_to_decl. Drops qualifiers that are being
+	added to function types.
+
+2005-02-20  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 18785
+	* cp-objcp-common.h (LANG_HOOKS_TO_TARGET_CHARSET): Set to
+	c_common_to_target_charset.  Delete bogus comment.
+
+2005-02-18  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/10606
+	* except.c (do_get_exception_ptr): New.
+	(expand_start_catch_block): Use it.
+
+2005-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (start_decl_1): Only check TYPE_NEEDS_CONSTRUCTING
+	if type is not error_mark_node.
+
+2005-01-20  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/19508
+	* decl2.c (grokfield): Do not apply attributes to template parameters
+	as they are ignored by tsubst anyway.
+
+2005-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/19813
+	* decl.c (start_decl_1): Clear TREE_READONLY flag if
+	its type has TYPE_NEEDS_CONSTRUCTING.
+	(complete_vars): Likewise.
+
+2005-02-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/20028
+	* class.c (finish_struct): Initialize TYPE_SIZE_UNIT of a
+	template along with TYPE_SIZE.
+
+	PR c++/20022
+	* semantics.c (perform_deferred_access_checks): Use
+	get_deferred_access_checks to get the top of the stack.
+
+2005-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/17788
+	* class.c (add_implicitly_declared_members, check_field_decl)
+	(check_field_decls, check_bases): Remove arguments, tests and
+	assignments of cant_have_default_ctor-related variables.
+
+2005-02-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl2.c (mark_used): Set the source location of the used decl to
+	the current input location here...
+	* method.c (synthesize_method): ... not here.  Set input_location
+	from the decl instead.
+
+2005-02-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19608
+	* parser.c (cp_parser_late_parsing_for_member): Use
+	current_function_decl as scope to push to and from.
+
+	PR c++/19884
+	* pt.c (check_explicit_specialization): Make sure namespace
+	binding lookup found an overloaded function.
+	(lookup_template_function): Just assert FNS is an overloaded
+	function.
+
+	PR c++/19895
+	* decl.c (grokdeclarator): Check for error mark node in ptrmem
+	construction.
+
+2005-02-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/17816
+	* decl.c (redeclaration_error_message): Report redefinition of
+	pure virtual function.
+
+2005-02-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19891
+	* class.c (build_simple_base_path): Build the component_ref
+	directly.
+	(update_vtable_entry_for_fn): Walk the covariant's binfo chain
+	rather than using lookup_base.
+	* search.c (dfs_walk_once): Add non-recursive assert check.
+	* typeck.c (build_class_member_access_expr): It is possible for
+	the member type to be both const and volatile.
+
+2005-02-12  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14479
+	PR c++/19487
+	* pt.c (maybe_check_template_type): Remove.
+	* cp-tree.h (maybe_check_template_type): Remove prototype.
+	* name-lookup.c (maybe_process_template_type_declaration): Don't
+	use maybe_check_template_type.
+
+2005-02-11  Richard Henderson  <rth@redhat.com>
+
+	PR c++/19632
+	* pt.c (get_mostly_instantiated_function_type): Save and restore
+	flag_access_control instead of push/pop_access_scope.
+
+2005-02-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19755
+	* decl.c (reshape_init): Issue warnings about missing braces.
+
+2005-02-11  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* cp-tree.def, except.c, ptree.c: Update copyright.
+
 2005-02-09  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/19811
@@ -98,13 +311,13 @@
 	* cp-tree.h (builtin_valid_in_constant_expr_p): Declare.
 	* parser.c (cp_parser_postfix_expression): Accept function call in
 	constant expression if builtin_valid_in_constant_expr_p is true
-	for that function. 
+	for that function.
 	* pt.c (value_dependent_expression_p): Handle CALL_EXPRs properly.
 	* semantics.c (finish_id_expression): Accept function call in constant
 	expression if builtin_valid_in_constant_expr_p is true for that
-	function. 
+	function.
 	* tree.c (builtin_valid_in_constant_expr_p): New.
-	
+
 2005-02-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/17413
@@ -137,7 +350,7 @@
 2005-02-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* parser.c (cp_parser_template_id): Revert comment patch too.
-	
+
 	PR c++/18757
 	PR c++/19366
 	PR c++/19499
@@ -221,7 +434,7 @@
 
 	PR c++/19349
 	* name-lookup.c (pushdecl_namespace_level): Avoid accessing free'd
-	memory. 
+	memory.
 
 2005-01-28  Mark Mitchell  <mark@codesourcery.com>
 
@@ -294,7 +507,7 @@
 
 	* typeck.c (comptypes): Handle return code from objc_comptypes
 	correctly.
-	
+
 2005-01-19  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* cp-tree.h, name-lookup.h: Remove unused prototypes.
@@ -457,8 +670,8 @@
 	names.
 	(cp_parser_member_declaration): Adjust call to make_id_declarator.
 	(cp_parser_check_declarator_template_parameters): Do not expect a
-	SCOPE_REF. 
-	
+	SCOPE_REF.
+
 	* decl.c (duplicate_decls): Call ggc_free on declarations we will
 	not be needing any longer.
 
@@ -512,7 +725,7 @@
 	* call.c (build_this): In templates, do not bother with
 	build_unary_op.
 	* typeck.c (unary_complex_lvalue): In a template, always refuse
-	simplifications. 
+	simplifications.
 
 	PR c++/18492
 	* cp-gimplify.c (cp_genericize): Relax assertion.
@@ -522,7 +735,7 @@
 
 	PR c++/18257
 	* rtti.c (emit_support_tinfos): On systems without weak symbols,
-	emit the runtime library type-info objects as non-COMDAT. 
+	emit the runtime library type-info objects as non-COMDAT.
 
 2004-12-21  Mark Mitchell  <mark@codesourcery.com>
 
@@ -565,14 +778,14 @@
 	* error.c (dump_expr): <STRING_CST case> Add parens, if needed.
 
 	* cp-tree.def (TEMPLATE_TYPE_PARM,
-	BOUND_TEMPLATE_TEMPLATE_PARM, TYPE_OF_TYPE, TYPENAME_TYPE): Reorder 
+	BOUND_TEMPLATE_TEMPLATE_PARM, TYPE_OF_TYPE, TYPENAME_TYPE): Reorder
 	for better code efficiency.
 	* cp-tree.h (CLASS_TYPE_P): Short circuit IS_AGGR_TYPE check.
 	(CAN_HAVE_FULL_LANG_DECL_P): Reorder for better optimization.
 	(INTEGRAL_CODE_P, CP_INTEGRAL_TYPE_P,
 	INTEGRAL_OR_ENUMERATION_TYPE_P, SCALAR_TYPE_P,
 	CP_AGGREGATE_TYPE_P, TYPE_PTROB_P, TYPE_REF_OBJ_P,
-	TYPE_PTROBV_P): Likewise. 
+	TYPE_PTROBV_P): Likewise.
 
 	PR c++/18975
 	* method.c (do_build_copy_constructor): Refactor. Don't const
@@ -584,7 +797,7 @@
 	PR c++/19044
 	* decl.c (make_rtl_for_nonlocal_decl): Use
 	set_builtin_user_assembler_name.
-	
+
 2004-12-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* cp-tree.h (note_decl_for_pch): New function.
@@ -721,7 +934,7 @@
 	PR c++/18514
 	* name-lookup.c (do_nonmember_using_decl): A real function
 	declaration takes precedence over an anticipated declaration.
-	
+
 2004-12-09  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* parser.c (cp_parser_member_declaration): Fix comment typo.
@@ -750,7 +963,7 @@
 2004-12-08  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/18100
-	* decl.c (lookup_and_check_tag): Diagnose nested class with 
+	* decl.c (lookup_and_check_tag): Diagnose nested class with
 	the same name as enclosing class.
 
 2004-12-08  Nathan Sidwell  <nathan@codesourcery.com>
@@ -939,7 +1152,7 @@
 	make_typename_type.
 	(tsubst_decl): Do not pre-substitute the type of the declaration.
 	(tsubst): Hand off declarations more quickly.  Adjust call to
-	make_typename_type. 
+	make_typename_type.
 
 	PR c++/18512
 	* parser.c (cp_parser_postfix_dot_deref_expression): Robustify.
@@ -1035,7 +1248,7 @@
 	(lookup_type_scope): Adjust declaration.
 	* decl.c (lookup_and_check_tag, xref_tag, xref_tag_from_type):
 	Change bool parameter GLOBALIZED to TAG_SCOPE parameter SCOPE.
-	(start_enum): Likewise.  Add assertion test that NAME is 
+	(start_enum): Likewise.  Add assertion test that NAME is
 	IDENTIFIER_NODE.  Use anonymous name for dummy ENUMERAL_TYPE in
 	case of error.
 	* cp-tree.h (xref_tag, xref_tag_from_type): Adjust declarations.
@@ -1175,7 +1388,7 @@
 	PR c++/18407
 	* pt.c (tsubst_copy_and_build): Handle qualified names used from a
 	derived class correctly.
-	
+
 	* decl2.c (import_export_decl): Fix typo in comment.
 	* tree.c (pod_type_p): Likewise.
 
@@ -1185,7 +1398,7 @@
 
 2004-11-10  Adam Nemet  <anemet@lnxw.com>
 
-	PR middle-end/18160  
+	PR middle-end/18160
 	* typeck.c (cxx_mark_addressable): Issue an error if address of an
 	explicit register variable is requested.
 
@@ -1223,7 +1436,7 @@
 	search.c, typeck2.c: Fix comment formatting.
 
 2004-11-04  Ulrich Weigand  <uweigand@de.ibm.com>
-	
+
 	PR tree-optimization/18184
 	* cp-objcp-common.c (cxx_types_compatible_p): Do not treat pointers
 	of different modes or alias-all flags as equivalent.
@@ -1275,26 +1488,26 @@
 2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 9/n
-	* typeck.c (build_x_unary_op, convert_member_func_to_ptr, 
+	* typeck.c (build_x_unary_op, convert_member_func_to_ptr,
 	get_delta_difference):  Use new quotation style.
 	* repo.c (reopen_repo_file_for_write): Likewise.
 	* pt.c (do_type_instantiation): Likewise.
-	* parser.c (cp_parser_diagnose_invalid_type_name): 
-	* name-lookup.c (push_overloaded_decl, set_decl_namespace): 
+	* parser.c (cp_parser_diagnose_invalid_type_name):
+	* name-lookup.c (push_overloaded_decl, set_decl_namespace):
 	* error.c (cp_print_error_function,
 	print_instantiation_full_context): Likewise.
-	* decl.c (define_label, grok_reference_init, 
-	maybe_deduce_size_from_array_init, revert_static_member_fn): 
+	* decl.c (define_label, grok_reference_init,
+	maybe_deduce_size_from_array_init, revert_static_member_fn):
 	* decl2.c (check_classfn): Likewise.
-	* class.c (add_method, check_field_decls, layout_class_type, 
+	* class.c (add_method, check_field_decls, layout_class_type,
 	resolve_address_of_overloaded_function): Likewise.
 	* call.c (build_x_va_arg, build_over_call): Likewise.
 
 2004-10-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 8/n
-	* cvt.c (cp_convert_to_pointer, warn_ref_binding, 
-	convert_to_reference, ocp_convert, convert_to_void 
+	* cvt.c (cp_convert_to_pointer, warn_ref_binding,
+	convert_to_reference, ocp_convert, convert_to_void
 	cp_convert_to_pointer): Use new quotation style.
 
 2004-10-31  Mark Mitchell  <mark@codesourcery.com>
@@ -1302,7 +1515,7 @@
 	PR c++/15172
 	* typeck2.c (store_init_value): Use split_nonconstant_init even
 	for types that require construction.
-	
+
 1004-10-28  Matt Austern  <austern@apple.com>
 
 	PR c++/17542
@@ -1311,7 +1524,7 @@
 	and remove static qualifier.
 	* decl.c (shadow_tag): Warn about ignored attributes in class/struct/
 	union/enum declaration.
-	
+
 2004-10-29  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* pt.c: Fix a comment typo.
@@ -1334,7 +1547,7 @@
 	PR c++/14124
 	* decl.c (finish_enum): Handle packed attribute.
 	* parser.c (cp_parser_enum_specifier): Process trailing attributes.
-	
+
 2004-10-28  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/17132
@@ -1474,7 +1687,7 @@
 	(build_reinterpret_cast_1): Add for_reinterpret_cast_p parameter.
 	Allow function pointer conversions that DR195 suggests.
 	(build_reinterpret_cast, build_c_cast): Update
-	build_reinterpret_cast_1 calls. 
+	build_reinterpret_cast_1 calls.
 
 2004-10-20  Kazu Hirata  <kazu@cs.umass.edu>
 
@@ -1595,7 +1808,7 @@
 	* parser.c (cp_parser_simple_declaration): Do not diagnose invalid
 	type names if we have already found a valid type.
 	(cp_parser_member_declaration): Likewise.
-	
+
 	PR c++/17916
 	* parser.c (cp_parser_member_specification_opt): Handle
 	CPP_PRAGMA.
@@ -1628,7 +1841,7 @@
 	* pt.c (struct pair_fn_data): Use pointer_set_t, not htab_t
 	(for_each_template_parm): Convert from htab_t to pointer_set_t.
 	* tree.c (cp_walk_subtrees): Last argument is pointer_set_t* now.
-	
+
 2004-10-13  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c++/17661
@@ -1660,7 +1873,7 @@
 2004-10-11  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/15786
-	* parser.c (cp_parser_declarator): Add member_p parameter. 
+	* parser.c (cp_parser_declarator): Add member_p parameter.
 	(cp_parser_condition): Adjust calls to cp_parser_declarator.
 	(cp_parser_explicit_instantiation): Likewise.
 	(cp_parser_init_declarator): Likewise.
@@ -1744,34 +1957,34 @@
 2004-10-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 7/n
-	* typeck.c (composite_pointer_type_r, composite_pointer_type, 
-	cxx_sizeof_or_alignof_type, cxx_sizeof_or_alignof_expr, 
-	string_conv_p, build_class_member_access_expr, 
-	build_class_member_access_expr, lookup_destructor, 
-	finish_class_member_access_expr, build_indirect_ref, 
-	get_member_function_from_ptrfunc, build_function_call, 
-	convert_arguments, build_binary_op, pointer_diff, build_unary_op, 
-	check_for_casting_away_constness, build_static_cast, 
-	build_reinterpret_cast, build_const_cast, build_c_cast, 
-	build_modify_expr, get_delta_difference, build_ptrmemfunc, 
-	dubious_conversion_warnings, convert_for_assignment, 
-	convert_for_initialization, 
-	maybe_warn_about_returning_address_of_local, check_return_expr): 
+	* typeck.c (composite_pointer_type_r, composite_pointer_type,
+	cxx_sizeof_or_alignof_type, cxx_sizeof_or_alignof_expr,
+	string_conv_p, build_class_member_access_expr,
+	build_class_member_access_expr, lookup_destructor,
+	finish_class_member_access_expr, build_indirect_ref,
+	get_member_function_from_ptrfunc, build_function_call,
+	convert_arguments, build_binary_op, pointer_diff, build_unary_op,
+	check_for_casting_away_constness, build_static_cast,
+	build_reinterpret_cast, build_const_cast, build_c_cast,
+	build_modify_expr, get_delta_difference, build_ptrmemfunc,
+	dubious_conversion_warnings, convert_for_assignment,
+	convert_for_initialization,
+	maybe_warn_about_returning_address_of_local, check_return_expr):
 	Use quoting marks.
 
-	* typeck2.c (error_not_base_type, readonly_error, 
-	abstract_virtuals_error, cxx_incomplete_type_diagnostic, 
-	store_init_value, digest_init, build_x_arrow, 
+	* typeck2.c (error_not_base_type, readonly_error,
+	abstract_virtuals_error, cxx_incomplete_type_diagnostic,
+	store_init_value, digest_init, build_x_arrow,
 	build_m_component_ref, require_complete_eh_spec_types): Likewise.
 
-	* tree.c (cp_build_qualified_type_real, 
+	* tree.c (cp_build_qualified_type_real,
 	handle_java_interface_attribute, handle_init_priority_attribute):
 	Likewise.
 
-	* semantics.c (finish_asm_stmt, finish_non_static_data_member, 
-	finish_pseudo_destructor_expr, 
-	check_template_template_default_arg, begin_class_definition, 
-	finish_base_specifier, qualified_name_lookup_error, 
+	* semantics.c (finish_asm_stmt, finish_non_static_data_member,
+	finish_pseudo_destructor_expr,
+	check_template_template_default_arg, begin_class_definition,
+	finish_base_specifier, qualified_name_lookup_error,
 	finish_id_expression, finish_typeof): Likewise.
 
 	* search.c (lookup_base, check_final_overrider,
@@ -1807,7 +2020,7 @@
 	PR c++/17685
 	* decl.c (grokdeclarator): Disallow declarations of operators as
 	non-functions.
-	
+
 2004-10-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/17868
@@ -1913,20 +2126,20 @@
 2004-10-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 6/n
-	* pt.c (finish_member_template_decl, check_specialization_scope, 
-	maybe_process_partial_specialization, determine_specialization, 
-	check_explicit_specialization, maybe_check_template_type, 
-	process_partial_specialization, check_default_tmpl_args, 
-	push_template_decl_real, redeclare_class_template, 
-	convert_nontype_argument, coerce_template_parms, 
-	lookup_template_class, push_tinst_level, 
-	instantiate_class_template, tsubst_arg_types, 
-	tsubst_function_type, tsubst, tsubst_qualified_id, 
-	tsubst_copy_and_build, check_instantiated_args, 
-	do_decl_instantiation, do_type_instantiation, 
-	invalid_nontype_parm_type_p, check_specialization_namespace, 
-	convert_template_argument, determine_specialization, 
-	check_template_shadow, tsubst_decl 
+	* pt.c (finish_member_template_decl, check_specialization_scope,
+	maybe_process_partial_specialization, determine_specialization,
+	check_explicit_specialization, maybe_check_template_type,
+	process_partial_specialization, check_default_tmpl_args,
+	push_template_decl_real, redeclare_class_template,
+	convert_nontype_argument, coerce_template_parms,
+	lookup_template_class, push_tinst_level,
+	instantiate_class_template, tsubst_arg_types,
+	tsubst_function_type, tsubst, tsubst_qualified_id,
+	tsubst_copy_and_build, check_instantiated_args,
+	do_decl_instantiation, do_type_instantiation,
+	invalid_nontype_parm_type_p, check_specialization_namespace,
+	convert_template_argument, determine_specialization,
+	check_template_shadow, tsubst_decl
 	instantiate_pending_templates): Use quoting marks.
 
 2004-10-05  Nathan Sidwell  <nathan@codesourcery.com>
@@ -1938,41 +2151,41 @@
 2004-10-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 5/n
-	* parser.c (cp_parser_name_lookup_error, 
-	cp_parser_diagnose_invalid_type_name, 
-	cp_parser_primary_expression, cp_parser_unqualified_id, 
-	cp_parser_nested_name_specifier_opt, cp_parser_labeled_statement, 
-	cp_parser_jump_statement, cp_parser_simple_declaration, 
-	cp_parser_decl_specifier_seq, cp_parser_mem_initializer_id, 
-	cp_parser_type_parameter, cp_parser_template_id, 
-	cp_parser_template_name, cp_parser_direct_declarator, 
-	cp_parser_parameter_declaration_list, cp_parser_class_head, 
-	cp_parser_base_specifier, cp_parser_lookup_name, 
-	cp_parser_late_parsing_default_args, 
-	cp_parser_optional_template_keyword 
-	cp_parser_elaborated_type_specifier, cp_parser_check_class_key, 
+	* parser.c (cp_parser_name_lookup_error,
+	cp_parser_diagnose_invalid_type_name,
+	cp_parser_primary_expression, cp_parser_unqualified_id,
+	cp_parser_nested_name_specifier_opt, cp_parser_labeled_statement,
+	cp_parser_jump_statement, cp_parser_simple_declaration,
+	cp_parser_decl_specifier_seq, cp_parser_mem_initializer_id,
+	cp_parser_type_parameter, cp_parser_template_id,
+	cp_parser_template_name, cp_parser_direct_declarator,
+	cp_parser_parameter_declaration_list, cp_parser_class_head,
+	cp_parser_base_specifier, cp_parser_lookup_name,
+	cp_parser_late_parsing_default_args,
+	cp_parser_optional_template_keyword
+	cp_parser_elaborated_type_specifier, cp_parser_check_class_key,
 	cp_parser_check_access_in_redeclaration): Use quoting marks.
 
-	* name-lookup.c (supplement_binding, pushdecl, 
-	check_for_out_of_scope_variable, validate_nonmember_using_decl, 
-	do_nonmember_using_decl, lookup_tag, set_decl_namespace, 
-	push_namespace, do_namespace_alias, do_using_directive, 
+	* name-lookup.c (supplement_binding, pushdecl,
+	check_for_out_of_scope_variable, validate_nonmember_using_decl,
+	do_nonmember_using_decl, lookup_tag, set_decl_namespace,
+	push_namespace, do_namespace_alias, do_using_directive,
 	ambiguous_decl, lookup_namespace_name, add_function): Likewise.
 
 	* method.c (use_thunk): Likewise.
 
-	* lex.c (unqualified_name_lookup_error, 
+	* lex.c (unqualified_name_lookup_error,
 	unqualified_fn_lookup_error): Likewise.
 
 2004-10-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	Convert diagnostics to use quoting flag q 4/n
-	* except.c (decl_is_java_type, build_throw, 
-	is_admissible_throw_operand, check_handlers_1, check_handlers): 
+	* except.c (decl_is_java_type, build_throw,
+	is_admissible_throw_operand, check_handlers_1, check_handlers):
 	Use quoting formats.
 	* friend.c (add_friend, make_friend_class, do_friend): Likewise.
-	* init.c (sort_mem_initializers, emit_mem_initializers, 
-	member_init_ok_or_else, expand_member_init, is_aggr_type, 
+	* init.c (sort_mem_initializers, emit_mem_initializers,
+	member_init_ok_or_else, expand_member_init, is_aggr_type,
 	build_offset_ref, build_java_class_ref): Likewise.
 
 2004-10-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
@@ -1981,20 +2194,20 @@
 	* decl.c (pop_label, duplicate_decls, redeclaration_error_message,
 	redeclaration_error_message, lookup_label, check_goto,
 	make_typename_type, make_unbound_class_template,
-	fixup_anonymous_aggr, check_tag_decl, start_decl, start_decl_1, 
-	grok_reference_init, layout_var_decl, maybe_commonize_var, 
-	check_for_uninitialized_const_var, reshape_init_array, 
+	fixup_anonymous_aggr, check_tag_decl, start_decl, start_decl_1,
+	grok_reference_init, layout_var_decl, maybe_commonize_var,
+	check_for_uninitialized_const_var, reshape_init_array,
 	reshape_init, check_initializer, cp_finish_decl,
-	member_function_or_else, bad_specifiers, grokfndecl, grokvardecl, 
-	check_static_variable_definition, compute_array_index_type, 
-	create_array_type_for_decl, check_special_function_return_type, 
-	grokdeclarator, check_default_argument, grokparms, 
-	grok_ctor_properties, grok_op_properties, 
-	check_elaborated_type_specifier, xref_tag, finish_enum, 
-	build_enumerator, check_function_type, start_preparsed_function, 
+	member_function_or_else, bad_specifiers, grokfndecl, grokvardecl,
+	check_static_variable_definition, compute_array_index_type,
+	create_array_type_for_decl, check_special_function_return_type,
+	grokdeclarator, check_default_argument, grokparms,
+	grok_ctor_properties, grok_op_properties,
+	check_elaborated_type_specifier, xref_tag, finish_enum,
+	build_enumerator, check_function_type, start_preparsed_function,
 	store_parm_decls): Use quoting formats.
-	* decl2.c (grok_array_decl, delete_sanity, check_member_template, 
-	check_java_method, check_classfn, finish_static_data_member_decl, 
+	* decl2.c (grok_array_decl, delete_sanity, check_member_template,
+	check_java_method, check_classfn, finish_static_data_member_decl,
 	grokfield, grokbitfield, grok_function_init,
 	build_anon_union_vars, coerce_new_type, coerce_delete_type,
 	check_default_args): Likewise.
@@ -2119,7 +2332,7 @@
 	header that was implicitly extern "C".
 	(cp_parser_declaration_seq_opt): Push/pop lang context as
 	required by the token's and parser's implicit_extern_c.
-	
+
 2004-09-27  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/17585
@@ -2141,11 +2354,11 @@
 	(dfs_depth_post, dfs_depth_q): Remove.
 	(find_final_overrider): Use number of vbase classes as depth
 	bound.
-	
+
 	* cp-tree.h (types_overlap_p): Remove.
 	* search.c (struct overlap_info): Remove.
 	(dfs_check_overlap, dfs_no_overlap_yet, types_overlap_p): Remove.
-	
+
 	* pt.c (GTB_VIA_VIRTUAL, GTB_IGNORE_TYPE): Remove.
 	(get_template_base_recursive): Remove. Replace with ...
 	(get_template_base_r): ... this.

@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004
+   2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -145,9 +145,9 @@ extern int flag_pcc_struct_return;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
-   2 means C99-like requirements for complex divide (not yet implemented).  */
+   2 means C99-like requirements for complex multiply and divide.  */
 
-extern int flag_complex_divide_method;
+extern int flag_complex_method;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */

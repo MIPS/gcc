@@ -1,7 +1,12 @@
+2005-03-01  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (tree-profiling-20050301)
+
 2005-02-22  Razya Ladelsky  <razya@il.ibm.com>
 
-        * tree-inline.c (copy_body_r): add versioning case for handling exceptions.
-        *               (inlining_p): new function to test if we're inlining.
+	* tree-inline.c (copy_body_r): add versioning case for handling
+	exceptions.
+        (inlining_p): new function to test if we're inlining.
 
 2005-02-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 

@@ -549,7 +549,7 @@ cgraph_decide_inlining_of_small_functions (void)
   struct cgraph_node *node;
   struct cgraph_edge *edge;
   fibheap_t heap = fibheap_new ();
-  bitmap updated_nodes = BITMAP_XMALLOC ();
+  bitmap updated_nodes = BITMAP_ALLOC (NULL);
 
   if (dump_file)
     fprintf (dump_file, "\nDeciding on smaller functions:\n");
@@ -715,7 +715,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	edge->inline_failed = N_("--param inline-unit-growth limit reached");
     }
   fibheap_delete (heap);
-  BITMAP_XFREE (updated_nodes);
+  BITMAP_FREE (updated_nodes);
 }
 
 /* Decide on the inlining.  We do so in the topological order to avoid

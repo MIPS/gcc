@@ -131,6 +131,18 @@ _Jv_Linker::find_field_helper (jclass search, _Jv_Utf8Const *name,
   return NULL;
 }
 
+bool
+_Jv_Linker::has_field_p (jclass search, _Jv_Utf8Const *field_name)
+{
+  for (int i = 0; i < search->field_count; ++i)
+    {
+      _Jv_Field *field = &search->fields[i];
+      if (_Jv_equalUtf8Consts (field->name, field_name))
+	return true;
+    }
+  return false;
+}
+
 // Find a field.
 // KLASS is the class that is requesting the field.
 // OWNER is the class in which the field should be found.
@@ -665,18 +677,34 @@ _Jv_Linker::generate_itable (jclass klass, _Jv_ifaces *ifaces,
 
 // Format method name for use in error messages.
 jstring
-_Jv_GetMethodString (jclass klass, _Jv_Utf8Const *name)
+_Jv_GetMethodString (jclass klass, _Jv_Method *meth,
+		     jclass derived)
 {
-  jstring r = klass->name->toString();
-  r = r->concat (JvNewStringUTF ("."));
-  r = r->concat (name->toString());
-  return r;
+  using namespace java::lang;
+  StringBuffer *buf = new StringBuffer (klass->name->toString());
+  buf->append (jchar ('.'));
+  buf->append (meth->name->toString());
+  buf->append ((jchar) ' ');
+  buf->append (meth->signature->toString());
+  if (derived)
+    {
+      buf->append(JvNewStringLatin1(" in "));
+      buf->append(derived->name->toString());
+    }
+  return buf->toString();
 }
 
 void 
 _Jv_ThrowNoSuchMethodError ()
 {
   throw new java::lang::NoSuchMethodError;
+}
+
+// This is put in empty vtable slots.
+static void
+_Jv_abstractMethodError (void)
+{
+  throw new java::lang::AbstractMethodError();
 }
 
 // Each superinterface of a class (i.e. each interface that the class
@@ -720,15 +748,15 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
         {
 	  if ((meth->accflags & Modifier::STATIC) != 0)
 	    throw new java::lang::IncompatibleClassChangeError
-	      (_Jv_GetMethodString (klass, meth->name));
-	  if ((meth->accflags & Modifier::ABSTRACT) != 0)
-	    throw new java::lang::AbstractMethodError
-	      (_Jv_GetMethodString (klass, meth->name));
+	      (_Jv_GetMethodString (klass, meth));
 	  if ((meth->accflags & Modifier::PUBLIC) == 0)
 	    throw new java::lang::IllegalAccessError
-	      (_Jv_GetMethodString (klass, meth->name));
+	      (_Jv_GetMethodString (klass, meth));
 
-	  itable[pos] = meth->ncode;
+ 	  if ((meth->accflags & Modifier::ABSTRACT) != 0)
+	    itable[pos] = (void *) &_Jv_abstractMethodError;
+	  else
+	    itable[pos] = meth->ncode;
 	}
       else
         {
@@ -1092,13 +1120,6 @@ _Jv_Linker::link_exception_table (jclass self)
   self->catch_classes->classname = (_Jv_Utf8Const *)-1;
 }
   
-// This is put in empty vtable slots.
-static void
-_Jv_abstractMethodError (void)
-{
-  throw new java::lang::AbstractMethodError();
-}
-
 // Set itable method indexes for members of interface IFACE.
 void
 _Jv_Linker::layout_interface_methods (jclass iface)
@@ -1161,9 +1182,9 @@ _Jv_Linker::layout_vtable_methods (jclass klass)
 		  using namespace java::lang;
 		  StringBuffer *sb = new StringBuffer();
 		  sb->append(JvNewStringLatin1("method "));
-		  sb->append(_Jv_GetMethodString(klass, meth->name));
+		  sb->append(_Jv_GetMethodString(klass, meth));
 		  sb->append(JvNewStringLatin1(" overrides final method "));
-		  sb->append(_Jv_GetMethodString(declarer, super_meth->name));
+		  sb->append(_Jv_GetMethodString(declarer, super_meth));
 		  throw new VerifyError(sb->toString());
 		}
 	    }
@@ -1190,6 +1211,8 @@ _Jv_Linker::set_vtable_entries (jclass klass, _Jv_VTable *vtable)
       if (meth->index == (_Jv_ushort) -1)
 	continue;
       if ((meth->accflags & Modifier::ABSTRACT))
+	// FIXME: it might be nice to have a libffi trampoline here,
+	// so we could pass in the method name and other information.
 	vtable->set_method(meth->index, (void *) &_Jv_abstractMethodError);
       else
 	vtable->set_method(meth->index, meth->ncode);
@@ -1238,33 +1261,9 @@ _Jv_Linker::make_vtable (jclass klass)
   // override an old one.
   set_vtable_entries (klass, vtable);
 
-  // It is an error to have an abstract method in a concrete class.
-  if (! (klass->accflags & Modifier::ABSTRACT))
-    {
-      for (int i = 0; i < klass->vtable_method_count; ++i)
-	if (vtable->get_method(i) == (void *) &_Jv_abstractMethodError)
-	  {
-	    using namespace java::lang;
-	    while (klass != NULL)
-	      {
-		for (int j = 0; j < klass->method_count; ++j)
-		  {
-		    if (klass->methods[j].index == i)
-		      {
-			StringBuffer *buf = new StringBuffer ();
-			buf->append (_Jv_NewStringUtf8Const (klass->methods[j].name));
-			buf->append ((jchar) ' ');
-			buf->append (_Jv_NewStringUtf8Const (klass->methods[j].signature));
-			throw new AbstractMethodError (buf->toString ());
-		      }
-		  }
-		klass = klass->getSuperclass ();
-	      }
-	    // Couldn't find the name, which is weird.
-	    // But we still must throw the error.
-	    throw new AbstractMethodError ();
-	  }
-    }
+  // Note that we don't check for abstract methods here.  We used to,
+  // but there is a JVMS clarification that indicates that a check
+  // here would be too eager.  And, a simple test case confirms this.
 }
 
 // Lay out the class, allocating space for static fields and computing

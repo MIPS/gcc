@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -372,6 +372,15 @@ struct lang_hooks
      in bytes.  A frontend can call lhd_expr_size to get the default
      semantics in cases that it doesn't want to handle specially.  */
   tree (*expr_size) (tree);
+
+  /* Convert a character from the host's to the target's character
+     set.  The character should be in what C calls the "basic source
+     character set" (roughly, the set of characters defined by plain
+     old ASCII).  The default is to return the character unchanged,
+     which is correct in most circumstances.  Note that both argument
+     and result should be sign-extended under -fsigned-char,
+     zero-extended under -fno-signed-char.  */
+  HOST_WIDE_INT (*to_target_charset) (HOST_WIDE_INT);
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
