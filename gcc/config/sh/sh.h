@@ -2995,10 +2995,6 @@ while (0)
     }							\
   while (0)
 
-/* Output a label definition.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME) \
-  do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
-
 /* This is how to output an assembler line
    that says to advance the location counter
    to a multiple of 2**LOG bytes.  */
@@ -3007,11 +3003,8 @@ while (0)
   if ((LOG) != 0)			\
     fprintf ((FILE), "\t.align %d\n", (LOG))
 
-/* Output a globalising directive for a label.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)	\
-  (fprintf ((STREAM), "\t.global\t"),		\
-   assemble_name ((STREAM), (NAME)),		\
-   fputc ('\n', (STREAM)))
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
 

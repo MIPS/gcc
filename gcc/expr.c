@@ -3840,23 +3840,11 @@ expand_assignment (to, from, want_value, suggest_reg)
 
       if (GET_CODE (to_rtx) == MEM)
 	{
-	  tree old_expr = MEM_EXPR (to_rtx);
-
 	  /* If the field is at offset zero, we could have been given the
 	     DECL_RTX of the parent struct.  Don't munge it.  */
 	  to_rtx = shallow_copy_rtx (to_rtx);
 
-	  set_mem_attributes (to_rtx, to, 0);
-
-	  /* If we changed MEM_EXPR, that means we're now referencing
-	     the COMPONENT_REF, which means that MEM_OFFSET must be
-	     relative to that field.  But we've not yet reflected BITPOS
-	     in TO_RTX.  This will be done in store_field.  Adjust for
-	     that by biasing MEM_OFFSET by -bitpos.  */
-	  if (MEM_EXPR (to_rtx) != old_expr && MEM_OFFSET (to_rtx)
-	      && (bitpos / BITS_PER_UNIT) != 0)
-	    set_mem_offset (to_rtx, GEN_INT (INTVAL (MEM_OFFSET (to_rtx))
-					     - (bitpos / BITS_PER_UNIT)));
+	  set_mem_attributes_minus_bitpos (to_rtx, to, 0, bitpos);
 	}
 
       /* Deal with volatile and readonly fields.  The former is only done
@@ -4253,6 +4241,8 @@ store_expr (exp, target, want_value)
        || (temp != target && (side_effects_p (temp)
 			      || side_effects_p (target))))
       && TREE_CODE (exp) != ERROR_MARK
+      /* If there's nothing to copy, don't bother.  */
+      && expr_size (exp) != const0_rtx
       && ! dont_store_target
 	 /* If store_expr stores a DECL whose DECL_RTL(exp) == TARGET,
 	    but TARGET is not valid memory reference, TEMP will differ
@@ -6822,8 +6812,7 @@ expand_expr (exp, target, tmode, modifier)
 						       * TYPE_QUAL_CONST))),
 			     0, TREE_ADDRESSABLE (exp), 1);
 
-	  store_constructor (exp, target, 0,
-			     int_size_in_bytes (TREE_TYPE (exp)));
+	  store_constructor (exp, target, 0, int_expr_size (exp));
 	  return target;
 	}
 

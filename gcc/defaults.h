@@ -140,10 +140,31 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #endif
 #endif
 
+/* This is how to output the definition of a user-level label named
+   NAME, such as the label on a static function or variable NAME.  */
+
+#ifndef ASM_OUTPUT_LABEL
+#define ASM_OUTPUT_LABEL(FILE,NAME) \
+  do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
+#endif
+
 /* This is how to output a reference to a user-level label named NAME.  */
 
 #ifndef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(FILE,NAME)  asm_fprintf ((FILE), "%U%s", (NAME))
+#endif
+
+/* A C statement (sans semicolon) to output to the stdio stream FILE
+   some commands that will make the label NAME global; that is,
+   available for reference from other files.  */
+
+#if !defined(ASM_GLOBALIZE_LABEL) && defined(GLOBAL_ASM_OP)
+#define ASM_GLOBALIZE_LABEL(FILE,NAME)		\
+  do {						\
+      fputs (GLOBAL_ASM_OP, (FILE));		\
+      assemble_name ((FILE), (NAME));		\
+      fputc ('\n', (FILE));			\
+  } while (0)
 #endif
 
 /* Allow target to print debug info labels specially.  This is useful for
@@ -200,15 +221,13 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
     }							\
   while (0)
 
-#define ASM_OUTPUT_MEASURED_SIZE(STREAM, BEG, END)	\
+#define ASM_OUTPUT_MEASURED_SIZE(STREAM, NAME)		\
   do							\
     {							\
       fputs (SIZE_ASM_OP, STREAM);			\
-      assemble_name (STREAM, BEG);			\
-      fputs (", ", STREAM);				\
-      assemble_name (STREAM, END);			\
-      putc ('-', STREAM);				\
-      assemble_name (STREAM, BEG);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", .-", STREAM);				\
+      assemble_name (STREAM, NAME);			\
       putc ('\n', STREAM);				\
     }							\
   while (0)

@@ -4085,18 +4085,21 @@ rs6000_expand_unop_builtin (icode, arglist, target)
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
+  if (icode == CODE_FOR_nothing)
+    /* Builtin not supported on this processor.  */
+    return 0;
+
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node)
     return const0_rtx;
 
-  switch (icode)
+  if (icode == CODE_FOR_altivec_vspltisb
+      || icode == CODE_FOR_altivec_vspltish
+      || icode == CODE_FOR_altivec_vspltisw
+      || icode == CODE_FOR_spe_evsplatfi
+      || icode == CODE_FOR_spe_evsplati)
     {
       /* Only allow 5-bit *signed* literals.  */
-    case CODE_FOR_altivec_vspltisb:
-    case CODE_FOR_altivec_vspltish:
-    case CODE_FOR_altivec_vspltisw:
-    case CODE_FOR_spe_evsplatfi:
-    case CODE_FOR_spe_evsplati:
       if (GET_CODE (op0) != CONST_INT
 	  || INTVAL (op0) > 0x1f
 	  || INTVAL (op0) < -0x1f)
@@ -4104,9 +4107,6 @@ rs6000_expand_unop_builtin (icode, arglist, target)
 	  error ("argument 1 must be a 5-bit signed literal");
 	  return const0_rtx;
 	}
-      break;
-    default:
-      break;
     }
 
   if (target == 0
@@ -4175,45 +4175,45 @@ rs6000_expand_binop_builtin (icode, arglist, target)
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
 
+  if (icode == CODE_FOR_nothing)
+    /* Builtin not supported on this processor.  */
+    return 0;
+
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
     return const0_rtx;
 
-  switch (icode)
+  if (icode == CODE_FOR_altivec_vcfux
+      || icode == CODE_FOR_altivec_vcfsx
+      || icode == CODE_FOR_altivec_vctsxs
+      || icode == CODE_FOR_altivec_vctuxs
+      || icode == CODE_FOR_altivec_vspltb
+      || icode == CODE_FOR_altivec_vsplth
+      || icode == CODE_FOR_altivec_vspltw
+      || icode == CODE_FOR_spe_evaddiw
+      || icode == CODE_FOR_spe_evldd
+      || icode == CODE_FOR_spe_evldh
+      || icode == CODE_FOR_spe_evldw
+      || icode == CODE_FOR_spe_evlhhesplat
+      || icode == CODE_FOR_spe_evlhhossplat
+      || icode == CODE_FOR_spe_evlhhousplat
+      || icode == CODE_FOR_spe_evlwhe
+      || icode == CODE_FOR_spe_evlwhos
+      || icode == CODE_FOR_spe_evlwhou
+      || icode == CODE_FOR_spe_evlwhsplat
+      || icode == CODE_FOR_spe_evlwwsplat
+      || icode == CODE_FOR_spe_evrlwi
+      || icode == CODE_FOR_spe_evslwi
+      || icode == CODE_FOR_spe_evsrwis
+      || icode == CODE_FOR_spe_evsrwiu)
     {
       /* Only allow 5-bit unsigned literals.  */
-    case CODE_FOR_altivec_vcfux:
-    case CODE_FOR_altivec_vcfsx:
-    case CODE_FOR_altivec_vctsxs:
-    case CODE_FOR_altivec_vctuxs:
-    case CODE_FOR_altivec_vspltb:
-    case CODE_FOR_altivec_vsplth:
-    case CODE_FOR_altivec_vspltw:
-    case CODE_FOR_spe_evaddiw:
-    case CODE_FOR_spe_evldd:
-    case CODE_FOR_spe_evldh:
-    case CODE_FOR_spe_evldw:
-    case CODE_FOR_spe_evlhhesplat:
-    case CODE_FOR_spe_evlhhossplat:
-    case CODE_FOR_spe_evlhhousplat:
-    case CODE_FOR_spe_evlwhe:
-    case CODE_FOR_spe_evlwhos:
-    case CODE_FOR_spe_evlwhou:
-    case CODE_FOR_spe_evlwhsplat:
-    case CODE_FOR_spe_evlwwsplat:
-    case CODE_FOR_spe_evrlwi:
-    case CODE_FOR_spe_evslwi:
-    case CODE_FOR_spe_evsrwis:
-    case CODE_FOR_spe_evsrwiu:
       if (TREE_CODE (arg1) != INTEGER_CST
 	  || TREE_INT_CST_LOW (arg1) & ~0x1f)
 	{
 	  error ("argument 2 must be a 5-bit unsigned literal");
 	  return const0_rtx;
 	}
-      break;
-    default:
-      break;
     }
 
   if (target == 0
@@ -5095,23 +5095,26 @@ rs6000_expand_builtin (exp, target, subtarget, mode, ignore)
 	return ret;
     }
 
-  /* Handle simple unary operations.  */
-  d = (struct builtin_description *) bdesc_1arg;
-  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
-    if (d->code == fcode)
-      return rs6000_expand_unop_builtin (d->icode, arglist, target);
+  if (TARGET_ALTIVEC || TARGET_SPE)
+    {
+      /* Handle simple unary operations.  */
+      d = (struct builtin_description *) bdesc_1arg;
+      for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+	if (d->code == fcode)
+	  return rs6000_expand_unop_builtin (d->icode, arglist, target);
 
-  /* Handle simple binary operations.  */
-  d = (struct builtin_description *) bdesc_2arg;
-  for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
-    if (d->code == fcode)
-      return rs6000_expand_binop_builtin (d->icode, arglist, target);
+      /* Handle simple binary operations.  */
+      d = (struct builtin_description *) bdesc_2arg;
+      for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
+	if (d->code == fcode)
+	  return rs6000_expand_binop_builtin (d->icode, arglist, target);
 
-  /* Handle simple ternary operations.  */
-  d = (struct builtin_description *) bdesc_3arg;
-  for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
-    if (d->code == fcode)
-      return rs6000_expand_ternop_builtin (d->icode, arglist, target);
+      /* Handle simple ternary operations.  */
+      d = (struct builtin_description *) bdesc_3arg;
+      for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
+	if (d->code == fcode)
+	  return rs6000_expand_ternop_builtin (d->icode, arglist, target);
+    }
 
   abort ();
   return NULL_RTX;
@@ -5124,7 +5127,8 @@ rs6000_init_builtins ()
     spe_init_builtins ();
   if (TARGET_ALTIVEC)
     altivec_init_builtins ();
-  rs6000_common_init_builtins ();
+  if (TARGET_ALTIVEC || TARGET_SPE)
+    rs6000_common_init_builtins ();
 }
 
 /* Search through a set of builtins and enable the mask bits.
@@ -5157,7 +5161,7 @@ enable_mask_for_builtins (desc, size, start, end)
 }
 
 static void
-spe_init_builtins (void)
+spe_init_builtins ()
 {
   tree endlink = void_list_node;
   tree puint_type_node = build_pointer_type (unsigned_type_node);
@@ -5367,7 +5371,7 @@ spe_init_builtins (void)
 }
 
 static void
-altivec_init_builtins (void)
+altivec_init_builtins ()
 {
   struct builtin_description *d;
   struct builtin_description_predicates *dp;
@@ -5548,7 +5552,7 @@ altivec_init_builtins (void)
 }
 
 static void
-rs6000_common_init_builtins (void)
+rs6000_common_init_builtins ()
 {
   struct builtin_description *d;
   size_t i;
@@ -5738,7 +5742,7 @@ rs6000_common_init_builtins (void)
       enum machine_mode mode0, mode1, mode2, mode3;
       tree type;
 
-      if (d->name == 0)
+      if (d->name == 0 || d->icode == CODE_FOR_nothing)
 	continue;
       
       mode0 = insn_data[d->icode].operand[0].mode;
@@ -5830,7 +5834,7 @@ rs6000_common_init_builtins (void)
       enum machine_mode mode0, mode1, mode2;
       tree type;
 
-      if (d->name == 0)
+      if (d->name == 0 || d->icode == CODE_FOR_nothing)
 	continue;
       
       mode0 = insn_data[d->icode].operand[0].mode;
@@ -5966,7 +5970,7 @@ rs6000_common_init_builtins (void)
       enum machine_mode mode0, mode1;
       tree type;
 
-      if (d->name == 0)
+      if (d->name == 0 || d->icode == CODE_FOR_nothing)
 	continue;
       
       mode0 = insn_data[d->icode].operand[0].mode;
@@ -6670,9 +6674,10 @@ validate_condition_mode (code, mode)
     abort ();
   
   /* These should never be generated except for 
-     flag_unsafe_math_optimizations.  */
+     flag_unsafe_math_optimizations and flag_finite_math_only.  */
   if (mode == CCFPmode
       && ! flag_unsafe_math_optimizations
+      && ! flag_finite_math_only
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -8433,21 +8438,30 @@ output_cbranch (op, label, reversed, insn)
   
   /* Maybe we have a guess as to how likely the branch is.  
      The old mnemonics don't have a way to specify this information.  */
+  pred = "";
   note = find_reg_note (insn, REG_BR_PROB, NULL_RTX);
   if (note != NULL_RTX)
     {
       /* PROB is the difference from 50%.  */
       int prob = INTVAL (XEXP (note, 0)) - REG_BR_PROB_BASE / 2;
-      
-      /* For branches that are very close to 50%, assume not-taken.  */
-      if (abs (prob) > REG_BR_PROB_BASE / 20
-	  && ((prob > 0) ^ need_longbranch))
-	pred = "+";
-      else
-	pred = "-";
+      bool always_hint = rs6000_cpu != PROCESSOR_POWER4;
+
+      /* Only hint for highly probable/improbable branches on newer
+	 cpus as static prediction overrides processor dynamic
+	 prediction.  For older cpus we may as well always hint, but
+	 assume not taken for branches that are very close to 50% as a
+	 mispredicted taken branch is more expensive than a
+	 mispredicted not-taken branch.  */ 
+      if (always_hint
+	  || abs (prob) > REG_BR_PROB_BASE / 100 * 48)
+	{
+	  if (abs (prob) > REG_BR_PROB_BASE / 20
+	      && ((prob > 0) ^ need_longbranch))
+	    pred = "+";
+	  else
+	    pred = "-";
+	}
     }
-  else
-    pred = "";
 
   if (label == NULL)
     s += sprintf (s, "{b%sr|b%slr%s} ", ccode, ccode, pred);
@@ -11365,7 +11379,7 @@ rs6000_hash_constant (k)
   int fidx;
   
   if (GET_CODE (k) == LABEL_REF)
-    return result * 1231 + X0INT (XEXP (k, 0), 3);
+    return result * 1231 + (unsigned) INSN_UID (XEXP (k, 0));
 
   if (GET_CODE (k) == CODE_LABEL)
     fidx = 3;
@@ -11659,8 +11673,17 @@ output_toc (file, x, labelno, mode)
 	abort ();/* It would be easy to make this work, but it doesn't now.  */
 
       if (POINTER_SIZE > GET_MODE_BITSIZE (mode))
-	lshift_double (low, high, POINTER_SIZE - GET_MODE_BITSIZE (mode),
-		       POINTER_SIZE, &low, &high, 0);
+	{
+#if HOST_BITS_PER_WIDE_INT == 32
+	  lshift_double (low, high, POINTER_SIZE - GET_MODE_BITSIZE (mode),
+			 POINTER_SIZE, &low, &high, 0);
+#else
+	  low |= high << 32;
+	  low <<= POINTER_SIZE - GET_MODE_BITSIZE (mode);
+	  high = (HOST_WIDE_INT) low >> 32;
+	  low &= 0xffffffff;
+#endif
+	}
 
       if (TARGET_64BIT)
 	{

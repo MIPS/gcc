@@ -8823,7 +8823,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(gtu:SI (match_operand:SI 1 "register_operand" "d")
 		(match_operand:SI 2 "reg_or_0_operand" "dJ")))]
-  ""
+  "!TARGET_MIPS16"
   "sltu\\t%0,%z2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
@@ -8832,7 +8832,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:SI 0 "register_operand" "=t")
 	(gtu:SI (match_operand:SI 1 "register_operand" "d")
 		(match_operand:SI 2 "register_operand" "d")))]
-  ""
+  "TARGET_MIPS16"
   "sltu\\t%2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"SI")])
@@ -8841,7 +8841,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(gtu:DI (match_operand:DI 1 "se_register_operand" "d")
 		(match_operand:DI 2 "se_reg_or_0_operand" "dJ")))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && !TARGET_MIPS16"
   "sltu\\t%0,%z2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")])
@@ -8850,7 +8850,7 @@ move\\t%0,%z4\\n\\
   [(set (match_operand:DI 0 "register_operand" "=t")
 	(gtu:DI (match_operand:DI 1 "se_register_operand" "d")
 		(match_operand:DI 2 "se_register_operand" "d")))]
-  "TARGET_64BIT"
+  "TARGET_64BIT && TARGET_MIPS16"
   "sltu\\t%2,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"DI")])
@@ -9866,14 +9866,14 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
 ;; until we know where it will be put in the stack frame.
 
 (define_insn "eh_set_lr_si"
-  [(unspec [(match_operand:SI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
-   (clobber (match_scratch:SI 1 "=&r"))]
+  [(unspec [(match_operand:SI 0 "register_operand" "d")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&d"))]
   "! TARGET_64BIT"
   "#")
 
 (define_insn "eh_set_lr_di"
-  [(unspec [(match_operand:DI 0 "register_operand" "r")] UNSPEC_EH_RETURN)
-   (clobber (match_scratch:DI 1 "=&r"))]
+  [(unspec [(match_operand:DI 0 "register_operand" "d")] UNSPEC_EH_RETURN)
+   (clobber (match_scratch:DI 1 "=&d"))]
   "TARGET_64BIT"
   "#")
 

@@ -2121,17 +2121,6 @@ do {							\
    This macro controls how the assembler definitions of uninitialized
    static variables are output.  */
 
-#define ASM_OUTPUT_LABEL(STREAM, NAME)		\
-do {						\
-  assemble_name ((STREAM), (NAME));		\
-  fprintf ((STREAM), ":\n");			\
-} while (0)
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM the assembler definition of a label named NAME.  Use the
-   expression `assemble_name (STREAM, NAME)' to output the name
-   itself; before and after that, output the additional assembler
-   syntax for defining the name, and a newline.  */
-
 #undef WEAK_ASM_OP
 #define WEAK_ASM_OP	".weak"
 
@@ -2139,14 +2128,7 @@ do {						\
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
   do {								\
     if (!flag_inhibit_size_directive)				\
-      {								\
-        char label[256];					\
-	static int labelno;					\
-	labelno++;						\
-	ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);	\
-	ASM_OUTPUT_MEASURED_SIZE (FILE, (FNAME), label);	\
-      }								\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
   } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the size of a function
@@ -2180,18 +2162,8 @@ do {						\
    the i386) don't know about that.  Also, we don't use \v
    since some versions of gas, such as 2.2 did not accept it.  */
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)	\
-do {						\
-  fprintf ((STREAM), ".global\t");		\
-  assemble_name ((STREAM), (NAME));		\
-  fprintf ((STREAM), "\n");			\
-} while (0)     
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM some commands that will make the label NAME global; that
-   is, available for reference from other files.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before
-   and after that, output the additional assembler syntax for making
-   that name global, and a newline.  */
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".global\t"
 
 #undef ASM_FORMAT_PRIVATE_NAME
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\

@@ -2029,8 +2029,8 @@ typedef struct rs6000_args
 
 #define TOC_RELATIVE_EXPR_P(X) (toc_relative_expr_p (X))
 
-/* SPE offset addressing is limited to 5-bits.  */
-#define SPE_CONST_OFFSET_OK(x) (((x) & ~0x1f) == 0)
+/* SPE offset addressing is limited to 5-bits worth of double words.  */
+#define SPE_CONST_OFFSET_OK(x) (((x) & ~0xf8) == 0)
 
 #define LEGITIMATE_CONSTANT_POOL_ADDRESS_P(X)				\
   (TARGET_TOC								\
@@ -2332,6 +2332,8 @@ do {									     \
 	    ? COSTS_N_INSNS (2)						\
 	    : COSTS_N_INSNS (1));					\
   case MULT:								\
+    if (optimize_size)							\
+      return COSTS_N_INSNS (2);						\
     switch (rs6000_cpu)							\
       {									\
       case PROCESSOR_RIOS1:						\
@@ -2365,6 +2367,7 @@ do {									     \
 		: COSTS_N_INSNS (3));			    		\
       case PROCESSOR_PPC403:						\
       case PROCESSOR_PPC604:						\
+      case PROCESSOR_PPC8540:						\
         return COSTS_N_INSNS (4);					\
       case PROCESSOR_PPC620:						\
       case PROCESSOR_PPC630:						\

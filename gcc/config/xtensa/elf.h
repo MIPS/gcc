@@ -19,6 +19,11 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#define TARGET_OS_CPP_BUILTINS()				\
+  do {								\
+    builtin_define ("__ELF__");					\
+  } while (0)
+
 /* Don't assume anything about the header files. */
 #define NO_IMPLICIT_EXTERN_C
 
@@ -74,9 +79,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       %{rdynamic:-export-dynamic} \
     %{static:-static}}}"
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__XTENSA__ -D__ELF__ -Acpu=xtensa -Amachine=xtensa"
-
 /* Local compiler-generated symbols must have a prefix that the assembler
    understands.   By default, this is $, although some targets (e.g.,
    NetBSD-ELF) need to override this. */
@@ -112,16 +114,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   do								\
     {								\
       if (!flag_inhibit_size_directive)				\
-	{							\
-	  char label[256];					\
-	  static int labelno;					\
-	  							\
-	  labelno++;						\
-	  							\
-	  ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
-	  ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);	\
-	  ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME, label);	\
-	}							\
+	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
       XTENSA_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL);		\
     }								\
   while (0)

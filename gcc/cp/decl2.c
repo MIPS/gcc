@@ -122,262 +122,6 @@ tree static_dtors;
 
 tree global_namespace;
 
-/* C (and C++) language-specific option variables.  */
-
-/* Nonzero means don't recognize the keyword `asm'.  */
-
-int flag_no_asm;
-
-/* Nonzero means don't recognize any extension keywords.  */
-
-int flag_no_gnu_keywords;
-
-/* Nonzero means to treat bitfields as unsigned unless they say `signed'.  */
-
-int flag_signed_bitfields = 1;
-
-/* Nonzero means do emit exported implementations of functions even if
-   they can be inlined.  */
-
-int flag_implement_inlines = 1;
-
-/* Nonzero means do emit exported implementations of templates, instead of
-   multiple static copies in each file that needs a definition.  */
-
-int flag_external_templates;
-
-/* Nonzero means that the decision to emit or not emit the implementation of a
-   template depends on where the template is instantiated, rather than where
-   it is defined.  */
-
-int flag_alt_external_templates;
-
-/* Nonzero means that implicit instantiations will be emitted if needed.  */
-
-int flag_implicit_templates = 1;
-
-/* Nonzero means that implicit instantiations of inline templates will be
-   emitted if needed, even if instantiations of non-inline templates
-   aren't.  */
-
-int flag_implicit_inline_templates = 1;
-
-/* Nonzero means warn about implicit declarations.  */
-
-int warn_implicit = 1;
-
-/* Nonzero means warn about usage of long long when `-pedantic'.  */
-
-int warn_long_long = 1;
-
-/* Nonzero means warn when all ctors or dtors are private, and the class
-   has no friends.  */
-
-int warn_ctor_dtor_privacy = 1;
-
-/* Nonzero means generate separate instantiation control files and juggle
-   them at link time.  */
-
-int flag_use_repository;
-
-/* Nonzero if we want to issue diagnostics that the standard says are not
-   required.  */
-
-int flag_optional_diags = 1;
-
-/* Nonzero means give string constants the type `const char *', as mandated
-   by the standard.  */
-
-int flag_const_strings = 1;
-
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-int warn_write_strings;
-
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-int warn_cast_qual;
-
-/* Nonzero means warn about sizeof(function) or addition/subtraction
-   of function pointers.  */
-
-int warn_pointer_arith = 1;
-
-/* Nonzero means warn for any function def without prototype decl.  */
-
-int warn_missing_prototypes;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-int warn_redundant_decls;
-
-/* Warn if initializer is not completely bracketed.  */
-
-int warn_missing_braces;
-
-/* Warn about comparison of signed and unsigned values.  */
-
-int warn_sign_compare;
-
-/* Warn about testing equality of floating point numbers. */
-
-int warn_float_equal = 0;
-
-/* Warn about functions which might be candidates for format attributes.  */
-
-int warn_missing_format_attribute;
-
-/* Warn about a subscript that has type char.  */
-
-int warn_char_subscripts;
-
-/* Warn if a type conversion is done that might have confusing results.  */
-
-int warn_conversion;
-
-/* Warn if adding () is suggested.  */
-
-int warn_parentheses;
-
-/* Non-zero means warn in function declared in derived class has the
-   same name as a virtual in the base class, but fails to match the
-   type signature of any virtual function in the base class.  */
-
-int warn_overloaded_virtual;
-
-/* Non-zero means warn when declaring a class that has a non virtual
-   destructor, when it really ought to have a virtual one.  */
-
-int warn_nonvdtor;
-
-/* Non-zero means warn when the compiler will reorder code.  */
-
-int warn_reorder;
-
-/* Non-zero means warn when synthesis behavior differs from Cfront's.  */
-
-int warn_synth;
-
-/* Non-zero means warn when we convert a pointer to member function
-   into a pointer to (void or function).  */
-
-int warn_pmf2ptr = 1;
-
-/* Nonzero means warn about violation of some Effective C++ style rules.  */
-
-int warn_ecpp;
-
-/* Nonzero means warn where overload resolution chooses a promotion from
-   unsigned to signed over a conversion to an unsigned of the same size.  */
-
-int warn_sign_promo;
-
-/* Nonzero means warn when an old-style cast is used.  */
-
-int warn_old_style_cast;
-
-/* Warn about #pragma directives that are not recognised.  */      
-
-int warn_unknown_pragmas; /* Tri state variable.  */  
-
-/* Nonzero means warn when non-templatized friend functions are
-   declared within a template */
-
-int warn_nontemplate_friend = 1;
-
-/* Nonzero means complain about deprecated features.  */
-
-int warn_deprecated = 1;
-
-/* Nonzero means `$' can be in an identifier.  */
-
-#ifndef DOLLARS_IN_IDENTIFIERS
-#define DOLLARS_IN_IDENTIFIERS 1
-#endif
-int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-
-/* C++ specific flags.  */   
-
-/* Nonzero means we should attempt to elide constructors when possible.  */
-
-int flag_elide_constructors = 1;
-
-/* Nonzero means that member functions defined in class scope are
-   inline by default.  */
-
-int flag_default_inline = 1;
-
-/* Controls whether compiler generates 'type descriptor' that give
-   run-time type information.  */
-
-int flag_rtti = 1;
-
-/* Nonzero if we want to support huge (> 2^(sizeof(short)*8-1) bytes)
-   objects.  */
-
-int flag_huge_objects;
-
-/* Nonzero if we want to conserve space in the .o files.  We do this
-   by putting uninitialized data and runtime initialized data into
-   .common instead of .data at the expense of not flagging multiple
-   definitions.  */
-
-int flag_conserve_space;
-
-/* Nonzero if we want to obey access control semantics.  */
-
-int flag_access_control = 1;
-
-/* Nonzero if we want to check the return value of new and avoid calling
-   constructors if it is a null pointer.  */
-
-int flag_check_new;
-
-/* Nonzero if we want the new ISO rules for pushing a new scope for `for'
-   initialization variables.
-   0: Old rules, set by -fno-for-scope.
-   2: New ISO rules, set by -ffor-scope.
-   1: Try to implement new ISO rules, but with backup compatibility
-   (and warnings).  This is the default, for now.  */
-
-int flag_new_for_scope = 1;
-
-/* Nonzero if we want to emit defined symbols with common-like linkage as
-   weak symbols where possible, in order to conform to C++ semantics.
-   Otherwise, emit them as local symbols.  */
-
-int flag_weak = 1;
-
-/* Nonzero to use __cxa_atexit, rather than atexit, to register
-   destructors for local statics and global objects.  */
-
-int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
-
-/* Maximum template instantiation depth.  This limit is rather
-   arbitrary, but it exists to limit the time it takes to notice
-   infinite template instantiations.  */
-
-int max_tinst_depth = 500;
-
-/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
-
-int flag_vtable_gc;
-
-/* Nonzero means make the default pedwarns warnings instead of errors.
-   The value of this flag is ignored if -pedantic is specified.  */
-
-int flag_permissive;
-
-/* Nonzero means to implement standard semantics for exception
-   specifications, calling unexpected if an exception is thrown that
-   doesn't match the specification.  Zero means to treat them as
-   assertions and optimize accordingly, but not check them.  */
-
-int flag_enforce_eh_specs = 1;
-
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -3587,14 +3331,7 @@ reparse_absdcl_as_expr (type, decl)
   /* recurse */
   decl = reparse_absdcl_as_expr (type, TREE_OPERAND (decl, 0));
 
-  decl = build_x_function_call (decl, NULL_TREE, current_class_ref);
-
-  if (TREE_CODE (decl) == CALL_EXPR
-      && (! TREE_TYPE (decl)
-          || TREE_CODE (TREE_TYPE (decl)) != VOID_TYPE))
-    decl = require_complete_type (decl);
-
-  return decl;
+  return finish_call_expr (decl, NULL_TREE, /*disallow_virtual=*/false);
 }
 
 /* This is something of the form `int ((int)(int)(int)1)' that has turned
@@ -3647,7 +3384,8 @@ reparse_absdcl_as_casts (decl, expr)
   return expr;
 }
 
-/* Given plain tree nodes for an expression, build up the full semantics.  */
+/* T is the parse tree for an expression.  Return the expression after
+   performing semantic analysis.  */
 
 tree
 build_expr_from_tree (t)
@@ -3671,9 +3409,29 @@ build_expr_from_tree (t)
 	return do_identifier (TREE_OPERAND (t, 0), 0, NULL_TREE);
 
     case TEMPLATE_ID_EXPR:
-      return (lookup_template_function
-	      (build_expr_from_tree (TREE_OPERAND (t, 0)),
-	       build_expr_from_tree (TREE_OPERAND (t, 1))));
+      {
+	tree template;
+	tree args;
+	tree object;
+
+	template = build_expr_from_tree (TREE_OPERAND (t, 0));
+	args = build_expr_from_tree (TREE_OPERAND (t, 1));
+	
+	if (TREE_CODE (template) == COMPONENT_REF)
+	  {
+	    object = TREE_OPERAND (template, 0);
+	    template = TREE_OPERAND (template, 1);
+	  }
+	else
+	  object = NULL_TREE;
+
+	template = lookup_template_function (template, args);
+	if (object)
+	  return build (COMPONENT_REF, TREE_TYPE (template), 
+			object, template);
+	else
+	  return template;
+      }
 
     case INDIRECT_REF:
       return build_x_indirect_ref
@@ -3881,9 +3639,18 @@ build_expr_from_tree (t)
               name = do_identifier (id, 0, args);
             }
           else if (TREE_CODE (name) == TEMPLATE_ID_EXPR
-	      || ! really_overloaded_fn (name))
+		   || ! really_overloaded_fn (name))
 	    name = build_expr_from_tree (name);
-	  return build_x_function_call (name, args, current_class_ref);
+
+	  if (TREE_CODE (name) == OFFSET_REF)
+	    return build_offset_ref_call_from_tree (name, args);
+	  if (TREE_CODE (name) == COMPONENT_REF)
+	    return finish_object_call_expr (TREE_OPERAND (name, 1),
+					    TREE_OPERAND (name, 0),
+					    args);
+	  name = convert_from_reference (name);
+	  return build_call_from_tree (name, args, 
+				       /*disallow_virtual=*/false);
 	}
 
     case COND_EXPR:
@@ -3986,6 +3753,105 @@ build_expr_from_tree (t)
     default:
       return t;
     }
+}
+
+/* FN is an OFFSET_REF indicating the function to call in parse-tree
+   form; it has not yet been semantically analyzed.  ARGS are the
+   arguments to the function.  They have already been semantically
+   analzyed.  */
+
+tree
+build_offset_ref_call_from_tree (tree fn, tree args)
+{
+  tree object_addr;
+
+  my_friendly_assert (TREE_CODE (fn) == OFFSET_REF, 20020725);
+
+  /* A qualified name corresponding to a non-static member
+     function or a pointer-to-member is represented as an 
+     OFFSET_REF.  
+
+     For both of these function calls, FN will be an OFFSET_REF.
+
+	struct A { void f(); };
+	void A::f() { (A::f) (); } 
+
+	struct B { void g(); };
+	void (B::*p)();
+	void B::g() { (this->*p)(); }  */
+
+  /* This code is not really correct (for example, it does not
+     handle the case that `A::f' is overloaded), but it is
+     historically how we have handled this situation.  */
+  object_addr = build_unary_op (ADDR_EXPR, TREE_OPERAND (fn, 0), 0);
+  if (TREE_CODE (TREE_OPERAND (fn, 1)) == FIELD_DECL)
+    fn = resolve_offset_ref (fn);
+  else
+    {
+      fn = TREE_OPERAND (fn, 1);
+      fn = get_member_function_from_ptrfunc (&object_addr, fn);
+    }
+  args = tree_cons (NULL_TREE, object_addr, args);
+  return build_function_call (fn, args);
+}
+
+/* FN indicates the function to call.  Name resolution has been
+   performed on FN.  ARGS are the arguments to the function.  They
+   have already been semantically analyzed.  DISALLOW_VIRTUAL is true
+   if the function call should be determined at compile time, even if
+   FN is virtual.  */
+
+tree
+build_call_from_tree (tree fn, tree args, bool disallow_virtual)
+{
+  tree template_args;
+  tree template_id;
+  tree f;
+  
+  /* Check to see that name lookup has already been performed.  */
+  my_friendly_assert (TREE_CODE (fn) != OFFSET_REF, 20020725);
+  my_friendly_assert (TREE_CODE (fn) != SCOPE_REF, 20020725);
+
+  /* In the future all of this should be eliminated.  Instead,
+     name-lookup for a member function should simply return a
+     baselink, instead of a FUNCTION_DECL, TEMPLATE_DECL, or
+     TEMPLATE_ID_EXPR.  */
+
+  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+    {
+      template_id = fn;
+      template_args = TREE_OPERAND (fn, 1);
+      fn = TREE_OPERAND (fn, 0);
+    }
+  else
+    template_id = NULL_TREE;
+
+  f = (TREE_CODE (fn) == OVERLOAD) ? get_first_fn (fn) : fn;
+  /* Make sure we have a baselink (rather than simply a
+     FUNCTION_DECL) for a member function.  */
+  if (current_class_type
+      && ((TREE_CODE (f) == FUNCTION_DECL
+	   && DECL_FUNCTION_MEMBER_P (f))
+	  || (DECL_FUNCTION_TEMPLATE_P (f) 
+	      && DECL_FUNCTION_MEMBER_P (f))))
+    {
+      f = lookup_member (current_class_type, DECL_NAME (f), 
+			 /*protect=*/1, /*want_type=*/0);
+      if (f)
+	fn = f;
+    }
+
+  if (template_id)
+    {
+      if (BASELINK_P (fn))
+	  BASELINK_FUNCTIONS (fn) = build_nt (TEMPLATE_ID_EXPR, 
+					      BASELINK_FUNCTIONS (fn),
+					      template_args);
+      else
+	fn = template_id;
+    }
+
+  return finish_call_expr (fn, args, disallow_virtual);
 }
 
 /* This is something of the form `int (*a)++' that has turned out to be an

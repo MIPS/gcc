@@ -23,11 +23,14 @@
 #include "rtl.h"
 #include "obstack.h"
 #include "errors.h"
+#include "hashtab.h"
 #include "gensupport.h"
 
 
 /* In case some macros used by files we include need it, define this here.  */
 int target_flags;
+
+int insn_elision = 1;
 
 static struct obstack obstack;
 struct obstack *rtl_obstack = &obstack;
@@ -38,6 +41,8 @@ static int errors;
 static int predicable_default;
 static const char *predicable_true;
 static const char *predicable_false;
+
+static htab_t condition_table;
 
 static char *base_dir = NULL;
 
@@ -305,18 +310,7 @@ process_rtx (desc, lineno)
 	   insn condition to create the new split condition.  */
 	split_cond = XSTR (desc, 4);
 	if (split_cond[0] == '&' && split_cond[1] == '&')
-	  {
-	    const char *insn_cond = XSTR (desc, 2);
-	    size_t insn_cond_len = strlen (insn_cond);
-	    size_t split_cond_len = strlen (split_cond);
-	    char *combined;
-
-	    combined = (char *) xmalloc (insn_cond_len + split_cond_len + 1);
-	    memcpy (combined, insn_cond, insn_cond_len);
-	    memcpy (combined + insn_cond_len, split_cond, split_cond_len + 1);
-
-	    split_cond = combined;
-	  }
+	  split_cond = concat (XSTR (desc, 2), split_cond, NULL);
 	XSTR (split, 1) = split_cond;
 	XVEC (split, 2) = XVEC (desc, 5);
 	XSTR (split, 3) = XSTR (desc, 6);
@@ -436,7 +430,6 @@ identify_predicable_attribute ()
   struct queue_elem *elem;
   char *p_true, *p_false;
   const char *value;
-  size_t len;
 
   /* Look for the DEFINE_ATTR for `predicable', which must exist.  */
   for (elem = define_attr_queue; elem ; elem = elem->next)
@@ -450,10 +443,7 @@ identify_predicable_attribute ()
 
  found:
   value = XSTR (elem->data, 1);
-  len = strlen (value);
-  p_false = (char *) xmalloc (len + 1);
-  memcpy (p_false, value, len + 1);
-
+  p_false = xstrdup (value);
   p_true = strchr (p_false, ',');
   if (p_true == NULL || strchr (++p_true, ',') != NULL)
     {
@@ -671,8 +661,6 @@ alter_test_for_insn (ce_elem, insn_elem)
      struct queue_elem *ce_elem, *insn_elem;
 {
   const char *ce_test, *insn_test;
-  char *new_test;
-  size_t len, ce_len, insn_len;
 
   ce_test = XSTR (ce_elem->data, 1);
   insn_test = XSTR (insn_elem->data, 2);
@@ -681,14 +669,7 @@ alter_test_for_insn (ce_elem, insn_elem)
   if (!insn_test || *insn_test == '\0')
     return ce_test;
 
-  ce_len = strlen (ce_test);
-  insn_len = strlen (insn_test);
-  len = 1 + ce_len + 1 + 4 + 1 + insn_len + 1 + 1;
-  new_test = (char *) xmalloc (len);
-
-  sprintf (new_test, "(%s) && (%s)", ce_test, insn_test);
-
-  return new_test;
+  return concat ("(", ce_test, ") && (", insn_test, ")", NULL);
 }
 
 /* Adjust all of the operand numbers in OLD to match the shift they'll
@@ -950,6 +931,7 @@ init_md_reader (filename)
 {
   FILE *input_file;
   int c;
+  size_t i;
   char *lastsl;
 
   lastsl = strrchr (filename, '/');
@@ -963,6 +945,14 @@ init_md_reader (filename)
       perror (filename);
       return FATAL_EXIT_CODE;
     }
+
+  /* Initialize the table of insn conditions.  */
+  condition_table = htab_create (n_insn_conditions,
+				 hash_c_test, cmp_c_test, NULL);
+
+  for (i = 0; i < n_insn_conditions; i++)
+    *(htab_find_slot (condition_table, (PTR) &insn_conditions[i], INSERT))
+      = (PTR) &insn_conditions[i];
 
   obstack_init (rtl_obstack);
   errors = 0;
@@ -1002,6 +992,8 @@ read_md_rtx (lineno, seqnr)
   struct queue_elem **queue, *elem;
   rtx desc;
 
+ discard:
+
   /* Read all patterns from a given queue before moving on to the next.  */
   if (define_attr_queue != NULL)
     queue = &define_attr_queue;
@@ -1021,14 +1013,29 @@ read_md_rtx (lineno, seqnr)
 
   free (elem);
 
+  /* Discard insn patterns which we know can never match (because
+     their C test is provably always false).  If insn_elision is
+     false, our caller needs to see all the patterns.  Note that the
+     elided patterns are never counted by the sequence numbering; it
+     it is the caller's responsibility, when insn_elision is false, not
+     to use elided pattern numbers for anything.  */
   switch (GET_CODE (desc))
     {
     case DEFINE_INSN:
     case DEFINE_EXPAND:
+      if (maybe_eval_c_test (XSTR (desc, 2)) != 0)
+	sequence_num++;
+      else if (insn_elision)
+	goto discard;
+      break;
+
     case DEFINE_SPLIT:
     case DEFINE_PEEPHOLE:
     case DEFINE_PEEPHOLE2:
-      sequence_num++;
+      if (maybe_eval_c_test (XSTR (desc, 1)) != 0)
+	sequence_num++;
+      else if (insn_elision)
+	    goto discard;
       break;
 
     default:
@@ -1036,6 +1043,73 @@ read_md_rtx (lineno, seqnr)
     }
 
   return desc;
+}
+
+/* Helper functions for insn elision.  */
+
+/* Compute a hash function of a c_test structure, which is keyed
+   by its ->expr field.  */
+hashval_t
+hash_c_test (x)
+     const PTR x;
+{
+  const struct c_test *a = (const struct c_test *) x;
+  const unsigned char *base, *s = (const unsigned char *) a->expr;
+  hashval_t hash;
+  unsigned char c;
+  unsigned int len;
+
+  base = s;
+  hash = 0;
+
+  while ((c = *s++) != '\0')
+    {
+      hash += c + (c << 17);
+      hash ^= hash >> 2;
+    }
+
+  len = s - base;
+  hash += len + (len << 17);
+  hash ^= hash >> 2;
+
+  return hash;
+}
+
+/* Compare two c_test expression structures.  */
+int
+cmp_c_test (x, y)
+     const PTR x;
+     const PTR y;
+{
+  const struct c_test *a = (const struct c_test *) x;
+  const struct c_test *b = (const struct c_test *) y;
+
+  return !strcmp (a->expr, b->expr);
+}
+
+/* Given a string representing a C test expression, look it up in the
+   condition_table and report whether or not its value is known
+   at compile time.  Returns a tristate: 1 for known true, 0 for
+   known false, -1 for unknown.  */
+int
+maybe_eval_c_test (expr)
+     const char *expr;
+{
+  const struct c_test *test;
+  struct c_test dummy;
+
+  if (expr[0] == 0)
+    return 1;
+
+  if (insn_elision_unavailable)
+    return -1;
+
+  dummy.expr = expr;
+  test = (const struct c_test *) htab_find (condition_table, &dummy);
+  if (!test)
+    abort ();
+
+  return test->value;
 }
 
 /* Given a string, return the number of comma-separated elements in it.

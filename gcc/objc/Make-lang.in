@@ -48,7 +48,8 @@ OBJECTIVE-C objective-c: cc1obj$(exeext)
 objc-warn = $(STRICT_WARN)
 
 # Language-specific object files for Objective C.
-OBJC_OBJS = objc-lang.o objc-parse.o objc-act.o $(C_AND_OBJC_OBJS)
+OBJC_OBJS = objc-lang.o objc-parse.o objc-act.o c-pretty-print.o \
+            $(C_AND_OBJC_OBJS)
 
 cc1obj$(exeext): $(OBJC_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(OBJC_OBJS) $(BACKEND) $(LIBS)

@@ -1866,32 +1866,8 @@ do {									 \
 #undef	ASM_DECLARE_FUNCTION_SIZE
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
-    if (DECLARE_ASM_NAME)						\
-      {									\
-	if (!flag_inhibit_size_directive)				\
-	  {								\
-	    char label[256];						\
-	    static int labelno = 0;					\
-	    labelno++;							\
-	    ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
-	    ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	    ASM_OUTPUT_MEASURED_SIZE (FILE, (FNAME), label);		\
-	  }								\
-      }									\
-  } while (0)
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)			\
-  do {							\
-    fprintf (FILE, "%s", GLOBAL_ASM_OP);		\
-    assemble_name (FILE, NAME);				\
-    putc ('\n', FILE);					\
+    if (DECLARE_ASM_NAME && !flag_inhibit_size_directive)		\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 
 /* The prefix to add to user-visible assembler symbols.

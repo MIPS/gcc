@@ -610,6 +610,9 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "5kc", PROCESSOR_R5KC, 64 },
   { "20kc", PROCESSOR_R20KC, 64 },
 
+  /* Broadcom SB-1 CPU core */
+  { "sb1", PROCESSOR_SB1, 64 },
+
   /* End marker */
   { 0, 0, 0 }
 };
@@ -5357,13 +5360,13 @@ override_options ()
 
 	  else if (FP_REG_P (regno))
 	    temp = (((regno % FP_INC) == 0
-		      /* I think this change is OK regardless of abi, but
+		     /* I think this change is OK regardless of abi, but
                         I'm being cautions untill I can test this more.
                         HARD_REGNO_MODE_OK is about whether or not you
                         can move to and from a register without changing
                         the value, not about whether math works on the
-                        register.  */
-                     || (mips_abi == ABI_MEABI && size <= 4))
+                        register. */
+		     || (mips_abi == ABI_MEABI && size <= 4))
 		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT)
 			 && size <= UNITS_PER_FPVALUE)
 			/* Allow integer modes that fit into a single
@@ -5403,6 +5406,62 @@ override_options ()
 
   /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
+}
+
+/* Implement CONDITIONAL_REGISTER_USAGE.  */
+
+void
+mips_conditional_register_usage ()
+{
+  if (!TARGET_HARD_FLOAT)
+    {
+      int regno;
+
+      for (regno = FP_REG_FIRST; regno <= FP_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+      for (regno = ST_REG_FIRST; regno <= ST_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+    }
+  else if (! ISA_HAS_8CC)
+    {
+      int regno;
+
+      /* We only have a single condition code register.  We
+	 implement this by hiding all the condition code registers,
+	 and generating RTL that refers directly to ST_REG_FIRST.  */
+      for (regno = ST_REG_FIRST; regno <= ST_REG_LAST; regno++)
+	fixed_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* In mips16 mode, we permit the $t temporary registers to be used
+     for reload.  We prohibit the unused $s registers, since they
+     are caller saved, and saving them via a mips16 register would
+     probably waste more time than just reloading the value.  */
+  if (TARGET_MIPS16)
+    {
+      fixed_regs[18] = call_used_regs[18] = 1;
+      fixed_regs[19] = call_used_regs[19] = 1;
+      fixed_regs[20] = call_used_regs[20] = 1;
+      fixed_regs[21] = call_used_regs[21] = 1;
+      fixed_regs[22] = call_used_regs[22] = 1;
+      fixed_regs[23] = call_used_regs[23] = 1;
+      fixed_regs[26] = call_used_regs[26] = 1;
+      fixed_regs[27] = call_used_regs[27] = 1;
+      fixed_regs[30] = call_used_regs[30] = 1;
+    }
+  /* fp20-23 are now caller saved.  */
+  if (mips_abi == ABI_64)
+    {
+      int regno;
+      for (regno = FP_REG_FIRST + 20; regno < FP_REG_FIRST + 24; regno++)
+	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* odd registers from fp21 to fp31 are now caller saved.  */
+  if (mips_abi == ABI_N32 || mips_abi == ABI_MEABI)
+    {
+      int regno;
+      for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
+	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -10310,7 +10369,7 @@ mips_unique_section (decl, reloc)
 	 read-only data if possible, in order to reduce RAM
 	 usage.  */
 
-      if (DECL_READONLY_SECTION (decl, reloc))
+      if (decl_readonly_section (decl, reloc))
 	sec = 1;
       else if (size > 0 && size <= mips_section_threshold)
 	sec = 3;
@@ -10325,7 +10384,7 @@ mips_unique_section (decl, reloc)
 
       if (size > 0 && size <= mips_section_threshold)
 	sec = 3;
-      else if (DECL_READONLY_SECTION (decl, reloc))
+      else if (decl_readonly_section (decl, reloc))
 	sec = 1;
       else
 	sec = 2;
@@ -10369,20 +10428,17 @@ mips_return_in_memory (type)
 static int
 mips_issue_rate ()
 {
-  int rate;
-
   switch (mips_tune)
     {
     case PROCESSOR_R3000:
-      rate = 1;
-      break;
+      return 1;
 
     default:
-      rate = 1;
-      break;
+      return 1;
     }
 
-  return rate;
+  abort ();
+
 }
 
 const char *

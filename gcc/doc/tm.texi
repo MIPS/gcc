@@ -4598,6 +4598,13 @@ remainder in division of one unsigned full-word by another.  If you do
 not define this macro, the default name is used, which is
 @code{__umoddi3}, a function defined in @file{libgcc.a}.
 
+@findex DECLARE_LIBRARY_RENAMES
+@item DECLARE_LIBRARY_RENAMES
+This macro, if defined, should expand to a piece of C code that will get
+expanded when compiling functions for libgcc.a.  It can be used to
+provide alternate names for gcc's internal library functions if there
+are ABI-mandated names that the compiler should provide.
+
 @findex INIT_TARGET_OPTABS
 @item INIT_TARGET_OPTABS
 Define this macro as a C statement that declares additional library
@@ -6397,7 +6404,8 @@ A C statement (sans semicolon) to output to the stdio stream
 @var{stream} the assembler definition of a label named @var{name}.
 Use the expression @code{assemble_name (@var{stream}, @var{name})} to
 output the name itself; before and after that, output the additional
-assembler syntax for defining the name, and a newline.
+assembler syntax for defining the name, and a newline.  A default
+definition of this macro is provided which is correct for most systems.
 
 @findex SIZE_ASM_OP
 @item SIZE_ASM_OP
@@ -6421,12 +6429,18 @@ If you define @code{SIZE_ASM_OP}, a default definition of this macro is
 provided.
 
 @findex ASM_OUTPUT_MEASURED_SIZE
-@item ASM_OUTPUT_MEASURED_SIZE (@var{stream}, @var{beg}, @var{end})
+@item ASM_OUTPUT_MEASURED_SIZE (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} a directive telling the assembler to calculate the size of
-the symbol @var{beg} by subtracting its address from that of the symbol
-@var{end}.  If you define @code{SIZE_ASM_OP}, a default definition of
-this macro is provided.
+the symbol @var{name} by subtracting its address from the current
+address.  
+
+If you define @code{SIZE_ASM_OP}, a default definition of this macro is
+provided.  The default assumes that the assembler recognizes a special
+@samp{.} symbol as referring to the current address, and can calculate
+the difference between this and another symbol.  If your assembler does
+not recognize @samp{.} or cannot do calculations with it, you will need
+to redefine @code{ASM_OUTPUT_MEASURED_SIZE} to use some other technique.
 
 @findex TYPE_ASM_OP
 @item TYPE_ASM_OP
@@ -6536,6 +6550,9 @@ that is, available for reference from other files.  Use the expression
 @code{assemble_name (@var{stream}, @var{name})} to output the name
 itself; before and after that, output the additional assembler syntax
 for making that name global, and a newline.
+
+If you define @code{GLOBAL_ASM_OP}, a default definition is provided
+which is correct for most systems.
 
 @findex ASM_WEAKEN_LABEL
 @item ASM_WEAKEN_LABEL (@var{stream}, @var{name})

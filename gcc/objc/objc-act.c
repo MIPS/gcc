@@ -292,6 +292,7 @@ static void generate_classref_translation_entry	PARAMS ((tree));
 static void handle_class_ref			PARAMS ((tree));
 static void generate_struct_by_value_array	PARAMS ((void))
      ATTRIBUTE_NORETURN;
+static void encode_complete_bitfield		PARAMS ((int, tree, int));
 
 /*** Private Interface (data) ***/
 
@@ -324,8 +325,6 @@ static void generate_struct_by_value_array	PARAMS ((void))
 
 #define PROTOCOL_OBJECT_CLASS_NAME "Protocol"
 
-static const char *constant_string_class_name = NULL;
-
 static const char *TAG_GETCLASS;
 static const char *TAG_GETMETACLASS;
 static const char *TAG_MSGSEND;
@@ -356,32 +355,9 @@ extern enum debug_info_type write_symbols;
 
 extern const char *dump_base_name;
 
-/* Generate code for GNU or NeXT runtime environment.  */
-
-#ifdef NEXT_OBJC_RUNTIME
-int flag_next_runtime = 1;
-#else
-int flag_next_runtime = 0;
-#endif
-
-int flag_typed_selectors;
-
-/* Open and close the file for outputting class declarations, if requested.  */
-
-int flag_gen_declaration = 0;
+static int flag_typed_selectors;
 
 FILE *gen_declaration_file;
-
-/* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
-
-int warn_selector = 0;
-
-/* Warn if methods required by a protocol are not implemented in the 
-   class adopting it.  When turned off, methods inherited to that
-   class are also considered implemented */
-
-int flag_warn_protocol = 1;
 
 /* Tells "encode_pointer/encode_aggregate" whether we are generating
    type descriptors for instance variables (as opposed to methods).
@@ -389,12 +365,6 @@ int flag_warn_protocol = 1;
    than methods (for static typing and embedded structures).  */
 
 static int generating_instance_variables = 0;
-
-/* Tells the compiler that this is a special run.  Do not perform any
-   compiling, instead we are to test some platform dependent features
-   and output a C header file with appropriate definitions.  */
-
-static int print_struct_values = 0;
 
 /* Some platforms pass small structures through registers versus
    through an invisible pointer.  Determine at what size structure is
@@ -464,6 +434,8 @@ objc_init (filename)
      const char *filename;
 {
   filename = c_objc_common_init (filename);
+  if (filename == NULL)
+    return filename;
 
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
@@ -538,9 +510,9 @@ objc_decode_option (argc, argv)
   else if (!strcmp (p, "-Wno-selector"))
     warn_selector = 0;
   else if (!strcmp (p, "-Wprotocol"))
-    flag_warn_protocol = 1;
+    warn_protocol = 1;
   else if (!strcmp (p, "-Wno-protocol"))
-    flag_warn_protocol = 0;
+    warn_protocol = 0;
   else if (!strcmp (p, "-fgnu-runtime"))
     flag_next_runtime = 0;
   else if (!strcmp (p, "-fno-next-runtime"))
@@ -5876,7 +5848,7 @@ check_protocol (p, type, name)
       int f1, f2;
 
       /* Ensure that all protocols have bodies!  */
-      if (flag_warn_protocol)
+      if (warn_protocol)
 	{
 	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
 			      CLASS_CLS_METHODS (objc_implementation_context),
@@ -6702,7 +6674,10 @@ encode_type (type, curtype, format)
 }
 
 static void
-encode_complete_bitfield (int position, tree type, int size)
+encode_complete_bitfield (position, type, size)
+     int position;
+     tree type;
+     int size;
 {
   enum tree_code code = TREE_CODE (type);
   char buffer[40];

@@ -1,4 +1,28 @@
-2002-07-26  Neil Booth  <neil@daikokuya.co.uk>
+2002-08-03  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-1.c: New testcase.
+
+2002-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/access3.C: New test.
+
+2002-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/ia64-visibility-2.c: New test.
+
+2002-08-01  Benjamin Kosnik   <bkoz@redhat.com>
+
+        * g++.old-deja/g++.abi/ptrflags.C (expect): Change
+	__qualifier_flags to __flags.
+
+2002-07-31  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/inherit/operator1.C: New test.
+	* g++.dg/lookup/disamb1.C: Fix typo in comment.
+	* g++.dg/other/error1.C: Change expected error message.
+	* g++.dg/template/conv4.C: Likewise.
+	
+2002-07-26  Neil Booth  <neil@daikokuya.cop.uk>
 
 	* gcc.dg/cpp/trad/Wunused.c, gcc.dg/cpp/Wunused.c: Add test
 	for documented behaviour.

@@ -575,6 +575,10 @@ int flag_errno_math = 1;
 
 int flag_unsafe_math_optimizations = 0;
 
+/* Nonzero means that no NaNs or +-Infs are expected.  */
+
+int flag_finite_math_only = 0;
+
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
    IEEE 754 arithmetic.  Trapping conditions include division by zero,
@@ -1187,6 +1191,8 @@ static const lang_independent_options f_options[] =
    N_("Process #ident directives") },
   { "peephole2", &flag_peephole2, 1,
    N_("Enables an rtl peephole pass run before sched2") },
+  {"finite-math-only", &flag_finite_math_only, 1,
+   N_("Assume no NaNs or +-Infs are generated") },
   { "guess-branch-probability", &flag_guess_branch_prob, 1,
    N_("Enables guessing of branch probabilities") },
   {"math-errno", &flag_errno_math, 1,
@@ -1604,6 +1610,7 @@ set_fast_math_flags (set)
 {
   flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
+  flag_finite_math_only = set;
   flag_errno_math = !set;
   if (set)
     flag_signaling_nans = 0;
@@ -1615,6 +1622,7 @@ fast_math_flags_set_p ()
 {
   return (!flag_trapping_math
 	  && flag_unsafe_math_optimizations
+	  && flag_finite_math_only
 	  && !flag_errno_math);
 }
 
@@ -4835,6 +4843,15 @@ parse_options_and_default_flags (argc, argv)
       align_jumps = 1;
       align_labels = 1;
       align_functions = 1;
+
+      /* Don't reorder blocks when optimizing for size because extra
+	 jump insns may be created; also barrier may create extra padding.
+
+	 More correctly we should have a block reordering mode that tried
+	 to minimize the combined size of all the jumps.  This would more
+	 or less automatically remove extra jumps, but would also try to
+	 use more short jumps instead of long jumps.  */
+      flag_reorder_blocks = 0;
     }
 
   /* Initialize whether `char' is signed.  */
