@@ -1,3 +1,24 @@
+2003-11-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (pre_stats): Add ephis_current member.
+	(create_ephi_node): Use xmalloc, not ggc_alloc_tree.
+	(clear_all_eref_arrays): Free the ephis here.
+	(expr_phi_insertion): Don't append the ephis to the erefs array. 
+	(insert_occ_in_preorder_dt_order): Move building/freeing of dfn
+	array so that it only occurs once per function..
+	(rename_1): Ditto on the dfs_id array.
+	(ephi_use_pool): New alloc pool.
+	(add_ephi_use): Pool allocate these things, rather than
+	ggc_alloc'ing them.
+	(insert_euse_in_preorder_dt_order_1): Use ephi_at_block to put the
+	ephi in the list.
+	(pre_expression): Don't PRE when we only have 1 occurrence.
+	(expr_lexically_eq): Make inline.
+	(names_match_p): Move closer to first use.
+	(tree_perform_ssapre): Alloc and free the ephi_use_pool.
+	Make stat printing per-expression.
+	Add checking that we freed all ephis.
+	
 2003-11-14  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt (ftree-ter): Document new option.

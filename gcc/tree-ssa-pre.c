@@ -115,7 +115,7 @@ static int dump_flags;
 struct expr_info;
 static inline void append_eref_to_block (tree, basic_block);
 static void clear_all_eref_arrays (void);
-static bool expr_lexically_eq (const tree, const tree);
+static inline bool expr_lexically_eq (const tree, const tree);
 static void free_expr_info (struct expr_info *);
 static bitmap compute_idfs (bitmap *, tree);
 static void set_var_phis (struct expr_info *, tree);
@@ -278,9 +278,10 @@ static struct pre_stats_d
   int repairs;
   int newphis;
   int ephi_allocated;
+  int ephis_current;
   int eref_allocated;
   int exprs_generated;  
-} pre_stats = {0, 0, 0, 0, 0, 0, 0};
+} pre_stats = {0, 0, 0, 0, 0, 0, 0, 0};
 
 
 /* USE entry in list of uses of ephi's.  */
@@ -405,7 +406,7 @@ create_ephi_node (basic_block bb, unsigned int add)
   size = (sizeof (struct tree_ephi_node)
 	  + ((len - 1) * sizeof (struct ephi_arg_d)));
 
-  phi = ggc_alloc_tree (size);
+  phi = xmalloc (size);
   memset (phi, 0, size);
   if (add)
     {
@@ -415,8 +416,8 @@ create_ephi_node (basic_block bb, unsigned int add)
       else
 	chainon (ann->ephi_nodes, phi);
     }
-  pre_stats.ephi_allocated += ggc_get_size (phi);
-  
+  pre_stats.ephi_allocated += size;
+  pre_stats.ephis_current += 1;
   TREE_SET_CODE (phi, EPHI_NODE);
   EPHI_NUM_ARGS (phi) = 0;
   EPHI_ARG_CAPACITY (phi) = len;
@@ -438,6 +439,48 @@ find_rhs_use_for_var (tree def, tree var)
   if (!ret)
     abort ();
   return ret;
+}
+
+/* Determine if two trees are referring to the same variable. 
+   Handles SSA_NAME vs non SSA_NAME, etc.  Uses operand_equal_p for
+   non-trivial cases (INDIRECT_REF and friends).  */
+
+static inline bool
+names_match_p (const tree t1, const tree t2)
+{
+  tree name1, name2;
+
+  if (t1 == t2)
+    return true;
+  
+  if (TREE_CODE (t1) == INDIRECT_REF)
+    return names_match_p (TREE_OPERAND (t1, 0), t2);
+  
+  if (TREE_CODE (t2) == INDIRECT_REF)
+    return names_match_p (t1, TREE_OPERAND (t2, 0));
+  
+  if (TREE_CODE (t1) == SSA_NAME)
+    name1 = SSA_NAME_VAR (t1);
+  else if (DECL_P (t1))
+    name1 = t1;
+  else
+    name1 = NULL_TREE;
+
+  if (TREE_CODE (t2) == SSA_NAME)
+    name2 = SSA_NAME_VAR (t2);
+  else if (DECL_P (t2))
+    name2 = t2;
+  else
+    name2 = NULL_TREE;
+
+  if (name1 == NULL_TREE && name2 != NULL_TREE)
+    return false;
+  if (name2 == NULL_TREE && name1 != NULL_TREE)
+    return false;
+  if (name1 == NULL_TREE && name2 == NULL_TREE)
+    return operand_equal_p (t1, t2, 0);
+
+  return name1 == name2;
 }
 
 /* Given DEF (which can be an SSA_NAME or entire statement), and VAR,
@@ -604,6 +647,7 @@ static alloc_pool euse_node_pool;
    out of this.  */
 static alloc_pool eref_node_pool;
 
+
 /* To order EREF's in a given block, we assign them each an ID based
    on when we see them.  */
 static int eref_id_counter = 0;
@@ -729,6 +773,12 @@ clear_all_eref_arrays (void)
       if (ann->erefs)
 	VARRAY_CLEAR (ann->erefs);
       ann->erefs = NULL;
+      if (ann->ephi_nodes)
+	{
+	  free (ann->ephi_nodes);
+	  pre_stats.ephis_current -= 1;
+	}
+      ann->ephi_nodes = NULL;
     }
 }
 
@@ -808,7 +858,6 @@ expr_phi_insertion (bitmap * dfs, struct expr_info *ei)
   {
     tree ref = create_expr_ref (ei, ei->expr, EPHI_NODE, BASIC_BLOCK (i),
 				NULL);
-    append_eref_to_block (ref, BASIC_BLOCK (i));
     EREF_PROCESSED (ref) = false;
     EPHI_DOWNSAFE (ref) = true;
     EPHI_DEAD (ref) = true;
@@ -1062,13 +1111,10 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	  }
       }
   }
-  dfn = xcalloc (last_basic_block + 1, sizeof (int));
-  build_dfn_array (ENTRY_BLOCK_PTR, 0);
   qsort (ei->euses_dt_order->data.tree, 
 	 VARRAY_ACTIVE_SIZE (ei->euses_dt_order), 
 	 sizeof (tree),
 	 eref_compare);
-  free (dfn);
 }
 
   
@@ -1350,8 +1396,15 @@ bool load_modified_real_occ_real_occ (tree def, tree use)
   varray_type ops;
   size_t i;
   
-  expr1val = iterative_hash_expr (TREE_OPERAND (def, 1), 0);
-  expr2val = iterative_hash_expr (TREE_OPERAND (use, 1), 0);
+  if (TREE_CODE (def) == VA_ARG_EXPR)
+    expr1val = iterative_hash_expr (def, 0);
+  else
+    expr1val = iterative_hash_expr (TREE_OPERAND (def, 1), 0);
+
+  if (TREE_CODE (use) == VA_ARG_EXPR)
+    expr2val = iterative_hash_expr (use, 0);
+  else
+    expr2val = iterative_hash_expr (TREE_OPERAND (use, 1), 0);
   
   if (expr1val == expr2val)
     {
@@ -1552,7 +1605,6 @@ rename_1 (struct expr_info *ei)
   VARRAY_TREE_INIT (stack, 1, "Stack for renaming");
 
   insert_occ_in_preorder_dt_order (ei);
-  build_dfs_id_array ();
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
@@ -1740,6 +1792,9 @@ compute_down_safety (struct expr_info *ei)
     }
 }
 
+/* EPHI use node pool. We allocate ephi_use_node's out of this.  */
+static alloc_pool ephi_use_pool;
+
 /* Add a use of DEF to it's use list. The use is at operand OPND_INDX
    of USE.  */
 
@@ -1749,7 +1804,7 @@ add_ephi_use (tree def, tree use, int opnd_indx)
   struct ephi_use_entry *entry;
   if (EPHI_USES (def) == NULL)
     VARRAY_GENERIC_PTR_INIT (EPHI_USES (def), 1, "EPHI uses");
-  entry = ggc_alloc (sizeof (struct ephi_use_entry));
+  entry = (struct ephi_use_entry *) pool_alloc (ephi_use_pool);
   entry->phi = use;
   entry->opnd_indx = opnd_indx;
   VARRAY_PUSH_GENERIC_PTR (EPHI_USES (def), entry);  
@@ -1824,6 +1879,10 @@ insert_euse_in_preorder_dt_order_1 (struct expr_info *ei, basic_block block)
 {
   bb_ann_t ann = bb_ann (block);
   size_t i;
+
+  if (ephi_at_block (block) != NULL_TREE)
+      VARRAY_PUSH_TREE (ei->euses_dt_order, ephi_at_block (block));
+      
   if (ann->erefs)
     {
       for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->erefs); i++)
@@ -1832,11 +1891,16 @@ insert_euse_in_preorder_dt_order_1 (struct expr_info *ei, basic_block block)
 	  if (!ref)
 	    continue;
 	  
-	  if (TREE_CODE (ref) == EUSE_NODE
-	      || TREE_CODE (ref) == EPHI_NODE)
+	  if (TREE_CODE (ref) == EUSE_NODE)
 	    VARRAY_PUSH_TREE (ei->euses_dt_order, ref);
+#ifdef ENABLE_CHECKING
+	  else if (TREE_CODE (ref) == EPHI_NODE)
+	    abort ();
+#endif
+
 	}
     }
+
   if (dom_children (block))
     EXECUTE_IF_SET_IN_BITMAP (dom_children (block), 0, i,
     {
@@ -2840,52 +2904,11 @@ is_strred_cand (const tree expr ATTRIBUTE_UNUSED)
   return false;
 }
 
-/* Determine if two trees are referring to the same variable. 
-   Handles SSA_NAME vs non SSA_NAME, etc.  Uses operand_equal_p for
-   non-trivial cases (INDIRECT_REF and friends).  */
-
-static inline bool
-names_match_p (const tree t1, const tree t2)
-{
-  tree name1, name2;
-
-  if (t1 == t2)
-    return true;
-  
-  if (TREE_CODE (t1) == INDIRECT_REF)
-    return names_match_p (TREE_OPERAND (t1, 0), t2);
-  
-  if (TREE_CODE (t2) == INDIRECT_REF)
-    return names_match_p (t1, TREE_OPERAND (t2, 0));
-  
-  if (TREE_CODE (t1) == SSA_NAME)
-    name1 = SSA_NAME_VAR (t1);
-  else if (DECL_P (t1))
-    name1 = t1;
-  else
-    name1 = NULL_TREE;
-
-  if (TREE_CODE (t2) == SSA_NAME)
-    name2 = SSA_NAME_VAR (t2);
-  else if (DECL_P (t2))
-    name2 = t2;
-  else
-    name2 = NULL_TREE;
-
-  if (name1 == NULL_TREE && name2 != NULL_TREE)
-    return false;
-  if (name2 == NULL_TREE && name1 != NULL_TREE)
-    return false;
-  if (name1 == NULL_TREE && name2 == NULL_TREE)
-    return operand_equal_p (t1, t2, 0);
-
-  return name1 == name2;
-}
 
 
 /* Determine if two expressions are lexically equivalent. */
 
-static bool
+static inline bool
 expr_lexically_eq (const tree v1, const tree v2)
 {
   if (TREE_CODE_CLASS (TREE_CODE (v1)) != TREE_CODE_CLASS (TREE_CODE (v2)))
@@ -3003,15 +3026,10 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
   /* If we don't have two occurrences along any dominated path, and
      it's not load PRE, this is a waste of time.  */
 
-  if (VARRAY_ACTIVE_SIZE (ei->reals) < 2 
-      && !ei->loadpre_cand)
-    return 1;
-  if (VARRAY_ACTIVE_SIZE (ei->reals) == 0)
+  if (VARRAY_ACTIVE_SIZE (ei->reals) < 2)
     return 1;
   
-  pre_stats.ephi_allocated = 0;
-  pre_stats.eref_allocated = 0;
-  pre_stats.exprs_generated = 0;
+  memset (&pre_stats, 0, sizeof (struct pre_stats_d));
   
   ei->temp = create_tmp_var (TREE_TYPE (ei->expr), "pretmp");
   add_referenced_tmp_var (ei->temp);
@@ -3069,21 +3087,31 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
       if (ei->loadpre_cand)
 	SET_BIT (vars_to_rename, var_ann (ei->temp)->uid);
     }
-  
+
+  clear_all_eref_arrays ();
+  if (dump_file)
+    if (dump_flags & TDF_STATS)
+      {
+	fprintf (dump_file, "PRE stats:\n");
+	fprintf (dump_file, "Reloads:%d\n", pre_stats.reloads);
+	fprintf (dump_file, "Saves:%d\n", pre_stats.saves);
+	fprintf (dump_file, "Repairs:%d\n", pre_stats.repairs);
+	fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
+	fprintf (dump_file, "EPHI memory allocated:%d\n", 
+		 pre_stats.ephi_allocated);
+	fprintf (dump_file, "EREF memory allocated:%d\n",
+		 pre_stats.eref_allocated);
+	fprintf (dump_file, "Expressions generated for rename2:%d\n",
+		 pre_stats.exprs_generated);
+      }
  cleanup:
-  free (dfs_id);
-  free (dfs_id_last);
   free (phi_pred_cache);
   if (ephi_pindex_htab)
     {
       htab_delete (ephi_pindex_htab);
       ephi_pindex_htab = NULL;
     }
-  FOR_EACH_BB (bb)
-  {
-    bb_ann_t ann = bb_ann (bb);
-    ann->ephi_nodes = NULL_TREE;
-  }
+
 
   return 0;
 }
@@ -3242,6 +3270,8 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
 				      sizeof (struct tree_euse_node), 30);
   eref_node_pool = create_alloc_pool ("EREF node pool",
 				      sizeof (struct tree_eref_common), 30);
+  ephi_use_pool = create_alloc_pool ("EPHI use node pool",
+              sizeof (struct ephi_use_entry), 30);
   VARRAY_GENERIC_PTR_INIT (bexprs, 1, "bexprs");
   VARRAY_TREE_INIT (added_phis, 1, "Added phis");
   /* Compute immediate dominators.  */
@@ -3250,7 +3280,10 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   /* DCE screws the dom_children up, without bothering to fix it. So fix it. */
   currbbs = n_basic_blocks;
   build_dominator_tree (pre_idom);
-  
+  build_dfs_id_array ();
+  dfn = xcalloc (last_basic_block + 1, sizeof (int));
+  build_dfn_array (ENTRY_BLOCK_PTR, 0);
+
   /* Initialize IDFS cache.  */
   idfs_cache = xcalloc (currbbs, sizeof (bitmap));
 
@@ -3277,32 +3310,24 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
       pre_expression (VARRAY_GENERIC_PTR (bexprs, k), pre_dfs, vars_to_rename);
       free_alloc_pool (euse_node_pool);
       free_alloc_pool (eref_node_pool);
+      free_alloc_pool (ephi_use_pool);
       euse_node_pool = create_alloc_pool ("EUSE node pool", 
 					  sizeof (struct tree_euse_node), 30);
       eref_node_pool = create_alloc_pool ("EREF node pool",
 					  sizeof (struct tree_eref_common), 30);
+      ephi_use_pool = create_alloc_pool ("EPHI use node pool",
+            sizeof (struct ephi_use_entry), 30);
       free_expr_info (VARRAY_GENERIC_PTR (bexprs, k));
-      clear_all_eref_arrays ();
-      ggc_collect ();
+#ifdef ENABLE_CHECKING
+      if (pre_stats.ephis_current != 0)
+	abort ();
+#endif
+      ggc_collect (); 
     }
   ggc_pop_context (); 
   /* Debugging dumps.  */
   if (dump_file)
-    {
-      if (dump_flags & TDF_STATS)
-	{
-	  fprintf (dump_file, "PRE stats:\n");
-	  fprintf (dump_file, "Reloads:%d\n", pre_stats.reloads);
-	  fprintf (dump_file, "Saves:%d\n", pre_stats.saves);
-	  fprintf (dump_file, "Repairs:%d\n", pre_stats.repairs);
-	  fprintf (dump_file, "New phis:%d\n", pre_stats.newphis);
-	  fprintf (dump_file, "EPHI memory allocated:%d\n", 
-		   pre_stats.ephi_allocated);
-	  fprintf (dump_file, "EREF memory allocated:%d\n",
-		   pre_stats.eref_allocated);
-	  fprintf (dump_file, "Expressions generated for rename2:%d\n",
-		   pre_stats.exprs_generated);
-	}
+    {     
       dump_function_to_file (fndecl, dump_file, dump_flags);
       dump_end (phase, dump_file);
     }
@@ -3326,6 +3351,9 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   if (sbitmap_first_set_bit (vars_to_rename) != -1)
     rewrite_into_ssa (fndecl, vars_to_rename, TDI_pre);
   sbitmap_free (vars_to_rename);
+  free (dfs_id);
+  free (dfs_id_last);
+  free (dfn);
   timevar_pop (TV_TREE_PRE);
 }
 
