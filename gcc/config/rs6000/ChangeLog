@@ -1,3 +1,15 @@
+2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.c: Correct comment, the `minimal' TOCs are actually
+	one per translation unit, not one per function.
+	(output_toc): Also do duplicate constant elimination
+	for per-translation-unit TOCs.
+
+	* rs6000.md (nonlocal_goto_receiver): Put it back as before.  Add
+	a comment explaining _exactly_ when this pattern gets used.
+	(builtin_setjmp_receiver): New pattern for better clarity.
+	(init_v4_pic): Move it into a section dealing with TOC registers.
+
 1999-12-30  Geoff Keating  <geoffk@cygnus.com>
 
 	* rs6000.c (toc_hash_table): New variable.

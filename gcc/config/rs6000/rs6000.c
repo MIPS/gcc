@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991, 93-8, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1991, 93-8, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -5091,11 +5091,10 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
    Target	Flags		Name		One table per	
    AIX		(none)		AIX TOC		object file
    AIX		-mfull-toc	AIX TOC		object file
-   AIX		-mminimal-toc	AIX minimal TOC	function
+   AIX		-mminimal-toc	AIX minimal TOC	translation unit
    SVR4/EABI	(none)		SVR4 SDATA	object file
-   SVR4/EABI	-mtoc		AIX minimal TOC	function
    SVR4/EABI	-fpic		SVR4 pic	object file
-   SVR4/EABI	-fPIC		SVR4 PIC	function
+   SVR4/EABI	-fPIC		SVR4 PIC	translation unit
    SVR4/EABI	-mrelocatable	EABI TOC	function
 
    Name			Reg.	Set by	entries	      contains:
@@ -5268,11 +5267,12 @@ output_toc (file, x, labelno)
   if (TARGET_NO_TOC)
     abort ();
 
-  /* When the TOC is shared among the whole file, 
-     don't output duplicate entries. 
+  /* When the linker won't eliminate them, don't output duplicate
+     TOC entries (this happens on AIX if there is any kind of TOC,
+     and on SVR4 under -fPIC or -mrelocatable).
      This won't work if we are not garbage collecting, so 
      we don't do it, sorry.  */
-  if (! TARGET_ELF && ! TARGET_MINIMAL_TOC && ggc_p)
+  if (TARGET_TOC && ggc_p)
     {
       struct toc_hash_struct *h;
       hash_table_entry_t * found;
