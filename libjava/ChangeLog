@@ -1,5 +1,11 @@
 2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
 
+	2002-05-29  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+	* configure.host: Disable hash synchronization and slow_pthread_self
+	for cygwin.
+
+2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
+
 	* java/net/natPlainSocketImpl.cc:  Include <sys/ioctl.h>
 	
 2002-06-09  David Billinghurst <David.Billinghurst@riotinto.com>
