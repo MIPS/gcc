@@ -555,7 +555,8 @@ move_computations (void)
   fini_walk_dominator_tree (&walk_data);
 
   commit_inserts ();
-  rewrite_into_ssa ();
+  if (bitmap_first_set_bit (vars_to_rename) >= 0)
+    rewrite_into_ssa ();
   BITMAP_XFREE (vars_to_rename);
 }
 

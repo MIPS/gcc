@@ -1,5 +1,51 @@
 2004-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-cfg.c (cleanup_control_expr_graph): Prevent probability from
+	overflowing.
+	* loop-invariant.c (get_current_def): Fix.
+	* tree-ssa-loop-im.c (move_computations): Only call rewrite_into_ssa
+	if vars_to_rename is nonempty.
+	* tree-ssa-loop-ivopts.c (outermost_usage, ivs): Removed.
+	(struct version_info): New.
+	(version_info, max_inv_id): New variables.
+	(struct cost_pair): Added depends_on field.
+	(struct iv_use): Removed fields choices, n_choices, min_cost and
+	min_cost_cand.
+	(enum iv_position, dump_cand, ip_end_pos, add_candidate_1,
+	determine_iv_cost, create_new_iv): IP_START position disabled.
+	(find_optimal_iv_set_1, min_remaining_cost, undo_changes,
+	execute_removal, add_forbidden_ivs, try_candidate): Removed.
+	(dump_use): Do not dump removed fields.
+	(ver_info, name_info, update_outermost_usage, record_invariant,
+	find_invariants_stmt, find_depends, try_improve_iv_set): New functions.
+	(find_outermost_usage): Handle uses in phis.
+	(divide): Update comment.
+	(tree_ssa_iv_optimize_init): Initialize version_info instead of ivs
+	and outermost_usage.
+	(set_iv, get_iv, find_induction_variables, add_old_ivs_candidates): 
+	Use version_info instead of ivs.
+	(record_use): Do not initialize removed fields.
+	(find_interesting_uses_op): Call record_use.
+	(find_interesting_uses_stmt): Call find_invariants_stmt.
+	(find_interesting_uses): Scan just the current loop.
+	(set_use_iv_cost): Initialize depends_on field.
+	(get_use_iv_cost): Return depends_on field.
+	(get_computation): Handle special cases.
+	(force_var_cost, split_address_cost, ptr_difference_cost,
+	difference_cost, get_computation_cost, determine_use_iv_cost_generic,
+	determine_use_iv_cost_address, determine_use_iv_cost_condition):
+	Determine depends_on bitmap.
+	(determine_use_iv_costs): Dump depends_on bitmap.
+	(init_set_costs): Use information about invariants.
+	(find_best_candidate, set_cost, get_initial_solution,
+	find_optimal_iv_set): Take depends_on into account.
+	(rewrite_uses): Use use->selected to select candidate.
+	(free_loop_data, tree_ssa_iv_optimize_finalize): Cleanup version_info
+	instead of ivs.  Free depends_on bitmaps.
+	(tree_ssa_iv_optimize_loop): Do not pass iv_set to rewrite_uses.
+
+2004-02-27  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* cfgloopmanip.c (loopify): Fix comment.
 	* loop-iv.c (lowpart_byte, lowpart_subreg_p): Removed.
 	(lowpart_subreg, simple_reg_p, iv_get_reaching_def, get_biv_step_1,

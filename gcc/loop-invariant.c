@@ -568,12 +568,15 @@ get_current_def (rtx reg, rtx insn, struct def **def)
   if (!(*def)->simple_p)
     return false;
 
+  bb = BLOCK_FOR_INSN (insn);
+  if (!dominated_by_p (CDI_DOMINATORS, bb, (*def)->bb))
+    return false;
+
   if (!(*def)->reg_next)
     return true;
 
   /* Check that the use dominates the next definition.  This ensures that
      it indeed must be reached by the actual one.  */
-  bb = BLOCK_FOR_INSN (insn);
   if (!dominated_by_p (CDI_DOMINATORS, (*def)->reg_next->bb, bb))
     return false;
 

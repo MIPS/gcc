@@ -109,12 +109,23 @@ static struct loop *current_loop;
 /* The highest ssa name before optimizations.  */
 static unsigned old_highest_ssa_version;
 
-/* The outermost loop in that the variable is used.  */
-static struct loop **outermost_usage;
+/* Per-ssa version information (induction variable descriptions, etc.).  */
+struct version_info
+{
+  tree name;		/* The ssa name.  */
+  struct iv *iv;	/* Induction variable description.  */
+  bool has_nonlin_use;	/* For a loop-level invariant, whether it is used in
+			   an expression that is not an induction variable.  */
+  unsigned inv_id;	/* Id of an invariant.  */
+  struct loop *outermost_usage;
+			/* The outermost loop in that the variable is used.  */
+};
 
-/* The array of induction variable descriptions, indexed by the ssa name
-   version.  */
-static struct iv **ivs;
+/* The array of this information indexed by the ssa name version.  */
+static struct version_info *version_info;
+
+/* The maximum invariant id.  */
+static unsigned max_inv_id;
 
 /* Information attached to loop.  */
 struct loop_data
@@ -145,6 +156,8 @@ struct cost_pair
 {
   struct iv_cand *cand;	/* The candidate.  */
   unsigned cost;	/* The cost.  */
+  bitmap depends_on;	/* The list of invariants that have to be
+			   preserved.  */
 };
 
 /* Use.  */
@@ -157,26 +170,27 @@ struct iv_use
   tree *op_p;		/* The place where it occurs.  */
   bitmap related_cands;	/* The set of "related" iv candidates.  */
 
-  bitmap choices;	/* The set of available candidates.  */
-  unsigned n_choices;	/* And its size.  */
-  unsigned min_cost;	/* The minimal cost among choices.  */
-  struct iv_cand *min_cost_cand;
-			/* And the corresponding candidate.  */
-
-  struct iv_cand *selected;
-			/* The candidate selected for the use.  */
   unsigned n_map_members; /* Number of candidates in the cost_map list.  */
   struct cost_pair *cost_map;
 			/* The costs wrto the iv candidates.  */
+
+  struct iv_cand *selected;
+			/* The selected candidate.  */
 };
 
 /* The uses of induction variables.  */
 static varray_type iv_uses;
 
+/* Disabled -- the dominator optimizations tend to reuse the value from
+   the previous iteration, which increases register pressure.  */
+#define DISABLE_IP_START 0
+
 /* The position where the iv is computed.  */
 enum iv_position
 {
+#if DISABLE_IP_START
   IP_START,		/* At the very beginning of the loop body.  */
+#endif
   IP_NORMAL,		/* At the end, just before the exit condition.  */
   IP_END		/* At the end of the latch block.  */
 };
@@ -222,8 +236,6 @@ static varray_type decl_rtl_to_reset;
 #define SWAP(X, Y) do { void *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
 
 static tree force_gimple_operand (tree, tree *, tree, bool);
-static void find_optimal_iv_set_1 (unsigned, unsigned, bitmap, unsigned,
-				   unsigned, bitmap, unsigned *);
 
 /* Dumps information about the induction variable IV to FILE.  */
 
@@ -308,22 +320,6 @@ dump_use (FILE *file, struct iv_use *use)
 
    fprintf (file, "  related candidates ");
    dump_bitmap (file, use->related_cands);
-
-   fprintf (file, "  %d choices ", use->n_choices);
-   dump_bitmap (file, use->choices);
-
-   if (use->min_cost_cand)
-     {
-       fprintf (file, "  best candidate %d (cost %d)",
-		use->min_cost_cand->id, use->min_cost);
-       fprintf (file, "\n");
-     }
-
-   if (use->selected)
-     {
-       fprintf (file, "  selected candidate %d", use->selected->id);
-       fprintf (file, "\n");
-     }
 }
 
 /* Dumps information about the uses to FILE.  */
@@ -357,9 +353,11 @@ dump_cand (FILE *file, struct iv_cand *cand)
 
   switch (cand->pos)
     {
+#if DISABLE_IP_START
     case IP_START:
       fprintf (file, "  incremented at start\n");
       break;
+#endif
 
     case IP_NORMAL:
       fprintf (file, "  incremented before exit test\n");
@@ -386,6 +384,22 @@ dump_cand (FILE *file, struct iv_cand *cand)
        print_generic_expr (file, iv->base, TDF_SLIM);
        fprintf (file, "\n");
      }
+}
+
+/* Returns the info for ssa version VER.  */
+
+static inline struct version_info *
+ver_info (unsigned ver)
+{
+  return version_info + ver;
+}
+
+/* Returns the info for ssa name NAME.  */
+
+static inline struct version_info *
+name_info (tree name)
+{
+  return ver_info (SSA_NAME_VERSION (name));
 }
 
 /* Checks whether ARG is either NULL_TREE or constant zero.  */
@@ -483,7 +497,8 @@ divide (unsigned bits, unsigned HOST_WIDE_INT a, unsigned HOST_WIDE_INT b,
       return false;
     }
 
-  /* Find the inverse of b.  We compute it as b^2^(bits - 1) - 1 (mod 2^bits).  */
+  /* Find the inverse of b.  We compute it as
+     b^(2^(bits - 1) - 1) (mod 2^bits).  */
   inv = 1;
   ex = b;
   for (i = 0; i < bits - 1; i++)
@@ -745,6 +760,24 @@ find_exit_edges (void)
     }
 }
 
+/* Update usage information about OP using the fact that it is used in
+   the LOOP.  */
+
+static void
+update_outermost_usage (tree op, struct loop *loop)
+{
+  struct version_info *info;
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return;
+  info = name_info (op);
+
+  if (!info->outermost_usage)
+    info->outermost_usage = loop;
+  else
+    info->outermost_usage = find_common_loop (loop, info->outermost_usage);
+}
+
 /* Finds the outermost loop in that each ssa name is used.  */
 
 static void
@@ -752,14 +785,29 @@ find_outermost_usage (void)
 {
   basic_block bb;
   block_stmt_iterator bsi;
-  unsigned i, ver;
+  unsigned i;
   use_optype uses;
-  tree use, stmt;
-  struct loop *loop;
+  tree use, stmt, phi;
+  struct loop *loop, *aloop;
 
   FOR_EACH_BB (bb)
     {
       loop = bb->loop_father;
+
+      for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
+	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
+	  {
+	    use = PHI_ARG_DEF (phi, i);
+
+	    /* Use on the entry edge of a loop counts as use in the
+	       superloop.  */
+	    if (loop->header == bb
+		&& PHI_ARG_EDGE (phi, i) == loop_preheader_edge (loop))
+	      aloop = loop->outer;
+	    else
+	      aloop = loop;
+	    update_outermost_usage (use, aloop);
+	  }
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
@@ -770,13 +818,7 @@ find_outermost_usage (void)
 	  for (i = 0; i < NUM_USES (uses); i++)
 	    {
 	      use = USE_OP (uses, i);
-	      ver = SSA_NAME_VERSION (use);
-
-	      if (!outermost_usage[ver])
-		outermost_usage[ver] = loop;
-	      else
-		outermost_usage[ver] = find_common_loop (loop,
-							 outermost_usage[ver]);
+	      update_outermost_usage (use, loop);
 	    }
 	}
     }
@@ -793,10 +835,12 @@ ip_end_pos (void)
 
   bb = current_loop->latch;
   last = last_stmt (bb);
+#if DISABLE_IP_START
   /* If the latch is empty, preserve this (inserting the latch block might need
      extra jumps, which might spoil the code).  */
   if (!last || TREE_CODE (last) == LABEL_EXPR)
     return NULL;
+#endif
 
   return bb;
 }
@@ -850,8 +894,7 @@ tree_ssa_iv_optimize_init (struct loops *loops)
   unsigned i;
 
   old_highest_ssa_version = highest_ssa_version;
-  ivs = xcalloc (highest_ssa_version, sizeof (struct iv *));
-  outermost_usage = xcalloc (highest_ssa_version, sizeof (struct loop *));
+  version_info = xcalloc (highest_ssa_version, sizeof (struct version_info));
 
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
@@ -890,13 +933,13 @@ alloc_iv (tree base, tree step)
 static void
 set_iv (tree iv, tree base, tree step)
 {
-  unsigned ver = SSA_NAME_VERSION (iv);
+  struct version_info *info = name_info (iv);
 
-  if (ivs[ver])
+  if (info->iv)
     abort ();
 
-  ivs[ver] = alloc_iv (base, step);
-  ivs[ver]->ssa_name = iv;
+  info->iv = alloc_iv (base, step);
+  info->iv->ssa_name = iv;
 }
 
 /* Finds induction variable declaration for VAR.  */
@@ -904,10 +947,9 @@ set_iv (tree iv, tree base, tree step)
 static struct iv *
 get_iv (tree var)
 {
-  unsigned ver = SSA_NAME_VERSION (var);
   basic_block bb;
   
-  if (!ivs[ver])
+  if (!name_info (var)->iv)
     {
       bb = bb_for_stmt (SSA_NAME_DEF_STMT (var));
 
@@ -916,7 +958,7 @@ get_iv (tree var)
 	set_iv (var, var, NULL_TREE);
     }
 
-  return ivs[ver];
+  return name_info (var)->iv;
 }
 
 /* Determines the step of a biv defined in PHI.  */
@@ -1639,10 +1681,9 @@ find_induction_variables (void)
       fprintf (tree_dump_file, "Induction variables:\n\n");
 
       for (i = 0; i < highest_ssa_version; i++)
-	if (ivs[i])
-	  dump_iv (tree_dump_file, ivs[i]);
+	if (ver_info (i)->iv)
+	  dump_iv (tree_dump_file, ver_info (i)->iv);
     }
-
 
   return true;
 }
@@ -1660,16 +1701,36 @@ record_use (tree *use_p, struct iv *iv, tree stmt, enum use_type use_type)
   use->stmt = stmt;
   use->op_p = use_p;
   use->related_cands = BITMAP_XMALLOC ();
-  use->choices = BITMAP_XMALLOC ();
-  use->n_choices = 0;
-  use->min_cost = INFTY;
-  use->min_cost_cand = NULL;
-  use->selected = NULL;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     dump_use (tree_dump_file, use);
 
   VARRAY_PUSH_GENERIC_PTR_NOGC (iv_uses, use);
+}
+
+/* Checks whether OP is a loop-level invariant and if so, records it.
+   NONLINEAR_USE is true if the invariant is used in a way we do not
+   handle specially.  */
+
+static void
+record_invariant (tree op, bool nonlinear_use)
+{
+  basic_block bb;
+  struct version_info *info;
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return;
+
+  bb = bb_for_stmt (SSA_NAME_DEF_STMT (op));
+  if (bb
+      && flow_bb_inside_loop_p (current_loop, bb))
+    return;
+
+  info = name_info (op);
+  info->name = op;
+  info->has_nonlin_use |= nonlinear_use;
+  if (!info->inv_id)
+    info->inv_id = ++max_inv_id;
 }
 
 /* Checks whether the use *OP_P is interesting and if so, records it.  */
@@ -1684,8 +1745,13 @@ find_interesting_uses_op (tree *op_p)
     return;
 
   iv = get_iv (*op_p);
-  if (!iv || !iv->step || iv->have_use_for)
+  if (!iv || iv->have_use_for)
     return;
+  if (zero_p (iv->step))
+    {
+      record_invariant (*op_p, true);
+      return;
+    }
   iv->have_use_for = true;
 
   civ = xmalloc (sizeof (struct iv));
@@ -1840,6 +1906,35 @@ fail:
   for_each_index (op_p, idx_record_use, NULL);
 }
 
+/* Finds and records invariants used in STMT.  */
+
+static void
+find_invariants_stmt (tree stmt)
+{
+  use_optype uses = NULL;
+  unsigned i, n;
+  tree op;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    n = PHI_NUM_ARGS (stmt);
+  else
+    {
+      get_stmt_operands (stmt);
+      uses = STMT_USE_OPS (stmt);
+      n = NUM_USES (uses);
+    }
+
+  for (i = 0; i < n; i++)
+    {
+      if (TREE_CODE (stmt) == PHI_NODE)
+	op = PHI_ARG_DEF (stmt, i);
+      else
+	op = USE_OP (uses, i);
+
+      record_invariant (op, false);
+    }
+}
+
 /* Finds interesting uses of induction variables in the statement STMT.  */
 
 static void
@@ -1850,6 +1945,8 @@ find_interesting_uses_stmt (tree stmt)
   use_optype uses = NULL;
   unsigned i, n;
   struct loop *loop;
+
+  find_invariants_stmt (stmt);
 
   if (TREE_CODE (stmt) == COND_EXPR)
     {
@@ -1875,7 +1972,7 @@ find_interesting_uses_stmt (tree stmt)
 
 		 TODO -- add posibility to replace it by the known final value,
 		 or to express the final value using the other ivs.  */
-	      loop = outermost_usage[SSA_NAME_VERSION (lhs)];
+	      loop = name_info (lhs)->outermost_usage;
 	      if (loop
 		  && loop != current_loop
 		  && !flow_loop_nested_p (current_loop, loop))
@@ -1918,7 +2015,7 @@ find_interesting_uses_stmt (tree stmt)
 	     FIXME -- we do not handle this case correctly, since we just try
 	     to replace the rhs of the phi.  */
 	      
-	  loop = outermost_usage[SSA_NAME_VERSION (lhs)];
+	  loop = name_info (lhs)->outermost_usage;
 	  if (loop
 	      && loop != current_loop
 	      && !flow_loop_nested_p (current_loop, loop))
@@ -1932,7 +2029,6 @@ find_interesting_uses_stmt (tree stmt)
     n = PHI_NUM_ARGS (stmt);
   else
     {
-      get_stmt_operands (stmt);
       uses = STMT_USE_OPS (stmt);
       n = NUM_USES (uses);
     }
@@ -1963,20 +2059,42 @@ find_interesting_uses (void)
   basic_block bb;
   block_stmt_iterator bsi;
   tree phi;
+  basic_block *body = get_loop_body (current_loop);
+  unsigned i;
+  struct version_info *info;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     fprintf (tree_dump_file, "Uses:\n\n");
 
-  FOR_EACH_BB (bb)
+  for (i = 0; i < current_loop->num_nodes; i++)
     {
+      bb = body[i];
+
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	find_interesting_uses_stmt (phi);
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_interesting_uses_stmt (bsi_stmt (bsi));
     }
-
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-    fprintf (tree_dump_file, "\n");
+    {
+      fprintf (tree_dump_file, "\n");
+
+      for (i = 0; i < old_highest_ssa_version ; i++)
+	{
+	  info = ver_info (i);
+	  if (!info->inv_id)
+	    continue;
+
+	  fprintf (tree_dump_file, "  ");
+	  print_generic_expr (tree_dump_file, info->name, TDF_SLIM);
+	  fprintf (tree_dump_file, " is invariant (%d)%s\n",
+		   info->inv_id, info->has_nonlin_use ? "" : ", eliminable");
+	}
+
+      fprintf (tree_dump_file, "\n");
+    }
+
+  free (body);
 }
 
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
@@ -2050,7 +2168,9 @@ add_candidate_1 (tree base, tree step, bool important, enum iv_position pos,
 static void
 add_candidate (tree base, tree step, bool important, struct iv_use *use)
 {
+#if DISABLE_IP_START
   add_candidate_1 (base, step, important, IP_START, use);
+#endif
   if (ip_normal_pos ())
     add_candidate_1 (base, step, important, IP_NORMAL, use);
   if (ip_end_pos ())
@@ -2096,7 +2216,7 @@ add_old_ivs_candidates (void)
 
   for (i = 0; i < highest_ssa_version; i++)
     {
-      iv = ivs[i];
+      iv = ver_info (i)->iv;
       if (!iv || !iv->biv_p || zero_p (iv->step))
 	continue;
 
@@ -2230,26 +2350,25 @@ alloc_use_cost_map (void)
     }
 }
 
-/* Sets cost of (USE, CANDIDATE) pair to COST.  */
+/* Sets cost of (USE, CANDIDATE) pair to COST and record that it depends
+   on invariants DEPENDS_ON.  */
 
 static void
-set_use_iv_cost (struct iv_use *use, struct iv_cand *cand, unsigned cost)
+set_use_iv_cost (struct iv_use *use, struct iv_cand *cand, unsigned cost,
+		 bitmap depends_on)
 {
-  if (cost != INFTY)
+  if (cost == INFTY
+      && depends_on)
     {
-      bitmap_set_bit (use->choices, cand->id);
-      use->n_choices++;
-      if (cost < use->min_cost)
-	{
-	  use->min_cost = cost;
-	  use->min_cost_cand = cand;
-	}
+      BITMAP_XFREE (depends_on);
+      depends_on = NULL;
     }
 
   if (consider_all_candidates)
     {
       use->cost_map[cand->id].cand = cand;
       use->cost_map[cand->id].cost = cost;
+      use->cost_map[cand->id].depends_on = depends_on;
       return;
     }
 
@@ -2258,13 +2377,15 @@ set_use_iv_cost (struct iv_use *use, struct iv_cand *cand, unsigned cost)
 
   use->cost_map[use->n_map_members].cand = cand;
   use->cost_map[use->n_map_members].cost = cost;
+  use->cost_map[use->n_map_members].depends_on = depends_on;
   use->n_map_members++;
 }
 
-/* Gets cost of (USE, CANDIDATE) pair.  */
+/* Gets cost of (USE, CANDIDATE) pair.  Stores the bitmap of dependencies to
+   DEPENDS_ON.  */
 
 static unsigned
-get_use_iv_cost (struct iv_use *use, struct iv_cand *cand)
+get_use_iv_cost (struct iv_use *use, struct iv_cand *cand, bitmap *depends_on)
 {
   unsigned i;
 
@@ -2272,15 +2393,19 @@ get_use_iv_cost (struct iv_use *use, struct iv_cand *cand)
     return INFTY;
 
   if (consider_all_candidates)
-    return use->cost_map[cand->id].cost;
+    i = cand->id;
+  else
+    {
+      for (i = 0; i < use->n_map_members; i++)
+	if (use->cost_map[i].cand == cand)
+	  break;
 
-  for (i = 0; i < use->n_map_members; i++)
-    if (use->cost_map[i].cand == cand)
-      break;
+      if (i == use->n_map_members)
+	return INFTY;
+    }
 
-  if (i == use->n_map_members)
-    return INFTY;
-
+  if (depends_on)
+    *depends_on = use->cost_map[i].depends_on;
   return use->cost_map[i].cost;
 }
 
@@ -2395,16 +2520,18 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
   tree ubase = use->iv->base, ustep = use->iv->step;
   tree cbase = cand->iv->base, cstep = cand->iv->step;
   tree utype = TREE_TYPE (ubase), ctype = TREE_TYPE (cbase);
-  tree expr;
+  tree expr, delta;
   tree ratio;
   unsigned HOST_WIDE_INT ustepi, cstepi;
   HOST_WIDE_INT ratioi;
 
   switch (cand->pos)
     {
+#if DISABLE_IP_START
     case IP_START:
       expr = cand->var_after;
       break;
+#endif
 
     case IP_NORMAL:
       if (stmt_after_ip_normal_pos (use->stmt))
@@ -2455,16 +2582,36 @@ get_computation (struct iv_use *use, struct iv_cand *cand)
       && stmt_after_ip_normal_pos (use->stmt))
     cbase = fold (build (PLUS_EXPR, utype, cbase, cstep));
 
-  /* use = ubase + ratio * (var - cbase)  */
-  expr = fold (build (MINUS_EXPR, utype, expr, cbase));
+  /* use = ubase + ratio * (var - cbase).  If either cbase is a constant
+     or |ratio| == 1, it is better to handle this like
+     
+     ubase - ratio * cbase + ratio * var.  */
 
-  if (ratioi != 1)
+  if (ratioi == 1)
+    {
+      delta = fold (build (MINUS_EXPR, utype, ubase, cbase));
+      expr = fold (build (PLUS_EXPR, utype, expr, delta));
+    }
+  else if (ratioi == -1)
+    {
+      delta = fold (build (PLUS_EXPR, utype, ubase, cbase));
+      expr = fold (build (MINUS_EXPR, utype, delta, expr));
+    }
+  else if (TREE_CODE (cbase) == INTEGER_CST)
     {
       ratio = build_int_cst (utype, ratioi);
-      expr = fold (build (MULT_EXPR, utype, expr, ratio));
+      delta = fold (build (MULT_EXPR, utype, ratio, cbase));
+      delta = fold (build (MINUS_EXPR, utype, ubase, delta));
+      expr = fold (build (MULT_EXPR, utype, ratio, expr));
+      expr = fold (build (PLUS_EXPR, utype, delta, expr));
     }
-    
-  expr = fold (build (PLUS_EXPR, utype, ubase, expr));
+  else
+    {
+      expr = fold (build (MINUS_EXPR, utype, expr, cbase));
+      ratio = build_int_cst (utype, ratioi);
+      expr = fold (build (MULT_EXPR, utype, ratio, expr));
+      expr = fold (build (PLUS_EXPR, utype, ubase, expr));
+    }
 
   return expr;
 }
@@ -2744,11 +2891,38 @@ get_address_cost (bool symbol_present, bool var_present,
   return cost + acost;
 }
 
-/* Estimates cost of forcing EXPR into variable.  */
+/* Records invariants in *EXPR_P.  Callback for walk_tree.  DATA contains
+   the bitmap to that we should store it.  */
+
+static tree
+find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
+{
+  bitmap *depends_on = data;
+  struct version_info *info;
+
+  if (TREE_CODE (*expr_p) != SSA_NAME)
+    return NULL_TREE;
+  info = name_info (*expr_p);
+
+  if (!info->inv_id || info->has_nonlin_use)
+    return NULL_TREE;
+
+  if (!*depends_on)
+    *depends_on = BITMAP_XMALLOC ();
+  bitmap_set_bit (*depends_on, info->inv_id);
+
+  return NULL_TREE;
+}
+
+/* Estimates cost of forcing EXPR into variable.  DEPENDS_ON is a set of the
+   invariants the computation depends on.*/
 
 static unsigned
-force_var_cost (tree expr)
+force_var_cost (tree expr, bitmap *depends_on)
 {
+  if (depends_on)
+    walk_tree (&expr, find_depends, depends_on, NULL);
+
   if (is_gimple_min_invariant (expr)
       || SSA_VAR_P (expr))
     return 0;
@@ -2846,25 +3020,29 @@ ptr_difference_const (tree e1, tree e2, unsigned HOST_WIDE_INT *diff)
 
 /* Estimates cost of expressing address ADDR  as var + symbol + offset.  The
    value of offset is added to OFFSET, SYMBOL_PRESENT and VAR_PRESENT are set
-   to false if the corresponding part is missing.  */
+   to false if the corresponding part is missing.  DEPENDS_ON is a set of the
+   invariants the computation depends on.  */
 
 static unsigned
 split_address_cost (tree addr, bool *symbol_present, bool *var_present,
-		    unsigned HOST_WIDE_INT *offset)
+		    unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
 {
-  while (addr
-	 && TREE_CODE (addr) != VAR_DECL)
-    addr = peel_address (addr, offset);
+  tree core = addr;
 
-  if (!addr)
+  while (core
+	 && TREE_CODE (core) != VAR_DECL)
+    core = peel_address (core, offset);
+
+  if (!core)
     {
       *symbol_present = false;
       *var_present = true;
+      walk_tree (&addr, find_depends, depends_on, NULL);
       return spill_cost;
     }  
 	  
-  if (TREE_STATIC (addr)
-      || DECL_EXTERNAL (addr))
+  if (TREE_STATIC (core)
+      || DECL_EXTERNAL (core))
     {
       *symbol_present = true;
       *var_present = false;
@@ -2879,11 +3057,12 @@ split_address_cost (tree addr, bool *symbol_present, bool *var_present,
 /* Estimates cost of expressing difference of addresses E1 - E2 as
    var + symbol + offset.  The value of offset is added to OFFSET,
    SYMBOL_PRESENT and VAR_PRESENT are set to false if the corresponding
-   part is missing.  */
+   part is missing.  DEPENDS_ON is a set of the invariants the computation
+   depends on.  */
 
 static unsigned
 ptr_difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
-		     unsigned HOST_WIDE_INT *offset)
+		     unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
 {
   unsigned HOST_WIDE_INT diff = 0;
   unsigned cost;
@@ -2903,13 +3082,13 @@ ptr_difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
 
   if (e2 == integer_zero_node)
     return split_address_cost (TREE_OPERAND (e1, 0),
-			       symbol_present, var_present, offset);
+			       symbol_present, var_present, offset, depends_on);
 
   *symbol_present = false;
   *var_present = true;
   
-  cost = force_var_cost (e1);
-  cost += force_var_cost (e2);
+  cost = force_var_cost (e1, depends_on);
+  cost += force_var_cost (e2, depends_on);
   cost += add_cost (Pmode);
 
   return cost;
@@ -2918,11 +3097,12 @@ ptr_difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
 /* Estimates cost of expressing difference E1 - E2 as
    var + symbol + offset.  The value of offset is added to OFFSET,
    SYMBOL_PRESENT and VAR_PRESENT are set to false if the corresponding
-   part is missing.  */
+   part is missing.  DEPENDS_ON is a set of the invariants the computation
+   depends on.  */
 
 static unsigned
 difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
-		 unsigned HOST_WIDE_INT *offset)
+		 unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
 {
   unsigned cost;
   enum machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
@@ -2933,28 +3113,29 @@ difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
   *offset = -*offset;
 
   if (TREE_CODE (e1) == ADDR_EXPR)
-    return ptr_difference_cost (e1, e2, symbol_present, var_present, offset);
+    return ptr_difference_cost (e1, e2, symbol_present, var_present, offset,
+				depends_on);
   *symbol_present = false;
 
-  if (zero_p (e1) && zero_p (e2))
+  if (operand_equal_p (e1, e2, 0))
     {
       *var_present = false;
       return 0;
     }
   *var_present = true;
   if (zero_p (e2))
-    return force_var_cost (e1);
+    return force_var_cost (e1, depends_on);
 
   if (zero_p (e1))
     {
-      cost = force_var_cost (e2);
+      cost = force_var_cost (e2, depends_on);
       cost += multiply_by_cost (-1, mode);
 
       return cost;
     }
 
-  cost = force_var_cost (e1);
-  cost += force_var_cost (e2);
+  cost = force_var_cost (e1, depends_on);
+  cost += force_var_cost (e2, depends_on);
   cost += add_cost (mode);
 
   return cost;
@@ -2963,11 +3144,12 @@ difference_cost (tree e1, tree e2, bool *symbol_present, bool *var_present,
 /* Determines the cost of the computation by that USE is expressed
    from induction variable CAND.  If ADDRESS_P is true, we just need
    to create an address from it, otherwise we want to get it into
-   register.  */
+   register.  A set of invariants we depend on is stored in
+   DEPENDS_ON.  */
 
 static unsigned
 get_computation_cost (struct iv_use *use, struct iv_cand *cand,
-		      bool address_p)
+		      bool address_p, bitmap *depends_on)
 {
   tree ubase = use->iv->base, ustep = use->iv->step;
   tree cbase = cand->iv->base, cstep = cand->iv->step;
@@ -2976,6 +3158,8 @@ get_computation_cost (struct iv_use *use, struct iv_cand *cand,
   HOST_WIDE_INT ratio, aratio;
   bool var_present, symbol_present;
   unsigned cost = 0, n_sums;
+
+  *depends_on = NULL;
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -3018,19 +3202,22 @@ get_computation_cost (struct iv_use *use, struct iv_cand *cand,
     {
       offset = - ratio * int_cst_value (cbase); 
       cost += difference_cost (ubase, integer_zero_node,
-			       &symbol_present, &var_present, &offset);
+			       &symbol_present, &var_present, &offset,
+			       depends_on);
     }
   else if (ratio == 1)
     {
       cost += difference_cost (ubase, cbase,
-			       &symbol_present, &var_present, &offset);
+			       &symbol_present, &var_present, &offset,
+			       depends_on);
     }
   else
     {
-      cost += force_var_cost (cbase);
+      cost += force_var_cost (cbase, depends_on);
       cost += add_cost (TYPE_MODE (ctype));
       cost += difference_cost (ubase, integer_zero_node,
-			       &symbol_present, &var_present, &offset);
+			       &symbol_present, &var_present, &offset,
+			       depends_on);
     }
 
   /* If we are after the "normal" position, the value of the candidate is
@@ -3087,9 +3274,10 @@ fallback:
 static void
 determine_use_iv_cost_generic (struct iv_use *use, struct iv_cand *cand)
 {
-  unsigned cost = get_computation_cost (use, cand, false);
+  bitmap depends_on;
+  unsigned cost = get_computation_cost (use, cand, false, &depends_on);
 
-  set_use_iv_cost (use, cand, cost);
+  set_use_iv_cost (use, cand, cost, depends_on);
 }
 
 /* Determines cost of basing replacement of USE on CAND in an address.  */
@@ -3097,9 +3285,10 @@ determine_use_iv_cost_generic (struct iv_use *use, struct iv_cand *cand)
 static void
 determine_use_iv_cost_address (struct iv_use *use, struct iv_cand *cand)
 {
-  unsigned cost = get_computation_cost (use, cand, true);
+  bitmap depends_on;
+  unsigned cost = get_computation_cost (use, cand, true, &depends_on);
 
-  set_use_iv_cost (use, cand, cost);
+  set_use_iv_cost (use, cand, cost, depends_on);
 }
 
 /* Determines cost of basing replacement of USE on CAND in a condition.  */
@@ -3108,6 +3297,15 @@ static void
 determine_use_iv_cost_condition (struct iv_use *use, struct iv_cand *cand)
 {
   /* TODO implement induction variable elimination.  */
+
+  if (TREE_CODE (*use->op_p) == SSA_NAME)
+    record_invariant (*use->op_p, true);
+  else
+    {
+      record_invariant (TREE_OPERAND (*use->op_p, 0), true);
+      record_invariant (TREE_OPERAND (*use->op_p, 1), true);
+    }
+
   determine_use_iv_cost_generic (use, cand);
 }
 
@@ -3194,15 +3392,22 @@ determine_use_iv_costs (void)
 	  use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
 
 	  fprintf (tree_dump_file, "Use %d:\n", i);
-	  fprintf (tree_dump_file, "  cand\tcost\n");
+	  fprintf (tree_dump_file, "  cand\tcost\tdepends on\n");
 	  for (j = 0; j < use->n_map_members; j++)
 	    {
-	      if (use->cost_map[j].cand
-		  && use->cost_map[j].cost != INFTY)
-		fprintf (tree_dump_file, "  %d\t%d\n",
-			 use->cost_map[j].cand->id,
-			 use->cost_map[j].cost);
+	      if (!use->cost_map[j].cand
+		  || use->cost_map[j].cost == INFTY)
+		continue;
+
+	      fprintf (tree_dump_file, "  %d\t%d\t",
+		       use->cost_map[j].cand->id,
+		       use->cost_map[j].cost);
+	      if (use->cost_map[j].depends_on)
+		bitmap_print (tree_dump_file,
+			      use->cost_map[j].depends_on, "","");
+	      fprintf (tree_dump_file, "\n");
 	    }
+
 	  fprintf (tree_dump_file, "\n");
 	}
       fprintf (tree_dump_file, "\n");
@@ -3216,11 +3421,13 @@ determine_iv_cost (struct iv_cand *cand)
 {
   unsigned cost_base, cost_step;
   tree base = cand->iv->base;
-  tree type = TREE_TYPE (base);
 
   /* There are two costs associated with the candidate -- its incrementation
      and its initialization.  The second is almost negligible for any loop
      that rolls enough, so we take it just very little into account.  */
+
+#if DISABLE_IP_START
+  tree type = TREE_TYPE (base);
 
   if (cand->pos == IP_START)
     {
@@ -3228,8 +3435,9 @@ determine_iv_cost (struct iv_cand *cand)
 	 start of the loop body.  */
       base = fold (build (MINUS_EXPR, type, base, cand->iv->step));
     }
+#endif
 
-  cost_base = force_var_cost (base);
+  cost_base = force_var_cost (base, NULL);
   cost_step = add_cost (TYPE_MODE (TREE_TYPE (base)));
 
   /* TODO use profile to determine the ratio here.  */
@@ -3336,11 +3544,8 @@ init_set_costs (void)
 static void
 determine_set_costs (void)
 {
-  unsigned i, j, n;
-  tree phi, stmt, op;
-  use_optype uses;
-  basic_block *body, bb;
-  block_stmt_iterator bsi;
+  unsigned j, n;
+  tree phi, op;
 
   /* We use the following model (definitely improvable, especially the
      cost function -- TODO):
@@ -3385,30 +3590,17 @@ determine_set_costs (void)
       n++;
     }
 
-  body = get_loop_body (current_loop);
-  for (j = 0; j < current_loop->num_nodes; j++)
-    for (bsi = bsi_start (body[j]); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	stmt = bsi_stmt (bsi);
-	get_stmt_operands (stmt);
-	uses = STMT_USE_OPS (stmt);
+  for (j = 0; j < old_highest_ssa_version; j++)
+    {
+      struct version_info *info = ver_info (j);
 
-	for (i = 0; i < NUM_USES (uses); i++)
-	  {
-	    op = USE_OP (uses, i);
-
-	    bb = bb_for_stmt (SSA_NAME_DEF_STMT (op));
-	    if (bb && flow_bb_inside_loop_p (current_loop, bb))
-	      continue;
-
-	    n++;
-	  }
-      }
+      if (info->inv_id && info->has_nonlin_use)
+	n++;
+    }
 
   LOOP_DATA (current_loop)->regs_used = n;
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     fprintf (tree_dump_file, "  regs_used %d\n", n);
-  free (body);
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
@@ -3421,450 +3613,245 @@ determine_set_costs (void)
     }
 }
 
-/* Finds a best candidate from SET to base the USE on.  */
-
-static struct iv_cand *
-find_best_candidate (struct iv_use *use, bitmap set)
-{
-  unsigned j;
-  unsigned bcost = INFTY, acost;
-  struct iv_cand *best = NULL, *cand;
-
-  EXECUTE_IF_SET_IN_BITMAP (set, 0, j,
-    {
-      cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, j);
-      acost = get_use_iv_cost (use, cand);
-
-      if (acost < bcost)
-	{
-	  bcost = acost;
-	  best = cand;
-	}
-    });
-
-  return best;
-}
-
-/* Finds the use with the minimal number of choices.  */
-
-static struct iv_use *
-use_with_min_choices (void)
-{
-  struct iv_use *ret = NULL, *use;
-  unsigned best = INFTY, act, i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
-    {
-      use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      if (use->selected)
-	continue;
-
-      act = use->n_choices;
-      if (act < best)
-	{
-	  best = act;
-	  ret = use;
-
-	  if (best == 0)
-	    return ret;
-	}
-    }
-
-  return ret;
-}
-
-/* Calculates the minimal cost of undetermined uses.  */
+/* Finds a best candidate for USE and stores it to CAND.  The candidates are
+   taken from the set SOL and they may depend on invariants in the set INV.
+   The really used candidate and invariants are noted to USED_IVS and
+   USED_INV.  */
 
 static unsigned
-min_remaining_cost (void)
+find_best_candidate (struct iv_use *use, bitmap sol, bitmap inv,
+		     bitmap used_ivs, bitmap used_inv, struct iv_cand **cand)
 {
-  unsigned i;
-  struct iv_use *use;
-  unsigned sum = 0;
+  unsigned c, d;
+  unsigned best_cost = INFTY, cost;
+  struct iv_cand *cnd = NULL, *acnd;
+  bitmap depends_on = NULL;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
+  EXECUTE_IF_SET_IN_BITMAP (sol, 0, c,
     {
-      use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      if (use->selected)
-	continue;
+      acnd = VARRAY_GENERIC_PTR_NOGC (iv_candidates, c);
+      cost = get_use_iv_cost (use, acnd, &depends_on);
 
-      if (use->min_cost == INFTY)
-	return INFTY;
+      if (cost >= best_cost)
+	goto next_cand;
 
-      sum += use->min_cost;
-    }
-
-  return sum;
-}
-
-/* For backtracking.  */
-
-struct undo_record
-{
-  struct iv_use *use;		/* The use at that to perform the undo.  */
-
-  bitmap canceled_choices;	/* The choices to readd.  */
-  unsigned n_canceled_choices;	/* And number of them.  */
-
-  unsigned min_cost;		/* The old min cost.  */
-  struct iv_cand *min_cost_cand; /* The old min cost candidate.  */
-
-  struct undo_record *next;	/* Next undo.  */
-};
-
-static struct undo_record *undo_top;
-
-/* Undoes changes up to UP_TO record.  */
-
-static void
-undo_changes (struct undo_record *up_to)
-{
-  struct undo_record *top, *next;
-  struct iv_use *use;
-
-  for (top = undo_top; top != up_to; top = next)
-    {
-      next = top->next;
-      use = top->use;
-
-      bitmap_a_or_b (use->choices, use->choices, top->canceled_choices);
-      use->n_choices += top->n_canceled_choices;
-
-      use->min_cost = top->min_cost;
-      use->min_cost_cand = top->min_cost_cand;
-
-      BITMAP_XFREE (top->canceled_choices);
-      free (top);
-    }
-  undo_top = up_to;
-}
-
-/* Removes candidates in set TO_REMOVE from choices in USE, and records the
-   undo.  */
-
-static void
-execute_removal (struct iv_use *use, bitmap to_remove)
-{
-  unsigned size = 0, i, cost = INFTY, acost;
-  struct undo_record *undo = xmalloc (sizeof (struct undo_record));
-  struct iv_cand *cand = NULL, *var;
-
-  undo->use = use;
-  undo->canceled_choices = to_remove;
-  EXECUTE_IF_SET_IN_BITMAP (to_remove, 0, i, size++);
-  undo->n_canceled_choices = size;
-  undo->min_cost = use->min_cost;
-  undo->min_cost_cand = use->min_cost_cand;
-  undo->next = undo_top;
-  undo_top = undo;
-
-  bitmap_operation (use->choices, use->choices, to_remove, BITMAP_AND_COMPL);
-  if (use->n_choices < size)
-    abort ();
-  use->n_choices -= size;
-
-  if (!use->min_cost_cand
-      || !bitmap_bit_p (to_remove, use->min_cost_cand->id))
-    return;
-
-  /* Recount the minimum cost candidate.  */
-  EXECUTE_IF_SET_IN_BITMAP (use->choices, 0, i,
-    {
-      var = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
-      acost = get_use_iv_cost (use, var);
-
-      if (acost < cost)
+      if (depends_on)
 	{
-	  cost = acost;
-	  cand = var;
+	  EXECUTE_IF_AND_COMPL_IN_BITMAP (depends_on, inv, 0, d,
+					  goto next_cand);
+	  if (used_inv)
+	    bitmap_a_or_b (used_inv, used_inv, depends_on);
 	}
+
+      cnd = acnd;
+      best_cost = cost;
+next_cand: ;
     });
 
-  use->min_cost_cand = cand;
-  use->min_cost = cost;
+  if (cnd && used_ivs)
+    bitmap_set_bit (used_ivs, cnd->id);
+
+  if (cand)
+    *cand = cnd;
+
+  return best_cost;
 }
 
-/* Removes candidates from choices according to candidate chosen for USE, and
-   records the changes made into undo list.  If NEW_P is true, the candidate
-   was added newly to the set.  */
-
-static void
-add_forbidden_ivs (struct iv_use *use, bool new_p)
-{
-  unsigned i, j, cost = get_use_iv_cost (use, use->selected);
-  struct iv_cand *var;
-  struct iv_use *u;
-  bitmap forb = BITMAP_XMALLOC (), arem;
-  unsigned n_forb = 0;
-  bool empty;
-
-  /* We need to ensure that no better candidate than the one currently chosen
-     for USE can be added to set.  */
-
-  EXECUTE_IF_SET_IN_BITMAP (use->choices, 0, i,
-    {
-      var = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
-
-      if (get_use_iv_cost (use, var) < cost)
-	{
-	  bitmap_set_bit (forb, var->id);
-	  n_forb++;
-	}
-    });
-
-  if (!n_forb && !new_p)
-    {
-      BITMAP_XFREE (forb);
-      return;
-    }
-
-  arem = BITMAP_XMALLOC ();
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
-    {
-      u = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      if (u->selected)
-	continue;
-
-      empty = !bitmap_a_and_b (arem, u->choices, forb);
-
-      if (empty && !new_p)
-	continue;
-
-      if (new_p)
-	{
-	  /* If use->cand is a new iv, remove all choices whose cost is greater or
-	     equal then the cost using this candidate.  */
-
-	  cost = get_use_iv_cost (u, use->selected);
-	  if (cost != INFTY)
-	    {
-	      EXECUTE_IF_SET_IN_BITMAP (u->choices, 0, j,
-		{
-		  var = VARRAY_GENERIC_PTR_NOGC (iv_candidates, j);
-
-		  if (var != use->selected
-		      && get_use_iv_cost (u, var) >= cost)
-		    {
-		      bitmap_set_bit (arem, var->id);
-		      empty = false;
-		    }
-		});
-	    }
-	}
-
-      if (!empty)
-	{
-	  execute_removal (u, arem);
-	  arem = BITMAP_XMALLOC ();
-	}
-    }
-
-  BITMAP_XFREE (forb);
-  BITMAP_XFREE (arem);
-}
-
-/* Tries to set candidate for use U to CAND.  Meaning of the rest of arguments
-   is the same as in find_optimal_iv_set_1.  */
-
-static void
-try_candidate (unsigned n_selected, unsigned use_cost,
-	       bitmap set, unsigned n_set, unsigned iv_cost,
-	       bitmap best, unsigned *best_cost,
-	       struct iv_use *u,
-	       struct iv_cand *cand)
-{
-  unsigned delta, var = cand->id, var_cost, size_cost, u_cost, actual_cost;
-  struct undo_record *undo_till;
-
-  if (bitmap_bit_p (set, var))
-    {
-      var_cost = 0;
-      size_cost = 0;
-    }
-  else
-    {
-      var_cost = cand->cost;
-      size_cost = 1;
-      bitmap_set_bit (set, var);
-    }
-
-  u_cost = get_use_iv_cost (u, cand);
-  u->selected = cand;
-
-  undo_till = undo_top;
-  add_forbidden_ivs (u, size_cost != 0);
-
-  use_cost += u_cost;
-  iv_cost += var_cost;
-  n_set += size_cost;
-  delta = min_remaining_cost ();
-
-  actual_cost = (use_cost + iv_cost
-		 + ivopts_global_cost_for_size (n_set) + delta);
-  if (actual_cost < *best_cost)
-    find_optimal_iv_set_1 (n_selected + 1, use_cost,
-			   set, n_set, iv_cost, best, best_cost);
-
-  if (size_cost)
-    bitmap_clear_bit (set, var);
-
-  undo_changes (undo_till);
-}
-
-/* N_SELECTED uses have already selected their iv and and those selections
-   together have cost USE_COST. Explore all possible selections of the remaining
-   ones. SET is the set of chosen ivs (its size is N_SET and cost of ivs in it
-   is IV_COST).  The cost of the best set is in the end stored in *BEST_COST and
-   the set itself in BEST.  */
-
-static void
-find_optimal_iv_set_1 (unsigned n_selected, unsigned use_cost,
-		       bitmap set, unsigned n_set, unsigned iv_cost,
-		       bitmap best, unsigned *best_cost)
-{
-  unsigned var, actual_cost;
-  struct iv_cand *cand;
-  struct iv_use *u;
-
-  if (n_selected == VARRAY_ACTIVE_SIZE (iv_uses))
-    {
-      actual_cost = use_cost + iv_cost + ivopts_global_cost_for_size (n_set);
-      if (actual_cost < *best_cost)
-	{
-	  bitmap_copy (best, set);
-	  *best_cost = actual_cost;
-	}
-
-      return;
-    }
-
-  u = use_with_min_choices ();
-
-  if (!u->n_choices)
-    return;
-
-  EXECUTE_IF_SET_IN_BITMAP (u->choices, 0, var,
-    {
-      cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, var);
-      try_candidate (n_selected, use_cost, set, n_set, iv_cost,
-		     best, best_cost, u, cand);
-    });
-
-  u->selected = NULL;
-}
-
-/* Computes cost of set of ivs SOL.  */
+/* Computes cost of set of ivs SOL + invariants INV.  Removes unnecessary
+   induction variable candidates and invariants from the sets.  */
 
 static unsigned
-set_cost (bitmap sol)
+set_cost (bitmap sol, bitmap inv)
 {
   unsigned i;
-  unsigned cost = 0, size = 0;
+  unsigned cost = 0, size = 0, acost;
   struct iv_use *use;
   struct iv_cand *cand;
+  bitmap used_ivs = BITMAP_XMALLOC (), used_inv = BITMAP_XMALLOC ();
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
       use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      cand = find_best_candidate (use, sol);
-      if (!cand)
-	return INFTY;
-      cost += get_use_iv_cost (use, cand);
+      acost = find_best_candidate (use, sol, inv, used_ivs, used_inv, NULL);
+      if (acost == INFTY)
+	{
+	  BITMAP_XFREE (used_ivs);
+	  BITMAP_XFREE (used_inv);
+	  return INFTY;
+	}
+      cost += acost;
     }
 
-  EXECUTE_IF_SET_IN_BITMAP (sol, 0, i,
+  EXECUTE_IF_SET_IN_BITMAP (used_ivs, 0, i,
     {
       size++;
       cand = VARRAY_GENERIC_PTR_NOGC (iv_candidates, i);
       cost += cand->cost;
     });
-
+  EXECUTE_IF_SET_IN_BITMAP (used_inv, 0, i, size++);
   cost += ivopts_global_cost_for_size (size);
+
+  bitmap_copy (sol, used_ivs);
+  bitmap_copy (inv, used_inv);
+
+  BITMAP_XFREE (used_ivs);
+  BITMAP_XFREE (used_inv);
 
   return cost;
 }
 
-/* Finds the initial solution greedily.  */
+/* Finds an initial set of IVS and invariants INV.  We do this by simply
+   chosing the best candidate for each use.  */
 
 static unsigned
-get_initial_solution (bitmap sol)
+get_initial_solution (bitmap ivs, bitmap inv)
 {
   unsigned i;
-  struct iv_use *use;
-  unsigned cost, ncost;
-  bitmap psol;
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_candidates); i++)
+    bitmap_set_bit (ivs, i);
+  for (i = 1; i <= max_inv_id; i++)
+    if (!ver_info (i)->has_nonlin_use)
+      bitmap_set_bit (inv, i);
+
+  return set_cost (ivs, inv);
+}
+
+/* Tries to improve set of induction variables IVS and invariants INV to get
+   it better than COST.  */
+
+static bool
+try_improve_iv_set (bitmap ivs, bitmap inv, unsigned *cost)
+{
+  unsigned i, acost;
+  bitmap new_ivs = BITMAP_XMALLOC (), new_inv = BITMAP_XMALLOC ();
+  bitmap best_new_ivs = NULL, best_new_inv = NULL;
+
+  /* Try altering the set of induction variables by one.  */
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_candidates); i++)
     {
-      use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      if (!use->n_choices)
-	return INFTY;
+      bitmap_copy (new_ivs, ivs);
+      bitmap_copy (new_inv, inv);
 
-      bitmap_set_bit (sol, use->min_cost_cand->id);
+      if (bitmap_bit_p (ivs, i))
+	bitmap_clear_bit (new_ivs, i);
+      else
+	bitmap_set_bit (new_ivs, i);
+
+      acost = set_cost (new_ivs, new_inv);
+      if (acost >= *cost)
+	continue;
+
+      if (!best_new_ivs)
+	{
+	  best_new_ivs = BITMAP_XMALLOC ();
+	  best_new_inv = BITMAP_XMALLOC ();
+	}
+
+      *cost = acost;
+      bitmap_copy (best_new_ivs, new_ivs);
+      bitmap_copy (best_new_inv, new_inv);
     }
 
-  cost = set_cost (sol);
-  psol = BITMAP_XMALLOC ();
-  bitmap_copy (psol, sol);
-  EXECUTE_IF_SET_IN_BITMAP (psol, 0, i,
+  /* Ditto for invariants.  */
+  for (i = 1; i <= max_inv_id; i++)
     {
-      /* Try throwing away a variable.  */
-      bitmap_clear_bit (sol, i);
-      ncost = set_cost (sol);
-      if (ncost <= cost)
-	cost = ncost;
-      else
-	bitmap_set_bit (sol, i);
-    });
-  BITMAP_XFREE (psol);
+      if (ver_info (i)->has_nonlin_use)
+	continue;
 
-  return cost;
+      bitmap_copy (new_ivs, ivs);
+      bitmap_copy (new_inv, inv);
+
+      if (bitmap_bit_p (inv, i))
+	bitmap_clear_bit (new_inv, i);
+      else
+	bitmap_set_bit (new_inv, i);
+
+      acost = set_cost (new_ivs, new_inv);
+      if (acost >= *cost)
+	continue;
+
+      if (!best_new_ivs)
+	{
+	  best_new_ivs = BITMAP_XMALLOC ();
+	  best_new_inv = BITMAP_XMALLOC ();
+	}
+
+      *cost = acost;
+      bitmap_copy (best_new_ivs, new_ivs);
+      bitmap_copy (best_new_inv, new_inv);
+    }
+
+  BITMAP_XFREE (new_ivs);
+  BITMAP_XFREE (new_inv);
+
+  if (!best_new_ivs)
+    return false;
+
+  bitmap_copy (ivs, best_new_ivs);
+  bitmap_copy (inv, best_new_inv);
+  BITMAP_XFREE (best_new_ivs);
+  BITMAP_XFREE (best_new_inv);
+  return true;
 }
 
 /* Attempts to find the optimal set of induction variables.  TODO document
-   the algorithm, once it converges to the final form.  For now we do something
-   like optimized backtrack, but we are more then likely to finally end up
-   with some heuristics.  */
+   the algorithm, once it converges to the final form.  For now we do simple
+   greedy heuristic (trying to replace at most one candidate in the selected
+   solution).  */
 
 static bitmap
 find_optimal_iv_set (void)
 {
-  unsigned cost = INFTY;
-  bitmap set;
-  bitmap best = BITMAP_XMALLOC ();
+  unsigned cost, i;
+  bitmap set = BITMAP_XMALLOC ();
+  bitmap inv = BITMAP_XMALLOC ();
+  struct iv_use *use;
 
   /* Set the upper bound.  */
-  cost = get_initial_solution (best);
+  cost = get_initial_solution (set, inv);
   if (cost == INFTY)
     {
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	fprintf (tree_dump_file, "Unable to substitute for ivs, failed.\n");
-      BITMAP_XFREE (best);
+      BITMAP_XFREE (inv);
+      BITMAP_XFREE (set);
       return NULL;
     }
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
     {
       fprintf (tree_dump_file, "Initial set of candidates (cost %d): ", cost);
-      dump_bitmap (tree_dump_file, best);
+      bitmap_print (tree_dump_file, set, "", "");
+      fprintf (tree_dump_file, " invariants ");
+      bitmap_print (tree_dump_file, inv, "", "");
       fprintf (tree_dump_file, "\n");
     }
 
-  set = BITMAP_XMALLOC ();
-  find_optimal_iv_set_1 (0, 0, set, 0, 0, best, &cost);
-  if (undo_top)
-    abort ();
-  BITMAP_XFREE (set);
+  while (try_improve_iv_set (set, inv, &cost))
+    {
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	{
+	  fprintf (tree_dump_file, "Improved to (cost %d): ", cost);
+	  bitmap_print (tree_dump_file, set, "", "");
+	  fprintf (tree_dump_file, " invariants ");
+	  bitmap_print (tree_dump_file, inv, "", "");
+	  fprintf (tree_dump_file, "\n");
+	}
+    }
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    fprintf (tree_dump_file, "Final cost %d\n\n", cost);
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
-      fprintf (tree_dump_file, "Best set of candidates (cost %d): ", cost);
-      dump_bitmap (tree_dump_file, best);
-      fprintf (tree_dump_file, "\n");
+      use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
+      find_best_candidate (use, set, inv, NULL, NULL, &use->selected);
     }
 
-  return best;
+  BITMAP_XFREE (inv);
+
+  return set;
 }
 
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
@@ -3933,6 +3920,7 @@ create_new_iv (struct iv_cand *cand)
 
   switch (cand->pos)
     {
+#if DISABLE_IP_START
     case IP_START:
       incr_pos = bsi_start (current_loop->header);
       while (!bsi_end_p (incr_pos)
@@ -3944,6 +3932,7 @@ create_new_iv (struct iv_cand *cand)
 	  after = true;
 	}
       break;
+#endif
 
     case IP_NORMAL:
       incr_pos = bsi_last (ip_normal_pos ());
@@ -3959,12 +3948,14 @@ create_new_iv (struct iv_cand *cand)
   add_referenced_tmp_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
+#if DISABLE_IP_START
   if (cand->pos == IP_START)
     {
       /* We must decrease the base, because it will get increased just at the
 	 start of the loop body.  */
       base = fold (build (MINUS_EXPR, TREE_TYPE (base), base, cand->iv->step));
     }
+#endif
 
   create_iv (base, cand->iv->step, cand->var_before, current_loop,
 	     &incr_pos, after, &cand->var_before, &cand->var_after);
@@ -4104,10 +4095,10 @@ rewrite_use (struct iv_use *use, struct iv_cand *cand)
   modify_stmt (use->stmt);
 }
 
-/* Rewrite the uses using the induction variables in SET.  */
+/* Rewrite the uses using the selected induction variables.  */
 
 static void
-rewrite_uses (bitmap set)
+rewrite_uses (void)
 {
   unsigned i;
   struct iv_cand *cand;
@@ -4116,7 +4107,9 @@ rewrite_uses (bitmap set)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
       use = VARRAY_GENERIC_PTR_NOGC (iv_uses, i);
-      cand = find_best_candidate (use, set);
+      cand = use->selected;
+      if (!cand)
+	abort ();
 
       rewrite_use (use, cand);
     }
@@ -4127,14 +4120,19 @@ rewrite_uses (bitmap set)
 static void
 free_loop_data (void)
 {
-  unsigned i;
+  unsigned i, j;
 
   for (i = 0; i < old_highest_ssa_version; i++)
-    if (ivs[i])
-      {
-	free (ivs[i]);
-	ivs[i] = NULL;
-      }
+    {
+      struct version_info *info;
+
+      info = ver_info (i);
+      if (info->iv)
+	free (info->iv);
+      info->iv = NULL;
+      info->has_nonlin_use = false;
+      info->inv_id = 0;
+    }
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (iv_uses); i++)
     {
@@ -4142,7 +4140,9 @@ free_loop_data (void)
 
       free (use->iv);
       BITMAP_XFREE (use->related_cands);
-      BITMAP_XFREE (use->choices);
+      for (j = 0; j < use->n_map_members; j++)
+	if (use->cost_map[j].depends_on)
+	  BITMAP_XFREE (use->cost_map[j].depends_on);
       free (use->cost_map);
       free (use);
     }
@@ -4158,18 +4158,13 @@ free_loop_data (void)
   VARRAY_POP_ALL (iv_candidates);
 
   if (old_highest_ssa_version != highest_ssa_version)
-    {
-      ivs = xrealloc (ivs, sizeof (struct iv *) * highest_ssa_version);
-      memset (ivs + old_highest_ssa_version, 0,
-	      sizeof (struct iv *)
-	      * (highest_ssa_version - old_highest_ssa_version));
-
-      outermost_usage = xrealloc (outermost_usage,
-				  sizeof (struct loop *) * highest_ssa_version);
-      memset (outermost_usage + old_highest_ssa_version, 0,
-	      sizeof (struct loop *)
-	      * (highest_ssa_version - old_highest_ssa_version));
-    }
+    version_info = xrealloc (version_info,
+			     (sizeof (struct version_info)
+			      * highest_ssa_version));
+  memset (version_info + old_highest_ssa_version, 0,
+	  ((highest_ssa_version - old_highest_ssa_version)
+	   * sizeof (struct version_info)));
+  max_inv_id = 0;
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (decl_rtl_to_reset); i++)
     {
@@ -4198,8 +4193,7 @@ tree_ssa_iv_optimize_finalize (struct loops *loops)
       }
 
   free_loop_data ();
-  free (ivs);
-  free (outermost_usage);
+  free (version_info);
 
   VARRAY_FREE (decl_rtl_to_reset);
   VARRAY_FREE (iv_uses);
@@ -4258,7 +4252,7 @@ tree_ssa_iv_optimize_loop (struct loop *loop)
   create_new_ivs (iv_set);
   
   /* Rewrite the uses (item 4, part 2).  */
-  rewrite_uses (iv_set);
+  rewrite_uses ();
 
   BITMAP_XFREE (iv_set);
 finish:
