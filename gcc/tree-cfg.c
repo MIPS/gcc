@@ -1462,6 +1462,26 @@ remove_useless_stmts_and_vars (first_p)
 	  if (IS_EMPTY_STMT (*stmt_p))
 	    repeat = 1;
 	}
+      else if (code == GOTO_EXPR)
+	{
+	  tree_stmt_iterator tsi = i;
+
+	  /* We can remove a GOTO_EXPR if the next tree statement is
+	     the destination of the GOTO_EXPR.  */
+	  tsi_next (&tsi);
+	  if (! tsi_end_p (tsi))
+	    {
+	      tree label;
+
+	      label = tsi_stmt (tsi);
+	      if (TREE_CODE (label) == LABEL_EXPR
+		  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
+		{
+		  repeat = 1;
+		  *stmt_p = build_empty_stmt ();
+		}
+	    }
+	}
 
       /* We need to keep the tree in gimple form, so we may have to
 	 re-rationalize COMPOUND_EXPRs.  */

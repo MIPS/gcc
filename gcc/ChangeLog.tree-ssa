@@ -1,5 +1,8 @@
 2003-05-06  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): Remove GOTO_EXPRs
+	to the immediately following tree node.
+
 	* tree-cfg.c (make_goto_expr_edges): Fix typo in comment.
 	(remove_useless_stmts_and_vars): New function.
 	* tree-flow.h (remove_useless_stmts_and_vars): Prototype.
