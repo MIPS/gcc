@@ -2374,6 +2374,13 @@ structsp:
 	| class_head_decl
 		{
 		  $$.t = TREE_TYPE ($1.t);
+		  /* class_head_decl always starts with an aggr, so
+		     get rid of any implicit typename warnings we
+		     might get from it.  We can't remove it before
+		     this point because this is where we get from the
+		     decl to the type.  */
+		  if (IMPLICIT_TYPENAME_P ($$.t))
+		    $$.t = TREE_TYPE ($$.t);
 		  $$.new_type_flag = $1.new_type_flag;
 		  check_class_key (current_aggr, $$.t);
 		}

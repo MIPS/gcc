@@ -1,3 +1,8 @@
+2004-08-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* parse.y (structsp): Skip typename_type obtained from a
+	class_head_decl, use the actual type.
+
 2002-09-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/7718

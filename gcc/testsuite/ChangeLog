@@ -1,3 +1,9 @@
+2004-08-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.old-deja/g++.pt/crash43.C: Don't require error for legal
+	construct.
+	* g++.dg/template/friend0.C: New test.
+
 2004-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.mist-tests/i386-prefetch.exp (PREFETCH_SSE): Change all
