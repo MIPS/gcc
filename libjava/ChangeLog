@@ -1,3 +1,40 @@
+2005-02-14  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/java/awt/color/ClutProfileConverter.java,
+	gnu/java/awt/peer/ClasspathTextLayoutPeer.java,
+	gnu/java/awt/peer/gtk/GdkFontPeer.java,
+	gnu/java/awt/peer/gtk/GdkGlyphVector.java,
+	gnu/java/awt/peer/gtk/GdkGraphics2D.java,
+	gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java,
+	gnu/java/awt/peer/gtk/GdkPixbufDecoder.java,
+	gnu/java/awt/peer/gtk/GdkRobotPeer.java,
+	gnu/java/awt/peer/gtk/GdkTextLayout.java,
+	gnu/java/awt/peer/gtk/GtkButtonPeer.java,
+	gnu/java/awt/peer/gtk/GtkCheckboxPeer.java,
+	gnu/java/awt/peer/gtk/GtkChoicePeer.java,
+	gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkContainerPeer.java,
+	gnu/java/awt/peer/gtk/GtkDialogPeer.java,
+	gnu/java/awt/peer/gtk/GtkFileDialogPeer.java,
+	gnu/java/awt/peer/gtk/GtkFontPeer.java,
+	gnu/java/awt/peer/gtk/GtkFramePeer.java,
+	gnu/java/awt/peer/gtk/GtkLabelPeer.java,
+	gnu/java/awt/peer/gtk/GtkMenuComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkMenuItemPeer.java,
+	gnu/java/awt/peer/gtk/GtkScrollPanePeer.java,
+	gnu/java/awt/peer/gtk/GtkTextComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkToolkit.java,
+	gnu/java/awt/peer/gtk/GtkWindowPeer.java,
+	javax/swing/JPopupMenu.java,
+	javax/swing/JSpinner.java,
+	javax/swing/SortingFocusTraversalPolicy.java,
+	javax/swing/SwingUtilities.java,
+	javax/swing/plaf/basic/BasicComboBoxEditor.java,
+	javax/swing/plaf/basic/BasicComboBoxRenderer.java,
+	javax/swing/tree/DefaultMutableTreeNode.java:
+	Removed unused imports and expanded starred
+	imports.
+
 2005-02-13  Mark Wielaard  <mark@klomp.org>
 
 	* java/awt/AWTKeyStroke.java (getAWTKeyStroke(String)): Throw
