@@ -1,5 +1,10 @@
 2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
 
+	* java/awt/image/IndexColorModel.java (IndexColorModel): Implement
+	missing constructor.
+
+2004-09-26  Jerry Quinn  <jlquinn@optonline.net>
+
 	* java/awt/image/ComponentColorModel.java (ComponentColorModel):
 	Implement missing 1.4 constructor.
 
