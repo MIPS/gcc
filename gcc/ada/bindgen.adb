@@ -371,7 +371,21 @@ package body Bindgen is
             U    : Unit_Record renames Units.Table (Unum);
 
          begin
-            if U.Set_Elab_Entity and then not U.Interface then
+            --  Check for Elab_Entity to be set for this unit
+
+            if U.Set_Elab_Entity
+
+            --  Don't generate reference for stand alone library
+
+              and then not U.Interface
+
+            --  Don't generate reference for predefined file in No_Run_Time
+            --  mode, since we don't include the object files in this case
+
+              and then not
+                (No_Run_Time_Mode
+                   and then Is_Predefined_File_Name (U.Sfile))
+            then
                Set_String ("      ");
                Set_String ("E");
                Set_Unit_Number (Unum);
@@ -667,8 +681,23 @@ package body Bindgen is
          declare
             Unum : constant Unit_Id := Elab_Order.Table (E);
             U    : Unit_Record renames Units.Table (Unum);
+
          begin
-            if U.Set_Elab_Entity and then not U.Interface then
+            --  Check for Elab entity to be set for this unit
+
+            if U.Set_Elab_Entity
+
+            --  Don't generate reference for stand alone library
+
+              and then not U.Interface
+
+            --  Don't generate reference for predefined file in No_Run_Time
+            --  mode, since we don't include the object files in this case
+
+              and then not
+                (No_Run_Time_Mode
+                   and then Is_Predefined_File_Name (U.Sfile))
+            then
                Set_String ("   extern char ");
                Get_Name_String (U.Uname);
                Set_Unit_Name;
@@ -894,9 +923,14 @@ package body Bindgen is
                Unum_Spec := Unum;
             end if;
 
+            --  Nothing to do if predefined unit in no run time mode
+
+            if No_Run_Time_Mode and then Is_Predefined_File_Name (U.Sfile) then
+               null;
+
             --  Case of no elaboration code
 
-            if U.No_Elab then
+            elsif U.No_Elab then
 
                --  The only case in which we have to do something is if
                --  this is a body, with a separate spec, where the separate
@@ -989,7 +1023,6 @@ package body Bindgen is
 
    procedure Gen_Elab_Calls_C is
    begin
-
       for E in Elab_Order.First .. Elab_Order.Last loop
          declare
             Unum : constant Unit_Id := Elab_Order.Table (E);
@@ -1008,9 +1041,14 @@ package body Bindgen is
                Unum_Spec := Unum;
             end if;
 
+            --  Nothing to do if predefined unit in no run time mode
+
+            if No_Run_Time_Mode and then Is_Predefined_File_Name (U.Sfile) then
+               null;
+
             --  Case of no elaboration code
 
-            if U.No_Elab then
+            elsif U.No_Elab then
 
                --  The only case in which we have to do something is if
                --  this is a body, with a separate spec, where the separate
@@ -1867,6 +1905,7 @@ package body Bindgen is
               or else GNAT.OS_Lib.Is_Regular_File (Name_Buffer (1 .. Name_Len))
             then
                Write_Info_Ada_C ("   --   ", "", Name_Buffer (1 .. Name_Len));
+
                if Output_Object_List then
                   Write_Str (Name_Buffer (1 .. Name_Len));
                   Write_Eol;
@@ -2024,6 +2063,7 @@ package body Bindgen is
 
    procedure Gen_Output_File (Filename : String) is
       Is_Public_Version : constant Boolean := Get_Gnat_Build_Type = Public;
+      Is_GAP_Version    : constant Boolean := Get_Gnat_Build_Type = GAP;
 
    begin
       --  Acquire settings for Interrupt_State pragmas
@@ -2057,7 +2097,7 @@ package body Bindgen is
 
       --  Get the time stamp of the former bind for public version warning
 
-      if Is_Public_Version then
+      if Is_Public_Version or Is_GAP_Version then
          Record_Time_From_Last_Bind;
       end if;
 
@@ -3096,7 +3136,7 @@ package body Bindgen is
    ---------------------
 
    procedure Set_Unit_Number (U : Unit_Id) is
-      Num_Units : constant Nat := Nat (Units.Table'Last) - Nat (Unit_Id'First);
+      Num_Units : constant Nat := Nat (Units.Last) - Nat (Unit_Id'First);
       Unum      : constant Nat := Nat (U) - Nat (Unit_Id'First);
 
    begin

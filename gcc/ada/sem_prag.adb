@@ -244,6 +244,12 @@ package body Sem_Prag is
       --  in which case the check is applied to the expression of the
       --  association or an expression directly.
 
+      procedure Check_Arg_Is_External_Name (Arg : Node_Id);
+      --  Check that an argument has the right form for an EXTERNAL_NAME
+      --  parameter of an extended import/export pragma. The rule is that
+      --  the name must be an identifier or string literal (in Ada 83 mode)
+      --  or a static string expression (in Ada 95 mode).
+
       procedure Check_Arg_Is_Identifier (Arg : Node_Id);
       --  Check the specified argument Arg to make sure that it is an
       --  identifier. If not give error and raise Pragma_Exit.
@@ -573,7 +579,7 @@ package body Sem_Prag is
 
       procedure Check_Ada_83_Warning is
       begin
-         if Ada_83 and then Comes_From_Source (N) then
+         if Ada_Version = Ada_83 and then Comes_From_Source (N) then
             Error_Msg_N ("(Ada 83) pragma& is non-standard?", N);
          end if;
       end Check_Ada_83_Warning;
@@ -589,13 +595,61 @@ package body Sem_Prag is
          end if;
       end Check_Arg_Count;
 
+      --------------------------------
+      -- Check_Arg_Is_External_Name --
+      --------------------------------
+
+      procedure Check_Arg_Is_External_Name (Arg : Node_Id) is
+         Argx : constant Node_Id := Get_Pragma_Arg (Arg);
+
+      begin
+         if Nkind (Argx) = N_Identifier then
+            return;
+
+         else
+            Analyze_And_Resolve (Argx, Standard_String);
+
+            if Is_OK_Static_Expression (Argx) then
+               return;
+
+            elsif Etype (Argx) = Any_Type then
+               raise Pragma_Exit;
+
+            --  An interesting special case, if we have a string literal and
+            --  we are in Ada 83 mode, then we allow it even though it will
+            --  not be flagged as static. This allows expected Ada 83 mode
+            --  use of external names which are string literals, even though
+            --  technically these are not static in Ada 83.
+
+            elsif Ada_Version = Ada_83
+              and then Nkind (Argx) = N_String_Literal
+            then
+               return;
+
+            --  Static expression that raises Constraint_Error. This has
+            --  already been flagged, so just exit from pragma processing.
+
+            elsif Is_Static_Expression (Argx) then
+               raise Pragma_Exit;
+
+            --  Here we have a real error (non-static expression)
+
+            else
+               Error_Msg_Name_1 := Chars (N);
+               Flag_Non_Static_Expr
+                 ("argument for pragma% must be a identifier or " &
+                  "static string expression!", Argx);
+               raise Pragma_Exit;
+            end if;
+         end if;
+      end Check_Arg_Is_External_Name;
+
       -----------------------------
       -- Check_Arg_Is_Identifier --
       -----------------------------
 
       procedure Check_Arg_Is_Identifier (Arg : Node_Id) is
          Argx : constant Node_Id := Get_Pragma_Arg (Arg);
-
       begin
          if Nkind (Argx) /= N_Identifier then
             Error_Pragma_Arg
@@ -609,7 +663,6 @@ package body Sem_Prag is
 
       procedure Check_Arg_Is_Integer_Literal (Arg : Node_Id) is
          Argx : constant Node_Id := Get_Pragma_Arg (Arg);
-
       begin
          if Nkind (Argx) /= N_Integer_Literal then
             Error_Pragma_Arg
@@ -762,7 +815,9 @@ package body Sem_Prag is
          --  pragmas like Import in Ada 83 mode. They will of course be
          --  flagged with warnings as usual, but will not cause errors.
 
-         elsif Ada_83 and then Nkind (Argx) = N_String_Literal then
+         elsif Ada_Version = Ada_83
+           and then Nkind (Argx) = N_String_Literal
+         then
             return;
 
          --  Static expression that raises Constraint_Error. This has
@@ -1597,6 +1652,27 @@ package body Sem_Prag is
          K    : Node_Kind;
          Utyp : Entity_Id;
 
+         procedure Set_Atomic (E : Entity_Id);
+         --  Set given type as atomic, and if no explicit alignment was
+         --  given, set alignment to unknown, since back end knows what
+         --  the alignment requirements are for atomic arrays. Note that
+         --  this step is necessary for derived types.
+
+         ----------------
+         -- Set_Atomic --
+         ----------------
+
+         procedure Set_Atomic (E : Entity_Id) is
+         begin
+            Set_Is_Atomic (E);
+
+            if not Has_Alignment_Clause (E) then
+               Set_Alignment (E, Uint_0);
+            end if;
+         end Set_Atomic;
+
+      --  Start of processing for Process_Atomic_Shared_Volatile
+
       begin
          Check_Ada_83_Warning;
          Check_No_Identifiers;
@@ -1623,8 +1699,9 @@ package body Sem_Prag is
             end if;
 
             if Prag_Id /= Pragma_Volatile then
-               Set_Is_Atomic (E);
-               Set_Is_Atomic (Underlying_Type (E));
+               Set_Atomic (E);
+               Set_Atomic (Underlying_Type (E));
+               Set_Atomic (Base_Type (E));
             end if;
 
             --  Attribute belongs on the base type. If the
@@ -2082,13 +2159,8 @@ package body Sem_Prag is
 
          Set_Extended_Import_Export_External_Name (Def_Id, Arg_External);
 
-         if Present (Arg_Size)
-           and then Nkind (Arg_Size) /= N_Identifier
-           and then Nkind (Arg_Size) /= N_String_Literal
-         then
-            Error_Pragma_Arg
-              ("pragma% Size argument must be identifier or string literal",
-               Arg_Size);
+         if Present (Arg_Size) then
+            Check_Arg_Is_External_Name (Arg_Size);
          end if;
 
          --  Export_Object case
@@ -2703,6 +2775,12 @@ package body Sem_Prag is
                Set_Is_Public (Def_Id);
                Process_Interface_Name (Def_Id, Arg3, Arg4);
 
+               --  pragma Import completes deferred constants
+
+               if Ekind (Def_Id) = E_Constant then
+                  Set_Has_Completion (Def_Id);
+               end if;
+
                --  It is not possible to import a constant of an unconstrained
                --  array type (e.g. string) because there is no simple way to
                --  write a meaningful subtype for it.
@@ -3263,7 +3341,8 @@ package body Sem_Prag is
          Val   : Uint;
 
          procedure Set_Warning (R : All_Restrictions);
-         --  If this is a Restriction_Warnings pragma, set warning flag
+         --  If this is a Restriction_Warnings pragma, set warning flag,
+         --  otherwise reset the flag.
 
          -----------------
          -- Set_Warning --
@@ -3273,6 +3352,8 @@ package body Sem_Prag is
          begin
             if Prag_Id = Pragma_Restriction_Warnings then
                Restriction_Warnings (R) := True;
+            else
+               Restriction_Warnings (R) := False;
             end if;
          end Set_Warning;
 
@@ -3298,7 +3379,7 @@ package body Sem_Prag is
 
                R_Id :=
                  Get_Restriction_Id
-                   (Process_Restriction_Synonyms (Chars (Expr)));
+                   (Process_Restriction_Synonyms (Expr));
 
                if R_Id not in All_Boolean_Restrictions then
                   Error_Pragma_Arg
@@ -3326,7 +3407,7 @@ package body Sem_Prag is
             --  Case of restriction identifier present
 
             else
-               R_Id := Get_Restriction_Id (Process_Restriction_Synonyms (Id));
+               R_Id := Get_Restriction_Id (Process_Restriction_Synonyms (Arg));
                Analyze_And_Resolve (Expr, Any_Integer);
 
                if R_Id not in All_Parameter_Restrictions then
@@ -3601,8 +3682,11 @@ package body Sem_Prag is
       begin
          if No (Arg_External) then
             return;
+         end if;
 
-         elsif Nkind (Arg_External) = N_String_Literal then
+         Check_Arg_Is_External_Name (Arg_External);
+
+         if Nkind (Arg_External) = N_String_Literal then
             if String_Length (Strval (Arg_External)) = 0 then
                return;
             else
@@ -3612,10 +3696,12 @@ package body Sem_Prag is
          elsif Nkind (Arg_External) = N_Identifier then
             New_Name := Get_Default_External_Name (Arg_External);
 
+         --  Check_Arg_Is_External_Name should let through only
+         --  identifiers and string literals or static string
+         --  expressions (which are folded to string literals).
+
          else
-            Error_Pragma_Arg
-              ("incorrect form for External parameter for pragma%",
-               Arg_External);
+            raise Program_Error;
          end if;
 
          --  If we already have an external name set (by a prior normal
@@ -3838,9 +3924,9 @@ package body Sem_Prag is
       --      pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
       --      pragma Locking_Policy (Ceiling_Locking)
 
-      --    Set Detect_Blocking mode ???
+      --    Set Detect_Blocking mode
 
-      --    Set required restrictions (see Restrict.Set_Ravenscar for details)
+      --    Set required restrictions (see System.Rident for detailed list)
 
       procedure Set_Ravenscar_Profile (N : Node_Id) is
       begin
@@ -3884,11 +3970,13 @@ package body Sem_Prag is
             end if;
          end if;
 
-         --  ??? Detect_Blocking
+         --  pragma Detect_Blocking
+
+         Detect_Blocking := True;
 
          --  Set the corresponding restrictions
 
-         Set_Ravenscar (N);
+         Set_Profile_Restrictions (Ravenscar, N, Warn => False);
       end Set_Ravenscar_Profile;
 
    --  Start of processing for Analyze_Pragma
@@ -3973,12 +4061,11 @@ package body Sem_Prag is
          --  pragma Ada_83;
 
          --  Note: this pragma also has some specific processing in Par.Prag
-         --  because we want to set the Ada 83 mode switch during parsing.
+         --  because we want to set the Ada version mode during parsing.
 
          when Pragma_Ada_83 =>
             GNAT_Pragma;
-            Ada_83 := True;
-            Ada_95 := False;
+            Ada_Version := Ada_83;
             Check_Arg_Count (0);
 
          ------------
@@ -3988,12 +4075,25 @@ package body Sem_Prag is
          --  pragma Ada_95;
 
          --  Note: this pragma also has some specific processing in Par.Prag
-         --  because we want to set the Ada 83 mode switch during parsing.
+         --  because we want to set the Ada 83 version mode during parsing.
 
          when Pragma_Ada_95 =>
             GNAT_Pragma;
-            Ada_83 := False;
-            Ada_95 := True;
+            Ada_Version := Ada_95;
+            Check_Arg_Count (0);
+
+         ------------
+         -- Ada_05 --
+         ------------
+
+         --  pragma Ada_05;
+
+         --  Note: this pragma also has some specific processing in Par.Prag
+         --  because we want to set the Ada 83 version mode during parsing.
+
+         when Pragma_Ada_05 =>
+            GNAT_Pragma;
+            Ada_Version := Ada_05;
             Check_Arg_Count (0);
 
          ----------------------
@@ -5163,6 +5263,18 @@ package body Sem_Prag is
             end if;
          end Debug;
 
+         ---------------------
+         -- Detect_Blocking --
+         ---------------------
+
+         --  pragma Detect_Blocking;
+
+         when Pragma_Detect_Blocking =>
+            GNAT_Pragma;
+            Check_Arg_Count (0);
+            Check_Valid_Configuration_Pragma;
+            Detect_Blocking := True;
+
          -------------------
          -- Discard_Names --
          -------------------
@@ -5265,7 +5377,7 @@ package body Sem_Prag is
             --  (e.g. those added by use of Rtsfind). In Ada 95 mode, this
             --  placement rule does not apply.
 
-            if Ada_83 and then Comes_From_Source (N) then
+            if Ada_Version = Ada_83 and then Comes_From_Source (N) then
                Citem := Next (N);
 
                while Present (Citem) loop
@@ -5934,7 +6046,14 @@ package body Sem_Prag is
             Check_Arg_Count (1);
             Check_No_Identifiers;
             Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
-            Extensions_Allowed := (Chars (Expression (Arg1)) = Name_On);
+
+            if Chars (Expression (Arg1)) = Name_On then
+               Extensions_Allowed := True;
+               Ada_Version := Ada_Version_Type'Last;
+            else
+               Extensions_Allowed := False;
+               Ada_Version := Ada_Version_Type'Min (Ada_Version, Ada_95);
+            end if;
 
          --------------
          -- External --
@@ -8068,10 +8187,9 @@ package body Sem_Prag is
 
          --  pragma Profile (profile_IDENTIFIER);
 
-         --  profile_IDENTIFIER => Ravenscar
+         --  profile_IDENTIFIER => Protected | Ravenscar
 
          when Pragma_Profile =>
-            GNAT_Pragma;
             Check_Arg_Count (1);
             Check_Valid_Configuration_Pragma;
             Check_No_Identifiers;
@@ -8081,6 +8199,36 @@ package body Sem_Prag is
             begin
                if Chars (Argx) = Name_Ravenscar then
                   Set_Ravenscar_Profile (N);
+
+               elsif Chars (Argx) = Name_Restricted then
+                  Set_Profile_Restrictions (Restricted, N, Warn => False);
+               else
+                  Error_Pragma_Arg ("& is not a valid profile", Argx);
+               end if;
+            end;
+
+         ----------------------
+         -- Profile_Warnings --
+         ----------------------
+
+         --  pragma Profile_Warnings (profile_IDENTIFIER);
+
+         --  profile_IDENTIFIER => Protected | Ravenscar
+
+         when Pragma_Profile_Warnings =>
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_Valid_Configuration_Pragma;
+            Check_No_Identifiers;
+
+            declare
+               Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
+            begin
+               if Chars (Argx) = Name_Ravenscar then
+                  Set_Profile_Restrictions (Ravenscar, N, Warn => True);
+
+               elsif Chars (Argx) = Name_Restricted then
+                  Set_Profile_Restrictions (Restricted, N, Warn => True);
                else
                   Error_Pragma_Arg ("& is not a valid profile", Argx);
                end if;
@@ -8552,6 +8700,13 @@ package body Sem_Prag is
             Check_Valid_Configuration_Pragma;
             Set_Ravenscar_Profile (N);
 
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("pragma Ravenscar is an obsolescent feature?", N);
+               Error_Msg_N
+                 ("|use pragma Profile (Ravenscar) instead", N);
+            end if;
+
          -------------------------
          -- Restricted_Run_Time --
          -------------------------
@@ -8562,7 +8717,14 @@ package body Sem_Prag is
             GNAT_Pragma;
             Check_Arg_Count (0);
             Check_Valid_Configuration_Pragma;
-            Set_Restricted_Profile (N);
+            Set_Profile_Restrictions (Restricted, N, Warn => False);
+
+            if Warn_On_Obsolescent_Feature then
+               Error_Msg_N
+                 ("pragma Restricted_Run_Time is an obsolescent feature?", N);
+               Error_Msg_N
+                 ("|use pragma Profile (Restricted) instead", N);
+            end if;
 
          ------------------
          -- Restrictions --
@@ -10040,6 +10202,7 @@ package body Sem_Prag is
       Pragma_Abort_Defer                  => -1,
       Pragma_Ada_83                       => -1,
       Pragma_Ada_95                       => -1,
+      Pragma_Ada_05                       => -1,
       Pragma_All_Calls_Remote             => -1,
       Pragma_Annotate                     => -1,
       Pragma_Assert                       => -1,
@@ -10061,6 +10224,7 @@ package body Sem_Prag is
       Pragma_Convention                   =>  0,
       Pragma_Convention_Identifier        =>  0,
       Pragma_Debug                        => -1,
+      Pragma_Detect_Blocking              => -1,
       Pragma_Discard_Names                =>  0,
       Pragma_Elaborate                    => -1,
       Pragma_Elaborate_All                => -1,
@@ -10130,6 +10294,7 @@ package body Sem_Prag is
       Pragma_Preelaborate                 => -1,
       Pragma_Priority                     => -1,
       Pragma_Profile                      =>  0,
+      Pragma_Profile_Warnings             =>  0,
       Pragma_Propagate_Exceptions         => -1,
       Pragma_Psect_Object                 => -1,
       Pragma_Pure                         =>  0,

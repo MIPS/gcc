@@ -199,7 +199,10 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public Graphics getGraphics ()
   {
-    return null;
+    if (GtkToolkit.useGraphics2D ())
+        return new GdkGraphics2D (this);
+    else
+        return new GdkGraphics (this);
   }
 
   public Point getLocationOnScreen () 
@@ -353,8 +356,8 @@ public class GtkComponentPeer extends GtkGenericPeer
 
   public void requestFocus ()
   {
-    gtkWidgetRequestFocus ();
-    postFocusEvent (FocusEvent.FOCUS_GAINED, false);
+    gtkWidgetRequestFocus();
+    postFocusEvent(FocusEvent.FOCUS_GAINED, false);
   }
 
   public void reshape (int x, int y, int width, int height) 

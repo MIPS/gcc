@@ -390,6 +390,12 @@ void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 #define internal_unpack_8 prefix(internal_unpack_8)
 void internal_unpack_8 (gfc_array_i8 *, const GFC_INTEGER_8 *);
 
+/* date_and_time.c */
+
+#define date_and_time prefix(date_and_time)
+void date_and_time (char *, char *, char *, gfc_array_i4 *,
+                   GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
+
 /* string_intrinsics.c */
 
 #define compare_string prefix(compare_string)
@@ -399,8 +405,16 @@ GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
 /* random.c */
 
 #define random_seed prefix(random_seed)
-void random_seed (GFC_INTEGER_4 * size, const gfc_array_i4 * put,
-             const gfc_array_i4 * get);
+void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+		  gfc_array_i4 * get);
+
+/* normalize.c */
+
+#define normalize_r4_i4 prefix(normalize_r4_i4)
+GFC_REAL_4 normalize_r4_i4 (GFC_UINTEGER_4, GFC_UINTEGER_4);
+
+#define normalize_r8_i8 prefix(normalize_r8_i8)
+GFC_REAL_8 normalize_r8_i8 (GFC_UINTEGER_8, GFC_UINTEGER_8);
 
 #endif
 

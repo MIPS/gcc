@@ -36,7 +36,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <stdarg.h>		/* for varargs and va_list's */
 
@@ -91,6 +91,6 @@ extern void __objc_generate_gc_type_description (Class);
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* not __objc_runtime_INCLUDE_GNU */

@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <ctype.h>
 
@@ -103,6 +103,6 @@ void objc_layout_structure_get_info (struct objc_struct_layout *layout,
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* __encoding_INCLUDE_GNU */

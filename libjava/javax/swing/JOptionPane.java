@@ -60,12 +60,13 @@ public class JOptionPane extends JComponent implements Accessible
    */
   protected class AccessibleJOptionPane extends JComponent.AccessibleJComponent
   {
+    private static final long serialVersionUID = 686071432213084821L;
+  
     /**
      * Creates a new AccessibleJOptionPane object.
      */
     protected AccessibleJOptionPane()
     {
-      super(JOptionPane.this);
     }
 
     /**
@@ -79,6 +80,8 @@ public class JOptionPane extends JComponent implements Accessible
     }
   }
 
+  private static final long serialVersionUID = 5231143276678566796L;
+  
   /** The value returned when cancel option is selected. */
   public static final int CANCEL_OPTION = 2;
 
@@ -203,7 +206,7 @@ public class JOptionPane extends JComponent implements Accessible
   protected Object inputValue = UNINITIALIZED_VALUE;
 
   /** The message displayed in the dialog/internal frame. */
-  protected Object message = "JOptionPane message";
+  protected Object message;
 
   /** The type of message displayed. */
   protected int messageType = PLAIN_MESSAGE;
@@ -235,7 +238,7 @@ public class JOptionPane extends JComponent implements Accessible
    */
   public JOptionPane()
   {
-    this(this.message, PLAIN_MESSAGE, DEFAULT_OPTION, null, null, null);
+    this("JOptionPane message", PLAIN_MESSAGE, DEFAULT_OPTION, null, null, null);
   }
 
   /**
@@ -418,21 +421,7 @@ public class JOptionPane extends JComponent implements Accessible
    */
   public static JDesktopPane getDesktopPaneForComponent(Component parentComponent)
   {
-    if (parentComponent == null)
-      return null;
-    if (parentComponent instanceof JDesktopPane)
-      return (JDesktopPane) parentComponent;
-    JDesktopPane parent = null;
-    while (parentComponent.getParent() != null)
-      {
-	parentComponent = parentComponent.getParent();
-	if (parentComponent instanceof JDesktopPane)
-	  {
-	    parent = (JDesktopPane) parentComponent;
-	    break;
-	  }
-      }
-    return parent;
+    return (JDesktopPane) SwingUtilities.getAncestorOfClass(JDesktopPane.class, parentComponent);
   }
 
   /**
@@ -445,21 +434,7 @@ public class JOptionPane extends JComponent implements Accessible
    */
   public static Frame getFrameForComponent(Component parentComponent)
   {
-    if (parentComponent == null)
-      return null;
-    if (parentComponent instanceof Frame)
-      return (Frame) parentComponent;
-    Frame parent = null;
-    while (parentComponent.getParent() != null)
-      {
-	parentComponent = parentComponent.getParent();
-	if (parentComponent instanceof Frame)
-	  {
-	    parent = (Frame) parentComponent;
-	    break;
-	  }
-      }
-    return parent;
+    return (Frame) SwingUtilities.getAncestorOfClass(Frame.class, parentComponent);
   }
 
   /**

@@ -8,6 +8,10 @@ AC_CANONICAL_SYSTEM
 
 AM_INIT_AUTOMAKE
 
+# For libtool versioning info, format is CURRENT:REVISION:AGE
+libtool_VERSION=1:0:0
+AC_SUBST(libtool_VERSION)
+
 AC_MSG_CHECKING([for --enable-version-specific-runtime-libs])
 AC_ARG_ENABLE(version-specific-runtime-libs,
 [  --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory ],
@@ -59,7 +63,7 @@ AC_TRY_COMPILE([
 [AC_MSG_RESULT(no)
 enable_shared=no])
 
-AC_CHECK_HEADERS(stdint.h execinfo.h signal.h dlfcn.h dirent.h \
+AC_CHECK_HEADERS(stdint.h execinfo.h signal.h dlfcn.h \
   netdb.h sys/ipc.h sys/sem.h sys/shm.h sys/wait.h sys/socket.h ctype.h)
 AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 

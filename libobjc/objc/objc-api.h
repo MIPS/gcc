@@ -34,7 +34,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -617,7 +617,7 @@ objc_get_uninstalled_dtable(void);
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* not __objc_api_INCLUDE_GNU */
 

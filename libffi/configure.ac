@@ -6,13 +6,6 @@ AC_INIT([libffi], [2.1], [http://gcc.gnu.org/bugs.html])
 AC_CONFIG_HEADERS([fficonfig.h])
 
 AM_ENABLE_MULTILIB(, ..)
-if test a = b; then
-   # This is for automake
-   AC_CONFIG_AUX_DIR([..])
-else
-   # and this is for autoconf
-   AC_CONFIG_AUX_DIRS(${multi_basedir})
- fi
 
 AC_CANONICAL_SYSTEM
 target_alias=${target_alias-$host_alias}
@@ -73,7 +66,7 @@ arm*-*-linux-*) TARGET=ARM; TARGETDIR=arm;;
 arm*-*-netbsdelf*) TARGET=ARM; TARGETDIR=arm;;
 s390-*-linux-*) TARGET=S390; TARGETDIR=s390;;
 s390x-*-linux-*) TARGET=S390; TARGETDIR=s390;;
-x86_64-*-linux*) TARGET=X86_64; TARGETDIR=x86;;
+x86_64-*-linux* | x86_64-*-freebsd*) TARGET=X86_64; TARGETDIR=x86;;
 sh-*-linux* | sh[[34]]*-*-linux*) TARGET=SH; TARGETDIR=sh;;
 sh64-*-linux* | sh5*-*-linux*) TARGET=SH64; TARGETDIR=sh64;;
 hppa-*-linux* | parisc-*-linux*) TARGET=PA; TARGETDIR=pa;;

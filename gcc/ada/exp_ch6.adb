@@ -529,12 +529,14 @@ package body Exp_Ch6 is
       ---------------------------
 
       procedure Add_Call_By_Copy_Code is
-         Expr    : Node_Id;
-         Init    : Node_Id;
-         Temp    : Entity_Id;
-         Var     : Entity_Id;
-         V_Typ   : Entity_Id;
-         Crep    : Boolean;
+         Expr  : Node_Id;
+         Init  : Node_Id;
+         Temp  : Entity_Id;
+         Indic : Node_Id := New_Occurrence_Of (Etype (Formal), Loc);
+         Var   : Entity_Id;
+         F_Typ : constant Entity_Id := Etype (Formal);
+         V_Typ : Entity_Id;
+         Crep  : Boolean;
 
       begin
          Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('T'));
@@ -548,7 +550,7 @@ package body Exp_Ch6 is
             Var := Make_Var (Expression (Actual));
 
             Crep := not Same_Representation
-                          (Etype (Formal), Etype (Expression (Actual)));
+                          (F_Typ, Etype (Expression (Actual)));
 
          else
             V_Typ := Etype (Actual);
@@ -560,19 +562,48 @@ package body Exp_Ch6 is
          --  parameter where the formal is an unconstrained array (in the
          --  latter case, we have to pass in an object with bounds).
 
+         --  If this is an out parameter, the initial copy is wasteful, so as
+         --  an optimization for the one-dimensional case we extract the
+         --  bounds of the actual and build an uninitialized temporary of the
+         --  right size.
+
          if Ekind (Formal) = E_In_Out_Parameter
-           or else (Is_Array_Type (Etype (Formal))
-                     and then
-                    not Is_Constrained (Etype (Formal)))
+           or else (Is_Array_Type (F_Typ) and then not Is_Constrained (F_Typ))
          then
             if Nkind (Actual) = N_Type_Conversion then
                if Conversion_OK (Actual) then
-                  Init := OK_Convert_To
-                            (Etype (Formal), New_Occurrence_Of (Var, Loc));
+                  Init := OK_Convert_To (F_Typ, New_Occurrence_Of (Var, Loc));
                else
-                  Init := Convert_To
-                            (Etype (Formal), New_Occurrence_Of (Var, Loc));
+                  Init := Convert_To (F_Typ, New_Occurrence_Of (Var, Loc));
                end if;
+
+            elsif Ekind (Formal) = E_Out_Parameter
+              and then Is_Array_Type (F_Typ)
+              and then Number_Dimensions (F_Typ) = 1
+              and then not Has_Non_Null_Base_Init_Proc (F_Typ)
+            then
+               --  Actual is a one-dimensional array or slice, and the type
+               --  requires no initialization. Create a temporary of the
+               --  right size, but do copy actual into it (optimization).
+
+               Init := Empty;
+               Indic :=
+                 Make_Subtype_Indication (Loc,
+                   Subtype_Mark =>
+                     New_Occurrence_Of (F_Typ, Loc),
+                   Constraint   =>
+                     Make_Index_Or_Discriminant_Constraint (Loc,
+                       Constraints => New_List (
+                         Make_Range (Loc,
+                           Low_Bound  =>
+                             Make_Attribute_Reference (Loc,
+                               Prefix => New_Occurrence_Of (Var, Loc),
+                               Attribute_name => Name_First),
+                           High_Bound =>
+                             Make_Attribute_Reference (Loc,
+                               Prefix => New_Occurrence_Of (Var, Loc),
+                               Attribute_Name => Name_Last)))));
+
             else
                Init := New_Occurrence_Of (Var, Loc);
             end if;
@@ -585,16 +616,16 @@ package body Exp_Ch6 is
 
          elsif Ekind (Formal) = E_Out_Parameter
            and then Nkind (Actual) = N_Type_Conversion
-           and then (Is_Bit_Packed_Array (Etype (Formal))
+           and then (Is_Bit_Packed_Array (F_Typ)
                        or else
                      Is_Bit_Packed_Array (Etype (Expression (Actual))))
          then
             if Conversion_OK (Actual) then
                Init :=
-                 OK_Convert_To (Etype (Formal), New_Occurrence_Of (Var, Loc));
+                 OK_Convert_To (F_Typ, New_Occurrence_Of (Var, Loc));
             else
                Init :=
-                 Convert_To (Etype (Formal), New_Occurrence_Of (Var, Loc));
+                 Convert_To (F_Typ, New_Occurrence_Of (Var, Loc));
             end if;
 
          elsif Ekind (Formal) = E_In_Parameter then
@@ -607,8 +638,7 @@ package body Exp_Ch6 is
          N_Node :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Temp,
-             Object_Definition   =>
-               New_Occurrence_Of (Etype (Formal), Loc),
+             Object_Definition   => Indic,
              Expression => Init);
          Set_Assignment_OK (N_Node);
          Insert_Action (N, N_Node);
@@ -1516,10 +1546,10 @@ package body Exp_Ch6 is
          elsif Convention (Subp) = Convention_Java then
             null;
 
-         --  Ada 0Y (AI-231): do not force the check in case of Ada 0Y unless
-         --  it is a null-excluding type
+            --  Ada 2005 (AI-231): do not force the check in case of Ada 2005
+            --  unless it is a null-excluding type
 
-         elsif not Extensions_Allowed
+         elsif Ada_Version < Ada_05
            or else Can_Never_Be_Null (Etype (Prev))
          then
             Cond :=
@@ -2278,6 +2308,9 @@ package body Exp_Ch6 is
       --  If procedure body has no local variables, inline body without
       --  creating block,  otherwise rewrite call with block.
 
+      function Formal_Is_Used_Once (Formal : Entity_Id) return Boolean;
+      --  Determine whether a formal parameter is used only once in Orig_Bod
+
       ---------------------
       -- Make_Exit_Label --
       ---------------------
@@ -2512,6 +2545,63 @@ package body Exp_Ch6 is
          end if;
       end Rewrite_Procedure_Call;
 
+      -------------------------
+      -- Formal_Is_Used_Once --
+      ------------------------
+
+      function Formal_Is_Used_Once (Formal : Entity_Id) return Boolean is
+         Use_Counter : Int := 0;
+
+         function Count_Uses (N : Node_Id) return Traverse_Result;
+         --  Traverse the tree and count the uses of the formal parameter.
+         --  In this case, for optimization purposes, we do not need to
+         --  continue the traversal once more than one use is encountered.
+
+         ----------------
+         -- Count_Uses --
+         ----------------
+
+         function Count_Uses (N : Node_Id) return Traverse_Result is
+         begin
+            --  The original node is an identifier
+
+            if Nkind (N) = N_Identifier
+              and then Present (Entity (N))
+
+               --  The original node's entity points to the one in the
+               --  copied body.
+
+              and then Nkind (Entity (N)) = N_Identifier
+              and then Present (Entity (Entity (N)))
+
+               --  The entity of the copied node is the formal parameter
+
+              and then Entity (Entity (N)) = Formal
+            then
+               Use_Counter := Use_Counter + 1;
+
+               if Use_Counter > 1 then
+
+                  --  Denote more than one use and abandon the traversal
+
+                  Use_Counter := 2;
+                  return Abandon;
+
+               end if;
+            end if;
+
+            return OK;
+         end Count_Uses;
+
+         procedure Count_Formal_Uses is new Traverse_Proc (Count_Uses);
+
+      --  Start of processing for Formal_Is_Used_Once
+
+      begin
+         Count_Formal_Uses (Orig_Bod);
+         return Use_Counter = 1;
+      end Formal_Is_Used_Once;
+
    --  Start of processing for Expand_Inlined_Call
 
    begin
@@ -2607,6 +2697,13 @@ package body Exp_Ch6 is
               and then
                (not Is_Scalar_Type (Etype (A))
                  or else Ekind (Entity (A)) = E_Enumeration_Literal))
+
+         --  When the actual is an identifier and the corresponding formal
+         --  is used only once in the original body, the formal can be
+         --  substituted directly with the actual parameter.
+
+           or else (Nkind (A) = N_Identifier
+             and then Formal_Is_Used_Once (F))
 
            or else Nkind (A) = N_Real_Literal
            or else Nkind (A) = N_Integer_Literal

@@ -149,15 +149,20 @@ package body Prj.Nmsc is
    function ALI_File_Name (Source : String) return String;
    --  Return the ALI file name corresponding to a source.
 
-   procedure Check_Ada_Naming_Scheme
-     (Project : Project_Id;
-      Naming  : Naming_Data);
-   --  Check that the package Naming is correct.
-
    procedure Check_Ada_Name
      (Name : String;
       Unit : out Name_Id);
    --  Check that a name is a valid Ada unit name.
+
+   procedure Check_Ada_Naming_Scheme
+     (Data    : in out Project_Data;
+      Project : Project_Id);
+   --  Check the naming scheme part of Data
+
+   procedure Check_Ada_Naming_Scheme_Validity
+     (Project : Project_Id;
+      Naming  : Naming_Data);
+   --  Check that the package Naming is correct.
 
    procedure Check_For_Source
      (File_Name        : Name_Id;
@@ -170,11 +175,6 @@ package body Prj.Nmsc is
       Naming_Exception : Boolean);
    --  Check if a file in a source directory is a source for a specific
    --  language other than Ada.
-
-   procedure Check_Naming_Scheme
-     (Data    : in out Project_Data;
-      Project : Project_Id);
-   --  Check the naming scheme part of Data
 
    function Check_Project
      (P            : Project_Id;
@@ -540,7 +540,7 @@ package body Prj.Nmsc is
       Languages := Prj.Util.Value_Of (Name_Languages, Data.Decl.Attributes);
 
       Data.Naming.Current_Language := Name_Ada;
-      Data.Sources_Present         := Data.Source_Dirs /= Nil_String;
+      Data.Ada_Sources_Present     := Data.Source_Dirs /= Nil_String;
 
       if not Languages.Default then
          declare
@@ -566,21 +566,21 @@ package body Prj.Nmsc is
 
                --  Mark the project file as having no sources for Ada
 
-               Data.Sources_Present := False;
+               Data.Ada_Sources_Present := False;
             end if;
          end;
       end if;
 
-      Check_Naming_Scheme (Data, Project);
+      Check_Ada_Naming_Scheme (Data, Project);
 
       Prepare_Ada_Naming_Exceptions (Data.Naming.Bodies, Body_Part);
       Prepare_Ada_Naming_Exceptions (Data.Naming.Specs,  Specification);
 
       --  If we have source directories, then find the sources
 
-      if Data.Sources_Present then
+      if Data.Ada_Sources_Present then
          if Data.Source_Dirs = Nil_String then
-            Data.Sources_Present := False;
+            Data.Ada_Sources_Present := False;
 
          else
             declare
@@ -628,7 +628,7 @@ package body Prj.Nmsc is
                   begin
                      Source_Names.Reset;
 
-                     Data.Sources_Present := Current /= Nil_String;
+                     Data.Ada_Sources_Present := Current /= Nil_String;
 
                      while Current /= Nil_String loop
                         Element := String_Elements.Table (Current);
@@ -835,7 +835,7 @@ package body Prj.Nmsc is
          end if;
       end if;
 
-      if Data.Sources_Present then
+      if Data.Ada_Sources_Present then
 
          --  Check that all individual naming conventions apply to
          --  sources of this project file.
@@ -1209,7 +1209,44 @@ package body Prj.Nmsc is
                   end;
                end if;
 
-               if not Lib_Symbol_File.Default then
+               if not Lib_Symbol_Policy.Default then
+                  declare
+                     Value : constant String :=
+                               To_Lower
+                                 (Get_Name_String (Lib_Symbol_Policy.Value));
+
+                  begin
+                     if Value = "autonomous" or else Value = "default" then
+                        Data.Symbol_Data.Symbol_Policy := Autonomous;
+
+                     elsif Value = "compliant" then
+                        Data.Symbol_Data.Symbol_Policy := Compliant;
+
+                     elsif Value = "controlled" then
+                        Data.Symbol_Data.Symbol_Policy := Controlled;
+
+                     elsif Value = "restricted" then
+                        Data.Symbol_Data.Symbol_Policy := Restricted;
+
+                     else
+                        Error_Msg
+                          (Project,
+                           "illegal value for Library_Symbol_Policy",
+                           Lib_Symbol_Policy.Location);
+                     end if;
+                  end;
+               end if;
+
+               if Lib_Symbol_File.Default then
+                  if Data.Symbol_Data.Symbol_Policy = Restricted then
+                     Error_Msg
+                       (Project,
+                        "Library_Symbol_File needs to be defined when " &
+                        "symbol policy is Restricted",
+                        Lib_Symbol_Policy.Location);
+                  end if;
+
+               else
                   Data.Symbol_Data.Symbol_File := Lib_Symbol_File.Value;
 
                   Get_Name_String (Lib_Symbol_File.Value);
@@ -1245,33 +1282,10 @@ package body Prj.Nmsc is
                   end if;
                end if;
 
-               if not Lib_Symbol_Policy.Default then
-                  declare
-                     Value : constant String :=
-                               To_Lower
-                                 (Get_Name_String (Lib_Symbol_Policy.Value));
-
-                  begin
-                     if Value = "autonomous" or else Value = "default" then
-                        Data.Symbol_Data.Symbol_Policy := Autonomous;
-
-                     elsif Value = "compliant" then
-                        Data.Symbol_Data.Symbol_Policy := Compliant;
-
-                     elsif Value = "controlled" then
-                        Data.Symbol_Data.Symbol_Policy := Controlled;
-
-                     else
-                        Error_Msg
-                          (Project,
-                           "illegal value for Library_Symbol_Policy",
-                           Lib_Symbol_Policy.Location);
-                     end if;
-                  end;
-               end if;
-
                if Lib_Ref_Symbol_File.Default then
-                  if Data.Symbol_Data.Symbol_Policy /= Autonomous then
+                  if Data.Symbol_Data.Symbol_Policy = Compliant
+                    or else Data.Symbol_Data.Symbol_Policy = Controlled
+                  then
                      Error_Msg
                        (Project,
                         "a reference symbol file need to be defined",
@@ -1281,7 +1295,7 @@ package body Prj.Nmsc is
                else
                   Data.Symbol_Data.Reference := Lib_Ref_Symbol_File.Value;
 
-                  Get_Name_String (Lib_Symbol_File.Value);
+                  Get_Name_String (Lib_Ref_Symbol_File.Value);
 
                   if Name_Len = 0 then
                      Error_Msg
@@ -1740,7 +1754,8 @@ package body Prj.Nmsc is
             Other_Sources.Table (Other_Sources.Last) := Source;
 
             --  There are sources of languages other than Ada in this project
-            Data.Sources_Present := True;
+
+            Data.Other_Sources_Present := True;
 
             --  And there are sources of this language in this project
 
@@ -1762,11 +1777,11 @@ package body Prj.Nmsc is
       end if;
    end Check_For_Source;
 
-   -----------------------------
-   -- Check_Ada_Naming_Scheme --
-   -----------------------------
+   --------------------------------------
+   -- Check_Ada_Naming_Scheme_Validity --
+   --------------------------------------
 
-   procedure Check_Ada_Naming_Scheme
+   procedure Check_Ada_Naming_Scheme_Validity
      (Project : Project_Id;
       Naming  : Naming_Data)
    is
@@ -1895,13 +1910,13 @@ package body Prj.Nmsc is
             end if;
          end;
       end if;
-   end Check_Ada_Naming_Scheme;
+   end Check_Ada_Naming_Scheme_Validity;
 
-   -------------------------
-   -- Check_Naming_Scheme --
-   -------------------------
+   -----------------------------
+   -- Check_Ada_Naming_Scheme --
+   -----------------------------
 
-   procedure Check_Naming_Scheme
+   procedure Check_Ada_Naming_Scheme
      (Data    : in out Project_Data;
       Project : Project_Id)
    is
@@ -1961,7 +1976,7 @@ package body Prj.Nmsc is
          end loop;
       end Check_Unit_Names;
 
-   --  Start of processing for Check_Naming_Scheme
+   --  Start of processing for Check_Ada_Naming_Scheme
 
    begin
       --  If there is a package Naming, we will put in Data.Naming what is in
@@ -2218,14 +2233,14 @@ package body Prj.Nmsc is
 
          --  Check if Data.Naming is valid
 
-         Check_Ada_Naming_Scheme (Project, Data.Naming);
+         Check_Ada_Naming_Scheme_Validity (Project, Data.Naming);
 
       else
          Data.Naming.Current_Spec_Suffix := Default_Ada_Spec_Suffix;
          Data.Naming.Current_Body_Suffix := Default_Ada_Body_Suffix;
          Data.Naming.Separate_Suffix     := Default_Ada_Body_Suffix;
       end if;
-   end Check_Naming_Scheme;
+   end Check_Ada_Naming_Scheme;
 
    -------------------
    -- Check_Project --
@@ -2501,7 +2516,7 @@ package body Prj.Nmsc is
          --  any source, then we never call Find_Sources.
 
          if Current_Source /= Nil_String then
-            Data.Sources_Present := True;
+            Data.Ada_Sources_Present := True;
 
          elsif Data.Extends = No_Project then
             Error_Msg
@@ -3417,8 +3432,9 @@ package body Prj.Nmsc is
                Data.Object_Directory := No_Name;
             end if;
 
-            Data.Source_Dirs     := Nil_String;
-            Data.Sources_Present := False;
+            Data.Source_Dirs           := Nil_String;
+            Data.Ada_Sources_Present   := False;
+            Data.Other_Sources_Present := False;
 
          else
             declare
@@ -4002,9 +4018,9 @@ package body Prj.Nmsc is
       Data      := Projects.Table (Project);
       Languages := Prj.Util.Value_Of (Name_Languages, Data.Decl.Attributes);
 
-      Data.Sources_Present := Data.Source_Dirs /= Nil_String;
+      Data.Other_Sources_Present := Data.Source_Dirs /= Nil_String;
 
-      if Data.Sources_Present then
+      if Data.Other_Sources_Present then
          --  Check if languages other than Ada are specified in this project
 
          if Languages.Default then
@@ -4015,7 +4031,7 @@ package body Prj.Nmsc is
 
             --  No sources of languages other than Ada
 
-            Data.Sources_Present := False;
+            Data.Other_Sources_Present := False;
 
          else
             declare
@@ -4025,9 +4041,9 @@ package body Prj.Nmsc is
             begin
                --  Assumethat there is no language other than Ada specified.
                --  If in fact there is at least one, we will set back
-               --  Sources_Present to True.
+               --  Other_Sources_Present to True.
 
-               Data.Sources_Present := False;
+               Data.Other_Sources_Present := False;
 
                --  Look through all the languages specified in attribute
                --  Languages, if any
@@ -4056,7 +4072,7 @@ package body Prj.Nmsc is
                         --  than Ada.
 
                         if Lang /= Lang_Ada then
-                           Data.Sources_Present := True;
+                           Data.Other_Sources_Present := True;
                         end if;
 
                         exit Lang_Loop;
@@ -4081,11 +4097,11 @@ package body Prj.Nmsc is
 
       --  If there may be some sources, look for them
 
-      if Data.Sources_Present then
+      if Data.Other_Sources_Present then
          --  Set Source_Present to False. It will be set back to True whenever
          --  a source is found.
 
-         Data.Sources_Present := False;
+         Data.Other_Sources_Present := False;
 
          for Lang in Other_Programming_Language loop
             --  For each language (other than Ada) in the project file
@@ -4717,6 +4733,7 @@ package body Prj.Nmsc is
                then
                   Name_Len := Last;
                   Name_Buffer (1 .. Name_Len) := Name_Str (1 .. Last);
+                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
                   Canonical_Name := Name_Find;
                   NL := Source_Names.Get (Canonical_Name);
 

@@ -1,3 +1,395 @@
+2004-06-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/17_intro/contribute.html: Update some links.
+	* docs/html/17_intro/porting-howto.html: Likewise.
+	* docs/html/17_intro/porting-howto.xml: Likewise.
+	* docs/html/18_support/howto.html: Likewise.
+	* docs/html/21_strings/howto.html: Likewise.
+	* docs/html/27_io/howto.html: Likewise.
+	* docs/html/configopts.html: Likewise.
+	* docs/html/ext/howto.html: Likewise.
+	* docs/html/faq/index.html: Likewise.
+	* docs/html/install.html: Don't mention 2.x compilers.
+
+2004-06-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rope: Trivial formatting fixes.
+	* include/ext/ropeimpl.h: Likewise.
+
+2004-06-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16210
+	* acinclude.m4 (GLIBCXX_ENABLE_LONG_LONG): Do not check for the
+	availability of strto(u)ll, not used anymore in the iostreams.
+	* configure: Regenerate.
+
+2004-06-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/16182	
+	* linkage.m4 (GLIBCXX_CHECK_BUILTIN_MATH_DEC): Revert to
+	AC_DEFINE_UNQUOTED.
+	* configure: Regenerate.
+
+2004-06-25  Paul Brook  <paul@codesourcery.com>
+
+	* libsupc++/cxxabi.h: Define __ARM_EABI__
+	(__guard): Use it.
+	* libsupc++/guard.h (__cxa_guard_acquire, __cxa_guard_release): Ditto.
+
+2004-06-25  Paul Brook  <paul@codesourcery.com>
+
+	* include/bits/concurrence.h: Still create mutex object when
+	single-threaded.
+
+2004-06-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (fill, fill_n): Revert last
+	change: actually we need to copy construct an object of type
+	_Tp, not of type iterator_traits<>::value_type, therefore the
+	code is ok.
+
+2004-06-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (fill, fill_n): Tighten the
+	dispatch: use iterator_traits<>::value_type, not _Tp.
+
+2004-06-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/25_algorithms/fill/1.cc: Tweak instantiations.
+	* testsuite/25_algorithms/fill/2.cc: Likewise.
+
+2004-06-25  Dan Nicolaescu  <dann@ics.uci.edu>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (__fill, __fill_n): New helpers
+	for fill and fill_n, respectively: when copying is cheap, use a
+	temporary to avoid a memory read in each iteration.
+
+2004-06-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/25_algorithms/fill/1.cc: New.
+	* testsuite/25_algorithms/fill/2.cc: Likewise.
+
+2004-06-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/debug/formatter.h (__gnu_debug::_Error_formatter):
+	Remove copy constructor and assignment operator.
+
+2004-06-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/concurrence.h (__gnu_cxx::lock): New.
+	* include/ext/pool_allocator.h (__pool_base::_Lock::_S_lock): Remove.
+	(__pool_base::_M_get_mutex): New.
+	* include/bits/allocator.h: Tweak.
+	* src/allocator.cc (__pool_base::_M_get_free_list): Correct offset.
+	* config/linker-map.gnu: Remove __pool_base::_Lock::_S_lock.
+	* include/bits/stl_threads.h: Remove.
+	* include/Makefile.am: Also here.
+	* include/Makefile.in: Regenerate.
+
+	* src/locale_init.cc: Use __gnu_cxx::lock.
+
+	* src/allocator.cc: Move all instantiations...
+	* src/allocator-inst.cc: ...here.
+	
+2004-06-23  Andrew Pinski  <apinski@apple.com>
+
+	* linkage.m4: Remove check for libmx.	
+	* configure: Regenerate.
+
+2004-06-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16154
+	* include/bits/boost_concept_check.h (struct _TrivialIteratorConcept):
+	Don't require the _DefaultConstructibleConcept.
+	(struct _ForwardIteratorConcept): Require it here.
+
+2004-06-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* include/bits/istream.tcc (getline): Make sure arguments passed
+	to min/max have the same type.
+	* include/bits/locale_facets.tcc (__verify_grouping): Likewise.
+	* include/bits/stl_deque.h (_Deque_base::_Deque_base): Likewise.
+
+2004-06-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/abi.html: Update links.
+
+2004-06-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/26_numerics/complex_inserters_extractors.cc,
+	complex_value.cc, buggy_complex.cc: Move to...
+	* testsuite/26_numerics/complex/: ... here.
+	* testsuite/26_numerics/c99_classification_macros_c++.cc,
+	c99_classification_macros_c.cc, c_math.cc, c_math_dynamic.cc,
+	fabs_inline.cc: Move to...
+	* testsuite/26_numerics/cmath/: ... here.
+	* testsuite/26_numerics/binary_closure.cc, slice.cc,
+	slice_array_assignment.cc, valarray.cc, valarray_const_bracket.cc,
+	valarray_name_lookup.cc, valarray_operators.cc,
+	valarray_subset_assignment.cc: Move to...
+	* testsuite/26_numerics/valarray/: ... here (new dir).
+	* testsuite/26_numerics/sum_diff.cc: Move to...
+	* testsuite/26_numerics/numeric/: ... here (new dir).
+
+2004-06-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_istream.h (ignore(streamsize __n = 1,
+	int_type __delim = traits_type::eof())): Split into...
+	(ignore(), ignore(streamsize __n), ignore(streamsize __n,
+	int_type __delim)): The first two can be much more simpler
+	and efficient than the fully general case; also, the last
+	two can take advantage of the same mechanism already used
+	for getline.
+	* include/bits/istream.tcc (ignore(streamsize __n = 1,
+	int_type __delim = traits_type::eof()): Remove.
+	(ignore(), ignore(streamsize __n), ignore(streamsize __n,
+	int_type __delim)): New.
+
+2004-06-21  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/linker-map.gnu: Use wildcards for
+	__basic_file::sys_open(FILE*, _Ios_Openmode).
+
+2004-06-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istream/ignore/char/3.cc: New.
+
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator (__mt_alloc<>::_Tune): Add _M_align,
+	the alignment requested.
+	(__mt_alloc<>::_Tune::_Tune): Tweak consistently.
+	(__mt_alloc<>::allocate): Use it instead of sizeof(_Block_record).
+	(__mt_alloc<>::deallocate): Likewise.
+
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16020
+	* include/debug/safe_base.h
+	(_Safe_sequence_base::_Safe_sequence_base(const _Safe_sequence_base&),
+	_Safe_sequence_base::operator=): Provide definitions.
+	* testsuite/23_containers/bitset/cons/16020.cc: New.
+
+2004-06-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pool_allocator.h: Qualify __throw_bad_alloc.
+	(__pool_base): Remove unused template parameter.  Add
+	protected. Move lock data into __pool_base::_Lock. Remove static
+	on member functions.
+	(__pool_base::_M_get_free_list): New.
+	(__pool_alloc): Move _S_force new here.
+	* src/allocator.cc: Move out of line __pool_base definitions here.
+	* config/linker-map.gnu: Export bits from __pool_base.
+	
+2004-06-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/locale/gnu/numeric_members.cc
+	(numpunct<wchar_t>::_M_initialize_numpunct): Clean up
+	assignments of _M_decimal_point and _M_thousands_sep.
+	* config/locale/gnu/time_members.cc
+	(__timepunct<wchar_t>::_M_initialize_timepunct): Clean up
+	and reformat assignments of date and time fields.
+
+2004-06-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rope (rope(_CharT, const allocator_type&)): Fix
+	to use _Data_allocate.
+	* include/ext/ropeimpl.h (rope<>::_S_leaf_concat_char_iter): Likewise.
+	(rope<>::_S_substring): Likewise.
+	(rope<>::rope(size_t, _CharT, const allocator_type&)): Likewise.
+	(rope<>::c_str()): Likewise.
+	(rope<>::replace_with_c_str()): Likewise.
+
+	* include/ext/ropeimpl.h (_Rope_iterator_base<>::_S_setbuf):
+	Correctly qualify _S_leaf, _S_function, etc., with _Rope_constants::,
+	not _RopeRep.
+	(_Rope_iterator_base<>::_S_setcache): Likewise.
+	(_Rope_iterator_base<>::_S_setcache_for_incr): Likewise.
+	(rope<>::_S_substring): Likewise.
+	(rope<>::_S_dump): Likewise.
+	(rope<>::_S_fetch_ptr): Likewise.
+	(rope<>::_S_compare): Likewise.
+	(rope<>::replace_with_c_str()): Likewise.		
+
+	* testsuite/ext/rope.cc: Rename to testsuite/ext/rope/1.cc.
+	* testsuite/ext/rope/2.cc: New.
+
+2004-06-16  Paolo Carlini  <pcarlini@suse.de>
+	    Matt Austern  <austern@apple.com>
+
+	* testsuite/ext/rope/3.cc: New.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acinclude.m4: Remove useless multilib configury.
+	* Makefile.am: Remove useless multilib rules.
+	* aclocal.m4: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2004-06-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/hashtable.h: Trivial formatting fixes.
+	* include/ext/rb_tree: Likewise.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/hash_map: Trivial formatting fixes.
+	* include/ext/hash_set: Likewise.
+	* include/ext/memory: Likewise.
+	* include/ext/numeric: Likewise.
+
+2004-06-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.in: Regenerate with automake 1.8.5.
+	* aclocal.m4: Same.
+	* include/Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* libsupc++/Makefile.in: Same.
+	* po/Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/slist: Trivial formatting fixes.
+
+2004-06-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_name):
+	Don't use the 'magic number' 10 in the computation of __minlen;
+	never access __name past __minlen; in the loop over __i3, don't
+	decrease __nmatches and increase __i3 at once, only either of
+	the two; tidy.
+
+2004-06-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::do_get_time,
+	time_get<>::do_get_date): Use only once _M_extract_via_format,
+	instead of going through "%X"/"%x" and calling it two times
+	(+ using widen).
+
+2004-06-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/algorithm: Trivial formatting fixes.
+	* include/ext/functional: Likewise.
+	* include/ext/hash_fun.h: Likewise.
+	* include/ext/iterator: Likewise.
+
+2004-06-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.tcc (find(const _CharT*, size_type,
+	size_type)): Reimplement using std::search.
+	* src/string-inst.cc: Instantiate std::search for char/wchar_t.
+
+2004-06-12  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* testsuite/performance/21_strings/string_find.cc: New.
+
+2004-06-10  Aaron W. LaFramboise  <aaronraolete36@aaronwl.com>
+
+	* include/bits/istream.tcc (istream::ignore): Fix for -Wuninitialized.
+
+2004-06-10  Jan van Dijk  <jan@etpmod.phys.tue.nl>
+
+	* include/std/std_complex.h (sin(const complex<_Tp>& __z)): Make
+	this function return a value.
+
+2004-06-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/15775
+	* include/bits/stl_deque.h: Consistently with stl_set.h, define
+	pointer as allocator's pointer, likewise for reference,
+	const_pointer, and const_reference.
+	* include/bits/stl_list.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_vector.h: Likewise.
+
+2004-06-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* crossconfig.m4: Remove signbit, signbitf, signbitl.	
+	* linkage.m4: Comment LIBMATHOBJS, tweak others.  AC_DEFINES for
+	builtin math functions instead of AC_DEFINE_UNQUOTED.
+	* configure: Regenerate.
+	
+2004-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/filter.sed: Rename _GLIBCXX_STD to std.
+	* docs/doxygen/mainpage.html: Remove links.
+
+2004-06-08  Jason Merrill  <jason@redhat.com>
+
+	* config/linker-map.gnu: Use wildcards for
+	__basic_file::{xsgetn,xsputn,seekoff,xsputn_2}.
+
+2004-06-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/pool_allocator.h: Convert to a global free-list,
+	as per the original SGI/HP design: move the implementation
+	details to struct __pool_base, from which __pool_alloc derives.
+	* src/allocator.cc: Instantiate __pool_base.
+
+2004-06-07  Dhruv Matani  <dhruvbird@gmx.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/testsuite_performance.h
+	(resource_counter::allocated_memory): Make it return the right
+	number of bytes requested by the allocators/application. This is
+	the sbrk+mmaped memory.
+
+2004-06-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/std/std_complex.h (log): Tidy.
+
+2004-05-31  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu (GLIBCXX_3.4.1): Add.
+	* testsuite/testsuite_abi.cc: Same.
+	* configure.ac (libtool_VERSION): Bump to 6:1:0.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	
+2004-05-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/std/std_complex.h (complex<_Tp>): Properly indent
+	to follow C++STYLE. 
+	(complex<>::__rep): New.
+	(__complex_abs): New.  Dispatch to built-ins.
+	(abs): Use them.
+	(__complex_arg): New. Dispatch to built-ins.
+	(arg): Use it.
+	(__complex_cos): New. Dispatch to built-ins.
+	(cos): Use it.
+	(__complex_cosh): New. Dispatch to built-ins.
+	(cosh): Use it.
+	(__complex_exp): New. Dispatch to built-ins.
+	(exp): Use it.
+	(__complex_log): New. Dispatch to built-ins.
+	(log): Use it.
+	(__complex_sin): New. Dispatch to built-ins.
+	(sin): Use it.
+	(__complex_sinh): New. Dispatch to built-ins.
+	(sinh): Use it.
+	(__complex_sqrt): New. Dispatch to built-ins.
+	(sqrt): Use it.
+	(__complex_tan): New. Dispatch to built-ins.
+	(tan): Use it.
+	(__complex_tanh): New. Dispatch to built-ins.
+	(tanh): Use it.
+	(__complex_pow): New. Dispatch to built-ins.
+	(pow): Use it.
+
+2004-05-29  Richard B. Kreckel  <Richard.Kreckel@Framatome-ANP.com>
+            Benjamin Kosnik  <bkoz@redhat.com>
+	
+	PR libstdc++/14600
+	* include/ext/stdio_sync_filebuf.h (stdio_sync_filebuf::file): New.
+	* include/ext/stdio_filebuf.h (stdio_filebuf::file): New.
+	* config/io/basic_file_stdio.cc (__basic_file::file): New.
+	* config/io/basic_file_stdio.h: Define.
+
 2004-05-27  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/15675

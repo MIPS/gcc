@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <stddef.h>
 #include <string.h>
@@ -210,6 +210,7 @@ compare_strings (const void *k1, const void *k2)
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
+
 
 #endif /* not __hash_INCLUDE_GNU */

@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endiff /* __cplusplus */
 
 #define OBJC_SPARSE2		/* 2-level sparse array */
 /* #define OBJC_SPARSE3 */      /* 3-level sparse array */
@@ -240,6 +240,6 @@ static inline void* sarray_get_safe(struct sarray* array, sidx indx)
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* __sarray_INCLUDE_GNU */

@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package java.lang;
 
+import gnu.classpath.Configuration;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileDescriptor;
@@ -47,7 +49,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Properties;
 import java.util.PropertyPermission;
-import gnu.classpath.Configuration;
 
 /**
  * System represents system-wide resources; things that represent the
@@ -453,18 +454,22 @@ public final class System
   }
 
   /**
-   * This used to get an environment variable, but following Sun's lead,
-   * it now throws an Error. Use <code>getProperty</code> instead.
+   * Gets the value of an environment variable.
    *
    * @param name the name of the environment variable
-   * @return this does not return
-   * @throws Error this is not supported
-   * @deprecated use {@link #getProperty(String)}; getenv is not supported
+   * @return the string value of the variable
+   * @throws NullPointerException
+   * @throws SecurityException if permission is denied
+   * @since 1.5
    */
   public static String getenv(String name)
   {
-    throw new Error("getenv no longer supported, use properties instead: "
-                    + name);
+    if (name == null)
+      throw new NullPointerException();
+    SecurityManager sm = Runtime.securityManager; // Be thread-safe.
+    if (sm != null)
+      sm.checkPermission(new RuntimePermission("getenv."+name));
+    return getenv0(name);
   }
 
   /**
@@ -601,4 +606,11 @@ public final class System
    * @see #setErr(PrintStream)
    */
   private static native void setErr0(PrintStream err);
+
+  /**
+   * Gets the value of an environment variable.
+   *
+   * @see #getenv(String)
+   */
+  static native String getenv0(String name);
 } // class System

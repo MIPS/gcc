@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 /*************************************************************************
  *  Universal static variables:
@@ -148,6 +148,6 @@ void * __objc_thread_get_data (void);
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* not __thread_INCLUDE_GNU */

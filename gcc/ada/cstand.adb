@@ -243,7 +243,6 @@ package body CStand is
 
       Set_Etype (First_Entity (Standard_Op_Concatw), Standard_Wide_String);
       Set_Etype (Last_Entity  (Standard_Op_Concatw), Standard_Wide_String);
-
    end Create_Operators;
 
    ---------------------
@@ -584,6 +583,7 @@ package body CStand is
       Set_Component_Type (Standard_String, Standard_Character);
       Set_Component_Size (Standard_String, Uint_8);
       Init_Size_Align    (Standard_String);
+      Set_Alignment      (Standard_String, Uint_1);
 
       --  Set index type of String
 
@@ -1182,9 +1182,9 @@ package body CStand is
       Build_Exception (S_Tasking_Error);
 
       --  Numeric_Error is a normal exception in Ada 83, but in Ada 95
-      --  it is a renaming of Constraint_Error
+      --  it is a renaming of Constraint_Error. Is this test too early???
 
-      if Ada_83 then
+      if Ada_Version = Ada_83 then
          Build_Exception (S_Numeric_Error);
 
       else

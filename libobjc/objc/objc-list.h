@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 struct objc_list {
   void *head;
@@ -151,6 +151,6 @@ list_free(struct objc_list* list)
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* not __GNU_OBJC_LIST_H */

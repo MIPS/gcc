@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <stdio.h>
 
@@ -136,6 +136,6 @@ void objc_flush_typed_stream (TypedStream* stream);
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 
 #endif /* not __typedstream_INCLUDE_GNU */

@@ -41,11 +41,11 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.Rectangle;
-import java.util.AbstractMap;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Vector;
 
 
@@ -438,10 +438,10 @@ public class RepaintManager
     dirtyComponents.clear();
 
     // step 2: paint those roots
-    Iterator i = roots.values().iterator();
+    Iterator i = roots.entrySet().iterator();
     while(i.hasNext())
       {
-        AbstractMap.BasicMapEntry ent = (AbstractMap.BasicMapEntry) i.next();
+        Map.Entry ent = (Map.Entry) i.next();
         JRootPane root = (JRootPane) ent.getKey();
         Rectangle rect = (Rectangle) ent.getValue();
         root.paintImmediately(rect);                

@@ -1724,10 +1724,8 @@ namespace std
     time_get<_CharT, _InIter>::do_date_order() const
     { return time_base::no_order; }
 
-  // Recursively expand a strftime format string and parse it.  Starts w/ %x
-  // and %X from do_get_time() and do_get_date(), which translate to a more
-  // specific string, which may contain yet more strings.  I.e. %x => %r =>
-  // %H:%M:%S => extracted characters.
+  // Expand a strftime format string and parse it.  E.g., do_get_date() may
+  // pass %m/%d/%Y => extracted characters.
   template<typename _CharT, typename _InIter>
     _InIter
     time_get<_CharT, _InIter>::
@@ -2004,35 +2002,30 @@ namespace std
       while (__nmatches > 1)
 	{
 	  // Find smallest matching string.
-	  size_t __minlen = 10;
-	  for (size_t __i2 = 0; __i2 < __nmatches; ++__i2)
+	  size_t __minlen = __traits_type::length(__names[__matches[0]]);
+	  for (size_t __i2 = 1; __i2 < __nmatches; ++__i2)
 	    __minlen = std::min(__minlen,
 			      __traits_type::length(__names[__matches[__i2]]));
+	  ++__pos;
 	  ++__beg;
 	  if (__pos < __minlen && __beg != __end)
-	    {
-	      ++__pos;
-	      for (size_t __i3 = 0; __i3 < __nmatches; ++__i3)
-		{
-		  __name = __names[__matches[__i3]];
-		  if (__name[__pos] != *__beg)
-		    __matches[__i3] = __matches[--__nmatches];
-		}
-	    }
+	    for (size_t __i3 = 0; __i3 < __nmatches;)
+	      {
+		__name = __names[__matches[__i3]];
+		if (__name[__pos] != *__beg)
+		  __matches[__i3] = __matches[--__nmatches];
+		else
+		  ++__i3;
+	      }
 	  else
 	    break;
 	}
 
       if (__nmatches == 1)
 	{
-	  // If there was only one match, the first compare is redundant.
-	  if (__pos == 0)
-	    {
-	      ++__pos;
-	      ++__beg;
-	    }
-
 	  // Make sure found name is completely extracted.
+	  ++__pos;
+	  ++__beg;
 	  __name = __names[__matches[0]];
 	  const size_t __len = __traits_type::length(__name);
 	  while (__pos < __len && __beg != __end && __name[__pos] == *__beg)
@@ -2056,12 +2049,12 @@ namespace std
     do_get_time(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%X";
       const locale& __loc = __io._M_getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      __beg = _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __times[2];
+      __tp._M_time_formats(__times);
+      __beg = _M_extract_via_format(__beg, __end, __io, __err, 
+				    __tm, __times[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -2073,12 +2066,12 @@ namespace std
     do_get_date(iter_type __beg, iter_type __end, ios_base& __io,
 		ios_base::iostate& __err, tm* __tm) const
     {
-      _CharT __wcs[3];
-      const char* __cs = "%x";
       const locale& __loc = __io._M_getloc();
-      ctype<_CharT> const& __ctype = use_facet<ctype<_CharT> >(__loc);
-      __ctype.widen(__cs, __cs + 3, __wcs);
-      __beg = _M_extract_via_format(__beg, __end, __io, __err, __tm, __wcs);
+      const __timepunct<_CharT>& __tp = use_facet<__timepunct<_CharT> >(__loc);
+      const char_type*  __dates[2];
+      __tp._M_date_formats(__dates);
+      __beg = _M_extract_via_format(__beg, __end, __io, __err,
+				    __tm, __dates[0]);
       if (__beg == __end)
 	__err |= ios_base::eofbit;
       return __beg;
@@ -2455,7 +2448,7 @@ namespace std
 		    const string& __grouping_tmp)
   {
     const size_t __n = __grouping_tmp.size() - 1;
-    const size_t __min = std::min(__n, __grouping_size - 1);
+    const size_t __min = std::min(__n, size_t(__grouping_size - 1));
     size_t __i = __n;
     bool __test = true;
     

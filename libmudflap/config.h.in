@@ -1,62 +1,148 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define if you have the backtrace function.  */
+/* Define to 1 if you have the `backtrace' function. */
 #undef HAVE_BACKTRACE
 
-/* Define if you have the backtrace_symbols function.  */
+/* Define to 1 if you have the `backtrace_symbols' function. */
 #undef HAVE_BACKTRACE_SYMBOLS
 
-/* Define if you have the dlvsym function.  */
-#undef HAVE_DLVSYM
+/* Define to 1 if you have the <ctype.h> header file. */
+#undef HAVE_CTYPE_H
 
-/* Define if you have the fopen64 function.  */
-#undef HAVE_FOPEN64
-
-/* Define if you have the fseeko64 function.  */
-#undef HAVE_FSEEKO64
-
-/* Define if you have the ftello64 function.  */
-#undef HAVE_FTELLO64
-
-/* Define if you have the gettimeofday function.  */
-#undef HAVE_GETTIMEOFDAY
-
-/* Define if you have the signal function.  */
-#undef HAVE_SIGNAL
-
-/* Define if you have the stat64 function.  */
-#undef HAVE_STAT64
-
-/* Define if you have the <dlfcn.h> header file.  */
+/* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
-/* Define if you have the <execinfo.h> header file.  */
+/* Define to 1 if you have the `dlvsym' function. */
+#undef HAVE_DLVSYM
+
+/* Define to 1 if you have the <execinfo.h> header file. */
 #undef HAVE_EXECINFO_H
 
-/* Define if you have the <signal.h> header file.  */
-#undef HAVE_SIGNAL_H
+/* Define to 1 if you have the `fopen64' function. */
+#undef HAVE_FOPEN64
 
-/* Define if you have the <stdint.h> header file.  */
-#undef HAVE_STDINT_H
+/* Define to 1 if you have the `fseeko64' function. */
+#undef HAVE_FSEEKO64
 
-/* Define if you have the dl library (-ldl).  */
+/* Define to 1 if you have the `ftello64' function. */
+#undef HAVE_FTELLO64
+
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
 
-/* Name of package */
-#undef PACKAGE
+/* Define to 1 if you have the `memmem' function. */
+#undef HAVE_MEMMEM
 
-/* Version number of package */
-#undef VERSION
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
 
-/* union semun defined in sys/ipc.h or sys/sem.h */
-#undef HAVE_UNION_SEMUN
+/* Define to 1 if you have the `memrchr' function. */
+#undef HAVE_MEMRCHR
 
-/* Define it socklen_t typedef is in sys/socket.h. */
-#undef HAVE_SOCKLEN_T
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
 
 /* define if you have <pthread.h> */
 #undef HAVE_PTHREAD_H
 
+/* Define to 1 if you have the `sethostname' function. */
+#undef HAVE_SETHOSTNAME
+
+/* Define to 1 if you have the `signal' function. */
+#undef HAVE_SIGNAL
+
+/* Define to 1 if you have the <signal.h> header file. */
+#undef HAVE_SIGNAL_H
+
+/* Define it socklen_t typedef is in sys/socket.h. */
+#undef HAVE_SOCKLEN_T
+
+/* Define to 1 if you have the `stat64' function. */
+#undef HAVE_STAT64
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strncpy' function. */
+#undef HAVE_STRNCPY
+
+/* Define to 1 if you have the `strnlen' function. */
+#undef HAVE_STRNLEN
+
+/* Define to 1 if you have the <sys/ipc.h> header file. */
+#undef HAVE_SYS_IPC_H
+
+/* Define to 1 if you have the <sys/sem.h> header file. */
+#undef HAVE_SYS_SEM_H
+
+/* Define to 1 if you have the <sys/shm.h> header file. */
+#undef HAVE_SYS_SHM_H
+
+/* Define to 1 if you have the <sys/socket.h> header file. */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
+
+/* union semun defined in sys/ipc.h or sys/sem.h */
+#undef HAVE_UNION_SEMUN
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `__ctype_b_loc' function. */
+#undef HAVE___CTYPE_B_LOC
+
+/* Define to 1 if you have the `__ctype_tolower_loc' function. */
+#undef HAVE___CTYPE_TOLOWER_LOC
+
+/* Define to 1 if you have the `__ctype_toupper_loc' function. */
+#undef HAVE___CTYPE_TOUPPER_LOC
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
 /* pthread_create symbol version */
 #undef PTHREAD_CREATE_VERSION
 
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Version number of package */
+#undef VERSION

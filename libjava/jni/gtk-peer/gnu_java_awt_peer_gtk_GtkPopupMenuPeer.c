@@ -39,15 +39,13 @@ exception statement from your version. */
 #include "gtkpeer.h"
 #include "gnu_java_awt_peer_gtk_GtkPopupMenuPeer.h"
 
-void menu_pos (GtkMenu *, gint *, gint *, gboolean *, gpointer);
-
 struct pos
 {
   gint x;
   gint y;
 };
 
-void 
+static void 
 menu_pos (GtkMenu *menu __attribute__((unused)),
 	  gint *x, gint *y,
 	  gboolean *push_in,

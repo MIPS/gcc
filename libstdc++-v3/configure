@@ -1373,14 +1373,11 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:0:0
+libtool_VERSION=6:1:0
 
 
 # Find the rest of the source tree framework.
-
-  # Sets up multi_basedir, which is srcdir/.. plus the usual
-  # "multi_source_toprel_bottom_adjust" lunacy as needed.
-  # Default to --enable-multilib
+# Default to --enable-multilib
 # Check whether --enable-multilib or --disable-multilib was given.
 if test "${enable_multilib+set}" = set; then
   enableval="$enable_multilib"
@@ -1413,71 +1410,6 @@ fi
           ac_config_commands="$ac_config_commands default-1"
 
 
-  # The generated code is exactly the same, except that automake's looks in
-  # ".. $srcdir/.." and autoconf's looks in multi_basedir.  Apparently other
-  # things are triggered on the presence of the two ...AUX_DIR[S], but I don't
-  # know what they are or what the other differences might be (and they keep
-  # changing anyhow).
-  #
-  # Looking in multi_basedir seems smarter, so actually execute that branch.
-  if false; then
-    # this is for automake
-    ac_aux_dir=
-for ac_dir in .. $srcdir/..; do
-  if test -f $ac_dir/install-sh; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install-sh -c"
-    break
-  elif test -f $ac_dir/install.sh; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install.sh -c"
-    break
-  elif test -f $ac_dir/shtool; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/shtool install -c"
-    break
-  fi
-done
-if test -z "$ac_aux_dir"; then
-  { { echo "$as_me:$LINENO: error: cannot find install-sh or install.sh in .. $srcdir/.." >&5
-echo "$as_me: error: cannot find install-sh or install.sh in .. $srcdir/.." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-ac_config_guess="$SHELL $ac_aux_dir/config.guess"
-ac_config_sub="$SHELL $ac_aux_dir/config.sub"
-ac_configure="$SHELL $ac_aux_dir/configure" # This should be Cygnus configure.
-
-  else
-    # this is for autoconf
-    ac_aux_dir=
-for ac_dir in ${multi_basedir}; do
-  if test -f $ac_dir/install-sh; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install-sh -c"
-    break
-  elif test -f $ac_dir/install.sh; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/install.sh -c"
-    break
-  elif test -f $ac_dir/shtool; then
-    ac_aux_dir=$ac_dir
-    ac_install_sh="$ac_aux_dir/shtool install -c"
-    break
-  fi
-done
-if test -z "$ac_aux_dir"; then
-  { { echo "$as_me:$LINENO: error: cannot find install-sh or install.sh in ${multi_basedir}" >&5
-echo "$as_me: error: cannot find install-sh or install.sh in ${multi_basedir}" >&2;}
-   { (exit 1); exit 1; }; }
-fi
-ac_config_guess="$SHELL $ac_aux_dir/config.guess"
-ac_config_sub="$SHELL $ac_aux_dir/config.sub"
-ac_configure="$SHELL $ac_aux_dir/configure" # This should be Cygnus configure.
-
-  fi
-
-
-
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
 # You will slowly go insane if you do not grok the following fact:  when
@@ -1492,6 +1424,31 @@ ac_configure="$SHELL $ac_aux_dir/configure" # This should be Cygnus configure.
 #
 # Do not delete or change the following two lines.  For why, see
 # http://gcc.gnu.org/ml/libstdc++/2003-07/msg00451.html
+ac_aux_dir=
+for ac_dir in $srcdir $srcdir/.. $srcdir/../..; do
+  if test -f $ac_dir/install-sh; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/install-sh -c"
+    break
+  elif test -f $ac_dir/install.sh; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/install.sh -c"
+    break
+  elif test -f $ac_dir/shtool; then
+    ac_aux_dir=$ac_dir
+    ac_install_sh="$ac_aux_dir/shtool install -c"
+    break
+  fi
+done
+if test -z "$ac_aux_dir"; then
+  { { echo "$as_me:$LINENO: error: cannot find install-sh or install.sh in $srcdir $srcdir/.. $srcdir/../.." >&5
+echo "$as_me: error: cannot find install-sh or install.sh in $srcdir $srcdir/.. $srcdir/../.." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+ac_config_guess="$SHELL $ac_aux_dir/config.guess"
+ac_config_sub="$SHELL $ac_aux_dir/config.sub"
+ac_configure="$SHELL $ac_aux_dir/configure" # This should be Cygnus configure.
+
 # Make sure we can run config.sub.
 $ac_config_sub sun4 >/dev/null 2>&1 ||
   { { echo "$as_me:$LINENO: error: cannot run $ac_config_sub" >&5
@@ -1749,7 +1706,7 @@ else
 echo "$as_me: WARNING: \`missing' script is too old or missing" >&2;}
 fi
 
-if mkdir -p -- . 2>/dev/null; then
+if mkdir -p --version . >/dev/null 2>&1 && test ! -d ./--version; then
   # Keeping the `.' argument allows $(mkdir_p) to be used without
   # argument.  Indeed, we sometimes output rules like
   #   $(mkdir_p) $(somedir)
@@ -1762,7 +1719,7 @@ else
   # recognize any option.  It will interpret all options as
   # directories to create, and then abort because `.' already
   # exists.
-  for d in ./-p ./--;
+  for d in ./-p ./--version;
   do
     test -d $d && rmdir $d
   done
@@ -4425,7 +4382,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4428 "configure"' > conftest.$ac_ext
+  echo '#line 4385 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5039,7 +4996,7 @@ fi;
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 5042 "configure"
+#line 4999 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -7728,126 +7685,12 @@ else
   enable_long_long=yes
 fi;
 
-
-
-
-  ac_ext=cc
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-
-  echo "$as_me:$LINENO: checking for enabled long long I/O support" >&5
-echo $ECHO_N "checking for enabled long long I/O support... $ECHO_C" >&6
-  # iostreams require strtoll, strtoull to compile
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <stdlib.h>
-int
-main ()
-{
-char* tmp; strtoll("gnu", &tmp, 10);
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_cxx_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  :
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-enable_long_long=no
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <stdlib.h>
-int
-main ()
-{
-char* tmp; strtoull("gnu", &tmp, 10);
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_cxx_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  :
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-enable_long_long=no
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-
-  # Option parsed, now set things appropriately
   if test $enable_long_long = yes; then
     cat >>confdefs.h <<\_ACEOF
 #define _GLIBCXX_USE_LONG_LONG 1
 _ACEOF
 
   fi
-  echo "$as_me:$LINENO: result: $enable_long_long" >&5
-echo "${ECHO_T}$enable_long_long" >&6
-
-  ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 
 
   echo "$as_me:$LINENO: checking for thread model used by GCC" >&5
@@ -8446,81 +8289,6 @@ fi
 
   ac_save_LIBS="$LIBS"
   LIBS="$LIBS $libm"
-
-    echo "$as_me:$LINENO: checking for sqrtf in -lmx" >&5
-echo $ECHO_N "checking for sqrtf in -lmx... $ECHO_C" >&6
-if test "${ac_cv_lib_mx_sqrtf+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lmx  $LIBS"
-if test x$gcc_no_link = xyes; then
-  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
-echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char sqrtf ();
-int
-main ()
-{
-sqrtf ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_mx_sqrtf=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_mx_sqrtf=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_mx_sqrtf" >&5
-echo "${ECHO_T}$ac_cv_lib_mx_sqrtf" >&6
-if test $ac_cv_lib_mx_sqrtf = yes; then
-  libmx="-lmx"
-fi
-
-    LIBS="$LIBS $libmx"
 
 
 
@@ -25461,7 +25229,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_abs_link" >&6
     if test x$glibcxx_cv_func___builtin_abs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_abs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -25608,7 +25377,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabsf_link" >&6
     if test x$glibcxx_cv_func___builtin_fabsf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabsf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -25755,7 +25525,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabs_link" >&6
     if test x$glibcxx_cv_func___builtin_fabs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -25902,7 +25673,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabsl_link" >&6
     if test x$glibcxx_cv_func___builtin_fabsl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabsl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26049,7 +25821,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_labs_link" >&6
     if test x$glibcxx_cv_func___builtin_labs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_labs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26197,7 +25970,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrtf_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrtf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrtf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26344,7 +26118,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrt_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrt_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrt | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26491,7 +26266,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrtl_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrtl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrtl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26639,7 +26415,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sinf_link" >&6
     if test x$glibcxx_cv_func___builtin_sinf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sinf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26786,7 +26563,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sin_link" >&6
     if test x$glibcxx_cv_func___builtin_sin_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sin | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -26933,7 +26711,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sinl_link" >&6
     if test x$glibcxx_cv_func___builtin_sinl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sinl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -27081,7 +26860,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cosf_link" >&6
     if test x$glibcxx_cv_func___builtin_cosf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cosf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -27228,7 +27008,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cos_link" >&6
     if test x$glibcxx_cv_func___builtin_cos_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cos | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -27375,73 +27156,14 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cosl_link" >&6
     if test x$glibcxx_cv_func___builtin_cosl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cosl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
     fi
   fi
 
-
-              dummyvar=no
-  if test x$dummyvar = x"yes"; then
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_ABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_LABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COSF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COSL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABSF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABSL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SIN 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SINF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SINL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRT 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRTF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRTL 1
-_ACEOF
-
-  fi
 
 
 
@@ -27737,6 +27459,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -27958,7 +27681,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -31673,81 +31396,6 @@ fi
   ac_save_LIBS="$LIBS"
   LIBS="$LIBS $libm"
 
-    echo "$as_me:$LINENO: checking for sqrtf in -lmx" >&5
-echo $ECHO_N "checking for sqrtf in -lmx... $ECHO_C" >&6
-if test "${ac_cv_lib_mx_sqrtf+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lmx  $LIBS"
-if test x$gcc_no_link = xyes; then
-  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
-echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char sqrtf ();
-int
-main ()
-{
-sqrtf ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_mx_sqrtf=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_mx_sqrtf=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_mx_sqrtf" >&5
-echo "${ECHO_T}$ac_cv_lib_mx_sqrtf" >&6
-if test $ac_cv_lib_mx_sqrtf = yes; then
-  libmx="-lmx"
-fi
-
-    LIBS="$LIBS $libmx"
-
 
 
   echo "$as_me:$LINENO: checking for isinf declaration" >&5
@@ -48687,7 +48335,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_abs_link" >&6
     if test x$glibcxx_cv_func___builtin_abs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_abs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -48834,7 +48483,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabsf_link" >&6
     if test x$glibcxx_cv_func___builtin_fabsf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabsf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -48981,7 +48631,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabs_link" >&6
     if test x$glibcxx_cv_func___builtin_fabs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49128,7 +48779,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_fabsl_link" >&6
     if test x$glibcxx_cv_func___builtin_fabsl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_fabsl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49275,7 +48927,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_labs_link" >&6
     if test x$glibcxx_cv_func___builtin_labs_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_labs | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49423,7 +49076,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrtf_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrtf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrtf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49570,7 +49224,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrt_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrt_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrt | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49717,7 +49372,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sqrtl_link" >&6
     if test x$glibcxx_cv_func___builtin_sqrtl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sqrtl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -49865,7 +49521,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sinf_link" >&6
     if test x$glibcxx_cv_func___builtin_sinf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sinf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -50012,7 +49669,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sin_link" >&6
     if test x$glibcxx_cv_func___builtin_sin_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sin | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -50159,7 +49817,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_sinl_link" >&6
     if test x$glibcxx_cv_func___builtin_sinl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_sinl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -50307,7 +49966,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cosf_link" >&6
     if test x$glibcxx_cv_func___builtin_cosf_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cosf | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -50454,7 +50114,8 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cos_link" >&6
     if test x$glibcxx_cv_func___builtin_cos_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cos | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
@@ -50601,73 +50262,14 @@ fi
 echo "${ECHO_T}$glibcxx_cv_func___builtin_cosl_link" >&6
     if test x$glibcxx_cv_func___builtin_cosl_link = x"yes"; then
       ac_tr_func=HAVE_`echo __builtin_cosl | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-      cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define ${ac_tr_func} 1
 _ACEOF
 
     fi
   fi
 
-
-              dummyvar=no
-  if test x$dummyvar = x"yes"; then
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_ABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_LABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COSF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_COSL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABS 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABSF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_FABSL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SIN 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SINF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SINL 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRT 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRTF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE___BUILTIN_SQRTL 1
-_ACEOF
-
-  fi
 
 
 
@@ -50963,6 +50565,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -51184,7 +50787,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -54175,6 +53778,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -54396,7 +54000,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -56543,6 +56147,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -56764,7 +56369,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -58787,6 +58392,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -59008,7 +58614,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -61101,14 +60707,6 @@ _ACEOF
 _ACEOF
 
     cat >>confdefs.h <<\_ACEOF
-#define HAVE_SIGNBIT 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
-#define HAVE_SIGNBITF 1
-_ACEOF
-
-    cat >>confdefs.h <<\_ACEOF
 #define HAVE_SINF 1
 _ACEOF
 
@@ -61219,10 +60817,6 @@ _ACEOF
 
       cat >>confdefs.h <<\_ACEOF
 #define HAVE_POWL 1
-_ACEOF
-
-      cat >>confdefs.h <<\_ACEOF
-#define HAVE_SIGNBITL 1
 _ACEOF
 
       cat >>confdefs.h <<\_ACEOF
@@ -61811,6 +61405,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -62032,7 +61627,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -64008,6 +63603,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -64229,7 +63825,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -66096,6 +65692,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -66317,7 +65914,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi
@@ -70147,6 +69744,7 @@ fi
 done
 
 
+
 for ac_func in __signbitf
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -70368,7 +69966,7 @@ done
 
   fi
 
-  # XXX Review this.  Nothing uses it.
+  # Used in libmath/Makefile.am.
   if test -n "$LIBMATHOBJS"; then
     need_libmath=yes
   fi

@@ -166,10 +166,12 @@ package body Snames is
      "Oexpon#" &
      "ada_83#" &
      "ada_95#" &
+     "ada_05#" &
      "c_pass_by_copy#" &
      "compile_time_warning#" &
      "component_alignment#" &
      "convention_identifier#" &
+     "detect_blocking#" &
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
@@ -190,6 +192,7 @@ package body Snames is
      "persistent_data#" &
      "persistent_object#" &
      "profile#" &
+     "profile_warnings#" &
      "propagate_exceptions#" &
      "queuing_policy#" &
      "ravenscar#" &
@@ -652,6 +655,7 @@ package body Snames is
      "linker#" &
      "local_configuration_pragmas#" &
      "locally_removed_files#" &
+     "metrics#" &
      "naming#" &
      "object_dir#" &
      "pretty_printer#" &

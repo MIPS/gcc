@@ -608,14 +608,18 @@ formatted_transfer (bt type, void *p, int len)
 
 	  break;
 
-        case FMT_T:
-           pos = f->u.n ;
-           pos= current_unit->recl - current_unit->bytes_left - pos;
-                         /* fall through */
-
         case FMT_TL:
-           consume_data_flag = 0 ;
-           pos = f->u.n ;
+        case FMT_T:
+           if (f->format==FMT_TL)
+             {
+                pos = f->u.n ;
+                pos= current_unit->recl - current_unit->bytes_left - pos;
+             }
+           else // FMT==T
+             {
+                consume_data_flag = 0 ;
+                pos = f->u.n - 1; 
+             }
 
            if (pos < 0 || pos >= current_unit->recl )
            {
@@ -898,8 +902,12 @@ data_transfer_init (int read_flag)
   if (current_unit == NULL)
     return;
 
-  if (is_internal_unit() && g.mode==WRITING)
-    empty_internal_buffer (current_unit->s);
+  if (is_internal_unit())
+    {
+      current_unit->recl = file_length(current_unit->s);
+      if (g.mode==WRITING)
+        empty_internal_buffer (current_unit->s);
+    }
 
   /* Check the action */
 
@@ -1350,6 +1358,57 @@ finalize_transfer (void)
     }
 
   sfree (current_unit->s);
+}
+
+
+/* Transfer function for IOLENGTH. It doesn't actually do any
+   data transfer, it just updates the length counter.  */
+
+static void
+iolength_transfer (bt type, void *dest, int len)
+{
+  if (ioparm.iolength != NULL)
+    *ioparm.iolength += len;
+}
+
+
+/* Initialize the IOLENGTH data transfer. This function is in essence
+   a very much simplified version of data_transfer_init(), because it
+   doesn't have to deal with units at all.  */
+
+static void
+iolength_transfer_init (void)
+{
+
+  if (ioparm.iolength != NULL)
+    *ioparm.iolength = 0;
+
+  g.item_count = 0;
+
+  /* Set up the subroutine that will handle the transfers.  */
+
+  transfer = iolength_transfer;
+
+}
+
+
+/* Library entry point for the IOLENGTH form of the INQUIRE
+   statement. The IOLENGTH form requires no I/O to be performed, but
+   it must still be a runtime library call so that we can determine
+   the iolength for dynamic arrays and such.  */
+
+void
+st_iolength (void)
+{
+  library_start ();
+
+  iolength_transfer_init ();
+}
+
+void
+st_iolength_done (void)
+{
+  library_end ();
 }
 
 

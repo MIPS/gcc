@@ -4,13 +4,13 @@
 ## __STDC_VERSION__ is set such that libc includes make them available.
 AM_CFLAGS = -std=gnu99
 
-lib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
+toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 
 ## This should really go in the compiler lib dir, not the system lib dir.
 libgfortranbegin_la_SOURCES = fmain.c
 libgfortranbegin_la_LDFLAGS = -static
 
-INCLUDES = -I$(srcdir)/io
+AM_CPPFLAGS = -I$(srcdir)/io
 
 libgfortranincludedir = $(includedir)/gforio
 
@@ -36,15 +36,20 @@ io/io.h
 gfor_helper_src= \
 intrinsics/associated.c \
 intrinsics/abort.c \
+intrinsics/args.c \
+intrinsics/c99_functions.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
+intrinsics/date_and_time.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
+intrinsics/etime.c \
 intrinsics/ishftc.c \
 intrinsics/pack_generic.c \
 intrinsics/size.c \
 intrinsics/spread_generic.c \
 intrinsics/string_intrinsics.c \
+intrinsics/rand.c \
 intrinsics/random.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
@@ -53,7 +58,8 @@ intrinsics/system_clock.c \
 intrinsics/transpose_generic.c \
 intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \
-runtime/in_unpack_generic.c
+runtime/in_unpack_generic.c \
+runtime/normalize.c
 
 gfor_src= \
 runtime/environ.c \

@@ -46,12 +46,11 @@ import javax.accessibility.AccessibleRole;
 
 /**
  * DOCUMENT ME!
- *
- * @author $author$
- * @version $Revision: 1.5 $
  */
 public class JRadioButtonMenuItem extends JMenuItem implements Accessible
 {
+  private static final long serialVersionUID = 8482658191548521743L;
+
   private static final String uiClassID = "RadioButtonMenuItemUI";
 
   /**
@@ -188,29 +187,23 @@ public class JRadioButtonMenuItem extends JMenuItem implements Accessible
   public AccessibleContext getAccessibleContext()
   {
     if (accessibleContext == null)
-      accessibleContext = new AccessibleJRadioButtonMenuItem(this);
+      accessibleContext = new AccessibleJRadioButtonMenuItem();
 
     return accessibleContext;
   }
 
   /**
    * DOCUMENT ME!
-   *
-   * @author $author$
-   * @version $Revision: 1.5 $
    */
   protected class AccessibleJRadioButtonMenuItem extends AccessibleJMenuItem
   {
+    private static final long serialVersionUID = 4381471510145292179L;
+
     /**
      * Creates a new AccessibleJRadioButtonMenuItem object.
-     *
-     * @param component DOCUMENT ME!
      */
-    protected AccessibleJRadioButtonMenuItem(JRadioButtonMenuItem component)
+    protected AccessibleJRadioButtonMenuItem()
     {
-      super(component);
-
-      // TODO
     }
 
     /**
