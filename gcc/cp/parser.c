@@ -3278,10 +3278,23 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 	   `S::S'.  */
 
 	/* DR 244 says that we look up the name after the "~" in the
-	   same scope as we looked up the qualifying name.  */
+	   same scope as we looked up the qualifying name.  That idea
+	   isn't fully worked out; it's more complicated than that.  */
 	scope = parser->scope;
 	object_scope = parser->object_scope;
 	qualifying_scope = parser->qualifying_scope;
+
+	/* If the name is of the form "X::~X" it's OK.  */
+	if (scope && TYPE_P (scope)
+	    && cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+	    && (cp_lexer_peek_nth_token (parser->lexer, 2)->type 
+		== CPP_OPEN_PAREN)
+	    && (cp_lexer_peek_token (parser->lexer)->value 
+		== TYPE_IDENTIFIER (scope)))
+	  {
+	    cp_lexer_consume_token (parser->lexer);
+	    return build_nt (BIT_NOT_EXPR, scope);
+	  }
 
 	/* If there was an explicit qualification (S::~T), first look
 	   in the scope given by the qualification (i.e., S).  */
@@ -4372,22 +4385,21 @@ cp_parser_pseudo_destructor_name (parser, scope, type)
        != NULL_TREE);
   /* Now, if we saw a nested-name-specifier, we might be doing the
      second production.  */
-  if (nested_name_specifier_p)
+  if (nested_name_specifier_p 
+      && cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
     {
-      /* Check to see if it is `template'.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
-	{
-	  /* Consume the `template' keyword.  */
-	  cp_lexer_consume_token (parser->lexer);
-	  /* Parse the template-id.  */
-	  /* FIXME: Implement this.  */
-	  cp_parser_unimplemented ();
-	}
+      /* Consume the `template' keyword.  */
+      cp_lexer_consume_token (parser->lexer);
+      /* Parse the template-id.  */
+      cp_parser_template_id (parser, 
+			     /*template_keyword_p=*/true,
+			     /*check_dependency_p=*/false);
+      /* Look for the `::' token.  */
+      cp_parser_require (parser, CPP_SCOPE, "`::'");
     }
-
   /* If the next token is not a `~', then there might be some
      additional qualification. */
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMPL))
+  else if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMPL))
     {
       /* Look for the type-name.  */
       *scope = TREE_TYPE (cp_parser_type_name (parser));
@@ -11453,20 +11465,6 @@ cp_parser_class_specifier (parser)
 	  fn_scope = TREE_PURPOSE (queue_entry);
 	  fn = TREE_VALUE (queue_entry);
 
-	  /* Reenter the class scope, while we parse the bodies of inline
-	     member functions, and process their default arguments.
-	     Since we often process several functions from the same
-	     class in sequence, we try to avoid leaving and reentering
-	     class scopes unncessarily.  */
-	  /* FIXME: Remove this code! */
-	  if (0 && fn_scope != last_scope)
-	    {
-	      if (last_scope)
-		pop_scope (last_scope);
-	      push_scope (fn_scope);
-	      last_scope = fn_scope;
-	    }
-
 	  /* Parse the function.  */
 	  cp_parser_late_parsing_for_member (parser, fn);
 
@@ -14253,6 +14251,7 @@ cp_parser_sizeof_operand (parser, keyword)
   static const char *format;
   tree expr = NULL_TREE;
   const char *saved_message;
+  bool saved_constant_expression_p;
 
   /* Initialize FORMAT the first time we get here.  */
   if (!format)
@@ -14269,6 +14268,11 @@ cp_parser_sizeof_operand (parser, keyword)
 		+ 1 /* `\0' */));
   sprintf ((char *) parser->type_definition_forbidden_message,
 	   format, IDENTIFIER_POINTER (ridpointers[keyword]));
+
+  /* The restrictions on constant-expressions do not apply inside
+     sizeof expressions.  */
+  saved_constant_expression_p = parser->constant_expression_p;
+  parser->constant_expression_p = false;
 
   /* If it's a `(', then we might be looking at the type-id
      construction.  */
@@ -14311,6 +14315,7 @@ cp_parser_sizeof_operand (parser, keyword)
   free ((char *) parser->type_definition_forbidden_message);
   /* And restore the old one.  */
   parser->type_definition_forbidden_message = saved_message;
+  parser->constant_expression_p = saved_constant_expression_p;
 
   return expr;
 }

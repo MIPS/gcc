@@ -6718,10 +6718,8 @@ get_primary_binfo (binfo)
 
   if (TREE_CHAIN (virtuals))
     {
-      /* We found more than one instance of the base. We must make
-         sure that, if one is the canonical one, it is the first one
-         we found. As the chain is in reverse dfs order, that means
-         the last on the list.  */
+      /* We found more than one instance of the base.  If one is the
+	 canonical one, choose that one.  */
       tree complete_binfo;
       tree canonical;
       
@@ -6737,12 +6735,7 @@ get_primary_binfo (binfo)
 	  result = TREE_VALUE (virtuals);
 
 	  if (canonical == result)
-	    {
-	      /* This is the unshared instance. Make sure it was the
-		 first one found.  */
-	      my_friendly_assert (!TREE_CHAIN (virtuals), 20010612);
-	      break;
-	    }
+	    break;
 	}
     }
   else
