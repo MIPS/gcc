@@ -1,3 +1,9 @@
+Fri Oct 25 00:04:21 2002  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.in (GCC_FOR_TARGET): Add -L$(objdir)/../ld.
+	(STAGE2_FLAGS_TO_PASS): Pass GCC_FOR_TARGET.
+	(stage1_build): Likewise.
+
 Wed Oct 23 22:48:44 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (abs splitters): Do not produce nested subregs.
