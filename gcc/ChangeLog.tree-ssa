@@ -1,3 +1,32 @@
+2003-03-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c:  Implement open64 renaming algorithm.
+	(subst_phis): New function.
+	(generate_expr_as_of_bb): Ditto.
+	(new_rename_1): Ditto.
+	(process_delayed_rename): Ditto.
+	(do_proper_save): Use bsi_* functions for insertion, don't remove
+	old code quite yet, haven't fully tested.
+	Also add argument that says whether to insert before use or after use.
+	(defs_y_dom_x): Factor through injuries properly.
+	(defs_match_p): Ditto.
+	(phi_opnd_from_res): Attempt to fix, and remove useless argument.
+	(reset_can_be_avail): Fix broken condition that would cause infinite 
+	loop.
+	(update_old_new): #if 0 updating of bb heads.
+	(finalize_1): We occasionally get 5 + a rather than a + 5, so we
+	need to make sure 5 is a DECL before trying to get a reaching def.
+	(repair_use_injury): If we couldn't find a reaching def, we don't need
+	to repair it.
+	(assign_new_class): Only push to stack2 if it exists (so we can
+	share this function in both rename implementations).
+	(create_ephi_node): Add argument that says whether to add ephi
+	to block or not (we create them sometimes for validation only).
+	(tree_perform_ssapre): Skip expressions without any uses.
+
+	* tree.h: Add EREF_DELAYED_RENAME.
+	(struct tree_eref_common): Add delayed_rename bit.
+	
 2003-03-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-simple.c: Use tree codes to document grammar for relational

@@ -1086,6 +1086,8 @@ struct tree_eref_common GTY(())
   /* SSAPRE: Processed flag 2. */
   unsigned int processed2:1;
 
+  unsigned int delayed_rename:1;
+
   struct varray_head_tag *uses;
 };
 
@@ -1143,6 +1145,7 @@ struct tree_ephi_node GTY(())
 #define EREF_SAVE(NODE)         EREF_NODE_CHECK (NODE)->eref.save
 #define EREF_CLASS(NODE)        EREF_NODE_CHECK (NODE)->eref.class
 #define EREF_USES(NODE)         EREF_NODE_CHECK (NODE)->eref.uses
+#define EREF_DELAYED_RENAME(NODE) EREF_NODE_CHECK (NODE)->eref.delayed_rename
 
 /* In a EUSE_NODE node.  */
 #define EUSE_DEF(NODE)          EUSE_NODE_CHECK (NODE)->euse.def
@@ -2166,7 +2169,7 @@ struct tree_decl GTY(())
 
   tree vindex;
   HOST_WIDE_INT pointer_alias_set;
-  union alias_typevar_def * GTY ((skip (""))) typevar;
+  union alias_typevar_def *GTY ((skip(""))) typevar;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
