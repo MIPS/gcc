@@ -125,7 +125,11 @@ typedef struct _Sinfo_Node {
   : (_keymgr_set_per_thread_data((key), (keydata)), 0))
 
 #ifndef NULL
-#define NULL (0)
+#ifdef __GNUG__
+#define NULL __null
+#else
+#define NULL 0
+#endif
 #endif
 
 /*
