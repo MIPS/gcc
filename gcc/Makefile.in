@@ -189,15 +189,6 @@ insn-conditions.o-warn = -Wno-error
 gengtype-yacc.o-warn = -Wno-error
 c-parse.o-warn = -Wno-error
 
-# APPLE LOCAL begin unclean apple code
-darwin-c.o-warn = -Wno-error
-stub-objc.o-warn = -Wno-error
-timevar.o-warn = -Wno-error
-insn-output.o-warn = -Wno-error
-darwin.o-warn = -Wno-error
-insn-emit.o-warn = -Wno-error
-# APPLE LOCAL end unclean apple code
-
 # flex output may yield harmless "no previous prototype" warnings
 gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
