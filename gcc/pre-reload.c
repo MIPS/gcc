@@ -73,14 +73,17 @@ static void do_output_pre_reload PARAMS ((rtx, struct reload *, int));
 static void emit_output_pre_reload_insns PARAMS ((rtx, struct reload *, int));
 static int pseudo_clobbered_p    PARAMS ((unsigned int, rtx, enum machine_mode,
 					  int));
-static void pre_reload_collect   PARAMS ((struct ra_info *));
-static void collect_insn_info    PARAMS ((rtx, ra_ref **, ra_ref **,
+static void pre_reload_collect   PARAMS ((struct ra_info *, bitmap));
+static void collect_insn_info    PARAMS ((struct ra_info *, rtx,
+					  ra_ref **, ra_ref **,
 					  int *, int *));
 static void debug_ra_insn_refs   PARAMS ((struct ra_info *, rtx));
+static void debug_ra_reg_refs    PARAMS ((struct ra_info *, int));
 static struct ra_refs * build_ra_refs_for_insn PARAMS ((struct ra_info *,
 							ra_ref **, ra_ref **,
 							int, int));
-static inline struct ra_link * ra_link_create PARAMS ((ra_ref *,
+static inline struct ra_link * ra_link_create PARAMS ((struct ra_info *,
+						       ra_ref *,
 						       struct ra_link *));
 
 static void ra_info_add_insn_refs PARAMS ((struct ra_info *, rtx,
@@ -93,22 +96,23 @@ static int pseudo_fits_class_p    PARAMS ((rtx, enum reg_class,
 					   enum machine_mode));
 
 struct df2ra build_df2ra          PARAMS ((struct df *, struct ra_info *));
+static void ra_info_remove_refs   PARAMS ((struct ra_info *,
+					   struct ra_refs *));
 
 
-
-static struct obstack ra_info_obstack;
 static const char *const reg_class_names[] = REG_CLASS_NAMES;
 static int indirect_levels = -1;
 
 /* Create a link in a def-use or use-def chain.  */
 static inline struct ra_link *
-ra_link_create (ref, next)
+ra_link_create (ra_info, ref, next)
+     struct ra_info *ra_info;
      ra_ref *ref;
      struct ra_link *next;
 {
   struct ra_link *link;
 
-  link = (struct ra_link *) obstack_alloc (&ra_info_obstack,
+  link = (struct ra_link *) obstack_alloc (&ra_info->obstack,
 					   sizeof (*link));
   link->next = next;
   link->ref = ref;
@@ -1902,8 +1906,9 @@ struct scan_addr_state
   enum reg_class class;		/* Register class */
 };
 
-static int scan_addr_func PARAMS ((rtx *, struct scan_addr_state *));
-static ra_ref * scan_addr_create_ref PARAMS ((rtx *,
+static int scan_addr_func            PARAMS ((struct ra_info *, rtx *,
+					      struct scan_addr_state *));
+static ra_ref * scan_addr_create_ref PARAMS ((struct ra_info *, rtx *,
 					      struct scan_addr_state *,
 					      enum ra_ref_type));
 
@@ -1911,7 +1916,8 @@ static ra_ref * scan_addr_create_ref PARAMS ((rtx *,
    FIXME: Must be substituted by define_address.  */
 
 static int
-scan_addr_func (loc, scan_state)
+scan_addr_func (ra_info, loc, scan_state)
+     struct ra_info *ra_info;
      rtx *loc;
      struct scan_addr_state *scan_state;
 {
@@ -1924,7 +1930,7 @@ scan_addr_func (loc, scan_state)
 	t = RA_REF_ADDRESS | RA_REF_READ;
 	if (scan_state->regs_per_addr == 1)
 	  t |= RA_REF_WRITE;
-	ref = scan_addr_create_ref (loc, scan_state, t);
+	ref = scan_addr_create_ref (ra_info, loc, scan_state, t);
 	scan_state->class = INDEX_REG_CLASS;
       }
       break;
@@ -1942,7 +1948,7 @@ scan_addr_func (loc, scan_state)
 
 	if (REG_P (x1) && ! REG_P (x0))
 	  {
-	    scan_addr_func (&XEXP (*loc, 1), scan_state);
+	    scan_addr_func (ra_info, &XEXP (*loc, 1), scan_state);
 	    for_each_rtx (&XEXP (*loc, 0), (rtx_function) scan_addr_func,
 			  scan_state);
 	    return -1;
@@ -1963,7 +1969,7 @@ scan_addr_func (loc, scan_state)
 	if (REG_P (*loc0))
 	  {
 	    ra_ref *ref;
-	    ref = scan_addr_create_ref (loc0, scan_state,
+	    ref = scan_addr_create_ref (ra_info, loc0, scan_state,
 					RA_REF_ADDRESS | RA_REF_RDWR);
 	    ref->class = BASE_REG_CLASS;
 	    return -1;
@@ -1982,7 +1988,7 @@ scan_addr_func (loc, scan_state)
 	if (REG_P (XEXP (*loc0, 0)))
 	  {
 	    ra_ref *ref;
-	    ref = scan_addr_create_ref (&XEXP (*loc0, 0), scan_state,
+	    ref = scan_addr_create_ref (ra_info, &XEXP (*loc0, 0), scan_state,
 					RA_REF_ADDRESS | RA_REF_WRITE);
 	    scan_state->class = BASE_REG_CLASS;
 	    for_each_rtx (&XEXP (*loc, 1), (rtx_function) scan_addr_func,
@@ -2002,12 +2008,13 @@ scan_addr_func (loc, scan_state)
 /* Helper for scan_addr_func. Create, fill and return re_ref structure.  */
 
 static ra_ref *
-scan_addr_create_ref (loc, scan_state, ref_type)
-  rtx *loc;
- struct scan_addr_state *scan_state;
- enum ra_ref_type ref_type;
+scan_addr_create_ref (ra_info, loc, scan_state, ref_type)
+     struct ra_info *ra_info;
+     rtx *loc;
+     struct scan_addr_state *scan_state;
+     enum ra_ref_type ref_type;
 {
-  ra_ref *ref = (ra_ref *)obstack_alloc (&ra_info_obstack, sizeof (*ref));
+  ra_ref *ref = (ra_ref *)obstack_alloc (&ra_info->obstack, sizeof (*ref));
   ref->type = ref_type;
   ref->reg = *loc;
   ref->loc = loc;
@@ -2041,7 +2048,8 @@ scan_addr_create_ref (loc, scan_state, ref_type)
    N_DEFS will be set to count of defs and N_USES to count of uses.  */
 
 static void
-collect_insn_info (insn, def_refs, use_refs, n_defs, n_uses)
+collect_insn_info (ra_info, insn, def_refs, use_refs, n_defs, n_uses)
+     struct ra_info *ra_info;
      rtx insn;
      ra_ref **def_refs;
      ra_ref **use_refs;
@@ -2242,7 +2250,7 @@ collect_insn_info (insn, def_refs, use_refs, n_defs, n_uses)
 	;
       else if (constraints[i][0] == 'p')
 	{
-	  /* FIXME: denisc@overta.ru We don't use relad_address now.
+	  /* FIXME: denisc@overta.ru We don't use reload_address now.
 	     define_address must be used here.  */
 #if 0
 	  find_reloads_address (VOIDmode, (rtx*)0,
@@ -3277,19 +3285,17 @@ collect_insn_info (insn, def_refs, use_refs, n_defs, n_uses)
   if (n_reloads)
     {
       for (i = 0; i < n_reloads; i++)
-	{
-	  if (rld[i].mode == VOIDmode)
-	    {
-	      if (!rld[i].out)
-		rld[i].mode = rld[i].inmode;
-	      else if (!rld[i].in)
-		rld[i].mode = rld[i].outmode;
-	      else
-		rld[i].mode = (GET_MODE_SIZE (rld[i].outmode)
-			       > GET_MODE_SIZE (rld[i].inmode)
-			       ? rld[i].outmode : rld[i].inmode);
-	    }
-	}
+	if (rld[i].mode == VOIDmode)
+	  {
+	    if (!rld[i].out)
+	      rld[i].mode = rld[i].inmode;
+	    else if (!rld[i].in)
+	      rld[i].mode = rld[i].outmode;
+	    else
+	      rld[i].mode = (GET_MODE_SIZE (rld[i].outmode)
+			     > GET_MODE_SIZE (rld[i].inmode)
+			     ? rld[i].outmode : rld[i].inmode);
+	  }
       return;
     }
   
@@ -3324,7 +3330,7 @@ collect_insn_info (insn, def_refs, use_refs, n_defs, n_uses)
 	  {
 	    int matches = goal_alternative_matches[i];
 	  
-	    ra_ref *ref = (ra_ref *) obstack_alloc (&ra_info_obstack,
+	    ra_ref *ref = (ra_ref *) obstack_alloc (&ra_info->obstack,
 						    sizeof (*ref));
 	    opno2ref[i] = ref;
 	    ref->reg = goal_alternative_reg[i];
@@ -3436,7 +3442,7 @@ ra_info_init (n_regs)
   
   ra_info = (struct ra_info *)xcalloc (1, sizeof (struct ra_info));
 
-  gcc_obstack_init (&ra_info_obstack);
+  gcc_obstack_init (&ra_info->obstack);
 
   /* Perhaps we should use LUIDs to save memory for the insn_refs
      table.  This is only a small saving; a few pointers.  */
@@ -3492,7 +3498,7 @@ ra_info_free (ra_info)
   ra_info->regs = 0;
   ra_info->reg_size = 0;
 
-  obstack_free (&ra_info_obstack, NULL);
+  obstack_free (&ra_info->obstack, NULL);
 }
 
 /* Print all defs/uses for INSN from RA_INFO.  */
@@ -3553,6 +3559,66 @@ debug_ra_insn_refs (ra_info, insn)
     fprintf (stderr, "No ra_ref info\n");
 }
 
+
+/* Print all defs/uses for REGNO from RA_INFO.  */
+
+static void
+debug_ra_reg_refs (ra_info, regno)
+     struct ra_info *ra_info;
+     int regno;
+{
+  int i;
+  struct ra_link *link;
+
+  if (RA_REG_REFS (ra_info, regno))
+    {
+      link = RA_REG_DEFS (ra_info, regno);
+      
+      for (i=0; i < 2; ++i)
+	{
+	  for (;link; link = link->next)
+	    {
+	      char *s;
+	      ra_ref *ref = link->ref;
+ 
+	      fprintf (stderr,"op: %d  %-20s", ref->opno,
+		       reg_class_names[ref->class]);
+	      print_inline_rtx (stderr, ref->reg, 27/2);
+	      if (ref->matches)
+		fprintf (stderr, " -> %d", ref->matches->opno);
+	      fprintf (stderr, "\n");
+	      if (ref->reg != ref->operand)
+		{
+		  fprintf (stderr, "%27s", "");
+		  print_inline_rtx (stderr, ref->operand, 27/2);
+		  fprintf (stderr, "\n");
+		}
+
+	      fprintf (stderr, "%27s", "");
+	      if (RA_REF_ADDRESS_P (ref))
+		fprintf (stderr, "%s ", "address");
+	      if (RA_REF_CLOBBER_P (ref))
+		fprintf (stderr, "%s ", "clobber");
+	      if (RA_REF_READ_P (ref))
+		fprintf (stderr, "%s ", "read");
+	      if (RA_REF_WRITE_P (ref))
+		fprintf (stderr, "%s ", "write");
+	      fprintf (stderr, "\n");
+		
+	      fprintf (stderr, "%27salt: %d '", "",ref->alt);
+	      for (s = ref->constraints; *s && *s != ','; ++s)
+		fprintf (stderr,"%c", *s);
+	      fprintf (stderr, "'\n");
+	      debug_hard_reg_set (ref->hardregs);
+	    }
+	  link = RA_REG_USES (ra_info, regno);
+	}
+    }
+  else
+    fprintf (stderr, "No ra_ref info\n");
+}
+
+
 /* Put pointer REFS (pointer to defs/uses for INSN) to ra_info->insns array.
    ra_info->insns array can be reallocated.  */
 
@@ -3565,7 +3631,9 @@ static void ra_info_add_insn_refs (ra_info, insn, refs)
   
   if (uid >= ra_info->insn_size)
     ra_insn_table_realloc (ra_info, 0);
-  
+  else if (RA_INSN_REFS (ra_info, insn))
+    abort ();
+
   ra_info->insns[uid] = refs;
 }
 
@@ -3578,7 +3646,7 @@ static void ra_info_add_reg_refs (ra_info, insn, refs)
 {
   int regno;
   struct ra_link *link;
-  struct ra_link *l;
+  struct ra_link **l;
 
   for (link = refs->defs; link; link = link->next)
     {
@@ -3589,13 +3657,13 @@ static void ra_info_add_reg_refs (ra_info, insn, refs)
       if (!RA_REG_REFS (ra_info, regno))
 	{
 	  RA_REG_REFS (ra_info, regno)
-	    = (struct ra_refs *)obstack_alloc (&ra_info_obstack,
+	    = (struct ra_refs *)obstack_alloc (&ra_info->obstack,
 					       sizeof (struct ra_refs));
 	  memset (ra_info->regs[regno], 0, sizeof (struct ra_refs));
 	}
       RA_REG_REFS (ra_info, regno)->n_defs++;
-      l = RA_REG_DEFS (ra_info, regno);
-      l = ra_link_create (link->ref, l);
+      l = &RA_REG_DEFS (ra_info, regno);
+      *l = ra_link_create (ra_info, link->ref, *l);
     }
 
   for (link = refs->uses; link; link = link->next)
@@ -3607,14 +3675,14 @@ static void ra_info_add_reg_refs (ra_info, insn, refs)
       if (!RA_REG_REFS (ra_info, regno))
 	{
 	  RA_REG_REFS (ra_info, regno)
-	    = (struct ra_refs *)obstack_alloc (&ra_info_obstack,
+	    = (struct ra_refs *)obstack_alloc (&ra_info->obstack,
 					       sizeof (struct ra_refs));
 	  memset (ra_info->regs[regno], 0, sizeof (struct ra_refs));
 	}
 	
       RA_REG_REFS (ra_info, regno)->n_uses++;
-      l = RA_REG_USES (ra_info, regno);
-      l = ra_link_create (link->ref, l);
+      l = &RA_REG_USES (ra_info, regno);
+      *l = ra_link_create (ra_info, link->ref, *l);
     }
 }
 
@@ -3631,7 +3699,7 @@ build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
 {
   int n;
   struct ra_refs *ra_refs
-    = (struct ra_refs *) obstack_alloc (&ra_info_obstack,
+    = (struct ra_refs *) obstack_alloc (&ra_info->obstack,
 					sizeof (struct ra_refs));
   memset (ra_refs, 0, sizeof (struct ra_refs));
   
@@ -3648,7 +3716,7 @@ build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
 	}
       RA_REF_ID (ref) = ra_info->def_id;
       ra_info->defs[ra_info->def_id++] = ref;
-      ra_refs->defs = ra_link_create (ref, ra_refs->defs);
+      ra_refs->defs = ra_link_create (ra_info, ref, ra_refs->defs);
       ra_refs->n_defs++;
     }
 
@@ -3665,7 +3733,7 @@ build_ra_refs_for_insn (ra_info, def_refs, use_refs, n_defs, n_uses)
 	}
       RA_REF_ID (ref) = ra_info->use_id;
       ra_info->uses[ra_info->use_id++] = ref;
-      ra_refs->uses = ra_link_create (ref, ra_refs->uses);
+      ra_refs->uses = ra_link_create (ra_info, ref, ra_refs->uses);
       ra_refs->n_uses++;
     }
   return ra_refs;
@@ -3678,6 +3746,7 @@ build_df2ra (df, ra_info)
 {
   struct df2ra df2ra;
   rtx insn;
+  unsigned int regno;
     
   df2ra.def2def = xcalloc (df->def_id, sizeof (ra_ref *));
   df2ra.use2use = xcalloc (df->use_id, sizeof (ra_ref *));
@@ -3701,9 +3770,9 @@ build_df2ra (df, ra_info)
 		? !fixed_regs[DF_REF_REGNO (dlink->ref)]
 		: 1))
 	  {
-	    unsigned int regno = DF_REF_REGNO (dlink->ref);
 	    struct ref *dref = dlink->ref;
 	    int founded = 0;
+	    regno = DF_REF_REGNO (dlink->ref);
 
 	    if (RA_INSN_REFS (ra_info, insn))
 	      {
@@ -3748,24 +3817,29 @@ build_df2ra (df, ra_info)
 	      }
 	    if (!founded)
 	      {
-		fprintf (stderr, "NONEQUAL: %d\n", regno);
 		bad = 1;
 	      }
 	  }
-
+      /* FIXME denisc@overta.ru  Spilling must be here.
       if (bad)
 	{
+	  fprintf (stderr, "NONEQUAL: %d\n", regno);
 	  debug_df_insn (insn);
 	  debug_ra_insn_refs (ra_info, insn);
 	}
+      */
     }
   return df2ra;
 }
 
 void
-pre_reload (ra_info)
+pre_reload (ra_info, modified)
      struct ra_info *ra_info;
+     bitmap modified;
 {
+  int j;
+  int max;
+  
   /* Often (MEM (REG n)) is still valid even if (REG n) is put
      on the stack. Set spill_indirect_levels to the number of
      levels such addressing is permitted, zero if it is not
@@ -3790,18 +3864,36 @@ pre_reload (ra_info)
   replace_reloads = 1;
   no_new_pseudos = 0;
 
-  pre_reload_collect (ra_info);
+  if (modified)
+    {
+      max = 0;
+      EXECUTE_IF_SET_IN_BITMAP
+	(modified, 0, j,
+	 {
+	   if (j > max)
+	     max = j;
+	   if (j < ra_info->insn_size && ra_info->insns[j])
+	     {
+	       ra_info_remove_refs (ra_info, ra_info->insns[j]);
+	       ra_info->insns[j] = NULL;
+	     }
+	 });
+      if (max >= ra_info->insn_size)
+	ra_insn_table_realloc (ra_info, 0);
+    }
+  pre_reload_collect (ra_info, modified);
 }
 
 /* Collect all defs/uses for all insns.  */
 static void
-pre_reload_collect (ra_info)
+pre_reload_collect (ra_info, modified)
      struct ra_info *ra_info;
+     bitmap modified;
 {
   rtx insn;
   int cnt;
-  int block;
-  
+  int i;
+
   ra_ref *def_refs[(sizeof (ra_ref *)
 		    * MAX_RECOG_OPERANDS * MAX_REGS_PER_ADDRESS + 1)];
   ra_ref *use_refs[(sizeof (ra_ref *)
@@ -3809,79 +3901,88 @@ pre_reload_collect (ra_info)
 
   cnt = get_max_uid ();
   cnt += cnt / 5;
-  
-  for (block = 0; block < n_basic_blocks; ++block)
-    for (insn = BLOCK_HEAD (block);
-	 insn && PREV_INSN (insn) != BLOCK_END (block);
-	 insn = NEXT_INSN (insn))
-      {
-	enum rtx_code pat_code;
-	enum rtx_code code = GET_CODE (insn);
-	rtx prev;
-	rtx next;
-	rtx orig_insn;
 
-	ra_info_add_insn_refs (ra_info, insn, NULL);
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      basic_block bb = BASIC_BLOCK (i);
+      for (insn = bb->head;
+	   insn && PREV_INSN (insn) != bb->end;
+	   insn = NEXT_INSN (insn))
+	{
+	  enum rtx_code pat_code;
+	  enum rtx_code code = GET_CODE (insn);
+	  rtx prev;
+	  rtx next;
+	  rtx orig_insn;
+
+	  if (modified && !bitmap_bit_p (modified, INSN_UID (insn)))
+	    continue;
+	  
+	  ra_info_add_insn_refs (ra_info, insn, NULL);
       
-	if (GET_RTX_CLASS (code) != 'i')
-	  continue;
+	  if (GET_RTX_CLASS (code) != 'i')
+	    continue;
 
-	pat_code = GET_CODE (PATTERN (insn));
-	if (pat_code == USE
-	    || pat_code == CLOBBER
-	    || pat_code == ASM_INPUT
-	    || pat_code == ADDR_VEC
-	    || pat_code == ADDR_DIFF_VEC)
-	  continue;
+	  pat_code = GET_CODE (PATTERN (insn));
+	  if (pat_code == USE
+	      || pat_code == CLOBBER
+	      || pat_code == ASM_INPUT
+	      || pat_code == ADDR_VEC
+	      || pat_code == ADDR_DIFF_VEC)
+	    continue;
 
-	cnt = 0;
+	  cnt = 0;
       
-	next = NEXT_INSN (insn);
-	prev = PREV_INSN (insn);
-	orig_insn = insn;
-	while (1)
-	  {
-	    int n_defs;
-	    int n_uses;
+	  next = NEXT_INSN (insn);
+	  prev = PREV_INSN (insn);
+	  orig_insn = insn;
+	  while (1)
+	    {
+	      int n_defs;
+	      int n_uses;
 
-	    ra_info_add_insn_refs (ra_info, insn, NULL);
-	    collect_insn_info (insn, def_refs, use_refs, &n_defs, &n_uses);
-	    if (++cnt > 30)
-	      abort ();
-	    if (n_reloads)
-	      {
-		emit_pre_reload_insns (insn);
-		subst_pre_reloads (insn);
-		insn = NEXT_INSN (prev);
-		continue;
-	      }
-
-	    if (n_defs || n_uses)
-	      {
-		struct ra_refs *insn_refs;
-		insn_refs = build_ra_refs_for_insn (ra_info,
-						    def_refs, use_refs,
-						    n_defs, n_uses);
-		ra_info_add_insn_refs (ra_info, insn, insn_refs);
-		ra_info_add_reg_refs (ra_info, insn, insn_refs);
-	      }
-	    else
 	      ra_info_add_insn_refs (ra_info, insn, NULL);
+	      collect_insn_info (ra_info, insn,
+				 def_refs, use_refs, &n_defs, &n_uses);
+	      if (++cnt > 30)
+		internal_error ("Didn't find a pre-reload.\n");
+	  
+	      if (n_reloads)
+		{
+		  rtx before = PREV_INSN (insn);
+		  emit_pre_reload_insns (insn);
+		  subst_pre_reloads (insn);
+		  insn = NEXT_INSN (before);
+		  continue;
+		}
 
-	    if (NEXT_INSN (insn) == next)
-	      break;
-	    insn = NEXT_INSN (insn);
-	  }
-	
-	/* Keep basic block info up to date.  */
-	if (BLOCK_HEAD (block) == orig_insn)
-	  BLOCK_HEAD (block) = NEXT_INSN (prev);
-	if (BLOCK_END (block) == orig_insn)
-	  BLOCK_END (block) = PREV_INSN (next);
-      }
-  
+	      if (n_defs || n_uses)
+		{
+		  struct ra_refs *insn_refs;
+		  insn_refs = build_ra_refs_for_insn (ra_info,
+						      def_refs, use_refs,
+						      n_defs, n_uses);
+		  ra_info_add_insn_refs (ra_info, insn, insn_refs);
+		  ra_info_add_reg_refs (ra_info, insn, insn_refs);
+		}
+	      else
+		ra_info_add_insn_refs (ra_info, insn, NULL);
+
+	      if (NEXT_INSN (insn) == next)
+		break;
+	      insn = NEXT_INSN (insn);
+	    }
+	  /* Keep basic block info up to date.  */
+	  if (bb->head == orig_insn)
+	    bb->head = NEXT_INSN (prev);
+	  if (bb->end == orig_insn)
+	    bb->end = PREV_INSN (next);
+	}
+    }
+
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
+      /* FIXME: denisc@overta.ru */
       if (0)
 	{
 	  if (RA_INSN_REFS (ra_info, insn))
@@ -3912,12 +4013,141 @@ pre_reload_collect (ra_info)
     }
 }
 
-int insn_uid PARAMS ((rtx));
-
-int 
-insn_uid (insn)
-     rtx insn;
+/* Remove all references which referenced in REFS.  */
+static void
+ra_info_remove_refs (ra_info, refs)
+     struct ra_info *ra_info;
+     struct ra_refs *refs;
 {
-  return INSN_UID (insn);
+  int regno;
+  struct ra_link *link;
+  struct ra_link **l;
+
+  for (link = refs->defs; link; link = link->next)
+    {
+      regno = RA_REF_REGNO (link->ref);
+      ra_info->defs[RA_REF_ID (link->ref)] = NULL;
+      for (l = &RA_REG_DEFS (ra_info, regno); *l; l = &(*l)->next)
+	if (link->ref == (*l)->ref)
+	  {
+	    RA_REG_REFS (ra_info, regno)->n_defs--;
+	    *l = (*l)->next;
+	    if (!*l)
+	      break;
+	  }
+      if (!RA_REG_USES (ra_info, regno) && !RA_REG_DEFS (ra_info, regno))
+	RA_REG_REFS (ra_info, regno) = NULL;
+    }
+
+  for (link = refs->uses; link; link = link->next)
+    {
+      regno = RA_REF_REGNO (link->ref);
+      ra_info->uses[RA_REF_ID (link->ref)] = NULL;
+      for (l = &RA_REG_USES (ra_info, regno); *l; l = &(*l)->next)
+	if (link->ref == (*l)->ref)
+	  {
+	    RA_REG_REFS (ra_info, regno)->n_uses--;
+	    *l = (*l)->next;
+	    if (!*l)
+	      break;
+	  }
+      if (!RA_REG_USES (ra_info, regno) && !RA_REG_DEFS (ra_info, regno))
+	RA_REG_REFS (ra_info, regno) = NULL;
+    }
 }
 
+/* Compare constraints based incrementally updated ra_info with ra_info
+   collected from scratch.  */
+void
+compare_ra_info (ra1)
+     struct ra_info *ra1;
+{
+  struct ra_info *ra2;
+  rtx insn;
+  int regno;
+
+  ra2 = ra_info_init (max_reg_num ());
+  pre_reload (ra2, NULL);
+
+  /* Check insn based info.  */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      struct ra_refs *ref1 = RA_INSN_REFS (ra1, insn);
+      struct ra_refs *ref2 = RA_INSN_REFS (ra2, insn);
+      struct ra_link *l1, *l2;
+      
+      if ((!ref1 || !ref2) && ref1 != ref2)
+	abort ();
+      if (!ref1)
+	continue;
+      if (ref1->n_uses != ref2->n_uses)
+	abort ();
+      if (ref1->n_defs != ref2->n_defs)
+	abort ();
+
+      /* Check all defs.  */
+      for (l1 = ref1->defs, l2 = ref2->defs;
+	   l1 && l2;
+	   l1 = l1->next, l2 = l2->next)
+	{
+	  if (RA_REF_REGNO (l1->ref) != RA_REF_REGNO (l2->ref))
+	    abort ();
+	}
+      /* Check all uses.  */
+      for (l1 = ref1->uses, l2 = ref2->uses;
+	   l1 && l2;
+	   l1 = l1->next, l2 = l2->next)
+	{
+	  if (RA_REF_REGNO (l1->ref) != RA_REF_REGNO (l2->ref))
+	    abort ();
+	}
+      
+    }
+
+  /* Check registers based info.  */
+  for (regno = 0; regno < max_reg_num (); ++regno)
+    {
+      struct ra_refs *ref1 = RA_REG_REFS (ra1, regno);
+      struct ra_refs *ref2 = RA_REG_REFS (ra2, regno);
+      struct ra_link *l1, *l2;
+      
+      if ((!ref1 || !ref2) && ref1 != ref2)
+	abort ();
+      if (!ref1)
+	continue;
+      if (ref1->n_uses != ref2->n_uses)
+	abort ();
+      if (ref1->n_defs != ref2->n_defs)
+	abort ();
+
+      /* Check all defs.  */
+      for (l1 = ref1->defs; l1; l1 = l1->next)
+	{
+	  for (l2 = ref2->defs; l2; l2 = l2->next)
+	    if (l1->ref->insn == l2->ref->insn
+		&& l1->ref->loc == l2->ref->loc
+		&& l1->ref->opno == l2->ref->opno)
+	      break;
+	  
+	  if (!l2)
+	    abort ();
+	}
+	  
+      /* Check all uses.  */
+      for (l1 = ref1->uses; l1; l1 = l1->next)
+	{
+	  for (l2 = ref2->uses; l2; l2 = l2->next)
+	    if (l1->ref->insn == l2->ref->insn
+		&& l1->ref->loc == l2->ref->loc
+		&& l1->ref->opno == l2->ref->opno)
+	      break;
+	  
+	  if (!l2)
+	    abort ();
+	}
+      
+    }
+
+  ra_info_free (ra2);
+  free (ra2);	    
+}

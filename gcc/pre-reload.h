@@ -152,6 +152,7 @@ struct ra_info
   int use_size;			/* Size of use table.  */
   int n_uses;			/* Size of use bitmaps.  */
   int n_regs;			/* Number of regs.  */
+  struct obstack obstack;
 };
 
 
@@ -206,9 +207,11 @@ extern void copy_eh_notes	       PARAMS ((rtx, rtx));
 extern int alternative_allows_memconst PARAMS ((const char *, int));
 extern void subst_pre_reloads          PARAMS ((rtx));
 extern void emit_pre_reload_insns      PARAMS ((rtx));
-extern void pre_reload                 PARAMS ((struct ra_info *));
+extern void pre_reload                 PARAMS ((struct ra_info *, bitmap));
 extern struct ra_info *ra_info_init    PARAMS ((int));
 extern void ra_info_free               PARAMS ((struct ra_info *));
+extern void debug_hard_reg_set         PARAMS ((HARD_REG_SET));
+extern void compare_ra_info            PARAMS ((struct ra_info *));
 
 struct df2ra
 {

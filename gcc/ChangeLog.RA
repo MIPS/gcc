@@ -1,3 +1,32 @@
+Fri Apr 12 00:14:17 2002  Denis Chertykov  <denisc@overta.ru>
+
+	* reload.c: Include "obstack.h" and "bitmap.h".
+
+	* pre-reload.h (ra_info): Add new field 'obstack'.
+	(pre_reload): Prototype declaration changed.
+	(debug_hard_reg_set): New prototype declaration.
+	(compare_ra_info): Likewise.
+
+	* pre-reload.c (ra_info_obstack): Global variable removed.
+	(ra_link_create): Use 'obstack' field of ra_info structure.
+	(scan_addr_func): Likewise.
+	(scan_addr_create_ref): Likewise.
+	(collect_insn_info): Likewise.
+	(ra_info_init): Likewise.
+	(ra_info_free): Likewise.
+	(build_ra_refs_for_insn): Likewise.
+	(debug_ra_reg_refs): New debug function.
+	(ra_info_add_insn_refs): Add check.
+	(ra_info_add_reg_refs): Bugfix. Right building registers
+	related ra_refs.
+	(pre_reload): Remove all information about changed insns.
+	(pre_reload_collect): Collect information only about
+	changed insns.
+	(insn_uid): Removed.
+	(ra_info_remove_refs): New function.
+	(compare_ra_info): New function. Can be used for checking
+	consistency of incrementally builded ra_info.
+
 2002-04-10  Michael Matz  <matz@suse.de>
 
 	* ra.c (init_one_web_common, remember_web_was_spilled, combine):

@@ -95,13 +95,16 @@ a register with any other reload.  */
 #include "reload.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "pre-reload.h"
 #include "flags.h"
 #include "real.h"
 #include "output.h"
 #include "function.h"
 #include "expr.h"
 #include "toplev.h"
+
+#include "obstack.h"
+#include "bitmap.h"
+#include "pre-reload.h"
 
 #ifndef REGISTER_MOVE_COST
 #define REGISTER_MOVE_COST(m, x, y) 2
