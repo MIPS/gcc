@@ -1,9 +1,18 @@
-2004-12-28  Jakub Jelinek  <jakub@redhat.com>
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
 
-	PR c++/18384, c++/18327
-	* decl.c (reshape_init_array): Use UHWI type for max_index_cst
-	and index.  Convert max_index to size_type_node if it isn't
-	host_integerp (, 1).
+	* name-lookup.c (push_overloaded_decl): Don't error if the new
+	decl matches the old one.
+	* decl.c (redeclaration_error_message): Likewise.
+
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* class.c (update_vtable_entry_for_fn): Don't crash on invalid
+	covariancy. 
+
+	* cp-tree.g (THUNK_TARGET): Expand comment.
+	* method.c (use_thunk): Make sure we also use the target, if that
+	is a thunk.
 
 2005-02-27  Jakub Jelinek  <jakub@redhat.com>
 
@@ -11,6 +20,13 @@
 	* decl.c (cxx_comdat_group): Put thunks for
 	TARGET_USE_LOCAL_THUNK_ALIAS_P (function) functions into the same
 	comdat group as the thunk target.
+
+2004-12-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/18384, c++/18327
+	* decl.c (reshape_init_array): Use UHWI type for max_index_cst
+	and index.  Convert max_index to size_type_node if it isn't
+	host_integerp (, 1).
 
 2005-02-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 

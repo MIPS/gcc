@@ -1,3 +1,27 @@
+2005-03-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19916
+	* g++.dg/init/ptrmem2.C: New test.
+
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/overload/using2.C: New.
+
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* g++.dg/inherit/covariant12.C: New.
+
+2005-02-28  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/19479
+	* gfortran.dg/bound_1.f90: New test.
+
+2005-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/19874
+	* gcc.c-torture/execute/20050119-2.c: New test case.
+
 2004-11-28  James A. Morrison  <ja2morri@csclub.uwaterloo.ca>
 
 	PR ada/18302

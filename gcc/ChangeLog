@@ -1,3 +1,96 @@
+2005-03-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/19916
+	* varasm.c (initializer_constant_valid_p): Allow conversions
+	between OFFSET_TYPEs.  Tidy.
+
+2005-03-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin8.h (LIB_SPEC): Switch -lmx and -lSystem.
+
+2005-03-02  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	* cgraph.h (struct cgraph_edge): Add prev_caller and
+	prev_callee fields.
+	(cgraph_node_remove_callees): Export.
+	* cgraph.c (cgraph_create_edge): Initialize prev_caller
+	and prev_callee.
+	(cgraph_edge_remove_callee): New function.
+	(cgraph_edge_remove_caller): Likewise.
+	(cgraph_remove_edge): Use.
+	(cgraph_redirect_edge_callee): Likewise.
+	(cgraph_node_remove_callees): New function.
+	(cgraph_node_remove_callers): Likewise.
+	(cgraph_remove_node): Use.
+	* tree-optimize.c (tree_rest_of_compilation): Use
+	cgraph_node_remove_callees instead of manual loop.
+	* cgraphunit.c (cgraph_finalize_function): Likewise.
+	(cgraph_expand_function): Likewise.
+	(cgraph_remove_unreachable_nodes): Likewise.
+
+2005-03-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/20216
+	* tree-chrec.c (tree_fold_factorial): Delete.
+	(tree_fold_binomial): Change argument list to take a return type
+	and change the type of K to unsigned int.  Rewrite to avoid explicit
+	evaluation of factorials, and (recursively) calling fold to perform
+	compile-time arithmetic.  Return NULL on (internal) overflow.
+	(chrec_evaluate): Change type of K to an unsigned int.  Avoid
+	calling tree_fold_binomial unnecessarily.  Return chrec_dont_know
+	if any intermediate calculation overflows.
+	(chrec_apply): Update call to chrec_evaluate.
+
+2005-03-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/19065.
+	* config/cris/cris.h (EXTRA_CONSTRAINT_Q): Accept only (mem (reg)),
+	not including (reg). Do not check for reg being CRIS_PC_REGNUM.
+	(EXTRA_MEMORY_CONSTRAINT): Define as 'Q'.
+	* config/cris/cris.md: Tweak comments referring to Q.
+ 	("cmpsi", "cmphi", "cmpqi", "*movsi_internal", "movhi")
+	("movstricthi", "movqi", "movstrictqi", "movsf", "addsi3")
+	("addhi3", "addqi3", "subsi3", "subhi3", "subqi3")
+	("*expanded_andsi", "*expanded_andhi", "*andhi_lowpart", "andqi3")
+	("*andqi_lowpart", "iorsi3", "iorhi3", "iorqi3", "uminsi3"):
+	Insert spaces in constraints to align alternatives vertically for
+	readability.
+	("cmphi"): Ditto.  Add separate alternative for operand 0 "r",
+	operand 1: "M".
+
+2005-02-28  Dale Johannesen  <dalej@apple.com>
+	    Stan Shebs  <shebs@apple.com>
+
+	Rewrite of 64-bit Darwin structure-by-value pass/return.
+	* config/rs6000/rs6000.h (CUMULATIVE_ARGS): New fields
+	intoffset, use_stack, named.
+	* config/rs6000/rs6000.c (rs6000_darwin64_function_arg):  Remove.
+	(rs6000_darwin64_record_arg_advance_flush):  New.
+	(rs6000_darwin64_record_arg_advance_recurse): New.
+	(rs6000_darwin64_record_arg_flush):  New.
+	(rs6000_darwin64_record_arg_recurse):  New.
+	(rs6000_darwin64_record_arg):  New.
+	(rs6000_return_in_memory):  Remove AGGREGATE_TYPE_P check.
+	(function_arg_boundary):  Handle 128-bit aligned structs.
+	(function_arg_advance):  Rewrite darwin64 struct handling.
+	(function_arg):  Call rs6000_darwin64_record_arg.
+	(function_arg_partial_nregs):  Handle darwin64 structs.
+	(rs6000_darwin64_function_value):  Remove.
+	(rs6000_function_value):  Call rs6000_darwin64_record_arg.
+
+2005-02-28  John David Anglin  <dave.anglin#nrc-cnrc.gc.ca>
+
+	PR target/19819
+	* pa.h (GO_IF_LEGITIMATE_ADDRESS): Allow allow hard registers during
+	and after reload in REG+REG indexed addresses without REG_POINTER
+	set in the base and not set in the index.
+
+2005-02-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19874
+	* tree-ssa.c (tree_ssa_useless_type_conversion_1): A conversion
+	between different machine modes is never a "useless" conversion.
+
 2005-01-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (init_cumulative_args): For -m32 -mfpmath=sse
