@@ -1,5 +1,11 @@
 2002-06-12  Jason Merrill  <jason@redhat.com>
 
+	* c-simplify.c (fallback_t): New enum.
+	(simplify_expr): Rename from simplify_expr_common.  FALLBACK parm
+	is now of fallback_t type.
+	(simplify_lvalue_expr, simplify_expr, simplify_expr_either): Lose.
+	(most everything): Adjust.
+
 	* tree-simple.c (is_simple_compound_lval): New fn.
 	(is_simple_varname): Call it instead of is_simple_arrayref and
 	is_simple_compref.
