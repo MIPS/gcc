@@ -1,3 +1,14 @@
+2004-08-06  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/3247
+	* include/bits/gslice_array.h (gslice_array()): Make public.
+	(operator=(gslice_array)): Make public.  Implement.
+	* include/bits/indirect_array.h (indirect_array()): Make public.
+	* include/bits/mask_array.h (mask_array()): Make public.
+	(operator=(mask_array)): Make public.  Implement.
+	* include/bits/valarray_array.tcc (__valarray_copy):
+	Add versions for gslice_array and mask_array.
+
 2004-08-06  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/12232
@@ -6,7 +17,7 @@
 	(seekpos): Likewise.
 
 2004-08-06  Petur Runolfsson  <peturr02@ru.is>
-	    Paolo Carlini  <pcarlini@unitus.it>
+	    Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/11460
 	* src/strstream.cc (pbackfail): Fix to use to_int_type.

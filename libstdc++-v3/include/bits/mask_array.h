@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- mask_array class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
 //  Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -48,6 +48,9 @@ namespace std {
     public:
       typedef _Tp value_type;
     
+      mask_array (const mask_array&);
+      mask_array& operator=(const mask_array&);
+
       void operator=(const valarray<_Tp>&) const;
       void operator*=(const valarray<_Tp>&) const;
       void operator/=(const valarray<_Tp>&) const;
@@ -94,11 +97,8 @@ namespace std {
       const _Array<bool> _M_mask;
       const _Array<_Tp>   _M_array;
       
-      mask_array (const mask_array&);
-      
       // not implemented
       mask_array();
-      mask_array& operator=(const mask_array&);
     };
 
 
@@ -110,6 +110,15 @@ namespace std {
     inline 
     mask_array<_Tp>::mask_array(_Array<_Tp> __a, size_t __s, _Array<bool> __m)
       : _M_sz(__s), _M_mask(__m), _M_array(__a) {}
+
+  template<typename _Tp>
+    inline mask_array<_Tp>&
+    mask_array<_Tp>::operator=(const mask_array<_Tp>& __a)
+    {
+      __valarray_copy(__a._M_array, __a._M_mask,
+		      _M_sz, _M_array, _M_mask);
+      return *this;
+    }
     
   template<typename _Tp>
     inline void

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- indirect_array class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
 //  Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -48,6 +48,8 @@ namespace std
      public:
        typedef _Tp value_type;
 
+       indirect_array(const indirect_array&);
+
        // XXX: This is a proposed resolution for DR-253.
        indirect_array& operator=(const indirect_array&);
        
@@ -89,7 +91,6 @@ namespace std
          void operator>>=(const _Expr<_Dom, _Tp>&) const; 
 
      private:
-       indirect_array(const indirect_array&);
        indirect_array(_Array<_Tp>, size_t, _Array<size_t>);
 
        friend class valarray<_Tp>;
@@ -121,7 +122,6 @@ namespace std
        __valarray_copy(__a._M_array, _M_sz, __a._M_index, _M_array, _M_index);
        return *this;
      }
-
 
   template<typename _Tp>
      inline void

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Array helper class.
 
-// Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -80,6 +80,32 @@ __valarray_copy (_Array<_Tp> __a, size_t __n, _Array<_Tp> __b, _Array<bool> __m)
     }
 }
 
+export template<typename _Tp>
+void
+__valarray_copy(_Array<_Tp> __a, _Array<bool> __m, size_t __n,
+		_Array<_Tp> __b, _Array<bool> __k)
+{
+  _Tp* __p (__a._M_data);
+  _Tp* __q (__b._M_data);
+  bool* __srcok (__m._M_data);
+  bool* __dstok (__k._M_data);
+  for (size_t __i = 0; __i < __n;
+       ++__srcok, ++__p, ++__dstok, ++__q, ++__i)
+    {
+      while (! *__srcok)
+	{
+	  ++__srcok;
+	  ++__p;
+	}
+      while (! *__dstok) 
+	{
+	  ++__dstok;
+	  ++__q;
+	}
+      *__q = *__p;
+    }
+}
+
 export template<typename _Tp, class _Dom>
 void
 __valarray_copy (const _Expr<_Dom, _Tp>& __e, size_t __n, _Array<_Tp> __a)
@@ -106,6 +132,18 @@ __valarray_copy (const _Expr<_Dom, _Tp>& __e, size_t __n,
     for (size_t __k=0; __k<__n; ++__k, ++__j) __a._M_data[*__j] = __e[__k];
 }
 
+export template<typename _Tp>
+void
+__valarray_copy(_Array<_Tp> __e, _Array<size_t> __f,
+		size_t __n, 
+		_Array<_Tp> __a, _Array<size_t> __i)
+{
+  size_t* __g (__f._M_data);
+  size_t* __j (__i._M_data);
+  for (size_t __k = 0; __k < __n; ++__k, ++__j, ++__g) 
+    __a._M_data[*__j] = __e._M_data[*__g];
+}
+
 export template<typename _Tp, class _Dom>
 void
 __valarray_copy (const _Expr<_Dom, _Tp>& __e, size_t __n, 
@@ -122,7 +160,6 @@ __valarray_copy (const _Expr<_Dom, _Tp>& __e, size_t __n,
     }
 }
 
-
 export template<typename _Tp, class _Dom>
 void
 __valarray_copy_construct (const _Expr<_Dom, _Tp>& __e, size_t __n,
@@ -131,7 +168,6 @@ __valarray_copy_construct (const _Expr<_Dom, _Tp>& __e, size_t __n,
     _Tp* __p (__a._M_data);
     for (size_t __i=0; __i<__n; ++__i, ++__p) new (__p) _Tp(__e[__i]);
 }
-
 
 export template<typename _Tp>
 void
@@ -148,9 +184,6 @@ __valarray_copy_construct (_Array<_Tp> __a, _Array<bool> __m,
         new (__q) _Tp(*__p);
     }
 }
-
-
-
 
 } // std::
 

@@ -1,6 +1,7 @@
 // The template and inlines for the -*- C++ -*- gslice_array class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2004
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,6 +48,9 @@ namespace std {
     public:
       typedef _Tp value_type;
 
+      gslice_array(const gslice_array&);
+      gslice_array& operator=(const gslice_array&);
+      
       void operator=(const valarray<_Tp>&) const;
       void operator*=(const valarray<_Tp>&) const;
       void operator/=(const valarray<_Tp>&) const;
@@ -91,12 +95,8 @@ namespace std {
       
       gslice_array(_Array<_Tp>, const valarray<size_t>&);
 
-      // this constructor needs to be implemented.
-      gslice_array(const gslice_array&);
-
       // not implemented
       gslice_array();
-      gslice_array& operator= (const gslice_array&);
     };
 
   template<typename _Tp>
@@ -111,7 +111,16 @@ namespace std {
     gslice_array<_Tp>::gslice_array(const gslice_array<_Tp>& __a)
       : _M_array(__a._M_array), _M_index(__a._M_index) {}
 
-    
+  template<typename _Tp>
+    inline gslice_array<_Tp>&
+    gslice_array<_Tp>::operator=(const gslice_array<_Tp>& __a)
+    {
+      __valarray_copy(_Array<_Tp>(__a._M_array),
+		      _Array<size_t>(__a._M_index), _M_index.size(),
+		      _M_array, _Array<size_t>(_M_index));
+      return *this;
+    }
+
   template<typename _Tp>
     inline void
     gslice_array<_Tp>::operator=(const _Tp& __t) const
