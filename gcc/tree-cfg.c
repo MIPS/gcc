@@ -135,6 +135,16 @@ struct control
 				/* Chain of layout.  */
   struct control *else_node;
 
+  tree artificial_label;	/* In case artificial label is to be added
+				   to the start of the block, its set here.  */
+  enum fa
+    {
+      MAKE_FALLTHRU,
+      ADD_GOTO,
+      ADD_BREAK,
+      ADD_CONTINUE
+    } fa_then, fa_else;		/* What to do with final statement?  */
+
   basic_block header;		/* Entry of the structure.  */
   basic_block latch;		/* Latch of a loop.  */
   basic_block follow;		/* The next block after the structure.  */
@@ -198,9 +208,15 @@ static void layout_structure (struct control *, struct control *,
 			      struct control *[]);
 static void add_to_layout (struct control *);
 static void finish_layout (struct control *);
-static tree reconstruct_tree (struct control *);
+static tree reconstruct_tree (struct control *, struct control *[]);
 static bool inside_cs (basic_block, struct control *, struct control *[]);
 static struct control *lift (struct control *, int);
+static basic_block first_cs_bb (struct control *);
+static void fixup_gotos (struct control *, struct control *[], 
+			 struct control *, basic_block, basic_block);
+static void establish_gotos (tree *, enum fa, struct control *);
+static enum fa decide_final_action (basic_block, basic_block, basic_block,
+				    basic_block, struct control *[]);
 
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((tree)(e->insns))
@@ -1783,28 +1799,151 @@ dump_cs_tree (FILE *file, int flags, struct control *cs_tree,
   assign_levels (cs_tree, 0);
   compute_structure_exits (bb_to_cs);
   layout_structures (cs_tree, bb_to_cs);
+  fixup_gotos (cs_tree, bb_to_cs, NULL, NULL, NULL);
 
-  body = reconstruct_tree (cs_tree);
+  body = reconstruct_tree (cs_tree, bb_to_cs);
   print_generic_stmt (file, body, flags);
 }
 
+/* Adds or removes gotos and labels as needed for structures in NODE.
+   NEXT is the next structure after NODE in layout.  BREAK_DEST and CONT_DEST
+   are the blocks to that continue/break statements would go.  BB_TO_CS maps
+   basic blocks to control structures.  */
+
+static void
+fixup_gotos (struct control *node, struct control *bb_to_cs[], 
+	     struct control *next, basic_block break_dest,
+	     basic_block cont_dest)
+{
+  struct control *s;
+  basic_block fall, bb;
+  edge e_then, e_else, e;
+
+  switch (node->type)
+    {
+    case CS_TOP:
+      for (s = node->lay_head; s; s = s->lay_next)
+	fixup_gotos (s, bb_to_cs, s->lay_next, NULL, NULL);
+      break;
+
+    case CS_WHILE_LOOP:
+    case CS_DO_WHILE_LOOP:
+    case CS_INFINITE_LOOP:
+      break_dest = next ? first_cs_bb (next) : NULL;
+      cont_dest = first_cs_bb (node->lay_head);
+      for (s = node->lay_head; s; s = s->lay_next)
+	fixup_gotos (s, bb_to_cs, s->lay_next ? s->lay_next : node->lay_head,
+		     break_dest, cont_dest);
+      break;
+
+    case CS_IF_THEN:
+    case CS_IF_ELSE:
+      node->lay_head->fa_then = node->lay_head->fa_else = ADD_GOTO;
+      for (s = node->lay_head->lay_next; s; s = s->lay_next)
+	fixup_gotos (s, bb_to_cs, s->lay_next ? s->lay_next : next,
+		     break_dest, cont_dest);
+      break;
+
+    case CS_IF_THEN_ELSE:
+      node->lay_head->fa_then = node->lay_head->fa_else = ADD_GOTO;
+      for (s = node->lay_head->lay_next; s != node->else_node; s = s->lay_next)
+	fixup_gotos (s, bb_to_cs,
+		     s->lay_next != node->else_node ? s->lay_next : next,
+		     break_dest, cont_dest);
+      for (; s; s = s->lay_next)
+	fixup_gotos (s, bb_to_cs, s->lay_next ? s->lay_next : next,
+		     break_dest, cont_dest);
+      break;
+
+    case CS_BB:
+      bb = node->header;
+      if (!bb->succ)
+	break;
+
+      if (!bb->succ->succ_next)
+	{
+	  e_then = bb->succ;
+	  e_else = NULL;
+	}
+      else
+	{
+	  e_then = e_else = NULL;
+	  for (e = bb->succ; e; e = e->succ_next)
+	    if (e->flags & EDGE_TRUE_VALUE)
+	      e_then = e;
+	    else if (e->flags & EDGE_FALSE_VALUE)
+	      e_else = e;
+	    else if (e->flags & EDGE_FALLTHRU)
+	      e_then = e;
+
+	  if (!e_then && !e_else)
+	    break;
+	}
+
+      fall = next ? first_cs_bb (next) : NULL;
+      if (e_then)
+	node->fa_then = decide_final_action (e_then->dest, fall, break_dest,
+					     cont_dest, bb_to_cs);
+      if (e_else)
+	node->fa_else = decide_final_action (e_else->dest, fall, break_dest,
+					     cont_dest, bb_to_cs);
+      break;
+
+    default:
+      abort ();
+    }
+}
+
+/* Decides how to replace goto to basic block BB.  FALL is the block to that
+   it would fallthru, BREAK_DEST and CONT_DEST are destinations of break and
+   continue statements.  BB_TO_CS maps basic blocks to control structures.  */
+
+static enum fa
+decide_final_action (basic_block bb, basic_block fall, basic_block break_dest,
+		     basic_block cont_dest, struct control *bb_to_cs[])
+{
+  struct control *s;
+  block_stmt_iterator bsi;
+
+  if (bb == fall || bb == EXIT_BLOCK_PTR)
+    return MAKE_FALLTHRU;
+  else if (bb == break_dest)
+    return ADD_BREAK;
+  else if (bb == cont_dest)
+    return ADD_CONTINUE;
+  else
+    {
+      s = bb_to_cs[bb->index];
+      bsi = bsi_start (bb);
+
+      if (!s->artificial_label
+	  && (!bsi_stmt (bsi)
+	      || TREE_CODE (bsi_stmt (bsi)) != LABEL_EXPR))
+	s->artificial_label = build_new_label ();
+
+      return ADD_GOTO;
+    }
+}
+
 /* Create a structured program from structrure description and layout
-   in NODE.  */
+   in NODE.  BB_TO_CS maps basic blocks to control structures.  */
 
 static tree
-reconstruct_tree (struct control *node)
+reconstruct_tree (struct control *node, struct control *bb_to_cs[])
 {
   tree b = NULL_TREE, tmp, *stmt, b1;
   tree_stmt_iterator tsi = tsi_start (&b), atsi;
   block_stmt_iterator bsi;
   struct control *s;
+  basic_block bb;
+  edge e, e_then, e_else;
 
   switch (node->type)
     {
     case CS_TOP:
       for (s = node->lay_head; s; s = s->lay_next)
 	{
-	  tmp = reconstruct_tree (s);
+	  tmp = reconstruct_tree (s, bb_to_cs);
 	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
 	}
       return build (BIND_EXPR, void_type_node,
@@ -1817,7 +1956,7 @@ reconstruct_tree (struct control *node)
     case CS_INFINITE_LOOP:
       for (s = node->lay_head; s; s = s->lay_next)
 	{
-	  tmp = reconstruct_tree (s);
+	  tmp = reconstruct_tree (s, bb_to_cs);
 	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
 	}
       return build (LOOP_EXPR, void_type_node, b);
@@ -1826,10 +1965,10 @@ reconstruct_tree (struct control *node)
     case CS_IF_ELSE:
       for (s = node->lay_head->lay_next; s; s = s->lay_next)
 	{
-	  tmp = reconstruct_tree (s);
+	  tmp = reconstruct_tree (s, bb_to_cs);
 	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
 	}
-      tmp = reconstruct_tree (node->lay_head);
+      tmp = reconstruct_tree (node->lay_head, bb_to_cs);
       for (atsi = tsi_start (&tmp); !tsi_one_before_end_p (atsi);
 	   tsi_next (&atsi))
 	continue;
@@ -1842,7 +1981,7 @@ reconstruct_tree (struct control *node)
 	  *stmt = build (COND_EXPR, void_type_node,
 			 COND_EXPR_COND (*stmt), b,
 			 (node->follow
-			  ? build_empty_stmt ()
+			  ? NULL_TREE
 			  : COND_EXPR_ELSE (*stmt)));
 	}
       else
@@ -1850,7 +1989,7 @@ reconstruct_tree (struct control *node)
 	  *stmt = build (COND_EXPR, void_type_node,
 			 COND_EXPR_COND (*stmt),
 			 (node->follow
-			  ? build_empty_stmt ()
+			  ? NULL_TREE
 			  : COND_EXPR_THEN (*stmt)),
 			 b);
 	}
@@ -1859,7 +1998,7 @@ reconstruct_tree (struct control *node)
     case CS_IF_THEN_ELSE:
       for (s = node->lay_head->lay_next; s != node->else_node; s = s->lay_next)
 	{
-	  tmp = reconstruct_tree (s);
+	  tmp = reconstruct_tree (s, bb_to_cs);
 	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
 	}
       b1 = b;
@@ -1868,11 +2007,11 @@ reconstruct_tree (struct control *node)
       tsi = tsi_start (&b);
       for (; s; s = s->lay_next)
 	{
-	  tmp = reconstruct_tree (s);
+	  tmp = reconstruct_tree (s, bb_to_cs);
 	  tsi_link_chain_after (&tsi, tmp, TSI_CONTINUE_LINKING);
 	}
 
-      tmp = reconstruct_tree (node->lay_head);
+      tmp = reconstruct_tree (node->lay_head, bb_to_cs);
       for (atsi = tsi_start (&tmp); !tsi_one_before_end_p (atsi);
 	   tsi_next (&atsi))
 	continue;
@@ -1885,8 +2024,58 @@ reconstruct_tree (struct control *node)
       return tmp;
 
     case CS_BB:
-      for (bsi = bsi_start (node->header); !bsi_end_p (bsi); bsi_next (&bsi))
-	tsi_link_after (&tsi, bsi_stmt (bsi), TSI_NEW_STMT);
+      bb = node->header;
+      if (node->artificial_label)
+	tsi_link_after (&tsi, build1 (LABEL_EXPR, void_type_node,
+				      s->artificial_label), TSI_NEW_STMT);
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  if (TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
+	      || TREE_CODE (bsi_stmt (bsi)) == COND_EXPR)
+	    break;
+	  tsi_link_after (&tsi, bsi_stmt (bsi), TSI_NEW_STMT);
+	}
+      tmp = bsi_end_p (bsi) ? NULL_TREE : bsi_stmt (bsi);
+      if (tmp && TREE_CODE (tmp) == COND_EXPR)
+	tmp = build (COND_EXPR, void_type_node, COND_EXPR_COND (tmp),
+		     COND_EXPR_THEN (tmp), COND_EXPR_ELSE (tmp));
+
+      if (bb->succ)
+	{
+	  if (!bb->succ->succ_next)
+	    {
+	      e_then = bb->succ;
+	      e_else = NULL;
+	    }
+	  else
+	    {
+	      e_then = e_else = NULL;
+	      for (e = bb->succ; e; e = e->succ_next)
+		if (e->flags & EDGE_TRUE_VALUE)
+		  e_then = e;
+		else if (e->flags & EDGE_FALSE_VALUE)
+		  e_else = e;
+		else if (e->flags & EDGE_FALLTHRU)
+		  e_then = e;
+	    }
+
+	  if (e_then)
+	    {
+	      if (tmp && TREE_CODE (tmp) == COND_EXPR)
+		stmt = &COND_EXPR_THEN (tmp);
+	      else
+		stmt = &tmp;
+	      establish_gotos (stmt, node->fa_then,
+			       bb_to_cs[e_then->dest->index]);
+	    }
+
+	  if (e_else)
+	    establish_gotos (&COND_EXPR_ELSE (tmp), node->fa_else,
+			     bb_to_cs[e_else->dest->index]);
+
+	  if (tmp)
+	    tsi_link_after (&tsi, tmp, TSI_NEW_STMT);
+	}
       if (!b)
 	b = build_empty_stmt ();
 
@@ -1894,6 +2083,41 @@ reconstruct_tree (struct control *node)
 
     default:
       abort ();
+    }
+}
+
+/* Set gotos of STMT according to ACTION; the jump goes to DEST.  */
+
+static void
+establish_gotos (tree *stmt, enum fa action, struct control *dest)
+{
+  basic_block dst;
+
+  switch (action)
+    {
+    case MAKE_FALLTHRU:
+      *stmt = NULL_TREE;
+      break;
+
+    case ADD_GOTO:
+      if (*stmt)
+	break;
+
+      dst = dest->header;
+      if (dest->artificial_label)
+	*stmt = build1 (GOTO_EXPR, void_type_node, dest->artificial_label);
+      else
+	*stmt = build1 (GOTO_EXPR, void_type_node, tree_block_label (dst));
+
+      break;
+
+    case ADD_BREAK:
+      *stmt = build (BREAK_EXPR, void_type_node);
+      break;
+
+    case ADD_CONTINUE:
+      *stmt = build (CONTINUE_EXPR, void_type_node);
+      break;
     }
 }
 
@@ -1919,6 +2143,17 @@ lift (struct control *node, int l)
     node = node->outer;
 
   return node;
+}
+
+/* Returns first basic block of the NODE.  */
+
+static basic_block
+first_cs_bb (struct control *node)
+{
+  while (node->type != CS_BB)
+    node = node->lay_head;
+
+  return node->header;
 }
 
 /* Add structure nodes for basic blocks, using BB_TO_CS array.  */

@@ -1143,6 +1143,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags)
 	}
       break;
 
+    case BREAK_EXPR:
+      pp_string (buffer, "break;");
+      break;
+
+    case CONTINUE_EXPR:
+      pp_string (buffer, "continue;");
+      break;
+
     case RETURN_EXPR:
       pp_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);

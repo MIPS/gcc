@@ -1,3 +1,13 @@
+2003-10-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-cfg.c (struct control): Add fields artificial_label, fa_then
+	and fa_else.
+	(first_cs_bb, fixup_gotos, establish_gotos, decide_final_action): New.
+	(reconstruct_tree, dump_cs_tree): Handle gotos correctly.
+	* tree-pretty-print.c (dump_generic_node): Handle BREAK_EXPR and
+	CONTINUE_EXPR.
+	* tree.def (BREAK_EXPR, CONTINUE_EXPR): New.
+
 2003-10-17  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* basic-block.h (DFS_stack, DFS_seen): Declare.

@@ -822,6 +822,10 @@ DEFTREECODE (EXIT_EXPR, "exit_expr", 's', 1)
    The type should be void and the value should be ignored.  */
 DEFTREECODE (LOOP_EXPR, "loop_expr", 's', 1)
 
+/* Just for purpose of pretty printing.  */
+DEFTREECODE (BREAK_EXPR, "break_expr", 's', 0)
+DEFTREECODE (CONTINUE_EXPR, "continue_expr", 's', 0)
+
 /* Exit a labeled block, possibly returning a value.  Operand 0 is a
    LABELED_BLOCK_EXPR to exit.  Operand 1 is the value to return. It
    may be left null.  */
