@@ -3827,16 +3827,20 @@
   "adr%?\\t%0, %a1"
 )
 
-/* When generating pic, we need to load the symbol offset into a register.
-   So that the optimizer does not confuse this with a normal symbol load
-   we use an unspec.  The offset will be loaded from a constant pool entry,
-   since that is the only type of relocation we can use.  */
+;; When generating pic, we need to load the symbol offset into a register.
+;; So that the optimizer does not confuse this with a normal symbol load
+;; we use an unspec.  The offset will be loaded from a constant pool entry,
+;; since that is the only type of relocation we can use.
+
+;; The rather odd constraints on the following are to force reload to leave
+;; the insn alone, and to force the minipool generation pass to then move
+;; the GOT symbol to memory.
 
 (define_insn "pic_load_addr"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(unspec:SI [(match_operand 1 "" "")] 3))]
+        (unspec:SI [(match_operand:SI 1 "" "mX")] 3))]
   "TARGET_EITHER && flag_pic"
-  "ldr%?\\t%0, %a1"
+  "ldr%?\\t%0, %1"
   [(set_attr "type" "load")
    (set (attr "pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
@@ -6028,13 +6032,14 @@
 		     (match_operand:SI 1 "arm_rhs_operand" "rI"))
 		(mem:SI (plus:SI (mult:SI (match_dup 0) (const_int 4))
 				 (label_ref (match_operand 2 "" ""))))
+		(clobber (reg:CC 24))
 		(label_ref (match_operand 3 "" ""))))
 	      (use (label_ref (match_dup 2)))])]
   "TARGET_ARM"
   "*
   if (flag_pic)
     return \"cmp\\t%0, %1\;addls\\t%|pc, %|pc, %0, asl #2\;b\\t%l3\";
-  return \"cmp\\t%0, %1\;ldrls\\t%|pc, [%|pc, %0, asl #2]\;b\\t%l3\";
+  return   \"cmp\\t%0, %1\;ldrls\\t%|pc, [%|pc, %0, asl #2]\;b\\t%l3\";
 "
 [(set_attr "conds" "clob")
  (set_attr "length" "12")])

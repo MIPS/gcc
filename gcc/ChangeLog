@@ -1,3 +1,9 @@
+Thu Oct 28 11:05:13 1999  Richard Earnshaw <rearnsha@arm.com>
+
+	* arm.md (casesi_insn): Add a clobber of the condition code
+	register.
+	(pic_load_addr): Fix constraints.
+
 Thu Oct 28 10:00:48 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.c: Initialise arm_structure_size_boundary to
