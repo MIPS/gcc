@@ -638,10 +638,15 @@ ggc_realloc (x, size)
      size_t size;
 {
   void *r;
-  size_t old_size = ggc_get_size (x);
-  
+  size_t old_size;
+
+  if (x == NULL)
+    return ggc_alloc (size);
+
+  old_size = ggc_get_size (x);
   if (size <= old_size)
     return x;
+
   r = ggc_alloc (size);
   memcpy (r, x, old_size);
   return r;
