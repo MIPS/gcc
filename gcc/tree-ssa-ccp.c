@@ -1196,7 +1196,7 @@ get_rhs (stmt)
 {
   enum tree_code code = TREE_CODE (stmt);
 
-  if (code == MODIFY_EXPR || code == INIT_EXPR)
+  if (code == MODIFY_EXPR)
     return TREE_OPERAND (stmt, 1);
   if (code == COND_EXPR)
     return COND_EXPR_COND (stmt);
@@ -1222,7 +1222,7 @@ set_rhs (stmt, expr)
 {
   enum tree_code code = TREE_CODE (stmt);
 
-  if (code == MODIFY_EXPR || code == INIT_EXPR)
+  if (code == MODIFY_EXPR)
     TREE_OPERAND (stmt, 1) = expr;
   if (code == COND_EXPR)
     COND_EXPR_COND (stmt) = expr;

@@ -195,7 +195,6 @@ get_stmt_operands (stmt)
   code = TREE_CODE (stmt);
   switch (code)
     {
-    case INIT_EXPR:
     case MODIFY_EXPR:
       get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), false, prev_vops);
       get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), true, prev_vops);
@@ -438,7 +437,7 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
     }
 
   /* Assignments.  */
-  if (code == INIT_EXPR || code == MODIFY_EXPR)
+  if (code == MODIFY_EXPR)
     {
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), false, prev_vops);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), true, prev_vops);
@@ -2121,7 +2120,7 @@ find_vars_r (tp, walk_subtrees, data)
 	return NULL_TREE;
     }
 
-  if (TREE_CODE (t) == MODIFY_EXPR || TREE_CODE (t) == INIT_EXPR)
+  if (TREE_CODE (t) == MODIFY_EXPR)
     {
       walk_state->is_store = 1;
       walk_tree (&TREE_OPERAND (t, 0), find_vars_r, data, NULL);

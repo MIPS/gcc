@@ -2855,8 +2855,7 @@ tree_perform_ssapre (fndecl)
 	tree stmt = bsi_stmt (j);
 	struct expr_info *slot = NULL;
 	
-	if (TREE_CODE (expr) == MODIFY_EXPR 
-	    || TREE_CODE (expr) == INIT_EXPR)
+	if (TREE_CODE (expr) == MODIFY_EXPR)
 	  expr = TREE_OPERAND (expr, 1);	
 	if (TREE_CODE_CLASS (TREE_CODE (expr)) == '2')
 	  {

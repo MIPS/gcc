@@ -1,5 +1,15 @@
 2003-02-27  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dfa.c (get_stmt_operands): INIT_EXPR nodes cannot
+	appear in GIMPLE form.  Don't handle them.
+	(get_expr_operands): Likewise.
+	(find_vars_r): Likewise.
+	* tree-ssa-ccp.c (get_rhs): Likewise.
+	(set_rhs): Likewise.
+	* tree-ssa-pre.c (tree_perform_ssapre): Likewise.
+
+2003-02-27  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-ccp.c (ccp_fold): Fold builtins by replacing and
 	restoring their arguments.
 
