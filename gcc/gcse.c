@@ -7531,7 +7531,7 @@ insert_store (expr, e)
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
   for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
-    if (!tmp->flags & EDGE_FAKE)
+    if (!(tmp->flags & EDGE_FAKE))
       {
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	if (index == EDGE_INDEX_NO_EDGE)
