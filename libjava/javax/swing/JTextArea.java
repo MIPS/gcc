@@ -371,7 +371,7 @@ public class JTextArea extends JTextComponent
 
   public int getLineCount()
   {
-    return doc.getDefaultRootElement().getElementCount();
+    return getDocument().getDefaultRootElement().getElementCount();
   }
 
   public int getLineStartOffset(int line)
@@ -382,7 +382,7 @@ public class JTextArea extends JTextComponent
     if (line < 0 || line > lineCount)
       throw new BadLocationException("Non-existing line number", line);
 
-    Element lineElem = doc.getDefaultRootElement().getElement(line);
+    Element lineElem = getDocument().getDefaultRootElement().getElement(line);
     return lineElem.getStartOffset();
   }
 
@@ -394,13 +394,15 @@ public class JTextArea extends JTextComponent
     if (line < 0 || line > lineCount)
       throw new BadLocationException("Non-existing line number", line);
 
-    Element lineElem = doc.getDefaultRootElement().getElement(line);
+    Element lineElem = getDocument().getDefaultRootElement().getElement(line);
     return lineElem.getEndOffset();
   }
 
   public int getLineOfOffset(int offset)
     throws BadLocationException
   {
+    Document doc = getDocument();
+
     if (offset < doc.getStartPosition().getOffset()
 	|| offset >= doc.getEndPosition().getOffset())
       throw new BadLocationException("offset outside of document", offset);
@@ -422,7 +424,7 @@ public class JTextArea extends JTextComponent
    * @param string The string of text to insert.
    * @param position The position at which to insert the supplied text.
    * @throws IllegalArgumentException if the position is &lt; 0 or greater
-   *         than the length of the current text.
+   * than the length of the current text.
    */
   public void insert(String string, int position)
   {
@@ -442,6 +444,8 @@ public class JTextArea extends JTextComponent
 
   public void replaceRange(String text, int start, int end)
   {
+    Document doc = getDocument();
+    
     if (start > end
 	|| start < doc.getStartPosition().getOffset()
 	|| end >= doc.getEndPosition().getOffset())
@@ -457,5 +461,4 @@ public class JTextArea extends JTextComponent
 	// This cannot happen as we check offset above.
       }
   }
-
 }

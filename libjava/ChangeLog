@@ -1,3 +1,9 @@
+2004-09-27  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JTextArea.java:
+	Don't use JTextComponent.doc directly. GCJ from java-gui-branch has a
+	bug here which is fixed in HEAD ...
+
 2004-09-27  Andrew John Hughes  <address@hidden>
 
 	* javax/swing/JTextArea.java: Added additional
