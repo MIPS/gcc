@@ -1,5 +1,12 @@
 2001-02-02  Daniel Berlin  <dberlin@redhat.com>
 
+	* new-regalloc.c: Add warning about something i learned the hard
+	way using the hashed sets. This is part of the preparation for
+	moving the hashed set stuff into seperate files (hset.h, hset.c),
+	or libiberty.
+
+2001-02-02  Daniel Berlin  <dberlin@redhat.com>
+
 	* new-regalloc.c: Large amount of variable renaming and formatting
 	fixups. Hope i caught them all.
 

@@ -133,6 +133,13 @@
 #include "new-regalloc.h"
 
 /* Hashed set. */
+/* WARNING: Do not attempt to use the hashed sets to directly store
+   integers (i.e. hset_insert (set, 5)), unless you are positive your
+   integers will not include 0 or 1. Because of the underlying hashtable
+   implementation, 0 == empty entry, 1 == deleted entry, and thus, you'll
+   never find the values when you look them back up, or traverse the
+   hashed set. */
+
 typedef htab_t hset;
 typedef htab_trav hset_trav;
 
