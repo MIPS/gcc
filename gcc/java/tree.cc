@@ -941,17 +941,22 @@ tree_generator::visit_array_initializer (model_array_initializer *initx,
   else
     current = build_new_object_array (elt_type->type (), ind_tree);
 
+  // Ensure array class is laid out.
+  gcc_builtins->lay_out_class (elt_type->type ()->array ());
+
   // At this point, 'current' is the 'new' expression for the array.
   tree new_expr = save_expr (current);
 
-  tree result = alloc_stmt_list ();
-  tree_stmt_iterator out = tsi_start (result);
+  // Yield 'new_expr'.
+  tree result = new_expr;
 
   tree elt_tree = gcc_builtins->map_type (elt_type->type ());
 
-  int index = 0;
-  for (std::list<ref_expression>::const_iterator i = exprs.begin ();
-       i != exprs.end ();
+  // Build in reverse order so that the result ends up on the right
+  // hand side of the last compound expression.
+  int index = exprs.size () - 1;
+  for (std::list<ref_expression>::const_reverse_iterator i = exprs.rbegin ();
+       i != exprs.rend ();
        ++i)
     {
       (*i)->visit (this);
@@ -964,13 +969,11 @@ tree_generator::visit_array_initializer (model_array_initializer *initx,
 					 elt_tree, false),
 		  value);
       TREE_SIDE_EFFECTS (assign) = 1;
-      tsi_link_after (&out, assign, TSI_CONTINUE_LINKING);
-      ++index;
+      result = build2 (COMPOUND_EXPR, TREE_TYPE (result), assign, result);
+      --index;
     }
 
-  // Yield 'new_expr'.
-  current = build2 (COMPOUND_EXPR, TREE_TYPE (new_expr),
-		    result, new_expr);
+  current = result;
 }
 
 void
