@@ -23,11 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* This file is part of the C front end.
    It contains routines to build C expressions given their operands,
    including computing the types of the result, C-specific error checks,
-   and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "target.h"
 #include "tree-iterator.h"
+#include "tree-gimple.h"
 
 
 /* Nonzero if we've already printed a "missing braces around initializer"
@@ -256,17 +253,29 @@ composite_type (tree t1, tree t2)
 	tree pointed_to_2 = TREE_TYPE (t2);
 	tree target = composite_type (pointed_to_1, pointed_to_2);
 	t1 = build_pointer_type (target);
-	return build_type_attribute_variant (t1, attributes);
+	t1 = build_type_attribute_variant (t1, attributes);
+	return qualify_type (t1, t2);
       }
 
     case ARRAY_TYPE:
       {
 	tree elt = composite_type (TREE_TYPE (t1), TREE_TYPE (t2));
+	
+	/* We should not have any type quals on arrays at all.  */
+	if (TYPE_QUALS (t1) || TYPE_QUALS (t2))
+	  abort ();
+	
 	/* Save space: see if the result is identical to one of the args.  */
 	if (elt == TREE_TYPE (t1) && TYPE_DOMAIN (t1))
 	  return build_type_attribute_variant (t1, attributes);
 	if (elt == TREE_TYPE (t2) && TYPE_DOMAIN (t2))
 	  return build_type_attribute_variant (t2, attributes);
+	
+	if (elt == TREE_TYPE (t1) && !TYPE_DOMAIN (t2) && !TYPE_DOMAIN (t1))
+	  return build_type_attribute_variant (t1, attributes);
+	if (elt == TREE_TYPE (t2) && !TYPE_DOMAIN (t2) && !TYPE_DOMAIN (t1))
+	  return build_type_attribute_variant (t2, attributes);
+	
 	/* Merge the element types, and have a size if either arg has one.  */
 	t1 = build_array_type (elt, TYPE_DOMAIN (TYPE_DOMAIN (t1) ? t1 : t2));
 	return build_type_attribute_variant (t1, attributes);
@@ -292,13 +301,15 @@ composite_type (tree t1, tree t2)
 	/* Simple way if one arg fails to specify argument types.  */
 	if (TYPE_ARG_TYPES (t1) == 0)
 	 {
-	   t1 = build_function_type (valtype, TYPE_ARG_TYPES (t2));
-	   return build_type_attribute_variant (t1, attributes);
+	    t1 = build_function_type (valtype, TYPE_ARG_TYPES (t2));
+	    t1 = build_type_attribute_variant (t1, attributes);
+	    return qualify_type (t1, t2);
 	 }
 	if (TYPE_ARG_TYPES (t2) == 0)
 	 {
 	   t1 = build_function_type (valtype, TYPE_ARG_TYPES (t1));
-	   return build_type_attribute_variant (t1, attributes);
+	   t1 = build_type_attribute_variant (t1, attributes);
+	   return qualify_type (t1, t2);
 	 }
 
 	/* If both args specify argument types, we must merge the two
@@ -368,6 +379,7 @@ composite_type (tree t1, tree t2)
 
 	c_override_global_bindings_to_false = false;
 	t1 = build_function_type (valtype, newargs);
+	t1 = qualify_type (t1, t2);
 	/* ... falls through ...  */
       }
 
@@ -1225,10 +1237,10 @@ default_function_array_conversion (tree exp)
 
       if (TREE_CODE (exp) == VAR_DECL)
 	{
-	  /* ??? This is not really quite correct
-	     in that the type of the operand of ADDR_EXPR
-	     is not the target type of the type of the ADDR_EXPR itself.
-	     Question is, can this lossage be avoided?  */
+	  /* We are making an ADDR_EXPR of ptrtype.  This is a valid
+	     ADDR_EXPR because it's the best way of representing what
+	     happens in C when we take the address of an array and place
+	     it in a pointer to the element type.  */
 	  adr = build1 (ADDR_EXPR, ptrtype, exp);
 	  if (!c_mark_addressable (exp))
 	    return error_mark_node;
@@ -1486,7 +1498,8 @@ build_component_ref (tree datum, tree component)
 	  if (TREE_TYPE (subdatum) == error_mark_node)
 	    return error_mark_node;
 
-	  ref = build (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum);
+	  ref = build (COMPONENT_REF, TREE_TYPE (subdatum), datum, subdatum,
+		       NULL_TREE);
 	  if (TREE_READONLY (datum) || TREE_READONLY (subdatum))
 	    TREE_READONLY (ref) = 1;
 	  if (TREE_THIS_VOLATILE (datum) || TREE_THIS_VOLATILE (subdatum))
@@ -1639,7 +1652,7 @@ build_array_ref (tree array, tree index)
 	}
 
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
-      rval = build (ARRAY_REF, type, array, index);
+      rval = build (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
       /* Array ref is const/volatile if the array elements are
          or if the array is.  */
       TREE_READONLY (rval)
@@ -1872,20 +1885,6 @@ build_function_call (tree function, tree params)
   /* Check that the arguments to the function are valid.  */
 
   check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params);
-
-  /* Recognize certain built-in functions so we can make tree-codes
-     other than CALL_EXPR.  We do this when it enables fold-const.c
-     to do something useful.  */
-
-  if (TREE_CODE (function) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (function, 0)))
-    {
-      result = expand_tree_builtin (TREE_OPERAND (function, 0),
-				    params, coerced_params);
-      if (result)
-	return result;
-    }
 
   result = build (CALL_EXPR, TREE_TYPE (fntype),
 		  function, coerced_params, NULL_TREE);
@@ -2201,17 +2200,6 @@ parser_build_binary_op (enum tree_code code, tree arg1, tree arg2)
   return result;
 }
 
-
-/* Return true if `t' is known to be non-negative.  */
-
-int
-c_tree_expr_nonnegative_p (tree t)
-{
-  if (TREE_CODE (t) == STMT_EXPR)
-    t = expr_last (STMT_EXPR_STMT (t));
-  return tree_expr_nonnegative_p (t);
-}
-
 /* Return a tree for the difference of pointers OP0 and OP1.
    The resulting tree has type int.  */
 
@@ -2576,6 +2564,9 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	else
 	  addr = build1 (code, argtype, arg);
 
+	if (TREE_CODE (arg) == COMPOUND_LITERAL_EXPR)
+	  TREE_INVARIANT (addr) = TREE_CONSTANT (addr) = 1;
+
 	return addr;
       }
 
@@ -2810,8 +2801,8 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && c_tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && c_tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
+		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
 		/* OK */;
 	      else
 		warning ("signed and unsigned type in conditional expression");
@@ -6258,12 +6249,35 @@ c_expand_asm_operands (tree string, tree outputs, tree inputs,
   emit_queue ();
 }
 
-/* Expand a C `return' statement.
-   RETVAL is the expression for what to return,
-   or a null pointer for `return;' with no value.  */
+/* Generate a goto statement to LABEL.  */
 
 tree
-c_expand_return (tree retval)
+c_finish_goto_label (tree label)
+{
+  tree decl = lookup_label (label);
+  if (!decl)
+    return NULL_TREE;
+
+  TREE_USED (decl) = 1;
+  return add_stmt (build (GOTO_EXPR, void_type_node, decl));
+}
+
+/* Generate a computed goto statement to EXPR.  */
+
+tree
+c_finish_goto_ptr (tree expr)
+{
+  if (pedantic)
+    pedwarn ("ISO C forbids `goto *expr;'");
+  expr = convert (ptr_type_node, expr);
+  return add_stmt (build (GOTO_EXPR, void_type_node, expr));
+}
+
+/* Generate a C `return' statement.  RETVAL is the expression for what
+   to return, or a null pointer for `return;' with no value.  */
+
+tree
+c_finish_return (tree retval)
 {
   tree valtype = TREE_TYPE (TREE_TYPE (current_function_decl));
 
@@ -6350,7 +6364,7 @@ c_expand_return (tree retval)
       retval = build (MODIFY_EXPR, TREE_TYPE (res), res, t);
     }
 
- return add_stmt (build_return_stmt (retval));
+  return add_stmt (build_stmt (RETURN_EXPR, retval));
 }
 
 struct c_switch {
@@ -6372,7 +6386,7 @@ struct c_switch {
    during the processing of the body of a function, and we never
    collect at that point.  */
 
-static struct c_switch *switch_stack;
+struct c_switch *c_switch_stack;
 
 /* Start a C switch statement, testing expression EXP.  Return the new
    SWITCH_STMT.  */
@@ -6413,10 +6427,10 @@ c_start_case (tree exp)
   cs = xmalloc (sizeof (*cs));
   cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, orig_type);
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
-  cs->next = switch_stack;
-  switch_stack = cs;
+  cs->next = c_switch_stack;
+  c_switch_stack = cs;
 
-  return add_stmt (switch_stack->switch_stmt);
+  return add_stmt (cs->switch_stmt);
 }
 
 /* Process a case label.  */
@@ -6426,10 +6440,10 @@ do_case (tree low_value, tree high_value)
 {
   tree label = NULL_TREE;
 
-  if (switch_stack)
+  if (c_switch_stack)
     {
-      label = c_add_case_label (switch_stack->cases,
-				SWITCH_COND (switch_stack->switch_stmt),
+      label = c_add_case_label (c_switch_stack->cases,
+				SWITCH_COND (c_switch_stack->switch_stmt),
 				low_value, high_value);
       if (label == error_mark_node)
 	label = NULL_TREE;
@@ -6447,7 +6461,7 @@ do_case (tree low_value, tree high_value)
 void
 c_finish_case (tree body)
 {
-  struct c_switch *cs = switch_stack;
+  struct c_switch *cs = c_switch_stack;
 
   SWITCH_BODY (cs->switch_stmt) = body;
 
@@ -6455,209 +6469,242 @@ c_finish_case (tree body)
   c_do_switch_warnings (cs->cases, cs->switch_stmt);
 
   /* Pop the stack.  */
-  switch_stack = switch_stack->next;
+  c_switch_stack = cs->next;
   splay_tree_delete (cs->cases);
   free (cs);
 }
 
-/* Keep a stack of if statements.  We record the number of compound
-   statements seen up to the if keyword, as well as the line number
-   and file of the if.  If a potentially ambiguous else is seen, that
-   fact is recorded; the warning is issued when we can be sure that
-   the enclosing if statement does not have an else branch.  */
-typedef struct
-{
-  tree if_stmt;
-  location_t empty_locus;
-  int compstmt_count;
-  int stmt_count;
-  unsigned int needs_warning : 1;
-  unsigned int saw_else : 1;
-} if_elt;
-
-static if_elt *if_stack;
-
-/* Amount of space in the if statement stack.  */
-static int if_stack_space = 0;
-
-/* Stack pointer.  */
-static int if_stack_pointer = 0;
-
-/* Begin an if-statement.  */
+/* Emit an if statement.  IF_LOCUS is the location of the 'if'.  COND,
+   THEN_BLOCK and ELSE_BLOCK are expressions to be used; ELSE_BLOCK
+   may be null.  NESTED_IF is true if THEN_BLOCK contains another IF
+   statement, and was not surrounded with parenthesis.  */
 
 void
-c_begin_if_stmt (void)
+c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
+		  tree else_block, bool nested_if)
 {
-  tree r;
-  if_elt *elt;
+  tree stmt;
 
-  /* Make sure there is enough space on the stack.  */
-  if (if_stack_space == 0)
+  /* Diagnose an ambiguous else if if-then-else is nested inside if-then.  */
+  if (warn_parentheses && nested_if && else_block == NULL)
     {
-      if_stack_space = 10;
-      if_stack = xmalloc (10 * sizeof (if_elt));
+      tree inner_if = then_block;
+
+      /* We know from the grammar productions that there is an IF nested
+	 within THEN_BLOCK.  Due to labels and c99 conditional declarations,
+	 it might not be exactly THEN_BLOCK, but should be the last
+	 non-container statement within.  */
+      while (1)
+	switch (TREE_CODE (inner_if))
+	  {
+	  case COND_EXPR:
+	    goto found;
+	  case BIND_EXPR:
+	    inner_if = BIND_EXPR_BODY (inner_if);
+	    break;
+	  case STATEMENT_LIST:
+	    inner_if = expr_last (then_block);
+	    break;
+	  case TRY_FINALLY_EXPR:
+	  case TRY_CATCH_EXPR:
+	    inner_if = TREE_OPERAND (inner_if, 0);
+	    break;
+	  default:
+	    abort ();
+	  }
+    found:
+
+      if (COND_EXPR_ELSE (inner_if))
+	 warning ("%Hsuggest explicit braces to avoid ambiguous `else'",
+		  &if_locus);
     }
-  else if (if_stack_space == if_stack_pointer)
+
+  /* Diagnose ";" via the special empty statement node that we create.  */
+  if (extra_warnings)
     {
-      if_stack_space += 10;
-      if_stack = xrealloc (if_stack, if_stack_space * sizeof (if_elt));
+      if (TREE_CODE (then_block) == NOP_EXPR && !TREE_TYPE (then_block))
+	{
+	  if (!else_block)
+	    warning ("%Hempty body in an if-statement",
+		     EXPR_LOCUS (then_block));
+	  then_block = alloc_stmt_list ();
+	}
+      if (else_block
+	  && TREE_CODE (else_block) == NOP_EXPR
+	  && !TREE_TYPE (else_block))
+	{
+	  warning ("%Hempty body in an else-statement",
+		   EXPR_LOCUS (else_block));
+	  else_block = alloc_stmt_list ();
+	}
     }
 
-  r = add_stmt (build_stmt (COND_EXPR, NULL_TREE, NULL_TREE, NULL_TREE));
-
-  /* Record this if statement.  */
-  elt = &if_stack[if_stack_pointer++];
-  memset (elt, 0, sizeof (*elt));
-  elt->if_stmt = r;
+  stmt = build3 (COND_EXPR, NULL_TREE, cond, then_block, else_block);
+  annotate_with_locus (stmt, if_locus);
+  add_stmt (stmt);
 }
 
-/* Record the start of an if-then, and record the start of it
-   for ambiguous else detection.
-
-   COND is the condition for the if-then statement.
-
-   IF_STMT is the statement node that has already been created for
-   this if-then statement.  It is created before parsing the
-   condition to keep line number information accurate.  */
+/* Emit a general-purpose loop construct.  START_LOCUS is the location of
+   the beginning of the loop.  COND is the loop condition.  COND_IS_FIRST
+   is false for DO loops.  INCR is the FOR increment expression.  BODY is
+   the statement controlled by the loop.  BLAB is the break label.  CLAB is
+   the continue label.  Everything is allowed to be NULL.  */
 
 void
-c_finish_if_cond (tree cond, int compstmt_count, int stmt_count)
+c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
+	       tree blab, tree clab, bool cond_is_first)
 {
-  if_elt *elt = &if_stack[if_stack_pointer - 1];
-  elt->compstmt_count = compstmt_count;
-  elt->stmt_count = stmt_count;
-  COND_EXPR_COND (elt->if_stmt) = lang_hooks.truthvalue_conversion (cond);
-}
+  tree entry = NULL, exit = NULL, t;
 
-/* Called after the then-clause for an if-statement is processed.  */
+  /* Force zeros to NULL so that we don't test them.  */
+  if (cond && integer_zerop (cond))
+    cond = NULL;
 
-void
-c_finish_then (tree then_stmt)
-{
-  if_elt *elt = &if_stack[if_stack_pointer - 1];
-  COND_EXPR_THEN (elt->if_stmt) = then_stmt;
-  elt->empty_locus = input_location;
-}
-
-/* Called between the then-clause and the else-clause
-   of an if-then-else.  */
-
-void
-c_begin_else (int stmt_count)
-{
-  if_elt *elt = &if_stack[if_stack_pointer - 1];
-
-  /* An ambiguous else warning must be generated for the enclosing if
-     statement, unless we see an else branch for that one, too.  */
-  if (warn_parentheses
-      && if_stack_pointer > 1
-      && (elt[0].compstmt_count == elt[-1].compstmt_count))
-    elt[-1].needs_warning = 1;
-
-  /* Even if a nested if statement had an else branch, it can't be
-     ambiguous if this one also has an else.  So don't warn in that
-     case.  Also don't warn for any if statements nested in this else.  */
-  elt->needs_warning = 0;
-  elt->compstmt_count--;
-  elt->saw_else = 1;
-  elt->stmt_count = stmt_count;
-}
-
-/* Called after the else-clause for an if-statement is processed.  */
-
-void
-c_finish_else (tree else_stmt)
-{
-  if_elt *elt = &if_stack[if_stack_pointer - 1];
-  COND_EXPR_ELSE (elt->if_stmt) = else_stmt;
-  elt->empty_locus = input_location;
-}
-
-/* Record the end of an if-then.  Optionally warn if a nested
-   if statement had an ambiguous else clause.  */
-
-void
-c_finish_if_stmt (int stmt_count)
-{
-  if_elt *elt = &if_stack[--if_stack_pointer];
-
-  if (COND_EXPR_ELSE (elt->if_stmt) == NULL)
-    COND_EXPR_ELSE (elt->if_stmt) = build_empty_stmt ();
-
-  if (elt->needs_warning)
-    warning ("%Hsuggest explicit braces to avoid ambiguous `else'",
-	     EXPR_LOCUS (elt->if_stmt));
-
-  if (extra_warnings && stmt_count == elt->stmt_count)
+  /* Detect do { ... } while (0) and don't generate loop construct.  */
+  if (cond_is_first || cond)
     {
-      if (elt->saw_else)
-	warning ("%Hempty body in an else-statement", &elt->empty_locus);
+      tree top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+ 
+      /* If we have an exit condition, then we build an IF with gotos either
+         out of the loop, or to the top of it.  If there's no exit condition,
+         then we just build a jump back to the top.  */
+      exit = build_and_jump (&LABEL_EXPR_LABEL (top));
+ 
+      if (cond)
+        {
+          /* Canonicalize the loop condition to the end.  This means
+             generating a branch to the loop condition.  Reuse the
+             continue label, if possible.  */
+          if (cond_is_first)
+            {
+              if (incr || !clab)
+                {
+                  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+                  t = build_and_jump (&LABEL_EXPR_LABEL (entry));
+                }
+              else
+                t = build1 (GOTO_EXPR, void_type_node, clab);
+	      annotate_with_locus (t, start_locus);
+              add_stmt (t);
+            }
+ 
+	  t = build_and_jump (&blab);
+          exit = build (COND_EXPR, void_type_node, cond, exit, t);
+          exit = fold (exit);
+	  if (cond_is_first)
+            annotate_with_locus (exit, start_locus);
+	  else
+            annotate_with_locus (exit, input_location);
+        }
+ 
+      add_stmt (top);
+    }
+ 
+  if (body)
+    add_stmt (body);
+  if (clab)
+    add_stmt (build1 (LABEL_EXPR, void_type_node, clab));
+  if (incr)
+    add_stmt (incr);
+  if (entry)
+    add_stmt (entry);
+  if (exit)
+    add_stmt (exit);
+  if (blab)
+    add_stmt (build1 (LABEL_EXPR, void_type_node, blab));
+}
+
+tree
+c_finish_bc_stmt (tree *label_p, bool is_break)
+{
+  tree label = *label_p;
+
+  if (!label)
+    *label_p = label = create_artificial_label ();
+  else if (TREE_CODE (label) != LABEL_DECL)
+    {
+      if (is_break)
+	error ("break statement not within loop or switch");
       else
-	warning ("%Hempty body in an if-statement", &elt->empty_locus);
+        error ("continue statement not within a loop");
+      return NULL_TREE;
     }
+
+  return add_stmt (build (GOTO_EXPR, void_type_node, label));
 }
-
-/* Begin a while statement.  Returns a newly created WHILE_STMT if
-   appropriate.  */
+
+/* A helper routine for c_process_expr_stmt and c_finish_stmt_expr.  */
+
+static void
+emit_side_effect_warnings (tree expr)
+{
+  if (expr == error_mark_node)
+    ;
+  else if (!TREE_SIDE_EFFECTS (expr))
+    {
+      if (!VOID_TYPE_P (TREE_TYPE (expr)) && !TREE_NO_WARNING (expr))
+	warning ("%Hstatement with no effect",
+		 EXPR_LOCUS (expr) ? EXPR_LOCUS (expr) : &input_location);
+    }
+  else if (warn_unused_value)
+    warn_if_unused_value (expr, input_location);
+}
+
+/* Process an expression as if it were a complete statement.  Emit
+   diagnostics, but do not call ADD_STMT.  */
 
 tree
-c_begin_while_stmt (void)
+c_process_expr_stmt (tree expr)
 {
-  tree r;
-  r = add_stmt (build_stmt (WHILE_STMT, NULL_TREE, NULL_TREE));
-  return r;
+  if (!expr)
+    return NULL_TREE;
+
+  /* Do default conversion if safe and possibly important,
+     in case within ({...}).  */
+  if ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
+       && (flag_isoc99 || lvalue_p (expr)))
+      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE)
+    expr = default_conversion (expr);
+
+  if (warn_sequence_point)
+    verify_sequence_points (expr);
+
+  if (TREE_TYPE (expr) != error_mark_node
+      && !COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (expr))
+      && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
+    error ("expression statement has incomplete type");
+
+  /* If we're not processing a statement expression, warn about unused values.
+     Warnings for statement expressions will be emitted later, once we figure
+     out which is the result.  */
+  if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
+      && (extra_warnings || warn_unused_value))
+    emit_side_effect_warnings (expr);
+
+  /* If the expression is not of a type to which we cannot assign a line
+     number, wrap the thing in a no-op NOP_EXPR.  */
+  if (DECL_P (expr) || TREE_CODE_CLASS (TREE_CODE (expr)) == 'c')
+    expr = build1 (NOP_EXPR, TREE_TYPE (expr), expr);
+
+  if (EXPR_P (expr))
+    annotate_with_locus (expr, input_location);
+
+  return expr;
 }
 
-void
-c_finish_while_stmt_cond (tree cond, tree while_stmt)
-{
-  WHILE_COND (while_stmt) = (*lang_hooks.truthvalue_conversion) (cond);
-}
-
-void
-c_finish_while_stmt (tree body, tree while_stmt)
-{
-  WHILE_BODY (while_stmt) = body;
-}
-
-/* Create a for statement.  */
+/* Emit an expression as a statement.  */
 
 tree
-c_begin_for_stmt (void)
+c_finish_expr_stmt (tree expr)
 {
-  tree r;
-  r = add_stmt (build_stmt (FOR_STMT, NULL_TREE, NULL_TREE,
-			    NULL_TREE, NULL_TREE));
-  FOR_INIT_STMT (r) = push_stmt_list ();
-  return r;
+  if (expr)
+    return add_stmt (c_process_expr_stmt (expr));
+  else
+    return NULL;
 }
 
-void
-c_finish_for_stmt_init (tree for_stmt)
-{
-  FOR_INIT_STMT (for_stmt) = pop_stmt_list (FOR_INIT_STMT (for_stmt));
-}
-
-void
-c_finish_for_stmt_cond (tree cond, tree for_stmt)
-{
-  if (cond)
-    FOR_COND (for_stmt) = lang_hooks.truthvalue_conversion (cond);
-}
-
-void
-c_finish_for_stmt_incr (tree expr, tree for_stmt)
-{
-  FOR_EXPR (for_stmt) = expr;
-}
-
-void
-c_finish_for_stmt (tree body, tree for_stmt)
-{
-  FOR_BODY (for_stmt) = body;
-}
-
-/* Create a statement expression.  */
+/* Do the opposite and emit a statement as an expression.  To begin,
+   create a new binding level and return it.  */
 
 tree
 c_begin_stmt_expr (void)
@@ -6679,63 +6726,79 @@ c_begin_stmt_expr (void)
 tree
 c_finish_stmt_expr (tree body)
 {
-  tree ret, last, type;
+  tree last, type, tmp, val;
   tree *last_p;
 
   body = c_end_compound_stmt (body, true);
 
-  /* Locate the last statement in BODY.  */
-  last = body, last_p = &body;
-  if (TREE_CODE (last) == BIND_EXPR)
-    {
-      last_p = &BIND_EXPR_BODY (last);
-      last = BIND_EXPR_BODY (last);
-    }
+  /* Locate the last statement in BODY.  See c_end_compound_stmt
+     about always returning a BIND_EXPR.  */
+  last_p = &BIND_EXPR_BODY (body);
+  last = BIND_EXPR_BODY (body);
+
+ continue_searching:
   if (TREE_CODE (last) == STATEMENT_LIST)
     {
-      tree_stmt_iterator i = tsi_last (last);
-      if (tsi_end_p (i))
+      tree_stmt_iterator i;
+
+      /* This can happen with degenerate cases like ({ }).  No value.  */
+      if (!TREE_SIDE_EFFECTS (last))
+	return body;
+
+      /* If we're supposed to generate side effects warnings, process
+	 all of the statements except the last.  */
+      if (extra_warnings || warn_unused_value)
 	{
-	  type = void_type_node;
-	  /* ??? Warn */
-	  goto no_expr;
+	  for (i = tsi_start (last); !tsi_one_before_end_p (i); tsi_next (&i))
+	    emit_side_effect_warnings (tsi_stmt (i));
 	}
       else
-	{
-	  last_p = tsi_stmt_ptr (i);
-	  last = *last_p;
-	}
+	i = tsi_last (last);
+      last_p = tsi_stmt_ptr (i);
+      last = *last_p;
     }
 
-  /* If the last statement is an EXPR_STMT, then unwrap it.  Otherwise
-     voidify_wrapper_expr will stuff it inside a MODIFY_EXPR and we'll
-     fail gimplification.  */
-  /* ??? Should we go ahead and perform voidify_wrapper_expr here?
-     We've got about all the information we need here.  All we'd have
-     to do even for proper type safety is to create, in effect,
-	( ({ ...; tmp = last; }), tmp )
-     I.e. a COMPOUND_EXPR with the rhs being the compiler temporary.
-     Not going to try this now, since it's not clear what should
-     happen (wrt bindings) with new temporaries at this stage.  It's
-     easier once we begin gimplification.  */
-  if (TREE_CODE (last) == EXPR_STMT)
-    *last_p = last = EXPR_STMT_EXPR (last);
+  /* If the end of the list is exception related, then the list was split
+     by a call to push_cleanup.  Continue searching.  */
+  if (TREE_CODE (last) == TRY_FINALLY_EXPR
+      || TREE_CODE (last) == TRY_CATCH_EXPR)
+    {
+      last_p = &TREE_OPERAND (last, 0);
+      last = *last_p;
+      goto continue_searching;
+    }
+
+  /* In the case that the BIND_EXPR is not necessary, return the
+     expression out from inside it.  */
+  if (last == error_mark_node
+      || (last == BIND_EXPR_BODY (body)
+	  && BIND_EXPR_VARS (body) == NULL))
+    return last;
 
   /* Extract the type of said expression.  */
   type = TREE_TYPE (last);
-  if (!type)
-    type = void_type_node;
 
- no_expr:
-  /* If what's left is compound, make sure we've got a BIND_EXPR, and
-     that it has the proper type.  */
-  ret = body;
-  if (TREE_CODE (ret) == STATEMENT_LIST)
-    ret = build (BIND_EXPR, type, NULL, ret, NULL);
-  else if (TREE_CODE (ret) == BIND_EXPR)
-    TREE_TYPE (ret) = type;
+  /* If we're not returning a value at all, then the BIND_EXPR that
+     we already have is a fine expression to return.  */
+  if (!type || VOID_TYPE_P (type))
+    return body;
 
-  return ret;
+  /* Now that we've located the expression containing the value, it seems
+     silly to make voidify_wrapper_expr repeat the process.  Create a
+     temporary of the appropriate type and stick it in a TARGET_EXPR.  */
+  tmp = create_tmp_var_raw (type, NULL);
+
+  /* Unwrap a no-op NOP_EXPR as added by c_finish_expr_stmt.  This avoids
+     tree_expr_nonnegative_p giving up immediately.  */
+  val = last;
+  if (TREE_CODE (val) == NOP_EXPR
+      && TREE_TYPE (val) == TREE_TYPE (TREE_OPERAND (val, 0)))
+    val = TREE_OPERAND (val, 0);
+
+  *last_p = build (MODIFY_EXPR, void_type_node, tmp, val);
+  SET_EXPR_LOCUS (*last_p, EXPR_LOCUS (last));
+
+  return build (TARGET_EXPR, type, tmp, body, NULL_TREE, NULL_TREE);
 }
 
 /* Begin and end compound statements.  This is as simple as pushing
@@ -6791,10 +6854,17 @@ c_end_compound_stmt (tree stmt, bool do_scope)
 void
 push_cleanup (tree decl ATTRIBUTE_UNUSED, tree cleanup, bool eh_only)
 {
-  enum tree_code code = eh_only ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR;
-  tree stmt = build_stmt (code, NULL, cleanup);
+  enum tree_code code;
+  tree stmt, list;
+  bool stmt_expr;
+
+  code = eh_only ? TRY_CATCH_EXPR : TRY_FINALLY_EXPR;
+  stmt = build_stmt (code, NULL, cleanup);
   add_stmt (stmt);
-  TREE_OPERAND (stmt, 0) = push_stmt_list ();
+  stmt_expr = STATEMENT_LIST_STMT_EXPR (cur_stmt_list);
+  list = push_stmt_list ();
+  TREE_OPERAND (stmt, 0) = list;
+  STATEMENT_LIST_STMT_EXPR (list) = stmt_expr;
 }
 
 /* Build a binary-operation expression without default conversions.
@@ -7412,7 +7482,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (c_tree_expr_nonnegative_p (sop))
+		  if (tree_expr_nonnegative_p (sop))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it

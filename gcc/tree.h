@@ -304,6 +304,9 @@ struct tree_common GTY(())
        TYPE_ALIGN_OK in
 	   ..._TYPE
 
+       TREE_THIS_NOTRAP in
+          INDIRECT_REF
+
    deprecated_flag:
 
 	TREE_DEPRECATED in
@@ -760,6 +763,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
    If this bit is set in an expression, so is TREE_SIDE_EFFECTS.  */
 #define TREE_THIS_VOLATILE(NODE) ((NODE)->common.volatile_flag)
 
+/* Nonzero means this node will not trap.  In an INDIRECT_REF, means
+   accessing the memory pointed to won't generate a trap.  However,
+   this only applies to an object when used appropriately: it doesn't
+   mean that writing a READONLY mem won't trap.  */
+#define TREE_THIS_NOTRAP(NODE) ((NODE)->common.nothrow_flag)
+
 /* In a VAR_DECL, PARM_DECL or FIELD_DECL, or any kind of ..._REF node,
    nonzero means it may not be the lhs of an assignment.  */
 #define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->common.readonly_flag)
@@ -1056,6 +1065,10 @@ struct tree_vec GTY(())
 #define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 1)
 #define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 2)
 
+/* DECL_EXPR accessor. This gives access to the DECL associated with
+   the given declaration statement.  */
+#define DECL_EXPR_DECL(NODE)    TREE_OPERAND (DECL_EXPR_CHECK (NODE), 0)
+
 #define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
 
 /* SWITCH_EXPR accessors. These give access to the condition, body and
@@ -1113,6 +1126,11 @@ struct tree_vec GTY(())
 #define EH_FILTER_TYPES(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 0)
 #define EH_FILTER_FAILURE(NODE)	TREE_OPERAND (EH_FILTER_EXPR_CHECK (NODE), 1)
 #define EH_FILTER_MUST_NOT_THROW(NODE) TREE_STATIC (EH_FILTER_EXPR_CHECK (NODE))
+
+/* OBJ_TYPE_REF accessors.  */
+#define OBJ_TYPE_REF_EXPR(NODE)	  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 0)
+#define OBJ_TYPE_REF_OBJECT(NODE) TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 1)
+#define OBJ_TYPE_REF_TOKEN(NODE)  TREE_OPERAND (OBJ_TYPE_REF_CHECK (NODE), 2)
 
 struct tree_exp GTY(())
 {
@@ -2229,6 +2247,28 @@ struct tree_statement_list
   struct tree_statement_list_node *head;
   struct tree_statement_list_node *tail;
 };
+
+#define VALUE_HANDLE_ID(NODE)		\
+  (VALUE_HANDLE_CHECK (NODE)->value_handle.id)
+
+#define VALUE_HANDLE_EXPR_SET(NODE)	\
+  (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
+
+/* Defined and used in tree-ssa-pre.c.  */
+struct value_set;
+
+struct tree_value_handle GTY(())
+{
+  struct tree_common common;
+
+  /* The set of expressions represented by this handle.  */
+  struct value_set * GTY ((skip)) expr_set;
+
+  /* Unique ID for this value handle.  IDs are handed out in a
+     conveniently dense form starting at 0, so that we can make
+     bitmaps of value handles. */
+  unsigned int id;
+};
 
 enum tree_node_structure_enum {
   TS_COMMON,
@@ -2247,6 +2287,7 @@ enum tree_node_structure_enum {
   TS_PHI_NODE,
   TS_BLOCK,
   TS_STATEMENT_LIST,
+  TS_VALUE_HANDLE,
   LAST_TS_ENUM
 };
 
@@ -2273,6 +2314,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_phi_node GTY ((tag ("TS_PHI_NODE"))) phi;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
+  struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -3166,6 +3208,21 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 
 extern int handled_component_p (tree);
 
+/* Return a tree of sizetype representing the size, in bytes, of the element
+   of EXP, an ARRAY_REF.  */
+
+extern tree array_ref_element_size (tree);
+
+/* Return a tree representing the lower bound of the array mentioned in
+   EXP, an ARRAY_REF.  */
+
+extern tree array_ref_low_bound (tree);
+
+/* Return a tree representing the offset, in bytes, of the field referenced
+   by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
+
+extern tree component_ref_field_offset (tree);
+
 /* Given a DECL or TYPE, return the scope in which it was declared, or
    NUL_TREE if there is no containing scope.  */
 
@@ -3431,6 +3488,9 @@ extern void print_node (FILE *, const char *, tree, int);
 extern void print_node_brief (FILE *, const char *, tree, int);
 extern void indent_to (FILE *, int);
 #endif
+
+/* In tree-inline.c:  */
+extern bool debug_find_tree (tree, tree);
 
 /* In expr.c */
 extern rtx expand_builtin_return_addr (enum built_in_function, int, rtx);

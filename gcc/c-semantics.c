@@ -128,7 +128,9 @@ pop_stmt_list (tree t)
 tree
 add_stmt (tree t)
 {
-  if (EXPR_P (t) || STATEMENT_CODE_P (TREE_CODE (t)))
+  enum tree_code code = TREE_CODE (t);
+
+  if ((EXPR_P (t) || STATEMENT_CODE_P (code)) && code != LABEL_EXPR)
     {
       if (!EXPR_LOCUS (t))
 	annotate_with_locus (t, input_location);
@@ -245,14 +247,6 @@ emit_local_var (tree decl)
       else
 	expand_decl (decl);
     }
-}
-
-/* Build the node for a return statement and return it.  */
-
-tree
-build_return_stmt (tree expr)
-{
-  return (build_stmt (RETURN_STMT, expr));
 }
 
 /* Build a break statement node and return it.  */

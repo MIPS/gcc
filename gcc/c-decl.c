@@ -109,8 +109,8 @@ static location_t current_function_prototype_locus;
 static GTY(()) struct stmt_tree_s c_stmt_tree;
 
 /* State saving variables.  */
-int c_in_iteration_stmt;
-int c_in_case_stmt;
+tree c_break_label;
+tree c_cont_label;
 
 /* Linked list of TRANSLATION_UNIT_DECLS for the translation units
    included in this invocation.  Note that the current translation
@@ -809,6 +809,9 @@ void
 push_file_scope (void)
 {
   tree decl;
+
+  if (file_scope)
+    return;
 
   push_scope ();
   file_scope = current_scope;
@@ -2508,7 +2511,7 @@ tree
 build_array_declarator (tree expr, tree quals, int static_p, int vla_unspec_p)
 {
   tree decl;
-  decl = build_nt (ARRAY_REF, NULL_TREE, expr);
+  decl = build_nt (ARRAY_REF, NULL_TREE, expr, NULL_TREE, NULL_TREE);
   TREE_TYPE (decl) = quals;
   TREE_STATIC (decl) = (static_p ? 1 : 0);
   if (pedantic && !flag_isoc99)
@@ -2712,7 +2715,7 @@ start_decl (tree declarator, tree declspecs, int initialized, tree attributes)
 	  for (; args; args = TREE_CHAIN (args))
 	    {
 	      tree type = TREE_TYPE (args);
-	      if (INTEGRAL_TYPE_P (type)
+	      if (type && INTEGRAL_TYPE_P (type)
 		  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
 		DECL_ARG_TYPE (args) = integer_type_node;
 	    }
@@ -2940,7 +2943,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
-	    add_stmt (build_stmt (DECL_STMT, decl));
+	    add_stmt (build_stmt (DECL_EXPR, decl));
 	}
 
       if (!DECL_FILE_SCOPE_P (decl))
@@ -2967,7 +2970,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     {
       if (!DECL_FILE_SCOPE_P (decl)
 	  && variably_modified_type_p (TREE_TYPE (decl)))
-	add_stmt (build_stmt (DECL_STMT, decl));
+	add_stmt (build_stmt (DECL_EXPR, decl));
 
       rest_of_decl_compilation (decl, NULL, DECL_FILE_SCOPE_P (decl), 0);
     }
@@ -3069,7 +3072,7 @@ build_compound_literal (tree type, tree init)
 {
   /* We do not use start_decl here because we have a type, not a declarator;
      and do not use finish_decl because the decl should be stored inside
-     the COMPOUND_LITERAL_EXPR rather than added elsewhere as a DECL_STMT.  */
+     the COMPOUND_LITERAL_EXPR rather than added elsewhere as a DECL_EXPR.  */
   tree decl = build_decl (VAR_DECL, NULL_TREE, type);
   tree complit;
   tree stmt;
@@ -3093,7 +3096,7 @@ build_compound_literal (tree type, tree init)
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     return error_mark_node;
 
-  stmt = build_stmt (DECL_STMT, decl);
+  stmt = build_stmt (DECL_EXPR, decl);
   complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
   TREE_SIDE_EFFECTS (complit) = 1;
 
@@ -5589,8 +5592,12 @@ start_function (tree declspecs, tree declarator, tree attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
-  c_in_iteration_stmt = 0;
-  c_in_case_stmt = 0;
+  c_switch_stack = NULL;
+
+  /* Indicate no valid break/continue context by setting these variables
+     to some non-null, non-label value.  We'll notice and emit the proper
+     error message in c_finish_bc_stmt.  */
+  c_break_label = c_cont_label = size_zero_node;
 
   /* Don't expand any sizes in the return type of the function.  */
   immediate_size_expand = 0;
@@ -5767,8 +5774,6 @@ start_function (tree declspecs, tree declarator, tree attributes)
   push_scope ();
   declare_parm_level ();
 
-  make_decl_rtl (current_function_decl, NULL);
-
   restype = TREE_TYPE (TREE_TYPE (current_function_decl));
   /* Promote the value to int before returning it.  */
   if (c_promoting_integer_type_p (restype))
@@ -5783,11 +5788,6 @@ start_function (tree declspecs, tree declarator, tree attributes)
     }
   DECL_RESULT (current_function_decl)
     = build_decl (RESULT_DECL, NULL_TREE, restype);
-
-  /* If this fcn was already referenced via a block-scope `extern' decl
-     (or an implicit decl), propagate certain information about the usage.  */
-  if (TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (current_function_decl)))
-    TREE_ADDRESSABLE (current_function_decl) = 1;
 
   immediate_size_expand = old_immediate_size_expand;
 
@@ -6244,13 +6244,8 @@ finish_function (void)
 	}
       else
 	{
-#ifdef DEFAULT_MAIN_RETURN
-	  /* Make it so that `main' always returns success by default.  */
-	  DEFAULT_MAIN_RETURN;
-#else
 	  if (flag_isoc99)
-	    c_expand_return (integer_zero_node);
-#endif
+	    c_finish_return (integer_zero_node);
 	}
     }
 
@@ -6419,8 +6414,9 @@ c_push_function_context (struct function *f)
   f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
-  p->x_in_iteration_stmt = c_in_iteration_stmt;
-  p->x_in_case_stmt = c_in_case_stmt;
+  p->x_break_label = c_break_label;
+  p->x_cont_label = c_cont_label;
+  p->x_switch_stack = c_switch_stack;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
@@ -6446,8 +6442,9 @@ c_pop_function_context (struct function *f)
     }
 
   c_stmt_tree = p->base.x_stmt_tree;
-  c_in_iteration_stmt = p->x_in_iteration_stmt;
-  c_in_case_stmt = p->x_in_case_stmt;
+  c_break_label = p->x_break_label;
+  c_cont_label = p->x_cont_label;
+  c_switch_stack = p->x_switch_stack;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;

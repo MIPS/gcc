@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -116,6 +116,8 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
      case, I guess we'll need to replace references somehow.  */
   if (TREE_CODE (from) == TARGET_EXPR)
     from = TARGET_EXPR_INITIAL (from);
+  if (TREE_CODE (from) == CLEANUP_POINT_EXPR)
+    from = TREE_OPERAND (from, 0);
 
   /* Look through any COMPOUND_EXPRs.  */
   sub = expr_last (from);

@@ -468,9 +468,12 @@ sort_mem_initializers (tree t, tree mem_inits)
      TREE_VALUE will be the constructor arguments, or NULL if no
      explicit initialization was provided.  */
   sorted_inits = NULL_TREE;
+  
   /* Process the virtual bases.  */
-  for (base = CLASSTYPE_VBASECLASSES (t); base; base = TREE_CHAIN (base))
-    sorted_inits = tree_cons (TREE_VALUE (base), NULL_TREE, sorted_inits);
+  for (i = 0; (base = VEC_iterate
+	       (tree, CLASSTYPE_VBASECLASSES (t), i)); i++)
+    sorted_inits = tree_cons (base, NULL_TREE, sorted_inits);
+  
   /* Process the direct bases.  */
   for (i = 0; i < CLASSTYPE_N_BASECLASSES (t); ++i)
     {
@@ -988,13 +991,7 @@ expand_member_init (tree name)
       /* Look for a virtual base -- unless the direct base is itself
 	 virtual.  */
       if (!direct_binfo || !TREE_VIA_VIRTUAL (direct_binfo))
-	{
-	  virtual_binfo 
-	    = purpose_member (basetype,
-			      CLASSTYPE_VBASECLASSES (current_class_type));
-	  if (virtual_binfo)
-	    virtual_binfo = TREE_VALUE (virtual_binfo);
-	}
+	virtual_binfo = binfo_for_vbase (basetype, current_class_type);
 
       /* [class.base.init]
 	 
@@ -1665,125 +1662,18 @@ build_builtin_delete_call (tree addr)
    PLACEMENT is the `placement' list for user-defined operator new ().  */
 
 tree
-build_new (tree placement, tree decl, tree init, int use_global_new)
+build_new (tree placement, tree type, tree nelts, tree init, 
+	   int use_global_new)
 {
-  tree type, rval;
-  tree nelts = NULL_TREE, t;
-  int has_array = 0;
+  tree rval;
 
-  if (decl == error_mark_node)
+  if (type == error_mark_node)
     return error_mark_node;
-
-  if (TREE_CODE (decl) == TREE_LIST)
-    {
-      tree absdcl = TREE_VALUE (decl);
-      tree last_absdcl = NULL_TREE;
-
-      if (current_function_decl
-	  && DECL_CONSTRUCTOR_P (current_function_decl))
-	my_friendly_assert (immediate_size_expand == 0, 19990926);
-
-      nelts = integer_one_node;
-
-      if (absdcl && TREE_CODE (absdcl) == CALL_EXPR)
-	abort ();
-      while (absdcl && TREE_CODE (absdcl) == INDIRECT_REF)
-	{
-	  last_absdcl = absdcl;
-	  absdcl = TREE_OPERAND (absdcl, 0);
-	}
-
-      if (absdcl && TREE_CODE (absdcl) == ARRAY_REF)
-	{
-	  /* Probably meant to be a vec new.  */
-	  tree this_nelts;
-
-	  while (TREE_OPERAND (absdcl, 0)
-		 && TREE_CODE (TREE_OPERAND (absdcl, 0)) == ARRAY_REF)
-	    {
-	      last_absdcl = absdcl;
-	      absdcl = TREE_OPERAND (absdcl, 0);
-	    }
-
-	  has_array = 1;
-	  this_nelts = TREE_OPERAND (absdcl, 1);
-	  if (this_nelts != error_mark_node)
-	    {
-	      if (this_nelts == NULL_TREE)
-		error ("new of array type fails to specify size");
-	      else if (processing_template_decl)
-		{
-		  nelts = this_nelts;
-		  absdcl = TREE_OPERAND (absdcl, 0);
-		}
-	      else
-		{
-		  if (build_expr_type_conversion (WANT_INT | WANT_ENUM, 
-						  this_nelts, false)
-		      == NULL_TREE)
-		    pedwarn ("size in array new must have integral type");
-
-		  this_nelts = save_expr (cp_convert (sizetype, this_nelts));
-		  absdcl = TREE_OPERAND (absdcl, 0);
-	          if (this_nelts == integer_zero_node)
-		    {
-		      warning ("zero size array reserves no space");
-		      nelts = integer_zero_node;
-		    }
-		  else
-		    nelts = cp_build_binary_op (MULT_EXPR, nelts, this_nelts);
-		}
-	    }
-	  else
-	    nelts = integer_zero_node;
-	}
-
-      if (last_absdcl)
-	TREE_OPERAND (last_absdcl, 0) = absdcl;
-      else
-	TREE_VALUE (decl) = absdcl;
-
-      type = groktypename (decl);
-      if (! type || type == error_mark_node)
-	return error_mark_node;
-    }
-  else if (TREE_CODE (decl) == IDENTIFIER_NODE)
-    {
-      if (IDENTIFIER_HAS_TYPE_VALUE (decl))
-	{
-	  /* An aggregate type.  */
-	  type = IDENTIFIER_TYPE_VALUE (decl);
-	  decl = TYPE_MAIN_DECL (type);
-	}
-      else
-	{
-	  /* A builtin type.  */
-	  decl = lookup_name (decl, 1);
-	  my_friendly_assert (TREE_CODE (decl) == TYPE_DECL, 215);
-	  type = TREE_TYPE (decl);
-	}
-    }
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    {
-      type = TREE_TYPE (decl);
-    }
-  else
-    {
-      type = decl;
-      decl = TYPE_MAIN_DECL (type);
-    }
 
   if (processing_template_decl)
     {
-      if (has_array)
-	t = tree_cons (tree_cons (NULL_TREE, type, NULL_TREE),
-		       build_min_nt (ARRAY_REF, NULL_TREE, nelts),
-		       NULL_TREE);
-      else
-	t = type;
-	
       rval = build_min (NEW_EXPR, build_pointer_type (type), 
-			placement, t, init);
+			placement, type, nelts, init);
       NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
       TREE_SIDE_EFFECTS (rval) = 1;
       return rval;
@@ -1804,22 +1694,8 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
       return error_mark_node;
     }
 
-  /* When the object being created is an array, the new-expression yields a
-     pointer to the initial element (if any) of the array.  For example,
-     both new int and new int[10] return an int*.  5.3.4.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && has_array == 0)
-    {
-      nelts = array_type_nelts_top (type);
-      has_array = 1;
-      type = TREE_TYPE (type);
-    }
-
-  if (has_array)
-    t = build_nt (ARRAY_REF, type, nelts);
-  else
-    t = type;
-
-  rval = build (NEW_EXPR, build_pointer_type (type), placement, t, init);
+  rval = build (NEW_EXPR, build_pointer_type (type), placement, type,
+		nelts, init);
   NEW_EXPR_USE_GLOBAL (rval) = use_global_new;
   TREE_SIDE_EFFECTS (rval) = 1;
   rval = build_new_1 (rval);
@@ -1956,15 +1832,14 @@ build_new_1 (tree exp)
 
   placement = TREE_OPERAND (exp, 0);
   type = TREE_OPERAND (exp, 1);
-  init = TREE_OPERAND (exp, 2);
+  nelts = TREE_OPERAND (exp, 2);
+  init = TREE_OPERAND (exp, 3);
   globally_qualified_p = NEW_EXPR_USE_GLOBAL (exp);
 
-  if (TREE_CODE (type) == ARRAY_REF)
+  if (nelts)
     {
       has_array = 1;
-      nelts = outer_nelts = TREE_OPERAND (type, 1);
-      type = TREE_OPERAND (type, 0);
-
+      outer_nelts = nelts;
       /* Use an incomplete array type to avoid VLA headaches.  */
       full_type = build_cplus_array_type (type, NULL_TREE);
     }
@@ -2482,7 +2357,7 @@ get_temp_regvar (tree type, tree init)
   tree decl;
 
   decl = create_temporary_var (type);
-  add_decl_stmt (decl);
+  add_decl_expr (decl);
   
   finish_expr_stmt (build_modify_expr (decl, INIT_EXPR, init));
 
@@ -2996,27 +2871,23 @@ push_base_cleanups (void)
   /* Run destructors for all virtual baseclasses.  */
   if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
     {
-      tree vbases;
       tree cond = (condition_conversion
 		   (build (BIT_AND_EXPR, integer_type_node,
 			   current_in_charge_parm,
 			   integer_two_node)));
 
-      vbases = CLASSTYPE_VBASECLASSES (current_class_type);
-      /* The CLASSTYPE_VBASECLASSES list is in initialization
+      /* The CLASSTYPE_VBASECLASSES vector is in initialization
 	 order, which is also the right order for pushing cleanups.  */
-      for (; vbases;
-	   vbases = TREE_CHAIN (vbases))
+      for (i = 0; (binfos = VEC_iterate
+		   (tree, CLASSTYPE_VBASECLASSES (current_class_type), i));
+	   i++)
 	{
-	  tree vbase = TREE_VALUE (vbases);
-	  tree base_type = BINFO_TYPE (vbase);
-
-	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (base_type))
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (binfos)))
 	    {
 	      expr = build_special_member_call (current_class_ref, 
 						base_dtor_identifier,
 						NULL_TREE,
-						vbase,
+						binfos,
 						(LOOKUP_NORMAL 
 						 | LOOKUP_NONVIRTUAL));
 	      expr = build (COND_EXPR, void_type_node, cond,
@@ -3070,17 +2941,19 @@ push_base_cleanups (void)
 tree
 build_vbase_delete (tree type, tree decl)
 {
-  tree vbases = CLASSTYPE_VBASECLASSES (type);
+  unsigned ix;
+  tree binfo;
   tree result;
   tree addr = build_unary_op (ADDR_EXPR, decl, 0);
 
   my_friendly_assert (addr != error_mark_node, 222);
 
-  for (result = convert_to_void (integer_zero_node, NULL);
-       vbases; vbases = TREE_CHAIN (vbases))
+  result = convert_to_void (integer_zero_node, NULL);
+  for (ix = 0; (binfo = VEC_iterate
+		(tree, CLASSTYPE_VBASECLASSES (type), ix)); ix++)
     {
       tree base_addr = convert_force
-	(build_pointer_type (BINFO_TYPE (TREE_VALUE (vbases))), addr, 0);
+	(build_pointer_type (BINFO_TYPE (binfo)), addr, 0);
       tree base_delete = build_delete
 	(TREE_TYPE (base_addr), base_addr, sfk_base_destructor,
 	 LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 0);

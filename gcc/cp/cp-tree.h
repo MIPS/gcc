@@ -27,8 +27,8 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "hashtab.h"
 #include "splay-tree.h"
+#include "vec.h"
 #include "varray.h"
-
 #include "c-common.h"
 #include "name-lookup.h"
 
@@ -45,7 +45,6 @@ struct diagnostic_context;
       CLEANUP_P (in TRY_BLOCK)
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
-      PARMLIST_ELLIPSIS_P (in PARMLIST)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
       KOENIG_LOOKUP_P (in CALL_EXPR)
       STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
@@ -64,7 +63,6 @@ struct diagnostic_context;
       TYPE_POLYMORPHIC_P (in _TYPE)
       ICS_THIS_FLAG (in _CONV)
       BINFO_LOST_PRIMARY_P (in BINFO)
-      TREE_PARMLIST (in TREE_LIST)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
       STATEMENT_LIST_TRY_BLOCK (in STATEMENT_LIST)
    3: TYPE_USES_VIRTUAL_BASECLASSES (in a class TYPE).
@@ -1019,6 +1017,8 @@ struct lang_type_header GTY(())
   BOOL_BITFIELD has_const_assign_ref : 1;
 };
 
+DEF_VEC_P (tree);
+
 /* This structure provides additional information above and beyond
    what is provide in the ordinary tree_type.  In the past, we used it
    for the types of class types, template parameters types, typename
@@ -1089,7 +1089,7 @@ struct lang_type_class GTY(())
   tree vcall_indices;
   tree vtables;
   tree typeinfo_var;
-  tree vbases;
+  VEC (tree) *vbases;
   binding_table nested_udts;
   tree as_base;
   tree pure_virtuals;
@@ -1307,7 +1307,7 @@ struct lang_type GTY(())
 #define CLASSTYPE_PRIMARY_BINFO(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->primary_base)
 
-/* A chain of BINFOs for the direct and indirect virtual base classes
+/* A vector of BINFOs for the direct and indirect virtual base classes
    that this type uses in a post-order depth-first left-to-right
    order.  (In other words, these bases appear in the order that they
    should be initialized.)  */
@@ -1566,13 +1566,6 @@ struct lang_type GTY(())
 #define BV_FN(NODE) (TREE_VALUE (NODE))
 
 
-/* Nonzero for TREE_LIST node means that this list of things
-   is a list of parameters, as opposed to a list of expressions.  */
-#define TREE_PARMLIST(NODE) (TREE_LANG_FLAG_2 (NODE))
-
-/* Nonzero for a parmlist means that this parmlist ended in ...  */
-#define PARMLIST_ELLIPSIS_P(NODE) TREE_LANG_FLAG_0 (NODE)
-
 /* For FUNCTION_TYPE or METHOD_TYPE, a list of the exceptions that
    this type can raise.  Each TREE_VALUE is a _TYPE.  The TREE_VALUE
    will be NULL_TREE to indicate a throw specification of `()', or
@@ -2953,18 +2946,6 @@ struct lang_decl GTY(())
 #define THEN_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 1)
 #define ELSE_CLAUSE(NODE)       TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
 
-/* The parameters for a call-declarator.  */
-#define CALL_DECLARATOR_PARMS(NODE) \
-  (TREE_PURPOSE (TREE_OPERAND (NODE, 1)))
-
-/* The cv-qualifiers for a call-declarator.  */
-#define CALL_DECLARATOR_QUALS(NODE) \
-  (TREE_VALUE (TREE_OPERAND (NODE, 1)))
-
-/* The exception-specification for a call-declarator.  */
-#define CALL_DECLARATOR_EXCEPTION_SPEC(NODE) \
-  (TREE_TYPE (NODE))
-
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types { 
   none_type = 0, /* Not a tag type.  */
@@ -3102,11 +3083,6 @@ typedef enum base_kind {
 			     path. This might not be the canonical
 			     binfo.  */
 } base_kind;
-
-/* Set by add_implicitly_declared_members() to keep those members from
-   being flagged as deprecated or reported as using deprecated
-   types.  */
-extern int adding_implicit_members;
 
 /* in decl{2}.c */
 /* A node that is a list (length 1) of error_mark_nodes.  */
@@ -3354,19 +3330,20 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    LOOKUP_PREFER_NAMESPACES means not to accept objects, and possibly types.
    LOOKUP_PREFER_BOTH means class-or-namespace-name.  */
 
-#define LOOKUP_PROTECT (1)
-#define LOOKUP_COMPLAIN (2)
-#define LOOKUP_NORMAL (3)
-#define LOOKUP_NONVIRTUAL (8)
-#define LOOKUP_GLOBAL (16)
-#define LOOKUP_ONLYCONVERTING (128)
-#define DIRECT_BIND (256)
-#define LOOKUP_NO_CONVERSION (512)
-#define LOOKUP_DESTRUCTOR (512)
-#define LOOKUP_NO_TEMP_BIND (1024)
-#define LOOKUP_PREFER_TYPES (2048)
-#define LOOKUP_PREFER_NAMESPACES (4096)
-#define LOOKUP_PREFER_BOTH (6144)
+#define LOOKUP_PROTECT (1 << 0)
+#define LOOKUP_COMPLAIN (1 << 1)
+#define LOOKUP_NORMAL (LOOKUP_PROTECT | LOOKUP_COMPLAIN)
+#define LOOKUP_NONVIRTUAL (1 << 2)
+#define LOOKUP_GLOBAL (1 << 3)
+#define LOOKUP_ONLYCONVERTING (1 << 4)
+#define DIRECT_BIND (1 << 5)
+#define LOOKUP_NO_CONVERSION (1 << 6)
+#define LOOKUP_DESTRUCTOR (1 << 7)
+#define LOOKUP_NO_TEMP_BIND (1 << 8)
+#define LOOKUP_PREFER_TYPES (1 << 9)
+#define LOOKUP_PREFER_NAMESPACES (1 << 10)
+#define LOOKUP_PREFER_BOTH (LOOKUP_PREFER_TYPES | LOOKUP_PREFER_NAMESPACES)
+#define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 11)
 
 #define LOOKUP_NAMESPACES_ONLY(F)  \
   (((F) & LOOKUP_PREFER_NAMESPACES) && !((F) & LOOKUP_PREFER_TYPES))
@@ -3529,6 +3506,162 @@ extern GTY(()) operator_name_info_t operator_name_info
 extern GTY(()) operator_name_info_t assignment_operator_name_info
   [(int) LAST_CPLUS_TREE_CODE];
 
+/* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
+   constants.  */
+
+typedef int cp_cv_quals;
+
+/* A storage class.  */
+
+typedef enum cp_storage_class {
+  /* sc_none must be zero so that zeroing a cp_decl_specifier_seq
+     sets the storage_class field to sc_none.  */
+  sc_none = 0,
+  sc_auto,
+  sc_register,
+  sc_static,
+  sc_extern,
+  sc_mutable
+} cp_storage_class;
+
+/* An individual decl-specifier.  */
+
+typedef enum cp_decl_spec {
+  ds_first,
+  ds_signed = ds_first,
+  ds_unsigned,
+  ds_short,
+  ds_long,
+  ds_const,
+  ds_volatile,
+  ds_restrict,
+  ds_inline,
+  ds_virtual,
+  ds_explicit,
+  ds_friend,
+  ds_typedef,
+  ds_complex,
+  ds_thread,
+  ds_last
+} cp_decl_spec;
+
+/* A decl-specifier-seq.  */
+
+typedef struct cp_decl_specifier_seq {
+  /* The number of times each of the keywords has been seen.  */
+  unsigned specs[(int) ds_last];
+  /* The primary type, if any, given by the decl-specifier-seq.
+     Modifiers, like "short", "const", and "unsigned" are not
+     reflected here.  This field will be a TYPE, unless a typedef-name
+     was used, in which case it will be a TYPE_DECL.  */
+  tree type;
+  /* The attributes, if any, provided with the specifier sequence.  */
+  tree attributes;
+  /* If non-NULL, a built-in type that the user attempted to redefine
+     to some other type.  */
+  tree redefined_builtin_type;
+  /* The storage class specified -- or sc_none if no storage class was
+     explicitly specified.  */
+  cp_storage_class storage_class;
+  /* True iff TYPE_SPEC indicates a user-defined type.  */
+  BOOL_BITFIELD user_defined_type_p : 1;
+  /* True iff multiple types were (erroneously) specified for this
+     decl-specifier-seq.  */
+  BOOL_BITFIELD multiple_types_p : 1;
+  /* True iff multiple storage classes were (erroneously) specified
+     for this decl-specifier-seq.  */
+  BOOL_BITFIELD multiple_storage_classes_p : 1;
+  /* True iff at least one decl-specifier was found.  */
+  BOOL_BITFIELD any_specifiers_p : 1;
+  /* True iff "int" was explicitly provided.  */
+  BOOL_BITFIELD explicit_int_p : 1;
+  /* True iff "char" was explicitly provided.  */
+  BOOL_BITFIELD explicit_char_p : 1;
+} cp_decl_specifier_seq;
+
+/* The various kinds of declarators.  */
+
+typedef enum cp_declarator_kind {
+  cdk_id,
+  cdk_function,
+  cdk_array,
+  cdk_pointer,
+  cdk_reference,
+  cdk_ptrmem,
+  cdk_error
+} cp_declarator_kind;
+
+/* A declarator.  */
+
+typedef struct cp_declarator cp_declarator;
+
+typedef struct cp_parameter_declarator cp_parameter_declarator;
+
+/* A parameter, before it has been semantically analyzed.  */
+struct cp_parameter_declarator {
+  /* The next parameter, or NULL_TREE if none.  */
+  cp_parameter_declarator *next;
+  /* The decl-specifiers-seq for the parameter.  */
+  cp_decl_specifier_seq decl_specifiers;
+  /* The declarator for the parameter.  */
+  cp_declarator *declarator;
+  /* The default-argument expression, or NULL_TREE, if none.  */
+  tree default_argument;
+  /* True iff this is the first parameter in the list and the
+     parameter sequence ends with an ellipsis.  */
+  bool ellipsis_p;
+};
+
+/* A declarator.  */
+struct cp_declarator {
+  /* The kind of declarator.  */
+  cp_declarator_kind kind;
+  /* Attributes that apply to this declarator.  */
+  tree attributes;
+  /* For all but cdk_id and cdk_error, the contained declarator.  For
+     cdk_id and cdk_error, guaranteed to be NULL.  */
+  cp_declarator *declarator;
+  union {
+    /* For identifiers.  */
+    struct {
+      /* The name of the function -- an IDENTIFIER_NODE, BIT_NOT_EXPR,
+	 TEMPLATE_ID_EXPR, or SCOPE_REF.  */
+      tree name;
+      /* If this is the name of a function, what kind of special
+	 function (if any).  */
+      special_function_kind sfk;
+    } id;
+    /* For functions.  */
+    struct {
+      /* The parameters to the function.  */
+      cp_parameter_declarator *parameters;
+      /* The cv-qualifiers for the function.  */
+      cp_cv_quals qualifiers;
+      /* The exception-specification for the function.  */
+      tree exception_specification;
+    } function;
+    /* For arrays.  */
+    struct {
+      /* The bounds to the array.  */
+      tree bounds;
+    } array;
+    /* For cdk_pointer, cdk_reference, and cdk_ptrmem.  */
+    struct {
+      /* The cv-qualifiers for the pointer.  */
+      cp_cv_quals qualifiers;
+      /* For cdk_ptrmem, the class type containing the member.  */
+      tree class_type;
+    } pointer;
+  } u;
+};
+
+/* An erroneous declarator.  */
+extern cp_declarator *cp_error_declarator;
+
+/* A parameter list indicating for a function with no parameters,
+   e.g  "int f(void)".  */
+extern cp_parameter_declarator *no_parameters;
+
 /* in call.c */
 extern bool check_dtor_name (tree, tree);
 
@@ -3564,7 +3697,7 @@ extern tree strip_top_quals (tree);
 extern tree perform_implicit_conversion (tree, tree);
 extern tree perform_direct_initialization_if_possible (tree, tree);
 extern tree in_charge_arg_for_name (tree);
-extern tree build_cxx_call (tree, tree, tree);
+extern tree build_cxx_call (tree, tree);
 #ifdef ENABLE_CHECKING
 extern void validate_conversion_obstack (void);
 #endif /* ENABLE_CHECKING */
@@ -3616,6 +3749,7 @@ extern tree get_vtt_name                        (tree);
 extern tree get_primary_binfo                   (tree);
 extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
+extern tree cp_fold_obj_type_ref		(tree, tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
@@ -3672,21 +3806,20 @@ extern tree push_library_fn			(tree, tree);
 extern tree push_void_library_fn		(tree, tree);
 extern tree push_throw_library_fn		(tree, tree);
 extern int init_type_desc			(void);
-extern tree check_tag_decl			(tree);
-extern tree shadow_tag				(tree);
-extern tree groktypename			(tree);
-extern tree start_decl				(tree, tree, int, tree, tree);
+extern tree check_tag_decl			(cp_decl_specifier_seq *);
+extern tree shadow_tag				(cp_decl_specifier_seq *);
+extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
+extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree);
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
 extern void maybe_inject_for_scope_var          (tree);
-extern tree start_handler_parms                 (tree, tree);
 extern int complete_array_type			(tree, tree, int);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type                   (tree, tree);
 /* the grokdeclarator prototype is in decl.h */
 extern int copy_fn_p				(tree);
-extern tree get_scope_of_declarator             (tree);
+extern tree get_scope_of_declarator             (const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
 extern bool grok_op_properties			(tree, int, bool);
@@ -3696,11 +3829,12 @@ extern void xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree);
-extern int start_function			(tree, tree, tree, int);
+extern void start_preparsed_function            (tree, tree, int);
+extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
 extern tree finish_function			(int);
-extern tree start_method			(tree, tree, tree);
+extern tree start_method			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree finish_method			(tree);
 extern void maybe_register_incomplete_var       (tree);
 extern void complete_vars			(tree);
@@ -3740,17 +3874,16 @@ extern bool have_extern_spec;
 
 /* in decl2.c */
 extern bool check_java_method (tree);
-extern int grok_method_quals (tree, tree, tree);
-extern void grok_x_components (tree);
+extern cp_cv_quals grok_method_quals (tree, tree, cp_cv_quals);
 extern void maybe_retrofit_in_chrg (tree);
 extern void maybe_make_one_only	(tree);
-extern void grokclassfn	(tree, tree, enum overload_flags, tree);
+extern void grokclassfn	(tree, tree, enum overload_flags, cp_cv_quals);
 extern tree grok_array_decl (tree, tree);
 extern tree delete_sanity (tree, tree, bool, int);
 extern tree check_classfn (tree, tree, tree);
 extern void check_member_template (tree);
-extern tree grokfield (tree, tree, tree, tree, tree);
-extern tree grokbitfield (tree, tree, tree);
+extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *, tree, tree, tree);
+extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *, tree);
 extern tree groktypefield			(tree, tree);
 extern void cplus_decl_attributes (tree *, tree, int);
 extern void finish_anon_union (tree);
@@ -3816,7 +3949,7 @@ extern tree cplus_expand_constant               (tree);
 extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend                          (tree, tree, bool);
-extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, tree, int);
+extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, cp_cv_quals, int);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
@@ -3828,7 +3961,7 @@ extern tree get_aggr_from_typedef		(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init       		(tree, tree, bool);
 extern tree build_offset_ref			(tree, tree, bool);
-extern tree build_new				(tree, tree, tree, int);
+extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, int);
 extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree, special_function_kind, int, int);
@@ -3839,14 +3972,8 @@ extern tree create_temporary_var                (tree);
 extern void initialize_vtbl_ptrs                (tree);
 extern tree build_java_class_ref                (tree);
 
-/* in input.c */
-
 /* in lex.c */
 extern void cxx_dup_lang_specific_decl		(tree);
-extern tree make_pointer_declarator		(tree, tree);
-extern tree make_reference_declarator		(tree, tree);
-extern tree make_call_declarator		(tree, tree, tree, tree);
-extern void set_quals_and_spec			(tree, tree, tree);
 extern void print_parse_statistics		(void);
 extern void do_pending_inlines			(void);
 extern void yyungetc				(int, int);
@@ -3892,7 +4019,7 @@ extern void end_specialization                  (void);
 extern void begin_explicit_instantiation        (void);
 extern void end_explicit_instantiation          (void);
 extern tree check_explicit_specialization       (tree, tree, int, int);
-extern tree process_template_parm		(tree, tree);
+extern tree process_template_parm		(tree, tree, bool);
 extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
 extern tree current_template_args		(void);
@@ -3997,6 +4124,7 @@ extern tree context_for_name_lookup		(tree);
 extern tree lookup_conversions			(tree);
 extern tree binfo_for_vtable			(tree);
 extern tree binfo_from_vbase			(tree);
+extern tree binfo_for_vbase			(tree, tree);
 extern tree look_for_overrides_here		(tree, tree);
 extern int check_final_overrider		(tree, tree);
 extern tree dfs_walk                            (tree,
@@ -4028,7 +4156,7 @@ extern void pop_to_parent_deferring_access_checks	(void);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern void init_cp_semantics                   (void);
-extern void add_decl_stmt			(tree);
+extern void add_decl_expr			(tree);
 extern tree finish_expr_stmt                    (tree);
 extern tree begin_if_stmt                       (void);
 extern void finish_if_stmt_cond                 (tree, tree);
@@ -4095,14 +4223,11 @@ extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_unary_op_expr                (enum tree_code, tree);
 extern tree finish_compound_literal             (tree, tree);
 extern tree finish_fname                        (tree);
-extern int begin_function_definition            (tree, tree, tree);
 extern void finish_translation_unit             (void);
 extern tree finish_template_type_parm           (tree, tree);
 extern tree finish_template_template_parm       (tree, tree);
-extern tree finish_parmlist                     (tree, int);
 extern tree begin_class_definition              (tree);
 extern void finish_default_args                 (void);
-extern tree finish_member_class_template        (tree);
 extern void finish_template_decl                (tree);
 extern tree finish_template_type                (tree, tree, int);
 extern tree finish_base_specifier               (tree, tree, bool);

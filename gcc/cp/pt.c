@@ -36,7 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cp-tree.h"
 #include "tree-inline.h"
 #include "decl.h"
-#include "lex.h"
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
@@ -2161,21 +2160,20 @@ reduce_template_parm_level (tree index, tree type, int levels)
 }
 
 /* Process information from new template parameter NEXT and append it to the
-   LIST being built.  */
+   LIST being built.  This new parameter is a non-type parameter iff
+   IS_NON_TYPE is true.  */
 
 tree
-process_template_parm (tree list, tree next)
+process_template_parm (tree list, tree next, bool is_non_type)
 {
   tree parm;
   tree decl = 0;
   tree defval;
-  int is_type, idx;
+  int idx;
 
   parm = next;
   my_friendly_assert (TREE_CODE (parm) == TREE_LIST, 259);
   defval = TREE_PURPOSE (parm);
-  parm = TREE_VALUE (parm);
-  is_type = TREE_PURPOSE (parm) == class_type_node;
 
   if (list)
     {
@@ -2190,12 +2188,10 @@ process_template_parm (tree list, tree next)
   else
     idx = 0;
 
-  if (!is_type)
+  if (is_non_type)
     {
-      my_friendly_assert (TREE_CODE (TREE_PURPOSE (parm)) == TREE_LIST, 260);
-      /* is a const-param */
-      parm = grokdeclarator (TREE_VALUE (parm), TREE_PURPOSE (parm),
-			     PARM, 0, NULL);
+      parm = TREE_VALUE (parm);
+
       SET_DECL_TEMPLATE_PARM_P (parm);
 
       /* [temp.param]
@@ -2222,7 +2218,7 @@ process_template_parm (tree list, tree next)
   else
     {
       tree t;
-      parm = TREE_VALUE (parm);
+      parm = TREE_VALUE (TREE_VALUE (parm));
       
       if (parm && TREE_CODE (parm) == TEMPLATE_DECL)
 	{
@@ -3757,7 +3753,7 @@ convert_template_argument (tree parm,
 	    }
 	}
       else
-	val = groktypename (arg);
+	val = arg;
     }
   else
     {
@@ -4591,7 +4587,7 @@ struct pair_fn_data
 /* Called from for_each_template_parm via walk_tree.  */
 
 static tree
-for_each_template_parm_r (tree* tp, int* walk_subtrees, void* d)
+for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 {
   tree t = *tp;
   struct pair_fn_data *pfd = (struct pair_fn_data *) d;
@@ -6600,9 +6596,6 @@ tsubst_call_declarator_parms (tree parms,
      doesn't check TREE_PARMLIST.  */
   new_parms = tree_cons (defarg, type, new_parms);
 
-  /* And note that these are parameters.  */
-  TREE_PARMLIST (new_parms) = 1;
-  
   return new_parms;
 }
 
@@ -6852,7 +6845,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case TREE_LIST:
       {
-	tree purpose, value, chain, result;
+	tree purpose, value, chain;
 
 	if (t == void_list_node)
 	  return t;
@@ -6882,14 +6875,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    && value == TREE_VALUE (t)
 	    && chain == TREE_CHAIN (t))
 	  return t;
-	if (TREE_PARMLIST (t))
-	  {
-	    result = tree_cons (purpose, value, chain);
-	    TREE_PARMLIST (result) = 1;
-	  }
-	else
-	  result = hash_tree_cons (purpose, value, chain);
-	return result;
+	return hash_tree_cons (purpose, value, chain);
       }
     case TREE_VEC:
       if (type != NULL_TREE)
@@ -7179,20 +7165,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       }
 
     case INDIRECT_REF:
-      {
-	tree e = tsubst (TREE_OPERAND (t, 0), args, complain, in_decl);
-	if (e == error_mark_node)
-	  return error_mark_node;
-	return make_pointer_declarator (type, e);
-      }
-
     case ADDR_EXPR:
-      {
-	tree e = tsubst (TREE_OPERAND (t, 0), args, complain, in_decl);
-	if (e == error_mark_node)
-	  return error_mark_node;
-	return make_reference_declarator (type, e);
-      }
+    case CALL_EXPR:
+      abort ();
 
     case ARRAY_REF:
       {
@@ -7201,22 +7176,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	if (e1 == error_mark_node || e2 == error_mark_node)
 	  return error_mark_node;
 
-	return build_nt (ARRAY_REF, e1, e2);
-      }
-
-    case CALL_EXPR:
-      {
-	tree e1 = tsubst (TREE_OPERAND (t, 0), args, complain, in_decl);
-	tree e2 = (tsubst_call_declarator_parms
-		   (CALL_DECLARATOR_PARMS (t), args, complain, in_decl));
-	tree e3 = tsubst (CALL_DECLARATOR_EXCEPTION_SPEC (t), args,
-			  complain, in_decl);
-
-	if (e1 == error_mark_node || e2 == error_mark_node 
-	    || e3 == error_mark_node)
-	  return error_mark_node;
-
-	return make_call_declarator (e1, e2, CALL_DECLARATOR_QUALS (t), e3);
+	return build_nt (ARRAY_REF, e1, e2, NULL_TREE, NULL_TREE);
       }
 
     case SCOPE_REF:
@@ -7563,7 +7523,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				  in_decl);
 	else
 	  name = tsubst_copy (name, args, complain, in_decl);
-	return build_nt (COMPONENT_REF, object, name);
+	return build_nt (COMPONENT_REF, object, name, NULL_TREE);
       }
 
     case PLUS_EXPR:
@@ -7773,8 +7733,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 			       (TREE_OPERAND (t, 0), args));
       break;
 
-    case RETURN_STMT:
-      finish_return_stmt (tsubst_expr (RETURN_STMT_EXPR (t),
+    case RETURN_EXPR:
+      finish_return_stmt (tsubst_expr (TREE_OPERAND (t, 0),
 				       args, complain, in_decl));
       break;
 
@@ -7804,12 +7764,12 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				       args, complain, in_decl));
       break;
       
-    case DECL_STMT:
+    case DECL_EXPR:
       {
 	tree decl;
 	tree init;
 
-	decl = DECL_STMT_DECL (t);
+	decl = DECL_EXPR_DECL (t);
 	if (TREE_CODE (decl) == LABEL_DECL)
 	  finish_label_decl (DECL_NAME (decl));
 	else if (TREE_CODE (decl) == USING_DECL)
@@ -7865,7 +7825,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      }
 	  }
 
-	/* A DECL_STMT can also be used as an expression, in the condition
+	/* A DECL_EXPR can also be used as an expression, in the condition
 	   clause of an if/for/while construct.  */
 	return decl;
       }
@@ -8143,7 +8103,7 @@ tsubst_copy_and_build (tree t,
 	
 	if (object)
 	  return build (COMPONENT_REF, TREE_TYPE (template), 
-			object, template);
+			object, template, NULL_TREE);
 	else
 	  return template;
       }
@@ -8255,7 +8215,8 @@ tsubst_copy_and_build (tree t,
       if (tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl)
 	  == NULL_TREE)
 	/* new-type-id */
-	return build_nt (ARRAY_REF, NULL_TREE, RECUR (TREE_OPERAND (t, 1)));
+	return build_nt (ARRAY_REF, NULL_TREE, RECUR (TREE_OPERAND (t, 1)),
+			 NULL_TREE, NULL_TREE);
 
       op1 = tsubst_non_call_postfix_expression (TREE_OPERAND (t, 0),
 						args, complain, in_decl);
@@ -8305,6 +8266,7 @@ tsubst_copy_and_build (tree t,
 	(RECUR (TREE_OPERAND (t, 0)),
 	 RECUR (TREE_OPERAND (t, 1)),
 	 RECUR (TREE_OPERAND (t, 2)),
+	 RECUR (TREE_OPERAND (t, 3)),
 	 NEW_EXPR_USE_GLOBAL (t));
 
     case DELETE_EXPR:
@@ -11197,7 +11159,7 @@ instantiate_decl (tree d, int defer_ok, int undefined_ok)
 
       /* Set up context.  */
       import_export_decl (d);
-      start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
+      start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
 
       /* Create substitution entries for the parameters.  */
       subst_decl = DECL_TEMPLATE_RESULT (template_for_substitution (d));
@@ -11281,7 +11243,8 @@ instantiate_pending_templates (void)
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn, /*defer_ok=*/0, /*undefined_ok=*/0);
+			instantiate_decl (fn, /*defer_ok=*/0,
+					  /*undefined_ok=*/0);
 		  if (COMPLETE_TYPE_P (instantiation))
 		    {
 		      instantiated_something = 1;

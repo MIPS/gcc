@@ -26,11 +26,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file is part of the C++ front end.
    It contains routines to build C++ expressions given their operands,
    including computing the types of the result, C and C++ specific error
-   checks, and some optimization.
-
-   There are also routines to build RETURN_STMT nodes and CASE_STMT nodes,
-   and to process initializations in declarations (since they work
-   like a strange sort of assignment).  */
+   checks, and some optimization.  */
 
 #include "config.h"
 #include "system.h"
@@ -324,9 +320,11 @@ split_nonconstant_init_1 (tree dest, tree init)
 	  if (TREE_CODE (value) == CONSTRUCTOR)
 	    {
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build (ARRAY_REF, inner_type, dest, field_index,
+			     NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
+			     NULL_TREE);
 
 	      split_nonconstant_init_1 (sub, value);
 	    }
@@ -335,9 +333,11 @@ split_nonconstant_init_1 (tree dest, tree init)
 	      *pelt = TREE_CHAIN (elt);
 
 	      if (array_type_p)
-	        sub = build (ARRAY_REF, inner_type, dest, field_index);
+	        sub = build (ARRAY_REF, inner_type, dest, field_index,
+			     NULL_TREE, NULL_TREE);
 	      else
-	        sub = build (COMPONENT_REF, inner_type, dest, field_index);
+	        sub = build (COMPONENT_REF, inner_type, dest, field_index,
+			     NULL_TREE);
 
 	      code = build (MODIFY_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);

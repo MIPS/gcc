@@ -463,7 +463,7 @@ mf_build_check_statement_for (tree addr, tree size,
              (flag_mudflap_threads ? mf_cache_mask_decl : mf_cache_mask_decl_l));
   t = build (ARRAY_REF,
              TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
-             mf_cache_array_decl, t);
+             mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   t = build (MODIFY_EXPR, void_type_node, mf_elem, t);
   SET_EXPR_LOCUS (t, locus);
@@ -487,7 +487,7 @@ mf_build_check_statement_for (tree addr, tree size,
   /* Construct t <-- '__mf_elem->low  > __mf_base'.  */
   t = build (COMPONENT_REF, mf_uintptr_type,
              build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
-             TYPE_FIELDS (mf_cache_struct_type));
+             TYPE_FIELDS (mf_cache_struct_type), NULL_TREE);
   t = build (GT_EXPR, boolean_type_node, t, mf_base);
 
   /* Construct '__mf_elem->high < __mf_base + sizeof(T) - 1'.
@@ -501,7 +501,7 @@ mf_build_check_statement_for (tree addr, tree size,
 
   u = build (COMPONENT_REF, mf_uintptr_type,
              build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
-             TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)));
+             TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)), NULL_TREE);
 
   v = convert (mf_uintptr_type,
 	       size_binop (MINUS_EXPR, size, size_one_node));
@@ -660,14 +660,14 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
            things the hard way with PLUS.  */
         if (DECL_BIT_FIELD_TYPE (field))
           {
-            size = bitsize_int (BITS_PER_UNIT);
-            size = size_binop (CEIL_DIV_EXPR, DECL_SIZE (field), size);
-            size = convert (sizetype, size);
+	    if (TREE_CODE (DECL_SIZE_UNIT (field)) == INTEGER_CST)
+	      size = DECL_SIZE_UNIT (field);
 
             addr = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
-            addr = convert (ptr_type_node, addr);
+            addr = fold_convert (ptr_type_node, addr);
             addr = fold (build (PLUS_EXPR, ptr_type_node,
-                                addr, byte_position (field)));
+                                addr, fold_convert (ptr_type_node,
+						    byte_position (field))));
           }
         else
           {
@@ -819,7 +819,7 @@ mx_register_decls (tree decl, tree *stmt_list)
             {
               /* Oh no ... it's probably a variable-length array (VLA).
                  The size and address cannot be computed by merely
-                 looking at the DECL.  See gimplfiy_decl_stmt for the
+                 looking at the DECL.  See gimplify_decl_stmt for the
                  method by which VLA declarations turn into calls to
                  BUILT_IN_STACK_ALLOC.  We assume that multiple
                  VLAs declared later in the same block get allocation 
@@ -883,19 +883,23 @@ mx_register_decls (tree decl, tree *stmt_list)
               size = convert (size_type_node, TYPE_SIZE_UNIT (TREE_TYPE (decl)));
             }
 
-          /* (& VARIABLE, sizeof (VARIABLE)) */
+          /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK) */
           unregister_fncall_params =
             tree_cons (NULL_TREE,
                        convert (ptr_type_node,
                                 mf_mark (build1 (ADDR_EXPR,
                                                  build_pointer_type (TREE_TYPE (decl)),
                                                  decl))),
-                       tree_cons (NULL_TREE, size, NULL_TREE));
+                       tree_cons (NULL_TREE, 
+                                  size,
+                                  tree_cons (NULL_TREE, 
+                                             build_int_2 (3, 0), /* __MF_TYPE_STACK */
+                                             NULL_TREE)));
           /* __mf_unregister (...) */
           unregister_fncall = build_function_call_expr (mf_unregister_fndecl,
                                                         unregister_fncall_params);
 
-          /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK) */
+          /* (& VARIABLE, sizeof (VARIABLE), __MF_TYPE_STACK, "name") */
           variable_name = mf_varname_tree (decl);
           register_fncall_params =
             tree_cons (NULL_TREE,

@@ -3,8 +3,8 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions. 
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.  
 
@@ -34,7 +34,6 @@
 #include "tree-inline.h"
 #include "tree-mudflap.h"
 #include "except.h"
-#include "lex.h"
 #include "toplev.h"
 #include "flags.h"
 #include "rtl.h"
@@ -258,18 +257,19 @@ perform_or_defer_access_check (tree binfo, tree decl)
 {
   tree check;
 
-  my_friendly_assert (TREE_CODE (binfo) == TREE_VEC, 20030623);
+  /* Exit if we are in a context that no access checking is performed.  */
+  if (deferred_access_stack->deferring_access_checks_kind == dk_no_check)
+    return;
   
+  my_friendly_assert (TREE_CODE (binfo) == TREE_VEC, 20030623);
+
   /* If we are not supposed to defer access checks, just check now.  */
   if (deferred_access_stack->deferring_access_checks_kind == dk_no_deferred)
     {
       enforce_access (binfo, decl);
       return;
     }
-  /* Exit if we are in a context that no access checking is performed.  */
-  else if (deferred_access_stack->deferring_access_checks_kind == dk_no_check)
-    return;
-
+  
   /* See if we are already going to perform this check.  */
   for (check = deferred_access_stack->deferred_access_checks;
        check;
@@ -317,9 +317,9 @@ maybe_cleanup_point_expr (tree expr)
 /* Create a declaration statement for the declaration given by the DECL.  */
 
 void
-add_decl_stmt (tree decl)
+add_decl_expr (tree decl)
 {
-  tree r = build_stmt (DECL_STMT, decl);
+  tree r = build_stmt (DECL_EXPR, decl);
   if (DECL_INITIAL (decl))
     r = maybe_cleanup_point_expr (r);
   add_stmt (r);
@@ -383,7 +383,7 @@ push_cleanup (tree decl, tree cleanup, bool eh_only)
 /* Begin a conditional that might contain a declaration.  When generating
    normal code, we want the declaration to appear before the statement
    containing the conditional.  When generating template code, we want the
-   conditional to be rendered as the raw DECL_STMT.  */
+   conditional to be rendered as the raw DECL_EXPR.  */
 
 static void
 begin_cond (tree *cond_p)
@@ -400,7 +400,7 @@ finish_cond (tree *cond_p, tree expr)
   if (processing_template_decl)
     {
       tree cond = pop_stmt_list (*cond_p);
-      if (TREE_CODE (cond) == DECL_STMT)
+      if (TREE_CODE (cond) == DECL_EXPR)
 	expr = cond;
     }
   *cond_p = expr;
@@ -493,7 +493,11 @@ finish_expr_stmt (tree expr)
   if (expr != NULL_TREE)
     {
       if (!processing_template_decl)
-	expr = convert_to_void (expr, "statement");
+	{
+	  if (warn_sequence_point)
+	    verify_sequence_points (expr);
+	  expr = convert_to_void (expr, "statement");
+	}
       else if (!type_dependent_expression_p (expr))
 	convert_to_void (build_non_dependent_expr (expr), "statement");
 
@@ -663,7 +667,7 @@ finish_return_stmt (tree expr)
 	}
     }
 
-  r = build_stmt (RETURN_STMT, expr);
+  r = build_stmt (RETURN_EXPR, expr);
   r = maybe_cleanup_point_expr (r);
   r = add_stmt (r);
   finish_stmt ();
@@ -1138,7 +1142,7 @@ void
 finish_label_decl (tree name)
 {
   tree decl = declare_local_label (name);
-  add_decl_stmt (decl);
+  add_decl_expr (decl);
 }
 
 /* When DECL goes out of scope, make sure that CLEANUP is executed.  */
@@ -1229,7 +1233,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 	  type = cp_build_qualified_type (type, quals);
 	}
       
-      return build_min (COMPONENT_REF, type, object, decl);
+      return build_min (COMPONENT_REF, type, object, decl, NULL_TREE);
     }
   else
     {
@@ -1896,23 +1900,6 @@ finish_fname (tree id)
   return decl;
 }
 
-/* Begin a function definition declared with DECL_SPECS, ATTRIBUTES,
-   and DECLARATOR.  Returns nonzero if the function-declaration is
-   valid.  */
-
-int
-begin_function_definition (tree decl_specs, tree attributes, tree declarator)
-{
-  if (!start_function (decl_specs, declarator, attributes, SF_DEFAULT))
-    return 0;
-
-  /* The things we're about to see are not directly qualified by any
-     template headers we've seen thus far.  */
-  reset_specialization ();
-
-  return 1;
-}
-
 /* Finish a translation unit.  */
 
 void 
@@ -1992,24 +1979,6 @@ check_template_template_default_arg (tree argument)
     }
 
   return argument;
-}
-
-/* Finish a parameter list, indicated by PARMS.  If ELLIPSIS is
-   nonzero, the parameter list was terminated by a `...'.  */
-
-tree
-finish_parmlist (tree parms, int ellipsis)
-{
-  if (parms)
-    {
-      /* We mark the PARMS as a parmlist so that declarator processing can
-         disambiguate certain constructs.  */
-      TREE_PARMLIST (parms) = 1;
-      /* We do not append void_list_node here, but leave it to grokparms
-         to do that.  */
-      PARMLIST_ELLIPSIS_P (parms) = ellipsis;
-    }
-  return parms;
 }
 
 /* Begin a class definition, as indicated by T.  */
@@ -2176,36 +2145,6 @@ finish_member_declaration (tree decl)
       maybe_add_class_template_decl_list (current_class_type, decl, 
 					  /*friend_p=*/0);
     }
-}
-
-/* Finish processing the declaration of a member class template
-   TYPES whose template parameters are given by PARMS.  */
-
-tree
-finish_member_class_template (tree types)
-{
-  tree t;
-
-  /* If there are declared, but undefined, partial specializations
-     mixed in with the typespecs they will not yet have passed through
-     maybe_process_partial_specialization, so we do that here.  */
-  for (t = types; t != NULL_TREE; t = TREE_CHAIN (t))
-    if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
-      maybe_process_partial_specialization (TREE_VALUE (t));
-
-  grok_x_components (types);
-  if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
-    /* The component was in fact a friend declaration.  We avoid
-       finish_member_template_decl performing certain checks by
-       unsetting TYPES.  */
-    types = NULL_TREE;
-  
-  finish_member_template_decl (types);
-
-  /* As with other component type declarations, we do
-     not store the new DECL on the list of
-     component_decls.  */
-  return NULL_TREE;
 }
 
 /* Finish processing a complete template declaration.  The PARMS are
@@ -3005,17 +2944,17 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
   /* Change all returns to just refer to the RESULT_DECL; this is a nop,
      but differs from using NULL_TREE in that it indicates that we care
      about the value of the RESULT_DECL.  */
-  else if (TREE_CODE (*tp) == RETURN_STMT)
-    RETURN_STMT_EXPR (*tp) = dp->result;
+  else if (TREE_CODE (*tp) == RETURN_EXPR)
+    TREE_OPERAND (*tp, 0) = dp->result;
   /* Change all cleanups for the NRV to only run when an exception is
      thrown.  */
   else if (TREE_CODE (*tp) == CLEANUP_STMT
 	   && CLEANUP_DECL (*tp) == dp->var)
     CLEANUP_EH_ONLY (*tp) = 1;
-  /* Replace the DECL_STMT for the NRV with an initialization of the
+  /* Replace the DECL_EXPR for the NRV with an initialization of the
      RESULT_DECL, if needed.  */
-  else if (TREE_CODE (*tp) == DECL_STMT
-	   && DECL_STMT_DECL (*tp) == dp->var)
+  else if (TREE_CODE (*tp) == DECL_EXPR
+	   && DECL_EXPR_DECL (*tp) == dp->var)
     {
       tree init;
       if (DECL_INITIAL (dp->var)
@@ -3048,7 +2987,7 @@ finalize_nrv_r (tree* tp, int* walk_subtrees, void* data)
 }
 
 /* Called from finish_function to implement the named return value
-   optimization by overriding all the RETURN_STMTs and pertinent
+   optimization by overriding all the RETURN_EXPRs and pertinent
    CLEANUP_STMTs and replacing all occurrences of VAR with RESULT, the
    RESULT_DECL for the function.  */
 

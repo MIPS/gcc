@@ -5591,15 +5591,13 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       else if (TREE_CODE (exp) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (exp, 1);
-	  tree this_offset = DECL_FIELD_OFFSET (field);
+	  tree this_offset = component_ref_field_offset (exp);
 
 	  /* If this field hasn't been filled in yet, don't go
 	     past it.  This should only happen when folding expressions
 	     made during type construction.  */
 	  if (this_offset == 0)
 	    break;
-	  else
-	    this_offset = SUBSTITUTE_PLACEHOLDER_IN_EXPR (this_offset, exp);
 
 	  offset = size_binop (PLUS_EXPR, offset, this_offset);
 	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
@@ -5612,23 +5610,17 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	       || TREE_CODE (exp) == ARRAY_RANGE_REF)
 	{
 	  tree index = TREE_OPERAND (exp, 1);
-	  tree array = TREE_OPERAND (exp, 0);
-	  tree domain = TYPE_DOMAIN (TREE_TYPE (array));
-	  tree low_bound = (domain ? TYPE_MIN_VALUE (domain) : 0);
-	  tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (array)));
+	  tree low_bound = array_ref_low_bound (exp);
+	  tree unit_size = array_ref_element_size (exp);
 
 	  /* We assume all arrays have sizes that are a multiple of a byte.
 	     First subtract the lower bound, if any, in the type of the
 	     index, then convert to sizetype and multiply by the size of the
 	     array element.  */
-	  if (low_bound != 0 && ! integer_zerop (low_bound))
+	  if (! integer_zerop (low_bound))
 	    index = fold (build (MINUS_EXPR, TREE_TYPE (index),
 				 index, low_bound));
 
-	  /* If the index has a self-referential type, instantiate it with
-	     the object; likewise for the component size.  */
-	  index = SUBSTITUTE_PLACEHOLDER_IN_EXPR (index, exp);
-	  unit_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (unit_size, array);
 	  offset = size_binop (PLUS_EXPR, offset,
 			       size_binop (MULT_EXPR,
 					   convert (sizetype, index),
@@ -5674,6 +5666,70 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 
   *pmode = mode;
   return exp;
+}
+
+/* Return a tree of sizetype representing the size, in bytes, of the element
+   of EXP, an ARRAY_REF.  */
+
+tree
+array_ref_element_size (tree exp)
+{
+  tree aligned_size = TREE_OPERAND (exp, 3);
+  tree elmt_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+
+  /* If a size was specified in the ARRAY_REF, it's the size measured
+     in alignment units of the element type.  So multiply by that value.  */
+  if (aligned_size)
+    return size_binop (MULT_EXPR, aligned_size,
+		       size_int (TYPE_ALIGN (elmt_type) / BITS_PER_UNIT));
+
+  /* Otherwise, take the size from that of the element type.  Substitute 
+     any PLACEHOLDER_EXPR that we have.  */
+  else
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (TYPE_SIZE_UNIT (elmt_type), exp);
+}
+
+/* Return a tree representing the lower bound of the array mentioned in
+   EXP, an ARRAY_REF.  */
+
+tree
+array_ref_low_bound (tree exp)
+{
+  tree domain_type = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (exp, 0)));
+
+  /* If a lower bound is specified in EXP, use it.  */
+  if (TREE_OPERAND (exp, 2))
+    return TREE_OPERAND (exp, 2);
+
+  /* Otherwise, if there is a domain type and it has a lower bound, use it,
+     substituting for a PLACEHOLDER_EXPR as needed.  */
+  if (domain_type && TYPE_MIN_VALUE (domain_type))
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (TYPE_MIN_VALUE (domain_type), exp);
+
+  /* Otherwise, return a zero of the appropriate type.  */
+  return fold_convert (TREE_TYPE (TREE_OPERAND (exp, 1)), integer_zero_node);
+}
+
+/* Return a tree representing the offset, in bytes, of the field referenced
+   by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
+
+tree
+component_ref_field_offset (tree exp)
+{
+  tree aligned_offset = TREE_OPERAND (exp, 2);
+  tree field = TREE_OPERAND (exp, 1);
+
+  /* If an offset was specified in the COMPONENT_REF, it's the offset measured
+     in units of DECL_OFFSET_ALIGN / BITS_PER_UNIT.  So multiply by that
+     value.  */
+  if (aligned_offset)
+    return size_binop (MULT_EXPR, aligned_offset,
+		       size_int (DECL_OFFSET_ALIGN (field) / BITS_PER_UNIT));
+
+  /* Otherwise, take the offset from that of the field.  Substitute 
+     any PLACEHOLDER_EXPR that we have.  */
+  else
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (DECL_FIELD_OFFSET (field), exp);
 }
 
 /* Return 1 if T is an expression that get_inner_reference handles.  */
@@ -5945,6 +6001,14 @@ safe_from_p (rtx x, tree exp, int top_p)
 	return 1;	/* An already-visited SAVE_EXPR? */
       else
 	return 0;
+
+    case 's':
+      /* The only case we look at here is the DECL_INITIAL inside a
+	 DECL_EXPR.  */
+      return (TREE_CODE (exp) != DECL_EXPR
+	      || TREE_CODE (DECL_EXPR_DECL (exp)) != VAR_DECL
+	      || !DECL_INITIAL (DECL_EXPR_DECL (exp))
+	      || safe_from_p (x, DECL_INITIAL (DECL_EXPR_DECL (exp)), 0));
 
     case '2':
     case '<':
@@ -7001,8 +7065,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
       {
 	tree array = TREE_OPERAND (exp, 0);
-	tree domain = TYPE_DOMAIN (TREE_TYPE (array));
-	tree low_bound = domain ? TYPE_MIN_VALUE (domain) : integer_zero_node;
+	tree low_bound = array_ref_low_bound (exp);
 	tree index = convert (sizetype, TREE_OPERAND (exp, 1));
 	HOST_WIDE_INT i;
 
@@ -7440,42 +7503,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return target;
       }
 
-    case VTABLE_REF:
-      {
-	rtx insn, before = get_last_insn (), vtbl_ref;
-
-	/* Evaluate the interior expression.  */
-	subtarget = expand_expr (TREE_OPERAND (exp, 0), target,
-				 tmode, modifier);
-
-	/* Get or create an instruction off which to hang a note.  */
-	if (REG_P (subtarget))
-	  {
-	    target = subtarget;
-	    insn = get_last_insn ();
-	    if (insn == before)
-	      abort ();
-	    if (! INSN_P (insn))
-	      insn = prev_nonnote_insn (insn);
-	  }
-	else
-	  {
-	    target = gen_reg_rtx (GET_MODE (subtarget));
-	    insn = emit_move_insn (target, subtarget);
-	  }
-
-	/* Collect the data for the note.  */
-	vtbl_ref = XEXP (DECL_RTL (TREE_OPERAND (exp, 1)), 0);
-	vtbl_ref = plus_constant (vtbl_ref,
-				  tree_low_cst (TREE_OPERAND (exp, 2), 0));
-	/* Discard the initial CONST that was added.  */
-	vtbl_ref = XEXP (vtbl_ref, 0);
-
-	REG_NOTES (insn)
-	  = gen_rtx_EXPR_LIST (REG_VTABLE_REF, vtbl_ref, REG_NOTES (insn));
-
-	return target;
-      }
+    case OBJ_TYPE_REF:
+      return expand_expr (OBJ_TYPE_REF_EXPR (exp), target, tmode, modifier);
 
       /* Intended for a reference to a buffer of a file-object in Pascal.
 	 But it's not certain that a special tree code will really be

@@ -162,6 +162,9 @@ static bool arm_promote_prototypes (tree);
 static bool arm_default_short_enums (void);
 static bool arm_align_anon_bitfield (void);
 
+static tree arm_cxx_guard_type (void);
+static bool arm_cxx_guard_mask_bit (void);
+
 
 /* Initialize the GCC target structure.  */
 #ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -264,6 +267,12 @@ static bool arm_align_anon_bitfield (void);
 #undef TARGET_ALIGN_ANON_BITFIELD
 #define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
 
+#undef TARGET_CXX_GUARD_TYPE
+#define TARGET_CXX_GUARD_TYPE arm_cxx_guard_type
+
+#undef TARGET_CXX_GUARD_MASK_BIT
+#define TARGET_CXX_GUARD_MASK_BIT arm_cxx_guard_mask_bit
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Obstack for minipool constant handling.  */
@@ -365,6 +374,9 @@ int arm_arch3m = 0;
 
 /* Nonzero if this chip supports the ARM Architecture 4 extensions.  */
 int arm_arch4 = 0;
+
+/* Nonzero if this chip supports the ARM Architecture 4t extensions.  */
+int arm_arch4t = 0;
 
 /* Nonzero if this chip supports the ARM Architecture 5 extensions.  */
 int arm_arch5 = 0;
@@ -802,6 +814,7 @@ arm_override_options (void)
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
   arm_arch3m = (insn_flags & FL_ARCH3M) != 0;
   arm_arch4 = (insn_flags & FL_ARCH4) != 0;
+  arm_arch4t = arm_arch4 & ((insn_flags & FL_THUMB) != 0);
   arm_arch5 = (insn_flags & FL_ARCH5) != 0;
   arm_arch5e = (insn_flags & FL_ARCH5E) != 0;
   arm_arch6 = (insn_flags & FL_ARCH6) != 0;
@@ -815,6 +828,11 @@ arm_override_options (void)
 		    && !(tune_flags & FL_ARCH4))) != 0;
   arm_tune_xscale = (tune_flags & FL_XSCALE) != 0;
   arm_arch_iwmmxt = (insn_flags & FL_IWMMXT) != 0;
+
+  /* V5 code we generate is completely interworking capable, so we turn off
+     TARGET_INTERWORK here to avoid many tests later on.  */
+  if (arm_arch5)
+    target_flags &= ~ARM_FLAG_INTERWORK;
 
   if (target_abi_name)
     {
@@ -8000,8 +8018,10 @@ vfp_emit_fstmx (int base_reg, int count)
 const char *
 output_call (rtx *operands)
 {
-  /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
+  if (arm_arch5)
+    abort ();		/* Patterns should call blx <reg> directly.  */
 
+  /* Handle calls to lr using ip (which may be clobbered in subr anyway).  */
   if (REGNO (operands[0]) == LR_REGNUM)
     {
       operands[0] = gen_rtx_REG (SImode, IP_REGNUM);
@@ -8010,7 +8030,7 @@ output_call (rtx *operands)
   
   output_asm_insn ("mov%?\t%|lr, %|pc", operands);
   
-  if (TARGET_INTERWORK)
+  if (TARGET_INTERWORK || arm_arch4t)
     output_asm_insn ("bx%?\t%0", operands);
   else
     output_asm_insn ("mov%?\t%|pc, %0", operands);
@@ -8022,7 +8042,7 @@ output_call (rtx *operands)
 const char *
 output_call_mem (rtx *operands)
 {
-  if (TARGET_INTERWORK)
+  if (TARGET_INTERWORK && !arm_arch5)
     {
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
       output_asm_insn ("mov%?\t%|lr, %|pc", operands);
@@ -8034,8 +8054,16 @@ output_call_mem (rtx *operands)
 	 first instruction.  It's safe to use IP as the target of the
 	 load since the call will kill it anyway.  */
       output_asm_insn ("ldr%?\t%|ip, %0", operands);
-      output_asm_insn ("mov%?\t%|lr, %|pc", operands);
-      output_asm_insn ("mov%?\t%|pc, %|ip", operands);
+      if (arm_arch5)
+	output_asm_insn ("blx%?%|ip", operands);
+      else
+	{
+	  output_asm_insn ("mov%?\t%|lr, %|pc", operands);
+	  if (arm_arch4t)
+	    output_asm_insn ("bx%?\t%|ip", operands);
+	  else
+	    output_asm_insn ("mov%?\t%|pc, %|ip", operands);
+	}
     }
   else
     {
@@ -9261,9 +9289,8 @@ output_return_instruction (rtx operand, int really_return, int reverse)
 	  break;
 
 	default:
-	  /* ARMv5 implementations always provide BX, so interworking
-	     is the default.  */
-	  if ((insn_flags & FL_ARCH5) != 0)
+	  /* Use bx if it's available.  */
+	  if (arm_arch5 || arm_arch4t)
 	    sprintf (instr, "bx%s\t%%|lr", conditional);	    
 	  else
 	    sprintf (instr, "mov%s\t%%|pc, %%|lr", conditional);
@@ -9705,10 +9732,7 @@ arm_output_epilogue (rtx sibling)
     }
 
   /* We may have already restored PC directly from the stack.  */
-  if (! really_return
-    || (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
-	&& current_function_pretend_args_size == 0
-	&& saved_regs_mask & (1 << PC_REGNUM)))
+  if (!really_return || saved_regs_mask & (1 << PC_REGNUM))
     return "";
 
   /* Generate the return instruction.  */
@@ -9732,7 +9756,10 @@ arm_output_epilogue (rtx sibling)
       break;
 
     default:
-      asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
+      if (arm_arch5 || arm_arch4t)
+	asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
+      else
+	asm_fprintf (f, "\tmov\t%r, %r\n", PC_REGNUM, LR_REGNUM);
       break;
     }
 
@@ -11237,6 +11264,16 @@ arm_final_prescan_insn (rtx insn)
 	      break;
 
 	    case CALL_INSN:
+	      /* The AAPCS says that conditional calls should not be
+		 used since they make interworking inefficient (the
+		 linker can't transform BL<cond> into BLX).  That's
+		 only a problem if the machine has BLX.  */
+	      if (arm_arch5)
+		{
+		  fail = TRUE;
+		  break;
+		}
+
 	      /* Succeed if the following insn is the target label, or
 		 if the following two insns are a barrier and the
 		 target label.  */
@@ -14506,6 +14543,24 @@ arm_default_short_enums (void)
 
 static bool
 arm_align_anon_bitfield (void)
+{
+  return TARGET_AAPCS_BASED;
+}
+
+
+/* The generic C++ ABI says 64-bit (long long).  The EABI says 32-bit.  */
+
+static tree
+arm_cxx_guard_type (void)
+{
+  return TARGET_AAPCS_BASED ? integer_type_node : long_long_integer_type_node;
+}
+
+
+/* The EABI says test the least significan bit of a guard variable.  */
+
+static bool
+arm_cxx_guard_mask_bit (void)
 {
   return TARGET_AAPCS_BASED;
 }

@@ -887,7 +887,7 @@ C_OBJS = c-parse.o c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 OBJS-common = \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  tree-alias-type.o gimplify.o tree-pretty-print.o tree-into-ssa.o          \
- tree-outof-ssa.o tree-alias-common.o tree-ssa-ccp.o			   \
+ tree-outof-ssa.o tree-alias-common.o tree-ssa-ccp.o tree-vn.o             \
  @ANDER@ tree-ssa-dce.o  tree-ssa-copy.o tree-nrv.o tree-ssa-copyrename.o  \
  tree-ssa-pre.o tree-ssa-live.o tree-ssa-operands.o tree-ssa-alias.o       \
  tree-ssa-phiopt.o tree-ssa-forwprop.o tree-nested.o tree-ssa-dse.o	   \
@@ -914,7 +914,7 @@ OBJS-common = \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
  simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o 	 	  \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o unroll.o	   \
- varasm.o varray.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
+ varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o
 
@@ -1640,9 +1640,12 @@ tree-ssa-copyrename.o : tree-ssa-copyrename.c $(TREE_FLOW_H) $(CONFIG_H) \
    diagnostic.h errors.h toplev.h function.h $(TIMEVAR_H) tree-pass.h \
    tree-alias-common.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_SSA_LIVE_H)
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
-   $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
+   $(SYSTEM_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h toplev.h $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H)
+tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
+   $(TREE_H) $(TREE_FLOW_H) $(HASHTAB_H) langhooks.h tree-pass.h \
+   $(TREE_DUMP_H) diagnostic.h
 tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -1686,8 +1689,9 @@ c-gimplify.o : c-gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    $(TM_H) coretypes.h $(C_PRETTY_PRINT_H) cgraph.h
 gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h $(TREE_GIMPLE_H) tree-inline.h varray.h langhooks.h \
-   langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
-   $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) output.h $(GGC_H) gt-gimplify.h
+   langhooks-def.h $(TREE_FLOW_H) cgraph.h $(TIMEVAR_H) $(TM_H) coretypes.h \
+   except.h $(FLAGS_H) $(RTL_H) function.h $(EXPR_H) output.h $(GGC_H) \
+   gt-gimplify.h
 gimple-low.o : gimple-low.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) errors.h \
    diagnostic.h $(TREE_GIMPLE_H) tree-inline.h varray.h langhooks.h \
    langhooks-def.h $(TREE_FLOW_H) $(TIMEVAR_H) $(TM_H) coretypes.h except.h \
@@ -1986,6 +1990,7 @@ global.o : global.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS
    toplev.h $(TM_P_H)
 varray.o : varray.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) varray.h $(GGC_H) errors.h \
    $(HASHTAB_H)
+vec.o : vec.c $(CONFIG_H) coretypes.h vec.h ggc.h errors.h
 ra.o : ra.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TM_P_H) insn-config.h \
    $(RECOG_H) $(INTEGRATE_H) function.h $(REGS_H) $(OBSTACK_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) $(DF_H) $(EXPR_H) output.h toplev.h $(FLAGS_H) reload.h $(RA_H)
@@ -2511,7 +2516,7 @@ gengtype.o : gengtype.c gengtype.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H)
   real.h $(RTL_BASE_H) gtyp-gen.h
 
 gengtype-lex.o : gengtype-lex.c gengtype.h gengtype-yacc.h \
-  $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)
+  $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) vec.h
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	 $< $(OUTPUT_OPTION)
 

@@ -2,7 +2,7 @@
    additional tree codes used in the GNU C++ compiler (see tree.def
    for the standard codes).
    Copyright (C) 1987, 1988, 1990, 1993, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2004 Free Software Foundation, Inc.
    Written by Benjamin Chelf <chelf@codesourcery.com>
 
 This file is part of GCC.
@@ -33,10 +33,6 @@ DEFTREECODE (ALIGNOF_EXPR, "alignof_expr", '1', 1)
    obtain the expression.  */
 DEFTREECODE (EXPR_STMT, "expr_stmt", 'e', 1)
 
-/* Used to represent a local declaration. The operand is
-   DECL_STMT_DECL.  */
-DEFTREECODE (DECL_STMT, "decl_stmt", 'e', 1)
-
 /* Used to represent a `for' statement. The operands are
    FOR_INIT_STMT, FOR_COND, FOR_EXPR, and FOR_BODY, respectively.  */
 DEFTREECODE (FOR_STMT, "for_stmt", 'e', 4)
@@ -48,10 +44,6 @@ DEFTREECODE (WHILE_STMT, "while_stmt", 'e', 2)
 /* Used to represent a 'do' statement. The operands are DO_BODY and
    DO_COND, respectively.  */
 DEFTREECODE (DO_STMT, "do_stmt", 'e', 2)
-
-/* Used to represent a 'return' statement. The operand is
-   RETURN_STMT_EXPR.  */
-DEFTREECODE (RETURN_STMT, "return_stmt", 'e', 1)
 
 /* Used to represent a 'break' statement.  */
 DEFTREECODE (BREAK_STMT, "break_stmt", 'e', 0)

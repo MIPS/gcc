@@ -38,7 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
-#include "lex.h"
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
@@ -119,32 +118,15 @@ tree static_dtors;
    TYPE_UNQUALIFIED will be an extension.  */
 
 int
-grok_method_quals (tree ctype, tree function, tree quals)
+grok_method_quals (tree ctype, tree function, cp_cv_quals quals)
 {
   tree fntype = TREE_TYPE (function);
   tree raises = TYPE_RAISES_EXCEPTIONS (fntype);
   int type_quals = TYPE_UNQUALIFIED;
-  int dup_quals = TYPE_UNQUALIFIED;
   int this_quals = TYPE_UNQUALIFIED;
 
-  do
-    {
-      int tq = cp_type_qual_from_rid (TREE_VALUE (quals));
-      
-      if ((type_quals | this_quals) & tq)
-	dup_quals |= tq;
-      else if (tq & TYPE_QUAL_RESTRICT)
-        this_quals |= tq;
-      else
-	type_quals |= tq;
-      quals = TREE_CHAIN (quals);
-    } 
-  while (quals);
-
-  if (dup_quals != TYPE_UNQUALIFIED)
-    error ("duplicate type qualifiers in %s declaration",
-	      TREE_CODE (function) == FUNCTION_DECL 
-	      ? "member function" : "type");
+  type_quals = quals & ~TYPE_QUAL_RESTRICT;
+  this_quals = quals & TYPE_QUAL_RESTRICT;
 
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
@@ -156,27 +138,6 @@ grok_method_quals (tree ctype, tree function, tree quals)
 
   TREE_TYPE (function) = fntype;
   return this_quals;
-}
-
-/* A subroutine of the parser, to handle a component list.  */
-
-void
-grok_x_components (tree specs)
-{
-  tree t;
-
-  specs = strip_attrs (specs);
-
-  check_tag_decl (specs);
-  t = groktypename (build_tree_list (specs, NULL_TREE)); 
-
-  /* The only case where we need to do anything additional here is an
-     anonymous union field, e.g.: `struct S { union { int i; }; };'.  */
-  if (t == NULL_TREE || !ANON_AGGR_TYPE_P (t))
-    return;
-
-  fixup_anonymous_aggr (t);
-  finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
 }
 
 /* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
@@ -304,10 +265,11 @@ maybe_retrofit_in_chrg (tree fn)
    QUALS are the qualifiers for the this pointer.  */
 
 void
-grokclassfn (tree ctype, tree function, enum overload_flags flags, tree quals)
+grokclassfn (tree ctype, tree function, enum overload_flags flags, 
+	     cp_cv_quals quals)
 {
   tree fn_name = DECL_NAME (function);
-  int this_quals = TYPE_UNQUALIFIED;
+  cp_cv_quals this_quals = TYPE_UNQUALIFIED;
 
   /* Even within an `extern "C"' block, members get C++ linkage.  See
      [dcl.link] for details.  */
@@ -369,7 +331,8 @@ grok_array_decl (tree array_expr, tree index_exp)
     {
       if (type_dependent_expression_p (array_expr)
 	  || type_dependent_expression_p (index_exp))
-	return build_min_nt (ARRAY_REF, array_expr, index_exp);
+	return build_min_nt (ARRAY_REF, array_expr, index_exp,
+			     NULL_TREE, NULL_TREE);
       array_expr = build_non_dependent_expr (array_expr);
       index_exp = build_non_dependent_expr (index_exp);
     }
@@ -426,8 +389,8 @@ grok_array_decl (tree array_expr, tree index_exp)
       expr = build_array_ref (array_expr, index_exp);
     }
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (ARRAY_REF, expr,
-			      orig_array_expr, orig_index_exp);
+    return build_min_non_dep (ARRAY_REF, expr, orig_array_expr, orig_index_exp,
+			      NULL_TREE, NULL_TREE);
   return expr;
 }
 
@@ -840,23 +803,28 @@ finish_static_data_member_decl (tree decl, tree init, tree asmspec_tree,
    CHANGES TO CODE IN `start_method'.  */
 
 tree
-grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
+grokfield (const cp_declarator *declarator, 
+	   cp_decl_specifier_seq *declspecs, 
+	   tree init, tree asmspec_tree,
            tree attrlist)
 {
   tree value;
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
 
-  if (declspecs == NULL_TREE
-      && TREE_CODE (declarator) == SCOPE_REF
-      && TREE_CODE (TREE_OPERAND (declarator, 1)) == IDENTIFIER_NODE)
+  if (!declspecs->any_specifiers_p
+      && declarator->kind == cdk_id
+      && TREE_CODE (declarator->u.id.name) == SCOPE_REF
+      && (TREE_CODE (TREE_OPERAND (declarator->u.id.name, 1)) 
+	  == IDENTIFIER_NODE))
     {
       /* Access declaration */
-      if (! IS_AGGR_TYPE_CODE (TREE_CODE (TREE_OPERAND (declarator, 0))))
+      if (! IS_AGGR_TYPE_CODE (TREE_CODE 
+			       (TREE_OPERAND (declarator->u.id.name, 0))))
 	;
-      else if (TREE_COMPLEXITY (declarator) == current_class_depth)
+      else if (TREE_COMPLEXITY (declarator->u.id.name) == current_class_depth)
 	pop_nested_class ();
-      return do_class_using_decl (declarator);
+      return do_class_using_decl (declarator->u.id.name);
     }
 
   if (init
@@ -1019,7 +987,8 @@ grokfield (tree declarator, tree declspecs, tree init, tree asmspec_tree,
    WIDTH is non-NULL for bit fields only, and is an INTEGER_CST node.  */
 
 tree
-grokbitfield (tree declarator, tree declspecs, tree width)
+grokbitfield (const cp_declarator *declarator, 
+	      cp_decl_specifier_seq *declspecs, tree width)
 {
   tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
 
@@ -1175,7 +1144,8 @@ build_anon_union_vars (tree object)
 	cp_pedwarn_at ("protected member `%#D' in anonymous union", field);
 
       if (processing_template_decl)
-	ref = build_min_nt (COMPONENT_REF, object, DECL_NAME (field));
+	ref = build_min_nt (COMPONENT_REF, object,
+			    DECL_NAME (field), NULL_TREE);
       else
 	ref = build_class_member_access_expr (object, field, NULL_TREE,
 					      false);
@@ -1242,7 +1212,7 @@ finish_anon_union (tree anon_union_decl)
   pushdecl (anon_union_decl);
   if (building_stmt_tree ()
       && at_function_scope_p ())
-    add_decl_stmt (anon_union_decl);
+    add_decl_expr (anon_union_decl);
   else if (!processing_template_decl)
     rest_of_decl_compilation (anon_union_decl, NULL,
 			      toplevel_bindings_p (), at_eof);
@@ -1579,12 +1549,14 @@ maybe_emit_vtables (tree ctype)
     return false;
 
   import_export_class (ctype);
-  import_export_vtable (primary_vtbl, ctype, 1);
 
   /* See if any of the vtables are needed.  */
   for (vtbl = CLASSTYPE_VTABLES (ctype); vtbl; vtbl = TREE_CHAIN (vtbl))
-    if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
-      break;
+    {
+      import_export_vtable (vtbl, ctype, 1);
+      if (!DECL_EXTERNAL (vtbl) && DECL_NEEDED_P (vtbl))
+	break;
+    }
   if (!vtbl)
     {
       /* If the references to this class' vtables are optimized away,
@@ -1838,7 +1810,7 @@ get_guard (tree decl)
 
       /* We use a type that is big enough to contain a mutex as well
 	 as an integer counter.  */
-      guard_type = long_long_integer_type_node;
+      guard_type = targetm.cxx.guard_type ();
       guard = build_decl (VAR_DECL, sname, guard_type);
       
       /* The guard should have the same linkage as what it guards.  */
@@ -1862,15 +1834,18 @@ get_guard (tree decl)
 static tree
 get_guard_bits (tree guard)
 {
-  /* We only set the first byte of the guard, in order to leave room
-     for a mutex in the high-order bits.  */
-  guard = build1 (ADDR_EXPR, 
-		  build_pointer_type (TREE_TYPE (guard)),
-		  guard);
-  guard = build1 (NOP_EXPR, 
-		  build_pointer_type (char_type_node), 
-		  guard);
-  guard = build1 (INDIRECT_REF, char_type_node, guard);
+  if (!targetm.cxx.guard_mask_bit ())
+    {
+      /* We only set the first byte of the guard, in order to leave room
+	 for a mutex in the high-order bits.  */
+      guard = build1 (ADDR_EXPR, 
+		      build_pointer_type (TREE_TYPE (guard)),
+		      guard);
+      guard = build1 (NOP_EXPR, 
+		      build_pointer_type (char_type_node), 
+		      guard);
+      guard = build1 (INDIRECT_REF, char_type_node, guard);
+    }
 
   return guard;
 }
@@ -1885,6 +1860,16 @@ get_guard_cond (tree guard)
 
   /* Check to see if the GUARD is zero.  */
   guard = get_guard_bits (guard);
+
+  /* Mask off all but the low bit.  */
+  if (targetm.cxx.guard_mask_bit ())
+    {
+      guard_value = integer_one_node;
+      if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
+	guard_value = convert (TREE_TYPE (guard), guard_value);
+	guard = cp_build_binary_op (BIT_AND_EXPR, guard, guard_value);
+    }
+
   guard_value = integer_zero_node;
   if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
     guard_value = convert (TREE_TYPE (guard), guard_value);
@@ -1913,8 +1898,8 @@ set_guard (tree guard)
 static tree
 start_objects (int method_type, int initp)
 {
-  tree fnname;
   tree body;
+  tree fndecl;
   char type[10];
 
   /* Make ctor or dtor function.  METHOD_TYPE may be 'I' or 'D'.  */
@@ -1934,12 +1919,11 @@ start_objects (int method_type, int initp)
   else
     sprintf (type, "%c", method_type);
 
-  fnname = get_file_function_name_long (type);
-
-  start_function (void_list_node,
-		  make_call_declarator (fnname, void_list_node, NULL_TREE,
-					NULL_TREE),
-		  NULL_TREE, SF_DEFAULT);
+  fndecl = build_lang_decl (FUNCTION_DECL, 
+			    get_file_function_name_long (type),
+			    build_function_type (void_type_node,
+						 void_list_node));
+  start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
 
   /* It can be a static function as long as collect2 does not have
      to scan the object file to find its ctor/dtor routine.  */
@@ -2106,10 +2090,9 @@ start_static_storage_duration_function (unsigned count)
        
      It is static because we only need to call this function from the
      various constructor and destructor functions for this module.  */
-  start_function (/*specs=*/NULL_TREE, 
-		  ssdf_decl,
-		  /*attrs=*/NULL_TREE,
-		  SF_PRE_PARSED);
+  start_preparsed_function (ssdf_decl,
+			    /*attrs=*/NULL_TREE,
+			    SF_PRE_PARSED);
 
   /* Set up the scope of the outermost block in the function.  */
   body = begin_compound_stmt (BCS_FN_BODY);

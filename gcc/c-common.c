@@ -217,6 +217,10 @@ char flag_dump_macros;
 
 char flag_dump_includes;
 
+/* Nonzero means process PCH files while preprocessing.  */
+
+bool flag_pch_preprocess;
+
 /* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
 
@@ -264,64 +268,10 @@ int flag_const_strings;
 int flag_signed_bitfields = 1;
 int explicit_flag_signed_bitfields;
 
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-int warn_cast_qual;
-
-/* Warn about functions which might be candidates for format attributes.  */
-
-int warn_missing_format_attribute;
-
-/* Nonzero means warn about sizeof(function) or addition/subtraction
-   of function pointers.  */
-
-int warn_pointer_arith;
-
-/* Nonzero means warn for any global function def
-   without separate previous prototype decl.  */
-
-int warn_missing_prototypes;
-
-/* Warn if adding () is suggested.  */
-
-int warn_parentheses;
-
-/* Warn if initializer is not completely bracketed.  */
-
-int warn_missing_braces;
-
-/* Warn about comparison of signed and unsigned values.
-   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified
-   (in which case -Wextra gets to decide).  */
-
-int warn_sign_compare = -1;
-
-/* Nonzero means warn about usage of long long when `-pedantic'.  */
-
-int warn_long_long = 1;
-
 /* Nonzero means warn about deprecated conversion from string constant to
    `char *'.  */
 
 int warn_write_strings;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-int warn_redundant_decls;
-
-/* Warn about testing equality of floating point numbers.  */
-
-int warn_float_equal;
-
-/* Warn about a subscript that has type char.  */
-
-int warn_char_subscripts;
-
-/* Warn if a type conversion is done that might have confusing results.  */
-
-int warn_conversion;
 
 /* Warn about #pragma directives that are not recognized.  */
 
@@ -331,26 +281,6 @@ int warn_unknown_pragmas; /* Tri state variable.  */
    (*printf, *scanf, strftime, strfmon, etc.).  */
 
 int warn_format;
-
-/* Warn about Y2K problems with strftime formats.  */
-
-int warn_format_y2k;
-
-/* Warn about excess arguments to formats.  */
-
-int warn_format_extra_args;
-
-/* Warn about zero-length formats.  */
-
-int warn_format_zero_length;
-
-/* Warn about non-literal format arguments.  */
-
-int warn_format_nonliteral;
-
-/* Warn about possible security problems with calls to format functions.  */
-
-int warn_format_security;
 
 /* Zero means that faster, ...NonNil variants of objc_msgSend...
    calls will be used in ObjC; passing nil receivers to such calls
@@ -377,11 +307,6 @@ int flag_replace_objc_classes = 0;
 /* C/ObjC language option variables.  */
 
 
-/* Nonzero means message about use of implicit function declarations;
- 1 means warning; 2 means error.  */
-
-int mesg_implicit_function_declaration = -1;
-
 /* Nonzero means allow type mismatches in conditional expressions;
    just make their values `void'.  */
 
@@ -399,66 +324,9 @@ int flag_isoc99;
 
 int flag_hosted = 1;
 
-/* Nonzero means warn when casting a function call to a type that does
-   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
-   when there is no previous declaration of sqrt or malloc.  */
-
-int warn_bad_function_cast;
-
-/* Warn about traditional constructs whose meanings changed in ANSI C.  */
-
-int warn_traditional;
-
-/* Nonzero means warn for a declaration found after a statement.  */
-
-int warn_declaration_after_statement;
-
-/* Nonzero means warn for non-prototype function decls
-   or non-prototyped defs without previous prototype.  */
-
-int warn_strict_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous decl.  */
-
-int warn_missing_declarations;
-
-/* Nonzero means warn about declarations of objects not at
-   file-scope level and about *all* declarations of functions (whether
-   or static) not at file-scope level.  Note that we exclude
-   implicit function declarations.  To get warnings about those, use
-   -Wimplicit.  */
-
-int warn_nested_externs;
-
 /* Warn if main is suspicious.  */
 
 int warn_main;
-
-/* Nonzero means warn about possible violations of sequence point rules.  */
-
-int warn_sequence_point;
-
-/* Nonzero means warn about uninitialized variable when it is initialized with itself.
-   For example: int i = i;, GCC will not warn about this when warn_init_self is nonzero.  */
-
-int warn_init_self;
-
-/* Nonzero means to warn about compile-time division by zero.  */
-int warn_div_by_zero = 1;
-
-/* Nonzero means warn about use of implicit int.  */
-
-int warn_implicit_int;
-
-/* Warn about NULL being passed to argument slots marked as requiring
-   non-NULL.  */
-
-int warn_nonnull;
-
-/* Warn about old-style parameter declaration.  */
-
-int warn_old_style_definition;
 
 
 /* ObjC language option variables.  */
@@ -486,25 +354,6 @@ int print_struct_values;
 /* ???.  Undocumented.  */
 
 const char *constant_string_class_name;
-
-/* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  Performs the check on the whole selector
-   table at the end of compilation.  */
-
-int warn_selector;
-
-/* Warn if a @selector() is found, and no method with that selector
-   has been previously declared.  The check is done on each
-   @selector() as soon as it is found - so it warns about forward
-   declarations.  */
-
-int warn_undeclared_selector;
-
-/* Warn if methods required by a protocol are not implemented in the
-   class adopting it.  When turned off, methods inherited to that
-   class are also considered implemented.  */
-
-int warn_protocol = 1;
 
 
 /* C++ language option variables.  */
@@ -608,69 +457,9 @@ int flag_permissive;
 
 int flag_enforce_eh_specs = 1;
 
-/* Nonzero means warn about things that will change when compiling
-   with an ABI-compliant compiler.  */
-
-int warn_abi = 0;
-
-/* Nonzero means warn about invalid uses of offsetof.  */
-
-int warn_invalid_offsetof = 1;
-
 /* Nonzero means warn about implicit declarations.  */
 
 int warn_implicit = 1;
-
-/* Nonzero means warn when all ctors or dtors are private, and the class
-   has no friends.  */
-
-int warn_ctor_dtor_privacy = 0;
-
-/* Nonzero means warn in function declared in derived class has the
-   same name as a virtual in the base class, but fails to match the
-   type signature of any virtual function in the base class.  */
-
-int warn_overloaded_virtual;
-
-/* Nonzero means warn when declaring a class that has a non virtual
-   destructor, when it really ought to have a virtual one.  */
-
-int warn_nonvdtor;
-
-/* Nonzero means warn when the compiler will reorder code.  */
-
-int warn_reorder;
-
-/* Nonzero means warn when synthesis behavior differs from Cfront's.  */
-
-int warn_synth;
-
-/* Nonzero means warn when we convert a pointer to member function
-   into a pointer to (void or function).  */
-
-int warn_pmf2ptr = 1;
-
-/* Nonzero means warn about violation of some Effective C++ style rules.  */
-
-int warn_ecpp;
-
-/* Nonzero means warn where overload resolution chooses a promotion from
-   unsigned to signed over a conversion to an unsigned of the same size.  */
-
-int warn_sign_promo;
-
-/* Nonzero means warn when an old-style cast is used.  */
-
-int warn_old_style_cast;
-
-/* Nonzero means warn when non-templatized friend functions are
-   declared within a template */
-
-int warn_nontemplate_friend = 1;
-
-/* Nonzero means complain about deprecated features.  */
-
-int warn_deprecated = 1;
 
 /* Maximum template instantiation depth.  This limit is rather
    arbitrary, but it exists to limit the time it takes to notice
@@ -1247,7 +1036,6 @@ static int warning_candidate_p (tree);
 static void warn_for_collisions (struct tlist *);
 static void warn_for_collisions_1 (tree, tree, struct tlist *, int);
 static struct tlist *new_tlist (struct tlist *, tree, tree);
-static void verify_sequence_points (tree);
 
 /* Create a new struct tlist and fill in its fields.  */
 static struct tlist *
@@ -1334,7 +1122,8 @@ warn_for_collisions_1 (tree written, tree writer, struct tlist *list,
     {
       if (list->expr == written
 	  && list->writer != writer
-	  && (! only_writes || list->writer))
+	  && (! only_writes || list->writer)
+	  && DECL_NAME (list->expr))
 	{
 	  warned_ids = new_tlist (warned_ids, written, NULL_TREE);
 	  warning ("operation on `%s' may be undefined",
@@ -1586,7 +1375,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 /* Try to warn for undefined behavior in EXPR due to missing sequence
    points.  */
 
-static void
+void
 verify_sequence_points (tree expr)
 {
   struct tlist *before_sp = 0, *after_sp = 0;
@@ -1602,32 +1391,6 @@ verify_sequence_points (tree expr)
   verify_tree (expr, &before_sp, &after_sp, 0);
   warn_for_collisions (after_sp);
   obstack_free (&tlist_obstack, tlist_firstobj);
-}
-
-tree
-c_expand_expr_stmt (tree expr)
-{
-  /* Do default conversion if safe and possibly important,
-     in case within ({...}).  */
-  if ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
-       && (flag_isoc99 || lvalue_p (expr)))
-      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE)
-    expr = default_conversion (expr);
-
-  if (warn_sequence_point)
-    verify_sequence_points (expr);
-
-  if (TREE_TYPE (expr) != error_mark_node
-      && !COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (expr))
-      && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
-    error ("expression statement has incomplete type");
-
-  /* As tempting as it might be, we can't diagnose statement with no
-     effect yet.  We have to wait until after statement expressions
-     have been parsed, and that process modifies the trees we are
-     creating here.  */
-
-  return add_stmt (build_stmt (EXPR_STMT, expr));
 }
 
 /* Validate the expression after `case' and apply default promotions.  */
@@ -3523,155 +3286,6 @@ strip_pointer_operator (tree t)
   return t;
 }
 
-static tree expand_unordered_cmp (tree, tree, enum tree_code, enum tree_code);
-
-/* Expand a call to an unordered comparison function such as
-   __builtin_isgreater().  FUNCTION is the function's declaration and
-   PARAMS a list of the values passed.  For __builtin_isunordered(),
-   UNORDERED_CODE is UNORDERED_EXPR and ORDERED_CODE is NOP_EXPR.  In
-   other cases, UNORDERED_CODE and ORDERED_CODE are comparison codes
-   that give the opposite of the desired result.  UNORDERED_CODE is
-   used for modes that can hold NaNs and ORDERED_CODE is used for the
-   rest.  */
-
-static tree
-expand_unordered_cmp (tree function, tree params,
-		      enum tree_code unordered_code,
-		      enum tree_code ordered_code)
-{
-  tree arg0, arg1, type;
-  enum tree_code code0, code1;
-
-  /* Check that we have exactly two arguments.  */
-  if (params == 0 || TREE_CHAIN (params) == 0)
-    {
-      error ("too few arguments to function `%s'",
-	     IDENTIFIER_POINTER (DECL_NAME (function)));
-      return error_mark_node;
-    }
-  else if (TREE_CHAIN (TREE_CHAIN (params)) != 0)
-    {
-      error ("too many arguments to function `%s'",
-	     IDENTIFIER_POINTER (DECL_NAME (function)));
-      return error_mark_node;
-    }
-
-  arg0 = TREE_VALUE (params);
-  arg1 = TREE_VALUE (TREE_CHAIN (params));
-
-  code0 = TREE_CODE (TREE_TYPE (arg0));
-  code1 = TREE_CODE (TREE_TYPE (arg1));
-
-  /* Make sure that the arguments have a common type of REAL.  */
-  type = 0;
-  if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
-      && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
-    type = common_type (TREE_TYPE (arg0), TREE_TYPE (arg1));
-
-  if (type == 0 || TREE_CODE (type) != REAL_TYPE)
-    {
-      error ("non-floating-point argument to function `%s'",
-	     IDENTIFIER_POINTER (DECL_NAME (function)));
-      return error_mark_node;
-    }
-
-  if (unordered_code == UNORDERED_EXPR)
-    {
-      if (MODE_HAS_NANS (TYPE_MODE (type)))
-	return build_binary_op (unordered_code,
-				convert (type, arg0),
-				convert (type, arg1),
-				0);
-      else
-	return integer_zero_node;
-    }
-
-  return build_unary_op (TRUTH_NOT_EXPR,
-			 build_binary_op (MODE_HAS_NANS (TYPE_MODE (type))
-					  ? unordered_code
-					  : ordered_code,
-					  convert (type, arg0),
-					  convert (type, arg1),
-					  0),
-			 0);
-}
-
-
-/* Recognize certain built-in functions so we can make tree-codes
-   other than CALL_EXPR.  We do this when it enables fold-const.c
-   to do something useful.  */
-/* ??? By rights this should go in builtins.c, but only C and C++
-   implement build_{binary,unary}_op.  Not exactly sure what bits
-   of functionality are actually needed from those functions, or
-   where the similar functionality exists in the other front ends.  */
-
-tree
-expand_tree_builtin (tree function, tree params, tree coerced_params)
-{
-  if (DECL_BUILT_IN_CLASS (function) != BUILT_IN_NORMAL)
-    return NULL_TREE;
-
-  switch (DECL_FUNCTION_CODE (function))
-    {
-    case BUILT_IN_ABS:
-    case BUILT_IN_LABS:
-    case BUILT_IN_LLABS:
-    case BUILT_IN_IMAXABS:
-    case BUILT_IN_FABS:
-    case BUILT_IN_FABSL:
-    case BUILT_IN_FABSF:
-      if (coerced_params == 0)
-	return integer_zero_node;
-      return build_unary_op (ABS_EXPR, TREE_VALUE (coerced_params), 0);
-
-    case BUILT_IN_CONJ:
-    case BUILT_IN_CONJF:
-    case BUILT_IN_CONJL:
-      if (coerced_params == 0)
-	return integer_zero_node;
-      return build_unary_op (CONJ_EXPR, TREE_VALUE (coerced_params), 0);
-
-    case BUILT_IN_CREAL:
-    case BUILT_IN_CREALF:
-    case BUILT_IN_CREALL:
-      if (coerced_params == 0)
-	return integer_zero_node;
-      return non_lvalue (build_unary_op (REALPART_EXPR,
-					 TREE_VALUE (coerced_params), 0));
-
-    case BUILT_IN_CIMAG:
-    case BUILT_IN_CIMAGF:
-    case BUILT_IN_CIMAGL:
-      if (coerced_params == 0)
-	return integer_zero_node;
-      return non_lvalue (build_unary_op (IMAGPART_EXPR,
-					 TREE_VALUE (coerced_params), 0));
-
-    case BUILT_IN_ISGREATER:
-      return expand_unordered_cmp (function, params, UNLE_EXPR, LE_EXPR);
-
-    case BUILT_IN_ISGREATEREQUAL:
-      return expand_unordered_cmp (function, params, UNLT_EXPR, LT_EXPR);
-
-    case BUILT_IN_ISLESS:
-      return expand_unordered_cmp (function, params, UNGE_EXPR, GE_EXPR);
-
-    case BUILT_IN_ISLESSEQUAL:
-      return expand_unordered_cmp (function, params, UNGT_EXPR, GT_EXPR);
-
-    case BUILT_IN_ISLESSGREATER:
-      return expand_unordered_cmp (function, params, UNEQ_EXPR, EQ_EXPR);
-
-    case BUILT_IN_ISUNORDERED:
-      return expand_unordered_cmp (function, params, UNORDERED_EXPR, NOP_EXPR);
-
-    default:
-      break;
-    }
-
-  return NULL_TREE;
-}
-
 /* Walk the statement tree, rooted at *tp.  Apply FUNC to all the
    sub-trees of *TP in a pre-order traversal.  FUNC is called with the
    DATA and the address of each sub-tree.  If FUNC returns a non-NULL
@@ -4103,28 +3717,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
     default:
       abort ();
     }
-}
-
-/* Hook used by safe_from_p to handle language-specific tree codes.  */
-
-int
-c_safe_from_p (rtx target, tree exp)
-{
-  /* We can see statements here when processing the body of a
-     statement-expression.  For a declaration statement declaring a
-     variable, look at the variable's initializer.  */
-  if (TREE_CODE (exp) == DECL_STMT)
-    {
-      tree decl = DECL_STMT_DECL (exp);
-
-      if (TREE_CODE (decl) == VAR_DECL
-	  && DECL_INITIAL (decl)
-	  && !safe_from_p (target, DECL_INITIAL (decl), /*top_p=*/0))
-	return 0;
-    }
-
-  /* Assume everything else is safe.  */
-  return 1;
 }
 
 /* Hook used by unsafe_for_reeval to handle language-specific tree codes.  */
@@ -5510,53 +5102,6 @@ check_function_arguments_recurse (void (*callback)
     }
 
   (*callback) (ctx, param, param_num);
-}
-
-/* C implementation of lang_hooks.tree_inlining.walk_subtrees.  Tracks the
-   locus from EXPR_LOCUS and handles DECL_STMT specially.  */
-
-tree 
-c_walk_subtrees (tree *tp, int *walk_subtrees_p ATTRIBUTE_UNUSED,
-		 walk_tree_fn func, void *data, void *htab)
-{
-  enum tree_code code = TREE_CODE (*tp);
-  location_t save_locus;
-  tree result;
-
-#define WALK_SUBTREE(NODE)				\
-  do							\
-    {							\
-      result = walk_tree (&(NODE), func, data, htab);	\
-      if (result) goto out;				\
-    }							\
-  while (0)
-
-  if (code != DECL_STMT)
-    return NULL_TREE;
-
-  /* Set input_location here so we get the right instantiation context
-     if we call instantiate_decl from inlinable_function_p.  */
-  save_locus = input_location;
-  if (EXPR_LOCUS (*tp))
-    input_location = *EXPR_LOCUS (*tp);
-
-  /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-     into declarations that are just mentioned, rather than
-     declared; they don't really belong to this part of the tree.
-     And, we can see cycles: the initializer for a declaration can
-     refer to the declaration itself.  */
-  WALK_SUBTREE (DECL_INITIAL (DECL_STMT_DECL (*tp)));
-  WALK_SUBTREE (DECL_SIZE (DECL_STMT_DECL (*tp)));
-  WALK_SUBTREE (DECL_SIZE_UNIT (DECL_STMT_DECL (*tp)));
-  WALK_SUBTREE (TREE_CHAIN (*tp));
-  *walk_subtrees_p = 0;
-
-  /* We didn't find what we were looking for.  */
- out:
-  input_location = save_locus;
-  return result;
-
-#undef WALK_SUBTREE
 }
 
 /* Function to help qsort sort FIELD_DECLs by name order.  */

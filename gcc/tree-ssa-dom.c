@@ -223,9 +223,11 @@ static tree lookup_avail_expr (tree, varray_type *, bool);
 static struct eq_expr_value get_eq_expr_value (tree, int, varray_type *,
 					       basic_block, varray_type *);
 static hashval_t avail_expr_hash (const void *);
+static hashval_t real_avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static void htab_statistics (FILE *, htab_t);
 static void record_cond (tree, tree, varray_type *);
+static void record_dominating_conditions (tree, varray_type *);
 static void record_const_or_copy (tree, tree, varray_type *);
 static void record_equality (tree, tree, varray_type *);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, varray_type *,
@@ -552,7 +554,7 @@ tree_ssa_dominator_optimize (void)
   mark_dfs_back_edges ();
 
   /* Create our hash tables.  */
-  avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, free);
+  avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   VARRAY_TREE_INIT (const_and_copies, num_ssa_names, "const_and_copies");
   nonzero_vars = BITMAP_XMALLOC ();
   VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
@@ -647,7 +649,7 @@ tree_ssa_dominator_optimize (void)
   if (dump_file && (dump_flags & TDF_STATS))
     dump_dominator_optimization_stats (dump_file);
 
-  /* We emptyed the hash table earlier, now delete it completely.  */
+  /* We emptied the hash table earlier, now delete it completely.  */
   htab_delete (avail_exprs);
 
   /* It is not necessary to clear CURRDEFS, REDIRECTION_EDGES, VRP_DATA,
@@ -1228,6 +1230,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	  if (TREE_CODE_CLASS (cond_code) == '<')
 	    {
 	      record_cond (cond, boolean_true_node, &bd->avail_exprs);
+	      record_dominating_conditions (cond, &bd->avail_exprs);
 	      record_cond (inverted, boolean_false_node, &bd->avail_exprs);
 	    }
 	  else if (cond_code == SSA_NAME)
@@ -1257,6 +1260,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	    {
 	      record_cond (cond, boolean_false_node, &bd->avail_exprs);
 	      record_cond (inverted, boolean_true_node, &bd->avail_exprs);
+	      record_dominating_conditions (inverted, &bd->avail_exprs);
 	    }
 	  else if (cond_code == SSA_NAME)
 	    record_const_or_copy (cond, boolean_false_node,
@@ -1604,6 +1608,178 @@ record_cond (tree cond, tree value, varray_type *block_avail_exprs_p)
     }
   else
     free (element);
+}
+
+/* COND is a condition which is known to be true.   Record variants of
+   COND which must also be true.
+
+   For example, if a < b is true, then a <= b must also be true.  */
+
+static void
+record_dominating_conditions (tree cond, varray_type *block_avail_exprs_p)
+{
+  switch (TREE_CODE (cond))
+    {
+    case LT_EXPR:
+      record_cond (build2 (LE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LTGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case GT_EXPR:
+      record_cond (build2 (GE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LTGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case GE_EXPR:
+    case LE_EXPR:
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case EQ_EXPR:
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (LE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (GE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNORDERED_EXPR:
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNEQ_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNLT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGT_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNLT_EXPR:
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNGT_EXPR:
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case UNEQ_EXPR:
+      record_cond (build2 (UNLE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (UNGE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      break;
+
+    case LTGT_EXPR:
+      record_cond (build2 (NE_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+      record_cond (build2 (ORDERED_EXPR, boolean_type_node,
+			   TREE_OPERAND (cond, 0),
+			   TREE_OPERAND (cond, 1)),
+		   boolean_true_node,
+		   block_avail_exprs_p);
+
+    default:
+      break;
+    }
 }
 
 /* A helper function for record_const_or_copy and record_equality.
@@ -3044,6 +3220,7 @@ get_eq_expr_value (tree if_stmt,
 	  if (true_arm)
 	    {
 	      record_cond (cond, boolean_true_node, block_avail_exprs_p);
+	      record_dominating_conditions (cond, block_avail_exprs_p);
 	      record_cond (inverted, boolean_false_node, block_avail_exprs_p);
 
 	      if (TREE_CONSTANT (op1))
@@ -3062,6 +3239,7 @@ get_eq_expr_value (tree if_stmt,
 	    {
 
 	      record_cond (inverted, boolean_true_node, block_avail_exprs_p);
+	      record_dominating_conditions (inverted, block_avail_exprs_p);
 	      record_cond (cond, boolean_false_node, block_avail_exprs_p);
 
 	      if (TREE_CONSTANT (op1))
@@ -3117,6 +3295,11 @@ avail_expr_hash (const void *p)
   return val;
 }
 
+static hashval_t
+real_avail_expr_hash (const void *p)
+{
+  return ((const struct expr_hash_elt *)p)->hash;
+}
 
 static int
 avail_expr_eq (const void *p1, const void *p2)
@@ -3178,7 +3361,7 @@ avail_expr_eq (const void *p1, const void *p2)
   return false;
 }
 
-/* Given STMT and a pointer to the block local defintions BLOCK_DEFS_P,
+/* Given STMT and a pointer to the block local definitions BLOCK_DEFS_P,
    register register all objects set by this statement into BLOCK_DEFS_P
    and CURRDEFS.  */
 

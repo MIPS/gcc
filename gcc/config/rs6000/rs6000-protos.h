@@ -101,6 +101,7 @@ extern int includes_lshift_p (rtx, rtx);
 extern int includes_rshift_p (rtx, rtx);
 extern int includes_rldic_lshift_p (rtx, rtx);
 extern int includes_rldicr_lshift_p (rtx, rtx);
+extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
@@ -139,6 +140,7 @@ extern bool rs6000_mode_dependent_address (rtx);
 extern rtx rs6000_return_addr (int, rtx);
 extern void rs6000_output_symbol_ref (FILE*, rtx);
 extern HOST_WIDE_INT rs6000_initial_elimination_offset (int, int);
+extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx, int);
 
 extern rtx rs6000_machopic_legitimize_pic_address (rtx orig, 
                             enum machine_mode mode, rtx reg);

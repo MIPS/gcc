@@ -1,3 +1,32 @@
+2004-06-27  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/12839
+	* io/write.c (write_float): check signbit for Infinity.
+
+2004-06-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/16196
+	* unix.c(regular_file): create file if it does not exist.
+
+2004-06-24  Andrew Pinski  <apinski@apple.com>
+
+	* configure.ac: Remove check for libmx.
+	* configure: Regenerate.
+
+2004-06-22  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	PR fortran/15750
+	* inquire.c (st_inquire): Add comment
+	* io.h (st_parameter): Add iolength.
+	(st_iolength, st_iolength_done): Declare.
+	* transfer.c (iolength_transfer, iolength_transfer_init,
+	st_iolength, st_iolength_done): New functions.
+
+2004-06-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* etime.c (etime_sub): Remove array rank check;
+	Add check for sufficient space.
+
 2004-06-19  Bud Davis  <bdavis9659@comcast.net>
 
 	PR gfortran/16080

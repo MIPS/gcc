@@ -65,8 +65,8 @@ ssa_remove_edge (edge e)
   remove_edge (e);
 }
 
-/* Remove remove the corresponding arguments from the PHI nodes
-   in E's destination block and redirect it to DEST.  Return redirected edge.
+/* Remove the corresponding arguments from the PHI nodes in E's
+   destination block and redirect it to DEST.  Return redirected edge.
    The list of removed arguments is stored in PENDING_STMT (e).  */
 
 edge
@@ -473,20 +473,11 @@ set_is_used (tree t)
       if (SSA_VAR_P (t))
 	break;
 
-      switch (TREE_CODE (t))
-	{
-	case ARRAY_REF:
-	case COMPONENT_REF:
-	case REALPART_EXPR:
-	case IMAGPART_EXPR:
-	case BIT_FIELD_REF:
-	case INDIRECT_REF:
+      if (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR)
+	t = TREE_OPERAND (t, 0);
+      else
+	while (handled_component_p (t))
 	  t = TREE_OPERAND (t, 0);
-	  break;
-
-	default:
-	  return;
-	}
     }
 
   if (TREE_CODE (t) == SSA_NAME)
@@ -506,6 +497,7 @@ init_tree_ssa (void)
   init_ssa_operands ();
   init_ssanames ();
   init_phinodes ();
+  vn_init ();
   global_var = NULL_TREE;
   aliases_computed_p = false;
 }
@@ -536,6 +528,7 @@ delete_tree_ssa (void)
   fini_ssanames ();
   fini_phinodes ();
   fini_ssa_operands ();
+  vn_delete ();
 
   global_var = NULL_TREE;
   BITMAP_XFREE (call_clobbered_vars);

@@ -303,7 +303,6 @@ static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
 static bool toc_relative_expr_p (rtx);
 static bool legitimate_small_data_p (enum machine_mode, rtx);
-static bool legitimate_offset_address_p (enum machine_mode, rtx, int);
 static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_indirect_address_p (rtx, int);
 static bool macho_lo_sum_memory_operand (rtx x, enum machine_mode mode);
@@ -316,6 +315,7 @@ static void rs6000_assemble_visibility (tree, int);
 static int rs6000_ra_ever_killed (void);
 static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
@@ -353,7 +353,6 @@ static void rs6000_xcoff_file_end (void);
 #if TARGET_MACHO
 static bool rs6000_binds_local_p (tree);
 #endif
-static int rs6000_use_dfa_pipeline_interface (void);
 static int rs6000_variable_issue (FILE *, int, rtx, int);
 static bool rs6000_rtx_costs (rtx, int, int, int *);
 static int rs6000_adjust_cost (rtx, rtx, rtx, int);
@@ -570,7 +569,7 @@ static const char alt_reg_names[][8] =
 #define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
 
 #undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE rs6000_use_dfa_pipeline_interface
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef  TARGET_SCHED_VARIABLE_ISSUE
 #define TARGET_SCHED_VARIABLE_ISSUE rs6000_variable_issue
 
@@ -2626,9 +2625,6 @@ toc_relative_expr_p (rtx op)
   return constant_pool_expr_1 (op, &have_sym, &have_toc) && have_toc;
 }
 
-/* SPE offset addressing is limited to 5-bits worth of double words.  */
-#define SPE_CONST_OFFSET_OK(x) (((x) & ~0xf8) == 0)
-
 bool
 legitimate_constant_pool_address_p (rtx x)
 {
@@ -2648,8 +2644,11 @@ legitimate_small_data_p (enum machine_mode mode, rtx x)
 	  && small_data_operand (x, mode));
 }
 
-static bool
-legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
+/* SPE offset addressing is limited to 5-bits worth of double words.  */
+#define SPE_CONST_OFFSET_OK(x) (((x) & ~0xf8) == 0)
+
+bool
+rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 {
   unsigned HOST_WIDE_INT offset, extra;
 
@@ -2659,6 +2658,8 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
+  if (legitimate_constant_pool_address_p (x))
+    return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return false;
 
@@ -3328,7 +3329,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
    word aligned.
 
    For modes spanning multiple registers (DFmode in 32-bit GPRs,
-   32-bit DImode, TImode), indexed addressing cannot be used because
+   32-bit DImode, TImode, TFmode), indexed addressing cannot be used because
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 int
@@ -3356,9 +3357,10 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
          || XEXP (x, 0) == arg_pointer_rtx)
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return 1;
-  if (legitimate_offset_address_p (mode, x, reg_ok_strict))
+  if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict))
     return 1;
   if (mode != TImode
+      && mode != TFmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != TFmode))
@@ -3653,6 +3655,27 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
   return dest;
 }
 
+/* Helper for the following.  Get rid of [r+r] memory refs
+   in cases where it won't work (TImode, TFmode).  */
+
+static void
+rs6000_eliminate_indexed_memrefs (rtx operands[2])
+{
+  if (GET_CODE (operands[0]) == MEM
+      && GET_CODE (XEXP (operands[0], 0)) != REG
+      && ! reload_in_progress)
+    operands[0]
+      = replace_equiv_address (operands[0],
+			       copy_addr_to_reg (XEXP (operands[0], 0)));
+
+  if (GET_CODE (operands[1]) == MEM
+      && GET_CODE (XEXP (operands[1], 0)) != REG
+      && ! reload_in_progress)
+    operands[1]
+      = replace_equiv_address (operands[1],
+			       copy_addr_to_reg (XEXP (operands[1], 0)));
+}
+
 /* Emit a move from SOURCE to DEST in mode MODE.  */
 void
 rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
@@ -3790,6 +3813,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TFmode:
+      rs6000_eliminate_indexed_memrefs (operands);
+      /* fall through */
+
     case DFmode:
     case SFmode:
       if (CONSTANT_P (operands[1]) 
@@ -3972,19 +3998,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TImode:
-      if (GET_CODE (operands[0]) == MEM
-	  && GET_CODE (XEXP (operands[0], 0)) != REG
-	  && ! reload_in_progress)
-	operands[0]
-	  = replace_equiv_address (operands[0],
-				   copy_addr_to_reg (XEXP (operands[0], 0)));
+      rs6000_eliminate_indexed_memrefs (operands);
 
-      if (GET_CODE (operands[1]) == MEM
-	  && GET_CODE (XEXP (operands[1], 0)) != REG
-	  && ! reload_in_progress)
-	operands[1]
-	  = replace_equiv_address (operands[1],
-				   copy_addr_to_reg (XEXP (operands[1], 0)));
       if (TARGET_POWER)
 	{
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
@@ -5026,10 +5041,10 @@ rs6000_va_start (tree valist, rtx nextarg)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
+  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
   words = current_function_args_info.words;
@@ -5131,10 +5146,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   f_sav = TREE_CHAIN (f_ovf);
 
   valist = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (valist)), valist);
-  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr);
-  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr);
-  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf);
-  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav);
+  gpr = build (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
+  fpr = build (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
+  ovf = build (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
+  sav = build (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   size = int_size_in_bytes (type);
   rsize = (size + 3) / 4;
@@ -8383,7 +8398,7 @@ lmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (base_regno == 0)
 	return 0;
     }
-  else if (legitimate_offset_address_p (SImode, src_addr, 0))
+  else if (rs6000_legitimate_offset_address_p (SImode, src_addr, 0))
     {
       offset = INTVAL (XEXP (src_addr, 1));
       base_regno = REGNO (XEXP (src_addr, 0));
@@ -8411,7 +8426,7 @@ lmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (legitimate_offset_address_p (SImode, newaddr, 0))
+      else if (rs6000_legitimate_offset_address_p (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
@@ -8459,7 +8474,7 @@ stmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (base_regno == 0)
 	return 0;
     }
-  else if (legitimate_offset_address_p (SImode, dest_addr, 0))
+  else if (rs6000_legitimate_offset_address_p (SImode, dest_addr, 0))
     {
       offset = INTVAL (XEXP (dest_addr, 1));
       base_regno = REGNO (XEXP (dest_addr, 0));
@@ -8487,7 +8502,7 @@ stmw_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (legitimate_offset_address_p (SImode, newaddr, 0))
+      else if (rs6000_legitimate_offset_address_p (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
@@ -8809,6 +8824,26 @@ includes_rldicr_lshift_p (rtx shiftop, rtx andop)
     }
   else
     return 0;
+}
+
+/* Return 1 if operands will generate a valid arguments to rlwimi
+instruction for insert with right shift in 64-bit mode.  The mask may
+not start on the first bit or stop on the last bit because wrap-around
+effects of instruction do not correspond to semantics of RTL insn.  */
+
+int
+insvdi_rshift_rlwimi_p (rtx sizeop, rtx startop, rtx shiftop)
+{
+  if (INTVAL (startop) < 64
+      && INTVAL (startop) > 32
+      && (INTVAL (sizeop) + INTVAL (startop) < 64)
+      && (INTVAL (sizeop) + INTVAL (startop) > 33)
+      && (INTVAL (sizeop) + INTVAL (startop) + INTVAL (shiftop) < 96)
+      && (INTVAL (sizeop) + INTVAL (startop) + INTVAL (shiftop) >= 64)
+      && (64 - (INTVAL (shiftop) & 63)) >= INTVAL (sizeop))
+    return 1;
+
+  return 0;
 }
 
 /* Return 1 if REGNO (reg1) == REGNO (reg2) - 1 making them candidates
@@ -14165,12 +14200,6 @@ output_function_profiler (FILE *file, int labelno)
 }
 
 
-static int
-rs6000_use_dfa_pipeline_interface (void)
-{
-  return 1;
-}
-
 /* Power4 load update and store update instructions are cracked into a
    load or store and an integer insn which are executed in the same cycle.
    Branches have their own dispatch slot which does not count against the

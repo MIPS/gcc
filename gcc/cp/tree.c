@@ -571,8 +571,8 @@ canonical_type_variant (tree t)
    derived TYPE. PREV is the previous binfo, whose TREE_CHAIN we make
    point to this binfo. We return the last BINFO created.
 
-   The CLASSTYPE_VBASECLASSES list of T is constructed in reverse
-   order (pre-order, depth-first, right-to-left). You must nreverse it.
+   The CLASSTYPE_VBASECLASSES vector of T is constructed in the correct
+   order.
 
    The BINFO_INHERITANCE of a virtual base class points to the binfo
    og the most derived type.
@@ -613,12 +613,7 @@ copy_base_binfos (tree binfo, tree t, tree prev)
 	  BINFO_DEPENDENT_BASE_P (new_binfo) = 1;
 	}
       else if (TREE_VIA_VIRTUAL (base_binfo))
-	{
-	  new_binfo = purpose_member (BINFO_TYPE (base_binfo),
-				      CLASSTYPE_VBASECLASSES (t));
-	  if (new_binfo)
-	    new_binfo = TREE_VALUE (new_binfo);
-	}
+	new_binfo = binfo_for_vbase (BINFO_TYPE (base_binfo), t);
       
       if (!new_binfo)
 	{
@@ -628,9 +623,7 @@ copy_base_binfos (tree binfo, tree t, tree prev)
 	  prev = copy_base_binfos (new_binfo, t, prev);
 	  if (TREE_VIA_VIRTUAL (base_binfo))
 	    {
-	      CLASSTYPE_VBASECLASSES (t)
-		= tree_cons (BINFO_TYPE (new_binfo), new_binfo,
-			     CLASSTYPE_VBASECLASSES (t));
+	      VEC_quick_push (tree, CLASSTYPE_VBASECLASSES (t), new_binfo);
 	      TREE_VIA_VIRTUAL (new_binfo) = 1;
 	      BINFO_INHERITANCE_CHAIN (new_binfo) = TYPE_BINFO (t);
 	    }
@@ -1026,11 +1019,13 @@ bind_template_template_parm (tree t, tree newargs)
 /* Called from count_trees via walk_tree.  */
 
 static tree
-count_trees_r (tree* tp ATTRIBUTE_UNUSED , 
-               int* walk_subtrees ATTRIBUTE_UNUSED , 
-               void* data)
+count_trees_r (tree *tp, int *walk_subtrees, void *data)
 {
-  ++ *((int*) data);
+  ++*((int *) data);
+
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+
   return NULL_TREE;
 }
 
@@ -1107,9 +1102,8 @@ find_tree (tree t, tree x)
 /* Passed to walk_tree.  Checks for the use of types with no linkage.  */
 
 static tree
-no_linkage_helper (tree* tp, 
-                   int* walk_subtrees ATTRIBUTE_UNUSED , 
-                   void* data ATTRIBUTE_UNUSED )
+no_linkage_helper (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+		   void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -1118,6 +1112,7 @@ no_linkage_helper (tree* tp,
       && (decl_function_context (TYPE_MAIN_DECL (t))
 	  || TYPE_ANONYMOUS_P (t)))
     return t;
+
   return NULL_TREE;
 }
 
@@ -1960,14 +1955,11 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 }
 
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
-   traversal.  Called from walk_tree().  */
+   traversal.  Called from walk_tree.  */
 
 tree 
-cp_walk_subtrees (tree* tp, 
-                  int* walk_subtrees_p, 
-                  walk_tree_fn func, 
-                  void* data, 
-                  void* htab)
+cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
+		  void *data, void *htab)
 {
   enum tree_code code = TREE_CODE (*tp);
   location_t save_locus;
@@ -2028,7 +2020,7 @@ cp_walk_subtrees (tree* tp,
 
     default:
       input_location = save_locus;
-      return c_walk_subtrees (tp, walk_subtrees_p, func, data, htab);
+      return NULL_TREE;
     }
 
   /* We didn't find what we were looking for.  */
@@ -2199,7 +2191,7 @@ init_tree (void)
   list_hash_table = htab_create_ggc (31, list_hash, list_hash_eq, NULL);
 }
 
-/* Called via walk_tree.  If *TP points to a DECL_STMT for a local
+/* Called via walk_tree.  If *TP points to a DECL_EXPR for a local
    declaration, copies the declaration and enters it in the splay_tree
    pointed to by DATA (which is really a `splay_tree *').  */
 
@@ -2213,9 +2205,9 @@ mark_local_for_remap_r (tree* tp,
   tree decl;
 
   
-  if (TREE_CODE (t) == DECL_STMT
-      && nonstatic_local_decl_p (DECL_STMT_DECL (t)))
-    decl = DECL_STMT_DECL (t);
+  if (TREE_CODE (t) == DECL_EXPR
+      && nonstatic_local_decl_p (DECL_EXPR_DECL (t)))
+    decl = DECL_EXPR_DECL (t);
   else if (TREE_CODE (t) == LABEL_EXPR)
     decl = LABEL_EXPR_LABEL (t);
   else if (TREE_CODE (t) == TARGET_EXPR

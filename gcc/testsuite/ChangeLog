@@ -1,3 +1,159 @@
+2004-06-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* PR C++/16174
+	* g++.dg/template/ctor4.C: New.
+
+2004-06-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/16205
+	* g++.dg/warn/Wsequence-point-1.C: New test.
+
+2004-06-27  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/specfics.f90: Use correct typing.
+
+2004-06-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* g++.old-deja/g++.mike/p7325.C: Remove.
+
+2004-06-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/14963
+	* gcc.dg/pr14963.c: New test.
+
+2004-06-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16193
+	* g++.dg/parse/redef1.C: New test.
+
+2004-06-27  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.c-torture/compile/20021123-1.c: Remove duplicate of
+	20021110.c.
+	* gcc.c-torture/compile/20021123-4.c: Remove duplicate of
+	20021119-1.c.
+	* gcc.dg/vmx/5-05.c, gcc.dg/vmx/5-06.c, gcc.dg/vmx/5-07.c,
+	gcc.dg/vmx/5-08.c: Remove duplicates of 5-01.c, 5-02.c, 5-03.c,
+	5-04.c.
+	* gcc.dg/builtins-42.c: Remove duplicate of builtins-41.c.
+	* g++.dg/other/new1.C: Remove duplicate of g++.dg/init/new1.C.
+	* g++.dg/init/elide3.C: Remove duplicate of elide2.C.
+	* g++.old-deja/g++.law/enum8.C: Remove duplicate of
+	g++.brendan/enum14.C.
+	* g++.old-deja/g++.mike/ns8.C: Remove duplicate of ns6.C
+	* g++.old-deja/g++.ns/alias5.C: Remove duplicate of alias1.C.
+	* g++.old-deja/g++.other/virtual1.C: Remove duplicate of
+	g++.mike/virt1.C.
+	* g++.old-deja/g++.pt/memtemp27.C: Remove duplicate of
+	memtemp24.C.
+
+2004-06-27  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/20040527-1.c: New test case.
+
+2004-06-26  Bud Davis  <bdavis9659@comcast.net>
+
+	PR gfortran/pr16196
+	* gfortran.fortran-torture/execute/open_replace.f90: New test case.
+
+2004-06-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/15825
+	* gcc.dg/pr15825-1.c: New test case.
+
+2004-06-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20040625-1.c: New test.
+
+2004-06-25  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/der_init_3.f90: Fix syntax error.
+
+2004-06-25  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/torture/mips-div-1.c: New test.
+
+2004-06-24  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20040624-1.c: New test.
+
+2004-06-24  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/compile/20040624-1.c: New test.
+
+2004-06-24  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* g++.dg/tree-ssa/tree-ssa.exp: Remove. dg.exp already handles
+	this directory.
+
+2004-06-23  Andrew Pinski  <apinski@apple.com>
+
+	PR middle-end/15988
+	* g++.dg/opt/ptrmem4.C: New test.
+
+	* gcc.dg/c90-array-quals-2.c: New test.
+
+2006-06-23  Nitin Yewale <NitinY@KPITCummins.com>
+
+	* gcc.dg/kpice1.c: New test.
+
+2006-06-23  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/c90-array-quals.c: New test.
+
+2006-06-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/noreturn-1.c (foo5): Update function does return lineno.
+
+2004-06-22  Loren James Rittle  <ljrittle@acm.org>
+
+	* gcc.dg/builtins-config.h: Handle FreeBSD.
+
+2006-06-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/opt/devirt1.C: New.
+
+2004-06-22  Kelley Cook <kcook@gcc.gnu.org>
+
+	* g++.dg/opt/pr15551.C: New testcase.
+
+2004-06-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/14800
+	* gcc.misc-tests/linkage.exp: Set native_cflags to "-m32" for
+	x86_64-*-linux* when compiling for 32bit.
+
+2004-06-21  Andrew Pinski  <apinski@apple.com>
+
+	* gcc.dg/pch/struct-1.c: New.
+	* gcc.dg/pch/struct-1.hs: New.
+
+2004-06-21  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pch/save-temps-1.c: New file.
+	* gcc.dg/pch/save-temps-1.hs: New file.
+
+2004-06-22  Janne Blomqvist  <jblomqvi@cc.hut.fi>
+
+	* gfortran.fortran-torture/execute/iolength_1.f90: New test.
+	* gfortran.fortran-torture/execute/iolength_3.f90: New test.
+
+2004-06-21  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.fortran-torture/execute/select_1.f90: Rename function
+	to fix type error.
+	* gfortran.fortran-torture/execute/intrinsic_associated.f90:
+	Remove trailing spaces.
+
+2004-06-21  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/tree-ssa/20030714-1.c: Rename variables to avoid
+	merging && to BIT_FIELD_REF.
+
+2004-06-21  Richard Sandiford  <rsandifo@redhat.com>
+
+	* g++.dg/opt/placeholder1.C: New test.
+
 2004-06-20  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/compat/struct-complex-1_x.c: Add dummy symbol.

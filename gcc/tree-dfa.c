@@ -111,10 +111,6 @@ find_referenced_vars (void)
   struct walk_state walk_state;
   tree block;
 
-  /* This is the very first pass in preparation for building the SSA
-     form of the function, so initialize internal data structures now.  */
-  init_tree_ssa ();
-
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs and for nested functions.  Both
      constructs create hidden uses of variables. 
@@ -856,24 +852,19 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 static tree
 find_vars_r (tree *tp, int *walk_subtrees, void *data)
 {
-  tree t = *tp;
-  struct walk_state *walk_state = (struct walk_state *)data;
+  struct walk_state *walk_state = (struct walk_state *) data;
 
-  if (SSA_VAR_P (t))
-    {
-      /* If T is a regular variable that the optimizers are interested
-	 in, add it to the list of variables.  */
-      add_referenced_var (t, walk_state);
-    }
-  else if (DECL_P (t)
-	   || TYPE_P (t)
-	   || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
-    {
-      /* Type, _DECL and constant nodes have no interesting children.
-	 Ignore them.  */
-      *walk_subtrees = 0;
-    }
+  /* If T is a regular variable that the optimizers are interested
+     in, add it to the list of variables.  */
+  if (SSA_VAR_P (*tp))
+    add_referenced_var (*tp, walk_state);
 
+  /* Type, _DECL and constant nodes have no interesting children.
+     Ignore them.  */
+  else if (DECL_P (*tp)
+	   || TYPE_P (*tp)
+	   || TREE_CODE_CLASS (TREE_CODE (*tp)) == 'c')
+    *walk_subtrees = 0;
 
   return NULL_TREE;
 }
@@ -926,24 +917,15 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 tree
 get_virtual_var (tree var)
 {
-  enum tree_code code;
-
   STRIP_NOPS (var);
 
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
 
-  code = TREE_CODE (var);
-
-  while (code == ARRAY_REF
-         || code == COMPONENT_REF
-	 || code == REALPART_EXPR
-	 || code == IMAGPART_EXPR)
-    {
-      var = TREE_OPERAND (var, 0);
-      code = TREE_CODE (var);
-    }
-
+  while (TREE_CODE (var) == REALPART_EXPR || TREE_CODE (var) == IMAGPART_EXPR
+	 || handled_component_p (var))
+    var = TREE_OPERAND (var, 0);
+    
 #ifdef ENABLE_CHECKING
   /* Treating GIMPLE registers as virtual variables makes no sense.
      Also complain if we couldn't extract a _DECL out of the original
