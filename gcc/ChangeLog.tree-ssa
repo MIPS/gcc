@@ -1,5 +1,11 @@
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>
 
+	* gimplify.c (simplify_call_expr): Move code to mark MD builtins
+	non-simplifiable...
+	* tree-simple.c (is_simple_call_expr): ... here.
+
+2003-06-03  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-parse.in: Fix botched merge.
 
 2003-06-03  Diego Novillo  <dnovillo@redhat.com>

@@ -452,9 +452,15 @@ is_simple_call_expr (t)
     return 0;
 
   /* Some builtins cannot be simplified because the require specific
-     arguments.  */
+     arguments (e.g., MD builtins).  */
   if (!is_simplifiable_builtin (t))
-    return 1;
+    {
+      /* Mark the CALL_EXPR not simplifiable so that optimizers don't
+         assume anything about it.  Return nonzero to prevent any more
+	 gimplification on this expression.  */
+      mark_not_simple (&t);
+      return 1;
+    }
 
   return (is_simple_id (TREE_OPERAND (t, 0))
           && is_simple_arglist (TREE_OPERAND (t, 1)));

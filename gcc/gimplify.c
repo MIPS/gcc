@@ -1372,15 +1372,6 @@ simplify_call_expr (expr_p, pre_p, post_p, simple_test_f)
     abort ();
 #endif
 
-  /* Some builtins cannot be simplified because they require specific
-     arguments (e.g., MD builtins).  */
-  if (!is_simplifiable_builtin (*expr_p))
-    {
-      /* Mark the whole expression not simplifiable.  */
-      mark_not_simple (expr_p);
-      return;
-    }
-
   /* This may be a call to a builtin function.
 
      Builtin function calls may be transformed into different
