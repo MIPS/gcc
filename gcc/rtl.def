@@ -358,9 +358,8 @@ DEF_RTL_EXPR(ADDRESS, "address", "e", 'm')
 DEF_RTL_EXPR(DEFINE_CPU_UNIT, "define_cpu_unit", "sS", 'x')
 
 /* (define_query_cpu_unit string [string]) describes cpu functional
-   units analogously to define_cpu_unit.  If we use automaton without
-   minimization, the reservation of such units can be queried for
-   automaton state.  */
+   units analogously to define_cpu_unit.  The reservation of such
+   units can be queried for automaton state.  */
 DEF_RTL_EXPR(DEFINE_QUERY_CPU_UNIT, "define_query_cpu_unit", "sS", 'x')
 
 /* (exclusion_set string string) means that each CPU functional unit
@@ -442,8 +441,8 @@ DEF_RTL_EXPR(DEFINE_AUTOMATON, "define_automaton", "s", 'x')
    automata.  Currently there are the following options:
 
    o "no-minimization" which makes no minimization of automata.  This
-     is only worth to do when we are going to query CPU functional
-     unit reservations in an automaton state.
+     is only worth to do when we are debugging the description and
+     need to look more accurately at reservations of states.
 
    o "time" which means printing additional time statistics about
       generation of automata.

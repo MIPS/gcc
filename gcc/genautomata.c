@@ -376,7 +376,7 @@ static void form_ainsn_with_same_reservs    PARAMS ((automaton_t));
 
 static void make_automaton           PARAMS ((automaton_t));
 static void form_arcs_marked_by_insn PARAMS ((state_t));
-static void create_composed_state    PARAMS ((state_t, arc_t, vla_ptr_t *));
+static int create_composed_state     PARAMS ((state_t, arc_t, vla_ptr_t *));
 static void NDFA_to_DFA              PARAMS ((automaton_t));
 static void pass_state_graph         PARAMS ((state_t, void (*) (state_t)));
 static void pass_states              PARAMS ((automaton_t,
@@ -387,7 +387,8 @@ static int set_out_arc_insns_equiv_num PARAMS ((state_t, int));
 static void clear_arc_insns_equiv_num  PARAMS ((state_t));
 static void copy_equiv_class           PARAMS ((vla_ptr_t *to,
 						const vla_ptr_t *from));
-static int state_is_differed           PARAMS ((state_t, int, int));
+static int first_cycle_unit_presence   PARAMS ((state_t, int));
+static int state_is_differed           PARAMS ((state_t, state_t, int, int));
 static state_t init_equiv_class        PARAMS ((state_t *states, int));
 static int partition_equiv_class       PARAMS ((state_t *, int,
 						vla_ptr_t *, int *));
@@ -1074,11 +1075,12 @@ struct state
   char it_was_placed_in_stack_for_NDFA_forming;
   /* The following field is used to form DFA.  */
   char it_was_placed_in_stack_for_DFA_forming;
-  /* The following field is used to transform NDFA to DFA.  The field
-     value is not NULL if the state is a compound state.  In this case
-     the value of field `unit_sets_list' is NULL.  All states in the
-     list are in the hash table.  The list is formed through field
-     `next_sorted_alt_state'.  */
+  /* The following field is used to transform NDFA to DFA and DFA
+     minimization.  The field value is not NULL if the state is a
+     compound state.  In this case the value of field `unit_sets_list'
+     is NULL.  All states in the list are in the hash table.  The list
+     is formed through field `next_sorted_alt_state'.  We should
+     support only one level of nesting state.  */
   alt_state_t component_states;
   /* The following field is used for passing graph of states.  */
   int pass_num;
@@ -3965,7 +3967,7 @@ output_cycle_reservs (f, reservs, start_cycle, repetition_num)
     fprintf (f, NOTHING_NAME);
   if (repetition_num <= 0)
     abort ();
-  if (reserved_units_num > 1)
+  if (repetition_num != 1 && reserved_units_num > 1)
     fprintf (f, ")");
   if (repetition_num != 1)
     fprintf (f, "*%d", repetition_num);
@@ -5450,6 +5452,7 @@ check_unit_distributions_to_automata ()
   int i;
 
   form_the_same_automaton_unit_lists ();
+  fprintf (stderr, "Check unit distributions to automata...");
   for (i = 0; i < description->decls_num; i++)
     {
       decl = description->decls [i];
@@ -5468,6 +5471,7 @@ check_unit_distributions_to_automata ()
 		}
 	}
     }
+  fprintf (stderr, "done\n");
 }
 
 
@@ -5685,6 +5689,7 @@ make_automaton (automaton)
   ainsn_t advance_cycle_ainsn;
   arc_t added_arc;
   vla_ptr_t state_stack;
+  int states_n;
 
   VLA_PTR_CREATE (state_stack, 150, "state stack");
   /* Create the start state (empty state).  */
@@ -5692,6 +5697,7 @@ make_automaton (automaton)
   automaton->start_state = start_state;
   start_state->it_was_placed_in_stack_for_NDFA_forming = 1;
   VLA_PTR_ADD (state_stack, start_state);
+  states_n = 1;
   while (VLA_PTR_LENGTH (state_stack) != 0)
     {
       state = VLA_PTR (state_stack, VLA_PTR_LENGTH (state_stack) - 1);
@@ -5721,6 +5727,9 @@ make_automaton (automaton)
                             state2->it_was_placed_in_stack_for_NDFA_forming
 			      = 1;
                             VLA_PTR_ADD (state_stack, state2);
+			    states_n++;
+			    if (states_n % 100 == 0)
+			      fprintf (stderr, "*");
                           }
 			added_arc = add_arc (state, state2, ainsn, 1);
 			if (!ndfa_flag)
@@ -5749,6 +5758,9 @@ make_automaton (automaton)
         {
           state2->it_was_placed_in_stack_for_NDFA_forming = 1;
           VLA_PTR_ADD (state_stack, state2);
+	  states_n++;
+	  if (states_n % 100 == 0)
+	    fprintf (stderr, "*");
         }
       if (advance_cycle_ainsn == NULL)
 	abort ();
@@ -5785,15 +5797,15 @@ form_arcs_marked_by_insn (state)
 /* The function creates composed state (see comments for IR) from
    ORIGINAL_STATE and list of arcs ARCS_MARKED_BY_INSN marked by the
    same insn.  If the composed state is not in STATE_STACK yet, it is
-   popped to STATE_STACK.  */
-static void
+   pushed into STATE_STACK.  */
+static int
 create_composed_state (original_state, arcs_marked_by_insn, state_stack)
      state_t original_state;
      arc_t arcs_marked_by_insn;
      vla_ptr_t *state_stack;
 {
   state_t state;
-  alt_state_t curr_alt_state;
+  alt_state_t alt_state, curr_alt_state;
   alt_state_t new_alt_state;
   arc_t curr_arc;
   arc_t next_arc;
@@ -5801,9 +5813,10 @@ create_composed_state (original_state, arcs_marked_by_insn, state_stack)
   state_t temp_state;
   alt_state_t canonical_alt_states_list;
   int alts_number;
+  int new_state_p = 0;
 
   if (arcs_marked_by_insn == NULL)
-    return;
+    return new_state_p;
   if (arcs_marked_by_insn->next_arc_marked_by_insn == NULL)
     state = arcs_marked_by_insn->to_state;
   else
@@ -5816,14 +5829,25 @@ create_composed_state (original_state, arcs_marked_by_insn, state_stack)
       for (curr_arc = arcs_marked_by_insn;
            curr_arc != NULL;
            curr_arc = curr_arc->next_arc_marked_by_insn)
-        {
-          new_alt_state = get_free_alt_state ();
-          new_alt_state->next_alt_state = curr_alt_state;
-          new_alt_state->state = curr_arc->to_state;
-	  if (curr_arc->to_state->component_states != NULL)
-	    abort ();
-          curr_alt_state = new_alt_state;
-        }
+	if (curr_arc->to_state->component_states == NULL)
+	  {
+	    new_alt_state = get_free_alt_state ();
+	    new_alt_state->next_alt_state = curr_alt_state;
+	    new_alt_state->state = curr_arc->to_state;
+	    curr_alt_state = new_alt_state;
+	  }
+	else
+	  for (alt_state = curr_arc->to_state->component_states;
+	       alt_state != NULL;
+	       alt_state = alt_state->next_sorted_alt_state)
+	    {
+	      new_alt_state = get_free_alt_state ();
+	      new_alt_state->next_alt_state = curr_alt_state;
+	      new_alt_state->state = alt_state->state;
+	      if (alt_state->state->component_states != NULL)
+		abort ();
+	      curr_alt_state = new_alt_state;
+	    }
       /* There are not identical sets in the alt state list.  */
       canonical_alt_states_list = uniq_sort_alt_states (curr_alt_state);
       if (canonical_alt_states_list->next_sorted_alt_state == NULL)
@@ -5847,6 +5871,7 @@ create_composed_state (original_state, arcs_marked_by_insn, state_stack)
             {
               if (state->it_was_placed_in_stack_for_DFA_forming)
 		abort ();
+	      new_state_p = 1;
               for (curr_alt_state = state->component_states;
                    curr_alt_state != NULL;
                    curr_alt_state = curr_alt_state->next_sorted_alt_state)
@@ -5873,6 +5898,7 @@ create_composed_state (original_state, arcs_marked_by_insn, state_stack)
       state->it_was_placed_in_stack_for_DFA_forming = 1;
       VLA_PTR_ADD (*state_stack, state);
     }
+  return new_state_p;
 }
 
 /* The function transformes nondeterminstic AUTOMATON into
@@ -5886,12 +5912,14 @@ NDFA_to_DFA (automaton)
   decl_t decl;
   vla_ptr_t state_stack;
   int i;
+  int states_n;
 
   VLA_PTR_CREATE (state_stack, 150, "state stack");
   /* Create the start state (empty state).  */
   start_state = automaton->start_state;
   start_state->it_was_placed_in_stack_for_DFA_forming = 1;
   VLA_PTR_ADD (state_stack, start_state);
+  states_n = 1;
   while (VLA_PTR_LENGTH (state_stack) != 0)
     {
       state = VLA_PTR (state_stack, VLA_PTR_LENGTH (state_stack) - 1);
@@ -5899,11 +5927,15 @@ NDFA_to_DFA (automaton)
       form_arcs_marked_by_insn (state);
       for (i = 0; i < description->decls_num; i++)
 	{
-	  decl = description->decls [i];
-	  if (decl->mode == dm_insn_reserv)
-	    create_composed_state
-              (state, DECL_INSN_RESERV (decl)->arcs_marked_by_insn,
-	       &state_stack);
+	  if (decl->mode == dm_insn_reserv
+	      && create_composed_state
+	         (state, DECL_INSN_RESERV (decl)->arcs_marked_by_insn,
+		  &state_stack))
+	    {
+	      states_n++;
+	      if (states_n % 100 == 0)
+		fprintf (stderr, "*");
+	    }
 	}
     }
   VLA_PTR_DELETE (state_stack);
@@ -6025,19 +6057,39 @@ copy_equiv_class (to, from)
     VLA_PTR_ADD (*to, *class_ptr);
 }
 
+/* The following function returns TRUE if STATE reserves the unit with
+   UNIT_NUM on the first cycle.  */
+static int
+first_cycle_unit_presence (state, unit_num)
+     state_t state;
+     int unit_num;
+{
+  int presence_p;
+
+  if (state->component_states == NULL)
+    presence_p = test_unit_reserv (state->reservs, 0, unit_num);
+  else
+    presence_p
+      = test_unit_reserv (state->component_states->state->reservs,
+			  0, unit_num);
+  return presence_p;
+}
+
 /* The function returns nonzero value if STATE is not equivalent to
-   another state from the same current partition on equivalence
-   classes Another state has ORIGINAL_STATE_OUT_ARCS_NUM number of
+   ANOTHER_STATE from the same current partition on equivalence
+   classes.  Another state has ANOTHER_STATE_OUT_ARCS_NUM number of
    output arcs.  Iteration of making equivalence partition is defined
    by ODD_ITERATION_FLAG.  */
 static int
-state_is_differed (state, original_state_out_arcs_num, odd_iteration_flag)
-     state_t state;
-     int original_state_out_arcs_num;
+state_is_differed (state, another_state, another_state_out_arcs_num,
+		   odd_iteration_flag)
+     state_t state, another_state;
+     int another_state_out_arcs_num;
      int odd_iteration_flag;
 {
   arc_t arc;
   int state_out_arcs_num;
+  int i, presence1_p, presence2_p;
 
   state_out_arcs_num = 0;
   for (arc = first_out_arc (state); arc != NULL; arc = next_out_arc (arc))
@@ -6050,7 +6102,19 @@ state_is_differed (state, original_state_out_arcs_num, odd_iteration_flag)
 	  || (arc->insn->insn_reserv_decl->state_alts != arc->state_alts))
         return 1;
     }
-  return state_out_arcs_num != original_state_out_arcs_num;
+  if (state_out_arcs_num != another_state_out_arcs_num)
+    return 1;
+  /* Now we are looking at the states with the point of view of query
+     units.  */
+  for (i = 0; i < description->units_num; i++)
+    if (units_array [i]->query_p)
+      {
+	presence1_p = first_cycle_unit_presence (state, i);
+	presence2_p = first_cycle_unit_presence (another_state, i);
+	if ((presence1_p && !presence2_p) || (!presence1_p && presence2_p))
+	  return 1;
+      }
+  return 0;
 }
 
 /* The function makes initial partition of STATES on equivalent
@@ -6115,7 +6179,7 @@ partition_equiv_class (equiv_class_ptr, odd_iteration_flag,
 	       curr_state = next_state)
 	    {
 	      next_state = curr_state->next_equiv_class_state;
-	      if (state_is_differed (curr_state, out_arcs_num,
+	      if (state_is_differed (curr_state, first_state, out_arcs_num,
 				     odd_iteration_flag))
 		{
 		  /* Remove curr state from the class equivalence.  */
@@ -6201,7 +6265,7 @@ merge_states (automaton, equiv_classes)
   state_t new_state;
   state_t first_class_state;
   alt_state_t alt_states;
-  alt_state_t new_alt_state;
+  alt_state_t alt_state, new_alt_state;
   arc_t curr_arc;
   arc_t next_arc;
 
@@ -6222,12 +6286,27 @@ merge_states (automaton, equiv_classes)
              curr_state = curr_state->next_equiv_class_state)
           {
             curr_state->equiv_class_state = new_state;
-            new_alt_state = get_free_alt_state ();
-            new_alt_state->state = curr_state;
-            new_alt_state->next_sorted_alt_state = alt_states;
-            alt_states = new_alt_state;
+	    if (curr_state->component_states == NULL)
+	      {
+		new_alt_state = get_free_alt_state ();
+		new_alt_state->state = curr_state;
+		new_alt_state->next_alt_state = alt_states;
+		alt_states = new_alt_state;
+	      }
+	    else
+	      for (alt_state = curr_state->component_states;
+		   alt_state != NULL;
+		   alt_state = alt_state->next_sorted_alt_state)
+		{
+		  new_alt_state = get_free_alt_state ();
+		  new_alt_state->state = alt_state->state;
+		  new_alt_state->next_alt_state = alt_states;
+		  alt_states = new_alt_state;
+		}
           }
-        new_state->component_states = alt_states;
+	/* Its is important that alt states were sorted before and
+           after merging to have the same quering results.  */
+        new_state->component_states = uniq_sort_alt_states (alt_states);
       }
     else
       (*equiv_class_ptr)->equiv_class_state = *equiv_class_ptr;
@@ -6345,13 +6424,25 @@ build_automaton (automaton)
   int arcs_num;
 
   ticker_on (&NDFA_time);
+  if (automaton->corresponding_automaton_decl == NULL)
+    fprintf (stderr, "Create anonymous automaton (1 star is 100 new states):");
+  else
+    fprintf (stderr, "Create automaton `%s' (1 star is 100 new states):",
+	     automaton->corresponding_automaton_decl->name);
   make_automaton (automaton);
+  fprintf (stderr, " done\n");
   ticker_off (&NDFA_time);
   count_states_and_arcs (automaton, &states_num, &arcs_num);
   automaton->NDFA_states_num = states_num;
   automaton->NDFA_arcs_num = arcs_num;
   ticker_on (&NDFA_to_DFA_time);
+  if (automaton->corresponding_automaton_decl == NULL)
+    fprintf (stderr, "Make anonymous DFA (1 star is 100 new states):");
+  else
+    fprintf (stderr, "Make DFA `%s' (1 star is 100 new states):",
+	     automaton->corresponding_automaton_decl->name);
   NDFA_to_DFA (automaton);
+  fprintf (stderr, " done\n");
   ticker_off (&NDFA_to_DFA_time);
   count_states_and_arcs (automaton, &states_num, &arcs_num);
   automaton->DFA_states_num = states_num;
@@ -6359,7 +6450,13 @@ build_automaton (automaton)
   if (!no_minimization_flag)
     {
       ticker_on (&minimize_time);
+      if (automaton->corresponding_automaton_decl == NULL)
+	fprintf (stderr, "Minimize anonymous DFA...");
+      else
+	fprintf (stderr, "Minimize DFA `%s'...",
+		 automaton->corresponding_automaton_decl->name);
       minimize_DFA (automaton);
+      fprintf (stderr, "done\n");
       ticker_off (&minimize_time);
       count_states_and_arcs (automaton, &states_num, &arcs_num);
       automaton->minimal_DFA_states_num = states_num;
@@ -6792,18 +6889,18 @@ create_automata ()
        curr_automaton = curr_automaton->next_automaton)
     {
       if (curr_automaton->corresponding_automaton_decl == NULL)
-	fprintf (stderr, "Create anonymous automaton ...");
+	fprintf (stderr, "Prepare anonymous automaton creation ... ");
       else
-	fprintf (stderr, "Create automaton `%s'...",
+	fprintf (stderr, "Prepare automaton `%s' creation...",
 		 curr_automaton->corresponding_automaton_decl->name);
       create_alt_states (curr_automaton);
       form_ainsn_with_same_reservs (curr_automaton);
+      fprintf (stderr, "done\n");
       build_automaton (curr_automaton);
       enumerate_states (curr_automaton);
       ticker_on (&equiv_time);
       set_insn_equiv_classes (curr_automaton);
       ticker_off (&equiv_time);
-      fprintf (stderr, "done\n");
     }
 }
 
@@ -7793,7 +7890,6 @@ output_state_alts_table (automaton)
    value for an ainsn and state.  */
 static int curr_state_pass_num;
 
-
 /* This recursive function passes states to find minimal issue delay
    value for AINSN.  The state being visited is STATE.  The function
    returns minimal issue delay value for AINSN in STATE or -1 if we
@@ -7908,7 +8004,7 @@ output_min_issue_delay_table (automaton)
 		       + ainsn->insn_equiv_class_num) = min_delay;
 	  }
       }
-  fprintf (output_file, "/* Vector of min issue delay of insns.*/\n");
+  fprintf (output_file, "/* Vector of min issue delay of insns.  */\n");
   fprintf (output_file, "static const ");
   output_range_type (output_file, 0, automaton->max_min_delay);
   fprintf (output_file, " ");
@@ -8029,14 +8125,12 @@ output_reserved_units_table (automaton)
        curr_state_ptr++)
     {
       for (i = 0; i < description->units_num; i++)
-	if (units_array [i]->query_p)
-	  {
-	    if (test_unit_reserv ((*curr_state_ptr)->reservs, 0, i))
-	      VLA_HWINT (reserved_units_table,
-			 (*curr_state_ptr)->order_state_num * state_byte_size
-			 + units_array [i]->query_num / 8)
-		+= (1 << (units_array [i]->query_num % 8));
-	  }
+	if (units_array [i]->query_p
+	    && first_cycle_unit_presence (*curr_state_ptr, i))
+	  VLA_HWINT (reserved_units_table,
+		     (*curr_state_ptr)->order_state_num * state_byte_size
+		     + units_array [i]->query_num / 8)
+	    += (1 << (units_array [i]->query_num % 8));
     }
   fprintf (output_file, "/* Vector for reserved units of states.  */\n");
   fprintf (output_file, "static const ");
@@ -8074,13 +8168,10 @@ output_tables ()
 	       AUTOMATON_STATE_ALTS_MACRO_NAME);
       output_min_issue_delay_table (automaton);
       output_dead_lock_vect (automaton);
-      if (no_minimization_flag)
-	{
-	  fprintf (output_file, "\n#if %s\n\n", CPU_UNITS_QUERY_MACRO_NAME);
-	  output_reserved_units_table (automaton);
-	  fprintf (output_file, "\n#endif /* #if %s */\n\n",
-		   CPU_UNITS_QUERY_MACRO_NAME);
-	}
+      fprintf (output_file, "\n#if %s\n\n", CPU_UNITS_QUERY_MACRO_NAME);
+      output_reserved_units_table (automaton);
+      fprintf (output_file, "\n#endif /* #if %s */\n\n",
+	       CPU_UNITS_QUERY_MACRO_NAME);
     }
   fprintf (output_file, "\n#define %s %d\n\n", ADVANCE_CYCLE_VALUE_NAME,
            DECL_INSN_RESERV (advance_cycle_insn_decl)->insn_num);
@@ -8936,7 +9027,7 @@ output_unit_set_el_list (list)
   for (el = list; el != NULL; el = el->next_unit_set_el)
     {
       if (el != list)
-	fprintf (output_description_file, ",");
+	fprintf (output_description_file, ", ");
       fprintf (output_description_file, "%s", el->unit_decl->name);
     }
 }
@@ -9254,6 +9345,7 @@ output_statistics (f)
      FILE *f;
 {
   automaton_t automaton;
+  int states_num;
 #ifndef NDEBUG
   int transition_comb_vect_els = 0;
   int transition_full_vect_els = 0;
@@ -9272,10 +9364,14 @@ output_statistics (f)
 	       automaton->NDFA_states_num, automaton->NDFA_arcs_num);
       fprintf (f, "    %5d DFA states,           %5d DFA arcs\n",
 	       automaton->DFA_states_num, automaton->DFA_arcs_num);
+      states_num = automaton->DFA_states_num;
       if (!no_minimization_flag)
-	fprintf (f, "    %5d minimal DFA states,   %5d minimal DFA arcs\n",
-		 automaton->minimal_DFA_states_num,
-		 automaton->minimal_DFA_arcs_num);
+	{
+	  fprintf (f, "    %5d minimal DFA states,   %5d minimal DFA arcs\n",
+		   automaton->minimal_DFA_states_num,
+		   automaton->minimal_DFA_arcs_num);
+	  states_num = automaton->minimal_DFA_states_num;
+	}
       fprintf (f, "    %5d all insns      %5d insn equivalence classes\n",
 	       description->insns_num, automaton->insn_equiv_classes_num);
 #ifndef NDEBUG
@@ -9293,7 +9389,7 @@ output_statistics (f)
           ? "use comb vect" : "use simple vect"));
       fprintf
         (f, "%5ld min delay table els, compression factor %d\n",
-         (long) automaton->DFA_states_num * automaton->insn_equiv_classes_num,
+         (long) states_num * automaton->insn_equiv_classes_num,
 	 automaton->min_issue_delay_table_compression_factor);
       transition_comb_vect_els
 	+= VLA_HWINT_LENGTH (automaton->trans_table->comb_vect);
@@ -9304,7 +9400,7 @@ output_statistics (f)
       state_alts_full_vect_els
         += VLA_HWINT_LENGTH (automaton->state_alts_table->full_vect);
       min_issue_delay_vect_els
-        += automaton->DFA_states_num * automaton->insn_equiv_classes_num;
+	+= states_num * automaton->insn_equiv_classes_num;
 #endif
     }
 #ifndef NDEBUG
@@ -9842,14 +9938,12 @@ write_automata ()
   output_internal_insn_latency_func ();
   output_insn_latency_func ();
   output_print_reservation_func ();
-  if (no_minimization_flag)
-    {
-      fprintf (output_file, "\n#if %s\n\n", CPU_UNITS_QUERY_MACRO_NAME);
-      output_get_cpu_unit_code_func ();
-      output_cpu_unit_reservation_p ();
-      fprintf (output_file, "\n#endif /* #if %s */\n\n",
-	       CPU_UNITS_QUERY_MACRO_NAME);
-    }
+  /* Output function get_cpu_unit_code.  */
+  fprintf (output_file, "\n#if %s\n\n", CPU_UNITS_QUERY_MACRO_NAME);
+  output_get_cpu_unit_code_func ();
+  output_cpu_unit_reservation_p ();
+  fprintf (output_file, "\n#endif /* #if %s */\n\n",
+	   CPU_UNITS_QUERY_MACRO_NAME);
   output_dfa_clean_insn_cache_func ();
   output_dfa_start_func ();
   output_dfa_finish_func ();
