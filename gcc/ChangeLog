@@ -1,3 +1,10 @@
+2001-08-27  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Update dependencies.
+	(tree-cfg.o): Ditto.
+	(tree-dfa.o): Ditto.
+	(tree-optimize.o): Ditto.
+
 2001-08-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (C_AND_OBJC_OBJS): Replace tree-opt.o with
