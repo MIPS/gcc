@@ -826,7 +826,7 @@ cgraph_estimate_growth (struct cgraph_node *node)
    DUPLICATE is used for bookeeping on whether we are actually creating new
    clones or re-using node originally representing out-of-line function call.
    */
-static void
+void
 cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
 {
   struct cgraph_node *n;
@@ -894,6 +894,8 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
       old_insns = e->caller->global.insns;
       new_insns = cgraph_estimate_size_after_inlining (1, e->caller,
 						       what);
+      if (new_insns < 0)
+	abort ();
       to = e->caller;
       to->global.insns = new_insns;
     }
@@ -1337,7 +1339,7 @@ cgraph_decide_inlining (void)
 
 	      /* Verify that we won't duplicate the caller.  */
 	      for (node1 = node->callers->caller;
-		   node1->callers && node1->callers->inline_failed
+		   node1->callers && !node1->callers->inline_failed
 		   && ok; node1 = node1->callers->caller)
 		if (node1->callers->next_caller || node1->needed)
 		  ok = false;

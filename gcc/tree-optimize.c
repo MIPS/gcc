@@ -386,10 +386,7 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
 	  saved_node = cgraph_clone_node (node);
 	  for (e = saved_node->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
-	      {
-		e->inline_failed = "";
-		cgraph_mark_inline_edge (e);
-	      }
+	      cgraph_clone_inlined_nodes (e, true);
 	}
       cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
     }
