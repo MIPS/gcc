@@ -475,8 +475,7 @@ _Jv_PrepareClass(jclass klass)
     java::lang::VMClassLoader::resolveClass (klass->getSuperclass());
 
   /************ PART ONE: OBJECT LAYOUT ***************/
-  int static_size = 0;
-  _Jv_LayoutClass(klass, &static_size);
+  int static_size = _Jv_LayoutClass(klass);
 
   _Jv_InterpClass *iclass = (_Jv_InterpClass*)klass->aux_info;
 

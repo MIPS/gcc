@@ -1,5 +1,17 @@
 2004-08-12  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/natClassLoader.cc (_Jv_WaitForState): Updated.
+	* java/lang/Class.h (_Jv_ResolveClassRef): Updated declaration.
+	(Class::getSuperclass): Updated.
+	(Class::getInterfaces): Likewise.
+	(Class::size): Updated.
+	(_Jv_LayoutClass): Updated declaration.
+	* java/lang/natClass.cc (_Jv_ResolveClassRef): Changed interface.
+	Synchronize on class.
+	(_Jv_LayoutClass): Changed interface.
+	(initializeClass): Updated.
+	(_Jv_LinkSymbolTable): Likewise.
+
 	* java/lang/Class.h (Class::_Jv_isBinaryCompatible): Declare as
 	friend.
 	* java/lang/natClassLoader.cc (_Jv_WaitForState): Use

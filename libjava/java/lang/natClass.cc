@@ -101,20 +101,22 @@ get_alignment_from_class (jclass klass)
     return ALIGNOF (jobject);
 }
 
-jclass
-_Jv_ResolveClassRef (jclass klass, jclass classref)
+// This function is used to lazily locate superclasses and
+// superinterfaces.
+void
+_Jv_ResolveClassRef (jclass klass, jclass *classref)
 {
-  jclass ret = classref;
+  jclass ret = *classref;
 
   typedef unsigned int uaddr __attribute__ ((mode (pointer)));
 
-  // If superclass looks like a constant pool entry,
-  // resolve it now.
-  if (classref && (uaddr)classref < (uaddr)klass->constants.size)
+  // If superclass looks like a constant pool entry, resolve it now.
+  if (ret && (uaddr) ret < (uaddr) klass->constants.size)
     {
+      JvSynchronize sync (klass);
       if (klass->state < JV_STATE_LINKED)
 	{
-	  _Jv_Utf8Const *name = klass->constants.data[(uaddr)classref].utf8;
+	  _Jv_Utf8Const *name = klass->constants.data[(uaddr) *classref].utf8;
 	  ret = _Jv_FindClass (name, klass->loader);
 	  if (! ret)
 	    {
@@ -123,10 +125,9 @@ _Jv_ResolveClassRef (jclass klass, jclass classref)
 	    }
 	}
       else
-	ret = klass->constants.data[(uaddr)classref].clazz;
+	ret = klass->constants.data[(uaddr) classref].clazz;
+      *classref = ret;
     }
-
-  return ret;
 }
 
 jclass
@@ -808,7 +809,8 @@ java::lang::Class::initializeClass (void)
 
   // Step 2.
   java::lang::Thread *self = java::lang::Thread::currentThread();
-  // FIXME: `self' can be null at startup.  Hence this nasty trick.
+  // Note that `self' can be null at startup (at least this was the
+  // case with the old qthread system).  Hence this nasty trick.
   self = (java::lang::Thread *) ((long) self | 1);
   while (state == JV_STATE_IN_PROGRESS && thread && thread != self)
     wait ();
@@ -869,10 +871,7 @@ java::lang::Class::initializeClass (void)
   
   // Assign storage to fields
   if (_Jv_isBinaryCompatible (this))
-    {
-      int static_size;
-      _Jv_LayoutClass(this, &static_size);
-    }
+    _Jv_LayoutClass(this);
 
   if (vtable == NULL)
     _Jv_MakeVTable(this);
@@ -1735,10 +1734,7 @@ _Jv_LinkSymbolTable(jclass klass)
 // 		  {
 
 		if (_Jv_isBinaryCompatible (cls))
-		  {
-		    int static_size;
-		    _Jv_LayoutClass(cls, &static_size);
-		  }
+		  _Jv_LayoutClass(cls);
 
 		if (!field->isResolved ())
 		  _Jv_ResolveField (field, cls->loader);
@@ -2118,8 +2114,10 @@ _Jv_MakeVTable (jclass klass)
     }
 }
 
-void 
-_Jv_LayoutClass(jclass klass, int *static_size)
+// Lay out the class, returning the number of bytes needed for the
+// class' static variables.
+int
+_Jv_LayoutClass(jclass klass)
 {  
   // Compute the alignment for this type by searching through the
   // superclasses and finding the maximum required alignment.  We
@@ -2129,7 +2127,7 @@ _Jv_LayoutClass(jclass klass, int *static_size)
   while (super != NULL)
     {
       if (_Jv_isBinaryCompatible (super))
-	_Jv_LayoutClass(super, static_size);
+	_Jv_LayoutClass(super);
       int num = JvNumInstanceFields (super);
       _Jv_Field *field = JvGetFirstInstanceField (super);
       while (num > 0)
@@ -2144,6 +2142,7 @@ _Jv_LayoutClass(jclass klass, int *static_size)
     }
 
   int instance_size;
+  int static_size = 0;
 
   // Although java.lang.Object is never interpreted, an interface can
   // have a null superclass.  Note that we have to lay out an
@@ -2183,13 +2182,12 @@ _Jv_LayoutClass(jclass klass, int *static_size)
 	{
 	  if (_Jv_IsInterpretedClass (klass))
 	    {
-	      /* this computes an offset into a region we'll allocate
-		 shortly, and then add this offset to the start
-		 address */
-
-	      *static_size       = ROUND (*static_size, field_align);
-	      field->u.boffset   = *static_size;
-	      *static_size       += field_size;
+	      // This computes an offset into a region we'll allocate
+	      // shortly, and then add this offset to the start
+	      // address.
+	      static_size       = ROUND (static_size, field_align);
+	      field->u.boffset   = static_size;
+	      static_size       += field_size;
 	    }
 	}
       else
@@ -2207,5 +2205,6 @@ _Jv_LayoutClass(jclass klass, int *static_size)
   // with our current ABI.
   instance_size = ROUND (instance_size, max_align);
   klass->size_in_bytes = instance_size;
-}
 
+  return static_size;
+}

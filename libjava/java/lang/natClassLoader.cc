@@ -58,12 +58,9 @@ _Jv_WaitForState (jclass klass, int state)
 	_Jv_PrepareClass (klass);
       else
 #endif
-	// Assign storage to fields
+	// Assign storage to fields.
 	if (_Jv_isBinaryCompatible (klass))
-	  {   
-	    int static_size;
-	    _Jv_LayoutClass(klass, &static_size);
-	  }
+	  _Jv_LayoutClass(klass);
       _Jv_PrepareCompiledClass (klass);
       _Jv_MonitorExit (klass);
       return;

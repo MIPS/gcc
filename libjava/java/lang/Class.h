@@ -207,20 +207,18 @@ public:
   void setSigners(JArray<jobject> *);
 
   inline jclass getSuperclass (void)
-    {
-      if (state < JV_STATE_LINKED)
-	superclass =_Jv_ResolveClassRef (this, superclass);
-      
-      return superclass;
-    }
+  {
+    if (state < JV_STATE_LINKED)
+      _Jv_ResolveClassRef (this, &superclass);
+    return superclass;
+  }
 
   inline jclass getInterface (jint n)
-    {
-      if (state < JV_STATE_LINKED)
-	interfaces[n] =_Jv_ResolveClassRef (this, interfaces[n]);
-      
-      return interfaces[n];
-    }
+  {
+    if (state < JV_STATE_LINKED)
+      _Jv_ResolveClassRef (this, &interfaces[n]);
+    return interfaces[n];
+  }
 
   inline jboolean isArray (void)
     {
@@ -257,10 +255,7 @@ public:
       // FIXME: ugly implementation.
       // FIXME: can't use _Jv_isBinaryCompatible here.
       if (size_in_bytes == -1)
-	{
-	  int static_size;
-	  _Jv_LayoutClass(this, &static_size);
-	}
+	_Jv_LayoutClass(this);
 
       return size_in_bytes;
     }
@@ -297,7 +292,7 @@ private:
   friend void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, 
 					     int method_idx);
 
-  friend jclass _Jv_ResolveClassRef (jclass, jclass);
+  friend void _Jv_ResolveClassRef (jclass, jclass *);
 
   inline friend void 
   _Jv_InitClass (jclass klass)
@@ -307,7 +302,7 @@ private:
     klass->initializeClass ();  
   }
   
-  friend void _Jv_LayoutClass(jclass, int*);
+  friend int _Jv_LayoutClass(jclass);
 
   friend _Jv_Method* _Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 					       _Jv_Utf8Const*);
@@ -482,8 +477,8 @@ private:
   JArray<jobject> *hack_signers;
   // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
   jclass chain;
-  // Additional data, specific to the generator (JIT, native, interpreter) of this 
-  // class.
+  // Additional data, specific to the generator (JIT, native,
+  // interpreter) of this class.
   void *aux_info;
 };
 
