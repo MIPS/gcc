@@ -484,7 +484,7 @@ struct df * dataflowAnalyser;
   2 = lots of spew 
   Amazingly useful for debugging this allocator.
 */
-static int debug_new_regalloc=0;
+static int debug_new_regalloc=2;
 
 /* Determine if regno is a candidate for this pass of register
    allocation. */
@@ -959,7 +959,7 @@ int conservative(rhs, lhs)
   if (!(rhsmode == lhsmode))
     return 0;
   
-  freedom = MAX(reg_class_size[reg_preferred_class(rhs)], reg_class_size[reg_preferred_class(rhs)]);
+  freedom = MAX (reg_freedom (lhs), reg_freedom (rhs));
   
   /*FIXME: We really should to keep the class with the node, so we can
     combine the classes when we coalesce */
@@ -1265,7 +1265,7 @@ int find_reg_given_constraints(okay, currReg)
 	    {
 	      /* May change on each register */
 	      numRegs = HARD_REGNO_NREGS(i, reg_mode);
-	      if (numRegs > 1 && !x_okay_in_direction(okay, i, -1, numRegs-1, reg_mode) && !x_okay_in_direction(okay, i, 1, numRegs-1, reg_mode))
+	      if (numRegs > 1 && !x_okay_in_direction(okay, i, -1, numRegs, reg_mode) && !x_okay_in_direction(okay, i, 1, numRegs, reg_mode))
 		continue;
 	      
 	      if (inv_reg_alloc_order[i] < prefRegOrder)

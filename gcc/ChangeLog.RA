@@ -1,3 +1,13 @@
+2001-01-29  Daniel Berlin  <dberlin@redhat.com>
+
+	* new-regalloc.c (find_reg_given_constraints): Fix the *other* bug
+	in spilling, causing things taking up > 1 register to be spilled
+	if register 0 was free. Duh. (The arguments to x_okay_in_direction
+	were off by one).
+	(conservative): freedom would be max of the reg_freedom's of the
+	lhs and rhs, not the max of the size of the preferred class of
+	each (though it's close).
+
 2001-01-28  Daniel Berlin  <dberlin@redhat.com>
 
 	* Makefile.in (STAGE1_CFLAGS): Remove -O3, sorry about that.
