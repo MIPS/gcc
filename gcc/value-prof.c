@@ -1121,7 +1121,7 @@ tree_divmod_fixed_value (tree stmt, tree operation,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (MODIFY_EXPR, optype, tmpv, build1 (NOP_EXPR, optype, value));
+  stmt1 = build2 (MODIFY_EXPR, optype, tmpv, fold_convert (optype, value));
   stmt2 = build2 (MODIFY_EXPR, optype, tmp1, op2);
   stmt3 = build3 (COND_EXPR, void_type_node,
 	    build2 (NE_EXPR, boolean_type_node, tmp1, tmpv),
@@ -1277,7 +1277,7 @@ tree_mod_pow2 (tree stmt, tree operation, tree op1, tree op2, int prob,
   tmp1 = create_tmp_var (optype, "PROF");
   tmp2 = create_tmp_var (optype, "PROF");
   tmp3 = create_tmp_var (optype, "PROF");
-  stmt1 = build2 (MODIFY_EXPR, optype, tmp1, build1 (NOP_EXPR, optype, op2));
+  stmt1 = build2 (MODIFY_EXPR, optype, tmp1, fold_convert (optype, op2));
   stmt2 = build2 (MODIFY_EXPR, optype, tmp2, 
 		    build2 (PLUS_EXPR, optype, op2, integer_minus_one_node));
   stmt3 = build2 (MODIFY_EXPR, optype, tmp3,

@@ -1,3 +1,9 @@
+2005-03-25  Jan Hubicka  <jh@suse.cz>
+
+	* value-prof.c (tree_divmod_fixed_value): Use fold_convert to produce
+	conversion.
+	(tree_mon_pow2): Likewise.
+
 2005-03-21  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (tree-profiling-merge-20050321)
