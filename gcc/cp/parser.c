@@ -17482,6 +17482,10 @@ cp_parser_objc_class_ivars (cp_parser* parser)
       tree prefix_attributes;
 
       cp_parser_objc_visibility_spec (parser);
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+	break;
+
       cp_parser_decl_specifier_seq (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &declspecs,
