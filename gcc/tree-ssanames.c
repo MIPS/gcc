@@ -93,10 +93,10 @@ fini_ssanames (void)
 
 #ifdef GATHER_STATISTICS
 void
-ssanames_print_statistics ()
+ssanames_print_statistics (void)
 {
-  fprintf (stderr, "SSA_NAME nodes allocated: %lu\n", ssa_name_nodes_created);
-  fprintf (stderr, "SSA_NAME nodes reused: %lu\n", ssa_name_nodes_reused);
+  fprintf (stderr, "SSA_NAME nodes allocated: %u\n", ssa_name_nodes_created);
+  fprintf (stderr, "SSA_NAME nodes reused: %u\n", ssa_name_nodes_reused);
 }
 #endif
 

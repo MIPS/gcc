@@ -1,3 +1,8 @@
+2003-11-20  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-ssanames.c (ssanames_print_statistics): Use ISO function
+	declaration.  Print unsigned ints, not usinged longs.
+
 2003-11-18  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c (rename_1): This should be static.
