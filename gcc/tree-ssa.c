@@ -77,7 +77,7 @@ static htab_t def_blocks;
 
 /* Structure to map a variable VAR to the set of blocks that contain
    definitions for VAR.  */
-struct def_blocks_d
+struct GTY(()) def_blocks_d
 {
   tree var;
   bitmap def_blocks;
@@ -93,7 +93,7 @@ static htab_t currdefs;
 /* Structure to map variables to values.  It's used to keep track of the
    current reaching definition, constant values and variable copies while
    renaming.  */
-struct var_value_d
+struct GTY(()) var_value_d
 {
   tree var;
   tree value;
@@ -161,7 +161,6 @@ static hashval_t def_blocks_hash (const void *);
 static int def_blocks_eq (const void *, const void *);
 static hashval_t var_value_hash (const void *);
 static int var_value_eq (const void *, const void *);
-static void def_blocks_free (void *);
 static int debug_def_blocks_r (void **, void *);
 static struct def_blocks_d *get_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
@@ -297,11 +296,11 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
   def_blocks = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
-			    def_blocks_hash, def_blocks_eq, def_blocks_free);
+			    def_blocks_hash, def_blocks_eq, NULL);
 
   /* Allocate memory for the CURRDEFS hash table.  */
   currdefs = htab_create (VARRAY_ACTIVE_SIZE (referenced_vars),
-			  var_value_hash, var_value_eq, free);
+			  var_value_hash, var_value_eq, NULL);
 
   /* Allocate memory for the GLOBALS bitmap which will indicate which
      variables are live across basic block boundaries.  Note that this
@@ -393,7 +392,7 @@ rewrite_into_ssa (tree fndecl, sbitmap vars)
   for (i = 0; i < n_basic_blocks; i++)
     BITMAP_XFREE (dfs[i]);
   free (dfs);
-  free (globals);
+  sbitmap_free (globals);
   htab_delete (def_blocks);
   htab_delete (currdefs);
   if (vars == NULL)
@@ -626,7 +625,7 @@ mark_def_sites (sbitmap globals)
 	}
     }
 
-  free (kills);
+  sbitmap_free (kills);
 }
 
 /* Mark block BB as the definition site for variable VAR.  */
@@ -642,10 +641,10 @@ set_def_block (tree var, basic_block bb)
   slot = htab_find_slot (def_blocks, (void *) &db, INSERT);
   if (*slot == NULL)
     {
-      db_p = xmalloc (sizeof (*db_p));
+      db_p = ggc_alloc (sizeof (*db_p));
       db_p->var = var;
-      db_p->def_blocks = BITMAP_XMALLOC ();
-      db_p->livein_blocks = BITMAP_XMALLOC ();
+      db_p->def_blocks = BITMAP_GGC_ALLOC ();
+      db_p->livein_blocks = BITMAP_GGC_ALLOC ();
       *slot = (void *) db_p;
     }
   else
@@ -668,10 +667,10 @@ set_livein_block (tree var, basic_block bb)
   slot = htab_find_slot (def_blocks, (void *) &db, INSERT);
   if (*slot == NULL)
     {
-      db_p = xmalloc (sizeof (*db_p));
+      db_p = ggc_alloc (sizeof (*db_p));
       db_p->var = var;
-      db_p->def_blocks = BITMAP_XMALLOC ();
-      db_p->livein_blocks = BITMAP_XMALLOC ();
+      db_p->def_blocks = BITMAP_GGC_ALLOC ();
+      db_p->livein_blocks = BITMAP_GGC_ALLOC ();
       *slot = (void *) db_p;
     }
   else
@@ -698,7 +697,7 @@ insert_phi_nodes (bitmap *dfs, sbitmap globals)
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  VARRAY_GENERIC_PTR_INIT (def_maps, HOST_BITS_PER_WIDE_INT, "deferred_vars");
+  VARRAY_GENERIC_PTR_INIT (def_maps, HOST_BITS_PER_WIDE_INT, "def_maps");
 
   /* Array WORK_STACK is a stack of CFG blocks.  Each block that contains
      an assignment or PHI node will be pushed to this stack.  */
@@ -1889,7 +1888,6 @@ insert_phis_for_deferred_variables (varray_type def_maps)
 	    create_phi_node (var, BASIC_BLOCK (bb_index));
 	});
 
-      BITMAP_XFREE (phi_insertion_points);
       def_map->phi_insertion_points = NULL;
     }
 }
@@ -1908,7 +1906,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
   if (def_map == NULL)
     return;
 
-  phi_insertion_points = BITMAP_XMALLOC ();
+  phi_insertion_points = BITMAP_GGC_ALLOC ();
 
   EXECUTE_IF_SET_IN_BITMAP (def_map->def_blocks, 0, bb_index,
     {
@@ -1981,7 +1979,7 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type def_maps)
       create_phi_node (var, BASIC_BLOCK (bb_index));
     });
 
-  BITMAP_XFREE (phi_insertion_points);
+  phi_insertion_points = NULL;
 }
 
 /* Scan all the statements looking for symbols not in SSA form.  If any are
@@ -2181,7 +2179,7 @@ register_new_def (tree var, tree def, varray_type *block_defs_p)
 /*---------------------------------------------------------------------------
 			     Various helpers.
 ---------------------------------------------------------------------------*/
-/* Initialize DFA/SSA structures.  */
+/* Initialize global DFA and SSA structures.  */
 
 void
 init_tree_ssa (void)
@@ -2189,7 +2187,7 @@ init_tree_ssa (void)
   next_ssa_version = 1;
   VARRAY_TREE_INIT (referenced_vars, 20, "referenced_vars");
   VARRAY_TREE_INIT (call_clobbered_vars, 20, "call_clobbered_vars");
-  memset ((void *) &ssa_stats, 0, sizeof (ssa_stats));
+  memset (&ssa_stats, 0, sizeof (ssa_stats));
   global_var = NULL_TREE;
 }
 
@@ -2270,18 +2268,6 @@ get_reaching_def (tree var)
   /* Return the current reaching definition for VAR, or the default
      definition, if we had to create one.  */
   return (currdef_var) ? currdef_var : default_def;
-}
-
-
-/* Free memory allocated for a <def, def_blocks> tuple.  */
-
-static void
-def_blocks_free (void *p)
-{
-  struct def_blocks_d *db_p = (struct def_blocks_d *) p;
-  BITMAP_XFREE (db_p->def_blocks);
-  BITMAP_XFREE (db_p->livein_blocks);
-  free (p);
 }
 
 
@@ -2385,7 +2371,7 @@ set_value_for (tree var, tree value, htab_t table)
   slot = htab_find_slot (table, (void *) &vm, INSERT);
   if (*slot == NULL)
     {
-      vm_p = xmalloc (sizeof *vm_p);
+      vm_p = ggc_alloc (sizeof *vm_p);
       vm_p->var = var;
       *slot = (void *) vm_p;
     }
@@ -2404,5 +2390,7 @@ get_def_blocks_for (tree var)
   struct def_blocks_d dm;
 
   dm.var = var;
-  return (struct def_blocks_d *) htab_find (def_blocks, (void *) &dm);
+  return (struct def_blocks_d *) htab_find (def_blocks, &dm);
 }
+
+#include "gt-tree-ssa.h"

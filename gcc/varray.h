@@ -81,6 +81,7 @@ enum varray_data_enum {
   VARRAY_DATA_CONST_EQUIV,
   VARRAY_DATA_BB,
   VARRAY_DATA_TE,
+  VARRAY_DATA_EDGE,
   NUM_VARRAY_DATA
 };
 
@@ -126,6 +127,8 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_BB")))	bb[1];
   struct elt_list	 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_TE")))	te[1];
+  struct edge_def        *GTY ((length ("%0.num_elements"), skip (""),
+	                        tag ("VARRAY_DATA_EDGE")))	e[1];
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -204,6 +207,9 @@ extern varray_type varray_init (size_t, enum varray_data_enum, const char *);
 #define VARRAY_ELT_LIST_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_TE, name)
 
+#define VARRAY_EDGE_INIT(va, num, name) \
+  va = varray_init (num, VARRAY_DATA_EDGE, name)
+
 /* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
@@ -276,6 +282,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_CONST_EQUIV(VA, N)	VARRAY_CHECK (VA, N, const_equiv)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
+#define VARRAY_EDGE(VA, N)		VARRAY_CHECK (VA, N, e)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)
@@ -297,6 +304,7 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_PUSH_REG(VA, X)		VARRAY_PUSH (VA, reg, X)
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
+#define VARRAY_PUSH_EDGE(VA, X)		VARRAY_PUSH (VA, e, X)
 
 /* Return the last element of VA.  */
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
@@ -318,5 +326,6 @@ extern void varray_check_failed (varray_type, size_t, const char *, int,
 #define VARRAY_TOP_REG(VA)		VARRAY_TOP (VA, reg)
 #define VARRAY_TOP_CONST_EQUIV(VA)	VARRAY_TOP (VA, const_equiv)
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
+#define VARRAY_TOP_EDGE(VA)		VARRAY_TOP (VA, e)
 
 #endif /* ! GCC_VARRAY_H */

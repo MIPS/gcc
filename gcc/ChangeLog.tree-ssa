@@ -1,3 +1,75 @@
+2003-08-07  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (GTFILES): Add tree-ssa.c, tree-dfa.c and
+	tree-ssa-ccp.c.
+	(gt-tree-ssa.h, gt-tree-dfa.h, gt-tree-ssa-ccp.h): Depend on
+	s-gtype.
+	* tree-dfa.c (struct clobber_data_d): Remove.  Update all users.
+	(struct alias_map_d): Mark for garbage collection.
+	(struct walk_state): Add fields 'is_not_gimple' and
+	'is_va_arg_expr'.
+	(clobber_vars_r): Remove.  Update all users.
+	(get_stmt_operands): Abort if attempting to get operands from a
+	non-GIMPLE statement.
+	(get_expr_operands): Likewise.
+	Do not force a virtual operand when scanning VA_ARG_EXPR.
+	(add_stmt_operand): If the variable has hidden uses, mark the
+	statement as having volatile operands and return.
+	If the variable occurs inside a VA_ARG_EXPR, add it as a virtual
+	operand.
+	(add_immediate_use): Call VARRAY_TREE_INIT instead of
+	VARRAY_GENERIC_PTR_INIT.
+	(dump_variable): Check is_in_va_arg_expr flag.
+	(compute_may_aliases): Move code to find variables ...
+	(find_referenced_vars): ... here.
+	(find_vars_r): Abort if we find a non-GIMPLE expression
+	unexpectedly.
+	Mark variables found inside a VA_ARG_EXPR.
+	Do not scan arguments for non-GIMPLE CALL_EXPRs.
+	Remove local variable saved_is_store.
+	Reformat some code for readability.
+	(add_referenced_var): If the variable is already marked as having
+	hidden uses, ignore it.
+	If the variable is found inside a non-GIMPLE expression, mark it.
+	If the variable is found inside a VA_ARG_EXPR, mark it.
+
+	* tree-flow.h (struct var_ann_d): Add field is_in_va_arg_expr.
+	(find_referenced_vars): Declare.
+	* tree-optimize.c (optimize_function_tree): Call
+	find_referenced_vars before computing may aliases.
+
+	* tree-ssa-dce.c (need_to_preserve_store): Do not check if the
+	variable has hidden uses.
+	* tree-ssa-live.c (type_var_init): Likewise.
+
+	* tree-ssa-ccp.c (ssa_edges): Mark for garbage collection.
+	(tree_ssa_ccp): Use VARRAY_.*_EDGE calls to manipulate the varray
+	of CFG edges.
+	(add_control_edge): Likewise.
+	(initialize): Likewise.
+	* tree-ssa.c (struct def_blocks_d): Mark for garbage collection.
+	(struct var_value_d): Likewise.
+	(def_blocks_free): Remove.  Update all users.
+	(rewrite_into_ssa): Do not specify free function when creating
+	def_blocks and currdefs.
+	Call sbitmap_free instead of free.
+	(mark_def_sites): Call sbitmap_free instead of free.
+	(set_def_block): Use GC allocation.
+	(set_livein_block): Likewise.
+	(insert_phi_nodes): Adjust name of varray def_maps when creating it.
+	(insert_phis_for_deferred_variables): Remove call to BITMAP_XFREE.
+	(insert_phi_nodes_for): Use GC allocation for phi_insertion_points.
+	(init_tree_ssa): Remove typecast in call to memset.
+	(set_value_for): Use GC allocation.
+	(get_def_blocks_for): Remove typecast in call to htab_find.
+	* varray.c (element): Add entry for struct edge_def *.
+	* varray.h (enum varray_data_enum): Add VARRAY_DATA_EDGE.
+	(union varray_data_tag): Add field of type struct edge_def *.
+	(VARRAY_EDGE_INIT): Define.
+	(VARRAY_EDGE): Define.
+	(VARRAY_PUSH_EDGE): Define.
+	(VARRAY_TOP_EDGE): Define.
+
 2003-08-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (handle_switch_fallthru): Do not abort when the last

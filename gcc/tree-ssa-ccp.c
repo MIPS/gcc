@@ -98,7 +98,7 @@ static varray_type cfg_edges;
    has changed.  SSA edges are def-use edges in the SSA web.  For each
    edge, we store the definition statement or PHI node D.  The destination
    nodes that need to be visited are accessed using immediate_uses (D).  */
-static varray_type ssa_edges;
+static GTY(()) varray_type ssa_edges;
 
 static void initialize (void);
 static void finalize (void);
@@ -154,8 +154,7 @@ tree_ssa_ccp (tree fndecl)
       if (VARRAY_ACTIVE_SIZE (cfg_edges) > 0)
 	{
 	  /* Pull the next block to simulate off the worklist.  */
-	  basic_block dest_block;
-	  dest_block = ((edge)VARRAY_TOP_GENERIC_PTR (cfg_edges))->dest;
+	  basic_block dest_block = VARRAY_TOP_EDGE (cfg_edges)->dest;
 	  VARRAY_POP (cfg_edges);
 	  simulate_block (dest_block);
 	}
@@ -697,7 +696,7 @@ add_control_edge (edge e)
     return;
 
   e->flags |= EDGE_EXECUTABLE;
-  VARRAY_PUSH_GENERIC_PTR (cfg_edges, e);
+  VARRAY_PUSH_EDGE (cfg_edges, e);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n",
@@ -1032,14 +1031,14 @@ initialize (void)
     }
 
 
-  VARRAY_GENERIC_PTR_INIT (cfg_edges, 20, "cfg_edges");
+  VARRAY_EDGE_INIT (cfg_edges, 20, "cfg_edges");
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
       e->flags |= EDGE_EXECUTABLE;
-      VARRAY_PUSH_GENERIC_PTR (cfg_edges, e);
+      VARRAY_PUSH_EDGE (cfg_edges, e);
     }
 }
 
@@ -1585,3 +1584,5 @@ get_strlen (tree arg)
 
   return NULL_TREE;
 }
+
+#include "gt-tree-ssa-ccp.h"

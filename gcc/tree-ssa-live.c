@@ -879,10 +879,14 @@ type_var_init (var_map map)
     {
       t = partition_to_var (map, x);
       /* Disallow coalescing of these types of variables.  */
-      if (!t || TREE_THIS_VOLATILE (t) || TREE_CODE (t) == RESULT_DECL
+      if (!t
+	  || TREE_THIS_VOLATILE (t)
+	  || TREE_CODE (t) == RESULT_DECL
       	  || TREE_CODE (t) == PARM_DECL 
-	  || (DECL_P (t) && (DECL_REGISTER (t) || !DECL_ARTIFICIAL (t)
-			     || DECL_RTL_SET_P (t) || has_hidden_use (t))))
+	  || (DECL_P (t)
+	      && (DECL_REGISTER (t)
+		  || !DECL_ARTIFICIAL (t)
+		  || DECL_RTL_SET_P (t))))
         continue;
 
       p = var_to_partition (map, t);

@@ -95,6 +95,12 @@ struct var_ann_d GTY(())
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
 
+  /* Nonzero if this variable is used as the argument to VA_ARG_EXPR.  This
+     forces all operands to this variable to always be virtual, because
+     VA_ARG_EXPR both reads and modifies its argument and it can't be
+     modified by optimizations.  */
+  unsigned is_in_va_arg_expr;
+
   /* A VAR_DECL used to associated pointers with the memory location that
      they are pointing to.  If IS_MEM_TAG is nonzero, then MEM_TAG is the
      pointer associated to this memory tag.  If IS_MEM_TAG is zero, then
@@ -412,6 +418,7 @@ extern int could_trap_p (tree);
 extern basic_block tree_split_edge (edge);
 
 /* In tree-dfa.c  */
+void find_referenced_vars (tree);
 extern void get_stmt_operands (tree);
 extern var_ann_t create_var_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);

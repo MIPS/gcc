@@ -69,6 +69,9 @@ optimize_function_tree (tree fndecl)
       /* Initialize common SSA structures.  */
       init_tree_ssa ();
 
+      /* Find all the variables referenced in the function.  */
+      find_referenced_vars (fndecl);
+
       /* Compute aliasing information for all the variables referenced in
 	 the function.  */
       compute_may_aliases (fndecl);

@@ -60,15 +60,9 @@ struct dfa_stats_d
   long num_vuses;
 };
 
-struct clobber_data_d
-{
-  tree stmt;
-  voperands_t prev_vops;
-};
-
 /* Tuple to map a variable to its alias set.  Used to cache the results of
    calls to get_alias_set().  */
-struct alias_map_d
+struct GTY(()) alias_map_d
 {
   tree var;
   HOST_WIDE_INT set;
@@ -85,9 +79,6 @@ static GTY(()) varray_type pointers;
 /* State information for find_vars_r.  */
 struct walk_state
 {
-  /* Hash table used to avoid adding the same variable more than once.  */
-  htab_t vars_found;
-
   /* Nonzero if the variables found under the current tree are written to.  */
   int is_store : 1;
 
@@ -96,6 +87,15 @@ struct walk_state
 
   /* Nonzero if the walker is inside an ASM_EXPR node.  */
   int is_asm_expr : 1;
+
+  /* Nonzero if the walker is inside a non-GIMPLE expression.  */
+  int is_not_gimple : 1;
+
+  /* Nonzero if the walker is inside a VA_ARG_EXPR node.  */
+  int is_va_arg_expr : 1;
+
+  /* Hash table used to avoid adding the same variable more than once.  */
+  htab_t vars_found;
 };
 
 
@@ -123,7 +123,6 @@ static void cleanup_operand_arrays (stmt_ann_t);
 static void get_expr_operands (tree, tree *, int, voperands_t);
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
-static tree clobber_vars_r (tree *, int *, void *);
 static void compute_alias_sets (void);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT);
 static bool may_access_global_mem_p (tree);
@@ -140,7 +139,6 @@ static void add_may_alias (tree, tree);
 static int get_call_flags (tree);
 static void find_hidden_use_vars (tree);
 static tree find_hidden_use_vars_r (tree *, int *, void *);
-
 
 /* Global declarations.  */
 
@@ -176,12 +174,19 @@ get_stmt_operands (tree stmt)
     abort ();
 #endif
 
-  if (IS_EMPTY_STMT (stmt) || stmt == error_mark_node)
+  /* Ignore empty and error statements.  */
+  if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == ERROR_MARK)
     return;
 
   /* If the statement has not been modified, the operands are still valid.  */
   if (!stmt_modified_p (stmt))
     return;
+
+#if defined ENABLE_CHECKING
+  /* non-GIMPLE statements should not appear here.  */
+  if (TREE_NOT_GIMPLE (stmt))
+    abort ();
+#endif
 
   ann = get_stmt_ann (stmt);
 
@@ -272,6 +277,12 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
   if (expr == NULL || expr == error_mark_node)
     return;
 
+#if defined ENABLE_CHECKING
+  /* non-GIMPLE expressions should not appear here.  */
+  if (TREE_NOT_GIMPLE (expr))
+    abort ();
+#endif
+
   code = TREE_CODE (expr);
   class = TREE_CODE_CLASS (code);
 
@@ -313,26 +324,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       expr_p = &TREE_OPERAND (expr, 0);
       expr = *expr_p;
     }
-
-  /* If this reference is associated with a non GIMPLE expression, then we
-     mark the statement non GIMPLE and recursively clobber every
-     variable referenced by STMT.  FIXME: TREE_NOT_GIMPLE must die.  */
-  if (stmt && TREE_NOT_GIMPLE (expr))
-    {
-      struct clobber_data_d cd;
-      mark_not_gimple (&stmt);
-      cd.stmt = stmt;
-      cd.prev_vops = prev_vops;
-      walk_tree (&stmt, clobber_vars_r, (void *) &cd, NULL);
-      return;
-    }
-
-  /* If the parent statement is marked not-gimple, don't do anything.  This
-     means that in a previous iteration we encountered a non-gimple
-     sub-expression which already clobbered all the variables in the
-     statement.  FIXME: TREE_NOT_GIMPLE must die.  */
-  if (stmt && TREE_NOT_GIMPLE (stmt))
-    return;
 
   /* If we found a variable, add it to DEFS or USES depending on the
      operand flags.  */
@@ -491,8 +482,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
      VOPS to avoid optimizations messing it up.  */
   if (code == VA_ARG_EXPR)
     {
-      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, opf_is_def|opf_force_vop,
-			prev_vops);
+      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, opf_is_def, prev_vops);
       return;
     }
 
@@ -546,7 +536,7 @@ static void
 add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 {
   bool is_scalar;
-  tree var;
+  tree var, sym;
   varray_type aliases;
   size_t i;
   stmt_ann_t s_ann;
@@ -580,16 +570,30 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
   if (!is_scalar && !DECL_P (var))
     var = get_virtual_var (var);
 
-  /* If VAR is not a variable, do nothing.  */
+  /* If VAR is not a variable that we care to optimize, do nothing.  */
   if (var == NULL_TREE || !SSA_VAR_P (var))
     return;
 
-  v_ann = var_ann (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
+  sym = get_base_symbol (var);
+  v_ann = var_ann (sym);
 
-  /* FIXME: Currently, objects in static storage are always treated as
-     virtual operands.  */
-  if (decl_function_context (!DECL_P (var) ? get_base_symbol (var) : var) == 0
-      || TREE_STATIC ((!DECL_P (var) ? get_base_symbol (var) : var)))
+  /* FIXME: We currently refuse to optimize variables that have hidden uses
+     (variables used in VLA declarations, MD builtin calls and variables
+     from the parent function in nested functions).  This is because not
+     all uses of these variables are exposed in the IL or the statements
+     that reference them are not in GIMPLE form.  If that's the case, mark
+     the statement as having volatile operands and return.  */
+  if (v_ann->has_hidden_use)
+    {
+      s_ann->has_volatile_ops = 1;
+      return;
+    }
+
+  /* Globals, local statics and variables referenced in VA_ARG_EXPR are
+     always accessed using virtual operands.  */
+  if (decl_function_context (sym) == 0
+      || TREE_STATIC (sym)
+      || v_ann->is_in_va_arg_expr)
     flags |= opf_force_vop;
 
   /* If the variable is an alias tag, it means that its address has been
@@ -1159,7 +1163,7 @@ add_immediate_use (tree stmt, tree use_stmt)
     }
 
   if (ann->df->immediate_uses == NULL)
-    VARRAY_GENERIC_PTR_INIT (ann->df->immediate_uses, 10, "immediate_uses");
+    VARRAY_TREE_INIT (ann->df->immediate_uses, 10, "immediate_uses");
 
   VARRAY_PUSH_TREE (ann->df->immediate_uses, use_stmt);
 }
@@ -1380,6 +1384,9 @@ dump_variable (FILE *file, tree var)
 
   if (ann->is_stored)
     fprintf (file, ", is stored");
+
+  if (ann->is_in_va_arg_expr)
+    fprintf (file, ", is used in va_arg");
 
   if (ann->may_aliases)
     {
@@ -1697,37 +1704,55 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 }
 
 
-/* Callback for walk_tree, create may-def/may-use references for every
-   declaration node and compound reference found under a given tree node
-   TP.  */
-
-static tree
-clobber_vars_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		void *data)
-{
-  enum tree_code code = TREE_CODE (*tp);
-
-  /* Add every *_DECL node to VDEFS and VUSES.  */
-  if (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
-    {
-      struct clobber_data_d *cd = (struct clobber_data_d *) data;
-      add_vuse (*tp, cd->stmt, cd->prev_vops);
-      add_vdef (*tp, cd->stmt, cd->prev_vops);
-    }
-
-  return NULL;
-}
-
-
 /*---------------------------------------------------------------------------
 				    Aliasing
 ---------------------------------------------------------------------------*/
-/* Compute may-alias information for every variable referenced in the
-   program.  Note that in the absence of points-to analysis
+/* Compute may-alias information for every variable referenced in function
+   FNDECL.  Note that in the absence of points-to analysis
    (-ftree-points-to), this may compute a much bigger set than necessary.  */
 
 void
-compute_may_aliases (tree fndecl)
+compute_may_aliases (tree fndecl ATTRIBUTE_UNUSED)
+{
+  timevar_push (TV_TREE_MAY_ALIAS);
+
+  if (flag_tree_points_to != PTA_NONE)
+    {
+      timevar_push (TV_TREE_PTA);
+      create_alias_vars (fndecl);
+      timevar_pop (TV_TREE_PTA);
+    }
+
+  /* Compute alias sets.  */
+  compute_alias_sets ();
+  
+  if (flag_tree_points_to != PTA_NONE)
+    {
+      timevar_push (TV_TREE_PTA);
+      delete_alias_vars ();
+      timevar_pop (TV_TREE_PTA);
+    }
+
+  /* Deallocate memory used by aliasing data structures.  */
+  addressable_vars = NULL;
+  pointers = NULL;
+
+  timevar_pop (TV_TREE_MAY_ALIAS);
+}
+
+
+/* Find all the variables referenced in function FNDECL.  This function
+   builds the global arrays REFERENCED_VARS and CALL_CLOBBERED_VARS.  It
+   also builds the local arrays ADDRESSABLE_VARS and POINTERS used for
+   alias analysis.
+
+   Note that this function does not look for statement operands, it simply
+   determines what variables are referenced in the program and detects
+   various attributes for each variable used by alias analysis and the
+   optimizer.  */
+
+void
+find_referenced_vars (tree fndecl)
 {
   static htab_t vars_found;
   basic_block bb;
@@ -1735,7 +1760,8 @@ compute_may_aliases (tree fndecl)
   struct walk_state walk_state;
   tree block;
 
-  timevar_push (TV_TREE_MAY_ALIAS);
+  VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
+  VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
 
   /* Walk the lexical blocks in the function looking for variables that may
      have been used to declare VLAs and for nested functions.  Both
@@ -1751,45 +1777,53 @@ compute_may_aliases (tree fndecl)
       block = BLOCK_CHAIN (block);
     }
 
-  VARRAY_GENERIC_PTR_INIT (addressable_vars, 20, "addressable_vars");
-  VARRAY_GENERIC_PTR_INIT (pointers, 20, "pointers");
-
-  /* Hash table of all the objects the SSA builder needs to be aware of.  */
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-
-  if (flag_tree_points_to != PTA_NONE)
-    {
-      timevar_push (TV_TREE_PTA);
-      create_alias_vars (fndecl);
-      timevar_pop (TV_TREE_PTA);
-    }
-
+  memset (&walk_state, 0, sizeof (walk_state));
   walk_state.vars_found = vars_found;
-  walk_state.is_store = 0;
-  walk_state.is_indirect_ref = 0;
-  walk_state.is_asm_expr = 0;
 
-  /* Find all the variables referenced in the function.  */
   FOR_EACH_BB (bb)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-      walk_tree (bsi_stmt_ptr (si), find_vars_r, &walk_state, NULL);
+      {
+	tree *stmt_p = bsi_stmt_ptr (si);
+
+	/* Propagate non-GIMPLE attribute into the statement.  FIXME:
+	   The only statements that are not in GIMPLE form are calls to MD
+	   builtins.  Propagate the non-GIMPLE attribute from the RHS of
+	   assignments into the statement, if needed.  */
+	if (TREE_CODE (*stmt_p) == MODIFY_EXPR
+	    && TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR
+	    && TREE_NOT_GIMPLE (TREE_OPERAND (*stmt_p, 1)))
+	  {
+	    mark_not_gimple (stmt_p);
+	    /* Prevent get_stmt_operands() from ever dealing with this
+	       statement.  */
+	    unmodify_stmt (*stmt_p);
+	  }
+
+	/* A CALL_EXPR may also appear inside a RETURN_EXPR.  */
+	if (TREE_CODE (*stmt_p) == RETURN_EXPR)
+	  {
+	    tree expr = TREE_OPERAND (*stmt_p, 0);
+	    if (expr
+		&& TREE_CODE (expr) == MODIFY_EXPR
+		&& TREE_CODE (TREE_OPERAND (expr, 1)) == CALL_EXPR
+		&& TREE_NOT_GIMPLE (TREE_OPERAND (expr, 1)))
+	      {
+		mark_not_gimple (stmt_p);
+		/* Prevent get_stmt_operands() from ever dealing with this
+		   statement.  */
+		unmodify_stmt (*stmt_p);
+	      }
+	  }
+
+	if (TREE_NOT_GIMPLE (*stmt_p))
+	  walk_state.is_not_gimple = 1;
+
+	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
+	walk_state.is_not_gimple = 0;
+      }
 
   htab_delete (vars_found);
-
-  compute_alias_sets ();
-  
-  if (flag_tree_points_to != PTA_NONE)
-    {
-      timevar_push (TV_TREE_PTA);
-      delete_alias_vars ();
-      timevar_pop (TV_TREE_PTA);
-    }
-
-  /* Deallocate memory used by aliasing data structures.  */
-  addressable_vars = NULL;
-  pointers = NULL;
-
-  timevar_pop (TV_TREE_MAY_ALIAS);
 }
 
 
@@ -2216,7 +2250,11 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
   struct walk_state *walk_state = (struct walk_state *)data;
-  int saved_is_store = walk_state->is_store;
+
+#if defined ENABLE_CHECKING
+  if (TREE_NOT_GIMPLE (*tp) && walk_state->is_not_gimple == 0)
+    abort ();
+#endif
 
   /* Type and constant nodes have no interesting children.  Ignore them.  */
   if (TYPE_P (t) || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
@@ -2238,24 +2276,24 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
   if (TREE_CODE (t) == MODIFY_EXPR)
     {
+      tree *lhs_p = &TREE_OPERAND (t, 0);
+      tree *rhs_p = &TREE_OPERAND (t, 1);
+
       walk_state->is_store = 1;
-      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, data, NULL);
+      walk_tree (lhs_p, find_vars_r, walk_state, NULL);
       walk_state->is_store = 0;
-      walk_tree (&TREE_OPERAND (t, 1), find_vars_r, data, NULL);
-      walk_state->is_store = saved_is_store;
+      walk_tree (rhs_p, find_vars_r, walk_state, NULL);
 
       /* If this is an assignment to a pointer and the RHS may point to
-	 global memory, mark the pointer on the LHS.  FIXME: This causes a
-	 second traversal of the RHS of the assignment, we should set a bit
-	 in WALK_STATE as we walk the RHS.  */
-      if (SSA_VAR_P (TREE_OPERAND (t, 0))
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0)))
-	  && may_access_global_mem_p (TREE_OPERAND (t, 1)))
-	set_may_point_to_global_mem (TREE_OPERAND (t, 0));
+	 global memory, mark the pointer on the LHS.  */
+      if (SSA_VAR_P (*lhs_p)
+	  && POINTER_TYPE_P (TREE_TYPE (*lhs_p))
+	  && may_access_global_mem_p (*rhs_p))
+	set_may_point_to_global_mem (*lhs_p);
 
       /* If either side makes volatile references, mark the statement.  */
-      if (TREE_THIS_VOLATILE (TREE_OPERAND (t, 0))
-	  || TREE_THIS_VOLATILE (TREE_OPERAND (t, 1)))
+      if (TREE_THIS_VOLATILE (*lhs_p)
+	  || TREE_THIS_VOLATILE (*rhs_p))
 	get_stmt_ann (t)->has_volatile_ops = 1;
 
       return t;
@@ -2264,39 +2302,49 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
     {
       walk_state->is_asm_expr = 1;
       walk_state->is_store = 1;
-      walk_tree (&ASM_OUTPUTS (t), find_vars_r, data, NULL);
-      walk_tree (&ASM_CLOBBERS (t), find_vars_r, data, NULL);
+      walk_tree (&ASM_OUTPUTS (t), find_vars_r, walk_state, NULL);
+      walk_tree (&ASM_CLOBBERS (t), find_vars_r, walk_state, NULL);
       walk_state->is_store = 0;
-      walk_tree (&ASM_INPUTS (t), find_vars_r, data, NULL);
-      walk_state->is_store = saved_is_store;
+      walk_tree (&ASM_INPUTS (t), find_vars_r, walk_state, NULL);
       walk_state->is_asm_expr = 0;
       return t;
     }
   else if (TREE_CODE (t) == INDIRECT_REF)
     {
       walk_state->is_indirect_ref = 1;
-      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, data, NULL);
+      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, walk_state, NULL);
+
       /* INDIRECT_REF nodes cannot be nested in GIMPLE, so there is no need
 	 of saving/restoring the state.  */
       walk_state->is_indirect_ref = 0;
+
+      /* Keep iterating, because an INDIRECT_REF node may have more
+	 references inside (structures and arrays).  */
       return NULL_TREE;
     }
-
-  if (SSA_VAR_P (*tp))
+  else if (TREE_CODE (t) == VA_ARG_EXPR)
     {
-      add_referenced_var (*tp, walk_state);
+      walk_state->is_va_arg_expr = 1;
+      walk_tree (&TREE_OPERAND (t, 0), find_vars_r, walk_state, NULL);
+      walk_state->is_va_arg_expr = 0;
+      return t;
+    }
+
+  if (SSA_VAR_P (t))
+    {
+      add_referenced_var (t, walk_state);
       return NULL_TREE;
     }
 
   /* A function call that receives pointer arguments may dereference them.
      For every pointer 'p' in the argument to the function call, add a
      reference to '*p'.  */
-  if (TREE_CODE (*tp) == CALL_EXPR)
+  if (TREE_CODE (t) == CALL_EXPR && walk_state->is_not_gimple == 0)
     {
       tree op;
-      int call_flags = get_call_flags (*tp);
+      int call_flags = get_call_flags (t);
 
-      for (op = TREE_OPERAND (*tp, 1); op; op = TREE_CHAIN (op))
+      for (op = TREE_OPERAND (t, 1); op; op = TREE_CHAIN (op))
 	{
 	  tree arg = TREE_VALUE (op);
 	  if (SSA_VAR_P (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
@@ -2314,9 +2362,8 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 	 consider this call as a store operation to .GLOBAL_VAR.  */
       if (!(call_flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)))
 	walk_state->is_store = 1;
-
       add_referenced_var (global_var, walk_state);
-      walk_state->is_store = saved_is_store;
+      walk_state->is_store = 0;
     }
 
   return NULL_TREE;
@@ -2341,6 +2388,11 @@ add_referenced_var (tree var, struct walk_state *walk_state)
   var_ann_t v_ann;
 
   v_ann = get_var_ann (var);
+
+  /* If the variable has already been flagged as having hidden uses,
+     ignore it.  */
+  if (v_ann->has_hidden_use)
+    return;
 
   slot = htab_find_slot (vars_found, (void *) var, INSERT);
   if (*slot == NULL)
@@ -2378,7 +2430,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	  alias_map = ggc_alloc (sizeof (*alias_map));
 	  alias_map->var = var;
 	  alias_map->set = get_alias_set (var);
-	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, (void *) alias_map);
+	  VARRAY_PUSH_GENERIC_PTR (addressable_vars, alias_map);
 	}
 
       /* Addressable variables, memory tags and static locals may be used
@@ -2400,6 +2452,18 @@ add_referenced_var (tree var, struct walk_state *walk_state)
      stores to keep track of.  */
   if (walk_state->is_store)
     v_ann->is_stored = 1;
+
+  /* If VAR is being referenced inside a non-GIMPLE tree, mark it as having
+     hidden uses.  Currently, this is used for MD built-ins, which are not
+     gimplified and cannot be optimized.  FIXME: long term all trees must
+     be in GIMPLE form.  */
+  if (walk_state->is_not_gimple)
+    v_ann->has_hidden_use = 1;
+
+  /* If VAR is being referenced inside a VA_ARG_EXPR, mark it so that all
+     operands to VAR are always virtual.  */
+  if (walk_state->is_va_arg_expr)
+    v_ann->is_in_va_arg_expr = 1;
 
   /* If the variable is a pointer being clobbered by an ASM_EXPR, the
      pointer may end up pointing to global memory.  */
@@ -2483,7 +2547,7 @@ get_memory_tag_for (tree ptr)
       alias_map = ggc_alloc (sizeof (*alias_map));
       alias_map->var = ptr;
       alias_map->set = tag_set;
-      VARRAY_PUSH_GENERIC_PTR (pointers, (void *) alias_map);
+      VARRAY_PUSH_GENERIC_PTR (pointers, alias_map);
     }
 
   return tag;
@@ -2623,3 +2687,5 @@ create_global_var (void)
   TREE_THIS_VOLATILE (global_var) = 1;
   TREE_ADDRESSABLE (global_var) = 0;
 }
+
+#include "gt-tree-dfa.h"
