@@ -868,10 +868,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       NIY;
       break;
 
-    case WITH_RECORD_EXPR:
-      NIY;
-      break;
-
       /* Binary arithmetic and logic expressions.  */
     case MULT_EXPR:
     case PLUS_EXPR:

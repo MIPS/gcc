@@ -1,5 +1,5 @@
 /* Precompiled header implementation for the C languages.
-   Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -401,6 +401,6 @@ c_common_no_more_pch (void)
   if (cpp_get_callbacks (parse_in)->valid_pch)
     {
       cpp_get_callbacks (parse_in)->valid_pch = NULL;
-      host_hooks.gt_pch_use_address (NULL, 0);
+      host_hooks.gt_pch_use_address (NULL, 0, -1, 0);
     }
 }

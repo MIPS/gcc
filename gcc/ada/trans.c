@@ -1236,8 +1236,8 @@ tree_transform (Node_Id gnat_node)
 	    if (CONTAINS_PLACEHOLDER_P (gnu_result))
 	      {
 		if (TREE_CODE (gnu_prefix) != TYPE_DECL)
-		  gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				      gnu_result, gnu_expr);
+		  gnu_result = substitute_placeholder_in_expr (gnu_result,
+							       gnu_expr);
 		else
 		  gnu_result = max_size (gnu_result, 1);
 	      }
@@ -1381,9 +1381,8 @@ tree_transform (Node_Id gnat_node)
 	      /* If this has a PLACEHOLDER_EXPR, qualify it by the object
 		 we are handling.  Note that these attributes could not
 		 have been used on an unconstrained array type.  */
-	      if (CONTAINS_PLACEHOLDER_P (gnu_result))
-		gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				    gnu_result, gnu_prefix);
+	      gnu_result = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_result,
+							   gnu_prefix);
 
 	      break;
 	    }
@@ -1486,9 +1485,8 @@ tree_transform (Node_Id gnat_node)
 
 	      /* If this has a PLACEHOLDER_EXPR, qualify it by the object
 		 we are handling. */
-	      if (CONTAINS_PLACEHOLDER_P (gnu_result))
-		gnu_result = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_result),
-				    gnu_result, gnu_prefix);
+	      gnu_result = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_result,
+							   gnu_prefix);
 
 	      break;
 	    }
@@ -1496,7 +1494,7 @@ tree_transform (Node_Id gnat_node)
 	  case Attr_Min:
 	  case Attr_Max:
 	    gnu_lhs = gnat_to_gnu (First (Expressions (gnat_node)));
-	    gnu_rhs =  gnat_to_gnu (Next (First (Expressions (gnat_node))));
+	    gnu_rhs = gnat_to_gnu (Next (First (Expressions (gnat_node))));
 
 	    gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	    gnu_result = build_binary_op (attribute == Attr_Min
@@ -1695,9 +1693,7 @@ tree_transform (Node_Id gnat_node)
 	{
 	  unsigned int align = known_alignment (gnu_result);
 	  tree gnu_obj_type = TREE_TYPE (gnu_result_type);
-	  unsigned int oalign
-	    = TREE_CODE (gnu_obj_type) == FUNCTION_TYPE
-	      ? FUNCTION_BOUNDARY : TYPE_ALIGN (gnu_obj_type);
+	  unsigned int oalign = TYPE_ALIGN (gnu_obj_type);
 
 	  if (align != 0 && align < oalign && ! TYPE_ALIGN_OK (gnu_obj_type))
 	    post_error_ne_tree_2
@@ -3638,30 +3634,14 @@ tree_transform (Node_Id gnat_node)
 		  if (Present (Renamed_Object (gnat_ex_id)))
 		    gnat_ex_id = Renamed_Object (gnat_ex_id);
 
-		  /* ??? Note that we have to use gnat_to_gnu_entity here
-		     since the type of the exception will be wrong in the
-		     VMS case and that's exactly what this test is for.  */
 		  gnu_expr = gnat_to_gnu_entity (gnat_ex_id, NULL_TREE, 0);
 
-		  /* If this was a VMS exception, check import_code
-		     against the value of the exception.  */
-		  if (TREE_CODE (TREE_TYPE (gnu_expr)) == INTEGER_TYPE)
-		    this_choice
-		      = build_binary_op
-			(EQ_EXPR, integer_type_node,
-			 build_component_ref
-			 (build_unary_op
-			  (INDIRECT_REF, NULL_TREE,
-			   TREE_VALUE (gnu_except_ptr_stack)),
-			  get_identifier ("import_code"), NULL_TREE, 0),
-			 gnu_expr);
-		  else
-		    this_choice
-		      = build_binary_op
-			(EQ_EXPR, integer_type_node,
-			 TREE_VALUE (gnu_except_ptr_stack),
-			 convert
-			 (TREE_TYPE (TREE_VALUE (gnu_except_ptr_stack)),
+		  this_choice
+		    = build_binary_op
+		      (EQ_EXPR, integer_type_node,
+		       TREE_VALUE (gnu_except_ptr_stack),
+		       convert
+		         (TREE_TYPE (TREE_VALUE (gnu_except_ptr_stack)),
 			  build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr)));
 
 		  /* If this is the distinguished exception "Non_Ada_Error"
@@ -3744,6 +3724,9 @@ tree_transform (Node_Id gnat_node)
 
  		  gnu_etype
 		    = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr);
+
+		  /* The Non_Ada_Error case for VMS exceptions is handled
+		     by the personality routine.  */
  		}
  	      else
  		gigi_abort (337);
@@ -4637,13 +4620,8 @@ emit_index_check (tree gnu_array_object,
 
   /* If GNU_LOW or GNU_HIGH are a PLACEHOLDER_EXPR, qualify them by
      the object we are handling. */
-  if (CONTAINS_PLACEHOLDER_P (gnu_low))
-    gnu_low = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_low),
-		     gnu_low, gnu_array_object);
-
-  if (CONTAINS_PLACEHOLDER_P (gnu_high))
-    gnu_high = build (WITH_RECORD_EXPR, TREE_TYPE (gnu_high),
-		      gnu_high, gnu_array_object);
+  gnu_low = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_low, gnu_array_object);
+  gnu_high = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_high, gnu_array_object);
 
   /* There's no good type to use here, so we might as well use
      integer_type_node.   */
@@ -4716,10 +4694,6 @@ convert_with_check (Entity_Id gnat_type,
   tree gnu_in_basetype = get_base_type (gnu_in_type);
   tree gnu_base_type = get_base_type (gnu_type);
   tree gnu_ada_base_type = get_ada_base_type (gnu_type);
-  tree gnu_in_lb = TYPE_MIN_VALUE (gnu_in_basetype);
-  tree gnu_in_ub = TYPE_MAX_VALUE (gnu_in_basetype);
-  tree gnu_out_lb = TYPE_MIN_VALUE (gnu_base_type);
-  tree gnu_out_ub = TYPE_MAX_VALUE (gnu_base_type);
   tree gnu_result = gnu_expr;
 
   /* If we are not doing any checks, the output is an integral type, and
@@ -4747,6 +4721,10 @@ convert_with_check (Entity_Id gnat_type,
       /* Ensure GNU_EXPR only gets evaluated once.  */
       tree gnu_input = protect_multiple_eval (gnu_result);
       tree gnu_cond = integer_zero_node;
+      tree gnu_in_lb = TYPE_MIN_VALUE (gnu_in_basetype);
+      tree gnu_in_ub = TYPE_MAX_VALUE (gnu_in_basetype);
+      tree gnu_out_lb = TYPE_MIN_VALUE (gnu_base_type);
+      tree gnu_out_ub = TYPE_MAX_VALUE (gnu_base_type);
 
       /* Convert the lower bounds to signed types, so we're sure we're
 	 comparing them properly.  Likewise, convert the upper bounds

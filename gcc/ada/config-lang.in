@@ -40,8 +40,5 @@ outputs=ada/Makefile
 
 target_libs="target-libada"
 
-# The logic for determining whether there is a bootstrap Ada compiler
-# available needs to be moved from gcc/configure to the toplevel configure,
-# so that target-libada is not built when there is no bootstrap Ada compiler.
-# Until then disable building this language by default.
+# Ada will not work until the front end starts emitting GIMPLE trees.
 build_by_default=no

@@ -34,6 +34,7 @@
 #include "convert.h"
 #include "ggc.h"
 #include "obstack.h"
+#include "target.h"
 
 #include "ada.h"
 #include "types.h"
@@ -50,9 +51,6 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
-
-/* Setting this to 1 suppresses hashing of types.  */
-extern int debug_no_type_hash;
 
 /* Provide default values for the macros controlling stack checking.
    This is copied from GCC's expr.h.  */
@@ -367,34 +365,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       goto object;
 
     case E_Exception:
-      /* If this is not a VMS exception, treat it as a normal object.
-	 Otherwise, make an object at the specific address of character
-	 type, point to it, and convert it to integer, and mask off
-	 the lower 3 bits.  */
-      if (! Is_VMS_Exception (gnat_entity))
-	goto object;
-
-      /* Allocate the global object that we use to get the value of the
-	 exception.  */
-      gnu_decl = create_var_decl (gnu_entity_id,
-				  (Present (Interface_Name (gnat_entity))
-				   ? create_concat_name (gnat_entity, 0)
-				   : NULL_TREE),
-				  char_type_node, NULL_TREE, 0, 0, 1, 1,
-				  0);
-
-      /* Now return the expression giving the desired value.  */
-      gnu_decl
-	= build_binary_op (BIT_AND_EXPR, integer_type_node,
-			   convert (integer_type_node,
-				    build_unary_op (ADDR_EXPR, NULL_TREE,
-						    gnu_decl)),
-			   build_unary_op (NEGATE_EXPR, integer_type_node,
-					   build_int_2 (7, 0)));
-
-      save_gnu_tree (gnat_entity, gnu_decl, 1);
-      saved = 1;
-      break;
+      /* We used to special case VMS exceptions here to directly map them to
+	 their associated condition code.  Since this code had to be masked
+	 dynamically to strip off the severity bits, this caused trouble in
+	 the GCC/ZCX case because the "type" pointers we store in the tables
+	 have to be static.  We now don't special case here anymore, and let
+	 the regular processing take place, which leaves us with a regular
+	 exception data object for VMS exceptions too.  The condition code
+	 mapping is taken care of by the front end and the bitmasking by the
+	 runtime library.   */
+      goto object;
 
     case E_Discriminant:
     case E_Component:
@@ -585,12 +565,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_type)))
 	  {
 	    if (gnu_expr != 0 && kind == E_Constant)
-	      {
-		gnu_size = TYPE_SIZE (TREE_TYPE (gnu_expr));
-		if (CONTAINS_PLACEHOLDER_P (gnu_size))
-		  gnu_size = build (WITH_RECORD_EXPR, bitsizetype,
-				    gnu_size, gnu_expr);
-	      }
+	      gnu_size
+		= SUBSTITUTE_PLACEHOLDER_IN_EXPR
+		  (TYPE_SIZE (TREE_TYPE (gnu_expr)), gnu_expr);
 
 	    /* We may have no GNU_EXPR because No_Initialization is
 	       set even though there's an Expression.  */
@@ -1019,13 +996,17 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		      (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS (gnu_type)))))))
 	  gnu_expr = convert (gnu_type, gnu_expr);
 
-	/* This name is external or there was a name specified, use it.
-	   Don't use the Interface_Name if there is an address clause.
-	   (see CD30005).  */
-	if ((Present (Interface_Name (gnat_entity))
-	     && No (Address_Clause (gnat_entity)))
-	    || (Is_Public (gnat_entity)
-		&& (! Is_Imported (gnat_entity) || Is_Exported (gnat_entity))))
+	/* If this name is external or there was a name specified, use it,
+	   unless this is a VMS exception object since this would conflict
+	   with the symbol we need to export in addition.  Don't use the
+	   Interface_Name if there is an address clause (see CD30005).  */
+	if (! Is_VMS_Exception (gnat_entity)
+	    &&
+	    ((Present (Interface_Name (gnat_entity))
+	      && No (Address_Clause (gnat_entity)))
+	     ||
+	     (Is_Public (gnat_entity)
+	      && (! Is_Imported (gnat_entity) || Is_Exported (gnat_entity)))))
 	  gnu_ext_name = create_concat_name (gnat_entity, 0);
 
 	if (const_flag)
@@ -1171,7 +1152,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 					  gnu_value, gnu_literal_list);
 	  }
 
-	TYPE_FIELDS (gnu_type) = nreverse (gnu_literal_list);
+	TYPE_VALUES (gnu_type) = nreverse (gnu_literal_list);
 
 	/* Note that the bounds are updated at the end of this function
 	   because to avoid an infinite recursion when we get the bounds of
@@ -1941,11 +1922,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				     convert (bitsizetype, gnu_max_size),
 				     TYPE_SIZE (gnu_type));
 
-	  /* We don't want any array types shared for two reasons: first,
-	     we want to keep differently-named types distinct; second,
-	     setting TYPE_MULTI_ARRAY_TYPE of one type can clobber
-	     another.  */
-	  debug_no_type_hash = 1;
 	  for (index = array_dim - 1; index >= 0; index --)
 	    {
 	      gnu_type = build_array_type (gnu_type, gnu_index_type[index]);
@@ -2018,7 +1994,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      finish_record_type (gnu_bound_rec_type, gnu_field_list, 0, 0);
 	    }
 
-	  debug_no_type_hash = 0;
 	  TYPE_CONVENTION_FORTRAN_P (gnu_type)
 	    = (Convention (gnat_entity) == Convention_Fortran);
 	  TYPE_PACKED_ARRAY_TYPE_P (gnu_type)
@@ -2801,6 +2776,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	int got_fat_p = 0;
 	int made_dummy = 0;
 	tree gnu_desig_type = 0;
+	enum machine_mode p_mode = mode_for_size (esize, MODE_INT, 0);
+
+	if (!targetm.valid_pointer_mode (p_mode))
+	  p_mode = ptr_mode;
 
 	if (No (gnat_desig_full)
 	    && (Ekind (gnat_desig_type) == E_Class_Wide_Type
@@ -2950,7 +2929,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 	else if (gnat_desig_type == gnat_entity)
 	  {
-	    gnu_type = build_pointer_type (make_node (VOID_TYPE));
+	    gnu_type
+	      = build_pointer_type_for_mode (make_node (VOID_TYPE),
+					     p_mode,
+					     No_Strict_Aliasing (gnat_entity));
 	    TREE_TYPE (gnu_type) = TYPE_POINTER_TO (gnu_type) = gnu_type;
 	  }
 	else
@@ -3002,7 +2984,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  }
 	      }
 
-	    gnu_type = build_pointer_type (gnu_desig_type);
+	    gnu_type
+	      = build_pointer_type_for_mode (gnu_desig_type, p_mode,
+					     No_Strict_Aliasing (gnat_entity));
 	  }
 
 	/* If we are not defining this object and we made a dummy pointer,
@@ -5794,12 +5778,8 @@ compute_field_positions (tree gnu_type,
    it means that a size of zero should be treated as an unspecified size.  */
 
 static tree
-validate_size (Uint uint_size,
-               tree gnu_type,
-               Entity_Id gnat_object,
-               enum tree_code kind,
-               int component_p,
-               int zero_ok)
+validate_size (Uint uint_size, tree gnu_type, Entity_Id gnat_object,
+               enum tree_code kind, int component_p, int zero_ok)
 {
   Node_Id gnat_error_node;
   tree type_size
@@ -5870,6 +5850,20 @@ validate_size (Uint uint_size,
     type_size = max_size (type_size, 1);
   else if (TYPE_FAT_POINTER_P (gnu_type))
     type_size = bitsize_int (POINTER_SIZE);
+
+  /* If this is an access type, the minimum size is that given by the smallest
+     integral mode that's valid for pointers.  */
+  if (TREE_CODE (gnu_type) == POINTER_TYPE)
+    {
+      enum machine_mode p_mode;
+
+      for (p_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+	   !targetm.valid_pointer_mode (p_mode);
+	   p_mode = GET_MODE_WIDER_MODE (p_mode))
+	;
+
+      type_size = bitsize_int (GET_MODE_BITSIZE (p_mode));
+    }
 
   /* If the size of the object is a constant, the new size must not be
      smaller.  */

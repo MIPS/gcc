@@ -1,3 +1,8 @@
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* parser.c (cp_parser_class_specifier): Initialize
+	variable 'attributes'.
+
 2004-03-17  Richard Henderson  <rth@redhat.com>
 
 	* cp-lang.c (cxx_types_compatible_p): Use

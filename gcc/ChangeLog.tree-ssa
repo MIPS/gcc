@@ -1,3 +1,16 @@
+2004-03-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* passes.c (rest_of_compilation): Re-enable .01.rtl
+	dumps.
+
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node) <WITH_RECORD_EXPR>: Remove.
+	* tree-inline.c (estimate_num_insns_1) <WITH_RECORD_EXPR>: Remove.
+	* fold-const.c (fold_relational_hi_lo): Change type of argument
+	'type_p' to const tree and rename it to 'type'.  Update
+	all callers.
+
 2004-03-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (C_AND_OBJC_OBJS): Remove c-call-graph.o

@@ -25,7 +25,7 @@
 # Initialization and sanity checks
 # --------------------------------
 
-AC_PREREQ(2.57)
+AC_PREREQ(2.59)
 AC_INIT
 AC_CONFIG_SRCDIR(tree.c)
 AC_CONFIG_HEADER(auto-host.h:config.in)
@@ -274,14 +274,6 @@ AC_SUBST(OUTPUT_OPTION)
 # Check C compiler features
 # -------------------------
 
-AC_CACHE_CHECK(whether ${CC-cc} accepts -Wno-long-long,
-ac_cv_prog_cc_no_long_long,
-[save_CFLAGS="$CFLAGS"
-CFLAGS="-Wno-long-long"
-AC_TRY_COMPILE(,,ac_cv_prog_cc_no_long_long=yes,
-	       ac_cv_prog_cc_no_long_long=no)
-CFLAGS="$save_CFLAGS"])
-
 AC_PROG_CPP
 AC_C_INLINE
 
@@ -300,22 +292,68 @@ if test $ac_cv_c___int64 = yes; then
   AC_COMPILE_CHECK_SIZEOF(__int64)
 fi
 
-# -----------------
-# Find Ada compiler
-# -----------------
-
-# See if GNAT has been installed
-gcc_AC_PROG_GNAT
-
 # ---------------------
 # Warnings and checking
 # ---------------------
 
+# Check $CC warning features (if it's GCC).
+# We want to use -pedantic, but we don't want warnings about
+# * 'long long'
+# * variadic macros
+# So, we only use -pedantic if we can disable those warnings.
+
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wno-long-long],
+  [ac_cv_prog_cc_w_no_long_long],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wno-long-long"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_no_long_long=yes],
+                    [ac_cv_prog_cc_w_no_long_long=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wno-variadic-macros],
+  [ac_cv_prog_cc_w_no_variadic_macros],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wno-variadic-macros"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_no_variadic_macros=yes],
+                    [ac_cv_prog_cc_w_no_variadic_macros=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+
 strict1_warn=
-if test $ac_cv_prog_cc_no_long_long = yes ; then
-  strict1_warn="-pedantic -Wno-long-long"
+if test $ac_cv_prog_cc_w_no_long_long = yes \
+   && test $ac_cv_prog_cc_w_no_variadic_macros = yes ; then
+  strict1_warn="-pedantic -Wno-long-long -Wno-variadic-macros"
 fi
 AC_SUBST(strict1_warn)
+
+# Add -Wold-style-definition if it's accepted
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wold-style-definition],
+  [ac_cv_prog_cc_w_old_style_definition],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wold-style-definition"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_old_style_definition=yes],
+                    [ac_cv_prog_cc_w_old_style_definition=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+if test $ac_cv_prog_cc_w_old_style_definition = yes ; then
+  strict1_warn="${strict1_warn} -Wold-style-definition"
+fi
+
+# Enable -Werror, period.
+AC_ARG_ENABLE(werror_always, 
+[  --enable-werror-always         enable -Werror always], [],
+[enable_werror_always=no])
+if test x${enable_werror_always} = xyes ; then
+  strict1_warn="${strict1_warn} -Werror"
+  WERROR=-Werror
+fi
 
 # If the native compiler is GCC, we can enable warnings even in stage1.  
 # That's useful for people building cross-compilers, or just running a
@@ -481,15 +519,19 @@ AC_ARG_ENABLE(coverage,
 			  optimization. Values are opt, noopt,
 			  default is noopt],
 [case "${enableval}" in
-yes|noopt)
-	coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0"
-	;;
-opt)
-	coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2"
-	;;
-*)
-	AC_MSG_ERROR(unknown coverage setting $enableval)
-	;;
+  yes|noopt)
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0"
+    ;;
+  opt)
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2"
+    ;;
+  no)
+    # a.k.a. --disable-coverage
+    coverage_flags=""
+    ;;
+  *)
+    AC_MSG_ERROR(unknown coverage setting $enableval)
+    ;;
 esac],
 [coverage_flags=""])
 AC_SUBST(coverage_flags)
@@ -612,6 +654,53 @@ AC_ARG_ENABLE(intermodule,
 esac],
 [onestep=""])
 AC_SUBST(onestep)
+
+# Sanity check enable_languages in case someone does not run the toplevel
+# configure # script.
+AC_ARG_ENABLE(languages,
+[  --enable-languages=LIST specify which front-ends to build],
+[case ,${enable_languages}, in
+       ,,|,yes,)
+		# go safe -- we cannot be much sure without the toplevel
+		# configure's
+		# analysis of which target libs are present and usable
+		enable_languages=c
+		;;
+	 *,all,*)
+		AC_MSG_ERROR([only the toplevel supports --enable-languages=all])
+		;;
+	*,c,*)
+		;;
+        *)
+		enable_languages=c,${enable_languages}
+		;;
+esac],
+[enable_languages=c])
+
+subdirs=
+for lang in ${srcdir}/*/config-lang.in
+do
+	case $lang in
+	# The odd quoting in the next line works around
+	# an apparent bug in bash 1.12 on linux.
+changequote(,)dnl
+	${srcdir}/[*]/config-lang.in) ;;
+	*)
+	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^   ]*\).*$,\1,p' $lang`
+	  if test "x$lang_alias" = x
+	  then
+	        echo "$lang doesn't set \$language." 1>&2
+	        exit 1
+	  fi
+	  case ",$enable_languages," in
+	  *,$lang_alias,*)
+	    subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`" ;;
+	  esac
+	  ;;
+changequote([,])dnl
+	esac
+done
+
 
 # -------------------------
 # Checks for other programs
@@ -2659,131 +2748,6 @@ if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
-fi
-
-# Figure out what language subdirectories are present.
-# Look if the user specified --enable-languages="..."; if not, use
-# the environment variable $LANGUAGES if defined. $LANGUAGES might
-# go away some day.
-# NB:  embedded tabs in this IF block -- do not untabify
-if test x"${enable_languages+set}" != xset; then
-	if test x"${LANGUAGES+set}" = xset; then
-		enable_languages="${LANGUAGES}"
-		AC_MSG_WARN([setting LANGUAGES is deprecated, use --enable-languages instead])
-
-	else
-		enable_languages=all
-	fi
-else
-	if test x"${enable_languages}" = x \
-        || test x"${enable_languages}" = xyes;
-	then
-		AC_MSG_ERROR([--enable-languages needs at least one language argument])
-	fi
-fi
-enable_languages=`echo "${enable_languages}" | sed -e 's/[[ 	,]][[ 	,]]*/,/g' -e 's/,$//'`
-
-# First scan to see if an enabled language requires some other language.
-# We assume that a given config-lang.in will list all the language
-# front ends it requires, even if some are required indirectly.
-for lang in ${srcdir}/*/config-lang.in
-do
-   case $lang in
-    # The odd quoting in the next line works around
-    # an apparent bug in bash 1.12 on linux.
-changequote(,)dnl
-    ${srcdir}/[*]/config-lang.in)
-       ;;
-    *)
-       lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
-       this_lang_requires=`sed -n -e 's,^lang_requires=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^lang_requires=\([^ 	]*\).*$,\1,p' $lang`
-       for other in $this_lang_requires
-       do
-	  case ,${enable_languages}, in
-	   *,$other,*)
-	      ;;
-	   *,all,*)
-	      ;;
-	   *,$lang_alias,*)
-	      enable_languages="$enable_languages,$other"
-	      ;;
-	  esac
-       done
-       ;;
-changequote([,])dnl
-   esac
-done
-
-expected_languages=`echo ,${enable_languages}, | sed -e 's:,: :g' -e 's:  *: :g' -e 's:  *: :g' -e 's:^ ::' -e 's: $::'`
-found_languages=
-subdirs=
-for lang in ${srcdir}/*/config-lang.in
-do
-	case $lang in
-	# The odd quoting in the next line works around
-	# an apparent bug in bash 1.12 on linux.
-changequote(,)dnl
-	${srcdir}/[*]/config-lang.in) ;;
-	*)
-	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
-	  this_lang_libs=`sed -n -e 's,^target_libs=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^target_libs=\([^ 	]*\).*$,\1,p' $lang`
-	  build_by_default=`sed -n -e 's,^build_by_default=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^build_by_default=\([^ 	]*\).*$,\1,p' $lang`
-	  if test "x$lang_alias" = x
-	  then
-		echo "$lang doesn't set \$language." 1>&2
-		exit 1
-	  fi
-	  case ${build_by_default},${enable_languages}, in
-	  *,$lang_alias,*) add_this_lang=yes ;;
-	  no,*) add_this_lang=no ;;
-	  *,all,*) add_this_lang=yes ;;
-	  *) add_this_lang=no ;;
-	  esac
-          found_languages="${found_languages} ${lang_alias}"
-	  if test x"${add_this_lang}" = xyes; then
-		case $lang in
-		    ${srcdir}/ada/config-lang.in)
-			if test x$have_gnat = xyes ; then
-				subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-			fi
-			;;
-		    *)
-			subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-			;;
-		esac
-	  fi
-	  ;;
-changequote([,])dnl
-	esac
-done
-
-missing_languages=
-for expected_language in ${expected_languages} ..
-do 
-    if test "${expected_language}" != ..; then
-        missing_language="${expected_language}"
-        if test "${expected_language}" = "c" \
-           || test "${expected_language}" = "all"; then
-                missing_language=
-        fi
-        for found_language in ${found_languages} ..
-        do 
-            if test "${found_language}" != ..; then
-                if test "${expected_language}" = "${found_language}"; then
-                    missing_language=
-                fi
-            fi
-        done
-        if test "x${missing_language}" != x; then
-           missing_languages="${missing_languages} ${missing_language}"
-        fi
-    fi
-done
-
-if test "x$missing_languages" != x; then
-  AC_MSG_ERROR([
-The following requested languages were not found:${missing_languages}
-The following languages were available: c${found_languages}])
 fi
 
 # Find out what GC implementation we want, or may, use.

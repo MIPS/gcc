@@ -452,7 +452,7 @@ dbxout_function_end (void)
      the system doesn't insert underscores in front of user generated
      labels.  */
   ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
-  (*targetm.asm_out.internal_label) (asmfile, "Lscope", scope_labelno);
+  targetm.asm_out.internal_label (asmfile, "Lscope", scope_labelno);
   scope_labelno++;
 
   /* By convention, GCC will mark the end of a function with an N_FUN
@@ -476,7 +476,7 @@ static void
 dbxout_init (const char *input_file_name)
 {
   char ltext_label_name[100];
-  tree syms = (*lang_hooks.decls.getdecls) ();
+  tree syms = lang_hooks.decls.getdecls ();
 
   asmfile = asm_out_file;
 
@@ -520,7 +520,7 @@ dbxout_init (const char *input_file_name)
   assemble_name (asmfile, ltext_label_name);
   fputc ('\n', asmfile);
   text_section ();
-  (*targetm.asm_out.internal_label) (asmfile, "Ltext", 0);
+  targetm.asm_out.internal_label (asmfile, "Ltext", 0);
 #endif /* no DBX_OUTPUT_MAIN_SOURCE_FILENAME */
 
 #ifdef DBX_OUTPUT_GCC_MARKER
@@ -729,7 +729,7 @@ dbxout_source_file (FILE *file, const char *filename)
 	; /* Don't change section amid function.  */
       else
 	text_section ();
-      (*targetm.asm_out.internal_label) (file, "Ltext", source_label_number);
+      targetm.asm_out.internal_label (file, "Ltext", source_label_number);
       source_label_number++;
       lastfile = filename;
     }
@@ -757,7 +757,7 @@ static void
 dbxout_begin_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBB", n);
+  targetm.asm_out.internal_label (asmfile, "LBB", n);
 }
 
 /* Describe the end line-number of an internal block within a function.  */
@@ -766,7 +766,7 @@ static void
 dbxout_end_block (unsigned int line ATTRIBUTE_UNUSED, unsigned int n)
 {
   emit_pending_bincls_if_required ();
-  (*targetm.asm_out.internal_label) (asmfile, "LBE", n);
+  targetm.asm_out.internal_label (asmfile, "LBE", n);
 }
 
 /* Output dbx data for a function definition.
@@ -2503,11 +2503,27 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	      if (GET_CODE (current_sym_addr) == SYMBOL_REF
 		  && CONSTANT_POOL_ADDRESS_P (current_sym_addr))
 		{
-		  rtx tmp = get_pool_constant (current_sym_addr);
+		  bool marked;
+		  rtx tmp = get_pool_constant_mark (current_sym_addr, &marked);
 
-		  if (GET_CODE (tmp) == SYMBOL_REF
-		      || GET_CODE (tmp) == LABEL_REF)
-		    current_sym_addr = tmp;
+		  if (GET_CODE (tmp) == SYMBOL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      if (CONSTANT_POOL_ADDRESS_P (current_sym_addr))
+		        get_pool_constant_mark (current_sym_addr, &marked);
+		      else
+			marked = true;
+		    }
+		  else if (GET_CODE (tmp) == LABEL_REF)
+		    {
+		      current_sym_addr = tmp;
+		      marked = true;
+		    }
+
+		   /* If all references to the constant pool were optimized
+		      out, we just ignore the symbol.  */
+		  if (!marked)
+		    return 0;
 		}
 
 	      /* Ultrix `as' seems to need this.  */

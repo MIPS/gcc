@@ -87,7 +87,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 
   /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it might not "
@@ -264,19 +264,6 @@ c_objc_common_finish_file (void)
 
       finish_cdtor (body);
     }
-
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_tu, &flags);
-
-    if (stream)
-      {
-	tree decls = getdecls ();
-	if (decls)
-	  dump_node (decls, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_tu, stream);
-      }
-  }
 }
 
 /* Called during diagnostic message formatting process to print a
@@ -302,14 +289,14 @@ c_tree_printer (pretty_printer *pp, text_info *text)
     case 'D':
     case 'F':
       if (DECL_NAME (t))
-	n = (*lang_hooks.decl_printable_name) (t, 2);
+	n = lang_hooks.decl_printable_name (t, 2);
       break;
 
     case 'T':
       if (TREE_CODE (t) == TYPE_DECL)
 	{
 	  if (DECL_NAME (t))
-	    n = (*lang_hooks.decl_printable_name) (t, 2);
+	    n = lang_hooks.decl_printable_name (t, 2);
 	}
       else
 	{

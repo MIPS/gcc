@@ -156,10 +156,11 @@ EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
 	$(extra_cc_source_files) $(java_source_files) $(built_java_source_files)
 libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
 	$(c_files) $(extra_cc_files) $(GCOBJS) $(THREADOBJS) \
-       $(PLATFORMOBJS) $(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS)
+	$(PLATFORMOBJS) $(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS) \
+	$(propertyo_files)
 
 libgcj_la_LIBADD = $(javao_files) $(c_files) $(extra_cc_files) $(GCOBJS) \
-	$(THREADOBJS) $(PLATFORMOBJS)
+	$(THREADOBJS) $(PLATFORMOBJS) $(propertyo_files)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
@@ -226,6 +227,7 @@ gnu/java/awt/peer/gtk/GdkFontMetrics.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
+gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
 gnu/java/awt/peer/gtk/GtkArg.java \
 gnu/java/awt/peer/gtk/GtkArgList.java \
@@ -374,6 +376,16 @@ all_java_source_files = \
 
 all_java_class_files = $(all_java_source_files:.java=.class)
 
+## Build property files into the library.
+property_files = \
+gnu/regexp/MessagesBundle.properties \
+gnu/regexp/MessagesBundle_fr.properties 
+
+propertyo_files = $(property_files:.properties=.properties.lo) 
+
+%.properties.lo: %.properties
+	$(GCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
+
 if ONESTEP
 
 # Compile all classfiles in one go.
@@ -433,7 +445,7 @@ distclean-local:
 clean-nat:
 	rm -f $(nat_files) $(x_nat_files)
 
-SUFFIXES = .class .java .h
+SUFFIXES = .class .java .h .properties
 
 .class.lo:
 	$(GCJCOMPILE) -o $@ $<
@@ -870,6 +882,8 @@ gnu/gcj/convert/Input_ASCII.java \
 gnu/gcj/convert/Input_EUCJIS.java \
 gnu/gcj/convert/Input_JavaSrc.java \
 gnu/gcj/convert/Input_SJIS.java \
+gnu/gcj/convert/Input_UnicodeBig.java \
+gnu/gcj/convert/Input_UnicodeLittle.java \
 gnu/gcj/convert/Input_UTF8.java	\
 gnu/gcj/convert/Input_iconv.java \
 gnu/gcj/convert/IOConverter.java \
@@ -1092,6 +1106,7 @@ java/awt/geom/CubicCurve2D.java \
 java/awt/geom/FlatteningPathIterator.java \
 java/awt/geom/GeneralPath.java \
 java/awt/geom/QuadCurve2D.java \
+java/awt/image/AffineTransformOp.java \
 java/awt/image/BufferedImage.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
@@ -1319,9 +1334,13 @@ javax/swing/plaf/basic/BasicLabelUI.java \
 javax/swing/plaf/basic/BasicListUI.java \
 javax/swing/plaf/basic/BasicOptionPaneUI.java \
 javax/swing/plaf/basic/BasicPanelUI.java \
+javax/swing/plaf/basic/BasicProgressBarUI.java \
 javax/swing/plaf/basic/BasicRootPaneUI.java \
 javax/swing/plaf/basic/BasicRadioButtonUI.java \
+javax/swing/plaf/basic/BasicScrollBarUI.java \
 javax/swing/plaf/basic/BasicScrollPaneUI.java \
+javax/swing/plaf/basic/BasicSeparatorUI.java \
+javax/swing/plaf/basic/BasicSliderUI.java \
 javax/swing/plaf/basic/BasicSplitPaneDivider.java \
 javax/swing/plaf/basic/BasicSplitPaneUI.java \
 javax/swing/plaf/basic/BasicTabbedPaneUI.java \
@@ -1685,6 +1704,7 @@ gnu/java/rmi/server/ConnectionRunnerPool.java \
 gnu/java/rmi/server/ProtocolConstants.java \
 gnu/java/rmi/server/RMIDefaultSocketFactory.java \
 gnu/java/rmi/server/RMIHashes.java \
+gnu/java/rmi/server/RMIIncomingThread.java \
 gnu/java/rmi/server/RMIObjectInputStream.java \
 gnu/java/rmi/server/RMIObjectOutputStream.java \
 gnu/java/rmi/server/RMIVoidValue.java \
@@ -2368,6 +2388,33 @@ gnu/java/nio/charset/UTF_16Decoder.java \
 gnu/java/nio/charset/UTF_16Encoder.java \
 gnu/java/nio/charset/UTF_16LE.java \
 gnu/java/nio/charset/UTF_8.java \
+gnu/regexp/CharIndexed.java \
+gnu/regexp/CharIndexedCharArray.java \
+gnu/regexp/CharIndexedInputStream.java \
+gnu/regexp/CharIndexedReader.java \
+gnu/regexp/CharIndexedString.java \
+gnu/regexp/CharIndexedStringBuffer.java \
+gnu/regexp/RE.java \
+gnu/regexp/REException.java \
+gnu/regexp/REFilterInputStream.java \
+gnu/regexp/REFilterReader.java \
+gnu/regexp/REMatch.java \
+gnu/regexp/REMatchEnumeration.java \
+gnu/regexp/RESyntax.java \
+gnu/regexp/REToken.java \
+gnu/regexp/RETokenAny.java \
+gnu/regexp/RETokenBackRef.java \
+gnu/regexp/RETokenChar.java \
+gnu/regexp/RETokenEnd.java \
+gnu/regexp/RETokenEndSub.java \
+gnu/regexp/RETokenLookAhead.java \
+gnu/regexp/RETokenOneOf.java \
+gnu/regexp/RETokenPOSIX.java \
+gnu/regexp/RETokenRange.java \
+gnu/regexp/RETokenRepeated.java \
+gnu/regexp/RETokenStart.java \
+gnu/regexp/RETokenWordBoundary.java \
+gnu/regexp/UncheckedRE.java \
 gnu/java/security/Engine.java \
 gnu/java/security/OID.java \
 gnu/java/security/der/BitString.java \

@@ -113,6 +113,10 @@ static GTY(()) tree c_scope_stmt_stack;
 int c_in_iteration_stmt;
 int c_in_case_stmt;
 
+/* A DECL for the current file-scope context.  */
+
+static GTY(()) tree current_file_decl;
+
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
 
@@ -2154,16 +2158,6 @@ define_label (location_t location, tree name)
   DECL_INITIAL (label) = error_mark_node;
   return label;
 }
-
-/* Return the list of declarations of the current scope.
-   This hook is optional and not implemented for C.  */
-
-tree
-getdecls (void)
-{
-  return 0;
-}
-
 
 /* Given NAME, an IDENTIFIER_NODE,
    return the structure (or union or enum) definition for that name.
@@ -5344,7 +5338,6 @@ finish_enum (tree enumtype, tree values, tree attributes)
   int precision, unsign;
   bool toplevel = (file_scope == current_scope);
   struct lang_type *lt;
-
 
   decl_attributes (&enumtype, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 

@@ -1,3 +1,331 @@
+2004-03-24  Dhruv Matani  <dhruvbird@gmx.net>
+
+	* ext/malloc_allocator.h: Fixed the construct function to call
+	global placement new instead of assignment. Added a check after
+	the return from malloc to check whether returned pointer is NULL,
+	and if so, throw std::bad_alloc().
+	* ext/debug_allocator.h: Added a check in the deallocate function
+	to check whether the user has passed a NULL pointer or not.
+	
+2004-03-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/20_util/allocator.html: Add bitmap_allocator links.
+
+2004-03-24  Andreas Schwab  <schwab@suse.de>
+
+	* testsuite/lib/prune.exp (prune_g++_output): Ignore errata
+	warning from IA64 assembler.
+
+2004-03-24  Dhruv Matani  <dhruvbird@gmx.net>
+	
+	* include/ext/bitmap_allocator.h: (_Bit_scan_forward) -> Made this
+	function call __builtin_ctz instead of the while loop.
+	(allocate) -> If condition has __builtin_expect.
+	(deallocate) -> Ditto.
+	Renamed a few left-over variables and typedefs according to the
+	C++STYLE mentioned in the documentation.
+	Protected calls to __gthread* by __gthread_active_p(), whose value
+	is cached in the local variable __threads_active.
+
+2004-03-24  Felix Yen  <fwy@alumni.brown.edu>
+
+	* testsuite/performance/20_util/allocator/producer_consumer.cc:
+	Use linear algorithm for producer.
+	
+2004-03-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/mt_allocator.h (__mt_alloc<>::allocate,
+	__mt_alloc<>::deallocate): Avoid redundant conditionals.
+
+2004-03-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/locale_facets.h: Tweaks for 80 column.
+	(__numpunct_cache::_M_cache): Move to locale_facets.tcc.
+	(__moneypunct_cache::_M_cache): Same.
+	(num_get): Don't inherit from __num_base.
+	(num_put): Same.
+	(money_get): Don't inherit from money_base.
+	(money_put): Same.
+	(__timepunct::_M_am_pm_format): New.
+	(time_get::_M_extract_num): Return iterator, use ios_base as argument.
+	(time_get::_M_extract_name): Same.
+	(time_get::_M_extract_via_format): Same.
+	* include/bits/locale_facets.tcc: Tweaks for 80 column.
+	Use _M_getloc instead of getloc.
+	* testsuite/22_locale/money_put/put/char/9780-3.cc: New.
+	* testsuite/22_locale/num_put/put/char/9780-2.cc: New.
+	* testsuite/22_locale/time_put/put/char/9780-1.cc: New.
+
+2004-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Add pool_allocator.
+	* configure: Regenerate.
+	* config/allocator/pool_allocator_base.h: New.
+	* include/ext/pool_allocator.h: Convert to a standard-conforming
+	allocator.
+	* src/allocator.cc: Tweak instantiations.
+	* testsuite/performance/20_util/allocator/insert.cc: Add __pool_alloc.
+	* testsuite/performance/20_util/allocator/insert_insert.cc: Ditto.
+	* testsuite/performance/20_util/allocator/list_sort_search.cc: Ditto.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Ditto.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Ditto.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc: Ditto.
+
+2004-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cpu/cris/atomicity.h (__atomic_add): Remove "static
+	inline" and attribute-unused.  Qualify parameter __mem with
+	"volatile".
+	(__exchange_and_add): Ditto.  Add back memory clobber to asm.
+
+2004-03-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/2.cc:
+	Remove junk.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/3.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/6.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/7.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/8.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/9.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/10.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/11.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/12.cc:
+	Likewise.
+	* testsuite/27_io/basic_istream/extractors_arithmetic/char/13.cc:
+	Likewise.	
+
+2004-03-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_valarray.h: Document DR389 [Ready].
+	* docs/html/ext/howto.html: Add an entry for DR389.
+
+2004-03-19  Michael Eager  <eager@mvista.com>
+
+	* config/cpu/mips/atomicity.h:  Prevent reg loads between LL and
+	SC instructions.
+
+2004-03-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_get/get/char/11.cc: Remove redundant
+	static_cast-s.
+	* testsuite/22_locale/num_get/get/char/12.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/13.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/14.cc: Likewise.
+	* testsuite/22_locale/num_get/get/char/15.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/11.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/12.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/13.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/14.cc: Likewise.
+	* testsuite/22_locale/num_get/get/wchar_t/15.cc: Likewise.
+
+2004-03-19  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12077
+	* include/ext/stdio_sync_filebuf.h (showmanyc): Remove, there's
+	no way to find out the conversion used by the underlying FILE*.
+	* testsuite/ext/stdio_sync_filebuf/wchar_t/12077.cc: New.
+	* testsuite/27_io/objects/char/9.cc: Tweak.
+
+2004-03-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14648
+	* include/ext/ropeimpl.h (rope<>::_S_apply_to_pieces): Fix
+	memory allocation/deallocation calls.
+	* testsuite/ext/14648.cc: New.
+
+2004-03-19  Peter Schmid  <schmid@snake.iap.physik.tu-darmstadt.de>
+
+	PR libstdc++/14647
+	* include/backward/bvector.h (bit_vector): Allocator is in std
+	namespace.
+
+2004-03-19  Phil Edwards  <phil@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_WCHAR_T_SUPPORT):  Set LIBICONV,
+	not libiconv.  SUBST this variable as well.
+	* testsuite/Makefile.am (site.exp):  New target, based on that
+	created by automake.  Also set libiconv.
+
+	* configure, Makefile.in, include/Makefile.in, libmath/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, src/Makefile.in,
+	testsuite/Makefile.in:  Regenerate.
+
+2004-03-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): Default setting is
+	new_allocator for all hosts.
+	* configure: Regenerate.
+	
+2004-03-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_put/put/char/4.cc: Fix for 64-bit pointers.
+	* testsuite/22_locale/num_put/put/wchar_t/4.cc: Likewise.
+	
+2004-03-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Adjust the logic underlying the parsing of symbol to deal
+	correctly with an optional sign component (i.e., when either
+	negative_sign or positive_sign is empty) 
+	* testsuite/22_locale/money_get/get/char/19.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/19.cc: New.
+
+2004-03-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	Do not accept an incomplete currency symbol.
+	* testsuite/22_locale/money_get/get/char/18.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/18.cc: New.
+
+2004-03-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/allocator: New.
+	* config/allocator/bitmap_allocator_base.h: New.
+	* config/allocator/malloc_allocator_base.h: New.
+	* config/allocator/mt_allocator_base.h: New.
+	* config/allocator/new_allocator_base.h: New.
+	* include/bits/allocator.h: Include c++allocator.h.
+	* acinclude.m4 (GLIBCXX_ENABLE_ALLOCATOR): New.
+	* aclocal.m4: Regenerate.
+	* configure.ac: Use GLIBCXX_ENABLE_ALLOCATOR. 
+	* configure: Regenerate.
+	* include/Makefile.am (host_headers_extra): Add c++allocator.h.
+	* include/Makefile.in: Regenerate.
+	* docs/html/configopts.html: Add enable-libstdcxx-allocator.
+
+2004-03-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/allocator.h: Revert.
+
+2004-03-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/howto.html: Add entry for DR 253 [Ready].
+	* include/bits/gslice_array.h: Add comment about DR 253.
+	* include/bits/indirect_array.h: Likewise.
+	* include/bits/mask_array.h: Likewise.
+	* include/bits/slice_array.h: Likewise.
+
+2004-03-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/20_util/allocator/14176.cc: New.
+	* include/ext/mt_allocator.h: Formatting fixes.
+	
+2004-03-11  Dhruv Matani  <dhruvbird@HotPOP.com>
+
+	* include/Makefile.am (ext_headers): Add
+	${ext_srcdir}/bitmap_allocator.h .
+	* include/Makefile.in: Regenerate.
+	* docs/html/ext/ballocator_doc.txt: New file.
+	* include/ext/bitmap_allocator.h: New file.
+	* testsuite/performance/20_util/allocator/list_sort_search.cc: Add 
+	test.
+	* testsuite/performance/20_util/allocator/map_mt_find.cc: Likewise.
+	* testsuite/performance/20_util/allocator/producer_consumer.cc: Add
+	test for the bitmap_allocator<>.
+	* testsuite/performance/20_util/allocator/insert.cc: Likewise.
+	* testsuite/performance/20_util/allocator/insert_insert.cc: Likewise.
+	* testsuite/performance/20_util/allocator/map_thread.cc: Likewise.
+
+2004-03-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_complex.h (pow(const complex&, const _Tp&),
+	pow(const _Tp&, const complex&), pow(const complex&,
+	const complex&)): Fully qualify with std:: a few calls.
+	* testsuite/26_numerics/complex/13450.cc: Minor tweak.
+
+2004-03-11  Steven Bosscher  <stevenb@suse.de>
+
+	PR libstdc++/11706
+	* include/c_std/cmath.tcc (__cmath_power): Define inline.
+
+2004-03-10  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* configure.ac: Bump AC_PREREQ to 2.59.
+
+2004-03-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/26_numerics/valarray_subset_assignment.cc: Fix typos.
+
+2004-03-10  Paul Kienzle  <pkienzle@nist.gov>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13450
+	* include/std/std_complex.h (pow(const complex&, const _Tp&),
+	pow(const _Tp&, const complex&)): Use cmath pow only when safe.
+	* testsuite/26_numerics/complex/13450.cc: New.
+
+	* testsuite/26_numerics/cmath/overloads.C: Rename to overloads.cc.
+	* testsuite/26_numerics/complex/pow.C: Rename to pow.cc and fix.
+
+2004-03-10  Jerry Quinn  <jlquinn@optonline.net>
+
+	PR libstdc++/3247
+	* include/bits/gslice_array.h (gslice_array()): Make public.
+	(operator=(gslice_array)): Make public.  Implement.
+	* include/bits/indirect_array.h (indirect_array()): Make public.
+	* include/bits/mask_array.h (mask_array()): Make public.
+	(operator=(mask_array)): Make public.  Implement.
+	* include/bits/valarray_array.tcc (__valarray_copy):
+	Comment.  Add versions for gslice_array and mask_array.
+	* testsuite/26_numerics/valarray_subset_assignment.cc:  New test.
+
+2004-03-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/deque/modifiers/swap.cc: Add in bits for
+	non-weak systems.
+	* testsuite/23_containers/vector/modifiers/swap.cc: Same.
+	* testsuite/23_containers/set/modifiers/swap.cc: Same.
+	* testsuite/23_containers/multiset/modifiers/swap.cc: Same.
+	* testsuite/23_containers/multimap/modifiers/swap.cc: Same.
+	* testsuite/23_containers/map/modifiers/swap.cc: Same.
+	* testsuite/23_containers/list/modifiers/swap.cc: Same.
+
+	* testsuite/22_locale/locale/cons/12658_thread.cc: Catch exceptions.
+
+2004-03-08  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	PR c++/13658
+	* testsuite/23_containers/deque/modifiers/swap.cc: New.
+	* testsuite/23_containers/list/modifiers/swap.cc: New.
+	* testsuite/23_containers/map/modifiers/swap.cc: New.
+	* testsuite/23_containers/multimap/modifiers/swap.cc: New.
+	* testsuite/23_containers/multiset/modifiers/swap.cc: New.
+	* testsuite/23_containers/set/modifiers/swap.cc: New.
+	* testsuite/23_containers/vector/modifiers/swap.cc: New.
+	
+2004-03-08  Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/12658
+	* testsuite/22_locale/locale/cons/12658_thread.cc: New.
+
+2004-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/howto.html: Add entry for DR 103 [WP].
+	* include/bits/stl_multiset.h: Add comment about DR 103.
+	* include/bits/stl_set.h: Likewise.
+
+2004-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::_M_extract):
+	The value _space_ indicates that at least one space is required
+	at that position.
+	* testsuite/22_locale/money_get/get/char/17.cc: New.
+	* testsuite/22_locale/money_get/get/wchar_t/17.cc: New.
+
+	* testsuite/22_locale/money_get/get/char/7.cc: Minor tweaks.
+	* testsuite/22_locale/money_get/get/wchar_t/7.cc: Likewise.
+
+	* include/bits/locale_facets.tcc (money_get<>::do_get(long_double&)):
+	Remove redundant conditional on __str.size().
+	
 2004-03-08  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/bits/allocator.h: Switch defaults to mt_alloc.

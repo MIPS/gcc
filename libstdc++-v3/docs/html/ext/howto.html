@@ -295,6 +295,15 @@
 	not required to set <code>gcount</code>).
     </dd>
 
+    <dt><a href="lwg-defects.html#103">103</a>:
+        <em>set::iterator is required to be modifiable, but this allows
+	    modification of keys.</em>
+    </dt>
+    <dd>For associative containers where the value type is the same as
+        the key type, both <code>iterator</code> and <code>const_iterator
+	</code> are constant iterators.
+    </dd>
+
     <dt><a href="lwg-defects.html#109">109</a>:
         <em>Missing binders for non-const sequence elements</em>
     </dt>
@@ -403,6 +412,14 @@
     <dd>This nested typdef was originally not specified.
     </dd>
 
+    <dt><a href="lwg-active.html#253">253</a>:
+        <em>valarray helper functions are almost entirely useless</em>
+    </dt>
+    <dd>Make the copy constructor and copy-assignment operator declarations
+        public in gslice_array, indirect_array, mask_array, slice_array; provide
+	definitions.
+    </dd>
+
     <dt><a href="lwg-defects.html#265">265</a>:
         <em>std::pair::pair() effects overly restrictive</em>
     </dt>
@@ -460,6 +477,12 @@
         <em>Bad sprintf format modifier in money_put&lt;&gt;::do_put()</em>
     </dt>
     <dd>Change the format string to &quot;%.0Lf&quot;.
+    </dd>
+
+    <dt><a href="lwg-active.html#389">389</a>:
+        <em>Const overload of valarray::operator[] returns by value</em>
+    </dt>
+    <dd>Change it to return a <code>const T&amp;</code>.
     </dd>
 
     <dt><a href="lwg-active.html#402">402</a>:

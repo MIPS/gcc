@@ -2180,8 +2180,6 @@ max_size (tree exp, int max_p)
 	    gigi_abort (407);
 	  else if (code == COMPOUND_EXPR)
 	    return max_size (TREE_OPERAND (exp, 1), max_p);
-	  else if (code == WITH_RECORD_EXPR)
-	    return exp;
 
 	  {
 	    tree lhs = max_size (TREE_OPERAND (exp, 0), max_p);
@@ -2275,12 +2273,9 @@ build_template (tree template_type, tree array_type, tree expr)
       max = convert (TREE_TYPE (field), TYPE_MAX_VALUE (bounds));
 
       /* If either MIN or MAX involve a PLACEHOLDER_EXPR, we must
-	 surround them with a WITH_RECORD_EXPR giving EXPR as the
-	 OBJECT.  */
-      if (CONTAINS_PLACEHOLDER_P (min))
-	min = build (WITH_RECORD_EXPR, TREE_TYPE (min), min, expr);
-      if (CONTAINS_PLACEHOLDER_P (max))
-	max = build (WITH_RECORD_EXPR, TREE_TYPE (max), max, expr);
+	 substitute it from OBJECT.  */
+      min = SUBSTITUTE_PLACEHOLDER_IN_EXPR (min, expr);
+      max = SUBSTITUTE_PLACEHOLDER_IN_EXPR (max, expr);
 
       template_elts = tree_cons (TREE_CHAIN (field), max,
 				 tree_cons (field, min, template_elts));
@@ -2670,24 +2665,30 @@ update_pointer_to (tree old_type, tree new_type)
   /* Otherwise, first handle the simple case.  */
   if (TREE_CODE (new_type) != UNCONSTRAINED_ARRAY_TYPE)
     {
-      if (ptr != 0)
-	TREE_TYPE (ptr) = new_type;
       TYPE_POINTER_TO (new_type) = ptr;
-
-      if (ref != 0)
-	TREE_TYPE (ref) = new_type;
       TYPE_REFERENCE_TO (new_type) = ref;
 
-      if (ptr != 0 && TYPE_NAME (ptr) != 0
-	  && TREE_CODE (TYPE_NAME (ptr)) == TYPE_DECL
-	  && TREE_CODE (new_type) != ENUMERAL_TYPE)
-	rest_of_decl_compilation (TYPE_NAME (ptr), NULL,
-				  global_bindings_p (), 0);
-      if (ref != 0 && TYPE_NAME (ref) != 0
-	  && TREE_CODE (TYPE_NAME (ref)) == TYPE_DECL
-	  && TREE_CODE (new_type) != ENUMERAL_TYPE)
-	rest_of_decl_compilation (TYPE_NAME (ref), NULL,
-				  global_bindings_p (), 0);
+      for (; ptr; ptr = TYPE_NEXT_PTR_TO (ptr))
+	{
+	  TREE_TYPE (ptr) = new_type;
+
+	  if (TYPE_NAME (ptr) != 0
+	      && TREE_CODE (TYPE_NAME (ptr)) == TYPE_DECL
+	      && TREE_CODE (new_type) != ENUMERAL_TYPE)
+	    rest_of_decl_compilation (TYPE_NAME (ptr), NULL,
+				      global_bindings_p (), 0);
+	}
+
+      for (; ref; ref = TYPE_NEXT_PTR_TO (ref))
+	{
+	  TREE_TYPE (ref) = new_type;
+
+	  if (TYPE_NAME (ref) != 0
+	      && TREE_CODE (TYPE_NAME (ref)) == TYPE_DECL
+	      && TREE_CODE (new_type) != ENUMERAL_TYPE)
+	    rest_of_decl_compilation (TYPE_NAME (ref), NULL,
+				      global_bindings_p (), 0);
+	}
     }
 
   /* Now deal with the unconstrained array case. In this case the "pointer"
@@ -2865,12 +2866,6 @@ convert (tree type, tree expr)
   else if (AGGREGATE_TYPE_P (type)
 	   && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (etype))
     return build1 (NOP_EXPR, type, expr);
-  /* If EXPR is a WITH_RECORD_EXPR, do the conversion inside and then make a
-     new one.  */
-  else if (TREE_CODE (expr) == WITH_RECORD_EXPR)
-    return build (WITH_RECORD_EXPR, type,
-		  convert (type, TREE_OPERAND (expr, 0)),
-		  TREE_OPERAND (expr, 1));
 
   /* If the input type has padding, remove it by doing a component reference
      to the field.  If the output type has padding, make a constructor
@@ -3250,13 +3245,6 @@ maybe_unconstrained_array (tree exp)
 					     (TREE_TYPE (TREE_TYPE (exp))))),
 		       TREE_OPERAND (exp, 0));
 
-      else if (code == WITH_RECORD_EXPR
-	       && (TREE_OPERAND (exp, 0)
-		   != (new = maybe_unconstrained_array
-		       (TREE_OPERAND (exp, 0)))))
-	return build (WITH_RECORD_EXPR, TREE_TYPE (new), new,
-		      TREE_OPERAND (exp, 1));
-
     case RECORD_TYPE:
       /* If this is a padded type, convert to the unpadded type and see if
 	 it contains a template.  */
@@ -3294,13 +3282,6 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
   /* If the expression is already the right type, we are done.  */
   if (etype == type)
     return expr;
-
-  /* If EXPR is a WITH_RECORD_EXPR, do the conversion inside and then make a
-     new one.  */
-  if (TREE_CODE (expr) == WITH_RECORD_EXPR)
-    return build (WITH_RECORD_EXPR, type,
-		  unchecked_convert (type, TREE_OPERAND (expr, 0), notrunc_p),
-		  TREE_OPERAND (expr, 1));
 
   /* If both types types are integral just do a normal conversion.
      Likewise for a conversion to an unconstrained array.  */

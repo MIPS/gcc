@@ -1,3 +1,7 @@
+2004-03-25  Diego Novillo  <dnovillo@redhat.com>
+
+	* convert.c (convert): Don't handle WITH_RECORD_EXPR.
+
 2004-03-24  Bud Davis  <bdavis9659@comcast.net>
 
         PR 14055

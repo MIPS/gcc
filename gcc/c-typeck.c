@@ -225,7 +225,7 @@ common_type (tree t1, tree t2)
     return t1;
 
   /* Merge the attributes.  */
-  attributes = (*targetm.merge_type_attributes) (t1, t2);
+  attributes = targetm.merge_type_attributes (t1, t2);
 
   /* Treat an enum type as the unsigned integer type of the same width.  */
 
@@ -464,12 +464,13 @@ comptypes (tree type1, tree type2, int flags)
   /* If either type is the internal version of sizetype, return the
      language version.  */
   if (TREE_CODE (t1) == INTEGER_TYPE && TYPE_IS_SIZETYPE (t1)
-      && TYPE_DOMAIN (t1) != 0)
-    t1 = TYPE_DOMAIN (t1);
+      && TYPE_ORIG_SIZE_TYPE (t1))
+    t1 = TYPE_ORIG_SIZE_TYPE (t1);
 
   if (TREE_CODE (t2) == INTEGER_TYPE && TYPE_IS_SIZETYPE (t2)
-      && TYPE_DOMAIN (t2) != 0)
-    t2 = TYPE_DOMAIN (t2);
+      && TYPE_ORIG_SIZE_TYPE (t2))
+    t2 = TYPE_ORIG_SIZE_TYPE (t2);
+
 
   /* Enumerated types are compatible with integer types, but this is
      not transitive: two enumerated types in the same translation unit
@@ -500,7 +501,7 @@ comptypes (tree type1, tree type2, int flags)
     return 1;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
-  if (! (attrval = (*targetm.comp_type_attributes) (t1, t2)))
+  if (! (attrval = targetm.comp_type_attributes (t1, t2)))
      return 0;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -575,8 +576,9 @@ comptypes (tree type1, tree type2, int flags)
 
     case VECTOR_TYPE:
       /* The target might allow certain vector types to be compatible.  */
-      val = (*targetm.vector_opaque_p) (t1)
-	|| (*targetm.vector_opaque_p) (t2);
+      val = targetm.vector_opaque_p (t1)
+	|| targetm.vector_opaque_p (t2)
+	|| TYPE_MODE (t1) == TYPE_MODE (t2);
       break;
 
     default:
@@ -670,15 +672,17 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
   /* We have to verify that the tags of the types are the same.  This
      is harder than it looks because this may be a typedef, so we have
      to go look at the original type.  It may even be a typedef of a
-     typedef...  
+     typedef...
      In the case of compiler-created builtin structs the TYPE_DECL
      may be a dummy, with no DECL_ORIGINAL_TYPE.  Don't fault.  */
-  while (TYPE_NAME (t1) && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL
-   && DECL_ORIGINAL_TYPE (TYPE_NAME (t1)))
+  while (TYPE_NAME (t1)
+	 && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL
+	 && DECL_ORIGINAL_TYPE (TYPE_NAME (t1)))
     t1 = DECL_ORIGINAL_TYPE (TYPE_NAME (t1));
 
-  while (TYPE_NAME (t2) && TREE_CODE (TYPE_NAME (t2)) == TYPE_DECL
-   && DECL_ORIGINAL_TYPE (TYPE_NAME (t2)))
+  while (TYPE_NAME (t2)
+	 && TREE_CODE (TYPE_NAME (t2)) == TYPE_DECL
+	 && DECL_ORIGINAL_TYPE (TYPE_NAME (t2)))
     t2 = DECL_ORIGINAL_TYPE (TYPE_NAME (t2));
 
   /* C90 didn't have the requirement that the two tags be the same.  */
@@ -704,7 +708,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2, int flags)
     case ENUMERAL_TYPE:
       {
       
-        /* Speed up the case where the type values are in the same order. */
+        /* Speed up the case where the type values are in the same order.  */
         tree tv1 = TYPE_VALUES (t1);
         tree tv2 = TYPE_VALUES (t2);
         
@@ -1509,8 +1513,8 @@ build_array_ref (tree array, tree index)
 	 would get a crash in store_bit_field/extract_bit_field when trying
 	 to access a non-existent part of the register.  */
       if (TREE_CODE (index) == INTEGER_CST
-	  && TYPE_VALUES (TREE_TYPE (array))
-	  && ! int_fits_type_p (index, TYPE_VALUES (TREE_TYPE (array))))
+	  && TYPE_DOMAIN (TREE_TYPE (array))
+	  && ! int_fits_type_p (index, TYPE_DOMAIN (TREE_TYPE (array))))
 	{
 	  if (!c_mark_addressable (array))
 	    return error_mark_node;
@@ -2277,7 +2281,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = (*lang_hooks.truthvalue_conversion) (arg);
+      arg = lang_hooks.truthvalue_conversion (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -2589,7 +2593,7 @@ c_mark_addressable (tree exp)
 	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
 	    && DECL_NONLOCAL (x))
 	  {
-	    if (TREE_PUBLIC (x))
+	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
 		error ("global register variable `%s' used in nested function",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
@@ -2600,7 +2604,7 @@ c_mark_addressable (tree exp)
 	  }
 	else if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x))
 	  {
-	    if (TREE_PUBLIC (x))
+	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
 		error ("address of global register variable `%s' requested",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
@@ -2644,7 +2648,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
 
-  ifexp = (*lang_hooks.truthvalue_conversion) (default_conversion (ifexp));
+  ifexp = lang_hooks.truthvalue_conversion (default_conversion (ifexp));
 
   /* Promote both alternatives.  */
 
@@ -3014,10 +3018,17 @@ build_c_cast (tree type, tree expr)
 	     if the cast breaks type based aliasing.  */
 	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
 	    warning ("type-punning to incomplete type might break strict-aliasing rules");
-	  else if (!alias_sets_conflict_p
-		   (get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0))),
-		    get_alias_set (TREE_TYPE (type))))
-	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	  else
+	    {
+	      HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
+	      HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
+
+	      if (!alias_sets_conflict_p (set1, set2))
+		warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	      else if (warn_strict_aliasing > 1
+		       && !alias_sets_might_conflict_p (set1, set2))
+		warning ("dereferencing type-punned pointer might break strict-aliasing rules");
+	    }
 	}
 
       /* If pedantic, warn for conversions between function and object
@@ -3049,7 +3060,9 @@ build_c_cast (tree type, tree expr)
       if (TREE_CODE (value) == INTEGER_CST)
 	{
 	  TREE_OVERFLOW (value) = TREE_OVERFLOW (ovalue);
-	  TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
+
+	  if (TREE_CODE_CLASS (TREE_CODE (ovalue)) == 'c')
+	    TREE_CONSTANT_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (ovalue);
 	}
     }
 
@@ -3257,9 +3270,8 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
       return rhs;
     }
   /* Some types can interconvert without explicit casts.  */
-  else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
-	   && ((*targetm.vector_opaque_p) (type)
-	       || (*targetm.vector_opaque_p) (rhstype)))
+  else if (codel == VECTOR_TYPE
+           && comptypes (type, TREE_TYPE (rhs), COMPARE_STRICT) == 1)
     return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE
@@ -3373,8 +3385,8 @@ convert_for_assignment (tree type, tree rhs, const char *errtype,
       int target_cmp = 0;   /* Cache comp_target_types () result.  */
 
       /* Opaque pointers are treated like void pointers.  */
-      is_opaque_pointer = ((*targetm.vector_opaque_p) (type)
-                           || (*targetm.vector_opaque_p) (rhstype))
+      is_opaque_pointer = (targetm.vector_opaque_p (type)
+                           || targetm.vector_opaque_p (rhstype))
         && TREE_CODE (ttl) == VECTOR_TYPE
         && TREE_CODE (ttr) == VECTOR_TYPE;
 
@@ -4325,7 +4337,7 @@ really_start_incremental_init (tree type)
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
 
-  if ((*targetm.vector_opaque_p) (type))
+  if (targetm.vector_opaque_p (type))
     error ("opaque vector types cannot be initialized");
 
   p->type = constructor_type;
@@ -6527,8 +6539,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = (*lang_hooks.truthvalue_conversion) (op0);
-	  op1 = (*lang_hooks.truthvalue_conversion) (op1);
+	  op0 = lang_hooks.truthvalue_conversion (op0);
+	  op1 = lang_hooks.truthvalue_conversion (op1);
 	  converted = 1;
 	}
       break;
