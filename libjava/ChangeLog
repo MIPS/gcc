@@ -1,5 +1,10 @@
 2004-08-27  Graydon Hoare  <graydon@redhat.com>
 
+	* javax/swing/JComponent.java
+	(resetKeyboardActions): Add null checks.
+
+2004-08-27  Graydon Hoare  <graydon@redhat.com>
+
 	* javax/swing/DefaultButtonModel.java:
 	Skip group notification when no group is set.
 
