@@ -1,3 +1,589 @@
+2001-11-30  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (is_cxx): New fn.
+	(add_data_member_location_attribute): Check it.
+	* dbxout.c (dbxout_type): Only look at BINFO_VPTR_FIELD for C++.
+
+Fri Nov 30 08:26:57 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* dwarf2asm.c (dw2_asm_output_encoded_addr_rtx): Handle const1_rtx.
+
+2001-11-30  Daniel Berlin  <dan@cgsoftware.com>
+
+	* genopinit.c (gen_insn): Handle MODE_VECTOR_INT and
+	MODE_VECTOR_FLOAT as allowed.
+
+2001-11-29  Zack Weinberg  <zack@codesourcery.com>
+
+	Purge cruft now we have build libiberty.
+
+	* Makefile.in (OBSTACK, VFPRINTF, DOPRINT, STRSTR,
+	HOST_OBSTACK, HOST_VFPRINTF, HOST_DOPRINT, HOST_STRSTR,
+	USE_HOST_OBSTACK, USE_HOST_VFPRINTF, USE_HOST_DOPRINT,
+	USE_HOST_STRSTR): Delete variables.
+	(vfprintf.o, doprint.o, strstr.o, splay-tree.o, obstack.o,
+	hashtab.o, safe-ctype.o, $(HOST_PREFIX_1)obstack.o,
+	$(HOST_PREFIX_1)vfprintf.o, $(HOST_PREFIX_1)doprint.o,
+	$(HOST_PREFIX_1)strstr.o), $(HOST_PREFIX_1)): Delete rules.
+	(LIBIBERTY, BUILD_LIBIBERTY): New variables.
+	(LIBDEPS): Now just $(INTLDEPS) $(LIBIBERTY).
+	(LIBS): Now just $(INTLLIBS) @LIBS@ $(LIBIBERTY).
+	(HOST_LIBDEPS): Now just $(BUILD_LIBIBERTY).
+	(HOST_LIBS): Ditto.
+	(HOST_RTL): Remove hashtab.o safe-ctype.o.
+	(OBJS): Remove splay-tree.o.
+	(gen-protos): Depend on $(HOST_LIBS), not ../libiberty/libiberty.a.
+	(distclean): No need to delete splay-tree.c obstack.c
+	hashtab.c safe-ctype.c.
+	(mostlyclean): Delete build copies of print-rtl.c bitmap.c
+	errors.c ggc-none.c (all prefixed with $(HOST_PREFIX_1).
+	* aclocal.m4 (gcc_AC_FUNC_VFPRINTF_DOPRNT, gcc_AC_FUNC_STRSTR):
+	Delete.
+	* configure.in: Don't use them.
+	Set and substitute @FORBUILD@.
+	* config.in, configure: Regenerate.
+	* doprint.c: Move to libiberty/_doprnt.c.
+	* doc/configterms.texi: Document that libiberty is now built
+	up to three times.  Fix typo.
+
+2001-11-30  Jason Merrill  <jason@redhat.com>
+
+	* dwarf2out.c (add_data_member_location_attribute): Do the
+	right thing for virtual bases.
+	* dbxout.c (dbxout_type): For a virtual base, print the offset
+	within the vtable.
+
+2001-11-29  Zoltan Hidvegi  <hzoli@hzoli.2y.net>
+
+	* doloop.c (doloop_valid_p): Check for LTU and GTU as well.
+
+2001-11-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (function_arg): Unnamed vector arguments
+	go in memory.
+	Remove unused attribute for named.
+
+2001-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* genattrtab.c (attr_rtx_1): New function containing the
+	majority of `attr_rtx'.  Move variable declarations into the
+	scope where they are used.  Eliminate unnecessary gotos.
+	(attr_rtx): Now just a wrapper for `attr_rtx_1' using VA_OPEN,
+	VA_FIXEDARG, and VA_CLOSE.
+
+2001-11-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.c (cris_notice_update_cc): Check first
+	destination also against overlap with cc_status.value2 and second
+	destination against overlap with cc_status.value1.  For overlaps,
+	clear overlapped value, don't just CC_STATUS_INIT.
+
+	* config/cris/cris.h (EXTRA_CONSTRAINT_T): Fix spacing and FIXME.
+	Fix typo in comment.
+	(LINK_SPEC): Remove whitespace at end of line.
+
+2001-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lex.c (init_c_lex): Canonicalize "-" filename to "".
+
+2001-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (ASM_DEBUG_SPEC): Only check HAVE_AS_G*_DEBUG_FLAG
+	macros for the supported debugging types.
+
+2001-11-29  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR other/4932
+	* config/i386/i386.c (print_operand):  Verify that the
+	  argument to %c is a constant and not a conditional which
+	  needs to be reversed.
+
+Thu Nov 29 11:12:59 2001  Geoffrey Keating (geoffk@redhat.com)
+
+	* emit-rtl.c (gen_lowpart_common): Fix conversion of
+	REAL_VALUE_TYPEs to an array of target integers.  Fix extraction
+	of low part of those arrays for 32bit and 64bit hosts.
+
+2001-11-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (insn-output.o): Depend on insn-codes.h.
+
+2001-11-29  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* configure.in (target_list): Add generated-manpages.
+	* configure: Regenerate.
+	* Makefile.in (generated-manpages): Depend on
+	lang.generated-manpages.
+	* objc/Make-lang.in (objc.generated-manpages): New dummy target.
+
+2001-11-29  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* config/arm/crti.asm (_init): Add .thumb_func if compiled
+	with -mthumb.
+	(_fini): Add .thumb_func if compiled with -mthumb.
+
+2001-11-28  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.c (override_options): Fix thinko in mips_tune
+	for mips32/mips64. Remove MASK_SOFT_FLOAT configuration bits.
+
+Thu Nov 29 00:24:15 EST 2001  John Wehle  (john@feith.com)
+
+	* alpha.md (tablejump): Use pic_offset_table_rtx
+	instead of gen_rtx_REG.
+
+Wed Nov 28 15:36:13 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* expr.c (store_expr): When copying a string constant into an
+	array, reset the known alignment of the MEM for the section to
+	be cleared to BITS_PER_UNIT.
+
+2001-11-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.c: Remove whitespace at end of line.
+
+Wed Nov 28 14:51:23 2001  Douglas B. Rupp  <rupp@gnat.com>
+
+	* config.gcc (i[34567]86-*-interix3*): New case.
+	* config/x-interix3, config/interix3.h, config/i386/i386-interix3.h:
+	New files.
+
+2001-11-28  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (sibcall_osf_1, sibcall_value_osf_1): Use
+	symbolic_operand as the predicate.
+
+2001-11-28  Richard Henderson  <rth@redhat.com>
+
+	* doloop.c (doloop_modify_runtime): Properly select induction
+	variable; skip late entry test if biv initializer created by loop.
+
+Wed Nov 28 08:21:47 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* tree.h (EXPR_WFL_LINECOL): Used by Java in node other than
+	EXPR_WITH_FILE_LOCATION, so change checks and documentation.
+
+	* tree.h (TREE_VIA_PROTECTED): Update to show can be in TREE_VEC.
+
+	* tree.h: Add missing checks on some macros; make formatting more
+	consistent.
+
+	* stor-layout.c (put_pending_size): Look for SAVE_EXPR if not at top
+	level; only add to pending_sizes if find it.
+
+	* langhooks.c (lhd_safe_from_p): Add ATTRIBUTE_UNUSED.
+
+	* df.c (iterate_dataflow_sbitmap, iterate_dataflow_bitmap):
+	Add casts to remove warnings.
+
+	* Makefile.in (OBJS): Sort alphabetically.
+
+	* print-rtl.c (print_rtx): If RTX code is bad, just say so.
+	Also minor cleanups.
+
+Wed Nov 28 06:52:27 2001  Arnaud Charlet  <charlet@ACT-Europe.FR>
+
+	* Makefile.in (ORDINARY_FLAGS_TO_PASS): Remove STAGE_PREFIX.
+	(FLAGS_TO_PASS): Add STAGE_PREFIX.
+	(SUBDIR_FLAGS_TO_PASS): Apply PREPEND_DOTDOT_TO_RELATIVE_PATH
+	to STAGE_PREFIX.
+
+Wed Nov 28 10:42:19 CET 2001  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (true_dependence_in_rtx): New function.
+	(invalidate): Use it.
+
+	* c-common.h (GOTO_FAKE_P): New macro.
+	* tree-inline.c (GOTO_FAKE_P): Set.
+	* c-tree.texi (GOTO_FAKE_P): Document.
+
+	* varasm.c (assemble_variable): Set reloc to 3 for error_mark
+	containing pointers.
+	(output_addressed_constants): Check for local/external relocations.
+	* elfos.h (SELECT_SECTION): Classify data section.
+	* tm.texi (SELECT_SECTION): Update documentation.
+
+	* cfganal.c (flow_dfs_compute_reverse_add_bb): set visited bit.
+	(flow_dfs_compute_reverse_execute): Add only unvisited blocks.
+
+2001-11-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* defaults.h (UNALIGNED_SHORT_ASM_OP, UNALIGNED_INT_ASM_OP,
+	UNALIGNED_DOUBLE_INT_ASM_OP): Also provide defaults when we have
+	OBJECT_FORMAT_ROSE.
+
+2001-11-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.c: Tweak spacing for prototypes.
+	(LOSE_AND_RETURN): New macro.
+	(cris_operand_lossage): New function.
+	(cris_print_index, cris_print_base): Use cris_operand_lossage
+	rather than fatal_insn.
+	(cris_print_operand, cris_print_operand_address): Use
+	LOSE_AND_RETURN rather than fatal_insn and internal_error.
+	(cris_output_addr_const): Use LOSE_AND_RETURN and
+	output_operand_lossage rather than fatal_insn and internal_error
+	for valid but unexpected rtx expressions.
+
+	* config/cris/cris.c (cris_split_movdx): Don't call alter_subreg
+	for a SUBREG in src or dest, abort instead.
+
+2001-11-28  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* doc/passes.texi: Remove reference to c-dump.c. Update tree inlining
+	doc.
+
+2001-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (ASM_DEBUG_SPEC): Use conditional expression rather than
+	preprocessor define.  If only DBX_DEBUGGING_INFO or only
+	DWARF2_DEBUGGING_INFO is supported for the target, provide
+	appropriate definitions.
+
+2001-11-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Makefile.in: Update, and add c-objc-common.o dependencies.
+	* c-lang.c: Remove unnecessary includes.
+	(c_init): Move bulk of code to c_objc_common_init, and call it.
+	(c_tree_printer, c_missing_noreturn_ok_p, c_disregard_inline_limits,
+	inline_forbidden_p, c_cannot_inline_tree_fn): Move to
+	c-objc-common.c.
+	* c-objc-common.c: New.  Mostly pulled from c-lang.c.
+	* c-tree.h (c_disregard_inline_limits, c_cannot_inline_fn,
+	c_objc_common_init, c_missing_noreturn_ok_p): New.
+	* toplev.c: Update comment.
+	* doc/passes.texi: Update.
+objc:
+	* ojbc-act.c (LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN,
+	LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS,
+	LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P): Override.
+	(objc_init): Update to use c_objc_common_init.
+
+2001-11-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cpphash.c (_cpp_init_hashtable): Update.
+	* cpphash.h (struct spec_nodes): Remove n_L.
+	* cpplex.c (_cpp_lex_direct): Check for prefix L separately.
+
+2001-11-17  Richard Henderson  <rth@redhat.com>
+
+	* unroll.c (loop_iterations): Move last change ...
+	* doloop.c (doloop_modify_runtime): ... here.
+
+2001-11-17  Corey Minyard  <minyard@acm.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	* unroll.c (loop_iterations): Detect one situation in which we
+	overestimate the number of iterations.
+
+2001-11-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* gcc.c (set_input): Export.
+	Move declaration ...
+	gcc.h (set_input): ... here.
+
+2001-11-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* gcc.c (set_collect_gcc_options): New function, split out from
+	main.
+	Ignore elided switches.
+	(do_spec): Invoke before executing command.
+	(do_spec_1): Likewise.
+	Fixes PR other/3968.
+
+2001-11-27  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (INT_ASM_OP): Remove.
+
+2001-11-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* config/i386/sol2.h (WINT_TYPE): Redefine.
+	(WINT_TYPE_SIZE): Likewise.
+
+2001-11-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* collect2.c: Check HAVE_DUP2 instead of NO_DUP2.
+	(dup2): Make static and add prototype.
+	* m68k/plexus.h: Don't define NO_DUP2.
+	* configure.in (AC_CHECK_FUNCS): Add dup2.
+	* config.in, configure: Regenerate.
+
+	* ia64/aix.h (REG_SIZE): Don't #undef.
+	* sparc.h (REG_SIZE): Delete.
+	* flow.c (mark_used_regs): Don't use REG_SIZE.
+	* regs.h (REG_SIZE): Delete.
+
+2001-11-27  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.c: Fix typo PREFERRED_DEBUGGING_FORMAT ->
+	PREFERRED_DEBUGGING_TYPE.
+
+Tue Nov 27 08:21:47 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* Makefile.in (c-lang.o): Depends on langhooks-def.h.
+	(expr.o, varasm.o): Depends on langhooks.h.
+	* c-common.c (c_safe_from_p): Always declare.
+	(c_expand_expr): Refine when declared.
+	* c-lang.c (c-common.h): Now include.
+	(LANG_HOOKS_SAFE_FROM_P): Define new hook.
+	(c_init): Don't set lang_safe_from_expr.
+	* expr.c (langhooks.h): Now include.
+	(lang_safe_from_p): No longer define.
+	(safe_from_p): Use lang hook.
+	(expand_expr): Set IGNORE if VOID_TYPE result of VIEW_CONVERT_EXPR too.
+	(expand_expr, case VIEW_CONVERT_EXPR): Pass ro_modifier down.
+	* expr.h (lang_expand_constant, lang_safe_from_p): Delete.
+	* langhooks-def.h (lhd_return_tree, lhd_safe_from_p): New decls.
+	(LANG_HOOKS_EXPAND_CONSTANT, LANG_HOOKS_SAFE_FROM_P): New hooks.
+	* langhooks.c (lhd_return_tree, lhd_safe_from_p): New functions.
+	* langhooks.h (struct lang_hooks): New fields expand_constant
+	and safe_from_p.
+	* output.h (output_constant): Size arg is HOST_WIDE_INT.
+	* stmt.c (expand_decl_init): No longer need to expand constant
+	for CONST_DECL.
+	* stor-layout.c (put_pending_size): Don't check for SAVE_EXPR.
+	* toplev.c (lang_expand_constant): Delete var.
+	* tree.c (save_expr): Don't put another SAVE_EXPR around simple
+	operations on SAVE_EXPR.
+	* varasm.c (langhooks.h): Now include.
+	(compare_constant_1): Use lang_hooks, not lang_expand_constant.
+	(record_constant_1, output_addressed_constants): Likewise.
+	(initializer_constant_valid_p, output_constant): Likewise.
+	(output_constant_def): Process no-defer of string constant.
+	(output_addressed_constants, case ADDR_EXPR): Use handled_component_p.
+	(output_constant): Strip more conversions.
+	Track our size and pad for the rest.
+	(array_size_for_constructor): Remove code for non-byte STRING_CST.
+	(output_constructor): SIZE now HOST_WIDE_INT.
+
+2001-11-27  Richard Henderson  <rth@redhat.com>
+
+	* ifcvt.c (noce_try_store_flag_constants): Test for overflow
+	in computing DIFF.
+
+2001-11-27  Zack Weinberg  <zack@codesourcery.com>
+
+	* cppfiles.c (read_include_file): Add comment.
+
+2001-11-26  Richard Henderson  <rth@redhat.com>
+
+	* toplev.c (rest_of_compilation): Call free_bb_for_insn before exit.
+
+2001-11-26  Richard Henderson  <rth@redhat.com>
+
+	* config/ia64/sysv4.h (DBX_DEBUGGING_INFO): Undef.
+	* config/ia64/aix.h (PREFERRED_DEBUGGING_TYPE): Remove
+	commented out override.
+
+2001-11-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppfiles.c (stack_include_file): Don't optimize zero-length
+	files.
+	(read_include_file): NUL-terminate read files.
+	* cpplex.c (handle_newline, skip_escaped_newlines,
+	get_effective_char, skip_whitespace, parse_identifier,
+	parse_identifier_slow, parse_number, parse_string,
+	_cpp_lex_direct): Optimize for the fact that buffers are guaranteed
+	NUL-terminated.
+	* cpplib.c (destringize_and_run, cpp_define, handle_assertion):
+	Be sure buffers are NUL terminated.
+	* cppmacro.c (warn_of_redefinition): Kill compile warning.
+
+2001-11-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* c-common.c: Include tree-inline.h.
+	(c_language): Move separate definitions here.
+	(c_common_init_options, c_common_post_options): New.
+	(c_common_lang_init): Rename c_common_init.
+	* c-common.h (c_common_lang_init): Similarly.
+	(c_common_init_options, c_common_post_options): New.
+	* c-lang.c (c_post_options): Move body to c_common_post_options.
+	(c_init_options): Use c_common_init_options.
+	(c_init): Update.
+	* langhooks.def: Rearrange.
+	* langhooks.h: Rearrange, and improve comments.
+	* toplev.c (do_compile): New function.
+	(toplev_main): Use it.
+	(lang_independent_f_options, parse_options_and_default_flags,
+	process_options): Remove trailing periods.
+	* Makefile.in: Update.
+objc:	* objc-act.c (objc_post_options, objc_init_options): Use c-common.c
+	functions.
+	(ojbc_init): Update.
+
+2001-11-26  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.md (unop): Add 0 offset for some gas versions.
+
+2001-11-26  DJ Delorie  <dj@redhat.com>
+
+	* expr.c (store_constructor): Actually use the value computed
+	if WORD_REGISTER_OPERATIONS.
+
+2001-11-26  Richard Henderson  <rth@redhat.com>
+
+	* config/elfos.h (SELECT_SECTION): Don't check TREE_READONLY
+	for CONSTRUCTOR.
+
+2001-11-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.c (output_mi_thunk): Handle minimal-toc and call
+	correct function on AIX.
+
+2001-11-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* toplev.c (process_options): Don't force
+	flag_optimize_sibling_calls to zero just because exceptions are
+	enabled.
+
+Mon Nov 26 12:37:05 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* df.h (transfer_function_sbitmap): Use PARAMS around argument
+	list in function prototypes.
+	(transfer_function_bitmap): Likewise.
+
+2001-11-26  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/stormy16/stormy16.h: Remove DEFAULT_VTABLE_THUNKS.
+	* config/i386/netbsd-elf.h: Likewise.
+
+2001-11-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/trouble.texi: Remove outdated RS/6000 comments.
+
+Mon Nov 26 13:49:41 CET 2001  Jan Hubicka  <jh@suse.cz>
+
+	* final.c (walk_alter_subreg): Fix return value.
+
+Mon Nov 26 11:36:20 CET 2001  Jan Hubicka  <jh@suse.cz>
+
+	* sparc.c (sparc_absnegfloat_split_legitimate): Do not call
+	alter_subreg.
+	* sparc.md (post-reload splitters): Do not call alter_subreg.
+	* cfgrtl.c (purge_dead_edges): Fix typo in previous fix.
+
+2001-11-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	* regclass.c (choose_hard_reg_mode): Handle vector arguments.
+
+2001-11-26  Alan Modra  <amodra@bigpond.net.au>
+
+	* final.c: (insn_lengths): Make it an int *, so that large jump
+	tables don't overflow.
+
+2001-11-25  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* c-format.c (FMT_FLAG_DOLLAR_GAP_POINTER_OK): New.
+	(format_types): Use it for scanf.
+	(dollar_arguments_pointer_p): New.
+	(init_dollar_format_checking): Store details of which arguments
+	are pointers.
+	(maybe_read_dollar_number): Reallocate dollar_arguments_pointer_p.
+	(finish_dollar_format_checking): Take extra parameter
+	pointer_gap_ok.  Treat unused arguments differently if
+	pointer_gap_ok and the unused arguments are pointers.
+	(check_format_info_main): Pass extra argument to
+	finish_dollar_format_checking.
+	* doc/invoke.texi (-Wno-format-extra-args): Document behavior when
+	unused arguments are present between used arguments with operand
+	numbers.
+
+2001-11-25  Daniel Berlin  <dan@cgsoftware.com>
+
+	* df.c: Add prototypes for hybrid_search_bitmap and
+	hybrid_search_sbitmap.
+	(hybrid_search_bitmap): New function.
+	(hybrid_search_sbitmap): New function.
+	(iterative_dataflow_sbitmap): Change to use hybrid_search_sbitmap.
+	(iterative_dataflow_bitmap): Ditto.
+
+2001-11-25  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* config/m68hc11/m68hc11.md (peephole2): New peephole2 to optimize
+	address computations.
+
+2001-11-25  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* config/m68hc11/m68hc11.c (d_register_operand): Must accept
+	register b (low part of d).
+
+2001-11-25  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+
+	* config/m68hc11/m68hc11.h (FUNCTION_PROFILER): Fix label name
+	passed to mcount.
+
+Sun Nov 25 06:22:09 2001  Douglas B. Rupp  <rupp@gnat.com>
+
+	* config/alpha/vms-ld.c, config/alpha/vms-cc.c: New files.
+	* config/alpha/x-vms: New file, to compile the above.
+	* config.gcc (alpha*-dec-vms*): Add x-vms.
+
+2001-11-24  Hans-Peter Nilsson  <hp@axis.com>
+
+	* genextract.c (main): Set ro_loc for peepholes.
+
+Sat Nov 24 17:04:10 2001  Douglas B. Rupp  <rupp@gnat.com>
+
+	* fix-header.c (main): Move inf_buffer termination and inf_limit
+	calculation to after read.
+
+	* config/alpha/xm-vms.h (FILE_TYPE): Remove undef and baggage.
+	(__UNIX_FOPEN): Define.
+
+Sat Nov 24 16:11:00 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* function.c (assign_stack_temp_for_type): Clear alias set before
+	setting new one.
+
+2001-11-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* rs6000.c (print_operand, case 'v'): Use HOST_WIDE_INT_PRINT_HEX
+	format.
+	* rs6000.md (cmptf): Fix typo.
+
+2001-11-23  Richard Sandiford  <rsandifo@redhat.com>
+
+	* final.c (output_addr_const): Output PC as '.' even if !flag_pic.
+	* varasm.c (output_constructor): Use assemble_integer rather
+	than ASM_OUTPUT_BYTE.
+
+2001-11-23  Andreas Jaeger  <aj@suse.de>
+
+	* cpplex.c (cpp_interpret_charconst): Use HOST_WIDE_INT for sign
+	extension.
+
+2001-11-23  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* config/arm/xscale-coff.h (SUBTARGET_CPU_DEFAULT): Override
+	default definition.
+	(SUBTARGET_EXTRA_ASM_SPEC): Remove previous definition.
+	(MULTILIB_DEFAULTS): Remove previous definition.
+
+2001-11-23  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppmacro.c (warn_of_redefinition): Warn regardless of -pedantic.
+	* gcc.dg/cpp/mi6.c, gcc.dg/cpp/redef2.c: Update.
+
+2001-11-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cris.h: Revert thinko in last patch.
+
+2001-11-23  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* ChangeLog.0, ChangeLog.2, ChangeLog.3, ChangeLog.4, ChangeLog,
+	FSFChangeLog.10, c-decl.c, cppfiles.c, cppinit.c, cpplex.c,
+	cpplib.c, cppmain.c, cse.c, df.c, diagnostic.c, dominance.c,
+	dwarf2out.c, dwarfout.c, emit-rtl.c, errors.c, except.c, except.h,
+	explow.c, function.c, gcse.c, genrecog.c, predict.c, regmove.c,
+	sched-rgn.c, ssa-ccp.c, stmt.c, toplev.c: Fix spelling errors.
+
+	* predict.c, reg-stack.c: Fix spelling errors.
+
+2001-10-09  Andrew Haley  <aph@redhat.com>
+
+	* calls.c (check_sibcall_argument_overlap): Use slot_offset for
+	start of stack slot.
+
 2001-11-22  Graham Stott  <grahams@redhat.com>
 
 	* cfgrtl.c (try_redirect_by_replacing_jump): Fix typo, emit
@@ -25,7 +611,7 @@ Thu Nov 22 06:49:14 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	targets.
 
 	* config.gcc (xscale-coff): Add necessary header files to
-        tm_file variable.
+	tm_file variable.
 
 2001-11-20  Zack Weinberg  <zack@codesourcery.com>
 
@@ -35,9 +621,9 @@ Thu Nov 22 06:49:14 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* tree-dump.c: Rename from c-dump.c. Include c-tree.h, not c-common.h.
 	(lang_type_quals): Declare.
-	(dequeue_and_dump): Use lang_hooks.tree_dump.type_quals function to 
-	retrieve language-specific qualifiers for a type node, instead of 
-	C_TYPE_QUALS. Likewise for lang_hooks.tree_dump.dump_tree instead of 
+	(dequeue_and_dump): Use lang_hooks.tree_dump.type_quals function to
+	retrieve language-specific qualifiers for a type node, instead of
+	C_TYPE_QUALS. Likewise for lang_hooks.tree_dump.dump_tree instead of
 	lang_dump_tree.
 	* tree-dump.h: Rename from c-dump.h.
 	* c-common.h (C_TYPE_QUALS): Removed.
@@ -88,7 +674,7 @@ Thu Nov 22 06:49:14 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* v850.h (DBX_REGISTER_NUMBER): Likewise.
 	* vax.h (DBX_REGISTER_NUMBER): Likewise.
 	* we32k.h (DBX_REGISTER_NUMBER): Likewise.
-	
+
 	* defaults.h (DBX_REGISTER_NUMBER): Provide a default.
 	* doc/tm.texi (DBX_REGISTER_NUMBER): Update.
 
@@ -1099,7 +1685,7 @@ Wed Nov 14 14:17:05 CET 2001  Jan Hubicka  <jh@suse.cz>
 	* output.h (alter_subreg): Update prototype.
 	* sdbout.c (sdbout_symbol): Update call of alter_subreg.
 	* simplify-rtx.c (simplify_subreg): Copy ORIGINAL_REGNO.
-	* Makefile.in (final.o): Add depdendancy on expr.h
+	* Makefile.in (final.o): Add dependency on expr.h
 
 Wed Nov 14 06:37:54 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
@@ -1582,7 +2168,7 @@ Sat Nov 10 08:50:50 2001  Jeffrey A Law  (law@cygnus.com)
 	* config/ia64/hpux.h (TARGET_VERSION): Likewise.
 	* config/ia64/linux.h (TARGET_VERSION): Likewise.
 	(FUNCTION_PROFILER): Remove.
-	* config/ia64/ia64.h (FUNCTION_PROFILER): Update defintion using the
+	* config/ia64/ia64.h (FUNCTION_PROFILER): Update definition using the
 	version in config/ia64/linux.h.
 	* config/ia64/freebsd.h: New file.
 	* config/freebsd.h: Tidy up.
@@ -2338,7 +2924,7 @@ Tue Nov  6 09:21:34 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 Mon Nov  5 16:15:25 CET 2001  Jan Hubicka  <jh@suse.cz>
 
-	* Makefile.in (bb-reoder.o): Add dependency on cfglayout.h;
+	* Makefile.in (bb-reorder.o): Add dependency on cfglayout.h;
 	remove unneeded dependencies;
 	(cfglayout.o): New.
 	* cfglayout.c, cfglayout.h: New files; break out from ...
@@ -7389,7 +7975,7 @@ Tue Sep 11 11:37:52 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	* cppinit.c (cpp_create_reader): Set up the token runs.
 	* cpplex.c (lex_directive, lex_token, next_tokenrun): New.
 	(lex_token): New internalised version of _cpp_lex_token.  Don't
-	handle directives or the multiple include opimisation here any
+	handle directives or the multiple include optimization here any
 	more.  Simply lex a token.
 	* cpplib.c (run_directive): Clear bol.
 	(_cpp_pop_buffer): Set bol.
@@ -7519,7 +8105,7 @@ Mon Sep 10 14:21:26 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(make_reorder_chain_1): Do not use BB indexes.
 	(label_for_bb): Likewise; set BB for new insn.
 	(emit_jump_to_block_after): Likewise.
-	(fixup_reoder_chain): Sanity check that all basic blocks
+	(fixup_reorder_chain): Sanity check that all basic blocks
 	are chained; verify newly created insn chain; remove
 	undocnitional jump simplifying; Do not use BB indexes;
 	properly initialize count and frequency information;
@@ -9387,7 +9973,7 @@ Mon Aug 20 01:44:50 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	Update all callers.
 
 	* final.c (end_final): Abort profile block generation if we
-	havn't layed it out properly.
+	haven't layed it out properly.
 	* output.h (assemble_eh_integer): Remove stale decl.
 	* varasm.c (assemble_zeros): Tidy; use assemble_integer.
 	(min_align): New.
@@ -9649,7 +10235,7 @@ Wed Aug 15 14:24:22 CEST 2001  Jan Hubicka  <jh@suse.cz>
 	(propagate_freq): Use EDGE_DFS_BACK to detect irreducible regions.
 	(estimate_bb_frequencies): Call mark_dfs_back_edges.
 
-	* i386.c (ix86_agi_depdendant): Lea causes AGI only on the Pentium
+	* i386.c (ix86_agi_dependant): Lea causes AGI only on the Pentium
 	(ix86_adjust_cost): Teach scheduler that latency to load operand can
 	be masked.
 

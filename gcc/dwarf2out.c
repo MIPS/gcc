@@ -3004,7 +3004,7 @@ get_cfa_from_loc_descr (cfa, loc)
 	  cfa->offset = ptr->dw_loc_oprnd1.v.val_unsigned;
 	  break;
 	default:
-	  internal_error ("DW_LOC_OP %s not implememnted\n",
+	  internal_error ("DW_LOC_OP %s not implemented\n",
 			  dwarf_stack_op_name (ptr->dw_loc_opc));
 	}
     }
@@ -3224,7 +3224,7 @@ extern int flag_traditional;
    This value was chosen to give a reasonable range of values.  */
 #define DWARF_LINE_BASE  -10
 
-/* First special line opcde - leave room for the standard opcodes.  */
+/* First special line opcode - leave room for the standard opcodes.  */
 #define DWARF_LINE_OPCODE_BASE  10
 
 /* Range of line offsets in a special line info. opcode.  */
@@ -4752,7 +4752,7 @@ get_AT (die, attr_kind)
 
 /* Return the "low pc" attribute value, typically associated with
    a subprogram DIE.  Return null if the "low pc" attribute is
-   either not prsent, or if it cannot be represented as an
+   either not present, or if it cannot be represented as an
    assembler label identifier.  */
 
 static inline const char *
@@ -4765,7 +4765,7 @@ get_AT_low_pc (die)
 
 /* Return the "high pc" attribute value, typically associated with
    a subprogram DIE.  Return null if the "high pc" attribute is
-   either not prsent, or if it cannot be represented as an
+   either not present, or if it cannot be represented as an
    assembler label identifier.  */
 
 static inline const char *
@@ -4829,6 +4829,13 @@ is_c_family ()
   return (lang == DW_LANG_C || lang == DW_LANG_C89
 	  || lang == DW_LANG_C_plus_plus);
 }
+
+static inline int
+is_cxx ()
+{
+  return (get_AT_unsigned (comp_unit_die, DW_AT_language)
+	  == DW_LANG_C_plus_plus);
+}  
 
 static inline int
 is_fortran ()
@@ -8407,28 +8414,70 @@ add_data_member_location_attribute (die, decl)
      dw_die_ref die;
      tree decl;
 {
-  unsigned long offset;
-  dw_loc_descr_ref loc_descr;
-  enum dwarf_location_atom op;
+  long offset;
+  dw_loc_descr_ref loc_descr = 0;
 
   if (TREE_CODE (decl) == TREE_VEC)
-    offset = tree_low_cst (BINFO_OFFSET (decl), 0);
+    {
+      /* We're working on the TAG_inheritance for a base class.  */
+
+      if (TREE_VIA_VIRTUAL (decl) && is_cxx ())
+	{
+	  /* For C++ virtual bases we can't just use BINFO_OFFSET, as they
+	     aren't at a fixed offset from all (sub)objects of the same
+	     type.  We need to extract the appropriate offset from our
+	     vtable.  The following dwarf expression means
+
+	       BaseAddr = ObAddr + *((*ObAddr) - Offset)
+
+	     This is specific to the V3 ABI, of course.  */
+
+	  dw_loc_descr_ref tmp;
+	  /* Make a copy of the object address.  */
+	  tmp = new_loc_descr (DW_OP_dup, 0, 0);
+	  add_loc_descr (&loc_descr, tmp);
+	  /* Extract the vtable address.  */
+	  tmp = new_loc_descr (DW_OP_deref, 0, 0);
+	  add_loc_descr (&loc_descr, tmp);
+	  /* Calculate the address of the offset.  */
+	  offset = tree_low_cst (BINFO_VPTR_FIELD (decl), 0);
+	  if (offset >= 0)
+	    abort ();
+	  tmp = int_loc_descriptor (-offset);
+	  add_loc_descr (&loc_descr, tmp);
+	  tmp = new_loc_descr (DW_OP_minus, 0, 0);
+	  add_loc_descr (&loc_descr, tmp);
+	  /* Extract the offset.  */
+	  tmp = new_loc_descr (DW_OP_deref, 0, 0);
+	  add_loc_descr (&loc_descr, tmp);
+	  /* Add it to the object address.  */
+	  tmp = new_loc_descr (DW_OP_plus, 0, 0);
+	  add_loc_descr (&loc_descr, tmp);
+	}
+      else
+	offset = tree_low_cst (BINFO_OFFSET (decl), 0);
+    }
   else
     offset = field_byte_offset (decl);
 
-  /* The DWARF2 standard says that we should assume that the structure address
-     is already on the stack, so we can specify a structure field address
-     by using DW_OP_plus_uconst.  */
+  if (! loc_descr)
+    {
+      enum dwarf_location_atom op;
+
+      /* The DWARF2 standard says that we should assume that the structure address
+	 is already on the stack, so we can specify a structure field address
+	 by using DW_OP_plus_uconst.  */
 
 #ifdef MIPS_DEBUGGING_INFO
-  /* ??? The SGI dwarf reader does not handle the DW_OP_plus_uconst operator
-     correctly.  It works only if we leave the offset on the stack.  */
-  op = DW_OP_constu;
+      /* ??? The SGI dwarf reader does not handle the DW_OP_plus_uconst operator
+	 correctly.  It works only if we leave the offset on the stack.  */
+      op = DW_OP_constu;
 #else
-  op = DW_OP_plus_uconst;
+      op = DW_OP_plus_uconst;
 #endif
 
-  loc_descr = new_loc_descr (op, offset, 0);
+      loc_descr = new_loc_descr (op, offset, 0);
+    }
   add_AT_loc (die, DW_AT_data_member_location, loc_descr);
 }
 

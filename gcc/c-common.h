@@ -534,7 +534,9 @@ extern void disable_builtin_function		PARAMS ((const char *));
 
 extern tree build_va_arg			PARAMS ((tree, tree));
 
-extern const char *c_common_lang_init		PARAMS ((const char *));
+extern void c_common_init_options		PARAMS ((enum c_language_kind));
+extern void c_common_post_options		PARAMS ((void));
+extern const char *c_common_init		PARAMS ((const char *));
 extern void c_common_finish			PARAMS ((void));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
 extern bool c_promoting_integer_type_p		PARAMS ((tree));
@@ -802,14 +804,14 @@ extern tree lookup_label			PARAMS ((tree));
    in C.  */
 extern void (*back_end_hook) PARAMS ((tree));
 
-#ifdef RTX_CODE
+/* enum expand_modified is in expr.h, as is the macro below.  */
 
-extern struct rtx_def *c_expand_expr            PARAMS ((tree, rtx,
-							 enum machine_mode,
-							 enum expand_modifier));
+#ifdef QUEUED_VAR
+extern rtx c_expand_expr            PARAMS ((tree, rtx, enum machine_mode,
+					     enum expand_modifier));
+#endif
 
 extern int c_safe_from_p                        PARAMS ((rtx, tree));
-#endif
 
 extern int c_unsafe_for_reeval			PARAMS ((tree));
 

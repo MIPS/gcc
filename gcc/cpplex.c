@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -75,7 +75,7 @@ static cppchar_t get_effective_char PARAMS ((cpp_reader *));
 static int skip_block_comment PARAMS ((cpp_reader *));
 static int skip_line_comment PARAMS ((cpp_reader *));
 static void adjust_column PARAMS ((cpp_reader *));
-static void skip_whitespace PARAMS ((cpp_reader *, cppchar_t));
+static int skip_whitespace PARAMS ((cpp_reader *, cppchar_t));
 static cpp_hashnode *parse_identifier PARAMS ((cpp_reader *));
 static cpp_hashnode *parse_identifier_slow PARAMS ((cpp_reader *,
 						    const U_CHAR *));
@@ -119,12 +119,8 @@ handle_newline (pfile)
   cpp_buffer *buffer = pfile->buffer;
 
   /* Handle CR-LF and LF-CR.  Most other implementations (e.g. java)
-     only accept CR-LF; maybe we should fall back to that behaviour?
-
-     NOTE: the EOF case in _cpp_lex_direct currently requires the
-     buffer->cur != buffer->rlimit test here for 0-length files.  */
-  if (buffer->cur != buffer->rlimit
-      && buffer->cur[-1] + buffer->cur[0] == '\r' + '\n')
+     only accept CR-LF; maybe we should fall back to that behaviour?  */
+  if (buffer->cur[-1] + buffer->cur[0] == '\r' + '\n')
     buffer->cur++;
 
   buffer->line_base = buffer->cur;
@@ -190,23 +186,20 @@ skip_escaped_newlines (pfile)
 
       do
 	{
-	  if (buffer->cur == buffer->rlimit)
-	    break;
-      
 	  if (next == '?')
 	    {
-	      if (buffer->cur[0] != '?' || buffer->cur + 1 == buffer->rlimit)
-		break;
-
-	      if (!trigraph_p (pfile))
+	      if (buffer->cur[0] != '?' || !trigraph_p (pfile))
 		break;
 
 	      /* Translate the trigraph.  */
 	      next = _cpp_trigraph_map[buffer->cur[1]];
 	      buffer->cur += 2;
-	      if (next != '\\' || buffer->cur == buffer->rlimit)
+	      if (next != '\\')
 		break;
 	    }
+
+	  if (buffer->cur == buffer->rlimit)
+	    break;
 
 	  /* We have a backslash, and room for at least one more
 	     character.  Skip horizontal whitespace.  */
@@ -250,16 +243,13 @@ static cppchar_t
 get_effective_char (pfile)
      cpp_reader *pfile;
 {
-  cppchar_t next = EOF;
+  cppchar_t next;
   cpp_buffer *buffer = pfile->buffer;
 
   buffer->backup_to = buffer->cur;
-  if (buffer->cur < buffer->rlimit)
-    {
-      next = *buffer->cur++;
-      if (__builtin_expect (next == '?' || next == '\\', 0))
-	next = skip_escaped_newlines (pfile);
-    }
+  next = *buffer->cur++;
+  if (__builtin_expect (next == '?' || next == '\\', 0))
+    next = skip_escaped_newlines (pfile);
 
    return next;
 }
@@ -292,10 +282,9 @@ skip_block_comment (pfile)
 	    break;
 
 	  /* Warn about potential nested comments, but not if the '/'
-	     comes immediately before the true comment delimeter.
+	     comes immediately before the true comment delimiter.
 	     Don't bother to get it right across escaped newlines.  */
 	  if (CPP_OPTION (pfile, warn_comments)
-	      && buffer->cur + 1 < buffer->rlimit
 	      && buffer->cur[0] == '*' && buffer->cur[1] != '/')
 	    cpp_warning_with_line (pfile,
 				   pfile->line, CPP_BUF_COL (buffer),
@@ -360,7 +349,7 @@ adjust_column (pfile)
 /* Skips whitespace, saving the next non-whitespace character.
    Adjusts pfile->col_adjust to account for tabs.  Without this,
    tokens might be assigned an incorrect column.  */
-static void
+static int
 skip_whitespace (pfile, c)
      cpp_reader *pfile;
      cppchar_t c;
@@ -378,6 +367,8 @@ skip_whitespace (pfile, c)
       /* Just \f \v or \0 left.  */
       else if (c == '\0')
 	{
+	  if (buffer->cur - 1 == buffer->rlimit)
+	    return 0;
 	  if (!warned)
 	    {
 	      cpp_warning (pfile, "null character(s) ignored");
@@ -390,14 +381,13 @@ skip_whitespace (pfile, c)
 			       "%s in preprocessing directive",
 			       c == '\f' ? "form feed" : "vertical tab");
 
-      if (buffer->cur == buffer->rlimit)
-	return;
       c = *buffer->cur++;
     }
   /* We only want non-vertical space, i.e. ' ' \t \f \v \0.  */
   while (is_nvspace (c));
 
   buffer->cur--;
+  return 1;
 }
 
 /* See if the characters of a number token are valid in a name (no
@@ -430,18 +420,16 @@ parse_identifier (pfile)
      cpp_reader *pfile;
 {
   cpp_hashnode *result;
-  const U_CHAR *cur, *rlimit;
+  const U_CHAR *cur;
 
   /* Fast-path loop.  Skim over a normal identifier.
      N.B. ISIDNUM does not include $.  */
-  cur    = pfile->buffer->cur - 1;
-  rlimit = pfile->buffer->rlimit;
-  do
+  cur = pfile->buffer->cur;
+  while (ISIDNUM (*cur))
     cur++;
-  while (cur < rlimit && ISIDNUM (*cur));
 
   /* Check for slow-path cases.  */
-  if (cur < rlimit && (*cur == '?' || *cur == '\\' || *cur == '$'))
+  if (*cur == '?' || *cur == '\\' || *cur == '$')
     result = parse_identifier_slow (pfile, cur);
   else
     {
@@ -501,9 +489,6 @@ parse_identifier_slow (pfile, cur)
           if (c == '$')
             saw_dollar++;
 
-          if (buffer->cur == buffer->rlimit)
-            goto at_eof;
-
           c = *buffer->cur++;
         }
 
@@ -515,9 +500,8 @@ parse_identifier_slow (pfile, cur)
     }
   while (is_idchar (c));
 
-  /* Step back over the unwanted char, except at EOF.  */
+  /* Step back over the unwanted char.  */
   BACKUP ();
- at_eof:
 
   /* $ is not an identifier character in the standard, but is commonly
      accepted as an extension.  Don't warn about it in skipped
@@ -573,9 +557,6 @@ parse_number (pfile, number, c, leading_period)
 	    }
 	  *dest++ = c;
 
-	  if (buffer->cur == buffer->rlimit)
-	    goto at_eof;
-
 	  c = *buffer->cur++;
 	}
       while (is_numchar (c) || c == '.' || VALID_SIGN (c, dest[-1]));
@@ -588,9 +569,8 @@ parse_number (pfile, number, c, leading_period)
     }
   while (is_numchar (c) || c == '.' || VALID_SIGN (c, dest[-1]));
 
-  /* Step back over the unwanted char, except at EOF.  */
+  /* Step back over the unwanted char.  */
   BACKUP ();
- at_eof:
 
   /* Null-terminate the number.  */
   *dest = '\0';
@@ -671,12 +651,6 @@ parse_string (pfile, token, terminator)
 	  limit = BUFF_LIMIT (pfile->u_buff);
 	}
 
-      if (buffer->cur == buffer->rlimit)
-	{
-	  unterminated (pfile, terminator);
-	  break;
-	}
-
       /* Handle trigraphs, escaped newlines etc.  */
       c = *buffer->cur++;
       if (c == '?' || c == '\\')
@@ -724,10 +698,19 @@ parse_string (pfile, token, terminator)
 	  handle_newline (pfile);
 	  c = '\n';
 	}
-      else if (c == '\0' && !warned_nulls)
+      else if (c == '\0')
 	{
-	  warned_nulls = true;
-	  cpp_warning (pfile, "null character(s) preserved in literal");
+	  if (buffer->cur - 1 == buffer->rlimit)
+	    {
+	      unterminated (pfile, terminator);
+	      buffer->cur--;
+	      break;
+	    }
+	  if (!warned_nulls)
+	    {
+	      warned_nulls = true;
+	      cpp_warning (pfile, "null character(s) preserved in literal");
+	    }
 	}
 
       *dest++ = c;
@@ -817,7 +800,7 @@ _cpp_temp_token (pfile)
 
 /* Lex a token into RESULT (external interface).  Takes care of issues
    like directive handling, token lookahead, multiple include
-   opimisation and skipping.  */
+   optimization and skipping.  */
 const cpp_token *
 _cpp_lex_token (pfile)
      cpp_reader *pfile;
@@ -907,15 +890,19 @@ _cpp_lex_direct (pfile)
   result->line = pfile->line;
 
  skipped_white:
-  if (buffer->cur == buffer->rlimit)
-    goto at_eof;
   c = *buffer->cur++;
   result->col = CPP_BUF_COLUMN (buffer, buffer->cur);
 
  trigraph:
   switch (c)
     {
-    at_eof:
+    case ' ': case '\t': case '\f': case '\v': case '\0':
+      result->flags |= PREV_WHITE;
+      if (skip_whitespace (pfile, c))
+	goto skipped_white;
+
+      /* EOF.  */
+      buffer->cur--;
       buffer->saved_flags = BOL;
       if (!pfile->state.parsing_args && !pfile->state.in_directive)
 	{
@@ -940,11 +927,6 @@ _cpp_lex_direct (pfile)
 	}
       result->type = CPP_EOF;
       break;
-
-    case ' ': case '\t': case '\f': case '\v': case '\0':
-      skip_whitespace (pfile, c);
-      result->flags |= PREV_WHITE;
-      goto skipped_white;
 
     case '\n': case '\r':
       handle_newline (pfile);
@@ -996,11 +978,23 @@ _cpp_lex_direct (pfile)
       parse_number (pfile, &result->val.str, c, 0);
       break;
 
-    case '$':
-      if (!CPP_OPTION (pfile, dollars_in_ident))
-	goto random_char;
-      /* Fall through...  */
+    case 'L':
+      /* 'L' may introduce wide characters or strings.  */
+	{
+	  const unsigned char *pos = buffer->cur;
 
+	  c = get_effective_char (pfile);
+	  if (c == '\'' || c == '"')
+	    {
+	      result->type = (c == '"' ? CPP_WSTRING: CPP_WCHAR);
+	      parse_string (pfile, result, c);
+	      break;
+	    }
+	  buffer->cur = pos;
+	}
+	/* Fall through.  */
+
+    start_ident:
     case '_':
     case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
     case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
@@ -1008,27 +1002,15 @@ _cpp_lex_direct (pfile)
     case 's': case 't': case 'u': case 'v': case 'w': case 'x':
     case 'y': case 'z':
     case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-    case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+    case 'G': case 'H': case 'I': case 'J': case 'K':
     case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
     case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
     case 'Y': case 'Z':
       result->type = CPP_NAME;
       result->val.node = parse_identifier (pfile);
 
-      /* 'L' may introduce wide characters or strings.  */
-      if (result->val.node == pfile->spec_nodes.n_L
-	  && buffer->cur < buffer->rlimit)
-	{
-	  c = *buffer->cur;
-	  if (c == '\'' || c == '"')
-	    {
-	      buffer->cur++;
-	      result->type = (c == '"' ? CPP_WSTRING: CPP_WCHAR);
-	      parse_string (pfile, result, c);
-	    }
-	}
       /* Convert named operators to their proper types.  */
-      else if (result->val.node->flags & NODE_OPERATOR)
+      if (result->val.node->flags & NODE_OPERATOR)
 	{
 	  result->flags |= NAMED_OP;
 	  result->type = result->val.node->value.operator;
@@ -1291,6 +1273,11 @@ _cpp_lex_direct (pfile)
 
       /* @ is a punctuator in Objective C.  */
     case '@': result->type = CPP_ATSIGN; break;
+
+    case '$':
+      if (CPP_OPTION (pfile, dollars_in_ident))
+	goto start_ident;
+      /* Fall through...  */
 
     random_char:
     default:
@@ -1922,8 +1909,8 @@ cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
   if (token->type == CPP_CHAR && chars_seen)
     {
       unsigned int nbits = chars_seen * width;
-      unsigned int mask = (unsigned int) ~0 >> (HOST_BITS_PER_INT - nbits);
 
+      mask = (unsigned HOST_WIDE_INT) ~0 >> (HOST_BITS_PER_WIDE_INT - nbits);
       if (pfile->spec_nodes.n__CHAR_UNSIGNED__->type == NT_MACRO
 	  || ((result >> (nbits - 1)) & 1) == 0)
 	result &= mask;

@@ -603,7 +603,7 @@ dbr_sequence_length ()
 /* Arrays for insn lengths, and addresses.  The latter is referenced by
    `insn_current_length'.  */
 
-static short *insn_lengths;
+static int *insn_lengths;
 
 #ifdef HAVE_ATTR_length
 varray_type insn_addresses_;
@@ -1186,7 +1186,7 @@ shorten_branches (first)
 #ifdef HAVE_ATTR_length
 
   /* Allocate the rest of the arrays.  */
-  insn_lengths = (short *) xmalloc (max_uid * sizeof (short));
+  insn_lengths = (int *) xmalloc (max_uid * sizeof (*insn_lengths));
   insn_lengths_max_uid = max_uid;
   /* Syntax errors can lead to labels being outside of the main insn stream.
      Initialize insn_addresses, so that we get reproducible results.  */
@@ -3087,7 +3087,7 @@ walk_alter_subreg (xp)
       break;
     }
 
-  return x;
+  return *xp;
 }
 
 #ifdef HAVE_cc0
@@ -3658,10 +3658,7 @@ output_addr_const (file, x)
   switch (GET_CODE (x))
     {
     case PC:
-      if (flag_pic)
-	putc ('.', file);
-      else
-	abort ();
+      putc ('.', file);
       break;
 
     case SYMBOL_REF:

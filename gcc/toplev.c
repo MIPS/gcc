@@ -126,6 +126,7 @@ extern tree last_assemble_variable_decl;
 
 static void general_init PARAMS ((char *));
 static void parse_options_and_default_flags PARAMS ((int, char **));
+static void do_compile PARAMS ((void));
 static void process_options PARAMS ((void));
 static void lang_independent_init PARAMS ((void));
 static int lang_dependent_init PARAMS ((const char *));
@@ -399,8 +400,6 @@ typedef rtx (*lang_expand_expr_t)
 	  enum expand_modifier modifier));
 
 lang_expand_expr_t lang_expand_expr = 0;
-
-tree (*lang_expand_constant) PARAMS ((tree)) = 0;
 
 /* Pointer to function to finish handling an incomplete decl at the
    end of compilation.  */
@@ -1194,7 +1193,7 @@ lang_independent_options f_options[] =
   {"mem-report", &mem_report, 1,
    N_("Report on permanent memory allocation at end of run") },
   { "trapv", &flag_trapv, 1,
-   N_("Trap for signed overflow in addition / subtraction / multiplication.") },
+   N_("Trap for signed overflow in addition / subtraction / multiplication") },
 };
 
 /* Table of language-specific options.  */
@@ -3600,6 +3599,7 @@ rest_of_compilation (decl)
   init_temp_slots ();
 
   free_basic_block_vars (0);
+  free_bb_for_insn ();
 
   timevar_pop (TV_FINAL);
 
@@ -4673,7 +4673,7 @@ general_init (argv0)
 }
 
 /* Parse command line options and set default flag values, called
-   after language-independent option-independent intialization.  Do
+   after language-independent option-independent initialization.  Do
    minimal options processing.  Outputting diagnostics is OK, but GC
    and identifier hashtables etc. are not initialized yet.  */
 static void
@@ -4874,7 +4874,8 @@ parse_options_and_default_flags (argc, argv)
 	}
     }
 
-  /* All command line options have been processed.  */
+  /* All command line options have been parsed; allow the front end to
+     perform consistency checks, etc.  */
   (*lang_hooks.post_options) ();
 }
 
@@ -4900,12 +4901,6 @@ process_options ()
 	warning ("-Wuninitialized is not supported without -O");
     }
 
-  /* We do not currently support sibling-call optimization in the
-     presence of exceptions.  See PR2975 for a test-case that will
-     fail if we try to combine both of these features.  */
-  if (flag_exceptions)
-    flag_optimize_sibling_calls = 0;
-
 #ifdef OVERRIDE_OPTIONS
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
@@ -4930,7 +4925,7 @@ process_options ()
 
   if (profile_block_flag == 3)
     {
-      warning ("`-ax' and `-a' are conflicting options. `-a' ignored.");
+      warning ("`-ax' and `-a' are conflicting options. `-a' ignored");
       profile_block_flag = 2;
     }
 
@@ -5044,12 +5039,12 @@ process_options ()
     {
       if (flag_function_sections)
 	{
-	  warning ("-ffunction-sections not supported for this target.");
+	  warning ("-ffunction-sections not supported for this target");
 	  flag_function_sections = 0;
 	}
       if (flag_data_sections)
 	{
-	  warning ("-fdata-sections not supported for this target.");
+	  warning ("-fdata-sections not supported for this target");
 	  flag_data_sections = 0;
 	}
     }
@@ -5057,13 +5052,13 @@ process_options ()
   if (flag_function_sections
       && (profile_flag || profile_block_flag))
     {
-      warning ("-ffunction-sections disabled; it makes profiling impossible.");
+      warning ("-ffunction-sections disabled; it makes profiling impossible");
       flag_function_sections = 0;
     }
 
 #ifndef OBJECT_FORMAT_ELF
   if (flag_function_sections && write_symbols != NO_DEBUG)
-    warning ("-ffunction-sections may affect debugging on some targets.");
+    warning ("-ffunction-sections may affect debugging on some targets");
 #endif
 }
 
@@ -5075,15 +5070,12 @@ lang_independent_init ()
   decl_printable_name = decl_name;
   lang_expand_expr = (lang_expand_expr_t) do_abort;
 
-  /* Set the language-dependent identifer size.  */
+  /* Set the language-dependent identifier size.  */
   tree_code_length[(int) IDENTIFIER_NODE]
     = ((lang_hooks.identifier_size - sizeof (struct tree_common))
        / sizeof (tree));
 
-  /* Initialize the garbage-collector, and string pools.  FIXME: We
-     should do this later, in independent_init () when we know we
-     actually want to compile something, but cpplib currently wants to
-     use the hash table immediately in cpp_create_reader.  */
+  /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
   ggc_add_rtx_root (&stack_limit_rtx, 1);
   ggc_add_tree_root (&current_function_decl, 1);
@@ -5220,29 +5212,10 @@ finalize ()
   (*lang_hooks.finish) ();
 }
 
-/* Entry point of cc1, cc1plus, jc1, f771, etc.
-   Decode command args, then call compile_file.
-   Exit code is FATAL_EXIT_CODE if can't open files or if there were
-   any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
-
-   It is not safe to call this function more than once.  */
-
-int
-toplev_main (argc, argv)
-     int argc;
-     char **argv;
+/* Initialize the compiler, and compile the input file.  */
+static void
+do_compile ()
 {
-  /* Initialization of GCC's environment, and diagnostics.  */
-  general_init (argv [0]);
-
-  /* Parse the options and do minimal processing; basically just
-     enough to default flags appropriately.  */
-  parse_options_and_default_flags (argc, argv);
-
-  /* Exit early if we can (e.g. -help).  */
-  if (exit_after_options)
-    return (SUCCESS_EXIT_CODE);
-
   /* The bulk of command line switch processing.  */
   process_options ();
 
@@ -5264,6 +5237,30 @@ toplev_main (argc, argv)
   /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
+}
+
+/* Entry point of cc1, cc1plus, jc1, f771, etc.
+   Decode command args, then call compile_file.
+   Exit code is FATAL_EXIT_CODE if can't open files or if there were
+   any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
+
+   It is not safe to call this function more than once.  */
+
+int
+toplev_main (argc, argv)
+     int argc;
+     char **argv;
+{
+  /* Initialization of GCC's environment, and diagnostics.  */
+  general_init (argv [0]);
+
+  /* Parse the options and do minimal processing; basically just
+     enough to default flags appropriately.  */
+  parse_options_and_default_flags (argc, argv);
+
+  /* Exit early if we can (e.g. -help).  */
+  if (!exit_after_options)
+    do_compile ();
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);

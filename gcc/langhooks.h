@@ -71,21 +71,8 @@ struct lang_hooks
      identifier nodes long enough for the language-specific slots.  */
   size_t identifier_size;
 
-  /* Called after options parsing, to initialize the front end.  The
-     main input filename is passed, which may be NULL; the front end
-     should return the original filename (e.g. foo.i -> foo.c).
-     Return NULL to indicate a serious error of some sort; in that
-     case no compilation is performed, and the finish hook is called
-     immediately.  */
-  const char * (*init) PARAMS ((const char *));
-
-  /* Called last, as a finalizer.  */
-  void (*finish) PARAMS ((void));
-
-  /* Called immediately after parsing to clear the binding stack.  */
-  void (*clear_binding_stack) PARAMS ((void));
-
-  /* Called to initialize options, before any calls to decode_option.  */
+  /* The first callback made to the front end, for simple
+     initialization needed before any calls to decode_option.  */
   void (*init_options) PARAMS ((void));
 
   /* Function called with an option vector as argument, to decode a
@@ -98,12 +85,43 @@ struct lang_hooks
      done for this option.  */
   int (*decode_option) PARAMS ((int, char **));
 
-  /* Called when all command line options have been parsed.  */
+  /* Called when all command line options have been parsed.  Should do
+     any required consistency checks, modifications etc.  Complex
+     initialization should be left to the "init" callback, since GC
+     and the identifier hashes are set up between now and then.  */
   void (*post_options) PARAMS ((void));
+
+  /* Called after post_options, to initialize the front end.  The main
+     input filename is passed, which may be NULL; the front end should
+     return the original filename (e.g. foo.i -> foo.c).  Return NULL
+     to indicate a serious error of some sort; in that case no
+     compilation is performed, and the finish hook is called
+     immediately.  */
+  const char * (*init) PARAMS ((const char *));
+
+  /* Called at the end of compilation, as a finalizer.  */
+  void (*finish) PARAMS ((void));
+
+  /* Called immediately after parsing to clear the binding stack.  */
+  void (*clear_binding_stack) PARAMS ((void));
 
   /* Called to obtain the alias set to be used for an expression or type.
      Returns -1 if the language does nothing special for it.  */
   HOST_WIDE_INT (*get_alias_set) PARAMS ((tree));
+
+  /* Called with an expression that is to be processed as a constant.
+     Returns either the same expression or a language-independent
+     constant equivalent to its input.  */
+  tree (*expand_constant) PARAMS ((tree));
+
+  /* Hook called by safe_from_p for language-specific tree codes.  It is
+     up to the language front-end to install a hook if it has any such
+     codes that safe_from_p needs to know about.  Since same_from_p will
+     recursively explore the TREE_OPERANDs of an expression, this hook
+     should not reexamine those pieces.  This routine may recursively
+     call safe_from_p; it should always pass `0' as the TOP_P
+     parameter.  */
+  int (*safe_from_p) PARAMS ((rtx, tree));
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;

@@ -541,7 +541,7 @@ expected_value_to_br_prob ()
 	  continue;
 
 	case JUMP_INSN:
-	  /* Look for simple conditional branches.  If we havn't got an
+	  /* Look for simple conditional branches.  If we haven't got an
 	     expected value yet, no point going further.  */
 	  if (GET_CODE (insn) != JUMP_INSN || ev == NULL_RTX)
 	    continue;
@@ -787,7 +787,7 @@ typedef struct block_info_def
   int tovisit:1;
 
   /* Number of predecessors we need to visit first.  */
-  int npredecesors;
+  int npredecessors;
 } *block_info;
 
 /* Similar information for edges.  */
@@ -835,7 +835,7 @@ propagate_freq (head)
 	      fprintf (rtl_dump_file,
 		       "Irreducible region hit, ignoring edge to %i->%i\n",
 		       e->src->index, bb->index);
-	  BLOCK_INFO (bb)->npredecesors = count;
+	  BLOCK_INFO (bb)->npredecessors = count;
 	}
     }
 
@@ -884,10 +884,10 @@ propagate_freq (head)
       /* Propagate to successor blocks.  */
       for (e = bb->succ; e; e = e->succ_next)
 	if (!(e->flags & EDGE_DFS_BACK)
-	    && BLOCK_INFO (e->dest)->npredecesors)
+	    && BLOCK_INFO (e->dest)->npredecessors)
 	  {
-	    BLOCK_INFO (e->dest)->npredecesors--;
-	    if (!BLOCK_INFO (e->dest)->npredecesors)
+	    BLOCK_INFO (e->dest)->npredecessors--;
+	    if (!BLOCK_INFO (e->dest)->npredecessors)
 	      {
 		if (!nextbb)
 		  nextbb = e->dest;

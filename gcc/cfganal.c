@@ -1002,7 +1002,8 @@ flow_dfs_compute_reverse_execute (data)
       bb = data->stack[--data->sp];
       /* Perform depth-first search on adjacent vertices.  */
       for (e = bb->pred; e; e = e->pred_next)
-	if (!TEST_BIT (data->visited_blocks, e->src->index - (INVALID_BLOCK + 1)))
+	if (!TEST_BIT (data->visited_blocks,
+		       e->src->index - (INVALID_BLOCK + 1)))
 	  flow_dfs_compute_reverse_add_bb (data, e->src);
     }
 

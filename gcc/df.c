@@ -301,6 +301,16 @@ static void df_ru_transfer_function PARAMS ((int, int *, bitmap, bitmap,
 					     bitmap, bitmap, void *));
 static void df_lr_transfer_function PARAMS ((int, int *, bitmap, bitmap, 
 					     bitmap, bitmap, void *));
+static void hybrid_search_bitmap PARAMS ((basic_block, bitmap *, bitmap *, 
+					  bitmap *, bitmap *, enum df_flow_dir, 
+					  enum df_confluence_op, 
+					  transfer_function_bitmap, 
+					  sbitmap, sbitmap, void *));
+static void hybrid_search_sbitmap PARAMS ((basic_block, sbitmap *, sbitmap *,
+					   sbitmap *, sbitmap *, enum df_flow_dir,
+					   enum df_confluence_op,
+					   transfer_function_sbitmap,
+					   sbitmap, sbitmap, void *));
 static inline bool read_modify_subreg_p PARAMS ((rtx));
 
 
@@ -954,8 +964,8 @@ df_def_record_1 (df, x, bb, insn)
 	 || GET_CODE (dst) == SIGN_EXTRACT
 	 || read_modify_subreg_p (dst))
     {
-      /* Strict low part allways contains SUBREG, but we don't want to make
-	 it appear outside, as whole register is allways considered.  */
+      /* Strict low part always contains SUBREG, but we don't want to make
+	 it appear outside, as whole register is always considered.  */
       if (GET_CODE (dst) == STRICT_LOW_PART)
 	{
 	  loc = &XEXP (dst, 0);
@@ -1014,7 +1024,6 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
 {
   RTX_CODE code;
   rtx x;
-
  retry:
   x = *loc;
   if (!x)
@@ -1334,7 +1343,7 @@ df_bb_reg_def_chain_create (df, bb)
   /* Perhaps the defs should be sorted using a depth first search
      of the CFG (or possibly a breadth first search).  We currently
      scan the basic blocks in reverse order so that the first defs
-     apprear at the start of the chain.  */
+     appear at the start of the chain.  */
 
   for (insn = bb->end; insn && insn != PREV_INSN (bb->head);
        insn = PREV_INSN (insn))
@@ -1927,7 +1936,6 @@ df_luids_set (df, blocks)
     });
   return total;
 }
-
 
 /* Perform dataflow analysis using existing DF structure for blocks
    within BLOCKS.  If BLOCKS is zero, use all basic blocks in the CFG.  */
@@ -2531,7 +2539,7 @@ df_insn_mem_replace (df, bb, insn, mem, reg)
   args.replacement = reg;
   args.modified = 0;
 
-  /* Seach and replace all matching mems within insn.  */
+  /* Search and replace all matching mems within insn.  */
   for_each_rtx (&insn, df_rtx_mem_replace, &args);
 
   if (args.modified)
@@ -3588,202 +3596,28 @@ debug_df_chain (link)
   fputc ('\n', stderr);
 }
 
-/* gen = GEN set.
-   kill = KILL set.
-   in, out = Filled in by function.
-   blocks = Blocks to analyze.
-   dir = Dataflow direction.
-   conf_op = Confluence operation.
-   transfun = Transfer function.
-   order = Order to iterate in. (Should map block numbers -> order)
-   data = Whatever you want.  It's passed to the transfer function.
-   
-   This function will perform iterative bitvector dataflow, producing
-   the in and out sets.  Even if you only want to perform it for a
-   small number of blocks, the vectors for in and out must be large
-   enough for *all* blocks, because changing one block might affect
-   others.  However, it'll only put what you say to analyze on the
-   initial worklist.
-   
-   For forward problems, you probably want to pass in a mapping of
-   block number to rc_order (like df->inverse_rc_map).
-*/
-
-void
-iterative_dataflow_sbitmap (in, out, gen, kill, blocks, 
-			    dir, conf_op, transfun, order, data)
-     sbitmap *in, *out, *gen, *kill;
-     bitmap blocks;
-     enum df_flow_dir dir;
-     enum df_confluence_op conf_op;
-     transfer_function_sbitmap transfun;
-     int *order;
-     void *data;
-{
-  int changed;
-  int i;
-  fibheap_t worklist;
-  sbitmap onqueue;
-  basic_block bb;
-  onqueue = sbitmap_alloc (n_basic_blocks);
-  sbitmap_zero (onqueue);
-  worklist = fibheap_new ();
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-  {
-    fibheap_insert (worklist, order[i], (void *) i); 
-    SET_BIT (onqueue, i);
-    if (dir == FORWARD)
-      {
-	sbitmap_copy (out[i], gen[i]);
-      }
-    else
-      {
-	sbitmap_copy (in[i], gen[i]);
-      }
-    
-  });
-  while (!fibheap_empty (worklist))
-    {
-      edge e;
-      i = (int) fibheap_extract_min  (worklist);
-      changed = 0;
-      bb = BASIC_BLOCK (i);
-      RESET_BIT (onqueue, i);
-      if (dir == FORWARD)
-	{
-	  /*  Calculate <conf_op> of predecessor_outs */
-	  for (e = bb->pred; e != 0; e = e->pred_next)
-	    {
-	      if (e->src == ENTRY_BLOCK_PTR)
-		{
-		  sbitmap_zero (in[i]);
-		  continue;
-		}
-	      sbitmap_copy (in[i], out[e->src->index]);
-	      break;
-	    }
-	  if (e == 0)
-	    sbitmap_zero (in[i]);
-	  for (e = bb->pred; e != 0; e = e->pred_next)
-	    {
-	      if (e->src == ENTRY_BLOCK_PTR)
-		continue;
-	      switch (conf_op)
-		{
-		case UNION:
-		  sbitmap_a_or_b (in[i], in[i], out[e->src->index]);
-		  break;
-		case INTERSECTION:
-		  sbitmap_a_and_b (in[i], in[i], out[e->src->index]);
-		  break;
-		}
-	    }
-	}
-      else 
-	{
-	  /* Calculate <conf_op> of successor ins */
-	  sbitmap_zero (out[i]);
-	  for (e = bb->succ; e != 0; e = e->succ_next)
-	    {
-	      if (e->dest == EXIT_BLOCK_PTR)
-		continue;
-	      switch (conf_op)
-		{	
-		case UNION:
-		  sbitmap_a_or_b (out[i], out[i], in[e->dest->index]);
-		  break;
-		case INTERSECTION:
-		  sbitmap_a_and_b (out[i], out[i], in[e->dest->index]);
-		  break;
-		}
-	    }
-	}      
-      /* Common part */
-      (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
-
-      if (changed)
-	{
-	  if (dir == FORWARD)
-	    {
-	      for (e = bb->succ; e != 0; e = e->succ_next)
-		{
-		  if (e->dest == EXIT_BLOCK_PTR)
-		    continue;
-		  if (!TEST_BIT (onqueue, e->dest->index))
-		    { 
-		      SET_BIT (onqueue, e->dest->index);
-		      fibheap_insert (worklist, 
-				      order[e->dest->index], 
-				      (void *)e->dest->index);
-		    }
-		}
-	    }
-	  else
-	    {
-	      for (e = bb->pred; e != 0; e = e->pred_next)
-		{
-		  if (e->src == ENTRY_BLOCK_PTR)
-		    continue;
-		  if (!TEST_BIT (onqueue, e->src->index))
-		    {
-		      SET_BIT (onqueue, e->src->index);
-		      fibheap_insert (worklist, 
-				      order[e->src->index], 
-				      (void *)e->src->index);
-		    }
-
-		}
-	    }
-	}
-    }
-  sbitmap_free (onqueue);
-  fibheap_delete (worklist);
-  
-}
-/* Exactly the same as iterative_dataflow_sbitmap, except it works on
-   bitmaps instead */
-void
-iterative_dataflow_bitmap (in, out, gen, kill, blocks, 
-			   dir, conf_op, transfun, order, data)     
+/* Hybrid search algorithm from "Implementation Techniques for
+   Efficient Data-Flow Analysis of Large Programs".  */
+static void 
+hybrid_search_bitmap (block, in, out, gen, kill, dir, 
+		      conf_op, transfun, visited, pending, 
+		      data)
+     basic_block block;
      bitmap *in, *out, *gen, *kill;
-     bitmap blocks;
      enum df_flow_dir dir;
      enum df_confluence_op conf_op;
      transfer_function_bitmap transfun;
-     int *order;
+     sbitmap visited;
+     sbitmap pending;
      void *data;
 {
   int changed;
-  int i;
-  fibheap_t worklist;
-  sbitmap onqueue;
-  basic_block bb;
-
-  onqueue = sbitmap_alloc (n_basic_blocks);
-  sbitmap_zero (onqueue);
-  worklist = fibheap_new ();
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
-  {
-    fibheap_insert (worklist, order[i], (void *) i); 
-    SET_BIT (onqueue, i);
-    if (dir == FORWARD)
-      {
-	bitmap_copy (out[i], gen[i]);
-      }
-    else
-      {
-	bitmap_copy (in[i], gen[i]);
-      }
-    
-  });
-  while (!fibheap_empty (worklist))
+  int i = block->index;
+  edge e;
+  basic_block bb= block;
+  SET_BIT (visited, block->index);
+  if (TEST_BIT (pending, block->index))
     {
-      edge e;
-      i = (int) fibheap_extract_min  (worklist);
-      changed = 0;
-      bb = BASIC_BLOCK (i);
-      RESET_BIT (onqueue, i);
-      
       if (dir == FORWARD)
 	{
 	  /*  Calculate <conf_op> of predecessor_outs */
@@ -3824,43 +3658,301 @@ iterative_dataflow_bitmap (in, out, gen, kill, blocks,
 	}      
       /* Common part */
       (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
-
+      RESET_BIT (pending, i);
       if (changed)
 	{
 	  if (dir == FORWARD)
 	    {
 	      for (e = bb->succ; e != 0; e = e->succ_next)
 		{
-		  if (e->dest == EXIT_BLOCK_PTR)
+		  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
 		    continue;
-		  if (!TEST_BIT (onqueue, e->dest->index))
-		    { 
-		      SET_BIT (onqueue, e->dest->index);
-		      fibheap_insert (worklist, 
-				      order[e->dest->index], 
-				      (void *)e->dest->index);
-		    }
+		  SET_BIT (pending, e->dest->index);
 		}
 	    }
 	  else
 	    {
 	      for (e = bb->pred; e != 0; e = e->pred_next)
 		{
-		  if (e->src == ENTRY_BLOCK_PTR)
+		  if (e->src == ENTRY_BLOCK_PTR || e->dest->index == i)
 		    continue;
-		  if (!TEST_BIT (onqueue, e->src->index))
-		    {
-		      SET_BIT (onqueue, e->src->index);
-		      fibheap_insert (worklist, 
-				      order[e->src->index], 
-				      (void *)e->src->index);
-		    }
-
+		  SET_BIT (pending, e->src->index);
 		}
 	    }
 	}
     }
-  sbitmap_free (onqueue);
+  if (dir == FORWARD)
+    {
+      for (e = bb->succ; e != 0; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
+	    continue;
+	  if (!TEST_BIT (visited, e->dest->index))
+	    hybrid_search_bitmap (e->dest, in, out, gen, kill, dir, 
+				  conf_op, transfun, visited, pending, 
+				  data);
+	}
+    }
+  else
+    {
+      for (e = bb->pred; e != 0; e = e->pred_next)
+	{
+	  if (e->src == ENTRY_BLOCK_PTR || e->src->index == i)
+	    continue;
+	  if (!TEST_BIT (visited, e->src->index))
+	    hybrid_search_bitmap (e->src, in, out, gen, kill, dir, 
+				  conf_op, transfun, visited, pending, 
+				  data);
+	}
+    }
+}
+
+
+/* Hybrid search for sbitmaps, rather than bitmaps.  */
+static void 
+hybrid_search_sbitmap (block, in, out, gen, kill, dir, 
+		       conf_op, transfun, visited, pending,
+		       data)
+     basic_block block;
+     sbitmap *in, *out, *gen, *kill;
+     enum df_flow_dir dir;
+     enum df_confluence_op conf_op;
+     transfer_function_sbitmap transfun;
+     sbitmap visited;
+     sbitmap pending;
+     void *data;
+{
+  int changed;
+  int i = block->index;
+  edge e;
+  basic_block bb= block;
+  SET_BIT (visited, block->index);
+  if (TEST_BIT (pending, block->index))
+    {
+      if (dir == FORWARD)
+	{
+	  /*  Calculate <conf_op> of predecessor_outs */
+	  sbitmap_zero (in[i]);
+	  for (e = bb->pred; e != 0; e = e->pred_next)
+	    {
+	      if (e->src == ENTRY_BLOCK_PTR)
+		continue;
+	      switch (conf_op)
+		{
+		case UNION:
+		  sbitmap_a_or_b (in[i], in[i], out[e->src->index]);
+		  break;
+		case INTERSECTION:
+		  sbitmap_a_and_b (in[i], in[i], out[e->src->index]);
+		  break;
+		}
+	    }
+	}
+      else 
+	{
+	  /* Calculate <conf_op> of successor ins */
+	  sbitmap_zero(out[i]);
+	  for (e = bb->succ; e != 0; e = e->succ_next)
+	    {
+	      if (e->dest == EXIT_BLOCK_PTR)
+		continue;
+	      switch (conf_op)
+		{	
+		case UNION:
+		  sbitmap_a_or_b (out[i], out[i], in[e->dest->index]);
+		  break;
+		case INTERSECTION:
+		  sbitmap_a_and_b (out[i], out[i], in[e->dest->index]);
+		  break;
+		}
+	    }
+	}      
+      /* Common part */
+      (*transfun)(i, &changed, in[i], out[i], gen[i], kill[i], data);
+      RESET_BIT (pending, i);
+      if (changed)
+	{
+	  if (dir == FORWARD)
+	    {
+	      for (e = bb->succ; e != 0; e = e->succ_next)
+		{
+		  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
+		    continue;
+		  SET_BIT (pending, e->dest->index);
+		}
+	    }
+	  else
+	    {
+	      for (e = bb->pred; e != 0; e = e->pred_next)
+		{
+		  if (e->src == ENTRY_BLOCK_PTR || e->dest->index == i)
+		    continue;
+		  SET_BIT (pending, e->src->index);
+		}
+	    }
+	}
+    }
+  if (dir == FORWARD)
+    {
+      for (e = bb->succ; e != 0; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR || e->dest->index == i)
+	    continue;
+	  if (!TEST_BIT (visited, e->dest->index))
+	    hybrid_search_sbitmap (e->dest, in, out, gen, kill, dir, 
+				   conf_op, transfun, visited, pending, 
+				   data);
+	}
+    }
+  else
+    {
+      for (e = bb->pred; e != 0; e = e->pred_next)
+	{
+	  if (e->src == ENTRY_BLOCK_PTR || e->src->index == i)
+	    continue;
+	  if (!TEST_BIT (visited, e->src->index))
+	    hybrid_search_sbitmap (e->src, in, out, gen, kill, dir, 
+				   conf_op, transfun, visited, pending, 
+				   data);
+	}
+    }
+}
+
+
+
+
+/* gen = GEN set.
+   kill = KILL set.
+   in, out = Filled in by function.
+   blocks = Blocks to analyze.
+   dir = Dataflow direction.
+   conf_op = Confluence operation.
+   transfun = Transfer function.
+   order = Order to iterate in. (Should map block numbers -> order)
+   data = Whatever you want.  It's passed to the transfer function.
+   
+   This function will perform iterative bitvector dataflow, producing
+   the in and out sets.  Even if you only want to perform it for a
+   small number of blocks, the vectors for in and out must be large
+   enough for *all* blocks, because changing one block might affect
+   others.  However, it'll only put what you say to analyze on the
+   initial worklist.
+   
+   For forward problems, you probably want to pass in a mapping of
+   block number to rc_order (like df->inverse_rc_map).
+*/
+void
+iterative_dataflow_sbitmap (in, out, gen, kill, blocks, 
+			    dir, conf_op, transfun, order, data)     
+     sbitmap *in, *out, *gen, *kill;
+     bitmap blocks;
+     enum df_flow_dir dir;
+     enum df_confluence_op conf_op;
+     transfer_function_sbitmap transfun;
+     int *order;
+     void *data;
+{
+  int i;
+  fibheap_t worklist;
+  basic_block bb;
+  sbitmap visited, pending;
+  pending = sbitmap_alloc (n_basic_blocks);
+  visited = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (pending);
+  sbitmap_zero (visited);
+  worklist = fibheap_new ();
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
+  {
+    fibheap_insert (worklist, order[i], (void *) (size_t) i); 
+    SET_BIT (pending, i);
+    if (dir == FORWARD)
+      sbitmap_copy (out[i], gen[i]);
+    else
+      sbitmap_copy (in[i], gen[i]);
+  });
+  while (sbitmap_first_set_bit (pending) != -1)
+    {
+      while (!fibheap_empty (worklist))
+	{
+	  i = (size_t) fibheap_extract_min (worklist);
+	  bb = BASIC_BLOCK (i);
+	  if (!TEST_BIT (visited, bb->index))
+	    hybrid_search_sbitmap (bb, in, out, gen, kill, dir, 
+				   conf_op, transfun, visited, pending, data);
+	}
+      if (sbitmap_first_set_bit (pending) != -1)
+	{
+	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
+	  {
+	    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+	  });
+	  sbitmap_zero (visited);
+	}
+      else
+	{
+	  break;
+	}      
+    }
+  sbitmap_free (pending);
+  sbitmap_free (visited);
   fibheap_delete (worklist);
-  
+}
+
+/* Exactly the same as iterative_dataflow_sbitmap, except it works on
+   bitmaps instead */
+void
+iterative_dataflow_bitmap (in, out, gen, kill, blocks, 
+			   dir, conf_op, transfun, order, data)     
+     bitmap *in, *out, *gen, *kill;
+     bitmap blocks;
+     enum df_flow_dir dir;
+     enum df_confluence_op conf_op;
+     transfer_function_bitmap transfun;
+     int *order;
+     void *data;
+{
+  int i;
+  fibheap_t worklist;
+  basic_block bb;
+  sbitmap visited, pending;
+  pending = sbitmap_alloc (n_basic_blocks);
+  visited = sbitmap_alloc (n_basic_blocks);
+  sbitmap_zero (pending);
+  sbitmap_zero (visited);
+  worklist = fibheap_new ();
+  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
+  {
+    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+    SET_BIT (pending, i);
+    if (dir == FORWARD)
+      bitmap_copy (out[i], gen[i]);
+    else
+      bitmap_copy (in[i], gen[i]);
+  });
+  while (sbitmap_first_set_bit (pending) != -1)
+    {
+      while (!fibheap_empty (worklist))
+	{
+	  i = (size_t) fibheap_extract_min (worklist);
+	  bb = BASIC_BLOCK (i);
+	  if (!TEST_BIT (visited, bb->index))
+	    hybrid_search_bitmap (bb, in, out, gen, kill, dir, 
+				  conf_op, transfun, visited, pending, data);
+	}
+      if (sbitmap_first_set_bit (pending) != -1)
+	{
+	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i,
+	  {
+	    fibheap_insert (worklist, order[i], (void *) (size_t) i);
+	  });
+	  sbitmap_zero (visited);
+	}
+      else
+	{
+	  break;
+	}     
+    }
+  sbitmap_free (pending);
+  sbitmap_free (visited);
+  fibheap_delete (worklist);  
 }

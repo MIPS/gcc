@@ -787,6 +787,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
   MEM_IN_STRUCT_P (p->slot) = 0;
   MEM_SCALAR_P (p->slot) = 0;
   MEM_VOLATILE_P (p->slot) = 0;
+  set_mem_alias_set (p->slot, 0);
 
   /* If we know the alias set for the memory that will be used, use
      it.  If there's no TYPE, then we don't know anything about the
@@ -6802,7 +6803,7 @@ expand_function_end (filename, line, end_bindings)
   emit_line_note_force (filename, line);
 
   /* Before the return label (if any), clobber the return
-     registers so that they are not propogated live to the rest of
+     registers so that they are not propagated live to the rest of
      the function.  This can only happen with functions that drop
      through; if there had been a return statement, there would
      have either been a return rtx, or a jump to the return label.

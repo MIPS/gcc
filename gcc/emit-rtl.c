@@ -1027,19 +1027,25 @@ gen_lowpart_common (mode, x)
       long i[4];  /* Only the low 32 bits of each 'long' are used.  */
       int endian = WORDS_BIG_ENDIAN ? 1 : 0;
 
+      /* Convert 'r' into an array of four 32-bit words in target word
+         order.  */
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       switch (GET_MODE_BITSIZE (GET_MODE (x)))
 	{
 	case 32:
-	  REAL_VALUE_TO_TARGET_SINGLE (r, i[endian]);
-	  i[1 - endian] = 0;
-	  break;
+          REAL_VALUE_TO_TARGET_SINGLE (r, i[3 * endian]);
+	  i[1] = 0;
+	  i[2] = 0;
+          i[3 - 3 * endian] = 0;
+          break;
 	case 64:
-	  REAL_VALUE_TO_TARGET_DOUBLE (r, i);
-	  break;
+          REAL_VALUE_TO_TARGET_DOUBLE (r, i + 2 * endian);
+	  i[2 - 2 * endian] = 0;
+	  i[3 - 2 * endian] = 0;
+          break;
 	case 96:
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i + endian);
-	  i[3-3*endian] = 0;
+	  i[3 - 3 * endian] = 0;
 	  break;
 	case 128:
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i);
@@ -1047,39 +1053,17 @@ gen_lowpart_common (mode, x)
 	default:
 	  abort ();
 	}
-
       /* Now, pack the 32-bit elements of the array into a CONST_DOUBLE
 	 and return it.  */
 #if HOST_BITS_PER_WIDE_INT == 32
-      return immed_double_const (i[endian], i[1 - endian], mode);
+      return immed_double_const (i[3 * endian], i[1 + endian], mode);
 #else
-      {
-	int c;
+      if (HOST_BITS_PER_WIDE_INT != 64)
+	abort ();
 
-	if (HOST_BITS_PER_WIDE_INT != 64)
-	  abort ();
-
-	for (c = 0; c < 4; c++)
-	  i[c] &= ~ (0L);
-
-	switch (GET_MODE_BITSIZE (GET_MODE (x)))
-	  {
-	  case 32:
-	  case 64:
-	    return immed_double_const (((unsigned long) i[endian]) |
-				       (((HOST_WIDE_INT) i[1-endian]) << 32),
-				       0, mode);
-	  case 96:
-	  case 128:
-	    return immed_double_const (((unsigned long) i[endian*3]) |
-				       (((HOST_WIDE_INT) i[1+endian]) << 32),
-				       ((unsigned long) i[2-endian]) |
-				       (((HOST_WIDE_INT) i[3-endian*3]) << 32),
-				       mode);
-	  default:
-	    abort ();
-	  }
-      }
+      return immed_double_const (i[3 * endian] | (i[1 + endian] << 32),
+				 i[2 - endian] | (i [3 - 3 * endian] << 32),
+				 mode);
 #endif
     }
 #endif /* ifndef REAL_ARITHMETIC */
@@ -1336,7 +1320,7 @@ constant_subword (op, offset, mode)
 	 ??? This is a potential portability problem and should
 	 be fixed at some point.
 
-	 We must excercise caution with the sign bit.  By definition there
+	 We must exercise caution with the sign bit.  By definition there
 	 are 32 significant bits in K; there may be more in a HOST_WIDE_INT.
 	 Consider a host with a 32-bit long and a 64-bit HOST_WIDE_INT.
 	 So we explicitly mask and sign-extend as necessary.  */
@@ -2837,7 +2821,7 @@ try_split (pat, trial, last)
 		    && !find_reg_note (insn, REG_BR_PROB, 0))
 		  {
 		    /* We can preserve the REG_BR_PROB notes only if exactly
-		       one jump is created, otherwise the machinde description
+		       one jump is created, otherwise the machine description
 		       is responsible for this step using
 		       split_branch_probability variable.  */
 		    if (njumps != 1)
@@ -3087,7 +3071,7 @@ add_insn_after (insn, after)
     {
       set_block_for_insn (insn, bb);
       /* Should not happen as first in the BB is always
-	 eigther NOTE or LABEL.  */
+	 either NOTE or LABEL.  */
       if (bb->end == after
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
@@ -3154,7 +3138,7 @@ add_insn_before (insn, before)
     {
       set_block_for_insn (insn, bb);
       /* Should not happen as first in the BB is always
-	 eigther NOTE or LABEl.  */
+	 either NOTE or LABEl.  */
       if (bb->head == insn
 	  /* Avoid clobbering of structure when creating new BB.  */
 	  && GET_CODE (insn) != BARRIER
@@ -4668,7 +4652,7 @@ init_emit_once (line_numbers)
 #ifdef INIT_EXPANDERS
   /* This is to initialize {init|mark|free}_machine_status before the first
      call to push_function_context_to.  This is needed by the Chill front
-     end which calls push_function_context_to before the first cal to
+     end which calls push_function_context_to before the first call to
      init_function_start.  */
   INIT_EXPANDERS;
 #endif

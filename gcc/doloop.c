@@ -353,23 +353,38 @@ doloop_valid_p (loop, jump_insn)
       && ((loop_info->comparison_code == LEU
 	   && INTVAL (loop_info->increment) > 0)
 	  || (loop_info->comparison_code == GEU
-	      && INTVAL (loop_info->increment) < 0)))
+	      && INTVAL (loop_info->increment) < 0)
+	  || (loop_info->comparison_code == LTU
+	      && INTVAL (loop_info->increment) > 1)
+	  || (loop_info->comparison_code == GTU
+	      && INTVAL (loop_info->increment) < -1)))
     {
       /* If the comparison is LEU and the comparison value is UINT_MAX
 	 then the loop will not terminate.  Similarly, if the
 	 comparison code is GEU and the initial value is 0, the loop
 	 will not terminate.
 
-	 Note that with LE and GE, the loop behaviour can be
-	 implementation dependent if an overflow occurs, say between
-	 INT_MAX and INT_MAX + 1.  We thus don't have to worry about
-	 these two cases.
+	 If the absolute increment is not 1, the loop can be infinite
+	 even with LTU/GTU, e.g. for (i = 3; i > 0; i -= 2)
+
+	 Note that with LE and GE, the loop behaviour is undefined
+	 (C++ standard section 5 clause 5) if an overflow occurs, say
+	 between INT_MAX and INT_MAX + 1.  We thus don't have to worry
+	 about these two cases.
 
 	 ??? We could compute these conditions at run-time and have a
 	 additional jump around the loop to ensure an infinite loop.
 	 However, it is very unlikely that this is the intended
 	 behaviour of the loop and checking for these rare boundary
-	 conditions would pessimize all other code.  */
+	 conditions would pessimize all other code.
+
+	 If the loop is executed only a few times an extra check to
+	 restart the loop could use up most of the benefits of using a
+	 count register loop.  Note however, that normally, this
+	 restart branch would never execute, so it could be predicted
+	 well by the CPU.  We should generate the pessimistic code by
+	 default, and have an option, e.g. -funsafe-loops that would
+	 enable count-register loops in this case.  */
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,
 		 "Doloop: Possible infinite iteration case ignored.\n");
@@ -595,6 +610,58 @@ doloop_modify_runtime (loop, iterations_max,
 			      copy_rtx (neg_inc ? initial_value : final_value),
 			      copy_rtx (neg_inc ? final_value : initial_value),
 			      NULL_RTX, unsigned_p, OPTAB_LIB_WIDEN);
+
+  /* Some code transformations can result in code akin to
+
+	  tmp = i + 1;
+	  ...
+	  goto scan_start;
+	top:
+	  tmp = tmp + 1;
+	scan_start:
+	  i = tmp;
+	  if (i < n) goto top;
+
+     We'll have already detected this form of loop in scan_loop,
+     and set loop->top and loop->scan_start appropriately.
+
+     In this situation, we skip the increment the first time through
+     the loop, which results in an incorrect estimate of the number
+     of iterations.  Adjust the difference to compensate.  */
+  /* ??? Logically, it would seem this belongs in loop_iterations.
+     However, this causes regressions e.g. on x86 execute/20011008-3.c,
+     so I do not believe we've properly characterized the exact nature
+     of the problem.  In the meantime, this fixes execute/20011126-2.c
+     on ia64 and some Ada front end miscompilation on ppc.  */
+
+  if (loop->scan_start)
+    {
+      rtx iteration_var = loop_info->iteration_var;
+      struct loop_ivs *ivs = LOOP_IVS (loop);
+      struct iv_class *bl;
+
+      if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == BASIC_INDUCT)
+	bl = REG_IV_CLASS (ivs, REGNO (iteration_var));
+      else if (REG_IV_TYPE (ivs, REGNO (iteration_var)) == GENERAL_INDUCT)
+	{
+	  struct induction *v = REG_IV_INFO (ivs, REGNO (iteration_var));
+	  bl = REG_IV_CLASS (ivs, REGNO (v->src_reg));
+	}
+      else
+	/* Iteration var must be an induction variable to get here.  */
+	abort();
+
+      if (INSN_UID (bl->biv->insn) < max_uid_for_loop
+	  && INSN_LUID (bl->biv->insn) < INSN_LUID (loop->scan_start))
+	{
+	  if (loop_dump_stream)
+	    fprintf (loop_dump_stream,
+	         "Doloop: Basic induction var skips initial incr.\n");
+
+	  diff = expand_simple_binop (mode, PLUS, diff, increment, diff,
+				      unsigned_p, OPTAB_LIB_WIDEN);
+	}
+    }
 
   if (abs_inc * loop_info->unroll_number != 1)
     {

@@ -23,9 +23,6 @@
 /* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
 #undef HAVE_ALLOCA_H
 
-/* Define if you don't have vprintf but do have _doprnt.  */
-#undef HAVE_DOPRNT
-
 /* Define if you have the ANSI # stringizing operator in cpp. */
 #undef HAVE_STRINGIZE
 
@@ -34,9 +31,6 @@
 
 /* Define if you have <vfork.h>.  */
 #undef HAVE_VFORK_H
-
-/* Define if you have the vprintf function.  */
-#undef HAVE_VPRINTF
 
 /* Define as __inline if that's what the C compiler calls it.  */
 #undef inline
@@ -113,6 +107,9 @@
 
 /* Define if you have the dcgettext function.  */
 #undef HAVE_DCGETTEXT
+
+/* Define if you have the dup2 function.  */
+#undef HAVE_DUP2
 
 /* Define if you have the feof_unlocked function.  */
 #undef HAVE_FEOF_UNLOCKED
@@ -212,9 +209,6 @@
 
 /* Define if you have the strsignal function.  */
 #undef HAVE_STRSIGNAL
-
-/* Define if you have the strstr function.  */
-#undef HAVE_STRSTR
 
 /* Define if you have the strtoul function.  */
 #undef HAVE_STRTOUL
@@ -566,14 +560,15 @@
    and preserves file table indices exactly as given. */
 #undef HAVE_AS_DWARF2_DEBUG_LINE
 
-/* Define 0/1 to force the choice for exception handling model. */
-#undef CONFIG_SJLJ_EXCEPTIONS
-
 /* Define if your assembler supports the --gdwarf2 option. */
 #undef HAVE_AS_GDWARF2_DEBUG_FLAG
 
 /* Define if your assembler supports the --gstabs option. */
 #undef HAVE_AS_GSTABS_DEBUG_FLAG
+
+/* Define 0/1 to force the choice for exception handling model. */
+#undef CONFIG_SJLJ_EXCEPTIONS
+
 
 /* Bison unconditionally undefines `const' if neither `__STDC__' nor
    __cplusplus are defined.  That's a problem since we use `const' in

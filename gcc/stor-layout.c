@@ -114,6 +114,13 @@ void
 put_pending_size (expr)
      tree expr;
 {
+  /* Strip any simple arithmetic from EXPR to see if it has an underlying
+     SAVE_EXPR.  */
+  while (TREE_CODE_CLASS (TREE_CODE (expr)) == '1'
+	 || (TREE_CODE_CLASS (TREE_CODE (expr)) == '2'
+	    && TREE_CONSTANT (TREE_OPERAND (expr, 1))))
+    expr = TREE_OPERAND (expr, 0);
+
   if (TREE_CODE (expr) == SAVE_EXPR)
     pending_sizes = tree_cons (NULL_TREE, expr, pending_sizes);
 }
@@ -140,7 +147,8 @@ variable_size (size)
 {
   /* If the language-processor is to take responsibility for variable-sized
      items (e.g., languages which have elaboration procedures like Ada),
-     just return SIZE unchanged.  Likewise for self-referential sizes.  */
+     just return SIZE unchanged.  Likewise for self-referential sizes and
+     constant sizes.  */
   if (TREE_CONSTANT (size)
       || global_bindings_p () < 0 || contains_placeholder_p (size))
     return size;
