@@ -546,6 +546,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_dse = 1;
       flag_tree_pre = 1;
       flag_tree_ter = 1;
+      flag_tree_live_range_split = 1;
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
 
@@ -1500,6 +1501,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_ter:
       flag_tree_ter = value;
+      break;
+
+    case OPT_ftree_lrs:
+      flag_tree_live_range_split = value;
       break;
 
     case OPT_ftree_dominator_opts:

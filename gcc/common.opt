@@ -775,6 +775,10 @@ ftree-ter
 Common
 Replace temporary expressions in the SSA->normal pass
 
+ftree-lrs
+Common
+Perform live range splitting during the SSA->normal pass.
+
 funit-at-a-time
 Common
 Compile whole compilation unit at a time

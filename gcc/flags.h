@@ -736,6 +736,9 @@ extern int flag_tree_combine_temps;
 /* Enable SSA->normal pass expression replacement.  */
 extern int flag_tree_ter;
 
+/* Enable SSA_>normal live range splitting.  */
+extern int flag_tree_live_range_split;
+
 /* Enable dominator optimizations.  */
 extern int flag_tree_dom;
 

@@ -1,3 +1,16 @@
+2004-04-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* common.opt (ftree-lrs): New common option.
+	* flags.h (flag_tree_live_range_split): New flag.
+	* opts.c (decode_options): Turn on LRS by default.
+	(common_handle_option): Set LRS flag to specified value.
+	* toplev.c (flag_tree_live_range_split): Initialize.
+	(lang_independent_options f_): Add tree-lrs.
+	* tree-outof-ssa.c (rewrite_out_of_ssa): Use LRS flag.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Don't coalesce
+	variables if one is a hardware register.  Coalesce inlined user vars.
+	(rename_ssa_copies): Scan blocks first, then PHI nodes.
+
 2004-04-15  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* builtins.c (fold_builtin_isascii): Do not return non-gimple

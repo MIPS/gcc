@@ -146,6 +146,20 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   root1 = SSA_NAME_VAR (partition_to_var (map, p1));
   root2 = SSA_NAME_VAR (partition_to_var (map, p2));
+
+  if (DECL_HARD_REGISTER (root1) || DECL_HARD_REGISTER (root2))
+    {
+      if (debug)
+        {
+	  if (DECL_HARD_REGISTER (root1))
+	    print_generic_expr (debug, var1, TDF_SLIM);
+	  else
+	    print_generic_expr (debug, var2, TDF_SLIM);
+	  fprintf (debug, " is a hardware register.  No Coalescing.\n");
+	}
+      return;
+    }
+
   ann1 = var_ann (root1);
   ann2 = var_ann (root2);
 
@@ -176,12 +190,21 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   gimp1 = is_gimple_tmp_var (root1);
   gimp2 = is_gimple_tmp_var (root2);
 
-  /* Never attempt to coalesce 2 user variables.  */
+  /* Never attempt to coalesce 2 user variables unless one is an inline 
+     variable.  */
   if (!gimp1 && !gimp2)
     {
-      if (debug)
-        fprintf (debug, " : 2 different USER vars. No coalesce.\n");
-      return;
+      if (DECL_FROM_INLINE (root2))
+        gimp2 = true;
+      else
+        if (DECL_FROM_INLINE (root1))
+	  gimp1 = true;
+	else 
+	  {
+	    if (debug)
+	      fprintf (debug, " : 2 different USER vars. No coalesce.\n");
+	    return;
+	  }
     }
 
     
@@ -270,6 +293,25 @@ rename_ssa_copies (void)
 
   FOR_EACH_BB (bb)
     {
+      /* Scan for real copies.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi); 
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      tree lhs = TREE_OPERAND (stmt, 0);
+	      tree rhs = TREE_OPERAND (stmt, 1);
+
+              if (TREE_CODE (lhs) == SSA_NAME
+		  && !has_hidden_use (SSA_NAME_VAR (lhs))
+		  && TREE_CODE (rhs) == SSA_NAME)
+		copy_rename_partition_coalesce (map, lhs, rhs, debug);
+	    }
+	}
+    }
+
+  FOR_EACH_BB (bb)
+    {
       /* Treat PHI nodes as copies between the result and each argument.  */
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
         {
@@ -289,22 +331,6 @@ rename_ssa_copies (void)
 		copy_rename_partition_coalesce (map, res, arg, debug);
             }
         }
-
-      /* Scan for real copies.  */
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi); 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR)
-	    {
-	      tree lhs = TREE_OPERAND (stmt, 0);
-	      tree rhs = TREE_OPERAND (stmt, 1);
-
-              if (TREE_CODE (lhs) == SSA_NAME
-		  && !has_hidden_use (SSA_NAME_VAR (lhs))
-		  && TREE_CODE (rhs) == SSA_NAME)
-		copy_rename_partition_coalesce (map, lhs, rhs, debug);
-	    }
-	}
     }
 
   if (debug)

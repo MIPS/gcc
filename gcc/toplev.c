@@ -830,6 +830,9 @@ int flag_tree_combine_temps = 0;
 /* Enable SSA->normal pass expression replacement.  */
 int flag_tree_ter = 0;
 
+/* Enable SSA->normal live range splitting.  */
+int flag_tree_live_range_split = 0;
+
 /* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
 
@@ -1063,6 +1066,7 @@ static const lang_independent_options f_options[] =
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },
+  { "tree-lrs", &flag_tree_live_range_split, 1 },
   { "tree-ch", &flag_tree_ch, 1 }
 };
 

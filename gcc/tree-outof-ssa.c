@@ -2095,9 +2095,11 @@ rewrite_out_of_ssa (void)
 {
   var_map map;
   int var_flags = 0;
-  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST
-		   | SSANORM_COALESCE_PARTITIONS);
+  int ssa_flags = (SSANORM_REMOVE_ALL_PHIS | SSANORM_USE_COALESCE_LIST);
 
+  if (!flag_tree_live_range_split)
+    ssa_flags |= SSANORM_COALESCE_PARTITIONS;
+    
   eliminate_virtual_phis ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
