@@ -95,7 +95,7 @@ __mf_set_default_options ()
   __mf_opts.adapt_cache = 1000003;
   __mf_opts.print_leaks = 0;
   __mf_opts.abbreviate = 1;
-  __mf_opts.verbose_violations = 0;
+  __mf_opts.verbose_violations = 1;
   __mf_opts.multi_threaded = 0;
   __mf_opts.free_queue_length = 4;
   __mf_opts.persistent_count = 100;

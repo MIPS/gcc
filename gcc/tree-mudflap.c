@@ -306,7 +306,8 @@ mf_varname_tree (decl)
   {
     char *declname = NULL;
    
-    if (strcmp ("GNU C++", lang_hooks.name) == 0)
+    if (strcmp ("GNU C++", lang_hooks.name) == 0 &&
+	DECL_NAME (decl) != NULL)
       {
 	/* The gcc/cp decl_printable_name hook doesn't do as good a job as
 	   the libiberty demangler.  */

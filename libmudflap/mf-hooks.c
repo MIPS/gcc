@@ -665,6 +665,8 @@ WRAPPER(char *, strdup, const char *s)
   CALL_REAL(memcpy, result, s, n);
   result[n] = '\0';
 
+  __mf_state = old_state;
+
   __mf_register ((uintptr_t) result, CLAMPADD(n,1), 
 		 __MF_TYPE_HEAP, "strdup region");
   __mf_state = old_state;
@@ -701,6 +703,8 @@ WRAPPER(char *, strndup, const char *s, size_t n)
   result += __mf_opts.crumple_zone;
   CALL_REAL(memcpy, result, s, n);
   result[n] = '\0';
+
+  __mf_state = old_state;
 
   __mf_register ((uintptr_t) result, CLAMPADD(n,1), 
 		 __MF_TYPE_HEAP, "strndup region");

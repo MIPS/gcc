@@ -5,7 +5,7 @@
    Implementation header for mudflap runtime library.
    
    Mudflap: narrow-pointer bounds-checking by tree rewriting.  
-   Copyright (C) 2002 Free Software Foundation, Inc.  
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.  
    Contributed by Frank Ch. Eigler <fche@redhat.com> 
    and Graydon Hoare <graydon@redhat.com>
    
@@ -16,6 +16,28 @@
 #ifdef _MUDFLAP
 #error "Do not compile this file with -fmudflap!"
 #endif
+
+
+/* Address calculation macros.  */
+
+/* XXX: these macros should be in an __MF*-like namespace. */
+
+#define MINPTR ((uintptr_t) 0)
+#define MAXPTR (~ (uintptr_t) 0)
+
+/* Clamp the addition/subtraction of uintptr_t's to [MINPTR,MAXPTR] */
+#define CLAMPSUB(ptr,offset) ((ptr) >= (offset) ? (ptr)-(offset) : MINPTR)
+#define CLAMPADD(ptr,offset) ((ptr) <= MAXPTR-(offset) ? (ptr)+(offset) : MAXPTR)
+#define CLAMPSZ(ptr,size) ((size) ? ((ptr) <= MAXPTR-(size)+1 ? (ptr)+(size)-1 : MAXPTR) : (ptr))
+
+#define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
+#define __MF_CACHE_MISS_P(ptr,sz) ({ \
+             struct __mf_cache *elem = & __mf_lookup_cache[__MF_CACHE_INDEX((ptr))]; \
+             ((elem->low > (uintptr_t) (ptr)) ||                  \
+	      (elem->high < (CLAMPADD((uintptr_t) (ptr), (uintptr_t) CLAMPSUB(sz,1) )))); })
+/* XXX: the above should use CLAMPSZ () */
+
+
 
 /* Private functions. */ 
 

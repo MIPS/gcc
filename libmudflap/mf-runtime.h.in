@@ -15,26 +15,12 @@ typedef unsigned long uintptr_t;
 #define HAVE_UINTPTR_T 1
 
 
-/* XXX: these macros should be in an __MF*-like namespace. */
-
-#define MINPTR ((uintptr_t) 0)
-#define MAXPTR (~ (uintptr_t) 0)
-
-/* Clamp the addition/subtraction of uintptr_t's to [MINPTR,MAXPTR] */
-#define CLAMPSUB(ptr,offset) ((ptr) >= (offset) ? (ptr)-(offset) : MINPTR)
-#define CLAMPADD(ptr,offset) ((ptr) <= MAXPTR-(offset) ? (ptr)+(offset) : MAXPTR)
-#define CLAMPSZ(ptr,size) ((size) ? ((ptr) <= MAXPTR-(size)+1 ? (ptr)+(size)-1 : MAXPTR) : (ptr))
+/* Global variables. */
 
 struct __mf_cache { uintptr_t low; uintptr_t high; };
 extern struct __mf_cache __mf_lookup_cache [];
 extern uintptr_t __mf_lc_mask;
 extern unsigned char __mf_lc_shift;
-#define __MF_CACHE_INDEX(ptr) ((((uintptr_t) (ptr)) >> __mf_lc_shift) & __mf_lc_mask)
-#define __MF_CACHE_MISS_P(ptr,sz) ({ \
-             struct __mf_cache *elem = & __mf_lookup_cache[__MF_CACHE_INDEX((ptr))]; \
-             ((elem->low > (uintptr_t) (ptr)) ||                  \
-	      (elem->high < (CLAMPADD((uintptr_t) (ptr), (uintptr_t) CLAMPSUB(sz,1) )))); })
-/* XXX: the above should use CLAMPSZ () */
 
 
 /* Codes to describe the context in which a violation occurs. */
@@ -44,6 +30,7 @@ extern unsigned char __mf_lc_shift;
 #define __MF_VIOL_REGISTER 2
 #define __MF_VIOL_UNREGISTER 3
 #define __MF_VIOL_WATCH 4
+
 
 /* Codes to describe a region of memory being registered. */
   

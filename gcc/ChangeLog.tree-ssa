@@ -1,3 +1,8 @@
+2003-01-24  Frank Ch. Eigler  <fche@redhat.com>
+
+	* tree-mudflap.c (mf_varname_tree): Check for non-NULL DECL_NAME
+	before trying to cplus_demangle it.
+
 2003-01-23  Jeff Law <law@redhat.com>
 
 	* tree-cfg.c (make_exit_edges): Fix thinkos.

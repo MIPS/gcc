@@ -3029,17 +3029,18 @@ EOF
 cat >> $CONFIG_STATUS <<\EOF
 test -z "$CONFIG_HEADERS" || echo timestamp > stamp-h
 
+(
+ echo '#ifndef __MF_RUNTIME_H'
+ echo '#define __MF_RUNTIME_H'
+ cat config.h | egrep 'HAVE_(STDINT|UINTPTR)'
+ cat $srcdir/mf-runtime.h.in
+ echo '#endif'
+) > mf-runtime.h
+echo creating mf-runtime.h
+
 exit 0
 EOF
 chmod +x $CONFIG_STATUS
 rm -fr confdefs* $ac_clean_files
 test "$no_create" = yes || ${CONFIG_SHELL-/bin/sh} $CONFIG_STATUS || exit 1
 
-
-(
- echo '#ifndef __MF_RUNTIME_H'
- echo '#define __MF_RUNTIME_H'
- cat config.h
- cat $srcdir/mf-runtime.h.in
- echo '#endif'
-) > mf-runtime.h
