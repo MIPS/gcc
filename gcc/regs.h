@@ -37,6 +37,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define SMALL_REGISTER_CLASSES 0
 #endif
 
+#if !defined (CANNOT_CHANGE_MODE_CLASS) && defined (CLASS_CANNOT_CHANGE_MODE)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
+  (((CLASS) == CLASS_CANNOT_CHANGE_MODE || (CLASS) == NO_REGS)		\
+   && CLASS_CANNOT_CHANGE_MODE_P(FROM, TO))
+#endif
+
 /* Maximum register number used in this function, plus one.  */
 
 extern int max_regno;

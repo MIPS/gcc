@@ -5495,8 +5495,9 @@ choose_reload_regs (chain)
 #ifdef CLASS_CANNOT_CHANGE_MODE
 		      (TEST_HARD_REG_BIT
 		       (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE], i)
-		       ? ! CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (last_reg),
-						       need_mode)
+		       ? ! CANNOT_CHANGE_MODE_CLASS (GET_MODE (last_reg),
+						     need_mode,
+						     REGNO_REG_CLASS (i))
 		       : (GET_MODE_SIZE (GET_MODE (last_reg))
 			  >= GET_MODE_SIZE (need_mode)))
 #else

@@ -3789,8 +3789,8 @@ mark_used_regs (pbi, x, cond, insn)
 #ifdef CLASS_CANNOT_CHANGE_MODE
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) >= FIRST_PSEUDO_REGISTER
-	  && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (x),
-					 GET_MODE (SUBREG_REG (x))))
+	  && CANNOT_CHANGE_MODE_CLASS (GET_MODE (x),
+				       GET_MODE (SUBREG_REG (x)), NO_REGS))
 	REG_CHANGES_MODE (REGNO (SUBREG_REG (x))) = 1;
 #endif
 
@@ -3839,8 +3839,8 @@ mark_used_regs (pbi, x, cond, insn)
 	    if (GET_CODE (testreg) == SUBREG
 		&& GET_CODE (SUBREG_REG (testreg)) == REG
 		&& REGNO (SUBREG_REG (testreg)) >= FIRST_PSEUDO_REGISTER
-		&& CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (SUBREG_REG (testreg)),
-					       GET_MODE (testreg)))
+		&& CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (testreg)),
+					     GET_MODE (testreg), NO_REGS))
 	      REG_CHANGES_MODE (REGNO (SUBREG_REG (testreg))) = 1;
 #endif
 

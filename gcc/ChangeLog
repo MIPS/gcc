@@ -1,3 +1,18 @@
+2003-02-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/i386.h (CLASS_CANNOT_CHANGE_MODE,
+	CANNOT_CHANGE_MODE_CLASS): Define them.
+	* regs.h (CANNOT_CHANGE_MODE_CLASS): Define it.
+	* combine.c (subst, simplify_set, gen_lowpart_for_combine): Use
+	CANNOT_CHANGE_MODE_CLASS.
+	* flow.c (mark_used_regs, mark_used_regs): Ditto.
+	* recog.c (register_operand): Ditto.
+	* regclass.c (record_operand_costs): Ditto.
+	* regrename.c (mode_change_ok): Ditto.
+	* reload.c (push_reload): Ditto.
+	* reload1.c (choose_reload_regs): Ditto.
+	* simplify-rtx.c (simplify_subreg): Ditto.
+
 2003-02-22  Steven Bosscher  <s.bosscher@student.tudelft.nl>
 
 	PR other/3782

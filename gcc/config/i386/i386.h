@@ -1524,6 +1524,22 @@ enum reg_class
   : ((GET_MODE_SIZE ((MODE) == TFmode ? XFmode : (MODE))		\
      + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
+#define CLASS_CANNOT_CHANGE_MODE ALL_REGS
+
+/* Return a class of registers that cannot change FROM mode to TO mode.
+  
+   x87 registers can't do subreg as all values are reformated to extended
+   precision.  XMM registers does not support with nonzero offsets equal
+   to 4, 8 and 12 otherwise valid for integer registers. Since we can't
+   determine these, prohibit all nonparadoxical subregs changing size.  */
+
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
+  (GET_MODE_SIZE (TO) > GET_MODE_SIZE (FROM)		\
+   ? reg_classes_intersect_p (FLOAT_SSE_REGS, (CLASS))	\
+     || MAYBE_MMX_CLASS_P (CLASS) 			\
+   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : (CLASS) == NO_REGS)
+
 /* A C expression whose value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
    because registers of CLASS are needed for spill registers.

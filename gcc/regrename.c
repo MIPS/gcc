@@ -1299,7 +1299,8 @@ mode_change_ok (orig_mode, new_mode, regno)
 
 #ifdef CLASS_CANNOT_CHANGE_MODE
   if (TEST_HARD_REG_BIT (reg_class_contents[CLASS_CANNOT_CHANGE_MODE], regno)
-      && CLASS_CANNOT_CHANGE_MODE_P (orig_mode, new_mode))
+      && CANNOT_CHANGE_MODE_CLASS (orig_mode, new_mode,
+				   REGNO_REG_CLASS (regno)))
     return false;
 #endif
 

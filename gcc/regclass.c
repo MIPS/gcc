@@ -1003,7 +1003,10 @@ record_operand_costs (insn, op_costs, reg_pref)
 	  rtx inner = SUBREG_REG (recog_data.operand[i]);
 #ifdef CLASS_CANNOT_CHANGE_MODE
 	  if (GET_CODE (inner) == REG
-	      && CLASS_CANNOT_CHANGE_MODE_P (modes[i], GET_MODE (inner)))
+	      && CANNOT_CHANGE_MODE_CLASS
+	         (modes[i], GET_MODE (inner),
+		  (REGNO (inner) < FIRST_PSEUDO_REGISTER
+		   ? REGNO_REG_CLASS (REGNO (inner)) : NO_REGS)))
 	    SET_REGNO_REG_SET (reg_changes_mode, REGNO (inner));
 #endif
 	  recog_data.operand[i] = inner;

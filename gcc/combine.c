@@ -3504,8 +3504,10 @@ subst (x, from, to, in_dest, unique_copy)
 		      && (TEST_HARD_REG_BIT
 			  (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
 			   REGNO (to)))
-		      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (to),
-						     GET_MODE (x)))
+		      && CANNOT_CHANGE_MODE_CLASS (GET_MODE (to),
+						   GET_MODE (x),
+						   REGNO_REG_CLASS
+						   (REGNO (to))))
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 #endif
 
@@ -5146,8 +5148,9 @@ simplify_set (x)
 	    && (TEST_HARD_REG_BIT
 		(reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
 		 REGNO (dest)))
-	    && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (src),
-					   GET_MODE (SUBREG_REG (src))))
+	    && CANNOT_CHANGE_MODE_CLASS (GET_MODE (src),
+					 GET_MODE (SUBREG_REG (src)),
+					 REGNO_REG_CLASS (REGNO (dest))))
 #endif
       && (GET_CODE (dest) == REG
 	  || (GET_CODE (dest) == SUBREG
@@ -9806,8 +9809,8 @@ gen_lowpart_for_combine (mode, x)
       && GET_CODE (result) == SUBREG
       && GET_CODE (SUBREG_REG (result)) == REG
       && REGNO (SUBREG_REG (result)) >= FIRST_PSEUDO_REGISTER
-      && CLASS_CANNOT_CHANGE_MODE_P (GET_MODE (result),
-				     GET_MODE (SUBREG_REG (result))))
+      && CANNOT_CHANGE_MODE_CLASS (GET_MODE (result),
+				   GET_MODE (SUBREG_REG (result)), NO_REGS))
     REG_CHANGES_MODE (REGNO (SUBREG_REG (result))) = 1;
 #endif
 

@@ -1065,7 +1065,8 @@ register_operand (op, mode)
 	  && (TEST_HARD_REG_BIT
 	      (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
 	       REGNO (sub)))
-	  && CLASS_CANNOT_CHANGE_MODE_P (mode, GET_MODE (sub))
+	  && CANNOT_CHANGE_MODE_CLASS (mode, GET_MODE (sub),
+				       REGNO_REG_CLASS (REGNO (sub)))
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT)
 	return 0;
