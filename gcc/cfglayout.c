@@ -728,12 +728,12 @@ fixup_reorder_chain (void)
 		    }
 		}
 
-	      /* APPLE LOCAL end hot/cold partitioning  */
+	      /* APPLE LOCAL begin hot/cold partitioning  */
 	      /* If the "jumping" edge is a crossing edge, and the fall
 		 through edge is non-crossing, leave things as they are.  */
 	      else if (e_taken->crossing_edge && !e_fall->crossing_edge)
 		continue;
-	      /* APPLE LOCAL begin hot/cold partitioning  */
+	      /* APPLE LOCAL end hot/cold partitioning  */
 
 	      /* Otherwise we can try to invert the jump.  This will
 		 basically never fail, however, keep up the pretense.  */

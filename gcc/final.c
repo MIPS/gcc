@@ -1724,7 +1724,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  
 	  if (flag_reorder_blocks_and_partition
 	      && !scan_ahead_for_unlikely_executed_note (insn))
-	    text_section ();
+	    function_section (current_function_decl);
 	  /* APPLE LOCAL end hot/cold partitioning  */
 
 #ifdef IA64_UNWIND_INFO
@@ -1930,7 +1930,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
 	    unlikely_text_section ();
 	  else
-	    text_section ();
+	    function_section (current_function_decl);
 	}
       /* APPLE LOCAL end hot/cold partitioning  */
 

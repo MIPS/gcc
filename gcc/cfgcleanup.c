@@ -473,6 +473,17 @@ try_forward_edges (int mode, basic_block b)
       target = first = e->dest;
       counter = 0;
 
+      /* APPLE LOCAL begin hot/cold partitioning  */
+      /* If we are partitioning hot/cold basic blocks, we don't want to mess
+	 up jumps that cross between hot/cold sections.  */
+      
+      if (flag_reorder_blocks_and_partition
+	  && first != EXIT_BLOCK_PTR
+	  && find_reg_note (BB_END (first), REG_CROSSING_JUMP, NULL_RTX))
+	return false;
+
+      /* APPLE LOCAL end hot/cold partitioning  */
+
       while (counter < n_basic_blocks)
 	{
 	  basic_block new_target = NULL;
@@ -480,6 +491,9 @@ try_forward_edges (int mode, basic_block b)
 	  may_thread |= target->flags & BB_DIRTY;
 
 	  if (FORWARDER_BLOCK_P (target)
+	      /* APPLE LOCAL begin hot/cold partitioning */
+	      && !target->succ->crossing_edge
+	      /* APPLE LOCAL end hot/cold partitioning */
 	      && target->succ->dest != EXIT_BLOCK_PTR)
 	    {
 	      /* Bypass trivial infinite loops.  */

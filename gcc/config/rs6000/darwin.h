@@ -198,6 +198,13 @@ do {									\
 /* APPLE LOCAL begin hot/cold partitioning  */
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__unlikely,regular,pure_instructions"
+/* The following is used by hot/cold partitioning to determine whether to
+   unconditional branches are "long enough" to span the distance between
+   hot and cold sections  (otherwise we have to use indirect jumps).  It 
+   is set based on the -mlongcall flag.
+   If -mlongcall is set, we use the indirect jumps (the macro below gets '0');
+   otherwise we use unconditional branches (the macro below gets '1').  */
+#define HAS_LONG_UNCOND_BRANCH (TARGET_LONG_BRANCH ? 0 : 1)
 /* APPLE LOCAL end hot/cold partitioning  */
 
 /* APPLE LOCAL begin long branch */

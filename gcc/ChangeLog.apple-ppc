@@ -1,3 +1,35 @@
+2004-05-26  Caroline Tice <ctice@apple.com>
+
+	* bb-reorder.c (find_rarely_executed_basic_blocks_and_crossing_edges):
+	Initialize variable 'has_hot_blocks'.
+	(fix_up_fall_thru_edges):  Initialize variable'cond_jump'.
+	* cfgcleanup.c (try_forward_edges):  Add code/tests to make sure the
+	optimization is not attempted across section boundaries.
+	* cfglayout.c (fixup_reorder_chain):  Correct comments.
+	* cfgrtl.c (try_redirect_by_replacing_jump):  Fix test to make sure
+	optimization is not attempted across section boundaries.
+	* final.c (final_scan_instruction): Replace calls to text_section with
+	calls to function_section.
+	* predict.c (probably_never_executed_bb_p): Change criterion to be
+	basic block count equals zero.
+	* varasm.c (unlikely_text_section_name): New global variable.
+	(text_section): Remove call to assemble_align.
+	(unlikely_text_section):  Modify to build & use unlikely_text_section_name
+	rather than directly using UNLIKELY_EXECUTED_TEXT_SECTION NAME; remove
+	call to assemble_align; move code to free/initialize 
+	unlikely_section_label to assemble_start_function.
+	(in_unlikely_text_section):  Modify to use unlikely_text_section_name.
+	(named_section): Add code to initialize unlikely_text_section_name if
+	appropriate.
+	(function_section): Reorder clauses in if statement to make sure
+	functions containing only cold blocks end up in the correct section.
+	(assemble_start_function):  Add code to correctly initialize/free
+	unlikely_text_section_name.  Also make sure the cold label is printed
+	out at the start of cold functions.
+	(default_section_type_flags_1): Modify to use unlikely_text_section_name.
+	* config/rs6000/darwin.h (HAS_LONG_UNCOND_BRANCH):  Add darwin-specific
+	definition, based on the TARGET_LONG_BRANCH (-mlongcall) flag.
+
 2004-05-25  Dale Johannesen  <dalej@apple.com>
 
 	* tree-ssa-loop-niter.c: Add.  New in lno branch.  Oops.

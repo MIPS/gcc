@@ -1294,7 +1294,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 						      int *max_idx)
 {
   basic_block bb;
-  bool has_hot_blocks;
+  bool has_hot_blocks = false;
   edge e;
   int i;
 
@@ -1472,7 +1472,7 @@ fix_up_fall_thru_edges (void)
   edge succ1;
   edge succ2;
   edge fall_thru;
-  edge cond_jump;
+  edge cond_jump = NULL;
   edge e;
   bool cond_jump_crosses;
   int invert_worked;

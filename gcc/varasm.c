@@ -115,6 +115,12 @@ bool unlikely_section_label_printed = false;
 
 char *unlikely_section_label = NULL;
 
+/* The following global variable indicates the section name to be used
+   for the current cold section, when partitioning hot and cold basic
+   blocks into separate sections.  */
+
+char *unlikely_text_section_name = NULL;
+
 /* APPLE LOCAL end hot/cold partitioning  */
 
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
@@ -220,7 +226,6 @@ text_section (void)
       in_section = in_text;
       /* APPLE LOCAL begin hot/cold partitioning  */
       fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
-      assemble_align (FUNCTION_BOUNDARY);
       /* APPLE LOCAL end hot/cold partitioning  */
     }
 }
@@ -231,20 +236,44 @@ text_section (void)
 void
 unlikely_text_section (void)
 {
+  const char *name;
+  int len;
+
+  if (! unlikely_text_section_name)
+    {
+      if (DECL_SECTION_NAME (current_function_decl)
+	  && (strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME
+					   (current_function_decl)),
+		      HOT_TEXT_SECTION_NAME) != 0)
+	  && (strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME
+					   (current_function_decl)),
+		      UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
+	{
+	  name = TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
+	  len = strlen (name);
+	  unlikely_text_section_name = xmalloc ((len + 10) * sizeof (char));
+	  strcpy (unlikely_text_section_name, name);
+	  strcat (unlikely_text_section_name, "_unlikely");
+	}
+      else
+	{
+	  len = strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+	  unlikely_text_section_name = xmalloc (len+1 * sizeof (char));
+	  strcpy (unlikely_text_section_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+	}
+    }
+
   if ((in_section != in_unlikely_executed_text)
       &&  (in_section != in_named 
-	   || strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) != 0))
+	   || strcmp (in_named_name, unlikely_text_section_name) != 0))
     {
-      named_section (NULL_TREE, UNLIKELY_EXECUTED_TEXT_SECTION_NAME, 0);
-      assemble_align (FUNCTION_BOUNDARY);
+      named_section (NULL_TREE, unlikely_text_section_name, 0);
       in_section = in_unlikely_executed_text;
 
       if (!unlikely_section_label_printed)
 	{
 	  ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
 	  unlikely_section_label_printed = true;
-	  free (unlikely_section_label);
-	  unlikely_section_label = NULL;
 	}
     }
 }
@@ -302,8 +331,8 @@ in_unlikely_text_section (void)
 
   ret_val = ((in_section == in_unlikely_executed_text)
 	     || (in_section == in_named
-		 && (strcmp (in_named_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME)
-		     == 0)));
+		 && unlikely_text_section_name
+		 && strcmp (in_named_name, unlikely_text_section_name) == 0));
 
   return ret_val;
 }
@@ -440,6 +469,16 @@ named_section (tree decl, const char *name, int reloc)
   if (name == NULL)
     name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
+  /* APPLE LOCAL begin hot/cold partitioning  */
+  if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0
+      && !unlikely_text_section_name)
+    {
+      unlikely_text_section_name = xmalloc 
+	     ((strlen (UNLIKELY_EXECUTED_TEXT_SECTION_NAME) + 1) * sizeof (char));
+      strcpy (unlikely_text_section_name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+    }
+  /* APPLE LOCAL end hot/cold partitioning  */
+
   flags = (* targetm.section_type_flags) (decl, name, reloc);
 
   /* Sanity check user variables for flag changes.  Non-user
@@ -549,11 +588,11 @@ void
 function_section (tree decl)
 {
   /* APPLE LOCAL begin hot/cold partitioning  */
-  if (decl != NULL_TREE
-      && DECL_SECTION_NAME (decl) != NULL_TREE)
-    named_section (decl, (char *) 0, 0);
-  else if (scan_ahead_for_unlikely_executed_note (get_insns()))
+  if (scan_ahead_for_unlikely_executed_note (get_insns()))
     unlikely_text_section ();
+  else if (decl != NULL_TREE
+	   && DECL_SECTION_NAME (decl) != NULL_TREE)
+    named_section (decl, (char *) 0, 0);
   else
     text_section (); 
   /* APPLE LOCAL end hot/cold partitioning  */
@@ -1111,9 +1150,16 @@ assemble_start_function (tree decl, const char *fnname)
   int align;
 
   /* APPLE LOCAL begin hot/cold partitioning  */
+  if (unlikely_text_section_name)
+    free (unlikely_text_section_name);
+
   unlikely_section_label_printed = false;
+  unlikely_text_section_name = NULL;
+
   if (flag_reorder_blocks_and_partition)
     {
+      if (unlikely_section_label)
+	free (unlikely_section_label);
       unlikely_section_label = xmalloc ((strlen (fnname) + 18) * sizeof (char));
       sprintf (unlikely_section_label, "%s_unlikely_section", fnname);
     }
@@ -1176,6 +1222,13 @@ assemble_start_function (tree decl, const char *fnname)
   /* Standard thing is just output label for the function.  */
   ASM_OUTPUT_LABEL (asm_out_file, fnname);
 #endif /* ASM_DECLARE_FUNCTION_NAME */
+
+  if (in_unlikely_text_section ()
+      && !unlikely_section_label_printed)
+    {
+      ASM_OUTPUT_LABEL (asm_out_file, unlikely_section_label);
+      unlikely_section_label_printed = true;
+    }
 }
 
 /* Output assembler code associated with defining the size of the
@@ -4471,7 +4524,8 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
   else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
   /* APPLE LOCAL begin hot/cold partitioning  */
-  else if (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)
+  else if (unlikely_text_section_name
+	   && strcmp (name, unlikely_text_section_name) == 0)
     flags = SECTION_CODE;
   /* APPLE LOCAL end hot/cold partitioning  */
   else

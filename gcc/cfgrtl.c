@@ -688,7 +688,8 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
      and cold sections.  */
 
   if (flag_reorder_blocks_and_partition
-      && find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX))
+      && (find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)
+	  || (src->partition != target->partition)))
     return false;
   /* APPLE LOCAL end hot/cold partitioning  */
 
