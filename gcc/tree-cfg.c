@@ -1371,27 +1371,38 @@ cfg_remove_useless_stmts_bb (basic_block bb)
     return;
 
   cond = COND_EXPR_COND (last_stmt (bb->pred->src));
-  if (bb->pred->flags & EDGE_FALSE_VALUE)
-    cond = invert_truthvalue (cond);
 
-  if (TREE_CODE (cond) == VAR_DECL
-      || TREE_CODE (cond) == PARM_DECL)
+  if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
     {
       var = cond;
-      val = convert (TREE_TYPE (cond), integer_zero_node);
+      val = (bb->pred->flags & EDGE_FALSE_VALUE
+	     ? boolean_false_node : boolean_true_node);
     }
-  else if ((TREE_CODE (cond) == EQ_EXPR)
+  else if (TREE_CODE (cond) == TRUTH_NOT_EXPR
 	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	   && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
-	       || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
-	       || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
+	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL))
     {
       var = TREE_OPERAND (cond, 0);
-      val = TREE_OPERAND (cond, 1);
+      val = (bb->pred->flags & EDGE_FALSE_VALUE
+	     ? boolean_true_node : boolean_false_node);
     }
   else
-    return;
+    {
+      if (bb->pred->flags & EDGE_FALSE_VALUE)
+	cond = invert_truthvalue (cond);
+      if (TREE_CODE (cond) == EQ_EXPR
+	  && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
+	      || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
+	  && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
+	      || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
+	      || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
+	{
+	  var = TREE_OPERAND (cond, 0);
+	  val = TREE_OPERAND (cond, 1);
+	}
+      else
+	return;
+    }
 
   /* Only work for normal local variables.  */
   ann = var_ann (var);

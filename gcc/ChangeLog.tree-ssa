@@ -1,5 +1,11 @@
 2004-02-03  Richard Henderson  <rth@redhat.com>
 
+	PR opt/13869
+	* tree-cfg.c (cfg_remove_useless_stmts_bb): Correct handling of
+	boolean variables in COND_EXPR_COND.
+
+2004-02-03  Richard Henderson  <rth@redhat.com>
+
         PR middle-end/13325
 	* builtins.c (fold_builtin_1): Rename from fold_builtin.
 	(fold_builtin): New.
