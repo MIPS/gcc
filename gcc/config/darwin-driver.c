@@ -69,6 +69,7 @@ int asm_output_request = 0;
 int preprocessed_output_request = 0;
 int ima_is_used = 0;
 int dash_dynamiclib_seen = 0;
+int verbose_flag = 0;
 
 /* Support at the max 10 arch. at a time. This is historical limit.  */
 #define MAX_ARCHES 10
@@ -477,7 +478,13 @@ do_lipo (int start_outfile_index, const char *out_file)
 #ifdef DEBUG
   debug_command_line (lipo_argv, j);
 #endif
-  
+ 
+  if (verbose_flag)
+    {
+      for (i = 0; i < j; i++)
+	fprintf (stderr, "%s ", lipo_argv[i]);
+      fprintf (stderr, "\n");
+    }
   pid = pexecute (lipo_argv[0], (char *const *)lipo_argv, progname, NULL, &errmsg_fmt,
 		  &errmsg_arg, PEXECUTE_SEARCH | PEXECUTE_LAST); 
   
@@ -777,7 +784,11 @@ main (int argc, const char **argv)
 	  new_argv[new_argc++] = argv[i];
 	  dash_dynamiclib_seen = 1;
 	}
-
+      else if (!strcmp (argv[i], "-v"))
+	{
+	  new_argv[new_argc++] = argv[i];
+	  verbose_flag = 1;
+	}
       else if (!strcmp (argv[i], "-o"))
 	{
 	  if (i + 1 >= argc)

@@ -1,3 +1,9 @@
+2004-08-18  Devang Patel  <dpatel@apple.com>
+
+	* config/darwin-driver.c (verbose_flag): New.
+	(do_lipo): Interpret -v.
+	(main): Set verbose_flag.
+
 2004-08-18  Dale Johannesen  <dalej@apple.com>
 
 	* tree-cfg.c (tree_block_ends_with_call_p):  Fix comments.
