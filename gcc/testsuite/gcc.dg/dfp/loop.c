@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "" } */
+/* { dg-options "std=gnu99" } */
 
 #include <stdio.h>
 extern void abort (void);

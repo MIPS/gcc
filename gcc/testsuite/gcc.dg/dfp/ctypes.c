@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "" } */
+/* { dg-options "-std=gnu99" } */
 
 int ssize[sizeof (_Decimal32) == 4 ? 1 : -1];
 int dsize[sizeof (_Decimal64) == 8 ? 1 : -1];
