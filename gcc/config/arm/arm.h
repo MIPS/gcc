@@ -876,9 +876,8 @@ extern const char * structure_size_string;
 /* Return the regiser number of the N'th (integer) argument.  */
 #define ARG_REGISTER(N) 	(N - 1)
 
-/* Register in which address to store a structure value
-   is passed to a function.  */
-#define STRUCT_VALUE_REGNUM	ARG_REGISTER (1)
+/* RTX for structure returns.  NULL means use a hidden first argument.  */
+#define STRUCT_VALUE		NULL
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -1449,6 +1448,13 @@ typedef struct
    On the ARM, r0-r3 are used to pass args.  */
 #define FUNCTION_ARG_REGNO_P(REGNO)  \
   ((REGNO) >= 0 && (REGNO) <= 3)
+
+
+/* Tail calling.  */
+
+/* A C expression that evaluates to true if it is ok to perform a sibling
+   call to DECL.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) arm_function_ok_for_sibcall ((DECL))
 
 /* Perform any actions needed for a function that is receiving a variable
    number of arguments.  CUM is as above.  MODE and TYPE are the mode and type
@@ -2883,6 +2889,9 @@ extern int making_const_table;
   {"load_multiple_operation",  {PARALLEL}},				\
   {"store_multiple_operation", {PARALLEL}},				\
   {"equality_operator", {EQ, NE}},					\
+  {"arm_comparison_operator", {EQ, NE, LE, LT, GE, GT, GEU, GTU, LEU,	\
+			       LTU, UNORDERED, ORDERED, UNLT, UNLE,	\
+			       UNGE, UNGT}},				\
   {"arm_rhsm_operand", {SUBREG, REG, CONST_INT, MEM}},			\
   {"const_shift_operand", {CONST_INT}},					\
   {"multi_register_push", {PARALLEL}},					\

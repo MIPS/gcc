@@ -1,3 +1,146 @@
+2000-08-24  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-scanf-2.c: Remove test for scanf "Z" length.
+	* gcc.dg/format-ext-2.c: New test.
+
+2000-08-23  Jason Merrill  <jason@redhat.com>
+
+	* lib/old-dejagnu.exp: Also ignore "In member function" and
+	"At global scope".
+
+2000-08-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/noncompile/label-lineno-1.c: New test.
+
+2000-08-23  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-array-nonobj-1.c: New test.
+
+2000-08-23  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c99-printf-2.c, gcc.dg/format-xopen-1.c: Add some more
+	tests.
+	* gcc.dg/format-ext-1.c: New test.
+
+2000-08-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/cpp/tr-warn4.c, gcc.dg/cpp/tr-warn5.c,
+	gcc.dg/wtr-aggr-init-1.c, gcc.dg/wtr-escape-1.c,
+	gcc.dg/wtr-int-type-1.c, gcc.dg/wtr-static-1.c,
+	gcc.dg/wtr-strcat-1.c, gcc.dg/wtr-switch-1.c,
+	gcc.dg/wtr-unary-plus-1.c, gcc.dg/wtr-union-init-1.c: New tests.
+
+2000-08-22  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-strftime-2.c, gcc.dg/c99-strftime-1.c,
+	gcc.dg/c99-strftime-2.c: New tests.
+
+2000-08-22  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000822-1.c: New test.
+
+2000-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000819-1.x: Remove.
+
+2000-08-21  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-printf-3.c, gcc.dg/c90-scanf-2.c,
+	gcc.dg/c90-scanf-3.c, gcc.dg/c90-scanf-4.c,
+	gcc.dg/c90-strftime-1.c, gcc.dg/c99-printf-3.c,
+	gcc.dg/c99-scanf-1.c, gcc.dg/c99-scanf-2.c, gcc.dg/c99-scanf-3.c,
+	gcc.dg/format-xopen-1.c: New tests.
+
+2000-08-21  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-scanf-1.c, gcc.dg/c94-scanf-1.c: New tests.
+
+2000-08-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.old-deja/g++.other/loop2.C: New test.
+
+	* gcc.c-torture/compile/20000606-1.c: New test.
+	* gcc.c-torture/compile/20000728-1.c: New test.
+	* gcc.c-torture/execute/20000801-1.c: New test.
+	* gcc.c-torture/execute/20000801-2.c: New test.
+	* gcc.c-torture/execute/20000819-1.c: New test.
+	* gcc.c-torture/execute/20000819-1.x: XFAIL.
+	* gcc.dg/20000629-1.c: New test.
+	* gcc.dg/20000724-1.c: New test.
+	* gcc.dg/20000807-1.c: New test.
+
+Sun Aug 20 01:41:35 MSD 2000 Dennis Chernoivanov <cdi@sparc.spb.su>
+
+	* gcc.dg/cpp/pragma-1.c: New test.
+	* gcc.dg/cpp/pragma-2.c: New test.
+
+2000-08-18  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/lexstrng.c: Don't include string.h.
+	* gcc.dg/cpp/paste2.c: Don't include string.h.  Prototype strcmp.
+
+Fri Aug 18 16:57:35 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* gcc.c-torture/compile/20000818-1.c: New test.
+
+2000-08-18  Manfred Hollstein  <manfredh@redhat.com>
+
+	* gcc.c-torture/execute/20000818-1.c: New test.
+
+2000-08-18  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format-va-1.c: New test.
+
+2000-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/typedef8.C: New test.
+
+2000-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.benjamin/13478.C: Mark candidate.
+	* g++.old-deja/g++.mike/net36.C: Mark candidate.
+	* g++.old-deja/g++.robertl/eb131.C: Mark candidate.
+	* g++.old-deja/g++.oliva/overload1.C: Remove XFAIL.
+	* g++.old-deja/g++.other/ptrmem7.C: New test.
+	* g++.old-deja/g++.pt/ptrmem10.C: New test.
+
+2000-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/typename27.C: New test.
+
+2000-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/crash44.C: Remove XFAIL. Add ERROR.
+	* g++.old-deja/g++.pt/friend38.C: Remove XFAIL. Add extra test.
+	* g++.old-deja/g++.pt/friend45.C: New test.
+	* g++.old-deja/g++.other/friend8.C: New test.
+
+2000-08-15  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000815-1.c: New test.
+
+2000-08-15  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-array-lval-2.c, gcc.dg/c90-const-expr-2.c,
+	gcc.dg/c99-array-lval-2.c, gcc.dg/c99-const-expr-2.c,
+	gcc.dg/c99-func-3.c, gcc.dg/c99-func-4.c: New tests.
+
+2000-08-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.other/refinit2.C: New test.
+
+2000-08-13  Geoff Keating  <geoffk@cygnus.com>
+
+	* lib/c-torture.exp (c-torture): Make
+	compiler_conditional_xfail_data global.
+	* lib/f-torture.exp (f-torture): Add in torture_eval_before_compile,
+	compiler_conditional_xfail_data machinery.
+	(f-torture-execute): Likewise.
+	* g77.c-torture/compile/20000629-1.x: The test only fails on x86,
+	and only when unrolling loops.
+
+	* gcc.dg/c99-array-lval-1.c: The test on line 14 now passes.
+
 2000-08-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* g++.old-deja/g++.pt/explicit81.C: New test.

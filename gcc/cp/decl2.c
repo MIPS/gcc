@@ -822,7 +822,7 @@ lang_decode_option (argc, argv)
     }
   else if (!strcmp (p, "-ansi"))
     flag_no_nonansi_builtin = 1, flag_ansi = 1,
-    flag_no_gnu_keywords = 1;
+    flag_noniso_default_format_attributes = 0, flag_no_gnu_keywords = 1;
 #ifdef SPEW_DEBUG
   /* Undocumented, only ever used when you're invoking cc1plus by hand, since
      it's probably safe to assume no sane person would ever want to use this
@@ -1710,6 +1710,9 @@ grokfield (declarator, declspecs, init, asmspec_tree, attrlist)
       DECL_NONLOCAL (value) = 1;
       DECL_CONTEXT (value) = current_class_type;
 
+      if (CLASS_TYPE_P (TREE_TYPE (value)))
+        CLASSTYPE_GOT_SEMICOLON (TREE_TYPE (value)) = 1;
+      
       /* Now that we've updated the context, we need to remangle the
 	 name for this TYPE_DECL.  */
       DECL_ASSEMBLER_NAME (value) = DECL_NAME (value);
@@ -4791,10 +4794,11 @@ add_function (k, fn)
      case.  */
 
   /* We must find only functions, or exactly one non-function. */
-  if (k->functions && is_overloaded_fn (k->functions)
-      && is_overloaded_fn (fn))
+  if (!k->functions) 
+    k->functions = fn;
+  else if (is_overloaded_fn (k->functions) && is_overloaded_fn (fn))
     k->functions = build_overload (fn, k->functions);
-  else if (k->functions)
+  else
     {
       tree f1 = OVL_CURRENT (k->functions);
       tree f2 = fn;
@@ -4807,8 +4811,7 @@ add_function (k, fn)
       cp_error ("  in call to `%D'", k->name);
       return 1;
     }
-  else
-    k->functions = fn;
+
   return 0;
 }
 
@@ -4974,6 +4977,8 @@ arg_assoc_type (k, type)
       return arg_assoc_type (k, TREE_TYPE (type));
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_TEMPLATE_PARM:
+      return 0;
+    case TYPENAME_TYPE:
       return 0;
     case LANG_TYPE:
       if (type == unknown_type_node)

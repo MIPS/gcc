@@ -293,7 +293,7 @@ rs6000_override_options (default_cpu)
   rs6000_select[0].string = default_cpu;
   rs6000_cpu = TARGET_POWERPC64 ? PROCESSOR_DEFAULT64 : PROCESSOR_DEFAULT;
 
-  for (i = 0; i < sizeof (rs6000_select) / sizeof (rs6000_select[0]); i++)
+  for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
     {
       ptr = &rs6000_select[i];
       if (ptr->string != (char *)0 && ptr->string[0] != '\0')
@@ -361,6 +361,19 @@ rs6000_override_options (default_cpu)
       flag_pic = 0;
     }
 
+  if (flag_function_sections && (write_symbols != NO_DEBUG)
+      && (DEFAULT_ABI == ABI_AIX))
+    {
+      warning ("-ffunction-sections disabled on AIX when debugging");
+      flag_function_sections = 0;
+    }
+
+  if (flag_data_sections && (DEFAULT_ABI == ABI_AIX))
+    {
+      warning ("-fdata-sections not supported on AIX");
+      flag_data_sections = 0;
+    }
+
   /* Set debug flags */
   if (rs6000_debug_name)
     {
@@ -420,7 +433,7 @@ rs6000_file_start (file, default_cpu)
       sprintf (buffer, "\n%s rs6000/powerpc options:", ASM_COMMENT_START);
       rs6000_select[0].string = default_cpu;
 
-      for (i = 0; i < sizeof (rs6000_select) / sizeof (rs6000_select[0]); i++)
+      for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
 	{
 	  ptr = &rs6000_select[i];
 	  if (ptr->string != (char *)0 && ptr->string[0] != '\0')
@@ -686,7 +699,7 @@ reg_or_logical_cint_operand (op, mode)
 	}
 
       return ((INTVAL (op) & GET_MODE_MASK (mode)
-	       & (~ (unsigned HOST_WIDE_INT) 0xffffffffu)) == 0);
+	       & (~ (unsigned HOST_WIDE_INT) 0xffffffff)) == 0);
     }
   else if (GET_CODE (op) == CONST_DOUBLE)
     {
@@ -741,13 +754,13 @@ num_insns_constant_wide (value)
 #if HOST_BITS_PER_WIDE_INT == 64
   else if (TARGET_POWERPC64)
     {
-      unsigned HOST_WIDE_INT low  = value & 0xffffffffu;
+      unsigned HOST_WIDE_INT low  = value & 0xffffffff;
       HOST_WIDE_INT high = value >> 32;
 
-      if (high == 0 && (low & 0x80000000u) == 0)
+      if (high == 0 && (low & 0x80000000) == 0)
 	return 2;
 
-      else if (high == -1 && (low & 0x80000000u) != 0)
+      else if (high == -1 && (low & 0x80000000) != 0)
 	return 2;
 
       else if (! low)
@@ -808,10 +821,10 @@ num_insns_constant (op, mode)
 
       else
 	{
-	  if (high == 0 && (low & 0x80000000u) == 0)
+	  if (high == 0 && (low & 0x80000000) == 0)
 	    return num_insns_constant_wide (low);
 
-	  else if (high == -1 && (low & 0x80000000u) != 0)
+	  else if (high == -1 && (low & 0x80000000) != 0)
 	    return num_insns_constant_wide (low);
 
 	  else if (mask64_operand (op, mode))
@@ -1003,7 +1016,7 @@ logical_operand (op, mode)
 
   return (oph == 0
 	  && ((opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0
-	      || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000u) == 0));
+	      || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000) == 0));
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -3757,8 +3770,8 @@ print_operand (file, x, code)
       /* X is a CR register.  Print the number of the third bit of the CR */
       if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
 	output_operand_lossage ("invalid %%E value");
-
-      fprintf(file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 3);
+      else
+	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 3);
       return;
 
     case 'f':
@@ -3899,15 +3912,15 @@ print_operand (file, x, code)
       /* If the high bit is set and the low bit is not, the value is zero.
 	 If the high bit is zero, the value is the first 1 bit we find from
 	 the left.  */
-      if ((val & 0x80000000u) && ((val & 1) == 0))
+      if ((val & 0x80000000) && ((val & 1) == 0))
 	{
 	  putc ('0', file);
 	  return;
 	}
-      else if ((val & 0x80000000u) == 0)
+      else if ((val & 0x80000000) == 0)
 	{
 	  for (i = 1; i < 32; i++)
-	    if ((val <<= 1) & 0x80000000u)
+	    if ((val <<= 1) & 0x80000000)
 	      break;
 	  fprintf (file, "%d", i);
 	  return;
@@ -3934,7 +3947,7 @@ print_operand (file, x, code)
       /* If the low bit is set and the high bit is not, the value is 31.
 	 If the low bit is zero, the value is the first 1 bit we find from
 	 the right.  */
-      if ((val & 1) && ((val & 0x80000000u) == 0))
+      if ((val & 1) && ((val & 0x80000000) == 0))
 	{
 	  fputs ("31", file);
 	  return;
@@ -3954,7 +3967,7 @@ print_operand (file, x, code)
       /* Otherwise, look for the first 0 bit from the left.  The result is its
 	 number minus 1. We know the high-order bit is one.  */
       for (i = 0; i < 32; i++)
-	if (((val <<= 1) & 0x80000000u) == 0)
+	if (((val <<= 1) & 0x80000000) == 0)
 	  break;
 
       fprintf (file, "%d", i);
@@ -6660,7 +6673,7 @@ output_toc (file, x, labelno, mode)
 	    fprintf (file, "\t.llong 0x%lx%08lx\n", k[0], k[1]);
 	  else
 	    fprintf (file, "\t.tc FD_%lx_%lx[TC],0x%lx%08lx\n",
-		     k[0], k[1], k[0] & 0xffffffffu, k[1] & 0xffffffffu);
+		     k[0], k[1], k[0] & 0xffffffff, k[1] & 0xffffffff);
 	  return;
 	}
       else
@@ -6713,11 +6726,11 @@ output_toc (file, x, labelno, mode)
 #if HOST_BITS_PER_WIDE_INT == 32
 	{
 	  low = INTVAL (x);
-	  high = (low & 0x80000000u) ? ~0 : 0;
+	  high = (low & 0x80000000) ? ~0 : 0;
 	}
 #else
 	{
-          low = INTVAL (x) & 0xffffffffu;
+          low = INTVAL (x) & 0xffffffff;
           high = (HOST_WIDE_INT) INTVAL (x) >> 32;
 	}
 #endif
@@ -7355,45 +7368,104 @@ rs6000_select_section (decl, reloc)
      int reloc;
 {
   int size = int_size_in_bytes (TREE_TYPE (decl));
+  int needs_sdata;
+  int readonly;
+  static void (* const sec_funcs[4]) PARAMS ((void)) = {
+    &const_section,
+    &sdata2_section,
+    &data_section,
+    &sdata_section
+  };
+  
+  needs_sdata = (size > 0 
+		 && size <= g_switch_value
+		 && rs6000_sdata != SDATA_NONE
+		 && (rs6000_sdata != SDATA_DATA || TREE_PUBLIC (decl)));
 
   if (TREE_CODE (decl) == STRING_CST)
-    {
-      if (! flag_writable_strings)
-	const_section ();
-      else
-	data_section ();
-    }
+    readonly = ! flag_writable_strings;
   else if (TREE_CODE (decl) == VAR_DECL)
-    {
-      if ((flag_pic && reloc)
-	  || ! TREE_READONLY (decl)
-	  || TREE_SIDE_EFFECTS (decl)
-	  || ! DECL_INITIAL (decl)
-	  || (DECL_INITIAL (decl) != error_mark_node
-	      && ! TREE_CONSTANT (DECL_INITIAL (decl))))
-	{
-	  if (rs6000_sdata != SDATA_NONE && (size > 0)
-	      && (size <= g_switch_value))
-	    sdata_section ();
-	  else
-	    data_section ();
-	}
-      else
-	{
-	  if (rs6000_sdata != SDATA_NONE && (size > 0)
-	      && (size <= g_switch_value))
-	    {
-	      if (rs6000_sdata == SDATA_EABI)
-		sdata2_section ();
-	      else
-		sdata_section ();  /* System V doesn't have .sdata2/.sbss2 */
-	    }
-	  else
-	    const_section ();
-	}
-    }
+    readonly = (! (flag_pic && reloc)
+		&& TREE_READONLY (decl)
+		&& ! TREE_SIDE_EFFECTS (decl)
+		&& DECL_INITIAL (decl)
+		&& DECL_INITIAL (decl) != error_mark_node
+		&& TREE_CONSTANT (DECL_INITIAL (decl)));
   else
-    const_section ();
+    readonly = 1;
+  if (needs_sdata && rs6000_sdata != SDATA_EABI)
+    readonly = 0;
+  
+  (*sec_funcs[(readonly ? 0 : 2) + (needs_sdata ? 1 : 0)])();
+}
+
+/* A C statement to build up a unique section name, expressed as a
+   STRING_CST node, and assign it to DECL_SECTION_NAME (decl).
+   RELOC indicates whether the initial value of EXP requires
+   link-time relocations.  If you do not define this macro, GCC will use
+   the symbol name prefixed by `.' as the section name.  Note - this
+   macro can now be called for unitialised data items as well as
+   initialised data and functions.  */
+
+void
+rs6000_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  int size = int_size_in_bytes (TREE_TYPE (decl));
+  int needs_sdata;
+  int readonly;
+  int len;
+  int sec;
+  const char *name;
+  char *string;
+  const char *prefix;
+
+  static const char *const prefixes[7][2] =
+  {
+    { ".text.",   ".gnu.linkonce.t." },
+    { ".rodata.", ".gnu.linkonce.r." },
+    { ".sdata2.", ".gnu.linkonce.s2." },
+    { ".data.",   ".gnu.linkonce.d." },
+    { ".sdata.",  ".gnu.linkonce.s." },
+    { ".bss.",    ".gnu.linkonce.b." },
+    { ".sbss.",   ".gnu.linkonce.sb." }
+  };
+  
+  needs_sdata = (TREE_CODE (decl) != FUNCTION_DECL
+		 && size > 0 
+		 && size <= g_switch_value
+		 && rs6000_sdata != SDATA_NONE
+		 && (rs6000_sdata != SDATA_DATA || TREE_PUBLIC (decl)));
+
+  if (TREE_CODE (decl) == STRING_CST)
+    readonly = ! flag_writable_strings;
+  else if (TREE_CODE (decl) == VAR_DECL)
+    readonly = (! (flag_pic && reloc)
+		&& TREE_READONLY (decl)
+		&& ! TREE_SIDE_EFFECTS (decl)
+		&& DECL_INITIAL (decl)
+		&& DECL_INITIAL (decl) != error_mark_node
+		&& TREE_CONSTANT (DECL_INITIAL (decl)));
+  else
+    readonly = 1;
+  if (needs_sdata && rs6000_sdata != SDATA_EABI)
+    readonly = 0;
+
+  sec = ((TREE_CODE (decl) == FUNCTION_DECL ? 0 : 1)
+	 + (readonly ? 0 : 2) 
+	 + (needs_sdata ? 1 : 0)
+	 + (DECL_INITIAL (decl) == 0
+	    || DECL_INITIAL (decl) == error_mark_node) ? 4 : 0);
+
+  name   = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  prefix = prefixes[sec][DECL_ONE_ONLY (decl)];
+  len    = strlen (name) + strlen (prefix);
+  string = alloca (len + 1);
+  
+  sprintf (string, "%s%s", prefix, name);
+  
+  DECL_SECTION_NAME (decl) = build_string (len, string);
 }
 
 

@@ -52,6 +52,7 @@ struct JCF;
       QUALIFIED_P (in IDENTIFIER_NODE)
       PRIMARY_P (in EXPR_WITH_FILE_LOCATION)
       MODIFY_EXPR_FROM_INITIALIZATION_P (in MODIFY_EXPR)
+      CLASS_METHOD_CHECKED_P (in RECORD_TYPE) 
    3: IS_AN_IMPORT_ON_DEMAND_P (in IDENTIFIER_NODE)
       RESOLVE_PACKAGE_NAME_P (in EXPR_WITH_FILE_LOCATION)
       SWITCH_HAS_DEFAULT (in SWITCH_EXPR)
@@ -139,6 +140,10 @@ extern int flag_emit_class_files;
    JNI, not CNI.  */
 
 extern int flag_jni;
+
+/* When non zero, report the now deprecated empty statements.  */
+
+extern int flag_extraneous_semicolon;
 
 /* When non zero, we emit xref strings. Values of the flag for xref
    backends are defined in xref.h.  */
@@ -252,7 +257,8 @@ extern tree double_array_vtable;
 extern tree TYPE_identifier_node;      /* "TYPE" */
 extern tree init_identifier_node;      /* "<init>" */
 extern tree clinit_identifier_node;      /* "<clinit>" */
-extern tree finit_identifier_node;      /* "$finit$" */
+extern tree finit_identifier_node;      /* "finit$" */
+extern tree finit_leg_identifier_node;  /* "$finit$" */
 extern tree void_signature_node;       /* "()V" */
 extern tree length_identifier_node;  /* "length" */
 extern tree this_identifier_node;  /* "this" */
@@ -788,6 +794,7 @@ extern tree get_boehm_type_descriptor PARAMS ((tree));
 extern unsigned long java_hash_hash_tree_node PARAMS ((hash_table_key));
 extern boolean java_hash_compare_tree_node PARAMS ((hash_table_key, 
 						    hash_table_key));
+extern void java_check_methods PARAMS ((tree));
 
 /* We use ARGS_SIZE_RTX to indicate that gcc/expr.h has been included
    to declare `enum expand_modifier'. */
@@ -819,7 +826,12 @@ struct rtx_def * java_lang_expand_expr PARAMS ((tree, rtx, enum machine_mode,
 /* Predicates on method identifiers. Kept close to other macros using
    them  */
 #define ID_INIT_P(ID)   ((ID) == init_identifier_node)
-#define ID_FINIT_P(ID)  ((ID) == finit_identifier_node)
+/* Match ID to either `$finit$' or `finit$', so that `$finit$'
+   continues to be recognized as an equivalent to `finit$' which is
+   now the prefered name used for the field initialization special
+   method.  */
+#define ID_FINIT_P(ID)  ((ID) == finit_identifier_node \
+			 || (ID) == finit_leg_identifier_node)
 #define ID_CLINIT_P(ID) ((ID) == clinit_identifier_node)
 
 /* Access flags etc for a variable/field (a FIELD_DECL): */
@@ -998,6 +1010,8 @@ extern tree *type_map;
 /* True if EXPR (a MODIFY_EXPR in that case) is the result of variable
    initialization during its declaration */
 #define MODIFY_EXPR_FROM_INITIALIZATION_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
+
+#define CLASS_METHOD_CHECKED_P(EXPR) TREE_LANG_FLAG_2 (EXPR)
 
 /* True if EXPR (a WFL in that case) resolves into an expression name */
 #define RESOLVE_EXPRESSION_NAME_P(WFL) TREE_LANG_FLAG_0 (WFL)

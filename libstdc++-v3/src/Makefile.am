@@ -21,7 +21,7 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-## $Id: Makefile.am,v 1.25 2000/07/26 21:30:45 pme Exp $
+## $Id: Makefile.am,v 1.1.2.8 2000/07/31 06:52:55 gkm Exp $
 
 AUTOMAKE_OPTIONS = 1.3 gnits
 MAINT_CHARSET = latin1
@@ -82,9 +82,8 @@ CONFIG_INCLUDES = \
 	-I$(top_srcdir)/@ctype_include_dir@
 
 INCLUDES = \
-	-D_GNU_SOURCE -nostdinc++ -I$(top_srcdir) \
-	$(CSHADOW_INCLUDES) $(LIBIO_INCLUDES) \
-	$(CONFIG_INCLUDES) $(TOPLEVEL_INCLUDES)	
+	-D_GNU_SOURCE -nostdinc++ $(CSHADOW_INCLUDES) -I$(top_srcdir) \
+	 $(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 
 # Need to explicitly set this so that AM_CXXFLAGS is last. (That way,
@@ -106,7 +105,7 @@ CXXLINK = $(LIBTOOL) --mode=link "$(CC)" @OPT_LDFLAGS@ @SECTION_LDFLAGS@ $(AM_CX
 headers = \
 	bits/cpp_type_traits.h \
 	bits/std_cctype.h bits/ctype_base.h bits/ctype_specializations.h \
-	bits/char_traits.h \
+	bits/char_traits.h bits/codecvt.h \
 	bits/basic_string.h bits/std_string.h  bits/string.tcc \
 	bits/generic_shadow.h bits/std_utility.h \
 	bits/std_complex.h \
@@ -207,7 +206,7 @@ sources = \
 	complex.cc complexf.cc complexl.cc complex_io.cc \
 	stdexcept.cc \
 	c++io.cc ios.cc stdstreams.cc strstream.cc \
-	locale.cc localename.cc  \
+	locale.cc localename.cc codecvt.cc \
 	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc string-inst.cc
 
 wstring_sources = \
@@ -314,3 +313,14 @@ wstring-inst.o: string-inst.cc
 wstring-inst.lo: string-inst.cc
 	$(LTCXXCOMPILE) -fimplicit-templates -c -DC=wchar_t $< -o $@
 
+all: libstdc++.INC
+libstdc++.INC: Makefile
+	$(MAKE) \
+	  top_builddir=`CDPATH=:. && cd $(top_builddir) && pwd` \
+	  top_srcdir=`CDPATH=:. && cd $(top_srcdir) && pwd` \
+	  tmp-$@
+	-rm -f $@
+	mv tmp-$@ $@
+
+tmp-libstdc++.INC: Makefile
+	echo -I$(top_builddir) $(INCLUDES) > $@

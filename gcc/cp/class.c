@@ -132,7 +132,7 @@ static int method_name_cmp PARAMS ((const tree *, const tree *));
 static tree add_implicitly_declared_members PARAMS ((tree, int, int, int));
 static tree fixed_type_or_null PARAMS ((tree, int *));
 static tree resolve_address_of_overloaded_function PARAMS ((tree, tree, int,
-							  int, tree));
+							  int, int, tree));
 static void build_vtable_entry_ref PARAMS ((tree, tree, tree));
 static tree build_vtbl_initializer PARAMS ((tree, tree, tree, tree, int *));
 static int count_fields PARAMS ((tree));
@@ -160,7 +160,8 @@ static void propagate_binfo_offsets PARAMS ((tree, tree));
 static void layout_virtual_bases PARAMS ((tree, varray_type *));
 static tree dfs_set_offset_for_unshared_vbases PARAMS ((tree, void *));
 static void build_vbase_offset_vtbl_entries PARAMS ((tree, vtbl_init_data *));
-static tree dfs_build_vcall_offset_vtbl_entries PARAMS ((tree, void *));
+static void add_vcall_offset_vtbl_entries_r PARAMS ((tree, vtbl_init_data *));
+static void add_vcall_offset_vtbl_entries_1 PARAMS ((tree, vtbl_init_data *));
 static void build_vcall_offset_vtbl_entries PARAMS ((tree, vtbl_init_data *));
 static void layout_vtable_decl PARAMS ((tree, int));
 static tree dfs_find_final_overrider PARAMS ((tree, void *));
@@ -5725,19 +5726,22 @@ pop_lang_context ()
 /* Given an OVERLOAD and a TARGET_TYPE, return the function that
    matches the TARGET_TYPE.  If there is no satisfactory match, return
    error_mark_node, and issue an error message if COMPLAIN is
-   non-zero.  If TEMPLATE_ONLY, the name of the overloaded function
+   non-zero.  Permit pointers to member function if PTRMEM is non-zero.
+   If TEMPLATE_ONLY, the name of the overloaded function
    was a template-id, and EXPLICIT_TARGS are the explicitly provided
    template arguments.  */
 
 static tree
 resolve_address_of_overloaded_function (target_type, 
 					overload,
-					complain, 
+					complain,
+	                                ptrmem,
 					template_only,
 					explicit_targs)
      tree target_type;
      tree overload;
      int complain;
+     int ptrmem;
      int template_only;
      tree explicit_targs;
 {
@@ -5960,6 +5964,14 @@ resolve_address_of_overloaded_function (target_type,
   /* Good, exactly one match.  Now, convert it to the correct type.  */
   fn = TREE_PURPOSE (matches);
 
+  if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
+      && !ptrmem && !flag_ms_extensions)
+    {
+      if (!complain)
+        return error_mark_node;
+
+      cp_pedwarn ("assuming pointer to member `%D'", fn);
+    }
   mark_used (fn);
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
@@ -5977,25 +5989,26 @@ resolve_address_of_overloaded_function (target_type,
 
 /* This function will instantiate the type of the expression given in
    RHS to match the type of LHSTYPE.  If errors exist, then return
-   error_mark_node.  We only complain is COMPLAIN is set.  If we are
-   not complaining, never modify rhs, as overload resolution wants to
-   try many possible instantiations, in hopes that at least one will
-   work.
-
-   FLAGS is a bitmask, as we see at the top of the function.
-
+   error_mark_node. FLAGS is a bit mask.  If ITF_COMPLAIN is set, then
+   we complain on errors.  If we are not complaining, never modify rhs,
+   as overload resolution wants to try many possible instantiations, in
+   the hope that at least one will work.
+   
    For non-recursive calls, LHSTYPE should be a function, pointer to
    function, or a pointer to member function.  */
 
 tree
 instantiate_type (lhstype, rhs, flags)
      tree lhstype, rhs;
-     int flags;
+     enum instantiate_type_flags flags;
 {
-  int complain = (flags & 1);
-  int strict = (flags & 2) ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
-  tree r;
-
+  int complain = (flags & itf_complain);
+  int strict = (flags & itf_no_attributes)
+               ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
+  int allow_ptrmem = flags & itf_ptrmem_ok;
+  
+  flags &= ~itf_ptrmem_ok;
+  
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
       if (complain)
@@ -6054,36 +6067,13 @@ instantiate_type (lhstype, rhs, flags)
       return instantiate_type (lhstype, rhs, flags);
 
     case COMPONENT_REF:
-      {
-	r = instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
-
-      comp:
-	if (r != error_mark_node && TYPE_PTRMEMFUNC_P (lhstype)
-	    && complain && !flag_ms_extensions)
-	  {
-	    /* Note: we check this after the recursive call to avoid
-	       complaining about cases where overload resolution fails.  */
-
-	    tree t = TREE_TYPE (TREE_OPERAND (rhs, 0));
-	    tree fn = PTRMEM_CST_MEMBER (r);
-
-	    my_friendly_assert (TREE_CODE (r) == PTRMEM_CST, 990811);
-
-	    cp_pedwarn
-	      ("object-dependent reference to `%E' can only be used in a call",
-	       DECL_NAME (fn));
-	    cp_pedwarn
-	      ("  to form a pointer to member function, say `&%T::%E'",
-	       t, DECL_NAME (fn));
-	  }
-
-	return r;
-      }
+      return instantiate_type (lhstype, TREE_OPERAND (rhs, 1), flags);
 
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, TREE_VALUE (rhs), flags);
+	return instantiate_type (lhstype, TREE_VALUE (rhs),
+	                         flags | allow_ptrmem);
 
       /* This can happen if we are forming a pointer-to-member for a
 	 member template.  */
@@ -6096,18 +6086,13 @@ instantiate_type (lhstype, rhs, flags)
 	tree fns = TREE_OPERAND (rhs, 0);
 	tree args = TREE_OPERAND (rhs, 1);
 
-	r =
+	return
 	  resolve_address_of_overloaded_function (lhstype,
 						  fns,
 						  complain,
+	                                          allow_ptrmem,
 						  /*template_only=*/1,
 						  args);
-	if (TREE_CODE (fns) == COMPONENT_REF)
-	  {
-	    rhs = fns;
-	    goto comp;
-	  }
-	return r;
       }
 
     case OVERLOAD:
@@ -6115,6 +6100,7 @@ instantiate_type (lhstype, rhs, flags)
 	resolve_address_of_overloaded_function (lhstype, 
 						rhs,
 						complain,
+	                                        allow_ptrmem,
 						/*template_only=*/0,
 						/*explicit_targs=*/NULL_TREE);
 
@@ -6226,8 +6212,12 @@ instantiate_type (lhstype, rhs, flags)
       return rhs;
       
     case ADDR_EXPR:
+    {
+      if (PTRMEM_OK_P (rhs))
+        flags |= itf_ptrmem_ok;
+      
       return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
-
+    }
     case ENTRY_VALUE_EXPR:
       my_friendly_abort (184);
       return error_mark_node;
@@ -7108,9 +7098,9 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   vtbl_init_data vid;
 
   /* Initialize VID.  */
+  bzero (&vid, sizeof (vid));
   vid.binfo = binfo;
   vid.derived = t;
-  vid.inits = NULL_TREE;
   vid.last_init = &vid.inits;
   vid.primary_vtbl_p = (binfo == TYPE_BINFO (t));
   vid.ctor_vtbl_p = !same_type_p (BINFO_TYPE (rtti_binfo), t);
@@ -7120,9 +7110,15 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   /* Add entries to the vtable for RTTI.  */
   build_rtti_vtbl_entries (binfo, rtti_binfo, &vid);
 
+  /* Create an array for keeping track of the functions we've
+     processed.  When we see multiple functions with the same
+     signature, we share the vcall offsets.  */
+  VARRAY_TREE_INIT (vid.fns, 32, "fns");
   /* Add the vcall and vbase offset entries.  */
   build_vcall_and_vbase_vtbl_entries (binfo, &vid);
-   /* Clear BINFO_VTABLE_PAATH_MARKED; it's set by
+  /* Clean up.  */
+  VARRAY_FREE (vid.fns);
+  /* Clear BINFO_VTABLE_PAATH_MARKED; it's set by
      build_vbase_offset_vtbl_entries.  */
   for (vbase = CLASSTYPE_VBASECLASSES (t); 
        vbase; 
@@ -7294,25 +7290,98 @@ build_vbase_offset_vtbl_entries (binfo, vid)
     }
 }
 
+/* Adds the initializers for the vcall offset entries in the vtable
+   for BINFO (which is part of the class hierarchy dominated by T) to
+   VID->INITS.  */
+
+static void
+build_vcall_offset_vtbl_entries (binfo, vid)
+     tree binfo;
+     vtbl_init_data *vid;
+{
+  /* Under the old ABI, the adjustments to the `this' pointer were made
+     elsewhere.  */
+  if (!vcall_offsets_in_vtable_p ())
+    return;
+
+  /* We only need these entries if this base is a virtual base.  */
+  if (!TREE_VIA_VIRTUAL (binfo))
+    return;
+
+  /* We need a vcall offset for each of the virtual functions in this
+     vtable.  For example:
+
+       class A { virtual void f (); };
+       class B : virtual public A { };
+       class C: virtual public A, public B {};
+      
+     Now imagine:
+
+       B* b = new C;
+       b->f();
+
+     The location of `A' is not at a fixed offset relative to `B'; the
+     offset depends on the complete object derived from `B'.  So, 
+     `B' vtable contains an entry for `f' that indicates by what
+     amount the `this' pointer for `B' needs to be adjusted to arrive
+     at `A'.  
+
+     We need entries for all the functions in our primary vtable and
+     in our non-virtual bases vtables.  */
+  vid->vbase = binfo;
+  /* Now, walk through the non-virtual bases, adding vcall offsets.  */
+  add_vcall_offset_vtbl_entries_r (binfo, vid);
+}
+
+/* Build vcall offsets, starting with those for BINFO.  */
+
+static void
+add_vcall_offset_vtbl_entries_r (binfo, vid)
+     tree binfo;
+     vtbl_init_data *vid;
+{
+  int i;
+  tree primary_binfo;
+
+  /* Don't walk into virtual bases -- except, of course, for the
+     virtual base for which we are building vcall offsets.  */
+  if (TREE_VIA_VIRTUAL (binfo) && vid->vbase != binfo)
+    return;
+  
+  /* If BINFO has a primary base, process it first.  */
+  primary_binfo = get_primary_binfo (binfo);
+  if (primary_binfo)
+    add_vcall_offset_vtbl_entries_r (primary_binfo, vid);
+
+  /* Add BINFO itself to the list.  */
+  add_vcall_offset_vtbl_entries_1 (binfo, vid);
+
+  /* Scan the non-primary bases of BINFO.  */
+  for (i = 0; i < BINFO_N_BASETYPES (binfo); ++i) 
+    {
+      tree base_binfo;
+      
+      base_binfo = BINFO_BASETYPE (binfo, i);
+      if (base_binfo != primary_binfo)
+	add_vcall_offset_vtbl_entries_r (base_binfo, vid);
+    }
+}
+
 /* Called from build_vcall_offset_vtbl_entries via dfs_walk.  */
 
-static tree
-dfs_build_vcall_offset_vtbl_entries (binfo, data)
+static void
+add_vcall_offset_vtbl_entries_1 (binfo, vid)
      tree binfo;
-     void *data;
+     vtbl_init_data* vid;
 {
-  vtbl_init_data* vid;
   tree derived_virtuals;
   tree base_virtuals;
+  tree orig_virtuals;
   tree binfo_inits;
   /* If BINFO is a primary base, this is the least derived class of
      BINFO that is not a primary base.  */
   tree non_primary_binfo;
-  /* The primary base of BINFO.  */
-  tree primary_binfo;
-  int i;
 
-  vid = (vtbl_init_data *) data;
   binfo_inits = NULL_TREE;
 
   /* We might be a primary base class.  Go up the inheritance
@@ -7340,28 +7409,34 @@ dfs_build_vcall_offset_vtbl_entries (binfo, data)
       non_primary_binfo = b;
     }
 
-  /* Skip virtuals that we have already handled in a primary base
-     class.  */
-  base_virtuals = BINFO_VIRTUALS (binfo);
-  derived_virtuals = BINFO_VIRTUALS (non_primary_binfo);
-  primary_binfo = get_primary_binfo (binfo);
-  if (primary_binfo)
-    for (i = 0; i < CLASSTYPE_VSIZE (BINFO_TYPE (primary_binfo)); ++i)
-      {
-	base_virtuals = TREE_CHAIN (base_virtuals);
-	derived_virtuals = TREE_CHAIN (derived_virtuals);
-      }
-
   /* Make entries for the rest of the virtuals.  */
-  for (; base_virtuals;
-       derived_virtuals = TREE_CHAIN (derived_virtuals),
-	 base_virtuals = TREE_CHAIN (base_virtuals))
+  for (base_virtuals = BINFO_VIRTUALS (binfo),
+	 derived_virtuals = BINFO_VIRTUALS (non_primary_binfo),
+	 orig_virtuals = BINFO_VIRTUALS (TYPE_BINFO (BINFO_TYPE (binfo)));
+       base_virtuals;
+       base_virtuals = TREE_CHAIN (base_virtuals),
+	 derived_virtuals = TREE_CHAIN (derived_virtuals),
+	 orig_virtuals = TREE_CHAIN (orig_virtuals))
     {
-      /* Figure out what function we're looking at.  */
-      tree fn = BV_FN (derived_virtuals);
+      tree orig_fn;
+      tree fn;
       tree base;
       tree base_binfo;
       size_t i;
+
+      /* Find the declaration that originally caused this function to
+	 be present.  */
+      orig_fn = BV_FN (orig_virtuals);
+
+      /* We do not need an entry if this function is declared in a
+	 virtual base (or one of its virtual bases), and not
+	 overridden in the section of the hierarchy dominated by the
+	 virtual base for which we are building vcall offsets.  */
+      if (!same_type_p (DECL_CONTEXT (orig_fn), BINFO_TYPE (binfo)))
+	continue;
+
+      /* Find the overriding function.  */
+      fn = BV_FN (derived_virtuals);
 
       /* If there is already an entry for a function with the same
 	 signature as FN, then we do not need a second vcall offset.
@@ -7409,58 +7484,6 @@ dfs_build_vcall_offset_vtbl_entries (binfo, data)
       /* Keep track of this function.  */
       VARRAY_PUSH_TREE (vid->fns, derived_virtuals);
     }
-
-  return NULL_TREE;
-}
-
-/* Adds the initializers for the vcall offset entries in the vtable
-   for BINFO (which is part of the class hierarchy dominated by T) to
-   VID->INITS.  */
-
-static void
-build_vcall_offset_vtbl_entries (binfo, vid)
-     tree binfo;
-     vtbl_init_data *vid;
-{
-  /* Under the old ABI, the adjustments to the `this' pointer were made
-     elsewhere.  */
-  if (!vcall_offsets_in_vtable_p ())
-    return;
-
-  /* We only need these entries if this base is a virtual base.  */
-  if (!TREE_VIA_VIRTUAL (binfo))
-    return;
-
-  /* We need a vcall offset for each of the virtual functions in this
-     vtable.  For example:
-
-       class A { virtual void f (); };
-       class B : virtual public A { };
-       class C: virtual public A, public B {};
-      
-     Now imagine:
-
-       B* b = new C;
-       b->f();
-
-     The location of `A' is not at a fixed offset relative to `B'; the
-     offset depends on the complete object derived from `B'.  So, 
-     `B' vtable contains an entry for `f' that indicates by what
-     amount the `this' pointer for `B' needs to be adjusted to arrive
-     at `A'.  
-
-     We need entries for all the functions in our primary vtable and
-     in our non-virtual bases vtables.  For each base, the entries
-     appear in the same order as in the base; but the bases themselves
-     appear in reverse depth-first, left-to-right order.  */
-  vid->vbase = binfo;
-  VARRAY_TREE_INIT (vid->fns, 32, "fns");
-  dfs_walk_real (binfo,
-		 dfs_build_vcall_offset_vtbl_entries,
-		 NULL,
-		 dfs_skip_vbases,
-		 vid);
-  VARRAY_FREE (vid->fns);
 }
 
 /* Return vtbl initializers for the RTTI entries coresponding to the

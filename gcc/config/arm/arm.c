@@ -317,7 +317,7 @@ arm_override_options ()
   unsigned i;
   
   /* Set up the flags based on the cpu/architecture selected by the user.  */
-  for (i = sizeof (arm_select) / sizeof (arm_select[0]); i--;)
+  for (i = ARRAY_SIZE (arm_select); i--;)
     {
       struct arm_cpu_select * ptr = arm_select + i;
       
@@ -1830,6 +1830,41 @@ arm_is_longcall_p (sym_ref, call_cookie, call_symbol)
     || ENCODED_LONG_CALL_ATTR_P (XSTR (sym_ref, 0))
     || TARGET_LONG_CALLS;
 }
+
+/* Return non-zero if it is ok to make a tail-call to DECL.  */
+int
+arm_function_ok_for_sibcall (decl)
+     tree decl;
+{
+  int call_type = TARGET_LONG_CALLS ? CALL_LONG : CALL_NORMAL;
+
+  /* Never tailcall something for which we have no decl, or if we
+     are in Thumb mode.  */
+  if (decl == NULL || TARGET_THUMB)
+    return 0;
+
+  /* Get the calling method.  */
+  if (lookup_attribute ("short_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+    call_type = CALL_SHORT;
+  else if (lookup_attribute ("long_call", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+    call_type = CALL_LONG;
+
+  /* Cannot tail-call to long calls, since these are out of range of
+     a branch instruction.  However, if not compiling PIC, we know
+     we can reach the symbol if it is in this compilation unit.  */
+  if (call_type == CALL_LONG && (flag_pic || ! TREE_ASM_WRITTEN (decl)))
+    return 0;
+
+  /* If we are interworking and the function is not declared static
+     then we can't tail-call it unless we know that it exists in this 
+     compilation unit (since it might be a Thumb routine).  */
+  if (TARGET_INTERWORK && TREE_PUBLIC (decl) && ! TREE_ASM_WRITTEN (decl))
+    return 0;
+
+  /* Everything else is ok.  */
+  return 1;
+}
+
 
 int
 legitimate_pic_operand_p (x)
@@ -2998,6 +3033,17 @@ equality_operator (x, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return GET_CODE (x) == EQ || GET_CODE (x) == NE;
+}
+
+/* Return TRUE if x is a comparison operator other than LTGT or UNEQ.  */
+int
+arm_comparison_operator (x, mode)
+     rtx x;
+     enum machine_mode mode;
+{
+  return (comparison_operator (x, mode)
+	  && GET_CODE (x) != LTGT
+	  && GET_CODE (x) != UNEQ);
 }
 
 /* Return TRUE for SMIN SMAX UMIN UMAX operators.  */
@@ -4194,7 +4240,31 @@ arm_select_cc_mode (op, x, y)
   /* All floating point compares return CCFP if it is an equality
      comparison, and CCFPE otherwise.  */
   if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-    return (op == EQ || op == NE) ? CCFPmode : CCFPEmode;
+    {
+      switch (op)
+	{
+	case EQ:
+	case NE:
+	case UNORDERED:
+	case ORDERED:
+	case UNLT:
+	case UNLE:
+	case UNGT:
+	case UNGE:
+	case UNEQ:
+	case LTGT:
+	  return CCFPmode;
+
+	case LT:
+	case LE:
+	case GT:
+	case GE:
+	  return CCFPEmode;
+
+	default:
+	  abort ();
+	}
+    }
   
   /* A compare with a shifted operand.  Because of canonicalization, the
      comparison will have to be swapped when we emit the assembler.  */
@@ -7360,8 +7430,19 @@ arm_expand_prologue ()
       insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 				    amount));
       RTX_FRAME_RELATED_P (insn) = 1;
-      emit_insn (gen_rtx_CLOBBER (VOIDmode, 
-				  gen_rtx_MEM (BLKmode, stack_pointer_rtx)));
+
+      /* If the frame pointer is needed, emit a special barrier that
+	 will prevent the scheduler from moving stores to the frame
+	 before the stack adjustment.  */
+      if (frame_pointer_needed)
+	{
+	  rtx unspec = gen_rtx_UNSPEC (SImode,
+				       gen_rtvec (2, stack_pointer_rtx,
+						  hard_frame_pointer_rtx), 4);
+
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
+				      gen_rtx_MEM (BLKmode, unspec)));
+	}
     }
 
   /* If we are profiling, make sure no instructions are scheduled before
@@ -7642,7 +7723,6 @@ get_arm_condition_code (comparison)
 	}
 
     case CC_Zmode:
-    case CCFPmode:
       switch (comp_code)
 	{
 	case NE: return ARM_NE;
@@ -7651,12 +7731,27 @@ get_arm_condition_code (comparison)
 	}
 
     case CCFPEmode:
+    case CCFPmode:
+      /* These encodings assume that AC=1 in the FPA system control
+	 byte.  This allows us to handle all cases except UNEQ and
+	 LTGT.  */
       switch (comp_code)
 	{
 	case GE: return ARM_GE;
 	case GT: return ARM_GT;
 	case LE: return ARM_LS;
 	case LT: return ARM_MI;
+	case NE: return ARM_NE;
+	case EQ: return ARM_EQ;
+	case ORDERED: return ARM_VC;
+	case UNORDERED: return ARM_VS;
+	case UNLT: return ARM_LT;
+	case UNLE: return ARM_LE;
+	case UNGT: return ARM_HI;
+	case UNGE: return ARM_PL;
+	  /* UNEQ and LTGT do not have a representation.  */
+	case UNEQ: /* Fall through.  */
+	case LTGT: /* Fall through.  */
 	default: abort ();
 	}
 
@@ -7812,11 +7907,10 @@ arm_final_prescan_insn (insn)
       int then_not_else = TRUE;
       rtx this_insn = start_insn, label = 0;
 
+      /* If the jump cannot be done with one instruction, we cannot 
+	 conditionally execute the instruction in the inverse case.  */
       if (get_attr_conds (insn) == CONDS_JUMP_CLOB)
 	{
-	  /* The code below is wrong for these, and I haven't time to
-	     fix it now.  So we just do the safe thing and return.  This
-	     whole function needs re-writing anyway.  */
 	  jump_clobbers = 1;
 	  return;
 	}

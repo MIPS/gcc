@@ -2209,7 +2209,9 @@ merge_blocks_nomove (a, b)
       rtx prev;
 
       for (prev = PREV_INSN (a_end); ; prev = PREV_INSN (prev))
-	if (GET_CODE (prev) != NOTE || prev == a->head)
+	if (GET_CODE (prev) != NOTE
+	    || NOTE_LINE_NUMBER (prev) == NOTE_INSN_BASIC_BLOCK
+	    || prev == a->head)
 	  break;
 
       del_first = a_end;
@@ -2552,7 +2554,9 @@ tidy_fallthru_edge (e, b, c)
 	  NOTE_SOURCE_FILE (q) = 0;
 	}
       else
-	b->end = q = PREV_INSN (q);
+	q = PREV_INSN (q);
+
+      b->end = q;
     }
 
   /* Selectively unlink the sequence.  */
@@ -2620,7 +2624,7 @@ life_analysis (f, file, flags)
   CLEAR_HARD_REG_SET (elim_reg_set);
 
 #ifdef ELIMINABLE_REGS
-  for (i = 0; i < (int) (sizeof eliminables / sizeof eliminables[0]); i++)
+  for (i = 0; i < (int) ARRAY_SIZE (eliminables); i++)
     SET_HARD_REG_BIT (elim_reg_set, eliminables[i].from);
 #else
   SET_HARD_REG_BIT (elim_reg_set, FRAME_POINTER_REGNUM);
@@ -3189,6 +3193,12 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	 the case for blocks within infinite loops.  */
       SET_REGNO_REG_SET (new_live_at_end, STACK_POINTER_REGNUM);
 
+      /* Similarly for the frame pointer before reload.  Any reference
+	 to any pseudo before reload is a potential reference of the
+	 frame pointer.  */
+      if (! reload_completed)
+	SET_REGNO_REG_SET (new_live_at_end, FRAME_POINTER_REGNUM);
+
       /* Regs used in phi nodes are not included in
 	 global_live_at_start, since they are live only along a
 	 particular edge.  Set those regs that are live because of a
@@ -3725,9 +3735,15 @@ init_propagate_block_info (bb, live, local_set, flags)
       if (bitmap_operation (diff, bb_true->global_live_at_start,
 			    bb_false->global_live_at_start, BITMAP_XOR))
 	{
-	  if (GET_CODE (XEXP (cond_true, 0)) != REG)
+	  rtx reg = XEXP (cond_true, 0);
+
+	  if (GET_CODE (reg) == SUBREG)
+	    reg = SUBREG_REG (reg);
+
+	  if (GET_CODE (reg) != REG)
 	    abort ();
-	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond_true, 0)));
+
+	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (reg));
 
 	  /* For each such register, mark it conditionally dead.  */
 	  EXECUTE_IF_SET_IN_REG_SET
@@ -4617,8 +4633,7 @@ mark_regno_cond_dead (pbi, regno, cond)
 	  splay_tree_insert (pbi->reg_cond_dead, regno,
 			     (splay_tree_value) rcli);
 
-	  SET_REGNO_REG_SET (pbi->reg_cond_reg,
-			     REGNO (XEXP (cond, 0)));
+	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 
 	  /* Not unconditionaly dead.  */
 	  return 0;
@@ -4639,8 +4654,7 @@ mark_regno_cond_dead (pbi, regno, cond)
 	    {
 	      rcli->condition = ncond;
 
-	      SET_REGNO_REG_SET (pbi->reg_cond_reg,
-				 REGNO (XEXP (cond, 0)));
+	      SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 
 	      /* Not unconditionaly dead.  */
 	      return 0;
@@ -4879,7 +4893,6 @@ attempt_auto_inc (pbi, inc, insn, mem, incr, incr_reg)
 	 Change it to q = p, ...*q..., q = q+size.
 	 Then fall into the usual case.  */
       rtx insns, temp;
-      basic_block bb;
 
       start_sequence ();
       emit_move_insn (q, incr_reg);
@@ -4956,7 +4969,7 @@ attempt_auto_inc (pbi, inc, insn, mem, incr, incr_reg)
       /* If the original source was dead, it's dead now.  */
       rtx note;
 
-      while (note = find_reg_note (incr, REG_DEAD, NULL_RTX))
+      while ((note = find_reg_note (incr, REG_DEAD, NULL_RTX)) != NULL_RTX)
 	{
 	  remove_note (incr, note);
 	  if (XEXP (note, 0) != incr_reg)
@@ -5241,7 +5254,10 @@ mark_used_reg (pbi, reg, cond, insn)
 		  splay_tree_remove (pbi->reg_cond_dead, regno);
 		}
 	      else
-		rcli->condition = ncond;
+		{
+		  rcli->condition = ncond;
+		  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
+		}
 	    }
 	}
       else
@@ -5252,6 +5268,8 @@ mark_used_reg (pbi, reg, cond, insn)
 	  rcli->condition = not_reg_cond (cond);
 	  splay_tree_insert (pbi->reg_cond_dead, regno,
 			     (splay_tree_value) rcli);
+
+	  SET_REGNO_REG_SET (pbi->reg_cond_reg, REGNO (XEXP (cond, 0)));
 	}
     }
   else if (some_was_live)

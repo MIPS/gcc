@@ -3643,7 +3643,7 @@ order_regs_for_local_alloc (void)
   int *order = (TARGET_ORDER_1 ? order_1 :
 		TARGET_ORDER_2 ? order_2 :
 		order_0);
-  for (i=0; i < sizeof (order_0) / sizeof (order_0[0]); ++i)
+  for (i=0; i < ARRAY_SIZE (order_0); ++i)
       reg_alloc_order[i] = order[i];
 }
 

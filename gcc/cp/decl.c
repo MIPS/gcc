@@ -129,7 +129,6 @@ static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
 static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
 static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
 				  int));
-static void lang_print_error_function PARAMS ((const char *));
 static tree maybe_process_template_type_declaration PARAMS ((tree, int, struct binding_level*));
 static void check_for_uninitialized_const_var PARAMS ((tree));
 static unsigned long typename_hash PARAMS ((hash_table_key));
@@ -344,6 +343,15 @@ int flag_isoc94;
 /* Nonzero means use the ISO C99 dialect of C.  */
 
 int flag_isoc99;
+
+/* Nonzero means we are a hosted implementation for code shared with C.  */
+
+int flag_hosted = 1;
+
+/* Nonzero means add default format_arg attributes for functions not
+   in ISO C.  */
+
+int flag_noniso_default_format_attributes = 1;
 
 /* Nonzero means give `double' the same size as `float'.  */
 
@@ -5898,6 +5906,13 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 	    {
 	      val = lookup_member (type, name, 0, prefer_type);
 	      type_access_control (type, val);
+
+	      /* Restore the containing TYPENAME_TYPE if we looked
+		 through it before.  */
+	      if (got_scope && got_scope != type
+		  && val && TREE_CODE (val) == TYPE_DECL
+		  && TREE_CODE (TREE_TYPE (val)) == TYPENAME_TYPE)
+		TYPE_CONTEXT (TREE_TYPE (val)) = got_scope;
 	    }
 	}
       else
@@ -6636,7 +6651,6 @@ init_decl_processing ()
   /* Show we use EH for cleanups.  */
   using_eh_for_cleanups ();
 
-  print_error_function = lang_print_error_function;
   valid_lang_attribute = cp_valid_lang_attribute;
 
   /* Maintain consistency.  Perhaps we should just complain if they
@@ -6728,16 +6742,6 @@ cp_make_fname_decl (id, name, type_dep)
   
   /* We will have to make sure we only emit this, if it is actually used. */
   return decl;
-}
-
-/* Function to print any language-specific context for an error message.  */
-
-static void
-lang_print_error_function (file)
-     const char *file;
-{
-  default_print_error_function (file);
-  maybe_print_template_context ();
 }
 
 /* Entry point for the benefit of c_common_nodes_and_builtins.
@@ -8698,11 +8702,11 @@ member_function_or_else (ctype, cur_type, flags)
   if (ctype && ctype != cur_type)
     {
       if (flags == DTOR_FLAG)
-	error ("destructor for alien class `%s' cannot be a member",
-	       TYPE_NAME_STRING (ctype));
+	cp_error ("destructor for alien class `%T' cannot be a member",
+	          ctype);
       else
-	error ("constructor for alien class `%s' cannot be a member",
-	       TYPE_NAME_STRING (ctype));
+	cp_error ("constructor for alien class `%T' cannot be a member",
+	          ctype);
       return 0;
     }
   return 1;
@@ -11249,6 +11253,13 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      cp_error ("`inline' specified for friend class declaration");
 	      inlinep = 0;
 	    }
+	  if (!current_aggr && TREE_CODE (type) != TYPENAME_TYPE)
+	    {
+	      if (TREE_CODE (type) == TEMPLATE_TYPE_PARM)
+	        cp_error ("template parameters cannot be friends");
+	      else
+	        cp_error ("friend declaration requires `%#T'", type);
+	    }
 
 	  /* Only try to do this stuff if we didn't already give up.  */
 	  if (type != integer_type_node)
@@ -11257,8 +11268,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      if (current_class_type)
 		make_friend_class (current_class_type, TYPE_MAIN_VARIANT (type));
 	      else
-		error ("trying to make class `%s' a friend of global scope",
-		       TYPE_NAME_STRING (type));
+		cp_error ("trying to make class `%T' a friend of global scope",
+		          type);
 	      type = void_type_node;
 	    }
 	}
@@ -14621,8 +14632,8 @@ start_method (declspecs, declarator, attrlist)
 	{
 	  if (DECL_CONTEXT (fndecl)
 	      && TREE_CODE( DECL_CONTEXT (fndecl)) != NAMESPACE_DECL)
-	    cp_error ("`%D' is already defined in class %s", fndecl,
-			     TYPE_NAME_STRING (DECL_CONTEXT (fndecl)));
+	    cp_error ("`%D' is already defined in class `%T'", fndecl,
+	              DECL_CONTEXT (fndecl));
 	}
       return void_type_node;
     }

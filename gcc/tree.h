@@ -663,9 +663,9 @@ extern void tree_class_check_failed PARAMS ((const tree, int,
    If the data type is signed, the value is sign-extended to 2 words
    even though not all of them may really be in use.
    In an unsigned constant shorter than 2 words, the extra bits are 0.  */
-#define TREE_INT_CST(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.a)
-#define TREE_INT_CST_LOW(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.w.low)
-#define TREE_INT_CST_HIGH(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst.w.high)
+#define TREE_INT_CST(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst)
+#define TREE_INT_CST_LOW(NODE) (TREE_INT_CST (NODE).low)
+#define TREE_INT_CST_HIGH(NODE) (TREE_INT_CST (NODE).high)
 
 #define INT_CST_LT(A, B)  \
 (TREE_INT_CST_HIGH (A) < TREE_INT_CST_HIGH (B)			\
@@ -684,12 +684,9 @@ struct tree_int_cst
   struct tree_common common;
   struct rtx_def *rtl;	/* acts as link to register transfer language
 			   (rtl) info */
-  union {
-    unsigned HOST_WIDE_INT a[2];
-    struct {
-      unsigned HOST_WIDE_INT low;
-      HOST_WIDE_INT high;
-    } w;
+  struct {
+    unsigned HOST_WIDE_INT low;
+    HOST_WIDE_INT high;
   } int_cst;
 };
 
@@ -966,7 +963,13 @@ struct tree_block
 /* In an INTEGER_TYPE, it means the type represents a size.  We use this
    both for validity checking and to permit optimziations that are unsafe
    for other types.  */
-#define TYPE_IS_SIZETYPE(NODE) (TYPE_CHECK (NODE)->type.no_force_blk_flag)
+#define TYPE_IS_SIZETYPE(NODE) \
+  (INTEGER_TYPE_CHECK (NODE)->type.no_force_blk_flag)
+
+/* In a FUNCTION_TYPE, indicates that the function returns with the stack
+   pointer depressed.  */
+#define TYPE_RETURNS_STACK_DEPRESSED(NODE) \
+  (FUNCTION_TYPE_CHECK (NODE)->type.no_force_blk_flag)
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) ((NODE)->common.volatile_flag)
@@ -1320,8 +1323,15 @@ struct tree_type
 #define DECL_SIZE_UNIT(NODE) (DECL_CHECK (NODE)->decl.size_unit)
 /* Holds the alignment required for the datum.  */
 #define DECL_ALIGN(NODE) (DECL_CHECK (NODE)->decl.u1.a.align)
-/* For FIELD_DECLs, holds the alignment that DECL_FIELD_OFFSET has.  */
-#define DECL_OFFSET_ALIGN(NODE) (FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align)
+/* For FIELD_DECLs, off_align holds the number of low-order bits of
+   DECL_FIELD_OFFSET which are known to be always zero.
+   DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
+   has.  */
+#define DECL_OFFSET_ALIGN(NODE) \
+  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align)
+/* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
+#define SET_DECL_OFFSET_ALIGN(NODE, X) \
+  (FIELD_DECL_CHECK (NODE)->decl.u1.a.off_align	= exact_log2 ((X) & -(X)))
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
 #define DECL_USER_ALIGN(NODE) (DECL_CHECK (NODE)->decl.user_align)
@@ -1828,12 +1838,10 @@ extern tree global_trees[TI_MAX];
 #define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
-/* Returns non-zero iff ID_NODE is an IDENTIFIER_NODE whose name is
-   `main'.  */
-#define MAIN_NAME_P(ID_NODE) ((ID_NODE) == main_identifier_node)
+#define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
 
 #define trap_fndecl			global_trees[TI_TRAP_FUNC]
-
+
 #define V4SF_type_node			global_trees[TI_V4SF_TYPE]
 #define V4SI_type_node			global_trees[TI_V4SI_TYPE]
 #define V8QI_type_node			global_trees[TI_V8QI_TYPE]
@@ -2889,6 +2897,7 @@ extern int drop_through_at_end_p	PARAMS ((void));
 extern void expand_start_target_temps	PARAMS ((void));
 extern void expand_end_target_temps	PARAMS ((void));
 extern void expand_elseif		PARAMS ((tree));
+extern void save_stack_pointer		PARAMS ((void));
 extern void expand_decl			PARAMS ((tree));
 extern int expand_decl_cleanup		PARAMS ((tree, tree));
 extern void expand_anon_union_decl	PARAMS ((tree, tree, tree));

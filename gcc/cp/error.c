@@ -26,6 +26,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "flags.h"
+#include "diagnostic.h"
 
 typedef const char *cp_printer ();
 
@@ -96,6 +97,20 @@ static void dump_template_bindings PARAMS ((tree, tree));
 static void dump_scope PARAMS ((tree, enum tree_string_flags));
 static void dump_template_parms PARAMS ((tree, int, enum tree_string_flags));
 
+static const char *function_category PARAMS ((tree));
+static void lang_print_error_function PARAMS ((const char *));
+static void maybe_print_instantiation_context PARAMS ((output_buffer *));
+static void print_instantiation_full_context PARAMS ((output_buffer *));
+static void print_instantiation_partial_context PARAMS ((output_buffer *, tree,
+                                                         const char *, int));
+static void cp_diagnostic_starter PARAMS ((output_buffer *,
+                                           diagnostic_context *));
+static void cp_diagnostic_finalizer PARAMS ((output_buffer *,
+                                             diagnostic_context *));
+static void cp_print_error_function PARAMS ((output_buffer *,
+                                             diagnostic_context *));
+
+
 #define A args_to_string
 #define C code_to_string
 #define D decl_to_string
@@ -138,6 +153,10 @@ init_error ()
 {
   gcc_obstack_init (&scratch_obstack);
   scratch_firstobj = (char *)obstack_alloc (&scratch_obstack, 0);
+
+  print_error_function = lang_print_error_function;
+  lang_diagnostic_starter = cp_diagnostic_starter;
+  lang_diagnostic_finalizer = cp_diagnostic_finalizer;
 }
 
 /* Dump a scope, if deemed necessary.  */
@@ -468,7 +487,7 @@ dump_type (t, flags)
     }
     case TYPENAME_TYPE:
       OB_PUTS ("typename ");
-      dump_type (TYPE_CONTEXT (t), flags);
+      dump_type (TYPE_CONTEXT (t), flags & ~TS_AGGR_TAGS);
       OB_PUTS ("::");
       dump_decl (TYPENAME_TYPE_FULLNAME (t), flags);
       break;
@@ -1480,8 +1499,23 @@ dump_expr (t, flags)
 	/* If it's an enum, output its tag, rather than its value.  */
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
-	    const char *p = enum_name_string (t, type);
-	    OB_PUTCP (p);
+	    tree values = TYPE_VALUES (type);
+	    
+	    for (; values;
+	         values = TREE_CHAIN (values))
+	      if (tree_int_cst_equal (TREE_VALUE (values), t))
+	        break;
+	    
+	    if (values)
+	      OB_PUTID (TREE_PURPOSE (values));
+	    else
+	      {
+                /* Value must have been cast.  */
+                OB_PUTC ('(');
+                dump_type (type, flags);
+                OB_PUTC (')');
+                goto do_int;
+	      }
 	  }
 	else if (type == boolean_type_node)
 	  {
@@ -1496,30 +1530,35 @@ dump_expr (t, flags)
 	    dump_char (tree_low_cst (t, 0));
 	    OB_PUTC ('\'');
 	  }
-	else if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (t)
-		 != (TREE_INT_CST_LOW (t) >> (HOST_BITS_PER_WIDE_INT - 1)))
-	  {
-	    tree val = t;
-
-	    if (tree_int_cst_sgn (val) < 0)
-	      {
-		OB_PUTC ('-');
-		val = build_int_2 (~TREE_INT_CST_LOW (val),
-				   -TREE_INT_CST_HIGH (val));
-	      }
-	    /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
-	       systems?  */
-	    {
-	      static char format[10]; /* "%x%09999x\0" */
-	      if (!format[0])
-		sprintf (format, "%%x%%0%dx", HOST_BITS_PER_INT / 4);
-	      sprintf (digit_buffer, format, TREE_INT_CST_HIGH (val),
-		       TREE_INT_CST_LOW (val));
-	      OB_PUTCP (digit_buffer);
-	    }
-	  }
 	else
-	  OB_PUTI (TREE_INT_CST_LOW (t));
+	  {
+	    do_int:
+	    if ((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (t)
+		!= (TREE_INT_CST_LOW (t) >> (HOST_BITS_PER_WIDE_INT - 1)))
+	      {
+	        tree val = t;
+
+	        if (tree_int_cst_sgn (val) < 0)
+	          {
+		    OB_PUTC ('-');
+		    val = build_int_2 (-TREE_INT_CST_LOW (val),
+				       ~TREE_INT_CST_HIGH (val)
+	                               + !TREE_INT_CST_LOW (val));
+	          }
+	        /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
+	           systems?  */
+	        {
+	          static char format[10]; /* "%x%09999x\0" */
+	          if (!format[0])
+		    sprintf (format, "%%x%%0%dx", HOST_BITS_PER_INT / 4);
+	          sprintf (digit_buffer, format, TREE_INT_CST_HIGH (val),
+		           TREE_INT_CST_LOW (val));
+	          OB_PUTCP (digit_buffer);
+	        }
+	      }
+	    else
+	      OB_PUTI (TREE_INT_CST_LOW (t));
+	  }
       }
       break;
 
@@ -2403,4 +2442,168 @@ cv_to_string (p, v)
   OB_FINISH ();
 
   return (char *)obstack_base (&scratch_obstack);
+}
+
+static void
+lang_print_error_function (file)
+     const char *file;
+{
+  output_state os;
+
+  default_print_error_function (file);
+  os = output_buffer_state (diagnostic_buffer);
+  output_set_prefix (diagnostic_buffer, file);
+  maybe_print_instantiation_context (diagnostic_buffer);
+  output_buffer_state (diagnostic_buffer) = os;
+}
+
+static void
+cp_diagnostic_starter (buffer, dc)
+     output_buffer *buffer;
+     diagnostic_context *dc;
+{
+  report_problematic_module (buffer);
+  cp_print_error_function (buffer, dc);
+  maybe_print_instantiation_context (buffer);
+  output_set_prefix (buffer,
+                     context_as_prefix (diagnostic_file_location (dc),
+                                        diagnostic_line_location (dc),
+                                        diagnostic_is_warning (dc)));
+}
+
+static void
+cp_diagnostic_finalizer (buffer, dc)
+     output_buffer *buffer;
+     diagnostic_context *dc __attribute__ ((__unused__));
+{
+  output_destroy_prefix (buffer);
+}
+
+/* Print current function onto BUFFER, in the process of reporting
+   a diagnostic message.  Called from cp_diagnostic_starter.  */
+static void
+cp_print_error_function (buffer, dc)
+     output_buffer *buffer;
+     diagnostic_context *dc;
+{
+  if (error_function_changed ())
+    {
+      char *prefix = diagnostic_file_location (dc)
+        ? file_name_as_prefix (diagnostic_file_location (dc))
+        : NULL;
+      output_state os;
+
+      os = output_buffer_state (buffer);
+      output_set_prefix (buffer, prefix);
+      
+      if (current_function_decl == NULL)
+        output_add_string (buffer, "At global scope:");
+      else
+        output_printf
+          (buffer, "In %s `%s':", function_category (current_function_decl),
+           (*decl_printable_name) (current_function_decl, 2));
+      output_add_newline (buffer);
+
+      record_last_error_function ();
+      output_destroy_prefix (buffer);
+      output_buffer_state (buffer) = os;
+    }
+}
+
+/* Returns a description of FUNCTION using standard terminology.  */
+static const char *
+function_category (fn)
+     tree fn;
+{
+  if (DECL_FUNCTION_MEMBER_P (fn))
+    {
+      if (DECL_STATIC_FUNCTION_P (fn))
+        return "static member function";
+      else if (DECL_COPY_CONSTRUCTOR_P (fn))
+        return "copy constructor";
+      else if (DECL_CONSTRUCTOR_P (fn))
+        return "constructor";
+      else if (DECL_DESTRUCTOR_P (fn))
+        return "destructor";
+      else
+        return "member function";
+    }
+  else
+    return "function";
+}
+
+/* Report the full context of a current template instantiation,
+   onto BUFFER.  */
+static void
+print_instantiation_full_context (buffer)
+     output_buffer *buffer;
+{
+  tree p = current_instantiation ();
+  int line = lineno;
+  const char *file = input_filename;
+
+  if (p)
+    {
+      if (current_function_decl != TINST_DECL (p)
+	  && current_function_decl != NULL_TREE)
+	/* We can get here during the processing of some synthesized
+	   method.  Then, TINST_DECL (p) will be the function that's causing
+	   the synthesis.  */
+	;
+      else
+	{
+	  if (current_function_decl == TINST_DECL (p))
+	    /* Avoid redundancy with the the "In function" line.  */;
+	  else 
+	    output_verbatim (buffer, "%s: In instantiation of `%s':\n", file,
+                             decl_as_string (TINST_DECL (p),
+                                             TS_DECL_TYPE | TS_FUNC_NORETURN));
+	  
+	  line = TINST_LINE (p);
+	  file = TINST_FILE (p);
+	  p = TREE_CHAIN (p);
+	}
+    }
+  
+  print_instantiation_partial_context (buffer, p, file, line);
+}
+
+/* Same as above but less verbose.  */
+static void
+print_instantiation_partial_context (buffer, t, file, line)
+     output_buffer *buffer;
+     tree t;
+     const char *file;
+     int line;
+{
+  for (; t; t = TREE_CHAIN (t))
+    {
+      output_verbatim
+        (buffer, "%s:%d:   instantiated from `%s'\n", file, line,
+         decl_as_string (TINST_DECL (t), TS_DECL_TYPE | TS_FUNC_NORETURN));
+      line = TINST_LINE (t);
+      file = TINST_FILE (t);
+    }
+  output_verbatim (buffer, "%s:%d:   instantiated from here\n", file, line);
+}
+
+/* Called from cp_thing to print the template context for an error.  */
+static void
+maybe_print_instantiation_context (buffer)
+     output_buffer *buffer;
+{
+  if (!problematic_instantiation_changed () || current_instantiation () == 0)
+    return;
+
+  record_last_problematic_instantiation ();
+  print_instantiation_full_context (buffer);
+}
+
+/* Report the bare minimum context of a template instantiation.  */
+void
+print_instantiation_context ()
+{
+  print_instantiation_partial_context
+    (diagnostic_buffer, current_instantiation (), input_filename, lineno);
+  flush_diagnostic_buffer ();
 }

@@ -2,7 +2,7 @@
    version 0.12.
    (Implements POSIX draft P1003.2/D11.2, except for some of the
    internationalization features.)
-   Copyright (C) 1993, 94, 95, 96, 97, 98, 00 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 96, 97, 98 Free Software Foundation, Inc.
 
    NOTE: The canonical source of this file is maintained with the 
    GNU C Library.  Bugs can be reported to bug-glibc@prep.ai.mit.edu.
@@ -1618,32 +1618,33 @@ static reg_errcode_t compile_range _RE_ARGS ((const char **p_ptr,
    correct places in the new one.  If extending the buffer results in it
    being larger than MAX_BUF_SIZE, then flag memory exhausted.  */
 #if __BOUNDED_POINTERS__
+# define SET_HIGH_BOUND(P) (__ptrhigh (P) = __ptrlow (P) + bufp->allocated)
 # define MOVE_BUFFER_POINTER(P) \
-  (__ptrlow (P) += incr, __ptrhigh (P) += incr, __ptrvalue (P) += incr)
-# define EXTEND_BUFFER_HIGH_BOUND		\
-  do {						\
-    int incr = bufp->allocated >> 1;		\
-    __ptrhigh b += incr;			\
-    __ptrhigh begalt += incr;			\
-    if (fixup_alt_jump)				\
-      __ptrhigh fixup_alt_jump += incr;		\
-    if (laststart)				\
-      __ptrhigh laststart += incr;		\
-    if (pending_exact)				\
-      __ptrhigh pending_exact += incr;		\
-  } while (0)
+  (__ptrlow (P) += incr, SET_HIGH_BOUND (P), __ptrvalue (P) += incr)
+# define ELSE_EXTEND_BUFFER_HIGH_BOUND		\
+  else						\
+    {						\
+      SET_HIGH_BOUND (b);			\
+      SET_HIGH_BOUND (begalt);			\
+      if (fixup_alt_jump)			\
+	SET_HIGH_BOUND (fixup_alt_jump);	\
+      if (laststart)				\
+	SET_HIGH_BOUND (laststart);		\
+      if (pending_exact)			\
+	SET_HIGH_BOUND (pending_exact);		\
+    }
 #else
 # define MOVE_BUFFER_POINTER(P) (P) += incr
-# define EXTEND_BUFFER_HIGH_BOUND
+# define ELSE_EXTEND_BUFFER_HIGH_BOUND
 #endif
 #define EXTEND_BUFFER()							\
-  do {									\
+  do { 									\
     unsigned char *old_buffer = bufp->buffer;				\
-    if (bufp->allocated == MAX_BUF_SIZE)				\
+    if (bufp->allocated == MAX_BUF_SIZE) 				\
       return REG_ESIZE;							\
     bufp->allocated <<= 1;						\
     if (bufp->allocated > MAX_BUF_SIZE)					\
-      bufp->allocated = MAX_BUF_SIZE;					\
+      bufp->allocated = MAX_BUF_SIZE; 					\
     bufp->buffer = (unsigned char *) REALLOC (bufp->buffer, bufp->allocated);\
     if (bufp->buffer == NULL)						\
       return REG_ESPACE;						\
@@ -1653,14 +1654,14 @@ static reg_errcode_t compile_range _RE_ARGS ((const char **p_ptr,
 	int incr = bufp->buffer - old_buffer;				\
 	MOVE_BUFFER_POINTER (b);					\
 	MOVE_BUFFER_POINTER (begalt);					\
-	if (fixup_alt_jump)						\
+        if (fixup_alt_jump)						\
 	  MOVE_BUFFER_POINTER (fixup_alt_jump);				\
-	if (laststart)							\
+        if (laststart)							\
 	  MOVE_BUFFER_POINTER (laststart);				\
-	if (pending_exact)						\
+        if (pending_exact)						\
 	  MOVE_BUFFER_POINTER (pending_exact);				\
       }									\
-    EXTEND_BUFFER_HIGH_BOUND;						\
+    ELSE_EXTEND_BUFFER_HIGH_BOUND					\
   } while (0)
 
 

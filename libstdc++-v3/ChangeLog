@@ -1,3 +1,194 @@
+2000-08-24  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* acconfig.h: Revert.
+	* acinclude.m4: Revert.
+	* libio/_G_config.h: Revert.
+	* libio/libio.h: Revert.
+	
+2000-08-23  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>	
+
+	* bits/codecvt.h: Tweaks.
+	* testsuite/22_locale/codecvt_unicode_wchar_t.cc (test01): Fix up
+	initial string literals for UCS4.
+
+2000-08-23  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acconfig.h:  _GLIBCPP_USING_THREADS and some workaround types added.
+	* acinclude.m4:  New macro, GLIBCPP_ENABLE_WCHAR.  Set the threads
+	  definition as well, and some minor spelling/spacing fixes.  If
+	  building libio, check for certain typedefs.
+	* libio/_G_config.h:  Wrap _IO_MTSAFE_IO in _GLIBCPP_USING_THREADS.
+	  Conditionally define _LARGEFILE64_SOURCE, otherwise the 64-bit types
+	  will never be there.
+	* libio/libio.h:  In the null case, _IO_lock_t can't just be void.
+	* src/string-inst.cc:  Use _GLIBCPP_USE_WCHAR_T.
+
+	* configure.in:  Update the cache a bit more often.
+
+	* mkcheck.in:  For check-install, also need to -I the testsuite dir.
+
+2000-08-22  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* src/locale-inst.cc: Add codecvt<unicode_t, wchar_t,
+	__enc_traits> instantiations for has_facet and use_facet.
+	* testsuite/22_locale/codecvt_unicode_wchar_t.cc: New file, for
+	testing two-byte unicode encodings converted to four-byte UCS4
+	encodings.
+
+	* bits/codecvt.h (codecvt<__enc_traits>): Fix do_unshift.
+	* testsuite/22_locale/codecvt_unicode_char.cc (test01): Add
+	correct state/encoding information.
+
+	* acinclude.m4 (GLIBCPP_CHECK_WCHAR_T_SUPPORT): Add wcsrtombs,
+	mbsrtowcs checks as codecvt<wchar_t, char, mbstate_t> needs them
+	now.
+	Add checks for langinfo.h, nl_langinfo function call.
+	* libio/iofwide.c (_IO_fwide): Simplify, as nl_langinfo is assumed.
+
+2000-08-22  Richard B. Kreckel  <Richard.Kreckel@Uni-Mainz.DE>
+
+	* config/cpu/alpha/bits/atomicity.h: Change __attribute__
+	((unused)) to __attribute__ ((__unused__)).
+	* config/cpu/arm/bits/atomicity.h: Same.
+	* config/cpu/generic/bits/atomicity.h: Same.
+	* config/cpu/i386/bits/atomicity.h: Same.
+	* config/cpu/i486/bits/atomicity.h: Same.
+	* config/cpu/powerpc/bits/atomicity.h: Same.
+	* config/cpu/sparc/sparc32/bits/atomicity.h: Same.
+	* config/cpu/sparc/sparc64/bits/atomicity.h: Same.
+
+2000-08-22  Levente Farkas  <lfarkas@mindmaker.hu>
+
+	* bits/basic_string.h: Fix up parameter names.
+
+2000-08-22  Brent Verner <brent@rcfile.org>
+
+	* src/Makefile.am (INCLUDES): Put $(CSHADOW_INCLUDES) before
+	$(top_srcdir)
+	* src/Makefile.in: Regenerate.
+	
+2000-08-21  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* bits/codecvt.h: Implement codecvt<wchar_t, char, mbstate_t>. Fix
+	up __enc_traits template so as to be marginally useful.
+	* src/codecvt.cc: And here.
+	* bits/char_traits: Tweak.
+	* bits/locale_facets.h: Tweak.
+	* bits/locale_facets.tcc: Tweak.
+	* bits/localefwd.h: Tweak.
+	* src/locale-inst.cc: Add use_facet/has_facet instantiations here.
+	* testsuite/22_locale/codecvt_wchar_t_cc.cc: New file.
+	* testsuite/22_locale/codecvt_char_char.cc: New file.
+	* testsuite/22_locale/codecvt_unicode_char.cc: New file.
+	
+2000-08-21  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* bits/std_cmath.h (std::abs): Overload for int and long.
+
+2000-08-20  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* src/string-inst.cc: Tweak instantiations for new-gxx-abi.
+
+2000-08-19  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bits/valarray_array.h (__valarray_min, __valarray_max): Fix
+	thinko. Diagnostic messages really need to be improved for
+	template argument deduction.
+
+2000-08-18  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* bits/valarray_meta.h: Fix typos...
+
+2000-08-18  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bits/valarray_meta.h (_Expr<>::shift, _Expr::cshift,
+	_Expr<>::apply): Implement. 
+
+2000-08-18  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bits/valarray_meta.h (_Expr<>::min, _Expr<>::max): Implement.
+
+	* bits/valarray_array.h (__valarray_min, __valarray_max): New
+	function. 
+
+2000-08-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* bits/localefwd.h (std::locale): Use explicit `class' specified
+	when declaring friends.
+	* bits/std_fstream.h (std::basic_filebuf): Likewise.
+
+2000-08-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* src/Makefile.am (libstdc++.INC): Renamed from INCLUDES.
+	* src/Makefile.in: Regenerate.
+
+2000-08-15  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* bits/codecvt.h: New file.
+	* src/codecvt.cc: New file.
+	* bits/std_locale.h: Add include here.
+	* src/Makefile.am (headers): Add codecvt.h
+	(sources): Add codecvt.cc.
+	* src/Makefile.in: Regenerate.
+	* bits/locale_facets.h (codecvt): Re-implement. Rename _Codecvt to
+	__codecvt_abstract_base in an attempt to point some light this way...
+	Move __enc_traits and codecvt bits to codecvt.h.
+	* src/locale-inst.cc: Remove codecvt<wchar_t, wchar_t, mbstate_t>
+	explicit instantiation. Separate out codecvt instantations, simplify.
+	* src/locale.cc: Move codecvt bits to codecvt.cc
+
+2000-08-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* src/Makefile.am (INCLUDES): New target file, with all -I flags.
+	* src/Makefile.in: Regenerate.
+
+2000-08-14  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	C/C++ io merge/sync.
+	* libio/fileops.c
+	* libio/genops.c
+	* libio/iofclose.c
+	* libio/iofopen.c
+	* libio/iofwide.c
+	* libio/libio.h
+	* libio/libioP.h
+	* libio/stdio.c
+	* libio/wfileops.c
+	* libio/wgenops.c
+	* config/c_io_libio.cc (__basic_file): Add hacky casts to
+	((struct _IO_FILE_plus *) in ctors.
+	(__basic_file<wchar_t>): Adjust _wide_data->_codecvt to just _codecvt.
+	* libio/Makefile.am: Fix copyright. Remove cleanup.c.
+	* libio/cleanup.c: Remove.
+	* libio/filedoalloc.c (_IO_file_doallocate): Don't call
+	_IO_cleanup_registration_needed, even if not libc.
+		
+	* testsuite/27_io/stringstream.cc (test02): Fix.
+
+2000-08-14  Brent Verner <brent@rcfile.org>
+
+	* testsuite/debug_assert.h: new file
+	* testsuite/*/*.cc: s/test\s*&=([^;]+);/VERIFY($1);/g
+	changed conditional #include <c?assert.?h?> to
+	unconditional #include <debug_assert.h>
+	* mkcheck.in: added $SRC_DIR/testsuite to include search path
+	for testsuite compile command.
+
+2000-08-14  Levente Farkas  <lfarkas@mindmaker.hu>
+
+	* bits/std_fstream.h: Remove duplicate typdefs for ofstream and
+	wofstream, filebuf, wfilebuf, fstream, wfstream.
+	* bits/std_streambuf.h: Same for streambuf, wstreambuf.
+	* bits/std_sstream.h: Same for stringstream and wstringstream.
+	Same for stringbuf, wstringbuf, istringstream, wistringstream,
+	ostringstream, wostringstream.
+	
+	* testsuite/26_numerics/valarray.cc: Add test.
+
+2000-08-14  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* configure: Regenerate after change to ../libtool.m4.
+
 2000-08-10  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
 
 	* bits/locale_facets.tcc: Formatting tweaks.

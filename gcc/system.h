@@ -464,6 +464,10 @@ extern int setrlimit PARAMS ((int, const struct rlimit *));
 extern void abort PARAMS ((void));
 #endif
 
+/* 1 if we have C99 designated initializers.  */
+#define HAVE_DESIGNATED_INITIALIZERS \
+  ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+
 /* Define a STRINGIFY macro that's right for ANSI or traditional C.
    Note: if the argument passed to STRINGIFY is itself a macro, eg
    #define foo bar, STRINGIFY(foo) will produce "foo", not "bar".
@@ -584,6 +588,13 @@ extern void abort PARAMS ((void));
 #else
 #define ONLY_INT_FIELDS 0
 #endif 
+
+/* Provide a default for the HOST_BIT_BUCKET.
+   This suffices for POSIX-like hosts.  */
+
+#ifndef HOST_BIT_BUCKET
+#define HOST_BIT_BUCKET "/dev/null"
+#endif
 
 /* Enumerated bitfields are safe to use unless we've been explictly told
    otherwise or if they are signed. */

@@ -4484,9 +4484,7 @@ mark_optab (arg)
 void
 init_optabs ()
 {
-  int i, j, k;
-
-  enum insn_code *p;
+  unsigned int i, j, k;
 
   /* Start by initializing all tables to contain CODE_FOR_nothing.  */
 

@@ -599,7 +599,6 @@ scan_loop (loop, flags)
   rtx loop_entry_jump = 0;
   /* Number of insns in the loop.  */
   int insn_count;
-  int in_libcall = 0;
   int tem;
   rtx temp, update_start, update_end;
   /* The SET from an insn, if it is the only SET in the insn.  */
@@ -753,11 +752,6 @@ scan_loop (loop, flags)
        p != NULL_RTX;
        p = next_insn_in_loop (loop, p))
     {
-      if (INSN_P (p) && find_reg_note (p, REG_LIBCALL, NULL_RTX))
-	in_libcall = 1;
-      else if (INSN_P (p) && find_reg_note (p, REG_RETVAL, NULL_RTX))
-	in_libcall = 0;
-
       if (GET_CODE (p) == INSN
 	  && (set = single_set (p))
 	  && GET_CODE (SET_DEST (set)) == REG
@@ -1046,9 +1040,8 @@ scan_loop (loop, flags)
 	}
       /* Past a call insn, we get to insns which might not be executed
 	 because the call might exit.  This matters for insns that trap.
-	 Call insns inside a REG_LIBCALL/REG_RETVAL block always return,
-	 so they don't count.  */
-      else if (GET_CODE (p) == CALL_INSN && ! in_libcall)
+	 Constant and pure call insns always return, so they don't count.  */
+      else if (GET_CODE (p) == CALL_INSN && ! CONST_CALL_P (p))
 	call_passed = 1;
       /* Past a label or a jump, we get to insns for which we
 	 can't count on whether or how many times they will be
@@ -9569,7 +9562,7 @@ load_mems (loop)
 		  && GET_CODE (SET_DEST (set)) == REG
 		  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
 		  && REGNO (SET_DEST (set)) < last_max_reg
-		  && VARRAY_INT (n_times_set, REGNO (SET_DEST (set))) == 1U
+		  && VARRAY_INT (n_times_set, REGNO (SET_DEST (set))) == 1
 		  && rtx_equal_p (SET_SRC (set), mem))
 		SET_REGNO_REG_SET (&load_copies, REGNO (SET_DEST (set)));
 
@@ -9583,7 +9576,7 @@ load_mems (loop)
  		  && GET_CODE (SET_SRC (set)) == REG
  		  && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER
  		  && REGNO (SET_SRC (set)) < last_max_reg
- 		  && VARRAY_INT (n_times_set, REGNO (SET_SRC (set))) == 1U
+ 		  && VARRAY_INT (n_times_set, REGNO (SET_SRC (set))) == 1
  		  && rtx_equal_p (SET_DEST (set), mem))
  		SET_REGNO_REG_SET (&store_copies, REGNO (SET_SRC (set)));
  	      

@@ -25,7 +25,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 Cleanups to do:-
 
 o Check line numbers assigned to all errors.
-o Replace strncmp with memcmp almost everywhere.
 o lex_line's use of cur_token, flags and list->token_used is a bit opaque.
 o Distinguish integers, floats, and 'other' pp-numbers.
 o Store ints and char constants as binary values.
@@ -226,34 +225,6 @@ _cpp_token_spellings [N_TTYPES] = {TTYPE_TABLE };
 #undef OP
 #undef TK
 
-/* The following table is used by trigraph_ok/trigraph_replace.  If we
-   have designated initializers, it can be constant data; otherwise,
-   it is set up at runtime by _cpp_init_input_buffer.  */
-
-#if (GCC_VERSION >= 2007)
-#define init_trigraph_map()  /* nothing */
-#define TRIGRAPH_MAP \
-__extension__ static const U_CHAR trigraph_map[UCHAR_MAX + 1] = {
-#define END };
-#define s(p, v) [p] = v,
-#else
-#define TRIGRAPH_MAP static U_CHAR trigraph_map[UCHAR_MAX + 1] = { 0 }; \
- static void init_trigraph_map PARAMS ((void)) { \
- unsigned char *x = trigraph_map;
-#define END }
-#define s(p, v) x[p] = v;
-#endif
-
-TRIGRAPH_MAP
-  s('=', '#')	s(')', ']')	s('!', '|')
-  s('(', '[')	s('\'', '^')	s('>', '}')
-  s('/', '\\')	s('<', '{')	s('-', '~')
-END
-
-#undef TRIGRAPH_MAP
-#undef END
-#undef s
-
 /* Notify the compiler proper that the current line number has jumped,
    or the current file name has changed.  */
 
@@ -328,7 +299,10 @@ cpp_printf VPARAMS ((cpp_reader *pfile, cpp_printer *print,
 
   /* End the previous line of text.  */
   if (pfile->need_newline)
-    putc ('\n', print->outf);
+    {
+      putc ('\n', print->outf);
+      print->lineno++;
+    }
   pfile->need_newline = 0;
 
   vfprintf (print->outf, fmt, ap);
@@ -392,14 +366,14 @@ cpp_scan_buffer (pfile, print)
 
       if (token->flags & BOL)
 	{
+	  output_line_command (pfile, print, pfile->token_list.line);
+	  prev = 0;
+
 	  if (token->type == CPP_HASH && pfile->token_list.directive)
 	    {
 	      process_directive (pfile, token);
 	      continue;
 	    }
-
-	  output_line_command (pfile, print, pfile->token_list.line);
-	  prev = 0;
 	}
 
       if (token->type != CPP_PLACEMARKER)
@@ -478,15 +452,16 @@ _cpp_expand_name_space (list, len)
   /* Fix up token text pointers.  */
   if (list->namebuf != old_namebuf)
     {
+      long delta = list->namebuf - old_namebuf;
       unsigned int i;
 
       for (i = 0; i < list->tokens_used; i++)
 	if (TOKEN_SPELL (&list->tokens[i]) == SPELL_STRING)
 	  {
-	    list->tokens[i].val.str.text += (list->namebuf - old_namebuf);
+	    list->tokens[i].val.str.text += delta;
 #if __BOUNDED_POINTERS__
-	    __ptrlow list->tokens[i].val.str.text += (list->namebuf - old_namebuf);
-	    __ptrhigh list->tokens[i].val.str.text += (list->namebuf - old_namebuf) + len;
+	    __ptrlow list->tokens[i].val.str.text += delta;
+	    __ptrhigh list->tokens[i].val.str.text += delta + len;
 #endif
 	  }
     }
@@ -764,7 +739,7 @@ trigraph_ok (pfile, end)
       if (accept)
 	cpp_warning_with_line (pfile, pfile->buffer->lineno, col, 
 			       "trigraph ??%c converted to %c",
-			       (int) *end, (int) trigraph_map[*end]);
+			       (int) *end, (int) _cpp_trigraph_map[*end]);
       else
 	cpp_warning_with_line (pfile, pfile->buffer->lineno, col,
 			       "trigraph ??%c ignored", (int) *end);
@@ -802,7 +777,7 @@ trigraph_replace (pfile, src, limit)
 	continue;
 
       /* Check if it really is a trigraph.  */
-      if (trigraph_map[src[2]] == 0)
+      if (_cpp_trigraph_map[src[2]] == 0)
 	continue;
 
       dest = src;
@@ -813,12 +788,12 @@ trigraph_replace (pfile, src, limit)
   /* Now we have a trigraph, we need to scan the remaining buffer, and
      copy-shifting its contents left if replacement is enabled.  */
   for (; src + 2 < limit; dest++, src++)
-    if ((*dest = *src) == '?' && src[1] == '?' && trigraph_map[src[2]])
+    if ((*dest = *src) == '?' && src[1] == '?' && _cpp_trigraph_map[src[2]])
       {
       trigraph_found:
 	src += 2;
 	if (trigraph_ok (pfile, pfile->buffer->cur - (limit - src)))
-	  *dest = trigraph_map[*src];
+	  *dest = _cpp_trigraph_map[*src];
       }
   
   /* Copy remaining (at most 2) characters.  */
@@ -1729,7 +1704,7 @@ lex_line (pfile, list)
 
 	case '?':
 	  if (cur + 1 < buffer->rlimit && *cur == '?'
-	      && trigraph_map[cur[1]] && trigraph_ok (pfile, cur + 1))
+	      && _cpp_trigraph_map[cur[1]] && trigraph_ok (pfile, cur + 1))
 	    {
 	      /* Handle trigraph.  */
 	      cur++;
@@ -3199,6 +3174,11 @@ _cpp_get_token (pfile)
 	 be taken as a control macro.  */
       pfile->potential_control_macro = 0;
 
+      /* If we are rescanning preprocessed input, no macro expansion or
+	 token pasting may occur.  */
+      if (CPP_OPTION (pfile, preprocessed))
+	return token;
+
       old_token = token;
 
       /* See if there's a token to paste with this one.  */
@@ -3552,7 +3532,7 @@ special_symbol (pfile, node, token)
 }
 #undef DSC
 
-/* Allocate pfile->input_buffer, and initialize trigraph_map[]
+/* Allocate pfile->input_buffer, and initialize _cpp_trigraph_map[]
    if it hasn't happened already.  */
 
 void
@@ -3561,7 +3541,6 @@ _cpp_init_input_buffer (pfile)
 {
   cpp_context *base;
 
-  init_trigraph_map ();
   _cpp_init_toklist (&pfile->token_list, DUMMY_TOKEN);
   pfile->no_expand_level = UINT_MAX;
   pfile->context_cap = 20;

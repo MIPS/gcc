@@ -103,8 +103,8 @@ static void ia64_compute_frame_size PARAMS ((HOST_WIDE_INT));
 static void setup_spill_pointers PARAMS ((int, rtx, HOST_WIDE_INT));
 static void finish_spill_pointers PARAMS ((void));
 static rtx spill_restore_mem PARAMS ((rtx, HOST_WIDE_INT));
-static void do_spill PARAMS ((rtx (*)(rtx, rtx), rtx, HOST_WIDE_INT, rtx));
-static void do_restore PARAMS ((rtx (*)(rtx, rtx), rtx, HOST_WIDE_INT));
+static void do_spill PARAMS ((rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT, rtx));
+static void do_restore PARAMS ((rtx (*)(rtx, rtx, rtx), rtx, HOST_WIDE_INT));
 
 static enum machine_mode hfa_element_mode PARAMS ((tree, int));
 static void fix_range PARAMS ((const char *));
@@ -314,6 +314,18 @@ reg_or_0_operand (op, mode)
      enum machine_mode mode;
 {
   return (op == const0_rtx || register_operand (op, mode));
+}
+
+/* Return 1 if OP is a register operand, or a 5 bit immediate operand.  */
+
+int
+reg_or_5bit_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return ((GET_CODE (op) == CONST_INT && INTVAL (op) >= 0 && INTVAL (op) < 32)
+	  || GET_CODE (op) == CONSTANT_P_RTX
+	  || register_operand (op, mode));
 }
 
 /* Return 1 if OP is a register operand, or a 6 bit immediate operand.  */
@@ -570,6 +582,46 @@ ar_ccv_reg_operand (op, mode)
 	  && GET_CODE (op) == REG
 	  && REGNO (op) == AR_CCV_REGNUM);
 }
+
+/* Like general_operand, but don't allow (mem (addressof)).  */
+
+int
+general_tfmode_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (! general_operand (op, mode))
+    return 0;
+  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == ADDRESSOF)
+    return 0;
+  return 1;
+}
+
+/* Similarly.  */
+
+int
+destination_tfmode_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (! destination_operand (op, mode))
+    return 0;
+  if (GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) == ADDRESSOF)
+    return 0;
+  return 1;
+}
+
+/* Similarly.  */
+
+int
+tfreg_or_fp01_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) == SUBREG)
+    return 0;
+  return reg_or_fp01_operand (op, mode);
+}
 
 /* Return 1 if the operands of a move are ok.  */
 
@@ -593,6 +645,23 @@ ia64_move_ok (dst, src)
     return src == const0_rtx;
   else
     return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
+}
+
+/* Check if OP is a mask suitible for use with SHIFT in a dep.z instruction.
+   Return the length of the field, or <= 0 on failure.  */
+
+int
+ia64_depz_field_mask (rop, rshift)
+     rtx rop, rshift;
+{
+  unsigned HOST_WIDE_INT op = INTVAL (rop);
+  unsigned HOST_WIDE_INT shift = INTVAL (rshift);
+
+  /* Get rid of the zero bits we're shifting in.  */
+  op >>= shift;
+
+  /* We must now have a solid block of 1's at bit 0.  */
+  return exact_log2 (op + 1);
 }
 
 /* Expand a symbolic constant load.  */
@@ -680,6 +749,106 @@ ia64_gp_save_reg (setjmp_p)
     }
 
   return save;
+}
+
+/* Split a post-reload TImode reference into two DImode components.  */
+
+rtx
+ia64_split_timode (out, in, scratch)
+     rtx out[2];
+     rtx in, scratch;
+{
+  switch (GET_CODE (in))
+    {
+    case REG:
+      out[0] = gen_rtx_REG (DImode, REGNO (in));
+      out[1] = gen_rtx_REG (DImode, REGNO (in) + 1);
+      return NULL_RTX;
+
+    case MEM:
+      {
+	HOST_WIDE_INT offset;
+	rtx base = XEXP (in, 0);
+	rtx offset_rtx;
+
+	switch (GET_CODE (base))
+	  {
+	  case REG:
+	    out[0] = change_address (in, DImode, NULL_RTX);
+	    break;
+	  case POST_MODIFY:
+	    base = XEXP (base, 0);
+	    out[0] = change_address (in, DImode, NULL_RTX);
+	    break;
+
+	  /* Since we're changing the mode, we need to change to POST_MODIFY
+	     as well to preserve the size of the increment.  Either that or
+	     do the update in two steps, but we've already got this scratch
+	     register handy so let's use it.  */
+	  case POST_INC:
+	    base = XEXP (base, 0);
+	    out[0] = change_address (in, DImode,
+	      gen_rtx_POST_MODIFY (Pmode, base,plus_constant (base, 16)));
+	    break;
+	  case POST_DEC:
+	    base = XEXP (base, 0);
+	    out[0] = change_address (in, DImode,
+	      gen_rtx_POST_MODIFY (Pmode, base,plus_constant (base, -16)));
+	    break;
+	  default:
+	    abort ();
+	  }
+
+	if (scratch == NULL_RTX)
+	  abort ();
+	out[1] = change_address (in, DImode, scratch);
+	return gen_adddi3 (scratch, base, GEN_INT (8));
+      }
+
+    case CONST_INT:
+    case CONST_DOUBLE:
+      split_double (in, &out[0], &out[1]);
+      return NULL_RTX;
+
+    default:
+      abort ();
+    }
+}
+
+/* ??? Fixing GR->FR TFmode moves during reload is hard.  You need to go
+   through memory plus an extra GR scratch register.  Except that you can
+   either get the first from SECONDARY_MEMORY_NEEDED or the second from
+   SECONDARY_RELOAD_CLASS, but not both.
+
+   We got into problems in the first place by allowing a construct like
+   (subreg:TF (reg:TI)), which we got from a union containing a long double.  
+   This solution attempts to prevent this situation from ocurring.  When
+   we see something like the above, we spill the inner register to memory.  */
+
+rtx
+spill_tfmode_operand (in, force)
+     rtx in;
+     int force;
+{
+  if (GET_CODE (in) == SUBREG
+      && GET_MODE (SUBREG_REG (in)) == TImode
+      && GET_CODE (SUBREG_REG (in)) == REG)
+    {
+      rtx mem = gen_mem_addressof (SUBREG_REG (in), NULL_TREE);
+      return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
+    }
+  else if (force && GET_CODE (in) == REG)
+    {
+      rtx mem = gen_mem_addressof (in, NULL_TREE);
+      return gen_rtx_MEM (TFmode, copy_to_reg (XEXP (mem, 0)));
+    }
+  else if (GET_CODE (in) == MEM
+	   && GET_CODE (XEXP (in, 0)) == ADDRESSOF)
+    {
+      return change_address (in, TFmode, copy_to_reg (XEXP (in, 0)));
+    }
+  else
+    return in;
 }
 
 /* Begin the assembly file.  */
@@ -1258,8 +1427,14 @@ spill_restore_mem (reg, cfa_off)
 	spill_fill_data.init_after
 	  = emit_insn_after (seq, spill_fill_data.init_after);
       else
-	spill_fill_data.init_after
-	  = emit_insn_before (seq, get_insns ());
+	{
+	  rtx first = get_insns ();
+	  if (first)
+	    spill_fill_data.init_after
+	      = emit_insn_before (seq, first);
+	  else
+	    spill_fill_data.init_after = emit_insn (seq);
+	}
     }
 
   mem = gen_rtx_MEM (GET_MODE (reg), spill_fill_data.iter_reg[iter]);
@@ -1281,14 +1456,14 @@ spill_restore_mem (reg, cfa_off)
 
 static void
 do_spill (move_fn, reg, cfa_off, frame_reg)
-     rtx (*move_fn) PARAMS ((rtx, rtx));
+     rtx (*move_fn) PARAMS ((rtx, rtx, rtx));
      rtx reg, frame_reg;
      HOST_WIDE_INT cfa_off;
 {
   rtx mem, insn;
 
   mem = spill_restore_mem (reg, cfa_off);
-  insn = emit_insn ((*move_fn) (mem, reg));
+  insn = emit_insn ((*move_fn) (mem, reg, GEN_INT (cfa_off)));
 
   if (frame_reg)
     {
@@ -1324,13 +1499,41 @@ do_spill (move_fn, reg, cfa_off, frame_reg)
 
 static void
 do_restore (move_fn, reg, cfa_off)
-     rtx (*move_fn) PARAMS ((rtx, rtx));
+     rtx (*move_fn) PARAMS ((rtx, rtx, rtx));
      rtx reg;
      HOST_WIDE_INT cfa_off;
 {
-  emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off)));
+  emit_insn ((*move_fn) (reg, spill_restore_mem (reg, cfa_off),
+			 GEN_INT (cfa_off)));
 }
 
+/* Wrapper functions that discards the CONST_INT spill offset.  These
+   exist so that we can give gr_spill/gr_fill the offset they need and
+   use a consistant function interface.  */
+
+static rtx
+gen_movdi_x (dest, src, offset)
+     rtx dest, src;
+     rtx offset ATTRIBUTE_UNUSED;
+{
+  return gen_movdi (dest, src);
+}
+
+static rtx
+gen_fr_spill_x (dest, src, offset)
+     rtx dest, src;
+     rtx offset ATTRIBUTE_UNUSED;
+{
+  return gen_fr_spill (dest, src);
+}
+
+static rtx
+gen_fr_restore_x (dest, src, offset)
+     rtx dest, src;
+     rtx offset ATTRIBUTE_UNUSED;
+{
+  return gen_fr_restore (dest, src);
+}
 
 /* Called after register allocation to add any instructions needed for the
    prologue.  Using a prologue insn is favored compared to putting all of the
@@ -1532,11 +1735,7 @@ ia64_expand_prologue ()
   for (regno = GR_ARG_FIRST + 7; n_varargs > 0; --n_varargs, --regno)
     {
       reg = gen_rtx_REG (DImode, regno);
-
-      /* ??? These aren't really "frame related" in the unwind sense,
-	 but marking them so gives us the chance to emit .mem.offset
-	 markers so that we don't get assembler WAW warnings.  */
-      do_spill (gen_gr_spill, reg, cfa_off += 8, reg);
+      do_spill (gen_gr_spill, reg, cfa_off += 8, NULL_RTX);
     }
 
   /* Locate the bottom of the register save area.  */
@@ -1571,7 +1770,7 @@ ia64_expand_prologue ()
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
 	  insn = emit_move_insn (alt_reg, reg);
-	  do_spill (gen_movdi, alt_reg, cfa_off, reg);
+	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
 	  cfa_off -= 8;
 	}
     }
@@ -1581,7 +1780,7 @@ ia64_expand_prologue ()
       && current_frame_info.reg_save_ar_unat == 0)
     {
       reg = gen_rtx_REG (DImode, AR_UNAT_REGNUM);
-      do_spill (gen_movdi, ar_unat_save_reg, cfa_off, reg);
+      do_spill (gen_movdi_x, ar_unat_save_reg, cfa_off, reg);
       cfa_off -= 8;
     }
 
@@ -1592,7 +1791,7 @@ ia64_expand_prologue ()
       && ! current_function_is_leaf)
     {
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
-      do_spill (gen_movdi, ar_pfs_save_reg, cfa_off, reg);
+      do_spill (gen_movdi_x, ar_pfs_save_reg, cfa_off, reg);
       cfa_off -= 8;
     }
 
@@ -1615,7 +1814,7 @@ ia64_expand_prologue ()
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
 	  emit_move_insn (alt_reg, reg);
-	  do_spill (gen_movdi, alt_reg, cfa_off, reg);
+	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
 	  cfa_off -= 8;
 	}
     }
@@ -1655,7 +1854,7 @@ ia64_expand_prologue ()
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
 	  emit_move_insn (alt_reg, reg);
-	  do_spill (gen_movdi, alt_reg, cfa_off, reg);
+	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
 	  cfa_off -= 8;
 	}
     }
@@ -1668,7 +1867,7 @@ ia64_expand_prologue ()
 	alt_reg = gen_rtx_REG (DImode, alt_regno);
 	reg = gen_rtx_REG (DImode, regno);
 	emit_move_insn (alt_reg, reg);
-	do_spill (gen_movdi, alt_reg, cfa_off, reg);
+	do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
 	cfa_off -= 8;
       }
 
@@ -1678,8 +1877,8 @@ ia64_expand_prologue ()
       {
         if (cfa_off & 15)
 	  abort ();
-	reg = gen_rtx_REG (XFmode, regno);
-	do_spill (gen_fr_spill, reg, cfa_off, reg);
+	reg = gen_rtx_REG (TFmode, regno);
+	do_spill (gen_fr_spill_x, reg, cfa_off, reg);
 	cfa_off -= 16;
       }
 
@@ -1736,7 +1935,7 @@ ia64_expand_epilogue ()
 	{
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  do_restore (gen_movdi, alt_reg, cfa_off);
+	  do_restore (gen_movdi_x, alt_reg, cfa_off);
 	  cfa_off -= 8;
 	}
       reg = gen_rtx_REG (DImode, PR_REG (0));
@@ -1757,7 +1956,7 @@ ia64_expand_epilogue ()
 	  alt_regno = next_scratch_gr_reg ();
 	  ar_unat_save_reg = gen_rtx_REG (DImode, alt_regno);
 	  current_frame_info.gr_used_mask |= 1 << alt_regno;
-	  do_restore (gen_movdi, ar_unat_save_reg, cfa_off);
+	  do_restore (gen_movdi_x, ar_unat_save_reg, cfa_off);
 	  cfa_off -= 8;
 	}
     }
@@ -1774,7 +1973,7 @@ ia64_expand_epilogue ()
     {
       alt_regno = next_scratch_gr_reg ();
       alt_reg = gen_rtx_REG (DImode, alt_regno);
-      do_restore (gen_movdi, alt_reg, cfa_off);
+      do_restore (gen_movdi_x, alt_reg, cfa_off);
       cfa_off -= 8;
       reg = gen_rtx_REG (DImode, AR_PFS_REGNUM);
       emit_move_insn (reg, alt_reg);
@@ -1788,7 +1987,7 @@ ia64_expand_epilogue ()
 	{
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  do_restore (gen_movdi, alt_reg, cfa_off);
+	  do_restore (gen_movdi_x, alt_reg, cfa_off);
 	  cfa_off -= 8;
 	}
       reg = gen_rtx_REG (DImode, AR_LC_REGNUM);
@@ -1819,7 +2018,7 @@ ia64_expand_epilogue ()
 	{
 	  alt_regno = next_scratch_gr_reg ();
 	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  do_restore (gen_movdi, alt_reg, cfa_off);
+	  do_restore (gen_movdi_x, alt_reg, cfa_off);
 	  cfa_off -= 8;
 	}
       reg = gen_rtx_REG (DImode, BR_REG (0));
@@ -1831,7 +2030,7 @@ ia64_expand_epilogue ()
       {
 	alt_regno = next_scratch_gr_reg ();
 	alt_reg = gen_rtx_REG (DImode, alt_regno);
-	do_restore (gen_movdi, alt_reg, cfa_off);
+	do_restore (gen_movdi_x, alt_reg, cfa_off);
 	cfa_off -= 8;
 	reg = gen_rtx_REG (DImode, regno);
 	emit_move_insn (reg, alt_reg);
@@ -1843,8 +2042,8 @@ ia64_expand_epilogue ()
       {
         if (cfa_off & 15)
 	  abort ();
-	reg = gen_rtx_REG (XFmode, regno);
-	do_restore (gen_fr_restore, reg, cfa_off);
+	reg = gen_rtx_REG (TFmode, regno);
+	do_restore (gen_fr_restore_x, reg, cfa_off);
 	cfa_off -= 16;
       }
 
@@ -2280,7 +2479,6 @@ ia64_function_arg (cum, mode, type, named, incoming)
 				      gen_rtx_REG (hfa_mode, (FR_ARG_FIRST
 							      + fp_regs)),
 				      GEN_INT (offset));
-	  /* ??? Padding for XFmode type?  */
 	  offset += hfa_size;
 	  args_byte_size += hfa_size;
 	  fp_regs++;
@@ -2460,7 +2658,6 @@ ia64_function_arg_advance (cum, mode, type, named)
       for (; (offset < byte_size && fp_regs < MAX_ARGUMENT_SLOTS
 	      && args_byte_size < (MAX_ARGUMENT_SLOTS * UNITS_PER_WORD));)
 	{
-	  /* ??? Padding for XFmode type?  */
 	  offset += hfa_size;
 	  args_byte_size += hfa_size;
 	  fp_regs++;
@@ -2562,7 +2759,6 @@ ia64_return_in_memory (valtype)
     {
       int hfa_size = GET_MODE_SIZE (hfa_mode);
 
-      /* ??? Padding for XFmode type?  */
       if (byte_size / hfa_size > MAX_ARGUMENT_SLOTS)
 	return 1;
       else
@@ -2605,7 +2801,6 @@ ia64_function_value (valtype, func)
 	  loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
 				      gen_rtx_REG (hfa_mode, FR_ARG_FIRST + i),
 				      GEN_INT (offset));
-	  /* ??? Padding for XFmode type?  */
 	  offset += hfa_size;
 	}
 
@@ -2758,19 +2953,10 @@ ia64_print_operand (file, x, code)
 
 	  case POST_INC:
 	    value = GET_MODE_SIZE (GET_MODE (x));
-
-	    /* ??? This is for ldf.fill and stf.spill which use XFmode,
-	       but which actually need 16 bytes increments.  Perhaps we
-	       can change them to use TFmode instead.  Or don't use
-	       POST_DEC/POST_INC for them.  */
-	    if (value == 12)
-	      value = 16;
 	    break;
 
 	  case POST_DEC:
 	    value = - (HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (x));
-	    if (value == -12)
-	      value = -16;
 	    break;
 	  }
 
@@ -2906,16 +3092,27 @@ ia64_register_move_cost (from, to)
 {
   int from_hard, to_hard;
   int from_gr, to_gr;
+  int from_fr, to_fr;
 
   from_hard = (from == BR_REGS || from == AR_M_REGS || from == AR_I_REGS);
   to_hard = (to == BR_REGS || to == AR_M_REGS || to == AR_I_REGS);
   from_gr = (from == GENERAL_REGS);
   to_gr = (to == GENERAL_REGS);
+  from_fr = (from == FR_REGS);
+  to_fr = (to == FR_REGS);
 
   if (from_hard && to_hard)
     return 8;
   else if ((from_hard && !to_gr) || (!from_gr && to_hard))
     return 6;
+
+  /* ??? Moving from FR<->GR must be more expensive than 2, so that we get
+     secondary memory reloads for TFmode moves.  Unfortunately, we don't
+     have the mode here, so we can't check that.  */
+  /* Moreover, we have to make this at least as high as MEMORY_MOVE_COST
+     to avoid spectacularly poor register class preferencing for TFmode.  */
+  else if (from_fr != to_fr)
+    return 5;
 
   return 2;
 }
@@ -2991,6 +3188,13 @@ ia64_secondary_reload_class (class, mode, x)
 	 common for C++ programs that use exceptions.  To reproduce,
 	 return NO_REGS and compile libstdc++.  */
       if (GET_CODE (x) == MEM)
+	return GR_REGS;
+      break;
+
+    case GR_REGS:
+      /* Since we have no offsettable memory addresses, we need a temporary
+	 to hold the address of the second word.  */
+      if (mode == TImode)
 	return GR_REGS;
       break;
 
@@ -3172,7 +3376,8 @@ ia64_override_options ()
 /* This is used for volatile asms which may require a stop bit immediately
    before and after them.  */
 #define REG_VOLATILE	(FIRST_PSEUDO_REGISTER + 2)
-#define NUM_REGS	(FIRST_PSEUDO_REGISTER + 3)
+#define AR_UNAT_BIT_0	(FIRST_PSEUDO_REGISTER + 3)
+#define NUM_REGS	(AR_UNAT_BIT_0 + 64)
 
 /* For each register, we keep track of how many times it has been
    written in the current instruction group.  If a register is written
@@ -3545,7 +3750,13 @@ rtx_needs_barrier (x, flags, pred)
       x = SUBREG_REG (x);
       /* FALLTHRU */
     case REG:
-      need_barrier = rws_access_reg (x, flags, pred);
+      if (REGNO (x) == AR_UNAT_REGNUM)
+	{
+	  for (i = 0; i < 64; ++i)
+	    need_barrier |= rws_access_regno (AR_UNAT_BIT_0 + i, flags, pred);
+	}
+      else
+	need_barrier = rws_access_reg (x, flags, pred);
       break;
 
     case MEM:
@@ -3601,11 +3812,19 @@ rtx_needs_barrier (x, flags, pred)
     case UNSPEC:
       switch (XINT (x, 1))
 	{
-	  /* ??? For the st8.spill/ld8.fill instructions, we can ignore unat
-	     dependencies as long as we don't have both a spill and fill in
-	     the same instruction group.  We need to check for that.  */
 	case 1: /* st8.spill */
 	case 2: /* ld8.fill */
+	  {
+	    HOST_WIDE_INT offset = INTVAL (XVECEXP (x, 0, 1));
+	    HOST_WIDE_INT bit = (offset >> 3) & 63;
+
+	    need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
+	    new_flags.is_write = (XINT (x, 1) == 1);
+	    need_barrier |= rws_access_regno (AR_UNAT_BIT_0 + bit,
+					      new_flags, pred);
+	    break;
+	  }
+	  
 	case 3: /* stf.spill */
 	case 4: /* ldf.spill */
 	case 8: /* popcnt */
@@ -3715,6 +3934,21 @@ emit_insn_group_barriers (insns)
       switch (GET_CODE (insn))
 	{
 	case NOTE:
+	  /* For very small loops we can wind up with extra stop bits
+	     inside the loop because of not putting a stop after the
+	     assignment to ar.lc before the loop label.  */
+	  /* ??? Ideally we'd do this for any register used in the first
+	     insn group that's been written recently.  */
+          if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
+	    {
+	      need_barrier = rws_access_regno (AR_LC_REGNUM, flags, 0);
+	      if (need_barrier)
+		{
+		  emit_insn_after (gen_insn_group_barrier (), insn);
+		  memset (rws_sum, 0, sizeof(rws_sum));
+		  prev_insn = NULL_RTX;
+		}
+	    }
 	  break;
 
 	case CALL_INSN:
@@ -3773,16 +4007,36 @@ emit_insn_group_barriers (insns)
 	    {
 	      rtx pat = PATTERN (insn);
 
-	      /* We play dependency tricks with the epilogue in order to
-		 get proper schedules.  Undo this for dv analysis.  */
-	      if (INSN_CODE (insn) == CODE_FOR_epilogue_deallocate_stack)
-		pat = XVECEXP (pat, 0, 0);
+	      /* Ug.  Hack hacks hacked elsewhere.  */
+	      switch (INSN_CODE (insn))
+		{
+		  /* We play dependency tricks with the epilogue in order
+		     to get proper schedules.  Undo this for dv analysis.  */
+		case CODE_FOR_epilogue_deallocate_stack:
+		  pat = XVECEXP (pat, 0, 0);
+		  break;
 
-	      /* ??? Similarly, the pattern we use for br.cloop
-		 confuses the code above.  The second element of the
-		 vector is representative.  */
-	      else if (INSN_CODE (insn) == CODE_FOR_doloop_end_internal)
-		pat = XVECEXP (pat, 0, 1);
+		  /* The pattern we use for br.cloop confuses the code above.
+		     The second element of the vector is representative.  */
+		case CODE_FOR_doloop_end_internal:
+		  pat = XVECEXP (pat, 0, 1);
+		  break;
+
+		  /* We include ar.unat in the rtl pattern so that sched2
+		     does not move the ar.unat save/restore after/before
+		     a gr spill/fill.  However, we special case these
+		     insns based on their unspec number so as to model
+		     their precise ar.unat bit operations.  If we pass on
+		     the use/clobber of the whole ar.unat register we'll
+		     waste this effort.  */
+		case CODE_FOR_gr_spill_internal:
+		case CODE_FOR_gr_restore_internal:
+		  pat = XVECEXP (pat, 0, 0);
+		  break;
+
+		default:
+		  break;
+		}
 
 	      memset (rws_insn, 0, sizeof (rws_insn));
 	      need_barrier |= rtx_needs_barrier (pat, flags, 0);
@@ -4235,20 +4489,6 @@ process_set (asm_out_file, pat)
 	case GR_REG (7):
 	  fprintf (asm_out_file, "\t.save.g 0x%x\n",
 		   1 << (src_regno - GR_REG (4)));
-	  /* FALLTHRU */
-
-	case GR_ARG_FIRST + 0:
-	case GR_ARG_FIRST + 1:
-	case GR_ARG_FIRST + 2:
-	case GR_ARG_FIRST + 3:
-	case GR_ARG_FIRST + 4:
-	case GR_ARG_FIRST + 5:
-	case GR_ARG_FIRST + 6:
-	case GR_ARG_FIRST + 7:
-	  /* ??? These aren't really "frame related" in the unwind sense,
-	     but marking them so gives us the chance to emit .mem.offset
-	     markers so that we don't get assembler WAW warnings.  */
-	  fprintf (asm_out_file, "\t.mem.offset %ld, 0\n", off);
 	  return 1;
 
 	case BR_REG (1):

@@ -1,3 +1,55 @@
+2000-08-23  Alexandre Oliva  <aoliva@redhat.com>
+
+	* MAINTAINERS: Add self as a build machinery (*.in) maintainer.
+
+2000-08-22  DJ Delorie  <dj@redhat.com>
+
+	* MAINTAINERS: Add self as a build machinery (*.in) maintainer
+
+2000-08-22  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config-ml.in (CC, CXX): Avoid trailing whitespace.
+	(LD_LIBRARY_PATH, SHLIB_PATH): Adjust for multilibs and export to
+	sub-configures.
+
+2000-08-21  DJ Delorie  <dj@redhat.com>
+
+	* MAINTAINERS: Add self as a libiberty maintainer
+
+2000-08-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (libstdcxx_flags): Use
+	libstdc++-v3/src/libstdc++.INC.
+
+2000-08-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (libstdcxx_flags): Use libstdc++-v3/src/INCLUDES.
+
+2000-08-14  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* configure.in (libstdcxx_flags): Remove -isystem $$s/libio/stdio.
+
+	* configure: Make enable_threads and enable_shared defaults  
+	explicit.  Substitute enable_threads into generated Makefiles.
+	* configure.in: Accept *-*-linux* not just *-*-linux-gnu*.
+	* libtool.m4: Accept *-*-linux* not just *-*-linux-gnu*.
+
+2000-08-13  Geoff Keating  <geoffk@cygnus.com>
+
+	* Makefile.in (GCC_FOR_TARGET): Also add -B$$r/gcc/ here.
+
+2000-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config-ml.in (CC): Remove bogus duplicate quotation mark from
+	previous delta.
+
+2000-08-11  Jason Merrill  <jason@redhat.com>
+
+	* configure.in (CC_FOR_TARGET, CHILL_FOR_TARGET,
+	CXX_FOR_TARGET): Add -B$$r/gcc/ here.
+	(FLAGS_FOR_TARGET): Not here.
+	(CHILL_FOR_TARGET, CXX_FOR_TARGET): Don't check the list of languages.
+
 2000-08-11  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config-ml.in (CC, CXX): Don't introduce a leading space.

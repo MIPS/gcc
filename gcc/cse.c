@@ -1244,6 +1244,19 @@ insert_regs (x, classp, modified)
 		  return 1;
 		}
 
+	  /* Mention_regs for a SUBREG checks if REG_TICK is exactly one larger
+	     than REG_IN_TABLE to find out if there was only a single preceding
+	     invalidation - for the SUBREG - or another one, which would be
+	     for the full register.  However, if we find here that REG_TICK
+	     indicates that the register is invalid, it means that it has
+	     been invalidated in a separate operation.  The SUBREG might be used
+	     now (then this is a recursive call), or we might use the full REG
+	     now and a SUBREG of it later.  So bump up REG_TICK so that
+	     mention_regs will do the right thing.  */
+	  if (! modified
+	      && REG_IN_TABLE (regno) >= 0
+	      && REG_TICK (regno) == REG_IN_TABLE (regno) + 1)
+	    REG_TICK (regno)++;
 	  make_new_qty (regno, GET_MODE (x));
 	  return 1;
 	}
@@ -1260,18 +1273,7 @@ insert_regs (x, classp, modified)
   else if (GET_CODE (x) == SUBREG && GET_CODE (SUBREG_REG (x)) == REG
 	   && ! REGNO_QTY_VALID_P (REGNO (SUBREG_REG (x))))
     {
-      unsigned int regno = REGNO (SUBREG_REG (x));
-
       insert_regs (SUBREG_REG (x), NULL_PTR, 0);
-      /* Mention_regs checks if REG_TICK is exactly one larger than
-	 REG_IN_TABLE to find out if there was only a single preceding
-	 invalidation - for the SUBREG - or another one, which would be
-	 for the full register.  Since we don't invalidate the SUBREG
-	 here first, we might have to bump up REG_TICK so that mention_regs
-	 will do the right thing.  */
-      if (REG_IN_TABLE (regno) >= 0
-	  && REG_TICK (regno) == REG_IN_TABLE (regno) + 1)
-	REG_TICK (regno)++;
       mention_regs (x);
       return 1;
     }
@@ -1952,7 +1954,7 @@ remove_invalid_subreg_refs (regno, word, mode)
 		|| (((SUBREG_WORD (exp)
 		      + (GET_MODE_SIZE (GET_MODE (exp)) - 1) / UNITS_PER_WORD)
 		     >= word)
-		 && SUBREG_WORD (exp) <= end))
+		    && SUBREG_WORD (exp) <= end))
 	    && refers_to_regno_p (regno, regno + 1, p->exp, NULL_PTR))
 	  remove_from_table (p, i);
       }
@@ -2240,13 +2242,11 @@ canon_hash (x, mode)
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
-      hash
-	+= ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
+      hash += ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
       return hash;
 
     case SYMBOL_REF:
-      hash
-	+= ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
+      hash += ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
       return hash;
 
     case MEM:
@@ -2329,7 +2329,8 @@ canon_hash (x, mode)
 	  hash += tem;
 	}
       else if (fmt[i] == '0' || fmt[i] == 't')
-	/* unused */;
+	/* Unused.  */
+	;
       else
 	abort ();
     }
@@ -3200,8 +3201,7 @@ fold_rtx (x, insn)
 	      && GET_MODE_SIZE (imode) <= UNITS_PER_WORD
 	      && (elt = lookup (SUBREG_REG (x), HASH (SUBREG_REG (x), imode),
 				imode)) != 0)
-	    for (elt = elt->first_same_value;
-		 elt; elt = elt->next_same_value)
+	    for (elt = elt->first_same_value; elt; elt = elt->next_same_value)
 	      {
 		if (CONSTANT_P (elt->exp)
 		    && GET_MODE (elt->exp) == VOIDmode)
@@ -3644,7 +3644,7 @@ fold_rtx (x, insn)
 	if (fmt[i] == 'E')
 	  /* Don't try to fold inside of a vector of expressions.
 	     Doing nothing is harmless.  */
-	  ;
+	  {;}
       }
 
   /* If a commutative operation, place a constant integer as the second
@@ -3858,7 +3858,19 @@ fold_rtx (x, insn)
 	    }
 	}
 
-      new = simplify_relational_operation (code, mode_arg0,
+      new = simplify_relational_operation (code,
+					   (mode_arg0 != VOIDmode
+					    ? mode_arg0
+					    : (GET_MODE (const_arg0
+							 ? const_arg0
+							 : folded_arg0)
+					       != VOIDmode)
+					    ? GET_MODE (const_arg0
+							? const_arg0
+							: folded_arg0)
+					    : GET_MODE (const_arg1
+							? const_arg1
+							: folded_arg1)),
 					   const_arg0 ? const_arg0 : folded_arg0,
 					   const_arg1 ? const_arg1 : folded_arg1);
 #ifdef FLOAT_STORE_FLAG_VALUE
@@ -3886,7 +3898,7 @@ fold_rtx (x, insn)
 	    {
 	      rtx y
 		= GET_CODE (folded_arg0) == MINUS ? folded_arg0
-		  : lookup_as_function (folded_arg0, MINUS);
+		: lookup_as_function (folded_arg0, MINUS);
 
 	      if (y != 0 && GET_CODE (XEXP (y, 1)) == LABEL_REF
 		  && XEXP (XEXP (y, 1), 0) == XEXP (const_arg1, 0))
@@ -3897,7 +3909,7 @@ fold_rtx (x, insn)
 			: lookup_as_function (folded_arg0, CONST))) != 0
 		  && GET_CODE (XEXP (y, 0)) == MINUS
 		  && GET_CODE (XEXP (XEXP (y, 0), 1)) == LABEL_REF
-		  && XEXP (XEXP (XEXP (y, 0),1), 0) == XEXP (const_arg1, 0))
+		  && XEXP (XEXP (XEXP (y, 0), 1), 0) == XEXP (const_arg1, 0))
 		return XEXP (XEXP (y, 0), 0);
 	    }
 
@@ -3906,7 +3918,7 @@ fold_rtx (x, insn)
 	    {
 	      rtx y
 		= GET_CODE (folded_arg1) == MINUS ? folded_arg1
-		  : lookup_as_function (folded_arg1, MINUS);
+		: lookup_as_function (folded_arg1, MINUS);
 
 	      if (y != 0 && GET_CODE (XEXP (y, 1)) == LABEL_REF
 		  && XEXP (XEXP (y, 1), 0) == XEXP (const_arg0, 0))
@@ -3917,7 +3929,7 @@ fold_rtx (x, insn)
 			: lookup_as_function (folded_arg1, CONST))) != 0
 		  && GET_CODE (XEXP (y, 0)) == MINUS
 		  && GET_CODE (XEXP (XEXP (y, 0), 1)) == LABEL_REF
-		  && XEXP (XEXP (XEXP (y, 0),1), 0) == XEXP (const_arg0, 0))
+		  && XEXP (XEXP (XEXP (y, 0), 1), 0) == XEXP (const_arg0, 0))
 		return XEXP (XEXP (y, 0), 0);
 	    }
 
@@ -3935,7 +3947,7 @@ fold_rtx (x, insn)
 	      && INTVAL (const_arg1) < 0
 	      /* This used to test
 
-	         - INTVAL (const_arg1) >= 0
+	         -INTVAL (const_arg1) >= 0
 
 		 But The Sun V5.0 compilers mis-compiled that test.  So
 		 instead we test for the problematic value in a more direct
@@ -3944,7 +3956,7 @@ fold_rtx (x, insn)
 	        ((HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1))
 	      && GET_CODE (folded_arg1) == REG)
 	    {
-	      rtx new_const = GEN_INT (- INTVAL (const_arg1));
+	      rtx new_const = GEN_INT (-INTVAL (const_arg1));
 	      struct table_elt *p
 		= lookup (new_const, safe_hash (new_const, mode) & HASH_MASK,
 			  mode);
@@ -3969,7 +3981,7 @@ fold_rtx (x, insn)
 				 NULL_RTX);
 	    }
 
-	  /* ... fall through ...  */
+	  /* Fall through.  */
 
 	from_plus:
 	case SMIN:    case SMAX:      case UMIN:    case UMAX:
@@ -4090,7 +4102,7 @@ fold_rtx (x, insn)
       break;
 
     case 'x':
-      /* Always eliminate CONSTANT_P_RTX at this stage. */
+      /* Always eliminate CONSTANT_P_RTX at this stage.  */
       if (code == CONSTANT_P_RTX)
 	return (const_arg0 ? const1_rtx : const0_rtx);
       break;
@@ -4469,7 +4481,7 @@ record_jump_cond (code, mode, op0, op1, reversed_nonequality)
 
    If LIBCALL_INSN is nonzero, don't record any equivalence made in
    the insn.  It means that INSN is inside libcall block.  In this
-   case LIBCALL_INSN is the corresponding insn with REG_LIBCALL. */
+   case LIBCALL_INSN is the corresponding insn with REG_LIBCALL.  */
 
 /* Data on one SET contained in the instruction.  */
 
@@ -5052,7 +5064,7 @@ cse_insn (insn, libcall_insn)
 	 also have such operations, but this is only likely to be
 	 beneficial these machines.  */
 
-      if (flag_expensive_optimizations &&  src_related == 0
+      if (flag_expensive_optimizations && src_related == 0
 	  && (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
 	  && GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_CODE (src) == MEM && ! do_not_record
@@ -5225,7 +5237,7 @@ cse_insn (insn, libcall_insn)
 	  if (elt)
 	    src_elt_cost = elt->cost;
 
-          /* Find cheapest and skip it for the next time.   For items
+	  /* Find cheapest and skip it for the next time.   For items
 	     of equal cost, use this order:
 	     src_folded, src, src_eqv, src_related and hash table entry.  */
 	  if (src_folded_cost <= src_cost
@@ -5287,7 +5299,7 @@ cse_insn (insn, libcall_insn)
 	    }
 
 	  /* Look for a substitution that makes a valid insn.  */
-          else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
 	    {
 	      /* If we just made a substitution inside a libcall, then we
 		 need to make the same substitution in any notes attached
@@ -6331,7 +6343,7 @@ invalidate_skipped_set (dest, set, data)
   enum rtx_code code = GET_CODE (dest);
 
   if (code == MEM
-      && ! addr_affects_sp_p (dest)	/* If this is not a stack push ... */
+      && ! addr_affects_sp_p (dest)	/* If this is not a stack push ...  */
       /* There are times when an address can appear varying and be a PLUS
 	 during this scan when it would be a fixed address were we to know
 	 the proper equivalences.  So invalidate all memory if there is
@@ -7198,8 +7210,8 @@ count_reg_usage (x, counts, dest, incr)
 
     case CALL_INSN:
       count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, NULL_RTX, incr);
+      /* Fall through.  */
 
-      /* ... falls through ...  */
     case INSN:
     case JUMP_INSN:
       count_reg_usage (PATTERN (x), counts, NULL_RTX, incr);

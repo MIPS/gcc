@@ -26,6 +26,10 @@ Boston, MA 02111-1307, USA.  */
 
 /*  Forward declarations.  */
 typedef struct output_buffer output_buffer;
+typedef struct diagnostic_context diagnostic_context;
+typedef void (*diagnostic_starter_fn) PARAMS ((output_buffer *,
+                                               diagnostic_context *));
+typedef diagnostic_starter_fn diagnostic_finalizer_fn;
 
 #define DIAGNOSTICS_SHOW_PREFIX_ONCE       0x0
 #define DIAGNOSTICS_SHOW_PREFIX_NEVER      0x1
@@ -49,6 +53,10 @@ typedef struct
   int ideal_maximum_length;
   /* Nonzero if current PREFIX was emitted at least once.  */
   int emitted_prefix_p;
+
+  /* Nonzero means one should emit a newline before outputing anything.  */
+  int need_newline_p;
+
   /* Tells how often current PREFIX should be emitted:
      o DIAGNOSTICS_SHOW_PREFIX_NEVER: never - not yet supported;
      o DIAGNOSTICS_SHOW_PREFIX_ONCE: emit current PREFIX only once;
@@ -78,6 +86,53 @@ struct output_buffer
 
 #define output_buffer_text_cursor(BUFFER) (BUFFER)->state.cursor
 #define output_buffer_format_args(BUFFER) *((BUFFER)->state.format_args)
+#define output_needs_newline(BUFFER) (BUFFER)->state.need_newline_p
+#define output_buffer_state(BUFFER) (BUFFER)->state
+
+/* This data structure bundles altogether any information relevent to
+   the context of a diagnostic message.  */
+struct diagnostic_context
+{
+  /* The diagnostic message to output.  */
+  const char *message;
+
+  /* A pointer to a variable list of the arguments necessary for the
+     purpose of  message formatting.  */
+  va_list *args_ptr;
+
+  /* The name of the source file involved in the diiagnostic.  */     
+  const char *file;
+
+  /* The line-location in the source file.  */
+  int line;
+
+  /* Is it message a warning?  */
+  int warn;
+
+  /* This function is called before any message is printed out.  It is
+     respondible for preparing message prefix and such.  For example, it
+     might say:
+     In file included from "/usr/local/include/curses.h:5:
+                      from "/home/gdr/src/nifty_printer.h:56:
+                      ...
+  */
+  void (*begin_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
+
+  /* This function is called after the diagnostic message is printed.   */
+  void (*end_diagnostic) PARAMS ((output_buffer *, diagnostic_context *));
+
+  /* Hook for front-end extensions.  */
+  void *x_data;
+};
+
+#define diagnostic_message(DC) (DC)->message
+#define diagnostic_argument_list(DC) (DC)->args_ptr
+#define diagnostic_file_location(DC) (DC)->file
+#define diagnostic_line_location(DC) (DC)->line
+#define diagnostic_is_warning(DC) (DC)->warn
+#define diagnostic_starter(DC) (DC)->begin_diagnostic
+#define diagnostic_finalizer(DC) (DC)->end_diagnostic
+#define diagnostic_auxiliary_data(DC) (DC)->x_data
 
 /* If non-NULL, this function formats data in the BUFFER. When called,
    output_buffer_text_cursor (BUFFER) points to a format code.  LANG_PRINTER
@@ -91,6 +146,9 @@ struct output_buffer
 
 extern printer_fn lang_printer;
 
+extern diagnostic_starter_fn lang_diagnostic_starter;
+extern diagnostic_finalizer_fn lang_diagnostic_finalizer;
+
 extern int diagnostic_message_length_per_line;
 
 /* This output buffer is used by front-ends that directly output
@@ -101,12 +159,16 @@ extern int diagnostic_message_length_per_line;
 extern output_buffer *diagnostic_buffer;
 
 /* Prototypes */
-void report_diagnostic          PARAMS ((const char *, va_list *,
-                                         const char *, int, int));
+void set_diagnostic_context     PARAMS ((diagnostic_context *, const char *,
+                                         va_list *, const char *, int, int));
+void set_fatal_function		PARAMS ((void (*) PARAMS ((const char *,
+							   va_list *))));
+void report_diagnostic          PARAMS ((diagnostic_context *));
 void initialize_diagnostics     PARAMS ((void));
 void reshape_diagnostic_buffer  PARAMS ((void));
 void default_initialize_buffer  PARAMS ((output_buffer *));
 void init_output_buffer		PARAMS ((output_buffer *, const char *, int));
+void flush_diagnostic_buffer    PARAMS ((void));
 void output_clear		PARAMS ((output_buffer *));
 const char *output_get_prefix	PARAMS ((const output_buffer *));
 void output_set_prefix		PARAMS ((output_buffer *, const char *));
@@ -129,5 +191,12 @@ void set_message_prefixing_rule PARAMS ((int));
 void output_verbatim            PARAMS ((output_buffer *, const char *, ...))
      ATTRIBUTE_PRINTF_2;
 void verbatim PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
+char *context_as_prefix         PARAMS ((const char *, int, int));
+char *file_name_as_prefix       PARAMS ((const char *));
+int error_module_changed        PARAMS ((void));
+void record_last_error_module   PARAMS ((void));
+int error_function_changed      PARAMS ((void));
+void record_last_error_function PARAMS ((void));
+void report_problematic_module  PARAMS ((output_buffer *));     
 
 #endif /* __GCC_DIAGNOSTIC_H__ */

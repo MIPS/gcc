@@ -342,7 +342,7 @@ global_alloc (file)
   /* Build the regset of all eliminable registers and show we can't use those
      that we already know won't be eliminated.  */
 #ifdef ELIMINABLE_REGS
-  for (i = 0; i < sizeof eliminables / sizeof eliminables[0]; i++)
+  for (i = 0; i < ARRAY_SIZE (eliminables); i++)
     {
       SET_HARD_REG_BIT (eliminable_regset, eliminables[i].from);
 
@@ -578,7 +578,7 @@ global_alloc (file)
 #endif
     {
       build_insn_chain (get_insns ());
-      retval = reload (get_insns (), 1, file);
+      retval = reload (get_insns (), 1);
     }
 
   /* Clean up.  */

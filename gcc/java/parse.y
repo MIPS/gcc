@@ -276,7 +276,7 @@ static int java_decl_equiv PARAMS ((tree, tree));
 static int binop_compound_p PARAMS ((enum tree_code));
 static tree search_loop PARAMS ((tree));
 static int labeled_block_contains_loop_p PARAMS ((tree, tree));
-static void check_abstract_method_definitions PARAMS ((int, tree, tree));
+static int check_abstract_method_definitions PARAMS ((int, tree, tree));
 static void java_check_abstract_method_definitions PARAMS ((tree));
 static void java_debug_context_do PARAMS ((int));
 static void java_parser_context_push_initialized_field PARAMS ((void));
@@ -355,8 +355,7 @@ static enum tree_code binop_lookup[19] =
     EQ_EXPR, NE_EXPR, GT_EXPR, GE_EXPR, LT_EXPR, LE_EXPR,
    };
 #define BINOP_LOOKUP(VALUE) 						\
-  binop_lookup [((VALUE) - PLUS_TK)%					\
-		(sizeof (binop_lookup) / sizeof (binop_lookup[0]))]
+  binop_lookup [((VALUE) - PLUS_TK) % ARRAY_SIZE (binop_lookup)]
 
 /* This is the end index for binary operators that can also be used
    in compound assignements. */
@@ -755,8 +754,7 @@ type_declaration:
 		{ end_class_declaration (0); }
 |	interface_declaration
 		{ end_class_declaration (0); }
-|	SC_TK
-		{ $$ = NULL; }
+|	empty_statement
 |	error
 		{
 		  YYERROR_NOW;
@@ -880,13 +878,12 @@ class_body_declaration:
 
 class_member_declaration:
 	field_declaration
-|	field_declaration SC_TK
-		{ $$ = $1; }
 |	method_declaration
 |	class_declaration	/* Added, JDK1.1 inner classes */
 		{ end_class_declaration (1); }
 |	interface_declaration	/* Added, JDK1.1 inner interfaces */
 		{ end_class_declaration (1); }
+|	empty_statement
 ;
 
 /* 19.8.2 Productions from 8.3: Field Declarations  */
@@ -1085,19 +1082,12 @@ class_type_list:
 
 method_body:
 	block
-|	block SC_TK
-|	SC_TK
-		{ $$ = NULL_TREE; } /* Probably not the right thing to do. */
+|	SC_TK { $$ = NULL_TREE; }
 ;
 
 /* 19.8.4 Productions from 8.5: Static Initializers  */
 static_initializer:
 	static block
-		{
-		  TREE_CHAIN ($2) = CPC_STATIC_INITIALIZER_STMT (ctxp);
-		  SET_CPC_STATIC_INITIALIZER_STMT (ctxp, $2);
-		}
-|	static block SC_TK	/* Shouldn't be here. FIXME */
 		{
 		  TREE_CHAIN ($2) = CPC_STATIC_INITIALIZER_STMT (ctxp);
 		  SET_CPC_STATIC_INITIALIZER_STMT (ctxp, $2);
@@ -1166,7 +1156,7 @@ constructor_body:
 
 constructor_block_end:
 	block_end
-|	block_end SC_TK
+;
 
 /* Error recovery for that rule moved down expression_statement: rule.  */
 explicit_constructor_invocation:
@@ -1397,7 +1387,14 @@ statement_without_trailing_substatement:
 
 empty_statement:
 	SC_TK
-		{ $$ = empty_stmt_node; }
+		{ 
+		  if (flag_extraneous_semicolon)
+		    {
+		      EXPR_WFL_SET_LINECOL (wfl_operator, lineno, -1);
+		      parse_warning_context (wfl_operator, "An empty declaration is a deprecated feature that should not be used");
+		    }
+		  $$ = empty_stmt_node;
+		}
 ;
 
 label_decl:
@@ -3265,10 +3262,8 @@ build_unresolved_array_type (type_or_wfl)
 		 IDENTIFIER_POINTER (EXPR_WFL_NODE (type_or_wfl)),
 		 IDENTIFIER_LENGTH (EXPR_WFL_NODE (type_or_wfl)));
   ptr = obstack_finish (&temporary_obstack);
-  return build_expr_wfl (get_identifier (ptr),
-			 EXPR_WFL_FILENAME (type_or_wfl),
-			 EXPR_WFL_LINENO (type_or_wfl),
-			 EXPR_WFL_COLNO (type_or_wfl));
+  EXPR_WFL_NODE (type_or_wfl) = get_identifier (ptr);
+  return type_or_wfl;
 }
 
 static void
@@ -3303,7 +3298,8 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
        - Can't be imported by a single type import
        - Can't already exists in the package */
   if (IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P (raw_name)
-      && (node = find_name_in_single_imports (raw_name)))
+      && (node = find_name_in_single_imports (raw_name))
+      && !CPC_INNER_P ())
     {
       parse_error_context 
 	(cl, "%s name `%s' clashes with imported type `%s'",
@@ -4260,14 +4256,18 @@ method_header (flags, type, mdecl, throws)
      int flags;
      tree type, mdecl, throws;
 {
-  tree meth = TREE_VALUE (mdecl);
-  tree id = TREE_PURPOSE (mdecl);
   tree type_wfl = NULL_TREE;
   tree meth_name = NULL_TREE;
   tree current, orig_arg, this_class = NULL;
+  tree id, meth;
   int saved_lineno;
   int constructor_ok = 0, must_chain;
   int count;
+
+  if (mdecl == error_mark_node)
+    return error_mark_node;
+  meth = TREE_VALUE (mdecl);
+  id = TREE_PURPOSE (mdecl);
   
   check_modifiers_consistency (flags);
 
@@ -4664,6 +4664,9 @@ method_declarator (id, list)
   jdep *jdep;
 
   patch_stage = JDEP_NO_PATCH;
+
+  if (GET_CPC () == error_mark_node)
+    return error_mark_node;
 
   /* If we're dealing with an inner class constructor, we hide the
      this$<n> decl in the name field of its parameter declaration.  We
@@ -5391,7 +5394,10 @@ resolve_class (enclosing, class_type, decl, cl)
   while (name[0] == '[')
     name++;
   if (base != name)
-    TYPE_NAME (class_type) = get_identifier (name);
+    {
+      TYPE_NAME (class_type) = get_identifier (name);
+      WFL_STRIP_BRACKET (cl, cl);
+    }
 
   /* 2- Resolve the bare type */
   if (!(resolved_type_decl = do_resolve_class (enclosing, class_type, 
@@ -5562,7 +5568,7 @@ resolve_and_layout (something, cl)
      tree something;
      tree cl;
 {
-  tree decl;
+  tree decl, decl_type;
 
   /* Don't do that on the current class */
   if (something == current_class)
@@ -5605,13 +5611,14 @@ resolve_and_layout (something, cl)
     return NULL_TREE;
 
   /* Resolve and layout if necessary */
-  layout_class_methods (TREE_TYPE (decl));
-  /* Check methods, but only once */
-  if (CLASS_FROM_SOURCE_P (TREE_TYPE (decl)) 
-      && !CLASS_LOADED_P (TREE_TYPE (decl)))
-    CHECK_METHODS (decl);
-  if (TREE_TYPE (decl) != current_class && !CLASS_LOADED_P (TREE_TYPE (decl)))
-    safe_layout_class (TREE_TYPE (decl));
+  decl_type = TREE_TYPE (decl);
+  layout_class_methods (decl_type);
+  /* Check methods */
+  if (CLASS_FROM_SOURCE_P (decl_type))
+    java_check_methods (decl);
+  /* Layout the type if necessary */ 
+  if (decl_type != current_class && !CLASS_LOADED_P (decl_type))
+    safe_layout_class (decl_type);
 
   return decl;
 }
@@ -5815,13 +5822,15 @@ check_method_redefinition (class, method)
   return 0;
 }
 
-static void
+/* Return 1 if check went ok, 0 otherwise.  */
+static int
 check_abstract_method_definitions (do_interface, class_decl, type)
      int do_interface;
      tree class_decl, type;
 {
   tree class = TREE_TYPE (class_decl);
   tree method, end_type;
+  int ok = 1;
 
   end_type = (do_interface ? object_type_node : type);
   for (method = TYPE_METHODS (type); method; method = TREE_CHAIN (method))
@@ -5894,13 +5903,27 @@ check_abstract_method_definitions (do_interface, class_decl, type)
 	     IDENTIFIER_POINTER (ccn),
 	     (CLASS_INTERFACE (class_decl) ? "interface" : "class"),
 	     IDENTIFIER_POINTER (DECL_NAME (class_decl)));
-	  
+	  ok = 0;
 	  free (t);
-	  
+
 	  if (saved_wfl)
 	    DECL_NAME (method) = saved_wfl;
 	}
     }
+
+  if (ok && do_interface)
+    {
+      /* Check for implemented interfaces. */
+      int i;
+      tree vector = TYPE_BINFO_BASETYPES (type);
+      for (i = 1; ok && vector && i < TREE_VEC_LENGTH (vector); i++)
+	{
+	  tree super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
+	  ok = check_abstract_method_definitions (1, class_decl, super);
+	}
+    }
+
+  return ok;
 }
 
 /* Check that CLASS_DECL somehow implements all inherited abstract
@@ -5955,6 +5978,23 @@ check_method_types_complete (decl)
       return 0;
 
   return 1;
+}
+
+/* Visible interface to check methods contained in CLASS_DECL */
+
+void
+java_check_methods (class_decl)
+     tree class_decl;
+{
+  if (CLASS_METHOD_CHECKED_P (TREE_TYPE (class_decl)))
+    return;
+
+  if (CLASS_INTERFACE (class_decl))
+    java_check_abstract_methods (class_decl);
+  else
+    java_check_regular_methods (class_decl);
+  
+  CLASS_METHOD_CHECKED_P (TREE_TYPE (class_decl)) = 1;
 }
 
 /* Check all the methods of CLASS_DECL. Methods are first completed
@@ -7288,7 +7328,7 @@ java_layout_classes ()
   /* Then check the methods of all parsed classes */
   for (current = ctxp->gclass_list; current; current = TREE_CHAIN (current))
     if (CLASS_FROM_SOURCE_P (TREE_TYPE (TREE_VALUE (current))))
-      CHECK_METHODS (TREE_VALUE (current));
+      java_check_methods (TREE_VALUE (current));
   java_parse_abort_on_error ();
 
   for (current = ctxp->gclass_list; current; current = TREE_CHAIN (current))
@@ -8951,8 +8991,10 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	     instantiation using a primary qualified by a `new' */
 	  RESTORE_THIS_AND_CURRENT_CLASS;
 
-	  /* EH check */
-	  if (location)
+	  /* EH check. No check on access$<n> functions */
+	  if (location 
+	      && !OUTER_FIELD_ACCESS_IDENTIFIER_P 
+	            (DECL_NAME (current_function_decl)))
 	    check_thrown_exceptions (location, ret_decl);
 
 	  /* If the previous call was static and this one is too,
@@ -10988,6 +11030,8 @@ java_complete_lhs (node)
       /* Multiple instance of a case label bearing the same
 	 value is checked during code generation. The case
 	 expression is allright so far. */
+      if (TREE_CODE (cn) == VAR_DECL)
+	cn = DECL_INITIAL (cn);
       TREE_OPERAND (node, 0) = cn;
       TREE_TYPE (node) = void_type_node;
       CAN_COMPLETE_NORMALLY (node) = 1;
@@ -12035,6 +12079,19 @@ patch_assignment (node, wfl_op1, wfl_op2)
 	  else
 	    lvalue = build (COMPOUND_EXPR, lhs_type, check, lvalue);
 	}
+    }
+
+  /* Final locals can be used as case values in switch
+     statement. Prepare them for this eventuality. */
+  if (TREE_CODE (lvalue) == VAR_DECL 
+      && LOCAL_FINAL (lvalue)
+      && TREE_CONSTANT (new_rhs)
+      && IDENTIFIER_LOCAL_VALUE (DECL_NAME (lvalue))
+      && JINTEGRAL_TYPE_P (TREE_TYPE (lvalue))
+      )
+    {
+      TREE_CONSTANT (lvalue) = 1;
+      DECL_INITIAL (lvalue) = new_rhs;
     }
 
   TREE_OPERAND (node, 0) = lvalue;
@@ -14369,7 +14426,7 @@ patch_switch_statement (node)
   se_type = TREE_TYPE (se);
   /* The type of the switch expression must be char, byte, short or
      int */
-  if (!JINTEGRAL_TYPE_P (se_type))
+  if (! JINTEGRAL_TYPE_P (se_type) || se_type == long_type_node)
     {
       EXPR_WFL_LINECOL (wfl_operator) = EXPR_WFL_LINECOL (node);
       parse_error_context (wfl_operator,

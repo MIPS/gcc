@@ -669,10 +669,12 @@ namespace std {
         
         valarray<value_type> shift (int) const;
         valarray<value_type> cshift (int) const;
-//     _Meta<_ApplyFunctionWithValue<_Expr>, value_type>
-//     apply (value_type _M_func (value_type)) const;
-//     _Meta<_ApplyFunctionWithConstRef<_Expr>, value_type>
-//     apply (value_type _M_func (const value_type&)) const;
+
+      value_type min() const;
+      value_type max() const;
+
+      valarray<value_type> apply(value_type (*) (const value_type&)) const;
+      valarray<value_type> apply(value_type (*) (value_type)) const;
         
     private:
         const _Clos _M_closure;
@@ -715,7 +717,27 @@ namespace std {
     template<class _Clos, typename _Tp>
     inline size_t
     _Expr<_Clos,_Tp>::size () const  { return _M_closure.size (); }
+
+  template<class _Clos, typename _Tp>
+  inline valarray<_Tp>
+  _Expr<_Clos, _Tp>::shift(int __n) const
+  { return valarray<_Tp>(_M_closure).shift(__n); }
+
+  template<class _Clos, typename _Tp>
+  inline valarray<_Tp>
+  _Expr<_Clos, _Tp>::cshift(int __n) const
+  { return valarray<_Tp>(_M_closure).cshift(__n); }
+
+  template<class _Clos, typename _Tp>
+  inline valarray<_Tp>
+  _Expr<_Clos, _Tp>::apply(_Tp __f(const _Tp&)) const
+  { return valarray<_Tp>(_M_closure).apply(__f); }
     
+  template<class _Clos, typename _Tp>
+  inline valarray<_Tp>
+  _Expr<_Clos, _Tp>::apply(_Tp __f(_Tp)) const
+  { return valarray<_Tp>(_M_closure).apply(__f); }
+
     // XXX: replace this with a more robust summation algorithm.
     template<class _Clos, typename _Tp>
     inline _Tp
@@ -729,28 +751,16 @@ namespace std {
             return __s;
         }
     }
-    
-    template<class _Dom, typename _Tp>
-    inline _Tp
-    min (const _Expr<_Dom,_Tp>& __e)
-    {
-        size_t __s = __e.size ();
-        _Tp  __m = __e[0];
-        for (size_t __i=1; __i<__s; ++__i)
-            if (__m > __e[__i]) __m = __e[__i];
-        return __m;
-    }
-    
-    template<class _Dom, typename _Tp>
-    inline _Tp
-    max (const _Expr<_Dom,_Tp>& __e)
-    {
-        size_t __s = __e.size();
-        _Tp __m = __e[0];
-        for (size_t __i=1; __i<__s; ++__i)
-            if (__m < __e[__i]) __m = __e[__i];
-        return __m;
-    }
+
+  template<class _Clos, typename _Tp>
+  inline _Tp
+  _Expr<_Clos, _Tp>::min() const
+  { return __valarray_min(_M_closure); }
+
+  template<class _Clos, typename _Tp>
+  inline _Tp
+  _Expr<_Clos, _Tp>::max() const
+  { return __valarray_max(_M_closure); }
     
     template<class _Dom, typename _Tp>
     inline _Expr<_UnClos<logical_not,_Expr,_Dom>, bool>

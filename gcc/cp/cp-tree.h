@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       CTOR_BEGIN_P (in CTOR_STMT)
       BV_USE_VCALL_INDEX_P (in the BINFO_VIRTUALS TREE_LIST)
+      PTRMEM_OK_P (in ADDR_EXPR, OFFSET_REF)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -587,6 +588,7 @@ enum cp_tree_index
     CPTI_TINFO_VAR_ID,
     CPTI_ABORT_FNDECL,
     CPTI_GLOBAL_DELETE_FNDECL,
+    CPTI_AGGR_TAG,
 
     CPTI_ACCESS_DEFAULT,
     CPTI_ACCESS_PUBLIC,
@@ -681,6 +683,7 @@ extern tree cp_global_trees[CPTI_MAX];
 #define tinfo_var_id                    cp_global_trees[CPTI_TINFO_VAR_ID]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define global_delete_fndecl		cp_global_trees[CPTI_GLOBAL_DELETE_FNDECL]
+#define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
 
 /* Define the sets of attributes that member functions and baseclasses
    can have.  These are sensible combinations of {public,private,protected}
@@ -2006,8 +2009,9 @@ struct lang_decl
 
 /* Nonzero if NODE (a FUNCTION_DECL) is a cloned constructor or
    destructor.  */
-#define DECL_CLONED_FUNCTION_P(NODE) \
-  (DECL_CLONED_FUNCTION (NODE) != NULL_TREE)
+#define DECL_CLONED_FUNCTION_P(NODE)		\
+  (DECL_LANG_SPECIFIC (NODE) 			\
+   && DECL_CLONED_FUNCTION (NODE) != NULL_TREE)
 
 /* If DECL_CLONED_FUNCTION_P holds, this is the function that was
    cloned.  */
@@ -2663,6 +2667,10 @@ extern int flag_new_for_scope;
 #define TYPE_PTRMEMFUNC_FLAG(NODE) \
   (TYPE_LANG_SPECIFIC(NODE)->ptrmemfunc_flag)
 
+/* Indicates when overload resolution may resolve to a pointer to
+   member function. [expr.unary.op]/3 */
+#define PTRMEM_OK_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
 /* A pointer-to-function member type looks like:
 
    struct {
@@ -3201,6 +3209,14 @@ typedef enum special_function_kind {
   sfk_conversion           /* A conversion operator.  */
 } special_function_kind;
 
+/* Bitmask flags to pass to instantiate_type.  */
+typedef enum instantiate_type_flags {
+  itf_none = 0,               /* nothing special */
+  itf_complain = 1 << 0,      /* complain about errors */
+  itf_no_attributes = 1 << 1, /* ignore attributes on comparisons */
+  itf_ptrmem_ok = 1 << 2,     /* pointers to member ok (internal use) */
+} instantiate_type_flags;
+
 /* Non-zero means that if a label exists, and no other identifier
    applies, use the value of the label.  */
 extern int flag_labels_ok;
@@ -3305,8 +3321,6 @@ typedef enum unification_kind_t {
 #define TINST_DECL(NODE) EXPR_WFL_NODE (NODE)
 #define TINST_LINE(NODE) EXPR_WFL_LINENO (NODE)
 #define TINST_FILE(NODE) EXPR_WFL_FILENAME (NODE)
-
-extern void maybe_print_template_context	PARAMS ((void));
 
 /* in class.c */
 
@@ -3814,7 +3828,7 @@ extern void push_nested_class			PARAMS ((tree, int));
 extern void pop_nested_class			PARAMS ((void));
 extern void push_lang_context			PARAMS ((tree));
 extern void pop_lang_context			PARAMS ((void));
-extern tree instantiate_type			PARAMS ((tree, tree, int));
+extern tree instantiate_type			PARAMS ((tree, tree, enum instantiate_type_flags));
 extern void print_class_statistics		PARAMS ((void));
 extern int first_vfun_index                     PARAMS ((tree));
 extern void build_self_reference		PARAMS ((void));
@@ -4091,6 +4105,7 @@ extern const char *lang_decl_name		PARAMS ((tree, int));
 extern const char *cp_file_of			PARAMS ((tree));
 extern int cp_line_of				PARAMS ((tree));
 extern const char *language_to_string           PARAMS ((enum languages, int));
+extern void print_instantiation_context         PARAMS ((void));
 
 /* in except.c */
 extern void init_exception_processing		PARAMS ((void));
@@ -4274,6 +4289,9 @@ extern int instantiate_pending_templates        PARAMS ((void));
 extern tree tsubst_default_argument             PARAMS ((tree, tree, tree));
 extern tree most_general_template		PARAMS ((tree));
 extern tree get_mostly_instantiated_function_type PARAMS ((tree, tree *, tree *));
+extern int problematic_instantiation_changed    PARAMS ((void));
+extern void record_last_problematic_instantiation PARAMS ((void));
+extern tree current_instantiation               PARAMS ((void));
 extern int processing_template_parmlist;
 
 /* in repo.c */
@@ -4628,8 +4646,6 @@ extern tree build_scoped_ref			PARAMS ((tree, tree));
 extern tree build_x_arrow			PARAMS ((tree));
 extern tree build_m_component_ref		PARAMS ((tree, tree));
 extern tree build_functional_cast		PARAMS ((tree, tree));
-extern char *enum_name_string			PARAMS ((tree, tree));
-extern void report_case_error			PARAMS ((int, tree, tree, tree));
 extern void check_for_new_type			PARAMS ((const char *, flagged_type_tree));
 extern tree add_exception_specifier             PARAMS ((tree, tree, int));
 

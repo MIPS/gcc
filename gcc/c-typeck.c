@@ -1526,20 +1526,14 @@ build_array_ref (array, index)
 	    return error_mark_node;
 	}
 
-      if (pedantic && !lvalue_p (array))
-	{
-	  if (DECL_REGISTER (array))
-	    pedwarn ("ISO C forbids subscripting `register' array");
-	  else
-	    pedwarn ("ISO C89 forbids subscripting non-lvalue array");
-	}
-
       if (pedantic)
 	{
 	  tree foo = array;
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
+	    pedwarn ("ISO C forbids subscripting `register' array");
+	  else if (! flag_isoc99 && ! lvalue_p (foo))
 	    pedwarn ("ISO C89 forbids subscripting non-lvalue array");
 	}
 
@@ -5106,7 +5100,7 @@ store_init_value (decl, init)
     }
 #endif
 
-  if (warn_traditional
+  if (warn_traditional && !in_system_header
       && AGGREGATE_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl)
       && ! BOUNDED_POINTER_TYPE_P (TREE_TYPE (decl)))
     warning ("traditional C rejects automatic aggregate initialization");
@@ -7154,7 +7148,7 @@ process_init_element (value)
 	     code appears conditioned on e.g. __STDC__ to avoid
 	     "missing initializer" warnings and relies on default
 	     initialization to zero in the traditional C case.  */
-	  if (warn_traditional && !integer_zerop (value))
+	  if (warn_traditional && !in_system_header && !integer_zerop (value))
 	    warning ("traditional C rejects initialization of unions");
 
 	  if (BOUNDED_POINTER_TYPE_P (fieldtype))
@@ -7513,8 +7507,7 @@ c_expand_start_case (exp)
       tree index;
       type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
 
-      if (warn_traditional
-	  && ! in_system_header
+      if (warn_traditional && !in_system_header
 	  && (type == long_integer_type_node
 	      || type == long_unsigned_type_node))
 	warning ("`long' switch expression not converted to `int' in ISO C");

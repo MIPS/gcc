@@ -1938,7 +1938,7 @@ emit_group_load (dst, orig_src, ssize, align)
   /* If we won't be loading directly from memory, protect the real source
      from strange tricks we might play.  */
   src = orig_src;
-  if (GET_CODE (src) != MEM)
+  if (GET_CODE (src) != MEM && ! CONSTANT_P (src))
     {
       if (GET_MODE (src) == VOIDmode)
 	src = gen_reg_rtx (GET_MODE (dst));
@@ -1987,6 +1987,10 @@ emit_group_load (dst, orig_src, ssize, align)
 	  else
 	    abort ();
 	}
+      else if ((CONSTANT_P (src)
+		&& (GET_MODE (src) == VOIDmode || GET_MODE (src) == mode))
+	       || (GET_CODE (src) == REG && GET_MODE (src) == mode))
+	tmps[i] = src;
       else
 	tmps[i] = extract_bit_field (src, bytelen * BITS_PER_UNIT,
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
@@ -5399,7 +5403,7 @@ safe_from_p (x, exp, top_p)
       int rtn;
 
       save_expr_count = 0;
-      save_expr_size = sizeof (save_expr_trees) / sizeof (save_expr_trees[0]);
+      save_expr_size = ARRAY_SIZE (save_expr_trees);
       save_expr_rewritten = &save_expr_trees[0];
 
       rtn = safe_from_p (x, exp, 1);
@@ -7503,8 +7507,10 @@ expand_expr (exp, target, tmode, modifier)
 		  op0 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
 				     NULL_RTX, VOIDmode, 0);
 		  if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
-		    op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
-				       VOIDmode, 0);
+		    op1 = convert_modes (innermode, mode,
+					 expand_expr (TREE_OPERAND (exp, 1),
+						      NULL_RTX, VOIDmode, 0),
+					 unsignedp);
 		  else
 		    op1 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 1), 0),
 				       NULL_RTX, VOIDmode, 0);

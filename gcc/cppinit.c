@@ -96,12 +96,14 @@ struct cpp_pending
 
 static void print_help                  PARAMS ((void));
 static void path_include		PARAMS ((cpp_reader *,
-						 struct cpp_pending *,
 						 char *, int));
 static void initialize_builtins		PARAMS ((cpp_reader *));
 static void append_include_chain	PARAMS ((cpp_reader *,
-						 struct cpp_pending *,
 						 char *, int, int));
+struct file_name_list * remove_dup_dir	PARAMS ((cpp_reader *,
+						 struct file_name_list *));
+struct file_name_list * remove_dup_dirs PARAMS ((cpp_reader *,
+						 struct file_name_list *));
 static void merge_include_chains	PARAMS ((cpp_reader *));
 
 static void initialize_dependency_output PARAMS ((cpp_reader *));
@@ -111,28 +113,40 @@ static void new_pending_directive	PARAMS ((struct cpp_pending *,
 						 cl_directive_handler));
 #ifdef HOST_EBCDIC
 static int opt_comp			PARAMS ((const void *, const void *));
-static void sort_options		PARAMS ((void));
 #endif
 static int parse_option			PARAMS ((const char *));
 
 /* Fourth argument to append_include_chain: chain to use */
 enum { QUOTE = 0, BRACKET, SYSTEM, AFTER };
 
-/* If we have designated initializers (GCC >2.7) this table can be
-   initialized, constant data.  Otherwise, it has to be filled in at
+/* If we have designated initializers (GCC >2.7) these tables can be
+   initialized, constant data.  Otherwise, they have to be filled in at
    runtime.  */
+#if HAVE_DESIGNATED_INITIALIZERS
 
-#if (GCC_VERSION >= 2007)
 #define init_IStable()  /* nothing */
-#define ISTABLE __extension__ const unsigned char _cpp_IStable[256] = {
+#define ISTABLE __extension__ const U_CHAR _cpp_IStable[UCHAR_MAX + 1] = {
+
+#define init_trigraph_map()  /* nothing */
+#define TRIGRAPH_MAP \
+__extension__ const U_CHAR _cpp_trigraph_map[UCHAR_MAX + 1] = {
+
 #define END };
 #define s(p, v) [p] = v,
+
 #else
-#define ISTABLE unsigned char _cpp_IStable[256] = { 0 }; \
+
+#define ISTABLE unsigned char _cpp_IStable[UCHAR_MAX + 1] = { 0 }; \
  static void init_IStable PARAMS ((void)) { \
  unsigned char *x = _cpp_IStable;
+
+#define TRIGRAPH_MAP U_CHAR _cpp_trigraph_map[UCHAR_MAX + 1] = { 0 }; \
+ static void init_trigraph_map PARAMS ((void)) { \
+ unsigned char *x = _cpp_trigraph_map;
+
 #define END }
 #define s(p, v) x[p] = v;
+
 #endif
 
 #define A(x) s(x, ISidnum|ISidstart)
@@ -161,6 +175,12 @@ ISTABLE
   S('\0') S('\v') S('\f')
 END
 
+TRIGRAPH_MAP
+  s('=', '#')	s(')', ']')	s('!', '|')
+  s('(', '[')	s('\'', '^')	s('>', '}')
+  s('/', '\\')	s('<', '{')	s('-', '~')
+END
+
 #undef A
 #undef N
 #undef H
@@ -169,14 +189,14 @@ END
 #undef s
 #undef ISTABLE
 #undef END
+#undef TRIGRAPH_MAP
 
 /* Given a colon-separated list of file names PATH,
    add all the names to the search path for include files.  */
 
 static void
-path_include (pfile, pend, list, path)
+path_include (pfile, list, path)
      cpp_reader *pfile;
-     struct cpp_pending *pend;
      char *list;
      int path;
 {
@@ -204,7 +224,7 @@ path_include (pfile, pend, list, path)
 	  name[q - p] = 0;
 	}
 
-      append_include_chain (pfile, pend, name, path, 0);
+      append_include_chain (pfile, name, path, 0);
 
       /* Advance past this name.  */
       if (*q == 0)
@@ -217,13 +237,13 @@ path_include (pfile, pend, list, path)
 /* Append DIR to include path PATH.  DIR must be permanently allocated
    and writable. */
 static void
-append_include_chain (pfile, pend, dir, path, cxx_aware)
+append_include_chain (pfile, dir, path, cxx_aware)
      cpp_reader *pfile;
-     struct cpp_pending *pend;
      char *dir;
      int path;
      int cxx_aware;
 {
+  struct cpp_pending *pend = CPP_OPTION (pfile, pending);
   struct file_name_list *new;
   struct stat st;
   unsigned int len;
@@ -271,6 +291,51 @@ append_include_chain (pfile, pend, dir, path, cxx_aware)
     }
 }
 
+/* Handle a duplicated include path.  PREV is the link in the chain
+   before the duplicate.  The duplicate is removed from the chain and
+   freed.  Returns PREV.  */
+struct file_name_list *
+remove_dup_dir (pfile, prev)
+     cpp_reader *pfile;
+     struct file_name_list *prev;
+{
+  struct file_name_list *cur = prev->next;
+
+  if (CPP_OPTION (pfile, verbose))
+    fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"), cur->name);
+
+  prev->next = cur->next;
+  free (cur->name);
+  free (cur);
+
+  return prev;
+}
+
+/* Remove duplicate directories from a chain.  Returns the tail of the
+   chain, or NULL if the chain is empty.  This algorithm is quadratic
+   in the number of -I switches, which is acceptable since there
+   aren't usually that many of them.  */
+struct file_name_list *
+remove_dup_dirs (pfile, head)
+     cpp_reader *pfile;
+     struct file_name_list *head;
+{
+  struct file_name_list *prev = NULL, *cur, *other;
+
+  for (cur = head; cur; cur = cur->next)
+    {
+      for (other = head; other != cur; other = other->next)
+        if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
+	  {
+	    cur = remove_dup_dir (pfile, prev);
+	    break;
+	  }
+      prev = cur;
+    }
+
+  return prev;
+}
+
 /* Merge the four include chains together in the order quote, bracket,
    system, after.  Remove duplicate dirs (as determined by
    INO_T_EQ()).  The system_include and after_include chains are never
@@ -284,116 +349,47 @@ static void
 merge_include_chains (pfile)
      cpp_reader *pfile;
 {
-  struct file_name_list *prev, *cur, *other;
-  struct file_name_list *quote, *brack, *systm, *after;
-  struct file_name_list *qtail, *btail, *stail, *atail;
+  struct file_name_list *quote, *brack, *systm, *qtail;
 
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
-
-  qtail = pend->quote_tail;
-  btail = pend->brack_tail;
-  stail = pend->systm_tail;
-  atail = pend->after_tail;
 
   quote = pend->quote_head;
   brack = pend->brack_head;
   systm = pend->systm_head;
-  after = pend->after_head;
+  qtail = pend->quote_tail;
 
-  /* Paste together bracket, system, and after include chains. */
-  if (stail)
-    stail->next = after;
+  /* Paste together bracket, system, and after include chains.  */
+  if (systm)
+    pend->systm_tail->next = pend->after_head;
   else
-    systm = after;
-  if (btail)
-    btail->next = systm;
+    systm = pend->after_head;
+
+  if (brack)
+    pend->brack_tail->next = systm;
   else
     brack = systm;
 
-  /* This is a bit tricky.
-     First we drop dupes from the quote-include list.
-     Then we drop dupes from the bracket-include list.
-     Finally, if qtail and brack are the same directory,
-     we cut out qtail.
+  /* This is a bit tricky.  First we drop dupes from the quote-include
+     list.  Then we drop dupes from the bracket-include list.
+     Finally, if qtail and brack are the same directory, we cut out
+     brack.
 
      We can't just merge the lists and then uniquify them because
      then we may lose directories from the <> search path that should
      be there; consider -Ifoo -Ibar -I- -Ifoo -Iquux. It is however
      safe to treat -Ibar -Ifoo -I- -Ifoo -Iquux as if written
-     -Ibar -I- -Ifoo -Iquux.
+     -Ibar -I- -Ifoo -Iquux.  */
 
-     Note that this algorithm is quadratic in the number of -I switches,
-     which is acceptable since there aren't usually that many of them.  */
-
-  for (cur = quote, prev = NULL; cur; cur = cur->next)
-    {
-      for (other = quote; other != cur; other = other->next)
-        if (INO_T_EQ (cur->ino, other->ino)
-	    && cur->dev == other->dev)
-          {
-	    if (CPP_OPTION (pfile, verbose))
-	      fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"),
-		       cur->name);
-
-	    prev->next = cur->next;
-	    free (cur->name);
-	    free (cur);
-	    cur = prev;
-	    break;
-	  }
-      prev = cur;
-    }
-  qtail = prev;
-
-  for (cur = brack; cur; cur = cur->next)
-    {
-      for (other = brack; other != cur; other = other->next)
-        if (INO_T_EQ (cur->ino, other->ino)
-	    && cur->dev == other->dev)
-          {
-	    if (CPP_OPTION (pfile, verbose))
-	      fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"),
-		       cur->name);
-
-	    prev->next = cur->next;
-	    free (cur->name);
-	    free (cur);
-	    cur = prev;
-	    break;
-	  }
-      prev = cur;
-    }
+  remove_dup_dirs (pfile, brack);
+  qtail = remove_dup_dirs (pfile, quote);
 
   if (quote)
     {
+      qtail->next = brack;
+
+      /* If brack == qtail, remove brack as it's simpler.  */
       if (INO_T_EQ (qtail->ino, brack->ino) && qtail->dev == brack->dev)
-        {
-	  if (quote == qtail)
-	    {
-	      if (CPP_OPTION (pfile, verbose))
-		fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"),
-			 quote->name);
-
-	      free (quote->name);
-	      free (quote);
-	      quote = brack;
-	    }
-	  else
-	    {
-	      cur = quote;
-	      while (cur->next != qtail)
-		  cur = cur->next;
-	      cur->next = brack;
-	      if (CPP_OPTION (pfile, verbose))
-		fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"),
-			 qtail->name);
-
-	      free (qtail->name);
-	      free (qtail);
-	    }
-	}
-      else
-	  qtail->next = brack;
+	brack = remove_dup_dir (pfile, qtail);
     }
   else
       quote = brack;
@@ -402,16 +398,35 @@ merge_include_chains (pfile)
   CPP_OPTION (pfile, bracket_include) = brack;
 }
 
+/* cpp_init initializes library global state.  It might not need to do
+   anything depending on the platform and compiler, so we have a static
+   flag to make sure it gets called before cpp_reader_init.  */
+
+static int cpp_init_completed = 0;
+
+void
+cpp_init (void)
+{
+#ifdef HOST_EBCDIC
+  /* For non-ASCII hosts, the cl_options array needs to be sorted at
+     runtime.  */
+  qsort (cl_options, N_OPTS, sizeof (struct cl_option), opt_comp);
+#endif
+
+  /* Set up the trigraph map and the IStable.  These don't need to do
+     anything if we were compiled with a compiler that supports C99
+     designated initializers.  */
+  init_trigraph_map ();
+  init_IStable ();
+
+  cpp_init_completed = 1;
+}
 
 /* Initialize a cpp_reader structure. */
 void
 cpp_reader_init (pfile)
      cpp_reader *pfile;
 {
-#ifdef HOST_EBCDIC
-  sort_options ();
-#endif
-
   memset ((char *) pfile, 0, sizeof (cpp_reader));
 
   CPP_OPTION (pfile, dollars_in_ident) = 1;
@@ -425,6 +440,15 @@ cpp_reader_init (pfile)
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
+
+  /* If cpp_init hasn't been called, generate a fatal error (by hand)
+     and call it here.  */
+  if (!cpp_init_completed)
+    {
+      fputs ("cpp_reader_init: internal error: cpp_init not called.\n", stderr);
+      pfile->errors = CPP_FATAL_LIMIT;
+      cpp_init ();
+    }
 
   _cpp_init_macros (pfile);
   _cpp_init_stacks (pfile);
@@ -463,6 +487,8 @@ void
 cpp_cleanup (pfile)
      cpp_reader *pfile;
 {
+  struct file_name_list *dir, *next;
+
   while (CPP_BUFFER (pfile) != NULL)
     cpp_pop_buffer (pfile);
 
@@ -476,6 +502,13 @@ cpp_cleanup (pfile)
   _cpp_cleanup_includes (pfile);
   _cpp_cleanup_stacks (pfile);
   _cpp_cleanup_macros (pfile);
+
+  for (dir = CPP_OPTION (pfile, quote_include); dir; dir = next)
+    {
+      next = dir->next;
+      free (dir->name);
+      free (dir);
+    }
 }
 
 
@@ -592,7 +625,9 @@ initialize_builtins (pfile)
 	      str = xmalloc (b->len + strlen (val) + 2);
 	      sprintf(str, "%s=%s", b->name, val);
 	    }
+
 	  cpp_define (pfile, str);
+	  free (str);
 	}
       else
 	{
@@ -684,7 +719,7 @@ initialize_standard_includes (pfile)
 
   GET_ENV_PATH_LIST (path, "CPATH");
   if (path != 0 && *path != 0)
-    path_include (pfile, CPP_OPTION (pfile, pending), path, BRACKET);
+    path_include (pfile, path, BRACKET);
 
   switch ((CPP_OPTION (pfile, objc) << 1) + CPP_OPTION (pfile, cplusplus))
     {
@@ -702,7 +737,7 @@ initialize_standard_includes (pfile)
       break;
     }
   if (path != 0 && *path != 0)
-    path_include (pfile, CPP_OPTION (pfile, pending), path, SYSTEM);
+    path_include (pfile, path, SYSTEM);
 
   /* Search "translated" versions of GNU directories.
      These have /usr/local/lib/gcc... replaced by specd_prefix.  */
@@ -725,7 +760,7 @@ initialize_standard_includes (pfile)
 		  && !CPP_OPTION (pfile, no_standard_cplusplus_includes)))
 	    {
 	      /* Does this dir start with the prefix?  */
-	      if (!strncmp (p->fname, default_prefix, default_len))
+	      if (!memcmp (p->fname, default_prefix, default_len))
 		{
 		  /* Yes; change prefix and add to search list.  */
 		  int flen = strlen (p->fname);
@@ -736,8 +771,7 @@ initialize_standard_includes (pfile)
 			  p->fname + default_len,
 			  flen - default_len + 1);
 
-		  append_include_chain (pfile, CPP_OPTION (pfile, pending),
-					str, SYSTEM, p->cxx_aware);
+		  append_include_chain (pfile, str, SYSTEM, p->cxx_aware);
 		}
 	    }
 	}
@@ -753,8 +787,7 @@ initialize_standard_includes (pfile)
 	{
 	  /* XXX Potential memory leak! */
 	  char *str = xstrdup (update_path (p->fname, p->component));
-	  append_include_chain (pfile, CPP_OPTION (pfile, pending),
-				str, SYSTEM, p->cxx_aware);
+	  append_include_chain (pfile, str, SYSTEM, p->cxx_aware);
 	}
     }
 }
@@ -805,10 +838,6 @@ cpp_start_read (pfile, print, fname)
     || CPP_OPTION (pfile, debug_output)
     || CPP_OPTION (pfile, dump_macros) == dump_definitions
     || CPP_OPTION (pfile, dump_macros) == dump_only;
-
-  /* Set up the IStable.  This doesn't do anything if we were compiled
-     with a compiler that supports C99 designated initializers.  */
-  init_IStable ();
 
   /* Set up the tables used by read_and_prescan.  */
   _cpp_init_input_buffer (pfile);
@@ -1074,22 +1103,6 @@ static const struct cl_option cl_options[] =
 #undef DEF_OPT
 #undef COMMAND_LINE_OPTIONS
 
-#ifdef HOST_EBCDIC
-static void
-sort_options (void)
-{
-  static int opts_sorted = 0;
-
-  if (!opts_sorted)
-    {
-      opts_sorted = 1;
-      /* For non-ASCII hosts, the array needs to be sorted at runtime */
-      qsort (cl_options, N_OPTS, sizeof (struct cl_option), opt_comp);
-    }
-}
-#endif
-
-
 /* Perform a binary search to find which, if any, option the given
    command-line matches.  Returns its index in the option array,
    negative on failure.  Complications arise since some options can be
@@ -1114,7 +1127,7 @@ parse_option (input)
       md = (mn + mx) / 2;
 
       opt_len = cl_options[md].opt_len;
-      comp = strncmp (input, cl_options[md].opt_text, opt_len);
+      comp = memcmp (input, cl_options[md].opt_text, opt_len);
 
       if (comp > 0)
 	mn = md + 1;
@@ -1139,7 +1152,7 @@ parse_option (input)
 	      for (; mn < N_OPTS; mn++)
 		{
 		  opt_len = cl_options[mn].opt_len;
-		  if (strncmp (input, cl_options[mn].opt_text, opt_len))
+		  if (memcmp (input, cl_options[mn].opt_text, opt_len))
 		    break;
 		  if (input[opt_len] == '\0')
 		    return mn;
@@ -1348,12 +1361,10 @@ cpp_handle_option (pfile, argc, argv)
 	  CPP_OPTION (pfile, c99) = 1;
 	  CPP_OPTION (pfile, digraphs) = 1;
 	  CPP_OPTION (pfile, objc) = 0;
-	  new_pending_directive (CPP_OPTION (pfile, pending),
-				 "__STDC_VERSION__=199901L", cpp_define);
+	  new_pending_directive (pend, "__STDC_VERSION__=199901L", cpp_define);
 	  break;
 	case OPT_std_iso9899_199409:
-	  new_pending_directive (CPP_OPTION (pfile, pending),
-				 "__STDC_VERSION__=199409L", cpp_define);
+	  new_pending_directive (pend, "__STDC_VERSION__=199409L", cpp_define);
 	  /* Fall through */
 	case OPT_std_iso9899_1990:
 	case OPT_std_c89:
@@ -1378,10 +1389,8 @@ cpp_handle_option (pfile, argc, argv)
 	  CPP_OPTION (pfile, objc) = 0;
 	  CPP_OPTION (pfile, digraphs) = 1;
 	  CPP_OPTION (pfile, trigraphs) = 1;
-	  new_pending_directive (CPP_OPTION (pfile, pending),
-				 "__STRICT_ANSI__", cpp_define);
-	  new_pending_directive (CPP_OPTION (pfile, pending),
-				 "__STDC_VERSION__=199901L", cpp_define);
+	  new_pending_directive (pend, "__STRICT_ANSI__", cpp_define);
+	  new_pending_directive (pend, "__STDC_VERSION__=199901L", cpp_define);
 	  break;
 	case OPT_o:
 	  if (CPP_OPTION (pfile, out_fname) != NULL)
@@ -1481,26 +1490,24 @@ cpp_handle_option (pfile, argc, argv)
 		{
 		  struct pending_option *o1, *o2;
 
-		  o1 = CPP_OPTION (pfile, pending)->directive_head;
+		  o1 = pend->directive_head;
 		  while (o1)
 		    {
 		      o2 = o1->next;
 		      free (o1);
 		      o1 = o2;
 		    }
-		  CPP_OPTION (pfile, pending)->directive_head = NULL;
-		  CPP_OPTION (pfile, pending)->directive_tail = NULL;
+		  pend->directive_head = NULL;
+		  pend->directive_tail = NULL;
 		}
 	      else
-		new_pending_directive (CPP_OPTION (pfile, pending),
-				       arg + 1, cpp_unassert);
+		new_pending_directive (pend, arg + 1, cpp_unassert);
 	    }
 	  else
-	    new_pending_directive (CPP_OPTION (pfile, pending),
-				   arg, cpp_assert);
+	    new_pending_directive (pend, arg, cpp_assert);
 	  break;
 	case OPT_U:
-	  new_pending_directive (CPP_OPTION (pfile, pending), arg, cpp_undef);
+	  new_pending_directive (pend, arg, cpp_undef);
 	  break;
 	case OPT_I:           /* Add directory to path for includes.  */
 	  if (!strcmp (arg, "-"))
@@ -1513,7 +1520,6 @@ cpp_handle_option (pfile, argc, argv)
 		 the default setup; -I. uses the compiler's working dir.)  */
 	      if (! CPP_OPTION (pfile, ignore_srcdir))
 		{
-		  struct cpp_pending *pend = CPP_OPTION (pfile, pending);
 		  pend->quote_head = pend->brack_head;
 		  pend->quote_tail = pend->brack_tail;
 		  pend->brack_head = 0;
@@ -1527,14 +1533,12 @@ cpp_handle_option (pfile, argc, argv)
 		}
  	    }
  	  else
-	    append_include_chain (pfile, CPP_OPTION (pfile, pending),
-				  xstrdup (arg), BRACKET, 0);
+	    append_include_chain (pfile, xstrdup (arg), BRACKET, 0);
 	  break;
 	case OPT_isystem:
 	  /* Add directory to beginning of system include path, as a system
 	     include directory. */
-	  append_include_chain (pfile, CPP_OPTION (pfile, pending),
-				xstrdup (arg), SYSTEM, 0);
+	  append_include_chain (pfile, xstrdup (arg), SYSTEM, 0);
 	  break;
 	case OPT_include:
 	  {
@@ -1545,8 +1549,8 @@ cpp_handle_option (pfile, argc, argv)
 	    /* This list has to be built in reverse order so that
 	       when cpp_start_read pushes all the -include files onto
 	       the buffer stack, they will be scanned in forward order.  */
-	    o->next = CPP_OPTION (pfile, pending)->include_head;
-	    CPP_OPTION (pfile, pending)->include_head = o;
+	    o->next = pend->include_head;
+	    pend->include_head = o;
 	  }
 	  break;
 	case OPT_imacros:
@@ -1556,7 +1560,7 @@ cpp_handle_option (pfile, argc, argv)
 	    o->arg = arg;
 	    o->next = NULL;
 
-	    APPEND (CPP_OPTION (pfile, pending), imacros, o);
+	    APPEND (pend, imacros, o);
 	  }
 	  break;
 	case OPT_iwithprefix:
@@ -1588,14 +1592,13 @@ cpp_handle_option (pfile, argc, argv)
 	    else
 	      fname = xstrdup (arg);
 
-	    append_include_chain (pfile, CPP_OPTION (pfile, pending), fname,
+	    append_include_chain (pfile, fname,
 			  opt_code == OPT_iwithprefix ? SYSTEM: BRACKET, 0);
 	  }
 	  break;
 	case OPT_idirafter:
 	  /* Add directory to end of path for includes.  */
-	  append_include_chain (pfile, CPP_OPTION (pfile, pending),
-				xstrdup (arg), AFTER, 0);
+	  append_include_chain (pfile, xstrdup (arg), AFTER, 0);
 	  break;
 	case OPT_W:
 	  /* Silently ignore unrecognised options */

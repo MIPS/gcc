@@ -937,7 +937,7 @@ gen_lowpart_common (mode, x)
 	{
 	case SFmode:
 	  REAL_VALUE_TO_TARGET_SINGLE (r, i[endian]);
-	  i[1-endian] = 0;
+	  i[1 - endian] = 0;
 	  break;
 	case DFmode:
 	  REAL_VALUE_TO_TARGET_DOUBLE (r, i);
@@ -950,26 +950,28 @@ gen_lowpart_common (mode, x)
 	  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, i);
 	  break;
 	default:
-	  abort();
+	  abort ();
 	}
 
       /* Now, pack the 32-bit elements of the array into a CONST_DOUBLE
 	 and return it.  */
 #if HOST_BITS_PER_WIDE_INT == 32
-      return immed_double_const (i[endian], i[1-endian], mode);
+      return immed_double_const (i[endian], i[1 - endian], mode);
 #else
       {
 	int c;
 
 	if (HOST_BITS_PER_WIDE_INT != 64)
-	  abort();
+	  abort ();
+
 	for (c = 0; c < 4; c++)
-	  i[c] &= 0xffffffffL;
+	  i[c] &= ~ (0L);
       
-	return immed_double_const (i[endian*3] | 
-				   (((HOST_WIDE_INT) i[1+endian]) << 32),
-				   i[2-endian] |
-				   (((HOST_WIDE_INT) i[3-endian*3]) << 32),
+	return immed_double_const (i[endian * 3]
+				   | (((HOST_WIDE_INT) i[1 + endian]) << 32),
+				   i[2 - endian]
+				   | (((HOST_WIDE_INT) i[3 - endian * 3])
+				      << 32),
 				   mode);
       }
 #endif
@@ -4179,8 +4181,10 @@ init_emit_once (line_numbers)
       const_tiny_rtx[0][(int) mode] = const0_rtx;
 
 
-  for (i = 0; i < ARRAY_SIZE (const_tiny_rtx); i++)
-    ggc_add_rtx_root (const_tiny_rtx[i], ARRAY_SIZE (const_tiny_rtx[i]));
+  /* For bounded pointers, `&const_tiny_rtx[0][0]' is not the same as
+     `(rtx *) const_tiny_rtx'.  The former has bounds that only cover
+     `const_tiny_rtx[0]', whereas the latter has bounds that cover all.  */
+  ggc_add_rtx_root ((rtx *) const_tiny_rtx, sizeof const_tiny_rtx / sizeof (rtx));
   ggc_add_rtx_root (&const_true_rtx, 1);
 
 #ifdef RETURN_ADDRESS_POINTER_REGNUM

@@ -1409,9 +1409,9 @@ typedef struct {
 } format_char_info;
 
 static format_char_info print_char_table[] = {
-  { "di",	0,	T_I,	T_I,	T_I,	T_L,	T_LL,	T_LL,	T_SST,	T_PD,	T_IM,	"-wp0 +'"	},
+  { "di",	0,	T_I,	T_I,	T_I,	T_L,	T_LL,	T_LL,	T_SST,	T_PD,	T_IM,	"-wp0 +'I"	},
   { "oxX",	0,	T_UI,	T_UI,	T_UI,	T_UL,	T_ULL,	T_ULL,	T_ST,	T_UPD,	T_UIM,	"-wp0#"		},
-  { "u",	0,	T_UI,	T_UI,	T_UI,	T_UL,	T_ULL,	T_ULL,	T_ST,	T_UPD,	T_UIM,	"-wp0'"		},
+  { "u",	0,	T_UI,	T_UI,	T_UI,	T_UL,	T_ULL,	T_ULL,	T_ST,	T_UPD,	T_UIM,	"-wp0'I"		},
 /* A GNU extension.  */
   { "m",	0,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"-wp"		},
   { "fFgG",	0,	T_D,	NULL,	NULL,	T_D,	NULL,	T_LD,	NULL,	NULL,	NULL,	"-wp0 +#'"	},
@@ -1426,15 +1426,15 @@ static format_char_info print_char_table[] = {
 };
 
 static format_char_info scan_char_table[] = {
-  { "di",	1,	T_I,	T_SC,	T_S,	T_L,	T_LL,	T_LL,	T_SST,	T_PD,	T_IM,	"*"	},
-  { "ouxX",	1,	T_UI,	T_UC,	T_US,	T_UL,	T_ULL,	T_ULL,	T_ST,	T_UPD,	T_UIM,	"*"	},
-  { "efFgEGaA",	1,	T_F,	NULL,	NULL,	T_D,	NULL,	T_LD,	NULL,	NULL,	NULL,	"*"	},
-  { "c",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*c"	},
-  { "s",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*ac"	},
-  { "[",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*ac"	},
-  { "C",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*"	},
-  { "S",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*a"	},
-  { "p",	2,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*"	},
+  { "di",	1,	T_I,	T_SC,	T_S,	T_L,	T_LL,	T_LL,	T_SST,	T_PD,	T_IM,	"*w"	},
+  { "ouxX",	1,	T_UI,	T_UC,	T_US,	T_UL,	T_ULL,	T_ULL,	T_ST,	T_UPD,	T_UIM,	"*w"	},
+  { "efFgEGaA",	1,	T_F,	NULL,	NULL,	T_D,	NULL,	T_LD,	NULL,	NULL,	NULL,	"*w"	},
+  { "c",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*cw"	},
+  { "s",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*acw"	},
+  { "[",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	"*acw"	},
+  { "C",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*w"	},
+  { "S",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*aw"	},
+  { "p",	2,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*w"	},
   { "n",	1,	T_I,	T_SC,	T_S,	T_L,	T_LL,	NULL,	T_SST,	T_PD,	T_IM,	""	},
   { NULL,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	}
 };
@@ -1455,7 +1455,7 @@ static format_char_info time_char_table[] = {
   { "cx", 		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "3E" },
   { "%",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "" },
   { "X",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "E" },
-  { "RTnrt",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "9" },
+  { "FRTnrt",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "9" },
   { "P",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "G" },
   { "HIMSUWdmw",	0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "-_0Ow" },
   { "e",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "-_0Ow9" },
@@ -1468,7 +1468,6 @@ static format_char_info time_char_table[] = {
   { "b",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "^" },
   { "h",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "^9" },
   { "Y",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "-_0EOow" },
-  { "F",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "w9" },
   { "C",		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "-_0EOow9" },
   { NULL,		0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -1497,12 +1496,19 @@ static international_format_info *international_format_list = NULL;
 
 static void check_format_info	PARAMS ((function_format_info *, tree));
 
+static void init_dollar_format_checking		PARAMS ((int, tree));
+static int maybe_read_dollar_number		PARAMS ((const char **, int,
+							 tree, tree *));
+static void finish_dollar_format_checking	PARAMS ((void));
+
 /* Initialize the table of functions to perform format checking on.
-   The ANSI functions are always checked (whether <stdio.h> is
+   The ISO C functions are always checked (whether <stdio.h> is
    included or not), since it is common to call printf without
    including <stdio.h>.  There shouldn't be a problem with this,
-   since ANSI reserves these function names whether you include the
-   header file or not.  In any case, the checking is harmless.
+   since ISO C reserves these function names whether you include the
+   header file or not.  In any case, the checking is harmless.  With
+   -ffreestanding, these default attributes are disabled, and must be
+   specified manually if desired.
 
    Also initialize the name of function that modify the format string for
    internationalization purposes.  */
@@ -1510,28 +1516,32 @@ static void check_format_info	PARAMS ((function_format_info *, tree));
 void
 init_function_format_info ()
 {
-  record_function_format (get_identifier ("printf"), NULL_TREE,
-			  printf_format_type, 1, 2);
-  record_function_format (get_identifier ("fprintf"), NULL_TREE,
-			  printf_format_type, 2, 3);
-  record_function_format (get_identifier ("sprintf"), NULL_TREE,
-			  printf_format_type, 2, 3);
-  record_function_format (get_identifier ("scanf"), NULL_TREE,
-			  scanf_format_type, 1, 2);
-  record_function_format (get_identifier ("fscanf"), NULL_TREE,
-			  scanf_format_type, 2, 3);
-  record_function_format (get_identifier ("sscanf"), NULL_TREE,
-			  scanf_format_type, 2, 3);
-  record_function_format (get_identifier ("vprintf"), NULL_TREE,
-			  printf_format_type, 1, 0);
-  record_function_format (get_identifier ("vfprintf"), NULL_TREE,
-			  printf_format_type, 2, 0);
-  record_function_format (get_identifier ("vsprintf"), NULL_TREE,
-			  printf_format_type, 2, 0);
-  record_function_format (get_identifier ("strftime"), NULL_TREE,
-			  strftime_format_type, 3, 0);
+  if (flag_hosted)
+    {
+      /* Functions from ISO/IEC 9899:1990.  */
+      record_function_format (get_identifier ("printf"), NULL_TREE,
+			      printf_format_type, 1, 2);
+      record_function_format (get_identifier ("fprintf"), NULL_TREE,
+			      printf_format_type, 2, 3);
+      record_function_format (get_identifier ("sprintf"), NULL_TREE,
+			      printf_format_type, 2, 3);
+      record_function_format (get_identifier ("scanf"), NULL_TREE,
+			      scanf_format_type, 1, 2);
+      record_function_format (get_identifier ("fscanf"), NULL_TREE,
+			      scanf_format_type, 2, 3);
+      record_function_format (get_identifier ("sscanf"), NULL_TREE,
+			      scanf_format_type, 2, 3);
+      record_function_format (get_identifier ("vprintf"), NULL_TREE,
+			      printf_format_type, 1, 0);
+      record_function_format (get_identifier ("vfprintf"), NULL_TREE,
+			      printf_format_type, 2, 0);
+      record_function_format (get_identifier ("vsprintf"), NULL_TREE,
+			      printf_format_type, 2, 0);
+      record_function_format (get_identifier ("strftime"), NULL_TREE,
+			      strftime_format_type, 3, 0);
+    }
 
-  if (flag_isoc99)
+  if (flag_hosted && flag_isoc99)
     {
       /* ISO C99 adds the snprintf and vscanf family functions.  */
       record_function_format (get_identifier ("snprintf"), NULL_TREE,
@@ -1546,9 +1556,13 @@ init_function_format_info ()
 			      scanf_format_type, 2, 0);
     }
 
-  record_international_format (get_identifier ("gettext"), NULL_TREE, 1);
-  record_international_format (get_identifier ("dgettext"), NULL_TREE, 2);
-  record_international_format (get_identifier ("dcgettext"), NULL_TREE, 2);
+  if (flag_hosted && flag_noniso_default_format_attributes)
+    {
+      /* Uniforum/GNU gettext functions, not in ISO C.  */
+      record_international_format (get_identifier ("gettext"), NULL_TREE, 1);
+      record_international_format (get_identifier ("dgettext"), NULL_TREE, 2);
+      record_international_format (get_identifier ("dcgettext"), NULL_TREE, 2);
+    }
 }
 
 /* Record information for argument format checking.  FUNCTION_IDENT is
@@ -1664,6 +1678,169 @@ check_function_format (name, assembler_name, params)
     }
 }
 
+
+/* Variables used by the checking of $ operand number formats.  */
+static char *dollar_arguments_used = NULL;
+static int dollar_arguments_alloc = 0;
+static int dollar_arguments_count;
+static int dollar_first_arg_num;
+static int dollar_max_arg_used;
+static int dollar_format_warned;
+
+/* Initialize the checking for a format string that may contain $
+   parameter number specifications; we will need to keep track of whether
+   each parameter has been used.  FIRST_ARG_NUM is the number of the first
+   argument that is a parameter to the format, or 0 for a vprintf-style
+   function; PARAMS is the list of arguments starting at this argument.  */
+
+static void
+init_dollar_format_checking (first_arg_num, params)
+     int first_arg_num;
+     tree params;
+{
+  dollar_first_arg_num = first_arg_num;
+  dollar_arguments_count = 0;
+  dollar_max_arg_used = 0;
+  dollar_format_warned = 0;
+  if (first_arg_num > 0)
+    {
+      while (params)
+	{
+	  dollar_arguments_count++;
+	  params = TREE_CHAIN (params);
+	}
+    }
+  if (dollar_arguments_alloc < dollar_arguments_count)
+    {
+      if (dollar_arguments_used)
+	free (dollar_arguments_used);
+      dollar_arguments_alloc = dollar_arguments_count;
+      dollar_arguments_used = xmalloc (dollar_arguments_alloc);
+    }
+  if (dollar_arguments_alloc)
+    memset (dollar_arguments_used, 0, dollar_arguments_alloc);
+}
+
+
+/* Look for a decimal number followed by a $ in *FORMAT.  If DOLLAR_NEEDED
+   is set, it is an error if one is not found; otherwise, it is OK.  If
+   such a number is found, check whether it is within range and mark that
+   numbered operand as being used for later checking.  Returns the operand
+   number if found and within range, zero if no such number was found and
+   this is OK, or -1 on error.  PARAMS points to the first operand of the
+   format; PARAM_PTR is made to point to the parameter referred to.  If
+   a $ format is found, *FORMAT is updated to point just after it.  */
+
+static int
+maybe_read_dollar_number (format, dollar_needed, params, param_ptr)
+     const char **format;
+     int dollar_needed;
+     tree params;
+     tree *param_ptr;
+{
+  int argnum;
+  int overflow_flag;
+  const char *fcp = *format;
+  if (*fcp < '0' || *fcp > '9')
+    {
+      if (dollar_needed)
+	{
+	  warning ("missing $ operand number in format");
+	  return -1;
+	}
+      else
+	return 0;
+    }
+  argnum = 0;
+  overflow_flag = 0;
+  while (*fcp >= '0' && *fcp <= '9')
+    {
+      int nargnum;
+      nargnum = 10 * argnum + (*fcp - '0');
+      if (nargnum < 0 || nargnum / 10 != argnum)
+	overflow_flag = 1;
+      argnum = nargnum;
+      fcp++;
+    }
+  if (*fcp != '$')
+    {
+      if (dollar_needed)
+	{
+	  warning ("missing $ operand number in format");
+	  return -1;
+	}
+      else
+	return 0;
+    }
+  *format = fcp + 1;
+  if (pedantic && !dollar_format_warned)
+    {
+      warning ("ISO C does not support %%n$ operand number formats");
+      dollar_format_warned = 1;
+    }
+  if (overflow_flag || argnum == 0
+      || (dollar_first_arg_num && argnum > dollar_arguments_count))
+    {
+      warning ("operand number out of range in format");
+      return -1;
+    }
+  if (argnum > dollar_max_arg_used)
+    dollar_max_arg_used = argnum;
+  /* For vprintf-style functions we may need to allocate more memory to
+     track which arguments are used.  */
+  while (dollar_arguments_alloc < dollar_max_arg_used)
+    {
+      int nalloc;
+      nalloc = 2 * dollar_arguments_alloc + 16;
+      dollar_arguments_used = xrealloc (dollar_arguments_used, nalloc);
+      memset (dollar_arguments_used + dollar_arguments_alloc, 0,
+	      nalloc - dollar_arguments_alloc);
+      dollar_arguments_alloc = nalloc;
+    }
+  dollar_arguments_used[argnum - 1] = 1;
+  if (dollar_first_arg_num)
+    {
+      int i;
+      *param_ptr = params;
+      for (i = 1; i < argnum && *param_ptr != 0; i++)
+	*param_ptr = TREE_CHAIN (*param_ptr);
+
+      if (*param_ptr == 0)
+	{
+	  /* This case shouldn't be caught here.  */
+	  abort ();
+	}
+    }
+  else
+    *param_ptr = 0;
+  return argnum;
+}
+
+
+/* Finish the checking for a format string that used $ operand number formats
+   instead of non-$ formats.  We check for unused operands before used ones
+   (a serious error, since the implementation of the format function
+   can't know what types to pass to va_arg to find the later arguments).
+   and for unused operands at the end of the format (if we know how many
+   arguments the format had, so not for vprintf).  If there were operand
+   numbers out of range on a non-vprintf-style format, we won't have reached
+   here.  */
+
+static void
+finish_dollar_format_checking ()
+{
+  int i;
+  for (i = 0; i < dollar_max_arg_used; i++)
+    {
+      if (!dollar_arguments_used[i])
+	warning ("format argument %d unused before used argument %d in $-style format",
+		 i + 1, dollar_max_arg_used);
+    }
+  if (dollar_first_arg_num && dollar_max_arg_used < dollar_arguments_count)
+    warning ("unused arguments in $-style format");
+}
+
+
 /* Check the argument list of a call to printf, scanf, etc.
    INFO points to the function_format_info structure.
    PARAMS is the list of argument values.  */
@@ -1687,7 +1864,9 @@ check_format_info (info, params)
   const char *format_chars;
   format_char_info *fci = NULL;
   char flag_chars[8];
-  int has_operand_number = 0;
+  /* -1 if no conversions taking an operand have been found; 0 if one has
+     and it didn't use $; 1 if $ formats are in use.  */
+  int has_operand_number = -1;
 
   /* Skip to format argument.  If the argument isn't available, there's
      no work for us to do; prototype checking will catch the problem.  */
@@ -1791,16 +1970,21 @@ check_format_info (info, params)
     }
 
   first_fillin_param = params;
+  init_dollar_format_checking (info->first_arg_num, first_fillin_param);
   while (1)
     {
       int aflag;
       int char_type_flag = 0;
+      int writing_in_flag = 0;
       if (*format_chars == 0)
 	{
 	  if (format_chars - TREE_STRING_POINTER (format_tree) != format_length)
 	    warning ("embedded `\\0' in format");
-	  if (info->first_arg_num != 0 && params != 0 && ! has_operand_number)
+	  if (info->first_arg_num != 0 && params != 0
+	      && has_operand_number <= 0)
 	    warning ("too many arguments for format");
+	  if (has_operand_number > 0)
+	    finish_dollar_format_checking ();
 	  return;
 	}
       if (*format_chars++ != '%')
@@ -1819,11 +2003,35 @@ check_format_info (info, params)
       suppressed = wide = precise = FALSE;
       if (info->format_type == scanf_format_type)
 	{
+	  int non_zero_width_char = FALSE;
 	  suppressed = *format_chars == '*';
 	  if (suppressed)
 	    ++format_chars;
+	  else if (has_operand_number != 0)
+	    {
+	      int opnum;
+	      opnum = maybe_read_dollar_number (&format_chars,
+						has_operand_number == 1,
+						first_fillin_param, &params);
+	      if (opnum == -1)
+		return;
+	      else if (opnum > 0)
+		{
+		  has_operand_number = 1;
+		  arg_num = opnum + info->first_arg_num - 1;
+		}
+	      else
+		has_operand_number = 0;
+	    }
 	  while (ISDIGIT (*format_chars))
-	    ++format_chars;
+	    {
+	      wide = TRUE;
+	      if (*format_chars != '0')
+		non_zero_width_char = TRUE;
+	      ++format_chars;
+	    }
+	  if (wide && !non_zero_width_char)
+	    warning ("zero width in scanf format");
 	}
       else if (info->format_type == strftime_format_type)
         {
@@ -1867,38 +2075,24 @@ check_format_info (info, params)
 	}
       else if (info->format_type == printf_format_type)
 	{
-	  /* See if we have a number followed by a dollar sign.  If we do,
-	     it is an operand number, so set PARAMS to that operand.  */
-	  if (*format_chars >= '0' && *format_chars <= '9')
+	  if (has_operand_number != 0)
 	    {
-	      const char *p = format_chars;
-
-	      while (*p >= '0' && *p++ <= '9')
-		;
-
-	      if (*p == '$')
+	      int opnum;
+	      opnum = maybe_read_dollar_number (&format_chars,
+						has_operand_number == 1,
+						first_fillin_param, &params);
+	      if (opnum == -1)
+		return;
+	      else if (opnum > 0)
 		{
-		  int opnum = atoi (format_chars);
-
-		  if (pedantic)
-		    warning ("ISO C does not support printf %%n$");
-
-		  params = first_fillin_param;
-		  format_chars = p + 1;
 		  has_operand_number = 1;
-
-		  for (i = 1; i < opnum && params != 0; i++)
-		    params = TREE_CHAIN (params);
-
-		  if (opnum == 0 || params == 0)
-		    {
-		      warning ("operand number out of range in format");
-		      return;
-		    }
+		  arg_num = opnum + info->first_arg_num - 1;
 		}
+	      else
+		has_operand_number = 0;
 	    }
 
-	  while (*format_chars != 0 && index (" +#0-'", *format_chars) != 0)
+	  while (*format_chars != 0 && index (" +#0-'I", *format_chars) != 0)
 	    {
 	      if (index (flag_chars, *format_chars) != 0)
 		warning ("repeated `%c' flag in format", *format_chars++);
@@ -1921,6 +2115,8 @@ check_format_info (info, params)
 	    warning ("use of both `0' and `-' flags in format");
 	  if (index (flag_chars, '\'') && pedantic)
 	    warning ("ISO C does not support the `'' format flag");
+	  if (index (flag_chars, 'I') && pedantic)
+	    warning ("ISO C does not support the `I' format flag");
 	  if (*format_chars == '*')
 	    {
 	      wide = TRUE;
@@ -1932,11 +2128,25 @@ check_format_info (info, params)
 		  tfaff ();
 		  return;
 		}
+	      if (has_operand_number > 0)
+		{
+		  int opnum;
+		  opnum = maybe_read_dollar_number (&format_chars, 1,
+						    first_fillin_param,
+						    &params);
+		  if (opnum <= 0)
+		    return;
+		  else
+		    arg_num = opnum + info->first_arg_num - 1;
+		}
 	      if (info->first_arg_num != 0)
 		{
 		  cur_param = TREE_VALUE (params);
-		  params = TREE_CHAIN (params);
-		  ++arg_num;
+		  if (has_operand_number <= 0)
+		    {
+		      params = TREE_CHAIN (params);
+		      ++arg_num;
+		    }
 		  /* size_t is generally not valid here.
 		     It will work on most machines, because size_t and int
 		     have the same mode.  But might as well warn anyway,
@@ -1965,17 +2175,31 @@ check_format_info (info, params)
 		 In this case, an int argument supplies the...precision."  */
 	      if (*format_chars == '*')
 		{
+		  ++format_chars;
+		  if (has_operand_number > 0)
+		    {
+		      int opnum;
+		      opnum = maybe_read_dollar_number (&format_chars, 1,
+							first_fillin_param,
+							&params);
+		      if (opnum <= 0)
+			return;
+		      else
+			arg_num = opnum + info->first_arg_num - 1;
+		    }
 		  if (info->first_arg_num != 0)
 		    {
-		      ++format_chars;
 		      if (params == 0)
 		        {
 			  tfaff ();
 			  return;
 			}
 		      cur_param = TREE_VALUE (params);
-		      params = TREE_CHAIN (params);
-		      ++arg_num;
+		      if (has_operand_number <= 0)
+			{
+			  params = TREE_CHAIN (params);
+			  ++arg_num;
+			}
 		      if ((TYPE_MAIN_VARIANT (TREE_TYPE (cur_param))
 			   != integer_type_node)
 			  &&
@@ -2006,7 +2230,9 @@ check_format_info (info, params)
 		warning ("ISO C does not support the `%c' length modifier",
 			 length_char);
 	    }
-	  else if (*format_chars == 'Z' || *format_chars == 'z')
+	  else if (*format_chars == 'z'
+		   || (*format_chars == 'Z'
+		       && info->format_type == printf_format_type))
 	    {
 	      length_char = *format_chars++;
 	      if (pedantic)
@@ -2040,7 +2266,8 @@ check_format_info (info, params)
 	      if (pedantic && !flag_isoc99)
 		warning ("ISO C89 does not support the `hh' length modifier");
 	    }
-	  if (*format_chars == 'a' && info->format_type == scanf_format_type)
+	  if (*format_chars == 'a' && info->format_type == scanf_format_type
+	      && !flag_isoc99)
 	    {
 	      if (format_chars[1] == 's' || format_chars[1] == 'S'
 		  || format_chars[1] == '[')
@@ -2115,11 +2342,12 @@ check_format_info (info, params)
 	}
       if (wide && index (fci->flag_chars, 'w') == 0)
 	warning ("width used with `%c' format", format_char);
-      if (index (fci->flag_chars, '2') != 0)
-	warning ("`%%%c' yields only last 2 digits of year", format_char);
-      else if (index (fci->flag_chars, '3') != 0)
+      if (index (fci->flag_chars, '3') != 0
+	  || (format_char == 'y' && index (flag_chars, 'E')))
 	warning ("`%%%c' yields only last 2 digits of year in some locales",
 		 format_char);
+      else if (index (fci->flag_chars, '2') != 0)
+	warning ("`%%%c' yields only last 2 digits of year", format_char);
       if (precise && index (fci->flag_chars, 'p') == 0)
 	warning ("precision used with `%c' format", format_char);
       if (aflag && index (fci->flag_chars, 'a') == 0)
@@ -2224,6 +2452,12 @@ check_format_info (info, params)
 
       STRIP_NOPS (cur_param);
 
+      if ((info->format_type == scanf_format_type
+	   || (info->format_type == printf_format_type
+	       && format_char == 'n'))
+	  && wanted_type != 0)
+	writing_in_flag = 1;
+
       /* Check the types of any additional pointer arguments
 	 that precede the "real" argument.  */
       for (i = 0; i < fci->pointer_count + aflag; ++i)
@@ -2237,6 +2471,33 @@ check_format_info (info, params)
 	      else
 		cur_param = 0;
 
+	      /* See if this is an attempt to write into a const type with
+		 scanf or with printf "%n".  Note: the writing in happens
+		 at the first indirection only, if for example
+		 void * const * is passed to scanf %p; passing
+		 const void ** is simply passing an incompatible type.  */
+	      if (writing_in_flag
+		  && i == 0
+		  && TREE_CODE (cur_type) != ERROR_MARK
+		  && (TYPE_READONLY (cur_type)
+		      || (cur_param != 0
+			  && (TREE_CODE_CLASS (TREE_CODE (cur_param)) == 'c'
+			      || (DECL_P (cur_param)
+				  && TREE_READONLY (cur_param))))))
+		warning ("writing into constant object (arg %d)", arg_num);
+
+	      /* If there are extra type qualifiers beyond the first
+		 indirection, then this makes the types technically
+		 incompatible.  */
+	      if (i > 0
+		  && pedantic
+		  && TREE_CODE (cur_type) != ERROR_MARK
+		  && (TYPE_READONLY (cur_type)
+		      || TYPE_VOLATILE (cur_type)
+		      || TYPE_RESTRICT (cur_type)))
+		warning ("extra type qualifiers in format argument (arg %d)",
+			 arg_num);
+
 	      continue;
 	    }
 	  if (TREE_CODE (cur_type) != ERROR_MARK)
@@ -2248,20 +2509,6 @@ check_format_info (info, params)
 	    }
 	  break;
 	}
-
-      /* See if this is an attempt to write into a const type with
-	 scanf or with printf "%n".  */
-      if ((info->format_type == scanf_format_type
-	   || (info->format_type == printf_format_type
-	       && format_char == 'n'))
-	  && i == fci->pointer_count + aflag
-	  && wanted_type != 0
-	  && TREE_CODE (cur_type) != ERROR_MARK
-	  && (TYPE_READONLY (cur_type)
-	      || (cur_param != 0
-		  && (TREE_CODE_CLASS (TREE_CODE (cur_param)) == 'c'
-		      || (DECL_P (cur_param) && TREE_READONLY (cur_param))))))
-	warning ("writing into constant object (arg %d)", arg_num);
 
       /* Check whether the argument type is a character type.  This leniency
 	 only applies to certain formats, flagged with 'c'.

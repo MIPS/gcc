@@ -176,8 +176,7 @@ static void decode_d_option PARAMS ((const char *));
 static int decode_f_option PARAMS ((const char *));
 static int decode_W_option PARAMS ((const char *));
 static int decode_g_option PARAMS ((const char *));
-static unsigned int independent_decode_option PARAMS ((int, char **,
-						       unsigned int));
+static unsigned int independent_decode_option PARAMS ((int, char **));
 
 static void print_version PARAMS ((FILE *, const char *));
 static int print_single_switch PARAMS ((FILE *, int, int, const char *,
@@ -1135,8 +1134,6 @@ lang_independent_options f_options[] =
   {"single-precision-constant", &flag_single_precision_constant, 1,
   "Convert floating point constant to single precision constant"}
 };
-
-#define NUM_ELEM(a)  (sizeof (a) / sizeof ((a)[0]))
 
 /* Table of language-specific options.  */
 
@@ -2145,38 +2142,35 @@ compile_file (name)
 	pfatal_with_name (aux_info_file_name);
     }
 
-  /* Open assembler code output file.  */
+  /* Open assembler code output file.  Do this even if -fsyntax-only is on,
+     because then the driver will have provided the name of a temporary
+     file or bit bucket for us.  */
 
-  if (flag_syntax_only)
-    asm_out_file = NULL;
+  if (! name_specified && asm_file_name == 0)
+    asm_out_file = stdout;
   else
     {
-      if (! name_specified && asm_file_name == 0)
-	asm_out_file = stdout;
+      if (asm_file_name == 0)
+        {
+          int len = strlen (dump_base_name);
+          char *dumpname = (char *) xmalloc (len + 6);
+          memcpy (dumpname, dump_base_name, len + 1);
+          strip_off_ending (dumpname, len);
+          strcat (dumpname, ".s");
+          asm_file_name = dumpname;
+        }
+      if (!strcmp (asm_file_name, "-"))
+        asm_out_file = stdout;
       else
-	{
-	  if (asm_file_name == 0)
-	    {
-	      int len = strlen (dump_base_name);
-	      char *dumpname = (char *) xmalloc (len + 6);
-	      memcpy (dumpname, dump_base_name, len + 1);
-	      strip_off_ending (dumpname, len);
-	      strcat (dumpname, ".s");
-	      asm_file_name = dumpname;
-	    }
-	  if (!strcmp (asm_file_name, "-"))
-	    asm_out_file = stdout;
-	  else
-	    asm_out_file = fopen (asm_file_name, "w");
-	  if (asm_out_file == 0)
-	    pfatal_with_name (asm_file_name);
-	}
+        asm_out_file = fopen (asm_file_name, "w");
+      if (asm_out_file == 0)
+        pfatal_with_name (asm_file_name);
+    }
 
 #ifdef IO_BUFFER_SIZE
-      setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
-	       _IOFBF, IO_BUFFER_SIZE);
+  setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
+           _IOFBF, IO_BUFFER_SIZE);
 #endif
-    }
 
   if (ggc_p && name != 0)
     name = ggc_alloc_string (name, strlen (name));
@@ -2466,8 +2460,7 @@ compile_file (name)
 
   finish_parse ();
 
-  if (! flag_syntax_only
-      && (ferror (asm_out_file) != 0 || fclose (asm_out_file) != 0))
+  if (ferror (asm_out_file) != 0 || fclose (asm_out_file) != 0)
     fatal_io_error (asm_file_name);
 
   /* Do whatever is necessary to finish printing the graphs.  */
@@ -3401,7 +3394,7 @@ rest_of_compilation (decl)
   else
     {
       build_insn_chain (insns);
-      failure = reload (insns, 0, rtl_dump_file);
+      failure = reload (insns, 0);
     }
 
   timevar_pop (TV_GLOBAL_ALLOC);
@@ -3423,7 +3416,12 @@ rest_of_compilation (decl)
   /* If optimizing, then go ahead and split insns now since we are about
      to recompute flow information anyway.  */
   if (optimize > 0)
-    split_all_insns (0);
+    {
+      int old_labelnum = max_label_num ();
+
+      split_all_insns (0);
+      rebuild_label_notes_after_reload |= old_labelnum != max_label_num ();
+    }
 
   /* Register allocation and reloading may have turned an indirect jump into
      a direct jump.  If so, we must rebuild the JUMP_LABEL fields of
@@ -3768,7 +3766,7 @@ display_help ()
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | never] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
 
-  for (i = NUM_ELEM (f_options); i--;)
+  for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
 
@@ -3784,7 +3782,7 @@ display_help ()
   printf (_("  -w                      Suppress warnings\n"));
   printf (_("  -W                      Enable extra warnings\n"));
 
-  for (i = NUM_ELEM (W_options); i--;)
+  for (i = ARRAY_SIZE (W_options); i--;)
     {
       const char *description = W_options[i].description;
 
@@ -3808,7 +3806,7 @@ display_help ()
   -G <number>             Put global and static data smaller than <number>\n\
                           bytes into a special section (on some targets)\n"));
 
-  for (i = NUM_ELEM (debug_args); i--;)
+  for (i = ARRAY_SIZE (debug_args); i--;)
     {
       if (debug_args[i].description != NULL)
 	printf ("  -g%-21s %s\n",
@@ -3836,11 +3834,11 @@ display_help ()
      that the description string is in fact the name of a language, whose
      language specific options are to follow.  */
 
-  if (NUM_ELEM (documented_lang_options) > 1)
+  if (ARRAY_SIZE (documented_lang_options) > 1)
     {
       printf (_("\nLanguage specific options:\n"));
 
-      for (i = 0; i < NUM_ELEM (documented_lang_options); i++)
+      for (i = 0; i < ARRAY_SIZE (documented_lang_options); i++)
 	{
 	  const char *description = documented_lang_options[i].description;
 	  const char *option      = documented_lang_options[i].option;
@@ -3875,9 +3873,9 @@ display_help ()
     printf (_("\nThere are undocumented %s specific options as well.\n"),
 	    lang);
 
-  if (NUM_ELEM (target_switches) > 1
+  if (ARRAY_SIZE (target_switches) > 1
 #ifdef TARGET_OPTIONS
-      || NUM_ELEM (target_options) > 1
+      || ARRAY_SIZE (target_options) > 1
 #endif
       )
     {
@@ -3887,7 +3885,7 @@ display_help ()
 
       printf (_("\nTarget specific options:\n"));
 
-      for (i = NUM_ELEM (target_switches); i--;)
+      for (i = ARRAY_SIZE (target_switches); i--;)
 	{
 	  const char *option      = target_switches[i].name;
 	  const char *description = target_switches[i].description;
@@ -3906,7 +3904,7 @@ display_help ()
 	}
 
 #ifdef TARGET_OPTIONS
-      for (i = NUM_ELEM (target_options); i--;)
+      for (i = ARRAY_SIZE (target_options); i--;)
 	{
 	  const char *option      = target_options[i].prefix;
 	  const char *description = target_options[i].description;
@@ -3998,7 +3996,7 @@ decode_f_option (arg)
   const char *option_value = NULL;
 
   /* Search for the option in the table of binary f options.  */
-  for (j = sizeof (f_options) / sizeof (f_options[0]); j--;)
+  for (j = ARRAY_SIZE (f_options); j--;)
     {
       if (!strcmp (arg, f_options[j].string))
 	{
@@ -4097,7 +4095,7 @@ decode_W_option (arg)
 
   /* Search for the option in the table of binary W options.  */
 
-  for (j = sizeof (W_options) / sizeof (W_options[0]); j--;)
+  for (j = ARRAY_SIZE (W_options); j--;)
     {
       if (!strcmp (arg, W_options[j].string))
 	{
@@ -4268,15 +4266,12 @@ ignoring option `%s' due to invalid debug level specification",
 }
 
 /* Decode the first argument in the argv as a language-independent option.
-   Return the number of strings consumed.  'strings_processed' is the
-   number of strings that have already been decoded in a language
-   specific fashion before this function was invoked.  */
+   Return the number of strings consumed.  */
 
 static unsigned int
-independent_decode_option (argc, argv, strings_processed)
+independent_decode_option (argc, argv)
      int argc;
      char **argv;
-     unsigned int strings_processed;
 {
   char *arg = argv[0];
 
@@ -4318,10 +4313,7 @@ independent_decode_option (argc, argv, strings_processed)
       return decode_f_option (arg + 1);
 
     case 'g':
-      if (strings_processed == 0)
-	return decode_g_option (arg + 1);
-      else
-	return strings_processed;
+      return decode_g_option (arg + 1);
 
     case 'd':
       if (!strcmp (arg, "dumpbase"))
@@ -4647,12 +4639,8 @@ main (argc, argv)
 
       /* Now see if the option also has a language independent meaning.
 	 Some options are both language specific and language independent,
-	 eg --help.  It is possible that there might be options that should
-	 only be decoded in a language independent way if they were not
-	 decoded in a language specific way, which is why 'lang_processed'
-	 is passed in.  */
-      indep_processed = independent_decode_option (argc - i, argv + i,
-						   lang_processed);
+	 eg --help.  */
+      indep_processed = independent_decode_option (argc - i, argv + i);
 
       if (lang_processed || indep_processed)
 	i += (lang_processed > indep_processed
@@ -4670,7 +4658,7 @@ main (argc, argv)
 	     possibility here.  If we do find a match, then if extra_warnings
 	     is set we generate a warning message, otherwise we will just
 	     ignore the option.  */
-	  for (j = 0; j < NUM_ELEM (documented_lang_options); j++)
+	  for (j = 0; j < ARRAY_SIZE (documented_lang_options); j++)
 	    {
 	      option = documented_lang_options[j].option;
 
@@ -4680,7 +4668,7 @@ main (argc, argv)
 		break;
 	    }
 
-	  if (j != NUM_ELEM (documented_lang_options))
+	  if (j != ARRAY_SIZE (documented_lang_options))
 	    {
 	      if (extra_warnings)
 		{
@@ -4848,7 +4836,7 @@ set_target_switch (name)
   register size_t j;
   int valid_target_option = 0;
 
-  for (j = 0; j < sizeof target_switches / sizeof target_switches[0]; j++)
+  for (j = 0; j < ARRAY_SIZE (target_switches); j++)
     if (!strcmp (target_switches[j].name, name))
       {
 	if (target_switches[j].value < 0)
@@ -4860,7 +4848,7 @@ set_target_switch (name)
 
 #ifdef TARGET_OPTIONS
   if (!valid_target_option)
-    for (j = 0; j < sizeof target_options / sizeof target_options[0]; j++)
+    for (j = 0; j < ARRAY_SIZE (target_options); j++)
       {
 	int len = strlen (target_options[j].prefix);
 	if (!strncmp (target_options[j].prefix, name, len))
@@ -4975,14 +4963,14 @@ print_switch_values (file, pos, max, indent, sep, term)
   pos = print_single_switch (file, 0, max, indent, *indent ? " " : "", term,
 			     _("options enabled: "), "");
 
-  for (j = 0; j < sizeof f_options / sizeof f_options[0]; j++)
+  for (j = 0; j < ARRAY_SIZE (f_options); j++)
     if (*f_options[j].variable == f_options[j].on_value)
       pos = print_single_switch (file, pos, max, indent, sep, term,
 				 "-f", f_options[j].string);
 
   /* Print target specific options.  */
 
-  for (j = 0; j < sizeof target_switches / sizeof target_switches[0]; j++)
+  for (j = 0; j < ARRAY_SIZE (target_switches); j++)
     if (target_switches[j].name[0] != '\0'
 	&& target_switches[j].value > 0
 	&& ((target_switches[j].value & target_flags)
@@ -4993,7 +4981,7 @@ print_switch_values (file, pos, max, indent, sep, term)
       }
 
 #ifdef TARGET_OPTIONS
-  for (j = 0; j < sizeof target_options / sizeof target_options[0]; j++)
+  for (j = 0; j < ARRAY_SIZE (target_options); j++)
     if (*target_options[j].variable != NULL)
       {
 	char prefix[256];

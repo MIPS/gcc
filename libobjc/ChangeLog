@@ -1,3 +1,22 @@
+Tue Aug 15 00:38:56 2000  Ovidiu Predescu  <ovidiu@cup.hp.com>
+
+	* configure.in: Create a config.h file. Check for <sched.h>.
+	* configure: Regenerate.
+
+	* config.h.in: Check for <sched.h>.
+
+2000-08-14  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* configure: Regenerate after change to ../libtool.m4.
+
+2000-08-14  Andreas Schwab  <schwab@suse.de>
+
+	* objc-features.texi (Top): Move @menu at end of node.
+
+2000-08-11  Manfred Hollstein  <manfredh@redhat.com>
+
+	* objc-features.texi: Move @node Top before @menu.
+
 Sun Aug  6 23:27:49 2000  Ovidiu Predescu  <ovidiu@cup.hp.com>
 
 	* objc-features.texi: Documented the new -fconstant-string-class

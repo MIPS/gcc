@@ -430,22 +430,40 @@ void *__dynamic_cast (const void *__src_ptr,    /* object started from */
 /* array ctor/dtor routines */
 
 /* allocate and construct array */
-extern "C++"
+extern "C"
 void *__cxa_vec_new (__SIZE_TYPE__ __element_count,
                      __SIZE_TYPE__ __element_size,
                      __SIZE_TYPE__ __padding_size,
                      void (*__constructor) (void *),
                      void (*__destructor) (void *));
 
+extern "C"
+void *__cxa_vec_new2 (__SIZE_TYPE__ __element_count,
+                      __SIZE_TYPE__ __element_size,
+                      __SIZE_TYPE__ __padding_size,
+                      void (*__constructor) (void *),
+                      void (*__destructor) (void *),
+                      void *(*__alloc) (__SIZE_TYPE__),
+                      void (*__dealloc) (void *));
+
+extern "C"
+void *__cxa_vec_new3 (__SIZE_TYPE__ __element_count,
+                      __SIZE_TYPE__ __element_size,
+                      __SIZE_TYPE__ __padding_size,
+                      void (*__constructor) (void *),
+                      void (*__destructor) (void *),
+                      void *(*__alloc) (__SIZE_TYPE__),
+                      void (*__dealloc) (void *, __SIZE_TYPE__));
+
 /* construct array */
-extern "C++"
+extern "C"
 void __cxa_vec_ctor (void *__array_address,
                      __SIZE_TYPE__ __element_count,
                      __SIZE_TYPE__ __element_size,
                      void (*__constructor) (void *),
                      void (*__destructor) (void *));
 
-extern "C++"
+extern "C"
 void __cxa_vec_cctor (void *dest_array,
 		      void *src_array,
 		      __SIZE_TYPE__ element_count,
@@ -454,19 +472,33 @@ void __cxa_vec_cctor (void *dest_array,
 		      void (*destructor) (void *));
  
 /* destruct array */
-extern "C++"
+extern "C"
 void __cxa_vec_dtor (void *__array_address,
                      __SIZE_TYPE__ __element_count,
                      __SIZE_TYPE__ __element_size,
                      void (*__destructor) (void *));
 
 /* destruct and release array */
-extern "C++"
+extern "C"
 void __cxa_vec_delete (void *__array_address,
                        __SIZE_TYPE__ __element_size,
                        __SIZE_TYPE__ __padding_size,
                        void (*__destructor) (void *));
 
+extern "C"
+void __cxa_vec_delete2 (void *__array_address,
+                        __SIZE_TYPE__ __element_size,
+                        __SIZE_TYPE__ __padding_size,
+                        void (*__destructor) (void *),
+                        void (*__dealloc) (void *));
+                  
+extern "C"
+void __cxa_vec_delete3 (void *__array_address,
+                        __SIZE_TYPE__ __element_size,
+                        __SIZE_TYPE__ __padding_size,
+                        void (*__destructor) (void *),
+                        void (*__dealloc) (void *, __SIZE_TYPE__));
+                  
 /* demangling routines */
 
 extern "C" 

@@ -586,7 +586,7 @@ place_union_field (rli, field)
   
   DECL_FIELD_OFFSET (field) = size_zero_node;
   DECL_FIELD_BIT_OFFSET (field) = bitsize_zero_node;
-  DECL_OFFSET_ALIGN (field) = BIGGEST_ALIGNMENT;
+  SET_DECL_OFFSET_ALIGN (field, BIGGEST_ALIGNMENT);
 
   desired_align = DECL_ALIGN (field);
 
@@ -866,7 +866,7 @@ place_field (rli, field)
   normalize_rli (rli);
   DECL_FIELD_OFFSET (field) = rli->offset;
   DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
-  DECL_OFFSET_ALIGN (field) = rli->offset_align;
+  SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
 
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
@@ -1069,8 +1069,11 @@ compute_record_mode (type)
 
       /* If this field is the whole struct, remember its mode so
 	 that, say, we can put a double in a class into a DF
-	 register instead of forcing it to live in the stack.  */
-      if (field == TYPE_FIELDS (type) && TREE_CHAIN (field) == 0)
+	 register instead of forcing it to live in the stack.  However,
+	 we don't support using such a mode if there is no integer mode
+	 of the same size, so don't set it here.  */
+      if (field == TYPE_FIELDS (type) && TREE_CHAIN (field) == 0
+	  && int_mode_for_mode (DECL_MODE (field)) != BLKmode)
 	mode = DECL_MODE (field);
 
 #ifdef STRUCT_FORCE_BLK
@@ -1669,7 +1672,7 @@ set_sizetype (type)
   TYPE_NAME (bitsizetype) = get_identifier ("bit_size_type");
 
   /* Show is a sizetype, is a main type, and has no pointers to it.  */
-  for (i = 0; i < sizeof sizetype_tab / sizeof sizetype_tab[0]; i++)
+  for (i = 0; i < ARRAY_SIZE (sizetype_tab); i++)
     {
       TYPE_IS_SIZETYPE (sizetype_tab[i]) = 1;
       TYPE_MAIN_VARIANT (sizetype_tab[i]) = sizetype_tab[i];

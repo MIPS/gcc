@@ -1566,6 +1566,7 @@ true_dependence (mem, mem_mode, x, varies)
      int (*varies) PARAMS ((rtx));
 {
   register rtx x_addr, mem_addr;
+  rtx base;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -1588,6 +1589,12 @@ true_dependence (mem, mem_mode, x, varies)
 
   x_addr = get_addr (XEXP (x, 0));
   mem_addr = get_addr (XEXP (mem, 0));
+
+  base = find_base_term (x_addr);
+  if (base && (GET_CODE (base) == LABEL_REF
+	       || (GET_CODE (base) == SYMBOL_REF
+		   && CONSTANT_POOL_ADDRESS_P (base))))
+    return 0;
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -1627,6 +1634,7 @@ write_dependence_p (mem, x, writep)
 {
   rtx x_addr, mem_addr;
   rtx fixed_scalar;
+  rtx base;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
     return 1;
@@ -1637,11 +1645,20 @@ write_dependence_p (mem, x, writep)
   /* If MEM is an unchanging read, then it can't possibly conflict with
      the store to X, because there is at most one store to MEM, and it must
      have occurred somewhere before MEM.  */
-  if (!writep && RTX_UNCHANGING_P (mem))
+  if (! writep && RTX_UNCHANGING_P (mem))
     return 0;
 
   x_addr = get_addr (XEXP (x, 0));
   mem_addr = get_addr (XEXP (mem, 0));
+
+  if (! writep)
+    {
+      base = find_base_term (mem_addr);
+      if (base && (GET_CODE (base) == LABEL_REF
+		   || (GET_CODE (base) == SYMBOL_REF
+		       && CONSTANT_POOL_ADDRESS_P (base))))
+	return 0;
+    }
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x),
 			  GET_MODE (mem)))
@@ -1965,15 +1982,6 @@ init_alias_analysis ()
       new_reg_base_value[HARD_FRAME_POINTER_REGNUM]
 	= gen_rtx_ADDRESS (Pmode, hard_frame_pointer_rtx);
 #endif
-      if (struct_value_incoming_rtx
-	  && GET_CODE (struct_value_incoming_rtx) == REG)
-	new_reg_base_value[REGNO (struct_value_incoming_rtx)]
-	  = gen_rtx_ADDRESS (Pmode, struct_value_incoming_rtx);
-
-      if (static_chain_rtx
-	  && GET_CODE (static_chain_rtx) == REG)
-	new_reg_base_value[REGNO (static_chain_rtx)]
-	  = gen_rtx_ADDRESS (Pmode, static_chain_rtx);
 
       /* Walk the insns adding values to the new_reg_base_value array.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))

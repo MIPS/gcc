@@ -95,7 +95,9 @@ netlib.att.com: netlib/cephes.   */
 
    The case LONG_DOUBLE_TYPE_SIZE = 128 activates TFmode support
    and may deactivate XFmode since `long double' is used to refer
-   to both modes.
+   to both modes.  Defining INTEL_EXTENDED_IEEE_FORMAT at the same 
+   time enables 80387-style 80-bit floats in a 128-bit padded
+   image, as seen on IA-64.
 
    The macros FLOAT_WORDS_BIG_ENDIAN, HOST_FLOAT_WORDS_BIG_ENDIAN,
    contributed by Richard Earnshaw <Richard.Earnshaw@cl.cam.ac.uk>,
@@ -244,30 +246,31 @@ unknown arithmetic type
    A REAL_VALUE_TYPE is guaranteed to occupy contiguous locations
    in memory, with no holes.  */
 
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 96
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 96 || \
+    (defined(INTEL_EXTENDED_IEEE_FORMAT) && MAX_LONG_DOUBLE_TYPE_SIZE == 128)
 /* Number of 16 bit words in external e type format */
-#define NE 6
-#define MAXDECEXP 4932
-#define MINDECEXP -4956
-#define GET_REAL(r,e) bcopy ((char *) r, (char *) e, 2*NE)
-#define PUT_REAL(e,r)				\
-do {						\
-  if (2*NE < sizeof(*r))			\
-    bzero((char *)r, sizeof(*r));		\
-  bcopy ((char *) e, (char *) r, 2*NE);		\
-} while (0)
-#else /* no XFmode */
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 128
-#define NE 10
-#define MAXDECEXP 4932
-#define MINDECEXP -4977
-#define GET_REAL(r,e) bcopy ((char *) r, (char *) e, 2*NE)
-#define PUT_REAL(e,r)				\
-do {						\
-  if (2*NE < sizeof(*r))			\
-    bzero((char *)r, sizeof(*r));		\
-  bcopy ((char *) e, (char *) r, 2*NE);		\
-} while (0)
+# define NE 6
+# define MAXDECEXP 4932
+# define MINDECEXP -4956
+# define GET_REAL(r,e)  memcpy ((char *)(e), (char *)(r), 2*NE)
+# define PUT_REAL(e,r)						\
+	do {							\
+	  memcpy ((char *)(r), (char *)(e), 2*NE);		\
+	  if (2*NE < sizeof(*r))				\
+	    memset ((char *)(r) + 2*NE, 0, sizeof(*r) - 2*NE);	\
+	} while (0)
+# else /* no XFmode */
+#  if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#   define NE 10
+#   define MAXDECEXP 4932
+#   define MINDECEXP -4977
+#   define GET_REAL(r,e) memcpy ((char *)(e), (char *)(r), 2*NE)
+#   define PUT_REAL(e,r)					\
+	do {							\
+	  memcpy ((char *)(r), (char *)(e), 2*NE);		\
+	  if (2*NE < sizeof(*r))				\
+	    memset ((char *)(r) + 2*NE, 0, sizeof(*r) - 2*NE);	\
+	} while (0)
 #else
 #define NE 6
 #define MAXDECEXP 4932
@@ -497,11 +500,13 @@ endian (e, x, mode)
       switch (mode)
 	{
 	case TFmode:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
 	  /* Swap halfwords in the fourth long.  */
 	  th = (unsigned long) e[6] & 0xffff;
 	  t = (unsigned long) e[7] & 0xffff;
 	  t |= th << 16;
 	  x[3] = (long) t;
+#endif
 
 	case XFmode:
 	  /* Swap halfwords in the third long.  */
@@ -539,11 +544,13 @@ endian (e, x, mode)
       switch (mode)
 	{
 	case TFmode:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
 	  /* Pack the fourth long.  */
 	  th = (unsigned long) e[7] & 0xffff;
 	  t = (unsigned long) e[6] & 0xffff;
 	  t |= th << 16;
 	  x[3] = (long) t;
+#endif
 
 	case XFmode:
 	  /* Pack the third long.
@@ -737,14 +744,17 @@ ereal_atof (s, t)
       e53toe (tem, e);
       break;
 
+    case TFmode:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
+      asctoe113 (s, tem);
+      e113toe (tem, e);
+      break;
+#endif
+      /* FALLTHRU */
+
     case XFmode:
       asctoe64 (s, tem);
       e64toe (tem, e);
-      break;
-
-    case TFmode:
-      asctoe113 (s, tem);
-      e113toe (tem, e);
       break;
 
     default:
@@ -872,8 +882,13 @@ ereal_from_int (d, i, j, mode)
       break;
 
     case 128:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
       etoe113 (dg, df);
       e113toe (df, dg);
+#else
+      etoe64 (dg, df);
+      e64toe (df, dg);
+#endif
       break;
 
     default:
@@ -926,8 +941,13 @@ ereal_from_uint (d, i, j, mode)
       break;
 
     case 128:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
       etoe113 (dg, df);
       e113toe (df, dg);
+#else
+      etoe64 (dg, df);
+      e64toe (df, dg);
+#endif
       break;
 
     default:
@@ -1070,9 +1090,12 @@ real_value_truncate (mode, arg)
   switch (mode)
     {
     case TFmode:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
       etoe113 (e, t);
       e113toe (t, t);
       break;
+#endif
+      /* FALLTHRU */
 
     case XFmode:
       etoe64 (e, t);
@@ -1486,7 +1509,7 @@ ereal_isneg (x)
 
 /*  e type constants used by high precision check routines */
 
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && !defined(INTEL_EXTENDED_IEEE_FORMAT)
 /* 0.0 */
 unsigned EMUSHORT ezero[NE] =
  {0x0000, 0x0000, 0x0000, 0x0000,
@@ -3653,13 +3676,11 @@ toe64 (a, b)
   else
     {
       q = b + 4;			/* point to output exponent */
-      /* The purpose of this conditional is to avoid scribbling beyond
-         the end of a long double, in case the type is only 80 bits wide.  */
-      if (LONG_DOUBLE_TYPE_SIZE == 96)
-	{
-	  /* Clear the last two bytes of 12-byte Intel format */
-	  *(q+1) = 0;
-	}
+      /* Clear the last two bytes of 12-byte Intel format.  q is pointing
+	 into an array of size 6 (e.g. x[NE]), so the last two bytes are
+	 always there, and there are never more bytes, even when we are using
+	 INTEL_EXTENDED_IEEE_FORMAT.  */
+      *(q+1) = 0;
     }
 #endif
 
@@ -4560,7 +4581,7 @@ enormlz (x)
 #define NTEN 12
 #define MAXP 4096
 
-#if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128 && !defined(INTEL_EXTENDED_IEEE_FORMAT)
 static unsigned EMUSHORT etens[NTEN + 1][NE] =
 {
   {0x6576, 0x4a92, 0x804a, 0x153f,
@@ -6276,12 +6297,15 @@ make_nan (nan, sign, mode)
    used like NaN's, but probably not in the same way as IEEE.  */
 #if !defined(DEC) && !defined(IBM) && !defined(C4X)
     case TFmode:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
       n = 8;
       if (REAL_WORDS_BIG_ENDIAN)
 	p = TFbignan;
       else
 	p = TFlittlenan;
       break;
+#endif
+      /* FALLTHRU */
 
     case XFmode:
       n = 6;
@@ -6892,8 +6916,13 @@ switch (GET_MODE_BITSIZE (mode))
 
   case 96:
     return 64;
+
   case 128:
+#ifndef INTEL_EXTENDED_IEEE_FORMAT
     return 113;
+#else
+    return 64;
+#endif
 
   default:
     abort ();

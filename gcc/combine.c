@@ -511,7 +511,6 @@ combine_instructions (f, nregs)
 #endif
   register int i;
   register rtx links, nextlinks;
-  rtx trap_insns = NULL_RTX;
 
   int new_direct_jump_p = 0;
 
@@ -6493,6 +6492,7 @@ make_compound_operation (x, in_code)
 				 INTVAL (rhs) - INTVAL (XEXP (lhs, 1)),
 				 NULL_RTX, mode_width - INTVAL (rhs),
 				 code == LSHIFTRT, 0, in_code == COMPARE);
+	  break;
 	}
 
       /* See if we have operations between an ASHIFTRT and an ASHIFT.
@@ -8852,6 +8852,14 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
 
   count = input_count;
 
+  /* Make sure and truncate the "natural" shift on the way in.  We don't
+     want to do this inside the loop as it makes it more difficult to
+     combine shifts.  */
+#ifdef SHIFT_COUNT_TRUNCATED
+  if (SHIFT_COUNT_TRUNCATED)
+    count %= GET_MODE_BITSIZE (mode);
+#endif
+
   /* Unless one of the branches of the `if' in this loop does a `continue',
      we will `break' the loop after the `if'.  */
 
@@ -8880,11 +8888,10 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
 	   ? result_mode : mode);
 
       /* Handle cases where the count is greater than the size of the mode
-	 minus 1.  If SHIFT_COUNT_TRUNCATED, there aren't really any such
-	 cases.  Otherwise, for ASHIFT, use the size minus one as the count
-	 (this can occur when simplifying (lshiftrt (ashiftrt ..))).  For
-	 rotates, take the count modulo the size.  For other shifts, the
-	 result is zero.
+	 minus 1.  For ASHIFT, use the size minus one as the count (this can
+	 occur when simplifying (lshiftrt (ashiftrt ..))).  For rotates,
+	 take the count modulo the size.  For other shifts, the result is
+	 zero.
 
 	 Since these shifts are being produced by the compiler by combining
 	 multiple operations, each of which are defined, we know what the
@@ -8892,11 +8899,6 @@ simplify_shift_const (x, code, result_mode, varop, input_count)
 
       if (count > GET_MODE_BITSIZE (shift_mode) - 1)
 	{
-#ifdef SHIFT_COUNT_TRUNCATED
-	  if (SHIFT_COUNT_TRUNCATED)
-	    count %= GET_MODE_BITSIZE (shift_mode);
-	  else
-#endif
 	  if (code == ASHIFTRT)
 	    count = GET_MODE_BITSIZE (shift_mode) - 1;
 	  else if (code == ROTATE || code == ROTATERT)

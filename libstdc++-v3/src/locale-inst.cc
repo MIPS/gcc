@@ -126,14 +126,38 @@ namespace std {
   template class _Ctype<char>;
   template class _Ctype_nois<char>;
   template class ctype_byname<char>;
-  template class _Codecvt<char, char, mbstate_t>;
 #ifdef _GLIBCPP_USE_WCHAR_T
   template class _Ctype<wchar_t>;
   template class _Ctype_nois<wchar_t>;
   template class ctype_byname<wchar_t>;
-  template class _Codecvt<wchar_t, char, mbstate_t>;
 #endif
   
+  // codecvt
+  template class __codecvt_abstract_base<char, char, mbstate_t>;
+  template class __codecvt_abstract_base<wchar_t, char, mbstate_t>;
+#ifdef _GLIBCPP_USE_WCHAR_T
+  // XXX This should not be necessary. Unfortunately, the has_facet
+  // and use_facet defines are not in the headers, an instead in
+  // locale_facets.tcc for the time being, as they use std::vector and
+  // thus compile time double when they are pushed up to the top-level
+  // includes.
+  typedef unsigned short			unicode_t;
+
+  template
+    const codecvt<unicode_t, char, __enc_traits>& 
+    use_facet<codecvt<unicode_t, char, __enc_traits> >(const locale&);
+  template 
+    bool
+    has_facet<codecvt<unicode_t, char, __enc_traits> >(const locale &);
+
+  template
+    const codecvt<unicode_t, wchar_t, __enc_traits>& 
+    use_facet<codecvt<unicode_t, wchar_t, __enc_traits> >(const locale&);
+  template 
+    bool
+    has_facet<codecvt<unicode_t, wchar_t, __enc_traits> >(const locale &);
+#endif
+
   // collate
   template class _Collate<char>;
   template class collate_byname<char>;
@@ -158,8 +182,8 @@ namespace std {
     use_facet<ctype<char> >(const locale& __loc);
   template
     const codecvt<char, char, mbstate_t>& 
-    use_facet<codecvt<char, char, mbstate_t> >(locale const &);
-  template 
+    use_facet<codecvt<char, char, mbstate_t> >(const locale&);
+   template 
     const num_put<char, obuf_iterator>& 
     _Use_facet_failure_handler<num_put<char, obuf_iterator> >
     (const locale &);
@@ -173,9 +197,6 @@ namespace std {
   template
     const ctype<wchar_t>&
     use_facet<ctype<wchar_t> >(const locale& __loc);
-  template
-    const codecvt<wchar_t, wchar_t, mbstate_t>& 
-    use_facet<codecvt<wchar_t, wchar_t, mbstate_t> >(locale const &);
   template
     const codecvt<wchar_t, char, mbstate_t>& 
     use_facet<codecvt<wchar_t, char, mbstate_t> >(locale const &);

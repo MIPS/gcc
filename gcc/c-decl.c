@@ -348,6 +348,11 @@ int flag_digraphs = 1;
 
 int flag_hosted = 1;
 
+/* Nonzero means add default format_arg attributes for functions not
+   in ISO C.  */
+
+int flag_noniso_default_format_attributes = 1;
+
 /* Nonzero means to allow single precision math even if we're generally
    being traditional.  */
 int flag_allow_single_precision = 0;
@@ -553,6 +558,7 @@ c_decode_option (argc, argv)
 	  flag_writable_strings = 0;
 	  flag_no_asm = 1;
 	  flag_no_nonansi_builtin = 1;
+	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 0;
 	}
       else if (!strcmp (argstart, "iso9899:199409"))
@@ -570,6 +576,7 @@ c_decode_option (argc, argv)
 	  flag_writable_strings = 0;
 	  flag_no_asm = 1;
 	  flag_no_nonansi_builtin = 1;
+	  flag_noniso_default_format_attributes = 0;
 	  flag_isoc99 = 1;
 	  flag_digraphs = 1;
 	  flag_isoc94 = 1;
@@ -580,6 +587,7 @@ c_decode_option (argc, argv)
 	  flag_writable_strings = 0;
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
+	  flag_noniso_default_format_attributes = 1;
 	  flag_isoc99 = 0;
 	  flag_digraphs = 1;
 	  flag_isoc94 = 0;
@@ -590,6 +598,7 @@ c_decode_option (argc, argv)
 	  flag_writable_strings = 0;
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
+	  flag_noniso_default_format_attributes = 1;
 	  flag_isoc99 = 1;
 	  flag_digraphs = 1;
 	  flag_isoc94 = 1;
@@ -1769,7 +1778,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 
 	  /* If warn_traditional, warn when a non-static function
 	     declaration follows a static one.  */
-	  if (warn_traditional
+	  if (warn_traditional && !in_system_header
 	      && TREE_CODE (olddecl) == FUNCTION_DECL
 	      && !TREE_PUBLIC (olddecl)
 	      && TREE_PUBLIC (newdecl))
@@ -2778,7 +2787,7 @@ define_label (filename, line, name)
       decl = lookup_label (name);
     }
 
-  if (warn_traditional && lookup_name (name))
+  if (warn_traditional && !in_system_header && lookup_name (name))
     warning ("traditional C lacks a separate namespace for labels, identifier `%s' conflicts",
 	     IDENTIFIER_POINTER (name));
 
@@ -6013,7 +6022,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   else if (warn_missing_prototypes
 	   && TREE_PUBLIC (decl1)
 	   && !(old_decl != 0 && TYPE_ARG_TYPES (TREE_TYPE (old_decl)) != 0)
-	   && !MAIN_NAME_P (DECL_NAME (decl1)))
+	   && ! MAIN_NAME_P (DECL_NAME (decl1)))
     warning_with_decl (decl1, "no previous prototype for `%s'");
   /* Optionally warn of any def with no previous prototype
      if the function has already been used.  */
@@ -6026,7 +6035,7 @@ start_function (declspecs, declarator, prefix_attributes, attributes)
   else if (warn_missing_declarations
 	   && TREE_PUBLIC (decl1)
 	   && old_decl == 0
-	   && !MAIN_NAME_P (DECL_NAME (decl1)))
+	   && ! MAIN_NAME_P (DECL_NAME (decl1)))
     warning_with_decl (decl1, "no previous declaration for `%s'");
   /* Optionally warn of any def with no previous declaration
      if the function has already been used.  */

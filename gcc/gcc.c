@@ -292,6 +292,12 @@ or with constant text in a single argument.
 	for each `%g.s' and another for each `%U.s'.  Previously, %U was
 	simply substituted with a file name chosen for the previous %u,
 	without regard to any appended suffix.
+ %jSUFFIX
+        substitutes the name of the HOST_BIT_BUCKET, if any, and if it is
+        writable, and if save-temps is off; otherwise, substitute the name
+        of a temporary file, just like %u.  This temporary file is not
+        meant for communication between processes, but rather as a junk
+        disposal mechanism.
  %d	marks the argument containing or following the %d as a
 	temporary file name, so that that file will be deleted if CC exits
 	successfully.  Unlike %g, this contributes no text to the argument.
@@ -575,7 +581,8 @@ static const char *cc1_options =
  %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
  %{traditional} %{v:-version} %{pg:-p} %{p} %{f*}\
  %{aux-info*} %{Qn:-fno-ident} %{--help:--help}\
- %{S:%W{o*}%{!o*:-o %b.s}}";
+ %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
+ %{fsyntax-only:-o %j}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -694,13 +701,13 @@ static struct compiler default_compilers[] =
 #if USE_CPPLIB
      "%{E|M|MM:cpp0 -lang-c %{ansi:-std=c89} %(cpp_options)}\
       %{!E:%{!M:%{!MM:cc1 -lang-c %{ansi:-std=c89} %(cpp_options)\
-			  %(cc1_options) %{!S:-o %{|!pipe:%g.s} |\n\
-      as %(asm_options) %{!pipe:%g.s} %A }}}}"
+			  %(cc1_options) %{!fsyntax-only:%{!S:-o %{|!pipe:%g.s} |\n\
+      as %(asm_options) %{!pipe:%g.s} %A }}}}}"
 #else /* ! USE_CPPLIB */
      "%(trad_capable_cpp) -lang-c %{ansi:-std=c89} %(cpp_options) \
 			  %{!M:%{!MM:%{!E:%{!pipe:%g.i} |\n\
-      cc1 %{!pipe:%g.i} %(cc1_options)  %{!S:-o %{|!pipe:%g.s} |\n\
-      as %(asm_options) %{!pipe:%g.s} %A }}}}\n"
+      cc1 %{!pipe:%g.i} %(cc1_options) %{!fsyntax-only:%{!S:-o %{|!pipe:%g.s} |\n\
+      as %(asm_options) %{!pipe:%g.s} %A }}}}}\n"
 #endif /* ! USE_CPPLIB */
   },
   {"-",
@@ -713,8 +720,8 @@ static struct compiler default_compilers[] =
   {".i", "@cpp-output"},
   {"@cpp-output",
    "%{!M:%{!MM:%{!E:\
-    cc1 %i %(cc1_options) %{!S:-o %{|!pipe:%g.s} |\n\
-    as %(asm_options) %{!pipe:%g.s} %A }}}}"},
+    cc1 %i %(cc1_options) %{!fsyntax-only:%{!S:-o %{|!pipe:%g.s} |\n\
+    as %(asm_options) %{!pipe:%g.s} %A }}}}}"},
   {".s", "@assembler"},
   {"@assembler",
    "%{!M:%{!MM:%{!E:%{!S:as %(asm_options) %i %A }}}}"},
@@ -877,7 +884,7 @@ translate_options (argcp, argvp)
 	{
 	  size_t j;
 	  /* Find a mapping that applies to this option.  */
-	  for (j = 0; j < sizeof (option_map) / sizeof (option_map[0]); j++)
+	  for (j = 0; j < ARRAY_SIZE (option_map); j++)
 	    {
 	      size_t optlen = strlen (option_map[j].name);
 	      size_t arglen = strlen (argv[i]);
@@ -894,9 +901,7 @@ translate_options (argcp, argvp)
 		  if (arglen < optlen)
 		    {
 		      size_t k;
-		      for (k = j + 1;
-			   k < sizeof (option_map) / sizeof (option_map[0]);
-			   k++)
+		      for (k = j + 1; k < ARRAY_SIZE (option_map); k++)
 			if (strlen (option_map[k].name) >= arglen
 			    && !strncmp (argv[i], option_map[k].name, arglen))
 			  {
@@ -904,7 +909,7 @@ translate_options (argcp, argvp)
 			    break;
 			  }
 
-		      if (k != sizeof (option_map) / sizeof (option_map[0]))
+		      if (k != ARRAY_SIZE (option_map))
 			break;
 		    }
 
@@ -1127,10 +1132,9 @@ init_spec ()
 
 #ifdef EXTRA_SPECS
   extra_specs = (struct spec_list *)
-    xcalloc (sizeof(struct spec_list),
-	     (sizeof(extra_specs_1)/sizeof(extra_specs_1[0])));
+    xcalloc (sizeof (struct spec_list), ARRAY_SIZE (extra_specs_1));
   
-  for (i = (sizeof(extra_specs_1) / sizeof(extra_specs_1[0])) - 1; i >= 0; i--)
+  for (i = ARRAY_SIZE (extra_specs_1) - 1; i >= 0; i--)
     {
       sl = &extra_specs[i];
       sl->name = extra_specs_1[i].name;
@@ -1142,7 +1146,7 @@ init_spec ()
     }
 #endif
 
-  for (i = (sizeof (static_specs) / sizeof (static_specs[0])) - 1; i >= 0; i--)
+  for (i = ARRAY_SIZE (static_specs) - 1; i >= 0; i--)
     {
       sl = &static_specs[i];
       sl->next = next;
@@ -1171,8 +1175,7 @@ set_spec (name, spec)
   if (!specs)
     {
       struct spec_list *next = (struct spec_list *)0;
-      for (i = (sizeof (static_specs) / sizeof (static_specs[0])) - 1;
-	   i >= 0; i--)
+      for (i = ARRAY_SIZE (static_specs) - 1; i >= 0; i--)
 	{
 	  sl = &static_specs[i];
 	  sl->next = next;
@@ -1230,13 +1233,9 @@ static int argbuf_length;
 
 static int argbuf_index;
 
-/* We want this on by default all the time now.  */
-#define MKTEMP_EACH_FILE
-
-#ifdef MKTEMP_EACH_FILE
-
-/* This is the list of suffixes and codes (%g/%u/%U) and the associated
-   temp file.  */
+/* This is the list of suffixes and codes (%g/%u/%U/%j) and the associated
+   temp file.  If the HOST_BIT_BUCKET is used for %j, no entry is made for
+   it here.  */
 
 static struct temp_name {
   const char *suffix;	/* suffix associated with the code.  */
@@ -1246,8 +1245,6 @@ static struct temp_name {
   int filename_length;	/* strlen (filename).  */
   struct temp_name *next;
 } *temp_names;
-#endif
-
 
 /* Number of commands executed so far.  */
 
@@ -1685,7 +1682,7 @@ read_specs (filename, main_p)
 
 /* This is the common prefix we use to make temp file names.
    It is chosen once for each run of this program.
-   It is substituted into a spec by %g.
+   It is substituted into a spec by %g or %j.
    Thus, all temp file names contain this prefix.
    In practice, all temp file names start with this prefix.
 
@@ -3977,6 +3974,26 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    }
 	    break;
 
+          case 'j':
+            {
+              struct stat st;
+
+              /* If save_temps_flag is off, and the HOST_BIT_BUCKET is defined,
+                 and it is not a directory, and it is writable, use it.
+                 Otherwise, fall through and treat this like any other
+                 temporary file. */
+
+              if ((!save_temps_flag)
+                  && (stat (HOST_BIT_BUCKET, &st) == 0) && (!S_ISDIR (st.st_mode))
+                  && (access (HOST_BIT_BUCKET, W_OK) == 0))
+                {
+                  obstack_grow (&obstack, HOST_BIT_BUCKET,
+                                strlen (HOST_BIT_BUCKET));
+                  delete_this_arg = 0;
+                  arg_going = 1;
+                  break;
+                }
+            }
 	  case 'g':
 	  case 'u':
 	  case 'U':
@@ -3987,11 +4004,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      }
 	    else
 	      {
-#ifdef MKTEMP_EACH_FILE
-		/* ??? This has a problem: the total number of
-		   values mktemp can return is limited.
-		   That matters for the names of object files.
-		   In 2.4, do something about that.  */
 		struct temp_name *t;
 		int suffix_length;
 		const char *suffix = p;
@@ -4028,8 +4040,8 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      && t->unique == (c != 'g'))
 		    break;
 
-		/* Make a new association if needed.  %u requires one.  */
-		if (t == 0 || c == 'u')
+		/* Make a new association if needed.  %u and %j require one.  */
+		if (t == 0 || c == 'u' || c == 'j')
 		  {
 		    if (t == 0)
 		      {
@@ -4050,19 +4062,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		  free (saved_suffix);
 
 		obstack_grow (&obstack, t->filename, t->filename_length);
-		delete_this_arg = 1;
-#else
-		obstack_grow (&obstack, temp_filename, temp_filename_length);
-		if (c == 'u' || c == 'U')
-		  {
-		    static int unique;
-		    char buff[9];
-		    if (c == 'u')
-		      unique++;
-		    sprintf (buff, "%d", unique);
-		    obstack_grow (&obstack, buff, strlen (buff));
-		  }
-#endif
 		delete_this_arg = 1;
 	      }
 	    arg_going = 1;
@@ -5171,9 +5170,7 @@ main (argc, argv)
     multilib_exclusions = obstack_finish (&multilib_obstack);
     
     need_space = FALSE;
-    for (i = 0;
-	 i < sizeof (multilib_defaults_raw) / sizeof (multilib_defaults_raw[0]);
-	 i++)
+    for (i = 0; i < ARRAY_SIZE (multilib_defaults_raw); i++)
       {
 	if (need_space)
 	  obstack_1grow (&multilib_obstack, ' ');
@@ -5198,13 +5195,6 @@ main (argc, argv)
 #ifdef INIT_ENVIRONMENT
   /* Set up any other necessary machine specific environment variables.  */
   putenv (INIT_ENVIRONMENT);
-#endif
-
-  /* Choose directory for temp files.  */
-
-#ifndef MKTEMP_EACH_FILE
-  temp_filename = choose_temp_base ();
-  temp_filename_length = strlen (temp_filename);
 #endif
 
   /* Make a table of what switches there are (switches, n_switches).

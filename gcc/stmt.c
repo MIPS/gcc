@@ -903,7 +903,17 @@ expand_goto_internal (body, label, last_insn)
 	     deleted as dead by flow.  */
 	  clear_pending_stack_adjust ();
 	  do_pending_stack_adjust ();
-	  emit_stack_restore (SAVE_BLOCK, stack_level, NULL_RTX);
+
+	  /* Don't do this adjust if it's to the end label and this function
+	     is to return with a depressed stack pointer.  */
+	  if (label == return_label
+	      && (((TREE_CODE (TREE_TYPE (current_function_decl))
+		   == FUNCTION_TYPE)
+		   && (TYPE_RETURNS_STACK_DEPRESSED
+		       (TREE_TYPE (current_function_decl))))))
+	    ;
+	  else
+	    emit_stack_restore (SAVE_BLOCK, stack_level, NULL_RTX);
 	}
 
       if (body != 0 && DECL_TOO_LATE (body))
@@ -1182,7 +1192,12 @@ fixup_gotos (thisblock, stack_level, cleanup_list, first_insn, dont_jump_in)
 
 	  /* Restore stack level for the biggest contour that this
 	     jump jumps out of.  */
-	  if (f->stack_level)
+	  if (f->stack_level
+	      && ! (f->target_rtl == return_label
+		    && ((TREE_CODE (TREE_TYPE (current_function_decl))
+			 == FUNCTION_TYPE)
+			&& (TYPE_RETURNS_STACK_DEPRESSED 
+			    (TREE_TYPE (current_function_decl))))))
 	    emit_stack_restore (SAVE_BLOCK, f->stack_level, f->before_jump);
 
 	  /* Finish up the sequence containing the insns which implement the
@@ -2814,9 +2829,6 @@ expand_return (retval)
   rtx last_insn = 0;
   rtx result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
   register rtx val = 0;
-#ifdef HAVE_return
-  register rtx op0;
-#endif
   tree retval_rhs;
   int cleanups;
 
@@ -2889,82 +2901,6 @@ expand_return (retval)
       end_cleanup_deferral ();
       return;
     }
-
-  /* Attempt to optimize the call if it is tail recursive.  */
-  if (flag_optimize_sibling_calls
-      && retval_rhs != NULL_TREE
-      && frame_offset == 0
-      && TREE_CODE (retval_rhs) == CALL_EXPR
-      && TREE_CODE (TREE_OPERAND (retval_rhs, 0)) == ADDR_EXPR
-      && (TREE_OPERAND (TREE_OPERAND (retval_rhs, 0), 0)
-	  == current_function_decl)
-      && optimize_tail_recursion (TREE_OPERAND (retval_rhs, 1), last_insn))
-    return;
-
-#ifdef HAVE_return
-  /* This optimization is safe if there are local cleanups
-     because expand_null_return takes care of them.
-     ??? I think it should also be safe when there is a cleanup label,
-     because expand_null_return takes care of them, too.
-     Any reason why not?  */
-  if (HAVE_return && cleanup_label == 0
-      && ! current_function_returns_pcc_struct
-      && BRANCH_COST <= 1)
-    {
-      /* If this is  return x == y;  then generate
-	 if (x == y) return 1; else return 0;
-	 if we can do it with explicit return insns and branches are cheap,
-	 but not if we have the corresponding scc insn.  */
-      int has_scc = 0;
-      if (retval_rhs)
-	switch (TREE_CODE (retval_rhs))
-	  {
-	  case EQ_EXPR:
-#ifdef HAVE_seq
-	    has_scc = HAVE_seq;
-#endif
-	  case NE_EXPR:
-#ifdef HAVE_sne
-	    has_scc = HAVE_sne;
-#endif
-	  case GT_EXPR:
-#ifdef HAVE_sgt
-	    has_scc = HAVE_sgt;
-#endif
-	  case GE_EXPR:
-#ifdef HAVE_sge
-	    has_scc = HAVE_sge;
-#endif
-	  case LT_EXPR:
-#ifdef HAVE_slt
-	    has_scc = HAVE_slt;
-#endif
-	  case LE_EXPR:
-#ifdef HAVE_sle
-	    has_scc = HAVE_sle;
-#endif
-	  case TRUTH_ANDIF_EXPR:
-	  case TRUTH_ORIF_EXPR:
-	  case TRUTH_AND_EXPR:
-	  case TRUTH_OR_EXPR:
-	  case TRUTH_NOT_EXPR:
-	  case TRUTH_XOR_EXPR:
-	    if (! has_scc)
-	      {
-		op0 = gen_label_rtx ();
-		jumpifnot (retval_rhs, op0);
-		expand_value_return (const1_rtx);
-		emit_label (op0);
-		expand_value_return (const0_rtx);
-		return;
-	      }
-	    break;
-
-	  default:
-	    break;
-	  }
-    }
-#endif /* HAVE_return */
 
   /* If the result is an aggregate that is being returned in one (or more)
      registers, load the registers here.  The compiler currently can't handle
@@ -3464,12 +3400,12 @@ expand_nl_goto_receiver ()
       static struct elims {int from, to;} elim_regs[] = ELIMINABLE_REGS;
       size_t i;
 
-      for (i = 0; i < sizeof elim_regs / sizeof elim_regs[0]; i++)
+      for (i = 0; i < ARRAY_SIZE (elim_regs); i++)
 	if (elim_regs[i].from == ARG_POINTER_REGNUM
 	    && elim_regs[i].to == HARD_FRAME_POINTER_REGNUM)
 	  break;
 
-      if (i == sizeof elim_regs / sizeof elim_regs [0])
+      if (i == ARRAY_SIZE (elim_regs))
 #endif
 	{
 	  /* Now restore our arg pointer from the address at which it
@@ -3751,6 +3687,23 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
   pop_temp_slots ();
 }
 
+/* Generate code to save the stack pointer at the start of the current block
+   and set up to restore it on exit.  */
+
+void
+save_stack_pointer ()
+{
+  struct nesting *thisblock = block_stack;
+
+  if (thisblock->data.block.stack_level == 0)
+    {
+      emit_stack_save (thisblock->next ? SAVE_BLOCK : SAVE_FUNCTION,
+		       &thisblock->data.block.stack_level,
+		       thisblock->data.block.first_insn);
+      stack_block_stack = thisblock;
+    }
+}
+
 /* Generate RTL for the automatic variable declaration DECL.
    (Other kinds of declarations are simply ignored if seen here.)  */
 
@@ -3861,14 +3814,8 @@ expand_decl (decl)
 
       /* Record the stack pointer on entry to block, if have
 	 not already done so.  */
-      if (thisblock->data.block.stack_level == 0)
-	{
-	  do_pending_stack_adjust ();
-	  emit_stack_save (thisblock->next ? SAVE_BLOCK : SAVE_FUNCTION,
-			   &thisblock->data.block.stack_level,
-			   thisblock->data.block.first_insn);
-	  stack_block_stack = thisblock;
-	}
+      do_pending_stack_adjust ();
+      save_stack_pointer ();
 
       /* In function-at-a-time mode, variable_size doesn't expand this,
 	 so do it now.  */
