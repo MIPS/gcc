@@ -7220,11 +7220,11 @@ static int
 sparc_use_sched_lookahead ()
 {
   if (sparc_cpu == PROCESSOR_ULTRASPARC)
-    return 12;
+    return 4;
   if ((1 << sparc_cpu) &
       ((1 << PROCESSOR_SUPERSPARC) | (1 << PROCESSOR_HYPERSPARC) |
        (1 << PROCESSOR_SPARCLITE86X)))
-    return 6;
+    return 3;
   return 0;
 }
 

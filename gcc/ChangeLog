@@ -1,3 +1,8 @@
+2001-09-28  David S. Miller  <davem@redhat.com>
+
+	* config/sparc/sparc.c (sparc_use_sched_lookahead): Use 4 for
+	ultrasparc and 3 for other multi-issue sparcs.
+
 2001-09-27  David S. Miller  <davem@redhat.com>
 
 	* config/sparc/sparc.md (cycle_display): New pattern.
