@@ -218,7 +218,8 @@ static void hash_add_attr (hash, tree);
 static tree lookup_method (tree, tree);
 static tree lookup_method_static (tree, tree, int);
 static void add_method_to_hash_list (hash *, tree);
-static tree add_class (tree);
+/* APPLE LOCAL objc speedup --dpatel */
+static tree add_class (tree, tree);
 static void add_category (tree, tree);
 static inline tree lookup_category (tree, tree);
 
@@ -2760,18 +2761,18 @@ objc_is_object_ptr (tree type)
 static tree
 lookup_interface (tree ident)
 {
-  tree chain;
+  /* APPLE LOCAL objc speedup --dpatel */
+  /* tree chain; */
 
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == TYPE_DECL)
     ident = DECL_NAME (ident);
 #endif
-  for (chain = interface_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      if (ident == CLASS_NAME (chain))
-      return chain;
-    }
-  return NULL_TREE;
+  /* APPLE LOCAL begin objc speedup --dpatel */
+  return (ident && TREE_CODE (ident) == IDENTIFIER_NODE
+	  ? IDENTIFIER_INTERFACE_VALUE (ident)
+	  : NULL_TREE);
+  /* APPLE LOCAL end objc speedup --dpatel */
 }
 
 /* Implement @defs (<classname>) within struct bodies.  */
@@ -6188,11 +6189,16 @@ objc_add_method (tree class, tree method, int is_class)
 }
 
 static tree
-add_class (tree class)
+/* APPLE LOCAL objc speedup --dpatel */
+add_class (tree class, tree name)
 {
   /* Put interfaces on list in reverse order.  */
   TREE_CHAIN (class) = interface_chain;
   interface_chain = class;
+
+  /* APPLE LOCAL objc speedup --dpatel */
+  IDENTIFIER_INTERFACE_VALUE (name) = class;
+
   return interface_chain;
 }
 
@@ -6662,7 +6668,10 @@ start_class (enum tree_code code, tree class_name, tree super_name,
         {
 	  warning ("cannot find interface declaration for `%s'",
 		   IDENTIFIER_POINTER (class_name));
-	  add_class (implementation_template = objc_implementation_context);
+	  /* APPLE LOCAL begin objc speedup --dpatel */
+	  add_class (implementation_template = objc_implementation_context,
+		     class_name);
+	  /* APPLE LOCAL end objc speedup --dpatel */
         }
 
       /* If a super class has been specified in the implementation,
@@ -6696,7 +6705,8 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 #endif	
         IDENTIFIER_POINTER (class_name));
       else
-        add_class (class);
+	/* APPLE LOCAL objc speedup --dpatel */
+        add_class (class, class_name);
 
       if (protocol_list)
 	CLASS_PROTOCOL_LIST (class)

@@ -1,3 +1,11 @@
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* c-decl.c (struct lang_identifier): Move definition to c-tree.h.
+	* c-tree.h (struct lang_identifier): Moved here from c-decl.c;
+	add 'interface_value' field.
+	(C_SIZEOF_STRUCT_LANG_IDENTIFIER): Update to reflect increased size.
+
 2004-10-11  Caroline Tice  <ctice@apple.com>
 
 	* passes.c (rest_of_compilation):  Move hot/cold partitioning to

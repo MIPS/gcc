@@ -80,8 +80,10 @@ void objc_finish_file (void);
 #define OBJC_TYPE_NAME(type) TYPE_NAME(type)
 #define OBJC_SET_TYPE_NAME(type, name) (TYPE_NAME (type) = name)
 
-/* APPLE LOCAL objc speedup --dpatel */
-#define IDENTIFIER_INTERFACE_VALUE(NODE) (((struct lang_identifier *) (NODE))->interface_value)
+/* APPLE LOCAL begin objc speedup --dpatel */
+#define IDENTIFIER_INTERFACE_VALUE(NODE) \
+	(((struct lang_identifier *) (NODE))->interface_value)
+/* APPLE LOCAL end objc speedup --dpatel */
 
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 

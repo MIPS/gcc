@@ -227,17 +227,8 @@ struct c_binding GTY((chain_next ("%h.prev")))
 #define I_LABEL_DECL(node) \
  (I_LABEL_BINDING(node) ? I_LABEL_BINDING(node)->decl : 0)
 
-/* Each C symbol points to three linked lists of c_binding structures.
-   These describe the values of the identifier in the three different
-   namespaces defined by the language.  */
-
-struct lang_identifier GTY(())
-{
-  struct c_common_identifier common_id;
-  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
-  struct c_binding *tag_binding;    /* struct/union/enum tags */
-  struct c_binding *label_binding;  /* labels */
-};
+/* APPLE LOCAL objc speedup --dpatel */
+/* Definition of 'struct lang_identifier' moved to c-tree.h.  */
 
 /* Validate c-lang.c's assumptions.  */
 extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate

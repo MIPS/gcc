@@ -25,10 +25,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "diagnostic.h"
 
+/* APPLE LOCAL begin objc speedup --dpatel */
+/* Definition of 'struct lang_identifier' has been moved here from c-decl.c.
+   so that ObjC can see it.  */
+   
+/* Each C symbol points to three linked lists of c_binding structures.
+   These describe the values of the identifier in the three different
+   namespaces defined by the language.  */
+
+struct lang_identifier GTY(())
+{
+  struct c_common_identifier common_id;
+  struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
+  struct c_binding *tag_binding;    /* struct/union/enum tags */
+  struct c_binding *label_binding;  /* labels */
+  tree interface_value;             /* ObjC interface, if any */
+};
+/* APPLE LOCAL end objc speedup --dpatel */
+
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
-  (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
+  /* APPLE LOCAL objc speedup --dpatel */ \
+  (sizeof (struct c_common_identifier) + 4 * sizeof (void *))
 
 /* For gc purposes, return the most likely link for the longest chain.  */
 #define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\

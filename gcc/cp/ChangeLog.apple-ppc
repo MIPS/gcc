@@ -1,3 +1,8 @@
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* cp-tree.h (struct lang_identifier): Add 'interface_value' field.
+
 2004-09-14  Andrew Pinski  <apinski@apple.com>
 
 	Rest of Radar 3753405

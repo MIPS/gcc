@@ -1,0 +1,9 @@
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* objc-act.c (add_class): Add a 'name' parameter, and point it
+	back at 'class' via IDENTIFIER_INTERFACE_VALUE accessor.
+	(lookup_interface): Look in IDENTIFIER_INTERFACE_VALUE accessor
+	instead of searching for class in a list.
+	(start_class): Adjust calls to add_class().
+	* objc-act.h (IDENTIFIER_INTERFACE_VALUE): Reformat.
