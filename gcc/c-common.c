@@ -751,11 +751,7 @@ int skip_evaluation;
 
 /* APPLE LOCAL begin -Wlong-double */
 /* Nonzero means warn about usage of long double.  */
-#ifdef CONFIG_DARWIN_H
-int warn_long_double = 1;
-#else
 int warn_long_double = 0;
-#endif
 /* APPLE LOCAL end -Wlong-double */
 
 /* Information about how a function name is generated.  */
@@ -5875,9 +5871,8 @@ warn_about_long_double (void)
       && ! strstr (input_filename, "/System/Library/Frameworks/")
       && ! strstr (input_filename, "/usr/include/"))
     {       
-      warning ("use of `long double' type; its size may change in a future release");
+      warning ("use of `long double' type; its size may change due to -mlong-double-128/-mlong-double-64 or due to changing default sizes for long double between gcc 3.3 and gcc 3.5 on ppc");
       warning ("(Long double usage is reported only once for each file.");
-      warning ("To disable this warning, use -Wno-long-double.)");
       warned_about_long_double = 1;
     }       
 }

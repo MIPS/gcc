@@ -269,7 +269,7 @@ in the following sections.
 -Wno-invalid-offsetof  -Winvalid-pch -Winvalid-sr @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 @c APPLE LOCAL -Wlong-double
--Wno-long-double (APPLE ONLY) @gol
+-Wlong-double (APPLE ONLY) @gol
 -Wmain  -Wmissing-braces @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
 @c APPLE LOCAL -Wmost
@@ -3210,11 +3210,13 @@ Warn if a symbol repository is found in the search path but can't be
 used.
 @c APPLE LOCAL End Symbol Separation
 
-@c APPLE LOCAL begin -Wlong-double
-@item -Wno-long-double
-@opindex Wno-long-double
-Inhibit warning if the @samp{long double} type is used. (APPLE ONLY)
-@c APPLE LOCAL end -Wlong-double
+@c APPLE LOCAL begin -Wlong-double dpatel
+@item -Wlong-double
+@opindex Wlong-double
+Give a warning if the @samp{long double} type is used.  This is useful
+to spot code that changes abi between gcc-3.3 and gcc-3.5, or when
+-mlong-double-64/-mlong-double-128 is used.  (APPLE ONLY)
+@c APPLE LOCAL end -Wlong-double dpatel
 
 @item -Wlong-long
 @opindex Wlong-long
