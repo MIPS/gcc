@@ -207,8 +207,10 @@ extern int rs6000_tls_symbol_ref (rtx, enum machine_mode);
 extern void rs6000_pragma_longcall (struct cpp_reader *);
 extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 
-/* APPLE LOCAL AltiVec */
-extern bool rs6000_expand_macro_p (struct cpp_reader *, const struct cpp_token *);
+/* APPLE LOCAL begin AltiVec */
+extern struct cpp_hashnode *rs6000_macro_to_expand (struct cpp_reader *,
+						    const struct cpp_token *);
+/* APPLE LOCAL end AltiVec */
 
 #if TARGET_MACHO
 void add_compiler_stub PARAMS ((tree, tree, int));

@@ -674,12 +674,14 @@ _cpp_peek_token (cpp_reader *pfile, int index)
 {
   cpp_context *context = pfile->context;
   const cpp_token *peektok;
-  int count, saved_keep_tokens;
+  int count;
 
   /* First, scan through any pending cpp_context objects.  */
   while (context->prev)
     {
-      ptrdiff_t sz = LAST (context).token - FIRST (context).token;
+      ptrdiff_t sz = (context->direct_p
+		      ? LAST (context).token - FIRST (context).token
+		      : LAST (context).ptoken - FIRST (context).ptoken);
 
       if (index < (int) sz)
 	return (context->direct_p
@@ -693,15 +695,14 @@ _cpp_peek_token (cpp_reader *pfile, int index)
   /* We will have to read some new tokens after all (and do so
      without invalidating preceding tokens).  */
   count = index;
-  saved_keep_tokens = pfile->keep_tokens;
-  pfile->keep_tokens = 1;
+  pfile->keep_tokens++;
 
   do
     peektok = _cpp_lex_token (pfile);
   while (index--);
 
   _cpp_backup_tokens_direct (pfile, count + 1);
-  pfile->keep_tokens = saved_keep_tokens;
+  pfile->keep_tokens--;
 
   return peektok;
 }

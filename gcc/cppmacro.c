@@ -1102,8 +1102,8 @@ cpp_get_token (cpp_reader *pfile)
 	      /* Conditional macros require that a predicate be
 		 evaluated first.  */
 	      && (!(node->flags & NODE_CONDITIONAL)
-		  || (pfile->cb.expand_macro_p
-		      && pfile->cb.expand_macro_p (pfile, result)))
+		  || (pfile->cb.macro_to_expand
+		      && (node = pfile->cb.macro_to_expand (pfile, result))))
 	      /* APPLE LOCAL end AltiVec */
 	      && enter_macro_context (pfile, node))
 	    {
@@ -1209,6 +1209,13 @@ warn_of_redefinition (cpp_reader *pfile, const cpp_hashnode *node,
   /* Some redefinitions need to be warned about regardless.  */
   if (node->flags & NODE_WARN)
     return true;
+
+  /* APPLE LOCAL begin AltiVec */
+  /* Redefinitions of conditional (context-sensitive) macros, on
+     the other hand, must be allowed silently.  */
+  if (node->flags & NODE_CONDITIONAL)
+    return false;
+  /* APPLE LOCAL end AltiVec */
 
   /* Redefinition of a macro is allowed if and only if the old and new
      definitions are the same.  (6.10.3 paragraph 2).  */

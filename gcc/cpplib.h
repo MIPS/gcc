@@ -474,8 +474,9 @@ struct cpp_callbacks
   /* APPLE LOCAL - PCH distcc debugging mrs  */
   void (*set_working_directory)(const char *);
   /* APPLE LOCAL begin AltiVec */
-  /* Context-sensitive macro support.  */
-  bool (*expand_macro_p) (cpp_reader *, const cpp_token *);
+  /* Context-sensitive macro support.  Returns macro (if any) that should
+     be expanded.  */
+  cpp_hashnode * (*macro_to_expand) (cpp_reader *, const cpp_token *);
   /* APPLE LOCAL end AltiVec */
 };
 

@@ -1,3 +1,9 @@
+2004-05-28  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3665286
+	* gcc.apple/altivec-2.c: New test case.
+	* gcc.apple/altivec-3.c: New test case.
+
 2004-05-21  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3621323

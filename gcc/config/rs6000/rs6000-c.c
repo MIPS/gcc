@@ -35,6 +35,8 @@
 #include "cpplib.h"
 #include "cpphash.h"
 #include "target.h"
+
+static cpp_hashnode *altivec_categorize_keyword (const cpp_token *);
 /* APPLE LOCAL end AltiVec */
 
 /* Handle the machine specific pragma longcall.  Its syntax is
@@ -94,56 +96,76 @@ static GTY(()) cpp_hashnode *__bool_keyword;
 static GTY(()) cpp_hashnode *bool_keyword;
 static GTY(()) cpp_hashnode *_Bool_keyword;
 
+static GTY(()) cpp_hashnode *expand_bool_pixel;  /* Preserved across calls.  */
+
+static cpp_hashnode *
+altivec_categorize_keyword (const cpp_token *tok)
+{
+  if (tok->type == CPP_NAME)
+    {
+      cpp_hashnode *ident = tok->val.node;
+
+      if (ident == vector_keyword || ident == __vector_keyword)
+	return __vector_keyword;
+
+      if (ident == pixel_keyword || ident ==  __pixel_keyword)
+	return __pixel_keyword;
+	
+      if (ident == bool_keyword || ident == _Bool_keyword
+	  || ident == __bool_keyword)
+	return __bool_keyword;
+
+      return ident;
+    }
+
+  return 0;
+}
+
 /* Called to decide whether a conditional macro should be expanded.
    Since we have exactly one such macro (i.e, 'vector'), we do not
    need to examine the 'tok' parameter.  */
 
-bool
-rs6000_expand_macro_p (cpp_reader *pfile,
-                      const cpp_token *tok ATTRIBUTE_UNUSED)
+cpp_hashnode *
+rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 {
-  bool expand_this = 0;
-  cpp_token *peek = (cpp_token *) _cpp_peek_token (pfile, 0);
+  cpp_hashnode *expand_this = tok->val.node;
+  cpp_hashnode *ident = altivec_categorize_keyword (tok);
 
-  if (peek->type == CPP_NAME)
+  if (ident == __vector_keyword)
     {
-      cpp_hashnode *ident = peek->val.node;
+      tok = _cpp_peek_token (pfile, 0);
+      ident = altivec_categorize_keyword (tok);
 
-      if (ident == pixel_keyword)
-       {
-         expand_this = 1;
-         peek->val.node = __pixel_keyword;
-       }
-      else if (ident == bool_keyword || ident == _Bool_keyword)
-       {
-         expand_this = 1;
-         peek->val.node = __bool_keyword;
-       }
-      else
-       {
-         enum rid rid_code = (enum rid)(ident->rid_code);
+      if (ident ==  __pixel_keyword || ident == __bool_keyword)
+	{
+	  expand_this = __vector_keyword;
+	  expand_bool_pixel = ident;
+	}
+      else if (ident)
+	{
+	  enum rid rid_code = (enum rid)(ident->rid_code);
 
-         if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
-             || rid_code == RID_SHORT || rid_code == RID_SIGNED
-             || rid_code == RID_INT || rid_code == RID_CHAR
-             || rid_code == RID_FLOAT)
-           {
-             expand_this = 1;
-             /* If the next keyword is bool or pixel, it
-                will need to be expanded as well.  */
-             peek = (cpp_token *) _cpp_peek_token (pfile, 1);
+	  if (rid_code == RID_UNSIGNED || rid_code == RID_LONG
+	      || rid_code == RID_SHORT || rid_code == RID_SIGNED
+	      || rid_code == RID_INT || rid_code == RID_CHAR
+	      || rid_code == RID_FLOAT)
+	    {
+	      expand_this = __vector_keyword;
+	      /* If the next keyword is bool or pixel, it
+		 will need to be expanded as well.  */
+	      tok = _cpp_peek_token (pfile, 1);
+	      ident = altivec_categorize_keyword (tok);
 
-             if (peek->type == CPP_NAME)
-               {
-                 ident = peek->val.node;
-
-                 if (ident == pixel_keyword)
-                   peek->val.node = __pixel_keyword;
-                 else if (ident == bool_keyword || ident == _Bool_keyword)
-                   peek->val.node = __bool_keyword;
-               }
-           }
-       }
+	      if (ident ==  __pixel_keyword || ident == __bool_keyword)
+		expand_bool_pixel = ident;
+	    }
+	}
+    }
+  else if (expand_bool_pixel
+	   && (ident ==  __pixel_keyword || ident == __bool_keyword))
+    {
+      expand_this = expand_bool_pixel;
+      expand_bool_pixel = 0;
     }
 
   return expand_this;
@@ -171,25 +193,35 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__ALTIVEC__");
       builtin_define ("__VEC__=10206");
 
-      /* APPLE LOCAL begin AltiVec */
-      /* Define the AltiVec syntactic elements.  */
       builtin_define ("__vector=__attribute__((altivec(vector__)))");
+      builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
+      builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
+
+      /* APPLE LOCAL begin AltiVec */
+      /* Keywords without two leading underscores are context-sensitive, and hence
+	 implemented as conditional macros, controlled by the rs6000_macro_to_expand()
+	 function above.  */
+      builtin_define ("vector=vector");
       __vector_keyword = cpp_lookup (pfile, DSC ("__vector"));
-      builtin_define ("vector=__attribute__((altivec(vector__)))");
+      __vector_keyword->flags |= NODE_CONDITIONAL;
       vector_keyword = cpp_lookup (pfile, DSC ("vector"));
       vector_keyword->flags |= NODE_CONDITIONAL;
-
-      builtin_define ("__pixel=__attribute__((altivec(pixel__))) unsigned short");
+      builtin_define ("pixel=pixel");
       __pixel_keyword = cpp_lookup (pfile, DSC ("__pixel"));
+      __pixel_keyword->flags |= NODE_CONDITIONAL;
       pixel_keyword = cpp_lookup (pfile, DSC ("pixel"));
-
-      builtin_define ("__bool=__attribute__((altivec(bool__))) unsigned");
+      pixel_keyword->flags |= NODE_CONDITIONAL;
+      builtin_define ("bool=bool");
+      builtin_define ("_Bool=_Bool");
       __bool_keyword = cpp_lookup (pfile, DSC ("__bool"));
+      __bool_keyword->flags |= NODE_CONDITIONAL;
       _Bool_keyword = cpp_lookup (pfile, DSC ("_Bool"));
+      _Bool_keyword->flags |= NODE_CONDITIONAL;
       bool_keyword = cpp_lookup (pfile, DSC ("bool"));
+      bool_keyword->flags |= NODE_CONDITIONAL;
 
       /* Enable context-sensitive macros.  */
-      cb->expand_macro_p = rs6000_expand_macro_p;
+      cb->macro_to_expand = rs6000_macro_to_expand;
       /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
       targetm.cast_expr_as_vector_init = true;
 
