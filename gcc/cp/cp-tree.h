@@ -3950,6 +3950,7 @@ extern void mark_all_runtime_matches            PARAMS ((void));
 extern int nothrow_libfn_p			PARAMS ((tree));
 extern void check_handlers			PARAMS ((tree));
 extern void choose_personality_routine		PARAMS ((enum languages));
+extern bool decl_is_java_type PARAMS ((tree decl, int err));
 
 /* in expr.c */
 extern rtx cxx_expand_expr			PARAMS ((tree, rtx,

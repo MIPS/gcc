@@ -2775,13 +2775,21 @@ mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (type && TREE_CODE (type) == TREE_LIST)
 	while (type)
 	  {
-	    tree tinfo = get_tinfo_decl (TREE_VALUE (type));
+	    tree tinfo;
+	    if (decl_is_java_type (type, 0))
+	      tinfo = build_java_class_ref (TREE_TYPE (TREE_VALUE (type)));
+	    else
+	      tinfo = get_tinfo_decl (TREE_VALUE (type));
 	    cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
 	    type = TREE_CHAIN (type);
 	  }
       else if (type)
 	{
-	  tree tinfo = get_tinfo_decl (type);
+	  tree tinfo;
+	  if (decl_is_java_type (type, 0))
+	    tinfo = build_java_class_ref (TREE_TYPE (type));
+	  else
+	    tinfo = get_tinfo_decl (type);
 	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
 	}
     }

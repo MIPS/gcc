@@ -43,7 +43,6 @@ static tree do_begin_catch PARAMS ((void));
 static int dtor_nothrow PARAMS ((tree));
 static tree do_end_catch PARAMS ((tree));
 static void push_eh_cleanup PARAMS ((tree));
-static bool decl_is_java_type PARAMS ((tree decl, int err));
 static void initialize_handler_parm PARAMS ((tree, tree));
 static tree do_allocate_exception PARAMS ((tree));
 static tree stabilize_throw_expr PARAMS ((tree, tree *));
@@ -221,7 +220,7 @@ push_eh_cleanup (type)
 /* Return nonzero value if DECL is a Java type suitable for catch or
    throw.  */
 
-static bool
+bool
 decl_is_java_type (decl, err)
      tree decl;
      int err;
