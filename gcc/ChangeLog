@@ -1,3 +1,66 @@
+2001-08-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* basic-block.h (basic_block): Remove field 'reachable'.
+	Add new field 'flags'.
+	(BB_REACHABLE): Define.
+	* c-common.h (tree_dump_index): Add TDI_cfg, TDI_dot, TDI_ssa.
+	* c-decl.c (c_decode_option): Skip '-f' prefix before calling
+	dump_switch_p.
+	* c-dump.c (dump_file_info): Add entries for -fdump-tree-cfg,
+	-fdump-tree-graphviz and -fdump-tree-ssa.
+	* flow.c (find_unreachable_blocks): Use BB_REACHABLE bit in bb->flags
+	instead of bb->reachable.
+	(delete_unreachable_blocks): Ditto.
+	* tree-cfg.c: Minor formatting changes throughout the file.
+	(DEBUG_TREE_FLOW): Remove.
+	(debug_tree_flow): Remove.
+	(cfg_dump_file): New local variable.
+	(dot_dump_file): New local variable.
+	(cfg_dump_flags): New local variable.
+	(dot_dump_flags): New local variable.
+	(tree_find_basic_blocks): Remove unused arguments.
+	Add code to react to -fdump-tree-cfg and -fdump-tree-graphviz.
+	Remove uses of DEBUG_TREE_FLOW.
+	(delete_unreachable_blocks): Use BB_REACHABLE bit in bb->flags
+	instead of bb->reachable.
+	(tree_dump_cfg): New.
+	(tree_debug_cfg): Call tree_dump_cfg().
+	(tree_cfg2dot): Accept a FILE pointer instead of a file name as
+	argument.
+	Name the graph with the current function name.
+	* tree-dfa.c: Minor formatting changes throughout the file.
+	(DEBUG_TREE_DFA): Remove.
+	(debug_tree_dfa): Remove.
+	(dump_file): New local variable.
+	(dump_flags): New local variable.
+	(tree_find_varrefs): Add code to react to -fdump-tree-ssa.
+	Remove uses of DEBUG_TREE_DFA.
+	(find_refs_in_expr): Remove uses of DEBUG_TREE_DFA.
+	(create_varref): Replace VARREF_BLOCK with VARREF_BB.
+	* tree-flow.h: Minor formatting changes throughout the file.
+	(VARREF_BLOCK): Rename to VARREF_BB.
+	(VARREF_NEXT): Remove.
+	(VARREF_PREV): Remove.
+	(TDF_VARREF): Define.
+	(tree_find_basic_blocks): Remove unused arguments.
+	(tree_dump_cfg): Declare.
+	(tree_cfg2dot): Change argument to FILE *.
+	* tree-opt.c: Minor formatting changes throughout the file.
+	(optimize_tree): Remove unused arguments in call to
+	tree_find_basic_blocks().
+	* tree-opt.h: Ditto.
+	* tree-ssa.c: Minor formatting changes throughout the file.
+	(DEBUG_TREE_SSA): Remove.
+	(debug_tree_ssa): Remove.
+	(dump_file): New local variable.
+	(dump_flags): New local variable.
+	(tree_build_ssa): Add code to react to -fdump-tree-ssa.
+	Remove uses of DEBUG_TREE_SSA.
+	(insert_phi_terms): Remove uses of DEBUG_TREE_SSA.
+	* doc/invoke.texi: Add documentation for -fdump-tree-cfg,
+	-fdump-tree-graphviz and -fdump-tree-ssa.
+	Replace existing references to -fdump-tree with -fdump-ast.
+
 2001-08-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* basic-block.h (basic_block): Add new field 'reachable'.

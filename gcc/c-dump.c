@@ -803,6 +803,9 @@ static struct dump_file_info dump_files[TDI_end] =
   {".original", "dump-ast-original", 0, 0},
   {".optimized", "dump-ast-optimized", 0, 0},
   {".inlined", "dump-ast-inlined", 0, 0},
+  {".cfg", "dump-ast-cfg", 0, 0},
+  {".dot", "dump-ast-graphviz", 0, 0},
+  {".ssa", "dump-ast-ssa", 0, 0},
 };
 
 /* Begin a tree dump for PHASE. Stores any user supplied flag in

@@ -35,50 +35,17 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-opt.h"
 #include "tree-flow.h"
 
-/* {{{ Debug macros.  */
-
-#define DEBUG_TREE_FLOW	1	/* Force debugging on.  */
-
-#ifdef DEBUG_TREE_FLOW
-#undef DEBUG_TREE_FLOW
-#define DEBUG_TREE_FLOW(level) debug_tree_flow (level, __FILE__, __LINE__)
-
-static int debug_tree_flow PARAMS ((int, const char *, int));
-
-static int
-debug_tree_flow (level, filename, line)
-    int level;
-    const char *filename;
-    int line;
-{
-  char *trigger = getenv ("DEBUG_TREE_FLOW");
-  if (trigger && atoi (trigger) >= level)
-    {
-      if (atoi (trigger) > level)
-	{
-	  fputs ("\n----------------------------------------------------------------------------\n\n", stderr);
-	  fprintf (stderr, "%s:%d\n", filename, line);
-	}
-
-      return 1;
-    }
-
-  return 0;
-
-}
-#endif	/* DEBUG_TREE_FLOW  */
-
-/* }}} */
-
-/* {{{ Local variables and data structures.  */
+/* {{{ Local declarations.  */
 
 /* Initial capacity for the basic block array.  */
 
 static const int initial_cfg_capacity = 20;
 
-/* }}} */
-
-/* {{{ Local function declarations.  */
+/* Dump files and flags.  */
+static FILE *cfg_dump_file;
+static FILE *dot_dump_file;
+static int cfg_dump_flags;
+static int dot_dump_flags;
 
 /* Basic blocks and flowgraphs.  */
 static void make_blocks PARAMS ((tree, basic_block, tree));
@@ -119,25 +86,21 @@ static basic_block successor_block PARAMS ((basic_block));
    Entry point to the CFG builder for trees.  */
 
 void
-tree_find_basic_blocks (t, nregs, file)
-    tree t;
-    int nregs ATTRIBUTE_UNUSED;
-    FILE *file ATTRIBUTE_UNUSED;
+tree_find_basic_blocks (t)
+     tree t;
 {
+  cfg_dump_file = dump_begin (TDI_cfg, &cfg_dump_flags);
+  dot_dump_file = dump_begin (TDI_dot, &dot_dump_flags);
+
   /* Flush out existing data.  */
   delete_cfg ();
-      
+
   /* Initialize the basic block array.  */
   n_basic_blocks = 0;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Find the basic blocks for the flowgraph.  */
   make_blocks (t, NULL, NULL);
-
-#ifdef DEBUG_TREE_FLOW
-  if (DEBUG_TREE_FLOW (2))
-    tree_debug_cfg ();
-#endif	/* DEBUG_TREE_FLOW  */
 
   if (n_basic_blocks > 0)
     {
@@ -146,19 +109,22 @@ tree_find_basic_blocks (t, nregs, file)
 
       mark_critical_edges ();
 
-#ifdef DEBUG_TREE_FLOW
-      if (DEBUG_TREE_FLOW (1))
-	{
-	  char name[1024];
+      /* Write the flowgraph to a GraphViz file.  */
+      if (dot_dump_file)
+	tree_cfg2dot (dot_dump_file);
 
-	  tree_debug_cfg ();
-	  sprintf (name, "%s.dot", 
-		  IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-	  tree_cfg2dot (name);
-	}
-#endif	/* DEBUG_TREE_FLOW  */
+      /* Dump a textual representation of the flowgraph.  */
+      if (cfg_dump_file)
+	tree_dump_cfg (cfg_dump_file);
     }
+
+  if (dot_dump_file)
+    dump_end (TDI_dot, dot_dump_file);
+
+  if (cfg_dump_file)
+    dump_end (TDI_cfg, cfg_dump_file);
 }
+
 /* }}} */
 
 /* {{{ make_blocks()
@@ -174,9 +140,9 @@ tree_find_basic_blocks (t, nregs, file)
 
 static void
 make_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   /* Traverse the statement chain building basic blocks.  */
   while (t && t != error_mark_node)
@@ -223,6 +189,7 @@ make_blocks (t, control_parent, compound_stmt)
 	t = TREE_CHAIN (t);
     }
 }
+
 /* }}} */
 
 /* {{{ make_for_stmt_blocks()
@@ -231,9 +198,9 @@ make_blocks (t, control_parent, compound_stmt)
 
 static void
 make_for_stmt_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   basic_block bb;
   tree cond;
@@ -249,6 +216,7 @@ make_for_stmt_blocks (t, control_parent, compound_stmt)
   create_maximal_bb (FOR_EXPR (t), bb, compound_stmt);
   make_blocks (FOR_BODY (t), bb, compound_stmt);
 }
+
 /* }}} */
 
 /* {{{ make_while_stmt_blocks ()
@@ -257,13 +225,14 @@ make_for_stmt_blocks (t, control_parent, compound_stmt)
 
 static void
 make_while_stmt_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   basic_block bb = create_bb (t, t, control_parent);
   make_blocks (WHILE_BODY (t), bb, compound_stmt);
 }
+
 /* }}} */
 
 /* {{{ make_do_stmt_blocks ()
@@ -272,14 +241,15 @@ make_while_stmt_blocks (t, control_parent, compound_stmt)
 
 static void
 make_do_stmt_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   basic_block bb = create_bb (t, t, control_parent);
   create_maximal_bb (DO_COND (t), bb, compound_stmt);
   make_blocks (DO_BODY (t), bb, compound_stmt);
 }
+
 /* }}} */
 
 /* {{{ make_if_stmt_blocks ()
@@ -288,14 +258,15 @@ make_do_stmt_blocks (t, control_parent, compound_stmt)
 
 static void
 make_if_stmt_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   basic_block bb = create_bb (t, IF_COND (t), control_parent);
   make_blocks (THEN_CLAUSE (t), bb, compound_stmt);
   make_blocks (ELSE_CLAUSE (t), bb, compound_stmt);
 }
+
 /* }}} */
 
 /* {{{ make_switch_stmt_blocks ()
@@ -304,13 +275,14 @@ make_if_stmt_blocks (t, control_parent, compound_stmt)
 
 static void
 make_switch_stmt_blocks (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   basic_block bb = create_bb (t, SWITCH_COND (t), control_parent);
   make_blocks (SWITCH_BODY (t), bb, compound_stmt);
 }
+
 /* }}} */
 
 /* {{{ create_maximal_bb ()
@@ -333,9 +305,9 @@ make_switch_stmt_blocks (t, control_parent, compound_stmt)
 
 static basic_block
 create_maximal_bb (t, control_parent, compound_stmt)
-    tree t;
-    basic_block control_parent;
-    tree compound_stmt;
+     tree t;
+     basic_block control_parent;
+     tree compound_stmt;
 {
   tree first, last;
   basic_block bb;
@@ -364,6 +336,7 @@ create_maximal_bb (t, control_parent, compound_stmt)
 
   return bb;
 }
+
 /* }}} */
 
 /* {{{ create_bb()
@@ -377,9 +350,9 @@ create_maximal_bb (t, control_parent, compound_stmt)
 
 static basic_block
 create_bb (head, end, control_parent)
-    tree head;
-    tree end;
-    basic_block control_parent;
+     tree head;
+     tree end;
+     basic_block control_parent;
 {
   basic_block bb;
 
@@ -393,7 +366,7 @@ create_bb (head, end, control_parent)
   get_bb_ann (bb)->parent = control_parent;
 
   /* Grow the basic block array if needed.  */
-  if ((size_t)n_basic_blocks == VARRAY_SIZE (basic_block_info))
+  if ((size_t) n_basic_blocks == VARRAY_SIZE (basic_block_info))
     VARRAY_GROW (basic_block_info, n_basic_blocks + (n_basic_blocks + 3) / 4);
 
   /* Add the newly created block to the array.  */
@@ -406,6 +379,7 @@ create_bb (head, end, control_parent)
 
   return bb;
 }
+
 /* }}} */
 
 /* {{{ map_stmt_to_bb()
@@ -417,17 +391,18 @@ create_bb (head, end, control_parent)
 
 static void
 map_stmt_to_bb (t, bb)
-    tree t;
-    basic_block bb;
+     tree t;
+     basic_block bb;
 {
   tree_ann ann;
 
   if (t == NULL || !statement_code_p (TREE_CODE (t)))
     return;
-  
+
   ann = get_tree_ann (t);
   ann->bb = bb;
 }
+
 /* }}} */
 
 /* {{{ get_bb_ann()
@@ -437,20 +412,21 @@ map_stmt_to_bb (t, bb)
 
 basic_block_ann
 get_bb_ann (bb)
-    basic_block bb;
+     basic_block bb;
 {
   basic_block_ann ann = BB_ANN (bb);
 
   if (ann == NULL)
     {
       ann = (basic_block_ann) ggc_alloc (sizeof (*ann));
-      memset ((void *)ann, 0, sizeof (*ann));
+      memset ((void *) ann, 0, sizeof (*ann));
 
-      bb->aux = (void *)ann;
+      bb->aux = (void *) ann;
     }
 
   return ann;
 }
+
 /* }}} */
 
 
@@ -481,13 +457,13 @@ make_edges ()
 	make_ctrl_stmt_edges (edge_cache, bb);
 
       /* Edges for control flow altering statements (goto, break,
-	 continue, return) need an edge to the corresponding target
-	 block.  */
+         continue, return) need an edge to the corresponding target
+         block.  */
       if (is_ctrl_altering_stmt (bb->end_tree))
 	make_exit_edges (edge_cache, bb);
 
       /* Incoming edges for label blocks in switch statements.  It's easier
-	 to deal with these bottom-up than top-down.  */
+         to deal with these bottom-up than top-down.  */
       if (TREE_CODE (bb->head_tree) == CASE_LABEL)
 	{
 	  basic_block switch_bb = switch_parent (bb);
@@ -503,7 +479,7 @@ make_edges ()
 	}
 
       /* Finally, if no edges were created above, this is a regular
-	 basic block that only needs a fallthru edge.  */
+         basic block that only needs a fallthru edge.  */
       if (bb->succ == NULL)
 	make_edge (edge_cache, bb, successor_block (bb), EDGE_FALLTHRU);
     }
@@ -514,6 +490,7 @@ make_edges ()
   if (edge_cache)
     sbitmap_vector_free (edge_cache);
 }
+
 /* }}} */
 
 /* {{{ make_ctrl_stmt_edges()
@@ -522,8 +499,8 @@ make_edges ()
 
 static void
 make_ctrl_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   switch (TREE_CODE (bb->head_tree))
     {
@@ -545,13 +522,14 @@ make_ctrl_stmt_edges (edge_cache, bb)
 
     case SWITCH_STMT:
       /* Nothing to do.  Each label inside the switch statement will create
-	 its own edge form the switch block.  */
+         its own edge form the switch block.  */
       break;
 
     default:
       abort ();
     }
 }
+
 /* }}} */
 
 /* {{{ make_exit_edges()
@@ -561,8 +539,8 @@ make_ctrl_stmt_edges (edge_cache, bb)
 
 static void
 make_exit_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   switch (TREE_CODE (bb->end_tree))
     {
@@ -586,6 +564,7 @@ make_exit_edges (edge_cache, bb)
       abort ();
     }
 }
+
 /* }}} */
 
 /* {{{ make_for_stmt_edges()
@@ -594,8 +573,8 @@ make_exit_edges (edge_cache, bb)
 
 static void
 make_for_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree entry = bb->head_tree;
   int ix;
@@ -647,6 +626,7 @@ make_for_stmt_edges (edge_cache, bb)
     make_edge (edge_cache, expr_bb, cond_bb, 0);
   make_edge (edge_cache, cond_bb, successor_block (bb), 0);
 }
+
 /* }}} */
 
 /* {{{ make_while_stmt_edges()
@@ -655,8 +635,8 @@ make_for_stmt_edges (edge_cache, bb)
 
 static void
 make_while_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree entry = bb->head_tree;
   basic_block body_bb;
@@ -686,6 +666,7 @@ make_while_stmt_edges (edge_cache, bb)
   make_edge (edge_cache, bb, body_bb, 0);
   make_edge (edge_cache, bb, successor_block (bb), 0);
 }
+
 /* }}} */
 
 /* {{{ make_do_stmt_edges()
@@ -694,8 +675,8 @@ make_while_stmt_edges (edge_cache, bb)
 
 static void
 make_do_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree entry = bb->head_tree;
   basic_block cond_bb, body_bb;
@@ -731,6 +712,7 @@ make_do_stmt_edges (edge_cache, bb)
   make_edge (edge_cache, cond_bb, body_bb, 0);
   make_edge (edge_cache, cond_bb, successor_block (bb), 0);
 }
+
 /* }}} */
 
 /* {{{ make_if_stmt_edges()
@@ -739,8 +721,8 @@ make_do_stmt_edges (edge_cache, bb)
 
 static void
 make_if_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree entry = bb->head_tree;
   basic_block then_bb, else_bb;
@@ -748,7 +730,7 @@ make_if_stmt_edges (edge_cache, bb)
 
   if (TREE_CODE (entry) != IF_STMT)
     abort ();
- 
+
   /* Entry basic blocks for each component.  */
   then_t = first_exec_stmt (THEN_CLAUSE (entry));
   then_bb = (then_t) ? BB_FOR_STMT (then_t) : NULL;
@@ -776,6 +758,7 @@ make_if_stmt_edges (edge_cache, bb)
   if (then_bb == NULL || else_bb == NULL)
     make_edge (edge_cache, bb, successor_block (bb), 0);
 }
+
 /* }}} */
 
 /* {{{ make_goto_stmt_edges()
@@ -784,12 +767,12 @@ make_if_stmt_edges (edge_cache, bb)
 
 static void
 make_goto_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree goto_t, dest;
   int i;
-  
+
   goto_t = bb->end_tree;
   if (goto_t == NULL || TREE_CODE (goto_t) != GOTO_STMT)
     abort ();
@@ -805,7 +788,7 @@ make_goto_stmt_edges (edge_cache, bb)
       tree target = target_bb->head_tree;
 
       /* Common case, destination is a single label.  Make the edge
-	 and leave.  */
+         and leave.  */
       if (TREE_CODE (dest) == LABEL_DECL
 	  && TREE_CODE (target) == LABEL_STMT
 	  && LABEL_STMT_LABEL (target) == dest)
@@ -820,6 +803,7 @@ make_goto_stmt_edges (edge_cache, bb)
 	make_edge (edge_cache, bb, target_bb, 0);
     }
 }
+
 /* }}} */
 
 /* {{{ make_break_stmt_edges()
@@ -829,8 +813,8 @@ make_goto_stmt_edges (edge_cache, bb)
 
 static void
 make_break_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree break_t;
   basic_block control_parent;
@@ -853,6 +837,7 @@ make_break_stmt_edges (edge_cache, bb)
 
   make_edge (edge_cache, bb, successor_block (control_parent), 0);
 }
+
 /* }}} */
 
 /* {{{ make_continue_stmt_edges()
@@ -862,8 +847,8 @@ make_break_stmt_edges (edge_cache, bb)
 
 static void
 make_continue_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree continue_t;
   basic_block loop_bb;
@@ -871,7 +856,7 @@ make_continue_stmt_edges (edge_cache, bb)
   continue_t = bb->end_tree;
   if (continue_t == NULL || TREE_CODE (continue_t) != CONTINUE_STMT)
     abort ();
-  
+
   /* A continue statement *must* have an enclosing control structure.  */
   loop_bb = loop_parent (bb);
 
@@ -884,6 +869,7 @@ make_continue_stmt_edges (edge_cache, bb)
 
   make_edge (edge_cache, bb, condition_block (loop_bb), 0);
 }
+
 /* }}} */
 
 /* {{{ make_return_stmt_edges()
@@ -892,8 +878,8 @@ make_continue_stmt_edges (edge_cache, bb)
 
 static void
 make_return_stmt_edges (edge_cache, bb)
-    sbitmap *edge_cache;
-    basic_block bb;
+     sbitmap *edge_cache;
+     basic_block bb;
 {
   tree return_t = bb->end_tree;
 
@@ -902,6 +888,7 @@ make_return_stmt_edges (edge_cache, bb)
 
   make_edge (edge_cache, bb, EXIT_BLOCK_PTR, 0);
 }
+
 /* }}} */
 
 
@@ -923,12 +910,13 @@ delete_unreachable_blocks ()
      delete_block.  */
   for (i = n_basic_blocks - 1; i >= 0; --i)
     {
-      basic_block b = BASIC_BLOCK (i);
+      basic_block bb = BASIC_BLOCK (i);
 
-      if (!b->reachable)
-	delete_block (b);
+      if (!(bb->flags & BB_REACHABLE))
+	delete_block (bb);
     }
 }
+
 /* }}} */
 
 /* {{{ delete_block()
@@ -948,7 +936,7 @@ delete_block (bb)
       tree stmt;
 
       /* The only nodes whose head tree is not a statement are condition
-	 nodes for DO_STMT and WHILE_STMT loops.  */
+         nodes for DO_STMT and WHILE_STMT loops.  */
       if (statement_code_p (TREE_CODE (bb->head_tree)))
 	stmt = bb->head_tree;
       else
@@ -998,6 +986,7 @@ delete_block (bb)
   /* Remove the basic block from the array, and compact behind it.  */
   expunge_block (bb);
 }
+
 /* }}} */
 
 
@@ -1023,12 +1012,12 @@ successor_block (bb)
      the block's first statement.  For regular blocks, return the successor
      of the block's last statement.  */
   succ_stmt = is_ctrl_stmt (bb->head_tree)
-	      ? first_exec_stmt (TREE_CHAIN (bb->head_tree))
-	      : first_exec_stmt (TREE_CHAIN (bb->end_tree));
+    ? first_exec_stmt (TREE_CHAIN (bb->head_tree))
+    : first_exec_stmt (TREE_CHAIN (bb->end_tree));
 
   if (succ_stmt)
     return BB_FOR_STMT (succ_stmt);
-  
+
   /* We couldn't find a successor for BB.  Walk up the control structure to
      see if our parent has a successor. Iterate until we find one or we
      reach nesting level 0.  */
@@ -1036,12 +1025,12 @@ successor_block (bb)
   while (parent_bb)
     {
       /* If BB is the last block inside a loop body, return the condition
-	 block for the loop structure.  */
+         block for the loop structure.  */
       if (is_loop_stmt (parent_bb->head_tree))
 	return condition_block (parent_bb);
 
       /* Otherwise, If BB's control parent has a successor, return its
-	 block.  */
+         block.  */
       succ_stmt = first_exec_stmt (TREE_CHAIN (parent_bb->head_tree));
       if (succ_stmt)
 	return BB_FOR_STMT (succ_stmt);
@@ -1053,6 +1042,7 @@ successor_block (bb)
   /* We reached nesting level 0.  Return the exit block.  */
   return EXIT_BLOCK_PTR;
 }
+
 /* }}} */
 
 /* {{{ is_ctrl_stmt()
@@ -1061,7 +1051,7 @@ successor_block (bb)
 
 int
 is_ctrl_stmt (t)
-    tree t;
+     tree t;
 {
   if (t == NULL)
     abort ();
@@ -1069,9 +1059,9 @@ is_ctrl_stmt (t)
   return (TREE_CODE (t) == FOR_STMT
 	  || TREE_CODE (t) == IF_STMT
 	  || TREE_CODE (t) == WHILE_STMT
-	  || TREE_CODE (t) == SWITCH_STMT
-	  || TREE_CODE (t) == DO_STMT);
+	  || TREE_CODE (t) == SWITCH_STMT || TREE_CODE (t) == DO_STMT);
 }
+
 /* }}} */
 
 /* {{{ is_ctrl_altering_stmt()
@@ -1081,16 +1071,16 @@ is_ctrl_stmt (t)
 
 int
 is_ctrl_altering_stmt (t)
-    tree t;
+     tree t;
 {
   if (t == NULL)
     abort ();
 
   return (TREE_CODE (t) == GOTO_STMT
 	  || TREE_CODE (t) == CONTINUE_STMT
-	  || TREE_CODE (t) == BREAK_STMT
-	  || TREE_CODE (t) == RETURN_STMT);
+	  || TREE_CODE (t) == BREAK_STMT || TREE_CODE (t) == RETURN_STMT);
 }
+
 /* }}} */
 
 /* {{{ is_loop_stmt()
@@ -1099,15 +1089,15 @@ is_ctrl_altering_stmt (t)
 
 int
 is_loop_stmt (t)
-    tree t;
+     tree t;
 {
   if (t == NULL)
     abort ();
 
   return (TREE_CODE (t) == FOR_STMT
-	  || TREE_CODE (t) == WHILE_STMT
-	  || TREE_CODE (t) == DO_STMT);
+	  || TREE_CODE (t) == WHILE_STMT || TREE_CODE (t) == DO_STMT);
 }
+
 /* }}} */
 
 /* {{{ stmt_starts_bb_p()
@@ -1116,7 +1106,7 @@ is_loop_stmt (t)
 
 int
 stmt_starts_bb_p (t)
-    tree t;
+     tree t;
 {
   if (t == NULL)
     abort ();
@@ -1124,9 +1114,9 @@ stmt_starts_bb_p (t)
   return (TREE_CODE (t) == CASE_LABEL
 	  || TREE_CODE (t) == LABEL_STMT
 	  || TREE_CODE (t) == RETURN_STMT
-	  || TREE_CODE (t) == COMPOUND_STMT
-	  || is_ctrl_stmt (t));
+	  || TREE_CODE (t) == COMPOUND_STMT || is_ctrl_stmt (t));
 }
+
 /* }}} */
 
 /* {{{ stmt_ends_bb_p()
@@ -1136,19 +1126,19 @@ stmt_starts_bb_p (t)
 
 int
 stmt_ends_bb_p (t)
-    tree t;
+     tree t;
 {
   /* Sanity check.  */
   if (t == NULL)
     abort ();
 
   if (is_ctrl_altering_stmt (t)
-      || TREE_CHAIN (t) == NULL
-      || stmt_starts_bb_p (TREE_CHAIN (t)))
+      || TREE_CHAIN (t) == NULL || stmt_starts_bb_p (TREE_CHAIN (t)))
     return 1;
 
   return 0;
 }
+
 /* }}} */
 
 /* {{{ delete_cfg()
@@ -1175,6 +1165,7 @@ delete_cfg ()
 
   VARRAY_FREE (basic_block_info);
 }
+
 /* }}} */
 
 /* {{{ loop_parent()
@@ -1184,7 +1175,7 @@ delete_cfg ()
 
 basic_block
 loop_parent (bb)
-    basic_block bb;
+     basic_block bb;
 {
   do
     bb = BB_PARENT (bb);
@@ -1192,6 +1183,7 @@ loop_parent (bb)
 
   return bb;
 }
+
 /* }}} */
 
 /* {{{ condition_block()
@@ -1210,7 +1202,7 @@ loop_parent (bb)
 
 basic_block
 condition_block (loop_bb)
-    basic_block loop_bb;
+     basic_block loop_bb;
 {
   int index;
   enum tree_code code = TREE_CODE (loop_bb->head_tree);
@@ -1218,8 +1210,8 @@ condition_block (loop_bb)
   if (code == FOR_STMT)
     {
       /* Usually, the loop expression in a FOR_STMT will be the second
-	 block after the loop entry block.  However, the FOR_EXPR block
-	 does not always exist.  */
+         block after the loop entry block.  However, the FOR_EXPR block
+         does not always exist.  */
       if (FOR_EXPR (loop_bb->head_tree))
 	index = loop_bb->index + 2;
       else
@@ -1234,6 +1226,7 @@ condition_block (loop_bb)
 
   return BASIC_BLOCK (index);
 }
+
 /* }}} */
 
 /* {{{ switch_parent()
@@ -1251,6 +1244,7 @@ switch_parent (bb)
 
   return bb;
 }
+
 /* }}} */
 
 /* {{{ first_exec_stmt()
@@ -1292,6 +1286,7 @@ first_exec_stmt (t)
      starting with T's successor.  */
   return first_exec_stmt (TREE_CHAIN (t));
 }
+
 /* }}} */
 
 /* {{{ is_exec_stmt()
@@ -1303,10 +1298,10 @@ is_exec_stmt (t)
      tree t;
 {
   return (t
-          && statement_code_p (TREE_CODE (t))
-	  && TREE_CODE (t) != COMPOUND_STMT
-	  && TREE_CODE (t) != SCOPE_STMT);
+	  && statement_code_p (TREE_CODE (t))
+	  && TREE_CODE (t) != COMPOUND_STMT && TREE_CODE (t) != SCOPE_STMT);
 }
+
 /* }}} */
 
 
@@ -1318,19 +1313,19 @@ is_exec_stmt (t)
 
 void
 tree_dump_bb (outf, prefix, bb, indent)
-    FILE *outf;
-    const char *prefix;
-    basic_block bb;
-    int indent;
+     FILE *outf;
+     const char *prefix;
+     basic_block bb;
+     int indent;
 {
   edge e;
   tree head = bb->head_tree;
   tree end = bb->end_tree;
   char *s_indent;
   int lineno;
-  
-  s_indent = (char *) alloca ((size_t)indent + 1);
-  memset ((void *)s_indent, ' ', (size_t)indent);
+
+  s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
   fprintf (outf, "%s%sBasic block %d\n", s_indent, prefix, bb->index);
@@ -1371,6 +1366,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   else
     fputs ("nil\n", outf);
 }
+
 /* }}} */
 
 /* {{{ tree_debug_bb()
@@ -1379,10 +1375,11 @@ tree_dump_bb (outf, prefix, bb, indent)
 
 void
 tree_debug_bb (bb)
-    basic_block bb;
+     basic_block bb;
 {
   tree_dump_bb (stderr, "", bb, 0);
 }
+
 /* }}} */
 
 /* {{{ tree_debug_cfg()
@@ -1392,51 +1389,62 @@ tree_debug_bb (bb)
 void
 tree_debug_cfg ()
 {
+  tree_dump_cfg (stderr);
+}
+
+/* }}} */
+
+/* {{{ tree_dump_cfg ()
+
+   Dump the CFG on the given FILE.  */
+
+void
+tree_dump_cfg (file)
+     FILE *file;
+{
   int i;
 
-  fputc ('\n', stderr);
-  fprintf (stderr, ";; Function %s\n\n",
-      IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+  fputc ('\n', file);
+  fprintf (file, ";; Function %s\n\n",
+	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
-  fprintf (stderr, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
+  fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   for (i = 0; i < n_basic_blocks; i++)
     {
-      tree_debug_bb (BASIC_BLOCK (i));
-      fputc ('\n', stderr);
+      tree_dump_bb (file, "", BASIC_BLOCK (i), 0);
+      fputc ('\n', file);
     }
 }
+
 /* }}} */
 
 /* {{{ tree_cfg2dot()
 
-   Write a .dot file for the flowgraph.  */
+   Dump the flowgraph to a .dot FILE to be visualized with GraphViz.
+   See http://www.graphviz.org/  */
 
 void
-tree_cfg2dot (fname)
-    char *fname;
+tree_cfg2dot (file)
+     FILE *file;
 {
   int i;
-  FILE *f;
   edge e;
-  
-  f = fopen (fname, "w");
-  if (f == NULL)
-    abort ();
 
   /* Write the file header.  */
-  fputs ("digraph cfg {\n", f);
+  fprintf (file, "digraph %s\n{\n",
+	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
   /* Write blocks and edges.  */
   for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
     {
-      fprintf (f, "\tENTRY -> %d", e->dest->index);
+      fprintf (file, "\tENTRY -> %d", e->dest->index);
 
       if (e->flags & EDGE_FAKE)
-	fprintf (f, " [weight=0, style=dotted]");
+	fprintf (file, " [weight=0, style=dotted]");
 
-      fprintf (f, ";\n");
+      fprintf (file, ";\n");
     }
-  fputc ('\n', f);
+  fputc ('\n', file);
 
   for (i = 0; i < n_basic_blocks; i++)
     {
@@ -1444,7 +1452,7 @@ tree_cfg2dot (fname)
       const char *head_name, *end_name;
       int head_line, end_line;
       basic_block bb;
-      
+
       bb = BASIC_BLOCK (i);
 
       head_code = TREE_CODE (bb->head_tree);
@@ -1453,34 +1461,33 @@ tree_cfg2dot (fname)
       head_name = tree_code_name[head_code];
       end_name = tree_code_name[end_code];
 
-      head_line = (statement_code_p (head_code)) 
-		  ? STMT_LINENO (bb->head_tree)
-		  : -1;
+      head_line = (statement_code_p (head_code))
+	? STMT_LINENO (bb->head_tree) : -1;
       end_line = (statement_code_p (end_code))
-		 ? STMT_LINENO (bb->end_tree)
-		 : -1;
+	? STMT_LINENO (bb->end_tree) : -1;
 
-      fprintf (f, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n", 
-	       bb->index, bb->index, head_name, head_line, end_name, end_line);
-      
+      fprintf (file, "\t%d [label=\"#%d\\n%s (%d)\\n%s (%d)\"];\n",
+	       bb->index, bb->index, head_name, head_line, end_name,
+	       end_line);
+
       for (e = bb->succ; e; e = e->succ_next)
 	{
 	  if (e->dest == EXIT_BLOCK_PTR)
-	    fprintf (f, "\t%d -> EXIT", bb->index);
+	    fprintf (file, "\t%d -> EXIT", bb->index);
 	  else
-	    fprintf (f, "\t%d -> %d", bb->index, e->dest->index);
+	    fprintf (file, "\t%d -> %d", bb->index, e->dest->index);
 
 	  if (e->flags & EDGE_FAKE)
-	    fprintf (f, " [weight=0, style=dotted]");
+	    fprintf (file, " [weight=0, style=dotted]");
 
-	  fprintf (f, ";\n");
+	  fprintf (file, ";\n");
 	}
 
       if (i < n_basic_blocks - 1)
-	fputc ('\n', f);
+	fputc ('\n', file);
     }
 
-  fputc ('}', f);
-  fclose (f);
+  fputs ("}\n\n", file);
 }
+
 /* }}} */

@@ -34,43 +34,13 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-flow.h"
 #include "ssa.h"
 
-/* {{{ Debugging macros.  */
-
-#define DEBUG_TREE_SSA	/* Force debugging.  */
-
-#ifdef DEBUG_TREE_SSA
-#undef DEBUG_TREE_SSA
-#define DEBUG_TREE_SSA(level) debug_tree_ssa (level, __FILE__, __LINE__)
-
-static int debug_tree_ssa PARAMS ((int, const char *, int));
-
-static int
-debug_tree_ssa (level, filename, line)
-    int level;
-    const char *filename;
-    int line;
-{
-  char *trigger = getenv ("DEBUG_TREE_SSA");
-  if (trigger && atoi (trigger) >= level)
-    {
-      if (atoi (trigger) > level)
-	{
-	  fputs ("\n----------------------------------------------------------------------------\n\n", stderr);
-	  fprintf (stderr, "%s:%d\n", filename, line);
-	}
-
-      return 1;
-    }
-
-  return 0;
-
-}
-#endif	/* DEBUG_TREE_SSA  */
-
-/* }}} */
-
 /* {{{ Local declarations.  */
 
+/* Dump file and flags.  */
+static FILE *dump_file;
+static int dump_flags;
+
+/* Local functions.  */
 static void insert_phi_terms PARAMS ((sbitmap *));
 static void build_fud_chains PARAMS ((int *));
 static void search_fud_chains PARAMS ((basic_block, int *));
@@ -91,6 +61,8 @@ tree_build_ssa ()
   sbitmap *dfs;
   int *idom;
 
+  dump_file = dump_begin (TDI_ssa, &dump_flags);
+
   /* Compute immediate dominators.  */
   idom = (int *) xmalloc ((size_t) n_basic_blocks * sizeof (int));
   memset ((void *) idom, -1, (size_t) n_basic_blocks * sizeof (int));
@@ -100,33 +72,6 @@ tree_build_ssa ()
   dfs = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
   compute_dominance_frontiers (dfs, idom);
 
-#ifdef DEBUG_TREE_SSA
-  if (DEBUG_TREE_SSA (2))
-    {
-      int i;
-
-      fputc ('\n', stderr);
-      fprintf (stderr, "** Function %s\n\n",
-	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-
-      fputs ("Dominance information\n\n", stderr);
-
-      for (i = 0; i < n_basic_blocks; i++)
-	{
-	  int w;
-
-	  fprintf (stderr, "Basic block %d\n", i);
-	  fprintf (stderr, "Immediate dominator: %d\n", idom[i]);
-	  fputs ("Dominance frontier: ", stderr);
-	  EXECUTE_IF_SET_IN_SBITMAP (dfs[i], 0, w, 
-	      {
-		fprintf (stderr, "%d ", w);
-	      });
-	  fputs ("\n\n", stderr);
-	}
-    }
-#endif
-
   /* Insert the PHI nodes and build FUD chains.  */
   insert_phi_terms (dfs);
   build_fud_chains (idom);
@@ -134,27 +79,27 @@ tree_build_ssa ()
   sbitmap_vector_free (dfs);
   free (idom);
 
-#ifdef DEBUG_TREE_SSA
-  if (DEBUG_TREE_SSA (1))
+  /* Debugging dumps.  */
+  if (dump_file)
     {
       int i;
 
-      fputc ('\n', stderr);
-      fprintf (stderr, "** Function %s\n\n",
+      fputc ('\n', dump_file);
+      fprintf (dump_file, ";; Function %s\n\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
 
-      fputs ("SSA information\n\n", stderr);
+      fputs ("SSA information\n\n", dump_file);
 
       for (i = 0; i < n_basic_blocks; i++)
 	{
 	  basic_block bb = BASIC_BLOCK (i);
 	  tree_debug_bb (bb);
-	  dump_varref_list (stderr, "    ", BB_REFS (bb), 0, 1);
-	  fputs ("\n\n", stderr);
+	  dump_varref_list (dump_file, "    ", BB_REFS (bb), 0, 1);
+	  fputs ("\n\n", dump_file);
 	}
     }
-#endif
 }
+
 /* }}} */
 
 /* {{{ insert_phi_terms()
@@ -164,7 +109,7 @@ tree_build_ssa ()
 
 static void
 insert_phi_terms (dfs)
-    sbitmap *dfs;
+     sbitmap *dfs;
 {
   tree m;
   varray_type added;
@@ -202,7 +147,8 @@ insert_phi_terms (dfs)
       if (TREE_ANN (sym) == NULL)
 	abort ();
 
-      for (i = VARREF_LIST_FIRST (TREE_REFS (sym)); i; i = VARREF_NODE_NEXT (i))
+      for (i = VARREF_LIST_FIRST (TREE_REFS (sym)); i;
+	   i = VARREF_NODE_NEXT (i))
 	{
 	  basic_block bb;
 	  varref ref = VARREF_NODE_ELEM (i);
@@ -210,7 +156,8 @@ insert_phi_terms (dfs)
 	  if (VARREF_TYPE (ref) != VARDEF)
 	    continue;
 
-	  bb = VARREF_BLOCK (ref);
+	  bb = VARREF_BB (ref);
+
 	  /* Grow WORK_LIST by ~25%.  */
 	  if (work_list_top >= VARRAY_SIZE (work_list))
 	    VARRAY_GROW (work_list, work_list_top + (work_list_top + 3) / 4);
@@ -223,7 +170,7 @@ insert_phi_terms (dfs)
 	{
 	  int w;
 	  basic_block bb;
-	  
+
 	  work_list_top--;
 	  bb = VARRAY_BB (work_list, work_list_top);
 
@@ -231,10 +178,10 @@ insert_phi_terms (dfs)
 	    {
 	      if (VARRAY_TREE (added, w) != sym)
 		{
-		  basic_block bb = BASIC_BLOCK (w);
 		  varref phi;
 		  basic_block stmt_bb;
-		  
+		  basic_block bb = BASIC_BLOCK (w);
+
 		  /* Determine the parent statement for the new PHI
 		     term.  If BB is a block for an expression, look in
 		     its control parent.  This is needed because
@@ -250,9 +197,6 @@ insert_phi_terms (dfs)
 
 		  phi = create_varref (sym, VARPHI, bb, stmt_bb->head_tree, NULL);
 		  VARRAY_TREE (added, w) = sym;
-
-		  if (DEBUG_TREE_SSA (2))
-		    debug_varref (phi);
 
 		  if (VARRAY_TREE (in_work, w) != sym)
 		    {
@@ -273,6 +217,7 @@ insert_phi_terms (dfs)
   VARRAY_FREE (in_work);
   VARRAY_FREE (work_list);
 }
+
 /* }}} */
 
 /* {{{ build_fud_chains()
@@ -281,7 +226,7 @@ insert_phi_terms (dfs)
 
 static void
 build_fud_chains (idom)
-    int *idom;
+     int *idom;
 {
   tree m;
 
@@ -302,6 +247,7 @@ build_fud_chains (idom)
   /* Search FUD chains starting with the entry block.  */
   search_fud_chains (ENTRY_BLOCK_PTR, idom);
 }
+
 /* }}} */
 
 /* {{{ search_fud_chains()
@@ -311,8 +257,8 @@ build_fud_chains (idom)
 
 static void
 search_fud_chains (bb, idom)
-    basic_block bb;
-    int *idom;
+     basic_block bb;
+     int *idom;
 {
   varref_node n;
   edge e;
@@ -334,7 +280,7 @@ search_fud_chains (bb, idom)
       varref ref = VARREF_NODE_ELEM (n);
       tree m = VARREF_SYM (ref);
 
-      /* Retrieve the current definition for the variable */
+      /* Retrieve the current definition for the variable.  */
       currdef = TREE_CURRDEF (m);
 
       if (VARREF_TYPE (ref) == VARUSE)
@@ -350,7 +296,7 @@ search_fud_chains (bb, idom)
 	     add 'ref' to the list of uses immediately reached by
 	     'currdef'.  */
 
-	  if (currdef) 
+	  if (currdef)
 	    {
 	      if (VARDEF_IMM_USES (currdef))
 		push_ref (VARDEF_IMM_USES (currdef), ref);
@@ -363,8 +309,8 @@ search_fud_chains (bb, idom)
 	  tree_ann ann;
 
 	  VARDEF_SAVE_CHAIN (ref) = currdef;
-	  
-	  /* Replace the current currdef with a new one */
+
+	  /* Replace the current currdef with a new one.  */
 	  ann = get_tree_ann (m);
 	  ann->currdef = ref;
 	}
@@ -444,4 +390,5 @@ search_fud_chains (bb, idom)
 	}
     }
 }
+
 /* }}} */

@@ -2405,7 +2405,8 @@ flow_call_edges_add (blocks)
 }
 
 /* Find unreachable blocks.  An unreachable block will have 0 in
-   block->reachable, a non-zero value indicates the block is reachable.  */
+   the reachable bit in block->flags.  A non-zero value indicates the
+   block is reachable.  */
 
 void
 find_unreachable_blocks ()
@@ -2420,7 +2421,7 @@ find_unreachable_blocks ()
   /* Clear all the reachability flags.  */
 
   for (i = 0; i < n; ++i)
-    BASIC_BLOCK (i)->reachable = 0;
+    BASIC_BLOCK (i)->flags &= ~BB_REACHABLE;
 
   /* Add our starting points to the worklist.  Almost always there will
      be only one.  It isn't inconcievable that we might one day directly
@@ -2430,8 +2431,8 @@ find_unreachable_blocks ()
     {
       *tos++ = e->dest;
 
-      /* Mark the block with a handy non-null value.  */
-      e->dest->reachable = 1;
+      /* Mark the block reachable.  */
+      e->dest->flags |= BB_REACHABLE;
     }
 
   /* Iterate: find everything reachable from what we've already seen.  */
@@ -2441,10 +2442,10 @@ find_unreachable_blocks ()
       basic_block b = *--tos;
 
       for (e = b->succ; e; e = e->succ_next)
-	if (!e->dest->reachable)
+	if (!(e->dest->flags & BB_REACHABLE))
 	  {
 	    *tos++ = e->dest;
-	    e->dest->reachable = 1;
+	    e->dest->flags |= BB_REACHABLE;
 	  }
     }
 
@@ -2467,7 +2468,7 @@ delete_unreachable_blocks ()
     {
       basic_block b = BASIC_BLOCK (i);
 
-      if (!b->reachable)
+      if (!(b->flags & BB_REACHABLE))
 	flow_delete_block (b);
     }
 

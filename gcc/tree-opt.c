@@ -39,12 +39,12 @@ Boston, MA 02111-1307, USA.  */
 
 void
 optimize_tree (t)
-    tree t;
+     tree t;
 {
   /* Flush out existing data.  */
   ref_symbols_list = NULL;
 
-  tree_find_basic_blocks (t, 0, 0);
+  tree_find_basic_blocks (t);
 
   /* Don't bother doing anything else if we found errors in the program.  */
   if (errorcount > 0)
@@ -60,6 +60,7 @@ optimize_tree (t)
   delete_varref_list (&ref_symbols_list);
   delete_cfg ();
 }
+
 /* }}} */
 
 /* {{{ init_tree_opt()
@@ -70,4 +71,5 @@ void
 init_tree_opt ()
 {
 }
+
 /* }}} */

@@ -26,7 +26,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* {{{ Types of references.  */
 
-enum varref_type { VARDEF, VARUSE, VARPHI };
+enum varref_type
+{ VARDEF, VARUSE, VARPHI };
 
 struct varref_list_def;
 union varref_def;
@@ -114,12 +115,10 @@ union varref_def
 typedef union varref_def *varref;
 
 #define VARREF_TYPE(r) (r)->common.type
-#define VARREF_BLOCK(r) (r)->common.bb
+#define VARREF_BB(r) (r)->common.bb
 #define VARREF_EXPR(r) (r)->common.expr
 #define VARREF_STMT(r) (r)->common.stmt
 #define VARREF_SYM(r) (r)->common.sym
-#define VARREF_NEXT(r) (r)->common.next
-#define VARREF_PREV(r) (r)->common.prev
 
 /* }}} */
 
@@ -188,7 +187,7 @@ typedef struct tree_ann_def *tree_ann;
     ((TREE_ANN (NODE)) ? TREE_ANN (NODE)->compound_stmt : NULL)
 
 /* }}} */
-  
+
 /* {{{ Block annotations stored in basic_block.aux.  */
 
 struct basic_block_ann_def
@@ -224,12 +223,15 @@ extern tree ref_symbols_list;
 
 extern int warn_notreached;
 
+/* Bitmasks for -fdump-tree-...  */
+#define TDF_VARREF 0x0001		/* Dump variable references.  */
+
 /* }}} */
 
 
 /* {{{ Functions in tree-cfg.c  */
 
-extern void tree_find_basic_blocks PARAMS ((tree, int, FILE *));
+extern void tree_find_basic_blocks PARAMS ((tree));
 extern int is_ctrl_stmt PARAMS ((tree));
 extern int is_ctrl_altering_stmt PARAMS ((tree));
 extern int is_loop_stmt PARAMS ((tree));
@@ -239,8 +241,9 @@ extern void delete_cfg PARAMS ((void));
 extern basic_block_ann get_bb_ann PARAMS ((basic_block));
 extern void tree_dump_bb PARAMS ((FILE *, const char *, basic_block, int));
 extern void tree_debug_bb PARAMS ((basic_block));
+extern void tree_dump_cfg PARAMS ((FILE *));
 extern void tree_debug_cfg PARAMS ((void));
-extern void tree_cfg2dot PARAMS ((char *fname));
+extern void tree_cfg2dot PARAMS ((FILE *));
 extern basic_block loop_parent PARAMS ((basic_block));
 extern basic_block condition_block PARAMS ((basic_block));
 extern basic_block switch_parent PARAMS ((basic_block));
@@ -265,7 +268,8 @@ extern void delete_varref_list PARAMS ((tree *));
 extern void debug_varref PARAMS ((varref));
 extern void dump_varref PARAMS ((FILE *, const char *, varref, int, int));
 extern void debug_varref_list PARAMS ((varref_list));
-extern void dump_varref_list PARAMS ((FILE *, const char *, varref_list, int, int));
+extern void dump_varref_list PARAMS ((FILE *, const char *, varref_list, int,
+                                      int));
 
 /* }}} */
 
@@ -276,4 +280,4 @@ extern void delete_ssa PARAMS ((void));
 
 /* }}} */
 
-#endif	/* _TREE_FLOW_H  */
+#endif /* _TREE_FLOW_H  */

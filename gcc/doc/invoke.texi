@@ -241,6 +241,7 @@ in the following sections.
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-ast-original@r{[}-@var{n}@r{]} -fdump-ast-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-ast-inlined@r{[}-@var{n}@r{]} @gol
+-fdump-tree-cfg -fdump-tree-graphviz -fdump-tree-ssa@r{[}-@var{n}@r{]} @gol
 -fmem-report  -fpretend-float @gol
 -fprofile-arcs  -ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
@@ -2998,7 +2999,7 @@ options, in particular with and without @option{-g}.
 Dump a representation of the tree structure for the entire translation
 unit to a file.  The file name is made by appending @file{.tu} to the
 source file name.  If the @samp{-@var{number}} form is used, @var{number}
-controls the details of the dump as described for the @option{-fdump-tree} options.
+controls the details of the dump as described for the @option{-fdump-ast} options.
 
 @item -fdump-class-hierarchy @r{(C++ only)}
 @itemx -fdump-class-hierarchy-@var{number} @r{(C++ only)}
@@ -3006,7 +3007,7 @@ controls the details of the dump as described for the @option{-fdump-tree} optio
 Dump a representation of each class's hierarchy and virtual function
 table layout to a file.  The file name is made by appending @file{.class}
 to the source file name.  If the @samp{-@var{number}} form is used, @var{number}
-controls the details of the dump as described for the @option{-fdump-tree}
+controls the details of the dump as described for the @option{-fdump-ast}
 options.
 
 @item -fdump-ast-@var{switch} @r{(C++ only)}
@@ -3037,6 +3038,30 @@ Dump after all tree based optimization, to @file{@var{file}.optimized}.
 @item inlined
 Dump after inlining within the body of the function, to
 @file{@var{file}.inlined}.
+@end table
+
+@item -fdump-tree-cfg
+@opindex fdump-tree-cfg
+Dump the control flow graph of each function to a file.  The file name is
+made by appending @file{.cfg} to the source file name.
+
+@item -fdump-tree-graphviz
+@opindex fdump-tree-graphviz
+Dump a representation of the control flow graph, suitable for viewing with
+GraphViz, to a file.  The file name is made by appending @file{.dot} to the
+source file name.
+
+@item -fdump-tree-ssa
+@itemx -fdump-tree-ssa-@var{number}
+@opindex fdump-tree-ssa
+Dump SSA related information to a file.  The file name is made by appending
+@file{.ssa} to the source file name.  If the @samp{-@var{number}} form is
+used, @var{number} is a bit mask which controls the details of the dump.
+The following bits are meaningful:
+
+@table @samp
+@item bit0 (1)
+Print the list of references made to each variable in the program.
 @end table
 
 @item -fpretend-float

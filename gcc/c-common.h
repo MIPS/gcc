@@ -849,6 +849,10 @@ enum tree_dump_index
   TDI_optimized,		/* dump each function after optimizing it */
   TDI_inlined,			/* dump each function after inlining
 				   within it. */
+  TDI_cfg,			/* dump the flowgraph for each function.  */
+  TDI_dot,			/* create a GraphViz graph file for each 
+				   function's flowgraph.  */
+  TDI_ssa,			/* dump SSA information for each function.  */
   TDI_end
 };
 

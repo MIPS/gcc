@@ -218,12 +218,14 @@ typedef struct basic_block_def {
   /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
   int frequency;
 
-  /* Reachability flag.  Set to non-zero if this block is reachable from
-     the flowgraph's entry node.  */
-  int reachable;
+  /* Various flags.  See BB_* below.  */
+  int flags;
 } *basic_block;
- 
+
 #define BB_FREQ_MAX 10000
+
+/* Masks for basic_block.flags.  */
+#define BB_REACHABLE		1
 
 /* Number of basic blocks in the current function.  */
 

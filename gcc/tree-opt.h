@@ -31,4 +31,4 @@ void init_tree_opt PARAMS ((void));
 
 /* }}} */
 
-#endif	/* _TREE_OPT_H */
+#endif /* _TREE_OPT_H */
