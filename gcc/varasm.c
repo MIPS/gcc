@@ -3970,9 +3970,6 @@ output_constant (exp, size, align)
   enum tree_code code;
   unsigned HOST_WIDE_INT thissize;
 
-  if (size == -1)
-    size = 0;
-
   /* Some front-ends use constants other than the standard language-indepdent
      varieties, but which may still be output directly.  Give the front-end a
      chance to convert EXP to a language-independent representation.  */

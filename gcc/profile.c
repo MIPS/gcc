@@ -2189,15 +2189,6 @@ build_function_info_value (function)
   /* counter_sections */
   counter_section_fields = build_counter_section_fields ();
   counter_section_type = (*lang_hooks.types.make_type) (RECORD_TYPE);
-  counter_sections_ptr_type =
-	  build_pointer_type
-	  	(build_qualified_type (counter_section_type,
-				       TYPE_QUAL_CONST));
-  counter_sections_array_type =
-	  build_array_type (counter_section_type,
-			    build_index_type (
-      				build_int_2 (function->n_counter_sections - 1,
-		  			     0)));
 
   counter_sections_value = NULL_TREE;
   for (i = 0; i < function->n_counter_sections; i++)
@@ -2215,6 +2206,15 @@ build_function_info_value (function)
     }
   finish_builtin_struct (counter_section_type, "__counter_section",
 			 counter_section_fields, NULL_TREE);
+  counter_sections_ptr_type =
+	  build_pointer_type
+	  	(build_qualified_type (counter_section_type,
+				       TYPE_QUAL_CONST));
+  counter_sections_array_type =
+	  build_array_type (counter_section_type,
+			    build_index_type (
+      				build_int_2 (function->n_counter_sections - 1,
+		  			     0)));
 
   if (function->n_counter_sections)
     {

@@ -1,3 +1,7 @@
+Thu Jun  5 22:16:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* profile.c (build_function_info_value):  Fix.
+
 Thu Jun  5 18:20:40 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* function.c (FLOOR_ROUND, CEIL_ROUND): Fix.
