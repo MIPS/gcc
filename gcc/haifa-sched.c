@@ -1045,7 +1045,7 @@ ready_remove (ready, index)
   t = ready->vec[ready->first - index];
   ready->n_ready--;
   for (i = index; i < ready->n_ready; i++)
-    ready [ready->first - i] = ready [ready->first - i - 1];
+    ready->vec[ready->first - i] = ready->vec[ready->first - i - 1];
   return t;
 }
 

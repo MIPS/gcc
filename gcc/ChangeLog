@@ -1,3 +1,8 @@
+2001-09-24  David S. Miller  <davem@redhat.com>
+
+	* haifa-sched.c (ready_remove): Fix thinko, we want to copy around
+	ready->vec[foo] not ready[foo].
+
 2001-09-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/md.texi: Correct examples for define_insn_reservations
