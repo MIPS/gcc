@@ -146,6 +146,23 @@ default_eh_frame_section (void)
 #endif
 }
 
+/* Number of times dwarf2out_init called. */
+static int init_done;
+
+/* Tree nodes where we set either TREE_ASM_WRITTEN or TYPE_SYMTAB_DIE.
+   The code in this file destructively modifies tree nodes, to note that
+   DIEs have been emitted for them.  These changes have to be reverted
+   before the compile server can start emitting DIEs for a new output
+   file.  This varray points to the trees we have to revert.
+   It is only used (and non-null) in compile-server mode.  */
+static GTY(()) varray_type modified_trees;
+
+/* Add TREE to modified_trees.  We only bother in compile-server mode. */
+#define NOTE_MODIFIED_TREE(TREE) \
+  do { \
+    if (modified_trees) VARRAY_PUSH_TREE (modified_trees, TREE); \
+  } while (0)
+
 /* Array of RTXes referenced by the debugging information, which therefore
    must be kept around forever.  */
 static GTY(()) varray_type used_rtx_varray;
@@ -2244,12 +2261,19 @@ dwarf2out_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
   fde->dw_fde_end = xstrdup (label);
 }
 
+/* Number of times dwarf2out_frame_init called. */
+static int frame_init_done;
+
 void
 dwarf2out_frame_init (void)
 {
   /* Allocate the initial hunk of the fde_table.  */
-  fde_table = ggc_alloc_cleared (FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
-  fde_table_allocated = FDE_TABLE_INCREMENT;
+  if (frame_init_done == 0)
+    {
+      fde_table
+	= ggc_alloc_cleared (FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
+      fde_table_allocated = FDE_TABLE_INCREMENT;
+    }
   fde_table_in_use = 0;
 
   /* Generate the CFA instructions common to all FDE's.  Do it now for the
@@ -2260,6 +2284,7 @@ dwarf2out_frame_init (void)
   dwarf2out_def_cfa (NULL, STACK_POINTER_REGNUM, INCOMING_FRAME_SP_OFFSET);
   initial_return_save (INCOMING_RETURN_ADDR_RTX);
 #endif
+  frame_init_done++;
 }
 
 void
@@ -2273,7 +2298,7 @@ dwarf2out_frame_finish (void)
     output_call_frame_info (1);
 
   /* Reinitialize for another output file.  */
-  cie_cfi_head = 0;
+  cie_cfi_head = NULL;
 }
 #endif
 
@@ -5123,6 +5148,7 @@ lookup_type_die (tree type)
 static inline void
 equate_type_number_to_die (tree type, dw_die_ref type_die)
 {
+  NOTE_MODIFIED_TREE (type);
   TYPE_SYMTAB_DIE (type) = type_die;
 }
 
@@ -10329,6 +10355,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
       tree link;
 
       TREE_ASM_WRITTEN (type) = 1;
+      NOTE_MODIFIED_TREE (type);
       add_byte_size_attribute (type_die, type);
       if (TYPE_STUB_DECL (type) != NULL_TREE)
 	add_src_coords_attributes (type_die, TYPE_STUB_DECL (type));
@@ -11314,6 +11341,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die)
       /* Prevent infinite recursion in cases where the type of some member of
 	 this type is expressed in terms of this type itself.  */
       TREE_ASM_WRITTEN (type) = 1;
+      NOTE_MODIFIED_TREE (type);
       add_byte_size_attribute (type_die, type);
       if (TYPE_STUB_DECL (type) != NULL_TREE)
 	add_src_coords_attributes (type_die, TYPE_STUB_DECL (type));
@@ -11376,6 +11404,7 @@ gen_typedef_die (tree decl, dw_die_ref context_die)
     return;
 
   TREE_ASM_WRITTEN (decl) = 1;
+  NOTE_MODIFIED_TREE (decl);
   type_die = new_die (DW_TAG_typedef, context_die, decl);
   origin = decl_ultimate_origin (decl);
   if (origin != NULL)
@@ -11426,6 +11455,7 @@ gen_type_die (tree type, dw_die_ref context_die)
 	abort ();
 
       TREE_ASM_WRITTEN (type) = 1;
+      NOTE_MODIFIED_TREE (type);
       gen_decl_die (TYPE_NAME (type), context_die);
       return;
     }
@@ -11454,6 +11484,7 @@ gen_type_die (tree type, dw_die_ref context_die)
       /* ??? We could perhaps do this for all types before the switch
 	 statement.  */
       TREE_ASM_WRITTEN (type) = 1;
+      NOTE_MODIFIED_TREE (type);
 
       /* For these types, all that is required is that we output a DIE (or a
 	 set of DIEs) to represent the "basis" type.  */
@@ -11567,6 +11598,7 @@ gen_type_die (tree type, dw_die_ref context_die)
     }
 
   TREE_ASM_WRITTEN (type) = 1;
+  NOTE_MODIFIED_TREE (type);
 }
 
 /* Generate a DIE for a tagged type instantiation.  */
@@ -12175,9 +12207,17 @@ maybe_emit_file (int fileno)
 static void
 init_file_table (void)
 {
-  /* Allocate the initial hunk of the file_table.  */
-  VARRAY_CHAR_PTR_INIT (file_table, 64, "file_table");
-  VARRAY_UINT_INIT (file_table_emitted, 64, "file_table_emitted");
+  if (init_done == 0)
+    {
+      /* Allocate the initial hunk of the file_table.  */
+      VARRAY_CHAR_PTR_INIT (file_table, 64, "file_table");
+      VARRAY_UINT_INIT (file_table_emitted, 64, "file_table_emitted");
+    }
+  else
+    {
+      VARRAY_CLEAR (file_table);
+      VARRAY_CLEAR (file_table_emitted);
+    }
 
   /* Skip the first entry - file numbers begin at 1.  */
   VARRAY_PUSH_CHAR_PTR (file_table, NULL);
@@ -12357,29 +12397,59 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 static void
 dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 {
+  if (server_mode > 0)
+    {
+      if (init_done == 0)
+	VARRAY_TREE_INIT (modified_trees, 256, "modified_trees");
+      else
+	{
+	  int i = VARRAY_ACTIVE_SIZE (modified_trees);
+	  while (--i >= 0)
+	    {
+	      tree t = VARRAY_TREE (modified_trees, i);
+	      VARRAY_TREE (modified_trees, i) = NULL_TREE; /* for gc */
+	      TREE_ASM_WRITTEN (t) = 0;
+	      if (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+		TYPE_SYMTAB_DIE (t) = NULL;
+	    }
+	  modified_trees->elements_used = 0;
+	}
+    }
+
   init_file_table ();
 
   /* Allocate the initial hunk of the decl_die_table.  */
-  decl_die_table = ggc_alloc_cleared (DECL_DIE_TABLE_INCREMENT
-				      * sizeof (dw_die_ref));
-  decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
+  if (init_done == 0)
+    {
+      decl_die_table = ggc_alloc_cleared (DECL_DIE_TABLE_INCREMENT
+					  * sizeof (dw_die_ref));
+      decl_die_table_allocated = DECL_DIE_TABLE_INCREMENT;
+    }
   decl_die_table_in_use = 0;
 
   /* Allocate the initial hunk of the decl_scope_table.  */
-  VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
+  if (init_done == 0)
+    VARRAY_TREE_INIT (decl_scope_table, 256, "decl_scope_table");
+  else
+    VARRAY_CLEAR (decl_scope_table);
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
-  abbrev_die_table = ggc_alloc_cleared (ABBREV_DIE_TABLE_INCREMENT
-					* sizeof (dw_die_ref));
-  abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
+  if (init_done == 0)
+    {
+      abbrev_die_table = ggc_alloc_cleared (ABBREV_DIE_TABLE_INCREMENT
+					    * sizeof (dw_die_ref));
+      abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
+    }
   /* Zero-th entry is allocated, but unused */
   abbrev_die_table_in_use = 1;
 
   /* Allocate the initial hunk of the line_info_table.  */
-  line_info_table = ggc_alloc_cleared (LINE_INFO_TABLE_INCREMENT
-				       * sizeof (dw_line_info_entry));
-  line_info_table_allocated = LINE_INFO_TABLE_INCREMENT;
-
+  if (init_done == 0)
+    {
+      line_info_table = ggc_alloc_cleared (LINE_INFO_TABLE_INCREMENT
+					   * sizeof (dw_line_info_entry));
+      line_info_table_allocated = LINE_INFO_TABLE_INCREMENT;
+    }
   /* Zero-th entry is allocated, but unused */
   line_info_table_in_use = 1;
 
@@ -12392,9 +12462,16 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   comp_unit_die = gen_compile_unit_die (NULL);
   is_main_source = 1;
 
-  VARRAY_TREE_INIT (incomplete_types, 64, "incomplete_types");
-
-  VARRAY_RTX_INIT (used_rtx_varray, 32, "used_rtx_varray");
+  if (init_done == 0)
+    {
+      VARRAY_TREE_INIT (incomplete_types, 64, "incomplete_types");
+      VARRAY_RTX_INIT (used_rtx_varray, 32, "used_rtx_varray");
+    }
+  else
+    {
+      VARRAY_CLEAR (incomplete_types);
+      VARRAY_CLEAR (used_rtx_varray);
+    }
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
@@ -12430,6 +12507,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
       text_section ();
       ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
     }
+
+  init_done++;
 }
 
 /* A helper function for dwarf2out_finish called through
@@ -12816,6 +12895,7 @@ dwarf2out_finish (const char *filename)
     {
       named_section_flags (DEBUG_PUBNAMES_SECTION, SECTION_DEBUG);
       output_pubnames ();
+      pubname_table_in_use = 0;
     }
 
   /* Output the address range information.  We only put functions in the arange
@@ -12824,6 +12904,7 @@ dwarf2out_finish (const char *filename)
     {
       named_section_flags (DEBUG_ARANGES_SECTION, SECTION_DEBUG);
       output_aranges ();
+      arange_table_in_use = 0;
     }
 
   /* Output ranges section if necessary.  */
@@ -12832,6 +12913,7 @@ dwarf2out_finish (const char *filename)
       named_section_flags (DEBUG_RANGES_SECTION, SECTION_DEBUG);
       ASM_OUTPUT_LABEL (asm_out_file, ranges_section_label);
       output_ranges ();
+      ranges_table_in_use = 0;
     }
 
   /* Have to end the primary source file.  */
@@ -12846,6 +12928,15 @@ dwarf2out_finish (const char *filename)
      table too.  */
   if (debug_str_hash)
     htab_traverse (debug_str_hash, output_indirect_string, NULL);
+  debug_str_hash = NULL;
+  dw2_string_counter = 0;
+  dwarf2out_cfi_label_num = 0;
+  emitcount = 0;
+  label_num = 0;
+  if (comdat_symbol_id)
+    free (comdat_symbol_id);
+  comdat_symbol_id = NULL;
+  comdat_symbol_number = 0;
 }
 #else
 

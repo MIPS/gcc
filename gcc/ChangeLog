@@ -1,3 +1,13 @@
+2003-11-05  Per Bothner  <pbothner@apple.com>
+
+	* dwarf2out.c (init_done, frame_init_done):  New statics.
+	(dwarf2out_frame_init, init_file_table, dwarf2out_init):  Reset
+	tables if called a second time for compile server.
+	(dwarf2out_finish):  Reset various static counters etc.
+	(NOTE_MODIFIED_TREE):  New macro.
+	(equate_type_number_to_die, gen_enumeration_type_die,
+	gen_struct_or_union_type_die, gen_typedef_die, gen_type_die):  Use it.
+
 2003-10-29  Mike Stump  <mrs@apple.com>
 
 	* c-common.c (builtins_c_fragment): Mark for PCH.
@@ -29,7 +39,7 @@
 
 2003-10-29  Per Bothner  <pbothner@apple.com>
 
-	* c-patch.in (maybe_identifier):  New non-terminal.
+	* c-parse.in (maybe_identifier):  New non-terminal.
 	(structsp_attr):  Use maybe_identifier to combine_case.  Not only
 	is this simpler, but it calls finish_struct before parsing body,
 	which is needed for compiler-server to adjust currently_nested.
