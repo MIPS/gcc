@@ -1,3 +1,12 @@
+2004-01-08  Andreas Schwab  <schwab@suse.de>
+
+	Merge from mainline:
+
+	2003-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cleanup-10.c: New test.
+	* gcc.dg/cleanup-11.c: New test.
+
 2003-11-01  Andreas Schwab  <schwab@suse.de>
 
 	Merge from mainline:
