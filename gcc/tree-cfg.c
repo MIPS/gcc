@@ -308,7 +308,6 @@ make_blocks (tree *first_p, tree next_block_link, tree parent_stmt,
   bool start_new_block;
 
   if (first_p == NULL
-      || IS_EMPTY_STMT (*first_p)
       || *first_p == error_mark_node)
     return NULL;
 
@@ -1073,40 +1072,33 @@ make_ctrl_stmt_edges (basic_block bb)
       break;
 
     case TRY_FINALLY_EXPR:
+      /* Record this TRY_FINALLY_EXPR as needing further processing.  */
       VARRAY_PUSH_TREE (try_finallys, last);
-      if (first_exec_stmt (&TREE_OPERAND (last, 0)) == NULL)
-	make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 1)), EDGE_ABNORMAL);
 
-      /* FALL THROUGH */
+      /* We used to try and optimize cases where the TRY block has no
+	 executable code.  However that is unsafe in our container
+	 based intermediate representation.  Consider what happens
+	 if the out-of-ssa pass wants to insert an instruction on the
+	 edge from the TRY_FINALLY_EXPR to the FINALLY block and there
+	 are multiple predecessors for the FINALLY block.  There is
+	 no safe place to do the insertion without special casing to
+	 know the insertion can occur before the TRY_FINALLY_EXPR.  */
+
+      /* FALLTHRU */
     case TRY_CATCH_EXPR:
-      {
-	basic_block target_bb = bb_for_stmt (TREE_OPERAND (last, 0));
-
-	if (target_bb)
-          make_edge (bb, target_bb, EDGE_FALLTHRU);
-	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
-	break;
-      }
+      make_edge (bb, bb_for_stmt (TREE_OPERAND (last, 0)), EDGE_FALLTHRU);
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      break;
 
     case CATCH_EXPR:
-      {
-	basic_block target_bb = bb_for_stmt (CATCH_BODY (last));
-
-	if (target_bb)
-	  make_edge (bb, target_bb, EDGE_FALLTHRU);
-	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
-	break;
-      }
+      make_edge (bb, bb_for_stmt (CATCH_BODY (last)), EDGE_FALLTHRU);
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      break;
 
     case EH_FILTER_EXPR:
-      {
-	basic_block target_bb = bb_for_stmt (EH_FILTER_FAILURE (last));
-
-	if (target_bb)
-	  make_edge (bb, target_bb, EDGE_ABNORMAL);
-	make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
-	break;
-      }
+      make_edge (bb, bb_for_stmt (EH_FILTER_FAILURE (last)), EDGE_FALLTHRU);
+      make_edge (bb, successor_block (bb), EDGE_FALLTHRU);
+      break;
 
     default:
       abort ();
