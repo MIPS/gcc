@@ -32,13 +32,12 @@
 {
     NTGridDataObject *result = [[NTGridDataObject alloc] initWithData:data];
      /* { dg-warning "multiple methods named .\\-initWithData:. found" "" { target *-*-* } 33 } */
-     /* { dg-warning "could be using .\\-\\(id\\)initWithData:\\(Object \\*\\)data." "" { target *-*-* } 9 } */
-     /* { dg-warning "or .\\-\\(id\\)initWithData:\\(id <MyObject, MyCoding>\\)data." "" { target *-*-* } 17 } */
-     /* { dg-warning "or .\\-\\(id\\)initWithData:\\(int\\)data." "" { target *-*-* } 13 } */
-     /* { dg-warning "\\(Messages matching multiple method signatures" "" { target *-*-* } 33 } */
-     /* { dg-warning "will be assumed to return .id. and accept" "" { target *-*-* } 33 } */
-     /* { dg-warning ".\.\.\.. as arguments\.\\)" "" { target *-*-* } 33 } */
+     /* { dg-warning "using .\\-\\(id\\)initWithData:\\(Object \\*\\)data." "" { target *-*-* } 9 } */
+     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(id <MyObject, MyCoding>\\)data." "" { target *-*-* } 17 } */
+     /* { dg-warning "also found .\\-\\(id\\)initWithData:\\(int\\)data." "" { target *-*-* } 13 } */
 
+     /* The following warning is a consequence of picking the "wrong" method signature.  */
+     /* { dg-warning "passing arg 1 of .initWithData:. from incompatible pointer type" "" { target *-*-* } 33 } */
     return result;
 }
 @end

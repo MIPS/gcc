@@ -293,7 +293,7 @@ static tree build_shared_structure_initializer	PARAMS ((tree, tree, tree, tree,
 static void generate_category			PARAMS ((tree));
 static int is_objc_type_qualifier		PARAMS ((tree));
 static tree adjust_type_for_id_default		PARAMS ((tree));
-static tree check_duplicates			PARAMS ((hash));
+static tree check_duplicates			PARAMS ((hash, int));
 static tree receiver_is_class_object		PARAMS ((tree, int, int));
 static int check_methods			PARAMS ((tree, tree, int));
 static int conforms_to_protocol			PARAMS ((tree, tree));
@@ -5596,8 +5596,9 @@ get_arg_type_list (meth, context, superflag)
 }
 
 static tree
-check_duplicates (hsh)
+check_duplicates (hsh, methods)
      hash hsh;
+     int methods;
 {
   tree meth = NULL_TREE;
 
@@ -5611,15 +5612,13 @@ check_duplicates (hsh)
 	  attr loop;
 	  char type = (TREE_CODE (meth) == INSTANCE_METHOD_DECL) ? '-' : '+';
 
-	  warning ("multiple methods named `%c%s' found", type,
+	  warning ("multiple %s named `%c%s' found", 
+		   methods ? "methods" : "selectors", type,
 		   IDENTIFIER_POINTER (METHOD_SEL_NAME (meth)));
 
-	  warn_with_method ("could be using", type, meth);
+	  warn_with_method (methods ? "using" : "found", type, meth);
 	  for (loop = hsh->list; loop; loop = loop->next)
-	    warn_with_method ("or", type, loop->value);
-
-	  /* Mark the method as `...', to indicate ambiguity.  */
-	  meth = objc_ellipsis_node;
+	    warn_with_method ("also found", type, loop->value);
         }
     }
   return meth;
@@ -5769,7 +5768,7 @@ lookup_method_in_hash_lists (sel_name)
     method_prototype = hash_lookup (cls_method_hash_list, 
 				    sel_name);
 
-  return check_duplicates (method_prototype);
+  return check_duplicates (method_prototype, 1);
 }    
 
 /* The 'finish_message_expr' routine is called from within
@@ -5849,7 +5848,7 @@ finish_message_expr (receiver, sel_name, method_params)
       if (!method_prototype && !rprotos)
 	method_prototype
 	  = (is_class
-	     ? check_duplicates (hash_lookup (cls_method_hash_list, sel_name))
+	     ? check_duplicates (hash_lookup (cls_method_hash_list, sel_name), 1)
 	     : lookup_method_in_hash_lists (sel_name));
     }
   else
@@ -5931,19 +5930,6 @@ finish_message_expr (receiver, sel_name, method_params)
 	  warning ("`...' as arguments.)");
 	  warn_missing_methods = true;
 	}
-    }
-  else if (method_prototype == objc_ellipsis_node)
-    {
-      static bool warn_ambiguous_methods = false;
-
-      if (!warn_ambiguous_methods)
-	{
-	  warning ("(Messages matching multiple method signatures");
-	  warning ("will be assumed to return `id' and accept");
-	  warning ("`...' as arguments.)");
-	  warn_ambiguous_methods = true;
-	}
-      method_prototype = NULL_TREE;
     }
 
   /* Save the selector name for printing error messages.  */
@@ -9110,9 +9096,9 @@ finish_objc ()
       for (slot = 0; slot < SIZEHASHTABLE; slot++)
 	{
 	  for (hsh = cls_method_hash_list[slot]; hsh; hsh = hsh->next)
-	    check_duplicates (hsh);
+	    check_duplicates (hsh, 0);
 	  for (hsh = nst_method_hash_list[slot]; hsh; hsh = hsh->next)
-	    check_duplicates (hsh);
+	    check_duplicates (hsh, 0);
 	}
     }
 
