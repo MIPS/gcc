@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN LN_S RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP strict1_warn warn_cflags WERROR nocommon_flag TREEBROWSER EGREP valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON stage1_cflags COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file FORBUILD PACKAGE VERSION USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS CROSS ALL SYSTEM_HEADER_DIR inhibit_libc BUILD_PREFIX BUILD_PREFIX_1 CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 libgcc_visibility GGC zlibdir zlibinc MAINT ANDER BANSHEEINC BANSHEELIB gcc_tooldir dollar slibdir objdir subdirs srcdir all_boot_languages all_compilers all_gtfiles all_gtfiles_files_langs all_gtfiles_files_files all_lang_makefrags all_lang_makefiles all_languages all_stagestuff build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines check_languages cc_set_by_configure quoted_cc_set_by_configure cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir libstdcxx_incdir gcc_version gcc_version_full gcc_version_trigger host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file stage_prefix_set_by_configure quoted_stage_prefix_set_by_configure symbolic_link thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines target_noncanonical c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
 
 # Initialize some variables set by options.
@@ -869,6 +869,7 @@ Optional Features:
 			  enable only specific categories of checks.
 			  Categories are: misc,tree,rtl,rtlflag,gc,gcac,fold;
 			  default is misc,tree,gc,rtlflag
+  --enable-mapped-location   location_t is fileline integer cookie
   --enable-coverage=LEVEL
 			  enable compiler\'s code coverage collection.
 			  Use to measure compiler performance and locate
@@ -4583,6 +4584,22 @@ fi
 
 
 
+# Check whether --enable-mapped-location or --disable-mapped-location was given.
+if test "${enable_mapped_location+set}" = set; then
+  enableval="$enable_mapped_location"
+
+else
+  enable_mapped_location=no
+fi;
+
+if test "$enable_mapped_location" = yes ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_MAPPED_LOCATION 1
+_ACEOF
+
+fi
+
 # Enable code coverage collection
 # Check whether --enable-coverage or --disable-coverage was given.
 if test "${enable_coverage+set}" = set; then
@@ -4889,48 +4906,13 @@ fi
   test -n "$AWK" && break
 done
 
-# We need awk to run opts.sh (to create options.c and options.h).
+# We need awk to create options.c and options.h.
 # Bail out if it's missing.
 case ${AWK} in
   "") { { echo "$as_me:$LINENO: error: can't build without awk, bailing out" >&5
 echo "$as_me: error: can't build without awk, bailing out" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
-
-echo "$as_me:$LINENO: checking whether ln works" >&5
-echo $ECHO_N "checking whether ln works... $ECHO_C" >&6
-if test "${gcc_cv_prog_LN+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  rm -f conftestdata_t
-echo >conftestdata_f
-if ln conftestdata_f conftestdata_t 2>/dev/null
-then
-  gcc_cv_prog_LN="ln"
-else
-  if ln -s conftestdata_f conftestdata_t 2>/dev/null
-  then
-    gcc_cv_prog_LN="ln -s"
-  else
-    gcc_cv_prog_LN=cp
-  fi
-fi
-rm -f conftestdata_f conftestdata_t
-
-fi
-LN="$gcc_cv_prog_LN"
-if test "$gcc_cv_prog_LN" = "ln"; then
-  echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6
-else
-  if test "$gcc_cv_prog_LN" = "ln -s"; then
-    echo "$as_me:$LINENO: result: no, using ln -s" >&5
-echo "${ECHO_T}no, using ln -s" >&6
-  else
-    echo "$as_me:$LINENO: result: no, and neither does ln -s, so using cp" >&5
-echo "${ECHO_T}no, and neither does ln -s, so using cp" >&6
-  fi
-fi
 
 echo "$as_me:$LINENO: checking whether ln -s works" >&5
 echo $ECHO_N "checking whether ln -s works... $ECHO_C" >&6
@@ -4965,6 +4947,32 @@ echo "${ECHO_T}no, using ln" >&6
     echo "$as_me:$LINENO: result: no, and neither does ln, so using cp" >&5
 echo "${ECHO_T}no, and neither does ln, so using cp" >&6
   fi
+fi
+
+echo "$as_me:$LINENO: checking whether ln works" >&5
+echo $ECHO_N "checking whether ln works... $ECHO_C" >&6
+if test "${acx_cv_prog_LN+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  rm -f conftestdata_t
+echo >conftestdata_f
+if ln conftestdata_f conftestdata_t 2>/dev/null
+then
+  acx_cv_prog_LN=ln
+else
+  acx_cv_prog_LN=no
+fi
+rm -f conftestdata_f conftestdata_t
+
+fi
+if test $acx_cv_prog_LN = no; then
+  LN="$LN_S"
+  echo "$as_me:$LINENO: result: no, using $LN" >&5
+echo "${ECHO_T}no, using $LN" >&6
+else
+  LN="$acx_cv_prog_LN"
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
 fi
 
 if test -n "$ac_tool_prefix"; then
@@ -5234,7 +5242,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:5237: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:5245: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
@@ -5662,128 +5670,6 @@ if test $ac_cv_header_time = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define TIME_WITH_SYS_TIME 1
-_ACEOF
-
-fi
-
-echo "$as_me:$LINENO: checking for working stdbool.h" >&5
-echo $ECHO_N "checking for working stdbool.h... $ECHO_C" >&6
-if test "${ac_cv_header_stdbool_h+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <stdbool.h>
-int
-main ()
-{
-bool foo = false;
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_header_stdbool_h=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_header_stdbool_h=no
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-echo "$as_me:$LINENO: result: $ac_cv_header_stdbool_h" >&5
-echo "${ECHO_T}$ac_cv_header_stdbool_h" >&6
-if test $ac_cv_header_stdbool_h = yes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_STDBOOL_H 1
-_ACEOF
-
-fi
-echo "$as_me:$LINENO: checking for built-in _Bool" >&5
-echo $ECHO_N "checking for built-in _Bool... $ECHO_C" >&6
-if test "${gcc_cv_c__bool+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-int
-main ()
-{
-_Bool foo;
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  gcc_cv_c__bool=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-gcc_cv_c__bool=no
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-
-fi
-echo "$as_me:$LINENO: result: $gcc_cv_c__bool" >&5
-echo "${ECHO_T}$gcc_cv_c__bool" >&6
-if test $gcc_cv_c__bool = yes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE__BOOL 1
 _ACEOF
 
 fi
@@ -8275,12 +8161,35 @@ _ACEOF
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 for ac_func in getenv atol sbrk abort atof getcwd getwd \
 	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
         fprintf_unlocked strstr errno snprintf vasprintf \
 	malloc realloc calloc free basename getopt clock
 do
-  ac_tr_decl=HAVE_DECL_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+  ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
 echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
 echo $ECHO_N "checking whether $ac_func is declared... $ECHO_C" >&6
 if eval "test \"\${gcc_cv_have_decl_$ac_func+set}\" = set"; then
@@ -8355,108 +8264,14 @@ _ACEOF
 fi
 
 done
-if test x = y ; then
 
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETENV 1
-_ACEOF
 
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_ATOL 1
-_ACEOF
 
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_SBRK 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_ABORT 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_ATOF 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETCWD 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETWD 1
-_ACEOF
- \
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_STRSIGNAL 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_PUTC_UNLOCKED 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_FPUTS_UNLOCKED 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_FWRITE_UNLOCKED 1
-_ACEOF
- \
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_FPRINTF_UNLOCKED 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_STRSTR 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_ERRNO 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_SNPRINTF 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_VASPRINTF 1
-_ACEOF
- \
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_MALLOC 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_REALLOC 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_CALLOC 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_FREE 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_BASENAME 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETOPT 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_CLOCK 1
-_ACEOF
-fi
 
 
 for ac_func in getrlimit setrlimit getrusage
 do
-  ac_tr_decl=HAVE_DECL_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+  ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
 echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
 echo $ECHO_N "checking whether $ac_func is declared... $ECHO_C" >&6
 if eval "test \"\${gcc_cv_have_decl_$ac_func+set}\" = set"; then
@@ -8535,20 +8350,6 @@ _ACEOF
 fi
 
 done
-if test x = y ; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETRLIMIT 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_SETRLIMIT 1
-_ACEOF
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_GETRUSAGE 1
-_ACEOF
-fi
 
 
 cat >conftest.$ac_ext <<_ACEOF
@@ -8607,9 +8408,10 @@ _ACEOF
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
+
 for ac_func in ldgetname
 do
-  ac_tr_decl=HAVE_DECL_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+  ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
 echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
 echo $ECHO_N "checking whether $ac_func is declared... $ECHO_C" >&6
 if eval "test \"\${gcc_cv_have_decl_$ac_func+set}\" = set"; then
@@ -8688,17 +8490,12 @@ _ACEOF
 fi
 
 done
-if test x = y ; then
 
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_LDGETNAME 1
-_ACEOF
-fi
 
 
 for ac_func in times
 do
-  ac_tr_decl=HAVE_DECL_`echo $ac_func | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+  ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
 echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
 echo $ECHO_N "checking whether $ac_func is declared... $ECHO_C" >&6
 if eval "test \"\${gcc_cv_have_decl_$ac_func+set}\" = set"; then
@@ -8777,12 +8574,6 @@ _ACEOF
 fi
 
 done
-if test x = y ; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_DECL_TIMES 1
-_ACEOF
-fi
 
 
 # More time-related stuff.
@@ -13098,8 +12889,8 @@ s,@CROSS_SYSTEM_HEADER_DIR@,$CROSS_SYSTEM_HEADER_DIR,;t t
 s,@onestep@,$onestep,;t t
 s,@SET_MAKE@,$SET_MAKE,;t t
 s,@AWK@,$AWK,;t t
-s,@LN@,$LN,;t t
 s,@LN_S@,$LN_S,;t t
+s,@LN@,$LN,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@INSTALL@,$INSTALL,;t t

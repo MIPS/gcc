@@ -1,3 +1,25 @@
+2004-06-20  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* Makefile.am: Add rule for .S files to fix bootstrap on
+	solaris and alpha.
+	* Makefile.in: Regenerate.
+
+2004-06-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* boehm-gc/configure.ac: New name of configure.in.
+	Remove useless multilib stuff.  Change uses of
+	INCLUDES and CXXINCLUDES to AM_CPPFLAGS.
+	* boehm-gc/configure.in: New name of configure.in.
+	* boehm-gc/Makefile.am: Update for automake 1.8.5.
+	* boehm-gc/acinclude.m4: Include ../config/acx.m4.
+	* boehm-gc/aclocal.m4: Regenerate.
+	* boehm-gc/configure: Regenerate.
+	* boehm-gc/Makefile.in: Regenerate.
+
+2004-06-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* .cvsignore: New file.
+
 2004-04-25  Andreas Jaeger  <aj@suse.de>
 
         * mark.c (GC_mark_from): Use pointer as prefetch argument.
