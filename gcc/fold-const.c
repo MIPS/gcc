@@ -5241,12 +5241,37 @@ nondestructive_fold_binary (code, type, op0, op1)
 
     case RANGE_EXPR:
       /* This could probably be handled.  */
+      return NULL_TREE;
+
+    case TRUTH_AND_EXPR:
+      /* If second arg is constant zero, result is zero, but first arg
+	 must be evaluated.  */
+      if (integer_zerop (op1))
+	return omit_one_operand (type, op1, op0);
+      /* Likewise for first arg, but note that only the TRUTH_AND_EXPR
+	 case will be handled here.  */
+      if (integer_zerop (op0))
+	return omit_one_operand (type, op0, op1);
+      return NULL_TREE;
+
+    case TRUTH_OR_EXPR:
+      /* If second arg is constant true, result is true, but we must
+	 evaluate first arg.  */
+      if (TREE_CODE (op1) == INTEGER_CST && ! integer_zerop (op1))
+	return omit_one_operand (type, op1, op0);
+      /* Likewise for first arg, but note this only occurs here for
+	 TRUTH_OR_EXPR.  */
+      if (TREE_CODE (op0) == INTEGER_CST && ! integer_zerop (op0))
+	return omit_one_operand (type, op0, op1);
+      return NULL_TREE;
+
+    case TRUTH_XOR_EXPR:
+      /* We could probably handle this.  */
+      return NULL_TREE;
 
     default:
       return NULL_TREE;
     }
-
-
 }
 
 /* Given the components of a unary expression CODE, TYPE and OP0,

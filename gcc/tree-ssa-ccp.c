@@ -686,7 +686,11 @@ ccp_fold (stmt)
 
   /* Binary and comparison operators.  We know one or both of the
      operands are constants.  */
-  else if (kind == '2' || kind == '<')
+  else if (kind == '2'
+           || kind == '<'
+           || code == TRUTH_AND_EXPR
+           || code == TRUTH_OR_EXPR
+           || code == TRUTH_XOR_EXPR)
     {
       /* Handle binary and comparison operators that can appear in
          GIMPLE form.  */
@@ -970,15 +974,11 @@ def_to_undefined (var)
   if (value->lattice_val == CONSTANT)
     abort ();
 
-  /* FIXME: Hideous hack to overcome bugs in ccp_fold() that returns
-     VARYING for expressions that will later become UNDEFINED or CONSTANT.  */
-#if 0
   /* VARYING->UNDEFINED is generally not a valid state transition,
      except for values which are initialized to VARYING.  */
   if (value->lattice_val == VARYING
       && get_default_value (var).lattice_val != VARYING)
     abort ();
-#endif
 #endif
 
   if (value->lattice_val != UNDEFINED)
