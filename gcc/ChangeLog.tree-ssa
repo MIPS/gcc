@@ -1,3 +1,8 @@
+2003-11-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (insert_one_operand): Handle self-referential
+	ephi's properly.
+
 2003-11-19  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (true_exprs, false_exprs): New hash tables.

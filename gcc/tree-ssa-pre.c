@@ -2792,7 +2792,9 @@ code_motion (struct expr_info *ei)
 	    {
 	      tree rdef;
 	      argdef = EPHI_ARG_DEF (use, i);
-	      if (argdef 
+	      if (argdef == use)
+		rdef = get_temp (use);
+	      else if (argdef 
 		  && EPHI_ARG_HAS_REAL_USE (use, i) 
 		  && EREF_STMT (argdef)
 		  && !EPHI_ARG_INJURED (use, i))
