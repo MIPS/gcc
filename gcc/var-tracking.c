@@ -18,6 +18,53 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
+/* This file contains the variable tracking pass.  It computes where
+   a variable is located (which register or where in memory) at each position
+   in instruction stream and emits notes describing the locations.
+   Debug information is finally generated from these notes (this code is/will be
+   located in files generating debug information).
+
+   How the variable tracking pass works?
+
+   First, it scans RTL code for uses and stores (register/memory references in
+   instructions) separately for each basic block and saves them to an array (of
+   struct location_def).  Uses and stores of one instruction are ordered so that
+   use < set < clobber.
+
+   Then, a (forward) dataflow analysis is performed to find out how locations
+   of variables change through code and to propagate the variable locations
+   along control flow graph.  Hybrid Search Algorithm is used for dataflow
+   analysis (as well as in df.c).
+   The IN and OUT sets for basic blocks consist of a link list for each
+   physical register and a hash table of link lists for memory references.
+   The link lists should be pretty short so it is a good data structure here.
+   REG_EXPR and MEM_EXPR are used to find out which variable is associated
+   with a given register/memory.
+
+   Finally, the NOTE_INSN_VAR_LOCATION notes describing the variable locations
+   are emitted to appropriate positions in RTL code.  Each such a note describes
+   the location of one variable at the point in instruction stream where the
+   note is.  There is no need to emit a note for each variable before each
+   instruction, we only emit these notes where the location of variable changes
+   (this means that we also emit notes for changes between the OUT set of the
+   previous block and the IN set of the current block).
+
+   The notes consist of two parts:
+   1. the declaration (from REG_EXPR or MEM_EXPR)
+   2. the location - it is either a simple register/memory reference (for
+      simple variables, for example int),
+      or a parallel of register/memory references (for a large variables
+      which consist of several parts, for example long long).
+
+
+   References:
+   "Implementation Techniques for Efficient Data-Flow Analysis of Large
+   Programs"
+   D. C. Atkinson, W. G. Griswold.
+   http://citeseer.nj.nec.com/atkinson01implementation.html
+
+*/
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -31,7 +78,7 @@
 #include "fibheap.h"
 #include "hashtab.h"
 
-/* The purpose that the location (REG or MEM) has in RTL.  */
+/* The purpose which the location (REG or MEM) has in RTL.  */
 enum location_type
 {
   LT_USE,	/* Location is used in instruction.  */
@@ -143,7 +190,8 @@ typedef struct variable_def
   /* The locations.  */
   location_part location_part[MAX_LOC_PARTS];
 
-  /* Changed?  */
+  /* Have the variable location parts changed because of expressions in current
+     instruction?  */
   bool changed;
 } *variable;
 
@@ -226,7 +274,7 @@ static void var_tracking_emit_notes	PARAMS ((void));
 static void var_tracking_initialize	PARAMS ((void));
 static void var_tracking_finalize	PARAMS ((void));
 
-/* Return the hash value for X.  */
+/* Return the hash value for memory reference X.  */
 
 static hashval_t
 mem_htab_hash (x)
@@ -237,7 +285,7 @@ mem_htab_hash (x)
   return (MEM_HASH_VAL (list->loc));
 }
 
-/* Shall X and Y go to the same hash slot?  */
+/* Shall memory references X and Y go to the same hash slot?  */
 
 static int
 mem_htab_eq (x, y)
@@ -275,7 +323,7 @@ variable_htab_eq (x, y)
   return (VARIABLE_HASH_VAL (v->decl) == VARIABLE_HASH_VAL (decl));
 }
 
-/* Free the element of VARIABLE_HTAB (struct variable_def).  */
+/* Free the element of VARIABLE_HTAB (its type is struct variable_def).  */
 
 static void
 variable_htab_free (var)
@@ -551,7 +599,7 @@ attrs_htab_different (htab1, htab2)
   return attrs_htab_different_value;
 }
 
-/* Copy one SLOT to hash-table DATA.  */
+/* Copy one attribute list *SLOT to hash-table DATA.  */
 
 static int
 attrs_htab_copy_1 (slot, data)
@@ -587,7 +635,7 @@ attrs_htab_copy (dst, src)
   htab_traverse (src, attrs_htab_copy_1, dst);
 }
 
-/* Add all nodes from list in SLOT which are not in hash DATA to DATA.  */
+/* Add all nodes from the list in SLOT which are not in hash DATA to DATA.  */
 
 static int
 attrs_htab_union_1 (slot, data)
@@ -730,7 +778,7 @@ count_stores (loc, expr, insn)
 }
 
 /* Add uses (register and memory references) LOC which will be tracked
-   to VTI (bb)->loc.  INSN is instruction which the LOC is part of.  */
+   to VTI (bb)->locs.  INSN is instruction which the LOC is part of.  */
 
 static void
 add_uses (loc, insn)
@@ -752,7 +800,7 @@ add_uses (loc, insn)
 }
 
 /* Add stores (register and memory references) LOC which will be tracked
-   to VTI (bb)->loc. EXPR is the RTL expression containing the store.
+   to VTI (bb)->locs. EXPR is the RTL expression containing the store.
    INSN is instruction which the LOC is part of.  */
 
 static void
@@ -830,8 +878,10 @@ compute_bb_dataflow (bb)
 	  if (VTI (bb)->locs[i].type == LT_USE
 	      || VTI (bb)->locs[i].type == LT_SET)
 	    {
-	      /* We are storing a part of variable to memory so remove its
-	         occurrences from registers.  */
+	      /* We are storing a part of variable to memory. If variable
+		 has several equivalent locations keep only the memory
+		 location.  So remove variable's occurrences from registers.
+	       */
 	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 		attrs_list_delete (&out[j], decl, offset);
 	      attrs_htab_insert (VTI (bb)->mem_out, loc);
@@ -916,7 +966,7 @@ hybrid_search (bb, visited, pending)
 /* This function will perform iterative dataflow, producing the in and out
    sets.  It is the same as iterative_dataflow_bitmap in df.c but modified
    for different data structures.
-   BB_ORDER is the order to iterate in (Should map block numbers -> order).
+   BB_ORDER is the order to iterate in (should map block numbers -> order).
    Because this is a forward dataflow problem we pass in a mapping of block
    number to rc_order (like df->inverse_rc_map).  */
 
@@ -974,7 +1024,7 @@ dump_attrs_list (list)
   for (; list; list = list->next)
     {
       print_mem_expr (rtl_dump_file, list->decl);
-      fprintf (rtl_dump_file, "{%p}[", (void*) list->decl);
+      fprintf (rtl_dump_file, "[");
       fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_DEC, list->offset);
       fprintf (rtl_dump_file, "], ");
     }
@@ -1091,8 +1141,8 @@ note_insn_var_location_emit (insn, where, var)
 
 /* Set the part of variable's location.  The variable part is specified
    by variable's declaration DECL and offset OFFSET and the part's location
-   by LOC.  The INSN and WHERE parameters specify where the note will be emitted
-   (see note_insn_var_location_emit).  */
+   by LOC.  The INSN and WHERE parameters specify where the note will be
+   emitted (see note_insn_var_location_emit).  */
 
 static void
 set_location_part (decl, offset, loc, insn, where)
@@ -1193,7 +1243,7 @@ delete_location_part (decl, offset, insn, where)
 }
 
 /* Delete marked location parts of a variable and emit notes if needed.
-   SLOT is the address of pointer to description of parts of the variable.
+   **SLOT is a description of parts of the variable.
    AUX contains a pointer to data passed to functions emitting the notes.  */
 
 static int
@@ -1355,7 +1405,8 @@ process_bb (bb)
 	      case LT_SET:
 		/* We are storing a part of variable to memory. If variable
 		   has several equivalent locations keep only the memory
-		   location.  So remove variable's occurrences from registers.  */
+		   location.  So remove variable's occurrences from registers.
+		 */
 		process_bb_delete (reg, mem, false, loc, insn, where);
 		set_location_part (decl, offset, loc, insn, where);
 		attrs_htab_insert (mem, loc);
@@ -1371,7 +1422,7 @@ process_bb (bb)
   htab_delete (mem);
 }
 
-/* Mark the location parts for the variables from the list *SLOT
+/* Mark the variable location parts for the attributes from the list *SLOT
    to be deleted.  */
 
 static int
@@ -1399,8 +1450,8 @@ mark_variables_for_deletion (slot, data)
   return 1;
 }
 
-/* Add the location parts for variables from the list *SLOT and emit notes
-   before insn DATA.  */
+/* Add the variable location parts for attributes from the list *SLOT and emit
+   notes before insn DATA.  */
 
 static int
 add_and_unmark_variables (slot, data)
@@ -1438,7 +1489,8 @@ var_tracking_emit_notes ()
       emit_note_data emit_note_data;
 
       /* Emit the notes for changes of variable locations between two
-	 sequential basic blocks.  */
+	 subsequent basic blocks.  */
+
       /* Mark the variables of previous OUT set.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	mark_variables_for_deletion ((void **) &last_out[i], NULL);

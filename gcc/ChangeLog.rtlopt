@@ -1,5 +1,10 @@
 2003-02-03  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c: Updated comments.
+	(dump_attrs_list): Do not dump list->decl.
+
+2003-02-03  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c (enum scan_operation): Deleted.
 	(enum location_type): Changed names of fields to be less confusing.
 	(struct scan_for_locations_data_def): Deleted.
