@@ -1,3 +1,16 @@
+2004-08-17  Ben Elliston  <bje@au.ibm.com>
+
+	* cfganal.c (remove_fake_predecessors): Don't use FOR_EACH_EDGE
+	for loops that alter the edge vector.
+	* cfgexpand.c (expand_gimple_tailcall): Likewise.
+	(expand_gimple_basic_block): Likewise.
+	* cfgloopmanip.c (force_nonfallthru_and_redirect): Likewise.
+	(purge_dead_edges): Likewise.
+	* except.c (finish_eh_generation): Likewise.
+	* tree-cfg.c (cleanup_control_expr_graph): Likewise.
+	(thread_jumps): Likewise.
+	(tree_purge_dead_eh_edges): Likewise.
+
 2004-08-16  Ben Elliston  <bje@au.ibm.com>
 
 	* basic-block.h: Include "errors.h".

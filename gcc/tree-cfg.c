@@ -1937,6 +1937,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   if (EDGE_COUNT (bb->succs) > 1)
     {
       edge e;
+      unsigned ix;
 
       switch (TREE_CODE (expr))
 	{
@@ -1959,18 +1960,18 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	return false;
 
       /* Remove all the edges except the one that is always executed.  */
-      FOR_EACH_EDGE (e, bb->succs)
+      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
 	{
 	  if (e != taken_edge)
 	    {
 	      taken_edge->probability += e->probability;
 	      taken_edge->count += e->count;
 	      ssa_remove_edge (e);
-	      __ix--;
 	      retval = true;
 	    }
+	  else
+	    ix++;
 	}
-      END_FOR_EACH_EDGE;
 
       if (taken_edge->probability > REG_BR_PROB_BASE)
 	taken_edge->probability = REG_BR_PROB_BASE;
@@ -3927,6 +3928,8 @@ thread_jumps (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
+      unsigned ix;
+
       /* Don't waste time on unreachable blocks.  */
       if (EDGE_COUNT (bb->preds) == 0)
 	continue;
@@ -3942,13 +3945,16 @@ thread_jumps (void)
 
       /* Examine each of our block's successors to see if it is
 	 forwardable.  */
-      FOR_EACH_EDGE (e, bb->succs)
+      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
 	{
 	  /* If the edge is abnormal or its destination is not
 	     forwardable, then there's nothing to do.  */
 	  if ((e->flags & EDGE_ABNORMAL)
 	      || !tree_forwarder_block_p (e->dest))
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 
 	  /* Now walk through as many forwarder block as possible to
 	     find the ultimate destination we want to thread our jump
@@ -3978,7 +3984,10 @@ thread_jumps (void)
 	    bb_ann (tmp)->forwardable = 1;
 
 	  if (dest == e->dest)
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	      
 	  old = find_edge (bb, dest);
 	  if (old)
@@ -3994,7 +4003,10 @@ thread_jumps (void)
 	  
 		  /* That might mean that no forwarding at all is possible.  */
 		  if (dest == e->dest)
-		    continue;
+		    {
+		      ix++;
+		      continue;
+		    }
 
 		  old = find_edge (bb, dest);
 		}
@@ -4004,7 +4016,6 @@ thread_jumps (void)
 	  retval = true;
 	  old_dest = e->dest;
 	  e = redirect_edge_and_branch (e, dest);
-	  __ix--;
 
 	  if (!old)
 	    {
@@ -4063,7 +4074,6 @@ thread_jumps (void)
 		}
 	    }
 	}
-    	END_FOR_EACH_EDGE;
 
       /* Reset the forwardable bit on our block since it's no longer in
 	 a forwarding chain path.  */
@@ -4726,21 +4736,22 @@ tree_purge_dead_eh_edges (basic_block bb)
 {
   bool changed = false;
   edge e;
+  unsigned ix;
   tree stmt = last_stmt (bb);
 
   if (stmt && tree_can_throw_internal (stmt))
     return false;
 
-  FOR_EACH_EDGE (e, bb->succs)
+  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
     {
       if (e->flags & EDGE_EH)
 	{
 	  ssa_remove_edge (e);
-	  __ix--;
 	  changed = true;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   return changed;
 }

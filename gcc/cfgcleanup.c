@@ -1406,6 +1406,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 
   FOR_EACH_EDGE (e1, bb1->succs)
     {
+      /* FIXME: Don't use private iterator. */
       e2 = EDGE_SUCC (bb2, __ix);
       
       if (e1->flags & EDGE_EH)

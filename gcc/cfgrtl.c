@@ -1050,6 +1050,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* We can't redirect the entry block.  Create an empty block at the
          start of the function which we use to add the new jump.  */
       edge tmp;
+      unsigned ix;
       bool found = false;
 
       basic_block bb = create_basic_block (BB_HEAD (e->dest), NULL, ENTRY_BLOCK_PTR);
@@ -1057,16 +1058,17 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Change the existing edge's source to be the new block, and add
 	 a new edge from the entry block to the new block.  */
       e->src = bb;
-      FOR_EACH_EDGE (tmp, ENTRY_BLOCK_PTR->succs)
+      for (ix = 0; VEC_iterate (edge, ENTRY_BLOCK_PTR->succs, ix, tmp); )
 	{
 	  if (tmp == e)
 	    {
-	      VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, __ix);
+	      VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ix);
 	      found = true;
 	      break;
 	    }
+	  else
+	    ix++;
 	}
-      END_FOR_EACH_EDGE;
 
       if (!found)
         abort ();
@@ -2288,6 +2290,7 @@ bool
 purge_dead_edges (basic_block bb)
 {
   edge e;
+  unsigned ix;
   rtx insn = BB_END (bb), note;
   bool purged = false;
   bool found;
@@ -2305,34 +2308,42 @@ purge_dead_edges (basic_block bb)
     }
 
   /* Cleanup abnormal edges caused by exceptions or non-local gotos.  */
-  FOR_EACH_EDGE (e, bb->succs)
+  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
     {
       if (e->flags & EDGE_EH)
 	{
 	  if (can_throw_internal (BB_END (bb)))
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	}
       else if (e->flags & EDGE_ABNORMAL_CALL)
 	{
 	  if (CALL_P (BB_END (bb))
 	      && (! (note = find_reg_note (insn, REG_EH_REGION, NULL))
 		  || INTVAL (XEXP (note, 0)) >= 0))
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	}
       else
-	continue;
+	{
+	  ix++;
+	  continue;
+	}
 
       remove_edge (e);
       bb->flags |= BB_DIRTY;
       purged = true;
-      __ix --;
     }
-  END_FOR_EACH_EDGE;
 
   if (JUMP_P (insn))
     {
       rtx note;
       edge b,f;
+      unsigned ix;
 
       /* We do care only about conditional jumps and simplejumps.  */
       if (!any_condjump_p (insn)
@@ -2351,7 +2362,7 @@ purge_dead_edges (basic_block bb)
 	    remove_note (insn, note);
 	}
 
-      FOR_EACH_EDGE (e, bb->succs)
+      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
 	{
 	  /* Avoid abnormal flags to leak from computed jumps turned
 	     into simplejumps.  */
@@ -2362,22 +2373,32 @@ purge_dead_edges (basic_block bb)
 	  if ((e->flags & EDGE_FALLTHRU) && any_condjump_p (insn))
 	    /* A conditional jump can fall through into the next
 	       block, so we should keep the edge.  */
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	  else if (e->dest != EXIT_BLOCK_PTR
 		   && BB_HEAD (e->dest) == JUMP_LABEL (insn))
 	    /* If the destination block is the target of the jump,
 	       keep the edge.  */
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	  else if (e->dest == EXIT_BLOCK_PTR && returnjump_p (insn))
 	    /* If the destination block is the exit block, and this
 	       instruction is a return, then keep the edge.  */
-	    continue;
+	    {
+	      ix++;
+	      continue;
+	    }
 	  else if ((e->flags & EDGE_EH) && can_throw_internal (insn))
 	    /* Keep the edges that correspond to exceptions thrown by
 	       this instruction and rematerialize the EDGE_ABNORMAL
 	       flag we just cleared above.  */
 	    {
 	      e->flags |= EDGE_ABNORMAL;
+	      ix++;
 	      continue;
 	    }
 
@@ -2385,9 +2406,7 @@ purge_dead_edges (basic_block bb)
 	  bb->flags |= BB_DIRTY;
 	  purged = true;
 	  remove_edge (e);
-	  __ix--;
 	}
-      END_FOR_EACH_EDGE;
 
       if (EDGE_COUNT (bb->succs) == 0 || !purged)
 	return purged;
@@ -2453,17 +2472,17 @@ purge_dead_edges (basic_block bb)
   if (!found)
     return purged;
 
-  FOR_EACH_EDGE (e, bb->succs)
+  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
     {
       if (!(e->flags & EDGE_FALLTHRU))
 	{
 	  bb->flags |= BB_DIRTY;
 	  remove_edge (e);
 	  purged = true;
-	  __ix--;
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   if (EDGE_COUNT (bb->succs) != 1)
     abort ();

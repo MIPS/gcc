@@ -288,6 +288,7 @@ fix_irreducible_loops (basic_block from)
 	  edges = xmalloc (n_edges * sizeof (edge));
 	  FOR_EACH_EDGE (e, bb->succs)
 	    {
+	      /* FIXME: Don't use private iterator. */
 	      edges[__ix] = e;
 	    }
 	  END_FOR_EACH_EDGE;

@@ -562,16 +562,15 @@ static void
 remove_fake_predecessors (basic_block bb)
 {
   edge e;
+  unsigned ix;
 
-  FOR_EACH_EDGE (e, bb->preds)
+  for (ix = 0; VEC_iterate (edge, bb->preds, ix, e); )
     {
       if ((e->flags & EDGE_FAKE) == EDGE_FAKE)
-	{
-	  remove_edge (e);
-	  __ix--;
-	}
+	remove_edge (e);
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 }
 
 /* This routine will remove all fake edges from the flow graph.  If

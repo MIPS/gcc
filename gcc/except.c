@@ -2211,16 +2211,18 @@ finish_eh_generation (void)
     {
       edge e;
       bool eh = false;
-      FOR_EACH_EDGE (e, bb->succs)
+      unsigned ix;
+
+      for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
 	{
 	  if (e->flags & EDGE_EH)
 	    {
 	      remove_edge (e);
-	      __ix--;
 	      eh = true;
 	    }
+	  else
+	    ix++;
 	}
-      END_FOR_EACH_EDGE;
       if (eh)
 	rtl_make_eh_edge (NULL, bb, BB_END (bb));
     }

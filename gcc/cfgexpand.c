@@ -136,6 +136,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 {
   rtx last = get_last_insn ();
   edge e;
+  unsigned ix;
   int probability;
   gcov_type count;
 
@@ -162,7 +163,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
   probability = 0;
   count = 0;
 
-  FOR_EACH_EDGE (e, bb->succs)
+  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
@@ -178,10 +179,10 @@ expand_gimple_tailcall (basic_block bb, tree stmt)
 	  count += e->count;
 	  probability += e->probability;
 	  remove_edge (e);
-	  __ix--; /* HACK! */
 	}
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   /* This is somewhat ugly: the call_expr expander often emits instructions
      after the sibcall (to perform the function return).  These confuse the
@@ -225,6 +226,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
+  unsigned ix;
 
   if (dump_file)
     {
@@ -254,8 +256,8 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
     note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
 
   NOTE_BASIC_BLOCK (note) = bb;
-
-  FOR_EACH_EDGE (e, bb->succs)
+  
+  for (ix = 0; VEC_iterate (edge, bb->succs, ix, e); )
     {
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
@@ -264,12 +266,10 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
          It is safe to remove them here as find_sub_basic_blocks will
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
-	{
-	  remove_edge (e);
-	  __ix--;
-	}
+	remove_edge (e);
+      else
+	ix++;
     }
-  END_FOR_EACH_EDGE;
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
     {
