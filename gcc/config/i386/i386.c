@@ -814,6 +814,7 @@ static bool ix86_function_ok_for_sibcall PARAMS ((tree, tree));
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int ix86_value_regno PARAMS ((enum machine_mode));
+static bool ix86_ms_bitfield_layout_p PARAMS ((tree));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -919,6 +920,9 @@ static enum x86_64_reg_class merge_classes PARAMS ((enum x86_64_reg_class,
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+
+#undef TARGET_MS_BITFIELD_LAYOUT_P
+#define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
@@ -14209,6 +14213,17 @@ x86_order_regs_for_local_alloc ()
       at all.  */
    while (pos < FIRST_PSEUDO_REGISTER)
      reg_alloc_order [pos++] = 0;
+}
+
+#ifndef TARGET_USE_MS_BITFIELD_LAYOUT
+#define TARGET_USE_MS_BITFIELD_LAYOUT 0
+#endif
+
+static bool
+ix86_ms_bitfield_layout_p (record_type)
+     tree record_type ATTRIBUTE_UNUSED;
+{
+  return TARGET_USE_MS_BITFIELD_LAYOUT;
 }
 
 /* Returns an expression indicating where the this parameter is

@@ -119,8 +119,9 @@ extern int target_flags;
 #define MASK_3DNOW_A		0x00020000	/* Support Athlon 3Dnow builtins */
 #define MASK_128BIT_LONG_DOUBLE 0x00040000	/* long double size is 128bit */
 #define MASK_64BIT		0x00080000	/* Produce 64bit code */
+#define MASK_MS_BITFIELD_LAYOUT 0x00100000	/* Use native (MS) bitfield layout */
 
-/* Unused:			0x03f0000	*/
+/* Unused:			0x03e0000	*/
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -291,6 +292,8 @@ extern int x86_prefetch_sse;
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
 
+#define TARGET_USE_MS_BITFIELD_LAYOUT  (target_flags & MASK_MS_BITFIELD_LAYOUT)
+
 #define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
 #define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
 
@@ -383,6 +386,10 @@ extern int x86_prefetch_sse;
     N_("Generate 64bit x86-64 code") },					      \
   { "32",			-MASK_64BIT,				      \
     N_("Generate 32bit i386 code") },					      \
+  { "ms-bitfields",		MASK_MS_BITFIELD_LAYOUT,		      \
+    N_("Use native (MS) bitfield layout") },				      \
+  { "no-ms-bitfields",		-MASK_MS_BITFIELD_LAYOUT,		      \
+    N_("Use gcc default bitfield layout") },				      \
   { "red-zone",			-MASK_NO_RED_ZONE,			      \
     N_("Use red-zone in the x86-64 code") },				      \
   { "no-red-zone",		MASK_NO_RED_ZONE,			      \

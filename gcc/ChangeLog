@@ -1,3 +1,25 @@
+2002-11-06  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/i386/i386-interix.h (TARGET_SUBTARGET_DEFAULT): Or
+	MASK_MS_BITFIELD_LAYOUT
+	(SUBTARGET_OVERRIDE_OPTIONS): Warn about and turn off
+	MS bitfields for Objective-C.
+	(PCC_BIT_FIELD_TYPE_TEST, GROUP_BITFIELDS_BY_ALIGN): Remove
+	defines.
+
+	* config/i386/i386.c (ix86_ms_bitfield_layout): New function.
+	(TARGET_MS_BITFIELD_LAYOUT_P): Define to above function.
+	(TARGET_USE_MS_BITFIELD_LAYOUT): Define.
+
+	* config/i386/i386.h (MASK_MS_BITFIELD_LAYOUT: New mask.
+	TARGET_USE_MS_BITFIELD_LAYOUT): New macro.
+	(TARGET_SWITCHES): Add above mask.
+
+	* testsuite/gcc.dg/bf-ms-layout.c: New test case.
+	* testsuite/gcc.dg/bf-no-ms-layout.c: New test case.
+	* testsuite/gcc.dg/i386-bitfield1.c (dg-options): Add appropriate
+	flags for interix.
+
 Wed Nov  6 18:54:47 2002  Alexandre Oliva  <aoliva@redhat.com>
 
 	* config/mips/mips.h (ASM_OUTPUT_ADDR_DIFF_ELT): Output
