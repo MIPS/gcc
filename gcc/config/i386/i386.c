@@ -1323,13 +1323,13 @@ ix86_function_ok_for_sibcall (decl, exp)
 {
   /* We don't have 64-bit patterns in place.  */
   if (TARGET_64BIT)
-    return 0;
+    return false;
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
   if (flag_pic && (!decl || !TREE_PUBLIC (decl)))
-    return 0;
+    return false;
 
   /* If we are returning floats on the 80387 register stack, we cannot
      make a sibcall from a function that doesn't return a float to a
@@ -1338,13 +1338,30 @@ ix86_function_ok_for_sibcall (decl, exp)
   if (TARGET_FLOAT_RETURNS_IN_80387
       && FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (exp)))
       && !FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (TREE_TYPE (cfun->decl)))))
-    return 0;
+    return false;
 
-  /* Otherwise okay.
-     That also includes certain types of indirect calls, since DECL
-     is not necessarily defined here and the i386 machine description
-     supports the according call patterns.  */
-  return 1;
+  /* If this call is indirect, we'll need to be able to use a call-clobbered
+     register for the address of the target function.  Make sure that all 
+     such registers are not used for passing parameters.  */
+  if (!decl && !TARGET_64BIT)
+    {
+      int regparm = ix86_regparm;
+      tree attr;
+
+      attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (TREE_TYPE (exp)));
+      if (attr)
+        regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+
+      if (regparm >= 3)
+	{
+	  /* ??? Need to count the actual number of registers to be used,
+	     not the possible number of registers.  Fix later.  */
+	  return false;
+	}
+    }
+
+  /* Otherwise okay.  That also includes certain types of indirect calls.  */
+  return true;
 }
 
 /* Handle a "cdecl" or "stdcall" attribute;
