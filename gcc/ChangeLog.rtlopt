@@ -1,3 +1,11 @@
+Wed Dec  4 17:34:01 CET 2002  Josef Zlomek <zlomj9am@artax.karlin.mff.cuni.cz>
+
+	* bb-reorder.c (find_traces_1_round): update the keys also after
+	terminating the trace.
+
+	* bb-reorder.c (rotate_loop): New function.
+	(find_traces_1_round): Better loop rotating.
+
 Fri Nov 29 23:40:50 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rtlopt-merge-20022911 tag)

@@ -121,6 +121,7 @@ gcov_type max_entry_count;
 
 /* Local function prototypes.  */
 static void find_traces			PARAMS ((int *, struct trace *));
+static basic_block rotate_loop		PARAMS ((edge, struct trace *, int));
 static void mark_bb_visited		PARAMS ((basic_block, int));
 static void find_traces_1_round		PARAMS ((int, int, gcov_type,
 						 struct trace *, int *, int,
@@ -215,6 +216,110 @@ find_traces (n_traces, traces)
     }
 }
 
+/* Rotate loop in the tail of trace (with sequential number TRACE) beginning in
+   basic block BB.  */
+
+static basic_block
+rotate_loop (back_edge, trace, trace_n)
+     edge back_edge;
+     struct trace *trace;
+     int trace_n;
+{
+  basic_block bb;
+
+  /* Information about the best end (end after rotation) of the loop.  */
+  basic_block best_bb = NULL;
+  edge best_edge = NULL;
+  int best_freq = -1;
+  gcov_type best_count = -1;
+  /* The best edge is preferred when its destination is not visited yet
+     or is a start block of some trace.  */
+  bool is_preferred = false;
+
+  /* Find the most frequent edge that goes out from current trace.  */
+  bb = back_edge->dest;
+  do
+    {
+      edge e;
+      for (e = bb->succ; e; e = e->succ_next)
+	if (e->dest != EXIT_BLOCK_PTR
+	    && RBI (e->dest)->visited != trace_n
+	    && (e->flags & EDGE_CAN_FALLTHRU)
+	    && !(e->flags & EDGE_COMPLEX))
+	{
+	  if (is_preferred)
+	    {
+	      /* The best edge is preferred.  */
+	      if (!RBI (e->dest)->visited
+		  || start_of_trace[e->dest->index] >= 0)
+		{
+		  /* The current edge E is also preferred.  */
+		  int freq = EDGE_FREQUENCY (e);
+		  if (freq > best_freq || e->count > best_count)
+		    {
+		      best_freq = freq;
+		      best_count = e->count;
+		      best_edge = e;
+		      best_bb = bb;
+		    }
+		}
+	    }
+	  else
+	    {
+	      if (!RBI (e->dest)->visited
+		  || start_of_trace[e->dest->index] >= 0)
+		{
+		  /* The current edge E is preferred.  */
+		  is_preferred = true;
+		  best_freq = EDGE_FREQUENCY (e);
+		  best_count = e->count;
+		  best_edge = e;
+		  best_bb = bb;
+		}
+	      else
+		{
+		  int freq = EDGE_FREQUENCY (e);
+		  if (!best_edge || freq > best_freq || e->count > best_count)
+		    {
+		      best_freq = freq;
+		      best_count = e->count;
+		      best_edge = e;
+		      best_bb = bb;
+		    }
+		}
+	    }
+	}
+      bb = RBI (bb)->next;
+    }
+  while (bb != back_edge->dest);
+
+  if (best_bb)
+    {
+      /* Rotate the loop so that the BEST_EDGE goes out from the last block of
+	 the trace.  */
+      if (back_edge->dest == trace->first)
+	{
+	  trace->first = RBI (best_bb)->next;
+	}
+      else
+	{
+	  basic_block prev_bb;
+	  for (prev_bb = trace->first;
+	       RBI (prev_bb)->next != back_edge->dest;
+	       prev_bb = RBI (prev_bb)->next)
+	    ;
+	  RBI (prev_bb)->next = RBI (best_bb)->next;
+	}
+    }
+  else
+    {
+      /* We have not found suitable loop tail so do no rotation.  */
+      best_bb = back_edge->src;
+    }
+  RBI (best_bb)->next = NULL;
+  return best_bb;
+}
+
 /* This function marks BB that it was visited in trace number TRACE.  */
 
 static void
@@ -259,6 +364,8 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       basic_block bb;
       struct trace *trace;
       edge best_edge, e;
+      int bb_index;
+      fibheapkey_t key;
 
       bb = fibheap_extract_min (*heap);
       bb_heap[bb->index] = NULL;
@@ -338,15 +445,13 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	  /* Add all nonselected successors to the heaps.  */
 	  for (e = bb->succ; e; e = e->succ_next)
 	    {
-	      int bb_index = e->dest->index;
-	      fibheapkey_t key;
-
 	      if (e == best_edge
 		  || e->dest == EXIT_BLOCK_PTR
 		  || RBI (e->dest)->visited)
 		continue;
 
 	      key = bb_to_key (e->dest);
+	      bb_index = e->dest->index;
 
 	      if (bb_heap[bb_index])
 		{
@@ -396,65 +501,19 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	    {
 	      if (RBI (best_edge->dest)->visited == *n_traces)
 		{
-                  edge other_edge;
-                  for (other_edge = bb->succ; other_edge;
-                       other_edge = other_edge->succ_next)
-                    if ((other_edge->flags & EDGE_CAN_FALLTHRU)
-                        && other_edge != best_edge)
-                      break;
-
-                  /* In the case the edge is already not a fallthru, or there
-                     is other edge we can make fallhtru, we are happy.  */
-                  if (!(best_edge->flags & EDGE_FALLTHRU) || other_edge)
-                    ;
-                  else if (best_edge->dest != bb
-                           && best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
-                    {
-                      if (EDGE_FREQUENCY (best_edge)
-                          > 4 * best_edge->dest->frequency / 5)
-                        {
-                           /* The loop has at least 4 iterations.  */
-                          edge e;
-
-                          /* Check whether the loop has not been rotated yet.  */
-                          for (e = best_edge->dest->succ; e; e = e->succ_next)
-                            if (e->dest == RBI (best_edge->dest)->next)
-                              break;
-                          if (e)
-                            /* The loop has not been rotated yet.  */
-                            {
-                              /* Rotate the loop.  */
-
-                              if (rtl_dump_file)
-                                fprintf (rtl_dump_file,
-                                         "Rotating loop %d - %d\n",
-                                         best_edge->dest->index, bb->index);
-
-			      /* ??? we need to find the basic block
-				 that is sensible end of the loop,
-				 not rotate to random one.  */
-                              if (best_edge->dest == trace->first)
-                                {
-                                  RBI (bb)->next = trace->first;
-                                  trace->first = RBI (trace->first)->next;
-                                  RBI (best_edge->dest)->next = NULL;
-                                  bb = best_edge->dest;
-                                }
-                              else
-                                {
-                                  basic_block temp;
-
-                                  for (temp = trace->first;
-                                       RBI (temp)->next != best_edge->dest;
-                                       temp = RBI (temp)->next);
-                                  RBI (temp)->next
-                                    = RBI (best_edge->dest)->next;
-                                  RBI (bb)->next = best_edge->dest;
-                                  RBI (best_edge->dest)->next = NULL;
-                                  bb = best_edge->dest;
-                                }
-                            }
-                        }
+		  if (best_edge->dest != bb
+		      && best_edge->dest != ENTRY_BLOCK_PTR->next_bb
+		      && (EDGE_FREQUENCY (best_edge)
+			  > 4 * best_edge->dest->frequency / 5))
+		    {
+		      /* The loop has at least 4 iterations.  */
+		      if (rtl_dump_file)
+			{
+			  fprintf (rtl_dump_file, "Rotating loop %d - %d\n",
+				   best_edge->dest->index, bb->index);
+			}
+		      RBI (bb)->next = best_edge->dest;
+		      bb = rotate_loop (best_edge, trace, *n_traces);
 		    }
 
 		  /* Terminate the trace.  */
@@ -512,6 +571,33 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
       trace->last = bb;
       start_of_trace[trace->first->index] = *n_traces - 1;
       end_of_trace[trace->last->index] = *n_traces - 1;
+
+      /* The trace is terminated so we have to recount the keys in heap
+	 (some block can have a lower key because now one of its predecessors is
+	 an end of trace.  */
+      for (e = bb->succ; e; e = e->succ_next)
+	{
+	  if (e->dest == EXIT_BLOCK_PTR
+	      || RBI (e->dest)->visited)
+	    continue;
+	  
+	  bb_index = e->dest->index;
+	  if (bb_heap[bb_index])
+	    {
+	      key = bb_to_key (e->dest);
+	      if (key != bb_node[bb_index]->key)
+		{
+		  if (rtl_dump_file)
+		    {
+		      fprintf (rtl_dump_file,
+			       "Changing key for bb %d from %ld to %ld.\n",
+			       bb_index, (long) bb_node[bb_index]->key, key);
+		    }
+		  fibheap_replace_key (bb_heap[bb_index], bb_node[bb_index],
+				       key);
+		}
+	    }
+	}
     }
 
   fibheap_delete (*heap);
