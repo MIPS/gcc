@@ -81,6 +81,8 @@ typedef struct inline_data
      this value is NULL, then return statements will simply be
      remapped as return statements, rather than as jumps.  */
   tree ret_label;
+  /* The VAR_DECL for the return value.  */
+  tree retvar;
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
   splay_tree decl_map;
@@ -229,13 +231,15 @@ remap_decls (tree decls, inline_data *id)
       /* Remap the variable.  */
       new_var = remap_decl (old_var, id);
 
-      /* If we didn't remap this variable, so we can't mess with
-	 its TREE_CHAIN.  If we remapped this variable to
-	 something other than a declaration (say, if we mapped it
-	 to a constant), then we must similarly omit any mention
-	 of it here.  */
-      if (!new_var || !DECL_P (new_var))
+      /* If we didn't remap this variable, so we can't mess with its
+	 TREE_CHAIN.  If we remapped this variable to the return slot, it's
+	 already declared somewhere else, so don't declare it here.  */
+      if (!new_var || new_var == id->retvar)
 	;
+#ifdef ENABLE_CHECKING
+      else if (!DECL_P (new_var))
+	abort ();
+#endif
       else
 	{
 	  TREE_CHAIN (new_var) = new_decls;
@@ -706,9 +710,16 @@ declare_return_variable (inline_data *id, tree return_slot_addr, tree *use_p)
 		     (splay_tree_key) result,
 		     (splay_tree_value) var);
 
+  /* Remember this so we can ignore it in remap_decls.  */
+  id->retvar = var;
+
   /* Build the use expr.  If the return type of the function was
      promoted, convert it back to the expected type.  */
-  if (TREE_TYPE (var) == TREE_TYPE (TREE_TYPE (fn)))
+  if (return_slot_addr)
+    /* The function returns through an explicit return slot, not a normal
+       return value.  */
+    *use_p = NULL_TREE;
+  else if (TREE_TYPE (var) == TREE_TYPE (TREE_TYPE (fn)))
     *use_p = var;
   else if (TREE_CODE (var) == INDIRECT_REF)
     *use_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (fn)),
@@ -922,7 +933,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   tree t;
   tree expr;
   tree stmt;
-  tree retvar;
+  tree use_retvar;
   tree decl;
   tree fn;
   tree arg_inits;
@@ -1087,8 +1098,8 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     abort ();
 
   /* Declare the return variable for the function.  */
-  decl = declare_return_variable (id, return_slot_addr, &retvar);
-  if (retvar)
+  decl = declare_return_variable (id, return_slot_addr, &use_retvar);
+  if (decl)
     add_var_to_bind_expr (expr, decl);
 
   /* After we've initialized the parameters, we insert the body of the
@@ -1110,10 +1121,10 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
-  if (retvar && TREE_TYPE (expr) != void_type_node)
+  if (use_retvar)
     BIND_EXPR_BODY (expr) 
       = add_stmt_to_compound (BIND_EXPR_BODY (expr), 
-			      TREE_TYPE (retvar), retvar);
+			      TREE_TYPE (use_retvar), use_retvar);
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);

@@ -182,13 +182,14 @@ get_stmt_operands (tree stmt)
   if (!stmt_modified_p (stmt))
     return;
 
-#if defined ENABLE_CHECKING
-  /* non-GIMPLE statements should not appear here.  */
-  if (TREE_NOT_GIMPLE (stmt))
-    abort ();
-#endif
-
   ann = get_stmt_ann (stmt);
+
+  /* Non-GIMPLE statements are just marked unmodified.  */
+  if (TREE_NOT_GIMPLE (stmt))
+    {
+      ann->modified = 0;
+      return;
+    }
 
   /* Remove any existing operands as they will be scanned again.  */
   ann->ops = NULL;
@@ -1794,12 +1795,7 @@ find_referenced_vars (tree fndecl)
 	if (TREE_CODE (*stmt_p) == MODIFY_EXPR
 	    && TREE_CODE (TREE_OPERAND (*stmt_p, 1)) == CALL_EXPR
 	    && TREE_NOT_GIMPLE (TREE_OPERAND (*stmt_p, 1)))
-	  {
-	    mark_not_gimple (stmt_p);
-	    /* Prevent get_stmt_operands() from ever dealing with this
-	       statement.  */
-	    unmodify_stmt (*stmt_p);
-	  }
+	  mark_not_gimple (stmt_p);
 
 	/* A CALL_EXPR may also appear inside a RETURN_EXPR.  */
 	if (TREE_CODE (*stmt_p) == RETURN_EXPR)
@@ -1809,12 +1805,7 @@ find_referenced_vars (tree fndecl)
 		&& TREE_CODE (expr) == MODIFY_EXPR
 		&& TREE_CODE (TREE_OPERAND (expr, 1)) == CALL_EXPR
 		&& TREE_NOT_GIMPLE (TREE_OPERAND (expr, 1)))
-	      {
-		mark_not_gimple (stmt_p);
-		/* Prevent get_stmt_operands() from ever dealing with this
-		   statement.  */
-		unmodify_stmt (*stmt_p);
-	      }
+	      mark_not_gimple (stmt_p);
 	  }
 
 	if (TREE_NOT_GIMPLE (*stmt_p))

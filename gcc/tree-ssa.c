@@ -2440,6 +2440,12 @@ tree_ssa_useless_type_conversion (tree expr)
 	       && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
 	return true;
 
+      /* Pointers and references are equivalent once we get to GENERIC,
+	 so strip conversions that just switch between them.  */
+      else if (POINTER_TYPE_P (inner_type) && POINTER_TYPE_P (outer_type)
+	       && TREE_TYPE (inner_type) == TREE_TYPE (outer_type))
+	return true;
+
       /* If both the inner and outer types are integral types, then
          we can enter the equivalence if they have the same mode
          and signedness.  */

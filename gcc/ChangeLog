@@ -1,3 +1,11 @@
+2003-08-19  Jason Merrill  <jason@redhat.com>
+
+	* builtins.c (fold_builtin): Use get_callee_fndecl.
+
+	* attribs.c (decl_attributes): Rebuild the function pointer type after
+	changing the target type.
+	* tree.c (get_qualified_type): Also check that the attributes match.
+
 2003-07-30  Jason Merrill  <jason@redhat.com>
 
 	* Makefile.in (bubblestrap): Don't require a previous full

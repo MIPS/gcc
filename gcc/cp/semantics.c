@@ -2591,7 +2591,7 @@ finish_id_expression (tree id_expression,
       /* Resolve references to variables of anonymous unions
 	 into COMPONENT_REFs.  */
       if (TREE_CODE (decl) == ALIAS_DECL)
-	decl = DECL_INITIAL (decl);
+	decl = unshare_expr (DECL_INITIAL (decl));
     }
 
   if (TREE_DEPRECATED (decl))
