@@ -1,5 +1,8 @@
 2003-06-23  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): More aggressively
+	remove TRY_CATCH_EXPRs and TRY_FINALLY_EXPRs.
+                                                                                
 	* tree-cfg.c (make_edges): Remove fake edges.
 	(make_exit_edges): Mark edges from nonreturning functions to the
 	exit block as being fake edges.
