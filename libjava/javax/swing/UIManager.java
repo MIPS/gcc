@@ -209,7 +209,7 @@ public class UIManager implements Serializable
    *
    * @param key an Object that specifies the font. Typically,
    *        this is a String such as
-   *        <code>&quot;TitledBorder.font&quot;</code>.
+   *        <code>TitledBorder.font</code>.
    */
   public static Font getFont(Object key)
   {
@@ -278,7 +278,7 @@ public class UIManager implements Serializable
   }
 
   /**
-   * Returns the L&amp;F object that renders the target component.
+   * Returns the Look and Feel object that renders the target component.
    */
   public static ComponentUI getUI(JComponent target)
   {

@@ -566,7 +566,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method configures the scrollbar's colors. This can be 
-   * done by looking up the standard colors from the L&F defaults.
+   * done by looking up the standard colors from the Look and Feel defaults.
    */
   protected void configureScrollBarColors()
   {
@@ -902,7 +902,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method installs the defaults for the scrollbar specified
-   * by the Basic L&F.
+   * by the Basic Look and Feel.
    */
   protected void installDefaults()
   {
@@ -1268,7 +1268,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
   /**
    * This method uninstalls any defaults that this
-   * scrollbar acquired from the Basic L&F defaults.
+   * scrollbar acquired from the Basic Look and Feel defaults.
    */
   protected void uninstallDefaults()
   {
