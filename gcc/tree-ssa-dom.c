@@ -1694,7 +1694,8 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 		      || ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
 			   || TREE_CODE_CLASS (TREE_CODE (t)) == '<')
 			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && TREE_CONSTANT (TREE_OPERAND (t, 1))))
+			  && (TREE_CODE (TREE_OPERAND (t, 1)) == SSA_NAME
+			      || TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c')))
 		    result = update_rhs_and_lookup_avail_expr
 		      (stmt, t, &bd->avail_exprs, ann, insert);
 		}

@@ -960,7 +960,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	 cannot just abort here.  If we were absolutely certain that we
 	 do handle all valid cases, then we could just do nothing here.
 	 That seems optimistic, so attempt to do something logical... */
-      else if (TREE_CODE (ptr) == PLUS_EXPR
+      else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
 	       && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
 	       && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
 	{

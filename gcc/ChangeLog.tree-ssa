@@ -23,6 +23,21 @@
 
 2004-02-27  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (verify_expr): Do not walk down into types.
+	Expand checking to verify that unary/binary operators have
+	gimple operands.
+	* tree-ssa-ccp.c (ccp_fold_builtin, case BUILT_IN_STRLEN): Do not
+	create non-gimple code.  Similarly for BUILTIN_IN_STRCPY and
+	BUILT_IN_STRNCPY.
+	* tree-ssa-phiopt.c (conditional_replacement): Do not create
+	non-gimple code.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Likewise.
+ 
+	* tree-simple.c (is_gimple_min_invariant): Subtraction of a
+	constant from a constant pointer is a gimple invariant as well.
+	* tree-ssa-operands.c (get_expr_operands): Handle subtraction
+	of a constant from a constant pointer too.
+
 	* fold-const.c (fold): Tighten test for optimizing an equality
 	comparison of the address of two variables.
  

@@ -2088,16 +2088,34 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   BITMAP_XFREE (visited);
 
+  /* FIXME.  All this code looks dangerous in the sense that it might
+     create non-gimple expressions.  */
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_STRLEN:
       /* Convert from the internal "sizetype" type to "size_t".  */
-      if (strlen_val[0] && size_type_node)
-	return convert (size_type_node, strlen_val[0]);
+      if (strlen_val[0]
+	  && size_type_node)
+	{
+	  tree new = convert (size_type_node, strlen_val[0]);
+
+	  /* If the result is not a valid gimple value, or not a cast
+	     of a valid gimple value, then we can not use the result.  */
+	  if (is_gimple_val (new)
+	      || (is_gimple_cast (new)
+		  && is_gimple_val (TREE_OPERAND (new, 0))))
+	    return new;
+	  else
+	    return NULL_TREE;
+	}
       return strlen_val[0];
     case BUILT_IN_STRCPY:
+      if (strlen_val[1]
+	  && is_gimple_val (strlen_val[1]))
       return simplify_builtin_strcpy (arglist, strlen_val[1]);
     case BUILT_IN_STRNCPY:
+      if (strlen_val[1]
+	  && is_gimple_val (strlen_val[1]))
       return simplify_builtin_strncpy (arglist, strlen_val[1]);
     case BUILT_IN_FPUTS:
       return simplify_builtin_fputs (arglist,

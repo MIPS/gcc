@@ -296,6 +296,7 @@ is_gimple_min_invariant (tree t)
       return TREE_INVARIANT (t);
 
     case PLUS_EXPR:
+    case MINUS_EXPR:
       {
 	tree op0, op1;
 
