@@ -1,12 +1,9 @@
 #ifndef TREE_ALIAS_COMMON
 #define TREE_ALIAS_COMMON
 #include "tree-alias-type.h"
-/**
-   @brief Alias analysis function pointers.
-
+/* Alias analysis function pointers.
    Functions implemented by the actual alias analysis algorithms in
-   order for them to work with the common points-to structure.
-*/
+   order for them to work with the common points-to structure.  */
 struct tree_alias_ops
 {
   /* Initialization.
@@ -49,57 +46,44 @@ struct tree_alias_ops
      variable.  */
   void (*op_assign) (struct tree_alias_ops *, alias_typevar, varray_type, 
 		     tree);
-  /**
-     @brief Process a heap assignment (<tt>a = alloc (...)</tt>)
-
-     Called to process a heap assignment of the form <tt>a = *alloc
-     (...)</tt>, where a is a variable, and *alloc is a function that
-     returns new memory.
-  */
+  /* Process a heap assignment (a = alloc (...))
+     Called to process a heap assignment of the form a = alloc
+     (...), where a is a variable, and *alloc is a function that
+     returns new memory.  */
   void (*heap_assign) (struct tree_alias_ops *, alias_typevar);
 
-  /**
-     @brief Process an assignment to a pointer (<tt>*a = b</tt>)
-
+  /* Process an assignment to a pointer (*a = b)
      Called to process assignment to pointer statements of the form
-     <tt>*a = b</tt>, where a and b are both variables.
-  */
+     *a = b, where a and b are both variables.  */
   void (*assign_ptr) (struct tree_alias_ops *, alias_typevar, alias_typevar);
 
-  /**
-     @brief Process a function definition
-
+  /* Process a function definition.
      Called to inform the alias analyzer about a new function
-     definition.
-  */
+     definition.  */
   void (*function_def) (struct tree_alias_ops *, alias_typevar,
 			varray_type, alias_typevar);
 
-  /**
-     @brief Process a function call
-     @return Return 1 if we need to assume conservative side-effects.
-
-  */
+  /* Process a function call.
+     Return 1 if we need to assume conservative side-effects.  */
   int (*function_call) (struct tree_alias_ops *, alias_typevar,
 			alias_typevar, varray_type);
 
-  /**
-     @brief Determine if two typevars may alias
-  */
+  /* Determine if two typevars may alias.   */
   bool (*may_alias) (struct tree_alias_ops *, alias_typevar, alias_typevar);
 
-  /*
-     Determine if two typevars have the same points-to set.
-  */
-  bool (*same_points_to_set) (struct tree_alias_ops *, alias_typevar, alias_typevar);
+  /* Determine if two typevars have the same points-to set.  */
+  bool (*same_points_to_set) (struct tree_alias_ops *, alias_typevar, 
+			      alias_typevar);
 
-  /**
-     @brief Private data
-  */
-  void *data;
-  int ip:1; /*Interprocedural */
-  int ip_partial:1; /* Can do conservative interprocedural
-		       analysis if we save the info.*/
+  /* Private data.  */
+  void *data
+
+  /* Interprocedural.  */
+  int ip:1; 
+
+  /* Can do conservative interprocedural analysis if we save the 
+   * info.  */
+  int ip_partial:1; 
 
 };
 
